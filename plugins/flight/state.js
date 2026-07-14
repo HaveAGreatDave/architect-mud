@@ -220,6 +220,23 @@ export function nearestAirfield(x, y) {
   return best;
 }
 
+// The Echelon's helipad field if she's within `range` tiles of (x,y). She's a small,
+// moving target, so a VTOL setting down *alongside* her — not just dead-centre on her one
+// tile — still lands on the pad. Keyed off flags.yacht so only the Echelon gets this
+// proximity forgiveness; ordinary helipads keep their exact-tile touch-and-go. Reads the
+// coord index (her tile commits there on arrival), so it tracks her around the Basin.
+export const YACHT_LAND_RANGE = 1;
+export function yachtFieldNear(x, y, range = YACHT_LAND_RANGE) {
+  if (!_coordIndex) buildCoordIndex();
+  for (const cell of _coordIndex.values()) {
+    if (!cell.flags?.yacht || !cell.flags?.airfield_id) continue;
+    const z = getZone(cell.id);
+    if (z?.grid_x == null) continue;
+    if (Math.max(Math.abs(z.grid_x - x), Math.abs(z.grid_y - y)) <= range) return z;
+  }
+  return null;
+}
+
 // The terrain "look" of a parked field, so the client can paint the right airport
 // backdrop out the canopy (city skyline, dock cranes, wasteland rock, …). Derived
 // from the zone — an explicit `flags.airfield_theme` wins, otherwise inferred from
@@ -731,6 +748,7 @@ export function contextPayload(live) {
     fields: nearbyFields(a.grid_x, a.grid_y),   // airport bearing tags for the heading tape
     landmarks: nearbyLandmarks(a.grid_x, a.grid_y),   // named buildings you can lock the target guide onto
     onField: !!surfaceAt(a.grid_x, a.grid_y)?.flags?.airfield_id,   // rolled onto a real airfield tile → auto-park + hangar on stop
+    onYacht: !!yachtFieldNear(a.grid_x, a.grid_y),   // a VTOL set down alongside the Echelon → auto-land on her helipad
     cargo: a.custom_data?.cargoWeight || 0,     // current hold weight (drives the cockpit jettison bind)
     engines: live.type.engines || 1, seats: live.type.seats || 1, occupants: seatList(live),   // gauge count + cabin readout
     warn: a.fuel <= 0 ? 'STARVATION' : (a.fuel <= cap * BINGO_FRAC ? 'BINGO' : null),

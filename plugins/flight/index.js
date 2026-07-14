@@ -28,7 +28,7 @@ import {
   advance, initFloat, initEngines, enginesAllStable, engineCount, syncEngineTemp,
   ENGINE_IDLE, ENGINE_STABLE_BAND, toDeg, degToCardinal, bearingDeg, groundTheme,
   isContinuous, reconcile, pushContext, contextPayload, bandFromAltitude, effLoadout,
-  RENTAL_BILL_MS, rentalOpFee, fieldFor, nearestAirfield, runwayFor,
+  RENTAL_BILL_MS, rentalOpFee, fieldFor, nearestAirfield, runwayFor, yachtFieldNear,
 } from './state.js';
 import { describeExterior, rampColorWord, conspicuousnessMult, normalizeLivery } from './livery.js';
 import { districtBiome } from './biomes.js';
@@ -603,6 +603,10 @@ async function cmdFlightEvent(args, raw, player, broadcast) {
     // Fixed-wing sets down on a real airfield; a VTOL (the Dragonfly) can flare onto any
     // cleared surface tile below it.
     const isVtol = live.type.takeoff_mode === 'vtol';
+    // A VTOL setting down alongside the Echelon lands on her helipad — she's a small, moving
+    // target, so a set-down within a tile of her snaps to the pad instead of ditching in the
+    // Basin. Resolve this BEFORE the water check below so an approach over open water still lands.
+    if (isVtol) { const yf = yachtFieldNear(live.row.grid_x, live.row.grid_y); if (yf) field = yf; }
     // Open water is no place to set her down — nothing in the fleet has floats, so ditching
     // in the bay is a crash, not a courtesy tow. Catch it by BIOME as well as the `flags.water`
     // gate, so a bay tile that only reads as water via its district still ditches you. An

@@ -2417,7 +2417,7 @@ function finishLanding(F, s) {
   try { spoolDown(F.cls); } catch {}
   sendCmdSilent(`flightsync ${F.pos.x.toFixed(2)} ${F.pos.y.toFixed(2)} 0 0 ${Math.round(s.heading)} 0 0 1 0`);
   sendCmdSilent(`flightevent land ${F.landGrade || 'F-'} ${Math.round(F.landFpm || 0)}`);
-  const toHangar = !!F.onField;
+  const toHangar = !!F.onField || !!F.onYacht;   // the Echelon's helipad opens its bay too
   setTimeout(() => { closeFlightSim(); sendCmdSilent(toHangar ? 'hangar' : 'look'); }, 600);
 }
 
@@ -2495,11 +2495,14 @@ function fsimFrame(now) {
 
     // Move through the world whenever rolling or flying — the takeoff roll translates
     // you forward down the runway (buildings grow and pass); liftoff just adds altitude.
-    if (s.airspeed > 0.5) {
+    // Guard on |airspeed| so a heli backing up (aft cyclic → negative airspeed) actually
+    // slides rearward: the velocity below already carries the sign, so this gate just has
+    // to admit it. Without the abs a nose-up hover pitches back but never moves.
+    if (Math.abs(s.airspeed) > 0.5) {
       // Ground pace is quick so you actually roll down the runway, then decays FAST with altitude
       // (exp, groundDecay-ft e-fold) to the slow cruise pace (worldPace) so the sky doesn't rush past.
       const pace = RENDER_TUNE.worldPace * (P.worldPaceMult || 1) * (1 + (RENDER_TUNE.groundBoost - 1) * Math.exp(-Math.max(0, s.altitude) / (RENDER_TUNE.groundDecay || 25)));
-      const d = s.airspeed * pace * h, hr = s.heading * Math.PI / 180;
+      const d = Math.abs(s.airspeed) * pace * h, hr = s.heading * Math.PI / 180;   // odometer distance is magnitude — backing up shouldn't wind travel/rollDist backwards
       // Ground track = air velocity + wind (airborne only — on the wheels the gear holds you to
       // the ground). A crosswind drifts you off the runway centreline; a head/tailwind slows/speeds
       // your progress over the ground while airspeed (through the air) is unchanged.
@@ -2606,7 +2609,9 @@ function fsimFrame(now) {
     // automatically (no manual engine-cut). A HELICOPTER never auto-parks/leaves the sim on
     // landing — it stays put so the pilot can lift off again or look around, and leaves only by
     // typing `disembark`. Off-field (a VTOL flared onto open ground) we just prompt the shutdown.
-    if (F.onField && !F.heli) finishLanding(F, s);
+    // The one exception is the Echelon: a Dragonfly setting down alongside her auto-lands on the
+    // helipad (F.onYacht), so you don't hunt for her exact tile or have to type disembark.
+    if ((F.onField && !F.heli) || (F.heli && F.onYacht)) finishLanding(F, s);
     else if (!F.stopHinted) { F.stopHinted = true; if (F.toast) F.toast(F.heli ? 'DOWN — type disembark to climb out' : 'STOPPED — cut the ENGINE to shut down & park'); }
   }
 
@@ -3370,6 +3375,7 @@ export function flightSimContext(msg) {
   if (msg.fields) F.fields = msg.fields;
   if (msg.landmarks) F.landmarks = msg.landmarks;   // named buildings the target guide can lock onto (cycled alongside fields)
   if ('onField' in msg) F.onField = !!msg.onField;   // rolled onto a real airfield → auto-park + open the hangar on full stop
+  if ('onYacht' in msg) F.onYacht = !!msg.onYacht;   // a VTOL set down alongside the Echelon → auto-land on her helipad
   if (msg.occupants) { F.occupants = msg.occupants; if (msg.seats) F.seats = msg.seats; renderSeats(F); }   // cabin readout keeps pace with boarding
   if ('cargo' in msg) F.cargoKg = msg.cargo;   // current hold weight (drives the J jettison bind)
   if (msg.sky) F.sky = msg.sky;
