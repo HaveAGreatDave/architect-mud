@@ -30,8 +30,11 @@ export function helmEndTransit(gx, gy) { _helm?.ctrl?.endTransit(gx, gy); }
 export function helmBeginTransit(dir, tiles, ms) { _helm?.ctrl?.beginTransit(dir, ms, ms, tiles); }
 
 export function ensureHelmStyles() {
-  if (document.getElementById('helm-mode-styles')) return;
-  const s = document.createElement('style'); s.id = 'helm-mode-styles';
+  // Reuse the tag if present, but ALWAYS rewrite its content — never early-return. A stale style
+  // block (e.g. left by an older build, or a tag that outlived a close) would otherwise pin the old
+  // layout while this module's JS runs fresh, producing a half-old/half-new "mixed" helm.
+  const s = document.getElementById('helm-mode-styles') || document.createElement('style');
+  s.id = 'helm-mode-styles';
   s.textContent = `
     /* Takes over the area pane like the flight sim — the sidebar, top bar and log stay put. Fills
        the pane's height the way the glass cockpit does; the ⛶ chip toggles true OS fullscreen. */
