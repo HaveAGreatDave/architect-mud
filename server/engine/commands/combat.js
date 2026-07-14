@@ -5,6 +5,7 @@ import { resolve as siftResolve, createSelectionState, formatSelectionPage } fro
 import { awardSkillUse, skillCheck } from "../skills.js";
 import { isStackable } from "../tags.js";
 import { titleCaseName } from "../text.js";
+import { emit } from "../events.js";
 import { randomUUID } from "crypto";
 
 // Resolve a corpse in the player's current zone by id (preferred, from a click)
@@ -55,7 +56,8 @@ export async function buildLootView(corpse, player) {
 }
 
 // Move one inventory row to a player, stacking onto an existing stack when the
-// item is stackable. Returns the item's display name.
+// item is stackable. Returns the item's display name. Emits item.taken like the
+// ground-pickup path so quest 'retrieve' objectives advance on corpse loot too.
 async function giveRowToPlayer(item, player) {
 	if (isStackable(item)) {
 		const { rows: existing } = await query(
@@ -68,6 +70,8 @@ async function giveRowToPlayer(item, player) {
 				[item.quantity, existing[0].id],
 			);
 			await query("DELETE FROM player_inventory WHERE id=$1", [item.id]);
+			emit('item.taken', { actor: player, item, zone: player.current_zone });
+			emit('inventory.changed', { actor: player, zone: player.current_zone });
 			return item.name;
 		}
 	}
@@ -75,6 +79,8 @@ async function giveRowToPlayer(item, player) {
 		player.id,
 		item.id,
 	]);
+	emit('item.taken', { actor: player, item, zone: player.current_zone });
+	emit('inventory.changed', { actor: player, zone: player.current_zone });
 	return item.name;
 }
 
