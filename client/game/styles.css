@@ -572,6 +572,12 @@ body.fsim-external #look-resize-handle { display: none; }
 .room-desc {
 	display: block;
 }
+/* Woven-object prose (furniture + cameras) — its own paragraph beneath the room
+   description, with a blank-line gap so it reads as a second beat. */
+.room-furniture {
+	display: block;
+	margin-top: 0.7em;
+}
 .room-desc.collapsed {
 	display: -webkit-box;
 	-webkit-line-clamp: 1;

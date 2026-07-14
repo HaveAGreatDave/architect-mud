@@ -5,7 +5,7 @@
   "bg_color": "#8f9a7e",
   "color": null,
   "created_by": null,
-  "description": "The ground-floor lobby of The Meridian, a residential tower that survived the Collapse the same way most things survived it: through sheer institutional inertia. Cracked terrazzo floors carry the ghost of a geometric inlay, ground to near-invisibility by foot traffic. A bank of tenant mailboxes lines the east wall — most of them pried open decades ago, doors hanging at odd angles, contents long gone. The security desk sits unmanned, its terminal cycling a screensaver of rolling static. A brass plaque reading THE MERIDIAN — ESTABLISHED 2031 is still bolted above the entrance, which is the most optimistic thing in the building. Emergency lighting casts everything in pale amber. Stairs ascend through a fire door to the upper floors.",
+  "description": "The ground-floor lobby of The Meridian, a residential tower that survived the Collapse the same way most things survived it: through sheer institutional inertia. Cracked terrazzo floors carry the ghost of a geometric inlay, ground to near-invisibility by foot traffic. A bank of tenant mailboxes lines the east wall — most of them pried open decades ago, doors hanging at odd angles, contents long gone. The security desk sits unmanned, its terminal cycling a screensaver of rolling static. Emergency lighting casts everything in pale amber. Stairs ascend through a fire door to the upper floors.",
   "exits": {
     "down": "zone_util_zone_meridian_lobby",
     "east": "zone_district_918_908",

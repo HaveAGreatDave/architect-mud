@@ -1750,6 +1750,7 @@ export function openFlightSim(opts = {}) {
     // COLLECTIVE, the yoke is the CYCLIC, and the rudder pedals (,/. or X/C) work the tail
     // rotor (yaw) — same keys as the fixed-wings. heli flag drives the instrument set below.
     heli: opts.craftClass === 'heli' || !!(TYPES[opts.craftType] && TYPES[opts.craftType].heli),
+    yachtDeparted: true,   // auto-land armed by default; a set-down on the Echelon disarms it until you leave her (see the capture gate)
     pedalKey: 0,
     // Start the craft exactly where it's parked (no forward hop onto the strip). The takeoff
     // rolls out from the parked spot down the runway.
@@ -2346,30 +2347,6 @@ function weatherAtmos(F, now) {
 }
 
 // Off-map guard: if the tiles right under us are void (the endless-desert buffer beyond
-// the built world), return the compass heading back toward the centroid of real terrain
-// so the HUD can say "TURN xxx°". null = we're over the map, no warning. Heading convention
-// matches the renderer: 0°=−y (north), 90°=+x (east).
-function offMapHeading(F) {
-  const map = F.map; if (!map || !map.length) return null;
-  const R = (map.length - 1) / 2;
-  const cx = R + (F.pos.x - F.mapCenter.x), cy = R + (F.pos.y - F.mapCenter.y);
-  const at = (x, y) => { const row = map[Math.round(y)]; return row ? row[Math.round(x)] : null; };
-  const real = (c) => c && c.kind !== 'air' && c.biome && c.biome !== 'water';
-  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (real(at(cx + dx, cy + dy))) return null;  // still over the world
-  let sx = 0, sy = 0, n = 0;
-  for (let ry = 0; ry < map.length; ry++) for (let rx = 0; rx < map[ry].length; rx++) if (real(map[ry][rx])) { sx += rx; sy += ry; n++; }
-  // Home direction: the centroid of real terrain in view. Far enough out that the window
-  // holds NO built world, fall back to the WORLD bearing to the departure origin (a fixed
-  // point inside the map) so the banner keeps pointing home instead of blinking off.
-  if (!n) {
-    const hx = (F.rwOrigin?.x ?? F.mapCenter.x) - F.pos.x, hy = (F.rwOrigin?.y ?? F.mapCenter.y) - F.pos.y;
-    if (!hx && !hy) return null;
-    return (Math.round(Math.atan2(hx, -hy) * 180 / Math.PI) + 360) % 360;
-  }
-  const bx = (sx / n) - cx, by = (sy / n) - cy;
-  return (Math.round(Math.atan2(bx, -by) * 180 / Math.PI) + 360) % 360;
-}
-
 // Landing report card — grades the touchdown by sink rate (fpm at contact) and flashes a big
 // letter grade + the fpm + a wisecrack over the windshield for a couple of seconds. ~200 fpm is
 // a good arrival; 800 fpm is the gear-breaking crash threshold; everything between is graded.
@@ -2679,12 +2656,21 @@ function fsimFrame(now) {
     else if (!F.stopHinted) { F.stopHinted = true; if (F.toast) F.toast(F.heli ? 'DOWN — type disembark to climb out' : 'STOPPED — cut the ENGINE to shut down & park'); }
   }
 
+  // Departure latch: after setting down (or being parked) on the Echelon you must actually LEAVE
+  // her before the auto-land can grab you again — otherwise lifting off her pad instantly re-
+  // triggers the capture. You've "departed" once you climb clear (above 500ft) OR fly out of her
+  // capture vicinity (F.onYacht drops). Sitting on her deck disarms it; a fresh airborne approach
+  // from elsewhere is already armed (defaults true), so a first landing is never blocked.
+  if (s.onGround && F.onYacht) F.yachtDeparted = false;              // on her deck → disarm re-grab
+  else if (!F.onYacht || s.altitude > 500) F.yachtDeparted = true;   // flew clear of her / climbed above 500ft
+
   // Helipad capture: hovering low over the Echelon, she reaches up and takes you. A Dragonfly
   // within a tile of her (F.onYacht) and slow below ~150ft is grabbed for an auto-land. Gated to a
   // slow, non-climbing approach so a fast low fly-by, and the climb-out on takeoff (vs well
-  // positive), are never grabbed. Rather than snapping her onto the deck, we cut to a deck-cam
-  // cinematic that flies her down onto the pad with the camera tracking her (startDeckLanding).
-  if (F.heli && F.onYacht && !s.onGround && !F.landed && !F.deckCine && F.reportedAirborne
+  // positive), are never grabbed — and only once you've departed her (the latch above), so a
+  // takeoff off the pad doesn't re-grab you. Rather than snapping her onto the deck, we cut to a
+  // deck-cam cinematic that flies her down onto the pad with the camera tracking her.
+  if (F.heli && F.onYacht && F.yachtDeparted && !s.onGround && !F.landed && !F.deckCine && F.reportedAirborne
       && s.altitude <= 150 && s.airspeed < 30 && s.vs < 20) {
     startDeckLanding(F, s, now);
   }
@@ -2785,11 +2771,6 @@ function fsimFrame(now) {
     fuelWrap.classList.toggle('full', pct >= 100);
   }
 
-  const back = F.reportedAirborne ? offMapHeading(F) : null;
-  // Off-map banner fade: don't nag while you're already correcting. Full strength when
-  // pointed away from home, fading to nothing as the nose swings within ~30° of the return
-  // bearing — so turning back quietly dismisses it instead of a hard flicker at the edge.
-  const navWarnAlpha = back == null ? 0 : clampNum((Math.abs(angDelta(d.hdg, back)) - 30) / 45, 0, 1);
   // Landing guide: show the glideslope gates once airborne, low, and within reach of the
   // departure runway (so it appears as you turn back to land).
   const rwDist = Math.hypot(F.rwOrigin.x - F.pos.x, F.rwOrigin.y - F.pos.y);
@@ -2967,7 +2948,7 @@ function fsimFrame(now) {
     // stays put and recedes/rotates naturally as you fly away (not glued ahead of the nose).
     runway: { ox: F.rwOrigin.x - F.pos.x, oy: F.rwOrigin.y - F.pos.y, hdg: F.rwHdg, len: F.rwLen, alt: clampNum(s.altitude / 320, 0, 1) },
     landGuide,
-    hud: true, navWarn: navWarnAlpha <= 0.02 ? null : `⚠ TURN ${String(back).padStart(3, '0')}° — RETURN TO MAP`, navWarnAlpha,
+    hud: true,
     threat: (F.aa && F.reportedAirborne) ? F.aa : null,   // AA envelope telegraph → pulsing banner + tape chevron
     airports: F.fields, apTarget, apTargetId: F.apTargetId, viewYaw: F.viewYaw, extYaw: F.extOrbit || 0, extPitch: F.extPitch ?? REST_PITCH,
     // Looking off the nose (Q/E/S) → frame the view as a side cabin window instead of the

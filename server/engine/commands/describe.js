@@ -160,7 +160,7 @@ function weaveFurniture(pieces) {
 				: `${countWord(qty)} ${pluralName(f.name)} are here.`;
 		return `<span class="action-link furniture-link furniture-woven" data-action="examine" data-target="${target}"${actionsAttr} title="Examine ${target}">${body}</span>`;
 	});
-	return ` ${sentences.join(" ")}`;
+	return sentences.join(" ");
 }
 
 const DIRECTION_PHRASE = {
@@ -511,7 +511,15 @@ export async function describeZone(zone, player) {
 		}
 	}
 	// Prose paragraph wrapped so the client can collapse/expand it independently.
-	desc += `\n<span class="room-desc">${zoneDesc}${weatherLine}${skylineLine}${describeBuildingDiscovery(buildings)}${furnitureAside}${cameraAside}</span>`;
+	desc += `\n<span class="room-desc">${zoneDesc}${weatherLine}${skylineLine}${describeBuildingDiscovery(buildings)}</span>`;
+	// Woven-object prose (furniture + PD cams) lives in its own paragraph after the
+	// room description — a natural second beat rather than a tail on the authored
+	// prose. Sits outside room-desc so it stays visible when that collapses.
+	const wovenProse = `${furnitureAside}${cameraAside}`.trim();
+	// No leading "\n": room-furniture is display:block, so it starts its own line;
+	// the paragraph gap comes from its margin-top. A literal newline here would
+	// render as an extra blank line under pre-wrap and double the gap.
+	if (wovenProse) desc += `<span class="room-furniture">${wovenProse}</span>`;
 	// First-visit tone-setting lore (per-player, new-account-only) — a plugin
 	// decides whether this player has earned an introduction to this zone and
 	// returns the shimmering block, or nothing. Player is passed so eligibility

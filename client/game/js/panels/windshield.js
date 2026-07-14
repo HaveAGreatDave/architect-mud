@@ -1334,7 +1334,7 @@ function drawWxBadge(ctx, W, wx, wind) {
 }
 
 // Forward-view HUD (opt-in via v.hud): a sliding heading tape across the top with N/E/S/W
-// letters + a fixed centre caret/readout, and an off-map "turn back" banner (v.navWarn).
+// letters + a fixed centre caret/readout.
 const HDG_NAMES = { 0: 'N', 90: 'E', 180: 'S', 270: 'W' };
 // A boxed primary readout (IAS/ALT): small caption top-left, big value right-aligned, optional
 // sub-line (e.g. a V/S trend) under the caption. warn recolours the frame + value when set.
@@ -1432,19 +1432,6 @@ function drawHud(ctx, W, H, v) {
       ctx.font = (isTgt ? 'bold ' : '') + '7px monospace';
       ctx.fillStyle = lined && isTgt ? '#8ff0c4' : off ? (isTgt ? 'rgba(255,207,62,0.85)' : 'rgba(224,120,208,0.7)') : (isTgt ? '#ffe08a' : '#f0a8e4');
       ctx.fillText((ap.name || 'FIELD').slice(0, 7).toUpperCase() + (ap.dist != null ? ' ' + ap.dist : ''), x, rowY + 9);
-    }
-  }
-  // Off-map turn-back banner. Its opacity is driven by navWarnAlpha (heading-vs-home
-  // alignment) so it fades out as you turn back toward the map rather than hard-toggling.
-  if (v.navWarn) {
-    const a = v.navWarnAlpha == null ? 1 : clamp(v.navWarnAlpha, 0, 1);
-    if (a > 0.02) {
-      const y = H * 0.34; ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      const w = ctx.measureText(v.navWarn).width + 18;
-      ctx.save(); ctx.globalAlpha = a;
-      ctx.fillStyle = 'rgba(40,10,6,0.74)'; ctx.strokeStyle = '#ff8a3e'; ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.roundRect ? ctx.roundRect(cx - w / 2, y - 11, w, 22, 5) : ctx.rect(cx - w / 2, y - 11, w, 22); ctx.fill(); ctx.stroke();
-      ctx.fillStyle = '#ffb23e'; ctx.fillText(v.navWarn, cx, y + 0.5); ctx.restore();
     }
   }
   // AA threat telegraph: a pulsing red banner spelling out the escape drill while you're
