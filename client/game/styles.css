@@ -2521,9 +2521,15 @@ body.fsim-external #look-resize-handle { display: none; }
 #map-grid .map-bld-label { font-size: 20px; letter-spacing: -1.5px; -webkit-text-stroke: 1px #000; }
 /* Sidebar/HUD/mobile minimaps: smaller tiles, so a smaller 2-letter label that still
    fills the square. */
+/* Sized off --mm-room (the zoom-driven tile size set by applyMinimapZoom) rather
+   than a fixed px, so the 2-letter code keeps filling its square at every zoom. */
 #minimap-grid .map-bld-label,
 #minimap-grid-hud .map-bld-label,
-#minimap-grid-mob .map-bld-label { font-size: 10px; letter-spacing: -0.5px; -webkit-text-stroke: 0.6px #000; }
+#minimap-grid-mob .map-bld-label {
+	font-size: calc(var(--mm-room) * 0.7);
+	letter-spacing: calc(var(--mm-room) * -0.03);
+	-webkit-text-stroke: calc(var(--mm-room) * 0.035) #000;
+}
 .map-bld-icon {
 	font-size: 10px;
 	line-height: 1;
