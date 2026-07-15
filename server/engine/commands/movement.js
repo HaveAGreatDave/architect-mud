@@ -638,7 +638,7 @@ const MAP_WINDOW_HALF = 5;
 // the tile window until it saturates the region. Interior, when inside a building,
 // sits one stop inside z0. Kept in step with the client pixel-size ladders in
 // panels/minimap.js and panels/tablet-os.js by index.
-const MAP_ZOOM_HALVES = [5, 8, 12]; // z0 11×11 · z1 17×17 · z2 25×25
+const MAP_ZOOM_HALVES = [5, 8, 12, 17, 23]; // z0 11×11 · z1 17×17 · z2 25×25 · z3 35×35 · z4 47×47
 const MAP_ZOOM_MAX = MAP_ZOOM_HALVES.length; // z{MAX} = regional (terminal stop)
 
 // Building names at a tile: exits leading to an is_building zone (same rule as
