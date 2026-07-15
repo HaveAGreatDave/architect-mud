@@ -94,9 +94,14 @@ added, and resurrects the rows it deleted. Verified in the Phase-2 drill.
   `content/` → **prune old Neon snapshot branches** (keep newest 5) → **Neon
   snapshot branch** `predeploy-<run>-<sha>` (instant copy-on-write, self-expiring
   in 14 days; the catastrophe net — recovery = Neon instant-restore from it) →
-  drift report (surfaces any manual prod edits the deploy is about to overwrite)
-  → `content:import --prod` → `deployments` row → Render deploy-hook restart
-  (fresh world cache).
+  drift report (surfaces any manual prod edits the deploy is about to overwrite;
+  the comparison runs inside Postgres via a temp table so only mismatch keys
+  leave Neon — never a full-table read) → `content:import --prod` →
+  `deployments` row → Render deploy-hook restart (fresh world cache). The push
+  trigger is **paths-filtered** to `content/**`, `schema.js`, the registry, and
+  the pipeline scripts — code/docs-only pushes deploy nothing (each run costs
+  Neon egress; unfiltered it blew the free plan's 5GB/month in one week,
+  July 2026). `render.yaml`'s `buildFilter` mirrors this on the Render side.
 - The snapshot replaced the old `pg_dump`-to-artifact backup when prod moved to
   Neon. Branches are near-free (data-only, no compute endpoint) but count against
   the project's branch cap — hence the prune step. `expires_at` alone was not

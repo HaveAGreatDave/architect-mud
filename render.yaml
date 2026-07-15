@@ -6,6 +6,20 @@ services:
       buildCommand: npm install
       startCommand: npm start
       healthCheckPath: /health
+      # Skip auto-deploys for pushes that don't change what the server runs.
+      # Content pushes still reach Render: the deploy-content CI workflow calls
+      # RENDER_DEPLOY_HOOK_URL after importing, and deploy hooks bypass this
+      # filter — so the checkout (which serves content/audio_* from disk in
+      # prod) is refreshed exactly when content changes. Every avoided reboot
+      # saves a full world load from Neon (~10MB of egress).
+      buildFilter:
+          ignoredPaths:
+              - content/**
+              - docs/**
+              - tools/**
+              - tests/**
+              - scripts/**
+              - .github/**
       envVars:
           - key: DATABASE_URL
             sync: false # paste your Neon URL in the Render dashboard

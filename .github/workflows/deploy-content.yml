@@ -39,6 +39,16 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
+    # Only content-affecting pushes deploy. Code/docs/client-only pushes used to
+    # run this anyway, and each run costs ~30MB of Neon egress (drift report reads
+    # every content table) plus a Render reboot — that alone blew the free plan's
+    # 5GB/month transfer allowance in one week (July 2026).
+    paths:
+      - 'content/**'
+      - 'server/models/schema.js'
+      - 'server/models/content-registry.js'
+      - 'scripts/content/**'
+      - '.github/workflows/deploy-content.yml'
 
 concurrency:
   group: prod-content-deploy

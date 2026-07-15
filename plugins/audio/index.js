@@ -1,4 +1,7 @@
-import { randomUUID } from 'crypto';
+import { randomUUID, createHash } from 'crypto';
+import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { query } from '../../server/models/db.js';
 import { getZone, getZonePlayers, getLivePlayer } from '../../server/engine/world.js';
 import { neighborZoneIds } from '../../server/engine/exits.js';
@@ -22,35 +25,63 @@ const byName = { sfx: new Map(), songs: new Map(), ambient: new Map(), samples: 
 
 const SAMPLE_META_COLS = 'id,name,category,priority,mime_type,base_note,loop_start,loop_end,snes_rate,snes_bits,echo_mix,config,enabled';
 
+// ── Content-backed mode (CONTENT_READONLY, i.e. production) ─────────────────
+// The same audio rows live as content/<table>/*.json in the git checkout the
+// server runs from, and the CONTENT_READONLY gate blocks every HTTP write that
+// could make the DB drift from those files between deploys (CI restarts the
+// service after each content import, so the checkout is never stale either).
+// Reading the library — and sample blobs, in the data route below — from disk
+// instead of Neon saves ~18MB of egress per reboot; reboots happen on every
+// deploy, which is what blew the free plan's transfer allowance. Dev keeps
+// reading the DB: local WIP lives there until content:export.
+const CONTENT_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'content');
+const contentBacked = !!process.env.CONTENT_READONLY;
+
+function contentTableRows(table) {
+  const dir = join(CONTENT_DIR, table);
+  if (!contentBacked || !existsSync(dir)) return null;
+  return readdirSync(dir).filter(f => f.endsWith('.json'))
+    .map(f => JSON.parse(readFileSync(join(dir, f), 'utf8')));
+}
+
+// Same filename sanitization as the content exporter (fileNameForRow); the
+// replace also keeps a hostile id from ever escaping the directory.
+function sampleFileById(id) {
+  const path = join(CONTENT_DIR, 'audio_samples', String(id).replace(/[^A-Za-z0-9._-]/g, '_') + '.json');
+  return existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : null;
+}
+const sampleEtags = new Map(); // id -> md5 etag; files only change with a deploy, which restarts the process
+
 export async function loadAudioLibrary() {
+  const load = async (table, sql) => contentTableRows(table) ?? (await query(sql)).rows;
   const [i, s, fx, am, ev, sm] = await Promise.all([
-    query('SELECT * FROM audio_instruments'),
-    query('SELECT * FROM audio_songs'),
-    query('SELECT * FROM audio_sfx'),
-    query('SELECT * FROM audio_ambient'),
-    query('SELECT * FROM audio_event_routes WHERE enabled=1'),
-    query(`SELECT ${SAMPLE_META_COLS} FROM audio_samples`),
+    load('audio_instruments', 'SELECT * FROM audio_instruments'),
+    load('audio_songs', 'SELECT * FROM audio_songs'),
+    load('audio_sfx', 'SELECT * FROM audio_sfx'),
+    load('audio_ambient', 'SELECT * FROM audio_ambient'),
+    load('audio_event_routes', 'SELECT * FROM audio_event_routes WHERE enabled=1'),
+    load('audio_samples', `SELECT ${SAMPLE_META_COLS} FROM audio_samples`),
   ]);
   instruments.clear();
-  for (const row of i.rows) instruments.set(row.id, row);
+  for (const row of i) instruments.set(row.id, row);
   songs.clear();
   byName.songs.clear();
-  for (const row of s.rows) { songs.set(row.id, row); byName.songs.set(row.name, row.id); }
+  for (const row of s) { songs.set(row.id, row); byName.songs.set(row.name, row.id); }
   sfx.clear();
   byName.sfx.clear();
-  for (const row of fx.rows) { sfx.set(row.id, row); byName.sfx.set(row.name, row.id); }
+  for (const row of fx) { sfx.set(row.id, row); byName.sfx.set(row.name, row.id); }
   ambient.clear();
   byName.ambient.clear();
-  for (const row of am.rows) { ambient.set(row.id, row); byName.ambient.set(row.name, row.id); }
+  for (const row of am) { ambient.set(row.id, row); byName.ambient.set(row.name, row.id); }
   eventRoutes.clear();
-  for (const row of ev.rows) {
+  for (const row of ev.filter(r => r.enabled === 1)) {
     const arr = eventRoutes.get(row.event_name) || [];
     arr.push(row);
     eventRoutes.set(row.event_name, arr);
   }
   samples.clear();
   byName.samples.clear();
-  for (const row of sm.rows) { samples.set(row.id, row); byName.samples.set(row.name, row.id); }
+  for (const { data: _blob, ...row } of sm) { samples.set(row.id, row); byName.samples.set(row.name, row.id); }
 }
 
 await loadAudioLibrary().catch(e => console.error('[audio] failed to load library:', e.message));
@@ -1100,6 +1131,18 @@ export const routeHandler = async (path, method, body, auth, reqHeaders) => {
       // returning browser send If-None-Match and get a bodyless 304 instead of re-downloading.
       // must-revalidate + short max-age keeps a re-encode from serving stale audio for long.
       if (id && parts[3] === 'data' && method === 'GET') {
+        // Content-backed (production): the blob is in the git checkout — serve it
+        // from disk, zero DB egress. The etag is md5 of the same base64 text
+        // Postgres would hash, so browser caches survive the source switch.
+        if (contentBacked) {
+          const doc = sampleFileById(id);
+          if (!doc || doc.data == null) return { status: 404, body: { error: 'Not found' } };
+          let etag = sampleEtags.get(id);
+          if (!etag) { etag = `"${createHash('md5').update(doc.data).digest('hex')}"`; sampleEtags.set(id, etag); }
+          const headers = { 'Cache-Control': 'public, max-age=3600, must-revalidate', 'ETag': etag };
+          if (reqHeaders?.['if-none-match'] === etag) return { status: 304, headers };
+          return { status: 200, headers, body: { data: doc.data } };
+        }
         const meta = await query('SELECT md5(data) AS etag FROM audio_samples WHERE id=$1', [id]);
         if (!meta.rows[0] || meta.rows[0].etag == null) return { status: 404, body: { error: 'Not found' } };
         const etag = `"${meta.rows[0].etag}"`;
