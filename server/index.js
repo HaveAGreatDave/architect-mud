@@ -1017,20 +1017,10 @@ async function handleDialogue(ws, session, msg) {
 	}
 	const npc = rows[0];
 
+	// The implicit "Browse your wares." option (engine/dialogue.js injects it for
+	// vendors that don't author their own shop door).
 	if (msg.choice === "__shop__") {
-		const player = getLivePlayer(session.playerId);
-		if (!player) return;
-		if (!npc.vendor_inventory?.length) {
-			ws.send(JSON.stringify({ type: "error", message: `${npc.name} has nothing to sell.` }));
-			return;
-		}
-		const { isVendorClosed, vendorClosedLine } = await import("./engine/ai-behaviour.js");
-		if (isVendorClosed(npc)) {
-			ws.send(JSON.stringify({ type: "error", message: vendorClosedLine(npc) }));
-			return;
-		}
-		openShopSession(session.playerId, npc.id);
-		await sendShopPanel(ws, npc, session.playerId);
+		await openNpcShop(ws, session, npc);
 		return;
 	}
 
@@ -1070,6 +1060,18 @@ async function handleDialogue(ws, session, msg) {
 		}
 	}
 
+	// A node authored to open the vendor shop (OPEN_SHOP action) IS the shop — the
+	// GUI shop panel is its terminal UI. Route it through the same clean shop-open
+	// as "__shop__" and stop, rather than letting renderDialogueNode fire OPEN_SHOP
+	// and THEN send a `dialogue` message that the client renders into the same panel,
+	// clobbering the shop that just opened. (This is why a vendor's authored shop
+	// option looked like it "didn't open the shop".)
+	const targetNode = (npc.dialogue_tree || {})[msg.choice];
+	if (targetNode?.actions?.some((a) => a?.action === "OPEN_SHOP")) {
+		await openNpcShop(ws, session, npc);
+		return;
+	}
+
 	// Runs the node's Actions (Phase 4; `grants_item` legacy GRANT_ITEM shorthand
 	// included) and Condition/quest-completion-gates its options — see
 	// engine/dialogue.js (shared with Tablet OS's "Turn In" NPC hand-off).
@@ -1098,6 +1100,26 @@ async function handleDialogue(ws, session, msg) {
 			options: rendered.options,
 		}),
 	);
+}
+
+// Open a vendor's shop for the player: guards (has-stock, open-hours), start the
+// shop session, and push the GUI panel. The single clean shop-open path shared by
+// the implicit "__shop__" option and any dialogue node authored with an OPEN_SHOP
+// action — so the two can't drift on guards or payload.
+async function openNpcShop(ws, session, npc) {
+	const player = getLivePlayer(session.playerId);
+	if (!player) return;
+	if (!npc.vendor_inventory?.length) {
+		ws.send(JSON.stringify({ type: "error", message: `${npc.name} has nothing to sell.` }));
+		return;
+	}
+	const { isVendorClosed, vendorClosedLine } = await import("./engine/ai-behaviour.js");
+	if (isVendorClosed(npc)) {
+		ws.send(JSON.stringify({ type: "error", message: vendorClosedLine(npc) }));
+		return;
+	}
+	openShopSession(session.playerId, npc.id);
+	await sendShopPanel(ws, npc, session.playerId);
 }
 
 // Render the GUI shop panel (both Buy stock and Sell inventory) for a player.

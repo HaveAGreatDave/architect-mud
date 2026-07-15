@@ -84,6 +84,20 @@ export async function renderDialogueNode(npc, nodeKey, player, context) {
   }
 
   const options = await filterDialogueOptions(node.options, tree, player);
+  // Vendors get an implicit "Browse your wares." entry so any shopkeeper is
+  // shoppable even if their dialogue never authored a shop option. Injected in
+  // the SHARED renderer (not just the `talk` entry point) so the option set is
+  // identical on first talk and on every return to root — otherwise the shop
+  // link appears then vanishes as you navigate. Skipped when: not the root node,
+  // a covert vendor (shop is passphrase-gated, never advertised), or the tree
+  // already authors its own shop door (an option leading to __shop__ or to a node
+  // that fires OPEN_SHOP) so we don't double it up.
+  if (nodeKey === 'root' && npc.vendor_inventory?.length && !npc.flags?.covert) {
+    const authorsShop = (node.options || []).some((o) =>
+      o.next === '__shop__' ||
+      (tree[o.next]?.actions || []).some((a) => a?.action === 'OPEN_SHOP'));
+    if (!authorsShop) options.push({ label: 'Browse your wares.', next: '__shop__' });
+  }
   // `{quest}` in a node's text resolves to the quest name a generic hand-in node is
   // turning in (context.quest_name, set by Tablet OS) so the NPC can name the job.
   // A node may carry an ARRAY of interchangeable lines (e.g. an NPC's varied sign-offs);

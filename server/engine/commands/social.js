@@ -2,7 +2,7 @@ import { getAllLivePlayers, getZonePlayers, getZoneNpcs, getZoneEnemies } from '
 import { formatBattleCry } from '../combat.js';
 import { propagateYell } from '../sounds.js';
 import { canAccessChannel, sendToChatChannel } from '../channels.js';
-import { evalConditions } from '../flags.js';
+import { renderDialogueNode } from '../dialogue.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../sift.js';
 import { DEFAULT_CHITCHAT_LINES, formatChitchat } from '../ai-behaviour.js';
 import { getNpcChitchat } from '../npc-personality.js';
@@ -33,24 +33,22 @@ async function cmdTalk(targetStr, player, broadcast) {
     if (broadcast) broadcast(player.current_zone, msg, player.id);
     return msg;
   }
-  const root = npc.dialogue_tree?.root;
-  // Condition-gate root options against the player's Flags (Phase 4).
-  const options = [];
-  for (const opt of (root?.options || [])) {
-    if (!(await evalConditions(opt.conditions || opt.condition, player))) continue;
-    options.push(opt);
-  }
-  // Covert vendors (e.g. the shadow dealer) never advertise a shop — the only
-  // way in is knowing how to ask (see the dealer plugin's passphrase mechanic).
-  if (npc.vendor_inventory?.length && !npc.flags?.covert) options.push({ label: 'Browse your wares.', next: '__shop__' });
-  if (!root && !options.length) {
+  // Render the root node through the SHARED renderer (engine/dialogue.js) — the
+  // same path option-clicks take via handleDialogue — so `talk` and subsequent
+  // navigation can never drift on option gating or the vendor shop injection.
+  const rendered = npc.dialogue_tree?.root
+    ? await renderDialogueNode(npc, 'root', player, { broadcast, npc })
+    : null;
+  // No dialogue tree (or no root node): the NPC is talkable but scripted only for
+  // chitchat — say a random line to the room instead of opening a dialogue panel.
+  if (!rendered) {
     const lines = getNpcChitchat(npc) || DEFAULT_CHITCHAT_LINES;
     const line = lines[Math.floor(Math.random() * lines.length)];
     const msg = formatChitchat(npc.name, line);
     if (broadcast) broadcast(player.current_zone, msg, player.id);
     return msg;
   }
-  return { type:'dialogue', npcId:npc.id, npcName:npc.name, node:'root', text:root?.text || `${npc.name} glances up at you.`, options };
+  return { type:'dialogue', npcId:npc.id, npcName:npc.name, node:'root', text:rendered.text, options:rendered.options };
 }
 
 // If the player names an NPC in the room (any part of its name — first or last),
