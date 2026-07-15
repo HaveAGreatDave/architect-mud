@@ -342,7 +342,6 @@ export function moveEntity(entity, newZoneId, broadcast, query) {
         doorWasClosed = true;
         door.is_open = 1;
         setDoorCache(door.id, door);
-        if (query) query('UPDATE doors SET is_open=1 WHERE id=$1', [door.id]).catch(() => {});
         broadcast(oldZoneId, { type: 'zone_event', message: `${entity.name} opens the door.`, refresh: true });
       }
     }
@@ -394,7 +393,6 @@ export function moveEntity(entity, newZoneId, broadcast, query) {
       homeDoor.is_open = 0;
       homeDoor.lock_state = 'locked';
       setDoorCache(homeDoor.id, homeDoor);
-      if (query) query("UPDATE doors SET is_open=0, lock_state='locked' WHERE id=$1", [homeDoor.id]).catch(() => {});
       broadcast(newZoneId, { type: 'zone_event', message: `The lock clicks as ${entity.name} secures the door.`, refresh: true });
       doorHandled = true;
     }
@@ -415,7 +413,6 @@ export function moveEntity(entity, newZoneId, broadcast, query) {
         if (arrivingAtWork && shopDoor.lock_state === 'locked') {
           shopDoor.lock_state = null;
           setDoorCache(shopDoor.id, shopDoor);
-          if (query) query('UPDATE doors SET lock_state=NULL WHERE id=$1', [shopDoor.id]).catch(() => {});
           broadcast(newZoneId, { type: 'zone_event', message: `${entity.name} unlocks the shop and opens up for business.` });
           broadcast(oldZoneId, { type: 'zone_event', message: `${entity.name} unlocks the shop.` });
           doorHandled = true;   // leave it open for business — don't close behind them
@@ -423,7 +420,6 @@ export function moveEntity(entity, newZoneId, broadcast, query) {
           shopDoor.is_open = 0;
           shopDoor.lock_state = 'locked';
           setDoorCache(shopDoor.id, shopDoor);
-          if (query) query("UPDATE doors SET is_open=0, lock_state='locked' WHERE id=$1", [shopDoor.id]).catch(() => {});
           broadcast(oldZoneId, { type: 'zone_event', message: `${entity.name} pulls the shop door shut and locks it on the way out.`, refresh: true });
           broadcast(newZoneId, { type: 'zone_event', message: `${entity.name} locks up the shop.`, refresh: true });
           doorHandled = true;
@@ -448,7 +444,6 @@ export function moveEntity(entity, newZoneId, broadcast, query) {
     if (door) {
       door.is_open = 0;
       setDoorCache(door.id, door);
-      if (query) query('UPDATE doors SET is_open=0 WHERE id=$1', [door.id]).catch(() => {});
       broadcast(newZoneId, { type: 'zone_event', message: 'The door closes behind them.', refresh: true });
     }
   }

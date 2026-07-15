@@ -536,7 +536,6 @@ async function secureCellDoor() {
   if (door.lock_state === 'locked' && !door.is_open) return false;   // already shut + locked
   door.lock_state = 'locked'; door.is_open = 0;
   setDoorCache(door.id, door);
-  await query('UPDATE doors SET lock_state=$1, is_open=$2 WHERE id=$3', ['locked', 0, door.id]).catch(() => {});
   emit('door.toggled', { zoneId: door.zone_id, targetZoneId: door.target_zone });
   return true;
 }

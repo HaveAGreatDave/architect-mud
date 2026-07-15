@@ -28,6 +28,7 @@ import { getZone, getLivePlayer, world, invalidateEntranceDirCache, addExitOverr
 import { sendToPlayer, getBroadcast } from '../../server/engine/messaging.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
 import { on } from '../../server/engine/events.js';
+import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { dispatchAction } from '../../server/engine/actions.js';
 import { registerLockType } from '../../server/engine/locks.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
@@ -51,6 +52,33 @@ const invitedIds = new Set();
 query('SELECT player_id FROM yacht_invites', [])
   .then(({ rows }) => rows.forEach(r => invitedIds.add(r.player_id)))
   .catch(e => console.error('[yacht] invite cache load:', e.message));
+
+// ── Position persistence (runtime, not content) ──────────────────────────────────
+// Her tile + heading are runtime state, kept in world_flags (NOT the zones content
+// row git owns). The live zone in world.zones is the read surface everyone uses; this
+// only survives a restart. Written on arrival, restored once at boot below.
+const YACHT_POS_FLAG = 'yacht_echelon_pos';
+
+async function persistYachtPos(x, y, heading) {
+  await setFlag('world', YACHT_POS_FLAG, JSON.stringify({ x, y, heading })).catch(
+    e => console.error('[yacht] position persist:', e.message)
+  );
+}
+
+// Restore her last tile onto the live zone at boot (after initWorld, before any
+// flight coord-index query). Nothing rebuilds that index during the boot window.
+getFlag('world', YACHT_POS_FLAG)
+  .then(raw => {
+    if (!raw) return;
+    const pos = JSON.parse(raw);
+    const ext = getZone(EXTERIOR);
+    if (!ext || pos.x == null || pos.y == null) return;
+    ext.grid_x = pos.x;
+    ext.grid_y = pos.y;
+    ext.flags = { ...(ext.flags || {}), heading: pos.heading ?? ext.flags?.heading ?? 0 };
+    invalidateEntranceDirCache();
+  })
+  .catch(e => console.error('[yacht] position restore:', e.message));
 
 async function isInvitedById(playerId) {
   if (!playerId) return false;
@@ -316,12 +344,14 @@ async function arriveEchelon() {
   const { toX, toY, dir } = transit;
   transit = null;
   flightStateMod?.clearYachtTransit?.();   // passage done — pilots see her settled at the new tile
-  // Persist BOTH her tile and her heading (the course she just steamed). flags.heading survives a
-  // restart, so she reopens pointing the last way she was sent — never snapping back to bow-north.
+  // Move her authoritative tile + heading in RAM (everything reads the live zone), then persist to
+  // the runtime world-flag store — NOT the zones content row, which git owns and a deploy would
+  // clobber. flags.heading survives a restart, so she reopens pointing the last way she was sent —
+  // never snapping back to bow-north.
   const ext = getZone(EXTERIOR);
   const flags = { ...(ext?.flags || {}), heading: DIR_DEG[dir] };
-  await query('UPDATE zones SET grid_x=$1, grid_y=$2, flags=$3 WHERE id=$4', [toX, toY, JSON.stringify(flags), EXTERIOR]);
   if (ext) { ext.grid_x = toX; ext.grid_y = toY; ext.flags = flags; }
+  await persistYachtPos(toX, toY, DIR_DEG[dir]);
   invalidateEntranceDirCache();
   rebuildFlightIndex();
   // A helicopter parked on her deck sails with her — move any craft parked on the exterior tile

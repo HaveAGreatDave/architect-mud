@@ -32,12 +32,13 @@ export async function stainClothing(player, slots, type) {
     [JSON.stringify(contamination), player.id]);
 }
 
-export async function stainZone(zoneId, type) {
+export function stainZone(zoneId, type) {
   const zone = world.zones.get(zoneId);
   if (!zone) return;
   zone.stains = zone.stains || {};
   zone.stains[type] = (zone.stains[type] || 0) + 1;
-  await query('UPDATE zones SET stains=$1 WHERE id=$2', [JSON.stringify(zone.stains), zoneId]);
+  // Stains are ephemeral (registry-excluded, wiped by dailyMaintenance) and read
+  // live from world.zones — RAM is the source of truth, so no DB write.
 }
 
 // A named body part maps to whichever equip slot would actually cover it, so

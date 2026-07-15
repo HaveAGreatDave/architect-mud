@@ -11,7 +11,7 @@
 import { handlers as doorHandlers } from '../../server/engine/commands/doors.js';
 import { registerLockType } from '../../server/engine/locks.js';
 import { query } from '../../server/models/db.js';
-import { getApartment, getZone, getDoorById, setDoorCache } from '../../server/engine/world.js';
+import { world, getApartment, getZone, setDoorCache } from '../../server/engine/world.js';
 import { exitTargets } from '../../server/engine/exits.js';
 import { playerControlsApt } from '../../server/engine/apartments.js';
 import { schedule } from '../../server/engine/scheduler.js';
@@ -84,16 +84,14 @@ registerLockType('privacylock', {
 
 // Every 10 minutes, spring every engaged privacy lock — a courtesy release so a
 // player who fell asleep on the toilet doesn't seal a public bathroom forever.
-schedule('10m', async () => {
-  const { rows } = await query(
-    `SELECT id, zone_id, target_zone FROM doors
-      WHERE lock_state='locked' AND jsonb_exists(tags,'lock:privacylock')`
-  );
-  for (const row of rows) {
-    await query('UPDATE doors SET lock_state=$1 WHERE id=$2', ['unlocked', row.id]);
-    const cached = getDoorById(row.id);
-    if (cached) setDoorCache(row.id, { ...cached, lock_state: 'unlocked' });
-    for (const zid of [row.zone_id, row.target_zone].filter(Boolean)) {
+schedule('10m', () => {
+  // Door lock state lives only in world.doors (never persisted) — sweep the live
+  // cache, not the DB, or engaged privacy bolts would be invisible here.
+  for (const door of world.doors.values()) {
+    if (door.lock_state !== 'locked' || !door.tags?.['lock:privacylock']) continue;
+    door.lock_state = 'unlocked';
+    setDoorCache(door.id, door);
+    for (const zid of [door.zone_id, door.target_zone].filter(Boolean)) {
       sendToZone(zid, { type: 'zone_event', message: 'The privacy bolt clicks open on its timer.', refresh: true });
     }
   }

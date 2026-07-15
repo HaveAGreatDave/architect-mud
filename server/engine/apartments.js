@@ -64,6 +64,26 @@ function doorOtherSide(door, fromZoneId) {
 	return [door.zone_id, ...doorFarIds(door)].filter(z => z && z !== fromZoneId);
 }
 
+// Boot-time reconciliation. Door lock state is runtime-only (world.doors resets to
+// authored state on load), but apartments.is_locked is durable player housing state.
+// Re-apply each locked unit's lock onto its physical door(s) in RAM so a rented,
+// locked home stays locked across a restart. Called once from server boot after
+// initWorld() — apt.is_locked is the single source of truth for apartment locks.
+export function reconcileApartmentDoorLocks() {
+	let relocked = 0;
+	for (const apt of world.apartments.values()) {
+		if (!apt.is_locked) continue;
+		for (const door of world.doors.values()) {
+			if (door.zone_id !== apt.zone_id && !doorFarIds(door).includes(apt.zone_id)) continue;
+			if (!Object.keys(door.tags || {}).some(k => k.startsWith('lock:'))) continue;
+			door.lock_state = 'locked';
+			setDoorCache(door.id, door);
+			relocked++;
+		}
+	}
+	if (relocked) console.log(`✓ Apartment locks reconciled: ${relocked} door(s) relocked`);
+}
+
 const HOME_TUTORIAL = `<span style="color:var(--accent)">◈ HOLOLOCK BOUND ◈</span>
 
 Your HoloLock is now bound to your biometric signature. Here's what that means:
@@ -144,7 +164,8 @@ export async function activateForcefield(player, broadcastFn) {
 	for (const door of world.doors.values()) {
 		if (door.zone_id !== zoneId && !doorFarIds(door).includes(zoneId)) continue;
 		if (!Object.keys(door.tags || {}).some(k => k.startsWith('lock:'))) continue;
-		await query("UPDATE doors SET lock_state='locked', forcefield_locked=1 WHERE id=$1", [door.id]);
+		// Door state is runtime-only (world.doors is the live truth); the forcefield
+		// only stands while the owner is offline/asleep, so nothing to persist.
 		door.lock_state = 'locked';
 		door.forcefield_locked = 1;
 		setDoorCache(door.id, door);
@@ -214,7 +235,8 @@ export async function deactivateForcefield(playerId, zoneId, broadcastFn) {
 	for (const door of world.doors.values()) {
 		if (!door.forcefield_locked) continue;
 		if (door.zone_id !== zoneId && !doorFarIds(door).includes(zoneId)) continue;
-		await query('UPDATE doors SET lock_state=$1, forcefield_locked=0 WHERE id=$2', [wantLocked, door.id]);
+		// Runtime-only (see activateForcefield): restore the door to the apartment's
+		// own lock state in RAM; apt.is_locked is what persists on the apartments table.
 		door.lock_state = wantLocked;
 		door.forcefield_locked = 0;
 		setDoorCache(door.id, door);
@@ -468,7 +490,7 @@ export async function releaseApartment(apt, zoneId) {
 	for (const door of world.doors.values()) {
 		if (door.zone_id === zoneId || doorFarIds(door).includes(zoneId)) {
 			if (!Object.keys(door.tags || {}).some(k => k.startsWith('lock:'))) continue;
-			await query('UPDATE doors SET lock_state=$1 WHERE id=$2', ['unlocked', door.id]);
+			// Door lock state is runtime-only; apt already persisted unlocked above.
 			door.lock_state = 'unlocked';
 			setDoorCache(door.id, door);
 		}
@@ -520,7 +542,8 @@ export async function cmdLockDoor(player, wantLocked) {
 		if (door.zone_id === zone.id || doorFarIds(door).includes(zone.id)) {
 			const hasLockTag = Object.keys(door.tags || {}).some(k => k.startsWith('lock:'));
 			if (!hasLockTag) continue;
-			await query('UPDATE doors SET lock_state=$1 WHERE id=$2', [newLockState, door.id]);
+			// Door lock state is runtime-only (world.doors); apt.is_locked persisted above
+			// is the durable source of truth, reapplied to the door at boot.
 			door.lock_state = newLockState;
 			setDoorCache(door.id, door);
 		}

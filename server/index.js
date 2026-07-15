@@ -44,7 +44,7 @@ import {
 	setGhostTokenStore,
 } from "./api/routes.js";
 import { cmdGhostLook, cmdGhostMove, cmdGhostHaunt, cmdGhostPowerDrain, makeGhostBroadcast } from "./engine/commands/ghost.js";
-import { activateForcefield, deactivateForcefield } from "./engine/apartments.js";
+import { activateForcefield, deactivateForcefield, reconcileApartmentDoorLocks } from "./engine/apartments.js";
 import { startKeepalive } from "./keepalive.js";
 import { startUsageLog } from "./usage-log.js";
 import { setBroadcast as setMessagingBroadcast } from "./engine/messaging.js";
@@ -1227,6 +1227,9 @@ async function boot() {
 	await loadMisSettings();
 	await loadEmailVerificationSetting();
 	await initWorld();
+	// Door lock state isn't persisted (world.doors resets to authored state); re-apply
+	// each locked apartment's durable lock onto its door(s) in RAM.
+	reconcileApartmentDoorLocks();
 	// Sweep loot for monster corpses (not persisted) and expired player corpses.
 	// Player corpses loaded by initWorld() keep their player_inventory rows.
 	await query(

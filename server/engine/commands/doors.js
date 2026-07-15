@@ -88,11 +88,11 @@ export async function checkLockAuth(lockTag, door, player) {
 }
 
 async function updateDoor(door, changes) {
+  // Door state (is_open/lock_state/hp/tags) is runtime-only, held in world.doors
+  // and never persisted — doors reset to their authored state on reboot. The
+  // apartment lock, however, is durable housing state and still gets mirrored.
   Object.assign(door, changes);
   setDoorCache(door.id, door);
-  const keys = Object.keys(changes);
-  const sets = keys.map((k, i) => `${k}=$${i+1}`).join(',');
-  await query(`UPDATE doors SET ${sets} WHERE id=$${keys.length+1}`, [...Object.values(changes), door.id]);
   if (changes.lock_state === 'locked' || changes.lock_state === 'unlocked') await syncApartmentLock(door, changes.lock_state);
 }
 
@@ -277,7 +277,6 @@ export async function cmdAttackDoor(dirStr, player, broadcast) {
 
   door.hp = Math.max(0, door.hp - damage);
   setDoorCache(door.id, door);
-  await query('UPDATE doors SET hp=$1 WHERE id=$2', [door.hp, door.id]);
 
   // The person on the far side hears exactly what's being used on their door, in
   // the clear (bypassing propagateSound's muffling — it's their own door being
@@ -300,7 +299,6 @@ export async function cmdAttackDoor(dirStr, player, broadcast) {
   });
 
   if (door.hp <= 0) {
-    await query('UPDATE doors SET hp=0,is_open=1,lock_state=NULL WHERE id=$1', [door.id]);
     Object.assign(door, { hp: 0, is_open: 1, lock_state: null });
     setDoorCache(door.id, door);
     emit('door.toggled', { zoneId: door.zone_id, targetZoneId: door.target_zone });
@@ -617,7 +615,6 @@ async function cmdInstallLock(args, raw, player, broadcast) {
   door.tags = newTags;
   door.lock_state = 'unlocked';
   setDoorCache(door.id, door);
-  await query('UPDATE doors SET tags=$1,lock_state=$2 WHERE id=$3', [JSON.stringify(newTags), 'unlocked', door.id]);
 
   broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} installs a lock on the door.` }, player.id);
   const extra = config.tagType === 'lock:keycardlock' ? ' A keycard has been added to your inventory.' : '';
@@ -655,7 +652,6 @@ async function cmdUninstallLock(args, raw, player, broadcast) {
   door.tags = newTags;
   door.lock_state = null;
   setDoorCache(door.id, door);
-  await query('UPDATE doors SET tags=$1,lock_state=NULL WHERE id=$2', [JSON.stringify(newTags), door.id]);
 
   // Return the exact kit item that was consumed at install time
   await query(

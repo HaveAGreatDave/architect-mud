@@ -59,7 +59,7 @@ export const REGISTRY = [
 
   // ── content: world structure ──
   { table: 'zones', class: 'content', pk: ['id'],
-    excludeColumns: ['stains'], // bodily.js — blood/vomit, cleared daily
+    excludeColumns: ['stains'], // blood/vomit — RAM-only during play (world.zones), bulk-cleared daily
     runtimeInserts: 'environment.js power/junction rooms; broadcast studio builder (dev-gated)',
     note: 'exits/tags are authored content but runtime systems may also wire them (power rooms, studios) — a known, drift-report-visible seam' },
   { table: 'maps', class: 'content', pk: ['id'],
@@ -86,11 +86,13 @@ export const REGISTRY = [
   { table: 'doors', class: 'content', pk: ['id'],
     // is_open/lock_state/is_locked/hp/tags are CONTENT: they carry authored initial
     // state (a vault ships locked; lock_state defaults to NULL = disengaged, which a
-    // fresh restore must not inflict on every authored lock). Runtime also mutates
-    // them (players open/lock/bash) — that churn appears in exports as reviewable
-    // diffs, and an import touching a door file resets that door's live state.
-    // Known seam; surfaced by the drift report. Only the apartment forcefield guard
-    // is ephemeral enough to exclude.
+    // fresh restore must not inflict on every authored lock), read once into
+    // world.doors at boot. Runtime NEVER writes these back — all live door state
+    // (open/close/lock/bash/wander/forcefield) mutates the in-memory cache only, so
+    // doors reset to authored state on reboot and exports show no runtime churn.
+    // Durable apartment locks are re-derived from apartments.is_locked at boot
+    // (reconcileApartmentDoorLocks). forcefield_locked is a purely ephemeral runtime
+    // guard, never authored — excluded so it's never carried in files.
     excludeColumns: ['forcefield_locked'] },
   { table: 'windows', class: 'content', pk: ['id'] },
   { table: 'sounds', class: 'content', pk: ['id'] },
