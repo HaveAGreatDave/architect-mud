@@ -33,7 +33,7 @@ import { spawnOnGround } from '../../server/engine/inventory.js';
 import { registerAction, dispatchAction } from '../../server/engine/actions.js';
 import { on, emit } from '../../server/engine/events.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
-import { setFlag } from '../../server/engine/flags.js';
+import { setFlag, clearFlag } from '../../server/engine/flags.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { findPath } from '../../server/engine/pathfinding.js';
 import { getZone } from '../../server/engine/world.js';
@@ -60,6 +60,34 @@ async function loadPlayerQuest(playerId, questId) {
     [playerId, questId]
   );
   return rows[0] || null;
+}
+
+// The dispatcher's generic hand-in node (Marta Kell's `job_turnin`) fires a
+// quest_id-less TURN_IN — the board's rotating pool is never authored onto her tree
+// one quest at a time. Tablet OS supplies the quest via dialogue context, but a
+// plain-conversation hand-in has none, so resolve the actor's oldest finished-but-
+// unhanded job-board gig instead. jobboard is reached by dynamic import so quests
+// stays jobboard-agnostic (same pattern as findTurnInNpc's fallback below).
+async function completedJobBoardQuest(actorId) {
+  let isJobBoardQuest;
+  try { ({ isJobBoardQuest } = await import('../jobboard/index.js')); }
+  catch { return null; } // jobboard plugin absent
+  const { rows } = await query(
+    "SELECT quest_id FROM player_quests WHERE player_id=$1 AND status='completed' ORDER BY updated_at ASC",
+    [actorId]
+  );
+  for (const r of rows) if (await isJobBoardQuest(r.quest_id)) return r.quest_id;
+  return null;
+}
+
+// `gig_ready` is a player Flag that a Dialogue Condition can read to show Marta's
+// "I've got a finished job." option only when the player actually has a completed
+// gig to hand back (Flags are the state Conditions read). Recomputed after every
+// completion/turn-in so it clears once the last gig is handed in — covers both the
+// conversational and Tablet OS hand-in paths (both go through the TURN_IN action).
+async function refreshGigReadyFlag(actor) {
+  if (await completedJobBoardQuest(actor.id)) await setFlag('player', 'gig_ready', 'true', actor);
+  else await clearFlag('player', 'gig_ready', actor);
 }
 
 function freshProgress(quest) {
@@ -474,6 +502,11 @@ for (const ev of ['quest.started', 'quest.advanced', 'quest.completed', 'quest.t
   on(ev, ({ actor }) => { if (actor?.id) sendToPlayer(actor.id, { type: 'quest_update' }); });
 }
 
+// Raise the `gig_ready` player Flag when a job-board gig is completed, so Marta
+// Kell's dialogue can offer the in-person hand-in (refreshGigReadyFlag clears it
+// again once the last completed gig is turned back in).
+on('quest.completed', ({ actor }) => { if (actor?.id) refreshGigReadyFlag(actor); });
+
 // Note: 'deliver' objectives (flight pilot contracts) are deliberately NOT wired to
 // zone.entered — a delivery has to be verified as an actual landing with the right
 // cargo aboard (plugins/flight/contracts.js checkContractDelivery), not just the
@@ -572,7 +605,7 @@ registerAction({
     // A generic hand-in dialogue node (Marta's job_turnin) authors no quest_id —
     // the quest being turned in rides in on the dialogue context instead (set by
     // Tablet OS's turn-in routing). Per-quest TURN_IN nodes still pass it in params.
-    const quest_id = params.quest_id || context?.quest_id;
+    const quest_id = params.quest_id || context?.quest_id || await completedJobBoardQuest(actor.id);
     if (!quest_id) return { type: 'error', message: 'TURN_IN requires quest_id.' };
     const quest = await loadQuest(quest_id);
     const pq = quest && await loadPlayerQuest(actor.id, quest_id);
@@ -613,7 +646,12 @@ registerAction({
     const creditLine = rewards.credits ? ` (+${rewards.credits}₵)` : '';
     msg(actor.id, `<span class="msg-system">Quest turned in: ${quest.name}.${creditLine}</span>`);
     emit('quest.turned_in', { actor, quest_id });
-    return { type: 'quest', quest_id, turned_in: true };
+    // Clear/keep the "finished gig ready" flag now this one's handed back, so Marta's
+    // conversational hand-in option disappears once the last completed gig is gone.
+    await refreshGigReadyFlag(actor);
+    // quest_name lets a generic hand-in node fill `{quest}` in its text even when no
+    // Tablet OS context named the quest (renderDialogueNode falls back to this).
+    return { type: 'quest', quest_id, quest_name: quest.name, turned_in: true };
   },
 });
 

@@ -61,6 +61,7 @@ export async function renderDialogueNode(npc, nodeKey, player, context) {
     actions.push({ action: 'GRANT_ITEM', params: { item_id: node.grants_item.item_id, quantity: node.grants_item.quantity || 1 } });
   }
   let appendMessage = '';
+  let resolvedQuestName = '';
   if (player) {
     for (const a of actions) {
       if (!a?.action) continue;
@@ -77,6 +78,10 @@ export async function renderDialogueNode(npc, nodeKey, player, context) {
         appendMessage += `\n\n<span class="item-grant">You receive: ${result.name}${result.quantity > 1 ? ` x${result.quantity}` : ''}.</span>`;
       } else if (result?.type === 'dialogue_line' && result.text) {
         appendMessage += `\n\n${result.text}`;
+      } else if (result?.type === 'quest' && result.quest_name) {
+        // A generic hand-in node (Marta's job_turnin) resolved the gig itself, with no
+        // Tablet OS context to name it — carry the name so `{quest}` below still fills.
+        resolvedQuestName = result.quest_name;
       } else if (result?.type === 'error') {
         console.warn(`[dialogue] action ${a.action} failed: ${result.message}`);
       }
@@ -104,6 +109,7 @@ export async function renderDialogueNode(npc, nodeKey, player, context) {
   // pick one at random each render so repeated visits don't read from a fixed script.
   const baseText = Array.isArray(node.text) ? node.text[Math.floor(Math.random() * node.text.length)] : node.text;
   let text = baseText + appendMessage;
-  if (context?.quest_name) text = text.replace(/\{quest\}/g, context.quest_name);
+  const questName = context?.quest_name || resolvedQuestName;
+  if (questName) text = text.replace(/\{quest\}/g, questName);
   return { text, options };
 }

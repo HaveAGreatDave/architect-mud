@@ -6,6 +6,8 @@ import { query } from '../../server/models/db.js';
 import { dispatchAction } from '../../server/engine/actions.js';
 import { getRegisteredMoveGates } from '../../server/engine/movement-gates.js';
 import { getZone } from '../../server/engine/world.js';
+import { setFlag, getFlag } from '../../server/engine/flags.js';
+import { renderDialogueNode } from '../../server/engine/dialogue.js';
 import { turnInNpcForQuest } from './index.js';
 import { findTurnInNpc } from '../quests/index.js';
 
@@ -86,5 +88,33 @@ export default async function regress({ run, check, getPlayer }) {
     // "Bring it to <NPC>" completion line.
     const viaQuests = await findTurnInNpc(poolQuestId);
     check('quests findTurnInNpc falls back to the job board dispatcher', viaQuests?.npcId === 'npc_fs_dispatcher', JSON.stringify(viaQuests));
+
+    // Conversational hand-in: Marta's generic job_turnin node fires a quest_id-less
+    // TURN_IN. With a completed gig on the books it must resolve THAT gig, pay out,
+    // name it (so `{quest}` fills), and drop `gig_ready` once the last one's gone.
+    await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, poolQuestId]);
+    await query(
+      `INSERT INTO player_quests (player_id,quest_id,status,progress,updated_at)
+       VALUES ($1,$2,'completed','[]',EXTRACT(EPOCH FROM NOW()))`,
+      [player.id, poolQuestId]
+    );
+    await setFlag('player', 'gig_ready', 'true', player);
+    const tr = await dispatchAction({ type: 'TURN_IN', actor: player, params: {} });
+    check('context-less TURN_IN resolves the completed gig', tr?.turned_in === true && tr?.quest_id === poolQuestId, JSON.stringify(tr));
+    check('TURN_IN result names the gig for the {quest} placeholder', typeof tr?.quest_name === 'string' && tr.quest_name.length > 0, JSON.stringify(tr));
+    check('gig_ready clears once the last gig is handed in', !(await getFlag('player', 'gig_ready', player)), 'flag still set');
+
+    // renderDialogueNode fills `{quest}` from the resolved gig even with no Tablet OS
+    // context — a plain-conversation hand-in must not leak the raw placeholder.
+    await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, poolQuestId]);
+    await query(
+      `INSERT INTO player_quests (player_id,quest_id,status,progress,updated_at)
+       VALUES ($1,$2,'completed','[]',EXTRACT(EPOCH FROM NOW()))`,
+      [player.id, poolQuestId]
+    );
+    const fakeMarta = { dialogue_tree: { job_turnin: { text: '{quest}. Done, then.', actions: [{ action: 'TURN_IN' }], options: [] } } };
+    const rendered = await renderDialogueNode(fakeMarta, 'job_turnin', player, undefined);
+    check('job_turnin fills {quest} from the resolved gig (no leftover placeholder)', !!rendered && !rendered.text.includes('{quest}'), rendered?.text);
+    await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, poolQuestId]);
   }
 }

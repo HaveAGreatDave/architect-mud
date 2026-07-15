@@ -243,6 +243,18 @@
           "text": "\"The one who pulls the plug on all of it, eventually.\""
         },
         {
+          "conditions": [
+            {
+              "flag": "gig_ready",
+              "op": "eq",
+              "value": "true",
+              "scope": "player"
+            }
+          ],
+          "next": "job_turnin",
+          "text": "\"I finished a job. Here.\""
+        },
+        {
           "cmd": "gigs",
           "text": "\"What's on the board?\""
         }
