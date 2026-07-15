@@ -127,7 +127,15 @@ function _buildPlantSchematicHtml() {
 
   let html = plants.map(plantBlock).join('');
 
-  const unassigned = jbs.filter(jb => !jb.city_generator_id || !plants.find(p => p.id === jb.city_generator_id));
+  const unlinked = jbs.filter(jb => !jb.city_generator_id || !plants.find(p => p.id === jb.city_generator_id));
+  const offgrid = unlinked.filter(jb => jb.flags?.offgrid);
+  const unassigned = unlinked.filter(jb => !jb.flags?.offgrid);
+  if (offgrid.length) {
+    html += `<div style="margin-top:6px">
+      <div style="color:var(--text-dim);font-size:11px;margin-bottom:6px">🔋 Independent power (off-grid — self-generated, not on the city plant):</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">${offgrid.map(jbTile).join('')}</div>
+    </div>`;
+  }
   if (unassigned.length) {
     html += `<div style="margin-top:6px">
       <div style="color:var(--warning);font-size:11px;margin-bottom:6px">⚠ Junction boxes not wired to any city plant:</div>
@@ -300,10 +308,13 @@ function renderPowerPanelBody() {
     const cityPlants = powerPanelGenerators.filter(g => g.generator_type === 'city_plant');
     const jbsByCity = new Map();
     const unassignedJBs = [];
+    const offgridJBs = [];
     for (const jb of powerPanelGenerators.filter(g => g.generator_type === 'junction_box')) {
       if (jb.city_generator_id) {
         if (!jbsByCity.has(jb.city_generator_id)) jbsByCity.set(jb.city_generator_id, []);
         jbsByCity.get(jb.city_generator_id).push(jb);
+      } else if (jb.flags?.offgrid) {
+        offgridJBs.push(jb);
       } else {
         unassignedJBs.push(jb);
       }
@@ -343,6 +354,25 @@ function renderPowerPanelBody() {
             <button class="action-btn" onclick="toggleGeneratorPower('${jbIdSafe}')">Toggle</button>
             <button class="action-btn" style="margin-left:3px" onclick="editGeneratorCapacity('${jbIdSafe}', ${jb.capacity_kw})">Edit</button>
             <button class="action-btn" style="margin-left:3px" onclick="viewGeneratorZones('${jbIdSafe}')">Zones</button>
+            <button class="action-btn danger" style="margin-left:3px" onclick="removeGeneratorFromPowerPanel('${jbIdSafe}')">Remove</button>
+          </td>
+        </tr>`;
+      }
+    }
+
+    if (offgridJBs.length) {
+      html += `<tr><td colspan="5" style="color:var(--text-dim);font-size:11px;padding-top:8px">🔋 Independent power (off-grid — self-generated, not on the city plant):</td></tr>`;
+      for (const jb of offgridJBs) {
+        const jbIdSafe = jb.id.replace(/'/g, "\\'");
+        const draw = Number(jb.zone_load_w ?? 0);
+        html += `<tr>
+          <td style="padding-left:10px">🔋 ${jb.name || jb.id}</td>
+          <td style="color:var(--text-dim);font-size:11px">${jb.zone_name || jb.zone_id || '—'}</td>
+          <td>${draw.toFixed(1)}W draw</td>
+          <td><span class="badge badge-${Number(jb.capacity_kw) > 0 ? 'safe' : 'high'}">${Number(jb.capacity_kw) > 0 ? 'online' : 'offline'}</span></td>
+          <td style="white-space:nowrap">
+            <button class="action-btn" onclick="toggleGeneratorPower('${jbIdSafe}')">Toggle</button>
+            <button class="action-btn" style="margin-left:3px" onclick="editGeneratorCapacity('${jbIdSafe}', ${jb.capacity_kw})">Edit</button>
             <button class="action-btn danger" style="margin-left:3px" onclick="removeGeneratorFromPowerPanel('${jbIdSafe}')">Remove</button>
           </td>
         </tr>`;
