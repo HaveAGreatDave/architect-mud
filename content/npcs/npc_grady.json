@@ -292,10 +292,6 @@
           ],
           "label": "Good doing business, Grady.",
           "next": "regular"
-        },
-        {
-          "label": "(walk off)",
-          "next": "bye"
         }
       ],
       "text": "The broad man clocks you the instant you’re upright. \"There it is. Another fresh one, blinking in the light.\" He spreads his hands over the crates. \"Name’s Grady. Folks call me Two-Cell. I sell the things that keep you breathing long enough to become a repeat customer.\""

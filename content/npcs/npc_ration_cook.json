@@ -41,10 +41,6 @@
         {
           "label": "What's on the menu?",
           "next": "shop"
-        },
-        {
-          "label": "(leave)",
-          "next": "bye"
         }
       ],
       "text": "\"Sit anywhere that'll hold you. Menu's on the wall, cash on the counter.\""

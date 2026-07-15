@@ -41,10 +41,6 @@
         {
           "label": "Let me see the stock.",
           "next": "shop"
-        },
-        {
-          "label": "(walk off)",
-          "next": "bye"
         }
       ],
       "text": "\"Looking to buy or looking to loiter? The rack's behind the glass. Ask before you touch.\""

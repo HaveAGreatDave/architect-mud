@@ -83,10 +83,6 @@
         {
           "label": "How do these things fly?",
           "next": "tips"
-        },
-        {
-          "label": "(walk off)",
-          "next": "bye"
         }
       ],
       "text": "The silver-haired woman clocks you the moment you step onto the hangar floor. \"Looking to fly? Nobody takes the pilot seat around here until they've flown a checkride with me. Name's Reyes. I decide who gets to leave the ground.\""
