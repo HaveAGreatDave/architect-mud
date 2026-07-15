@@ -33,7 +33,7 @@ const SLUR_MIN     = 30;   // speech starts slurring at/above this
 const WOBBLE_MIN   = 40;   // movement starts staggering
 const BLACKOUT_MIN = 70;   // blackouts become possible
 const TICK_MS        = 4000;
-const DECAY_PER_TICK = 3;   // ~0.75/min... 0.75/sec → sober from 100 in ~2¼ min
+const DECAY_PER_TICK = 9;   // 2.25/sec → sober from 100 in ~45s
 const BLACKOUT_MIN_MS = 10000;
 const BLACKOUT_MAX_MS = 30000;
 
