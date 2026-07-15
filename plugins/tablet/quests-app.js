@@ -219,6 +219,12 @@ async function handleAction(player, actionId, params) {
   if (!questId) return buildScreen(player, null, '');
 
   if (actionId === 'accept') {
+    // A job-board gig is taken in person at the board, with Marta the dispatcher
+    // present — same rule the chat `gigs take` verb enforces. Non-jobboard quests
+    // are unaffected (the gate returns null for them).
+    const { boardCoLocationError } = await import('../jobboard/index.js');
+    const gateErr = await boardCoLocationError(player, questId);
+    if (gateErr) return { view: 'error', message: gateErr };
     const res = await dispatchAction({ type: 'START_QUEST', actor: player, params: { quest_id: questId } });
     if (res?.type === 'error') return { view: 'error', message: res.message };
     return buildScreen(player, null, questId);

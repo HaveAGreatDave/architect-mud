@@ -144,10 +144,19 @@ export function buildingTypeOf(zone) {
 // which is a planner hint that often points at the wrong side. Reverse-indexed once
 // and cached (rebuilt lazily; invalidated whenever exits change). 'north'|'south'|
 // 'east'|'west'|null.
+//
+// When more than one standable tile steps into the same facade (e.g. a shop that
+// backs onto grassland on one side and fronts a road on another), the door must be
+// pinned to the ROAD — that's the "first available open road" the building faces.
+// Without this, whichever neighbour happened to be scanned first won the entrance,
+// which is how Pawn & Pity and The Neon Vig ended up with a grassland-facing (west)
+// door when their real frontage is Marrow Street to the north.
 let _entranceDirCache = null;
 export function invalidateEntranceDirCache() { _entranceDirCache = null; }
 function buildEntranceDirIndex() {
-  const idx = new Map();
+  // facadeId → array of { side, road } candidates (side = the facade face the
+  // neighbour is on = the door side). Resolved road-first below.
+  const cands = new Map();
   for (const z of world.zones.values()) {
     if (z.grid_x == null) continue;
     // The entrance must be the STREET tile you step in from — so the source zone
@@ -157,16 +166,25 @@ function buildEntranceDirIndex() {
     // gets pinned to the neighbouring building and facadeStreetTile spills you onto
     // it instead of the street.
     if (hasTag(z, 'facade')) continue;
+    const zIsRoad = zoneTerrain(z) === 'road';
     for (const [dir, targetId] of Object.entries(z.exits || {})) {
       const off = DIR_OFFSET[dir];
       if (!off || off[2] !== 0 || (off[0] === 0 && off[1] === 0)) continue; // N/S/E/W only
       const t = world.zones.get(targetId);
-      if (!t || t.grid_x == null || !hasTag(t, 'facade') || idx.has(t.id)) continue;
+      if (!t || t.grid_x == null || !hasTag(t, 'facade')) continue;
       // z steps `dir` into facade t and they're grid-adjacent that way ⇒ the door
       // faces t's side toward z, i.e. the opposite of dir.
-      if (t.grid_x - z.grid_x === off[0] && t.grid_y - z.grid_y === off[1] && (t.grid_z ?? 0) === (z.grid_z ?? 0))
-        idx.set(t.id, OPPOSITE[dir]);
+      if (t.grid_x - z.grid_x === off[0] && t.grid_y - z.grid_y === off[1] && (t.grid_z ?? 0) === (z.grid_z ?? 0)) {
+        if (!cands.has(t.id)) cands.set(t.id, []);
+        cands.get(t.id).push({ side: OPPOSITE[dir], road: zIsRoad });
+      }
     }
+  }
+  const idx = new Map();
+  for (const [facadeId, list] of cands) {
+    // Prefer a road-facing side; fall back to the first candidate found.
+    const pick = list.find(c => c.road) || list[0];
+    idx.set(facadeId, pick.side);
   }
   return idx;
 }

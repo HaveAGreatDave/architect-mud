@@ -22,6 +22,7 @@ import { registerAction, dispatchAction } from '../../server/engine/actions.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { getFlag, setFlag, clearFlag } from '../../server/engine/flags.js';
 import { sendToZone } from '../../server/engine/messaging.js';
+import { getZone } from '../../server/engine/world.js';
 
 const DEFAULT_PERIOD = 21600; // 6h
 
@@ -66,6 +67,46 @@ export async function turnInNpcForQuest(questId) {
   // out) rather than her root — the board's rotating pool is never authored onto her
   // tree one TURN_IN-per-quest, so a single generic hand-in branch stands in for all.
   return npc ? { npcId: npc.id, npcName: npc.name, zone: board.zone_id, node: 'job_turnin' } : null;
+}
+
+// The board's dispatcher NPC (Marta at the Franchise Strip) — the greeter linked to
+// the board's zone, or a statically-placed NPC there, flagged job_board_dispatcher.
+// Same resolution as turnInNpcForQuest, but returns id+name for the co-location gate.
+async function dispatcherForBoard(board) {
+  const { rows } = await query(
+    `SELECT n.id, n.name
+       FROM npcs n
+       JOIN zones z ON z.id = $1
+      WHERE (n.id = z.flags->'greeter'->>'npc_id' OR n.zone_id = $1)
+        AND n.flags->>'job_board_dispatcher' = 'true'
+      ORDER BY (n.id = z.flags->'greeter'->>'npc_id') DESC
+      LIMIT 1`,
+    [board.zone_id]
+  );
+  return rows[0] || null;
+}
+
+// Marta works the board in person: taking or handing in a gig needs the dispatcher
+// standing at the board (she's placed dynamically, so check the LIVE zone occupancy,
+// not npcs.zone_id). Returns an error result if she's away, else null.
+async function requireDispatcher(board, player) {
+  const disp = await dispatcherForBoard(board);
+  if (!disp) return null; // no dispatcher configured for this board — board alone suffices
+  const zone = getZone(player.current_zone);
+  if (zone && zone.npcs && zone.npcs.has(disp.id)) return null;
+  return { type: 'output', message: `${disp.name} isn't at the board right now. Come back when she's working the window.` };
+}
+
+// Shared co-location gate for taking/handing in a JOB-BOARD gig: the player must be
+// standing at the board with its dispatcher present. Returns an error string, or null
+// if the action is legal (or the quest isn't a job-board gig — then it's not our rule).
+// Used by the chat verbs and the Tablet OS Job Board so both honour the same rule.
+export async function boardCoLocationError(player, questId) {
+  if (!(await isJobBoardQuest(questId))) return null;
+  const board = await boardInZone(player.current_zone);
+  if (!board) return "You have to be at the job board to take that on.";
+  const away = await requireDispatcher(board, player);
+  return away ? away.message : null;
 }
 
 function nowSec() { return Math.floor(Date.now() / 1000); }
@@ -238,6 +279,8 @@ async function gigs(args, raw, player) {
 
   const board = await boardInZone(player.current_zone);
   if (!board) return { type: 'output', message: "There's no work posted here." };
+  const away = await requireDispatcher(board, player);
+  if (away) return away;
   if (['take', 'accept', 'apply'].includes(sub)) return takeJob(board, player, n);
   return claimJob(board, player, n);
 }

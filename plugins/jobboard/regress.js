@@ -5,6 +5,7 @@
 import { query } from '../../server/models/db.js';
 import { dispatchAction } from '../../server/engine/actions.js';
 import { getRegisteredMoveGates } from '../../server/engine/movement-gates.js';
+import { getZone } from '../../server/engine/world.js';
 import { turnInNpcForQuest } from './index.js';
 import { findTurnInNpc } from '../quests/index.js';
 
@@ -28,7 +29,21 @@ export default async function regress({ run, check, getPlayer }) {
   // the board. Prove the fix by standing at a real board and checking a
   // player_quests row actually gets created.
   const home = player.current_zone;
-  player.current_zone = 'zone_district_919_904'; // Franchise Strip — board_franchise_strip
+  const boardZone = 'zone_district_919_904'; // where board_franchise_strip is posted
+  player.current_zone = boardZone;
+
+  // Co-location rule: taking a gig needs the dispatcher (Marta) AT the board. She
+  // wanders, so with her elsewhere the take is refused (no quest row created).
+  const liveZone = getZone(boardZone);
+  liveZone?.npcs?.delete('npc_fs_dispatcher');
+  r = await run('gigs take 1');
+  const { rows: beforeMarta } = await query(
+    "SELECT 1 FROM player_quests WHERE player_id=$1 AND status='active'", [player.id]
+  );
+  check('gigs take refused with the dispatcher away', beforeMarta.length === 0, r?.message);
+
+  // With Marta arrived at the board, the same take goes through.
+  liveZone?.npcs?.add('npc_fs_dispatcher');
   r = await run('gigs take 1');
   const { rows: taken } = await query(
     "SELECT 1 FROM player_quests WHERE player_id=$1 AND status='active'", [player.id]
