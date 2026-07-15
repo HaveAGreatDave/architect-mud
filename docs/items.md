@@ -98,8 +98,7 @@ tag model and the rationale behind it.
 | `material` / `currency` / `misc` | flag | Category markers (filtering/flavor). |
 | `slot` | enum | `head`·`torso`·`hands`·`legs`·`feet`·`weapon_hand`·`accessory`. **Presence of this tag is what makes an item equippable.** |
 | `layer` | enum | `underwear`·`outerwear`·`armor` — which of the three worn layers a **body-slot** piece occupies (innermost→outermost). One item per slot+layer; others see only your outermost layer. Ignored for `weapon_hand` (single) and `accessory` (3 slots, no layers). Defaults to `outerwear` when unset. |
-| `armor` | int | Flat damage reduction while equipped. Stacks across worn pieces. |
-| `armor_soak` | statmap | Per-damage-type soak, e.g. `{ "kinetic": 3, "energy": 1 }` — the primary typed-armor mechanism (see [combat.md](combat.md)). |
+| `armor_soak` | statmap | Per-damage-type soak, e.g. `{ "kinetic": 3, "energy": 1 }` — the **only** armor mechanism; the old flat `armor` int was removed (see [combat.md](combat.md)). |
 | `stat_bonus` | statmap | Passive stat bumps, e.g. `{ "stat_str": 3 }`. |
 | `requires` | statmap | Stat gates to equip, e.g. `{ "stat_str": 6 }`. |
 | `damage` | range | Weapon damage roll `{ min, max }`. |
@@ -125,9 +124,8 @@ This table covers the core item model; it is not the full catalog. The authorita
 ### Name-collision note
 
 Equip-eligibility is signaled by the **presence of a `slot` tag**, not by
-`weapon`/`armor`. `armor` is purely the integer damage-reduction tag, and
-`weapon` is purely the combat-weapon marker. A weapon therefore carries *both*
-`weapon` and `slot: "weapon_hand"`.
+`weapon`. `weapon` is purely the combat-weapon marker, so a weapon carries *both*
+`weapon` and `slot: "weapon_hand"`. Armor protection comes only from `armor_soak`.
 
 ---
 
@@ -152,7 +150,7 @@ Presence-only flags on a single carried item, stored in
   "damage":{"min":5,"max":8}, "status_chance":{"stunned":0.3}, "stat_bonus":{"stat_reflexes":4} }
 
 // Armor piece — Scrap Helmet (head). `layer:"armor"` sits it over any hat/hood.
-{ "description":"A motorcycle helmet with extra rivets.", "slot":"head", "layer":"armor", "armor":3 }
+{ "description":"A motorcycle helmet with extra rivets.", "slot":"head", "layer":"armor", "armor_soak":{"kinetic":3} }
 
 // Gradual heal — Trauma Kit
 { "consumable":true, "heal_over_time":{"amount":50,"duration_seconds":300} }
@@ -171,7 +169,7 @@ Presence-only flags on a single carried item, stored in
 
 1. Add a `slot` tag — one of the seven canonical slots. (This is what makes it equippable.)
 2. For a body slot, add a `layer` tag (`underwear`/`outerwear`/`armor`); armor pieces are usually `armor`. Omit for weapon/accessory. Unset defaults to `outerwear`.
-3. Add an `armor` int (and/or `armor_soak` statmap) for damage reduction. Without it the piece equips but reduces nothing.
+3. Add an `armor_soak` statmap for damage reduction. Without it the piece equips but reduces nothing (the dev-panel item list flags such pieces "⚠ no soak").
 4. Optional `requires` to gate behind a stat; optional `stat_bonus` for passive bumps.
 5. Save & Publish in the dev panel — `equip` it, then `gear` to see it placed on its layer with soak per region.
 

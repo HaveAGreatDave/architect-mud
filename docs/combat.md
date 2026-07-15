@@ -90,12 +90,13 @@ Players carry a per-slot soak structure on `player.soak`, built by `recomputeArm
 ([inventory.js](../server/engine/commands/inventory.js)):
 
 ```
-player.soak[slot] = { soak: { kinetic: N, energy: N, ... }, flat: <legacy armor int> }
+player.soak[slot] = { soak: { kinetic: N, energy: N, ... } }
 ```
 
+Soak comes only from the `armor_soak` tag on equipped pieces; the old flat `armor` int is gone.
 `resolveSoak(soakMap, damageType)`: if the map has the incoming damage type, use it in full;
-otherwise reduce by `max(other values) × soak_mismatch_factor` (0.25). Enemies use a typed `soak`
-map if present, else the flat `armor` integer.
+otherwise reduce by `max(other values) × soak_mismatch_factor` (0.25). Enemies use their own typed
+`soak` map (from `body_parts`), or take full damage if they have none.
 
 `recomputeArmor()` runs at login and again on every equip, unequip, and bulk-drop
 ([inventory.js](../server/engine/commands/inventory.js)), so armour changes take combat effect

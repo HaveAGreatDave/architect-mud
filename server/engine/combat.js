@@ -152,11 +152,11 @@ function resolveSoak(soakMap, damageType) {
   return Math.floor(Math.max(...values) * factor);
 }
 
-// Total soak for a player on the struck part: typed armor_soak + legacy flat.
+// Total soak for a player on the struck part: typed armor_soak on that slot.
 function playerPartSoak(player, part, damageType) {
   const entry = player.soak?.[PART_TO_SLOT[part]];
   if (!entry) return 0;
-  return resolveSoak(entry.soak, damageType) + (entry.flat || 0);
+  return resolveSoak(entry.soak, damageType);
 }
 
 // Per-part hit weights from a monster's body_parts (array of {part,weight,soak}).

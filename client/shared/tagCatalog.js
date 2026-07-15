@@ -59,8 +59,6 @@
     slot: { label: 'Equip Slot', shape: 'enum', scope: 'class', group: 'Equipment',
       options: ['head', 'torso', 'hands', 'legs', 'feet', 'weapon_hand', 'accessory'],
       help: 'Body slot this equips to. Presence of this tag is what makes an item equippable.' },
-    armor: { label: 'Armor', shape: 'int', scope: 'class', group: 'Equipment',
-      help: 'Flat damage reduction while equipped. Stacks across all worn pieces (legacy; superseded by armor_soak in Phase 5).' },
     armor_soak: { label: 'Armor Soak', shape: 'statmap', scope: 'class', group: 'Equipment',
       help: 'Per-damage-type soak, e.g. { "kinetic": 4, "energy": 1 }. Used when this piece covers the struck body part.' },
     insulation: { label: 'Insulation', shape: 'int', scope: 'class', group: 'Equipment',

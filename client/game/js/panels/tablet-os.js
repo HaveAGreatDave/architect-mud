@@ -2786,14 +2786,15 @@ function renderGearLoadout(d) {
     ? `<div class="tos-gear-fx">${parts.map(p => `<span>${esc(p)}</span>`).join('')}</div>`
     : '<div class="tos-gear-fx empty">No passive effects.</div>';
 
-  // Top-right cluster: layer selector, carry weight, then the cumulative-armor (shield)
+  // Top-right cluster: layer selector, carry weight, then the cumulative-soak (shield)
   // + insulation (thermometer) readouts. All monochrome; icons stroke in the accent.
-  const totalArmor = equipped.reduce((s, i) => s + (Number(i.tags?.armor) || 0), 0);
+  const totalSoak = equipped.reduce((s, i) =>
+    s + Object.values(i.tags?.armor_soak || {}).reduce((a, v) => a + (Number(v) || 0), 0), 0);
   const far =
     `<div class="tos-gload-far">
        <div class="tos-gl-group">${layers}</div>
        ${carry}
-       <div class="tos-gstat tos-gstat-armor" data-armor-break title="Total armor — click for the per-type breakdown">${GEAR_SHIELD_SVG}<span>${totalArmor}</span></div>
+       <div class="tos-gstat tos-gstat-armor" data-armor-break title="Total soak — click for the per-type breakdown">${GEAR_SHIELD_SVG}<span>${totalSoak}</span></div>
        <div class="tos-gstat" title="Insulation">${GEAR_THERMO_SVG}<span>${Math.round(fx.insulation || 0)}°</span></div>
      </div>`;
 
@@ -2885,13 +2886,9 @@ function showGearItemDetail(it) {
   if (it.sell_value != null) rows.push(['Sell value', `₵${it.sell_value}${it.quantity > 1 ? ' each' : ''}`]);
   if (t.slot) rows.push(['Slot', GEAR_SLOT_LABEL[t.slot] || t.slot.replace('_', ' ')]);
   if (t.layer && GEAR_ARMOR_SLOTS.includes(t.slot)) rows.push(['Layer', gcap(t.layer)]);
-  if (t.armor != null) {
-    let s = '';
-    if (t.armor_soak && typeof t.armor_soak === 'object') {
-      const p = Object.entries(t.armor_soak).map(([k, v]) => `${k} ${v}`);
-      if (p.length) s = ` (${p.join(', ')})`;
-    }
-    rows.push(['Armor', `${t.armor}${s}`]);
+  if (t.armor_soak && typeof t.armor_soak === 'object') {
+    const p = Object.entries(t.armor_soak).filter(([, v]) => Number(v) > 0).map(([k, v]) => `${k} ${v}`);
+    if (p.length) rows.push(['Soak', p.join(', ')]);
   }
   if (t.container != null) rows.push(['Capacity', gearWeight(t.container)]);
   if (t.stat_bonus && typeof t.stat_bonus === 'object') {
@@ -2941,7 +2938,7 @@ function closeGearItemDetail() { _gearIdp?.remove(); _gearIdp = null; }
 
 // ── Hover tooltip (fast kit-building) ────────────────────────────────────────
 // A monochrome quick-stats card shown on hover over a tray item or a worn slot:
-// armor → per-type soak (0s excluded) + flat armor + insulation; weapon → damage
+// armor → per-type soak (0s excluded) + insulation; weapon → damage
 // range + type. Only equippable items (a `slot` tag) get one.
 function gearTipHtml(it, hint) {
   const t = it.tags || {};
@@ -2958,7 +2955,6 @@ function gearTipHtml(it, hint) {
     const soakRows = GEAR_DMG.filter(k => Number(soak[k]) > 0)
       .map(k => `<div class="tos-gtip-soak"><span class="tos-gtip-ico">${GEAR_DMG_ICON[k] || ''}</span><span>${esc(gcap(k))}</span><span class="tos-gtip-val">${soak[k]}</span></div>`);
     if (soakRows.length) rows.push(`<div class="tos-gtip-sec">Soak</div>${soakRows.join('')}`);
-    if (Number(t.armor) > 0) rows.push(`<div class="tos-gtip-row"><span>Armor</span><span>${t.armor}</span></div>`);
     if (t.insulation) rows.push(`<div class="tos-gtip-row"><span>Insulation</span><span>${t.insulation}°</span></div>`);
     if (t.sealed) rows.push(`<div class="tos-gtip-row"><span>Sealed airway</span><span>✓</span></div>`);
     if (!rows.length) rows.push(`<div class="tos-gtip-row tos-gtip-dim"><span>No protection</span></div>`);
@@ -3013,18 +3009,16 @@ function gearFeedback(msg) {
   _gearFbTimer = setTimeout(() => { el.classList.remove('show'); }, 2600);
 }
 
-// The armor readout's click-through: total soak per damage type across all worn
+// The soak readout's click-through: total soak per damage type across all worn
 // gear, each with its icon (monochrome). Shows every type so gaps read as clearly
-// as coverage; flat (untyped) armor is footnoted.
+// as coverage.
 function showArmorBreakdown() {
   closeGearItemDetail();
   const equipped = (_data?.items || []).filter(i => i.is_equipped);
   const soak = {}; for (const k of GEAR_DMG) soak[k] = 0;
-  let flat = 0;
   for (const it of equipped) {
     const s = it.tags?.armor_soak || {};
     for (const k of GEAR_DMG) soak[k] += Number(s[k]) || 0;
-    flat += Number(it.tags?.armor) || 0;
   }
   const rows = GEAR_DMG.map(k =>
     `<div class="tos-gbrk-row${soak[k] ? '' : ' zero'}"><span class="tos-gbrk-ico">${GEAR_DMG_ICON[k]}</span><span class="tos-gbrk-name">${esc(gcap(k))}</span><span class="tos-gbrk-val">${soak[k]}</span></div>`).join('');
@@ -3032,8 +3026,7 @@ function showArmorBreakdown() {
   el.className = 'tos-idp-overlay';
   el.innerHTML = `<div class="tos-idp tos-gbrk">
     <div class="tos-idp-head"><span class="tos-idp-name">Protection</span><button class="tos-idp-x" title="Close">✕</button></div>
-    <div class="tos-gbrk-list">${rows}</div>
-    ${flat ? `<div class="tos-gbrk-foot">+${flat} flat armor · reduces every type</div>` : ''}</div>`;
+    <div class="tos-gbrk-list">${rows}</div></div>`;
   el.addEventListener('click', (e) => { if (e.target === el) closeGearItemDetail(); });
   el.querySelector('.tos-idp-x').addEventListener('click', closeGearItemDetail);
   _overlay.appendChild(el);

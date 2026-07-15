@@ -94,6 +94,22 @@ function filterItems(q) {
   renderItemsPanel(filtered);
 }
 
+// Body slots that show up in the gear soak table — an armor piece on one of these
+// with no positive armor_soak reduces nothing (the flat `armor` stat is gone).
+const ARMOR_BODY_SLOTS = ['head', 'torso', 'hands', 'legs', 'feet'];
+
+// True when a record is meant to be armor (armor category, or an armor-layer body
+// piece) yet carries no protective armor_soak. Surfaced as a badge so these can be
+// found and given soak.
+function itemArmorNoSoak(rec) {
+  const tags = (rec.tags && typeof rec.tags === 'object') ? rec.tags
+    : (() => { try { return JSON.parse(rec.tags || '{}'); } catch { return {}; } })();
+  if (!ARMOR_BODY_SLOTS.includes(tags.slot)) return false;
+  if (tags.layer !== 'armor' && rec.type !== 'armor') return false;
+  const s = tags.armor_soak;
+  return !(s && typeof s === 'object' && Object.values(s).some(v => Number(v) > 0));
+}
+
 function renderItemsPanel(records = allRecords) {
   const panel = document.getElementById('list-panel');
   if (!records.length) {
@@ -131,8 +147,9 @@ function renderItemsPanel(records = allRecords) {
       for (const rec of [...items].sort((a, b) => (a.name || '').localeCompare(b.name || ''))) {
         const idSafe = rec.id.replace(/'/g, "\\'");
         html += `<tr onclick="editRecord('${idSafe}')">`;
+        const noSoak = itemArmorNoSoak(rec) ? ' <span class="item-nosoak-badge" title="Armor with no armor_soak — reduces nothing. Add soak to make it protective.">⚠ no soak</span>' : '';
         for (const col of cols) {
-          const val = col.key === 'name' ? `${rec.name ?? '—'} <span style="color:var(--text-dim);font-size:10px">(${rec.id})</span>` : (rec[col.key] ?? '—');
+          const val = col.key === 'name' ? `${rec.name ?? '—'} <span style="color:var(--text-dim);font-size:10px">(${rec.id})</span>${noSoak}` : (rec[col.key] ?? '—');
           html += `<td>${val}</td>`;
         }
         html += `<td><button class="action-btn" onclick="event.stopPropagation();editRecord('${idSafe}')">Edit</button></td></tr>`;
@@ -184,7 +201,7 @@ function applyItemSupertag() {
 // Only tags present in TAG_CATALOG are rendered (safe if catalog doesn't have them yet).
 const CATEGORY_DEFAULT_TAGS = {
   clothing:   { slot: 'torso' },
-  armor:      { slot: 'torso', armor: 0 },
+  armor:      { slot: 'torso', layer: 'armor', armor_soak: { kinetic: 0 } },
   weapon:     { weapon: true, slot: 'weapon_hand', weapon_skill: 'clubs', damage: { min: 1, max: 2 } },
   consumable: { consumable: true },
   drug:       { consumable: true },

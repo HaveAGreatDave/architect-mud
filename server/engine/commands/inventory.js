@@ -52,7 +52,7 @@ const EQUIP_VERBS = {
 };
 
 // Build a per-slot typed-soak structure for the player from equipped armor.
-// player.soak[slot] = { soak: { kinetic:4, ... }, flat: <legacy armor int> }.
+// player.soak[slot] = { soak: { kinetic:4, ... } }.
 // Combat routes the weapon's damage_type through the struck part's slot here.
 export async function recomputeArmor(player) {
   const { rows } = await query(`SELECT i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.is_equipped=1`, [player.id]);
@@ -64,13 +64,10 @@ export async function recomputeArmor(player) {
     const covers = tagValue(r, 'covers');
     const slots = Array.isArray(covers) ? [slot, ...covers] : [slot];
     const sm = tagValue(r, 'armor_soak');
-    const flat = tagValue(r, 'armor', 0) || 0;
+    if (!sm || typeof sm !== 'object') continue;
     for (const s of slots) {
-      const entry = bySlot[s] || (bySlot[s] = { soak: {}, flat: 0 });
-      if (sm && typeof sm === 'object') {
-        for (const [type, val] of Object.entries(sm)) entry.soak[type] = (entry.soak[type] || 0) + (Number(val) || 0);
-      }
-      entry.flat += flat;
+      const entry = bySlot[s] || (bySlot[s] = { soak: {} });
+      for (const [type, val] of Object.entries(sm)) entry.soak[type] = (entry.soak[type] || 0) + (Number(val) || 0);
     }
   }
   player.soak = bySlot;

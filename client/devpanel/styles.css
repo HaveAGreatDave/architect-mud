@@ -135,6 +135,8 @@
   .badge-high { background: rgba(224,85,85,0.15); color: var(--red); border: 1px solid rgba(224,85,85,0.3); }
   .badge-lethal { background: rgba(224,85,85,0.3); color: var(--red); border: 1px solid var(--red); }
   .badge-pvp { background: rgba(224,85,85,0.15); color: var(--red); font-size: 10px; padding: 1px 5px; }
+  .item-nosoak-badge { font-size: 10px; padding: 1px 6px; border-radius: 2px; white-space: nowrap;
+    background: rgba(224,145,74,0.15); color: var(--accent3); border: 1px solid rgba(224,145,74,0.3); }
   .badge-safe-zone { background: rgba(76,175,116,0.15); color: var(--accent2); font-size: 10px; padding: 1px 5px; }
 
   .action-btn {
