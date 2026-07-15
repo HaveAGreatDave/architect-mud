@@ -91,8 +91,11 @@ try {
       for (const c of entry.pk) if (!cols.includes(c)) cols.push(c);
       const colList = cols.map(c => `"${c}"`).join(', ');
 
-      await client.query(`DROP TABLE IF EXISTS _content_drift`);
-      await client.query(`CREATE TEMP TABLE _content_drift AS SELECT ${colList} FROM ${entry.table} WITH NO DATA`);
+      // One transaction per table: the pooler endpoint is PgBouncer in transaction
+      // mode, so a temp table only survives between statements while a transaction
+      // pins the backend session.
+      await client.query('BEGIN');
+      await client.query(`CREATE TEMP TABLE _content_drift ON COMMIT DROP AS SELECT ${colList} FROM ${entry.table} WITH NO DATA`);
       for (let i = 0; i < files.length; i += 100) {
         const chunk = files.slice(i, i + 100);
         const params = [];
@@ -118,16 +121,22 @@ try {
         ) d WHERE kind IS NOT NULL`);
       let rows;
       try {
+        await client.query('SAVEPOINT scoped_compare');
         ({ rows } = await compare(entry.where ? ` WHERE ${entry.where}` : ''));
       } catch (e) {
         // A registry `where` predicate can reference a column this SAME deploy
         // introduces (e.g. furniture.origin). Fall back to an unscoped read —
         // runtime rows then show as "db-only", which the report already
         // tolerates. Self-heals the moment the column ships.
-        if (entry.where && e.code === '42703') ({ rows } = await compare(''));
-        else throw e;
+        if (entry.where && e.code === '42703') {
+          await client.query('ROLLBACK TO SAVEPOINT scoped_compare');
+          ({ rows } = await compare(''));
+        } else {
+          await client.query('ROLLBACK').catch(() => {});
+          throw e;
+        }
       }
-      await client.query(`DROP TABLE _content_drift`);
+      await client.query('COMMIT');
 
       const nameByKey = new Map(files.map(f => [entry.pk.map(c => String(f.data[c])).join('\0'), f.name]));
       const nameOf = (r) => nameByKey.get(entry.pk.map(c => String(r[c])).join('\0')) || entry.pk.map(c => r[c]).join('/');

@@ -342,7 +342,10 @@ function skylineBearing(dx, dy) {
 	return ns || ew;
 }
 
-export async function describeZone(zone, player) {
+// `out` is an optional collector for values computed here that a caller would
+// otherwise have to recompute: cmdMove ships out.vis in the move payload so the
+// client's brightness filter doesn't need its own /environment/visibility fetch.
+export async function describeZone(zone, player, out = {}) {
 	const vis = getZoneVisibility(zone.id);
 	// Per-player perception seam: a carried light source (e.g. a lit flashlight)
 	// can raise how bright THIS player sees the room, applied before any darkness
@@ -353,6 +356,7 @@ export async function describeZone(zone, player) {
 		vis.category = perceived.category;
 		vis.visibility = perceived.visibility;
 	}
+	out.vis = vis;
 	if (vis.category === "pitch_dark") {
 		const windows = getWindowsForZone(zone.id);
 		const windowHint = windows.length
@@ -405,26 +409,37 @@ export async function describeZone(zone, player) {
 		? []
 		: getZonePlayers(zone.id).filter((p) => p.id !== player.id);
 
-	const { rows: sleepingBodies } = isDark
-		? { rows: [] }
-		: await query(
-				`SELECT handle FROM players WHERE offline_sleeping=TRUE AND current_zone=$1`,
-				[zone.id],
-			);
-
-	const { rows: groundItems } = hideItems
-		? { rows: [] }
-		: await query(
-				`SELECT pi.*, i.name, i.tags FROM player_inventory pi
+	// These four are mutually independent, so they issue together rather than
+	// serially: each query() is its own pool checkout and round trip, and hosted
+	// the RTT dominates. zoneGens is consumed ~200 lines down (Installed: list).
+	const [
+		{ rows: sleepingBodies },
+		{ rows: groundItems },
+		{ rows: furniture },
+		{ rows: zoneGens },
+	] = await Promise.all([
+		isDark
+			? { rows: [] }
+			: query(
+					`SELECT handle FROM players WHERE offline_sleeping=TRUE AND current_zone=$1`,
+					[zone.id],
+				),
+		hideItems
+			? { rows: [] }
+			: query(
+					`SELECT pi.*, i.name, i.tags FROM player_inventory pi
      JOIN items i ON i.id = pi.item_id
      WHERE pi.player_id = $1 AND pi.container_id IS NULL`,
-				[`_ground_${zone.id}`],
-			);
-
-	const { rows: furniture } = await query(
-		"SELECT * FROM furniture WHERE zone_id = $1",
-		[zone.id],
-	);
+					[`_ground_${zone.id}`],
+				),
+		query("SELECT * FROM furniture WHERE zone_id = $1", [zone.id]),
+		isDark
+			? { rows: [] }
+			: query(
+					`SELECT name, status FROM generators WHERE zone_id=$1 AND generator_type='junction_box'`,
+					[zone.id],
+				),
+	]);
 	const windows = getWindowsForZone(zone.id);
 	// PD street cams: woven into the room prose as a dim aside rather than listed
 	// as objects. Dark hides them (not a light source); concealed ones stay hidden.
@@ -633,10 +648,6 @@ export async function describeZone(zone, player) {
 	}
 	if (furniturePanel?.html) desc += `\n${furniturePanel.html}`;
 	if (!isDark) {
-		const { rows: zoneGens } = await query(
-			`SELECT name, status FROM generators WHERE zone_id=$1 AND generator_type='junction_box'`,
-			[zone.id],
-		);
 		if (zoneGens.length) {
 			const genLinks = zoneGens.map(
 				(g) =>

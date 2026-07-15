@@ -264,17 +264,14 @@ function _playPowerOutSfx() {
   });
 }
 
-export function refreshZoneVisibility() {
+// `preloaded` is a visibility object the server already sent (the move payload
+// carries one — describeZone computes the same value the /environment/visibility
+// route would, so re-fetching it is a wasted round trip). Callers without one
+// still fetch.
+export function refreshZoneVisibility(preloaded) {
   if (!state.currentZone) return;
   const zone = state.currentZone;
-  // Send the player's API token so the server can apply THIS player's perception
-  // (a carried lit flashlight lifts the room's visibility for them) — otherwise
-  // the brightness filter reflects only ambient zone lighting.
-  const token = sessionStorage.getItem('devpanel-token');
-  fetch(`/api/environment/visibility/${encodeURIComponent(zone)}`,
-    token ? { headers: { Authorization: `Bearer ${token}` } } : undefined)
-    .then(r => r.json())
-    .then(v => {
+  const apply = (v) => {
       const vis = Math.max(0, Math.min(1, v.visibility ?? 1));
       // VISIBILITY_CLEAR on the server is 0.6 — any zone at or above that is
       // considered well-lit, so clear the filter entirely to preserve theme colors.
@@ -322,7 +319,18 @@ export function refreshZoneVisibility() {
       const labelEl = document.getElementById('env-light-label');
       if (iconEl) iconEl.style.color = lc.color;
       if (labelEl) { labelEl.textContent = lc.label; labelEl.style.color = lc.color; }
-    })
+  };
+
+  if (preloaded) { apply(preloaded); return; }
+
+  // Send the player's API token so the server can apply THIS player's perception
+  // (a carried lit flashlight lifts the room's visibility for them) — otherwise
+  // the brightness filter reflects only ambient zone lighting.
+  const token = sessionStorage.getItem('devpanel-token');
+  fetch(`/api/environment/visibility/${encodeURIComponent(zone)}`,
+    token ? { headers: { Authorization: `Bearer ${token}` } } : undefined)
+    .then(r => r.json())
+    .then(apply)
     .catch(() => {});
 }
 

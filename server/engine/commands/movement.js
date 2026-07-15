@@ -501,7 +501,8 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
       await query('UPDATE players SET radiation=$1 WHERE id=$2', [player.radiation, player.id]);
     }
   }
-  const zoneDesc = await describeZone(targetZone, player);
+  const describeOut = {};
+  const zoneDesc = await describeZone(targetZone, player, describeOut);
 
   const destName = targetZone.name;
   let narration;
@@ -583,7 +584,7 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
     }
   }
 
-  return { type:'move', message:zoneDesc, narration, zone:targetId, direction, radiation_gain:radGain, minimap: getMinimapData(targetId, 8, player), tempC: getZoneTemperature(targetId), ambience: ambienceFor(targetZone) };
+  return { type:'move', message:zoneDesc, narration, zone:targetId, direction, radiation_gain:radGain, minimap: getMinimapData(targetId, 8, player), tempC: getZoneTemperature(targetId), ambience: ambienceFor(targetZone), visibility: describeOut.vis };
 }
 
 // Move every live player following `leaderId` (a player or NPC id) out of
