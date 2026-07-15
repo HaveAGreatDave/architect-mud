@@ -49,6 +49,7 @@
 import { readFileSync } from 'node:fs';
 import { query } from '../../server/models/db.js';
 import { validateTags } from '../../server/engine/tags.js';
+import { authorUtilityRoom, buildingHasPower } from '../lib/utility-room.mjs';
 
 const args = process.argv.slice(2);
 const bpPath = args.find(a => !a.startsWith('--'));
@@ -475,6 +476,10 @@ for (const c of cells.values()) {
   const lobbyName = fillName(c.leg.interior.lobby_name || '{name} — Ground Floor', c.x, c.y, bName);
   plan.push({
     id: lobbyId, kind: 'lobby', ownExits: { out: id },
+    // Every new prefab building gets an authored utility room + junction box +
+    // lights by default (wired in the --apply write phase). A building opts out
+    // with "interior": { "no_utility": true } in its palette/legend entry.
+    utilityAnchor: c.leg.interior.no_utility ? false : true,
     row: {
       id: lobbyId, name: lobbyName,
       description: `${SENTINEL} Inside ${bName} — a ground floor awaiting its prose.`,
@@ -626,6 +631,9 @@ for (const p of plan) {
 
 console.log(`Blueprint ${bp.id} → ${bp.map} @ (${bp.origin.x},${bp.origin.y},${bp.origin.z ?? 0})`);
 console.log(`  cells: ${cells.size}  zones planned: ${plan.length} (${plan.filter(p => p.kind === 'facade').length} building markers)`);
+const utilityAnchors = plan.filter(p => p.kind === 'lobby' && p.utilityAnchor);
+console.log(`  utility rooms (new buildings, default-on): ${utilityAnchors.length}` +
+  (plan.some(p => p.kind === 'lobby' && !p.utilityAnchor) ? ` (${plan.filter(p => p.kind === 'lobby' && !p.utilityAnchor).length} opted out)` : ''));
 console.log(`  create: ${creates.length}   update (planner-owned): ${updates.length}   skip (foreign id collision): ${skips.length}`);
 skips.forEach(id => console.log(`    ⚠ SKIP ${id} — exists and is not owned by this blueprint (use --force to take it over)`));
 orphanRows.forEach(r => console.log(`    ⚠ ORPHAN ${r.id} — owned by this blueprint but no longer in the grid (delete by hand if unwanted)`));
@@ -696,6 +704,19 @@ for (const r of relocations) {
 for (const s of exteriorSevers) {
   await query('UPDATE zones SET exits = $2 WHERE id = $1', [s.id, JSON.stringify(s.newExits)]);
 }
+// Utility rooms — default for every new prefab building. Author a below-grade
+// utility room + junction box + worklight + lobby light, wired into a junction_box
+// generator that powers the building interior network (see tools/lib/utility-room.mjs
+// for why this authors the down-exit rather than a runtime override). Skip any
+// building whose network already has a power source (hand-made basement, re-run).
+let utilCreated = 0, utilSkipped = 0;
+for (const p of utilityAnchors) {
+  if (await buildingHasPower(query, p.id)) { utilSkipped++; continue; }
+  const made = await authorUtilityRoom(query, { anchorId: p.id, plannerId: bp.id });
+  if (made) utilCreated++;
+}
+if (utilCreated || utilSkipped) console.log(`  utility rooms: ${utilCreated} authored, ${utilSkipped} skipped (already powered).`);
+
 console.log(`\n✓ applied: ${creates.length} created, ${updates.length} updated, ${plan.filter(p => p.interiorMap).length} interior maps upserted.`);
 if (relocations.length) console.log(`  relocated ${relocations.length} building(s) into the district, severed ${exteriorSevers.length} old exterior(s).`);
 console.log('  Next: npm run content:export  → review the diff → commit. Restart a running local server to walk it.');

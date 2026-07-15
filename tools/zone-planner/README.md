@@ -62,7 +62,21 @@ Either way the tail of the flow is the same: `--apply` against the local dev DB
 Building glyphs (legend entries with `interior`) produce the full Phase-5
 facade shape: a non-standable `facade`-tagged tile that auto-forwards players
 into the building's lobby, an interior map row, and a `world_exit_zone` front
-door on the adjacent street. Re-running a blueprint is safe on a grown map:
+door on the adjacent street.
+
+**Every new building also gets a utility room by default** — a below-grade
+(`grid_z − 1`) `utility_room` zone wired `up`/`down` off the lobby, holding a
+junction box + caged worklight, plus an overhead light in the lobby, all fed by
+a `junction_box` generator linked to the nearest city plant. This is authored
+content (the `down` exit is written into `zones.exits`, not a runtime override),
+so it survives `content:export` → prod. A building whose interior network
+already has a power source is skipped (hand-made basement, re-run). Opt a
+building out with `"interior": { "no_utility": true }` in its palette/legend
+entry. The shared authoring routine lives in
+[../lib/utility-room.mjs](../lib/utility-room.mjs) and is reused by
+`scripts/backfill-vendor-utility.mjs`.
+
+Re-running a blueprint is safe on a grown map:
 grid coords and planner-drawn exits are reasserted, hand-written prose and
 hand-wired exits are preserved, and foreign zones are never touched
 (see the idempotency contract in apply.mjs).

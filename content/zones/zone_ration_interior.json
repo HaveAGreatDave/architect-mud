@@ -10,6 +10,7 @@
   "created_by": null,
   "description": "A long chrome-and-vinyl diner gone soft at the edges — cracked booths, a griddle that never fully cools, and a coffee urn that has seen the end of the world and kept pouring. A chalk menu on the wall promises CALORIES, HONESTLY PRICED.",
   "exits": {
+    "down": "zone_util_zone_ration_interior",
     "south": "zone_district_920_908"
   },
   "flags": {
