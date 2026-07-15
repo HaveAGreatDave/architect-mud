@@ -1,4 +1,4 @@
-import { world, getLivePlayer, getDoorForExit, setDoorCache, getZone, getZonePlayers, getPlayerMembership, isEnterableFacade, getMapByParentZone } from './world.js';
+import { world, getLivePlayer, getDoorForExit, setDoorCache, getZone, getZonePlayers, getPlayerMembership, isEnterableFacade, getMapByParentZone, resolveLanding } from './world.js';
 import { isSanctuary } from './zone-tags.js';
 import { zoneDanger, DANGER_RANK } from './danger.js';
 import { allExits, neighborZoneIds, exitTargets } from './exits.js';
@@ -763,7 +763,9 @@ async function execAction(node, entity, ctx) {
         }
       }
 
-      const target = waypoints[ai.patrolIndex % waypoints.length];
+      // Retarget a building facade to its interior entry zone so path, patrolTarget and the
+      // arrival check above all agree on where the walker actually lands (no-op otherwise).
+      const target = resolveLanding(waypoints[ai.patrolIndex % waypoints.length]);
       if (!target || zoneId === target) break;
 
       if (mode === 'teleport') {
@@ -935,8 +937,10 @@ async function execAction(node, entity, ctx) {
     case 'GO_TO_WORK': {
       if (!ai) break;
       const { zone_id, arrive_by, depart_early_minutes = 0 } = params;
-      const workZone = zone_id || entity.work_zone_id || entity.studio_zone_id || getNpcStudioZone(entity.id);
-      if (!workZone) break;
+      const workZoneRaw = zone_id || entity.work_zone_id || entity.studio_zone_id || getNpcStudioZone(entity.id);
+      if (!workZoneRaw) break;
+      // Facade → interior entry zone, so path + arrival agree (no-op for non-buildings).
+      const workZone = resolveLanding(workZoneRaw);
 
       // Already at work — let graph continue to work activity nodes
       if (zoneId === workZone) break;
@@ -1004,7 +1008,7 @@ async function execAction(node, entity, ctx) {
 
     case 'GO_HOME': {
       if (!ai) break;
-      const home = entity.home_zone;
+      const home = resolveLanding(entity.home_zone); // facade → interior entry (no-op otherwise)
       if (!home || zoneId === home) break; // already home
 
       if (!ai.patrolPath.length || ai.patrolTarget !== home) {
@@ -1093,7 +1097,7 @@ async function execAction(node, entity, ctx) {
       }
       let hlife_dest = null;
       if (ai._lifeActivity === 'home') {
-        hlife_dest = entity.home_zone || null;
+        hlife_dest = resolveLanding(entity.home_zone) || null; // facade → interior entry
       } else {
         // patrol: pick a destination zone.
         // Unemployed NPCs with a haunt_zone (or haunt_zones array) prefer their hang-out spot 70% of the time.
@@ -1310,7 +1314,7 @@ async function execAction(node, entity, ctx) {
         }
       }
 
-      const atmZone = ai.vendor_atm_zone;
+      const atmZone = resolveLanding(ai.vendor_atm_zone); // facade → interior entry (no-op otherwise)
       if (!atmZone || zoneId === atmZone) {
         ai.vendor_atm_zone = null; // arrived — clear for next time
         break;
@@ -1353,7 +1357,7 @@ async function execAction(node, entity, ctx) {
     // Walk to the studio zone the NPC is scheduled at (derived from broadcast schedule)
     case 'GO_TO_STUDIO': {
       if (!ai) break;
-      const studioZone = entity.studio_zone_id || getNpcStudioZone(entity.id);
+      const studioZone = resolveLanding(entity.studio_zone_id || getNpcStudioZone(entity.id)); // facade → interior entry
       if (!studioZone || zoneId === studioZone) break; // already there or unscheduled
 
       if (!ai.patrolPath.length || ai.patrolTarget !== studioZone) {
@@ -1637,10 +1641,11 @@ export async function tickEntityAI(entity, ctx) {
   // ESP: override all NPC behaviour — route everyone home until stand-down.
   if (_espShelterActive && !isEnemy(entity) && entity.home_zone) {
     const zoneId = entityZone(entity);
-    if (zoneId !== entity.home_zone) {
-      if (!ai.patrolPath.length || ai.patrolTarget !== entity.home_zone) {
-        const path = findPath(zoneId, entity.home_zone, entity);
-        if (path && path.length >= 2) { ai.patrolPath = path.slice(1); ai.patrolTarget = entity.home_zone; }
+    const homeTarget = resolveLanding(entity.home_zone); // facade → interior entry (no-op otherwise)
+    if (zoneId !== homeTarget) {
+      if (!ai.patrolPath.length || ai.patrolTarget !== homeTarget) {
+        const path = findPath(zoneId, homeTarget, entity);
+        if (path && path.length >= 2) { ai.patrolPath = path.slice(1); ai.patrolTarget = homeTarget; }
       }
       const next = ai.patrolPath.shift();
       if (next) {

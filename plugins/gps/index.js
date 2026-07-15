@@ -1,4 +1,4 @@
-import { getAllZones, getZone } from '../../server/engine/world.js';
+import { getAllZones, getZone, resolveLanding } from '../../server/engine/world.js';
 import { findPath } from '../../server/engine/pathfinding.js';
 import { allExits } from '../../server/engine/exits.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
@@ -29,18 +29,23 @@ function plotRoute(player, destZone, { avoid = null, resume = false } = {}) {
   if (destZone.flags?.water) {
     return { type: 'error', message: 'Must be on Land.' };
   }
-  if (destZone.id === player.current_zone) {
+  // A building occupies a single non-standable facade tile; stepping onto it forwards you
+  // into the interior entry zone. Route to that entry zone, not the facade — otherwise you
+  // never "arrive" (you land one tile inside the target) and auto-walk oscillates in/out.
+  // resolveLanding is a no-op for every non-facade tile. Keep destZone for the name/message.
+  const targetId = resolveLanding(destZone.id);
+  if (targetId === player.current_zone) {
     return { type: 'output', message: `You're already at ${destZone.name}.` };
   }
   // Road-preferring route: hug the street grid, leaving it only for the start/end building.
   // maxDistance is generous because sticking to roads adds hops vs. a straight cut-through.
-  let path = findPath(player.current_zone, destZone.id, { roads: true, maxDistance: 200, avoid });
+  let path = findPath(player.current_zone, targetId, { roads: true, maxDistance: 200, avoid });
   // Fallback to a plain shortest-hop BFS when the road search can't reach it — road
   // preference inflates hop count (a far tile can exceed the cap the road way while a
   // straight cut is well within it), and some tiles are only reachable off-road. A
   // reachable destination shouldn't dead-end just because the pretty route is too long.
   if (!path || path.length < 2) {
-    path = findPath(player.current_zone, destZone.id, { roads: false, maxDistance: 300, avoid });
+    path = findPath(player.current_zone, targetId, { roads: false, maxDistance: 300, avoid });
   }
   if (!path || path.length < 2) {
     return { type: 'error', message: `Can't find a path to ${destZone.name} from here.` };

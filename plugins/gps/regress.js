@@ -1,6 +1,6 @@
 // GPS plugin regression — exercises SIFT location resolution + route plotting
 // against the live world without touching the client-side minimap overlay.
-import { getZone, getAllZones } from '../../server/engine/world.js';
+import { getZone, getAllZones, isEnterableFacade, getMapByParentZone } from '../../server/engine/world.js';
 import { findPath } from '../../server/engine/pathfinding.js';
 import { dispatchAction } from '../../server/engine/actions.js';
 import { getBroadcast, setBroadcast } from '../../server/engine/messaging.js';
@@ -267,6 +267,43 @@ export default async function regress({ run, check, getPlayer }) {
         check('GPS_TO: found a reachable building pair to test', false, 'no reachable building pair on map_world');
       }
     } finally { setBroadcast(savedBc); p.current_zone = savedCur; }
+  }
+
+  // Enterable facade → interior entry retarget. A building's facade tile is non-standable
+  // (stepping onto it forwards you into the interior), so GPS must route to the interior
+  // ENTRY zone, never the facade itself — otherwise you never "arrive" and auto-walk
+  // oscillates in/out. Assert the plotted route ends at the facade's entry_zone_id (not the
+  // facade), and that `gps <building>` while already inside says you're already there.
+  {
+    let facade = null, stand = null, entryId = null;
+    for (const z of getAllZones()) {
+      if (!isEnterableFacade(z)) continue;
+      const entry = getMapByParentZone(z.id)?.entry_zone_id;
+      if (!entry) continue;
+      // A stand tile from which a plain route can reach this building.
+      const s = getAllZones().find(t =>
+        t.id !== z.id && t.map_id === z.map_id && !t.flags?.water && t.id !== entry &&
+        (findPath(t.id, entry, { roads: false, maxDistance: 200 }) || []).length >= 2);
+      if (s) { facade = z; stand = s; entryId = entry; break; }
+    }
+    if (facade) {
+      const savedGps = p.current_zone;
+      p.current_zone = stand.id;
+      let r = await run(`gps ${facade.id}`);
+      check(
+        'gps to a building routes to its interior entry zone, not the facade tile',
+        r?.type === 'gps_route' && r.path[r.path.length - 1] === entryId && r.path[r.path.length - 1] !== facade.id,
+        `type=${r?.type} end=${r?.path?.[r.path.length - 1]} entry=${entryId} facade=${facade.id}`,
+      );
+      p.current_zone = entryId;
+      r = await run(`gps ${facade.id}`);
+      check(
+        'gps to a building while already inside it says you are already there',
+        r?.type === 'output' && /already at/i.test(r?.message || ''),
+        `type=${r?.type} msg="${r?.message}"`,
+      );
+      p.current_zone = savedGps;
+    }
   }
 
   p.current_zone = savedZone;
