@@ -54,7 +54,7 @@ The pipeline exports content rows to files and imports them into every DB, inclu
 - [ ] `home_zone` set to an existing zone — **this is where a stationary NPC appears.** Placement keys on the runtime `zone_id` column (which content excludes, so it's null on a fresh import); the engine falls back to `home_zone` when `zone_id` is null. So a stationary NPC with no `home_zone` (or a bad one) is **invisible** — loaded into the world but in no room. Wandering NPCs move off `home_zone` via their behaviour graph.
 - [ ] Schedule — do they work? where? (vendor_schedule if vendor)
 - [ ] Behaviour graph if they move/act (wander, commute, react)
-- [ ] Dialogue tree if players can talk to them
+- [ ] Dialogue tree if players can talk to them — **don't author a "(walk off)"/"(leave)"/"(go)" exit option.** The dialogue panel always renders a permanent `[ Leave ]` button, so an authored exit is a redundant duplicate. Every `root` still needs a `bye` node (shop/branch flows route back through it), just don't add an *option* pointing at it.
 - [ ] Vendor? → stock items must exist; shop name; restock
 - [ ] Personality/banter fit (see `/npc-personalities`)
 - [ ] Clothing — **author a bespoke `flags.clothing_layers` outfit** for every NPC you create; don't rely on the generic fallback (see below).
