@@ -41,7 +41,7 @@ import { openTvPanel, isTvOpen, getTvActiveChannelId, appendTvMessage, updateTvT
 import { applyAmpUnlocks, addAmpUnlock } from './panels/musicplayer.js';
 import { applyEspState, handleEspWarning } from './esp.js';
 import { playPokerSfx } from './poker-sfx.js';
-import { showConfirmDialog } from './panels/confirm.js';
+import { showConfirmDialog, showAmountDialog } from './panels/confirm.js';
 import { showArrestNotice } from './panels/arrest.js';
 import { openApprehendPrompt } from './panels/apprehend.js';
 import { openConcealSearch } from './panels/conceal.js';
@@ -598,6 +598,14 @@ const handlers = {
   amp_unlock:  (msg) => addAmpUnlock(msg.songId),
   progress: (msg) => { if (msg.done) clearInlineProgress(); },
   confirm: (msg) => { showConfirmDialog(msg); },
+  // Server asks the player to pick a quantity (e.g. dropping part of a stack).
+  // Confirming appends the chosen number to the supplied command.
+  qty_prompt: (msg) => {
+    showAmountDialog(
+      { title: msg.confirmLabel || 'Quantity', prompt: msg.prompt, confirmLabel: msg.confirmLabel || 'Confirm', min: 1, value: msg.max },
+      (n) => sendCmd(`${msg.command} ${n}`, `${msg.command} ${n}`),
+    );
+  },
   arrest_notice: (msg) => { showArrestNotice(msg); },
   apprehend_prompt: (msg) => { openApprehendPrompt(msg); },
   conceal_search: (msg) => { openConcealSearch(msg); },
