@@ -265,13 +265,30 @@ async function cmdDrop(targetStr, player, broadcast) {
     return dropRows(matches, player, broadcast);
   }
 
-  const sift = siftResolve(targetStr, rows, { verb: 'drop' });
-  if (sift.type === 'none') return { type:'error', message:`You don't have "${targetStr}".` };
+  // Optional leading quantity: "drop 3 stimpaks" drops that many with no prompt.
+  let work = targetStr.trim();
+  let explicitQty = null;
+  const qtyMatch = work.match(/^(\d+)\s+(.+)$/);
+  if (qtyMatch) { explicitQty = parseInt(qtyMatch[1], 10); work = qtyMatch[2].trim(); }
+
+  const sift = siftResolve(work, rows, { verb: 'drop' });
+  if (sift.type === 'none') return { type:'error', message:`You don't have "${work}".` };
   if (sift.type === 'ambiguous') {
     createSelectionState(player.id, sift.candidates, { verb: 'drop', dispatchType: 'DROP', dispatchParam: 'row' });
     return { type:'output', message: formatSelectionPage({ allCandidates: sift.candidates, visibleIndex: 0, pageSize: 5 }) };
   }
-  return dispatchAction({ type:'DROP', actor: player, params: { row: sift.candidate }, context: { broadcast } });
+  const row = sift.candidate;
+  // A stack, with no quantity given — ask how many rather than dumping it all.
+  if (explicitQty == null && row.quantity > 1) {
+    return {
+      type: 'qty_prompt',
+      prompt: `How many ${row.name} do you want to drop?`,
+      max: row.quantity,
+      command: `dropid ${row.id}`,
+      confirmLabel: 'Drop',
+    };
+  }
+  return dispatchAction({ type:'DROP', actor: player, params: { row, qty: explicitQty ?? undefined }, context: { broadcast } });
 }
 
 // Drop a set of inventory rows, one DROP action each, joining the player-facing
