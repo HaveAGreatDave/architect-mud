@@ -4,7 +4,10 @@
   "id": "item_thermal_parka",
   "name": "arctic-grade shellcoat",
   "tags": {
-    "armor": 1,
+    "armor_soak": {
+      "edged": 1,
+      "kinetic": 1
+    },
     "bulkiness": 4,
     "description": "A sealed thermal shellcoat with a powered filament liner that sips charge from a wrist-cell to hold body heat against the worst the arcology winters can muster. The outer skin is matte ripstop nanoweave, grease-black and beaded to shrug off sleet.",
     "insulation": 8,

@@ -4,7 +4,10 @@
   "id": "item_claude_hood",
   "name": "signal-woven hood",
   "tags": {
-    "armor": 2,
+    "armor_soak": {
+      "edged": 2,
+      "kinetic": 2
+    },
     "description": "A deep, soft hood of matte anthracite fiber. Fine amber threads run through the weave and pulse, slow and even, like something inside is thinking. It frames a face that watches more than it speaks.",
     "insulation": 1,
     "layer": "armor",

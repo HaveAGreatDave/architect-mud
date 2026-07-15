@@ -4,7 +4,6 @@
   "id": "item_binder_chest",
   "name": "chest binder",
   "tags": {
-    "armor": 0,
     "bulkiness": 1,
     "description": "A flat compression top in medical grey that smooths the chest to a straight line. Practical, comfortable enough, and worth every credit to whoever needs it.",
     "insulation": 0.5,

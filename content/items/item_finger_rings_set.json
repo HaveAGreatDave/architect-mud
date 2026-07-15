@@ -4,7 +4,10 @@
   "id": "item_finger_rings_set",
   "name": "a set of elaborate rings",
   "tags": {
-    "armor": 1,
+    "armor_soak": {
+      "edged": 1,
+      "kinetic": 1
+    },
     "bulkiness": 0,
     "description": "Every finger bears a distinctive ring, forming a complete collection of symbolic jewelry: a colorful candy skull ring with intricate enamel detailing; a Tree of Life ring with engraved roots and branches; a bold eagle ring with outstretched wings; a wolf ring featuring a snarling profile; a regal lion-head ring with a sculpted mane; and a black-and-gold signet ring displaying a winged skull emblem, its gold design standing out sharply against the dark face.",
     "insulation": 0,

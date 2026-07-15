@@ -4,7 +4,10 @@
   "id": "item_jacket_denim",
   "name": "battered denim jacket",
   "tags": {
-    "armor": 1,
+    "armor_soak": {
+      "edged": 1,
+      "kinetic": 1
+    },
     "bulkiness": 2,
     "description": "Faded blue denim gone pale at the seams, collar frayed, a ghost patch where some band's logo used to be. Heavy, warm, and it has clearly outlived at least one owner.",
     "gets_wet": true,

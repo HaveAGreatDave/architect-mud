@@ -4,7 +4,10 @@
   "id": "item_nyra_gloves_interface",
   "name": "split-finger interface gloves",
   "tags": {
-    "armor": 1,
+    "armor_soak": {
+      "edged": 1,
+      "kinetic": 1
+    },
     "bulkiness": 1,
     "description": "Black tactical gloves with reinforced palms and exposed fingertips. Subdermal interface contacts along the knuckles allow direct device interaction without removing them.",
     "insulation": 1,

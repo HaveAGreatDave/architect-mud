@@ -4,7 +4,6 @@
   "id": "item_halter_backless",
   "name": "backless halter top",
   "tags": {
-    "armor": 0,
     "bulkiness": 1,
     "description": "A silky halter that ties at the neck and leaves the entire back bare to the waist. Turns heads on the way in and holds them on the way out.",
     "gets_wet": true,

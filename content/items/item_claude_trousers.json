@@ -4,7 +4,10 @@
   "id": "item_claude_trousers",
   "name": "graphite field trousers",
   "tags": {
-    "armor": 3,
+    "armor_soak": {
+      "edged": 3,
+      "kinetic": 3
+    },
     "description": "Reinforced graphite-grey trousers, seams taped, knees quietly armored. Built to move without asking permission.",
     "insulation": 1,
     "layer": "armor",

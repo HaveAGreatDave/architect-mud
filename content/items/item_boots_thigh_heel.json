@@ -4,7 +4,10 @@
   "id": "item_boots_thigh_heel",
   "name": "thigh-high heeled boots",
   "tags": {
-    "armor": 1,
+    "armor_soak": {
+      "edged": 1,
+      "kinetic": 1
+    },
     "bulkiness": 2,
     "description": "Glossy black boots that climb past the knee on a heel sharpened to a threat. Loud on concrete, murder on ankles, unanswerable in an argument.",
     "insulation": 1,

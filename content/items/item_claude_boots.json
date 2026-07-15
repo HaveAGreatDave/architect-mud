@@ -4,7 +4,10 @@
   "id": "item_claude_boots",
   "name": "quiet-soled boots",
   "tags": {
-    "armor": 2,
+    "armor_soak": {
+      "edged": 2,
+      "kinetic": 2
+    },
     "description": "Low black boots with dampened soles. They make almost no sound. People notice you are there only once you have decided they should.",
     "layer": "armor",
     "slot": "feet"

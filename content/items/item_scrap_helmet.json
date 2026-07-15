@@ -6,7 +6,10 @@
   "id": "item_scrap_helmet",
   "name": "scrap helmet",
   "tags": {
-    "armor": 2,
+    "armor_soak": {
+      "edged": 2,
+      "kinetic": 2
+    },
     "bulkiness": 3,
     "description": "A motorcycle helmet with extra rivets. Visor status: optimistic.",
     "insulation": 0.5,

@@ -4,7 +4,10 @@
   "id": "item_sneakers_canvas",
   "name": "worn canvas sneakers",
   "tags": {
-    "armor": 1,
+    "armor_soak": {
+      "edged": 1,
+      "kinetic": 1
+    },
     "bulkiness": 1,
     "description": "Off-white canvas gone grey, one lace knotted where it snapped, a hole starting at the little toe. Comfortable in the way only a shoe that has given up on you can be.",
     "insulation": 0.5,

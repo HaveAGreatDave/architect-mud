@@ -4,7 +4,10 @@
   "id": "item_shorts_cargo",
   "name": "over-pocketed cargo shorts",
   "tags": {
-    "armor": 1,
+    "armor_soak": {
+      "edged": 1,
+      "kinetic": 1
+    },
     "bulkiness": 1,
     "description": "Khaki cargo shorts with fourteen pockets, three of which zip, none of which you will remember using. A statement, and the statement is \"I have given up.\" Endlessly practical.",
     "gets_wet": true,

@@ -4,7 +4,10 @@
   "id": "item_tee_offbrand_security",
   "name": "SEKURITY tee",
   "tags": {
-    "armor": 1,
+    "armor_soak": {
+      "edged": 1,
+      "kinetic": 1
+    },
     "bulkiness": 1,
     "description": "A black tee with SEKURITY across the back in reflective block caps, misspelled with the confidence of someone who was never going to be questioned about it. Works about 60% of the time.",
     "gets_wet": true,

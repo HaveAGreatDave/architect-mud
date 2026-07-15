@@ -4,7 +4,10 @@
   "id": "item_shirt_flannel",
   "name": "flannel work shirt",
   "tags": {
-    "armor": 1,
+    "armor_soak": {
+      "edged": 1,
+      "kinetic": 1
+    },
     "bulkiness": 2,
     "description": "A red-and-black check flannel gone soft and pilled at the elbows. Two buttons mismatched, one pocket torn half-off. Warm, forgiving, and quietly competent.",
     "gets_wet": true,

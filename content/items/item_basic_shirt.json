@@ -4,7 +4,10 @@
   "id": "item_basic_shirt",
   "name": "basic t-shirt",
   "tags": {
-    "armor": 1,
+    "armor_soak": {
+      "edged": 1,
+      "kinetic": 1
+    },
     "bulkiness": 1,
     "description": "Plain white cotton. Worn, faded, and slightly too large. Does almost nothing.",
     "gets_wet": true,

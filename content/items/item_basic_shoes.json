@@ -4,7 +4,10 @@
   "id": "item_basic_shoes",
   "name": "basic shoes",
   "tags": {
-    "armor": 1,
+    "armor_soak": {
+      "edged": 1,
+      "kinetic": 1
+    },
     "bulkiness": 1,
     "description": "Canvas sneakers, well broken-in. The left sole is starting to peel.",
     "gets_wet": true,

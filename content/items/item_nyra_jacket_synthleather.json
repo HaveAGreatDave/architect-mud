@@ -4,7 +4,10 @@
   "id": "item_nyra_jacket_synthleather",
   "name": "fitted synth-leather jacket",
   "tags": {
-    "armor": 2,
+    "armor_soak": {
+      "edged": 2,
+      "kinetic": 2
+    },
     "bulkiness": 3,
     "description": "A close-cut black synthetic leather jacket designed for mobility and protection. Lightweight but durable, with reinforced seams and a matte finish that absorbs light rather than reflecting it.",
     "insulation": 5,

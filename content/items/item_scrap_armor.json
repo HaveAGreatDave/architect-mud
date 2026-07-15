@@ -6,7 +6,10 @@
   "id": "item_scrap_armor",
   "name": "scrap vest",
   "tags": {
-    "armor": 3,
+    "armor_soak": {
+      "edged": 3,
+      "kinetic": 3
+    },
     "bulkiness": 4,
     "description": "Metal sheeting over a leather jacket.",
     "insulation": 1,

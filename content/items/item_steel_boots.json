@@ -6,7 +6,10 @@
   "id": "item_steel_boots",
   "name": "steel-toed boots",
   "tags": {
-    "armor": 1,
+    "armor_soak": {
+      "edged": 1,
+      "kinetic": 1
+    },
     "bulkiness": 3,
     "description": "Standard issue, several owners ago.",
     "insulation": 1.5,

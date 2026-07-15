@@ -4,7 +4,6 @@
   "id": "item_blouse_sheer_wrap",
   "name": "sheer wrap blouse",
   "tags": {
-    "armor": 0,
     "bulkiness": 1,
     "description": "A gauzy wrap blouse that knots at the hip and drapes like smoke. Opaque enough for polite company, sheer enough that the company stops being polite.",
     "gets_wet": true,

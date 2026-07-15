@@ -4,7 +4,10 @@
   "id": "item_claude_gloves",
   "name": "conductive-thread gloves",
   "tags": {
-    "armor": 1,
+    "armor_soak": {
+      "edged": 1,
+      "kinetic": 1
+    },
     "description": "Thin graphite gloves with fingertip contacts of dull gold. They hum faintly against anything with a current in it.",
     "layer": "armor",
     "slot": "hands"

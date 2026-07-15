@@ -4,7 +4,6 @@
   "id": "item_collar_leather",
   "name": "buckled leather collar",
   "tags": {
-    "armor": 0,
     "bulkiness": 1,
     "description": "A wide black leather collar with a heavy steel buckle and a single loose ring at the throat, worn smooth where a finger keeps hooking it. Says a great deal without a word.",
     "slot": "accessory"

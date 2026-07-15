@@ -4,7 +4,10 @@
   "id": "item_basic_pants",
   "name": "basic pants",
   "tags": {
-    "armor": 1,
+    "armor_soak": {
+      "edged": 1,
+      "kinetic": 1
+    },
     "bulkiness": 1,
     "description": "Gray work trousers, a little threadbare at the knees. They fit. That's about all they do.",
     "gets_wet": true,

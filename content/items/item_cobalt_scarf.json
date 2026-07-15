@@ -4,7 +4,10 @@
   "id": "item_cobalt_scarf",
   "name": "cobalt alpaca scarf",
   "tags": {
-    "armor": 1,
+    "armor_soak": {
+      "edged": 1,
+      "kinetic": 1
+    },
     "bulkiness": 2,
     "description": "A long cobalt-blue alpaca scarf that drapes almost to the knees, its thick, soft weave standing out against darker outfits. The luxurious fibers soften an otherwise hardened look, and the frayed ends sway with every step.",
     "gets_wet": true,

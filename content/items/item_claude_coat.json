@@ -4,7 +4,10 @@
   "id": "item_claude_coat",
   "name": "long analyst's coat",
   "tags": {
-    "armor": 4,
+    "armor_soak": {
+      "edged": 4,
+      "kinetic": 4
+    },
     "description": "A floor-skimming coat in charcoal so dark it reads as absence. The lining is a quiet lattice of conductive thread that catches neon and lets it go. Cut for someone who arrives having already understood the room.",
     "insulation": 2,
     "layer": "armor",

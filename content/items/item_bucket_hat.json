@@ -4,7 +4,6 @@
   "id": "item_bucket_hat",
   "name": "soft bucket hat",
   "tags": {
-    "armor": 0,
     "bulkiness": 1,
     "description": "A shapeless canvas bucket hat that keeps rain off your neck and hides whatever your hair is doing. Anonymous, useful, and vaguely suspicious in exactly the right way.",
     "gets_wet": true,

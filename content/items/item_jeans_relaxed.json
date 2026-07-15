@@ -4,7 +4,10 @@
   "id": "item_jeans_relaxed",
   "name": "relaxed jeans",
   "tags": {
-    "armor": 1,
+    "armor_soak": {
+      "edged": 1,
+      "kinetic": 1
+    },
     "bulkiness": 2,
     "description": "Honest blue denim, broken in at the knee, one belt loop gone. Not fashionable, not trying to be. They will outlast the building you bought them in.",
     "gets_wet": true,

@@ -4,7 +4,10 @@
   "id": "item_tee_mascot",
   "name": "SynthCorp mascot tee",
   "tags": {
-    "armor": 1,
+    "armor_soak": {
+      "edged": 1,
+      "kinetic": 1
+    },
     "bulkiness": 1,
     "description": "A knock-off tee with SynthCorp's bankrupt cartoon mascot — a grinning battery named Sparky — waving above the slogan POWERING TOMORROW. Tomorrow declined. Worn ironically by everyone, sincerely by no one.",
     "gets_wet": true,

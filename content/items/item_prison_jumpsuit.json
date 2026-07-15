@@ -4,7 +4,6 @@
   "id": "item_prison_jumpsuit",
   "name": "prison jumpsuit",
   "tags": {
-    "armor": 0,
     "bulkiness": 2,
     "covers": [
       "legs"

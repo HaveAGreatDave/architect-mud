@@ -4,7 +4,6 @@
   "id": "item_jock_leather",
   "name": "studded leather jockstrap",
   "tags": {
-    "armor": 0,
     "bulkiness": 1,
     "description": "Black leather, chrome studs, straps arranged with more engineering confidence than modesty. Creaks when you move. Announces intent well before conversation does.",
     "insulation": 0,

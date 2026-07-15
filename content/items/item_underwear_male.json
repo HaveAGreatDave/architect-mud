@@ -4,7 +4,6 @@
   "id": "item_underwear_male",
   "name": "boxers",
   "tags": {
-    "armor": 0,
     "bulkiness": 1,
     "insulation": 0.5,
     "layer": "underwear",

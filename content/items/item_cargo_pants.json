@@ -6,7 +6,10 @@
   "id": "item_cargo_pants",
   "name": "reinforced cargo pants",
   "tags": {
-    "armor": 1,
+    "armor_soak": {
+      "edged": 1,
+      "kinetic": 1
+    },
     "bulkiness": 2,
     "description": "Pockets for days. Knees patched twice over.",
     "insulation": 2.5,

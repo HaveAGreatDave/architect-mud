@@ -4,7 +4,6 @@
   "id": "item_underwear_female_top",
   "name": "bra",
   "tags": {
-    "armor": 0,
     "bulkiness": 1,
     "insulation": 0,
     "layer": "underwear",

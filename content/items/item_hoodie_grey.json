@@ -4,7 +4,10 @@
   "id": "item_hoodie_grey",
   "name": "grey hoodie",
   "tags": {
-    "armor": 1,
+    "armor_soak": {
+      "edged": 1,
+      "kinetic": 1
+    },
     "bulkiness": 2,
     "description": "A heavyweight grey hoodie worn soft, cuffs chewed, one drawstring long gone. The uniform of anyone who wants to be left alone and mostly is. Smells faintly of somebody else.",
     "gets_wet": true,
