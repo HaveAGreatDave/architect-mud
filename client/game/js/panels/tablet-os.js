@@ -130,7 +130,7 @@ let _tosMapLabels = false; // Map app: label mode — stamp a two-letter code on
 // end, becomes the whole-region view — instead of just resizing pixels. This array
 // is the tile pixel size per server zoomLevel (0 local street … maxZoom regional);
 // interior (zoomLevel −1) reuses the local-street size. Index by server zoomLevel.
-const TOS_ZOOM_PX = [56, 40, 30, 22];
+const TOS_ZOOM_PX = [56, 40, 30, 24, 19, 15];
 const TOS_INTERIOR_PX = 56;
 const tosZoomPx = (d) => d.mode === 'interior'
   ? TOS_INTERIOR_PX
@@ -644,13 +644,13 @@ function ensureStyles() {
     #tablet-os-overlay .tos-gear-bar span { display:block; height:100%; background:var(--mg-accent); box-shadow:0 0 6px var(--mg-accent); }
     #tablet-os-overlay .tos-gear-carry-txt { font-size:10px; letter-spacing:.5px; color:var(--tos-fg-dim); }
 
-    /* The doll is a fixed-aspect stage matching the paperdoll PNG (242×540), so the
+    /* The doll is a fixed-aspect stage matching the femsil PNG (500×708), so the
        masked figure fills it edge-to-edge and each slot box's percentage anchor lands
        over the right body part. The figure is the alpha mask tinted to the live accent
-       colour (white → accent, black → transparent), with a soft accent glow. */
+       colour (body → accent, background → transparent), with a soft accent glow. */
     /* Height-driven so the whole figure (incl. the feet box at 94%) always fits the
-       screen without scrolling — width derives from the 242/540 aspect. */
-    #tablet-os-overlay .tos-doll { position:relative; height:min(46vh, 336px); width:auto; max-width:46vw; margin:0 auto; aspect-ratio:242 / 540; }
+       screen without scrolling — width derives from the 500/708 aspect. */
+    #tablet-os-overlay .tos-doll { position:relative; height:min(46vh, 336px); width:auto; max-width:46vw; margin:0 auto; aspect-ratio:500 / 708; }
     /* Loadout: inventory list on the LEFT (col 1), the layer selector + paperdoll
        centred in the middle (col 2), an empty right spacer (col 3) balancing the left
        so the doll stays centred. Both list and doll are on one screen for drag/drop;
@@ -697,8 +697,8 @@ function ensureStyles() {
     #tablet-os-overlay .tos-gbrk-val { font-size:15px; font-variant-numeric:tabular-nums; }
     #tablet-os-overlay .tos-gbrk-foot { margin-top:8px; font-size:10.5px; color:color-mix(in srgb, var(--mg-accent) 62%, transparent); }
     #tablet-os-overlay .tos-doll-fig { position:absolute; inset:0; background:var(--mg-accent);
-      -webkit-mask:url('/assets/paperdoll-mask.png') center / contain no-repeat;
-      mask:url('/assets/paperdoll-mask.png') center / contain no-repeat;
+      -webkit-mask:url('/assets/femsil-mask.png') center / contain no-repeat;
+      mask:url('/assets/femsil-mask.png') center / contain no-repeat;
       filter:drop-shadow(0 0 6px color-mix(in srgb, var(--mg-accent) 38%, transparent)); }
 
     #tablet-os-overlay .tos-gslot { position:absolute; z-index:2; display:flex; flex-direction:column; gap:1px; padding:4px 6px; min-width:56px; max-width:47%; border-radius:5px; user-select:none; touch-action:none;
@@ -2650,10 +2650,10 @@ const GEAR_TRAY_PAGE = 6;   // loadout carried-tray page size
 const GEAR_INV_PAGE = 8;    // Inventory-tab page size
 const gcap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
-// The silhouette — the stored paperdoll PNG (client/game/assets/paperdoll.png),
-// baked once into a transparent-background alpha mask (paperdoll-mask.png via
-// scripts) and tinted to the live accent colour by CSS: white → accent, black →
-// transparent. A single figure (per-part coverage lighting isn't possible from one
+// The silhouette — the stored femsil PNG (client/game/assets/femsil.png),
+// baked once into a transparent-background alpha mask (femsil-mask.png via
+// scripts/build-femsil-mask.mjs) and tinted to the live accent colour by CSS: body →
+// accent, background → transparent. A single figure (per-part coverage lighting isn't possible from one
 // flat image — the slot boxes carry which piece sits where), anchored so the
 // .tos-gslot--<slot> boxes land over its head/torso/hands/legs/feet.
 function gearDoll() {
