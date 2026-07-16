@@ -3794,10 +3794,11 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
 
       case 'set_flag': {
         const { flag, value } = node.data || {};
-        if (flag) query(
-          `INSERT INTO world_flags (key,value,updated_at) VALUES ($1,$2,NOW()) ON CONFLICT (key) DO UPDATE SET value=$2,updated_at=NOW()`,
-          [flag, value ?? 'true']
-        ).catch(() => {});
+        // Route through setFlag so the write-through world-flag cache stays in
+        // sync; fire-and-forget because the graph walker is synchronous.
+        if (flag) setFlag('world', flag, value)
+          .then(() => emit('flag.set', { scope: 'world', flag, value: value == null ? 'true' : String(value) }))
+          .catch(() => {});
         nodeId = _resolveEdge(edges, nodeId, 'next');
         break;
       }
