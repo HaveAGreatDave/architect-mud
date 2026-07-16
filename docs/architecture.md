@@ -385,11 +385,16 @@ Rules of thumb when building features:
   (unindexable full scan) and matches keys *and* values alike. For boot-loaded tables, filter the
   world Map by key presence (`'media_deck' in f.flags`); for query-fresh tables, use a JSONB
   operator (`flags ? 'key'`).
-- **Scheduled work idle-gates.** A recurring tick that reads the DB skips itself when
-  `hasActivePlayers()` is false unless it genuinely must run on an empty server (settlement by
-  `resolve_at` timestamps and clock-derived state both catch up fine on the first tick after a
-  login). Register through scheduler.js — it jitters cadence phase and spreads same-cadence
-  subscribers so tick convoys can't hold every pool slot at a minute boundary.
+- **Scheduled work idle-gates by default.** `scheduler.js` skips every registered callback when
+  `hasActivePlayers()` is false — a recurring tick that reads the DB on an empty world keeps a pool
+  connection alive inside its idle window, which stops Neon's compute from ever suspending
+  (scale-to-zero) and bills 24/7 for nobody. Registering through scheduler.js also jitters cadence
+  phase and spreads same-cadence subscribers so tick convoys can't hold every pool slot at a minute
+  boundary. A raw `setInterval` that awaits `query()` bypasses the gate entirely — that's the bug
+  that pinned the compute awake (surveillance camera refresh). Opt a tick out with
+  `{ runWhenEmpty: true }` only when it genuinely must run empty; settlement by `resolve_at`
+  timestamps and clock-derived state both catch up fine on the first tick after a login, so the
+  opt-out is reserved for pure in-memory continuity work with no DB round trip.
 - **Narrow the column list on wide tables.** `items`/`npcs`/`zones` carry fat JSONB
   (`dialogue_tree`, `behaviour_graph`, tag bags) and `audio_samples.data` is base64 audio —
   `SELECT *` on these repeatedly is how the Neon egress budget died once already.

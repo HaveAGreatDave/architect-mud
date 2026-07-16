@@ -3,7 +3,7 @@
 
 import { query } from '../../server/models/db.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
-import { getLivePlayer, setLivePlayer, getZone, world } from '../../server/engine/world.js';
+import { getLivePlayer, setLivePlayer, getZone, world, hasActivePlayers } from '../../server/engine/world.js';
 import { GameTable, activeTables, MAX_SEATS } from './game-table.js';
 import { botId } from './bot-player.js';
 import { renderPane } from './render-pane.js';
@@ -603,6 +603,11 @@ async function furniturePanel(zone, furniture, player) {
 
 let ticking = false;
 async function tableTick() {
+  // Idle-gate: a game table needs seated players; on an empty world there's
+  // nothing to advance, and maybePersist()'s UPDATE would otherwise keep Neon's
+  // compute awake. This tick is a raw 1s setInterval (hot-path pacing), so it
+  // carries the gate the scheduler would apply automatically.
+  if (!hasActivePlayers()) return;
   if (ticking) return;
   ticking = true;
   try {

@@ -19,6 +19,7 @@ import { getTimeScale } from '../../server/engine/gametime.js';
 import { dispatchAction, registerAction } from '../../server/engine/actions.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
 import { getZoneEnemies, getZoneNpcs } from '../../server/engine/world.js';
+import { schedule } from '../../server/engine/scheduler.js';
 import { getEnvironmentState } from '../../server/engine/environment.js';
 import {
   TICK_MS, FUEL_RESERVE_FRAC, BANDS, BAND_LABEL, BAND_BURN, DIRS, DIR_ALIASES,
@@ -1010,7 +1011,6 @@ async function deleteAircraft(id) {
 // leaving players a window to salvage first. Legacy wrecks with no crash timestamp are
 // stamped on first pass (given the full window) rather than all vanishing at once.
 const WRECK_TTL_MS = 20 * 60 * 1000;    // untouched wreck lifespan before auto-clear
-const WRECK_SWEEP_MS = 5 * 60 * 1000;   // how often the sweep runs
 async function wreckSweep() {
   const { rows } = await query("SELECT id, custom_data FROM aircraft WHERE is_wreck=1");
   const now = Date.now();
@@ -1033,7 +1033,7 @@ async function wreckSweep() {
     await deleteAircraft(l.id);
   }
 }
-setInterval(() => wreckSweep().catch(e => console.error('[flight] wreck sweep error:', e.message)), WRECK_SWEEP_MS);
+schedule('5m', () => wreckSweep().catch(e => console.error('[flight] wreck sweep error:', e.message)));
 
 // ── Move gate: can't walk while aboard ────────────────────────────────────────
 registerMoveGate(({ player }) => {
