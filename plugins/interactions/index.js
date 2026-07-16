@@ -7,8 +7,18 @@ import {
 	getZonePlayers,
 	getZoneNpcs,
 	setLivePlayer,
+	getZoneFurniture,
 } from "../../server/engine/world.js";
-import { query } from "../../server/models/db.js";
+
+// Furniture reads come from the boot-loaded world.furniture Map (write funnel in
+// world.js) — the sit/lie/lean/watch probes cost no round trips.
+function furnByName(zoneId, name) {
+	const needle = String(name || "").toLowerCase();
+	return getZoneFurniture(zoneId).find((f) => (f.name || "").toLowerCase().includes(needle)) || null;
+}
+function furnWithInteraction(zoneId, verb) {
+	return getZoneFurniture(zoneId).find((f) => (f.flags?.interactions || []).includes(verb)) || null;
+}
 import {
 	resolve as siftResolve,
 	createSelectionState,
@@ -83,20 +93,16 @@ function doEmote(selfMsg, zoneMsg, player, broadcast) {
 // on one (or "at the poker table") takes a poker seat instead of a posture.
 // Returns a command result, or undefined to fall through to normal posture sit.
 async function maybeSitAtPoker(target, player, broadcast) {
-	const { rows: pt } = await query(
-		`SELECT 1 FROM furniture WHERE zone_id=$1 AND flags->>'game_table_id' IS NOT NULL LIMIT 1`,
-		[player.current_zone],
-	);
-	if (!pt.length) return undefined; // no poker table here — ordinary sit
+	const zoneFurn = getZoneFurniture(player.current_zone);
+	if (!zoneFurn.some((f) => f.flags?.game_table_id != null)) return undefined; // no poker table here — ordinary sit
 
 	if (target) {
-		const name = target.replace(/^the\s+/i, "").trim();
-		const { rows } = await query(
-			`SELECT * FROM furniture WHERE zone_id=$1 AND name ILIKE $2 AND flags->>'game_table_id' IS NOT NULL LIMIT 1`,
-			[player.current_zone, `%${name}%`],
+		const name = target.replace(/^the\s+/i, "").trim().toLowerCase();
+		const seat = zoneFurn.find(
+			(f) => f.flags?.game_table_id != null && (f.name || "").toLowerCase().includes(name),
 		);
-		if (!rows.length) return undefined; // not a poker seat — let posture logic try
-		const seatIdx = rows[0].flags?.seat_idx;
+		if (!seat) return undefined; // not a poker seat — let posture logic try
+		const seatIdx = seat.flags?.seat_idx;
 		return dispatchAction({
 			type: "gametable.take_seat",
 			actor: player,
@@ -136,10 +142,8 @@ async function cmdSit(args, raw, player, broadcast) {
 	}
 
 	if (target && !floorTarget) {
-		const { rows } = await query(
-			`SELECT * FROM furniture WHERE zone_id=$1 AND name ILIKE $2 LIMIT 1`,
-			[player.current_zone, `%${target}%`],
-		);
+		const found = furnByName(player.current_zone, target);
+		const rows = found ? [found] : [];
 		if (!rows.length)
 			return { type: "emote", message: `There is no ${target} here.` };
 		const interactions = rows[0].flags?.interactions || [];
@@ -166,10 +170,8 @@ async function cmdSit(args, raw, player, broadcast) {
 		return { type: "emote", message: "You are already sitting." };
 
 	// Find any sittable furniture in zone
-	const { rows: chairs } = await query(
-		`SELECT name FROM furniture WHERE zone_id=$1 AND flags @> '{"interactions":["sit"]}'::jsonb LIMIT 1`,
-		[player.current_zone],
-	);
+	const sitOn = furnWithInteraction(player.current_zone, "sit");
+	const chairs = sitOn ? [sitOn] : [];
 	if (chairs.length) {
 		setPosture(player, "sitting", { sittingOn: chairs[0].name });
 		return doEmote(
@@ -196,10 +198,8 @@ async function cmdLie(args, raw, player, broadcast) {
 
 	const target = stripPrep(args, ["on", "down", "in"]);
 	if (target) {
-		const { rows } = await query(
-			`SELECT * FROM furniture WHERE zone_id=$1 AND name ILIKE $2 LIMIT 1`,
-			[player.current_zone, `%${target}%`],
-		);
+		const found = furnByName(player.current_zone, target);
+		const rows = found ? [found] : [];
 		if (!rows.length)
 			return { type: "emote", message: `There is no ${target} here.` };
 		const interactions = rows[0].flags?.interactions || [];
@@ -226,10 +226,8 @@ async function cmdLie(args, raw, player, broadcast) {
 		return { type: "emote", message: "You are already lying down." };
 
 	// Find any surface you can lie on
-	const { rows: beds } = await query(
-		`SELECT name FROM furniture WHERE zone_id=$1 AND flags @> '{"interactions":["lie"]}'::jsonb LIMIT 1`,
-		[player.current_zone],
-	);
+	const lieOn = furnWithInteraction(player.current_zone, "lie");
+	const beds = lieOn ? [lieOn] : [];
 	if (beds.length) {
 		setPosture(player, "lying", { sittingOn: beds[0].name });
 		return doEmote(
@@ -473,10 +471,8 @@ async function cmdLean(args, raw, player, broadcast) {
 	const mod = envMod(env, vis, zone);
 	const target = stripPrep(args, ["on", "against", "at"]);
 	if (target) {
-		const { rows } = await query(
-			`SELECT * FROM furniture WHERE zone_id=$1 AND name ILIKE $2 LIMIT 1`,
-			[player.current_zone, `%${target}%`],
-		);
+		const found = furnByName(player.current_zone, target);
+		const rows = found ? [found] : [];
 		if (!rows.length)
 			return { type: "emote", message: `There is no ${target} here.` };
 		const interactions = rows[0].flags?.interactions || [];
@@ -493,10 +489,8 @@ async function cmdLean(args, raw, player, broadcast) {
 		);
 	}
 	// Find any leanable surface
-	const { rows } = await query(
-		`SELECT name FROM furniture WHERE zone_id=$1 AND flags @> '{"interactions":["lean"]}'::jsonb LIMIT 1`,
-		[player.current_zone],
-	);
+	const leanOn = furnWithInteraction(player.current_zone, "lean");
+	const rows = leanOn ? [leanOn] : [];
 	if (rows.length) {
 		return doEmote(
 			`You lean against the ${rows[0].name}${mod}.`,
@@ -522,10 +516,8 @@ async function cmdWatch(args, raw, player, broadcast) {
 	const mod = envMod(env, vis, zone);
 	const target = stripPrep(args, ["on", "at"]);
 	if (target) {
-		const { rows } = await query(
-			`SELECT * FROM furniture WHERE zone_id=$1 AND name ILIKE $2 LIMIT 1`,
-			[player.current_zone, `%${target}%`],
-		);
+		const found = furnByName(player.current_zone, target);
+		const rows = found ? [found] : [];
 		if (!rows.length)
 			return { type: "emote", message: `There is no ${target} here.` };
 		const interactions = rows[0].flags?.interactions || [];
@@ -542,10 +534,8 @@ async function cmdWatch(args, raw, player, broadcast) {
 		);
 	}
 	// Find any watchable surface in the room
-	const { rows } = await query(
-		`SELECT name FROM furniture WHERE zone_id=$1 AND flags @> '{"interactions":["watch"]}'::jsonb LIMIT 1`,
-		[player.current_zone],
-	);
+	const watchable = furnWithInteraction(player.current_zone, "watch");
+	const rows = watchable ? [watchable] : [];
 	if (rows.length)
 		return doEmote(
 			`You settle in and watch the ${rows[0].name}${mod}.`,

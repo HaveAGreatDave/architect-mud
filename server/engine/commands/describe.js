@@ -30,6 +30,7 @@ import { zoneDanger } from "../danger.js";
 import { furnitureVerbs } from "../furnitureActions.js";
 import { titleCaseName } from "../text.js";
 import { getLockTagPublic, checkLockAuth } from "./doors.js";
+import { getItem } from "../items-cache.js";
 
 // Emits a `data-lock` attribute the client dpad reads to colour the direction:
 // "owned" (the player controls this lock), "locked" (engaged, not theirs), or
@@ -430,11 +431,19 @@ export async function describeZone(zone, player, out = {}) {
 		hideItems
 			? { rows: [] }
 			: query(
-					`SELECT pi.*, i.name, i.tags FROM player_inventory pi
-     JOIN items i ON i.id = pi.item_id
-     WHERE pi.player_id = $1 AND pi.container_id IS NULL`,
+					`SELECT * FROM player_inventory
+     WHERE player_id = $1 AND container_id IS NULL`,
 					[`_ground_${zone.id}`],
-				),
+				).then((r) => {
+					// Item templates decorate from the boot-loaded items cache (was a
+					// JOIN). Rows whose template vanished drop, matching the old INNER JOIN.
+					const rows = [];
+					for (const pi of r.rows) {
+						const it = getItem(pi.item_id);
+						if (it) rows.push({ ...pi, name: it.name, tags: it.tags });
+					}
+					return { rows };
+				}),
 		isDark
 			? { rows: [] }
 			: query(

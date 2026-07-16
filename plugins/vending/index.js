@@ -6,8 +6,10 @@
 //   flags.vend_cooldown_s  per-machine throttle in seconds (optional, default 20; 0 = off)
 // The clone-facility soylent dispenser is the first customer — free, joyless food
 // so a fresh clone isn't dead of hunger before it reaches the street.
-import { query, withTransaction } from '../../server/models/db.js';
+import { withTransaction } from '../../server/models/db.js';
 import { isStackable } from '../../server/engine/tags.js';
+import { getZoneFurniture } from '../../server/engine/world.js';
+import { getItem } from '../../server/engine/items-cache.js';
 import { randomUUID } from 'crypto';
 
 // playerId:furnitureId -> last-vend timestamp. In-memory: a soft anti-spam guard,
@@ -15,12 +17,8 @@ import { randomUUID } from 'crypto';
 const lastVend = new Map();
 
 async function cmdVend(args, raw, player, broadcast) {
-  const { rows } = await query(
-    `SELECT id, name, flags FROM furniture WHERE zone_id=$1 AND flags->>'vends' IS NOT NULL LIMIT 1`,
-    [player.current_zone]
-  );
-  if (!rows.length) return { type: 'error', message: "There's no dispenser here to vend from." };
-  const machine = rows[0];
+  const machine = getZoneFurniture(player.current_zone).find(f => f.flags?.vends != null);
+  if (!machine) return { type: 'error', message: "There's no dispenser here to vend from." };
   const itemId = machine.flags?.vends;
 
   const cooldownMs = Math.max(0, Number(machine.flags?.vend_cooldown_s ?? 20)) * 1000;
@@ -30,9 +28,8 @@ async function cmdVend(args, raw, player, broadcast) {
     return { type: 'error', message: `The ${machine.name} whirs and resets — it needs a moment before it'll serve you again.` };
   }
 
-  const { rows: itemRows } = await query('SELECT id, name, tags FROM items WHERE id=$1', [itemId]);
-  if (!itemRows.length) return { type: 'error', message: `The ${machine.name} grinds emptily. Whatever it once dispensed is long gone.` };
-  const item = itemRows[0];
+  const item = getItem(itemId);
+  if (!item) return { type: 'error', message: `The ${machine.name} grinds emptily. Whatever it once dispensed is long gone.` };
   const stack = isStackable(item);
 
   await withTransaction(async (q) => {
