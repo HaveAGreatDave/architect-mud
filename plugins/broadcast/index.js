@@ -2622,6 +2622,15 @@ function _techDiffMessage(state, channelId, nowMs) {
 }
 
 async function broadcastTick() {
+  // Idle-gate. The zone loop below self-gates on per-zone players, but the
+  // live-stage acting pass fires on `_watchedZones` (camera-observed studios) —
+  // and that set is only rebuilt by refreshWatchedZones, which is itself
+  // hasActivePlayers()-gated, so it goes STALE (still populated) when the last
+  // player logs off. Without this gate, a stale watched studio kept
+  // _getPirateMessage's per-second furniture query running on an empty server,
+  // which pinned Neon's compute awake 24/7. With no players there are no TV/deck
+  // watchers and no one on a spy feed, so nothing this tick does is observable.
+  if (!hasActivePlayers()) return;
   const nowMs = Date.now();
   // Channels the zone loop below will drive this tick (a tuned zone with players).
   // The deck-preview pass skips these so the stateful graph walker isn't advanced
