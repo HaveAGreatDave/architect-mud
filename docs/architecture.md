@@ -375,6 +375,16 @@ Rules of thumb when building features:
 - **Independent reads issue together** (`Promise.all` — describeZone's 4-way batch, dialogue
   option gating); **same-row writes coalesce into one UPDATE** (cmdMove's
   current_zone/radiation/stamina).
+- **Distinguish "polls the DB" from "runs periodically" before event-driving a tick.** A tick
+  whose trigger is the *game clock* (media decks aligning to the current playlist slot) can't be
+  event-driven — no edit event fires when time rolls into the next slot. The fix there is to make
+  the tick's *reads* come from a cache tier while keeping the cadence, not to remove the tick.
+  Only ticks that exist purely to notice *edits* (a device planted, a camera repaired) are
+  candidates for replacement by an invalidation event — and only if every writer is funneled.
+- **Don't find rows by `flags::text LIKE '%"key"%'`.** It casts every row's JSONB to text
+  (unindexable full scan) and matches keys *and* values alike. For boot-loaded tables, filter the
+  world Map by key presence (`'media_deck' in f.flags`); for query-fresh tables, use a JSONB
+  operator (`flags ? 'key'`).
 - **Scheduled work idle-gates.** A recurring tick that reads the DB skips itself when
   `hasActivePlayers()` is false unless it genuinely must run on an empty server (settlement by
   `resolve_at` timestamps and clock-derived state both catch up fine on the first tick after a
