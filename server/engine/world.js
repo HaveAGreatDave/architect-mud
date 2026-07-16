@@ -24,6 +24,7 @@ const world = {
   orgAssets: new Map(),  // zoneId -> [org_assets rows] (corp investment: extractor/turret)
   orgVentures: new Map(),// zoneId -> org_ventures row (Corporate Assets: corp-owned operating businesses)
   maps: new Map(),       // mapId -> maps row (parent_zone_id links an interior to its overworld tile)
+  furniture: new Map(),  // id -> furniture row (write funnel below keeps it in sync; DB stays SoT)
 };
 
 // Last-resort home for an NPC whose current AND home zones were both deleted
@@ -63,6 +64,7 @@ export async function initWorld() {
   await loadApartments();
   await loadGlobalAmbients();
   await loadDoors();
+  await loadFurniture();
   await loadOrgs();
   await loadZoneControl();
   await loadOrgAssets();
@@ -481,6 +483,84 @@ export function getDoorForExit(zoneId, exitDir, targetId = null) {
 }
 export function setDoorCache(id, door) { world.doors.set(id, door); }
 export function deleteDoorCache(id) { world.doors.delete(id); }
+
+// ─── Furniture ───────────────────────────────────────────────────────────────
+// world.furniture mirrors the furniture table (id -> row) so describeZone's
+// per-look/per-move read never hits the DB. DB stays source of truth: every
+// runtime writer goes through the funnel below (insert/update/delete write the
+// DB first, then the cache) or, for bulk SQL that can't collapse to a single
+// row (the environment.js light sweeps), keeps its SQL and mirrors the same
+// predicate via updateFurnitureCacheWhere / refreshZoneFurniture. Direct
+// `query('... furniture ...')` writes anywhere else are a bug — the cache
+// would go visibly stale in room descriptions.
+
+function _cacheFurnitureRow(row) {
+  world.furniture.set(row.id, { ...row, flags: row.flags || {} });
+}
+
+async function loadFurniture() {
+  const { rows } = await query('SELECT * FROM furniture').catch(() => ({ rows: [] }));
+  world.furniture.clear();
+  for (const row of rows) _cacheFurnitureRow(row);
+}
+
+export function getFurnitureById(id) { return world.furniture.get(id) || null; }
+export function getZoneFurniture(zoneId) {
+  return [...world.furniture.values()].filter(f => f.zone_id === zoneId);
+}
+
+// INSERT via a column map. Passes JSON columns (flags) as the site already
+// stringifies them; the cache takes the RETURNING row so it holds parsed jsonb
+// exactly as a SELECT would. `conflictSql` carries a site's ON CONFLICT clause;
+// a DO NOTHING conflict returns no row and correctly leaves the cache alone.
+export async function insertFurniture(cols, conflictSql = '') {
+  const keys = Object.keys(cols);
+  const { rows } = await query(
+    `INSERT INTO furniture (${keys.join(',')}) VALUES (${keys.map((_, i) => `$${i + 1}`).join(',')}) ${conflictSql} RETURNING *`,
+    keys.map(k => cols[k])
+  );
+  if (rows[0]) _cacheFurnitureRow(rows[0]);
+  return rows[0] || null;
+}
+
+// Single-row UPDATE via a column map — the standard write path.
+export async function updateFurniture(id, fields) {
+  const keys = Object.keys(fields);
+  if (!keys.length) return getFurnitureById(id);
+  const { rows } = await query(
+    `UPDATE furniture SET ${keys.map((k, i) => `${k}=$${i + 2}`).join(',')} WHERE id=$1 RETURNING *`,
+    [id, ...keys.map(k => fields[k])]
+  );
+  if (rows[0]) _cacheFurnitureRow(rows[0]);
+  return rows[0] || null;
+}
+
+export async function deleteFurniture(id) {
+  await query('DELETE FROM furniture WHERE id=$1', [id]);
+  world.furniture.delete(id);
+}
+
+// Cache-only mirror for bulk writers that keep their own SQL (the environment
+// light sweeps update by predicate with ANY() arrays / COALESCE transforms).
+// `fields` is a column map, or a fn(row) -> column map for row-derived values.
+export function updateFurnitureCacheWhere(pred, fields) {
+  for (const f of world.furniture.values()) {
+    if (!pred(f)) continue;
+    Object.assign(f, typeof fields === 'function' ? fields(f) : fields);
+  }
+}
+export function deleteFurnitureCacheWhere(pred) {
+  for (const [id, f] of world.furniture) if (pred(f)) world.furniture.delete(id);
+}
+
+// Full re-sync of one zone's rows from the DB — the escape hatch for writers
+// whose SQL transforms rows in ways not worth mirroring by hand.
+export async function refreshZoneFurniture(zoneId) {
+  const { rows } = await query('SELECT * FROM furniture WHERE zone_id=$1', [zoneId]);
+  for (const [id, f] of world.furniture) if (f.zone_id === zoneId) world.furniture.delete(id);
+  for (const row of rows) _cacheFurnitureRow(row);
+  return rows;
+}
 
 export function getApartment(zoneId) { return world.apartments.get(zoneId) || null; }
 export function setApartmentCache(zoneId, apt) { world.apartments.set(zoneId, apt); }

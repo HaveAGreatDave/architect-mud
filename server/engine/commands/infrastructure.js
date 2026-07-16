@@ -16,6 +16,7 @@ import { propagateSound } from '../sounds.js';
 import { isOnCooldown, setCooldown, getCooldownRemaining } from '../combat.js';
 import { hasTag, tagValue } from '../tags.js';
 import { recomputePower } from '../environment.js';
+import { updateFurniture } from '../world.js';
 
 // Tunable per object_type. Playtest and adjust freely — HP lives on the row,
 // soak/gate live here.
@@ -74,7 +75,7 @@ export async function cmdAttackDestructible(targetStr, player, broadcast) {
   }
 
   const newHp = Math.max(0, (f.hp ?? f.hp_max) - damage);
-  await query('UPDATE furniture SET hp=$1 WHERE id=$2', [newHp, f.id]);
+  await updateFurniture(f.id, { hp: newHp });
   propagateSound(player.current_zone, 'You hear someone battering heavy machinery nearby.', 2.5, broadcast);
   broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} attacks the ${f.name}!` }, player.id);
 
@@ -127,7 +128,7 @@ export async function cmdRepairDevice(targetStr, player, broadcast) {
     return { type: 'error', message: `You're still working. (${(getCooldownRemaining(player.id, 'attack') / 1000).toFixed(1)}s)` };
   setCooldown(player.id, 'attack');
 
-  await query('UPDATE furniture SET hp=hp_max WHERE id=$1', [f.id]);
+  await updateFurniture(f.id, { hp: f.hp_max });
   const genId = f.flags?.generator_id || null;
   if (genId) {
     await query(`UPDATE generators SET status='online', flags = COALESCE(flags,'{}'::jsonb) - 'destroyed' WHERE id=$1`, [genId]);

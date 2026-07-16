@@ -1,5 +1,5 @@
 import { query, withTransaction } from '../../server/models/db.js';
-import { getZone } from '../../server/engine/world.js';
+import { getZone, updateFurniture, deleteFurniture } from '../../server/engine/world.js';
 import { transferCredits } from '../../server/engine/economy.js';
 import { awardSkillUse, effectiveSkill } from '../../server/engine/skills.js';
 import { getPowerMap } from '../../server/engine/environment.js';
@@ -498,14 +498,14 @@ export const routeHandler = async (path, method, body, auth) => {
           await query(`UPDATE atm_units SET ${fields.join(',')} WHERE id=$${idx}`, vals);
         }
         if (name != null) {
-          await query('UPDATE furniture SET name=$1 WHERE id=$2', [name.trim() || 'ATM Terminal', id]);
+          await updateFurniture(id, { name: name.trim() || 'ATM Terminal' });
         }
         return { status: 200, body: { ok: true } };
       }
 
       if (id && !sub && method === 'DELETE') {
         await query('DELETE FROM atm_units WHERE id=$1', [id]);
-        await query('DELETE FROM furniture WHERE id=$1', [id]);
+        await deleteFurniture(id);
         return { status: 200, body: { ok: true } };
       }
 

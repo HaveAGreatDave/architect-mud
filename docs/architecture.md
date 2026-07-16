@@ -330,7 +330,7 @@ which tier the value lives in — same discipline as deciding a write's persiste
 
 | Tier | What lives here | Correctness contract | As built |
 |---|---|---|---|
-| **Boot-loaded world Map** | content + live entity state read constantly | **every** writer funnels through a helper that updates Map + DB together | `world.zones/npcs/doors/orgs/spawnTimers…` (world.js) |
+| **Boot-loaded world Map** | content + live entity state read constantly | **every** writer funnels through a helper that updates Map + DB together | `world.zones/npcs/doors/orgs/furniture/spawnTimers…` (world.js) |
 | **Write-through module cache** | small global tables | all writers live in the one module that owns the cache | world flags (flags.js), per-player skill IP (ip.js) |
 | **Event-bust + TTL cache** | derived per-player values | main mutation paths emit an event that busts; a short TTL bounds the writers that don't; staleness must be **benign** | carried weight, equipped weapon (`inventory.changed` + 5 s) |
 | **TTL content cache** | authored content, static at runtime | dev CRUD invalidates; TTL covers out-of-band writers | quest definitions (plugins/quests, 30 s) |
@@ -340,8 +340,13 @@ which tier the value lives in — same discipline as deciding a write's persiste
 grep *every* `INSERT/UPDATE/DELETE` against it. If writers are scattered and don't (or can't)
 maintain the cache, either build the write funnel first or stay on "query fresh" — a stale cache
 that misrenders lights or sells from a phantom shelf is strictly worse than a round trip. This is
-the same bug class as [the source-of-truth audit](audits/source-of-truth-audit.md); `furniture`
-and `npcs` both failed this test and are deliberately *not* cached today.
+the same bug class as [the source-of-truth audit](audits/source-of-truth-audit.md); `npcs` rows
+fail this test and are deliberately *not* cached today. `furniture` used to fail it too — its
+~40 scattered writers were funneled (2026-07) through `insertFurniture`/`updateFurniture`/
+`deleteFurniture` in world.js (bulk predicate SQL keeps its query and mirrors the same predicate
+via `updateFurnitureCacheWhere`/`deleteFurnitureCacheWhere`), which is what let describeZone's
+per-move furniture read move onto the `world.furniture` Map. Any new furniture writer MUST use
+that funnel — a raw `query('UPDATE furniture …')` now silently desyncs room descriptions.
 
 Rules of thumb when building features:
 

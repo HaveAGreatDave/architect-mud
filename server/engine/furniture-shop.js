@@ -20,6 +20,7 @@ import { registerAction } from './actions.js';
 import { createSelectionState, formatSelectionPage } from './sift.js';
 import { vendorBuyReaction } from './vendor-reactions.js';
 import { isVendorClosed, vendorClosedLine } from './ai-behaviour.js';
+import { insertFurniture } from './world.js';
 import { randomUUID } from 'crypto';
 
 const CONSUMER_INTERACTIONS = ['sit', 'lean', 'lie', 'watch', 'lift'];
@@ -71,11 +72,11 @@ function deliveryLine(npc, item, aptName, buildingName) {
 async function placeFurniture(item, base, zoneId, ownerId) {
   const flags = { interactions: furnitureInteractions(item) };
   const id = `furn_${randomUUID().slice(0, 8)}`;
-  await query(
-    `INSERT INTO furniture (id, zone_id, name, description, flags, object_type, price, origin, owner_id)
-     VALUES ($1,$2,$3,$4,$5::jsonb,'furniture',$6,'player',$7)`,
-    [id, zoneId, item.name, item.description, JSON.stringify(flags), base, ownerId ?? null]
-  );
+  await insertFurniture({
+    id, zone_id: zoneId, name: item.name, description: item.description,
+    flags: JSON.stringify(flags), object_type: 'furniture', price: base,
+    origin: 'player', owner_id: ownerId ?? null,
+  });
   return id;
 }
 

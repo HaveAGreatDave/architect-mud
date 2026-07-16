@@ -13,6 +13,7 @@ import {
   getAllLivePlayers, getZone, getAllZones, getApartment, setApartmentCache,
   getZoneControl, setZoneControlCache, getOrgZones, getAllZoneControl,
   getZoneAssets, getOrgAssets, reloadZoneAssets,
+  insertFurniture, deleteFurnitureCacheWhere,
 } from '../../server/engine/world.js';
 import { PERM, PERM_ALL, hasPerm } from '../../server/engine/org-perms.js';
 import { zoneDanger } from '../../server/engine/danger.js';
@@ -818,12 +819,12 @@ async function runTerritoryTick() {
 async function ensureCorpTerminal(zoneId) {
   const { rows } = await query(`SELECT 1 FROM furniture WHERE zone_id=$1 AND jsonb_exists(flags,'corp_terminal') LIMIT 1`, [zoneId]);
   if (rows.length) return;
-  await query(
-    `INSERT INTO furniture (id, zone_id, name, description, flags, object_type, origin)
-       VALUES ($1,$2,$3,$4,$5,'terminal','player')`,
-    [randomUUID(), zoneId, 'corp ops terminal',
-     'A wall-mounted command terminal, its screen aglow with the corp sigil. USE it to open the ops console.',
-     JSON.stringify({ corp_terminal: true, interactions: ['use'] })]);
+  await insertFurniture({
+    id: randomUUID(), zone_id: zoneId, name: 'corp ops terminal',
+    description: 'A wall-mounted command terminal, its screen aglow with the corp sigil. USE it to open the ops console.',
+    flags: JSON.stringify({ corp_terminal: true, interactions: ['use'] }),
+    object_type: 'terminal', origin: 'player',
+  });
 }
 
 async function cmdDisband(player) {
@@ -838,6 +839,7 @@ async function cmdDisband(player) {
   for (const h of hqRows) {
     await releaseCorpHq(h.zone_id);
     await query(`DELETE FROM furniture WHERE zone_id=$1 AND jsonb_exists(flags,'corp_terminal')`, [h.zone_id]);
+    deleteFurnitureCacheWhere(f => f.zone_id === h.zone_id && f.flags && 'corp_terminal' in f.flags);
   }
 
   await withTransaction(async (q) => {

@@ -8,6 +8,7 @@ import {
 	getDoorForExit,
 	isEnterableFacade,
 	facadeStreetTile,
+	getZoneFurniture,
 } from "../world.js";
 import {
 	getZoneVisibility,
@@ -409,13 +410,15 @@ export async function describeZone(zone, player, out = {}) {
 		? []
 		: getZonePlayers(zone.id).filter((p) => p.id !== player.id);
 
-	// These four are mutually independent, so they issue together rather than
+	// These are mutually independent, so they issue together rather than
 	// serially: each query() is its own pool checkout and round trip, and hosted
 	// the RTT dominates. zoneGens is consumed ~200 lines down (Installed: list).
+	// Furniture comes from the world cache (write-funneled in world.js), so this
+	// per-look/per-move hot path costs no furniture round trip.
+	const furniture = getZoneFurniture(zone.id);
 	const [
 		{ rows: sleepingBodies },
 		{ rows: groundItems },
-		{ rows: furniture },
 		{ rows: zoneGens },
 	] = await Promise.all([
 		isDark
@@ -432,7 +435,6 @@ export async function describeZone(zone, player, out = {}) {
      WHERE pi.player_id = $1 AND pi.container_id IS NULL`,
 					[`_ground_${zone.id}`],
 				),
-		query("SELECT * FROM furniture WHERE zone_id = $1", [zone.id]),
 		isDark
 			? { rows: [] }
 			: query(

@@ -1,6 +1,7 @@
 // Vending plugin regression — seeds a throwaway dispenser + item and drives the
 // real `vend` verb end-to-end (routing, dispense, inventory write, cooldown).
 import { query } from '../../server/models/db.js';
+import { insertFurniture, updateFurniture, deleteFurniture } from '../../server/engine/world.js';
 
 export default async function regress({ run, check, getPlayer }) {
   const player = getPlayer();
@@ -22,11 +23,10 @@ export default async function regress({ run, check, getPlayer }) {
        ON CONFLICT (id) DO UPDATE SET tags=$2`,
       [ITEM, JSON.stringify({ consumable: true, stackable: true, restore_hunger: 5 })]
     );
-    await query(
-      `INSERT INTO furniture (id,name,description,object_type,zone_id,flags) VALUES ($1,'test dispenser','a test dispenser','fixture',$3,$2)
-       ON CONFLICT (id) DO UPDATE SET flags=$2, zone_id=$3`,
-      [FURN, JSON.stringify({ vends: ITEM, vend_cooldown_s: 0 }), Z]
-    );
+    await insertFurniture({
+      id: FURN, name: 'test dispenser', description: 'a test dispenser', object_type: 'fixture',
+      zone_id: Z, flags: JSON.stringify({ vends: ITEM, vend_cooldown_s: 0 }),
+    }, 'ON CONFLICT (id) DO UPDATE SET flags=EXCLUDED.flags, zone_id=EXCLUDED.zone_id');
     await query('DELETE FROM player_inventory WHERE player_id=$1 AND item_id=$2', [player.id, ITEM]);
 
     player.current_zone = Z;
@@ -41,7 +41,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('a second vend stacks the item (one row, qty 2)', inv.rows[0]?.rows === 1 && inv.rows[0]?.qty === 2, JSON.stringify(inv.rows));
 
     // Cooldown honoured when set.
-    await query(`UPDATE furniture SET flags=$2 WHERE id=$1`, [FURN, JSON.stringify({ vends: ITEM, vend_cooldown_s: 999 })]);
+    await updateFurniture(FURN, { flags: JSON.stringify({ vends: ITEM, vend_cooldown_s: 999 }) });
     await run('vend'); // arms cooldown
     r = await run('vend');
     check('vend respects the cooldown', r?.type === 'error', JSON.stringify(r)?.slice(0, 120));
@@ -49,7 +49,7 @@ export default async function regress({ run, check, getPlayer }) {
     // Always restore state + clean up, even if an assertion above threw, so a
     // failure here can't strand the fake player in a nonexistent zone.
     await query('DELETE FROM player_inventory WHERE player_id=$1 AND item_id=$2', [player.id, ITEM]).catch(() => {});
-    await query('DELETE FROM furniture WHERE id=$1', [FURN]).catch(() => {});
+    await deleteFurniture(FURN).catch(() => {});
     await query('DELETE FROM items WHERE id=$1', [ITEM]).catch(() => {});
     player.current_zone = saved;
   }

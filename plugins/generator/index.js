@@ -20,6 +20,7 @@ import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { tagValue } from '../../server/engine/tags.js';
 import { recomputePower } from '../../server/engine/environment.js';
+import { insertFurniture, deleteFurniture } from '../../server/engine/world.js';
 
 // Fallbacks if the item's portable_generator tag omits a field. Numbers are
 // content tuning — a bigger tank/capacity is just a heftier (pricier) unit.
@@ -86,12 +87,12 @@ async function deploy(args, raw, player, broadcast) {
      VALUES ($1,$2,$3,'player',$4,'fuel',$5,$6,0,'offline',$7)`,
     [genId, player.current_zone, row.name, capacity, startFuel, burn,
      JSON.stringify({ tank, item_id: row.item_id, owner_id: player.id, owner_handle: player.handle })]);
-  await query(
-    `INSERT INTO furniture (id, zone_id, name, description, object_type, flags, origin, owner_id)
-     VALUES ($1,$2,$3,$4,'generator_portable',$5,'player',$6)`,
-    [furnId, player.current_zone, row.name,
-     row.description || 'A squat, fuel-fed portable generator, all cage-frame and grab-handle.',
-     JSON.stringify({ generator_id: genId }), player.id]);
+  await insertFurniture({
+    id: furnId, zone_id: player.current_zone, name: row.name,
+    description: row.description || 'A squat, fuel-fed portable generator, all cage-frame and grab-handle.',
+    object_type: 'generator_portable', flags: JSON.stringify({ generator_id: genId }),
+    origin: 'player', owner_id: player.id,
+  });
 
   await recomputePower().catch(() => {}); // fire up the battery work light right away
   broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} sets down a ${row.name}; its work light flickers on.`, refresh: true }, player.id);
@@ -198,7 +199,7 @@ async function pack(args, raw, player, broadcast) {
   const itemId = g.flags?.item_id;
   if (!itemId) return { type: 'error', message: `The ${g.name} can't be packed up.` };
 
-  await query('DELETE FROM furniture WHERE id=$1', [g.furn_id]);
+  await deleteFurniture(g.furn_id);
   await query('DELETE FROM generators WHERE id=$1', [g.id]);
   // Carry the remaining fuel back into the item instance so it survives the move.
   await query(
