@@ -2061,16 +2061,24 @@ async function ensureBackstageZone() {
 const _watchedZones = new Set();
 async function refreshWatchedZones() {
   const next = new Set();
+  // Player-planted devices stay a live read: security_devices is deliberately
+  // read-tier 'fresh' (its writers — plant/retrieve/smash/drone-move/battery —
+  // are uncoordinated), so there's no funnel to hang an invalidation event off.
+  // A missed event here wouldn't error; the talkshow guest would just start
+  // materialising on camera, which is exactly the silent-staleness trade the
+  // cache-safety rule exists to refuse. One query per cycle buys that away.
   try {
     const { rows } = await query(
       `SELECT DISTINCT zone_id FROM security_devices WHERE device_kind IN ('sticky_cam','drone') AND COALESCE(is_damaged,0)=0`
     );
     for (const r of rows) if (r.zone_id) next.add(r.zone_id);
   } catch { /* table may not exist in a bare test DB — leave device zones out */ }
-  try {
-    const { rows } = await query(`SELECT DISTINCT zone_id FROM media_cameras WHERE is_powered=1 AND COALESCE(is_damaged,0)=0`);
-    for (const r of rows) if (r.zone_id) next.add(r.zone_id);
-  } catch { /* ignore */ }
+  // Studio/PD cameras: cameraZoneStatus already answers "has a working (powered,
+  // undamaged) camera" per zone — the same predicate this used to re-query for.
+  // It's rebuilt by loadChannelRuntimes at boot and after every media_cameras
+  // write, and is_powered/is_damaged only ever change through the dev CRUD, which
+  // reloads. So the query was redundant with a cache that's already correct.
+  for (const [zoneId, working] of cameraZoneStatus) if (working && zoneId) next.add(zoneId);
   _watchedZones.clear();
   for (const z of next) _watchedZones.add(z);
 }
@@ -4931,9 +4939,14 @@ async function doUseMediaDeck(args, raw, player) {
 // with no matching cassette in its library is left alone (no auto-load of
 // untouched/never-inserted tapes).
 async function mediaDeckSyncTick() {
-  const { rows: decks } = await query(
-    `SELECT id, flags FROM furniture WHERE flags::text LIKE '%"media_deck"%'`
-  );
+  // Decks come from the write-funneled world.furniture Map. This was a
+  // `flags::text LIKE '%"media_deck"%'` full-table scan (casting every row's
+  // JSONB to text, unindexable) every 30s. Key-presence match, exactly as the
+  // LIKE tested — `media_deck` is only ever written `true`, so the two agree.
+  // NOTE this tick stays periodic on purpose: it aligns a deck to whichever
+  // playlist slot the GAME CLOCK has reached, and no edit event fires when time
+  // rolls from one slot into the next. There is nothing to event-drive it off.
+  const decks = [...world.furniture.values()].filter(f => f.flags && 'media_deck' in f.flags);
   if (!decks.length) return;
   const { minutes } = getEnvironmentState();
   const gameSecondsSinceMidnight = minutes * 60;
