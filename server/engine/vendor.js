@@ -53,11 +53,19 @@ export async function getVendorStock(npc, playerId) {
   const priceMap = {};
   for (const e of catalogue) priceMap[e.item_id] = e.price;
 
+  // One batched fetch for the whole shelf (this was a serial per-entry SELECT *
+  // on every shop open). Columns limited to what the listing below actually
+  // reads — items carries JSONB the shelf never needs.
+  const { rows: itemRows } = await query(
+    'SELECT id, name, description, type, weight, value, tags, flags FROM items WHERE id = ANY($1)',
+    [shelf.map(e => e.item_id)]
+  );
+  const itemsById = new Map(itemRows.map(i => [i.id, i]));
+
   const stock = [];
   for (const entry of shelf) {
-    const { rows } = await query('SELECT * FROM items WHERE id = $1', [entry.item_id]);
-    if (!rows.length) continue;
-    const item = rows[0];
+    const item = itemsById.get(entry.item_id);
+    if (!item) continue;
     // Vendors only sell furniture you can actually use (sit/lean/lie/watch);
     // non-consumer furniture (infrastructure) is ignored on the shelf.
     if (item.type === 'furniture' && !isConsumerFurniture(item)) continue;

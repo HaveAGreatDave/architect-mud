@@ -1,5 +1,5 @@
 import { query } from '../models/db.js';
-import { awardIp } from './ip.js';
+import { awardIp, getSkillIp } from './ip.js';
 import { sendToPlayer } from './messaging.js';
 
 export const SKILLS = {
@@ -39,14 +39,12 @@ export function skillStatBonus(player, skillId) {
 }
 
 // skill level (floor(ip/100), 0–10) + floored average of governing stats. Can exceed 10.
+// IP comes from ip.js's per-player cache — this fires on every combat swing
+// (attack and dodge), so it must not be a round trip per call.
 export async function effectiveSkill(player, skillId) {
   const skill = SKILLS[skillId];
   if (!skill) return 0;
-  const { rows } = await query(
-    'SELECT ip FROM player_skills WHERE player_id=$1 AND skill_id=$2',
-    [player.id, skillId]
-  );
-  const level = Math.floor((rows[0]?.ip || 0) / 100);
+  const level = Math.floor((await getSkillIp(player.id, skillId)) / 100);
   return level + skillStatBonus(player, skillId);
 }
 
@@ -74,11 +72,7 @@ export async function awardSkillUse(playerId, skillId, margin = 0) {
   const name = SKILLS[skillId]?.name || skillId;
   sendToPlayer(playerId, { type: 'output', message: `<span class="ip-gain">+1 IP — ${name}</span>` });
   if (leveledUp) {
-    const { rows } = await query(
-      'SELECT ip FROM player_skills WHERE player_id=$1 AND skill_id=$2',
-      [playerId, skillId]
-    );
-    const level = Math.floor((rows[0]?.ip || 0) / 100);
+    const level = Math.floor((await getSkillIp(playerId, skillId)) / 100);
     sendToPlayer(playerId, { type: 'output', message: `<span class="ip-gain">Your ${name} skill rises to level ${level}.</span>` });
   }
   return { awarded };

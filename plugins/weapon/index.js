@@ -19,6 +19,7 @@ import { getZoneEnemies, getZonePlayers, getZoneNpcs, getLivePlayer, createCorps
 import { playerAttackEnemy, playerAttackNpc, isOnCooldown, getCooldownRemaining, pvpSwingSleeping, registerPlayerCombat, killEnemyInstance, killNpcInstance } from '../../server/engine/combat.js';
 import { resolveForCommand, resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
 import { awardSkillUse } from '../../server/engine/skills.js';
+import { getEquippedWeapon } from '../../server/engine/inventory.js';
 import { tagValue } from '../../server/engine/tags.js';
 import { emit } from '../../server/engine/events.js';
 import { registerAction, dispatchAction } from '../../server/engine/actions.js';
@@ -58,11 +59,7 @@ async function spawnEnemyCorpse(player, targetName, result) {
 }
 
 export async function resolveAttack(player, target, broadcast) {
-	const { rows } = await query(
-		`SELECT i.* FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.is_equipped=1 AND jsonb_exists(i.tags,'weapon') LIMIT 1`,
-		[player.id],
-	);
-	const equipped = rows[0];
+	const equipped = await getEquippedWeapon(player);
 	const dmg = equipped ? tagValue(equipped, "damage", {}) || {} : {};
 	const wskill = equipped
 		? tagValue(equipped, "weapon_skill") || "fists"
@@ -138,11 +135,7 @@ function broadcastNpcSpeech(npc, speech, zoneId, broadcast) {
 }
 
 export async function resolveAttackNpc(player, npc, broadcast) {
-	const { rows } = await query(
-		`SELECT i.* FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.is_equipped=1 AND jsonb_exists(i.tags,'weapon') LIMIT 1`,
-		[player.id],
-	);
-	const equipped = rows[0];
+	const equipped = await getEquippedWeapon(player);
 	const dmg = equipped ? tagValue(equipped, "damage", {}) || {} : {};
 	const wskill = equipped ? tagValue(equipped, "weapon_skill") || "fists" : "fists";
 	const weaponStats = equipped

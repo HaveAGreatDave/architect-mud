@@ -17,6 +17,7 @@ import { query } from '../../server/models/db.js';
 import { emit } from '../../server/engine/events.js';
 import { registerAction, dispatchAction } from '../../server/engine/actions.js';
 import { schedule } from '../../server/engine/scheduler.js';
+import { hasActivePlayers } from '../../server/engine/world.js';
 import { getEnvironmentState } from '../../server/engine/environment.js';
 
 // A season runs SPORTS_SEASON_DAYS in-game days (~a month by default). When that many
@@ -298,7 +299,10 @@ async function seasonTick() {
   const seasonSlots = SPORTS_SEASON_DAYS * (c.gamesPerDay || 8);
   if (c.ready && (c.slot - Number(s.start_slot)) >= seasonSlots) await seedWorldSeries(s);
 }
-schedule('1m', seasonTick);
+// Idle-gated: every phase transition derives from the game clock (slots
+// elapsed), so skipping ticks while nobody is online just means the first tick
+// after a login catches the season up — no DB reads on an empty server.
+schedule('1m', () => { if (hasActivePlayers()) return seasonTick(); });
 setTimeout(() => ensureSeason().catch((e) => console.error('[sportsleague] boot season error:', e.message)), 8000);
 
 export const commands = {

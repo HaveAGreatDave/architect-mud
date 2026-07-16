@@ -7,13 +7,14 @@ import { query } from '../models/db.js';
 import { sendToPlayer } from './messaging.js';
 import { SKILLS, getPlayerSkills } from './skills.js';
 import { getPlayerFactionRep } from './factions.js';
-import { getPlayerMembership, getOrg, getOrgZones } from './world.js';
+import { getPlayerMembership, getOrg, getOrgZones, getLivePlayer } from './world.js';
 
 const SKILL_CATS = ['combat', 'survival', 'tech', 'social', 'arcane'];
 
 async function resolveSkills(playerId) {
-  const { rows } = await query('SELECT * FROM players WHERE id=$1', [playerId]);
-  const p = rows[0];
+  // panel_data only arrives over a live WS session, so the player is always in
+  // the world Map — and it carries the stat_* columns this panel needs.
+  const p = getLivePlayer(playerId);
   if (!p) return null;
   const ps = await getPlayerSkills(playerId);
   return {

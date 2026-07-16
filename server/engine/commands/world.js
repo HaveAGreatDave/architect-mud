@@ -134,9 +134,9 @@ export async function cmdStats(player) {
 }
 
 export async function cmdSkills(player) {
-  const { rows } = await query('SELECT * FROM players WHERE id=$1', [player.id]);
-  const p = rows[0];
-  if (!p) return { type:'error', message:'Could not load skills.' };
+  // The live player object already carries the six stat_* columns — the only
+  // fields this panel reads — so no row refetch.
+  const p = player;
   const playerSkills = await getPlayerSkills(player.id);
   const STAT_LABEL = { stat_brawn:'BRW', stat_reflexes:'RFL', stat_brains:'BRN', stat_cool:'COO', stat_endurance:'END', stat_senses:'SEN' };
 

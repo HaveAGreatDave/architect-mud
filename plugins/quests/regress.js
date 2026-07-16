@@ -5,7 +5,7 @@ import { query } from '../../server/models/db.js';
 import { dispatchAction } from '../../server/engine/actions.js';
 import { setFlag } from '../../server/engine/flags.js';
 import { renderDialogueNode } from '../../server/engine/dialogue.js';
-import { findTurnInNpc, trackEvent, cancelTasksLeavingZone } from './index.js';
+import { findTurnInNpc, trackEvent, cancelTasksLeavingZone, invalidateQuestCache } from './index.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -62,6 +62,9 @@ export default async function regress({ run, check, getPlayer }) {
      ON CONFLICT (id) DO UPDATE SET objectives=$2`,
     [TEST_QUEST_ID, JSON.stringify([{ type: 'visit', zone: 'zone_nowhere', count: 1, desc: 'Go nowhere' }])]
   );
+  // Direct quests write behind loadQuest's cache — bust it so the re-authored
+  // objectives/rewards are what the lifecycle Actions below actually see.
+  invalidateQuestCache(TEST_QUEST_ID);
   const dialogueTree = {
     root: { text: 'Hello.', options: [{ next: 'reported', label: "I've dealt with it." }, { next: 'bye', label: 'Nothing.' }] },
     reported: { text: 'Filed.', actions: [{ action: 'TURN_IN', quest_id: TEST_QUEST_ID }], options: [{ next: 'bye', label: 'Obliged.' }] },
@@ -214,6 +217,7 @@ export default async function regress({ run, check, getPlayer }) {
 
     // spawn:false must place nothing (the item is expected to already be in the world).
     await query('UPDATE quests SET objectives=$2 WHERE id=$1', [RETRIEVE_QUEST_ID, JSON.stringify([{ id: 'o0', type: 'retrieve', item_id: RETRIEVE_ITEM, zone: RETRIEVE_ZONE, spawn: false, count: 1, desc: 'Recover the item' }])]);
+    invalidateQuestCache(RETRIEVE_QUEST_ID); // direct write behind the cache
     await query('DELETE FROM player_inventory WHERE player_id=$1', [GROUND]);
     await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, RETRIEVE_QUEST_ID]);
     await dispatchAction({ type: 'START_QUEST', actor: player, params: { quest_id: RETRIEVE_QUEST_ID } });

@@ -38,13 +38,27 @@ export function schedule(cadence, callback) {
 
   if (!cadences.has(cadence)) {
     const entry = { timer: null, callbacks: [] };
-    entry.timer = setInterval(() => {
-      for (const cb of entry.callbacks) {
-        Promise.resolve(cb()).catch(err =>
-          console.error(`Scheduler [${cadence}] callback error: ${err.message}`)
-        );
-      }
-    }, ms);
+    const fire = () => {
+      entry.callbacks.forEach((cb, i) => {
+        // Spread same-cadence subscribers ~200 ms apart: a dozen '1m' ticks all
+        // checking out DB connections in the same instant could hold every pool
+        // slot while a player command waited on pool.connect().
+        setTimeout(() => {
+          Promise.resolve(cb()).catch(err =>
+            console.error(`Scheduler [${cadence}] callback error: ${err.message}`)
+          );
+        }, i * 200);
+      });
+    };
+    // Random phase per cadence: every cadence used to start at boot, so their
+    // boundaries aligned (each minute fired the '1m' + '30s' + '15s' + '5s'
+    // convoys together). The interval spacing is unchanged — only the phase
+    // shifts. Capped at 60 s so a long cadence ('24h') isn't deferred by up to
+    // a full period on boot; a minute of decorrelation is all the pool needs.
+    entry.timer = setTimeout(() => {
+      fire();
+      entry.timer = setInterval(fire, ms);
+    }, Math.floor(Math.random() * Math.min(ms, 60_000)));
     cadences.set(cadence, entry);
   }
   cadences.get(cadence).callbacks.push(callback);

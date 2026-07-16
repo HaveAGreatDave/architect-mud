@@ -29,7 +29,7 @@ import { registerInputMatcher } from '../../server/engine/plugins.js';
 import { on, emit } from '../../server/engine/events.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
-import { recomputeArmor, recomputeInsulation } from '../../server/engine/commands/inventory.js';
+import { recomputeEquipped } from '../../server/engine/commands/inventory.js';
 import { describeGenitals, ejaculateDescription, describeBodyPart } from '../../server/engine/appearance.js';
 import { getEnvironmentState, getZonePrecip } from '../../server/engine/environment.js';
 
@@ -1771,7 +1771,7 @@ async function stripPlayer(player, target, broadcast) {
       WHERE player_id=$1 AND is_equipped=1 AND slot IS DISTINCT FROM 'weapon_hand'`,
     [target.id]
   );
-  await recomputeArmor(target); await recomputeInsulation(target);
+  await recomputeEquipped(target);
   broadcastMis(player.current_zone, { type: 'zone_event', message: `${player.handle} strips ${target.handle} bare.` }, broadcast, player.id, target.id);
   sendToPlayer(target.id, { type: 'output', message: `${player.handle} strips you bare — your clothes end up in a heap in your pack.`, refresh: true });
   return { type: 'output', message: `You strip ${target.handle} bare.` };

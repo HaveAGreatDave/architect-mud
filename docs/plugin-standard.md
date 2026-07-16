@@ -84,6 +84,25 @@ seed. Both are separate, deliberate steps:
   columns) are the one thing the additive deploy can't do (`INSERT … ON CONFLICT DO NOTHING` never
   touches existing rows). Those still need a hand-written one-shot, run against prod after the deploy.
 
+## Ticks and DB burden
+
+A plugin's recurring work shares one small connection pool with every player command — prod
+Postgres is remote, so each `query()` is a full network round trip holding a pool slot. The 2026-07
+lag audit traced most idle DB traffic to plugin heartbeats. Rules for any scheduled work:
+
+- **Register through `scheduler.js`** (`schedule('1m', fn)`), not your own `setInterval` — the
+  scheduler jitters cadence phase and staggers same-cadence subscribers so tick convoys can't
+  starve the pool at a minute boundary.
+- **Idle-gate:** skip the tick's DB work when `hasActivePlayers()` (world.js) is false, unless it
+  genuinely must run on an empty server. Derive state from the game clock or `resolve_at`-style
+  timestamps so the first tick after a login catches up correctly (see sportsleague/sportsbet).
+- **No queries in loops** — batch with `WHERE id = ANY($1)` or a `GROUP BY` aggregate — and
+  **diff-gate recurring writes** so a stable world writes nothing.
+- **Decide where your data lives before querying for it.** Hot paths (per-move gates, event
+  subscribers on `zone.entered`, per-swing hooks) must not add awaited round trips; see
+  [Read Tiers in architecture.md](architecture.md#read-tiers-where-data-lives-at-runtime) for the
+  cache tiers and the write-funnel safety test.
+
 ## README requirement
 
 Every plugin has a `README.md` with these sections (mirroring `plugin.json`):

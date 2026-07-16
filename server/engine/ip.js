@@ -1,9 +1,51 @@
 import { query } from '../models/db.js';
 import { ensureTunables, getTunable } from './tunables.js';
-import { emit } from './events.js';
+import { emit, on } from './events.js';
 
 // Per-skill IP cap. Skill level = floor(ip/100), so 1000 IP == level 10.
 const SKILL_IP_CAP = 1000;
+
+// Per-player skill-IP cache. Combat re-read player_skills (and stat_brains) on
+// every swing — effectiveSkill for the attack, again for the dodge, again in
+// awardIp — none of which changes mid-fight. One JOIN load per player per TTL
+// carries all skills plus the stat_brains the award odds need; awardIp/
+// grantSkillIp write through so the cache never lags its own mutations. The TTL
+// bounds staleness from the out-of-band writers (prologue's chargen grant busts
+// explicitly; temp scripts and char-delete run offline). `exists:false` keeps
+// the FK guard: a transient/corpse actor or the regress fake player has no
+// players row, and awarding it would violate the player_skills FK.
+const SKILL_CACHE_TTL_MS = 30_000;
+const _skillCache = new Map(); // playerId -> { at, exists, brains, ips: Map(skill_id -> ip) }
+on('player.logout', ({ id }) => { if (id) _skillCache.delete(id); });
+
+async function loadSkillCache(playerId) {
+  const c = _skillCache.get(playerId);
+  if (c && Date.now() - c.at < SKILL_CACHE_TTL_MS) return c;
+  const { rows } = await query(
+    `SELECT p.stat_brains, ps.skill_id, ps.ip
+       FROM players p LEFT JOIN player_skills ps ON ps.player_id = p.id
+      WHERE p.id = $1`,
+    [playerId]
+  );
+  const entry = rows.length
+    ? { at: Date.now(), exists: true, brains: Number(rows[0].stat_brains) || 1,
+        ips: new Map(rows.filter(r => r.skill_id).map(r => [r.skill_id, r.ip || 0])) }
+    : { at: Date.now(), exists: false, brains: 1, ips: new Map() };
+  _skillCache.set(playerId, entry);
+  return entry;
+}
+
+// Cached read of a player's IP in one skill (0 when untrained).
+export async function getSkillIp(playerId, skillId) {
+  return (await loadSkillCache(playerId)).ips.get(skillId) ?? 0;
+}
+
+// For callers that mutate player_skills outside this module (e.g. prologue's
+// chargen grant) — bust so the next read reloads.
+export function invalidateSkillCache(playerId) {
+  if (playerId) _skillCache.delete(playerId);
+  else _skillCache.clear();
+}
 
 // Base HP every survivor has, before endurance scaling.
 export const BASE_HP_MAX = 40;
@@ -20,23 +62,18 @@ export function maxHpForEndurance(endurance) {
 // 100-IP (skill-level) boundary.
 export async function awardIp(playerId, skillId, margin = 0) {
   await ensureTunables();
-  const { rows } = await query(
-    'SELECT ip FROM player_skills WHERE player_id=$1 AND skill_id=$2',
-    [playerId, skillId]
-  );
-  const current = rows[0]?.ip ?? 0;
+  const cache = await loadSkillCache(playerId);
+  // No such player (e.g. a transient/corpse actor, or the regress harness's fake
+  // player): skip silently — the player_skills insert would violate the FK.
+  if (!cache.exists) return { awarded: 0, leveledUp: false };
+  const current = cache.ips.get(skillId) ?? 0;
   if (current >= SKILL_IP_CAP) return { awarded: 0, leveledUp: false };
 
   // Brains speeds skill-ups: +ip_brains_bonus_per_point per brain above 1, so at
   // the default 0.05 a survivor with 21 brains has double the per-roll odds, and
   // 1 brain (the starting value) gets the unmodified base rate.
-  const { rows: pr } = await query('SELECT stat_brains FROM players WHERE id=$1', [playerId]);
-  // No such player (e.g. a transient/corpse actor, or the regress harness's fake
-  // player): skip silently — the player_skills insert would violate the FK.
-  if (!pr.length) return { awarded: 0, leveledUp: false };
-  const brains = Number(pr[0]?.stat_brains) || 1;
   const perPoint = getTunable('ip_brains_bonus_per_point', 0.05);
-  const brainsMult = 1 + Math.max(0, brains - 1) * perPoint;
+  const brainsMult = 1 + Math.max(0, cache.brains - 1) * perPoint;
 
   const base = getTunable('ip_award_base_chance', 1.0);
   const scale = getTunable('ip_award_margin_scale', 2.0);
@@ -47,11 +84,14 @@ export async function awardIp(playerId, skillId, margin = 0) {
   if (roll >= chance) return { awarded: 0, leveledUp: false };
 
   const newIp = current + 1;
-  if (!rows.length) {
-    await query('INSERT INTO player_skills (player_id, skill_id, ip) VALUES ($1,$2,1)', [playerId, skillId]);
-  } else {
-    await query('UPDATE player_skills SET ip = ip + 1 WHERE player_id=$1 AND skill_id=$2', [playerId, skillId]);
-  }
+  // Upsert, not a presence-branched INSERT: a stale cache miss (row created by
+  // an out-of-band writer inside the TTL) must bump, never PK-collide.
+  await query(
+    `INSERT INTO player_skills (player_id, skill_id, ip) VALUES ($1,$2,1)
+     ON CONFLICT (player_id, skill_id) DO UPDATE SET ip = player_skills.ip + 1`,
+    [playerId, skillId]
+  );
+  cache.ips.set(skillId, newIp);
   const leveledUp = Math.floor(newIp / 100) > Math.floor(current / 100);
   return { awarded: 1, leveledUp };
 }
@@ -63,18 +103,17 @@ export async function awardIp(playerId, skillId, margin = 0) {
 export async function grantSkillIp(playerId, skillId, amount) {
   const amt = Math.max(0, Math.round(amount || 0));
   if (!amt) return { awarded: 0, leveledUp: false, level: 0 };
-  const { rows } = await query(
-    'SELECT ip FROM player_skills WHERE player_id=$1 AND skill_id=$2',
-    [playerId, skillId]
-  );
-  const current = rows[0]?.ip ?? 0;
+  const cache = await loadSkillCache(playerId);
+  if (!cache.exists) return { awarded: 0, leveledUp: false, level: 0 };
+  const current = cache.ips.get(skillId) ?? 0;
   const gained = Math.min(SKILL_IP_CAP, current + amt) - current;
   if (gained <= 0) return { awarded: 0, leveledUp: false, level: Math.floor(current / 100) };
-  if (!rows.length) {
-    await query('INSERT INTO player_skills (player_id, skill_id, ip) VALUES ($1,$2,$3)', [playerId, skillId, gained]);
-  } else {
-    await query('UPDATE player_skills SET ip = ip + $3 WHERE player_id=$1 AND skill_id=$2', [playerId, skillId, gained]);
-  }
+  await query(
+    `INSERT INTO player_skills (player_id, skill_id, ip) VALUES ($1,$2,$3)
+     ON CONFLICT (player_id, skill_id) DO UPDATE SET ip = player_skills.ip + $3`,
+    [playerId, skillId, gained]
+  );
+  cache.ips.set(skillId, current + gained);
   const level = Math.floor((current + gained) / 100);
   return { awarded: gained, leveledUp: level > Math.floor(current / 100), level };
 }

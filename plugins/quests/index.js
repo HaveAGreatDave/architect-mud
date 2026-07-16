@@ -49,9 +49,29 @@ function setQuestFlag(actor, questId, status) {
 
 // --- Store helpers ---------------------------------------------------------
 
+// Quest definitions are authored content — effectively static at runtime — yet
+// trackEvent re-loaded each active quest from the DB on every tracked event
+// (zone.entered fires on every player step). Cache rows in memory: the dev CRUD
+// below busts on edit, and the TTL bounds staleness from out-of-plugin writers
+// (flight's rotating contracts rewrite `rewards`/`meta` directly). Misses are
+// never cached, so a freshly-inserted quest is always found.
+const QUEST_CACHE_TTL_MS = 30_000;
+const questCache = new Map(); // quest_id -> { quest, at }
+
+// Exported for regress.js, which writes `quests` rows directly around the cache.
+export function invalidateQuestCache(questId) {
+  if (questId) questCache.delete(questId);
+  else questCache.clear();
+}
+
 async function loadQuest(questId) {
+  const cached = questCache.get(questId);
+  if (cached && Date.now() - cached.at < QUEST_CACHE_TTL_MS) return cached.quest;
   const { rows } = await query('SELECT * FROM quests WHERE id=$1', [questId]);
-  return rows[0] || null;
+  const quest = rows[0] || null;
+  if (quest) questCache.set(questId, { quest, at: Date.now() });
+  else questCache.delete(questId);
+  return quest;
 }
 
 async function loadPlayerQuest(playerId, questId) {
@@ -760,6 +780,7 @@ export const routeHandler = async (path, method, body, auth) => {
          JSON.stringify(body.objectives || []), JSON.stringify(body.rewards || {}), body.repeatable ? 1 : 0,
          body.quest_type || 'standard', JSON.stringify(body.meta || {})]
       );
+      invalidateQuestCache(qid);
       return { status: 201, body: { id: qid } };
     }
     if (id && method === 'PUT') {
@@ -770,11 +791,13 @@ export const routeHandler = async (path, method, body, auth) => {
          JSON.stringify(body.objectives || []), JSON.stringify(body.rewards || {}), body.repeatable ? 1 : 0,
          body.quest_type || 'standard', JSON.stringify(body.meta || {}), id]
       );
+      invalidateQuestCache(id);
       return { status: 200, body: { id } };
     }
     if (id && method === 'DELETE') {
       if (auth.role !== 'admin') return { status: 403, body: { error: 'Admin access required' } };
       await query('DELETE FROM quests WHERE id=$1', [id]);
+      invalidateQuestCache(id);
       return { status: 200, body: { message: 'Deleted' } };
     }
   } catch (e) {

@@ -6,6 +6,7 @@ import { getZoneVisibility, lightHitPenalty } from './environment.js';
 import { fireHook } from './plugins.js';
 import { getZoneProtection } from './protection.js';
 import { query } from '../models/db.js';
+import { getEquippedWeapon } from './inventory.js';
 
 // Darkness to-hit penalty for an attacker swinging in `zoneId`, from the
 // attacker's OWN perceived light. Pass the attacking player as `perceiver` so a
@@ -432,12 +433,7 @@ export async function pvpSwing(attacker, defender) {
   setCooldown(attacker.id, 'attack');
   await ensureTunables();
 
-  const { rows } = await query(
-    `SELECT i.* FROM player_inventory pi JOIN items i ON i.id=pi.item_id
-     WHERE pi.player_id=$1 AND pi.is_equipped=1 AND jsonb_exists(i.tags,'weapon') LIMIT 1`,
-    [attacker.id]
-  );
-  const equipped = rows[0];
+  const equipped = await getEquippedWeapon(attacker);
   const dmg = equipped?.tags?.damage || {};
   const weaponSkill = equipped?.tags?.weapon_skill || 'fists';
   const damageType = equipped?.tags?.damage_type || 'kinetic';
@@ -702,12 +698,7 @@ export async function pvpSwingSleeping(attacker, defender) {
   setCooldown(attacker.id, 'attack');
   await ensureTunables();
 
-  const { rows } = await query(
-    `SELECT i.* FROM player_inventory pi JOIN items i ON i.id=pi.item_id
-     WHERE pi.player_id=$1 AND pi.is_equipped=1 AND jsonb_exists(i.tags,'weapon') LIMIT 1`,
-    [attacker.id]
-  );
-  const equipped = rows[0];
+  const equipped = await getEquippedWeapon(attacker);
   const dmg = equipped?.tags?.damage || {};
   const damageType = equipped?.tags?.damage_type || 'kinetic';
   const damage_min = dmg.min ?? 2;

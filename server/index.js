@@ -19,8 +19,7 @@ import {
 	handleCommand,
 	describeZone,
 	describeVoidTeleport,
-	recomputeArmor,
-	recomputeInsulation,
+	recomputeEquipped,
 } from "./engine/commands/index.js";
 import { startGameLoop } from "./engine/gameLoop.js";
 import { loadPlugins, fireHook } from "./engine/plugins.js";
@@ -776,8 +775,7 @@ async function finishAuth(ws, session, player) {
 	broadcast(null, { type: 'online_change' });
 	await deactivateForcefield(player.id, livePlayer.home_zone, broadcast);
 	await autoEquipOnLogin(player.id);
-	await recomputeArmor(livePlayer);
-	await recomputeInsulation(livePlayer);
+	await recomputeEquipped(livePlayer);
 	addPlayerToZone(player.id, livePlayer.current_zone);
 	const diedOffline = player.died_offline;
 	await query(
@@ -991,8 +989,7 @@ async function handleGameCommand(ws, session, msg) {
 				}),
 			);
 		if (result.type === 'equip') {
-			await recomputeArmor(player);
-			await recomputeInsulation(player);
+			await recomputeEquipped(player);
 		}
 	}
 }

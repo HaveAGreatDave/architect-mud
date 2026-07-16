@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
-import { world, getZonePlayers, getZone, getZoneNpcs, getZoneEnemies, reloadZone } from '../../server/engine/world.js';
+import { world, getZonePlayers, getZone, getZoneNpcs, getZoneEnemies, reloadZone, hasActivePlayers } from '../../server/engine/world.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { on, emit } from '../../server/engine/events.js';
 import { registerAction, dispatchAction } from '../../server/engine/actions.js';
@@ -1568,7 +1568,7 @@ async function sportsHeartbeat() {
     });
   }
 }
-setInterval(() => { sportsHeartbeat().catch(e => console.error('[broadcast] sports heartbeat error:', e.message)); }, 60 * 1000);
+setInterval(() => { if (hasActivePlayers()) sportsHeartbeat().catch(e => console.error('[broadcast] sports heartbeat error:', e.message)); }, 60 * 1000);
 setTimeout(() => { sportsHeartbeat().catch(() => {}); }, 9000);
 
 // ── League standings feed (for the on-air standings bug + record mentions) ──────
@@ -1823,7 +1823,7 @@ async function refreshTalkshowNewsStory() {
     _talkshowNewsStory = stories.find(s => s?.tag === 'live') || stories[0] || null;
   } catch { /* generator unreachable — keep the last story (or null: the bit just skips) */ }
 }
-setInterval(() => { refreshTalkshowNewsStory().catch(() => {}); }, NEWS_REFRESH_MS);
+setInterval(() => { if (hasActivePlayers()) refreshTalkshowNewsStory().catch(() => {}); }, NEWS_REFRESH_MS);
 setTimeout(() => { refreshTalkshowNewsStory().catch(() => {}); }, 8000);
 
 // ── Talk-show broadcasts ────────────────────────────────────────────────────
@@ -2074,7 +2074,13 @@ async function refreshWatchedZones() {
   for (const z of next) _watchedZones.add(z);
 }
 registerZoneWatchedChecker((zoneId) => _watchedZones.has(zoneId));
-setInterval(() => { refreshWatchedZones().catch(() => {}); }, 15000);
+// Idle-gated (like gameLoop's resourceTick): every recurring broadcast heartbeat
+// skips its DB reads while nobody is online — with an empty server these ticks
+// were ~80% of steady-state DB traffic, holding pool slots for no one. All of
+// them derive their state from the clock or from player-driven rows, so the
+// first tick after a login catches up correctly. The one-shot boot warmups
+// below each interval stay ungated so caches are warm for a quick first login.
+setInterval(() => { if (hasActivePlayers()) refreshWatchedZones().catch(() => {}); }, 15000);
 setTimeout(() => { refreshWatchedZones().catch(() => {}); }, 8000);
 
 // Rename the reusable guest to tonight's persona, once per episode bucket, so it appears +
@@ -2103,7 +2109,7 @@ async function talkshowHeartbeat() {
     }
   }
 }
-setInterval(() => { talkshowHeartbeat().catch(e => console.error('[broadcast] talkshow heartbeat error:', e.message)); }, 60 * 1000);
+setInterval(() => { if (hasActivePlayers()) talkshowHeartbeat().catch(e => console.error('[broadcast] talkshow heartbeat error:', e.message)); }, 60 * 1000);
 setTimeout(() => { talkshowHeartbeat().catch(() => {}); }, 10000);
 
 async function getCurrentMessage(state, nowMs) {
@@ -4342,7 +4348,7 @@ async function engineerTick() {
     sendToZone(deck.zone_id, { type: 'zone_event', message: `A station engineer reboots the deck. Normal programming resumes.` });
   }
 }
-setInterval(() => engineerTick().catch(e => console.error('[broadcast] engineer tick error:', e.message)), 15 * 1000);
+setInterval(() => { if (hasActivePlayers()) engineerTick().catch(e => console.error('[broadcast] engineer tick error:', e.message)); }, 15 * 1000);
 
 // Death (which covers a downing/arrest) drops every station the victim held.
 on('player.death', ({ player }) => {
@@ -4929,18 +4935,31 @@ async function mediaDeckSyncTick() {
   const { minutes } = getEnvironmentState();
   const gameSecondsSinceMidnight = minutes * 60;
 
-  for (const deck of decks) {
-    const dflags = _deckFlags(deck);
+  // Every eligible deck's channel playlist in one query (this was a per-deck
+  // round trip), grouped by channel — decks often share a channel.
+  const deckStates = decks.map(deck => ({ deck, dflags: _deckFlags(deck) }));
+  const channelIds = [...new Set(deckStates
+    .filter(({ dflags }) => dflags.channel_id && Array.isArray(dflags.deck_cassettes) && dflags.deck_cassettes.length && !dflags.pirate_owner)
+    .map(({ dflags }) => dflags.channel_id))];
+  if (!channelIds.length) return;
+  const { rows: allPlRows } = await query(
+    `SELECT channel_id, broadcast_id, start_time, COALESCE(duration_override, 300) AS duration
+       FROM media_channel_playlist WHERE channel_id = ANY($1) ORDER BY start_time`,
+    [channelIds]
+  );
+  const playlistByChannel = new Map();
+  for (const r of allPlRows) {
+    if (!playlistByChannel.has(r.channel_id)) playlistByChannel.set(r.channel_id, []);
+    playlistByChannel.get(r.channel_id).push(r);
+  }
+
+  for (const { deck, dflags } of deckStates) {
     const channelId = dflags.channel_id;
     const cassettes = Array.isArray(dflags.deck_cassettes) ? dflags.deck_cassettes : [];
     if (!channelId || !cassettes.length) continue;
     if (dflags.pirate_owner) continue; // a pirated deck answers only to its captor — don't auto-align it to the schedule
 
-    const { rows: plRows } = await query(
-      `SELECT broadcast_id, start_time, COALESCE(duration_override, 300) AS duration
-         FROM media_channel_playlist WHERE channel_id=$1 ORDER BY start_time`,
-      [channelId]
-    );
+    const plRows = playlistByChannel.get(channelId) || [];
     const slot = plRows.find(p => gameSecondsSinceMidnight >= p.start_time && gameSecondsSinceMidnight < p.start_time + p.duration);
     if (!slot?.broadcast_id) continue;
     if (!cassettes.includes(slot.broadcast_id)) continue;
@@ -4951,7 +4970,7 @@ async function mediaDeckSyncTick() {
   }
 }
 
-setInterval(() => mediaDeckSyncTick().catch(e => console.error('[broadcast] media deck sync error:', e.message)), 30 * 1000);
+setInterval(() => { if (hasActivePlayers()) mediaDeckSyncTick().catch(e => console.error('[broadcast] media deck sync error:', e.message)); }, 30 * 1000);
 
 // ── Commands ─────────────────────────────────────────────────────────────────
 

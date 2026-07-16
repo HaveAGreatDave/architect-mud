@@ -33,18 +33,21 @@ function turnInQuestId(opt, tree) {
 //   • unset / turned_in /
 //     abandoned               → hidden entirely (never accepted, or already done).
 export async function filterDialogueOptions(options, tree, player) {
-  const out = [];
-  for (const opt of options || []) {
-    if (player && !(await evalConditions(opt.conditions || opt.condition, player))) continue;
+  // Options gate independently, so evaluate them concurrently instead of
+  // serially chaining each option's condition/flag round trips — a node with
+  // several gated options used to cost ~2 sequential queries per option.
+  // Order is preserved: map, then drop the nulls.
+  const gated = await Promise.all((options || []).map(async (opt) => {
+    if (player && !(await evalConditions(opt.conditions || opt.condition, player))) return null;
     const questId = turnInQuestId(opt, tree);
     if (questId && player) {
       const status = await getFlag('player', questId, player);
-      if (status === 'active') { out.push({ ...opt, _turninDisabled: true, _turninQuestId: questId }); continue; }
-      if (status !== 'completed') continue;
+      if (status === 'active') return { ...opt, _turninDisabled: true, _turninQuestId: questId };
+      if (status !== 'completed') return null;
     }
-    out.push(opt);
-  }
-  return out;
+    return opt;
+  }));
+  return gated.filter(Boolean);
 }
 
 // Land on `nodeKey` in an NPC's dialogue_tree for `player`: runs the node's own

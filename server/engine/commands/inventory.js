@@ -6,7 +6,7 @@ import { foodLoad, applyThirst } from '../bodily.js';
 import { dispatchAction, getRegisteredActions } from '../actions.js';
 import { burnCharge } from '../inventory.js';
 import { getZonePlayers, getZoneNpcs } from '../world.js';
-import { emit } from '../events.js';
+import { emit, on } from '../events.js';
 import { resolve as siftResolve, matchAll as siftMatchAll, createSelectionState, formatSelectionPage } from '../sift.js';
 import { fireSpecializedAction, availableActions } from '../specializedActions.js';
 import { computeSellUnitPrice } from '../vendor.js';
@@ -54,8 +54,8 @@ const EQUIP_VERBS = {
 // Build a per-slot typed-soak structure for the player from equipped armor.
 // player.soak[slot] = { soak: { kinetic:4, ... } }.
 // Combat routes the weapon's damage_type through the struck part's slot here.
-export async function recomputeArmor(player) {
-  const { rows } = await query(`SELECT i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.is_equipped=1`, [player.id]);
+export async function recomputeArmor(player, rows = null) {
+  if (!rows) ({ rows } = await query(`SELECT i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.is_equipped=1`, [player.id]));
   const bySlot = {};
   for (const r of rows) {
     const slot = tagValue(r, 'slot');
@@ -73,8 +73,8 @@ export async function recomputeArmor(player) {
   player.soak = bySlot;
 }
 
-export async function recomputeInsulation(player) {
-  const { rows } = await query(`SELECT i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.is_equipped=1`, [player.id]);
+export async function recomputeInsulation(player, rows = null) {
+  if (!rows) ({ rows } = await query(`SELECT i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.is_equipped=1`, [player.id]));
   let total = 0;
   let sealed = false;
   const covered = new Set();
@@ -98,19 +98,41 @@ export async function recomputeInsulation(player) {
   player.exposurePenalty = (covered.has('torso') ? 0 : 10) + (covered.has('legs') ? 0 : 5);
 }
 
+// Armor and insulation derive from the same equipped-rows set and are always
+// needed together — one fetch feeding both, instead of the identical query
+// issued back-to-back at every equip/unequip/undress/login.
+export async function recomputeEquipped(player) {
+  const { rows } = await query(`SELECT i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.is_equipped=1`, [player.id]);
+  await recomputeArmor(player, rows);
+  await recomputeInsulation(player, rows);
+}
+
 async function cmdInventory(player) {
   const { rows } = await query(`SELECT pi.*,i.name,i.tags,i.weight,i.value FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL ORDER BY i.name`, [player.id]);
   if (!rows.length) return { type:'inventory', message:'Your inventory is empty.', items:[] };
   // Per-instance name (custom_data.name) wins — e.g. a credit chip stamped with its
   // own denomination — otherwise Title Case the item-type name for list display.
   for (const r of rows) r.name = parseCustomData(r.custom_data)?.name || titleCaseName(r.name);
+  // Contents weight for every carried container in one grouped aggregate —
+  // this was one query per container per inventory view.
+  const containerIds = rows.filter(r => hasTag(r, 'container')).map(r => r.id);
+  let containerWeights = new Map();
+  if (containerIds.length) {
+    const { rows: w } = await query(
+      `SELECT pi.container_id, COALESCE(SUM(i.weight*pi.quantity),0) AS w
+         FROM player_inventory pi JOIN items i ON i.id=pi.item_id
+        WHERE pi.container_id = ANY($1) GROUP BY pi.container_id`,
+      [containerIds]
+    );
+    containerWeights = new Map(w.map(r => [r.container_id, Number(r.w) || 0]));
+  }
   let msg = '<span class="inv-header">INVENTORY</span>\n';
   for (const item of rows) {
     const eq = item.is_equipped ? ' <span class="equipped">[equipped]</span>' : '';
     const instFlags = INSTANCE_FLAGS.filter(n => hasFlag(item, n)).map(n => ` [${n}]`).join('');
     let container = '';
     if (hasTag(item, 'container')) {
-      const used = await containerContentsWeight(item.id);
+      const used = containerWeights.get(item.id) || 0;
       container = ` <span class="equipped">[${formatWeight(used)}/${formatWeight(tagValue(item, 'container', 0))}]</span>`;
     }
     msg += `  ${item.name}${item.quantity>1?` x${item.quantity}`:''}${instFlags}${container}${eq}\n`;
@@ -137,8 +159,7 @@ async function cmdGear(player) {
      WHERE pi.player_id=$1 AND pi.container_id IS NULL AND jsonb_exists(i.tags,'slot') ORDER BY i.name`,
     [player.id]
   );
-  await recomputeArmor(player);
-  await recomputeInsulation(player);
+  await recomputeEquipped(player);
   const effects = {
     insulation: player.insulation || 0,
     sealed: !!player.sealed,
@@ -189,7 +210,19 @@ export function carryCapacity(player) {
 }
 
 // Total carried weight: top-level items at full weight, contained items at 75%.
+//
+// Cached on the live player object: the encumbrance move-gate calls this on
+// every step, so uncached it was a full inventory aggregate per move against a
+// remote DB. `inventory.changed` busts the cache on the paths a player uses to
+// fix "too heavy" (drop/give/take — instant), while the short TTL bounds
+// staleness from the many plugin writers that mutate player_inventory without
+// emitting (crafting outputs, fishing catches, ...). A few seconds of stale
+// weight is benign: encumbrance is a soft gate, and the value self-corrects.
+const CARRIED_WEIGHT_TTL_MS = 5000;
+on('inventory.changed', ({ actor }) => { if (actor) delete actor._carriedWeight; });
 export async function computeCarriedWeight(player) {
+  const cached = player._carriedWeight;
+  if (cached && Date.now() - cached.at < CARRIED_WEIGHT_TTL_MS) return cached.value;
   const { rows } = await query(
     `SELECT
        COALESCE(SUM(i.weight*pi.quantity) FILTER (WHERE pi.container_id IS NULL),0) AS top,
@@ -197,7 +230,9 @@ export async function computeCarriedWeight(player) {
      FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1`,
     [player.id]
   );
-  return (Number(rows[0].top) || 0) + (Number(rows[0].contained) || 0) * 0.75;
+  const value = (Number(rows[0].top) || 0) + (Number(rows[0].contained) || 0) * 0.75;
+  player._carriedWeight = { value, at: Date.now() };
+  return value;
 }
 
 async function cmdTake(targetStr, player, broadcast) {
@@ -300,8 +335,7 @@ async function dropRows(rows, player, broadcast) {
     messages.push(r.message);
   }
   if (hadEquipped) {
-    await recomputeArmor(player);
-    await recomputeInsulation(player);
+    await recomputeEquipped(player);
   }
   return { type:'drop', message: messages.join('\n') };
 }
@@ -545,8 +579,7 @@ async function cmdUse(targetStr, player, broadcast) {
 // nakedness/cold penalty current the moment gear goes on or comes off.
 async function dispatchEquip(action, player) {
   const result = await dispatchAction(action);
-  await recomputeArmor(player);
-  await recomputeInsulation(player);
+  await recomputeEquipped(player);
   return result;
 }
 
@@ -654,8 +687,7 @@ async function cmdUndress(player, broadcast) {
       WHERE player_id=$1 AND is_equipped=1 AND slot = ANY($2)`,
     [player.id, BODY_SLOTS]
   );
-  await recomputeArmor(player);
-  await recomputeInsulation(player);
+  await recomputeEquipped(player);
   emit('inventory.changed', { actor: player });
   broadcast?.(player.current_zone, { type:'zone_event', message:`${player.handle} strips down.` }, player.id);
   return { type:'output', message:`You take off everything you're wearing (${rows.length} item${rows.length === 1 ? '' : 's'}) and stash it in your pack.`, refresh:true };

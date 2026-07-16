@@ -13,10 +13,21 @@ import { registerAction } from './actions.js';
 
 // --- Store -----------------------------------------------------------------
 
+// world_flags is tiny, global, and mutated only through setFlag/clearFlag below,
+// so reads are served from a write-through map after one load — world-scoped
+// Conditions (dialogue gates, scripts) stop costing a round trip each.
+let _worldFlags = null;
+async function worldFlags() {
+  if (_worldFlags) return _worldFlags;
+  const { rows } = await query('SELECT flag_key, flag_value FROM world_flags');
+  _worldFlags = new Map(rows.map(r => [r.flag_key, r.flag_value]));
+  return _worldFlags;
+}
+
 export async function getFlag(scope, key, player) {
   if (scope === 'world') {
-    const { rows } = await query('SELECT flag_value FROM world_flags WHERE flag_key=$1', [key]);
-    return rows.length ? rows[0].flag_value : undefined;
+    const m = await worldFlags();
+    return m.has(key) ? m.get(key) : undefined;
   }
   if (!player) return undefined;
   const { rows } = await query(
@@ -35,6 +46,7 @@ export async function setFlag(scope, key, value, player) {
        ON CONFLICT (flag_key) DO UPDATE SET flag_value=$2, updated_at=EXTRACT(EPOCH FROM NOW())`,
       [key, v]
     );
+    (await worldFlags()).set(key, v);
   } else {
     await query(
       `INSERT INTO player_flags (player_id, flag_key, flag_value, updated_at)
@@ -48,6 +60,7 @@ export async function setFlag(scope, key, value, player) {
 export async function clearFlag(scope, key, player) {
   if (scope === 'world') {
     await query('DELETE FROM world_flags WHERE flag_key=$1', [key]);
+    (await worldFlags()).delete(key);
   } else if (player) {
     await query('DELETE FROM player_flags WHERE player_id=$1 AND flag_key=$2', [player.id, key]);
   }
@@ -77,10 +90,12 @@ export async function evalCondition(condition, player) {
 export async function evalConditions(conditions, player) {
   if (!conditions) return true;
   const list = Array.isArray(conditions) ? conditions : [conditions];
-  for (const c of list) {
-    if (!(await evalCondition(c, player))) return false;
-  }
-  return true;
+  if (list.length === 1) return evalCondition(list[0], player);
+  // Conditions are independent single-row reads — issue them together rather
+  // than serially chaining a round trip per condition (AND semantics unchanged;
+  // this just gives up the early-exit, which cost more in latency than it saved).
+  const results = await Promise.all(list.map((c) => evalCondition(c, player)));
+  return results.every(Boolean);
 }
 
 // --- Actions ---------------------------------------------------------------

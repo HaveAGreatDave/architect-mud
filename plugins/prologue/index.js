@@ -28,7 +28,7 @@ import { on } from '../../server/engine/events.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
-import { maxHpForEndurance } from '../../server/engine/ip.js';
+import { maxHpForEndurance, invalidateSkillCache } from '../../server/engine/ip.js';
 import { getZone, getMinimapData } from '../../server/engine/world.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
 
@@ -107,6 +107,8 @@ async function grantArchitectInterfaceIp(player) {
        ON CONFLICT (player_id, skill_id) DO UPDATE SET ip = player_skills.ip + 1`,
     [player.id]
   ).catch(() => ({ rowCount: 0 }));
+  // Direct player_skills write behind ip.js's per-player cache — bust it.
+  invalidateSkillCache(player.id);
   return rowCount > 0;
 }
 

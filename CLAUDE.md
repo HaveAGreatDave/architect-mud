@@ -7,7 +7,7 @@ Post-singularity browser MUD in the HellMOO tradition. Text-driven, real-time, b
 ## Key Docs
 
 - [README.md](README.md) — deploy instructions, player commands, world overview, what's built and what's next
-- [docs/architecture.md](docs/architecture.md) — stack decisions, repo structure, data flows, DB schema, lessons learned from deployment bugs
+- [docs/architecture.md](docs/architecture.md) — stack decisions, repo structure, data flows, DB schema, **persistence tiers (when to write the DB) + read tiers (where data lives at runtime — read before adding any `query()` to a hot path)**, lessons learned from deployment bugs
 - [docs/design.md](docs/design.md) — game design philosophy, combat feel, skill/faction/economy systems, open design questions
 - [docs/items.md](docs/items.md) — item property reference: every `items` field, which JSON keys the engine actually reads, and the working armor format
 - [docs/tags.md](docs/tags.md) — the tag system: catalog/helpers/Tag→Action registry, the tag model, and how to add a tag cleanly (property vs. behavior)
@@ -59,6 +59,7 @@ Post-singularity browser MUD in the HellMOO tradition. Text-driven, real-time, b
     - The export deliberately excludes player/runtime rows (accounts, inventory, password hashes); it carries schema + world content only.
 - **Plugins for extensibility.** New behavior hooks belong in `/plugins/`, not in engine files, unless they're genuinely core.
 - **No new sparse columns on `players` (or `npcs`).** New per-player scalar state goes in `player_flags` or its own feature table — never another `players` column. Same for per-tick/derived state: check the persistence tiers in [docs/architecture.md](docs/architecture.md#persistence-tiers-when-to-write-the-db) before adding a runtime DB write.
+- **Every `query()` is a remote round trip — decide the read tier before adding one.** Prod Postgres is remote; latency lives in round-trip *count*, not query cost. Check the [read tiers in docs/architecture.md](docs/architecture.md#read-tiers-where-data-lives-at-runtime) before a new feature reads the DB: hot paths (per-move/per-swing/per-tick) never add awaited queries — serve them from the live player object, the world Maps, or a cache tier; never query in a loop (`id = ANY($1)` / `GROUP BY`); `Promise.all` independent reads; coalesce same-row writes; idle-gate scheduled ticks on `hasActivePlayers()` and register them via scheduler.js. **A cache is only as safe as its write funnel — grep every writer before caching a table** (why `furniture` and `npcs` rows are deliberately uncached).
 - **UTF-8, always.** Several files (especially `client/game/index.html`) use Unicode glyphs and box-drawing chars (`₵ ⚙ ⏻ ╱ █ ☢`). When editing, preserve UTF-8 without a BOM — never let a tool re-save as Windows-1252 or it double-encodes everything into `â•±â•²` mojibake. After editing such files, sanity-check that the glyphs are still intact.
 
 ## Regression Testing — run it, and recommend it

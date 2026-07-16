@@ -1226,9 +1226,8 @@ async function rentCollectionTick() {
     const cost = apt.rent_cost ?? 100;
     const buildingName = apt.building_name ?? 'the building';
 
-    // Get the zone name for the message
-    const { rows: zoneRows } = await query('SELECT name FROM zones WHERE id=$1', [apt.zone_id]);
-    const zoneName = zoneRows[0]?.name ?? apt.zone_id;
+    // Zone name for the message — zones live in the world Map, no query needed.
+    const zoneName = world.zones.get(apt.zone_id)?.name ?? apt.zone_id;
 
     // Check if player has enough credits
     const { rows: playerRows } = await query('SELECT id,credits,bank_credits,handle FROM players WHERE id=$1', [apt.owner_id]);

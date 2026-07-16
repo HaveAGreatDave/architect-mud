@@ -7,6 +7,7 @@ import { tagValue, tagsOf } from '../tags.js';
 import { exitTargets, allExits } from '../exits.js';
 import { emit } from '../events.js';
 import { effectiveSkill, awardSkillUse } from '../skills.js';
+import { getEquippedWeapon } from '../inventory.js';
 import { getZoneProtection } from '../protection.js';
 import { doorGuardsOnlyUnownedApartment } from '../apartments.js';
 import { gameMsToReal } from '../gametime.js';
@@ -264,11 +265,7 @@ export async function cmdAttackDoor(dirStr, player, broadcast) {
   }
   setCooldown(player.id, 'attack');
 
-  const { rows } = await query(
-    `SELECT i.* FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.is_equipped=1 AND jsonb_exists(i.tags,'weapon') LIMIT 1`,
-    [player.id]
-  );
-  const equipped = rows[0];
+  const equipped = await getEquippedWeapon(player);
   const dmg = equipped ? tagValue(equipped, 'damage', {}) || {} : {};
   const dmin = dmg.min ?? (equipped ? 3 : 2);
   const dmax = dmg.max ?? (equipped ? 8 : 4);

@@ -14,7 +14,7 @@ import { setPosture } from '../posture.js';
 import { getAlias } from './aliases.js';
 
 export { describeZone, describeVoidTeleport } from './describe.js';
-export { recomputeArmor, recomputeInsulation, EQUIP_SLOTS } from './inventory.js';
+export { recomputeArmor, recomputeInsulation, recomputeEquipped, EQUIP_SLOTS } from './inventory.js';
 
 const builtins = new Map([
   ...Object.entries(moveHandlers),

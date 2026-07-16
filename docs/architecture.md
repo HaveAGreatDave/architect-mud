@@ -319,6 +319,55 @@ Rules of thumb:
 
 ---
 
+## Read Tiers (Where Data Lives at Runtime)
+
+The mirror of Persistence Tiers, for the read side. Prod Postgres is **remote** (Neon), so every
+`query()` is a pool checkout plus a network round trip — tens of milliseconds each. The 2026-07
+movement-lag audit found the latency problem was never query cost (indexing is thorough) but
+**round-trip count**: hot paths chaining single-row reads serially, and background ticks holding
+pool slots the moment a player command needed one. Before a new feature reads anything, decide
+which tier the value lives in — same discipline as deciding a write's persistence tier:
+
+| Tier | What lives here | Correctness contract | As built |
+|---|---|---|---|
+| **Boot-loaded world Map** | content + live entity state read constantly | **every** writer funnels through a helper that updates Map + DB together | `world.zones/npcs/doors/orgs/spawnTimers…` (world.js) |
+| **Write-through module cache** | small global tables | all writers live in the one module that owns the cache | world flags (flags.js), per-player skill IP (ip.js) |
+| **Event-bust + TTL cache** | derived per-player values | main mutation paths emit an event that busts; a short TTL bounds the writers that don't; staleness must be **benign** | carried weight, equipped weapon (`inventory.changed` + 5 s) |
+| **TTL content cache** | authored content, static at runtime | dev CRUD invalidates; TTL covers out-of-band writers | quest definitions (plugins/quests, 30 s) |
+| **Query fresh** | anything gameplay-critical with uncoordinated writers | none needed — the DB is the only truth | `npcs` rows in shop/dialogue handlers (vendor_credits/stock mutate DB-only), `wanted`/`heat` player flags |
+
+**The cache-safety test: a cache is only as safe as its write funnel.** Before caching a table,
+grep *every* `INSERT/UPDATE/DELETE` against it. If writers are scattered and don't (or can't)
+maintain the cache, either build the write funnel first or stay on "query fresh" — a stale cache
+that misrenders lights or sells from a phantom shelf is strictly worse than a round trip. This is
+the same bug class as [the source-of-truth audit](audits/source-of-truth-audit.md); `furniture`
+and `npcs` both failed this test and are deliberately *not* cached today.
+
+Rules of thumb when building features:
+
+- **Hot paths (per-move, per-swing, per-condition, per-tick) must not add awaited round trips.**
+  Derive from the live player object / world Maps, or pick a cache tier above. A value recomputed
+  unchanged on every step (the old per-move carried-weight scan) is a tier decision that defaulted
+  to "query fresh" by accident.
+- **Never query inside a loop.** Batch with `WHERE id = ANY($1)` or a `GROUP BY` aggregate
+  (vendor shelves, container weights, media-deck playlists were all per-row loops once).
+- **Independent reads issue together** (`Promise.all` — describeZone's 4-way batch, dialogue
+  option gating); **same-row writes coalesce into one UPDATE** (cmdMove's
+  current_zone/radiation/stamina).
+- **Scheduled work idle-gates.** A recurring tick that reads the DB skips itself when
+  `hasActivePlayers()` is false unless it genuinely must run on an empty server (settlement by
+  `resolve_at` timestamps and clock-derived state both catch up fine on the first tick after a
+  login). Register through scheduler.js — it jitters cadence phase and spreads same-cadence
+  subscribers so tick convoys can't hold every pool slot at a minute boundary.
+- **Narrow the column list on wide tables.** `items`/`npcs`/`zones` carry fat JSONB
+  (`dialogue_tree`, `behaviour_graph`, tag bags) and `audio_samples.data` is base64 audio —
+  `SELECT *` on these repeatedly is how the Neon egress budget died once already.
+- **Every `query()` costs a pool slot for its full round trip** — fire-and-forget event
+  subscribers contend with player commands even though nothing awaits them. Cheap queries in
+  event handlers still count against the hot path.
+
+---
+
 ## Lessons Learned (Worth Reading Before Changing Infra)
 
 These are real bugs hit during deployment, kept here so they don't get relearned:

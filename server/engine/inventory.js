@@ -7,8 +7,32 @@
 import { randomUUID } from 'crypto';
 import { query } from '../models/db.js';
 import { isStackable } from './tags.js';
+import { on } from './events.js';
 
 const groundOwner = zoneId => `_ground_${zoneId}`;
+
+// The player's equipped weapon row (items.* columns), or null when unarmed.
+// This exact lookup used to be copy-pasted at five call sites and re-queried on
+// EVERY combat swing (weapon plugin, pvpSwing, door bash). Cached on the live
+// player like carried weight: inventory.changed busts it instantly on the
+// equip/unequip/drop paths, and the short TTL bounds staleness from plugin
+// writers that mutate player_inventory without emitting (e.g. jail
+// confiscation — a jailed player isn't mid-swing, so seconds of staleness
+// can't land a hit with a weapon they no longer hold).
+const EQUIPPED_WEAPON_TTL_MS = 5000;
+on('inventory.changed', ({ actor }) => { if (actor) delete actor._equippedWeapon; });
+export async function getEquippedWeapon(player) {
+  const cached = player._equippedWeapon;
+  if (cached && Date.now() - cached.at < EQUIPPED_WEAPON_TTL_MS) return cached.row;
+  const { rows } = await query(
+    `SELECT i.* FROM player_inventory pi JOIN items i ON i.id=pi.item_id
+     WHERE pi.player_id=$1 AND pi.is_equipped=1 AND jsonb_exists(i.tags,'weapon') LIMIT 1`,
+    [player.id]
+  );
+  const row = rows[0] || null;
+  player._equippedWeapon = { row, at: Date.now() };
+  return row;
+}
 
 // A fillable container holding fluid is unique (non-stackable) — only empty
 // ones stack. The instance amount lives in custom_data.fluid_amount.

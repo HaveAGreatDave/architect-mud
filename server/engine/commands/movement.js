@@ -455,7 +455,13 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
     }
     player.pvpTargetId = null;
   }
-  await query('UPDATE players SET current_zone=$1 WHERE id=$2', [targetId, player.id]);
+  // The per-move players write is coalesced into ONE UPDATE further down
+  // (current_zone always; radiation/stamina only when this move changed them) —
+  // this path used to issue up to three serial single-column UPDATEs on the
+  // same row, each a full round trip. In-memory state is authoritative
+  // mid-move (the row write is durability only), so nothing between here and
+  // the flush reads the DB copy of these columns.
+  const pendingWrite = { current_zone: targetId };
 
   const arrivalDir = OPPOSITE[direction] || null;
 
@@ -498,7 +504,7 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
     radGain = Math.floor(zoneRad * 0.1);
     if (radGain > 0) {
       player.radiation = Math.min(100, (player.radiation||0) + radGain);
-      await query('UPDATE players SET radiation=$1 WHERE id=$2', [player.radiation, player.id]);
+      pendingWrite.radiation = player.radiation;
     }
   }
   const describeOut = {};
@@ -526,7 +532,7 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
       const before = player.stamina ?? (player.stamina_max ?? 100);
       player.stamina = Math.max(0, before - cost);
       if (player.stamina !== before) {
-        await query('UPDATE players SET stamina=$1 WHERE id=$2', [player.stamina, player.id]);
+        pendingWrite.stamina = player.stamina;
         broadcast(null, { type:'resource_tick', messages:[], player_update:{ stamina: player.stamina } }, null, player.id);
       }
       narration += sev >= 0.75
@@ -543,7 +549,7 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
     const before = player.stamina ?? (player.stamina_max ?? 100);
     if (before >= RUN_STEP_STAMINA) {
       player.stamina = before - RUN_STEP_STAMINA;
-      await query('UPDATE players SET stamina=$1 WHERE id=$2', [player.stamina, player.id]);
+      pendingWrite.stamina = player.stamina;
       broadcast(null, { type:'resource_tick', messages:[], player_update:{ stamina: player.stamina } }, null, player.id);
     } else {
       // Still trying to run on an empty tank — you're gassed. Stamp (and keep pushing
@@ -553,6 +559,15 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
       player._windedUntil = Date.now() + WINDED_DURATION_MS;
       if (!wasWinded) broadcast(null, { type:'resource_tick', messages:['You\'re completely winded — chest heaving, you have to catch your breath before you can run again.'], player_update:{ stamina: player.stamina } }, null, player.id);
     }
+  }
+
+  // Flush the coalesced per-move players write (see pendingWrite above).
+  {
+    const cols = Object.keys(pendingWrite);
+    await query(
+      `UPDATE players SET ${cols.map((c, i) => `${c}=$${i + 1}`).join(', ')} WHERE id=$${cols.length + 1}`,
+      [...cols.map(c => pendingWrite[c]), player.id]
+    );
   }
 
   // Stamp the move for the rest/regen tick — stamina only recovers after a short
