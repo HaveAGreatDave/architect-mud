@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { join, dirname } from 'path';
 import { query } from '../../server/models/db.js';
-import { getLivePlayer, getAllLivePlayers, getZone, getMinimapData, insertFurniture, updateFurnitureCacheWhere } from '../../server/engine/world.js';
+import { getLivePlayer, getAllLivePlayers, getZone, getMinimapData, insertFurniture, updateFurnitureWhere } from '../../server/engine/world.js';
 import { autoResolvePower, recalcZoneLoad, getZonePowerStatus } from '../../server/engine/environment.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
 
@@ -105,8 +105,7 @@ async function cmdLetThereBeLight(args, raw, player, broadcast) {
   if (existing.length) {
     lightName = existing[0].name;
     if (!existing[0].light_on) {
-      await query(`UPDATE furniture SET light_on=1 WHERE zone_id=$1 AND object_type='light'`, [zoneId]);
-      updateFurnitureCacheWhere(f => f.zone_id === zoneId && f.object_type === 'light', { light_on: 1 });
+      await updateFurnitureWhere(`UPDATE furniture SET light_on=1 WHERE zone_id=$1 AND object_type='light'`, [zoneId]);
     }
   } else {
     const id = `furn_light_${zoneId}_${randomUUID().slice(0, 8)}`;

@@ -13,7 +13,7 @@ import {
   getAllLivePlayers, getZone, getAllZones, getApartment, setApartmentCache,
   getZoneControl, setZoneControlCache, getOrgZones, getAllZoneControl,
   getZoneAssets, getOrgAssets, reloadZoneAssets,
-  insertFurniture, deleteFurnitureCacheWhere,
+  insertFurniture, deleteFurnitureWhere,
 } from '../../server/engine/world.js';
 import { PERM, PERM_ALL, hasPerm } from '../../server/engine/org-perms.js';
 import { zoneDanger } from '../../server/engine/danger.js';
@@ -838,8 +838,7 @@ async function cmdDisband(player) {
   const { rows: hqRows } = await query('SELECT zone_id FROM apartments WHERE owner_org_id=$1', [org.id]);
   for (const h of hqRows) {
     await releaseCorpHq(h.zone_id);
-    await query(`DELETE FROM furniture WHERE zone_id=$1 AND jsonb_exists(flags,'corp_terminal')`, [h.zone_id]);
-    deleteFurnitureCacheWhere(f => f.zone_id === h.zone_id && f.flags && 'corp_terminal' in f.flags);
+    await deleteFurnitureWhere(`DELETE FROM furniture WHERE zone_id=$1 AND jsonb_exists(flags,'corp_terminal')`, [h.zone_id]);
   }
 
   await withTransaction(async (q) => {

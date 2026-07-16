@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
-import { world, getZonePlayers, getZone, getZoneNpcs, getZoneEnemies, reloadZone, hasActivePlayers, insertFurniture, updateFurniture, deleteFurnitureCacheWhere } from '../../server/engine/world.js';
+import { world, getZonePlayers, getZone, getZoneNpcs, getZoneEnemies, reloadZone, hasActivePlayers, insertFurniture, updateFurniture, deleteFurnitureWhere } from '../../server/engine/world.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { on, emit } from '../../server/engine/events.js';
 import { registerAction, dispatchAction } from '../../server/engine/actions.js';
@@ -5493,8 +5493,7 @@ export const routeHandler = async (path, method, body, auth) => {
         const { rows: chRows } = await query('SELECT studio_zone_id FROM media_channels WHERE id=$1', [id]);
         const studioZoneId = chRows[0]?.studio_zone_id || null;
         await query('DELETE FROM media_cameras WHERE streaming_channel_id=$1', [id]);
-        await query('DELETE FROM furniture WHERE object_type=\'media_deck\' AND flags->>\'channel_id\'=$1', [id]);
-        deleteFurnitureCacheWhere(f => f.object_type === 'media_deck' && f.flags?.channel_id === id);
+        await deleteFurnitureWhere('DELETE FROM furniture WHERE object_type=\'media_deck\' AND flags->>\'channel_id\'=$1', [id]);
         await query('UPDATE media_broadcasts SET channel_id=NULL WHERE channel_id=$1', [id]);
         await query('DELETE FROM media_channels WHERE id=$1', [id]);
         // Cascade: delete the studio zone and its entire map (production, utility rooms, etc.)

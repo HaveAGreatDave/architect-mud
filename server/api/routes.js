@@ -1,6 +1,6 @@
 import { query, logActivity } from '../models/db.js';
 import { syncContentFromRequest, syncZoneDeletion } from './content-sync.js';
-import { reloadZone, getAllZones, world, getAllLivePlayers, getZone, addPlayerToZone, removePlayerFromZone, getMinimapData, reloadGlobalAmbients, spawnEnemySync, setDoorCache, deleteDoorCache, getZoneDoors, reloadSpawn, removeSpawn, isEnterableFacade, resolveLanding, reloadMaps, insertFurniture, updateFurniture, deleteFurniture, deleteFurnitureCacheWhere } from '../engine/world.js';
+import { reloadZone, getAllZones, world, getAllLivePlayers, getZone, addPlayerToZone, removePlayerFromZone, getMinimapData, reloadGlobalAmbients, spawnEnemySync, setDoorCache, deleteDoorCache, getZoneDoors, reloadSpawn, removeSpawn, isEnterableFacade, resolveLanding, reloadMaps, insertFurniture, updateFurniture, deleteFurniture, deleteFurnitureWhere } from '../engine/world.js';
 import { describeZone, describeVoidTeleport } from '../engine/commands/index.js';
 import { allExits } from '../engine/exits.js';
 import { detectBathroomSide } from '../engine/commands/doors.js';
@@ -1089,8 +1089,7 @@ export async function apiDeleteZone(id) {
     // Cascade-delete everything tied to these zone IDs so nothing is left orphaned.
     for (const zid of allDeletedIds) {
       await query('DELETE FROM npcs             WHERE zone_id=$1', [zid]);
-      await query('DELETE FROM furniture        WHERE zone_id=$1', [zid]);
-      deleteFurnitureCacheWhere(f => f.zone_id === zid);
+      await deleteFurnitureWhere('DELETE FROM furniture WHERE zone_id=$1', [zid]);
       await query('DELETE FROM zone_spawns      WHERE zone_id=$1', [zid]);
       await query('DELETE FROM lighting_states  WHERE zone_id=$1', [zid]);
       await query('DELETE FROM power_zones      WHERE id=$1',                                                   [zid]);

@@ -345,9 +345,15 @@ and `npcs` both used to fail this test** and were the two tables deliberately le
 were funneled in 2026-07 and are now boot-loaded Maps:
 
 - `furniture` — ~40 scattered writers funneled through `insertFurniture`/`updateFurniture`/
-  `deleteFurniture` in world.js (bulk predicate SQL keeps its query and mirrors the same
-  predicate via `updateFurnitureCacheWhere`/`deleteFurnitureCacheWhere`), which is what let
-  describeZone's per-move furniture read move onto the `world.furniture` Map.
+  `deleteFurniture` in world.js, which is what let describeZone's per-move furniture read move
+  onto the `world.furniture` Map (indexed by zone, so a room render is a Set lookup, not a scan).
+  **Bulk writers (the environment.js light sweeps) hand their SQL to `updateFurnitureWhere` /
+  `deleteFurnitureWhere`**, which append `RETURNING` and re-cache exactly the rows Postgres says
+  it touched — so the predicate and any `SET` transform live *once*, in the SQL. The earlier
+  design had each caller hand-write a JS mirror of its own `WHERE` clause (and re-implement
+  `COALESCE(light_on_intended, light_on)` as `f.light_on_intended ?? f.light_on`); that is a
+  second source of truth for the predicate, and drift between the two silently stales the cache —
+  precisely the bug the funnel exists to stop.
 - `npcs` — every writer (vendor credits/stock, AI safe runs, hp saves, evictions, broadcast
   staffing, poker bankrolls) funneled through `updateNpc`/`syncNpc`; SQL-side increments inside a
   transaction use `RETURNING` + `syncNpc`. That let the dialogue/shop handlers stop issuing a

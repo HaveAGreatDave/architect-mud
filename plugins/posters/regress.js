@@ -3,7 +3,7 @@
 // Kiyo/Cyd seam reveal. All DB rows it creates use throwaway ids/keys and are
 // cleaned up in a finally, so it never touches the six real posters.
 import { query } from '../../server/models/db.js';
-import { world, setApartmentCache, insertFurniture, deleteFurnitureCacheWhere } from '../../server/engine/world.js';
+import { world, setApartmentCache, insertFurniture, deleteFurnitureWhere } from '../../server/engine/world.js';
 import { hooks, _test } from './index.js';
 
 export default async function regress({ run, check, getPlayer }) {
@@ -84,8 +84,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('non-poster furniture is ignored by the hook',
       (await hooks['furniture.describe']({ zone_id: zone, name: 'a chair', flags: {} })) === undefined);
   } finally {
-    await query(`DELETE FROM furniture WHERE id IN ('furn_regress_poster','furn_hero_poster_regress','furn_regress_cyd')`);
-    deleteFurnitureCacheWhere(f => ['furn_regress_poster', 'furn_hero_poster_regress', 'furn_regress_cyd'].includes(f.id));
+    await deleteFurnitureWhere(`DELETE FROM furniture WHERE id IN ('furn_regress_poster','furn_hero_poster_regress','furn_regress_cyd')`);
     await query(`DELETE FROM player_inventory WHERE player_id=$1 AND item_id='item_poster_regress'`, [p.id]);
     p.current_zone = savedZone;
     world.apartments.delete(aptId);

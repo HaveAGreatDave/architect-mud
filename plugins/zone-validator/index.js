@@ -1,5 +1,5 @@
 import { query } from '../../server/models/db.js';
-import { world, deleteFurnitureCacheWhere } from '../../server/engine/world.js';
+import { world, deleteFurnitureWhere } from '../../server/engine/world.js';
 import { allExits, neighborZoneIds, addExit } from '../../server/engine/exits.js';
 
 async function fetchAllZones() {
@@ -214,8 +214,7 @@ async function _runFull(opts = {}) {
       const zoneIds = orphanedZones.map(z => z.id);
       for (const zid of zoneIds) {
         await query('DELETE FROM npcs             WHERE zone_id=$1', [zid]);
-        await query('DELETE FROM furniture        WHERE zone_id=$1', [zid]);
-        deleteFurnitureCacheWhere(f => f.zone_id === zid);
+        await deleteFurnitureWhere('DELETE FROM furniture WHERE zone_id=$1', [zid]);
         await query('DELETE FROM zone_spawns      WHERE zone_id=$1', [zid]);
         await query('DELETE FROM lighting_states  WHERE zone_id=$1', [zid]);
         await query('DELETE FROM power_zones      WHERE id=$1',                                                   [zid]);

@@ -28,7 +28,7 @@ import { schedule } from './scheduler.js';
 import { setTimeScale, getTimeScale } from './gametime.js';
 import { logActivity } from '../models/db.js';
 import { emit } from './events.js';
-import { world, addExitOverride, removeExitOverride, insertFurniture, updateFurniture, updateFurnitureCacheWhere } from './world.js';
+import { world, addExitOverride, removeExitOverride, insertFurniture, updateFurniture, updateFurnitureWhere } from './world.js';
 import { neighborZoneIds, allExits, addExit } from './exits.js';
 
 // ---------------------------------------------------------------------------
@@ -799,12 +799,8 @@ async function syncStreetlights(zoneFilter = null) {
   }
   if (!onZones.length && !offZones.length) return false;
 
-  if (onZones.length)  await query(`UPDATE furniture SET light_on = 1 WHERE light_type = 'streetlight' AND zone_id = ANY($1)`, [onZones]).catch(() => {});
-  if (offZones.length) await query(`UPDATE furniture SET light_on = 0 WHERE light_type = 'streetlight' AND zone_id = ANY($1)`, [offZones]).catch(() => {});
-  // Mirror the bulk sweep into the furniture cache (same predicates as the SQL).
-  const onSet = new Set(onZones), offSet = new Set(offZones);
-  updateFurnitureCacheWhere(f => f.light_type === 'streetlight' && onSet.has(f.zone_id), { light_on: 1 });
-  updateFurnitureCacheWhere(f => f.light_type === 'streetlight' && offSet.has(f.zone_id), { light_on: 0 });
+  if (onZones.length)  await updateFurnitureWhere(`UPDATE furniture SET light_on = 1 WHERE light_type = 'streetlight' AND zone_id = ANY($1)`, [onZones]).catch(() => {});
+  if (offZones.length) await updateFurnitureWhere(`UPDATE furniture SET light_on = 0 WHERE light_type = 'streetlight' AND zone_id = ANY($1)`, [offZones]).catch(() => {});
 
   if (broadcast) {
     const isDarkPhase = state.phase === 'night' || state.phase === 'dusk';
@@ -937,11 +933,8 @@ async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, avai
     // Preserve intended state for non-streetlights only.
     // Streetlights are managed by the day/night cycle — they don't need
     // light_on_intended because syncStreetlights sets them correctly on restore.
-    await query(`UPDATE furniture SET light_on_intended = COALESCE(light_on_intended, light_on) WHERE zone_id=$1 AND object_type='light' AND light_type != 'streetlight'`, [zoneId]);
-    await query(`UPDATE furniture SET light_on=0 WHERE zone_id=$1 AND object_type='light'`, [zoneId]);
-    updateFurnitureCacheWhere(f => f.zone_id === zoneId && f.object_type === 'light' && f.light_type !== 'streetlight',
-      f => ({ light_on_intended: f.light_on_intended ?? f.light_on }));
-    updateFurnitureCacheWhere(f => f.zone_id === zoneId && f.object_type === 'light', { light_on: 0 });
+    await updateFurnitureWhere(`UPDATE furniture SET light_on_intended = COALESCE(light_on_intended, light_on) WHERE zone_id=$1 AND object_type='light' AND light_type != 'streetlight'`, [zoneId]);
+    await updateFurnitureWhere(`UPDATE furniture SET light_on=0 WHERE zone_id=$1 AND object_type='light'`, [zoneId]);
     // Do NOT zero current_load_kw — demand stays constant; only available_kw=0 signals no supply.
     await query(`UPDATE lighting_states SET fixture_count=0, total_lumens=0 WHERE zone_id=$1`, [zoneId]).catch(() => {});
     if (broadcast && prevStatus !== 'offline' && !opts.silent) {
@@ -956,9 +949,7 @@ async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, avai
     }
   } else if (nowBrown) {
     // Preserve intended state before any changes.
-    await query(`UPDATE furniture SET light_on_intended = COALESCE(light_on_intended, light_on) WHERE zone_id=$1 AND object_type='light'`, [zoneId]);
-    updateFurnitureCacheWhere(f => f.zone_id === zoneId && f.object_type === 'light',
-      f => ({ light_on_intended: f.light_on_intended ?? f.light_on }));
+    await updateFurnitureWhere(`UPDATE furniture SET light_on_intended = COALESCE(light_on_intended, light_on) WHERE zone_id=$1 AND object_type='light'`, [zoneId]);
 
     // Per-device allocation: fetch all powered devices with their draw.
     const { rows: lights } = await query(`
@@ -978,9 +969,7 @@ async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, avai
     const isDark = state.phase === 'night' || state.phase === 'dusk';
     const streetlightIds = lights.filter(l => l.light_type === 'streetlight').map(l => l.id);
     if (streetlightIds.length) {
-      await query(`UPDATE furniture SET light_on=$1, light_on_intended=NULL WHERE id=ANY($2::text[])`, [isDark ? 1 : 0, streetlightIds]);
-      const slSet = new Set(streetlightIds);
-      updateFurnitureCacheWhere(f => slSet.has(f.id), { light_on: isDark ? 1 : 0, light_on_intended: null });
+      await updateFurnitureWhere(`UPDATE furniture SET light_on=$1, light_on_intended=NULL WHERE id=ANY($2::text[])`, [isDark ? 1 : 0, streetlightIds]);
     }
     const wantOn = lights.filter(l => l.light_on_intended === 1 && l.light_type !== 'streetlight').sort((a, b) => a.draw_kw - b.draw_kw);
 
@@ -999,16 +988,8 @@ async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, avai
       }
     }
 
-    if (fullyOn.length) {
-      await query(`UPDATE furniture SET light_on=1 WHERE id=ANY($1::text[])`, [fullyOn]);
-      const onIds = new Set(fullyOn);
-      updateFurnitureCacheWhere(f => onIds.has(f.id), { light_on: 1 });
-    }
-    if (forcedOff.length) {
-      await query(`UPDATE furniture SET light_on=0 WHERE id=ANY($1::text[])`, [forcedOff]);
-      const offIds = new Set(forcedOff);
-      updateFurnitureCacheWhere(f => offIds.has(f.id), { light_on: 0 });
-    }
+    if (fullyOn.length)   await updateFurnitureWhere(`UPDATE furniture SET light_on=1 WHERE id=ANY($1::text[])`, [fullyOn]);
+    if (forcedOff.length) await updateFurnitureWhere(`UPDATE furniture SET light_on=0 WHERE id=ANY($1::text[])`, [forcedOff]);
     // Flickering devices randomly toggle each tick.
     for (const id of flickering) {
       await updateFurniture(id, { light_on: Math.random() > 0.5 ? 1 : 0 });
@@ -1029,19 +1010,16 @@ async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, avai
     }
   } else if (nowOk && !wasOk) {
     // Power restored — recover intended light states for non-streetlights.
-    await query(`
+    await updateFurnitureWhere(`
       UPDATE furniture
       SET light_on = COALESCE(light_on_intended, light_on),
           light_on_intended = NULL
       WHERE zone_id = $1 AND object_type = 'light' AND light_type != 'streetlight'
     `, [zoneId]);
-    updateFurnitureCacheWhere(f => f.zone_id === zoneId && f.object_type === 'light' && f.light_type !== 'streetlight',
-      f => ({ light_on: f.light_on_intended ?? f.light_on, light_on_intended: null }));
     // Streetlights follow the day/night cycle exclusively — set them to the
     // correct state for the current phase regardless of what light_on_intended was.
     const isDark = state.phase === 'night' || state.phase === 'dusk';
-    await query(`UPDATE furniture SET light_on=$1, light_on_intended=NULL WHERE zone_id=$2 AND light_type='streetlight'`, [isDark ? 1 : 0, zoneId]);
-    updateFurnitureCacheWhere(f => f.zone_id === zoneId && f.light_type === 'streetlight', { light_on: isDark ? 1 : 0, light_on_intended: null });
+    await updateFurnitureWhere(`UPDATE furniture SET light_on=$1, light_on_intended=NULL WHERE zone_id=$2 AND light_type='streetlight'`, [isDark ? 1 : 0, zoneId]);
     await recalcZoneLoad(query, zoneId);
     const { rows: lc2 } = await query(`SELECT COUNT(*)::int AS cnt, COALESCE(SUM(COALESCE(lumen_output,0)),0)::int AS lm FROM furniture WHERE zone_id=$1 AND object_type='light' AND light_on=1`, [zoneId]);
     await query(`UPDATE lighting_states SET fixture_count=$1, total_lumens=$2 WHERE zone_id=$3`, [lc2[0]?.cnt || 0, lc2[0]?.lm || 0, zoneId]).catch(() => {});
