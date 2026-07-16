@@ -137,8 +137,9 @@ almost everything around it is a half-finished extraction. Findings below, corre
   Undocumented in [plugins.md](../plugins.md).
 - ⬜ **No single door-write path.** `updateDoor` (`doors.js:63`) is the intended chokepoint (fires the
   mirror), but `movement.js` (327,376,381), `apartments.js` (105,175,357,409), and the privacy scheduler
-  (`plugins/doors/index.js:90`) all issue raw `UPDATE doors` + `setDoorCache`, so the mirror invariant
-  holds on only one path.
+  (`plugins/doors/index.js:90`) all mutate the in-memory door + `setDoorCache` directly, so the mirror
+  invariant holds on only one path. (Correction 2026-07-15: none of these issue a raw `UPDATE doors` —
+  door runtime state is RAM-only, per the registry contract; the bypass is of the *helper*, not the DB.)
 - ➖ **`requiredTag: 'lockable'` is dead/decorative** — ignored at dispatch (`specializedActions.js:26-45`,
   used only for UI hints) and never written onto any door by engine code.
 - ➖ **The "doors plugin" is a thin re-export shim** (`plugins/doors/index.js:11` imports engine handlers);

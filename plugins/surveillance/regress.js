@@ -4,6 +4,7 @@ import { CRIME_DEFAULTS, getCrimeStars, getCrimeList } from '../../server/engine
 import { visFactorForCategory, isSpecterInstalled, cameraBufferLines, microreelList, deleteMicroreel, __refreshRecordingCams, __captureZoneLine, __cameraFrames, __cameraFull } from './index.js';
 import { query } from '../../server/models/db.js';
 import { setFlag } from '../../server/engine/flags.js';
+import { reloadItem } from '../../server/engine/items-cache.js';
 
 export default async function regress({ run, check, getPlayer }) {
   const r = await run('wanted');
@@ -68,6 +69,7 @@ export default async function regress({ run, check, getPlayer }) {
      VALUES ('item_specter_program','SPECTER Install Chip','','device',100,1500,'{"specter_program":true}')
      ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name, tags=EXCLUDED.tags`
   );
+  await reloadItem('item_specter_program');
   await query("DELETE FROM player_inventory WHERE player_id=$1 AND item_id='item_specter_program'", [p.id]);
   await query(
     "INSERT INTO player_inventory (id,player_id,item_id,quantity) VALUES ('inv_regress_specter',$1,'item_specter_program',1)",

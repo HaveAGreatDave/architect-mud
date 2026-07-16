@@ -6,6 +6,7 @@ import { tickEntityAI, moveEntity, ensureBehaviourGraph } from './ai-behaviour.j
 import { npcBanterTick } from './npc-banter.js';
 import { restockAllVendors } from './vendor.js';
 import { tickEffects, applyEffect } from './effects.js';
+import { getItem } from './items-cache.js';
 import { tickSleep, releaseApartment, gameToday, ymd, addGameDays, gameDaysBetween, RENT_PERIOD_DAYS } from './apartments.js';
 import { fireHook } from './plugins.js';
 import { emit, on } from './events.js';
@@ -312,11 +313,10 @@ async function tick() {
     // A boat-carrier is boating across (the move gate permits that), so they're spared.
     const pz = world.zones.get(player.current_zone);
     if (pz?.flags?.water && player.hp > 0) {
-      const { rows: boat } = await query(
-        `SELECT 1 FROM player_inventory pi JOIN items i ON i.id = pi.item_id
-         WHERE pi.player_id=$1 AND pi.container_id IS NULL AND jsonb_exists(i.tags,'boat') LIMIT 1`,
+      const { rows: carried } = await query(
+        `SELECT item_id FROM player_inventory WHERE player_id=$1 AND container_id IS NULL`,
         [playerId]);
-      if (!boat.length) {
+      if (!carried.some(r => getItem(r.item_id)?.tags?.boat)) {
         player.hp = 0;
         await handlePlayerDeath(player, null, { type: 'drowning', label: 'Drowned in the open water' });
         continue;

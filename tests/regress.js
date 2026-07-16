@@ -31,6 +31,7 @@ import { resolveNamedDestination } from '../server/engine/commands/describe.js';
 import { tickOnsets } from '../server/engine/drugs.js';
 import { getSelectionState, clearSelectionState } from '../server/engine/sift.js';
 import { loadPlugins, getLoadedPlugins, getRegisteredCommands, getRegisteredHooks } from '../server/engine/plugins.js';
+import { loadItems } from '../server/engine/items-cache.js';
 import { loadMisSettings } from '../server/engine/mis.js';
 import { handleCommand } from '../server/engine/commands/index.js';
 import { getRegisteredMoveGates } from '../server/engine/movement-gates.js';
@@ -57,6 +58,7 @@ const broadcast = (zoneId, payload, exclude, toPlayer) => { sent.push({ zoneId, 
 
 console.log('— regression: booting world + plugins (no server) —');
 await initWorld();
+await loadItems();
 await loadMisSettings();
 await loadPlugins();
 

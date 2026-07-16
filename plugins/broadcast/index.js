@@ -12,6 +12,7 @@ import { getEnvironmentState, recomputePower, resyncAllLightingStates, fixZonePo
 import { getSongDefByName, getSfxDefByName, getAmbientDefByName, getSampleDefByName } from '../audio/index.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { awardSkillUse, effectiveSkill } from '../../server/engine/skills.js';
+import { reloadItem, deleteItemCache, getItem } from '../../server/engine/items-cache.js';
 
 // ── Color helpers (for studio tile coloring) ─────────────────────────────────
 function _hexToHsl(hex) {
@@ -4660,9 +4661,9 @@ function _slugify(name) {
 // throws instead of overwriting. Returns the item id.
 async function _ensureCassetteItem(broadcastId, broadcastName) {
   const itemId = `item_cassette_${_slugify(broadcastName)}`;
-  const { rows: existing } = await query('SELECT tags FROM items WHERE id=$1', [itemId]);
-  if (existing.length) {
-    const existingBroadcastId = existing[0].tags?.broadcast_id;
+  const existing = getItem(itemId);
+  if (existing) {
+    const existingBroadcastId = existing.tags?.broadcast_id;
     if (existingBroadcastId && existingBroadcastId !== broadcastId) {
       const err = new Error(`A cassette named "${broadcastName}" already exists for a different broadcast. Rename the broadcast to create a distinct cassette.`);
       err.code = 'CASSETTE_NAME_COLLISION';
@@ -4676,6 +4677,7 @@ async function _ensureCassetteItem(broadcastId, broadcastName) {
     [itemId, `Cassette: ${broadcastName}`, `A media cassette labeled "${broadcastName}".`,
      JSON.stringify({ media_cassette: true, broadcast_id: broadcastId, unique: true })]
   );
+  await reloadItem(itemId);
   return itemId;
 }
 
@@ -5734,7 +5736,10 @@ export const routeHandler = async (path, method, body, auth) => {
           [ids]
         );
         await query(`DELETE FROM media_broadcasts WHERE id = ANY($1::text[])`, [ids]);
-        if (deadChips.length) await query(`DELETE FROM items WHERE id = ANY($1::text[])`, [deadChips.map(r => r.id)]);
+        if (deadChips.length) {
+          await query(`DELETE FROM items WHERE id = ANY($1::text[])`, [deadChips.map(r => r.id)]);
+          for (const r of deadChips) deleteItemCache(r.id);
+        }
         report.clipBroadcastsReaped = deadClipBc.length;
         report.clipChipsReaped = deadChips.length;
       }

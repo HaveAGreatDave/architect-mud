@@ -10,6 +10,7 @@ import { emit } from '../events.js';
 import { closeShopSession } from '../vendor-session.js';
 import { computeCarriedWeight, carryCapacity, formatWeight } from './inventory.js';
 import { OPPOSITE } from '../directions.js';
+import { getItem } from '../items-cache.js';
 import { forceStand } from '../posture.js';
 import { registerMoveGate, runMoveGates } from '../movement-gates.js';
 import { doorGuardsOnlyUnownedApartment } from '../apartments.js';
@@ -89,11 +90,10 @@ registerMoveGate(async ({ player, opts }) => {
 registerMoveGate(async ({ player, to }) => {
   if (!to?.flags?.water) return;
   const { rows } = await query(
-    `SELECT 1 FROM player_inventory pi JOIN items i ON i.id = pi.item_id
-     WHERE pi.player_id=$1 AND pi.container_id IS NULL AND jsonb_exists(i.tags,'boat') LIMIT 1`,
+    `SELECT item_id FROM player_inventory WHERE player_id=$1 AND container_id IS NULL`,
     [player.id]
   );
-  if (rows.length) return;
+  if (rows.some(r => getItem(r.item_id)?.tags?.boat)) return;
   return { block: true, message: 'Black water laps at the edge — you need a boat to cross open water.' };
 }, 'engine:water');
 

@@ -20,6 +20,7 @@ import { vendorGrudgeRemaining, grudgeRefusal } from './vendor-grudge.js';
 import { markSessionPurchase } from './vendor-session.js';
 import { vendorBuyReaction } from './vendor-reactions.js';
 import { isVendorClosed, vendorClosedLine } from './ai-behaviour.js';
+import { getItem } from './items-cache.js';
 
 // Trust-gated vendors (e.g. the covert shadow dealer). When an NPC's flags carry
 // a `trust_flag`, its shelf is not the random `vendor_stock` shelf but the full
@@ -53,14 +54,9 @@ export async function getVendorStock(npc, playerId) {
   const priceMap = {};
   for (const e of catalogue) priceMap[e.item_id] = e.price;
 
-  // One batched fetch for the whole shelf (this was a serial per-entry SELECT *
-  // on every shop open). Columns limited to what the listing below actually
-  // reads — items carries JSONB the shelf never needs.
-  const { rows: itemRows } = await query(
-    'SELECT id, name, description, type, weight, value, tags, flags FROM items WHERE id = ANY($1)',
-    [shelf.map(e => e.item_id)]
-  );
-  const itemsById = new Map(itemRows.map(i => [i.id, i]));
+  // Item templates come from the boot-loaded items cache — the shelf listing
+  // costs zero item round trips (was a batched SELECT, before that a serial one).
+  const itemsById = new Map(shelf.map(e => [e.item_id, getItem(e.item_id)]).filter(([, i]) => i));
 
   const stock = [];
   for (const entry of shelf) {
@@ -109,9 +105,8 @@ export async function buyFromVendor(player, npc, itemId, quantity = 1) {
     return { success: false, message: "That item isn't on the shelf right now. Come back later." };
   }
 
-  const { rows: itemRows } = await query('SELECT * FROM items WHERE id = $1', [itemId]);
-  if (!itemRows.length) return { success: false, message: 'Item not found.' };
-  const item = itemRows[0];
+  const item = getItem(itemId);
+  if (!item) return { success: false, message: 'Item not found.' };
 
   const discount = npc.faction ? await getFactionDiscount(player.id, npc.faction) : 0;
   const basePrice = catalogueEntry?.price ?? item.value;

@@ -8,6 +8,7 @@ import { exitTargets, allExits } from '../exits.js';
 import { emit } from '../events.js';
 import { effectiveSkill, awardSkillUse } from '../skills.js';
 import { getEquippedWeapon } from '../inventory.js';
+import { reloadItem, getItem } from '../items-cache.js';
 import { getZoneProtection } from '../protection.js';
 import { doorGuardsOnlyUnownedApartment } from '../apartments.js';
 import { gameMsToReal } from '../gametime.js';
@@ -584,8 +585,7 @@ async function cmdInstallLock(args, raw, player, broadcast) {
 
   if (config.tagType === 'lock:keycardlock') {
     const keycardId = `keycard_${door.id}`;
-    const { rows: existing } = await query('SELECT id FROM items WHERE id=$1', [keycardId]);
-    if (!existing.length) {
+    if (!getItem(keycardId)) {
       const zone = getZone(door.zone_id);
       const zoneName = zone?.name || door.zone_id;
       await query(
@@ -595,6 +595,7 @@ async function cmdInstallLock(args, raw, player, broadcast) {
          `A slim obsidian card threaded with bioluminescent circuitry. Its access signature is keyed exclusively to the reader on ${zoneName}'s door.`,
          JSON.stringify({ unique: true })]
       );
+      await reloadItem(keycardId);
     }
     lockData.keyItemId = keycardId;
     await query(

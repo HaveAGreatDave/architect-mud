@@ -30,6 +30,7 @@ import { emit } from './events.js';
 import { evalConditions } from './flags.js';
 import { getZone, addPlayerToZone, removePlayerFromZone, resolveLanding } from './world.js';
 import { openShopSession } from './vendor-session.js';
+import { getItem } from './items-cache.js';
 
 const MAX_STEPS = 100; // cycle / runaway-graph backstop
 
@@ -160,8 +161,7 @@ registerAction({
       'INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,$3,$4,1.0)',
       [randomUUID(), actor.id, item_id, quantity]
     );
-    const { rows: itemRows } = await query('SELECT name FROM items WHERE id=$1', [item_id]);
-    const name = itemRows[0]?.name || item_id;
+    const name = getItem(item_id)?.name || item_id;
     // Player-facing feedback in the main log — every Source (dialogue, script,
     // quest) gets it, not just the dialogue panel that requested the grant.
     context?.broadcast?.(null, {

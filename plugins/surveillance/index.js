@@ -19,6 +19,7 @@ import { sendToPlayer, sendToZone, getBroadcast } from '../../server/engine/mess
 import { on, emit } from '../../server/engine/events.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { getTunable } from '../../server/engine/tunables.js';
+import { reloadItem, deleteItemCache } from '../../server/engine/items-cache.js';
 import { registerAction, dispatchAction } from '../../server/engine/actions.js';
 import { getCrimeStars, getCrimeWitness, getCrimeLabel, isCrimeEnabled } from '../../server/engine/crimes.js';
 
@@ -791,6 +792,7 @@ async function physicalizeClip(clipRow, player) {
      crimeTags.length ? 250 : 40,
      JSON.stringify({ datachip: true, clip_id: clipRow.id, media_cassette: true, broadcast_id: broadcastId })]
   );
+  await reloadItem(itemId);
   await query(
     `INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,$3,1,1.0)`,
     [randomUUID(), player.id, itemId]
@@ -2126,10 +2128,11 @@ async function cmdSubmit(args, raw, player) {
     const bcId = chip.tags?.broadcast_id || `bc_clip_${clipId}`;
     await query('DELETE FROM media_broadcasts WHERE id=$1', [bcId]);
   }
-  await query(
-    `DELETE FROM items WHERE id=$1 AND NOT EXISTS (SELECT 1 FROM player_inventory pi WHERE pi.item_id=items.id)`,
+  const { rows: reaped } = await query(
+    `DELETE FROM items WHERE id=$1 AND NOT EXISTS (SELECT 1 FROM player_inventory pi WHERE pi.item_id=items.id) RETURNING id`,
     [chip.item_id]
   );
+  for (const r of reaped) deleteItemCache(r.id);
   return {
     type: 'output',
     message: `${cop.name} slots the chip, scans the ${tags.join('/')} footage, and pays out <span class="ip-gain">${reward}c</span> in evidence bounty.`,
@@ -2177,10 +2180,11 @@ async function reapClipArtifacts(clipIds) {
   if (!clipIds.length) return;
   const bcIds = clipIds.map(id => `bc_clip_${id}`);
   await query(`DELETE FROM media_broadcasts WHERE id = ANY($1::text[])`, [bcIds]);
-  await query(
+  const { rows: reaped } = await query(
     `DELETE FROM items WHERE tags->>'broadcast_id' = ANY($1::text[])
-       AND NOT EXISTS (SELECT 1 FROM player_inventory pi WHERE pi.item_id = items.id)`,
+       AND NOT EXISTS (SELECT 1 FROM player_inventory pi WHERE pi.item_id = items.id) RETURNING id`,
     [bcIds]);
+  for (const r of reaped) deleteItemCache(r.id);
 }
 
 async function purgeOldClips() {

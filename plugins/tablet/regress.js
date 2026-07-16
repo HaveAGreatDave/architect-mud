@@ -3,6 +3,7 @@
 // no-ops; this asserts routing + payload shape, not real data.
 import { query } from '../../server/models/db.js';
 import { setFlag } from '../../server/engine/flags.js';
+import { reloadItem, deleteItemCache } from '../../server/engine/items-cache.js';
 import { _test as news } from './news-generator.js';
 import { _test as calendar } from './calendar-app.js';
 
@@ -166,6 +167,7 @@ export default async function regress({ run, check, getPlayer }) {
      VALUES ($1,'Datachip — Regress','','evidence',60,40,$2) ON CONFLICT (id) DO NOTHING`,
     [CHIP_ID, JSON.stringify({ datachip: true, clip_id: REEL_ID })]
   );
+  await reloadItem(CHIP_ID);
   await query(
     `INSERT INTO player_inventory (id, player_id, item_id, quantity, condition)
      VALUES ('11111111-1111-1111-1111-111111111111',$1,$2,1,1.0)`,
@@ -179,6 +181,7 @@ export default async function regress({ run, check, getPlayer }) {
   await query('DELETE FROM security_clips WHERE id=$1', [REEL_ID]);
   await query('DELETE FROM player_inventory WHERE item_id=$1', [CHIP_ID]);
   await query('DELETE FROM items WHERE id=$1', [CHIP_ID]);
+  deleteItemCache(CHIP_ID);
 
   // The Clear action delegates to the `wipe` verb and re-renders the hub — even
   // with no deployed cam it returns a surveillance view without throwing.

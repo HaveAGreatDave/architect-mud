@@ -12,6 +12,7 @@ import { fireSpecializedAction, availableActions } from '../specializedActions.j
 import { computeSellUnitPrice } from '../vendor.js';
 import { resolveCorpseOrPlayer, buildLootView } from './combat.js';
 import { titleCaseName } from '../text.js';
+import { getItem } from '../items-cache.js';
 
 // Throttle: only broadcast "rummages in container" once per 30s per player.
 const _ctrBroadcastTs = new Map();
@@ -108,23 +109,29 @@ export async function recomputeEquipped(player) {
 }
 
 async function cmdInventory(player) {
-  const { rows } = await query(`SELECT pi.*,i.name,i.tags,i.weight,i.value FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL ORDER BY i.name`, [player.id]);
+  // One un-joined fetch of the whole inventory (carried + contained) — item
+  // template fields decorate from the boot-loaded items cache, and container
+  // contents weights sum in JS from the same rows (was two round trips: a JOIN
+  // plus a per-container GROUP BY aggregate).
+  const { rows: all } = await query(`SELECT * FROM player_inventory WHERE player_id=$1`, [player.id]);
+  for (const r of all) {
+    const it = getItem(r.item_id);
+    if (!it) continue;
+    r.name = it.name; r.tags = it.tags; r.weight = it.weight; r.value = it.value;
+  }
+  // Rows whose template vanished are dropped, matching the old INNER JOIN.
+  const rows = all
+    .filter(r => !r.container_id && getItem(r.item_id))
+    .sort((a, b) => String(a.name).localeCompare(String(b.name)));
   if (!rows.length) return { type:'inventory', message:'Your inventory is empty.', items:[] };
   // Per-instance name (custom_data.name) wins — e.g. a credit chip stamped with its
   // own denomination — otherwise Title Case the item-type name for list display.
   for (const r of rows) r.name = parseCustomData(r.custom_data)?.name || titleCaseName(r.name);
-  // Contents weight for every carried container in one grouped aggregate —
-  // this was one query per container per inventory view.
-  const containerIds = rows.filter(r => hasTag(r, 'container')).map(r => r.id);
-  let containerWeights = new Map();
-  if (containerIds.length) {
-    const { rows: w } = await query(
-      `SELECT pi.container_id, COALESCE(SUM(i.weight*pi.quantity),0) AS w
-         FROM player_inventory pi JOIN items i ON i.id=pi.item_id
-        WHERE pi.container_id = ANY($1) GROUP BY pi.container_id`,
-      [containerIds]
-    );
-    containerWeights = new Map(w.map(r => [r.container_id, Number(r.w) || 0]));
+  const containerWeights = new Map();
+  for (const r of all) {
+    if (!r.container_id) continue;
+    const w = (getItem(r.item_id)?.weight || 0) * (r.quantity || 1);
+    containerWeights.set(r.container_id, (containerWeights.get(r.container_id) || 0) + w);
   }
   let msg = '<span class="inv-header">INVENTORY</span>\n';
   for (const item of rows) {

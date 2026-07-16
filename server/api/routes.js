@@ -9,6 +9,7 @@ import { loadDrugs } from '../engine/drugs.js';
 import { getCrimeList, reloadCrimes, CRIME_DEFAULTS } from '../engine/crimes.js';
 import { getAliasList, reloadAliases, ALIAS_DEFAULTS } from '../engine/commands/aliases.js';
 import { loadMutations } from '../engine/mutations.js';
+import { reloadItem, deleteItemCache } from '../engine/items-cache.js';
 import { randomUUID, createHash, randomBytes } from 'crypto';
 import { readFileSync, writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
@@ -1301,6 +1302,7 @@ export async function apiCreateItem(body) {
   try {
     await query(`INSERT INTO items (id,name,type,weight,value,tags) VALUES ($1,$2,$3,$4,$5,$6)`,
       [id,body.name,body.type||null,body.weight||1000,body.value||0,JSON.stringify(itemTagsFor(body))]);
+    await reloadItem(id);
     return {status:201,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
@@ -1308,12 +1310,14 @@ export async function apiUpdateItem(id,body) {
   try {
     await query(`UPDATE items SET name=$1,type=$2,weight=$3,value=$4,tags=$5 WHERE id=$6`,
       [body.name,body.type||null,body.weight,body.value,JSON.stringify(itemTagsFor(body)),id]);
+    await reloadItem(id);
     return {status:200,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
 export async function apiDeleteItem(id) {
   try {
     await query('DELETE FROM items WHERE id=$1', [id]);
+    deleteItemCache(id);
     return {status:200,body:{deleted:id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
@@ -2580,6 +2584,7 @@ async function apiCreateKeycard(doorId, body) {
        VALUES ($1,$2,$3,'key',0.05,0,$4)`,
       [id, name, description, JSON.stringify({ unique: true })]
     );
+    await reloadItem(id);
     return { status:201, body:{ id } };
   } catch(e) { return { status:400, body:{ error:e.message } }; }
 }

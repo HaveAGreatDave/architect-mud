@@ -1,6 +1,7 @@
 // Vending plugin regression — seeds a throwaway dispenser + item and drives the
 // real `vend` verb end-to-end (routing, dispense, inventory write, cooldown).
 import { query } from '../../server/models/db.js';
+import { reloadItem, deleteItemCache } from '../../server/engine/items-cache.js';
 
 export default async function regress({ run, check, getPlayer }) {
   const player = getPlayer();
@@ -22,6 +23,7 @@ export default async function regress({ run, check, getPlayer }) {
        ON CONFLICT (id) DO UPDATE SET tags=$2`,
       [ITEM, JSON.stringify({ consumable: true, stackable: true, restore_hunger: 5 })]
     );
+    await reloadItem(ITEM);
     await query(
       `INSERT INTO furniture (id,name,description,object_type,zone_id,flags) VALUES ($1,'test dispenser','a test dispenser','fixture',$3,$2)
        ON CONFLICT (id) DO UPDATE SET flags=$2, zone_id=$3`,
@@ -51,6 +53,7 @@ export default async function regress({ run, check, getPlayer }) {
     await query('DELETE FROM player_inventory WHERE player_id=$1 AND item_id=$2', [player.id, ITEM]).catch(() => {});
     await query('DELETE FROM furniture WHERE id=$1', [FURN]).catch(() => {});
     await query('DELETE FROM items WHERE id=$1', [ITEM]).catch(() => {});
+    deleteItemCache(ITEM);
     player.current_zone = saved;
   }
 }

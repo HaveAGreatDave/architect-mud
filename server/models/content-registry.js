@@ -59,19 +59,27 @@ export const REGISTRY = [
 
   // ── content: world structure ──
   { table: 'zones', class: 'content', pk: ['id'],
-    excludeColumns: ['stains'], // blood/vomit — RAM-only during play (world.zones), bulk-cleared daily
+    // stains: blood/vomit — accumulates in RAM (world.zones); the DB column is only
+    // ever bulk-cleared by the daily maintenance tick (gameLoop.js), never written rich.
+    excludeColumns: ['stains'],
     runtimeInserts: 'environment.js power/junction rooms; broadcast studio builder (dev-gated)',
     note: 'exits/tags are authored content but runtime systems may also wire them (power rooms, studios) — a known, drift-report-visible seam' },
   { table: 'maps', class: 'content', pk: ['id'],
     runtimeInserts: 'environment.js power-room interiors; broadcast studio builder (dev-gated)' },
   { table: 'items', class: 'content', pk: ['id'],
-    runtimeInserts: 'doors.js keycard cutting; surveillance crafted gear; broadcast recorded tapes' },
+    runtimeInserts: 'doors.js keycard cutting (keycard_<door>); surveillance evidence datachips (item_datachip_<clip>, reaped on submission/retention); broadcast recorded cassettes (item_cassette_<slug>)' },
   { table: 'enemies', class: 'content', pk: ['id'] },
   { table: 'zone_spawns', class: 'content', pk: ['id'] },
   { table: 'npcs', class: 'content', pk: ['id'],
     // zone_id: wander/work moves NPCs (home_zone is the authored home).
     // vendor_*: sales balances + auto-managed shelf (vendor_inventory is the authored catalog).
-    excludeColumns: ['zone_id', 'vendor_credits', 'vendor_stock', 'vendor_bank_credits'] },
+    excludeColumns: ['zone_id', 'vendor_credits', 'vendor_stock', 'vendor_bank_credits'],
+    // Runtime ALSO mutates these AUTHORED columns (2026-07-15 census) — they stay
+    // content because they carry authored initial state; churn shows in exports:
+    //   hp (gameLoop save tick), home_zone (apartments eviction/relocation),
+    //   flags.poker_bankroll (gametable), behaviour_graph/work_zone_id/name/description
+    //   (broadcast studio staffing self-heal). dialogue_tree is authoring-only.
+    note: 'runtime-mutated authored columns: hp, home_zone, flags.poker_bankroll, behaviour_graph, work_zone_id, name, description' },
   { table: 'furniture', class: 'content', pk: ['id'],
     // MIXED table: origin='authored' rows are content; origin='player' rows are
     // runtime property (purchases, planted devices, posters, portable
@@ -94,7 +102,10 @@ export const REGISTRY = [
     // (reconcileApartmentDoorLocks). forcefield_locked is a purely ephemeral runtime
     // guard, never authored — excluded so it's never carried in files.
     excludeColumns: ['forcefield_locked'] },
-  { table: 'windows', class: 'content', pk: ['id'] },
+  { table: 'windows', class: 'content', pk: ['id'],
+    // curtain_open/glass_state are runtime-mutated (environment.js) but carry
+    // authored initial state, so they stay content.
+    note: 'runtime-mutated authored columns: curtain_open, glass_state' },
   { table: 'sounds', class: 'content', pk: ['id'] },
   { table: 'interface_sfx', class: 'content', pk: ['id'] },
   { table: 'global_ambient_events', class: 'content', pk: ['id'] },
@@ -137,7 +148,8 @@ export const REGISTRY = [
   { table: 'scripts', class: 'content', pk: ['id'] },
   { table: 'npc_banter_threads', class: 'content', pk: ['id'] },
   { table: 'ambient_routines', class: 'content', pk: ['id'] },
-  { table: 'quests', class: 'content', pk: ['id'] },
+  { table: 'quests', class: 'content', pk: ['id'],
+    runtimeInserts: 'flight contract board (plugins/flight/contracts.js) generates/prunes quest_type=flight rows (id quest_flight_<8-hex>) from the authored quest_flight_* templates; also UPDATEs rewards/meta on accept' },
   { table: 'job_boards', class: 'content', pk: ['id'] },
   // NPC factions live in the unified orgs table (is_npc=1); player crews are runtime.
   { table: 'orgs', class: 'content', pk: ['id'], where: 'is_npc = 1',
@@ -156,16 +168,33 @@ export const REGISTRY = [
     runtimeInserts: 'surveillance plugin player devices (outside predicate)' },
   { table: 'atm_networks', class: 'content', pk: ['id'] },
   { table: 'aircraft_types', class: 'content', pk: ['id'] },
-  { table: 'aa_sites', class: 'content', pk: ['id'] },
+  { table: 'aa_sites', class: 'content', pk: ['id'],
+    // active is toggled at runtime (shot down: flight/combat.js; engineer repair:
+    // aa-sites plugin) but carries authored initial state, so it stays content.
+    note: 'runtime-mutated authored column: active' },
 
   // ── content: broadcast / media (themes first: channels.theme_id → media_themes;
   //    broadcasts↔channels cycle rides deferred constraints; deck/playlist/cameras last) ──
   { table: 'media_themes', class: 'content', pk: ['id'] },
-  { table: 'media_broadcasts', class: 'content', pk: ['id'] },
+  // bc_clip_* rows are runtime artifacts (surveillance datachips loaded into decks,
+  // minted by broadcast ensureClipBroadcast, reaped on evidence submission / 3-day
+  // retention) — never exported, never deleted by the pipeline. Runtime also toggles
+  // tags.cassette_ejected on authored broadcasts (export churn, accepted).
+  { table: 'media_broadcasts', class: 'content', pk: ['id'],
+    where: "id NOT LIKE 'bc_clip_%'",
+    runtimeInserts: 'broadcast ensureClipBroadcast mints bc_clip_* rows (outside predicate); surveillance reaps them' },
   { table: 'media_channels', class: 'content', pk: ['id'] },
+  // DEAD SCHEMA: zero readers/writers anywhere — deck state actually lives in
+  // furniture.flags (deck_cassettes, pirate_*, channel_id). Candidate for removal.
   { table: 'media_deck_units', class: 'content', pk: ['id'] },
-  { table: 'media_channel_playlist', class: 'content', pk: ['id'] },
+  // Cassette eject DELETEs a channel's slots for that broadcast (stashed into
+  // furniture.flags.deck_ejected_slots) and re-INSERTs them on reload — authored
+  // slot rows can be legitimately absent from a live DB while a tape is ejected.
+  { table: 'media_channel_playlist', class: 'content', pk: ['id'],
+    runtimeInserts: 'broadcast cassette load re-INSERTs slots stashed at eject' },
   { table: 'media_cameras', class: 'content', pk: ['id'],
+    // streaming_channel_id is also runtime-written (CAMERA_STREAM action) but stays
+    // content: it carries the authored studio-camera binding.
     excludeColumns: ['recording_buffer', 'is_recording', 'is_streaming'] }, // live camera state
   { table: 'media_graphics', class: 'content', pk: ['id'] },
 
