@@ -1,6 +1,6 @@
 import { query, logActivity } from '../models/db.js';
 import { syncContentFromRequest, syncZoneDeletion } from './content-sync.js';
-import { reloadZone, getAllZones, world, getAllLivePlayers, getZone, addPlayerToZone, removePlayerFromZone, getMinimapData, reloadGlobalAmbients, spawnEnemySync, setDoorCache, deleteDoorCache, getZoneDoors, reloadSpawn, removeSpawn, isEnterableFacade, resolveLanding, reloadMaps } from '../engine/world.js';
+import { reloadZone, getAllZones, world, getAllLivePlayers, getZone, addPlayerToZone, removePlayerFromZone, getMinimapData, reloadGlobalAmbients, spawnEnemySync, setDoorCache, deleteDoorCache, getZoneDoors, reloadSpawn, removeSpawn, isEnterableFacade, resolveLanding, reloadMaps, insertFurniture, updateFurniture, deleteFurniture, deleteFurnitureCacheWhere } from '../engine/world.js';
 import { describeZone, describeVoidTeleport } from '../engine/commands/index.js';
 import { allExits } from '../engine/exits.js';
 import { detectBathroomSide } from '../engine/commands/doors.js';
@@ -1090,6 +1090,7 @@ export async function apiDeleteZone(id) {
     for (const zid of allDeletedIds) {
       await query('DELETE FROM npcs             WHERE zone_id=$1', [zid]);
       await query('DELETE FROM furniture        WHERE zone_id=$1', [zid]);
+      deleteFurnitureCacheWhere(f => f.zone_id === zid);
       await query('DELETE FROM zone_spawns      WHERE zone_id=$1', [zid]);
       await query('DELETE FROM lighting_states  WHERE zone_id=$1', [zid]);
       await query('DELETE FROM power_zones      WHERE id=$1',                                                   [zid]);
@@ -1485,8 +1486,11 @@ export async function apiCreateNpc(body) {
     await syncNpcResidence(id, homeZone);
     if (npcType === 'vendor' && body.work_zone_id) {
       const npcForBoard = { name: body.name, vendor_schedule: vendorSchedule, vendor_shop_name: body.vendor_shop_name||null };
-      await query(`INSERT INTO furniture (id,zone_id,name,description,flags,object_type) VALUES ($1,$2,$3,$4,$5,'decoration') ON CONFLICT (id) DO NOTHING`,
-        [`furn_schd_${id}`, body.work_zone_id, `${body.name}'s Schedule`, formatScheduleBoard(npcForBoard), JSON.stringify({ vendor_schedule_board: true, vendor_npc_id: id })]);
+      await insertFurniture({
+        id: `furn_schd_${id}`, zone_id: body.work_zone_id, name: `${body.name}'s Schedule`,
+        description: formatScheduleBoard(npcForBoard),
+        flags: JSON.stringify({ vendor_schedule_board: true, vendor_npc_id: id }), object_type: 'decoration',
+      }, 'ON CONFLICT (id) DO NOTHING');
     }
     return {status:201,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
@@ -1518,13 +1522,12 @@ export async function apiUpdateNpc(id,body) {
       if (body.work_zone_id) {
         const npcForBoard = { name: body.name, vendor_schedule: body.vendor_schedule||{}, vendor_shop_name: body.vendor_shop_name||null };
         const boardDesc = formatScheduleBoard(npcForBoard);
-        await query(
-          `INSERT INTO furniture (id,zone_id,name,description,flags,object_type) VALUES ($1,$2,$3,$4,$5,'decoration')
-           ON CONFLICT (id) DO UPDATE SET zone_id=$2, name=$3, description=$4`,
-          [boardId, body.work_zone_id, `${body.name}'s Schedule`, boardDesc, boardFlags]
-        );
+        await insertFurniture({
+          id: boardId, zone_id: body.work_zone_id, name: `${body.name}'s Schedule`,
+          description: boardDesc, flags: boardFlags, object_type: 'decoration',
+        }, 'ON CONFLICT (id) DO UPDATE SET zone_id=EXCLUDED.zone_id, name=EXCLUDED.name, description=EXCLUDED.description');
       } else {
-        await query(`DELETE FROM furniture WHERE id=$1`, [boardId]);
+        await deleteFurniture(boardId);
       }
     }
     if (oldZone !== newZone) {
@@ -1646,10 +1649,10 @@ export async function apiPlaceSafe(id) {
 
     const safeId = `furniture_safe_${id}_${Date.now()}`;
     const flags = { vendor_safe: true, vendor_npc_id: id, hack_difficulty: 5 };
-    await query(
-      `INSERT INTO furniture (id, zone_id, name, description, flags) VALUES ($1,$2,$3,$4,$5)`,
-      [safeId, npc.work_zone_id, `${npc.name}'s Safe`, 'A secure holo-lock safe.', JSON.stringify(flags)]
-    );
+    await insertFurniture({
+      id: safeId, zone_id: npc.work_zone_id, name: `${npc.name}'s Safe`,
+      description: 'A secure holo-lock safe.', flags: JSON.stringify(flags),
+    });
     return { status: 201, body: { id: safeId } };
   } catch (e) { return { status: 400, body: { error: e.message } }; }
 }
@@ -1694,8 +1697,12 @@ export async function apiCreateFurniture(body) {
     const pdraw = body.power_draw_kw != null ? Number(body.power_draw_kw) : null;
     const isLight = body.object_type === 'light';
     const lumenOut = isLight && body.lumen_output != null ? Number(body.lumen_output) : null;
-    await query(`INSERT INTO furniture (id,zone_id,name,description,object_type,light_on,light_type,power_draw_kw,lumen_output,flags,price) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-      [id, body.zone_id, body.name, body.description||'', body.object_type||'furniture', isLight?(body.light_on?1:0):0, isLight?(body.light_type||'lamp'):null, pdraw, lumenOut, JSON.stringify(body.flags||{}), Number(body.price)||0]);
+    await insertFurniture({
+      id, zone_id: body.zone_id, name: body.name, description: body.description||'',
+      object_type: body.object_type||'furniture', light_on: isLight?(body.light_on?1:0):0,
+      light_type: isLight?(body.light_type||'lamp'):null, power_draw_kw: pdraw,
+      lumen_output: lumenOut, flags: JSON.stringify(body.flags||{}), price: Number(body.price)||0,
+    });
     if (body.flags?.atm) {
       await query(`INSERT INTO atm_units (id) VALUES ($1) ON CONFLICT (id) DO NOTHING`, [id]);
     }
@@ -1709,18 +1716,15 @@ export async function apiCreateFurniture(body) {
 }
 export async function apiUpdateFurniture(id, body) {
   try {
-    const sets = [], vals = [];
-    let i = 1;
-    const fields = ['zone_id','name','description','object_type','light_type'];
-    for (const f of fields) if (body[f]!=null) { sets.push(`${f}=$${i++}`); vals.push(body[f]); }
-    if (body.flags!=null) { sets.push(`flags=$${i++}`); vals.push(JSON.stringify(body.flags)); }
-    if (body.light_on!=null) { sets.push(`light_on=$${i++}`); vals.push(body.light_on?1:0); }
-    if (body.power_draw_kw!=null) { sets.push(`power_draw_kw=$${i++}`); vals.push(body.power_draw_kw === '' ? null : Number(body.power_draw_kw)); }
-    if (body.lumen_output!=null) { sets.push(`lumen_output=$${i++}`); vals.push(body.lumen_output === '' ? null : Number(body.lumen_output)); }
-    if (body.price!=null) { sets.push(`price=$${i++}`); vals.push(Number(body.price)||0); }
-    if (!sets.length) return {status:400,body:{error:'nothing to update'}};
-    vals.push(id);
-    await query(`UPDATE furniture SET ${sets.join(',')} WHERE id=$${i}`, vals);
+    const fields = {};
+    for (const f of ['zone_id','name','description','object_type','light_type']) if (body[f]!=null) fields[f] = body[f];
+    if (body.flags!=null) fields.flags = JSON.stringify(body.flags);
+    if (body.light_on!=null) fields.light_on = body.light_on?1:0;
+    if (body.power_draw_kw!=null) fields.power_draw_kw = body.power_draw_kw === '' ? null : Number(body.power_draw_kw);
+    if (body.lumen_output!=null) fields.lumen_output = body.lumen_output === '' ? null : Number(body.lumen_output);
+    if (body.price!=null) fields.price = Number(body.price)||0;
+    if (!Object.keys(fields).length) return {status:400,body:{error:'nothing to update'}};
+    await updateFurniture(id, fields);
     if (body.flags?.atm) {
       await query(`INSERT INTO atm_units (id) VALUES ($1) ON CONFLICT (id) DO NOTHING`, [id]);
     }
@@ -1737,7 +1741,7 @@ export async function apiUpdateFurniture(id, body) {
 }
 export async function apiDeleteFurniture(id) {
   try {
-    await query('DELETE FROM furniture WHERE id=$1', [id]);
+    await deleteFurniture(id);
     return {status:200,body:{message:'Furniture deleted'}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }

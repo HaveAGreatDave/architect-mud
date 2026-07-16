@@ -3,7 +3,7 @@
 // Kiyo/Cyd seam reveal. All DB rows it creates use throwaway ids/keys and are
 // cleaned up in a finally, so it never touches the six real posters.
 import { query } from '../../server/models/db.js';
-import { world, setApartmentCache } from '../../server/engine/world.js';
+import { world, setApartmentCache, insertFurniture, deleteFurnitureCacheWhere } from '../../server/engine/world.js';
 import { hooks, _test } from './index.js';
 
 export default async function regress({ run, check, getPlayer }) {
@@ -31,11 +31,11 @@ export default async function regress({ run, check, getPlayer }) {
   p.current_zone = aptId; // move into the owned home for the round trip
   try {
     // ── Round trip: takedown -> item, putup -> furniture back ────────────────
-    await query(
-      `INSERT INTO furniture (id, zone_id, name, description, object_type, flags)
-       VALUES ('furn_regress_poster', $1, 'hero poster: REGRESS DUMMY', 'A test poster.', 'decoration', $2)`,
-      [zone, JSON.stringify({ hero_poster: true, poster_key: 'regress' })]
-    );
+    await insertFurniture({
+      id: 'furn_regress_poster', zone_id: zone, name: 'hero poster: REGRESS DUMMY',
+      description: 'A test poster.', object_type: 'decoration',
+      flags: JSON.stringify({ hero_poster: true, poster_key: 'regress' }),
+    });
 
     r = await run('takedown regress');
     check('takedown removes the wall poster', /roll it into a tube/i.test(r?.message || ''), r?.message);
@@ -74,17 +74,18 @@ export default async function regress({ run, check, getPlayer }) {
     // ── Seam reveal: hint only alone, GRU appended when the partner is present ─
     check('no GRU reveal without the partner', !/G R U/.test(extra || ''), String(extra));
 
-    await query(
-      `INSERT INTO furniture (id, zone_id, name, description, object_type, flags)
-       VALUES ('furn_regress_cyd', $1, 'hero poster: CYD, THE CLOSER', 'A test poster.', 'decoration', $2)`,
-      [zone, JSON.stringify({ hero_poster: true, poster_key: 'cyd' })]
-    );
+    await insertFurniture({
+      id: 'furn_regress_cyd', zone_id: zone, name: 'hero poster: CYD, THE CLOSER',
+      description: 'A test poster.', object_type: 'decoration',
+      flags: JSON.stringify({ hero_poster: true, poster_key: 'cyd' }),
+    });
     extra = await hooks['furniture.describe'](kiyo);
     check('GRU reveal fires when partner hangs in the same room', /G R U/.test(extra || ''), extra);
     check('non-poster furniture is ignored by the hook',
       (await hooks['furniture.describe']({ zone_id: zone, name: 'a chair', flags: {} })) === undefined);
   } finally {
     await query(`DELETE FROM furniture WHERE id IN ('furn_regress_poster','furn_hero_poster_regress','furn_regress_cyd')`);
+    deleteFurnitureCacheWhere(f => ['furn_regress_poster', 'furn_hero_poster_regress', 'furn_regress_cyd'].includes(f.id));
     await query(`DELETE FROM player_inventory WHERE player_id=$1 AND item_id='item_poster_regress'`, [p.id]);
     p.current_zone = savedZone;
     world.apartments.delete(aptId);

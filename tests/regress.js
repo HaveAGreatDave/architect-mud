@@ -23,7 +23,7 @@ import { readdir, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
-import { initWorld, setLivePlayer, removeLivePlayer, addPlayerToZone, removePlayerFromZone, getAllZones, getLivePlayer, world, setDoorCache, deleteDoorCache, getDoorForExit, getApartment } from '../server/engine/world.js';
+import { initWorld, setLivePlayer, removeLivePlayer, addPlayerToZone, removePlayerFromZone, getAllZones, getLivePlayer, world, setDoorCache, deleteDoorCache, getDoorForExit, getApartment, insertFurniture, deleteFurniture } from '../server/engine/world.js';
 import { moveEntity } from '../server/engine/ai-behaviour.js';
 import { exitTargets, allExits, neighborZoneIds, addExit, removeExit } from '../server/engine/exits.js';
 import { cmdMove, dragFollowers } from '../server/engine/commands/movement.js';
@@ -366,11 +366,10 @@ check('gear returns a gear payload', r?.type === 'gear' && Array.isArray(r.items
        ON CONFLICT (id) DO UPDATE SET tags=$2`,
       [RITEM, JSON.stringify({ misc: true })]
     );
-    await query(
-      `INSERT INTO furniture (id,name,description,object_type,zone_id,flags) VALUES ($1,'restock case','a restock case','container',$3,$2)
-       ON CONFLICT (id) DO UPDATE SET flags=$2, zone_id=$3`,
-      [RFURN, JSON.stringify({ container: 40000, restock_items: [RITEM] }), RZ]
-    );
+    await insertFurniture({
+      id: RFURN, name: 'restock case', description: 'a restock case', object_type: 'container',
+      zone_id: RZ, flags: JSON.stringify({ container: 40000, restock_items: [RITEM] }),
+    }, 'ON CONFLICT (id) DO UPDATE SET flags=EXCLUDED.flags, zone_id=EXCLUDED.zone_id');
     await query('DELETE FROM player_inventory WHERE container_id=$1', [RFURN]);
     await query('DELETE FROM player_inventory WHERE player_id=$1 AND item_id=$2', [getPlayer().id, RITEM]);
 
@@ -389,7 +388,7 @@ check('gear returns a gear payload', r?.type === 'gear' && Array.isArray(r.items
   } finally {
     await query('DELETE FROM player_inventory WHERE container_id=$1', [RFURN]).catch(() => {});
     await query('DELETE FROM player_inventory WHERE player_id=$1 AND item_id=$2', [getPlayer().id, RITEM]).catch(() => {});
-    await query('DELETE FROM furniture WHERE id=$1', [RFURN]).catch(() => {});
+    await deleteFurniture(RFURN).catch(() => {});
     await query('DELETE FROM items WHERE id=$1', [RITEM]).catch(() => {});
     getPlayer().current_zone = savedZone;
   }

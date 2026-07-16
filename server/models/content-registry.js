@@ -100,7 +100,7 @@ export const REGISTRY = [
     //   flags.poker_bankroll (gametable), behaviour_graph/work_zone_id/name/description
     //   (broadcast studio staffing self-heal). dialogue_tree is authoring-only.
     note: 'runtime-mutated authored columns: hp, home_zone, flags.poker_bankroll, behaviour_graph, work_zone_id, name, description' },
-  { table: 'furniture', class: 'content', pk: ['id'], readTier: 'fresh', // ~40 uncoordinated writers — needs a write funnel before caching
+  { table: 'furniture', class: 'content', pk: ['id'], readTier: 'boot', // world.furniture + write funnel (insertFurniture/updateFurniture/deleteFurniture in world.js)
     // MIXED table: origin='authored' rows are content; origin='player' rows are
     // runtime property (purchases, planted devices, posters, portable
     // generators, corp gear) — never exported, never deleted by the pipeline.

@@ -5,6 +5,7 @@ import { visFactorForCategory, isSpecterInstalled, cameraBufferLines, microreelL
 import { query } from '../../server/models/db.js';
 import { setFlag } from '../../server/engine/flags.js';
 import { reloadItem } from '../../server/engine/items-cache.js';
+import { insertFurniture, deleteFurniture } from '../../server/engine/world.js';
 
 export default async function regress({ run, check, getPlayer }) {
   const r = await run('wanted');
@@ -124,12 +125,13 @@ export default async function regress({ run, check, getPlayer }) {
 
   // ── Clip (→ microreel + clear buffer) and wipe (clear only) ─────────────────
   // Both verbs join furniture, so give the cam a furniture row.
-  await query('DELETE FROM furniture WHERE id=$1', [CAM_ID]);
-  await query(
-    `INSERT INTO furniture (id, zone_id, name, description, object_type, flags, origin, owner_id)
-     VALUES ($1,$2,'Regress Cam','','security_device',$3,'player',$4)`,
-    [CAM_ID, CAM_ZONE, JSON.stringify({ security_device: true, device_id: CAM_ID, concealed: true }), p.id]
-  );
+  await deleteFurniture(CAM_ID);
+  await insertFurniture({
+    id: CAM_ID, zone_id: CAM_ZONE, name: 'Regress Cam', description: '',
+    object_type: 'security_device',
+    flags: JSON.stringify({ security_device: true, device_id: CAM_ID, concealed: true }),
+    origin: 'player', owner_id: p.id,
+  });
   await query('DELETE FROM security_clips WHERE owner_id=$1', [p.id]);
   await query("DELETE FROM player_inventory pi USING items i WHERE pi.item_id=i.id AND pi.player_id=$1 AND jsonb_exists(i.tags,'datachip')", [p.id]);
   const clipRes = await run('clip Regress Cam');
@@ -158,6 +160,6 @@ export default async function regress({ run, check, getPlayer }) {
   check('destroyed reel is gone from the owner reel list', reelsAfterDelete.length === reelsAfterWipe.length - 1, `before=${reelsAfterWipe.length} after=${reelsAfterDelete.length}`);
 
   await query('DELETE FROM security_clips WHERE owner_id=$1', [p.id]);
-  await query('DELETE FROM furniture WHERE id=$1', [CAM_ID]);
+  await deleteFurniture(CAM_ID);
   await query('DELETE FROM security_devices WHERE id=$1', [CAM_ID]);
 }

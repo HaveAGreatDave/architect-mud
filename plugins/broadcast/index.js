@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
-import { world, getZonePlayers, getZone, getZoneNpcs, getZoneEnemies, reloadZone, hasActivePlayers } from '../../server/engine/world.js';
+import { world, getZonePlayers, getZone, getZoneNpcs, getZoneEnemies, reloadZone, hasActivePlayers, insertFurniture, updateFurniture, deleteFurnitureCacheWhere } from '../../server/engine/world.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { on, emit } from '../../server/engine/events.js';
 import { registerAction, dispatchAction } from '../../server/engine/actions.js';
@@ -2459,7 +2459,7 @@ async function _getPirateMessage(zoneId, nowMs, state) {
     const nx = _nextCursor(cursor, q.length, dflags.pirate_loop);
     if (nx.stop) {
       dflags.pirate_playing = false;
-      await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(dflags), deck.id]).catch(() => {});
+      await updateFurniture(deck.id, { flags: JSON.stringify(dflags) }).catch(() => {});
       _pirateCache.delete(zoneId);
       return null;
     }
@@ -2467,7 +2467,7 @@ async function _getPirateMessage(zoneId, nowMs, state) {
     activeId = q[cursor];
     dflags.pirate_cursor = cursor;
     dflags.pirate_started_ms = nowMs;
-    await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(dflags), deck.id]).catch(() => {});
+    await updateFurniture(deck.id, { flags: JSON.stringify(dflags) }).catch(() => {});
     _pirateCache.delete(zoneId);
   }
 
@@ -3933,7 +3933,7 @@ async function _applyTuning(device, channelNumber, zoneId) {
 
   if (channelNumber === 0) {
     delete flags.tuned_channel;
-    await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(flags), device.id]);
+    await updateFurniture(device.id, { flags: JSON.stringify(flags) });
     return { status: 'off' };
   }
 
@@ -3943,7 +3943,7 @@ async function _applyTuning(device, channelNumber, zoneId) {
 
   flags.tuned_channel = channelNumber;
   flags.tv_dial_freq = channelNumber;
-  await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(flags), device.id]);
+  await updateFurniture(device.id, { flags: JSON.stringify(flags) });
 
   const deviceType = flags.broadcast_device_type || 'tv';
   if (!zoneTunings.has(zoneId)) zoneTunings.set(zoneId, new Map());
@@ -4276,7 +4276,7 @@ async function cmdPirateResolve(args, raw, player) {
   dflags.pirate_playing = true;
   dflags.pirate_started_ms = Date.now();
   delete dflags.pirate_engineer_at; // fresh defend window for the new captor
-  await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(dflags), deck.id]);
+  await updateFurniture(deck.id, { flags: JSON.stringify(dflags) });
   _deckCache.delete(deck.zone_id);
   _pirateCache.delete(deck.zone_id);
   await awardSkillUse(player.id, 'hacking', 2);
@@ -4305,7 +4305,7 @@ function _engineerDueAt(dflags) {
 // Wipe every pirate_* flag → the deck falls back to its channel's own programming.
 async function _clearSeizure(deck, dflags) {
   for (const k of PIRATE_KEYS) delete dflags[k];
-  await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(dflags), deck.id]).catch(() => {});
+  await updateFurniture(deck.id, { flags: JSON.stringify(dflags) }).catch(() => {});
   _deckCache.delete(deck.zone_id);
   _pirateCache.delete(deck.zone_id);
 }
@@ -4339,7 +4339,7 @@ async function engineerTick() {
     const present = getZonePlayers(deck.zone_id).some(p => p.id === dflags.pirate_owner);
     if (present) {
       dflags.pirate_engineer_at = now + ENGINEER_RETRY_MS;
-      await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(dflags), deck.id]).catch(() => {});
+      await updateFurniture(deck.id, { flags: JSON.stringify(dflags) }).catch(() => {});
       sendToPlayer(dflags.pirate_owner, { type: 'system', message: `<span class="text-amber">⚠ You run a station engineer off the ${deck.name}.</span> They'll be back — don't leave the deck.` });
       sendToZone(deck.zone_id, { type: 'zone_event', message: `A station engineer edges toward the deck, sees it's guarded, and retreats.` }, dflags.pirate_owner);
       continue;
@@ -4554,7 +4554,7 @@ async function cmdAir(args, raw, player) {
 
   if (touched) {
     if (dflags.pirate_cursor > Math.max(0, q.length - 1)) dflags.pirate_cursor = Math.max(0, q.length - 1);
-    await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(dflags), deck.id]);
+    await updateFurniture(deck.id, { flags: JSON.stringify(dflags) });
     _deckCache.delete(deck.zone_id);
     _pirateCache.delete(deck.zone_id);
     deck.flags = dflags; // reflect edits in the console payload below
@@ -4642,7 +4642,7 @@ async function cmdLoadCassette(args, raw, player) {
   // Un-hide the broadcast in the library now that its cassette is back in a deck.
   await query(`UPDATE media_broadcasts SET tags = COALESCE(tags,'{}')::jsonb - 'cassette_ejected' WHERE id=$1`, [broadcastId]);
 
-  await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(dflags), deck.id]);
+  await updateFurniture(deck.id, { flags: JSON.stringify(dflags) });
   if (channelId && slotsToRestore.length) await loadChannelRuntimes();
   // Move the cassette item into the deck container rather than destroying it.
   await query('UPDATE player_inventory SET container_id=$1 WHERE id=$2', [deck.id, cassette.inv_id]);
@@ -4798,7 +4798,7 @@ async function cmdEjectCassette(args, raw, player) {
   dflags.deck_cassettes = (Array.isArray(dflags.deck_cassettes) ? dflags.deck_cassettes : [])
     .filter(id => id !== broadcastId);
   dflags.deck_active = null;
-  await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(dflags), deck.id]);
+  await updateFurniture(deck.id, { flags: JSON.stringify(dflags) });
   if (channelId) await loadChannelRuntimes();
   _deckCache.delete(player.current_zone);
   return { type: 'output', message: `You eject the cassette. The screen dissolves into static.` };
@@ -4817,7 +4817,7 @@ async function cmdSelectCassette(args, raw, player) {
   const cassettes = Array.isArray(dflags.deck_cassettes) ? dflags.deck_cassettes : [];
   if (!cassettes.includes(broadcastId)) return { type: 'output', message: 'That cassette is not in this deck.' };
   dflags.deck_active = broadcastId;
-  await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(dflags), deck.id]);
+  await updateFurniture(deck.id, { flags: JSON.stringify(dflags) });
   return buildMediaDeckPanel(deck.id, player);
 }
 
@@ -4856,7 +4856,7 @@ async function buildMediaDeckPanel(deckId, player) {
     if (cassettes.length !== cassetteIds.length) {
       dflags.deck_cassettes = cassettes.map(c => c.id);
       if (dflags.deck_active && !dflags.deck_cassettes.includes(dflags.deck_active)) dflags.deck_active = null;
-      await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(dflags), deck.id]);
+      await updateFurniture(deck.id, { flags: JSON.stringify(dflags) });
     }
   }
 
@@ -4969,7 +4969,7 @@ async function mediaDeckSyncTick() {
     if (dflags.deck_active === slot.broadcast_id) continue;
 
     dflags.deck_active = slot.broadcast_id;
-    await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(dflags), deck.id]).catch(() => {});
+    await updateFurniture(deck.id, { flags: JSON.stringify(dflags) }).catch(() => {});
   }
 }
 
@@ -5154,7 +5154,7 @@ async function cmdTvFreq(args, raw, player) {
   const device = rows[0];
   const flags = typeof device.flags === 'object' ? { ...device.flags } : JSON.parse(device.flags || '{}');
   flags.tv_dial_freq = freq;
-  await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(flags), device.id]);
+  await updateFurniture(device.id, { flags: JSON.stringify(flags) });
   const entry = furnitureChannelIndex.get(device.id);
   if (entry) entry.dialFrequency = freq;
   return null; // silent — no output to player
@@ -5375,7 +5375,7 @@ export const routeHandler = async (path, method, body, auth) => {
         if (!(broadcastId in ejected)) return { status: 200, body: { message: 'Nothing to remove' } };
         delete ejected[broadcastId];
         df.deck_ejected_slots = ejected;
-        await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(df), deckId]);
+        await updateFurniture(deckId, { flags: JSON.stringify(df) });
         return { status: 200, body: { message: 'Removed' } };
       }
 
@@ -5494,6 +5494,7 @@ export const routeHandler = async (path, method, body, auth) => {
         const studioZoneId = chRows[0]?.studio_zone_id || null;
         await query('DELETE FROM media_cameras WHERE streaming_channel_id=$1', [id]);
         await query('DELETE FROM furniture WHERE object_type=\'media_deck\' AND flags->>\'channel_id\'=$1', [id]);
+        deleteFurnitureCacheWhere(f => f.object_type === 'media_deck' && f.flags?.channel_id === id);
         await query('UPDATE media_broadcasts SET channel_id=NULL WHERE channel_id=$1', [id]);
         await query('DELETE FROM media_channels WHERE id=$1', [id]);
         // Cascade: delete the studio zone and its entire map (production, utility rooms, etc.)
@@ -5530,14 +5531,12 @@ export const routeHandler = async (path, method, body, auth) => {
         if (body.zone_id) {
           const camNum = body.id ? (body.id.match(/_(\d+)_\d+$/) || [])[1] : null;
           const camLabel = camNum ? `Broadcast Camera ${camNum}` : 'Broadcast Camera';
-          await query(
-            `INSERT INTO furniture (id,zone_id,name,description,object_type,flags)
-             VALUES ($1,$2,$3,$4,'broadcast_camera',$5)
-             ON CONFLICT (id) DO NOTHING`,
-            [`${camId}_furn`, body.zone_id, camLabel,
-             'A broadcast-grade studio camera on a heavy-duty motorised mount. A small red light glows when streaming.',
-             JSON.stringify({ broadcast_transmitter: true, camera_id: camId, channel_id: body.streaming_channel_id || null })]
-          );
+          await insertFurniture({
+            id: `${camId}_furn`, zone_id: body.zone_id, name: camLabel,
+            description: 'A broadcast-grade studio camera on a heavy-duty motorised mount. A small red light glows when streaming.',
+            object_type: 'broadcast_camera',
+            flags: JSON.stringify({ broadcast_transmitter: true, camera_id: camId, channel_id: body.streaming_channel_id || null }),
+          }, 'ON CONFLICT (id) DO NOTHING');
         }
         await loadChannelRuntimes();
         return { status: 201, body: { id: camId } };
@@ -5890,8 +5889,12 @@ export const routeHandler = async (path, method, body, auth) => {
             await query('UPDATE zones SET exits=$1 WHERE id=$2', [extExits, exteriorZoneId]);
           }
           studioExits = exteriorZoneId ? { out: exteriorZoneId } : {};
-          await query(`INSERT INTO furniture (id,zone_id,name,description,object_type,light_type,light_on,light_on_intended,power_draw_kw,lumen_output,flags)
-            VALUES ($1,$2,'Overhead Light','A recessed overhead light panel.','light','overhead',1,1,0.02,1200,'{}')`, [`furn_light_stage_${ts}`, studioZoneId]);
+          await insertFurniture({
+            id: `furn_light_stage_${ts}`, zone_id: studioZoneId,
+            name: 'Overhead Light', description: 'A recessed overhead light panel.',
+            object_type: 'light', light_type: 'overhead', light_on: 1, light_on_intended: 1,
+            power_draw_kw: 0.02, lumen_output: 1200, flags: '{}',
+          });
         }
       }
 
@@ -5909,8 +5912,12 @@ export const routeHandler = async (path, method, body, auth) => {
         );
         studioExits = { ...studioExits, down: utilityZoneId };
         await query('UPDATE zones SET exits=$1 WHERE id=$2', [JSON.stringify(studioExits), studioZoneId]);
-        await query(`INSERT INTO furniture (id,zone_id,name,description,object_type,light_type,light_on,light_on_intended,power_draw_kw,lumen_output,flags)
-          VALUES ($1,$2,'Overhead Light','A recessed overhead light panel.','light','overhead',1,1,0.02,1200,'{}')`, [`furn_light_util_${ts}`, utilityZoneId]);
+        await insertFurniture({
+          id: `furn_light_util_${ts}`, zone_id: utilityZoneId,
+          name: 'Overhead Light', description: 'A recessed overhead light panel.',
+          object_type: 'light', light_type: 'overhead', light_on: 1, light_on_intended: 1,
+          power_draw_kw: 0.02, lumen_output: 1200, flags: '{}',
+        });
 
         const { rows: plants } = await query(`SELECT id FROM generators WHERE generator_type='city_plant' AND status='online' LIMIT 1`);
         const cityGenId = plants[0]?.id || null;
@@ -5926,13 +5933,13 @@ export const routeHandler = async (path, method, body, auth) => {
           [utilityZoneId, `${studio_name || 'Studio'} Power Room`, jboxId]
         );
         // Physical, destructible junction-box furniture linked to the generator row.
-        await query(
-          `INSERT INTO furniture (id,zone_id,name,description,object_type,flags,hp,hp_max)
-           VALUES ($1,$2,$3,$4,'junction_box',$5,1200,1200) ON CONFLICT (id) DO NOTHING`,
-          [`furn_jbox_${utilityZoneId}_${ts}`, utilityZoneId, `${studio_name || 'Studio'} Junction Box`,
-           'A grey steel junction cabinet of breakers and humming busbars, feeding the building. A small sealed hacking port sits below the latch.',
-           JSON.stringify({ destructible: true, generator_id: jboxId })]
-        );
+        await insertFurniture({
+          id: `furn_jbox_${utilityZoneId}_${ts}`, zone_id: utilityZoneId,
+          name: `${studio_name || 'Studio'} Junction Box`,
+          description: 'A grey steel junction cabinet of breakers and humming busbars, feeding the building. A small sealed hacking port sits below the latch.',
+          object_type: 'junction_box', flags: JSON.stringify({ destructible: true, generator_id: jboxId }),
+          hp: 1200, hp_max: 1200,
+        }, 'ON CONFLICT (id) DO NOTHING');
       }
 
       // Find or create production/control room (up)
@@ -5949,8 +5956,12 @@ export const routeHandler = async (path, method, body, auth) => {
         );
         studioExits = { ...studioExits, up: productionZoneId };
         await query('UPDATE zones SET exits=$1 WHERE id=$2', [JSON.stringify(studioExits), studioZoneId]);
-        await query(`INSERT INTO furniture (id,zone_id,name,description,object_type,light_type,light_on,light_on_intended,power_draw_kw,lumen_output,flags)
-          VALUES ($1,$2,'Overhead Light','A recessed overhead light panel.','light','overhead',1,1,0.02,1200,'{}')`, [`furn_light_prod_${ts}`, productionZoneId]);
+        await insertFurniture({
+          id: `furn_light_prod_${ts}`, zone_id: productionZoneId,
+          name: 'Overhead Light', description: 'A recessed overhead light panel.',
+          object_type: 'light', light_type: 'overhead', light_on: 1, light_on_intended: 1,
+          power_draw_kw: 0.02, lumen_output: 1200, flags: '{}',
+        });
       }
 
       // Ensure power_zones for stage and production exist
@@ -5970,11 +5981,12 @@ export const routeHandler = async (path, method, body, auth) => {
           `SELECT id FROM furniture WHERE zone_id=$1 AND light_type='streetlight' LIMIT 1`, [exteriorZoneId]
         );
         if (!extLights.length) {
-          await query(
-            `INSERT INTO furniture (id,zone_id,name,description,object_type,light_type,light_on,power_draw_kw,lumen_output,flags)
-             VALUES ($1,$2,'Street Light','A tall metal post topped with a flickering sodium lamp.','light','streetlight',0,0.2,8000,'{}')`,
-            [`furn_light_ext_${ts}`, exteriorZoneId]
-          );
+          await insertFurniture({
+            id: `furn_light_ext_${ts}`, zone_id: exteriorZoneId,
+            name: 'Street Light', description: 'A tall metal post topped with a flickering sodium lamp.',
+            object_type: 'light', light_type: 'streetlight', light_on: 0,
+            power_draw_kw: 0.2, lumen_output: 8000, flags: '{}',
+          });
         }
       }
 
@@ -6139,13 +6151,13 @@ export const routeHandler = async (path, method, body, auth) => {
         );
         created.jbox = jboxId;
         // Physical, destructible junction-box furniture linked to the generator row.
-        await query(
-          `INSERT INTO furniture (id,zone_id,name,description,object_type,flags,hp,hp_max)
-           VALUES ($1,$2,$3,$4,'junction_box',$5,1200,1200) ON CONFLICT (id) DO NOTHING`,
-          [`furn_jbox_${utilityZoneId}_${ts}`, utilityZoneId, `${studio_name} Junction Box`,
-           'A grey steel junction cabinet of breakers and humming busbars, feeding the building. A small sealed hacking port sits below the latch.',
-           JSON.stringify({ destructible: true, generator_id: jboxId })]
-        );
+        await insertFurniture({
+          id: `furn_jbox_${utilityZoneId}_${ts}`, zone_id: utilityZoneId,
+          name: `${studio_name} Junction Box`,
+          description: 'A grey steel junction cabinet of breakers and humming busbars, feeding the building. A small sealed hacking port sits below the latch.',
+          object_type: 'junction_box', flags: JSON.stringify({ destructible: true, generator_id: jboxId }),
+          hp: 1200, hp_max: 1200,
+        }, 'ON CONFLICT (id) DO NOTHING');
 
         // Register zones in power_zones
         for (const [zid, zname] of [
@@ -6163,19 +6175,21 @@ export const routeHandler = async (path, method, body, auth) => {
 
         // Overhead lights in each interior zone
         for (const [zid, lightSuffix] of [[studioZoneId, 'stage'], [utilityZoneId, 'util'], [productionZoneId, 'prod']]) {
-          await query(
-            `INSERT INTO furniture (id,zone_id,name,description,object_type,light_type,light_on,light_on_intended,power_draw_kw,lumen_output,flags)
-             VALUES ($1,$2,'Overhead Light','A recessed overhead light panel.','light','overhead',1,1,0.02,1200,'{}')`,
-            [`furn_light_${lightSuffix}_${ts}`, zid]
-          );
+          await insertFurniture({
+            id: `furn_light_${lightSuffix}_${ts}`, zone_id: zid,
+            name: 'Overhead Light', description: 'A recessed overhead light panel.',
+            object_type: 'light', light_type: 'overhead', light_on: 1, light_on_intended: 1,
+            power_draw_kw: 0.02, lumen_output: 1200, flags: '{}',
+          });
         }
 
         // Street light on the exterior zone (day/night managed — light_on_intended stays NULL)
-        await query(
-          `INSERT INTO furniture (id,zone_id,name,description,object_type,light_type,light_on,power_draw_kw,lumen_output,flags)
-           VALUES ($1,$2,'Street Light','A tall metal post topped with a flickering sodium lamp.','light','streetlight',0,0.2,8000,'{}')`,
-          [`furn_light_ext_${ts}`, exteriorZoneId]
-        );
+        await insertFurniture({
+          id: `furn_light_ext_${ts}`, zone_id: exteriorZoneId,
+          name: 'Street Light', description: 'A tall metal post topped with a flickering sodium lamp.',
+          object_type: 'light', light_type: 'streetlight', light_on: 0,
+          power_draw_kw: 0.2, lumen_output: 8000, flags: '{}',
+        });
 
         // If a channel_id is supplied and that channel exists, link the studio zone and create a streaming camera
         if (channel_id) {
@@ -6293,24 +6307,20 @@ export const routeHandler = async (path, method, body, auth) => {
         if (existingDeckRows.length) {
           deckId = existingDeckRows[0].id;
           const dflags = _deckFlags(existingDeckRows[0]);
-          await query(
-            `UPDATE furniture SET zone_id=$1, name=$2 WHERE id=$3`,
-            [targetZoneId, name || 'Media Deck', deckId]
-          );
+          await updateFurniture(deckId, { zone_id: targetZoneId, name: name || 'Media Deck' });
           // Ensure flags carry channel_id/media_deck even if an older row lost them
           dflags.media_deck = true;
           dflags.channel_id = channel_id;
           if (!Array.isArray(dflags.deck_cassettes)) dflags.deck_cassettes = [];
-          await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(dflags), deckId]);
+          await updateFurniture(deckId, { flags: JSON.stringify(dflags) });
         } else {
           deckId = `furn_deck_${channel_id}_${ts}`;
-          await query(
-            `INSERT INTO furniture (id, zone_id, name, description, flags, power_draw_kw, object_type)
-             VALUES ($1,$2,$3,$4,$5,2.0,'media_deck')`,
-            [deckId, targetZoneId, name || 'Media Deck',
-             'Broadcast transmission hardware. Plays cassettes and routes live camera feeds.',
-             JSON.stringify({ media_deck: true, channel_id, deck_cassettes: [], deck_active: null })]
-          );
+          await insertFurniture({
+            id: deckId, zone_id: targetZoneId, name: name || 'Media Deck',
+            description: 'Broadcast transmission hardware. Plays cassettes and routes live camera feeds.',
+            flags: JSON.stringify({ media_deck: true, channel_id, deck_cassettes: [], deck_active: null }),
+            power_draw_kw: 2.0, object_type: 'media_deck',
+          });
         }
         await query(`UPDATE media_channels SET studio_zone_id=$1 WHERE id=$2`, [stageZoneId || targetZoneId, channel_id]);
 
@@ -6318,13 +6328,12 @@ export const routeHandler = async (path, method, body, auth) => {
         if (auto_place && stageZoneId && !no_camera) {
           // Create broadcast_transmitter furniture in stage zone
           const camFurnId = `furn_cam_${channel_id}_${ts}`;
-          await query(
-            `INSERT INTO furniture (id,zone_id,name,description,flags,object_type)
-             VALUES ($1,$2,$3,$4,$5,'camera')`,
-            [camFurnId, stageZoneId, 'Studio Camera',
-             'Broadcast camera positioned on the stage floor.',
-             JSON.stringify({ broadcast_transmitter: true, channel_id })]
-          );
+          await insertFurniture({
+            id: camFurnId, zone_id: stageZoneId, name: 'Studio Camera',
+            description: 'Broadcast camera positioned on the stage floor.',
+            flags: JSON.stringify({ broadcast_transmitter: true, channel_id }),
+            object_type: 'camera',
+          });
           // Register in media_cameras, streaming to this channel
           cameraId = `cam_${channel_id}_${ts}`;
           await query(
@@ -6374,7 +6383,7 @@ export const routeHandler = async (path, method, body, auth) => {
             if (!cassettes.includes(broadcast_id)) {
               cassettes.push(broadcast_id);
               dflags.deck_cassettes = cassettes;
-              await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(dflags), deckId]);
+              await updateFurniture(deckId, { flags: JSON.stringify(dflags) });
             }
             // Insert item into the deck container (or update if it already exists there).
             const { rows: existingInv } = await query(

@@ -38,6 +38,10 @@ export default async function regress({ run, check, getPlayer }) {
   // wanders, so with her elsewhere the take is refused (no quest row created).
   const liveZone = getZone(boardZone);
   liveZone?.npcs?.delete('npc_fs_dispatcher');
+  // The routing-only `gigs take 1` above ran at the fake player's home zone and can
+  // genuinely succeed if that zone hosts a dispatcher-less board — clear the slate so
+  // the refusal check only sees rows created by THIS take.
+  await query('DELETE FROM player_quests WHERE player_id=$1', [player.id]);
   r = await run('gigs take 1');
   const { rows: beforeMarta } = await query(
     "SELECT 1 FROM player_quests WHERE player_id=$1 AND status='active'", [player.id]
@@ -117,4 +121,8 @@ export default async function regress({ run, check, getPlayer }) {
     check('job_turnin fills {quest} from the resolved gig (no leftover placeholder)', !!rendered && !rendered.text.includes('{quest}'), rendered?.text);
     await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, poolQuestId]);
   }
+
+  // The successful `gigs take 1` above leaves an active quest row; without this the
+  // local DB accretes one leaked test_regress_<pid> row per run.
+  await query('DELETE FROM player_quests WHERE player_id=$1', [player.id]);
 }

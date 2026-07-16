@@ -22,7 +22,7 @@
  */
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
-import { getApartment } from '../../server/engine/world.js';
+import { getApartment, insertFurniture, deleteFurniture } from '../../server/engine/world.js';
 import { playerControlsApt } from '../../server/engine/apartments.js';
 
 // Posters that share a secret seam. Deliberately tiny and mechanical.
@@ -56,7 +56,7 @@ async function peelPoster(f, player, broadcast) {
   const key = f.flags?.poster_key;
   if (!key) return { type: 'error', message: `That won't come off the wall.` };
 
-  await query('DELETE FROM furniture WHERE id=$1', [f.id]);
+  await deleteFurniture(f.id);
   await query(
     `INSERT INTO player_inventory (id, player_id, item_id, quantity, custom_data) VALUES ($1,$2,$3,1,$4)`,
     [randomUUID(), player.id, `item_poster_${key}`,
@@ -127,16 +127,15 @@ async function cmdPutup(args, raw, player, broadcast) {
   const key = cd.poster_key || r.item_id.replace('item_poster_', '');
 
   // Exactly one instance of each poster exists in the world; move it here.
-  await query(
-    `INSERT INTO furniture (id, zone_id, name, description, object_type, flags, origin, owner_id)
-     VALUES ($1,$2,$3,$4,'decoration',$5,'player',$6)
-     ON CONFLICT (id) DO UPDATE SET
+  await insertFurniture({
+    id: `furn_hero_poster_${key}`, zone_id: player.current_zone,
+    name: cd.name, description: cd.description, object_type: 'decoration',
+    flags: JSON.stringify({ hero_poster: true, poster_key: key }),
+    origin: 'player', owner_id: player.id,
+  }, `ON CONFLICT (id) DO UPDATE SET
        zone_id=EXCLUDED.zone_id, name=EXCLUDED.name, description=EXCLUDED.description,
        object_type='decoration', flags=EXCLUDED.flags,
-       origin='player', owner_id=EXCLUDED.owner_id`,
-    [`furn_hero_poster_${key}`, player.current_zone, cd.name, cd.description,
-     JSON.stringify({ hero_poster: true, poster_key: key }), player.id]
-  );
+       origin='player', owner_id=EXCLUDED.owner_id`);
   await query('DELETE FROM player_inventory WHERE id=$1', [r.id]);
 
   broadcast(player.current_zone,

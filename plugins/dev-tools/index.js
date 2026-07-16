@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { join, dirname } from 'path';
 import { query } from '../../server/models/db.js';
-import { getLivePlayer, getAllLivePlayers, getZone, getMinimapData } from '../../server/engine/world.js';
+import { getLivePlayer, getAllLivePlayers, getZone, getMinimapData, insertFurniture, updateFurnitureCacheWhere } from '../../server/engine/world.js';
 import { autoResolvePower, recalcZoneLoad, getZonePowerStatus } from '../../server/engine/environment.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
 
@@ -106,17 +106,18 @@ async function cmdLetThereBeLight(args, raw, player, broadcast) {
     lightName = existing[0].name;
     if (!existing[0].light_on) {
       await query(`UPDATE furniture SET light_on=1 WHERE zone_id=$1 AND object_type='light'`, [zoneId]);
+      updateFurnitureCacheWhere(f => f.zone_id === zoneId && f.object_type === 'light', { light_on: 1 });
     }
   } else {
     const id = `furn_light_${zoneId}_${randomUUID().slice(0, 8)}`;
     lightName = 'overhead light';
     const desc = 'A recessed overhead fixture bolted to the ceiling, throwing a clean, even wash across the room.';
-    await query(
-      `INSERT INTO furniture (id, zone_id, name, description, flags, light_on, light_type,
-                              power_draw_kw, light_on_intended, object_type, lumen_output, price, hp, hp_max)
-       VALUES ($1,$2,$3,$4,$5::jsonb,1,'overhead',0.02,1,'light',1200,NULL,NULL,NULL)`,
-      [id, zoneId, lightName, desc, JSON.stringify({ is_light: true, light_type: 'overhead' })]
-    );
+    await insertFurniture({
+      id, zone_id: zoneId, name: lightName, description: desc,
+      flags: JSON.stringify({ is_light: true, light_type: 'overhead' }),
+      light_on: 1, light_type: 'overhead', power_draw_kw: 0.02, light_on_intended: 1,
+      object_type: 'light', lumen_output: 1200, price: null, hp: null, hp_max: null,
+    });
     created = true;
   }
 

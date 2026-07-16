@@ -9,7 +9,7 @@
 
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
-import { getZone, getZonePlayers, getZoneNpcs, getZoneEnemies, getLivePlayer, getAllLivePlayers, spawnEnemySync, removeEnemyInstance, hasActivePlayers, world } from '../../server/engine/world.js';
+import { getZone, getZonePlayers, getZoneNpcs, getZoneEnemies, getLivePlayer, getAllLivePlayers, spawnEnemySync, removeEnemyInstance, hasActivePlayers, world, insertFurniture, updateFurniture, deleteFurniture } from '../../server/engine/world.js';
 import { exitTargets, neighborZoneIds } from '../../server/engine/exits.js';
 import { moveEntity } from '../../server/engine/ai-behaviour.js';
 import { findPath } from '../../server/engine/pathfinding.js';
@@ -127,14 +127,14 @@ async function cmdPlant(args, raw, player) {
      batteryMax, wired, hackDiff, nowSec]
   );
 
-  await query(
-    `INSERT INTO furniture (id, zone_id, name, description, object_type, flags, origin, owner_id)
-     VALUES ($1,$2,$3,$4,'security_device',$5,'player',$6)`,
-    [id, player.current_zone, gear.name,
-     gear.description || 'A discreet surveillance device.',
-     JSON.stringify({ security_device: true, device_id: id, concealed: true,
-                      security_item_id: gear.item_id, device_kind: kind }), player.id]
-  );
+  await insertFurniture({
+    id, zone_id: player.current_zone, name: gear.name,
+    description: gear.description || 'A discreet surveillance device.',
+    object_type: 'security_device',
+    flags: JSON.stringify({ security_device: true, device_id: id, concealed: true,
+                            security_item_id: gear.item_id, device_kind: kind }),
+    origin: 'player', owner_id: player.id,
+  });
 
   if (gear.quantity > 1) await query('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [gear.inv_id]);
   else await query('DELETE FROM player_inventory WHERE id=$1', [gear.inv_id]);
@@ -163,7 +163,7 @@ async function cmdRetrieve(args, raw, player) {
 
   const itemId = furn.flags?.security_item_id;
   await query('DELETE FROM security_devices WHERE id=$1', [furn.id]);
-  await query('DELETE FROM furniture WHERE id=$1', [furn.id]);
+  await deleteFurniture(furn.id);
   cameraBuffers.delete(furn.id);   // drop any in-memory rolling buffer for the pulled device
 
   if (itemId) {
@@ -956,7 +956,7 @@ async function cmdSmash(args, raw, player) {
   if (!dev) return { type: 'error', message: `There's no "${nameHint}" here to smash. Try "sweep" first.` };
   tamperPing(dev.owner_id, player.id, dev.name, dev.zone_name || dev.zone_id, 'was destroyed.');
   await query('DELETE FROM security_devices WHERE id=$1', [dev.id]);
-  await query('DELETE FROM furniture WHERE id=$1', [dev.id]);
+  await deleteFurniture(dev.id);
   cameraBuffers.delete(dev.id);    // drop any in-memory rolling buffer for the smashed device
   if (dev.is_police) {
     await raiseWanted(player, 1, 'destroying a PD unit');
@@ -1060,7 +1060,7 @@ async function cmdPilot(args, raw, player) {
 
   const chk = await skillCheck(player, 'drone_ops', 3);
   await query('UPDATE security_devices SET zone_id=$1 WHERE id=$2', [target, drone.id]);
-  await query('UPDATE furniture SET zone_id=$1 WHERE id=$2', [target, drone.id]);
+  await updateFurniture(drone.id, { zone_id: target });
 
   const originName = zone?.name || drone.zone_id;
   const destName = getZone(target)?.name || target;

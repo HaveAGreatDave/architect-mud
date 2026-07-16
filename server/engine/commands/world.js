@@ -1,5 +1,5 @@
 import { query, logActivity } from '../../models/db.js';
-import { getZone, getZoneEnemies, getZoneNpcs, getZonePlayers, getDoorForExit, getZoneDoors, spawnEnemySync, world, getApartment } from '../world.js';
+import { getZone, getZoneEnemies, getZoneNpcs, getZonePlayers, getDoorForExit, getZoneDoors, spawnEnemySync, world, getApartment, updateFurniture } from '../world.js';
 import { getLockTagPublic } from './doors.js';
 import { isApartmentZone, getBuildingName, releaseApartment, findNearestVacantApartment, rehomeNpc, clearNpcResidence } from '../apartments.js';
 import { sendToPlayer } from '../messaging.js';
@@ -987,7 +987,7 @@ async function applyLightSwitch(nameStr, dir, player, broadcast) {
   if (powerStatus === 'unpowered' && newState === 1) {
     return { type:'error', message:`The switch clicks, but nothing happens. No power reaches this room.` };
   }
-  await query(`UPDATE furniture SET light_on=$1 WHERE id=$2`, [newState, light.id]);
+  await updateFurniture(light.id, { light_on: newState });
   const { rows: countRows } = await query(
     `SELECT COUNT(*)::int AS cnt, COALESCE(SUM(COALESCE(lumen_output,0)),0)::int AS lm FROM furniture WHERE zone_id=$1 AND object_type='light' AND light_on=1`,
     [player.current_zone]
