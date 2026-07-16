@@ -1106,6 +1106,13 @@ export async function apiDeleteZone(id) {
       await query(`UPDATE npcs SET wander_zones=(
         SELECT jsonb_agg(v) FROM jsonb_array_elements_text(wander_zones) t(v) WHERE v <> $1
       ) WHERE wander_zones @> to_jsonb($1::text)`, [zid]);
+      // Mirror the NPC cascade into world.npcs (deleted rows leave the Map;
+      // survivors drop stale wander refs) — see the npcs write funnel in world.js.
+      for (const [nid, liveNpc] of [...world.npcs]) {
+        if (liveNpc.zone_id === zid || liveNpc.home_zone === zid) { world.npcs.delete(nid); continue; }
+        if (Array.isArray(liveNpc.wander_zones) && liveNpc.wander_zones.includes(zid))
+          liveNpc.wander_zones = liveNpc.wander_zones.filter(z => z !== zid);
+      }
       // Null out broadcast studio references
       await query('UPDATE media_channels SET studio_zone_id=NULL WHERE studio_zone_id=$1', [zid]);
       // Fix player anchor/home zone references
@@ -1543,6 +1550,14 @@ async function apiPatchGraph(table, id, body) {
       [JSON.stringify(body.graph), id]
     );
     if (!rowCount) return { status: 404, body: { error: 'Not found' } };
+    // Sync live state so a graph PATCH takes effect without a reboot: the live
+    // NPC entry, or every spawn template carrying this enemy definition.
+    if (table === 'npcs') {
+      const live = world.npcs.get(id);
+      if (live) { live[field] = body.graph; if (field === 'behaviour_graph') live._ai = { ...live._ai, currentNode: null }; }
+    } else if (table === 'enemies') {
+      for (const t of world.spawnTimers.values()) if (t.id === id) t[field] = body.graph;
+    }
     return { status: 200, body: { ok: true } };
   } catch (e) { return { status: 400, body: { error: e.message } }; }
 }

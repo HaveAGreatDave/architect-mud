@@ -330,18 +330,20 @@ which tier the value lives in — same discipline as deciding a write's persiste
 
 | Tier | What lives here | Correctness contract | As built |
 |---|---|---|---|
-| **Boot-loaded world Map** | content + live entity state read constantly | **every** writer funnels through a helper that updates Map + DB together | `world.zones/npcs/doors/orgs/spawnTimers…` (world.js) |
+| **Boot-loaded world Map** | content + live entity state read constantly | **every** writer funnels through a helper that updates Map + DB together | `world.zones/npcs/doors/orgs/spawnTimers…` (world.js). npcs got its funnel 2026-07-15: `updateNpc`/`syncNpc` in world.js — dialogue/shop handlers now read the Map |
 | **Write-through module cache** | small global tables | all writers live in the one module that owns the cache | world flags (flags.js), per-player skill IP (ip.js), **item templates (items-cache.js — every items writer calls reloadItem/deleteItemCache; runtime minters: keycards, datachips, cassettes)** |
 | **Event-bust + TTL cache** | derived per-player values | main mutation paths emit an event that busts; a short TTL bounds the writers that don't; staleness must be **benign** | carried weight, equipped weapon (`inventory.changed` + 5 s) |
 | **TTL content cache** | authored content, static at runtime | dev CRUD invalidates; TTL covers out-of-band writers | quest definitions (plugins/quests, 30 s) |
-| **Query fresh** | anything gameplay-critical with uncoordinated writers | none needed — the DB is the only truth | `npcs` rows in shop/dialogue handlers (vendor_credits/stock mutate DB-only), `wanted`/`heat` player flags |
+| **Query fresh** | anything gameplay-critical with uncoordinated writers | none needed — the DB is the only truth | `furniture` rows (~40 writers, funnel pending), `wanted`/`heat` player flags |
 
 **The cache-safety test: a cache is only as safe as its write funnel.** Before caching a table,
 grep *every* `INSERT/UPDATE/DELETE` against it. If writers are scattered and don't (or can't)
 maintain the cache, either build the write funnel first or stay on "query fresh" — a stale cache
 that misrenders lights or sells from a phantom shelf is strictly worse than a round trip. This is
 the same bug class as [the source-of-truth audit](audits/source-of-truth-audit.md); `furniture`
-and `npcs` both failed this test and are deliberately *not* cached today.
+failed this test and is deliberately *not* cached today (`npcs` failed it too until its write
+funnel landed 2026-07-15). Every content table's decided tier is machine-readable as `readTier`
+in `server/models/content-registry.js` — regress fails a content table that hasn't declared one.
 
 Rules of thumb when building features:
 

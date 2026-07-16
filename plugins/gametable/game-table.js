@@ -4,7 +4,7 @@
 import { query } from '../../server/models/db.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { emit } from '../../server/engine/events.js';
-import { getLivePlayer, getZonePlayers, getZoneNpcs } from '../../server/engine/world.js';
+import { getLivePlayer, getZonePlayers, getZoneNpcs, world, updateNpc } from '../../server/engine/world.js';
 import { moveEntity } from '../../server/engine/ai-behaviour.js';
 import { findPath } from '../../server/engine/pathfinding.js';
 import { HoldemGame } from './games/holdem.js';
@@ -919,13 +919,11 @@ export class GameTable {
   async _saveBotBankroll(npcOrId, bankroll) {
     const npcId = typeof npcOrId === 'string' ? npcOrId : npcOrId.id;
     const value = Math.max(0, Math.floor(bankroll));
-    const npc = typeof npcOrId === 'object' ? npcOrId
-      : getZoneNpcs(this.zoneId).find(n => n.id === npcId);
-    if (npc) { npc.flags = npc.flags || {}; npc.flags.poker_bankroll = value; }
-    await query(
-      "UPDATE npcs SET flags = jsonb_set(coalesce(flags,'{}'::jsonb), '{poker_bankroll}', to_jsonb($1::bigint), true) WHERE id=$2",
-      [value, npcId]
-    ).catch(e => console.error('[gametable] bot bankroll persist:', e.message));
+    const npc = world.npcs.get(npcId) || (typeof npcOrId === 'object' ? npcOrId : null);
+    const flags = { ...(npc?.flags || {}), poker_bankroll: value };
+    if (npc) npc.flags = flags;
+    await updateNpc(npcId, { flags })
+      .catch(e => console.error('[gametable] bot bankroll persist:', e.message));
   }
 
   // Bots don't play each other — if no humans are left seated, any bots cash out.

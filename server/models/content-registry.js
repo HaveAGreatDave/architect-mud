@@ -26,6 +26,23 @@
 //                                  honest tradeoff. (Proven by regress: excluding
 //                                  doors.lock_state shipped every authored lock
 //                                  disengaged on a fresh import.)
+//                 readTier       — where the table's rows live at RUNTIME (the read
+//                                  side; see docs/architecture.md → Read Tiers).
+//                                  Required on every content entry; regress layer 1a
+//                                  fails a content table that hasn't decided this:
+//                                    'boot'  — loaded into memory at boot, reloaded on
+//                                              dev edit (world.js Maps, module caches,
+//                                              plugin write-through caches)
+//                                    'ttl'   — TTL cache (dev CRUD invalidates; TTL
+//                                              bounds out-of-band writers)
+//                                    'cold'  — query-fresh, but only on rare paths
+//                                              (per-craft, per-interaction, dev panel);
+//                                              caching wouldn't pay for itself
+//                                    'fresh' — deliberately query-fresh on gameplay
+//                                              paths: writers are uncoordinated, so a
+//                                              cache would go stale (build the write
+//                                              funnel before promoting to 'boot')
+//                                    'dead'  — zero runtime readers
 //                 runtimeInserts — note naming gameplay code that INSERTs rows into
 //                                  this table at runtime (2026-07-06 census). Those
 //                                  rows have no files; the pipeline's git-diff-driven
@@ -50,27 +67,30 @@
 export const REGISTRY = [
   // ── content: audio (must precede zones: zones.audio_theme_id → audio_songs;
   //    samples first: audio_instruments/audio_event_routes.sample_id → audio_samples) ──
-  { table: 'audio_samples', class: 'content', pk: ['id'] },
-  { table: 'audio_songs', class: 'content', pk: ['id'] },
-  { table: 'audio_instruments', class: 'content', pk: ['id'] },
-  { table: 'audio_sfx', class: 'content', pk: ['id'] },
-  { table: 'audio_ambient', class: 'content', pk: ['id'] },
-  { table: 'audio_event_routes', class: 'content', pk: ['id'] },
+  // All six audio tables live in the audio plugin's boot caches (loadAudioLibrary,
+  // refreshed on CRUD). The audio_samples.data blob is deliberately NOT cached —
+  // served on demand per client (disk in prod, DB in dev).
+  { table: 'audio_samples', class: 'content', pk: ['id'], readTier: 'boot' },
+  { table: 'audio_songs', class: 'content', pk: ['id'], readTier: 'boot' },
+  { table: 'audio_instruments', class: 'content', pk: ['id'], readTier: 'boot' },
+  { table: 'audio_sfx', class: 'content', pk: ['id'], readTier: 'boot' },
+  { table: 'audio_ambient', class: 'content', pk: ['id'], readTier: 'boot' },
+  { table: 'audio_event_routes', class: 'content', pk: ['id'], readTier: 'boot' },
 
   // ── content: world structure ──
-  { table: 'zones', class: 'content', pk: ['id'],
+  { table: 'zones', class: 'content', pk: ['id'], readTier: 'boot',
     // stains: blood/vomit — accumulates in RAM (world.zones); the DB column is only
     // ever bulk-cleared by the daily maintenance tick (gameLoop.js), never written rich.
     excludeColumns: ['stains'],
     runtimeInserts: 'environment.js power/junction rooms; broadcast studio builder (dev-gated)',
     note: 'exits/tags are authored content but runtime systems may also wire them (power rooms, studios) — a known, drift-report-visible seam' },
-  { table: 'maps', class: 'content', pk: ['id'],
+  { table: 'maps', class: 'content', pk: ['id'], readTier: 'boot',
     runtimeInserts: 'environment.js power-room interiors; broadcast studio builder (dev-gated)' },
-  { table: 'items', class: 'content', pk: ['id'],
+  { table: 'items', class: 'content', pk: ['id'], readTier: 'boot', // items-cache.js write-through Map
     runtimeInserts: 'doors.js keycard cutting (keycard_<door>); surveillance evidence datachips (item_datachip_<clip>, reaped on submission/retention); broadcast recorded cassettes (item_cassette_<slug>)' },
-  { table: 'enemies', class: 'content', pk: ['id'] },
-  { table: 'zone_spawns', class: 'content', pk: ['id'] },
-  { table: 'npcs', class: 'content', pk: ['id'],
+  { table: 'enemies', class: 'content', pk: ['id'], readTier: 'boot' },      // via world.spawnTimers join
+  { table: 'zone_spawns', class: 'content', pk: ['id'], readTier: 'boot' },  // via world.spawnTimers join
+  { table: 'npcs', class: 'content', pk: ['id'], readTier: 'boot', // world.npcs + write funnel (updateNpc/syncNpc in world.js)
     // zone_id: wander/work moves NPCs (home_zone is the authored home).
     // vendor_*: sales balances + auto-managed shelf (vendor_inventory is the authored catalog).
     excludeColumns: ['zone_id', 'vendor_credits', 'vendor_stock', 'vendor_bank_credits'],
@@ -80,7 +100,7 @@ export const REGISTRY = [
     //   flags.poker_bankroll (gametable), behaviour_graph/work_zone_id/name/description
     //   (broadcast studio staffing self-heal). dialogue_tree is authoring-only.
     note: 'runtime-mutated authored columns: hp, home_zone, flags.poker_bankroll, behaviour_graph, work_zone_id, name, description' },
-  { table: 'furniture', class: 'content', pk: ['id'],
+  { table: 'furniture', class: 'content', pk: ['id'], readTier: 'fresh', // ~40 uncoordinated writers — needs a write funnel before caching
     // MIXED table: origin='authored' rows are content; origin='player' rows are
     // runtime property (purchases, planted devices, posters, portable
     // generators, corp gear) — never exported, never deleted by the pipeline.
@@ -91,7 +111,7 @@ export const REGISTRY = [
     // inserts default to 'authored', which is correct for imported content).
     excludeColumns: ['light_on', 'light_on_intended', 'origin', 'owner_id'],
     runtimeInserts: 'environment.js junction-box autobuild (kept authored: deterministic ids, converges with dev-authored fixes); origin=player writers: furniture-shop.js, corps HQ terminal, surveillance planted devices, posters, generator plugin' },
-  { table: 'doors', class: 'content', pk: ['id'],
+  { table: 'doors', class: 'content', pk: ['id'], readTier: 'boot',
     // is_open/lock_state/is_locked/hp/tags are CONTENT: they carry authored initial
     // state (a vault ships locked; lock_state defaults to NULL = disengaged, which a
     // fresh restore must not inflict on every authored lock), read once into
@@ -102,25 +122,28 @@ export const REGISTRY = [
     // (reconcileApartmentDoorLocks). forcefield_locked is a purely ephemeral runtime
     // guard, never authored — excluded so it's never carried in files.
     excludeColumns: ['forcefield_locked'] },
-  { table: 'windows', class: 'content', pk: ['id'],
+  { table: 'windows', class: 'content', pk: ['id'], readTier: 'boot', // environment.js state.windows, reloaded on dev edit
     // curtain_open/glass_state are runtime-mutated (environment.js) but carry
     // authored initial state, so they stay content.
     note: 'runtime-mutated authored columns: curtain_open, glass_state' },
-  { table: 'sounds', class: 'content', pk: ['id'] },
-  { table: 'interface_sfx', class: 'content', pk: ['id'] },
-  { table: 'global_ambient_events', class: 'content', pk: ['id'] },
+  // sounds is near-dead: only the dev-panel CRUD reads it — the sound engine
+  // (propagateSound et al.) takes literal loudness/message values, never this table.
+  { table: 'sounds', class: 'content', pk: ['id'], readTier: 'cold' },
+  { table: 'interface_sfx', class: 'content', pk: ['id'], readTier: 'cold' }, // served per client connect, not per gameplay tick
+  { table: 'global_ambient_events', class: 'content', pk: ['id'], readTier: 'boot' },
 
   // ── content: loot / crafting / progression ──
-  { table: 'loot_tables', class: 'content', pk: ['id'] },
-  { table: 'recipes', class: 'content', pk: ['id'] },
-  { table: 'drugs', class: 'content', pk: ['id'] },
-  { table: 'mutations', class: 'content', pk: ['id'] },
-  { table: 'combat_config', class: 'content', pk: ['key'] },
-  { table: 'command_aliases', class: 'content', pk: ['alias'] },
-  { table: 'crimes', class: 'content', pk: ['id'] },
+  // loot_tables has zero runtime readers — loot resolves from enemies.loot_table JSONB.
+  { table: 'loot_tables', class: 'content', pk: ['id'], readTier: 'dead' },
+  { table: 'recipes', class: 'content', pk: ['id'], readTier: 'boot' },        // RECIPE_CACHE (crafting.js)
+  { table: 'drugs', class: 'content', pk: ['id'], readTier: 'boot' },          // DRUG_CACHE (drugs.js)
+  { table: 'mutations', class: 'content', pk: ['id'], readTier: 'boot' },      // MUTATION_CACHE (mutations.js)
+  { table: 'combat_config', class: 'content', pk: ['key'], readTier: 'boot' }, // tunables.js
+  { table: 'command_aliases', class: 'content', pk: ['alias'], readTier: 'boot' }, // aliases.js
+  { table: 'crimes', class: 'content', pk: ['id'], readTier: 'boot' },         // crimes.js
 
   // ── content: housing / power / climate ──
-  { table: 'apartments', class: 'content', pk: ['zone_id'],
+  { table: 'apartments', class: 'content', pk: ['zone_id'], readTier: 'boot', // world.apartments
     // Only personal apartments are content; corp HQs (owner_type='org') reference a
     // player-crew org that isn't exported, which would break a restore's FK.
     where: "owner_type = 'player'",
@@ -131,72 +154,76 @@ export const REGISTRY = [
   // Which apartment units NPCs live in — authored alongside npc.home_zone. Placed
   // after npcs + zones (both FK'd). Kept in sync by the NPC create/edit/auto-house
   // endpoints and the reconcile script.
-  { table: 'npc_residences', class: 'content', pk: ['zone_id'] },
-  { table: 'generators', class: 'content', pk: ['id'],
+  { table: 'npc_residences', class: 'content', pk: ['zone_id'], readTier: 'cold' },
+  // generators/power_zones: the power sim re-queries both every cycle and rewrites
+  // them — derived per-zone status lives in environment state, never a table cache.
+  { table: 'generators', class: 'content', pk: ['id'], readTier: 'fresh',
     // status/remaining_kw: recomputed every power cycle (self-healing). fuel_remaining
     // stays CONTENT: schema default is 0, so excluding it restores every authored
     // generator dead. Burn-tick churn shows in exports as reviewable diffs.
     excludeColumns: ['status', 'remaining_kw'],
     runtimeInserts: 'environment.js city/junction autobuild; generator plugin player-placed units' },
-  { table: 'power_zones', class: 'content', pk: ['id'],
+  { table: 'power_zones', class: 'content', pk: ['id'], readTier: 'fresh',
     excludeColumns: ['status', 'available_kw', 'current_load_kw'], // recomputed every power cycle
     runtimeInserts: 'environment.js autobuild; broadcast studio builder (dev-gated)' },
-  { table: 'climate_profiles', class: 'content', pk: ['id'],
+  { table: 'climate_profiles', class: 'content', pk: ['id'], readTier: 'boot', // active profile loaded at env boot
     runtimeInserts: 'environment.js seeds a default profile on first boot if missing' },
 
   // ── content: scripting / quests / factions ──
-  { table: 'scripts', class: 'content', pk: ['id'] },
-  { table: 'npc_banter_threads', class: 'content', pk: ['id'] },
-  { table: 'ambient_routines', class: 'content', pk: ['id'] },
-  { table: 'quests', class: 'content', pk: ['id'],
+  { table: 'scripts', class: 'content', pk: ['id'], readTier: 'cold' },              // one row per graph run
+  { table: 'npc_banter_threads', class: 'content', pk: ['id'], readTier: 'boot' },   // loadBanterLibrary
+  { table: 'ambient_routines', class: 'content', pk: ['id'], readTier: 'boot' },     // ambient-life plugin cache
+  { table: 'quests', class: 'content', pk: ['id'], readTier: 'ttl', // plugins/quests 30s definition cache
     runtimeInserts: 'flight contract board (plugins/flight/contracts.js) generates/prunes quest_type=flight rows (id quest_flight_<8-hex>) from the authored quest_flight_* templates; also UPDATEs rewards/meta on accept' },
-  { table: 'job_boards', class: 'content', pk: ['id'] },
+  { table: 'job_boards', class: 'content', pk: ['id'], readTier: 'cold' }, // per board interaction; quest-id set has its own 60s TTL
   // NPC factions live in the unified orgs table (is_npc=1); player crews are runtime.
-  { table: 'orgs', class: 'content', pk: ['id'], where: 'is_npc = 1',
+  { table: 'orgs', class: 'content', pk: ['id'], where: 'is_npc = 1', readTier: 'boot', // world.orgs
     runtimeInserts: 'corps plugin creates player crews (outside predicate)' },
   { table: 'org_relations', class: 'content', pk: ['org_id', 'other_org_id'],
-    where: 'org_id IN (SELECT id FROM orgs WHERE is_npc = 1)' },
+    where: 'org_id IN (SELECT id FROM orgs WHERE is_npc = 1)', readTier: 'cold' },
 
   // ── content: scavenging / security / finance / flight ──
-  { table: 'scavenging_tables', class: 'content', pk: ['id'] },
-  { table: 'scavenging_table_items', class: 'content', pk: ['id'] },
+  { table: 'scavenging_tables', class: 'content', pk: ['id'], readTier: 'cold' },       // per scavenge/fish/mine action
+  { table: 'scavenging_table_items', class: 'content', pk: ['id'], readTier: 'cold' },
   // NPC-police surveillance backbone only; player-planted nets/devices are runtime.
-  { table: 'security_networks', class: 'content', pk: ['id'], where: 'is_police = 1',
+  { table: 'security_networks', class: 'content', pk: ['id'], where: 'is_police = 1', readTier: 'fresh',
     runtimeInserts: 'surveillance plugin player networks (outside predicate)' },
-  { table: 'security_devices', class: 'content', pk: ['id'],
+  { table: 'security_devices', class: 'content', pk: ['id'], readTier: 'fresh', // runtime-mutated, read live on movement/tick paths
     where: 'network_id IN (SELECT id FROM security_networks WHERE is_police = 1)',
     runtimeInserts: 'surveillance plugin player devices (outside predicate)' },
-  { table: 'atm_networks', class: 'content', pk: ['id'] },
-  { table: 'aircraft_types', class: 'content', pk: ['id'] },
-  { table: 'aa_sites', class: 'content', pk: ['id'],
+  { table: 'atm_networks', class: 'content', pk: ['id'], readTier: 'cold' },   // per ATM interaction
+  { table: 'aircraft_types', class: 'content', pk: ['id'], readTier: 'cold' }, // per flight operation
+  { table: 'aa_sites', class: 'content', pk: ['id'], readTier: 'fresh', // firing path honors the live `active` toggle
     // active is toggled at runtime (shot down: flight/combat.js; engineer repair:
     // aa-sites plugin) but carries authored initial state, so it stays content.
     note: 'runtime-mutated authored column: active' },
 
   // ── content: broadcast / media (themes first: channels.theme_id → media_themes;
   //    broadcasts↔channels cycle rides deferred constraints; deck/playlist/cameras last) ──
-  { table: 'media_themes', class: 'content', pk: ['id'] },
+  // media_* readTier 'boot' = the broadcast plugin's channelRuntime/graphics caches,
+  // rebuilt at boot and after every mutation; the 1 Hz tick reads memory only.
+  { table: 'media_themes', class: 'content', pk: ['id'], readTier: 'boot' },
   // bc_clip_* rows are runtime artifacts (surveillance datachips loaded into decks,
   // minted by broadcast ensureClipBroadcast, reaped on evidence submission / 3-day
   // retention) — never exported, never deleted by the pipeline. Runtime also toggles
   // tags.cassette_ejected on authored broadcasts (export churn, accepted).
-  { table: 'media_broadcasts', class: 'content', pk: ['id'],
+  { table: 'media_broadcasts', class: 'content', pk: ['id'], readTier: 'boot',
     where: "id NOT LIKE 'bc_clip_%'",
     runtimeInserts: 'broadcast ensureClipBroadcast mints bc_clip_* rows (outside predicate); surveillance reaps them' },
-  { table: 'media_channels', class: 'content', pk: ['id'] },
+  { table: 'media_channels', class: 'content', pk: ['id'], readTier: 'boot' },
   // DEAD SCHEMA: zero readers/writers anywhere — deck state actually lives in
   // furniture.flags (deck_cassettes, pirate_*, channel_id). Candidate for removal.
-  { table: 'media_deck_units', class: 'content', pk: ['id'] },
+  { table: 'media_deck_units', class: 'content', pk: ['id'], readTier: 'dead' },
   // Cassette eject DELETEs a channel's slots for that broadcast (stashed into
   // furniture.flags.deck_ejected_slots) and re-INSERTs them on reload — authored
   // slot rows can be legitimately absent from a live DB while a tape is ejected.
-  { table: 'media_channel_playlist', class: 'content', pk: ['id'],
+  { table: 'media_channel_playlist', class: 'content', pk: ['id'], readTier: 'boot',
     runtimeInserts: 'broadcast cassette load re-INSERTs slots stashed at eject' },
-  { table: 'media_cameras', class: 'content', pk: ['id'],
+  { table: 'media_cameras', class: 'content', pk: ['id'], readTier: 'boot', // roster cached in channelRuntime; live recording_buffer ops hit the DB fresh
     // streaming_channel_id is also runtime-written (CAMERA_STREAM action) but stays
     // content: it carries the authored studio-camera binding.
     excludeColumns: ['recording_buffer', 'is_recording', 'is_streaming'] }, // live camera state
-  { table: 'media_graphics', class: 'content', pk: ['id'] },
+  { table: 'media_graphics', class: 'content', pk: ['id'], readTier: 'boot' }, // graphicsCache
 
   // ── player: accounts + per-player state (PII lives here — never exported) ──
   { table: 'players', class: 'player' },

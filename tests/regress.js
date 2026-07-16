@@ -130,6 +130,14 @@ console.log('— layer 1a: content-registry coverage —');
     for (const c of e.excludeColumns || []) if (!cols.has(c)) colErrors.push(`${e.table}: excludeColumns "${c}" not in SCHEMA_SQL`);
   }
   check('registry pk/excludeColumns name real columns', colErrors.length === 0, colErrors.join('; '));
+
+  // Every content table must declare its read tier — where its rows live at
+  // runtime (docs/architecture.md → Read Tiers). Adding a content table without
+  // deciding this is exactly how "query fresh by accident" hot paths appear.
+  const READ_TIERS = new Set(['boot', 'ttl', 'cold', 'fresh', 'dead']);
+  const tierErrors = REGISTRY.filter(e => e.class === 'content' && !READ_TIERS.has(e.readTier))
+    .map(e => `${e.table}: readTier "${e.readTier}" (must be one of ${[...READ_TIERS].join('/')})`);
+  check('every content table declares a valid readTier', tierErrors.length === 0, tierErrors.join('; '));
 }
 
 // ── Layer 1b: object-gated verb discoverability ──────────────────────────────

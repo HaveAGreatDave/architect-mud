@@ -28,7 +28,7 @@ import { query } from '../models/db.js';
 import { registerAction, dispatchAction } from './actions.js';
 import { emit } from './events.js';
 import { evalConditions } from './flags.js';
-import { getZone, addPlayerToZone, removePlayerFromZone, resolveLanding } from './world.js';
+import { getZone, addPlayerToZone, removePlayerFromZone, resolveLanding, world } from './world.js';
 import { openShopSession } from './vendor-session.js';
 import { getItem } from './items-cache.js';
 
@@ -264,9 +264,8 @@ registerAction({
   handler: async ({ actor, params, context }) => {
     const { npcId } = params;
     if (!npcId) return { type: 'error', message: 'OPEN_SHOP requires npcId.' };
-    const { rows } = await query('SELECT * FROM npcs WHERE id=$1', [npcId]);
-    if (!rows.length) return { type: 'error', message: `NPC not found: ${npcId}` };
-    const npc = rows[0];
+    const npc = world.npcs.get(npcId);
+    if (!npc) return { type: 'error', message: `NPC not found: ${npcId}` };
     if (!npc.vendor_inventory?.length) return { type: 'error', message: `${npc.name} has nothing to sell.` };
     const { vendorGrudgeRemaining, grudgeRefusal } = await import('./vendor-grudge.js');
     const grudge = await vendorGrudgeRemaining(actor.id, npc.id);

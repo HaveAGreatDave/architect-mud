@@ -383,6 +383,36 @@ async function loadNpcs() {
   }
 }
 
+// ── npcs write funnel ────────────────────────────────────────────────────────
+// world.npcs is the authoritative live copy; the DB row is its persistence.
+// EVERY `UPDATE npcs` in gameplay code goes through updateNpc (DB + Map in one
+// call) or, for SQL-side increments inside a transaction, writes with
+// `RETURNING` and passes the returned value to syncNpc. Dev-panel routes that
+// already Object.assign the live entry are equivalent. Grep the write surface
+// before adding a writer that skips this — a bypassed write is invisible to
+// every reader on the Map (the furniture/npcs stale-cache bug class).
+
+// Patch the live NPC only (values are plain JS objects, not JSON strings).
+export function syncNpc(id, cols) {
+  const live = world.npcs.get(id);
+  if (live) Object.assign(live, cols);
+  return live;
+}
+
+// Write the given columns to the DB and patch the live NPC together.
+// Object/array values are stringified for JSONB columns but assigned raw.
+export async function updateNpc(id, cols) {
+  const keys = Object.keys(cols);
+  if (!keys.length) return;
+  const set = keys.map((k, i) => `${k}=$${i + 1}`).join(',');
+  const vals = keys.map(k => {
+    const v = cols[k];
+    return v !== null && typeof v === 'object' ? JSON.stringify(v) : v;
+  });
+  await query(`UPDATE npcs SET ${set} WHERE id=$${keys.length + 1}`, [...vals, id]);
+  syncNpc(id, cols);
+}
+
 async function loadSpawnTemplates() {
   const { rows } = await query(`
     SELECT e.*, zs.id as spawn_id, zs.zone_id, zs.max_count, zs.spawn_weight, zs.respawn_seconds

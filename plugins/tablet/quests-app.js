@@ -16,7 +16,7 @@
 import { query } from '../../server/models/db.js';
 import { dispatchAction } from '../../server/engine/actions.js';
 import { findPath } from '../../server/engine/pathfinding.js';
-import { getZone } from '../../server/engine/world.js';
+import { getZone, world } from '../../server/engine/world.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { registerTabletApp, normScreen } from './registry.js';
 import { findTurnInNpc } from '../quests/index.js';
@@ -319,8 +319,7 @@ async function handleAction(player, actionId, params) {
       return buildScreen(player, null, questId);
     }
     if (npcInfo) {
-      const { rows: npcRows } = await query('SELECT * FROM npcs WHERE id=$1', [npcInfo.npcId]);
-      const npc = npcRows[0];
+      const npc = world.npcs.get(npcInfo.npcId);
       // A dispatcher (job board) hands in at a dedicated `job_turnin` node whose
       // context-driven TURN_IN action pays out the moment it renders; a per-quest
       // giver has no such node, so land on `root` and let the player click through

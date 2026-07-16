@@ -13,7 +13,7 @@
  * triggers a 5-minute lockout per player.
  */
 import { query } from '../../server/models/db.js';
-import { getZone, getZoneNpcs } from '../../server/engine/world.js';
+import { getZone, getZoneNpcs, world, updateNpc } from '../../server/engine/world.js';
 import { effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { emit } from '../../server/engine/events.js';
@@ -66,10 +66,9 @@ async function cmdHack(args, raw, player, broadcast) {
     return { type: 'error', message: `Your rig is still flagged from the last attempt. Lockout expires in ${secs}s.` };
   }
 
-  // Check if there's anything to take
-  const { rows: npcRows } = await query('SELECT id, name, vendor_credits FROM npcs WHERE id=$1', [npcId]);
-  if (!npcRows.length) return { type: 'error', message: "Can't resolve the linked account." };
-  const npc = npcRows[0];
+  // Check if there's anything to take (world.npcs is funnel-synced for vendor_credits)
+  const npc = world.npcs.get(npcId);
+  if (!npc) return { type: 'error', message: "Can't resolve the linked account." };
 
   if (!npc.vendor_credits || npc.vendor_credits <= 0) {
     return { type: 'output', message: `You put an ear to the ${safe.name} and spin the dial — the tumblers are the least of it. The accounts are dry. Nothing to take.` };
@@ -126,16 +125,15 @@ async function cmdSafeCrackResolve(args, raw, player) {
     return { type: 'error', message: `The combination re-seats mid-spin and the tamper sensor logs the attempt. Your rig is flagged — five-minute lockout.` };
   }
 
-  const { rows: npcRows } = await query('SELECT id, name, vendor_credits FROM npcs WHERE id=$1', [npcId]);
-  if (!npcRows.length) return { type: 'noop' };
-  const npc = npcRows[0];
+  const npc = world.npcs.get(npcId);
+  if (!npc) return { type: 'noop' };
   if (!npc.vendor_credits || npc.vendor_credits <= 0) {
     return { type: 'output', message: `The ${safe.name} swings open — but the accounts ran dry before you cracked it. Nothing to take.` };
   }
 
   const stolen = npc.vendor_credits;
   await adjustCredits(player, stolen, undefined, 'vendorsafe:loot');
-  await query('UPDATE npcs SET vendor_credits=0 WHERE id=$1', [npcId]);
+  await updateNpc(npcId, { vendor_credits: 0 });
   await awardSkillUse(player.id, 'hacking', 2);
   // Robbed blind — the vendor holds a grudge even if they never caught you in
   // the act (they come back to a drained safe and know exactly who to blame).

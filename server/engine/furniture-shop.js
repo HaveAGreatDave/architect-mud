@@ -20,6 +20,7 @@ import { registerAction } from './actions.js';
 import { createSelectionState, formatSelectionPage } from './sift.js';
 import { vendorBuyReaction } from './vendor-reactions.js';
 import { isVendorClosed, vendorClosedLine } from './ai-behaviour.js';
+import { world, syncNpc } from './world.js';
 import { randomUUID } from 'crypto';
 
 const CONSUMER_INTERACTIONS = ['sit', 'lean', 'lie', 'watch', 'lift'];
@@ -85,7 +86,10 @@ async function finalizePurchase(player, npc, item, price, base, aptZone, aptName
     return { type: 'error', message: `You can't afford that. Need ${price} credits, have ${player.credits || 0}.\n${vendorBuyReaction(npc, 'poor')}` };
   }
   await placeFurniture(item, base, aptZone, player.id);
-  if (npc?.id) await query('UPDATE npcs SET vendor_credits = vendor_credits + $1 WHERE id = $2', [price, npc.id]);
+  if (npc?.id) {
+    const { rows: vc } = await query('UPDATE npcs SET vendor_credits = vendor_credits + $1 WHERE id = $2 RETURNING vendor_credits', [price, npc.id]);
+    if (vc.length) syncNpc(npc.id, { vendor_credits: vc[0].vendor_credits });
+  }
   return {
     type: 'buy',
     message: `You buy the ${item.name} for ${price} credits. ${deliveryLine(npc, item, aptName, buildingName)} (${player.credits} credits remaining)`,
@@ -143,8 +147,7 @@ registerAction({
     const apt = params.apartment;
     const p = apt?._purchase;
     if (!apt || !p) return { type: 'error', message: 'That order slipped away. Try buying it again.' };
-    const { rows } = await query('SELECT id, name, faction, vendor_credits FROM npcs WHERE id = $1', [p.npcId]);
-    const npc = rows[0] || { id: p.npcId, name: 'the vendor' };
+    const npc = world.npcs.get(p.npcId) || { id: p.npcId, name: 'the vendor' };
     return finalizePurchase(actor, npc, p.item, p.price, p.base, apt.zone_id, apt.name, apt.building_name);
   },
 });

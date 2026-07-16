@@ -4,6 +4,7 @@
 import { query } from '../../server/models/db.js';
 import { setFlag } from '../../server/engine/flags.js';
 import { reloadItem, deleteItemCache } from '../../server/engine/items-cache.js';
+import { world } from '../../server/engine/world.js';
 import { _test as news } from './news-generator.js';
 import { _test as calendar } from './calendar-app.js';
 
@@ -209,6 +210,13 @@ export default async function regress({ run, check, getPlayer }) {
      ON CONFLICT (id) DO UPDATE SET dialogue_tree=$2, zone_id=$3, home_zone=$3`,
     [TN, JSON.stringify({ root: { text: 'Hi.', actions: [{ action: 'TURN_IN', quest_id: TQ }], options: [] } }), 'zone_regress_tabletturnin_faraway']
   );
+  // The turn-in path reads NPCs from world.npcs (write funnel) — mirror the seed.
+  world.npcs.set(TN, {
+    id: TN, name: 'Regress Tablet Turn-In NPC', description: '',
+    zone_id: 'zone_regress_tabletturnin_faraway', home_zone: 'zone_regress_tabletturnin_faraway',
+    dialogue_tree: { root: { text: 'Hi.', actions: [{ action: 'TURN_IN', quest_id: TQ }], options: [] } },
+    vendor_inventory: [], wander_zones: [], behaviour_graph: {}, flags: {}, banter: [], _ai: {},
+  });
   await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, TQ]);
   await query(
     "INSERT INTO player_quests (player_id,quest_id,status,progress) VALUES ($1,$2,'completed','[1]')",
@@ -236,6 +244,7 @@ export default async function regress({ run, check, getPlayer }) {
   // deleted, or it's a self-landing flight contract) must still turn in — it falls
   // through to the direct grant rather than dead-ending. Remove the NPC and retry.
   await query('DELETE FROM npcs WHERE id=$1', [TN]);
+  world.npcs.delete(TN);
   await query("UPDATE player_quests SET status='completed' WHERE player_id=$1 AND quest_id=$2", [player.id, TQ]);
   r = await run(`tabletaction quests turnin ${TQ}`);
   check('turn-in with no NPC falls through to the direct grant (never stuck)', r?.type === 'tablet_panel' && r?.view !== 'error', JSON.stringify(r)?.slice(0, 200));
@@ -243,6 +252,7 @@ export default async function regress({ run, check, getPlayer }) {
   player.current_zone = savedZone;
   await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, TQ]);
   await query('DELETE FROM npcs WHERE id=$1', [TN]);
+  world.npcs.delete(TN);
   await query('DELETE FROM quests WHERE id=$1', [TQ]);
 
   // Word on the Street (news-generator getStories) must never surface a duplicate

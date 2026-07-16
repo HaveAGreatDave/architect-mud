@@ -21,6 +21,7 @@ import { markSessionPurchase } from './vendor-session.js';
 import { vendorBuyReaction } from './vendor-reactions.js';
 import { isVendorClosed, vendorClosedLine } from './ai-behaviour.js';
 import { getItem } from './items-cache.js';
+import { syncNpc, updateNpc } from './world.js';
 
 // Trust-gated vendors (e.g. the covert shadow dealer). When an NPC's flags carry
 // a `trust_flag`, its shelf is not the random `vendor_stock` shelf but the full
@@ -135,8 +136,11 @@ export async function buyFromVendor(player, npc, itemId, quantity = 1) {
       );
     }
 
-    // Accumulate credits in vendor's safe
-    await q('UPDATE npcs SET vendor_credits = vendor_credits + $1 WHERE id = $2', [price, npc.id]);
+    // Accumulate credits in vendor's safe (SQL-side increment stays inside the
+    // transaction; the RETURNING value keeps the live NPC in sync — see the
+    // npcs write funnel in world.js).
+    const { rows: vc } = await q('UPDATE npcs SET vendor_credits = vendor_credits + $1 WHERE id = $2 RETURNING vendor_credits', [price, npc.id]);
+    if (vc.length) syncNpc(npc.id, { vendor_credits: vc[0].vendor_credits });
     return true;
   });
 
@@ -297,7 +301,7 @@ export async function restockVendor(npc) {
     newStock = [...cleanedStock, ...additions];
   }
 
-  await query('UPDATE npcs SET vendor_stock=$1 WHERE id=$2', [JSON.stringify(newStock), npc.id]);
+  await updateNpc(npc.id, { vendor_stock: newStock });
 }
 
 /**

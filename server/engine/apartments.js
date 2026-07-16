@@ -1,5 +1,5 @@
 import { query } from "../models/db.js";
-import { getApartment, setApartmentCache, getZone, world, setDoorCache, getPlayerMembership, moveNpcToZone } from "./world.js";
+import { getApartment, setApartmentCache, getZone, world, setDoorCache, getPlayerMembership, moveNpcToZone, updateNpc } from "./world.js";
 import { findPath } from "./pathfinding.js";
 import { skillCheck, awardSkillUse } from "./skills.js";
 import { adjustCredits } from "./economy.js";
@@ -348,7 +348,7 @@ export async function findNearestVacantApartment(fromZoneId, exceptZoneId) {
 // their new place; the AT_HOME_LIFE behaviour keeps them there. zone_id is persisted
 // because an eviction is a deliberate placement, not autonomous drift the loader skips.
 export async function rehomeNpc(npc, newZoneId) {
-	await query('UPDATE npcs SET home_zone=$1, zone_id=$1 WHERE id=$2', [newZoneId, npc.id]);
+	await updateNpc(npc.id, { home_zone: newZoneId, zone_id: newZoneId });
 	await query('DELETE FROM npc_residences WHERE npc_id=$1', [npc.id]);
 	await query(
 		`INSERT INTO npc_residences (zone_id, npc_id) VALUES ($1,$2)
@@ -365,7 +365,7 @@ export async function rehomeNpc(npc, newZoneId) {
 export async function clearNpcResidence(npc) {
 	const fallback = world.zones.has('zone_residential_lobby') ? 'zone_residential_lobby' : npc.home_zone;
 	await query('DELETE FROM npc_residences WHERE npc_id=$1', [npc.id]);
-	await query('UPDATE npcs SET home_zone=$1, zone_id=$1 WHERE id=$2', [fallback, npc.id]);
+	await updateNpc(npc.id, { home_zone: fallback, zone_id: fallback });
 	npc.home_zone = fallback;
 	if (world.zones.has(fallback)) moveNpcToZone(npc.id, fallback);
 }

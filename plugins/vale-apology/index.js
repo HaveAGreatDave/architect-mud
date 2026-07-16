@@ -23,7 +23,7 @@
 // moment he comes home to his own unit and finds her there.
 
 import { on } from '../../server/engine/events.js';
-import { world, moveNpcToZone, getLivePlayer, getZonePlayers } from '../../server/engine/world.js';
+import { world, moveNpcToZone, getLivePlayer, getZonePlayers, updateNpc } from '../../server/engine/world.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { formatChitchat } from '../../server/engine/ai-behaviour.js';
 import { adjustCredits } from '../../server/engine/economy.js';
@@ -92,7 +92,7 @@ async function runScene(actor, vale, zoneId) {
       sendToZone(zoneId, { type: 'zone_event', message: `Sergeant Vale gathers her few belongings and heads upstairs to her own place at last.` });
       sendToZone(HOME, { type: 'zone_event', message: `Sergeant Vale lets herself into Unit 3B and sets her things down, home at last.` });
     }
-    await query('UPDATE npcs SET zone_id=$1, home_zone=$1 WHERE id=$2', [HOME, VALE_ID]).catch(() => {});
+    await updateNpc(VALE_ID, { zone_id: HOME, home_zone: HOME }).catch(() => {});
   };
 
   setTimeout(beat1, BEAT[0]);

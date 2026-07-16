@@ -1,4 +1,4 @@
-import { world, getLivePlayer, getDoorForExit, setDoorCache, getZone, getZonePlayers, getPlayerMembership, isEnterableFacade, getMapByParentZone, resolveLanding } from './world.js';
+import { world, getLivePlayer, getDoorForExit, setDoorCache, getZone, getZonePlayers, getPlayerMembership, isEnterableFacade, getMapByParentZone, resolveLanding, updateNpc } from './world.js';
 import { isSanctuary } from './zone-tags.js';
 import { zoneDanger, DANGER_RANK } from './danger.js';
 import { allExits, neighborZoneIds, exitTargets } from './exits.js';
@@ -1255,16 +1255,14 @@ async function execAction(node, entity, ctx) {
         );
         if (!safeRows.length) break;
 
-        const { rows: npcRows } = await query(
-          'SELECT vendor_credits FROM npcs WHERE id=$1', [entity.id]
-        );
-        if (!npcRows.length || !npcRows[0].vendor_credits) break;
-
-        const total = npcRows[0].vendor_credits;
+        // entity IS the live world.npcs entry — the write funnel keeps its
+        // vendor_credits in sync, so no fresh SELECT needed.
+        const total = entity.vendor_credits || 0;
+        if (!total) break;
         const amount = Math.floor(total * 0.25);
         if (amount <= 0) break;
 
-        await query('UPDATE npcs SET vendor_credits = vendor_credits - $1 WHERE id=$2', [amount, entity.id]);
+        await updateNpc(entity.id, { vendor_credits: total - amount });
         ai.vendor_carrying = amount;
         ai.vendor_atm_zone = null; // reset so VENDOR_GO_TO_ATM re-queries
 
@@ -1334,10 +1332,7 @@ async function execAction(node, entity, ctx) {
       if (!ai || ai.vendor_carrying <= 0) break;
       const amount = ai.vendor_carrying;
       try {
-        await query(
-          'UPDATE npcs SET vendor_bank_credits = vendor_bank_credits + $1 WHERE id=$2',
-          [amount, entity.id]
-        );
+        await updateNpc(entity.id, { vendor_bank_credits: (entity.vendor_bank_credits || 0) + amount });
       } catch (e) {
         // Non-fatal
       }

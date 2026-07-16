@@ -14,6 +14,7 @@ import {
 	removeLivePlayer,
 	getZone,
 	getMinimapData,
+	world,
 } from "./engine/world.js";
 import {
 	handleCommand,
@@ -1008,12 +1009,13 @@ async function handleGhostJump(ws, session, msg) {
 
 async function handleDialogue(ws, session, msg) {
 	if (!session.playerId) return;
-	const { rows } = await query("SELECT * FROM npcs WHERE id=$1", [msg.npcId]);
-	if (!rows.length) {
+	// world.npcs is authoritative — every npcs writer funnels through it (see
+	// the npcs write funnel in world.js), so dialogue reads the live entry.
+	const npc = world.npcs.get(msg.npcId);
+	if (!npc) {
 		ws.send(JSON.stringify({ type: "error", message: "NPC not found." }));
 		return;
 	}
-	const npc = rows[0];
 
 	// The implicit "Browse your wares." option (engine/dialogue.js injects it for
 	// vendors that don't author their own shop door).
@@ -1143,17 +1145,16 @@ async function handleBuyFromNpc(ws, session, msg) {
 	if (!session.playerId) return;
 	const player = getLivePlayer(session.playerId);
 	if (!player) return;
-	const { rows } = await query("SELECT * FROM npcs WHERE id=$1", [msg.npcId]);
-	if (!rows.length) { ws.send(JSON.stringify({ type: "error", message: "NPC not found." })); return; }
-	const npc = rows[0];
+	const npc = world.npcs.get(msg.npcId);
+	if (!npc) { ws.send(JSON.stringify({ type: "error", message: "NPC not found." })); return; }
 	// Furniture is delivered to an owned apartment rather than carried in inventory
 	// (mirrors the `buy` command's furniture branch in the commerce plugin). Buying
 	// via the shop dialog must take the same path or it wrongly lands in inventory.
-	const { rows: itemRows } = await query("SELECT * FROM items WHERE id=$1", [msg.itemId]);
-	if (itemRows.length && itemRows[0].type === "furniture") {
+	const boughtItem = getItem(msg.itemId);
+	if (boughtItem && boughtItem.type === "furniture") {
 		const { buyFurniture } = await import("./engine/furniture-shop.js");
 		const catalogueEntry = (npc.vendor_inventory || []).find(e => e.item_id === msg.itemId);
-		const fr = await buyFurniture(player, npc, itemRows[0], catalogueEntry);
+		const fr = await buyFurniture(player, npc, boughtItem, catalogueEntry);
 		await sendShopPanel(ws, npc, session.playerId, { buyResult: fr.message, buySuccess: fr.type === "buy" });
 		if (fr.type === "buy") {
 			ws.send(JSON.stringify({ type: "player_update", credits: player.credits }));
@@ -1172,9 +1173,8 @@ async function handleSellToNpc(ws, session, msg) {
 	if (!session.playerId) return;
 	const player = getLivePlayer(session.playerId);
 	if (!player) return;
-	const { rows } = await query("SELECT * FROM npcs WHERE id=$1", [msg.npcId]);
-	if (!rows.length) { ws.send(JSON.stringify({ type: "error", message: "NPC not found." })); return; }
-	const npc = rows[0];
+	const npc = world.npcs.get(msg.npcId);
+	if (!npc) { ws.send(JSON.stringify({ type: "error", message: "NPC not found." })); return; }
 	const { sellToVendor } = await import("./engine/vendor.js");
 	const result = await sellToVendor(player, npc, msg.inventoryId, msg.quantity || 1);
 	await sendShopPanel(ws, npc, session.playerId, { sellResult: result.message, sellSuccess: result.success });
@@ -1187,9 +1187,8 @@ async function handleSellAllToNpc(ws, session, msg) {
 	if (!session.playerId) return;
 	const player = getLivePlayer(session.playerId);
 	if (!player) return;
-	const { rows } = await query("SELECT * FROM npcs WHERE id=$1", [msg.npcId]);
-	if (!rows.length) { ws.send(JSON.stringify({ type: "error", message: "NPC not found." })); return; }
-	const npc = rows[0];
+	const npc = world.npcs.get(msg.npcId);
+	if (!npc) { ws.send(JSON.stringify({ type: "error", message: "NPC not found." })); return; }
 	const { sellToVendor, getSellableInventory } = await import("./engine/vendor.js");
 	const sellable = await getSellableInventory(player, npc);
 	const creditsBefore = player.credits || 0;
