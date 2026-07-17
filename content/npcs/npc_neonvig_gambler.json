@@ -27,7 +27,7 @@
       ]
     },
     "game": {
-      "text": "\"Always. Grab a seat at the felt and type summon — I'll come pull up a chair and take your credits personally.\"",
+      "text": "\"Always. Grab a seat at the felt and wave me over — I'll pull up a chair and take your credits personally.\"",
       "options": [
         { "label": "You're on.", "next": "bye" }
       ]
