@@ -1020,12 +1020,20 @@ function setTerrainType(k) { mapTerrainType = k; renderMapOverview(); }
 function setTerrainTool(t) { mapTerrainTool = t; mapTerrainRectStart = null; renderMapOverview(); }
 
 // Working-copy mirror of server zoneTerrain (authored terrain wins, then inference) so the
-// dev preview's road auto-tiling matches what the game will render.
+// dev preview matches what the game renders — including tiles that were never painted, so
+// the editor shows the current terrain (water/grass/road/dock) instead of blank.
 function mapZoneTerrain(z) {
   if (!z) return null;
   if (z.flags?.terrain) return z.flags.terrain;
   if (z.flags?.water) return 'water';
+  if (z.flags?.pier) return 'dock';
   if (/^(road_|runway_)/.test(z.flags?.icon || '')) return 'road';
+  // Green-dominant bg = parkland/grass (same test as server zoneTerrain).
+  const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(z.bg_color || '');
+  if (m) {
+    const r = parseInt(m[1], 16), g = parseInt(m[2], 16), b = parseInt(m[3], 16);
+    if (g > r && g - b >= 15 && g >= 45) return 'grass';
+  }
   return null;
 }
 // The connector SVG name for a road tile from adjacent road terrain (mirror of the server
@@ -1098,11 +1106,11 @@ function terrainPaintEnd(zoneId) {
   if (mapTerrainTool === 'rect' && mapTerrainRectStart) terrainRectCommit(zoneId);
 }
 
-// Eyedropper: sample a tile's terrain onto the brush, then drop back to Brush.
+// Eyedropper: sample a tile's terrain (authored or inferred) onto the brush, then drop to Brush.
 function terrainPick(zoneId) {
-  const z = mapOverview?.zones.get(zoneId);
-  if (!z || !z.flags?.terrain) return;
-  mapTerrainType = z.flags.terrain;
+  const t = mapZoneTerrain(mapOverview?.zones.get(zoneId));
+  if (!t) return;
+  mapTerrainType = t;
   mapTerrainTool = 'brush';
   renderMapOverview();
 }
@@ -1111,7 +1119,7 @@ function terrainPick(zoneId) {
 async function terrainFill(startId) {
   const start = mapOverview?.zones.get(startId);
   if (!start) return;
-  const from = start.flags?.terrain || null;
+  const from = mapZoneTerrain(start);   // match the VISIBLE surface (authored or inferred)
   if (from === mapTerrainType) return;
   const z0 = mapOverview.z;
   const byCoord = new Map();
@@ -1122,7 +1130,7 @@ async function terrainFill(startId) {
     const z = queue.shift(); hit.push(z);
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
       const n = byCoord.get(`${z.grid_x + dx},${z.grid_y + dy}`);
-      if (n && !seen.has(n.id) && (n.flags?.terrain || null) === from) { seen.add(n.id); queue.push(n); }
+      if (n && !seen.has(n.id) && mapZoneTerrain(n) === from) { seen.add(n.id); queue.push(n); }
     }
   }
   for (const z of hit) { z.flags = { ...(z.flags || {}) }; z.flags.terrain = mapTerrainType; }
@@ -1588,7 +1596,7 @@ function renderMapOverview() {
       }
 
       if (mapTerrainMode) {
-        const terr = z.flags?.terrain || null;
+        const terr = mapZoneTerrain(z);   // authored terrain wins; else the inferred surface, so nothing reads blank
         const marker = z.marker ? `<span class="map-marker-badge">${z.marker}</span>` : '';
         let tStyle = ';cursor:crosshair', ico = '', label = z.name;
         if (terr === 'road') {

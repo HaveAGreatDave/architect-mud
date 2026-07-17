@@ -225,6 +225,7 @@ export function zoneTerrain(zone) {
   // The inference below stays as the fallback for tiles that were never painted.
   if (zone.flags?.terrain) return zone.flags.terrain;
   if (zone.flags?.water) return 'water';
+  if (zone.flags?.pier) return 'dock';   // a jetty/pier reads as wooden decking, not bare ground
   if (/^(road_|runway_)/.test(zone.flags?.icon || '')) return 'road';
   if (buildingIconSvg(zone)) return null; // a building footprint, not terrain
   const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(zone.bg_color || '');

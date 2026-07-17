@@ -1111,9 +1111,10 @@ function ensureStyles() {
        expanse, and lay a subtle connecting texture (one period per tile). Fill colour
        is set inline (grey asphalt for roads, authored blue/green for water/grass). */
     #tablet-os-overlay .tos-map-tile.terr { border-radius:0; border-color:transparent; }
-    #tablet-os-overlay .tos-map-tile.terr-water, #tablet-os-overlay .tos-map-tile.terr-grass { background-repeat:no-repeat; background-size:100% 100%; }
+    #tablet-os-overlay .tos-map-tile.terr-water, #tablet-os-overlay .tos-map-tile.terr-grass, #tablet-os-overlay .tos-map-tile.terr-dock { background-repeat:no-repeat; background-size:100% 100%; }
     #tablet-os-overlay .tos-map-tile.terr-water { background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' stroke='%23ffffff' stroke-opacity='0.30' stroke-width='1.1' stroke-linecap='round'><path d='M0 7q6 -3 12 0t12 0'/><path d='M0 14q6 -3 12 0t12 0'/><path d='M0 21q6 -3 12 0t12 0'/></g></svg>"); }
     #tablet-os-overlay .tos-map-tile.terr-grass { background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' stroke='%237fc95a' stroke-opacity='0.40' stroke-width='1' stroke-linecap='round'><path d='M4 21v-5'/><path d='M9 22v-6'/><path d='M14 21v-5'/><path d='M19 22v-6'/><path d='M6 13v-4'/><path d='M12 12v-4'/><path d='M18 13v-4'/></g></svg>"); }
+    #tablet-os-overlay .tos-map-tile.terr-dock { background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' stroke='%233b2c19' stroke-opacity='0.55' stroke-width='1'><path d='M0 6h24M0 12h24M0 18h24'/><path d='M8 0v6M16 6v6M8 12v6M16 18v6'/></g><g fill='none' stroke='%23987444' stroke-opacity='0.30' stroke-width='0.6'><path d='M0 3h24M0 9h24M0 15h24M0 21h24'/></g></svg>"); }
     /* Entrance arrow — amber triangle on the edge the building's door faces. */
     #tablet-os-overlay .tos-map-tile .tos-ent { position:absolute; width:0; height:0; z-index:4; pointer-events:none; filter:drop-shadow(0 0 1px rgba(0,0,0,0.95)); }
     #tablet-os-overlay .tos-map-tile .tos-ent-north { top:1px; left:50%; transform:translateX(-50%); border-left:4px solid transparent; border-right:4px solid transparent; border-bottom:5px solid #ffb454; }

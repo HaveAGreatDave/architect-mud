@@ -2555,12 +2555,16 @@ body.fsim-external #look-resize-handle { display: none; }
    the shared edges). Roads carry no texture — their grey surface + the yellow
    dashed SVG mask (currentColor) are the whole read. */
 .mm-terr, .map-terr { border: 0 !important; border-radius: 0 !important; }
-.mm-water, .map-water, .mm-grass, .map-grass { background-repeat: no-repeat; background-size: 100% 100%; }
+.mm-water, .map-water, .mm-grass, .map-grass, .mm-dock, .map-dock { background-repeat: no-repeat; background-size: 100% 100%; }
 .mm-water, .map-water {
 	background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' stroke='%23ffffff' stroke-opacity='0.30' stroke-width='1.1' stroke-linecap='round'><path d='M0 7q6 -3 12 0t12 0'/><path d='M0 14q6 -3 12 0t12 0'/><path d='M0 21q6 -3 12 0t12 0'/></g></svg>");
 }
 .mm-grass, .map-grass {
 	background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' stroke='%237fc95a' stroke-opacity='0.40' stroke-width='1' stroke-linecap='round'><path d='M4 21v-5'/><path d='M9 22v-6'/><path d='M14 21v-5'/><path d='M19 22v-6'/><path d='M6 13v-4'/><path d='M12 12v-4'/><path d='M18 13v-4'/></g></svg>");
+}
+/* Dock/pier: wooden decking — dark plank seams with staggered butt-joints + faint grain. */
+.mm-dock, .map-dock {
+	background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' stroke='%233b2c19' stroke-opacity='0.55' stroke-width='1'><path d='M0 6h24M0 12h24M0 18h24'/><path d='M8 0v6M16 6v6M8 12v6M16 18v6'/></g><g fill='none' stroke='%23987444' stroke-opacity='0.30' stroke-width='0.6'><path d='M0 3h24M0 9h24M0 15h24M0 21h24'/></g></svg>");
 }
 
 /* Entrance arrow — a small amber triangle on the edge of a building tile pointing to
