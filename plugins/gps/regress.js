@@ -149,10 +149,13 @@ export default async function regress({ run, check, getPlayer }) {
     p.home_zone = savedHome;
   }
 
-  // Road-preferring routing: a route between two street tiles should stay ON the street
-  // grid — its interior hops are all roads/street tiles, never routed through a building
-  // facade. Find one real road-to-road route a handful of hops long and assert it hugs
-  // roads. Skip-safe: if the sampled world has no such pair in range, don't fail.
+  // Road-preferring routing: a route between two street tiles must never cut through a
+  // building FACADE mid-route. Facades/interiors are the "dear, endpoints-only" tiles in
+  // pathfinding's stepCost (cost 60) — the SSOT this asserts against; ordinary walkable
+  // filler (grasslands/lots, cost 10) is legitimate corridor where the road grid is
+  // severed by wasteland, so it's allowed. Find one real road-to-road route a handful of
+  // hops long and assert no facade cut-through. Skip-safe: if the sampled world has no
+  // such pair in range, don't fail.
   const roadTiles = getAllZones().filter((z) => z.map_id === 'map_world' && isRoadTile(z));
   if (roadTiles.length > 1) {
     const start = roadTiles[0];
@@ -163,11 +166,11 @@ export default async function regress({ run, check, getPlayer }) {
     }
     if (routed) {
       const interior = routed.slice(1, -1).map((id) => getZone(id));
-      const hugsRoads = interior.every((z) => isRoadTile(z) || z?.flags?.street_life);
+      const noFacadeCut = interior.every((z) => !(z?.flags?.facade || z?.flags?.is_building));
       check(
         'gps route between street tiles hugs the road grid (no facade cut-through)',
-        hugsRoads,
-        interior.map((z) => z?.flags?.icon || (z?.flags?.facade ? 'FACADE' : '?')).join(' > '),
+        noFacadeCut,
+        interior.map((z) => z?.flags?.icon || (z?.flags?.facade || z?.flags?.is_building ? 'FACADE' : (z?.flags?.street_life ? 'street' : 'filler'))).join(' > '),
       );
     }
   }
