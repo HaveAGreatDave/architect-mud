@@ -574,7 +574,7 @@ export function renderMinimap(nodes, direction) {
         const cs = [];
         const cterr = TERRAIN.has(node.terrain) ? node.terrain : null;
         if (cterr === 'road') cs.push(`background-color:${ROAD_SURFACE}`);
-        else if (cterr === 'water' || cterr === 'grass') cs.push(`background-color:${node.bg_color || TERRAIN_FILL[cterr]}`);
+        else if (cterr) cs.push(`background-color:${terrainFill(cterr, node.bg_color)}`);
         else if (node.bg_color) cs.push(`background-color:${node.bg_color}`);
         else if (node.district?.color) { const [dr, dg, db] = hexToRgb(node.district.color); cs.push(`background-color:rgba(${dr},${dg},${db},0.20)`); }
         const cterrCls = cterr ? ` mm-terr mm-${cterr}` : '';
@@ -615,9 +615,9 @@ export function renderMinimap(nodes, direction) {
         styles.length = 0;
         styles.push(`background-color:${ROAD_SURFACE}`, `color:${ROAD_MARKING}`);
         styled = ' mm-styled';
-      } else if (terr === 'water' || terr === 'grass') {
+      } else if (terr) {
         styles.length = 0;
-        styles.push(`background-color:${node.bg_color || TERRAIN_FILL[terr]}`);
+        styles.push(`background-color:${terrainFill(terr, node.bg_color)}`);
         styled = ' mm-styled';
         content = '';
       }
@@ -733,10 +733,19 @@ export const BUILDING_ICON = {
 // Tileable terrain styling (server `terrain` field). Roads recolour to grey asphalt
 // with yellow lane markings; water/grass render as a seamless coloured expanse with a
 // connecting texture from the .mm-<terrain> / .map-<terrain> CSS classes.
-const TERRAIN = new Set(['road', 'water', 'grass']);
+const TERRAIN = new Set(['road', 'water', 'grass', 'asphalt', 'concrete', 'dirt', 'sand', 'gravel', 'dock']);
 const ROAD_SURFACE = '#4c5157';   // grey asphalt
 const ROAD_MARKING = '#f2c53d';   // yellow lane markings (the road SVG mask takes `color`)
-const TERRAIN_FILL = { water: '#3f7fb0', grass: '#5a9e57' }; // fallback if a tile has no authored bg
+// Canonical per-type surface colour. water/grass keep authored bg_color priority (legacy,
+// seamless); the newer painted types (asphalt…dock) use their fill so the terrain drives the look.
+const TERRAIN_FILL = {
+  water: '#3f7fb0', grass: '#5a9e57', asphalt: '#45484d', concrete: '#8a8d91',
+  dirt: '#6b5138', sand: '#c2b280', gravel: '#7d7a73', dock: '#6e5636',
+};
+// water/grass prefer an authored bg_color; every other terrain uses its canonical fill.
+function terrainFill(terr, bg) {
+  return (terr === 'water' || terr === 'grass') ? (bg || TERRAIN_FILL[terr]) : TERRAIN_FILL[terr];
+}
 // Small entrance arrow overlaid on a building tile, pointing to the edge the door
 // faces (server `entrance` field). A CSS triangle (no glyph) via .<pfx>-ent-<dir>;
 // pfx is 'mm' (sidebar) or 'map' (full popup).

@@ -250,9 +250,16 @@ Each map/minimap node carries four additive rendering fields, all derived server
   reverse-derived from the *real* exit graph (the street tile whose exit leads INTO the facade), **not**
   from the `flags.world_exit_zone` planner hint. Cached, invalidated on any exit mutation. Drives the
   small amber entrance arrow.
-- **`terrain`** (`zoneTerrain`) — `'road' | 'water' | 'grass' | null` for the tileable surface fill
-  (grey asphalt / yellow road markings, seamless water and parkland). Grass is detected from an
-  authored green `bg_color`.
+- **`terrain`** (`zoneTerrain`) — the tileable ground surface. The authoritative source is the
+  authored **`flags.terrain`** field (`water | road | asphalt | concrete | grass | dirt | sand |
+  gravel | dock`), painted in the dev panel **Maps → Terrain mode**; when unset, `zoneTerrain`
+  falls back to inference (`flags.water`, a `road_`/`runway_` icon, or a green `bg_color` → grass).
+  Consumed by the minimap/tablet fills and the flight-sim ground tint (`biomes.js` maps each type
+  to a ground biome). **Smart roads:** a `road` tile with no authored icon has its connector piece
+  (`road_ns`, `road_nesw`, …) auto-tiled live from adjacent road terrain by `roadConnector` in
+  [world.js](../server/engine/world.js), so painting roads next to each other forms straights /
+  turns / T-junctions / crossroads with no hand-picked piece. An authored `flags.icon` road still
+  wins, so hand-tuned roads are untouched.
 
 The client (game sidebar minimap, full-map popup, tablet bigmap in
 [minimap.js](../client/game/js/panels/minimap.js) / [tablet-os.js](../client/game/js/panels/tablet-os.js))

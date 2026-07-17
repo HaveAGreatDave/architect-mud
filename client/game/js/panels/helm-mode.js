@@ -43,12 +43,21 @@ export function ensureHelmStyles() {
     #area-content:has(.helm-root){ height:100%; overflow:hidden; overscroll-behavior:contain; touch-action:none; }
     .helm-root{ position:relative; width:100%; height:100%; min-height:420px; overflow:hidden; overscroll-behavior:contain; touch-action:none;
       --hs:1;   /* console scale — a fixed constant (desktop-only); the transparent dash keeps the ship clear at any pane size */
-      --accent:#5ccfe0; --accent-hi:#bdf1f8; --accent-lo:#2b8b99; --chart:#4fd0e0;
-      --hpanel:#0e141b; --hink:#e2edf3; --hdim:#8ba0ae; --stbd:#35d07a;
-      --steel:#c3cdd6; --steel-hi:#eff4f8; --steel-lo:#5c6670;
+      /* Theme-following palette. The console BODY (frosted glass wings, brushed-metal binnacle/band,
+         telegraph housing, chart window, chips) derives from the player's global theme — so it reads
+         LIGHT on a light theme and DARK on a dark one, with the theme --accent as its accent. The
+         recessed gauge SCREENS stay dark glowing HUD glass (a designed instrument-cluster look that
+         reads over any dashboard); their ink is --screen-* which stays light on both themes, and their
+         accents are tinted from --accent so the whole console still moves with the theme. */
+      --accent-hi:color-mix(in srgb,var(--accent) 40%,#fff); --accent-lo:color-mix(in srgb,var(--accent) 62%,#000);
+      --chart:var(--accent); --hink:var(--text); --hdim:var(--text-dim); --stbd:var(--green);
+      --glass:color-mix(in srgb,var(--bg2) 60%,transparent); --sheen:color-mix(in srgb,var(--accent) 16%,transparent);
+      --metal-hi:color-mix(in srgb,var(--text) 22%,var(--bg3)); --metal:color-mix(in srgb,var(--text) 10%,var(--bg2)); --metal-lo:color-mix(in srgb,#000 16%,var(--bg));
+      --steel-hi:color-mix(in srgb,var(--text) 30%,var(--bg3)); --steel:color-mix(in srgb,var(--text) 15%,var(--bg2)); --steel-lo:color-mix(in srgb,#000 20%,var(--bg2));
+      --screen-dim:color-mix(in srgb,var(--accent) 40%,#8ba0ae);
       --hmono:'DejaVu Sans Mono','Consolas','Courier New',monospace; --hsans:'Helvetica Neue',Arial,system-ui,sans-serif;
-      --hcarbon:repeating-linear-gradient(45deg,#12161b 0 3px,#0d1116 3px 6px),repeating-linear-gradient(-45deg,rgba(44,52,61,.5) 0 3px,transparent 3px 6px);
-      font-family:var(--hsans); color:var(--hink); border-radius:8px; background:#04070c; }
+      --hcarbon:repeating-linear-gradient(45deg,color-mix(in srgb,var(--bg) 82%,#000) 0 3px,color-mix(in srgb,var(--bg) 92%,#000) 3px 6px),repeating-linear-gradient(-45deg,color-mix(in srgb,var(--text) 12%,transparent) 0 3px,transparent 3px 6px);
+      font-family:var(--hsans); color:var(--hink); border-radius:8px; background:var(--bg); }
     .helm-root:fullscreen{ height:100vh; border-radius:0; }
     .helm-chase{ position:absolute; inset:0; z-index:0; touch-action:none; }   /* orbit drag lives here — never let a touch become a scroll/pan */
     .helm-chase canvas{ cursor:grab; } .helm-chase canvas:active{ cursor:grabbing; }
@@ -58,12 +67,12 @@ export function ensureHelmStyles() {
     .helm-placard .n{ font-family:var(--hmono); letter-spacing:5px; color:var(--accent); font-size:13px; font-weight:700; }
     .helm-placard .n small{ color:var(--hdim); letter-spacing:2px; }
     .helm-chips{ position:absolute; top:12px; right:14px; z-index:6; display:flex; gap:8px; align-items:center; font-family:var(--hmono); }
-    .helm-chip{ background:rgba(8,13,18,.6); border:1px solid color-mix(in srgb,var(--accent) 28%,transparent); border-radius:8px;
+    .helm-chip{ background:color-mix(in srgb,var(--bg) 62%,transparent); border:1px solid color-mix(in srgb,var(--accent) 28%,transparent); border-radius:8px;
       padding:5px 10px; font-size:12px; letter-spacing:1px; backdrop-filter:blur(3px); color:var(--hink); }
     .helm-chip b{ color:var(--accent-hi); }
-    .helm-icon{ background:rgba(8,13,18,.6); border:1px solid color-mix(in srgb,var(--accent) 28%,transparent); border-radius:8px;
+    .helm-icon{ background:color-mix(in srgb,var(--bg) 62%,transparent); border:1px solid color-mix(in srgb,var(--accent) 28%,transparent); border-radius:8px;
       color:var(--accent); font-size:15px; width:34px; height:32px; cursor:pointer; backdrop-filter:blur(3px); line-height:1; }
-    .helm-icon:hover{ filter:brightness(1.25); } .helm-icon.on{ background:var(--accent); color:#05141f; }
+    .helm-icon:hover{ filter:brightness(1.25); } .helm-icon.on{ background:var(--accent); color:var(--accent-ink,#05141f); }
     .helm-icon.exit{ color:#ff8a7a; border-color:color-mix(in srgb,#ff8a7a 40%,transparent); font-weight:700; }
     /* ── The console ──────────────────────────────────────────────────────────────
        A single machined brushed-metal helm station laid across the bottom of the view.
@@ -97,11 +106,11 @@ export function ensureHelmStyles() {
     body.helm-fullscreen .helm-console{ pointer-events:auto; }
     body.helm-fullscreen .helm-console{ border-radius:0;
       background:
-        linear-gradient(180deg,color-mix(in srgb,var(--accent) 11%,transparent) 0,transparent 30%),
-        radial-gradient(160% 140% at 50% -20%,rgba(14,21,29,.82) 0,rgba(7,11,17,.86) 42%,rgba(2,4,6,.90) 100%);
+        linear-gradient(180deg,color-mix(in srgb,var(--accent) 12%,transparent) 0,transparent 30%),
+        radial-gradient(160% 140% at 50% -20%,color-mix(in srgb,var(--bg2) 88%,transparent) 0,color-mix(in srgb,var(--bg) 92%,transparent) 42%,color-mix(in srgb,var(--bg) 96%,#000) 100%);
       -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px);
-      border-top:1px solid color-mix(in srgb,var(--accent) 34%,#000);
-      box-shadow:inset 0 1px 0 color-mix(in srgb,var(--accent) 26%,transparent), inset 0 -1px 0 #000, 0 -22px 54px rgba(0,0,0,.8); }
+      border-top:1px solid color-mix(in srgb,var(--accent) 34%,transparent);
+      box-shadow:inset 0 1px 0 color-mix(in srgb,var(--accent) 26%,transparent), inset 0 -1px 0 color-mix(in srgb,#000 40%,transparent), 0 -22px 54px color-mix(in srgb,var(--bg) 70%,transparent); }
     /* [ nav+position + gauges ] | WHEEL | telegraph — the wheel is the centred centrepiece, flanked
        by the instrument cluster (left) and the engine telegraph (right). The 1fr/auto/1fr columns
        keep the wheel dead-centre in the bar. All still in-bar, so the water above stays clear. */
@@ -112,11 +121,12 @@ export function ensureHelmStyles() {
        top edge and a faint accent tint. The instruments read like they're etched into a slab of smoked
        glass. */
     .helm-left{ justify-self:start; display:flex; align-items:center; gap:calc(16px*var(--hs)); min-width:0; position:relative;
-      padding:calc(9px*var(--hs)) calc(18px*var(--hs));
-      background:linear-gradient(180deg,rgba(150,205,225,.10),rgba(8,14,20,.14) 60%,rgba(4,8,12,.20));
+      padding:calc(9px*var(--hs)) calc(26px*var(--hs)) calc(9px*var(--hs)) calc(18px*var(--hs));
+      background:linear-gradient(180deg,var(--sheen),var(--glass) 46%,color-mix(in srgb,var(--bg) 70%,transparent));
       -webkit-backdrop-filter:blur(7px) saturate(1.2); backdrop-filter:blur(7px) saturate(1.2);
-      clip-path:polygon(15px 0,100% 0,100% calc(100% - 15px),calc(100% - 15px) 100%,0 100%,0 15px);
-      box-shadow:inset 0 1px 0 rgba(255,255,255,.20), 0 8px 22px rgba(0,0,0,.42); }
+      /* raked cockpit wing: the wheel-facing (right) edge slopes inward at the base, chamfered corners */
+      clip-path:polygon(14px 0,100% 0,calc(100% - 24px) 100%,14px 100%,0 calc(100% - 14px),0 14px);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.22), 0 8px 22px rgba(0,0,0,.30); }
     /* accent sheen + a hairline that follows the chamfered glass edge */
     .helm-left::before{ content:''; position:absolute; inset:0; pointer-events:none; clip-path:inherit;
       background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 20%,transparent),transparent 42%),
@@ -132,10 +142,10 @@ export function ensureHelmStyles() {
       width:calc(196px*var(--hs)); height:calc(84px*var(--hs));
       background:
         repeating-linear-gradient(90deg,rgba(255,255,255,.06) 0 1px,rgba(0,0,0,.10) 1px 2px,transparent 2px 3px),
-        linear-gradient(180deg,#454e58 0,#2b333c 46%,#161c23 100%);
+        linear-gradient(180deg,var(--metal-hi) 0,var(--metal) 46%,var(--metal-lo) 100%);
       clip-path:polygon(20% 0,80% 0,100% 100%,0 100%);
       border-top:1px solid color-mix(in srgb,var(--accent) 45%,transparent);
-      box-shadow:inset 0 2px 0 rgba(255,255,255,.28), inset 0 -6px 14px rgba(0,0,0,.6), 0 -3px 16px rgba(0,0,0,.5); }
+      box-shadow:inset 0 2px 0 rgba(255,255,255,.28), inset 0 -6px 14px rgba(0,0,0,.5), 0 -3px 16px rgba(0,0,0,.4); }
     /* the accent lip glows along the top bevel of the binnacle */
     .helm-col::after{ content:''; position:absolute; left:50%; bottom:calc(83px*var(--hs)); transform:translateX(-50%); z-index:-1; pointer-events:none;
       width:calc(118px*var(--hs)); height:2px; border-radius:2px;
@@ -146,10 +156,10 @@ export function ensureHelmStyles() {
     .helm-console-face::after{ content:''; position:absolute; left:34%; right:34%; bottom:calc(3px*var(--hs)); height:calc(52px*var(--hs)); z-index:-1; pointer-events:none;
       background:
         repeating-linear-gradient(90deg,rgba(255,255,255,.045) 0 1px,rgba(0,0,0,.06) 1px 2px,transparent 2px 4px),
-        linear-gradient(180deg,#2a323b 0,#181e25 55%,#0b0f14 100%);
+        linear-gradient(180deg,var(--metal) 0,color-mix(in srgb,var(--metal) 70%,#000) 55%,var(--metal-lo) 100%);
       clip-path:polygon(26px 0,calc(100% - 26px) 0,100% 100%,0 100%);
-      border-top:1px solid color-mix(in srgb,var(--accent) 22%,rgba(255,255,255,.12));
-      box-shadow:inset 0 1px 0 rgba(255,255,255,.16), 0 -2px 12px rgba(0,0,0,.5); }
+      border-top:1px solid color-mix(in srgb,var(--accent) 22%,transparent);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.16), 0 -2px 12px rgba(0,0,0,.4); }
 
     /* NAV chart — top-down basin scope, sunk into a raised machined bezel so it reads as a real
        recessed radar screen: a black chamfered frame with corner bolts, the screen dropped below the
@@ -158,19 +168,19 @@ export function ensureHelmStyles() {
     .helm-nav{ display:flex; align-items:center; gap:14px; }
     .helm-nav-bezel{ position:relative; flex:0 0 auto; padding:calc(7px*var(--hs)); border-radius:14px; cursor:pointer;
       background:
-        radial-gradient(circle at calc(7px*var(--hs)) calc(7px*var(--hs)),#2a3138 0 1.4px,transparent 1.7px),
-        radial-gradient(circle at calc(100% - 7px*var(--hs)) calc(7px*var(--hs)),#2a3138 0 1.4px,transparent 1.7px),
-        radial-gradient(circle at calc(7px*var(--hs)) calc(100% - 7px*var(--hs)),#2a3138 0 1.4px,transparent 1.7px),
-        radial-gradient(circle at calc(100% - 7px*var(--hs)) calc(100% - 7px*var(--hs)),#2a3138 0 1.4px,transparent 1.7px),
-        linear-gradient(180deg,#141a21,#090d12 70%,#05080b);
-      border:1px solid #000;
-      box-shadow:0 1px 0 color-mix(in srgb,var(--accent) 22%,transparent), inset 0 1px 0 rgba(255,255,255,.05), 0 3px 8px rgba(0,0,0,.6); }
+        radial-gradient(circle at calc(7px*var(--hs)) calc(7px*var(--hs)),color-mix(in srgb,var(--text) 24%,var(--bg3)) 0 1.4px,transparent 1.7px),
+        radial-gradient(circle at calc(100% - 7px*var(--hs)) calc(7px*var(--hs)),color-mix(in srgb,var(--text) 24%,var(--bg3)) 0 1.4px,transparent 1.7px),
+        radial-gradient(circle at calc(7px*var(--hs)) calc(100% - 7px*var(--hs)),color-mix(in srgb,var(--text) 24%,var(--bg3)) 0 1.4px,transparent 1.7px),
+        radial-gradient(circle at calc(100% - 7px*var(--hs)) calc(100% - 7px*var(--hs)),color-mix(in srgb,var(--text) 24%,var(--bg3)) 0 1.4px,transparent 1.7px),
+        linear-gradient(180deg,var(--metal),var(--metal-lo) 70%,color-mix(in srgb,var(--bg) 92%,#000));
+      border:1px solid color-mix(in srgb,#000 45%,var(--border));
+      box-shadow:0 1px 0 color-mix(in srgb,var(--accent) 22%,transparent), inset 0 1px 0 rgba(255,255,255,.06), 0 3px 8px rgba(0,0,0,.5); }
     .helm-nav-bezel:hover{ box-shadow:0 1px 0 color-mix(in srgb,var(--accent) 40%,transparent), inset 0 1px 0 rgba(255,255,255,.06), 0 0 12px color-mix(in srgb,var(--accent) 30%,transparent); }
     .helm-nav-scope{ position:relative; width:calc(126px*var(--hs)); height:calc(84px*var(--hs)); border-radius:8px; overflow:hidden;
-      background:radial-gradient(120% 130% at 50% 26%,#04181f 0,#020c11 55%,#010609 100%);
+      background:radial-gradient(120% 130% at 50% 26%,color-mix(in srgb,var(--accent) 14%,#02121a) 0,#020c11 55%,#010609 100%);
       box-shadow:
-        0 0 0 1px color-mix(in srgb,var(--chart) 26%,#000),
-        inset 0 0 26px rgba(0,0,0,.94), inset 0 0 11px color-mix(in srgb,var(--chart) 20%,transparent),
+        0 0 0 1px color-mix(in srgb,var(--accent) 30%,#000),
+        inset 0 0 26px rgba(0,0,0,.94), inset 0 0 11px color-mix(in srgb,var(--accent) 22%,transparent),
         inset 0 3px 7px rgba(0,0,0,.9); }
     .helm-nav-scope canvas{ display:block; width:100%; height:100%; }
     /* curved-glass glare + faint horizontal scanlines over the screen for a CRT feel */
@@ -181,7 +191,7 @@ export function ensureHelmStyles() {
     .helm-nav-tag{ position:absolute; left:7px; top:6px; font-family:var(--hmono); font-size:8px; letter-spacing:2px; z-index:4;
       color:color-mix(in srgb,var(--chart) 82%,#fff); text-shadow:0 0 6px color-mix(in srgb,var(--chart) 70%,transparent); }
     .helm-nav-hint{ position:absolute; right:6px; bottom:5px; font-family:var(--hmono); font-size:7px; letter-spacing:1.5px; z-index:4;
-      color:color-mix(in srgb,var(--accent) 66%,var(--hdim)); opacity:.85; }
+      color:var(--screen-dim); opacity:.85; }
 
     /* Digital instrument readouts — recessed HUD glass, cyan phosphor. Sized off --hs so the readouts
        (which drive the bar's HEIGHT) scale WITH the rest of the station as one machined object. */
@@ -192,12 +202,13 @@ export function ensureHelmStyles() {
     .helm-right{ justify-self:end; grid-column:3; display:flex; align-items:stretch; gap:calc(14px*var(--hs)); min-width:0; }
     .helm-gauges.rt{ grid-template-columns:1fr; align-content:center; min-width:calc(112px*var(--hs)); }
     .helm-readout{ position:relative; padding:calc(6px*var(--hs)) calc(11px*var(--hs)) calc(7px*var(--hs)); border-radius:8px; overflow:hidden;
-      background:linear-gradient(180deg,#05171d 0,#020a0e 100%);
-      border:1px solid color-mix(in srgb,var(--chart) 26%,#000);
+      /* recessed dark HUD gauge — stays dark on any theme (like a car's instrument cluster), tinted by accent */
+      background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 12%,#04141b) 0,#020a0e 100%);
+      border:1px solid color-mix(in srgb,var(--accent) 28%,#000);
       box-shadow:inset 0 0 14px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.05); }
     .helm-readout.wide{ flex:1; min-width:0; }
     .helm-readout .rk{ display:block; font-family:var(--hmono); font-size:calc(8px*var(--hs)); letter-spacing:2.5px; text-transform:uppercase;
-      color:color-mix(in srgb,var(--chart) 55%,var(--hdim)); }
+      color:var(--screen-dim); }
     .helm-readout .rv{ display:block; margin-top:2px; font-family:var(--hmono); font-weight:700; font-size:calc(17px*var(--hs)); letter-spacing:1px;
       font-variant-numeric:tabular-nums; color:color-mix(in srgb,var(--chart) 85%,#fff);
       text-shadow:0 0 7px color-mix(in srgb,var(--chart) 55%,transparent); }
@@ -205,8 +216,8 @@ export function ensureHelmStyles() {
     .helm-readout .rv.sm{ font-size:calc(13px*var(--hs)); letter-spacing:1.5px; }
     .helm-readout .rv i{ font-style:normal; font-size:9px; margin-left:3px; opacity:.6; letter-spacing:.5px; }
     .helm-readout.eta .rv{ color:color-mix(in srgb,var(--accent-hi) 88%,#fff); text-shadow:0 0 7px color-mix(in srgb,var(--accent) 55%,transparent); }
-    .helm-readout.eta.idle .rv{ color:var(--hdim); text-shadow:none; }
-    .helm-readout.st .rv{ color:var(--hdim); text-shadow:none; }
+    .helm-readout.eta.idle .rv{ color:var(--screen-dim); text-shadow:none; }
+    .helm-readout.st .rv{ color:var(--screen-dim); text-shadow:none; }
     .helm-readout.st.busy .rv{ color:var(--stbd); text-shadow:0 0 7px color-mix(in srgb,var(--stbd) 55%,transparent); }
 
     /* Ship's wheel — a normal column INSIDE the console bar (no longer a floating binnacle above it),
@@ -230,23 +241,24 @@ export function ensureHelmStyles() {
     /* Engine telegraph — housed in its own frosted-glass panel (matching the instrument cluster) so
        the lever sits in a slab of smoked glass over the sea, chamfered to match. */
     .helm-tele{ display:flex; flex-direction:column; align-items:center; gap:7px; user-select:none; position:relative;
-      padding:calc(9px*var(--hs)) calc(16px*var(--hs));
-      background:linear-gradient(180deg,rgba(150,205,225,.10),rgba(8,14,20,.14) 60%,rgba(4,8,12,.20));
+      padding:calc(9px*var(--hs)) calc(16px*var(--hs)) calc(9px*var(--hs)) calc(24px*var(--hs));
+      background:linear-gradient(180deg,var(--sheen),var(--glass) 46%,color-mix(in srgb,var(--bg) 70%,transparent));
       -webkit-backdrop-filter:blur(7px) saturate(1.2); backdrop-filter:blur(7px) saturate(1.2);
-      clip-path:polygon(15px 0,100% 0,100% calc(100% - 15px),calc(100% - 15px) 100%,0 100%,0 15px);
-      box-shadow:inset 0 1px 0 rgba(255,255,255,.20), 0 8px 22px rgba(0,0,0,.42); }
+      /* mirror of the left wing: the wheel-facing (left) edge slopes inward at the base */
+      clip-path:polygon(24px 0,calc(100% - 14px) 0,100% 14px,100% calc(100% - 14px),calc(100% - 14px) 100%,0 100%);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.22), 0 8px 22px rgba(0,0,0,.30); }
     .helm-tele::before{ content:''; position:absolute; inset:0; pointer-events:none; clip-path:inherit; z-index:0;
       background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 20%,transparent),transparent 42%); mix-blend-mode:screen; opacity:.7; }
     .helm-tele > *{ position:relative; z-index:1; }
     /* A big, commanding engine telegraph — a taller, wider machined slot so the lever reads as the
        primary "get underway" control, not an afterthought. Black carbon body, accent-lit when engaged. */
     .helm-tele-track{ position:relative; width:calc(74px*var(--hs)); height:calc(132px*var(--hs)); border-radius:13px;
-      background:var(--hcarbon),linear-gradient(180deg,#0c1016,#04070b); background-size:6px 6px,6px 6px,auto;
+      background:var(--hcarbon),linear-gradient(180deg,color-mix(in srgb,var(--bg) 88%,#000),color-mix(in srgb,var(--bg) 95%,#000)); background-size:6px 6px,6px 6px,auto;
       border:1px solid color-mix(in srgb,var(--accent) 22%,#000);
       box-shadow:inset 0 2px 12px rgba(0,0,0,.9),0 1px 0 color-mix(in srgb,var(--accent) 16%,transparent); overflow:hidden; }
     .helm-tele-track::before{ content:''; position:absolute; left:50%; top:18px; bottom:18px; width:8px; transform:translateX(-50%);
-      border-radius:5px; background:linear-gradient(180deg,#03050a,#111722); box-shadow:inset 0 0 6px rgba(0,0,0,.95); }
-    .helm-tele-mark{ position:absolute; left:0; right:0; text-align:center; font-family:var(--hmono); font-size:9px; letter-spacing:2.5px; color:var(--hdim); pointer-events:none; z-index:2; }
+      border-radius:5px; background:linear-gradient(180deg,color-mix(in srgb,var(--bg) 92%,#000),color-mix(in srgb,var(--bg3) 60%,#000)); box-shadow:inset 0 0 6px rgba(0,0,0,.95); }
+    .helm-tele-mark{ position:absolute; left:0; right:0; text-align:center; font-family:var(--hmono); font-size:9px; letter-spacing:2.5px; color:var(--screen-dim); pointer-events:none; z-index:2; }
     .helm-tele-mark.ahead{ top:9px; color:var(--stbd); } .helm-tele-mark.stop{ bottom:9px; }
     /* brushed-steel knob: fine vertical grain + machined grip ridges */
     .helm-tele-knob{ position:absolute; left:8px; right:8px; height:44px; top:78px; border-radius:9px; cursor:grab; touch-action:none; z-index:3;
@@ -263,16 +275,16 @@ export function ensureHelmStyles() {
 
     /* ── Chart popup — a tablet-styled navigation window over the whole helm ── */
     .helm-map{ position:absolute; inset:0; z-index:20; display:none; flex-direction:column;
-      background:radial-gradient(150% 100% at 50% 0,rgba(6,12,18,.82),rgba(1,3,6,.95)); backdrop-filter:blur(7px); }
+      background:radial-gradient(150% 100% at 50% 0,color-mix(in srgb,var(--bg) 82%,transparent),color-mix(in srgb,var(--bg) 95%,#000)); backdrop-filter:blur(7px); }
     .helm-map.open{ display:flex; }
     .helm-map-win{ margin:auto; width:min(600px,94%); max-height:94%; display:flex; flex-direction:column; overflow:hidden;
-      background:linear-gradient(180deg,#0a1017,#04070c); border:1px solid color-mix(in srgb,var(--accent) 32%,#000); border-radius:18px;
-      box-shadow:0 26px 70px rgba(0,0,0,.72), inset 0 1px 0 color-mix(in srgb,var(--accent) 22%,transparent), 0 0 0 1px rgba(0,0,0,.6); }
+      background:linear-gradient(180deg,var(--bg2),var(--bg)); border:1px solid color-mix(in srgb,var(--accent) 32%,var(--border)); border-radius:18px;
+      box-shadow:0 26px 70px rgba(0,0,0,.55), inset 0 1px 0 color-mix(in srgb,var(--accent) 22%,transparent), 0 0 0 1px color-mix(in srgb,#000 40%,transparent); }
     .helm-map-head{ display:flex; align-items:flex-start; justify-content:space-between; padding:14px 18px;
       border-bottom:1px solid color-mix(in srgb,var(--accent) 16%,transparent); background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 8%,transparent),transparent); }
     .helm-map-head .t{ font-family:var(--hmono); letter-spacing:3px; font-size:13px; color:var(--accent-hi); }
     .helm-map-head .t small{ display:block; margin-top:3px; font-size:9px; letter-spacing:1.5px; color:var(--hdim); }
-    .helm-map-close{ background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.12); color:var(--hink);
+    .helm-map-close{ background:color-mix(in srgb,var(--text) 6%,transparent); border:1px solid color-mix(in srgb,var(--text) 14%,transparent); color:var(--hink);
       width:30px; height:28px; border-radius:8px; cursor:pointer; font-size:13px; line-height:1; }
     .helm-map-close:hover{ filter:brightness(1.3); }
     .helm-map-body{ position:relative; padding:16px; }
@@ -282,10 +294,10 @@ export function ensureHelmStyles() {
     .helm-map-info{ flex:1; font-family:var(--hmono); font-size:11px; letter-spacing:.5px; color:var(--hdim); }
     .helm-map-info b{ color:var(--accent-hi); }
     .helm-map-btn{ font-family:var(--hmono); letter-spacing:2px; font-size:11px; padding:10px 18px; border-radius:10px; cursor:pointer; white-space:nowrap;
-      background:color-mix(in srgb,var(--stbd) 16%,#06121a); color:var(--stbd); border:1px solid color-mix(in srgb,var(--stbd) 45%,#000); }
+      background:color-mix(in srgb,var(--stbd) 16%,var(--bg2)); color:var(--stbd); border:1px solid color-mix(in srgb,var(--stbd) 45%,transparent); }
     .helm-map-btn:hover{ filter:brightness(1.25); }
     .helm-map-btn[disabled]{ opacity:.35; cursor:not-allowed; filter:none; }
-    .helm-map-btn.ghost{ background:rgba(255,255,255,.04); color:var(--hdim); border-color:rgba(255,255,255,.12); }
+    .helm-map-btn.ghost{ background:color-mix(in srgb,var(--text) 6%,transparent); color:var(--hdim); border-color:color-mix(in srgb,var(--text) 14%,transparent); }
 
     @media (max-width:760px){
       /* Wheel stays the centred binnacle (absolute) hanging over the bar; left cluster + telegraph
@@ -310,9 +322,19 @@ export function openHelm(opts = {}) {
   if (!mount) return null;
   closeHelm();
   ensureHelmStyles();
-  // Steel-cyan wheel accent (carbon rim, cyan LED grooves + needle) — pinned so it stays brushed-
-  // metal/cyan regardless of the player's global theme accent, which may be gold.
-  const accent = opts.accent || '#5ccfe0';
+  // Accent — follows the player's global theme (the wheel LEDs, needle, radar rings/sweep/blip and
+  // charted course all take this), so the helm reads in the same colour family as the rest of the UI.
+  // The theme vars live on <html>; read the effective --accent/--green (both #rrggbb in themes.css).
+  const _hex = (name, fb) => { const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim(); return /^#[0-9a-f]{6}$/i.test(v) ? v : fb; };
+  const accent = opts.accent || _hex('--accent', '#5ccfe0');
+  const accentGreen = _hex('--green', '#35d07a');
+  // rgba/lightened helpers for the canvas instruments (radar scope, heading strip, chart) so their
+  // hairlines/glows tint to the theme accent instead of the old pinned cyan.
+  const _rgb = (h) => { const m = /^#?([0-9a-f]{6})$/i.exec(h); if (!m) return [92, 207, 224]; const n = parseInt(m[1], 16); return [n >> 16, (n >> 8) & 255, n & 255]; };
+  const [AR, AG, AB] = _rgb(accent), [GR, GG, GB] = _rgb(accentGreen);
+  const acc = (a) => `rgba(${AR},${AG},${AB},${a})`;
+  const grn = (a) => `rgba(${GR},${GG},${GB},${a})`;
+  const accLite = `rgb(${Math.min(255, AR + 90)},${Math.min(255, AG + 90)},${Math.min(255, AB + 90)})`;
   const onSail = opts.onSail || (() => {});
   const onSailTo = opts.onSailTo || (() => {});   // fires the real `sailto <x> <y> <bell%>` when a charted course is engaged
   const onStop = opts.onStop || (() => {});       // fires the real `stop` — cut the throttle to halt her mid-passage
@@ -417,6 +439,25 @@ export function openHelm(opts = {}) {
   // no vertical tilt, so she frames the same in every panel state. (Mobile gets its own interface.)
   root.style.setProperty('--hs', '0.92');
   ctrl.setRestPitch(0.58);
+
+  // Keep the Echelon framed at any pane size. The renderer pins her near a fixed screen fraction just
+  // off the horizon; the transparent console rises from the bottom over the water. When the pane is short
+  // (the console riding high in the frame, little clear water above it) the hull gets crowded down behind
+  // the dash — so pull the chase camera proportionally FARTHER BACK, shrinking her to keep the whole ship
+  // inside the water band above the console. A roomy/fullscreen pane eases back to the resting frame.
+  // Keeping her a constant fraction of the visible water band means zoom ∝ 1/band; calibrated so the
+  // resting distance (BASE_ZOOM, = REST.zoom in helm-view) frames her well at a comfortable ~REF-tall band.
+  const BASE_ZOOM = 1.7, REF_BAND = 340;   // px — the water-band height at which the resting distance is right
+  function fitCamera() {
+    const paneH = root.clientHeight, consoleEl = q('.helm-console');
+    if (!paneH || !consoleEl) return;
+    const band = Math.max(40, paneH - consoleEl.offsetHeight);   // clear water above the console lip
+    const z = Math.max(BASE_ZOOM, Math.min(2.4, BASE_ZOOM * REF_BAND / band));   // only ever pull BACK from the resting frame
+    ctrl.setRestZoom(z);
+  }
+  const fitRO = new ResizeObserver(() => fitCamera());
+  fitRO.observe(root);
+  fitCamera();
   // Dev tuning handle: from the browser console you can dial the resting chase framing live —
   //   __helmCtrl.setPose({ yaw: 34, pitch: 0.16, zoom: 1.7 })   // then read __helmCtrl.pose()
   // Find the framing you like, tell me the numbers, and I bake them into REST (helm-view.js).
@@ -461,27 +502,27 @@ export function openHelm(opts = {}) {
       }
     }
     // Range rings + centre cross.
-    navCtx.strokeStyle = 'rgba(79,208,224,0.16)'; navCtx.lineWidth = 1;
+    navCtx.strokeStyle = acc(0.16); navCtx.lineWidth = 1;
     for (const r of [h * 0.22, h * 0.42]) { navCtx.beginPath(); navCtx.arc(cx, cy, r, 0, 7); navCtx.stroke(); }
     navCtx.beginPath(); navCtx.moveTo(cx - 5, cy); navCtx.lineTo(cx + 5, cy); navCtx.moveTo(cx, cy - 5); navCtx.lineTo(cx, cy + 5); navCtx.stroke();
     // Radar sweep — a fading wedge rotating clockwise.
     const sweep = ((now || 0) * 0.0011) % (Math.PI * 2);
     navCtx.save(); navCtx.translate(cx, cy); navCtx.rotate(sweep);
     const grad = navCtx.createLinearGradient(0, 0, h * 0.5, 0);
-    grad.addColorStop(0, 'rgba(79,208,224,0.26)'); grad.addColorStop(1, 'rgba(79,208,224,0)');
+    grad.addColorStop(0, acc(0.26)); grad.addColorStop(1, acc(0));
     navCtx.fillStyle = grad; navCtx.beginPath(); navCtx.moveTo(0, 0); navCtx.arc(0, 0, h * 0.5, -0.32, 0); navCtx.closePath(); navCtx.fill();
     navCtx.restore();
     // Charted (planned, dashed cyan) or active (solid green) course, mirroring the popup chart.
     const navLine = snap.path || snap.plannedPath;
     if (navLine && navLine.length >= 2) {
-      navCtx.strokeStyle = snap.path ? 'rgba(53,208,122,0.9)' : 'rgba(189,241,248,0.85)';
+      navCtx.strokeStyle = snap.path ? grn(0.9) : acc(0.85);
       navCtx.lineWidth = 1.4; navCtx.setLineDash(snap.path ? [] : [3, 3]); navCtx.lineJoin = 'round';
       navCtx.beginPath(); navLine.forEach(([ax, ay], i) => { const x = cx + (ax - snap.gx) * cw + sx, y = cy + (ay - snap.gy) * ch + sy; i ? navCtx.lineTo(x, y) : navCtx.moveTo(x, y); }); navCtx.stroke();
       navCtx.setLineDash([]);
     }
     // Own-ship blip — a glowing cyan chevron pointing along her heading.
     navCtx.save(); navCtx.translate(cx, cy); navCtx.rotate((snap.heading || 0) * Math.PI / 180);
-    navCtx.fillStyle = '#c7f3fa'; navCtx.shadowColor = '#5ccfe0'; navCtx.shadowBlur = snap.sailing ? 10 : 6;
+    navCtx.fillStyle = accLite; navCtx.shadowColor = accent; navCtx.shadowBlur = snap.sailing ? 10 : 6;
     navCtx.beginPath(); navCtx.moveTo(0, -6.5); navCtx.lineTo(4.5, 5.5); navCtx.lineTo(0, 2.5); navCtx.lineTo(-4.5, 5.5); navCtx.closePath(); navCtx.fill();
     navCtx.restore();
   }
@@ -506,7 +547,7 @@ export function openHelm(opts = {}) {
     stripCtx.clearRect(0, 0, w, h);
     // Glass bed + hairline frame.
     stripCtx.fillStyle = 'rgba(8,13,18,0.62)'; stripCtx.fillRect(0, 0, w, h);
-    stripCtx.strokeStyle = 'rgba(92,207,224,0.22)'; stripCtx.lineWidth = 1; stripCtx.strokeRect(0.5, 0.5, w - 1, h - 1);
+    stripCtx.strokeStyle = acc(0.22); stripCtx.lineWidth = 1; stripCtx.strokeRect(0.5, 0.5, w - 1, h - 1);
     const heading = ((ctrl.heading() % 360) + 360) % 360;
     const locked = ctrl.lockedDir?.() || null;   // notch the wheel is seated in (lit mark)
     const ready = ctrl.readyDir?.() || null;      // seated AND come round → green lubber
@@ -518,15 +559,15 @@ export function openHelm(opts = {}) {
       // x = cx − off·px (NOT +): as she turns to starboard (heading climbing, the wheel spun right)
       // the marks slide RIGHT, and to port they slide LEFT — the tape tracks the wheel's own hand.
       const x = cx - off * pxDeg, lit = locked === lab;
-      stripCtx.strokeStyle = lit ? '#bdf1f8' : 'rgba(150,170,185,0.5)'; stripCtx.lineWidth = lit ? 2 : 1;
+      stripCtx.strokeStyle = lit ? accLite : 'rgba(150,170,185,0.5)'; stripCtx.lineWidth = lit ? 2 : 1;
       stripCtx.beginPath(); stripCtx.moveTo(x, h * 0.14); stripCtx.lineTo(x, h * 0.42); stripCtx.stroke();
       stripCtx.font = `700 ${Math.round(h * 0.34)}px 'DejaVu Sans Mono',monospace`;
-      if (lit) { stripCtx.fillStyle = '#d6f6fb'; stripCtx.shadowColor = '#5ccfe0'; stripCtx.shadowBlur = 10; }
+      if (lit) { stripCtx.fillStyle = accLite; stripCtx.shadowColor = accent; stripCtx.shadowBlur = 10; }
       else { stripCtx.fillStyle = 'rgba(150,170,185,0.6)'; stripCtx.shadowBlur = 0; }
       stripCtx.fillText(lab, x, h * 0.72); stripCtx.shadowBlur = 0;
     }
-    // Fixed centre lubber — green (go) when she's ready, cyan otherwise.
-    stripCtx.fillStyle = ready ? '#35d07a' : '#5ccfe0';
+    // Fixed centre lubber — green (go) when she's ready, accent otherwise.
+    stripCtx.fillStyle = ready ? accentGreen : accent;
     stripCtx.beginPath(); stripCtx.moveTo(cx, 2); stripCtx.lineTo(cx - 4, h * 0.2); stripCtx.lineTo(cx + 4, h * 0.2); stripCtx.closePath(); stripCtx.fill();
   }
   stripRaf = requestAnimationFrame(drawStrip);
@@ -584,8 +625,8 @@ export function openHelm(opts = {}) {
     const dir = ctrl.readyDir();
     if (!dir) { setKnob(0); tele.classList.add('warn'); teleLabel.textContent = 'Steady the helm'; setTimeout(() => { tele.classList.remove('warn'); if (!engaged) teleLabel.textContent = 'Engine Telegraph'; }, 1400); return; }
     const t = Math.max(0, Math.min(1, knobP));
-    const estMs = 3 * MS_PER_TILE(t);   // up-to-3-tile passage; the server's helm_underway confirms real ms/tiles/cruise (shortening it if land truncates the run), or helm_hold cancels if land is immediately ahead
-    ctrl.beginTransit(dir, estMs, estMs, 3, cruiseFor(t));   // local placeholder (3 tiles) so a full open-water passage needs no correction; a truncated one is fixed early by helm_underway
+    const estMs = MS_PER_TILE(t);   // one-tile manual nudge; the server's helm_underway confirms real ms/cruise, or helm_hold cancels if land is immediately ahead
+    ctrl.beginTransit(dir, estMs, estMs, 1, cruiseFor(t));   // local placeholder (1 tile) matching the server's direct-sail; a hold is fixed at once by helm_hold
     onSail(dir, Math.round(t * 100));                        // fire the real `sail <dir> <bell%>` in game
     setUnderway(true);
   }
@@ -684,23 +725,23 @@ export function openHelm(opts = {}) {
     const toXY = (ax, ay) => [(cen + (ax - snap.gx) + 0.5) * cw, (cen + (ay - snap.gy) + 0.5) * ch];
     // Hover highlight (only on navigable water).
     if (mapHover && cellWater(rows, mapHover.rx, mapHover.ry)) {
-      mapCtx.strokeStyle = 'rgba(92,207,224,0.7)'; mapCtx.lineWidth = 1.5;
+      mapCtx.strokeStyle = acc(0.7); mapCtx.lineWidth = 1.5;
       mapCtx.strokeRect(mapHover.rx * cw + 0.5, mapHover.ry * ch + 0.5, cw - 1, ch - 1);
     }
     // Charted (planned) or active course polyline.
     const line = snap.path || snap.plannedPath;
     if (line && line.length >= 2) {
-      mapCtx.strokeStyle = snap.path ? 'rgba(53,208,122,0.95)' : 'rgba(189,241,248,0.9)';
+      mapCtx.strokeStyle = snap.path ? grn(0.95) : acc(0.9);
       mapCtx.lineWidth = 2; mapCtx.setLineDash(snap.path ? [] : [5, 4]); mapCtx.lineJoin = 'round';
       mapCtx.beginPath(); line.forEach(([ax, ay], i) => { const [x, y] = toXY(ax, ay); i ? mapCtx.lineTo(x, y) : mapCtx.moveTo(x, y); }); mapCtx.stroke();
       mapCtx.setLineDash([]);
       const [dx, dy] = toXY(line[line.length - 1][0], line[line.length - 1][1]);
-      mapCtx.fillStyle = snap.path ? '#35d07a' : '#bdf1f8'; mapCtx.beginPath(); mapCtx.arc(dx, dy, 4, 0, 7); mapCtx.fill();
+      mapCtx.fillStyle = snap.path ? accentGreen : accLite; mapCtx.beginPath(); mapCtx.arc(dx, dy, 4, 0, 7); mapCtx.fill();
     }
     // Own-ship chevron at centre, along heading.
     const [ox, oy] = toXY(snap.gx + (snap.sub ? snap.sub.x : 0), snap.gy + (snap.sub ? snap.sub.y : 0));
     mapCtx.save(); mapCtx.translate(ox, oy); mapCtx.rotate((snap.heading || 0) * Math.PI / 180);
-    mapCtx.fillStyle = '#c7f3fa'; mapCtx.shadowColor = '#5ccfe0'; mapCtx.shadowBlur = 8;
+    mapCtx.fillStyle = accLite; mapCtx.shadowColor = accent; mapCtx.shadowBlur = 8;
     mapCtx.beginPath(); mapCtx.moveTo(0, -8); mapCtx.lineTo(5.5, 7); mapCtx.lineTo(0, 3.5); mapCtx.lineTo(-5.5, 7); mapCtx.closePath(); mapCtx.fill();
     mapCtx.restore();
   }
@@ -733,7 +774,7 @@ export function openHelm(opts = {}) {
   // fill the output column (⛶ also folds the command box) instead of an OS-fullscreen overlay. Cleared
   // on close.
   const fsBtn = q('[data-fs]');
-  fsBtn.addEventListener('click', () => { const on = document.body.classList.toggle('helm-fullscreen'); fsBtn.classList.toggle('on', on); });
+  fsBtn.addEventListener('click', () => { const on = document.body.classList.toggle('helm-fullscreen'); fsBtn.classList.toggle('on', on); fitCamera(); });
   q('[data-exit]').addEventListener('click', () => { closeHelm(); onExit(); });
 
   // Keyboard: Esc exits. (Course is the wheel; the throttle is the telegraph — both are grab-and-drag.)
@@ -772,7 +813,7 @@ export function openHelm(opts = {}) {
     if (env) { q('[data-time]').textContent = env.time; q('[data-wx]').textContent = (env.weather || 'clear').toUpperCase(); }
   }, 100);
 
-  _helm = { mount, ctrl, wheel, poll, upH, keyH, teleMove, teleUp, stopChart: closeChart, stopNav: () => { navAlive = false; cancelAnimationFrame(navRaf); stripAlive = false; cancelAnimationFrame(stripRaf); } };
+  _helm = { mount, ctrl, wheel, poll, upH, keyH, teleMove, teleUp, fitRO, stopChart: closeChart, stopNav: () => { navAlive = false; cancelAnimationFrame(navRaf); stripAlive = false; cancelAnimationFrame(stripRaf); } };
   return { ctrl, wheel, close: () => { closeHelm(); onExit(); }, setPosition: (gx, gy) => ctrl.setPosition(gx, gy), setHeading: (h) => ctrl.setHeading(h), setSky: (sky) => ctrl.setSky(sky) };
 }
 
@@ -784,6 +825,7 @@ export function closeHelm() {
   removeEventListener('keydown', h.keyH);
   removeEventListener('pointermove', h.teleMove);
   removeEventListener('pointerup', h.teleUp);
+  try { h.fitRO?.disconnect(); } catch {}
   try { h.stopNav?.(); } catch {}
   try { h.stopChart?.(); } catch {}
   document.body.classList.remove('helm-fullscreen', 'helm-hidepanel');

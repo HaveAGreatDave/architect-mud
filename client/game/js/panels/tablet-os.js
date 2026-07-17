@@ -461,11 +461,15 @@ function ensureStyles() {
     /* Pin the breadcrumb + tab strip + swipe row to the top of the scroll so
        you can switch orders without scrolling back up, and the chart below
        always lands in view. Horizontal bleed covers the .tos-body padding. */
+    /* Scope brighter dim tiers to the reader — the global dim2 (40% fg) reads as
+       near-invisible grey for the tier labels/mottos/ladder here. */
+    #tablet-os-overlay .tos-ideo-root { --tos-fg-dim: color-mix(in srgb, var(--tos-fg, var(--mg-accent)) 80%, var(--bg2, #12181b));
+      --tos-fg-dim2: color-mix(in srgb, var(--tos-fg, var(--mg-accent)) 60%, var(--bg2, #12181b)); }
     #tablet-os-overlay .tos-ideo-sticky { position:sticky; top:0; z-index:6; margin:0 -13px; padding:6px 13px 0;
       background:var(--bg, #0c1114); box-shadow:0 7px 11px -7px rgba(0,0,0,0.6); }
     #tablet-os-overlay .tos-ideo-nav { display:flex; gap:5px; overflow-x:auto; scrollbar-width:none; padding-bottom:9px; margin-bottom:11px; border-bottom:1px solid var(--tos-border); }
     #tablet-os-overlay .tos-ideo-nav::-webkit-scrollbar { display:none; }
-    #tablet-os-overlay .tos-ideo-tab { flex:0 0 auto; cursor:pointer; user-select:none; font-size:10px; letter-spacing:1.3px; text-transform:uppercase;
+    #tablet-os-overlay .tos-ideo-tab { flex:0 0 auto; cursor:pointer; user-select:none; font-size:11px; letter-spacing:1.3px; text-transform:uppercase;
       color:var(--tos-fg-dim); padding:6px 9px; border-radius:6px; white-space:nowrap; border:1px solid var(--tos-border);
       background:linear-gradient(165deg,var(--tos-surface-hi),var(--tos-surface-lo)); box-shadow:inset 0 1px 0 var(--tos-bevel-hi),inset 0 -2px 3px var(--tos-bevel-lo); }
     #tablet-os-overlay .tos-ideo-tab b { color:var(--ic,var(--mg-accent)); }
@@ -474,14 +478,14 @@ function ensureStyles() {
       text-shadow:0 0 10px color-mix(in srgb,var(--ic,var(--mg-accent)) 55%,transparent);
       box-shadow:inset 0 1px 0 var(--tos-bevel-hi),0 0 14px color-mix(in srgb,var(--ic,var(--mg-accent)) 26%,transparent); }
     #tablet-os-overlay .tos-ideo-page { animation:tos-fade .28s ease; }
-    #tablet-os-overlay .tos-ideo-lbl { font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--tos-fg-dim); display:flex; align-items:center; gap:8px; margin:0 0 9px; }
+    #tablet-os-overlay .tos-ideo-lbl { font-size:11px; letter-spacing:2px; text-transform:uppercase; color:var(--tos-fg-dim); display:flex; align-items:center; gap:8px; margin:0 0 9px; }
     #tablet-os-overlay .tos-ideo-lbl::after { content:""; flex:1; height:1px; background:linear-gradient(90deg,var(--tos-border),transparent); }
     #tablet-os-overlay .tos-ideo-panel { border-radius:9px; padding:12px 13px; margin-bottom:15px;
       background:linear-gradient(165deg,var(--tos-surface-hi),var(--tos-surface-lo));
       box-shadow:inset 0 1px 0 var(--tos-bevel-hi),inset 0 -2px 4px var(--tos-bevel-lo),0 3px 8px rgba(0,0,0,0.3); border:1px solid var(--tos-border); }
     #tablet-os-overlay .tos-ideo-chart { display:block; width:100%; max-width:420px; margin-inline:auto; height:auto; max-height:52vh; font-family:'Courier New',monospace; }
-    #tablet-os-overlay .tos-ideo-lean { text-align:center; font-size:12px; letter-spacing:.4px; color:var(--tos-fg-dim); margin-top:9px; }
-    #tablet-os-overlay .tos-ideo-note { font-size:12px; line-height:1.6; color:var(--tos-fg-dim); margin:0; }
+    #tablet-os-overlay .tos-ideo-lean { text-align:center; font-size:13.5px; letter-spacing:.4px; color:var(--tos-fg-dim); margin-top:9px; }
+    #tablet-os-overlay .tos-ideo-note { font-size:13.5px; line-height:1.6; color:var(--tos-fg-dim); margin:0; }
     #tablet-os-overlay .tos-ideo-note b { color:var(--tos-fg); }
     #tablet-os-overlay .tos-ideo-dim { color:var(--tos-fg-dim2); }
     #tablet-os-overlay .tos-ideo-bar { height:6px; border-radius:3px; background:rgba(0,0,0,.45); overflow:hidden; box-shadow:inset 0 1px 2px rgba(0,0,0,.6); }
@@ -492,60 +496,62 @@ function ensureStyles() {
     #tablet-os-overlay .tos-ideo-sigwrap { flex:0 0 26px; display:flex; }
     #tablet-os-overlay .tos-ideo-sigwrap.big { flex:0 0 44px; }
     #tablet-os-overlay .tos-ideo-sig { width:100%; height:auto; }
-    #tablet-os-overlay .tos-ideo-sname { flex:0 0 108px; font-size:12px; letter-spacing:1px; text-transform:uppercase; color:var(--ic); }
+    #tablet-os-overlay .tos-ideo-sname { flex:0 0 116px; font-size:13px; letter-spacing:1px; text-transform:uppercase; color:var(--ic); }
     #tablet-os-overlay .tos-ideo-stand .tos-ideo-bar { flex:1 1 auto; }
-    #tablet-os-overlay .tos-ideo-tv { flex:0 0 62px; text-align:right; font-size:9.5px; letter-spacing:1px; text-transform:uppercase; }
+    #tablet-os-overlay .tos-ideo-tv { flex:0 0 68px; text-align:right; font-size:11px; letter-spacing:1px; text-transform:uppercase; }
     /* Emerging (expansion) orders — a preview, not yet live */
     #tablet-os-overlay .tos-ideo-stand.emerging { opacity:.62; }
     #tablet-os-overlay .tos-ideo-stand.emerging:hover { opacity:.82; }
     #tablet-os-overlay .tos-ideo-bar.emerging i { opacity:.7; box-shadow:none; }
-    #tablet-os-overlay .tos-ideo-substand { font-size:9px; letter-spacing:2px; text-transform:uppercase; color:var(--tos-fg-dim2);
+    #tablet-os-overlay .tos-ideo-substand { font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--tos-fg-dim2);
       margin:16px 0 8px; padding-top:11px; border-top:1px dashed var(--tos-line, rgba(255,255,255,.12)); }
     #tablet-os-overlay .tos-ideo-tab.emerging { opacity:.6; }
     #tablet-os-overlay .tos-ideo-tab.emerging.on { opacity:1; }
-    #tablet-os-overlay .tos-ideo-emerge { font-size:9px; letter-spacing:2px; text-transform:uppercase; margin-top:5px;
+    #tablet-os-overlay .tos-ideo-emerge { font-size:10px; letter-spacing:2px; text-transform:uppercase; margin-top:5px;
       color:var(--ic,var(--tos-fg-dim2)); opacity:.85; }
     /* Order page */
     #tablet-os-overlay .tos-ideo-ohead { display:flex; align-items:center; gap:12px; margin-bottom:4px; }
-    #tablet-os-overlay .tos-ideo-oname { font-size:20px; letter-spacing:1.5px; text-transform:uppercase; line-height:1.1; }
-    #tablet-os-overlay .tos-ideo-motto { font-size:10px; letter-spacing:3px; text-transform:uppercase; color:var(--tos-fg-dim2); margin-top:3px; }
+    #tablet-os-overlay .tos-ideo-oname { font-size:22px; letter-spacing:1.5px; text-transform:uppercase; line-height:1.1; }
+    #tablet-os-overlay .tos-ideo-motto { font-size:11px; letter-spacing:3px; text-transform:uppercase; color:var(--tos-fg-dim2); margin-top:3px; }
     #tablet-os-overlay .tos-ideo-tags { display:flex; gap:6px; flex-wrap:wrap; margin:11px 0 14px; }
-    #tablet-os-overlay .tos-ideo-tag { font-size:9.5px; letter-spacing:1.3px; text-transform:uppercase; padding:4px 9px; border-radius:5px;
+    #tablet-os-overlay .tos-ideo-tag { font-size:11px; letter-spacing:1.3px; text-transform:uppercase; padding:5px 10px; border-radius:5px;
       color:var(--ic); border:1px solid color-mix(in srgb,var(--ic) 40%,transparent); background:color-mix(in srgb,var(--ic) 12%,transparent); }
-    #tablet-os-overlay .tos-ideo-lore { font-family:Georgia,serif; font-size:13px; line-height:1.6; color:var(--tos-fg); margin:0 0 4px; }
+    #tablet-os-overlay .tos-ideo-lore { font-family:Georgia,serif; font-size:14.5px; line-height:1.6; color:var(--tos-fg); margin:0 0 4px; }
     #tablet-os-overlay .tos-ideo-lore .drop { float:left; font-size:38px; line-height:.82; padding:2px 8px 0 0; font-family:Georgia,serif; }
-    #tablet-os-overlay .tos-ideo-pull { font-family:Georgia,serif; font-style:italic; font-size:13.5px; line-height:1.5; border-left:2px solid; padding:2px 0 2px 12px; margin:13px 0; }
+    /* Second paragraph — the second-person "what aligning does for you" pitch. */
+    #tablet-os-overlay .tos-ideo-exp { font-family:Georgia,serif; font-size:14.5px; line-height:1.6; color:var(--tos-fg); margin:12px 0 4px; }
+    #tablet-os-overlay .tos-ideo-pull { font-family:Georgia,serif; font-style:italic; font-size:14.5px; line-height:1.5; border-left:2px solid; padding:2px 0 2px 12px; margin:13px 0; }
     #tablet-os-overlay .tos-ideo-tenets { list-style:none; padding:0; margin:0; }
-    #tablet-os-overlay .tos-ideo-tenets li { position:relative; padding:7px 0 7px 21px; font-size:12.5px; line-height:1.45; color:var(--tos-fg-dim);
+    #tablet-os-overlay .tos-ideo-tenets li { position:relative; padding:7px 0 7px 21px; font-size:13.5px; line-height:1.45; color:var(--tos-fg-dim);
       border-bottom:1px solid color-mix(in srgb,var(--mg-accent) 10%,transparent); }
     #tablet-os-overlay .tos-ideo-tenets li:last-child { border-bottom:0; }
     #tablet-os-overlay .tos-ideo-tenets li::before { content:"◆"; position:absolute; left:2px; top:8px; font-size:8px; color:var(--ic); }
     #tablet-os-overlay .tos-ideo-pathbox { display:flex; align-items:center; gap:12px; }
     #tablet-os-overlay .tos-ideo-pathbox .pm { flex:0 0 80px; }
-    #tablet-os-overlay .tos-ideo-pathbox .pml { font-size:8.5px; letter-spacing:1.3px; text-transform:uppercase; color:var(--tos-fg-dim2); margin-top:5px; }
-    #tablet-os-overlay .tos-ideo-pathbox .pt { font-size:12px; line-height:1.5; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-ideo-pathbox .pml { font-size:10px; letter-spacing:1.3px; text-transform:uppercase; color:var(--tos-fg-dim2); margin-top:5px; }
+    #tablet-os-overlay .tos-ideo-pathbox .pt { font-size:13px; line-height:1.5; color:var(--tos-fg-dim); }
     #tablet-os-overlay .tos-ideo-shead { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px; }
     #tablet-os-overlay .tos-ideo-shead .rp { font-size:19px; letter-spacing:1px; font-variant-numeric:tabular-nums; }
-    #tablet-os-overlay .tos-ideo-shead .nx { font-size:9.5px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); }
+    #tablet-os-overlay .tos-ideo-shead .nx { font-size:11px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); }
     #tablet-os-overlay .tos-ideo-ladder { display:flex; flex-direction:column; }
-    #tablet-os-overlay .tos-ideo-rung { display:flex; align-items:center; gap:10px; padding:5px 0; font-size:11px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); }
+    #tablet-os-overlay .tos-ideo-rung { display:flex; align-items:center; gap:10px; padding:5px 0; font-size:12px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); }
     #tablet-os-overlay .tos-ideo-rung .pip { flex:0 0 10px; height:10px; border-radius:50%; border:1px solid var(--tos-fg-dim2); background:transparent; }
     #tablet-os-overlay .tos-ideo-rung .rl { flex:1 1 auto; }
-    #tablet-os-overlay .tos-ideo-rung .pk { font-size:9px; color:var(--tos-fg-dim2); }
+    #tablet-os-overlay .tos-ideo-rung .pk { font-size:10px; color:var(--tos-fg-dim2); }
     #tablet-os-overlay .tos-ideo-rung.done { color:var(--tos-fg-dim); }
     #tablet-os-overlay .tos-ideo-rung.done .pip { background:var(--ic); border-color:var(--ic); box-shadow:0 0 8px var(--ic); }
     #tablet-os-overlay .tos-ideo-rung.here { color:var(--ic); text-shadow:0 0 8px color-mix(in srgb,var(--ic) 45%,transparent); }
     #tablet-os-overlay .tos-ideo-rung.here .pip { background:var(--ic); border-color:#fff; box-shadow:0 0 12px var(--ic); }
     #tablet-os-overlay .tos-ideo-rung.here .pk { color:var(--ic); }
     #tablet-os-overlay .tos-ideo-chips { display:flex; flex-wrap:wrap; gap:6px; }
-    #tablet-os-overlay .tos-ideo-chip { font-size:10px; letter-spacing:.8px; padding:5px 9px; border-radius:5px; border:1px solid var(--tos-border);
+    #tablet-os-overlay .tos-ideo-chip { font-size:11.5px; letter-spacing:.8px; padding:6px 10px; border-radius:5px; border:1px solid var(--tos-border);
       background:linear-gradient(165deg,var(--tos-surface-hi),var(--tos-surface-lo)); color:var(--tos-fg-dim); box-shadow:inset 0 1px 0 var(--tos-bevel-hi); }
-    #tablet-os-overlay .tos-ideo-chip em { font-style:normal; color:var(--tos-fg-dim2); font-size:8.5px; letter-spacing:1.3px; text-transform:uppercase; margin-right:5px; }
+    #tablet-os-overlay .tos-ideo-chip em { font-style:normal; color:var(--tos-fg-dim2); font-size:10px; letter-spacing:1.3px; text-transform:uppercase; margin-right:5px; }
     #tablet-os-overlay .tos-ideo-chip.foe { border-color:color-mix(in srgb,#e05555 45%,transparent); color:#eba0a0; }
     #tablet-os-overlay .tos-ideo-chip.warn { border-color:color-mix(in srgb,#E0A030 40%,transparent); color:#e6c98f; }
-    #tablet-os-overlay .tos-ideo-empty { font-size:12px; line-height:1.5; color:var(--tos-fg-dim2); font-style:italic; font-family:Georgia,serif; padding:2px 0; margin:0; }
+    #tablet-os-overlay .tos-ideo-empty { font-size:13px; line-height:1.5; color:var(--tos-fg-dim2); font-style:italic; font-family:Georgia,serif; padding:2px 0; margin:0; }
     #tablet-os-overlay .tos-ideo-legend { display:flex; flex-wrap:wrap; gap:9px; margin-top:11px; }
-    #tablet-os-overlay .tos-ideo-legend span { display:flex; align-items:center; gap:6px; font-size:10px; letter-spacing:.8px; text-transform:uppercase; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-ideo-legend span { display:flex; align-items:center; gap:6px; font-size:11px; letter-spacing:.8px; text-transform:uppercase; color:var(--tos-fg-dim); }
     #tablet-os-overlay .tos-ideo-legend i { width:9px; height:9px; border-radius:50%; box-shadow:0 0 7px currentColor; }
     @keyframes tos-fade { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:none; } }
 
@@ -2540,7 +2546,7 @@ function renderIdeoField(d, highlightId, accent) {
     return `<g opacity="${op}">
       <circle cx="${sx(gx)}" cy="${sy(gy)}" r="${gr}" fill="${o.color}" opacity="${em ? .1 : .2}"/>
       ${dot}
-      ${on ? `<text x="${sx(gx)}" y="${sy(gy) + (gy > 55 ? -13 : 21)}" text-anchor="middle" fill="${o.color}" font-size="9.5" letter-spacing="1">${lbl}</text>` : ''}
+      ${on ? `<text x="${sx(gx)}" y="${sy(gy) + (gy > 55 ? -13 : 21)}" text-anchor="middle" fill="${o.color}" font-size="10.5" letter-spacing="1">${lbl}</text>` : ''}
     </g>`;
   }).join('');
   const [px0, py0] = ideoPlayerXY(d.overview);
@@ -2549,45 +2555,44 @@ function renderIdeoField(d, highlightId, accent) {
     <rect x="${X0}" y="${Y0}" width="${X1 - X0}" height="${Y1 - Y0}" fill="none" stroke="${accent}" stroke-opacity=".14" rx="6"/>
     <line x1="${(X0 + X1) / 2}" y1="${Y0}" x2="${(X0 + X1) / 2}" y2="${Y1}" stroke="${accent}" stroke-opacity=".16" stroke-dasharray="3 5"/>
     <line x1="${X0}" y1="${(Y0 + Y1) / 2}" x2="${X1}" y2="${(Y0 + Y1) / 2}" stroke="${accent}" stroke-opacity=".16" stroke-dasharray="3 5"/>
-    <text x="${X0}" y="36" fill="${accent}" fill-opacity=".7" font-size="9" letter-spacing="1.5">◄ RENOUNCE</text>
-    <text x="${X1}" y="36" text-anchor="end" fill="${accent}" fill-opacity=".7" font-size="9" letter-spacing="1.5">REDEEM ►</text>
-    <text x="${(X0 + X1) / 2}" y="22" text-anchor="middle" fill="${accent}" fill-opacity=".5" font-size="8" letter-spacing="2">CIVILIZATION</text>
-    <text x="${(X0 + X1) / 2}" y="266" text-anchor="middle" fill="${accent}" fill-opacity=".7" font-size="9" letter-spacing="1.5">STAY HUMAN</text>
-    <text x="${(X0 + X1) / 2}" y="282" text-anchor="middle" fill="${accent}" fill-opacity=".5" font-size="8" letter-spacing="2">THE BODY · TRANSCEND ▲</text>
+    <text x="${X0}" y="36" fill="${accent}" fill-opacity=".9" font-size="10.5" letter-spacing="1.5">◄ RENOUNCE</text>
+    <text x="${X1}" y="36" text-anchor="end" fill="${accent}" fill-opacity=".9" font-size="10.5" letter-spacing="1.5">REDEEM ►</text>
+    <text x="${(X0 + X1) / 2}" y="22" text-anchor="middle" fill="${accent}" fill-opacity=".7" font-size="9.5" letter-spacing="2">CIVILIZATION</text>
+    <text x="${(X0 + X1) / 2}" y="266" text-anchor="middle" fill="${accent}" fill-opacity=".9" font-size="10.5" letter-spacing="1.5">STAY HUMAN</text>
+    <text x="${(X0 + X1) / 2}" y="282" text-anchor="middle" fill="${accent}" fill-opacity=".7" font-size="9.5" letter-spacing="2">THE BODY · TRANSCEND ▲</text>
     ${nodes}
-    <circle cx="${px}" cy="${py}" r="18" fill="${accent}" opacity=".18"><animate attributeName="r" values="14;22;14" dur="3.2s" repeatCount="indefinite"/></circle>
-    <circle cx="${px}" cy="${py}" r="8" fill="#fff"/><circle cx="${px}" cy="${py}" r="13" fill="none" stroke="${accent}"/>
-    <text x="${px}" y="${py - 17}" text-anchor="middle" fill="#fff" font-size="8.5" letter-spacing="2">YOU</text>
+    <circle cx="${px}" cy="${py}" r="18" fill="${accent}" opacity=".2"><animate attributeName="r" values="14;22;14" dur="3.2s" repeatCount="indefinite"/></circle>
+    <circle cx="${px}" cy="${py}" r="8.5" fill="var(--tos-fg)"/><circle cx="${px}" cy="${py}" r="13" fill="none" stroke="${accent}" stroke-width="1.5"/>
+    <text x="${px}" y="${py - 17}" text-anchor="middle" fill="var(--tos-fg)" font-size="10" letter-spacing="2">YOU</text>
   </svg>`;
 }
 
 // Radial four-path field — stance (x) × ascend/stay (y), each order at its
 // (stance, path) corner. The Overview's headline chart.
 function renderIdeoRadial(d, accent) {
-  const POS = { ideology_exodus: [92, 88], ideology_wildblood: [112, 192], ideology_ascendants: [292, 84], ideology_long_watch: [270, 210],
-    // Expansion orders (staged; gated out until activated) — filling the gaps
-    // between the canon four so an eight-order field stays legible.
-    ideology_prometheans: [246, 58], ideology_synthesis: [318, 150], ideology_null: [66, 214], ideology_pioneers: [156, 240] };
-  const nodes = d.orders.map(o => {
-    const [x, y] = POS[o.id] || [190, 144];
+  // Overview headline chart: the canon four only, one per quadrant. Emerging
+  // orders are deliberately kept off it (they still show in Standing below and
+  // on the Field page) — plotting all eight here crushed it into noise.
+  const POS = { ideology_exodus: [96, 100], ideology_wildblood: [96, 204], ideology_ascendants: [288, 100], ideology_long_watch: [288, 204] };
+  const nodes = d.orders.filter(o => !o.expansion).map(o => {
+    const [x, y] = POS[o.id] || [190, 152];
     const lbl = o.name.replace('The ', '').toUpperCase();
-    const core = o.expansion
-      ? `<circle cx="${x}" cy="${y}" r="6" fill="none" stroke="${o.color}" stroke-width="1.5" stroke-dasharray="2 2.4"/>`
-      : `<circle cx="${x}" cy="${y}" r="6.5" fill="${o.color}"/><circle cx="${x}" cy="${y}" r="6.5" fill="none" stroke="#fff" stroke-opacity=".5"/>`;
-    return `<g opacity="${o.expansion ? .55 : 1}"><circle cx="${x}" cy="${y}" r="16" fill="${o.color}" opacity="${o.expansion ? .1 : .18}"/>${core}<text x="${x}" y="${y + 24}" text-anchor="middle" fill="${o.color}" font-size="9" letter-spacing="1">${lbl}</text></g>`;
+    return `<g><circle cx="${x}" cy="${y}" r="20" fill="${o.color}" opacity=".2"/>
+      <circle cx="${x}" cy="${y}" r="7.5" fill="${o.color}"/><circle cx="${x}" cy="${y}" r="7.5" fill="none" stroke="#fff" stroke-opacity=".55"/>
+      <text x="${x}" y="${y + 28}" text-anchor="middle" fill="${o.color}" font-size="11.5" letter-spacing="1.2">${lbl}</text></g>`;
   }).join('');
   return `<svg viewBox="0 0 380 288" class="tos-ideo-chart" role="img" aria-label="Four-path alignment field with your position marked.">
-    <line x1="190" y1="32" x2="190" y2="258" stroke="${accent}" stroke-opacity=".16" stroke-dasharray="3 5"/>
-    <line x1="42" y1="145" x2="338" y2="145" stroke="${accent}" stroke-opacity=".16" stroke-dasharray="3 5"/>
-    <rect x="42" y="32" width="296" height="226" fill="none" stroke="${accent}" stroke-opacity=".13" rx="6"/>
-    <text x="48" y="24" fill="${accent}" fill-opacity=".7" font-size="9" letter-spacing="1.5">◄ RENOUNCE</text>
-    <text x="332" y="24" text-anchor="end" fill="${accent}" fill-opacity=".7" font-size="9" letter-spacing="1.5">REDEEM ►</text>
-    <text x="190" y="276" text-anchor="middle" fill="${accent}" fill-opacity=".5" font-size="8" letter-spacing="2">STAY · HUMAN</text>
-    <text x="190" y="46" text-anchor="middle" fill="${accent}" fill-opacity=".5" font-size="8" letter-spacing="2">ASCEND</text>
+    <line x1="190" y1="34" x2="190" y2="256" stroke="${accent}" stroke-opacity=".18" stroke-dasharray="3 5"/>
+    <line x1="42" y1="145" x2="338" y2="145" stroke="${accent}" stroke-opacity=".18" stroke-dasharray="3 5"/>
+    <rect x="42" y="34" width="296" height="222" fill="none" stroke="${accent}" stroke-opacity=".16" rx="6"/>
+    <text x="48" y="24" fill="${accent}" fill-opacity=".9" font-size="10.5" letter-spacing="1.5">◄ RENOUNCE</text>
+    <text x="332" y="24" text-anchor="end" fill="${accent}" fill-opacity=".9" font-size="10.5" letter-spacing="1.5">REDEEM ►</text>
+    <text x="190" y="278" text-anchor="middle" fill="${accent}" fill-opacity=".75" font-size="10" letter-spacing="2">STAY · HUMAN</text>
+    <text x="190" y="48" text-anchor="middle" fill="${accent}" fill-opacity=".75" font-size="10" letter-spacing="2">ASCEND</text>
     ${nodes}
-    <circle cx="150" cy="172" r="18" fill="${accent}" opacity=".18"><animate attributeName="r" values="14;22;14" dur="3.2s" repeatCount="indefinite"/></circle>
-    <circle cx="150" cy="172" r="8" fill="#fff"/><circle cx="150" cy="172" r="13" fill="none" stroke="${accent}"/>
-    <text x="150" y="149" text-anchor="middle" fill="#fff" font-size="8.5" letter-spacing="2">YOU</text>
+    <circle cx="150" cy="172" r="18" fill="${accent}" opacity=".2"><animate attributeName="r" values="14;22;14" dur="3.2s" repeatCount="indefinite"/></circle>
+    <circle cx="150" cy="172" r="8.5" fill="var(--tos-fg)"/><circle cx="150" cy="172" r="13" fill="none" stroke="${accent}" stroke-width="1.5"/>
+    <text x="150" y="148" text-anchor="middle" fill="var(--tos-fg)" font-size="10" letter-spacing="2">YOU</text>
   </svg>`;
 }
 
@@ -2662,6 +2667,7 @@ function renderIdeoOrder(o, d, accent) {
       ${o.expansion ? `<span class="tos-ideo-tag" style="--ic:${o.color}">emerging</span>` : `<span class="tos-ideo-tag" style="--ic:${o.color}">${esc(o.tier)} · ${o.rep >= 0 ? '+' : ''}${o.rep}</span>`}
     </div>
     <p class="tos-ideo-lore"><span class="drop" style="color:${o.color};text-shadow:0 0 16px ${o.color}55">${drop}</span>${rest}</p>
+    ${o.experience ? `<p class="tos-ideo-exp">${esc(o.experience)}</p>` : ''}
     ${o.pull ? `<p class="tos-ideo-pull" style="border-color:${o.color};color:${o.color}">${esc(o.pull)}</p>` : ''}
     ${o.tenets.length ? `<div class="tos-ideo-lbl">Creed</div><div class="tos-ideo-panel"><ul class="tos-ideo-tenets">${o.tenets.map(t => `<li style="--ic:${o.color}">${esc(t)}</li>`).join('')}</ul></div>` : ''}
     ${o.pathText ? `<div class="tos-ideo-lbl">Their path</div><div class="tos-ideo-panel"><div class="tos-ideo-pathbox">
@@ -2718,7 +2724,7 @@ function renderIdeology(d, crumb) {
   if (key === 'overview') body = renderIdeoOverview(d, accent);
   else if (key === 'field') body = renderIdeoFieldPage(d, accent);
   else body = renderIdeoOrder(d.orders.find(o => o.id === key), d, accent);
-  return `<div class="tos-ideo-sticky">${crumb || ''}${renderIdeoNav(d, _tosIdeoPage)}</div>${body}`;
+  return `<div class="tos-ideo-root"><div class="tos-ideo-sticky">${crumb || ''}${renderIdeoNav(d, _tosIdeoPage)}</div>${body}</div>`;
 }
 
 function renderMap(d) {
@@ -2757,6 +2763,11 @@ function renderMap(d) {
   for (const t of tiles) { cell[rowOf(t)][colOf(t)] = t; tById.set(t.id, t); }
 
   let grid = `<div class="tos-map-grid" style="--tos-tile:${tosZoomPx(d)}px;grid-template-columns:repeat(${gCols},var(--tos-tile));grid-template-rows:repeat(${gRows},var(--tos-tile))">`;
+  // Canonical terrain fills (mirror minimap.js TERRAIN_FILL). 'road' is handled separately.
+  const TOS_TERRAIN_FILL = {
+    water: '#3f7fb0', grass: '#5a9e57', asphalt: '#45484d', concrete: '#8a8d91',
+    dirt: '#6b5138', sand: '#c2b280', gravel: '#7d7a73', dock: '#6e5636',
+  };
   for (let r = 0; r < gRows; r++) for (let c = 0; c < gCols; c++) {
     const t = cell[r][c];
     const pos = `grid-column:${c + 1};grid-row:${r + 1}`;
@@ -2768,14 +2779,15 @@ function renderMap(d) {
     if (t.id === _tosMapSel) cls.push('sel');
     if (t.isCurrent) cls.push('cur');
     // Tileable terrain (mirrors the sidebar/full-map minimap): roads → grey asphalt +
-    // yellow markings; water/grass → a seamless coloured expanse (marker dropped) with a
-    // connecting texture from the .terr-<kind> class.
-    const terrain = ['road', 'water', 'grass'].includes(t.terrain) ? t.terrain : null;
+    // yellow markings; every other ground type → a seamless coloured expanse (marker
+    // dropped). water/grass keep authored bg priority; newer types use their canonical fill.
+    const terrain = (t.terrain === 'road' || TOS_TERRAIN_FILL[t.terrain]) ? t.terrain : null;
     let sym = _mapTileSym(t);
     let style = pos + ';';
     if (terrain === 'road') { style += 'background-color:#4c5157;color:#f2c53d;'; cls.push('terr', 'terr-road'); }
-    else if (terrain === 'water' || terrain === 'grass') {
-      style += `background-color:${t.bg_color || (terrain === 'water' ? '#3f7fb0' : '#5a9e57')};`;
+    else if (terrain) {
+      const fill = (terrain === 'water' || terrain === 'grass') ? (t.bg_color || TOS_TERRAIN_FILL[terrain]) : TOS_TERRAIN_FILL[terrain];
+      style += `background-color:${fill};`;
       cls.push('terr', 'terr-' + terrain);
       sym = '';
     }

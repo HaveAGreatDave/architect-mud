@@ -70,6 +70,7 @@ async function buildScreen(player) {
       id: f.id, name: f.name, color: f.color, expansion: f.expansion,
       stance: f.profile?.stance || null, path: f.profile?.path || null,
       lore: f.description || '',
+      experience: reader.experience || null,
       motto: reader.motto || null, pull: reader.pull || null,
       tenets: reader.tenets || [], pathText: reader.path_text || null,
       relnote: reader.relnote || null,

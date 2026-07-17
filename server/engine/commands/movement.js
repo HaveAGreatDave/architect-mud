@@ -1,6 +1,6 @@
 import { query } from '../../models/db.js';
 import { formatBattleCry } from '../combat.js';
-import { getZone, getMinimapData, getAllZones, getMap, addPlayerToZone, removePlayerFromZone, getDoorForExit, setDoorCache, getAllLivePlayers, getLivePlayer, getZoneEnemies, getZoneNpcs, tryBattleCry, isEnterableFacade, getMapByParentZone, buildingIconSvg, buildingTypeOf, zoneTerrain, buildingEntranceDir, interiorExitDirs, facadeStreetTile, applyMinimapVisibility } from '../world.js';
+import { getZone, getMinimapData, getAllZones, getMap, addPlayerToZone, removePlayerFromZone, getDoorForExit, setDoorCache, getAllLivePlayers, getLivePlayer, getZoneEnemies, getZoneNpcs, tryBattleCry, isEnterableFacade, getMapByParentZone, buildingIconSvg, buildingTypeOf, zoneTerrain, tileIconSvg, buildingEntranceDir, interiorExitDirs, facadeStreetTile, applyMinimapVisibility } from '../world.js';
 import { getZoneVisibility, getWindowsForZone, getEnvironmentState, getZoneTemperature, getZoneSeverity } from '../environment.js';
 import { describeZone, resolveNamedDestination, isInteriorZone } from './describe.js';
 import { exitTargets, allExits, primaryExits } from '../exits.js';
@@ -710,8 +710,9 @@ function mapPoi(zone) {
   return null;
 }
 
-// One tile snapshot, positioned at (x,y) relative to the map's origin.
-function mapTile(zone, x, y, placed, currentId) {
+// One tile snapshot, positioned at (x,y) relative to the map's origin. `at` is an
+// optional coord lookup (x,y,z → zone|null) so road tiles auto-tile their connector.
+function mapTile(zone, x, y, placed, currentId, at = null) {
   const links = {};
   for (const [dir, target] of Object.entries(primaryExits(zone))) {
     if (placed.has(target) && MAP_DIR_OFFSET[dir]) links[dir] = target;
@@ -727,7 +728,7 @@ function mapTile(zone, x, y, placed, currentId) {
     description: zone.description || '',
     buildings: buildingsAt(zone),
     icon: poi?.icon || null, poi: poi?.poi || null,
-    svg: zone.flags?.icon || buildingIconSvg(zone), // named zone-icon SVG (road_* connectors, statue, building_type rooftop, …)
+    svg: tileIconSvg(zone, at), // named zone-icon SVG (authored icon / rooftop, or an auto-tiled road connector)
     building_type: buildingTypeOf(zone), // facade tile's type — drives the labels/icons map overlay
     building_name: zone.flags?.building_name || null,
     entrance: buildingEntranceDir(zone), // which edge the door faces — drives the map entrance arrow
@@ -757,7 +758,13 @@ function windowTiles(centerId, viewer = null, half = MAP_WINDOW_HALF) {
       z.grid_x != null && z.grid_y != null &&
       Math.abs(z.grid_x - cx) <= H && Math.abs(z.grid_y - cy) <= H), viewer);
     const placed = new Set(onMap.map(z => z.id));
-    return onMap.map(z => mapTile(z, z.grid_x - cx, z.grid_y - cy, placed, centerId));
+    // Coord index over this map/floor so road tiles auto-tile their connector (roadConnector).
+    const roadIndex = new Map();
+    for (const z of getAllZones())
+      if (z.map_id === center.map_id && z.grid_x != null && z.grid_y != null)
+        roadIndex.set(`${z.grid_x},${z.grid_y},${z.grid_z ?? 0}`, z);
+    const roadAt = (x, y, z) => roadIndex.get(`${x},${y},${z}`) || null;
+    return onMap.map(z => mapTile(z, z.grid_x - cx, z.grid_y - cy, placed, centerId, roadAt));
   }
 
   const coords = new Map([[centerId, [0, 0]]]);

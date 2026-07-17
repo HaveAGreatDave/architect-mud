@@ -324,7 +324,7 @@ async function openBigMap(mode = 'zones') {
   };
   for (const [zoneId, overrides] of _mapPendingOverrides) {
     const z = bigMapOverlayData.zones.get(zoneId);
-    if (z) Object.assign(z, overrides);
+    if (z) _applyMapOverride(z, overrides);
   }
   bigMapZones = mapData.zones || [];
   bigMapPowerData = Array.isArray(powerMap) ? powerMap : [];
@@ -545,7 +545,20 @@ let mapExteriorMapId = null;      // last-loaded exterior map id, so we can retu
 let mapSelectedInteriorId = null;
 let mapInteriorsList = [];        // interior maps (parent_zone_id != null)
 let _exteriorBuildingZones = [];  // building zones from the exterior map, for interior tab dropdown
-let _mapPendingOverrides = new Map(); // zoneId → {color,bg_color,marker} for staged-but-unpublished zone edits
+let _mapPendingOverrides = new Map(); // zoneId → {color,bg_color,marker,terrain} for staged-but-unpublished zone edits
+
+// Re-apply one staged override onto a freshly-fetched map zone, so staged edits stay
+// visible across tab switches / map reloads (the DB doesn't have them until Publish).
+// Display fields assign onto the zone; `terrain` merges into flags. Cleared per-zone on
+// publish/reject (staging.js), so a published/discarded edit stops overriding.
+function _applyMapOverride(z, overrides) {
+  const { terrain, ...display } = overrides;
+  Object.assign(z, display);
+  if (terrain !== undefined) {
+    z.flags = { ...(z.flags || {}) };
+    if (terrain) z.flags.terrain = terrain; else delete z.flags.terrain;
+  }
+}
 let mapSafeZoneMode = false;   // true while the Sanctuary paint tool is active
 let mapSafeZonePainting = false; // mouse button down, actively dragging a paint stroke
 let mapSafeZonePaintValue = null; // true = attaching the sanctuary tag this stroke, false = clearing
@@ -555,7 +568,7 @@ function mapsGuard() { return true; }
 
 function toggleSafeZoneMode() {
   mapSafeZoneMode = !mapSafeZoneMode;
-  if (mapSafeZoneMode) mapPaintMode = false;
+  if (mapSafeZoneMode) { mapPaintMode = false; mapTerrainMode = false; mapMoveBuildingMode = false; }
   renderMapOverview();
 }
 
@@ -619,7 +632,7 @@ const PAINT_SWATCHES = [
 
 function togglePaintMode() {
   mapPaintMode = !mapPaintMode;
-  if (mapPaintMode) { mapSafeZoneMode = false; mapUndoStack = []; mapRedoStack = []; }
+  if (mapPaintMode) { mapSafeZoneMode = false; mapTerrainMode = false; mapMoveBuildingMode = false; mapUndoStack = []; mapRedoStack = []; }
   renderMapOverview();
 }
 function setPaintTool(t) { mapPaintTool = t; renderMapOverview(); }
@@ -973,6 +986,290 @@ function paintPanelHtml() {
   </div>`;
 }
 
+// ─── TERRAIN PAINTER ─────────────────────────────────────────────────────────
+// Paint flags.terrain (the ground-surface SSOT — zoneTerrain prefers it) onto tiles.
+// Mirrors the colour painter: brush / fill / pick / rectangle-select, drag-safe
+// single-tag PATCH so strokes stage into the Changes panel. Road tiles auto-tile their
+// connector piece from adjacent road tiles, previewed live in the grid.
+const TERRAIN_TYPES = [
+  { key: 'road',     label: 'Road',     fill: '#4c5157' },
+  { key: 'asphalt',  label: 'Asphalt',  fill: '#45484d' },
+  { key: 'concrete', label: 'Concrete', fill: '#8a8d91' },
+  { key: 'grass',    label: 'Grass',    fill: '#5a9e57' },
+  { key: 'dirt',     label: 'Dirt',     fill: '#6b5138' },
+  { key: 'sand',     label: 'Sand',     fill: '#c2b280' },
+  { key: 'gravel',   label: 'Gravel',   fill: '#7d7a73' },
+  { key: 'dock',     label: 'Dock',     fill: '#6e5636' },
+  { key: 'water',    label: 'Water',    fill: '#3f7fb0' },
+];
+const TERRAIN_FILL_BY_KEY = Object.fromEntries(TERRAIN_TYPES.map(t => [t.key, t.fill]));
+let mapTerrainMode = false;
+let mapTerrainType = 'road';
+let mapTerrainTool = 'brush';       // 'brush' | 'fill' | 'pick' | 'rect'
+let mapTerrainPainting = false;
+let mapTerrainPending = new Set();
+let mapTerrainRectStart = null;     // {x,y} anchor while dragging a rectangle
+let _terrainOutlined = [];          // tile els currently showing the rect preview outline
+
+function toggleTerrainMode() {
+  mapTerrainMode = !mapTerrainMode;
+  if (mapTerrainMode) { mapPaintMode = false; mapSafeZoneMode = false; mapMoveBuildingMode = false; }
+  renderMapOverview();
+}
+function setTerrainType(k) { mapTerrainType = k; renderMapOverview(); }
+function setTerrainTool(t) { mapTerrainTool = t; mapTerrainRectStart = null; renderMapOverview(); }
+
+// Working-copy mirror of server zoneTerrain (authored terrain wins, then inference) so the
+// dev preview's road auto-tiling matches what the game will render.
+function mapZoneTerrain(z) {
+  if (!z) return null;
+  if (z.flags?.terrain) return z.flags.terrain;
+  if (z.flags?.water) return 'water';
+  if (/^(road_|runway_)/.test(z.flags?.icon || '')) return 'road';
+  return null;
+}
+// The connector SVG name for a road tile from adjacent road terrain (mirror of the server
+// roadConnector). `byCoord` maps "x,y" → zone on the current floor.
+function mapRoadConnector(z, byCoord) {
+  if (!z || z.grid_x == null) return 'road_x';
+  const isRoad = (x, y) => mapZoneTerrain(byCoord.get(`${x},${y}`)) === 'road';
+  let s = '';
+  if (isRoad(z.grid_x, z.grid_y - 1)) s += 'n';
+  if (isRoad(z.grid_x + 1, z.grid_y)) s += 'e';
+  if (isRoad(z.grid_x, z.grid_y + 1)) s += 's';
+  if (isRoad(z.grid_x - 1, z.grid_y)) s += 'w';
+  return s ? 'road_' + s : 'road_x';
+}
+
+// Stage a terrain edit through the Changes panel (nothing goes live until you Publish).
+// Routes through the staging-aware API() as a full-flags zone PUT — the shape the staging
+// publisher replays via apiUpdateZone. The working copy already holds the tile's COMPLETE
+// flags (apiGetMap returns the whole jsonb) with the terrain change applied, so we send
+// those verbatim: no server read-merge-write, and no other flags are dropped. The staging
+// queue coalesces repeated edits to the same zone into one pending change.
+async function _saveTerrain(zoneId) {
+  if (mapTerrainPending.has(zoneId)) return;
+  mapTerrainPending.add(zoneId);
+  try {
+    const z = mapOverview?.zones.get(zoneId);
+    if (!z) return;
+    // Remember the staged value so the preview survives tab switches / map reloads
+    // (the DB won't carry it until Publish). Cleared per-zone on publish/reject.
+    _mapPendingOverrides.set(zoneId, { ...(_mapPendingOverrides.get(zoneId) || {}), terrain: z.flags?.terrain || null });
+    const r = await API(`/zones/${zoneId}`, 'PUT', { flags: { ...(z.flags || {}) } });
+    if (r?.error) toast(r.error, true); else updateStagingBadge();
+  } finally { mapTerrainPending.delete(zoneId); }
+}
+
+// Paint a tile's terrain fill straight onto its DOM (bg only) during a stroke — the full
+// re-render on mouse-up fixes neighbour road connectors.
+function _terrainTileDom(zoneId) {
+  const z = mapOverview?.zones.get(zoneId);
+  const el = _tileEl(z);
+  if (!el) return;
+  const terr = z.flags?.terrain;
+  el.style.background = terr ? TERRAIN_FILL_BY_KEY[terr] : '';
+}
+
+function _terrainBrush(zoneId, erase) {
+  const z = mapOverview?.zones.get(zoneId);
+  if (!z) return;
+  const val = erase ? null : mapTerrainType;
+  if ((z.flags?.terrain || null) === (val || null)) return;
+  z.flags = { ...(z.flags || {}) };
+  if (val) z.flags.terrain = val; else delete z.flags.terrain;
+  _terrainTileDom(zoneId);
+  _saveTerrain(zoneId);
+}
+
+function terrainPaintStart(e, zoneId) {
+  e.preventDefault();
+  if (mapTerrainTool === 'pick') { terrainPick(zoneId); return; }
+  if (mapTerrainTool === 'fill') { terrainFill(zoneId); return; }
+  if (mapTerrainTool === 'rect') { terrainRectStart(zoneId); return; }
+  mapTerrainPainting = true;
+  _terrainBrush(zoneId, e.ctrlKey || e.metaKey || e.button === 2);
+}
+function terrainPaintOver(e, zoneId) {
+  if (mapTerrainTool === 'rect') { if (mapTerrainRectStart) terrainRectOver(zoneId); return; }
+  if (mapTerrainPainting) _terrainBrush(zoneId, e.ctrlKey || e.metaKey);
+}
+function terrainPaintEnd(zoneId) {
+  if (mapTerrainTool === 'rect' && mapTerrainRectStart) terrainRectCommit(zoneId);
+}
+
+// Eyedropper: sample a tile's terrain onto the brush, then drop back to Brush.
+function terrainPick(zoneId) {
+  const z = mapOverview?.zones.get(zoneId);
+  if (!z || !z.flags?.terrain) return;
+  mapTerrainType = z.flags.terrain;
+  mapTerrainTool = 'brush';
+  renderMapOverview();
+}
+
+// Flood-fill: from the clicked tile, spread to same-terrain orthogonal neighbours.
+async function terrainFill(startId) {
+  const start = mapOverview?.zones.get(startId);
+  if (!start) return;
+  const from = start.flags?.terrain || null;
+  if (from === mapTerrainType) return;
+  const z0 = mapOverview.z;
+  const byCoord = new Map();
+  for (const z of mapOverview.zones.values())
+    if ((z.grid_z ?? 0) === z0 && z.grid_x != null) byCoord.set(`${z.grid_x},${z.grid_y}`, z);
+  const queue = [start], seen = new Set([startId]), hit = [];
+  while (queue.length) {
+    const z = queue.shift(); hit.push(z);
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const n = byCoord.get(`${z.grid_x + dx},${z.grid_y + dy}`);
+      if (n && !seen.has(n.id) && (n.flags?.terrain || null) === from) { seen.add(n.id); queue.push(n); }
+    }
+  }
+  for (const z of hit) { z.flags = { ...(z.flags || {}) }; z.flags.terrain = mapTerrainType; }
+  renderMapOverview();
+  for (const z of hit) await _saveTerrain(z.id);
+}
+
+// Rectangle-select: drag a marquee, apply the brush terrain to every covered cell at once.
+function terrainRectStart(zoneId) {
+  const z = mapOverview?.zones.get(zoneId);
+  if (!z) return;
+  mapTerrainRectStart = { x: z.grid_x, y: z.grid_y };
+}
+function terrainRectOver(zoneId) {
+  const z = mapOverview?.zones.get(zoneId);
+  if (z && mapTerrainRectStart) _terrainRectOutline(mapTerrainRectStart, { x: z.grid_x, y: z.grid_y });
+}
+function _terrainClearOutline() { _terrainOutlined.forEach(el => (el.style.boxShadow = '')); _terrainOutlined = []; }
+function _terrainRectOutline(a, b) {
+  _terrainClearOutline();
+  const g = document.getElementById('bigmap-grid-scroll');
+  if (!g) return;
+  const minX = Math.min(a.x, b.x), maxX = Math.max(a.x, b.x), minY = Math.min(a.y, b.y), maxY = Math.max(a.y, b.y);
+  for (let y = minY; y <= maxY; y++) for (let x = minX; x <= maxX; x++) {
+    const el = g.querySelector(`[data-map-cell="${x},${y}"]`);
+    if (el && el.classList.contains('bigmap-tile')) { el.style.boxShadow = 'inset 0 0 0 2px #fff'; _terrainOutlined.push(el); }
+  }
+}
+async function terrainRectCommit(endId) {
+  const end = mapOverview?.zones.get(endId);
+  const a = mapTerrainRectStart;
+  mapTerrainRectStart = null;
+  _terrainClearOutline();
+  if (!a || !end) return;
+  const minX = Math.min(a.x, end.grid_x), maxX = Math.max(a.x, end.grid_x);
+  const minY = Math.min(a.y, end.grid_y), maxY = Math.max(a.y, end.grid_y);
+  const z0 = mapOverview.z;
+  const ids = [];
+  for (const z of mapOverview.zones.values()) {
+    if ((z.grid_z ?? 0) !== z0 || z.grid_x == null) continue;
+    if (z.grid_x < minX || z.grid_x > maxX || z.grid_y < minY || z.grid_y > maxY) continue;
+    if ((z.flags?.terrain || null) === mapTerrainType) continue;
+    z.flags = { ...(z.flags || {}) }; z.flags.terrain = mapTerrainType; ids.push(z.id);
+  }
+  renderMapOverview();
+  for (const id of ids) await _saveTerrain(id);
+}
+
+document.addEventListener('mouseup', () => {
+  if (!mapTerrainMode) return;
+  if (mapTerrainTool === 'rect') {
+    if (mapTerrainRectStart) { mapTerrainRectStart = null; _terrainClearOutline(); }
+    return;
+  }
+  if (mapTerrainPainting) { mapTerrainPainting = false; renderMapOverview(); }
+});
+
+// The floating terrain palette card (position:fixed, hovers over the map).
+function terrainPanelHtml() {
+  const sw = TERRAIN_TYPES.map(t =>
+    `<button onclick="setTerrainType('${t.key}')" title="${t.label}" style="display:flex;align-items:center;gap:7px;width:100%;padding:5px 7px;border-radius:4px;cursor:pointer;border:1px solid ${t.key === mapTerrainType ? 'var(--accent)' : 'var(--border)'};background:${t.key === mapTerrainType ? 'var(--bg3)' : 'transparent'};color:var(--text);font-size:12px;text-align:left">
+      <span style="width:18px;height:18px;flex-shrink:0;border-radius:3px;background:${t.fill};border:1px solid #0007"></span>${t.label}</button>`
+  ).join('');
+  const toolBtn = (t, label) => `<button onclick="setTerrainTool('${t}')" style="flex:1;font-size:11px;padding:5px 4px;border-radius:4px;cursor:pointer;border:1px solid var(--border);background:${mapTerrainTool === t ? 'var(--accent)' : 'var(--bg3)'};color:${mapTerrainTool === t ? '#111' : 'var(--text)'}">${label}</button>`;
+  const hint = mapTerrainTool === 'fill' ? 'Click a tile to flood-fill its same-terrain region.'
+    : mapTerrainTool === 'pick' ? 'Click a tile to sample its terrain onto the brush.'
+    : mapTerrainTool === 'rect' ? 'Drag a rectangle to fill every covered tile.'
+    : 'Click-drag to paint · Ctrl-drag or right-drag to erase.';
+  return `<div id="map-terrain-panel" style="position:fixed;top:100px;right:28px;z-index:60;width:190px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 28px #000a;padding:11px;font-size:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px">
+      <strong style="font-size:12px;letter-spacing:.3px">🌍 Terrain</strong>
+      <button onclick="toggleTerrainMode()" title="Close terrain painter" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:15px;line-height:1">✕</button>
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:9px">${toolBtn('brush', '🖌')}${toolBtn('fill', '🪣')}${toolBtn('pick', '💧')}${toolBtn('rect', '▭')}</div>
+    <div style="display:flex;flex-direction:column;gap:4px">${sw}</div>
+    <div style="font-size:10px;color:var(--text-dim);margin-top:9px;line-height:1.45">${hint}</div>
+    ${(typeof pendingChanges !== 'undefined' && pendingChanges.length) ? `<div style="border-top:1px solid var(--border);margin-top:9px;padding-top:9px">
+      <div style="font-size:10px;color:var(--yellow);margin-bottom:6px">⚠ ${pendingChanges.length} unpublished edit${pendingChanges.length !== 1 ? 's' : ''} — not saved to the world yet.</div>
+      <button onclick="publishAll()" style="width:100%;font-size:11px;padding:6px;border-radius:4px;border:1px solid var(--border);background:var(--accent);color:#111;cursor:pointer;font-weight:600">⬆ Publish now</button>
+    </div>` : ''}
+  </div>`;
+}
+
+// ─── MOVE BUILDING ───────────────────────────────────────────────────────────
+// Relocate a building facade to a new cell, safely rewiring its front door (the
+// interior travels for free — linked by parent_zone_id). Deliberate multi-step flow:
+// arm a building → click an empty destination → review the change plan → confirm.
+let mapMoveBuildingMode = false;
+let mapMoveArmed = null; // facade zoneId picked up for relocation
+
+function toggleMoveBuildingMode() {
+  mapMoveBuildingMode = !mapMoveBuildingMode;
+  mapMoveArmed = null;
+  if (mapMoveBuildingMode) { mapPaintMode = false; mapSafeZoneMode = false; mapTerrainMode = false; }
+  renderMapOverview();
+}
+function _isBuildingTile(z) {
+  return !!(z && (z.flags?.building_type || z.flags?.is_building || mapOverview?.children.find(c => c.parent_zone_id === z.id)));
+}
+function moveBuildingTileClick(zoneId) {
+  const z = mapOverview?.zones.get(zoneId);
+  if (mapMoveArmed === zoneId) { mapMoveArmed = null; renderMapOverview(); return; } // click again to drop
+  if (!mapMoveArmed) {
+    if (!_isBuildingTile(z)) { toast('Click a building tile to pick it up.', true); return; }
+    mapMoveArmed = zoneId;
+    renderMapOverview();
+    return;
+  }
+  toast('That cell is occupied — click an empty cell to place the building.', true);
+}
+function moveBuildingDest(x, y) {
+  if (!mapMoveArmed) return;
+  moveBuildingPropose(mapMoveArmed, x, y);
+}
+async function moveBuildingPropose(facadeId, x, y) {
+  // Plan the move (validates + returns per-zone changes; never mutates).
+  const res = await directAPI('/maps/move-building', 'POST', { facadeId, toX: x, toY: y, toZ: mapOverview.z });
+  if (res?.error) { toast(res.error, true); return; }
+  const plan = res.plan || { moves: [] };
+  const changes = res.changes || [];
+  const name = plan.facade?.name || facadeId;
+  const summary = `Move "${name}" to (${x}, ${y})?\n\nThis rewires:\n` +
+    plan.moves.map(m => '• ' + m).join('\n') +
+    `\n\nStaged as ONE grouped change (${changes.length} zone${changes.length !== 1 ? 's' : ''}) — publishes atomically. The interior and its rooms move with it.`;
+  if (!(await dpConfirm(summary, { title: 'Move Building' }))) return;
+  // Stage the whole move as a single grouped `building_move` change, so it publishes
+  // atomically (never a half-moved building from a partial publish).
+  const r = await directAPI('/staging/stage', 'POST', {
+    entityType: 'building_move', entityId: facadeId, entityName: name,
+    changeType: 'update', method: 'POST', apiPath: '/maps/move-building',
+    requestBody: { changes }, description: `Move building "${name}" to (${x}, ${y})`,
+  });
+  if (r?.error) { toast(r.error, true); return; }
+  // Mirror into the working copy + per-zone overrides so the map previews the move and it
+  // survives tab switches until Publish (the grouped change carries the affected zone ids,
+  // so publish/reject clears these overrides — see staging.js).
+  for (const c of changes) {
+    const z = mapOverview.zones.get(c.id);
+    if (z) _applyMapOverride(z, c.patch);
+    _mapPendingOverrides.set(c.id, { ...(_mapPendingOverrides.get(c.id) || {}), ...c.patch });
+  }
+  mapMoveArmed = null;
+  await updateStagingBadge();
+  toast('Building move staged ✓ — Publish to apply.');
+  renderMapOverview();
+}
+
 async function renderMapsPanel(data) {
   mapsList = Array.isArray(data) ? data : [];
   const panel = document.getElementById('list-panel');
@@ -1007,7 +1304,7 @@ async function loadMapOverview(mapId) {
   // even after a fresh fetch (tab switch, panel reload, etc.)
   for (const [zoneId, overrides] of _mapPendingOverrides) {
     const z = zones.get(zoneId);
-    if (z) Object.assign(z, overrides);
+    if (z) _applyMapOverride(z, overrides);
   }
   // Refresh staged-change list so tiles pending deletion render their X marker.
   await updateStagingBadge();
@@ -1132,6 +1429,8 @@ function renderMapOverview() {
       <button class="action-btn danger" style="font-size:10px;padding:2px 8px" onclick="mapDeleteInterior()" title="Delete this interior map and all its zones">Delete Map</button>
       <button class="action-btn${mapSafeZoneMode ? ' active' : ''}" style="font-size:10px;padding:2px 8px${mapSafeZoneMode ? ';background:var(--accent);color:#111' : ''}" onclick="toggleSafeZoneMode()" title="Paint zones as Safe (police cameras present) or not">${mapSafeZoneMode ? '✓ Painting Safe Zones' : 'Paint Safe Zones'}</button>
       <button class="action-btn${mapPaintMode ? ' active' : ''}" style="font-size:10px;padding:2px 8px;margin-left:6px${mapPaintMode ? ';background:var(--accent);color:#111' : ''}" onclick="togglePaintMode()" title="Paint zone colours with a floating palette (brush, fill, luminance)">${mapPaintMode ? '✓ Painting Colours' : '🎨 Paint Colours'}</button>
+      <button class="action-btn${mapTerrainMode ? ' active' : ''}" style="font-size:10px;padding:2px 8px;margin-left:6px${mapTerrainMode ? ';background:var(--accent);color:#111' : ''}" onclick="toggleTerrainMode()" title="Paint ground terrain (road auto-tiles into junctions; water, grass, asphalt, dock…) — writes flags.terrain">${mapTerrainMode ? '✓ Painting Terrain' : '🌍 Terrain'}</button>
+      <button class="action-btn${mapMoveBuildingMode ? ' active' : ''}" style="font-size:10px;padding:2px 8px;margin-left:6px${mapMoveBuildingMode ? ';background:var(--accent);color:#111' : ''}" onclick="toggleMoveBuildingMode()" title="Relocate a building: pick it up, drop it on an empty cell, review + confirm — the interior and front door move with it">${mapMoveBuildingMode ? '✓ Moving Building' : '🏢 Move Building'}</button>
       <span style="margin-left:6px">Floor</span>
       <button class="action-btn" onclick="changeFloor(-1)">▾</button>
       <span style="min-width:60px;text-align:center">z = ${o.z}</span>
@@ -1143,6 +1442,8 @@ function renderMapOverview() {
       <span style="color:var(--text-bright);font-weight:600;font-size:13px">${o.map.name}</span>
       <button class="action-btn${mapSafeZoneMode ? ' active' : ''}" style="font-size:10px;padding:2px 8px;margin-left:12px${mapSafeZoneMode ? ';background:var(--accent);color:#111' : ''}" onclick="toggleSafeZoneMode()" title="Paint zones as Safe (police cameras present) or not">${mapSafeZoneMode ? '✓ Painting Safe Zones' : 'Paint Safe Zones'}</button>
       <button class="action-btn${mapPaintMode ? ' active' : ''}" style="font-size:10px;padding:2px 8px;margin-left:6px${mapPaintMode ? ';background:var(--accent);color:#111' : ''}" onclick="togglePaintMode()" title="Paint zone colours with a floating palette (brush, fill, luminance)">${mapPaintMode ? '✓ Painting Colours' : '🎨 Paint Colours'}</button>
+      <button class="action-btn${mapTerrainMode ? ' active' : ''}" style="font-size:10px;padding:2px 8px;margin-left:6px${mapTerrainMode ? ';background:var(--accent);color:#111' : ''}" onclick="toggleTerrainMode()" title="Paint ground terrain (road auto-tiles into junctions; water, grass, asphalt, dock…) — writes flags.terrain">${mapTerrainMode ? '✓ Painting Terrain' : '🌍 Terrain'}</button>
+      <button class="action-btn${mapMoveBuildingMode ? ' active' : ''}" style="font-size:10px;padding:2px 8px;margin-left:6px${mapMoveBuildingMode ? ';background:var(--accent);color:#111' : ''}" onclick="toggleMoveBuildingMode()" title="Relocate a building: pick it up, drop it on an empty cell, review + confirm — the interior and front door move with it">${mapMoveBuildingMode ? '✓ Moving Building' : '🏢 Move Building'}</button>
       <span style="margin-left:auto">Floor</span>
       <button class="action-btn" onclick="changeFloor(-1)">▾</button>
       <span style="min-width:60px;text-align:center">z = ${o.z}</span>
@@ -1159,6 +1460,21 @@ function renderMapOverview() {
     html += `<div style="padding:4px 12px;font-size:11px;color:var(--text-dim);background:var(--bg3);border-bottom:1px solid var(--border)">
       Colour painter active — use the floating palette (top-right). ${mapPaintTool === 'fill' ? 'Fill: click a tile to flood its same-colour region.' : mapPaintTool === 'pick' ? 'Pick: click a tile to sample its colour.' : 'Brush: click-drag to paint tiles.'}
     </div>` + paintPanelHtml();
+  }
+  if (mapTerrainMode) {
+    html += `<div style="padding:4px 12px;font-size:11px;color:var(--text-dim);background:var(--bg3);border-bottom:1px solid var(--border)">
+      Terrain painter active — pick a surface from the floating palette (top-right). Roads auto-tile into junctions from their neighbours. Writes flags.terrain (stages in Changes).
+    </div>` + terrainPanelHtml();
+  }
+  if (mapMoveBuildingMode) {
+    const movePublish = (typeof pendingChanges !== 'undefined' && pendingChanges.length)
+      ? ` &nbsp;·&nbsp; <span style="color:var(--yellow)">⚠ ${pendingChanges.length} unpublished</span> <button onclick="publishAll()" style="font-size:10px;padding:1px 7px;border-radius:3px;border:1px solid var(--border);background:var(--accent);color:#111;cursor:pointer;font-weight:600">⬆ Publish now</button>`
+      : '';
+    html += `<div style="padding:4px 12px;font-size:11px;color:var(--text-dim);background:var(--bg3);border-bottom:1px solid var(--border)">
+      ${mapMoveArmed
+        ? `Armed: <strong style="color:var(--accent)">${o.zones.get(mapMoveArmed)?.name || mapMoveArmed}</strong> — click an empty cell next to a road to place it, then confirm. Click the building again to drop it.`
+        : 'Move Building — click a building tile to pick it up. Its interior and front door move with it.'}${movePublish}
+    </div>`;
   }
 
   // Validation panel
@@ -1240,7 +1556,11 @@ function renderMapOverview() {
     for (let x = minX; x <= maxX; x++) {
       const z = byCoord.get(`${x},${y}`);
       if (!z) {
-        html += `<div class="bigmap-tile-create" ${cellStyle(x, y)} data-map-cell="${x},${y}" ondragover="event.preventDefault()" onclick="createZoneAt(${x},${y})">+</div>`;
+        if (mapMoveBuildingMode && mapMoveArmed) {
+          html += `<div class="bigmap-tile-create" ${cellStyle(x, y, ';cursor:cell;outline:1px dashed var(--accent)')} data-map-cell="${x},${y}" title="Place ${o.zones.get(mapMoveArmed)?.name || 'building'} here" onclick="moveBuildingDest(${x},${y})">▣</div>`;
+        } else {
+          html += `<div class="bigmap-tile-create" ${cellStyle(x, y)} data-map-cell="${x},${y}" ondragover="event.preventDefault()" onclick="createZoneAt(${x},${y})">+</div>`;
+        }
         continue;
       }
       let cls = 'bigmap-tile bm-edit';
@@ -1264,6 +1584,35 @@ function renderMapOverview() {
           ? `onmousedown="mapPickColor('${z.id}')"`
           : `onmousedown="paintStart(event,'${z.id}')" onmouseenter="paintOver('${z.id}')"`;
         html += `<div class="${cls}" ${cellStyle(x, y, zoneColorStyle(z) + ';cursor:crosshair')} data-map-cell="${x},${y}" title="${z.id}" ${handler}><div>${marker}${z.name}</div></div>`;
+        continue;
+      }
+
+      if (mapTerrainMode) {
+        const terr = z.flags?.terrain || null;
+        const marker = z.marker ? `<span class="map-marker-badge">${z.marker}</span>` : '';
+        let tStyle = ';cursor:crosshair', ico = '', label = z.name;
+        if (terr === 'road') {
+          const conn = mapRoadConnector(z, byCoord);
+          tStyle = `;background:${TERRAIN_FILL_BY_KEY.road};color:#f2c53d;cursor:crosshair`;
+          ico = `<span style="display:inline-block;width:26px;height:26px;background:currentColor;-webkit-mask:url(/assets/zone-icons/${conn}.svg) center/contain no-repeat;mask:url(/assets/zone-icons/${conn}.svg) center/contain no-repeat"></span>`;
+          label = '';
+        } else if (terr) {
+          const fill = TERRAIN_FILL_BY_KEY[terr];
+          tStyle = `;background:${fill};color:${luminanceTextColor(fill)};cursor:crosshair`;
+        }
+        const handlers = `onmousedown="terrainPaintStart(event,'${z.id}')" onmouseenter="terrainPaintOver(event,'${z.id}')" onmouseup="terrainPaintEnd('${z.id}')" oncontextmenu="return false"`;
+        html += `<div class="${cls}" ${cellStyle(x, y, tStyle)} data-map-cell="${x},${y}" title="${z.id} — ${terr || 'untyped'}" ${handlers}><div>${ico}${marker}${label}</div></div>`;
+        continue;
+      }
+
+      if (mapMoveBuildingMode) {
+        const bldg = _isBuildingTile(z);
+        const armed = z.id === mapMoveArmed;
+        const mStyle = zoneColorStyle(z) + (armed ? ';outline:2px solid var(--accent);cursor:grab'
+          : bldg ? ';cursor:grab' : ';cursor:not-allowed;opacity:0.6');
+        const marker = z.marker ? `<span class="map-marker-badge">${z.marker}</span>` : '';
+        const grip = bldg ? '🏢 ' : '';
+        html += `<div class="${cls}" ${cellStyle(x, y, mStyle)} data-map-cell="${x},${y}" title="${z.id}" onclick="moveBuildingTileClick('${z.id}')"><div>${grip}${marker}${z.name}</div></div>`;
         continue;
       }
 

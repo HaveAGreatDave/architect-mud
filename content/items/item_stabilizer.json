@@ -1,0 +1,12 @@
+{
+  "description": "A vial of molecular stabilizer — the only thing that keeps a spliced compound from tearing itself apart. Controlled, costly, and never quite in stock.",
+  "flags": {},
+  "id": "item_stabilizer",
+  "name": "compound stabilizer",
+  "tags": {
+    "reagent": true
+  },
+  "type": "chemical",
+  "value": 400,
+  "weight": 5
+}

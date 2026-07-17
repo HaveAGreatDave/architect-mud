@@ -1,5 +1,6 @@
 // One-shot data transform: set Halcyon Towers' storey count so the flight-sim skyline
-// raises it as a supertower that spears through the realistic cloud deck.
+// raises it as a dominant tower over the district — tall enough to command the skyline
+// without reading as an unrealistically thin needle.
 //
 // The `floors` flag ships in the content JSON (source of truth), but content:import is
 // additive (ON CONFLICT DO NOTHING) and never rewrites an existing row — so prod's already-
@@ -14,7 +15,7 @@
 import { query } from '../server/models/db.js';
 
 const ZONE = 'zone_district_895_906';   // Halcyon Towers exterior tile
-const FLOORS = 42;   // tip breaks the cloud tops (~8.2 world-z) without spearing far above the deck
+const FLOORS = 21;   // dominant over the skyline but no longer unrealistically tall + thin (was 42)
 
 const r = await query(
   `UPDATE zones

@@ -64,6 +64,7 @@ is silently inert, so grep before renaming anything below.
 | `sanctuary` | protection/sleep/spawning | civilization carve-out: combat protection (protection substrate — now blocks NPC **and** enemy attacks too, not just player attack/loot/steal/shove; see `enemyAttackPlayer`/`npcAttackPlayer` in `combat.js`), safe sleep, AI safe-flee, no hostile spawns. DELIBERATE — replaced `is_safe_zone`, which was dropped without conversion |
 | `scavenging_table_id` | scavenging | loot table for searching here |
 | `street_life` | ambience | ambient street-life event pool strength |
+| `terrain` | map/minimap/flight | authored ground surface (`water\|road\|asphalt\|concrete\|grass\|dirt\|sand\|gravel\|dock`) — the SSOT `zoneTerrain()` prefers over inference; drives minimap/tablet fills + flight ground tint. Painted in dev panel Maps → Terrain mode. Road tiles auto-tile their connector from adjacent road terrain (`roadConnector` in `world.js`) |
 | `utility_room` | power | building utility room (junction box lives here) |
 | `water` | movement | water zone (needs a `boat`-tagged item) |
 | `world_exit_zone` | movement | exterior seam zone for this building |

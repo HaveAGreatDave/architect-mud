@@ -20,6 +20,15 @@ export const BIOMES = [
   'freight', 'marquee', 'citycore', 'parkland', 'uptown', 'civic', 'airport',
 ];
 
+// An authored terrain type (flags.terrain, painted in the dev panel) maps to the
+// nearest existing ground biome for the flight-sim tint. 'road' is drawn by the
+// road channel (flags.icon/artery), not the biome, so it is intentionally absent.
+const TERRAIN_BIOME = {
+  water: 'water', dock: 'docks', grass: 'parkland',
+  asphalt: 'citycore', concrete: 'citycore',
+  dirt: 'badlands', sand: 'badlands', gravel: 'badlands',
+};
+
 // The tag used for the map/silhouettes — airfields read as 'airport'.
 export function biomeOf(zone) {
   if (!zone) return null;
@@ -37,6 +46,7 @@ export function biomeOf(zone) {
 export function districtBiome(zone) {
   if (!zone) return null;
   const f = zone.flags || {};
+  if (f.terrain && TERRAIN_BIOME[f.terrain]) return TERRAIN_BIOME[f.terrain]; // authored terrain wins the ground tint
   const id = (zone.id || '').toLowerCase();
   const dr = zone.danger;
   const pre = (/^zone_([a-z0-9]+)/.exec(id) || [])[1] || '';

@@ -11,7 +11,7 @@
 // Public: openHelmChase(containerEl, opts) → controller { sail, setHour, setWeather,
 //   setPosition, isSailing, destroy }. opts: { gx, gy, hour, weather, onArrive(gx,gy) }.
 
-import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield } from './windshield.js';
+import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield, surfaceBreakup } from './windshield.js';
 
 // Live world clock/weather via the shared (non-flight) env system — loaded OPTIONALLY so a
 // standalone/embed context that can't provide it (or fails to load it) still runs on opts
@@ -180,6 +180,7 @@ export function openHelmChase(container, opts = {}) {
     // the water rather than silhouetted on the horizon behind the binnacle.
     extYaw: opts.extYaw ?? REST.yaw, extPitch: opts.extPitch ?? REST.pitch, extZoom: opts.extZoom ?? REST.zoom,
     restPitch: opts.extPitch ?? REST.pitch,   // resting elevation — the console re-tunes this by panel size (setRestPitch)
+    restZoom: opts.extZoom ?? REST.zoom,       // resting chase distance — the console re-tunes this by panel size (setRestZoom): a short pane pulls the camera back so the whole hull stays in the water band above the dash
     wx: { key: null, field: null },
     onArrive: opts.onArrive || null,
     alive: true, raf: 0, last: performance.now(),
@@ -315,7 +316,7 @@ export function openHelmChase(container, opts = {}) {
     // Planes over the Basin: convert each contact's absolute tile to an offset from the yacht (the
     // same dx/dy the flight sim hands the windshield) so drawContacts frames them around her.
     const contacts = st.contacts.length
-      ? st.contacts.map(c => { const dx = (c.x ?? 0) - st.gx, dy = (c.y ?? 0) - st.gy; return { ...c, dx, dy, ...(c.onGround ? { groundZ: 0, altDiff: 0 } : { altDiff: c.alt || 0 }), rng: Math.hypot(dx, dy) }; })
+      ? st.contacts.map(c => { const dx = (c.x ?? 0) - st.gx, dy = (c.y ?? 0) - st.gy; return { ...c, dx, dy, ...(c.onGround ? { groundZ: 0, altDiff: 0 } : { altDiff: c.alt || 0 }), rng: Math.hypot(dx, dy), breakup: surfaceBreakup(c.surfaces) }; })
       : null;
 
     paintWindshield(id, {
@@ -421,12 +422,17 @@ export function openHelmChase(container, opts = {}) {
     // pinned (no vertical lift), so you can spin all the way around but never tilt the eye up or down.
     orbit(dYaw) { st.extYaw = (st.extYaw + dYaw + 360) % 360; },
     zoom(dz) { st.extZoom = Math.max(0.6, Math.min(2.4, st.extZoom * (1 + dz))); },
-    resetView() { st.extYaw = opts.extYaw ?? REST.yaw; st.extPitch = st.restPitch; st.extZoom = opts.extZoom ?? REST.zoom; },
+    resetView() { st.extYaw = opts.extYaw ?? REST.yaw; st.extPitch = st.restPitch; st.extZoom = st.restZoom; },
     // Resting elevation, driven by the console from the visible water band: a cramped view (panel up)
     // pitches DOWN (top-down) so the whole hull reads in the short band; a roomy view (fullscreen)
     // eases toward a level near-horizon chase. The ship is kept centred by the canvas itself sizing to
     // the band, so this only sets the ANGLE, not her screen position. Adopts it live unless mid-orbit.
     setRestPitch(p) { const was = st.restPitch; st.restPitch = p; if (Math.abs(st.extPitch - was) < 1e-3) st.extPitch = p; },
+    // Resting chase DISTANCE, driven by the console from the pane geometry: a short pane (console riding
+    // high, little clear water above it) pulls the camera back (bigger extZoom) so the whole hull shrinks
+    // to fit the band; a roomy/fullscreen pane eases back toward the resting frame. Adopts it live unless
+    // the player has manually wheel-zoomed (extZoom drifted off the last resting value) — mirrors setRestPitch.
+    setRestZoom(z) { const was = st.restZoom; st.restZoom = z; if (Math.abs(st.extZoom - was) < 1e-3) st.extZoom = z; },
     // Steer by the wheel's spin (RELATIVE): `deg` is the signed change in demanded course this frame
     // (+ = right/CW, − = left/CCW). It accumulates onto courseDemand — kept UNBOUNDED so the heading
     // climbs/falls the same way the wheel turned — and she eases toward it, EXCEPT within LOCK_TOL of

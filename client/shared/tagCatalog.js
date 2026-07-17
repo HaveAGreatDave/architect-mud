@@ -308,6 +308,8 @@
       help: 'Water zone — crossing requires a boat-tagged item.' },
     always_lit: { label: 'Always Lit', shape: 'flag', scope: 'zone', group: 'Zone: Structure',
       help: 'Never dark regardless of power/time.' },
+    terrain: { label: 'Terrain', shape: 'enum', options: ['water', 'road', 'asphalt', 'concrete', 'grass', 'dirt', 'sand', 'gravel', 'dock'], scope: 'zone', group: 'Zone: Structure',
+      help: 'Ground surface for the map/minimap and the flight-sim ground tint — the authoritative source for zoneTerrain (overrides the inferred surface). Painted in the dev panel: Maps → Terrain mode. Road tiles auto-tile their connector piece from adjacent road tiles.' },
 
     yacht: { label: 'Yacht (Access-Gated)', shape: 'flag', scope: 'zone', group: 'Zone: Echelon',
       help: 'Marks a zone as part of an invite-only vessel (the yacht plugin). Boarding on foot is blocked for the uninvited; an uninvited player who ends up here anyway (teleport/glitch) is smitten on entry.' },

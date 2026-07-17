@@ -47,7 +47,9 @@ function cookFamily(drug) { return COOK_FAMILY[drug?.flags?.form] || 'wet'; }
 function cookDiff(tier) { return Math.max(1, Math.min(14, 2 + tier * 2)); } // tier1=4 … tier5=12
 
 function synthRecipes() {
-  return Object.values(getRecipeCache()).filter(r => r.skill_id === SYNTH_SKILL);
+  // Cook = a chemistry recipe whose output is an actual drug. Non-drug chemistry
+  // recipes (e.g. the compound stabilizer) are crafted via `craft`, not cooked.
+  return Object.values(getRecipeCache()).filter(r => r.skill_id === SYNTH_SKILL && drugForOutput(r));
 }
 
 async function playerInventory(playerId) {
@@ -224,7 +226,8 @@ async function cmdSynthResolve(args, raw, player, broadcast) {
 // ════════════════════════════════════════════════════════════════════════════
 // SPLICING — the master tier. Break down drugs and graft their effect-blocks
 // onto a base drug to make a bespoke compound. Gated on high chemistry + a real
-// lab. Consumes one dose of each source drug + a Stabilizer. The composed
+// lab. Consumes one dose of each source drug + a single Stabilizer (a fixed
+// per-run overhead, whatever the batch size). The composed
 // effects blob rides on the produced item's custom_data (an "inline drug" that
 // useDrug reads directly — no DB drug row per splice). Four risks: instability →
 // bad batch, antagonistic clash → harder, overload → OD-prone, lethal blowback.
@@ -489,10 +492,13 @@ async function cmdSpliceBegin(args, raw, player, broadcast) {
   const comp = composeSplice(inputs);
   const outputQty = comp.outputQty;
 
-  // Inputs scale with the batch: each slot's quantity, plus one stabilizer per
-  // finished dose. Require enough across the player's stacks.
+  // Source drugs scale with the batch (each slot's quantity), but the Stabilizer
+  // is a fixed per-run overhead — one stabilizes the whole reaction, not each
+  // dose. So bulk runs amortize their (rare, costly) stabilizer across the batch,
+  // trading the quality/instability penalty of a big batch for a lower per-dose
+  // cost. Require enough across the player's stacks.
   const need = inputs.map(i => ({ itemId: i.itemId, qty: i.qty, label: i.name }));
-  need.push({ itemId: STABILIZER_ITEM, qty: outputQty, label: 'Stabilizer' });
+  need.push({ itemId: STABILIZER_ITEM, qty: 1, label: 'Stabilizer' });
   const inv = await playerInventory(player.id);
   for (const n of need) {
     const have = inv.filter(v => v.item_id === n.itemId).reduce((s, v) => s + v.quantity, 0);

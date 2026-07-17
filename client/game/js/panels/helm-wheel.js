@@ -65,7 +65,7 @@ export function createHelmWheel(canvas, opts = {}) {
 
   function step(dt) {
     if (!enabled) { vel = 0; reported = angle; return; }   // pinned while underway — accrue no course change
-    if (!grabbing) { angle += vel * dt; vel *= Math.exp(-5.5 * dt); if (Math.abs(vel) < 0.05) vel = 0; }   // heavy: a little follow-through, settles fast
+    if (!grabbing) { angle += vel * dt; vel *= Math.exp(-2.75 * dt); if (Math.abs(vel) < 0.03) vel = 0; }   // a big flywheel: a throw coasts ~twice as far and spins down slow (total follow-through ∝ vel/decay)
     const d = angle - reported;                 // how far the wheel turned since we last reported
     if (d) { onSteer((d / GEAR) * 180 / Math.PI); reported = angle; }   // spin direction → heading change (CW=right, CCW=left)
   }

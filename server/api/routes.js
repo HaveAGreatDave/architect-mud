@@ -1,6 +1,6 @@
 import { query, logActivity } from '../models/db.js';
 import { syncContentFromRequest, syncZoneDeletion } from './content-sync.js';
-import { reloadZone, getAllZones, world, getAllLivePlayers, getZone, addPlayerToZone, removePlayerFromZone, getMinimapData, reloadGlobalAmbients, spawnEnemySync, setDoorCache, deleteDoorCache, getZoneDoors, reloadSpawn, removeSpawn, isEnterableFacade, resolveLanding, reloadMaps, insertFurniture, updateFurniture, deleteFurniture, deleteFurnitureWhere } from '../engine/world.js';
+import { reloadZone, getAllZones, world, getAllLivePlayers, getZone, addPlayerToZone, removePlayerFromZone, getMinimapData, reloadGlobalAmbients, spawnEnemySync, setDoorCache, deleteDoorCache, getZoneDoors, reloadSpawn, removeSpawn, isEnterableFacade, resolveLanding, reloadMaps, insertFurniture, updateFurniture, deleteFurniture, deleteFurnitureWhere, zoneTerrain } from '../engine/world.js';
 import { describeZone, describeVoidTeleport } from '../engine/commands/index.js';
 import { allExits } from '../engine/exits.js';
 import { detectBathroomSide } from '../engine/commands/doors.js';
@@ -260,6 +260,7 @@ async function dispatchApiRequest(url, method, body, headers) {
   if (path==='/zones' && method==='POST') return requireDev(auth, ()=>apiCreateZone(body,auth));
   if (path==='/maps' && method==='GET') return requireDev(auth, apiGetMaps);
   if (path==='/maps/link-interior' && method==='POST') return requireDev(auth, ()=>apiLinkInterior(body, auth));
+  if (path==='/maps/move-building' && method==='POST') return requireDev(auth, ()=>apiMoveBuilding(body));
   if (path.startsWith('/maps/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteMap(path.split('/')[2]));
   if (path.startsWith('/maps/') && method==='GET') return requireDev(auth, ()=>apiGetMap(path.split('/')[2]));
   // Zone IDs may contain '/' — extract with slice, not split, to handle them correctly
@@ -894,6 +895,84 @@ async function apiLinkInterior(body, auth) {
   }
 
   return { status: 200, body: { interiorMap, layoutCount } };
+}
+
+// Plan a building-facade relocation: validate the destination and compute the per-zone
+// exit/position changes needed to move the facade and rewire its front door (the interior
+// map travels for free — it links by parent_zone_id, not position). Pure — never mutates;
+// the dev panel STAGES the returned `changes` through the Changes panel (published together),
+// mirroring terrain edits. Guardrails: destination must be empty and have an adjacent street.
+const MOVE_CARDINAL = { north: [0, -1], south: [0, 1], east: [1, 0], west: [-1, 0] };
+async function apiMoveBuilding(body) {
+  const { facadeId, toX, toY, toZ = 0 } = body || {};
+  if (!facadeId || toX == null || toY == null) return { status: 400, body: { error: 'facadeId, toX and toY are required.' } };
+  const facade = getZone(facadeId);
+  if (!facade) return { status: 404, body: { error: `No zone "${facadeId}".` } };
+  if (facade.map_id == null || facade.grid_x == null) return { status: 400, body: { error: 'That building is not placed on a map.' } };
+
+  // Must be a building facade — has an interior map, or is flagged/enterable as one.
+  const { rows: mapRows } = await query('SELECT id FROM maps WHERE parent_zone_id=$1 LIMIT 1', [facadeId]);
+  if (!mapRows.length && !facade.flags?.building_type && !isEnterableFacade(facade))
+    return { status: 400, body: { error: `${facade.name} isn't a building facade (no interior map).` } };
+
+  const mapId = facade.map_id, z = toZ;
+  // Coord index over this map/floor.
+  const byCoord = new Map();
+  for (const t of getAllZones())
+    if (t.map_id === mapId && t.grid_x != null && (t.grid_z ?? 0) === z) byCoord.set(`${t.grid_x},${t.grid_y}`, t);
+  const cellAt = (x, y) => byCoord.get(`${x},${y}`) || null;
+
+  const occupant = cellAt(toX, toY);
+  if (occupant && occupant.id !== facadeId) return { status: 400, body: { error: `Destination cell is occupied by ${occupant.name}.` } };
+
+  // A "street" is a placed, walkable exterior tile that can host a front door.
+  const isStreet = (t) => !!t && t.grid_x != null && !isEnterableFacade(t)
+    && !t.flags?.is_building && !t.flags?.is_interior && !t.flags?.is_apartment && !t.flags?.water;
+
+  // Working copies of exits for every zone we touch.
+  const touched = new Map();
+  const workExits = (t) => { if (!touched.has(t.id)) touched.set(t.id, { ...(t.exits || {}) }); return touched.get(t.id); };
+
+  const plan = { facade: { id: facadeId, name: facade.name, from: [facade.grid_x, facade.grid_y, facade.grid_z ?? 0], to: [toX, toY, z] }, moves: [] };
+
+  // Detach the old front door: facade cardinal exits to streets, and streets pointing into the facade.
+  for (const dir of Object.keys(MOVE_CARDINAL)) {
+    const fx = facade.exits?.[dir];
+    if (fx) { const t = getZone(fx); if (t && isStreet(t)) { delete workExits(facade)[dir]; plan.moves.push(`Detach ${facade.name} → ${t.name} (${dir})`); } }
+  }
+  for (const t of byCoord.values()) {
+    if (t.id === facadeId) continue;
+    for (const dir of Object.keys(MOVE_CARDINAL)) {
+      if (t.exits?.[dir] === facadeId) { delete workExits(t)[dir]; plan.moves.push(`Detach ${t.name} → ${facade.name} (${dir})`); }
+    }
+  }
+
+  // Pick a destination door street: a grid-adjacent street whose door direction is free on
+  // the (moved) facade. Prefer a road-terrain neighbour.
+  const facadeExitsAfter = workExits(facade);
+  const candidates = [];
+  for (const [dir, [dx, dy]] of Object.entries(MOVE_CARDINAL)) {
+    if (facadeExitsAfter[dir]) continue; // that side already leads somewhere (e.g. the interior)
+    const nb = cellAt(toX + dx, toY + dy);
+    if (isStreet(nb) && !(nb.exits?.[OPPOSITE[dir]] && nb.exits[OPPOSITE[dir]] !== facadeId)) candidates.push({ dir, nb });
+  }
+  if (!candidates.length) return { status: 400, body: { error: 'Destination has no adjacent street to host a front door — pick a cell next to a road.' } };
+  const pick = candidates.find(c => zoneTerrain(c.nb) === 'road') || candidates[0];
+  workExits(facade)[pick.dir] = pick.nb.id;
+  workExits(pick.nb)[OPPOSITE[pick.dir]] = facadeId;
+  plan.moves.push(`Wire ${facade.name} ↔ ${pick.nb.name} (${pick.dir}) as the new front door`);
+  plan.door = { street: pick.nb.id, streetName: pick.nb.name, dir: pick.dir };
+
+  // Per-zone changes for the dev panel to stage (facade moves + rewires; streets rewire).
+  const changes = [];
+  for (const [id, exits] of touched) {
+    const t = getZone(id);
+    const patch = { exits };
+    if (id === facadeId) { patch.grid_x = toX; patch.grid_y = toY; patch.grid_z = z; }
+    changes.push({ id, name: t?.name || id, patch });
+  }
+  if (!touched.has(facadeId)) changes.push({ id: facadeId, name: facade.name, patch: { grid_x: toX, grid_y: toY, grid_z: z } });
+  return { status: 200, body: { plan, changes } };
 }
 
 // Given a placed building root zone at 0,0,0, traverse the exit chain in

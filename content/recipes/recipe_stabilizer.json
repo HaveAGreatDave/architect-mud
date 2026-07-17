@@ -1,0 +1,27 @@
+{
+  "base_difficulty": 12,
+  "base_output": {
+    "item_id": "item_stabilizer",
+    "quantity": 1
+  },
+  "category": "chemical",
+  "craft_time": 4,
+  "description": "Synthesize a compound stabilizer from an industrial catalyst and solvent — master-tier chemistry, and touchy to get right.",
+  "id": "recipe_stabilizer",
+  "ingredients": [
+    {
+      "item_id": "item_catalyst",
+      "quantity": 1
+    },
+    {
+      "item_id": "item_solvent_jug",
+      "quantity": 1
+    }
+  ],
+  "name": "Synthesize Compound Stabilizer",
+  "requires_station": null,
+  "skill_id": "chemistry",
+  "skill_req": {
+    "chemistry": 8
+  }
+}

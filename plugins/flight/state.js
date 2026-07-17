@@ -492,6 +492,16 @@ export function advance(live, tiles) {
 // edge must sit well beyond the draw distance or new tiles would starve/pop. Keep
 // radius ≥ VISIBLE_FAR_F + drift so the farthest tile the renderer wants always exists in
 // the payload. It's a ~2400-cell JSON pushed only every 3s while airborne — cheap.
+// A surface cell reads as road if it's a named artery, carries a road/runway map icon, or
+// is painted `road` terrain — the same signals the minimap paints grey asphalt from.
+function isRoadCell(c) {
+  const f = c && c.flags;
+  if (!f) return false;
+  return (Array.isArray(f.artery) && f.artery.length > 0)
+    || /^(road_|runway_)/.test(f.icon || '')
+    || f.terrain === 'road';
+}
+
 function mapWindow(a, radius = 36) {
   const rows = [];
   for (let dy = -radius; dy <= radius; dy++) {
@@ -510,8 +520,7 @@ function mapWindow(a, radius = 36) {
       // the same one the minimap paints grey asphalt), so EVERY street on the map gets its
       // asphalt + lane markings out the canopy — not just the major avenues.
       const biome = biomeOf(cell);
-      const road = (Array.isArray(cell.flags?.artery) && cell.flags.artery.length)
-        || /^(road_|runway_)/.test(cell.flags?.icon || '') ? 1 : 0;
+      const road = isRoadCell(cell) ? 1 : 0;
       const kind = cell.flags?.airfield_id ? 'field' : cell.flags?.airspace_restricted ? 'nofly' : 'land';
       // Building tiles carry their building_type AND their name so the windshield can
       // render either a dedicated per-building model (keyed off the name) or, failing
@@ -561,6 +570,16 @@ function mapWindow(a, radius = 36) {
       let rd;
       const im = /^road_([nesw]+|x)$/.exec(cell.flags?.icon || '');
       if (im) rd = im[1] === 'x' ? 'nesw' : im[1];
+      else if (cell.flags?.terrain === 'road') {
+        // Painted road with no authored icon: auto-tile the connector from adjacent road cells.
+        const cx = a.grid_x + dx, cy = a.grid_y + dy;
+        let s = '';
+        if (isRoadCell(surfaceAt(cx, cy - 1))) s += 'n';
+        if (isRoadCell(surfaceAt(cx + 1, cy))) s += 'e';
+        if (isRoadCell(surfaceAt(cx, cy + 1))) s += 's';
+        if (isRoadCell(surfaceAt(cx - 1, cy))) s += 'w';
+        rd = s || 'nesw';
+      }
       row.push({ kind, biome, road, danger: cell.danger, bt, bn, ent, flr, mark, rd, wake, sub, heading, self });
     }
     rows.push(row);
@@ -740,9 +759,18 @@ export function reconcile(live, d) {
   a.grid_x = Math.round(live.fx); a.grid_y = Math.round(live.fy);
   a.heading = String(((Math.round(d.hdg) % 360) + 360) % 360);
   a.throttle = cl(Math.round(d.thr), 0, 100);
-  const alt = Math.max(0, d.alt || 0);
+  let alt = Math.max(0, d.alt || 0), vs = d.vs || 0;
+  // Damage-aware envelope: a craft that's shed a wing can't be flown straight-and-level by
+  // a modified client — it can hold height or lose it, never climb. Deliberately LOOSE
+  // (reject "flying like nothing happened", not a physics re-sim), so a legit pilot fighting
+  // the controls on the way down is never false-snapped. Tightening these is a pure tuning pass.
+  if (a.airborne && anyWingLost(a)) {
+    const prevAlt = live.cont?.altitude ?? alt;
+    if (alt > prevAlt) alt = prevAlt;   // no net climb on one wing
+    if (vs > 0) vs = 0;
+  }
   a.altitude_band = bandFromAltitude(alt, d.onGround);
-  live.cont = { altitude: alt, airspeed: Math.max(0, d.ias || 0), vs: d.vs || 0,
+  live.cont = { altitude: alt, airspeed: Math.max(0, d.ias || 0), vs,
     bank: Number.isFinite(d.bank) ? d.bank : 0, pitch: Number.isFinite(d.pitch) ? d.pitch : 0,
     onGround: !!d.onGround, stalled: !!d.stalled };
 }
@@ -778,6 +806,7 @@ export function contextPayload(live) {
     warn: a.fuel <= 0 ? 'STARVATION' : (a.fuel <= cap * BINGO_FRAC ? 'BINGO' : null),
     aa: live.aaThreat || null,                  // AA engagement-envelope telegraph (set by combat.tickCombat)
     hull: Math.max(0, Math.round((1 - (a.damage || 0)) * 100)),   // for the cockpit hull readout / battle damage
+    surfaces: surfacesWire(a),                  // sheared structural surfaces (null when intact) → live breakup model + asymmetric physics
     msl: mslAmmo(live),                         // missiles left on the rails (ammo pips)
     checkride: live.checkride?.clientView || null,   // guided-checkride instruction toast + ring gates (null = not on a checkride)
   };
@@ -821,6 +850,7 @@ export function airContact(live) {
     band: a.altitude_band,
     onGround: !a.airborne,   // rolling/taxiing on the deck → viewers pin its gear to the ground (z=0), not eye-level
     hullPct: Math.max(0, Math.round((1 - (a.damage || 0)) * 100)),
+    surfaces: surfacesWire(a),   // sheared surfaces → spectators render the cripple too, not a pristine bogey
     reg: String(a.name || live.type?.name || '???').toUpperCase().slice(0, 8),
     cls: live.type?.class || 'prop',
     firing: (live.firingUntil || 0) > Date.now(),   // guns hot right now → viewers draw its tracers
@@ -872,12 +902,69 @@ export function detach(player, { restore = true } = {}) {
   if (live) reap(live);
 }
 
+// ── Structural surfaces (battle damage) ───────────────────────────────────────
+// A craft's structural surfaces that combat fire can shear clean off. Binary
+// intact(1)/sheared(0) per surface for now — the map shape leaves room for graduated
+// 0..1 health later without a data migration. Lives on custom_data.surfaces so it
+// rides the existing persist (no schema change). Absent/empty ⇒ everything intact
+// (back-compat for every existing row). These four map onto the render roles
+// (wing+aileron+flap per side, stab/elevator = tail, fin/rudder = rudder) and onto
+// distinct flight-physics effects (asymmetric roll/yaw/lift, pitch/yaw authority).
+export const SURFACE_KEYS = ['leftWing', 'rightWing', 'tail', 'rudder'];
+// A surface can only shear once the hull is deep in the red — early hits stay ordinary
+// attrition; catastrophic loss is a late-fight drama beat, not a lucky one-shot.
+export const SHEAR_HULL_THRESHOLD = 0.7;   // hull < 30%
+const SHEAR_WEIGHTS = [['leftWing', 3], ['rightWing', 3], ['tail', 2], ['rudder', 1]];
+
+// The surfaces map for the wire/render — but ONLY when something's actually gone, so
+// an intact craft sends nothing and the client's "any surfaces present ⇒ cripple" test
+// stays trivial. Returns null when nothing is sheared.
+export function surfacesWire(a) {
+  const s = a.custom_data?.surfaces;
+  if (!s || typeof s !== 'object') return null;
+  if (!SURFACE_KEYS.some(k => s[k] === 0)) return null;
+  const out = {}; for (const k of SURFACE_KEYS) out[k] = s[k] === 0 ? 0 : 1;
+  return out;
+}
+export function anyWingLost(a) {
+  const s = a.custom_data?.surfaces;
+  return !!s && (s.leftWing === 0 || s.rightWing === 0);
+}
+// Clear all battle damage to surfaces — called from the repair/rebuild paths alongside
+// damage=0 (a field DIY patch can't reattach a wing, but a full hangar job can).
+export function resetSurfaces(a) {
+  if (a.custom_data?.surfaces) delete a.custom_data.surfaces;
+}
+// Roll whether this hit shears a structural surface. Gated on the hull threshold, then a
+// crit whose odds scale with the bite of the hit (a graze rarely tears metal off; a solid
+// cannon burst or a missile often does). Mutates a.custom_data.surfaces and returns the
+// sheared surface key (for feedback) or null. Wings are likelier to go than the tail feathers.
+export function shearRoll(a, amount) {
+  if ((a.damage || 0) < SHEAR_HULL_THRESHOLD) return null;
+  if (Math.random() >= Math.min(0.8, 0.2 + amount * 1.8)) return null;
+  const cd = a.custom_data || (a.custom_data = {});
+  const surf = cd.surfaces || (cd.surfaces = {});
+  const intact = SHEAR_WEIGHTS.filter(([k]) => surf[k] !== 0);
+  if (!intact.length) return null;   // nothing left to lose
+  const total = intact.reduce((s, [, w]) => s + w, 0);
+  let r = Math.random() * total, pick = intact[0][0];
+  for (const [k, w] of intact) { if ((r -= w) <= 0) { pick = k; break; } }
+  surf[pick] = 0;
+  return pick;
+}
+
 // ── Difficulty helpers (piloting checks + minigame board tuning) ──────────────
+// A lost structural surface piles onto the piloting-check difficulty on top of the raw
+// hull penalty — a one-winged bird is a nightmare to set down.
+function surfacePenalty(a) {
+  const s = a.custom_data?.surfaces; if (!s) return 0;
+  return SURFACE_KEYS.reduce((n, k) => n + (s[k] === 0 ? 3 : 0), 0);
+}
 export function takeoffDifficulty(live) {
-  return Math.round(4 + effStats(live).handling + (live.row.damage || 0) * 6);
+  return Math.round(4 + effStats(live).handling + (live.row.damage || 0) * 6 + surfacePenalty(live.row));
 }
 export function landDifficulty(live, emergency) {
-  return Math.round(5 + effStats(live).handling + (live.row.damage || 0) * 6 + (emergency ? 4 : 0));
+  return Math.round(5 + effStats(live).handling + (live.row.damage || 0) * 6 + surfacePenalty(live.row) + (emergency ? 4 : 0));
 }
 
 // ── Bring a craft to rest at an airfield; restore occupants to the ground ──────

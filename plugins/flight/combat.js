@@ -13,7 +13,7 @@ import { skillCheck, effectiveSkill, awardSkillUse } from '../../server/engine/s
 import {
   liveAircraft, surfaceAt, crash, toOccupants, out, pushHud, persist, pilotOf,
   sendToZone, sendToPlayer, getZone, getLivePlayer, BANDS, isContinuous,
-  CONTACT_RANGE, airContact, bearingDeg, toDeg, pushContext, isGroundRolling,
+  CONTACT_RANGE, airContact, bearingDeg, toDeg, pushContext, isGroundRolling, shearRoll,
   GUN_RANGE_GATE, GUN_CONE_GATE, GUN_DMG, GUN_COOLDOWN_MS,
   MISSILE_RANGE_GATE, MISSILE_FLIGHT_MS, MISSILE_PK, MISSILE_DMG, MISSILE_COOLDOWN_MS,
   FLARE_DEFEAT, FLARE_WINDOW_MS, FLARE_COOLDOWN_MS, mslAmmo,
@@ -26,6 +26,9 @@ import { dispatchAction } from '../../server/engine/actions.js';
 import { emit } from '../../server/engine/events.js';
 
 const cheb = (ax, ay, bx, by) => Math.max(Math.abs(ax - bx), Math.abs(ay - by));
+
+// Plain-English name of a sheared structural surface, for the "she's coming apart" feedback line.
+const SHEAR_LABEL = { leftWing: 'the left wing', rightWing: 'the right wing', tail: 'the tailplane', rudder: 'the rudder' };
 
 // ── Air-to-air contacts (Phase A: relay other airborne craft to nearby pilots) ─
 // Other airborne, non-wreck craft within CONTACT_RANGE of `live`, nearest first.
@@ -109,12 +112,18 @@ async function applyAirDamage(targetLive, amount, byPlayer, reason = 'shotdown',
   if (t.damage >= 1) { await crash(targetLive, reason, byPlayer); return true; }
   const hullPct = Math.round((1 - t.damage) * 100);
   const dmg = Math.round(amount * 100);   // this hit's bite (hull %), for the cockpit shake
-  toOccupants(targetLive, message || `<span class="text-red">⚠ TAKING FIRE — cannon rounds rake the airframe. Hull ${hullPct}%.</span>`);
+  // A heavy hit on an already-ravaged airframe (hull deep in the red) can rip a wing — or the
+  // tail feathers — clean off. Decided authoritatively here, server-side, so a modified client
+  // can't pretend it's whole; the client just flies the consequence + renders the missing part.
+  const sheared = shearRoll(t, amount);
+  toOccupants(targetLive, sheared
+    ? `<span class="text-red">💥 STRUCTURAL FAILURE — ${SHEAR_LABEL[sheared] || 'a control surface'} tears away! She's barely flying.</span>`
+    : (message || `<span class="text-red">⚠ TAKING FIRE — cannon rounds rake the airframe. Hull ${hullPct}%.</span>`));
   for (const pid of targetLive.occupants) {
     const p = getLivePlayer(pid);
-    if (p && p.seat === 'pilot') sendToPlayer(pid, { type: 'air_hit', role: 'taken', hullPct, dmg, by: byPlayer?.handle || null });
+    if (p && p.seat === 'pilot') sendToPlayer(pid, { type: 'air_hit', role: 'taken', hullPct, dmg, sheared: sheared || null, by: byPlayer?.handle || null });
   }
-  if (isContinuous(targetLive)) pushContext(targetLive);   // refresh their hull gauge now, not next tick
+  if (isContinuous(targetLive)) pushContext(targetLive);   // refresh their hull gauge + surfaces now, not next tick
   return false;
 }
 

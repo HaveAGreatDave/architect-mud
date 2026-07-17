@@ -9,7 +9,8 @@ import { signatureMult, signatureScore, colorName, describeExterior,
   readSchemes, schemeOf } from './livery.js';
 import { crashSeverity, collateralBill, isSeverelyImpaired } from './collateral.js';
 import { sellAircraft, cancelRental, flushAirborne } from './hangars.js';
-import { computeStats, perfAxes, tuneRange, installedKits, KITS, TUNE_DIAL_MAX } from './state.js';
+import { computeStats, perfAxes, tuneRange, installedKits, KITS, TUNE_DIAL_MAX,
+  shearRoll, surfacesWire, anyWingLost, resetSurfaces, SURFACE_KEYS } from './state.js';
 import { isFreightLicensed, ensureFreightDrops } from './contracts.js';
 import { isPilotLicensed, _test as checkrideTest } from './checkride.js';
 import { setFlag } from '../../server/engine/flags.js';
@@ -37,6 +38,34 @@ export default async function regress({ run, check, getPlayer }) {
   const hurt = { type: { handling: -1 }, row: { damage: 0.5, custom_data: {} } };
   check('landDifficulty rises with damage', _test.landDifficulty(hurt, false) > _test.landDifficulty(clean, false));
   check('emergency landing is harder', _test.landDifficulty(clean, true) > _test.landDifficulty(clean, false));
+
+  // ── Structural battle-damage surfaces ───────────────────────────────────────
+  check('an intact craft reports no surfaces on the wire',
+    surfacesWire({ custom_data: {} }) === null && surfacesWire({ custom_data: { surfaces: { leftWing: 1, rightWing: 1 } } }) === null);
+  check('a sheared surface shows on the wire', (() => {
+    const w = surfacesWire({ custom_data: { surfaces: { leftWing: 0 } } });
+    return !!w && w.leftWing === 0 && w.rightWing === 1;
+  })());
+  check('anyWingLost detects a gone wing, not a gone tail',
+    anyWingLost({ custom_data: { surfaces: { rightWing: 0 } } }) === true
+    && anyWingLost({ custom_data: { surfaces: { tail: 0 } } }) === false);
+  check('shear is gated behind the hull threshold', shearRoll({ damage: 0.3, custom_data: {} }, 1) === null);
+  check('a heavy hit deep in the red shears a valid surface', (() => {
+    for (let i = 0; i < 300; i++) {
+      const a = { damage: 0.95, custom_data: {} };
+      const k = shearRoll(a, 0.5);
+      if (k) return SURFACE_KEYS.includes(k) && a.custom_data.surfaces[k] === 0;
+    }
+    return false;
+  })());
+  check('shear never re-takes an already-lost surface', (() => {
+    const a = { damage: 1, custom_data: { surfaces: { leftWing: 0, rightWing: 0, tail: 0, rudder: 0 } } };
+    return shearRoll(a, 1) === null;   // nothing intact left to lose
+  })());
+  check('resetSurfaces clears battle damage', (() => {
+    const a = { custom_data: { surfaces: { leftWing: 0 } } }; resetSurfaces(a);
+    return !a.custom_data.surfaces && surfacesWire(a) === null;
+  })());
 
   // Engine-noise propagation: bigger/louder craft carry farther; altitude silences.
   const quiet = { type: { noise: 1, engines: 1, max_takeoff_weight: 90 }, row: { throttle: 60, altitude_band: 'low' } };

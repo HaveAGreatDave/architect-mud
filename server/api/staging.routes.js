@@ -8,6 +8,7 @@
 
 import { query } from '../models/db.js';
 import { removeGenerator } from '../engine/environment.js';
+import { reloadMaps } from '../engine/world.js';
 import {
   apiCreateZone, apiDeleteZone,
   apiCreateFurniture, apiDeleteFurniture,
@@ -112,6 +113,18 @@ const UPDATERS = {
   drug:      (id, data) => apiUpdateDrug(id, data),
   window:    (id, data) => apiUpdateWindow(id, data),
   scavenging_table: (id, data) => apiUpdateScavengingTable(id, data),
+  // A grouped building relocation: apply every touched zone's patch, then rebuild the
+  // facade entrance-dir cache. Published atomically as one change, so a building never
+  // ends up half-moved by a partial publish.
+  building_move: async (facadeId, data) => {
+    const changes = data?.changes || [];
+    for (const c of changes) {
+      const r = await apiUpdateZone(c.id, c.patch || {});
+      if (r?.body?.error) throw new Error(`${c.name || c.id}: ${r.body.error}`);
+    }
+    await reloadMaps();
+    return { status: 200, body: { moved: changes.length } };
+  },
 };
 
 const CREATORS = {

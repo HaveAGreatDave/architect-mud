@@ -2889,6 +2889,22 @@ function drawContacts(ctx, cam, v, W, H, sun, now) {
   for (const id of _contactRoll.keys()) if (!live.has(id)) _contactRoll.delete(id);   // drop departed bogeys
   ctx.restore();
 }
+// Live battle-damage break-up: a persistent break-up spec from a craft's sheared-surface map
+// ({leftWing,rightWing,tail,rudder} where 0 = gone). Each lost surface's faces are drifted far
+// out of the model's own frame so it simply reads as MISSING that piece — the same shed machinery
+// the crash cinematic uses, but settled (not tumbling away). Shared by the cockpit's own-ship view,
+// its air-contact bogeys, and the Helm chase cam. Returns null when the craft is whole. side −1 =
+// left, +1 = right, null = both halves (matches shedPartFor's centreline test below).
+const _SHEAR_FAR = [-4, 8, -5];   // large local-space drift → the piece leaves the visible silhouette entirely
+export function surfaceBreakup(surfaces) {
+  if (!surfaces) return null;
+  const parts = [];
+  if (surfaces.leftWing === 0)  parts.push({ roles: ['wing', 'aileron', 'flap'], side: -1,   off: _SHEAR_FAR, spin: 2.5 });
+  if (surfaces.rightWing === 0) parts.push({ roles: ['wing', 'aileron', 'flap'], side: 1,    off: _SHEAR_FAR, spin: 2.5 });
+  if (surfaces.tail === 0)      parts.push({ roles: ['stab', 'elevator'],        side: null, off: _SHEAR_FAR, spin: 2.5 });
+  if (surfaces.rudder === 0)    parts.push({ roles: ['fin', 'rudder'],           side: null, off: _SHEAR_FAR, spin: 2.5 });
+  return parts.length ? { t: 1, parts } : null;
+}
 // Crash break-up: which shed part (if any) a face belongs to. A part is a set of roles on
 // one side of the centreline (so only the RIGHT wing or the LEFT tailplane tears off, not
 // both). `side` null matches either side (the vertical fin, which straddles the centreline).

@@ -221,6 +221,9 @@ export function interiorExitDirs(zone) {
 // way parks are painted). Buildings and ordinary street tiles return null.
 export function zoneTerrain(zone) {
   if (!zone) return null;
+  // Authored terrain wins — the paint tool writes flags.terrain and it is the SSOT.
+  // The inference below stays as the fallback for tiles that were never painted.
+  if (zone.flags?.terrain) return zone.flags.terrain;
   if (zone.flags?.water) return 'water';
   if (/^(road_|runway_)/.test(zone.flags?.icon || '')) return 'road';
   if (buildingIconSvg(zone)) return null; // a building footprint, not terrain
@@ -231,6 +234,35 @@ export function zoneTerrain(zone) {
     // the dark muted grasslands (bg #2f3a26). `g - b >= 15` keeps teal/cyan docks out.
     if (g > r && g - b >= 15 && g >= 45) return 'grass';
   }
+  return null;
+}
+
+// The road-connector SVG for a road tile, auto-tiled from which orthogonal neighbors are
+// also road terrain — so painting roads next to each other forms straights / turns / T-
+// junctions / crossroads with no hand-picked piece (mirrors tools/zone-planner apply.mjs
+// roadIcon, but computed live from adjacency). `at(x,y,z)` returns the neighbor zone at a
+// grid coord (null when out of the caller's window). Returns a `road_<nesw>` name, `road_x`
+// when isolated, or null for a non-grid tile.
+export function roadConnector(zone, at) {
+  if (!zone || zone.grid_x == null || zone.grid_y == null) return null;
+  const x = zone.grid_x, y = zone.grid_y, z = zone.grid_z ?? 0;
+  const isRoad = (nx, ny) => zoneTerrain(at(nx, ny, z)) === 'road';
+  let s = '';
+  if (isRoad(x, y - 1)) s += 'n';
+  if (isRoad(x + 1, y)) s += 'e';
+  if (isRoad(x, y + 1)) s += 's';
+  if (isRoad(x - 1, y)) s += 'w';
+  return s ? 'road_' + s : 'road_x';
+}
+
+// The named zone-icon SVG for a tile's map payload: an authored `flags.icon` / building
+// rooftop wins (so hand-tuned roads are untouched); otherwise a painted `road` terrain
+// auto-tiles into the right connector piece. `at` is the caller's coord lookup (see
+// roadConnector); omit it to skip road auto-tiling.
+export function tileIconSvg(zone, at) {
+  const authored = zone.flags?.icon || buildingIconSvg(zone);
+  if (authored) return authored;
+  if (at && zoneTerrain(zone) === 'road') return roadConnector(zone, at);
   return null;
 }
 
@@ -809,6 +841,14 @@ export function getMinimapData(centerZoneId, depth = 8, viewer = null) {
   // node payloads.
   const zoneObjs = applyMinimapVisibility([...ids].map((id) => world.zones.get(id)).filter(Boolean), viewer);
 
+  // Coord index over this map/floor so road tiles can auto-tile their connector from
+  // neighbors (roadConnector). One pass, then O(1) lookups per node.
+  const roadIndex = new Map();
+  if (centerMapId) for (const z of world.zones.values())
+    if (z.map_id === centerMapId && z.grid_x != null && z.grid_y != null)
+      roadIndex.set(`${z.grid_x},${z.grid_y},${z.grid_z ?? 0}`, z);
+  const roadAt = (x, y, z) => roadIndex.get(`${x},${y},${z}`) || null;
+
   const nodes = [];
   for (const zone of zoneObjs) {
     // Building name(s) reachable from this tile — for the hover tooltip (same rule
@@ -832,7 +872,7 @@ export function getMinimapData(centerZoneId, depth = 8, viewer = null) {
       map_id: zone.map_id || null,
       grid_x: zone.grid_x, grid_y: zone.grid_y, grid_z: zone.grid_z,
       marker: zone.marker || null, color: zone.color || null, bg_color: zone.bg_color || null,
-      icon_svg: zone.flags?.icon || buildingIconSvg(zone), // named SVG in client/game/assets/zone-icons/ (road_*, statue, or a building_type rooftop)
+      icon_svg: tileIconSvg(zone, roadAt), // named SVG in client/game/assets/zone-icons/ (authored icon / rooftop, or an auto-tiled road connector)
       building_type: buildingTypeOf(zone), // facade tile's type — drives the sidebar/full-map labels/icons overlay
       entrance: buildingEntranceDir(zone), // which edge the door faces — drives the map entrance arrow
       exit_dirs: interiorExitDirs(zone), // interior room's ways out — drives the interior map's exit arrows

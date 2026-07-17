@@ -1,5 +1,5 @@
 {
-  "description": "A sealed ampoule of catalyst. Makes the hard cooks possible.",
+  "description": "A sealed ampoule of industrial reaction catalyst — the workhorse reagent behind fuel treatment, cell reconditioning, and a hundred honest reactions. What you catalyse is your own affair.",
   "flags": {},
   "id": "item_catalyst",
   "name": "reaction catalyst",
@@ -7,6 +7,6 @@
     "reagent": true
   },
   "type": "chemical",
-  "value": 140,
+  "value": 50,
   "weight": 30
 }

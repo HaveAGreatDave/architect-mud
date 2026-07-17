@@ -1,0 +1,27 @@
+{
+  "base_difficulty": 4,
+  "base_output": {
+    "item_id": "item_battery",
+    "quantity": 1
+  },
+  "category": "tech",
+  "craft_time": 3,
+  "description": "Recondition a depleted power cell back to a full charge with an industrial catalyst.",
+  "id": "recipe_battery_recondition",
+  "ingredients": [
+    {
+      "item_id": "item_depleted_battery",
+      "quantity": 1
+    },
+    {
+      "item_id": "item_catalyst",
+      "quantity": 1
+    }
+  ],
+  "name": "Recondition Power Cell",
+  "requires_station": null,
+  "skill_id": "electronics",
+  "skill_req": {
+    "electronics": 2
+  }
+}

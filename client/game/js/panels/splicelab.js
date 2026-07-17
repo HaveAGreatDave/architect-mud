@@ -39,6 +39,31 @@ const b64 = (obj) => btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const subFor = (f) => ({ liquid: 'thin', powder: 'fine', gel: 'viscous', pill: 'tablet' }[f] || 'thin');
 
+// ── saved recipes (client-only, localStorage) ────────────────────────────────
+// The splicer remembers compounds you've committed so you can recreate them
+// without re-dragging the drugs. Purely a designer shortcut that pre-fills the
+// slots — you still need the actual drugs + Stabilizer + skill on hand to run it,
+// and nothing here touches the server. Mirrors the smartbar-macro storage model.
+const RECIPES_KEY = 'architect.spliceRecipes.v1';
+const RECIPES_MAX = 40;
+function loadRecipes() {
+  try { const a = JSON.parse(localStorage.getItem(RECIPES_KEY)); return Array.isArray(a) ? a : []; } catch { return []; }
+}
+function saveRecipes(list) {
+  try { localStorage.setItem(RECIPES_KEY, JSON.stringify(list.slice(0, RECIPES_MAX))); } catch { /* private mode / quota — recipes just won't persist */ }
+}
+// Store newest-first, one entry per name (re-committing a name updates it).
+function recordRecipe(rec) {
+  if (!rec || !rec.name || !(rec.drugs || []).length) return;
+  const key = rec.name.toLowerCase();
+  const list = loadRecipes().filter(r => (r.name || '').toLowerCase() !== key);
+  list.unshift(rec); saveRecipes(list);
+}
+function deleteRecipe(name) {
+  const key = String(name || '').toLowerCase();
+  saveRecipes(loadRecipes().filter(r => (r.name || '').toLowerCase() !== key));
+}
+
 // Effect summary for an info panel, redacted by how familiar the player is with
 // the drug (learned by use). Unknown drugs read as a blur until you've dosed them.
 function effText(d) {
@@ -574,6 +599,13 @@ STAGES.select = {
     this.splice.onclick = () => { if (this.canCommit()) { AX.confirm(); this.commit(); } else if (!game.compoundName) { this.nameEl.focus(); this.nameEl.classList.add('lab-shake'); setTimeout(() => this.nameEl.classList.remove('lab-shake'), 400); } };
     this.clr = mkBtn('CLEAR', 'right:160px;bottom:54px', 'ghost');
     this.clr.onclick = () => { AX.click(); this.pkgs.forEach(p => p.inCradle = false); game.selected = []; this.sync(); };
+    // Saved-recipe shortcut (client-only, top-left). A compact chip toggles the
+    // list of compounds you've committed before; picking one pre-fills the slots.
+    this.rcpBtn = mkEl('position:absolute;left:14px;top:42px;z-index:12;pointer-events:auto;cursor:pointer;font-size:10px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;color:var(--A);background:var(--surf-lo);border:1px solid color-mix(in srgb,var(--A) 40%,transparent);border-radius:6px;padding:6px 10px');
+    this.rcpBtn.onclick = () => { AX.click(); this.toggleRecipes(); };
+    this.rcpPanel = mkEl('position:absolute;left:14px;top:70px;width:258px;max-height:262px;overflow-y:auto;display:none;z-index:12;pointer-events:auto;background:linear-gradient(180deg,var(--surf-hi),var(--surf-lo));border:1px solid color-mix(in srgb,var(--A) 34%,transparent);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.6);padding:7px');
+    this.rcpOpen = false;
+    this.refreshRecipeBtn();
     // Required naming — you label the compound before you can splice it.
     this.nameEl = document.createElement('input'); this.nameEl.className = 'lab-field'; this.nameEl.maxLength = 28;
     this.nameEl.placeholder = 'NAME YOUR COMPOUND…'; this.nameEl.value = game.compoundName || '';
@@ -654,12 +686,13 @@ STAGES.select = {
       if (o.risk) o.risk.textContent = '';
     }
   },
-  // Clamp base/splice quantities to what's carried and to the stabilizer supply
-  // (output = max of the two, and it costs one stabilizer per finished dose).
+  // Clamp base/splice quantities to what's carried. The Stabilizer is a fixed
+  // one-per-run overhead (not one per dose), so it no longer caps the batch —
+  // only the source-drug supply does. Needing at least one stabilizer to splice
+  // at all is gated separately (hasStabilizer).
   clampQtys() {
     const g = game;
-    const stab = g.stabilizerCount || 0, cap = stab > 0 ? stab : 99;
-    const lim = (i) => { const d = g.selected[i]; return Math.min(d ? (d.count || 1) : 1, cap); };
+    const lim = (i) => { const d = g.selected[i]; return d ? (d.count || 1) : 1; };
     g.qtyBase = clamp(g.qtyBase || 1, 1, lim(0));
     g.qtySplice = clamp(g.qtySplice || 1, 1, lim(1));
     g.qtySplice2 = clamp(g.qtySplice2 || 1, 1, lim(2));
@@ -669,6 +702,57 @@ STAGES.select = {
     const o = { base: { drug: s[0].drug, qty: game.qtyBase }, splice: { drug: s[1].drug, qty: game.qtySplice } };
     if (s[2]) o.splice2 = { drug: s[2].drug, qty: game.qtySplice2 };
     return o;
+  },
+  // ── saved recipes ──────────────────────────────────────────────────────────
+  refreshRecipeBtn() { if (!this.rcpBtn) return; const n = loadRecipes().length; this.rcpBtn.textContent = `☰ RECIPES${n ? ` (${n})` : ''}`; },
+  toggleRecipes() { this.rcpOpen = !this.rcpOpen; if (this.rcpOpen) this.renderRecipes(); this.rcpPanel.style.display = this.rcpOpen ? 'block' : 'none'; },
+  closeRecipes() { this.rcpOpen = false; if (this.rcpPanel) this.rcpPanel.style.display = 'none'; },
+  // Snapshot the current designer state as a recreatable recipe.
+  recipeFromState() {
+    const qtys = [game.qtyBase, game.qtySplice, game.qtySplice2];
+    const drugs = game.selected.filter(Boolean).map((d, i) => ({ drug: d.drug, qty: qtys[i], label: d.name }));
+    return { name: (game.compoundName || '').trim(), drugs, ts: Date.now() };
+  },
+  // Re-drop a saved recipe's drugs into the cradle. Drugs no longer in the kit are
+  // skipped (and reported) — the shortcut can't conjure ingredients you don't have.
+  loadRecipe(rec) {
+    const qtyKeys = ['qtyBase', 'qtySplice', 'qtySplice2'];
+    const max = game.allow3way ? 3 : 2;
+    this.pkgs.forEach(p => p.inCradle = false); game.selected = [];
+    const missing = [];
+    (rec.drugs || []).slice(0, max).forEach(d => {
+      const pk = this.pkgs.find(p => p.d.drug === d.drug && !p.inCradle);
+      if (!pk) { missing.push(d.label || d.drug); return; }
+      pk.inCradle = true; game.selected.push(pk.d);
+      game[qtyKeys[game.selected.length - 1]] = Math.max(1, parseInt(d.qty, 10) || 1);
+    });
+    game.compoundName = (rec.name || '').slice(0, 28);
+    if (this.nameEl) this.nameEl.value = game.compoundName;
+    this.closeRecipes(); AX.drop(); this.sync();
+    if (!game.selected.length) game.lab.ticker(`none of "${rec.name}"'s drugs are in your kit`, 'a');
+    else if (missing.length) game.lab.ticker(`recreated "${rec.name}" — missing ${missing.join(', ')} (not in your kit)`, 'a');
+  },
+  renderRecipes() {
+    const list = loadRecipes();
+    if (!list.length) { this.rcpPanel.innerHTML = `<div style="font-size:11px;font-weight:bold;color:var(--fgdim);padding:10px;text-align:center;white-space:pre-line">no saved recipes yet —\ncommit a splice to save it</div>`; return; }
+    this.rcpPanel.innerHTML = `<div style="font-size:9px;font-weight:bold;letter-spacing:2px;color:var(--fgdim);padding:2px 4px 6px">SAVED COMPOUNDS</div>`;
+    list.forEach(rec => {
+      const row = document.createElement('div');
+      row.setAttribute('style', 'display:flex;align-items:center;gap:6px;padding:6px;border-radius:5px');
+      row.onmouseenter = () => row.style.background = 'color-mix(in srgb,var(--A) 12%,transparent)';
+      row.onmouseleave = () => row.style.background = 'transparent';
+      const parts = (rec.drugs || []).map(d => `${d.label || d.drug}×${d.qty}`).join(' + ');
+      const info = document.createElement('div');
+      info.setAttribute('style', 'flex:1;min-width:0;cursor:pointer');
+      info.innerHTML = `<div style="font-size:12px;font-weight:bold;color:var(--fgbright);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(rec.name)}</div><div style="font-size:9px;font-weight:bold;color:var(--fgdim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(parts)}</div>`;
+      info.onclick = () => { AX.confirm(); this.loadRecipe(rec); };
+      const del = document.createElement('button');
+      del.textContent = '✕'; del.title = 'delete';
+      del.setAttribute('style', 'flex:none;background:none;border:none;color:var(--fgdim);font-size:13px;font-weight:bold;cursor:pointer;padding:2px 5px');
+      del.onclick = (e) => { e.stopPropagation(); AX.click(); deleteRecipe(rec.name); this.renderRecipes(); this.refreshRecipeBtn(); };
+      row.appendChild(info); row.appendChild(del);
+      this.rcpPanel.appendChild(row);
+    });
   },
   canCommit() { return game.selected.length >= 2 && !!(game.compoundName || '').trim(); },
   sync() { const n = game.selected.length; this.splice.disabled = n < 2;   // enabled at 2 drugs; click shakes the name field until it's filled
@@ -687,6 +771,7 @@ STAGES.select = {
     const name = (game.compoundName || '').trim();
     _stash = { selection: sel, instability: game.instability, name };
     if (game.mode === 'test') { transit(game, 'charge'); return; }
+    recordRecipe(this.recipeFromState());   // remember it (client-only) for quick recreation
     sendCmdSilent('splicebegin ' + b64({ ...this.slots(), name }));
     game.lab.close();
   },

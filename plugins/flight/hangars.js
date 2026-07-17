@@ -10,7 +10,7 @@ import { skillCheck, effectiveSkill, awardSkillUse } from '../../server/engine/s
 import { liveAircraft, persist, out, effStats, fieldFor as fieldOf,
   SEAT_KG, isConfigurable, loadoutBudget, effLoadout, sendToPlayer, skyState, inHangarInterior,
   FLIGHT_PACE, tuneRange, installedKits, KITS, perfAxes, parkAt, nearestAirfield, getZone,
-  detach, getLivePlayer } from './state.js';
+  detach, getLivePlayer, resetSurfaces } from './state.js';
 import { normalizeLivery, sanitizeLivery, signatureScore, describeExterior,
   paintCost, isPaintable, readSchemes, schemeOf,
   PATTERNS, FINISHES, UPHOLSTERY, DECALS, PRESETS } from './livery.js';
@@ -409,8 +409,8 @@ async function cmdRepair(args, raw, player) {
 
   // A RENTAL's upkeep is on the desk (bundled into the meter) — they just square her away.
   if (ac.rental) {
-    await query('UPDATE aircraft SET damage=0 WHERE id=$1', [tgt.id]);
-    if (tgt.live) tgt.live.row.damage = 0;
+    await query("UPDATE aircraft SET damage=0, custom_data = COALESCE(custom_data,'{}'::jsonb) - 'surfaces' WHERE id=$1", [tgt.id]);
+    if (tgt.live) { tgt.live.row.damage = 0; resetSurfaces(tgt.live.row); }
     return { type: 'output', message: `<span class="item-grant">The rental desk's mechanics square the ${ac.name} away — no charge, maintenance is on your rental. Hull back to 100%.</span>` };
   }
 
@@ -422,8 +422,8 @@ async function cmdRepair(args, raw, player) {
     if ((player.credits || 0) < cost) return { type: 'emote', message: `The hangar wants ${cost}c for a full shop repair — you're short. (Or <b>repair</b> her yourself for less.)` };
     player.credits -= cost;
     await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
-    await query('UPDATE aircraft SET damage=0 WHERE id=$1', [tgt.id]);
-    if (tgt.live) tgt.live.row.damage = 0;
+    await query("UPDATE aircraft SET damage=0, custom_data = COALESCE(custom_data,'{}'::jsonb) - 'surfaces' WHERE id=$1", [tgt.id]);
+    if (tgt.live) { tgt.live.row.damage = 0; resetSurfaces(tgt.live.row); }
     return { type: 'output', message: `<span class="item-grant">The hangar's mechanics do it right — the ${ac.name} is back to 100% for ${cost}c.</span>`, player_update: { credits: player.credits } };
   }
 
@@ -433,9 +433,10 @@ async function cmdRepair(args, raw, player) {
   const fixed = chk.success ? ac.damage : ac.damage * 0.5;   // botch it and you only get half back
   player.credits -= cost;
   const newDmg = Math.max(0, ac.damage - fixed);
+  const full = newDmg === 0;   // a full field fix reattaches structure; a botched partial leaves the wing hanging
   await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
-  await query('UPDATE aircraft SET damage=$1 WHERE id=$2', [newDmg, tgt.id]);
-  if (tgt.live) tgt.live.row.damage = newDmg;
+  await query(`UPDATE aircraft SET damage=$1${full ? ", custom_data = COALESCE(custom_data,'{}'::jsonb) - 'surfaces'" : ''} WHERE id=$2`, [newDmg, tgt.id]);
+  if (tgt.live) { tgt.live.row.damage = newDmg; if (full) resetSurfaces(tgt.live.row); }
   await awardSkillUse(player.id, 'fabrication', chk.margin);
   const proCost = Math.ceil(ac.damage * ac.hull_hp * 15);
   return { type: 'output', message: `<span class="item-grant">You work the ${ac.name} over yourself — hull to ${Math.round((1 - newDmg) * 100)}% for ${cost}c.</span>${chk.success ? '' : ' <span class="text-amber">(Botched some of it.)</span>'} <span class="text-dim">Or <b>repair hangar</b> next time — ${proCost}c, done right.</span>`, player_update: { credits: player.credits } };
@@ -473,7 +474,7 @@ async function cmdRebuild(args, raw, player) {
   const rolled = types[0];
   player.credits -= cost;
   await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
-  await query('UPDATE aircraft SET is_wreck=0, damage=0.5, type_id=$1, owner_id=$2, engine_on=0, throttle=0, parked_zone_id=$3 WHERE id=$4',
+  await query("UPDATE aircraft SET is_wreck=0, damage=0.5, type_id=$1, owner_id=$2, engine_on=0, throttle=0, parked_zone_id=$3, custom_data = COALESCE(custom_data,'{}'::jsonb) - 'surfaces' WHERE id=$4",
     [rolled.id, player.id, field.id, w.id]);
   await awardSkillUse(player.id, 'fabrication', mech.margin);
   return { type: 'output', message: `<span class="item-grant">Against the odds, the wreck lives — it rebuilds into a battered but flyable <b>${rolled.name}</b>, now yours (hull 50%). She'll need a real repair before she's safe.</span>`, player_update: { credits: player.credits } };

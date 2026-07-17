@@ -60,7 +60,7 @@ async function publishSelected() {
   const result = await API('/staging/publish', 'POST', { ids: checked });
   if (result.error) { toast(result.error, true); return; }
   for (const c of pendingChanges) {
-    if (checked.includes(c.id) && c.entityType === 'zone') _mapPendingOverrides.delete(c.entityId);
+    if (checked.includes(c.id)) _clearOverridesFor(c);
   }
   _publishLog = buildPublishLog(result, pendingChanges.filter(c => checked.includes(c.id)));
   toast(`✓ ${result.message}`);
@@ -102,6 +102,7 @@ async function rejectOne(id, name) {
   if (!(await dpConfirm(`Discard staged change for "${name}"?`, { danger: true }))) return;
   const result = await API('/staging/reject', 'POST', { ids: [id] });
   if (result.error) { toast(result.error, true); return; }
+  _clearOverridesFor(pendingChanges.find(c => c.id === id));
   toast(result.message);
   await updateStagingBadge();
   loadPanel(_resolveReturnPanel());
@@ -113,9 +114,9 @@ async function rejectSelected() {
   if (!(await dpConfirm(`Discard ${checked.length} selected change${checked.length !== 1 ? 's' : ''}?`, { danger: true }))) return;
   const result = await API('/staging/reject', 'POST', { ids: checked });
   if (result.error) { toast(result.error, true); return; }
-  // Remove overrides for any rejected zone changes
+  // Remove map-preview overrides for any rejected changes
   for (const c of pendingChanges) {
-    if (checked.includes(c.id) && c.entityType === 'zone') _mapPendingOverrides.delete(c.entityId);
+    if (checked.includes(c.id)) _clearOverridesFor(c);
   }
   toast(result.message);
   await updateStagingBadge();
@@ -129,7 +130,17 @@ function selectAllChanges(checked) {
 const ENTITY_TYPE_LABELS = {
   zone: 'Zone', enemy: 'Enemy', item: 'Item', npc: 'NPC',
   furniture: 'Furniture', recipe: 'Recipe', mutation: 'Mutation', drug: 'Drug',
+  building_move: 'Building Move',
 };
+
+// Drop the map-preview overrides a staged change was keeping alive, once it's
+// published or rejected. A zone change clears its own tile; a grouped building_move
+// clears every zone in its patch set.
+function _clearOverridesFor(c) {
+  if (!c) return;
+  if (c.entityType === 'zone') _mapPendingOverrides.delete(c.entityId);
+  else if (c.entityType === 'building_move') for (const ch of (c.stagedData?.changes || [])) _mapPendingOverrides.delete(ch.id);
+}
 const CHANGE_TYPE_ICONS = { create: '✚', update: '✎', delete: '✕' };
 
 function timeAgo(isoStr) {

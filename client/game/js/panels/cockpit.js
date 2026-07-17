@@ -15,7 +15,7 @@ import { setAreaPane } from '../render.js';
 import { state } from '../state.js';
 import { sfx, clampInt, clampNum, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays, deckStrip, setDeckLevel } from './minigame-common.js';
 import { updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown, groundFx, flapWhir, stallHorn, gearFx, gunFx, aaWarn, tracerFx, aaGunFx, hitFx, lockTone, mslWarble, missileFx, flareFx } from './engine-audio.js';
-import { ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, RENDER_TUNE, buildingRoofFt, BUILDING_FOOT, climbOutClear, VISIBLE_NEAR_F, VISIBLE_FAR_F, CLIMBOUT_MAX_F, CLIMBOUT_LAT_IN, CLIMBOUT_LAT_OUT, pushLightningStrike } from './windshield.js';
+import { ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, RENDER_TUNE, buildingRoofFt, BUILDING_FOOT, climbOutClear, VISIBLE_NEAR_F, VISIBLE_FAR_F, CLIMBOUT_MAX_F, CLIMBOUT_LAT_IN, CLIMBOUT_LAT_OUT, pushLightningStrike, surfaceBreakup } from './windshield.js';
 import { suppressWeatherFx } from './weather-fx.js';
 import { createState, step, readout, TYPES } from './flight-model.js';
 import { applyFlightDrugFx, clearFlightDrugFx } from './flight-drugfx.js';
@@ -1356,8 +1356,8 @@ function ensureFlightSimStyles() {
     .fsim-disembarkbtn.on{ display:block; }
     .fsim-disembarkbtn:hover{ border-color:#57e6a0; box-shadow:0 0 8px rgba(70,224,120,.4); }
     .fsim-disembarkbtn:active{ transform:translateY(1px); }
-    /* Admin-only rewind button — top-left (right of ABORT), deliberately red so it never reads as a normal control. */
-    .fsim-adminbtn{ position:absolute; top:6px; left:76px; z-index:6; width:26px; height:22px; border-radius:5px; font-size:12px; cursor:pointer;
+    /* Admin-only rewind button — third row of the left exit column (under ABORT + DISEMBARK), deliberately red so it never reads as a normal control. */
+    .fsim-adminbtn{ position:absolute; top:58px; left:8px; z-index:6; width:26px; height:22px; border-radius:5px; font-size:12px; cursor:pointer;
       background:rgba(40,10,10,.72); border:1px solid #7a3a3a; color:#ff8a5b; }
     .fsim-adminbtn:hover{ border-color:#ff8a5b; box-shadow:0 0 8px rgba(255,120,80,.4); }
     .fsim-adminbtn:active{ transform:translateY(1px); }
@@ -1369,6 +1369,23 @@ function ensureFlightSimStyles() {
       border-radius:6px; height:22px; width:24px; padding:0; font-size:13px; line-height:20px; text-align:center; cursor:pointer; }
     .fsim-orbitreset:hover{ background:var(--cy); color:#05141f; border-color:var(--cy); }
     body.fsim-external .fsim-orbitreset{ display:block; }
+    /* Rudder pedals — a thin row pinned to the bottom corners of the view. Small, translucent, out
+       of the sightline; left pad = left rudder, right pad = right rudder. The FACE (arrow + RUD)
+       depresses toward the floor with the live deflection (driven per-frame), and .act lights the
+       rim in the accent while that side is deflected — so both keys and thumbs read the same. */
+    .fsim-pedals{ position:absolute; left:0; right:0; bottom:7px; z-index:4; display:flex; justify-content:space-between; padding:0 8px; pointer-events:none; }
+    /* External chase view: the throttle floats bottom-left (z6) and the IAS/ALT strip bottom-right,
+       so lift the pedals over them (z7) and inset the row clear of both columns. */
+    body.fsim-external .fsim-pedals{ z-index:7; bottom:10px; padding:0 104px; }
+    .fsim-pedal{ pointer-events:auto; touch-action:none; user-select:none; -webkit-user-select:none; -webkit-tap-highlight-color:transparent;
+      width:60px; height:32px; padding:0; border:1px solid #16303f; border-radius:7px 7px 9px 9px; cursor:pointer; opacity:.66;
+      background:linear-gradient(180deg,rgba(12,22,31,.72),rgba(5,10,15,.82)); color:var(--cy); overflow:hidden;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.07), 0 2px 5px rgba(0,0,0,.5); transition:opacity .15s, border-color .12s, box-shadow .12s; }
+    .fsim-pedal:hover{ opacity:.95; }
+    .fsim-pedal-face{ display:flex; align-items:center; justify-content:center; gap:3px; height:100%; will-change:transform;
+      font:bold 10px monospace; letter-spacing:1px; transform:translateY(0); }
+    .fsim-pedal-arw{ font-size:16px; line-height:1; }
+    .fsim-pedal.act{ opacity:1; border-color:var(--cy); box-shadow:inset 0 1px 0 rgba(255,255,255,.07), inset 0 0 10px rgba(143,208,255,.22), 0 0 8px var(--cy); }
     /* External view: the chase-cam world fills the WHOLE pane and the flying controls
        (throttle + cyclic + master/flaps) float over it on TRANSPARENT backgrounds — no black
        instrument slab. The dashboard (PFD/gauges/MFD, placard, transponder) is dropped, and so
@@ -1807,8 +1824,16 @@ export function openFlightSim(opts = {}) {
   const flapStyle = flapStyleFor(opts.craftType);   // per-airframe flaps graphic (null = heli, hidden)
   const isAdmin = ['admin', 'dev', 'builder', 'designer'].includes(state.myRole);
   const adminBtn = isAdmin ? '<button class="fsim-adminbtn" id="fsim-rewindbtn" title="ADMIN — rewind to the hangar you departed, with the plane (test)">⏪</button>' : '';
+  // Rudder pedals — two low-profile foot pads pinned to the bottom corners of the view, held
+  // to yaw (equivalent to the ,/. — X/C keys, and the only rudder input touch devices have). The
+  // face depresses proportional to the LIVE pedal deflection every frame, so keyboard use animates
+  // them too and they spring back with the input. Same widget in cockpit + external view.
+  const PEDALS_HTML = `<div class="fsim-pedals" id="fsim-pedals">
+      <button class="fsim-pedal fsim-pedal-l" id="fsim-pedal-l" title="left rudder / yaw (hold — , or X)" tabindex="-1" aria-label="left rudder"><span class="fsim-pedal-face"><span class="fsim-pedal-arw">‹</span><span class="fsim-pedal-lbl">RUD</span></span></button>
+      <button class="fsim-pedal fsim-pedal-r" id="fsim-pedal-r" title="right rudder / yaw (hold — . or C)" tabindex="-1" aria-label="right rudder"><span class="fsim-pedal-face"><span class="fsim-pedal-lbl">RUD</span><span class="fsim-pedal-arw">›</span></span></button>
+    </div>`;
   const html = `<div id="fsim-root" class="fsim${skin ? ' fsim-theme-' + skin.id : ''}">
-    <div class="fsim-view">${adminBtn}${windshieldHTML('fsim-ws', 'FWD VIEW · ' + esc((opts.deviceName || P.name).toUpperCase()))}<div class="fsim-lamp" id="fsim-lamp">⚠ STALL</div><div class="fsim-killfeed" id="fsim-killfeed"></div><div class="fsim-toast" id="fsim-toast"></div><div class="fsim-viewtag" id="fsim-viewtag"></div><div class="fsim-fuel" id="fsim-fuel"><span class="fsim-fuel-ic">⛽</span><span class="fsim-fuel-pct" id="fsim-fuel-pct">--%</span><button class="fsim-refuel" id="fsim-refuel" title="refuel at this field" tabindex="-1">REFUEL</button></div><div class="fsim-reticle" id="fsim-reticle"><svg viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="#ff6a3a" stroke-width="1"/><line x1="17" y1="1" x2="17" y2="7" stroke="#ff6a3a"/><line x1="17" y1="27" x2="17" y2="33" stroke="#ff6a3a"/><line x1="1" y1="17" x2="7" y2="17" stroke="#ff6a3a"/><line x1="27" y1="17" x2="33" y2="17" stroke="#ff6a3a"/><circle cx="17" cy="17" r="1.5" fill="#ff6a3a"/></svg></div><div class="fsim-weap" id="fsim-weap"><button class="fsim-weap-arm" id="fsim-arm" tabindex="-1">◈ SAFE</button><button class="fsim-weap-arm" id="fsim-wpn" tabindex="-1" title="weapon select — 1 guns / 2 missiles">GUN</button><button class="fsim-weap-fire" id="fsim-fire" tabindex="-1">FIRE</button><span class="fsim-weap-pips" id="fsim-weap-pips"></span><button class="fsim-weap-arm" id="fsim-flarebtn" tabindex="-1" title="countermeasures (X)">FLARE</button></div><button class="fsim-abortbtn" id="fsim-abortbtn" title="abort the flight — a recovery crew tows the aircraft back to a field and bills you">⤫ ABORT</button><button class="fsim-disembarkbtn" id="fsim-disembarkbtn" title="climb out of the aircraft (on the ground only)">⏏ DISEMBARK</button><button class="fsim-fsbtn" id="fsim-fsbtn" title="fullscreen">⛶</button><button class="fsim-viewbtn" id="fsim-viewbtn" title="external / cockpit view (V)">◎ EXT</button><button class="fsim-orbitreset" id="fsim-orbitreset" title="reset orbit camera to behind the craft">⟲</button><button class="fsim-hidebtn" id="fsim-hidebtn" title="hide the text panel — more outside view">⊟</button><button class="fsim-tunebtn" id="fsim-tunebtn" title="render tuning">⚙</button><div class="fsim-tune" id="fsim-tune" style="display:none"></div><div class="fsim-extg" id="fsim-extg"><div class="fsim-extg-row"><span class="fsim-extg-lbl">IAS</span><b id="fsim-extg-ias">0</b><span class="fsim-extg-u">kt</span></div><div class="fsim-extg-row"><span class="fsim-extg-lbl">ALT</span><b id="fsim-extg-alt">0</b><span class="fsim-extg-u">ft</span></div></div></div>
+    <div class="fsim-view">${adminBtn}${windshieldHTML('fsim-ws', 'FWD VIEW · ' + esc((opts.deviceName || P.name).toUpperCase()))}<div class="fsim-lamp" id="fsim-lamp">⚠ STALL</div><div class="fsim-killfeed" id="fsim-killfeed"></div><div class="fsim-toast" id="fsim-toast"></div><div class="fsim-viewtag" id="fsim-viewtag"></div><div class="fsim-fuel" id="fsim-fuel"><span class="fsim-fuel-ic">⛽</span><span class="fsim-fuel-pct" id="fsim-fuel-pct">--%</span><button class="fsim-refuel" id="fsim-refuel" title="refuel at this field" tabindex="-1">REFUEL</button></div><div class="fsim-reticle" id="fsim-reticle"><svg viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="#ff6a3a" stroke-width="1"/><line x1="17" y1="1" x2="17" y2="7" stroke="#ff6a3a"/><line x1="17" y1="27" x2="17" y2="33" stroke="#ff6a3a"/><line x1="1" y1="17" x2="7" y2="17" stroke="#ff6a3a"/><line x1="27" y1="17" x2="33" y2="17" stroke="#ff6a3a"/><circle cx="17" cy="17" r="1.5" fill="#ff6a3a"/></svg></div><div class="fsim-weap" id="fsim-weap"><button class="fsim-weap-arm" id="fsim-arm" tabindex="-1">◈ SAFE</button><button class="fsim-weap-arm" id="fsim-wpn" tabindex="-1" title="weapon select — 1 guns / 2 missiles">GUN</button><button class="fsim-weap-fire" id="fsim-fire" tabindex="-1">FIRE</button><span class="fsim-weap-pips" id="fsim-weap-pips"></span><button class="fsim-weap-arm" id="fsim-flarebtn" tabindex="-1" title="countermeasures (X)">FLARE</button></div><button class="fsim-abortbtn" id="fsim-abortbtn" title="abort the flight — a recovery crew tows the aircraft back to a field and bills you">⤫ ABORT</button><button class="fsim-disembarkbtn" id="fsim-disembarkbtn" title="climb out of the aircraft (on the ground only)">⏏ DISEMBARK</button><button class="fsim-fsbtn" id="fsim-fsbtn" title="fullscreen">⛶</button><button class="fsim-viewbtn" id="fsim-viewbtn" title="external / cockpit view (V)">◎ EXT</button><button class="fsim-orbitreset" id="fsim-orbitreset" title="reset orbit camera to behind the craft">⟲</button><button class="fsim-hidebtn" id="fsim-hidebtn" title="hide the text panel — more outside view">⊟</button><button class="fsim-tunebtn" id="fsim-tunebtn" title="render tuning">⚙</button><div class="fsim-tune" id="fsim-tune" style="display:none"></div><div class="fsim-extg" id="fsim-extg"><div class="fsim-extg-row"><span class="fsim-extg-lbl">IAS</span><b id="fsim-extg-ias">0</b><span class="fsim-extg-u">kt</span></div><div class="fsim-extg-row"><span class="fsim-extg-lbl">ALT</span><b id="fsim-extg-alt">0</b><span class="fsim-extg-u">ft</span></div></div>${PEDALS_HTML}</div>
     <div class="fsim-glass">
       <div class="fsim-pfd"><canvas id="fsim-pfd"></canvas></div>
       <div class="fsim-gauges"><canvas id="fsim-gauges"></canvas></div>
@@ -1885,6 +1910,24 @@ export function openFlightSim(opts = {}) {
   add(pad, 'pointerdown', (e) => { if (e.button) return; F.yokeDrag = true; pad.classList.add('drag'); try { pad.setPointerCapture(e.pointerId); } catch {} padTo(e); });
   add(pad, 'pointermove', (e) => { if (F.yokeDrag) padTo(e); });
   add(window, 'pointerup', () => { F.yokeDrag = false; pad.classList.remove('drag'); });
+
+  // Rudder pedals — press-and-hold, exactly like the ,/. (X/C) keys: each drives F.pedalKey to a
+  // side and releases to centre. Pointer capture means sliding a thumb off the pad still lets go.
+  // The frame loop paints the depression from the live deflection, so no visual work here.
+  F.pedalL = q('#fsim-pedal-l'); F.pedalR = q('#fsim-pedal-r');
+  F.pedalLFace = F.pedalL && F.pedalL.querySelector('.fsim-pedal-face');
+  F.pedalRFace = F.pedalR && F.pedalR.querySelector('.fsim-pedal-face');
+  const wirePedal = (el, dir) => {
+    if (!el) return;
+    const press = (e) => { if (e.button) return; F.pedalKey = dir; try { el.setPointerCapture(e.pointerId); } catch {} e.preventDefault(); };
+    const release = () => { if (F.pedalKey === dir) F.pedalKey = 0; };
+    add(el, 'pointerdown', press);
+    add(el, 'pointerup', release);
+    add(el, 'pointercancel', release);
+    add(el, 'lostpointercapture', release);
+  };
+  wirePedal(F.pedalL, -1);
+  wirePedal(F.pedalR, 1);
 
   // Throttle — vertical lever, holds where you leave it.
   const thr = q('#fsim-thr');
@@ -2535,6 +2578,9 @@ function lerpAngle(a, b, t) {
 // the player always sees her come apart — the crash is already inevitable client-side.
 const BREAKUP_MS = 1900;
 
+// Plain-English surface names for the "she's coming apart" battle-damage toast.
+const SHEAR_TOAST = { leftWing: 'LEFT WING', rightWing: 'RIGHT WING', tail: 'TAILPLANE', rudder: 'RUDDER' };
+
 function beginCrashBreakup(F, reason) {
   if (F.crashCine) return;                               // already coming apart
   F.rolling = false; F.reportedAirborne = false;
@@ -2735,7 +2781,7 @@ function fsimFrame(now) {
     // collRaw + power let the heli model autorotate: the collective lever keeps working with the
     // engine dead (power=false), so a rotor-out descent is flyable to a flared touchdown. Fixed-wing
     // ignores both. power gates on engine master / dead-stick / belly (same conditions that gate thr).
-    step(s, { elevator: input.elevator, aileron: input.aileron, throttle: thr, collRaw: input.throttle, power: (F.engineOn && !F.deadStick && !bellyDown), flaps: input.flaps, pedal: input.pedal, trim: input.trim, gear: F.gearRetract ? (F.gearAnim ?? 1) : 0 }, P, h);
+    step(s, { elevator: input.elevator, aileron: input.aileron, throttle: thr, collRaw: input.throttle, power: (F.engineOn && !F.deadStick && !bellyDown), flaps: input.flaps, pedal: input.pedal, trim: input.trim, gear: F.gearRetract ? (F.gearAnim ?? 1) : 0, dmgSurf: F.surfaces || null }, P, h);
 
     // Turbulence: the air disturbs the AIRCRAFT (you correct it), it never cheats the physics.
     // Deterministic summed-sine "noise" (no RNG) rolls/pitches you and bumps lift, ∝ severity.
@@ -2964,6 +3010,12 @@ function fsimFrame(now) {
   // stays in frame). Green light glows near best-climb pull; red light glows on stall.
   const yk = document.getElementById('fsim-yoke-svg');
   if (yk) yk.style.transform = `translateX(${input.aileron * 7}px) translateY(${input.elevator * 18}px) rotateX(${-input.elevator * 34}deg) rotateZ(${input.aileron * 30}deg) scale(${1 + Math.max(0, input.elevator) * 0.2})`;
+  // Rudder pedals depress with the live deflection (< left, > right), so keyboard + touch read alike.
+  const pd = input.pedal || 0;
+  if (F.pedalLFace) F.pedalLFace.style.transform = `translateY(${Math.max(0, -pd) * 6}px)`;
+  if (F.pedalRFace) F.pedalRFace.style.transform = `translateY(${Math.max(0, pd) * 6}px)`;
+  if (F.pedalL) F.pedalL.classList.toggle('act', pd < -0.04);
+  if (F.pedalR) F.pedalR.classList.toggle('act', pd > 0.04);
   const gL = document.getElementById('fsim-yk-green'), rL = document.getElementById('fsim-yk-red');
   const atClimb = input.elevator > 0.40 && input.elevator < 0.66;
   const stalling = r.stalled || s.stallMargin < 0.35;
@@ -3025,9 +3077,10 @@ function fsimFrame(now) {
       // A ground contact (taxiing / on its takeoff roll) pins its gear to the world ground plane
       // (groundZ 0 = the runway the viewer sees), so it rolls along the strip instead of floating at
       // our eye level. Airborne contacts stay camera-relative on their altitude delta as before.
+      const brk = surfaceBreakup(c.surfaces);   // a battle-damaged bogey renders its sheared wing/tail GONE, not pristine
       const cv = c.onGround
-        ? { id: c.id, dx, dy, groundZ: 0, altDiff: 0, rng, bore, reg: c.reg, hullPct: c.hullPct, cls: c.cls, hdg: c.hdg, bank: c.bank, pitch: c.pitch, livery: c.livery, firing: c.firing }
-        : { id: c.id, dx, dy, altDiff: (c.alt || 0) - s.altitude, rng, bore, reg: c.reg, hullPct: c.hullPct, cls: c.cls, hdg: c.hdg, bank: c.bank, pitch: c.pitch, livery: c.livery, firing: c.firing };
+        ? { id: c.id, dx, dy, groundZ: 0, altDiff: 0, rng, bore, reg: c.reg, hullPct: c.hullPct, cls: c.cls, hdg: c.hdg, bank: c.bank, pitch: c.pitch, livery: c.livery, firing: c.firing, breakup: brk }
+        : { id: c.id, dx, dy, altDiff: (c.alt || 0) - s.altitude, rng, bore, reg: c.reg, hullPct: c.hullPct, cls: c.cls, hdg: c.hdg, bank: c.bank, pitch: c.pitch, livery: c.livery, firing: c.firing, breakup: brk };
       contactView.push(cv);
       if (bore < bestBore) { bestBore = bore; designated = cv; }
     }
@@ -3199,6 +3252,7 @@ function fsimFrame(now) {
     // aligns the chase camera dead-astern so the boresight runs up the screen centre (windshield.js).
     reticle: !!(F.armed && F.reportedAirborne && F.weapon !== 'msl'),
     hull: F.hull, hitFlash: F.hitFlashT ? clampNum(1 - (now - F.hitFlashT) / 400, 0, 1) : 0,
+    breakup: surfaceBreakup(F.surfaces),   // sheared structural surfaces → the external/chase view shows the wing simply GONE (live, not the crash cinematic)
     // Incoming ground-AA tracer: bearing it's arriving from + a 0..1 progress fraction
     // (volley animates in over AA_TRACER_MS, then clears). dx/dy = the firing site's live
     // tile-offset from us (recomputed each frame so the volley stays anchored to the gun
@@ -3677,6 +3731,7 @@ export function flightSimContext(msg) {
   if ('biomeBelow' in msg) F.biomeBelow = msg.biomeBelow;
   if ('surface' in msg) { F.surface = msg.surface; const tEl = document.getElementById('fsim-tile'); if (tEl) tEl.textContent = (msg.surface || '—').toUpperCase(); }
   if (typeof msg.hull === 'number') F.hull = msg.hull;   // authoritative hull for the cockpit readout
+  if ('surfaces' in msg) F.surfaces = msg.surfaces || null;   // authoritative sheared-surface state → asymmetric physics + live breakup model (null = intact/repaired)
   if (typeof msg.msl === 'number' && msg.msl !== F.msl) { F.msl = msg.msl; if (F.paintPips) F.paintPips(); }   // authoritative rail count
   F.warn = msg.warn || null;
   // Guided checkride: store the current instruction + ring gates, and toast the
@@ -3701,11 +3756,20 @@ export function flightSimAirHit(msg) {
   if (msg.role === 'taken') {
     F.hitFlashT = performance.now();
     if (typeof msg.hullPct === 'number') F.hull = msg.hullPct;
-    // Impact shake scaled by how hard the hit bit into the hull (msg.dmg = hull % lost) —
-    // a graze rattles, a heavy burst/missile throws the whole panel. `max` so a big jolt
-    // isn't softened by a lingering one; the frame loop decays it.
-    F.shake = Math.max(F.shake || 0, clampNum((msg.dmg ?? 8) * 0.9, 5, 28));
-    if (F.toast) F.toast(`⚠ TAKING FIRE${msg.by ? ' · ' + msg.by : ''} — HULL ${msg.hullPct}%`);
+    // A structural shear this hit: record the lost surface immediately (the flight_ctx that
+    // follows carries the full authoritative map, but this makes the wing let go on the same
+    // frame as the flash) → asymmetric physics kicks in + the live breakup model shows it gone.
+    if (msg.sheared) {
+      F.surfaces = { ...(F.surfaces || {}), [msg.sheared]: 0 };
+      F.shake = Math.max(F.shake || 0, 30);   // a wing coming off throws the whole panel, harder than any ordinary hit
+      if (F.toast) F.toast(`💥 STRUCTURAL FAILURE — ${SHEAR_TOAST[msg.sheared] || 'SURFACE'} GONE`);
+    } else {
+      // Impact shake scaled by how hard the hit bit into the hull (msg.dmg = hull % lost) —
+      // a graze rattles, a heavy burst/missile throws the whole panel. `max` so a big jolt
+      // isn't softened by a lingering one; the frame loop decays it.
+      F.shake = Math.max(F.shake || 0, clampNum((msg.dmg ?? 8) * 0.9, 5, 28));
+      if (F.toast) F.toast(`⚠ TAKING FIRE${msg.by ? ' · ' + msg.by : ''} — HULL ${msg.hullPct}%`);
+    }
     try { hitFx(); } catch {}
   } else if (msg.role === 'dealt') {
     if (F.toast) F.toast('GUNS · HITS');

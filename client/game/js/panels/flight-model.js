@@ -331,6 +331,19 @@ export function step(state, input, p, dt) {
   const pedal = clamp(input.pedal || 0, -1, 1);   // rudder: yaws the nose (flat/skidding turn) airborne, steers the nosewheel on the ground
   const weight = weightOf(p);
 
+  // Battle damage: sheared structural surfaces (from the server, via input.dmgSurf = {leftWing,
+  // rightWing,tail,rudder} where 0 = gone). A missing wing makes no lift on its side, so she rolls
+  // AND yaws toward the dead side and sinks — you fight the stick to limp home. Tail/rudder loss
+  // costs pitch/yaw authority. This is the same asymmetry the stall wing-drop below already models,
+  // just from lost structure instead of a stalled wing. See §4/§5/§7 for where each bites.
+  const surf = input.dmgSurf || null;
+  const lwGone = surf?.leftWing === 0, rwGone = surf?.rightWing === 0;
+  const tailGone = surf?.tail === 0, rudderGone = surf?.rudder === 0;
+  const bothWings = lwGone && rwGone;
+  const wingDead = bothWings ? 0 : (lwGone ? -1 : (rwGone ? 1 : 0));   // sign toward the missing wing (0 = none/both)
+  const oneWing = wingDead !== 0;
+  const WING_ROLL = 34, WING_YAW = 26;   // deg/s roll & yaw pulled toward the dead wing — tuned to be fightable with full opposite aileron, not an instant unrecoverable spiral
+
   // 1. Engine inertia — rpm eases toward the throttle lever, never snaps.
   s.rpm += (throttle - s.rpm) * Math.min(1, dt / p.engineLag);
   const thrust = s.rpm * p.thrustMax;
@@ -346,8 +359,9 @@ export function step(state, input, p, dt) {
   //    self-levels toward stability.
   s.elevEff += (elevator - s.elevEff) * Math.min(1, dt / p.pitchTau);
   const pitchResist = 1 - 0.55 * Math.abs(s.pitch) / 48;   // scaled to the wider ±48° envelope
-  const pitchCmd = s.elevEff * p.pitchRate * auth * pitchResist;
+  const pitchCmd = s.elevEff * p.pitchRate * auth * pitchResist * (tailGone ? 0.35 : 1);   // sheared tailplane → mushy elevator
   s.pitch += (pitchCmd - p.pitchStable * s.pitch * (1 - Math.abs(s.elevEff))) * dt;
+  if (tailGone && !s.onGround) s.pitch -= 16 * dt;   // lost tail downforce → the nose tucks under
   // Rotation attitude is gear-limited while the mains are still down — without this a held
   // back-pressure keeps pitching (and AoA) up toward the full airborne limit before liftoff,
   // and since the airborne stall-collapse never engages on the ground, the AoA² drag term
@@ -367,7 +381,8 @@ export function step(state, input, p, dt) {
     const rollResist = 1 - 0.4 * Math.abs(s.bank) / 70;
     const rollCmd = s.rollEff * p.rollRate * auth * rollResist;
     s.bank += (rollCmd - p.rollStable * s.bank * (1 - Math.abs(s.rollEff))) * dt;
-    s.bank = clamp(s.bank, -70, 70);
+    if (oneWing) s.bank += wingDead * WING_ROLL * dt;   // the lift-less side drops away — hold full opposite aileron to keep her level
+    s.bank = clamp(s.bank, oneWing ? -85 : -70, oneWing ? 85 : 70);
   }
 
   // 5. Heading: a coordinated turn from bank (rate ∝ tan(bank)/speed) PLUS a direct yaw from the
@@ -377,7 +392,9 @@ export function step(state, input, p, dt) {
   const rudderYaw = p.rudderYaw ?? clamp(15 / Math.sqrt(p.mass || 1), 4, 18);   // deg/s at full rudder & full authority (mass-scaled: heavier = lazier)
   if (s.airspeed > 1 && !s.onGround) {
     const turnRate = (G_KT * Math.tan(s.bank * D2R)) / Math.max(p.vs0, s.airspeed) * R2D;
-    s.heading = wrap360(s.heading + (turnRate + pedal * rudderYaw * auth) * dt);
+    let yaw = turnRate + pedal * rudderYaw * auth * (rudderGone ? 0 : 1);   // sheared rudder → no pedal yaw
+    if (oneWing) yaw += wingDead * WING_YAW;   // adverse yaw dragging the nose toward the dead wing (into the incipient spin)
+    s.heading = wrap360(s.heading + yaw * dt);
   } else if (s.onGround && s.airspeed > 0.3) {
     // Nosewheel/tiller steering on the ground — aileron OR rudder pedals swing the nose to taxi
     // (mobile has no pedals, so aileron still steers). Needs a little roll speed to bite and fades
@@ -446,7 +463,8 @@ export function step(state, input, p, dt) {
   //    energy sloshes between altitude and airspeed instead of appearing out of the yoke. Hands-off
   //    the nose self-levels toward pitch 0 (§3) → γ→0 → she holds altitude, no ballooning term needed.
   const flapLiftF = 1 + flaps * p.flapLift;                  // flaps buy lift → less AoA to stay up → fly slower with the nose lower (eases the approach)
-  const dynBank = 0.5 * s.airspeed * s.airspeed * p.liftScale * Math.cos(s.bank * D2R);   // vertical dynamic-pressure budget (a bank spills it)
+  const wingLiftMult = bothWings ? 0.15 : (oneWing ? 0.55 : 1);   // a sheared wing gives up half the lift budget → she sinks and stalls sooner; both gone = a brick
+  const dynBank = 0.5 * s.airspeed * s.airspeed * p.liftScale * Math.cos(s.bank * D2R) * wingLiftMult;   // vertical dynamic-pressure budget (a bank spills it; battle damage steals it)
   const clNeed = weight / Math.max(20, dynBank);             // lift coefficient the wing must make to hold 1g
   const aoaTrim = clamp((clNeed / flapLiftF - CL0) / CL_ALPHA, 0, p.aoaCrit);   // AoA that buys it; saturates at the critical angle → mush/sink
   let vsTarget = s.airspeed * 101.33 * Math.sin((s.pitch - aoaTrim) * D2R);     // ft/min along the commanded flight path (1 kt = 101.33 ft/min)

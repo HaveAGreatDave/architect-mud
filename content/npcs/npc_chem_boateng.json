@@ -104,6 +104,16 @@
       "item_id": "item_respirator_mask",
       "price": 70,
       "stock": 12
+    },
+    {
+      "item_id": "item_catalyst",
+      "price": 55,
+      "stock": 20
+    },
+    {
+      "item_id": "item_stabilizer",
+      "price": 400,
+      "stock": 3
     }
   ],
   "vendor_restock_rate": 1,

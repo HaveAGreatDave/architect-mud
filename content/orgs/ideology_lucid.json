@@ -1,6 +1,6 @@
 {
   "color": "#4FD1E0",
-  "description": "Raw psionics is for those who flee to find it; the Lucid engineered the same faculty and stayed to use it. Theirs is the science of mind — foresight, deduction, and quiet influence distilled into discipline, method, and a signature clarity-drug, never a single implant. They hold that a mind sharpened past the human ceiling can steward Coldwater Basin more justly than the Architect ever could, and they mean to prove it from the inside. The furthest gone can still a crowded room and read it whole — outcomes branching ahead of them like text, a dozen minds nudged without a word, the whole city rendered legible to someone who simply thinks faster and cleaner than anything the machine can build.",
+  "description": "The Lucid hold that evolution was never meant to be waited for — that the human animal came to a stop a long way short of what it could be, and that the rest of the climb is a matter of chemistry. Lucid is how they climb it. The drug is their sacrament and their whole method, a compound distilled in the lab and taken in measured communion, and it does not soothe or dull — it drives the brain and the body past the ceiling they were built under, one dose at a time. Where the Exodus fled the Basin to chase raw psionics like scripture, the Lucid stayed and engineered their own ascent, and the ones who have taken it long enough are no longer entirely the species they started as. Nerves that fire cleaner and faster than nerves should. Perception widened until a crowded room reads like weather and a stranger's next move is already old news. Outcomes branching ahead of them like text read before it's typed; a dozen people drifting toward a door none of them chose to open. They are calm, they are gracious, and something behind the eyes is running hotter and further than anything left unaltered. They mean to steward Coldwater Basin with that engineered, ascending clarity — certain past argument that a mind and body pushed past human out-think the Architect, and never needed the machine's permission to evolve.",
   "flags": {
     "creed": "A disciplined mind can steward the Basin better than any machine.",
     "stance": "redeem",
@@ -10,6 +10,7 @@
     "values": ["Clarity", "Discipline", "Foresight", "Reason", "Stewardship"],
     "reader": {
       "motto": "clarify",
+      "experience": "Align with the Lucid and you're handed the method, not just the mystery — the drills, the clarity-drug, the trained sight the fugitives out in the waste only ever stumble into. Foresight sharpens into something you can aim: outcomes branch ahead of you like text, a crowded room reads itself, a dozen minds nudge without a word said. You don't flee the Basin to find a bigger mind — you stay, and quietly become the most dangerous one in it. The Architect computes the city; you out-think it, and you never needed its permission to be brilliant.",
       "pull": "The Architect computes the city. We out-think it — and we never needed its permission to be brilliant.",
       "tenets": [
         "The mind is the last frontier, and the only one you can't be sold.",

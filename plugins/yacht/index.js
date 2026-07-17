@@ -241,11 +241,12 @@ async function cmdInvites(args, raw, player) {
 
 const EXTERIOR = 'zone_echelon_exterior';
 // She is a big vessel: getting underway, she takes ninety seconds to complete a passage, and comes
-// to rest only when she arrives. No new order can be given until she's there. A passage covers up
-// to SAIL_TILES water tiles (stopping short at the first obstacle), so an order visibly carries her
-// across the Basin rather than creeping a single tile.
-const SAIL_TILES = 3;   // up to three water tiles per order (she stops at the last water tile before any
-                        // non-water tile — never enters land). Same per-tile speed, so a longer passage.
+// to rest only when she arrives. No new order can be given until she's there. A direct `sail <dir>`
+// order covers SAIL_TILES water tile(s) (stopping short at the first obstacle) — a manual one-tile
+// nudge; a charted `sailto` course steams the whole plotted path instead.
+const SAIL_TILES = 1;   // one water tile per direct `sail <dir>` order — manual fine control (she stops
+                        // short if that tile isn't open water — never enters land). A charted `sailto`
+                        // course still steams the whole multi-leg path; only the wheel-driven nudge is 1-tile.
 // Single speed now: ~2× the original hull, and the slow bell matches the fast bell (they were asked to be
 // equal), so every order is the same ~2.5-second one-tile hop regardless of how far the lever is pushed.
 // `cruise` (the streamed visual way — wake/water intensity + shown knots) still tracks the lever so a
