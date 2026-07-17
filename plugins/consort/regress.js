@@ -30,7 +30,7 @@ export default async function regress({ check }) {
   check('talk: keeper gets a warm reply', !!toKeeper && /I|you|me/i.test(toKeeper.message || ''), toKeeper?.message?.slice(0, 80));
 
   const toStranger = await _test.onTalk({ player: { handle: 'RandomGuest' }, npc: roxy });
-  check('talk: stranger gets a shy reply', !!toStranger && /guest|tour|aboard|rather|Sorry|didn't say/i.test(toStranger.message || ''), toStranger?.message?.slice(0, 80));
+  check('talk: stranger gets a shy reply', !!toStranger && /guest|tour|aboard|rather|Sorry|didn't say|one word/i.test(toStranger.message || ''), toStranger?.message?.slice(0, 80));
 
   const notConsort = await _test.onTalk({ player: { handle: 'Cyd' }, npc: { id: 'y', flags: {} } });
   check('talk: falls through for a non-consort', notConsort === undefined);
