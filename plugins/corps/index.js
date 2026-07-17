@@ -23,7 +23,7 @@ import { skillCheck, awardSkillUse } from '../../server/engine/skills.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { on } from '../../server/engine/events.js';
 import {
-  cmdVentureAsset, handleVenturePurchase, runVentureTick, ventureConsoleBlock, ventureCount,
+  cmdVentureAsset, cmdWarehouse, handleVenturePurchase, runVentureTick, ventureConsoleBlock, ventureCount,
 } from './ventures.js';
 
 const FOUND_FEE = 1000;            // credits to found a corp
@@ -889,6 +889,7 @@ const USAGE = [
   'corp invest               — raise your corp tier (member cap · territory slots · assets)',
   'corp build extractor|turret — build/upgrade an asset on a zone you hold',
   'corp asset [list|claim]   — your corp-owned businesses; claim the one you stand in',
+  'corp warehouse [list|deposit <item>|withdraw <item>] — the pooled Logistics Store (stand in an owned warehouse)',
   'corp say <message>        — talk on your private corp channel',
   'corp disband              — dissolve the corp (owner only)',
 ].join('\n');
@@ -936,6 +937,8 @@ async function cmdCorp(args, raw, player, broadcast) {
     case 'build':       return cmdBuild(player, rest[0], broadcast);
     case 'asset':
     case 'business':    return cmdVentureAsset(player, rest, broadcast, pushConsole);
+    case 'warehouse':
+    case 'store':       return cmdWarehouse(player, rest);
     case 'say':
     case 'chat':        return cmdSay(player, rawRest.join(' '), broadcast);
     case 'disband':     return cmdDisband(player);

@@ -1,11 +1,11 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
+  "ambient_theme": "waterfront",
   "audio_theme_id": null,
-  "bg_color": "#2f3a26",
-  "color": "#8ba36a",
-  "created_by": "zone-planner",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "bg_color": "#2f3a3a",
+  "color": "#cdb489",
+  "created_by": "yards-plan",
+  "description": "A windowless insulated block breathing frost from its door seals, condensers roaring on the roof. COLDLINE REEFER DEPOT. Inside it is a meat-locker cathedral where the docks' catch — and worse things — keep. Your breath fogs just standing near the loading dock.",
   "exits": {
     "east": "zone_district_927_909",
     "north": "zone_district_926_908",
@@ -13,16 +13,22 @@
     "west": "zone_district_925_909"
   },
   "flags": {
-    "district": "residential",
-    "planner": "bp_district"
+    "building_name": "Coldline Reefer Depot",
+    "building_type": "cold_storage",
+    "claimable": true,
+    "claimable_asset": "warehouse",
+    "district": "yards",
+    "is_building": true,
+    "planner": "bp_district",
+    "world_exit_zone": "zone_district_926_909"
   },
   "grid_x": 926,
   "grid_y": 909,
   "grid_z": 0,
   "id": "zone_district_926_909",
   "map_id": "map_world",
-  "marker": "#",
-  "name": "Grasslands",
+  "marker": "CS",
+  "name": "Coldline Reefer Depot",
   "parent_zone": null,
   "updated_at": "1783739474"
 }

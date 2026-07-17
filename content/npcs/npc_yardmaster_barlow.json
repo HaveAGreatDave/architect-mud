@@ -1,0 +1,279 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "collect_safe",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "\"If it's got a manifest, it's come across my desk. If it hasn't, I don't want to know.\"",
+    "\"Everything in the Yards is going somewhere. Question is whose name's on it.\"",
+    "\"Trucks north, barges east, planes overhead. I sit in the middle and count.\"",
+    "\"You want a warehouse? Plenty going spare. Holding one — that's the trick.\"",
+    "\"Cameras see everything down here. Do your worst somewhere else.\"",
+    "\"I've buried three companies that thought the Yards ran themselves.\""
+  ],
+  "description": "A broad, weather-cured man in a hi-vis vest gone grey with brick dust, a stub of pencil behind one ear and a clipboard he never puts down. Ex-hauler — you can tell by the way he stands, braced like the floor might pitch. He knows every crate in the district by weight, smell, and the lie on its paperwork, and he is not remotely impressed by you.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Mind the forklifts.\" He's already back to his clipboard, licking the pencil."
+    },
+    "corps": {
+      "options": [
+        {
+          "label": "So anyone can just take one?",
+          "next": "corps2"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Half these sheds are sitting empty, and the city stopped caring who runs them years ago.\" He jerks a thumb at the roller doors. \"A crew with a name and a treasury walks in, CLAIMs a warehouse, and it starts earning them — freight rent, storage, a cut of everything that moves through. Stack up a few and you've got yourself a proper operation. That's why the Yards are worth fighting over: it's the one part of town you can still just... take.\""
+    },
+    "corps2": {
+      "options": [
+        {
+          "label": "Good to know.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Take, sure. Keep's another matter.\" A dry almost-laugh. \"Another crew can CONTEST what's yours — lean on it, bleed your grip till it flips. And the cameras up on the eaves? PD-wired. Draw down on a rival in the open and you'll have stars on you before the body's cold. Smart crews squeeze each other quiet. The loud ones I sweep up after.\""
+    },
+    "gossip": {
+      "actions": [
+        {
+          "action": "GOSSIP_TELL"
+        }
+      ],
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "Barlow sets the clipboard down — a rare event — and lowers his voice."
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What is this place?",
+          "next": "yards"
+        },
+        {
+          "label": "Those empty warehouses — what's the story?",
+          "next": "corps"
+        },
+        {
+          "label": "Show me what you're selling.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Heard anything worth knowing?",
+          "next": "gossip"
+        },
+        {
+          "label": "Just passing through.",
+          "next": "bye"
+        }
+      ],
+      "text": "Barlow looks up from his manifests, unhurried, and takes your measure over the top of the clipboard. \"Freight Office. If you're moving something, losing something, or looking to move in, you talk to me first.\" He taps the pencil twice. \"So which is it?\""
+    },
+    "yards": {
+      "options": [
+        {
+          "label": "Who runs it?",
+          "next": "corps"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The Yards. Everything the airport, the water, and the road hand off to each other passes through here.\" He gestures north with the pencil. \"Aprons up that way, wharf on the water, warehouses in between, and me holding the paperwork together with spit. It's not pretty and it's not safe, but nothing in this city moves without it.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a filthy hi-vis vest over a canvas work jacket",
+      "heavy drill trousers with a tape-measure clipped at the hip",
+      "steel-capped boots scuffed down to the metal"
+    ],
+    "mis_willing": false,
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_district_923_909",
+  "hp": 26,
+  "hp_max": 26,
+  "id": "npc_yardmaster_barlow",
+  "name": "Sten Barlow",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_pipe_wrench",
+      "price": 30
+    },
+    {
+      "item_id": "item_jerry_can",
+      "price": 35
+    },
+    {
+      "item_id": "item_scrap_metal",
+      "price": 4
+    },
+    {
+      "item_id": "item_duct_tape",
+      "price": 10
+    },
+    {
+      "item_id": "item_tangled_wire",
+      "price": 6
+    },
+    {
+      "item_id": "item_mystery_component",
+      "price": 70
+    },
+    {
+      "item_id": "item_keycard_lock_kit",
+      "price": 120
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [{ "from": 8, "to": 20 }],
+    "mon": [{ "from": 8, "to": 20 }],
+    "sat": [{ "from": 8, "to": 20 }],
+    "sun": [{ "from": 8, "to": 20 }],
+    "thu": [{ "from": 8, "to": 20 }],
+    "tue": [{ "from": 8, "to": 20 }],
+    "wed": [{ "from": 8, "to": 20 }]
+  },
+  "vendor_shop_name": "Freight Office Supply",
+  "vendor_stock_size": 7,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_district_923_909"
+}

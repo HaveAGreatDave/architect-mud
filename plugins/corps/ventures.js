@@ -64,8 +64,13 @@ export const CORP_ASSET_TYPES = {
     blueprint: 'blueprint_fence',
   },
 
+  // ── Warehouse (built) — no storefront (activeShare 0): earns a steady freight
+  //    floor + projects territory influence, and unlocks the corp's pooled
+  //    Logistics Store (cmdWarehouse below), whose capacity scales with how many
+  //    warehouses (× level) the corp holds. ──
+  warehouse:       { label: 'Warehouse',       passiveFloor: 45, activeShare: 0,    upkeep: 12, influenceProjection: 2 },
+
   // ── STUBS (Phase D) — registered so the framework generalises; effects TODO. ──
-  warehouse:       { label: 'Warehouse',       passiveFloor: 20, activeShare: 0,    upkeep: 8,  influenceProjection: 1, TODO: 'bulk corp storage / smuggling cut' },
   security_office: { label: 'Security Office', passiveFloor: 0,  activeShare: 0,    upkeep: 20, influenceProjection: 4, TODO: 'defense/heat reduction for nearby owned zones' },
   front_office:    { label: 'Front Office',    passiveFloor: 25, activeShare: 0,    upkeep: 12, influenceProjection: 2, TODO: 'recruitment desk / cheaper tier-ups' },
 };
@@ -139,6 +144,96 @@ async function cmdClaimAsset(player, broadcast, pushConsole) {
     type: 'corp_asset',
     message: `<b>${esc(org.name)}</b> takes over the <b>${esc(def.label)}</b> here for ${CLAIM_FEE}c. It runs on its own — <b>+${def.passiveFloor}/day</b> to the treasury${cut}. Treasury: ${res.treasury}c.`,
   };
+}
+
+// ─── Pooled Logistics Store (warehouse ventures) ────────────────────────────
+// A corp's warehouses share ONE pooled stash: items live in player_inventory
+// under a synthetic container id ("corp_store_<orgId>"), reachable from inside
+// any warehouse the corp owns. Capacity scales with warehouse count × level, so
+// warehouses are a logistics backbone, not just a credit tap. Reuses the generic
+// container weight plumbing (grams). Deposited goods leave the depositor entirely
+// (player_id set to the store sentinel, like ground/restock containers), so they
+// don't burden anyone's carry weight; withdraw re-keys the row to the player.
+const WAREHOUSE_CAP_PER_LEVEL = 200000;                 // grams (200 kg) per warehouse level
+const storeContainerId = (orgId) => `corp_store_${orgId}`;
+const fmtKg = (g) => `${Math.round((Number(g) || 0) / 100) / 10}kg`;
+
+// Pure: total store capacity (grams) for a corp's set of ventures — testable
+// without the world cache. Only `warehouse` ventures contribute.
+export function warehouseStoreCapacity(ventures) {
+  return (ventures || [])
+    .filter(v => v.asset_type === 'warehouse')
+    .reduce((s, v) => s + WAREHOUSE_CAP_PER_LEVEL * (v.level || 1), 0);
+}
+
+async function storeUsedWeight(orgId) {
+  const { rows } = await query(
+    `SELECT COALESCE(SUM(i.weight*pi.quantity),0) w FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.container_id=$1`,
+    [storeContainerId(orgId)]);
+  return Number(rows[0].w) || 0;
+}
+
+// `corp warehouse [list|deposit <item>|withdraw <item>]` — you must stand in a
+// warehouse your corp owns. Deposit is open to any member (like `contribute`);
+// withdraw needs DISBURSE (like `disburse`), so a lone member can't drain it.
+export async function cmdWarehouse(player, rest) {
+  const m = getPlayerMembership(player.id);
+  if (!m) return err("You're not in a corp.");
+  const v = getVenture(player.current_zone);
+  if (!v || v.asset_type !== 'warehouse' || v.org_id !== m.org_id)
+    return err('Stand inside one of your corp\'s warehouses to reach the Logistics Store.');
+  const sub = (rest[0] || 'list').toLowerCase();
+  const name = rest.slice(1).join(' ').trim();
+  if (sub === 'list' || sub === '') return listStore(m.org_id);
+  if (sub === 'deposit' || sub === 'stow' || sub === 'put') return depositStore(player, m.org_id, name);
+  if (sub === 'withdraw' || sub === 'pull' || sub === 'take') return withdrawStore(player, m.org_id, name);
+  return err('Usage: corp warehouse [list | deposit <item> | withdraw <item>]');
+}
+
+async function listStore(orgId) {
+  const cap = warehouseStoreCapacity(getOrgVentures(orgId));
+  const used = await storeUsedWeight(orgId);
+  const { rows } = await query(
+    `SELECT i.name, SUM(pi.quantity)::int qty FROM player_inventory pi JOIN items i ON i.id=pi.item_id
+      WHERE pi.container_id=$1 GROUP BY i.name ORDER BY i.name`, [storeContainerId(orgId)]);
+  let msg = `<span class="skills-header">${esc(getOrg(orgId)?.name || 'CORP')} — LOGISTICS STORE</span>\n<span class="dim">${fmtKg(used)} / ${fmtKg(cap)} used</span>`;
+  if (!rows.length) msg += '\n  (empty)';
+  else for (const r of rows) msg += `\n  ${esc(r.name)}${r.qty > 1 ? ` x${r.qty}` : ''}`;
+  return { type: 'corp_asset', message: msg };
+}
+
+async function depositStore(player, orgId, name) {
+  if (!name) return err('Deposit what? Usage: corp warehouse deposit <item>');
+  const { rows } = await query(
+    `SELECT pi.id, pi.quantity, i.name, i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id
+      WHERE pi.player_id=$1 AND pi.container_id IS NULL AND pi.is_equipped=0
+        AND i.name ILIKE $2 AND NOT jsonb_exists(i.tags,'quest_item') ORDER BY i.name LIMIT 1`,
+    [player.id, `%${name}%`]);
+  if (!rows.length) return err(`You're not carrying anything matching "${esc(name)}".`);
+  const it = rows[0];
+  const cap = warehouseStoreCapacity(getOrgVentures(orgId));
+  const used = await storeUsedWeight(orgId);
+  const adding = (Number(it.weight) || 0) * (it.quantity || 1);
+  if (used + adding > cap) return err(`The Logistics Store is full — ${fmtKg(used)} / ${fmtKg(cap)} used. Claim or upgrade more warehouses.`);
+  await query('UPDATE player_inventory SET container_id=$1, player_id=$1, is_equipped=0, slot=NULL WHERE id=$2',
+    [storeContainerId(orgId), it.id]);
+  emit('inventory.changed', { actor: player });
+  return { type: 'corp_asset', message: `You stow ${esc(it.name)}${it.quantity > 1 ? ` x${it.quantity}` : ''} in the Logistics Store.` };
+}
+
+async function withdrawStore(player, orgId, name) {
+  if (!hasPerm(player, PERM.DISBURSE)) return err("You don't have permission to draw from the Logistics Store.");
+  if (!name) return err('Withdraw what? Usage: corp warehouse withdraw <item>');
+  const { rows } = await query(
+    `SELECT pi.id, pi.quantity, i.name FROM player_inventory pi JOIN items i ON i.id=pi.item_id
+      WHERE pi.container_id=$1 AND i.name ILIKE $2 ORDER BY i.name LIMIT 1`,
+    [storeContainerId(orgId), `%${name}%`]);
+  if (!rows.length) return err(`The Logistics Store has nothing matching "${esc(name)}".`);
+  const it = rows[0];
+  await query('UPDATE player_inventory SET container_id=NULL, player_id=$1, is_equipped=0, slot=NULL WHERE id=$2',
+    [player.id, it.id]);
+  emit('inventory.changed', { actor: player });
+  return { type: 'corp_asset', message: `You draw ${esc(it.name)}${it.quantity > 1 ? ` x${it.quantity}` : ''} from the Logistics Store.` };
 }
 
 // ─── Live income: a cut of every sale at an owned business's vendor ──────────

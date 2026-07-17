@@ -1,11 +1,11 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
+  "ambient_theme": "urban",
   "audio_theme_id": null,
-  "bg_color": "#2f3a26",
-  "color": "#8ba36a",
-  "created_by": "zone-planner",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "bg_color": "#33383e",
+  "color": "#cdb489",
+  "created_by": "yards-plan",
+  "description": "A yard of intermodal boxes stacked four high in sun-bleached reds and blues, aisles between them like canyons. A reach-stacker sits idle, keys long gone. Half the containers are empty; the other half nobody will open on record.",
   "exits": {
     "east": "zone_district_925_907",
     "north": "zone_district_924_906",
@@ -13,17 +13,22 @@
     "west": "zone_district_923_907"
   },
   "flags": {
-    "district": "docks",
+    "building_name": "Interchange Stack",
+    "building_type": "container_yard",
+    "claimable": true,
+    "claimable_asset": "warehouse",
+    "district": "yards",
+    "is_building": true,
     "planner": "bp_district",
-    "scavenging_table_id": "scav_west_wastes"
+    "world_exit_zone": "zone_district_924_907"
   },
   "grid_x": 924,
   "grid_y": 907,
   "grid_z": 0,
   "id": "zone_district_924_907",
   "map_id": "map_world",
-  "marker": "#",
-  "name": "Grasslands",
+  "marker": "CY",
+  "name": "Interchange Stack",
   "parent_zone": null,
   "updated_at": "1783739474"
 }

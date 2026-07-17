@@ -2209,6 +2209,10 @@ const WALL_COL = { uptown: [46, 64, 92], civic: [72, 68, 60], citycore: [52, 56,
   ty_yacht: [16, 18, 22], ty_yacht_deck: [30, 33, 40], ty_yacht_glass: [24, 30, 42],
   // Corporate-Assets claimable businesses — a distinct wall tone per storefront type.
   ty_armory: [70, 74, 80], ty_casino: [58, 30, 60], ty_pawn: [74, 62, 44], ty_chem: [76, 92, 70],
+  // The Yards — semi-industrial freight district models (see TYPE_MODEL). The ribbed-steel keys also join METAL_WALL.
+  ty_wh_metal: [120, 124, 130], ty_cont_r: [150, 66, 54], ty_cont_b: [56, 84, 120], ty_cont_g: [70, 104, 80], ty_cont_y: [150, 128, 54],
+  ty_pallet: [96, 74, 48], ty_cold: [186, 196, 204], ty_cold_unit: [70, 78, 86], ty_fab_metal: [96, 100, 108], ty_fab_steel: [70, 74, 82],
+  ty_wharf: [72, 80, 86], ty_wharf_steel: [64, 70, 78], ty_freight_office: [86, 82, 74], ty_fwd_metal: [110, 116, 122],
   ty_door: [20, 22, 26] };
 const BLDG_H = { uptown: 0.36, civic: 0.21, citycore: 0.18, marquee: 0.22, freight: 0.14, industrial: 0.26, infra: 0.32, ruins: 0.16, oldcoldwater: 0.11, docks: 0.17, __nofly: 0.6 };
 
@@ -2335,7 +2339,7 @@ export function climbOutClear(f, lat, height) {
 const TR = () => Math.max(0.5, RENDER_TUNE.texRes || 1);
 // Palette keys that render as CORRUGATED METAL SIDING (vertical ribs + rivets) instead of the
 // default windowed curtain wall — for hangars/sheds, which shouldn't carry lit office windows.
-const METAL_WALL = new Set(['ty_hangarmetal']);
+const METAL_WALL = new Set(['ty_hangarmetal', 'ty_wh_metal', 'ty_cont_r', 'ty_cont_b', 'ty_cont_g', 'ty_cont_y', 'ty_cold', 'ty_fab_metal', 'ty_fwd_metal']);
 const GLASS_WALL = new Set(['ty_halcyon']);   // curtain-glass skins: floor-plate striping + sky sheen instead of a window grid
 function wallTex(biome, night) {
   const tr = TR(), nite = night > 0.4;
@@ -3907,6 +3911,15 @@ const TYPE_MODEL = {
   casino:           { type: 'casino',    pal: 'ty_casino', neon: '#ff3e8a' },
   fence:            { type: 'pawn',      pal: 'ty_pawn',   neon: '#ffcf3e' },
   chem_supply:      { type: 'chemsupply', pal: 'ty_chem',  neon: '#7dff6a' },
+  // The Yards — semi-industrial freight district (see docs/proposals/yards.md).
+  warehouse:         { type: 'warehouse',         pal: 'ty_wh_metal' },
+  container_yard:    { type: 'container_yard',    pal: 'ty_cont_b' },
+  fuel_yard:         { type: 'fuel_yard',         pal: 'ty_pallet' },
+  cold_storage:      { type: 'cold_storage',      pal: 'ty_cold' },
+  fabrication:       { type: 'fabrication',       pal: 'ty_fab_metal' },
+  wharf:             { type: 'wharf',             pal: 'ty_wharf' },
+  freight_office:    { type: 'freight_office',    pal: 'ty_freight_office', neon: '#ffb43a' },
+  freight_forwarder: { type: 'freight_forwarder', pal: 'ty_fwd_metal' },
 };
 function modelFor(cell) { return (cell.bn && namedModel(cell.bn)) || (cell.bt && TYPE_MODEL[cell.bt]) || null; }
 
@@ -4565,6 +4578,75 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       for (const s of [-0.6, 0, 0.6]) { const [ox, oy] = F(s * fh * 0.7, fh * 0.9); draw3DBoxAt(ctx, cam, ox, oy, fh * 0.2, 0, h * 0.22, 'ty_door', seed + 5 + s * 3, night, alpha, true); }   // drums out front
       neonBlade(ctx, cam, dx, dy, h * 0.62, h * 0.9, m.neon || '#7dff6a', night, alpha);
       glowPool(ctx, cam, dx, dy, h * 0.28, '120,220,120', 12, alpha * (night ? 0.3 : 0.16));         // hazard-green wash
+      break;
+    }
+    // ── The Yards — semi-industrial freight district (docs/proposals/yards.md) ──
+    case 'warehouse': {   // long low corrugated-steel shed under a curved barrel roof, roller doors on the street gable
+      const hw = fh * 1.12, wallTop = h * 0.5, archH = hw * 0.42;
+      draw3DBoxAt(ctx, cam, dx, dy, hw, 0, wallTop, pal, seed, night, alpha, false);                       // ribbed-steel walls (roof capped by the barrel)
+      drawBarrelRoof(ctx, cam, F, 0, hw, hw * 0.92, wallTop, archH, 12, alpha, [118, 124, 130]);           // low curved corrugated roof + gables
+      if (frontVis) for (const s of [-0.55, 0, 0.55]) { const [gx, gy] = F(s * fh * 1.05, fh * 1.02); draw3DBoxAt(ctx, cam, gx, gy, fh * 0.32, 0, wallTop * 0.7, 'ty_door', seed + 3 + s * 4, night, alpha, false); }   // roller doors
+      if (night) glowPool(ctx, cam, dx, dy, wallTop * 0.4, '255,196,120', 12, alpha * 0.16);
+      break;
+    }
+    case 'container_yard': {   // a yard of intermodal boxes stacked in sun-bleached colours (ribbed steel)
+      const cols = ['ty_cont_r', 'ty_cont_b', 'ty_cont_g', 'ty_cont_y'];
+      const hsh = (a) => { a = (a ^ 61) ^ (a >> 16); a += a << 3; a ^= a >> 4; a = Math.imul(a, 0x27d4eb2d); return (a ^ (a >> 15)) >>> 0; };   // deterministic (no per-frame Math.random flicker)
+      for (let gx = -1; gx <= 1; gx++) for (let gy = -1; gy <= 1; gy++) {
+        const stack = 1 + hsh(seed + gx * 7 + gy * 13) % 3;                                                // 1..3 boxes high
+        const [bx, by] = F(gx * fh * 0.6, gy * fh * 0.6);
+        for (let k = 0; k < stack; k++) draw3DBoxAt(ctx, cam, bx, by, fh * 0.26, h * 0.26 * k, h * 0.26 * (k + 1), cols[hsh(seed + gx * 3 + gy + k * 5) & 3], seed + k, night, alpha, true);
+      }
+      break;
+    }
+    case 'fuel_yard': {   // a cluster of squat cylindrical storage tanks + a low pallet stack
+      const steel = (r, g, b) => (f) => { const sh = 0.5 + f.nl * 0.5; return `rgb(${r * sh | 0},${g * sh | 0},${b * sh | 0})`; };
+      const tankStyle = steel(150, 148, 140);
+      for (const [sx, sy, r, tz] of [[-0.5, -0.3, 0.34, 0.7], [0.45, -0.35, 0.28, 0.55], [0.1, 0.45, 0.3, 0.62]]) {
+        const [tx, ty] = F(sx * fh, sy * fh);
+        drawFacetDrum(ctx, cam, tx, ty, 0, h * tz, fh * r, fh * r, 12, alpha, tankStyle, 'rgb(120,120,112)');   // vertical cylinder, flat cap
+        drawRing(ctx, cam, tx, ty, h * tz * 0.6, fh * r + 0.003, 12, 'rgba(0,0,0,0.25)', 1, alpha);             // seam band
+      }
+      { const [px, py] = F(-fh * 0.1, fh * 0.7); draw3DBoxAt(ctx, cam, px, py, fh * 0.4, 0, h * 0.16, pal, seed + 4, night, alpha, true); }   // low pallet stack
+      if (night) glowPool(ctx, cam, dx, dy, 0.02, '255,180,90', 10, alpha * 0.14);
+      break;
+    }
+    case 'cold_storage': {   // windowless insulated block, rooftop condenser units, a cold blue breath
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.08, 0, h * 0.7, pal, seed, night, alpha, true);                 // insulated metal block
+      for (const s of [-0.5, 0, 0.5]) { const [cx, cy] = F(s * fh * 0.6, -fh * 0.2); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.2, h * 0.7, h * 0.85, 'ty_cold_unit', seed + 3 + s * 3, night, alpha, true); }   // rooftop condensers
+      if (frontVis) { const [gx, gy] = F(0, fh * 1.02); draw3DBoxAt(ctx, cam, gx, gy, fh * 0.4, 0, h * 0.38, 'ty_door', seed + 1, night, alpha, false); }   // loading-dock door
+      glowPool(ctx, cam, dx, dy, h * 0.34, '150,200,230', 12, alpha * (night ? 0.3 : 0.16));               // cold breath
+      break;
+    }
+    case 'fabrication': {   // open fab shed straddled by a gantry crane, a smoking flue + welding spark glow
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.08, 0, h * 0.55, pal, seed, night, alpha, true);                // shed
+      for (const s of [-1, 1]) { const [lx, ly] = F(s * fh * 0.8, 0); draw3DBoxAt(ctx, cam, lx, ly, fh * 0.06, 0, h * 0.85, 'ty_fab_steel', seed + s + 2, night, alpha, false); }   // gantry legs
+      { const [l0x, l0y] = F(-fh * 0.8, 0), [l1x, l1y] = F(fh * 0.8, 0); const a = cam.proj(l0x, l0y, h * 0.85), b = cam.proj(l1x, l1y, h * 0.85);
+        if (a.f > 0.1 && b.f > 0.1) emitFace(ON_TOP, () => { ctx.globalAlpha = alpha; ctx.strokeStyle = 'rgba(90,96,104,0.95)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); ctx.globalAlpha = 1; }); }   // crane spanning beam
+      { const [fx, fy] = F(fh * 0.55, -fh * 0.3); drawSmoke(ctx, cam, fx, fy, h * 0.55, '90,86,80', alpha * 0.7, now, seed + 5); }   // flue smoke
+      if (night) glowPool(ctx, cam, dx, dy, h * 0.2, '255,150,70', 10, alpha * 0.24);                       // welding spark glow
+      break;
+    }
+    case 'wharf': {   // low open-sided transfer shed with a cantilevered loading crane reaching over the water
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.02, 0, h * 0.44, pal, seed, night, alpha, true);                // shed
+      const [mx, my] = F(-fh * 0.4, -fh * 0.2); draw3DBoxAt(ctx, cam, mx, my, fh * 0.08, 0, h * 1.2, 'ty_wharf_steel', seed + 2, night, alpha, false);   // crane mast
+      { const top = cam.proj(mx, my, h * 1.2), [jx, jy] = F(fh * 0.5, fh * 0.9), jib = cam.proj(jx, jy, h * 0.75);
+        if (top.f > 0.1 && jib.f > 0.1) emitFace(ON_TOP, () => { ctx.globalAlpha = alpha; ctx.strokeStyle = 'rgba(70,76,84,0.95)'; ctx.lineWidth = 2.4; ctx.beginPath(); ctx.moveTo(top.sx, top.sy); ctx.lineTo(jib.sx, jib.sy); ctx.stroke(); ctx.globalAlpha = 1; }); }   // jib over the water
+      blinkLight(ctx, cam, mx, my, h * 1.2, '255,90,70', now, seed, alpha, 1.5);                            // crane tip light
+      break;
+    }
+    case 'freight_office': {   // a small two-storey site office with a lit sign band and a service canopy
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.95, 0, h * 0.85, pal, seed, night, alpha, true);                // office block
+      if (frontVis) marqueeBand(ctx, cam, dx, dy, E, fh, h * 0.9, m.neon || '#ffb43a', night, alpha);      // sign band
+      { const [cx, cy] = F(0, fh * 0.92); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.7, h * 0.16, h * 0.26, 'ty_door', seed + 1, night, alpha, false); }   // service canopy
+      if (night) glowPool(ctx, cam, dx, dy, h * 0.3, '255,200,120', 9, alpha * 0.2);
+      break;
+    }
+    case 'freight_forwarder': {   // a forwarding depot with a loading-dock canopy and truck bays facing the apron
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.08, 0, h * 0.6, pal, seed, night, alpha, true);                 // depot shed
+      { const [cx, cy] = F(0, fh * 1.05); draw3DBoxAt(ctx, cam, cx, cy, fh * 1.02, h * 0.42, h * 0.5, 'ty_door', seed + 1, night, alpha, false); }   // loading-dock canopy
+      if (frontVis) for (const s of [-0.6, 0, 0.6]) { const [bx, by] = F(s * fh, fh * 1.02); draw3DBoxAt(ctx, cam, bx, by, fh * 0.28, 0, h * 0.34, 'ty_door', seed + 4 + s * 3, night, alpha, false); }   // truck bays
+      if (night) glowPool(ctx, cam, dx, dy, h * 0.3, '255,196,120', 12, alpha * 0.18);
       break;
     }
     case 'shop':

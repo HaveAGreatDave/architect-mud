@@ -3,7 +3,7 @@
 // `corp_poster` furniture and returns undefined for everything else, so the
 // posters plugin's own hook still runs (hook contract: last non-undefined wins).
 import { _corpPosterPitch, colorDistance, MIN_COLOR_DISTANCE } from './index.js';
-import { CORP_ASSET_TYPES, ventureConsoleBlock } from './ventures.js';
+import { CORP_ASSET_TYPES, ventureConsoleBlock, warehouseStoreCapacity } from './ventures.js';
 
 export default async function regress({ run, check }) {
   // ── Corporate Assets (ventures.js) — registry + console block ──────────────
@@ -20,6 +20,24 @@ export default async function regress({ run, check }) {
   // The console block is safe for an org that owns nothing (empty array, never throws).
   const emptyBlock = ventureConsoleBlock('org-that-does-not-exist');
   check('ventures: console block for an assetless org is an empty array', Array.isArray(emptyBlock) && emptyBlock.length === 0);
+
+  // ── Warehouse venture + pooled Logistics Store (the Yards build) ────────────
+  const W = CORP_ASSET_TYPES.warehouse;
+  check('ventures: warehouse type is fleshed (no longer a stub)', !!W && W.passiveFloor > 0 && (W.upkeep ?? -1) >= 0 && !W.TODO, W);
+  check('ventures: warehouse has no storefront share (activeShare 0)', W?.activeShare === 0, W?.activeShare);
+  check('ventures: warehouse projects territory influence', W?.influenceProjection > 0, W?.influenceProjection);
+  // Pooled store capacity = 200kg × level, summed over WAREHOUSE ventures only
+  // (a restaurant contributes nothing) — the pure, world-cache-free math.
+  const cap = warehouseStoreCapacity([
+    { asset_type: 'warehouse', level: 1 },
+    { asset_type: 'warehouse', level: 2 },
+    { asset_type: 'restaurant', level: 5 },
+  ]);
+  check('ventures: logistics store capacity = 200kg × level over warehouses only', cap === 600000, cap);
+  check('ventures: store capacity for no warehouses is zero', warehouseStoreCapacity([]) === 0);
+  // `corp warehouse` routes through the dispatcher (not an "unknown corp command").
+  const wh = await run('corp warehouse');
+  check('corp warehouse → routes through the corp dispatcher', !!wh && !/Unknown corp command/.test(wh.message || ''), (wh?.message || '').slice(0, 60));
 
   // `corp territory` — the big-map overlay layer: a corp-free control projection
   // the client merges onto the engine `map` tiles. Returns a control map keyed by
