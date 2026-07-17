@@ -15,7 +15,8 @@
   "flags": {
     "district": "docks",
     "planner": "bp_district",
-    "runway": "pad"
+    "runway": "pad",
+    "terrain": "asphalt"
   },
   "grid_x": 925,
   "grid_y": 906,
@@ -25,5 +26,5 @@
   "marker": "#",
   "name": "Runway",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1784326213"
 }
