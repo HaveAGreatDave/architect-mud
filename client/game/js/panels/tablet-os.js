@@ -469,6 +469,7 @@ function ensureStyles() {
       background:var(--bg, #0c1114); box-shadow:0 7px 11px -7px rgba(0,0,0,0.6); }
     #tablet-os-overlay .tos-ideo-nav { display:flex; gap:5px; overflow-x:auto; scrollbar-width:none; padding-bottom:9px; margin-bottom:11px; border-bottom:1px solid var(--tos-border); }
     #tablet-os-overlay .tos-ideo-nav::-webkit-scrollbar { display:none; }
+    #tablet-os-overlay .tos-ideo-navsep { flex:0 0 auto; align-self:stretch; width:1px; margin:2px 6px 0; background:linear-gradient(180deg,transparent,var(--tos-border) 30%,var(--tos-border) 70%,transparent); }
     #tablet-os-overlay .tos-ideo-tab { flex:0 0 auto; cursor:pointer; user-select:none; font-size:11px; letter-spacing:1.3px; text-transform:uppercase;
       color:var(--tos-fg-dim); padding:6px 9px; border-radius:6px; white-space:nowrap; border:1px solid var(--tos-border);
       background:linear-gradient(165deg,var(--tos-surface-hi),var(--tos-surface-lo)); box-shadow:inset 0 1px 0 var(--tos-bevel-hi),inset 0 -2px 3px var(--tos-bevel-lo); }
@@ -2608,9 +2609,14 @@ function renderIdeoNav(d, page) {
   const tabs = [{ k: 'overview', label: '◆ OVERVIEW', c: accent }];
   d.orders.forEach(o => tabs.push({ k: o.id, label: o.name.replace('The ', '').toUpperCase(), c: o.color, em: o.expansion }));
   tabs.push({ k: 'field', label: '◈ FIELD', c: accent });
-  const strip = tabs.map((t, i) =>
-    `<span class="tos-ideo-tab${i === page ? ' on' : ''}${t.em ? ' emerging' : ''}" data-ideo-page="${i}" style="--ic:${t.c}"><b>${t.em ? '◇' : '▪'}</b> ${esc(t.label)}</span>`
-  ).join('');
+  // Divider between the live group and the first emerging tab, so the four
+  // being-implemented orders read as one block and the previews sit to the right.
+  let sepDone = false;
+  const strip = tabs.map((t, i) => {
+    let sep = '';
+    if (t.em && !sepDone) { sep = '<span class="tos-ideo-navsep" aria-hidden="true"></span>'; sepDone = true; }
+    return sep + `<span class="tos-ideo-tab${i === page ? ' on' : ''}${t.em ? ' emerging' : ''}" data-ideo-page="${i}" style="--ic:${t.c}"><b>${t.em ? '◇' : '▪'}</b> ${esc(t.label)}</span>`;
+  }).join('');
   return `<div class="tos-ideo-nav">${strip}</div>`;
 }
 

@@ -14,6 +14,19 @@ import { registerTabletApp } from './registry.js';
 const STANCE_FLAG = 'stance_axis';               // -100 renounce .. +100 redeem
 const pathFlag = (p) => `path_${p}`;
 
+// Canonical order for the reader's top tab strip: the four live orders first
+// (compass order — advance / reclaim / adapt / awaken), then the emerging
+// previews. The client's nav + paging both read `orders` order, so ordering it
+// here lands the live group on the left and the "rest" to the right everywhere.
+const IDEO_ORDER = [
+  'ideology_ascendants', 'ideology_long_watch', 'ideology_wildblood', 'ideology_exodus',
+  'ideology_prometheans', 'ideology_synthesis', 'ideology_null', 'ideology_pioneers',
+];
+const ideoRank = (o) => {
+  const i = IDEO_ORDER.indexOf(o.id);
+  return i < 0 ? IDEO_ORDER.length : i;
+};
+
 // Tier → perk label, mirroring getIdeologyDiscount()'s discount table so the
 // standing ladder tells the player what each rung actually buys.
 const TIER_PERK = {
@@ -80,6 +93,9 @@ async function buildScreen(player) {
       opposed, neutral, npcs: npcsById[f.id] || [],
     };
   });
+  // Live orders first (in compass order), then the emerging previews — the tab
+  // strip and page order follow this array.
+  orders.sort((a, b) => (a.expansion - b.expansion) || (ideoRank(a) - ideoRank(b)));
 
   return {
     view: 'ideology',

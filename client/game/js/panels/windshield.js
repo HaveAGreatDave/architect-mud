@@ -4649,14 +4649,17 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     const alpha = it.alpha, bi = it.c.biome;
     if (it.c.mark === 'statue') { drawStatue(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha, now); continue; }   // town-square monument + fountain
     if (it.c.mark === 'yacht') {
-      // Normally she's drawn on her own tile (with a sub-tile glide while under way). But when it's OUR
-      // tile (self) we're parked on / lifting off her deck: pin her AFT HELIPAD (yacht-local 0,0.28,
-      // shrunk with the hull by YACHT_SCALE) under own-ship (the camera origin) instead of her hull
-      // centre — so the pilot sits ON the pad and climbs out over her superstructure, not on the
-      // foredeck or in open water beside her.
+      // Normally she's drawn on her own tile (with a sub-tile glide while under way). While we're
+      // PARKED on her deck (our own tile AND on the ground) we pin her AFT HELIPAD (yacht-local
+      // 0,0.28, shrunk with the hull by YACHT_SCALE) under own-ship (the camera origin) instead of
+      // her hull centre — so the pilot sits ON the pad, not on the foredeck or in open water beside
+      // her. But the moment we LIFT OFF we drop the pin and draw her at her true world tile: pinned,
+      // she stayed glued under the climbing heli like a duplicate copy sliding along until we crossed
+      // to the next tile; unpinned, she just recedes into the Mode-7 world as we climb away.
       const hr = (it.c.heading || 0) * Math.PI / 180, sub = it.c.sub, padOY = 0.28 * YACHT_SCALE;
-      const yx = it.c.self ? Math.sin(hr) * padOY : it.dx + (sub ? sub.x : 0);
-      const yy = it.c.self ? -Math.cos(hr) * padOY : it.dy + (sub ? sub.y : 0);
+      const pinPad = it.c.self && v.onGround;
+      const yx = pinPad ? Math.sin(hr) * padOY : it.dx + (sub ? sub.x : 0);
+      const yy = pinPad ? -Math.cos(hr) * padOY : it.dy + (sub ? sub.y : 0);
       drawYacht(ctx, cam, yx, yy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha, now, it.c.wake, it.c.heading, sun);
       if (v.padDome) drawYachtPadDome(ctx, cam, yx, yy, hr, now, alpha, v.padDome.armed);
       continue;
@@ -5166,16 +5169,36 @@ function drawYachtWake(ctx, cam, dx, dy, hr, night, alpha, now, spd, turn) {
   ctx.restore();
 }
 
-// A building's ground shadow: a soft parallelogram beam of width = the footprint, cast in
-// the sun's shadow direction and lengthened as the building is taller / the sun sits lower.
+// 2D convex hull (Andrew's monotone chain) of a handful of screen points — used to wrap a
+// building's projected box into one clean silhouette outline. Small n, called per building.
+function convexHull2D(pts) {
+  if (pts.length < 3) return pts;
+  const p = pts.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lower = [];
+  for (const q of p) { while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], q) <= 0) lower.pop(); lower.push(q); }
+  const upper = [];
+  for (let i = p.length - 1; i >= 0; i--) { const q = p[i]; while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], q) <= 0) upper.pop(); upper.push(q); }
+  lower.pop(); upper.pop();
+  return lower.concat(upper);
+}
+
+// A building's ground shadow. Rather than a flat constant-width beam, we project the whole BOX:
+// the square footprint AND the top face slid along the sun by the height offset. The convex hull
+// of those eight ground points is the box's true cast silhouette — it takes the building's
+// footprint shape and stretches/skews with height and sun angle, instead of a featureless slab.
 function drawBuildingShadow(ctx, cam, dx, dy, fh, h, sun, alpha) {
-  const sd = sun.shadowDir, L = clamp(h * sun.len, 0.15, 3.5);
-  const px = -sd[1] * fh, py = sd[0] * fh;   // half-width perpendicular to the shadow direction
-  const A = cam.proj(dx - px, dy - py, 0), B = cam.proj(dx + px, dy + py, 0);
-  const C = cam.proj(dx + px + sd[0] * L, dy + py + sd[1] * L, 0), D = cam.proj(dx - px + sd[0] * L, dy - py + sd[1] * L, 0);
-  if ([A, B, C, D].some((p) => p.f <= 0.06)) return;
+  const sd = sun.shadowDir, off = clamp(h * sun.len, 0.15, 3.5);
+  const ox = sd[0] * off, oy = sd[1] * off;   // where the roof lands on the ground, cast from the top
+  const corners = [[-fh, -fh], [fh, -fh], [fh, fh], [-fh, fh]];   // footprint square (building-local)
+  const scr = [];
+  for (const [cx, cy] of corners) { const p = cam.proj(dx + cx, dy + cy, 0); if (p.f <= 0.06) return; scr.push([p.sx, p.sy]); }
+  for (const [cx, cy] of corners) { const p = cam.proj(dx + cx + ox, dy + cy + oy, 0); if (p.f <= 0.06) return; scr.push([p.sx, p.sy]); }
+  const hull = convexHull2D(scr);
   ctx.fillStyle = `rgba(8,10,14,${clamp(sun.alpha * alpha, 0, 0.4)})`;
-  ctx.beginPath(); ctx.moveTo(A.sx, A.sy); ctx.lineTo(B.sx, B.sy); ctx.lineTo(C.sx, C.sy); ctx.lineTo(D.sx, D.sy); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(hull[0][0], hull[0][1]);
+  for (let i = 1; i < hull.length; i++) ctx.lineTo(hull[i][0], hull[i][1]);
+  ctx.closePath(); ctx.fill();
 }
 
 // Airframe shadow footprints in the craft's own GROUND frame — (fwd, side) in tile units,
@@ -5187,6 +5210,13 @@ const SHADOW_PLANE = [
   [[0.22, 0.06], [-0.02, 0.95], [-0.24, 0.95], [-0.16, 0.06], [-0.16, -0.06], [-0.24, -0.95], [-0.02, -0.95], [0.22, -0.06]],   // swept wings
   [[-0.72, 0.34], [-1.0, 0.34], [-1.0, -0.34], [-0.72, -0.34]],   // tailplane
 ];
+
+// The shadow silhouette's world size, PER CLASS — tied to the same CONTACT_SIZE knob that scales
+// the drawn model (× OWN_EXT_MUL in draw), normalised so the reference 'prop' keeps its tuned 0.42.
+// Before this the shadow was a flat 0.42 for every craft, so once the airframes were scaled a tiny
+// heli cast a heavy's shadow (and vice-versa); now the footprint tracks the silhouette it belongs to.
+const SHADOW_REF = CONTACT_SIZE.prop || 0.11;
+function shadowScale(cls) { return 0.42 * (CONTACT_SIZE[cls] || SHADOW_REF) / SHADOW_REF; }
 
 // Paint the shadow silhouette on the ground plane, centred at world ground point (gx,gy),
 // nose along heading `hr` (radians), scaled by `L` tiles. Each vertex is projected through
@@ -5230,7 +5260,7 @@ function drawAircraftShadow(ctx, cam, height, sun, worldBlend, heading, cls) {
   const p = cam.proj(cxw, cyw, 0);
   if (p.f <= 0.12 || p.f > VISIBLE_FAR_F) return;
   const hr = (heading || 0) * Math.PI / 180;
-  paintShadowSilhouette(ctx, cam, cxw, cyw, hr, 0.42 * (1 - alt * 0.4),
+  paintShadowSilhouette(ctx, cam, cxw, cyw, hr, shadowScale(cls) * (1 - alt * 0.4),
     clamp(sun.alpha * 1.5 * worldBlend * (1 - alt * 0.5), 0, 0.4), cls);
 }
 
@@ -5243,7 +5273,7 @@ function drawGroundContactShadow(ctx, cam, heading, cls, strength) {
   const hr = (heading || 0) * Math.PI / 180;
   // Alpha rides on `strength` only (NOT worldBlend, which is 0 on the deck — that zeroed the
   // shadow exactly when the craft is parked and it should read most solid).
-  paintShadowSilhouette(ctx, cam, 0, 0, hr, 0.42, clamp(0.36 * strength, 0, 0.36), cls);
+  paintShadowSilhouette(ctx, cam, 0, 0, hr, shadowScale(cls), clamp(0.36 * strength, 0, 0.36), cls);
 }
 
 const HOLO_COLS = ['90,200,255', '255,90,160', '120,255,140', '255,200,80', '180,120,255'];

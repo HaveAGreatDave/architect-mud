@@ -1373,8 +1373,10 @@ function ensureFlightSimStyles() {
        flank the flight stick like real rudder pedals. Each plate is a perspective-tilted trapezoid
        with grip ridges; it tips FORWARD proportional to the live deflection via --d (driven per
        frame, 0..1), and .act lights the plate in the accent while that side is deflected. The pair
-       is centred (no corner overlap) and floats above the scene, so it reads the same in both views. */
-    .fsim-pedals{ position:absolute; left:50%; transform:translateX(-50%); bottom:6px; z-index:7; display:flex; gap:8px; pointer-events:none; perspective:210px; }
+       is centred with a wide gap so the two plates straddle the flight stick — L to its left, R to
+       its right — instead of sitting as a tight pair beneath it, and floats above the scene so it
+       reads the same in both views. */
+    .fsim-pedals{ position:absolute; left:50%; transform:translateX(-50%); bottom:26px; z-index:7; display:flex; gap:150px; pointer-events:none; perspective:210px; }
     .fsim-pedal{ pointer-events:auto; touch-action:none; user-select:none; -webkit-user-select:none; -webkit-tap-highlight-color:transparent;
       width:38px; height:38px; padding:0; border:0; background:none; cursor:pointer; opacity:.82; transition:opacity .15s; }
     .fsim-pedal:hover{ opacity:1; }
