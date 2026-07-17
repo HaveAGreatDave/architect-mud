@@ -16,7 +16,8 @@
     "district": "residential",
     "planner": "bp_district",
     "scavenging_table_id": "scav_roadside_junk",
-    "street_life": true
+    "street_life": true,
+    "terrain": "concrete"
   },
   "grid_x": 925,
   "grid_y": 913,
@@ -26,5 +27,5 @@
   "marker": "⌇",
   "name": "Coldwater Basin",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1784318564"
 }

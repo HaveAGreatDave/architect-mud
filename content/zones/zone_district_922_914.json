@@ -15,7 +15,8 @@
     "district": "residential",
     "planner": "bp_district",
     "scavenging_table_id": "scav_consumer_trash",
-    "street_life": true
+    "street_life": true,
+    "terrain": "concrete"
   },
   "grid_x": 922,
   "grid_y": 914,
@@ -25,5 +26,5 @@
   "marker": "▨",
   "name": "Residential Area",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1784318564"
 }

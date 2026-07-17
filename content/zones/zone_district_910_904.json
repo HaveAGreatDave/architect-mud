@@ -16,7 +16,8 @@
     "district": "docks",
     "fishing_table_id": "fish_coldwater_bay",
     "planner": "bp_district",
-    "street_life": true
+    "street_life": true,
+    "terrain": "concrete"
   },
   "grid_x": 910,
   "grid_y": 904,
@@ -26,5 +27,5 @@
   "marker": "▤▤",
   "name": "Pier",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1784318564"
 }

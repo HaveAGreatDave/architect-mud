@@ -17,7 +17,8 @@
     "icon": "road_x",
     "planner": "bp_district",
     "scavenging_table_id": "scav_roadside_junk",
-    "street_life": true
+    "street_life": true,
+    "terrain": "concrete"
   },
   "grid_x": 926,
   "grid_y": 913,
@@ -27,5 +28,5 @@
   "marker": "⳾",
   "name": "Cathode Street",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1784318564"
 }
