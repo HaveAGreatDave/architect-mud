@@ -1,0 +1,7 @@
+{
+  "name": "slots",
+  "version": "1.0.0",
+  "description": "One-armed-bandit slot machines. `spin [bet]` at a machine flagged `flags.slot_machine` deducts the bet in credits, rolls three weighted reels, renders an ASCII reel window, and pays out on matches. House-favoured RTP; reusable for any slot furniture.",
+  "hooks": [],
+  "commands": ["spin", "slots"]
+}

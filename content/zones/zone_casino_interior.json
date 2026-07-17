@@ -1,14 +1,26 @@
 {
   "ambient_events": [
     "A slot machine somewhere sings a jackpot no one won.",
-    "The cashier counts a strap of chips without once looking up."
+    "The cashier counts a strap of chips behind the bars without once looking up.",
+    "Somewhere a lever cranks down and three reels blur, then stop dead. A groan. Another credit gone.",
+    "A machine two rows over pays out in a clatter of coin, and every head in the room turns for a half-second of hope.",
+    "The neon over the door stutters, buzzes, and holds — a dying sign refusing to quit.",
+    "A woman in too much makeup works the slot row, laughing at jokes nobody's telling, watching for a wallet left open.",
+    "Two men have a low, ugly conversation by the cage. One of them isn't asking.",
+    "Security walks a sobbing man toward the back door with a hand on his neck. Nobody watches. Everybody watches.",
+    "Someone's been sick in the corner by the machines; a bored attendant throws sawdust on it and wanders off.",
+    "A cocktail waitress with dead eyes and a chrome tray threads the tables, comping drinks to whoever's losing fastest.",
+    "A hustler fans a deck for a stranger, all teeth and warmth, already counting the man's credits.",
+    "Someone whispers a number — a debt, a marker, a due date — and the air goes a half-degree colder.",
+    "The carpet gives a faint wet sound underfoot near the high table. Best not to look down.",
+    "A payphone by the restrooms rings, and rings, and stops. A moment later it starts again."
   ],
   "ambient_theme": "indoors",
   "audio_theme_id": null,
   "bg_color": "#2a2620",
   "color": "#d8c8a0",
   "created_by": null,
-  "description": "A low room drowned in dying neon, where the carpet was chosen to hide sins and does. Felt tables ring a caged cashier, and every surface tilts a fraction toward the house. The air is climate-controlled to a permanent, luckless 2 a.m.",
+  "description": "A low, windowless room drowned in dying neon and secondhand smoke, the carpet a violent paisley chosen decades ago to hide blood, ash, and worse — and doing all three at once. Felt tables ring a cashier's cage bolted down like it expects to be robbed, and every surface tilts a fraction toward the house. The air is climate-controlled to a permanent, luckless 2 a.m., and it smells of spilled liquor, ozone, and people losing money they didn't have to begin with. Behind the machines, a door with no handle leads somewhere nobody comes back from smiling.",
   "exits": {
     "north": "zone_district_921_910"
   },

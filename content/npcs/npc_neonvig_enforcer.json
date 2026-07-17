@@ -1,0 +1,71 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": { "type": "start", "next": "player_check" },
+      "player_check": { "type": "condition", "condition_type": "PLAYER_IN_ZONE", "ifTrue": "chitchat", "ifFalse": "idle_wait" },
+      "chitchat": { "type": "action", "action_type": "VENDOR_CHITCHAT", "next": "chat_wait" },
+      "chat_wait": { "type": "wait", "seconds": 75, "next": "start" },
+      "idle_wait": { "type": "wait", "seconds": 30, "next": "start" }
+    }
+  },
+  "chitchat": [
+    "leans against the wall by the cage, arms folded, watching faces come in",
+    "\"You're new. I remember new. I remember everybody.\"",
+    "cracks one knuckle, then the next, in no particular hurry",
+    "\"The house extends credit to friends. You a friend?\"",
+    "follows a departing gambler to the door with his eyes, and only his eyes",
+    "\"Win, lose — makes no difference to me. Owing, now. Owing's my department.\"",
+    "checks a slim notebook against a face across the room, then closes it",
+    "\"Nobody's thrown out of the Vig. People just... leave owing, and then we talk.\""
+  ],
+  "description": "A slab of a man in a suit a size too small, stationed by the cashier's cage where the light gives out. His face is a closed door; his knuckles are a rap sheet. He doesn't deal, doesn't play, doesn't drink — he watches who comes in, and more carefully, who tries to leave. A cheap notebook rides in his breast pocket, and everyone who's ever been in it knows exactly what it means. They call him the Collector, and the name is not a joke.",
+  "dialogue_tree": {
+    "root": {
+      "text": "He looks you over the way a butcher looks at a side of beef — pricing it. \"You need something, or you just admiring the decor?\"",
+      "options": [
+        { "label": "What do you do here?", "next": "job" },
+        { "label": "What's the vig?", "next": "vig" },
+        { "label": "Nothing. My mistake.", "next": "bye" }
+      ]
+    },
+    "job": {
+      "text": "\"I keep the peace. The peace is: everybody pays what they owe, and nobody makes a scene about it.\" A thin, unhurried smile. \"So far, you and me, we got peace.\"",
+      "options": [
+        { "label": "What's the vig?", "next": "vig" },
+        { "label": "Let's keep it that way.", "next": "bye" }
+      ]
+    },
+    "vig": {
+      "text": "\"The vig? The vig's the interest, friend. You borrow off the house to keep playing — and everybody does, sooner or later — the vig's what it costs you to breathe till you pay it back. It only ever goes up.\" He taps the notebook in his pocket. \"You're not in the book yet. Stay that way.\"",
+      "options": [
+        { "label": "Good advice.", "next": "bye" }
+      ]
+    },
+    "bye": {
+      "text": "\"Then keep moving. Lose your money like a gentleman.\"",
+      "options": []
+    }
+  },
+  "faction": null,
+  "flags": {
+    "personality": "thug"
+  },
+  "home_activities": [],
+  "home_zone": "zone_casino_interior",
+  "hp": 90,
+  "hp_max": 90,
+  "id": "npc_neonvig_enforcer",
+  "name": "the Collector",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_casino_interior"
+}

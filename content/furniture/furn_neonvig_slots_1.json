@@ -1,0 +1,22 @@
+{
+  "description": "A tall cabinet machine, its face a scarred sheet of glass under three glyph reels and a fat chrome lever worn mirror-bright. Neon pipes trace the words LUCKY SEVEN down each side, half the tubes dead. A cracked sticker on the coin tray reads MUST BE ALIVE TO WIN. Feed it credits and pull.",
+  "flags": {
+    "slot_machine": true,
+    "slot_min": 5,
+    "slot_max": 100,
+    "slot_default": 10,
+    "interactions": [
+      "spin"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_neonvig_slots_1",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "Lucky Seven slot machine",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 900,
+  "zone_id": "zone_casino_interior"
+}

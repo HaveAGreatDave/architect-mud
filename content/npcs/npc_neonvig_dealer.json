@@ -1,0 +1,95 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": { "type": "start", "next": "player_check" },
+      "player_check": { "type": "condition", "condition_type": "PLAYER_IN_ZONE", "ifTrue": "chitchat", "ifFalse": "idle_wait" },
+      "chitchat": { "type": "action", "action_type": "VENDOR_CHITCHAT", "next": "chat_wait" },
+      "chat_wait": { "type": "wait", "seconds": 90, "next": "start" },
+      "idle_wait": { "type": "wait", "seconds": 30, "next": "start" }
+    }
+  },
+  "chitchat": [
+    "\"Shuffle up. The felt doesn't care how your day went.\"",
+    "riffles the deck once and squares it against the felt with a crisp snap",
+    "\"Minimum raise is the last raise. Don't make me repeat it.\"",
+    "sets the cut card down with a single flat click",
+    "\"The house doesn't need luck. That's your department.\"",
+    "cuts the deck one-handed without once looking down",
+    "\"Seat's open. Credits are welcome. Excuses are not.\"",
+    "watches the room with the flat patience of a man who's seen every tell twice"
+  ],
+  "description": "A broad, still man in a black dealer's vest, sleeves buttoned to the wrist despite the heat. His left hand does all the work — riffle, square, deal — with a mechanical evenness; the right rests flat on the felt and never seems to move, which is how he earned the name Deadhand. He watches players, not cards. Especially the ones who think he isn't.",
+  "dialogue_tree": {
+    "root": {
+      "text": "Sennet 'Deadhand' Cole nods at the empty seat without breaking his shuffle. \"You playing, or just admiring the felt? Both cost you eventually.\"",
+      "options": [
+        { "label": "I'd like to play.", "next": "play" },
+        { "label": "How does this work?", "next": "rules" },
+        { "label": "What is this place?", "next": "place" },
+        { "label": "Just watching.", "next": "bye" }
+      ]
+    },
+    "play": {
+      "text": "\"Then sit down and type join. Buy-in's posted. Bet what you can afford to lose, then a little more — that's where the fun starts.\"",
+      "options": [
+        { "label": "How do I bet?", "next": "betting" },
+        { "label": "Got it.", "next": "bye" }
+      ]
+    },
+    "rules": {
+      "text": "\"Texas Hold'em. Two cards down, five in the middle, best five wins. Blinds post themselves. Fold everything and you'll die slow. Play everything and you'll die fast. Pick your poison.\"",
+      "options": [
+        { "label": "How do I bet?", "next": "betting" },
+        { "label": "Need more players?", "next": "people" },
+        { "label": "Ready to play.", "next": "play" }
+      ]
+    },
+    "betting": {
+      "text": "\"check, call, bet X, raise X, fold, allin. The table enforces the minimums so you don't embarrass yourself. Much.\"",
+      "options": [
+        { "label": "Need more players?", "next": "people" },
+        { "label": "Ready.", "next": "bye" }
+      ]
+    },
+    "people": {
+      "text": "\"Short-handed? Type summon and I'll wave a gambler over. There's always someone in here who thinks tonight's their night.\"",
+      "options": [
+        { "label": "Good to know.", "next": "bye" }
+      ]
+    },
+    "place": {
+      "text": "\"The Neon Vig. Slots for the desperate, felt for the proud, and a cage full of chips nobody leaves with. The carpet's the honest part — it's supposed to hide the stains.\"",
+      "options": [
+        { "label": "Sounds like my kind of place.", "next": "bye" },
+        { "label": "I'd like to play.", "next": "play" }
+      ]
+    },
+    "bye": {
+      "text": "\"Seat's waiting. It's patient. I'm not.\"",
+      "options": []
+    }
+  },
+  "faction": null,
+  "flags": {
+    "personality": "dealer",
+    "table_id": "gametable_neonvig"
+  },
+  "home_activities": [],
+  "home_zone": "zone_casino_interior",
+  "hp": 30,
+  "hp_max": 30,
+  "id": "npc_neonvig_dealer",
+  "name": "Sennet 'Deadhand' Cole",
+  "npc_type": "dealer",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_casino_interior"
+}

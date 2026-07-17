@@ -1,0 +1,78 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": { "type": "start", "next": "have_life" },
+      "have_life": { "type": "action", "action_type": "HAVE_LIFE", "next": "wait" },
+      "wait": { "type": "wait", "seconds": 20, "next": "start" }
+    }
+  },
+  "chitchat": [
+    "\"One more hand. I can feel it turning.\"",
+    "counts a short stack of chips, frowns, counts it again",
+    "\"The slots are rigged. The tables are honest. That's why I'm broke.\"",
+    "blows on a pair of dice he isn't even using and pockets them",
+    "\"You a caller? Sit down. I like callers.\"",
+    "watches the poker felt the way a stray watches a butcher's door"
+  ],
+  "description": "A wiry man in a sweat-ringed shirt and a lucky jacket that has clearly run out of luck. His eyes track every chip in the room and every hand at the felt. He's been here since it opened, or possibly since it was built — nobody's sure he ever leaves. They call him Ledger, because he remembers exactly what everyone owes.",
+  "dialogue_tree": {
+    "root": {
+      "text": "\"Buy in, sit down, lose slow. That's the whole philosophy.\" He grins, and it doesn't reach his eyes.",
+      "options": [
+        { "label": "Fancy a game?", "next": "game" },
+        { "label": "Any tips?", "next": "tips" },
+        { "label": "Later.", "next": "bye" }
+      ]
+    },
+    "game": {
+      "text": "\"Always. Grab a seat at the felt and type summon — I'll come pull up a chair and take your credits personally.\"",
+      "options": [
+        { "label": "You're on.", "next": "bye" }
+      ]
+    },
+    "tips": {
+      "text": "\"Sure. Never bet the rent. Never chase the slots. And never, ever trust a man who tells you when to fold.\" He pauses. \"Present company excepted.\"",
+      "options": [
+        { "label": "Noted.", "next": "bye" }
+      ]
+    },
+    "bye": {
+      "text": "\"I'll be here. I'm always here.\"",
+      "options": []
+    }
+  },
+  "faction": null,
+  "flags": {
+    "personality": "gambler",
+    "poker_bankroll": 2400,
+    "poker_persona": {
+      "aggression": 0.55,
+      "betSizing": 0.5,
+      "bluffFreq": 0.22,
+      "buyIn": 200,
+      "chattiness": 0.7,
+      "semiBluffFreq": 0.35,
+      "tightness": 0.45,
+      "tiltProne": 0.5
+    },
+    "poker_player": true
+  },
+  "home_activities": [],
+  "home_zone": "zone_casino_interior",
+  "hp": 25,
+  "hp_max": 25,
+  "id": "npc_neonvig_gambler",
+  "name": "Ledger",
+  "npc_type": "gambler",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}
