@@ -1336,12 +1336,12 @@ function ensureFlightSimStyles() {
       background:linear-gradient(#f0f7ff,#9fbfe0); box-shadow:0 0 6px var(--cy),0 1px 2px rgba(0,0,0,.6); }
     .fsim-trim-val{ font:9px monospace; color:#6f8698; letter-spacing:.5px; }
     .fsim-trim-val.set{ color:var(--yellow,#ffb43a); text-shadow:0 0 5px var(--yellow,#ffb43a); }
-    .fsim-tunebtn{ position:absolute; top:6px; right:8px; z-index:4; background:rgba(6,12,18,.7); border:1px solid #16303f; color:var(--cy);
+    .fsim-tunebtn{ position:absolute; top:6px; right:8px; z-index:4; background:rgba(6,12,18,.82); border:1px solid #35586e; color:#eef6ff; text-shadow:0 1px 2px rgba(0,0,0,.75);
       border-radius:6px; width:24px; height:22px; font-size:12px; line-height:1; cursor:pointer; }
-    .fsim-fsbtn{ position:absolute; top:6px; right:36px; z-index:4; background:rgba(6,12,18,.7); border:1px solid #16303f; color:var(--cy);
+    .fsim-fsbtn{ position:absolute; top:6px; right:36px; z-index:4; background:rgba(6,12,18,.82); border:1px solid #35586e; color:#eef6ff; text-shadow:0 1px 2px rgba(0,0,0,.75);
       border-radius:6px; width:24px; height:22px; font-size:13px; line-height:1; cursor:pointer; }
     .fsim-fsbtn.on{ background:var(--cy); color:#05141f; border-color:var(--cy); }
-    .fsim-hidebtn{ position:absolute; top:6px; right:64px; z-index:4; background:rgba(6,12,18,.7); border:1px solid #16303f; color:var(--cy);
+    .fsim-hidebtn{ position:absolute; top:6px; right:64px; z-index:4; background:rgba(6,12,18,.82); border:1px solid #35586e; color:#eef6ff; text-shadow:0 1px 2px rgba(0,0,0,.75);
       border-radius:6px; width:24px; height:22px; font-size:12px; line-height:1; cursor:pointer; }
     .fsim-hidebtn.on{ background:var(--cy); color:#05141f; border-color:var(--cy); }
     /* Abort button — top-left, red so it reads as an exit hatch, not a normal control. */
@@ -1350,42 +1350,43 @@ function ensureFlightSimStyles() {
     .fsim-abortbtn:hover{ border-color:#ff8a5b; box-shadow:0 0 8px rgba(255,120,80,.4); }
     .fsim-abortbtn:active{ transform:translateY(1px); }
     .fsim-abortbtn.armed{ background:var(--warn,#ff5b5b); color:#160404; border-color:var(--warn,#ff5b5b); }
-    /* Disembark button — sits just under ABORT, green so it reads as a safe exit. Hidden unless on the ground. */
-    .fsim-disembarkbtn{ display:none; position:absolute; top:32px; left:8px; z-index:6; height:22px; padding:0 8px; border-radius:5px; font-size:10px; letter-spacing:1px; line-height:20px; cursor:pointer;
+    /* Disembark button — sits below the fuel gauge (which occupies the row under ABORT), green so it reads as a safe exit. Hidden unless on the ground. */
+    .fsim-disembarkbtn{ display:none; position:absolute; top:44px; left:8px; z-index:6; height:22px; padding:0 8px; border-radius:5px; font-size:10px; letter-spacing:1px; line-height:20px; cursor:pointer;
       background:rgba(8,32,20,.72); border:1px solid #1c6a44; color:#57e6a0; }
     .fsim-disembarkbtn.on{ display:block; }
     .fsim-disembarkbtn:hover{ border-color:#57e6a0; box-shadow:0 0 8px rgba(70,224,120,.4); }
     .fsim-disembarkbtn:active{ transform:translateY(1px); }
-    /* Admin-only rewind button — third row of the left exit column (under ABORT + DISEMBARK), deliberately red so it never reads as a normal control. */
-    .fsim-adminbtn{ position:absolute; top:58px; left:8px; z-index:6; width:26px; height:22px; border-radius:5px; font-size:12px; cursor:pointer;
+    /* Admin-only rewind button — bottom of the left exit column (under ABORT + fuel + DISEMBARK), deliberately red so it never reads as a normal control. */
+    .fsim-adminbtn{ position:absolute; top:70px; left:8px; z-index:6; width:26px; height:22px; border-radius:5px; font-size:12px; cursor:pointer;
       background:rgba(40,10,10,.72); border:1px solid #7a3a3a; color:#ff8a5b; }
     .fsim-adminbtn:hover{ border-color:#ff8a5b; box-shadow:0 0 8px rgba(255,120,80,.4); }
     .fsim-adminbtn:active{ transform:translateY(1px); }
-    .fsim-viewbtn{ position:absolute; top:6px; right:92px; z-index:4; background:rgba(6,12,18,.7); border:1px solid #16303f; color:var(--cy);
+    .fsim-viewbtn{ position:absolute; top:6px; right:92px; z-index:4; background:rgba(6,12,18,.82); border:1px solid #35586e; color:#eef6ff; text-shadow:0 1px 2px rgba(0,0,0,.75);
       border-radius:6px; height:22px; padding:0 7px; font-size:10px; letter-spacing:1px; line-height:20px; cursor:pointer; }
     .fsim-viewbtn.on{ background:var(--cy); color:#05141f; border-color:var(--cy); }
     /* Orbit-camera reset (⟲) — only meaningful in external view, so hidden until then. Sits just left of ◎ EXT. */
-    .fsim-orbitreset{ display:none; position:absolute; top:6px; right:132px; z-index:4; background:rgba(6,12,18,.7); border:1px solid #16303f; color:var(--cy);
+    .fsim-orbitreset{ display:none; position:absolute; top:6px; right:132px; z-index:4; background:rgba(6,12,18,.82); border:1px solid #35586e; color:#eef6ff; text-shadow:0 1px 2px rgba(0,0,0,.75);
       border-radius:6px; height:22px; width:24px; padding:0; font-size:13px; line-height:20px; text-align:center; cursor:pointer; }
     .fsim-orbitreset:hover{ background:var(--cy); color:#05141f; border-color:var(--cy); }
     body.fsim-external .fsim-orbitreset{ display:block; }
-    /* Rudder pedals — a thin row pinned to the bottom corners of the view. Small, translucent, out
-       of the sightline; left pad = left rudder, right pad = right rudder. The FACE (arrow + RUD)
-       depresses toward the floor with the live deflection (driven per-frame), and .act lights the
-       rim in the accent while that side is deflected — so both keys and thumbs read the same. */
-    .fsim-pedals{ position:absolute; left:0; right:0; bottom:7px; z-index:4; display:flex; justify-content:space-between; padding:0 8px; pointer-events:none; }
-    /* External chase view: the throttle floats bottom-left (z6) and the IAS/ALT strip bottom-right,
-       so lift the pedals over them (z7) and inset the row clear of both columns. */
-    body.fsim-external .fsim-pedals{ z-index:7; bottom:10px; padding:0 104px; }
+    /* Rudder pedals — a pair of angled steel foot plates, centred at the base of the view so they
+       flank the flight stick like real rudder pedals. Each plate is a perspective-tilted trapezoid
+       with grip ridges; it tips FORWARD proportional to the live deflection via --d (driven per
+       frame, 0..1), and .act lights the plate in the accent while that side is deflected. The pair
+       is centred (no corner overlap) and floats above the scene, so it reads the same in both views. */
+    .fsim-pedals{ position:absolute; left:50%; transform:translateX(-50%); bottom:6px; z-index:7; display:flex; gap:8px; pointer-events:none; perspective:210px; }
     .fsim-pedal{ pointer-events:auto; touch-action:none; user-select:none; -webkit-user-select:none; -webkit-tap-highlight-color:transparent;
-      width:60px; height:32px; padding:0; border:1px solid #16303f; border-radius:7px 7px 9px 9px; cursor:pointer; opacity:.66;
-      background:linear-gradient(180deg,rgba(12,22,31,.72),rgba(5,10,15,.82)); color:var(--cy); overflow:hidden;
-      box-shadow:inset 0 1px 0 rgba(255,255,255,.07), 0 2px 5px rgba(0,0,0,.5); transition:opacity .15s, border-color .12s, box-shadow .12s; }
-    .fsim-pedal:hover{ opacity:.95; }
-    .fsim-pedal-face{ display:flex; align-items:center; justify-content:center; gap:3px; height:100%; will-change:transform;
-      font:bold 10px monospace; letter-spacing:1px; transform:translateY(0); }
-    .fsim-pedal-arw{ font-size:16px; line-height:1; }
-    .fsim-pedal.act{ opacity:1; border-color:var(--cy); box-shadow:inset 0 1px 0 rgba(255,255,255,.07), inset 0 0 10px rgba(143,208,255,.22), 0 0 8px var(--cy); }
+      width:38px; height:38px; padding:0; border:0; background:none; cursor:pointer; opacity:.82; transition:opacity .15s; }
+    .fsim-pedal:hover{ opacity:1; }
+    /* the foot plate itself: wider at the base, tilted back in perspective, ridged for grip */
+    .fsim-pedal-face{ display:flex; align-items:flex-end; justify-content:center; height:100%; will-change:transform;
+      transform-origin:50% 100%; transform:rotateX(calc(22deg + var(--d,0) * 30deg)) translateY(calc(var(--d,0) * 2px));
+      clip-path:polygon(20% 0, 80% 0, 100% 100%, 0 100%);
+      background:repeating-linear-gradient(0deg, rgba(0,0,0,.34) 0 2px, rgba(255,255,255,.04) 2px 5px), linear-gradient(180deg,#41525f,#131c24);
+      border-bottom:2px solid #05233a; box-shadow:inset 0 1px 0 rgba(255,255,255,.16), 0 2px 5px rgba(0,0,0,.55);
+      color:#dbeaf6; font:bold 11px/1 monospace; letter-spacing:.5px; padding-bottom:3px; text-shadow:0 1px 1px rgba(0,0,0,.7); }
+    .fsim-pedal.act .fsim-pedal-face{ background:repeating-linear-gradient(0deg, rgba(0,0,0,.28) 0 2px, rgba(255,255,255,.06) 2px 5px), linear-gradient(180deg,var(--cy),#123246);
+      color:#04141f; border-bottom-color:var(--cy); box-shadow:inset 0 1px 0 rgba(255,255,255,.25), 0 0 9px var(--cy); }
     /* External view: the chase-cam world fills the WHOLE pane and the flying controls
        (throttle + cyclic + master/flaps) float over it on TRANSPARENT backgrounds — no black
        instrument slab. The dashboard (PFD/gauges/MFD, placard, transponder) is dropped, and so
@@ -1824,13 +1825,14 @@ export function openFlightSim(opts = {}) {
   const flapStyle = flapStyleFor(opts.craftType);   // per-airframe flaps graphic (null = heli, hidden)
   const isAdmin = ['admin', 'dev', 'builder', 'designer'].includes(state.myRole);
   const adminBtn = isAdmin ? '<button class="fsim-adminbtn" id="fsim-rewindbtn" title="ADMIN — rewind to the hangar you departed, with the plane (test)">⏪</button>' : '';
-  // Rudder pedals — two low-profile foot pads pinned to the bottom corners of the view, held
-  // to yaw (equivalent to the ,/. — X/C keys, and the only rudder input touch devices have). The
-  // face depresses proportional to the LIVE pedal deflection every frame, so keyboard use animates
-  // them too and they spring back with the input. Same widget in cockpit + external view.
+  // Rudder pedals — a pair of angled foot plates centred at the base of the view, flanking the
+  // flight stick like the real thing (left plate = left rudder, right = right). Held to yaw —
+  // equivalent to the ,/. — X/C keys, and the only rudder input touch devices have. Each plate
+  // tips forward proportional to the LIVE pedal deflection every frame (via the --d var), so
+  // keyboard use animates them too and they spring back with the input. Shown in both views.
   const PEDALS_HTML = `<div class="fsim-pedals" id="fsim-pedals">
-      <button class="fsim-pedal fsim-pedal-l" id="fsim-pedal-l" title="left rudder / yaw (hold — , or X)" tabindex="-1" aria-label="left rudder"><span class="fsim-pedal-face"><span class="fsim-pedal-arw">‹</span><span class="fsim-pedal-lbl">RUD</span></span></button>
-      <button class="fsim-pedal fsim-pedal-r" id="fsim-pedal-r" title="right rudder / yaw (hold — . or C)" tabindex="-1" aria-label="right rudder"><span class="fsim-pedal-face"><span class="fsim-pedal-lbl">RUD</span><span class="fsim-pedal-arw">›</span></span></button>
+      <button class="fsim-pedal fsim-pedal-l" id="fsim-pedal-l" title="left rudder / yaw (hold — , or X)" tabindex="-1" aria-label="left rudder"><span class="fsim-pedal-face"><span class="fsim-pedal-lbl">L</span></span></button>
+      <button class="fsim-pedal fsim-pedal-r" id="fsim-pedal-r" title="right rudder / yaw (hold — . or C)" tabindex="-1" aria-label="right rudder"><span class="fsim-pedal-face"><span class="fsim-pedal-lbl">R</span></span></button>
     </div>`;
   const html = `<div id="fsim-root" class="fsim${skin ? ' fsim-theme-' + skin.id : ''}">
     <div class="fsim-view">${adminBtn}${windshieldHTML('fsim-ws', 'FWD VIEW · ' + esc((opts.deviceName || P.name).toUpperCase()))}<div class="fsim-lamp" id="fsim-lamp">⚠ STALL</div><div class="fsim-killfeed" id="fsim-killfeed"></div><div class="fsim-toast" id="fsim-toast"></div><div class="fsim-viewtag" id="fsim-viewtag"></div><div class="fsim-fuel" id="fsim-fuel"><span class="fsim-fuel-ic">⛽</span><span class="fsim-fuel-pct" id="fsim-fuel-pct">--%</span><button class="fsim-refuel" id="fsim-refuel" title="refuel at this field" tabindex="-1">REFUEL</button></div><div class="fsim-reticle" id="fsim-reticle"><svg viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="#ff6a3a" stroke-width="1"/><line x1="17" y1="1" x2="17" y2="7" stroke="#ff6a3a"/><line x1="17" y1="27" x2="17" y2="33" stroke="#ff6a3a"/><line x1="1" y1="17" x2="7" y2="17" stroke="#ff6a3a"/><line x1="27" y1="17" x2="33" y2="17" stroke="#ff6a3a"/><circle cx="17" cy="17" r="1.5" fill="#ff6a3a"/></svg></div><div class="fsim-weap" id="fsim-weap"><button class="fsim-weap-arm" id="fsim-arm" tabindex="-1">◈ SAFE</button><button class="fsim-weap-arm" id="fsim-wpn" tabindex="-1" title="weapon select — 1 guns / 2 missiles">GUN</button><button class="fsim-weap-fire" id="fsim-fire" tabindex="-1">FIRE</button><span class="fsim-weap-pips" id="fsim-weap-pips"></span><button class="fsim-weap-arm" id="fsim-flarebtn" tabindex="-1" title="countermeasures (X)">FLARE</button></div><button class="fsim-abortbtn" id="fsim-abortbtn" title="abort the flight — a recovery crew tows the aircraft back to a field and bills you">⤫ ABORT</button><button class="fsim-disembarkbtn" id="fsim-disembarkbtn" title="climb out of the aircraft (on the ground only)">⏏ DISEMBARK</button><button class="fsim-fsbtn" id="fsim-fsbtn" title="fullscreen">⛶</button><button class="fsim-viewbtn" id="fsim-viewbtn" title="external / cockpit view (V)">◎ EXT</button><button class="fsim-orbitreset" id="fsim-orbitreset" title="reset orbit camera to behind the craft">⟲</button><button class="fsim-hidebtn" id="fsim-hidebtn" title="hide the text panel — more outside view">⊟</button><button class="fsim-tunebtn" id="fsim-tunebtn" title="render tuning">⚙</button><div class="fsim-tune" id="fsim-tune" style="display:none"></div><div class="fsim-extg" id="fsim-extg"><div class="fsim-extg-row"><span class="fsim-extg-lbl">IAS</span><b id="fsim-extg-ias">0</b><span class="fsim-extg-u">kt</span></div><div class="fsim-extg-row"><span class="fsim-extg-lbl">ALT</span><b id="fsim-extg-alt">0</b><span class="fsim-extg-u">ft</span></div></div>${PEDALS_HTML}</div>
@@ -3010,10 +3012,11 @@ function fsimFrame(now) {
   // stays in frame). Green light glows near best-climb pull; red light glows on stall.
   const yk = document.getElementById('fsim-yoke-svg');
   if (yk) yk.style.transform = `translateX(${input.aileron * 7}px) translateY(${input.elevator * 18}px) rotateX(${-input.elevator * 34}deg) rotateZ(${input.aileron * 30}deg) scale(${1 + Math.max(0, input.elevator) * 0.2})`;
-  // Rudder pedals depress with the live deflection (< left, > right), so keyboard + touch read alike.
+  // Rudder pedals tip forward with the live deflection (left plate on <0, right on >0) — the --d
+  // var (0..1) feeds the plate's perspective tilt in CSS, so keyboard + touch read alike.
   const pd = input.pedal || 0;
-  if (F.pedalLFace) F.pedalLFace.style.transform = `translateY(${Math.max(0, -pd) * 6}px)`;
-  if (F.pedalRFace) F.pedalRFace.style.transform = `translateY(${Math.max(0, pd) * 6}px)`;
+  if (F.pedalLFace) F.pedalLFace.style.setProperty('--d', Math.max(0, -pd).toFixed(3));
+  if (F.pedalRFace) F.pedalRFace.style.setProperty('--d', Math.max(0, pd).toFixed(3));
   if (F.pedalL) F.pedalL.classList.toggle('act', pd < -0.04);
   if (F.pedalR) F.pedalR.classList.toggle('act', pd > 0.04);
   const gL = document.getElementById('fsim-yk-green'), rL = document.getElementById('fsim-yk-red');
