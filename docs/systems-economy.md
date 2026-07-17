@@ -68,14 +68,17 @@ error between the two steps can't tear them:
 - **Stock** comes from the NPC's `vendor_inventory` JSON — an array of `{ "item_id": "<id>", "price"?: <int>, "stock"?: <int> }`.
   Only `item_id` is required (the exact snake_case key — a `itemId` typo silently yields no stock; the NPC editor
   now rejects entries missing `item_id`). Price is `entry.price` (falling back to the item's `value`), discounted by
-  faction reputation, floored at 1.
+  ideology reputation, floored at 1.
 - **Buy:** debits credits via `adjustCredits`, then inserts/stacks the item. Vendor `stock` is **not**
   decremented — supply is effectively infinite (default `stock ?? 99` is display-only).
-- **Sell:** pays `floor(value × 0.4 × (1 + Cool×0.05) × (1 + factionDiscount))`, floored at 1 — a base **40% of the item's `value`**, boosted **+5% per point of the seller's Cool stat**, and adjusted by faction reputation with the vendor (friendly rep pays more, hostile pays less — the same discount buy uses, inverted). Rejects `quest_item`-tagged and equipped items. Sell price logic lives in `computeSellUnitPrice` (`vendor.js`), shared by the actual sale and the GUI Sell-tab preview.
+- **Sell:** pays `floor(value × 0.4 × (1 + Cool×0.05) × (1 + factionDiscount))`, floored at 1 — a base **40% of the item's `value`**, boosted **+5% per point of the seller's Cool stat**, and adjusted by ideology reputation with the vendor (friendly rep pays more, hostile pays less — the same discount buy uses, inverted). Rejects `quest_item`-tagged and equipped items. Sell price logic lives in `computeSellUnitPrice` (`vendor.js`), shared by the actual sale and the GUI Sell-tab preview.
 
-## Faction reputation
+## Ideology reputation
 
-[factions.js](../server/engine/factions.js). Six tiers by reputation value:
+[ideologies.js](../server/engine/ideologies.js) (renamed from the old `factions.js`). Reputation
+is now held per **ideology** (the four owner-less orgs — see [design.md](design.md) and
+[systems-jobboard.md](systems-jobboard.md)) in the `player_ideology_rep` ledger. Six tiers by
+reputation value:
 
 | Tier | Range | Vendor price effect |
 |------|-------|---------------------|
@@ -90,8 +93,9 @@ error between the two steps can't tear them:
 for ideology-gated AI. Reputation is read by the vendor discount path and the (engine-side) hostility
 checks. (Both live in [ideologies.js](../server/engine/ideologies.js).)
 
-The `factions` player command (view your standings) is owned by the **factions plugin**
-([plugins/factions/index.js](../plugins/factions/index.js)).
+The `ideologies` player command — alias `rep` — (view your standings, stance slider, and leaned
+ideology) is owned by the **ideologies plugin** ([plugins/ideologies/index.js](../plugins/ideologies/index.js)),
+which also registers `ADJUST_REPUTATION`, `ADJUST_STANCE`, and `ADJUST_PATH`.
 
 ## Theft
 

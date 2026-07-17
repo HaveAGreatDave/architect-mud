@@ -179,6 +179,60 @@ hardware idiom (Vault Crack / Circuit Breach / the reel), all display-only:
 Routed in `dispatch.js` (`cockpit_update`/`cockpit_close`/`flight_takeoff`/
 `flight_land`). UTF-8 box glyphs preserved.
 
+## Cockpit controls & damage cinematics (post-2026-07 batch)
+
+### On-screen rudder pedals (`917f1ec8`, restyled `b1a3a5e9`)
+A pair of hold-to-yaw foot plates at the base of the cockpit view, flanking the
+stick — press-and-hold (touch **or** mouse) the left plate for left rudder, right
+for right, exactly equivalent to the `,`/`.` (X/C) keys and the **only** rudder
+input on touch devices. Each plate animates from the **live** pedal deflection
+every frame (keyboard use drives the same animation) and springs back on release.
+In `cockpit.js`: `PEDALS_HTML` (`.fsim-pedals` / `#fsim-pedal-l|r`),
+`wirePedal(el, dir)` (pointer wiring with `setPointerCapture` so a thumb sliding
+off still releases; sets `F.pedalKey`), and the `fsimFrame` loop (drives the tilt
+via CSS var `--d`, toggles `.act` past ±0.04). Physics: `flight-model.js` `step`
+feeds `pedal * rudderYaw * auth` into the heading integrator; a sheared rudder
+zeroes pedal authority.
+
+### Crash break-up death-cam (`5d7f6fcb`)
+A severe write-off — **CFIT** (into a building), **ditch** (into water), or a
+**>800 fpm hard landing** — snaps to the external chase cam and cartwheels the
+wreck while a **wing + tailplane + fin shear off and tumble away** over ~1.9 s
+(`BREAKUP_MS`), *then* shows the CRASHED card and reports to the server. The
+player always sees her come apart. In `cockpit.js`: `beginCrashBreakup(F, reason)`
+(freezes physics, forces `F.setExternalView(true)`, snapshots attitude),
+`stepCrashBreakup(F, now)` (cartwheel + three shed `parts`, then
+`sendCmdSilent('flightevent crash <reason>')`), and an `if (F.crashCine)`
+early-out in `fsimFrame`. Render side (`windshield.js`): `drawAircraftModel` takes
+a `breakup` descriptor; `shedPartFor(breakup, face)` + `shedVert(v, part)` spin
+and drift the shed faces.
+
+### Live sheared-surface asymmetric flight (`917f1ec8`)
+A structural hit in air combat now **shears an actual surface** (left/right wing,
+tailplane, or rudder), not just hull %. You get a `💥 STRUCTURAL FAILURE` toast, a
+hard panel shake, and the aircraft **flies wounded**: a missing wing loses ~half
+its lift and rolls + yaws toward the dead side (fight opposite aileron to limp
+home); both wings = a brick; a sheared tailplane makes the elevator mushy and
+tucks the nose; a sheared rudder kills pedal yaw. The missing piece renders
+**gone** (a settled break-up, distinct from the tumbling crash) on your own model
+**and** on enemy bogeys. Server is authoritative (`custom_data.surfaces`); the
+client reads new `msg.sheared` / `msg.surfaces` fields. In `flight-model.js` `step`:
+`input.dmgSurf = {leftWing,rightWing,tail,rudder}`, tunables `WING_ROLL`/`WING_YAW`,
+`wingLiftMult`. In `windshield.js`: `surfaceBreakup(surfaces)` converts a sheared
+map to a `{t:1, parts}` spec (shared by own-ship, bogeys, **and the Helm chase
+cam** — see [systems-helm.md](systems-helm.md)).
+
+### Chase-camera & button polish
+- **Heli standoff** (`2fe949ee`): the resting orbit-cam no longer crops
+  heli-class craft (Dragonfly, Mini 500) uncomfortably tight — `paintWindshield`'s
+  `szFac` clamp floor raised `0.28 → 0.46`. You can still wheel-dolly in.
+- **Over-the-top fix** (`5d7f6fcb`): near top-down the camera pulls proportionally
+  farther out (`orbRcam = orbR * (1 + topFrac*1.4)`) so buildings directly below
+  stop streaking; `extZoom` floor lowered to 0.30 for a tighter crop.
+- **Button contrast + left-column reflow** (`b1a3a5e9`): the corner buttons
+  (⚙ tune, ⛶ fullscreen, ⊟ hide, ◎ EXT, ⟲ orbit-reset) got higher contrast; the
+  left column now stacks ABORT → fuel gauge → disembark → admin-rewind. Pure CSS.
+
 ## Files
 
 - **New:** `plugins/flight/` (index.js, plugin.json, regress.js, README.md),

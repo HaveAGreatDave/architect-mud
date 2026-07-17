@@ -19,6 +19,10 @@ is silently inert, so grep before renaming anything below.
 |---|---|---|
 | `airfield_charter` | flight | zone offers charter flights |
 | `charter_vtol_only` | flight | charter pad is VTOL Dragonfly-only, off-airfield drops, no rental desk (Echelon helipad) |
+| `yacht` / `echelon` | yacht | marks an Echelon zone (the yacht) |
+| `echelon_bridge` | yacht | the bridge — every `helm`/`sail`/`stop`/`dock` verb gates on this flag |
+| `naval_ambience` | yacht | naval ambient-event pool (Echelon exterior) |
+| `pier` | terrain | pier tile → inferred `dock` surface by `zoneTerrain()` when no authored `terrain` |
 | `airfield_dealer` | flight | aircraft dealer here |
 | `airfield_fuel` | flight | fuel vendor here |
 | `airfield_fuels` | flight | fuel price/stock config |
@@ -129,6 +133,7 @@ is silently inert, so grep before renaming anything below.
 | `requires_demolition` | power | only `demolition`-tagged items damage it |
 | `seat_idx` | gametable | seat number at a table |
 | `security_device` | surveillance | is a plantable security device |
+| `slot_machine` / `slot_min` / `slot_max` / `slot_default` | slots | slot machine + its bet bounds/default (targeted by `spin`) |
 | `station_quality` | crafting | crafting station quality |
 | `trash_bin` | scavenging | searchable trash |
 | `tv` / `tv_dial_freq` / `tv_skin` | broadcast | television set config |

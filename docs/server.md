@@ -122,11 +122,11 @@ export const hooks = {
 
 ```js
 // plugin.json
-{ "commands": ["factions", "rep"] }
+{ "commands": ["ideologies", "rep"] }
 
 // index.js
 export const commands = {
-  "factions": (args, raw, player, broadcast) => ({ type: 'info', message: '...' }),
+  "ideologies": (args, raw, player, broadcast) => ({ type: 'info', message: '...' }),
 };
 ```
 

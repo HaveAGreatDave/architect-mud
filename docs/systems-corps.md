@@ -18,8 +18,9 @@
 Player crews are corps **with** a player owner. Both share one model; the only difference is who makes
 the decisions.
 
-Today [factions.js](../server/engine/factions.js) is a **reputation dispenser** — a table of definitions
-plus a `player_faction_rep` ledger ([schema.js:301](../server/models/schema.js)). It has no owner, no
+Today [ideologies.js](../server/engine/ideologies.js) (the renamed `factions.js`) is a **reputation
+dispenser** — a table of definitions plus a `player_ideology_rep` ledger
+([schema.js](../server/models/schema.js)). It has no owner, no
 money, no members, no assets. Corps = bolt those five things on and let players *and* AI drive them.
 Player reputation against each org stays exactly as it is; agency layers on top.
 

@@ -61,8 +61,8 @@ The server **does not** touch the schema or world content on boot. The two are m
 │   │   ├── skills.js         # Skill definitions, XP/rank curve, generic skillCheck()
 │   │   ├── crafting.js       # Recipes, station requirements
 │   │   ├── mutations.js      # Radiation-triggered permanent mutations
-│   │   ├── factions.js       # Reputation tiers and effects
-│   │   ├── vendor.js         # Buy/sell with faction rep discounts
+│   │   ├── ideologies.js     # Ideology reputation tiers + stance/path lean (was factions.js)
+│   │   ├── vendor.js         # Buy/sell with ideology rep discounts
 │   │   ├── apartments.js     # Property ownership, locks, lockpicking, safe sleep
 │   │   ├── actions.js        # Canonical mutation path: registerAction / dispatchAction
 │   │   ├── events.js         # In-process event bus: on / emit

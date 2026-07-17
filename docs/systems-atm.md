@@ -162,7 +162,8 @@ MAINTENANCE access is per-player, per-terminal, in-memory (resets on server rest
 
 ## Faction gating
 
-`checkFactionAccess(player, atm)` queries `player_faction_rep` when:
+`checkFactionAccess(player, atm)` queries `player_ideology_rep` (the `faction_id` / `min_faction_rep`
+ATM columns keep their names) when:
 - `atm.faction_id` is set, **and**
 - `atm.min_faction_rep > -200` (−200 is the effective "no gate" sentinel)
 
