@@ -1,0 +1,17 @@
+{
+  "description": "Banks of magenta and cyan neon race around the coffered ceiling, and a low chandelier of salvaged fibre-optics rains cold light over the felt. It never dims — the house wants you to see exactly how much you're losing.",
+  "flags": {
+    "is_light": true,
+    "light_type": "overhead"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_casino_interior",
+  "light_type": "overhead",
+  "lumen_output": 3000,
+  "name": "neon canopy",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": null,
+  "zone_id": "zone_casino_interior"
+}

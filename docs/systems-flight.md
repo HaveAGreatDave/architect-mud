@@ -288,16 +288,35 @@ cut the hit chance); a hit walks the hull-damage ladder → breakup → `crash`.
 `arm`/`safe` toggle weapons (hardpoints only); `strafe`/`fire` arms the **targeting-
 reticle deck** (`flight_target` → `strafresolve`) to silence a site.
 
-**Air-to-air PvP** (also `combat.js`; blueprint + phase log in
-[proposals/systems-flight-pvp.md](proposals/systems-flight-pvp.md)): contacts relay
-(Phase A), manual-pipper guns via `airfire guns` (Phase B), and **missiles (Phase C)**
-— the cockpit's MSL weapon select builds a seeker lock by holding the bogey in the
-reticle, `airlock` records it server-side (and trips the target's RWR), `airfire
-missile` launches, and the shot resolves server-authoritatively after its flight time
-on `tickCombat` (`tickMissiles`): flares popped mid-flight (`flares`, X key) can decoy
-it, a hard `evade` break + a piloting notch shave the kill probability. Ammo = the
-airframe's hardpoints per sortie, rearmed free on parking (`mslAmmo`; guns stay
-infinite). All `MISSILE_*`/`FLARE_*` tunables live in `state.js`.
+**Air-to-air PvP — fully built and player-attributed** (also `combat.js`; blueprint +
+phase log in [proposals/systems-flight-pvp.md](proposals/systems-flight-pvp.md)). Two
+real players' aircraft fight each other end-to-end, server-authoritatively:
+- **Contacts relay** — `contactsNear`/`relayContacts` push every nearby airborne (or
+  ground-rolling) craft to each pilot's cockpit at sync cadence, so bogeys appear on the
+  glass with no extra tick latency.
+- **Guns** — the client owns aim and reports `airfire guns <targetId> <aimQuality>`;
+  the server validates a range/cone/altitude anti-spoof envelope, then lands
+  `GUN_DMG × aim` **cut by the defender's own opposed roll** — a jinking target rolls a
+  live `piloting` check, an active `evade` break, and a gunship's armour all shave the
+  bite. Guns are infinite; a server-enforced cooldown caps the burst rate.
+- **Missiles** — the MSL select builds a seeker lock by holding the bogey in the reticle;
+  `airlock` records it server-side and **trips the target's RWR** (`⚠ RWR — MISSILE
+  LOCK`); `airfire missile` launches. The shot rides as an inbound on the *target's* live
+  object and resolves `MISSILE_FLIGHT_MS` later in `tickMissiles` — so the **defender's**
+  state at impact decides it: flares popped mid-flight (`flares`, X key) roll
+  `FLARE_DEFEAT` to drag the seeker onto the decoys, a hard `evade` break + a last-second
+  piloting notch shave `MISSILE_PK`. Ammo = the airframe's hardpoints per sortie, rearmed
+  free on parking (`mslAmmo`). All `MISSILE_*`/`FLARE_*` tunables live in `state.js`.
+- **Structural shear-off in PvP** — guns *and* missiles both resolve through
+  `applyAirDamage`, which rolls `shearRoll(target, amount)`: a heavy hit on an already-
+  ravaged airframe can rip an **actual surface off another player's craft** — left/right
+  wing, tailplane, or rudder (`💥 STRUCTURAL FAILURE — the left wing tears away`). The
+  victim then flies the crippled asymmetric model (`custom_data.surfaces` →
+  `flight-model.js`; see §Live sheared-surface asymmetric flight), rolling and yawing
+  toward the dead side, and both cockpits render the missing piece gone.
+- Ground **AA sites deliberately reuse this same PvP damage path** (`applyAirDamage`), so
+  a turret hit gets the identical red-flash / hull-gauge / shear feedback a player gun hit
+  does — one damage model, not two.
 
 **Boarding under fire** (`cmdBoard`). Getting into the cockpit mid-fight is a
 **Reflexes check** (`stat_reflexes` vs a difficulty that scales with the number of
@@ -467,7 +486,9 @@ broadcast, and `repair` falls through to the engine gear-repair builtin off-cont
 
 ## Still lighter / follow-on
 
-Full PvP air-to-air (the AA/reticle seam exists; player-vs-player interception is a
-message today), authored storm-cell/offshore special-airspace *content*, comms/ATC
-channel flavor, corp-owned aircraft + insurance, and discrete parts-as-items slots
-(the continuous tune curves are in). See the blueprint.
+PvP air-to-air is **built** (guns/missiles/flares/lock/RWR + structural shear, all
+opposed and player-attributed — see §Air-to-air PvP above); what's still lighter is
+dedicated *interception tooling* (scramble-to-intercept mechanics rather than
+happen-to-be-in-range duels). Beyond that: authored storm-cell/offshore
+special-airspace *content*, comms/ATC channel flavor, corp-owned aircraft + insurance,
+and discrete parts-as-items slots (the continuous tune curves are in). See the blueprint.

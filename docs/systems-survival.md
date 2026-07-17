@@ -123,14 +123,27 @@ for pre-existing drugs). Per-drug state lives in `player_drug_state` (`doses_in_
   non-addictive (`addiction_chance 0`, no withdrawal) with a non-lethal green-out overdose. See
   [plugins.md](plugins.md).
 - **Hallucinations** (`hallucination` block) — handled by the **trip plugin**
-  ([plugins/trip](../plugins/trip/index.js)) off the engine's `drug.used` hook. `mode: "overlay"` streams
-  scripted timed events + trippy client FX while the body stays in the real zone (attackable);
-  `mode: "dreamzone"` teleports the mind into an isolated off-map zone (`flags.is_dreamzone`) and spawns
-  an **attackable phantom body** in the real zone that mirrors the player's HP — damaging it damages the
-  player, and killing it kills them. See [systems-broadcast.md] siblings and the trip plugin for FX
-  (`trip_start`/`trip_event`/`trip_fx`/`trip_end` client messages, the `[trip]` markup tag, `#trip-overlay`
-  + `.tripping` CSS, and inline trip audio). Trips are in-memory; a login rescue in `server/index.js`
-  bounces anyone stranded in a dream zone by a restart back to their anchor.
+  ([plugins/trip](../plugins/trip/index.js)) off the engine's `drug.used` hook. Three modes:
+  - `mode: "overlay"` streams scripted timed events + trippy client FX while the body stays in the real
+    zone (attackable).
+  - `mode: "dreamzone"` teleports the mind into an isolated off-map zone (`flags.is_dreamzone`) and spawns
+    an **attackable phantom body** in the real zone that mirrors the player's HP — damaging it damages the
+    player, and killing it kills them.
+  - `mode: "phantom"` — a **deliriant**, deliberately silent: NO screen FX, NO `[trip]` text, NO "you are
+    hallucinating" cue. Per-player **fake people/animals** (authored in the drug's `hallucination.phantoms`
+    array, else a default roster) walk into the player's REAL room, act via ambient-styled emotes, and
+    render into the room look identically to real NPCs/hostiles. They answer to `look`/`examine`/`talk`/
+    `attack` as if real — until an interaction (a whiffed punch → the phantom evaporates, a bystander
+    stares) reveals there was nothing there. The illusion follows the player room-to-room. Backed by the
+    engine's per-player phantom registry [server/engine/phantoms.js](../server/engine/phantoms.js) (the
+    law: a room can hold entities only one viewer sees; `matchPhantom` always defers to any real entity),
+    which describe.js reads for the render and the trip plugin's specialized-action intercepts read for
+    interactions. Reference drug: [content/drugs/drug_wraithdust.json](../content/drugs/drug_wraithdust.json).
+
+  See the trip plugin for overlay/dreamzone FX (`trip_start`/`trip_event`/`trip_fx`/`trip_end` client
+  messages, the `[trip]` markup tag, `#trip-overlay` + `.tripping` CSS, and inline trip audio). Trips
+  (and phantoms) are in-memory; a login rescue in `server/index.js` bounces anyone stranded in a dream
+  zone by a restart back to their anchor.
 
 ## Buffs & heal-over-time
 

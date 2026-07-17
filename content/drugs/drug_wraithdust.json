@@ -1,0 +1,81 @@
+{
+  "addiction_chance": 0.06,
+  "description": "A twist of oily grey powder that smells faintly of hot metal and hospital corridors. They say it introduces you to people.",
+  "duration_seconds": 300,
+  "effects": {
+    "hallucination": {
+      "duration_seconds": 300,
+      "mode": "phantom",
+      "phantoms": [
+        {
+          "arrive": "A gaunt man in a hospital gown shuffles in from the edge of the room and stops against the wall, watching you.",
+          "barks": [
+            "The gaunt man's lips move, but no sound comes out.",
+            "The gaunt man takes one slow step closer, still watching.",
+            "The gaunt man tilts his head, studying you like a puzzle."
+          ],
+          "depart": "You glance away for a second, and when you look back the gaunt man is simply gone.",
+          "hp": 10,
+          "kind": "person",
+          "look": "He stands too still, gown stained grey at the hem. When you meet his eyes he does not blink, and his smile does not reach them.",
+          "name": "a gaunt man in a hospital gown",
+          "stay_frac": 0.7,
+          "talk": "The gaunt man doesn't answer. He only watches, and smiles a little."
+        },
+        {
+          "arrive": "A low black dog pads out from behind you, hackles up, and fixes on you with wet yellow eyes.",
+          "barks": [
+            "The black dog growls, a sound you feel in your teeth.",
+            "The black dog circles you, never breaking its stare."
+          ],
+          "depart": "The black dog slinks into a shadow too shallow to hold it, and is gone.",
+          "hp": 14,
+          "kind": "beast",
+          "look": "Its ribs show through matted fur and its jaw hangs slightly wrong. It watches you the way a thing watches food.",
+          "name": "a low black dog",
+          "stay_frac": 0.5
+        },
+        {
+          "arrive": "A tall figure in a wide-brimmed hat is suddenly in the corner, as if it had always been there. You just hadn't noticed.",
+          "barks": [
+            "The tall figure hasn't moved. You're fairly sure it hasn't moved.",
+            "For a moment the tall figure's hat brim lifts, and there is nothing beneath it."
+          ],
+          "depart": "The corner is just a corner again. It always was.",
+          "hp": 12,
+          "kind": "person",
+          "look": "You can't quite make out its face under that brim, no matter how hard you try. The harder you try, the less there seems to be.",
+          "name": "a tall figure in a wide-brimmed hat",
+          "stay_frac": 0.85,
+          "talk": "The figure under the hat says nothing. The brim tips, very slightly, toward you."
+        }
+      ]
+    },
+    "instant": {
+      "sanity": -12
+    },
+    "onset_seconds": 40,
+    "phases": {
+      "comedown_message": "The air thins out. You're alone again — you think.",
+      "comedown_seconds": 40,
+      "comeup_message": "The room goes very quiet, and its corners feel closer than they were.",
+      "comeup_seconds": 40,
+      "peak_mods": {
+        "stat_cool": -2,
+        "stat_reflexes": -2
+      },
+      "peak_seconds": 220
+    },
+    "tolerance": {
+      "gain_per_dose": 0.3,
+      "max_reduction": 0.9,
+      "recovery_per_sec": 0.0002
+    }
+  },
+  "flags": {},
+  "id": "drug_wraithdust",
+  "item_id": "item_wraithdust",
+  "name": "Wraithdust",
+  "overdose_threshold": 6,
+  "withdrawal_effects": {}
+}

@@ -1,0 +1,17 @@
+{
+  "description": "Strips of colour-shift LED chase along the concourse ceiling, washing the shopfronts in restless neon that never quite settles on a single hue.",
+  "flags": {
+    "is_light": true,
+    "light_type": "overhead"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_halcyon_concourse",
+  "light_type": "overhead",
+  "lumen_output": 2500,
+  "name": "chasing LED strips",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": null,
+  "zone_id": "zone_halcyon_concourse"
+}

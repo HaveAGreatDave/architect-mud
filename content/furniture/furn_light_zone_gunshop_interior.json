@@ -1,0 +1,17 @@
+{
+  "description": "Caged sodium fixtures bolted to the joists throw a hard amber wash over the racks of hardware. One flickers on a tired ballast, ticking like a countdown.",
+  "flags": {
+    "is_light": true,
+    "light_type": "overhead"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_gunshop_interior",
+  "light_type": "overhead",
+  "lumen_output": 1800,
+  "name": "caged sodium fixtures",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": null,
+  "zone_id": "zone_gunshop_interior"
+}

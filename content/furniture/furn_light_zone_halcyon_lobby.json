@@ -1,0 +1,17 @@
+{
+  "description": "A cascade of suspended glass rods pours warm corporate light down over the marble, every fixture immaculate and metered. The lobby is never dark; darkness is bad for the brand.",
+  "flags": {
+    "is_light": true,
+    "light_type": "overhead"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_halcyon_lobby",
+  "light_type": "overhead",
+  "lumen_output": 3000,
+  "name": "glass-rod cascade",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": null,
+  "zone_id": "zone_halcyon_lobby"
+}

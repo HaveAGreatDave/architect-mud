@@ -31,6 +31,7 @@ import { furnitureVerbs } from "../furnitureActions.js";
 import { titleCaseName } from "../text.js";
 import { getLockTagPublic, checkLockAuth } from "./doors.js";
 import { getItem } from "../items-cache.js";
+import { getPhantomsInZone } from "../phantoms.js";
 
 // Emits a `data-lock` attribute the client dpad reads to colour the direction:
 // "owned" (the player controls this lock), "locked" (engaged, not theirs), or
@@ -407,6 +408,13 @@ export async function describeZone(zone, player, out = {}) {
 	const enemies = isDark ? [] : getZoneEnemies(zone.id);
 	const npcs = gate.hideNpcs ? [] : getZoneNpcs(zone.id);
 	const corpses = isDark ? [] : getZoneCorpses(zone.id);
+	// Per-viewer hallucinated entities (trip plugin). They render into the real
+	// NPC/Hostile lines so they're indistinguishable from real presences. Hidden
+	// in the dark like everything else; the deliriant fills a lit room, not a
+	// blind one. Split by kind: people join "NPCs here:", beasts join "Hostiles:".
+	const phantoms = isDark || gate.hideNpcs ? [] : getPhantomsInZone(player.id, zone.id);
+	const phantomPeople = phantoms.filter((p) => p.kind === "person");
+	const phantomBeasts = phantoms.filter((p) => p.kind !== "person");
 	const others = isDark
 		? []
 		: getZonePlayers(zone.id).filter((p) => p.id !== player.id);
@@ -695,7 +703,7 @@ export async function describeZone(zone, player, out = {}) {
 		);
 		desc += `\n<span class="players-label">Sleeping here:</span> ${bodyLinks.join(", ")}`;
 	}
-	if (npcs.length) {
+	if (npcs.length || phantomPeople.length) {
 		if (isDark) {
 			const figures = npcs.map((n) => _vaguePresence(n));
 			desc += `\n<span class="npcs-label">Nearby:</span> <span style="color:var(--text-dim);font-style:italic">${figures.join(", ")}</span>`;
@@ -708,6 +716,10 @@ export async function describeZone(zone, player, out = {}) {
 						: '';
 				return `<span class="action-link npc-link" data-action="talk" data-target="${n.name}" title="Talk to ${n.name}">${n.name}</span>${postureTag}`;
 			};
+			// A phantom person wears the exact same markup as a real NPC — the
+			// only "tell" is that talking to it or touching it doesn't behave.
+			const phantomLink = (p) =>
+				`<span class="action-link npc-link" data-action="talk" data-target="${p.name}" title="Talk to ${p.name}">${p.name}</span>`;
 			// Vendors get their own section — but covert/trust-gated dealers stay
 			// camouflaged among the regular NPCs so their storefront isn't outed.
 			const isVendor = (n) =>
@@ -716,20 +728,25 @@ export async function describeZone(zone, player, out = {}) {
 					n.flags?.personality === 'vendor');
 			const vendors = npcs.filter(isVendor);
 			const regular = npcs.filter((n) => !isVendor(n));
+			const regularLinks = [...regular.map(npcLink), ...phantomPeople.map(phantomLink)];
 			if (vendors.length) {
 				desc += `\n<span class="vendors-label">Vendors here:</span> ${vendors.map(npcLink).join(", ")}`;
 			}
-			if (regular.length) {
-				desc += `\n<span class="npcs-label">NPCs here:</span> ${regular.map(npcLink).join(", ")}`;
+			if (regularLinks.length) {
+				desc += `\n<span class="npcs-label">NPCs here:</span> ${regularLinks.join(", ")}`;
 			}
 		}
 	}
-	if (enemies.length) {
+	if (enemies.length || phantomBeasts.length) {
 		const enemyLinks = enemies.map(
 			(e) =>
 				`<span class="action-link enemy-link" data-action="attack" data-target="${e.name}" data-instance-id="${e.instanceId}" title="Attack ${e.name}">${e.name}</span> (${e.hp}/${e.hp_max}HP)`,
 		);
-		desc += `\n<span class="enemies-label">Hostiles:</span> ${enemyLinks.join(", ")}`;
+		const phantomBeastLinks = phantomBeasts.map(
+			(p) =>
+				`<span class="action-link enemy-link" data-action="attack" data-target="${p.name}" title="Attack ${p.name}">${p.name}</span> (${p.hp}/${p.hp_max}HP)`,
+		);
+		desc += `\n<span class="enemies-label">Hostiles:</span> ${[...enemyLinks, ...phantomBeastLinks].join(", ")}`;
 	}
 	if (corpses.length) {
 		const corpseLinks = corpses.map(

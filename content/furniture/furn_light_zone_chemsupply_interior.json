@@ -1,0 +1,17 @@
+{
+  "description": "Rows of caged fluorescent battens hum overhead, flat and shadowless, the better to read hazard labels by. Half the tubes buzz at a frequency that lives behind your eyes.",
+  "flags": {
+    "is_light": true,
+    "light_type": "overhead"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_chemsupply_interior",
+  "light_type": "overhead",
+  "lumen_output": 1800,
+  "name": "fluorescent battens",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": null,
+  "zone_id": "zone_chemsupply_interior"
+}
