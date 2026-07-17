@@ -14,9 +14,24 @@
 // The 1-second combat tick is intentionally NOT routed through this module —
 // it's hot-path, per-enemy, latency-critical, and benefits from a raw
 // setInterval with no dispatch overhead.
+//
+// Idle-gating (why this module owns the gate, not each callback): a clock-driven
+// tick that awaits query() on an empty world keeps a pool connection alive inside
+// its idle window, which stops Neon's compute from ever suspending (scale-to-zero)
+// — the whole server bills 24/7 for nobody. So every scheduled task is gated on
+// hasActivePlayers() BY DEFAULT: the callback simply doesn't fire when the world
+// is empty. A task that genuinely must run on an empty server (e.g. a settlement
+// sweep) opts out explicitly with { runWhenEmpty: true }. This inverts the old
+// convention — authors used to have to REMEMBER to type the guard, and one
+// forgotten guard (surveillance's camera refresh) pinned the compute awake. Now
+// forgetting is safe; running-while-empty is the deliberate act.
+
+import { hasActivePlayers } from './world.js';
 
 const CADENCE_MS = {
+  '4s':   4_000,
   '5s':   5_000,
+  '6s':   6_000,
   '10s':  10_000,
   '15s':  15_000,
   '30s':  30_000,
@@ -25,6 +40,7 @@ const CADENCE_MS = {
   '5m':   5 * 60_000,
   '10m':  10 * 60_000,
   '30m':  30 * 60_000,
+  '1h':   60 * 60_000,
   '24h':  24 * 60 * 60_000,
 };
 
@@ -32,9 +48,17 @@ const CADENCE_MS = {
 // cadenceName -> { timer, callbacks: [] }
 const cadences = new Map();
 
-export function schedule(cadence, callback) {
+export function schedule(cadence, callback, opts = {}) {
   const ms = CADENCE_MS[cadence];
   if (!ms) throw new Error(`Unknown scheduler cadence: "${cadence}". Valid: ${Object.keys(CADENCE_MS).join(', ')}`);
+
+  // Idle-gate by default. runWhenEmpty:true is the deliberate opt-out for the
+  // rare task that must fire on an empty server (see module header).
+  const gated = opts.runWhenEmpty
+    ? callback
+    : () => (hasActivePlayers() ? callback() : undefined);
+  // Tag the wrapper so unschedule() can still be called with the original fn.
+  if (gated !== callback) gated.__original = callback;
 
   if (!cadences.has(cadence)) {
     const entry = { timer: null, callbacks: [] };
@@ -61,7 +85,7 @@ export function schedule(cadence, callback) {
     }, Math.floor(Math.random() * Math.min(ms, 60_000)));
     cadences.set(cadence, entry);
   }
-  cadences.get(cadence).callbacks.push(callback);
+  cadences.get(cadence).callbacks.push(gated);
 }
 
 // Remove a previously scheduled callback (e.g. a plugin tearing down).
@@ -69,7 +93,7 @@ export function schedule(cadence, callback) {
 export function unschedule(cadence, callback) {
   const entry = cadences.get(cadence);
   if (!entry) return false;
-  const idx = entry.callbacks.indexOf(callback);
+  const idx = entry.callbacks.findIndex(cb => cb === callback || cb.__original === callback);
   if (idx === -1) return false;
   entry.callbacks.splice(idx, 1);
   return true;

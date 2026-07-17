@@ -33,7 +33,7 @@ import { filterDialogueOptions, renderDialogueNode } from "./engine/dialogue.js"
 import "./engine/graph.js";
 import { loadRecipes } from "./engine/crafting.js";
 import { loadDrugs } from "./engine/drugs.js";
-import { loadItems } from "./engine/items-cache.js";
+import { loadItems, getItem } from "./engine/items-cache.js";
 import { reloadCrimes } from "./engine/crimes.js";
 import { reloadAliases } from "./engine/commands/aliases.js";
 import { loadMutations } from "./engine/mutations.js";

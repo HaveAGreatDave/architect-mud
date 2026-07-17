@@ -90,12 +90,20 @@ A plugin's recurring work shares one small connection pool with every player com
 Postgres is remote, so each `query()` is a full network round trip holding a pool slot. The 2026-07
 lag audit traced most idle DB traffic to plugin heartbeats. Rules for any scheduled work:
 
-- **Register through `scheduler.js`** (`schedule('1m', fn)`), not your own `setInterval` — the
-  scheduler jitters cadence phase and staggers same-cadence subscribers so tick convoys can't
-  starve the pool at a minute boundary.
-- **Idle-gate:** skip the tick's DB work when `hasActivePlayers()` (world.js) is false, unless it
-  genuinely must run on an empty server. Derive state from the game clock or `resolve_at`-style
-  timestamps so the first tick after a login catches up correctly (see sportsleague/sportsbet).
+- **Register through `scheduler.js`** (`schedule('1m', fn)`), never your own `setInterval`, for any
+  timer that touches the DB. The scheduler jitters cadence phase and staggers same-cadence
+  subscribers so tick convoys can't starve the pool at a minute boundary — **and it idle-gates every
+  callback by default** (below). A raw `setInterval` that awaits `query()` bypasses both and is the
+  bug class that pinned Neon's compute awake 24/7 (surveillance's camera refresh). Raw `setInterval`
+  is reserved for pure in-memory hot loops that never hit the DB (the 1 s combat/gameplay ticks).
+- **Idle-gate is automatic — the scheduler skips your callback entirely when `hasActivePlayers()` is
+  false.** You no longer type the guard; forgetting it is now safe. This exists because a clock-driven
+  `query()` on an empty world keeps a pool connection alive inside its idle window, so Neon's compute
+  never suspends (scale-to-zero) and the empty server bills 24/7. Derive state from the game clock or
+  `resolve_at`-style timestamps so the first tick after a login catches up correctly (see
+  sportsleague/sportsbet). **Opt out only for a tick that genuinely must run on an empty server** —
+  pass `schedule(cadence, fn, { runWhenEmpty: true })`, and reserve it for pure in-memory continuity
+  work (e.g. advancing the world clock) that costs no DB round trip.
 - **No queries in loops** — batch with `WHERE id = ANY($1)` or a `GROUP BY` aggregate — and
   **diff-gate recurring writes** so a stable world writes nothing.
 - **Decide where your data lives before querying for it.** Hot paths (per-move gates, event

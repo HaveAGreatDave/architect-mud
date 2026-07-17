@@ -1,5 +1,6 @@
 import { query, withTransaction } from '../../server/models/db.js';
 import { getZone, updateFurniture, deleteFurniture } from '../../server/engine/world.js';
+import { schedule } from '../../server/engine/scheduler.js';
 import { transferCredits } from '../../server/engine/economy.js';
 import { awardSkillUse, effectiveSkill } from '../../server/engine/skills.js';
 import { getPowerMap } from '../../server/engine/environment.js';
@@ -438,7 +439,7 @@ async function replenishTick() {
   }
 }
 
-setInterval(() => replenishTick().catch(e => console.error('[atm] replenish error:', e.message)), 5 * 60 * 1000);
+schedule('5m', () => replenishTick().catch(e => console.error('[atm] replenish error:', e.message)));
 
 // ── Dev-panel route handler ───────────────────────────────────────────────────
 

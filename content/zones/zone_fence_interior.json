@@ -10,7 +10,7 @@
   "created_by": null,
   "description": "A narrow shop behind wire-mesh glass, every shelf crowded with other people's bad weeks. A buzz-lock door, a bulletproof slot in the counter, and a back room whose contents are strictly none of your business.",
   "exits": {
-    "west": "zone_district_920_910"
+    "north": "zone_district_920_910"
   },
   "flags": {
     "building_name": "Pawn & Pity",

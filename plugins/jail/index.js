@@ -572,7 +572,7 @@ schedule('1m', async () => {
 async function purgeEvidence() {
   await query(`DELETE FROM police_evidence WHERE created_at < NOW() - $1::interval`, [`${gameMsToReal(PURGE_MS)} milliseconds`]).catch(() => {});
 }
-setInterval(() => purgeEvidence(), 60 * 60 * 1000);
+schedule('1h', () => purgeEvidence());
 
 // ── Boot: reschedule / catch up on any prisoners across a restart ────────────
 (async () => {

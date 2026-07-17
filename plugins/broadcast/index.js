@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
-import { world, getZonePlayers, getZone, getZoneNpcs, getZoneEnemies, reloadZone, hasActivePlayers, insertFurniture, updateFurniture, deleteFurnitureWhere } from '../../server/engine/world.js';
+import { world, getZonePlayers, getZone, getZoneNpcs, getZoneEnemies, reloadZone, hasActivePlayers, insertFurniture, updateFurniture, deleteFurnitureWhere, getZoneFurniture } from '../../server/engine/world.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { on, emit } from '../../server/engine/events.js';
 import { registerAction, dispatchAction } from '../../server/engine/actions.js';
@@ -2450,17 +2450,26 @@ async function _pirateItemDur(id) {
   return dur;
 }
 
+// Zone's media deck, served from the write-funneled furniture cache in world.js —
+// the broadcast tick asks once a second per watched channel, so this must never
+// hit the DB. Key-presence match, exactly what the old
+// `flags::text LIKE '%"media_deck"%'` scan tested (`media_deck` is only ever
+// written `true`). Prefers the deck linked to `channelId` so an orphaned/
+// other-channel deck can't shadow the real transmitter. Fresh flags every call:
+// the pirate playback writes below go through updateFurniture, whose RETURNING
+// row re-syncs this cache before the next tick reads it.
+function _zoneDeck(zoneId, channelId = null) {
+  const decks = getZoneFurniture(zoneId).filter(f => f.flags && 'media_deck' in f.flags);
+  if (!decks.length) return null;
+  return (channelId && decks.find(f => f.flags.channel_id === channelId)) || decks[0];
+}
+
 // Returns undefined when the deck isn't pirated (caller falls through to the
 // normal path), null when pirated-but-dark (stopped / empty queue), or a tick
 // message when the pirate queue is airing.
 async function _getPirateMessage(zoneId, nowMs, state) {
-  const { rows } = await query(
-    `SELECT id, flags FROM furniture WHERE zone_id=$1 AND flags::text LIKE '%"media_deck"%'
-      ORDER BY (flags->>'channel_id' = $2) DESC NULLS LAST LIMIT 1`,
-    [zoneId, state?.channelId || null]
-  ).catch(() => ({ rows: [] }));
-  if (!rows.length) return undefined;
-  const deck = rows[0];
+  const deck = _zoneDeck(zoneId, state?.channelId || null);
+  if (!deck) return undefined;
   const dflags = _deckFlags(deck);
   if (!dflags.pirate_owner) return undefined;   // not pirated → normal path
   if (!dflags.pirate_playing) return null;      // stopped → dark
@@ -2529,15 +2538,8 @@ async function _getDeckMessage(zoneId, nowMs, state) {
   if (pirate !== undefined) return pirate;   // pirated deck runs its captor's queue
   let entry = _deckCache.get(zoneId);
   if (!entry || nowMs - entry.fetchedAt > _DECK_CACHE_TTL) {
-    // If a zone holds more than one deck, prefer the one linked to THIS channel so
-    // an orphaned/other-channel deck can't shadow the real transmitter.
-    const { rows } = await query(
-      `SELECT flags FROM furniture WHERE zone_id=$1 AND flags::text LIKE '%"media_deck"%'
-        ORDER BY (flags->>'channel_id' = $2) DESC NULLS LAST LIMIT 1`,
-      [zoneId, state?.channelId || null]
-    ).catch(() => ({ rows: [] }));
-    const dflags = rows[0] ? (typeof rows[0].flags === 'object' ? rows[0].flags : JSON.parse(rows[0].flags || '{}')) : null;
-    const activeId = dflags?.deck_active || null;
+    const deck = _zoneDeck(zoneId, state?.channelId || null);
+    const activeId = deck?.flags?.deck_active || null;
     if (activeId && entry?.broadcastId === activeId && entry.item) {
       // Same cassette still loaded — keep the built item so an assembled sports/
       // weather graph (cached on the item) survives the TTL refresh instead of
@@ -2682,6 +2684,15 @@ function _joinNames(names) {
 }
 
 async function broadcastTick() {
+  // Idle-gate. The zone loop below self-gates on per-zone players, but the
+  // live-stage acting pass fires on `_watchedZones` (camera-observed studios) —
+  // and that set is only rebuilt by refreshWatchedZones, which is itself
+  // hasActivePlayers()-gated, so it goes STALE (still populated) when the last
+  // player logs off. Without this gate, a stale watched studio kept
+  // _getPirateMessage's per-second furniture query running on an empty server,
+  // which pinned Neon's compute awake 24/7. With no players there are no TV/deck
+  // watchers and no one on a spy feed, so nothing this tick does is observable.
+  if (!hasActivePlayers()) return;
   const nowMs = Date.now();
   // Channels the zone loop below will drive this tick (a tuned zone with players).
   // The deck-preview pass skips these so the stateful graph walker isn't advanced
@@ -4218,16 +4229,17 @@ registerAction({
 
 // ── Media Deck: load/eject cassettes ─────────────────────────────────────────
 
-async function _findDeckInZone(zoneId) {
-  const { rows } = await query(
-    `SELECT * FROM furniture WHERE zone_id=$1 AND flags::text LIKE '%"media_deck"%' LIMIT 1`,
-    [zoneId]
-  );
-  return rows[0] || null;
+function _findDeckInZone(zoneId) {
+  return _zoneDeck(zoneId);
 }
 
+// Deep clone: decks are now served from the live world.furniture cache, so a
+// caller mutating nested flag objects (pirate_queue, deck_ejected_slots) must
+// never share references with the cached row — updateFurniture's RETURNING row
+// is the only thing allowed to change the cache.
 function _deckFlags(deck) {
-  return typeof deck.flags === 'object' ? { ...deck.flags } : JSON.parse(deck.flags || '{}');
+  if (deck.flags && typeof deck.flags === 'object') return structuredClone(deck.flags);
+  return typeof deck.flags === 'string' ? JSON.parse(deck.flags || '{}') : {};
 }
 
 // ── Broadcast Piracy (SPECTER) ────────────────────────────────────────────────
@@ -4306,12 +4318,8 @@ async function cmdPirate(args, raw, player) {
     return { type: 'error', message: 'You need the pirate firmware flashed onto your tablet to hijack a media deck.' };
   }
   const nameHint = args.join(' ').trim().toLowerCase();
-  const { rows } = await query(
-    `SELECT f.id, f.name, f.flags, z.name AS zone_name FROM furniture f LEFT JOIN zones z ON z.id = f.zone_id
-      WHERE f.zone_id=$1 AND f.flags::text LIKE '%"media_deck"%'${nameHint ? ' AND f.name ILIKE $2' : ''} LIMIT 1`,
-    nameHint ? [player.current_zone, `%${nameHint}%`] : [player.current_zone]
-  );
-  const deck = rows[0];
+  const zoneDecks = getZoneFurniture(player.current_zone).filter(f => f.flags && 'media_deck' in f.flags);
+  const deck = nameHint ? zoneDecks.find(f => f.name?.toLowerCase().includes(nameHint)) : zoneDecks[0];
   if (!deck) return { type: 'error', message: 'There is no media deck here to pirate.' };
   const dflags = _deckFlags(deck);
   if (canOperateDeck(dflags, player)) return { type: 'error', message: `You already control the ${deck.name}.` };
@@ -4395,10 +4403,8 @@ async function _clearSeizure(deck, dflags) {
 // Release every station a player holds (death / arrest drops the seizure).
 async function _releaseSeizuresBy(ownerId, reasonToOwner) {
   if (!ownerId) return;
-  const { rows } = await query(
-    `SELECT id, zone_id, name, flags FROM furniture WHERE flags::text LIKE '%"media_deck"%' AND flags->>'pirate_owner'=$1`, [ownerId]
-  ).catch(() => ({ rows: [] }));
-  for (const deck of rows) {
+  const decks = [...world.furniture.values()].filter(f => f.flags && 'media_deck' in f.flags && f.flags.pirate_owner === ownerId);
+  for (const deck of decks) {
     const dflags = _deckFlags(deck);
     const station = channelRuntime.get(dflags.channel_id)?.stationName || deck.name;
     await _clearSeizure(deck, dflags);
@@ -4410,11 +4416,9 @@ async function _releaseSeizuresBy(ownerId, reasonToOwner) {
 // Engineer response tick: reboot any deck whose defend window has elapsed, unless
 // the captor is standing at the deck (they run the engineer off — retry later).
 async function engineerTick() {
-  const { rows } = await query(
-    `SELECT id, zone_id, name, flags FROM furniture WHERE flags::text LIKE '%"media_deck"%' AND flags->>'pirate_owner' IS NOT NULL`
-  ).catch(() => ({ rows: [] }));
+  const decks = [...world.furniture.values()].filter(f => f.flags && 'media_deck' in f.flags && f.flags.pirate_owner != null);
   const now = Date.now();
-  for (const deck of rows) {
+  for (const deck of decks) {
     const dflags = _deckFlags(deck);
     if (!dflags.pirate_owner || now < _engineerDueAt(dflags)) continue;
     const station = channelRuntime.get(dflags.channel_id)?.stationName || deck.name;
@@ -4994,17 +4998,15 @@ async function buildMediaDeckPanel(deckId, player) {
 async function doUseMediaDeck(args, raw, player) {
   if (!player) return undefined;
   const nameHint = args.join(' ').toLowerCase();
-  const { rows } = await query(
-    `SELECT id, name, flags FROM furniture WHERE zone_id=$1 AND flags::text LIKE '%"media_deck"%'${nameHint ? ' AND name ILIKE $2' : ''} LIMIT 1`,
-    nameHint ? [player.current_zone, `%${nameHint}%`] : [player.current_zone]
-  );
-  if (!rows.length) return undefined;
-  const dflags = _deckFlags(rows[0]);
+  const zoneDecks = getZoneFurniture(player.current_zone).filter(f => f.flags && 'media_deck' in f.flags);
+  const deck = nameHint ? zoneDecks.find(f => f.name?.toLowerCase().includes(nameHint)) : zoneDecks[0];
+  if (!deck) return undefined;
+  const dflags = _deckFlags(deck);
   const lock = _deckLockError(dflags, player);
   if (lock) return lock;
   // The captor gets the pirate console; an admin/dev gets the legacy management panel.
-  if (dflags.pirate_owner === player.id) return buildPirateConsole({ ...rows[0], zone_id: player.current_zone }, player);
-  return buildMediaDeckPanel(rows[0].id, player);
+  if (dflags.pirate_owner === player.id) return buildPirateConsole({ ...deck, zone_id: player.current_zone }, player);
+  return buildMediaDeckPanel(deck.id, player);
 }
 
 // ── Media Deck schedule-sync tick ─────────────────────────────────────────────
@@ -5422,14 +5424,10 @@ export const routeHandler = async (path, method, body, auth) => {
     if (resource === 'channels') {
       // Ejected slots sub-resource — decks linked to this channel that have saved ejected slots
       if (id && sub === 'ejected-slots' && method === 'GET') {
-        const { rows: deckRows } = await query(
-          `SELECT id, flags FROM furniture WHERE flags::text LIKE '%"media_deck"%' AND flags::text LIKE $1`,
-          [`%${id}%`]
-        );
+        const deckRows = [...world.furniture.values()].filter(f => f.flags && 'media_deck' in f.flags && f.flags.channel_id === id);
         const result = [];
         for (const d of deckRows) {
-          const df = typeof d.flags === 'object' ? d.flags : JSON.parse(d.flags || '{}');
-          if (df.channel_id !== id) continue;
+          const df = d.flags;
           const slots = typeof df.deck_ejected_slots === 'object' && !Array.isArray(df.deck_ejected_slots)
             ? df.deck_ejected_slots : {};
           for (const [bcId, bcSlots] of Object.entries(slots)) {

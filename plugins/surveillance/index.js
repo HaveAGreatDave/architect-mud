@@ -18,6 +18,7 @@ import { getPowerMap, getZoneVisibility, LIGHT_LADDER } from '../../server/engin
 import { sendToPlayer, sendToZone, getBroadcast } from '../../server/engine/messaging.js';
 import { on, emit } from '../../server/engine/events.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
+import { schedule } from '../../server/engine/scheduler.js';
 import { getTunable } from '../../server/engine/tunables.js';
 import { reloadItem, deleteItemCache } from '../../server/engine/items-cache.js';
 import { registerAction, dispatchAction } from '../../server/engine/actions.js';
@@ -495,16 +496,14 @@ async function doUseConsole(args, raw, player) {
 }
 
 // Capture a frame into every recording device's buffer, then push live updates
-// to open hubs. Runs every 5s regardless of viewers so recording continues while
-// the operator is away.
+// to open hubs. Scheduled every 5s; the scheduler idle-gates it, so it doesn't
+// fire on an empty world (recording resumes on the next login) — the world is
+// frozen with no players anyway, so there's nothing to capture. Running it
+// unconditionally is what used to keep Neon's compute awake 24/7.
 async function surveillanceTick() {
   await refreshRecordingCams();
-  // Capture keeps running (records NPC-only activity), but sensor alerts and
-  // crime detection only matter relative to live players (Phase 7a).
-  if (hasActivePlayers()) {
-    await pollSensors();
-    await scanActiveCrimes();
-  }
+  await pollSensors();
+  await scanActiveCrimes();
   for (const playerId of hubViewers) {
     const { rows } = await query('SELECT id, handle FROM players WHERE id=$1', [playerId]);
     if (!rows.length) { hubViewers.delete(playerId); continue; }
@@ -513,7 +512,7 @@ async function surveillanceTick() {
   for (const playerId of panelWatchers.keys()) await pushPanelFeeds(playerId);
 }
 
-setInterval(() => surveillanceTick().catch(e => console.error('[surveillance] hub tick error:', e.message)), 5000);
+schedule('5s', () => surveillanceTick().catch(e => console.error('[surveillance] hub tick error:', e.message)));
 
 on('player.logout', ({ id }) => { hubViewers.delete(id); panelWatchers.delete(id); });
 
@@ -1393,7 +1392,7 @@ async function heatTick() {
     if (s.heat <= 0) { heatRuntime.delete(pid); await setFlag('player', 'heat', 0, p); }
   }
 }
-setInterval(() => heatTick().catch(e => console.error('[surveillance] heat tick error:', e.message)), 6000);
+schedule('6s', () => heatTick().catch(e => console.error('[surveillance] heat tick error:', e.message)));
 
 // ── Apprehend engine (≤3.5★: non-lethal arrest, not a brawl) ──────────────────
 // When a hunting unit catches up to a suspect whose heat is petty-to-serious but
@@ -2032,7 +2031,7 @@ async function wantedTick() {
     await searchAndPursue(pid, s);
   }
 }
-setInterval(() => wantedTick().catch(e => console.error('[surveillance] wanted tick error:', e.message)), 4000);
+schedule('4s', () => wantedTick().catch(e => console.error('[surveillance] wanted tick error:', e.message)));
 
 on('player.login', async ({ id }) => {
   const p = getLivePlayer(id);
@@ -2163,7 +2162,7 @@ async function batteryTick() {
   }
 }
 
-setInterval(() => batteryTick().catch(e => console.error('[surveillance] battery tick error:', e.message)), 5 * 60 * 1000);
+schedule('5m', () => batteryTick().catch(e => console.error('[surveillance] battery tick error:', e.message)));
 
 // ── Evidence retention purge ─────────────────────────────────────────────────
 // security_clips accumulate forever otherwise: auto-banked evidence nobody
@@ -2200,7 +2199,7 @@ async function purgeOldClips() {
   await reapClipArtifacts(gone.map(r => r.id));
   console.log(`[surveillance] purged ${gone.length} expired evidence clip(s).`);
 }
-setInterval(() => purgeOldClips().catch(e => console.error('[surveillance] clip purge error:', e.message)), 30 * 60 * 1000);
+schedule('30m', () => purgeOldClips().catch(e => console.error('[surveillance] clip purge error:', e.message)));
 
 // ── Plugin exports ────────────────────────────────────────────────────────────
 

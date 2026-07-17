@@ -10,7 +10,7 @@
   "created_by": null,
   "description": "A low room drowned in dying neon, where the carpet was chosen to hide sins and does. Felt tables ring a caged cashier, and every surface tilts a fraction toward the house. The air is climate-controlled to a permanent, luckless 2 a.m.",
   "exits": {
-    "west": "zone_district_921_910"
+    "north": "zone_district_921_910"
   },
   "flags": {
     "building_name": "The Neon Vig",
