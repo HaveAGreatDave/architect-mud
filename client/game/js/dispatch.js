@@ -758,7 +758,7 @@ const handlers = {
   // `sky` seeds the real sim weather field; `transitMs` restores the lock if opened mid-passage.
   // ✕/Esc exit → `helm` toggles the server-side console closed (drops us from the viewer set), so a
   // later `helm` re-opens cleanly; the server's helm_close hands the pane back with a `look`.
-  helm_open: (msg) => { openHelm({ gx: msg.gx, gy: msg.gy, heading: msg.heading, sky: msg.sky, map: msg.map, transitMs: msg.transitMs, transitTotal: msg.transitTotal, transitTiles: msg.transitTiles, cruise: msg.cruise, onSail: (dir, bell) => sendCmdSilent('sail ' + dir + (bell != null ? ' ' + bell : '')), onSailTo: (gx, gy, bell) => sendCmdSilent('sailto ' + gx + ' ' + gy + (bell != null ? ' ' + bell : '')), onExit: () => sendCmdSilent('helm close') }); },
+  helm_open: (msg) => { openHelm({ gx: msg.gx, gy: msg.gy, heading: msg.heading, sky: msg.sky, map: msg.map, transitMs: msg.transitMs, transitTotal: msg.transitTotal, transitTiles: msg.transitTiles, cruise: msg.cruise, onSail: (dir, bell) => sendCmdSilent('sail ' + dir + (bell != null ? ' ' + bell : '')), onSailTo: (gx, gy, bell) => sendCmdSilent('sailto ' + gx + ' ' + gy + (bell != null ? ' ' + bell : '')), onStop: () => sendCmdSilent('stop'), onExit: () => sendCmdSilent('helm close') }); },
   helm_close: () => { closeHelm(); sendCmdSilent('look'); },
   helm_sky: (msg) => { if (isHelmActive()) helmSetSky(msg.sky); },   // live sim weather field, streamed like the flight sim's
   helm_contacts: (msg) => { if (isHelmActive()) helmSetContacts(msg.contacts); },   // planes over the Basin, drawn in the chase view

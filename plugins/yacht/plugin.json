@@ -10,7 +10,7 @@
     ]
   },
   "events": {
-    "consumes": ["zone.entered"]
+    "consumes": ["zone.entered", "player.stop"]
   },
   "dependencies": ["doors"],
   "dataSchema": ["yacht_invites"]

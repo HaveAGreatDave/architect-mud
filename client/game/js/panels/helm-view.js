@@ -217,7 +217,12 @@ export function openHelmChase(container, opts = {}) {
     // recovers instead of the view bricking.
     try {
 
+    const prevHeading = st.heading;
     stepTurn(dt);
+    // The wake reacts to her coming about: track her actual angular velocity (deg/s, signed) and
+    // ease it, so a swing bends the foam trailing astern. Eased so it doesn't jitter frame-to-frame.
+    const turnVel = dt > 0 ? (st.heading - prevHeading) / dt : 0;
+    st.wakeTurn = (st.wakeTurn || 0) + (turnVel - (st.wakeTurn || 0)) * Math.min(1, dt * 4);
 
     if (st.sailing) {
       const total = st.transitMs || 1;
@@ -261,6 +266,7 @@ export function openHelmChase(container, opts = {}) {
     if (!Number.isFinite(st.heading)) st.heading = st.headingTarget = 0;
     if (!st.center.wake) st.center.wake = { spd: 0 };
     st.center.wake.spd = st.spd;
+    st.center.wake.turn = st.wakeTurn || 0;   // so the wake bends as she comes about
     const hdgN = ((st.heading % 360) + 360) % 360;   // heading winds unbounded; the renderer wants 0..360
     st.center.heading = hdgN;
     audio.update(st.spd);
@@ -368,6 +374,11 @@ export function openHelmChase(container, opts = {}) {
     // Authoritative arrival from the server: snap to her real tile and release the passage. Idempotent
     // with frame()'s own local arrival (both just end the passage + fix position).
     endTransit(gx, gy) { st.sailing = false; st.transitEnd = 0; st.path = null; st.mapOffset.x = 0; st.mapOffset.y = 0; st.center.sub = undefined; if (gx != null) st.gx = gx; if (gy != null) st.gy = gy; },
+    // Cut the throttle mid-passage: freeze the local glide RIGHT WHERE SHE IS (keep mapOffset/sub so
+    // she doesn't pop back a tile) and let her way bleed off — the wake shrinks and the sea settles.
+    // The server's halt fires helm_arrived, which re-centres her authoritatively on the tile she
+    // coasted to. Leaves position untouched so nothing jumps before that confirmation lands.
+    stopHere() { st.sailing = false; st.transitEnd = 0; },
     // A previewed charted course (absolute tiles) the map popup drew but hasn't engaged yet, so the
     // NAV scope + popup can trace it; cleared once she gets underway or you cancel. Null = no plan.
     setPlannedCourse(path) { st.plannedPath = (Array.isArray(path) && path.length >= 2) ? path : null; },

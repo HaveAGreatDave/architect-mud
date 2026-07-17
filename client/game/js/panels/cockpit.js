@@ -2614,12 +2614,17 @@ function stepDeckLanding(F, now) {
     cam = { yaw: 180, pitch: 0.14 - lp * 0.02, zoom: 0.45 - lp * 0.15 };   // hold the deck-level aft-looking view, dollying RIGHT onto the pad (down to 0.30) as she settles in
     lookAt = padWorld;
   } else {
-    // SHOT 3 — she's down; the same front close-up holds while the rotors spin down and she goes
-    // quiet, a slow push-in before the hand-off to the hangar.
+    // SHOT 3 — she's down; the camera arcs round from dead-ahead to a three-quarter broadside and
+    // GROWS her into a big on-pad "inspect" close-up (like the hangar walkaround — right on top of
+    // the helipad so she fills the frame) while the rotors spin down, before the hand-off to the hangar.
     phase = 'hold'; const lp = Math.min(1, (el - DECK_WIDE - DECK_DROP) / DECK_HOLD);
     ox = PAD[0]; oy = PAD[1]; alt = 0; landing = true;
     power = 0.5 * (1 - Math.min(1, lp / 0.7)); propSpin = 1 - Math.min(1, lp / 0.65);   // rotors fully stopped by ~65% through the hold
-    cam = { yaw: 180, pitch: 0.12, zoom: 0.30 };   // hold the ON-DECK aft-looking view right ON the pad — she fills the frame in front of you, open sea behind, as she winds down
+    const ip = ease(Math.min(1, lp / 0.6));   // settle the tight framing over the first ~60% of the hold
+    // Dolly the CAMERA in (zoom 0.30→0.16) and swing to a three-quarter broadside — the heli AND the
+    // pad scale together, a true zoom to a tight on-pad crop (NOT an enlarged model). Her real size
+    // never changes; the camera just gets right on top of her.
+    cam = { yaw: lerpAngle(180, 110, ip), pitch: 0.12 + 0.05 * ip, zoom: 0.30 - 0.14 * ip };
     lookAt = padWorld;
     if (C.seg !== 2) { C.seg = 2; if (F.toast) F.toast('Skids down — winding down.'); }
   }

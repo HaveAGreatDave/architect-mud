@@ -414,7 +414,7 @@ export function paintWindshield(id, view) {
   // camera pull proportionally CLOSER — camera distance tracks model size, so a tiny craft fills the
   // same frame slice as a prop instead of sitting as a distant speck (a genuinely tighter heli chase).
   const szFac = clamp((CONTACT_SIZE[v.cls] || szRef) / szRef, 0.28, 1.15);
-  const extZoom = clamp(v.extZoom || 1, 0.30, 2.4);
+  const extZoom = clamp(v.extZoom || 1, 0.15, 2.4);   // floor lowered 0.30→0.15 so the camera can dolly in for a genuinely TIGHT crop (the Echelon deck-cam's final on-pad hold pushes down here) — only extends how far the wheel can zoom IN, resting default (1) unchanged
   // Vertical orbit (middle-drag up/down): the chase camera rides a fixed-radius ARC around the
   // craft — a turntable, like the hangar walkaround — instead of sliding straight up. `extPitch` is
   // the ELEVATION ANGLE (rad): + lifts the camera up-and-over to look DOWN on the craft, − drops it
@@ -4768,7 +4768,7 @@ function drawYacht(ctx, cam, dx, dy, fh, seed, night, alpha, now, wake, heading,
 
   // 0. Wake — carried ONLY when under way (the Helm view / a just-sailed yacht set cell.wake.spd);
   //    a moored Echelon passes none, so ordinary fly-bys are unchanged. Drawn first, on the water.
-  if (wake && wake.spd > 0.02) drawYachtWake(ctx, cam, dx, dy, hr, night, alpha, now, Math.min(1.2, wake.spd));
+  if (wake && wake.spd > 0.02) drawYachtWake(ctx, cam, dx, dy, hr, night, alpha, now, Math.min(1.2, wake.spd), wake.turn || 0);
 
   // ── Palette — MIRROR BLACK ──
   // Near-black everywhere; the gloss is not in the base colour but in a tight sun SPECULAR + a cool
@@ -5072,8 +5072,14 @@ function drawYachtPadDome(ctx, cam, dx, dy, hr, now, alpha, armed) {
 // chase camera) in a widening V, projected on the water surface (z≈0) through the same cam
 // as the hull so it foreshortens correctly. `spd` (0..~1.2) scales length/spread/brightness.
 // Only ever called for a yacht that is under way (cell.wake.spd > 0).
-function drawYachtWake(ctx, cam, dx, dy, hr, night, alpha, now, spd) {
+function drawYachtWake(ctx, cam, dx, dy, hr, night, alpha, now, spd, turn) {
   const shr = Math.sin(hr), chr = Math.cos(hr), S = YACHT_SCALE;
+  // Turn-reactive curve: the water astern was laid down where the stern USED to be, so a swing
+  // bows the foam trail toward the inside of the turn. `turn` is her angular velocity (deg/s,
+  // signed; +starboard). Normalise to ±1 and sweep the wake laterally (local +ox = starboard), the
+  // shift growing the further astern the foam is (∝ t). Zero when steaming straight → the same wake.
+  const bend = Math.max(-1, Math.min(1, (turn || 0) / 40));
+  const cOX = (t) => -bend * 0.6 * t;   // lateral local offset at fore-aft fraction t (0 at stern)
   // Local (beam,fore-aft) → world, scaled by YACHT_SCALE exactly like the hull's W() — so the wake hugs
   // the SHRUNK transom. Without the scale it floated a full hull-length astern of the smaller boat, as a
   // giant disconnected foam patch in open water; scaling it re-attaches it to her stern.
@@ -5084,11 +5090,11 @@ function drawYachtWake(ctx, cam, dx, dy, hr, night, alpha, now, spd) {
   // ── Transom wake — a widening foam V boiling off the stern and streaming astern (+oy). Sized up (the
   // scale shrank it) so she throws a proper boiling wake, scaled hard by the throttle. ──
   const sternOY = 0.86;                          // just aft of the transom
-  const len = 1.1 + spd * 2.6;                   // how far the wake streams astern (local units)
+  const len = 0.55 + spd * 1.3;                  // how far the wake streams astern (local units) — ~half the old reach
   const edgeR = 0.06 + spd * 0.10, edgeF = 0.14 + spd * 0.42;   // half-width at stern / far end
   // 1. Translucent turbulence fill inside the V.
   const A = proj(-edgeR, sternOY, 0.003), B = proj(edgeR, sternOY, 0.003);
-  const C = proj(edgeF, sternOY + len, 0.003), D = proj(-edgeF, sternOY + len, 0.003);
+  const C = proj(edgeF + cOX(1), sternOY + len, 0.003), D = proj(-edgeF + cOX(1), sternOY + len, 0.003);
   if (A.f > 0.06 && B.f > 0.06 && C.f > 0.06 && D.f > 0.06) {
     ctx.beginPath(); ctx.moveTo(A.sx, A.sy); ctx.lineTo(B.sx, B.sy); ctx.lineTo(C.sx, C.sy); ctx.lineTo(D.sx, D.sy); ctx.closePath();
     ctx.fillStyle = rgb(foam, 0.12 + 0.20 * spd); ctx.fill();
@@ -5101,7 +5107,7 @@ function drawYachtWake(ctx, cam, dx, dy, hr, night, alpha, now, spd) {
     const oy = sternOY + t * len;
     const spread = lerp(edgeR, edgeF, t) * (0.4 + frac(i * 3.1) * 0.9);
     const side = frac(i * 1.7) < 0.5 ? -1 : 1;
-    const p = proj(side * spread, oy, 0.004);
+    const p = proj(side * spread + cOX(t), oy, 0.004);
     if (p.f <= 0.06) continue;
     ctx.globalAlpha = alpha * (1 - t) * (0.4 + 0.55 * spd);
     ctx.fillStyle = rgb(foam);

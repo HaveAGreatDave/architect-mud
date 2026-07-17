@@ -315,6 +315,7 @@ export function openHelm(opts = {}) {
   const accent = opts.accent || '#5ccfe0';
   const onSail = opts.onSail || (() => {});
   const onSailTo = opts.onSailTo || (() => {});   // fires the real `sailto <x> <y> <bell%>` when a charted course is engaged
+  const onStop = opts.onStop || (() => {});       // fires the real `stop` — cut the throttle to halt her mid-passage
   const onExit = opts.onExit || (() => {});
 
   mount.innerHTML = `
@@ -541,7 +542,7 @@ export function openHelm(opts = {}) {
   const cruiseFor = (t) => 0.35 + 0.65 * t;                // mirrors the server's visual bell (wake/water/knots)
   const throttleFor = (c) => Math.max(0, Math.min(1, (c - 0.35) / 0.65));   // invert: cruise → knob position
   const bellName = (p) => p < 0.34 ? 'Dead Slow' : p < 0.67 ? 'Half Ahead' : 'Full Ahead';
-  let knobP = 0, teleDrag = false, engaged = false;
+  let knobP = 0, teleDrag = false, engaged = false, dragStartP = 0;
   // An armed charted course from the chart popup: { gx, gy } absolute destination. While armed, pushing
   // the telegraph steams the whole pathfound course (sailto) instead of the wheel's locked direction.
   let plannedTarget = null;
@@ -550,6 +551,13 @@ export function openHelm(opts = {}) {
     engaged = on; tele.classList.toggle('engaged', on); wheel.setEnabled(!on);
     teleLabel.textContent = on ? ('Ahead — ' + bellName(knobP)) : 'Engine Telegraph';
     if (!on) setKnob(0);   // arrived / moored / stopped → lever springs back to STOP (engaging leaves it where set)
+  }
+  // Cut the throttle mid-passage: fire the real `stop` (the server halts her at the tile she's coasted
+  // to and confirms via helm_arrived) and freeze the local glide at once so the boat responds instantly.
+  function cutThrottle() {
+    ctrl.stopHere?.();      // freeze the local glide now; the server's helm_arrived re-centres authoritatively
+    setUnderway(false);     // lever springs back to STOP, wheel unlocks
+    onStop();               // fire the real `stop` in game
   }
   // Steam an armed charted course: fire the real `sailto`, and optimistically begin the local glide
   // along the previewed path so the chase view moves at once (the server's helm_underway corrects it).
@@ -581,9 +589,17 @@ export function openHelm(opts = {}) {
     onSail(dir, Math.round(t * 100));                        // fire the real `sail <dir> <bell%>` in game
     setUnderway(true);
   }
-  const teleDown = (e) => { if (engaged) return; teleDrag = true; knob.setPointerCapture?.(e.pointerId); e.preventDefault(); };
-  const teleMove = (e) => { if (!teleDrag) return; const r = track.getBoundingClientRect(); setKnob(1 - (e.clientY - r.top - KNOBH / 2) / (r.height - KNOBH)); teleLabel.textContent = knobP > 0.2 ? bellName(knobP) : 'Engine Telegraph'; };
-  const teleUp = () => { if (!teleDrag) return; teleDrag = false; if (knobP > 0.2) tryEngage(); else if (!engaged) setKnob(0); };
+  // The lever is now grabbable even while underway — but the ONLY thing you can do mid-passage is haul
+  // it back to STOP to cut the throttle. You can't re-bell a running passage (the server's pace is
+  // fixed), so a drag that doesn't reach the STOP band just snaps the lever back where it was.
+  const teleDown = (e) => { teleDrag = true; dragStartP = knobP; knob.setPointerCapture?.(e.pointerId); e.preventDefault(); };
+  const teleMove = (e) => { if (!teleDrag) return; const r = track.getBoundingClientRect(); setKnob(1 - (e.clientY - r.top - KNOBH / 2) / (r.height - KNOBH));
+    teleLabel.textContent = engaged ? (knobP <= 0.2 ? 'Cut throttle — All Stop' : 'Ahead — ' + bellName(knobP)) : (knobP > 0.2 ? bellName(knobP) : 'Engine Telegraph'); };
+  const teleUp = () => {
+    if (!teleDrag) return; teleDrag = false;
+    if (engaged) { if (knobP <= 0.2) cutThrottle(); else setKnob(dragStartP); return; }   // underway: down-to-STOP cuts the throttle; anything else restores the lever
+    if (knobP > 0.2) tryEngage(); else setKnob(0);
+  };
   knob.addEventListener('pointerdown', teleDown);
   addEventListener('pointermove', teleMove); addEventListener('pointerup', teleUp);
   setKnob(0);

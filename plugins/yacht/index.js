@@ -439,6 +439,34 @@ async function arriveEchelon() {
   for (const pid of helmViewers) sendToPlayer(pid, { type: 'helm_arrived', gx: toX, gy: toY, map });
 }
 
+// Cut the throttle mid-passage: halt her at the charted tile she's coasted nearest to (position only
+// ever commits on a real water tile), then settle exactly as a normal arrival would — re-index for
+// flight, lower a gangway if a pier is alongside, and release every open helm. Rounds progress to the
+// nearest tile on her path so she stops on open water, never mid-channel between tiles.
+async function haltEchelon() {
+  if (!transit) return;
+  if (transit.timer) clearTimeout(transit.timer);
+  const { path, startAt, totalMs } = transit;
+  const segs = path.length - 1;
+  const frac = Math.max(0, Math.min(1, (Date.now() - startAt) / (totalMs || 1)));
+  const idx = Math.max(0, Math.min(segs, Math.round(frac * segs)));
+  const li = Math.max(1, idx);   // the leg she's on → the heading she settles pointing
+  transit.toX = path[idx][0];
+  transit.toY = path[idx][1];
+  transit.dir = deltaToDirWord(path[li][0] - path[li - 1][0], path[li][1] - path[li - 1][1]);
+  await arriveEchelon();   // reuse the whole settle routine (persist, re-index, dock, helm_arrived)
+}
+
+// The unified `stop` verb cuts the throttle — an admin on the bridge halts the Echelon mid-passage.
+// Cheap-guarded so it's a no-op for every other player's `stop` (combat/scavenging/etc.).
+on('player.stop', ({ player, stopped }) => {
+  if (!transit) return;
+  if (player?.role !== 'admin') return;
+  if (!getZone(player.current_zone)?.flags?.echelon_bridge) return;
+  stopped.push('the Echelon');
+  haltEchelon().catch(e => console.error('[yacht] halt:', e.message));
+});
+
 // Push the live sky (time/weather + the REAL moving weather field) to every open helm console —
 // the same field the flight sim renders out its canopy. Also re-pings the making-way wake while
 // she's underway so nearby pilots keep seeing her working across the Basin, not sitting still.
