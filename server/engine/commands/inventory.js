@@ -4,7 +4,7 @@ import { useDrug } from '../drugs.js';
 import { hasTag, tagValue, hasFlag, isStackable, TAG_CATALOG } from '../tags.js';
 import { foodLoad, applyThirst } from '../bodily.js';
 import { dispatchAction, getRegisteredActions } from '../actions.js';
-import { burnCharge } from '../inventory.js';
+import { burnCharge, rowIsInstanced, NOT_INSTANCED_SQL } from '../inventory.js';
 import { getZonePlayers, getZoneNpcs } from '../world.js';
 import { emit, on } from '../events.js';
 import { resolve as siftResolve, matchAll as siftMatchAll, createSelectionState, formatSelectionPage } from '../sift.js';
@@ -969,8 +969,8 @@ async function cmdPullById(idStr, qtyStr, player, broadcast) {
   // Partial pull: only move the requested qty when less than the full stack
   const reqQty = qtyStr && /^\d+$/.test(qtyStr) ? parseInt(qtyStr, 10) : null;
   const takeQty = (reqQty && reqQty > 0 && reqQty < item.quantity) ? reqQty : null;
-  if (takeQty && isStackable(item)) {
-    const { rows: exPull } = await query('SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL AND is_equipped=0 LIMIT 1', [player.id, item.item_id]);
+  if (takeQty && isStackable(item) && !rowIsInstanced(item)) {
+    const { rows: exPull } = await query(`SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL AND is_equipped=0 AND ${NOT_INSTANCED_SQL} LIMIT 1`, [player.id, item.item_id]);
     if (exPull.length) {
       await query('UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2', [takeQty, exPull[0].id]);
     } else {
@@ -983,8 +983,8 @@ async function cmdPullById(idStr, qtyStr, player, broadcast) {
     return pvPart;
   }
 
-  if (isStackable(item)) {
-    const { rows: existing } = await query('SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL AND is_equipped=0 LIMIT 1', [player.id, item.item_id]);
+  if (isStackable(item) && !rowIsInstanced(item)) {
+    const { rows: existing } = await query(`SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL AND is_equipped=0 AND ${NOT_INSTANCED_SQL} LIMIT 1`, [player.id, item.item_id]);
     if (existing.length) {
       await query('UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2', [item.quantity, existing[0].id]);
       await query('DELETE FROM player_inventory WHERE id=$1', [item.id]);
@@ -1071,8 +1071,8 @@ async function cmdPull(argStr, player) {
   if (!rows.length) return { type:'error', message:`There's no "${itemPart}" in ${container.name}.` };
   const item = rows[0];
 
-  if (isStackable(item)) {
-    const { rows: existing } = await query('SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL AND is_equipped=0 LIMIT 1', [player.id, item.item_id]);
+  if (isStackable(item) && !rowIsInstanced(item)) {
+    const { rows: existing } = await query(`SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL AND is_equipped=0 AND ${NOT_INSTANCED_SQL} LIMIT 1`, [player.id, item.item_id]);
     if (existing.length) {
       await query('UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2', [item.quantity, existing[0].id]);
       await query('DELETE FROM player_inventory WHERE id=$1', [item.id]);

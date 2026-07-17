@@ -113,7 +113,7 @@ try {
   if (labZone) {
     await client.query(
       `INSERT INTO furniture (id, zone_id, name, description, flags, object_type)
-       VALUES ('furn_chem_lab',$1,'chem lab','A scavenged chemistry bench — ring stands, a fume hood that half works, reagent bottles labelled in three languages and a skull. Smells like ambition and poison.',$2::jsonb,'appliance')
+       VALUES ('furn_chem_lab',$1,'chem lab','A scavenged chemistry bench — ring stands, a fume hood that half works, reagent bottles labelled in three languages and a skull. Smells like ambition and poison.',$2::jsonb,'container')
        ON CONFLICT (id) DO NOTHING`,
       [labZone, JSON.stringify({ crafting_station: 'chem_lab', station_quality: 'refined' })]
     );

@@ -79,15 +79,36 @@ function resolveIngredients(recipe, inventory) {
 async function findWorkspace(recipe, player) {
   const wantStation = recipe.requires_station || 'chem_lab';
   const { rows } = await query(
-    `SELECT flags FROM furniture WHERE zone_id = $1 AND flags->>'crafting_station' = $2 LIMIT 1`,
+    `SELECT id, flags FROM furniture WHERE zone_id = $1 AND flags->>'crafting_station' = $2 LIMIT 1`,
     [player.current_zone, wantStation]
   );
   if (rows.length) {
     const q = rows[0].flags?.station_quality;
     const bonus = q === 'pristine' ? 4 : q === 'refined' ? 2 : 0;
-    return { mode: 'lab', contextBonus: bonus, label: 'the lab' };
+    // labId = the chem-lab furniture itself, which doubles as the shared
+    // per-lab storage vault (object_type='container'). Finished product is
+    // deposited under container_id=labId (see depositToVault).
+    return { mode: 'lab', contextBonus: bonus, label: 'the lab', labId: rows[0].id };
   }
   return null;
+}
+
+// ── chem-lab storage vault ────────────────────────────────────────────────────
+// The chem-lab furniture doubles as a shared, per-lab storage vault: it's an
+// object_type='container', so the engine's `open`/`pullid`/`stowid` +
+// `container_view` 2-panel UI retrieve from it for free. A successful cook/splice
+// deposits its finished product straight into that vault (vault-only — the maker
+// must withdraw it to carry it), rather than into the maker's inventory. Deposits
+// are owned by a per-lab sentinel (not any real player), so they're weightless and
+// don't ride in anyone's inventory until withdrawn — and anyone at the lab can
+// retrieve them (shared, by design).
+const vaultOwner = (labId) => `_vault_${labId}`;
+async function depositToVault(q, labId, itemId, qty, customData) {
+  await q(
+    `INSERT INTO player_inventory (id, player_id, item_id, quantity, condition, custom_data, container_id)
+     VALUES ($1,$2,$3,$4,1.0,$5,$6)`,
+    [randomUUID(), vaultOwner(labId), itemId, qty, JSON.stringify(customData), labId]
+  );
 }
 
 async function cmdCook(args, raw, player, broadcast) {
@@ -135,7 +156,7 @@ async function cmdCook(args, raw, player, broadcast) {
 
   const drug = drugForOutput(recipe); const tier = cookTier(drug); const family = cookFamily(drug); const difficulty = cookDiff(tier);
   const nonce = randomUUID().slice(0, 8); // one-shot token: the client echoes it on resolve, so a cook can't be resolved without being armed here
-  pendingSynth.set(player.id, { recipeId: recipe.id, nonce, contextBonus: ws.contextBonus, mode: ws.mode, tier, family, difficulty, ts: Date.now() });
+  pendingSynth.set(player.id, { recipeId: recipe.id, nonce, contextBonus: ws.contextBonus, mode: ws.mode, labId: ws.labId, tier, family, difficulty, ts: Date.now() });
   return {
     type: 'synth_minigame',
     recipeId: recipe.id, nonce,
@@ -205,10 +226,14 @@ async function cmdSynthResolve(args, raw, player, broadcast) {
   const { rows: itemRows } = await query('SELECT name FROM items WHERE id=$1', [outId]);
   const outName = itemRows[0]?.name || recipe.name;
 
+  // Cooked at the lab → deposit into its shared storage vault (vault-only until
+  // withdrawn), so the finished product accumulates on the bench rather than in hand.
+  const toVault = pending.mode === 'lab' && pending.labId;
   await withTransaction(async (q) => {
     await consume(q);
     // Non-stacking: each batch's potency is distinct, so always a fresh row.
-    await q(
+    if (toVault) await depositToVault(q, pending.labId, outId, outQty, customData);
+    else await q(
       'INSERT INTO player_inventory (id, player_id, item_id, quantity, condition, custom_data) VALUES ($1,$2,$3,$4,1.0,$5)',
       [randomUUID(), player.id, outId, outQty, JSON.stringify(customData)]
     );
@@ -217,9 +242,12 @@ async function cmdSynthResolve(args, raw, player, broadcast) {
   await awardSkillUse(player.id, SYNTH_SKILL, skillResult.margin);
 
   const pct = Math.round(potency * 100);
+  const landing = toVault
+    ? ` <span class="text-dim">Logged to the chem-lab vault — <span class="action-link" data-raw-cmd="open chem lab">open the vault</span> to withdraw it.</span>`
+    : '';
   return {
     type: 'output',
-    message: `<span class="ip-gain">The reaction settles clean.</span> You cook ${outQty}x <span class="item">${outName}</span> — <b>${pct}% potency</b>.`,
+    message: `<span class="ip-gain">The reaction settles clean.</span> You cook ${outQty}x <span class="item">${outName}</span> — <b>${pct}% potency</b>.${landing}`,
   };
 }
 
@@ -507,7 +535,7 @@ async function cmdSpliceBegin(args, raw, player, broadcast) {
 
   const token = randomUUID().slice(0, 8);
   const sources = inputs.map(i => ({ drug: i.drug, qty: i.qty }));   // for reclaim (break back to source drugs)
-  pendingSplice.set(player.id, { token, comp, name: name || `${inputs[0].name} splice`, need, outputQty, sources, ts: Date.now() });
+  pendingSplice.set(player.id, { token, comp, name: name || `${inputs[0].name} splice`, need, outputQty, sources, labId: ws.labId, ts: Date.now() });
 
   // Automation rigs auto-clear their stages at a Chemistry-scaled score (50→95%).
   const automated = await automatedStages(player);
@@ -579,9 +607,14 @@ async function cmdSpliceResolve(args, raw, player, broadcast) {
     return { type: 'output', message: `<span class="overdose-warning">The reaction blows back in your face — the compound is destroyed and you're badly burned (−${dmg} HP).</span>`, player_update: { hp, sanity } };
   }
 
+  // Splicing always happens at a real lab, so the finished batch is deposited
+  // into that lab's shared storage vault (vault-only until withdrawn). Fall back
+  // to the maker's hand only if the lab id somehow didn't survive (defensive).
   const insertCompound = async (q, customData, qty = 1) =>
-    q('INSERT INTO player_inventory (id, player_id, item_id, quantity, condition, custom_data) VALUES ($1,$2,$3,$4,1.0,$5)',
-      [randomUUID(), player.id, COMPOUND_ITEM, qty, JSON.stringify(customData)]);
+    p.labId
+      ? depositToVault(q, p.labId, COMPOUND_ITEM, qty, customData)
+      : q('INSERT INTO player_inventory (id, player_id, item_id, quantity, condition, custom_data) VALUES ($1,$2,$3,$4,1.0,$5)',
+          [randomUUID(), player.id, COMPOUND_ITEM, qty, JSON.stringify(customData)]);
 
   const grade = spliceGrade(effectiveMargin);   // null when margin < 0 → F, a bad batch
 
@@ -591,8 +624,8 @@ async function cmdSpliceResolve(args, raw, player, broadcast) {
   if (!grade) {
     const cd = { synthesized: true, spliced: true, potency: 0.4, name: `unstable ${p.name}`, effects: badBatch(p.comp.effects), overdose_threshold: Math.max(2, p.comp.odThreshold - 1), dose_weight: p.comp.doseWeight, duration_seconds: 300, form: p.comp.form, color: p.comp.color, packaged: true, grade: 'F', sources: p.sources };
     await withTransaction(async (q) => { await consume(q); await insertCompound(q, cd, batch); });
-    broadcast?.(null, { type: 'output', message: `<span class="msg-system">The splice curdles into something wrong — cloudy, and it smells of solvent and regret. The lab seals ${batch > 1 ? `${batch}× ` : ''}<span class="item">unstable ${p.name}</span> into a climate crate anyway. <span class="text-dim">(unseal to use)</span></span>` }, null, player.id);
-    return { type: 'splice_report', grade: 'F', outcome: 'badbatch', name: p.name, potency: 40, doses: p.comp.doseWeight, batch, sealed: true, note: 'Curdled — degraded effects, and it bites back.' };
+    broadcast?.(null, { type: 'output', message: `<span class="msg-system">The splice curdles into something wrong — cloudy, and it smells of solvent and regret. The lab seals ${batch > 1 ? `${batch}× ` : ''}<span class="item">unstable ${p.name}</span> into a crate anyway and logs it to the chem-lab vault. <span class="text-dim">(<span class="action-link" data-raw-cmd="open chem lab">open the vault</span> to withdraw, then unseal to use)</span></span>` }, null, player.id);
+    return { type: 'splice_report', grade: 'F', outcome: 'badbatch', name: p.name, potency: 40, doses: p.comp.doseWeight, batch, sealed: true, vaulted: true, note: 'Curdled — degraded effects, and it bites back.' };
   }
 
   // Success — grade sets the potency, capped by the recipe's instability (overload caps power).
@@ -606,9 +639,9 @@ async function cmdSpliceResolve(args, raw, player, broadcast) {
   await setFlag('player', 'splice_count', (parseInt(await getFlag('player', 'splice_count', player), 10) || 0) + 1, player);
 
   const pct = Math.round(potency * 100);
-  broadcast?.(null, { type: 'output', message: `<span class="ip-gain">It holds.</span> You splice ${batch > 1 ? `${batch}× ` : ''}<span class="item">${p.name}</span> — grade <b>${grade.letter}</b>, <b>${pct}%</b> potency. <span class="text-dim">Sealed in a climate crate (unseal to use).</span>` }, null, player.id);
+  broadcast?.(null, { type: 'output', message: `<span class="ip-gain">It holds.</span> You splice ${batch > 1 ? `${batch}× ` : ''}<span class="item">${p.name}</span> — grade <b>${grade.letter}</b>, <b>${pct}%</b> potency. <span class="text-dim">Sealed and logged to the chem-lab vault — <span class="action-link" data-raw-cmd="open chem lab">open the vault</span> to withdraw, then unseal to use.</span>` }, null, player.id);
   return {
-    type: 'splice_report', grade: grade.letter, outcome: 'success', name: p.name, potency: pct, doses: p.comp.doseWeight, batch, sealed: true,
+    type: 'splice_report', grade: grade.letter, outcome: 'success', name: p.name, potency: pct, doses: p.comp.doseWeight, batch, sealed: true, vaulted: true,
     note: capped ? 'Instability capped the yield — a cleaner recipe would hit harder.'
       : (p.comp.doseWeight > 1 ? `Heavy blend — counts as ${p.comp.doseWeight} doses, go easy.` : ''),
   };
@@ -745,6 +778,27 @@ async function cmdUnseal(args, raw, player) {
   const nm = row.custom_data?.name || row.name;
   return { type: 'output', message: `<span class="ambient">You break the climate crate's seal — the ${nm} is loose and live now. Watch who's looking.</span>` };
 }
+
+// ── the chem lab as a hub ─────────────────────────────────────────────────────
+// Examine the bench and it tells you what it's for: cook, splice (only once you
+// can actually splice — no point teasing a master verb at a novice), and its
+// storage vault (the same furniture, opened as a container). Rendered as
+// clickable action-links so the lab is self-documenting.
+async function chemLabHub(f, player) {
+  if (f?.flags?.crafting_station !== 'chem_lab') return undefined;
+  const n = (f.name || 'chem lab').toLowerCase();
+  const links = [`<span class="action-link" data-raw-cmd="cook">cook</span>`];
+  if (player) {
+    const eff = await effectiveSkill(player, SYNTH_SKILL);
+    if (eff >= SPLICE_MIN_SKILL) links.push(`<span class="action-link" data-raw-cmd="splice">splice</span>`);
+  }
+  links.push(`<span class="action-link" data-raw-cmd="open ${n}">vault</span>`);
+  return `<span class="text-dim">Lab:</span> ${links.join('  ')}`;
+}
+
+export const hooks = {
+  'furniture.describe': (f, player) => chemLabHub(f, player),
+};
 
 export const commands = {
   cook: cmdCook,
