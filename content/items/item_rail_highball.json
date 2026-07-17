@@ -8,7 +8,7 @@
     "description": "Well liquor, flat mixer, one apologetic ice cube. It does the job it was hired for.",
     "hydrating": true,
     "restore_sanity": 8,
-    "restore_thirst": 10
+    "restore_thirst": 40
   },
   "type": "consumable",
   "value": 8,

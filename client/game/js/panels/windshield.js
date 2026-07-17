@@ -2804,7 +2804,14 @@ function modelLowestH(cls, pitchDeg, bankDeg, gearAnim) {
 // capture math (which keys off the pad at fore-aft 0.28) is untouched; only the deck SURFACE rises,
 // which is why this pad-top constant tracks it.
 const YACHT_H = 1.7;   // lowered from 1.9 so she rides lower / sleeker in the water (long-and-low, not tall)
-const YACHT_DECK_Z = 0.085 * YACHT_H;   // parked-heli lift = the FLUSH helipad floor (pZ1 = DECKZ in drawYacht): the heli rests ON the deck
+// Overall size of the Echelon's 3D model — a UNIFORM shrink of her whole yacht-local frame (length,
+// beam AND height), so she reads as a yacht sitting on her ~1 tile rather than a 2-tile skyscraper of
+// a hull that swallows city blocks. She's drawn self-similar (shape unchanged — "keep the design"),
+// just smaller. Every yacht-local constant — the hull geometry, the helipad at fore-aft 0.28, the
+// catcher dome and the deck-landing capture math — is multiplied by this ONE factor so they all stay
+// consistent and the heli still sets down square on the pad. KEEP IN SYNC with YACHT_SCALE in cockpit.js.
+const YACHT_SCALE = 0.4;
+const YACHT_DECK_Z = 0.085 * YACHT_H * YACHT_SCALE;   // parked-heli lift = the FLUSH helipad floor (pZ1 = DECKZ in drawYacht): the heli rests ON the deck
 function deckLift(cam, v) {
   const c = v.map?.[cam.R]?.[cam.R];
   return c && c.mark === 'yacht' ? YACHT_DECK_Z : 0;
@@ -4600,12 +4607,13 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     if (it.c.mark === 'statue') { drawStatue(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha, now); continue; }   // town-square monument + fountain
     if (it.c.mark === 'yacht') {
       // Normally she's drawn on her own tile (with a sub-tile glide while under way). But when it's OUR
-      // tile (self) we're parked on / lifting off her deck: pin her AFT HELIPAD (yacht-local 0,0.28)
-      // under own-ship (the camera origin) instead of her hull centre — so the pilot sits ON the pad and
-      // climbs out over her superstructure, not on the foredeck or in open water beside her.
-      const hr = (it.c.heading || 0) * Math.PI / 180, sub = it.c.sub;
-      const yx = it.c.self ? Math.sin(hr) * 0.28 : it.dx + (sub ? sub.x : 0);
-      const yy = it.c.self ? -Math.cos(hr) * 0.28 : it.dy + (sub ? sub.y : 0);
+      // tile (self) we're parked on / lifting off her deck: pin her AFT HELIPAD (yacht-local 0,0.28,
+      // shrunk with the hull by YACHT_SCALE) under own-ship (the camera origin) instead of her hull
+      // centre — so the pilot sits ON the pad and climbs out over her superstructure, not on the
+      // foredeck or in open water beside her.
+      const hr = (it.c.heading || 0) * Math.PI / 180, sub = it.c.sub, padOY = 0.28 * YACHT_SCALE;
+      const yx = it.c.self ? Math.sin(hr) * padOY : it.dx + (sub ? sub.x : 0);
+      const yy = it.c.self ? -Math.cos(hr) * padOY : it.dy + (sub ? sub.y : 0);
       drawYacht(ctx, cam, yx, yy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha, now, it.c.wake, it.c.heading, sun);
       if (v.padDome) drawYachtPadDome(ctx, cam, yx, yy, hr, now, alpha, v.padDome.armed);
       continue;
@@ -4724,8 +4732,11 @@ function drawYacht(ctx, cam, dx, dy, fh, seed, night, alpha, now, wake, heading,
   // Size exaggeration: SZ lifts her HEIGHT (freeboard + superstructure) so she isn't flat and dwarfs a
   // helicopter on her pad; SB widens her beam a touch for bulk. Fore-aft (oy) is LEFT ALONE so her
   // length + pad position — and the deck-landing capture math keyed off them — are unchanged.
-  const SZ = YACHT_H, SB = 1.72;
-  const W = (ox, oy) => [dx - oy * shr + ox * SB * chr, dy + oy * chr + ox * SB * shr];    // local (beam,fore-aft) → world tile
+  // SZ = height exaggeration, SB = beam widen. Both ride on YACHT_SCALE so shrinking her keeps her
+  // proportions exactly (uniform scale of the whole local frame — see YACHT_SCALE). ox/oy are scaled
+  // in W(), so every part of the hull, superstructure and pad shrinks together.
+  const SZ = YACHT_H * YACHT_SCALE, SB = 1.72;
+  const W = (ox, oy) => { const sx = ox * YACHT_SCALE, sy = oy * YACHT_SCALE; return [dx - sy * shr + sx * SB * chr, dy + sy * chr + sx * SB * shr]; };    // local (beam,fore-aft) → world tile
   const proj = (ox, oy, z) => { const w = W(ox, oy); return cam.proj(w[0], w[1], z * SZ); };
   const wv = (ox, oy, z) => { const w = W(ox, oy); return [w[0], w[1], z * SZ]; };         // local → world 3-vector (for normals)
 
@@ -4995,7 +5006,10 @@ function drawYacht(ctx, cam, dx, dy, fh, seed, night, alpha, now, wake, heading,
 const PAD_CATCH_R = 0.5, PAD_CATCH_CEIL = 0.5;
 function drawYachtPadDome(ctx, cam, dx, dy, hr, now, alpha, armed) {
   const shr = Math.sin(hr), chr = Math.cos(hr);
-  const padOY = 0.28, baseZ = 0.088 * YACHT_H, R = PAD_CATCH_R, CEIL = PAD_CATCH_CEIL;   // baseZ tracks the flush helipad floor (pZ1 = DECKZ); padOY (fore-aft) is unscaled
+  // padOY (fore-aft pad offset) + the catch radius shrink with the hull (YACHT_SCALE) so the dome rides
+  // her scaled pad; baseZ tracks the flush helipad floor. CEIL is the altitude capture window (a real
+  // approach height), so it stays in world-z and is NOT scaled by the hull size.
+  const padOY = 0.28 * YACHT_SCALE, baseZ = 0.088 * YACHT_H * YACHT_SCALE, R = PAD_CATCH_R * YACHT_SCALE, CEIL = PAD_CATCH_CEIL;
   const P = (ox, oy, z) => cam.proj(dx - oy * shr + ox * chr, dy + oy * chr + ox * shr, z);
   const pulse = 0.5 + 0.5 * Math.sin(now * (armed ? 0.008 : 0.0035));
   const col = armed ? '86,240,150' : '120,205,255';
@@ -5033,23 +5047,29 @@ function drawYachtPadDome(ctx, cam, dx, dy, hr, now, alpha, armed) {
 // as the hull so it foreshortens correctly. `spd` (0..~1.2) scales length/spread/brightness.
 // Only ever called for a yacht that is under way (cell.wake.spd > 0).
 function drawYachtWake(ctx, cam, dx, dy, hr, night, alpha, now, spd) {
-  const shr = Math.sin(hr), chr = Math.cos(hr);
-  const proj = (ox, oy, z) => cam.proj(dx - oy * shr + ox * chr, dy + oy * chr + ox * shr, z);   // same local→world rotation as the hull
-  const sternOY = 0.86;                         // just aft of the (now much-further-aft) transom
-  const len = 0.6 + spd * 1.4;                  // how far the wake streams astern (tiles)
-  const edgeR = 0.04 + spd * 0.05, edgeF = 0.10 + spd * 0.16;   // half-width at stern / far end
+  const shr = Math.sin(hr), chr = Math.cos(hr), S = YACHT_SCALE;
+  // Local (beam,fore-aft) → world, scaled by YACHT_SCALE exactly like the hull's W() — so the wake hugs
+  // the SHRUNK transom. Without the scale it floated a full hull-length astern of the smaller boat, as a
+  // giant disconnected foam patch in open water; scaling it re-attaches it to her stern.
+  const proj = (ox, oy, z) => cam.proj(dx - oy * S * shr + ox * S * chr, dy + oy * S * chr + ox * S * shr, z);
   const foam = night ? [225, 235, 245] : [245, 250, 253];
   ctx.save(); ctx.globalAlpha = alpha;
+
+  // ── Transom wake — a widening foam V boiling off the stern and streaming astern (+oy). Sized up (the
+  // scale shrank it) so she throws a proper boiling wake, scaled hard by the throttle. ──
+  const sternOY = 0.86;                          // just aft of the transom
+  const len = 1.1 + spd * 2.6;                   // how far the wake streams astern (local units)
+  const edgeR = 0.06 + spd * 0.10, edgeF = 0.14 + spd * 0.42;   // half-width at stern / far end
   // 1. Translucent turbulence fill inside the V.
   const A = proj(-edgeR, sternOY, 0.003), B = proj(edgeR, sternOY, 0.003);
   const C = proj(edgeF, sternOY + len, 0.003), D = proj(-edgeF, sternOY + len, 0.003);
   if (A.f > 0.06 && B.f > 0.06 && C.f > 0.06 && D.f > 0.06) {
     ctx.beginPath(); ctx.moveTo(A.sx, A.sy); ctx.lineTo(B.sx, B.sy); ctx.lineTo(C.sx, C.sy); ctx.lineTo(D.sx, D.sy); ctx.closePath();
-    ctx.fillStyle = rgb(foam, 0.10 + 0.14 * spd); ctx.fill();
+    ctx.fillStyle = rgb(foam, 0.12 + 0.20 * spd); ctx.fill();
   }
   // 2. Foam speckle streaming astern, drifting with time.
   const drift = (now * 0.00035 * (0.5 + spd)) % 1;
-  const N = 26;
+  const N = 34;
   for (let i = 0; i < N; i++) {
     const t = (i / N + drift) % 1;             // 0 at stern → 1 far astern (loops)
     const oy = sternOY + t * len;
@@ -5057,18 +5077,42 @@ function drawYachtWake(ctx, cam, dx, dy, hr, night, alpha, now, spd) {
     const side = frac(i * 1.7) < 0.5 ? -1 : 1;
     const p = proj(side * spread, oy, 0.004);
     if (p.f <= 0.06) continue;
-    ctx.globalAlpha = alpha * (1 - t) * (0.35 + 0.5 * spd);
+    ctx.globalAlpha = alpha * (1 - t) * (0.4 + 0.55 * spd);
     ctx.fillStyle = rgb(foam);
-    ctx.beginPath(); ctx.arc(p.sx, p.sy, clamp((1.4 + t * 2.4) / p.f, 0.6, 7), 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.arc(p.sx, p.sy, clamp((1.6 + t * 2.8) / p.f, 0.6, 8), 0, 7); ctx.fill();
   }
   // 3. Bright churn boiling right off the transom.
   const cpt = proj(0, sternOY, 0.004);
   if (cpt.f > 0.06) {
-    const rr = clamp(2.2 / cpt.f, 3, 22) * (0.7 + spd);
+    const rr = clamp(2.6 / cpt.f, 3, 26) * (0.7 + spd);
     const g = ctx.createRadialGradient(cpt.sx, cpt.sy, 1, cpt.sx, cpt.sy, rr);
-    g.addColorStop(0, rgb(foam, 0.55)); g.addColorStop(1, rgb(foam, 0));
+    g.addColorStop(0, rgb(foam, 0.60)); g.addColorStop(1, rgb(foam, 0));
     ctx.globalAlpha = alpha; ctx.fillStyle = g;
     ctx.beginPath(); ctx.arc(cpt.sx, cpt.sy, rr, 0, 7); ctx.fill();
+  }
+
+  // ── Bow wave — a foam "moustache" peeling off the cutwater and fanning aft down each flank, so she
+  // reads as slicing the water forward, not just churning astern. Bow tip is ~oy −1.12 on the fine spike
+  // bow; it grows and reaches further with speed. ──
+  const bowOY = -1.12, bowLen = 0.5 + spd * 1.1, bowSpread = 0.12 + spd * 0.16;
+  for (const s of [-1, 1]) {
+    const P0 = proj(0.01 * s, bowOY, 0.004);                        // at the cutwater
+    const P1 = proj(s * bowSpread, bowOY + bowLen, 0.003);          // fanned out + aft
+    const P2 = proj(s * bowSpread * 0.5, bowOY + bowLen, 0.003);
+    if (P0.f > 0.06 && P1.f > 0.06 && P2.f > 0.06) {
+      ctx.globalAlpha = alpha * (0.28 + 0.45 * spd);
+      ctx.fillStyle = rgb(foam, 0.5);
+      ctx.beginPath(); ctx.moveTo(P0.sx, P0.sy); ctx.lineTo(P1.sx, P1.sy); ctx.lineTo(P2.sx, P2.sy); ctx.closePath(); ctx.fill();
+    }
+  }
+  // Bright spray right at the cutwater.
+  const bpt = proj(0, bowOY, 0.004);
+  if (bpt.f > 0.06 && spd > 0.15) {
+    const rr = clamp(1.6 / bpt.f, 2, 14) * (0.6 + spd);
+    const g = ctx.createRadialGradient(bpt.sx, bpt.sy, 1, bpt.sx, bpt.sy, rr);
+    g.addColorStop(0, rgb(foam, 0.45)); g.addColorStop(1, rgb(foam, 0));
+    ctx.globalAlpha = alpha; ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(bpt.sx, bpt.sy, rr, 0, 7); ctx.fill();
   }
   ctx.restore();
 }

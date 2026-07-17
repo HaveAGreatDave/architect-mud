@@ -205,11 +205,16 @@ export function signalPowerOut() {
 // Apply the brightness filter to the light-sensitive panes. `instant` bypasses the
 // CSS fade (used for the rapid flicker steps).
 function _applyBrightnessFilter(brightness, instant) {
+  // Inverse factor for panes that opt out of the dimming (e.g. the Exits line):
+  // a child brightness(1/x) cancels the parent's brightness(x) back to normal.
+  const m = /brightness\(([\d.]+)\)/.exec(brightness);
+  const undim = m ? (1 / parseFloat(m[1])).toFixed(3) : '1';
   for (const id of ['area-pane', 'output']) {
     const el = document.getElementById(id);
     if (!el) continue;
     el.style.transition = instant ? 'none' : '';
     el.style.filter = brightness;
+    el.style.setProperty('--vis-undim', undim);
   }
 }
 

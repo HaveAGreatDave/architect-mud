@@ -381,7 +381,7 @@ export async function describeZone(zone, player, out = {}) {
 				}
 				return destLink(p.direction, null, "exit-link");
 			});
-			darkDesc += `\n\n<span class="exits-label">Exits:</span> ${exitLinks.join(", ")}`;
+			darkDesc += `\n\n<span class="exits-row"><span class="exits-label">Exits:</span> ${exitLinks.join(", ")}</span>`;
 		}
 		if (buildings.length) {
 			const links = buildings.map((b) =>
@@ -750,7 +750,7 @@ export async function describeZone(zone, player, out = {}) {
 			}
 			return destLink(p.direction, p.name, "exit-link");
 		}));
-		desc += `\n<span class="exits-label">Exits:</span> ${exitLinks.join(", ")}`;
+		desc += `\n<span class="exits-row"><span class="exits-label">Exits:</span> ${exitLinks.join(", ")}</span>`;
 	}
 	if (buildings.length) {
 		const links = buildings.map((b) =>

@@ -16,7 +16,7 @@ import { hasTag, tagValue } from '../../server/engine/tags.js';
 import { applyThirst } from '../../server/engine/bodily.js';
 import { dispatchAction } from '../../server/engine/actions.js';
 
-const DEFAULT_RESTORE = 25;
+const DEFAULT_RESTORE = 50;
 
 async function drinkFrom(args, raw, player) {
   const target = args.join(' ').replace(/^(from|at)\s+/i, '').trim();

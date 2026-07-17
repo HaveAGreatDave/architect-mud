@@ -8,7 +8,7 @@
     "description": "House drink. Nobody has ever asked what's in it twice.",
     "hydrating": true,
     "restore_sanity": 3,
-    "restore_thirst": 15,
+    "restore_thirst": 40,
     "stackable": true
   },
   "type": "consumable",

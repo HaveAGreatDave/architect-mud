@@ -70,7 +70,14 @@ export function ensureHelmStyles() {
        The ship's wheel rises out of a binnacle at its centre so its lower half tucks
        behind the console lip; the NAV chart + digital instruments + engine telegraph
        are milled into the face. Cool cyan HUD glass on brushed steel + carbon fibre. */
-    .helm-dash{ position:absolute; left:0; right:0; bottom:0; z-index:5; }
+    /* The dash spans the pane's whole bottom, but in the windowed state it's mostly TRANSPARENT — so
+       the container chain is pointer-transparent (a drag through the empty gaps falls through to the
+       sea and orbits). Only the actual visible controls (the frosted wings, telegraph, wheel canvas,
+       nav chart) opt pointer events back in below. Without this, the invisible dash rectangle swallowed
+       every drag that began level with it, so you could only orbit by grabbing ABOVE the whole console. */
+    .helm-dash{ position:absolute; left:0; right:0; bottom:0; z-index:5; pointer-events:none; }
+    .helm-console, .helm-console-face{ pointer-events:none; }
+    .helm-left, .helm-right, .helm-tele, .helm-nav-bezel{ pointer-events:auto; }
     /* The console is now a single machined BLACK-GLASS station in every state — an expensive slab of
        obsidian glass milled with an accent hairline along its lip, so the helm reads as one designed
        object floating over the water rather than a scatter of controls. A soft top glow lifts it off
@@ -85,6 +92,9 @@ export function ensureHelmStyles() {
     .helm-console::before{ content:''; position:absolute; left:8%; right:8%; top:0; height:1px; pointer-events:none;
       background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--accent) 20%,transparent) 18%,var(--accent-hi) 50%,color-mix(in srgb,var(--accent) 20%,transparent) 82%,transparent);
       box-shadow:0 0 10px color-mix(in srgb,var(--accent) 60%,transparent); opacity:.85; }
+    /* Fullscreen re-adds the smoked-glass slab, so it's a solid surface again — recapture pointers on
+       it (the windowed click-through is only for the transparent windowed console). */
+    body.helm-fullscreen .helm-console{ pointer-events:auto; }
     body.helm-fullscreen .helm-console{ border-radius:0;
       background:
         linear-gradient(180deg,color-mix(in srgb,var(--accent) 11%,transparent) 0,transparent 30%),
@@ -585,7 +595,11 @@ export function openHelm(opts = {}) {
   const mapInfo = q('[data-mapinfo]'), mapGoBtn = q('[data-mapgo]'), mapClearBtn = q('[data-mapclear]');
   let mapOpen = false, mapRaf = 0, mapHover = null;
   const NB8 = [[0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1]];
-  const cellWater = (rows, rx, ry) => { const c = rows[ry] && rows[ry][rx]; return !!(c && (c.biome === 'water' || !c.biome) && !c.bt); };
+  // STRICT navigable water: only a real water-biome cell counts. The old test also accepted a cell
+  // with NO biome (`|| !c.biome`), which let the course A* route the hull across off-map "air" edge
+  // cells and any untagged land — that's what put her sailing through the city. She may only make way
+  // over genuine open water (never a building tile), so the course can never leave the basin.
+  const cellWater = (rows, rx, ry) => { const c = rows[ry] && rows[ry][rx]; return !!(c && c.biome === 'water' && !c.bt); };
   function previewCourse(rows, sx, sy, tx, ty) {
     const N = rows.length;
     if (tx < 0 || ty < 0 || tx >= N || ty >= N || !cellWater(rows, tx, ty) || (sx === tx && sy === ty)) return null;
@@ -640,9 +654,16 @@ export function openHelm(opts = {}) {
     const w = side, h = side, rows = snap.rows || [], N = rows.length || 1, cen = (N - 1) / 2, cw = w / N, ch = h / N;
     mapCtx.clearRect(0, 0, w, h);
     for (let ry = 0; ry < N; ry++) { const row = rows[ry] || []; for (let rx = 0; rx < row.length; rx++) {
-      const cell = row[rx]; if (!cell) continue;
-      mapCtx.fillStyle = (cell.biome === 'water' || !cell.biome) ? '#06222b' : (cell.bt ? '#2c343d' : (cell.road ? '#232b33' : '#1b222a'));
+      const cell = row[rx];
+      // Navigable water is the bright teal bed you may plot into; land/shore/off-map are drawn dark
+      // and then scrimmed so the water region reads as the ONLY live area — the "boundary" is the
+      // coastline itself. An absent (off-map) cell falls through to the scrim over bare black.
+      const water = cellWater(rows, rx, ry);
+      if (water) { mapCtx.fillStyle = '#06222b'; }
+      else if (cell) { mapCtx.fillStyle = cell.bt ? '#2c343d' : (cell.road ? '#232b33' : '#1b222a'); }
+      else { mapCtx.fillStyle = '#0a0d11'; }
       mapCtx.fillRect(rx * cw, ry * ch, cw + 0.6, ch + 0.6);
+      if (!water) { mapCtx.fillStyle = 'rgba(2,5,8,0.5)'; mapCtx.fillRect(rx * cw, ry * ch, cw + 0.6, ch + 0.6); }   // out-of-bounds scrim
     } }
     const toXY = (ax, ay) => [(cen + (ax - snap.gx) + 0.5) * cw, (cen + (ay - snap.gy) + 0.5) * ch];
     // Hover highlight (only on navigable water).
@@ -670,7 +691,11 @@ export function openHelm(opts = {}) {
   mapCanvas.addEventListener('pointermove', (e) => { const cell = cellFromEvent(e); mapHover = cell ? { rx: cell.rx, ry: cell.ry } : null; });
   mapCanvas.addEventListener('pointerleave', () => { mapHover = null; });
   mapCanvas.addEventListener('click', (e) => {
-    const cell = cellFromEvent(e); if (!cell) return;
+    // The chart is water-only: a pick off the map or on land/shore can't be a destination. Reject it
+    // with a specific reason instead of silently doing nothing, so it's clear you must choose water.
+    const cell = cellFromEvent(e);
+    if (!cell) { clearCourse(); mapInfo.textContent = 'Off the chart — tap open water inside the basin.'; return; }
+    if (!cellWater(cell.rows, cell.rx, cell.ry)) { clearCourse(); mapInfo.textContent = 'That is dry land — the Echelon can only make way over open water.'; return; }
     const path = previewCourse(cell.rows, cell.c, cell.c, cell.rx, cell.ry);
     if (!path) { clearCourse(); mapInfo.textContent = 'No navigable channel to that tile — pick open water clear of the shore.'; return; }
     armCourse(path.map(([rx, ry]) => [cell.gx + (rx - cell.c), cell.gy + (ry - cell.c)]));
@@ -711,7 +736,14 @@ export function openHelm(opts = {}) {
     q('[data-hdg]').textContent = CARD[h] ?? (h + '°');
     q('[data-kn]').textContent = (ctrl.speed() * 20).toFixed(1);
     const snap = ctrl.mapSnapshot?.();
-    if (snap) q('[data-pos]').textContent = snap.gx + ' · ' + snap.gy;
+    if (snap) {
+      // Her committed tile (snap.gx/gy) stays on the DEPARTURE tile until she arrives, so add the live
+      // sub-tile glide (snap.sub) to it — POSITION then counts toward the destination as she crosses,
+      // instead of sitting frozen on the departure tile for the whole passage (read as "not moving").
+      const px = Math.round(snap.gx + (snap.sub ? snap.sub.x : 0));
+      const py = Math.round(snap.gy + (snap.sub ? snap.sub.y : 0));
+      q('[data-pos]').textContent = px + ' · ' + py;
+    }
     const sailing = ctrl.isSailing();
     if (sailing !== wasSailing) { if (sailing) setKnob(throttleFor(ctrl.cruise())); setUnderway(sailing); wasSailing = sailing; }
     const left = ctrl.transitLeft();

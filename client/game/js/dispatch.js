@@ -69,14 +69,41 @@ const WELCOME_OMINOUS = [
   n => `We have been waiting for you, ${n}.`,
   n => `${n}. Reconnection confirmed. Compliance appreciated.`,
 ];
-function playWelcomeVoice(handle) {
+// State-aware ominous lines. Each reads a field already present on the auth
+// payload (server/index.js livePlayer) — no extra query — and only qualifies
+// when its `when` predicate matches, so the Architect sounds like it watched
+// your last session. Mutations draw disapproval (bionics-approval is a later
+// hook). Fires ~25% of the time an ominous roll lands AND ≥1 line qualifies.
+const WELCOME_STATE = [
+  { when: p => p.died_offline,        line: (n) => `You died in your sleep, ${n}. We watched.` },
+  { when: p => p.covered_in_blood,    line: (n) => `You came back still wearing someone else's blood, ${n}.` },
+  { when: p => p.current_zone === 'zone_mq_precinct_holding', line: (n) => `Precinct 9 kept your cell warm, ${n}.` },
+  { when: p => p.radiation >= 60,     line: (n) => `You still glow, ${n}. We can see you in the dark.` },
+  { when: p => p.visibly_mutated,     line: (n) => `You're less human than last time, ${n}. Correct that.` },
+  { when: p => (p.player_kills || 0) > 0, line: (n) => `We still count the ones you left behind, ${n}.` },
+  { when: p => p.credits === 0 && (p.bank_credits || 0) === 0, line: (n) => `Broke again, ${n}. The city keeps its ledger.` },
+  { when: p => (p.bank_credits || 0) >= 100000, line: (n) => `The vault noticed your balance, ${n}. So did we.` },
+  { when: p => !p.home_zone,          line: (n) => `No fixed address, ${n}. The city notes it.` },
+];
+function playWelcomeVoice(handle, player) {
   try {
     const audio = loadSettings().audio || {};
     if (audio.welcome === false) return;   // dedicated opt-out (TV Audio still gates it in speak())
     const name = (handle || 'operator').trim();
-    const line = Math.random() < 0.125
-      ? WELCOME_OMINOUS[Math.floor(Math.random() * WELCOME_OMINOUS.length)]
-      : WELCOME_PLAIN;
+    let line = WELCOME_PLAIN;
+    if (Math.random() < 0.125) {
+      // Ominous roll landed. If any state line qualifies, ~25% chance to speak
+      // a personalized one; otherwise fall back to the generic pool. Never
+      // repeat the immediately-previous ominous line (localStorage-tracked).
+      const last = (() => { try { return localStorage.getItem('welcome-voice-last'); } catch { return null; } })();
+      const qualifying = player ? WELCOME_STATE.filter(s => s.when(player)) : [];
+      let pool;
+      if (qualifying.length && Math.random() < 0.25) pool = qualifying.map(s => s.line);
+      else pool = WELCOME_OMINOUS;
+      const fresh = pool.length > 1 ? pool.filter(l => l(name) !== last) : pool;
+      line = (fresh.length ? fresh : pool)[Math.floor(Math.random() * (fresh.length ? fresh : pool).length)];
+      try { localStorage.setItem('welcome-voice-last', line(name)); } catch { /* ignore */ }
+    }
     window.AudioEngine?.init?.();
     window.AudioEngine?.speak(line(name), { seed: 'architect' });
   } catch { /* audio unavailable — no greeting */ }
@@ -111,7 +138,7 @@ const handlers = {
     initChannels(msg.channels || []);
     if (DEV_ROLES.includes(state.player.role)) showDevPanelButton();
     if (wasReconnect) appendMsg('Reconnected.', 'system');
-    else playWelcomeVoice(state.player.handle);   // spoken login greeting (fresh logins only)
+    else playWelcomeVoice(state.player.handle, state.player);   // spoken login greeting (fresh logins only)
     syncPanels(); // request data + cam catalog for any custom panels
   },
 

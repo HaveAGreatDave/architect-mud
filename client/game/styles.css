@@ -417,6 +417,9 @@ body.fsim-hidepanel #look-resize-handle { display: none; }
    closes. ⛶ folds the command box too; ⊟ keeps it so you can still type. */
 body.helm-fullscreen #area-pane,
 body.helm-hidepanel #area-pane { max-height: none; flex: 1 1 auto; }
+/* Drop the pane's 12px inset in fullscreen so the helm reaches every edge — otherwise the bottom
+   padding leaves a gap under the console and steals vertical room from the ship above it. */
+body.helm-fullscreen #area-pane { padding: 0; }
 body.helm-fullscreen #area-content,
 body.helm-hidepanel #area-content { flex: 1 1 auto; display: flex; min-height: 0; }
 body.helm-fullscreen .helm-root,
@@ -1196,6 +1199,13 @@ body.fsim-external #look-resize-handle { display: none; }
 #area-pane,
 #output {
 	transition: filter 1.75s ease;
+}
+
+/* Exits opt out of the low-light dimming so navigation stays readable in the
+   dark. --vis-undim (set in environment.js) is the inverse of the pane's
+   brightness filter, so this cancels it back to full brightness. */
+.exits-row {
+	filter: brightness(var(--vis-undim, 1));
 }
 
 /* Keyboard-collapse transition for mobile */
@@ -10121,43 +10131,44 @@ body.esp-active #output {
 		linear-gradient(120deg,
 			hsla(var(--trip-hue), 90%, 55%, calc(0.12 * var(--trip-intensity))),
 			hsla(calc(var(--trip-hue) + 120), 90%, 55%, calc(0.10 * var(--trip-intensity))));
-	animation: trip-drift 9s ease-in-out infinite;
+	animation: trip-drift 26s linear infinite;
 }
 
+/* Slow, smooth cycle through the whole colour wheel with a gentle opacity
+   breathe — a pulse between colours, not a strobe. */
 @keyframes trip-drift {
-	0%   { filter: hue-rotate(0deg);   opacity: 0.55; transform: scale(1); }
-	25%  { opacity: 0.9; }
-	50%  { filter: hue-rotate(180deg); opacity: 0.7; transform: scale(1.04); }
-	75%  { opacity: 0.95; }
-	100% { filter: hue-rotate(360deg); opacity: 0.55; transform: scale(1); }
+	0%   { filter: hue-rotate(0deg);   opacity: 0.5; transform: scale(1); }
+	25%  { opacity: 0.72; }
+	50%  { filter: hue-rotate(180deg); opacity: 0.62; transform: scale(1.03); }
+	75%  { opacity: 0.72; }
+	100% { filter: hue-rotate(360deg); opacity: 0.5; transform: scale(1); }
 }
 
-/* Whole game view breathes/warps while tripping. Amplitudes scale with intensity. */
+/* Whole game view slowly warps/breathes while tripping — a soft rolling
+   distortion rather than a jitter. Amplitudes scale with intensity. */
 body.tripping #main {
-	animation: trip-shake calc(0.9s - 0.4s * var(--trip-intensity)) ease-in-out infinite;
-	filter: saturate(calc(1 + 0.8 * var(--trip-intensity))) contrast(calc(1 + 0.15 * var(--trip-intensity)));
+	animation: trip-warp-view calc(11s - 3s * var(--trip-intensity)) ease-in-out infinite;
+	filter: saturate(calc(1 + 0.7 * var(--trip-intensity))) contrast(calc(1 + 0.12 * var(--trip-intensity)));
 	will-change: transform, filter;
 }
 
-@keyframes trip-shake {
-	0%   { transform: translate(0, 0) skewX(0deg); }
-	20%  { transform: translate(calc(1px * var(--trip-intensity)), calc(-1px * var(--trip-intensity))) skewX(calc(0.3deg * var(--trip-intensity))); }
-	40%  { transform: translate(calc(-1px * var(--trip-intensity)), 0) skewX(calc(-0.4deg * var(--trip-intensity))); }
-	60%  { transform: translate(0, calc(1px * var(--trip-intensity))) skewX(calc(0.2deg * var(--trip-intensity))); filter: blur(calc(0.6px * var(--trip-intensity))); }
-	80%  { transform: translate(calc(1px * var(--trip-intensity)), calc(1px * var(--trip-intensity))) skewX(calc(-0.2deg * var(--trip-intensity))); }
-	100% { transform: translate(0, 0) skewX(0deg); }
+@keyframes trip-warp-view {
+	0%   { transform: scale(1) skew(0deg, 0deg); }
+	25%  { transform: scale(calc(1 + 0.012 * var(--trip-intensity))) skew(calc(0.6deg * var(--trip-intensity)), calc(-0.3deg * var(--trip-intensity))); filter: blur(calc(0.4px * var(--trip-intensity))); }
+	50%  { transform: scale(calc(1 + 0.02 * var(--trip-intensity))) skew(0deg, calc(0.4deg * var(--trip-intensity))); }
+	75%  { transform: scale(calc(1 + 0.012 * var(--trip-intensity))) skew(calc(-0.6deg * var(--trip-intensity)), calc(0.3deg * var(--trip-intensity))); filter: blur(calc(0.4px * var(--trip-intensity))); }
+	100% { transform: scale(1) skew(0deg, 0deg); }
 }
 
-/* Occasional glitch flash on the log while tripping. */
+/* Log slowly breathes its colour along with the trip — a gentle hue pulse,
+   no hard glitch flashes. */
 body.tripping #output {
-	animation: trip-glitch 4.5s steps(1) infinite;
+	animation: trip-hue-breathe 14s ease-in-out infinite;
 }
 
-@keyframes trip-glitch {
-	0%, 92%, 100% { filter: none; }
-	93%  { filter: hue-rotate(90deg) contrast(1.6) blur(0.4px); transform: translateX(1px); }
-	95%  { filter: hue-rotate(-120deg) contrast(1.3); transform: translateX(-2px); }
-	97%  { filter: hue-rotate(45deg) brightness(1.3); transform: translateX(1px); }
+@keyframes trip-hue-breathe {
+	0%, 100% { filter: hue-rotate(0deg) saturate(1.1); }
+	50%      { filter: hue-rotate(40deg) saturate(1.3) brightness(1.05); }
 }
 
 /* Trip event lines + [trip] melting text. */
@@ -10165,7 +10176,7 @@ body.tripping #output {
 
 .trip-text {
 	display: inline-block;
-	animation: trip-warp 2.2s ease-in-out infinite;
+	animation: trip-warp 3.6s ease-in-out infinite;
 }
 
 @keyframes trip-warp {

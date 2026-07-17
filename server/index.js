@@ -761,6 +761,7 @@ async function finishAuth(ws, session, player) {
 		mob_kills: player.mob_kills || 0,
 		player_kills: player.player_kills || 0,
 		deaths: player.deaths || 0,
+		died_offline: player.died_offline || 0,
 		home_zone: player.home_zone || null,
 	};
 	const { total: totalXp, net: netXp } = await getNetXp(player.id);

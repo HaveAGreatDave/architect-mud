@@ -48,6 +48,14 @@ const DEG = { N: 0, NE: 45, E: 90, SE: 135, S: 180, SW: 225, W: 270, NW: 315 };
 // to swing the bow onto each leg of a charted course as she rounds it.
 const heading8 = (dx, dy) => { if (!dx && !dy) return 0; const d = (Math.atan2(dx, -dy) * 180 / Math.PI + 360) % 360; return (Math.round(d / 45) * 45) % 360; };
 const LOCK_TOL = 6;   // deg — how close to a rhumb the demanded course must be to "click" into the notch (lock)
+// Come-about feel: she swings at TURN_BASE by default, but cranking the wheel harder AND keeping it
+// going the same way banks a boost (steerBy) that adds to the swing rate, so a vigorous spin brings her
+// about faster and resolves the turn sooner; it bleeds off (stepTurn) once you ease, and a reversal
+// spools it back down first. Tune by feel.
+const TURN_BASE = 16;          // deg/s — her lazy baseline swing (a big yacht comes about slowly)
+const TURN_BOOST_MAX = 80;     // deg/s — the most extra rate a hard, sustained same-way crank adds
+const TURN_BOOST_GAIN = 2.0;   // boost banked per degree of same-direction wheel input
+const TURN_BOOST_DECAY = 46;   // deg/s the boost bleeds off per second once you stop feeding the wheel
 const CRUISE = 0.78;   // steady making-way throttle held across a passage (0..1) — drives wake + wash + swell.
                        // Pushed UP so she reads as genuinely UNDERWAY: a boiling wake and a sea that
                        // streams hard past the hull, not a calm creep. Passage DISTANCE is still time-based
@@ -146,7 +154,8 @@ export function openHelmChase(container, opts = {}) {
     gx: opts.gx ?? 0, gy: opts.gy ?? 0,
     map, center: yacht, serverWorld: false,   // center = the yacht cell we overlay wake/heading onto
     hour: opts.hour ?? 19, weather: (opts.weather || 'clear').toLowerCase(),
-    heading: opts.heading ?? 0, headingTarget: opts.heading ?? 0, turnRate: 16,   // deg/s — a big yacht comes about slowly
+    heading: opts.heading ?? 0, headingTarget: opts.heading ?? 0, turnRate: TURN_BASE,   // deg/s — a big yacht comes about slowly
+    turnBoost: 0, spinDir: 0,   // extra swing rate banked by cranking the wheel + the last spin direction (see steerBy/stepTurn)
     // The wheel steers by DIRECTION (relative), so courseDemand accumulates the demanded course and
     // she makes way only when it clicks into one of the eight rhumb notches. locked/lockedDir latch
     // the notch it's currently seated in (null between notches) — seeded from her opening heading (a
@@ -183,8 +192,11 @@ export function openHelmChase(container, opts = {}) {
   // way round. Callers that only know an absolute bearing (a server passage) rebase the target to the
   // nearest equivalent first, so those still take the short route. Display normalizes with mod 360.
   function stepTurn(dt) {
+    // The boost banked by cranking the wheel bleeds off when you stop feeding it, so she coasts back to
+    // her lazy baseline swing once the wheel settles. While you keep spinning, it holds the rate up.
+    if (st.turnBoost > 0) st.turnBoost = Math.max(0, st.turnBoost - TURN_BOOST_DECAY * dt);
     const d = st.headingTarget - st.heading;
-    const step = st.turnRate * dt;
+    const step = (st.turnRate + st.turnBoost) * dt;
     if (Math.abs(d) <= step) st.heading = st.headingTarget;
     else st.heading += Math.sign(d) * step;
     return st.heading !== st.headingTarget;
@@ -217,9 +229,15 @@ export function openHelmChase(container, opts = {}) {
       }
     }
     // Throttle: while under way she holds the passage's bell (st.cruise — set by how far the telegraph
-    // was pushed), ramped in at cast-off and out as she comes to rest, so a higher bell reads as a
-    // bigger boiling wake + faster water + more knots; moored ⇒ dead flat water.
-    const drive = st.sailing ? st.cruise * Math.min(1, st.sailT / 0.03, (1 - st.sailT) / 0.03) : 0;
+    // was pushed), blooming HARD at cast-off and easing off as she comes to rest, so a higher bell reads
+    // as a bigger boiling wake + faster water + more knots; moored ⇒ dead flat water. The bloom/settle
+    // envelope is keyed to ELAPSED/REMAINING TIME (a fixed ~0.4 s bloom, ~0.8 s settle), NOT the passage
+    // FRACTION — so the wake + knots jump up the instant she gets underway even on a long charted course,
+    // instead of crawling up over its first 3 % (which read as a boat sitting dead in the water).
+    const remMs = st.sailing ? Math.max(0, st.transitEnd - now) : 0;
+    const elapMs = (st.transitMs || 1) - remMs;
+    const bell = st.sailing ? Math.min(1, elapMs / 400, remMs / 800) : 0;
+    const drive = st.cruise * bell;
     st.spd += (drive - st.spd) * Math.min(1, dt * 3.2);
     if (st.spd < 0.004) st.spd = 0;
     if (!st.center.wake) st.center.wake = { spd: 0 };
@@ -227,7 +245,11 @@ export function openHelmChase(container, opts = {}) {
     const hdgN = ((st.heading % 360) + 360) % 360;   // heading winds unbounded; the renderer wants 0..360
     st.center.heading = hdgN;
     audio.update(st.spd);
-    st.seaScroll = (st.seaScroll || 0) + st.spd * dt * 11;   // along-heading drift so the swell streams hard past the hull under way — the main "we're moving" cue, scaled by throttle
+    // Waves + their crest lighting stay put — they only undulate in place (via the renderer's own time
+    // term), never translating with the hull. The old along-heading `seaScroll` drift slid the whole
+    // swell (and its specular glint) past like a conveyor belt, which read as fake. The REAL making-way
+    // cue is the shoreline/city sliding past her (mapOffset/center.sub below), so the sea itself holds.
+    st.seaScroll = 0;
     // Real passage progress: pan the whole world window sub-tile toward the destination (mapOffset)
     // AND lead the yacht cell by the same amount (center.sub) so she holds screen-centre while the
     // city/shoreline slide past her — she visibly crosses the Basin over the ten minutes, not a
@@ -376,6 +398,14 @@ export function openHelmChase(container, opts = {}) {
     // re-asserts a stale absolute bearing after a passage — the fix for her snapping home.
     steerBy(deg) {
       st.courseDemand += deg;
+      // Cranking harder — and keeping the wheel going the SAME way — spools her turn up: bank the spin
+      // magnitude into turnBoost (stepTurn adds it to the swing rate), so a vigorous same-direction crank
+      // brings her about quicker. Reversing the wheel spools the boost back down first.
+      if (deg) {
+        const dir = Math.sign(deg);
+        if (dir !== st.spinDir) { st.turnBoost = 0; st.spinDir = dir; }
+        st.turnBoost = Math.min(TURN_BOOST_MAX, st.turnBoost + Math.abs(deg) * TURN_BOOST_GAIN);
+      }
       const notch = Math.round(st.courseDemand / 45) * 45;   // nearest rhumb, unbounded
       const off = Math.abs(st.courseDemand - notch);         // 0..22.5
       if (off <= LOCK_TOL) { st.locked = true; st.lockedDir = CARDINAL[((notch % 360) + 360) % 360]; st.headingTarget = notch; }

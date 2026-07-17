@@ -11,7 +11,7 @@
     "laced_potency": 1.1,
     "restore_radiation": 4,
     "restore_sanity": 12,
-    "restore_thirst": 12,
+    "restore_thirst": 40,
     "stackable": true
   },
   "type": "consumable",

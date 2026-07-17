@@ -1348,6 +1348,12 @@ function ensureFlightSimStyles() {
     .fsim-abortbtn:hover{ border-color:#ff8a5b; box-shadow:0 0 8px rgba(255,120,80,.4); }
     .fsim-abortbtn:active{ transform:translateY(1px); }
     .fsim-abortbtn.armed{ background:var(--warn,#ff5b5b); color:#160404; border-color:var(--warn,#ff5b5b); }
+    /* Disembark button — sits just under ABORT, green so it reads as a safe exit. Hidden unless on the ground. */
+    .fsim-disembarkbtn{ display:none; position:absolute; top:32px; left:8px; z-index:6; height:22px; padding:0 8px; border-radius:5px; font-size:10px; letter-spacing:1px; line-height:20px; cursor:pointer;
+      background:rgba(8,32,20,.72); border:1px solid #1c6a44; color:#57e6a0; }
+    .fsim-disembarkbtn.on{ display:block; }
+    .fsim-disembarkbtn:hover{ border-color:#57e6a0; box-shadow:0 0 8px rgba(70,224,120,.4); }
+    .fsim-disembarkbtn:active{ transform:translateY(1px); }
     /* Admin-only rewind button — top-left (right of ABORT), deliberately red so it never reads as a normal control. */
     .fsim-adminbtn{ position:absolute; top:6px; left:76px; z-index:6; width:26px; height:22px; border-radius:5px; font-size:12px; cursor:pointer;
       background:rgba(40,10,10,.72); border:1px solid #7a3a3a; color:#ff8a5b; }
@@ -1800,7 +1806,7 @@ export function openFlightSim(opts = {}) {
   const isAdmin = ['admin', 'dev', 'builder', 'designer'].includes(state.myRole);
   const adminBtn = isAdmin ? '<button class="fsim-adminbtn" id="fsim-rewindbtn" title="ADMIN — rewind to the hangar you departed, with the plane (test)">⏪</button>' : '';
   const html = `<div id="fsim-root" class="fsim${skin ? ' fsim-theme-' + skin.id : ''}">
-    <div class="fsim-view">${adminBtn}${windshieldHTML('fsim-ws', 'FWD VIEW · ' + esc((opts.deviceName || P.name).toUpperCase()))}<div class="fsim-lamp" id="fsim-lamp">⚠ STALL</div><div class="fsim-killfeed" id="fsim-killfeed"></div><div class="fsim-toast" id="fsim-toast"></div><div class="fsim-viewtag" id="fsim-viewtag"></div><div class="fsim-fuel" id="fsim-fuel"><span class="fsim-fuel-ic">⛽</span><span class="fsim-fuel-pct" id="fsim-fuel-pct">--%</span><button class="fsim-refuel" id="fsim-refuel" title="refuel at this field" tabindex="-1">REFUEL</button></div><div class="fsim-reticle" id="fsim-reticle"><svg viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="#ff6a3a" stroke-width="1"/><line x1="17" y1="1" x2="17" y2="7" stroke="#ff6a3a"/><line x1="17" y1="27" x2="17" y2="33" stroke="#ff6a3a"/><line x1="1" y1="17" x2="7" y2="17" stroke="#ff6a3a"/><line x1="27" y1="17" x2="33" y2="17" stroke="#ff6a3a"/><circle cx="17" cy="17" r="1.5" fill="#ff6a3a"/></svg></div><div class="fsim-weap" id="fsim-weap"><button class="fsim-weap-arm" id="fsim-arm" tabindex="-1">◈ SAFE</button><button class="fsim-weap-arm" id="fsim-wpn" tabindex="-1" title="weapon select — 1 guns / 2 missiles">GUN</button><button class="fsim-weap-fire" id="fsim-fire" tabindex="-1">FIRE</button><span class="fsim-weap-pips" id="fsim-weap-pips"></span><button class="fsim-weap-arm" id="fsim-flarebtn" tabindex="-1" title="countermeasures (X)">FLARE</button></div><button class="fsim-abortbtn" id="fsim-abortbtn" title="abort the flight — a recovery crew tows the aircraft back to a field and bills you">⤫ ABORT</button><button class="fsim-fsbtn" id="fsim-fsbtn" title="fullscreen">⛶</button><button class="fsim-viewbtn" id="fsim-viewbtn" title="external / cockpit view (V)">◎ EXT</button><button class="fsim-orbitreset" id="fsim-orbitreset" title="reset orbit camera to behind the craft">⟲</button><button class="fsim-hidebtn" id="fsim-hidebtn" title="hide the text panel — more outside view">⊟</button><button class="fsim-tunebtn" id="fsim-tunebtn" title="render tuning">⚙</button><div class="fsim-tune" id="fsim-tune" style="display:none"></div><div class="fsim-extg" id="fsim-extg"><div class="fsim-extg-row"><span class="fsim-extg-lbl">IAS</span><b id="fsim-extg-ias">0</b><span class="fsim-extg-u">kt</span></div><div class="fsim-extg-row"><span class="fsim-extg-lbl">ALT</span><b id="fsim-extg-alt">0</b><span class="fsim-extg-u">ft</span></div></div></div>
+    <div class="fsim-view">${adminBtn}${windshieldHTML('fsim-ws', 'FWD VIEW · ' + esc((opts.deviceName || P.name).toUpperCase()))}<div class="fsim-lamp" id="fsim-lamp">⚠ STALL</div><div class="fsim-killfeed" id="fsim-killfeed"></div><div class="fsim-toast" id="fsim-toast"></div><div class="fsim-viewtag" id="fsim-viewtag"></div><div class="fsim-fuel" id="fsim-fuel"><span class="fsim-fuel-ic">⛽</span><span class="fsim-fuel-pct" id="fsim-fuel-pct">--%</span><button class="fsim-refuel" id="fsim-refuel" title="refuel at this field" tabindex="-1">REFUEL</button></div><div class="fsim-reticle" id="fsim-reticle"><svg viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="#ff6a3a" stroke-width="1"/><line x1="17" y1="1" x2="17" y2="7" stroke="#ff6a3a"/><line x1="17" y1="27" x2="17" y2="33" stroke="#ff6a3a"/><line x1="1" y1="17" x2="7" y2="17" stroke="#ff6a3a"/><line x1="27" y1="17" x2="33" y2="17" stroke="#ff6a3a"/><circle cx="17" cy="17" r="1.5" fill="#ff6a3a"/></svg></div><div class="fsim-weap" id="fsim-weap"><button class="fsim-weap-arm" id="fsim-arm" tabindex="-1">◈ SAFE</button><button class="fsim-weap-arm" id="fsim-wpn" tabindex="-1" title="weapon select — 1 guns / 2 missiles">GUN</button><button class="fsim-weap-fire" id="fsim-fire" tabindex="-1">FIRE</button><span class="fsim-weap-pips" id="fsim-weap-pips"></span><button class="fsim-weap-arm" id="fsim-flarebtn" tabindex="-1" title="countermeasures (X)">FLARE</button></div><button class="fsim-abortbtn" id="fsim-abortbtn" title="abort the flight — a recovery crew tows the aircraft back to a field and bills you">⤫ ABORT</button><button class="fsim-disembarkbtn" id="fsim-disembarkbtn" title="climb out of the aircraft (on the ground only)">⏏ DISEMBARK</button><button class="fsim-fsbtn" id="fsim-fsbtn" title="fullscreen">⛶</button><button class="fsim-viewbtn" id="fsim-viewbtn" title="external / cockpit view (V)">◎ EXT</button><button class="fsim-orbitreset" id="fsim-orbitreset" title="reset orbit camera to behind the craft">⟲</button><button class="fsim-hidebtn" id="fsim-hidebtn" title="hide the text panel — more outside view">⊟</button><button class="fsim-tunebtn" id="fsim-tunebtn" title="render tuning">⚙</button><div class="fsim-tune" id="fsim-tune" style="display:none"></div><div class="fsim-extg" id="fsim-extg"><div class="fsim-extg-row"><span class="fsim-extg-lbl">IAS</span><b id="fsim-extg-ias">0</b><span class="fsim-extg-u">kt</span></div><div class="fsim-extg-row"><span class="fsim-extg-lbl">ALT</span><b id="fsim-extg-alt">0</b><span class="fsim-extg-u">ft</span></div></div></div>
     <div class="fsim-glass">
       <div class="fsim-pfd"><canvas id="fsim-pfd"></canvas></div>
       <div class="fsim-gauges"><canvas id="fsim-gauges"></canvas></div>
@@ -2279,6 +2285,16 @@ export function openFlightSim(opts = {}) {
     setTimeout(() => { closeFlightSim(); sendCmdSilent('look'); }, 600);
   });
 
+  // Disembark — climb out where you're parked. Shown by the frame loop only while on the
+  // ground (the server rejects it airborne anyway); fires the same `disembark` verb the command
+  // line uses, then closes the sim so the room look takes over.
+  const disembarkBtn = q('#fsim-disembarkbtn');
+  add(disembarkBtn, 'click', () => {
+    sendCmdSilent('disembark');
+    fsimToast('⏏ CLIMBING OUT…');
+    setTimeout(() => { closeFlightSim(); sendCmdSilent('look'); }, 400);
+  });
+
   // Fullscreen: expand the sim over the whole output column, pushing the text log + command
   // pane down out of the way for an immersive view. Toggling it off restores the split.
   const fsBtn = q('#fsim-fsbtn');
@@ -2438,13 +2454,18 @@ function deckLandingWindow(F) {
 const DECK_WIDE = 4000, DECK_DROP = 3000, DECK_HOLD = 2900;
 const DECK_TOTAL = DECK_WIDE + DECK_DROP + DECK_HOLD;
 const DECK_HANDOFF_MS = 1800;   // extra stillness after the rotors stop before the hangar view pops
-const DECK_PAD_Z = 0.145;   // world-z of the Echelon's FLUSH helipad floor (drawYacht pad pZ1 = DECKZ 0.085 × YACHT_H 1.7) — the heli rests ON the deck; gear square on the pad
+// Overall size of the Echelon's 3D model — a uniform shrink of her whole yacht-local frame. KEEP IN
+// SYNC with YACHT_SCALE in windshield.js: every yacht-local constant here (the pad at fore-aft 0.28,
+// the deck floor z, the catch radius) is multiplied by it so the deck-landing capture + cinematic
+// stay square on the (scaled) pad.
+const YACHT_SCALE = 0.4;
+const DECK_PAD_Z = 0.085 * 1.7 * YACHT_SCALE;   // world-z of the Echelon's FLUSH helipad floor (drawYacht pad pZ1 = DECKZ 0.085 × YACHT_H 1.7 × YACHT_SCALE) — the heli rests ON the deck; gear square on the pad
 const DECK_DROP_FT = 75;    // the close "standing on deck" shot picks her up here and watches her drop in almost on top of you
 
 // Auto-land catch zone: how close (tiles, from the pad centre) + how low (ft) you must be for her to
-// grab you. Matches the drawn catch volume — radius a hair beyond its footprint so entering the ring
-// captures, ceiling = the column top (PAD_CATCH_CEIL 0.5 × CONTACT_ALT_K⁻¹ 600 ≈ 300ft).
-const YACHT_CATCH_RADIUS = 0.7, YACHT_CATCH_CEIL_FT = 300;
+// grab you. Matches the drawn catch volume — radius a hair beyond its (now scaled) footprint so entering
+// the ring captures, ceiling = the column top (PAD_CATCH_CEIL 0.5 × CONTACT_ALT_K⁻¹ 600 ≈ 300ft).
+const YACHT_CATCH_RADIUS = 0.7 * YACHT_SCALE, YACHT_CATCH_CEIL_FT = 300;
 
 // Real-time distance to the Echelon's helipad from our smooth position (not the laggy server flag):
 // find her cell in the streamed window → her hull-centre world tile (+ any sub-tile glide) → rotate
@@ -2460,7 +2481,8 @@ function yachtProximity(F) {
       const sub = c.sub || { x: 0, y: 0 };
       const yx = F.mapCenter.x + (rx - R) + sub.x, yy = F.mapCenter.y + (ry - R) + sub.y;   // hull-centre world tile
       const hr = (c.heading || 0) * Math.PI / 180;
-      const px = yx - 0.28 * Math.sin(hr), py = yy + 0.28 * Math.cos(hr);                    // aft helipad centre
+      const PAD_OY = 0.28 * YACHT_SCALE;   // aft helipad offset, shrunk with the hull
+      const px = yx - PAD_OY * Math.sin(hr), py = yy + PAD_OY * Math.cos(hr);                 // aft helipad centre
       // tile = her COMMITTED grid tile (no sub-tile render lead), so surfaceAt resolves her zone.
       // hull = her hull-centre world tile, so the deck-cam can express our capture position in her
       // local frame and fly the cinematic in from where we ACTUALLY are.
@@ -2514,10 +2536,11 @@ function stepDeckLanding(F, now) {
   // Work in her LOCAL frame (beam ox, fore-aft oy) and convert to world with `loc` exactly ONCE
   // (at the projection below) — the pad/start were being loc()'d twice, which slid the touchdown off
   // the pad ("left of the pad") whenever her heading wasn't due north.
-  const PAD = [0, 0.28];                 // helipad centre (local)
+  const PAD = [0, 0.28 * YACHT_SCALE];   // helipad centre (local), on the scaled hull
   // Fly in from where the pilot ACTUALLY was at capture (interpolated in), so the cinematic is
-  // continuous with the approach — no teleport. Fall back to the canned starboard-quarter pose.
-  const START = C.start || [1.0, 1.7];   // fly-in start (local): captured real position, or the canned pose
+  // continuous with the approach — no teleport. Fall back to the canned starboard-quarter pose (also
+  // scaled with the hull, so a smaller Echelon frames the fly-in proportionally).
+  const START = C.start || [1.0 * YACHT_SCALE, 1.7 * YACHT_SCALE];   // fly-in start (local): captured real position, or the canned pose
   const padWorld = loc(PAD[0], PAD[1]);  // pad centre as a WORLD offset from the hull — the close-up centres here
   // `lookAt` is the ground point the camera centres on (mapOffset). WIDE frames the whole ship as she
   // flies in; the close-up re-aims onto the PAD and sits IN FRONT of her (extYaw ~180 = dead ahead of
@@ -2916,10 +2939,15 @@ function fsimFrame(now) {
     fuelWrap.classList.toggle('full', pct >= 100);
   }
 
+  // Disembark button — only offered while on the ground (you can't climb out mid-air).
+  document.getElementById('fsim-disembarkbtn')?.classList.toggle('on', !!s.onGround);
+
   // Landing guide: show the glideslope gates once airborne, low, and within reach of the
-  // departure runway (so it appears as you turn back to land).
+  // departure runway (so it appears as you turn back to land). FIXED-WING ONLY — a helicopter/VTOL
+  // descends vertically onto a helipad, so the Star Fox glideslope boxes make no sense for it; it's
+  // guided by the auto-land catcher dome (padDome) instead.
   const rwDist = Math.hypot(F.rwOrigin.x - F.pos.x, F.rwOrigin.y - F.pos.y);
-  const landGuide = (F.reportedAirborne && r.altitude < 1600 && rwDist < 16) ? { alt: r.altitude } : null;
+  const landGuide = (F.reportedAirborne && !F.heli && r.altitude < 1600 && rwDist < 16) ? { alt: r.altitude } : null;
 
   // ── Air-to-air traffic (Phase A: see-only) ──────────────────────────────────
   // Dead-reckon each relayed contact from its last-known heading/speed, express it
