@@ -14,7 +14,7 @@
  * day) — so the same piece rarely costs exactly the same twice.
  */
 import { query } from '../models/db.js';
-import { getFactionDiscount } from './factions.js';
+import { getIdeologyDiscount } from './ideologies.js';
 import { adjustCredits } from './economy.js';
 import { registerAction } from './actions.js';
 import { createSelectionState, formatSelectionPage } from './sift.js';
@@ -113,7 +113,7 @@ export async function buyFurniture(player, npc, item, catalogueEntry) {
     };
   }
 
-  const discount = npc.faction ? await getFactionDiscount(player.id, npc.faction) : 0;
+  const discount = npc.faction ? await getIdeologyDiscount(player.id, npc.faction) : 0;
   const base = catalogueEntry?.price ?? item.value;
   const price = Math.max(1, Math.round(base * (1 - discount) * rollVariation()));
 

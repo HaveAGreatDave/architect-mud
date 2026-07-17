@@ -187,15 +187,34 @@ A day/night cycle and a city-wide power grid run independently of zone content �
 
 ---
 
-## Factions & Reputation
+## Ideologies & Reputation
 
-Players build reputation with each faction independently. Reputation is gained by: completing jobs, killing enemies, delivering items, talking your way in.
+The four ideologies are placed by **one bipolar axis + one categorical path**, not a
+grid of correlated axes (three correlated axes collapse to a single line; see the
+model history below):
+
+- **Stance — is the world worth saving?** *Redeem it* (stay & resolve) ↔ *Renounce it* (leave & begin).
+- **Path — how does humanity go on?** A choice, not a spectrum: **Machine**, **Flesh**, and **Mind** are three sibling ways to *ascend*; **Human** is the fourth answer — *stay as we are*. (Mind is a kind of human advancement like cybernetics or mutation, so it sits beside Machine and Flesh, never opposite "Human".)
+
+| Ideology | Stance | Path | Verb |
+| --- | --- | --- | --- |
+| **The Ascendants** | Redeem | Machine | *advance* |
+| **The Long Watch** | Redeem | Human | *reclaim* |
+| **The Wildblood** | Renounce | Flesh | *adapt* |
+| **The Exodus** | Renounce | Mind | *awaken* |
+
+- **The Ascendants** — "Humanity's next evolution will be engineered." The Architect is humanity's greatest achievement; civilization should be perfected, not abandoned. *Progress, Order, Technology, Rationality, Optimization.*
+- **The Long Watch** — "The city belongs to its people — not its machine." An underground movement to preserve the Basin's tech and infrastructure but reclaim stewardship from the Architect. *Liberty, Responsibility, Reform, Community, Hope.*
+- **The Wildblood** — "Life survives by adapting, not by preserving." Reject the Architect and the artificial order; mutation is humanity's natural future, and if the old world must die, so be it. *Adaptation, Freedom, Instinct, Evolution, Resilience.*
+- **The Exodus** — "The future cannot be found in the ruins of the past." Abandoned the Basin entirely; Architect, tech, and mutation alike are remnants of a failed world. They cultivate psionics as humanity's true potential. *Renewal, Self-Reliance, Simplicity, Awakening, Discovery.*
+
+None are simply good or evil; each holds a coherent vision of the future. Players build reputation with each ideology independently (completing jobs, killing enemies, delivering items, talking your way in), and dialogue choices move the player's own **stance** (`stance_axis`) and **path affinities** (`path_*`). `classifyLean` scores stance-agreement + path-affinity to show which ideology you lean toward. The two-part model is deliberately expandable: a fifth ideology is just a new `{stance, path}` pair (e.g. an anti-Architect, pro-tech faction = `redeem · machine` distinguished from the Ascendants by a future *authority* axis), and the path is a wheel that can gain spokes.
 
 Reputation tiers: **Hostile → Unknown → Neutral → Known → Trusted → Inner Circle**
 
 Benefits scale: discounts, quest access, safe houses, unique items, lore unlocks.
 
-Factions notice each other. Being Inner Circle with The Breakers makes The Custodians nervous.
+Ideologies notice each other. Being Inner Circle with The Wildblood makes The Ascendants nervous.
 
 ---
 

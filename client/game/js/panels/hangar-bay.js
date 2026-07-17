@@ -139,6 +139,7 @@ function floorScreen() {
   const craftActs = sel ? [
     !sel.wreck ? tbtn('✈', 'Fly', `data-act="embark" data-tail="${esc(sel.tail)}"`, 'hb-accent hb-go') : '',
     !sel.wreck ? tbtn('⚙', 'Maintenance', 'data-act="bench"') : '',
+    !sel.wreck && (d.fuelStocks || []).includes(sel.fuelType) && sel.fuelPct < 100 ? tbtn('⛽', 'Refuel', 'data-act="refuel"') : '',
     tbtn('◉', 'Inspect', 'data-act="inspect"'),
     d.hasBay && !sel.wreck && sel.location === 'ramp' ? tbtn('⤓', 'Store', 'data-act="store"') : '',
     d.hasBay && sel.location === 'hangar' ? tbtn('⤒', 'Roll Out', 'data-act="pull"') : '',
@@ -307,10 +308,10 @@ function charterScreen() {
     </div>`;
 }
 
-// ── Buy / Rent — a dealer terminal: CRT scanlines + a wireframe schematic per
-// lot instead of the floor/bench's realistic shaded 3D turntable. Deliberately
-// the only screen styled this way (see ensureStyles' .hb-dealer-* block) — the
-// floor and mechanics bench keep the ordinary hangar look untouched.
+// ── Buy / Rent — a dealer showroom: tablet-surface product cards, each with a
+// wireframe schematic in a recessed viewport (instead of the floor/bench's realistic
+// shaded 3D turntable) so an airframe you don't own yet reads as a spec drawing.
+// Shares the tablet's --tos-* surface language with the rest of the hangar app.
 // One big wireframe per airframe with a Buy and a Rent button underneath it (each shown only
 // where the field offers that desk). A button is disabled if you can't afford it OR you have
 // no pilot licence — admins bypass both. The whole card is no longer a single click target.
@@ -325,8 +326,8 @@ function lotCard(t) {
     return `<button class="hb-lot-acq hb-lot-${kind}" data-hb-${kind}="${esc(t.id)}"${ok ? '' : ' disabled'} title="${esc(why)}">
       ${kind === 'buy' ? 'BUY' : 'RENT'} · ₵${price}${kind === 'rent' ? '/hr' : ''}</button>`;
   };
-  return `<div class="hb-lot hb-dealer-lot">
-    <canvas class="hb-wf-lot" data-wf-cls="${esc(t.class)}" width="200" height="142"></canvas>
+  return `<div class="hb-lot">
+    <div class="hb-lot-view"><canvas class="hb-wf-lot" data-wf-cls="${esc(t.class)}" width="200" height="142"></canvas></div>
     <div class="hb-lot-name">${esc(t.name)}</div>
     <div class="hb-lot-meta">${esc(t.class)} · ${t.seats} seat${t.seats > 1 ? 's' : ''} · ${esc(t.fuel)}</div>
     <div class="hb-lot-acts">
@@ -340,7 +341,7 @@ function buyRentScreen() {
   const gate = !d.isAdmin && !d.licensed
     ? `<div class="hb-lot-lockmsg">⚠ You need a pilot licence to buy or rent — pass a checkride at Coldwater Regional first.
        <button class="hb-btn hb-accent" data-act="checkride" style="margin-top:8px">✈ Take the checkride</button></div>` : '';
-  return `<div class="hb-dealer-crt"><div class="hb-scroll">${gate}<div class="hb-lotgrid">${(d.lots || []).map(lotCard).join('')}</div></div><div class="hb-dealer-scanlines"></div><div class="hb-crt-glass"></div></div>
+  return `<div class="hb-dealer"><div class="hb-scroll">${gate}<div class="hb-lotgrid">${(d.lots || []).map(lotCard).join('')}</div></div></div>
     <div class="hb-toolbar"><div class="hb-tb-group hb-tb-right">${tbtn('‹', 'Back', 'data-act="back"')}</div></div>`;
 }
 
@@ -462,6 +463,12 @@ function openColorPopover(field, btn) {
     setPickerColor(field, v2);
     placeCursors();
   });
+  // The popover lives inside the swatch's <label> (swatchRow), so a click on any
+  // non-interactive part of it (the SV square, the hue strip) would bubble up and the
+  // label would forward a synthetic click to its control — the swatch button — which
+  // re-runs openColorPopover in "reopening" mode and closes the picker. Swallow the
+  // bubble here so pressing/dragging the colour area never dismisses it.
+  pop.addEventListener('click', (e) => e.stopPropagation());
   pop.querySelector('.hb-cp-close').addEventListener('click', closeColorPopover);
   pop.querySelector('.hb-cp-done').addEventListener('click', closeColorPopover);
 }
@@ -706,10 +713,12 @@ function weightTabHtml(c) {
   </div>`;
 }
 
-// ATM-style terminal: tabbed so no section needs its own scrollbar — PAINT/HULL/
-// TUNING/WEIGHT each get the full panel to themselves instead of stacking. The
-// stage swaps to the live performance radar (drawn by paintTuning) while on the
-// TUNING tab; every other tab keeps the real 3D plane.
+// The mechanics bench, reworked as a tablet-style "app": a persistent craft-identity
+// summary strip + a full-width segmented nav pinned at the top (both stay put as the
+// controls scroll under them), then a two-column body — the 3D turntable (or, on the
+// TUNING tab, the live performance radar drawn by paintTuning) sticky on the left, the
+// active section's controls in a single card on the right. Surfaces reuse the tablet's
+// --tos-* recipe (see ensureStyles) so the bench and the tablet read as one device.
 function benchScreen() {
   const c = (B.data.craft || []).find(x => x.id === B.selId);
   if (!c) return '<div class="hb-empty">Pick an aircraft on the floor first.</div><div class="hb-toolbar"><button class="hb-btn" data-act="back">Back</button></div>';
@@ -719,15 +728,28 @@ function benchScreen() {
   const canTune = !c.wreck && !c.rental;
 
   const tabs = [
-    { id: 'paint', label: 'PAINT' },
-    { id: 'hull', label: `HULL · ${c.hullPct}%` },
-    ...(canTune ? [{ id: 'tuning', label: 'TUNING' }, { id: 'kits', label: 'KITS' }] : []),
+    { id: 'paint', label: 'Paint' },
+    { id: 'hull', label: 'Hull' },
+    ...(canTune ? [{ id: 'tuning', label: 'Tuning' }, { id: 'kits', label: 'Kits' }] : []),
     ...(c.configurable ? [{ id: 'weight', label: 'W&B' }] : []),
   ];
   if (!tabs.some(t => t.id === B.benchTab)) B.benchTab = tabs[0].id;
 
-  const tabBar = `<div class="hb-bench-tabs">${tabs.map(t =>
-    `<button class="hb-tab${t.id === B.benchTab ? ' hb-tab-active' : ''}" data-bench-tab="${t.id}">${t.label}</button>`).join('')}</div>`;
+  const navBar = `<div class="hb-bench-tabs">${tabs.map(t =>
+    `<button class="hb-tab${t.id === B.benchTab ? ' hb-tab-active' : ''}" data-bench-tab="${t.id}">${esc(t.label)}</button>`).join('')}</div>`;
+
+  // Persistent identity strip — name + class/tail on the left, live condition + wallet
+  // on the right; a status pill flags a wreck or a rental so the whole screen is framed
+  // by what you're working on. Hull goes amber under 40% as an at-a-glance warning.
+  const statusPill = c.wreck ? '<b class="hb-bench-pill hb-bench-pill-wreck">Wreck</b>'
+    : c.rental ? '<b class="hb-bench-pill hb-bench-pill-rent">Rental</b>' : '';
+  const summary = `<div class="hb-bench-summary">
+    <div class="hb-bench-id"><b>${esc(c.name)}</b>${statusPill}<span>${esc(c.class)}${c.tail ? ` · ${esc(c.tail)}` : ''}</span></div>
+    <div class="hb-bench-vitals">
+      <span class="hb-bench-vital"><i>Hull</i><b class="${c.hullPct < 40 ? 'hb-bench-warn' : ''}">${c.hullPct}%</b></span>
+      <span class="hb-bench-vital"><i>Balance</i><b>₵${B.data.credits ?? 0}</b></span>
+    </div>
+  </div>`;
 
   const body = B.benchTab === 'hull' ? hullTabHtml(c)
     : B.benchTab === 'tuning' ? tuningTabHtml(c)
@@ -742,11 +764,16 @@ function benchScreen() {
     : bayCanvas('hb-bench-hero', c.wreck ? 'wreck' : c.class, B.work, null, 240, 'data-hb-src="work" data-hb-zoom="1.5" data-hb-flat="1"');
 
   return `
-    <div class="hb-bench hb-bench-crt">
-      <div class="hb-bench-stage">${stage}</div>
-      <div class="hb-bench-panels">
-        ${tabBar}
-        <div class="hb-bench-tabbody">${body}</div>
+    <div class="hb-bench">
+      <div class="hb-bench-top">
+        ${summary}
+        ${navBar}
+      </div>
+      <div class="hb-bench-main">
+        <div class="hb-bench-stage">${stage}</div>
+        <div class="hb-bench-panels">
+          <div class="hb-bench-tabbody"><div class="hb-bench-card">${body}</div></div>
+        </div>
       </div>
     </div>
     <div class="hb-toolbar">
@@ -784,7 +811,15 @@ function render() {
   startSpin();
   // The tuning radar/knobs/bars aren't part of startSpin's canvas set — draw them
   // once here after the DOM is built; knob drags repaint them on the fly.
-  if (B.screen === 'bench' && B.benchTab === 'tuning') paintTuning();
+  if (B.screen === 'bench') {
+    // Pin the sticky stage just below the (variable-height) summary+nav top bar, so
+    // the plane/scope stays visible under it as the controls scroll — measured rather
+    // than hard-coded because the summary can wrap on a narrow pane.
+    const top = document.querySelector('#hb-root .hb-bench-top');
+    const stage = document.querySelector('#hb-root .hb-bench-stage');
+    if (top && stage) stage.style.top = (top.offsetHeight + 10) + 'px';
+    if (B.benchTab === 'tuning') paintTuning();
+  }
 }
 
 function wire() {
@@ -919,6 +954,7 @@ function wire() {
     if (act === 'embark') { sendCmdSilent(`embark ${e.currentTarget.getAttribute('data-tail')}`); closeHangarBay(); return; }
     if (act === 'store') { sendCmdSilent(`hangaract store ${B.selId}`); return; }
     if (act === 'pull') { sendCmdSilent(`hangaract pull ${B.selId}`); return; }
+    if (act === 'refuel') { sendCmdSilent(`refuel ${B.selId}`); refetch(); return; }
     if (act === 'repair') { sendCmdSilent(`repair ${B.selId}`); refetch(); return; }
     if (act === 'repair-pro') { sendCmdSilent(`repair ${B.selId} hangar`); refetch(); return; }
     if (act === 'tune-apply') {
@@ -1106,7 +1142,7 @@ function ensureStyles() {
     font-family:'Courier New',monospace;
     background:linear-gradient(175deg,color-mix(in srgb, var(--border) 55%, var(--bg3)) 0%,var(--bg3) 8%,var(--bg2) 50%),
       radial-gradient(140% 100% at 50% 0%,color-mix(in srgb, var(--border) 40%, var(--bg3)),var(--bg) 75%);
-    border:1px solid var(--hb-black2); border-radius:10px; overflow:hidden;
+    border:1px solid color-mix(in srgb, var(--hb-atm-accent) 22%, var(--border)); border-radius:10px; overflow:hidden;
     box-shadow:inset 0 1px 0 rgba(255,255,255,0.08), inset 0 0 0 1px rgba(0,0,0,0.3), 0 14px 34px rgba(0,0,0,0.5); }
   /* A faint brushed-plastic grain over the shell — two crossed diagonal hairline
      sets at very low opacity, purely decorative (z-index:0, sits under every
@@ -1116,60 +1152,62 @@ function ensureStyles() {
       repeating-linear-gradient(35deg, rgba(255,255,255,0.025) 0 1px, transparent 1px 3px),
       repeating-linear-gradient(-55deg, rgba(0,0,0,0.03) 0 1px, transparent 1px 4px); }
   #hb-root > * { position:relative; z-index:1; }
-  /* Top pane — ATM chassis language (dark moulded metal, glowing green readout)
-     bookending the ordinary hangar look; only the head/toolbar chrome changes,
-     the 3D scene and every screen's own content in between is untouched. */
-  /* Monochrome, like the real ATM: every surface is the SAME hue (the theme's
-     accent) at a different intensity — near-black tube glass at ~5-10%, full
-     brightness for text/borders, brighter still on hover. Not a neutral black
-     with a colored accent painted on top of it — the black itself carries the
-     hue, so it reads as "this machine's colour, dimmed" rather than two
-     unrelated colours layered together. --hb-black2 is the deeper edge tone. */
+  /* Every surface is the SAME hue (the theme's accent) at a different intensity over
+     the theme's own bg tiers — so the whole hangar app follows the active theme (a
+     light theme reads light) and reads as "this machine's colour" rather than a fixed
+     dark chassis with an accent painted on top. Only the 3D scene and the recessed
+     schematic/map viewports stay dark glass regardless of theme (a real screen doesn't
+     relight for your wallpaper). */
   #hb-root { --hb-atm-accent:var(--accent);
-    --hb-black:color-mix(in srgb, var(--hb-atm-accent) 20%, #060809);
-    --hb-black2:color-mix(in srgb, var(--hb-atm-accent) 11%, #020304);
-    /* Theme-following bench surfaces (the mechanics bench reads as a lit tablet panel,
-       not a black CRT slab): a faint accent tint over the theme's own bg tiers, plus
-       translucent bevels that work on a light or a dark theme alike. */
-    --hb-surf:color-mix(in srgb, var(--hb-atm-accent) 9%, var(--bg3));
-    --hb-surf-lo:color-mix(in srgb, var(--hb-atm-accent) 5%, var(--bg2));
-    --hb-bevel-hi:rgba(255,255,255,0.5); --hb-bevel-lo:rgba(0,0,0,0.4); }
-  /* Top status bar + bottom action tray are flat, frosted tablet chrome now
-     — no CRT scanlines or tube sheen. Each is a slim accent-tinted glass slab
-     with a single hairline edge; backdrop-filter blurs the chassis behind the
-     head and whatever scrolls beneath the tray, the "glass over content" cue a
-     tablet's bars give. Both backgrounds are semi-transparent so the blur reads. */
+    /* Theme-following bench surfaces, sharing the Architect OS tablet's exact recipe
+       (tablet-os.js --tos-surface-hi/lo): an accent tint over the theme's own bg tiers
+       plus translucent bevels that read on a light or a dark theme alike, so the bench
+       and the tablet are literally the same surface. --tos-* aliases below let the
+       reworked bench markup use the tablet's own token names directly. */
+    --hb-surf:color-mix(in srgb, var(--hb-atm-accent) 18%, var(--bg2));
+    --hb-surf-lo:color-mix(in srgb, var(--hb-atm-accent) 6%, var(--bg2));
+    --hb-surf-mid:color-mix(in srgb, var(--hb-atm-accent) 12%, var(--bg2));
+    --hb-bevel-hi:rgba(255,255,255,0.5); --hb-bevel-lo:rgba(0,0,0,0.45);
+    --tos-surface-hi:var(--hb-surf); --tos-surface-lo:var(--hb-surf-lo); --tos-surface:var(--hb-surf-mid);
+    --tos-bevel-hi:var(--hb-bevel-hi); --tos-bevel-lo:var(--hb-bevel-lo);
+    --tos-fg:var(--text-bright, var(--text, #eafffb));
+    --tos-fg-dim:var(--text-dim, #9db5c6);
+    --tos-fg-dim2:color-mix(in srgb, var(--text-dim, #9db5c6) 60%, transparent); }
+  /* Top status bar + bottom action tray are flat, frosted tablet chrome that follows
+     the theme (a light theme reads light): a slim accent-tinted glass slab with a
+     hairline edge; backdrop-filter blurs whatever scrolls behind it, the "glass over
+     content" cue a tablet's bars give. Backgrounds are semi-transparent so the blur reads. */
   #hb-root .hb-head, #hb-root .hb-toolbar { position:relative;
     -webkit-backdrop-filter:blur(11px) saturate(1.15); backdrop-filter:blur(11px) saturate(1.15); }
   #hb-root .hb-head { display:flex; align-items:center; gap:12px; padding:0 16px; height:48px; flex:0 0 auto;
-    background:color-mix(in srgb, var(--hb-black) 60%, transparent);
+    background:color-mix(in srgb, var(--hb-surf) 82%, transparent);
     border-bottom:1px solid color-mix(in srgb, var(--hb-atm-accent) 26%, transparent);
-    box-shadow:0 1px 0 rgba(255,255,255,0.05); }
-  #hb-root .hb-title { color:var(--hb-atm-accent); font-weight:bold; letter-spacing:2px; text-shadow:0 0 6px color-mix(in srgb, var(--hb-atm-accent) 55%, transparent); }
-  /* Credits/price numbers read as bright emphasis, not a separate gold — same
-     convention as the corp console's balance figure (.cc-bal, a fixed near-white
-     regardless of accent) and the ATM's own all-one-color readout. */
-  #hb-root .hb-credits { margin-left:auto; color:#eafffb; letter-spacing:1px; text-shadow:0 0 5px color-mix(in srgb, var(--hb-atm-accent) 45%, transparent); }
-  #hb-root .hb-back { font-family:inherit; font-size:11px; letter-spacing:1px; cursor:pointer; padding:6px 12px;
-    color:var(--hb-atm-accent); text-shadow:0 0 4px color-mix(in srgb, var(--hb-atm-accent) 45%, transparent);
-    background:color-mix(in srgb, var(--hb-atm-accent) 8%, #0d1013); border:1px solid color-mix(in srgb, var(--hb-atm-accent) 35%, transparent); border-radius:6px; }
-  #hb-root .hb-back:hover { border-color:var(--hb-atm-accent); box-shadow:0 0 10px color-mix(in srgb, var(--hb-atm-accent) 30%, transparent); }
+    box-shadow:inset 0 1px 0 var(--hb-bevel-hi), 0 2px 8px rgba(0,0,0,0.14); }
+  #hb-root .hb-title { color:var(--tos-fg); font-weight:bold; letter-spacing:2px; text-shadow:0 0 6px color-mix(in srgb, var(--hb-atm-accent) 30%, transparent); }
+  /* Credits/price numbers read as the theme's brightest ink so they stay legible on
+     a light or dark bar alike, with a faint accent glow for emphasis. */
+  #hb-root .hb-credits { margin-left:auto; color:var(--tos-fg); letter-spacing:1px; text-shadow:0 0 5px color-mix(in srgb, var(--hb-atm-accent) 30%, transparent); }
+  #hb-root .hb-back { font-family:inherit; font-size:11px; letter-spacing:1px; cursor:pointer; padding:6px 12px; color:var(--tos-fg);
+    background:linear-gradient(165deg, var(--hb-surf), var(--hb-surf-lo)); border:1px solid color-mix(in srgb, var(--hb-atm-accent) 35%, transparent); border-radius:6px;
+    box-shadow:inset 0 1px 0 var(--hb-bevel-hi); transition:filter .12s, box-shadow .12s, border-color .12s; }
+  #hb-root .hb-back:hover { filter:brightness(1.12); border-color:var(--hb-atm-accent); box-shadow:inset 0 1px 0 var(--hb-bevel-hi), 0 0 10px color-mix(in srgb, var(--hb-atm-accent) 28%, transparent); }
   /* Fullscreen / hide-panel toggles — a small glyph pair pinned to the right of the head,
-     matching the sim's ⛶/⊟. The lit ('on') state carries the accent glow the .hb-back
-     hover uses, so an active toggle reads as "engaged". */
+     matching the sim's ⛶/⊟. The lit ('on') state carries the accent glow so an active
+     toggle reads as "engaged". */
   #hb-root .hb-viewbtns { display:flex; gap:6px; margin-left:10px; }
-  #hb-root .hb-viewbtn { font-family:inherit; font-size:14px; line-height:1; cursor:pointer; padding:5px 8px;
-    color:color-mix(in srgb, var(--hb-atm-accent) 75%, #cfe); background:color-mix(in srgb, var(--hb-atm-accent) 8%, #0d1013);
-    border:1px solid color-mix(in srgb, var(--hb-atm-accent) 28%, transparent); border-radius:6px; }
-  #hb-root .hb-viewbtn:hover { border-color:var(--hb-atm-accent); box-shadow:0 0 10px color-mix(in srgb, var(--hb-atm-accent) 30%, transparent); }
-  #hb-root .hb-viewbtn.on { color:#eafffb; border-color:var(--hb-atm-accent);
-    background:color-mix(in srgb, var(--hb-atm-accent) 22%, #0d1013);
-    box-shadow:0 0 10px color-mix(in srgb, var(--hb-atm-accent) 35%, transparent), inset 0 0 8px color-mix(in srgb, var(--hb-atm-accent) 20%, transparent); }
+  #hb-root .hb-viewbtn { font-family:inherit; font-size:14px; line-height:1; cursor:pointer; padding:5px 8px; color:var(--tos-fg-dim);
+    background:linear-gradient(165deg, var(--hb-surf), var(--hb-surf-lo));
+    border:1px solid color-mix(in srgb, var(--hb-atm-accent) 28%, transparent); border-radius:6px;
+    box-shadow:inset 0 1px 0 var(--hb-bevel-hi); transition:filter .12s, box-shadow .12s, color .12s, border-color .12s; }
+  #hb-root .hb-viewbtn:hover { filter:brightness(1.1); color:var(--tos-fg); border-color:var(--hb-atm-accent); box-shadow:inset 0 1px 0 var(--hb-bevel-hi), 0 0 10px color-mix(in srgb, var(--hb-atm-accent) 28%, transparent); }
+  #hb-root .hb-viewbtn.on { color:var(--tos-fg); border-color:var(--hb-atm-accent);
+    background:linear-gradient(165deg, color-mix(in srgb, var(--hb-atm-accent) 26%, var(--bg2)), var(--hb-surf-lo));
+    box-shadow:0 0 10px color-mix(in srgb, var(--hb-atm-accent) 32%, transparent), inset 0 1px 0 var(--hb-bevel-hi); }
   #hb-root .hb-body { flex:1 1 auto; overflow:hidden; padding:10px 14px; min-height:0; display:flex; flex-direction:column; }
-  #hb-root .hb-dim { color:#9db5c6; }
-  #hb-root .hb-empty { color:#c2d6e4; font-size:13px; text-align:center; padding:24px 10px; }
-  #hb-root .hb-note { color:#9db5c6; font-size:12px; padding:8px 0; }
-  #hb-root .hb-hint { color:#9db5c6; font-size:11px; text-align:center; padding:8px 0; }
+  #hb-root .hb-dim { color:var(--tos-fg-dim); }
+  #hb-root .hb-empty { color:var(--tos-fg); font-size:13px; text-align:center; padding:24px 10px; }
+  #hb-root .hb-note { color:var(--tos-fg-dim); font-size:12px; padding:8px 0; }
+  #hb-root .hb-hint { color:var(--tos-fg-dim); font-size:11px; text-align:center; padding:8px 0; }
 
   /* Floor — one 3D scene canvas, not a row of cards */
   #hb-root .hb-floor { position:relative; flex:1 1 auto; display:flex; min-height:280px; }
@@ -1201,30 +1239,19 @@ function ensureStyles() {
   #hb-root .hb-bay { display:block; border-radius:6px; }
 
   /* The selected-craft readout is a "panel on the floor scene" (not the 3D scene
-     itself, which stays untouched) — same CRT glass treatment as the head/toolbar. */
-  /* flex-shrink:0 matters here: .hb-floor is flex:1 1 auto and will happily eat
-     all the room in a short area-pane, and since this box has overflow:hidden
-     (needed to clip the scanline/glass corners) a squeezed box was silently
-     clipping its OWN last child — the action buttons — instead of just looking
-     cramped. Never shrinking below its content's natural height means the
-     BODY scrolls instead of the buttons vanishing. */
-  #hb-root .hb-info { position:relative; overflow:hidden; flex-shrink:0; margin-top:10px; padding:10px; border-radius:8px;
-    background:radial-gradient(160% 220% at 50% -40%,color-mix(in srgb, var(--hb-atm-accent) 20%, var(--hb-black)) 0%,var(--hb-black2) 85%);
-    border:1px solid color-mix(in srgb, var(--hb-atm-accent) 35%, transparent);
-    box-shadow:inset 0 0 18px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.05); }
-  #hb-root .hb-info::before { content:''; position:absolute; inset:0; pointer-events:none; z-index:1; border-radius:inherit;
-    background:repeating-linear-gradient(0deg,transparent 0 2px,rgba(0,0,0,0.2) 2px 3px); }
-  #hb-root .hb-info::after { content:''; position:absolute; inset:0; pointer-events:none; z-index:1; border-radius:inherit;
-    background:linear-gradient(115deg, transparent 0 40%, rgba(220,255,245,0.06) 47%, rgba(220,255,245,0.02) 52%, transparent 60% 100%); }
-  /* Real content sits ABOVE the decorative glass/scanline layers (z-index:1) —
-     without this, buttons render fine but visually read as washed out/gone
-     under the overlay, since absolutely-positioned decoration always paints
-     over static in-flow content regardless of DOM order. */
-  #hb-root .hb-info > * { position:relative; z-index:2; }
-  #hb-root .hb-info-name { color:#ffffff; font-weight:bold; font-size:14px; }
-  #hb-root .hb-info-type { color:#a8c6d8; font-weight:normal; font-size:11px; margin-left:6px; }
-  #hb-root .hb-bars { display:inline-grid; grid-template-columns:auto 140px; gap:4px 8px; align-items:center; font-size:9px; letter-spacing:1px; color:#b8cede; margin-top:6px; }
-  #hb-root .hb-bar { height:6px; background:rgba(0,0,0,0.3); border-radius:3px; overflow:hidden; } #hb-root .hb-bar i { display:block; height:100%; }
+     itself, which stays untouched) — the tablet summary-strip surface, matching the
+     bench's identity strip so the whole hangar app reads as one device.
+     flex-shrink:0 matters: .hb-floor is flex:1 1 auto and will happily eat all the
+     room in a short area-pane; never shrinking below this box's natural height means
+     the BODY scrolls instead of its content getting squeezed away. */
+  #hb-root .hb-info { flex-shrink:0; margin-top:10px; padding:10px 12px; border-radius:8px;
+    background:linear-gradient(165deg, var(--hb-surf), var(--hb-surf-lo));
+    border:1px solid color-mix(in srgb, var(--hb-atm-accent) 30%, transparent);
+    box-shadow:inset 0 1px 0 var(--hb-bevel-hi), inset 0 -2px 3px var(--hb-bevel-lo), 0 2px 5px rgba(0,0,0,0.2); }
+  #hb-root .hb-info-name { color:var(--tos-fg); font-weight:bold; font-size:14px; }
+  #hb-root .hb-info-type { color:var(--tos-fg-dim); font-weight:normal; font-size:11px; margin-left:6px; }
+  #hb-root .hb-bars { display:inline-grid; grid-template-columns:auto 140px; gap:5px 8px; align-items:center; font-size:9px; letter-spacing:1px; color:var(--tos-fg-dim); margin-top:8px; }
+  #hb-root .hb-bar { height:7px; background:var(--hb-surf-lo); border-radius:4px; overflow:hidden; box-shadow:inset 0 1px 2px var(--hb-bevel-lo), inset 0 0 0 1px var(--border); } #hb-root .hb-bar i { display:block; height:100%; }
   #hb-root .hb-badge { font-size:8px; letter-spacing:1px; padding:1px 5px; border-radius:3px; margin-left:6px; vertical-align:middle; }
   #hb-root .hb-b-ramp { background:#2a5f8a; color:#bfe4ff; } #hb-root .hb-b-bay { background:#2a7a52; color:#b8f2cf; }
   #hb-root .hb-b-rent { background:#7a6a1e; color:#f2e0a0; } #hb-root .hb-b-wreck { background:#7a3a2a; color:#f2b8a0; }
@@ -1237,23 +1264,22 @@ function ensureStyles() {
      charter) so the whole console reads as one device. */
   #hb-root .hb-btn { display:inline-flex; align-items:center; justify-content:center; gap:8px;
     font-family:inherit; font-size:11px; font-weight:bold; letter-spacing:1px; text-transform:uppercase; cursor:pointer; padding:9px 15px; border-radius:9px;
-    color:var(--hb-atm-accent); border:1px solid color-mix(in srgb, var(--hb-atm-accent) 42%, #000);
-    background:linear-gradient(180deg, color-mix(in srgb, var(--hb-atm-accent) 26%, var(--hb-black)), color-mix(in srgb, var(--hb-atm-accent) 8%, var(--hb-black2)));
-    text-shadow:0 0 5px color-mix(in srgb, var(--hb-atm-accent) 40%, transparent);
-    box-shadow:inset 0 1px 0 color-mix(in srgb, var(--hb-atm-accent) 30%, rgba(255,255,255,0.18)), inset 0 -3px 5px rgba(0,0,0,0.5), 0 2px 4px rgba(0,0,0,0.45);
-    transition:filter .12s, box-shadow .12s, transform .05s; }
-  #hb-root .hb-btn:hover:not(:disabled) { filter:brightness(1.18);
-    box-shadow:inset 0 1px 0 rgba(255,255,255,0.2), inset 0 -3px 5px rgba(0,0,0,0.5), 0 3px 9px rgba(0,0,0,0.45), 0 0 14px color-mix(in srgb, var(--hb-atm-accent) 40%, transparent); }
-  #hb-root .hb-btn:active:not(:disabled) { transform:translateY(1px); box-shadow:inset 0 2px 7px rgba(0,0,0,0.75); }
+    color:var(--tos-fg); border:1px solid color-mix(in srgb, var(--hb-atm-accent) 38%, transparent);
+    background:linear-gradient(165deg, var(--hb-surf), var(--hb-surf-lo));
+    box-shadow:inset 0 1px 0 var(--hb-bevel-hi), inset 0 -2px 4px var(--hb-bevel-lo), 0 2px 4px rgba(0,0,0,0.25);
+    transition:filter .12s, box-shadow .12s, transform .05s, border-color .12s; }
+  #hb-root .hb-btn:hover:not(:disabled) { filter:brightness(1.1); border-color:var(--hb-atm-accent);
+    box-shadow:inset 0 1px 0 var(--hb-bevel-hi), inset 0 -2px 4px var(--hb-bevel-lo), 0 3px 9px rgba(0,0,0,0.28), 0 0 14px color-mix(in srgb, var(--hb-atm-accent) 32%, transparent); }
+  #hb-root .hb-btn:active:not(:disabled) { transform:translateY(1px); box-shadow:inset 0 2px 6px var(--hb-bevel-lo); }
   #hb-root .hb-btn:disabled { opacity:0.4; cursor:default; }
   #hb-root .hb-ico { font-size:14px; line-height:1; opacity:0.95; }
-  /* Accent (Fly / Buy-Rent / Apply) — same 3D chip, lit brighter so it reads as
-     the primary key, but still accent-on-dark so the label stays legible in any
-     theme (no solid fill that could clash with a dark accent). */
+  /* Accent (Fly / Buy-Rent / Apply) — same chip on a stronger accent tint of the
+     theme bg (not a solid accent fill) so it reads as the primary key while the
+     high-contrast --tos-fg label stays legible on a light or dark theme alike. */
   #hb-root .hb-accent { border-color:var(--hb-atm-accent);
-    background:linear-gradient(180deg, color-mix(in srgb, var(--hb-atm-accent) 44%, var(--hb-black)), color-mix(in srgb, var(--hb-atm-accent) 16%, var(--hb-black2)));
-    box-shadow:inset 0 1px 0 color-mix(in srgb, var(--hb-atm-accent) 45%, rgba(255,255,255,0.25)), inset 0 -3px 5px rgba(0,0,0,0.5), 0 2px 5px rgba(0,0,0,0.45), 0 0 14px color-mix(in srgb, var(--hb-atm-accent) 35%, transparent); }
-  #hb-root .hb-accent:active:not(:disabled) { box-shadow:inset 0 2px 7px rgba(0,0,0,0.75); }
+    background:linear-gradient(165deg, color-mix(in srgb, var(--hb-atm-accent) 32%, var(--bg2)), color-mix(in srgb, var(--hb-atm-accent) 15%, var(--bg2)));
+    box-shadow:inset 0 1px 0 var(--hb-bevel-hi), inset 0 -2px 4px var(--hb-bevel-lo), 0 2px 5px rgba(0,0,0,0.28), 0 0 14px color-mix(in srgb, var(--hb-atm-accent) 35%, transparent); }
+  #hb-root .hb-accent:active:not(:disabled) { transform:translateY(1px); box-shadow:inset 0 2px 6px var(--hb-bevel-lo); }
 
   /* Bottom action tray — the buttons' own separate area: a recessed well (deep
      inset shadow) sunk into the chassis, with the 3D chips sitting proud of it.
@@ -1262,120 +1288,160 @@ function ensureStyles() {
      body so the controls never scroll out of reach. */
   #hb-root .hb-toolbar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; flex:0 0 auto; padding:12px 14px; margin-top:auto;
     position:sticky; bottom:0; z-index:5;
-    background:color-mix(in srgb, var(--hb-black2) 78%, transparent);
+    background:color-mix(in srgb, var(--hb-surf-lo) 84%, transparent);
     border-top:1px solid color-mix(in srgb, var(--hb-atm-accent) 25%, transparent);
-    box-shadow:inset 0 3px 9px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.04), 0 -2px 10px rgba(0,0,0,0.4); }
+    box-shadow:inset 0 2px 8px var(--hb-bevel-lo), inset 0 1px 0 var(--hb-bevel-hi), 0 -2px 10px rgba(0,0,0,0.14); }
   #hb-root .hb-tb-group { display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
   #hb-root .hb-tb-right { margin-left:auto; }
 
-  /* Charter — the whole screen sits in one CRT tube, same language as buy/rent. */
-  #hb-root .hb-charter-crt { position:relative; overflow:hidden; padding:12px; border-radius:20px/14px;
-    background:radial-gradient(130% 130% at 50% 42%,var(--hb-black) 55%,var(--hb-black2) 100%); border:1px solid color-mix(in srgb, var(--hb-atm-accent) 25%, transparent);
-    box-shadow:inset 0 0 30px rgba(0,0,0,0.9), inset 0 0 8px color-mix(in srgb, var(--hb-atm-accent) 25%, transparent); }
-  #hb-root .hb-charter-crt::before { content:''; position:absolute; inset:0; pointer-events:none; z-index:1; border-radius:inherit;
-    background:repeating-linear-gradient(0deg,transparent 0 2px,rgba(0,0,0,0.2) 2px 3px); }
-  #hb-root .hb-charter-crt::after { content:''; position:absolute; inset:0; pointer-events:none; z-index:1; border-radius:inherit;
-    background:
-      linear-gradient(115deg, transparent 0 40%, rgba(220,255,245,0.08) 47%, rgba(220,255,245,0.03) 52%, transparent 60% 100%),
-      radial-gradient(120% 120% at 50% 50%, transparent 65%, rgba(0,0,0,0.22) 100%); }
-  #hb-root .hb-charter-crt > * { position:relative; z-index:2; }
-  #hb-root .hb-charter-head { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px; }
+  /* Charter — a tablet-surface card (shared with the rest of the hangar app); the
+     destination map sits in a recessed dark viewport so the tinted tiles read on any
+     theme, the way the dealer's schematic viewport does. */
+  #hb-root .hb-charter-crt { position:relative; padding:12px; border-radius:12px;
+    background:linear-gradient(165deg, var(--hb-surf), var(--hb-surf-lo));
+    border:1px solid color-mix(in srgb, var(--hb-atm-accent) 30%, transparent);
+    box-shadow:inset 0 1px 0 var(--hb-bevel-hi), inset 0 -2px 3px var(--hb-bevel-lo), 0 3px 12px rgba(0,0,0,0.22); }
+  #hb-root .hb-charter-head { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
+  /* Credits readout is fixed near-white for the dark head bar; on the light-following
+     charter card use the theme foreground instead. */
+  #hb-root .hb-charter-head .hb-credits { color:var(--tos-fg); text-shadow:none; }
   #hb-root .hb-charter-pilot { font-weight:bold; letter-spacing:1px; }
-  #hb-root .hb-charter-map { display:grid; gap:1px; margin:6px auto; overflow:auto; max-height:340px; background:#28333d; padding:4px; border-radius:6px; }
-  #hb-root .hb-tile { width:20px; height:20px; display:flex; align-items:center; justify-content:center; position:relative; font-size:11px; border-radius:2px; }
-  #hb-root .hb-tile-dim { background:#38434e; color:#7d92a1; }
-  #hb-root .hb-tile-here { background:#4a3f70; color:#e0c6ff; }
-  #hb-root .hb-tile-dest { background:#2a5f42; color:#a8f2c0; cursor:pointer; }
-  #hb-root .hb-tile-dest:hover { background:#357d54; box-shadow:0 0 0 1px #6fe89a; }
-  #hb-root .hb-tile-airfield { background:#3a5f24; color:#e0f28a; }
-  #hb-root .hb-tile-airfield:hover { box-shadow:0 0 0 1px #e0f28a; }
+  #hb-root .hb-charter-map { display:grid; gap:2px; margin:6px auto; overflow:auto; max-height:340px; padding:8px; border-radius:9px;
+    background:radial-gradient(120% 120% at 50% 30%, color-mix(in srgb, var(--hb-atm-accent) 13%, var(--bg)), color-mix(in srgb, var(--hb-atm-accent) 7%, var(--bg)));
+    border:1px solid color-mix(in srgb, var(--hb-atm-accent) 20%, transparent);
+    box-shadow:inset 0 2px 10px rgba(0,0,0,0.4);
+    scrollbar-width:thin; scrollbar-color:var(--border) transparent; }
+  #hb-root .hb-charter-map::-webkit-scrollbar { width:6px; height:6px; }
+  #hb-root .hb-charter-map::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+  #hb-root .hb-tile { width:20px; height:20px; display:flex; align-items:center; justify-content:center; position:relative; font-size:11px; border-radius:3px; }
+  #hb-root .hb-tile-dim { background:color-mix(in srgb, var(--hb-atm-accent) 9%, var(--bg2)); color:var(--tos-fg-dim); }
+  #hb-root .hb-tile-here { background:color-mix(in srgb, #8f6fe0 55%, #1a1030); color:#e6d6ff; box-shadow:inset 0 0 0 1px #b79dff; }
+  #hb-root .hb-tile-dest { background:color-mix(in srgb, var(--hb-atm-accent) 55%, var(--bg2)); color:var(--text-bright, #eafffb); cursor:pointer; }
+  #hb-root .hb-tile-dest:hover { background:color-mix(in srgb, var(--hb-atm-accent) 72%, var(--bg2)); box-shadow:0 0 0 1px var(--hb-atm-accent); }
+  #hb-root .hb-tile-airfield { background:color-mix(in srgb, #d9b53a 42%, #1a1408); color:#f5e6a8; }
+  #hb-root .hb-tile-airfield:hover { box-shadow:0 0 0 1px #f0d060; }
   #hb-root .hb-tile-fare { position:absolute; bottom:-11px; left:50%; transform:translateX(-50%); font-size:7px; color:var(--yellow); white-space:nowrap; }
-  #hb-root .hb-charter-legend { display:flex; gap:16px; font-size:10px; color:#b8cede; margin:14px 0 4px; flex-wrap:wrap; }
-  #hb-root .hb-swatch { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:4px; vertical-align:middle; }
-  #hb-root .hb-sw-air { background:#e0f28a; } #hb-root .hb-sw-any { background:#a8f2c0; }
+  #hb-root .hb-charter-legend { display:flex; gap:16px; font-size:10px; color:var(--tos-fg-dim); margin:14px 0 4px; flex-wrap:wrap; }
+  #hb-root .hb-swatch { display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:4px; vertical-align:middle; }
+  #hb-root .hb-sw-air { background:color-mix(in srgb, #d9b53a 55%, #1a1408); } #hb-root .hb-sw-any { background:color-mix(in srgb, var(--hb-atm-accent) 55%, #0c1a14); }
 
-  /* Buy/Rent */
-  #hb-root .hb-scroll { overflow-y:auto; }
-  #hb-root .hb-section { font-size:9px; letter-spacing:3px; color:#9db5c6; margin:12px 0 6px; border-bottom:1px solid #4a5f70; padding-bottom:3px; }
-  #hb-root .hb-lotgrid { display:flex; flex-wrap:wrap; gap:16px; justify-content:center; }
-  #hb-root .hb-lot { width:236px; background:linear-gradient(160deg,#4a5f70,#374a58); border:1px solid #5a7185; border-radius:8px; padding:10px; font-family:inherit; color:#dcecf8; }
-  #hb-root .hb-lot:hover { border-color:#7fd6ff; }
+  /* Buy/Rent — a dealer showroom in the tablet surface language (no CRT tube): a
+     plain scroll region of product cards, each an accent-tinted raised surface with
+     the wireframe schematic seated in a recessed dark viewport so it reads on any
+     theme. */
+  #hb-root .hb-dealer { flex:1 1 auto; min-height:0; display:flex; flex-direction:column; padding:2px;
+    scrollbar-width:thin; scrollbar-color:var(--border) var(--bg2); }
+  #hb-root .hb-scroll { overflow-y:auto; flex:1 1 auto; min-height:0; }
+  #hb-root .hb-scroll::-webkit-scrollbar { width:6px; }
+  #hb-root .hb-scroll::-webkit-scrollbar-track { background:var(--bg2); }
+  #hb-root .hb-scroll::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+  #hb-root .hb-section { font-size:9px; letter-spacing:3px; color:var(--tos-fg-dim); margin:12px 0 6px; border-bottom:1px solid color-mix(in srgb, var(--hb-atm-accent) 25%, transparent); padding-bottom:3px; }
+  #hb-root .hb-lotgrid { display:flex; flex-wrap:wrap; gap:14px; justify-content:center; }
+  #hb-root .hb-lot { width:236px; padding:11px; border-radius:12px; font-family:inherit; color:var(--tos-fg);
+    background:linear-gradient(165deg, var(--hb-surf), var(--hb-surf-lo));
+    border:1px solid color-mix(in srgb, var(--hb-atm-accent) 30%, transparent);
+    box-shadow:inset 0 1px 0 var(--hb-bevel-hi), inset 0 -2px 3px var(--hb-bevel-lo), 0 3px 10px rgba(0,0,0,0.22);
+    transition:filter .12s, box-shadow .12s, border-color .12s, transform .05s; }
+  #hb-root .hb-lot:hover { filter:brightness(1.05); border-color:var(--hb-atm-accent);
+    box-shadow:inset 0 1px 0 var(--hb-bevel-hi), inset 0 -2px 3px var(--hb-bevel-lo), 0 5px 16px rgba(0,0,0,0.28), 0 0 14px color-mix(in srgb, var(--hb-atm-accent) 22%, transparent); }
+  /* Recessed schematic viewport — a "screen" inset into the card for the accent-drawn
+     wireframe. Theme-following: an accent tint over the deepest bg tier, so it reads as
+     a dark screen on a dark theme and a tinted-light screen on a light one (never a
+     hardcoded black slab), with the inset shadow carrying the recessed cue. */
+  #hb-root .hb-lot-view { display:flex; justify-content:center; padding:6px; margin-bottom:6px; border-radius:9px;
+    background:radial-gradient(120% 120% at 50% 40%, color-mix(in srgb, var(--hb-atm-accent) 15%, var(--bg)), color-mix(in srgb, var(--hb-atm-accent) 8%, var(--bg)));
+    border:1px solid color-mix(in srgb, var(--hb-atm-accent) 22%, transparent);
+    box-shadow:inset 0 2px 9px rgba(0,0,0,0.4); }
   #hb-root .hb-lot-art { display:flex; justify-content:center; }
-  #hb-root .hb-lot-name { color:#ffffff; font-weight:bold; letter-spacing:1px; text-align:center; margin-top:4px; font-size:13px; }
-  #hb-root .hb-lot-meta { color:#a8c6d8; font-size:10px; text-align:center; margin:2px 0 8px; }
+  #hb-root .hb-lot-name { color:var(--tos-fg); font-weight:bold; letter-spacing:1px; text-align:center; margin-top:4px; font-size:13px; }
+  #hb-root .hb-lot-meta { color:var(--tos-fg-dim); font-size:10px; text-align:center; margin:2px 0 8px; }
   #hb-root .hb-lot-price { text-align:center; letter-spacing:1px; color:var(--yellow); }
   #hb-root .hb-lot-acts { display:flex; gap:8px; }
-  #hb-root .hb-lot-acq { flex:1; padding:7px 4px; border-radius:6px; border:1px solid #5a7185; background:linear-gradient(160deg,#3a4c5a,#2b3a46); color:#eafffb; font-family:inherit; font-size:11px; font-weight:bold; letter-spacing:0.5px; cursor:pointer; }
-  #hb-root .hb-lot-acq:hover:not(:disabled) { border-color:#7fd6ff; box-shadow:0 0 8px rgba(127,214,255,0.3); }
+  #hb-root .hb-lot-acq { flex:1; padding:8px 4px; border-radius:7px; font-family:inherit; font-size:11px; font-weight:bold; letter-spacing:0.5px; cursor:pointer;
+    color:var(--tos-fg); background:linear-gradient(165deg, var(--hb-surf), var(--hb-surf-lo));
+    border:1px solid color-mix(in srgb, var(--hb-atm-accent) 35%, transparent);
+    box-shadow:inset 0 1px 0 var(--hb-bevel-hi), inset 0 -2px 3px var(--hb-bevel-lo), 0 2px 4px rgba(0,0,0,0.25);
+    transition:filter .12s, box-shadow .12s, transform .05s; }
+  #hb-root .hb-lot-acq:hover:not(:disabled) { filter:brightness(1.12); border-color:var(--hb-atm-accent);
+    box-shadow:inset 0 1px 0 var(--hb-bevel-hi), 0 3px 8px rgba(0,0,0,0.3), 0 0 12px color-mix(in srgb, var(--hb-atm-accent) 30%, transparent); }
+  #hb-root .hb-lot-acq:active:not(:disabled) { transform:translateY(1px); box-shadow:inset 0 2px 6px rgba(0,0,0,0.6); }
+  /* BUY is the primary key — the brighter accent-lit chip. */
+  #hb-root .hb-lot-buy { border-color:var(--hb-atm-accent);
+    background:linear-gradient(165deg, color-mix(in srgb, var(--hb-atm-accent) 32%, var(--bg2)), color-mix(in srgb, var(--hb-atm-accent) 15%, var(--bg2)));
+    box-shadow:inset 0 1px 0 var(--hb-bevel-hi), inset 0 -2px 4px var(--hb-bevel-lo), 0 2px 5px rgba(0,0,0,0.28), 0 0 12px color-mix(in srgb, var(--hb-atm-accent) 30%, transparent); }
   #hb-root .hb-lot-acq:disabled { opacity:0.4; cursor:not-allowed; filter:grayscale(0.6); }
   #hb-root .hb-lot-lockmsg { color:#ffcf6b; font-size:11px; letter-spacing:0.5px; text-align:center; margin:4px 0 12px; text-shadow:0 0 6px rgba(255,180,60,0.3); }
-
-  /* Dealer terminal (Buy/Rent) and mechanics bench — the full ATM CRT tube
-     (bulging-glass radial gradient, deep inset vignette, scanlines, glass
-     sheen), not just a dark glow. The floor screen deliberately keeps the
-     ordinary hangar-room look — it's the one screen meant to feel like a
-     physical space, not a terminal. */
-  #hb-root .hb-dealer-crt { position:relative; flex:1 1 auto; min-height:0; display:flex; flex-direction:column;
-    background:radial-gradient(130% 130% at 50% 42%,color-mix(in srgb, var(--hb-atm-accent) 22%, var(--hb-black2)) 55%,var(--hb-black2) 100%);
-    border:1px solid color-mix(in srgb, var(--hb-atm-accent) 35%, var(--hb-black2)); border-radius:20px/14px; padding:12px; overflow:hidden;
-    box-shadow:inset 0 0 30px rgba(0,0,0,0.9), inset 0 0 8px color-mix(in srgb, var(--hb-atm-accent) 25%, transparent); }
-  #hb-root .hb-dealer-crt .hb-scroll { position:relative; z-index:4; flex:1 1 auto; min-height:0; }
-  #hb-root .hb-dealer-scanlines { position:absolute; inset:0; z-index:2; pointer-events:none; border-radius:inherit;
-    background:repeating-linear-gradient(0deg,transparent 0 2px,rgba(0,0,0,0.22) 2px 3px); }
-  #hb-root .hb-crt-glass { position:absolute; inset:0; z-index:3; pointer-events:none; border-radius:inherit;
-    background:
-      linear-gradient(115deg, transparent 0 40%, rgba(220,255,245,0.09) 47%, rgba(220,255,245,0.03) 52%, transparent 60% 100%),
-      radial-gradient(80% 55% at 26% 18%, rgba(255,255,255,0.10), transparent 60%),
-      radial-gradient(120% 120% at 50% 50%, transparent 65%, rgba(0,0,0,0.22) 100%); }
-  #hb-root .hb-dealer-crt .hb-section { color:var(--hb-atm-accent); text-shadow:0 0 5px color-mix(in srgb, var(--hb-atm-accent) 40%, transparent); border-bottom-color:color-mix(in srgb, var(--hb-atm-accent) 35%, var(--hb-black2)); }
-  #hb-root .hb-dealer-lot { background:linear-gradient(160deg,color-mix(in srgb, var(--hb-atm-accent) 22%, var(--hb-black2)),color-mix(in srgb, var(--hb-atm-accent) 5%, var(--hb-black2)));
-    border:1px solid color-mix(in srgb, var(--hb-atm-accent) 45%, var(--hb-black2)); color:var(--hb-atm-accent); text-shadow:0 0 4px color-mix(in srgb, var(--hb-atm-accent) 35%, transparent); }
-  #hb-root .hb-dealer-lot:hover { border-color:var(--hb-atm-accent); box-shadow:0 0 12px color-mix(in srgb, var(--hb-atm-accent) 25%, transparent); }
-  #hb-root .hb-dealer-lot .hb-lot-name { color:var(--hb-atm-accent); }
-  #hb-root .hb-dealer-lot .hb-lot-meta { color:color-mix(in srgb, var(--hb-atm-accent) 65%, white); }
-  #hb-root .hb-dealer-lot .hb-lot-price { color:#eafffb; text-shadow:0 0 4px color-mix(in srgb, var(--hb-atm-accent) 45%, transparent); }
   #hb-root .hb-wf-lot { display:block; margin:0 auto; max-width:100%; }
 
-  /* Bench — a lit tablet panel (theme-following surfaces + soft bevels), NOT the
-     dealer's dark CRT tube: it obeys the player's background so a light theme reads
-     light. Tabbed (PAINT/HULL/TUNING/KITS/W&B) so no section needs its own scrollbar;
-     the stage stays pinned (position:sticky) so the plane — or, on TUNING, the
-     performance scope — stays visible while the tab body scrolls beside it. */
-  /* The bench box is the scroll region (.hb-body is overflow:hidden), so tall tab
-     content — e.g. the Apply row under the tuning knobs / paint controls — is always
-     reachable instead of being clipped off the bottom. The stage's sticky top:0 pins
-     within this scroller, keeping the plane/scope visible as the panels scroll. */
-  #hb-root .hb-bench { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-start;
+  /* Bench — reworked as a tablet-style app (see benchScreen). It obeys the player's
+     background (a light theme reads light) and shares the tablet's --tos-* surface
+     recipe, NOT the dealer's dark CRT tube. Layout: a sticky top bar (identity summary
+     + segmented nav) over a two-column body — a sticky 3D/scope stage beside a single
+     controls card. .hb-bench is the scroll region (.hb-body is overflow:hidden), so
+     tall tab content stays reachable instead of being clipped off the bottom. */
+  #hb-root .hb-bench { display:flex; flex-direction:column; gap:10px;
     flex:1 1 auto; min-height:0; overflow-y:auto;
     scrollbar-width:thin; scrollbar-color:var(--border) var(--bg2); }
   #hb-root .hb-bench::-webkit-scrollbar { width:6px; }
   #hb-root .hb-bench::-webkit-scrollbar-track { background:var(--bg2); }
   #hb-root .hb-bench::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
-  #hb-root .hb-bench-stage { flex:0 0 auto; position:sticky; top:0; z-index:4; }
-  #hb-root .hb-bench-panels { flex:1 1 260px; min-width:230px; position:relative; z-index:4; }
-  /* No overflow:hidden here — this element holds the sticky stage, and
-     overflow:hidden would make IT the sticky containing block instead of the real
-     scroll container (.hb-body), breaking the "stage stays visible" behavior. */
-  #hb-root .hb-bench-crt { position:relative; padding:10px; border-radius:14px; border:1px solid var(--border);
+  /* Top bar — summary + nav pinned together; a frosted slab so the controls scroll
+     cleanly under it (the same "glass over content" cue the head/toolbar give). */
+  #hb-root .hb-bench-top { position:sticky; top:0; z-index:6; display:flex; flex-direction:column; gap:8px;
+    padding-bottom:9px; margin-bottom:-1px;
+    background:color-mix(in srgb, var(--bg2) 90%, transparent);
+    -webkit-backdrop-filter:blur(9px) saturate(1.1); backdrop-filter:blur(9px) saturate(1.1);
+    border-bottom:1px solid color-mix(in srgb, var(--hb-atm-accent) 18%, transparent); }
+  /* Persistent craft-identity strip (tablet .tos-summary recipe). */
+  #hb-root .hb-bench-summary { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;
+    padding:9px 12px; border-radius:8px;
     background:linear-gradient(165deg, var(--hb-surf), var(--hb-surf-lo));
-    box-shadow:inset 0 1px 0 var(--hb-bevel-hi), inset 0 -2px 5px var(--hb-bevel-lo), 0 6px 18px rgba(0,0,0,0.28); }
-  #hb-root .hb-bench-crt .hb-note, #hb-root .hb-bench-crt .hb-dim { color:var(--text-dim); }
+    border:1px solid color-mix(in srgb, var(--hb-atm-accent) 30%, transparent);
+    box-shadow:inset 0 1px 0 var(--hb-bevel-hi), inset 0 -2px 3px var(--hb-bevel-lo), 0 2px 5px rgba(0,0,0,0.2); }
+  #hb-root .hb-bench-id { display:flex; align-items:center; gap:9px; flex-wrap:wrap; min-width:0; }
+  #hb-root .hb-bench-id b { font-size:14px; letter-spacing:0.5px; color:var(--tos-fg); }
+  #hb-root .hb-bench-id span { font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim); }
+  #hb-root .hb-bench-pill { font-size:9px; font-weight:bold; letter-spacing:1px; text-transform:uppercase; padding:2px 8px; border-radius:11px; }
+  #hb-root .hb-bench-pill-wreck { color:#f2b8a0; background:color-mix(in srgb, #e0552f 22%, transparent); border:1px solid color-mix(in srgb, #e0552f 45%, transparent); }
+  #hb-root .hb-bench-pill-rent { color:#f2e0a0; background:color-mix(in srgb, #d9b53a 20%, transparent); border:1px solid color-mix(in srgb, #d9b53a 45%, transparent); }
+  #hb-root .hb-bench-vitals { display:flex; gap:8px; flex-wrap:wrap; }
+  #hb-root .hb-bench-vital { display:flex; flex-direction:column; align-items:flex-end; line-height:1.2; padding:3px 11px; border-radius:6px;
+    background:var(--hb-surf-lo); border:1px solid var(--border); box-shadow:inset 0 1px 2px var(--hb-bevel-lo); }
+  #hb-root .hb-bench-vital i { font-size:8px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); font-style:normal; }
+  #hb-root .hb-bench-vital b { font-size:13px; font-weight:bold; color:var(--tos-fg); }
+  #hb-root .hb-bench-warn { color:#ffb26b !important; }
+  /* Segmented nav — a joined pill bar; the active tab lifts out of the recessed track. */
+  #hb-root .hb-bench-tabs { display:flex; gap:4px; flex-wrap:wrap; padding:4px; border-radius:9px;
+    background:var(--hb-surf-lo); border:1px solid var(--border); box-shadow:inset 0 1px 3px var(--hb-bevel-lo); }
+  #hb-root .hb-tab { flex:1 1 auto; text-align:center; font-family:inherit; font-size:11px; font-weight:bold; letter-spacing:1px; cursor:pointer;
+    color:var(--tos-fg-dim); background:transparent; border:1px solid transparent; border-radius:6px; padding:7px 12px;
+    transition:filter .12s, box-shadow .12s, color .12s, background .12s; }
+  #hb-root .hb-tab:hover { color:var(--tos-fg); background:color-mix(in srgb, var(--hb-atm-accent) 10%, transparent); }
+  #hb-root .hb-tab-active { color:var(--tos-fg); background:linear-gradient(165deg, var(--hb-surf), var(--hb-surf-lo));
+    border-color:color-mix(in srgb, var(--hb-atm-accent) 40%, transparent);
+    box-shadow:inset 0 1px 0 var(--hb-bevel-hi), inset 0 -2px 3px var(--hb-bevel-lo), 0 1px 3px rgba(0,0,0,0.2); }
+  /* Two-column body — sticky stage (top set by JS to clear the top bar) + controls card. */
+  #hb-root .hb-bench-main { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-start; }
+  #hb-root .hb-bench-stage { flex:0 0 auto; position:sticky; top:96px; z-index:4; align-self:flex-start; }
+  #hb-root .hb-bench-stage canvas { display:block; margin:0 auto; }
+  #hb-root .hb-bench-panels { flex:1 1 260px; min-width:230px; position:relative; z-index:4; }
   #hb-root #hb-perf-radar { display:block; margin:0 auto; }
-  #hb-root .hb-bench-tabs { display:flex; gap:5px; flex-wrap:wrap; margin-bottom:7px; }
-  #hb-root .hb-tab { font-family:inherit; font-size:10px; letter-spacing:1.5px; color:var(--hb-atm-accent); cursor:pointer;
-    background:color-mix(in srgb, var(--hb-atm-accent) 6%, transparent); border:1px solid color-mix(in srgb, var(--hb-atm-accent) 30%, transparent); border-radius:5px; padding:5px 9px;
-    text-shadow:0 0 4px color-mix(in srgb, var(--hb-atm-accent) 35%, transparent); }
-  #hb-root .hb-tab:hover { border-color:var(--hb-atm-accent); background:color-mix(in srgb, var(--hb-atm-accent) 14%, transparent); }
-  #hb-root .hb-tab-active { border-color:var(--hb-atm-accent); background:color-mix(in srgb, var(--hb-atm-accent) 20%, transparent); box-shadow:0 0 12px color-mix(in srgb, var(--hb-atm-accent) 30%, transparent); }
-  /* A little bottom breathing room so a tab's trailing control (the Apply / Install
-     row) isn't flush against the scroll region's bottom edge. */
-  #hb-root .hb-bench-tabbody { color:var(--text); padding-bottom:8px; }
+  /* Controls card (tablet .tos-card recipe) — one raised surface per section. */
+  #hb-root .hb-bench-card { padding:12px; border-radius:10px;
+    border:1px solid color-mix(in srgb, var(--hb-atm-accent) 22%, transparent); background:var(--hb-surf-lo);
+    box-shadow:inset 0 1px 0 var(--hb-bevel-hi), 0 2px 8px rgba(0,0,0,0.18); }
+  #hb-root .hb-bench-card .hb-note, #hb-root .hb-bench-card .hb-dim { color:var(--text-dim); }
+  #hb-root .hb-bench-tabbody { color:var(--text); }
   #hb-root .hb-bench-tabbody .hb-ctl, #hb-root .hb-bench-tabbody .hb-tune-row { color:var(--text); }
-  #hb-root .hb-subtabs { display:flex; gap:5px; margin-bottom:6px; }
-  #hb-root .hb-subtab { font-family:inherit; font-size:9px; letter-spacing:1px; color:var(--text-dim); cursor:pointer;
-    background:none; border:1px solid color-mix(in srgb, var(--hb-atm-accent) 22%, transparent); border-radius:4px; padding:4px 9px; }
-  #hb-root .hb-subtab:hover { border-color:var(--hb-atm-accent); color:var(--hb-atm-accent); }
-  #hb-root .hb-subtab-active { color:var(--hb-atm-accent); border-color:var(--hb-atm-accent); background:color-mix(in srgb, var(--hb-atm-accent) 12%, transparent); }
+  /* Paint's exterior/interior/schemes sub-nav — the same segmented control, mini. */
+  #hb-root .hb-subtabs { display:flex; gap:3px; margin-bottom:9px; padding:3px; border-radius:7px;
+    background:var(--hb-surf-lo); border:1px solid var(--border); box-shadow:inset 0 1px 2px var(--hb-bevel-lo); }
+  #hb-root .hb-subtab { flex:1 1 auto; text-align:center; font-family:inherit; font-size:9px; letter-spacing:1px; text-transform:uppercase; cursor:pointer;
+    color:var(--tos-fg-dim); background:transparent; border:1px solid transparent; border-radius:5px; padding:5px 9px;
+    transition:filter .12s, color .12s, background .12s; }
+  #hb-root .hb-subtab:hover { color:var(--tos-fg); background:color-mix(in srgb, var(--hb-atm-accent) 10%, transparent); }
+  #hb-root .hb-subtab-active { color:var(--tos-fg); background:linear-gradient(165deg, var(--hb-surf), var(--hb-surf-lo));
+    border-color:color-mix(in srgb, var(--hb-atm-accent) 35%, transparent); box-shadow:inset 0 1px 0 var(--hb-bevel-hi), 0 1px 2px rgba(0,0,0,0.18); }
   #hb-root .hb-repair-row { display:flex; gap:8px; flex-wrap:wrap; }
   /* Tuning — rotary dials + a delta-bar readout, side by side (not stacked) so the
      whole tab fits one screen with no scrolling. The two clusters read as paired
@@ -1435,38 +1501,65 @@ function ensureStyles() {
   #hb-root .hb-kit-blurb { font-size:10.5px; color:var(--text-dim); margin-top:4px; line-height:1.4; }
   #hb-root .hb-loadout-row { display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; }
   #hb-root .hb-presets { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:7px; }
-  #hb-root .hb-preset { display:flex; align-items:center; gap:6px; font-size:10px; letter-spacing:1px; color:#dcecf8; cursor:pointer;
-    background:rgba(255,255,255,0.07); border:1px solid #5a7185; border-radius:6px; padding:4px 8px; font-family:inherit; }
-  #hb-root .hb-preset:hover { border-color:#7fd6ff; }
+  #hb-root .hb-preset { display:flex; align-items:center; gap:6px; font-size:10px; letter-spacing:1px; color:var(--tos-fg); cursor:pointer;
+    background:linear-gradient(165deg, var(--hb-surf), var(--hb-surf-lo)); border:1px solid color-mix(in srgb, var(--hb-atm-accent) 28%, transparent); border-radius:6px; padding:5px 9px; font-family:inherit;
+    box-shadow:inset 0 1px 0 var(--hb-bevel-hi); transition:filter .12s, border-color .12s; }
+  #hb-root .hb-preset:hover { filter:brightness(1.1); border-color:var(--hb-atm-accent); }
   #hb-root .hb-chip { width:14px; height:14px; border-radius:3px; display:inline-block; }
-  #hb-root .hb-ctls { display:grid; grid-template-columns:1fr 1fr; gap:6px 12px; }
-  #hb-root .hb-ctl { display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:11px; color:#dcecf8; letter-spacing:1px; }
-  #hb-root .hb-ctl input[type=color] { width:44px; height:26px; padding:0; border:1px solid #5a7185; border-radius:5px; background:none; cursor:pointer; }
-  #hb-root .hb-cp-swatch { width:44px; height:26px; padding:0; border:1px solid #5a7185; border-radius:5px; cursor:pointer; }
-  #hb-root .hb-cp-pop { position:absolute; z-index:50; top:calc(100% + 6px); right:0; padding:10px; background:#1c2530; border:1px solid #5a7185; border-radius:8px; box-shadow:0 10px 24px rgba(0,0,0,0.5); width:160px; }
-  #hb-root .hb-cp-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
-  #hb-root .hb-cp-title { font-size:9px; letter-spacing:2px; text-transform:uppercase; color:#a8c6d8; }
-  #hb-root .hb-cp-close { width:20px; height:20px; padding:0; line-height:1; font-family:inherit; font-size:12px; color:#dcecf8; background:rgba(0,0,0,0.25); border:1px solid #5a7185; border-radius:5px; cursor:pointer; }
-  #hb-root .hb-cp-close:hover { border-color:#7fd6ff; color:#fff; }
-  #hb-root .hb-cp-done { margin-top:8px; width:100%; padding:6px; font-family:inherit; font-size:11px; font-weight:bold; letter-spacing:1px; color:#eafffb; background:linear-gradient(160deg,#3a4c5a,#2b3a46); border:1px solid #5a7185; border-radius:5px; cursor:pointer; }
-  #hb-root .hb-cp-done:hover { border-color:#7fd6ff; box-shadow:0 0 8px rgba(127,214,255,0.3); }
-  #hb-root .hb-cp-svwrap { position:relative; width:160px; height:100px; }
-  #hb-root .hb-cp-sv { display:block; width:160px; height:100px; border-radius:4px; cursor:crosshair; touch-action:none; }
-  #hb-root .hb-cp-svcursor { position:absolute; top:0; left:0; width:10px; height:10px; margin:-5px 0 0 -5px; border-radius:50%; border:2px solid #fff; box-shadow:0 0 2px rgba(0,0,0,0.8); pointer-events:none; }
-  #hb-root .hb-cp-hue { position:relative; width:160px; height:14px; margin-top:10px; border-radius:4px; cursor:pointer; touch-action:none;
+  #hb-root .hb-ctls { display:grid; grid-template-columns:1fr 1fr; gap:8px 12px; }
+  #hb-root .hb-ctl { display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:11px; color:var(--tos-fg-dim); letter-spacing:1px; }
+  #hb-root .hb-ctl input[type=color] { width:44px; height:26px; padding:0; border:1px solid color-mix(in srgb, var(--hb-atm-accent) 40%, transparent); border-radius:5px; background:none; cursor:pointer; }
+  #hb-root .hb-cp-swatch { width:44px; height:26px; padding:0; border:1px solid color-mix(in srgb, var(--hb-atm-accent) 45%, transparent); border-radius:6px; cursor:pointer;
+    box-shadow:inset 0 1px 0 var(--hb-bevel-hi), 0 1px 3px rgba(0,0,0,0.25); }
+  #hb-root .hb-cp-swatch:hover { border-color:var(--hb-atm-accent); box-shadow:inset 0 1px 0 var(--hb-bevel-hi), 0 0 10px color-mix(in srgb, var(--hb-atm-accent) 35%, transparent); }
+  /* Colour picker popover — the tablet surface recipe (raised card + bevels), a titled
+     header with a ✕, and a Done key, so it reads as a real panel and only closes when
+     you dismiss it (never on select). */
+  #hb-root .hb-cp-pop { position:absolute; z-index:50; top:calc(100% + 6px); right:0; padding:11px; width:172px; border-radius:10px;
+    background:linear-gradient(165deg, var(--hb-surf), var(--hb-surf-lo));
+    border:1px solid color-mix(in srgb, var(--hb-atm-accent) 34%, transparent);
+    box-shadow:inset 0 1px 0 var(--hb-bevel-hi), inset 0 -2px 3px var(--hb-bevel-lo), 0 12px 30px rgba(0,0,0,0.45); }
+  #hb-root .hb-cp-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:9px; }
+  #hb-root .hb-cp-title { font-size:9px; letter-spacing:2px; text-transform:uppercase; color:var(--tos-fg-dim); }
+  #hb-root .hb-cp-close { width:22px; height:22px; padding:0; line-height:1; font-family:inherit; font-size:12px; cursor:pointer;
+    color:var(--tos-fg-dim); background:linear-gradient(165deg, var(--hb-surf), var(--hb-surf-lo));
+    border:1px solid color-mix(in srgb, var(--hb-atm-accent) 30%, transparent); border-radius:6px;
+    box-shadow:inset 0 1px 0 var(--hb-bevel-hi); transition:filter .12s, color .12s; }
+  #hb-root .hb-cp-close:hover { filter:brightness(1.15); color:var(--tos-fg); border-color:var(--hb-atm-accent); }
+  #hb-root .hb-cp-close:active { transform:translateY(1px); box-shadow:inset 0 1px 3px var(--hb-bevel-lo); }
+  #hb-root .hb-cp-done { margin-top:10px; width:100%; padding:8px; font-family:inherit; font-size:11px; font-weight:bold; letter-spacing:1px; text-transform:uppercase; cursor:pointer;
+    color:var(--tos-fg); border:1px solid var(--hb-atm-accent); border-radius:6px;
+    background:linear-gradient(165deg, color-mix(in srgb, var(--hb-atm-accent) 32%, var(--bg2)), color-mix(in srgb, var(--hb-atm-accent) 15%, var(--bg2)));
+    box-shadow:inset 0 1px 0 var(--hb-bevel-hi), inset 0 -2px 4px var(--hb-bevel-lo), 0 2px 5px rgba(0,0,0,0.28), 0 0 12px color-mix(in srgb, var(--hb-atm-accent) 30%, transparent);
+    transition:filter .12s, box-shadow .12s, transform .05s; }
+  #hb-root .hb-cp-done:hover { filter:brightness(1.12); box-shadow:inset 0 1px 0 var(--hb-bevel-hi), inset 0 -2px 4px var(--hb-bevel-lo), 0 3px 8px rgba(0,0,0,0.3), 0 0 14px color-mix(in srgb, var(--hb-atm-accent) 40%, transparent); }
+  #hb-root .hb-cp-done:active { transform:translateY(1px); box-shadow:inset 0 2px 6px var(--hb-bevel-lo); }
+  #hb-root .hb-cp-svwrap { position:relative; width:100%; height:100px; }
+  #hb-root .hb-cp-sv { display:block; width:100%; height:100px; border-radius:6px; cursor:crosshair; touch-action:none;
+    box-shadow:inset 0 0 0 1px rgba(0,0,0,0.25); }
+  #hb-root .hb-cp-svcursor { position:absolute; top:0; left:0; width:12px; height:12px; margin:-6px 0 0 -6px; border-radius:50%; border:2px solid #fff; box-shadow:0 0 3px rgba(0,0,0,0.9); pointer-events:none; }
+  #hb-root .hb-cp-hue { position:relative; width:100%; height:14px; margin-top:10px; border-radius:5px; cursor:pointer; touch-action:none;
+    box-shadow:inset 0 0 0 1px rgba(0,0,0,0.2);
     background:linear-gradient(to right,#ff0000,#ffff00,#00ff00,#00ffff,#0000ff,#ff00ff,#ff0000); }
-  #hb-root .hb-cp-huecursor { position:absolute; top:-2px; left:0; width:6px; height:18px; margin-left:-3px; border-radius:2px; background:#fff; box-shadow:0 0 2px rgba(0,0,0,0.8); pointer-events:none; }
-  #hb-root .hb-cp-hex-input { margin-top:10px; width:100%; box-sizing:border-box; background:rgba(0,0,0,0.25); color:#dcecf8; border:1px solid #5a7185; border-radius:5px; padding:5px 8px; font-family:inherit; text-align:center; letter-spacing:1px; }
-  #hb-root .hb-ctl select { flex:1; max-width:120px; background:rgba(0,0,0,0.25); color:#dcecf8; border:1px solid #5a7185; border-radius:5px; padding:4px; font-family:inherit; }
+  #hb-root .hb-cp-huecursor { position:absolute; top:-2px; left:0; width:6px; height:18px; margin-left:-3px; border-radius:2px; background:#fff; box-shadow:0 0 3px rgba(0,0,0,0.9); pointer-events:none; }
+  #hb-root .hb-cp-hex-input { margin-top:10px; width:100%; box-sizing:border-box; padding:6px 8px; font-family:inherit; text-align:center; letter-spacing:1px;
+    color:var(--tos-fg); background:color-mix(in srgb, var(--hb-atm-accent) 8%, var(--bg2));
+    border:1px solid color-mix(in srgb, var(--hb-atm-accent) 30%, transparent); border-radius:6px; outline:none; }
+  #hb-root .hb-cp-hex-input:focus { border-color:var(--hb-atm-accent); box-shadow:0 0 0 2px color-mix(in srgb, var(--hb-atm-accent) 22%, transparent); }
+  #hb-root .hb-ctl select { flex:1; max-width:130px; padding:5px 6px; font-family:inherit; cursor:pointer;
+    color:var(--tos-fg); background:color-mix(in srgb, var(--hb-atm-accent) 8%, var(--bg2));
+    border:1px solid color-mix(in srgb, var(--hb-atm-accent) 30%, transparent); border-radius:6px; }
   #hb-root .hb-apply-row { display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; }
   #hb-root .hb-schemes { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; }
-  #hb-root .hb-scheme { display:inline-flex; align-items:center; background:rgba(255,255,255,0.07); border:1px solid #5a7185; border-radius:6px; overflow:hidden; }
-  #hb-root .hb-scheme-load { display:flex; align-items:center; gap:6px; font-size:10px; letter-spacing:1px; color:#dcecf8; cursor:pointer; background:none; border:none; padding:4px 6px 4px 8px; font-family:inherit; }
-  #hb-root .hb-scheme-del { background:none; border:none; border-left:1px solid #5a7185; color:#9db5c6; cursor:pointer; padding:4px 7px; font-family:inherit; }
+  #hb-root .hb-scheme { display:inline-flex; align-items:center; background:var(--hb-surf-lo); border:1px solid color-mix(in srgb, var(--hb-atm-accent) 28%, transparent); border-radius:6px; overflow:hidden;
+    box-shadow:inset 0 1px 0 var(--hb-bevel-hi); }
+  #hb-root .hb-scheme-load { display:flex; align-items:center; gap:6px; font-size:10px; letter-spacing:1px; color:var(--tos-fg); cursor:pointer; background:none; border:none; padding:5px 6px 5px 8px; font-family:inherit; }
+  #hb-root .hb-scheme-del { background:none; border:none; border-left:1px solid color-mix(in srgb, var(--hb-atm-accent) 22%, transparent); color:var(--tos-fg-dim); cursor:pointer; padding:5px 7px; font-family:inherit; }
   #hb-root .hb-scheme-del:hover { color:#ff8a8a; }
   #hb-root .hb-scheme-save { display:flex; gap:8px; }
-  #hb-root .hb-scheme-save input { flex:0 0 120px; background:rgba(0,0,0,0.25); color:#dcecf8; border:1px solid #5a7185; border-radius:5px; padding:5px 8px; font-family:inherit; }
-  @media (max-width:620px) { #hb-root .hb-ctls { grid-template-columns:1fr; } #hb-root .hb-bench { flex-direction:column; align-items:center; } #hb-root .hb-tune-grid { grid-template-columns:1fr; } }
+  #hb-root .hb-scheme-save input { flex:0 0 120px; color:var(--tos-fg); background:color-mix(in srgb, var(--hb-atm-accent) 8%, var(--bg2)); border:1px solid color-mix(in srgb, var(--hb-atm-accent) 30%, transparent); border-radius:6px; padding:6px 8px; font-family:inherit; outline:none; }
+  #hb-root .hb-scheme-save input:focus { border-color:var(--hb-atm-accent); box-shadow:0 0 0 2px color-mix(in srgb, var(--hb-atm-accent) 22%, transparent); }
+  @media (max-width:620px) { #hb-root .hb-ctls { grid-template-columns:1fr; } #hb-root .hb-bench-main { flex-direction:column; align-items:stretch; } #hb-root .hb-bench-stage { position:static; } #hb-root .hb-tune-grid { grid-template-columns:1fr; } }
   `;
   document.head.appendChild(st);
 }

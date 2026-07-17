@@ -175,12 +175,35 @@ export function setYachtMakingWay() { _yachtWakeUntil = Date.now() + YACHT_WAKE_
 // way across the Basin (not sitting still until she pops to the next tile). Authoritative + time-
 // based, so it's identical for everyone and correct even for a pilot who arrives mid-passage. The
 // yacht plugin sets/clears it around its own `transit`. Transient, module-local — no DB, no flags.
-// { fromX, fromY, toX, toY, startAt, arriveAt }
+// Either a straight leg — { fromX, fromY, toX, toY, startAt, arriveAt } — or, for a charted
+// course that bends around land, a POLYLINE — { path:[[x,y],…], startAt, arriveAt } where path[0]
+// is her departure tile. yachtTransitPose() folds both into a live sub-tile offset + heading.
 let _yachtTransit = null;
 export function setYachtTransit(t) { _yachtTransit = t || null; }
 export function clearYachtTransit() { _yachtTransit = null; }
-// Heading (deg, bow-north = 0) implied by a unit tile delta, for the sailing hull's yaw.
-function deltaHeading(dx, dy) { return dx > 0 ? 90 : dx < 0 ? 270 : dy > 0 ? 180 : 0; }
+// Heading (deg, bow-north = 0) implied by a tile delta, snapped to the nearest of the eight rhumbs
+// — handles the diagonals a charted course walks, not just the four cardinals.
+function deltaHeading(dx, dy) {
+  if (!dx && !dy) return 0;
+  const deg = (Math.atan2(dx, -dy) * 180 / Math.PI + 360) % 360;
+  return (Math.round(deg / 45) * 45) % 360;
+}
+// Her live sub-tile lead (from the departure tile) + bow heading partway through a passage, for
+// both the straight-leg `sail` and the pathfound `sailto`. null once she's arrived / not underway.
+function yachtTransitPose(now) {
+  const T = _yachtTransit;
+  if (!T || now >= T.arriveAt) return null;
+  const frac = Math.max(0, Math.min(1, (now - T.startAt) / (T.arriveAt - T.startAt)));
+  if (Array.isArray(T.path) && T.path.length >= 2) {
+    const segs = T.path.length - 1, f = frac * segs;
+    const i = Math.min(segs - 1, Math.floor(f)), local = f - i;
+    const [ax, ay] = T.path[i], [bx, by] = T.path[i + 1];
+    const cx = ax + (bx - ax) * local, cy = ay + (by - ay) * local;
+    return { sub: { x: cx - T.path[0][0], y: cy - T.path[0][1] }, heading: deltaHeading(bx - ax, by - ay) };
+  }
+  const ddx = T.toX - T.fromX, ddy = T.toY - T.fromY;
+  return { sub: { x: ddx * frac, y: ddy * frac }, heading: deltaHeading(ddx, ddy) };
+}
 
 export function buildCoordIndex() {
   const idx = new Map();
@@ -469,7 +492,7 @@ export function advance(live, tiles) {
 // edge must sit well beyond the draw distance or new tiles would starve/pop. Keep
 // radius ≥ VISIBLE_FAR_F + drift so the farthest tile the renderer wants always exists in
 // the payload. It's a ~2400-cell JSON pushed only every 3s while airborne — cheap.
-function mapWindow(a, radius = 24) {
+function mapWindow(a, radius = 36) {
   const rows = [];
   for (let dy = -radius; dy <= radius; dy++) {
     const row = [];
@@ -519,12 +542,10 @@ function mapWindow(a, radius = 24) {
         // passage's time-progress (0→1), point her bow along the course, and hold a steady wake.
         // The yacht's own tile only commits on arrival, so her cell sits at `from`; `sub` carries
         // the fractional lead so the windshield draws the model partway across the water.
-        if (_yachtTransit && now < _yachtTransit.arriveAt) {
-          const { fromX, fromY, toX, toY, startAt, arriveAt } = _yachtTransit;
-          const frac = Math.max(0, Math.min(1, (now - startAt) / (arriveAt - startAt)));
-          const ddx = toX - fromX, ddy = toY - fromY;
-          sub = { x: ddx * frac, y: ddy * frac };
-          heading = deltaHeading(ddx, ddy);
+        const pose = yachtTransitPose(now);
+        if (pose) {
+          sub = pose.sub;
+          heading = pose.heading;
           wake = { spd: 0.42 };   // steady but calm making-way wash for the whole passage (a big hull moves slowly)
         } else {
           // Moored (or just arrived): hold the last course she steamed (persisted on flags.heading),
@@ -798,6 +819,7 @@ export function airContact(live) {
     pitch: Math.round(live.cont?.pitch ?? 0),
     vs: Math.round(live.cont?.vs ?? 0),
     band: a.altitude_band,
+    onGround: !a.airborne,   // rolling/taxiing on the deck → viewers pin its gear to the ground (z=0), not eye-level
     hullPct: Math.max(0, Math.round((1 - (a.damage || 0)) * 100)),
     reg: String(a.name || live.type?.name || '???').toUpperCase().slice(0, 8),
     cls: live.type?.class || 'prop',
@@ -805,13 +827,27 @@ export function airContact(live) {
   };
 }
 
-// Airborne craft near an arbitrary tile (the Echelon), as airContacts — so the Helm chase view can
-// paint planes passing over the Basin with the SAME 3D models the flight sim draws out its canopy.
+// A craft rolling under power on the ground — taxiing, on its takeoff roll, or on a landing
+// rollout — is a moving contact other pilots should SEE, even though it isn't airborne yet.
+// Gated on engine-on + actually moving so a parked, idling craft doesn't clutter the traffic
+// picture. Position is the reconciled-authoritative one (same as every airborne contact), so
+// this stays inside the client-sim + server-reconcile law — no server-side physics.
+export const GROUND_CONTACT_MIN_KT = 5;
+export function isGroundRolling(live) {
+  return !!live && !live.row.airborne && !live.row.is_wreck
+    && !!live.row.engine_on && (live.cont?.airspeed ?? 0) >= GROUND_CONTACT_MIN_KT;
+}
+
+// Airborne (or ground-rolling) craft near an arbitrary tile (the Echelon), as airContacts — so the
+// Helm chase view can paint planes passing over the Basin with the SAME 3D models the flight sim
+// draws out its canopy.
 export function aircraftNearCoord(x, y, range = 26) {
   const cheb = (ax, ay, bx, by) => Math.max(Math.abs(ax - bx), Math.abs(ay - by));
   const out = [];
   for (const other of liveAircraft.values()) {
-    if (!other.row?.airborne || other.row?.is_wreck || other.cont?.onGround) continue;
+    if (other.row?.is_wreck) continue;
+    const flying = other.row?.airborne && !other.cont?.onGround;
+    if (!flying && !isGroundRolling(other)) continue;
     if (cheb(x, y, other.row.grid_x ?? 0, other.row.grid_y ?? 0) > range) continue;
     out.push(airContact(other));
   }

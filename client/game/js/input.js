@@ -4,7 +4,7 @@ import { appendHtml, appendMsg } from './render.js';
 import { MARKUP_HELP_HTML, STATUS_TEMPLATE } from './markup.js';
 import { appendToWhisperLog, sendToActiveTab } from './panels/whisper.js';
 import { openMusicPlayerPanel } from './panels/musicplayer.js';
-import { isFlightSimActive } from './panels/cockpit.js';
+import { isFlightSimActive, isCockpitHudActive } from './panels/cockpit.js';
 import { isHangarBayWalkActive } from './panels/hangar-bay.js';
 import { toggleAutoWalk, startAutoWalk, cancelAutoWalk, isAutoWalkPromptPending, answerAutoWalkPrompt } from './panels/minimap.js';
 import { runMacroByName, abortMacros } from './panels/smartbar-macros.js';
@@ -105,6 +105,10 @@ export function initInput({ saveOrigin, notify } = {}) {
     // The flight sim owns the keyboard (A/Z throttle, Q/E/S views, R/F flaps, …) — don't
     // yank focus into the command box on those single-key presses.
     if (isFlightSimActive()) return;
+    // The cockpit/charter cabin HUD owns the keyboard too (Q/E swivel the passenger
+    // view); it focuses its own pane, so don't yank focus back into the command box
+    // on the next keystroke — that's what turns a charter ride into command spam.
+    if (isCockpitHudActive()) return;
     // The hangar walk-around inspect owns W/A/S/D (its own free camera) — don't steal
     // focus into the command box, or its keydown handler bails on the focused input.
     if (isHangarBayWalkActive()) return;

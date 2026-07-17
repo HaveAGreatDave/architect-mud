@@ -148,21 +148,6 @@ export const TEMPLATES = {
       `"You're the new face throwing credits around in ${v.zone}. Somebody always clocks the newcomer with money."`,
     ]),
   },
-  // The turf war made audible — a corner changing hands ripples outward as street talk.
-  turf: {
-    category: 'crime', reach: 3, heat: 0.55,
-    render: (v) => pick([
-      `"Corners are moving. ${v.from} lost ${v.zone} to ${v.to}, just like that."`,
-      `"Word is ${v.to} runs ${v.zone} now. ${v.from} won't wear that quiet."`,
-    ]),
-  },
-  dealer_missing: {
-    category: 'crime', reach: 3, heat: 0.5,
-    render: (v) => pick([
-      `"Nobody's seen ${v.dealer} since ${v.zone} changed hands. Gone to ground, they reckon."`,
-      `"${v.dealer}'s corner got taken. Wouldn't go looking for 'em for a while, if I were you."`,
-    ]),
-  },
   // A DEADBALL box score, spoken by an NPC who has a team. ctx.fav is the
   // speaker's favourite team (a stable per-NPC allegiance): if they back the
   // winner they gloat, the loser they grumble, otherwise they report it flat and

@@ -1,0 +1,8 @@
+{
+  "name": "ideologies",
+  "version": "2.0.0",
+  "description": "Ideology reputation: the `rep`/`ideologies` display (standing + your stance-and-path lean), plus the standing-, stance- and path-shifting dialogue Actions (ADJUST_REPUTATION over player_ideology_rep, ADJUST_STANCE over the redeem/renounce stance, ADJUST_PATH over the machine/flesh/mind/human path affinities).",
+  "hooks": [],
+  "commands": ["ideologies", "rep"],
+  "actions": { "registers": ["ADJUST_REPUTATION", "ADJUST_STANCE", "ADJUST_PATH"], "tagGated": [] }
+}

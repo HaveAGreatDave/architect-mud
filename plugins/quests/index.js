@@ -156,6 +156,16 @@ function taskMsg(playerId, text) {
   sendToPlayer(playerId, { type: 'quest_task', message: text });
 }
 
+// A structured line for the Tablet's per-quest action log (client-only, keyed by
+// quest_id in tablet-os.js). `kind` drives how the client renders it: start /
+// objective / complete become bold headers, arrive / emote are plain narrative
+// lines mirroring what scrolls past in the bottom pane — so the player can read a
+// quest's whole story from its tablet screen instead of watching the output pane.
+function questLogLine(actor, questId, kind, text) {
+  if (!actor?.id || !questId || !text) return;
+  sendToPlayer(actor.id, { type: 'quest_log', quest_id: questId, kind, text });
+}
+
 // Auto-GPS: point the player's minimap/bigmap at whatever zone their next
 // incomplete objective needs them at (any objective type carrying a `zone`,
 // not just 'visit' — e.g. a 'kill' objective authored with a hunting-ground
@@ -251,7 +261,7 @@ function objectiveEmotes(obj) {
 // task ends (see scheduleTask/cancelTasksLeavingZone) so the map stays bounded.
 const _lastEmote = new Map();
 
-function fireObjectiveEmote(actor, obj, key) {
+function fireObjectiveEmote(actor, obj, key, questId) {
   const pool = objectiveEmotes(obj);
   if (!pool.length) return;
   let line;
@@ -264,7 +274,10 @@ function fireObjectiveEmote(actor, obj, key) {
   } else {
     line = pool[Math.floor(Math.random() * pool.length)];
   }
-  sendToZone(actor.current_zone, { type: 'zone_event', message: line.replace(/\{who\}/g, actor.handle) });
+  const shown = line.replace(/\{who\}/g, actor.handle);
+  sendToZone(actor.current_zone, { type: 'zone_event', message: shown });
+  // Mirror the same flavour line into this quest's tablet action log.
+  questLogLine(actor, questId, 'emote', shown);
 }
 
 // --- Timed tasks (job board "the work takes a few seconds") ----------------
@@ -332,7 +345,7 @@ function scheduleTask(actor, quest, objIndex, obj, seconds) {
   taskMsg(actor.id, `▶ Starting task: ${entry.desc} — stay here (${seconds}s). Moving or acting cancels it.`);
 
   const tickEmote = () => {
-    fireObjectiveEmote(actor, obj, key); // keyed → never repeats the previous line
+    fireObjectiveEmote(actor, obj, key, quest.id); // keyed → never repeats the previous line
     entry.emoteTimer = setTimeout(tickEmote, 1500 + Math.random() * 1000); // "randomly every few seconds"
   };
   tickEmote();
@@ -359,9 +372,6 @@ async function finishObjectiveTick(actor, quest, objIndex) {
   const need = obj.count || 1;
   if ((progress[objIndex] || 0) >= need) return;
   progress[objIndex] += 1;
-  // Feed the running counter into the Tablet's client-only quest activity log
-  // (the "(1/2)" step the chat "Done: …" line can't carry — it has no count).
-  sendToPlayer(actor.id, { type: 'quest_log', text: `${objectiveDesc(obj)} (${Math.min(progress[objIndex], need)}/${need})` });
 
   const done = isComplete(quest, progress);
   await query(
@@ -370,11 +380,15 @@ async function finishObjectiveTick(actor, quest, objIndex) {
     [JSON.stringify(progress), done ? 'completed' : 'active', actor.id, quest.id]
   );
   emit('quest.advanced', { actor, quest_id: quest.id, progress });
+  // Bold "Objective complete" header in the tablet action log the moment this
+  // objective's counter is fully met (a timed task advances one at a time).
+  if (progress[objIndex] >= need) questLogLine(actor, quest.id, 'objective', objectiveDesc(obj));
   if (done) {
     await setQuestFlag(actor, quest.id, 'completed');
     // Standout finish marker; keeps "Quest complete: <name>." verbatim so the
     // client activity-log parser still records the completion.
     taskMsg(actor.id, `✔ Finished: ${objectiveDesc(obj)}. Quest complete: ${quest.name}. ${await turnInHint(quest.id)}`);
+    questLogLine(actor, quest.id, 'complete', quest.name);
     await routeToTurnIn(actor, quest.id);
     emit('quest.completed', { actor, quest_id: quest.id });
   } else {
@@ -425,6 +439,12 @@ export async function trackEvent(actor, predicate) {
       if (!requiresMet(objectives, obj, before)) return; // locked until prerequisites done
       if (!predicate(obj)) return;
 
+      // Reaching a visit objective's zone is a narrative beat in its own right —
+      // log "<who> reached <zone>" whether the work is instant or a timed task.
+      if (obj.type === 'visit') {
+        const zn = getZone(obj.zone)?.name || obj.zone;
+        questLogLine(actor, quest.id, 'arrive', `${actor.handle} reached ${zn}`);
+      }
       const secs = obj.type === 'visit' ? taskSecondsFor(quest, obj, visitFallback) : 0;
       if (secs > 0) {
         scheduleTask(actor, quest, i, obj, secs); // completes later, on its own timer
@@ -432,7 +452,7 @@ export async function trackEvent(actor, predicate) {
       }
       progress[i] = (progress[i] || 0) + 1;
       changed = true;
-      fireObjectiveEmote(actor, obj, taskKey(actor.id, quest.id, i)); // keyed → no back-to-back repeats
+      fireObjectiveEmote(actor, obj, taskKey(actor.id, quest.id, i), quest.id); // keyed → no back-to-back repeats
       if (progress[i] >= need) justFinished.push(obj);
     });
     if (!changed) continue;
@@ -444,16 +464,13 @@ export async function trackEvent(actor, predicate) {
       [JSON.stringify(progress), done ? 'completed' : 'active', actor.id, quest.id]
     );
     emit('quest.advanced', { actor, quest_id: quest.id, progress });
-    // Log each objective whose counter actually moved this tick — "(x/y)" step
-    // lines for the Tablet's client-only quest activity log (see finishObjectiveTick).
-    objectives.forEach((o, i) => {
-      if ((progress[i] || 0) === (before[i] || 0)) return;
-      const cNeed = o.count || 1;
-      sendToPlayer(actor.id, { type: 'quest_log', text: `${objectiveDesc(o)} (${Math.min(progress[i] || 0, cNeed)}/${cNeed})` });
-    });
+    // Bold "Objective complete" header in the tablet action log for each objective
+    // whose counter was fully met this tick.
+    for (const o of justFinished) questLogLine(actor, quest.id, 'objective', objectiveDesc(o));
     if (done) {
       await setQuestFlag(actor, quest.id, 'completed');
       msg(actor.id, `<span class="msg-system">Quest complete: ${quest.name}. ${await turnInHint(quest.id)}</span>`);
+      questLogLine(actor, quest.id, 'complete', quest.name);
       await routeToTurnIn(actor, quest.id);
       emit('quest.completed', { actor, quest_id: quest.id });
     } else {
@@ -563,6 +580,7 @@ registerAction({
     await setQuestFlag(actor, quest_id, 'active');
     await spawnRetrieveItems(quest);
     msg(actor.id, `<span class="msg-system">New quest: ${quest.name}.</span>\n${quest.description || ''}`);
+    questLogLine(actor, quest_id, 'start', quest.name);
     emit('quest.started', { actor, quest_id });
     routeToObjective(actor, quest, freshProgress(quest));
     return { type: 'quest', quest_id, started: true, name: quest.name };

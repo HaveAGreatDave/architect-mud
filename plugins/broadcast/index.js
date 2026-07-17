@@ -1303,6 +1303,13 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
   // when that line airs; the client animates it. Carries the same structured data Chip
   // is narrating (batter/pitcher/kind/bases before→after) plus a synthesized pitch
   // sequence seeded off the game seed so every TV renders it identically.
+  // Progressive line score, snapshotted per at-bat below (after the halves are grouped),
+  // and a compact standings snapshot — both ride the gameday payload so the replay's
+  // line-score strip + standings dock reveal in step with the play and can't disagree
+  // with what viewers saw. Populated once `halves` exists; read here at call time.
+  const lineSnap = new Map();   // beat -> { away:[perInningRuns], home:[…], hAway, hHome }
+  const gdStandings = (_standingsCache.rows || []).slice(0, 8)
+    .map(r => ({ team: r.team, wins: r.wins, losses: r.losses, rd: (r.runs_for || 0) - (r.runs_against || 0) }));
   const beatGameday = (b, basesBefore, idx) => ({
     batter: b.batter || '', pitcher: b.pitcher || '',
     battingTeam: b.battingName, fieldingTeam: b.fieldingName,
@@ -1314,6 +1321,8 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
     awayScore: b.awayScore, homeScore: b.homeScore,
     desc: sportsPlayDesc(b),
     pitches: sportsSynthPitches(sportsHash(gs.seed, b.inning * 2 + (b.half === 'bottom' ? 1 : 0), idx >>> 0), b.kind),
+    line: lineSnap.get(b) || null,
+    standings: gdStandings,
   });
   const hrGraphic = (b) => ({ overlayType: 'sportsfx', kind: 'homerun', batter: b.batter || '', team: b.battingName || '', grand: b.rbi >= 4, duration: 3.8 });
   const walkoffGraphic = (b) => ({ overlayType: 'sportsfx', kind: 'walkoff', batter: b.batter || '', team: b.battingName || '', home: home.name, away: away.name, homeScore: b.homeScore, awayScore: b.awayScore, duration: 4.4 });
@@ -1342,6 +1351,28 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
     if (b.type === 'half_start') { curHalf = { start: b, atbats: [], end: null }; halves.push(curHalf); }
     else if (b.type === 'half_end') { if (curHalf) curHalf.end = b; }
     else if (curHalf) curHalf.atbats.push(b);
+  }
+
+  // Build the progressive line score. Walk every at-bat in game order, attributing the
+  // change in each team's running score to its inning (exact regardless of RBI vs. run
+  // semantics), and tallying hits. Snapshot the line-so-far per at-bat, so a payload
+  // aired mid-game shows the correct line up to that play and never spoils later innings.
+  {
+    const la = [], lh = [];
+    let pa = 0, ph = 0, ha = 0, hh = 0;
+    const HIT = new Set(['single', 'double', 'triple', 'homerun']);
+    for (const h of halves) {
+      const inn = h.start.inning;
+      while (la.length < inn) { la.push(0); lh.push(0); }
+      for (const b of h.atbats) {
+        const a = Number.isFinite(b.awayScore) ? b.awayScore : pa;
+        const hm = Number.isFinite(b.homeScore) ? b.homeScore : ph;
+        la[inn - 1] += Math.max(0, a - pa); lh[inn - 1] += Math.max(0, hm - ph);
+        pa = a; ph = hm;
+        if (HIT.has(b.kind)) { if (h.start.half === 'top') ha++; else hh++; }
+        lineSnap.set(b, { away: la.slice(), home: lh.slice(), hAway: ha, hHome: hh });
+      }
+    }
   }
 
   // Regulation (innings 1–9) is narrated full and dry. Extras are narrated as tight
@@ -2621,6 +2652,35 @@ function _techDiffMessage(state, channelId, nowMs) {
   return { text: pool[slot % pool.length], key: `techDiff:${channelId}:${slot % pool.length}:${slot}`, style: 'raw' };
 }
 
+// The cast a live graph expects on stage (its `npc_anchor` nodes) who are NOT currently
+// in the studio — drives the on-air "show delayed" card so viewers know exactly who
+// we're waiting on. Returns display names, de-duped, in first-seen order.
+function _absentCastNames(graph, studioZoneId) {
+  if (!graph?.nodes || !studioZoneId) return [];
+  const present = getZone(studioZoneId)?.npcs;
+  const out = [];
+  const seen = new Set();
+  for (const node of Object.values(graph.nodes)) {
+    if (node?.type !== 'npc_anchor') continue;
+    const npcId = node.data?.npc_id;
+    if (!npcId || seen.has(npcId)) continue;
+    seen.add(npcId);
+    if (present?.has(npcId)) continue;
+    const npc = world.npcs?.get(npcId);
+    out.push(npc?.name || (npcId.startsWith('npc_')
+      ? npcId.slice(4).split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+      : npcId));
+  }
+  return out;
+}
+
+// "Alice" / "Alice and Bob" / "Alice, Bob, and Carol"
+function _joinNames(names) {
+  if (names.length <= 1) return names[0] || '';
+  if (names.length === 2) return `${names[0]} and ${names[1]}`;
+  return `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`;
+}
+
 async function broadcastTick() {
   const nowMs = Date.now();
   // Channels the zone loop below will drive this tick (a tuned zone with players).
@@ -3565,8 +3625,14 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
     }
   }
 
-  // Tech-diff / camera-idle only apply to truly-live unscripted channels
+  // Tech-diff / show-delay only apply to truly-live unscripted channels
   if (!skipPresence) {
+    // Recover the instant the full cast is back on the studio floor.
+    if (bb.hostAbsent && state.studioZoneId && !_absentCastNames(graph, state.studioZoneId).length) {
+      bb.hostAbsent = false;
+      bb.absentDetectedAt = null;
+      bb.techDiffMode = false;
+    }
     if (bb.techDiffMode) {
       if (bb.npcAnchorId && state.studioZoneId) {
         const zone = getZone(state.studioZoneId);
@@ -3580,17 +3646,25 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
     if (bb.techDiffMode) {
       return _techDiffMessage(state, channelId, nowMs);
     }
-    if (bb.hostAbsent && bb.absentDetectedAt) {
-      const elapsed = nowMs - bb.absentDetectedAt;
-      if (elapsed < 60_000) {
-        const snap = state.studioZoneId ? buildCameraSnapshot(state.studioZoneId) : null;
-        bb.waitUntil = nowMs + 5000;
-        return snap
-          ? { text: `[CAM: studio] ${snap}`, key: `absent-cam:${channelId}:${nowMs}`, style: 'raw' }
-          : null;
-      }
-      bb.techDiffMode = true;
-      return _techDiffMessage(state, channelId, nowMs);
+    if (bb.hostAbsent) {
+      // A scheduled cast member hasn't reached the studio yet. Don't spam empty-studio
+      // camera shots and don't drop to technical-difficulties (which reads as "signal
+      // lost") — hold a clean, apologetic delay card naming who we're waiting on, and
+      // keep holding it until they arrive. Re-sent on a 5s slot so late-tuners see it.
+      bb.waitUntil = nowMs + 5000;
+      const missing = _absentCastNames(graph, state.studioZoneId);
+      const who = missing.length ? _joinNames(missing) : (bb.npcAnchor || 'a cast member');
+      const verb = missing.length > 1 ? 'have' : 'has';
+      const slot = Math.floor(nowMs / 5000);
+      return {
+        style: 'overlay',
+        key: `absent-delay:${channelId}:${slot}`,
+        overlay: {
+          overlayType: 'text_card',
+          text: `PLEASE STAND BY\n\nTonight's programme is delayed — ${who} ${verb} not yet arrived in the studio.\n\nWe apologise for the inconvenience and thank you for your patience.`,
+          duration: 0,
+        },
+      };
     }
   }
 

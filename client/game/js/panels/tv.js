@@ -567,6 +567,9 @@ export function renderTvSchedule(data) {
 // score-bug, and it auto-dismisses on a timer (the server flashes it, doesn't hold it).
 let _standingsTimer = null;
 function _applyStandingsBug(sb) {
+  // While the Gameday sub-screen is open it carries its own persistent standings dock
+  // (rides the gameday payload), so the full-screen flash would only collide with it.
+  if (_gamedayOpen) return;
   const host = document.getElementById('tv-standings');
   if (!host) return;
   const rows = Array.isArray(sb.rows) ? sb.rows : [];

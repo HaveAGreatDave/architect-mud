@@ -6,7 +6,7 @@
 import { query } from '../models/db.js';
 import { sendToPlayer } from './messaging.js';
 import { SKILLS, getPlayerSkills } from './skills.js';
-import { getPlayerFactionRep } from './factions.js';
+import { getPlayerIdeologyRep } from './ideologies.js';
 import { getPlayerMembership, getOrg, getOrgZones, getLivePlayer } from './world.js';
 
 const SKILL_CATS = ['combat', 'survival', 'tech', 'social', 'arcane'];
@@ -29,8 +29,8 @@ async function resolveSkills(playerId) {
   };
 }
 
-async function resolveFactions(playerId) {
-  const reps = await getPlayerFactionRep(playerId);
+async function resolveIdeologies(playerId) {
+  const reps = await getPlayerIdeologyRep(playerId);
   return reps.map(f => ({ label: f.name, value: f.tier_label, color: f.tier_color }));
 }
 
@@ -54,7 +54,7 @@ const resolveCorpHeat = async (pid) => {
 };
 
 const RESOLVERS = {
-  skills: resolveSkills, factions: resolveFactions, inv_count: resolveInvCount,
+  skills: resolveSkills, ideologies: resolveIdeologies, inv_count: resolveInvCount,
   corp_name: resolveCorpName, corp_treasury: resolveCorpTreasury,
   corp_zones: resolveCorpZones, corp_heat: resolveCorpHeat,
 };

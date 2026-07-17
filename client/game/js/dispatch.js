@@ -18,7 +18,7 @@ import { updateForecast } from './panels/forecast.js';
 import { openAtmPanel, closeAtmPanel, updateAtmPanel, playAtmDrainSfx } from './panels/atm.js';
 import { openInsurancePanel, updateInsurancePanel } from './panels/insurance.js';
 import { openCorpConsole, updateCorpConsole } from './panels/corp-console.js';
-import { openTabletPanel, closeTabletPanel, tabletQuestUpdate, noteQuestOutput, noteQuestStep, openTabletToSpecter, openTabletToReel, openTabletSpecterInstall, refreshTabletGearIfOpen, openTabletToMap, refreshTabletMapIfOpen } from './panels/tablet-os.js';
+import { openTabletPanel, closeTabletPanel, tabletQuestUpdate, noteQuestLog, openTabletToSpecter, openTabletToReel, openTabletSpecterInstall, refreshTabletGearIfOpen, openTabletToMap, refreshTabletMapIfOpen } from './panels/tablet-os.js';
 import { openCorpMap } from './panels/corp-map.js';
 import { openMediaDeckPanel, updateMediaDeckBroadcast, applyMediaDeckOverlay } from './panels/mediadeck.js';
 import { openDeviceInspectPanel, consumeExamineLogSuppression } from './panels/deviceinspect.js';
@@ -345,7 +345,7 @@ const handlers = {
     document.getElementById('recipes-panel').classList.add('active');
   },
   mutations: (msg) => { appendHtml(msg.message, 'help'); },
-  factions: (msg) => { appendHtml(msg.message, 'help'); },
+  ideologies: (msg) => { appendHtml(msg.message, 'help'); },
   shop: (msg) => { appendHtml(msg.message, 'help'); },
 
   // Architect Tablet OS — one shared shell for Quests/Skills/Bank/Weather/
@@ -357,14 +357,13 @@ const handlers = {
   // A quest changed state server-side (objective ticked / completed / turned in) —
   // live-refresh the Tablet OS Quests app if it's open on that app (no-op otherwise).
   quest_update: () => { tabletQuestUpdate(); },
-  // A structured objective-step line for the Tablet's client-only quest log
-  // ("read the meter (1/2)"). No chat output — the counter can't be reconstructed
-  // client-side, so the server pushes the whole line.
-  quest_log: (msg) => { noteQuestStep(msg.text); },
+  // A structured beat for a quest's per-quest action log in the Tablet (start /
+  // arrive / emote / objective / complete, tagged with quest_id). Bucketed by
+  // quest and rendered on that quest's detail screen.
+  quest_log: (msg) => { noteQuestLog(msg); },
   // Timed tile-task state (begin / finished / interrupted) — rendered with a
-  // standout style so the 15s work window's start/end is obvious in the log, and
-  // fed to the activity-log parser so a "Quest complete: …" finish still records.
-  quest_task: (msg) => { noteQuestOutput(msg.message); appendHtml(msg.message, 'quest-task'); },
+  // standout style so the 15s work window's start/end is obvious in the log.
+  quest_task: (msg) => { appendHtml(msg.message, 'quest-task'); },
 
   // Corps (org) command results. Most just render text; the ones that move the
   // player's own credits also refresh the vitals HUD.
@@ -551,8 +550,6 @@ const handlers = {
     // A GPS auto-walk that hit a numbered exit picker answers it itself (matching
     // its known target zone) — swallow the picker text rather than spam the log.
     if (msg.movePicker && resolveAutoWalkPicker(msg.movePicker)) return;
-    // Feed quest take/hand-in lines into the Tablet's client-only activity log.
-    noteQuestOutput(msg.message);
     appendHtml(msg.message, 'help');
   },
   gps_route: (msg) => {
@@ -734,12 +731,12 @@ const handlers = {
   // `sky` seeds the real sim weather field; `transitMs` restores the lock if opened mid-passage.
   // ✕/Esc exit → `helm` toggles the server-side console closed (drops us from the viewer set), so a
   // later `helm` re-opens cleanly; the server's helm_close hands the pane back with a `look`.
-  helm_open: (msg) => { openHelm({ gx: msg.gx, gy: msg.gy, heading: msg.heading, sky: msg.sky, map: msg.map, transitMs: msg.transitMs, transitTotal: msg.transitTotal, transitTiles: msg.transitTiles, cruise: msg.cruise, onSail: (dir, bell) => sendCmdSilent('sail ' + dir + (bell != null ? ' ' + bell : '')), onExit: () => sendCmdSilent('helm') }); },
+  helm_open: (msg) => { openHelm({ gx: msg.gx, gy: msg.gy, heading: msg.heading, sky: msg.sky, map: msg.map, transitMs: msg.transitMs, transitTotal: msg.transitTotal, transitTiles: msg.transitTiles, cruise: msg.cruise, onSail: (dir, bell) => sendCmdSilent('sail ' + dir + (bell != null ? ' ' + bell : '')), onSailTo: (gx, gy, bell) => sendCmdSilent('sailto ' + gx + ' ' + gy + (bell != null ? ' ' + bell : '')), onExit: () => sendCmdSilent('helm close') }); },
   helm_close: () => { closeHelm(); sendCmdSilent('look'); },
   helm_sky: (msg) => { if (isHelmActive()) helmSetSky(msg.sky); },   // live sim weather field, streamed like the flight sim's
   helm_contacts: (msg) => { if (isHelmActive()) helmSetContacts(msg.contacts); },   // planes over the Basin, drawn in the chase view
   // Passage complete → re-centre the chase view on the new tile's real world window, then unlock.
-  helm_underway: (msg) => { if (isHelmActive()) helmBeginTransit(msg.dir, msg.tiles, msg.ms, msg.cruise); },   // authoritative passage vector (+ bell) → chase view glides the full distance at the right speed
+  helm_underway: (msg) => { if (isHelmActive()) helmBeginTransit(msg.dir, msg.tiles, msg.ms, msg.cruise, msg.path); },   // authoritative passage vector (+ bell + charted path) → chase view glides the full distance at the right speed
   helm_hold: (msg) => { if (isHelmActive()) helmEndTransit(msg.gx, msg.gy); },   // order refused (land ahead) → cancel the optimistic local glide, she stays put
   helm_arrived: (msg) => { if (!isHelmActive()) return; if (msg.map) helmSetWorld(msg.map, msg.gx, msg.gy); helmEndTransit(msg.gx, msg.gy); },
   yacht_underway: (msg) => { yachtUnderway(msg.level, msg.durationMs); },   // roar to life for the passage, at this zone's loudness

@@ -20,7 +20,7 @@ import { query } from '../../server/models/db.js';
 import { on } from '../../server/engine/events.js';
 import { registerAction } from '../../server/engine/actions.js';
 import { getGameDateTime } from '../../server/engine/environment.js';
-import { getOrg, getZone } from '../../server/engine/world.js';
+import { getZone } from '../../server/engine/world.js';
 
 // ── Seeded RNG (date-stable "edition") ───────────────────────────────────────
 // A tiny xmur3+mulberry32 pair so today's tabloid page is deterministic: same
@@ -280,13 +280,6 @@ function record(headline) {
   if (RING.length > RING_MAX) RING.length = RING_MAX;
 }
 
-// Resolve an org id (e.g. 'faction_franchise') to its display name, or prettify.
-function orgName(id) {
-  if (!id) return 'persons unknown';
-  const o = getOrg(id);
-  if (o?.name) return o.name;
-  return String(id).replace(/^faction_/, '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-}
 function zoneName(id) {
   const z = id ? getZone(id) : null;
   return z?.name || (id ? String(id).replace(/_/g, ' ') : 'an undisclosed location');
@@ -300,14 +293,6 @@ on('player.death', ({ player }) => {
     `${player.handle} Found Dead in ${z}; Machine Rules It "Statistically Inevitable"`,
     `Coroner in ${z} Lists ${player.handle}'s Cause of Death as "Skill Issue"`,
     `${z} Mourns ${player.handle} for Approximately ${2 + Math.floor(Math.random() * 8)} Seconds`,
-  ]));
-});
-
-on('drugwar.flip', ({ zoneId, fromOrg, toOrg }) => {
-  const z = zoneName(zoneId);
-  record(pickOne([
-    `${orgName(toOrg)} Seize ${z} From ${orgName(fromOrg)} in Broad Daylight`,
-    `Turf War Update: ${z} Now Flies ${orgName(toOrg)} Colours; ${orgName(fromOrg)} "Fine, Actually"`,
   ]));
 });
 

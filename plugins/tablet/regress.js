@@ -72,6 +72,21 @@ export default async function regress({ run, check, getPlayer }) {
   check('corp map sub-screen signals corp_map view', r?.view === 'corp_map' && Array.isArray(r?.tiles), JSON.stringify(r)?.slice(0, 200));
   check('corp map sub-screen has no error', !r?.error, r?.error);
 
+  // Ideology app: read-only reshape of the ideologies/rep command data. Renders
+  // natively (view: 'ideology'); all pages ride in one payload the client pages
+  // through. The fake player has no rep, so every order sits at the base tier.
+  r = await run('tabletnav ideology');
+  check('ideology app is registered on the home screen', (await run('tablet'))?.apps?.some(a => a.id === 'ideology'), 'ideology app missing from roster');
+  check('ideology app signals ideology view', r?.type === 'tablet_panel' && r?.appId === 'ideology' && r?.view === 'ideology', JSON.stringify(r)?.slice(0, 160));
+  // Count-agnostic: the four canon orders must be present and live (not tagged
+  // expansion). Expansion orders may or may not be imported locally, so assert
+  // presence of the canon set rather than an exact length.
+  const canonLive = ['ideology_ascendants', 'ideology_long_watch', 'ideology_wildblood', 'ideology_exodus'];
+  check('ideology payload carries the live canon orders', Array.isArray(r?.orders) && canonLive.every(id => r.orders.some(o => o.id === id && !o.expansion)), `orders=${r?.orders?.length}`);
+  check('ideology payload carries the tier ladder', Array.isArray(r?.tiers) && r.tiers.length === 6, `tiers=${r?.tiers?.length}`);
+  check('ideology overview carries stance + paths', r?.overview && typeof r.overview.stance === 'number' && !!r.overview.paths, JSON.stringify(r?.overview));
+  check('ideology orders carry standing + profile + expansion fields', r?.orders?.every(o => o.id && o.color && typeof o.rep === 'number' && 'stance' in o && 'path' in o && 'expansion' in o && Array.isArray(o.opposed)), JSON.stringify(r?.orders?.[0])?.slice(0, 200));
+
   // Map app: the tablet-native city map. Reuses buildMapPayload, so the root
   // resolves to a map view with a tiles array + mode; the unified zoom ladder
   // (z<n> args) widens the tile window until it saturates into the regional view.

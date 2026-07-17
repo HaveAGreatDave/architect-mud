@@ -13,7 +13,7 @@ import { skillCheck, effectiveSkill, awardSkillUse } from '../../server/engine/s
 import {
   liveAircraft, surfaceAt, crash, toOccupants, out, pushHud, persist, pilotOf,
   sendToZone, sendToPlayer, getZone, getLivePlayer, BANDS, isContinuous,
-  CONTACT_RANGE, airContact, bearingDeg, toDeg, pushContext,
+  CONTACT_RANGE, airContact, bearingDeg, toDeg, pushContext, isGroundRolling,
   GUN_RANGE_GATE, GUN_CONE_GATE, GUN_DMG, GUN_COOLDOWN_MS,
   MISSILE_RANGE_GATE, MISSILE_FLIGHT_MS, MISSILE_PK, MISSILE_DMG, MISSILE_COOLDOWN_MS,
   FLARE_DEFEAT, FLARE_WINDOW_MS, FLARE_COOLDOWN_MS, mslAmmo,
@@ -32,8 +32,9 @@ const cheb = (ax, ay, bx, by) => Math.max(Math.abs(ax - bx), Math.abs(ay - by));
 export function contactsNear(live) {
   const a = live.row, res = [];
   for (const other of liveAircraft.values()) {
-    if (other === live || !other.row.airborne || other.row.is_wreck) continue;
-    if (other.cont?.onGround) continue;   // taxiing/rolling out is not a flying contact
+    if (other === live || other.row.is_wreck) continue;
+    const flying = other.row.airborne && !other.cont?.onGround;
+    if (!flying && !isGroundRolling(other)) continue;   // airborne, OR rolling under power on the deck
     const dist = cheb(a.grid_x, a.grid_y, other.row.grid_x, other.row.grid_y);
     if (dist > CONTACT_RANGE) continue;
     res.push({ live: other, dist });

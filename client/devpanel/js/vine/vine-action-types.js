@@ -94,21 +94,34 @@ window.VineActionTypes = [
   },
   {
     type: 'ADJUST_REPUTATION',
-    label: 'Adjust Faction Rep',
+    label: 'Adjust Ideology Rep',
     params: [
-      { key: 'faction_id', type: 'select', label: 'Faction',
-        options: ['faction_custodians', 'faction_breakers', 'faction_archivists', 'faction_franchise', 'faction_glitch'],
+      { key: 'ideology_id', type: 'select', label: 'Ideology',
+        options: ['ideology_ascendants', 'ideology_long_watch', 'ideology_wildblood', 'ideology_exodus'],
         required: true },
       { key: 'delta', type: 'number', label: 'Change (±)', default: 10 },
       { key: 'reason', type: 'text', label: 'Reason (optional)' },
     ],
   },
   {
-    type: 'ADJUST_ARCHITECT',
-    label: 'Adjust Architect Axis',
-    // Hidden -100..100 axis (player flag architect_axis) — the machine noting how you
-    // answer. Negative = wary/defiant, positive = deferent/aligned. Never shown to the player.
+    type: 'ADJUST_STANCE',
+    label: 'Adjust Ideology Stance',
+    // Moves the player's stance on the world (flag stance_axis, -100..100).
+    // Negative = renounce it (leave & begin); positive = redeem it (stay & resolve).
+    // Surfaced only through the player's ideology lean, never as a raw number.
     params: [{ key: 'delta', type: 'number', label: 'Change (±)', default: 10 }],
+  },
+  {
+    type: 'ADJUST_PATH',
+    label: 'Adjust Ideology Path',
+    // Nudges affinity toward one path for humanity's future (flags path_machine /
+    // path_flesh / path_mind / path_human, 0..100). The paths aren't opposed —
+    // machine/flesh/mind are three ways to ascend; human is to stay as we are.
+    params: [
+      { key: 'path', type: 'select', label: 'Path',
+        options: ['machine', 'flesh', 'mind', 'human'], required: true },
+      { key: 'delta', type: 'number', label: 'Change (±)', default: 10 },
+    ],
   },
   {
     type: 'END_CONVERSATION',

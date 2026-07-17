@@ -68,20 +68,26 @@ out of the current rotation automatically.
 ## Philosophical encounters → alignment
 
 The first encounter is Marta's opening line: _"So. What are you going to be?"_ Four
-value-laden answers (survival / memory / devotion / ruin) each move a **faction**
-and the **hidden Architect axis**, nudging you toward a force without ever naming
-good or evil. Everyone is just surviving.
+value-laden answers (survival / memory / devotion / ruin) each move an **ideology**
+plus the player's **stance and path**, nudging you toward a force without ever naming
+good or evil. Everyone is just surviving. The creeds map: survival→Wildblood
+(renounce · flesh), memory→the Long Watch (redeem · human), devotion→the Ascendants
+(redeem · machine), ruin→the Exodus (renounce · mind).
 
-This runs on two dialogue Actions in the **`factions`** plugin (see
+This runs on three dialogue Actions in the **`ideologies`** plugin (see
 [plugins.md](plugins.md)), authored on dialogue options in the VINE editor:
 
-- **`ADJUST_REPUTATION` `{faction_id, delta, reason?}`** — moves `player_faction_rep`
-  (the five NPC factions: custodians / breakers / archivists / franchise / glitch).
-  Players read it with `rep` / `factions`.
-- **`ADJUST_ARCHITECT` `{delta}`** — moves a **hidden** per-player axis (player flag
-  `architect_axis`, clamped -100..100) for the player's relationship to the Architect
-  itself. Never surfaced; the machine just notes how you answer. Gate on it with a
-  Condition `{ flag:'architect_axis', op:'gt'|'lt', value:<n> }`.
+- **`ADJUST_REPUTATION` `{ideology_id, delta, reason?}`** — moves `player_ideology_rep`
+  (the four NPC ideologies: ascendants / long_watch / wildblood / exodus).
+  Players read it with `rep` / `ideologies`.
+- **`ADJUST_STANCE` `{delta}`** — moves the player's stance on the world (player flag
+  `stance_axis`, -100 renounce .. +100 redeem).
+- **`ADJUST_PATH` `{path, delta}`** — nudges affinity toward one path for humanity
+  (player flags `path_machine`/`path_flesh`/`path_mind`/`path_human`, 0..100).
+
+Stance + path are surfaced only through your ideology lean, never as raw numbers.
+Gate on them with a Condition `{ flag:'stance_axis', op:'gt'|'lt', value:<n> }` (or a
+`path_*` flag).
 
 The creed choices are gated on a `fs_creed` flag they also set, so they fire **once**
 — you can't re-open the conversation to farm reputation.

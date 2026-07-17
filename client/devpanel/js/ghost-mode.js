@@ -636,7 +636,7 @@
       case 'help':
       case 'balance':
       case 'mutations':
-      case 'factions':
+      case 'ideologies':
       case 'shop':
       case 'rent':
       case 'unrent':

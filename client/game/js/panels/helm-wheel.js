@@ -20,9 +20,10 @@ export function createHelmWheel(canvas, opts = {}) {
   // absolute course. So spinning it clockwise steers the heading right and counter-clockwise steers
   // left, the amount you spin being how far she comes round; and because it never re-demands a fixed
   // bearing, she can't be yanked back to a stale course after a passage (the old snap-home bug).
-  // `reported` is the wheel angle we last emitted a delta from.
+  // `angle` accumulates UNBOUNDED (it's a wheel — it wraps and keeps going), `reported` is the wheel
+  // angle we last emitted a delta from, `lastPA` the pointer angle we last measured a delta against.
   let angle = 0, vel = 0, reported = 0;
-  let grabbing = false, grabPA = 0, grabWA = 0, lastA = 0, lastT = 0;
+  let grabbing = false, lastPA = 0, lastT = 0;
   let raf = 0, alive = true, last = performance.now();
   let enabled = true;   // locked (dimmed, no grab) while she's underway on a passage
 
@@ -43,12 +44,18 @@ export function createHelmWheel(canvas, opts = {}) {
 
   const centre = () => { const r = canvas.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; };
   const angOf = (e, c) => Math.atan2(e.clientY - c.y, e.clientX - c.x);
-  function down(e) { if (!enabled) return; const c = centre(); grabbing = true; grabPA = angOf(e, c); grabWA = angle; vel = 0; lastA = angle; lastT = performance.now(); canvas.setPointerCapture?.(e.pointerId); canvas.style.cursor = 'grabbing'; e.preventDefault(); }
+  function down(e) { if (!enabled) return; const c = centre(); grabbing = true; lastPA = angOf(e, c); vel = 0; lastT = performance.now(); canvas.setPointerCapture?.(e.pointerId); canvas.style.cursor = 'grabbing'; e.preventDefault(); }
   function move(e) {
     if (!grabbing) return;
-    const c = centre(); angle = grabWA + (angOf(e, c) - grabPA);
+    const c = centre(), pa = angOf(e, c);
+    // Accumulate the pointer-angle DELTA (not an absolute), UNWRAPPING the atan2 branch cut at ±π —
+    // so dragging across the wheel's left side never jumps the angle or flips the steer direction.
+    // The hand turns the wheel 1:1 and it just keeps winding, clockwise = right, anticlockwise = left.
+    let dp = pa - lastPA;
+    if (dp > Math.PI) dp -= 2 * Math.PI; else if (dp < -Math.PI) dp += 2 * Math.PI;
+    angle += dp; lastPA = pa;
     const now = performance.now(), dt = Math.max(0.001, (now - lastT) / 1000);
-    vel = ((angle - lastA) / dt) * 0.5 + vel * 0.5; lastA = angle; lastT = now;
+    vel = (dp / dt) * 0.5 + vel * 0.5; lastT = now;
   }
   function up() { if (grabbing) { grabbing = false; canvas.style.cursor = 'grab'; } }
   canvas.addEventListener('pointerdown', down);

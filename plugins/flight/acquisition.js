@@ -14,10 +14,18 @@ const MAX_OWNED = 8;   // anti-clutter cap per player
 
 
 // Fuel types a field stocks (defaults to all if only the legacy bool is set).
+// The fuel bowser can be declared on the ramp OR on the walk-in hangar interior
+// (e.g. the Echelon's helipad, where the bowser is lashed to the deck) — if the
+// field zone itself stocks nothing, fall back to its linked interior's fuels.
 export function fieldStocks(zone) {
-  const f = zone?.flags || {};
-  if (Array.isArray(f.airfield_fuels)) return f.airfield_fuels;
-  return f.airfield_fuel ? ['avgas', 'jet', 'biofuel'] : [];
+  const of = (z) => {
+    const f = z?.flags || {};
+    if (Array.isArray(f.airfield_fuels)) return f.airfield_fuels;
+    return f.airfield_fuel ? ['avgas', 'jet', 'biofuel'] : [];
+  };
+  const own = of(zone);
+  if (own.length) return own;
+  return zone?.flags?.hangar_interior_zone ? of(getZone(zone.flags.hangar_interior_zone)) : [];
 }
 
 async function listTypes(kind) {

@@ -351,15 +351,23 @@ export const SCHEMA_SQL = `
   ALTER TABLE doors ADD COLUMN IF NOT EXISTS target_zone TEXT DEFAULT NULL;
   ALTER TABLE npcs ADD COLUMN IF NOT EXISTS wander_zones JSONB DEFAULT '[]';
 
-  -- NPC factions folded into the unified orgs table (is_npc=1) — see the orgs
-  -- block below. The legacy factions table was dropped (npm run db:drop-factions).
-  -- player_faction_rep stays: faction_id now references orgs.id (ids preserved).
-  CREATE TABLE IF NOT EXISTS player_faction_rep (
+  -- NPC ideologies folded into the unified orgs table (is_npc=1) — see the orgs
+  -- block below. Player reputation keys off orgs.id via player_ideology_rep.ideology_id.
+  -- Renamed from player_faction_rep/faction_id when the base factions became
+  -- ideologies; guarded so the rename runs once against an existing DB then no-ops.
+  DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'player_faction_rep')
+       AND NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'player_ideology_rep') THEN
+      ALTER TABLE player_faction_rep RENAME TO player_ideology_rep;
+      ALTER TABLE player_ideology_rep RENAME COLUMN faction_id TO ideology_id;
+    END IF;
+  END $$;
+  CREATE TABLE IF NOT EXISTS player_ideology_rep (
     player_id TEXT NOT NULL,
-    faction_id TEXT NOT NULL,
+    ideology_id TEXT NOT NULL,
     reputation INTEGER DEFAULT 0,
     tier TEXT DEFAULT 'unknown',
-    PRIMARY KEY (player_id, faction_id)
+    PRIMARY KEY (player_id, ideology_id)
   );
 
   CREATE TABLE IF NOT EXISTS loot_tables (
@@ -1344,9 +1352,9 @@ export const SCHEMA_SQL = `
     updated_at  TIMESTAMPTZ DEFAULT NOW()
   );
 
-  -- Organizations (corps). One unified table: NPC factions are owner-less rows
-  -- (is_npc=1); player crews have an owner. Player reputation continues to key
-  -- off orgs.id via player_faction_rep.faction_id (ids preserved by the fold).
+  -- Organizations (corps). One unified table: NPC ideologies are owner-less rows
+  -- (is_npc=1); player crews have an owner. Player reputation keys off orgs.id
+  -- via player_ideology_rep.ideology_id.
   CREATE TABLE IF NOT EXISTS orgs (
     id          TEXT PRIMARY KEY,
     name        TEXT NOT NULL,

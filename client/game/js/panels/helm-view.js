@@ -44,6 +44,9 @@ function liveEnv() {
 
 const CARDINAL = { 0: 'N', 45: 'NE', 90: 'E', 135: 'SE', 180: 'S', 225: 'SW', 270: 'W', 315: 'NW' };
 const DEG = { N: 0, NE: 45, E: 90, SE: 135, S: 180, SW: 225, W: 270, NW: 315 };
+// Heading (deg, bow-north = 0) for a tile delta, snapped to the nearest of the eight rhumbs — used
+// to swing the bow onto each leg of a charted course as she rounds it.
+const heading8 = (dx, dy) => { if (!dx && !dy) return 0; const d = (Math.atan2(dx, -dy) * 180 / Math.PI + 360) % 360; return (Math.round(d / 45) * 45) % 360; };
 const LOCK_TOL = 6;   // deg — how close to a rhumb the demanded course must be to "click" into the notch (lock)
 const CRUISE = 0.78;   // steady making-way throttle held across a passage (0..1) — drives wake + wash + swell.
                        // Pushed UP so she reads as genuinely UNDERWAY: a boiling wake and a sea that
@@ -54,7 +57,7 @@ const CRUISE = 0.78;   // steady making-way throttle held across a passage (0..1
 // strong yaw gives the rear-quarter flank angle; the pitch tips the eye DOWN over her stern so the
 // whole hull drops clear of the top edge into the water band — foreground sea in front of her — and
 // is never clipped by the console/HUD along the bottom. zoom pulls back so the full hull reads.
-const REST = { yaw: 34, pitch: 0.10, zoom: 1.7 };   // pitch pinned LOW (near sea level) so she rides high on screen; the windshield floors it a hair above the water so the eye never goes under
+const REST = { yaw: 34, pitch: 0.58, zoom: 1.7 };   // high elevated chase — the eye rides well up-and-over her stern looking DOWN onto the deck, so the hull sits in the water band off the horizon, clear of the wheel; the windshield still clamps it above the water so the eye never goes under
 
 // A proper (not flat) cloud field, synthesised from the live headline weather so the windshield's
 // fly-through volumetric deck has cells to render — clear skies pass null (its procedural fair-
@@ -154,6 +157,8 @@ export function openHelmChase(container, opts = {}) {
     // A passage is a long, sustained transit: she makes way at CRUISE for transitMs, then arrives
     // at the next tile. sailT is 0..1 progress across the passage. spd rides toward the throttle.
     spd: 0, sailing: false, sailT: 0, transitMs: 0, transitEnd: 0, sailDir: null, sailTiles: 1,
+    path: null,          // active passage polyline (absolute tiles, path[0] = departure) — a charted course bends; a straight sail is null
+    plannedPath: null,   // a previewed-but-not-yet-engaged charted course, for the NAV/map to draw before you throttle up
     cruise: CRUISE,   // the bell's visual way (0..1) — set per-passage by the throttle; drives wake/wash/knots
 
     mapOffset: { x: 0, y: 0 },   // sub-tile world pan across a passage (yacht held centred by center.sub)
@@ -203,7 +208,11 @@ export function openHelmChase(container, opts = {}) {
         // full one-tile lead (she's drawn on the destination cell) until that window swaps in, rather
         // than snapping mapOffset back to 0 and popping her a tile backward. The synthetic fallback
         // (standalone rig, no server) advances our own tile and zeroes the offset to match.
-        if (!st.serverWorld) { st.gx += DV[st.sailDir][0] * st.sailTiles; st.gy += DV[st.sailDir][1] * st.sailTiles; st.mapOffset.x = 0; st.mapOffset.y = 0; st.center.sub = undefined; }
+        if (!st.serverWorld) {
+          if (st.path) { st.gx = st.path[st.path.length - 1][0]; st.gy = st.path[st.path.length - 1][1]; }
+          else { st.gx += DV[st.sailDir][0] * st.sailTiles; st.gy += DV[st.sailDir][1] * st.sailTiles; }
+          st.mapOffset.x = 0; st.mapOffset.y = 0; st.center.sub = undefined;
+        }
         if (st.onArrive) st.onArrive(st.gx, st.gy, st.sailDir);
       }
     }
@@ -224,7 +233,18 @@ export function openHelmChase(container, opts = {}) {
     // city/shoreline slide past her — she visibly crosses the Basin over the ten minutes, not a
     // stationary boat that pops to the next tile. sailT is server-authoritative (see beginTransit),
     // so leaving and reopening the helm resumes exactly where she is. Flat when moored.
-    if (st.sailing && st.sailDir) {
+    if (st.sailing && st.path && st.path.length >= 2) {
+      // A charted (pathfound) course: interpolate her continuous position along the polyline by the
+      // passage progress, lead the yacht cell + pan the world by that offset (so she holds screen-
+      // centre while the shoreline slides past), and swing the bow onto the current leg's heading.
+      const segs = st.path.length - 1, f = st.sailT * segs;
+      const i = Math.min(segs - 1, Math.floor(f)), local = f - i;
+      const [ax, ay] = st.path[i], [bx, by] = st.path[i + 1];
+      const cx = ax + (bx - ax) * local, cy = ay + (by - ay) * local;
+      const gx = cx - st.path[0][0], gy = cy - st.path[0][1];
+      st.mapOffset.x = gx; st.mapOffset.y = gy; st.center.sub = { x: gx, y: gy };
+      st.headingTarget = nearestEquiv(heading8(bx - ax, by - ay));   // ease onto each leg as she rounds the course
+    } else if (st.sailing && st.sailDir) {
       const gx = DV[st.sailDir][0] * st.sailT * st.sailTiles, gy = DV[st.sailDir][1] * st.sailT * st.sailTiles;
       st.mapOffset.x = gx; st.mapOffset.y = gy;
       st.center.sub = { x: gx, y: gy };
@@ -244,7 +264,7 @@ export function openHelmChase(container, opts = {}) {
     // Planes over the Basin: convert each contact's absolute tile to an offset from the yacht (the
     // same dx/dy the flight sim hands the windshield) so drawContacts frames them around her.
     const contacts = st.contacts.length
-      ? st.contacts.map(c => { const dx = (c.x ?? 0) - st.gx, dy = (c.y ?? 0) - st.gy; return { ...c, dx, dy, altDiff: c.alt || 0, rng: Math.hypot(dx, dy) }; })
+      ? st.contacts.map(c => { const dx = (c.x ?? 0) - st.gx, dy = (c.y ?? 0) - st.gy; return { ...c, dx, dy, ...(c.onGround ? { groundZ: 0, altDiff: 0 } : { altDiff: c.alt || 0 }), rng: Math.hypot(dx, dy) }; })
       : null;
 
     paintWindshield(id, {
@@ -278,10 +298,15 @@ export function openHelmChase(container, opts = {}) {
     // Begin a real passage: a sustained making-way transit of `ms` along `dir`, arriving one tile
     // on. Snaps her course to the travel heading; frame() eases her there and advances the tile at
     // the end. The server drives this (10-min passage) and confirms arrival via endTransit.
-    beginTransit(dir, ms, total, tiles, cruise) {
+    beginTransit(dir, ms, total, tiles, cruise, path) {
       if (!DV[dir]) return false;
-      st.headingTarget = nearestEquiv(DEG[dir]); st.sailDir = dir; st.sailTiles = Math.max(1, tiles || 1);   // rebase near current so she comes about the short way to the ordered course
-      st.courseDemand = st.headingTarget; st.locked = true; st.lockedDir = dir;   // she's now on the ordered rhumb — resync the demand so wheel deltas resume relative to it (no snap-home)
+      // A pathfound course (from the map popup) arrives with its absolute tile polyline — glide the
+      // bends; a straight `sail` has none. Either way she comes about onto the FIRST leg's heading.
+      st.path = (Array.isArray(path) && path.length >= 2) ? path : null;
+      st.plannedPath = null;   // the preview is now the live passage
+      const firstDeg = st.path ? heading8(st.path[1][0] - st.path[0][0], st.path[1][1] - st.path[0][1]) : DEG[dir];
+      st.headingTarget = nearestEquiv(firstDeg); st.sailDir = dir; st.sailTiles = Math.max(1, tiles || 1);   // rebase near current so she comes about the short way to the ordered course
+      st.courseDemand = st.headingTarget; st.locked = true; st.lockedDir = CARDINAL[((Math.round(firstDeg / 45) * 45 % 360) + 360) % 360] || dir;   // she's now on the ordered rhumb — resync the demand so wheel deltas resume relative to it (no snap-home)
       if (cruise > 0) st.cruise = Math.max(0.2, Math.min(1.2, cruise));   // the passage's bell (visual way); omitted ⇒ keep the default
       // `ms` = time remaining, `total` = the whole passage (defaults to ms for a fresh cast-off).
       // Seeding transitMs from the total makes sailT reflect TRUE progress, so a helm reopened mid-
@@ -293,13 +318,17 @@ export function openHelmChase(container, opts = {}) {
     cruise() { return st.cruise; },
     // Authoritative arrival from the server: snap to her real tile and release the passage. Idempotent
     // with frame()'s own local arrival (both just end the passage + fix position).
-    endTransit(gx, gy) { st.sailing = false; st.transitEnd = 0; st.mapOffset.x = 0; st.mapOffset.y = 0; st.center.sub = undefined; if (gx != null) st.gx = gx; if (gy != null) st.gy = gy; },
+    endTransit(gx, gy) { st.sailing = false; st.transitEnd = 0; st.path = null; st.mapOffset.x = 0; st.mapOffset.y = 0; st.center.sub = undefined; if (gx != null) st.gx = gx; if (gy != null) st.gy = gy; },
+    // A previewed charted course (absolute tiles) the map popup drew but hasn't engaged yet, so the
+    // NAV scope + popup can trace it; cleared once she gets underway or you cancel. Null = no plan.
+    setPlannedCourse(path) { st.plannedPath = (Array.isArray(path) && path.length >= 2) ? path : null; },
+    plannedCourse() { return st.plannedPath; },
     transitLeft() { return st.sailing ? Math.max(0, st.transitEnd - performance.now()) : 0; },
     speed() { return st.spd; },
     heading() { return st.heading; },
     // Top-down chart snapshot for the console's NAV map — the live world window (piers/shoreline/
     // open water) centred on the yacht, plus her tile, heading and passage lead so the blip glides.
-    mapSnapshot() { return { rows: st.map, gx: st.gx, gy: st.gy, heading: st.heading, sub: st.center && st.center.sub || null, sailing: st.sailing }; },
+    mapSnapshot() { return { rows: st.map, gx: st.gx, gy: st.gy, heading: st.heading, sub: st.center && st.center.sub || null, sailing: st.sailing, plannedPath: st.plannedPath, path: st.path }; },
     isBusy: busy,
     isSailing() { return st.sailing; },
     // Adopt the live sim sky (setSky): the REAL weather field + optional time/weather headline, so

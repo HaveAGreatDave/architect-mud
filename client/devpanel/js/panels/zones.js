@@ -3,36 +3,64 @@
 // re-renders that follow a toggle, edit, or refresh within the session.
 const _zonesExpanded = new Set();
 
-// Zones list, furniture-panel style: a three-tier accordion instead of a flat
-// sortable table. Tier 1 = every exterior (world-map) zone as a header band.
-// Tier 2 = the buildings whose entrance connects from that exterior zone, each
-// a collapsible tree. Tier 3 = the building's interior, derived live from its
-// exit graph (a spanning tree from the entrance — lobby › hallway › units falls
-// out of the walk topology, so no parent_zone bookkeeping is needed).
+// District table, fetched once from the server (server/engine/districts.js is
+// the single source of truth). _districtMeta: key -> {name,color}; _districtPrefix:
+// id-prefix -> key. Cached module-wide; the list re-renders once it arrives.
+let _districtMeta = null;
+let _districtPrefix = null;
+async function ensureDistrictData() {
+  if (_districtMeta) return;
+  const d = await API('/districts').catch(() => null);
+  _districtMeta = d?.districts || {};
+  _districtPrefix = d?.prefix || {};
+}
+// Client-side mirror of server districtFor(): explicit flags.district override,
+// then the id-prefix table, then a lethal-zone fallback to 'hazard', else the
+// urban default. Uses the zone's already-computed `danger` field.
+function districtKeyFor(z) {
+  const override = z.flags?.district;
+  if (override && _districtMeta[override]) return override;
+  const p = (z.id || '').match(/^zone_([a-z0-9]+)/)?.[1] || '';
+  if (_districtPrefix[p]) return _districtPrefix[p];
+  return z.danger === 'lethal' ? 'hazard' : 'residential';
+}
+
+// Zones list: a district-first accordion. Tier 1 = the canonical neighborhood a
+// zone belongs to (districtKeyFor). Within each district, buildings lead (the
+// authored content), then any named exterior, then the bulk map grid collapsed
+// into one Terrain-tiles fold. Building interiors nest under their building,
+// derived live from the exit graph (a spanning tree from the entrance).
 function renderZonesTable(records) {
   const panel = document.getElementById('list-panel');
   if (!records.length) { panel.innerHTML = '<div style="padding:24px;color:var(--text-dim)">No records found.</div>'; return; }
+  if (!_districtMeta) {
+    panel.innerHTML = '<div style="padding:24px;color:var(--text-dim)">Loading districts…</div>';
+    ensureDistrictData().then(() => renderZonesTable(records));
+    return;
+  }
 
   const byId = new Map(records.map(z => [z.id, z]));
   const isInterior = z => !!(z.flags?.is_interior || z.flags?.is_apartment);
   const isBuilding = z => !!z.flags?.is_building;
   const isExterior = z => !isInterior(z) && !isBuilding(z);
+  // A bulk map-grid tile (planner-stamped zone_district_<x>_<y>) vs a hand-authored
+  // named exterior — decides what gets collapsed into the Terrain fold.
+  const isGridTile = z => /^zone_district_\d+_\d+$/.test(z.id || '');
   const byName = (a, b) => String(a.name || a.id).localeCompare(String(b.name || b.id));
-  // Terrain classification for grouping bulk map tiles (mirrors server zoneTerrain):
-  // water flag, road_/runway_ icon, or a green-dominant surface colour (grassland).
+  // Terrain classification for sub-grouping the grid tiles: water flag, road_/
+  // runway_ icon, or a green-dominant surface colour (grassland); else 'land'.
   const terrainKey = z => {
     if (z.flags?.water) return 'water';
     if (/^(road_|runway_)/.test(z.flags?.icon || '')) return 'road';
     const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(z.bg_color || '');
     if (m) { const r = parseInt(m[1], 16), g = parseInt(m[2], 16), b = parseInt(m[3], 16);
       if (g > r && g - b >= 15 && g >= 45) return 'grass'; }
-    return null;
+    return 'land';
   };
 
-  // 1. Interior spanning tree per building. BFS over exits from each entrance,
-  //    claiming interior/apartment rooms; the first building to reach a room
-  //    owns it. treeKids[parentId] = ordered child rooms → DFS render nests
-  //    units under the hallway they hang off.
+  // Interior spanning tree per building. BFS over exits from each entrance,
+  // claiming interior/apartment rooms; the first building to reach a room owns
+  // it. Unclaimed interiors fall to the Unattached-rooms band at the bottom.
   const claimed = new Set();
   const buildingMembers = new Map();   // buildingId -> [interior zones], reachable via exits
   for (const b of records.filter(isBuilding)) {
@@ -53,52 +81,20 @@ function renderZonesTable(records) {
     buildingMembers.set(b.id, members);
   }
 
-  // 2. Attach each building to an exterior zone: primary is an exterior zone
-  //    whose exits point into it; fallback is flags.world_exit_zone. Buildings
-  //    with neither become their own top-level band.
-  const buildingsByExterior = new Map();
-  const attached = new Set();
-  const attach = (extId, b) => {
-    if (!buildingsByExterior.has(extId)) buildingsByExterior.set(extId, []);
-    buildingsByExterior.get(extId).push(b);
-    attached.add(b.id);
-  };
-  for (const ext of records.filter(isExterior)) {
-    for (const nId of flatNeighbors(ext.exits)) {
-      const n = byId.get(nId);
-      if (n && isBuilding(n) && !attached.has(n.id)) attach(ext.id, n);
-    }
+  // Group every non-interior zone by district. Buildings and grid tiles and
+  // named exteriors keep separate buckets so the render can lead with the
+  // authored content and collapse the map-grid bulk.
+  const push = (map, k, v) => { (map.get(k) || map.set(k, []).get(k)).push(v); };
+  const bDistrict = new Map();   // district key -> [buildings]
+  const eNamed = new Map();      // district key -> [named exteriors]
+  const eTiles = new Map();      // district key -> [grid tiles]
+  for (const z of records) {
+    if (isInterior(z)) continue;   // nested under its building, or an orphan
+    const k = districtKeyFor(z);
+    if (isBuilding(z)) push(bDistrict, k, z);
+    else if (isGridTile(z)) push(eTiles, k, z);
+    else push(eNamed, k, z);
   }
-  const looseBuildings = [];
-  for (const b of records.filter(isBuilding)) {
-    if (attached.has(b.id)) continue;
-    const ext = b.flags?.world_exit_zone && byId.get(b.flags.world_exit_zone);
-    if (ext && isExterior(ext)) attach(ext.id, b);
-    else looseBuildings.push(b);
-  }
-
-  // Order the exterior bands by walking distance out from the start zone, so the
-  // list radiates from the spawn point instead of running alphabetically.
-  // Anything unreachable from the start (or if there's no start zone) falls to
-  // the end, ordered by name.
-  const extDist = new Map();
-  if (byId.has('zone_start')) {
-    const q = ['zone_start'];
-    extDist.set('zone_start', 0);
-    while (q.length) {
-      const cur = q.shift();
-      for (const nId of flatNeighbors(byId.get(cur)?.exits || {})) {
-        const n = byId.get(nId);
-        if (n && isExterior(n) && !extDist.has(nId)) {
-          extDist.set(nId, extDist.get(cur) + 1);
-          q.push(nId);
-        }
-      }
-    }
-  }
-  const byDistThenName = (a, b) =>
-    (extDist.has(a.id) ? extDist.get(a.id) : Infinity) - (extDist.has(b.id) ? extDist.get(b.id) : Infinity)
-    || byName(a, b);
 
   // --- Row / band builders (furniture-panel visual language) ---
   const stBadge = s => !s ? '' :
@@ -169,24 +165,19 @@ function renderZonesTable(records) {
     </div>`;
   };
 
-  const HEAD_STYLE = 'display:flex;align-items:center;gap:0;padding:7px 12px;background:var(--bg3);border-top:2px solid var(--border);border-bottom:1px solid var(--border);cursor:pointer;user-select:none';
-  const exteriorBlock = ext => {
-    const blds = (buildingsByExterior.get(ext.id) || []).sort(byName);
-    const del = ext._stagingStatus === 'pending delete' ? 'opacity:0.6;text-decoration:line-through' : '';
-    const label = `<span style="color:var(--cyan);font-weight:700;font-size:13px">${ext.name || ext.id}</span>
-        <span style="color:var(--text-dim);font-size:10px;margin-left:6px">${ext.id}</span>${stBadge(ext._stagingStatus)}
-        <span style="margin-left:auto;font-size:10px;color:var(--text-dim)">${blds.length} building${blds.length !== 1 ? 's' : ''}</span>
-        ${rowBtns(ext.id)}`;
-    if (!blds.length) {
-      return `<div><div data-zone-id="${ext.id}" style="${HEAD_STYLE};${del}" onclick="editRecord('${ext.id}')">
-        <span class="z-arrow"></span>${label}</div></div>`;
-    }
-    return `<div>
-      <div data-zone-id="${ext.id}" style="${HEAD_STYLE};${del}" onclick="zToggle(this)">
-        <span class="z-arrow">▸</span>${label}</div>
-      <div class="z-children" style="display:none">${blds.map(buildingBlock).join('')}</div>
+  // A named exterior / grid tile — a plain clickable row (no interior tree).
+  const exteriorRow = (z, pad) => {
+    const del = z._stagingStatus === 'pending delete';
+    return `<div style="display:flex;align-items:center;gap:8px;padding:5px 12px 5px ${pad}px;border-bottom:1px solid var(--border);background:var(--bg1);cursor:pointer;${del ? 'opacity:0.6;text-decoration:line-through' : ''}" onclick="editRecord('${z.id}')">
+      <div style="flex:1;min-width:0">
+        <span style="color:var(--text-bright)">${z.name || z.id}</span>
+        <span style="font-size:10px;color:var(--text-dim);margin-left:6px">${z.id}</span>${stBadge(z._stagingStatus)}
+      </div>
+      ${rowBtns(z.id)}
     </div>`;
   };
+
+  const HEAD_STYLE = 'display:flex;align-items:center;gap:0;padding:7px 12px;background:var(--bg3);border-top:2px solid var(--border);border-bottom:1px solid var(--border);cursor:pointer;user-select:none';
   const catchAllBand = (key, title, count, inner) => `<div>
     <div data-zone-id="${key}" style="${HEAD_STYLE}" onclick="zToggle(this)">
       <span class="z-arrow">▸</span>
@@ -196,29 +187,55 @@ function renderZonesTable(records) {
     <div class="z-children" style="display:none">${inner}</div>
   </div>`;
 
+  // A collapsible sub-fold (buildings' floor tier reused for terrain buckets).
+  const subFold = (key, label, count, inner, pad) => `<div>
+    <div data-zone-id="${key}" style="display:flex;align-items:center;gap:0;padding:5px 12px 5px ${pad}px;background:var(--bg2);border-top:1px solid var(--border);cursor:pointer;user-select:none" onclick="zToggle(this)">
+      <span class="z-arrow">▸</span>
+      <span style="color:var(--text-dim)">${label}</span>
+      <span style="margin-left:auto;font-size:10px;color:var(--text-dim)">${count}</span>
+    </div>
+    <div class="z-children" style="display:none">${inner}</div>
+  </div>`;
+
+  const TERRAIN_SUB = [['water', '🌊 Water'], ['road', '🛣 Roads'], ['grass', '🌿 Grasslands'], ['land', '▪ Land']];
+  const districtBlock = (key, meta) => {
+    const blds = (bDistrict.get(key) || []).slice().sort(byName);
+    const named = (eNamed.get(key) || []).slice().sort(byName);
+    const tiles = (eTiles.get(key) || []).slice();
+    const rooms = blds.reduce((n, b) => n + (buildingMembers.get(b.id)?.length || 0), 0);
+    const total = blds.length + named.length + tiles.length + rooms;
+    const color = meta?.color || 'var(--cyan)';
+
+    let inner = blds.map(buildingBlock).join('');
+    inner += named.map(z => exteriorRow(z, 28)).join('');
+    if (tiles.length) {
+      const groups = {};
+      for (const z of tiles) (groups[terrainKey(z)] = groups[terrainKey(z)] || []).push(z);
+      const tinner = TERRAIN_SUB.filter(([k]) => groups[k]?.length).map(([k, label]) =>
+        subFold(`__tile_${key}_${k}__`, label, groups[k].length,
+          groups[k].sort(byName).map(z => exteriorRow(z, 60)).join(''), 44)).join('');
+      inner += subFold(`__tiles_${key}__`, '<em>Terrain tiles</em>', tiles.length, tinner, 28);
+    }
+
+    return `<div>
+      <div data-zone-id="__district_${key}__" style="${HEAD_STYLE};border-left:3px solid ${color}" onclick="zToggle(this)">
+        <span class="z-arrow">▸</span>
+        <span style="color:${color};font-weight:700;font-size:13px">${meta?.name || key}</span>
+        <span style="margin-left:auto;font-size:10px;color:var(--text-dim)">${blds.length} building${blds.length !== 1 ? 's' : ''} · ${total} zone${total !== 1 ? 's' : ''}</span>
+      </div>
+      <div class="z-children" style="display:none">${inner}</div>
+    </div>`;
+  };
+
   // --- Assemble ---
   let html = `<div style="padding:10px 12px"><button class="action-btn" onclick="openBigMap()">🗺 View Big Map</button></div>`;
-  // Named (non-terrain) exterior zones first, radiating from spawn; then each terrain
-  // type collapsed into one big group so the map-tile bulk (grasslands, roads, water)
-  // doesn't drown the list.
-  const exteriors = records.filter(isExterior);
-  const terrOf = new Map(exteriors.map(z => [z.id, terrainKey(z)]));
-  html += exteriors.filter(z => !terrOf.get(z.id)).sort(byDistThenName).map(exteriorBlock).join('');
-  const TERRAIN_GROUPS = [
-    { key: 'grass', title: '🌿 Grasslands' },
-    { key: 'road', title: '🛣 Roads' },
-    { key: 'water', title: '🌊 Water' },
-  ];
-  for (const g of TERRAIN_GROUPS) {
-    const zs = exteriors.filter(z => terrOf.get(z.id) === g.key).sort(byDistThenName);
-    if (!zs.length) continue;
-    html += catchAllBand(`__terrain_${g.key}__`, g.title, `${zs.length} zone${zs.length !== 1 ? 's' : ''}`,
-      zs.map(exteriorBlock).join(''));
-  }
-  if (looseBuildings.length) {
-    html += catchAllBand('__loose_buildings__', 'Buildings — no exterior entrance', looseBuildings.length,
-      looseBuildings.sort(byName).map(buildingBlock).join(''));
-  }
+  // Districts in the curated server order; any district holding zones is shown,
+  // any unrecognised key (shouldn't happen) falls to the end.
+  const present = new Set([...bDistrict.keys(), ...eNamed.keys(), ...eTiles.keys()]);
+  const orderedKeys = Object.keys(_districtMeta).filter(k => present.has(k));
+  for (const k of present) if (!_districtMeta[k]) orderedKeys.push(k);
+  html += orderedKeys.map(k => districtBlock(k, _districtMeta[k])).join('');
+
   const orphans = records.filter(z => isInterior(z) && !claimed.has(z.id)).sort(byName);
   if (orphans.length) {
     html += catchAllBand('__orphan_rooms__', 'Unattached rooms', orphans.length,

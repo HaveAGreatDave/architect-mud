@@ -92,7 +92,7 @@ function isZonePowered(zoneId) {
 async function checkFactionAccess(player, atm) {
   if (!atm.faction_id || atm.min_faction_rep == null || atm.min_faction_rep <= -200) return true;
   const { rows } = await query(
-    'SELECT reputation FROM player_faction_rep WHERE player_id=$1 AND faction_id=$2',
+    'SELECT reputation FROM player_ideology_rep WHERE player_id=$1 AND ideology_id=$2',
     [player.id, atm.faction_id]
   );
   return (rows[0]?.reputation ?? 0) >= atm.min_faction_rep;

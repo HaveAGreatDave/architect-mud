@@ -182,7 +182,8 @@ function _fieldSvg() {
 // channel theme. Purely decorative; built once, never re-rendered.
 function _fieldChrome() {
   return `<div class="gd-crt-grid"></div><div class="gd-crt-scan"></div>` +
-    `<div class="gd-reticle"><i></i><i></i><i></i><i></i></div>`;
+    `<div class="gd-reticle"><i></i><i></i><i></i><i></i></div>` +
+    `<div class="gd-replaybug"><i></i>REPLAY</div>`;
 }
 
 function _fieldTokens() {
@@ -224,6 +225,76 @@ function _pitchPlot(pitches, newestN) {
   );
 }
 
+// ── Broadcast strips (pure; painted each step from ctx) ──────────────────────────
+// Inning-by-inning line score. The per-inning runs are authoritative (snapshotted on
+// the server and carried in the payload); totals R come from the running score, H from
+// the server's hit tally. Innings not yet reached render blank so it never spoils.
+function _lineScoreHtml(ctx) {
+  const line = ctx.p.line;
+  const aArr = line && Array.isArray(line.away) ? line.away : [];
+  const hArr = line && Array.isArray(line.home) ? line.home : [];
+  const innings = Math.max(9, aArr.length, hArr.length);
+  const cur = ctx.p.inning || 0;
+  const cells = (arr) => {
+    let out = '';
+    for (let i = 0; i < innings; i++) out += `<td class="${i + 1 === cur ? 'cur' : ''}">${i < arr.length ? arr[i] : ''}</td>`;
+    return out;
+  };
+  let head = '';
+  for (let i = 1; i <= innings; i++) head += `<td class="${i === cur ? 'cur' : ''}">${i}</td>`;
+  const hA = line ? (line.hAway | 0) : 0, hH = line ? (line.hHome | 0) : 0;
+  return `<div class="gd-ls-scroll"><table class="gd-ls">` +
+    `<tr class="gd-ls-head"><td class="gd-ls-team"></td>${head}<td class="gd-ls-tot">R</td><td class="gd-ls-tot">H</td></tr>` +
+    `<tr class="gd-ls-away"><td class="gd-ls-team">${_esc(ctx.away.abbr || 'AWY')}</td>${cells(aArr)}<td class="gd-ls-tot">${ctx.aScore}</td><td class="gd-ls-tot">${hA}</td></tr>` +
+    `<tr class="gd-ls-home"><td class="gd-ls-team">${_esc(ctx.home.abbr || 'HOM')}</td>${cells(hArr)}<td class="gd-ls-tot">${ctx.hScore}</td><td class="gd-ls-tot">${hH}</td></tr>` +
+    `</table></div>`;
+}
+
+// Lightweight live win-probability estimate (NOT a trained model): a logistic on the
+// run differential whose steepness grows as outs run out, nudged by baserunners for the
+// batting side, and pinned when the home team leads walk-off-late. Labelled "est".
+function _winProbHome(aScore, hScore, inning, half, outs, bases) {
+  const lead = hScore - aScore;
+  const outsTotal = (Math.max(1, inning) - 1) * 6 + (half === 'bottom' ? 3 : 0) + Math.min(3, outs | 0);
+  const remaining = Math.max(0, 54 - outsTotal);
+  const k = 0.9 + (1 - remaining / 54) * 2.6;
+  let wp = 1 / (1 + Math.exp(-k * lead));
+  const onBase = (bases || []).filter(Boolean).length;
+  wp += onBase * 0.015 * (half === 'bottom' ? 1 : -1);
+  if (inning >= 9 && half === 'bottom' && lead > 0) wp = Math.max(wp, 0.995);
+  return Math.max(0.02, Math.min(0.98, wp));
+}
+function _winProbHtml(ctx, outcome) {
+  const p = ctx.p;
+  const bases = outcome ? (p.basesAfter || []) : (p.basesBefore || []);
+  const outs = outcome ? ctx.outsAfter : ctx.outsBefore;
+  const pctH = Math.round(_winProbHome(ctx.aScore, ctx.hScore, p.inning || 1, p.half || 'top', outs, bases) * 100);
+  const pctA = 100 - pctH;
+  const aLead = ctx.aScore > ctx.hScore;
+  return `<span class="gd-wp-label">WIN PROB<i>est</i></span>` +
+    `<span class="gd-wp-side away${aLead ? ' lead' : ''}">${_esc(ctx.away.abbr || 'AWY')} ${pctA}%</span>` +
+    `<span class="gd-wp-bar"><i class="a" style="width:${pctA}%"></i><i class="h" style="width:${pctH}%"></i></span>` +
+    `<span class="gd-wp-side home${!aLead ? ' lead' : ''}">${pctH}% ${_esc(ctx.home.abbr || 'HOM')}</span>`;
+}
+
+// League standings dock — the two teams in this game are highlighted. Games-back is
+// derived from the leader's record; the leader shows a dash.
+function _standingsHtml(rows, awayName, homeName) {
+  if (!Array.isArray(rows) || !rows.length) return `<div class="gd-stand-empty">Standings loading…</div>`;
+  const leadW = rows[0].wins | 0, leadL = rows[0].losses | 0;
+  const body = rows.map((r, i) => {
+    const gb = i === 0 ? '—' : (((leadW - (r.wins | 0)) + ((r.losses | 0) - leadL)) / 2).toFixed(1).replace(/\.0$/, '');
+    const me = (r.team === awayName || r.team === homeName) ? ' me' : '';
+    return `<div class="gd-stand-row${me}">` +
+      `<span class="gd-stand-rank">${i + 1}</span>` +
+      `<span class="gd-stand-team">${_esc(r.team)}</span>` +
+      `<span class="gd-stand-rec">${r.wins | 0}-${r.losses | 0}</span>` +
+      `<span class="gd-stand-gb">${gb}</span>` +
+    `</div>`;
+  }).join('');
+  return `<div class="gd-stand">${body}</div>`;
+}
+
 export function createGamedayView(host) {
   let timers = [];
   let caption = '';          // last announcer line, retained across the shell rebuild
@@ -232,6 +303,7 @@ export function createGamedayView(host) {
   let playAnimating = false; // an at-bat is on the field right now — hold event graphics until it lands
   let field = null;          // the persistent .gd-field element (tokens live here)
   let cardTimer = null;      // auto-dismiss for the Gameday-native jumbotron card
+  let standingsRows = [];    // last league table seen (rides the payload); persists between at-bats
 
   function _stop() { timers.forEach(clearTimeout); timers = []; playAnimating = false; pendingCard = null; }
   function _t(ms, fn) { timers.push(setTimeout(fn, Math.max(0, ms))); }
@@ -286,7 +358,7 @@ export function createGamedayView(host) {
   // Update the score bug + side rail (score, count, plot, matchup, play card). Never
   // touches the field (its tokens are animating), so it's safe to re-render each step.
   function _paintSide(ctx, reveal, outcome) {
-    const { p, isTop, away, home, aScore, hScore, cp, N, outsBefore, outsAfter } = ctx;
+    const { p, isTop, away, home, aScore, hScore, cp, N, outsBefore, outsAfter, awayName, homeName } = ctx;
     const outs = outcome ? outsAfter : outsBefore;
     let count = '0-0';
     if (outcome || reveal >= N) count = cp ? `${cp.balls}-${cp.strikes}` : '0-0';
@@ -317,7 +389,15 @@ export function createGamedayView(host) {
         `<div class="gd-mrow"><span class="gd-mlabel">P</span><span class="gd-mname">${_esc(p.pitcher || '—')}</span></div>` +
         `<div class="gd-mrow"><span class="gd-mlabel bat">AB</span><span class="gd-mname">${_esc(p.batter || '—')}</span></div>` +
       `</div>` +
-      playCard;
+      playCard +
+      `<div class="gd-card gd-standcard"><span class="gd-microlabel">League</span>${_standingsHtml(standingsRows, awayName, homeName)}</div>`;
+
+    // Broadcast strips: inning-by-inning line score (under the score bug) + live win
+    // probability (below the field). Both are safe to repaint each step.
+    const lsEl = host.querySelector('.gd-linescore');
+    if (lsEl) lsEl.innerHTML = _lineScoreHtml(ctx);
+    const wpEl = host.querySelector('.gd-winprob');
+    if (wpEl) wpEl.innerHTML = _winProbHtml(ctx, outcome);
   }
 
   // Spawn a runner token at a base and return it.
@@ -428,9 +508,12 @@ export function createGamedayView(host) {
   function apply(p) {
     if (!host || !p) return;
     _stop();
+    if (Array.isArray(p.standings) && p.standings.length) standingsRows = p.standings;   // freshest table; retained otherwise
     const isTop = p.half === 'top';
     const away = isTop ? { abbr: p.battingAbbr } : { abbr: p.fieldingAbbr };
     const home = isTop ? { abbr: p.fieldingAbbr } : { abbr: p.battingAbbr };
+    const awayName = isTop ? p.battingTeam : p.fieldingTeam;   // full names for the standings highlight
+    const homeName = isTop ? p.fieldingTeam : p.battingTeam;
     const aScore = Number.isFinite(p.awayScore) ? p.awayScore : 0;
     const hScore = Number.isFinite(p.homeScore) ? p.homeScore : 0;
     const pitches = Array.isArray(p.pitches) ? p.pitches : [];
@@ -444,19 +527,29 @@ export function createGamedayView(host) {
     // can animate. The header/side get repainted each step; the field does not.
     host.innerHTML =
       `<div class="gd-top"></div>` +
+      `<div class="gd-linescore"></div>` +
       `<div class="gd-main">` +
         `<div class="gd-fieldwrap"><div class="gd-field">${_fieldSvg()}${_fieldTokens()}${_fieldChrome()}</div></div>` +
         `<div class="gd-rail"></div>` +
       `</div>` +
+      `<div class="gd-winprob"></div>` +
       `<div class="gd-caption"><span class="gd-cap-tag">◆ Chip Vega</span><span class="gd-cap-text">${_esc(caption)}</span></div>`;
     field = host.querySelector('.gd-field');
+    field.classList.add('replaying');   // the ◉ REPLAY bug shows while the play runs; cleared when it lands
+
+    // Camera-cut wipe: each new at-bat sweeps in so it reads as a fresh replay rather
+    // than a mutation of the last. Pure CSS; auto-removed after the sweep.
+    const wipe = document.createElement('div'); wipe.className = 'gd-wipe';
+    host.appendChild(wipe);
+    requestAnimationFrame(() => wipe.classList.add('go'));
+    _t(720, () => wipe.remove());
 
     // Existing runners on base at the start (lit), plus the batter waiting at the plate.
     const before = p.basesBefore || [false, false, false];
     const runners = {};
     [1, 2, 3].forEach(b => { if (before[b - 1]) { runners[b] = _runner(b); _litBase(b, true); } });
 
-    const ctx = { p: { ...p, pitches }, isTop, away, home, aScore, hScore, cp, N, outsBefore, outsAfter, runners, traj };
+    const ctx = { p: { ...p, pitches }, isTop, away, home, awayName, homeName, aScore, hScore, cp, N, outsBefore, outsAfter, runners, traj };
     _paintSide(ctx, 0, false);
 
     const step = N > 1 ? Math.min(REVEAL_STEP_MS, REVEAL_MAX_MS / (N - 1)) : REVEAL_STEP_MS;
@@ -499,6 +592,7 @@ export function createGamedayView(host) {
     playAnimating = true;
     _t(outMs + ballFlight, () => {
       playAnimating = false;
+      field?.classList.remove('replaying');   // play has landed — drop the REPLAY bug
       if (pend) { _showCaption(pend.text); if (pend.speak) pend.speak(); }
       if (pendingCard) { const fx = pendingCard; pendingCard = null; _renderCard(fx); }
     });

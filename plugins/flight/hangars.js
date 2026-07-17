@@ -14,6 +14,7 @@ import { liveAircraft, persist, out, effStats, fieldFor as fieldOf,
 import { normalizeLivery, sanitizeLivery, signatureScore, describeExterior,
   paintCost, isPaintable, readSchemes, schemeOf,
   PATTERNS, FINISHES, UPHOLSTERY, DECALS, PRESETS } from './livery.js';
+import { fieldStocks } from './acquisition.js';
 import { pilotStatusForField, charterParkedAt } from './charter.js';
 import { isPilotLicensed } from './checkride.js';
 // `tune` also belongs to broadcast (tune a channel); flight wins it and hands
@@ -107,7 +108,7 @@ const clean = (s) => String(s || '').replace(/[<>]/g, '').trim();
 async function buildCards(player, field) {
   const { rows } = await query(
     `SELECT a.id, a.name, a.rental, a.is_wreck, a.hangar_id, a.damage, a.fuel, a.custom_data,
-            a.owner_id, t.id type_id, t.name tname, t.class, t.fuel_capacity, t.seats, t.hardpoints,
+            a.owner_id, t.id type_id, t.name tname, t.class, t.fuel_capacity, t.fuel_type, t.seats, t.hardpoints,
             t.hull_hp, t.cargo_capacity, t.cruise_speed, t.fuel_burn_base, t.max_takeoff_weight,
             t.handling, t.altitude_ceiling
      FROM aircraft a JOIN aircraft_types t ON t.id=a.type_id
@@ -132,7 +133,7 @@ async function buildCards(player, field) {
     return {
       id: r.id, tail: r.name || r.tname, typeName: r.tname, typeId: r.type_id, class: r.class, seats: r.seats,
       damage: r.damage, hullPct: Math.max(0, Math.round((1 - r.damage) * 100)),
-      fuelPct: Math.max(0, Math.min(100, Math.round((r.fuel / cap) * 100))),
+      fuelPct: Math.max(0, Math.min(100, Math.round((r.fuel / cap) * 100))), fuelType: r.fuel_type,
       location: r.is_wreck ? 'wreck' : (r.hangar_id ? 'hangar' : 'ramp'),
       rental: !!r.rental, wreck: !!r.is_wreck, paintable: isPaintable(r),
       livery: lv, schemes, signature: signatureScore(lv), paintCost: paintCost({ class: r.class }),
@@ -191,6 +192,9 @@ export async function pushHangarBay(player, selectId, opts = {}) {
     exitDir: hangarExitDir(player),
     refreshOnly: !!opts.refreshOnly,
     hasBay: mine.length > 0, credits: player.credits || 0, craft,
+    // Fuel types this field pumps (from the ramp or its hangar bowser) — the panel
+    // shows a Refuel action on a craft whose fuel type is stocked and tank isn't full.
+    fuelStocks: fieldStocks(field),
     // The venue the 3D hangar scene renders: a yacht field draws an open-air boat
     // helipad (no roof, sea around the deck) instead of the industrial bay.
     venue: field.flags.yacht ? 'helipad' : 'hangar',
@@ -770,11 +774,14 @@ export async function cancelRental(player, aircraftId) {
 // no one aboard — a still-loaded instance is parked by the hangar crew (parkAt
 // disembarks + persists), a DB-only ghost just has its flag cleared in place.
 // A craft someone is genuinely flying (occupants aboard) is left alone. Returns
-// the count grounded.
+// the count grounded. Rentals are included: a rental stranded airborne is
+// unsellable AND un-returnable (cancelRental refuses her aloft) with no other
+// recovery path, so flush must ground her too — once down, the tablet's per-
+// vehicle Cancel Rental button reappears and clears her normally.
 export async function flushAirborne(player) {
   const { rows } = await query(
     `SELECT id, airborne, parked_zone_id, grid_x, grid_y
-     FROM aircraft WHERE owner_id=$1 AND rental=0 AND is_wreck=0`, [player.id]);
+     FROM aircraft WHERE owner_id=$1 AND is_wreck=0`, [player.id]);
   let grounded = 0;
   for (const ac of rows) {
     const live = liveAircraft.get(ac.id);

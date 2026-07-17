@@ -229,7 +229,7 @@ export const REGISTRY = [
   { table: 'players', class: 'player' },
   { table: 'player_skills', class: 'player' },
   { table: 'player_inventory', class: 'player' },
-  { table: 'player_faction_rep', class: 'player' },
+  { table: 'player_ideology_rep', class: 'player' },
   { table: 'player_corpses', class: 'player' },
   { table: 'player_deaths', class: 'player' },
   { table: 'player_drug_state', class: 'player' },

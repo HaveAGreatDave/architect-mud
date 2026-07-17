@@ -9,7 +9,7 @@ import { PANEL_TYPES } from './registry.js';
 import { esc } from './catalogs.js';
 
 let instances = [];
-const snapshotData = {}; // snapshot field key -> value (skills, factions, inv_count, …)
+const snapshotData = {}; // snapshot field key -> value (skills, ideologies, inv_count, …)
 const feeds = {};        // camera id -> { status, frame, label }
 let cameras = [];        // catalog of cams the player may pin (for the builder)
 let skillsCatalog = [];  // catalog of skills (for the Skills panel's sub-picker)

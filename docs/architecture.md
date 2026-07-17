@@ -249,8 +249,8 @@ enemies           -- template definitions: stat block, loot_table, behavior, fac
 zone_spawns       -- zone_id, enemy_id, max_count, spawn_weight, respawn_seconds
 npcs              -- id, name, zone_id, dialogue_tree (JSONB), vendor_inventory (JSONB)
 furniture         -- id, zone_id, name, description, flags; is_light/light_on/light_type for switchable lights
-orgs              -- factions + player orgs (the old `factions` table was folded in)
-player_faction_rep -- player_id, faction_id (references orgs.id), reputation score
+orgs              -- NPC ideologies (is_npc=1) + player orgs (the old `factions` table was folded in)
+player_ideology_rep -- player_id, ideology_id (references orgs.id), reputation score
 loot_tables       -- named, reusable weighted-drop tables (lightly used; most loot is inlined)
 world_events      -- log of significant events
 player_corpses    -- lootable death drops, expire after 10 minutes

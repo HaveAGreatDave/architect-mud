@@ -74,7 +74,7 @@ function faceWearsTrim(face, pat) {
 // intakes as dark structural metal, all independent of the livery colour.
 export function faceBaseRgb(face, pal) {
   const role = face.role;
-  if (role === 'glass' || role === 'window') return [14, 26, 36];
+  if (role === 'glass' || role === 'window') return face.tint || [14, 26, 36];   // per-face tint override (e.g. the heli's clear fishbowl bubble)
   if (role === 'strut' || role === 'gear' || role === 'gun') return [44, 48, 54];
   if (pal.pat === 'jazz' && JAZZ_ROLE.has(role)) return pal.ground || JAZZ_GROUND;   // chosen undercoat; overlayJazz paints the splatter on top
   return faceWearsTrim(face, pal.pat) ? pal.trim : pal.base;
@@ -557,15 +557,16 @@ function addOtterGear(faces, p, wz) {
 
 // A light rotorcraft (Mini 500): a rounded egg/bubble CABIN, a slender straight tail boom, a
 // small tail fin + rotor, tubular skids on cross-tubes, and a translucent main-rotor disc on a
-// short head. Cabin + boom are skinned from finely-subdivided cross-section rings so they read
-// as one smooth teardrop, not a faceted egg. Anchors held fixed for the FX layer: main mast at
-// (0.1, 0, 0.28), tail rotor at (-1.04, 0.07, 0.12) — see drawRotorFX.
+// tall exposed mast. Cabin + boom are skinned from finely-subdivided cross-section rings so they
+// read as one smooth teardrop, not a faceted egg. Anchors held fixed for the FX layer: main rotor
+// plane at (0.1, 0, 0.34), tail rotor at (-1.04, 0.07, 0.12) — see drawRotorFX.
 function buildHeli() {
   const faces = [];
   const sides = 14;   // ring resolution (was 8) — smooth bubble & boom
   const ring = (f, rg, rv, cz) => { const o = []; for (let k = 0; k < sides; k++) { const a = k / sides * Math.PI * 2; o.push(V(f, Math.cos(a) * rg, cz + Math.sin(a) * rv)); } return o; };
   const shFor = (k) => 0.6 + 0.36 * (0.5 + 0.5 * Math.sin((k + 0.5) / sides * Math.PI * 2));   // top bright → bottom dark
-  const skin = (A, B, role = 'body', m = 1) => { for (let k = 0; k < sides; k++) { const k2 = (k + 1) % sides; faces.push({ role, sh: shFor(k) * m, p: [A[k], A[k2], B[k2], B[k]] }); } };
+  const GLASS_TINT = [64, 90, 112];   // clear fishbowl bubble — lighter than the default near-black canopy so it reads as glass over a bright cockpit, not a dark orb
+  const skin = (A, B, role = 'body', m = 1) => { for (let k = 0; k < sides; k++) { const k2 = (k + 1) % sides; const f = { role, sh: shFor(k) * m, p: [A[k], A[k2], B[k2], B[k]] }; if (role === 'glass') f.tint = GLASS_TINT; faces.push(f); } };
   // Rounded egg CABIN: a big glass bubble front, widest at the seats, an engine hump, tapering
   // down to the boom. More stations (7 vs 3) so the profile curves instead of creasing.
   const cabin = [
@@ -582,7 +583,19 @@ function buildHeli() {
   // Rounded NOSE DOME closing the bubble — a fan of glass triangles to an apex ahead of the
   // front ring, so the canopy reads as a smooth blister rather than a flat octagon cap.
   const noseApex = V(0.70, 0, 0.03);
-  for (let k = 0; k < sides; k++) { const k2 = (k + 1) % sides; faces.push({ role: 'glass', sh: shFor(k), p: [noseApex, cabin[0][k], cabin[0][k2]] }); }
+  for (let k = 0; k < sides; k++) { const k2 = (k + 1) % sides; faces.push({ role: 'glass', tint: GLASS_TINT, sh: shFor(k), p: [noseApex, cabin[0][k], cabin[0][k2]] }); }
+  // Canopy FRAMING — the Mini-500's signature: thin trim mullions over the clear fishbowl so it
+  // reads as a framed cockpit, not one dark glossy sphere. A windshield centre post up the nose,
+  // a door-frame arch at the canopy's rear edge, and a sill hoop where glass meets the shell.
+  const post = [noseApex, V(0.60, 0, 0.135), V(0.46, 0, 0.195), V(0.30, 0, 0.230)];   // centre spine over the top
+  for (let i = 0; i < post.length - 1; i++) addTube(faces, post[i], post[i + 1], 0.010, 'nacelle', 0.9, 5);
+  for (const s of [1, -1]) {   // a door-frame arch each side, over the top and down to the sill
+    const arch = [V(0.30, s * 0.185, 0.020), V(0.34, s * 0.150, 0.150), V(0.32, s * 0.075, 0.220), V(0.30, 0, 0.230)];
+    for (let i = 0; i < arch.length - 1; i++) addTube(faces, arch[i], arch[i + 1], 0.009, 'nacelle', 0.85, 5);
+    // Sill hoop: a rail along the glass/shell seam from the nose to the door arch.
+    addTube(faces, V(0.58, s * 0.100, 0.010), V(0.44, s * 0.160, 0.010), 0.009, 'nacelle', 0.7, 5);
+    addTube(faces, V(0.44, s * 0.160, 0.010), V(0.30, s * 0.190, 0.015), 0.009, 'nacelle', 0.7, 5);
+  }
   // Thin, near-straight tail BOOM (a slender tapering tube) rising slightly toward the tail rotor.
   const boom = [ring(-0.24, 0.058, 0.066, 0.052), ring(-0.50, 0.044, 0.048, 0.078), ring(-0.76, 0.034, 0.036, 0.100), ring(-1.00, 0.026, 0.028, 0.118)];
   for (let i = 0; i < boom.length - 1; i++) skin(boom[i], boom[i + 1], 'body', 0.92);
@@ -603,15 +616,31 @@ function buildHeli() {
     addTube(faces, V(0.34, s * skidG, skidZ + 0.02), V(0.42, s * skidG, skidZ + 0.09), 0.015, 'gear', 0.56);   // upturned front toe
     for (const cf of [0.24, -0.06]) addTube(faces, V(cf, s * skidG, skidZ + 0.02), V(cf, s * 0.05, -0.14), 0.012, 'strut', 0.55);   // cross-tube leg
   }
-  // ── Rotor MAST + HEAD ── short pylon just above the cabin, a hub block, and a swashplate ring.
-  const cf = 0.1, cz = 0.28, rad = 1.05;   // rotor sits LOW on a short head just above the cabin
-  addTube(faces, V(cf, 0, 0.19), V(cf, 0, cz - 0.01), 0.026, 'nacelle', 0.8, 8);   // tapered mast pylon
-  const hb = 0.045;   // hub block above the mast
-  for (const [du, dv] of [[hb, 0], [0, hb], [-hb, 0], [0, -hb]]) faces.push({ role: 'nacelle', sh: 0.85, p: [V(cf + du * 0.4, dv * 0.4, cz - 0.02), V(cf + du, dv, cz), V(cf + du, dv, cz + 0.02), V(cf + du * 0.4, dv * 0.4, cz)] });
-  faces.push({ role: 'nacelle', sh: 0.95, p: [V(cf + hb, 0, cz + 0.02), V(cf, hb, cz + 0.02), V(cf - hb, 0, cz + 0.02), V(cf, -hb, cz + 0.02)] });   // hub top cap
-  const swash = [];   // swashplate ring under the head
-  for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; swash.push(V(cf + Math.cos(a) * 0.07, Math.sin(a) * 0.07, cz - 0.03)); }
-  faces.push({ role: 'nacelle', sh: 0.6, p: swash });
+  // ── Rotor MAST + HEAD ── a Mini-500 has a tall EXPOSED mast standing well clear of the
+  // engine deck, capped by a compact drum hub over a swashplate. Built as real 3D geometry so
+  // it foreshortens with the airframe — the flat 2D hub dot the FX layer used to stamp here read
+  // as a floating sphere because a screen-space circle can't flatten when the disc goes edge-on.
+  const cf = 0.1, cz = 0.34, rad = 1.05;   // hub top height — the FX blade plane (drawRotorFX) matches this
+  addTube(faces, V(cf, 0, 0.18), V(cf, 0, cz - 0.045), 0.017, 'nacelle', 0.82, 8);   // slender exposed mast
+  // Swashplate: a wider ring low on the mast, with a thin scissor link up to the head.
+  const swashZ = cz - 0.075, swR = 0.058;
+  const swashLo = [], swashHi = [];
+  for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2, cx = cf + Math.cos(a) * swR, cy = Math.sin(a) * swR; swashLo.push(V(cx, cy, swashZ - 0.012)); swashHi.push(V(cx, cy, swashZ + 0.012)); }
+  for (let i = 0; i < 8; i++) { const j = (i + 1) % 8; faces.push({ role: 'nacelle', sh: 0.55 + 0.12 * (i % 2), p: [swashLo[i], swashLo[j], swashHi[j], swashHi[i]] }); }
+  faces.push({ role: 'nacelle', sh: 0.7, p: swashHi });   // swashplate top face
+  for (const s of [1, -1]) addTube(faces, V(cf + s * swR * 0.7, s * swR * 0.2, swashZ), V(cf + s * 0.012, 0, cz - 0.05), 0.006, 'gear', 0.5, 4);   // pitch links
+  // Hub DRUM: a short octagonal barrel capped top and bottom — the mechanical mass the blades bolt to.
+  const hubR = 0.05, hubB = cz - 0.05, hubT = cz + 0.008;
+  const drumB = [], drumT = [];
+  for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2, cx = cf + Math.cos(a) * hubR, cy = Math.sin(a) * hubR; drumB.push(V(cx, cy, hubB)); drumT.push(V(cx, cy, hubT)); }
+  for (let i = 0; i < 8; i++) { const j = (i + 1) % 8; faces.push({ role: 'nacelle', sh: 0.7 + 0.2 * ((i + 1) % 2), p: [drumB[i], drumB[j], drumT[j], drumT[i]] }); }
+  faces.push({ role: 'nacelle', sh: 0.95, p: drumT });   // hub top cap
+  // Two stubby blade GRIPS reaching out from the drum — where the parked blades bolt on.
+  for (const s of [1, -1]) {
+    const gz = cz - 0.02, gw = 0.014;
+    faces.push({ role: 'nacelle', sh: s > 0 ? 0.9 : 0.66, p: [V(cf + s * hubR, gw, gz + gw), V(cf + s * 0.17, gw, gz + gw * 0.6), V(cf + s * 0.17, -gw, gz + gw * 0.6), V(cf + s * hubR, -gw, gz + gw)] });
+    faces.push({ role: 'nacelle', sh: 0.8, p: [V(cf + s * hubR, gw, gz + gw), V(cf + s * 0.17, gw, gz + gw * 0.6), V(cf + s * 0.17, gw, gz - gw * 0.6), V(cf + s * hubR, gw, gz - gw)] });
+  }
   // Main-rotor disc (octagon) — schematic wireframe renderer only; painted renderers draw blades.
   const disc = [];
   for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; disc.push(V(cf + Math.cos(a) * rad, Math.sin(a) * rad, cz)); }
@@ -650,9 +679,9 @@ export function drawRotorFX(ctx, cls, projFn, { spin = 0, power = 0.7, parked = 
   const dsc = disc != null ? disc : power;      // blur-disc opacity
   const spl = spool != null ? spool : 1;        // blade motion amount
   if (cls === 'heli') {
-    // Main rotor (f-g plane; matches buildHeli's cf 0.1 / cz 0.28) + tail rotor
+    // Main rotor (f-g plane; matches buildHeli's cf 0.1 / cz 0.34) + tail rotor
     // (f-h plane on the boom's right side), geared ~5× the main.
-    spinDisc(ctx, projFn, [0.1, 0, 0.28], [1, 0, 0], [0, 1, 0], 1.02, spin, dsc, spl, parked, 2, 0.85);
+    spinDisc(ctx, projFn, [0.1, 0, 0.34], [1, 0, 0], [0, 1, 0], 1.02, spin, dsc, spl, parked, 2, 0.85);
     spinDisc(ctx, projFn, [-1.04, 0.07, 0.12], [1, 0, 0], [0, 0, 1], 0.19, spin * 4.7 + 1.1, dsc, spl, parked, 2, 0.7);
   } else {
     // Cessna two-blade nose prop / Twin Otter three-blade wing turboprops. The
@@ -688,10 +717,13 @@ function spinDisc(ctx, projFn, C, U, V, r, spin, disc, spool, parked, blades, le
   if (!hub || !tip) return;
   const rpx = Math.hypot(tip.sx - hub.sx, tip.sy - hub.sy);   // screen radius → hub dot size
   const step = Math.PI * 2 / blades;
-  if (parked) {   // engines off: crisp dark stopped blades on a hub dot
+  if (parked) {   // engines off: crisp dark stopped blades on a small hub cap
     for (let i = 0; i < blades; i++) blade(spin + i * step, 'rgba(38,43,49,0.95)');
+    // A tiny centre cap only — sized off the BLADE, not the whole rotor span, and capped in px,
+    // so it never balloons into a flat screen-space "ball" that reads as a floating sphere when
+    // the disc foreshortens edge-on. The real rotor head is 3D geometry on the mesh below.
     ctx.fillStyle = 'rgba(30,34,40,0.95)';
-    ctx.beginPath(); ctx.arc(hub.sx, hub.sy, Math.max(1, rpx * 0.08), 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.arc(hub.sx, hub.sy, Math.max(1, Math.min(rpx * 0.03, 4)), 0, 7); ctx.fill();
     return;
   }
   // Blur disc + tip ring — opacity rides `disc`, so it's INVISIBLE until the prop is spun up
@@ -714,7 +746,7 @@ function spinDisc(ctx, projFn, C, U, V, r, spin, disc, spool, parked, blades, le
     for (let k = 0; k < ghosts; k++) blade(spin + i * step - k * 0.17 * spool, `rgba(36,41,47,${lead * Math.pow(0.42, k)})`);
   }
   ctx.fillStyle = 'rgba(30,34,40,0.9)';
-  ctx.beginPath(); ctx.arc(hub.sx, hub.sy, Math.max(1, rpx * 0.07), 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.arc(hub.sx, hub.sy, Math.max(1, Math.min(rpx * 0.045, 6)), 0, 7); ctx.fill();
   // A bright glint sweeping the tip ring — light catching the blur; only while the disc shows.
   if (dFade > 0.05) {
     ctx.beginPath();
@@ -1616,13 +1648,19 @@ function paintTurntable(ctx, { cls, livery, yaw = 0, w, h, wreck = false, zoom =
     let rgb = faceBaseRgb(face, pal);
     if (wreck) rgb = mix3(rgb, [74, 72, 66], 0.55);
     let z = 0; for (const q of P) z += q.z;
-    const rec = { P, role: face.role, avgZ: z / P.length, col: shadeRgb(rgb, face.sh * pal.fmul * light * (wreck ? 0.8 : 1)) };
+    const avgZ = z / P.length;
+    // WALK view: fade a face toward transparent as the eye gets right up against it, so the
+    // hull goes see-through when you walk under/into her (otherwise the near fuselage fills the
+    // frame and hides the BOARD prompt). Ghost floor keeps a faint outline rather than nothing.
+    const alpha = cam ? clampN((avgZ - 0.25) / 0.9, 0.08, 1) : 1;
+    const rec = { P, role: face.role, avgZ, alpha, col: shadeRgb(rgb, face.sh * pal.fmul * light * (wreck ? 0.8 : 1)) };
     if (jazzImg && JAZZ_ROLE.has(face.role)) rec.uv = face.p.map(v => jazzUV(v, face.role));
     drawn.push(rec);
   }
   drawn.sort((a, b) => b.avgZ - a.avgZ);
   ctx.lineJoin = 'round';
   for (const fc of drawn) {
+    if (fc.alpha < 1) ctx.globalAlpha = fc.alpha;
     ctx.beginPath(); ctx.moveTo(fc.P[0].sx, fc.P[0].sy);
     for (let i = 1; i < fc.P.length; i++) ctx.lineTo(fc.P[i].sx, fc.P[i].sy);
     ctx.closePath();
@@ -1635,6 +1673,7 @@ function paintTurntable(ctx, { cls, livery, yaw = 0, w, h, wreck = false, zoom =
       ctx.save(); ctx.clip(); ctx.strokeStyle = 'rgba(255,255,255,0.28)'; ctx.lineWidth = 1.4;
       ctx.beginPath(); ctx.moveTo(fc.P[0].sx, fc.P[0].sy); ctx.lineTo(fc.P[1].sx, fc.P[1].sy); ctx.stroke(); ctx.restore();
     }
+    if (fc.alpha < 1) ctx.globalAlpha = 1;
   }
   if (!wreck) drawNoseArt(ctx, proj, cls, livery);   // real nose art on the visible fuselage side
   // Props/rotors — engines off in here, so crisp STOPPED blades (not a blur),
@@ -1747,15 +1786,30 @@ function drawHelipadBackdrop(ctx, w, h, { sky } = {}) {
   g = ctx.createLinearGradient(0, horizon, 0, h);
   g.addColorStop(0, rgbStr(mix3(pal.hor, [14, 24, 38], 0.55))); g.addColorStop(1, 'rgb(9,14,20)');
   ctx.fillStyle = g; ctx.fillRect(0, horizon, w, h - horizon);
-  // The deckhouse — a mirror-black block with a smoked-glass band, set to the left, rising
-  // off the far deck edge so the scene reads as sitting on a superyacht.
-  const dhx = w * 0.04, dhy = horizon - h * 0.09, dhw = w * 0.3, dhh = h * 0.2;
-  ctx.fillStyle = '#13151b'; ctx.fillRect(dhx, dhy, dhw, dhh);
-  const gl = ctx.createLinearGradient(0, dhy, 0, dhy + dhh * 0.55);
-  gl.addColorStop(0, 'rgba(58,80,104,0.9)'); gl.addColorStop(1, 'rgba(22,32,44,0.95)');
-  ctx.fillStyle = gl; ctx.fillRect(dhx + 4, dhy + 5, dhw - 8, dhh * 0.5);
-  ctx.strokeStyle = 'rgba(120,150,178,0.3)'; ctx.lineWidth = 1;
-  for (let x = dhx + 10; x < dhx + dhw - 6; x += 12) { ctx.beginPath(); ctx.moveTo(x, dhy + 5); ctx.lineTo(x, dhy + 5 + dhh * 0.5); ctx.stroke(); }
+  // The superstructure — a LONG, LOW, mirror-black deckhouse stepping up in set-back tiers across the
+  // far deck edge, so the scene reads as sitting on a big beamy megayacht (her flight-sim profile), not
+  // a single billboard block. Weighted left of centre so the parked craft stay clear of it.
+  const ssL = w * 0.02, baseY = horizon + h * 0.015;
+  const tierBox = (x0, x1, yTop, yBot) => {
+    ctx.fillStyle = '#0f1116'; ctx.fillRect(x0, yTop, x1 - x0, yBot - yTop);                              // mirror-black body
+    const band = (yBot - yTop) * 0.5;
+    const gl = ctx.createLinearGradient(0, yTop + 2, 0, yTop + 2 + band);
+    gl.addColorStop(0, 'rgba(60,84,110,0.85)'); gl.addColorStop(1, 'rgba(18,28,40,0.92)');
+    ctx.fillStyle = gl; ctx.fillRect(x0 + 3, yTop + 2, (x1 - x0) - 6, band);                              // smoked-glass band
+    ctx.strokeStyle = 'rgba(122,152,180,0.26)'; ctx.lineWidth = 1;
+    for (let x = x0 + 9; x < x1 - 5; x += 12) { ctx.beginPath(); ctx.moveTo(x, yTop + 2); ctx.lineTo(x, yTop + 2 + band); ctx.stroke(); }
+    ctx.strokeStyle = 'rgba(0,0,0,0.45)'; ctx.lineWidth = 1; ctx.strokeRect(x0 + 0.5, yTop + 0.5, x1 - x0 - 1, yBot - yTop - 1);
+  };
+  const t1 = baseY - h * 0.10, t2 = t1 - h * 0.055, t3 = t2 - h * 0.05;
+  tierBox(ssL,               w * 0.60, t1, baseY);   // main deck house — long & low base
+  tierBox(ssL + w * 0.07,    w * 0.50, t2, t1);      // upper saloon, set back + in
+  tierBox(ssL + w * 0.14,    w * 0.40, t3, t2);      // bridge deck, set back again
+  // Short mast + warm masthead beacon off the bridge.
+  const mx = ssL + w * 0.25, mtop = t3 - h * 0.05;
+  ctx.strokeStyle = 'rgba(120,140,160,0.6)'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(mx, t3); ctx.lineTo(mx, mtop); ctx.stroke();
+  const mbg = ctx.createRadialGradient(mx, mtop, 1, mx, mtop, 8); mbg.addColorStop(0, 'rgba(255,238,200,0.8)'); mbg.addColorStop(1, 'rgba(255,238,200,0)');
+  ctx.fillStyle = mbg; ctx.beginPath(); ctx.arc(mx, mtop, 8, 0, 7); ctx.fill();
+  ctx.fillStyle = 'rgba(255,244,214,0.95)'; ctx.beginPath(); ctx.arc(mx, mtop, 1.8, 0, 7); ctx.fill();
   // The deck — a compact non-slip pad, a perspective trapezoid narrower at the far edge.
   const dTopY = horizon + h * 0.04, dTopHalf = w * 0.2, dBotHalf = w * 0.66;
   ctx.beginPath(); ctx.moveTo(cx - dTopHalf, dTopY); ctx.lineTo(cx + dTopHalf, dTopY); ctx.lineTo(cx + dBotHalf, h); ctx.lineTo(cx - dBotHalf, h); ctx.closePath();
@@ -1779,9 +1833,11 @@ function drawHelipadBackdrop(ctx, w, h, { sky } = {}) {
     ctx.fillStyle = 'rgba(255,96,74,0.9)'; ctx.beginPath(); ctx.arc(lx, ly, 2.4, 0, 7); ctx.fill();
   }
   ctx.restore();
-  // A soft pool of light where the craft sit, plus a light vignette.
+  // A soft pool of light where the craft sit — the Echelon's deck floods, so it
+  // stays lit after dark rather than going black; the wash strengthens as the sky darkens.
+  const floodA = 0.16 + pal.night * 0.26;
   const pool = ctx.createRadialGradient(cx, h * 0.82, 4, cx, h * 0.82, w * 0.5);
-  pool.addColorStop(0, 'rgba(220,232,246,0.16)'); pool.addColorStop(1, 'rgba(220,232,246,0)');
+  pool.addColorStop(0, `rgba(222,234,248,${floodA})`); pool.addColorStop(1, 'rgba(222,234,248,0)');
   ctx.fillStyle = pool; ctx.fillRect(0, dTopY, w, h - dTopY);
   const vg = ctx.createRadialGradient(cx, h * 0.5, Math.min(w, h) * 0.45, cx, h * 0.5, Math.max(w, h) * 0.85);
   vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.3)');

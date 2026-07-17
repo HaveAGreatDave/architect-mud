@@ -35,6 +35,36 @@ export default async function regress({ check }) {
   const notConsort = await _test.onTalk({ player: { handle: 'Cyd' }, npc: { id: 'y', flags: {} } });
   check('talk: falls through for a non-consort', notConsort === undefined);
 
+  // Talk opens a real conversation for the keeper when the consort carries a
+  // dialogue_tree (renders the root through the shared engine renderer); without a
+  // tree it falls back to a warm one-liner (exercised above).
+  const roxyWithTree = { ...roxy, dialogue_tree: {
+    root: { text: 'There he is.', options: [{ label: 'Hi.', next: 'bye' }] },
+    bye:  { text: 'Go on.', options: [] },
+  } };
+  const convo = await _test.onTalk({ player: { handle: 'Cyd' }, npc: roxyWithTree });
+  check('talk: keeper with a dialogue_tree opens a conversation', convo?.type === 'dialogue' && convo.node === 'root' && Array.isArray(convo.options), convo?.type);
+  // A stranger never opens the tree, even when one exists.
+  const strangerConvo = await _test.onTalk({ player: { handle: 'RandomGuest' }, npc: roxyWithTree });
+  check('talk: stranger never opens the tree', strangerConvo?.type !== 'dialogue' && !!strangerConvo?.message, strangerConvo?.type);
+
+  // Per-name VOICE registry: Roxy and Bijou resolve to their own registers, anyone
+  // else to the neutral default, and every register carries the full set of pools.
+  check('voice: Roxy resolves to her own register', _test.voiceOf({ name: 'Roxy' }) === _test.VOICE.roxy);
+  check('voice: Bijou resolves to her own register', _test.voiceOf({ name: 'Bijou' }) === _test.VOICE.bijou);
+  check('voice: an unknown consort falls back to default', _test.voiceOf({ name: 'Someone Else' }) === _test.VOICE.default);
+  const VOICE_KEYS = ['devotedTame', 'devotedHot', 'arousedTame', 'arousedHot', 'shy', 'worried'];
+  let voiceBad = null;
+  for (const [vname, v] of Object.entries(_test.VOICE)) {
+    for (const key of VOICE_KEYS) {
+      if (!Array.isArray(v[key]) || v[key].length === 0 || !v[key].every(l => typeof l === 'string' && l.trim())) {
+        voiceBad = `${vname}.${key}`; break;
+      }
+    }
+    if (voiceBad) break;
+  }
+  check('voice: every register carries every pool, all non-empty', voiceBad === null, voiceBad || '');
+
   // Two-hander threads are well-formed 'R'/'B' pairs (both voices, balanced quotes).
   for (const [poolName, pool] of [['private', _test.PAIR_PRIVATE], ['with-keeper', _test.PAIR_WITH_KEEPER]]) {
     check(`banter: ${poolName} pool has threads`, Array.isArray(pool) && pool.length > 0, `${pool?.length}`);
@@ -50,6 +80,26 @@ export default async function regress({ check }) {
     check(`banter: ${poolName} threads are well-formed two-handers`, bad === null, bad ? JSON.stringify(bad).slice(0, 120) : '');
   }
 
+  // Fellatio threads (their signature act) are well-formed [who, tame, hot] turns:
+  // solo threads use only 'A', duo threads use 'A' and 'B', both variants non-empty
+  // with balanced quotes and a name-template slot.
+  for (const [poolName, pool, roles] of [
+    ['solo', _test.FELLATIO_SOLO, new Set(['A'])],
+    ['duo',  _test.FELLATIO_DUO,  new Set(['A', 'B'])],
+  ]) {
+    check(`fellatio: ${poolName} pool has threads`, Array.isArray(pool) && pool.length > 0, `${pool?.length}`);
+    let bad = null;
+    for (const thread of pool) {
+      const ok = Array.isArray(thread) && thread.length >= 2 && thread.every(t =>
+        Array.isArray(t) && t.length === 3 && roles.has(t[0])
+        && typeof t[1] === 'string' && t[1].includes('§') && (t[1].match(/"/g) || []).length % 2 === 0
+        && typeof t[2] === 'string' && t[2].includes('§') && (t[2].match(/"/g) || []).length % 2 === 0);
+      const usesBoth = poolName === 'duo' ? thread.some(t => t[0] === 'A') && thread.some(t => t[0] === 'B') : true;
+      if (!(ok && usesBoth)) { bad = thread; break; }
+    }
+    check(`fellatio: ${poolName} threads are well-formed`, bad === null, bad ? JSON.stringify(bad).slice(0, 120) : '');
+  }
+
   // Beckon / dismiss are keeper-only: nobody's consorts answer to a stranger.
   check('consortsOf: bogus handle owns no consorts', _test.consortsOf('__nobody__').length === 0);
 
@@ -58,6 +108,26 @@ export default async function regress({ check }) {
   check('beckon: stranger is refused', beckonDenied?.type === 'error' && /answers to you/i.test(beckonDenied.message || ''), beckonDenied?.message);
   const dismissDenied = await _test.cmdDismiss([], 'dismiss', stranger);
   check('dismiss: stranger is refused', dismissDenied?.type === 'error' && /answers to you/i.test(dismissDenied.message || ''), dismissDenied?.message);
+
+  // Pour is keeper-gated: a stranger with no consort present is refused, and there's
+  // no bar to pour from out in the void.
+  const pourDenied = await _test.cmdPour([], 'pour', stranger);
+  check('pour: stranger with no consort is refused', pourDenied?.type === 'error' && /pour for you|answers to/i.test(pourDenied.message || ''), pourDenied?.message);
+  check('pour: barIn finds no bar in an empty zone', _test.barIn('zone_nowhere') === null);
+
+  // Every voice carries pour pools, and each line renders the drink phrase it's given.
+  let pourBad = null;
+  for (const [vname, v] of Object.entries(_test.VOICE)) {
+    for (const key of ['pourTame', 'pourHot']) {
+      const pool = v[key];
+      if (!Array.isArray(pool) || pool.length === 0
+        || !pool.every(fn => typeof fn === 'function' && /a test cocktail/.test(String(fn('a test cocktail') || '')))) {
+        pourBad = `${vname}.${key}`; break;
+      }
+    }
+    if (pourBad) break;
+  }
+  check('pour: every register carries pour pools that render the drink', pourBad === null, pourBad || '');
 
   // retreatConsorts leaves an already-tucked-away consort untouched (home==here).
   const tucked = { name: 'Fake', home_zone: 'zone_boudoir_x', zone_id: 'zone_boudoir_x', flags: { consort: true } };

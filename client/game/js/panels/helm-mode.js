@@ -26,7 +26,7 @@ export function helmSetContacts(list) { _helm?.ctrl?.setContacts(list); }
 export function helmEndTransit(gx, gy) { _helm?.ctrl?.endTransit(gx, gy); }
 // The server confirms a passage's true vector (direction + tile count) so the chase view glides her
 // the whole distance — fired for the telegraph AND a typed `sail`, so either path animates the helm.
-export function helmBeginTransit(dir, tiles, ms, cruise) { _helm?.ctrl?.beginTransit(dir, ms, ms, tiles, cruise); }
+export function helmBeginTransit(dir, tiles, ms, cruise, path) { _helm?.ctrl?.beginTransit(dir, ms, ms, tiles, cruise, path); }
 
 export function ensureHelmStyles() {
   // Reuse the tag if present, but ALWAYS rewrite its content — never early-return. A stale style
@@ -37,9 +37,12 @@ export function ensureHelmStyles() {
   s.textContent = `
     /* Takes over the area pane like the flight sim — the sidebar, top bar and log stay put. Fills
        the pane's height the way the glass cockpit does; the ⛶ chip toggles true OS fullscreen. */
-    #area-content:has(.helm-root){ height:100%; }
-    .helm-root{ position:relative; width:100%; height:100%; min-height:420px; overflow:hidden;
-      --hs:1;   /* console scale — driven down by a ResizeObserver on short panes so the ship stays clear */
+    /* The helm OWNS the pane — it must never scroll (a scroll steals the orbit drag and can float the
+       console off the ship). Pin the pane + root: no overflow, no touch-scroll/overscroll chaining, so
+       everything always fits and a drag on the sea always orbits. */
+    #area-content:has(.helm-root){ height:100%; overflow:hidden; overscroll-behavior:contain; touch-action:none; }
+    .helm-root{ position:relative; width:100%; height:100%; min-height:420px; overflow:hidden; overscroll-behavior:contain; touch-action:none;
+      --hs:1;   /* console scale — a fixed constant (desktop-only); the transparent dash keeps the ship clear at any pane size */
       --accent:#5ccfe0; --accent-hi:#bdf1f8; --accent-lo:#2b8b99; --chart:#4fd0e0;
       --hpanel:#0e141b; --hink:#e2edf3; --hdim:#8ba0ae; --stbd:#35d07a;
       --steel:#c3cdd6; --steel-hi:#eff4f8; --steel-lo:#5c6670;
@@ -47,7 +50,7 @@ export function ensureHelmStyles() {
       --hcarbon:repeating-linear-gradient(45deg,#12161b 0 3px,#0d1116 3px 6px),repeating-linear-gradient(-45deg,rgba(44,52,61,.5) 0 3px,transparent 3px 6px);
       font-family:var(--hsans); color:var(--hink); border-radius:8px; background:#04070c; }
     .helm-root:fullscreen{ height:100vh; border-radius:0; }
-    .helm-chase{ position:absolute; inset:0; z-index:0; }
+    .helm-chase{ position:absolute; inset:0; z-index:0; touch-action:none; }   /* orbit drag lives here — never let a touch become a scroll/pan */
     .helm-chase canvas{ cursor:grab; } .helm-chase canvas:active{ cursor:grabbing; }
     .helm-placard{ position:absolute; top:12px; left:14px; z-index:6; display:flex; align-items:center; gap:9px; pointer-events:none; }
     .helm-placard .m{ width:20px; height:20px; border-radius:50%; border:1.5px solid var(--accent);
@@ -68,50 +71,116 @@ export function ensureHelmStyles() {
        behind the console lip; the NAV chart + digital instruments + engine telegraph
        are milled into the face. Cool cyan HUD glass on brushed steel + carbon fibre. */
     .helm-dash{ position:absolute; left:0; right:0; bottom:0; z-index:5; }
-    /* Inline (non-fullscreen): NO brushed-metal panel — the wheel + telegraph + readouts just FLOAT
-       over the water. The full machined console only materialises in fullscreen (below), where there's
-       room for the whole helm station. So .helm-console is transparent by default. */
-    .helm-console{ position:relative; padding-bottom:env(safe-area-inset-bottom); }
-    /* Fullscreen: the real brushed-titanium station — fine vertical grain over a top-lit gunmetal body */
-    body.helm-fullscreen .helm-console{
+    /* The console is now a single machined BLACK-GLASS station in every state — an expensive slab of
+       obsidian glass milled with an accent hairline along its lip, so the helm reads as one designed
+       object floating over the water rather than a scatter of controls. A soft top glow lifts it off
+       the sea; the accent seam catches the eye. Fullscreen just deepens it. */
+    /* Windowed (non-fullscreen): the console slab is FULLY TRANSPARENT so it never darkens the water
+       or hides the Echelon — the ship reads clean through it. The frosted instrument wings + telegraph
+       carry their own backdrop-glass, so the readouts stay legible with no slab behind them. Only the
+       accent lip seam (::before) marks the console's edge. Fullscreen re-adds the smoked-glass slab. */
+    .helm-console{ position:relative; padding:6px 0 calc(6px + env(safe-area-inset-bottom)); border-radius:16px 16px 0 0;
+      background:none; box-shadow:none; }
+    /* a bright accent seam runs the lip — the money line that says "this cost something" */
+    .helm-console::before{ content:''; position:absolute; left:8%; right:8%; top:0; height:1px; pointer-events:none;
+      background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--accent) 20%,transparent) 18%,var(--accent-hi) 50%,color-mix(in srgb,var(--accent) 20%,transparent) 82%,transparent);
+      box-shadow:0 0 10px color-mix(in srgb,var(--accent) 60%,transparent); opacity:.85; }
+    body.helm-fullscreen .helm-console{ border-radius:0;
       background:
-        linear-gradient(180deg,rgba(255,255,255,.10) 0,rgba(255,255,255,0) 3px),
-        repeating-linear-gradient(90deg,rgba(255,255,255,.045) 0 1px,rgba(0,0,0,.05) 1px 2px,transparent 2px 4px),
-        radial-gradient(140% 120% at 50% -10%,#3a4149 0,#242a31 32%,#161a20 66%,#0c0f14 100%);
-      border-top:1px solid rgba(0,0,0,.7);
-      box-shadow:inset 0 1px 0 rgba(255,255,255,.16), inset 0 -1px 0 rgba(0,0,0,.6), 0 -14px 34px rgba(0,0,0,.55); }
-    /* a thin machined steel seam catches light on the lip — fullscreen only, with the panel */
-    body.helm-fullscreen .helm-console::before{ content:''; position:absolute; left:0; right:0; top:1px; height:1px; pointer-events:none;
-      background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--steel) 40%,transparent) 22%,color-mix(in srgb,var(--steel-hi) 75%,transparent) 50%,color-mix(in srgb,var(--steel) 40%,transparent) 78%,transparent 96%);
-      opacity:.7; }
+        linear-gradient(180deg,color-mix(in srgb,var(--accent) 11%,transparent) 0,transparent 30%),
+        radial-gradient(160% 140% at 50% -20%,rgba(14,21,29,.82) 0,rgba(7,11,17,.86) 42%,rgba(2,4,6,.90) 100%);
+      -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px);
+      border-top:1px solid color-mix(in srgb,var(--accent) 34%,#000);
+      box-shadow:inset 0 1px 0 color-mix(in srgb,var(--accent) 26%,transparent), inset 0 -1px 0 #000, 0 -22px 54px rgba(0,0,0,.8); }
     /* [ nav+position + gauges ] | WHEEL | telegraph — the wheel is the centred centrepiece, flanked
        by the instrument cluster (left) and the engine telegraph (right). The 1fr/auto/1fr columns
        keep the wheel dead-centre in the bar. All still in-bar, so the water above stays clear. */
-    .helm-console-face{ position:relative; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:calc(20px*var(--hs));
+    .helm-console-face{ position:relative; isolation:isolate; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:calc(20px*var(--hs));
       padding:calc(3px*var(--hs)) calc(26px*var(--hs)) calc(4px*var(--hs)); max-width:1280px; margin:0 auto; }
-    /* left instrument cluster: nav scope + position + the digital gauge stack, packed together */
-    .helm-left{ justify-self:start; display:flex; align-items:center; gap:calc(20px*var(--hs)); min-width:0; }
+    /* Left instrument cluster — a FROSTED TRANSLUCENT GLASS panel that floats over the sea: it really
+       blurs the water behind it (backdrop-filter), with chamfered tech-panel corners, a bright glass
+       top edge and a faint accent tint. The instruments read like they're etched into a slab of smoked
+       glass. */
+    .helm-left{ justify-self:start; display:flex; align-items:center; gap:calc(16px*var(--hs)); min-width:0; position:relative;
+      padding:calc(9px*var(--hs)) calc(18px*var(--hs));
+      background:linear-gradient(180deg,rgba(150,205,225,.10),rgba(8,14,20,.14) 60%,rgba(4,8,12,.20));
+      -webkit-backdrop-filter:blur(7px) saturate(1.2); backdrop-filter:blur(7px) saturate(1.2);
+      clip-path:polygon(15px 0,100% 0,100% calc(100% - 15px),calc(100% - 15px) 100%,0 100%,0 15px);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.20), 0 8px 22px rgba(0,0,0,.42); }
+    /* accent sheen + a hairline that follows the chamfered glass edge */
+    .helm-left::before{ content:''; position:absolute; inset:0; pointer-events:none; clip-path:inherit;
+      background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 20%,transparent),transparent 42%),
+        linear-gradient(0deg,color-mix(in srgb,var(--accent) 10%,transparent),transparent 30%);
+      mix-blend-mode:screen; opacity:.7; }
     /* faint carbon-fibre weave milled into the console face — fullscreen only (part of the panel) */
     body.helm-fullscreen .helm-console-face::before{ content:''; position:absolute; inset:0; pointer-events:none; opacity:.14;
       background:var(--hcarbon); background-size:6px 6px,6px 6px; mix-blend-mode:overlay; }
+    /* ── Brushed-metal binnacle — a machined plinth the wheel rises out of. A trapezoid of vertical
+       brushed-titanium grain with a beveled accent top lip; sits behind the wheel canvas so the ship's
+       wheel emerges from a real turned-metal column, not thin air. Cool shape via the clip-path. */
+    .helm-col::before{ content:''; position:absolute; left:50%; bottom:0; transform:translateX(-50%); z-index:-1; pointer-events:none;
+      width:calc(196px*var(--hs)); height:calc(84px*var(--hs));
+      background:
+        repeating-linear-gradient(90deg,rgba(255,255,255,.06) 0 1px,rgba(0,0,0,.10) 1px 2px,transparent 2px 3px),
+        linear-gradient(180deg,#454e58 0,#2b333c 46%,#161c23 100%);
+      clip-path:polygon(20% 0,80% 0,100% 100%,0 100%);
+      border-top:1px solid color-mix(in srgb,var(--accent) 45%,transparent);
+      box-shadow:inset 0 2px 0 rgba(255,255,255,.28), inset 0 -6px 14px rgba(0,0,0,.6), 0 -3px 16px rgba(0,0,0,.5); }
+    /* the accent lip glows along the top bevel of the binnacle */
+    .helm-col::after{ content:''; position:absolute; left:50%; bottom:calc(83px*var(--hs)); transform:translateX(-50%); z-index:-1; pointer-events:none;
+      width:calc(118px*var(--hs)); height:2px; border-radius:2px;
+      background:linear-gradient(90deg,transparent,var(--accent-hi),transparent); box-shadow:0 0 10px color-mix(in srgb,var(--accent) 70%,transparent); opacity:.8; }
+    /* A brushed-titanium band milled across the CENTRE of the console face (behind the wheel/binnacle),
+       chamfered at both ends — the solid "brushed metal area" the glass wings flank. Kept central so
+       the frosted panels either side stay over open, translucent console with the sea shimmering behind. */
+    .helm-console-face::after{ content:''; position:absolute; left:34%; right:34%; bottom:calc(3px*var(--hs)); height:calc(52px*var(--hs)); z-index:-1; pointer-events:none;
+      background:
+        repeating-linear-gradient(90deg,rgba(255,255,255,.045) 0 1px,rgba(0,0,0,.06) 1px 2px,transparent 2px 4px),
+        linear-gradient(180deg,#2a323b 0,#181e25 55%,#0b0f14 100%);
+      clip-path:polygon(26px 0,calc(100% - 26px) 0,100% 100%,0 100%);
+      border-top:1px solid color-mix(in srgb,var(--accent) 22%,rgba(255,255,255,.12));
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.16), 0 -2px 12px rgba(0,0,0,.5); }
 
-    /* NAV chart — top-down basin scope with the Echelon blip */
-    .helm-nav{ display:flex; align-items:center; gap:12px; }
-    .helm-nav-scope{ position:relative; width:calc(112px*var(--hs)); height:calc(80px*var(--hs)); border-radius:9px; flex:0 0 auto;
-      background:linear-gradient(180deg,#03151b,#010a0e); overflow:hidden;
-      border:1px solid color-mix(in srgb,var(--chart) 32%,#000);
-      box-shadow:inset 0 0 22px rgba(0,0,0,.85), inset 0 0 8px color-mix(in srgb,var(--chart) 16%,transparent), 0 1px 0 rgba(255,255,255,.06); }
+    /* NAV chart — top-down basin scope, sunk into a raised machined bezel so it reads as a real
+       recessed radar screen: a black chamfered frame with corner bolts, the screen dropped below the
+       lip with a deep inner shadow + accent rim glow. The bezel is the expensive frame; the scope is
+       the glass. Clicking it opens the full chart popup (the touch target for plotting a course). */
+    .helm-nav{ display:flex; align-items:center; gap:14px; }
+    .helm-nav-bezel{ position:relative; flex:0 0 auto; padding:calc(7px*var(--hs)); border-radius:14px; cursor:pointer;
+      background:
+        radial-gradient(circle at calc(7px*var(--hs)) calc(7px*var(--hs)),#2a3138 0 1.4px,transparent 1.7px),
+        radial-gradient(circle at calc(100% - 7px*var(--hs)) calc(7px*var(--hs)),#2a3138 0 1.4px,transparent 1.7px),
+        radial-gradient(circle at calc(7px*var(--hs)) calc(100% - 7px*var(--hs)),#2a3138 0 1.4px,transparent 1.7px),
+        radial-gradient(circle at calc(100% - 7px*var(--hs)) calc(100% - 7px*var(--hs)),#2a3138 0 1.4px,transparent 1.7px),
+        linear-gradient(180deg,#141a21,#090d12 70%,#05080b);
+      border:1px solid #000;
+      box-shadow:0 1px 0 color-mix(in srgb,var(--accent) 22%,transparent), inset 0 1px 0 rgba(255,255,255,.05), 0 3px 8px rgba(0,0,0,.6); }
+    .helm-nav-bezel:hover{ box-shadow:0 1px 0 color-mix(in srgb,var(--accent) 40%,transparent), inset 0 1px 0 rgba(255,255,255,.06), 0 0 12px color-mix(in srgb,var(--accent) 30%,transparent); }
+    .helm-nav-scope{ position:relative; width:calc(126px*var(--hs)); height:calc(84px*var(--hs)); border-radius:8px; overflow:hidden;
+      background:radial-gradient(120% 130% at 50% 26%,#04181f 0,#020c11 55%,#010609 100%);
+      box-shadow:
+        0 0 0 1px color-mix(in srgb,var(--chart) 26%,#000),
+        inset 0 0 26px rgba(0,0,0,.94), inset 0 0 11px color-mix(in srgb,var(--chart) 20%,transparent),
+        inset 0 3px 7px rgba(0,0,0,.9); }
     .helm-nav-scope canvas{ display:block; width:100%; height:100%; }
-    /* faint horizontal scanlines over the scope for a CRT feel */
+    /* curved-glass glare + faint horizontal scanlines over the screen for a CRT feel */
+    .helm-nav-scope::before{ content:''; position:absolute; inset:0; pointer-events:none; z-index:3; border-radius:8px;
+      background:radial-gradient(120% 80% at 50% -10%,rgba(255,255,255,.08),transparent 60%); }
     .helm-nav-scope::after{ content:''; position:absolute; inset:0; pointer-events:none;
-      background:repeating-linear-gradient(0deg,rgba(0,0,0,.22) 0 1px,transparent 1px 3px); mix-blend-mode:multiply; }
-    .helm-nav-tag{ position:absolute; left:7px; top:6px; font-family:var(--hmono); font-size:8px; letter-spacing:2px;
-      color:color-mix(in srgb,var(--chart) 82%,#fff); text-shadow:0 0 6px color-mix(in srgb,var(--chart) 70%,transparent); z-index:2; }
+      background:repeating-linear-gradient(0deg,rgba(0,0,0,.24) 0 1px,transparent 1px 3px); mix-blend-mode:multiply; }
+    .helm-nav-tag{ position:absolute; left:7px; top:6px; font-family:var(--hmono); font-size:8px; letter-spacing:2px; z-index:4;
+      color:color-mix(in srgb,var(--chart) 82%,#fff); text-shadow:0 0 6px color-mix(in srgb,var(--chart) 70%,transparent); }
+    .helm-nav-hint{ position:absolute; right:6px; bottom:5px; font-family:var(--hmono); font-size:7px; letter-spacing:1.5px; z-index:4;
+      color:color-mix(in srgb,var(--accent) 66%,var(--hdim)); opacity:.85; }
 
     /* Digital instrument readouts — recessed HUD glass, cyan phosphor. Sized off --hs so the readouts
-       (which drive the bar's HEIGHT) shrink WITH the rest of the station — so the ⊟ compact toggle
-       shortens the whole bar, not just the wheel/telegraph. */
+       (which drive the bar's HEIGHT) scale WITH the rest of the station as one machined object. */
     .helm-gauges{ display:grid; grid-template-columns:repeat(2,1fr); gap:calc(9px*var(--hs)); }
+    /* Right wing — the ETA/status gauge stack riding beside the engine telegraph. Kept a single
+       column so the two readouts sit tall against the telegraph, balancing the nav+heading cluster
+       on the left. */
+    .helm-right{ justify-self:end; grid-column:3; display:flex; align-items:stretch; gap:calc(14px*var(--hs)); min-width:0; }
+    .helm-gauges.rt{ grid-template-columns:1fr; align-content:center; min-width:calc(112px*var(--hs)); }
     .helm-readout{ position:relative; padding:calc(6px*var(--hs)) calc(11px*var(--hs)) calc(7px*var(--hs)); border-radius:8px; overflow:hidden;
       background:linear-gradient(180deg,#05171d 0,#020a0e 100%);
       border:1px solid color-mix(in srgb,var(--chart) 26%,#000);
@@ -148,26 +217,65 @@ export function ensureHelmStyles() {
       background:rgba(4,7,11,.6); padding:1px 8px; border-radius:4px; }
 
     /* Engine telegraph — a milled steel lever in a carbon slot, right of the console */
-    .helm-tele{ display:flex; flex-direction:column; align-items:center; gap:6px; user-select:none; justify-self:end; grid-column:3; }
-    .helm-tele-track{ position:relative; width:calc(54px*var(--hs)); height:calc(92px*var(--hs)); border-radius:11px;
-      background:var(--hcarbon),linear-gradient(180deg,#0f1319,#05080c); background-size:6px 6px,6px 6px,auto;
-      border:1px solid color-mix(in srgb,var(--steel) 32%,#000);
-      box-shadow:inset 0 2px 10px rgba(0,0,0,.85),0 1px 0 rgba(255,255,255,.08); overflow:hidden; }
-    .helm-tele-track::before{ content:''; position:absolute; left:50%; top:14px; bottom:14px; width:6px; transform:translateX(-50%);
-      border-radius:4px; background:linear-gradient(180deg,#04060a,#141922); box-shadow:inset 0 0 5px rgba(0,0,0,.95); }
-    .helm-tele-mark{ position:absolute; left:0; right:0; text-align:center; font-family:var(--hmono); font-size:8px; letter-spacing:2px; color:var(--hdim); pointer-events:none; z-index:2; }
-    .helm-tele-mark.ahead{ top:7px; color:var(--stbd); } .helm-tele-mark.stop{ bottom:7px; }
+    /* Engine telegraph — housed in its own frosted-glass panel (matching the instrument cluster) so
+       the lever sits in a slab of smoked glass over the sea, chamfered to match. */
+    .helm-tele{ display:flex; flex-direction:column; align-items:center; gap:7px; user-select:none; position:relative;
+      padding:calc(9px*var(--hs)) calc(16px*var(--hs));
+      background:linear-gradient(180deg,rgba(150,205,225,.10),rgba(8,14,20,.14) 60%,rgba(4,8,12,.20));
+      -webkit-backdrop-filter:blur(7px) saturate(1.2); backdrop-filter:blur(7px) saturate(1.2);
+      clip-path:polygon(15px 0,100% 0,100% calc(100% - 15px),calc(100% - 15px) 100%,0 100%,0 15px);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.20), 0 8px 22px rgba(0,0,0,.42); }
+    .helm-tele::before{ content:''; position:absolute; inset:0; pointer-events:none; clip-path:inherit; z-index:0;
+      background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 20%,transparent),transparent 42%); mix-blend-mode:screen; opacity:.7; }
+    .helm-tele > *{ position:relative; z-index:1; }
+    /* A big, commanding engine telegraph — a taller, wider machined slot so the lever reads as the
+       primary "get underway" control, not an afterthought. Black carbon body, accent-lit when engaged. */
+    .helm-tele-track{ position:relative; width:calc(74px*var(--hs)); height:calc(132px*var(--hs)); border-radius:13px;
+      background:var(--hcarbon),linear-gradient(180deg,#0c1016,#04070b); background-size:6px 6px,6px 6px,auto;
+      border:1px solid color-mix(in srgb,var(--accent) 22%,#000);
+      box-shadow:inset 0 2px 12px rgba(0,0,0,.9),0 1px 0 color-mix(in srgb,var(--accent) 16%,transparent); overflow:hidden; }
+    .helm-tele-track::before{ content:''; position:absolute; left:50%; top:18px; bottom:18px; width:8px; transform:translateX(-50%);
+      border-radius:5px; background:linear-gradient(180deg,#03050a,#111722); box-shadow:inset 0 0 6px rgba(0,0,0,.95); }
+    .helm-tele-mark{ position:absolute; left:0; right:0; text-align:center; font-family:var(--hmono); font-size:9px; letter-spacing:2.5px; color:var(--hdim); pointer-events:none; z-index:2; }
+    .helm-tele-mark.ahead{ top:9px; color:var(--stbd); } .helm-tele-mark.stop{ bottom:9px; }
     /* brushed-steel knob: fine vertical grain + machined grip ridges */
-    .helm-tele-knob{ position:absolute; left:7px; right:7px; height:32px; top:78px; border-radius:7px; cursor:grab; touch-action:none; z-index:3;
+    .helm-tele-knob{ position:absolute; left:8px; right:8px; height:44px; top:78px; border-radius:9px; cursor:grab; touch-action:none; z-index:3;
       background:repeating-linear-gradient(90deg,rgba(255,255,255,.14) 0 1px,rgba(0,0,0,.10) 1px 2px,transparent 2px 3px),linear-gradient(180deg,var(--steel-hi),var(--steel) 52%,var(--steel-lo));
-      border:1px solid #20262c; box-shadow:0 3px 8px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.7),inset 0 -2px 4px rgba(0,0,0,.4); }
-    .helm-tele-knob::after{ content:''; position:absolute; left:6px; right:6px; top:50%; height:7px; transform:translateY(-50%);
-      background:repeating-linear-gradient(90deg,rgba(0,0,0,.42) 0 2px,rgba(255,255,255,.12) 2px 3px,transparent 3px 4px); border-radius:2px; }
+      border:1px solid #20262c; box-shadow:0 4px 10px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.7),inset 0 -2px 5px rgba(0,0,0,.4); }
+    .helm-tele-knob::after{ content:''; position:absolute; left:8px; right:8px; top:50%; height:9px; transform:translateY(-50%);
+      background:repeating-linear-gradient(90deg,rgba(0,0,0,.42) 0 2px,rgba(255,255,255,.12) 2px 3px,transparent 3px 4px); border-radius:3px; }
     .helm-tele-knob:active{ cursor:grabbing; }
     .helm-tele.engaged .helm-tele-knob{ cursor:not-allowed; box-shadow:0 0 14px var(--stbd),0 3px 8px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.7); }
     .helm-tele.engaged .helm-tele-track{ border-color:var(--stbd); box-shadow:inset 0 2px 10px rgba(0,0,0,.85),0 0 12px color-mix(in srgb,var(--stbd) 40%,transparent); }
     .helm-tele-label{ font-family:var(--hmono); font-size:8px; letter-spacing:2.5px; color:var(--hdim); text-transform:uppercase; }
     .helm-tele.warn .helm-tele-label{ color:#ff8a7a; }
+    .helm-tele.course .helm-tele-label{ color:var(--accent-hi); }
+
+    /* ── Chart popup — a tablet-styled navigation window over the whole helm ── */
+    .helm-map{ position:absolute; inset:0; z-index:20; display:none; flex-direction:column;
+      background:radial-gradient(150% 100% at 50% 0,rgba(6,12,18,.82),rgba(1,3,6,.95)); backdrop-filter:blur(7px); }
+    .helm-map.open{ display:flex; }
+    .helm-map-win{ margin:auto; width:min(600px,94%); max-height:94%; display:flex; flex-direction:column; overflow:hidden;
+      background:linear-gradient(180deg,#0a1017,#04070c); border:1px solid color-mix(in srgb,var(--accent) 32%,#000); border-radius:18px;
+      box-shadow:0 26px 70px rgba(0,0,0,.72), inset 0 1px 0 color-mix(in srgb,var(--accent) 22%,transparent), 0 0 0 1px rgba(0,0,0,.6); }
+    .helm-map-head{ display:flex; align-items:flex-start; justify-content:space-between; padding:14px 18px;
+      border-bottom:1px solid color-mix(in srgb,var(--accent) 16%,transparent); background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 8%,transparent),transparent); }
+    .helm-map-head .t{ font-family:var(--hmono); letter-spacing:3px; font-size:13px; color:var(--accent-hi); }
+    .helm-map-head .t small{ display:block; margin-top:3px; font-size:9px; letter-spacing:1.5px; color:var(--hdim); }
+    .helm-map-close{ background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.12); color:var(--hink);
+      width:30px; height:28px; border-radius:8px; cursor:pointer; font-size:13px; line-height:1; }
+    .helm-map-close:hover{ filter:brightness(1.3); }
+    .helm-map-body{ position:relative; padding:16px; }
+    .helm-map-canvas{ display:block; width:100%; border-radius:11px; background:#01080c; cursor:crosshair;
+      box-shadow:inset 0 0 34px rgba(0,0,0,.92), 0 0 0 1px color-mix(in srgb,var(--chart) 20%,#000); }
+    .helm-map-foot{ display:flex; align-items:center; gap:12px; padding:13px 18px; border-top:1px solid color-mix(in srgb,var(--accent) 16%,transparent); }
+    .helm-map-info{ flex:1; font-family:var(--hmono); font-size:11px; letter-spacing:.5px; color:var(--hdim); }
+    .helm-map-info b{ color:var(--accent-hi); }
+    .helm-map-btn{ font-family:var(--hmono); letter-spacing:2px; font-size:11px; padding:10px 18px; border-radius:10px; cursor:pointer; white-space:nowrap;
+      background:color-mix(in srgb,var(--stbd) 16%,#06121a); color:var(--stbd); border:1px solid color-mix(in srgb,var(--stbd) 45%,#000); }
+    .helm-map-btn:hover{ filter:brightness(1.25); }
+    .helm-map-btn[disabled]{ opacity:.35; cursor:not-allowed; filter:none; }
+    .helm-map-btn.ghost{ background:rgba(255,255,255,.04); color:var(--hdim); border-color:rgba(255,255,255,.12); }
 
     @media (max-width:760px){
       /* Wheel stays the centred binnacle (absolute) hanging over the bar; left cluster + telegraph
@@ -182,6 +290,9 @@ export function ensureHelmStyles() {
 
 const CARD = { 0: 'N', 45: 'NE', 90: 'E', 135: 'SE', 180: 'S', 225: 'SW', 270: 'W', 315: 'NW' };
 const HDG_TO_DIR = { 0: 'N', 45: 'NE', 90: 'E', 135: 'SE', 180: 'S', 225: 'SW', 270: 'W', 315: 'NW' };
+// Tile delta → rhumb letter (for the first leg of a charted course), used to seed the local glide.
+const DELTA_LETTER = { '0,-1': 'N', '1,-1': 'NE', '1,0': 'E', '1,1': 'SE', '0,1': 'S', '-1,1': 'SW', '-1,0': 'W', '-1,-1': 'NW' };
+const dirLetter = (dx, dy) => DELTA_LETTER[Math.sign(dx) + ',' + Math.sign(dy)] || 'N';
 const fmtETA = (ms) => { const s = Math.ceil(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 
 export function openHelm(opts = {}) {
@@ -193,6 +304,7 @@ export function openHelm(opts = {}) {
   // metal/cyan regardless of the player's global theme accent, which may be gold.
   const accent = opts.accent || '#5ccfe0';
   const onSail = opts.onSail || (() => {});
+  const onSailTo = opts.onSailTo || (() => {});   // fires the real `sailto <x> <y> <bell%>` when a charted course is engaged
   const onExit = opts.onExit || (() => {});
 
   mount.innerHTML = `
@@ -202,7 +314,7 @@ export function openHelm(opts = {}) {
       <div class="helm-chips">
         <span class="helm-chip"><b data-wx>CLEAR</b></span>
         <span class="helm-chip"><b data-time>--:--</b></span>
-        <button class="helm-icon" data-hide title="compact the console">⊟</button>
+        <button class="helm-icon" data-chart title="chart a course">🗺</button>
         <button class="helm-icon" data-fs title="fullscreen">⛶</button>
         <button class="helm-icon exit" data-exit title="leave the helm">✕</button>
       </div>
@@ -211,17 +323,20 @@ export function openHelm(opts = {}) {
           <div class="helm-console-face">
             <!-- Left instrument cluster: NAV scope + position + the digital gauge stack. -->
             <div class="helm-left">
-              <!-- NAV chart: live top-down basin chart with the Echelon's blip. -->
+              <!-- NAV chart: live top-down basin chart with the Echelon's blip. Tap to open the
+                   full chart popup and plot a course. -->
               <div class="helm-nav">
-                <div class="helm-nav-scope"><canvas data-nav></canvas><span class="helm-nav-tag">NAV · BASIN</span></div>
+                <div class="helm-nav-bezel" data-chart title="open the chart — plot a course">
+                  <div class="helm-nav-scope"><canvas data-nav></canvas><span class="helm-nav-tag">NAV · BASIN</span><span class="helm-nav-hint">TAP TO CHART</span></div>
+                </div>
                 <div class="helm-readout wide"><span class="rk">Position</span><span class="rv" data-pos>— · —</span></div>
               </div>
-              <!-- Digital instrument stack -->
+              <!-- Digital instrument stack — heading + speed live on the LEFT wing, beside the nav
+                   scope; ETA + status are on the RIGHT wing (by the telegraph) so the readouts fill
+                   both ends of the console and flank the wheel instead of piling up on one side. -->
               <div class="helm-gauges">
                 <div class="helm-readout hdg"><span class="rk">Heading</span><span class="rv big" data-hdg>N</span></div>
                 <div class="helm-readout"><span class="rk">Speed</span><span class="rv"><span data-kn>0.0</span><i>kn</i></span></div>
-                <div class="helm-readout eta idle"><span class="rk">ETA</span><span class="rv" data-eta>—</span></div>
-                <div class="helm-readout st"><span class="rk">Status</span><span class="rv sm" data-status>MOORED</span></div>
               </div>
             </div>
             <!-- Ship's wheel — the centred centrepiece, docked INSIDE the console so it never rises
@@ -233,15 +348,39 @@ export function openHelm(opts = {}) {
               <canvas class="helm-wheel"></canvas>
               <div class="cap">Course</div>
             </div>
-            <!-- Engine telegraph -->
-            <div class="helm-tele" data-tele>
-              <div class="helm-tele-track">
-                <span class="helm-tele-mark ahead">AHEAD</span>
-                <span class="helm-tele-mark stop">STOP</span>
-                <div class="helm-tele-knob" data-knob></div>
+            <!-- Right wing: ETA + status readouts sit beside the engine telegraph, so the right half
+                 of the console carries real instruments instead of dead space. -->
+            <div class="helm-right">
+              <div class="helm-gauges rt">
+                <div class="helm-readout eta idle"><span class="rk">ETA</span><span class="rv" data-eta>—</span></div>
+                <div class="helm-readout st"><span class="rk">Status</span><span class="rv sm" data-status>MOORED</span></div>
               </div>
-              <div class="helm-tele-label" data-telelabel>Engine Telegraph</div>
+              <!-- Engine telegraph -->
+              <div class="helm-tele" data-tele>
+                <div class="helm-tele-track">
+                  <span class="helm-tele-mark ahead">AHEAD</span>
+                  <span class="helm-tele-mark stop">STOP</span>
+                  <div class="helm-tele-knob" data-knob></div>
+                </div>
+                <div class="helm-tele-label" data-telelabel>Engine Telegraph</div>
+              </div>
             </div>
+          </div>
+        </div>
+      </div>
+      <!-- Chart popup — a tablet-styled basin map. Tap a water tile to plot a course around the
+           shoreline; GET UNDERWAY (or the engine telegraph) engages it. -->
+      <div class="helm-map" data-map>
+        <div class="helm-map-win">
+          <div class="helm-map-head">
+            <span class="t">NAVIGATION CHART<small>COLDWATER BASIN · tap open water to plot a course</small></span>
+            <button class="helm-map-close" data-mapclose title="close">✕</button>
+          </div>
+          <div class="helm-map-body"><canvas class="helm-map-canvas" data-mapc></canvas></div>
+          <div class="helm-map-foot">
+            <span class="helm-map-info" data-mapinfo>Tap a water tile to chart a course.</span>
+            <button class="helm-map-btn ghost" data-mapclear>CLEAR</button>
+            <button class="helm-map-btn" data-mapgo disabled>GET UNDERWAY</button>
           </div>
         </div>
       </div>
@@ -256,29 +395,17 @@ export function openHelm(opts = {}) {
     onArrive: (gx, gy) => { q('[data-pos]').textContent = gx + ' · ' + gy; },
   });
 
-  // Dynamic layout — recomputed on every pane resize (which fires on the fullscreen/hide-log toggles
-  // too, since those grow .helm-root). Two jobs:
-  //   1. --hs: the SMALLER the pane (in EITHER axis), the smaller the whole helm station (console bar
-  //      + wheel + telegraph shrink together) so the Echelon is never buried behind it.
-  //   2. Chase framing: the chase view ALWAYS fills the whole pane (full render height, so the hull
-  //      keeps its true 3D proportions — never squashed into a short canvas). The console is just an
-  //      opaque glass dash OVER the bottom of that view, so it clips the HUD, not the camera. The
-  //      camera pitch is a FIXED low sea-level angle (set below) — azimuth-only orbit, no vertical
-  //      tilt — so she always rides high on screen, clear of the dash, in every panel state.
-  let compact = false;   // the ⊟ toggle — shrinks the console + pins it low, WITHOUT touching the camera
-  const rescale = () => {
-    const w = root.clientWidth || 0, h = root.clientHeight || 0;
-    const byH = (h - 150) / 560;   // ~1 at a comfortable height
-    const byW = w / 1180;          // ~1 at the console's natural full width
-    const base = Math.max(0.55, Math.min(1, Math.min(byH, byW)));
-    root.style.setProperty('--hs', (base * (compact ? 0.6 : 1)).toFixed(3));   // compact just scales the dash down; the chase view is full-pane regardless
-    // Fixed low sea-level elevation — always the same angle so she rides high on screen, clear of the
-    // dash, in every panel state. The orbit is azimuth-only (helm-view), so this pitch never changes.
-    ctrl.setRestPitch(0.10);
-  };
-  const ro = ('ResizeObserver' in window) ? new ResizeObserver(rescale) : null;
-  ro ? ro.observe(root) : addEventListener('resize', rescale);
-  rescale();
+  // Fixed layout — the helm is desktop-only and size-agnostic. The console is a PHYSICAL object at ONE
+  // fixed size (--hs) that never morphs with the pane; it reads correctly at any panel size and in
+  // fullscreen because the windowed dash is fully TRANSPARENT (only the frosted instrument wings +
+  // telegraph carry their own glass), so it never buries the Echelon no matter how short the pane.
+  // The chase view always fills the whole pane (full render height, so the hull keeps its true 3D
+  // proportions), with the dash floating over its bottom edge. The camera pitch is a FIXED elevated
+  // chase angle — the eye rides up-and-over her stern looking DOWN onto the deck, so the hull sits in
+  // the water band off the horizon, clear of both the dash and the centred wheel; azimuth-only orbit,
+  // no vertical tilt, so she frames the same in every panel state. (Mobile gets its own interface.)
+  root.style.setProperty('--hs', '0.92');
+  ctrl.setRestPitch(0.58);
   // Dev tuning handle: from the browser console you can dial the resting chase framing live —
   //   __helmCtrl.setPose({ yaw: 34, pitch: 0.16, zoom: 1.7 })   // then read __helmCtrl.pose()
   // Find the framing you like, tell me the numbers, and I bake them into REST (helm-view.js).
@@ -289,7 +416,9 @@ export function openHelm(opts = {}) {
   // The wheel is a DIRECTION control: its spin steers the demanded course by that much (clockwise =
   // right, counter-clockwise = left) and she swings slowly toward it; the hub needle reads her actual
   // heading as she comes round.
-  const wheel = createHelmWheel(q('.helm-wheel'), { accent, gear: 8, onSteer: (deg) => ctrl.steerBy(deg), getHeading: () => ctrl.heading() });
+  // Grabbing the wheel to steer by hand overrides any course armed from the chart — so the telegraph
+  // then does a plain direction-sail on the wheel's heading, not the stale plotted course.
+  const wheel = createHelmWheel(q('.helm-wheel'), { accent, gear: 8, onSteer: (deg) => { if (plannedTarget) clearCourse(); ctrl.steerBy(deg); }, getHeading: () => ctrl.heading() });
 
   // ── NAV chart — a live top-down basin scope drawn from the chase view's own world window
   // (ctrl.mapSnapshot): land/piers slate, water the dark teal ground, the Echelon a cyan chevron
@@ -331,6 +460,14 @@ export function openHelm(opts = {}) {
     grad.addColorStop(0, 'rgba(79,208,224,0.26)'); grad.addColorStop(1, 'rgba(79,208,224,0)');
     navCtx.fillStyle = grad; navCtx.beginPath(); navCtx.moveTo(0, 0); navCtx.arc(0, 0, h * 0.5, -0.32, 0); navCtx.closePath(); navCtx.fill();
     navCtx.restore();
+    // Charted (planned, dashed cyan) or active (solid green) course, mirroring the popup chart.
+    const navLine = snap.path || snap.plannedPath;
+    if (navLine && navLine.length >= 2) {
+      navCtx.strokeStyle = snap.path ? 'rgba(53,208,122,0.9)' : 'rgba(189,241,248,0.85)';
+      navCtx.lineWidth = 1.4; navCtx.setLineDash(snap.path ? [] : [3, 3]); navCtx.lineJoin = 'round';
+      navCtx.beginPath(); navLine.forEach(([ax, ay], i) => { const x = cx + (ax - snap.gx) * cw + sx, y = cy + (ay - snap.gy) * ch + sy; i ? navCtx.lineTo(x, y) : navCtx.moveTo(x, y); }); navCtx.stroke();
+      navCtx.setLineDash([]);
+    }
     // Own-ship blip — a glowing cyan chevron pointing along her heading.
     navCtx.save(); navCtx.translate(cx, cy); navCtx.rotate((snap.heading || 0) * Math.PI / 180);
     navCtx.fillStyle = '#c7f3fa'; navCtx.shadowColor = '#5ccfe0'; navCtx.shadowBlur = snap.sailing ? 10 : 6;
@@ -389,19 +526,43 @@ export function openHelm(opts = {}) {
   // Full Ahead reaches the same tile in a fraction of a Dead-Slow passage). It holds where you set it
   // while under way and springs to STOP the moment she arrives.
   const tele = q('[data-tele]'), knob = q('[data-knob]'), track = q('.helm-tele-track'), teleLabel = q('[data-telelabel]');
-  const KNOBH = 34, PAD = 8;
+  const KNOBH = 44, PAD = 8;
   const MS_PER_TILE = () => 2500;   // single speed (slow == fast), mirrors the server (local placeholder timing only)
   const cruiseFor = (t) => 0.35 + 0.65 * t;                // mirrors the server's visual bell (wake/water/knots)
   const throttleFor = (c) => Math.max(0, Math.min(1, (c - 0.35) / 0.65));   // invert: cruise → knob position
   const bellName = (p) => p < 0.34 ? 'Dead Slow' : p < 0.67 ? 'Half Ahead' : 'Full Ahead';
   let knobP = 0, teleDrag = false, engaged = false;
+  // An armed charted course from the chart popup: { gx, gy } absolute destination. While armed, pushing
+  // the telegraph steams the whole pathfound course (sailto) instead of the wheel's locked direction.
+  let plannedTarget = null;
   const setKnob = (p) => { knobP = Math.max(0, Math.min(1, p)); const rng = track.clientHeight - KNOBH - PAD * 2; knob.style.top = (PAD + (1 - knobP) * rng) + 'px'; };
   function setUnderway(on) {
     engaged = on; tele.classList.toggle('engaged', on); wheel.setEnabled(!on);
     teleLabel.textContent = on ? ('Ahead — ' + bellName(knobP)) : 'Engine Telegraph';
-    if (!on) setKnob(0);   // arrived / moored → lever springs back to STOP (engaging leaves it where set)
+    if (!on) setKnob(0);   // arrived / moored / stopped → lever springs back to STOP (engaging leaves it where set)
+  }
+  // Steam an armed charted course: fire the real `sailto`, and optimistically begin the local glide
+  // along the previewed path so the chase view moves at once (the server's helm_underway corrects it).
+  function engageCourse(bellFrac) {
+    if (!plannedTarget) return;
+    const t = Math.max(0.15, Math.min(1, bellFrac));
+    const target = plannedTarget, plan = ctrl.plannedCourse();
+    // Optimistic UI FIRST, then the network send — so the throttle/boat respond instantly and a hiccup
+    // in the send can't leave them frozen (the server's helm_underway just corrects the local glide).
+    setKnob(t);
+    if (plan && plan.length >= 2) {
+      const dir = dirLetter(plan[1][0] - plan[0][0], plan[1][1] - plan[0][1]);
+      const estMs = (plan.length - 1) * 5000;   // course pace (5 s/leg); server confirms exact ms via helm_underway
+      ctrl.beginTransit(dir, estMs, estMs, plan.length - 1, cruiseFor(t), plan);
+    }
+    plannedTarget = null; tele.classList.remove('course');
+    setUnderway(true);
+    closeChart();
+    onSailTo(target.gx, target.gy, Math.round(t * 100));
   }
   function tryEngage() {
+    // A charted course wins: the map has already picked the heading, so steam it regardless of the wheel.
+    if (plannedTarget) { engageCourse(Math.max(0.15, knobP)); return; }
     const dir = ctrl.readyDir();
     if (!dir) { setKnob(0); tele.classList.add('warn'); teleLabel.textContent = 'Steady the helm'; setTimeout(() => { tele.classList.remove('warn'); if (!engaged) teleLabel.textContent = 'Engine Telegraph'; }, 1400); return; }
     const t = Math.max(0, Math.min(1, knobP));
@@ -417,6 +578,109 @@ export function openHelm(opts = {}) {
   addEventListener('pointermove', teleMove); addEventListener('pointerup', teleUp);
   setKnob(0);
 
+  // ── Chart popup — a tablet-styled basin map you tap to plot a course around the shoreline ──
+  // Client-side A* over the visible world window gives an instant course preview; engaging it fires
+  // the real `sailto`, and the server re-charts authoritatively (its path corrects the local glide).
+  const mapOverlay = q('[data-map]'), mapCanvas = q('[data-mapc]'), mapCtx = mapCanvas.getContext('2d');
+  const mapInfo = q('[data-mapinfo]'), mapGoBtn = q('[data-mapgo]'), mapClearBtn = q('[data-mapclear]');
+  let mapOpen = false, mapRaf = 0, mapHover = null;
+  const NB8 = [[0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1]];
+  const cellWater = (rows, rx, ry) => { const c = rows[ry] && rows[ry][rx]; return !!(c && (c.biome === 'water' || !c.biome) && !c.bt); };
+  function previewCourse(rows, sx, sy, tx, ty) {
+    const N = rows.length;
+    if (tx < 0 || ty < 0 || tx >= N || ty >= N || !cellWater(rows, tx, ty) || (sx === tx && sy === ty)) return null;
+    const key = (x, y) => x * N + y;
+    const heur = (x, y) => { const dx = Math.abs(x - tx), dy = Math.abs(y - ty); return (dx + dy) + (Math.SQRT2 - 2) * Math.min(dx, dy); };
+    const start = { x: sx, y: sy, g: 0, parent: null }; start.f = heur(sx, sy);
+    const open = new Map([[key(sx, sy), start]]), closed = new Set(); let count = 0;
+    while (open.size) {
+      let cur = null; for (const n of open.values()) if (!cur || n.f < cur.f) cur = n;
+      open.delete(key(cur.x, cur.y));
+      if (cur.x === tx && cur.y === ty) { const p = []; for (let n = cur; n; n = n.parent) p.push([n.x, n.y]); return p.reverse(); }
+      closed.add(key(cur.x, cur.y));
+      if (++count > 4000) return null;
+      for (const [dx, dy] of NB8) {
+        const nx = cur.x + dx, ny = cur.y + dy;
+        if (nx < 0 || ny < 0 || nx >= N || ny >= N || closed.has(key(nx, ny)) || !cellWater(rows, nx, ny)) continue;
+        if (dx && dy && (!cellWater(rows, cur.x + dx, cur.y) || !cellWater(rows, cur.x, cur.y + dy))) continue;
+        const g = cur.g + (dx && dy ? Math.SQRT2 : 1);
+        const ex = open.get(key(nx, ny)); if (ex && ex.g <= g) continue;
+        const node = { x: nx, y: ny, g, parent: cur }; node.f = g + heur(nx, ny);
+        open.set(key(nx, ny), node);
+      }
+    }
+    return null;
+  }
+  function openChart() { if (ctrl.isBusy() || ctrl.isSailing()) return; mapOpen = true; mapOverlay.classList.add('open'); if (!mapRaf) mapRaf = requestAnimationFrame(drawChart); }
+  function closeChart() { mapOpen = false; mapOverlay.classList.remove('open'); cancelAnimationFrame(mapRaf); mapRaf = 0; }
+  function armCourse(abs) {
+    const dest = abs[abs.length - 1];
+    plannedTarget = { gx: dest[0], gy: dest[1] };
+    ctrl.setPlannedCourse(abs); tele.classList.add('course'); mapGoBtn.disabled = false;
+    mapInfo.innerHTML = `Course charted — <b>${abs.length - 1}</b> legs to <b>${dest[0]} · ${dest[1]}</b>. Get underway, or push the telegraph.`;
+  }
+  function clearCourse() {
+    plannedTarget = null; ctrl.setPlannedCourse(null); tele.classList.remove('course');
+    mapGoBtn.disabled = true; mapInfo.textContent = 'Tap a water tile to chart a course.';
+  }
+  const cellFromEvent = (e) => {
+    const snap = ctrl.mapSnapshot?.(); if (!snap) return null;
+    const rows = snap.rows || [], N = rows.length || 1, r = mapCanvas.getBoundingClientRect();
+    const rx = Math.floor((e.clientX - r.left) / (r.width / N)), ry = Math.floor((e.clientY - r.top) / (r.height / N));
+    if (rx < 0 || ry < 0 || rx >= N || ry >= N) return null;
+    return { rx, ry, rows, N, c: (N - 1) / 2, gx: snap.gx, gy: snap.gy };
+  };
+  function drawChart(now) {
+    if (mapOpen) mapRaf = requestAnimationFrame(drawChart);
+    const snap = ctrl.mapSnapshot?.(); if (!snap || !mapCtx) return;
+    const box = mapCanvas.parentElement.getBoundingClientRect(); if (!box.width) return;
+    const side = Math.min(box.width - 32, 440), dpr = Math.min(2, devicePixelRatio || 1), W = Math.max(2, Math.round(side * dpr));
+    if (mapCanvas.width !== W || mapCanvas.height !== W) { mapCanvas.width = W; mapCanvas.height = W; mapCanvas.style.height = side + 'px'; }
+    mapCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const w = side, h = side, rows = snap.rows || [], N = rows.length || 1, cen = (N - 1) / 2, cw = w / N, ch = h / N;
+    mapCtx.clearRect(0, 0, w, h);
+    for (let ry = 0; ry < N; ry++) { const row = rows[ry] || []; for (let rx = 0; rx < row.length; rx++) {
+      const cell = row[rx]; if (!cell) continue;
+      mapCtx.fillStyle = (cell.biome === 'water' || !cell.biome) ? '#06222b' : (cell.bt ? '#2c343d' : (cell.road ? '#232b33' : '#1b222a'));
+      mapCtx.fillRect(rx * cw, ry * ch, cw + 0.6, ch + 0.6);
+    } }
+    const toXY = (ax, ay) => [(cen + (ax - snap.gx) + 0.5) * cw, (cen + (ay - snap.gy) + 0.5) * ch];
+    // Hover highlight (only on navigable water).
+    if (mapHover && cellWater(rows, mapHover.rx, mapHover.ry)) {
+      mapCtx.strokeStyle = 'rgba(92,207,224,0.7)'; mapCtx.lineWidth = 1.5;
+      mapCtx.strokeRect(mapHover.rx * cw + 0.5, mapHover.ry * ch + 0.5, cw - 1, ch - 1);
+    }
+    // Charted (planned) or active course polyline.
+    const line = snap.path || snap.plannedPath;
+    if (line && line.length >= 2) {
+      mapCtx.strokeStyle = snap.path ? 'rgba(53,208,122,0.95)' : 'rgba(189,241,248,0.9)';
+      mapCtx.lineWidth = 2; mapCtx.setLineDash(snap.path ? [] : [5, 4]); mapCtx.lineJoin = 'round';
+      mapCtx.beginPath(); line.forEach(([ax, ay], i) => { const [x, y] = toXY(ax, ay); i ? mapCtx.lineTo(x, y) : mapCtx.moveTo(x, y); }); mapCtx.stroke();
+      mapCtx.setLineDash([]);
+      const [dx, dy] = toXY(line[line.length - 1][0], line[line.length - 1][1]);
+      mapCtx.fillStyle = snap.path ? '#35d07a' : '#bdf1f8'; mapCtx.beginPath(); mapCtx.arc(dx, dy, 4, 0, 7); mapCtx.fill();
+    }
+    // Own-ship chevron at centre, along heading.
+    const [ox, oy] = toXY(snap.gx + (snap.sub ? snap.sub.x : 0), snap.gy + (snap.sub ? snap.sub.y : 0));
+    mapCtx.save(); mapCtx.translate(ox, oy); mapCtx.rotate((snap.heading || 0) * Math.PI / 180);
+    mapCtx.fillStyle = '#c7f3fa'; mapCtx.shadowColor = '#5ccfe0'; mapCtx.shadowBlur = 8;
+    mapCtx.beginPath(); mapCtx.moveTo(0, -8); mapCtx.lineTo(5.5, 7); mapCtx.lineTo(0, 3.5); mapCtx.lineTo(-5.5, 7); mapCtx.closePath(); mapCtx.fill();
+    mapCtx.restore();
+  }
+  mapCanvas.addEventListener('pointermove', (e) => { const cell = cellFromEvent(e); mapHover = cell ? { rx: cell.rx, ry: cell.ry } : null; });
+  mapCanvas.addEventListener('pointerleave', () => { mapHover = null; });
+  mapCanvas.addEventListener('click', (e) => {
+    const cell = cellFromEvent(e); if (!cell) return;
+    const path = previewCourse(cell.rows, cell.c, cell.c, cell.rx, cell.ry);
+    if (!path) { clearCourse(); mapInfo.textContent = 'No navigable channel to that tile — pick open water clear of the shore.'; return; }
+    armCourse(path.map(([rx, ry]) => [cell.gx + (rx - cell.c), cell.gy + (ry - cell.c)]));
+  });
+  q('[data-mapclose]').addEventListener('click', closeChart);
+  mapOverlay.addEventListener('pointerdown', (e) => { if (e.target === mapOverlay) closeChart(); });
+  mapClearBtn.addEventListener('click', clearCourse);
+  mapGoBtn.addEventListener('click', () => engageCourse(Math.max(knobP, 0.6)));
+  root.querySelectorAll('[data-chart]').forEach(el => el.addEventListener('click', openChart));
+
   // Orbit / zoom on the sea — the chase cam stays fixed on the boat and arcs around it.
   let drag = false, lx = 0, ly = 0;
   sea.addEventListener('pointerdown', (e) => { drag = true; lx = e.clientX; ly = e.clientY; sea.setPointerCapture?.(e.pointerId); });
@@ -424,14 +688,11 @@ export function openHelm(opts = {}) {
   const upH = () => { drag = false; }; addEventListener('pointerup', upH);
   sea.addEventListener('wheel', (e) => { e.preventDefault(); ctrl.zoom(e.deltaY > 0 ? 0.08 : -0.08); }, { passive: false });
 
-  // Fullscreen / hide-panel — the SAME body-class mechanism the flight sim uses (styles.css):
-  // the helm grows to fill the output column (⛶ also folds the command box, ⊟ keeps it) instead
-  // of an OS-fullscreen overlay. Cleared on close.
-  const fsBtn = q('[data-fs]'), hideBtn = q('[data-hide]');
+  // Fullscreen — the SAME body-class mechanism the flight sim uses (styles.css): the helm grows to
+  // fill the output column (⛶ also folds the command box) instead of an OS-fullscreen overlay. Cleared
+  // on close.
+  const fsBtn = q('[data-fs]');
   fsBtn.addEventListener('click', () => { const on = document.body.classList.toggle('helm-fullscreen'); fsBtn.classList.toggle('on', on); });
-  // ⊟ = compact the dash: shrink the console and keep it flush to the bottom so it stops covering the
-  // 3D view. It does NOT resize the pane, so the camera is never squashed — only the HUD gets smaller.
-  hideBtn.addEventListener('click', () => { compact = !compact; hideBtn.classList.toggle('on', compact); rescale(); });
   q('[data-exit]').addEventListener('click', () => { closeHelm(); onExit(); });
 
   // Keyboard: Esc exits. (Course is the wheel; the throttle is the telegraph — both are grab-and-drag.)
@@ -463,7 +724,7 @@ export function openHelm(opts = {}) {
     if (env) { q('[data-time]').textContent = env.time; q('[data-wx]').textContent = (env.weather || 'clear').toUpperCase(); }
   }, 100);
 
-  _helm = { mount, ctrl, wheel, poll, upH, keyH, teleMove, teleUp, ro, rescale, stopNav: () => { navAlive = false; cancelAnimationFrame(navRaf); stripAlive = false; cancelAnimationFrame(stripRaf); } };
+  _helm = { mount, ctrl, wheel, poll, upH, keyH, teleMove, teleUp, stopChart: closeChart, stopNav: () => { navAlive = false; cancelAnimationFrame(navRaf); stripAlive = false; cancelAnimationFrame(stripRaf); } };
   return { ctrl, wheel, close: () => { closeHelm(); onExit(); }, setPosition: (gx, gy) => ctrl.setPosition(gx, gy), setHeading: (h) => ctrl.setHeading(h), setSky: (sky) => ctrl.setSky(sky) };
 }
 
@@ -475,8 +736,8 @@ export function closeHelm() {
   removeEventListener('keydown', h.keyH);
   removeEventListener('pointermove', h.teleMove);
   removeEventListener('pointerup', h.teleUp);
-  try { h.ro ? h.ro.disconnect() : removeEventListener('resize', h.rescale); } catch {}
   try { h.stopNav?.(); } catch {}
+  try { h.stopChart?.(); } catch {}
   document.body.classList.remove('helm-fullscreen', 'helm-hidepanel');
   try { h.wheel?.destroy(); } catch {}
   try { h.ctrl?.destroy(); } catch {}

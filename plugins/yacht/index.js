@@ -68,7 +68,7 @@ async function persistYachtPos(x, y, heading) {
 // Restore her last tile onto the live zone at boot (after initWorld, before any
 // flight coord-index query). Nothing rebuilds that index during the boot window.
 getFlag('world', YACHT_POS_FLAG)
-  .then(raw => {
+  .then(async raw => {
     if (!raw) return;
     const pos = JSON.parse(raw);
     const ext = getZone(EXTERIOR);
@@ -77,6 +77,12 @@ getFlag('world', YACHT_POS_FLAG)
     ext.grid_y = pos.y;
     ext.flags = { ...(ext.flags || {}), heading: pos.heading ?? ext.flags?.heading ?? 0 };
     invalidateEntranceDirCache();
+    // Her tile and a parked craft's tile persist through SEPARATE paths (this world-flag vs the
+    // aircraft row), so on a cold boot they can come back apart — she restores here, but a heli left
+    // on her deck reloads at whatever tile it was last written. Re-marry them: rebuild the flight
+    // coord index (so landings still find her here) and snap every aircraft parked on her exterior
+    // to her restored tile, so a takeoff off her deck always lifts from where she actually is.
+    try { const m = await import('../flight/state.js'); m.buildCoordIndex?.(); await m.moveParkedAircraftTo?.(EXTERIOR, pos.x, pos.y); } catch {}
   })
   .catch(e => console.error('[yacht] position restore:', e.message));
 
@@ -246,6 +252,9 @@ const SAIL_TILES = 3;   // up to three water tiles per order (she stops at the l
 // harder bell reads as a bigger wake, but the passage TIME no longer changes.
 const SAIL_MS_PER_TILE_SLOW = 2_500;    // 2.5 s per water tile
 const SAIL_MS_PER_TILE_FULL = 2_500;    // identical — slow == fast
+// A charted course (the map-popup "sail to this tile" mode) cruises at ~half the direct-sail pace —
+// a stately voyage across the Basin rather than a brisk hop, per the helm redesign.
+const SAIL_MS_PER_TILE_COURSE = 5_000;  // 5 s per water tile along a pathfound course
 const DEFAULT_BELL = 0.5;               // a typed `sail <dir>` with no bell = Half Ahead
 // throttle t∈[0,1] → { ms per tile, visual cruise 0..1 }
 const bellFor = (t) => ({ msPerTile: Math.round(SAIL_MS_PER_TILE_SLOW + (SAIL_MS_PER_TILE_FULL - SAIL_MS_PER_TILE_SLOW) * t), cruise: +(0.35 + 0.65 * t).toFixed(3) });
@@ -288,6 +297,64 @@ function worldTileAt(x, y) {
   for (const z of world.zones.values()) {
     if (z.map_id !== 'map_world' || z.id === EXTERIOR) continue;
     if (z.grid_x === x && z.grid_y === y && (z.grid_z ?? 0) === 0) return z;
+  }
+  return null;
+}
+
+// Fast water lookup for course charting. Water tiles are static content (git owns them; they never
+// change at runtime), so we build the coordinate set once and cache it — A* below hits it thousands
+// of times per course and must not loop every zone per probe. Built lazily on the first charting.
+let _waterSet = null;
+function waterSet() {
+  if (_waterSet) return _waterSet;
+  const s = new Set();
+  for (const z of world.zones.values()) {
+    if (z.map_id !== 'map_world' || z.id === EXTERIOR) continue;
+    if ((z.grid_z ?? 0) !== 0) continue;
+    if (z.flags?.water) s.add(z.grid_x + ',' + z.grid_y);
+  }
+  _waterSet = s;
+  return s;
+}
+const isWaterTile = (x, y) => waterSet().has(x + ',' + y);
+
+// The eight sailing steps and the tile delta → direction word, for a charted course.
+const NEIGHBORS = [[0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1]];
+function deltaToDirWord(dx, dy) {
+  const sx = Math.sign(dx), sy = Math.sign(dy);
+  for (const [word, [ddx, ddy]] of Object.entries(DIR_DELTA)) if (ddx === sx && ddy === sy) return word;
+  return 'north';
+}
+
+// A* a water-only course from (sx,sy) to (tx,ty), bending around piers/shoreline. Eight-connected,
+// octile heuristic; diagonals may not cut a land corner (both flanking orthogonals must be water).
+// Returns the tile polyline [[x,y],…] (path[0] = start), or null if the target isn't reachable over
+// open water. Node-capped so a boxed-in target fails fast instead of scanning the whole basin.
+function chartCourse(sx, sy, tx, ty, maxNodes = 8000) {
+  if (!isWaterTile(tx, ty)) return null;
+  if (sx === tx && sy === ty) return null;
+  const key = (x, y) => x + ',' + y;
+  const heur = (x, y) => { const dx = Math.abs(x - tx), dy = Math.abs(y - ty); return (dx + dy) + (Math.SQRT2 - 2) * Math.min(dx, dy); };
+  const start = { x: sx, y: sy, g: 0, parent: null }; start.f = heur(sx, sy);
+  const open = new Map([[key(sx, sy), start]]);
+  const closed = new Set();
+  let count = 0;
+  while (open.size) {
+    let cur = null; for (const n of open.values()) if (!cur || n.f < cur.f) cur = n;
+    open.delete(key(cur.x, cur.y));
+    if (cur.x === tx && cur.y === ty) { const path = []; for (let n = cur; n; n = n.parent) path.push([n.x, n.y]); return path.reverse(); }
+    closed.add(key(cur.x, cur.y));
+    if (++count > maxNodes) return null;
+    for (const [dx, dy] of NEIGHBORS) {
+      const nx = cur.x + dx, ny = cur.y + dy;
+      if (closed.has(key(nx, ny)) || !isWaterTile(nx, ny)) continue;
+      if (dx && dy && (!isWaterTile(cur.x + dx, cur.y) || !isWaterTile(cur.x, cur.y + dy))) continue;   // no corner-cutting past land
+      const g = cur.g + (dx && dy ? Math.SQRT2 : 1);
+      const ex = open.get(key(nx, ny));
+      if (ex && ex.g <= g) continue;
+      const node = { x: nx, y: ny, g, parent: cur }; node.f = g + heur(nx, ny);
+      open.set(key(nx, ny), node);
+    }
   }
   return null;
 }
@@ -432,6 +499,41 @@ on('zone.entered', ({ actor, zone }) => {
   sendToPlayer(actor.id, { type: 'yacht_underway', level: engineLevelFor(z), durationMs: transitLeft() });
 });
 
+// Cast off along a charted tile polyline (path[0] = her current tile). Shared by the straight-leg
+// `sail <dir>` and the pathfound `sailto <x> <y>`: sets up the timed transit, hands the flight
+// renderer the whole path so every nearby pilot's windshield glides her hull along it, streams the
+// passage to any open helm console (with the absolute path so the chase view follows the bends), and
+// rouses the engines aboard. Her tile does NOT change yet — position commits only on arrival. Returns
+// the destination tile + passage time. `path` must be ≥2 tiles; msPerTile sets the pace.
+async function startPassage(ext, path, cruise, msPerTile, player, broadcast) {
+  const segs = path.length - 1;
+  const [fx, fy] = path[0], [tx, ty] = path[segs];
+  const [lx, ly] = path[segs - 1];
+  const dirWord = deltaToDirWord(tx - lx, ty - ly);   // final leg → the heading she settles pointing
+  const passageMs = segs * msPerTile;
+
+  await undockAll();
+  const now = Date.now();
+  transit = { path, fromX: fx, fromY: fy, toX: tx, toY: ty, dir: dirWord, startAt: now, arriveAt: now + passageMs, totalMs: passageMs, cruise, timer: null };
+  transit.timer = setTimeout(() => { arriveEchelon().catch(e => console.error('[yacht] arrive:', e.message)); }, passageMs);
+  // Authoritative + time-based passage for the flight renderer — identical for everyone, correct for
+  // a pilot who arrives mid-passage. A single-leg straight sail and a bending course both ride `path`.
+  flightStateMod?.setYachtTransit?.({ path, startAt: now, arriveAt: now + passageMs });
+  flightStateMod?.setYachtMakingWay?.();
+
+  // Stream the passage to any open helm console (direction + leg count + timing + bell + the absolute
+  // path) so its chase view glides her the whole distance, following the bends of a charted course.
+  for (const pid of helmViewers) sendToPlayer(pid, { type: 'helm_underway', dir: DIR_SHORT[dirWord], tiles: segs, ms: passageMs, cruise, path });
+
+  const bc = broadcast || getBroadcast();
+  for (const zid of [EXTERIOR, 'zone_echelon_bridge', 'zone_echelon_stern', 'zone_echelon_foyer']) {
+    bc?.(zid, { type: 'zone_event', message: 'The deck leans as the Echelon comes about and gets underway.' }, player.id);
+  }
+  // The engines roar to life for everyone aboard and hold for the whole passage; settled on arrival.
+  broadcastUnderway(bc, passageMs);
+  return { tx, ty, passageMs };
+}
+
 async function cmdSail(args, raw, player, broadcast) {
   if (player.role !== 'admin') return ADMIN_ONLY;
   const ext = getZone(EXTERIOR);
@@ -448,7 +550,6 @@ async function cmdSail(args, raw, player, broadcast) {
   if (left > 0) return { type: 'error', message: `The Echelon is already underway. She reaches her next position in ${Math.ceil(left / 1000)}s — you can't give a new order until she's there.` };
 
   // Optional throttle bell (the helm telegraph sends it as 1–100; a typed order defaults to Half).
-  // Higher bell = faster = a shorter passage, and a bigger visual wake.
   const bellPct = parseInt(args?.[1], 10);
   const t = Number.isFinite(bellPct) ? Math.max(0, Math.min(1, bellPct / 100)) : DEFAULT_BELL;
   const { msPerTile, cruise } = bellFor(t);
@@ -456,51 +557,57 @@ async function cmdSail(args, raw, player, broadcast) {
   // Carry her up to SAIL_TILES water tiles this passage, stopping short at the first tile that
   // isn't open water — so a single order visibly crosses the Basin instead of creeping one tile.
   const [dx, dy] = DIR_DELTA[dirWord];
-  let tx = ext.grid_x, ty = ext.grid_y, tiles = 0;
+  const path = [[ext.grid_x, ext.grid_y]];
   for (let i = 1; i <= SAIL_TILES; i++) {
+    const px = ext.grid_x + dx * (i - 1), py = ext.grid_y + dy * (i - 1);   // the tile she's stepping FROM
     const nx = ext.grid_x + dx * i, ny = ext.grid_y + dy * i;
     if (!worldTileAt(nx, ny)?.flags?.water) break;
-    tx = nx; ty = ny; tiles = i;
+    // A DIAGONAL step may not cut a land corner: both flanking orthogonal tiles must be water too —
+    // exactly the guard the charted-course A* uses (chartCourse). Without this a `sail ne/se/sw/nw`
+    // slips the hull diagonally between two land tiles, so she visibly clips the shoreline / a
+    // waterfront building (the embassy) even though every tile she lands on is open water.
+    if (dx && dy && (!worldTileAt(px + dx, py)?.flags?.water || !worldTileAt(px, py + dy)?.flags?.water)) break;
+    path.push([nx, ny]);
   }
-  if (!tiles) {
-    // Land (or another obstacle) dead ahead — she can't answer the order. If this came from an open helm
-    // console, cancel its optimistic local glide so the chase view snaps her right back to her real tile
-    // (she never moved) instead of holding a bogus lead that would later read as "returning to the start".
+  if (path.length < 2) {
+    // Land dead ahead — she can't answer the order. If this came from an open helm console, cancel its
+    // optimistic local glide so the chase view snaps her back to her real tile (she never moved).
     if (helmViewers.has(player.id)) sendToPlayer(player.id, { type: 'helm_hold', gx: ext.grid_x, gy: ext.grid_y });
     return { type: 'error', message: 'The Echelon moves only over open water. There is no channel that way.' };
   }
 
-  // Passage time = distance × the bell's time-per-tile, so the trip is genuinely scaled to how far
-  // she's going AND how hard you've throttled up.
-  const passageMs = tiles * msPerTile;
-
-  // Cast off and get underway. Her tile does NOT change yet — she's between tiles for the passage and
-  // only commits to the new position on arrival (arriveEchelon), scheduled below.
-  await undockAll();
-  const now = Date.now();
-  transit = { fromX: ext.grid_x, fromY: ext.grid_y, toX: tx, toY: ty, dir: dirWord, startAt: now, arriveAt: now + passageMs, totalMs: passageMs, cruise, timer: null };
-  transit.timer = setTimeout(() => { arriveEchelon().catch(e => console.error('[yacht] arrive:', e.message)); }, passageMs);
-  // Hand the flight renderer the whole passage (from→to, timed) so every nearby pilot's windshield
-  // glides her hull sub-tile across the Basin for the full passage — authoritative + time-based,
-  // so it's identical for everyone and correct for a pilot who arrives mid-passage. setYachtMakingWay
-  // still fires the decaying-wake fallback for the arrival ping; the owner's Helm chase view drives
-  // its own glide from the timing the console is handed.
-  flightStateMod?.setYachtTransit?.({ fromX: ext.grid_x, fromY: ext.grid_y, toX: tx, toY: ty, startAt: now, arriveAt: now + passageMs });
-  flightStateMod?.setYachtMakingWay?.();
-
-  // Tell any open helm console the true passage vector (direction + tile count + timing + bell) so its
-  // chase view glides her the whole distance smoothly at the right speed — whether the order came from
-  // the telegraph or a typed `sail`. The client snaps to the authoritative position on helm_arrived.
-  for (const pid of helmViewers) sendToPlayer(pid, { type: 'helm_underway', dir: DIR_SHORT[dirWord], tiles, ms: passageMs, cruise });
-
-  const bc = broadcast || getBroadcast();
-  for (const zid of [EXTERIOR, 'zone_echelon_bridge', 'zone_echelon_stern', 'zone_echelon_foyer']) {
-    bc?.(zid, { type: 'zone_event', message: 'The deck leans as the Echelon comes about and gets underway.' }, player.id);
-  }
-  // Cue the client ambience: the engines roar to life for everyone aboard and hold for the whole
-  // passage, per-zone loud→muted; the client settles them on arrival (broadcastSettled).
-  broadcastUnderway(bc, passageMs);
+  const { tx, ty, passageMs } = await startPassage(ext, path, cruise, msPerTile, player, broadcast);
   return { type: 'system', message: `You engage the throttle ${dirWord}. The Echelon leans into her turn and gets underway across the Basin — she'll reach ${tx}, ${ty} in about ${Math.round(passageMs / 1000)}s.` };
+}
+
+// The map-popup helm mode: chart a water-only course around the shoreline to a chosen tile and get
+// underway along it at the stately course pace. Same guards as `sail`; the telegraph passes a bell%
+// (visual way only — course time is fixed per tile). The client draws its own course preview and
+// fires this on "throttle up"; the server is authoritative, so its path corrects the local glide.
+async function cmdSailTo(args, raw, player, broadcast) {
+  if (player.role !== 'admin') return ADMIN_ONLY;
+  const ext = getZone(EXTERIOR);
+  if (!ext) return { type: 'error', message: 'The Echelon is not on the water right now.' };
+  if (!getZone(player.current_zone)?.flags?.echelon_bridge) {
+    return { type: 'error', message: 'You can only steer the Echelon from her bridge.' };
+  }
+  const left = transitLeft();
+  if (left > 0) return { type: 'error', message: `The Echelon is already underway. She reaches her next position in ${Math.ceil(left / 1000)}s — you can't give a new order until she's there.` };
+
+  const tx = parseInt(args?.[0], 10), ty = parseInt(args?.[1], 10);
+  if (!Number.isFinite(tx) || !Number.isFinite(ty)) return { type: 'error', message: 'Usage: sailto <x> <y> — plot a course to a water tile.' };
+  const bellPct = parseInt(args?.[2], 10);
+  const t = Number.isFinite(bellPct) ? Math.max(0, Math.min(1, bellPct / 100)) : DEFAULT_BELL;
+  const { cruise } = bellFor(t);   // visual way only — a charted course runs at the fixed course pace
+
+  const path = chartCourse(ext.grid_x, ext.grid_y, tx, ty);
+  if (!path) {
+    if (helmViewers.has(player.id)) sendToPlayer(player.id, { type: 'helm_hold', gx: ext.grid_x, gy: ext.grid_y });
+    return { type: 'error', message: 'There is no navigable channel to that tile — the Echelon can only make way over open water.' };
+  }
+
+  const { tx: ax, ty: ay, passageMs } = await startPassage(ext, path, cruise, SAIL_MS_PER_TILE_COURSE, player, broadcast);
+  return { type: 'system', message: `Course charted — ${path.length - 1} legs to ${ax}, ${ay}. The Echelon gets underway across the Basin, arriving in about ${Math.round(passageMs / 1000)}s.` };
 }
 
 async function cmdDock(args, raw, player) {
@@ -562,6 +669,15 @@ export const specializedActions = [
 // pane with the chase view + wheel (dispatch `helm_open`), exactly like the flight sim's cockpit.
 // AHEAD in that UI fires the ordinary `sail` command, so all the movement rules stay server-side.
 async function cmdHelmConsole(args, raw, player) {
+  // Leaving is DETERMINISTIC — the client's ✕ sends `helm close`, which always steps back and never
+  // re-opens. Routing the exit through the plain toggle below let a helmViewers desync (see the
+  // pushHelmLive zone sweep) flip it back OPEN, so you had to close a second time. Handle it first,
+  // before the admin/bridge gates, so closing always works even if you've since left the bridge.
+  if ((args[0] || '').toLowerCase() === 'close') {
+    helmViewers.delete(player.id);
+    sendToPlayer(player.id, { type: 'helm_close' });
+    return { type: 'noop' };
+  }
   if (player.role !== 'admin') return ADMIN_ONLY;
   const ext = getZone(EXTERIOR);
   if (!ext) return { type: 'error', message: 'The Echelon is not on the water right now.' };
@@ -585,11 +701,25 @@ async function cmdHelmConsole(args, raw, player) {
   return { type: 'system', message: 'You take the helm. The console wakes under your hands.' };
 }
 
+// A persistent "take the helm" call-to-action on her bridge — mirrors the airfield's
+// hangar-bay line (flight's zone.describeRoom). The visual helm console is the primary
+// way to steer her, so make it a click target on every look rather than a remembered
+// verb. Fires per zone; returns undefined off the bridge so it never touches other rooms.
+function describeBridge(zone) {
+  if (!zone?.flags?.echelon_bridge) return undefined;
+  return `<span class="furniture-label">Helm:</span> <span class="action-link cmd-link" data-action="cmd" data-cmd="helm" title="take the helm — chase view + wheel">take the helm</span> <span class="text-dim">steer her from the console — chart a course across the Basin in 3D</span>`;
+}
+
+export const hooks = {
+  'zone.describeRoom': describeBridge,
+};
+
 export const commands = {
   invite:   cmdInvite,
   uninvite: cmdUninvite,
   invites:  cmdInvites,
   sail:     cmdSail,
+  sailto:   cmdSailTo,
   helm:     cmdHelmConsole,
   dock:     cmdDock,
 };

@@ -23,6 +23,7 @@ import { npcTypeForPersonality, listPersonalityMeta, pickClothingForPersonality 
 import { decideSex } from '../engine/npc-sex.js';
 import { loadBanterLibrary } from '../engine/npc-banter.js';
 import { OPPOSITE } from '../engine/directions.js';
+import { DISTRICTS, DISTRICT_PREFIX } from '../engine/districts.js';
 
 const DEFAULT_VENDOR_SCHEDULE = {
   mon:[{from:10,to:22}], tue:[{from:10,to:22}], wed:[{from:10,to:22}],
@@ -255,6 +256,7 @@ async function dispatchApiRequest(url, method, body, headers) {
     });
   }
   if (path==='/zones' && method==='GET') return apiGetZones();
+  if (path==='/districts' && method==='GET') return apiGetDistricts();
   if (path==='/zones' && method==='POST') return requireDev(auth, ()=>apiCreateZone(body,auth));
   if (path==='/maps' && method==='GET') return requireDev(auth, apiGetMaps);
   if (path==='/maps/link-interior' && method==='POST') return requireDev(auth, ()=>apiLinkInterior(body, auth));
@@ -579,6 +581,15 @@ async function apiResetPassword(body) {
 }
 
 async function apiGetZones() { return {status:200,body:getAllZones()}; }
+// Serves the canonical district table (server/engine/districts.js) so the dev
+// panel can group zones by neighborhood without a hand-copied mirror. Only the
+// fields the list UI needs (name + color) plus the id-prefix map for the
+// client-side classifier that mirrors districtFor().
+async function apiGetDistricts() {
+  const districts = Object.fromEntries(
+    Object.entries(DISTRICTS).map(([k, d]) => [k, { name: d.name, color: d.color }]));
+  return { status: 200, body: { districts, prefix: DISTRICT_PREFIX } };
+}
 async function apiGetZone(id) {
   const {rows} = await query('SELECT * FROM zones WHERE id=$1',[id]);
   if (!rows.length) return {status:404,body:{error:'Not found'}};
@@ -2027,7 +2038,7 @@ async function apiDeletePlayer(id) {
   if (!rows.length) return {status:404,body:{error:'Player not found'}};
   await query('DELETE FROM player_inventory WHERE player_id=$1',[id]);
   await query('DELETE FROM player_skills WHERE player_id=$1',[id]);
-  await query('DELETE FROM player_faction_rep WHERE player_id=$1',[id]);
+  await query('DELETE FROM player_ideology_rep WHERE player_id=$1',[id]);
   await query('DELETE FROM player_mutations WHERE player_id=$1',[id]);
   await query('DELETE FROM player_drug_state WHERE player_id=$1',[id]);
   await query('DELETE FROM players WHERE id=$1',[id]);

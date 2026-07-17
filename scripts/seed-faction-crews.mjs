@@ -1,12 +1,15 @@
-// One-shot content seed: gives three flagship NPC factions a living crew + a
-// couple of held zones each, so a player corp has rivals to contest under the
-// Phase-1 territory system. Idempotent (deterministic ids, ON CONFLICT DO NOTHING).
+// One-shot content seed: gives three flagship NPC factions a living crew of
+// stationary presence NPCs. Idempotent (deterministic ids, ON CONFLICT DO NOTHING).
 //
 //   node scripts/seed-faction-crews.mjs
 //
 // NPCs are fully specified (npc_type/sex/clothing_layers/hp) so the direct insert
 // loses none of apiCreateNpc's derivation. A server restart (or /world reload)
-// loads the new NPCs into world.npcs and the zone_control rows into world.zoneControl.
+// loads the new NPCs into world.npcs.
+//
+// The base factions no longer hold or acquire territory — that scheme was retired
+// as they become standalone ideologies, so this script only seeds NPCs now
+// (`zone_control` belongs to player corps alone).
 import { query } from '../server/models/db.js';
 
 // Every NPC: stationary faction presence (wanders 0, no behaviour graph),
@@ -64,16 +67,6 @@ const NPCS = [
     chit: ['watches you with her head cocked, grinning at something only she can see.', '"Ooh. You\'ve got such a pretty little password behind those eyes."'] },
 ];
 
-const CONTROL = [
-  // faction, zone, starting grip, income, upkeep
-  ['faction_breakers',   'zone_meat_slaughter',  70, 120, 40],
-  ['faction_breakers',   'zone_waste_cinderflat', 60, 100, 40],
-  ['faction_custodians', 'zone_ruins',            70, 130, 50],
-  ['faction_custodians', 'zone_slag_reclaimer',   60, 100, 40],
-  ['faction_glitch',     'zone_tunnels',          70, 120, 40],
-  ['faction_glitch',     'zone_slums',            60, 110, 40],
-];
-
 async function seed() {
   let npcCount = 0;
   for (const n of NPCS) {
@@ -86,16 +79,7 @@ async function seed() {
       [n.id, n.name, n.desc, n.zone, n.faction, n.sex, JSON.stringify(flags), JSON.stringify(n.chit), n.hp]);
     npcCount += res.rowCount;
   }
-  let zcCount = 0;
-  for (const [org, zone, inf, income, upkeep] of CONTROL) {
-    const res = await query(
-      `INSERT INTO zone_control (zone_id, org_id, influence, challenger_org_id, base_income, base_upkeep)
-       VALUES ($1,$2,$3,NULL,$4,$5)
-       ON CONFLICT (zone_id) DO UPDATE SET org_id=$2, influence=$3, base_income=$4, base_upkeep=$5`,
-      [zone, org, inf, income, upkeep]);
-    zcCount += res.rowCount;
-  }
-  console.log(`✓ Seeded ${npcCount}/${NPCS.length} faction NPC(s), ${zcCount}/${CONTROL.length} controlled zone(s).`);
+  console.log(`✓ Seeded ${npcCount}/${NPCS.length} faction NPC(s).`);
   console.log('  Restart the server (or reload the world) to load them into the live caches.');
 }
 

@@ -39,64 +39,78 @@ function saveTabletTheme(t) {
   try { localStorage.setItem(TABLET_THEME_KEY, JSON.stringify(t)); } catch {}
 }
 
-// ── Quest activity log (client-only) ────────────────────────────────────────
-// A small rolling record of quest/job-board actions, shown at the foot of the
-// Quests app root. Deliberately client-side (localStorage, per-device) — it's
-// captured from the authoritative server chat lines the client already receives
-// ("New quest: X.", "Quest turned in: X. (+N₵)"), plus the tablet's own abandon
-// action, so it never lies about a hand-in that only plotted a GPS route. No
-// server round trip, no DB row.
-const QLOG_KEY = 'architect_quest_log';
-const QLOG_CAP = 20;
+// ── Quest action log (client-only) ──────────────────────────────────────────
+// A per-quest narrative of what you actually did on that quest — the same lines
+// that scroll past in the bottom pane (arrivals, objective flavour emotes) plus
+// bold beat-markers (started / objective complete / quest complete) — shown on
+// that quest's detail screen so you can read its whole story without watching the
+// output pane. Deliberately client-side (localStorage, per-device): the server
+// pushes structured `quest_log` events (plugins/quests/index.js questLogLine) that
+// we bucket by quest_id. No server round trip, no DB row.
+//
+// Store shape: { [quest_id]: { name, done, entries: [{ kind, text, t }] } }
+//   kind: 'start' | 'arrive' | 'emote' | 'objective' | 'complete'
+// A quest flips `done` on its 'complete' beat; its bucket is purged the next time
+// the tablet closes (purgeCompletedQuestLogs) — "clears once finished + closed".
+const QLOG_KEY = 'architect_quest_log_v2';
+const QLOG_ENTRY_CAP = 60; // per-quest, oldest trimmed
 function loadQLog() {
-  try { const a = JSON.parse(localStorage.getItem(QLOG_KEY) || '[]'); return Array.isArray(a) ? a : []; }
-  catch { return []; }
+  try { const o = JSON.parse(localStorage.getItem(QLOG_KEY) || '{}'); return (o && typeof o === 'object') ? o : {}; }
+  catch { return {}; }
 }
-function pushQLog(text) {
-  if (!text) return;
+function saveQLog(o) { try { localStorage.setItem(QLOG_KEY, JSON.stringify(o)); } catch {} }
+
+// Feed a structured server quest_log event into its quest's bucket.
+export function noteQuestLog(msg) {
+  if (!msg || !msg.quest_id || !msg.kind || !msg.text) return;
   const log = loadQLog();
-  // Collapse an exact immediate repeat (e.g. a double-fired output line).
-  if (log[0] && log[0].text === text) return;
-  log.unshift({ t: Date.now(), text });
-  try { localStorage.setItem(QLOG_KEY, JSON.stringify(log.slice(0, QLOG_CAP))); } catch {}
-  // If the player is looking at a Quests screen that carries the activity log
-  // (the root list or an individual quest's detail), refresh it in place so the
-  // new line appears without reopening the app.
-  if (_overlay && _data && _data.appId === 'quests' && (_data.view === 'categories' || _data.view === 'detail')) {
+  const q = log[msg.quest_id] || (log[msg.quest_id] = { name: '', done: false, entries: [] });
+  if (msg.kind === 'start') q.name = msg.text;
+  if (msg.kind === 'complete') q.done = true;
+  const entries = q.entries;
+  // Collapse an exact immediate repeat (e.g. a double-fired line).
+  const last = entries[entries.length - 1];
+  if (!(last && last.kind === msg.kind && last.text === msg.text)) {
+    entries.push({ kind: msg.kind, text: msg.text, t: Date.now() });
+    if (entries.length > QLOG_ENTRY_CAP) entries.splice(0, entries.length - QLOG_ENTRY_CAP);
+  }
+  saveQLog(log);
+  // Live-refresh the detail screen if it's showing this very quest.
+  if (_overlay && _data && _data.appId === 'quests' && _data.view === 'detail'
+      && (_data.quest?.id || _data.detail?.id) === msg.quest_id) {
     _keepQuestScroll = true;
     render();
   }
 }
-// Recognise the stable server strings the quest engine sends on take / complete /
-// hand-in (plugins/quests/index.js msg()). HTML-wrapped, so match on inner text.
-export function noteQuestOutput(html) {
-  if (!html || typeof html !== 'string') return;
-  const text = html.replace(/<[^>]+>/g, '');
-  let m = text.match(/New quest:\s*(.+?)\.\s*$/m) || text.match(/New quest:\s*(.+?)\./);
-  if (m) { pushQLog(`Took “${m[1].trim()}”`); return; }
-  m = text.match(/Quest complete:\s*(.+?)\./);
-  if (m) { pushQLog(`Completed “${m[1].trim()}”`); return; }
-  m = text.match(/Quest turned in:\s*(.+?)\.(?:\s*\(\+(\d+)₵\))?/);
-  if (m) { pushQLog(`Handed in “${m[1].trim()}”${m[2] ? ` · +₵${m[2]}` : ''}`); }
-}
-// A structured objective-step line pushed by the server ("read the meter (1/2)") —
-// carries the running counter the chat "Done: …" line can't. Logged verbatim.
-export function noteQuestStep(text) { pushQLog(text); }
-function relTime(ts) {
-  const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
-  if (s < 60) return 'just now';
-  const mn = Math.floor(s / 60); if (mn < 60) return `${mn}m ago`;
-  const h = Math.floor(mn / 60); if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
-}
-function renderQuestActivityLog() {
+
+// Drop a quest's log entirely (e.g. it was abandoned).
+export function dropQuestLog(questId) {
   const log = loadQLog();
-  if (!log.length) return '';
-  const rows = log.slice(0, 8).map(e =>
-    `<div class="tos-qlog-row"><span class="tos-qlog-txt">${esc(e.text)}</span><span class="tos-qlog-t">${esc(relTime(e.t))}</span></div>`
-  ).join('');
+  if (log[questId]) { delete log[questId]; saveQLog(log); }
+}
+
+// On tablet close, clear the log of any quest that has finished — "after the tablet
+// is closed once the quest is completed it clears the log".
+function purgeCompletedQuestLogs() {
+  const log = loadQLog();
+  let changed = false;
+  for (const id of Object.keys(log)) if (log[id]?.done) { delete log[id]; changed = true; }
+  if (changed) saveQLog(log);
+}
+
+// The per-quest action log for one quest's detail screen. Bold headers for the
+// beat-markers, plain narrative lines for arrivals/emotes.
+function renderQuestActivityLog(questId) {
+  const q = loadQLog()[questId];
+  if (!q || !q.entries.length) return '';
+  const rows = q.entries.map(e => {
+    if (e.kind === 'start')     return `<div class="tos-qlog-beat">Started quest: ${esc(e.text)}</div>`;
+    if (e.kind === 'objective') return `<div class="tos-qlog-beat">Objective complete: ${esc(e.text)}</div>`;
+    if (e.kind === 'complete')  return `<div class="tos-qlog-beat tos-qlog-done">Quest complete: ${esc(e.text)}</div>`;
+    return `<div class="tos-qlog-line">${esc(e.text)}</div>`;
+  }).join('');
   return `<div class="tos-qlog">
-    <div class="tos-qlog-hdr"><span>Recent Activity</span><span class="tos-qlog-clear" data-qlog-clear>clear</span></div>
+    <div class="tos-qlog-hdr"><span>Action Log</span></div>
     ${rows}
   </div>`;
 }
@@ -123,6 +137,7 @@ let _tosMisClicks = 0, _tosMisTimer = null; // decoy 3-click reveal counter
 let _tosMisListenerBound = false; // one-time bind of the server mis_state_update sync
 let _tosCorpSel = null; // Corp Territory Map: selected zone id (client-side, no round trip)
 let _tosCorpPage = 0; // Corp dashboard: current page (Overview/Operatives/Territory/Diplomacy), client-side
+let _tosIdeoPage = 0; // Ideology reader: current page (Overview / per-order / Field), client-side
 let _tosMapSel = null; // Map app: tapped/destination zone id (client-side, drives the GPS route)
 let _tosMapLabels = false; // Map app: label mode — stamp a two-letter code on each building tile (client-side)
 // Map app zoom: one unified axis. The −/+ buttons walk the server's zoom ladder
@@ -373,14 +388,12 @@ function ensureStyles() {
     #tablet-os-overlay .tos-cal-dots { position:absolute; bottom:4px; left:0; right:0; display:flex; gap:2px; justify-content:center; }
     #tablet-os-overlay .tos-cal-dot { width:4px; height:4px; border-radius:50%; background:var(--mg-accent); }
     #tablet-os-overlay .tos-cal-dot-rent { background:var(--tos-fg-dim); }
-    /* Quest activity log (client-only), foot of the Quests app root. */
+    /* Per-quest action log (client-only), foot of a quest's detail screen. */
     #tablet-os-overlay .tos-qlog { margin-top:14px; padding-top:10px; border-top:1px solid var(--tos-border); }
-    #tablet-os-overlay .tos-qlog-hdr { display:flex; justify-content:space-between; align-items:baseline; font-size:11px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); margin-bottom:6px; }
-    #tablet-os-overlay .tos-qlog-clear { cursor:pointer; color:var(--tos-fg-dim); text-transform:none; letter-spacing:0; }
-    #tablet-os-overlay .tos-qlog-clear:hover { color:var(--mg-accent); }
-    #tablet-os-overlay .tos-qlog-row { display:flex; justify-content:space-between; gap:10px; font-size:12px; padding:3px 0; color:var(--tos-fg); }
-    #tablet-os-overlay .tos-qlog-txt { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    #tablet-os-overlay .tos-qlog-t { color:var(--tos-fg-dim2); flex:none; }
+    #tablet-os-overlay .tos-qlog-hdr { font-size:11px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); margin-bottom:6px; }
+    #tablet-os-overlay .tos-qlog-beat { font-size:12.5px; font-weight:700; color:var(--mg-accent); padding:5px 0 3px; }
+    #tablet-os-overlay .tos-qlog-done { color:var(--tos-fg); }
+    #tablet-os-overlay .tos-qlog-line { font-size:12px; padding:2px 0 2px 10px; color:var(--tos-fg-dim); line-height:1.45; }
 
     /* Detail view */
     #tablet-os-overlay .tos-detail-name { font-size:18px; color:var(--tos-fg); margin-bottom:4px; }
@@ -441,6 +454,101 @@ function ensureStyles() {
     #tablet-os-overlay input.tos-color-lg { width:46px; height:34px; }
     #tablet-os-overlay .tos-color-hex { font-family:'Courier New',monospace; font-size:13px; letter-spacing:1px; color:var(--tos-fg); }
     #tablet-os-overlay .tos-color-hint { flex:1 1 100%; font-size:11px; color:var(--tos-fg-dim2); }
+
+    /* ── Ideology reader ─────────────────────────────────────────────────────
+       Paged: a tab strip + one page at a time (Overview / per-order / Field).
+       Beveled panels + glow, per-order identity colour carried in --ic. */
+    /* Pin the breadcrumb + tab strip + swipe row to the top of the scroll so
+       you can switch orders without scrolling back up, and the chart below
+       always lands in view. Horizontal bleed covers the .tos-body padding. */
+    #tablet-os-overlay .tos-ideo-sticky { position:sticky; top:0; z-index:6; margin:0 -13px; padding:6px 13px 0;
+      background:var(--bg, #0c1114); box-shadow:0 7px 11px -7px rgba(0,0,0,0.6); }
+    #tablet-os-overlay .tos-ideo-nav { display:flex; gap:5px; overflow-x:auto; scrollbar-width:none; padding-bottom:9px; margin-bottom:11px; border-bottom:1px solid var(--tos-border); }
+    #tablet-os-overlay .tos-ideo-nav::-webkit-scrollbar { display:none; }
+    #tablet-os-overlay .tos-ideo-tab { flex:0 0 auto; cursor:pointer; user-select:none; font-size:10px; letter-spacing:1.3px; text-transform:uppercase;
+      color:var(--tos-fg-dim); padding:6px 9px; border-radius:6px; white-space:nowrap; border:1px solid var(--tos-border);
+      background:linear-gradient(165deg,var(--tos-surface-hi),var(--tos-surface-lo)); box-shadow:inset 0 1px 0 var(--tos-bevel-hi),inset 0 -2px 3px var(--tos-bevel-lo); }
+    #tablet-os-overlay .tos-ideo-tab b { color:var(--ic,var(--mg-accent)); }
+    #tablet-os-overlay .tos-ideo-tab:hover { filter:brightness(1.15); color:var(--tos-fg); }
+    #tablet-os-overlay .tos-ideo-tab.on { color:var(--ic,var(--tos-fg)); border-color:var(--ic,var(--mg-accent));
+      text-shadow:0 0 10px color-mix(in srgb,var(--ic,var(--mg-accent)) 55%,transparent);
+      box-shadow:inset 0 1px 0 var(--tos-bevel-hi),0 0 14px color-mix(in srgb,var(--ic,var(--mg-accent)) 26%,transparent); }
+    #tablet-os-overlay .tos-ideo-page { animation:tos-fade .28s ease; }
+    #tablet-os-overlay .tos-ideo-lbl { font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--tos-fg-dim); display:flex; align-items:center; gap:8px; margin:0 0 9px; }
+    #tablet-os-overlay .tos-ideo-lbl::after { content:""; flex:1; height:1px; background:linear-gradient(90deg,var(--tos-border),transparent); }
+    #tablet-os-overlay .tos-ideo-panel { border-radius:9px; padding:12px 13px; margin-bottom:15px;
+      background:linear-gradient(165deg,var(--tos-surface-hi),var(--tos-surface-lo));
+      box-shadow:inset 0 1px 0 var(--tos-bevel-hi),inset 0 -2px 4px var(--tos-bevel-lo),0 3px 8px rgba(0,0,0,0.3); border:1px solid var(--tos-border); }
+    #tablet-os-overlay .tos-ideo-chart { display:block; width:100%; max-width:420px; margin-inline:auto; height:auto; max-height:52vh; font-family:'Courier New',monospace; }
+    #tablet-os-overlay .tos-ideo-lean { text-align:center; font-size:12px; letter-spacing:.4px; color:var(--tos-fg-dim); margin-top:9px; }
+    #tablet-os-overlay .tos-ideo-note { font-size:12px; line-height:1.6; color:var(--tos-fg-dim); margin:0; }
+    #tablet-os-overlay .tos-ideo-note b { color:var(--tos-fg); }
+    #tablet-os-overlay .tos-ideo-dim { color:var(--tos-fg-dim2); }
+    #tablet-os-overlay .tos-ideo-bar { height:6px; border-radius:3px; background:rgba(0,0,0,.45); overflow:hidden; box-shadow:inset 0 1px 2px rgba(0,0,0,.6); }
+    #tablet-os-overlay .tos-ideo-bar i { display:block; height:100%; border-radius:3px; }
+    /* Overview: ranked standing rows (tap to open that order's page) */
+    #tablet-os-overlay .tos-ideo-stand { display:flex; align-items:center; gap:9px; margin:7px 0; cursor:pointer; transition:transform .12s; }
+    #tablet-os-overlay .tos-ideo-stand:hover { transform:translateX(2px); }
+    #tablet-os-overlay .tos-ideo-sigwrap { flex:0 0 26px; display:flex; }
+    #tablet-os-overlay .tos-ideo-sigwrap.big { flex:0 0 44px; }
+    #tablet-os-overlay .tos-ideo-sig { width:100%; height:auto; }
+    #tablet-os-overlay .tos-ideo-sname { flex:0 0 108px; font-size:12px; letter-spacing:1px; text-transform:uppercase; color:var(--ic); }
+    #tablet-os-overlay .tos-ideo-stand .tos-ideo-bar { flex:1 1 auto; }
+    #tablet-os-overlay .tos-ideo-tv { flex:0 0 62px; text-align:right; font-size:9.5px; letter-spacing:1px; text-transform:uppercase; }
+    /* Emerging (expansion) orders — a preview, not yet live */
+    #tablet-os-overlay .tos-ideo-stand.emerging { opacity:.62; }
+    #tablet-os-overlay .tos-ideo-stand.emerging:hover { opacity:.82; }
+    #tablet-os-overlay .tos-ideo-bar.emerging i { opacity:.7; box-shadow:none; }
+    #tablet-os-overlay .tos-ideo-substand { font-size:9px; letter-spacing:2px; text-transform:uppercase; color:var(--tos-fg-dim2);
+      margin:16px 0 8px; padding-top:11px; border-top:1px dashed var(--tos-line, rgba(255,255,255,.12)); }
+    #tablet-os-overlay .tos-ideo-tab.emerging { opacity:.6; }
+    #tablet-os-overlay .tos-ideo-tab.emerging.on { opacity:1; }
+    #tablet-os-overlay .tos-ideo-emerge { font-size:9px; letter-spacing:2px; text-transform:uppercase; margin-top:5px;
+      color:var(--ic,var(--tos-fg-dim2)); opacity:.85; }
+    /* Order page */
+    #tablet-os-overlay .tos-ideo-ohead { display:flex; align-items:center; gap:12px; margin-bottom:4px; }
+    #tablet-os-overlay .tos-ideo-oname { font-size:20px; letter-spacing:1.5px; text-transform:uppercase; line-height:1.1; }
+    #tablet-os-overlay .tos-ideo-motto { font-size:10px; letter-spacing:3px; text-transform:uppercase; color:var(--tos-fg-dim2); margin-top:3px; }
+    #tablet-os-overlay .tos-ideo-tags { display:flex; gap:6px; flex-wrap:wrap; margin:11px 0 14px; }
+    #tablet-os-overlay .tos-ideo-tag { font-size:9.5px; letter-spacing:1.3px; text-transform:uppercase; padding:4px 9px; border-radius:5px;
+      color:var(--ic); border:1px solid color-mix(in srgb,var(--ic) 40%,transparent); background:color-mix(in srgb,var(--ic) 12%,transparent); }
+    #tablet-os-overlay .tos-ideo-lore { font-family:Georgia,serif; font-size:13px; line-height:1.6; color:var(--tos-fg); margin:0 0 4px; }
+    #tablet-os-overlay .tos-ideo-lore .drop { float:left; font-size:38px; line-height:.82; padding:2px 8px 0 0; font-family:Georgia,serif; }
+    #tablet-os-overlay .tos-ideo-pull { font-family:Georgia,serif; font-style:italic; font-size:13.5px; line-height:1.5; border-left:2px solid; padding:2px 0 2px 12px; margin:13px 0; }
+    #tablet-os-overlay .tos-ideo-tenets { list-style:none; padding:0; margin:0; }
+    #tablet-os-overlay .tos-ideo-tenets li { position:relative; padding:7px 0 7px 21px; font-size:12.5px; line-height:1.45; color:var(--tos-fg-dim);
+      border-bottom:1px solid color-mix(in srgb,var(--mg-accent) 10%,transparent); }
+    #tablet-os-overlay .tos-ideo-tenets li:last-child { border-bottom:0; }
+    #tablet-os-overlay .tos-ideo-tenets li::before { content:"◆"; position:absolute; left:2px; top:8px; font-size:8px; color:var(--ic); }
+    #tablet-os-overlay .tos-ideo-pathbox { display:flex; align-items:center; gap:12px; }
+    #tablet-os-overlay .tos-ideo-pathbox .pm { flex:0 0 80px; }
+    #tablet-os-overlay .tos-ideo-pathbox .pml { font-size:8.5px; letter-spacing:1.3px; text-transform:uppercase; color:var(--tos-fg-dim2); margin-top:5px; }
+    #tablet-os-overlay .tos-ideo-pathbox .pt { font-size:12px; line-height:1.5; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-ideo-shead { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px; }
+    #tablet-os-overlay .tos-ideo-shead .rp { font-size:19px; letter-spacing:1px; font-variant-numeric:tabular-nums; }
+    #tablet-os-overlay .tos-ideo-shead .nx { font-size:9.5px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); }
+    #tablet-os-overlay .tos-ideo-ladder { display:flex; flex-direction:column; }
+    #tablet-os-overlay .tos-ideo-rung { display:flex; align-items:center; gap:10px; padding:5px 0; font-size:11px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); }
+    #tablet-os-overlay .tos-ideo-rung .pip { flex:0 0 10px; height:10px; border-radius:50%; border:1px solid var(--tos-fg-dim2); background:transparent; }
+    #tablet-os-overlay .tos-ideo-rung .rl { flex:1 1 auto; }
+    #tablet-os-overlay .tos-ideo-rung .pk { font-size:9px; color:var(--tos-fg-dim2); }
+    #tablet-os-overlay .tos-ideo-rung.done { color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-ideo-rung.done .pip { background:var(--ic); border-color:var(--ic); box-shadow:0 0 8px var(--ic); }
+    #tablet-os-overlay .tos-ideo-rung.here { color:var(--ic); text-shadow:0 0 8px color-mix(in srgb,var(--ic) 45%,transparent); }
+    #tablet-os-overlay .tos-ideo-rung.here .pip { background:var(--ic); border-color:#fff; box-shadow:0 0 12px var(--ic); }
+    #tablet-os-overlay .tos-ideo-rung.here .pk { color:var(--ic); }
+    #tablet-os-overlay .tos-ideo-chips { display:flex; flex-wrap:wrap; gap:6px; }
+    #tablet-os-overlay .tos-ideo-chip { font-size:10px; letter-spacing:.8px; padding:5px 9px; border-radius:5px; border:1px solid var(--tos-border);
+      background:linear-gradient(165deg,var(--tos-surface-hi),var(--tos-surface-lo)); color:var(--tos-fg-dim); box-shadow:inset 0 1px 0 var(--tos-bevel-hi); }
+    #tablet-os-overlay .tos-ideo-chip em { font-style:normal; color:var(--tos-fg-dim2); font-size:8.5px; letter-spacing:1.3px; text-transform:uppercase; margin-right:5px; }
+    #tablet-os-overlay .tos-ideo-chip.foe { border-color:color-mix(in srgb,#e05555 45%,transparent); color:#eba0a0; }
+    #tablet-os-overlay .tos-ideo-chip.warn { border-color:color-mix(in srgb,#E0A030 40%,transparent); color:#e6c98f; }
+    #tablet-os-overlay .tos-ideo-empty { font-size:12px; line-height:1.5; color:var(--tos-fg-dim2); font-style:italic; font-family:Georgia,serif; padding:2px 0; margin:0; }
+    #tablet-os-overlay .tos-ideo-legend { display:flex; flex-wrap:wrap; gap:9px; margin-top:11px; }
+    #tablet-os-overlay .tos-ideo-legend span { display:flex; align-items:center; gap:6px; font-size:10px; letter-spacing:.8px; text-transform:uppercase; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-ideo-legend i { width:9px; height:9px; border-radius:50%; box-shadow:0 0 7px currentColor; }
+    @keyframes tos-fade { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:none; } }
+
     /* Corp colour picker chromed as a tiny in-tablet browser window. */
     #tablet-os-overlay .tos-browserwin { margin-top:8px; border-radius:8px; overflow:hidden;
       border:1px solid color-mix(in srgb, var(--mg-accent) 24%, transparent);
@@ -1037,6 +1145,13 @@ function ensureStyles() {
     #tablet-os-overlay .tos-map-side .tos-map-bldgs { margin-top:0; }
     #tablet-os-overlay .tos-map-side .tos-map-bldgs-list { gap:5px; }
     #tablet-os-overlay .tos-map-side .tos-map-bldg { width:100%; }
+    /* Mobile: stack the rail under the map so the map gets the full panel width
+       (a fixed side rail pinches the map to ~half on a phone). The rail becomes a
+       short, self-scrolling strip beneath the map; buildings wrap horizontally. */
+    html[data-density="compact"] #tablet-os-overlay .tos-map-main { flex-direction:column; gap:6px; }
+    html[data-density="compact"] #tablet-os-overlay .tos-map-side { flex:0 0 auto; max-height:34%; }
+    html[data-density="compact"] #tablet-os-overlay .tos-map-side .tos-map-bldgs-list { flex-direction:row; }
+    html[data-density="compact"] #tablet-os-overlay .tos-map-side .tos-map-bldg { width:auto; }
 
     /* ── News app — "The Coldwater Sentinel" ────────────────────────────────────
        The feed is dressed as a newsprint sheet. The paper look is done by
@@ -1433,6 +1548,7 @@ function applyTabletTheme() {
 function nav(appId, screenLabel, params) {
   _backReturn = null; // any explicit navigation invalidates a pending drill-in return
   _tosCorpPage = 0;   // land on the corp Overview page on any server-side navigation
+  _tosIdeoPage = 0;   // land on the Ideology Overview page on any server-side navigation
   sfx(TOS_SELECT_DEF);
   const parts = ['tabletnav', appId];
   if (screenLabel != null) parts.push(screenToken(screenLabel));
@@ -1531,6 +1647,9 @@ const TOS_APP_ICONS = {
   // News = "The Coldwater Sentinel" newsprint sheet: a folded broadsheet with a
   // masthead band and columns, monochrome like the rest so it drops the 📰 emoji.
   news: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M4 4h16v16l-2-1.2-2 1.2-2-1.2-2 1.2-2-1.2-2 1.2-2-1.2z" fill="currentColor" fill-opacity=".2" stroke="none"/><path d="M4 4h16v16l-2-1.2-2 1.2-2-1.2-2 1.2-2-1.2-2 1.2-2-1.2z"/><path d="M7 7h10"/><path d="M7 10.5h4.5v4H7z"/><path d="M13.5 10.5H17M13.5 13H17M7 16.5h10"/></svg>`,
+  // Ideology = an alignment compass: crosshair axes + a plotted marker, the same
+  // "where you stand" motif the app's charts use. Monochrome like the rest.
+  ideology: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><circle class="dim" cx="12" cy="12" r="9" fill="currentColor" fill-opacity=".14" stroke="none"/><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18" stroke-opacity=".55"/><circle cx="15" cy="9" r="2.4" fill="currentColor" stroke="none"/></svg>`,
   // Not an SVG glyph — the circled-"A" ARCHITECT logo (same mark as the tablet's
   // own boot screen, .tos-boot-logo), so the tile reads as the game itself.
   arcade: `<span class="tos-ic-a">A</span>`,
@@ -1760,20 +1879,26 @@ function wireAppGridDrag(grid) {
 // gesture only engages once the finger moves past a threshold, and it suppresses
 // the trailing click so a drag never doubles as a tap-open.
 function wireDragScroll(scroll) {
-  const THRESH = 6; // px of movement before a press becomes a pan (below this = a tap)
-  let start = null; // { y, top, dragging }
+  const THRESH = 6;      // px of movement before a press becomes a gesture (below = a tap)
+  const SWIPE_MIN = 45;  // px of horizontal travel to commit a page change
+  let start = null;      // { x, y, top, dragging, axis, dx }
+  const ideoActive = () => _data?.view === 'ideology'; // horizontal swipe pages the reader
 
   const isInteractive = (el) =>
     el.closest('input, textarea, select, button, [contenteditable], .tos-tile, .tos-color, input[type=range]');
 
   const onMove = (e) => {
     if (!start) return;
-    const dy = e.clientY - start.y;
+    const dx = e.clientX - start.x, dy = e.clientY - start.y;
     if (!start.dragging) {
-      if (Math.abs(dy) < THRESH) return;
+      if (Math.max(Math.abs(dx), Math.abs(dy)) < THRESH) return;
       start.dragging = true;
-      scroll.classList.add('tos-drag-scrolling');
+      // Lock the axis at the threshold. Only the Ideology reader claims the
+      // horizontal axis (to page); everywhere else a gesture is vertical pan.
+      start.axis = (ideoActive() && Math.abs(dx) > Math.abs(dy) * 1.2) ? 'x' : 'y';
+      if (start.axis === 'y') scroll.classList.add('tos-drag-scrolling');
     }
+    if (start.axis === 'x') { start.dx = dx; e.preventDefault(); return; } // swipe: commit on release
     e.preventDefault();
     scroll.scrollTop = start.top - dy;
   };
@@ -1784,8 +1909,9 @@ function wireDragScroll(scroll) {
     window.removeEventListener('pointercancel', end);
     if (start?.dragging) {
       scroll.classList.remove('tos-drag-scrolling');
-      // Swallow the click that fires at the end of the drag so the pan doesn't
-      // also open whatever list item / tile the finger lifted over.
+      if (start.axis === 'x' && Math.abs(start.dx || 0) > SWIPE_MIN) changeIdeoPage(start.dx < 0 ? 1 : -1);
+      // Swallow the click that fires at the end of the drag so the gesture doesn't
+      // also open whatever list item / tile / tab the finger lifted over.
       const kill = (ev) => { ev.stopPropagation(); ev.preventDefault(); };
       scroll.addEventListener('click', kill, { capture: true, once: true });
       setTimeout(() => scroll.removeEventListener('click', kill, { capture: true }), 0);
@@ -1795,14 +1921,28 @@ function wireDragScroll(scroll) {
 
   scroll.addEventListener('pointerdown', (e) => {
     if (e.button > 0) return;
-    if (_data?.view === 'gear') return;                     // gear uses drag-and-drop equip; don't hijack the press
-    if (scroll.scrollHeight <= scroll.clientHeight) return; // nothing to pan
-    if (isInteractive(e.target)) return;                    // let controls/tiles handle it
-    start = { y: e.clientY, top: scroll.scrollTop, dragging: false };
+    if (_data?.view === 'gear') return;                       // gear uses drag-and-drop equip; don't hijack the press
+    const canPan = scroll.scrollHeight > scroll.clientHeight; // vertical pan needs overflow
+    if (!canPan && !ideoActive()) return;                     // nothing to pan and no swipe target
+    if (isInteractive(e.target)) return;                      // let controls/tiles handle it
+    start = { x: e.clientX, y: e.clientY, top: scroll.scrollTop, dragging: false, axis: null, dx: 0 };
     window.addEventListener('pointermove', onMove, { passive: false });
     window.addEventListener('pointerup', end);
     window.addEventListener('pointercancel', end);
   });
+
+  // Trackpad / horizontal wheel — a two-finger sideways flick pages the reader.
+  // Debounced so one flick = one page, and only when the horizontal intent is
+  // clear (so ordinary vertical scrolling is never hijacked).
+  let wheelLock = 0;
+  scroll.addEventListener('wheel', (e) => {
+    if (!ideoActive()) return;
+    if (Math.abs(e.deltaX) < 24 || Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+    e.preventDefault();
+    if (e.timeStamp - wheelLock < 450) return;
+    wheelLock = e.timeStamp;
+    changeIdeoPage(e.deltaX > 0 ? 1 : -1);
+  }, { passive: false });
 }
 
 function renderBreadcrumb(appId, crumb) {
@@ -2331,6 +2471,254 @@ function _mapTileSym(t) {
   if (t.svg) return `<span class="mt-icon mt-svg" style="--zi:url(/assets/zone-icons/${esc(t.svg)}.svg)"></span>`;
   if (t.icon) return `<span class="mt-icon">${esc(t.icon)}</span>`;
   return ''; // bare tile — no marker glyph (#, ⸪., …)
+}
+
+// ── Ideology app (native view: 'ideology') ────────────────────────────────
+// Paged reader: Overview (radial 4-path field + ranked standing), one deep-dive
+// page per order (lore/creed/path/standing ladder/relations/agents), and the
+// Field (two-axis compass). All data rides in one payload; pages switch
+// client-side via _tosIdeoPage (like the corp dashboard), no round trip.
+function _ideoAccent() {
+  const a = getComputedStyle(_overlay || document.documentElement).getPropertyValue('--accent').trim();
+  return a || '#35e0c8';
+}
+
+// Procedural order sigils, stroked in each order's identity colour.
+const IDEO_SIGILS = {
+  ideology_ascendants: c => `<svg viewBox="0 0 40 40" class="tos-ideo-sig"><g fill="none" stroke="${c}" stroke-width="1.6"><path d="M20 6 L31 26 H9 Z"/><path d="M20 14 L26 26 H14 Z" stroke-opacity=".6"/><circle cx="20" cy="31" r="2.4" fill="${c}"/><path d="M20 22 V28 M14 31 H9 M26 31 H31" stroke-opacity=".7"/></g></svg>`,
+  ideology_long_watch: c => `<svg viewBox="0 0 40 40" class="tos-ideo-sig"><g fill="none" stroke="${c}" stroke-width="1.6"><path d="M6 20 Q20 8 34 20 Q20 32 6 20 Z"/><circle cx="20" cy="20" r="4.5"/><circle cx="20" cy="20" r="1.6" fill="${c}"/><path d="M20 4 V8 M20 32 V36" stroke-opacity=".6"/></g></svg>`,
+  ideology_wildblood: c => `<svg viewBox="0 0 40 40" class="tos-ideo-sig"><g fill="none" stroke="${c}" stroke-width="1.6"><path d="M20 34 V20"/><path d="M20 20 C20 12 13 12 10 6 M20 20 C20 12 27 12 30 6"/><path d="M20 26 C20 22 15 21 12 18 M20 26 C20 22 25 21 28 18" stroke-opacity=".6"/><circle cx="10" cy="6" r="2" fill="${c}"/><circle cx="30" cy="6" r="2" fill="${c}"/></g></svg>`,
+  ideology_exodus: c => `<svg viewBox="0 0 40 40" class="tos-ideo-sig"><g fill="none" stroke="${c}" stroke-width="1.6"><circle cx="20" cy="20" r="4" fill="${c}"/><g stroke-opacity=".85"><path d="M20 20 L20 5 M20 20 L33 12 M20 20 L35 20 M20 20 L33 28 M20 20 L20 35 M20 20 L7 28 M20 20 L5 20 M20 20 L7 12"/></g><circle cx="20" cy="20" r="9" stroke-opacity=".4" stroke-dasharray="2 3"/></g></svg>`,
+  // Expansion orders — sigils staged so flipping the flags.expansion gate is the
+  // only activation step. The torch (Prometheans), the bloom (Synthesis), the cut
+  // signal (Null), the rising sun (Pioneers).
+  ideology_prometheans: c => `<svg viewBox="0 0 40 40" class="tos-ideo-sig"><g fill="none" stroke="${c}" stroke-width="1.6"><path d="M20 6 C24 12 24 15 20 20 C16 15 16 12 20 6 Z"/><path d="M20 20 V34"/><path d="M14 31 H9 M26 31 H31" stroke-opacity=".6"/><circle cx="9" cy="31" r="1.6" fill="${c}"/><circle cx="31" cy="31" r="1.6" fill="${c}"/></g></svg>`,
+  ideology_synthesis: c => `<svg viewBox="0 0 40 40" class="tos-ideo-sig"><g fill="none" stroke="${c}" stroke-width="1.6"><path d="M20 34 V16"/><path d="M20 22 C12 20 10 12 12 8 C18 10 20 16 20 22 Z" stroke-opacity=".85"/><path d="M20 18 C28 16 30 10 28 7 C23 9 20 13 20 18 Z" stroke-opacity=".6"/><circle cx="20" cy="13" r="2" fill="${c}"/></g></svg>`,
+  ideology_null: c => `<svg viewBox="0 0 40 40" class="tos-ideo-sig"><g fill="none" stroke="${c}" stroke-width="1.6"><path d="M8 24 Q20 8 32 24" stroke-opacity=".5"/><path d="M13 26 Q20 16 27 26" stroke-opacity=".7"/><circle cx="20" cy="30" r="2" fill="${c}"/><path d="M10 10 L30 34" stroke-width="2"/></g></svg>`,
+  ideology_pioneers: c => `<svg viewBox="0 0 40 40" class="tos-ideo-sig"><g fill="none" stroke="${c}" stroke-width="1.6"><path d="M6 28 H34"/><path d="M13 28 A7 7 0 0 1 27 28"/><g stroke-opacity=".7"><path d="M20 12 V7 M11 16 L8 13 M29 16 L32 13 M6 22 H3 M34 22 H37"/></g></g></svg>`,
+};
+function ideoSigil(id, color) { return (IDEO_SIGILS[id] || (c => `<svg viewBox="0 0 40 40" class="tos-ideo-sig"><circle cx="20" cy="20" r="7" fill="${c}"/></svg>`))(color); }
+
+// Fixed field coordinates for the canon four (x: renounce→redeem 0..100,
+// y: human→transcend 0..100). Unknown ids derive from stance/path.
+const IDEO_FIELD_XY = {
+  ideology_ascendants: [72, 82], ideology_long_watch: [76, 12],
+  ideology_wildblood: [26, 80], ideology_exodus: [18, 90],
+  // Expansion orders (staged; gated out of the payload until activated). Placed
+  // by hand rather than left to the stance/path fallback, which would stack the
+  // Null (renounce·machine) on the transcend row it philosophically rejects.
+  ideology_prometheans: [88, 66], ideology_synthesis: [60, 74],
+  ideology_null: [16, 30], ideology_pioneers: [34, 12],
+};
+function ideoFieldXY(o) {
+  if (IDEO_FIELD_XY[o.id]) return IDEO_FIELD_XY[o.id];
+  const x = o.stance === 'redeem' ? 74 : 22;
+  const y = o.path === 'human' ? 14 : 84;
+  return [x, y];
+}
+function ideoPlayerXY(overview) {
+  const p = overview.paths || {};
+  const tot = (p.machine || 0) + (p.flesh || 0) + (p.mind || 0) + (p.human || 0);
+  const transcend = tot ? Math.round((1 - (p.human || 0) / tot) * 100) : 50;
+  return [Math.round((overview.stance + 100) / 2), transcend];
+}
+
+// Two-axis compass: civilization (x) × the body (y). highlightId dims the rest.
+function renderIdeoField(d, highlightId, accent) {
+  const X0 = 48, X1 = 336, Y0 = 46, Y1 = 250;
+  const sx = s => X0 + s / 100 * (X1 - X0);
+  const sy = t => Y1 - t / 100 * (Y1 - Y0);
+  const nodes = d.orders.map(o => {
+    const [gx, gy] = ideoFieldXY(o);
+    const on = !highlightId || o.id === highlightId;
+    const em = o.expansion;
+    const op = (on ? 1 : .26) * (em ? .55 : 1), r = on ? 7 : 5, gr = on ? 17 : 9;
+    const lbl = o.name.replace('The ', '').toUpperCase();
+    const dot = em
+      ? `<circle cx="${sx(gx)}" cy="${sy(gy)}" r="${r}" fill="none" stroke="${o.color}" stroke-width="1.5" stroke-dasharray="2 2.4"/>`
+      : `<circle cx="${sx(gx)}" cy="${sy(gy)}" r="${r}" fill="${o.color}"/><circle cx="${sx(gx)}" cy="${sy(gy)}" r="${r}" fill="none" stroke="#fff" stroke-opacity="${on ? .5 : 0}"/>`;
+    return `<g opacity="${op}">
+      <circle cx="${sx(gx)}" cy="${sy(gy)}" r="${gr}" fill="${o.color}" opacity="${em ? .1 : .2}"/>
+      ${dot}
+      ${on ? `<text x="${sx(gx)}" y="${sy(gy) + (gy > 55 ? -13 : 21)}" text-anchor="middle" fill="${o.color}" font-size="9.5" letter-spacing="1">${lbl}</text>` : ''}
+    </g>`;
+  }).join('');
+  const [px0, py0] = ideoPlayerXY(d.overview);
+  const px = sx(px0), py = sy(py0);
+  return `<svg viewBox="0 0 380 288" class="tos-ideo-chart" role="img" aria-label="Two-axis alignment field: civilization on the horizontal, the body on the vertical.">
+    <rect x="${X0}" y="${Y0}" width="${X1 - X0}" height="${Y1 - Y0}" fill="none" stroke="${accent}" stroke-opacity=".14" rx="6"/>
+    <line x1="${(X0 + X1) / 2}" y1="${Y0}" x2="${(X0 + X1) / 2}" y2="${Y1}" stroke="${accent}" stroke-opacity=".16" stroke-dasharray="3 5"/>
+    <line x1="${X0}" y1="${(Y0 + Y1) / 2}" x2="${X1}" y2="${(Y0 + Y1) / 2}" stroke="${accent}" stroke-opacity=".16" stroke-dasharray="3 5"/>
+    <text x="${X0}" y="36" fill="${accent}" fill-opacity=".7" font-size="9" letter-spacing="1.5">◄ RENOUNCE</text>
+    <text x="${X1}" y="36" text-anchor="end" fill="${accent}" fill-opacity=".7" font-size="9" letter-spacing="1.5">REDEEM ►</text>
+    <text x="${(X0 + X1) / 2}" y="22" text-anchor="middle" fill="${accent}" fill-opacity=".5" font-size="8" letter-spacing="2">CIVILIZATION</text>
+    <text x="${(X0 + X1) / 2}" y="266" text-anchor="middle" fill="${accent}" fill-opacity=".7" font-size="9" letter-spacing="1.5">STAY HUMAN</text>
+    <text x="${(X0 + X1) / 2}" y="282" text-anchor="middle" fill="${accent}" fill-opacity=".5" font-size="8" letter-spacing="2">THE BODY · TRANSCEND ▲</text>
+    ${nodes}
+    <circle cx="${px}" cy="${py}" r="18" fill="${accent}" opacity=".18"><animate attributeName="r" values="14;22;14" dur="3.2s" repeatCount="indefinite"/></circle>
+    <circle cx="${px}" cy="${py}" r="8" fill="#fff"/><circle cx="${px}" cy="${py}" r="13" fill="none" stroke="${accent}"/>
+    <text x="${px}" y="${py - 17}" text-anchor="middle" fill="#fff" font-size="8.5" letter-spacing="2">YOU</text>
+  </svg>`;
+}
+
+// Radial four-path field — stance (x) × ascend/stay (y), each order at its
+// (stance, path) corner. The Overview's headline chart.
+function renderIdeoRadial(d, accent) {
+  const POS = { ideology_exodus: [92, 88], ideology_wildblood: [112, 192], ideology_ascendants: [292, 84], ideology_long_watch: [270, 210],
+    // Expansion orders (staged; gated out until activated) — filling the gaps
+    // between the canon four so an eight-order field stays legible.
+    ideology_prometheans: [246, 58], ideology_synthesis: [318, 150], ideology_null: [66, 214], ideology_pioneers: [156, 240] };
+  const nodes = d.orders.map(o => {
+    const [x, y] = POS[o.id] || [190, 144];
+    const lbl = o.name.replace('The ', '').toUpperCase();
+    const core = o.expansion
+      ? `<circle cx="${x}" cy="${y}" r="6" fill="none" stroke="${o.color}" stroke-width="1.5" stroke-dasharray="2 2.4"/>`
+      : `<circle cx="${x}" cy="${y}" r="6.5" fill="${o.color}"/><circle cx="${x}" cy="${y}" r="6.5" fill="none" stroke="#fff" stroke-opacity=".5"/>`;
+    return `<g opacity="${o.expansion ? .55 : 1}"><circle cx="${x}" cy="${y}" r="16" fill="${o.color}" opacity="${o.expansion ? .1 : .18}"/>${core}<text x="${x}" y="${y + 24}" text-anchor="middle" fill="${o.color}" font-size="9" letter-spacing="1">${lbl}</text></g>`;
+  }).join('');
+  return `<svg viewBox="0 0 380 288" class="tos-ideo-chart" role="img" aria-label="Four-path alignment field with your position marked.">
+    <line x1="190" y1="32" x2="190" y2="258" stroke="${accent}" stroke-opacity=".16" stroke-dasharray="3 5"/>
+    <line x1="42" y1="145" x2="338" y2="145" stroke="${accent}" stroke-opacity=".16" stroke-dasharray="3 5"/>
+    <rect x="42" y="32" width="296" height="226" fill="none" stroke="${accent}" stroke-opacity=".13" rx="6"/>
+    <text x="48" y="24" fill="${accent}" fill-opacity=".7" font-size="9" letter-spacing="1.5">◄ RENOUNCE</text>
+    <text x="332" y="24" text-anchor="end" fill="${accent}" fill-opacity=".7" font-size="9" letter-spacing="1.5">REDEEM ►</text>
+    <text x="190" y="276" text-anchor="middle" fill="${accent}" fill-opacity=".5" font-size="8" letter-spacing="2">STAY · HUMAN</text>
+    <text x="190" y="46" text-anchor="middle" fill="${accent}" fill-opacity=".5" font-size="8" letter-spacing="2">ASCEND</text>
+    ${nodes}
+    <circle cx="150" cy="172" r="18" fill="${accent}" opacity=".18"><animate attributeName="r" values="14;22;14" dur="3.2s" repeatCount="indefinite"/></circle>
+    <circle cx="150" cy="172" r="8" fill="#fff"/><circle cx="150" cy="172" r="13" fill="none" stroke="${accent}"/>
+    <text x="150" y="149" text-anchor="middle" fill="#fff" font-size="8.5" letter-spacing="2">YOU</text>
+  </svg>`;
+}
+
+// Rep bar fill %: -200 (bottom of Unknown) .. 900 (Inner Circle) mapped to 4..100.
+function ideoRepPct(rep) { return Math.max(4, Math.min(100, Math.round((rep + 200) / 1100 * 100))); }
+function ideoFormPct(path) { return path === 'human' ? 12 : (path === 'mind' ? 90 : 82); }
+
+const IDEO_PAGES_KEY = d => ['overview', ...d.orders.map(o => o.id), 'field'];
+
+function renderIdeoNav(d, page) {
+  const accent = _ideoAccent();
+  const tabs = [{ k: 'overview', label: '◆ OVERVIEW', c: accent }];
+  d.orders.forEach(o => tabs.push({ k: o.id, label: o.name.replace('The ', '').toUpperCase(), c: o.color, em: o.expansion }));
+  tabs.push({ k: 'field', label: '◈ FIELD', c: accent });
+  const strip = tabs.map((t, i) =>
+    `<span class="tos-ideo-tab${i === page ? ' on' : ''}${t.em ? ' emerging' : ''}" data-ideo-page="${i}" style="--ic:${t.c}"><b>${t.em ? '◇' : '▪'}</b> ${esc(t.label)}</span>`
+  ).join('');
+  return `<div class="tos-ideo-nav">${strip}</div>`;
+}
+
+function renderIdeoOverview(d, accent) {
+  const live = d.orders.filter(o => !o.expansion).sort((a, b) => b.rep - a.rep);
+  const emerging = d.orders.filter(o => o.expansion);
+  const row = o => `
+    <div class="tos-ideo-stand${o.expansion ? ' emerging' : ''}" data-ideo-go="${o.id}" style="--ic:${o.color}">
+      <span class="tos-ideo-sigwrap">${ideoSigil(o.id, o.color)}</span>
+      <span class="tos-ideo-sname">${esc(o.name.replace('The ', ''))}</span>
+      ${o.expansion
+        ? `<span class="tos-ideo-bar emerging"><i style="width:100%;background:repeating-linear-gradient(90deg,${o.color} 0 3px,transparent 3px 6px)"></i></span>`
+        : `<span class="tos-ideo-bar"><i style="width:${ideoRepPct(o.rep)}%;background:${o.color};box-shadow:0 0 8px ${o.color}"></i></span>`}
+      <span class="tos-ideo-tv" style="color:${o.color}">${o.expansion ? 'Emerging' : esc(o.tier)}</span>
+    </div>`;
+  const rows = live.map(row).join('')
+    + (emerging.length ? `<div class="tos-ideo-substand">Emerging orders · not yet active in the Basin</div>${emerging.map(row).join('')}` : '');
+  const lean = d.overview.leanName
+    ? `You lean toward <b style="color:${d.overview.leanColor};text-shadow:0 0 12px ${d.overview.leanColor}80">${esc(d.overview.leanName)}</b>.`
+    : 'You have not yet taken a side.';
+  return `<div class="tos-ideo-page">
+    <div class="tos-ideo-lbl">Alignment field</div>
+    <div class="tos-ideo-panel">${renderIdeoRadial(d, accent)}<div class="tos-ideo-lean">${lean}</div></div>
+    <div class="tos-ideo-lbl">Standing</div>
+    <div class="tos-ideo-panel">${rows}</div>
+    <div class="tos-ideo-lbl">The two questions</div>
+    <div class="tos-ideo-panel"><p class="tos-ideo-note"><b>Civilization</b> — is the Basin worth saving? Renounce it, or redeem it.<br><br><b>The body</b> — do we stay human, or transcend the form? And by which path — machine, flesh, or mind? <span class="tos-ideo-dim">Open the Field to see them all plotted.</span></p></div>
+  </div>`;
+}
+
+function renderIdeoOrder(o, d, accent) {
+  const foes = (o.opposed || []).map(n => `<span class="tos-ideo-chip foe"><em>opposed</em>${esc(n)}</span>`).join('');
+  const wary = (o.neutral || []).map(n => `<span class="tos-ideo-chip warn"><em>no quarrel</em>${esc(n)}</span>`).join('');
+  const npcs = (o.npcs && o.npcs.length)
+    ? `<div class="tos-ideo-chips">${o.npcs.map(n => `<span class="tos-ideo-chip"><em>agent</em>${esc(n)}</span>`).join('')}</div>`
+    : `<p class="tos-ideo-empty">No agents have surfaced in the Basin. You'll know them by their work, not their faces.</p>`;
+  const ladder = d.tiers.map(t => {
+    const cls = o.rep >= 0 && t.label === o.tier ? 'here' : '';
+    const done = d.tiers.findIndex(x => x.label === o.tier) > d.tiers.indexOf(t);
+    return `<div class="tos-ideo-rung ${cls || (done ? 'done' : '')}"><span class="pip" style="--ic:${o.color}"></span><span class="rl">${esc(t.label)}</span><span class="pk">${esc(t.perk)}</span></div>`;
+  }).join('');
+  const nxt = o.nextTier ? `${o.nextAt} to ${esc(o.nextTier)}` : 'max tier';
+  const lore = esc(o.lore);
+  const drop = lore.charAt(0), rest = lore.slice(1);
+  return `<div class="tos-ideo-page" style="--ic:${o.color}">
+    <div class="tos-ideo-ohead">
+      <span class="tos-ideo-sigwrap big">${ideoSigil(o.id, o.color)}</span>
+      <div><div class="tos-ideo-oname" style="color:${o.color};text-shadow:0 0 14px ${o.color}66">${esc(o.name)}</div>
+      ${o.motto ? `<div class="tos-ideo-motto">› ${esc(o.motto)}</div>` : ''}
+      ${o.expansion ? `<div class="tos-ideo-emerge" style="--ic:${o.color}">◇ Emerging · not yet active</div>` : ''}</div>
+    </div>
+    <div class="tos-ideo-tags">
+      ${o.stance ? `<span class="tos-ideo-tag" style="--ic:${o.color}">${esc(o.stance)}</span>` : ''}
+      ${o.path ? `<span class="tos-ideo-tag" style="--ic:${o.color}">path · ${esc(o.path)}</span>` : ''}
+      ${o.expansion ? `<span class="tos-ideo-tag" style="--ic:${o.color}">emerging</span>` : `<span class="tos-ideo-tag" style="--ic:${o.color}">${esc(o.tier)} · ${o.rep >= 0 ? '+' : ''}${o.rep}</span>`}
+    </div>
+    <p class="tos-ideo-lore"><span class="drop" style="color:${o.color};text-shadow:0 0 16px ${o.color}55">${drop}</span>${rest}</p>
+    ${o.pull ? `<p class="tos-ideo-pull" style="border-color:${o.color};color:${o.color}">${esc(o.pull)}</p>` : ''}
+    ${o.tenets.length ? `<div class="tos-ideo-lbl">Creed</div><div class="tos-ideo-panel"><ul class="tos-ideo-tenets">${o.tenets.map(t => `<li style="--ic:${o.color}">${esc(t)}</li>`).join('')}</ul></div>` : ''}
+    ${o.pathText ? `<div class="tos-ideo-lbl">Their path</div><div class="tos-ideo-panel"><div class="tos-ideo-pathbox">
+      <div class="pm"><div class="tos-ideo-bar" style="height:8px"><i style="width:${ideoFormPct(o.path)}%;background:${o.color};box-shadow:0 0 10px ${o.color}"></i></div><div class="pml">form change</div></div>
+      <div class="pt">${esc(o.pathText)}</div></div></div>` : ''}
+    <div class="tos-ideo-lbl">Their place in the field</div>
+    <div class="tos-ideo-panel">${renderIdeoField(d, o.id, accent)}</div>
+    ${o.expansion
+      ? `<div class="tos-ideo-lbl">Standing</div>
+    <div class="tos-ideo-panel"><p class="tos-ideo-note tos-ideo-dim">This order has not yet surfaced in the Basin — you cannot take up standing with it yet. Consider this a preview of a road that is coming.</p></div>`
+      : `<div class="tos-ideo-lbl">Your standing</div>
+    <div class="tos-ideo-panel">
+      <div class="tos-ideo-shead"><span class="rp" style="color:${o.color}">${o.rep >= 0 ? '+' : ''}${o.rep}</span><span class="nx">${nxt}</span></div>
+      <div class="tos-ideo-bar" style="margin-bottom:13px"><i style="width:${ideoRepPct(o.rep)}%;background:${o.color};box-shadow:0 0 10px ${o.color}"></i></div>
+      <div class="tos-ideo-ladder">${ladder}</div>
+    </div>`}
+    <div class="tos-ideo-lbl">Relations</div>
+    <div class="tos-ideo-panel"><div class="tos-ideo-chips">${foes}${wary}</div>${o.relnote ? `<p class="tos-ideo-note tos-ideo-dim" style="margin-top:10px">${esc(o.relnote)}</p>` : ''}</div>
+    <div class="tos-ideo-lbl">In the world</div>
+    <div class="tos-ideo-panel">${npcs}</div>
+  </div>`;
+}
+
+function renderIdeoFieldPage(d, accent) {
+  const legend = d.orders.map(o => `<span><i style="background:${o.color};color:${o.color}"></i>${esc(o.name.replace('The ', ''))} · ${esc(o.path || '')}</span>`).join('');
+  return `<div class="tos-ideo-page">
+    <div class="tos-ideo-panel">${renderIdeoField(d, null, accent)}</div>
+    <div class="tos-ideo-lbl">The two axes</div>
+    <div class="tos-ideo-panel">
+      <p class="tos-ideo-note"><b>Civilization</b> (↔) — the Basin and its Architect. <b>Renounce</b> it and leave, or <b>redeem</b> it and stay.<br><br><b>The body</b> (↕) — <b>stay human</b>, or <b>transcend</b> the form. The ascending orders climb by different means — that third choice of <em>path</em> is what the Overview's field unfolds.</p>
+      <div class="tos-ideo-legend">${legend}<span><i style="background:#fff;color:${accent}"></i>You</span></div>
+    </div>
+  </div>`;
+}
+
+// Step the reader one page (−1 prev / +1 next), clamped. Shared by the tab
+// strip, the horizontal swipe/drag, and the trackpad horizontal wheel.
+function changeIdeoPage(dir) {
+  if (!_data || _data.view !== 'ideology') return;
+  const count = (_data.orders?.length || 0) + 2; // Overview + orders + Field
+  const next = Math.min(count - 1, Math.max(0, _tosIdeoPage + dir));
+  if (next === _tosIdeoPage) return;
+  _tosIdeoPage = next;
+  sfx(TOS_SELECT_DEF);
+  render();
+}
+
+function renderIdeology(d, crumb) {
+  const accent = _ideoAccent();
+  const keys = IDEO_PAGES_KEY(d);
+  if (_tosIdeoPage < 0 || _tosIdeoPage >= keys.length) _tosIdeoPage = 0;
+  const key = keys[_tosIdeoPage];
+  let body;
+  if (key === 'overview') body = renderIdeoOverview(d, accent);
+  else if (key === 'field') body = renderIdeoFieldPage(d, accent);
+  else body = renderIdeoOrder(d.orders.find(o => o.id === key), d, accent);
+  return `<div class="tos-ideo-sticky">${crumb || ''}${renderIdeoNav(d, _tosIdeoPage)}</div>${body}`;
 }
 
 function renderMap(d) {
@@ -3800,6 +4188,12 @@ function renderBody() {
       ${renderSurveillance(d)}
     </div>`;
   }
+  if (d.view === 'ideology') {
+    const crumb = renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName]);
+    return `<div class="tos-body">${hdr}${summary}
+      ${renderIdeology(d, crumb)}
+    </div>`;
+  }
   if (d.view === 'reel') {
     const reelActions = d.reel?.id
       ? renderActions(d.appId, [{ id: 'delete', label: '🗑 Destroy Reel', confirm: 'Permanently destroy this microreel? This cannot be undone.' }], d.reel.id)
@@ -3829,9 +4223,7 @@ function renderBody() {
     return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb || [d.appName])}<div class="tos-error">${esc(d.message || d.error || 'Something went wrong.')}</div></div>`;
   }
   if (d.view === 'categories') {
-    // Quests app root carries a small client-only activity log beneath the list.
-    const qlog = d.appId === 'quests' ? renderQuestActivityLog() : '';
-    return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(null, [d.appName])}${renderCategories(d.items)}${qlog}</div>`;
+    return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(null, [d.appName])}${renderCategories(d.items)}</div>`;
   }
   if (d.view === 'help') {
     return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb || [d.appName])}${renderHelp(d.chapter)}</div>`;
@@ -3846,9 +4238,9 @@ function renderBody() {
   if (d.view === 'detail') {
     const det = d.detail || d.quest || {};
     const params = det.id || '';
-    // The Quests detail carries the same client-only activity log as the root, so
-    // you can track your current activity from an individual quest screen too.
-    const qlog = d.appId === 'quests' ? renderQuestActivityLog() : '';
+    // A quest's detail carries its own action log — the narrative of what you did
+    // on this quest, built from the server's structured quest_log beats.
+    const qlog = d.appId === 'quests' && det.id ? renderQuestActivityLog(det.id) : '';
     return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb || [d.appName])}
       ${d.notice ? `<div class="tos-error" style="text-align:left;padding:0 0 10px">${esc(d.notice)}</div>` : ''}
       <div class="tos-detail-name">${esc(det.name || '')}</div>
@@ -3941,6 +4333,24 @@ function wireBody() {
       render();
     });
   });
+  // Ideology reader paging — client-side (all pages ride in one payload): tab
+  // strip switches the page index, a standing row jumps to that order's page.
+  _overlay.querySelectorAll('[data-ideo-page]').forEach(el => {
+    el.addEventListener('click', () => {
+      _tosIdeoPage = parseInt(el.getAttribute('data-ideo-page'), 10) || 0;
+      sfx(TOS_SELECT_DEF);
+      render();
+    });
+  });
+  _overlay.querySelectorAll('[data-ideo-go]').forEach(el => {
+    el.addEventListener('click', () => {
+      const id = el.getAttribute('data-ideo-go');
+      const idx = (_data?.orders || []).findIndex(o => o.id === id);
+      if (idx >= 0) _tosIdeoPage = idx + 1; // +1 past the Overview tab
+      sfx(TOS_SELECT_DEF);
+      render();
+    });
+  });
   // Surveillance hub: clicking a camera tile focuses it (re-nav same screen with
   // the device id as params); a sub-screen link (e.g. Datachips) navs to it.
   _overlay.querySelectorAll('[data-nav-tile]').forEach(el => {
@@ -3979,11 +4389,10 @@ function wireBody() {
       const baseParams = el.getAttribute('data-act-params');
       const launchCmd = el.getAttribute('data-act-launch');
       // Folding a corp also drops its now-dead chat channel from the list.
-      // Abandon is the one quest lifecycle action the server sends no chat line for,
-      // so record it into the activity log here (take/hand-in are caught from output).
+      // Abandoning a quest tosses its action log — it's off the board now.
       const fire = (params) => {
         if (actionId === 'fold') removeCorpChannels();
-        if (appId === 'quests' && actionId === 'abandon' && _data?.quest?.name) pushQLog(`Dropped “${_data.quest.name}”`);
+        if (appId === 'quests' && actionId === 'abandon' && _data?.quest?.id) dropQuestLog(_data.quest.id);
         act(appId, actionId, params);
       };
 
@@ -4039,15 +4448,6 @@ function wireBody() {
   // Corp colour wheel — any colour, applied immediately via the set_color action.
   _overlay.querySelectorAll('[data-set-corp-color]').forEach(el => {
     el.addEventListener('change', () => act(el.getAttribute('data-set-corp-color'), 'set_color', el.value));
-  });
-
-  // Quest activity log: clear it (client-only) and re-render in place.
-  const qlogClear = _overlay.querySelector('[data-qlog-clear]');
-  if (qlogClear) qlogClear.addEventListener('click', () => {
-    try { localStorage.removeItem(QLOG_KEY); } catch {}
-    sfx(TOS_SELECT_DEF);
-    _keepQuestScroll = true;
-    render();
   });
 
   wireTabletSettings();
@@ -5312,6 +5712,7 @@ export function closeTabletPanel() { shutdownTablet(); }
 window.addEventListener('game-disconnect', () => { if (_overlay) close(); });
 
 function close() {
+  purgeCompletedQuestLogs(); // finished quests' action logs clear once you close the tablet
   if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
   if (_fakeTimer) { clearInterval(_fakeTimer); _fakeTimer = null; }
   if (_reelTimer) { clearInterval(_reelTimer); _reelTimer = null; _reelPlaying = false; }

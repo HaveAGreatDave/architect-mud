@@ -1,8 +1,8 @@
 {
   "name": "drugwar",
-  "version": "1.0.0",
-  "description": "The street-level drug war: a self-running turf tick where the Franchise, the Breakers, and the Glitch push zone_control influence back and forth across the Core, the Marquee, and the Yards on their own — the visible, low-stakes microcosm of the corp territory meta. Writes the shared zone_control substrate; emits drugwar.flip on a seizure. Home for the ambient 'living world' reactions that hang off those flips.",
+  "version": "1.1.0",
+  "description": "Ambient living-world reactions for the drug districts: the 'police don't save you' / 'the machine is watching' beats + rare sourceless blackouts. No territory and no ideology ties — the old turf tick and the alignment ledger were both removed; a player's ideology stance/path moves only through deliberate dialogue/quest choices now. Pairs with the dealer plugin (the covert dealers exist independently).",
   "commands": [],
   "hooks": [],
-  "events": { "emits": ["drugwar.flip"], "consumes": ["drugwar.flip", "zone.entered", "vendor.purchase", "npc.killed"] }
+  "events": { "emits": [], "consumes": ["zone.entered"] }
 }

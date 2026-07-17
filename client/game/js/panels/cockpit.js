@@ -335,19 +335,16 @@ function paintWindow(id, a, s) {
   const pax = s.seat === 'passenger';
   const paxView = pax ? _paxView : 'side';
   const onGround = (a._scenePhase || (s.airborne ? 'cruise' : 'ground')) === 'ground';
-  // Continuous ground↔air crossfade weight, straight off the same eased `a.height` the
-  // scene-phase hysteresis above already tracks — so the airport scenery and the Mode-7
-  // world actually blend across the climb-out/flare instead of swapping in one frame the
-  // instant `_scenePhase` flips.
-  const climbBlend = clampNum(((a.height ?? 0) - 0.02) / 0.08, 0, 1);
-  // Charter passengers should already see the city skyline while parked, so the
-  // buildings don't pop in during rotation. Floor the blend on the deck for the pax
-  // cabin only — the pilot's forward view keeps the runway-first ground crossfade.
-  const worldBlend = pax ? Math.max(0.7, climbBlend) : climbBlend;
-  // Fractional world offset from the eased position above vs. the map window's
-  // (integer) centre — slides the Mode-7 camera smoothly between pushes instead
-  // of snapping a tile at a time.
-  const mapOffset = worldBlend > 0 && a.fx != null ? { x: a.fx - (s.x ?? a.fx), y: a.fy - (s.y ?? a.fy) } : undefined;
+  // Unified Mode-7 world: the sim flies AND takes off in the real world — real runway tiles,
+  // markings, PAPI and real buildings — so there's no separate hand-drawn airport scene to
+  // crossfade from. worldBlend is pinned to 1 for pilot and passenger alike; the world is always
+  // fully drawn, parked on the deck and aloft. (The legacy modal takeoff/landing decks still pass
+  // their own fractional blend and keep the old airport scene.)
+  const worldBlend = 1;
+  // Fractional world offset from the eased position above vs. the map window's (integer) centre —
+  // slides the Mode-7 camera smoothly between pushes instead of snapping a tile at a time. Set on
+  // the deck too now, so the camera tracks the aircraft the moment it starts to roll.
+  const mapOffset = a.fx != null ? { x: a.fx - (s.x ?? a.fx), y: a.fy - (s.y ?? a.fy) } : undefined;
   paintWindshield(id, {
     pitch: a.pitch, bank: a.roll, height: a.height ?? 0, speed: speedFrac,
     hour: s.sky?.hour, weather: s.sky?.weather, wind: s.sky?.wind, heading: a.hdg,
@@ -1376,11 +1373,13 @@ function ensureFlightSimStyles() {
     /* control rows → transparent overlays pinned over the bottom of the view */
     body.fsim-external .fsim-glass{ position:absolute; left:8px; bottom:8px; width:auto; height:150px; gap:6px; z-index:6; background:transparent; }
     body.fsim-external .fsim-rightctl{ flex:0 0 auto; }
-    body.fsim-external .fsim-throttle{ background:rgba(6,12,18,.34); border-color:rgba(120,150,175,.4); }
+    body.fsim-external .fsim-throttle,
+    body.fsim-external #fsim-root.fsim-painted .fsim-throttle{ background:rgba(6,12,18,.34); border-color:rgba(120,150,175,.4); }   /* keep the throttle a faint translucent overlay out here — don't let the painted-dashboard rule fill it with the solid cabin colour */
     /* Weapons/flare strip lifted clear of the throttle + trim wheel (the glass sits at bottom:8px, ~150px tall). */
     body.fsim-external .fsim-weap{ bottom:166px; }
     body.fsim-external .fsim-ctl{ position:absolute; left:0; right:0; bottom:18px; height:120px; z-index:5; background:transparent; pointer-events:none; justify-content:center; }
-    body.fsim-external .fsim-yoke{ background:transparent; border-color:transparent; box-shadow:none; flex:0 0 300px; pointer-events:auto; }
+    body.fsim-external .fsim-yoke,
+    body.fsim-external #fsim-root.fsim-painted .fsim-yoke{ background:transparent; border-color:transparent; box-shadow:none; flex:0 0 300px; pointer-events:auto; }   /* the stick floats over the scene — no interior yoke-well slab out here, even on a painted craft (the painted-dashboard rule must not leak the cabin colour into the exterior view) */
     /* External view: the yoke/stick sits a bit higher now (the chase cam rides the craft
        higher/more centred, leaving room below it), a touch bigger. */
     body.fsim-external .fsim-yoke-svg{ top:2%; left:13%; width:74%; height:150%; }
@@ -2392,10 +2391,24 @@ function finishLanding(F, s) {
   F.engineOn = false; F.nightLight = false; F.landingLight = false;   // engine cut on park → all lights out
   const eb = document.getElementById('fsim-eng'); if (eb) eb.classList.remove('on');
   try { spoolDown(F.cls); } catch {}
-  sendCmdSilent(`flightsync ${F.pos.x.toFixed(2)} ${F.pos.y.toFixed(2)} 0 0 ${Math.round(s.heading)} 0 0 1 0`);
-  sendCmdSilent(`flightevent land ${F.landGrade || 'F-'} ${Math.round(F.landFpm || 0)}`);
-  const toHangar = !!F.onField || !!F.onYacht;   // the Echelon's helipad opens its bay too
-  setTimeout(() => { closeFlightSim(); sendCmdSilent(toHangar ? 'hangar' : 'look'); }, 600);
+  // A deck-cam landing reports the ECHELON's own tile (captured when she grabbed us), not our smooth
+  // position — which can round a tile off her hull and make the server treat it as an off-field
+  // set-down (towing the craft back to the origin airfield). Reporting her tile lands us squarely on
+  // her helipad so she parks on the pad and disembarks us onto her deck.
+  const px = F.deckLandTile ? F.deckLandTile[0] : F.pos.x, py = F.deckLandTile ? F.deckLandTile[1] : F.pos.y;
+  sendCmdSilent(`flightsync ${px.toFixed(2)} ${py.toFixed(2)} 0 0 ${Math.round(s.heading)} 0 0 1 0`);
+  // Carry the landing tile IN the land event too: the server processes this and the flightsync above
+  // concurrently (the ws message handler doesn't serialize a player's commands), so `land` must not
+  // depend on flightsync having landed first — otherwise it reads the stale airborne position, resolves
+  // off the Echelon, and tows the heli away instead of parking it in her hangar (the intermittent miss).
+  sendCmdSilent(`flightevent land ${F.landGrade || 'F-'} ${Math.round(F.landFpm || 0)} ${px.toFixed(2)} ${py.toFixed(2)}`);
+  // A deck-cam (yacht) landing is flagged by deckLandTile — more reliable than F.onYacht, which the
+  // server may have cleared by the time the cinematic ends. It opens the helipad bay and holds the
+  // quiet, rotors-stopped frame a few beats before the hangar pops; a normal field landing hands off
+  // promptly as before.
+  const deckLanding = !!F.deckLandTile;
+  const toHangar = !!F.onField || deckLanding;
+  setTimeout(() => { closeFlightSim(); sendCmdSilent(toHangar ? 'hangar' : 'look'); }, deckLanding ? DECK_HANDOFF_MS : 600);
 }
 
 // ── Deck-cam auto-land cinematic ────────────────────────────────────────────────────────────
@@ -2415,43 +2428,161 @@ function deckLandingWindow(F) {
   return map;
 }
 
-function startDeckLanding(F, s, now) {
-  // Read the Echelon's real heading out of the live world window (moored ⇒ bow-north / 0), so the
-  // deck-cam frames her the same way the sim just did.
-  let hdg = 0;
-  if (Array.isArray(F.map)) { for (const row of F.map) { const c = row && row.find(cc => cc && cc.mark === 'yacht'); if (c) { hdg = c.heading || 0; break; } } }
-  F.deckCine = { t0: now, dur: 4200, alt0: Math.max(45, s.altitude), hdg, done: false };
-  F._deckMap = null;
-  F.landGrade = 'A'; F.landFpm = Math.round(Math.max(0, -(s.vs || 0)));   // a guided set-down grades clean
-  if (F.toast) F.toast('The Echelon has you — settling onto the pad.');
+// Cinematic timeline: a wide APPROACH shot as she comes in, a soft cut to a CLOSE helipad shot for
+// the descent, then a SETTLE hold on the pad where the engine spools down before we hand off to the
+// park. Longer + phased than the old single continuous shot, so the transition reads smoothly and the
+// engine doesn't cut the instant the skids touch.
+// WIDE: a long, dramatic fly-in from out over the Basin, descending toward the pad. DROP: hard cut
+// to a close-up on the deck IN FRONT of her, tracking the last ~50ft down. HOLD: same close-up while
+// the rotors spin down and she goes quiet — a few beats before the hangar.
+const DECK_WIDE = 4000, DECK_DROP = 3000, DECK_HOLD = 2900;
+const DECK_TOTAL = DECK_WIDE + DECK_DROP + DECK_HOLD;
+const DECK_HANDOFF_MS = 1800;   // extra stillness after the rotors stop before the hangar view pops
+const DECK_PAD_Z = 0.145;   // world-z of the Echelon's FLUSH helipad floor (drawYacht pad pZ1 = DECKZ 0.085 × YACHT_H 1.7) — the heli rests ON the deck; gear square on the pad
+const DECK_DROP_FT = 75;    // the close "standing on deck" shot picks her up here and watches her drop in almost on top of you
+
+// Auto-land catch zone: how close (tiles, from the pad centre) + how low (ft) you must be for her to
+// grab you. Matches the drawn catch volume — radius a hair beyond its footprint so entering the ring
+// captures, ceiling = the column top (PAD_CATCH_CEIL 0.5 × CONTACT_ALT_K⁻¹ 600 ≈ 300ft).
+const YACHT_CATCH_RADIUS = 0.7, YACHT_CATCH_CEIL_FT = 300;
+
+// Real-time distance to the Echelon's helipad from our smooth position (not the laggy server flag):
+// find her cell in the streamed window → her hull-centre world tile (+ any sub-tile glide) → rotate
+// the local pad offset (oy +0.28) into the world → distance from us. Returns { dist (tiles), hdg }
+// or null when she isn't in the window. The pad centre matches the drawn catch volume + the deck-cam.
+function yachtProximity(F) {
+  const map = F.map; if (!Array.isArray(map) || !map.length || !F.mapCenter || !F.pos) return null;
+  const R = (map.length - 1) / 2;
+  for (let ry = 0; ry < map.length; ry++) {
+    const row = map[ry]; if (!row) continue;
+    for (let rx = 0; rx < row.length; rx++) {
+      const c = row[rx]; if (!c || c.mark !== 'yacht') continue;
+      const sub = c.sub || { x: 0, y: 0 };
+      const yx = F.mapCenter.x + (rx - R) + sub.x, yy = F.mapCenter.y + (ry - R) + sub.y;   // hull-centre world tile
+      const hr = (c.heading || 0) * Math.PI / 180;
+      const px = yx - 0.28 * Math.sin(hr), py = yy + 0.28 * Math.cos(hr);                    // aft helipad centre
+      // tile = her COMMITTED grid tile (no sub-tile render lead), so surfaceAt resolves her zone.
+      // hull = her hull-centre world tile, so the deck-cam can express our capture position in her
+      // local frame and fly the cinematic in from where we ACTUALLY are.
+      return { dist: Math.hypot(px - F.pos.x, py - F.pos.y), hdg: c.heading || 0, tile: [Math.round(F.mapCenter.x + (rx - R)), Math.round(F.mapCenter.y + (ry - R))], hull: [yx, yy] };
+    }
+  }
+  return null;
 }
 
+function startDeckLanding(F, s, now, prox) {
+  // Her real heading (frames the deck-cam the way the sim just did) + her hull tile (so we report the
+  // landing AT the Echelon, not at our smooth position — which can round a tile off her and get the
+  // craft towed off as an "off-field" landing). Both from the proximity probe that armed the capture.
+  const hdg = prox?.hdg || 0;
+  // Our ACTUAL position at the instant of capture, in her local frame (beam ox, fore-aft oy), so the
+  // fly-in starts from where we really are instead of snapping out to a canned start pose. Inverse of
+  // `loc` (rotate the world offset from her hull centre by −heading). Falls back to the canned start
+  // if the hull probe is missing.
+  const hr = hdg * Math.PI / 180, sh = Math.sin(hr), ch = Math.cos(hr);
+  let start = null;
+  if (prox?.hull && F.pos) {
+    const wx = F.pos.x - prox.hull[0], wy = F.pos.y - prox.hull[1];
+    start = [wx * ch + wy * sh, -wx * sh + wy * ch];
+  }
+  // Real helideck procedure: approach on the OPPOSITE heading to the ship, then pedal-turn to align with
+  // her before touchdown. So the fly-in holds hdg+180 and swings round to her heading over the descent.
+  const hdg0 = (hdg + 180) % 360;
+  // Carry the REAL capture altitude into the start (only floored enough to leave room to descend), so the
+  // fly-in begins at the heli's actual height — the 3D position she was really at, not a canned one.
+  F.deckCine = { t0: now, hdg, hdg0, alt0: Math.max(DECK_DROP_FT + 20, s.altitude), start, done: false, seg: -1 };
+  F.deckLandTile = prox?.tile || null;   // the Echelon's tile — finishLanding reports her here so she parks on the pad
+  F._deckMap = null;
+  F.landGrade = 'A'; F.landFpm = Math.round(Math.max(0, -(s.vs || 0)));   // a guided set-down grades clean
+  if (F.toast) F.toast('The Echelon has you — coming in to land.');
+}
+
+// Shortest-path angular interpolation (deg) — so a yaw from, say, 350°→10° swings +20° across north,
+// not −340° the long way round.
+function lerpAngle(a, b, t) {
+  const d = ((b - a + 540) % 360) - 180;
+  return (a + d * t + 360) % 360;
+}
 function stepDeckLanding(F, now) {
   const C = F.deckCine; if (!C) return;
-  const p = clampNum((now - C.t0) / C.dur, 0, 1);
-  const eased = 1 - Math.pow(1 - p, 2.3);            // fast at first, feathering onto the pad
-  const alt = C.alt0 * (1 - eased);                  // ft above the deck → 0
-  // The pad sits aft of the hull centre (yacht-local oy +0.28); rotate that into the world so she
-  // descends onto the actual pad, not the ship's waist.
-  const hr = C.hdg * Math.PI / 180, padX = -0.28 * Math.sin(hr), padY = 0.28 * Math.cos(hr);
+  const el = now - C.t0;
+  const ease = (t) => 1 - Math.pow(1 - t, 2.2);
+  const hr = C.hdg * Math.PI / 180, sinh = Math.sin(hr), cosh = Math.cos(hr);
+  // yacht-local (beam ox +stbd, fore-aft oy +aft) → world offset from the hull, the same transform
+  // drawYacht uses — so a local point tracks the deck whatever way she's pointing.
+  const loc = (ox, oy) => [-oy * sinh + ox * cosh, oy * cosh + ox * sinh];
+  // Work in her LOCAL frame (beam ox, fore-aft oy) and convert to world with `loc` exactly ONCE
+  // (at the projection below) — the pad/start were being loc()'d twice, which slid the touchdown off
+  // the pad ("left of the pad") whenever her heading wasn't due north.
+  const PAD = [0, 0.28];                 // helipad centre (local)
+  // Fly in from where the pilot ACTUALLY was at capture (interpolated in), so the cinematic is
+  // continuous with the approach — no teleport. Fall back to the canned starboard-quarter pose.
+  const START = C.start || [1.0, 1.7];   // fly-in start (local): captured real position, or the canned pose
+  const padWorld = loc(PAD[0], PAD[1]);  // pad centre as a WORLD offset from the hull — the close-up centres here
+  // `lookAt` is the ground point the camera centres on (mapOffset). WIDE frames the whole ship as she
+  // flies in; the close-up re-aims onto the PAD and sits IN FRONT of her (extYaw ~180 = dead ahead of
+  // the nose, looking back at her face) low on the deck, tracking the last 50ft + the shutdown.
+  let phase, ox, oy, alt, power = 0.8, propSpin = 1, landing = false, cam, lookAt = [0, 0], dome = false;
+  if (el < DECK_WIDE) {
+    // SHOT 1 — the fly-in, from an ON-DECK camera standing FORWARD of the pad (at the base of the
+    // deckhouse) looking AFT over the pad, so the deckhouse is BEHIND the camera and out of frame and
+    // she flies in over the open water toward you. Not a view of the whole boat — you're on her deck.
+    phase = 'wide'; const lp = ease(el / DECK_WIDE);
+    ox = START[0] + (PAD[0] - START[0]) * lp; oy = START[1] + (PAD[1] - START[1]) * lp;   // fly IN
+    alt = C.alt0 + (DECK_DROP_FT - C.alt0) * lp;
+    landing = lp > 0.75; dome = true;
+    cam = { yaw: 180, pitch: 0.14, zoom: 1.0 - lp * 0.36 };   // looking AFT down the deck over the pad, wide enough to read her 3D fly-in, easing toward the DROP
+    lookAt = padWorld;
+  } else if (el < DECK_WIDE + DECK_DROP) {
+    // SHOT 2 — the same ON-DECK vantage (standing at the deckhouse, looking AFT over the pad), holding
+    // low as she drops the last 75ft straight down in front of you onto the pad, open sea behind her.
+    // No crane, no orbit — you stay planted on the deck and she comes down to you.
+    phase = 'drop'; const lp = ease((el - DECK_WIDE) / DECK_DROP);
+    ox = PAD[0]; oy = PAD[1]; alt = DECK_DROP_FT * (1 - lp); landing = true;
+    cam = { yaw: 180, pitch: 0.14 - lp * 0.02, zoom: 0.64 - lp * 0.10 };   // hold the deck-level aft-looking view, tightening as she settles in
+    lookAt = padWorld;
+  } else {
+    // SHOT 3 — she's down; the same front close-up holds while the rotors spin down and she goes
+    // quiet, a slow push-in before the hand-off to the hangar.
+    phase = 'hold'; const lp = Math.min(1, (el - DECK_WIDE - DECK_DROP) / DECK_HOLD);
+    ox = PAD[0]; oy = PAD[1]; alt = 0; landing = true;
+    power = 0.5 * (1 - Math.min(1, lp / 0.7)); propSpin = 1 - Math.min(1, lp / 0.65);   // rotors fully stopped by ~65% through the hold
+    cam = { yaw: 180, pitch: 0.12, zoom: 0.54 - lp * 0.02 };   // hold the ON-DECK aft-looking view — she's settled on the pad right in front of you, open sea behind, as she winds down
+    lookAt = padWorld;
+    if (C.seg !== 2) { C.seg = 2; if (F.toast) F.toast('Skids down — winding down.'); }
+  }
+  const [hx, hy] = loc(ox, oy);
+  // Yaw from our captured heading round to HERS over the approach + drop, so she lines up with the
+  // deck as PART of the fly-in (no snap) and is square by the time she settles. No time pressure —
+  // the ~7s of WIDE+DROP carries the whole turn.
+  // Hold the OPPOSITE approach heading through the WIDE fly-in, then swing round to HER heading over the
+  // DROP so she's square with the deck by touchdown — "turn to it before landing".
+  const rot = ease(clampNum((el - DECK_WIDE) / DECK_DROP, 0, 1));
+  const heliHdg = lerpAngle(C.hdg0 ?? C.hdg, C.hdg, rot);
+  // Attitude: nose gently down on the way in, a nose-UP FLARE as she nears the deck (she rears back
+  // to arrest the sink), then eases level as she settles onto the pad and winds down.
+  let heliPitch;
+  if (phase === 'wide') heliPitch = -2 * clampNum(alt / 30, 0, 1);
+  else if (phase === 'drop') heliPitch = -2 + 8 * ease(clampNum((DECK_DROP_FT - alt) / DECK_DROP_FT, 0, 1));
+  else heliPitch = 6 * (1 - ease(clampNum((el - DECK_WIDE - DECK_DROP) / (DECK_HOLD * 0.4), 0, 1)));
   const heli = {
-    id: 'deck-heli', dx: padX, dy: padY,
-    altDiff: alt + 8,                                // +8ft so the skids kiss the raised pad, not sink into it
-    cls: F.cls, hdg: C.hdg, bank: 0, pitch: clampNum(-3 * (1 - p), -3, 0),
-    livery: F.livery, sizeMul: 1.9, power: 0.75, propSpin: 1, propDisc: 1,
-    lights: true, landing: p > 0.55,
+    id: 'deck-heli', dx: hx - lookAt[0], dy: hy - lookAt[1],
+    // groundZ pins her gear to the physical helipad deck (its world-z in drawYacht), so `altDiff` is
+    // her height in FEET ABOVE the pad — skids square on the deck at 0, not floating at eye height.
+    groundZ: DECK_PAD_Z, altDiff: alt,
+    cls: F.cls, hdg: heliHdg, bank: 0, pitch: heliPitch,
+    livery: F.livery, sizeMul: 1.9, power, propSpin, propDisc: propSpin > 0.15 ? 1 : 0,
+    lights: true, landing,
   };
-  // Deck-cam: a low quarter view that slowly pans around her stern and eases in as she lands.
-  const yaw = 26 + p * 30, pitch = 0.17 - p * 0.06, zoom = 1.35 - p * 0.4;
   paintWindshield('fsim-ws', {
     external: true, hideOwnShip: true, phase: 'cruise', worldBlend: 1,
-    heading: C.hdg, extYaw: yaw, extPitch: pitch, extZoom: zoom,
+    heading: C.hdg, extYaw: cam.yaw, extPitch: cam.pitch, extZoom: cam.zoom,
     height: 0, speed: 0, hour: F.sky?.hour, weather: F.sky?.weather, wxField: F.sky?.field,
-    map: deckLandingWindow(F), mapCenter: { x: 0, y: 0 }, mapOffset: { x: 0, y: 0 },
+    map: deckLandingWindow(F), mapCenter: { x: 0, y: 0 }, mapOffset: { x: lookAt[0], y: lookAt[1] },
     acX: 0, acY: 0, biomeBelow: 'water', airport: 'default',
-    contacts: [heli], padDome: { armed: true },
+    contacts: [heli], padDome: dome ? { armed: true } : null,   // bubble shown during the wide approach, gone once on deck
   });
-  if (p >= 1 && !C.done) { C.done = true; F.deckCine = null; F._deckMap = null; finishLanding(F, F.s); }
+  if (el >= DECK_TOTAL && !C.done) { C.done = true; F.deckCine = null; F._deckMap = null; finishLanding(F, F.s); }
 }
 
 function fsimFrame(now) {
@@ -2464,10 +2595,14 @@ function fsimFrame(now) {
   const dt = clampNum((now - F.last) / 1000, 0, 0.25); F.last = now;
   const { s, P, input } = F;
 
-  // Auto-land cinematic: once the Echelon has captured a hovering heli, we hand the whole view
-  // over to a deck-cam that flies her down onto the pad (physics + controls are frozen for its
-  // ~4s). Runs its own render + schedules the next frame, then bails out of the live sim step.
+  // Auto-land cinematic: once the Echelon has captured a hovering heli, we hand the whole view over
+  // to a deck-cam that flies her down onto the pad (physics + controls are frozen). Runs its own
+  // render + schedules the next frame, then bails out of the live sim step.
   if (F.deckCine) { stepDeckLanding(F, now); F.raf = requestAnimationFrame(fsimFrame); return; }
+  // After the cinematic ends (F.landed) we must NOT resume the live sim for the hand-off beat — that
+  // would repaint the real (still-airborne) craft for a frame and flash "the heli flying after it
+  // landed". Hold the last deck-cam frame (she's on the pad, rotors stopped) until closeFlightSim.
+  if (F.landed) { F.raf = requestAnimationFrame(fsimFrame); return; }
 
   // Yoke springs to centre when released.
   if (!F.yokeDrag) { input.elevator = lerpN(input.elevator, 0, Math.min(1, dt * 6)); input.aileron = lerpN(input.aileron, 0, Math.min(1, dt * 6)); }
@@ -2656,23 +2791,33 @@ function fsimFrame(now) {
     else if (!F.stopHinted) { F.stopHinted = true; if (F.toast) F.toast(F.heli ? 'DOWN — type disembark to climb out' : 'STOPPED — cut the ENGINE to shut down & park'); }
   }
 
+  // Client-side proximity to the pad (real-time, from our smooth position + the streamed window),
+  // so a fast fly-through registers the instant we're over the zone — unlike the server `onYacht`
+  // flag, which arrives on the HUD cadence and lags a quick pass right out of the catch.
+  const prox = yachtProximity(F);
+  const nearPad = !!(prox && prox.dist <= YACHT_CATCH_RADIUS);
+
   // Departure latch: after setting down (or being parked) on the Echelon you must actually LEAVE
   // her before the auto-land can grab you again — otherwise lifting off her pad instantly re-
-  // triggers the capture. You've "departed" once you climb clear (above 500ft) OR fly out of her
-  // capture vicinity (F.onYacht drops). Sitting on her deck disarms it; a fresh airborne approach
-  // from elsewhere is already armed (defaults true), so a first landing is never blocked.
-  if (s.onGround && F.onYacht) F.yachtDeparted = false;              // on her deck → disarm re-grab
-  else if (!F.onYacht || s.altitude > 500) F.yachtDeparted = true;   // flew clear of her / climbed above 500ft
+  // triggers the capture. You've "departed" once you climb just clear of the catch ceiling OR fly out
+  // of the catch radius. Sitting on her deck disarms it; a fresh airborne approach is armed by default.
+  const YACHT_REARM_FT = YACHT_CATCH_CEIL_FT + 50;   // just above the ~300ft catch ceiling (buffer avoids re-grab chatter at the lip)
+  if (s.onGround && nearPad) F.yachtDeparted = false;              // on her deck → disarm re-grab
+  else if (!nearPad || s.altitude > YACHT_REARM_FT) { F.yachtDeparted = true; F.autoLandNoticed = false; }   // flew clear / climbed just above the catch ceiling — re-arm
 
-  // Helipad capture: hovering low over the Echelon, she reaches up and takes you. A Dragonfly
-  // within a tile of her (F.onYacht) and slow below ~150ft is grabbed for an auto-land. Gated to a
-  // slow, non-climbing approach so a fast low fly-by, and the climb-out on takeoff (vs well
-  // positive), are never grabbed — and only once you've departed her (the latch above), so a
-  // takeoff off the pad doesn't re-grab you. Rather than snapping her onto the deck, we cut to a
-  // deck-cam cinematic that flies her down onto the pad with the camera tracking her.
-  if (F.heli && F.onYacht && F.yachtDeparted && !s.onGround && !F.landed && !F.deckCine && F.reportedAirborne
-      && s.altitude <= 150 && s.airspeed < 30 && s.vs < 20) {
-    startDeckLanding(F, s, now);
+  // Early heads-up just above the drawn catch volume (its top is ~300ft), so the hand-off is never
+  // a surprise.
+  if (F.heli && nearPad && F.yachtDeparted && !s.onGround && !F.landed && !F.deckCine && F.reportedAirborne
+      && s.altitude <= 440 && s.altitude > YACHT_CATCH_CEIL_FT && !F.autoLandNoticed) {
+    F.autoLandNoticed = true;
+    if (F.toast) F.toast('⚠ AUTO-LAND ARMING — drop into the green zone over the pad and she\'ll bring you down.');
+  }
+  // Capture the MOMENT you fly into the drawn catch volume — over the pad (nearPad) and below its
+  // ~300ft ceiling. NO speed or vertical-rate gate: run straight through it and she takes you. The
+  // only guard is the departure latch (so a takeoff off her own pad doesn't instantly re-grab you).
+  if (F.heli && nearPad && F.yachtDeparted && !s.onGround && !F.landed && !F.deckCine && F.reportedAirborne
+      && s.altitude <= YACHT_CATCH_CEIL_FT) {
+    startDeckLanding(F, s, now, prox);
   }
 
   // Stall horn (intermittent → continuous).
@@ -2792,7 +2937,12 @@ function fsimFrame(now) {
       if (rng < contactNear) contactNear = rng;
       const brg = Math.atan2(dx, -dy) * 180 / Math.PI;                    // bearing to contact
       const bore = Math.abs(((brg - s.heading + 540) % 360) - 180);       // off our nose
-      const cv = { id: c.id, dx, dy, altDiff: (c.alt || 0) - s.altitude, rng, bore, reg: c.reg, hullPct: c.hullPct, cls: c.cls, hdg: c.hdg, bank: c.bank, pitch: c.pitch, livery: c.livery, firing: c.firing };
+      // A ground contact (taxiing / on its takeoff roll) pins its gear to the world ground plane
+      // (groundZ 0 = the runway the viewer sees), so it rolls along the strip instead of floating at
+      // our eye level. Airborne contacts stay camera-relative on their altitude delta as before.
+      const cv = c.onGround
+        ? { id: c.id, dx, dy, groundZ: 0, altDiff: 0, rng, bore, reg: c.reg, hullPct: c.hullPct, cls: c.cls, hdg: c.hdg, bank: c.bank, pitch: c.pitch, livery: c.livery, firing: c.firing }
+        : { id: c.id, dx, dy, altDiff: (c.alt || 0) - s.altitude, rng, bore, reg: c.reg, hullPct: c.hullPct, cls: c.cls, hdg: c.hdg, bank: c.bank, pitch: c.pitch, livery: c.livery, firing: c.firing };
       contactView.push(cv);
       if (bore < bestBore) { bestBore = bore; designated = cv; }
     }

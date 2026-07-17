@@ -73,10 +73,4 @@ export default async function regress({ run, check, getPlayer }) {
   check('GOSSIP_TELL goes dry on cooldown (same NPC)', t2?.type === 'dialogue_line' && !t2.text.includes('COOLDOWN-PROBE'), JSON.stringify(t2)?.slice(0, 120));
   const t3 = await tell('gtest-b');
   check('GOSSIP_TELL cooldown is per-NPC (fresh NPC delivers)', t3?.type === 'dialogue_line' && t3.text.includes('COOLDOWN-PROBE'), JSON.stringify(t3)?.slice(0, 120));
-
-  // A drug-war turf flip becomes propagating street talk (drugwar plugin emits it).
-  pool.clear();
-  emit('drugwar.flip', { zoneId: p.current_zone, fromOrg: 'faction_franchise', toOrg: 'faction_breakers' });
-  await Promise.resolve();
-  check('drugwar.flip seeds a turf rumour', pool.all().some(i => i.templateKey === 'turf'), `templates: ${[...new Set(pool.all().map(i => i.templateKey))].join(',')}`);
 }

@@ -143,8 +143,8 @@ wants* is the deepest thread ([story.md](story.md)). Corps give it something to 
 ## Build order
 
 - **Phase 0 — Orgs exist. ✅ BUILT 2026-07-02.** The 5 factions were folded into a unified `orgs` table
-  (NPC factions are `is_npc=1`, owner-less; player rep still keys off the preserved ids — `getPlayerFactionRep`
-  in [factions.js](../server/engine/factions.js) is the one repointed reader). Player crews live in the
+  (NPC ideologies are `is_npc=1`, owner-less; player rep keys off `orgs.id` — `getPlayerIdeologyRep`
+  in [ideologies.js](../server/engine/ideologies.js) is the reader). Player crews live in the
   same table with an owner + a `treasury`. Implemented as the **[/plugins/corps/](../plugins/corps/index.js)**
   plugin, all verbs under `corp`/`org`: `found` (flat fee), `invite`/`accept`, `leave`, `kick`, `roster`,
   `contribute`/`disburse` (atomic via `withTransaction` + guarded treasury UPDATE), **custom ranks +
@@ -155,7 +155,8 @@ wants* is the deepest thread ([story.md](story.md)). Corps give it something to 
   [apartments.js](../server/engine/apartments.js)). Cache: `world.orgs`/`world.orgMembers`, re-synced by
   `reloadOrg`. Migration: `npm run db:fold-factions`, then `npm run db:drop-factions`. The legacy `factions`
   table is **dropped** — `GET /factions` and the DB backup now read `orgs WHERE is_npc=1` (+ `org_relations`);
-  `player_faction_rep` stays (its `faction_id` now points at `orgs.id`). `FACTION_MATCH` in the AI was
+  `player_ideology_rep` (renamed from `player_faction_rep`; its `ideology_id` points at `orgs.id`) holds
+  reputation. `FACTION_MATCH` in the AI was
   **fixed** to read org membership (was reading a nonexistent `player.faction`). **Deferred within Phase 0:**
   HQ forcefield/home-bind/best-rest stay personal-only; NPC-faction-vs-player *reputation* reactions want a
   future async REP condition (FACTION_MATCH only covers crew membership).

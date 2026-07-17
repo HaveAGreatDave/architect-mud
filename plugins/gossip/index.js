@@ -201,24 +201,6 @@ on('vendor.purchase', async ({ player, zoneId }) => {
     vars: { subject: pc(player.handle), zone: zn(z) } });
 });
 
-// The turf war made audible — a corner flip (drugwar plugin) becomes street talk,
-// and a dealer whose home corner was taken is whispered to have gone to ground.
-const TURF_DEALER_HOME = {
-  zone_district_912_909: { dealer: 'Keller', faction: 'faction_franchise' },
-  zone_mq_pigeon_bar: { dealer: 'Marsh', faction: 'faction_breakers' },
-  zone_district_908_908: { dealer: 'Sorel', faction: 'faction_glitch' },
-};
-const TURF_LABEL = { faction_franchise: 'the Franchise', faction_breakers: 'the Breakers', faction_glitch: 'the Glitch' };
-on('drugwar.flip', ({ zoneId, fromOrg, toOrg }) => {
-  add('turf', { zoneId, coalesceKey: `turf|${zoneId}`,
-    vars: { zone: zn(zoneId), from: TURF_LABEL[fromOrg] || 'someone', to: TURF_LABEL[toOrg] || 'someone' } });
-  const home = TURF_DEALER_HOME[zoneId];
-  if (home && home.faction === fromOrg) {
-    add('dealer_missing', { zoneId, coalesceKey: `missing|${home.dealer}`,
-      vars: { dealer: home.dealer, zone: zn(zoneId) } });
-  }
-});
-
 on('gossip.bigBuy', ({ player, itemName, price, zoneId }) => {
   if (!player?.id) return;
   add('big_buy', { zoneId, subjectName: player.handle, subjectId: player.id,

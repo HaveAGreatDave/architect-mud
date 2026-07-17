@@ -47,6 +47,7 @@ import './news-app.js';
 import './map-app.js';
 import './gear-app.js';
 import './arcade-app.js';
+import './ideology-app.js';
 
 export { registerTabletApp, getTabletApps } from './registry.js';
 

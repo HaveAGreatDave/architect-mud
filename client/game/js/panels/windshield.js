@@ -65,7 +65,7 @@ export const RENDER_TUNE = {
   bldgStretch: 5.0,   // extra VERTICAL stretch on top of bldgH — makes buildings stand tall instead of pancakes; live 'Vert stretch' slider
   bldgFoot: 1.0,      // building footprint (width) scale — 1.0 fills most of the tile (a building owns its whole zone)
   texRes: 1.0,        // building texture resolution (higher = crisper, lower = chunkier)
-  haze: 2.2,          // how fast the floor fades into the horizon haze
+  haze: 1.0,          // how fast the floor fades into the horizon haze (lowered from 2.2 for a clearer long-distance view; live 'Haze' slider)
   rwl: 3.2,           // runway length (tiles)
   rwyRecede: 4.0,     // how strongly climbing pushes the runway down/under
   fov: 0.82,          // horizontal FOV / focal length (<1 pulls the scenery in toward the vanishing point = a tighter "tunnel"; 1 = the old wide spread). Pure render — collision math is world-space and unaffected.
@@ -78,6 +78,7 @@ export const RENDER_TUNE = {
   chaseUp: 0.22,      // EXTERNAL chase cam: world-z the camera sits above the craft (higher = looks down more; lower rides the craft higher/more centred on screen)
   chaseYaw: 12,       // EXTERNAL chase cam: resting off-astern angle (deg) so we view the craft from a slight 3/4 rear quarter, not dead-behind. Mouse orbit adds on top of this.
   chaseSink: 0.015,   // EXTERNAL view: small final trim (world-z) sinking the wheels a hair into the tarmac to hide the seam. The model is auto-anchored so its gear rests on the ground (see ownShipBaseWz) — this is just a nudge on top, no longer the whole ground offset
+  chaseFrameY: 0.46,  // EXTERNAL chase cam: screen-y (fraction of canvas height) the craft's VISUAL CENTRE is pinned to — the camera pitch is solved to land it here regardless of zoom / ground vs air / orbit angle, so it never slides behind the bottom flight-stick HUD (lower = higher in frame)
 };
 const clamp = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -89,8 +90,9 @@ const frac = (n) => { const x = Math.sin((n + 1) * 12.9898) * 43758.5453; return
 // few low-frequency octaves of rolling relief. Small amplitude on purpose; used to hillshade
 // the Mode-7 floor so the land reads as soft hills and coastal basins, never anything steep.
 function groundElev(wx, wy) {
-  return Math.sin(wx * 0.085 + 1.3) * Math.cos(wy * 0.07 - 0.7) * 0.6
-       + Math.sin((wx + wy) * 0.043 + 2.1) * 0.4
+  return Math.sin(wx * 0.085 + 1.3) * Math.cos(wy * 0.07 - 0.7) * 0.78
+       + Math.sin((wx + wy) * 0.043 + 2.1) * 0.5
+       + Math.sin(wx * 0.13 - wy * 0.11 + 0.6) * 0.3     // medium rolling octave — steeper coastal hills, so the shore reads as a landmass rising, not a flat plate
        + Math.sin(wx * 0.19 - wy * 0.16) * 0.16;
 }
 
@@ -260,6 +262,17 @@ const AIRPORT = {
 };
 const airportCfg = (theme) => AIRPORT[theme] || AIRPORT.default;
 
+// ── Weather → ground-haze ceiling ─────────────────────────────────────────────
+// How far the Mode-7 floor is allowed to wash toward the horizon colour with distance.
+// Clear skies keep the terrain crisp all the way out (a whisper only at the true horizon
+// line); fog/ash/storm thicken the air so distant ground genuinely dissolves. This is the
+// CEILING on the per-pixel haze weight in drawMode7Floor — hz (the live slider) still sets
+// how fast it climbs toward this cap.
+const WX_HAZE = {
+  clear: 0.12, cloudy: 0.22, rain: 0.3, snow: 0.34, storm: 0.42, ash: 0.55, fog: 0.75,
+};
+const hazeCeil = (wx) => WX_HAZE[wx] ?? 0.15;
+
 // ── Biome ground tint (the near/mid ground colour when flying over a district) ──
 // Not the flat map colours — the material the ground reads as from the air: arid
 // desert over the badlands, dark water over the bay, ashen concrete over industry.
@@ -397,7 +410,10 @@ export function paintWindshield(id, view) {
   // is ~half the size, so a fixed distance left it a dot) — normalised against CONTACT_SIZE so
   // every class fills a comparable slice of the frame. `extZoom` (mouse wheel) scales on top.
   const szRef = CONTACT_SIZE.prop || 0.11;
-  const szFac = clamp((CONTACT_SIZE[v.cls] || szRef) / szRef, 0.55, 1.15);
+  // Floor lowered 0.55 → 0.28 so the smallest airframes (the Mini 500 heli, ratio ~0.29) let the
+  // camera pull proportionally CLOSER — camera distance tracks model size, so a tiny craft fills the
+  // same frame slice as a prop instead of sitting as a distant speck (a genuinely tighter heli chase).
+  const szFac = clamp((CONTACT_SIZE[v.cls] || szRef) / szRef, 0.28, 1.15);
   const extZoom = clamp(v.extZoom || 1, 0.45, 2.4);
   // Vertical orbit (middle-drag up/down): the chase camera rides a fixed-radius ARC around the
   // craft — a turntable, like the hangar walkaround — instead of sliding straight up. `extPitch` is
@@ -464,14 +480,42 @@ export function paintWindshield(id, view) {
   // climb away) and the airport sinks off the bottom until the view "levels out"
   // into open sky. Airborne, pitch/altitude nudge it as before.
   const reveal = (1 - worldBlend) * clamp(1 - Math.max(0, v.pitch || 0) / 26 - height * 0.95, 0, 1);
-  const rawHorizon = onDeck
+  // Unified Mode-7 path (worldBlend 1): ONE continuous pitch+altitude horizon on the deck and aloft
+  // alike, so parked → roll → rotate → climb is a single believable move down the real runway. The
+  // legacy modal decks (worldBlend < 1, paired with the hand-drawn airport strip) keep the old
+  // reveal-driven ground horizon that sinks the apron off the bottom as you rotate.
+  const rawHorizon = (onDeck && worldBlend < 0.999)
     ? lerp(H * 1.08, H * 0.42, reveal)
     : clamp(H * 0.46 + (v.pitch || 0) * H * 0.016 + (height - 0.2) * H * 0.09, H * 0.14, H * 0.84);
   // Ease the horizon across frames so the runway→sky handoff (ground phase → cruise,
   // which swaps the formula) glides instead of snapping.
   if (st.horizon == null) st.horizon = rawHorizon;
   else st.horizon += (rawHorizon - st.horizon) * Math.min(1, dt * 5);
-  const horizonY = st.horizon;
+  // In the EXTERNAL chase the vertical orbit must sweep a SPHERE around the craft: the camera arcs
+  // over/under while the aircraft stays pinned in-frame and the sky+ground pitch around it. The camera
+  // POSITION already rides the arc (chase.back/up), but the VIEW must also PITCH to keep looking at the
+  // craft — otherwise it just dollies up and the plane slides down the frame. We solve the horizon that
+  // lands the own ship at a FIXED screen position for the current arc angle.
+  let horizonY = st.horizon;
+  if (ext && !v.reticle && chase) {
+    const D = H * 0.55;                                        // = focal, makeCam's vertical projection scale
+    const baseWz = ownShipBaseWz({ EHbase: EHbaseC, R: v.map ? (v.map.length - 1) / 2 : 0 }, v);
+    if (v.hideOwnShip) {
+      // Helm chase (no own aircraft — a yacht cell is the framed subject): keep the resting-pin
+      // compensation, which held that view's framing steady before the own-ship centre-pin below.
+      const craftY = (up, back) => D * (Math.max(0.05, EHbaseC + up) - baseWz) / Math.max(1e-3, back);
+      horizonY = st.horizon + craftY(orbR * Math.sin(restPitch), orbR * Math.cos(restPitch)) - craftY(chase.up, chase.back);
+    } else {
+      // Own-ship external: pin the model's VISUAL CENTRE to a fixed screen fraction. The own ship draws at
+      // dx,dy=0, so its centre (world-z = baseWz + modelMidH) projects to `horizonY + D*(EH - midWz)/back`;
+      // invert that for the horizon that lands it on chaseFrameY. This is zoom- AND altitude-stable (the
+      // altitude term cancels: baseWz climbs with EHbaseC), so the craft never slides behind the stick HUD
+      // as you zoom in on the ground — the failure mode the old resting-pin had (its back scaled with zoom).
+      const EH = Math.max(0.05, EHbaseC + chase.up);            // matches makeCam's summed, floored eye-height
+      const midWz = baseWz + modelMidH(v.cls);
+      horizonY = H * RENDER_TUNE.chaseFrameY - D * (EH - midWz) / Math.max(1e-3, chase.back);
+    }
+  }
   // In the EXTERNAL chase view the camera holds a LEVEL horizon and you watch the plane roll
   // against a static sky (a proper chase cam) — so the world (sky/clouds/sun/ground) doesn't spin
   // with your bank. The cockpit view still banks the world fully for immersion.
@@ -735,7 +779,7 @@ export function paintWindshield(id, view) {
   // left a flat colour band where the grass should be ("grass isn't showing").
   if (worldBlend > 0.02) {
     ctx.save(); ctx.globalAlpha = worldBlend;
-    drawMode7Floor(ctx, W, H, horizonY, focal, vw, sky, gTop, now, sunFx, chase);
+    drawMode7Floor(ctx, W, H, horizonY, focal, vw, sky, gTop, now, sunFx, chase, hazeCeil(wx));
     ctx.restore();
   }
   if (side) {
@@ -819,8 +863,13 @@ export function paintWindshield(id, view) {
       if (grounded > 0.01) drawGroundContactShadow(ctx, cam, v.heading, v.cls, grounded);
       if (sunFx.elev > 0.02 && grounded < 0.99) drawAircraftShadow(ctx, cam, height, sunFx, worldBlend, v.heading, v.cls);
     }
+    // The Mode-7 world objects run EVEN on the deck (worldBlend 0) so the Echelon's hull stays drawn
+    // while you're parked on her pad — she exists only in this pass, not the flat airport scene, and
+    // must never blink in as you climb. Non-yacht objects self-cull at low worldBlend (their alpha
+    // folds it in and drops below the draw threshold); only the yacht escapes it (see the alpha above).
+    // The heavier atmospherics (lightning, clouds, traffic, guides) stay gated below.
+    drawWorldObjects(ctx, cam, vw, sky, now, sunFx);
     if (worldBlend > 0.02) {
-      drawWorldObjects(ctx, cam, vw, sky, now, sunFx);
       if (st.bolts && st.bolts.length) drawLightning(ctx, cam, st, now, v.acX ?? 0, v.acY ?? 0);   // 3-D lightning bolts inside storm cells
       if (volOn) drawVolumetricClouds(ctx, cam, st, v, baseTint, litTint, cloudAlpha, localStorm, sky.night, dt, W, H, horizonY, wx, lightX, lightY, lightStr);   // fly-through cloud deck: puff stacks + silver-lining rim, value-noise mottle, inter-lobe AO, virga shafts + whiteout/haze (base at a realistic altitude for `wx`)
       if (vw.aaSites) drawAASites(ctx, cam, vw, now);   // radar-dish SAM turrets at active AA sites
@@ -1229,11 +1278,13 @@ function drawCityBloom(ctx, cam, dx, dy, h, night, alpha) {
   if (c.f <= 0.25 || c.f > 8) return;
   const prox = clamp(1 - c.f / 8, 0, 1), r = clamp(150 / c.f, 8, 70);
   const a = night * alpha * (0.04 + 0.09 * prox);
-  ctx.save(); ctx.globalCompositeOperation = 'lighter';
-  const g = ctx.createRadialGradient(c.sx, c.sy, 0, c.sx, c.sy, r);
-  g.addColorStop(0, `rgba(255,206,132,${a})`); g.addColorStop(0.55, `rgba(255,176,96,${a * 0.4})`); g.addColorStop(1, 'rgba(255,176,96,0)');
-  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(c.sx, c.sy, r, 0, 7); ctx.fill();
-  ctx.restore();
+  emitFace(ON_TOP, () => {
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    const g = ctx.createRadialGradient(c.sx, c.sy, 0, c.sx, c.sy, r);
+    g.addColorStop(0, `rgba(255,206,132,${a})`); g.addColorStop(0.55, `rgba(255,176,96,${a * 0.4})`); g.addColorStop(1, 'rgba(255,176,96,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(c.sx, c.sy, r, 0, 7); ctx.fill();
+    ctx.restore();
+  });
 }
 
 // Water on the windscreen + storm lightning — drawn on the fixed glass, not the
@@ -1644,7 +1695,7 @@ function m7buf(w, h) {
   return _m7;
 }
 
-function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chase) {
+function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chase, hazeMax = 0.32) {
   if (depth <= 2) return;
   // AUTHENTIC Mode 7: sample the ground PER PIXEL into a low-res buffer, then blit it
   // up with nearest-neighbour — that's the chunky, shimmering look, most visible when
@@ -1691,7 +1742,7 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chas
         const col = apron ? APRON_GREY : (bi ? (BIOME_GROUND[bi] || gTop) : OFF);
         const awx = (rx - R) + wcx, awy = (ry - R) + wcy;   // absolute world tile (relief stays put, doesn't slide)
         const e0 = groundElev(awx, awy), gx = groundElev(awx + 0.5, awy) - e0, gy = groundElev(awx, awy + 0.5) - e0;
-        const shade = clamp(1 + (-gx * litX - gy * litY) * 2.4, 0.8, 1.2);
+        const shade = clamp(1 + (-gx * litX - gy * litY) * 3.0, 0.74, 1.26);
         out[rx] = [col[0], col[1], col[2], bi === 'water' ? 1 : 0, grassy ? 1 : 0, shade];
       }
       LUT[ry] = out;
@@ -1712,7 +1763,7 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chas
     // AMPLITUDE out with distance (near = full, far = flat base colour): a cheap mip-map that
     // kills the checker without touching the intended chunky Mode-7 blit.
     const detail = clamp(1.15 - d * 0.7, 0.15, 1);
-    const haze = clamp(1 - p * hz, 0, 0.85), ih = 1 - haze;
+    const haze = clamp(1 - p * hz, 0, hazeMax), ih = 1 - haze;
     const hr = hor[0] * haze, hg = hor[1] * haze, hb = hor[2] * haze;
     let idx = by * bw * 4;
     for (let bx = 0; bx < bw; bx++) {
@@ -1792,6 +1843,13 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chas
       }
       // Wet sand: the land strip just above the waterline reads damp where the wash reaches.
       if (waterW > 0.14 && waterW < 0.5) tex *= 1 - clamp(1 - Math.abs(waterW - 0.32) / 0.18, 0, 1) * 0.14;
+      // Raised shore bank: with no vertical displacement on this flat floor the coast lies flush
+      // with the sea and reads as a pancake. Emboss the seam instead — a bright sunlit LIP on the
+      // top of the land edge (just above the waterline) sitting over a thin contact SHADOW in the
+      // shallows at its foot. The lip-over-shadow pair reads as a low bank standing UP out of the
+      // water and casting a shadow onto it, so the land no longer sits razor-flat against the sea.
+      if (waterW > 0.38 && waterW < 0.5) tex *= 1 + clamp(1 - Math.abs(waterW - 0.44) / 0.06, 0, 1) * 0.11;   // sunlit bank lip (land side)
+      if (waterW >= 0.5 && waterW < 0.60) tex *= 1 - clamp(1 - Math.abs(waterW - 0.53) / 0.05, 0, 1) * 0.17;   // bank-foot contact shadow (water side, just inside the surf)
       // Near-camera detail. Forward resolution collapses as d→EH (the classic Mode-7 near
       // smear): the closest rows sample a razor-thin world slice, so the base wave/texture —
       // tuned for the mid-field — barely varies across them and the foreground flattens into
@@ -2081,15 +2139,27 @@ function drawVolumetricClouds(ctx, cam, st, v, base, lit, alpha, storm, night, d
 // heading — the Pilotwings far-terrain read (not hard mountains).
 function drawSkyline(ctx, W, H, horizonY, v, sky) {
   const OX = W, shift = ((v.heading || 0) / 360) * W * 2.5;
-  const col = mix(mix(sky.hor, sky.g2 || [40, 50, 40], 0.5), [255, 255, 255], 0.08);
-  ctx.fillStyle = rgb(col, 0.42);
-  ctx.beginPath(); ctx.moveTo(-OX, horizonY + 1);
+  const land = mix(sky.hor, sky.g2 || [40, 50, 40], 0.5);
   const stepx = W * 0.05;
-  for (let x = -OX; x <= 2 * W; x += stepx) {
-    const s = frac((x + shift) * 0.008) * 0.7 + frac((x + shift) * 0.021) * 0.3;
-    ctx.lineTo(x, horizonY - (2 + s * 12));
-  }
-  ctx.lineTo(2 * W, horizonY + 1); ctx.closePath(); ctx.fill();
+  // Two RECEDING ridge bands instead of one flat bump line, so the far horizon reads as a
+  // landmass with depth rather than a single seam against the sea. The FAR ridge sits low,
+  // pale (hazed toward the horizon colour) and slow-varying; the NEAR ridge rides on top of it,
+  // taller, darker and rougher (a second higher-frequency octave). Parallax: the near ridge
+  // pans a touch faster with heading than the far one, so they slide against each other as she
+  // comes about. Painted far→near so the near ridge overlaps the far one.
+  const layer = (amp, base, tint, alpha, par, oct) => {
+    ctx.fillStyle = rgb(mix(land, [255, 255, 255], tint), alpha);
+    ctx.beginPath(); ctx.moveTo(-OX, horizonY + 1);
+    for (let x = -OX; x <= 2 * W; x += stepx) {
+      const p = (x + shift * par);
+      let s = frac(p * 0.008) * 0.7 + frac(p * 0.021) * 0.3;
+      if (oct) s = s * 0.62 + (frac(p * 0.047) * 0.6 + frac(p * 0.11) * 0.4) * 0.38;   // add roughness to the near ridge
+      ctx.lineTo(x, horizonY - (base + s * amp));
+    }
+    ctx.lineTo(2 * W, horizonY + 1); ctx.closePath(); ctx.fill();
+  };
+  layer(11, 2, 0.16, 0.30, 0.82, false);   // FAR ridge — low, pale, hazed, slower parallax
+  layer(22, 3, 0.04, 0.46, 1.10, true);    // NEAR ridge — taller, darker, rougher, faster parallax
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -2118,6 +2188,10 @@ const WALL_COL = { uptown: [46, 64, 92], civic: [72, 68, 60], citycore: [52, 56,
   ty_clone: [176, 200, 204], ty_clone_vat: [30, 52, 58],
   // Bespoke named-building shells — a distinct wall tone per silhouette below.
   ty_lux: [58, 52, 78], ty_chrome: [118, 126, 136], ty_meridian: [98, 104, 90],
+  // Halcyon Towers — dark smoked-teal curtain glass for the futuristic twisting spire.
+  ty_halcyon: [26, 42, 62],
+  // Airport hangar — ribbed steel siding (renders as corrugated metal, not windows; see METAL_WALL).
+  ty_hangarmetal: [120, 128, 138],
   ty_grocery: [78, 100, 66], ty_tech: [46, 88, 96], ty_showroom: [56, 90, 86],
   ty_boutique: [92, 60, 88], ty_junk: [94, 70, 48],
   // Hall of Records — the ancient civic temple: weathered limestone, cleaner column stone, verdigris copper dome.
@@ -2244,19 +2318,48 @@ export const CLIMBOUT_MAX_F = 4.5, CLIMBOUT_LAT_IN = 0.3, CLIMBOUT_LAT_OUT = 0.2
 // (about to pass under/behind you) or this far (still fading in) isn't really "on the glass"
 // yet. Collision must never fire on a tile outside this window, or a hit can land on
 // something the player couldn't actually have seen.
-export const VISIBLE_NEAR_F = 0.05, VISIBLE_FAR_F = 20;   // long skyline — buildings draw out to 20 tiles and emerge from the horizon haze
+export const VISIBLE_NEAR_F = 0.05, VISIBLE_FAR_F = 34;   // long skyline — buildings draw out to 34 tiles (the server sends a 36-tile map window); only the last HAZE_BAND tiles fade, so the distance reads crisp rather than hazed
 export function climbOutClear(f, lat, height) {
   if (!(f > 0.1 && f < CLIMBOUT_MAX_F && height < 0.2)) return true;
   return clamp((Math.abs(lat) - CLIMBOUT_LAT_IN) / CLIMBOUT_LAT_OUT, 0, 1) > 0;
 }
 
 const TR = () => Math.max(0.5, RENDER_TUNE.texRes || 1);
+// Palette keys that render as CORRUGATED METAL SIDING (vertical ribs + rivets) instead of the
+// default windowed curtain wall — for hangars/sheds, which shouldn't carry lit office windows.
+const METAL_WALL = new Set(['ty_hangarmetal']);
+const GLASS_WALL = new Set(['ty_halcyon']);   // curtain-glass skins: floor-plate striping + sky sheen instead of a window grid
 function wallTex(biome, night) {
   const tr = TR(), nite = night > 0.4;
   return getTex('wall:' + biome + (nite ? ':n' : '') + ':' + tr, () => {
     const W = Math.round(16 * tr), H = Math.round(32 * tr), c = texCanvas(W, H), g = c.getContext('2d');
     const w = WALL_COL[biome] || [52, 56, 66];
     g.fillStyle = `rgb(${w[0]},${w[1]},${w[2]})`; g.fillRect(0, 0, W, H);
+    if (METAL_WALL.has(biome)) {   // ribbed steel siding: alternating shaded vertical bands + rivet rows
+      const rib = Math.max(2, Math.round(3 * tr));
+      for (let x = 0; x < W; x += rib) {
+        const k = (x / rib) % 2 ? 1.16 : 0.82;   // catch-light / shadow face of each corrugation
+        g.fillStyle = `rgb(${Math.min(255, w[0] * k) | 0},${Math.min(255, w[1] * k) | 0},${Math.min(255, w[2] * k) | 0})`;
+        g.fillRect(x, 0, Math.max(1, rib - 1), H);
+      }
+      for (let y = 4 * tr; y < H; y += 10 * tr) for (let x = 1 * tr; x < W; x += rib * 2) { g.fillStyle = 'rgba(0,0,0,0.28)'; g.fillRect(x | 0, y | 0, Math.max(1, tr | 0), Math.max(1, tr | 0)); }   // rivets
+      return c;
+    }
+    if (GLASS_WALL.has(biome)) {   // futuristic curtain glass: a blue sky-reflection sheen + STRONG horizontal floor plates (no window grid)
+      const top = nite ? [40, 88, 120] : [140, 190, 220], bot = nite ? [20, 48, 72] : [98, 146, 184];   // mild top→sill glass gradient
+      const vg = g.createLinearGradient(0, 0, 0, H); vg.addColorStop(0, `rgb(${top[0]},${top[1]},${top[2]})`); vg.addColorStop(1, `rgb(${bot[0]},${bot[1]},${bot[2]})`);
+      g.fillStyle = vg; g.fillRect(0, 0, W, H);
+      const sg = g.createLinearGradient(0, 0, W, 0);   // a soft vertical reflection streak = glassy catch-light
+      sg.addColorStop(0, 'rgba(230,244,255,0)'); sg.addColorStop(0.3, 'rgba(230,244,255,0.26)'); sg.addColorStop(0.46, 'rgba(230,244,255,0)'); sg.addColorStop(1, 'rgba(230,244,255,0)');
+      g.fillStyle = sg; g.fillRect(0, 0, W, H);
+      const fl = Math.max(3, Math.round(6 * tr)), px = Math.max(1, tr | 0);   // one floor plate every ~6px
+      for (let y = fl; y < H; y += fl) {
+        g.fillStyle = nite ? 'rgba(150,214,244,0.5)' : 'rgba(216,236,250,0.6)'; g.fillRect(0, y - px, W, px);   // slab edge catches the light
+        g.fillStyle = nite ? 'rgba(8,20,32,0.6)' : 'rgba(24,46,70,0.42)'; g.fillRect(0, y, W, px);              // spandrel shadow beneath
+        if (nite && (Math.round(y / fl) * 13) % 4 === 0) { g.fillStyle = 'rgba(255,214,150,0.55)'; g.fillRect(0, y - px, W, px); }   // a few warm-lit occupied floors
+      }
+      return c;
+    }
     const N = Math.round(60 * tr);
     for (let i = 0; i < N; i++) { const rx = frac(i * 3.1) * W | 0, ry = frac(i * 5.7) * H | 0; g.fillStyle = `rgba(0,0,0,${0.05 + frac(i) * 0.06})`; g.fillRect(rx, ry, 1, 1); }
     const xs = 4 * tr, ys = 5 * tr, ww = Math.max(1, 2 * tr), wh = Math.max(1, 3 * tr);
@@ -2300,6 +2403,28 @@ function drawTexQuad(ctx, img, P0, P1, P2, P3) {
   texTri(ctx, img, [0, 0], [W, 0], [W, H], P0, P1, P2);
   texTri(ctx, img, [0, 0], [W, H], [0, H], P0, P2, P3);
 }
+// Perspective-correct textured wall quad. The affine texTri above interpolates texture coords
+// linearly in SCREEN space, so a windowed wall viewed at a steep angle (near edge far closer than
+// the far edge) kinks along the two-triangle diagonal — the window grid warps. Fix: split the quad
+// into vertical columns and put each seam at its perspective-correct u (1/w is linear in screen
+// space, so u = (s/fR)/((1-s)/fL + s/fR) for screen-linear s). A building wall is vertical ⇒ each
+// vertical edge has constant depth (fL top==bottom, fR top==bottom), so no vertical correction is
+// needed — columns alone straighten the windows. fL/fR are the camera depths of the left/right edges.
+function drawTexQuadP(ctx, img, P0, P1, P2, P3, fL, fR) {
+  fL = Math.max(fL, 1e-3); fR = Math.max(fR, 1e-3);
+  const ratio = Math.max(fL, fR) / Math.min(fL, fR);
+  if (ratio < 1.15) { drawTexQuad(ctx, img, P0, P1, P2, P3); return; }   // near flat-on: one affine quad is fine (and cheap)
+  const W = img.width, H = img.height, K = Math.min(12, Math.max(2, Math.ceil(ratio * 1.5)));
+  const lerp = (A, B, t) => [A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t];
+  let tL = P0, bL = P3, uL = 0;   // P0 top-left, P1 top-right, P2 bottom-right, P3 bottom-left
+  for (let k = 1; k <= K; k++) {
+    const s = k / K, u = (s / fR) / ((1 - s) / fL + s / fR);
+    const tR = lerp(P0, P1, s), bR = lerp(P3, P2, s);
+    texTri(ctx, img, [uL * W, 0], [u * W, 0], [u * W, H], tL, tR, bR);
+    texTri(ctx, img, [uL * W, 0], [u * W, H], [uL * W, H], tL, bR, bL);
+    tL = tR; bL = bR; uL = u;
+  }
+}
 
 // The Mode-7 camera: world tile-offset (dx,dy from the craft) + height wz → screen. When
 // `chase` = { back, up } is given (external view), the camera physically sits `back` tiles
@@ -2319,8 +2444,26 @@ function makeCam(W, horizonY, depth, v, chase) {
   return { R, sinh, cosh, ox, oy, proj, projFL, EH, EHbase, back, FL };   // EH/EHbase/FL exposed so traffic, the own-ship and the volumetric clouds can be placed + sized relative to the world camera
 }
 
+// ── Depth-sorted face queue (painter's order without a z-buffer) ─────────────────────────────
+// A 2D canvas has no depth buffer, so sub-parts of ONE building painted in code order would over-
+// paint nearer geometry — a tower drawn after the terminal shows THROUGH it, a marquee shows through
+// its own tower. While a sink is active (beginFaces), the building drawers don't paint immediately:
+// each face is queued as { d: camera-depth, fn }, and flushFaces() paints them BACK→FRONT (largest
+// `d` first). drawWorldObjects wraps each building in beginFaces/flushFaces, so a building's own faces
+// occlude each other correctly; between-building order stays the tile sort. Glows/lights/beacons queue
+// at d = ON_TOP (−∞) so they still paint last (on top of their own building), preserving their look.
+// Outside a sink (FACE_SINK null) every emitFace paints immediately — so the yacht, deck, HUD and any
+// non-building caller are completely unaffected.
+let FACE_SINK = null;
+const ON_TOP = -Infinity;
+function beginFaces() { FACE_SINK = []; }
+function emitFace(depth, fn) { if (FACE_SINK) FACE_SINK.push({ d: depth, fn }); else fn(); }
+function flushFaces() { const s = FACE_SINK; if (!s) return; FACE_SINK = null; s.sort((a, b) => b.d - a.d); for (const e of s) e.fn(); }
+
 // One extruded, texture-mapped box between two heights (base wz0 → top wz1): painter-sorted
-// walls + an optional roof. Setback towers stack several of these.
+// walls + an optional roof. Setback towers stack several of these. When a face sink is active the
+// walls/roof are queued (per-face depth) instead of painted, so they interleave correctly with the
+// rest of the building instead of the whole box landing on top of whatever was drawn before it.
 function draw3DBoxAt(ctx, cam, dx, dy, fh, wz0, wz1, biome, seed, night, alpha, roof, yaw) {
   fh = Math.min(fh, 0.48);   // keep a fat footprint inside its own tile (no bleed into the neighbour)
   // `yaw` (rad, optional) spins the footprint about its centre — buildings never pass it (axis-
@@ -2335,7 +2478,6 @@ function draw3DBoxAt(ctx, cam, dx, dy, fh, wz0, wz1, biome, seed, night, alpha, 
   const cf = cs.map(([a, c]) => rawF(dx + a, dy + c));
   const b = cs.map(([a, c]) => cam.proj(dx + a, dy + c, wz0));
   const wall = wallTex(biome, night), shade = [0.0, 0.16, 0.3, 0.12];
-  ctx.globalAlpha = alpha;
   const faces = [];
   for (let i = 0; i < 4; i++) {
     const j = (i + 1) % 4;
@@ -2362,20 +2504,99 @@ function draw3DBoxAt(ctx, cam, dx, dy, fh, wz0, wz1, biome, seed, night, alpha, 
     if (fi < NEAR_CLIP) { const s = (NEAR_CLIP - fi) / (fj - fi); ax += (bx - ax) * s; ay += (by - ay) * s; }
     else if (fj < NEAR_CLIP) { const s = (NEAR_CLIP - fj) / (fi - fj); bx += (ax - bx) * s; by += (ay - by) * s; }
     const ti = cam.proj(ax, ay, wz1), tj = cam.proj(bx, by, wz1), bi = cam.proj(ax, ay, wz0), bj = cam.proj(bx, by, wz0);
-    const P0 = [ti.sx, ti.sy], P1 = [tj.sx, tj.sy], P2 = [bj.sx, bj.sy], P3 = [bi.sx, bi.sy];
-    drawTexQuad(ctx, wall, P0, P1, P2, P3);
-    if (shade[i]) { ctx.beginPath(); ctx.moveTo(P0[0], P0[1]); ctx.lineTo(P1[0], P1[1]); ctx.lineTo(P2[0], P2[1]); ctx.lineTo(P3[0], P3[1]); ctx.closePath(); ctx.fillStyle = `rgba(0,0,0,${shade[i]})`; ctx.fill(); }
+    const P0 = [ti.sx, ti.sy], P1 = [tj.sx, tj.sy], P2 = [bj.sx, bj.sy], P3 = [bi.sx, bi.sy], sh = shade[i];
+    const fL = ti.f, fR = tj.f;   // left/right vertical-edge depths → perspective-correct wall texturing
+    emitFace(fc.af, () => {
+      ctx.globalAlpha = alpha; drawTexQuadP(ctx, wall, P0, P1, P2, P3, fL, fR);
+      if (sh) { ctx.beginPath(); ctx.moveTo(P0[0], P0[1]); ctx.lineTo(P1[0], P1[1]); ctx.lineTo(P2[0], P2[1]); ctx.lineTo(P3[0], P3[1]); ctx.closePath(); ctx.fillStyle = `rgba(0,0,0,${sh})`; ctx.fill(); }
+      ctx.globalAlpha = 1;
+    });
   }
   // Roof: only when the whole top quad is in front of the eye — a partly-behind roof can't be
   // seen from that angle anyway, and clipping a 4-gon to the near plane would need a polygon split.
   if (roof && cf[0] >= NEAR_CLIP && cf[1] >= NEAR_CLIP && cf[2] >= NEAR_CLIP && cf[3] >= NEAR_CLIP) {
     const t = cs.map(([a, c]) => cam.proj(dx + a, dy + c, wz1));
-    drawTexQuad(ctx, roofTex(biome, night), [t[0].sx, t[0].sy], [t[1].sx, t[1].sy], [t[2].sx, t[2].sy], [t[3].sx, t[3].sy]);
+    const rp = [[t[0].sx, t[0].sy], [t[1].sx, t[1].sy], [t[2].sx, t[2].sy], [t[3].sx, t[3].sy]], rtex = roofTex(biome, night);
+    emitFace((t[0].f + t[1].f + t[2].f + t[3].f) / 4, () => { ctx.globalAlpha = alpha; drawTexQuad(ctx, rtex, rp[0], rp[1], rp[2], rp[3]); ctx.globalAlpha = 1; });
   }
-  ctx.globalAlpha = 1;
 }
 function draw3DBox(ctx, cam, dx, dy, fh, wz, biome, seed, night, alpha) {
   draw3DBoxAt(ctx, cam, dx, dy, fh, 0, wz, biome, seed, night, alpha, true);
+}
+
+// A faceted vertical DRUM (cylinder/cone) through the world camera — the rounded alternative to
+// draw3DBoxAt for towers/tanks that shouldn't read as a blocky box. N side facets run from world-z
+// z0→z1, radius rb (bottom)→rt (top), centred on (dx,dy). `style(f, top, bot)` returns a fillStyle
+// per facet — `f.nl` is the facet's light dot (0..1, key light from the upper-left), `f.pts` its four
+// projected corners, `top`/`bot` its screen-y extent (for a vertical gradient). Back-facing facets are
+// culled (same normal·view test the boxes use, chase-`back` folded in) and the rest painted far→near
+// for painter depth. `cap` optionally fills the top disc (a flat roof). No wall texture — the caller's
+// `style` owns the surface, so this is how a smooth glass/metal skin gets drawn instead of windows.
+function drawFacetDrum(ctx, cam, dx, dy, z0, z1, rb, rt, N, alpha, style, cap) {
+  const lx = -0.7, ly = -0.7, bk = cam.back || 0, rm = (rb + rt) / 2, F = [];
+  for (let i = 0; i < N; i++) {
+    const a0 = i / N * 6.2832, a1 = (i + 1) / N * 6.2832, am = (a0 + a1) / 2, nx = Math.cos(am), ny = Math.sin(am);
+    if (nx * (dx + nx * rm) + ny * (dy + ny * rm) + bk * (nx * cam.sinh - ny * cam.cosh) >= 0) continue;   // facet faces away → cull
+    const p = [
+      cam.proj(dx + Math.cos(a0) * rb, dy + Math.sin(a0) * rb, z0),
+      cam.proj(dx + Math.cos(a1) * rb, dy + Math.sin(a1) * rb, z0),
+      cam.proj(dx + Math.cos(a1) * rt, dy + Math.sin(a1) * rt, z1),
+      cam.proj(dx + Math.cos(a0) * rt, dy + Math.sin(a0) * rt, z1),
+    ];
+    if (p.some(q => q.f <= 0.08)) continue;
+    F.push({ af: (p[0].f + p[1].f + p[2].f + p[3].f) / 4, pts: p, nl: Math.max(0, nx * lx + ny * ly) });
+  }
+  for (const f of F) {
+    const ys = f.pts.map(q => q.sy), fill = style(f, Math.min(...ys), Math.max(...ys)), pts = f.pts;
+    emitFace(f.af, () => { ctx.globalAlpha = alpha; ctx.fillStyle = fill; ctx.beginPath(); pts.forEach((q, i) => i ? ctx.lineTo(q.sx, q.sy) : ctx.moveTo(q.sx, q.sy)); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1; });
+  }
+  if (cap) {   // top disc — flat roof cap
+    const pts = []; let ok = true;
+    for (let i = 0; i < N; i++) { const a = i / N * 6.2832, q = cam.proj(dx + Math.cos(a) * rt, dy + Math.sin(a) * rt, z1); if (q.f <= 0.08) { ok = false; break; } pts.push(q); }
+    if (ok) { const cd = pts.reduce((s, q) => s + q.f, 0) / pts.length; emitFace(cd, () => { ctx.globalAlpha = alpha; ctx.fillStyle = cap; ctx.beginPath(); pts.forEach((q, i) => i ? ctx.lineTo(q.sx, q.sy) : ctx.moveTo(q.sx, q.sy)); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1; }); }
+  }
+}
+// A horizontal RING at world-z `z`, radius `r`, centred on (dx,dy) — a band line / catwalk rail
+// around a drum. Projected through the camera; skipped if any point is behind the near plane.
+function drawRing(ctx, cam, dx, dy, z, r, N, strokeStyle, lw, alpha) {
+  const pts = [];
+  for (let i = 0; i <= N; i++) { const a = i / N * 6.2832, p = cam.proj(dx + Math.cos(a) * r, dy + Math.sin(a) * r, z); if (p.f <= 0.08) return; pts.push(p); }
+  emitFace(ON_TOP, () => { ctx.globalAlpha = alpha; ctx.strokeStyle = strokeStyle; ctx.lineWidth = lw; ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)); ctx.stroke(); ctx.globalAlpha = 1; });
+}
+// A curved BARREL ROOF (half-cylinder) sitting on a hangar's walls — the rounded shed roof a box
+// can't make. Built in the building's LOCAL frame via `F(lx,ly)` (so it aligns to the frontage):
+// the arch spans local-x ∈ [cxL±hl] and sweeps along local-y ∈ [±hw], springing from `wallTop` to
+// `wallTop+archH`. Roof panels are shaded by a top key light + painted far→near (convex, so painter
+// order is exact); the two arched gable tympana are backface-culled against the camera. `base` = the
+// roof RGB. Draw AFTER the wall box so it caps it.
+function drawBarrelRoof(ctx, cam, F, cxL, hl, hw, wallTop, archH, NF, alpha, base) {
+  const [ox, oy] = F(0, 0), [rx, ry] = F(1, 0), [fx, fy] = F(0, 1);
+  const RX = rx - ox, RY = ry - oy, FX = fx - ox, FY = fy - oy, bk = cam.back || 0;   // world basis per local unit
+  const P = (lx, ly, z) => { const [wx, wy] = F(lx, ly); return cam.proj(wx, wy, z); };
+  const shade = (s) => `rgb(${Math.min(255, base[0] * s) | 0},${Math.min(255, base[1] * s) | 0},${Math.min(255, base[2] * s) | 0})`;
+  const facesCam = (nlx, nly, clx, cly) => { const NX = nlx * RX + nly * FX, NY = nlx * RY + nly * FY, [cx, cy] = F(clx, cly); return NX * cx + NY * cy + bk * (NX * cam.sinh - NY * cam.cosh) < 0; };
+  const lxA = (t) => cxL + hl * Math.cos(t), zA = (t) => wallTop + archH * Math.sin(t);
+  const list = [];
+  const add = (pts, fill) => { if (!pts.some(p => p.f <= 0.08)) list.push({ af: pts.reduce((s, p) => s + p.f, 0) / pts.length, pts, fill }); };
+  for (let k = 0; k < NF; k++) {   // barrel roof panels
+    const t0 = k / NF * Math.PI, t1 = (k + 1) / NF * Math.PI, tm = (t0 + t1) / 2;
+    add([P(lxA(t0), -hw, zA(t0)), P(lxA(t0), hw, zA(t0)), P(lxA(t1), hw, zA(t1)), P(lxA(t1), -hw, zA(t1))], shade(0.55 + 0.42 * Math.sin(tm)));
+  }
+  for (const sgn of [1, -1]) {   // arched gable tympana (apron end + back end)
+    if (!facesCam(0, sgn, cxL, sgn * hw)) continue;
+    const pts = [P(cxL + hl, sgn * hw, wallTop)];
+    for (let k = 0; k <= NF; k++) { const t = k / NF * Math.PI; pts.push(P(lxA(t), sgn * hw, zA(t))); }
+    add(pts, shade(sgn > 0 ? 0.74 : 0.5));
+  }
+  for (const it of list) {
+    const pts = it.pts, fill = it.fill;
+    emitFace(it.af, () => {
+      ctx.globalAlpha = alpha; ctx.lineJoin = 'round'; ctx.fillStyle = fill;
+      ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.18)'; ctx.lineWidth = 1; ctx.stroke();   // seam between corrugated bays
+      ctx.globalAlpha = 1;
+    });
+  }
 }
 
 // Corporate glass skyscraper (downtown civic/uptown): a stack of setback tiers — each
@@ -2508,7 +2729,10 @@ function drawGates(ctx, cam, v, W, H, now) {
 // pointing), bank, pitch and perspective all come out physically correct for free.
 const CONTACT_ALT_K = 1 / 600;   // feet of altitude delta → world-z units (tune)
 const CONTACT_VS = 1.6;          // vertical exaggeration so the projected model isn't screen-squashed (tune)
-const CONTACT_SIZE = { ultralight: 0.06, heli: 0.05, prop: 0.11, heavy: 0.17, gunship: 0.13, wreck: 0.10 };   // Cessna ~0.55× the Twin Otter; heli (Mini 500, ~5.8m rotor) is smaller still — matches MODEL_SCALE in the hangar
+// Sizes anchored to prop = DHC-6 Twin Otter (19.8m span) at 0.11; each class set to its real
+// airframe's span/rotor ratio vs that: Cessna 172 11m (0.56×), A-10/Reaper 17.5m (0.88×),
+// C-130-class Leviathan ~40m (2.0×), Mini 500 rotor 5.8m (0.29×).
+const CONTACT_SIZE = { ultralight: 0.056, heli: 0.032, prop: 0.11, heavy: 0.21, gunship: 0.115, wreck: 0.10 };
 // Own-ship EXTERNAL-chase scale: how much bigger the hero model draws than a same-class contact.
 // The chase camera sits a FIXED number of tiles back (chaseBack, normalised to CONTACT_SIZE.prop),
 // so lowering this shrinks the plane against the world/buildings without moving the camera — i.e. it
@@ -2533,6 +2757,22 @@ function modelGroundDrop(cls) {                                    // level gear
   if (_groundDropCache[cls] != null) return _groundDropCache[cls];
   return (_groundDropCache[cls] = (CONTACT_SIZE[cls] || 0.11) * OWN_EXT_MUL * CONTACT_VS * (-modelLowestH(cls, 0, 0, 1)));
 }
+// World-z of the model's vertical CENTRE above its ground anchor, at neutral attitude (cached per class).
+// Used to pin the chase framing on the model's middle, not its gear — so the same fraction of hull sits
+// above/below the frame line at every zoom. Excludes the rotor disc (matches modelLowestH) so a heli
+// frames on its fuselage, not its mast. Units match drawAircraftModel's vertex z (baseWz + SIZE·VS·h).
+const _modelMidCache = {};
+function modelMidH(cls) {
+  if (_modelMidCache[cls] != null) return _modelMidCache[cls];
+  let lo = 1e9, hi = -1e9;
+  for (const face of aircraftFaces(cls, 1)) {
+    if (face.role === 'rotor') continue;
+    for (const p of face.p) { if (p[2] < lo) lo = p[2]; if (p[2] > hi) hi = p[2]; }
+  }
+  if (lo > hi) { lo = 0; hi = 0; }
+  const S = (CONTACT_SIZE[cls] || 0.11) * OWN_EXT_MUL * CONTACT_VS;
+  return (_modelMidCache[cls] = S * (lo + hi) / 2);
+}
 // The most-negative vertex height (craft units) with pitch/bank/gear applied — the model's true
 // lowest point. Mirrors drawAircraftModel's own transform + gear tuck so the floor matches the pixels.
 function modelLowestH(cls, pitchDeg, bankDeg, gearAnim) {
@@ -2553,11 +2793,27 @@ function modelLowestH(cls, pitchDeg, bankDeg, gearAnim) {
   }
   return m;
 }
+// Parked on (or rolling across) the Echelon's helipad, the aircraft rests on her DECK, not the
+// waterline beneath it — otherwise the skids/wheels sink through the pad. We detect the deck by our
+// OWN tile being her yacht cell and lift the whole ground anchor by the pad height so the gear sits
+// on the pad surface. Airborne over her the constant is dwarfed by climb height, so it's a no-op in
+// the air. Matches drawYacht's pad top (pZ1 × YACHT_H) and the deck-cam's DECK_PAD_Z.
+// YACHT_H exaggerates the Echelon's VERTICAL scale so she reads as a big ship with real freeboard +
+// superstructure height — not a flat slick that a helicopter out-tops on her own pad. It scales only
+// her height (drawYacht below), NOT her fore-aft length or pad position, so the auto-land / deck-cam
+// capture math (which keys off the pad at fore-aft 0.28) is untouched; only the deck SURFACE rises,
+// which is why this pad-top constant tracks it.
+const YACHT_H = 1.7;   // lowered from 1.9 so she rides lower / sleeker in the water (long-and-low, not tall)
+const YACHT_DECK_Z = 0.085 * YACHT_H;   // parked-heli lift = the FLUSH helipad floor (pZ1 = DECKZ in drawYacht): the heli rests ON the deck
+function deckLift(cam, v) {
+  const c = v.map?.[cam.R]?.[cam.R];
+  return c && c.mark === 'yacht' ? YACHT_DECK_Z : 0;
+}
 function ownShipBaseWz(cam, v) {
   const S = (CONTACT_SIZE[v.cls] || 0.11) * OWN_EXT_MUL * CONTACT_VS;
   const natural = modelGroundDrop(v.cls) + (cam.EHbase - RENDER_TUNE.eh) - RENDER_TUNE.chaseSink;   // chase anchor: level gear on deck + climb
   const floor = S * (-modelLowestH(v.cls, v.pitch, v.bank, v.gearAnim ?? 1)) - RENDER_TUNE.chaseSink;   // lowest actual vertex on z=0 (minus the seam trim)
-  return Math.max(natural, floor);   // never let any part of the airframe dip below the ground
+  return Math.max(natural, floor) + deckLift(cam, v);   // + the Echelon's pad height when we're sitting on her deck
 }
 // Per-contact roll history → inferred aileron. We never get a bogey's stick input, but its
 // bank angle telegraphs it: a craft changing bank is holding aileron into the roll. We track the
@@ -2585,7 +2841,19 @@ function drawContacts(ctx, cam, v, W, H, sun, now) {
     if (c.id != null) { live.add(c.id); c.ctrl = inferContactCtrl(c, now); }   // ailerons deflect into the bogey's roll
     // Camera-space forward (f) / lateral-right (l) — same basis cam.proj uses.
     const f = c.dx * cam.sinh - c.dy * cam.cosh, l = c.dx * cam.cosh + c.dy * cam.sinh;
-    const baseWz = cam.EH + (c.altDiff || 0) * CONTACT_ALT_K;
+    // Altitude → world-z. Normally camera-relative (altDiff ft off our own eye-level). But a contact
+    // may pin itself to an ABSOLUTE surface via `groundZ` (world-z of the deck it's landing on): then
+    // its landing gear rests exactly on that surface at altDiff 0, and altDiff becomes feet ABOVE it —
+    // used by the Echelon deck-cam so the helicopter's skids touch the physical helipad, not hover at
+    // eye height above it.
+    let baseWz;
+    if (c.groundZ != null) {
+      const SIZE = (CONTACT_SIZE[c.cls] || 0.11) * (c.sizeMul || 1);
+      const drop = SIZE * CONTACT_VS * (-modelLowestH(c.cls, c.pitch, c.bank, 1));   // gear-to-origin offset at this scale
+      baseWz = c.groundZ + drop + (c.altDiff || 0) * CONTACT_ALT_K;
+    } else {
+      baseWz = cam.EH + (c.altDiff || 0) * CONTACT_ALT_K;
+    }
     const pc = cam.proj(c.dx, c.dy, baseWz);
     const onScreen = pc.f > 0.12 && pc.sx >= -40 && pc.sx <= W + 40 && pc.sy >= -40 && pc.sy <= H + 40;
     if (!onScreen) { drawContactChevron(ctx, c, f, l, W, H); continue; }
@@ -3451,21 +3719,25 @@ function drawCityBuilding(ctx, cam, dx, dy, fh, h, biome, seed, night, alpha, no
 function drawSmoke(ctx, cam, dx, dy, wz, col, alpha, now, seed) {
   const p = cam.proj(dx, dy, wz); if (p.f <= 0.12) return;
   const s = clamp(20 / p.f, 2, 40);
-  for (let i = 0; i < 3; i++) {
-    const t = ((now || 0) * 0.0002 + frac(seed + i)) % 1;
-    ctx.fillStyle = `rgba(${col},${alpha * 0.24 * (1 - t)})`;
-    ctx.beginPath(); ctx.arc(p.sx + Math.sin((now || 0) * 0.001 + i) * s * 0.4, p.sy - t * s * 2.4 - s * 0.5, s * (0.4 + t * 0.6), 0, 7); ctx.fill();
-  }
+  emitFace(ON_TOP, () => {
+    for (let i = 0; i < 3; i++) {
+      const t = ((now || 0) * 0.0002 + frac(seed + i)) % 1;
+      ctx.fillStyle = `rgba(${col},${alpha * 0.24 * (1 - t)})`;
+      ctx.beginPath(); ctx.arc(p.sx + Math.sin((now || 0) * 0.001 + i) * s * 0.4, p.sy - t * s * 2.4 - s * 0.5, s * (0.4 + t * 0.6), 0, 7); ctx.fill();
+    }
+  });
 }
 function drawGantry(ctx, cam, dx, dy, fh, h, alpha, seed) {
   const hh = h * 1.5, lw = fh * 1.4;
   const a = cam.proj(dx - lw, dy, 0), at = cam.proj(dx - lw, dy, hh), b = cam.proj(dx + lw, dy, 0), bt = cam.proj(dx + lw, dy, hh);
   if ([a, at, b, bt].some(p => p.f <= 0.12)) return;
-  ctx.globalAlpha = alpha; ctx.strokeStyle = 'rgba(126,116,96,0.85)'; ctx.lineWidth = 1.4; ctx.lineJoin = 'round';
-  ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(at.sx, at.sy); ctx.lineTo(bt.sx, bt.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke();
   const jib = cam.proj(dx + lw * 2.1, dy, hh * 0.9);
-  if (jib.f > 0.12) { ctx.beginPath(); ctx.moveTo(at.sx, at.sy); ctx.lineTo(jib.sx, jib.sy); ctx.stroke(); }
-  ctx.globalAlpha = 1;
+  emitFace(ON_TOP, () => {
+    ctx.globalAlpha = alpha; ctx.strokeStyle = 'rgba(126,116,96,0.85)'; ctx.lineWidth = 1.4; ctx.lineJoin = 'round';
+    ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(at.sx, at.sy); ctx.lineTo(bt.sx, bt.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke();
+    if (jib.f > 0.12) { ctx.beginPath(); ctx.moveTo(at.sx, at.sy); ctx.lineTo(jib.sx, jib.sy); ctx.stroke(); }
+    ctx.globalAlpha = 1;
+  });
 }
 
 // ── Per-biome building archetypes (all built from draw3DBoxAt + adornments) ────
@@ -3512,18 +3784,18 @@ function drawRuin(ctx, cam, dx, dy, fh, h, bi, seed, night, alpha, now) {
   if ((seed % 2) === 0) draw3DBoxAt(ctx, cam, dx + fh * 0.95, dy, fh * 0.55, 0, h * (0.2 + frac(seed + 1) * 0.3), bi, seed + 4, night, alpha, true);   // broken remnant
   if (bi === 'ruins') {   // Redline radioactive glow
     const g = cam.proj(dx, dy, h * 0.3);
-    if (g.f > 0.12) { const s = clamp(24 / g.f, 3, 50), rg = ctx.createRadialGradient(g.sx, g.sy, 1, g.sx, g.sy, s); rg.addColorStop(0, `rgba(150,220,80,${alpha * 0.22})`); rg.addColorStop(1, 'rgba(150,220,80,0)'); ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(g.sx, g.sy, s, 0, 7); ctx.fill(); }
+    if (g.f > 0.12) emitFace(ON_TOP, () => { const s = clamp(24 / g.f, 3, 50), rg = ctx.createRadialGradient(g.sx, g.sy, 1, g.sx, g.sy, s); rg.addColorStop(0, `rgba(150,220,80,${alpha * 0.22})`); rg.addColorStop(1, 'rgba(150,220,80,0)'); ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(g.sx, g.sy, s, 0, 7); ctx.fill(); });
   }
 }
 function drawMarquee(ctx, cam, dx, dy, fh, h, bi, seed, night, alpha, now) {
   draw3DBoxAt(ctx, cam, dx, dy, fh, 0, h * 0.7, bi, seed, night, alpha, true);
   const b = cam.proj(dx, dy, h * 0.7), t = cam.proj(dx, dy, h * 1.05);   // rooftop neon sign
-  if (b.f > 0.12 && t.f > 0.12) {
+  if (b.f > 0.12 && t.f > 0.12) emitFace((b.f + t.f) / 2, () => {
     const neon = ['#ff4a9a', '#5fd0ff', '#ffcf3e', '#7dff6a'][seed % 4];
     ctx.globalAlpha = alpha * (night ? 0.95 : 0.5); ctx.strokeStyle = neon; ctx.lineWidth = 2.2;
     if (night) { ctx.shadowColor = neon; ctx.shadowBlur = 6; }
     ctx.beginPath(); ctx.moveTo(b.sx, b.sy); ctx.lineTo(t.sx, t.sy); ctx.stroke(); ctx.shadowBlur = 0; ctx.globalAlpha = 1;
-  }
+  });
 }
 
 // ── Dedicated per-building models ─────────────────────────────────────────────
@@ -3539,7 +3811,7 @@ function drawMarquee(ctx, cam, dx, dy, fh, h, bi, seed, night, alpha, now) {
 // palette and rooftop adornments — exactly the parts the collision sweep ignores.
 function bldgSlug(name) { return (name || '').toLowerCase().replace(/[^a-z0-9]+/g, ''); }
 const NAMED_MODELS = {
-  halcyontowers:                  { type: 'luxtower',  pal: 'ty_lux',      neon: '#ffcf8a' },
+  halcyontowers:                  { type: 'luxtower',  pal: 'ty_halcyon',  neon: '#39f0ff' },
   embassyhotelbar:                { type: 'embassy',   pal: 'ty_embassy',  neon: '#ff4a9a' },
   chromecourt:                    { type: 'chrome',    pal: 'ty_chrome' },
   themeridianlobby:               { type: 'meridian',  pal: 'ty_meridian', penthouse: true },
@@ -3592,27 +3864,20 @@ function modelFor(cell) { return (cell.bn && namedModel(cell.bn)) || (cell.bt &&
 function blinkLight(ctx, cam, dx, dy, wz, rgb, now, seed, alpha, r = 1.6) {
   const p = cam.proj(dx, dy, wz); if (p.f <= 0.1) return;
   const k = 0.4 + 0.5 * Math.abs(Math.sin((now || 0) * 0.004 + seed));
-  ctx.globalAlpha = alpha; ctx.fillStyle = `rgba(${rgb},${k})`;
-  ctx.beginPath(); ctx.arc(p.sx, p.sy, r, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
+  emitFace(ON_TOP, () => { ctx.globalAlpha = alpha; ctx.fillStyle = `rgba(${rgb},${k})`; ctx.beginPath(); ctx.arc(p.sx, p.sy, r, 0, 7); ctx.fill(); ctx.globalAlpha = 1; });
 }
 function mast(ctx, cam, dx, dy, h0, h1, alpha, now, seed) {   // guyed antenna mast + red aviation light
   const a = cam.proj(dx, dy, h0), b = cam.proj(dx, dy, h1);
-  if (a.f > 0.1 && b.f > 0.1) {
-    ctx.globalAlpha = alpha; ctx.strokeStyle = 'rgba(184,192,206,0.8)'; ctx.lineWidth = 1.1;
-    ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); ctx.globalAlpha = 1;
-  }
+  if (a.f > 0.1 && b.f > 0.1) emitFace(ON_TOP, () => { ctx.globalAlpha = alpha; ctx.strokeStyle = 'rgba(184,192,206,0.8)'; ctx.lineWidth = 1.1; ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); ctx.globalAlpha = 1; });
   blinkLight(ctx, cam, dx, dy, h1, '255,80,80', now, seed, alpha);
 }
 function dish(ctx, cam, dx, dy, wz, s0, alpha) {   // rooftop satellite dish
   const p = cam.proj(dx, dy, wz); if (p.f <= 0.1) return; const r = clamp(s0 / p.f, 2, 22);
-  ctx.globalAlpha = alpha; ctx.fillStyle = 'rgba(198,204,214,0.85)';
-  ctx.beginPath(); ctx.ellipse(p.sx, p.sy, r, r * 0.5, -0.5, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
+  emitFace(ON_TOP, () => { ctx.globalAlpha = alpha; ctx.fillStyle = 'rgba(198,204,214,0.85)'; ctx.beginPath(); ctx.ellipse(p.sx, p.sy, r, r * 0.5, -0.5, 0, 7); ctx.fill(); ctx.globalAlpha = 1; });
 }
 function crossMark(ctx, cam, dx, dy, wz, alpha) {   // red medical cross billboard
   const p = cam.proj(dx, dy, wz); if (p.f <= 0.1) return; const s = clamp(9 / p.f, 2, 16);
-  ctx.globalAlpha = alpha; ctx.fillStyle = 'rgba(230,60,60,0.95)';
-  ctx.fillRect(p.sx - s * 0.28, p.sy - s, s * 0.56, s * 2);
-  ctx.fillRect(p.sx - s, p.sy - s * 0.28, s * 2, s * 0.56); ctx.globalAlpha = 1;
+  emitFace(ON_TOP, () => { ctx.globalAlpha = alpha; ctx.fillStyle = 'rgba(230,60,60,0.95)'; ctx.fillRect(p.sx - s * 0.28, p.sy - s, s * 0.56, s * 2); ctx.fillRect(p.sx - s, p.sy - s * 0.28, s * 2, s * 0.56); ctx.globalAlpha = 1; });
 }
 function neonBlade(ctx, cam, dx, dy, h0, h1, color, night, alpha) {   // vertical marquee blade — a stacked sign board, not a bare line
   const b = cam.proj(dx, dy, h0), t = cam.proj(dx, dy, h1); if (b.f <= 0.12 || t.f <= 0.12) return;
@@ -3620,59 +3885,71 @@ function neonBlade(ctx, cam, dx, dy, h0, h1, color, night, alpha) {   // vertica
   const wpx = clamp(9 / ((b.f + t.f) / 2), 2, 9);            // blade half-width (screen px), distance-scaled
   const nx = -uy / len * wpx, ny = ux / len * wpx;           // perpendicular half-width offset
   const P = [[b.sx + nx, b.sy + ny], [t.sx + nx, t.sy + ny], [t.sx - nx, t.sy - ny], [b.sx - nx, b.sy - ny]];
-  const trace = () => { ctx.beginPath(); P.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath(); };
-  ctx.save();
-  // backing board
-  ctx.globalAlpha = alpha * (night ? 0.92 : 0.84); ctx.fillStyle = '#120d12'; trace(); ctx.fill();
-  // colour-lit face
-  ctx.globalAlpha = alpha * (night ? 0.8 : 0.55); ctx.fillStyle = color;
-  if (night) { ctx.shadowColor = color; ctx.shadowBlur = 8; }
-  trace(); ctx.fill(); ctx.shadowBlur = 0;
-  // stacked "letter" rungs down the blade
-  const N = clamp(Math.round(len / 8), 3, 8);
-  ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 1;
-  if (night) { ctx.shadowColor = color; ctx.shadowBlur = 4; }
-  for (let i = 1; i < N; i++) {
-    const s = i / N, cx = b.sx + ux * s, cy = b.sy + uy * s;
-    ctx.globalAlpha = alpha * (night ? 0.9 : 0.68);
-    ctx.beginPath(); ctx.moveTo(cx + nx * 0.55, cy + ny * 0.55); ctx.lineTo(cx - nx * 0.55, cy - ny * 0.55); ctx.stroke();
-  }
-  ctx.restore();
+  emitFace((b.f + t.f) / 2, () => {
+    const trace = () => { ctx.beginPath(); P.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath(); };
+    ctx.save();
+    ctx.globalAlpha = alpha * (night ? 0.92 : 0.84); ctx.fillStyle = '#120d12'; trace(); ctx.fill();   // backing board
+    ctx.globalAlpha = alpha * (night ? 0.8 : 0.55); ctx.fillStyle = color;                              // colour-lit face
+    if (night) { ctx.shadowColor = color; ctx.shadowBlur = 8; }
+    trace(); ctx.fill(); ctx.shadowBlur = 0;
+    const N = clamp(Math.round(len / 8), 3, 8);                                                         // stacked "letter" rungs
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 1;
+    if (night) { ctx.shadowColor = color; ctx.shadowBlur = 4; }
+    for (let i = 1; i < N; i++) {
+      const s = i / N, cx = b.sx + ux * s, cy = b.sy + uy * s;
+      ctx.globalAlpha = alpha * (night ? 0.9 : 0.68);
+      ctx.beginPath(); ctx.moveTo(cx + nx * 0.55, cy + ny * 0.55); ctx.lineTo(cx - nx * 0.55, cy - ny * 0.55); ctx.stroke();
+    }
+    ctx.restore();
+  });
 }
-// A single tall LIT vertical marquee up a building's front — the sign name stacked one glowing
-// letter per row (E / M / B / A / S / S / Y) on a dark board, from world-z h0→h1 at (dx,dy). The
-// letters ARE the lit elements (neon fill + a bright white core + glow), so it reads as an
-// illuminated hotel blade day or night. Board width scales with distance.
-function verticalMarquee(ctx, cam, dx, dy, h0, h1, label, color, night, alpha) {
+// A projecting LIT marquee BLADE — a tall vertical triangular prism (a "long pyramid") that juts out
+// from the wall along the outward normal `N`: its base edge lies flat against the building and its apex
+// points OUT. SINGLE-SIDED: both slanted faces render as a dark board (so it reads as a thick 3D prism),
+// but ONLY the front face carries the stacked sign name — painted straight onto that face's quad (canvas
+// paint, not a billboard), so the EMBASSY text is legible from one approach angle and you never get the
+// doubled EE MM BB… that two lettered faces produced. TRUE 3D: each face is a real projected quad,
+// backface-culled. Anchor (dx,dy) sits on/just proud of the wall; letters run down the lettered column.
+function verticalMarquee(ctx, cam, dx, dy, h0, h1, label, color, night, alpha, N) {
   const n = label.length; if (!n) return;
-  const b = cam.proj(dx, dy, h0), t = cam.proj(dx, dy, h1);
-  if (b.f <= 0.12 || t.f <= 0.12) return;
-  const len = Math.hypot(t.sx - b.sx, t.sy - b.sy) || 1, seg = len / n;
-  const halfW = clamp(seg * 0.6, 3, 30);
-  const ux = (t.sx - b.sx) / len, uy = (t.sy - b.sy) / len, nx = -uy, ny = ux;   // up + perpendicular (screen)
-  const P = [[b.sx + nx * halfW, b.sy + ny * halfW], [t.sx + nx * halfW, t.sy + ny * halfW], [t.sx - nx * halfW, t.sy - ny * halfW], [b.sx - nx * halfW, b.sy - ny * halfW]];
-  ctx.save();
-  // dark backing board + a thin lit edge frame
-  ctx.globalAlpha = alpha; ctx.fillStyle = '#0e0a0f';
-  ctx.beginPath(); P.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath(); ctx.fill();
-  ctx.globalAlpha = alpha * (night ? 0.5 : 0.32); ctx.strokeStyle = color; ctx.lineWidth = 1.2;
-  if (night) { ctx.shadowColor = color; ctx.shadowBlur = 7; }
-  ctx.stroke(); ctx.shadowBlur = 0;
-  // stacked letters — first letter at the TOP, last at the bottom
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `bold ${Math.max(6, seg * 0.7)}px monospace`;
-  for (let i = 0; i < n; i++) {
-    const fr = (i + 0.5) / n, px = t.sx + (b.sx - t.sx) * fr, py = t.sy + (b.sy - t.sy) * fr;
-    ctx.globalAlpha = alpha; ctx.shadowColor = color; ctx.shadowBlur = night ? 9 : 5;
-    ctx.fillStyle = color; ctx.fillText(label[i], px, py);                              // neon glow base
-    ctx.shadowBlur = night ? 5 : 2; ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.fillText(label[i], px, py);   // bright lit core
-  }
-  ctx.restore();
+  N = N || [0, 1];
+  const ax = N[1], ay = -N[0], baseH = 0.032, projD = 0.12, bk = cam.back || 0;   // along-wall unit; base half-width + apex projection (tiles)
+  const baseL = [dx - ax * baseH, dy - ay * baseH], baseR = [dx + ax * baseH, dy + ay * baseH], apex = [dx + N[0] * projD, dy + N[1] * projD];
+  const drawFace = (A, B, lettered) => {   // one slanted face, horizontal edge A(wall)→B(apex or wall); text only when lettered
+    const mx = (A[0] + B[0]) / 2, my = (A[1] + B[1]) / 2;
+    let nfx = B[1] - A[1], nfy = -(B[0] - A[0]);                                   // outward normal ⊥ to the edge
+    if (nfx * (mx - dx) + nfy * (my - dy) < 0) { nfx = -nfx; nfy = -nfy; }         // point away from the prism axis
+    if (nfx * mx + nfy * my + bk * (nfx * cam.sinh - nfy * cam.cosh) >= 0) return; // face turned away → cull
+    const At = cam.proj(A[0], A[1], h1), Bt = cam.proj(B[0], B[1], h1), Bb = cam.proj(B[0], B[1], h0), Ab = cam.proj(A[0], A[1], h0);
+    if ([At, Bt, Bb, Ab].some(q => q.f <= 0.12)) return;
+    emitFace(Math.min(At.f, Bt.f, Bb.f, Ab.f) - 0.04, () => {                      // bias forward so it beats the wall it's mounted on
+      ctx.save();
+      ctx.globalAlpha = alpha; ctx.fillStyle = '#0e0a0f';                          // dark backing board
+      ctx.beginPath(); ctx.moveTo(At.sx, At.sy); ctx.lineTo(Bt.sx, Bt.sy); ctx.lineTo(Bb.sx, Bb.sy); ctx.lineTo(Ab.sx, Ab.sy); ctx.closePath(); ctx.fill();
+      ctx.globalAlpha = alpha * (night ? 0.5 : 0.32); ctx.strokeStyle = color; ctx.lineWidth = 1.2;   // lit edge frame
+      if (night) { ctx.shadowColor = color; ctx.shadowBlur = 7; }
+      ctx.stroke(); ctx.shadowBlur = 0;
+      if (lettered) {
+        const mtx = (At.sx + Bt.sx) / 2, mty = (At.sy + Bt.sy) / 2, mbx = (Ab.sx + Bb.sx) / 2, mby = (Ab.sy + Bb.sy) / 2;   // face centre column
+        const colLen = Math.hypot(mbx - mtx, mby - mty);
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        for (let i = 0; i < n; i++) {
+          const fr = (i + 0.5) / n, px = mtx + (mbx - mtx) * fr, py = mty + (mby - mty) * fr;   // letter down the foreshortened column
+          ctx.font = `bold ${Math.max(6, (colLen / n) * 0.72) | 0}px monospace`;
+          ctx.globalAlpha = alpha; ctx.shadowColor = color; ctx.shadowBlur = night ? 9 : 5;
+          ctx.fillStyle = color; ctx.fillText(label[i], px, py);                              // neon glow base
+          ctx.shadowBlur = night ? 5 : 2; ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.fillText(label[i], px, py);   // bright lit core
+        }
+      }
+      ctx.restore();
+    });
+  };
+  drawFace(baseL, apex, true);    // front slanted face — the ONLY one that carries EMBASSY
+  drawFace(apex, baseR, false);   // back slanted face — dark board only, gives the prism its thickness
 }
 function glowPool(ctx, cam, dx, dy, wz, rgb, s0, alpha) {   // soft ground/roof glow (generalised ruin glow)
   const g = cam.proj(dx, dy, wz); if (g.f <= 0.12) return; const s = clamp(s0 / g.f, 3, 60);
-  const rg = ctx.createRadialGradient(g.sx, g.sy, 1, g.sx, g.sy, s);
-  rg.addColorStop(0, `rgba(${rgb},${alpha})`); rg.addColorStop(1, `rgba(${rgb},0)`);
-  ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(g.sx, g.sy, s, 0, 7); ctx.fill();
+  emitFace(ON_TOP, () => { const rg = ctx.createRadialGradient(g.sx, g.sy, 1, g.sx, g.sy, s); rg.addColorStop(0, `rgba(${rgb},${alpha})`); rg.addColorStop(1, `rgba(${rgb},0)`); ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(g.sx, g.sy, s, 0, 7); ctx.fill(); });
 }
 // A HORIZONTAL marquee SIGN across a building's entrance face (a hotel/bar marquee), at
 // height wz, spanning ±half across the front edge (E = entrance world vector). Drawn as a
@@ -3688,6 +3965,7 @@ function marqueeBand(ctx, cam, dx, dy, E, half, wz, color, night, alpha, label) 
   const bl = cam.proj(Lx, Ly, wz - hh), br = cam.proj(Rx, Ry, wz - hh);
   if ([tl, tr, bl, br].some((p) => p.f <= 0.12)) return;
   const quad = () => { ctx.beginPath(); ctx.moveTo(tl.sx, tl.sy); ctx.lineTo(tr.sx, tr.sy); ctx.lineTo(br.sx, br.sy); ctx.lineTo(bl.sx, bl.sy); ctx.closePath(); };
+  emitFace((tl.f + tr.f + bl.f + br.f) / 4, () => {
   ctx.save();
   // 1. dark backing board
   ctx.globalAlpha = alpha * (night ? 0.94 : 0.86); ctx.fillStyle = '#140f14'; quad(); ctx.fill();
@@ -3732,6 +4010,7 @@ function marqueeBand(ctx, cam, dx, dy, E, half, wz, color, night, alpha, label) 
     }
   }
   ctx.restore();
+  });
 }
 
 // ── Entrance facing ───────────────────────────────────────────────────────────
@@ -3808,11 +4087,9 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
         const pts = []; let ok = true;
         for (let k = 0; k <= 20; k++) { const ang = k / 20 * Math.PI * 2, p = cam.proj(dx + Math.cos(ang) * r, dy + Math.sin(ang) * r, z); if (p.f <= 0.08) { ok = false; break; } pts.push(p); }
         if (!ok) continue;
-        const sh = 0.72 + 0.28 * t;   // lit lighter toward the crown
-        ctx.globalAlpha = alpha; ctx.fillStyle = `rgb(${Math.round(78 * sh)},${Math.round(138 * sh)},${Math.round(118 * sh)})`;
-        ctx.beginPath(); pts.forEach((p, k) => k ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)); ctx.closePath(); ctx.fill();
+        const sh = 0.72 + 0.28 * t, fill = `rgb(${Math.round(78 * sh)},${Math.round(138 * sh)},${Math.round(118 * sh)})`, dd = pts.reduce((s, p) => s + p.f, 0) / pts.length;
+        emitFace(dd, () => { ctx.globalAlpha = alpha; ctx.fillStyle = fill; ctx.beginPath(); pts.forEach((p, k) => k ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1; });
       }
-      ctx.globalAlpha = 1;
       // 8) Stone lantern + finial, and one amber aviation beacon on the very crown.
       draw3DBoxAt(ctx, cam, dx, dy, fh * 0.12, apex, apex + h * 0.14, colPal, seed + 6, night, alpha, false);
       blinkLight(ctx, cam, dx, dy, apex + h * 0.18, '255,196,120', now, seed, alpha, 2);
@@ -3844,9 +4121,11 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
     case 'embassy': {   // Embassy Hotel & Bar: warm guest tower + big marquee (bar podium removed — it wasn't reading right)
       const neon = m.neon || '#ff4a9a';
       draw3DBoxAt(ctx, cam, dx, dy, fh * 0.98, 0, h * 1.55, pal, seed, night, alpha, true);                    // single warm ochre tower, ground to roof
-      // ONE tall lit VERTICAL marquee up the front — EMBASSY stacked E-M-B-A-S-S-Y — only when
-      // the front (marquee) face is actually toward you, so it never shows through from behind.
-      if (frontVis) { const [nx, ny] = F(fh * 0.72, fh * 0.66); verticalMarquee(ctx, cam, nx, ny, h * 0.42, h * 1.5, 'EMBASSY', neon, night, alpha); }
+      // ONE tall lit VERTICAL marquee — a true 3D board planted at the building's FRONT-RIGHT CORNER
+      // (local x≈+0.9, y just proud of the +0.98 front face), jutting FORWARD along the entrance vector E
+      // so the blade stands in front of the building instead of running through the side wall. EMBASSY
+      // stacked on the front slanted face; per-face backface culling + the depth queue handle visibility.
+      { const [nx, ny] = F(fh * 0.9, fh * 1.08); verticalMarquee(ctx, cam, nx, ny, h * 0.42, h * 1.5, 'EMBASSY', neon, night, alpha, E); }
       if (night) {
         glowPool(ctx, cam, dx, dy, h * 0.34, '255,190,90', 26, alpha * 0.32);             // warm bar spill at street level
         glowPool(ctx, cam, dx, dy, h * 1.55, '255,120,180', 16, alpha * 0.18);            // rooftop sign glow
@@ -3858,11 +4137,12 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       const bio = '90,255,200';
       draw3DBoxAt(ctx, cam, dx, dy, fh * 1.18, 0, h * 0.8, pal, seed, night, alpha, true);            // clinical main block
       { const [sx, sy] = F(-fh * 0.32, 0); draw3DBoxAt(ctx, cam, sx, sy, fh * 0.5, h * 0.8, h * 1.15, pal, seed + 1, night, alpha, true); }   // set-back upper lab
-      // Row of lit clone-vat cylinders along the front face — the science-y signature.
+      // Row of lit clone-vat cylinders standing OUTSIDE on the forecourt (ly beyond the ±1.18 front
+      // face) — the science-y signature, no longer buried in the block now that occlusion is honest.
       for (const s of [-0.75, -0.25, 0.25, 0.75]) {
-        const [vx, vy] = F(s * fh * 0.78, fh * 0.62);
+        const [vx, vy] = F(s * fh * 0.7, fh * 1.32);
         draw3DBoxAt(ctx, cam, vx, vy, fh * 0.13, 0, h * 0.52, 'ty_clone_vat', seed + 12 + Math.round(s * 4), night, alpha, true);
-        glowPool(ctx, cam, vx, vy, h * 0.26, bio, 7, alpha * (night ? 0.55 : 0.34));      // green bio-glow inside each tank
+        glowPool(ctx, cam, vx, vy, h * 0.26, bio, 7, alpha * (night ? 0.55 : 0.34));      // green bio-glow in each tank
       }
       // Reactor / clean-room dome glow on the roof, venting steam, hazard beacon + antenna.
       glowPool(ctx, cam, dx, dy, h * 0.86, '120,255,220', 22, alpha * (night ? 0.42 : 0.24));
@@ -3871,24 +4151,93 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       blinkLight(ctx, cam, dx, dy, h * 1.15, bio, now, seed, alpha, 2);
       break;
     }
-    case 'luxtower': {   // Halcyon Towers: slender luxury highrise — lit lobby podium, tapering shaft, glazed crown
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.24, 0, h * 0.26, pal, seed + 4, night, alpha, true);        // brass-lit ground lobby
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.82, h * 0.26, h * 1.92, pal, seed, night, alpha, true);      // slender residential shaft
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.56, h * 1.92, h * 2.18, pal, seed + 2, night, alpha, true);  // set-back glazed crown
-      { const [cx, cy] = F(0, fh * 1.02); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.78, h * 0.14, h * 0.22, 'ty_door', seed + 5, night, alpha, false); }   // entrance canopy
-      if (night) {
-        glowPool(ctx, cam, dx, dy, h * 0.26, '255,206,140', 22, alpha * 0.3);                           // warm downlight spill at the lobby
-        glowPool(ctx, cam, dx, dy, h * 2.18, '255,224,170', 14, alpha * 0.22);                          // crown glow
+    case 'luxtower': {   // Halcyon Towers: a CAYAN-style helical glass slab — a slender square curtain-glass tower
+      //                    with strong horizontal floor plates, twisting ~80° over its height to a chiselled crown.
+      const neonA = '80,230,255', neonB = '255,90,180';   // cyan / magenta cyberpunk edge light
+      const baseZ = h * 0.28, topZ = h * 2.7, N = 22;      // many thin floor-groups → a smooth continuous twist
+      const twist = 1.4, fwBase = fh * 0.8;                // ~80° total helix + slender square footprint half-width
+      const segZ = (i) => baseZ + (topZ - baseZ) * (i / N);
+      const segW = (i) => fwBase * (1 - 0.44 * (i / N));   // gentle taper to a slender crown
+      const segYaw = (i) => twist * (i / N);               // progressive rotation = the helix
+      // 1) Lit lobby podium the tower rises out of + a low entrance canopy.
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.3, 0, baseZ, pal, seed + 4, night, alpha, true);
+      { const [cx, cy] = F(0, fh * 1.06); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.82, h * 0.12, h * 0.24, 'ty_door', seed + 5, night, alpha, false); }
+      // 2) The helical glass slab — thin square curtain-glass boxes, each rotated a touch more than the last.
+      //    Its ty_halcyon skin is the glass floor-plate texture (GLASS_WALL), so the twist reads as banded glass.
+      for (let i = 0; i < N; i++) draw3DBoxAt(ctx, cam, dx, dy, segW(i), segZ(i), segZ(i + 1), pal, seed + i, night, alpha, i === N - 1, segYaw(i));
+      // 3) Spiralling cyan/magenta light-runners — trace two opposite vertical corners up the twisting stack.
+      for (const [dir, rgb] of [[[-1, -1], neonA], [[1, 1], neonB]]) {
+        const pts = [];
+        for (let i = 0; i <= N; i++) {
+          const w = segW(Math.min(i, N - 1)), ya = segYaw(i), cw = Math.cos(ya), sw = Math.sin(ya), lx = dir[0] * w, ly = dir[1] * w;
+          const p = cam.proj(dx + lx * cw - ly * sw, dy + lx * sw + ly * cw, segZ(i));
+          if (p.f > 0.12) pts.push(p);
+        }
+        if (pts.length > 1) emitFace(ON_TOP, () => {
+          ctx.save(); ctx.globalAlpha = alpha * (night ? 0.95 : 0.55);
+          ctx.strokeStyle = `rgba(${rgb},0.9)`; ctx.lineWidth = 1.6; ctx.lineJoin = 'round';
+          if (night) { ctx.shadowColor = `rgb(${rgb})`; ctx.shadowBlur = 8; }
+          ctx.beginPath(); pts.forEach((p, k) => k ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)); ctx.stroke();
+          ctx.shadowBlur = 0; ctx.restore();
+        });
       }
-      blinkLight(ctx, cam, dx, dy, h * 2.2, '255,214,150', now, seed, alpha, 1.8);                      // brass roof beacon
+      // 4) Chiselled crown — a short set-back box continuing the twist — + an antenna spire with a holo beacon.
+      draw3DBoxAt(ctx, cam, dx, dy, segW(N) * 0.9, topZ, topZ + h * 0.2, pal, seed + 20, night, alpha, true, twist * 1.08);
+      mast(ctx, cam, dx, dy, topZ + h * 0.2, topZ + h * 0.56, alpha, now, seed);
+      if (night) {
+        glowPool(ctx, cam, dx, dy, baseZ, '120,220,255', 24, alpha * 0.3);            // cool lobby wash
+        glowPool(ctx, cam, dx, dy, baseZ + (topZ - baseZ) * 0.5, neonA, 14, alpha * 0.22);   // mid sky-lobby glow
+        glowPool(ctx, cam, dx, dy, topZ + h * 0.08, neonB, 16, alpha * 0.3);          // crown halo
+      }
+      blinkLight(ctx, cam, dx, dy, topZ + h * 0.56, neonA, now, seed, alpha, 2);      // cyan beacon on the spire
       break;
     }
-    case 'chrome': {   // Chrome Court: mirror-steel residential slab over a jimmied-mailbox podium + rooftop plant
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.34, 0, h * 0.2, pal, seed + 5, night, alpha, true);          // mailbox lobby podium
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.0, h * 0.2, h * 1.3, pal, seed, night, alpha, true);          // steel slab
-      { const [rx, ry] = F(fh * 0.28, 0); draw3DBoxAt(ctx, cam, rx, ry, fh * 0.42, h * 1.3, h * 1.46, pal, seed + 2, night, alpha, true); }   // rooftop lift housing
-      glowPool(ctx, cam, dx, dy, h * 0.72, '198,214,230', 20, alpha * (night ? 0.26 : 0.16));           // cold chrome sheen up the face
-      { const [cx, cy] = F(0, fh * 1.02); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.9, h * 0.1, h * 0.18, 'ty_door', seed + 6, night, alpha, false); }
+    case 'chrome': {   // Chrome Court: a HIGH-TECH mirror-steel obelisk — a smooth tapered faceted chrome monolith
+      //                 ringed by glowing cyan LED tech-bands, a brighter set-back sky-lounge halo + a beacon spire.
+      //                 Deliberately ROUNDED where Halcyon is an angular twisting slab, so the two read as siblings.
+      const led = '90,220,255';                              // cyan LED tech accent
+      const NF = 10, baseZ = h * 0.22, topZ = h * 2.35;      // decagon: smooth but faceted; slightly shorter than Halcyon
+      const rB = fh * 0.88, rShaftB = rB * 0.94, rT = fh * 0.4;   // wide base tapering to a slim crown
+      const steelBase = WALL_COL[pal] || [118, 126, 136];    // ty_chrome
+      const rAt = (t) => rShaftB + (rT - rShaftB) * t;       // shaft radius at height-fraction t
+      // Procedural MIRROR-STEEL skin: a vertical gradient reflecting the sky up top, a dark polished
+      // steel mid, and a brighter ground sheen low — modulated per facet by the key light (f.nl).
+      const mirror = (f, tp, bt) => {
+        const g = ctx.createLinearGradient(0, tp, 0, bt), s = 0.45 + f.nl * 0.6;
+        if (night) {
+          g.addColorStop(0, `rgba(${72 * s | 0},${96 * s | 0},${122 * s | 0},0.97)`);   // cool night sky on the steel
+          g.addColorStop(0.5, `rgba(${38 * s | 0},${48 * s | 0},${60 * s | 0},0.97)`);
+          g.addColorStop(1, `rgba(${58 * s | 0},${70 * s | 0},${84 * s | 0},0.97)`);     // city glow reflected low
+        } else {
+          g.addColorStop(0, `rgba(${182 + f.nl * 48 | 0},${202 + f.nl * 38 | 0},226,0.97)`);   // bright sky mirror
+          g.addColorStop(0.44, `rgba(${steelBase[0] * s | 0},${steelBase[1] * s | 0},${steelBase[2] * s | 0},0.97)`);
+          g.addColorStop(1, `rgba(${150 + f.nl * 40 | 0},${164 + f.nl * 34 | 0},178,0.97)`);   // ground sheen
+        }
+        return g;
+      };
+      const capCol = night ? 'rgba(46,58,72,0.97)' : 'rgba(178,196,216,0.97)';
+      // 1) Splayed plinth + entrance canopy.
+      drawFacetDrum(ctx, cam, dx, dy, 0, baseZ, rB * 1.06, rB * 0.96, NF, alpha, mirror, capCol);
+      { const [cx, cy] = F(0, fh * 1.02); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.9, h * 0.08, h * 0.2, 'ty_door', seed + 6, night, alpha, false); }
+      // 2) The tapered chrome shaft — one smooth mirror-steel frustum (cone), no window grid.
+      drawFacetDrum(ctx, cam, dx, dy, baseZ, topZ, rShaftB, rT, NF, alpha, mirror, null);
+      // 3) Glowing horizontal LED tech-bands hugging the shaft at regular tech-floors.
+      for (const t of [0.14, 0.3, 0.46, 0.78]) {
+        const z = baseZ + (topZ - baseZ) * t;
+        drawRing(ctx, cam, dx, dy, z, rAt(t) * 1.015, NF, `rgba(${led},${night ? 0.85 : 0.42})`, 1.6, alpha);
+      }
+      // 4) Brighter set-back SKY-LOUNGE halo band ~0.6 up — a double ring + a soft glow.
+      { const t = 0.6, z = baseZ + (topZ - baseZ) * t, r = rAt(t) * 1.05;
+        drawRing(ctx, cam, dx, dy, z, r, NF, `rgba(200,240,255,${night ? 0.95 : 0.5})`, 2.4, alpha);
+        drawRing(ctx, cam, dx, dy, z + h * 0.06, r, NF, `rgba(${led},${night ? 0.8 : 0.4})`, 1.4, alpha);
+        if (night) glowPool(ctx, cam, dx, dy, z, led, 16, alpha * 0.3); }
+      // 5) Slim crown drum (capped) + halo ring + antenna spire with a holo beacon.
+      drawFacetDrum(ctx, cam, dx, dy, topZ, topZ + h * 0.22, rT * 1.08, rT * 0.52, NF, alpha, mirror, capCol);
+      drawRing(ctx, cam, dx, dy, topZ + h * 0.02, rT * 1.14, NF, `rgba(${led},${night ? 0.9 : 0.45})`, 1.8, alpha);
+      mast(ctx, cam, dx, dy, topZ + h * 0.22, topZ + h * 0.58, alpha, now, seed);
+      glowPool(ctx, cam, dx, dy, topZ * 0.5, '198,214,230', 20, alpha * (night ? 0.3 : 0.16));   // cold chrome sheen up the face
+      if (night) { glowPool(ctx, cam, dx, dy, baseZ, '150,200,240', 22, alpha * 0.28); glowPool(ctx, cam, dx, dy, topZ + h * 0.08, led, 14, alpha * 0.3); }
+      blinkLight(ctx, cam, dx, dy, topZ + h * 0.58, led, now, seed, alpha, 2);
       break;
     }
     case 'meridian': {   // The Meridian: terrazzo residential tower + set-back penthouse + rooftop water tank
@@ -3984,36 +4333,117 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       break;
     }
     case 'hangar': {   // AIRPORT: glazed passenger terminal + hangar shed + ATC tower, floodlit at night
-      const w = fh * (m.big ? 1.55 : 1.3), top = h * (m.big ? 0.66 : 0.56);
-      // 1. TERMINAL — a broad, low glazed concourse across the frontage with a canopy over the
-      //    doors; it glows warm at night (a hall full of light).
-      { const [tx, ty] = F(fh * 0.42, 0);
-        draw3DBoxAt(ctx, cam, tx, ty, fh * 0.6, 0, top * 0.8, 'ty_office', seed + 8, night, alpha, true);          // glazed concourse
-        const [cx, cy] = F(fh * 0.42, fh * 0.62); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.56, top * 0.1, top * 0.32, 'ty_door', seed + 9, night, alpha, false);   // entrance canopy
-        if (night) glowPool(ctx, cam, tx, ty, top * 0.42, '255,214,150', 22, alpha * 0.34);                        // concourse spill
-      }
-      // 2. HANGAR — the wide shed with the big dark door band, alongside the terminal.
-      { const [hx, hy] = F(-fh * 0.5, 0);
-        draw3DBoxAt(ctx, cam, hx, hy, w, 0, top, pal, seed, night, alpha, true);
-        const [gx, gy] = F(-fh * 0.5, w * 0.55); draw3DBoxAt(ctx, cam, gx, gy, w * 0.72, 0, top * 0.6, 'ty_door', seed + 1, night, alpha, false);   // apron-facing door
-        if (night) glowPool(ctx, cam, hx, hy, top * 0.5, '150,190,230', 14, alpha * 0.22);                         // spill from inside the lit hangar
-      }
-      // 3. ATC TOWER — a slender shaft to a wider glazed cab, standing well above the sheds.
-      //    At night the cab windows glow, a red obstruction light burns at the tip, and the
-      //    civil rotating beacon alternates green↔white as it sweeps.
-      { const [txx, txy] = F(-fh * 0.92, -fh * 0.35);
-        const cabTop = h * (m.big ? 2.0 : 1.65), cabBot = cabTop * 0.8;
-        draw3DBoxAt(ctx, cam, txx, txy, fh * 0.16, 0, cabBot, pal, seed + 4, night, alpha, false);                 // shaft
-        draw3DBoxAt(ctx, cam, txx, txy, fh * 0.34, cabBot, cabTop, 'ty_office', seed + 5, night, alpha, true);     // glazed cab
+      const top = h * (m.big ? 0.66 : 0.56), NF = 12;
+      // Shared surface styles (reused by the terminal + the tower): shaded concrete/steel facets and
+      // the procedural curtain glass (a vertical sky-reflection gradient, facet-lit — no window grid).
+      const base = WALL_COL[pal] || [96, 102, 112];
+      const concrete = (f) => { const s = 0.6 + f.nl * 0.5; return `rgb(${base[0] * s | 0},${base[1] * s | 0},${base[2] * s | 0})`; };
+      const steel = (r, gc, b) => (f) => { const s = 0.5 + f.nl * 0.5; return `rgb(${r * s | 0},${gc * s | 0},${b * s | 0})`; };
+      const glass = (f, tp, bt) => {
+        const g = ctx.createLinearGradient(0, tp, 0, bt), s = 0.55 + f.nl * 0.45;
         if (night) {
-          glowPool(ctx, cam, txx, txy, cabTop * 0.9, '150,210,255', 9, alpha * 0.4);                              // lit cab
+          g.addColorStop(0, `rgba(${70 * s | 0},${120 * s | 0},${150 * s | 0},0.95)`);
+          g.addColorStop(0.55, `rgba(${52 * s | 0},${92 * s | 0},${120 * s | 0},0.95)`);
+          g.addColorStop(1, 'rgba(210,178,120,0.95)');                                                             // warm consoles glimpsed low
+        } else {
+          g.addColorStop(0, `rgba(${150 + f.nl * 80 | 0},${188 + f.nl * 50 | 0},224,0.96)`);                       // bright sky-reflection crown
+          g.addColorStop(0.5, `rgba(${78 + f.nl * 70 | 0},${120 + f.nl * 70 | 0},158,0.95)`);
+          g.addColorStop(1, `rgba(${26 + f.nl * 28 | 0},${42 + f.nl * 28 | 0},62,0.96)`);                          // deep sill
+        }
+        return g;
+      };
+      // 1. PASSENGER LOUNGE — a curved glass pavilion on the apron with a warm-lit INTERIOR read
+      //    through semi-transparent glass (a warm floor, a bench row, a couple of waiting passengers),
+      //    a transom band, a slim entrance canopy and a rooftop spill. New procedural interior.
+      { const [lx, ly] = F(fh * 0.42, fh * 0.48), lH = top * 0.5, lR = fh * 0.44;
+        const loungeGlass = (f, tp, bt) => {   // cooler + MORE TRANSPARENT than the cab glass so the lit interior shows through
+          const g = ctx.createLinearGradient(0, tp, 0, bt);
+          g.addColorStop(0, `rgba(${168 + f.nl * 60 | 0},${204 + f.nl * 40 | 0},234,0.5)`);
+          g.addColorStop(1, `rgba(${58 + f.nl * 40 | 0},${88 + f.nl * 40 | 0},120,0.46)`);
+          return g;
+        };
+        // Interior at the pavilion's CENTRE depth → sorts behind the near (semi-transparent) glass
+        // facets and in front of the far ones, so it reads as a lit lounge seen through the glass.
+        emitFace(cam.proj(lx, ly, lH * 0.4).f, () => {
+          ctx.globalAlpha = alpha;
+          const fp = cam.proj(lx, ly, 0.02);
+          if (fp.f > 0.1) { const r = clamp(24 / fp.f, 6, 40), rg = ctx.createRadialGradient(fp.sx, fp.sy, 1, fp.sx, fp.sy, r); rg.addColorStop(0, 'rgba(255,222,166,0.55)'); rg.addColorStop(1, 'rgba(255,222,166,0)'); ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(fp.sx, fp.sy, r, 0, 7); ctx.fill(); }   // warm floor pool
+          for (let i = -2; i <= 2; i++) { const sp = cam.proj(lx + i * fh * 0.12, ly + fh * 0.16, 0.03); if (sp.f <= 0.1) continue; const sz = clamp(3.6 / sp.f, 1.2, 7); ctx.fillStyle = 'rgba(28,26,30,0.8)'; ctx.fillRect(sp.sx - sz * 0.6, sp.sy - sz * 0.55, sz * 1.2, sz * 0.7); }   // bench row
+          for (const dxF of [-fh * 0.16, fh * 0.12]) { const gp = cam.proj(lx + dxF, ly + fh * 0.04, 0.02), hp = cam.proj(lx + dxF, ly + fh * 0.04, lH * 0.34); if (gp.f <= 0.1 || hp.f <= 0.1) continue; const bw = clamp(2 / gp.f, 0.8, 5); ctx.fillStyle = 'rgba(22,20,26,0.85)'; ctx.beginPath(); ctx.moveTo(gp.sx - bw, gp.sy); ctx.lineTo(gp.sx + bw, gp.sy); ctx.lineTo(hp.sx + bw * 0.6, hp.sy); ctx.lineTo(hp.sx - bw * 0.6, hp.sy); ctx.closePath(); ctx.fill(); ctx.beginPath(); ctx.arc(hp.sx, hp.sy - bw * 0.5, bw * 0.7, 0, 7); ctx.fill(); }   // waiting passengers
+          ctx.globalAlpha = 1;
+        });
+        drawFacetDrum(ctx, cam, lx, ly, 0, lH, lR, lR * 0.98, 16, alpha, loungeGlass, steel(52, 58, 68)({ nl: 0.72 }));   // curved glass envelope (solid roof cap) over the lit interior
+        drawRing(ctx, cam, lx, ly, lH * 0.5, lR * 0.99, 16, 'rgba(20,26,34,0.5)', 1, alpha);                         // mullion transom band
+        const [cx, cy] = F(fh * 0.42, fh * 0.96); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.4, lH * 0.32, lH * 0.42, 'ty_door', seed + 9, night, alpha, false);   // entrance canopy
+        glowPool(ctx, cam, lx, ly, lH * 0.62, '255,214,150', 18, alpha * (night ? 0.4 : 0.2));                       // interior spill up top
+      }
+      // 2. HANGAR — a smaller corrugated-STEEL shed standing to the LEFT (clear of the tower) under a
+      //    curved BARREL ROOF, with an OPEN bay on the apron gable — a recessed dark interior, a floor,
+      //    a parked-aircraft tail hint and warm spill — instead of a closed door.
+      { const hxL = -fh * 0.55, hw = fh * 0.5, wallTop = top * 0.52, archH = hw * 0.95;
+        const [hx, hy] = F(hxL, 0);
+        draw3DBoxAt(ctx, cam, hx, hy, hw, 0, wallTop, 'ty_hangarmetal', seed, night, alpha, false);                 // ribbed-steel walls (roof capped by the barrel)
+        drawBarrelRoof(ctx, cam, F, hxL, hw, hw, wallTop, archH, 10, alpha, [138, 146, 156]);                        // curved corrugated roof + arched gables
+        // Open bay on the apron-facing (+local-y) gable — only when that gable faces the camera.
+        const [ox, oy] = F(0, 0), [f1x, f1y] = F(0, 1), FX = f1x - ox, FY = f1y - oy, [gcx, gcy] = F(hxL, hw);
+        if (FX * gcx + FY * gcy + (cam.back || 0) * (FX * cam.sinh - FY * cam.cosh) < 0) {
+          const P = (llx, lly, z) => { const [wx, wy] = F(llx, lly); return cam.proj(wx, wy, z); };
+          const odw = hw * 0.58, oTop = wallTop * 0.82, inset = hw * 0.55;
+          const o = [P(hxL - odw, hw + 0.003, 0), P(hxL + odw, hw + 0.003, 0), P(hxL + odw, hw + 0.003, oTop), P(hxL - odw, hw + 0.003, oTop)];
+          if (o.every(p => p.f > 0.1)) emitFace(o.reduce((s, p) => s + p.f, 0) / 4 - 0.002, () => {   // just proud of the wall → reads as cut into it
+            const trace = (pp) => { ctx.beginPath(); pp.forEach((p, i) => i ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)); ctx.closePath(); };
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = night ? 'rgba(46,40,30,0.96)' : 'rgba(16,18,22,0.97)'; trace(o); ctx.fill();   // dark opening
+            const bk = [P(hxL - odw * 0.86, hw - inset, 0), P(hxL + odw * 0.86, hw - inset, 0), P(hxL + odw * 0.86, hw - inset, oTop * 0.9), P(hxL - odw * 0.86, hw - inset, oTop * 0.9)];
+            if (bk.every(p => p.f > 0.1)) { ctx.fillStyle = night ? 'rgba(70,60,42,0.95)' : 'rgba(28,30,34,0.96)'; trace(bk); ctx.fill(); }   // recessed back wall = interior depth
+            const fl = [P(hxL - odw, hw + 0.003, 0.006), P(hxL + odw, hw + 0.003, 0.006), P(hxL + odw * 0.86, hw - inset, 0.006), P(hxL - odw * 0.86, hw - inset, 0.006)];
+            if (fl.every(p => p.f > 0.1)) { ctx.fillStyle = 'rgba(44,46,50,0.9)'; trace(fl); ctx.fill(); }   // interior floor
+            const tb = P(hxL + odw * 0.15, hw - inset * 0.7, 0.01), tt = P(hxL + odw * 0.15, hw - inset * 0.7, oTop * 0.72), tn = P(hxL - odw * 0.35, hw - inset * 0.55, oTop * 0.28);
+            if ([tb, tt, tn].every(p => p.f > 0.1)) { ctx.fillStyle = 'rgba(122,128,136,0.5)'; ctx.beginPath(); ctx.moveTo(tb.sx, tb.sy); ctx.lineTo(tt.sx, tt.sy); ctx.lineTo(tn.sx, tn.sy); ctx.closePath(); ctx.fill(); }   // parked-aircraft tail hint
+            ctx.strokeStyle = 'rgba(8,10,12,0.9)'; ctx.lineWidth = 1.4; trace(o); ctx.stroke();   // opening frame
+            ctx.globalAlpha = 1;
+          });
+          if (night) { const [obx, oby] = F(hxL, hw); glowPool(ctx, cam, obx, oby, wallTop * 0.3, '255,206,140', 12, alpha * 0.3); }   // warm spill from the open bay
+        }
+      }
+      // 3. ATC TOWER — a rounded, high-detail control tower built from FACETED DRUMS (not boxes, so it
+      //    doesn't read blocky): a splayed plinth, a banded tapering concrete shaft, a cantilevered
+      //    catwalk gallery, and a wide CURTAIN-GLASS control cab drawn with a procedural per-facet
+      //    reflection (bright sky sheen up top → deep sill, warm consoles at night) — no window grid —
+      //    under an overhanging roof cap. Rooftop mast + whips; red obstruction + green↔white beacon.
+      { const [txx, txy] = F(fh * 0.7, -fh * 0.55), big = m.big;   // stands ALONE back-right, clear of the hangar
+        const cabTop = h * (big ? 2.0 : 1.65), galZ = cabTop * 0.72, plZ = cabTop * 0.1;
+        const cabBot = galZ + cabTop * 0.03, roofTopZ = cabTop + cabTop * 0.05;
+        drawFacetDrum(ctx, cam, txx, txy, 0, plZ, fh * 0.3, fh * 0.24, NF, alpha, concrete, concrete({ nl: 0.7 }));   // splayed plinth
+        drawFacetDrum(ctx, cam, txx, txy, plZ, galZ, fh * 0.2, fh * 0.14, NF, alpha, concrete);                       // tapering shaft (one smooth cone)
+        for (const t of [0.3, 0.55, 0.8]) { const z = plZ + (galZ - plZ) * t, r = fh * (0.2 + (0.14 - 0.2) * t); drawRing(ctx, cam, txx, txy, z, r + 0.004, NF, 'rgba(0,0,0,0.28)', 1, alpha); }   // poured-lift band rings
+        drawFacetDrum(ctx, cam, txx, txy, galZ, cabBot, fh * 0.3, fh * 0.3, NF, alpha, steel(40, 44, 50), 'rgb(46,50,58)');   // cantilevered catwalk gallery
+        drawRing(ctx, cam, txx, txy, cabBot + cabTop * 0.05, fh * 0.31, NF, 'rgba(150,160,172,0.75)', 1.2, alpha);            // gallery rail
+        drawFacetDrum(ctx, cam, txx, txy, cabBot, cabTop, fh * 0.32, fh * 0.3, NF, alpha, glass);                             // curtain-glass control cab
+        for (const t of [0.4, 0.72]) drawRing(ctx, cam, txx, txy, cabBot + (cabTop - cabBot) * t, fh * 0.315, NF, 'rgba(14,20,28,0.4)', 1, alpha);   // faint transom rings
+        drawFacetDrum(ctx, cam, txx, txy, cabTop, roofTopZ, fh * 0.36, fh * 0.34, NF, alpha, steel(34, 38, 44), 'rgb(40,44,52)');   // overhanging roof cap
+        const mastTop = cabTop + h * (big ? 0.5 : 0.4);
+        mast(ctx, cam, txx, txy, roofTopZ, mastTop, alpha, now, seed + 6);                                            // antenna mast (draws its own red tip light)
+        for (const s of [-0.018, 0.022]) {   // a couple of shorter whip antennas beside the mast
+          const p0 = cam.proj(txx + s, txy, roofTopZ), p1 = cam.proj(txx + s, txy, cabTop + h * 0.2);
+          if (p0.f > 0.1 && p1.f > 0.1) emitFace(ON_TOP, () => { ctx.globalAlpha = alpha; ctx.strokeStyle = 'rgba(40,44,50,0.9)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(p0.sx, p0.sy); ctx.lineTo(p1.sx, p1.sy); ctx.stroke(); ctx.globalAlpha = 1; });
+        }
+        if (night) {
+          glowPool(ctx, cam, txx, txy, (cabBot + cabTop) / 2, '150,220,255', 10, alpha * 0.42);                   // lit cab halo
           // Civil rotating beacon: green & white pulses a half-cycle out of phase (seed + π).
           blinkLight(ctx, cam, txx, txy, cabTop + h * 0.05, '120,255,150', now, seed + 7, alpha, 2.1);
           blinkLight(ctx, cam, txx, txy, cabTop + h * 0.05, '235,245,255', now, seed + 7 + Math.PI, alpha, 1.9);
         }
-        blinkLight(ctx, cam, txx, txy, cabTop + h * 0.02, '255,70,70', now, seed + 6, alpha, 1.6);                 // red obstruction light
+        blinkLight(ctx, cam, txx, txy, mastTop, '255,70,70', now, seed + 6, alpha, 1.6);                           // red obstruction light at the mast tip
       }
-      // 4. APRON at night — floodlit tarmac + a rim of blue taxiway edge lights across the front.
+      // 4. APRON — painted ramp markings on the tarmac (a taxiway centreline lead-in + tie-down
+      //    circles), floodlit with blue edge lights at night.
+      { ctx.globalAlpha = alpha; ctx.lineCap = 'round';
+        const seg = (l0, l1, style, lw) => { const a = cam.proj(l0[0], l0[1], 0.02), b = cam.proj(l1[0], l1[1], 0.02); if (a.f > 0.1 && b.f > 0.1) { ctx.strokeStyle = style; ctx.lineWidth = lw; ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); } };
+        for (let i = 0; i < 5; i++) { const y0 = fh * (0.6 - i * 0.3), y1 = y0 - fh * 0.16; seg(F(0, y0), F(0, y1), 'rgba(240,208,70,0.8)', Math.max(1.5, 6 / (cam.proj(dx, dy, 0.02).f || 1))); }   // yellow taxiway lead-in dashes
+        for (const s of [-0.62, 0.62]) { const cc = F(s * fh, -fh * 0.1); const pts = []; let ok = true; for (let k = 0; k <= 12; k++) { const a = k / 12 * 6.2832, p = cam.proj(cc[0] + Math.cos(a) * fh * 0.12, cc[1] + Math.sin(a) * fh * 0.12, 0.02); if (p.f <= 0.1) { ok = false; break; } pts.push(p); } if (ok) { ctx.strokeStyle = 'rgba(230,236,240,0.5)'; ctx.lineWidth = 1.4; ctx.beginPath(); pts.forEach((p, k) => k ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)); ctx.closePath(); ctx.stroke(); } }   // parking tie-down circles
+        ctx.globalAlpha = 1; ctx.lineCap = 'butt';
+      }
       if (night) {
         glowPool(ctx, cam, dx, dy, 0.02, '255,236,190', 30, alpha * 0.16);                                        // sodium apron floods
         for (const s of [-0.7, -0.23, 0.23, 0.7]) { const [ex, ey] = F(fh * s, fh * 0.95); blinkLight(ctx, cam, ex, ey, 0.02, '90,150,255', now, seed + s * 10, alpha, 1.3); }
@@ -4117,7 +4547,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   const FAR = VISIBLE_FAR_F, wcx = v.mapCenter ? v.mapCenter.x : 0, wcy = v.mapCenter ? v.mapCenter.y : 0;
   const items = [];
   for (let ry = 0; ry < map.length; ry++) for (let rx = 0; rx < map[ry].length; rx++) {
-    const c = map[ry][rx]; if (!c || c.kind === 'air' || c.self || ((c.kind === 'field' || c.biome === 'water') && c.mark !== 'yacht')) continue;   // the Echelon is a field-on-water tile that DOES get a 3D model
+    const c = map[ry][rx]; if (!c || c.kind === 'air' || (c.self && c.mark !== 'yacht') || ((c.kind === 'field' || c.biome === 'water') && c.mark !== 'yacht')) continue;   // the Echelon is a field-on-water tile that DOES get a 3D model — and we draw her even on our OWN tile (parked on / lifting off her deck) so the pilot sits on the helipad, not open water
     const dx = (rx - R) - cam.ox, dy = (ry - R) - cam.oy, f = dx * cam.sinh - dy * cam.cosh;
     // Near-clip against the CAMERA, not the craft: in the external chase view the camera sits
     // `back` tiles behind the aircraft, so a building that has slipped behind the model is still
@@ -4143,7 +4573,11 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // immunity (climbOutClear) for that departure window, so a weak climber can out-climb the
     // towers it now flies visibly over instead of them vanishing.
     const HAZE_BAND = 3;   // tiles of soft fade at the far edge (was 6 — halved so mid-distance blocks stay solid)
-    let alpha = clamp((FAR - f) / HAZE_BAND, 0, 1) * (v.worldBlend ?? 1);
+    // The Echelon escapes the worldBlend gate: she lives ONLY in this Mode-7 pass (no flat airport
+    // scene stands in for her), so she must stay fully drawn even parked on her pad (worldBlend 0) —
+    // otherwise she vanishes on the deck and pops in only as you climb through the crossfade. Every
+    // other world object still crossfades against the airport scenery as before.
+    let alpha = clamp((FAR - f) / HAZE_BAND, 0, 1) * (c.mark === 'yacht' ? 1 : (v.worldBlend ?? 1));
     if (alpha <= 0.02) continue;
     // Seed from the WORLD tile (stable), NOT the array index — so a building keeps its shape
     // when the server recenters the map window (was the main "popping in and out" cause).
@@ -4164,7 +4598,18 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   for (const it of items) {
     const alpha = it.alpha, bi = it.c.biome;
     if (it.c.mark === 'statue') { drawStatue(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha, now); continue; }   // town-square monument + fountain
-    if (it.c.mark === 'yacht') { const sub = it.c.sub, yx = it.dx + (sub ? sub.x : 0), yy = it.dy + (sub ? sub.y : 0); drawYacht(ctx, cam, yx, yy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha, now, it.c.wake, it.c.heading, sun); if (v.padDome) drawYachtPadDome(ctx, cam, yx, yy, (it.c.heading || 0) * Math.PI / 180, now, alpha, v.padDome.armed); continue; }   // the Echelon — a high-poly superyacht hull, sun-lit (wake/heading present only when she's under way; `sub` glides her sub-tile toward her destination across a passage). padDome = an auto-land guidance dome over her helipad, drawn for a nearby helicopter.
+    if (it.c.mark === 'yacht') {
+      // Normally she's drawn on her own tile (with a sub-tile glide while under way). But when it's OUR
+      // tile (self) we're parked on / lifting off her deck: pin her AFT HELIPAD (yacht-local 0,0.28)
+      // under own-ship (the camera origin) instead of her hull centre — so the pilot sits ON the pad and
+      // climbs out over her superstructure, not on the foredeck or in open water beside her.
+      const hr = (it.c.heading || 0) * Math.PI / 180, sub = it.c.sub;
+      const yx = it.c.self ? Math.sin(hr) * 0.28 : it.dx + (sub ? sub.x : 0);
+      const yy = it.c.self ? -Math.cos(hr) * 0.28 : it.dy + (sub ? sub.y : 0);
+      drawYacht(ctx, cam, yx, yy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha, now, it.c.wake, it.c.heading, sun);
+      if (v.padDome) drawYachtPadDome(ctx, cam, yx, yy, hr, now, alpha, v.padDome.armed);
+      continue;
+    }   // the Echelon — a high-poly superyacht hull, sun-lit (wake/heading present only when she's under way; `sub` glides her sub-tile toward her destination across a passage). padDome = an auto-land guidance dome over her helipad, drawn for a nearby helicopter.
     if (it.c.kind === 'nofly') { draw3DBox(ctx, cam, it.dx, it.dy, 0.3, 0.55, '__nofly', it.seed, night, alpha * 0.7); continue; }
     if (bi === 'parkland') { drawTreeBB(ctx, cam, it.dx, it.dy, night, it.seed, alpha); continue; }
     if (bi === 'badlands') { if ((it.seed % 3) === 0) drawRockBB(ctx, cam, it.dx, it.dy, night, it.seed, alpha); continue; }
@@ -4195,6 +4640,10 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // the same mass; a non-building tile falls back to the shared biome archetype set
     // (industrial stacks, freight containers, cooling towers, broken ruins, neon marquee, …).
     const m = modelFor(it.c);
+    // Collect THIS building's faces into a per-building queue and paint them depth-sorted, so a
+    // sub-part (a tower, a marquee) can't over-paint nearer geometry of the same building (the
+    // "see-through" bug). Between-building order is still the far→near tile sort above.
+    beginFaces();
     if (m) drawTypeModel(ctx, cam, it.dx, it.dy, fh, h, m, it.seed, night, alpha, now, face);
     else drawBuilding(ctx, cam, it.dx, it.dy, fh, h, arch, it.seed, night, alpha, now);
     // Rooftop holo-ad: a flickering translucent sign floating over ~1 in 4 tall-ish city
@@ -4203,6 +4652,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     if (!m && night > 0.3 && h > 0.35 && (it.seed % 4) === 0) drawHoloAd(ctx, cam, it.dx, it.dy, fh, h, it.seed, now, alpha * night);
     // Warm bloom over the lit windows so near towers read as emitting light at night.
     if (night > 0.45) drawCityBloom(ctx, cam, it.dx, it.dy, h, night, alpha);
+    flushFaces();
   }
 }
 
@@ -4271,28 +4721,43 @@ function drawStatue(ctx, cam, dx, dy, fh, seed, night, alpha, now) {
 function drawYacht(ctx, cam, dx, dy, fh, seed, night, alpha, now, wake, heading, sun) {
   const hr = (heading || 0) * Math.PI / 180, shr = Math.sin(hr), chr = Math.cos(hr);
   const isNight = night > 0.35;
-  const W = (ox, oy) => [dx - oy * shr + ox * chr, dy + oy * chr + ox * shr];              // local (beam,fore-aft) → world tile
-  const proj = (ox, oy, z) => { const w = W(ox, oy); return cam.proj(w[0], w[1], z); };
-  const wv = (ox, oy, z) => { const w = W(ox, oy); return [w[0], w[1], z]; };              // local → world 3-vector (for normals)
+  // Size exaggeration: SZ lifts her HEIGHT (freeboard + superstructure) so she isn't flat and dwarfs a
+  // helicopter on her pad; SB widens her beam a touch for bulk. Fore-aft (oy) is LEFT ALONE so her
+  // length + pad position — and the deck-landing capture math keyed off them — are unchanged.
+  const SZ = YACHT_H, SB = 1.72;
+  const W = (ox, oy) => [dx - oy * shr + ox * SB * chr, dy + oy * chr + ox * SB * shr];    // local (beam,fore-aft) → world tile
+  const proj = (ox, oy, z) => { const w = W(ox, oy); return cam.proj(w[0], w[1], z * SZ); };
+  const wv = (ox, oy, z) => { const w = W(ox, oy); return [w[0], w[1], z * SZ]; };         // local → world 3-vector (for normals)
 
   // 0. Wake — carried ONLY when under way (the Helm view / a just-sailed yacht set cell.wake.spd);
   //    a moored Echelon passes none, so ordinary fly-bys are unchanged. Drawn first, on the water.
   if (wake && wake.spd > 0.02) drawYachtWake(ctx, cam, dx, dy, hr, night, alpha, now, Math.min(1.2, wake.spd));
 
-  // ── Palette ──
-  const HULL_LO = [14, 18, 25], HULL_HI = [30, 37, 48], TRANSOM = [18, 23, 31], DECK = [92, 100, 112],
-        HOUSE = [32, 39, 50], ROOF = [44, 52, 64], GLASS = [46, 70, 102], PAD = [76, 84, 96];
-  const EDGE = isNight ? 'rgba(120,150,185,0.14)' : 'rgba(0,0,0,0.15)';
-  const GEDGE = isNight ? 'rgba(150,190,230,0.30)' : 'rgba(205,222,240,0.26)';
+  // ── Palette — MIRROR BLACK ──
+  // Near-black everywhere; the gloss is not in the base colour but in a tight sun SPECULAR + a cool
+  // sky RIM added at shade time (below), the way a polished black hull flashes bright highlights over
+  // an almost-black body. Only the sun-pads (PALE) and pool stay light, to read against the black.
+  const HULL_LO = [5, 7, 10], HULL_HI = [11, 14, 20], TRANSOM = [4, 6, 9], DECK = [13, 16, 22],
+        HOUSE = [7, 10, 15], ROOF = [13, 16, 23], GLASS = [16, 27, 44], PAD = [15, 19, 27],
+        LOUNGE = [19, 23, 32], POOL = [22, 50, 76], PALE = [118, 126, 140], DOME = [8, 11, 17];
+  const EDGE = isNight ? 'rgba(120,150,185,0.16)' : 'rgba(0,0,0,0.30)';
+  const GEDGE = isNight ? 'rgba(150,190,230,0.30)' : 'rgba(150,175,205,0.24)';
 
   // ── Hull geometry: cross-section stations [t (0=bow→1=stern), half-beam, sheer height] ──
+  // NEEDLE hull (Black-Swan blade): a razor bow drawn to a fine point right at the waterline, a very
+  // long low foredeck, a low near-flat sheer (barely any freeboard), a narrow beam carried well aft,
+  // and a tapered transom — a blade lying on the water, not a beamy motoryacht. The forward stations
+  // grow the beam SLOWLY so the entry is a long fine spike. [t (0=bow→1=stern), half-beam, sheer].
+  // Raised freeboard: the sheer (3rd value) is ~1.85× the old blade so much more of the black hull SIDE
+  // stands off the sea — she reads as a big ship with real topside, and the helipad sits deeper in her
+  // deck (the heli nestles further down the recess).
   const ST = [
-    [0.00, 0.000, 0.086], [0.08, 0.046, 0.082], [0.18, 0.090, 0.074], [0.30, 0.118, 0.066],
-    [0.42, 0.134, 0.060], [0.55, 0.134, 0.056], [0.68, 0.130, 0.056], [0.80, 0.122, 0.058],
-    [0.90, 0.114, 0.060], [1.00, 0.106, 0.062],
+    [0.00, 0.000, 0.052], [0.05, 0.010, 0.059], [0.12, 0.030, 0.067], [0.22, 0.062, 0.074],
+    [0.35, 0.096, 0.078], [0.50, 0.116, 0.081], [0.66, 0.120, 0.085], [0.80, 0.112, 0.089],
+    [0.91, 0.098, 0.093], [1.00, 0.078, 0.096],
   ];
-  const N = ST.length, OY = (t) => -0.52 + t * 0.94;   // bow at oy −0.52, transom at +0.42 (length ~0.94 tiles)
-  const hbsz = (oy) => { const t = clamp((oy + 0.52) / 0.94, 0, 1); let i = 0; while (i < N - 2 && ST[i + 1][0] < t) i++; const a = ST[i], b = ST[i + 1], u = b[0] > a[0] ? (t - a[0]) / (b[0] - a[0]) : 0; return [a[1] + (b[1] - a[1]) * u, a[2] + (b[2] - a[2]) * u]; };
+  const N = ST.length, BOW = -1.24, LEN = 2.08, OY = (t) => BOW + t * LEN;   // ~2.1 tiles of blade: a longer spike bow forward, transom well aft (transom oy 0.84 unchanged — pad-capture frame untouched)
+  const hbsz = (oy) => { const t = clamp((oy - BOW) / LEN, 0, 1); let i = 0; while (i < N - 2 && ST[i + 1][0] < t) i++; const a = ST[i], b = ST[i + 1], u = b[0] > a[0] ? (t - a[0]) / (b[0] - a[0]) : 0; return [a[1] + (b[1] - a[1]) * u, a[2] + (b[2] - a[2]) * u]; };
 
   const faces = [];
   const F = (p, col, o) => faces.push(Object.assign({ p, col }, o));
@@ -4314,27 +4779,71 @@ function drawYacht(ctx, cam, dx, dy, fh, seed, night, alpha, now, wake, heading,
   { const [, hb, sz] = ST[N - 1], oy = OY(1), wb = hb * 0.70;   // transom
     F([[-wb, oy, 0], [wb, oy, 0], [hb, oy, sz], [-hb, oy, sz]], TRANSOM, { edge: EDGE }); }
 
-  // Deckhouse — a tapered superstructure with a raked glass windshield, side glass bands over solid
-  // bulwarks, a back wall and a roof; then a smaller raked-glass bridge tier on top.
-  { const hw = 0.090, hwT = 0.074, baseZ = 0.064, midZ = 0.090, topZ = 0.118, fB = -0.16, fT = -0.09, bk = 0.14;
-    for (const s of [-1, 1]) {
-      F([[s * hw, fB, baseZ], [s * hw, bk, baseZ], [s * hw, bk, midZ], [s * hw, fB, midZ]], HOUSE, { edge: EDGE });
-      F([[s * hw, fB, midZ], [s * hw, bk, midZ], [s * hwT, bk, topZ], [s * hwT, fT, topZ]], GLASS, { glass: 1, edge: GEDGE });
-    }
-    F([[-hw, fB, baseZ], [hw, fB, baseZ], [hwT, fT, topZ], [-hwT, fT, topZ]], GLASS, { glass: 1, edge: GEDGE });   // raked windshield
-    F([[-hw, bk, baseZ], [hw, bk, baseZ], [hwT, bk, topZ], [-hwT, bk, topZ]], HOUSE, { edge: EDGE });
-    F([[-hwT, fT, topZ], [hwT, fT, topZ], [hwT, bk, topZ], [-hwT, bk, topZ]], ROOF);
-    const hw2 = 0.058, hw2T = 0.046, z0 = topZ, z1 = topZ + 0.046, f2B = -0.03, f2T = 0.01, bk2 = 0.10;
-    F([[-hw2, f2B, z0], [hw2, f2B, z0], [hw2T, f2T, z1], [-hw2T, f2T, z1]], GLASS, { glass: 1, edge: GEDGE });   // bridge windshield
-    for (const s of [-1, 1]) F([[s * hw2, f2B, z0], [s * hw2, bk2, z0], [s * hw2T, bk2, z1], [s * hw2T, f2T, z1]], GLASS, { glass: 1, edge: GEDGE });
-    F([[-hw2, bk2, z0], [hw2, bk2, z0], [hw2T, bk2, z1], [-hw2T, bk2, z1]], HOUSE, { edge: EDGE });
-    F([[-hw2T, f2T, z1], [hw2T, f2T, z1], [hw2T, bk2, z1], [-hw2T, bk2, z1]], ROOF); }
+  // Smoked-glass window band down the topside — the long lit strip of a superyacht flank, running the
+  // length of her black hull.
+  for (let i = 2; i < N - 1; i++) {
+    const [, hb0, sz0] = ST[i], [, hb1, sz1] = ST[i + 1], oy0 = OY(ST[i][0]), oy1 = OY(ST[i + 1][0]);
+    for (const s of [-1, 1]) F([[s * hb0 * 0.992, oy0, sz0 * 0.60], [s * hb1 * 0.992, oy1, sz1 * 0.60], [s * hb1 * 0.992, oy1, sz1 * 0.90], [s * hb0 * 0.992, oy0, sz0 * 0.90]], GLASS, { glass: 1 });
+  }
 
-  // Aft helipad — a low raised platform (its painted ring + "H" are stroked in the overlay pass).
-  const pO0 = 0.16, pO1 = 0.40, pHW = 0.108, pZ0 = 0.060, pZ1 = 0.070, padOY = (pO0 + pO1) / 2, padR = 0.088;
-  F([[-pHW, pO0, pZ1], [pHW, pO0, pZ1], [pHW, pO1, pZ1], [-pHW, pO1, pZ1]], PAD);
-  F([[-pHW, pO0, pZ0], [pHW, pO0, pZ0], [pHW, pO0, pZ1], [-pHW, pO0, pZ1]], HOUSE, { edge: EDGE });
-  for (const s of [-1, 1]) F([[s * pHW, pO0, pZ0], [s * pHW, pO1, pZ0], [s * pHW, pO1, pZ1], [s * pHW, pO0, pZ1]], HOUSE, { edge: EDGE });
+  // Long, low, STEPPED superstructure — a layered "wedding-cake" deckhouse rising in three set-back
+  // tiers (main saloon → upper saloon → bridge) instead of one tall slab, so she reads as a real
+  // multi-deck megayacht rather than a billboard jutting off the deck. Each tier is shorter, narrower
+  // and set back from the one below, with a raked dark-glass windshield and inward-leaning glass flanks.
+  const DECKZ = 0.085;   // main deck — RAISED with the freeboard so the hull side stands well off the sea
+  // tier(fore, aft, base half-width, top half-width, z-bottom, z-top): one glass-walled deck box with a
+  // raked windshield up front and a flat roof; stacked, each rooftop becomes the next tier's floor. The
+  // top climbs gradually over the length of the ship, so the profile steps up instead of jumping.
+  const tier = (fore, aft, hw, hwT, z0, z1) => {
+    const foreT = fore + 0.05;   // windshield rake — the top front sits back from the base front
+    for (const s of [-1, 1])
+      F([[s * hw, fore, z0], [s * hw, aft, z0], [s * hwT, aft, z1], [s * hwT, foreT, z1]], GLASS, { glass: 1, edge: GEDGE });   // inward-leaning glass flank
+    F([[-hw, fore, z0], [hw, fore, z0], [hwT, foreT, z1], [-hwT, foreT, z1]], GLASS, { glass: 1, edge: GEDGE });                 // raked windshield
+    F([[-hw, aft, z0], [hw, aft, z0], [hwT, aft, z1], [-hwT, aft, z1]], HOUSE, { edge: EDGE });                                  // aft face
+    F([[-hwT, foreT, z1], [hwT, foreT, z1], [hwT, aft, z1], [-hwT, aft, z1]], ROOF, { edge: EDGE });                             // roof — next tier's floor / open deck
+  };
+  // HALVED height: the cabin now rises only ~half as far above the (raised) deck, so it reads as a low,
+  // set-back deckhouse on a big-freeboard hull instead of a tall block.
+  tier(-0.44, 0.16, 0.112, 0.104, DECKZ, 0.120);   // main-deck saloon — a BROAD, low base filling the wide beam
+  tier(-0.34, 0.11, 0.088, 0.080, 0.120, 0.145);   // upper saloon, set back
+  tier(-0.25, 0.05, 0.066, 0.058, 0.145, 0.163);   // bridge / sun deck, set back again
+  const SUNZ = 0.163;    // top-tier roof: the mast + antennas ride here
+  // Aft sun deck between the bridge and the helipad, on the main-deck roof — a couple of loungers, the
+  // light dressing that reads against the long black superstructure.
+  { const z = 0.120 + 0.002;
+    for (const oy of [0.118, 0.142]) F([[-0.05, oy, z], [0.05, oy, z], [0.05, oy + 0.02, z], [-0.05, oy + 0.02, z]], PALE); }   // aft sun-loungers
+
+  // Sunken forward lounge — a recessed cockpit with pale sun-pads + a plunge pool: the signature
+  // light patch on the long foredeck, glowing against the black hull.
+  { const lz = DECKZ - 0.006;
+    F([[-0.066, -0.66, lz], [0.066, -0.66, lz], [0.066, -0.46, lz], [-0.066, -0.46, lz]], LOUNGE);                                   // recessed sole
+    F([[-0.044, -0.58, lz + 0.002], [0.044, -0.58, lz + 0.002], [0.044, -0.49, lz + 0.002], [-0.044, -0.49, lz + 0.002]], POOL, { glass: 1 });   // plunge pool
+    for (const oy of [-0.64, -0.60]) F([[-0.05, oy, lz + 0.006], [0.05, oy, lz + 0.006], [0.05, oy + 0.026, lz + 0.006], [-0.05, oy + 0.026, lz + 0.006]], PALE);   // sun-pads
+  }
+
+  // Aft deck fittings — low faceted domes (tenders / tech) dressing the long after deck between the
+  // pad and the transom, catching the light off her flanks.
+  for (const [ox, oy, r] of [[-0.05, 0.50, 0.026], [0.05, 0.50, 0.026], [0, 0.60, 0.032], [-0.045, 0.70, 0.024], [0.045, 0.70, 0.024]]) {
+    const zt = DECKZ + 0.022, rc = r * 0.5;
+    F([[ox - r, oy - r, DECKZ], [ox + r, oy - r, DECKZ], [ox + rc, oy - rc, zt], [ox - rc, oy - rc, zt]], DOME, { edge: EDGE });
+    F([[ox - r, oy + r, DECKZ], [ox + r, oy + r, DECKZ], [ox + rc, oy + rc, zt], [ox - rc, oy + rc, zt]], DOME, { edge: EDGE });
+    for (const s of [-1, 1]) F([[ox + s * r, oy - r, DECKZ], [ox + s * r, oy + r, DECKZ], [ox + s * rc, oy + rc, zt], [ox + s * rc, oy - rc, zt]], DOME, { edge: EDGE });
+    F([[ox - rc, oy - rc, zt], [ox + rc, oy - rc, zt], [ox + rc, oy + rc, zt], [ox - rc, oy + rc, zt]], DOME);   // cap
+  }
+
+  // Fold-down beach/swim platform stepping off the transom to the water — the aftmost flourish.
+  { const oy = OY(1), hb = ST[N - 1][1], pw = hb * 0.72;
+    F([[-pw, oy, 0.006], [pw, oy, 0.006], [pw, oy + 0.06, 0.001], [-pw, oy + 0.06, 0.001]], DECK, { edge: EDGE }); }
+
+  // Helipad — a pad FLUSH with the main deck (pZ1 = DECKZ) so a parked helicopter rests ON the deck, not
+  // sunk into a well. A very low coaming lip (rimZ) rings it — a proper helideck edge, not a pit. The
+  // painted ring + "H" are stroked in the overlay pass. pZ1 is the world-z the auto-land / deck-cam meet.
+  const pO0 = 0.16, pO1 = 0.40, pHW = 0.108, pZ0 = DECKZ, pZ1 = DECKZ, rimZ = DECKZ + 0.010, padOY = (pO0 + pO1) / 2, padR = 0.088;
+  F([[-pHW, pO0, pZ1], [pHW, pO0, pZ1], [pHW, pO1, pZ1], [-pHW, pO1, pZ1]], PAD);   // flush pad floor
+  // Low coaming lip (deck up to rimZ) on all four sides — the helideck edge.
+  F([[-pHW, pO0, rimZ], [pHW, pO0, rimZ], [pHW, pO0, pZ1], [-pHW, pO0, pZ1]], HOUSE, { edge: EDGE });   // forward
+  F([[-pHW, pO1, rimZ], [pHW, pO1, rimZ], [pHW, pO1, pZ1], [-pHW, pO1, pZ1]], HOUSE, { edge: EDGE });   // aft
+  for (const s of [-1, 1]) F([[s * pHW, pO0, rimZ], [s * pHW, pO1, rimZ], [s * pHW, pO1, pZ1], [s * pHW, pO0, pZ1]], HOUSE, { edge: EDGE });   // port / starboard
 
   // ── Lighting: directional sun (as the aircraft use), else a top-lit key at night ──
   let toSun = null;
@@ -4343,32 +4852,58 @@ function drawYacht(ctx, cam, dx, dy, fh, seed, night, alpha, now, wake, heading,
     toSun = [sun.dir[0] * hz / m, sun.dir[1] * hz / m, e / m];
   }
   const camPos = [-(cam.back || 0) * cam.sinh, (cam.back || 0) * cam.cosh, cam.EH];   // eye position in world
-  const ctr = [dx, dy, 0.04];   // hull centre — used to orient every face's normal outward
+  const ctr = [dx, dy, 0.04 * SZ];   // hull centre — used to orient every face's normal outward
+  // Which flank faces the camera (+ = starboard near). Railings/edge-lights on the FAR side would draw
+  // over the opaque hull + superstructure (they're a flat overlay with no depth test), so we only draw
+  // the near side — the far rail no longer shows through the ship.
+  const beamDot = chr * (camPos[0] - ctr[0]) + shr * (camPos[1] - ctr[1]);
   const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
   const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 
-  // ── Project, backface-cull, depth-sort (far→near), shade, fill ──
+  // ── Project, backface-cull, NEAR-PLANE CLIP, depth-sort (far→near), shade, fill ──
+  // Faces crossing the camera near plane are CLIPPED to it, not dropped — otherwise, with the deck-cam
+  // sitting right on the pad, the close hull/deck faces vanish and you see straight through the ship.
+  const NEARF = 0.12;
+  const camF = (w) => (w[0] + cam.back * cam.sinh) * cam.sinh - (w[1] - cam.back * cam.cosh) * cam.cosh;   // camera-forward depth of a world point
+  const clipNearF = (wp) => {   // Sutherland–Hodgman clip against f >= NEARF, in world space
+    const out = [];
+    for (let i = 0; i < wp.length; i++) {
+      const A = wp[i], B = wp[(i + 1) % wp.length], fa = camF(A), fb = camF(B), ina = fa >= NEARF, inb = fb >= NEARF;
+      if (ina) out.push(A);
+      if (ina !== inb) { const t = (NEARF - fa) / (fb - fa); out.push([A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t, A[2] + (B[2] - A[2]) * t]); }
+    }
+    return out;
+  };
   const draw = [];
   for (const fc of faces) {
-    const w0 = wv(fc.p[0][0], fc.p[0][1], fc.p[0][2]), w1 = wv(fc.p[1][0], fc.p[1][1], fc.p[1][2]), w2 = wv(fc.p[2][0], fc.p[2][1], fc.p[2][2]);
+    const wp = fc.p.map((p) => wv(p[0], p[1], p[2]));
+    const w0 = wp[0], w1 = wp[1], w2 = wp[2];
     const e1 = sub(w1, w0), e2 = sub(w2, w0);
     let n = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]];
     const nm = Math.hypot(n[0], n[1], n[2]) || 1; n = [n[0] / nm, n[1] / nm, n[2] / nm];
     const cen = [(w0[0] + w1[0] + w2[0]) / 3, (w0[1] + w1[1] + w2[1]) / 3, (w0[2] + w1[2] + w2[2]) / 3];
     if (dot(n, sub(cen, ctr)) < 0) n = [-n[0], -n[1], -n[2]];   // orient outward from the hull centre
     if (dot(n, sub(camPos, cen)) <= 0) continue;                // backface → skip
-    const sp = fc.p.map((p) => proj(p[0], p[1], p[2]));
-    if (sp.some((q) => q.f <= 0.07)) continue;
+    const cw = clipNearF(wp); if (cw.length < 3) continue;      // fully behind the near plane → gone
+    const sp = cw.map((w) => cam.proj(w[0], w[1], w[2]));
     let af = 0; for (const q of sp) af += q.f; af /= sp.length;
-    const lm = toSun ? clamp(0.6 + 0.62 * Math.max(0, dot(n, toSun)) + 0.1 * Math.max(0, n[2]), 0.3, 1.3)
-                     : clamp(0.4 + 0.42 * Math.max(0, n[2]), 0.3, 1.05);
-    draw.push({ sp, col: fc.col, glass: fc.glass, edge: fc.edge, lm, af });
+    // Mirror-black shading: a LOW dark diffuse (so the body stays near-black) + a tight sun SPECULAR
+    // (Blinn half-vector, high exponent → a small bright glossy flash) + a cool sky RIM at grazing
+    // angles (fresnel). The last two are added, not multiplied, so they light black facets up.
+    const lm = toSun ? clamp(0.30 + 0.5 * Math.max(0, dot(n, toSun)) + 0.06 * Math.max(0, n[2]), 0.14, 1.05)
+                     : clamp(0.22 + 0.34 * Math.max(0, n[2]), 0.14, 0.85);
+    const cd = sub(camPos, cen), cdm = Math.hypot(cd[0], cd[1], cd[2]) || 1, camDir = [cd[0] / cdm, cd[1] / cdm, cd[2] / cdm];
+    let spec = 0;
+    if (toSun) { const h = [toSun[0] + camDir[0], toSun[1] + camDir[1], toSun[2] + camDir[2]], hm = Math.hypot(h[0], h[1], h[2]) || 1; spec = Math.pow(Math.max(0, (n[0] * h[0] + n[1] * h[1] + n[2] * h[2]) / hm), 26); }
+    const rim = Math.pow(1 - Math.max(0, dot(n, camDir)), 3);
+    draw.push({ sp, col: fc.col, glass: fc.glass, edge: fc.edge, lm, spec, rim, af });
   }
   draw.sort((a, b) => b.af - a.af);
   ctx.globalAlpha = 1;
   for (const it of draw) {
     let r = it.col[0] * it.lm, g = it.col[1] * it.lm, b = it.col[2] * it.lm;
-    if (it.glass) { r += 12; g += 18; b += 30; }   // glass lifts a cool sky reflection
+    if (it.glass) { r += 14; g += 22; b += 36; }                       // smoked glass lifts a cool sky reflection
+    r += it.spec * 175 + it.rim * 24; g += it.spec * 182 + it.rim * 38; b += it.spec * 192 + it.rim * 60;   // glossy sun glint + sky rim
     ctx.beginPath(); it.sp.forEach((q, i) => (i ? ctx.lineTo(q.sx, q.sy) : ctx.moveTo(q.sx, q.sy))); ctx.closePath();
     ctx.fillStyle = `rgba(${clamp(r, 0, 255) | 0},${clamp(g, 0, 255) | 0},${clamp(b, 0, 255) | 0},${alpha})`; ctx.fill();
     if (it.edge) { ctx.strokeStyle = it.edge; ctx.lineWidth = 1; ctx.stroke(); }
@@ -4383,34 +4918,61 @@ function drawYacht(ctx, cam, dx, dy, fh, seed, night, alpha, now, wake, heading,
     const HP = (ox, oy) => proj(ox * padR, padOY + oy * padR, pZ1 + 0.003), hp = [HP(-0.34, -0.42), HP(-0.34, 0.42), HP(0.34, -0.42), HP(0.34, 0.42), HP(-0.34, 0), HP(0.34, 0)];
     if (hp.every(p => p.f > 0.08)) { ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(hp[0].sx, hp[0].sy); ctx.lineTo(hp[1].sx, hp[1].sy); ctx.moveTo(hp[2].sx, hp[2].sy); ctx.lineTo(hp[3].sx, hp[3].sy); ctx.moveTo(hp[4].sx, hp[4].sy); ctx.lineTo(hp[5].sx, hp[5].sy); ctx.stroke(); }
   }
-  // Railings — a top rail tracing the foredeck sheer with stanchions.
+  // Railings — a top rail tracing the sheer with stanchions, on the OPEN FOREDECK ONLY (bow → the
+  // deckhouse front at oy −0.44). Kept forward of the superstructure so the rail never overlaps the tall
+  // black tiers behind it — that overlap read as "railings through the boat". Near flank only (beamDot).
+  const RAIL_AFT = -0.44;   // stop the rail at the deckhouse front
   ctx.strokeStyle = isNight ? 'rgba(205,214,228,0.55)' : 'rgba(176,188,204,0.72)'; ctx.lineWidth = 1;
   for (const s of [-1, 1]) {
+    if (s * beamDot < 0) continue;   // far-side rail would show THROUGH the hull — draw only the near flank
     const line = [];
-    for (let oy = -0.46; oy <= 0.02; oy += 0.04) { const [hb, sz] = hbsz(oy); const p = proj(s * hb, oy, sz + 0.017); if (p.f > 0.1) line.push(p); }
+    for (let oy = -1.20; oy <= RAIL_AFT; oy += 0.04) { const [hb, sz] = hbsz(oy); const p = proj(s * hb, oy, sz + 0.017); if (p.f > 0.1) line.push(p); }
     if (line.length > 1) { ctx.beginPath(); line.forEach((p, i) => i ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)); ctx.stroke(); }
-    for (let oy = -0.44; oy <= 0.0; oy += 0.08) { const [hb, sz] = hbsz(oy); const a = proj(s * hb, oy, sz), b = proj(s * hb, oy, sz + 0.017); if (a.f > 0.1 && b.f > 0.1) { ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); } }
+    for (let oy = -1.18; oy <= RAIL_AFT; oy += 0.08) { const [hb, sz] = hbsz(oy); const a = proj(s * hb, oy, sz), b = proj(s * hb, oy, sz + 0.017); if (a.f > 0.1 && b.f > 0.1) { ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); } }
   }
-  // Radar arch behind the bridge with a slowly-sweeping bar, and a mast + blinking beacon.
-  const archTop = 0.118 + 0.046 + 0.055;
+  // A short mast off the sun deck with a slow radar sweep + blinking beacon — kept LOW so it accents
+  // the profile instead of towering over it (the old tall radar arch broke the knife silhouette).
+  const sunZ = SUNZ + 0.008, mastZ = SUNZ + 0.066;   // mast rides on the (now taller) sun deck
   ctx.strokeStyle = isNight ? 'rgba(180,190,205,0.75)' : 'rgba(70,78,90,0.9)'; ctx.lineWidth = 1.4;
-  for (const s of [-1, 1]) { const a = proj(s * 0.03, 0.09, 0.164), b = proj(s * 0.03, 0.11, archTop); if (a.f > 0.1 && b.f > 0.1) { ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); } }
-  const al = proj(-0.03, 0.11, archTop), ar = proj(0.03, 0.11, archTop); if (al.f > 0.1 && ar.f > 0.1) { ctx.beginPath(); ctx.moveTo(al.sx, al.sy); ctx.lineTo(ar.sx, ar.sy); ctx.stroke(); }
-  const rc = proj(0, 0.11, archTop + 0.006), re = proj(Math.cos(now * 0.004) * 0.05, 0.11, archTop + 0.006); if (rc.f > 0.1 && re.f > 0.1) { ctx.beginPath(); ctx.moveTo(rc.sx, rc.sy); ctx.lineTo(re.sx, re.sy); ctx.stroke(); }
-  const m0 = proj(0, 0.02, 0.164), m1 = proj(0, 0.02, 0.264);
-  if (m0.f > 0.12 && m1.f > 0.12) { ctx.beginPath(); ctx.moveTo(m0.sx, m0.sy); ctx.lineTo(m1.sx, m1.sy); ctx.stroke(); if (0.5 + 0.5 * Math.sin(now * 0.006) > 0.5) { ctx.fillStyle = 'rgba(255,90,80,0.95)'; ctx.beginPath(); ctx.arc(m1.sx, m1.sy, 2, 0, 7); ctx.fill(); } }
+  const m0 = proj(0, 0.03, sunZ), m1 = proj(0, 0.03, mastZ);
+  if (m0.f > 0.12 && m1.f > 0.12) {
+    ctx.beginPath(); ctx.moveTo(m0.sx, m0.sy); ctx.lineTo(m1.sx, m1.sy); ctx.stroke();
+    const re = proj(Math.cos(now * 0.004) * 0.045, 0.03, mastZ - 0.004);   // slow radar bar
+    if (re.f > 0.1) { ctx.beginPath(); ctx.moveTo(m1.sx, m1.sy); ctx.lineTo(re.sx, re.sy); ctx.stroke(); }
+    if (0.5 + 0.5 * Math.sin(now * 0.006) > 0.5) { ctx.fillStyle = 'rgba(255,90,80,0.95)'; ctx.beginPath(); ctx.arc(m1.sx, m1.sy, 2, 0, 7); ctx.fill(); }
+  }
   ctx.restore();
 
   // ── Night dressing — cabin glow through the glass, helipad wash, running lights, sidelights ──
   if (isNight) {
-    const gp = (ox, oy, z, col, r, a) => { const w = W(ox, oy); glowPool(ctx, cam, w[0], w[1], z, col, r, a); };
-    gp(0, -0.02, 0.10, '255,206,150', 15, alpha * 0.5);   // lounge / saloon glow
-    gp(0, 0.05, 0.15, '200,220,255', 11, alpha * 0.42);   // lit bridge
+    const gp = (ox, oy, z, col, r, a) => { const w = W(ox, oy); glowPool(ctx, cam, w[0], w[1], z * SZ, col, r, a); };
+    gp(0, -0.08, 0.108, '255,206,150', 15, alpha * 0.5);   // saloon glow through the raked windshield
+    gp(0, 0.06, 0.132, '200,220,255', 12, alpha * 0.44);   // lit sun deck / saloon top
+    gp(0, -0.55, 0.082, '150,205,255', 12, alpha * 0.4);   // sunken forward lounge + plunge pool glow
     gp(0, padOY, pZ1 + 0.004, '255,200,110', 16, alpha * 0.4);   // helipad wash
+    // Reactive helipad perimeter lights — a ring of green landing lights around the pad that come on
+    // ONLY at night (this whole block is night-gated, so they're dark by day) + a slow amber beacon
+    // at the aft rim. They give the deck a live, powered "come and land" read after dark.
+    {
+      ctx.save(); ctx.globalAlpha = alpha;
+      const nP = 12;
+      for (let i = 0; i < nP; i++) {
+        const a = i / nP * Math.PI * 2, lx = Math.cos(a) * padR * 1.02, ly = padOY + Math.sin(a) * padR * 1.02;
+        const p = proj(lx, ly, pZ1 + 0.004); if (p.f <= 0.1) continue;
+        gp(lx, ly, pZ1 + 0.004, '110,240,150', 3.4, alpha * 0.45);   // green edge-light wash
+        ctx.fillStyle = 'rgba(150,255,190,0.95)'; ctx.beginPath(); ctx.arc(p.sx, p.sy, clamp(1.5 / p.f, 0.5, 2.2), 0, 7); ctx.fill();
+      }
+      const bl = proj(0, padOY + padR * 1.06, pZ1 + 0.02);   // amber landing beacon, aft rim, slow pulse
+      if (bl.f > 0.1 && 0.5 + 0.5 * Math.sin(now * 0.005) > 0.35) {
+        gp(0, padOY + padR * 1.06, pZ1 + 0.02, '255,190,90', 8, alpha * 0.6);
+        ctx.fillStyle = 'rgba(255,210,130,0.98)'; ctx.beginPath(); ctx.arc(bl.sx, bl.sy, clamp(2.2 / bl.f, 0.8, 3), 0, 7); ctx.fill();
+      }
+      ctx.restore();
+    }
     ctx.save(); ctx.globalAlpha = alpha;
     ctx.fillStyle = 'rgba(245,248,252,0.95)';
-    for (const s of [-1, 1]) for (let oy = -0.44; oy <= 0.30; oy += 0.09) { const [hb, sz] = hbsz(oy); const p = proj(s * hb, oy, sz + 0.012); if (p.f > 0.1) { ctx.beginPath(); ctx.arc(p.sx, p.sy, clamp(2.0 / p.f, 0.6, 3.0), 0, 7); ctx.fill(); } }
-    gp(0, -0.5, 0.07, '245,248,252', 8, alpha * 0.5);   // bow steaming lamp
+    for (const s of [-1, 1]) { if (s * beamDot < 0) continue; for (let oy = -1.18; oy <= 0.78; oy += 0.09) { const [hb, sz] = hbsz(oy); const p = proj(s * hb, oy, sz + 0.012); if (p.f > 0.1) { ctx.beginPath(); ctx.arc(p.sx, p.sy, clamp(2.0 / p.f, 0.6, 3.0), 0, 7); ctx.fill(); } } }
+    gp(0, -1.20, 0.05, '245,248,252', 8, alpha * 0.5);   // bow steaming lamp, out at the needle tip
     for (const [s, glow, dotc] of [[-1, '255,74,64', 'rgba(255,96,86,0.98)'], [1, '70,232,126', 'rgba(96,240,150,0.98)']]) {
       const [hb, sz] = hbsz(-0.34); gp(s * hb, -0.34, sz + 0.012, glow, 7, alpha * 0.55);   // port red / starboard green
       const p = proj(s * hb, -0.34, sz + 0.012); if (p.f > 0.1) { ctx.fillStyle = dotc; ctx.beginPath(); ctx.arc(p.sx, p.sy, clamp(2.2 / p.f, 0.8, 3.2), 0, 7); ctx.fill(); }
@@ -4419,36 +4981,50 @@ function drawYacht(ctx, cam, dx, dy, fh, seed, night, alpha, now, wake, heading,
   }
 }
 
-// Auto-land guidance dome — a translucent holo-hemisphere hovering over the Echelon's aft
-// helipad, telling a nearby helicopter where to descend to be "grabbed" for the auto-land.
-// Drawn in the same yacht-local frame as drawYacht (pad centred at oy 0.28, deck z≈0.07), so
-// it rides the hull as she moves/turns. Reads FAINT CYAN as passive guidance; when `armed`
-// (the pilot is in the capture window) it flips to a brighter GREEN with a quicker pulse.
+// Auto-land CATCH VOLUME — a holographic aiming target over the Echelon's aft helipad that shows a
+// hovering helicopter exactly what to fly into to be grabbed for the auto-land: a bullseye footprint
+// on the pad (the horizontal catch RADIUS) inside a translucent capture COLUMN rising to the altitude
+// ceiling (the height window), with light bands sweeping UP the column like a tractor beam. Drawn in
+// the same yacht-local frame as drawYacht (pad centred at oy 0.28, deck z≈0.07), so it rides the hull
+// as she moves/turns. Reads FAINT CYAN as a passive target; when `armed` (the pilot is inside the
+// capture window) the whole volume flips BRIGHT GREEN, the beam quickens, and "set down" chevrons
+// march onto the pad — a clear "you're locked, come down" cue.
+// Horizontal catch radius + capture-column height (tile units). CEIL≈0.5 sits near the ~300ft mark in
+// the contact-altitude frame (CONTACT_ALT_K = 1/600), so the column top reads as "enter the gate here,
+// descend, and you're grabbed at the deck" — matching the pre-capture notice (≤320ft) → capture (≤150ft).
+const PAD_CATCH_R = 0.5, PAD_CATCH_CEIL = 0.5;
 function drawYachtPadDome(ctx, cam, dx, dy, hr, now, alpha, armed) {
   const shr = Math.sin(hr), chr = Math.cos(hr);
-  const padOY = 0.28, R = 0.155, DH = 0.14, baseZ = 0.073;   // pad centre / dome radius / dome height / just above the pad surface
+  const padOY = 0.28, baseZ = 0.088 * YACHT_H, R = PAD_CATCH_R, CEIL = PAD_CATCH_CEIL;   // baseZ tracks the flush helipad floor (pZ1 = DECKZ); padOY (fore-aft) is unscaled
   const P = (ox, oy, z) => cam.proj(dx - oy * shr + ox * chr, dy + oy * chr + ox * shr, z);
-  const pulse = 0.5 + 0.5 * Math.sin(now * (armed ? 0.007 : 0.003));
+  const pulse = 0.5 + 0.5 * Math.sin(now * (armed ? 0.008 : 0.0035));
   const col = armed ? '86,240,150' : '120,205,255';
-  const A = alpha * (armed ? 0.6 : 0.34);
+  const A = alpha * (armed ? 0.62 : 0.34);
   // A ring of screen points at radius r, height z — null if any vertex crosses the lens.
-  const ring = (r, z, n = 26) => { const pts = []; for (let i = 0; i <= n; i++) { const a = i / n * Math.PI * 2, p = P(Math.cos(a) * r, padOY + Math.sin(a) * r, z); if (p.f <= 0.08) return null; pts.push(p); } return pts; };
+  const ring = (r, z, n = 30) => { const pts = []; for (let i = 0; i <= n; i++) { const a = i / n * Math.PI * 2, p = P(Math.cos(a) * r, padOY + Math.sin(a) * r, z); if (p.f <= 0.08) return null; pts.push(p); } return pts; };
   const trace = (pts) => { if (!pts) return; ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)); ctx.stroke(); };
   ctx.save();
-  ctx.strokeStyle = `rgb(${col})`; ctx.fillStyle = `rgb(${col})`;
-  // Base disc on the pad — a soft translucent fill + a bright rim that pulses.
+  ctx.strokeStyle = `rgb(${col})`; ctx.fillStyle = `rgb(${col})`; ctx.lineJoin = 'round';
+
+  // ── Footprint bullseye — the HORIZONTAL catch radius you must hold your hover inside ──
   const base = ring(R, baseZ);
-  if (base) { ctx.globalAlpha = A * 0.22; ctx.beginPath(); base.forEach((p, i) => i ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)); ctx.closePath(); ctx.fill(); }
-  ctx.lineWidth = 1.6; ctx.globalAlpha = A * (0.7 + 0.3 * pulse); trace(base);
-  // Latitude rings up the dome (radius shrinks, height climbs on a quarter-circle).
-  ctx.lineWidth = 1;
-  for (const lt of [0.38, 0.7]) { const z = baseZ + DH * Math.sin(lt * Math.PI / 2), r = R * Math.cos(lt * Math.PI / 2); ctx.globalAlpha = A * 0.55; trace(ring(r, z)); }
-  // Meridian half-arcs from rim to apex.
-  for (let m = 0; m < 4; m++) { const ang = m / 4 * Math.PI * 2, ca = Math.cos(ang), sa = Math.sin(ang), arc = []; let ok = true; for (let i = 0; i <= 10; i++) { const lt = i / 10, z = baseZ + DH * Math.sin(lt * Math.PI / 2), r = R * Math.cos(lt * Math.PI / 2), p = P(ca * r, padOY + sa * r, z); if (p.f <= 0.08) { ok = false; break; } arc.push(p); } if (ok) { ctx.globalAlpha = A * 0.5; trace(arc); } }
-  // Apex node + a downward "set down here" chevron stack that marches down onto the pad.
-  const apex = P(0, padOY, baseZ + DH);
-  if (apex.f > 0.08) { ctx.globalAlpha = A; ctx.beginPath(); ctx.arc(apex.sx, apex.sy, 2.4, 0, 7); ctx.fill(); }
-  if (armed) { ctx.lineWidth = 2; for (let k = 0; k < 3; k++) { const ph = ((now * 0.0016 + k / 3) % 1), z = baseZ + DH * 0.86 * (1 - ph), r = R * 0.34, cen = P(0, padOY, z), lp = P(-r, padOY, z), rp = P(r, padOY, z); if (cen.f > 0.08 && lp.f > 0.08 && rp.f > 0.08) { ctx.globalAlpha = A * (1 - ph) * 0.9; ctx.beginPath(); ctx.moveTo(lp.sx, lp.sy); ctx.lineTo(cen.sx, cen.sy); ctx.lineTo(rp.sx, rp.sy); ctx.stroke(); } } }
+  if (base) { ctx.globalAlpha = A * 0.14; ctx.beginPath(); base.forEach((p, i) => i ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)); ctx.closePath(); ctx.fill(); }   // soft target disc
+  ctx.lineWidth = 2; ctx.globalAlpha = A * (0.7 + 0.3 * pulse); trace(base);                       // bright outer rim
+  ctx.lineWidth = 1; ctx.globalAlpha = A * 0.5; trace(ring(R * 0.58, baseZ));                       // inner ring
+  ctx.globalAlpha = A * 0.5;                                                                        // crosshair ticks
+  for (let k = 0; k < 4; k++) { const a = k / 4 * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a), i0 = P(ca * R * 0.72, padOY + sa * R * 0.72, baseZ), i1 = P(ca * R, padOY + sa * R, baseZ); if (i0.f > 0.08 && i1.f > 0.08) { ctx.beginPath(); ctx.moveTo(i0.sx, i0.sy); ctx.lineTo(i1.sx, i1.sy); ctx.stroke(); } }
+  const cpt = P(0, padOY, baseZ + 0.004); if (cpt.f > 0.08) { ctx.globalAlpha = A; ctx.beginPath(); ctx.arc(cpt.sx, cpt.sy, 2.2, 0, 7); ctx.fill(); }   // centre pip
+
+  // ── Capture column — the VOLUME rising to the altitude ceiling; hover inside it to be caught ──
+  ctx.lineWidth = 1; ctx.globalAlpha = A * 0.45; trace(ring(R, baseZ + CEIL));                      // ceiling ring
+  ctx.globalAlpha = A * 0.4;                                                                        // cylinder-wall struts
+  for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a), b = P(ca * R, padOY + sa * R, baseZ), t = P(ca * R, padOY + sa * R, baseZ + CEIL); if (b.f > 0.08 && t.f > 0.08) { ctx.beginPath(); ctx.moveTo(b.sx, b.sy); ctx.lineTo(t.sx, t.sy); ctx.stroke(); } }
+  // Light bands sweeping UP the column (a tractor-beam read) — quicker + brighter when armed.
+  const bands = armed ? 4 : 2;
+  for (let m = 0; m < bands; m++) { const ph = ((now * (armed ? 0.0011 : 0.0006) + m / bands) % 1); ctx.globalAlpha = A * (1 - ph) * (armed ? 0.7 : 0.4); ctx.lineWidth = armed ? 2 : 1.4; trace(ring(R, baseZ + CEIL * ph)); }
+
+  // Armed: a downward "set down here" chevron stack marching onto the pad centre.
+  if (armed) { ctx.lineWidth = 2; for (let k = 0; k < 3; k++) { const ph = ((now * 0.0016 + k / 3) % 1), z = baseZ + CEIL * 0.7 * (1 - ph), r = R * 0.3, cen = P(0, padOY, z), lp = P(-r, padOY, z), rp = P(r, padOY, z); if (cen.f > 0.08 && lp.f > 0.08 && rp.f > 0.08) { ctx.globalAlpha = A * (1 - ph) * 0.9; ctx.beginPath(); ctx.moveTo(lp.sx, lp.sy); ctx.lineTo(cen.sx, cen.sy); ctx.lineTo(rp.sx, rp.sy); ctx.stroke(); } } }
   ctx.restore();
 }
 
@@ -4459,7 +5035,7 @@ function drawYachtPadDome(ctx, cam, dx, dy, hr, now, alpha, armed) {
 function drawYachtWake(ctx, cam, dx, dy, hr, night, alpha, now, spd) {
   const shr = Math.sin(hr), chr = Math.cos(hr);
   const proj = (ox, oy, z) => cam.proj(dx - oy * shr + ox * chr, dy + oy * chr + ox * shr, z);   // same local→world rotation as the hull
-  const sternOY = 0.36;                         // just aft of the transom (local fore-aft)
+  const sternOY = 0.86;                         // just aft of the (now much-further-aft) transom
   const len = 0.6 + spd * 1.4;                  // how far the wake streams astern (tiles)
   const edgeR = 0.04 + spd * 0.05, edgeF = 0.10 + spd * 0.16;   // half-width at stern / far end
   const foam = night ? [225, 235, 245] : [245, 250, 253];
@@ -4587,17 +5163,19 @@ function drawHoloAd(ctx, cam, dx, dy, fh, h, seed, now, alpha) {
   if ([b0, b1, t1, t0].some((p) => p.f <= 0.12)) return;
   const dropped = frac(Math.floor(now * 0.018) + seed) < 0.16;   // some frames blink out entirely
   const flick = (0.45 + 0.55 * Math.abs(Math.sin(now * 0.006 + seed))) * (dropped ? 0.15 : 1);
-  ctx.save(); ctx.globalAlpha = alpha;
-  ctx.fillStyle = `rgba(${col},${0.16 * flick})`;
-  ctx.beginPath(); ctx.moveTo(t0.sx, t0.sy); ctx.lineTo(t1.sx, t1.sy); ctx.lineTo(b1.sx, b1.sy); ctx.lineTo(b0.sx, b0.sy); ctx.closePath(); ctx.fill();
-  ctx.strokeStyle = `rgba(${col},${0.5 * flick})`; ctx.lineWidth = 1;
-  for (let k = 1; k < 4; k++) {
-    const tt = k / 4;
-    const lx = t0.sx + (b0.sx - t0.sx) * tt, ly = t0.sy + (b0.sy - t0.sy) * tt;
-    const rx = t1.sx + (b1.sx - t1.sx) * tt, ry = t1.sy + (b1.sy - t1.sy) * tt;
-    ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(rx, ry); ctx.stroke();
-  }
-  ctx.restore();
+  emitFace(ON_TOP, () => {
+    ctx.save(); ctx.globalAlpha = alpha;
+    ctx.fillStyle = `rgba(${col},${0.16 * flick})`;
+    ctx.beginPath(); ctx.moveTo(t0.sx, t0.sy); ctx.lineTo(t1.sx, t1.sy); ctx.lineTo(b1.sx, b1.sy); ctx.lineTo(b0.sx, b0.sy); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = `rgba(${col},${0.5 * flick})`; ctx.lineWidth = 1;
+    for (let k = 1; k < 4; k++) {
+      const tt = k / 4;
+      const lx = t0.sx + (b0.sx - t0.sx) * tt, ly = t0.sy + (b0.sy - t0.sy) * tt;
+      const rx = t1.sx + (b1.sx - t1.sx) * tt, ry = t1.sy + (b1.sy - t1.sy) * tt;
+      ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(rx, ry); ctx.stroke();
+    }
+    ctx.restore();
+  });
 }
 
 // Sweeping surveillance searchlights rising off restricted (no-fly) blocks at night — a beam

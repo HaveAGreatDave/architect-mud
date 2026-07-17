@@ -847,7 +847,7 @@ async function cmdAdminSetHome(args, player) {
 // equipped-item lists, …), where a fresh reconnect goes through the exact same
 // login path every other player does and can't drift from it.
 const REINCARNATE_WIPE_TABLES = [
-  'player_inventory', 'player_skills', 'player_faction_rep', 'player_mutations',
+  'player_inventory', 'player_skills', 'player_ideology_rep', 'player_mutations',
   'player_drug_state', 'player_flags', 'player_quests', 'player_deaths',
   'player_corpses', 'org_members', 'smuggle_orders', 'flight_contracts', 'jail_prisoners',
 ];
@@ -1125,7 +1125,7 @@ export const HELP_GROUPS = [
   { cat: 'TRADING',    text: 'shop <npc>  |  buy <item>  |  sell <item>' },
   { cat: 'ECONOMY',    text: 'balance  |  deposit <amt/all>  |  withdraw <amt/all>  (ATM required)  |  steal <player>' },
   { cat: 'PROPERTY',   text: 'rent  |  lock  |  unlock  |  pick  |  upgrade lock  |  sleep' },
-  { cat: 'CHARACTER',  text: 'stats  skills  raise [stat]  mutations  factions' },
+  { cat: 'CHARACTER',  text: 'stats  skills  raise [stat]  mutations  ideologies' },
   { cat: 'SOCIAL',     text: 'talk <npc>  |  say <message>  |  who  |  whisper/tell <player> <msg>' },
   { cat: 'WORLD',      text: 'map  |  switch on/off <light>  |  turn on/off <light>' },
   { cat: 'POSTURE',    text: 'sit  |  sit on <furniture/floor>  |  lie  |  lie on <furniture>  |  kneel  |  stand' },

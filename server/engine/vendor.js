@@ -9,7 +9,7 @@
  *   npc.vendor_credits    = credits earned from sales; physically held in the zone's vendor safe
  */
 import { query, withTransaction } from '../models/db.js';
-import { getFactionDiscount } from './factions.js';
+import { getIdeologyDiscount } from './ideologies.js';
 import { adjustCredits } from './economy.js';
 import { randomUUID } from 'crypto';
 import { isStackable } from './tags.js';
@@ -49,7 +49,7 @@ export async function getVendorStock(npc, playerId) {
     : activeStock;
   if (!shelf.length) return [];
 
-  const discount = npc.faction ? await getFactionDiscount(playerId, npc.faction) : 0;
+  const discount = npc.faction ? await getIdeologyDiscount(playerId, npc.faction) : 0;
 
   // Price lookup from catalogue
   const priceMap = {};
@@ -109,7 +109,7 @@ export async function buyFromVendor(player, npc, itemId, quantity = 1) {
   const item = getItem(itemId);
   if (!item) return { success: false, message: 'Item not found.' };
 
-  const discount = npc.faction ? await getFactionDiscount(player.id, npc.faction) : 0;
+  const discount = npc.faction ? await getIdeologyDiscount(player.id, npc.faction) : 0;
   const basePrice = catalogueEntry?.price ?? item.value;
   const price = Math.max(1, Math.round(basePrice * (1 - discount))) * quantity;
 
@@ -206,7 +206,7 @@ export async function getSellableInventory(player, npc) {
      WHERE pi.player_id = $1 AND pi.is_equipped = 0`,
     [player.id]
   );
-  const discount = npc.faction ? await getFactionDiscount(player.id, npc.faction) : 0;
+  const discount = npc.faction ? await getIdeologyDiscount(player.id, npc.faction) : 0;
   const isDrugBuyer = !!npc.flags?.drug_buyer;
   return rows
     .filter(r => !r.tags?.quest_item)
@@ -243,7 +243,7 @@ export async function sellToVendor(player, npc, inventoryId, quantity = 1) {
   if (invItem.is_equipped) return { success: false, message: 'Unequip it first.' };
 
   const sellQty = Math.min(quantity, invItem.quantity);
-  const discount = npc.faction ? await getFactionDiscount(player.id, npc.faction) : 0;
+  const discount = npc.faction ? await getIdeologyDiscount(player.id, npc.faction) : 0;
   const cd = typeof invItem.custom_data === 'string' ? (() => { try { return JSON.parse(invItem.custom_data); } catch { return {}; } })() : (invItem.custom_data || {});
   const sellPrice = computeSellUnitPrice(invItem.value, invItem.stat_cool, discount, { potency: Number(cd?.potency) || 1, drugBuyer: !!npc.flags?.drug_buyer && !!invItem.tags?.drug }) * sellQty;
 

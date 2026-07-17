@@ -42,8 +42,8 @@ export const FIELD_CATALOG = [
   { key: 'xp',           label: 'XP',        group: 'Economy', valueType: 'number', source: 'player', get: p => p.xp },
   { key: 'inv_count',    label: 'Items held', group: 'Economy', valueType: 'number', source: 'snapshot' },
 
-  // Factions — snapshot list
-  { key: 'factions', label: 'Faction rep', group: 'Factions', valueType: 'list', source: 'snapshot' },
+  // Ideologies — snapshot list
+  { key: 'ideologies', label: 'Ideology rep', group: 'Ideologies', valueType: 'list', source: 'snapshot' },
 
   // Corp — snapshot (your org's live status)
   { key: 'corp_name',     label: 'Corp',          group: 'Corp', valueType: 'text',   source: 'snapshot' },

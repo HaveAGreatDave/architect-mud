@@ -7,7 +7,7 @@
   "hooks": [],
   "actions": { "registers": ["gossip.ask_npc"] },
   "events": {
-    "consumes": ["player.death", "enemy.killed", "npc.killed", "crime.witnessed", "police.dispatch", "player.drugUsed", "gossip.pokerWin", "gossip.bigBuy", "gossip.housing", "weather.thunder", "vendor.purchase", "drugwar.flip"],
+    "consumes": ["player.death", "enemy.killed", "npc.killed", "crime.witnessed", "police.dispatch", "player.drugUsed", "gossip.pokerWin", "gossip.bigBuy", "gossip.housing", "weather.thunder", "vendor.purchase"],
     "emits": ["gossip.leadFollowed"]
   },
   "ticks": []

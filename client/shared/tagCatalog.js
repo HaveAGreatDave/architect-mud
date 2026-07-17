@@ -331,6 +331,8 @@
       help: 'Open-deck soundscape: gulls, surf and rigging play here (client yacht-ambience). Set on open-air deck zones so the naval bed is heard on deck but not in the suites/engineering.' },
     engine_ambience: { label: 'Engine Ambience', shape: 'flag', scope: 'zone', group: 'Zone: Echelon',
       help: 'Engine-room rumble plays here (client yacht-ambience), swelling while she makes way (yacht_underway). Set on the engine spaces.' },
+    heading: { label: 'Heading (deg)', shape: 'int', scope: 'zone', group: 'Zone: Echelon',
+      help: 'RUNTIME-only: the vessel\'s last steered course in degrees (0=N, bow-north), injected onto the live Echelon exterior zone by the yacht plugin from the persisted world flag. Not authored in content — catalogued so the persisted state validates on the zone-flags sweep.' },
 
     district: { label: 'District Override', shape: 'text', scope: 'zone', group: 'Zone: Identity',
       help: 'Override the derived district key (normally from the zone-id prefix; see server/engine/districts.js).' },

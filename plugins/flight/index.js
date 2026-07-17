@@ -28,7 +28,7 @@ import {
   advance, initFloat, initEngines, enginesAllStable, engineCount, syncEngineTemp,
   ENGINE_IDLE, ENGINE_STABLE_BAND, toDeg, degToCardinal, bearingDeg, groundTheme,
   isContinuous, reconcile, pushContext, contextPayload, bandFromAltitude, effLoadout,
-  RENTAL_BILL_MS, rentalOpFee, fieldFor, nearestAirfield, runwayFor, yachtFieldNear,
+  RENTAL_BILL_MS, rentalOpFee, fieldFor, nearestAirfield, runwayFor, yachtFieldNear, isGroundRolling,
 } from './state.js';
 import { describeExterior, rampColorWord, conspicuousnessMult, normalizeLivery } from './livery.js';
 import { districtBiome } from './biomes.js';
@@ -168,6 +168,16 @@ async function boardFound(found, player, broadcast) {
 
   const live = await loadAircraft(found.id);
   if (!live) return { type: 'error', message: 'That aircraft is in no state to fly.' };
+  // Keep a parked craft glued to its ramp: re-snap its tile to the parking zone's CURRENT coords at
+  // board time. For the Echelon this means an aircraft on her helipad always launches from wherever
+  // she is NOW — even if she sailed, or the server restarted, since it parked. Her exterior tile and
+  // the aircraft's tile are persisted through separate paths (a world-flag vs the aircraft row) and
+  // can otherwise drift apart; the parking zone is the single source of truth, so re-anchor to it.
+  const park = getZone(live.row.parked_zone_id);
+  if (park && park.grid_x != null && (live.row.grid_x !== park.grid_x || live.row.grid_y !== park.grid_y)) {
+    live.row.grid_x = park.grid_x; live.row.grid_y = park.grid_y; live.fx = park.grid_x; live.fy = park.grid_y;
+    await persist(live).catch(() => {});
+  }
   const seat = pilotOf(live) ? 'passenger' : 'pilot';
   if (seat === 'passenger' && live.occupants.size >= effLoadout(live.row, live.type).seats)
     return { type: 'emote', message: `The ${live.type.name} is full${live.row.custom_data?.loadout ? ' — it\'s rigged for freight' : ''}.` };
@@ -407,10 +417,16 @@ async function cmdLand(args, raw, player, broadcast) {
     : '<span class="text-cyan">On approach. Fly the glideslope down and flare.</span>' };
 }
 
+// The hangar-bay panel names its craft by real id (`refuel <id>`); a typed command
+// never does, so this is invisible to players — an id-shaped first token routes
+// straight to refuelParked (the client re-fetches the bay to refresh the fuel bar).
+const REFUEL_CRAFT_ID = /^(?:aircraft_[a-z0-9_]+|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
+
 async function cmdRefuel(args, raw, player, broadcast) {
   if (!player.aircraftId) {
-    // Not aboard: `refuel <name>` off the room examine-menu tops off that parked owned
-    // craft at the field. Anything that doesn't name a craft on the ramp → generator refuel.
+    // Not aboard: `refuel <id|name>` off the room examine-menu / hangar bay tops off
+    // that parked owned craft at the field. Anything else → generator refuel.
+    if (REFUEL_CRAFT_ID.test(args[0] || '')) return refuelParked(player, args[0]);
     const m = await matchCraftHere(args, player);
     if (m && m.owner_id === player.id) return refuelParked(player, m.id);
     return generatorCommands.refuel(args, raw, player, broadcast);
@@ -534,9 +550,11 @@ async function cmdFlightSync(args, raw, player) {
   // While rolling out on the ground over an airfield, remember it — the shutdown `land`
   // parks here even if the roll drifts a tile off the runway before the engine's cut.
   if (n[7] === 1) { const b = surfaceAt(live.row.grid_x, live.row.grid_y); if (b?.flags?.airfield_id) live.rolloutField = b.id; }
-  // Event-driven air-to-air contact relay: this craft just moved, so refresh its own
-  // traffic picture and push its fresh position to nearby pilots (Phase A: see-only).
-  if (live.row.airborne && !live.cont?.onGround) relayContacts(live);
+  // Event-driven contact relay: this craft just moved, so refresh its own traffic picture and push
+  // its fresh position to nearby pilots. Fires when airborne OR rolling under power on the deck
+  // (taxi / takeoff roll / landing rollout), so other pilots see the whole ground movement — not a
+  // craft that teleports from parked to airborne.
+  if ((live.row.airborne && !live.cont?.onGround) || isGroundRolling(live)) relayContacts(live);
   return { type: 'noop' };
 }
 
@@ -596,6 +614,13 @@ async function cmdFlightEvent(args, raw, player, broadcast) {
 
   if (ev === 'land') {
     if (!live.row.airborne) return { type: 'noop' };
+    // Authoritative touchdown tile from the client (args[3],[4]) — a deck landing reports the Echelon's
+    // own tile, a field landing its touchdown tile. Set it BEFORE resolving the field so this never
+    // races the separate `flightsync` message: the ws handler runs a player's commands concurrently, so
+    // without this `land` could read the stale airborne position and tow/ditch the craft off the yacht
+    // (why a deck-landed heli only *sometimes* made it into her hangar). Omitted ⇒ use live position.
+    const lx = Number(args[3]), ly = Number(args[4]);
+    if (Number.isFinite(lx) && Number.isFinite(ly)) { live.row.grid_x = lx; live.row.grid_y = ly; live.fx = lx; live.fy = ly; }
     let field = surfaceAt(live.row.grid_x, live.row.grid_y);
     // A long roll-out can drift the plane a tile off the runway before you shut down —
     // fall back to the airfield we actually touched down on (recorded while grounded over it).

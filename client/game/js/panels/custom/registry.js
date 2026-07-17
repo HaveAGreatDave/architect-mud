@@ -57,6 +57,6 @@ export const PANEL_TYPES = {
 // Ready-made derived panels — one-click adds in the catalog, no config needed.
 export const PRESETS = [
   { title: 'Credits', type: 'derived', icon: '₵', description: 'Cash on hand + bank.', config: { fields: ['credits', 'bank_credits'], widget: 'value' } },
-  { title: 'Faction rep', type: 'derived', icon: '⚑', description: 'Your standing with the factions.', config: { fields: ['factions'], widget: 'list' } },
+  { title: 'Ideology rep', type: 'derived', icon: '⚑', description: 'Your standing with the ideologies.', config: { fields: ['ideologies'], widget: 'list' } },
   { title: 'Corp Status', type: 'derived', icon: '▣', description: 'Your corp treasury, zones held, and Architect heat.', config: { fields: ['corp_treasury', 'corp_zones', 'corp_heat'], widget: 'value' } },
 ];

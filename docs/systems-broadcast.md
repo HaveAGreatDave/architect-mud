@@ -203,9 +203,9 @@ program lands mid-broadcast instead of restarting from the top.
 
 **Phase 1 — Normal**: the walker follows the graph normally. When it hits an `npc_anchor` node, it checks whether that NPC is physically present in `state.studioZoneId`. If absent and `studioZoneId` is configured, it sets `bb.hostAbsent = true` and `bb.absentDetectedAt = nowMs`.
 
-**Phase 2 — Camera-idle (0–60 seconds)**: once `hostAbsent` is true, `say` and `ticker` nodes are silently skipped. Instead, each tick returns a live camera snapshot of the empty studio zone as `[CAM: studio] <room description>`. This phase lasts 60 seconds.
+**Phase 2 — Show-delay card (until the cast arrives)**: once `hostAbsent` is true, the walker short-circuits each tick and returns a clean, centred **`text_card` overlay** (`style: 'overlay'`) that names exactly who's missing — `_absentCastNames(graph, studioZoneId)` scans the graph's `npc_anchor` nodes and lists any not currently in the studio: *"PLEASE STAND BY — Tonight's programme is delayed — `<name(s)>` `has/have` not yet arrived in the studio. We apologise for the inconvenience…"*. This is deliberately **not** the technical-difficulties fallback (which reads as "signal lost") and **not** the old empty-studio camera spam — the viewer is told what's happening. The card holds (`duration: 0`, no auto-dismiss) and is re-emitted on a 5-second slot so late-tuners pick it up. The walker recovers automatically — clearing `hostAbsent` and resuming the graph — the instant `_absentCastNames` comes back empty (every scheduled anchor is back on the studio floor).
 
-**Phase 3 — Technical difficulties (60 s onward)**: after 60 seconds, `bb.techDiffMode = true`. The walker short-circuits each tick to return a rotating line from `state.currentFallbackMessages`. Default fallback: `'[TECHNICAL DIFFICULTIES] Please stand by.'`.
+Technical-difficulties (`bb.techDiffMode`, a rotating line from `state.currentFallbackMessages`, default `'[TECHNICAL DIFFICULTIES] Please stand by.'`) is still reachable, but only for genuine signal failures — an explicit `tech_difficulties` node, a downed studio camera (`camera_cut` with the studio feed off/damaged), or a graph-walk error — never for a merely-late cast member.
 
 ### Node types
 
