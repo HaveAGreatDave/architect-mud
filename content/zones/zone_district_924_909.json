@@ -8,6 +8,7 @@
   "description": "A plain dry-goods warehouse, concrete-floored and echoing, racking bolted to the ceiling. DRY STORE 12 is painted on the roller door in fading yellow. Cheap to hold, steady to run — the bread and butter of anyone building a freight empire down here.",
   "exits": {
     "east": "zone_district_925_909",
+    "in": "zone_yard_drystore",
     "north": "zone_district_924_908",
     "south": "zone_district_924_910",
     "west": "zone_district_923_909"
@@ -15,12 +16,11 @@
   "flags": {
     "building_name": "Dry Store 12",
     "building_type": "warehouse",
-    "claimable": true,
-    "claimable_asset": "warehouse",
     "district": "yards",
+    "facade": true,
     "is_building": true,
     "planner": "bp_district",
-    "world_exit_zone": "zone_district_924_909"
+    "world_exit_zone": "zone_district_924_910"
   },
   "grid_x": 924,
   "grid_y": 909,

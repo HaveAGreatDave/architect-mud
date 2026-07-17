@@ -8,6 +8,7 @@
   "description": "A windowless insulated block breathing frost from its door seals, condensers roaring on the roof. COLDLINE REEFER DEPOT. Inside it is a meat-locker cathedral where the docks' catch — and worse things — keep. Your breath fogs just standing near the loading dock.",
   "exits": {
     "east": "zone_district_927_909",
+    "in": "zone_yard_coldline",
     "north": "zone_district_926_908",
     "south": "zone_district_926_910",
     "west": "zone_district_925_909"
@@ -15,12 +16,11 @@
   "flags": {
     "building_name": "Coldline Reefer Depot",
     "building_type": "cold_storage",
-    "claimable": true,
-    "claimable_asset": "warehouse",
     "district": "yards",
+    "facade": true,
     "is_building": true,
     "planner": "bp_district",
-    "world_exit_zone": "zone_district_926_909"
+    "world_exit_zone": "zone_district_926_910"
   },
   "grid_x": 926,
   "grid_y": 909,

@@ -1,0 +1,28 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "waterfront",
+  "audio_theme_id": null,
+  "bg_color": "#28302f",
+  "color": "#cdb489",
+  "created_by": "yards-plan",
+  "description": "Under the transfer shed's roof: a wet concrete apron running to the water's edge, a hand-crank crane, nets drying on hooks. The Basin slaps at the pilings below the loading lip.",
+  "exits": {
+    "out": "zone_district_926_908"
+  },
+  "flags": {
+    "building_name": "Wharf Transfer Shed",
+    "building_type": "wharf",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_926_908"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_yard_wharf",
+  "map_id": "map_int_yard_wharf",
+  "marker": null,
+  "name": "Wharf Transfer Shed",
+  "parent_zone": "zone_district_926_908",
+  "updated_at": "1783739474"
+}

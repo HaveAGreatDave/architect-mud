@@ -1,0 +1,29 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#26292e",
+  "color": "#cdb489",
+  "created_by": "yards-plan",
+  "description": "Between the container stacks: a narrow canyon of ribbed steel walls, a foreman's shipping desk, a forklift dead on its charger. Somewhere deep in the rows, something shifts and settles.",
+  "exits": {
+    "out": "zone_district_924_907"
+  },
+  "flags": {
+    "building_name": "Interchange Stack",
+    "building_type": "container_yard",
+    "claimable_asset": "warehouse",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_924_907"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_yard_container",
+  "map_id": "map_int_yard_container",
+  "marker": null,
+  "name": "Interchange Stack",
+  "parent_zone": "zone_district_924_907",
+  "updated_at": "1783739474"
+}

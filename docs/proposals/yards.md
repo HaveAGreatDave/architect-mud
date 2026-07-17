@@ -67,11 +67,23 @@ Notes:
   "warehouse"` → the `org_ventures` income layer). Venture `asset_type` is always `warehouse`; the
   independent `building_type` drives the visual model, so Cold Storage/Container Yard render bespoke
   while still claiming as warehouses.
-- **v1 is facade-only** (no walk-in interiors yet). Both corp flags sit on the **surface tile**:
-  `flags.claimable` (territory) + `flags.claimable_asset: "warehouse"` (venture) — so you claim, run,
-  and reach the Logistics Store from the warehouse's street tile, and venture influence projects onto
-  the very map cell the strategic map tints (clean synergy, everything on the grid). Walk-in interiors,
-  PD cameras, and Barlow's gig are fast follow-ups, not v1.
+- **Enterable buildings (facade + interior).** Each building is a non-standable `facade` tile that
+  forwards into its own interior (`is_interior` zone + a `content/maps/map_int_yard_*.json` record with
+  `parent_zone_id`/`entry_zone_id`). This is what unlocks the standard **map-icon** system (both the
+  minimap and Tablet bigmap are `facade`-gated). Because a facade can't be stood on
+  (`resolveFacadeTransit` — step on → forwarded inside), **the corp mechanics live INSIDE**:
+  `flags.claimable_asset: "warehouse"` sits on the 4 warehouse **interiors**, so you `corp asset claim`
+  and use the pooled Logistics Store from within. Building-tile territory (`claimable`) is dropped —
+  buildings are *businesses* (ventures), streets are *territory* — so venture influence projects into
+  the interior's `zone_control` (off the strategic map, an accepted trade for enterable buildings).
+  **Barlow works inside** the Freight Office (`work_zone_id: zone_yard_freightoffice`). PD cameras +
+  Barlow's gig remain follow-ups.
+- **Map icons (bespoke).** Each `building_type` gets a 24×24 stroke SVG in
+  `client/game/assets/zone-icons/bldg_*.svg` (warehouse/container/fuel/cold/fab/wharf/freightoffice/
+  forwarder), registered in `BUILDING_TYPE_ICON` (`server/engine/world.js`) + a minimap overlay glyph in
+  `BUILDING_ICON` (`client/game/js/panels/minimap.js`). `marker` is dead for the map (kept as harmless
+  legacy). **Rule going forward: author a building's map icon in the same build as the building**, like
+  its flight 3D model.
 - **Watts stays at the Coldwater Power Plant** (924,911, one block south) — adjacent, thematically the
   Yards' grid/repair mechanic. Not relocated.
 

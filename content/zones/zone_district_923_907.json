@@ -8,6 +8,7 @@
   "description": "Stacked pallets and a cluster of squat fuel bowsers behind chain-link, hoses coiled like sleeping snakes. Placards warn NO NAKED FLAME in three languages and one skull. The avgas smell gets into your teeth and stays there.",
   "exits": {
     "east": "zone_district_924_907",
+    "in": "zone_yard_fuelyard",
     "north": "zone_district_923_906",
     "south": "zone_district_923_908",
     "west": "zone_district_922_907"
@@ -16,9 +17,10 @@
     "building_name": "Pallet & Fuel Yard",
     "building_type": "fuel_yard",
     "district": "yards",
+    "facade": true,
     "is_building": true,
     "planner": "bp_district",
-    "world_exit_zone": "zone_district_923_907"
+    "world_exit_zone": "zone_district_923_908"
   },
   "grid_x": 923,
   "grid_y": 907,

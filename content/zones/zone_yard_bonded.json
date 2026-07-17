@@ -1,0 +1,29 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#26292e",
+  "color": "#cdb489",
+  "created_by": "yards-plan",
+  "description": "The bonded floor: aisle after aisle of shrink-wrapped pallets under customs seals, a caged clerk's office in one corner, your breath misting in the cold sodium light. Whatever a corp holds here, the city officially cannot see.",
+  "exits": {
+    "out": "zone_district_922_907"
+  },
+  "flags": {
+    "building_name": "Customs Bonded Store 7",
+    "building_type": "warehouse",
+    "claimable_asset": "warehouse",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_922_907"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_yard_bonded",
+  "map_id": "map_int_yard_bonded",
+  "marker": null,
+  "name": "Customs Bonded Store 7",
+  "parent_zone": "zone_district_922_907",
+  "updated_at": "1783739474"
+}

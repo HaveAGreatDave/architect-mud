@@ -8,6 +8,7 @@
   "description": "A yard of intermodal boxes stacked four high in sun-bleached reds and blues, aisles between them like canyons. A reach-stacker sits idle, keys long gone. Half the containers are empty; the other half nobody will open on record.",
   "exits": {
     "east": "zone_district_925_907",
+    "in": "zone_yard_container",
     "north": "zone_district_924_906",
     "south": "zone_district_924_908",
     "west": "zone_district_923_907"
@@ -15,12 +16,11 @@
   "flags": {
     "building_name": "Interchange Stack",
     "building_type": "container_yard",
-    "claimable": true,
-    "claimable_asset": "warehouse",
     "district": "yards",
+    "facade": true,
     "is_building": true,
     "planner": "bp_district",
-    "world_exit_zone": "zone_district_924_907"
+    "world_exit_zone": "zone_district_924_908"
   },
   "grid_x": 924,
   "grid_y": 907,

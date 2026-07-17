@@ -1,0 +1,28 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#2b2824",
+  "color": "#cdb489",
+  "created_by": "yards-plan",
+  "description": "The fab shed's floor: a welding bay behind a curtain of sparks, a lathe, an anvil worn shiny, racks of stock steel. A gantry crane hangs a half-finished something overhead.",
+  "exits": {
+    "out": "zone_district_925_909"
+  },
+  "flags": {
+    "building_name": "Fabrication Shed",
+    "building_type": "fabrication",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_925_909"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_yard_fab",
+  "map_id": "map_int_yard_fab",
+  "marker": null,
+  "name": "Fabrication Shed",
+  "parent_zone": "zone_district_925_909",
+  "updated_at": "1783739474"
+}

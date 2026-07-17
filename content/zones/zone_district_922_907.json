@@ -8,6 +8,7 @@
   "description": "A windowless steel shed the size of a hangar, its roller doors chained and customs-sealed. Everything inside is in transit and belongs, technically, to no one — which is exactly why a corp would want the keys. A faded stencil reads CUSTOMS BONDED STORE 7. NO ADMITTANCE.",
   "exits": {
     "east": "zone_district_923_907",
+    "in": "zone_yard_bonded",
     "north": "zone_district_922_906",
     "south": "zone_district_922_908",
     "west": "zone_district_921_907"
@@ -15,12 +16,11 @@
   "flags": {
     "building_name": "Customs Bonded Store 7",
     "building_type": "warehouse",
-    "claimable": true,
-    "claimable_asset": "warehouse",
     "district": "yards",
+    "facade": true,
     "is_building": true,
     "planner": "bp_district",
-    "world_exit_zone": "zone_district_922_907"
+    "world_exit_zone": "zone_district_922_908"
   },
   "grid_x": 922,
   "grid_y": 907,

@@ -1,0 +1,29 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "waterfront",
+  "audio_theme_id": null,
+  "bg_color": "#28302f",
+  "color": "#cdb489",
+  "created_by": "yards-plan",
+  "description": "Inside the reefer depot: a meat-locker corridor of frosted steel doors, your breath fogging, a clipboard of temperature logs by each. The catch keeps here — and, the manifests hint, things that were never fish.",
+  "exits": {
+    "out": "zone_district_926_909"
+  },
+  "flags": {
+    "building_name": "Coldline Reefer Depot",
+    "building_type": "cold_storage",
+    "claimable_asset": "warehouse",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_926_909"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_yard_coldline",
+  "map_id": "map_int_yard_coldline",
+  "marker": null,
+  "name": "Coldline Reefer Depot",
+  "parent_zone": "zone_district_926_909",
+  "updated_at": "1783739474"
+}
