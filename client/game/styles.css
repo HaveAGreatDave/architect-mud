@@ -1970,6 +1970,12 @@ body.fsim-external #look-resize-handle { display: none; }
 	justify-content: center;
 	align-content: center;
 	line-height: 1;
+	/* Promote to its own compositor layer so the move-slide (slideMinimap's
+	   translate animation) moves the grid as one rasterized bitmap. Without this
+	   the browser re-paints each cell per frame at sub-pixel offsets, opening
+	   hairline seams between adjacent tiles that flicker in and out during motion. */
+	backface-visibility: hidden;
+	will-change: transform;
 }
 #minimap-grid {
 	--mm-room: 1.7em;
