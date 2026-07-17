@@ -208,6 +208,14 @@ export function openHelmChase(container, opts = {}) {
   function frame(now) {
     if (!st.alive) return;
     const dt = Math.min(0.05, (now - st.last) / 1000); st.last = now;
+    // The whole per-frame body is guarded. This loop reschedules itself only at the very END, and the
+    // renderer (paintWindshield) has no internal try/catch — so a SINGLE throw anywhere in here (e.g. a
+    // transient non-finite coord reaching a canvas gradient, which throws) would never reach the
+    // reschedule and would PERMANENTLY freeze the 3D scene, while the separate status poll kept ticking
+    // (the "MAKING WAY, ETA counting down, boat frozen at SPEED 0.0" bug — most visible right at
+    // throttle-up, when the wake first draws). Catch, log ONCE, and keep animating so the next frame
+    // recovers instead of the view bricking.
+    try {
 
     stepTurn(dt);
 
@@ -296,6 +304,10 @@ export function openHelmChase(container, opts = {}) {
       map: st.map, mapCenter: { x: st.gx, y: st.gy }, mapOffset: st.mapOffset,
       acX: st.gx, acY: st.gy, biomeBelow: 'water', airport: 'default',
     });
+
+    } catch (e) {
+      if (!st._frameErrLogged) { console.error('[helm] frame render error (view kept alive — report this stack):', e); st._frameErrLogged = true; }
+    }
     st.raf = requestAnimationFrame(frame);
   }
   st.raf = requestAnimationFrame(frame);

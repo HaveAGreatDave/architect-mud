@@ -414,7 +414,7 @@ export function paintWindshield(id, view) {
   // camera pull proportionally CLOSER — camera distance tracks model size, so a tiny craft fills the
   // same frame slice as a prop instead of sitting as a distant speck (a genuinely tighter heli chase).
   const szFac = clamp((CONTACT_SIZE[v.cls] || szRef) / szRef, 0.28, 1.15);
-  const extZoom = clamp(v.extZoom || 1, 0.45, 2.4);
+  const extZoom = clamp(v.extZoom || 1, 0.30, 2.4);
   // Vertical orbit (middle-drag up/down): the chase camera rides a fixed-radius ARC around the
   // craft — a turntable, like the hangar walkaround — instead of sliding straight up. `extPitch` is
   // the ELEVATION ANGLE (rad): + lifts the camera up-and-over to look DOWN on the craft, − drops it
@@ -429,7 +429,14 @@ export function paintWindshield(id, view) {
   const EHbaseC = Math.max(0.05, RENDER_TUNE.eh + height * RENDER_TUNE.climbLift);
   const groundPitch = Math.asin(clamp((0.06 - EHbaseC) / Math.max(1e-3, orbR), -1, 1));
   const extPitch = ext && !v.reticle ? clamp(v.extPitch != null ? v.extPitch : restPitch, groundPitch, 1.4) : restPitch;
-  const chase = ext ? { back: orbR * Math.cos(extPitch), up: orbR * Math.sin(extPitch) } : null;   // camera on the arc: tiles behind / world-z above the craft
+  // Over-the-top distortion fix: a close chase cam looking straight down sits almost on top of the
+  // craft, so buildings directly below streak and fan out and the view reads as uselessly zoomed-in.
+  // As the orbit pitches UP past the resting angle toward top-down, pull the camera proportionally
+  // farther out (up to ~2.4×) — that widens the framing and flattens the perspective. The resting
+  // behind-and-above pose (topFrac 0) and the whole under-belly swing are untouched.
+  const topFrac = clamp((extPitch - restPitch) / (1.4 - restPitch), 0, 1);
+  const orbRcam = orbR * (1 + topFrac * 1.4);
+  const chase = ext ? { back: orbRcam * Math.cos(extPitch), up: orbRcam * Math.sin(extPitch) } : null;   // camera on the arc: tiles behind / world-z above the craft
   // On the deck (ground/takeoff/landing) we paint a real, terrain-themed airport.
   const onDeck = phase === 'ground' || phase === 'takeoff' || phase === 'landing';
   // Continuous ground↔air crossfade weight (0 = fully on the deck, 1 = fully airborne).
@@ -892,7 +899,7 @@ export function paintWindshield(id, view) {
     // `hideOwnShip` lets a non-aircraft chase (the Helm view watching the Echelon) borrow the
     // external orbit camera without pasting an aircraft at world origin — the yacht cell that
     // sits at the map-window centre renders as the framed subject instead.
-    if (ext && !v.hideOwnShip) drawAircraftModel(ctx, cam, { dx: 0, dy: 0, cls: v.cls, hdg: v.heading, bank: v.bank, pitch: v.pitch, livery: v.livery, sizeMul: OWN_EXT_MUL, gearAnim: v.gearAnim ?? 1, power: v.enginePct != null ? v.enginePct : v.speed, ctrl: v.ctrl, propPhase: v.propPhase, propSpin: v.propSpin, propDisc: v.propDisc, lights: v.engineOn !== false, landing: !!v.landingLight }, ownShipBaseWz(cam, v), sunFx, now);
+    if (ext && !v.hideOwnShip) drawAircraftModel(ctx, cam, { dx: 0, dy: 0, cls: v.cls, hdg: v.heading, bank: v.bank, pitch: v.pitch, livery: v.livery, sizeMul: OWN_EXT_MUL, gearAnim: v.gearAnim ?? 1, power: v.enginePct != null ? v.enginePct : v.speed, ctrl: v.ctrl, propPhase: v.propPhase, propSpin: v.propSpin, propDisc: v.propDisc, lights: v.engineOn !== false, landing: !!v.landingLight, breakup: v.breakup }, ownShipBaseWz(cam, v), sunFx, now);
     if (ext && v.reticle) drawGunReticle(ctx, cam, v, W, H, horizonY);   // two-part gunsight over the chase model
   }
 
@@ -2882,6 +2889,22 @@ function drawContacts(ctx, cam, v, W, H, sun, now) {
   for (const id of _contactRoll.keys()) if (!live.has(id)) _contactRoll.delete(id);   // drop departed bogeys
   ctx.restore();
 }
+// Crash break-up: which shed part (if any) a face belongs to. A part is a set of roles on
+// one side of the centreline (so only the RIGHT wing or the LEFT tailplane tears off, not
+// both). `side` null matches either side (the vertical fin, which straddles the centreline).
+function shedPartFor(breakup, face) {
+  let g = 0; for (const v of face.p) g += v[1];
+  const side = g >= 0 ? 1 : -1;
+  return breakup.parts.find(pt => pt.roles.includes(face.role) && (pt.side == null || pt.side === side)) || null;
+}
+// Tumble a shed vertex: spin it about the fuselage's forward axis, then drift it out along the
+// part's escape vector. Both `spin` and `off` are fed by the crash progress, so the piece
+// wheels away from the wreck as it falls.
+function shedVert(v, part) {
+  const ca = Math.cos(part.spin), sa = Math.sin(part.spin);
+  const g1 = v[1] * ca - v[2] * sa, h1 = v[1] * sa + v[2] * ca;
+  return [v[0] + part.off[0], g1 + part.off[1], h1 + part.off[2]];
+}
 // The bogey's low-poly model, built nose-forward in ITS frame, oriented by its heading/
 // bank/pitch, then every vertex projected through the shared camera. Depth-sorted filled
 // faces (far first), painted in the craft's LIVERY (base/trim + finish sheen + pattern
@@ -2947,14 +2970,17 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
       ? face.p.map(v => [v[0], v[1] * gearDown, v[2] + (1 - gearDown) * 0.2])
       : (face.hinge && c.ctrl) ? deflectSurface(face, c.ctrl)
       : face.p;
-    const pts = lp.map(P);
+    // Crash break-up: a sheared-off part tumbles away from the wreck on its own.
+    const shed = c.breakup ? shedPartFor(c.breakup, face) : null;
+    const dp = shed ? lp.map(v => shedVert(v, shed)) : lp;
+    const pts = dp.map(P);
     if (pts.some(q => q.f <= 0.07)) continue;                       // vertex behind the lens → skip (avoids blow-up)
     let af = 0; for (const q of pts) { af += q.f; if (q.sx < minx) minx = q.sx; if (q.sx > maxx) maxx = q.sx; if (q.sy < miny) miny = q.sy; if (q.sy > maxy) maxy = q.sy; }
     // Sun lighting multiplier: outward face normal (world) · sun. Kept ON TOP of the baked `sh`
     // so the hand-tuned character stays, but the sun now shapes the light across the airframe.
     let lm = 1;
-    if (toSun && lp.length >= 3) {
-      const w0 = Wp(lp[0]), w1 = Wp(lp[1]), w2 = Wp(lp[2]);
+    if (toSun && dp.length >= 3) {
+      const w0 = Wp(dp[0]), w1 = Wp(dp[1]), w2 = Wp(dp[2]);
       const ax = w1[0] - w0[0], ay = w1[1] - w0[1], az = w1[2] - w0[2];
       const bx = w2[0] - w0[0], by = w2[1] - w0[1], bz = w2[2] - w0[2];
       let nx = ay * bz - az * by, ny = az * bx - ax * bz, nz = ax * by - ay * bx;
@@ -2966,7 +2992,7 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
     }
     const col = shadeRgb(faceBaseRgb(face, pal), face.sh * pal.fmul * lm);
     // Jazz UV mapped from the drawn (deflected) body coords so the splatter tracks moving surfaces.
-    const uv = (jazzImg && JAZZ_ROLE.has(face.role)) ? lp.map(v => jazzUV(v, face.role)) : null;
+    const uv = (jazzImg && JAZZ_ROLE.has(face.role)) ? dp.map(v => jazzUV(v, face.role)) : null;
     faces.push({ pts, af: af / pts.length, col, role: face.role, alpha: isGear ? gearDown : 1, uv }); drawn++;
   }
   if (!drawn) return null;

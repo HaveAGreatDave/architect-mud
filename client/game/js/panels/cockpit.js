@@ -1271,7 +1271,9 @@ function ensureFlightSimStyles() {
     /* Big yoke anchored HIGH: it rises up into the centre of the gauges panel (between the
        edge gauges) and its pull-down never drags it off the bottom of the frame. */
     .fsim-yoke-svg{ position:absolute; left:17%; top:-120%; width:66%; height:194%; transform-style:preserve-3d; will-change:transform;
-      transform-origin:50% 66%; pointer-events:none; filter:drop-shadow(0 7px 10px rgba(0,0,0,.65)); }
+      transform-origin:50% 66%; pointer-events:auto; filter:drop-shadow(0 7px 10px rgba(0,0,0,.65)); }
+    /* the stick art rises up out of the yoke well; letting its painted shapes catch pointer
+       events (they bubble to the #fsim-yoke pad) means you can grab it anywhere, not just the base */
     /* aircraft name across the yoke hub, in the themed accent (per-craft, set on mount) */
     .fsim-yoke-name{ fill:var(--cy); font:bold 8px monospace; letter-spacing:.5px; }
     .fsim-climbmark{ position:absolute; left:10%; right:10%; top:66%; height:0; border-top:1px dashed rgba(95,224,160,0.55); pointer-events:none; }
@@ -2317,6 +2319,7 @@ export function openFlightSim(opts = {}) {
   // so the button's lit state and F.external stay in sync however you flip it.
   const viewBtn = q('#fsim-viewbtn');
   setExternal = (on) => { F.external = on; if (viewBtn) viewBtn.classList.toggle('on', on); document.body.classList.toggle('fsim-external', on); fsimToast(on ? '◎ EXTERNAL VIEW' : '◎ COCKPIT VIEW'); };
+  F.setExternalView = setExternal;   // the crash death-cam borrows it to force the external view
   add(viewBtn, 'click', () => setExternal(!F.external));
 
   // ⟲ Reset — SWING the orbit camera from wherever it is back to just behind and above the craft
@@ -2525,6 +2528,52 @@ function lerpAngle(a, b, t) {
   const d = ((b - a + 540) % 360) - 180;
   return (a + d * t + 360) % 360;
 }
+// ── Crash break-up death-cam ──────────────────────────────────────────────────
+// A severe write-off snaps to the external chase view and cartwheels the wreck while a wing
+// (plus a tailplane and the fin) shear off and tumble away, THEN reports the crash to the
+// server (which destroys the craft + closes the sim). The report is deferred by BREAKUP_MS so
+// the player always sees her come apart — the crash is already inevitable client-side.
+const BREAKUP_MS = 1900;
+
+function beginCrashBreakup(F, reason) {
+  if (F.crashCine) return;                               // already coming apart
+  F.rolling = false; F.reportedAirborne = false;
+  if (F.setExternalView) F.setExternalView(true);        // force the death cam
+  const h0 = Math.min(1, Math.sqrt(Math.max(0, F.s?.altitude || 0) / 3000));
+  F.crashCine = { t0: performance.now(), reason, reported: false,
+    bank0: F.s?.bank || 0, pitch0: F.s?.pitch || 0, hdg: F.s?.heading || 0, h0 };
+}
+
+function stepCrashBreakup(F, now) {
+  const C = F.crashCine, root = document.getElementById('fsim-root');
+  const t = clampNum((now - C.t0) / BREAKUP_MS, 0, 1);
+  const e = t * t;                                        // parts accelerate away as she falls
+  // The fuselage cartwheels — bank winds up hard, the nose pitches over — while she loses height.
+  const bank = C.bank0 + 300 * t;
+  const pitch = C.pitch0 - 100 * t;
+  const height = C.h0 * (1 - t);                          // the ground rises to meet her
+  // Three pieces shear off: the RIGHT wing (+ its surfaces), the LEFT tailplane, and the fin.
+  const parts = [
+    { roles: ['wing', 'aileron', 'flap'], side: 1,    off: [-0.5 * e,  1.0 * e, -0.6 * e], spin: 10 * t },
+    { roles: ['stab', 'elevator'],        side: -1,   off: [-0.4 * e, -0.8 * e, -0.4 * e], spin: 8 * t },
+    { roles: ['fin', 'rudder'],           side: null, off: [-0.7 * e,  0.25 * e, -0.5 * e], spin: 7 * t },
+  ];
+  paintWindshield('fsim-ws', {
+    external: true, hideOwnShip: false, phase: 'cruise', worldBlend: 1,
+    cls: F.cls, heading: C.hdg, bank, pitch, livery: F.livery, gearAnim: F.gearAnim ?? 1,
+    enginePct: 0, engineOn: false, breakup: { t, parts },
+    extYaw: (F.extOrbit || 0) + 26 * t, extPitch: F.extPitch ?? REST_PITCH, extZoom: F.extZoom || 1,
+    height, speed: 0, hour: F.sky?.hour, weather: F.sky?.weather, wxField: F.sky?.field,
+    map: F.map, mapCenter: F.mapCenter, mapOffset: { x: F.pos.x - F.mapCenter.x, y: F.pos.y - F.mapCenter.y },
+    acX: F.pos.x, acY: F.pos.y, biomeBelow: F.biomeBelow || 'default', airport: F.airport || 'default',
+  });
+  if (t >= 1 && !C.reported) {
+    C.reported = true;
+    if (root) showLandingCard(root, 900, true);            // the F / CRASHED climax card
+    sendCmdSilent(`flightevent crash ${C.reason}`);        // server destroys the craft + closes the sim
+  }
+}
+
 function stepDeckLanding(F, now) {
   const C = F.deckCine; if (!C) return;
   const el = now - C.t0;
@@ -2554,7 +2603,7 @@ function stepDeckLanding(F, now) {
     ox = START[0] + (PAD[0] - START[0]) * lp; oy = START[1] + (PAD[1] - START[1]) * lp;   // fly IN
     alt = C.alt0 + (DECK_DROP_FT - C.alt0) * lp;
     landing = lp > 0.75; dome = true;
-    cam = { yaw: 180, pitch: 0.14, zoom: 1.0 - lp * 0.36 };   // looking AFT down the deck over the pad, wide enough to read her 3D fly-in, easing toward the DROP
+    cam = { yaw: 180, pitch: 0.14, zoom: 0.85 - lp * 0.40 };   // looking AFT down the deck over the pad — reads her 3D fly-in, dollying toward the DROP
     lookAt = padWorld;
   } else if (el < DECK_WIDE + DECK_DROP) {
     // SHOT 2 — the same ON-DECK vantage (standing at the deckhouse, looking AFT over the pad), holding
@@ -2562,7 +2611,7 @@ function stepDeckLanding(F, now) {
     // No crane, no orbit — you stay planted on the deck and she comes down to you.
     phase = 'drop'; const lp = ease((el - DECK_WIDE) / DECK_DROP);
     ox = PAD[0]; oy = PAD[1]; alt = DECK_DROP_FT * (1 - lp); landing = true;
-    cam = { yaw: 180, pitch: 0.14 - lp * 0.02, zoom: 0.64 - lp * 0.10 };   // hold the deck-level aft-looking view, tightening as she settles in
+    cam = { yaw: 180, pitch: 0.14 - lp * 0.02, zoom: 0.45 - lp * 0.15 };   // hold the deck-level aft-looking view, dollying RIGHT onto the pad (down to 0.30) as she settles in
     lookAt = padWorld;
   } else {
     // SHOT 3 — she's down; the same front close-up holds while the rotors spin down and she goes
@@ -2570,7 +2619,7 @@ function stepDeckLanding(F, now) {
     phase = 'hold'; const lp = Math.min(1, (el - DECK_WIDE - DECK_DROP) / DECK_HOLD);
     ox = PAD[0]; oy = PAD[1]; alt = 0; landing = true;
     power = 0.5 * (1 - Math.min(1, lp / 0.7)); propSpin = 1 - Math.min(1, lp / 0.65);   // rotors fully stopped by ~65% through the hold
-    cam = { yaw: 180, pitch: 0.12, zoom: 0.54 - lp * 0.02 };   // hold the ON-DECK aft-looking view — she's settled on the pad right in front of you, open sea behind, as she winds down
+    cam = { yaw: 180, pitch: 0.12, zoom: 0.30 };   // hold the ON-DECK aft-looking view right ON the pad — she fills the frame in front of you, open sea behind, as she winds down
     lookAt = padWorld;
     if (C.seg !== 2) { C.seg = 2; if (F.toast) F.toast('Skids down — winding down.'); }
   }
@@ -2622,6 +2671,9 @@ function fsimFrame(now) {
   // to a deck-cam that flies her down onto the pad (physics + controls are frozen). Runs its own
   // render + schedules the next frame, then bails out of the live sim step.
   if (F.deckCine) { stepDeckLanding(F, now); F.raf = requestAnimationFrame(fsimFrame); return; }
+  // Crash death-cam: physics is frozen; the cinematic drives its own external render + reports the
+  // crash at the end (which closes the sim). Holds the last frame until the server tears us down.
+  if (F.crashCine) { stepCrashBreakup(F, now); F.raf = requestAnimationFrame(fsimFrame); return; }
   // After the cinematic ends (F.landed) we must NOT resume the live sim for the hand-off beat — that
   // would repaint the real (still-airborne) craft for a frame and flash "the heli flying after it
   // landed". Hold the last deck-cam frame (she's on the pad, rotors stopped) until closeFlightSim.
@@ -2727,7 +2779,7 @@ function fsimFrame(now) {
       F.cfitCd = 9999; F.reportedAirborne = false; F.rolling = false;
       groundFx('touchdownHard'); csfx('flight-crash', 'hololock-lose');
       F.shake = 20;
-      sendCmdSilent('flightevent crash cfit');
+      beginCrashBreakup(F, 'cfit');   // death cam: she comes apart before the crash is reported
       if (F.toast) F.toast('CRASH — you flew into a building');
     } else if (hit) {
       // Glancing clip of the rooftops: real damage + a jolt, but you bounce off the top and fly out.
@@ -2769,8 +2821,7 @@ function fsimFrame(now) {
       F.rolling = false;
       groundFx('touchdownHard'); csfx('flight-crash', 'hololock-lose');
       F.shake = 16;
-      showLandingCard(root, sinkFpm, true);   // crash card
-      sendCmdSilent('flightevent crash ditched');
+      beginCrashBreakup(F, 'ditched');   // death cam shows her break up, then reports + shows the card
       if (F.toast) F.toast('CRASH — you ditched in the water');
     } else if (sinkFpm > 800 && establishedClimb) {
       // Slammed it in — a touchdown sinking faster than 800 fpm breaks the gear/airframe. (Raised
@@ -2779,8 +2830,7 @@ function fsimFrame(now) {
       F.rolling = false;
       groundFx('touchdownHard'); csfx('flight-crash', 'hololock-lose');
       F.shake = 18;   // slammed it in — a big jolt
-      showLandingCard(root, sinkFpm, true);   // crash card
-      sendCmdSilent('flightevent crash hardlanding');
+      beginCrashBreakup(F, 'hardlanding');   // death cam shows her break up, then reports + shows the card
       if (F.toast) F.toast('CRASH — you slammed it in too hard');
     } else {
       // Touchdown → keep the sim open and ROLL OUT. We don't park yet: chop the throttle
