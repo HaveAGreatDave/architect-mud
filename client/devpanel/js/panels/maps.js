@@ -1527,7 +1527,7 @@ function renderMapOverview() {
       </div>`;
     }).join('');
   }
-  html += `<div style="color:var(--text-dim);margin-top:6px;font-size:10px">Drag to move · click zone to edit · click gap to connect/disconnect · click empty cell to create. Exit badges: <span style="color:var(--cyan)">▲▼</span> = up/down, <span style="color:#ff3b5c">red</span> = geometry error.</div>`;
+  html += `<div style="color:var(--text-dim);margin-top:6px;font-size:10px">Drag to move (auto-connects to neighbours) · click zone to edit · click empty cell to create. Exit badges: <span style="color:var(--cyan)">▲▼</span> = up/down, <span style="color:#ff3b5c">red</span> = geometry error.</div>`;
   html += `</div>`;
 
   // Grid — pad by one cell so there are empty cells to place new zones into.
@@ -1549,12 +1549,12 @@ function renderMapOverview() {
   const brokenByZone = new Map();
   for (const e of errors) { if (!brokenByZone.has(e.zoneId)) brokenByZone.set(e.zoneId, new Set()); brokenByZone.get(e.zoneId).add(e.direction); }
 
-  // Expanded grid: cells sit at even slots, with a connection slot in the gap
-  // between every pair of orthogonally-adjacent cells.
+  // Tight grid — tiles touch (no connection-gap slots). Connections are auto-wired on
+  // drag, shown as per-tile exit badges, and edited in the zone editor / validation panel.
   const W = maxX - minX + 1, H = maxY - minY + 1;
-  const colTmpl = Array.from({ length: 2 * W - 1 }, (_, i) => i % 2 ? '16px' : '110px').join(' ');
-  const rowTmpl = Array.from({ length: 2 * H - 1 }, (_, i) => i % 2 ? '16px' : '76px').join(' ');
-  const col = x => 2 * (x - minX) + 1, row = y => 2 * (y - minY) + 1;
+  const colTmpl = Array.from({ length: W }, () => '110px').join(' ');
+  const rowTmpl = Array.from({ length: H }, () => '76px').join(' ');
+  const col = x => x - minX + 1, row = y => y - minY + 1;
   const cellStyle = (x, y, extra = '') => `style="grid-column:${col(x)};grid-row:${row(y)}${extra}"`;
 
   html += `<div id="bigmap-grid-scroll" style="padding:12px;overflow:auto" ondragover="event.preventDefault()" ondrop="mapGridDrop(event)"><div class="map-scale-viewport"><div class="map-scale-inner"><div style="display:grid;grid-template-columns:${colTmpl};grid-template-rows:${rowTmpl}">`;
@@ -1596,17 +1596,21 @@ function renderMapOverview() {
       }
 
       if (mapTerrainMode) {
-        const terr = mapZoneTerrain(z);   // authored terrain wins; else the inferred surface, so nothing reads blank
+        const terr = mapZoneTerrain(z);
+        const fill = terr && terr !== 'road' ? TERRAIN_FILL_BY_KEY[terr] : null;
         const marker = z.marker ? `<span class="map-marker-badge">${z.marker}</span>` : '';
-        let tStyle = ';cursor:crosshair', ico = '', label = z.name;
+        let tStyle, ico = '', label = z.name;
         if (terr === 'road') {
           const conn = mapRoadConnector(z, byCoord);
           tStyle = `;background:${TERRAIN_FILL_BY_KEY.road};color:#f2c53d;cursor:crosshair`;
           ico = `<span style="display:inline-block;width:26px;height:26px;background:currentColor;-webkit-mask:url(/assets/zone-icons/${conn}.svg) center/contain no-repeat;mask:url(/assets/zone-icons/${conn}.svg) center/contain no-repeat"></span>`;
           label = '';
-        } else if (terr) {
-          const fill = TERRAIN_FILL_BY_KEY[terr];
+        } else if (fill) {
           tStyle = `;background:${fill};color:${luminanceTextColor(fill)};cursor:crosshair`;
+        } else {
+          // No known terrain (a plain 'Residential Area' tile, or an unrecognised value):
+          // fall back to the tile's authored colour so it's visible + paintable, not a blank hole.
+          tStyle = zoneColorStyle(z) + ';cursor:crosshair';
         }
         const handlers = `onmousedown="terrainPaintStart(event,'${z.id}')" onmouseenter="terrainPaintOver(event,'${z.id}')" onmouseup="terrainPaintEnd('${z.id}')" oncontextmenu="return false"`;
         html += `<div class="${cls}" ${cellStyle(x, y, tStyle)} data-map-cell="${x},${y}" title="${z.id} — ${terr || 'untyped'}" ${handlers}><div>${ico}${marker}${label}</div></div>`;
@@ -1639,26 +1643,6 @@ function renderMapOverview() {
     }
   }
 
-  // Connection slots between adjacent cells.
-  const connHtml = (a, b, dir, orient, gridStyle) => {
-    if (!a || !b) return `<div class="conn conn-${orient}" style="${gridStyle}"></div>`;
-    const opp = MAP_OPP[dir];
-    const aToB = a.exits[dir] === b.id, bToA = b.exits[opp] === a.id;
-    const click = ` onclick="mapToggleConn('${a.id}','${b.id}','${dir}')"`;
-    const title = ` title="${a.name} ↔ ${b.name}"`;
-    if (aToB && bToA) return `<div class="conn conn-${orient} conn-linked" style="${gridStyle}"${click}${title}><span class="ln"></span></div>`;
-    if (aToB || bToA) {
-      const arrow = orient === 'h' ? (aToB ? '▸' : '◂') : (aToB ? '▾' : '▴');
-      return `<div class="conn conn-${orient} conn-oneway" style="${gridStyle}"${click} title="one-way: ${aToB ? a.name + '→' + b.name : b.name + '→' + a.name}">${arrow}</div>`;
-    }
-    return `<div class="conn conn-${orient} conn-open" style="${gridStyle}"${click}${title}><span class="ln"></span></div>`;
-  };
-  for (let y = minY; y <= maxY; y++) for (let x = minX; x < maxX; x++) {
-    html += connHtml(byCoord.get(`${x},${y}`), byCoord.get(`${x + 1},${y}`), 'east', 'h', `grid-column:${col(x) + 1};grid-row:${row(y)}`);
-  }
-  for (let y = minY; y < maxY; y++) for (let x = minX; x <= maxX; x++) {
-    html += connHtml(byCoord.get(`${x},${y}`), byCoord.get(`${x},${y + 1}`), 'south', 'v', `grid-column:${col(x)};grid-row:${row(y) + 1}`);
-  }
   html += `</div></div></div></div>`;
 
   // Unplaced-zones tray:
@@ -1763,32 +1747,6 @@ async function switchMap(id) {
 function changeFloor(delta) {
   mapOverview.z += delta;
   renderMapOverview();
-}
-
-// Toggle a reciprocal connection between two adjacent zones from the gap slot.
-// Saves immediately so the Zones panel stays in sync without needing Save Layout.
-async function mapToggleConn(aId, bId, dir) {
-  const o = mapOverview;
-  const a = o.zones.get(aId), b = o.zones.get(bId);
-  if (!a || !b) return;
-  const opp = MAP_OPP[dir];
-  const wasLinked = a.exits[dir] === bId || b.exits[opp] === aId;
-  if (wasLinked) { delete a.exits[dir]; delete b.exits[opp]; }
-  else { a.exits[dir] = bId; b.exits[opp] = aId; }
-  renderMapOverview();
-  const [ra, rb] = await Promise.all([
-    API(`/zones/${aId}`, 'PUT', { exits: a.exits }),
-    API(`/zones/${bId}`, 'PUT', { exits: b.exits }),
-  ]);
-  if (ra?.error || rb?.error) {
-    // Revert in-memory on failure
-    if (wasLinked) { a.exits[dir] = bId; b.exits[opp] = aId; }
-    else { delete a.exits[dir]; delete b.exits[opp]; }
-    renderMapOverview();
-    toast(ra?.error || rb?.error, true);
-    return;
-  }
-  updateStagingBadge();
 }
 
 async function mapFixGeometry(zoneId, x, y, z) {
