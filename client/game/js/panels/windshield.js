@@ -410,10 +410,11 @@ export function paintWindshield(id, view) {
   // is ~half the size, so a fixed distance left it a dot) — normalised against CONTACT_SIZE so
   // every class fills a comparable slice of the frame. `extZoom` (mouse wheel) scales on top.
   const szRef = CONTACT_SIZE.prop || 0.11;
-  // Floor lowered 0.55 → 0.28 so the smallest airframes (the Mini 500 heli, ratio ~0.29) let the
-  // camera pull proportionally CLOSER — camera distance tracks model size, so a tiny craft fills the
-  // same frame slice as a prop instead of sitting as a distant speck (a genuinely tighter heli chase).
-  const szFac = clamp((CONTACT_SIZE[v.cls] || szRef) / szRef, 0.28, 1.15);
+  // Floor raised 0.28 → 0.46: the smallest airframes (the Mini 500 heli, ratio ~0.29) were pulling the
+  // camera in so tight the resting chase read as an uncomfortably close, squashed crop. The floor still
+  // lets a tiny craft sit CLOSER than a prop (so it isn't a distant speck) but keeps a comfortable
+  // standoff — the wheel can always dolly further in from here.
+  const szFac = clamp((CONTACT_SIZE[v.cls] || szRef) / szRef, 0.46, 1.15);
   const extZoom = clamp(v.extZoom || 1, 0.15, 2.4);   // floor lowered 0.30→0.15 so the camera can dolly in for a genuinely TIGHT crop (the Echelon deck-cam's final on-pad hold pushes down here) — only extends how far the wheel can zoom IN, resting default (1) unchanged
   // Vertical orbit (middle-drag up/down): the chase camera rides a fixed-radius ARC around the
   // craft — a turntable, like the hangar walkaround — instead of sliding straight up. `extPitch` is
