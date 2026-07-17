@@ -221,7 +221,13 @@ export function openHelmChase(container, opts = {}) {
 
     if (st.sailing) {
       const total = st.transitMs || 1;
-      st.sailT = Math.min(1, (total - Math.max(0, st.transitEnd - now)) / total);
+      // Clamp to [0,1]. The Math.max(0,…) is load-bearing, not cosmetic: transitEnd is stamped with
+      // performance.now() inside the cast-off event handler, but this frame's `now` is the rAF vsync
+      // timestamp, which can read slightly EARLIER — so on the first frame after Get Underway `remaining`
+      // exceeds the full passage and sailT would go a hair NEGATIVE. That negative made `f = sailT*segs`
+      // negative, `Math.floor(f) = -1`, and `st.path[-1]` undefined → "undefined is not iterable" threw
+      // and froze the whole scene (only on cast-off; a reopen has no path branch to index). Floor at 0.
+      st.sailT = Math.max(0, Math.min(1, (total - Math.max(0, st.transitEnd - now)) / total));
       if (now >= st.transitEnd) {
         st.sailT = 1; st.sailing = false;
         // With a real streamed world the server re-centres us (setWorld) on arrival — so HOLD the
