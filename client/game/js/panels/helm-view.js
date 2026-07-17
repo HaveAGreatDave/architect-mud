@@ -248,6 +248,11 @@ export function openHelmChase(container, opts = {}) {
     const drive = st.cruise * bell;
     st.spd += (drive - st.spd) * Math.min(1, dt * 3.2);
     if (st.spd < 0.004) st.spd = 0;
+    // Non-finite guard: spd + heading feed the yacht's WAKE (a canvas radial gradient), and canvas
+    // gradients THROW on a non-finite arg — which, in this un-try/caught loop, permanently freezes the
+    // 3D scene. `x < 0.004` is false for NaN, so a stray NaN would otherwise stick; snap it back.
+    if (!Number.isFinite(st.spd)) st.spd = 0;
+    if (!Number.isFinite(st.heading)) st.heading = st.headingTarget = 0;
     if (!st.center.wake) st.center.wake = { spd: 0 };
     st.center.wake.spd = st.spd;
     const hdgN = ((st.heading % 360) + 360) % 360;   // heading winds unbounded; the renderer wants 0..360
@@ -267,13 +272,17 @@ export function openHelmChase(container, opts = {}) {
       // A charted (pathfound) course: interpolate her continuous position along the polyline by the
       // passage progress, lead the yacht cell + pan the world by that offset (so she holds screen-
       // centre while the shoreline slides past), and swing the bow onto the current leg's heading.
-      const segs = st.path.length - 1, f = st.sailT * segs;
+      const segs = st.path.length - 1;
+      const raw = st.sailT * segs;
+      const f = Number.isFinite(raw) ? Math.max(0, Math.min(segs, raw)) : 0;   // NaN/out-of-range sailT must never index past the polyline (Math.min/max don't kill NaN, so test first)
       const i = Math.min(segs - 1, Math.floor(f)), local = f - i;
-      const [ax, ay] = st.path[i], [bx, by] = st.path[i + 1];
-      const cx = ax + (bx - ax) * local, cy = ay + (by - ay) * local;
-      const gx = cx - st.path[0][0], gy = cy - st.path[0][1];
-      st.mapOffset.x = gx; st.mapOffset.y = gy; st.center.sub = { x: gx, y: gy };
-      st.headingTarget = nearestEquiv(heading8(bx - ax, by - ay));   // ease onto each leg as she rounds the course
+      const a = st.path[i], b = st.path[i + 1], p0 = st.path[0];
+      if (a && b && p0) {
+        const cx = a[0] + (b[0] - a[0]) * local, cy = a[1] + (b[1] - a[1]) * local;
+        const gx = cx - p0[0], gy = cy - p0[1];
+        if (Number.isFinite(gx) && Number.isFinite(gy)) { st.mapOffset.x = gx; st.mapOffset.y = gy; st.center.sub = { x: gx, y: gy }; }
+        st.headingTarget = nearestEquiv(heading8(b[0] - a[0], b[1] - a[1]));   // ease onto each leg as she rounds the course
+      }
     } else if (st.sailing && st.sailDir) {
       const gx = DV[st.sailDir][0] * st.sailT * st.sailTiles, gy = DV[st.sailDir][1] * st.sailT * st.sailTiles;
       st.mapOffset.x = gx; st.mapOffset.y = gy;
