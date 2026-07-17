@@ -7,7 +7,7 @@
   ],
   "description": "Adjunct Wren has a form for everything and a pen that never runs dry. She logs each visitor to the ruins in triplicate and issues citations for infractions no one else can see. Cross her and the paperwork becomes eternal.",
   "dialogue_tree": {},
-  "faction": "faction_custodians",
+  "faction": "ideology_ascendants",
   "flags": {
     "clothing_layers": [
       "a laminated tabard hung with cleaning-rota clipboards",

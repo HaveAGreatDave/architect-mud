@@ -2,7 +2,7 @@
   "description": "A pint of raw ether and a rag. Not the smart choice, but here we are.",
   "flags": {},
   "id": "item_ether",
-  "name": "ether",
+  "name": "Ether",
   "tags": {
     "drug": true
   },

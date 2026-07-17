@@ -1,0 +1,19 @@
+{
+  "description": "Orbital-distilled vodka, run through a hundred passes of vacuum until there's nothing left but cold and clarity. Tasteless, odourless, and lethally smooth.",
+  "flags": {},
+  "id": "item_drink_orbital_vodka",
+  "name": "orbital vodka",
+  "tags": {
+    "consumable": true,
+    "description": "Orbital-distilled vodka, run through a hundred passes of vacuum until there's nothing left but cold and clarity. Tasteless, odourless, and lethally smooth.",
+    "hydrating": true,
+    "laced_drug": "drug_alcohol",
+    "laced_potency": 1.9,
+    "restore_sanity": 16,
+    "restore_thirst": 16,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 130,
+  "weight": 400
+}

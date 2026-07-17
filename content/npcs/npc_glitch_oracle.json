@@ -8,7 +8,7 @@
   ],
   "description": "Oracle-9 sits in the dark of The Under with her eyes half-closed and a fan of severed fibre-optic running into a socket at the base of her skull. The Glitch treat her word as scripture; she treats packet loss as prophecy. She may be brilliant. She is definitely not well.",
   "dialogue_tree": {},
-  "faction": "faction_glitch",
+  "faction": "ideology_exodus",
   "flags": {
     "clothing_layers": [
       "a cloak stitched from dead server-blade shielding",

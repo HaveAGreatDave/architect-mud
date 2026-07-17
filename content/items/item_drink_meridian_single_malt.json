@@ -1,0 +1,20 @@
+{
+  "description": "A Meridian black-label single malt, cask-strength and unhurried. It burns clean and warm, the way expensive things always do.",
+  "flags": {},
+  "id": "item_drink_meridian_single_malt",
+  "name": "Meridian single malt",
+  "tags": {
+    "consumable": true,
+    "description": "A Meridian black-label single malt, cask-strength and unhurried. It burns clean and warm, the way expensive things always do.",
+    "hydrating": true,
+    "laced_drug": "drug_alcohol",
+    "laced_potency": 1.7,
+    "restore_hp": 2,
+    "restore_sanity": 22,
+    "restore_thirst": 12,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 160,
+  "weight": 400
+}

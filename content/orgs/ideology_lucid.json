@@ -1,0 +1,30 @@
+{
+  "color": "#4FD1E0",
+  "description": "Raw psionics is for those who flee to find it; the Lucid engineered the same faculty and stayed to use it. Theirs is the science of mind — foresight, deduction, and quiet influence distilled into discipline, method, and a signature clarity-drug, never a single implant. They hold that a mind sharpened past the human ceiling can steward Coldwater Basin more justly than the Architect ever could, and they mean to prove it from the inside. The furthest gone can still a crowded room and read it whole — outcomes branching ahead of them like text, a dozen minds nudged without a word, the whole city rendered legible to someone who simply thinks faster and cleaner than anything the machine can build.",
+  "flags": {
+    "creed": "A disciplined mind can steward the Basin better than any machine.",
+    "stance": "redeem",
+    "path": "mind",
+    "authority": "human",
+    "expansion": true,
+    "values": ["Clarity", "Discipline", "Foresight", "Reason", "Stewardship"],
+    "reader": {
+      "motto": "clarify",
+      "pull": "The Architect computes the city. We out-think it — and we never needed its permission to be brilliant.",
+      "tenets": [
+        "The mind is the last frontier, and the only one you can't be sold.",
+        "Clarity is engineered — discipline, chemistry, method. Not magic.",
+        "Stay, and steward the Basin with a sharper mind than the machine's."
+      ],
+      "path_text": "The Mind, engineered. Not the Exodus's raw awakening but its science — nootropics, mnemonics, and predictive method that grant foresight, deduction, and influence while you keep the city.",
+      "relnote": "Quarrel with the Architect's servants and the reserved psychic wardens who mirror them; regard the Exodus as kin who mistook a discipline for a religion and walked away."
+    }
+  },
+  "founded_at": "1783000349",
+  "id": "ideology_lucid",
+  "is_npc": 1,
+  "name": "The Lucid",
+  "owner_id": null,
+  "tier": 1,
+  "treasury": 0
+}

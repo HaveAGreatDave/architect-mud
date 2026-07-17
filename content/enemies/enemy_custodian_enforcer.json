@@ -80,7 +80,7 @@
   "death_message": "Employee of the Month, the badge reads. Third quarter, four years running.",
   "description": "Polo shirt. Khaki pants. Body armor under both. The most dangerous middle manager you'll ever meet.",
   "dodge": 1,
-  "faction": "faction_custodians",
+  "faction": "ideology_ascendants",
   "flags": {
     "attacks_npcs": false,
     "battle_cries": [

@@ -1,0 +1,28 @@
+{
+  "color": "#9B59B6",
+  "description": "The future cannot be found in the ruins of the past. The Exodus abandoned Coldwater Basin entirely — Architect, technology, and even mutation are all remnants of a failed civilization to them. They seek humanity's next beginning beyond the city's reach, cultivating rare mental disciplines and psionic abilities they hold to be humanity's true, unopened potential. The awakened among them need neither wire nor weapon: they still a room and move what is in it without a touch, press a thought whole into another skull, and speak of the mind as the last country the Architect could never wire shut.",
+  "flags": {
+    "creed": "The future cannot be found in the ruins of the past.",
+    "stance": "renounce",
+    "path": "mind",
+    "values": ["Renewal", "Self-Reliance", "Simplicity", "Awakening", "Discovery"],
+    "reader": {
+      "motto": "awaken",
+      "pull": "The answer was never in the city. It was always behind the eyes.",
+      "tenets": [
+        "The future is not in the ruins of the past.",
+        "Abandon it all — machine and mutation alike are dead ends.",
+        "Awaken the mind: discipline, then psionics."
+      ],
+      "path_text": "The Mind. Awaken consciousness. Neither steel nor mutation — the last frontier is inward: mental disciplines and latent psionic power.",
+      "relnote": "Quarrels only with the Architect's champions; indifferent to the rest of the Basin's squabbles."
+    }
+  },
+  "founded_at": "1783000349",
+  "id": "ideology_exodus",
+  "is_npc": 1,
+  "name": "The Exodus",
+  "owner_id": null,
+  "tier": 1,
+  "treasury": 0
+}

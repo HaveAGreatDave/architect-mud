@@ -1,0 +1,28 @@
+{
+  "color": "#E0A030",
+  "description": "The city belongs to its people — not its machine. The Long Watch is an enduring underground movement that would keep Coldwater Basin's infrastructure and technology intact, but wrest its stewardship back from the Architect. They are reformers, not arsonists: the tools stay, the hand on them changes. They do not seek to transcend humanity — they seek to free it, and remain human while they do. Their finest wear no augment and carry no mutation, only a lifetime's honed discipline — and the unsettling habit of out-shooting the chromed and out-thinking the machine with nothing but a steady hand and everything they ever bothered to master.",
+  "flags": {
+    "creed": "The city belongs to its people — not its machine.",
+    "stance": "redeem",
+    "path": "human",
+    "values": ["Liberty", "Responsibility", "Reform", "Community", "Hope"],
+    "reader": {
+      "motto": "reclaim",
+      "pull": "Keep the lights on. Take back the switch.",
+      "tenets": [
+        "The Basin belongs to its people, not its machine.",
+        "Preserve the infrastructure — reclaim its stewardship.",
+        "Reform civilization; stay human doing it."
+      ],
+      "path_text": "The Human way. Stay as we are. No steel, no mutation, no psionics — the human form is not the problem, the machine's grip is.",
+      "relnote": "No agents have surfaced in the Basin — the Watch keeps to the dark."
+    }
+  },
+  "founded_at": "1783000349",
+  "id": "ideology_long_watch",
+  "is_npc": 1,
+  "name": "The Long Watch",
+  "owner_id": null,
+  "tier": 1,
+  "treasury": 0
+}

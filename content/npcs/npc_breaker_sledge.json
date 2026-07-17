@@ -8,7 +8,7 @@
   ],
   "description": "A slab of a man gone to rust, Sledge runs the Breakers' end of Slaughter Lane with a length of rebar and a grudge against anything that beeps. Half his face is a burn scar shaped like a circuit board — a souvenir, he'll tell you, from teaching a drone some manners. He does not blink much.",
   "dialogue_tree": {},
-  "faction": "faction_breakers",
+  "faction": "ideology_wildblood",
   "flags": {
     "clothing_layers": [
       "a battle-jacket riveted with road-signs and bike chain",

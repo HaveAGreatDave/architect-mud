@@ -1,0 +1,42 @@
+{
+  "description": "A tall apothecary cabinet built into the bulkhead beside the bar — smoked-glass doors, brushed-titanium frame, softly refrigerated. Behind the glass, ranked and labelled in a hand that clearly didn't expect to answer to anyone, is a pharmacy's worth of everything: uppers, downers, dreamers, and things with no honest category at all. LOOK IN it, or TAKE what you want — it restocks itself, endlessly.",
+  "flags": {
+    "container": 60000,
+    "restock_items": [
+      "item_drug_buzz",
+      "item_overclock",
+      "item_redline",
+      "item_coldfire",
+      "item_static",
+      "item_amyls",
+      "item_drug_slow",
+      "item_grey",
+      "item_blacktar",
+      "item_lull",
+      "item_memhack",
+      "item_drug_glasshollow",
+      "item_blotter",
+      "item_mescaline",
+      "item_psilocybin",
+      "item_laughers",
+      "item_screamers",
+      "item_dreamsmoke",
+      "item_ether",
+      "item_khole",
+      "item_voidwalk",
+      "item_threshold",
+      "item_joint",
+      "item_cigarettes"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_echelon_suite_drug_cabinet",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "apothecary cabinet",
+  "object_type": "container",
+  "power_draw_kw": 0,
+  "price": 0,
+  "zone_id": "zone_echelon_suite"
+}

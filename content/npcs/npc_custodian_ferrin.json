@@ -8,7 +8,7 @@
   ],
   "description": "Deacon Ferrin tends the ruins of Old Coldwater the way a verger tends a cathedral — reverently, and with a clipboard. He believes the Architect maintains all things and that the Custodians are simply its middle management. He will explain this to you at length, whether or not you asked.",
   "dialogue_tree": {},
-  "faction": "faction_custodians",
+  "faction": "ideology_ascendants",
   "flags": {
     "clothing_layers": [
       "a hi-vis vestment worn over a charcoal three-piece suit",

@@ -2,7 +2,7 @@
   "description": "A combat stim that turns fear into fuel. Frontline mercs swear by it, and at it.",
   "flags": {},
   "id": "item_coldfire",
-  "name": "coldfire",
+  "name": "Coldfire",
   "tags": {
     "drug": true
   },

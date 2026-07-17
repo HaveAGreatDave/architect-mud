@@ -43,7 +43,7 @@
   ],
   "description": "Gita Marsh holds down the end of the bar like she paid for it — forearms scarred, knuckles worse, a grin that's mostly threat. She watches the door more than the room and greets trouble by name. Whatever she's moving, she isn't shy about who she is; only about what.",
   "dialogue_tree": {},
-  "faction": "faction_breakers",
+  "faction": null,
   "flags": {
     "covert": true,
     "deal_from": 18,

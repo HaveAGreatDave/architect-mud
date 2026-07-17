@@ -21,7 +21,7 @@
   },
   "id": "drug_coffee",
   "item_id": "item_drug_coffee",
-  "name": "Coffee",
+  "name": "coffee",
   "overdose_threshold": 6,
   "withdrawal_effects": {}
 }

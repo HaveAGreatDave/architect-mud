@@ -131,12 +131,17 @@
             {
               "action": "ADJUST_REPUTATION",
               "delta": 8,
-              "faction_id": "faction_franchise",
+              "ideology_id": "ideology_wildblood",
               "reason": "creed:survival"
             },
             {
-              "action": "ADJUST_ARCHITECT",
-              "delta": -5
+              "action": "ADJUST_STANCE",
+              "delta": -8
+            },
+            {
+              "action": "ADJUST_PATH",
+              "path": "flesh",
+              "delta": 8
             },
             {
               "action": "SET_FLAG",
@@ -160,12 +165,17 @@
             {
               "action": "ADJUST_REPUTATION",
               "delta": 8,
-              "faction_id": "faction_archivists",
+              "ideology_id": "ideology_long_watch",
               "reason": "creed:memory"
             },
             {
-              "action": "ADJUST_ARCHITECT",
-              "delta": -3
+              "action": "ADJUST_STANCE",
+              "delta": 8
+            },
+            {
+              "action": "ADJUST_PATH",
+              "path": "human",
+              "delta": 8
             },
             {
               "action": "SET_FLAG",
@@ -189,12 +199,17 @@
             {
               "action": "ADJUST_REPUTATION",
               "delta": 8,
-              "faction_id": "faction_custodians",
+              "ideology_id": "ideology_ascendants",
               "reason": "creed:devotion"
             },
             {
-              "action": "ADJUST_ARCHITECT",
-              "delta": 12
+              "action": "ADJUST_STANCE",
+              "delta": 8
+            },
+            {
+              "action": "ADJUST_PATH",
+              "path": "machine",
+              "delta": 8
             },
             {
               "action": "SET_FLAG",
@@ -218,12 +233,17 @@
             {
               "action": "ADJUST_REPUTATION",
               "delta": 8,
-              "faction_id": "faction_breakers",
+              "ideology_id": "ideology_exodus",
               "reason": "creed:ruin"
             },
             {
-              "action": "ADJUST_ARCHITECT",
-              "delta": -12
+              "action": "ADJUST_STANCE",
+              "delta": -8
+            },
+            {
+              "action": "ADJUST_PATH",
+              "path": "mind",
+              "delta": 8
             },
             {
               "action": "SET_FLAG",

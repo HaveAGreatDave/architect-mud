@@ -1,0 +1,20 @@
+{
+  "description": "Vintage crown champagne, still faintly effervescent after all these years. Each bubble is a small, expensive apology for the state of the world.",
+  "flags": {},
+  "id": "item_drink_crown_champagne",
+  "name": "crown champagne",
+  "tags": {
+    "consumable": true,
+    "description": "Vintage crown champagne, still faintly effervescent after all these years. Each bubble is a small, expensive apology for the state of the world.",
+    "hydrating": true,
+    "laced_drug": "drug_alcohol",
+    "laced_potency": 1.1,
+    "restore_hp": 3,
+    "restore_sanity": 20,
+    "restore_thirst": 18,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 180,
+  "weight": 400
+}

@@ -44,7 +44,7 @@
   ],
   "description": "Wick Sorel wears a hi-vis vest bleached grey with age and carries a clipboard no one has asked to see in years. He talks pallets and pickup windows into an intercom that stopped answering long before you got here, and he'll quote you a delivery schedule for anything — anything at all — if you know how to ask for it.",
   "dialogue_tree": {},
-  "faction": "faction_glitch",
+  "faction": null,
   "flags": {
     "covert": true,
     "deal_from": 8,

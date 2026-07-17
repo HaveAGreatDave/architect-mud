@@ -7,7 +7,7 @@
   ],
   "description": "Nyla keeps a row of bottles racked on her hip, each stoppered with an oily rag, and the easy smile of someone who genuinely enjoys her work. The Breakers point her at anything with a screen and let her cook.",
   "dialogue_tree": {},
-  "faction": "faction_breakers",
+  "faction": "ideology_wildblood",
   "flags": {
     "clothing_layers": [
       "a fireproof tabard scorched black at every hem",

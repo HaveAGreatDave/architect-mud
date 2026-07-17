@@ -2,7 +2,7 @@
   "description": "A memory-editing synth. Sands the barbs off your worst recollections. Mostly.",
   "flags": {},
   "id": "item_memhack",
-  "name": "memhack",
+  "name": "Memhack",
   "tags": {
     "drug": true
   },

@@ -1,0 +1,29 @@
+{
+  "color": "#2EC4B6",
+  "description": "Mutation is not a wound to be cured or a wilderness to flee into — it is the next draft of the species, and it can be written on purpose. The Synthesis embrace the changing body but refuse the Wildblood's bonfire: let the city stand, let the towers keep their lights, and grow something new inside them. Guided flesh, directed adaptation, diversity by design — a civilization that mutates without falling apart. Their exemplars read like something authored: every trait chosen and grown on purpose — senses tuned past the human band, wounds that knit closed as you watch, symbiotes woven in as living armor — the body remade with an architect's care and none of the Architect's leash.",
+  "flags": {
+    "creed": "Humanity should evolve — but civilization should evolve with it.",
+    "stance": "redeem",
+    "path": "flesh",
+    "expansion": true,
+    "values": ["Evolution", "Integration", "Adaptation", "Diversity", "Acceptance"],
+    "reader": {
+      "motto": "flourish",
+      "pull": "The Wildblood would burn the greenhouse to free one flower. We tend the whole garden.",
+      "tenets": [
+        "Evolve the body on purpose, not by accident.",
+        "Keep the city — grow something new inside it.",
+        "Diversity is engineered, celebrated, and directed."
+      ],
+      "path_text": "The Flesh, guided. Controlled mutation, regenerative traits, and symbiosis — the body remade deliberately, inside a civilization built to survive the change.",
+      "relnote": "At odds with the Wildblood, who would tear down what the Synthesis would cultivate; dismiss the Ascendants' steel as an evolutionary dead end."
+    }
+  },
+  "founded_at": "1783000349",
+  "id": "ideology_synthesis",
+  "is_npc": 1,
+  "name": "The Synthesis",
+  "owner_id": null,
+  "tier": 1,
+  "treasury": 0
+}

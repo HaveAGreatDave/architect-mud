@@ -1,0 +1,20 @@
+{
+  "description": "Genuine pre-Collapse cognac, the label half-eaten by time and worth more than most people's lives. Smells of oak, apricot, and a world that no longer exists.",
+  "flags": {},
+  "id": "item_drink_pre_collapse_cognac",
+  "name": "pre-Collapse cognac",
+  "tags": {
+    "consumable": true,
+    "description": "Genuine pre-Collapse cognac, the label half-eaten by time and worth more than most people's lives. Smells of oak, apricot, and a world that no longer exists.",
+    "hydrating": true,
+    "laced_drug": "drug_alcohol",
+    "laced_potency": 1.8,
+    "restore_hp": 4,
+    "restore_sanity": 26,
+    "restore_thirst": 14,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 240,
+  "weight": 400
+}

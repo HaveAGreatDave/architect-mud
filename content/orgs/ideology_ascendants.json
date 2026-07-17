@@ -1,0 +1,29 @@
+{
+  "color": "#4A90D9",
+  "description": "Humanity's next evolution will be engineered. The Ascendants hold the Architect to be humanity's greatest achievement — not a jailer to be broken but a mind to be joined. Civilization is not to be abandoned but perfected: through cybernetics, artificial intelligence, cloning, and relentless scientific progress the species climbs past its own limits. The furthest along that climb are barely flesh at all — chrome-laced, death itself backed up and defied, their thoughts already bleeding into the machine they intend to become.",
+  "flags": {
+    "creed": "Humanity's next evolution will be engineered.",
+    "stance": "redeem",
+    "path": "machine",
+    "authority": "architect",
+    "values": ["Progress", "Order", "Technology", "Rationality", "Optimization"],
+    "reader": {
+      "motto": "advance",
+      "pull": "We did not build a god to kneel before it. We built it to become it.",
+      "tenets": [
+        "The Architect is our masterwork, not our enemy.",
+        "Civilization is perfected, never abandoned.",
+        "Ascension is engineered — steel, code, and cloned flesh."
+      ],
+      "path_text": "The Machine. Merge with technology. Cybernetics, AI, and cloning are the ladder — the body is hardware to be upgraded.",
+      "relnote": "Champions of the machine-city, reviled by every other order."
+    }
+  },
+  "founded_at": "1783000349",
+  "id": "ideology_ascendants",
+  "is_npc": 1,
+  "name": "The Ascendants",
+  "owner_id": null,
+  "tier": 1,
+  "treasury": 0
+}

@@ -1,0 +1,28 @@
+{
+  "color": "#6AB04C",
+  "description": "Life survives by adapting, not by preserving. The Wildblood reject the Architect and the artificial order of the Basin outright. To them mutation is no disease but humanity's natural future — the body remembering how to change. Civilization has become a cage; and if the old world must die so something new can crawl out of it, so be it. Their eldest wear their evolution in the open — armored hide, senses the old anatomy never named, limbs it never accounted for — each change carried not as damage but as another rung the species climbed without asking permission.",
+  "flags": {
+    "creed": "Life survives by adapting, not by preserving.",
+    "stance": "renounce",
+    "path": "flesh",
+    "values": ["Adaptation", "Freedom", "Instinct", "Evolution", "Resilience"],
+    "reader": {
+      "motto": "adapt",
+      "pull": "The cage rusts. We are what grows through the bars.",
+      "tenets": [
+        "Life survives by adapting, not preserving.",
+        "Mutation is not disease — it is our future.",
+        "Civilization is a cage; let the old world die."
+      ],
+      "path_text": "The Flesh. Adapt the body. Mutation is embraced, not cured — evolution taken back into our own hands and blood.",
+      "relnote": "Renounces the Basin alongside the Exodus — no quarrel there, only with those who'd save the city."
+    }
+  },
+  "founded_at": "1783000349",
+  "id": "ideology_wildblood",
+  "is_npc": 1,
+  "name": "The Wildblood",
+  "owner_id": null,
+  "tier": 1,
+  "treasury": 0
+}

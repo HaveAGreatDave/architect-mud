@@ -2,7 +2,7 @@
   "description": "A thick blue syrup. Time gets soft.",
   "flags": {},
   "id": "item_drug_slow",
-  "name": "slow",
+  "name": "Slow",
   "tags": {
     "description": "A thick blue syrup. Time gets soft.",
     "drug": true,
