@@ -1,0 +1,19 @@
+{
+  "description": "A modest oval of green felt, hand-worn and honest, ringed by four club chairs under one low lamp. No chip readers, no screens — just a hand-shuffled deck squared at the dealer's end and a brass tray of chips going dull with age. This is where the old-school game runs: cards dealt by hand and called aloud, so you can play it blind and never lose the thread.",
+  "flags": {
+    "game_table_id": "gametable_neonvig_oldschool",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_backroom_poker_table",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "Old-School Poker Table",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 1400,
+  "zone_id": "zone_casino_backroom"
+}

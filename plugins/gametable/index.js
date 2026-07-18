@@ -11,6 +11,8 @@ import { renderHandASCII } from './cards.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
 import { registerAction } from '../../server/engine/actions.js';
 import { on } from '../../server/engine/events.js';
+import { getFlag, setFlag } from '../../server/engine/flags.js';
+import { textModePlayers } from './text-mode.js';
 
 // ── Boot ───────────────────────────────────────────────────────────────────────
 
@@ -75,6 +77,18 @@ function tableInZone(zoneId, name = null) {
   return null;
 }
 
+// Sync a player's runtime text-mode membership when they sit or spectate (not a
+// hot path). Text mode is on if the player has personally opted in
+// (player_flags.poker_text_mode) OR the table itself is an old-school text table
+// (config.textTable) — the back-room felt always plays called-aloud. The
+// narration code only ever consults the Set, never the DB.
+async function ensureTextPref(player, table) {
+  if (table?.config?.textTable) { textModePlayers.add(player.id); return; }
+  const v = await getFlag('player', 'poker_text_mode', player).catch(() => undefined);
+  if (v === 'true') textModePlayers.add(player.id);
+  else textModePlayers.delete(player.id);
+}
+
 // ── Commands ───────────────────────────────────────────────────────────────────
 
 async function cmdJoin(args, raw, player) {
@@ -87,6 +101,7 @@ async function cmdJoin(args, raw, player) {
   const result = await t.joinTable(player);
   if (!result.ok) return { type: 'error', message: result.error };
 
+  await ensureTextPref(player, t);
   t.pushPaneAll();
   return {
     type: 'poker_update',
@@ -132,6 +147,7 @@ async function cmdSeat(args, raw, player) {
   // Not seated yet — buy in at the chosen seat.
   const result = await t.joinTable(player, n);
   if (!result.ok) return { type: 'error', message: result.error };
+  await ensureTextPref(player, t);
   t.pushPaneAll();
   return { type: 'poker_update', html: renderPane(t, player.id) };
 }
@@ -156,6 +172,7 @@ async function cmdWatch(args, raw, player) {
   const t = tableInZone(player.current_zone, args.join(' ') || null);
   if (!t) return { type: 'error', message: 'No poker table here.' };
   t.addSpectator(player.id);
+  await ensureTextPref(player, t);
   return { type: 'poker_update', html: renderPane(t, player.id) };
 }
 
@@ -494,6 +511,24 @@ async function cmdPlayers(args, raw, player) {
   return { type: 'output', message: lines.join('<br>') };
 }
 
+// `pokertext [on|off]` — toggle screen-reader text mode. When on, the table
+// narrates hole cards, the board, and your turn to the scrolling log (in ASCII),
+// on top of the normal visual pane. Persisted in player_flags so it sticks.
+async function cmdPokerText(args, raw, player) {
+  const a = (args[0] || '').toLowerCase();
+  const on = a === 'on' ? true : a === 'off' ? false : !textModePlayers.has(player.id);
+  if (on) textModePlayers.add(player.id);
+  else textModePlayers.delete(player.id);
+  await setFlag('player', 'poker_text_mode', on ? 'true' : 'false', player).catch(() => {});
+  const y = s => `<span style="color:var(--yellow)">${s}</span>`;
+  return {
+    type: 'output',
+    message: on
+      ? `${y('Poker text mode ON.')} The table will narrate your hole cards, the board on every street, and your turn (with pot and to-call) to this log — in ASCII, alongside the visual table. Type <b>pokertext off</b> to stop.`
+      : `${y('Poker text mode OFF.')} Back to the visual table only.`,
+  };
+}
+
 async function cmdShowHand(args, raw, player) {
   const t = tableForPlayer(player);
   if (!t || !t.game) return { type: 'error', message: 'No active hand.' };
@@ -539,6 +574,7 @@ function pokerHelpHTML(t) {
     ``,
     h(`INFO & OUT`),
     `  ${y('board')}  ${y('pot')}  ${y('players')}  ${y('showhand')}  ${y('table')}`,
+    `  ${y('pokertext')}    screen-reader mode: narrate cards/board/your turn to this log`,
     `  ${y('leave')}        cash your chips back to credits and stand up`,
     ``,
     `<i>Hands can't be dealt without the dealer present. Your money hits the felt as you bet.</i>`,
@@ -760,4 +796,5 @@ export const commands = {
   pot:       cmdPot,
   players:   cmdPlayers,
   showhand:  cmdShowHand,
+  pokertext: cmdPokerText,
 };

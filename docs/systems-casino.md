@@ -75,9 +75,67 @@ zone `zone_casino_interior`, `game_type: 'holdem'`, `smallBlind 10` /
 `bigBlind 20`, `buyIn 250` (`minBuyIn 100` / `maxBuyIn 2000`),
 `turnTimerSecs 30`, `dealerNpcId: "npc_neonvig_dealer"`. Reload the world after.
 
+## Back-room old-school (text) table
+
+A second, self-contained poker table in a back room off the floor — the
+**called-aloud** table, built around the [text-mode](#text-mode-screen-reader-accessibility)
+accessibility layer so it plays fully by the log. Same Hold'em engine; no plugin
+code beyond the `config.textTable` seam.
+
+- **Room:** `zone_casino_backroom` — "The Neon Vig — Back Room", `east` from the
+  floor / `west` back (shares the casino's interior `map_id`). A separate zone on
+  purpose: the seat/furniture-panel/`take_seat` bridges assume **one table per
+  zone**, so a second table in the main room would misroute seats.
+- **Dealer:** `npc_neonvig_backroom_dealer` — **Marguerite "Margo" Sable**
+  (female, `personality: dealer`, `flags.table_id: "gametable_neonvig_oldschool"`,
+  homed to the back room). She deals by hand and "calls every card aloud, the old
+  way" — her dialogue/chitchat sell the accessible framing.
+- **Wiring:** `furn_backroom_poker_table` + `furn_backroom_chair_1..4`
+  (`flags.game_table_id: "gametable_neonvig_oldschool"`, `seat_idx 0..3`).
+- **The `textTable` flag** (on the `game_tables` config, not content): the
+  `gametable` plugin (a) **force-enables text narration** for anyone who sits or
+  spectates — no personal `pokertext` opt-in needed (`ensureTextPref`), and (b)
+  unlocks Margo's **old-school dealer quips** (`OLD_SCHOOL_LINES` in
+  [game-table.js](../plugins/gametable/game-table.js), blended into `_quip` at
+  ~50% for a flagged table). Cheaper, slower table: `smallBlind 5`/`bigBlind 10`,
+  `buyIn 100`, `turnTimerSecs 45` (more time to act by ear).
+- **Seed (runtime row, same as above):**
+
+  ```
+  node scripts/seed-neonvig-oldschool-poker.mjs                    # local
+  node --env-file=.env.prod scripts/seed-neonvig-oldschool-poker.mjs   # prod
+  ```
+
+  Inserts `game_tables` id `gametable_neonvig_oldschool`, zone
+  `zone_casino_backroom`, `textTable: true`,
+  `dealerNpcId: "npc_neonvig_backroom_dealer"`. Reload the world after.
+
 ## Verb ownership
 
 | Verb(s) | Owner |
 |---|---|
 | `spin`, `slots` | `slots` |
-| `join`, `seat`, `leave`, `spectate`, `check`, `call`, `deal`, `summon`, `evict`, `calldealer`, `bet`, `raise`, `fold`, `allin`, `table`, `board`, `pot`, `players`, `showhand` (+ routed `say`/`look`/`help`/`watch`) | `gametable` |
+| `join`, `seat`, `leave`, `spectate`, `check`, `call`, `deal`, `summon`, `evict`, `calldealer`, `bet`, `raise`, `fold`, `allin`, `table`, `board`, `pot`, `players`, `showhand`, `pokertext` (+ routed `say`/`look`/`help`/`watch`) | `gametable` |
+
+## Text mode (screen-reader accessibility)
+
+The visual table lives in the area pane (`poker_update` HTML) a screen reader
+can't follow. **`pokertext [on|off]`** (bare = toggle) is a per-player opt-in that
+narrates the pane-only moments to the scrolling log as ASCII, *on top of* the
+normal visual table — it doesn't replace it, and it's invisible to everyone else.
+Persisted in `player_flags.poker_text_mode`; the runtime check is an in-memory
+`Set` ([text-mode.js](../plugins/gametable/text-mode.js)) loaded once when you
+sit/spectate, so narration never touches the DB.
+
+Three additions (everything else — opponent actions, dealer quips, winners —
+already reaches the log via `_dealerSay`):
+
+- **Your hole cards** at the deal, plus your blind/button role.
+- **The community board** (ASCII) on the flop, turn, river, and final showdown.
+- **A compact "▶ Your turn" line** with the pot, your stack, and to-call amount +
+  the legal commands — the signal a screen reader otherwise never gets (today
+  "your turn" is only a sound cue).
+
+`GameTable` calls the `text-mode.js` builders at those transition points
+(`startHand`, `_onPhaseResult`, `_startTurnTimer`); `board`/`showhand` still
+re-show the cards on demand.

@@ -10,6 +10,7 @@ import { findPath } from '../../server/engine/pathfinding.js';
 import { HoldemGame } from './games/holdem.js';
 import { renderPane } from './render-pane.js';
 import { botId, isBotId, decideBotAction, botChatter, botOutcomeLine } from './bot-player.js';
+import { narrateDeal, narrateStreet, narrateShowdown, narrateTurn } from './text-mode.js';
 
 export const MAX_SEATS = 4;
 const AUTO_START_DELAY_MS = 15_000; // wait this long after 2nd player joins before starting
@@ -82,6 +83,39 @@ const WAITING_LINES = {
     'This is the part where a crowd gathers. Any second now. Annnny second.',
     'You, me, and a whole lot of nothing, {name}. Riveting stuff.',
     'Tumbleweed would liven this place up. Sit tight, {name}.',
+  ],
+};
+
+// Old-school flavor for a text table (config.textTable): the dealer calls every
+// card aloud "the old way," which doubles as the accessibility narration hook.
+// Blended into _quip at ~50% when the table is flagged, so she stays in voice
+// without drowning out the standard house lines.
+const OLD_SCHOOL_LINES = {
+  newHand: [
+    "We do this the old way here, hon — cards called, not clicked. Ante up.",
+    "No screens at my table. Cards in the air, and I read 'em as I call 'em.",
+    "Old-school rules: I deal by hand, I call it aloud, you keep up. Shuffle up.",
+  ],
+  flop: [
+    "Flop's out — I'll call it for the room. Old habits die hard.",
+    "I read every card at this table, the way it was done before the machines.",
+  ],
+  turn: [
+    "Turn card, called aloud like they did before the neon.",
+    "Fourth street. I'll say it plain so everyone at the felt hears it.",
+  ],
+  river: [
+    "River. Last one, and I'll call it clear.",
+    "No screen to squint at here — just my voice and the felt.",
+  ],
+  showdown: [
+    "Turn 'em up. I'll call the winner the old-fashioned way.",
+    "Showdown, hon. I read the hands out loud — always have.",
+  ],
+  idle: [
+    "This table's older than the neon out front, and so am I.",
+    "Back when I started, we called every card aloud. Still do, right here.",
+    "No blinking lights at my felt. Just cards, chips, and a voice that carries.",
   ],
 };
 
@@ -404,6 +438,7 @@ export class GameTable {
     this._stopShuffleLoop(); // shuffle's been running through the countdown — cut it the instant we deal
     this._pushSfx('deal');
     this.pushPaneAll();
+    narrateDeal(this); // text-mode players get their hole cards in the log
     this._promptOrRunout();
     this._lastPersist = 0; // force persist on next tick
   }
@@ -459,9 +494,11 @@ export class GameTable {
       this._sweepAnim = true; // bets were just reset — animate the sweep to the pot
       this._pushSfx('deal');  // community cards hit the felt
       this.pushPaneAll();
+      narrateStreet(this, pr.phase); // text-mode players get the new board in the log
       this._promptOrRunout();
     } else if (pr.phase === 'showdown') {
       this._dealerSay(this._quip('showdown'));
+      narrateShowdown(this); // final board to the log before the dealer calls winners
       this.lastWinners = (pr.winners || []).map(w => w.seat.playerId);
       for (const w of (pr.winners || [])) {
         if (w.handName) {
@@ -554,6 +591,7 @@ export class GameTable {
 
     // Private prompt so the acting player notices the action has reached them.
     this._pushSfx('turn', pid);
+    narrateTurn(this, pid); // text-mode players get a compact "your turn" line
 
     const warnHandle = setTimeout(() => {
       sendToPlayer(pid, { type: 'output', message: '⚠ 10 seconds to act.' });
@@ -773,6 +811,12 @@ export class GameTable {
   }
 
   _quip(kind) {
+    // On an old-school text table, half the time the dealer calls it "the old
+    // way" instead of the standard house line.
+    if (this.config.textTable && OLD_SCHOOL_LINES[kind] && Math.random() < 0.5) {
+      const os = OLD_SCHOOL_LINES[kind];
+      return os[Math.floor(Math.random() * os.length)];
+    }
     const lines = DEALER_LINES[kind];
     if (!lines || !lines.length) return '';
     return lines[Math.floor(Math.random() * lines.length)];

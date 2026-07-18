@@ -1,0 +1,32 @@
+{
+  "ambient_events": [
+    "A ceiling fan turns slow overhead, pushing smoke around instead of out.",
+    "Somewhere behind the felt an old radio murmurs a ballgame nobody's checking.",
+    "The dealer squares a hand-shuffled deck with a soft, practiced riffle — no auto-shoe here.",
+    "A player leans in to hear the cards called, the way it's done in this room.",
+    "The felt is worn pale in an arc where a thousand hands have been read aloud.",
+    "No screens glow in here. Just the low lamp, the cards, and a voice that carries.",
+    "A chip stack clicks as someone restacks it out of pure nervous habit."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#241f1a",
+  "color": "#d8c8a0",
+  "created_by": null,
+  "description": "A hushed back room behind a bead curtain, worlds away from the slot-floor's electric shriek. One green-felt table sits under a single low lamp, ringed by four worn club chairs. There are no screens here, no blinking cabinets — just a hand-shuffled deck, a brass chip tray, and the quiet of a place that does things the way they were done before the machines. The dealer calls every card aloud so the whole table hears it, whether they can see the felt or not.",
+  "exits": {
+    "west": "zone_casino_interior"
+  },
+  "flags": {
+    "is_interior": true
+  },
+  "grid_x": 1,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_casino_backroom",
+  "map_id": "map_interior_zone_casino_interior",
+  "marker": null,
+  "name": "The Neon Vig — Back Room",
+  "parent_zone": null,
+  "updated_at": "1784332800"
+}

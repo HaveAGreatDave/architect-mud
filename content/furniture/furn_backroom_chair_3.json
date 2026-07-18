@@ -1,0 +1,20 @@
+{
+  "description": "A worn club chair, the leather gone soft and warm from decades of players who came for the quiet game. Sink in, and Margo will read you in.",
+  "flags": {
+    "game_table_id": "gametable_neonvig_oldschool",
+    "interactions": [
+      "sit"
+    ],
+    "seat_idx": 2
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_backroom_chair_3",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "Player's Chair",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 40,
+  "zone_id": "zone_casino_backroom"
+}

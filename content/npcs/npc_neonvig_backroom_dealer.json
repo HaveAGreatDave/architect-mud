@@ -1,0 +1,95 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": { "type": "start", "next": "player_check" },
+      "player_check": { "type": "condition", "condition_type": "PLAYER_IN_ZONE", "ifTrue": "chitchat", "ifFalse": "idle_wait" },
+      "chitchat": { "type": "action", "action_type": "VENDOR_CHITCHAT", "next": "chat_wait" },
+      "chat_wait": { "type": "wait", "seconds": 90, "next": "start" },
+      "idle_wait": { "type": "wait", "seconds": 30, "next": "start" }
+    }
+  },
+  "chitchat": [
+    "\"We play the old way back here, hon — I deal by hand and I call every card aloud. No screens.\"",
+    "riffles a worn deck one-handed and squares it with a soft, unhurried snap",
+    "\"You don't need to see the felt to play at my table. Just listen — I'll call it all out.\"",
+    "\"Back when I started, every card was read to the room. I never saw a reason to stop.\"",
+    "taps the brass chip tray with one lacquered nail, keeping time to a tune only she hears",
+    "\"Slow poker, called poker, honest as it gets in this dump. Pull up a chair.\"",
+    "\"No blinking lights, no auto-shoe. Just me, the cards, and a voice that carries.\"",
+    "watches the doorway with the warm, patient eyes of a woman who's dealt to three generations of losers"
+  ],
+  "description": "A trim, silver-haired woman in a high-collared black dress gone soft at the seams, a pair of reading glasses pushed up into her hair she never quite uses. Her hands are the tell — quick, sure, and entirely at home with a deck, shuffling and squaring without a downward glance. She deals the old way, by hand, and calls every card aloud in a low, carrying voice, as much for the players who can't see the felt as for the ones who can. They call her Margo. Everyone has, for longer than most of them have been alive.",
+  "dialogue_tree": {
+    "root": {
+      "text": "Marguerite 'Margo' Sable looks up over glasses she isn't wearing and gives the deck a lazy riffle. \"Come for the quiet game, hon? We do it the old way back here — dealt by hand, every card called aloud. Sit down and I'll read you in.\"",
+      "options": [
+        { "label": "I'd like to play.", "next": "play" },
+        { "label": "What do you mean, the old way?", "next": "oldway" },
+        { "label": "How does this work?", "next": "rules" },
+        { "label": "Just looking.", "next": "bye" }
+      ]
+    },
+    "play": {
+      "text": "\"Then park yourself and type join, hon. Buy-in's gentle back here — this room's for the love of the game, not the slaughter. I'll call your cards the moment they hit the felt.\"",
+      "options": [
+        { "label": "How do I bet?", "next": "betting" },
+        { "label": "Got it.", "next": "bye" }
+      ]
+    },
+    "oldway": {
+      "text": "\"No screens, no flashing cabinets. I shuffle by hand and I say every card out loud — your hole cards, the flop, the turn, the river, the winner. A body can play my table with their eyes shut and never miss a beat. That's how it was done, and that's how I still do it.\"",
+      "options": [
+        { "label": "That's exactly what I want.", "next": "play" },
+        { "label": "How do I bet?", "next": "betting" }
+      ]
+    },
+    "rules": {
+      "text": "\"Texas Hold'em, same as anywhere — two cards down, five in the middle, best five takes it. Only difference is I call it all aloud and take my time doing it. No rush in this room. The neon out front can wait.\"",
+      "options": [
+        { "label": "How do I bet?", "next": "betting" },
+        { "label": "Need more players?", "next": "people" },
+        { "label": "Ready to play.", "next": "play" }
+      ]
+    },
+    "betting": {
+      "text": "\"check, call, bet X, raise X, fold, allin — say the word or type it, either does. And if you lose track, just ask: board, showhand, pot. I'll read it right back to you.\"",
+      "options": [
+        { "label": "Need more players?", "next": "people" },
+        { "label": "Ready.", "next": "bye" }
+      ]
+    },
+    "people": {
+      "text": "\"Short a few bodies? Type summon and I'll wave one of the regulars over. There's always some old ghost in here who thinks tonight's his night.\"",
+      "options": [
+        { "label": "Good to know.", "next": "bye" }
+      ]
+    },
+    "bye": {
+      "text": "\"Chair's here when you want it, hon. It's not going anywhere, and neither am I.\"",
+      "options": []
+    }
+  },
+  "faction": null,
+  "flags": {
+    "personality": "dealer",
+    "table_id": "gametable_neonvig_oldschool"
+  },
+  "home_activities": [],
+  "home_zone": "zone_casino_backroom",
+  "hp": 30,
+  "hp_max": 30,
+  "id": "npc_neonvig_backroom_dealer",
+  "name": "Marguerite 'Margo' Sable",
+  "npc_type": "dealer",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_casino_backroom"
+}
