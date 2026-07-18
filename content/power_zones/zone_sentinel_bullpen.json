@@ -1,0 +1,8 @@
+{
+  "capacity_kw": 200,
+  "flags": {},
+  "id": "zone_sentinel_bullpen",
+  "max_capacity_kw": 200,
+  "name": "Coldwater Sentinel — Bullpen",
+  "source_type": "city_grid"
+}

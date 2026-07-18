@@ -1,0 +1,19 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_drink_greenroom",
+  "name": "Green Room fizz",
+  "tags": {
+    "consumable": true,
+    "description": "A tall, faintly luminous cocktail the drink-printer calls the House Fizz — gin, something citrus, and a stim it isn't licensed to mention. Tastes expensive. Hits like a cue card to the face.",
+    "hydrating": true,
+    "laced_drug": "drug_alcohol",
+    "laced_potency": 1.2,
+    "restore_sanity": 10,
+    "restore_thirst": 25,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 22,
+  "weight": 350
+}

@@ -1,0 +1,21 @@
+{
+  "description": "A squat vending pillar planted at the plaza's edge, its smeared touch-panel cycling headlines behind scratched polycarbonate. Papers stand racked and chained inside; a worn button reads VEND. It hums, waiting to sell you the day.",
+  "flags": {
+    "interactions": [
+      "vend"
+    ],
+    "vend_cooldown_s": 20,
+    "vend_line": "The pillar clunks, whirs, and posts a fresh Coldwater Sentinel through the slot, still warm and already implicating your fingers.",
+    "vends": "item_newspaper_sentinel"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_newsstand_plaza",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "newsstand pillar",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_district_910_911"
+}

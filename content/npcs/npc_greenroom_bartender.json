@@ -1,0 +1,142 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Sable polishes a glass that was already clean, watching the room in the mirror.",
+    "\"Printer does the pretty ones. I do the ones that work.\""
+  ],
+  "description": "A lean, watchful woman working the rail with the economy of someone who's poured for every ego the studio ever booked. She lets the drink-printer do the theatre and keeps the real bottles behind her, one hand always near the one that matters. Nothing you say will surprise her, and she'll let you believe otherwise.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Tab's open. So's the door.\" She's already reading the next face in the mirror."
+    },
+    "guest": {
+      "options": [
+        {
+          "label": "Get me those drinks.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Back booth, under the warm lamp, counting down to their own comeback.\" She tips her head toward the curtain. \"Buy them a drink if you're feeling charitable. Buy yourself two if you're going to talk to them.\""
+    },
+    "menu": {
+      "options": [
+        {
+          "label": "Set me up.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The printer'll sell you a House Fizz that glows and lies about what's in it — that's most people's night, right there. Or I pour you a rust whiskey and we both keep our dignity.\" A flicker of a smile. \"Beer if you're pacing yourself, which, in here, nobody is.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What's good?",
+          "next": "menu"
+        },
+        {
+          "label": "Pour me something.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Who's the guest tonight?",
+          "next": "guest"
+        },
+        {
+          "label": "Nothing for now.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Guest or crew?\" Sable doesn't look up from the glass she's polishing. \"Doesn't matter. Everyone drinks the same in here — like the couch is still warm and the mics are still hot.\" She sets the glass down. \"What'll it be?\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a whiskey-dark waistcoat over rolled sleeves",
+      "a sheer black shirt with the studio's crew pin",
+      "slim trousers, boots, and a lace bra and panties"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_greenroom_lounge",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_greenroom_bartender",
+  "name": "Sable",
+  "npc_type": "vendor",
+  "sex": "female",
+  "vendor_inventory": [
+    {
+      "item_id": "item_drink_greenroom",
+      "price": 22
+    },
+    {
+      "item_id": "item_drink_rust_whiskey",
+      "price": 10
+    },
+    {
+      "item_id": "item_drug_beer",
+      "price": 6
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 16,
+        "to": 32
+      }
+    ],
+    "mon": [
+      {
+        "from": 16,
+        "to": 32
+      }
+    ],
+    "sat": [
+      {
+        "from": 16,
+        "to": 32
+      }
+    ],
+    "sun": [
+      {
+        "from": 16,
+        "to": 32
+      }
+    ],
+    "thu": [
+      {
+        "from": 16,
+        "to": 32
+      }
+    ],
+    "tue": [
+      {
+        "from": 16,
+        "to": 32
+      }
+    ],
+    "wed": [
+      {
+        "from": 16,
+        "to": 32
+      }
+    ]
+  },
+  "vendor_shop_name": "The Green Room Bar",
+  "vendor_stock_size": 24,
+  "wander_zones": [],
+  "wanders": 0
+}

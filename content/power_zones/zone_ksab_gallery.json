@@ -1,0 +1,8 @@
+{
+  "capacity_kw": 200,
+  "flags": {},
+  "id": "zone_ksab_gallery",
+  "max_capacity_kw": 200,
+  "name": "KSAB Studio Gallery",
+  "source_type": "city_grid"
+}

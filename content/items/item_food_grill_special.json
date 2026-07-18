@@ -1,0 +1,17 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_food_grill_special",
+  "name": "the \"grill special\"",
+  "tags": {
+    "consumable": true,
+    "description": "Whatever the auto-griddle committed to before the cook could stop it: a slab of something, an egg of somewhat, and toast scraped off the hotplate with a spatula older than you. Hot, heavy, and genuinely restorative in the way only a bad diner can manage.",
+    "restore_hp": 4,
+    "restore_hunger": 35,
+    "stackable": true,
+    "well_fed": true
+  },
+  "type": "consumable",
+  "value": 14,
+  "weight": 400
+}

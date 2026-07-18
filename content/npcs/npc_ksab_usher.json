@@ -1,0 +1,134 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "\"Eyes front, applause on the light, and nobody films the monitors.\"",
+    "Priya thumbs her headset and murmurs a cue count under her breath."
+  ],
+  "description": "A brisk woman in a studio blazer the exact violet of the KSAB logo, headset cocked over one ear, a ticket-wand holstered at her hip like she's drawn it in anger before. She sizes up the queue with the flat warmth of someone who has heard every excuse and clapped on cue through all of them.",
+  "dialogue_tree": {
+    "backstage": {
+      "options": [
+        {
+          "label": "Fine — the pass.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The Green Room's for guests and crew, and you're neither until somebody books you.\" She says it kindly, the way you'd tell a dog no. \"Pass gets you the gallery. Charm gets you the rest. I can only sell you the pass.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "\"Mind the rope.\" She's already counting the next face in line."
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What's taping tonight?",
+          "next": "show"
+        },
+        {
+          "label": "Sell me a pass.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Can I get backstage?",
+          "next": "backstage"
+        },
+        {
+          "label": "Just looking.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Here for the taping?\" Priya's eyes flick from your shoes to your face and back, pricing you. \"House opens on the light. You'll want a pass — the wand won't scan a hopeful smile.\""
+    },
+    "show": {
+      "options": [
+        {
+          "label": "Sell me a pass, then.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Same as always — the couch, a guest sweating under the lamp, and a laugh track we've all agreed to become.\" She almost smiles. \"Grab a pass, take the gallery, clap when the sign says clap. It's the closest thing to civic duty we've got left.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a sharp KSAB-violet blazer with a laminated ALL-ACCESS lanyard",
+      "a pressed white shirt, top button undone the moment the cameras cut",
+      "sensible flats and a lace bra and panties"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_ksab_lobby",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_ksab_usher",
+  "name": "Priya Vantz",
+  "npc_type": "vendor",
+  "sex": "female",
+  "vendor_inventory": [
+    {
+      "item_id": "item_holo_ticket",
+      "price": 25
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 23
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 23
+      }
+    ],
+    "sat": [
+      {
+        "from": 9,
+        "to": 23
+      }
+    ],
+    "sun": [
+      {
+        "from": 9,
+        "to": 23
+      }
+    ],
+    "thu": [
+      {
+        "from": 9,
+        "to": 23
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 23
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 23
+      }
+    ]
+  },
+  "vendor_shop_name": "KSAB Box Office",
+  "vendor_stock_size": 40,
+  "wander_zones": [],
+  "wanders": 0
+}

@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_newspaper_sentinel",
+  "name": "Coldwater Sentinel",
+  "tags": {
+    "description": "Today's edition of the Coldwater Sentinel, still warm from the printer and smelling of toner. The front page screams about the water again; page two is mostly ads for clinics you shouldn't visit. Ink comes off on your hands like it's trying to implicate you.",
+    "stackable": true
+  },
+  "type": "media",
+  "value": 8,
+  "weight": 50
+}

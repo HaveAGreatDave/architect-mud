@@ -1,28 +1,33 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
+  "ambient_theme": "urban",
   "audio_theme_id": null,
-  "bg_color": "#2f3a26",
+  "bg_color": "#241f2e",
   "color": "#8ba36a",
   "created_by": "zone-planner",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "description": "A glass-fronted annex grafted onto the flank of the KSAB tower, its holo-marquee stuttering AUDIENCE ENTRANCE • TAPING IN PROGRESS in tired violet. A velvet-and-steel queue rope switchbacks toward a turnstile; one lane of it is roped off and dark, the floor beneath scuffed to bare crete. A sponsor loop murmurs from a speaker nobody can find.",
   "exits": {
     "east": "zone_district_914_910",
+    "in": "zone_ksab_lobby",
     "north": "zone_district_913_909",
     "west": "zone_district_912_910"
   },
   "flags": {
+    "building_name": "KSAB Audience Gate",
+    "building_type": "studio",
     "district": "wasteland",
+    "facade": true,
+    "is_building": true,
     "planner": "bp_district",
-    "scavenging_table_id": "scav_west_wastes"
+    "world_exit_zone": "zone_district_913_909"
   },
   "grid_x": 913,
   "grid_y": 910,
   "grid_z": 0,
   "id": "zone_district_913_910",
   "map_id": "map_world",
-  "marker": "#",
-  "name": "Grasslands",
+  "marker": "AG",
+  "name": "KSAB Audience Gate",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1784500000"
 }

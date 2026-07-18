@@ -1,0 +1,15 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_food_scrapstack",
+  "name": "scrap-stack",
+  "tags": {
+    "consumable": true,
+    "description": "A tottering stack of griddle-scrapings, onions and grey gravy served on a heel of bread. The Meltwater's answer to a question nobody asked. Fills a hole; asks no questions back.",
+    "restore_hunger": 22,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 8,
+  "weight": 300
+}

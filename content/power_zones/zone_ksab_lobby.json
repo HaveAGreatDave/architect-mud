@@ -1,0 +1,8 @@
+{
+  "capacity_kw": 200,
+  "flags": {},
+  "id": "zone_ksab_lobby",
+  "max_capacity_kw": 200,
+  "name": "KSAB Audience Lobby",
+  "source_type": "city_grid"
+}

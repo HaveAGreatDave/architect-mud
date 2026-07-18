@@ -1,0 +1,14 @@
+{
+  "description": "A grid of muted monitors carrying the stage feed on a three-second delay, so the lobby always sees the future a breath before the gallery lives it. One screen is dead and shows only your reflection, waiting.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_monitors_ksab",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "monitor wall",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_ksab_lobby"
+}

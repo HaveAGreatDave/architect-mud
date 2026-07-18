@@ -1,29 +1,34 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
+  "ambient_theme": "urban",
   "audio_theme_id": null,
-  "bg_color": "#2f3a26",
+  "bg_color": "#25211b",
   "color": "#8ba36a",
   "created_by": "zone-planner",
-  "description": "Open grassland quietly reclaiming old ground — seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "description": "A narrow storefront newsroom, its window stencilled COLDWATER SENTINEL — ALL THE NEWS THAT SURVIVES in gold gone to flake. Behind the glass a wall of feed-screens flickers through headlines faster than anyone could read, and a printer somewhere inside never stops chattering. A stack of today's edition sits in a wire cage by the door, chained to the frame.",
   "exits": {
     "east": "zone_district_915_910",
+    "in": "zone_sentinel_bullpen",
     "north": "zone_district_914_909",
     "south": "zone_district_914_911",
     "west": "zone_district_913_910"
   },
   "flags": {
+    "building_name": "Coldwater Sentinel",
+    "building_type": "office",
     "district": "wasteland",
+    "facade": true,
+    "is_building": true,
     "planner": "bp_district",
-    "scavenging_table_id": "scav_west_wastes"
+    "world_exit_zone": "zone_district_914_909"
   },
   "grid_x": 914,
   "grid_y": 910,
   "grid_z": 0,
   "id": "zone_district_914_910",
   "map_id": "map_world",
-  "marker": "#",
-  "name": "Grasslands",
+  "marker": "CS",
+  "name": "Coldwater Sentinel",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1784500000"
 }

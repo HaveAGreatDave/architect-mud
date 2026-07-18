@@ -1,0 +1,139 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Marlo scans three feed-screens at once, chewing a pen already chewed to splinters.",
+    "\"Everything's a story. The only question is who's paying to keep it quiet.\""
+  ],
+  "description": "A rumpled, ink-stained man behind a desk fortified with copy spikes and cold coffee, eyes moving even when the rest of him doesn't. He runs the Sentinel on grudges, favours, and whatever the data-broker rig in the corner coughs up. He'll trade you a headline, a warning, or a rumour — and he's already deciding which one you're worth.",
+  "dialogue_tree": {
+    "about": {
+      "options": [
+        {
+          "label": "So what's whispering today?",
+          "next": "gossip"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Grudges and favours, mostly. That rig—\" he nods at the data-broker box churning names in the corner \"—buys me the rumours the west side pays to bury, and I sell them back east as news. It's not journalism. It's plumbing. Same job: I move what people flush and pretend not to notice.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "\"Come back when you've done something worth printing.\" He's already reading past you."
+    },
+    "gossip": {
+      "actions": [
+        {
+          "action": "GOSSIP_TELL"
+        }
+      ],
+      "options": [
+        {
+          "label": "Good to know.",
+          "next": "root"
+        },
+        {
+          "label": "That's all.",
+          "next": "bye"
+        }
+      ],
+      "text": "Marlo leans in under the chatter of the printer, dropping his voice to a register the situation-wall can't record."
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Heard anything worth knowing?",
+          "next": "gossip"
+        },
+        {
+          "label": "Sell me today's paper.",
+          "next": "__shop__"
+        },
+        {
+          "label": "How's this rag stay printed?",
+          "next": "about"
+        },
+        {
+          "label": "Nothing today.",
+          "next": "bye"
+        }
+      ],
+      "text": "Marlo doesn't stop reading the wall. \"Sentinel. All the news that survives. You buying a paper, selling me a story, or fishing for what everybody's whispering?\" A pen taps. \"I do all three. Badly, but cheaply.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a rumpled press waistcoat, pockets inked and pen-stabbed",
+      "a shirt with the sleeves shoved up and a loosened tie gone grey",
+      "braces, worn slacks, and boxers"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_sentinel_editor",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_sentinel_editor",
+  "name": "Marlo Deng",
+  "npc_type": "vendor",
+  "sex": "male",
+  "vendor_inventory": [
+    {
+      "item_id": "item_newspaper_sentinel",
+      "price": 8
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 6,
+        "to": 26
+      }
+    ],
+    "mon": [
+      {
+        "from": 6,
+        "to": 26
+      }
+    ],
+    "sat": [
+      {
+        "from": 6,
+        "to": 26
+      }
+    ],
+    "sun": [
+      {
+        "from": 6,
+        "to": 26
+      }
+    ],
+    "thu": [
+      {
+        "from": 6,
+        "to": 26
+      }
+    ],
+    "tue": [
+      {
+        "from": 6,
+        "to": 26
+      }
+    ],
+    "wed": [
+      {
+        "from": 6,
+        "to": 26
+      }
+    ]
+  },
+  "vendor_shop_name": "Coldwater Sentinel — Front Desk",
+  "vendor_stock_size": 40,
+  "wander_zones": [],
+  "wanders": 0
+}

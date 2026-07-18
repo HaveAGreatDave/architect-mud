@@ -1,0 +1,142 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Gus smacks the auto-griddle's override with the flat of his spatula. \"Not like that. Like THIS.\"",
+    "\"Special's whatever the machine tried before I stopped it. You'll like it. Everybody likes it.\""
+  ],
+  "description": "A broad, unbothered man planted at the pass, forearms like a butcher's and a spatula he uses on the auto-griddle less for cooking than for correction. He overrides the machine on principle, salts everything on reflex, and watches the door the way a man watches weather. The food is bad in a way that feels, somehow, like being cared for.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Door swings both ways.\" He's already back on the griddle."
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What's the special?",
+          "next": "special"
+        },
+        {
+          "label": "Feed me.",
+          "next": "__shop__"
+        },
+        {
+          "label": "This place always this dead?",
+          "next": "talk"
+        },
+        {
+          "label": "Maybe later.",
+          "next": "bye"
+        }
+      ],
+      "text": "Gus doesn't turn from the griddle. \"Sit anywhere the vinyl's not split, that's about four seats.\" He flips something that hisses. \"Special, scrap-stack, or coffee that'll strip a hull. Card only. What'll it be?\""
+    },
+    "special": {
+      "options": [
+        {
+          "label": "Sold.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Whatever the griddle committed to before I got to it.\" He scrapes it flat with the spatula. \"Slab of something, egg of somewhat, toast if the timing's kind. Fourteen credits and I don't answer questions about the something.\" He finally glances back. \"It's good. I mean it. It's terrible and it's good.\""
+    },
+    "talk": {
+      "options": [
+        {
+          "label": "Eggs, then.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Dead? It's the plaza. Statue out there brings the tourists, studio brings the strays, and the both of 'em end up on my stools at two in the morning wanting eggs and forgiveness.\" He shrugs, salts the griddle. \"I do eggs. Forgiveness is extra.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a griddle-scorched cook's apron over a strap undershirt",
+      "a paper hat gone soft and grey with steam",
+      "checked trousers, clogs, and boxers"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_meltwater_diner",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_diner_cook",
+  "name": "Gus Hallory",
+  "npc_type": "vendor",
+  "sex": "male",
+  "vendor_inventory": [
+    {
+      "item_id": "item_food_grill_special",
+      "price": 14
+    },
+    {
+      "item_id": "item_food_scrapstack",
+      "price": 8
+    },
+    {
+      "item_id": "item_drug_coffee",
+      "price": 5
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 5,
+        "to": 27
+      }
+    ],
+    "mon": [
+      {
+        "from": 5,
+        "to": 27
+      }
+    ],
+    "sat": [
+      {
+        "from": 5,
+        "to": 27
+      }
+    ],
+    "sun": [
+      {
+        "from": 5,
+        "to": 27
+      }
+    ],
+    "thu": [
+      {
+        "from": 5,
+        "to": 27
+      }
+    ],
+    "tue": [
+      {
+        "from": 5,
+        "to": 27
+      }
+    ],
+    "wed": [
+      {
+        "from": 5,
+        "to": 27
+      }
+    ]
+  },
+  "vendor_shop_name": "Meltwater Diner Counter",
+  "vendor_stock_size": 30,
+  "wander_zones": [],
+  "wanders": 0
+}

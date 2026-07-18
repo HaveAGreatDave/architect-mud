@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_holo_ticket",
+  "name": "holo audience pass",
+  "tags": {
+    "description": "A palm-sized wafer of smart-plastic that throbs a slow violet and reads KSAB — STUDIO AUDIENCE • ONE (1) SOUL when tilted to the light. The hologram stutters where someone's thumb has worn it thin.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 25,
+  "weight": 10
+}

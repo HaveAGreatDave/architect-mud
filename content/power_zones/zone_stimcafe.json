@@ -1,0 +1,8 @@
+{
+  "capacity_kw": 200,
+  "flags": {},
+  "id": "zone_stimcafe",
+  "max_capacity_kw": 200,
+  "name": "Jitter",
+  "source_type": "city_grid"
+}

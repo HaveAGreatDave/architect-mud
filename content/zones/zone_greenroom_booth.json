@@ -1,0 +1,28 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#141c17",
+  "color": null,
+  "created_by": null,
+  "description": "A curtained corner booth where the night's guest is parked between segments to sweat under a single warm lamp. A cracked mirror ringed with half-dead bulbs, a bowl of the good snacks, and a monitor counting down to the next taping in unforgiving red. This is where careers wait to be called back to the couch, or not.",
+  "exits": {
+    "west": "zone_greenroom_lounge"
+  },
+  "flags": {
+    "building_name": "The Green Room",
+    "building_type": "bar",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_912_910"
+  },
+  "grid_x": 1,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_greenroom_booth",
+  "map_id": "map_int_greenroom",
+  "marker": null,
+  "name": "The Green Room — Guest Booth",
+  "parent_zone": "zone_district_912_910",
+  "updated_at": "1784500000"
+}

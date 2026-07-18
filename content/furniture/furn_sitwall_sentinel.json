@@ -1,0 +1,14 @@
+{
+  "description": "A cracked wall of feed-screens scrolling the city's headlines faster than sense, its lower third permanently glitched into a drizzle of confetti pixels. The Sentinel's window on everything, seen through a smashed lens.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_sitwall_sentinel",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "situation wall",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_sentinel_bullpen"
+}

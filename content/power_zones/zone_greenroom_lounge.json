@@ -1,0 +1,8 @@
+{
+  "capacity_kw": 200,
+  "flags": {},
+  "id": "zone_greenroom_lounge",
+  "max_capacity_kw": 200,
+  "name": "The Green Room",
+  "source_type": "city_grid"
+}

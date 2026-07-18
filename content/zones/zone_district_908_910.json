@@ -1,29 +1,34 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
+  "ambient_theme": "urban",
   "audio_theme_id": null,
-  "bg_color": "#2f3a26",
+  "bg_color": "#2a241b",
   "color": "#8ba36a",
   "created_by": "zone-planner",
-  "description": "Open grassland quietly reclaiming old ground — seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "description": "A chrome-sided diner beached at the edge of the plaza, its neon sign buzzing MEL WATER — the T long dead — over a fogged window full of pie no one's touched since morning. Steam curls from a roof vent that smells of griddle grease and burnt coffee. A hand-lettered card in the door reads CARD TAP ONLY. NO, NOT EVEN YOURS.",
   "exits": {
     "east": "zone_district_909_910",
+    "in": "zone_meltwater_diner",
     "north": "zone_district_908_909",
     "south": "zone_district_908_911",
     "west": "zone_district_907_910"
   },
   "flags": {
+    "building_name": "Meltwater Diner",
+    "building_type": "diner",
     "district": "wasteland",
+    "facade": true,
+    "is_building": true,
     "planner": "bp_district",
-    "scavenging_table_id": "scav_west_wastes"
+    "world_exit_zone": "zone_district_907_910"
   },
   "grid_x": 908,
   "grid_y": 910,
   "grid_z": 0,
   "id": "zone_district_908_910",
   "map_id": "map_world",
-  "marker": "#",
-  "name": "Grasslands",
+  "marker": "MD",
+  "name": "Meltwater Diner",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1784500000"
 }

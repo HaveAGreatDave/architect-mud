@@ -1,0 +1,142 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "The menu board chimes and quietly raises the price of everything Neve's looking at.",
+    "\"Rig does the crema. I do the contempt. We're a team.\""
+  ],
+  "description": "A wired, unimpressed young woman babysitting a chrome espresso rig that clearly does more of the job than she'd admit. She takes your order, judges it silently, and rings it up on a menu board that recalculates its own prices whenever she's bored. Two visible stims deep and narrating her own shift under her breath.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Next.\" The board chimes and drops a price the second you turn to leave."
+    },
+    "prices": {
+      "options": [
+        {
+          "label": "Order before it clocks me.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Dynamic menu. Corporate calls it 'responsive.'\" She air-quotes with the steam wand. \"It clocks the queue, the weather, your face, and decides what your morning's worth. You looked tired, so.\" She shrugs, not sorry. \"Order fast, it's cheaper before it reads you.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What's strongest?",
+          "next": "strong"
+        },
+        {
+          "label": "Caffeinate me.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Why do the prices keep changing?",
+          "next": "prices"
+        },
+        {
+          "label": "I'm good.",
+          "next": "bye"
+        }
+      ],
+      "text": "Neve doesn't stop wiping the wand. \"Welcome to Jitter, prices as marked, marks as moody.\" She nods at the flickering board. \"Synthpresso if you mean it, Jolt if you've given up on sleep entirely, drip if you're boring. Go.\""
+    },
+    "strong": {
+      "options": [
+        {
+          "label": "Give me the cliff.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Jolt'll let you hear colour. Synthpresso's classier about it — same cliff, nicer view on the way down.\" She pulls a shot without looking. \"Two Jolts and you'll reorganise your whole life at 3 a.m. and regret all of it by nine. Popular, though. Very popular.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a steam-spotted Jitter half-apron with a name badge reading NOT NEVE",
+      "a cropped tee gone thin at the seams",
+      "high-waisted work trousers, sneakers, and a bralette and panties"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_stimcafe",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_cafe_barista",
+  "name": "Neve Ostrow",
+  "npc_type": "vendor",
+  "sex": "female",
+  "vendor_inventory": [
+    {
+      "item_id": "item_drink_synthpresso",
+      "price": 7
+    },
+    {
+      "item_id": "item_stim_jolt",
+      "price": 12
+    },
+    {
+      "item_id": "item_drug_coffee",
+      "price": 5
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 5,
+        "to": 24
+      }
+    ],
+    "mon": [
+      {
+        "from": 5,
+        "to": 24
+      }
+    ],
+    "sat": [
+      {
+        "from": 5,
+        "to": 24
+      }
+    ],
+    "sun": [
+      {
+        "from": 5,
+        "to": 24
+      }
+    ],
+    "thu": [
+      {
+        "from": 5,
+        "to": 24
+      }
+    ],
+    "tue": [
+      {
+        "from": 5,
+        "to": 24
+      }
+    ],
+    "wed": [
+      {
+        "from": 5,
+        "to": 24
+      }
+    ]
+  },
+  "vendor_shop_name": "Jitter",
+  "vendor_stock_size": 24,
+  "wander_zones": [],
+  "wanders": 0
+}

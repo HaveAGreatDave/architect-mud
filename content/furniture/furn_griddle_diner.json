@@ -1,0 +1,14 @@
+{
+  "description": "A wide, scorched auto-griddle that sizzles away on its own program until the cook leans in to override it out of spite. The nonstick gave up years ago; the char is load-bearing now.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_griddle_diner",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "auto-griddle",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_meltwater_diner"
+}

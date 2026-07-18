@@ -1,0 +1,14 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_drink_synthpresso",
+  "name": "synthpresso",
+  "tags": {
+    "description": "A thimble of near-black synthpresso pulled from Jitter's chrome rig, so bitter it loops back around to sweet. Legal, ubiquitous, and roughly a third of the reason anyone shows up to a shift.",
+    "drug": true,
+    "stackable": true
+  },
+  "type": "drug",
+  "value": 7,
+  "weight": 150
+}
