@@ -83,6 +83,12 @@ try {
     let differing = 0;
     for (const { entry, files } of entries) {
       const types = await columnTypes(client, entry.table);
+      // A whole table this SAME deploy introduces (e.g. `augments`) doesn't exist on
+      // prod until the import step applies SCHEMA_SQL — it has no rows to drift-compare.
+      // Skip it here; otherwise CREATE TEMP TABLE … FROM <missing table> throws and the
+      // drift-report step fails the deploy (this is the new-column carve-out below, at
+      // whole-table granularity).
+      if (!types.size) continue;
       const excluded = new Set(entry.excludeColumns || []);
       // Compare the columns a deploy writes: schema-declared, not runtime-owned,
       // and present on the live DB. A column this SAME deploy introduces doesn't
