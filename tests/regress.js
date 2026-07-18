@@ -673,6 +673,7 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
 // torn down in finally.
 {
   const { getZoneRadiation, isSanctuary, allowsSleep } = await import('../server/engine/zone-tags.js');
+  const { isEnterableFacade } = await import('../server/engine/world.js');
   const { getSleepEligibility } = await import('../server/engine/apartments.js');
   const { tickSpawns, getZoneEnemies } = await import('../server/engine/world.js');
   const p = getPlayer();
@@ -719,7 +720,10 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   // Radiation comes from the tag alone (entry formula: floor(rad/10)).
   check('getZoneRadiation reads the tag', getZoneRadiation({ flags: { radiation: 30 } }) === 30);
   check('getZoneRadiation ignores the dropped column', getZoneRadiation({ radiation_level: 20, flags: {} }) === 0);
-  const exit0 = allExits(world.zones.get(p.current_zone)).find(e => { const zt = world.zones.get(e.target); return zt && !zt.flags?.water; });
+  // Skip water (impassable) AND enterable facades: stepping onto a facade forwards you
+  // into its interior (or bounces off a gated Threshold), so the facade tile itself is
+  // never a place you stand and accrue radiation — pick a plain standable neighbour.
+  const exit0 = allExits(world.zones.get(p.current_zone)).find(e => { const zt = world.zones.get(e.target); return zt && !zt.flags?.water && !isEnterableFacade(zt); });
   if (exit0) {
     const destZone = world.zones.get(exit0.target);
     const radBefore = p.radiation || 0;

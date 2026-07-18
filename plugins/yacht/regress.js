@@ -2,11 +2,21 @@
 // Covers the invite verbs' admin gate and — the security-critical part — the
 // yacht:board move gate + isInvited auth against the real loaded Echelon zones.
 import { runMoveGates } from '../../server/engine/movement-gates.js';
-import { getZone, getMinimapData } from '../../server/engine/world.js';
+import { getZone, getMinimapData, getAllZones } from '../../server/engine/world.js';
 import { isInvited } from './index.js';
 
-const YACHT_NEAR = 'zone_district_896_898'; // a water tile beside the Echelon's home
-const seesYacht = (viewer) => getMinimapData(YACHT_NEAR, 8, viewer).some(n => n.id === 'zone_echelon_exterior');
+// Center the minimap on a tile beside the Echelon's CURRENT exterior position. She's a
+// mobile vessel — a persisted `yacht_echelon_pos` (restored async at boot) or an in-run
+// sail can leave her anywhere, so a hardcoded "home" tile makes this test position-racy.
+// Derive her neighbour live; this asserts the ownership-visibility invariant (owner sees,
+// others don't) regardless of where she's berthed.
+const seesYacht = (viewer) => {
+  const ext = getZone('zone_echelon_exterior');
+  const near = getAllZones().find(z =>
+    z.map_id === ext.map_id && !z.flags?.yacht && z.grid_x != null &&
+    Math.abs(z.grid_x - ext.grid_x) <= 1 && Math.abs(z.grid_y - ext.grid_y) <= 1);
+  return getMinimapData((near || ext).id, 8, viewer).some(n => n.id === 'zone_echelon_exterior');
+};
 
 export default async function regress({ run, check, getPlayer }) {
   // ── Invite verbs: admin gate ──
