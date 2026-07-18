@@ -7,7 +7,7 @@
   "created_by": "yards-plan",
   "description": "The dry store's floor: plain steel racking to the roofline, a pallet jack, a swept concrete deck. Cheap, dry, and defensible — the kind of space a young crew cuts its teeth holding.",
   "exits": {
-    "out": "zone_district_924_909"
+    "north": "zone_district_924_909"
   },
   "flags": {
     "building_name": "Dry Store 12",

@@ -7,7 +7,7 @@
   "created_by": "yards-plan",
   "description": "The bonded floor: aisle after aisle of shrink-wrapped pallets under customs seals, a caged clerk's office in one corner, your breath misting in the cold sodium light. Whatever a corp holds here, the city officially cannot see.",
   "exits": {
-    "out": "zone_district_922_907"
+    "south": "zone_district_922_907"
   },
   "flags": {
     "building_name": "Customs Bonded Store 7",

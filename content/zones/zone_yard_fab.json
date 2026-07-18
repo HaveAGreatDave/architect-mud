@@ -7,7 +7,7 @@
   "created_by": "yards-plan",
   "description": "The fab shed's floor: a welding bay behind a curtain of sparks, a lathe, an anvil worn shiny, racks of stock steel. A gantry crane hangs a half-finished something overhead.",
   "exits": {
-    "out": "zone_district_925_909"
+    "north": "zone_district_925_909"
   },
   "flags": {
     "building_name": "Fabrication Shed",

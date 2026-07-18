@@ -7,7 +7,7 @@
   "created_by": "yards-plan",
   "description": "The freight office proper: a battered service counter, a wall of manifests on bulldog clips, a kettle gone cold, and the Yardmaster's stool. Everything that moves through the Yards is logged, lost, or found from this room.",
   "exits": {
-    "out": "zone_district_923_909"
+    "west": "zone_district_923_909"
   },
   "flags": {
     "building_name": "Yards Freight Office",

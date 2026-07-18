@@ -7,7 +7,7 @@
   "created_by": "yards-plan",
   "description": "Between the container stacks: a narrow canyon of ribbed steel walls, a foreman's shipping desk, a forklift dead on its charger. Somewhere deep in the rows, something shifts and settles.",
   "exits": {
-    "out": "zone_district_924_907"
+    "south": "zone_district_924_907"
   },
   "flags": {
     "building_name": "Interchange Stack",

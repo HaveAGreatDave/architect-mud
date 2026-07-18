@@ -7,7 +7,7 @@
   "created_by": "yards-plan",
   "description": "Inside the fuel compound: drums stacked to head height, a hand-pump station, a spill tray gritty with absorbent. A NO SMOKING sign has been shot clean through. It reeks of diesel and hot rubber.",
   "exits": {
-    "out": "zone_district_923_907"
+    "south": "zone_district_923_907"
   },
   "flags": {
     "building_name": "Pallet & Fuel Yard",

@@ -7,7 +7,7 @@
   "created_by": "yards-plan",
   "description": "Inside the reefer depot: a meat-locker corridor of frosted steel doors, your breath fogging, a clipboard of temperature logs by each. The catch keeps here — and, the manifests hint, things that were never fish.",
   "exits": {
-    "out": "zone_district_926_909"
+    "south": "zone_district_926_909"
   },
   "flags": {
     "building_name": "Coldline Reefer Depot",

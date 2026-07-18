@@ -7,7 +7,7 @@
   "created_by": "yards-plan",
   "description": "Under the transfer shed's roof: a wet concrete apron running to the water's edge, a hand-crank crane, nets drying on hooks. The Basin slaps at the pilings below the loading lip.",
   "exits": {
-    "out": "zone_district_926_908"
+    "west": "zone_district_926_908"
   },
   "flags": {
     "building_name": "Wharf Transfer Shed",
