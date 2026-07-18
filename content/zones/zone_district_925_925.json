@@ -16,7 +16,7 @@
     "district": "wilds",
     "planner": "bp_district",
     "radiation": 25,
-    "terrain": "scrub"
+    "terrain": "redrock"
   },
   "grid_x": 925,
   "grid_y": 925,
