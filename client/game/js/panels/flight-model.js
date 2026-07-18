@@ -155,7 +155,7 @@ export const TYPES = {
     // vsTau) instead of snapping to the cap the instant you lift a skid off the ground.
     vsGain: 850, vsMax: 1300, vsTau: 0.9,
     vrsVs: 480,                           // settling-with-power onset (fpm sink) when slow + powered
-    rollFric: 3.2,                        // skid friction on the ground
+    rollFric: 11,                         // skid friction on the ground — skids bite and stop her quickly (no long rollout)
     ceiling: 15000,
   },
   // Carcass — salvaged wreck: underpowered, draggy, unstable. A junker you nurse into the air.
@@ -165,6 +165,27 @@ export const TYPES = {
     pitchStable: 0.7, rollStable: 0.8, dragP: 0.00120, flapDrag: 0.55, flapLift: 0.32, flapVs: 0.17,
     rollFric: 1.7, aoaCrit: 17, liftScale: 0.95, vsMax: 900, vsGain: 1650, vsTau: 1.0,
     brake: 5.0, groundSteer: 30, ceiling: 11000, bestGlide: 45,
+  },
+  // Grasshopper — a PIPER L-4 analogue: a featherweight tandem liaison taildragger. Docile and
+  // SLOW: floats off in a few yards, very stall-resistant, gentle rates — the forgiving scout you
+  // fly hands-off. No speed and a low ceiling; the wind pushes her around.
+  grasshopper: {
+    name: 'Grasshopper', mass: 0.85, thrustMax: 9.5, vr: 34, vs0: 21, vne: 105, cruise: 68,
+    pitchRate: 11, pitchTau: 0.62, rollRate: 44, rollTau: 0.6, engineLag: 1.35,
+    pitchStable: 1.0, rollStable: 1.2, dragP: 0.00120, flapDrag: 0.5, flapLift: 0.32, flapVs: 0.16,
+    rollFric: 1.7, aoaCrit: 20, liftScale: 1.0, vsMax: 480, vsGain: 1500, vsTau: 1.0,
+    brake: 5.2, groundSteer: 32, ceiling: 11000, bestGlide: 44,
+    groundPitch: 11,   // taildragger 3-point sit (deg nose-up): rests on the tailwheel; push forward to raise the tail on the roll
+  },
+  // Locust — a low-wing sport RACER: light but FAST and AGILE for a single. Snappy roll & pitch,
+  // a real turn of speed, but twitchy — weak self-level and a thinner stall margin punish sloppy
+  // hands. Fastest of the light singles, and a strong climber.
+  locust: {
+    name: 'Locust', mass: 1.05, thrustMax: 21, vr: 52, vs0: 42, vne: 195, cruise: 148,
+    pitchRate: 13, pitchTau: 0.5, rollRate: 68, rollTau: 0.45, engineLag: 1.1,
+    pitchStable: 0.85, rollStable: 0.95, dragP: 0.00105, flapDrag: 0.55, flapLift: 0.38, flapVs: 0.18,
+    rollFric: 1.5, aoaCrit: 16, liftScale: 1.0, vsMax: 1600, vsGain: 2000, vsTau: 0.9,
+    brake: 6.0, groundSteer: 30, ceiling: 15000, bestGlide: 62,
   },
 };
 
@@ -182,7 +203,7 @@ function weightOf(p) { return 0.5 * p.vs0 * p.vs0 * (CL0 + CL_ALPHA * p.aoaCrit)
 
 export function createState(p) {
   return {
-    airspeed: 0, altitude: 0, pitch: 0, bank: 0, heading: 0,
+    airspeed: 0, altitude: 0, pitch: p.groundPitch || 0, bank: 0, heading: 0,   // taildraggers start parked nose-high on the tailwheel
     vs: 0,                 // ft/min
     rpm: 0,                // 0..1 (spooled fraction of throttle)
     elevEff: 0,            // the yoke's built-up pitch effect (lags the raw input)
@@ -358,17 +379,30 @@ export function step(state, input, p, dt) {
   //    limits, so it takes a lot of input to put yourself in danger. Released, it
   //    self-levels toward stability.
   s.elevEff += (elevator - s.elevEff) * Math.min(1, dt / p.pitchTau);
-  const pitchResist = 1 - 0.55 * Math.abs(s.pitch) / 48;   // scaled to the wider ±48° envelope
-  const pitchCmd = s.elevEff * p.pitchRate * auth * pitchResist * (tailGone ? 0.35 : 1);   // sheared tailplane → mushy elevator
-  s.pitch += (pitchCmd - p.pitchStable * s.pitch * (1 - Math.abs(s.elevEff))) * dt;
-  if (tailGone && !s.onGround) s.pitch -= 16 * dt;   // lost tail downforce → the nose tucks under
-  // Rotation attitude is gear-limited while the mains are still down — without this a held
-  // back-pressure keeps pitching (and AoA) up toward the full airborne limit before liftoff,
-  // and since the airborne stall-collapse never engages on the ground, the AoA² drag term
-  // below climbs unbounded and can pin airspeed short of flying speed forever. 15° is a
-  // generous real-world rotation attitude; airborne gets the full ±48° envelope (more yoke
-  // play — you can push the nose noticeably further down and haul it further up).
-  s.pitch = clamp(s.pitch, s.onGround ? -5 : -48, s.onGround ? 15 : 48);
+  if (s.onGround && p.groundPitch) {
+    // TAILDRAGGER ground attitude: she rests nose-high on the tailwheel at `groundPitch`. Forward
+    // stick + airflow over the tail (which needs roll speed to bite) RAISES THE TAIL — pitch comes
+    // down toward level; neutral/back stick pins the 3-point sit (you can't rotate past it, the
+    // tailwheel's already planted). Left alone she flies off in the 3-point at ~Vr; raise the tail
+    // for a faster wheel-takeoff. Overrides the tricycle rotate below while the wheels are down.
+    const tailAuth = clamp(s.airspeed / p.vr, 0, 1);                          // no airflow, no tail authority
+    const push = clamp(-s.elevEff, 0, 1);                                     // forward yoke lifts the tail
+    const target = p.groundPitch - push * tailAuth * (p.groundPitch + 4);     // full forward + rolling → tail up (~−4°)
+    s.pitch += (target - s.pitch) * Math.min(1, dt * 3.5);
+    s.pitch = clamp(s.pitch, -4, p.groundPitch);
+  } else {
+    const pitchResist = 1 - 0.55 * Math.abs(s.pitch) / 48;   // scaled to the wider ±48° envelope
+    const pitchCmd = s.elevEff * p.pitchRate * auth * pitchResist * (tailGone ? 0.35 : 1);   // sheared tailplane → mushy elevator
+    s.pitch += (pitchCmd - p.pitchStable * s.pitch * (1 - Math.abs(s.elevEff))) * dt;
+    if (tailGone && !s.onGround) s.pitch -= 16 * dt;   // lost tail downforce → the nose tucks under
+    // Rotation attitude is gear-limited while the mains are still down — without this a held
+    // back-pressure keeps pitching (and AoA) up toward the full airborne limit before liftoff,
+    // and since the airborne stall-collapse never engages on the ground, the AoA² drag term
+    // below climbs unbounded and can pin airspeed short of flying speed forever. 15° is a
+    // generous real-world rotation attitude; airborne gets the full ±48° envelope (more yoke
+    // play — you can push the nose noticeably further down and haul it further up).
+    s.pitch = clamp(s.pitch, s.onGround ? -5 : -48, s.onGround ? 15 : 48);
+  }
 
   // 4. Bank: like pitch, the roll effect BUILDS over ~rollTau and the airframe
   //    resists toward full bank, so it takes a sustained full throw to reach the
@@ -532,7 +566,9 @@ export function step(state, input, p, dt) {
   // Ground friction: idle rolling drag, plus wheel brakes from FORWARD pressure (push the
   // yoke, elevator < 0). Pushing also pins the nose to the runway, so braking never fights
   // the back-pressure you use to rotate and lift off — they're opposite gestures.
-  const brake = s.onGround ? clamp(-elevator, 0, 1) * (p.brake || 0) : 0;
+  // Forward yoke works the wheel brakes — EXCEPT on a taildragger, where forward stick is the
+  // tail-raise gesture on the takeoff roll (toe brakes, not stick brakes), so it must not fight it.
+  const brake = (s.onGround && !p.groundPitch) ? clamp(-elevator, 0, 1) * (p.brake || 0) : 0;
   const fric = s.onGround ? p.rollFric * (1 - s.rpm) + brake : 0;
   s.airspeed = Math.max(0, s.airspeed + ((thrust - drag) / p.mass - grav - fric) * dt);
   s.groundSpeed = s.airspeed;

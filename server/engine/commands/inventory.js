@@ -52,6 +52,26 @@ const EQUIP_VERBS = {
   feet: 'pulls on', weapon_hand: 'readies', accessory: 'puts on',
 };
 
+// Soak contributors: systems that add to a player's typed soak from a source
+// other than equipped armor (e.g. subdermal-weave augments — armor under the
+// skin). Each contributor mutates the per-slot map in place, mirroring the
+// protection.js provider-chain contract. Called from recomputeArmor after the
+// equipped pass, so player.soak always reflects both sources. Contributors may
+// be async (recomputeArmor runs on equip/login, never on a per-swing hot path —
+// combat reads the finished player.soak from memory), and a throwing one is
+// skipped, never fatal.
+const _armorContributors = [];
+export function registerArmorContributor(fn) { _armorContributors.push(fn); }
+
+// Merge a typed-soak map into a per-slot bySlot structure, additively.
+// Shared by the equipped-armor pass and augment contributors so both stack the
+// same way. `sm` is { type: value }; adds to bySlot[slot].soak.
+export function addSoakToSlot(bySlot, slot, sm) {
+  if (!slot || !sm || typeof sm !== 'object') return;
+  const entry = bySlot[slot] || (bySlot[slot] = { soak: {} });
+  for (const [type, val] of Object.entries(sm)) entry.soak[type] = (entry.soak[type] || 0) + (Number(val) || 0);
+}
+
 // Build a per-slot typed-soak structure for the player from equipped armor.
 // player.soak[slot] = { soak: { kinetic:4, ... } }.
 // Combat routes the weapon's damage_type through the struck part's slot here.
@@ -66,10 +86,12 @@ export async function recomputeArmor(player, rows = null) {
     const slots = Array.isArray(covers) ? [slot, ...covers] : [slot];
     const sm = tagValue(r, 'armor_soak');
     if (!sm || typeof sm !== 'object') continue;
-    for (const s of slots) {
-      const entry = bySlot[s] || (bySlot[s] = { soak: {} });
-      for (const [type, val] of Object.entries(sm)) entry.soak[type] = (entry.soak[type] || 0) + (Number(val) || 0);
-    }
+    for (const s of slots) addSoakToSlot(bySlot, s, sm);
+  }
+  // Non-armor soak sources (augments, etc.) layer on after the equipped pass.
+  for (const contribute of _armorContributors) {
+    try { await contribute(player, bySlot); }
+    catch (e) { console.error(`[armor] soak contributor error: ${e.message}`); }
   }
   player.soak = bySlot;
 }

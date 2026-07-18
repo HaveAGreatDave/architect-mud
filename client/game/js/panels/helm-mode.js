@@ -114,7 +114,7 @@ export function ensureHelmStyles() {
     /* [ nav+position + gauges ] | WHEEL | telegraph — the wheel is the centred centrepiece, flanked
        by the instrument cluster (left) and the engine telegraph (right). The 1fr/auto/1fr columns
        keep the wheel dead-centre in the bar. All still in-bar, so the water above stays clear. */
-    .helm-console-face{ position:relative; isolation:isolate; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:calc(20px*var(--hs));
+    .helm-console-face{ position:relative; isolation:isolate; display:grid; grid-template-columns:1fr auto 1fr; align-items:end; gap:calc(20px*var(--hs));
       padding:calc(3px*var(--hs)) calc(26px*var(--hs)) calc(4px*var(--hs)); max-width:1280px; margin:0 auto; }
     /* Left instrument cluster — a FROSTED TRANSLUCENT GLASS panel that floats over the sea: it really
        blurs the water behind it (backdrop-filter), with chamfered tech-panel corners, a bright glass
@@ -788,6 +788,12 @@ export function openHelm(opts = {}) {
     fitCamera();
   });
   q('[data-exit]').addEventListener('click', () => { closeHelm(); onExit(); });
+
+  // Default to the hide-panel view: fold the scrollback log so the helm fills the whole column
+  // (the windowed pane is too short to see the ship with the log up), keeping the command bar so you
+  // can still type. ⊟ toggles back to windowed, ⛶ goes fully immersive; closeHelm() clears the class.
+  document.body.classList.add('helm-hidepanel'); hideBtn.classList.add('on');
+  fitCamera();
 
   // Keyboard: Esc exits. (Course is the wheel; the throttle is the telegraph — both are grab-and-drag.)
   const keyH = (e) => { if (e.key === 'Escape') { closeHelm(); onExit(); } };

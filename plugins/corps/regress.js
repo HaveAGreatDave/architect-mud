@@ -2,7 +2,7 @@
 // Covers the corp-recruitment-poster `furniture.describe` branch: it claims only
 // `corp_poster` furniture and returns undefined for everything else, so the
 // posters plugin's own hook still runs (hook contract: last non-undefined wins).
-import { _corpPosterPitch, colorDistance, MIN_COLOR_DISTANCE } from './index.js';
+import { _corpPosterPitch, colorDistance, MIN_COLOR_DISTANCE, DESTABILIZE } from './index.js';
 import { CORP_ASSET_TYPES, ventureConsoleBlock, warehouseStoreCapacity } from './ventures.js';
 
 export default async function regress({ run, check }) {
@@ -38,6 +38,20 @@ export default async function regress({ run, check }) {
   // `corp warehouse` routes through the dispatcher (not an "unknown corp command").
   const wh = await run('corp warehouse');
   check('corp warehouse → routes through the corp dispatcher', !!wh && !/Unknown corp command/.test(wh.message || ''), (wh?.message || '').slice(0, 60));
+
+  // ── Phase 3: war / peace / raid route through the dispatcher (not "unknown
+  // corp command"). The fake regress player is in no corp, so each lands on the
+  // corp-shaped "not in a corp" guard — which proves the verb is wired, same
+  // pattern as the `corp warehouse` routing check above.
+  for (const verb of ['war rival', 'peace rival', 'raid']) {
+    const r = await run(`corp ${verb}`);
+    check(`corp ${verb.split(' ')[0]} → routes through the corp dispatcher`,
+      !!r && !/Unknown corp command/.test(r.message || ''), (r?.message || '').slice(0, 50));
+  }
+  // Destabilization weights escalate with how loud the act is (petty < hack < kill)
+  // and are all positive — the funnel negates them, so a zero would be a no-op bug.
+  check('destabilize weights escalate petty<hack<kill and are positive',
+    DESTABILIZE.petty > 0 && DESTABILIZE.petty < DESTABILIZE.hack && DESTABILIZE.hack < DESTABILIZE.kill, DESTABILIZE);
 
   // `corp territory` — the big-map overlay layer: a corp-free control projection
   // the client merges onto the engine `map` tiles. Returns a control map keyed by

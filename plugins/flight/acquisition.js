@@ -5,7 +5,8 @@
 
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
-import { getZone, liveAircraft, persist, pushHud, sendToPlayer, REFUEL_PRICE_PER_UNIT, effStats, fieldFor as fieldOf, inHangarInterior, rentalOpFee } from './state.js';
+import { getZone, liveAircraft, persist, pushHud, sendToPlayer, REFUEL_PRICE_PER_UNIT, effStats, fieldFor as fieldOf, inHangarInterior, rentalOpFee, vtolOnlyField } from './state.js';
+import { allExits } from '../../server/engine/exits.js';
 // `buy` belongs to commerce (shopping); flight wins it by load order (manifest
 // `after`) and delegates back unless you're buying an aircraft at a dealer field.
 import { commands as commerceCommands } from '../commerce/index.js';
@@ -28,9 +29,13 @@ export function fieldStocks(zone) {
   return zone?.flags?.hangar_interior_zone ? of(getZone(zone.flags.hangar_interior_zone)) : [];
 }
 
-async function listTypes(kind) {
+// A field's acquirable roster. A VTOL-only field (a helipad — no runway) sells/rents only
+// rotorcraft/VTOL; every other field carries the whole catalogue.
+async function listTypes(kind, field) {
+  const vtolOnly = vtolOnlyField(field);
   const { rows } = await query(
-    "SELECT id, name, class, seats, cargo_capacity, fuel_type, price_buy, price_rent_hourly FROM aircraft_types WHERE class <> 'wreck' ORDER BY price_buy"
+    `SELECT id, name, class, seats, cargo_capacity, fuel_type, price_buy, price_rent_hourly, takeoff_mode
+       FROM aircraft_types WHERE class <> 'wreck'${vtolOnly ? " AND takeoff_mode = 'vtol'" : ''} ORDER BY price_buy`
   );
   return rows;
 }
@@ -51,20 +56,39 @@ async function ownedCount(playerId, ownedOnly) {
   return rows[0]?.n || 0;
 }
 
+// The step from the ramp into the hangar: the field's own exit toward its
+// hangar building — the facade the interior hangs off, or the interior itself
+// for a directly-linked field. Returns null when no such exit is adjacent
+// (guidance then falls back to a generic "step inside").
+function hangarEntryDir(field) {
+  const interiorId = field.flags?.hangar_interior_zone;
+  const facadeId = getZone(interiorId)?.parent_zone;
+  for (const e of allExits(field))
+    if (e.target === interiorId || e.target === facadeId) return e.dir;
+  return null;
+}
+
 async function acquire(args, raw, player, kind) {
   const field = fieldOf(player);
   const flagKey = kind === 'buy' ? 'airfield_dealer' : 'airfield_charter';
   if (!field || !field.flags[flagKey])
     return { type: 'emote', message: `There's no ${kind === 'buy' ? 'aircraft dealer' : 'rental desk'} here.` };
   // The desk is INSIDE the hangar — you can't order a machine from out on the ramp.
-  if (field.flags.hangar_interior_zone && !inHangarInterior(player))
-    return { type: 'emote', message: `The ${kind === 'buy' ? 'dealer' : 'rental'} desk is inside the hangar — step <b>in</b> off the ramp to ${kind === 'buy' ? 'buy' : 'rent'} an aircraft.` };
+  if (field.flags.hangar_interior_zone && !inHangarInterior(player)) {
+    // Name the ACTUAL way in. `in` doesn't resolve on a multi-exit ramp, so the
+    // old "step in" nudge stranded the player on the tarmac; the hangar is a
+    // cardinal step (its facade is a pass-through straight to the desk).
+    const dir = hangarEntryDir(field);
+    const how = dir ? `head <b>${dir}</b> into the hangar` : `step into the hangar off the ramp`;
+    return { type: 'emote', message: `The ${kind === 'buy' ? 'dealer' : 'rental'} desk is inside — ${how} to ${kind === 'buy' ? 'buy' : 'rent'} an aircraft.` };
+  }
 
-  const types = await listTypes(kind);
+  const types = await listTypes(kind, field);
   const wanted = (args[0] || '').toLowerCase();
   if (!wanted) {
+    const note = vtolOnlyField(field) ? ' <span class="text-dim">(helipad — VTOL only)</span>' : '';
     const lines = types.map(t => '· ' + typeLine(t, kind));
-    return { type: 'output', message: `<span class="text-cyan">${kind === 'buy' ? 'FOR SALE' : 'FOR RENT (self-flown)'} at ${field.flags.airfield_name || field.name}:</span>\n${lines.join('\n')}` };
+    return { type: 'output', message: `<span class="text-cyan">${kind === 'buy' ? 'FOR SALE' : 'FOR RENT (self-flown)'} at ${field.flags.airfield_name || field.name}:</span>${note}\n${lines.join('\n')}` };
   }
   const t = types.find(x => x.id === wanted || x.name.toLowerCase() === wanted || x.id.endsWith(wanted));
   if (!t) return { type: 'emote', message: `They don't ${kind} a "${wanted}" here. Type <b>${kind}</b> to see the list.` };
@@ -172,7 +196,7 @@ export async function refuelParked(player, craftId) {
 async function cmdBuy(args, raw, player, broadcast) {
   const field = fieldOf(player);
   if (field?.flags?.airfield_dealer) {
-    const types = await listTypes('buy');
+    const types = await listTypes('buy', field);
     const wanted = (args[0] || '').toLowerCase();
     if (!wanted || types.some(t => t.id === wanted || t.name.toLowerCase() === wanted || t.id.endsWith(wanted)))
       return acquire(args, raw, player, 'buy');
@@ -187,7 +211,7 @@ async function cmdBuy(args, raw, player, broadcast) {
 async function cmdRent(args, raw, player) {
   const field = fieldOf(player);
   if (field?.flags?.airfield_charter) {
-    const types = await listTypes('rent');
+    const types = await listTypes('rent', field);
     const wanted = (args[0] || '').toLowerCase();
     if (!wanted || types.some(t => t.id === wanted || t.name.toLowerCase() === wanted || t.id.endsWith(wanted)))
       return acquire(args, raw, player, 'rent');

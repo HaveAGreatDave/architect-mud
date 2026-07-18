@@ -1097,6 +1097,7 @@ function startSpin() {
     // rotate in lockstep. Fixed-size canvases (no dpr scaling needed).
     const wfLots = root.querySelectorAll('canvas.hb-wf-lot');
     if (wfLots.length) {
+      balanceLotGrid(root.querySelector('.hb-lotgrid'), wfLots.length);   // even rows — never a lonely card on the bottom
       const accent = themeColor('--accent', '#39ff9e');   // one getComputedStyle for the whole row, not per-card
       wfLots.forEach((cv) => {
         if (cv._phase == null) cv._phase = Math.random() * 6.28;
@@ -1107,6 +1108,28 @@ function startSpin() {
   };
   raf = requestAnimationFrame(loop);
 }
+// Balance the dealer showroom rows so the last row is never a single lonely card. The cards are
+// fixed-width flex items (they wrap at the container width), so we cap the grid's width to a
+// COLUMN COUNT chosen to avoid a remainder of exactly 1 — e.g. 7 planes render 4+3 / 5+2, not
+// 6+1. Re-run each frame (cheap; only writes when the value changes) so it tracks pane resizes.
+function balanceLotGrid(grid, n) {
+  if (!grid || !n) return;
+  const avail = (grid.parentElement?.clientWidth || grid.clientWidth || 0);
+  if (!avail) return;
+  const CARD = 236, GAP = 14;
+  const fit = Math.max(1, Math.floor((avail + GAP) / (CARD + GAP)));   // cards that physically fit across
+  let cols = Math.min(fit, n);
+  if (cols > 2 && n % cols === 1) {                                    // a lonely last row — step down to an even split if one exists
+    let c = cols; while (c > 2 && n % c === 1) c--;
+    if (n % c !== 1) cols = c;
+  }
+  const px = (cols * CARD + (cols - 1) * GAP) + 'px';
+  if (grid.style.maxWidth !== px) {
+    grid.style.maxWidth = px;
+    grid.style.marginLeft = grid.style.marginRight = 'auto';   // centre the capped grid in the scroll region
+  }
+}
+
 // `.hb-bay` canvases carry their pixel size inline (style="width:..."); `#hb-scene`
 // fills its container via CSS instead (it's meant to fill the available room, not
 // sit at a fixed thumbnail size), so its size comes off its rendered box.

@@ -25,8 +25,19 @@
   "flags": {
     "studio_npc": true
   },
-  "home_activities": [],
-  "home_zone": "zone_studio_1782953094650",
+  "home_activities": [
+    "pours two fingers of something amber and pointedly does not offer you any",
+    "\"Forty-fourth floor. You can't hear the city scream from up here. That's the whole point.\"",
+    "sprawls back on the emperor bed and scrolls last night's ratings on a floating screen, smirking",
+    "practises a monologue punchline to the window, nails it, and toasts his own reflection",
+    "\"I've interviewed presidents, killers, and one very rude AI. Sit down before you embarrass us both.\"",
+    "lets a silk robe hang open and watches the bay lights without really seeing them",
+    "signs a glossy headshot of himself, props it on the bar, and steps back to admire the work",
+    "\"Room service up here is a helicopter. I'm not joking. Ask me about the helicopter.\"",
+    "cranks something with a heavy bassline and air-drums the bridge, entirely unashamed",
+    "\"The trick to the desk is never letting them see you sweat. The trick to the penthouse is never letting them up.\""
+  ],
+  "home_zone": "zone_solenne_penthouse",
   "hp": 20,
   "hp_max": 20,
   "id": "npc_john_akerson",

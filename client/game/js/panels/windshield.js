@@ -34,7 +34,7 @@
 // }
 
 import { isWeatherFxEnabled } from './weather-fx.js';
-import { aircraftFaces, wingtipStation, liveryPalette, faceBaseRgb, shadeRgb, hex2rgb, drawRotorFX, glassSheen, drawNoseArt, deflectSurface, jazzTex, jazzUV, overlayJazz, JAZZ_ROLE } from './aircraft3d.js';
+import { aircraftFaces, wingtipStation, liveryPalette, faceBaseRgb, shadeRgb, hex2rgb, drawRotorFX, drawCockpitProp, glassSheen, drawNoseArt, deflectSurface, jazzTex, jazzUV, overlayJazz, JAZZ_ROLE } from './aircraft3d.js';
 import { playThunderSample } from './engine-audio.js';
 
 const _scenes = new Map();      // id → persistent scene state (scroll, clouds, stars, particles)
@@ -61,6 +61,11 @@ export const RENDER_TUNE = {
   climbLift: 7.0,     // eye-height ADDED per unit altitude: EH = max(floor, eh + climbLift*height). ~2 by 500ft → clears buildings
   tile: 0.85,         // Mode-7 floor tile frequency (higher = smaller terrain tiles)
   pixel: 4,           // Mode-7 render downscale → pixel chunkiness (higher = blockier/retro)
+  // ── Performance / adaptive-quality knobs (all live-tunable) ─────────────────────
+  perfDS: 1,          // 1 = under sustained frame-load, bump the Mode-7 floor's per-pixel downscale (DS) up to +4 on top of `pixel`, quartering the ground-raster texel count. The floor is a fixed-cost software raster the canvas dynamic-res dial can't touch, so this is the one lever that sheds its load. 0 = fixed `pixel` DS always.
+  wallLodPx: 20,      // building-wall LOD: a wall whose on-screen height is below this (px) skips the perspective-correct column-split textured blit (the expensive clip/transform/drawImage storm) and fills one flat shaded polygon instead — a far/small wall's window grid is an aliased blur anyway. Higher = flat-shade more walls (faster, less detail); 0 = always texture every wall.
+  decoFar: 16,        // distance (tiles) beyond which generic-building rooftop decorations (holo-ads, window bloom) are culled — a few px at range, not worth the fill. Higher = draw them further out.
+  shadowFar: 18,      // distance (tiles) beyond which a building's ground shadow is skipped in the shadow pre-pass — distant shadows are invisible smears.
   fog: 0.55,          // N64-style distance fog: how strongly the far floor dissolves into the sky/horizon colour (0 = off/modern clear view, 1 = far ground vanishes into the fog wall). Colour tracks the sky, so it fogs pale by day and dark-blue at night. Live 'Fog (N64)' slider
   coastWarp: 0.5,     // shoreline de-blocking: domain-warps the Mode-7 terrain sample so the coast (and biome patches) meander off the square grid instead of poking out as hard 90° corners. Phased on ABSOLUTE world coords so it stays pinned to the world and never snaps on window recenter (0 = plain grid coast). Live 'Coast wobble' slider
   vlight: 1.0,        // N64 Gouraud vertex light on buildings: strength of the cyberpunk-tinted top-lit/base-shadow wall gradient (0 = flat untinted faces, 1 = full, >1 = punchier). Live 'Vertex light' slider
@@ -385,10 +390,19 @@ export function disposeWindshield(id) { _scenes.delete(id); }
 export function paintWindshield(id, view) {
   const cv = document.getElementById(id); if (!cv || !cv.getContext) return;
   const cw = cv.clientWidth, ch = cv.clientHeight; if (!cw || !ch) return;
-  const dpr = Math.min(2, window.devicePixelRatio || 1);
-  if (cv.width !== Math.round(cw * dpr) || cv.height !== Math.round(ch * dpr)) { cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr); }
   const ctx = cv.getContext('2d');
   const st = sceneFor(id, cw, ch);
+  const baseDpr = Math.min(2, window.devicePixelRatio || 1);
+  // Dynamic resolution scaling: under sustained frame-time load, shrink the backing store below
+  // native and let CSS upscale it — the broadest fps lever, since it scales EVERY pass at once
+  // (clouds, buildings, ground), not just the volumetric deck. Driven off last frame's smoothed
+  // frameMs (persisted on st); eased for a smooth ramp, then QUANTISED to 0.1 steps so the canvas
+  // backing store only re-allocates when it crosses a step — a per-frame ±1px resize would thrash
+  // the allocator and flicker. Floor 0.6 keeps the view legible under the worst weather load.
+  const resTarget = clamp(1 - ((st.frameMs || 16) - 20) / 44, 0.6, 1);   // full res ≤20ms (50fps); ramps to the 0.6 floor by ~46ms — engages EARLIER so it defends a 60fps target before the frame time has already collapsed
+  st.resScale = st.resScale ? st.resScale + (resTarget - st.resScale) * 0.08 : resTarget;
+  const dpr = baseDpr * (Math.round(st.resScale * 10) / 10);
+  if (cv.width !== Math.round(cw * dpr) || cv.height !== Math.round(ch * dpr)) { cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr); }
   const now = performance.now();
   const raw = st.last ? (now - st.last) : 16;
   const dt = Math.min(0.05, st.last ? raw / 1000 : 0.016); st.last = now;
@@ -397,6 +411,11 @@ export function paintWindshield(id, view) {
   // recovers; the EMA damps it into a stable equilibrium instead of oscillating. 1 = full quality
   // (≤~22ms/45fps), down to 0.3 under sustained load. Read by drawVolumetricClouds below.
   st.frameMs = st.frameMs ? st.frameMs + (raw - st.frameMs) * 0.1 : raw;
+  // Adaptive Mode-7 downscale: the ground raster is a fixed-cost per-pixel software loop the canvas
+  // dynamic-res dial above can't reach (its buffer is sized in CSS-px/DS space, not backing pixels), so
+  // under sustained load bump DS up to +4 on top of RENDER_TUNE.pixel — quartering the texel count at
+  // the cost of a slightly chunkier (on-brand) floor. Read by drawMode7Floor this same frame.
+  PERF_DS = RENDER_TUNE.perfDS !== 0 ? clamp(Math.round((st.frameMs - 24) / 8), 0, 4) : 0;   // 24ms→0, 32→+1, 40→+2 … cap +4
   // Floor raised 0.3→0.5: under a heavy deck the puff budget shed as much as 70% of its puffs,
   // and since heavy clouds ARE the load the dial oscillated the deck — on-screen puffs blinked out
   // and back as frames breathed. A 0.5 floor halves that swing (min budget 170, not 102) so the
@@ -453,13 +472,13 @@ export function paintWindshield(id, view) {
   // ground blocks the under-view — exactly "rotate under unless it runs the camera into the ground".
   const EHbaseC = Math.max(0.05, RENDER_TUNE.eh + height * RENDER_TUNE.climbLift);
   const groundPitch = Math.asin(clamp((0.06 - EHbaseC) / Math.max(1e-3, orbR), -1, 1));
-  const extPitch = ext && !v.reticle ? clamp(v.extPitch != null ? v.extPitch : restPitch, groundPitch, 1.4) : restPitch;
+  const extPitch = ext && !v.reticle ? clamp(v.extPitch != null ? v.extPitch : restPitch, groundPitch, 1.15) : restPitch;
   // Over-the-top distortion fix: a close chase cam looking straight down sits almost on top of the
   // craft, so buildings directly below streak and fan out and the view reads as uselessly zoomed-in.
   // As the orbit pitches UP past the resting angle toward top-down, pull the camera proportionally
   // farther out (up to ~2.4×) — that widens the framing and flattens the perspective. The resting
   // behind-and-above pose (topFrac 0) and the whole under-belly swing are untouched.
-  const topFrac = clamp((extPitch - restPitch) / (1.4 - restPitch), 0, 1);
+  const topFrac = clamp((extPitch - restPitch) / (1.15 - restPitch), 0, 1);
   const orbRcam = orbR * (1 + topFrac * 1.4);
   const chase = ext ? { back: orbRcam * Math.cos(extPitch), up: orbRcam * Math.sin(extPitch) } : null;   // camera on the arc: tiles behind / world-z above the craft
   // On the deck (ground/takeoff/landing) we paint a real, terrain-themed airport.
@@ -904,7 +923,6 @@ export function paintWindshield(id, view) {
     if (worldBlend > 0.02) {
       if (st.bolts && st.bolts.length) drawLightning(ctx, cam, st, now, v.acX ?? 0, v.acY ?? 0);   // 3-D lightning bolts inside storm cells
       if (volOn) drawVolumetricClouds(ctx, cam, st, v, baseTint, litTint, cloudAlpha, localStorm, sky.night, dt, W, H, horizonY, wx, lightX, lightY, lightStr);   // fly-through cloud deck: puff stacks + silver-lining rim, value-noise mottle, inter-lobe AO, virga shafts + whiteout/haze (base at a realistic altitude for `wx`)
-      if (vw.aaSites) drawAASites(ctx, cam, vw, now);   // radar-dish SAM turrets at active AA sites
       if (sky.night > 0.35) drawSearchlights(ctx, cam, vw, now, worldBlend);   // sweeping beams from restricted (no-fly) blocks at night
       if (!framed) drawBirds(ctx, W, H, horizonY, vw, st, dt, speed, sky, now, worldBlend);   // ambient flock scattering as you pass
       if (vw.landGuide && vw.runway) drawGuideBoxes(ctx, cam, vw, now);
@@ -924,7 +942,10 @@ export function paintWindshield(id, view) {
     // `hideOwnShip` lets a non-aircraft chase (the Helm view watching the Echelon) borrow the
     // external orbit camera without pasting an aircraft at world origin — the yacht cell that
     // sits at the map-window centre renders as the framed subject instead.
-    if (ext && !v.hideOwnShip) drawAircraftModel(ctx, cam, { dx: 0, dy: 0, cls: v.cls, hdg: v.heading, bank: v.bank, pitch: v.pitch, livery: v.livery, sizeMul: OWN_EXT_MUL, gearAnim: v.gearAnim ?? 1, power: v.enginePct != null ? v.enginePct : v.speed, ctrl: v.ctrl, propPhase: v.propPhase, propSpin: v.propSpin, propDisc: v.propDisc, lights: v.engineOn !== false, landing: !!v.landingLight, breakup: v.breakup }, ownShipBaseWz(cam, v), sunFx, now);
+    if (ext && !v.hideOwnShip) {
+      const ownbb = drawAircraftModel(ctx, cam, { dx: 0, dy: 0, cls: v.cls, hdg: v.heading, bank: v.bank, pitch: v.pitch, livery: v.livery, sizeMul: OWN_EXT_MUL, gearAnim: v.gearAnim ?? 1, power: v.enginePct != null ? v.enginePct : v.speed, ctrl: v.ctrl, propPhase: v.propPhase, propSpin: v.propSpin, propDisc: v.propDisc, lights: v.engineOn !== false, landing: !!v.landingLight, breakup: v.breakup }, ownShipBaseWz(cam, v), sunFx, now);
+      if (v.wreckFx && ownbb) drawWreckFire(ctx, ownbb, v.wreckFx, now);   // crash-cinematic fire + smoke over the burning wreck
+    }
     if (ext && v.reticle) drawGunReticle(ctx, cam, v, W, H, horizonY);   // two-part gunsight over the chase model
   }
 
@@ -982,6 +1003,21 @@ export function paintWindshield(id, view) {
   if (vaporStr > 0.01) drawVaporTrails(ctx, W, H, horizonY, vaporStr, now);
   // Sun glare + lens flare across the canopy when the sun is in the field of view.
   if (glareStr > 0.01) drawLensFlare(ctx, W, H, sunFlareX, sunFlareY, sky.sun, glareStr);
+
+  // Nose prop from the pilot's seat: the same rpm-driven disc the chase view paints, projected
+  // head-on ahead of the nose so it shimmers in the forward windscreen (blades tick over at idle,
+  // smear into a blur disc under power). Forward view only — a Q/E side-look becomes a framed
+  // window (skipped) — and single centred nose-prop classes only (drawCockpitProp self-gates).
+  // The prop is only a metre or two off the nose, so it reads BIG and CLOSE (radius ~ the whole
+  // frame height) with its HUB dropped down into the cowl/glareshield — like a real GA cockpit,
+  // you sit behind the disc and see only its top arc sweeping across the windscreen, never the
+  // centre. Drawn before the glass overlays so on-glass weather and the cowl occlude the lower arc.
+  if (!framed && !ext && !v.reticle && v.cls) {
+    const rad = H * 0.62;
+    const cowlTop = H - H * (COWL_DEPTH[v.cls] ?? COWL_DEPTH.default);
+    drawCockpitProp(ctx, v.cls, { cx: W / 2, cy: cowlTop + rad * 0.16, rad,
+      spin: v.propPhase || 0, disc: v.propDisc || 0, spool: v.propSpin || 0 });
+  }
 
   // Canopy glass sheen — a soft diagonal reflection that slides a touch with bank.
   const sheen = ctx.createLinearGradient(0, 0, W, H);
@@ -1803,12 +1839,19 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chas
   // you turn (the whole textured plane rotates around you). Each texel samples the
   // biome ahead from the map window + a world-space terrain texture + distance haze.
   // Eye height grows with altitude → the ground spreads and falls away as you climb.
-  const DS = Math.max(1, Math.round(RENDER_TUNE.pixel || 4));   // downscale = pixel chunkiness
+  const DS = Math.max(1, Math.round(RENDER_TUNE.pixel || 4) + PERF_DS);   // downscale = pixel chunkiness (+PERF_DS = adaptive load-shed on this fixed-cost software raster)
   const X0 = -W, spanX = 3 * W;
   const bw = Math.max(2, Math.ceil(spanX / DS)), bhMax = Math.max(2, Math.ceil(H / DS));
   const buf = m7buf(bw, bhMax), data = buf.img.data;
+  // Top of the ON-SCREEN ground. In a steep look-DOWN chase the horizon sits ABOVE the canvas
+  // (horizonY < 0); starting the buffer at the real horizon then burns all its rows on the
+  // off-screen slab above y=0, and the fixed-height buffer runs out before the screen bottom —
+  // leaving a gap that showed the flat ground-gradient beneath ("a hole under the aircraft").
+  // Clamp the buffer's top to y=0 so its rows always span the visible ground down to the bottom;
+  // the depth mapping below still references the TRUE horizonY, so perspective is unchanged.
+  const yTop = Math.max(0, horizonY);
   const Y1 = H + depth * 0.3;
-  const usedH = Math.min(bhMax, Math.max(1, Math.ceil((Y1 - horizonY) / DS)));
+  const usedH = Math.min(bhMax, Math.max(1, Math.ceil((Y1 - yTop) / DS)));
   const EH = Math.max(0.05, RENDER_TUNE.eh + (v.height || 0) * RENDER_TUNE.climbLift + (chase ? chase.up : 0));   // additive + floor: altitude adds real eye-height so you climb above buildings; chase.up lifts the external camera above the craft; the floor wraps the sum so a low vertical orbit can't sink the camera below the terrain
   const hd = (v.heading || 0) * Math.PI / 180, sinh = Math.sin(hd), cosh = Math.cos(hd);
   const off = v.mapOffset, back = chase ? chase.back : 0;
@@ -1864,14 +1907,40 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chas
     const rw = LUT[cy], cx2 = rx < 0 ? 0 : rx >= rw.length ? rw.length - 1 : rx;   // (now edge-extended) LUT
     return rw[cx2] || OFF5;
   };
+  // Tell the later reflection pass whether the craft sits over water, using the SAME edge-extended
+  // LUT the blit samples — so the open off-map OCEAN counts as water too (the raw map biome is null
+  // out there and doesn't know about the ocean fill, which is why reflections only showed over built
+  // harbour tiles). Sampled at the craft's ground point (mapOffset → centre tile).
+  // The Echelon's deck sits over water (she floats on the sea), so her helipad tile is classified as
+  // water — which would spuriously fire the wash on solid deck. Suppress it when the craft's own tile
+  // is her yacht cell: a heli on the pad shouldn't churn the deck.
+  const _cc = map ? (map[Math.round(R)] || [])[Math.round(R)] : null;
+  const onDeck = !!(_cc && _cc.mark === 'yacht');
   const t = (now || 0) * 0.001;
   // A caller (the Helm chase, which holds position) can pass `seaScroll` — an accumulated
   // along-heading distance — so the swell streams past and reads as MAKING WAY even though the
   // map window isn't translating. Normal flight passes none (0), so it's unaffected.
   const seaScroll = v.seaScroll || 0, ssX = Math.sin((v.heading || 0) * Math.PI / 180) * seaScroll, ssY = -Math.cos((v.heading || 0) * Math.PI / 180) * seaScroll;
+  // Rotor downwash: when a HELI (v.cls==='heli', the Dragonfly) is low over water, the rotor beats a
+  // disturbed disc into the surface under it — a matted crater ringed with spray and out-running
+  // ripples. Strongest in ground effect (low height), gone as it climbs away; zero for fixed-wing, so
+  // no per-texel cost on a normal flight. The disc is centred on the craft's ground point (mapOffset).
+  // `rotor` ties it to actual rotor RPM (v.propSpin: ~0.2 idle → 1 full, winds to 0 a beat after
+  // shutdown) so a parked/cold heli makes NO wash, and the ripple rate below scales with rpm too.
+  const isHeli = v.cls === 'heli' || v.heli;
+  const rotor = isHeli ? clamp(((v.propSpin || 0) - 0.1) / 0.9, 0, 1) : 0;
+  const heliDown = isHeli && !onDeck ? clamp(1 - (v.height || 0) / 0.16, 0, 1) * rotor : 0;
+  const dcx = off ? off.x : 0, dcy = off ? off.y : 0;
   for (let by = 0; by < usedH; by++) {
-    const p = Math.max(0.004, (horizonY + by * DS - horizonY) / depth);
+    const p = Math.max(0.004, (yTop + by * DS - horizonY) / depth);
     const d = EH / p;
+    // Fresnel reflectivity for water — per-ROW (depends only on the view depression angle, not on
+    // x). Steep views (near, looking down INTO the water) show its deep body colour; grazing views
+    // (far, toward the horizon) mirror the bright sky. That angle-graded blend is what reads as a
+    // real reflective surface rather than flat blue. cosI = cos(angle off the vertical surface
+    // normal) = EH/‖(d,EH)‖; Schlick's (1-cosI)^5 curve rises to ~1 at the grazing horizon.
+    const cosI = EH / Math.sqrt(d * d + EH * EH);
+    const fres = 0.02 + 0.98 * (1 - cosI) ** 5;
     // High-frequency detail (wave shimmer, sun glitter, concrete/grass mottle) aliases into a
     // hard nearest-neighbour checkerboard once a low-res texel spans several world units —
     // worst in the mid/far field where each depth band jumps in world-space. Fade the detail
@@ -1944,15 +2013,44 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chas
       //   · a damp, darker strip of sand just above the line where the wash reaches
       let cr = 0, foam = 0, gln = 0, moon = 0, cap = 0;
       if (waterW > 0.002) {
+        // Tier-1 sky sheen: mix the water body colour toward the reflected sky (≈ the horizon
+        // colour, which is what a grazing sea reflects) by the fresnel term, scaled by how much of
+        // this texel is open water. Deep water underfoot keeps its rich blue; the surface brightens
+        // toward the sky as it runs out to the horizon. Waves/glint/foam still layer on top below.
+        const sheen = fres * 0.5 * waterW;
+        br = br * (1 - sheen) + hor[0] * sheen;
+        bg = bg * (1 - sheen) + hor[1] * sheen;
+        bb = bb * (1 - sheen) + hor[2] * sheen;
         // A slow, coherent swell (not fast chop): three crossing sine trains at the drifted coords
         // so the sea streams past when making way. Temporal rates are kept low so crests and the
         // specular glitter evolve as a rolling swell rather than a fast, meaningless shimmer.
         const swx = wx + ssX, swy = wy + ssY;
-        const wv = 0.5 * Math.sin(swx * 5.6 + swy * 1.3 + t * 0.9) + 0.4 * Math.sin((swx - swy) * 3.7 - t * 0.66) + 0.11 * Math.sin((swx + swy) * 7.4 + t * 1.25);
+        // De-lattice the swell. Three PURE sines summed on raw world coords make a regular corrugated
+        // diamond lattice — the "tiled" read on open water. A per-texel noise domain-warp fixes it but
+        // costs 2 noise samples on EVERY water texel, which tanked the frame rate over open sea. Do it
+        // with FM instead: phase-modulate each sine train by one shared low-frequency sine (`ph`), with
+        // a different push per train so they decorrelate. The crests wander, the grid breaks, and the
+        // whole thing costs one extra Math.sin instead of two vnoise2 lookups.
+        const ph = Math.sin(swx * 0.6 - swy * 0.45 + t * 0.25);
+        const wv = 0.5 * Math.sin(swx * 5.6 + swy * 1.3 + t * 0.9 + ph * 1.6) + 0.4 * Math.sin((swx - swy) * 3.7 - t * 0.66 + ph * 1.1) + 0.11 * Math.sin((swx + swy) * 7.4 + t * 1.25 + ph * 0.7);
         tex = tex * (1 - waterW) + (1 + wv * 0.15 * detail) * waterW;
-        tex *= 1 - clamp((waterW - 0.5) * 2, 0, 1) * 0.18;   // shallows near the line stay lighter; open water sits darker
-        if (wv > 0.78) cr = (wv - 0.78) * 5 * waterW;   // crest glint, added as a bluish-white lift below
-        if (wv > 0.90) cap = (wv - 0.90) * 9 * waterW;  // WHITECAP — bright white foam breaking off the very tops
+        const deep = clamp((waterW - 0.5) * 2, 0, 1);
+        tex *= 1 - deep * 0.18;   // shallows near the line stay lighter; open water sits darker
+        // Deep-water colour mottle: low-frequency non-repeating noise patches the flat blue between the
+        // crests into lighter/darker fields (wind lanes) so open water reads as a living surface. It
+        // scales with `detail`, so it's invisible on far water anyway — gate the (one) noise lookup to
+        // near/mid water so the far field, which fills most of an open-sea frame, pays nothing.
+        if (detail > 0.35) {
+          const mott = vnoise2(swx * 0.55 + 11, swy * 0.55 - 7) - 0.5;
+          tex *= 1 + mott * 0.12 * detail * deep;
+        }
+        // Scatter the crest highlights. Every sine crest above threshold used to foam, so the whitecaps
+        // landed on the swell's regular crest spacing → a grid of bright dots (the "tiled" read). Mask
+        // them by a moderate-frequency noise so only SOME crests break — real whitecaps are patchy, not
+        // gridded. Sampled ONLY on the rare bright texels (wv high), so it stays cheap.
+        const foamMask = wv > 0.75 ? clamp(vnoise2(swx * 1.15 + 20, swy * 1.15 - 6) * 1.7 - 0.4, 0, 1) : 0;
+        if (wv > 0.78) cr = (wv - 0.78) * 5 * waterW * foamMask;   // crest glint (scattered, not every crest)
+        if (wv > 0.90) cap = (wv - 0.90) * 9 * waterW * foamMask;  // WHITECAP — patchy foam, broken off some crests
         // Sun glitter: a bright, broken specular path across the water TOWARD the sun (fixed by the
         // real bearing, not the drift) — the swell chops it into a shimmering trail of gold flecks.
         if (sun && sun.elev > 0.05) {
@@ -1993,13 +2091,32 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chas
       const near = clamp((0.55 - d) / 0.55, 0, 1);
       if (near > 0.01) {
         if (waterW > 0.002) {
-          const wv2 = 0.5 * Math.sin((wx + ssX) * 22 + (wy + ssY) * 15 - t * 1.3) + 0.5 * Math.sin((wx + ssX + wy + ssY) * 17 + t * 1.0);
+          // De-lattice the fine ripple too, same pure-sine grid as the swell — FM again (one sine),
+          // not a noise warp, to keep the near-field cheap. It's the most visible tiling when hovering
+          // low (the heli), so it's worth breaking, but not worth 2 noise lookups per near texel.
+          const nwx = wx + ssX, nwy = wy + ssY;
+          const nph = Math.sin(nwx * 2.3 - nwy * 1.7 + t * 0.4);
+          const wv2 = 0.5 * Math.sin(nwx * 22 + nwy * 15 - t * 1.3 + nph * 0.9) + 0.5 * Math.sin((nwx + nwy) * 17 + t * 1.0 + nph * 0.7);
           tex *= 1 + (0.06 + wv2 * 0.11) * near * waterW;               // lift + fine chop breaks the flat dark
           if (wv2 > 0.7) cr = Math.max(cr, (wv2 - 0.7) * 2.6 * near * waterW);   // fine crest lift (neutral, day or night)
           if (wv2 > 0.86) cap = Math.max(cap, (wv2 - 0.86) * 6 * near * waterW); // near-field whitecaps
         } else {
           const nx = Math.floor(wx * 14.7), ny = Math.floor(wy * 14.7);
           tex *= 1 + (((nx * 7 ^ ny * 13) & 3) * 0.045 - 0.065) * near;  // fine dirt/gravel grain
+        }
+      }
+      // Rotor downwash disc — heli, low, over water. A dark matted crater directly under the disc,
+      // a bright annulus of spray at its rim, and concentric ripples running outward across it.
+      if (heliDown > 0.002 && waterW > 0.002) {
+        const rdx = wx - dcx, rdy = wy - dcy, rr = Math.sqrt(rdx * rdx + rdy * rdy);
+        if (rr < 1.8) {                                              // tight disc — the Mini 500 is a tiny kit heli, not a Chinook
+          const dwv = heliDown * clamp(1 - rr / 1.8, 0, 1) * waterW;
+          const ring = Math.sin(rr * 9 - t * (3 + 7 * rotor));       // rings expand outward at a rate that scales with rotor RPM
+          const core = Math.exp(-rr * rr / 0.25);                    // matted crater, peak dead-centre
+          const rim = Math.exp(-((rr - 0.55) * (rr - 0.55)) / 0.18); // spray concentrated at the (closer-in) disc rim
+          tex *= 1 + (ring * 0.09 - core * 0.1) * dwv * detail;       // out-running ripples over a pressed-down crater
+          foam = Math.max(foam, rim * 0.9 * dwv);                     // spray-ring foam (gets the *=detail below)
+          cap = Math.max(cap, rim * (0.3 + 0.4 * Math.max(0, ring)) * dwv);   // bright spray flecks breaking off the ring
         }
       }
       cr *= detail; foam *= detail; gln *= detail; moon *= detail; cap *= detail;   // fade the bright specular spikes out with distance too (near ≈ full)
@@ -2037,7 +2154,7 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chas
   }
   buf.cx.putImageData(buf.img, 0, 0, 0, 0, bw, usedH);
   const sm = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(buf.c, 0, 0, bw, usedH, X0, horizonY, spanX, usedH * DS);
+  ctx.drawImage(buf.c, 0, 0, bw, usedH, X0, yTop, spanX, usedH * DS);
   ctx.imageSmoothingEnabled = sm;
 }
 
@@ -2116,6 +2233,22 @@ function cloudNoiseTex(){
   }
   _cloudNoiseTex = c; return c;
 }
+// Baked puff sprite. The swarm is hundreds of cards per frame, but base/lit tints are CONSTANT across
+// a frame and only a handful of distinct lit-values exist — so we bake each tint ONCE to an offscreen
+// radial-gradient disc and BLIT it per card instead of building a fresh gradient + ellipse fill every
+// card. drawImage of a cached sprite is far cheaper than a per-card gradient; the bake cost (≤12
+// gradients/frame, memoised per tint signature) is negligible against the card count it replaces.
+// Baked round + symmetric; the per-card vertical squash (ys) comes from the drawImage dest height,
+// and the highlight is biased slightly UP for a fixed "lit from above" form.
+const PUFF_PX = 48, PUFF_BUCKETS = 6, PUFF_BLIT_MAX = 26;   // cards wider than PUFF_BLIT_MAX px keep the full per-card gradient (the few near "hero" puffs); the rest blit
+function bakePuffSprite(col, shade) {
+  const S = PUFF_PX, c = texCanvas(S * 2, S * 2), g = c.getContext('2d');
+  const rg = g.createRadialGradient(S, S - S * 0.12, S * 0.14, S, S, S);
+  rg.addColorStop(0, rgb(col, 1)); rg.addColorStop(0.5, rgb(col, 0.95));
+  rg.addColorStop(0.82, rgb(shade, 0.5)); rg.addColorStop(1, rgb(shade, 0));
+  g.fillStyle = rg; g.beginPath(); g.ellipse(S, S, S, S, 0, 0, 7); g.fill();
+  return c;
+}
 function drawVolumetricClouds(ctx, cam, st, v, base, lit, alpha, storm, night, dt, W, H, horizonY, wx, lightX, lightY, lightStr) {
   const cells = st.cells, ax = v.acX, ay = v.acY;
   if (!cells || !cells.length || ax == null || ay == null) return st.cloudImm = 0;
@@ -2140,6 +2273,15 @@ function drawVolumetricClouds(ctx, cam, st, v, base, lit, alpha, storm, night, d
     g.addColorStop(0, rgb(hcol, 0)); g.addColorStop(0.5, rgb(hcol, hazeStr)); g.addColorStop(1, rgb(hcol, 0));
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
   }
+  // Immersion (how deep the eye sits inside the front) drives the whiteout AND how much puff detail is
+  // worth drawing — computed BEFORE the swarm is built so a deep whiteout can skip the ENTIRE build.
+  // At peak immersion the flood below covers ~95% of the deck, so projecting + gradient-filling
+  // hundreds of puffs under it was pure waste (worst exactly when the deck is heaviest and fps lowest).
+  // Eased off the previous frame's value so it blooms, not pops; wxCover + vert are both known here.
+  const vert = clamp(1 - Math.abs(cam.EH - baseZ) / (thick * 0.9 + 0.5), 0, 1);
+  const immTarget = clamp(wxCover, 0, 1) * vert;
+  st.cloudImm = (st.cloudImm || 0) + (immTarget - (st.cloudImm || 0)) * clamp(dt * 3.2, 0, 1);
+  const imm = st.cloudImm, cardScale = clamp(1 - imm * 1.18, 0, 1);   // cards fade fully OUT before the whiteout peaks (was ·0.85 → never reached 0); ≤0 ⇒ skip the swarm entirely
   // Scatter a clump of puffs inside each nearby cell (deterministic in the cell's seed, so the clump
   // rides along as the front drifts) and build the card stacks. Mirrors the dome field-cell scatter.
   // Cells are worked NEAREST-FIRST against a global puff budget: "lots of clouds" = lots of active
@@ -2148,7 +2290,9 @@ function drawVolumetricClouds(ctx, cam, st, v, base, lit, alpha, storm, night, d
   // behind nearer puffs and the whiteout anyway), and the fps dial (cloudQ) scales the ceiling.
   const q = st.cloudQ ?? 1;
   const mottleOK = q > 0.7;                                 // shed the clip+drawImage noise overlay under load
-  let budget = Math.round((W < 720 ? 150 : 340) * q);       // total puffs this frame across all cells
+  // cardScale ≤ 0 ⇒ the whiteout fully covers the deck: zero the budget so the whole swarm build is
+  // skipped (not merely its draw) — the real saving is NOT projecting/filling puffs you can't see.
+  let budget = cardScale > 0.02 ? Math.round((W < 720 ? 150 : 340) * q) : 0;   // total puffs this frame across all cells
   const budget0 = Math.max(1, budget);                      // starting budget → soft-fade the last slice of it (below)
   const nearCells = [];
   for (const c of cells) {
@@ -2211,21 +2355,40 @@ function drawVolumetricClouds(ctx, cam, st, v, base, lit, alpha, storm, night, d
       }
     }
   }
-  // Immersion: horizontally inside a front (field cover at our position) AND vertically at the cloud
-  // band (eye world-z near cloudZ) → you're flying through the cell. Eased so it blooms, not pops.
-  const vert = clamp(1 - Math.abs(cam.EH - baseZ) / (thick * 0.9 + 0.5), 0, 1);
-  const immTarget = clamp(wxCover, 0, 1) * vert;
-  st.cloudImm = (st.cloudImm || 0) + (immTarget - (st.cloudImm || 0)) * clamp(dt * 3.2, 0, 1);
-  const imm = st.cloudImm, cardScale = 1 - imm * 0.85;   // cards fade as the whiteout takes over — inside, you see uniform fog, not lumps
+  // (immersion + cardScale computed above, before the swarm build — inside a front you see uniform
+  // fog, not lumps, so the deck fades toward the whiteout and the build is skipped once it's covered.)
   if (cardScale > 0.02) {
     cards.sort((a, b) => b.f - a.f);                   // far first (painter's)
     const noiseTex = cloudNoiseTex();
     const litOK = lightStr > 0.05 && lightX != null;
+    // Per-frame baked-sprite cache. base/lit are constant across the frame, so bake each lit-bucket
+    // (× normal/stormy) ONCE and reuse it for every small card. Invalidated when the frame's tint
+    // signature changes (time of day / weather). puffSet lazily bakes a bucket array on first use.
+    const psig = `${base[0] | 0},${base[1] | 0},${base[2] | 0}|${lit[0] | 0},${lit[1] | 0},${lit[2] | 0}`;
+    if (st.puffSig !== psig) { st.puffSig = psig; st.puffSprites = {}; }
+    const puffSet = (stormy) => {
+      const key = stormy ? 's' : 'n';
+      if (st.puffSprites[key]) return st.puffSprites[key];
+      const bt = stormy ? mix(base, [78, 84, 94], 0.5) : base, lt = stormy ? mix(lit, [140, 146, 156], 0.5) : lit;
+      const arr = [];
+      for (let b = 0; b < PUFF_BUCKETS; b++) { const col = mix(bt, lt, b / (PUFF_BUCKETS - 1)); arr.push(bakePuffSprite(col, mix(col, bt, 0.5))); }
+      return (st.puffSprites[key] = arr);
+    };
     for (const c of cards) {
       if (c.ao) {                                      // ambient-occlusion pool under the lobes
         const rg = ctx.createRadialGradient(c.x, c.y, c.s * 0.1, c.x, c.y, c.s);
         rg.addColorStop(0, rgb([18, 24, 32], c.a * cardScale)); rg.addColorStop(1, 'rgba(18,24,32,0)');
         ctx.fillStyle = rg; ctx.beginPath(); ctx.ellipse(c.x, c.y, c.s, c.s * 0.5, 0, 0, 7); ctx.fill();
+        continue;
+      }
+      // Small cards (the bulk of the swarm) BLIT a baked sprite — no per-card gradient build. Nearest
+      // lit bucket; the drawImage dest height applies the per-card squash (ys). The few large "hero"
+      // cards (> PUFF_BLIT_MAX px) fall through to the full gradient path for directional light + mottle.
+      if (c.s <= PUFF_BLIT_MAX) {
+        const spr = puffSet(c.stormy)[Math.round(clamp(c.lit, 0, 1) * (PUFF_BUCKETS - 1))];
+        ctx.globalAlpha = clamp(c.a * cardScale, 0, 1);
+        ctx.drawImage(spr, c.x - c.s, c.y - c.s * c.ys, c.s * 2, c.s * 2 * c.ys);
+        ctx.globalAlpha = 1;
         continue;
       }
       const bt = c.stormy ? mix(base, [78, 84, 94], 0.5) : base, lt = c.stormy ? mix(lit, [140, 146, 156], 0.5) : lit;
@@ -2342,7 +2505,7 @@ const WALL_COL = { uptown: [46, 64, 92], civic: [72, 68, 60], citycore: [52, 56,
   ty_ksab: [70, 56, 96], ty_ksab_glass: [86, 78, 116], ty_greenroom: [40, 54, 46], ty_sentinel: [56, 58, 70], ty_jitter: [58, 54, 48],
   ty_ward: [66, 68, 62],
   // Bespoke named-building shells — a distinct wall tone per silhouette below.
-  ty_lux: [58, 52, 78], ty_chrome: [118, 126, 136], ty_meridian: [98, 104, 90],
+  ty_lux: [58, 52, 78], ty_chrome: [118, 126, 136], ty_meridian: [112, 102, 82], ty_meridian_bronze: [96, 68, 40],
   // Halcyon Towers — dark smoked-teal curtain glass for the futuristic twisting spire.
   ty_halcyon: [26, 42, 62],
   // Solenne Residences — warm champagne/bronze curtain glass for the opulent tapered spire.
@@ -2505,8 +2668,9 @@ export function climbOutClear(f, lat, height) {
 const TR = () => Math.max(0.5, RENDER_TUNE.texRes || 1);
 // Palette keys that render as CORRUGATED METAL SIDING (vertical ribs + rivets) instead of the
 // default windowed curtain wall — for hangars/sheds, which shouldn't carry lit office windows.
-const METAL_WALL = new Set(['ty_hangarmetal', 'ty_wh_metal', 'ty_cont_r', 'ty_cont_b', 'ty_cont_g', 'ty_cont_y', 'ty_cold', 'ty_fab_metal', 'ty_fwd_metal']);
+const METAL_WALL = new Set(['ty_hangarmetal', 'ty_wh_metal', 'ty_cont_r', 'ty_cont_b', 'ty_cont_g', 'ty_cont_y', 'ty_cold', 'ty_fab_metal', 'ty_fwd_metal', 'ty_studio', 'ty_ksab']);   // ...+ sound-stage shells: a stage is a windowless ribbed-panel clear-span box, never a windowed block
 const GLASS_WALL = new Set(['ty_halcyon', 'ty_solenne', 'ty_ksab_glass']);   // curtain-glass skins: floor-plate striping + sky sheen instead of a window grid
+const DECO_WALL = new Set(['ty_meridian']);   // bespoke art-deco limestone: reeded vertical piers + tall paired windows + chevron spandrels (The Meridian)
 function wallTex(biome, night) {
   const tr = TR(), nite = night > 0.4;
   return getTex('wall:' + biome + (nite ? ':n' : '') + ':' + tr, () => {
@@ -2538,11 +2702,48 @@ function wallTex(biome, night) {
       }
       return c;
     }
+    if (DECO_WALL.has(biome)) {   // The Meridian — bespoke ART-DECO limestone: reeded vertical piers framing tall
+      //                             paired windows over chevron spandrel panels; warm-lit occupied floors at night.
+      const W2 = Math.round(32 * tr), H2 = Math.round(56 * tr), c2 = texCanvas(W2, H2), g2 = c2.getContext('2d');
+      const vg = g2.createLinearGradient(0, 0, 0, H2);   // warm limestone, faintly darker toward the base
+      vg.addColorStop(0, `rgb(${Math.min(255, w[0] + 12)},${Math.min(255, w[1] + 10)},${Math.min(255, w[2] + 8)})`);
+      vg.addColorStop(1, `rgb(${w[0] - 10 | 0},${w[1] - 10 | 0},${w[2] - 10 | 0})`);
+      g2.fillStyle = vg; g2.fillRect(0, 0, W2, H2);
+      for (let i = 0; i < Math.round(120 * tr); i++) { const rx = frac(i * 3.1) * W2 | 0, ry = frac(i * 5.7) * H2 | 0; g2.fillStyle = `rgba(0,0,0,${0.03 + frac(i) * 0.05})`; g2.fillRect(rx, ry, 1, 1); }   // stone grain
+      const bay = Math.max(6, Math.round(8 * tr)), reed = Math.max(1, Math.round(1.4 * tr)), floor = Math.max(6, Math.round(8 * tr)), px = Math.max(1, tr | 0);
+      for (let bx = 0; bx < W2; bx += bay) {
+        g2.fillStyle = 'rgba(255,248,230,0.20)'; g2.fillRect(bx, 0, reed, H2);              // reeded pier: lit edge
+        g2.fillStyle = 'rgba(0,0,0,0.26)'; g2.fillRect(bx + reed, 0, reed, H2);             //             + shadow edge → a 3D vertical rib
+        const winX = bx + reed * 2 + px, winW = bay - reed * 2 - px * 2;
+        if (winW < 2) continue;
+        for (let fy = Math.round(2 * tr); fy < H2 - floor * 0.4; fy += floor) {
+          const winH = Math.max(2, floor - Math.round(3 * tr));
+          const lit = nite && (((Math.round(bx / tr) * 7 + Math.round(fy / tr) * 13) % 5) < 2);
+          if (nite) {
+            g2.fillStyle = lit ? 'rgb(255,214,140)' : 'rgb(15,20,30)'; g2.fillRect(winX, fy, winW, winH);
+            if (lit) { g2.fillStyle = 'rgba(255,180,90,0.45)'; g2.fillRect(winX, fy + winH - px, winW, px); }   // warm sill spill
+          } else {
+            const wgt = g2.createLinearGradient(0, fy, 0, fy + winH);
+            wgt.addColorStop(0, 'rgb(150,178,202)'); wgt.addColorStop(1, 'rgb(78,104,128)');   // cool sky-reflected glazing
+            g2.fillStyle = wgt; g2.fillRect(winX, fy, winW, winH);
+          }
+          g2.fillStyle = 'rgba(26,22,18,0.75)';                                             // muntins: centre mullion + upper transom
+          g2.fillRect(winX + (winW >> 1), fy, px, winH);
+          g2.fillRect(winX, fy + Math.round(winH * 0.34), winW, px);
+          const spTop = fy + winH, spH = floor - winH;                                      // chevron spandrel beneath (bronze zigzag)
+          if (spH >= 2) { g2.strokeStyle = 'rgba(150,108,56,0.65)'; g2.lineWidth = Math.max(1, px); g2.beginPath(); g2.moveTo(winX, spTop + spH - 1); g2.lineTo(winX + winW / 2, spTop + 1); g2.lineTo(winX + winW, spTop + spH - 1); g2.stroke(); }
+        }
+      }
+      return c2;
+    }
     const N = Math.round(60 * tr);
     for (let i = 0; i < N; i++) { const rx = frac(i * 3.1) * W | 0, ry = frac(i * 5.7) * H | 0; g.fillStyle = `rgba(0,0,0,${0.05 + frac(i) * 0.06})`; g.fillRect(rx, ry, 1, 1); }
     const xs = 4 * tr, ys = 5 * tr, ww = Math.max(1, 2 * tr), wh = Math.max(1, 3 * tr);
     for (let y = 3 * tr; y < H - 2 * tr; y += ys) for (let x = 2 * tr; x < W - 2 * tr; x += xs) {
-      const lit = ((Math.round(x / tr) * 7 + Math.round(y / tr) * 13) % 5) < (nite ? 3 : 1);
+      // Scatter lit windows in 2D. The old (x*7 + y*13) % 5 test degenerated at ys=5*tr — the row
+      // term vanished mod 5, so whole columns lit identically on every floor (the "tiled" stripes).
+      // frac() hashes both indices, so occupancy varies per-window with no visible grid alignment.
+      const lit = frac(Math.round(x / tr) * 2.3 + Math.round(y / tr) * 7.9 + 0.5) < (nite ? 0.55 : 0.18);
       g.fillStyle = nite ? (lit ? 'rgba(255,214,120,0.9)' : 'rgba(14,18,26,0.85)') : (lit ? 'rgba(160,200,230,0.55)' : 'rgba(26,32,42,0.7)');
       g.fillRect(x, y, ww, wh);
     }
@@ -2562,9 +2763,17 @@ function roofTex(biome, night) {
     return c;
   });
 }
+// Flat wall colour for the LOD path: a far/small wall (below RENDER_TUNE.wallLodPx on screen) fills
+// this solid instead of running the perspective-correct column-split textured blit — its window grid
+// is an aliased blur at that size anyway. Base palette tone, dimmed at night to sit under the Gouraud
+// ramp that still paints on top. Cheap enough to compute once per box.
+function flatWallCol(biome, night) {
+  const w = WALL_COL[biome] || [52, 56, 66], k = night > 0.4 ? 0.6 : 1;
+  return `rgb(${w[0] * k | 0},${w[1] * k | 0},${w[2] * k | 0})`;
+}
 // Affine texture-mapped triangle (the Mode-7 warp). Maps texture-space triangle
 // (s0,s1,s2) onto screen triangle (d0,d1,d2). Composes with the current transform.
-function texTri(ctx, img, s0, s1, s2, d0, d1, d2) {
+function texTri(ctx, img, s0, s1, s2, d0, d1, d2, smooth) {
   const sx1 = s1[0] - s0[0], sy1 = s1[1] - s0[1], sx2 = s2[0] - s0[0], sy2 = s2[1] - s0[1];
   const det = sx1 * sy2 - sx2 * sy1; if (Math.abs(det) < 1e-6) return;
   const dx1 = d1[0] - d0[0], dy1 = d1[1] - d0[1], dx2 = d2[0] - d0[0], dy2 = d2[1] - d0[1];
@@ -2573,13 +2782,17 @@ function texTri(ctx, img, s0, s1, s2, d0, d1, d2) {
   const e = d0[0] - a * s0[0] - cc * s0[1], f = d0[1] - b * s0[0] - d * s0[1];
   ctx.save();
   ctx.beginPath(); ctx.moveTo(d0[0], d0[1]); ctx.lineTo(d1[0], d1[1]); ctx.lineTo(d2[0], d2[1]); ctx.closePath(); ctx.clip();
-  ctx.transform(a, b, cc, d, e, f); ctx.imageSmoothingEnabled = false; ctx.drawImage(img, 0, 0);
+  // Nearest-neighbour is crisp when the texture is MAGNIFIED (near walls), but a minified texture
+  // (a far tower shrunk below its texel size) then aliases — fine detail like the Meridian's reeded
+  // piers crawls/flickers as the camera moves. Callers pass smooth=true when they know they're
+  // minifying, so the far blit bilinear-filters (kills the shimmer) while near walls stay crisp.
+  ctx.transform(a, b, cc, d, e, f); ctx.imageSmoothingEnabled = !!smooth; ctx.drawImage(img, 0, 0);
   ctx.restore();
 }
-function drawTexQuad(ctx, img, P0, P1, P2, P3) {
+function drawTexQuad(ctx, img, P0, P1, P2, P3, smooth) {
   const W = img.width, H = img.height;
-  texTri(ctx, img, [0, 0], [W, 0], [W, H], P0, P1, P2);
-  texTri(ctx, img, [0, 0], [W, H], [0, H], P0, P2, P3);
+  texTri(ctx, img, [0, 0], [W, 0], [W, H], P0, P1, P2, smooth);
+  texTri(ctx, img, [0, 0], [W, H], [0, H], P0, P2, P3, smooth);
 }
 // Perspective-correct textured wall quad. The affine texTri above interpolates texture coords
 // linearly in SCREEN space, so a windowed wall viewed at a steep angle (near edge far closer than
@@ -2588,18 +2801,18 @@ function drawTexQuad(ctx, img, P0, P1, P2, P3) {
 // space, so u = (s/fR)/((1-s)/fL + s/fR) for screen-linear s). A building wall is vertical ⇒ each
 // vertical edge has constant depth (fL top==bottom, fR top==bottom), so no vertical correction is
 // needed — columns alone straighten the windows. fL/fR are the camera depths of the left/right edges.
-function drawTexQuadP(ctx, img, P0, P1, P2, P3, fL, fR) {
+function drawTexQuadP(ctx, img, P0, P1, P2, P3, fL, fR, smooth) {
   fL = Math.max(fL, 1e-3); fR = Math.max(fR, 1e-3);
   const ratio = Math.max(fL, fR) / Math.min(fL, fR);
-  if (ratio < 1.15) { drawTexQuad(ctx, img, P0, P1, P2, P3); return; }   // near flat-on: one affine quad is fine (and cheap)
+  if (ratio < 1.15) { drawTexQuad(ctx, img, P0, P1, P2, P3, smooth); return; }   // near flat-on: one affine quad is fine (and cheap)
   const W = img.width, H = img.height, K = Math.min(12, Math.max(2, Math.ceil(ratio * 1.5)));
   const lerp = (A, B, t) => [A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t];
   let tL = P0, bL = P3, uL = 0;   // P0 top-left, P1 top-right, P2 bottom-right, P3 bottom-left
   for (let k = 1; k <= K; k++) {
     const s = k / K, u = (s / fR) / ((1 - s) / fL + s / fR);
     const tR = lerp(P0, P1, s), bR = lerp(P3, P2, s);
-    texTri(ctx, img, [uL * W, 0], [u * W, 0], [u * W, H], tL, tR, bR);
-    texTri(ctx, img, [uL * W, 0], [u * W, H], [uL * W, H], tL, bR, bL);
+    texTri(ctx, img, [uL * W, 0], [u * W, 0], [u * W, H], tL, tR, bR, smooth);
+    texTri(ctx, img, [uL * W, 0], [u * W, H], [uL * W, H], tL, bR, bL, smooth);
     tL = tR; bL = bR; uL = u;
   }
 }
@@ -2647,6 +2860,7 @@ const decoDepth = (...fs) => Math.min(...fs) - DECO_LIFT;
 // hit full fog exactly where they'd otherwise pop in. FOG_STATE is set per-frame by drawWorldObjects
 // (null when fog is off or outside the world pass) and read by draw3DBoxAt to overlay each face.
 const FOG_NEAR = 6, FOG_FAR = 34;
+let PERF_DS = 0;   // adaptive Mode-7 downscale bump (0..4), set per-frame in paintWindshield off smoothed frameMs; added to RENDER_TUNE.pixel in drawMode7Floor
 let FOG_STATE = null;
 function fogWeight(f) { if (!FOG_STATE) return 0; const ff = clamp((f - FOG_NEAR) / (FOG_FAR - FOG_NEAR), 0, 1); return ff * ff * FOG_STATE.amt; }
 // Per-wall Gouraud vertex light, tinted for a POST-APOCALYPTIC CYBERPUNK city: not a warm sunny key
@@ -2679,6 +2893,7 @@ function draw3DBoxAt(ctx, cam, dx, dy, fh, wz0, wz1, biome, seed, night, alpha, 
   const cf = cs.map(([a, c]) => rawF(dx + a, dy + c));
   const b = cs.map(([a, c]) => cam.proj(dx + a, dy + c, wz0));
   const wall = wallTex(biome, night), shade = [0.0, 0.16, 0.3, 0.12];
+  const flatWall = flatWallCol(biome, night), WALL_LOD_PX = RENDER_TUNE.wallLodPx || 0;   // small-wall LOD: flat-fill instead of the column-split textured blit below this on-screen height
   const faces = [];
   for (let i = 0; i < 4; i++) {
     const j = (i + 1) % 4;
@@ -2712,6 +2927,12 @@ function draw3DBoxAt(ctx, cam, dx, dy, fh, wz0, wz1, biome, seed, night, alpha, 
     // sun/key-facing walls catch the warm/neon tint up top; shadow-facing walls go cool + darker at the
     // base (ambient occlusion). A vertical screen gradient across the wall fakes the per-vertex ramp.
     const topY = (P0[1] + P1[1]) / 2, botY = (P2[1] + P3[1]) / 2;
+    const wallPx = Math.abs(botY - topY);   // on-screen wall height → drives the texture LOD (flat-fill when tiny)
+    // Minifying when the wall covers fewer screen pixels than the texture has texels in either axis —
+    // then the nearest-neighbour blit aliases fine detail (the reeded Meridian piers crawl). Bilinear-
+    // filter that far case; keep near/magnified walls crisp. wallW is the wider (near) top-edge run.
+    const wallW = Math.max(Math.hypot(P1[0] - P0[0], P1[1] - P0[1]), Math.hypot(P2[0] - P3[0], P2[1] - P3[1]));
+    const minify = wallW < wall.width || wallPx < wall.height;
     // LOD: the vertical ramp only READS on tall near walls. On short/distant walls (a few px high) it's
     // indistinguishable from a flat tint, so skip the gradient object entirely and fill one solid mid
     // colour — same picture, and a dense skyline (mostly far faces) pays almost nothing.
@@ -2729,8 +2950,18 @@ function draw3DBoxAt(ctx, cam, dx, dy, fh, wz0, wz1, biome, seed, night, alpha, 
         litSolid = `rgba(${mc[0] | 0},${mc[1] | 0},${mc[2] | 0},${((aTop + aBot) * 0.5).toFixed(3)})`;
       }
     }
-    emitFace(fc.af, () => {
-      ctx.globalAlpha = alpha; drawTexQuadP(ctx, wall, P0, P1, P2, P3, fL, fR);
+    // Depth = front-corner f MINUS the same height bias the roof uses (see the roof note below). Stacked
+    // concentric boxes on one centre (a stepped tower's tiers + their projecting cornice/frieze bands) have
+    // near-equal front-face f, so on a plain painter sort they flip order as the camera bobs and blink in
+    // and out — worst on the many-tiered Meridian. Biasing each wall forward by its top height makes the
+    // higher tier (nearer the down-looking eye) sort reliably on top, and keeps a box's walls consistent
+    // with its own roof. The bias is far below inter-building depth gaps, so it never reorders neighbours.
+    emitFace(fc.af - wz1 * 0.02, () => {
+      ctx.globalAlpha = alpha;
+      // Small/far wall → one flat shaded polygon; near/tall wall → the perspective-correct windowed blit.
+      // The lit-ramp + fog overlays below paint on top of either, so a flat-shaded far wall still models.
+      if (wallPx < WALL_LOD_PX) { ctx.beginPath(); ctx.moveTo(P0[0], P0[1]); ctx.lineTo(P1[0], P1[1]); ctx.lineTo(P2[0], P2[1]); ctx.lineTo(P3[0], P3[1]); ctx.closePath(); ctx.fillStyle = flatWall; ctx.fill(); }
+      else drawTexQuadP(ctx, wall, P0, P1, P2, P3, fL, fR, minify);
       ctx.beginPath(); ctx.moveTo(P0[0], P0[1]); ctx.lineTo(P1[0], P1[1]); ctx.lineTo(P2[0], P2[1]); ctx.lineTo(P3[0], P3[1]); ctx.closePath();
       if (litTop) {
         const g = ctx.createLinearGradient(0, topY, 0, Math.max(botY, topY + 1));
@@ -2749,7 +2980,13 @@ function draw3DBoxAt(ctx, cam, dx, dy, fh, wz0, wz1, biome, seed, night, alpha, 
     const t = cs.map(([a, c]) => cam.proj(dx + a, dy + c, wz1));
     const rp = [[t[0].sx, t[0].sy], [t[1].sx, t[1].sy], [t[2].sx, t[2].sy], [t[3].sx, t[3].sy]], rtex = roofTex(biome, night);
     const rf = (t[0].f + t[1].f + t[2].f + t[3].f) / 4, rfog = fogWeight(rf);
-    emitFace(rf, () => { ctx.globalAlpha = alpha; drawTexQuad(ctx, rtex, rp[0], rp[1], rp[2], rp[3]); if (rfog > 0.004) { ctx.globalAlpha = alpha * rfog; ctx.fillStyle = FOG_STATE.css; ctx.beginPath(); ctx.moveTo(rp[0][0], rp[0][1]); ctx.lineTo(rp[1][0], rp[1][1]); ctx.lineTo(rp[2][0], rp[2][1]); ctx.lineTo(rp[3][0], rp[3][1]); ctx.closePath(); ctx.fill(); } ctx.globalAlpha = 1; });
+    // A horizontal roof quad's depth collapses to its tile centre's f (f is linear in x,y, so the
+    // 4-corner average of a centred box = the centre value) — so EVERY concentric roof stacked on one
+    // centre (a stepped tower's cornice ledges + the setback roofs beneath them) ties at one depth and
+    // z-fights as the camera bobs. Break the tie by height: a higher ledge is nearer the down-looking
+    // eye, so bias it forward (smaller depth → painted later → on top). The bias is far below inter-
+    // building depth gaps, so it only orders a box's own stacked roofs, never reorders neighbours.
+    emitFace(rf - wz1 * 0.02, () => { ctx.globalAlpha = alpha; drawTexQuad(ctx, rtex, rp[0], rp[1], rp[2], rp[3]); if (rfog > 0.004) { ctx.globalAlpha = alpha * rfog; ctx.fillStyle = FOG_STATE.css; ctx.beginPath(); ctx.moveTo(rp[0][0], rp[0][1]); ctx.lineTo(rp[1][0], rp[1][1]); ctx.lineTo(rp[2][0], rp[2][1]); ctx.lineTo(rp[3][0], rp[3][1]); ctx.closePath(); ctx.fill(); } ctx.globalAlpha = 1; });
   }
 }
 function draw3DBox(ctx, cam, dx, dy, fh, wz, biome, seed, night, alpha) {
@@ -3101,7 +3338,7 @@ const CONTACT_VS = 1.6;          // vertical exaggeration so the projected model
 // Sizes anchored to prop = DHC-6 Twin Otter (19.8m span) at 0.11; each class set to its real
 // airframe's span/rotor ratio vs that: Cessna 172 11m (0.56×), A-10/Reaper 17.5m (0.88×),
 // C-130-class Leviathan ~40m (2.0×), Mini 500 rotor 5.8m (0.29×).
-const CONTACT_SIZE = { ultralight: 0.056, heli: 0.032, prop: 0.11, heavy: 0.21, gunship: 0.115, wreck: 0.10 };
+const CONTACT_SIZE = { ultralight: 0.056, heli: 0.032, prop: 0.11, heavy: 0.21, gunship: 0.115, wreck: 0.10, grasshopper: 0.055, locust: 0.055 };
 // Own-ship EXTERNAL-chase scale: how much bigger the hero model draws than a same-class contact.
 // The chase camera sits a FIXED number of tiles back (chaseBack, normalised to CONTACT_SIZE.prop),
 // so lowering this shrinks the plane against the world/buildings without moving the camera — i.e. it
@@ -3270,10 +3507,15 @@ export function surfaceBreakup(surfaces) {
 // Crash break-up: which shed part (if any) a face belongs to. A part is a set of roles on
 // one side of the centreline (so only the RIGHT wing or the LEFT tailplane tears off, not
 // both). `side` null matches either side (the vertical fin, which straddles the centreline).
+// Optional `fRange` [lo, hi) further gates on the face's fore-aft centroid (fore+), so a
+// single role — the whole `body` hull — can be split into nose/mid/tail sections.
 function shedPartFor(breakup, face) {
-  let g = 0; for (const v of face.p) g += v[1];
+  let g = 0, f = 0; for (const v of face.p) { g += v[1]; f += v[0]; }
   const side = g >= 0 ? 1 : -1;
-  return breakup.parts.find(pt => pt.roles.includes(face.role) && (pt.side == null || pt.side === side)) || null;
+  const fc = f / (face.p.length || 1);
+  return breakup.parts.find(pt => pt.roles.includes(face.role)
+    && (pt.side == null || pt.side === side)
+    && (!pt.fRange || (fc >= pt.fRange[0] && fc < pt.fRange[1]))) || null;
 }
 // Tumble a shed vertex: spin it about the fuselage's forward axis, then drift it out along the
 // part's escape vector. Both `spin` and `off` are fed by the crash progress, so the piece
@@ -3493,6 +3735,57 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
   return { minx, maxx, miny, maxy };
 }
 
+// Crash-cinematic pyre: a screen-space fire + smoke column drawn over the burning wreck, anchored
+// to the own-ship model's screen bbox (so it tracks the tumbling/settled fuselage). Self-contained
+// canvas draw (no world-object depth queue, no external art): a hot base glow, flickering flame
+// tongues, and a rising, thickening, drifting column of dark smoke. `fx` = { fire, smoke, t }.
+function drawWreckFire(ctx, bbox, fx, now) {
+  const cx = (bbox.minx + bbox.maxx) / 2, baseY = bbox.maxy;   // bottom-centre of the wreck
+  const w = Math.max(26, bbox.maxx - bbox.minx);
+  const fire = clamp(fx.fire || 0, 0, 1), smoke = clamp(fx.smoke || 0, 0, 1), tm = now || 0;
+  ctx.save();
+  // Smoke column first (behind the flames): puffs born at the fire, rising + drifting + spreading,
+  // fading in then out, lightening as they cool. Each has a stable phase so it loops smoothly.
+  for (let i = 0; i < 8; i++) {
+    const ph = frac(i * 0.37 + 0.11);
+    const life = (tm * 0.00016 + ph) % 1;                      // 0 born at fire → 1 dissipated aloft
+    const a = smoke * 0.32 * Math.sin(Math.PI * Math.min(1, life * 1.15));
+    if (a <= 0.01) continue;
+    const rise = life * (w * 2.6 + 70), drift = Math.sin(life * 3 + i * 1.7) * (10 + life * 30);
+    const rad = w * 0.3 + life * (w * 0.55 + 20);
+    const g = 40 + life * 40;                                  // darkest at the base, greying as it thins
+    const px = cx + drift, py = baseY - w * 0.2 - rise;
+    const grad = ctx.createRadialGradient(px, py, 0, px, py, rad);
+    grad.addColorStop(0, `rgba(${g},${g - 4},${g - 8},${a})`);
+    grad.addColorStop(1, `rgba(${g},${g - 4},${g - 8},0)`);
+    ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(px, py, rad, 0, 7); ctx.fill();
+  }
+  if (fire > 0.02) {
+    // Hot base glow.
+    const glow = ctx.createRadialGradient(cx, baseY, 0, cx, baseY, w * 0.7);
+    glow.addColorStop(0, `rgba(255,190,90,${0.5 * fire})`); glow.addColorStop(1, 'rgba(255,120,40,0)');
+    ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(cx, baseY, w * 0.7, 0, 7); ctx.fill();
+    // Flickering flame tongues rooted along the wreck's base.
+    const fh = w * (0.75 + 0.55 * fire);
+    for (let i = 0; i < 6; i++) {
+      const fl = 0.62 + 0.38 * Math.sin(tm * 0.02 + i * 1.7);
+      const ox = (frac(i * 0.29) - 0.5) * w * 0.8, tw = w * (0.14 + 0.12 * frac(i * 0.71));
+      const th = fh * (0.5 + 0.5 * frac(i * 0.53)) * fl;
+      const tipx = cx + ox + Math.sin(tm * 0.008 + i) * tw * 0.7;
+      const grad = ctx.createLinearGradient(0, baseY, 0, baseY - th);
+      grad.addColorStop(0, `rgba(255,240,180,${0.85 * fire})`);
+      grad.addColorStop(0.45, `rgba(255,140,45,${0.8 * fire})`);
+      grad.addColorStop(1, 'rgba(200,40,20,0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.moveTo(cx + ox - tw, baseY);
+      ctx.quadraticCurveTo(cx + ox - tw * 0.4, baseY - th * 0.5, tipx, baseY - th);
+      ctx.quadraticCurveTo(cx + ox + tw * 0.4, baseY - th * 0.5, cx + ox + tw, baseY);
+      ctx.closePath(); ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
 // Off-screen / behind: a red chevron pinned to the view edge pointing the way to turn,
 // direction from the camera-space forward/lateral of the contact (banks with the world).
 function drawContactChevron(ctx, c, f, l, W, H) {
@@ -3683,11 +3976,11 @@ function muzzleFlash(ctx, cam, x, y, z) {
 // tile so the thing shooting at you is a PLACE you can spot from altitude and roll in on,
 // not just a bearing on the glass. Built from the same Mode-7 camera as the buildings, so it
 // banks and scrolls with the world. `v.aaSites` = [{dx, dy, name}] (live tile-offset from us).
-// The installation we describe on the ground: a squat concrete BUNKER, an EXPOSED 8.8cm flak
-// gun — a single long barrel on a cruciform mount, TRAVERSED to track the viewing pilot (the
-// barrel points straight at your aircraft — the thing shooting at you is visibly aimed at you)
-// — and a RADAR antenna sweeping a slow circle beside it, topped with a pulsing red
-// target-lock beacon that catches the eye at range.
+// The installation on the ground: a squat concrete BUNKER, a beefy futuristic TWIN-CANNON
+// turret — an armoured housing with two heavy muzzle-braked barrels on a cruciform mount,
+// TRAVERSED to track the viewing pilot (the barrels point straight at your aircraft — the
+// thing shooting at you is visibly aimed at you) — and a RADAR antenna sweeping a slow circle
+// beside it, topped with a pulsing red target-lock beacon that catches the eye at range.
 function drawAASites(ctx, cam, v, now) {
   const sites = v.aaSites; if (!sites || !sites.length) return;
   const night = v.sky?.night || 0;
@@ -3695,10 +3988,13 @@ function drawAASites(ctx, cam, v, now) {
   const sweep = (now / 620) % (Math.PI * 2);                   // radar antenna azimuth (rad)
   const BW = 0.2, H_BUNK = 0.09, H_RAD = 0.17;                 // bunker half-width + heights (tiles)
   const P = (s, ox, oy, wz) => cam.proj(s.dx + ox, s.dy + oy, wz);
-  // Far → near so nearer installations overpaint the ones behind them.
-  const list = sites.map(s => ({ s, f: P(s, 0, 0, 0).f })).filter(o => o.f > 0.14 && o.f < 20).sort((a, b) => b.f - a.f);
+  // Each installation is emitted as ONE atomic closure at its tile-centre depth into the shared
+  // world face queue (open during the building pass) — so a building nearer than the site correctly
+  // occludes the whole turret instead of it painting on top of everything (the "AA showing through a
+  // building" bug, from drawing it as a post-pass after flushFaces). emitFace sorts far→near for us.
+  const list = sites.map(s => ({ s, f: P(s, 0, 0, 0).f })).filter(o => o.f > 0.14 && o.f < 20);
   const corners = [[-BW, -BW], [BW, -BW], [BW, BW], [-BW, BW]];
-  for (const { s, f } of list) {
+  for (const { s, f } of list) emitFace(f, () => {
     const g = P(s, 0, 0, 0);
     ctx.save(); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
     // Contact shadow anchoring it to the ground.
@@ -3739,35 +4035,60 @@ function drawAASites(ctx, cam, v, now) {
     const len = Math.hypot(s.dx, s.dy) || 1, ux = -s.dx / len, uy = -s.dy / len, px = -uy, py = ux;
     const zB = H_BUNK;   // gun deck (top of the bunker pad)
     // Cruciform base — four splayed outrigger legs pinning the mount to the pad, each ending
-    // in a small upright foot (the 88's signature ground cross).
-    ctx.strokeStyle = '#3a3f37'; ctx.lineWidth = clamp(3 / f, 0.8, 5);
-    for (const [lx, ly] of [[0.15, 0], [-0.15, 0], [0, 0.15], [0, -0.15]]) {
-      const c0 = P(s, 0, 0, zB), c1 = P(s, lx, ly, zB), ft = P(s, lx, ly, zB + 0.02);
+    // in a small upright foot (the ground cross that anchors the mount).
+    ctx.strokeStyle = '#3a3f37'; ctx.lineWidth = clamp(5.5 / f, 1.2, 9);
+    for (const [lx, ly] of [[0.22, 0], [-0.22, 0], [0, 0.22], [0, -0.22]]) {
+      const c0 = P(s, 0, 0, zB), c1 = P(s, lx, ly, zB), ft = P(s, lx, ly, zB + 0.04);
       ctx.beginPath(); ctx.moveTo(c0.sx, c0.sy); ctx.lineTo(c1.sx, c1.sy); ctx.lineTo(ft.sx, ft.sy); ctx.stroke();
     }
-    // Central pedestal + traversing cradle up to the trunnion (pivot).
-    const zP = zB + 0.06;
+    // Squat, fat traversing pedestal up to the turret deck.
+    const zP = zB + 0.07;
     const ped0 = P(s, 0, 0, zB), ped1 = P(s, 0, 0, zP);
-    ctx.strokeStyle = '#4a5047'; ctx.lineWidth = clamp(7 / f, 1.8, 12);
+    ctx.strokeStyle = '#3f463d'; ctx.lineWidth = clamp(16 / f, 4, 26);
     ctx.beginPath(); ctx.moveTo(ped0.sx, ped0.sy); ctx.lineTo(ped1.sx, ped1.sy); ctx.stroke();
-    // Gun shield — a flat plate across the breech, facing the target (the crew's cover), the
-    // barrel poking through it.
-    const sh = 0.075;
-    const shA = P(s, -px * sh, -py * sh, zP), shB = P(s, px * sh, py * sh, zP);
-    const shC = P(s, px * sh, py * sh, zP + 0.085), shD = P(s, -px * sh, -py * sh, zP + 0.085);
-    ctx.fillStyle = '#3f443c';
-    ctx.beginPath(); ctx.moveTo(shA.sx, shA.sy); ctx.lineTo(shB.sx, shB.sy); ctx.lineTo(shC.sx, shC.sy); ctx.lineTo(shD.sx, shD.sy); ctx.closePath(); ctx.fill();
-    // Long single 88 barrel from the trunnion, elevated toward the eye; a shorter, thinner
-    // recuperator sleeve rides just above the breech end, and a dark muzzle collar caps the end.
-    const BARLEN = 0.36, ELEV = 0.2;
-    const piv = P(s, 0, 0, zP), muz = P(s, ux * BARLEN, uy * BARLEN, zP + ELEV);
-    ctx.strokeStyle = '#5b6157'; ctx.lineWidth = clamp(3.2 / f, 0.9, 5.5);
-    ctx.beginPath(); ctx.moveTo(piv.sx, piv.sy); ctx.lineTo(muz.sx, muz.sy); ctx.stroke();
-    const rc0 = P(s, ux * 0.05, uy * 0.05, zP + 0.035);
-    const rc1 = P(s, ux * BARLEN * 0.55, uy * BARLEN * 0.55, zP + ELEV * 0.55 + 0.035);
-    ctx.strokeStyle = '#464b43'; ctx.lineWidth = clamp(1.8 / f, 0.5, 3);
-    ctx.beginPath(); ctx.moveTo(rc0.sx, rc0.sy); ctx.lineTo(rc1.sx, rc1.sy); ctx.stroke();
-    ctx.fillStyle = '#20241f'; ctx.beginPath(); ctx.arc(muz.sx, muz.sy, clamp(2.6 / f, 0.7, 4.5), 0, 7); ctx.fill();
+
+    // Beefy futuristic twin-cannon turret. Everything is built in the gun's own frame:
+    // `ux,uy` runs along the ground toward the target (the viewing pilot), `px,py` is
+    // lateral. `boxAt(a, lat, z)` projects a point `a` tiles toward the target, `lat`
+    // tiles to the side, at height `z`. `drawBox` fills a rectangular prism (both lateral
+    // sides + top deck + target-facing front cap, painted in that order) so each part
+    // reads as solid armoured mass instead of a thin line — the girth the old 88 lacked.
+    const boxAt = (a, lat, z) => P(s, ux * a + px * lat, uy * a + py * lat, z);
+    const fillPoly = (pts, col) => { ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(pts[0].sx, pts[0].sy); for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].sx, pts[i].sy); ctx.closePath(); ctx.fill(); };
+    const drawBox = (a0, z0, a1, z1, lat, hw, vt, cols) => {
+      const c = (a, z, l) => boxAt(a, lat + l * hw, z);
+      const T0l = c(a0, z0 + vt, -1), T0r = c(a0, z0 + vt, 1), T1l = c(a1, z1 + vt, -1), T1r = c(a1, z1 + vt, 1);
+      const B1l = c(a1, z1 - vt, -1), B1r = c(a1, z1 - vt, 1);
+      fillPoly([c(a0, z0 - vt, 1), c(a1, z1 - vt, 1), T1r, T0r], cols.side);   // near lateral side
+      fillPoly([c(a0, z0 - vt, -1), c(a1, z1 - vt, -1), T1l, T0l], cols.side); // far lateral side
+      fillPoly([T0l, T0r, T1r, T1l], cols.top);                               // top deck
+      fillPoly([T1l, T1r, B1r, B1l], cols.cap);                               // front / muzzle face
+    };
+    // Turret body — a chunky armoured housing straddling the pedestal.
+    const zBody = zP;
+    drawBox(-0.14, zBody + 0.075, 0.16, zBody + 0.075, 0, 0.15, 0.075, { side: '#2b2f35', top: '#40464e', cap: '#363c44' });
+    // Sensor/optics blister on the crown, a cyan lens staring down the barrels.
+    drawBox(0.02, zBody + 0.17, 0.12, zBody + 0.17, 0, 0.06, 0.035, { side: '#23262b', top: '#333940', cap: '#1c1f24' });
+    const lens = boxAt(0.13, 0, zBody + 0.17);
+    if (night > 0.3) { ctx.shadowColor = 'rgba(60,230,230,0.9)'; ctx.shadowBlur = 6 + night * 8; }
+    ctx.fillStyle = `rgba(120,245,245,${0.55 + 0.35 * pulse})`;
+    ctx.beginPath(); ctx.arc(lens.sx, lens.sy, clamp(3.4 / f, 0.8, 6), 0, 7); ctx.fill();
+    ctx.shadowBlur = 0;
+    // Twin heavy barrels punching out the front, elevated toward the target, each capped by
+    // a fat muzzle brake with a dark bore, and a cyan charge line running along its crown.
+    const BARLEN = 0.52, ELEV = 0.26, zBar = zBody + 0.09;
+    const zAt = a => zBar + ELEV * clamp((a - 0.04) / (BARLEN - 0.04), 0, 1);
+    for (const lat of [-0.06, 0.06]) {
+      drawBox(0.04, zAt(0.04), BARLEN, zAt(BARLEN), lat, 0.032, 0.032, { side: '#3a414a', top: '#565f6b', cap: '#14171b' });
+      drawBox(BARLEN - 0.14, zAt(BARLEN - 0.14), BARLEN + 0.02, zAt(BARLEN) + 0.004, lat, 0.05, 0.05, { side: '#262a30', top: '#3a414a', cap: '#101215' });
+      const m = boxAt(BARLEN + 0.02, lat, zAt(BARLEN) + 0.004);   // muzzle bore
+      ctx.fillStyle = '#0a0c0e'; ctx.beginPath(); ctx.arc(m.sx, m.sy, clamp(3.4 / f, 0.9, 6), 0, 7); ctx.fill();
+      const g0 = boxAt(0.06, lat, zAt(0.06) + 0.033), g1 = boxAt(BARLEN - 0.16, lat, zAt(BARLEN - 0.16) + 0.033);
+      if (night > 0.3) { ctx.shadowColor = 'rgba(60,230,230,0.85)'; ctx.shadowBlur = 5 + night * 7; }
+      ctx.strokeStyle = `rgba(90,240,240,${0.45 + 0.4 * pulse})`; ctx.lineWidth = clamp(2 / f, 0.5, 3.4);
+      ctx.beginPath(); ctx.moveTo(g0.sx, g0.sy); ctx.lineTo(g1.sx, g1.sy); ctx.stroke();
+      ctx.shadowBlur = 0;
+    }
 
     // Pulsing red target-lock beacon on the radar mast — the long-range eye-catcher.
     const bcn = P(s, rx, ry, H_RAD + 0.03), bR = clamp(7 / f, 1.5, 14) * (0.7 + 0.6 * pulse);
@@ -3777,7 +4098,7 @@ function drawAASites(ctx, cam, v, now) {
     ctx.fillStyle = bg; ctx.beginPath(); ctx.arc(bcn.sx, bcn.sy, bR * 2, 0, 7); ctx.fill();
     ctx.fillStyle = `rgba(255,205,195,${0.8 + 0.2 * pulse})`; ctx.beginPath(); ctx.arc(bcn.sx, bcn.sy, clamp(bR * 0.5, 0.8, 5), 0, 7); ctx.fill();
     ctx.restore();
-  }
+  });
 }
 
 // Incoming ground-AA volley as REAL 3D world tracers: rounds leave the emplacement's tile
@@ -4229,7 +4550,7 @@ const NAMED_MODELS = {
   precinct9:                      { type: 'police',    pal: 'ty_police' },
   hallofrecords:                  { type: 'archive',   pal: 'ty_archive' },
   coldwaterclonefacility:         { type: 'clone',     pal: 'ty_clone' },
-  ksabtvstudiostage:              { type: 'studio',     pal: 'ty_ksab' },
+  ksabtvstudiostage:              { type: 'ksabstudio', pal: 'ty_ksab', neon: '#b98cff' },
   ksabaudiencegate:               { type: 'studiogate', pal: 'ty_ksab', neon: '#b98cff' },
   thegreenroom:                   { type: 'divebar',   pal: 'ty_greenroom', neon: '#7dff6a' },
   solenneresidences:              { type: 'solenne',   pal: 'ty_solenne',   neon: '#ffce78' },
@@ -4315,7 +4636,126 @@ function crossMark(ctx, cam, dx, dy, wz, alpha) {   // red medical cross billboa
   const p = cam.proj(dx, dy, wz); if (p.f <= 0.1) return; const s = clamp(9 / p.f, 2, 16);
   emitFace(decoDepth(p.f), () => { ctx.globalAlpha = alpha; ctx.fillStyle = 'rgba(230,60,60,0.95)'; ctx.fillRect(p.sx - s * 0.28, p.sy - s, s * 0.56, s * 2); ctx.fillRect(p.sx - s, p.sy - s * 0.28, s * 2, s * 0.56); ctx.globalAlpha = 1; });
 }
-function neonBlade(ctx, cam, dx, dy, h0, h1, color, night, alpha) {   // vertical marquee blade — a stacked sign board, not a bare line
+// ── Faceted-model primitives (the KSAB broadcast complex builds from these) ────
+// Emit ONE solid world-space polygon (3–4 pts as [x,y,z]) as a depth-sorted flat face. It rides the
+// SAME painter queue as draw3DBoxAt's walls (queued at the face's average forward depth), so the
+// building's own mass and its neighbours occlude it correctly — it never punches through like a
+// DECO_LIFT-ed sign. opts.cullN = a world-XY outward normal → backface-cull a vertical face turned
+// away from the eye (same test the box walls use); opts.lift = a hair of forward bias for a face
+// mounted flush on another (kept tiny, never the 0.6 that bleeds signs through walls).
+function emitFlat(ctx, cam, pts, fill, alpha, opts = {}) {
+  if (opts.cullN) {
+    let cx = 0, cy = 0; for (const p of pts) { cx += p[0]; cy += p[1]; } cx /= pts.length; cy /= pts.length;
+    const nx = opts.cullN[0], ny = opts.cullN[1], bk = cam.back || 0;
+    if (nx * cx + ny * cy + bk * (nx * cam.sinh - ny * cam.cosh) >= 0) return;   // face turned away → skip
+  }
+  const pr = pts.map(p => cam.proj(p[0], p[1], p[2]));
+  if (pr.some(q => q.f <= 0.1)) return;   // any corner behind the eye → drop (rooftop deco, rarely this close)
+  let d = 0; for (const q of pr) d += q.f; d = d / pr.length - (opts.lift || 0);
+  emitFace(d, () => {
+    ctx.globalAlpha = alpha;
+    ctx.beginPath(); pr.forEach((q, i) => i ? ctx.lineTo(q.sx, q.sy) : ctx.moveTo(q.sx, q.sy)); ctx.closePath();
+    if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+    if (opts.stroke) { ctx.strokeStyle = opts.stroke; ctx.lineWidth = opts.lw || 1; ctx.stroke(); }
+    ctx.globalAlpha = 1;
+  });
+}
+// A SAWTOOTH north-light roof (the classic sound-stage/factory monitor roof) laid over a mass roof at
+// z0. `teeth` ridges repeat front→back: each is a sloped roofing panel rising to a ridge, a VERTICAL
+// glazed north-light face dropping back down (faces the entrance side), and the two triangular gable
+// ENDS that give the silhouette its saw. hx/hy are the roof-deck half-extents in the model-local frame.
+function sawtoothRoof(ctx, cam, dx, dy, E, hx, hy, z0, rh, teeth, roofc, glassc, edge, alpha) {
+  const L = (lx, ly, z) => { const w = facePt(dx, dy, lx, ly, E); return [w[0], w[1], z]; };
+  const px = E[1], py = -E[0], step = (2 * hy) / teeth;
+  for (let i = 0; i < teeth; i++) {
+    const yb = -hy + i * step, yr = yb + step;   // slab back edge → ridge (front) edge
+    emitFlat(ctx, cam, [L(-hx, yb, z0), L(hx, yb, z0), L(hx, yr, z0 + rh), L(-hx, yr, z0 + rh)], roofc, alpha, { stroke: edge, lw: 1 });                                     // sloped roofing panel (top-facing)
+    emitFlat(ctx, cam, [L(-hx, yr, z0 + rh), L(hx, yr, z0 + rh), L(hx, yr, z0), L(-hx, yr, z0)], glassc, alpha, { stroke: edge, lw: 1, cullN: [E[0], E[1]] });               // vertical north-light glazing
+    emitFlat(ctx, cam, [L(hx, yb, z0), L(hx, yr, z0 + rh), L(hx, yr, z0)], roofc, alpha, { stroke: edge, lw: 1, cullN: [px, py] });                                         // right gable-end triangle
+    emitFlat(ctx, cam, [L(-hx, yb, z0), L(-hx, yr, z0 + rh), L(-hx, yr, z0)], roofc, alpha, { stroke: edge, lw: 1, cullN: [-px, -py] });                                    // left gable-end triangle
+  }
+}
+// A triangular BROADCAST LATTICE tower on the rear roof: three tapering legs with X-braced belts (the
+// diagonals are the triangles) + a red aviation beacon. Pure stroke-work queued per segment at its own
+// depth (a hair forward so it beats the roof it stands on, nowhere near enough to bleed through the mass).
+function latticeTower(ctx, cam, dx, dy, z0, z1, r0, r1, alpha, now, seed) {
+  const S = 3, H = 4;
+  const corner = (i, z) => { const t = (z - z0) / (z1 - z0), r = r0 + (r1 - r0) * t, a = i / S * Math.PI * 2 + 0.5; return [dx + Math.cos(a) * r, dy + Math.sin(a) * r, z]; };
+  const seg = (A, B, w, c) => {
+    const a = cam.proj(A[0], A[1], A[2]), b = cam.proj(B[0], B[1], B[2]);
+    if (a.f <= 0.1 || b.f <= 0.1) return;
+    emitFace(Math.min(a.f, b.f) - 0.03, () => { ctx.globalAlpha = alpha; ctx.strokeStyle = c; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); ctx.globalAlpha = 1; });
+  };
+  const leg = 'rgba(202,208,222,0.9)', brace = 'rgba(150,120,210,0.72)';
+  for (let i = 0; i < S; i++) seg(corner(i, z0), corner(i, z1), 1.3, leg);                                  // 3 legs
+  for (let k = 0; k < H; k++) {
+    const za = z0 + (z1 - z0) * (k / H), zb = z0 + (z1 - z0) * ((k + 1) / H);
+    for (let i = 0; i < S; i++) {
+      const j = (i + 1) % S;
+      seg(corner(i, za), corner(j, za), 0.9, brace);                                                        // horizontal belt
+      seg(corner(i, za), corner(j, zb), 0.8, brace); seg(corner(j, za), corner(i, zb), 0.8, brace);         // X-brace (the triangles)
+    }
+  }
+  for (let i = 0; i < S; i++) seg(corner(i, z1), corner((i + 1) % S, z1), 0.9, brace);                      // top belt
+  blinkLight(ctx, cam, dx, dy, z1, '255,80,80', now, seed, alpha, 1.8);                                     // aviation beacon
+}
+// ── Surface text: procedural sign art painted INTO a face ─────────────────────
+// The old marquees stamped upright glyphs at foreshortened POSITIONS, so the letter
+// shapes never leaned with the wall — they read as a billboard that swivels to keep
+// facing you as you fly past. Instead we BAKE the label once to an offscreen neon
+// texture (memoised per label|colour|day-night|orientation) and MAP that texture onto
+// the face's real projected quad by strip subdivision. Canvas offers only affine (3-point,
+// parallelogram) transforms, so a single map trapezoids on oblique faces; slicing the quad
+// into thin strips along the text axis and affine-mapping each keeps the per-strip error
+// invisible — an approximate perspective map. The result foreshortens and shears with the
+// surface and stays welded to it from every angle. `bakeSignText` returns a transparent-bg
+// canvas (dark-edged white core + colour halo); the caller still draws its own backing board.
+const _signTexCache = new Map();   // key `label|color|dn|vertical` → offscreen neon-glyph canvas
+let _bladeSign;   // ambient: the current building's display name, set by drawTypeModel so its neonBlades paint real letters without threading the name through every call site (same idiom as FACE_SINK)
+function bakeSignText(label, color, dn, vertical) {
+  const key = `${label}|${color}|${dn}|${vertical ? 1 : 0}`;
+  let c = _signTexCache.get(key); if (c) return c;
+  const n = label.length, CELL = 46, PAD = 8;   // logical px per glyph cell + margin; the strip map scales this onto the quad
+  const W = vertical ? CELL : n * CELL + PAD * 2, H = vertical ? n * CELL + PAD * 2 : CELL;
+  c = texCanvas(W, H); const g = c.getContext('2d');
+  g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = `bold ${Math.round(CELL * 0.72)}px monospace`;
+  const glow = dn ? 12 : 6, core = dn ? 6 : 2;
+  const put = (ch, x, y) => {
+    g.shadowColor = color; g.shadowBlur = glow; g.fillStyle = color; g.fillText(ch, x, y);            // colour halo
+    g.shadowBlur = core; g.lineWidth = 2.4; g.strokeStyle = 'rgba(8,6,10,0.9)'; g.strokeText(ch, x, y); // dark edge
+    g.shadowBlur = 0; g.fillStyle = 'rgba(255,255,255,0.95)'; g.fillText(ch, x, y);                    // bright core
+  };
+  if (vertical) for (let i = 0; i < n; i++) put(label[i], W / 2, PAD + (i + 0.5) * CELL);
+  else put(label, W / 2, H / 2);
+  _signTexCache.set(key, c); return c;
+}
+// Map a baked texture onto a projected quad [TL,TR,BR,BL] ({sx,sy}) by strip subdivision.
+// `vertical` runs the strips down the column (letters top→bottom) vs across the band. Must be
+// called INSIDE an emitFace closure — it is pure screen-space drawing and composes onto the
+// current (DPR) transform via ctx.transform, never setTransform, so it stays in world scale.
+function drawSurfaceText(ctx, TL, TR, BR, BL, tex, vertical, alpha) {
+  const W = tex.width, H = tex.height, S = 8;
+  const at = (P, Q, t) => ({ x: P.sx + (Q.sx - P.sx) * t, y: P.sy + (Q.sy - P.sy) * t });
+  for (let i = 0; i < S; i++) {
+    const s0 = i / S, s1 = Math.min(1, (i + 1) / S + 0.004);   // hair of overlap kills strip seams
+    let p0, p1, p2, sx, sy, sw, sh;
+    if (vertical) {                                             // strips stacked down the column
+      p0 = at(TL, BL, s0); p1 = at(TR, BR, s0); p2 = at(TL, BL, s1);
+      sx = 0; sy = s0 * H; sw = W; sh = (s1 - s0) * H;
+    } else {                                                    // strips across the band
+      p0 = at(TL, TR, s0); p1 = at(TL, TR, s1); p2 = at(BL, BR, s0);
+      sx = s0 * W; sy = 0; sw = (s1 - s0) * W; sh = H;
+    }
+    if (sw <= 0 || sh <= 0) continue;
+    const a = (p1.x - p0.x) / sw, b = (p1.y - p0.y) / sw, cc = (p2.x - p0.x) / sh, d = (p2.y - p0.y) / sh;
+    const e = p0.x - (a * sx + cc * sy), f = p0.y - (b * sx + d * sy);
+    if (!isFinite(a) || !isFinite(d)) continue;
+    ctx.save(); ctx.globalAlpha = alpha; ctx.transform(a, b, cc, d, e, f);
+    ctx.drawImage(tex, sx, sy, sw, sh, sx, sy, sw, sh); ctx.restore();
+  }
+}
+function neonBlade(ctx, cam, dx, dy, h0, h1, color, night, alpha, label) {   // vertical marquee blade — a stacked sign board; a label (explicit, or the ambient building name) paints real letters onto the blade face
+  if (label === undefined) label = _bladeSign;   // default to the current building's name; pass '' to force the abstract rungs
   const b = cam.proj(dx, dy, h0), t = cam.proj(dx, dy, h1); if (b.f <= 0.12 || t.f <= 0.12) return;
   const ux = t.sx - b.sx, uy = t.sy - b.sy, len = Math.hypot(ux, uy) || 1;
   const wpx = clamp(9 / ((b.f + t.f) / 2), 2, 9);            // blade half-width (screen px), distance-scaled
@@ -4331,30 +4771,38 @@ function neonBlade(ctx, cam, dx, dy, h0, h1, color, night, alpha) {   // vertica
     ctx.globalAlpha = alpha * (night ? 0.8 : 0.55); ctx.fillStyle = color;                              // colour-lit face
     if (night) { ctx.shadowColor = color; ctx.shadowBlur = 8; }
     trace(); ctx.fill(); ctx.shadowBlur = 0;
-    const N = clamp(Math.round(len / 8), 3, 8);                                                         // stacked "letter" rungs
-    ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 1;
-    if (night) { ctx.shadowColor = color; ctx.shadowBlur = 4; }
-    for (let i = 1; i < N; i++) {
-      const s = i / N, cx = b.sx + ux * s, cy = b.sy + uy * s;
-      ctx.globalAlpha = alpha * (night ? 0.9 : 0.68);
-      ctx.beginPath(); ctx.moveTo(cx + nx * 0.55, cy + ny * 0.55); ctx.lineTo(cx - nx * 0.55, cy - ny * 0.55); ctx.stroke();
+    if (label) {   // real letters painted DOWN the blade face (top→bottom), foreshortened with it
+      const q = (p) => ({ sx: p[0], sy: p[1] });
+      drawSurfaceText(ctx, q(P[1]), q(P[2]), q(P[3]), q(P[0]), bakeSignText(label, color, night ? 1 : 0, true), true, alpha);
+    } else {   // no name → the old abstract "letter" rungs
+      const N = clamp(Math.round(len / 8), 3, 8);
+      ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 1;
+      if (night) { ctx.shadowColor = color; ctx.shadowBlur = 4; }
+      for (let i = 1; i < N; i++) {
+        const s = i / N, cx = b.sx + ux * s, cy = b.sy + uy * s;
+        ctx.globalAlpha = alpha * (night ? 0.9 : 0.68);
+        ctx.beginPath(); ctx.moveTo(cx + nx * 0.55, cy + ny * 0.55); ctx.lineTo(cx - nx * 0.55, cy - ny * 0.55); ctx.stroke();
+      }
     }
     ctx.restore();
   });
 }
-// A projecting LIT marquee BLADE — a tall vertical triangular prism (a "long pyramid") that juts out
-// from the wall along the outward normal `N`: its base edge lies flat against the building and its apex
-// points OUT. SINGLE-SIDED: both slanted faces render as a dark board (so it reads as a thick 3D prism),
-// but ONLY the front face carries the stacked sign name — painted straight onto that face's quad (canvas
-// paint, not a billboard), so the EMBASSY text is legible from one approach angle and you never get the
-// doubled EE MM BB… that two lettered faces produced. TRUE 3D: each face is a real projected quad,
-// backface-culled. Anchor (dx,dy) sits on/just proud of the wall; letters run down the lettered column.
+// A projecting LIT marquee — a SOLID triangular prism (the old marquee blade, filled in) that juts out
+// from the wall along the outward normal `N`. Its horizontal cross-section is a TRIANGLE with three
+// flat sides: the base edge lies flush against the building (±baseH along the wall) and the two slanted
+// SIDE faces run out to a shared apex EDGE (a vertical ridge at projD). Both slanted faces are FLAT
+// vertical quads (full height h0→h1) and BOTH carry the stacked sign name (EMBASSY), painted straight
+// onto the real foreshortened face (canvas paint, not a billboard), legible from either approach. The
+// third side is against the wall. Per-face backface culling shows only the side facing you, so lettering
+// both never doubles the glyphs. Top/bottom cap triangles fill the prism into a solid.
 function verticalMarquee(ctx, cam, dx, dy, h0, h1, label, color, night, alpha, N) {
   const n = label.length; if (!n) return;
   N = N || [0, 1];
-  const ax = N[1], ay = -N[0], baseH = 0.032, projD = 0.12, bk = cam.back || 0;   // along-wall unit; base half-width + apex projection (tiles)
+  const ax = N[1], ay = -N[0], baseH = 0.045, projD = 0.15, bk = cam.back || 0;    // along-wall unit; base half-width + apex-ridge projection (tiles)
   const baseL = [dx - ax * baseH, dy - ay * baseH], baseR = [dx + ax * baseH, dy + ay * baseH], apex = [dx + N[0] * projD, dy + N[1] * projD];
-  const drawFace = (A, B, lettered) => {   // one slanted face, horizontal edge A(wall)→B(apex or wall); text only when lettered
+  const board = () => { ctx.globalAlpha = alpha; ctx.fillStyle = '#0e0a0f'; };     // dark backing fill
+  const frame = () => { ctx.globalAlpha = alpha * (night ? 0.5 : 0.32); ctx.strokeStyle = color; ctx.lineWidth = 1.2; if (night) { ctx.shadowColor = color; ctx.shadowBlur = 7; } ctx.stroke(); ctx.shadowBlur = 0; };
+  const drawFace = (A, B) => {   // one FLAT slanted side, horizontal plan edge A→B (wall corner → apex ridge), full height h0..h1
     const mx = (A[0] + B[0]) / 2, my = (A[1] + B[1]) / 2;
     let nfx = B[1] - A[1], nfy = -(B[0] - A[0]);                                   // outward normal ⊥ to the edge
     if (nfx * (mx - dx) + nfy * (my - dy) < 0) { nfx = -nfx; nfy = -nfy; }         // point away from the prism axis
@@ -4363,28 +4811,27 @@ function verticalMarquee(ctx, cam, dx, dy, h0, h1, label, color, night, alpha, N
     if ([At, Bt, Bb, Ab].some(q => q.f <= 0.12)) return;
     emitFace(Math.min(At.f, Bt.f, Bb.f, Ab.f) - 0.04, () => {                      // bias forward so it beats the wall it's mounted on
       ctx.save();
-      ctx.globalAlpha = alpha; ctx.fillStyle = '#0e0a0f';                          // dark backing board
+      board();
       ctx.beginPath(); ctx.moveTo(At.sx, At.sy); ctx.lineTo(Bt.sx, Bt.sy); ctx.lineTo(Bb.sx, Bb.sy); ctx.lineTo(Ab.sx, Ab.sy); ctx.closePath(); ctx.fill();
-      ctx.globalAlpha = alpha * (night ? 0.5 : 0.32); ctx.strokeStyle = color; ctx.lineWidth = 1.2;   // lit edge frame
-      if (night) { ctx.shadowColor = color; ctx.shadowBlur = 7; }
-      ctx.stroke(); ctx.shadowBlur = 0;
-      if (lettered) {
-        const mtx = (At.sx + Bt.sx) / 2, mty = (At.sy + Bt.sy) / 2, mbx = (Ab.sx + Bb.sx) / 2, mby = (Ab.sy + Bb.sy) / 2;   // face centre column
-        const colLen = Math.hypot(mbx - mtx, mby - mty);
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        for (let i = 0; i < n; i++) {
-          const fr = (i + 0.5) / n, px = mtx + (mbx - mtx) * fr, py = mty + (mby - mty) * fr;   // letter down the foreshortened column
-          ctx.font = `bold ${Math.max(6, (colLen / n) * 0.72) | 0}px monospace`;
-          ctx.globalAlpha = alpha; ctx.shadowColor = color; ctx.shadowBlur = night ? 9 : 5;
-          ctx.fillStyle = color; ctx.fillText(label[i], px, py);                              // neon glow base
-          ctx.shadowBlur = night ? 5 : 2; ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.fillText(label[i], px, py);   // bright lit core
-        }
-      }
+      frame();
+      drawSurfaceText(ctx, At, Bt, Bb, Ab, bakeSignText(label, color, night ? 1 : 0, true), true, alpha);   // EMBASSY down the flat face
       ctx.restore();
     });
   };
-  drawFace(baseL, apex, true);    // front slanted face — the ONLY one that carries EMBASSY
-  drawFace(apex, baseR, false);   // back slanted face — dark board only, gives the prism its thickness
+  const drawCap = (hz) => {   // top or bottom triangle (baseL, baseR, apex at height hz) — fills the prism into a solid (dark, no text)
+    const A = cam.proj(baseL[0], baseL[1], hz), B = cam.proj(baseR[0], baseR[1], hz), Ap = cam.proj(apex[0], apex[1], hz);
+    if ([A, B, Ap].some(q => q.f <= 0.12)) return;   // far cap sorts behind and is over-painted by the near side face; no cull needed
+    emitFace(Math.min(A.f, B.f, Ap.f) - 0.04, () => {
+      ctx.save();
+      board();
+      ctx.beginPath(); ctx.moveTo(A.sx, A.sy); ctx.lineTo(B.sx, B.sy); ctx.lineTo(Ap.sx, Ap.sy); ctx.closePath(); ctx.fill();
+      frame();
+      ctx.restore();
+    });
+  };
+  drawCap(h1); drawCap(h0);        // top & bottom caps first (deepest), then the lettered flat sides over them
+  drawFace(baseL, apex);           // front slanted face — EMBASSY
+  drawFace(apex, baseR);           // back slanted face  — EMBASSY (the third side, baseR→baseL, is against the wall)
 }
 function glowPool(ctx, cam, dx, dy, wz, rgb, s0, alpha) {   // soft ground/roof glow (generalised ruin glow)
   const g = cam.proj(dx, dy, wz); if (g.f <= 0.12) return; const s = clamp(s0 / g.f, 3, 60);
@@ -4404,9 +4851,13 @@ function marqueeBand(ctx, cam, dx, dy, E, half, wz, color, night, alpha, label) 
   const bl = cam.proj(Lx, Ly, wz - hh), br = cam.proj(Rx, Ry, wz - hh);
   if ([tl, tr, bl, br].some((p) => p.f <= 0.12)) return;
   const quad = () => { ctx.beginPath(); ctx.moveTo(tl.sx, tl.sy); ctx.lineTo(tr.sx, tr.sy); ctx.lineTo(br.sx, br.sy); ctx.lineTo(bl.sx, bl.sy); ctx.closePath(); };
-  // Lift forward off the front wall it's mounted on (like every other signage helper) — a raw
-  // average depth is coplanar with that wall, so painter's-sort order flip-flops and the sign flickers.
-  emitFace(decoDepth(tl.f, tr.f, bl.f, br.f), () => {
+  // Sort at the sign's own quad depth with a HAIR of forward bias: a raw average is coplanar with the
+  // wall it's mounted on, so painter's-sort order flip-flops and the sign flickers — a tiny 0.06 lift
+  // fixes that deterministically. Deliberately NOT the full decoDepth (DECO_LIFT = 0.6): a wall-sized
+  // sign lifted 0.6 tiles forward jumps in front of a NEARER neighbour (KSAB's board bled over the
+  // Solenne tower two tiles away). Pushed proud of its own wall, this still self-occludes when the
+  // front faces away (the sign lands behind the near wall) without leaping onto neighbours.
+  emitFace((tl.f + tr.f + bl.f + br.f) / 4 - 0.06, () => {
   ctx.save();
   // 1. dark backing board
   ctx.globalAlpha = alpha * (night ? 0.94 : 0.86); ctx.fillStyle = '#140f14'; quad(); ctx.fill();
@@ -4431,25 +4882,9 @@ function marqueeBand(ctx, cam, dx, dy, E, half, wz, color, night, alpha, label) 
     }
   }
   ctx.shadowBlur = 0;
-  // 5. the sign lettering — centred on the face, rotated onto the band and squeezed to fit.
-  if (label) {
-    const midL = [(tl.sx + bl.sx) / 2, (tl.sy + bl.sy) / 2], midR = [(tr.sx + br.sx) / 2, (tr.sy + br.sy) / 2];
-    const midT = [(tl.sx + tr.sx) / 2, (tl.sy + tr.sy) / 2], midB = [(bl.sx + br.sx) / 2, (bl.sy + br.sy) / 2];
-    const wl = Math.hypot(midR[0] - midL[0], midR[1] - midL[1]), hl = Math.hypot(midB[0] - midT[0], midB[1] - midT[1]);
-    if (wl > 12 && hl > 4) {
-      ctx.translate((midL[0] + midR[0]) / 2, (midL[1] + midR[1]) / 2);
-      ctx.rotate(Math.atan2(midR[1] - midL[1], midR[0] - midL[0]));
-      ctx.font = `bold ${Math.max(6, hl * 0.74)}px monospace`;
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      const mw = ctx.measureText(label).width || 1;
-      ctx.scale(Math.min(1, (wl * 0.84) / mw), 1);   // squeeze to fit the board width
-      ctx.globalAlpha = alpha; ctx.lineWidth = Math.max(1, hl * 0.14);
-      ctx.strokeStyle = 'rgba(8,6,8,0.92)'; ctx.strokeText(label, 0, 0);
-      ctx.fillStyle = '#fff';
-      if (night) { ctx.shadowColor = color; ctx.shadowBlur = 6; }
-      ctx.fillText(label, 0, 0);
-    }
-  }
+  // 5. the sign lettering — a baked neon texture mapped ONTO the band's real projected quad
+  // (foreshortens/leans with the face) instead of a flat rotate-and-squeeze that read as upright.
+  if (label) drawSurfaceText(ctx, tl, tr, br, bl, bakeSignText(label, color, night ? 1 : 0, false), false, alpha);
   ctx.restore();
   });
 }
@@ -4474,11 +4909,115 @@ function facePt(dx, dy, lx, ly, E) {
   return [dx + lx * px + ly * E[0], dy + lx * py + ly * E[1]];
 }
 
+// A high-poly gothic GARGOYLE / grotesque perched on a cornice, craning outward over the drop.
+// Built in a LOCAL frame anchored at (wx,wy,wz): +f (forward) = the horizontal `outDir` it leans
+// over, +u = up, +r = right (outDir rotated -90°); one `size` scales the whole beast uniformly.
+// A swept elliptical-ring SPINE makes the crouched body → arched hunch → craned neck → horned skull
+// → snout as one continuous stone mass; tapered tubes make the bracing forelimbs, coiled haunches
+// and back-swept horns; thin double-sided membranes make the folded bat wings; a dropped wedge is
+// the open lower jaw. Matte weathered limestone — a single top-front key light + soot-darkened
+// undersides — each face pushed through the shared building FACE_SINK (so the cornice/tower occlude
+// it), backface-culled (wings excepted). Stone: no gloss, no neon.
+function drawGargoyle(ctx, cam, wx, wy, wz, size, outDir, alpha, night, seed) {
+  const om = Math.hypot(outDir[0], outDir[1]) || 1, fX = outDir[0] / om, fY = outDir[1] / om;
+  const rX = fY, rY = -fX;                                                     // right = outward rotated -90°
+  const L = (r, f, u) => [wx + (rX * r + fX * f) * size, wy + (rY * r + fY * f) * size, wz + u * size];
+  const faces = [];
+  const push = (p, opt) => faces.push(Object.assign({ p }, opt));
+  // Swept tube along a spine of stations [centreR, forward, up, halfWidth, halfHeight]; NA facets
+  // around, elliptical section in the right×up plane. Optional near-pointed caps at either end.
+  const tube = (S, NA, capA, capB, opt) => {
+    const ring = (st) => { const a = []; for (let k = 0; k < NA; k++) { const th = k / NA * 6.2832; a.push([st[0] + Math.cos(th) * st[3], st[1], st[2] + Math.sin(th) * st[4]]); } return a; };
+    let prev = ring(S[0]);
+    for (let i = 1; i < S.length; i++) {
+      const cur = ring(S[i]);
+      for (let k = 0; k < NA; k++) { const k2 = (k + 1) % NA; push([prev[k], prev[k2], cur[k2], cur[k]], opt); }
+      prev = cur;
+    }
+    if (capA) { const s = S[0], apex = [s[0], s[1] - s[3] * 0.9, s[2]], r0 = ring(s); for (let k = 0; k < NA; k++) push([r0[k], r0[(k + 1) % NA], apex], opt); }
+    if (capB) { const s = S[S.length - 1], apex = [s[0], s[1] + s[3] * 0.9, s[2]], rN = ring(s); for (let k = 0; k < NA; k++) push([rN[(k + 1) % NA], rN[k], apex], opt); }
+  };
+  // ── Body: curled tail → coiled haunches → arched hunched back → craned neck → skull → snout ──
+  tube([
+    [0, -0.56, 0.50, 0.06, 0.06],   // tail tip, curled up behind the rump
+    [0, -0.44, 0.30, 0.15, 0.16],   // haunch mass
+    [0, -0.20, 0.34, 0.22, 0.24],   // lower back
+    [0,  0.04, 0.46, 0.24, 0.25],   // hunched, arched mid-back
+    [0,  0.24, 0.40, 0.21, 0.21],   // shoulders
+    [0,  0.40, 0.31, 0.15, 0.16],   // neck base
+    [0,  0.56, 0.20, 0.12, 0.13],   // craning neck (down + out)
+    [0,  0.74, 0.14, 0.14, 0.13],   // skull
+    [0,  0.92, 0.10, 0.12, 0.10],   // muzzle base
+    [0,  1.10, 0.05, 0.06, 0.05],   // snout tip
+  ], 8, true, true);
+  // ── Bracing FORELIMBS — shoulders down-forward to claws gripping the ledge lip ──
+  for (const s of [-1, 1]) tube([
+    [s * 0.19, 0.26, 0.34, 0.07, 0.08],
+    [s * 0.23, 0.40, 0.16, 0.06, 0.07],
+    [s * 0.27, 0.54, 0.01, 0.08, 0.04],   // splayed clawed grip
+  ], 6, false, true);
+  // ── Coiled HAUNCHES → hind paws on the ledge ──
+  for (const s of [-1, 1]) tube([
+    [s * 0.22, -0.36, 0.26, 0.10, 0.12],
+    [s * 0.26, -0.24, 0.10, 0.07, 0.08],
+    [s * 0.29, -0.12, 0.00, 0.09, 0.04],
+  ], 6, false, true);
+  // ── Back-swept HORNS from the skull ──
+  for (const s of [-1, 1]) tube([
+    [s * 0.07, 0.74, 0.22, 0.045, 0.05],
+    [s * 0.11, 0.68, 0.34, 0.028, 0.03],
+    [s * 0.15, 0.60, 0.44, 0.010, 0.012],   // horn tip
+  ], 5, false, false);
+  // ── Folded bat WINGS — thin double-sided membranes fanning up above the shoulders ──
+  for (const s of [-1, 1]) {
+    const root = [s * 0.15, 0.16, 0.42];
+    const spar = [[s * 0.34, -0.04, 0.82], [s * 0.30, -0.20, 0.74], [s * 0.22, -0.34, 0.58], [s * 0.16, -0.36, 0.34]];
+    for (let i = 0; i < spar.length - 1; i++) push([root, spar[i], spar[i + 1]], { two: 1 });
+  }
+  // ── Open lower JAW — a dropped wedge under the snout ──
+  { const bl = [-0.10, 0.90, 0.02], br = [0.10, 0.90, 0.02], tl = [-0.05, 1.10, -0.06], tr = [0.05, 1.10, -0.06];
+    push([bl, br, tr, tl]);                                     // jaw floor
+    push([[-0.10, 0.90, 0.07], [0.10, 0.90, 0.07], br, bl]); }  // jaw back
+  // ── Shade + fill (matte weathered limestone), each face depth-queued via emitFace ──
+  const KL = (() => { const v = [0.42, -0.34, 0.86], m = Math.hypot(v[0], v[1], v[2]); return [v[0] / m, v[1] / m, v[2] / m]; })();   // top-front key
+  const camPos = [-(cam.back || 0) * cam.sinh, (cam.back || 0) * cam.cosh, cam.EH];
+  const ctr = L(0, 0.1, 0.30);
+  const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+  const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const base = night ? [64, 62, 56] : [140, 134, 118];
+  for (const fc of faces) {
+    const wp = fc.p.map((p) => L(p[0], p[1], p[2]));
+    const sp = wp.map((w) => cam.proj(w[0], w[1], w[2]));
+    if (sp.some((q) => q.f <= 0.08)) continue;
+    const e1 = sub(wp[1], wp[0]), e2 = sub(wp[2], wp[0]);
+    let n = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]];
+    const nm = Math.hypot(n[0], n[1], n[2]) || 1; n = [n[0] / nm, n[1] / nm, n[2] / nm];
+    const cen = [(wp[0][0] + wp[1][0] + wp[2][0]) / 3, (wp[0][1] + wp[1][1] + wp[2][1]) / 3, (wp[0][2] + wp[1][2] + wp[2][2]) / 3];
+    if (fc.two) { if (dot(n, sub(camPos, cen)) < 0) n = [-n[0], -n[1], -n[2]]; }
+    else { if (dot(n, sub(cen, ctr)) < 0) n = [-n[0], -n[1], -n[2]]; if (dot(n, sub(camPos, cen)) <= 0) continue; }
+    let lm = 0.30 + 0.66 * Math.max(0, dot(n, KL));
+    if (n[2] < 0) lm *= 0.62;                                   // soot-stained undersides
+    lm = clamp(lm, 0.14, 1.05);
+    const af = sp.reduce((s, q) => s + q.f, 0) / sp.length, fog = fogWeight(af);
+    const r = base[0] * lm | 0, g = base[1] * lm | 0, b = base[2] * lm | 0;
+    emitFace(af, () => {
+      ctx.globalAlpha = alpha; ctx.fillStyle = `rgb(${r},${g},${b})`;
+      ctx.beginPath(); sp.forEach((q, i) => i ? ctx.lineTo(q.sx, q.sy) : ctx.moveTo(q.sx, q.sy)); ctx.closePath(); ctx.fill();
+      if (fog > 0.004) { ctx.globalAlpha = alpha * fog; ctx.fillStyle = FOG_STATE.css; ctx.fill(); }
+      ctx.globalAlpha = 1;
+    });
+  }
+}
+
 // A dedicated named-building model: a type-appropriate silhouette built from draw3DBoxAt +
 // the adornments above, coloured by the building's own palette (m.pal) and neon (m.neon).
 // `E` is the entrance world-vector (faceVec) so the door/forecourt points at the street.
-function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = [0, 1]) {
+function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = [0, 1], name = '') {
   const pal = m.pal;
+  // The building's display name, upper-cased for signage. Published as the ambient blade sign so
+  // every neonBlade in this pass paints the real name; undefined (no name) → the abstract rungs.
+  const sign = (name || '').trim().toUpperCase() || undefined;
+  _bladeSign = sign;
   const F = (lx, ly) => facePt(dx, dy, lx, ly, E);   // model-local → world, rotated to the entrance
   // Front-face (entrance/marquee side) visibility: its outward normal is E, so the face points
   // at the camera when E·(camera − faceCentre) > 0 — same test as the box backface cull, folding
@@ -4551,7 +5090,6 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       const neon = m.neon || '#ff4a9a';
       draw3DBoxAt(ctx, cam, dx, dy, fh * 1.2, 0, h * 0.24, pal, seed + 4, night, alpha, true);        // lit ground-floor podium
       draw3DBoxAt(ctx, cam, dx, dy, fh * 1.0, h * 0.24, h * 1.4, pal, seed, night, alpha, true);      // guest tower
-      { const [cx, cy] = F(0, fh * 1.02); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.85, h * 0.16, h * 0.24, 'ty_door', seed + 5, night, alpha, false); }   // porte-cochère canopy over the entrance
       if (frontVis) {   // front-face signage — hidden when the marquee side is turned away
         marqueeBand(ctx, cam, dx, dy, E, fh, h * 0.27, neon, night, alpha);                           // marquee sign across the front
         const [nx, ny] = F(-fh * 0.55, fh * 0.55); neonBlade(ctx, cam, nx, ny, h * 0.3, h * 1.35, neon, night, alpha);
@@ -4562,10 +5100,10 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
     case 'embassy': {   // Embassy Hotel & Bar: warm guest tower + big marquee (bar podium removed — it wasn't reading right)
       const neon = m.neon || '#ff4a9a';
       draw3DBoxAt(ctx, cam, dx, dy, fh * 0.98, 0, h * 1.55, pal, seed, night, alpha, true);                    // single warm ochre tower, ground to roof
-      // ONE tall lit VERTICAL marquee — a true 3D board planted at the building's FRONT-RIGHT CORNER
-      // (local x≈+0.9, y just proud of the +0.98 front face), jutting FORWARD along the entrance vector E
-      // so the blade stands in front of the building instead of running through the side wall. EMBASSY
-      // stacked on the front slanted face; per-face backface culling + the depth queue handle visibility.
+      // ONE tall lit VERTICAL marquee — a solid triangular-prism blade planted at the building's FRONT-RIGHT
+      // CORNER (local x≈+0.9, y just proud of the +0.98 front face), jutting FORWARD along the entrance
+      // vector E so the blade stands in front of the building instead of running through the side wall.
+      // EMBASSY stacked on BOTH slanted flat faces; per-face backface culling + the depth queue handle visibility.
       { const [nx, ny] = F(fh * 0.9, fh * 1.08); verticalMarquee(ctx, cam, nx, ny, h * 0.42, h * 1.5, 'EMBASSY', neon, night, alpha, E); }
       if (night) {
         glowPool(ctx, cam, dx, dy, h * 0.34, '255,190,90', 26, alpha * 0.32);             // warm bar spill at street level
@@ -4600,9 +5138,8 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       const segZ = (i) => baseZ + (topZ - baseZ) * (i / N);
       const segW = (i) => fwBase * (1 - 0.44 * (i / N));   // gentle taper to a slender crown
       const segYaw = (i) => twist * (i / N);               // progressive rotation = the helix
-      // 1) Lit lobby podium the tower rises out of + a low entrance canopy.
+      // 1) Lit lobby podium the tower rises out of (no street-overhanging entrance canopy).
       draw3DBoxAt(ctx, cam, dx, dy, fh * 1.3, 0, baseZ, pal, seed + 4, night, alpha, true);
-      { const [cx, cy] = F(0, fh * 1.06); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.82, h * 0.12, h * 0.24, 'ty_door', seed + 5, night, alpha, false); }
       // 2) The helical glass slab — thin square curtain-glass boxes, each rotated a touch more than the last.
       //    Its ty_halcyon skin is the glass floor-plate texture (GLASS_WALL), so the twist reads as banded glass.
       for (let i = 0; i < N; i++) draw3DBoxAt(ctx, cam, dx, dy, segW(i), segZ(i), segZ(i + 1), pal, seed + i, night, alpha, i === N - 1, segYaw(i));
@@ -4647,9 +5184,8 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
         : fwBase * 0.62 * (1 - 0.18 * ((t - 0.68) / 0.32));
       const segW = (i) => tierW(i / N);
       const segYaw = (i) => twist * (i / N);
-      // 1) Lit stone podium the tower rises from + a low illuminated entrance canopy.
+      // 1) Lit stone podium the tower rises from (no street-overhanging entrance canopy).
       draw3DBoxAt(ctx, cam, dx, dy, fh * 1.34, 0, baseZ, pal, seed + 4, night, alpha, true);
-      { const [cx, cy] = F(0, fh * 1.1); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.9, h * 0.1, h * 0.26, 'ty_door', seed + 5, night, alpha, false); }
       // 2) The champagne-glass shaft — thin plates, gentle quarter-turn, stepping inward at each tier.
       for (let i = 0; i < N; i++) draw3DBoxAt(ctx, cam, dx, dy, segW(i), segZ(i), segZ(i + 1), pal, seed + i, night, alpha, i === N - 1, segYaw(i));
       // 3) Warm gold light-runners tracing two opposite corners up the tapering stack.
@@ -4707,9 +5243,8 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
         return g;
       };
       const capCol = night ? 'rgba(46,58,72,0.97)' : 'rgba(178,196,216,0.97)';
-      // 1) Splayed plinth + entrance canopy.
+      // 1) Splayed plinth (no street-overhanging entrance canopy).
       drawFacetDrum(ctx, cam, dx, dy, 0, baseZ, rB * 1.06, rB * 0.96, NF, alpha, mirror, capCol);
-      { const [cx, cy] = F(0, fh * 1.02); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.9, h * 0.08, h * 0.2, 'ty_door', seed + 6, night, alpha, false); }
       // 2) The tapered chrome shaft — one smooth mirror-steel frustum (cone), no window grid.
       drawFacetDrum(ctx, cam, dx, dy, baseZ, topZ, rShaftB, rT, NF, alpha, mirror, null);
       // 3) Glowing horizontal LED tech-bands hugging the shaft at regular tech-floors.
@@ -4731,12 +5266,84 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       blinkLight(ctx, cam, dx, dy, topZ + h * 0.58, led, now, seed, alpha, 2);
       break;
     }
-    case 'meridian': {   // The Meridian: terrazzo residential tower + set-back penthouse + rooftop water tank
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.3, 0, h * 0.26, pal, seed + 5, night, alpha, true);          // lobby podium
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.0, h * 0.26, h * 1.34, pal, seed, night, alpha, true);        // tower
-      if (m.penthouse) { const [px, py] = F(fh * 0.3, 0); draw3DBoxAt(ctx, cam, px, py, fh * 0.5, h * 1.34, h * 1.56, pal, seed + 2, night, alpha, true); }   // penthouse
-      { const [wx3, wy3] = F(-fh * 0.36, 0); draw3DBoxAt(ctx, cam, wx3, wy3, fh * 0.2, h * 1.34, h * 1.62, pal, seed + 3, night, alpha, true); }   // rooftop water tank on stilts
-      if (night) glowPool(ctx, cam, dx, dy, h * 0.7, '255,196,120', 12, alpha * 0.14);                  // scattered lit windows
+    case 'meridian': {   // The Meridian: a VINTAGE ART-DECO residential landmark — a stepped buff-limestone
+      //                 ziggurat with a bespoke reeded-window skin (see DECO_WALL), a grand glazed-bronze
+      //                 street entrance under a gilt nameplate, corner pilasters + gargoyles up the shaft, a
+      //                 finned deco coronet, and a stone lantern under a verdigris copper cupola. No neon.
+      const trim = 'ty_archive_col', bronze = 'ty_meridian_bronze';                                     // warm limestone trim + dark bronze entrance metal
+      const zPod = h * 0.24, zShaft = h * 1.04, zSet1 = h * 1.52, zSet2 = h * 1.86, zCrown = h * 2.06;
+      // 1) Stepped lobby podium, capped by a broad projecting cornice ledge.
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.34, 0, zPod, pal, seed + 5, night, alpha, true);              // podium
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.40, zPod, zPod + h * 0.045, trim, seed + 6, night, alpha, true);   // base cornice band
+      // 1b) GRAND BRONZE STREET ENTRANCE on the frontage (E): a tall glazed-bronze portal in a fluted stone
+      //     surround, a projecting marquee canopy over the sidewalk, and flanking amber torchère pylons. The
+      //     front-centre pilaster (§3) is skipped so the bay reads clear between the corner piers.
+      { const [ex, ey] = F(0, fh * 1.30); draw3DBoxAt(ctx, cam, ex, ey, fh * 0.30, 0, zPod + h * 0.02, bronze, seed + 40, night, alpha, false); }   // glazed bronze doors / lobby
+      for (const s of [-1, 1]) { const [jx, jy] = F(s * fh * 0.34, fh * 1.34); draw3DBoxAt(ctx, cam, jx, jy, fh * 0.055, 0, zPod + h * 0.06, trim, seed + 41 + s, night, alpha, true); }   // fluted stone jambs framing the doors
+      { const [cx, cy] = F(0, fh * 1.42); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.34, zPod + h * 0.02, zPod + h * 0.05, bronze, seed + 44, night, alpha, true); }   // projecting bronze marquee canopy over the sidewalk
+      for (const s of [-1, 1]) { const [tx, ty] = F(s * fh * 0.5, fh * 1.5); draw3DBoxAt(ctx, cam, tx, ty, fh * 0.05, 0, zPod, trim, seed + 45 + s, night, alpha, true); glowPool(ctx, cam, tx, ty, zPod + h * 0.01, '255,190,110', 6, alpha * (night ? 0.5 : 0.26)); }   // torchère pylons + steady amber lamp
+      // 2) Main shaft.
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.06, zPod + h * 0.045, zShaft, pal, seed, night, alpha, true);
+      // 2b) Gilt "THE MERIDIAN" engraved on a stone frieze band over the entrance — surface text, never billboarded.
+      { const friZ0 = zPod + h * 0.07, friZ1 = zPod + h * 0.17;
+        draw3DBoxAt(ctx, cam, dx, dy, fh * 1.10, friZ0, friZ1, trim, seed + 46, night, alpha, false);    // stone frieze band on the lower shaft
+        if (frontVis) {
+          const nhw = fh * 0.66, [nlx, nly] = F(-nhw, fh * 1.11), [nrx, nry] = F(nhw, fh * 1.11);
+          const TL = cam.proj(nlx, nly, friZ1 - h * 0.012), TR = cam.proj(nrx, nry, friZ1 - h * 0.012), BR = cam.proj(nrx, nry, friZ0 + h * 0.012), BL = cam.proj(nlx, nly, friZ0 + h * 0.012);
+          if ([TL, TR, BR, BL].every(p => p.f > 0.12)) { const nam = bakeSignText('THE MERIDIAN', '#e8c878', night ? 1 : 0, false); emitFace(decoDepth(TL.f, TR.f, BR.f, BL.f), () => drawSurfaceText(ctx, TL, TR, BR, BL, nam, false, alpha)); }
+        } }
+      // 3) Vertical pilaster ribs standing proud of the shaft — corners + mid-face (front-centre skipped for the
+      //    entrance bay), so the deco piers read from any camera angle (each box is backface-culled per face).
+      for (const [sx, sy] of [[-1,-1],[1,-1],[1,1],[-1,1],[0,-1],[1,0],[-1,0]]) {
+        const [px, py] = F(sx * fh * 1.02, sy * fh * 1.02);
+        draw3DBoxAt(ctx, cam, px, py, fh * (sx && sy ? 0.13 : 0.10), zPod, zShaft + h * 0.04, trim, seed + 20 + sx * 3 + sy, night, alpha, false);
+      }
+      // 4) Shaft cornice ledge → first setback tier.
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.13, zShaft, zShaft + h * 0.045, trim, seed + 7, night, alpha, true);
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.82, zShaft + h * 0.045, zSet1, pal, seed + 1, night, alpha, true);
+      // 5) Second cornice → upper setback tier.
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.89, zSet1, zSet1 + h * 0.04, trim, seed + 8, night, alpha, true);
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.58, zSet1 + h * 0.04, zSet2, pal, seed + 2, night, alpha, true);
+      // 6) Crown cornice → set-back penthouse block, ringed by a finned DECO CORONET: vertical limestone fins
+      //    stepping proud of the parapet (corners peaking highest) — the crown that reads best from the air.
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.64, zSet2, zSet2 + h * 0.035, trim, seed + 9, night, alpha, true);
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.40, zSet2 + h * 0.035, zCrown, pal, seed + 3, night, alpha, true);
+      for (const [sx, sy] of [[-1,-1],[1,-1],[1,1],[-1,1],[0,-1],[1,0],[0,1],[-1,0]]) {
+        const [fx, fy] = F(sx * fh * 0.42, sy * fh * 0.42);
+        draw3DBoxAt(ctx, cam, fx, fy, fh * (sx && sy ? 0.06 : 0.05), zSet2 + h * 0.02, zCrown + h * (sx && sy ? 0.11 : 0.06), trim, seed + 50 + sx * 3 + sy, night, alpha, true);
+      }
+      // 7) Ornamental octagonal stone lantern + a verdigris copper OGEE cupola + a finial with a lonely
+      //    amber beacon — the vintage crown that replaces the old rooftop water tank.
+      const lantZ0 = zCrown, lantZ1 = zCrown + h * 0.16, lantR = fh * 0.26;
+      const stoneRGB = WALL_COL[trim] || [150, 142, 124];
+      const lantStyle = (f) => { const s = (night ? 0.44 : 0.78) + f.nl * 0.5; return `rgba(${stoneRGB[0]*s|0},${stoneRGB[1]*s|0},${stoneRGB[2]*s|0},0.97)`; };
+      drawFacetDrum(ctx, cam, dx, dy, lantZ0, lantZ1, lantR * 1.04, lantR, 8, alpha, lantStyle, null);
+      const cupH = h * 0.30, cupR = lantR * 1.12, apex = lantZ1 + cupH;
+      for (let i = 0; i <= 8; i++) {
+        const t = i / 8, z = lantZ1 + cupH * t, r = cupR * Math.pow(Math.max(0, 1 - t * t), 0.7);       // ogee (pointed) copper cap
+        const pts = []; let ok = true;
+        for (let k = 0; k <= 18; k++) { const ang = k / 18 * Math.PI * 2, p = cam.proj(dx + Math.cos(ang) * r, dy + Math.sin(ang) * r, z); if (p.f <= 0.08) { ok = false; break; } pts.push(p); }
+        if (!ok) continue;
+        // Depth = ring-centre f MINUS a height bias. A symmetric ring's average f collapses to the tile
+        // centre's value, so all 9 discs would tie and z-fight (the same blink as the stepped ledges); the
+        // -z*0.02 lift makes the higher disc (nearer the down-looking cam) sort reliably on top.
+        const sh = 0.68 + 0.32 * t, fill = `rgb(${Math.round(78 * sh)},${Math.round(138 * sh)},${Math.round(118 * sh)})`, dd = pts.reduce((s, p) => s + p.f, 0) / pts.length - z * 0.02;
+        emitFace(dd, () => { ctx.globalAlpha = alpha; ctx.fillStyle = fill; ctx.beginPath(); pts.forEach((p, k) => k ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1; });
+      }
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.05, apex, apex + h * 0.12, trim, seed + 4, night, alpha, false);   // stone finial
+      blinkLight(ctx, cam, dx, dy, apex + h * 0.16, '255,196,120', now, seed, alpha, 1.8);
+      // 8) FOUR high-poly stone gargoyles crouched at the main-shaft cornice corners, each craning out
+      //    over the street on the outward diagonal — the grotesques that make it a vintage landmark.
+      for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+        const [gx, gy] = F(sx * fh * 0.9, sy * fh * 0.9);
+        drawGargoyle(ctx, cam, gx, gy, zShaft + h * 0.045, fh * 0.42, [gx - dx, gy - dy], alpha, night, seed + 30 + sx * 2 + sy);
+      }
+      if (night) {
+        glowPool(ctx, cam, dx, dy, h * 0.9, '255,200,130', 14, alpha * 0.16);                            // scattered warm windows up the shaft
+        glowPool(ctx, cam, dx, dy, zPod + h * 0.04, '255,206,140', 22, alpha * 0.24);                    // floodlit limestone base
+        glowPool(ctx, cam, dx, dy, zPod * 0.5, '255,190,120', 12, alpha * 0.30);                         // warm spill from the lobby entrance
+        glowPool(ctx, cam, dx, dy, apex, '150,220,190', 10, alpha * 0.16);                               // faint copper-crown wash
+      }
       break;
     }
     case 'divebar': {   // Sump / The Dead Pigeon: low grimy box + one flickering neon blade + dim window glow
@@ -4821,25 +5428,85 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       glowPool(ctx, cam, dx, dy, h * 0.4, '120,220,150', 16, alpha * (night ? 0.28 : 0.14));
       break;
     }
-    case 'studio': {   // TV sound-stage: a tall windowless stage volume + fly tower, a low glazed office wing, big scenery door
-      // Main stage — a monolithic near-cubic WINDOWLESS volume (soundstages are tall clear-span boxes, not low sheds).
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.98, 0, h * 1.15, pal, seed, night, alpha, true);
-      // Fly tower / lighting-grid loft — a taller set-back box over the rear third.
-      { const [tx, ty] = F(-fh * 0.28, -fh * 0.3); draw3DBoxAt(ctx, cam, tx, ty, fh * 0.5, h * 1.15, h * 1.55, pal, seed + 1, night, alpha, true); }
-      // Low glazed production-office wing across the entrance front (contrasting pale glass).
-      { const [ox, oy] = F(0, fh * 1.02); draw3DBoxAt(ctx, cam, ox, oy, fh * 0.9, 0, h * 0.5, 'ty_clinic', seed + 3, night, alpha, true); }
-      // Big roll-up scenery/loading door on the stage front (only when that face is toward us).
-      if (frontVis) { const [gx, gy] = F(fh * 0.5, fh * 0.52); draw3DBoxAt(ctx, cam, gx, gy, fh * 0.34, 0, h * 0.72, 'ty_door', seed + 4, night, alpha, false); }
-      // Roof kit — HVAC block, the tall guyed transmitter mast + a satellite uplink dish.
-      { const [hx, hy] = F(fh * 0.34, fh * 0.12); draw3DBoxAt(ctx, cam, hx, hy, fh * 0.26, h * 1.15, h * 1.3, 'ty_door', seed + 6, night, alpha, true); }
-      { const [mx, my] = F(-fh * 0.78, fh * 0.2); mast(ctx, cam, mx, my, h * 1.15, h * 2.45, alpha, now, seed + 2); }
-      { const [ex, ey] = F(fh * 0.72, -fh * 0.18); dish(ctx, cam, ex, ey, h * 1.2, 10, alpha); }
-      if (night) glowPool(ctx, cam, dx, dy, h * 0.24, '255,206,140', 10, alpha * 0.18);   // warm office-wing spill
+    case 'ksabstudio': {   // KSAB-9 broadcast plant — a professional TV studio: a windowless ribbed sound stage under a
+      // SAWTOOTH north-light roof (glazed monitor triangles), a faceted curtain-glass lobby with an angled entrance
+      // visor, a triangular broadcast LATTICE tower + uplink dishes, and a self-occluding KSAB marquee. Every faceted
+      // piece rides the shared face queue (emitFlat / draw3DBoxAt), so the mass and neighbours occlude it correctly —
+      // signage is a marqueeBand (tiny 0.06 lift), never a DECO_LIFT-ed blade that would bleed through the building.
+      const KSABc = m.neon || '#b98cff';
+      const L = (lx, ly, z) => { const w = facePt(dx, dy, lx, ly, E); return [w[0], w[1], z]; };
+      const [cx, cy] = F(0, -fh * 0.18);                      // stage-mass centre, set back off the street
+      const mh = h * 1.05, mhx = fh * 0.7;                    // mass top height + footprint half
+      // 1) Main sound stage — a monolithic WINDOWLESS ribbed clear-span volume (flat cap so the roof never shows through).
+      draw3DBoxAt(ctx, cam, cx, cy, mhx, 0, mh, pal, seed, night, alpha, true);
+      // 2) Sawtooth north-light roof monitors — the glazed saw of triangles that reads instantly as a sound stage.
+      const roofc = night ? 'rgba(40,35,54,0.97)' : 'rgba(54,48,72,0.97)';
+      const glassc = night ? 'rgba(152,120,222,0.82)' : 'rgba(160,188,216,0.9)';
+      const edge = 'rgba(18,14,24,0.55)';
+      sawtoothRoof(ctx, cam, cx, cy, E, mhx * 0.92, mhx * 0.88, mh, h * 0.17, 5, roofc, glassc, edge, alpha);
+      // 3) Fly tower / lighting-grid loft — a taller ribbed box over the rear third, breaking above the saw.
+      { const [tx, ty] = F(-fh * 0.14, -fh * 0.46); draw3DBoxAt(ctx, cam, tx, ty, fh * 0.32, mh, h * 1.44, pal, seed + 1, night, alpha, true); }
+      // 4) Triangular broadcast LATTICE tower on the rear roof — legs + X-braced belts + a mid-mast uplink drum + beacon.
+      { const [lx, ly] = F(fh * 0.36, -fh * 0.4); latticeTower(ctx, cam, lx, ly, mh, h * 2.7, fh * 0.15, fh * 0.045, alpha, now, seed + 5);
+        dish(ctx, cam, lx, ly, mh + h * 0.9, 8, alpha); }
+      // 5) Rooftop kit — an HVAC/chiller block + a satellite uplink dish among the monitors.
+      { const [hx, hy] = F(fh * 0.42, fh * 0.04); draw3DBoxAt(ctx, cam, hx, hy, fh * 0.16, mh, mh + h * 0.15, 'ty_door', seed + 6, night, alpha, true); }
+      { const [ex, ey] = F(-fh * 0.46, -fh * 0.02); dish(ctx, cam, ex, ey, mh + h * 0.05, 10, alpha); }
+      // 6) Faceted curtain-glass production-office lobby across the front — real glass (ty_ksab_glass ∈ GLASS_WALL), inside the tile.
+      const [ox, oy] = F(0, fh * 0.6); const lobH = h * 0.44, lhx = fh * 0.34;
+      draw3DBoxAt(ctx, cam, ox, oy, lhx, 0, lobH, 'ty_ksab_glass', seed + 3, night, alpha, true);
+      // 6b) Angled glass entrance VISOR — a thin cantilevered canopy sloping out to the tile edge (never past), with triangular side brackets.
+      { const zin = lobH * 0.9, zout = lobH * 0.74, lip = h * 0.05, gx = fh * 0.3;
+        const glassV = night ? 'rgba(150,120,220,0.7)' : 'rgba(168,196,222,0.82)';
+        emitFlat(ctx, cam, [L(-gx, fh * 0.82, zin), L(gx, fh * 0.82, zin), L(gx, fh * 0.98, zout), L(-gx, fh * 0.98, zout)], glassV, alpha, { stroke: edge, lw: 1 });                                            // visor surface (top-facing)
+        emitFlat(ctx, cam, [L(-gx, fh * 0.98, zout), L(gx, fh * 0.98, zout), L(gx, fh * 0.98, zout - lip), L(-gx, fh * 0.98, zout - lip)], roofc, alpha, { stroke: edge, lw: 1, cullN: [E[0], E[1]] });          // front fascia lip
+        for (const s of [-1, 1]) emitFlat(ctx, cam, [L(s * gx, fh * 0.82, zin), L(s * gx, fh * 0.98, zout), L(s * gx, fh * 0.98, zout - lip)], roofc, alpha, { cullN: [s * E[1], -s * E[0]] });                   // triangular side brackets
+      }
+      // 7) KSAB marquee across the lobby front — self-occluding band (no through-building bleed), plus warm lobby wash.
+      marqueeBand(ctx, cam, ox, oy, E, lhx, lobH + h * 0.05, KSABc, night, alpha, 'KSAB');
+      if (night) { glowPool(ctx, cam, ox, oy, lobH * 0.5, '150,120,220', 12, alpha * 0.26); glowPool(ctx, cam, cx, cy, mh, '150,120,220', 16, alpha * 0.14); }
+      break;
+    }
+    case 'studio': {   // KSAB TV studio LOT: a barrel-vaulted hero sound stage (windowless ribbed shell + elephant door), a second scene-dock stage, a glazed production-office public front, broadcast mast + uplink dishes, and the iconic back-lot water tower — a complex, unmistakably-studio composition, all kept inside the tile
+      const KSAB = m.neon || '#b98cff';
+      const sfw = fh * 0.6, wallTop = h * 0.82, archH = sfw * 0.6;                                          // hero-stage half-width, eaves height, barrel-vault rise (fh-scaled, like the diner/warehouse sheds)
+      const stageBase = [92, 80, 118];                                                                      // violet-grey roof/tank base tying the lot to the ty_ksab palette
+      const metal = (r, g, b) => (f) => { const s = 0.5 + f.nl * 0.5; return `rgb(${r * s | 0},${g * s | 0},${b * s | 0})`; };
+      // ── Hero sound stage — a big WINDOWLESS ribbed clear-span shell (ty_ksab ∈ METAL_WALL) under a curved barrel vault, arched gable facing the street ──
+      { const [sx, sy] = F(-fh * 0.05, 0); draw3DBoxAt(ctx, cam, sx, sy, sfw, 0, wallTop, pal, seed, night, alpha, false); }   // roof left open for the barrel
+      drawBarrelRoof(ctx, cam, F, -fh * 0.05, sfw, sfw * 0.94, wallTop, archH, 12, alpha, stageBase);
+      // ── Fly tower / lighting-grid loft breaking the ridge at the rear ──
+      { const [tx, ty] = F(-fh * 0.05, -sfw * 0.5); draw3DBoxAt(ctx, cam, tx, ty, fh * 0.26, wallTop, wallTop + h * 0.5, pal, seed + 1, night, alpha, true); }
+      // ── Elephant door: the huge roll-up scenery door on the front gable (only when that face is toward us) ──
+      if (frontVis) { const [gx, gy] = F(-fh * 0.05, sfw * 0.99); draw3DBoxAt(ctx, cam, gx, gy, fh * 0.3, 0, h * 0.52, 'ty_door', seed + 2, night, alpha, false); }
+      // ── Second stage / scene dock — a lower windowless box to the right with a rooftop HVAC plenum ──
+      { const [d2x, d2y] = F(fh * 0.56, -fh * 0.32); draw3DBoxAt(ctx, cam, d2x, d2y, fh * 0.32, 0, h * 0.62, pal, seed + 3, night, alpha, true);
+        draw3DBoxAt(ctx, cam, d2x, d2y, fh * 0.2, h * 0.62, h * 0.74, 'ty_door', seed + 4, night, alpha, true); }
+      // ── Low glazed production-office wing across the front-right — real curtain glass (ty_ksab_glass ∈ GLASS_WALL), a lit KSAB marquee, warm-lit lobby ──
+      { const [ox, oy] = F(fh * 0.4, sfw * 0.62); draw3DBoxAt(ctx, cam, ox, oy, fh * 0.42, 0, h * 0.46, 'ty_ksab_glass', seed + 5, night, alpha, true);
+        marqueeBand(ctx, cam, ox, oy, E, fh * 0.44, h * 0.34, KSAB, night, alpha, 'KSAB');
+        if (night) glowPool(ctx, cam, ox, oy, h * 0.2, '255,210,150', 12, alpha * 0.24); }
+      // ── Broadcast kit — transmitter mast + red beacon on the fly tower, two satellite uplink dishes on the scene-dock roof ──
+      { const [mx, my] = F(-fh * 0.05, -sfw * 0.5); mast(ctx, cam, mx, my, wallTop + h * 0.5, wallTop + h * 1.9, alpha, now, seed + 6); }
+      { const [e1x, e1y] = F(fh * 0.46, -fh * 0.16); dish(ctx, cam, e1x, e1y, h * 0.62, 9, alpha); }
+      { const [e2x, e2y] = F(fh * 0.66, -fh * 0.46); dish(ctx, cam, e2x, e2y, h * 0.62, 8, alpha); }
+      // ── The iconic back-lot water tower — a squat tank on four tall spindly legs ──
+      { const tcx = -fh * 0.6, tcy = -fh * 0.52, legTop = h * 0.7, [wx, wy] = F(tcx, tcy);
+        for (const s of [-1, 1]) for (const t of [-1, 1]) { const [lx, ly] = F(tcx + s * fh * 0.1, tcy + t * fh * 0.1); draw3DBoxAt(ctx, cam, lx, ly, fh * 0.03, 0, legTop, 'ty_door', seed + 8 + s + t * 2, night, alpha, false); }
+        drawFacetDrum(ctx, cam, wx, wy, legTop, legTop + h * 0.26, fh * 0.16, fh * 0.16, 10, alpha, metal(stageBase[0], stageBase[1], stageBase[2]), 'rgb(70,60,92)');
+        drawFacetDrum(ctx, cam, wx, wy, legTop + h * 0.26, legTop + h * 0.36, fh * 0.16, fh * 0.02, 10, alpha, metal(78, 68, 100), null); }   // conical cap
+      // ── KSAB call-letter blade on the hero-stage crown ──
+      { const [bx, by] = F(fh * 0.32, -sfw * 0.2); neonBlade(ctx, cam, bx, by, wallTop + archH, wallTop + archH + h * 0.6, KSAB, night, alpha, 'KSAB'); }
+      // ── Night washes — violet KSAB roofline + a cool key-light glow off the stage front ──
+      if (night) { glowPool(ctx, cam, dx, dy, h * 0.6, '150,120,220', 16, alpha * 0.22);
+        const [kx, ky] = F(-fh * 0.05, sfw * 0.6); glowPool(ctx, cam, kx, ky, h * 0.3, '190,200,255', 12, alpha * 0.16); }
       break;
     }
     case 'studiogate': {   // KSAB Audience Gate: a glazed audience lobby with a violet KSAB parapet + a steady lit marquee. Deliberately simple and ENTIRELY within its own tile (no cantilevered canopy/turnstiles — those spilled onto the road). Reads low once flags.floors:2 reaches the DB.
       // Curtain-glass lobby — real glazed skin (ty_ksab_glass ∈ GLASS_WALL: sky sheen, no window grid).
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.96, 0, h * 0.9, 'ty_ksab_glass', seed, night, alpha, true);
+      // No roof cap: the wider parapet below caps the footprint at h*0.9, so a lobby cap here would only
+      // z-fight the parapet's own roof (near-identical queue depth → the roof strobed dark↔light purple).
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.96, 0, h * 0.9, 'ty_ksab_glass', seed, night, alpha, false);
       // Violet KSAB parapet cap tying it to the studio's palette.
       draw3DBoxAt(ctx, cam, dx, dy, fh * 0.98, h * 0.9, h * 1.02, pal, seed + 1, night, alpha, true);
       // Steady lit marquee across the front — KSAB. Always drawn (the depth queue occludes it when the
@@ -5208,7 +5875,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       draw3DBoxAt(ctx, cam, dx, dy, fh * 1.0, 0, h * 0.4, 'ty_office', seed, night, alpha, true);      // glazed ground-floor retail (glass tone)
       draw3DBoxAt(ctx, cam, dx, dy, fh * 0.94, h * 0.4, h * 1.0, pal, seed + 2, night, alpha, true);    // residential floors above
       { const [gx, gy] = F(0, fh * 0.92); draw3DBoxAt(ctx, cam, gx, gy, fh * 0.98, h * 0.32, h * 0.44, 'ty_door', seed + 1, night, alpha, false); }   // awning over the storefront
-      neonBlade(ctx, cam, dx, dy, h * 1.0, h * 1.26, m.neon || '#5fd0ff', night, alpha);
+      { const [nx, ny] = F(fh * 0.55, fh * 0.55); neonBlade(ctx, cam, nx, ny, h * 0.44, h * 1.12, m.neon || '#5fd0ff', night, alpha); }   // projecting sign on the storefront corner (over the awning, cresting the roofline) — not a stub planted in the roof centre
       if (night) { const [wx, wy] = F(0, fh * 0.9); glowPool(ctx, cam, wx, wy, h * 0.2, '150,220,255', 10, alpha * 0.24); }   // lit storefront glow
       break;
     }
@@ -5276,8 +5943,9 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   // Shadow pre-pass: lay every building's ground shadow FIRST (far→near) so the bodies drawn
   // next sit on top of the whole shadow field instead of over-painting a neighbour's shadow.
   if (sun && sun.len > 0) {
+    const shadowFar = RENDER_TUNE.shadowFar || Infinity;
     for (const it of items) {
-      if (!it.c.bt) continue;
+      if (!it.c.bt || it.f > shadowFar) continue;   // a distant building's ground shadow is an invisible smear — skip it
       const h = floorHeight(it.c, it.seed);
       const fh = (BUILDING_FOOT + frac(it.seed + 2) * 0.06) * RENDER_TUNE.bldgFoot;
       drawBuildingShadow(ctx, cam, it.dx, it.dy, fh, h, sun, it.alpha);
@@ -5372,15 +6040,22 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // depth-sort against each other AND against every other building's faces, so a tower/marquee
     // can't over-paint nearer geometry of the same building OR of a neighbour (the "see-through"
     // bug). One flushFaces() after the loop paints the whole district back→front.
-    if (m) drawTypeModel(ctx, cam, it.dx, it.dy, fh, h, m, it.seed, night, alpha, now, face);
+    if (m) drawTypeModel(ctx, cam, it.dx, it.dy, fh, h, m, it.seed, night, alpha, now, face, it.c.bn);
     else drawBuilding(ctx, cam, it.dx, it.dy, fh, h, arch, it.seed, night, alpha, now);
     // Rooftop holo-ad: a flickering translucent sign floating over ~1 in 4 tall-ish city
     // buildings at night — post-singularity advertising, half its pixels dead. Generic
     // buildings only: named landmarks (m) carry their own bespoke rooftop signage.
-    if (!m && night > 0.3 && h > 0.35 && (it.seed % 7) === 0) drawHoloAd(ctx, cam, it.dx, it.dy, fh, h, it.seed, now, alpha * night);   // rooftop holo-ad on ~1 in 7 tall buildings (was 1 in 4 — too many flickering at once)
+    // Rooftop decorations (holo-ad + window bloom) are only a few px at range — cull them past decoFar
+    // so a dense skyline doesn't pay for signage nobody can read. Near buildings keep the full treatment.
+    const decoNear = it.f < (RENDER_TUNE.decoFar || Infinity);
+    if (decoNear && !m && night > 0.3 && h > 0.35 && (it.seed % 7) === 0) drawHoloAd(ctx, cam, it.dx, it.dy, fh, h, it.seed, now, alpha * night);   // rooftop holo-ad on ~1 in 7 tall buildings (was 1 in 4 — too many flickering at once)
     // Warm bloom over the lit windows so near towers read as emitting light at night.
-    if (night > 0.45) drawCityBloom(ctx, cam, it.dx, it.dy, h, night, alpha);
+    if (decoNear && night > 0.45) drawCityBloom(ctx, cam, it.dx, it.dy, h, night, alpha);
   }
+  // Ground AA emplacements ride the SHARED face queue too (each turret emitted at its tile-centre
+  // depth), so a building between you and the site occludes it instead of the turret painting on top
+  // — it used to draw as a post-pass after flushFaces (the "AA showing through a building" bug).
+  if (v.aaSites && (v.worldBlend ?? 1) > 0.02) drawAASites(ctx, cam, v, now);
   flushFaces();   // ONE depth-sorted paint across every building + object collected this pass
   FOG_STATE = null; LIGHT_STATE = null;   // scoped to this world pass only — never bleed into the HUD/deck/yacht draws
 }

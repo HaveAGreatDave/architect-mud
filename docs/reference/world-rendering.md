@@ -101,6 +101,39 @@ curtain wall.
 model-local offset into world space using the building's entrance vector `E` — use it to place
 sub-parts (a canopy, a wing, a tower) relative to the frontage.
 
+### Text on surfaces — the standard for ALL 3D-world text (never billboard it)
+
+Every 3D-world view — the cockpit ([windshield.js](../../client/game/js/panels/windshield.js)),
+the **Helm chase cam** ([helm-view.js](../../client/game/js/panels/helm-view.js)) and the
+**standalone flightsim** ([flightsim.html](../../client/game/flightsim.html)) — renders through the
+same `paintWindshield` pipeline, so this rule is shared across all three by construction.
+
+**World text (signage, a name on a wall, anything that belongs to a surface in the scene) is
+painted INTO the surface, not billboarded.** The wrong way — the one that reads as text swivelling
+to face you as you fly past — is `ctx.fillText` at a projected point: the glyph stays screen-upright
+while the wall tilts. The right way is two helpers:
+
+- `bakeSignText(label, color, dn, vertical)` → renders the label once to a memoised offscreen neon
+  texture (keyed `label|color|day-night|vertical`; dark edge + white core + colour halo).
+- `drawSurfaceText(ctx, TL, TR, BR, BL, tex, vertical, alpha)` → maps that texture onto the face's
+  **real projected quad** by 8-strip affine subdivision (canvas has no perspective transform; thin
+  strips along the text axis approximate one). Composed with `ctx.transform` (not `setTransform`, so
+  DPR scale survives). **Call it inside an `emitFace` closure** — it is pure screen-space drawing and
+  must sort with the rest of the face queue.
+
+The signage helpers already route through this: `marqueeBand` (horizontal band), `verticalMarquee`
+(vertical blade, e.g. EMBASSY), and `neonBlade`. `neonBlade`'s `label` defaults to `_bladeSign` — an
+ambient var `drawTypeModel` sets from the building's `building_name` (`it.c.bn`, upper-cased) — so a
+blade paints the real venue name for free; pass `''` to force the old abstract "letter rungs". **When
+you add any new world sign, use `drawSurfaceText`; do not `fillText` onto the scene.**
+
+**The one carve-out — HUD / instrument text STAYS billboarded.** Airfield ID + distance tags
+(`drawFieldMarker`), bogey reg/range labels, ring numbers, the ⚠ weather band, heading tape and hull
+readout are cockpit-*glass* overlays, not world objects — they are deliberately screen-space and
+upright so they stay legible at any attitude. Those keep their `fillText`. The test: does the text
+belong to a **surface in the world** (→ `drawSurfaceText`) or to the **instrument panel over the
+world** (→ screen-space `fillText`)?
+
 ### Palettes
 `WALL_COL` maps palette keys → base RGB. Named-building keys are prefixed `ty_` (`ty_lux`,
 `ty_atc`, `ty_halcyon`, `ty_office`, `ty_door`, …). `wallTex(key,night)` bakes a windowed wall

@@ -1,7 +1,8 @@
-# Corporations & Player Orgs (Phase 0 Built; Later Phases Design)
+# Corporations & Player Orgs (Phases 0–2 + Corporate Assets A + Phase 3 War Built; Rest Design)
 
-> **Status: Phase 0 built 2026-07-02** (the corps engine — see the build-order section). Territory,
-> subterfuge, aggression, diplomacy, and NPC corp AI remain design. This is the agreed plan for
+> **Status: Phases 0–2 built; Phase 3 war/raids + destabilization built 2026-07-18** (see the
+> build-order section). Espionage/sabotage, NPC corp AI, and the Architect reactive layer remain
+> design. This is the agreed plan for
 > HellMOO-style corps — organizations that both players and the AI run, that hold territory, money, and
 > members, and that fight, scheme, and deal with each other under the Architect's indifferent eye.
 > It deliberately adds **few new subsystems**: almost every mechanic generalizes an existing
@@ -174,8 +175,24 @@ wants* is the deepest thread ([story.md](story.md)). Corps give it something to 
   where you stand). Verified: full loop DB test + regress 221/221.
 - **Phase 2 — Investment. ✅ BUILT 2026-07-06.** `orgs.tier` (1–5, raised via **`corp invest`** — escalating treasury cost 2.5k/6k/12k/24k) gates **member cap** (5/10/20/35/50, enforced on invite/accept) + **territory slots** (2/4/7/11/16, enforced on claim) + the **asset level cap**. **`corp build extractor|turret`** installs/upgrades assets (`org_assets` table, one per type per zone, level ≤ tier): the **extractor** adds income (folded into the 24h tick + console/map), the **turret** is defence (blunts the grip lost to enemy `contest` *and* daily erosion, `max(1, erode − defence)`). Architect heat now also rises with tier + asset count. Client: console **Investment** block (tier · members/cap · zones/slots · Invest button) and the strategic-map detail panel shows assets + **+Extractor/+Turret** build buttons. Verified: DB loop (invest→tier, extractor income, turret defence) + regress 461/461.
 - **Corporate Assets Phase A — self-running businesses. 🚧 SERVER CORE BUILT (design in [proposals/corporate-assets.md](proposals/corporate-assets.md)).** Corp-owned enterable income buildings that earn on their own. Built: the **`org_ventures`** table (`schema.js`, registered `runtime` in `content-registry.js`), world cache + accessors (`world.orgVentures`, `reloadOrgVenture`, `getVenture`, `getVentureByVendor` in [world.js](../server/engine/world.js)), the **`claimable_asset`** flag, and [`plugins/corps/ventures.js`](../plugins/corps/ventures.js): the `CORP_ASSET_TYPES` registry (**restaurant** built; `warehouse`/`security_office`/`front_office` are stubs), `corp asset list|claim`, a `vendor.purchase` listener that pays the owning corp a live sale cut (`vendor.js` now emits `price` on purchase), and a 24h tick (passive income floor − upkeep, dormancy/revive, influence projection). **Still pending:** the console/tablet render, a placed example venture, the full DB-loop verification, the non-restaurant asset types, and all staffing (Phase B).
-- **Phase 3 — Conflict & diplomacy.** War / raids, espionage / sabotage (SPECTER + Crime),
-  treaties / relations.
+- **Phase 3 — Conflict & diplomacy. 🚧 WAR + DESTABILIZATION BUILT 2026-07-18.** Two halves:
+  **(a) Connective tissue** — every hostile act already emitting an event (`crime.witnessed`,
+  `atm.jacked`, `hack.success`, `vendor.safeHackWitnessed`, `enemy.killed`/`npc.killed`,
+  `player.death`) now nudges the influence meter through one funnel, **`applyInfluence`** (the single
+  event-driven mutation point; `contest`/`reinforce`/`raid`/tick keep their own transactional paths).
+  A hostile act on turf a **rival** corp holds saps that controller's grip (weights `DESTABILIZE`:
+  petty 2 / hack 3 / kill 4) — **not** a gain for the actor, it just makes the zone ungovernable, and a
+  standing challenger reaps any flip. `onHostileAct` early-returns with zero DB on the common case
+  (uncontrolled zone / own turf / non-live actor), and a 15 s per-actor cooldown caps spam, so it's safe
+  on hot events. Pure destabilization floors grip at 1% (you still must contest/raid to take a zone).
+  **(b) War & raids** — `corp war <corp>` / `corp peace <corp>` (officer-gated `EDIT_CORP`) write a
+  symmetric `'war'` stance into the dormant `org_relations` table (its first runtime reader, `isAtWar`),
+  alerting both corps; `corp raid` is the loud game — war-gated, no Intimidate check (always lands),
+  heavier flat erosion (`RAID_EROSION` 14, turret-soaked), faster flips than `contest`. `raid` is now
+  its own verb (was an alias of `contest`). Verified: regress + an 8-check DB loop (funnel erosion,
+  no-challenger floor, challenger-seize flip, symmetric war read). **Still pending:** espionage /
+  sabotage as a distinct SPECTER intel layer, treasury raiding, turrets that deal HP back to the raider,
+  and whether war enables broader PvP than just the raid verb.
 - **Phase 4 — NPC corp AI + the Architect reactive layer.**
 
 Everything ships as a new **`/plugins/corps/`** plugin: scheduler hooks for ticks, the action/event bus

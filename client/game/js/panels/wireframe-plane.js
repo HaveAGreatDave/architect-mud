@@ -2,7 +2,7 @@
 // insurance) that want a schematic read rather than the realistic shaded 3D
 // model those screens deliberately don't use (see aircraft3d.js — the hangar
 // floor/bench's "real" turntable render, left untouched by this file on purpose).
-import { aircraftFaces } from './aircraft3d.js';
+import { aircraftFaces, groundPitchFor } from './aircraft3d.js';
 
 // Canvas fillStyle/strokeStyle can't resolve CSS custom properties itself (var()
 // is a CSSOM-cascade feature, not something the 2D context parses) — so any CRT
@@ -23,10 +23,13 @@ export function drawWireframe3D(ctx, { cls, w, h, accent = '#39ff9e', yaw = 0, g
   ctx.save();
   ctx.clearRect(0, 0, w, h);
   const faces = aircraftFaces(cls);
+  // Taildraggers render nose-high (their 3-point sit) on the schematic too.
+  const gp = groundPitchFor(cls) * Math.PI / 180, cgp = Math.cos(gp), sgp = Math.sin(gp);
   const E = 0.42, cosE = Math.cos(E), sinE = Math.sin(E);
   const cy = Math.cos(yaw), sy = Math.sin(yaw);
   const camDist = 3.5, focal = Math.min(w, h) * 1.5, ox = w / 2, oy = h * 0.54;
-  const proj = (f, g, hh) => {
+  const proj = (f0, g, h0) => {
+    const f = gp ? f0 * cgp - h0 * sgp : f0, hh = gp ? f0 * sgp + h0 * cgp : h0;   // nose-up ground tilt
     const fx = f * cy - g * sy, gy = f * sy + g * cy, hz = hh;
     const camY = hz * cosE - fx * sinE, camZ = fx * cosE + hz * sinE;
     const z = camDist - camZ;

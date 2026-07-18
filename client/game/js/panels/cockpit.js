@@ -59,6 +59,8 @@ function angDelta(a, b) { let d = (b - a) % 360; if (d > 180) d -= 360; if (d < 
 // heavy freighter reads industrial-amber and a wreck reads degraded.
 const CLASS_THEME = {
   ultralight: { acc: '#7fd6ff', chrome: 'minimal',   radar: 'sm' },
+  grasshopper:{ acc: '#9ad46a', chrome: 'minimal',   radar: 'sm' },   // olive-drab liaison scout
+  locust:     { acc: '#ffd24a', chrome: 'analog',    radar: 'sm' },   // hot-rod sport single
   heli:       { acc: '#4fe0a0', chrome: 'rotor',      radar: 'md' },
   prop:       { acc: '#4fb8e0', chrome: 'analog',     radar: 'md' },
   heavy:      { acc: '#ffb23e', chrome: 'industrial', radar: 'lg' },
@@ -963,7 +965,7 @@ const FLAP_STYLES = {
   quadrant: { cap: 'FLAPS',      detents: [{ v: 0, l: '0' }, { v: 0.25, l: '1' }, { v: 0.5, l: '2' }, { v: 0.75, l: '3' }, { v: 1, l: 'FULL' }] },
   switch:   { cap: '',           detents: [{ v: 0, l: 'UP' }, { v: 0.5, l: '½' }, { v: 1, l: 'FULL' }] },
 };
-const FLAP_BY_CRAFT = { mayfly: 'johnson', mule: 'johnson', leviathan: 'quadrant', reaper: 'switch', carcass: 'switch', dragonfly: null };
+const FLAP_BY_CRAFT = { mayfly: 'johnson', mule: 'johnson', leviathan: 'quadrant', reaper: 'switch', carcass: 'switch', dragonfly: null, grasshopper: 'johnson', locust: 'johnson' };
 function flapStyleFor(craftType) {
   const key = craftType in FLAP_BY_CRAFT ? FLAP_BY_CRAFT[craftType] : 'switch';
   return key ? { key, ...FLAP_STYLES[key] } : null;   // null ⇒ no flaps (heli)
@@ -1131,6 +1133,11 @@ const FSIM_SKIN = {
   leviathan: { id: 'leviathan', acc: '#3fd6c0', rgb: [63, 214, 192] },   // Soviet An-124 turquoise flightdeck
   reaper: { id: 'reaper', acc: '#ff9a38', rgb: [255, 154, 56] },   // A-10 Warthog: olive-drab armour + gunsight amber
   dragonfly: { id: 'dragonfly', acc: '#8fe36b', rgb: [143, 227, 107] },   // Mini 500: a light, exposed kit-heli bubble
+  // The Grasshopper (a Cub) shares the Mayfly's light-single flightdeck skin outright — same
+  // aqua plexi-and-alloy cabin, as asked. The Locust keeps the mayfly deck chrome with its own
+  // sport-amber instrument accent.
+  grasshopper: { id: 'mayfly', acc: '#5fe0e6', rgb: [95, 224, 230] },
+  locust: { id: 'mayfly', acc: '#ffd24a', rgb: [255, 210, 74] },
 };
 
 function ensureFlightSimStyles() {
@@ -1398,6 +1405,17 @@ function ensureFlightSimStyles() {
     .fsim-disembarkbtn.on{ display:block; }
     .fsim-disembarkbtn:hover{ border-color:#57e6a0; box-shadow:0 0 8px rgba(70,224,120,.4); }
     .fsim-disembarkbtn:active{ transform:translateY(1px); }
+    /* Crop-duster SPRAY button (ag-planes only) — sits at the lower-left, chem-green. */
+    .fsim-spraybtn{ position:absolute; bottom:8px; left:8px; z-index:6; height:24px; padding:0 10px; border-radius:5px;
+      font:bold 10px/22px monospace; letter-spacing:1px; cursor:pointer;
+      background:rgba(12,34,16,.78); border:1px solid #3c7a2e; color:#b6f26a; }
+    .fsim-spraybtn:hover{ border-color:#b6f26a; box-shadow:0 0 10px rgba(150,220,90,.45); }
+    .fsim-spraybtn:active{ transform:translateY(1px); }
+    /* Spray mist FX — a fine chemical haze that drifts down the lower windshield on a dusting pass. */
+    .fsim-spray-mist{ position:absolute; left:0; right:0; bottom:0; height:46%; z-index:4; pointer-events:none; opacity:0;
+      background:linear-gradient(180deg, rgba(196,230,150,0) 0%, rgba(196,230,150,.16) 55%, rgba(210,240,170,.34) 100%); }
+    .fsim-spray-mist.on{ animation:fsim-spray 1.7s ease-out; }
+    @keyframes fsim-spray{ 0%{ opacity:0; transform:translateY(-8%); } 22%{ opacity:1; } 100%{ opacity:0; transform:translateY(4%); } }
     /* Admin-only rewind button — bottom of the left exit column (under ABORT + fuel + DISEMBARK), deliberately red so it never reads as a normal control. */
     .fsim-adminbtn{ position:absolute; top:70px; left:8px; z-index:6; width:26px; height:22px; border-radius:5px; font-size:12px; cursor:pointer;
       background:rgba(40,10,10,.72); border:1px solid #7a3a3a; color:#ff8a5b; }
@@ -1786,7 +1804,9 @@ const CYCLIC_DRAGONFLY = `<svg class="fsim-yoke-svg" id="fsim-yoke-svg" viewBox=
 
 // Pick the control art for a craft type (Mule + anything unlisted → the caravan wheel).
 function yokeSvgFor(t) {
-  return { mayfly: YOKE_MAYFLY, leviathan: YOKE_LEVIATHAN, reaper: STICK_REAPER, dragonfly: CYCLIC_DRAGONFLY }[t] || YOKE_SVG;
+  // The two light singles fly the Mayfly's yoke (Grasshopper = Cub-style light-plane deck; the
+  // Locust's a sport single but shares the same control).
+  return { mayfly: YOKE_MAYFLY, grasshopper: YOKE_MAYFLY, locust: YOKE_MAYFLY, leviathan: YOKE_LEVIATHAN, reaper: STICK_REAPER, dragonfly: CYCLIC_DRAGONFLY }[t] || YOKE_SVG;
 }
 
 // Cabin-occupancy readout on the aircraft placard: one pip per seat — pilot in the accent,
@@ -1848,6 +1868,7 @@ export function openFlightSim(opts = {}) {
     viewYaw: 0, throttleKey: 0, flapIdx: 0,          // keyboard: hold-to-look yaw, A/Z throttle ramp, flap detent
     gearRetract: !!opts.gearRetract, gearUp: false, gearAnim: 1, external: false, extZoom: 1, cargoKg: opts.cargoKg || 0,   // gear (G) + jettison (J) + external view (V) — capabilities per airframe (Mayfly: none)
     craftType: opts.craftType,                       // airframe id (drives the reaper-only gun/stores panel)
+    sprayer: !!opts.sprayer,                          // ag-plane crop-duster (Grasshopper): shows the SPRAY button
     hardpoints: opts.hardpoints || 0, armed: false,  // weapons (gunship): master-arm + fire
     gunCap: 1174, gunRounds: 1174,                   // GAU-8 ammo drum (cosmetic; counts down as the gun squirts)
     nightLight: false, landingLight: false,          // instrument-panel backlight (PANEL) + exterior landing/taxi lights (LIGHTS) — both need engine power
@@ -1883,7 +1904,7 @@ export function openFlightSim(opts = {}) {
       <button class="fsim-pedal fsim-pedal-r" id="fsim-pedal-r" title="right rudder / yaw (hold — . or C)" tabindex="-1" aria-label="right rudder"><span class="fsim-pedal-face"><span class="fsim-pedal-lbl">R</span></span></button>
     </div>`;
   const html = `<div id="fsim-root" class="fsim${skin ? ' fsim-theme-' + skin.id : ''}">
-    <div class="fsim-view">${adminBtn}${windshieldHTML('fsim-ws', 'FWD VIEW · ' + esc((opts.deviceName || P.name).toUpperCase()))}<div class="fsim-lamp" id="fsim-lamp">⚠ STALL</div><div class="fsim-killfeed" id="fsim-killfeed"></div><div class="fsim-toast" id="fsim-toast"></div><div class="fsim-ckride" id="fsim-ckride"></div><div class="fsim-viewtag" id="fsim-viewtag"></div><div class="fsim-fuel" id="fsim-fuel"><span class="fsim-fuel-ic">⛽</span><span class="fsim-fuel-pct" id="fsim-fuel-pct">--%</span><button class="fsim-refuel" id="fsim-refuel" title="refuel at this field" tabindex="-1">REFUEL</button></div><div class="fsim-reticle" id="fsim-reticle"><svg viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="#ff6a3a" stroke-width="1"/><line x1="17" y1="1" x2="17" y2="7" stroke="#ff6a3a"/><line x1="17" y1="27" x2="17" y2="33" stroke="#ff6a3a"/><line x1="1" y1="17" x2="7" y2="17" stroke="#ff6a3a"/><line x1="27" y1="17" x2="33" y2="17" stroke="#ff6a3a"/><circle cx="17" cy="17" r="1.5" fill="#ff6a3a"/></svg></div><div class="fsim-weap" id="fsim-weap"><button class="fsim-weap-arm" id="fsim-arm" tabindex="-1">◈ SAFE</button><button class="fsim-weap-arm" id="fsim-wpn" tabindex="-1" title="weapon select — 1 guns / 2 missiles">GUN</button><button class="fsim-weap-fire" id="fsim-fire" tabindex="-1">FIRE</button><span class="fsim-weap-pips" id="fsim-weap-pips"></span><button class="fsim-weap-arm" id="fsim-flarebtn" tabindex="-1" title="countermeasures (X)">FLARE</button></div><button class="fsim-abortbtn" id="fsim-abortbtn" title="abort the flight — a recovery crew tows the aircraft back to a field and bills you">⤫ ABORT</button><button class="fsim-disembarkbtn" id="fsim-disembarkbtn" title="climb out of the aircraft (on the ground only)">⏏ DISEMBARK</button><button class="fsim-fsbtn" id="fsim-fsbtn" title="fullscreen">⛶</button><button class="fsim-viewbtn" id="fsim-viewbtn" title="external / cockpit view (V)">◎ EXT</button><button class="fsim-orbitreset" id="fsim-orbitreset" title="reset orbit camera to behind the craft">⟲</button><button class="fsim-hidebtn" id="fsim-hidebtn" title="hide the text panel — more outside view">⊟</button><button class="fsim-tunebtn" id="fsim-tunebtn" title="render tuning">⚙</button><div class="fsim-tune" id="fsim-tune" style="display:none"></div><div class="fsim-extg" id="fsim-extg"><div class="fsim-extg-row"><span class="fsim-extg-lbl">IAS</span><b id="fsim-extg-ias">0</b><span class="fsim-extg-u">kt</span></div><div class="fsim-extg-row"><span class="fsim-extg-lbl">ALT</span><b id="fsim-extg-alt">0</b><span class="fsim-extg-u">ft</span></div></div>${PEDALS_HTML}</div>
+    <div class="fsim-view">${adminBtn}${windshieldHTML('fsim-ws', 'FWD VIEW · ' + esc((opts.deviceName || P.name).toUpperCase()))}<div class="fsim-lamp" id="fsim-lamp">⚠ STALL</div><div class="fsim-killfeed" id="fsim-killfeed"></div><div class="fsim-toast" id="fsim-toast"></div><div class="fsim-ckride" id="fsim-ckride"></div><div class="fsim-viewtag" id="fsim-viewtag"></div><div class="fsim-fuel" id="fsim-fuel"><span class="fsim-fuel-ic">⛽</span><span class="fsim-fuel-pct" id="fsim-fuel-pct">--%</span><button class="fsim-refuel" id="fsim-refuel" title="refuel at this field" tabindex="-1">REFUEL</button></div><div class="fsim-reticle" id="fsim-reticle"><svg viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="#ff6a3a" stroke-width="1"/><line x1="17" y1="1" x2="17" y2="7" stroke="#ff6a3a"/><line x1="17" y1="27" x2="17" y2="33" stroke="#ff6a3a"/><line x1="1" y1="17" x2="7" y2="17" stroke="#ff6a3a"/><line x1="27" y1="17" x2="33" y2="17" stroke="#ff6a3a"/><circle cx="17" cy="17" r="1.5" fill="#ff6a3a"/></svg></div><div class="fsim-weap" id="fsim-weap"><button class="fsim-weap-arm" id="fsim-arm" tabindex="-1">◈ SAFE</button><button class="fsim-weap-arm" id="fsim-wpn" tabindex="-1" title="weapon select — 1 guns / 2 missiles">GUN</button><button class="fsim-weap-fire" id="fsim-fire" tabindex="-1">FIRE</button><span class="fsim-weap-pips" id="fsim-weap-pips"></span><button class="fsim-weap-arm" id="fsim-flarebtn" tabindex="-1" title="countermeasures (X)">FLARE</button></div><div class="fsim-spray-mist" id="fsim-spray"></div><button class="fsim-spraybtn" id="fsim-spraybtn" tabindex="-1" title="crop-duster — open the spray booms on a LOW pass" style="display:none">◊ SPRAY</button><button class="fsim-abortbtn" id="fsim-abortbtn" title="abort the flight — a recovery crew tows the aircraft back to a field and bills you">⤫ ABORT</button><button class="fsim-disembarkbtn" id="fsim-disembarkbtn" title="climb out of the aircraft (on the ground only)">⏏ DISEMBARK</button><button class="fsim-fsbtn" id="fsim-fsbtn" title="fullscreen">⛶</button><button class="fsim-viewbtn" id="fsim-viewbtn" title="external / cockpit view (V)">◎ EXT</button><button class="fsim-orbitreset" id="fsim-orbitreset" title="reset orbit camera to behind the craft">⟲</button><button class="fsim-hidebtn" id="fsim-hidebtn" title="hide the text panel — more outside view">⊟</button><button class="fsim-tunebtn" id="fsim-tunebtn" title="render tuning">⚙</button><div class="fsim-tune" id="fsim-tune" style="display:none"></div><div class="fsim-extg" id="fsim-extg"><div class="fsim-extg-row"><span class="fsim-extg-lbl">IAS</span><b id="fsim-extg-ias">0</b><span class="fsim-extg-u">kt</span></div><div class="fsim-extg-row"><span class="fsim-extg-lbl">ALT</span><b id="fsim-extg-alt">0</b><span class="fsim-extg-u">ft</span></div></div>${PEDALS_HTML}</div>
     <div class="fsim-glass">
       <div class="fsim-pfd"><canvas id="fsim-pfd"></canvas></div>
       <div class="fsim-gauges"><canvas id="fsim-gauges"></canvas></div>
@@ -2020,7 +2041,7 @@ export function openFlightSim(opts = {}) {
       if (!F.orbitDrag) return;
       F.orbitResetting = false;                                                        // a manual drag cancels a running reset swing
       F.extOrbit = (F.extOrbit || 0) + (e.clientX - ox) * 0.4;                          // horizontal yaw (deg), unbounded — spins all the way around
-      F.extPitch = clampNum((F.extPitch ?? REST_PITCH) - (e.clientY - oy) * 0.006, -1.35, 1.4);   // vertical orbit angle (rad): drag up = over the top (look down), drag down = under the belly (look up). The renderer stops the under-swing at the terrain.
+      F.extPitch = clampNum((F.extPitch ?? REST_PITCH) - (e.clientY - oy) * 0.006, -1.1, 1.15);   // vertical orbit angle (rad): drag up = over the top (look down), drag down = under the belly (look up). Bounds kept short of the poles (~66°) so the near-vertical view can't stretch the model into a spindle. The renderer also stops the under-swing at the terrain.
       ox = e.clientX; oy = e.clientY;
     });
     add(window, 'pointerup', (e) => { if (e.button === 1) F.orbitDrag = false; });
@@ -2321,6 +2342,21 @@ export function openFlightSim(opts = {}) {
       add(window, 'pointerup', holdFire(false));
       add(fireBtn, 'pointerleave', holdFire(false));
     }
+  }
+
+  // Crop-duster SPRAY (ag-planes only — the Grasshopper): a low-pass dust that lays a mist over
+  // the tile below. The button both fires the server pass and pulses the local mist FX; the server
+  // gates it to a LOW pass and rate-limits, so a spam-click just no-ops.
+  const sprayBtn = q('#fsim-spraybtn'), sprayMist = q('#fsim-spray');
+  if (F.sprayer && sprayBtn) {
+    sprayBtn.style.display = '';
+    const doSpray = () => {
+      if (!F.reportedAirborne) { fsimToast('◊ AIRBORNE + LOW TO DUST'); return; }
+      sendCmdSilent('spray');
+      fsimToast('◊ CROP-DUSTING');
+      if (sprayMist) { sprayMist.classList.remove('on'); void sprayMist.offsetWidth; sprayMist.classList.add('on'); setTimeout(() => sprayMist.classList.remove('on'), 1700); }
+    };
+    add(sprayBtn, 'click', doSpray);
   }
 
   // MFD map toggle — real local minimap ↔ aerial biome nav map.
@@ -2650,10 +2686,12 @@ function lerpAngle(a, b, t) {
 }
 // ── Crash break-up death-cam ──────────────────────────────────────────────────
 // A severe write-off snaps to the external chase view and cartwheels the wreck while a wing
-// (plus a tailplane and the fin) shear off and tumble away, THEN reports the crash to the
-// server (which destroys the craft + closes the sim). The report is deferred by BREAKUP_MS so
-// the player always sees her come apart — the crash is already inevitable client-side.
-const BREAKUP_MS = 1900;
+// (plus a tailplane and the fin) shear off; the fuselage falls, SLAMS into the ground at IMPACT_T
+// where the shed parts scatter to rest and fire + smoke ignite, then the crash is reported to the
+// server (which destroys the craft + kills every occupant + closes the sim). The report is deferred
+// by BREAKUP_MS so the player always sees her come apart and burn — the death is inevitable.
+const BREAKUP_MS = 3400;   // fall → impact → settle-and-burn beat before the crash is reported
+const IMPACT_T = 0.42;     // fraction of the timeline where the wreck reaches the ground
 
 // Plain-English surface names for the "she's coming apart" battle-damage toast.
 const SHEAR_TOAST = { leftWing: 'LEFT WING', rightWing: 'RIGHT WING', tail: 'TAILPLANE', rudder: 'RUDDER' };
@@ -2670,21 +2708,42 @@ function beginCrashBreakup(F, reason) {
 function stepCrashBreakup(F, now) {
   const C = F.crashCine, root = document.getElementById('fsim-root');
   const t = clampNum((now - C.t0) / BREAKUP_MS, 0, 1);
-  const e = t * t;                                        // parts accelerate away as she falls
-  // The fuselage cartwheels — bank winds up hard, the nose pitches over — while she loses height.
-  const bank = C.bank0 + 300 * t;
-  const pitch = C.pitch0 - 100 * t;
-  const height = C.h0 * (1 - t);                          // the ground rises to meet her
-  // Three pieces shear off: the RIGHT wing (+ its surfaces), the LEFT tailplane, and the fin.
+  // FALL: 0 at break-up → 1 at ground impact (IMPACT_T). She accelerates down under "gravity".
+  const fall = clampNum(t / IMPACT_T, 0, 1);
+  const eFall = fall * fall;
+  // POST: 0 at impact → 1 at the report. Drives the settle: a small dead-cat bounce, and the
+  // fuselage easing from its tumbling attitude into a fixed crashed pose (rolled onto a wing,
+  // nose buried) — it STOPS cartwheeling once it's on the deck.
+  const post = clampNum((t - IMPACT_T) / (1 - IMPACT_T), 0, 1);
+  const bounce = post > 0 ? Math.sin(post * Math.PI) * 0.05 * (1 - post) : 0;
+  const height = C.h0 * (1 - eFall) + C.h0 * bounce;      // the ground rises to meet her, then a settle hop
+  const spinB = C.bank0 + 300 * fall, spinP = C.pitch0 - 100 * fall;
+  const k = 1 - Math.pow(1 - post, 3);                    // ease-out into the resting pose
+  const bank = spinB + (108 - spinB) * k;                 // rolled over onto a wing
+  const pitch = spinP + (-32 - spinP) * k;                // nose down into the ground
+  // Debris PHYSICS (settling): each shed part is FLUNG out on impact then decelerates to rest by
+  // SETTLE_T (friction), its tumble-spin damping to a stop as it settles — so the wreckage scatters
+  // and comes to rest on the ground rather than sailing off forever. `spread` eases out (fast fling,
+  // decelerating) and then holds, freezing the pieces where they land while the fire burns.
+  const spread = 1 - Math.pow(1 - clampNum(t / 0.60, 0, 1), 2.4);
+  // The flying surfaces shear off: the RIGHT wing (+ its surfaces), the LEFT tailplane, and the fin.
+  // The FUSELAGE itself snaps in three along its length — nose cone forward, tail cone aft, mid
+  // section (with the canopy) as the core the death cam tracks. All settle via `spread`.
   const parts = [
-    { roles: ['wing', 'aileron', 'flap'], side: 1,    off: [-0.5 * e,  1.0 * e, -0.6 * e], spin: 10 * t },
-    { roles: ['stab', 'elevator'],        side: -1,   off: [-0.4 * e, -0.8 * e, -0.4 * e], spin: 8 * t },
-    { roles: ['fin', 'rudder'],           side: null, off: [-0.7 * e,  0.25 * e, -0.5 * e], spin: 7 * t },
+    { roles: ['wing', 'aileron', 'flap'], side: 1,    off: [-0.6 * spread,  1.3 * spread, -0.5 * spread], spin: 9 * spread },
+    { roles: ['stab', 'elevator'],        side: -1,   off: [-0.9 * spread, -1.0 * spread, -0.45 * spread], spin: 7 * spread },
+    { roles: ['fin', 'rudder'],           side: null, off: [-1.0 * spread,  0.3 * spread, -0.40 * spread], spin: 6 * spread },
+    { roles: ['body'], side: null, fRange: [ 0.30,  9], off: [ 1.0 * spread,  0.2 * spread, -0.50 * spread], spin: 5 * spread },   // nose cone forward
+    { roles: ['body'], side: null, fRange: [-9, -0.35], off: [-1.1 * spread, -0.2 * spread, -0.35 * spread], spin: 8 * spread },   // tail cone aft
   ];
+  // Fire + smoke ignite on impact: flames ramp fast, the smoke column builds and lingers.
+  const fire = clampNum((t - IMPACT_T) / 0.10, 0, 1);
+  const smoke = clampNum((t - IMPACT_T + 0.03) / 0.32, 0, 1);
+  const wreckFx = t > IMPACT_T - 0.02 ? { fire, smoke, t } : null;
   paintWindshield('fsim-ws', {
     external: true, hideOwnShip: false, phase: 'cruise', worldBlend: 1,
     cls: F.cls, heading: C.hdg, bank, pitch, livery: F.livery, gearAnim: F.gearAnim ?? 1,
-    enginePct: 0, engineOn: false, breakup: { t, parts },
+    enginePct: 0, engineOn: false, breakup: { t, parts }, wreckFx,
     extYaw: (F.extOrbit || 0) + 26 * t, extPitch: F.extPitch ?? REST_PITCH, extZoom: F.extZoom || 1,
     height, speed: 0, hour: F.sky?.hour, weather: F.sky?.weather, wxField: F.sky?.field,
     map: F.map, mapCenter: F.mapCenter, mapOffset: { x: F.pos.x - F.mapCenter.x, y: F.pos.y - F.mapCenter.y },

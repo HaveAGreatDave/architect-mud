@@ -236,6 +236,7 @@ export const REGISTRY = [
   { table: 'player_drug_state', class: 'player' },
   { table: 'player_mutations', class: 'player' },
   { table: 'player_augments', class: 'player' },     // installed cybernetics (plugins/augments)
+  { table: 'player_backups', class: 'player' },      // cortical-backup snapshots + prepaid restores (plugins/augments)
   { table: 'player_flags', class: 'player' },
   { table: 'player_quests', class: 'player' },
   { table: 'bank_transactions', class: 'player' },   // Tablet OS Bank app deposit ledger

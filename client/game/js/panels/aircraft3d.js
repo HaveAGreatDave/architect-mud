@@ -67,6 +67,13 @@ function faceWearsTrim(face, pat) {
     case 'stripes':  return STAB_ROLE.has(face.role) || top > 0.6;   // painted tailplane + a spine racing stripe nose->tail
     case 'hazard': { const band = Math.floor((f - Math.abs(g) * 0.8) * 5); return ((band % 2) + 2) % 2 === 0; }   // raked warning bands
     case 'splinter': return camoHash(Math.round(f * 4.5), Math.round(g * 6), Math.round(h * 6)) > 0.55;   // two-tone blotch camo (g/h run finer: the fuselage is narrow)
+    case 'tiger': {   // ragged vertical stripes wrapping the hull down its length (a wandered sine + camo grain frays each edge)
+      const ang = Math.atan2(h, g);   // wrap position around the cross-section (both flanks mirror)
+      const s = Math.sin(f * 8.5 + ang * 0.9) + camoHash(Math.round(f * 9), 0, Math.round(ang * 3)) * 0.6 - 0.3;
+      return s > 0.35;
+    }
+    case 'digital': return camoHash(Math.round(f * 9), Math.round(g * 13), Math.round(h * 13)) > 0.5;   // fine pixel-block camo (denser grid than splinter)
+    case 'checker': { const ang = Math.atan2(h, g); return (Math.floor(f * 6.5) + Math.floor(ang / Math.PI * 4)) % 2 === 0; }   // wrapping racing checkerboard
     default:         return false;                     // bare / solid: one hull colour
   }
 }
@@ -226,6 +233,7 @@ function buildFixedWing(p, detail = 1) {
     const wz = -p.fv - 0.08;
     if (p.gearStyle === 'spring') addCessnaGear(faces, p, wz);        // Cessna leaf-spring + spats
     else if (p.gearStyle === 'oleo') addOtterGear(faces, p, wz);      // Twin Otter stout oleo + fat tyres
+    else if (p.gearStyle === 'taildragger') addTaildraggerGear(faces, p, wz);   // conventional gear: two forward mains + a tailwheel
     else { addGear(faces, 0.10, p.fr + 0.06, wz); addGear(faces, 0.10, -(p.fr + 0.06), wz); addGear(faces, p.noseF * 0.55, 0, wz + 0.02); }
   }
   // Cabin window row along the upper fuselage sides (transports: Twin Otter / An-124).
@@ -541,6 +549,33 @@ function addCessnaGear(faces, p, wz) {
   addSpat(faces, nf, 0, nz, 0.8);
 }
 
+// Conventional (taildragger) gear — two main legs set well FORWARD of the CG plus a small
+// tailwheel aft. `p.tundra` swaps the slim spatted wheels for FAT BARE bush tyres on beefier
+// legs (the Super-Cub look). The tailwheel is placed so the mains + tailwheel are COPLANAR at
+// the craft's `groundPitch` 3-point attitude, so she renders planted nose-high on the ground and
+// the tail lifts clean as pitch comes down on the takeoff roll. Shared by the Grasshopper (bush)
+// & Locust (sleek).
+function addTaildraggerGear(faces, p, wz) {
+  const tundra = !!p.tundra;
+  const gw = p.fr + (tundra ? 0.13 : 0.10);           // wider bush track
+  const mf = tundra ? 0.17 : 0.20, hc = tundra ? 0.036 : 0.030;
+  const rMain = tundra ? 0.085 : 0.048, hwMain = tundra ? 0.040 : 0.015;   // fat low-pressure tundra tyres
+  const rTail = tundra ? 0.034 : 0.026;
+  for (const side of [1, -1]) {
+    pushPanel(faces, 'gear', 0.6, [
+      V(mf + hc, side * 0.05, -p.fv * 0.6), V(mf + hc * 0.7, side * gw, wz + 0.02),
+      V(mf - hc * 0.7, side * gw, wz + 0.02), V(mf - hc, side * 0.05, -p.fv * 0.6)], tundra ? 0.022 : 0.014, 1);   // beefier bush leg / slim leaf-spring
+    pushWheel(faces, mf, side * gw, wz, rMain, hwMain, tundra ? 14 : 8);
+    if (!tundra) addSpat(faces, mf, side * gw, wz);   // bush planes run bare tundra tyres — no wheel pants
+  }
+  // Tailwheel coplanar with the mains at the 3-point (groundPitch) sit — see the header note.
+  const tf = p.tailF * 0.82;
+  const gp = (p.groundPitch || 0) * Math.PI / 180;
+  const tz = wz - rMain + rTail + (mf - tf) * Math.sin(gp);
+  addStrut(faces, tf, 0, Math.max(0.0, tz + rTail + 0.06), tz + rTail, 0.011, 5);
+  pushWheel(faces, tf, 0, tz, rTail, 0.010, 8);
+}
+
 // Twin Otter gear — two stout faired oleo legs on a wide track carrying big low-pressure tyres,
 // plus a chunky nose oleo. The STOL-hauler look (fat tyres, heavy legs), distinct from the Cessna.
 function addOtterGear(faces, p, wz) {
@@ -653,6 +688,8 @@ function buildHeli() {
 export const PROP_STATIONS = {
   ultralight: [[0.79, 0, 0.02]],                       // Cessna: one nose prop (small spinner apex = noseF 0.72 + 0.14·0.5)
   prop: [[0.47, 0.42, 0.11], [0.47, -0.42, 0.11]],     // Twin Otter: two wing props
+  grasshopper: [[0.87, 0, 0.02]],                      // L-4: one nose prop (spinner apex = noseF 0.80 + 0.07)
+  locust: [[1.07, 0, 0.02]],                           // sport single: one nose prop (spinner apex = noseF 1.00 + 0.07)
 };
 
 // Real-world RELATIVE size (Twin Otter = 1). The meshes are all normalised to a similar extent,
@@ -661,7 +698,7 @@ export const PROP_STATIONS = {
 // the An-124 is really ~4.4× — COMPRESSED to 2.0 so the fleet row stays readable — the Mini-500
 // heli ~.25, bumped to .42 so it isn't a speck. Air-to-air contacts get the equivalent through
 // windshield.js CONTACT_SIZE. Unlisted classes default to 1.
-export const MODEL_SCALE = { ultralight: 0.52, prop: 1.0, gunship: 1.05, heavy: 1.7, heli: 0.42, wreck: 0.85 };
+export const MODEL_SCALE = { ultralight: 0.52, prop: 1.0, gunship: 1.05, heavy: 1.7, heli: 0.42, wreck: 0.85, grasshopper: 0.42, locust: 0.40 };
 
 // ── Animated prop & rotor blades ────────────────────────────────────────────────
 // The spinning surfaces are an EFFECT LAYER every renderer draws through its OWN
@@ -687,12 +724,27 @@ export function drawRotorFX(ctx, cls, projFn, { spin = 0, power = 0.7, parked = 
     // Cessna two-blade nose prop / Twin Otter three-blade wing turboprops. The
     // stations record the spinner apex (ultralight) vs base (prop) — nudge the
     // blade plane back to the cone root either way.
-    const blades = cls === 'ultralight' ? 2 : 3, off = cls === 'ultralight' ? -0.06 : 0.03;
+    const blades = (cls === 'ultralight' || cls === 'grasshopper') ? 2 : 3, off = cls === 'ultralight' ? -0.06 : 0.03;
     for (const st of (PROP_STATIONS[cls] || [])) {
       spinDisc(ctx, projFn, [st[0] + off, st[1], st[2]], [0, 0, 1], [0, 1, 0],
         cls === 'ultralight' ? 0.21 : 0.21, spin * 2.2 + st[1] * 3, dsc, spl, parked, blades, 0.5);
     }
   }
+}
+
+// The prop seen from the PILOT'S SEAT: the same rpm-driven disc drawRotorFX paints on the
+// external chase model, projected HEAD-ON into the forward windscreen so it shimmers ahead of
+// the nose. Single centred nose-prop classes only — the Mule's props are out on the wings
+// (off the forward frame) and the heli's rotor is overhead. `spin`/`disc`/`spool` come straight
+// from the flight model's prop choreography, so it fades in with throttle exactly like the chase
+// view (blades tick over at idle → smear into a blur disc under power). `cx`/`cy` = disc centre
+// on the canvas; `rad` = its screen radius. The projFn maps the prop plane's model axes — lateral
+// (g) → screen x, up (h) → screen y — onto the screen; the fore station (f) is depth, ignored.
+export function drawCockpitProp(ctx, cls, { cx, cy, rad, spin = 0, disc = 0, spool = 0 }) {
+  const st = PROP_STATIONS[cls];
+  if (!st || cls === 'prop' || st.length !== 1 || st[0][1] !== 0) return;   // one centred nose prop only
+  const S = rad / 0.21;                                       // model disc r (0.21) → screen px
+  drawRotorFX(ctx, cls, ([, g, h]) => ({ sx: cx + g * S, sy: cy - h * S }), { spin, disc, spool });
 }
 
 // One spinning disc: centre C, two unit axes U/V spanning its plane (model space), radius r.
@@ -805,6 +857,29 @@ const FW_PARAMS = {
     engines: [-0.60, -0.34, 0.34, 0.60], nacF: 0.26, nacH: 0.0, nacR: 0.095, pylons: true, windows: 6, heavyGear: true,
     noseBlunt: 3.3, noseCowl: 0.16, boxy: 0.12, bodyTube: 0.5, tailUp: 0.10,   // noseCowl floors the radome so it's a blunt An-124 nose, not a point
     canopy: { f0: 0.80, f1: 0.38, w: 0.115, h: 0.085, front: 0.30, tail: 0.10, segs: 6, arc: 5, sink: 0.025 } },   // smooth raised forward flight-deck hump behind the radome   // An-124 raised forward flight-deck hump behind the radome
+  // Grasshopper — a Piper L-4 (per ref): a high-wing, strut-braced TANDEM two-seat TAILDRAGGER
+  // liaison/observation plane. Signatures vs the Cessna: a deeper, SLAB-SIDED slim fuselage; a
+  // long GLAZED "greenhouse" cabin (a row of big observation windows + a raked windscreen); a
+  // near-constant-chord high wing on lift struts; a tall light fin; and conventional (tailwheel)
+  // gear that sits it nose-high. Short-nose / long slim tailcone.
+  grasshopper: { ...FW_DEFAULT, fr: 0.080, fv: 0.115, span: 1.16, noseF: 0.80, tailF: -1.04,
+    wingH: 0.135, dih: 0.02, wRootF: 0.30, wRootB: -0.17, wTipF: 0.28, wTipB: -0.17, hSpan: 0.44,
+    hF: -0.74, hB: -0.96, hTipF: -0.78, hTipB: -0.98,
+    finF0: -0.66, finF1: -0.96, finF2: -1.02, finH: 0.52, fins: [0],
+    engines: [], prop: 'nose', struts: true, gear: true, gearStyle: 'taildragger', tundra: true, groundPitch: 11,
+    windows: 3, noseBlunt: 2.2, noseCowl: 0.26, boxy: 0.42, bodyTube: 0.16, tailUp: 0.06,   // slim deep slab-sided fabric fuselage
+    canopy: { f0: 0.54, f1: 0.30, w: 0.070, h: 0.062, front: 0.34, tail: 0.20, segs: 5, arc: 3, sink: 0.02 } },   // raked windscreen ahead of the high-wing LE; the side windows carry the greenhouse aft
+  // Locust — a low-wing sport MONOPLANE / racer: the fleet's only LOW-wing airframe. A cantilever
+  // (NO lift struts) tapered, swept low wing; a teardrop BUBBLE canopy; a pointed spinner nose
+  // (noseCowl floored low so the cowl draws down to the prop); spatted TAILDRAGGER gear. Short-
+  // coupled and clean — reads fast and agile next to the high-wing utility singles.
+  locust: { ...FW_DEFAULT, fr: 0.090, fv: 0.100, span: 0.94, noseF: 1.00, tailF: -0.98,
+    wingH: -0.10, dih: 0.06, wRootF: 0.32, wRootB: -0.16, wTipF: 0.12, wTipB: -0.04, hSpan: 0.38,
+    hF: -0.70, hB: -0.90, hTipF: -0.78, hTipB: -0.92,
+    finF0: -0.64, finF1: -0.92, finF2: -0.98, finH: 0.50, fins: [0],
+    engines: [], prop: 'nose', gear: true, gearStyle: 'taildragger',
+    noseBlunt: 2.0, noseCowl: 0.08, boxy: 0.24, bodyTube: 0.10, tailUp: 0.03,   // slim rounded body drawing to a pointed spinner
+    canopy: { f0: 0.50, f1: 0.14, w: 0.070, h: 0.088, front: 0.24, tail: 0.10, segs: 5, arc: 4, sink: 0.02 } },   // tall teardrop bubble set forward-mid
 };
 
 // The starboard (right) wingtip station [f, g, h] in normalised model space — the outboard
@@ -816,6 +891,11 @@ export function wingtipStation(cls) {
   const p = FW_PARAMS[cls] || FW_PARAMS.prop;
   return [(p.wTipF + p.wTipB) / 2, p.span, (p.wingH || 0) + (p.dih || 0)];
 }
+
+// A class's static ground attitude (deg nose-up) — taildraggers rest nose-high on the tailwheel.
+// Read by every renderer that draws the craft PARKED (turntable, wireframe) so the sit is
+// consistent with how she flies off the deck. 0 = tricycle/level.
+export function groundPitchFor(cls) { return FW_PARAMS[cls]?.groundPitch || 0; }
 
 // Faces for a class at a detail level (memoised per cls+detail — geometry is static).
 // detail 1 = the full-resolution mesh (hero/turntable/chase/near contacts); detail 0 = the
@@ -1037,6 +1117,46 @@ function decalTex(id) {
     g.strokeStyle = '#e8c84a'; g.lineWidth = 2.6; g.lineJoin = 'round';                       // a faction delta in a ring
     g.beginPath(); g.arc(W * 0.5, H * 0.5, 15, 0, 7); g.stroke();
     g.beginPath(); g.moveTo(W * 0.5 - 9, H * 0.5 + 7); g.lineTo(W * 0.5, H * 0.5 - 9); g.lineTo(W * 0.5 + 9, H * 0.5 + 7); g.closePath(); g.stroke();
+  } else if (id === 'eye') {
+    const cx = W * 0.5, cy = H * 0.56;
+    g.strokeStyle = '#6fd6ff'; g.lineWidth = 2; g.lineJoin = 'round';                          // the Architect's eye inside a delta
+    g.beginPath(); g.moveTo(cx, 4); g.lineTo(W - 5, H - 5); g.lineTo(5, H - 5); g.closePath(); g.stroke();
+    g.fillStyle = '#eef6fb'; g.beginPath(); g.ellipse(cx, cy, 15, 8, 0, 0, 7); g.fill();       // almond sclera
+    g.fillStyle = '#1c7ba8'; g.beginPath(); g.arc(cx, cy, 6, 0, 7); g.fill();                  // iris
+    g.fillStyle = '#0a0d10'; g.beginPath(); g.arc(cx, cy, 2.6, 0, 7); g.fill();                // pupil
+    g.fillStyle = 'rgba(255,255,255,0.9)'; g.beginPath(); g.arc(cx - 2, cy - 2, 1.2, 0, 7); g.fill();   // glint
+  } else if (id === 'ace') {
+    const cx = W * 0.5, cy = H * 0.5;
+    g.fillStyle = '#f2f2ea'; g.fillRect(W * 0.31, 4, W * 0.38, H - 8);                          // the card
+    g.strokeStyle = '#20242a'; g.lineWidth = 1; g.strokeRect(W * 0.31, 4, W * 0.38, H - 8);
+    g.fillStyle = '#141414';                                                                   // spade: two lobes + a triangular crown, on a stem
+    g.beginPath(); g.arc(cx - 4, cy + 1, 5, 0, 7); g.arc(cx + 4, cy + 1, 5, 0, 7); g.fill();
+    g.beginPath(); g.moveTo(cx, cy - 10); g.lineTo(cx + 7, cy + 2); g.lineTo(cx - 7, cy + 2); g.closePath(); g.fill();
+    g.beginPath(); g.moveTo(cx - 4, cy + 10); g.lineTo(cx + 4, cy + 10); g.lineTo(cx, cy + 3); g.closePath(); g.fill();   // stem
+    g.font = 'bold 9px serif'; g.fillText('A', W * 0.33, 14); g.save(); g.translate(W * 0.67, H - 6); g.rotate(Math.PI); g.fillText('A', 0, 0); g.restore();
+  } else if (id === 'reaper') {
+    const cx = W * 0.5;
+    g.fillStyle = '#e8e6dc';
+    g.beginPath(); g.arc(cx, H * 0.42, 13, 0, 7); g.fill();                                     // cranium
+    g.beginPath(); g.arc(cx - 6, H * 0.62, 6, 0, 7); g.arc(cx + 6, H * 0.62, 6, 0, 7); g.fill();   // cheekbones
+    g.fillStyle = '#0a0a0a';
+    g.beginPath(); g.arc(cx - 5, H * 0.42, 3.6, 0, 7); g.fill(); g.beginPath(); g.arc(cx + 5, H * 0.42, 3.6, 0, 7); g.fill();   // eye sockets
+    g.beginPath(); g.moveTo(cx, H * 0.46); g.lineTo(cx - 2.5, H * 0.58); g.lineTo(cx + 2.5, H * 0.58); g.closePath(); g.fill();   // nasal cavity
+    g.strokeStyle = '#0a0a0a'; g.lineWidth = 1;                                                 // teeth
+    for (let i = -2; i <= 2; i++) { g.beginPath(); g.moveTo(cx + i * 3, H * 0.66); g.lineTo(cx + i * 3, H * 0.76); g.stroke(); }
+    g.beginPath(); g.moveTo(cx - 7, H * 0.71); g.lineTo(cx + 7, H * 0.71); g.stroke();
+  } else if (id === 'flames') {
+    const tongues = (col, ext) => {   // layered licks sweeping back from the nose (left edge)
+      g.fillStyle = col; g.beginPath(); g.moveTo(0, 3);
+      g.quadraticCurveTo(W * 0.34 * ext, 1, W * 0.30 * ext, H * 0.32);
+      g.quadraticCurveTo(W * 0.30 * ext, 8, W * 0.58 * ext, H * 0.22);
+      g.quadraticCurveTo(W * 0.50 * ext, H * 0.38, W * 0.80 * ext, H * 0.46);
+      g.quadraticCurveTo(W * 0.55 * ext, H * 0.56, W * 0.92 * ext, H * 0.66);
+      g.quadraticCurveTo(W * 0.55 * ext, H * 0.72, W * 0.40 * ext, H * 0.92);
+      g.quadraticCurveTo(W * 0.28 * ext, H * 0.80, 0, H - 3);
+      g.closePath(); g.fill();
+    };
+    tongues('#b81717', 1.0); tongues('#ef7a18', 0.78); tongues('#f6cf3b', 0.5);
   } else { _decalCache[id] = null; return null; }
   _decalCache[id] = c; return c;
 }
@@ -1577,6 +1697,11 @@ export function drawTurntable(ctx, opts) {
 // on top of it in the same pass instead of the model wiping the scene behind it.
 function paintTurntable(ctx, { cls, livery, yaw = 0, w, h, wreck = false, zoom = 1, elev = 0.42, cam = null, floor = false, sky = null, venue = null }) {
   const faces = wreck ? buildWreck() : aircraftFaces(cls);
+  // Taildraggers (the Grasshopper) rest NOSE-HIGH on the ground — tilt the static model to its
+  // 3-point sit here too (the floor/room proj below is left untilted). Nose-up: f' = f·c − h·s.
+  const _gp = (FW_PARAMS[cls]?.groundPitch || 0) * Math.PI / 180;
+  const _cg = Math.cos(_gp), _sg = Math.sin(_gp);
+  const tiltV = _gp ? (v) => [v[0] * _cg - v[2] * _sg, v[1], v[0] * _sg + v[2] * _cg] : null;
   const pal = liveryPalette(livery || {});
   const jazzImg = (!wreck && pal.pat === 'jazz') ? jazzTex(livery?.base, livery?.trim, livery?.accent, livery?.ground) : null;
   const texStr = wreck ? 0.62 : (TEX_STRENGTH[livery?.finish] ?? 0.46);
@@ -1620,7 +1745,7 @@ function paintTurntable(ctx, { cls, livery, yaw = 0, w, h, wreck = false, zoom =
   const drawn = [];
   for (const face of faces) {
     if (face.role === 'rotor') continue;   // spinning surfaces drawn by drawRotorFX below
-    const P = face.p.map(v => proj(v[0], v[1], v[2]));
+    const P = face.p.map(v => { const t = tiltV ? tiltV(v) : v; return proj(t[0], t[1], t[2]); });
     if (P.some(q => q.z <= 0.15)) continue;
     // Newell's method for the face normal (sum over all edges) — stays valid even when ONE
     // edge of the polygon collapses to zero length, which happens at the nose/tail cone tips

@@ -548,9 +548,11 @@ export async function handlePlayerDeath(player, killer, cause = null) {
   // Equip fresh underwear (layer 1) and basic clothing (layer 2) on respawn.
   // On a jail override the body is already in custody, so dress it immediately;
   // on the normal vat path the dressing robot does it on a timed beat, along
-  // with the assimilation narration and the cloning bill.
-  if (respawnOverride) equipStarterOutfit(player.id, player.biological_sex || 'male');
-  else scheduleVatEmergence(player);
+  // with the assimilation narration and the cloning bill. An override may set
+  // skipOutfit (the cortical-backup restore already re-hydrated the player's own
+  // wardrobe from the snapshot — don't dress them in starter kit on top of it).
+  if (respawnOverride && !respawnOverride.skipOutfit) equipStarterOutfit(player.id, player.biological_sex || 'male');
+  else if (!respawnOverride) scheduleVatEmergence(player);
 
   logActivity('death', player.handle);
   fireHook('player.death', player, killer).catch(()=>{});

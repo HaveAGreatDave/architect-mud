@@ -331,6 +331,8 @@
       help: 'The Vats registry desk — intake/enrolment room.' },
     augment_clinic: { label: 'Augment Clinic', shape: 'flag', scope: 'zone', group: 'Zone: Ascendant',
       help: 'A room where cybernetic augments can be installed (Chrome Clinic). Read by the augments plugin.' },
+    assurance_policy: { label: 'Cortical Assurance Desk', shape: 'flag', scope: 'zone', group: 'Zone: Ascendant',
+      help: 'A desk that sells prepaid cortical-backup restores (the secret Halcyon front). Enables the `policy` verb. Read by the augments plugin.' },
     architect_uplink: { label: 'Architect Uplink', shape: 'flag', scope: 'zone', group: 'Zone: Ascendant',
       help: 'The Architect Shrine uplink chamber — the Ascendants’ direct line to the Architect.' },
 
@@ -406,6 +408,8 @@
       help: 'Zone offers charter flights.' },
     charter_vtol_only: { label: 'Charter: VTOL-only', shape: 'flag', scope: 'zone', group: 'Zone: Flight',
       help: 'Charter pad flies the VTOL Dragonfly off-airfield only — no Mule, no self-fly rental desk (e.g. the Echelon helipad).' },
+    airfield_vtol_only: { label: 'Airfield: VTOL-only (helipad)', shape: 'flag', scope: 'zone', group: 'Zone: Flight',
+      help: 'A helipad — no runway, so only VTOL/rotorcraft can be bought, rented, or chartered here (fixed-wings are hidden from every roster).' },
     airfield_dealer: { label: 'Airfield: Dealer', shape: 'flag', scope: 'zone', group: 'Zone: Flight',
       help: 'Aircraft dealer here.' },
     airfield_fuel: { label: 'Airfield: Fuel', shape: 'flag', scope: 'zone', group: 'Zone: Flight',

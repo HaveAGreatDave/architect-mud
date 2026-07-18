@@ -1,0 +1,24 @@
+{
+  "altitude_ceiling": 2,
+  "cargo_capacity": 15,
+  "class": "locust",
+  "cruise_speed": 2,
+  "data": {
+    "feel": "Low-wing sport rocket; fast and nimble, but twitchy — rewards a light, quick hand."
+  },
+  "engines": 1,
+  "fuel_burn_base": 1.4,
+  "fuel_capacity": 240,
+  "fuel_type": "avgas",
+  "handling": 3,
+  "hardpoints": 0,
+  "hull_hp": 12,
+  "id": "ac_locust",
+  "max_takeoff_weight": 150,
+  "name": "Locust",
+  "noise": 2,
+  "price_buy": 6500,
+  "price_rent_hourly": 130,
+  "seats": 2,
+  "takeoff_mode": "stol"
+}

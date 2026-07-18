@@ -229,6 +229,29 @@ async function cmdSpot(args, raw, player) {
   return { type: 'output', message: `<span class="text-cyan">From altitude you make out:</span>\n· ${finds.join('\n· ')}` };
 }
 
+// Crop-dusting — an ag-plane capability (the Grasshopper). On a LOW pass the pilot opens the
+// spray booms and lays a fine mist over the tile below. Flavour for now: the ground zone sees
+// the pass; no entity effect yet (the hook is here to add one). Rate-limited to feel like the
+// booms need to re-pressurise between runs.
+async function cmdSpray(args, raw, player) {
+  const { live, err } = requirePilot(player); if (err) return err;
+  if (!(live.type.data && live.type.data.spray))
+    return { type: 'emote', message: `The ${live.type.name} has no spray gear.` };
+  if (!live.row.airborne) return { type: 'emote', message: 'Get in the air first — you dust on a low pass.' };
+  if (live.row.altitude_band !== 'low')
+    return { type: 'emote', message: 'Too high to dust — drop down to a <b>LOW</b> pass first.' };
+  const now = Date.now();
+  if (live.lastSpray && now - live.lastSpray < 2500) return { type: 'noop' };   // booms still re-pressurising
+  live.lastSpray = now;
+  const below = surfaceAt(live.row.grid_x, live.row.grid_y);
+  if (below?.id) sendToZone(below.id, {
+    type: 'zone_event',
+    message: `<span class="text-dim">A crop-duster howls past low overhead, spray booms open, trailing a fine chemical mist that drifts down over ${below.name}.</span>`,
+    refresh: false,
+  }, player.id);
+  return { type: 'emote', message: '<span class="text-green">You open the spray booms — a fine mist streams off the trailing edges and settles over the ground below.</span>' };
+}
+
 function bearing(from, to) {
   const dx = to.grid_x - from.grid_x, dy = to.grid_y - from.grid_y;
   const ns = dy < 0 ? 'N' : dy > 0 ? 'S' : '';
@@ -281,6 +304,7 @@ export const commands = {
   hover: cmdHover,
   spot: cmdSpot,
   scan: cmdSpot,
+  spray: cmdSpray,
   chart: cmdChart,
   squawk: cmdSquawk,
 };

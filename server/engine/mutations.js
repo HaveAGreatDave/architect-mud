@@ -21,6 +21,11 @@ export async function loadMutations() {
 export function getMutationCache() { return MUTATION_CACHE; }
 
 export async function checkMutationTrigger(player) {
+  // Chrome can't mutate — flesh and machine are the two divergent paths, and
+  // installing an augment closes the flesh one. `player.chromed` is a memory flag
+  // maintained by plugins/augments (set on install, cleared when the last augment
+  // is pulled). The first install also burns off any mutations already carried.
+  if (player.chromed) return null;
   if ((player.radiation || 0) < 40) return null;
 
   const { rows } = await query('SELECT mutation_id FROM player_mutations WHERE player_id=$1', [player.id]);
@@ -77,6 +82,48 @@ export async function grantMutation(player, mutation) {
     await query('UPDATE players SET visibly_mutated=1 WHERE id=$1', [player.id]);
     player.visibly_mutated = 1;
   }
+}
+
+// Burn off every mutation the player carries — reversing each mutation's
+// stat_modifiers (the inverse of grantMutation) and clearing visibly_mutated.
+// This is the deliberate flesh→machine conversion the chrome-doctor performs on
+// the first augment install; it only ever happens on a choice at the clinic,
+// never a random rad-mugging. Returns the count burned. Owned by the engine
+// (mutation substrate); called by plugins/augments.
+export async function burnAllMutations(player) {
+  const mutations = await getPlayerMutations(player.id);
+  if (!mutations.length) return 0;
+  const totals = {};
+  for (const m of mutations) {
+    for (const [stat, delta] of Object.entries(m.stat_modifiers || {})) {
+      totals[stat] = (totals[stat] || 0) - delta;   // reverse the grant
+    }
+  }
+  const entries = Object.entries(totals);
+  if (entries.length) {
+    const sets = [];
+    const vals = [];
+    let i = 1;
+    for (const [stat, delta] of entries) { sets.push(`${stat} = ${stat} + $${i++}`); vals.push(delta); }
+    vals.push(player.id);
+    await query(`UPDATE players SET ${sets.join(', ')} WHERE id = $${i}`, vals);
+    for (const [stat, delta] of entries) if (player[stat] !== undefined) player[stat] += delta;
+
+    // Endurance drop shrinks max HP — mirror grantMutation's HP handling.
+    if (totals.stat_endurance) {
+      const newHpMax = maxHpForEndurance(player.stat_endurance);
+      const { rows } = await query(
+        `UPDATE players SET hp_max=$1, hp=GREATEST(1,LEAST(hp,$1)) WHERE id=$2 RETURNING hp, hp_max`,
+        [newHpMax, player.id]
+      );
+      player.hp = rows[0].hp;
+      player.hp_max = rows[0].hp_max;
+    }
+  }
+  await query('DELETE FROM player_mutations WHERE player_id=$1', [player.id]);
+  await query('UPDATE players SET visibly_mutated=0 WHERE id=$1', [player.id]);
+  player.visibly_mutated = 0;
+  return mutations.length;
 }
 
 export async function getPlayerMutations(playerId) {

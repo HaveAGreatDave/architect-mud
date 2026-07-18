@@ -36,4 +36,14 @@ export default async function regress({ check, getPlayer }) {
   // Chromed players are always welcome.
   check('chromed players pass freely',
     (await thresholdGate({ player: { ...player, chromed: true }, from: plain, to: inner })) === undefined);
+
+  // Rush escalation: a synthetic id (its own rush counter, no DB row to disturb).
+  // First rush → warning, no HP loss; forcing it again → the turrets actually fire.
+  const rusher = { id: `ascrush_${player.id}`, running: true, chromed: false, hp: 100, hp_max: 100 };
+  const warn = await thresholdGate({ player: rusher, from: plain, to: inner });
+  check('first rush is a warning (no damage)', warn?.block === true && rusher.hp === 100, `hp=${rusher.hp}`);
+  const fire = await thresholdGate({ player: rusher, from: plain, to: inner });
+  check('forcing the line draws turret FIRE (HP taken)',
+    fire?.block === true && /fire/i.test(fire.message || '') && rusher.hp < 100,
+    `hp=${rusher.hp} msg=${(fire?.message || '').slice(0, 60)}`);
 }

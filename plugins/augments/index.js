@@ -6,17 +6,26 @@
  * same way grantMutation does, nudges the player down the Machine path, and
  * costs standing with the human-path orders (the Long Watch, the Wildblood).
  *
- * STEP-1 SCOPE (this file): the mechanic + catalog + install/remove/list, gated
- * to a clinic zone (flags.augment_clinic). The combat/death seams — subdermal
- * soak via recomputeArmor, the "chrome can't mutate" guard, and the cortical-
- * backup respawn — are step 2 (engine-change). Augments whose only effect is
- * soak/special are therefore authored but INERT until then; this plugin says so
- * rather than pretending they work. See docs/proposals/ascendant-stronghold.md.
+ * The three engine seams are now wired:
+ *   1. Soak — a registered armor contributor merges subdermal-weave soak into
+ *      player.soak on every recomputeArmor (armor under the skin).
+ *   2. Chrome-can't-mutate — this plugin maintains player.chromed; the engine's
+ *      checkMutationTrigger bails when it's set, and the FIRST install burns off
+ *      any mutations already carried (the flesh→machine conversion).
+ *   3. Cortical-backup death loop — the Ascendant "death is a billing problem"
+ *      economy: prepaid restores bought at Halcyon, snapshots saved at the Vats,
+ *      a non-jailed death rolled back to the last snapshot.
+ * See docs/proposals/ascendant-stronghold.md and docs/systems-corps.md siblings.
  */
+import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
-import { world } from '../../server/engine/world.js';
+import { world, getLivePlayer } from '../../server/engine/world.js';
+import { getFlag } from '../../server/engine/flags.js';
 import { getPlayerIdeologyRep, REP_TIERS } from '../../server/engine/ideologies.js';
 import { dispatchAction } from '../../server/engine/actions.js';
+import { on } from '../../server/engine/events.js';
+import { registerArmorContributor, addSoakToSlot, recomputeEquipped } from '../../server/engine/commands/inventory.js';
+import { burnAllMutations } from '../../server/engine/mutations.js';
 
 const ASCENDANTS = 'ideology_ascendants';
 const OPPOSED = ['ideology_long_watch', 'ideology_wildblood']; // the human-path orders
@@ -26,6 +35,9 @@ const SLOT_CAPS = { neural: 2, eyes: 1, torso: 2, arms: 1, legs: 1 };
 
 const OPPOSED_REP_HIT = -25; // standing lost with each human-path order per install
 const PATH_GAIN = 8;         // machine-path affinity gained per install
+
+const CORTICAL = 'aug_cortical_backup';  // the augment that unlocks the backup loop
+const RESTORE_PRICE = 2500;              // ₵ per prepaid restore, bought at Halcyon
 
 const TIER_RANK = Object.fromEntries(REP_TIERS.map((t, i) => [t.id, i]));
 
@@ -87,9 +99,33 @@ async function applyStatMods(player, mods, sign) {
   }
 }
 
+// --- Seam 1 + 2: augment-derived player state ------------------------------
+// Registered armor contributor. On every recomputeArmor (login, equip/unequip)
+// this reads the player's installed augments and (a) layers subdermal-weave soak
+// into the per-slot map, (b) sets player.chromed for the mutation-block guard.
+// Async is fine here — recomputeArmor runs on deliberate actions, never a
+// per-swing hot path; combat reads the finished player.soak from memory.
+async function contributeAugmentState(player, bySlot) {
+  const cache = await catalog();
+  const mine = await installedRows(player.id);
+  player.chromed = mine.length > 0 ? 1 : 0;
+  for (const r of mine) {
+    const a = cache[r.augment_id];
+    if (!a || !a.soak || typeof a.soak !== 'object') continue;
+    // soak jsonb shape mirrors armor: { <armor-slot>: { <type>: value } }.
+    for (const [slot, sm] of Object.entries(a.soak)) addSoakToSlot(bySlot, slot, sm);
+  }
+}
+registerArmorContributor(contributeAugmentState);
+
+// Refresh a live player's augment-derived state after an install/remove — one
+// recompute rebuilds soak, insulation, and player.chromed together.
+async function refreshAugmentState(player) {
+  await recomputeEquipped(player);
+}
+
 // Install/remove is clinic work — you can't chrome up in the street. The clinic
-// zone opts in with flags.augment_clinic (no zone carries it until the campus
-// content ships; the mechanic is complete and inert until then).
+// zone opts in with flags.augment_clinic.
 function atClinic(player) {
   const zone = world.zones.get(player.current_zone);
   return !!zone?.flags?.augment_clinic;
@@ -109,6 +145,8 @@ async function listAugments(player) {
       msg += `<span class="zone-name">${a.name}</span> <span style="opacity:.7">[${a.slot}]</span>\n${a.description}\n`;
       const s = statLine(a.stat_modifiers);
       if (s) msg += `  Stats: ${s}\n`;
+      const soakTypes = Object.values(a.soak || {}).flatMap(m => Object.keys(m || {}));
+      if (soakTypes.length) msg += `  Soak: ${[...new Set(soakTypes)].join(', ')} (under the skin)\n`;
       msg += '\n';
     }
   }
@@ -151,6 +189,7 @@ async function installAugment(name, player) {
   }
 
   // --- commit ---
+  const wasFirst = mine.length === 0;
   if (cost) {
     await query('UPDATE players SET credits = credits - $1 WHERE id=$2', [cost, player.id]);
     player.credits -= cost;
@@ -160,6 +199,15 @@ async function installAugment(name, player) {
     'INSERT INTO player_augments (player_id, augment_id, slot) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING',
     [player.id, aug.id, aug.slot]
   );
+
+  // Seam 2 — the first chrome burns off the flesh. A deliberate, warned choice at
+  // the terminal (never a random rad-mugging), delivered as the doctor's line.
+  let burnLine = '';
+  if (wasFirst) {
+    const n = await burnAllMutations(player);
+    if (n) burnLine = `\n<span style="opacity:.8">Kesh's needle finds the old flesh-code and overwrites it. ${n} mutation${n > 1 ? 's' : ''} slough away — chrome and mutation can't share a body.</span>`;
+  }
+
   // Machine path + the teeth. Fired through the registered ideology Actions so
   // this plugin never reaches into ideology state directly (interaction rule).
   await dispatchAction({ type: 'ADJUST_PATH', actor: player, params: { path: 'machine', delta: PATH_GAIN } });
@@ -167,10 +215,16 @@ async function installAugment(name, player) {
     await dispatchAction({ type: 'ADJUST_REPUTATION', actor: player, params: { ideology_id: opp, delta: OPPOSED_REP_HIT, reason: 'augment install' } });
   }
 
+  // Refresh derived state (soak, chromed) now that the roster changed.
+  await refreshAugmentState(player);
+
   const s = statLine(aug.stat_modifiers);
-  const inert = (!s && (Object.keys(aug.soak || {}).length || aug.special))
-    ? '\n<span style="opacity:.7">(Its full effect comes online with a later system.)</span>' : '';
-  return { type: 'augments', message: `<span class="zone-name">${aug.name}</span> installed.${s ? ` ${s}.` : ''}${inert}\nThe unwired will notice.` };
+  const soakTypes = Object.values(aug.soak || {}).flatMap(m => Object.keys(m || {}));
+  const soakLine = soakTypes.length ? ` Plating settles under your skin — ${[...new Set(soakTypes)].join('/')} soak.` : '';
+  const specialLine = aug.id === CORTICAL
+    ? '\n<span style="opacity:.7">Your consciousness now has a save file. Buy restores at Halcyon; snapshot yourself at the Vats.</span>'
+    : (!s && !soakTypes.length && aug.special) ? '\n<span style="opacity:.7">(Its effect is passive.)</span>' : '';
+  return { type: 'augments', message: `<span class="zone-name">${aug.name}</span> installed.${s ? ` ${s}.` : ''}${soakLine}${burnLine}${specialLine}\nThe unwired will notice.` };
 }
 
 // --- remove ----------------------------------------------------------------
@@ -191,6 +245,7 @@ async function removeAugment(name, player) {
   // Reverse the machine-path nudge; the standing you burned with the human orders
   // stays burned (pulling chrome doesn't un-happen the offense).
   await dispatchAction({ type: 'ADJUST_PATH', actor: player, params: { path: 'machine', delta: -PATH_GAIN } });
+  await refreshAugmentState(player);
   return { type: 'augments', message: `<span class="zone-name">${aug.name}</span> removed.` };
 }
 
@@ -201,10 +256,165 @@ async function cmdAugment(args, raw, player) {
   return listAugments(player);
 }
 
+// --- Seam 3: the cortical-backup loop --------------------------------------
+
+async function hasCortical(playerId) {
+  const { rows } = await query('SELECT 1 FROM player_augments WHERE player_id=$1 AND augment_id=$2', [playerId, CORTICAL]);
+  return rows.length > 0;
+}
+async function getBackup(playerId) {
+  const { rows } = await query('SELECT snapshot, restores_remaining, saved_at FROM player_backups WHERE player_id=$1', [playerId]);
+  return rows[0] || null;
+}
+
+// `backup` — snapshot yourself at the Vats Registry. Captures the perishable
+// state a restore rolls back to: inventory (with equip/slot/container/condition)
+// and credits. Requires the Cortical Backup augment.
+async function cmdBackup(args, raw, player) {
+  const zone = world.zones.get(player.current_zone);
+  if (!zone?.flags?.ascendant_registry) {
+    return { type: 'error', message: 'You can only commit a backup at the Vats Registry.' };
+  }
+  if (!(await hasCortical(player.id))) {
+    return { type: 'error', message: 'The Registry construct regards you flatly. "No cortical backup on file. There is nothing of you to save." Install the Cortical Backup augment first.' };
+  }
+  const { rows } = await query(
+    'SELECT item_id, quantity, condition, is_equipped, slot, custom_data, container_id, id FROM player_inventory WHERE player_id=$1',
+    [player.id]
+  );
+  const snapshot = {
+    credits: player.credits || 0,
+    inventory: rows.map(r => ({
+      old_id: r.id, item_id: r.item_id, quantity: r.quantity, condition: r.condition,
+      is_equipped: r.is_equipped, slot: r.slot, custom_data: r.custom_data || {}, container_id: r.container_id,
+    })),
+  };
+  const existing = await getBackup(player.id);
+  const restores = existing?.restores_remaining || 0;
+  await query(
+    `INSERT INTO player_backups (player_id, snapshot, restores_remaining, saved_at)
+       VALUES ($1, $2, $3, EXTRACT(EPOCH FROM NOW()))
+     ON CONFLICT (player_id) DO UPDATE SET snapshot = EXCLUDED.snapshot, saved_at = EXCLUDED.saved_at`,
+    [player.id, JSON.stringify(snapshot), restores]
+  );
+  const paid = restores > 0
+    ? `\n<span style="opacity:.8">Restores on account: ${restores}.</span>`
+    : `\n<span class="outcast-warning">No restores on account. A backup with nothing to spend it on is just a photograph. Buy a policy at Halcyon.</span>`;
+  return { type: 'output', message: `The tanks hum. For a moment you are two places at once, and then only here again — a copy of you laid down in cold storage.${paid}` };
+}
+
+// `assurance` — the secret Halcyon front. Buy prepaid restores (eligibility: you
+// own the Cortical Backup augment). The transaction is itself a reveal
+// breadcrumb — Halcyon billing IS the Ascendant resurrection desk. (The `policy`
+// verb is already the aircraft-insurance desk; this is the cortical desk.)
+async function cmdAssurance(args, raw, player) {
+  const zone = world.zones.get(player.current_zone);
+  if (!zone?.flags?.assurance_policy) {
+    return { type: 'error', message: 'There is no assurance desk here.' };
+  }
+  const backup = await getBackup(player.id);
+  const restores = backup?.restores_remaining || 0;
+  const sub = (args[0] || '').toLowerCase();
+
+  if (sub !== 'buy') {
+    return { type: 'output', message:
+      `<span class="skills-header">HALCYON ASSURANCE — CORTICAL POLICY</span>\n\n` +
+      `"Death, sir, is a billing problem — and your account can be paid up."\n\n` +
+      `Prepaid restores on file: <b>${restores}</b>\n` +
+      `Price per restore: ₵${RESTORE_PRICE}\n\n` +
+      `<span style="opacity:.7">assurance buy [n] — purchase restores. Requires a cortical backup on file.</span>` };
+  }
+
+  if (!(await hasCortical(player.id))) {
+    return { type: 'error', message: 'The adjuster checks a screen and shakes their head, almost kindly. "We can only insure what can be restored. You have no cortical backup. Speak to the Ascendants about that first." — a slip they don\'t seem to notice making.' };
+  }
+  const n = Math.max(1, Math.min(20, parseInt(args[1], 10) || 1));
+  const cost = n * RESTORE_PRICE;
+  if ((player.credits || 0) < cost) {
+    return { type: 'error', message: `${n} restore${n > 1 ? 's' : ''} costs ₵${cost}. Your account doesn't cover it.` };
+  }
+  await query('UPDATE players SET credits = credits - $1 WHERE id=$2', [cost, player.id]);
+  player.credits -= cost;
+  await query(
+    `INSERT INTO player_backups (player_id, restores_remaining, saved_at)
+       VALUES ($1, $2, EXTRACT(EPOCH FROM NOW()))
+     ON CONFLICT (player_id) DO UPDATE SET restores_remaining = player_backups.restores_remaining + $2`,
+    [player.id, n]
+  );
+  const after = (backup?.restores_remaining || 0) + n;
+  return { type: 'output', message: `The adjuster's stylus moves. ₵${cost} clears. "You're covered for ${n} more, then. ${after} on account." Behind them, a screen shows a calm closed eye — the Halcyon seal, or something older wearing it.\n<span class="player-update-credits">₵${player.credits}</span>` };
+}
+
+// player.respawnZone hook: a non-jailed death with a paid restore rolls the
+// player back to their last Vats snapshot instead of the clone vat. Jail wins —
+// a wanted death goes to Holding even for the backed-up ("jail still bites"), so
+// this yields (returns undefined) whenever the player would be booked.
+async function onRespawnZone(player, killer) {
+  // Yield to jail: mirror jail's own claim test (wanted peak >= 1 star).
+  let wanted = parseFloat(await getFlag('player', 'wanted', player) || '0') || 0;
+  try {
+    const r = await dispatchAction({ type: 'WANTED_PEAK', actor: player });
+    if (typeof r?.peak === 'number') wanted = Math.max(wanted, r.peak);
+  } catch { /* surveillance not loaded — fall back to the flag */ }
+  if (Math.floor(wanted) >= 1) return undefined;
+
+  const backup = await getBackup(player.id);
+  if (!backup || !backup.snapshot || (backup.restores_remaining || 0) < 1) return undefined;
+
+  // Find the respawn landing — the Vat Hall.
+  const vatHall = [...world.zones.values()].find(z => z.flags?.ascendant_vats);
+  if (!vatHall) return undefined;
+
+  // Consume a restore and roll inventory + credits back to the snapshot. Gear
+  // gained since the save is destroyed (there's no lootable corpse on override).
+  await query('UPDATE player_backups SET restores_remaining = restores_remaining - 1 WHERE player_id=$1', [player.id]);
+  const snap = backup.snapshot;
+  await query('UPDATE players SET credits = $1 WHERE id=$2', [snap.credits || 0, player.id]);
+  player.credits = snap.credits || 0;
+
+  // Rebuild inventory from the snapshot. Regenerate row ids and remap any
+  // container_id references so nested containers survive the rewrite.
+  await query('DELETE FROM player_inventory WHERE player_id=$1', [player.id]);
+  const items = Array.isArray(snap.inventory) ? snap.inventory : [];
+  const idMap = new Map();
+  for (const it of items) idMap.set(it.old_id, randomUUID());
+  for (const it of items) {
+    await query(
+      `INSERT INTO player_inventory (id, player_id, item_id, quantity, condition, is_equipped, slot, custom_data, container_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      [idMap.get(it.old_id), player.id, it.item_id, it.quantity ?? 1, it.condition ?? 1.0,
+       it.is_equipped ?? 0, it.slot ?? null, JSON.stringify(it.custom_data || {}),
+       it.container_id ? (idMap.get(it.container_id) || null) : null]
+    );
+  }
+  await recomputeEquipped(player);   // restored gear drives soak/insulation again
+
+  const left = Math.max(0, (backup.restores_remaining || 1) - 1);
+  return {
+    zone: vatHall.id,
+    skipOutfit: true,   // the snapshot already re-hydrated the wardrobe
+    message: `<span class="clone-vat-message">The Vats hold your policy. You surface in cold fog, whole, wearing the life you last saved — everything since gone like a dream you can't keep. A construct notes the withdrawal. ${left} restore${left === 1 ? '' : 's'} remaining.</span>`,
+  };
+}
+
+// Derive player.chromed at login for the mutation-block guard (recomputeEquipped
+// runs on connect and fires the contributor, so this is a belt-and-braces refresh
+// for any path that loads a player without recomputing armor).
+on('player.login', async ({ id }) => {
+  const p = getLivePlayer(id);
+  if (!p) return;
+  const { rows } = await query('SELECT 1 FROM player_augments WHERE player_id=$1 LIMIT 1', [id]);
+  p.chromed = rows.length ? 1 : 0;
+});
+
 export const commands = {
   augment: cmdAugment,
   augments: cmdAugment,
+  backup: cmdBackup,
+  assurance: cmdAssurance,
 };
 
+export const hooks = { 'player.respawnZone': onRespawnZone };
+
 // Exposed for the regression harness.
-export const _test = { loadAugments, findAugment, SLOT_CAPS };
+export const _test = { loadAugments, findAugment, SLOT_CAPS, contributeAugmentState, onRespawnZone, hasCortical, getBackup, CORTICAL, RESTORE_PRICE };

@@ -556,6 +556,17 @@ export const SCHEMA_SQL = `
     PRIMARY KEY (player_id, augment_id)
   );
 
+  -- Cortical backups: the Ascendant "death is a billing problem" loop. A player
+  -- who owns the Cortical Backup augment buys prepaid restores at Halcyon and
+  -- snapshots inventory+credits+state at the Vats; a non-jailed death with a
+  -- paid restore rolls them back to that snapshot. Runtime state, never authored.
+  CREATE TABLE IF NOT EXISTS player_backups (
+    player_id TEXT PRIMARY KEY,
+    snapshot JSONB,
+    restores_remaining INTEGER DEFAULT 0,
+    saved_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
+  );
+
   CREATE INDEX IF NOT EXISTS idx_players_username ON players(username);
   CREATE INDEX IF NOT EXISTS idx_player_inventory_player ON player_inventory(player_id);
   CREATE INDEX IF NOT EXISTS idx_zone_spawns_zone ON zone_spawns(zone_id);

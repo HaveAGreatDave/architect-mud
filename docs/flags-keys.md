@@ -19,6 +19,7 @@ is silently inert, so grep before renaming anything below.
 |---|---|---|
 | `airfield_charter` | flight | zone offers charter flights |
 | `charter_vtol_only` | flight | charter pad is VTOL Dragonfly-only, off-airfield drops, no rental desk (Echelon helipad) |
+| `airfield_vtol_only` | flight | helipad — buy/rent/charter restricted to VTOL/rotorcraft; fixed-wings hidden from every roster (Threshold Helipad) |
 | `yacht` / `echelon` | yacht | marks an Echelon zone (the yacht) |
 | `echelon_bridge` | yacht | the bridge — every `helm`/`sail`/`stop`/`dock` verb gates on this flag |
 | `naval_ambience` | yacht | naval ambient-event pool (Echelon exterior) |

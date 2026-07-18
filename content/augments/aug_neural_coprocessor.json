@@ -1,0 +1,13 @@
+{
+  "id": "aug_neural_coprocessor",
+  "name": "Neural Co-processor",
+  "description": "A second mind bolted alongside the first — cold, fast, and tireless. It runs the maths your meat is too slow for, and never once gets bored.",
+  "slot": "neural",
+  "tier": 3,
+  "cost": 2000,
+  "rep_gate": "trusted",
+  "stat_modifiers": { "stat_brains": 1 },
+  "soak": {},
+  "visible": 1,
+  "special": null
+}

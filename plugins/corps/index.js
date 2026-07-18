@@ -22,6 +22,7 @@ import { sendToChatChannel } from '../../server/engine/channels.js';
 import { skillCheck, awardSkillUse } from '../../server/engine/skills.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { on } from '../../server/engine/events.js';
+import { getBroadcast, sendToPlayer } from '../../server/engine/messaging.js';
 import {
   cmdVentureAsset, cmdWarehouse, handleVenturePurchase, runVentureTick, ventureConsoleBlock, ventureCount,
 } from './ventures.js';
@@ -39,6 +40,14 @@ const REINFORCE_COST = 20;         // credits per +1 grip point
 const CONTEST_COOLDOWN_MS = 30000; // per-player anti-spam on contesting
 const CONSOLIDATE_PER_DAY = 10;    // uncontested grip drift toward 100 / 24h tick
 const ERODE_PER_DAY = 8;           // contested grip decay toward 0 / 24h tick
+
+// ── War & destabilization (Phase 3) tunables ──
+const RAID_EROSION = 14;              // flat grip a war raid tears (before turret soak)
+const DESTABILIZE_COOLDOWN_MS = 15000; // per-actor anti-spam on event-driven nudges
+// Grip a rival's controller loses when a hostile act happens on their turf. Not a
+// gain for the actor — it just makes the zone ungovernable (a standing challenger,
+// if any, reaps the flip). Weights by how loud the act is.
+const DESTABILIZE = { petty: 2, hack: 3, kill: 4 };
 
 // ── Investment (Phase 2) tunables ──
 const MAX_TIER = 5;
@@ -65,6 +74,8 @@ function zoneExtractorIncome(zoneId) {
 
 // playerId -> timestamp of last contest (anti-spam)
 const contestCooldown = new Map();
+// actorId -> timestamp of last event-driven destabilization (anti-spam)
+const destabilizeCooldown = new Map();
 
 // A zone is claimable territory if it's contestable ground: non-safe by danger,
 // or explicitly flagged. Safe hubs and apartments are never territory.
@@ -814,6 +825,172 @@ async function runTerritoryTick() {
   if (rows.length) console.log(`[corps] Territory tick: ${rows.length} zone(s), ${net.size} org(s) settled.`);
 }
 
+// ─── Phase 3: War, raids & destabilization ──────────────────────────────────
+
+// Two orgs are at war if a 'war' stance row exists (written in both directions by
+// cmdWar, so this check is symmetric regardless of who declared). Deliberate query
+// on a player command (not a hot path) — org_relations isn't world-cached.
+async function isAtWar(orgA, orgB) {
+  if (!orgA || !orgB) return false;
+  const { rows } = await query(
+    `SELECT 1 FROM org_relations WHERE org_id=$1 AND other_org_id=$2 AND stance='war' LIMIT 1`,
+    [orgA, orgB]);
+  return rows.length > 0;
+}
+
+// Push a corp_territory line to every online member of an org.
+function notifyOrg(orgId, message) {
+  for (const p of getAllLivePlayers()) {
+    if (getPlayerMembership(p.id)?.org_id === orgId) sendToPlayer(p.id, { type: 'corp_territory', message });
+  }
+}
+
+// Single mutation point for EVENT-DRIVEN influence nudges (contest/reinforce/raid
+// keep their own transactional paths). Erodes the controller's grip on a held,
+// contestable zone; a standing challenger seizes it at 0 (mirrors the 24h tick).
+// Pure destabilization can't drop a zone below 1% when there's no challenger — you
+// still have to contest/raid to actually take it. Returns the outcome or null.
+async function applyInfluence(zoneId, delta) {
+  if (!delta) return null;
+  const zc = getZoneControl(zoneId);
+  if (!zc || !zc.org_id) return null;              // uncontrolled ground — nothing to erode
+  if (!isClaimableZone(getZone(zoneId))) return null;
+  const defense = zoneDefense(zoneId);             // turrets soften erosion (min bite of 1)
+  const eff = delta < 0 ? Math.min(-1, delta + defense) : delta;
+  const now = Math.floor(Date.now() / 1000);
+  const res = await withTransaction(async (q) => {
+    const cur = await q('SELECT * FROM zone_control WHERE zone_id=$1 FOR UPDATE', [zoneId]);
+    const row0 = cur.rows[0];
+    if (!row0 || !row0.org_id) return { noop: true };
+    const next = row0.influence + eff;
+    if (next <= 0 && row0.challenger_org_id) {
+      const flipped = await q('UPDATE zone_control SET org_id=$1, influence=$2, challenger_org_id=NULL, captured_at=$3 WHERE zone_id=$4 RETURNING *',
+        [row0.challenger_org_id, START_INFLUENCE, now, zoneId]);
+      return { row: flipped.rows[0], flipped: true, prevOrg: row0.org_id };
+    }
+    const upd = await q('UPDATE zone_control SET influence=$1 WHERE zone_id=$2 RETURNING *',
+      [Math.max(1, Math.min(100, next)), zoneId]);
+    return { row: upd.rows[0], flipped: false, prevOrg: row0.org_id };
+  });
+  if (res.noop) return null;
+  setZoneControlCache(zoneId, res.row);
+  const broadcast = getBroadcast();
+  await pushConsole(res.row.org_id, broadcast);
+  if (res.flipped && res.prevOrg && res.prevOrg !== res.row.org_id) await pushConsole(res.prevOrg, broadcast);
+  return { zone: getZone(zoneId), row: res.row, flipped: res.flipped, prevOrg: res.prevOrg };
+}
+
+// The connective tissue: a hostile act (crime, hack, kill) on turf a RIVAL corp
+// holds saps that controller's grip. Not the actor's gain — it makes the zone
+// ungovernable, and a standing challenger reaps any flip. Early-returns with zero
+// DB on the common case (uncontrolled zone / own turf), so it's safe on hot events.
+async function onHostileAct(actor, zoneId, amount) {
+  if (!actor?.id || !zoneId || !amount) return;
+  const zc = getZoneControl(zoneId);
+  if (!zc || !zc.org_id) return;                   // no corp holds this — nothing to shake
+  const live = liveById(actor.id);
+  if (!live) return;                               // only live players destabilize (filters NPC/enemy killers)
+  const m = getPlayerMembership(actor.id);
+  if (m && m.org_id === zc.org_id) return;         // you don't destabilize your own turf
+  const until = destabilizeCooldown.get(actor.id) || 0;
+  if (Date.now() < until) return;
+  destabilizeCooldown.set(actor.id, Date.now() + DESTABILIZE_COOLDOWN_MS);
+  const heldBy = getOrg(zc.org_id);
+  const out = await applyInfluence(zoneId, -amount);
+  if (!out) return;
+  if (out.flipped) {
+    sendToPlayer(actor.id, { type: 'corp_territory', message: `The unrest tips it over — <b>${esc(heldBy?.name || 'the holder')}</b> loses their grip on <b>${esc(out.zone?.name || 'the zone')}</b>.` });
+  } else {
+    sendToPlayer(actor.id, { type: 'corp_territory', message: `<span class="dim">Word travels. ${esc(heldBy?.name || 'The holder')}'s grip on ${esc(out.zone?.name || 'this zone')} slips to ${out.row.influence}%.</span>` });
+  }
+}
+
+// `corp war <corp>` — declare war on a rival org (written both directions, so
+// either side can then raid the other). Officer-gated; alerts both corps.
+async function cmdWar(player, targetName, broadcast) {
+  const m = getPlayerMembership(player.id);
+  if (!m) return err("You're not in a corp.");
+  if (!hasPerm(player, PERM.EDIT_CORP)) return err("You don't have the standing to declare war.");
+  if (!targetName) return err('Declare war on whom? Usage: corp war <corp>');
+  const target = getOrgByName(targetName);
+  if (!target) return err(`No corp called "${esc(targetName)}".`);
+  if (target.id === m.org_id) return err("You can't declare war on your own corp.");
+  const org = getOrg(m.org_id);
+  if (await isAtWar(org.id, target.id)) return err(`You're already at war with <b>${esc(target.name)}</b>.`);
+  await withTransaction(async (q) => {
+    for (const [a, b] of [[org.id, target.id], [target.id, org.id]]) {
+      await q(`INSERT INTO org_relations (org_id, other_org_id, stance) VALUES ($1,$2,'war')
+               ON CONFLICT (org_id, other_org_id) DO UPDATE SET stance='war'`, [a, b]);
+    }
+  });
+  notifyOrg(target.id, `<b>${esc(org.name)}</b> has <b>DECLARED WAR</b> on your corp. Your turf is a target now — 'corp raid' cuts both ways.`);
+  return { type: 'corp_territory', message: `<b>${esc(org.name)}</b> declares <b>WAR</b> on <b>${esc(target.name)}</b>. Raids on their territory are open. This is loud.` };
+}
+
+// `corp peace <corp>` — a ceasefire either party can call; clears the war both ways.
+async function cmdPeace(player, targetName) {
+  const m = getPlayerMembership(player.id);
+  if (!m) return err("You're not in a corp.");
+  if (!hasPerm(player, PERM.EDIT_CORP)) return err("You don't have the standing to negotiate.");
+  if (!targetName) return err('Make peace with whom? Usage: corp peace <corp>');
+  const target = getOrgByName(targetName);
+  if (!target) return err(`No corp called "${esc(targetName)}".`);
+  const org = getOrg(m.org_id);
+  const res = await query(
+    `DELETE FROM org_relations WHERE stance='war' AND ((org_id=$1 AND other_org_id=$2) OR (org_id=$2 AND other_org_id=$1))`,
+    [org.id, target.id]);
+  if (!res.rowCount) return err(`You're not at war with <b>${esc(target.name)}</b>.`);
+  notifyOrg(target.id, `<b>${esc(org.name)}</b> has stood down. The war with them is over.`);
+  return { type: 'corp_territory', message: `<b>${esc(org.name)}</b> stands down. The war with <b>${esc(target.name)}</b> is over.` };
+}
+
+// `corp raid` — the loud game. Like contest but war-gated, no Intimidate check
+// (it always lands), heavier erosion, faster flips. Turrets still soak the assault.
+async function cmdRaid(player, broadcast) {
+  const m = getPlayerMembership(player.id);
+  if (!m) return err("You're not in a corp.");
+  const zone = getZone(player.current_zone);
+  if (!isClaimableZone(zone)) return err("There's no territory to raid here.");
+  const zc = getZoneControl(zone.id);
+  if (!zc || !zc.org_id) return err("This zone is unclaimed — take it with 'corp claim'.");
+  if (zc.org_id === m.org_id) return err("You hold this zone — 'corp reinforce' to strengthen your grip.");
+  if (!(await isAtWar(m.org_id, zc.org_id)))
+    return err(`You're not at war with <b>${esc(getOrg(zc.org_id)?.name || 'them')}</b>. Declare it with 'corp war <corp>', or 'corp contest' to erode by pressure.`);
+  const until = contestCooldown.get(player.id) || 0;
+  if (Date.now() < until) return err(`Regroup before the next push. (${Math.ceil((until - Date.now()) / 1000)}s)`);
+  contestCooldown.set(player.id, Date.now() + CONTEST_COOLDOWN_MS);
+
+  const defense = zoneDefense(zone.id);
+  const erosion = Math.max(2, RAID_EROSION - defense);
+  const absorbed = RAID_EROSION - erosion;
+  const now = Math.floor(Date.now() / 1000);
+  const res = await withTransaction(async (q) => {
+    const cur = await q('SELECT * FROM zone_control WHERE zone_id=$1 FOR UPDATE', [zone.id]);
+    const row0 = cur.rows[0];
+    if (!row0 || !row0.org_id || row0.org_id === m.org_id) return { noop: true };
+    if (row0.influence - erosion <= 0) {
+      const flipped = await q('UPDATE zone_control SET org_id=$1, influence=$2, challenger_org_id=NULL, captured_at=$3 WHERE zone_id=$4 RETURNING *',
+        [m.org_id, START_INFLUENCE, now, zone.id]);
+      return { row: flipped.rows[0], flipped: true, prevOrg: row0.org_id };
+    }
+    const upd = await q('UPDATE zone_control SET influence=$1, challenger_org_id=$2 WHERE zone_id=$3 RETURNING *',
+      [row0.influence - erosion, m.org_id, zone.id]);
+    return { row: upd.rows[0], flipped: false, prevOrg: row0.org_id };
+  });
+  if (res.noop) return err("Control of the zone just shifted — try again.");
+  setZoneControlCache(zone.id, res.row);
+  await pushConsole(m.org_id, broadcast);
+  if (res.prevOrg) await pushConsole(res.prevOrg, broadcast);
+  const org = getOrg(m.org_id);
+  const defNote = absorbed > 0 ? ` <span class="dim">(turrets soaked ${absorbed})</span>` : '';
+  if (res.flipped) {
+    broadcast?.(player.current_zone, { type: 'zone_event', message: `<span class="msg-system">${esc(org.name)} storms ${esc(zone.name)} and takes it!</span>` }, player.id);
+    return { type: 'corp_territory', message: `<b>${esc(org.name)}</b> overruns the defenders and <b>seizes ${esc(zone.name)}</b>! Grip ${res.row.influence}%.` };
+  }
+  broadcast?.(player.current_zone, { type: 'zone_event', message: `<span class="msg-system">Gunfire — ${esc(org.name)} raids ${esc(zone.name)}.</span>` }, player.id);
+  return { type: 'corp_territory', message: `You raid <b>${esc(zone.name)}</b> — grip torn down to ${res.row.influence}%.${defNote} Keep the pressure on.` };
+}
+
 // Every claimed HQ gets a wall-mounted ops terminal (idempotent) — the diegetic
 // entry to the console; `use` it (doUseCorpTerminal) to open it.
 async function ensureCorpTerminal(zoneId) {
@@ -885,6 +1062,9 @@ const USAGE = [
   'corp edit name|desc|color <value>',
   'corp claim                — claim where you stand (apartment → HQ ' + HQ_FEE + 'c; zone → territory ' + TERRITORY_CLAIM_FEE + 'c)',
   'corp contest              — erode a rival\'s grip on this zone (seize it at 0%)',
+  'corp war <corp>           — declare war on a rival corp (opens raids both ways)',
+  'corp peace <corp>         — call a ceasefire, ending the war',
+  'corp raid                 — (at war) storm this zone by force — heavier than contest',
   'corp reinforce [pts]      — spend treasury to strengthen your grip here',
   'corp invest               — raise your corp tier (member cap · territory slots · assets)',
   'corp build extractor|turret — build/upgrade an asset on a zone you hold',
@@ -929,8 +1109,12 @@ async function cmdCorp(args, raw, player, broadcast) {
     case 'claim':       return cmdClaim(player, broadcast);
     case 'map':         return cmdCorpMap(player);
     case 'territory':   return cmdCorpTerritory(player); // big-map overlay layer (client-internal)
-    case 'contest':
-    case 'raid':        return cmdContest(player, broadcast);
+    case 'contest':     return cmdContest(player, broadcast);
+    case 'raid':        return cmdRaid(player, broadcast);
+    case 'war':
+    case 'declarewar':  return cmdWar(player, rawRest[0], broadcast);
+    case 'peace':
+    case 'ceasefire':   return cmdPeace(player, rawRest[0]);
     case 'reinforce':
     case 'fortify':     return cmdReinforce(player, rest[0], broadcast);
     case 'invest':      return cmdInvest(player, broadcast);
@@ -1002,6 +1186,8 @@ export const hooks = {
 // Exported for tests/ops (the verify harness drives it without waiting 24h).
 export { runTerritoryTick };
 export { colorDistance, MIN_COLOR_DISTANCE, FOUND_FEE };
+// Phase 3 — exported for the regress suite + DB-loop verification.
+export { DESTABILIZE, applyInfluence, isAtWar, onHostileAct };
 
 // Exported for the Tablet OS Corporation app (plugins/tablet/corp-app.js) —
 // same payload the `corp console` command itself returns, reused rather than
@@ -1015,6 +1201,20 @@ schedule('24h', () => runTerritoryTick().catch(e => console.error('[corps] terri
 // ── Corporate Assets (ventures.js) ──────────────────────────────────────────
 // Live: a cut of every sale at an owned business's storefront vendor.
 on('vendor.purchase', (e) => handleVenturePurchase(e).catch(err => console.error('[corps] venture purchase error:', err.message)));
+
+// ── Destabilization: hostile activity on a rival's turf saps their grip ──────
+// Every hostile act already emits an event carrying an actor + a zone. These
+// route them through the influence funnel. Kills read the actor's own location;
+// crimes/hacks/jacks carry the zone where they happened.
+const destab = (actor, zoneId, amount) => onHostileAct(actor, zoneId, amount)
+  .catch(e => console.error('[corps] destabilize error:', e.message));
+on('crime.witnessed',          (e) => destab(e.player, e.zoneId, DESTABILIZE.petty));
+on('atm.jacked',               (e) => destab(e.player, e.zoneId, DESTABILIZE.petty));
+on('hack.success',             (e) => destab(e.player, e.zoneId, DESTABILIZE.hack));
+on('vendor.safeHackWitnessed', (e) => destab(e.player, e.zoneId, DESTABILIZE.hack));
+on('enemy.killed',             (e) => destab(e.actor, e.actor?.current_zone, DESTABILIZE.kill));
+on('npc.killed',               (e) => destab(e.actor, e.actor?.current_zone, DESTABILIZE.kill));
+on('player.death',             (e) => destab(e.killer, e.deathZone || e.player?.current_zone, DESTABILIZE.kill));
 // Daily: settle each business's floor − upkeep, dormancy, and influence projection.
 schedule('24h', () => runVentureTick().catch(e => console.error('[corps] venture tick error:', e.message)));
 

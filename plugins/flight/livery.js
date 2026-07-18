@@ -20,6 +20,10 @@ export const DECALS = [
   { id: 'sharkmouth', label: 'Shark Mouth' },
   { id: 'killmarks', label: 'Kill Marks' },
   { id: 'sigil',     label: 'Faction Sigil' },
+  { id: 'eye',       label: "Architect's Eye" },
+  { id: 'ace',       label: 'Ace of Spades' },
+  { id: 'reaper',    label: 'Grim Reaper' },
+  { id: 'flames',    label: 'Nose Flames' },
 ];
 
 // Exterior patterns. `sig` is the signature multiplier the pattern contributes
@@ -30,6 +34,9 @@ export const PATTERNS = [
   { id: 'twotone',  label: 'Two-Tone',        sig: 1.00 },
   { id: 'stripes',  label: 'Racing Stripes',  sig: 1.05 },
   { id: 'splinter', label: 'Splinter Camo',   sig: 0.85 },
+  { id: 'tiger',    label: 'Tiger Stripe',    sig: 0.90 },
+  { id: 'digital',  label: 'Digital Camo',    sig: 0.85 },
+  { id: 'checker',  label: 'Checkerboard',    sig: 1.10 },
   { id: 'hazard',   label: 'Hazard Chevrons', sig: 1.15 },
   { id: 'jazz',     label: 'Jazz',            sig: 1.18 },   // Memphis dry-brush splatter — the loudest thing on the ramp
 ];
@@ -183,6 +190,9 @@ function trimClause(lv) {
     case 'twotone':  return `a two-tone ${c} flank`;
     case 'stripes':  return `${c} racing stripes down the fuselage`;
     case 'splinter': return `${c} splinter camo`;
+    case 'tiger':    return `${c} tiger-stripe camo`;
+    case 'digital':  return `${c} digital pixel camo`;
+    case 'checker':  return `a ${c} checkerboard down the flank`;
     case 'hazard':   return `${c} hazard chevrons`;
     case 'jazz':     return `a wild ${colorName(lv.trim)}-and-${colorName(lv.accent)} jazz splatter`;
     default:         return '';   // bare
@@ -195,6 +205,10 @@ const DECAL_CLAUSE = {
   sharkmouth: 'A shark\'s mouth grins across the nose.',
   killmarks:  'A row of kill marks is stencilled below the cockpit.',
   sigil:      'A faction sigil is painted on the tail.',
+  eye:        "The Architect's all-seeing eye stares out from the nose.",
+  ace:        'An ace of spades is stencilled below the cockpit.',
+  reaper:     "A grinning reaper's skull leers off the nose.",
+  flames:     'Hot-rod flames lick back from the nose.',
 };
 export function describeExterior(livery, typeName, tail) {
   const lv = normalizeLivery({ livery });

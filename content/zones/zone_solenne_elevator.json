@@ -15,7 +15,7 @@
       "zone_solenne_gym",
       "zone_solenne_residences",
       "zone_solenne_skydeck",
-      "zone_solenne_penthouse"
+      "zone_solenne_ph_landing"
     ]
   },
   "flags": {
@@ -42,7 +42,7 @@
       },
       {
         "n": 44,
-        "zone": "zone_solenne_penthouse",
+        "zone": "zone_solenne_ph_landing",
         "label": "The Penthouse"
       }
     ]

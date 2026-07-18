@@ -1,0 +1,25 @@
+{
+  "altitude_ceiling": 1,
+  "cargo_capacity": 20,
+  "class": "grasshopper",
+  "cruise_speed": 1,
+  "data": {
+    "feel": "Featherweight tandem scout; slow and docile, sees everything below; the wind nudges her around.",
+    "spray": true
+  },
+  "engines": 1,
+  "fuel_burn_base": 0.9,
+  "fuel_capacity": 200,
+  "fuel_type": "avgas",
+  "handling": 1,
+  "hardpoints": 0,
+  "hull_hp": 10,
+  "id": "ac_grasshopper",
+  "max_takeoff_weight": 130,
+  "name": "Grasshopper",
+  "noise": 1,
+  "price_buy": 2400,
+  "price_rent_hourly": 55,
+  "seats": 2,
+  "takeoff_mode": "stol"
+}

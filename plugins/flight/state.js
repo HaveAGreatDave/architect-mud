@@ -75,7 +75,7 @@ export function mslAmmo(live) { return live.msl ?? (live.type?.hardpoints || 0);
 // Craft flown on the continuous cockpit sim. The whole fleet is here now — the fixed-wing
 // set plus the Dragonfly (VTOL), which flies the client's dedicated hover model (collective
 // + cyclic + pedals) instead of the old modal VTOL-lift deck.
-export const CONTINUOUS_TYPES = new Set(['ac_mayfly', 'ac_mule', 'ac_leviathan', 'ac_reaper', 'ac_carcass', 'ac_dragonfly']);
+export const CONTINUOUS_TYPES = new Set(['ac_mayfly', 'ac_mule', 'ac_leviathan', 'ac_reaper', 'ac_carcass', 'ac_dragonfly', 'ac_grasshopper', 'ac_locust']);
 export function isContinuous(live) { return !!live && CONTINUOUS_TYPES.has(live.type?.id); }
 
 // Continuous altitude (ft) → the legacy band the consequence systems still read
@@ -322,6 +322,15 @@ export function runwayFor(fieldZone) {
 // out on the ramp to fly. Maintenance verbs stay usable from either.
 export function inHangarInterior(player) {
   return !!getZone(player.current_zone)?.flags?.hangar_interior;
+}
+
+// A VTOL-only field (a helipad): no runway, so only rotorcraft/VTOL can work out of it.
+// Gates acquisition (buy/rent) AND charter to `takeoff_mode === 'vtol'` craft. The
+// canonical flag is `airfield_vtol_only`; `charter_vtol_only` is the older Echelon-pad
+// flag, kept working here so both read as the same thing.
+export function vtolOnlyField(field) {
+  const f = field?.flags || {};
+  return !!(f.airfield_vtol_only || f.charter_vtol_only);
 }
 
 // ── Live aircraft registry (in-memory; the aircraft owns its occupant set) ────

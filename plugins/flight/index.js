@@ -544,6 +544,7 @@ function sendFlightSim(player, live) {
     // hardpoints arm the weapons; cargo enables jettison.
     gearRetract: ['prop', 'gunship', 'heavy'].includes(live.type.class),
     hardpoints: live.type.hardpoints || 0,
+    sprayer: !!(live.type.data && live.type.data.spray),   // ag-plane crop-duster (Grasshopper): shows the SPRAY control
     cargoCap: live.type.cargo_capacity || 0, cargoKg: ctx.cargo,
   });
 }

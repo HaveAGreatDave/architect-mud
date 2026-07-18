@@ -27,7 +27,7 @@ import { getEnvironmentState } from '../../server/engine/environment.js';
 import {
   getZone, liveAircraft, loadAircraft, persist, detach, out, toOccupants, pushHud,
   sendToZone, sendToPlayer, getLivePlayer, surfaceAt, setPosture, forceStand, bearingDeg, degToCardinal, effStats,
-  fieldFor as fieldOf, inHangarInterior,
+  fieldFor as fieldOf, inHangarInterior, vtolOnlyField,
 } from './state.js';
 import { pushHangarBay } from './hangars.js';
 
@@ -271,7 +271,7 @@ function openCharterDialog(player, field, pilot) {
   // A VTOL-only field (the Echelon's aft pad) has no runway — the Mule can't work
   // out of it. The client defaults to the off-airfield Dragonfly drop and drops the
   // Mule/airfield leg entirely: every reachable tile is a Dragonfly destination.
-  const vtolOnly = !!field.flags.charter_vtol_only;
+  const vtolOnly = vtolOnlyField(field);
   return { type: 'charter_open', data: {
     pilotName: pilot.name, pilotColor: pilotColor(pilot.id),
     fieldName: field.flags.airfield_name || field.name,
@@ -288,7 +288,7 @@ export async function cmdCharterBook(args, raw, player) {
   const { field, pilot, err } = charterGate(player);
   if (err) return err;
   // A VTOL-only field flies the Dragonfly off-airfield, always — there's no Mule/runway.
-  const anywhere = !!field.flags.charter_vtol_only || args.some(a => a.toLowerCase() === 'any' || a.toLowerCase() === 'anywhere');
+  const anywhere = vtolOnlyField(field) || args.some(a => a.toLowerCase() === 'any' || a.toLowerCase() === 'anywhere');
   const destId = args.find(a => a && a.toLowerCase() !== 'any' && a.toLowerCase() !== 'anywhere');
   const { dest, err: derr } = resolveDest(field, anywhere, destId);
   if (derr) return derr;

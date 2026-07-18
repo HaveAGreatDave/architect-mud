@@ -41,7 +41,8 @@ Flagged onto fitting zones (the `zones.flags.airfield_id` pattern):
 | Redline Airstrip | The Scald (−5,−6) | derelict · biofuel only |
 | Smuggler's Slip Pad | Smuggler's Slip (4,−3) | charter · avgas/biofuel |
 
-Six aircraft types seeded (Mayfly · Dragonfly · Mule · Leviathan · Reaper · Carcass),
+Eight aircraft types seeded (Mayfly · Dragonfly · Mule · Leviathan · Reaper · Carcass ·
+**Grasshopper** · **Locust**),
 three fuel types (avgas/jet/biofuel), standing charter rentals at several fields,
 three ground AA sites (Redline/Wastes/Slagworks), a Core no-fly cluster, and one
 downed Carcass to salvage/rebuild. Content: [`scripts/seed-flight.js`](../scripts/seed-flight.js).
