@@ -1,0 +1,8 @@
+{
+  "capacity_kw": 200,
+  "flags": {},
+  "id": "zone_hock_pawn",
+  "max_capacity_kw": 200,
+  "name": "The Hock Shop",
+  "source_type": "city_grid"
+}

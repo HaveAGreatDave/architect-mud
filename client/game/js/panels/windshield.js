@@ -2196,6 +2196,7 @@ const WALL_COL = { uptown: [46, 64, 92], civic: [72, 68, 60], citycore: [52, 56,
   ty_clone: [176, 200, 204], ty_clone_vat: [30, 52, 58],
   // Statue/KSAB media-civic quarter (mid-basin, moderately high-tech: working holo, scuffed).
   ty_ksab: [70, 56, 96], ty_greenroom: [40, 54, 46], ty_sentinel: [56, 58, 70], ty_jitter: [58, 54, 48],
+  ty_ward: [66, 68, 62],
   // Bespoke named-building shells — a distinct wall tone per silhouette below.
   ty_lux: [58, 52, 78], ty_chrome: [118, 126, 136], ty_meridian: [98, 104, 90],
   // Halcyon Towers — dark smoked-teal curtain glass for the futuristic twisting spire.
@@ -3880,6 +3881,9 @@ const NAMED_MODELS = {
   coldwatersentinel:              { type: 'office',    pal: 'ty_sentinel',  neon: '#5fd0ff' },
   meltwaterdiner:                 { type: 'diner',     pal: 'ty_diner',     neon: '#ffcf3e' },
   jitter:                         { type: 'shop',      pal: 'ty_jitter',    neon: '#5fd0ff' },
+  wardninepermits:                { type: 'office',    pal: 'ty_ward' },
+  meltwaterwalkinclinic:          { type: 'clinic',    pal: 'ty_clinic' },
+  thehockshop:                    { type: 'pawn',      pal: 'ty_pawn',      neon: '#ffcf3e' },
   coldwaterpowerplantturbinehall: { type: 'power',     pal: 'ty_power' },
   coldwaterregionalhangar:        { type: 'hangar',    pal: 'ty_hangar_a', big: true },
   thresholdhelipadhangar:         { type: 'hangar',    pal: 'ty_hangar_b', helipad: true },

@@ -1,0 +1,28 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#1f2b2b",
+  "color": null,
+  "created_by": null,
+  "description": "A bright, over-lit triage room: a padded table under a swing-arm lamp, a glass case of supplies behind a counter, and a mop bucket standing ready by a floor drain. Posters diagram wounds with a cheerfulness the subject doesn't warrant. It's clean the way a place gets clean when it has to be — scrubbed hard, and often, and recently.",
+  "exits": {
+    "north": "zone_district_915_910"
+  },
+  "flags": {
+    "building_name": "Meltwater Walk-In Clinic",
+    "building_type": "clinic",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_915_910"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_meltwater_clinic",
+  "map_id": "map_int_clinic",
+  "marker": null,
+  "name": "Meltwater Walk-In Clinic",
+  "parent_zone": "zone_district_915_910",
+  "updated_at": "1784500000"
+}

@@ -1,0 +1,14 @@
+{
+  "description": "A cork wall shingled with day-work tabs under a laminated card reading TAKE A TAB · DO THE THING · BRING IT BACK. The good ones are gone by mid-morning; what's left is what's left. Type gigs to read the board.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_jobcork_ward",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "day-work board",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_ward_permits"
+}

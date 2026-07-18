@@ -1,29 +1,34 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
+  "ambient_theme": "urban",
   "audio_theme_id": null,
-  "bg_color": "#2f3a26",
+  "bg_color": "#26221a",
   "color": "#8ba36a",
   "created_by": "zone-planner",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "description": "A narrow pawnshop with a grille over every pane and a window crammed floor-to-ceiling with other people's worst days — dead men's watches, hocked tools, a wedding band on a nail. A buzzing sign reads THE HOCK SHOP · WE BUY · WE HOLD · WE DON'T REMEMBER. The security shutter is up a hopeful eighteen inches. Something inside is always quietly appraising you.",
   "exits": {
     "east": "zone_district_917_910",
+    "in": "zone_hock_pawn",
     "north": "zone_district_916_909",
     "south": "zone_district_916_911",
     "west": "zone_district_915_910"
   },
   "flags": {
+    "building_name": "The Hock Shop",
+    "building_type": "fence",
     "district": "wasteland",
+    "facade": true,
+    "is_building": true,
     "planner": "bp_district",
-    "scavenging_table_id": "scav_west_wastes"
+    "world_exit_zone": "zone_district_916_909"
   },
   "grid_x": 916,
   "grid_y": 910,
   "grid_z": 0,
   "id": "zone_district_916_910",
   "map_id": "map_world",
-  "marker": "#",
-  "name": "Grasslands",
+  "marker": "HK",
+  "name": "The Hock Shop",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1784500000"
 }

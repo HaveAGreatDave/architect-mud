@@ -1,0 +1,40 @@
+{
+  "category": null,
+  "description": "A stamped permit needs walking to Marrow Street and then over to Foundry Way, where it will be ignored in person rather than by post. 14₵.",
+  "id": "quest_ward_permit",
+  "meta": {
+    "taskSeconds": 5
+  },
+  "name": "Permit Run",
+  "objectives": [
+    {
+      "desc": "Marrow Street",
+      "emotes": [
+        "{who} presents a Ward Nine permit to nobody in particular on Marrow Street.",
+        "{who} waves the stamped flimsy at a shuttered frontage and calls it served."
+      ],
+      "id": "o0",
+      "type": "visit",
+      "zone": "zone_district_913_909"
+    },
+    {
+      "desc": "Foundry Way",
+      "emotes": [
+        "{who} slaps the permit against a Foundry Way post and photographs it as proof of delivery.",
+        "{who} leaves the permit somewhere plausible on Foundry Way and considers the matter closed."
+      ],
+      "id": "o1",
+      "requires": [
+        "o0"
+      ],
+      "type": "visit",
+      "zone": "zone_district_911_912"
+    }
+  ],
+  "quest_type": "standard",
+  "repeatable": 1,
+  "rewards": {
+    "credits": 14
+  },
+  "updated_at": "1784500000"
+}

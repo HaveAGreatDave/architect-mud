@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_pawn_radio",
+  "name": "secondhand field radio",
+  "tags": {
+    "description": "A dented handheld field radio, hocked and never redeemed, its casing held shut with a rubber band. Crackles to life if you thumb it right; mostly it just crackles. Sold as-is, like everything else in here.",
+    "stackable": false
+  },
+  "type": "misc",
+  "value": 35,
+  "weight": 300
+}

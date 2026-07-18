@@ -1,0 +1,14 @@
+{
+  "description": "A municipal number-dispenser bolted by the door, its display frozen on NOW SERVING: 04 above a queue of nobody. It chunks out a paper tab if you press it — a number that will not be called today, or, in all likelihood, ever.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_ticketmachine_ward",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "ticket machine",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_ward_permits"
+}

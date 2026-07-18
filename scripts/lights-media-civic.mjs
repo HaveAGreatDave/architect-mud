@@ -10,6 +10,7 @@ const ZONES = [
   'zone_greenroom_lounge', 'zone_greenroom_booth',
   'zone_sentinel_bullpen', 'zone_sentinel_editor',
   'zone_meltwater_diner', 'zone_stimcafe',
+  'zone_ward_permits', 'zone_meltwater_clinic', 'zone_hock_pawn',
 ];
 
 const r = await query(

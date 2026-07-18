@@ -1,29 +1,34 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
+  "ambient_theme": "urban",
   "audio_theme_id": null,
-  "bg_color": "#2f3a26",
+  "bg_color": "#1c2626",
   "color": "#8ba36a",
   "created_by": "zone-planner",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "description": "A walk-in clinic in a converted storefront, a green cross buzzing in the window over a card reader and a sign that promises WE PATCH, WE DON'T ASK. Through the glass: a row of vinyl chairs, a triage counter, and the specific fluorescent pallor of a place that has seen every way a body comes apart. The floor drain by the door is a detail you try not to think about.",
   "exits": {
     "east": "zone_district_916_910",
+    "in": "zone_meltwater_clinic",
     "north": "zone_district_915_909",
     "south": "zone_district_915_911",
     "west": "zone_district_914_910"
   },
   "flags": {
+    "building_name": "Meltwater Walk-In Clinic",
+    "building_type": "clinic",
     "district": "wasteland",
+    "facade": true,
+    "is_building": true,
     "planner": "bp_district",
-    "scavenging_table_id": "scav_west_wastes"
+    "world_exit_zone": "zone_district_915_909"
   },
   "grid_x": 915,
   "grid_y": 910,
   "grid_z": 0,
   "id": "zone_district_915_910",
   "map_id": "map_world",
-  "marker": "#",
-  "name": "Grasslands",
+  "marker": "WC",
+  "name": "Meltwater Walk-In Clinic",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1784500000"
 }

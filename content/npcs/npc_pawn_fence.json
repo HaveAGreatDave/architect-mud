@@ -1,0 +1,146 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Hock turns something small over under the loupe and names a number lower than it deserves.",
+    "\"Everything in here belonged to someone who swore they'd be back. They swore.\""
+  ],
+  "description": "A soft-spoken man behind the wire mesh, loupe screwed into one eye and a valuation already forming behind the other. He buys what walks in, holds what won't sell, and remembers nothing that could be asked about later. Every kindness he offers is priced, and the price is always his.",
+  "dialogue_tree": {
+    "buy": {
+      "options": [
+        {
+          "label": "Let's see the cases, then.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Anything that'll sit in a case and hold its value till the next desperate soul.\" He gestures at the wall of tickets. \"Tools, trinkets, the odd thing best not described on a receipt. I pay what it's worth to me, which is less than it's worth to you — that gap is the whole business. Bring it round, I'll price it, no questions filed.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "\"Mind the grille.\" His eye is already back on the loupe, and on you."
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Show me the cases.",
+          "next": "__shop__"
+        },
+        {
+          "label": "What do you buy?",
+          "next": "buy"
+        },
+        {
+          "label": "Whose stuff is all this?",
+          "next": "whose"
+        },
+        {
+          "label": "Just browsing.",
+          "next": "bye"
+        }
+      ],
+      "text": "Hock doesn't look up from the loupe. \"Buying or selling? — no, don't tell me, I can price a man from the door.\" He sets the loupe down. \"I buy what you've stopped needing, I sell what someone else stopped needing, and I never once ask which of those it is. What's it to be.\""
+    },
+    "whose": {
+      "options": [
+        {
+          "label": "Buying.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Everyone's. No one's.\" He touches the watch in the case, almost gentle. \"Every piece in here walked in on a bad week attached to a promise to come back for it. They mean it, every time. They don't come back, every time. I don't hold it against them — I just hold the goods.\" The loupe goes back in. \"Now. Were you buying, or adding to the collection?\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a shiny-elbowed pinstripe waistcoat over a collarless shirt",
+      "a jeweller's loupe on a greasy cord and fingerless gloves",
+      "worn suit trousers and boxers"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_hock_pawn",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_pawn_fence",
+  "name": "Hock",
+  "npc_type": "vendor",
+  "sex": "male",
+  "vendor_inventory": [
+    {
+      "item_id": "item_pawn_watch",
+      "price": 40
+    },
+    {
+      "item_id": "item_pawn_radio",
+      "price": 35
+    },
+    {
+      "item_id": "item_pipe_wrench",
+      "price": 22
+    },
+    {
+      "item_id": "item_duct_tape",
+      "price": 8
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 9,
+        "to": 25
+      }
+    ],
+    "mon": [
+      {
+        "from": 9,
+        "to": 25
+      }
+    ],
+    "sat": [
+      {
+        "from": 9,
+        "to": 25
+      }
+    ],
+    "sun": [
+      {
+        "from": 9,
+        "to": 25
+      }
+    ],
+    "thu": [
+      {
+        "from": 9,
+        "to": 25
+      }
+    ],
+    "tue": [
+      {
+        "from": 9,
+        "to": 25
+      }
+    ],
+    "wed": [
+      {
+        "from": 9,
+        "to": 25
+      }
+    ]
+  },
+  "vendor_shop_name": "The Hock Shop",
+  "vendor_stock_size": 24,
+  "wander_zones": [],
+  "wanders": 0
+}

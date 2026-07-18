@@ -1,0 +1,150 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Sister Adler snaps off a glove, snaps on another, and doesn't break eye contact.",
+    "\"Sit. Bleed on the vinyl, not the floor — the floor I just did.\""
+  ],
+  "description": "A brisk, unshockable medic in a plastic apron, hands scrubbed pink and eyes that triage you before you've finished the doorway. She patches what walks in, sells what she can't fix in one visit, and asks exactly none of the questions the wounds are begging for. Kind, in the efficient way of someone who's run out of the other kind.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Stay whole if you can. Come here first if you can't.\" She's already washing her hands."
+    },
+    "noask": {
+      "options": [
+        {
+          "label": "Sell me something for next time.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"I ask where it hurts. I don't ask how.\" She meets your eye, level. \"A knife, a fall, a disagreement that went to the body — it all bleeds the same and it all sits on my table the same. The questions cost me patients and cost them their nerve. So no. Sit down, and let's see it.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What have you got?",
+          "next": "stock"
+        },
+        {
+          "label": "Sell me supplies.",
+          "next": "__shop__"
+        },
+        {
+          "label": "You don't ask questions?",
+          "next": "noask"
+        },
+        {
+          "label": "Just checking in.",
+          "next": "bye"
+        }
+      ],
+      "text": "Sister Adler looks up, already assessing. \"Walk-in. Good — the ones who get carried in are a worse day for everyone.\" She wipes her hands. \"We patch, we don't ask. You want supplies to take with you, or are you bleeding on my vinyl right now?\""
+    },
+    "stock": {
+      "options": [
+        {
+          "label": "Stock me up.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Medkit if you're serious, bandages if you're cheap, a splint for when something's pointing the wrong way.\" She ticks them off on gloved fingers. \"Anti-rad tablets, because out here you'll want them and you'll always want them too late. Buy ahead. The version of you that needs this won't be in a state to shop.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a plastic-aproned scrubs top gone grey at the cuffs",
+      "a lanyard of nitrile gloves and bandage scissors",
+      "drawstring scrub trousers, clogs, and a sports bra and briefs"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_meltwater_clinic",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_clinic_medic",
+  "name": "Sister Wren Adler",
+  "npc_type": "vendor",
+  "sex": "female",
+  "vendor_inventory": [
+    {
+      "item_id": "item_medkit",
+      "price": 60
+    },
+    {
+      "item_id": "item_bandage",
+      "price": 12
+    },
+    {
+      "item_id": "item_field_splint",
+      "price": 20
+    },
+    {
+      "item_id": "item_antirad_tablets",
+      "price": 28
+    },
+    {
+      "item_id": "item_rag_bandage",
+      "price": 5
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "mon": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "sat": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "sun": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "thu": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "tue": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "wed": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ]
+  },
+  "vendor_shop_name": "Meltwater Walk-In",
+  "vendor_stock_size": 30,
+  "wander_zones": [],
+  "wanders": 0
+}

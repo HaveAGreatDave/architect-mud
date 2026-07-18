@@ -1,0 +1,105 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "The clerk stamps a form, stamps the desk by accident, and stamps the form again to be sure.",
+    "\"Number's not up yet. The number is never up. Take a tab off the board while you wait — that pays.\""
+  ],
+  "description": "A grey civil servant fossilised behind the permit glass, sleeve garters and a stamp in each hand, radiating the terrible patience of a man who has outlasted three governments and every applicant. He is the ward's job board, its licensing desk, and its last line of defence against anything getting done quickly.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Next.\" There is no one else. He says it anyway, and returns to his stamping."
+    },
+    "grievance": {
+      "options": [
+        {
+          "cmd": "gigs",
+          "label": "Show me the board, then.",
+          "text": "\"The board.\""
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Of course you do. Everyone does.\" He produces a form of extraordinary length. \"Fill this in triplicate, file it in the slot by the door, and it will join the others in the great unread. The procedure is the point. If the grievance were meant to be resolved we'd have built a smaller box.\" A thin, bureaucratic satisfaction. \"Was there anything actually actionable? The board pays. Grievances don't.\""
+    },
+    "job_turnin": {
+      "actions": [
+        {
+          "action": "TURN_IN"
+        }
+      ],
+      "options": [
+        {
+          "cmd": "gigs",
+          "text": "\"What else is on the board?\""
+        }
+      ],
+      "text": "The clerk takes your tab, checks it against the board with insulting thoroughness, and stamps it. \"{quest}. Logged. Credits clear before the ink dries — the one thing this office does promptly.\" Thunk. \"Take another. The board's always hungrier than you are.\""
+    },
+    "permit": {
+      "actions": [
+        {
+          "action": "GRANT_ITEM",
+          "item_id": "item_ward_permit",
+          "quantity": 1
+        }
+      ],
+      "options": [
+        {
+          "label": "...Thanks?",
+          "next": "root"
+        },
+        {
+          "label": "That'll do.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"A permit. For what?\" He doesn't wait for the answer, already reaching for the stamp. \"Doesn't matter. The what-box stays blank — saves us both a hearing.\" Thunk. He slides the flimsy across. \"There. You are now permitted. Whether anyone honours it is a matter between you and them, and no concern of Ward Nine's.\""
+    },
+    "root": {
+      "options": [
+        {
+          "cmd": "gigs",
+          "label": "What day-work is on the board?",
+          "text": "\"Day-work.\""
+        },
+        {
+          "label": "Stamp me a permit.",
+          "next": "permit"
+        },
+        {
+          "label": "I've got a grievance.",
+          "next": "grievance"
+        },
+        {
+          "label": "Nothing today.",
+          "next": "bye"
+        }
+      ],
+      "text": "The clerk does not look up from his stamping. \"Ward Nine. Permits, licences, grievances — take a number, though I'll tell you now the machine's the only thing here that works.\" He finally raises his eyes. \"You're after paid work, a stamp, or a complaint. Which.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a threadbare municipal cardigan buttoned wrong",
+      "a shirt with sleeve garters and an ink-stained pocket",
+      "pressed grey slacks and boxers"
+    ],
+    "job_board_dispatcher": true,
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_ward_permits",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_ward_clerk",
+  "name": "Deputy Registrar Odell Crane",
+  "npc_type": "npc",
+  "sex": "male",
+  "wander_zones": [],
+  "wanders": 0
+}

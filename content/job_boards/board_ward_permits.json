@@ -1,0 +1,14 @@
+{
+  "description": "Ward Nine day-work: census, permit runs, occupancy checks. It won't make you a citizen. It'll make you rent. Bring the tab back to the window.",
+  "id": "board_ward_permits",
+  "name": "Ward Nine — Day Work",
+  "quest_pool": [
+    "quest_ward_census",
+    "quest_ward_permit",
+    "quest_ward_inspect"
+  ],
+  "rotation_period": "21600",
+  "rotation_size": 3,
+  "updated_at": "1784500000",
+  "zone_id": "zone_ward_permits"
+}

@@ -1,0 +1,14 @@
+{
+  "description": "A steel triage counter with a glass case of supplies behind it, a swing-arm lamp, and a roll of blue paper pulled down over the table for the next body. Everything within reach; nothing you'd want to need.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_triage_clinic",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "triage counter",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_meltwater_clinic"
+}

@@ -1,0 +1,8 @@
+{
+  "capacity_kw": 200,
+  "flags": {},
+  "id": "zone_meltwater_clinic",
+  "max_capacity_kw": 200,
+  "name": "Meltwater Walk-In Clinic",
+  "source_type": "city_grid"
+}
