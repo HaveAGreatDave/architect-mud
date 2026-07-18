@@ -1,0 +1,17 @@
+{
+  "description": "Warm light pools from concealed coves along the stone, sourceless and immaculate — the lobby is engineered never to be dark.",
+  "flags": {
+    "is_light": true,
+    "light_type": "overhead"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_solenne_lobby",
+  "light_type": "overhead",
+  "lumen_output": 2800,
+  "name": "hidden light coves",
+  "object_type": "light",
+  "power_draw_kw": 0.03,
+  "price": 0,
+  "zone_id": "zone_solenne_lobby"
+}

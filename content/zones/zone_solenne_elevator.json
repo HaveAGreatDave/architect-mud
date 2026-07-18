@@ -20,32 +20,31 @@
   },
   "flags": {
     "building_name": "Solenne Residences",
-    "is_interior": true,
-    "always_lit": true,
-    "sanctuary": true,
     "elevator": true,
     "elevator_floors": [
       {
+        "label": "Fitness Club",
         "n": 12,
-        "zone": "zone_solenne_gym",
-        "label": "Fitness Club"
+        "zone": "zone_solenne_gym"
       },
       {
+        "label": "The Residences",
         "n": 30,
-        "zone": "zone_solenne_residences",
-        "label": "The Residences"
+        "zone": "zone_solenne_residences"
       },
       {
+        "label": "Sky Deck & Pool",
         "n": 40,
-        "zone": "zone_solenne_skydeck",
-        "label": "Sky Deck & Pool"
+        "zone": "zone_solenne_skydeck"
       },
       {
+        "label": "The Penthouse",
         "n": 44,
-        "zone": "zone_solenne_ph_landing",
-        "label": "The Penthouse"
+        "zone": "zone_solenne_ph_landing"
       }
-    ]
+    ],
+    "is_interior": true,
+    "sanctuary": true
   },
   "grid_x": 0,
   "grid_y": -1,

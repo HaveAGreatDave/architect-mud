@@ -10,15 +10,14 @@
   "created_by": null,
   "description": "A hushed residential floor: a curved gallery of numbered doors set into panelled walnut, a runner of deep carpet swallowing every footstep, and a window at the end framing the bay far below. Fresh lilies stand on a console table. Three private residences open off this landing — <b>north</b>, <b>east</b>, and <b>west</b>. Step <b>in</b> to the elevator.",
   "exits": {
+    "east": "zone_solenne_apt_b",
     "in": "zone_solenne_elevator",
     "north": "zone_solenne_apt_a",
-    "east": "zone_solenne_apt_b",
     "west": "zone_solenne_apt_c"
   },
   "flags": {
     "building_name": "Solenne Residences",
     "is_interior": true,
-    "always_lit": true,
     "sanctuary": true
   },
   "grid_x": 0,

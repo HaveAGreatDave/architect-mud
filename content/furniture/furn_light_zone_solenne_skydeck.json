@@ -1,0 +1,17 @@
+{
+  "description": "Strings of festoon lamps run the length of the parapet, doubled in the black mirror of the lap pool.",
+  "flags": {
+    "is_light": true,
+    "light_type": "overhead"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_solenne_skydeck",
+  "light_type": "overhead",
+  "lumen_output": 2000,
+  "name": "poolside festoon lights",
+  "object_type": "light",
+  "power_draw_kw": 0.03,
+  "price": 0,
+  "zone_id": "zone_solenne_skydeck"
+}

@@ -1,0 +1,17 @@
+{
+  "description": "A grid of flush LED panels floods the rubberised floor and chromed weights with hard, even light.",
+  "flags": {
+    "is_light": true,
+    "light_type": "overhead"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_solenne_gym",
+  "light_type": "overhead",
+  "lumen_output": 2600,
+  "name": "overhead LED panels",
+  "object_type": "light",
+  "power_draw_kw": 0.03,
+  "price": 0,
+  "zone_id": "zone_solenne_gym"
+}

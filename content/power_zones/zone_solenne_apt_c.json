@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 1000,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_solenne_lobby_1784412683549",
+  "id": "zone_solenne_apt_c",
+  "max_capacity_kw": 1000,
+  "name": "Solenne Residence 30-C",
+  "source_type": "junction_box"
+}

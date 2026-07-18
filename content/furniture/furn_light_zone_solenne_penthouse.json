@@ -1,0 +1,17 @@
+{
+  "description": "A continuous cove of light rings the five-metre ceiling, lifting the whole crown of the tower into a soft glow against the glass.",
+  "flags": {
+    "is_light": true,
+    "light_type": "overhead"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_solenne_penthouse",
+  "light_type": "overhead",
+  "lumen_output": 3200,
+  "name": "perimeter cove lighting",
+  "object_type": "light",
+  "power_draw_kw": 0.04,
+  "price": 0,
+  "zone_id": "zone_solenne_penthouse"
+}

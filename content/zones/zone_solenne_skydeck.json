@@ -15,9 +15,8 @@
   "flags": {
     "building_name": "Solenne Residences",
     "is_interior": true,
-    "always_lit": true,
-    "sanctuary": true,
-    "open_sky": true
+    "open_sky": true,
+    "sanctuary": true
   },
   "grid_x": 0,
   "grid_y": -1,
