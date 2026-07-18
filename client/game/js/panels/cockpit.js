@@ -1634,7 +1634,38 @@ function ensureFlightSimStyles() {
     .fsim-theme-mayfly .fsim-yoke{ border-color:#1f5058; background:radial-gradient(circle at 50% 26%,#173238,#0a1214); }
     .fsim-theme-mayfly .fsim-throttle{ border-color:#1f5058; background:linear-gradient(180deg,#153034,#0a1214); }
     .fsim-theme-mayfly .fsim-thr-grip{ background:linear-gradient(180deg,#5fe0e6 0%,#1d7a80 55%,#0e2e30 100%); }
-    .fsim-theme-mayfly .fsim-thr-grip::after{ background:repeating-linear-gradient(90deg,#0e2e30 0 2px,rgba(95,224,230,.32) 2px 4px); }`;
+    .fsim-theme-mayfly .fsim-thr-grip::after{ background:repeating-linear-gradient(90deg,#0e2e30 0 2px,rgba(95,224,230,.32) 2px 4px); }
+
+    /* ══ MOBILE — pare the cockpit to flyable essentials so it fits a phone ══════════
+       On a narrow screen the dashboard is too cramped to fly. We drop the pure-flavour
+       transponder/COM-NAV radio and the maker's-plate placard, and the nav-map MFD (the
+       Tablet has maps) + the PFD — leaving TWO clear gauges: the engine/fuel dial cluster
+       (widened to fill the freed space) and a big, legible SPEED + ALTITUDE overlay pinned
+       over the view (kept live in interior view on mobile — see the frame loop). Throttle,
+       flaps and trim stay grouped on the right; the flight stick + rudder pedals stay. The
+       stick drops into its own full-width bottom band (the same treatment flightsim.html
+       uses) instead of rising up through the gauges. 720px = the client's phone breakpoint. */
+    @media (max-width: 720px){
+      /* Give the out-the-window view as much height as we can; the instrument band and the
+         stick band below it stay compact so the window dominates the screen. */
+      .fsim-view{ height: clamp(240px, 58vh, 560px); }
+      .fsim-glass{ height: 128px; }                     /* compact instrument + control band */
+      .fsim-ctl{ height: 104px; }                       /* compact stick band */
+      /* Drop the flavour radio + maker's-plate placard, and the nav-map screen + PFD: that
+         leaves TWO clear gauges (the engine/fuel dial cluster + the big speed/alt overlay) and
+         hands the whole bottom band to just the flight stick. */
+      .fsim-pfd, .fsim-mfd, .fsim-placard, .fsim-xpdr{ display:none; }
+      .fsim-gauges{ min-width:0; }                       /* let the gauge cluster shrink to the phone width (its canvas has a 300px intrinsic min) so the row never overflows */
+      .fsim-rightctl{ flex:0 0 140px; }                 /* throttle · engine · flaps + trim (need room to sit side by side without overflowing) */
+      .fsim-yoke{ flex:1 1 auto; }                      /* just the flight stick fills the bottom band */
+      .fsim-yoke-svg{ left:7%; top:2%; width:86%; height:96%; transform-origin:50% 58%; }   /* dropped into its own band, clear of the gauges */
+      .fsim-climbmark{ top:60%; }
+      /* big readable speed + altitude, over the view (normally external-view only) */
+      .fsim-extg{ display:flex; right:8px; bottom:8px; gap:5px; }
+      .fsim-extg-row{ min-width:0; padding:3px 10px; gap:6px; }
+      .fsim-extg-row b{ font-size:24px; min-width:50px; }
+      .fsim-extg-lbl, .fsim-extg-u{ font-size:11px; }
+    }`;
   document.head.appendChild(s);
 }
 
@@ -3087,8 +3118,10 @@ function fsimFrame(now) {
 
   const r = readout(s, P), d = F.disp;
   d.ias = lerpN(d.ias, r.airspeed, Math.min(1, dt * 6)); d.alt = lerpN(d.alt, r.altitude, Math.min(1, dt * 5));
-  // External view: feed the two big bottom-right gauges (the dashboard is hidden there).
-  if (F.external) {
+  // Feed the two big bottom-right gauges. They're shown in external view (the dashboard is
+  // hidden there) and on mobile (the interior dashboard is pared down — these are the legible
+  // speed/altitude readout). Hidden otherwise, so the writes are a harmless no-op on desktop.
+  {
     const ig = document.getElementById('fsim-extg-ias'); if (ig) ig.textContent = Math.round(d.ias);
     const ag = document.getElementById('fsim-extg-alt'); if (ag) ag.textContent = Math.round(d.alt);
   }
