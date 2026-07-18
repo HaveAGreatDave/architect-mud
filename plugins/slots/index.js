@@ -82,6 +82,8 @@ function renderMachine(machineName, reels, result, bet, winnings, balance) {
     `║ ${center('')} ║`,
     '╠═════════════════╣',
     `║ ${center(verdict)} ║`,
+    '╠═════════════════╣',
+    `║ ${center('▸ PULL AGAIN ◂')} ║`,
     '╚═════════════════╝',
   ].join('\n');
 
@@ -92,7 +94,10 @@ function renderMachine(machineName, reels, result, bet, winnings, balance) {
     ? `${g(`${result.label} pays ×${result.mult}`)} — you rake in ${g(`₵ ${winnings.toLocaleString()}`)}.`
     : `${r('The reels settle wrong.')} The ${machineName} keeps your ₵ ${bet}.`;
 
-  return `<pre>${box}</pre>${tail}<br><span class="text-dim">bet ₵ ${bet}  ·  balance ${y(`₵ ${balance.toLocaleString()}`)}</span>`;
+  // The whole reel window is clickable — click to pull again for the same bet.
+  const lever = `<span class="action-link slot-pull" data-action="cmd" data-cmd="spin ${bet}" data-label="spin ${bet}" title="Pull the ${machineName} again for ₵ ${bet}"><pre>${box}</pre></span>`;
+
+  return `${lever}${tail}<br><span class="text-dim">bet ₵ ${bet}  ·  balance ${y(`₵ ${balance.toLocaleString()}`)}</span>`;
 }
 
 // ── Command ──────────────────────────────────────────────────────────────────

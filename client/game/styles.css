@@ -1926,6 +1926,20 @@ body.fsim-external #look-resize-handle { display: none; }
 	text-underline-offset: 3px;
 	filter: none;
 }
+/* Slot reel window: the whole ASCII box is the pull lever. Kill the inline
+   underline (it's a block, not a word) and give it a tactile hover instead. */
+.action-link.slot-pull {
+	display: inline-block;
+	text-decoration: none;
+	color: inherit;
+}
+.action-link.slot-pull pre {
+	margin: 0;
+	transition: filter 0.1s;
+}
+.action-link.slot-pull:hover {
+	filter: brightness(1.2);
+}
 .player-link {
 	color: var(--purple);
 }
