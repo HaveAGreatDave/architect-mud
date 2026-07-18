@@ -305,6 +305,23 @@ const bareHot     = (n) => pick(BARE_HOT)(n);
 const redressTame = (n, g) => `${n} draws ${g} back over herself, the moment folded away.`;
 const redressHot  = (n, g) => `${n} slides ${g} back over warm skin, covering up.`;
 
+// Once she's fully bare and warm with him, she doesn't just wait — she touches
+// herself, unhurried and unashamed, a whole variety of it. [tame, hot]; § → name.
+const NAKED_SOLO = [
+  [`§ stretches out bare and unhurried, comfortable in her own skin.`,
+   `§ lies back naked and lets a hand drift between her thighs, touching herself lazily while she watches you.`],
+  [`§ runs her hands slowly over herself, lost in the warmth.`,
+   `§ cups her own breasts and rolls a nipple between her fingers, sighing, in no hurry for you to join in.`],
+  [`§ shifts against the silk, warm and languid.`,
+   `§ works two fingers slow between her legs, hips rocking, putting on a show she knows you're watching.`],
+  [`§ arches in a long, contented stretch.`,
+   `§ spreads herself on the sheets and rubs slow circles over her clit, biting her lip at you.`],
+  [`§ traces idle patterns across her own skin.`,
+   `§ palms her breasts and grinds down against her own hand, breath going shallow, eyes never leaving you.`],
+  [`§ hums something low and settles deeper into the cushions.`,
+   `§ slides a hand down her stomach and lower, teasing herself open with a soft, wanting sound.`],
+];
+
 // ── Fellatio (their signature — worship aimed squarely at the keeper) ────────────
 // The one thing they're famous for, and the one thing they take real pride in. This
 // only fires in the intimate cabin when the keeper is ALONE with them, MIS is on, he's
@@ -351,14 +368,71 @@ const FELLATIO_DUO = [
   ],
 ];
 
+// The rest of their repertoire — same [who, tame, hot] shape as the fellatio
+// threads (§ → speaker name). RIDE (she works him from on top) and HANDJOB round
+// out the acts they'll start unbidden when peaked, or on command (see cmdConsortDirect).
+const RIDE_SOLO = [
+  [
+    ['A', `§ pushes you flat and climbs over you, taking her time about it.`,
+          `§ pushes you flat, straddles your hips, and sinks down onto you with a long, shameless sigh.`],
+    ['A', `§ braces her hands on your chest and finds a slow rhythm.`,
+          `§ rolls her hips in a slow, filthy grind, riding you deep, watching your face the whole way down.`],
+    ['A', `§ leans down close, breath warm against your ear.`,
+          `§ rides you harder, breasts swaying, moaning how much she's yours between ragged breaths.`],
+    ['A', `§ tips her head back, utterly lost in it.`,
+          `§ slams down onto you and clenches tight, chasing it, like she never wants you to leave.`],
+  ],
+  [
+    ['A', `§ eases you back against the pillows and settles over you.`,
+          `§ guides you inside and rocks down, unhurried, savouring every inch like she's got all night.`],
+    ['A', `§ threads her fingers through yours and keeps moving.`,
+          `§ rides you slow and deep, pinning your hands, murmuring that this is exactly where she belongs.`],
+    ['A', `§ shivers and picks up the pace.`,
+          `§ grinds down faster, thighs trembling, gasping your name like a prayer she means every word of.`],
+  ],
+];
+const RIDE_DUO = [
+  [
+    ['A', `§ climbs over you while Bijou settles in close beside you both.`,
+          `§ sinks down onto you while Bijou kisses her way up your chest, the two of them grinning at each other.`],
+    ['B', `§ leans in, sharing the moment, hands roaming.`,
+          `§ straddles your face while the other rides you, and the cabin fills with the sound of the two of them.`],
+    ['A', `§ trades places without a word, generous and unhurried.`,
+          `§ lifts off and Bijou takes her in a heartbeat, keeping you buried and gasping between them.`],
+    ['A', `§ collapses against you, spent and glowing.`,
+          `§ and her twin ride you between them until you're wrung out, then curl up warm on either side of you.`],
+  ],
+];
+const HANDJOB_SOLO = [
+  [
+    ['A', `§ reaches into your lap with a knowing little smile.`,
+          `§ frees your cock and wraps a warm hand around it, thumb already circling the head.`],
+    ['A', `§ works you slow, reading your face for every tell.`,
+          `§ strokes you in a steady, twisting rhythm, matching every breath you take and drawing out the next.`],
+    ['A', `§ rests her head on your shoulder and keeps going.`,
+          `§ jerks you faster, breath hot at your throat, whispering how much she loves the weight of you in her hand.`],
+  ],
+];
+
+// The acts they'll perform on the keeper — auto (when peaked) or on command. Each
+// is MIS-tiered, timed, and raises the keeper's arousal (gain per beat). maleOnly
+// acts quietly no-op for a female keeper.
+const KEEPER_ACTS = {
+  suck:    { solo: FELLATIO_SOLO, duo: FELLATIO_DUO, gain: 16, maleOnly: true },
+  ride:    { solo: RIDE_SOLO,     duo: RIDE_DUO,     gain: 16, maleOnly: true },
+  handjob: { solo: HANDJOB_SOLO,  duo: null,         gain: 12, maleOnly: true },
+};
+
 // Play a MIS-tiered multi-turn scene aimed at the keeper. `speakers` maps role
 // ('A'/'B') to the consort object for that turn. Re-checks its audience each beat
-// and bails if the keeper leaves or a stranger walks in mid-scene.
-function playFellatio(zoneId, thread, speakers) {
+// and bails if the keeper leaves or a stranger walks in mid-scene. Their attention
+// lands on the keeper as arousal — the act is the timed kind and raises his horniness
+// beat by beat (only the opted-in keeper accrues it).
+function playKeeperScene(zoneId, thread, speakers, keeperId = null, gain = 14) {
   sceneZones.add(zoneId);
   let i = 0;
   const cast = Object.values(speakers);
-  const step = () => {
+  const step = async () => {
     const present = cast.every(n => n && !n._dead && n.zone_id === zoneId);
     if (i >= thread.length || !getZonePlayers(zoneId).length || !present) { sceneZones.delete(zoneId); return; }
     const [who, tame, hot] = thread[i++];
@@ -366,10 +440,15 @@ function playFellatio(zoneId, thread, speakers) {
     tieredZoneLine(zoneId, tame.replaceAll('§', speaker.name), hot.replaceAll('§', speaker.name));
     const now = Date.now();
     for (const s of cast) { lastSpoke.set(s.id, now); if (s._ai) s._ai.lastSay = now; }
+    const keeper = keeperId ? getLivePlayer(keeperId) : null;
+    if (keeper && isMisActive(keeper) && keeper.current_zone === zoneId) {
+      const msgs = await addHorniness(keeper, gain, () => {});
+      sendToPlayer(keeper.id, { type: 'resource_tick', messages: msgs, player_update: { horniness: keeper.horniness, erect: keeper.erect, sanity: keeper.sanity } });
+    }
     if (i >= thread.length) { sceneZones.delete(zoneId); return; }
-    setTimeout(step, randInt(SCENE_TURN_MS[0], SCENE_TURN_MS[1]));
+    setTimeout(() => step().catch(() => {}), randInt(SCENE_TURN_MS[0], SCENE_TURN_MS[1]));
   };
-  step();
+  step().catch(() => {});
 }
 
 // ── Two-hander banter (Roxy ⇄ Bijou) ────────────────────────────────────────────
@@ -811,6 +890,7 @@ function runAreaActivity(npc, zone, zoneId, now, keeperHere, strangerHere) {
   // onto the sun deck mid-strip.
   if ((npc._clothingPeeled || 0) && !npc._forcedNude) npc._clothingPeeled = 0;
   arousal.set(npc.id, 0);
+  npc._misHorny = 0;
   moodCap.delete(npc.id);   // next time she's back in the cabin she rolls a fresh mood
 
   const graphicOK = keeperHere && !strangerHere;   // she only bares for him
@@ -924,6 +1004,9 @@ function consortTick() {
           if (a === 0) moodCap.delete(npc.id);   // cooled all the way → fresh mood next time she warms
         }
         arousal.set(npc.id, a);
+        // Mirror onto the MIS transient so the mis plugin's threesome detector sees a
+        // warmed-up consort as an eligible joiner when the keeper fucks the other one.
+        npc._misHorny = a; npc._misHornyAt = now;
 
         // Undress / cover up. A force-stripped consort (the `strip` verb) is held
         // bare and skips this — someone else took her clothes; she doesn't put them
@@ -952,9 +1035,22 @@ function consortTick() {
           }
         }
 
-        // Signature act — their expertise. Peaked, alone with him, MIS on, and he's
-        // male: they go down on him. A multi-beat, MIS-tiered scene on the same long
-        // cooldown as the two-handers, sometimes solo, sometimes both of them at once.
+        // Fully bare and warm with him, between the bigger scenes she plays with
+        // herself — unhurried, a whole variety of it. Filler beat; skips if she's
+        // due for a scene or spoke too recently.
+        if (keeperHere && !strangerHere && layers.length && (npc._clothingPeeled || 0) >= layers.length
+            && !sceneZones.has(zoneId)
+            && now - (lastSpoke.get(npc.id) || 0) >= SPEAK_GAP_MS && Math.random() < 0.4) {
+          const [tame, hot] = pick(NAKED_SOLO);
+          tieredZoneLine(zoneId, tame.replaceAll('§', npc.name), hot.replaceAll('§', npc.name));
+          lastSpoke.set(npc.id, now);
+          continue;
+        }
+
+        // Signature acts — their expertise. Peaked, alone with him, MIS on, and he's
+        // male: they start something on him, unbidden — fellatio, riding him, a slow
+        // handjob. A multi-beat, MIS-tiered, timed scene (it raises his arousal) on the
+        // same long cooldown as the two-handers, sometimes solo, sometimes both at once.
         if (keeperHere && !strangerHere && a >= FELLATIO_AT
             && keeper?.biological_sex === 'male' && isMisActive(keeper)
             && !sceneZones.has(zoneId)
@@ -965,10 +1061,11 @@ function consortTick() {
           const bijou = findConsort(consorts, 'bijou');
           const bothHere = roxy && bijou && roxy !== bijou
             && roxy.zone_id === zoneId && bijou.zone_id === zoneId;
-          if (bothHere && Math.random() < FELLATIO_DUO_CHANCE) {
-            playFellatio(zoneId, pick(FELLATIO_DUO), { A: roxy, B: bijou });
+          const act = KEEPER_ACTS[pick(Object.keys(KEEPER_ACTS))];
+          if (bothHere && act.duo && Math.random() < FELLATIO_DUO_CHANCE) {
+            playKeeperScene(zoneId, pick(act.duo), { A: roxy, B: bijou }, keeper.id, act.gain);
           } else {
-            playFellatio(zoneId, pick(FELLATIO_SOLO), { A: npc });
+            playKeeperScene(zoneId, pick(act.solo), { A: npc }, keeper.id, act.gain);
           }
           break;                                                 // the scene owns the room this tick
         }
@@ -1271,14 +1368,17 @@ async function cmdPour(args, raw, player) {
   if (!bar) return { type: 'error', message: 'There’s no bar here for her to pour from.' };
 
   // Strip filler; what's left can name a consort ("pour Bijou") and/or a drink
-  // ("pour me a whiskey"). Either matched, or her pick.
-  const want = args.join(' ').replace(/\b(me|a|an|the|some|one|please|drink|glass|of)\b/gi, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+  // ("pour me a whiskey"), in any order ("roxy pour me a whiskey"). Match token by
+  // token so a name and a drink in the same request both land.
+  const wantTokens = args.join(' ')
+    .replace(/\b(pour|me|a|an|the|some|one|please|drink|glass|of)\b/gi, ' ')
+    .replace(/\s+/g, ' ').trim().toLowerCase().split(' ').filter(Boolean);
   let npc = pick(pool);
   let drinkId = pick(bar.drinks);
-  if (want) {
-    const named = pool.find(n => String(n.name || '').toLowerCase().includes(want));
+  if (wantTokens.length) {
+    const named = pool.find(n => wantTokens.some(t => String(n.name || '').toLowerCase().includes(t)));
     if (named) npc = named;
-    const wanted = bar.drinks.find(id => String(getItem(id)?.name || '').toLowerCase().includes(want));
+    const wanted = bar.drinks.find(id => wantTokens.some(t => String(getItem(id)?.name || '').toLowerCase().includes(t)));
     if (wanted) drinkId = wanted;
   }
 
@@ -1307,6 +1407,60 @@ async function cmdPour(args, raw, player) {
   return { type: 'output', message: formatChitchat(npc.name, line).message };
 }
 
+// ── Direct commands to a present consort ─────────────────────────────────────────
+// The keeper addresses one of his consorts by name and tells her what he wants:
+//   roxy suck me   ·   bijou ride me   ·   roxy handjob   ·   roxy pour me a whiskey
+// A name-prefixed input matcher with a NARROW verb list — it never matches the
+// second word of another multi-word verb ("eat out …", "jerk off on …"), so it
+// can't shadow them. Anything whose first word isn't one of HIS present consorts
+// returns undefined and falls through to normal command routing.
+const CONSORT_DIRECT_RE = /^([a-z]+),?\s+(suck|blow|blowjob|bj|head|ride|mount|fuck|sex|screw|handjob|hj|stroke|pour|kiss)\b/i;
+const DIRECT_ACT = {
+  suck: 'suck', blow: 'suck', blowjob: 'suck', bj: 'suck', head: 'suck',
+  ride: 'ride', mount: 'ride', fuck: 'ride', sex: 'ride', screw: 'ride',
+  handjob: 'handjob', hj: 'handjob', stroke: 'handjob',
+};
+
+// Start a commanded act on the keeper right now — no arousal gate, he asked for it.
+// Warms her up, then runs the same timed keeper-scene the auto path uses.
+function startCommandedAct(npc, keeper, actKey) {
+  const zoneId = keeper.current_zone;
+  if (sceneZones.has(zoneId)) return { type: 'output', message: `${npc.name} is already busy with you.` };
+  const act = KEEPER_ACTS[actKey];
+  if (act.maleOnly && keeper.biological_sex !== 'male') {
+    return { type: 'output', message: `${npc.name} gives you a look. "That's not going to work the way you're picturing, love."` };
+  }
+  if (!isMisActive(keeper)) return { type: 'output', message: `${npc.name} laughs softly and keeps it to a kiss on the cheek.` };
+  sceneAt.set(zoneId, Date.now());
+  arousal.set(npc.id, Math.max(arousal.get(npc.id) || 0, AROUSED_AT));
+  npc._misHorny = Math.max(npc._misHorny || 0, AROUSED_AT); npc._misHornyAt = Date.now();
+  playKeeperScene(zoneId, pick(act.solo), { A: npc }, keeper.id, act.gain);
+  return { type: 'output', message: `${npc.name} doesn't need telling twice.` };
+}
+
+async function cmdConsortDirect(args, raw, player, broadcast) {
+  const m = raw.match(CONSORT_DIRECT_RE);
+  if (!m) return undefined;
+  const nameWord = m[1].toLowerCase();
+  const verb = m[2].toLowerCase();
+  const here = getZoneNpcs(player.current_zone).filter(n => isConsort(n) && n.flags?.devoted_to === player.handle);
+  if (!here.length) return undefined;
+  const npc = here.find(n => String(n.name || '').toLowerCase().startsWith(nameWord))
+           || here.find(n => String(n.name || '').toLowerCase().includes(nameWord));
+  if (!npc) return undefined;   // not one of his consorts → let normal routing have it
+
+  if (verb === 'pour') return cmdPour([npc.name, ...raw.split(/\s+/).slice(2)], raw, player);
+  if (verb === 'kiss') {
+    tieredZoneLine(player.current_zone,
+      `${npc.name} leans in and kisses you, soft and unhurried.`,
+      `${npc.name} kisses you deep, one hand curling at the back of your neck.`);
+    return { type: 'output', message: `You pull ${npc.name} in and kiss her.` };
+  }
+  return startCommandedAct(npc, player, DIRECT_ACT[verb] || 'suck');
+}
+
+registerInputMatcher(CONSORT_DIRECT_RE, cmdConsortDirect, 'consort');
+
 export const commands = {
   beckon:  cmdBeckon,
   dismiss: cmdDismiss,
@@ -1319,6 +1473,8 @@ export const _test = {
   PAIR_PRIVATE, PAIR_WITH_KEEPER, arousal, moodCap, lastSpoke,
   rollMoodCap, PEEL_HOT, BARE_HOT,
   FELLATIO_SOLO, FELLATIO_DUO, FELLATIO_AT,
+  RIDE_SOLO, RIDE_DUO, HANDJOB_SOLO, KEEPER_ACTS, NAKED_SOLO,
+  cmdConsortDirect, startCommandedAct, DIRECT_ACT, CONSORT_DIRECT_RE,
   VOICE, voiceOf,
   MAX_AROUSAL, AROUSED_AT,
   consortsOf, cmdBeckon, cmdDismiss, cmdPour, barIn, retreatConsorts,

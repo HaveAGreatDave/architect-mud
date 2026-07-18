@@ -2,8 +2,21 @@
 // The harness's fake player has mis_enabled=0, so these verify the consent gate
 // and the multi-word input-matcher routing.
 import { ejaculateDescription } from '../../server/engine/appearance.js';
+import { THREESOME_JOIN_MSGS, THREESOME_CLIMAX_MSGS } from './mis-system.js';
 
 export default async function regress({ run, check }) {
+  // Threesome pools are well-formed: join lines name the third party, both pools
+  // non-empty strings. (The {name}/{target} tokens are optional per line; {third}
+  // must appear on every join line so the joiner is always named.)
+  check('threesome: join pool non-empty and always names the third',
+    Array.isArray(THREESOME_JOIN_MSGS) && THREESOME_JOIN_MSGS.length > 0
+    && THREESOME_JOIN_MSGS.every(l => typeof l === 'string' && l.includes('{third}')),
+    `${THREESOME_JOIN_MSGS?.length}`);
+  check('threesome: climax pool non-empty and names the third',
+    Array.isArray(THREESOME_CLIMAX_MSGS) && THREESOME_CLIMAX_MSGS.length > 0
+    && THREESOME_CLIMAX_MSGS.every(l => typeof l === 'string' && l.includes('{third}')),
+    `${THREESOME_CLIMAX_MSGS?.length}`);
+
   // Fluid on the penis is a body site; clothing that fills the `legs` slot must hide
   // it. Covered legs → nothing shown; bare legs → shown. (Regression: "penis" never
   // matched the "legs" slot key, so it leaked through fully clothed legs.)

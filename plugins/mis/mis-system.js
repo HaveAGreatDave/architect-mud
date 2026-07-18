@@ -806,6 +806,8 @@ You've unlocked biological realism mode. This system simulates the body honestly
   fuck &lt;target&gt; [in mouth / pussy / ass]
   sex / screw / rail / bang / breed &lt;target&gt; [in ...]
   cum in &lt;target&gt;'s [mouth / pussy / ass]  (males, 50%+ arousal)
+  cum   — mid-sex, a bare "cum" finishes where you're already buried
+          (pull out and aim it elsewhere with cum on/in &lt;target&gt;)
 
 <span style="color:var(--text-dim)">LOOK CLOSER:</span>
   examine &lt;target&gt;'s [genitals / tits / nipples / ass / asshole]

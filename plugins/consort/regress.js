@@ -100,6 +100,45 @@ export default async function regress({ check }) {
     check(`fellatio: ${poolName} threads are well-formed`, bad === null, bad ? JSON.stringify(bad).slice(0, 120) : '');
   }
 
+  // The wider repertoire (ride/handjob) is well-formed like the fellatio threads,
+  // and the KEEPER_ACTS registry points at real, non-empty pools with a gain.
+  for (const [poolName, pool, roles] of [
+    ['ride-solo',    _test.RIDE_SOLO,    new Set(['A'])],
+    ['ride-duo',     _test.RIDE_DUO,     new Set(['A', 'B'])],
+    ['handjob-solo', _test.HANDJOB_SOLO, new Set(['A'])],
+  ]) {
+    let bad = null;
+    for (const thread of pool || []) {
+      const ok = Array.isArray(thread) && thread.length >= 2 && thread.every(t =>
+        Array.isArray(t) && t.length === 3 && roles.has(t[0])
+        && typeof t[1] === 'string' && t[1].includes('§') && (t[1].match(/"/g) || []).length % 2 === 0
+        && typeof t[2] === 'string' && t[2].includes('§') && (t[2].match(/"/g) || []).length % 2 === 0);
+      if (!ok) { bad = thread; break; }
+    }
+    check(`acts: ${poolName} threads are well-formed`, Array.isArray(pool) && pool.length > 0 && bad === null, bad ? JSON.stringify(bad).slice(0, 120) : '');
+  }
+  let actsBad2 = null;
+  for (const [key, act] of Object.entries(_test.KEEPER_ACTS)) {
+    if (!Array.isArray(act.solo) || !act.solo.length || typeof act.gain !== 'number') { actsBad2 = key; break; }
+  }
+  check('acts: KEEPER_ACTS registry is well-formed', actsBad2 === null, actsBad2 || '');
+
+  // Naked-solo narration: [tame, hot] pairs, both templating the name slot.
+  check('naked-solo: pool is well-formed [tame,hot] pairs',
+    Array.isArray(_test.NAKED_SOLO) && _test.NAKED_SOLO.length > 0
+    && _test.NAKED_SOLO.every(p => Array.isArray(p) && p.length === 2 && p.every(s => typeof s === 'string' && s.includes('§'))),
+    `${_test.NAKED_SOLO?.length}`);
+
+  // Direct-command matcher: matches "roxy suck me" but NEVER the second word of the
+  // other multi-word verbs (so it can't shadow "eat out …" / "jerk off on …"), and
+  // the handler falls through (undefined) when the speaker owns no consort here.
+  check('direct: matches a name+act', _test.CONSORT_DIRECT_RE.test('roxy suck me'));
+  check('direct: matches name+pour', _test.CONSORT_DIRECT_RE.test('bijou pour me a whiskey'));
+  check('direct: does NOT shadow "eat out"', _test.CONSORT_DIRECT_RE.test('eat out roxy') === false);
+  check('direct: does NOT shadow "jerk off on"', _test.CONSORT_DIRECT_RE.test('jerk off on roxy') === false);
+  const directMiss = await _test.cmdConsortDirect([], 'roxy suck me', { handle: '__nobody__', current_zone: 'zone_nowhere' });
+  check('direct: falls through when speaker owns no consort here', directMiss === undefined, `${directMiss}`);
+
   // Beckon / dismiss are keeper-only: nobody's consorts answer to a stranger.
   check('consortsOf: bogus handle owns no consorts', _test.consortsOf('__nobody__').length === 0);
 
