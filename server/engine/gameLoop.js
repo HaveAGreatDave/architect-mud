@@ -85,6 +85,15 @@ async function forceNpcWorkRecheck() {
 }
 
 async function tick() {
+  // Idle gate: everything below is player-scoped (enemy AI only matters with a
+  // player in-zone, auto-attack/NPC-retaliation need a live target, status/drug
+  // effects iterate world.players) — all no-ops on an empty world. This tick is a
+  // raw setInterval (latency-critical, deliberately off the scheduler), so it does
+  // NOT inherit the scheduler's hasActivePlayers gate; without this the enemy loop
+  // ticks every instance every second forever, pinning Neon awake via any AI query.
+  // Catch-up is benign: the next tick after a login re-derives everything.
+  if (!hasActivePlayers()) return;
+
   // Player-initiated combat lives in the weapon plugin (registerPlayerCombat).
   // Raw function references — never the Action dispatcher (ADR-0001 hot path).
   // If the plugin failed to load, players can't fight: shout, don't go silent.
