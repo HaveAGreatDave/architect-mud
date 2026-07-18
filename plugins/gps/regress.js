@@ -103,9 +103,14 @@ export default async function regress({ run, check, getPlayer }) {
         coordCount[k] = (coordCount[k] || 0) + 1;
       }
     // Coord syntax "x,y" resolves on the player's current z-level, so the target must
-    // share it (interior maps stack floors at one (x,y) across grid_z).
+    // share it (interior maps stack floors at one (x,y) across grid_z). Exclude enterable
+    // facades: gps deliberately forwards a facade destination to its interior entry zone
+    // (resolveLanding), so `end === target.id` never holds for one — that's intended
+    // routing, not a route failure, so the "routes to that tile" assertion needs a plain
+    // standable tile as its target.
     const target = getAllZones().find(z =>
       z.map_id === here.map_id && !z.flags?.water && z.grid_x != null && z.id !== here.id &&
+      !isEnterableFacade(z) &&
       (z.grid_z ?? 0) === (here.grid_z ?? 0) &&
       coordCount[`${z.grid_x},${z.grid_y},${z.grid_z ?? 0}`] === 1 &&
       (findPath(here.id, z.id, { roads: true, maxDistance: 40 }) || []).length >= 2);
@@ -132,7 +137,7 @@ export default async function regress({ run, check, getPlayer }) {
     const savedHome = p.home_zone;
     const here = getZone(p.current_zone);
     const homeTile = getAllZones().find(z =>
-      z.id !== here.id && !z.flags?.water &&
+      z.id !== here.id && !z.flags?.water && !isEnterableFacade(z) &&
       (findPath(here.id, z.id, { roads: false, maxDistance: 60 }) || []).length >= 2);
     if (homeTile) {
       p.home_zone = homeTile.id;
