@@ -20,7 +20,7 @@
     "planner": "bp_district",
     "scavenging_table_id": "scav_roadside_junk",
     "street_life": true,
-    "terrain": "concrete",
+    "terrain": "road",
     "world_exit_zone": "zone_district_923_910"
   },
   "grid_x": 922,
@@ -31,5 +31,5 @@
   "marker": "HR",
   "name": "Hall of Records",
   "parent_zone": null,
-  "updated_at": "1784318564"
+  "updated_at": "1784342750"
 }

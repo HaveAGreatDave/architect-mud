@@ -14,7 +14,8 @@
   },
   "flags": {
     "district": "residential",
-    "planner": "bp_district"
+    "planner": "bp_district",
+    "terrain": "grass"
   },
   "grid_x": 919,
   "grid_y": 916,
@@ -24,5 +25,5 @@
   "marker": "#",
   "name": "Grasslands",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1784342815"
 }

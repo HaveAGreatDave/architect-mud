@@ -14,7 +14,8 @@
   },
   "flags": {
     "district": "wasteland",
-    "planner": "bp_district"
+    "planner": "bp_district",
+    "terrain": "road"
   },
   "grid_x": 915,
   "grid_y": 915,
@@ -24,5 +25,5 @@
   "marker": "#",
   "name": "Grasslands",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1784342815"
 }

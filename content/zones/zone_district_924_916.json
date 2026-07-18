@@ -17,7 +17,8 @@
     "icon": "road_n",
     "planner": "bp_district",
     "scavenging_table_id": "scav_roadside_junk",
-    "street_life": true
+    "street_life": true,
+    "terrain": "grass"
   },
   "grid_x": 924,
   "grid_y": 916,
@@ -27,5 +28,5 @@
   "marker": "⁙∴",
   "name": "Kessler Street",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1784342750"
 }
