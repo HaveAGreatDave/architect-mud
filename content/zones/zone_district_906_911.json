@@ -1,29 +1,34 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
+  "ambient_theme": "urban",
   "audio_theme_id": null,
-  "bg_color": "#2f3a26",
+  "bg_color": "#20242b",
   "color": "#8ba36a",
   "created_by": "zone-planner",
-  "description": "Open grassland quietly reclaiming old ground — seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "description": "A squat municipal box wedged onto the Meltwater Row verge, its frontage all scuffed institutional glass and a holo-shingle that reads WARD NINE — PERMITS · LICENCES · GRIEVANCES, the last word flickering like it's the honest one. A queue-line is painted on the crete outside, faded to a suggestion. A slot in the door is stuffed with forms nobody filed.",
   "exits": {
     "east": "zone_district_907_911",
+    "in": "zone_ward_permits",
     "north": "zone_district_906_910",
     "south": "zone_district_906_912",
     "west": "zone_district_905_911"
   },
   "flags": {
+    "building_name": "Ward Nine Permits",
+    "building_type": "office",
     "district": "wasteland",
+    "facade": true,
+    "is_building": true,
     "planner": "bp_district",
-    "scavenging_table_id": "scav_west_wastes"
+    "world_exit_zone": "zone_district_907_911"
   },
   "grid_x": 906,
   "grid_y": 911,
   "grid_z": 0,
   "id": "zone_district_906_911",
   "map_id": "map_world",
-  "marker": "#",
-  "name": "Grasslands",
+  "marker": "W9",
+  "name": "Ward Nine Permits",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1784600000"
 }

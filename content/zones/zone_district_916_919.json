@@ -5,13 +5,14 @@
   "bg_color": "#2f3a26",
   "color": "#8ba36a",
   "created_by": "zone-planner",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still. The Architect's Curtain seals the edge here — a floor-to-sky sheet of humming hard light. There is no way through but the South Gate.",
   "exits": {
     "east": "zone_district_917_919",
     "north": "zone_district_916_918",
     "west": "zone_district_915_919"
   },
   "flags": {
+    "curtain": true,
     "district": "wasteland",
     "planner": "bp_district"
   },

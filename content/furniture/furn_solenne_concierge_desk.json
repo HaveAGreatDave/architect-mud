@@ -1,0 +1,14 @@
+{
+  "description": "A curved sweep of dark walnut and pale stone, bare but for a single brass bell, a vase of white orchids, and a screen angled away from you. Behind it, someone is always watching the door.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_solenne_concierge_desk",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "concierge station",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_lobby"
+}

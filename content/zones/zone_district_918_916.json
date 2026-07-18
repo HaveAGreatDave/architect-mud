@@ -5,7 +5,7 @@
   "bg_color": "#2f3a26",
   "color": "#8ba36a",
   "created_by": "zone-planner",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "description": "The Gate Road, patched and repatched, its shoulders crumbling into weeds. Ahead to the south a pale shimmer stands where the sky shouldn't be: the Curtain, humming faintly at the edge of hearing.",
   "exits": {
     "east": "zone_district_919_916",
     "north": "zone_district_918_915",
@@ -13,9 +13,10 @@
     "west": "zone_district_917_916"
   },
   "flags": {
+    "artery": ["The Gate Road"],
     "district": "residential",
     "planner": "bp_district",
-    "terrain": "grass"
+    "terrain": "road"
   },
   "grid_x": 918,
   "grid_y": 916,

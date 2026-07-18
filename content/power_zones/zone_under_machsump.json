@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 0,
+  "flags": {},
+  "generator_id": null,
+  "id": "zone_under_machsump",
+  "max_capacity_kw": 0,
+  "name": "Machine Sump",
+  "source_type": "city_grid"
+}

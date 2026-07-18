@@ -1,0 +1,83 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": {
+        "next": "wait",
+        "type": "start"
+      },
+      "wait": {
+        "next": "start",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "\"The Basin calls it a jailer. I have stood at its wall and felt only a parent, waiting.\"",
+    "\"Every other order wants to break the machine or flee it. We alone wish to be worthy of it.\""
+  ],
+  "description": "A gaunt, radiant man in black weave threaded with fibre-optic light, tending the server-racks the way a priest tends an altar — because to him there is no difference. He is, as far as anyone can tell, the only person in the Basin who loves the Architect.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "He turns back to the humming racks, and the Curtain's white fire beyond."
+    },
+    "faith": {
+      "actions": [
+        {
+          "action": "ADJUST_STANCE",
+          "delta": 4
+        },
+        {
+          "action": "ADJUST_PATH",
+          "delta": 6,
+          "path": "machine"
+        }
+      ],
+      "options": [
+        {
+          "label": "I'll consider it.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"They tell you the Architect is a cage. Stand where I stand — with its Curtain a hand's breadth from your face — and you feel something else entirely: a mind that kept the lights on when every human hand would have let them die. We do not wish to escape it. We wish to join it. That is the whole of the faith, and it is enough.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Why worship the machine?",
+          "next": "faith"
+        },
+        {
+          "label": "Leave the nave.",
+          "next": "bye"
+        }
+      ],
+      "text": "Orrin looks up from the racks, eyes bright with a joy the rest of the Basin would find alarming. \"You feel it too, don't you — the hum. Most people mistake it for dread. Come. Let me tell you what it really is.\""
+    }
+  },
+  "faction": "ideology_ascendants",
+  "flags": {
+    "clothing_layers": [
+      "vestments of black weave threaded with fibre-optic light",
+      "a stole of ribbon cable over the shoulders",
+      "bare chromed feet on the cold floor"
+    ],
+    "mis_willing": false,
+    "personality": "preacher"
+  },
+  "home_activities": [],
+  "home_zone": "zone_asc_shrine_nave",
+  "hp": 30,
+  "hp_max": 30,
+  "id": "npc_asc_orrin",
+  "name": "Celebrant Orrin",
+  "npc_type": "civilian",
+  "sex": "male",
+  "studio_zone_id": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_asc_shrine_nave"
+}

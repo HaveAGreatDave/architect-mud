@@ -1,0 +1,14 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_lw_package",
+  "name": "sealed courier package",
+  "tags": {
+    "description": "A flat parcel wrapped in oilcloth and bound with waxed cord, no markings, weight suspiciously even. Halloran said not to open it, and something about how he said it means you won't.",
+    "misc": true,
+    "stackable": true
+  },
+  "type": null,
+  "value": 0,
+  "weight": 400
+}

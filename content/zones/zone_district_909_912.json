@@ -2,10 +2,10 @@
   "ambient_events": [],
   "ambient_theme": "forest",
   "audio_theme_id": null,
-  "bg_color": "#2f3a26",
-  "color": "#8ba36a",
+  "bg_color": "#31562c",
+  "color": "#8fd08a",
   "created_by": "zone-planner",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "description": "Soft turf underfoot, the drone of insects, water catching the light in a little ornamental pond. This close to the monument the ground has been talked back into something like a garden.",
   "exits": {
     "east": "zone_district_910_912",
     "north": "zone_district_909_911",
@@ -14,16 +14,18 @@
   },
   "flags": {
     "district": "wasteland",
+    "park_feature": "grove",
     "planner": "bp_district",
-    "scavenging_table_id": "scav_west_wastes"
+    "street_life": true,
+    "terrain": "park"
   },
   "grid_x": 909,
   "grid_y": 912,
   "grid_z": 0,
   "id": "zone_district_909_912",
   "map_id": "map_world",
-  "marker": "#",
-  "name": "Grasslands",
+  "marker": "❦",
+  "name": "Fisherman's Green",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1784600000"
 }

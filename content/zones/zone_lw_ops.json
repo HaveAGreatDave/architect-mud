@@ -1,0 +1,33 @@
+{
+  "ambient_events": [
+    "A big paper map of the Basin covers one wall, its camera positions inked in red and struck through where the Watch have blinded them.",
+    "A shortwave set murmurs numbers, then falls silent.",
+    "Someone has pinned a photograph of the Architect's central spire to the wall, and left it there to be looked at."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#1c1710",
+  "color": "#e0a030",
+  "created_by": "longwatch",
+  "description": "The operations room, where the Long Watch plan their quiet war against the machine's grip. A great hand-drawn map dominates the space — every surveillance camera in the east marked, every blind spot noted, every small victory struck through in red. This is where the Watch decide what the Architect will not be allowed to see next. The common room is west.",
+  "exits": {
+    "west": "zone_lw_commons"
+  },
+  "flags": {
+    "always_lit": true,
+    "district": "longwatch",
+    "is_interior": true,
+    "safehouse": true,
+    "sanctuary": true,
+    "unsurveilled": true
+  },
+  "grid_x": 2,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_lw_ops",
+  "map_id": "map_int_longwatch",
+  "marker": null,
+  "name": "The Operations Room",
+  "parent_zone": null,
+  "updated_at": "1784000000"
+}

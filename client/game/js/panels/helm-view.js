@@ -67,6 +67,24 @@ const CRUISE = 0.78;   // steady making-way throttle held across a passage (0..1
 // is never clipped by the console/HUD along the bottom. zoom pulls back so the full hull reads.
 const REST = { yaw: 34, pitch: 0.58, zoom: 1.7 };   // high elevated chase — the eye rides well up-and-over her stern looking DOWN onto the deck, so the hull sits in the water band off the horizon, clear of the wheel; the windshield still clamps it above the water so the eye never goes under
 
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+// The chase ANGLE follows the dolly: the closer the camera gets to the water (zooming IN, a smaller
+// extZoom), the flatter it tips toward a near SIDE-ON view of the hull skimming the sea; pulling back
+// (out past the resting frame) lifts the eye for a higher, more top-down chase. The Echelon stays
+// screen-centred through all of it — the windshield's hideOwnShip horizon compensation re-solves the
+// framing for whatever pitch we hand it, so flattening never slides her out of frame.
+const FLAT_PITCH = 0.06;   // rad — camera almost level with the waterline: a broadside "side view" of the ship
+const HIGH_PITCH = 0.72;   // rad — the most top-down we lift to when the wheel dollies the camera all the way back
+const ZOOM_MIN = 0.6, ZOOM_MAX = 2.4;   // matches the zoom() clamp — the dolly's near (close to water) / far bounds
+function pitchForZoom(z) {
+  // Below the resting frame ⇒ dollying IN toward the water: ease pitch FLAT for the side view.
+  // Above it ⇒ pulling back: lift the eye toward top-down. Rest zoom keeps exactly the tuned REST pose.
+  return z <= REST.zoom
+    ? lerp(FLAT_PITCH, REST.pitch, clamp((z - ZOOM_MIN) / (REST.zoom - ZOOM_MIN), 0, 1))
+    : lerp(REST.pitch, HIGH_PITCH, clamp((z - REST.zoom) / (ZOOM_MAX - REST.zoom), 0, 1));
+}
+
 // A proper (not flat) cloud field, synthesised from the live headline weather so the windshield's
 // fly-through volumetric deck has cells to render — clear skies pass null (its procedural fair-
 // weather deck stands in). Cells scatter around the yacht within ±R tiles and drift on their own
@@ -318,6 +336,11 @@ export function openHelmChase(container, opts = {}) {
     const contacts = st.contacts.length
       ? st.contacts.map(c => { const dx = (c.x ?? 0) - st.gx, dy = (c.y ?? 0) - st.gy; return { ...c, dx, dy, ...(c.onGround ? { groundZ: 0, altDiff: 0 } : { altDiff: c.alt || 0 }), rng: Math.hypot(dx, dy), breakup: surfaceBreakup(c.surfaces) }; })
       : null;
+
+    // Tie the chase ANGLE to the dolly every frame: close to the water (small extZoom) flattens to a
+    // near side-on view; pulled back lifts toward top-down. The ship holds screen-centre regardless
+    // (windshield hideOwnShip compensation). Resting/console framing still drives extZoom via setRestZoom.
+    st.extPitch = pitchForZoom(st.extZoom);
 
     paintWindshield(id, {
       external: true, hideOwnShip: true, phase: 'cruise', worldBlend: 1,

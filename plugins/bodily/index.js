@@ -195,6 +195,9 @@ async function relieveBladder(player, hasFacility, broadcast, target = null) {
       message: `${player.handle} pisses on ${where}.`,
     }, player.id, tp.id);
     if (tp.handle) broadcast(null, { type: 'output', message: `${player.handle} pisses on your ${part || 'body'}.` }, null, tp.id);
+    // Decoupled: the MIS plugin listens and turns this into arousal for the
+    // opted-in (a watersports kink). Bodily stays ignorant of who cares.
+    emit('bodily.pissedOnCreature', { actor: player, target: tp, part, zoneId: player.current_zone });
     return { ok: true, message: `You piss on ${where}.` };
   }
 

@@ -1,0 +1,51 @@
+{
+  "behavior": "aggressive",
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": { "next": "has_target", "type": "start" },
+      "has_target": { "condition_type": "HAS_TARGET", "ifFalse": "idle", "ifTrue": "low_hp", "type": "condition" },
+      "low_hp": { "condition_type": "HP_BELOW", "ifFalse": "attack", "ifTrue": "flee", "params": { "pct": 20 }, "type": "condition" },
+      "attack": { "action_type": "ATTACK", "next": "loop", "type": "action" },
+      "flee": { "action_type": "FLEE", "next": "loop", "type": "action" },
+      "idle": { "action_type": "IDLE", "next": "loop", "type": "action" },
+      "loop": { "next": "start", "type": "loop" }
+    }
+  },
+  "body_parts": [
+    { "part": "head", "soak": {}, "weight": 12 },
+    { "part": "torso", "soak": {}, "weight": 44 },
+    { "part": "left_arm", "soak": {}, "weight": 10 },
+    { "part": "right_arm", "soak": {}, "weight": 10 },
+    { "part": "left_leg", "soak": {}, "weight": 12 },
+    { "part": "right_leg", "soak": {}, "weight": 12 }
+  ],
+  "butcher_difficulty": 3,
+  "butcher_table": [
+    { "item": "item_raw_meat", "qty": [1, 1], "weight": 60 }
+  ],
+  "death_message": "The drain snake thrashes once against the brick and then unspools, still.",
+  "description": "A long, muscular thing the colour of wet slate, thick around as your forearm, sliding through the outfall channels where the water runs warmest. Generations in the dark have taken its eyes and left it all the more certain of where you are.",
+  "dodge": 3,
+  "faction": null,
+  "flags": {
+    "attacks_npcs": false,
+    "battle_cries": [
+      "$enemy pours off the ledge toward $player in a single grey ribbon.",
+      "$enemy tastes the air and turns its blind head to $player.",
+      "$enemy coils tight, then strikes at $player."
+    ],
+    "first_strike_delay_ms": 5000
+  },
+  "hit": 2,
+  "hp_max": 12,
+  "id": "enemy_drain_snake",
+  "loot_table": [
+    { "item": "item_scrap_metal", "qty": [1, 1], "weight": 20 },
+    { "item": "item_credit_chip", "credits": [4, 14], "qty": [1, 1], "weight": 20 }
+  ],
+  "name": "drain snake",
+  "weapon": [
+    { "max": 3, "min": 1, "type": "kinetic" }
+  ]
+}

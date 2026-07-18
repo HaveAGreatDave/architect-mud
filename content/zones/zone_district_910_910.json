@@ -1,34 +1,31 @@
 {
   "ambient_events": [],
-  "ambient_theme": "urban",
+  "ambient_theme": "forest",
   "audio_theme_id": null,
-  "bg_color": "#20242b",
-  "color": "#8ba36a",
+  "bg_color": "#31562c",
+  "color": "#8fd08a",
   "created_by": "zone-planner",
-  "description": "A squat municipal box wedged onto the plaza's east verge, its frontage all scuffed institutional glass and a holo-shingle that reads WARD NINE — PERMITS · LICENCES · GRIEVANCES, the last word flickering like it's the honest one. A queue-line is painted on the crete outside, faded to a suggestion. A slot in the door is stuffed with forms nobody filed.",
+  "description": "Green, level, and improbably cared-for — a square of park coaxed out of the wasteland grit. Paved paths thread between the flowerbeds, and a lamp stands ready for a dusk nobody wastes.",
   "exits": {
     "east": "zone_district_911_910",
-    "in": "zone_ward_permits",
     "north": "zone_district_910_909",
     "south": "zone_district_910_911",
     "west": "zone_district_909_910"
   },
   "flags": {
-    "building_name": "Ward Nine Permits",
-    "building_type": "office",
     "district": "wasteland",
-    "facade": true,
-    "is_building": true,
+    "park_feature": "pond",
     "planner": "bp_district",
-    "world_exit_zone": "zone_district_911_910"
+    "street_life": true,
+    "terrain": "park"
   },
   "grid_x": 910,
   "grid_y": 910,
   "grid_z": 0,
   "id": "zone_district_910_910",
   "map_id": "map_world",
-  "marker": "W9",
-  "name": "Ward Nine Permits",
+  "marker": "❦",
+  "name": "Fisherman's Green",
   "parent_zone": null,
-  "updated_at": "1784500000"
+  "updated_at": "1784600000"
 }

@@ -1,29 +1,37 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
+  "ambient_events": [
+    "A doorman's whistle carries from the canopy, hailing a cab that never comes.",
+    "The glass curtain-wall throws the whole grey street back at you, cleaner than it is."
+  ],
+  "ambient_theme": "urban",
   "audio_theme_id": null,
-  "bg_color": "#2f3a26",
-  "color": "#8ba36a",
+  "bg_color": "#26333f",
+  "color": "#cfe0ee",
   "created_by": "zone-planner",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "description": "Solenne Residences rises out of the low studio-row roofline like a blade of pale glass — thirty-odd floors of it, tapering to a lit crown you have to lean back to see. A brass-lettered canopy runs out over the pavement to the kerb, and beyond the revolving door the lobby glows warm and unhurried, the kind of warm that is quietly checking whether you belong in it. Step <b>in</b>.",
   "exits": {
     "east": "zone_district_915_908",
     "north": "zone_district_914_907",
     "south": "zone_district_914_909",
-    "west": "zone_district_913_908"
+    "west": "zone_district_913_908",
+    "in": "zone_solenne_lobby"
   },
   "flags": {
+    "building_name": "Solenne Residences",
+    "building_type": "apartment",
     "district": "wasteland",
+    "facade": true,
+    "is_building": true,
     "planner": "bp_district",
-    "scavenging_table_id": "scav_west_wastes"
+    "world_exit_zone": "zone_district_914_909"
   },
   "grid_x": 914,
   "grid_y": 908,
   "grid_z": 0,
   "id": "zone_district_914_908",
   "map_id": "map_world",
-  "marker": "#",
-  "name": "Grasslands",
+  "marker": "SR",
+  "name": "Solenne Residences",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1784600000"
 }

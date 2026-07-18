@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 0,
+  "flags": {},
+  "generator_id": null,
+  "id": "zone_under_junction",
+  "max_capacity_kw": 0,
+  "name": "Trunk Junction",
+  "source_type": "city_grid"
+}

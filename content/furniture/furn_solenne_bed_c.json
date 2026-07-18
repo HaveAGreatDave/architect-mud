@@ -1,0 +1,19 @@
+{
+  "description": "A platform bed beneath a tracking skylight, made for watching the weather from somewhere warm.",
+  "flags": {
+    "interactions": [
+      "lie",
+      "sit"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_solenne_bed_c",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "platform bed",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_apt_c"
+}

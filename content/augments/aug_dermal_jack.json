@@ -1,0 +1,13 @@
+{
+  "id": "aug_dermal_jack",
+  "name": "Dermal Jack",
+  "description": "A port set into the base of the skull — the first chrome anyone gets. Direct data-feed sharpens the wits that matter for splicing and cracking.",
+  "slot": "neural",
+  "tier": 1,
+  "cost": 400,
+  "rep_gate": "unknown",
+  "stat_modifiers": { "stat_brains": 1 },
+  "soak": {},
+  "visible": 1,
+  "special": null
+}

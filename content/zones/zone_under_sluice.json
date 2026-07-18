@@ -1,0 +1,32 @@
+{
+  "ambient_events": [
+    "Somewhere upstream a sluice gate shifts on its own and the water changes its mind.",
+    "A cold draught comes off the east tunnel, carrying rot and rust.",
+    "The channel gurgles as it swallows another slick of runoff from the streets above."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#161f1b",
+  "color": "#8fae9a",
+  "created_by": "the-under",
+  "description": "A junction of old sluice gates where the overflow chamber empties east into the deeper trunk lines. Rusted iron paddles hang half-raised on their chains, and the water runs faster here, funnelled and purposeful. The brick is older than the streets that stand on it.",
+  "exits": {
+    "west": "zone_under_overflow",
+    "east": "zone_under_junction",
+    "south": "zone_under_siltpocket"
+  },
+  "flags": {
+    "district": "sewer",
+    "is_interior": true,
+    "scavenging_table_id": "scav_sewer"
+  },
+  "grid_x": 922,
+  "grid_y": 904,
+  "grid_z": -1,
+  "id": "zone_under_sluice",
+  "map_id": "map_world",
+  "marker": "╪",
+  "name": "Sluice Gate",
+  "parent_zone": null,
+  "updated_at": "1784000000"
+}

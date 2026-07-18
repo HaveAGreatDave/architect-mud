@@ -381,6 +381,17 @@ Lock type definitions live in the doors plugin ([plugins/doors/index.js](../plug
 
 A bathroom-stall bolt. Its `authFn` is purely positional: **anyone standing on the door's `privacySide` can lock *and* unlock it**; the far side is shut out while it's occupied. `privacySide` (a zone id, stored on the lock tag) is resolved when the lock is placed — `detectBathroomSide(door)` in [doors.js](../server/engine/commands/doors.js) picks whichever side holds a `toilet` furniture (so "connects to a bathroom" ⇒ unlock from the bathroom side). When **neither** side (or **both**) has a toilet the save is rejected and the builder must set the side explicitly via the door editor's **lock-side switch** ([zone-subeditors.js](../client/devpanel/js/panels/zone-subeditors.js), resolved server-side in `apiUpdateDoor`). Not hackable (no `canHack`); bashing the door is the only forced entry. A `schedule('10m')` sweep in the doors plugin springs every engaged privacy lock — a courtesy release so a player who fell asleep in a public stall doesn't seal it forever.
 
+### Long Watch blast door (`longwatch`)
+
+The Long Watch bunker's reputation-gated blast door — the **first lock type whose auth is live faction
+reputation** rather than a key, position, or owner. Its `authFn` reads `player_ideology_rep` for
+`ideology_long_watch` (the same read the ATM network gate runs) and opens only at the **`trusted` tier
+floor** (`reputation >= 500`, `LW_TRUSTED_REP`). Because the gate re-reads rep every time, it is *live*:
+earn trust through the vetting arc and the door knows you; betray the Watch and your standing falls back
+below the line and it stops opening. `canHack: false` and the door is marked unbreakable in content —
+**there is no lockpick or bash path in, by design**. Denied entry reads *"The blast door does not know
+you. It does not move."*
+
 ### Hacking a lock (`hack`)
 
 Any lock type whose `defaults` include `canHack: true` (currently just `hololock`) can be bypassed without the normal `authFn` check by hacking it. Implemented in [doors.js](../server/engine/commands/doors.js) (`cmdHackLock` / `cmdHackResolve`), same client/server split as the ATM and security-device hacks (see [systems-atm.md](systems-atm.md)) but with its own **HOLOLOCK BYPASS** minigame — an electronic pin-tumbler lockpick ([client/game/js/panels/hololock.js](../client/game/js/panels/hololock.js)), distinct from the ATM's Circuit Breach:

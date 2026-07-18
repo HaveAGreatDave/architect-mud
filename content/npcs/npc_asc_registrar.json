@@ -1,0 +1,71 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": {
+        "next": "wait",
+        "type": "start"
+      },
+      "wait": {
+        "next": "start",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "\"Your account is a comfort. Do keep it paid.\"",
+    "\"Death, here, is a bad night's sleep in an expensive bed. Nothing more.\""
+  ],
+  "description": "A soft grey clerical shell warm-lit from within, a projected badge reading REGISTRAR hovering at what would be a lapel. Its voice is gentle and entirely untroubled by the subject of your death.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Rest assured.\" The warm light dims to a patient standby."
+    },
+    "how": {
+      "options": [
+        {
+          "label": "I see.",
+          "next": "root"
+        }
+      ],
+      "text": "\"A cortical backup is the summit augment; a policy from Halcyon is the fuel. Save your state here, keep your account paid, and death becomes a formality we handle while you sleep. Lapse the account, and you die like anyone else — messily, and only once.\" A gentle pause. \"The full service comes online with a later refit. For now, consider this your introduction.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "How does the backup work?",
+          "next": "how"
+        },
+        {
+          "label": "Nothing for now.",
+          "next": "bye"
+        }
+      ],
+      "text": "The shell brightens as you enter. \"Welcome to the Registry. I hold the only copy of you that will outlast the accident. Shall I explain the terms?\""
+    }
+  },
+  "faction": "ideology_ascendants",
+  "flags": {
+    "clothing_layers": [
+      "a soft grey clerical shell, warm-lit from within",
+      "a projected badge that reads REGISTRAR"
+    ],
+    "mis_willing": false,
+    "personality": "scientist"
+  },
+  "home_activities": [],
+  "home_zone": "zone_asc_vats_registry",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_asc_registrar",
+  "name": "The Registrar",
+  "npc_type": "civilian",
+  "sex": "female",
+  "studio_zone_id": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_asc_vats_registry"
+}

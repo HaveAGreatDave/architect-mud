@@ -1,0 +1,28 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#161a22",
+  "color": "#dbe7ff",
+  "created_by": "ascendant-stronghold",
+  "description": "The Spire's public floor: a vault of pale stone and colder light, the air filtered to nothing. A curator waits to greet those who make it past the Gate, arms open, certain you have come to be improved. Elevators of brushed steel wait along one wall; the call panel glows with floors that go very high.",
+  "exits": {
+    "in": "zone_asc_spire_gallery",
+    "west": "zone_district_892_906"
+  },
+  "flags": {
+    "always_lit": true,
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_892_906"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_asc_spire_concourse",
+  "map_id": "map_int_asc_spire",
+  "marker": null,
+  "name": "Grand Concourse",
+  "parent_zone": "zone_district_892_906",
+  "updated_at": "1783740000"
+}

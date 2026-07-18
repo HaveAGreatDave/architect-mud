@@ -1189,8 +1189,9 @@ function despawnHunters(s) {
 
 // A crime counts only if someone's watching: a live PD cam, an on-duty cop, or
 // another player in the room.
-async function isWitnessed(zoneId) {
+export async function isWitnessed(zoneId) {
   if (!zoneId) return false;
+  if (getZone(zoneId)?.flags?.unsurveilled) return false;   // off the Architect's grid (Long Watch bunker &c.) — no eyes reach here
   const cams = await getPoliceCamZones();
   const fx = await getInterferenceZones();
   if (cams.has(zoneId) && !fx.jammed.has(zoneId)) return true;
@@ -1765,8 +1766,9 @@ const cameraVisibilityFactor = (zoneId) => visFactorForCategory(getZoneVisibilit
 // `any`-witnessed crime an on-scene cop is very likely to catch it, while a mere
 // bystander only rarely reports. `camera`-only crimes ignore cops/bystanders;
 // `always` crimes are self-reporting.
-async function witnessRoll(zoneId, witness, onCamera, camChance) {
+export async function witnessRoll(zoneId, witness, onCamera, camChance) {
   if (!zoneId) return false;
+  if (getZone(zoneId)?.flags?.unsurveilled) return false;   // un-surveilled sanctuary: nothing witnessed, not even a forced 'always'
   if (witness === 'always') return true;
   if (onCamera && Math.random() < camChance * cameraVisibilityFactor(zoneId)) return true;
   if (witness === 'camera') return false;
@@ -2016,7 +2018,10 @@ async function wantedTick() {
 
     if (await isWitnessed(suspect.current_zone)) s.lastSeenTs = Date.now();
 
-    if (Date.now() - s.lastSeenTs > DECAY_MS) {
+    // A safehouse (the Long Watch bunker) actively launders heat: unseen time
+    // bleeds a star three times as fast as just lying low on the street.
+    const decayWindow = getZone(suspect.current_zone)?.flags?.safehouse ? DECAY_MS / 3 : DECAY_MS;
+    if (Date.now() - s.lastSeenTs > decayWindow) {
       s.stars -= 1;
       s.lastSeenTs = Date.now();
       despawnHunters(s);

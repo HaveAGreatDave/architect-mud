@@ -1,0 +1,183 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": {
+        "next": "wait",
+        "type": "start"
+      },
+      "wait": {
+        "next": "start",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "\"Death is a billing problem. We are simply the only ones honest enough to itemise it.\"",
+    "\"You flinch at the chrome. Everyone does — right up until the day it saves them.\""
+  ],
+  "description": "An immaculate man in pale grey, a single chromed pin at his lapel catching the light. He smiles the way a door opens — smoothly, and for a reason. He has been waiting for someone exactly as promising, and as unimproved, as you.",
+  "dialogue_tree": {
+    "accept": {
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_asc_2"
+        }
+      ],
+      "options": [
+        {
+          "label": "Fine.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Wonderful. The post is just through the outer slab — the Warden will expect you.\" He steps aside like a maître d'. \"Come find me when it's done.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "\"When the meat disappoints you — and it will — you know where the Gate is.\" He returns to his patient smile."
+    },
+    "inside": {
+      "options": [
+        {
+          "label": "I'll see Vess.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Up the plaza, the twisting tower — you can't miss it, it's the only honest building for miles.\""
+    },
+    "offer": {
+      "options": [
+        {
+          "label": "Scan me, then.",
+          "next": "accept"
+        },
+        {
+          "label": "Later.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Nothing is asked of you but honesty — the Gate's kind. Step under the scanline in the post there and let the Threshold read you in full. It won't hurt. It will simply know you, and once it knows you, it will let you pass.\" The pin winks. \"Consider it a free consultation.\""
+    },
+    "pitch": {
+      "options": [
+        {
+          "label": "What do you want from me?",
+          "next": "offer"
+        },
+        {
+          "label": "Not interested.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"The Watch sent you, didn't they. Suspicious of where Halcyon's money goes.\" He isn't offended; he's delighted. \"They're right, of course. It comes here. And you — you got close enough to be turned away, which means you're worth turning toward instead. Let me get you through that Gate. Properly.\""
+    },
+    "report": {
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_asc_2"
+        },
+        {
+          "action": "ADJUST_REPUTATION",
+          "delta": 120,
+          "ideology_id": "ideology_ascendants",
+          "reason": "The Threshold"
+        },
+        {
+          "action": "ADJUST_PATH",
+          "delta": 5,
+          "path": "machine"
+        }
+      ],
+      "options": [
+        {
+          "label": "So I'm in.",
+          "next": "inside"
+        }
+      ],
+      "text": "\"There. The Threshold knows you now — you'll find its refusals have become invitations.\" He gestures west, toward the Spire. \"Curator Vess is expecting you on the concourse. Do try to keep an open mind. Or an open skull; we're flexible.\""
+    },
+    "root": {
+      "options": [
+        {
+          "conditions": [
+            {
+              "flag": "asc_q1_done",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "asc_q2_done",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "quest_asc_2",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "label": "You've been expecting me.",
+          "next": "pitch"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "quest_asc_2",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "asc_q2_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "label": "The Gate scanned me.",
+          "next": "report"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "asc_q2_done",
+              "op": "set",
+              "scope": "player"
+            }
+          ],
+          "label": "Anything else, Maresh?",
+          "next": "inside"
+        },
+        {
+          "label": "Just passing.",
+          "next": "bye"
+        }
+      ],
+      "text": "The immaculate man turns to you before you've said a word. \"Maresh. I recruit — which is to say I recognise. And I recognise something in you the Watch would rather I didn't.\""
+    }
+  },
+  "faction": "ideology_ascendants",
+  "flags": {
+    "clothing_layers": [
+      "an immaculate pale-grey suit with a chromed lapel pin",
+      "a collarless shirt buttoned to the throat",
+      "polished shoes that never scuff"
+    ],
+    "mis_willing": false,
+    "personality": "politician"
+  },
+  "home_activities": [],
+  "home_zone": "zone_district_893_906",
+  "hp": 30,
+  "hp_max": 30,
+  "id": "npc_asc_recruiter",
+  "name": "Maresh, Ascendant Recruiter",
+  "npc_type": "civilian",
+  "sex": "male",
+  "studio_zone_id": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_district_893_906"
+}

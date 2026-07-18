@@ -617,11 +617,16 @@ export function renderMinimap(nodes, direction) {
         styled = ' mm-styled';
       } else if (terr) {
         styles.length = 0;
-        styles.push(`background-color:${terrainFill(terr, node.bg_color)}`);
+        const fill = terrainFill(terr, node.bg_color);
+        styles.push(`background-color:${fill}`);
         styled = ' mm-styled';
-        content = '';
+        if (GLYPH_TERRAIN.has(terr)) styles.push(`color:${node.color || luminanceTextColor(fill)}`);
+        else content = '';
       }
       const terrCls = terr ? ` mm-terr mm-${terr}` : '';
+      // Perimeter wall: gate tiles get a highlighted opening; other curtain tiles a
+      // shimmer-edge; the glacis kill-zone a faint hazard tint. (server whitelists these.)
+      const perimCls = node.perimeter_gate ? ' mm-gate' : (node.curtain ? ' mm-curtain' : (node.glacis ? ' mm-glacis' : ''));
       const styleAttr = styles.length ? ` style="${styles.join(';')}"` : '';
       const unreach = node.reachable === false ? ' mm-unreachable' : '';
       // Enterable buildings are doors, not rooms — clickable (action-link + data-dest
@@ -631,7 +636,7 @@ export function renderMinimap(nodes, direction) {
       const enterAttrs = node.enterable && node.building_name
         ? ` data-action="go" data-target="${escapeHtml(node.building_name)}" data-dest="${escapeHtml(node.building_name)}"`
         : '';
-      const cls = `mm-c mm-room danger-${dangerCls}${styled}${unreach}${enterCls}${terrCls}`;
+      const cls = `mm-c mm-room danger-${dangerCls}${styled}${unreach}${enterCls}${terrCls}${perimCls}`;
       html += `<span class="${cls}"${styleAttr}${enterAttrs} title="${titleFor(node)}">${content}${entranceMark(node.entrance, 'mm')}${exitMarks(node.exit_dirs, 'mm')}</span>`;
     }
   }
@@ -735,14 +740,19 @@ export const BUILDING_ICON = {
 // Tileable terrain styling (server `terrain` field). Roads recolour to grey asphalt
 // with yellow lane markings; water/grass render as a seamless coloured expanse with a
 // connecting texture from the .mm-<terrain> / .map-<terrain> CSS classes.
-const TERRAIN = new Set(['road', 'water', 'grass', 'asphalt', 'concrete', 'dirt', 'sand', 'gravel', 'dock']);
+const TERRAIN = new Set(['road', 'water', 'grass', 'park', 'asphalt', 'concrete', 'dirt', 'sand', 'gravel', 'dock', 'scrub', 'redrock', 'ash', 'marsh']);
+// Post-apocalyptic wildlands surfaces that KEEP their marker glyph over the fill (like
+// road does) instead of blanking to a clean expanse — so camp/landmark tiles out in the
+// wilds still read their ∩/▲/$ glyphs.
+const GLYPH_TERRAIN = new Set(['scrub', 'redrock', 'ash', 'marsh']);
 const ROAD_SURFACE = '#4c5157';   // grey asphalt
 const ROAD_MARKING = '#f2c53d';   // yellow lane markings (the road SVG mask takes `color`)
 // Canonical per-type surface colour. water/grass keep authored bg_color priority (legacy,
 // seamless); the newer painted types (asphalt…dock) use their fill so the terrain drives the look.
 const TERRAIN_FILL = {
-  water: '#3f7fb0', grass: '#5a9e57', asphalt: '#45484d', concrete: '#8a8d91',
+  water: '#3f7fb0', grass: '#5a9e57', park: '#46a24e', asphalt: '#45484d', concrete: '#8a8d91',
   dirt: '#6b5138', sand: '#c2b280', gravel: '#7d7a73', dock: '#6e5636',
+  scrub: '#6f7248', redrock: '#9e4a30', ash: '#4f4b47', marsh: '#4d5a30',
 };
 // water/grass prefer an authored bg_color; every other terrain uses its canonical fill.
 function terrainFill(terr, bg) {

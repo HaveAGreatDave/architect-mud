@@ -1,0 +1,31 @@
+{
+  "ambient_events": [
+    "Everything metal down here has gone to rust, and the rust has gone to lace.",
+    "A sheet of corroded plate lets go somewhere and clatters into the water.",
+    "The air tastes of iron and old electricity."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#1a1512",
+  "color": "#b08a6a",
+  "created_by": "the-under",
+  "description": "A long gallery beneath the industrial flats where the sewer runs alongside the buried service conduits of the old works. Rusted junction boxes and cable trays hang off the walls, everything the same flaking oxide red. This is the medium dark now — the deep reaches, where the things that live here have never been thinned by anyone.",
+  "exits": {
+    "north": "zone_under_throat",
+    "south": "zone_under_machsump"
+  },
+  "flags": {
+    "district": "sewer",
+    "is_interior": true,
+    "scavenging_table_id": "scav_deep"
+  },
+  "grid_x": 924,
+  "grid_y": 909,
+  "grid_z": -1,
+  "id": "zone_under_rustgall",
+  "map_id": "map_world",
+  "marker": "▨",
+  "name": "Rust Gallery",
+  "parent_zone": null,
+  "updated_at": "1784000000"
+}

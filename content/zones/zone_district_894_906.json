@@ -5,7 +5,7 @@
   "bg_color": "#3f3a34",
   "color": "#b9a888",
   "created_by": "zone-planner",
-  "description": "A wide run of packed gravel and grit, graded flat by traffic and rain into something almost like a road. Puddles stand in the ruts, skinned with a chemical sheen. Nothing grows in the margins.",
+  "description": "A wide run of packed gravel and grit, graded flat by traffic and rain into something almost like a road. Here it forks: a short, oddly immaculate spur of poured white ferrocrete peels off west toward a wall of mirror-chrome, out of place against all this grit. Puddles stand in the ruts, skinned with a chemical sheen. Nothing grows in the margins.",
   "exits": {
     "east": "zone_district_895_906",
     "north": "zone_district_894_905",
@@ -14,7 +14,7 @@
   },
   "flags": {
     "district": "wasteland",
-    "icon": "road_ns",
+    "icon": "road_nsw",
     "planner": "bp_district",
     "scavenging_table_id": "scav_roadside_junk",
     "street_life": true

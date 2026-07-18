@@ -1062,6 +1062,10 @@ async function restRegenTick() {
     }
 
     const sitting = player.posture === 'sitting';
+    // A comfortable home heals faster: flags.rest_multiplier on the current zone
+    // scales both stamina recovery and HP knit-back (luxury units, safehouses).
+    // Default 1 ⇒ no effect anywhere it isn't authored.
+    const restMult = world.zones.get(player.current_zone)?.flags?.rest_multiplier ?? 1;
     const staminaMax = player.stamina_max ?? 100;
     player.stamina = player.stamina ?? staminaMax;
     const idle = now - (player._lastMoveAt ?? 0) >= IDLE_REGEN_MS;
@@ -1075,7 +1079,7 @@ async function restRegenTick() {
       const base = sitting ? SIT_STAMINA_REGEN : STAND_STAMINA_REGEN;
       // Winded (ran the tank dry) throttles recovery until the penalty window lapses.
       const windedMult = (player._windedUntil ?? 0) > now ? WINDED_REGEN_MULT : 1;
-      const gain = Math.max(0, Math.floor(base * tempRegenMultiplier(player.body_temp_c ?? 37) * windedMult));
+      const gain = Math.max(0, Math.floor(base * tempRegenMultiplier(player.body_temp_c ?? 37) * windedMult * restMult));
       if (gain > 0) stamina = Math.min(staminaMax, stamina + gain);
     }
 
@@ -1083,7 +1087,7 @@ async function restRegenTick() {
     // sitting. Deliberately slow.
     let healed = 0;
     if (sitting && stamina >= staminaMax && hp < player.hp_max) {
-      healed = Math.min(SIT_REGEN_HP, player.hp_max - hp);
+      healed = Math.min(Math.ceil(SIT_REGEN_HP * restMult), player.hp_max - hp);
       hp += healed;
     }
 

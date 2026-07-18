@@ -1,0 +1,26 @@
+{
+  "door_type": "reinforced",
+  "exit_dir": "east",
+  "flags": {},
+  "hololock_difficulty": 0,
+  "hp": 4000,
+  "hp_max": 4000,
+  "id": "door_lw_bunker",
+  "is_locked": 0,
+  "is_open": 0,
+  "lock_state": "locked",
+  "name": "Long Watch blast door",
+  "tags": {
+    "lock:longwatch": {
+      "canHack": false,
+      "messages": {
+        "denied": "The blast door does not know you. It does not move.",
+        "lock": "The blast door seats itself with a pneumatic sigh.",
+        "unlock": "The blast door unseals and swings inward."
+      }
+    },
+    "unbreakable": true
+  },
+  "target_zone": "zone_lw_entry",
+  "zone_id": "zone_under_watchthresh"
+}

@@ -177,6 +177,17 @@ export const TEMPLATES = {
       ]);
     },
   },
+  // The chrome fortress in the western waste (docs/proposals/ascendant-stronghold.md):
+  // its EXISTENCE leaks as an aloof rumour; the what (Ascendant HQ, the Halcyon tie)
+  // stays buried behind the Gate. Ask-only, so it surfaces when a player goes digging.
+  asc_fortress: {
+    category: 'secret', reach: 'global', heat: 0.3,
+    render: () => pick([
+      `"You didn't hear it from me — but there's a chrome fortress out past the western grass. Turns everyone away. Nobody knows what they're guarding."`,
+      `"Word is somebody built a whole gleaming city out in the waste, far west. Walk up and the guards just... send you back. Polite, like. Never seen a soul get in."`,
+      `"That wall of mirrors out west? Don't bother. People go to gawk and come back with nothing but a scanline burn and a bad feeling."`,
+    ]),
+  },
   // The shadow dealer's passphrase — a secret worth whispering. Ask-only (never
   // ambient), seeded rarely, so an NPC only lets it slip when a player pushes.
   dealer_phrase: {

@@ -1,0 +1,49 @@
+{
+  "behavior": "aggressive",
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": { "next": "has_target", "type": "start" },
+      "has_target": { "condition_type": "HAS_TARGET", "ifFalse": "idle", "ifTrue": "attack", "type": "condition" },
+      "attack": { "action_type": "ATTACK", "next": "loop", "type": "action" },
+      "idle": { "action_type": "IDLE", "next": "loop", "type": "action" },
+      "loop": { "next": "start", "type": "loop" }
+    }
+  },
+  "body_parts": [
+    { "part": "head", "soak": { "kinetic": 1 }, "weight": 14 },
+    { "part": "torso", "soak": { "kinetic": 1 }, "weight": 48 },
+    { "part": "left_arm", "soak": { "kinetic": 1 }, "weight": 12 },
+    { "part": "right_arm", "soak": { "kinetic": 1 }, "weight": 12 },
+    { "part": "left_leg", "soak": { "kinetic": 1 }, "weight": 7 },
+    { "part": "right_leg", "soak": { "kinetic": 1 }, "weight": 7 }
+  ],
+  "butcher_difficulty": 5,
+  "butcher_table": [],
+  "death_message": "The maintenance drone's optic dims to nothing and it drops, ticking, into the water — one less eye for the machine.",
+  "description": "A squat, four-limbed service unit the colour of old aluminium, a single amber optic sweeping slow across the dark. It belongs to the infrastructure — a hand of the Architect sent down to keep the tunnels flowing, and to note anything in them that shouldn't be. The Watch would very much like it to stop noting things.",
+  "dodge": 2,
+  "faction": null,
+  "flags": {
+    "attacks_npcs": false,
+    "battle_cries": [
+      "$enemy's optic locks onto $player and pulses from amber to red.",
+      "$enemy emits a flat three-tone alert and rotates its manipulators toward $player.",
+      "$enemy advances on tracked feet, servos whining, straight at $player."
+    ],
+    "first_strike_delay_ms": 5000
+  },
+  "hit": 3,
+  "hp_max": 26,
+  "id": "enemy_maint_drone",
+  "loot_table": [
+    { "item": "item_tangled_wire", "qty": [1, 2], "weight": 24 },
+    { "item": "item_scrap_metal", "qty": [1, 2], "weight": 22 },
+    { "item": "item_battery", "qty": [1, 1], "weight": 16 },
+    { "item": "item_credit_chip", "credits": [12, 28], "qty": [1, 1], "weight": 16 }
+  ],
+  "name": "maintenance drone",
+  "weapon": [
+    { "max": 5, "min": 2, "type": "kinetic" }
+  ]
+}

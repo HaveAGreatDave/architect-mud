@@ -11,7 +11,8 @@
   "created_by": "the-under",
   "description": "A dead-end overflow chamber, half-drowned, where the storm system dumps its excess and forgets it. Flotsam has collected here for years against the weir — and with it, whatever the current stole from the streets above and carried down. A patient scavenger does well in a room like this.",
   "exits": {
-    "west": "zone_under_silt"
+    "west": "zone_under_silt",
+    "east": "zone_under_sluice"
   },
   "flags": {
     "district": "sewer",

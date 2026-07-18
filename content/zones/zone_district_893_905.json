@@ -1,29 +1,33 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
+  "ambient_theme": "city",
   "audio_theme_id": null,
-  "bg_color": "#2f3a26",
-  "color": "#8ba36a",
-  "created_by": "zone-planner",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "bg_color": "#161a22",
+  "color": "#dbe7ff",
+  "created_by": "ascendant-stronghold",
+  "description": "A low, sterile block of frosted glass and brushed steel, lit from within by a light that never flickers. Through the frontage you can make out reclining chairs, articulated arms folded overhead like patient insects, and a price board whose numbers rearrange themselves as you watch — cheaper, the longer the Ascendants have known you.",
   "exits": {
-    "east": "zone_district_894_905",
-    "north": "zone_district_893_904",
+    "in": "zone_asc_clinic_consult",
     "south": "zone_district_893_906",
     "west": "zone_district_892_905"
   },
   "flags": {
+    "ascendant_campus": true,
+    "building_name": "Chrome Clinic",
+    "building_type": "asc_clinic",
     "district": "wasteland",
-    "planner": "bp_district",
-    "scavenging_table_id": "scav_west_wastes"
+    "facade": true,
+    "floors": 6,
+    "is_building": true,
+    "world_exit_zone": "zone_district_893_906"
   },
   "grid_x": 893,
   "grid_y": 905,
   "grid_z": 0,
   "id": "zone_district_893_905",
   "map_id": "map_world",
-  "marker": "#",
-  "name": "Grasslands",
+  "marker": "AC",
+  "name": "Chrome Clinic",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1783740000"
 }

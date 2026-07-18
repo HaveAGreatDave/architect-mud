@@ -3,6 +3,6 @@
   "entry_zone_id": "zone_stimcafe",
   "id": "map_int_jitter",
   "name": "Jitter — Interior",
-  "parent_zone_id": "zone_district_908_912",
+  "parent_zone_id": "zone_district_906_912",
   "updated_at": "1784500000"
 }

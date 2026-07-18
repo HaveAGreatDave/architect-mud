@@ -1,0 +1,32 @@
+{
+  "ambient_events": [
+    "A corroded access ladder climbs the shaft wall to a manhole rusted shut generations ago.",
+    "The drop below exhales cold, wet air up past your face.",
+    "Flakes of rust tick down the ladder rungs one by one."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#141b19",
+  "color": "#8fae9a",
+  "created_by": "the-under",
+  "description": "A vertical service shaft where the tunnel steps down a full level, an old iron ladder bolted to one weeping wall. The manhole at the top is welded fast under a street that forgot it. Everything past here is deeper than the maintenance crews ever liked to go — and it feels it.",
+  "exits": {
+    "north": "zone_under_eastbend",
+    "west": "zone_under_weepwall",
+    "south": "zone_under_confldeep"
+  },
+  "flags": {
+    "district": "sewer",
+    "is_interior": true,
+    "scavenging_table_id": "scav_sewer"
+  },
+  "grid_x": 924,
+  "grid_y": 905,
+  "grid_z": -1,
+  "id": "zone_under_laddershaft",
+  "map_id": "map_world",
+  "marker": "╤",
+  "name": "Ladder Shaft",
+  "parent_zone": null,
+  "updated_at": "1784000000"
+}

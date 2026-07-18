@@ -737,6 +737,10 @@ function mapTile(zone, x, y, placed, currentId, at = null) {
 
     water: !!zone.flags?.water, // impassable open water — the client refuses to route onto it
 
+    curtain: zone.flags?.curtain ? true : null, // the Architect's perimeter wall edge
+    perimeter_gate: zone.flags?.perimeter_gate ? true : null, // the one break in the Curtain
+    glacis: zone.flags?.glacis ? true : null, // turret killing-ground outside the gate
+
     // Street name(s) this tile sits on (an intersection can carry more than one) — null if none.
     artery: Array.isArray(zone.flags?.artery) ? zone.flags.artery : (zone.flags?.artery ? [zone.flags.artery] : null),
     exits: links, isCurrent: zone.id === currentId,

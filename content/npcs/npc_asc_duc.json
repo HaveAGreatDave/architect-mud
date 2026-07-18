@@ -1,0 +1,72 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": {
+        "next": "wait",
+        "type": "start"
+      },
+      "wait": {
+        "next": "start",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "\"Everything Kesh puts in you, I made. Remember that when she takes the credit.\"",
+    "\"A body's just a machine that whines about it. Mine stopped whining years ago.\""
+  ],
+  "description": "A broad man whose arms are more chrome than the rest of him, in a scarred fab apron over a heat-stained shirt. He talks to you the way he talks to the machines — plainly, and only when there's a point.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "He grunts and turns back to the line."
+    },
+    "line": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"This is the Weave. We spin the muscle, print the plate, blank the oculars — everything that goes into you starts as raw stock on my floor. Kesh just screws it in.\" A flat look. \"When the clinic can't get you a part, come to the source. Me.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What do you make here?",
+          "next": "line"
+        },
+        {
+          "label": "Nothing today.",
+          "next": "bye"
+        }
+      ],
+      "text": "Duc doesn't look up from the gantry. \"If you're lost, the Spire's back up the plaza. If you're not lost\"—now he looks—\"tell me what you need built.\""
+    }
+  },
+  "faction": "ideology_ascendants",
+  "flags": {
+    "clothing_layers": [
+      "a scarred fabrication apron over chrome-laced arms",
+      "a heat-stained undershirt",
+      "steel-toed boots worn to the metal"
+    ],
+    "mis_willing": false,
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_asc_weave_line",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_asc_duc",
+  "name": "Foreman Duc",
+  "npc_type": "civilian",
+  "sex": "male",
+  "studio_zone_id": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_asc_weave_line"
+}

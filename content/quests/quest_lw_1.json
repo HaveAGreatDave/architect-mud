@@ -1,0 +1,33 @@
+{
+  "category": null,
+  "description": "Halloran is trusting you with a run — a sealed package to be collected quietly from a drop near the Hall of Records and carried back to the shop, no questions, no opening it. It is not really about the package. It is about whether your hands can be trusted with one.",
+  "id": "quest_lw_1",
+  "meta": {},
+  "name": "Proof of Hands",
+  "objectives": [
+    {
+      "desc": "Collect the sealed package from the drop near the Hall of Records (follow the green GPS line).",
+      "emotes": [
+        "{who} eases the oilcloth parcel out of its hiding place and tucks it away."
+      ],
+      "id": "o_collect",
+      "item_id": "item_lw_package",
+      "type": "retrieve",
+      "zone": "zone_district_922_910"
+    }
+  ],
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 80,
+    "flags": [
+      {
+        "flag": "lw_q1_done",
+        "scope": "player",
+        "value": "done"
+      }
+    ],
+    "items": []
+  },
+  "updated_at": "1784000000"
+}

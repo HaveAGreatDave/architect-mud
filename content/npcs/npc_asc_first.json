@@ -1,0 +1,114 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": {
+        "next": "wait",
+        "type": "start"
+      },
+      "wait": {
+        "next": "start",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "\"I was the first to pay the bill in full. I have never once regretted the currency.\"",
+    "\"You have already met me. That eye on every Halcyon wall — that was me, watching you decide.\""
+  ],
+  "description": "More chrome than flesh, and what flesh remains is a courtesy to your comfort, not its own. Subdermal weave laces a throat that no longer strictly needs to speak. It regards you from beneath the great seal — the calm eye — as though it has been watching you through it the whole time.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "The eye above it — and the eye that is it — watches you go."
+    },
+    "confirm": {
+      "options": [
+        {
+          "label": "I need to think.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Think, then. Thinking is the last purely human thing you'll do for free.\" It settles back beneath the seal. \"When you're ready to stop merely dying, the clinic is downstairs, and your account is already open.\""
+    },
+    "reveal": {
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_asc_3"
+        },
+        {
+          "action": "ADJUST_REPUTATION",
+          "delta": 260,
+          "ideology_id": "ideology_ascendants",
+          "reason": "Assurance for the Assured"
+        },
+        {
+          "action": "ADJUST_PATH",
+          "delta": 15,
+          "path": "machine"
+        },
+        {
+          "action": "ADJUST_STANCE",
+          "delta": 5
+        }
+      ],
+      "options": [
+        {
+          "label": "Halcyon is you.",
+          "next": "confirm"
+        }
+      ],
+      "text": "\"You followed the money, and the money led home.\" A sound that might be amusement. \"Halcyon Assurance does not insure against death. It insures death itself — a backup, a vat, a morning after. Every policy is a rung. Every payout, a resurrection you financed. The calm eye on their letterhead and the seal beneath your feet are the same eye, because they are the same hand. Ours. The Watch spend their lives closing the Architect's eyes. We simply became one they'll never close.\""
+    },
+    "root": {
+      "options": [
+        {
+          "conditions": [
+            {
+              "flag": "quest_asc_3",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "asc_q3_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "label": "I walked the Spire. Tell me the truth of it.",
+          "next": "reveal"
+        },
+        {
+          "label": "Say nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "It does not rise. \"You climbed all this way. Sit with what you saw a moment — then ask me the question you came up here to ask.\""
+    }
+  },
+  "faction": "ideology_ascendants",
+  "flags": {
+    "clothing_layers": [
+      "barely-there robes over more chrome than flesh",
+      "a lattice of subdermal weave visible at the throat",
+      "prosthetic feet, bare on the cold floor"
+    ],
+    "mis_willing": false,
+    "personality": "cult_member"
+  },
+  "home_activities": [],
+  "home_zone": "zone_asc_spire_sanctum",
+  "hp": 80,
+  "hp_max": 80,
+  "id": "npc_asc_first",
+  "name": "The First Ascended",
+  "npc_type": "civilian",
+  "sex": "male",
+  "studio_zone_id": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_asc_spire_sanctum"
+}

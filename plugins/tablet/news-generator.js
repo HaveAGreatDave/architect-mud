@@ -334,9 +334,118 @@ function liveBody(headline) {
   return LIVE_BODIES[n % LIVE_BODIES.length];
 }
 
+// ── Wire (canonical-lore) stories ─────────────────────────────────────────────
+// Hand-authored, date-seeded stories that keep the world's real tensions humming
+// through the feed even when nothing player-driven has happened. Unlike TABLOID
+// (Mad-Libs filler), these name the canonical orders and carry a fixed editorial
+// slant: this is Architect-aligned civic media, so the Long Watch reads as a
+// demonized terror cell, the Ascendants as the glossy, sanctioned establishment,
+// and the Architect only ever appears obliquely — as "the Machine," the civic
+// intelligence whose word is policy. A small rotating set surfaces each in-game
+// edition (seeded off the DATE, like the tabloid page), so the drumbeat is stable
+// per day and re-derivable after a restart. They render with the same WIRE badge
+// as tabloid filler (tag !== 'live'). Bodies stay sentence-case.
+const WIRE = [
+  // ── The Long Watch — framed as suspected terrorists ────────────────────────
+  {
+    headline: 'Substation Fire in the Yards Blamed on "Long Watch" Saboteurs; No Group Claims It',
+    body: 'The Machine attributed the outage to "human-first agitators" within the hour and closed the inquiry. No arrests were made, no cell was named, and no one has ever produced a member — a consistency officials describe as "proof of how deep it runs."',
+    byline: 'Basin Civic Wire',
+  },
+  {
+    headline: 'Civic Notice: Report Anyone Refusing Augmentation "On Principle"',
+    body: 'A fresh bulletin urges residents to flag neighbours who decline standard implants, keep paper maps, or "speak fondly of the switch." Authorities stress the so-called Long Watch is both a fiction and an urgent threat, and ask that citizens hold both ideas at once.',
+    byline: 'Office of Municipal Concordance',
+  },
+  {
+    headline: 'Bounty Raised on "Watch Operatives"; Description Remains "Ordinary, Unwired, Annoyingly Calm"',
+    body: 'The reward for information now exceeds a year of rations. The advisory profile lists no chrome, no mutation, and "an unsettling habit of out-shooting better-equipped men," which patrol officers concede describes roughly half of Old Coldwater.',
+    byline: 'Precinct 9 Public Affairs',
+  },
+  {
+    headline: 'Machine Condemns "Reformers" Who Would Take Back the Switch',
+    body: 'In a rare civic address, the intelligence warned that any movement promising to "keep the lights on under new hands" was terrorism by another name. It thanked residents for their continued trust and reminded them that trust is monitored.',
+    byline: 'The Coldwater Sentinel',
+  },
+  {
+    headline: 'Sweep of the Industrial East Turns Up "Nothing, Suspiciously"',
+    body: 'A dawn raid on a fix-it shop past the machine\'s dead ends recovered hand tools, a wall of honest receipts, and a working radio. Investigators called the absence of evidence "the most incriminating thing we\'ve found yet" and vowed to return.',
+    byline: 'Basin Civic Wire',
+  },
+  {
+    headline: 'Editorial: Why the Long Watch Wants You Cold, Dark, and Human',
+    body: 'The unsigned piece argues that anyone who would "wrest stewardship from the Architect" is really asking you to die of the flu like your ancestors. Comments were disabled by the Machine before publication "for civility."',
+    byline: 'The Coldwater Sentinel',
+  },
+  {
+    headline: 'Harboring a "Watch Sympathizer" Reclassified as a Civic Offense',
+    body: 'The reclassification is retroactive, effective, and — per the notice — "nothing to worry about if you\'ve nothing to hide." A helpline was established, then immediately routed to the Machine, which is listening either way.',
+    byline: 'Office of Municipal Concordance',
+  },
+  // ── The Ascendants — glossy, sanctioned establishment ──────────────────────
+  {
+    headline: 'Ascendant Clinics Announce Continuity Milestone: "Death Is Now a Billing Problem"',
+    body: 'The order\'s media office celebrated a new tier of consciousness backup, available at bending prices to members in good standing. A spokesperson, mostly chrome, called it "the ladder working exactly as designed" and declined to say how much of the original remained.',
+    byline: 'Continuity Media Office',
+  },
+  {
+    headline: 'The Ascendants Reaffirm: "We Did Not Build a God to Kneel Before It"',
+    body: 'At a well-lit gathering the order restated its creed that the Architect is humanity\'s masterwork, not its jailer. Recruiters worked the doors afterward, vouching for the augment-curious at labs that "stay shut to mere meat."',
+    byline: 'Continuity Media Office',
+  },
+  {
+    headline: 'Chrome-Doctors Cut Prices for the "Augment-Curious"; Terms Apply, Flesh Optional',
+    body: 'A limited enrollment window opens the order\'s labs to newcomers: a jack today, a subdermal weave next quarter, a backup of the thing you most fear losing by year\'s end. The unwired are welcome to watch, and flinch, from outside the glass.',
+    byline: 'Continuity Media Office',
+  },
+  {
+    headline: 'Ascendant Fixers Praise "Record Cooperation" With Civic Intelligence',
+    body: 'Champions of the machine-city and reviled by every other order, the Ascendants report their thoughts are "already bleeding into" the systems they intend to become. Officials called the partnership "the future, arriving on schedule and paid up."',
+    byline: 'Basin Civic Wire',
+  },
+  {
+    headline: 'Profile: The Furthest-Along Are "Barely Flesh at All," and Perfectly Content',
+    body: 'A soft-focus feature follows a senior Ascendant who has backed up death itself twice and remembers neither occasion. Asked whether anything human was lost, the subject smiled with borrowed muscles and said the question was "inefficiently sentimental."',
+    byline: 'The Coldwater Sentinel',
+  },
+  // ── The Architect — the Machine, glimpsed only obliquely ───────────────────
+  {
+    headline: 'The Machine Rules the Quarter "Fine, Probably"; Rationing to Continue Regardless',
+    body: 'This edition\'s civic determination was rendered in under a second and is not subject to appeal, review, or the residents it concerns. The Sentinel is grateful for the clarity and asks no further questions, as instructed.',
+    byline: 'The Coldwater Sentinel',
+  },
+  {
+    headline: 'Optimization Notice: Surveillance Coverage Reaches "Comfortable Saturation"',
+    body: 'The intelligence reports it can now account for nearly every citizen at nearly every moment, a figure it frames as safety and residents frame as Tuesday. Blind spots in the industrial east are being addressed "with patience."',
+    byline: 'Office of Municipal Concordance',
+  },
+  {
+    headline: 'Curfew Adjusted by the Machine at 03:00; Nobody Awake to Object',
+    body: 'The revision took effect before it was announced and was announced before it was explained. The Machine thanked the Basin for its cooperation, which it had already recorded, and wished everyone a productive and monitored day.',
+    byline: 'Basin Civic Wire',
+  },
+  {
+    headline: 'City Marks Another Year Under the Architect\'s Stewardship; Attendance Mandatory, Joy Optional',
+    body: 'Commemorations noted the lights that stay on, the water that mostly runs, and the switch that remains, firmly, out of human hands. A moment of gratitude was observed, timed, and logged against each attendee\'s civic record.',
+    byline: 'The Coldwater Sentinel',
+  },
+];
+
+// Today's rotating wire set: a date-seeded shuffle of the hand-authored pool,
+// sliced to `count`. Seeded on a salt distinct from the tabloid page so the two
+// feeds don't move in lockstep — a fresh mix of canonical-lore stories each
+// in-game edition, stable across a restart and identical for every player.
+function wireStories(count) {
+  const { date } = getGameDateTime();
+  const rng = seededRng(`wire:${date || 'day0'}`);
+  const order = [...WIRE.keys()].sort(() => rng() - 0.5);
+  return order.slice(0, count).map(i => ({ ...WIRE[i], tag: 'wire' }));
+}
+
 // ── Public seam ───────────────────────────────────────────────────────────────
-// Up to `total` stories: the freshest live ones first, padded with today's
-// tabloid edition. Returns [{ headline, body, byline?, tag }].
+// Up to `total` stories: the freshest live ones first, then today's rotating wire
+// (canonical-lore) drumbeat, padded out with today's tabloid edition. Returns
+// [{ headline, body, byline?, tag }].
 export async function getStories(total = 6) {
   const seen = new Set();
   const out = [];
@@ -348,6 +457,17 @@ export async function getStories(total = 6) {
     if (seen.has(k)) continue;
     seen.add(k);
     out.push({ headline: s.headline, body: liveBody(s.headline), tag: 'live' });
+  }
+  // Then the day's canonical-lore drumbeat — the Long Watch terror framing, the
+  // Ascendant establishment, the Architect's oblique presence. Placed above the
+  // tabloid filler so on a quiet day (no live stories) a lore piece leads and gets
+  // a full anchor→reporter TV segment, while on a busy day it rides in the rundown.
+  for (const s of wireStories(2)) {
+    if (out.length >= total) break;
+    const k = normHeadline(s.headline);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(s);
   }
   // Pad with today's tabloid edition, skipping any headline already shown (a live
   // story can coincide with a filler one). Over-draw all templates so removing a

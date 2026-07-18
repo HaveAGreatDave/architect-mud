@@ -502,6 +502,25 @@ function isRoadCell(c) {
     || f.terrain === 'road';
 }
 
+// The Curtain — the Architect's energy wall on the city's land edges (flags.curtain). The
+// windshield raises a shimmer plane on each such tile; it needs to know WHICH neighbours are
+// also Curtain so the wall arms only reach toward real neighbours and fuse into one barrier.
+// Returns the directions (subset of 'n','e','s','w') that carry on the wall — so a straight run
+// gets 'ns'/'ew' (a full span), a corner gets an L like 'nw' (no stray stub poking into empty
+// air), and an endpoint gets a single arm. Same directional scheme the road auto-tiler uses.
+// A perimeter GATE tile counts as a wall-continuation here (though it carries no curtain flag of
+// its own — it's the gap): so the flanking Curtain reaches all the way to the shared edge with the
+// gate and butts into its blast-pylons, instead of stopping a tile short with a visible break.
+const isCurtain = c => !!(c && c.flags && (c.flags.curtain || c.flags.perimeter_gate));
+export function curtainRun(cx, cy) {
+  let s = '';
+  if (isCurtain(surfaceAt(cx, cy - 1))) s += 'n';
+  if (isCurtain(surfaceAt(cx + 1, cy))) s += 'e';
+  if (isCurtain(surfaceAt(cx, cy + 1))) s += 's';
+  if (isCurtain(surfaceAt(cx - 1, cy))) s += 'w';
+  return s || 'ns';   // isolated tile: stand a lone N–S wall so it never vanishes
+}
+
 function mapWindow(a, radius = 36) {
   const rows = [];
   for (let dy = -radius; dy <= radius; dy++) {
@@ -542,6 +561,7 @@ function mapWindow(a, radius = 36) {
       // `mark` channel: a `statue-*` map icon → the town-square statue+fountain; the
       // Echelon's exterior tile (flags.yacht) → a sleek black yacht with a lit helipad.
       const mark = cell.flags?.yacht ? 'yacht'
+        : cell.flags?.perimeter_gate ? 'gate'
         : (/^statue/.test(cell.flags?.icon || '') ? 'statue' : undefined);
       // A yacht that's recently sailed streams a decaying wake to every pilot in view.
       let wake, sub, heading;
@@ -580,7 +600,13 @@ function mapWindow(a, radius = 36) {
         if (isRoadCell(surfaceAt(cx - 1, cy))) s += 'w';
         rd = s || 'nesw';
       }
-      row.push({ kind, biome, road, danger: cell.danger, bt, bn, ent, flr, mark, rd, wake, sub, heading, self });
+      // The Curtain energy wall on a land-edge tile — carry its run axis so the windshield
+      // stands a shimmer barrier along it (see curtainRun).
+      // A Curtain tile carries its own run axis; the perimeter GATE tile carries no curtain flag
+      // (it's the gap) but still needs the wall's run — read it off its Curtain neighbours so the
+      // gate's flanking pylons line up with the wall it breaches.
+      const cur = (cell.flags?.curtain || cell.flags?.perimeter_gate) ? curtainRun(a.grid_x + dx, a.grid_y + dy) : undefined;
+      row.push({ kind, biome, road, danger: cell.danger, bt, bn, ent, flr, mark, rd, wake, sub, heading, self, cur, pf: cell.flags?.park_feature });
     }
     rows.push(row);
   }
@@ -592,7 +618,11 @@ function mapWindow(a, radius = 36) {
 // and shoreline she sits in, not a blank ocean. The centre is her own tile: clear its `self`
 // flag (which suppresses the extrusion pass) so the windshield draws her 3D model, and keep it a
 // `mark:'yacht'` water cell. The client overlays live wake/heading on that centre cell each frame.
-export function yachtHelmWindow(x, y, radius = 24) {
+// Radius matches the flight-sim window (36) — ≥ the renderer's VISIBLE_FAR_F (34) — so the WHOLE
+// skyline the chase view can draw is always in the payload. A smaller window (was 24) left the far
+// city short of the draw distance, so buildings "popped in" at the window edge as she made way; at
+// 36 the full basin is present from the moment the helm opens and never reveals in as she moves.
+export function yachtHelmWindow(x, y, radius = 36) {
   const rows = mapWindow({ grid_x: x, grid_y: y }, radius);
   const c = rows[radius] && rows[radius][radius];
   if (c) { c.self = undefined; if (!c.mark) c.mark = 'yacht'; }

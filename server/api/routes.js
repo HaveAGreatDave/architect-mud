@@ -261,6 +261,7 @@ async function dispatchApiRequest(url, method, body, headers) {
   if (path==='/maps' && method==='GET') return requireDev(auth, apiGetMaps);
   if (path==='/maps/link-interior' && method==='POST') return requireDev(auth, ()=>apiLinkInterior(body, auth));
   if (path==='/maps/move-building' && method==='POST') return requireDev(auth, ()=>apiMoveBuilding(body));
+  if (path==='/maps/flight-snapshot' && method==='POST') return requireDev(auth, ()=>apiFlightSnapshot());
   if (path.startsWith('/maps/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteMap(path.split('/')[2]));
   if (path.startsWith('/maps/') && method==='GET') return requireDev(auth, ()=>apiGetMap(path.split('/')[2]));
   // Zone IDs may contain '/' — extract with slice, not split, to handle them correctly
@@ -903,6 +904,23 @@ async function apiLinkInterior(body, auth) {
 // the dev panel STAGES the returned `changes` through the Changes panel (published together),
 // mirroring terrain edits. Guardrails: destination must be empty and have an adjacent street.
 const MOVE_CARDINAL = { north: [0, -1], south: [0, 1], east: [1, 0], west: [-1, 0] };
+// Re-bake the static flight-sim world (client/game/flightsim.html flies a baked snapshot,
+// not the live DB). The dev-panel Maps tab hits this after publishing terrain so the open
+// flight rig reflects the paint without a CLI run. Derives from the live in-memory world —
+// zone publishes reloadZone() into it, so it's already current — via the same builder the
+// CLI script uses (plugins/flight/snapshot.js), so the two paths can't drift.
+const FLIGHT_SNAPSHOT_PATH = fileURLToPath(new URL('../../client/game/flightsim-world.json', import.meta.url));
+async function apiFlightSnapshot() {
+  try {
+    const { buildFlightSnapshot } = await import('../../plugins/flight/snapshot.js');
+    const snap = buildFlightSnapshot();
+    writeFileSync(FLIGHT_SNAPSHOT_PATH, JSON.stringify(snap));
+    return { status: 200, body: { ok: true, tiles: Object.keys(snap.cells).length, fields: snap.fields.length } };
+  } catch (e) {
+    return { status: 500, body: { error: e.message } };
+  }
+}
+
 async function apiMoveBuilding(body) {
   const { facadeId, toX, toY, toZ = 0 } = body || {};
   if (!facadeId || toX == null || toY == null) return { status: 400, body: { error: 'facadeId, toX and toY are required.' } };

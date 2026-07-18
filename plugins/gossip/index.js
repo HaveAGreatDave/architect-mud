@@ -31,6 +31,7 @@ import { TEMPLATES, renderItem } from './templates.js';
 const TICK_MS             = 60_000;   // gc + power-diff + ambient cadence
 const AMBIENT_CHANCE      = 0.06;     // per witnessed zone per tick, unprompted gossip
 const PASSPHRASE_CHANCE   = 0.02;     // per tick chance to seed the (ask-only) dealer-passphrase rumour
+const FORTRESS_CHANCE     = 0.02;     // per tick chance to seed the (ask-only) western-fortress rumour
 const SPREAD_COOLDOWN_MS  = 60_000;   // between a player's own planted rumours
 
 const zn = (id) => getZone(id)?.name || 'somewhere';
@@ -428,6 +429,10 @@ function gossipTick() {
   }
 
   if (Math.random() < PASSPHRASE_CHANCE) seedPassphraseGossip().catch(e => console.error('[gossip] passphrase seed:', e.message));
+
+  // The western chrome fortress — an ask-only rumour of the Ascendant campus (its
+  // existence only; the Halcyon tie stays behind the Gate). Coalesced so it stays one.
+  if (Math.random() < FORTRESS_CHANCE) add('asc_fortress', { coalesceKey: 'asc_fortress', askOnly: true, subjectName: 'the western fortress', vars: {} });
 
   // Unprompted gossip — low chance, only in zones with a player watching. Ask-only
   // items (e.g. the dealer passphrase) are excluded here; they surface only on ask.

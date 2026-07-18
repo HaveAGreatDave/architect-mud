@@ -1,0 +1,30 @@
+{
+  "ambient_events": [
+    "The sealed hatch is cold to the touch and gives back nothing.",
+    "Air whistles thinly through a seam in the plating — there is space beyond, and it is large.",
+    "A hazard stencil on the bulkhead has been painted over, then painted over again."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#181513",
+  "color": "#b08a6a",
+  "created_by": "the-under",
+  "description": "A short dead spur ending at a heavy sealed bulkhead, its rivets sound and its wheel-lock welded fast. Whatever lies beyond it — a lower works, a flooded plant level, something the plant would rather stayed shut — is not opening today. The Watch have left it alone, and they leave very little alone. That should tell you something.",
+  "exits": {
+    "west": "zone_under_conduitvlt"
+  },
+  "flags": {
+    "district": "sewer",
+    "is_interior": true,
+    "scavenging_table_id": "scav_deep"
+  },
+  "grid_x": 926,
+  "grid_y": 911,
+  "grid_z": -1,
+  "id": "zone_under_sealedsub",
+  "map_id": "map_world",
+  "marker": "▧",
+  "name": "Sealed Sublevel",
+  "parent_zone": null,
+  "updated_at": "1784000000"
+}

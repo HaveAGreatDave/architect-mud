@@ -1,0 +1,30 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "wasteland",
+  "audio_theme_id": null,
+  "bg_color": "#2a1c16",
+  "color": "#b5744a",
+  "created_by": "wildlands-fill",
+  "description": "Cracked red hardpan runs out flat to a rust-colored horizon. Wind-scoured rock, grit, and nothing that grows.",
+  "exits": {
+    "north": "zone_district_923_922",
+    "west": "zone_district_922_923",
+    "south": "zone_district_923_924",
+    "east": "zone_district_924_923"
+  },
+  "flags": {
+    "district": "wilds",
+    "planner": "bp_district",
+    "radiation": 30,
+    "terrain": "redrock"
+  },
+  "grid_x": 923,
+  "grid_y": 923,
+  "grid_z": 0,
+  "id": "zone_district_923_923",
+  "map_id": "map_world",
+  "marker": null,
+  "name": "Oxide Barrens",
+  "parent_zone": null,
+  "updated_at": "1784600000"
+}

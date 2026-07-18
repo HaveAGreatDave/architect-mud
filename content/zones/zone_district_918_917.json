@@ -5,7 +5,7 @@
   "bg_color": "#2f3a26",
   "color": "#8ba36a",
   "created_by": "zone-planner",
-  "description": "Open grassland quietly reclaiming old ground — seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "description": "Cracked roadway funnels south between rusted stanchions that once held signage. The hum of the Curtain is a low electric note under the wind now, and the grass gives way to bare, over-driven ground.",
   "exits": {
     "east": "zone_district_919_917",
     "north": "zone_district_918_916",
@@ -13,8 +13,10 @@
     "west": "zone_district_917_917"
   },
   "flags": {
+    "artery": ["The Gate Road"],
     "district": "residential",
-    "planner": "bp_district"
+    "planner": "bp_district",
+    "terrain": "road"
   },
   "grid_x": 918,
   "grid_y": 917,

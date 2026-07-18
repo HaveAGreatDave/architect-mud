@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 0,
+  "flags": {},
+  "generator_id": null,
+  "id": "zone_under_894_905",
+  "max_capacity_kw": 0,
+  "name": "Sewer Line",
+  "source_type": "city_grid"
+}

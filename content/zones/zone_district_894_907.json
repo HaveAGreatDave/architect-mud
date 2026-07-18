@@ -9,8 +9,7 @@
   "exits": {
     "east": "zone_district_895_907",
     "north": "zone_district_894_906",
-    "south": "zone_district_894_908",
-    "west": "zone_district_893_907"
+    "south": "zone_district_894_908"
   },
   "flags": {
     "district": "wasteland",

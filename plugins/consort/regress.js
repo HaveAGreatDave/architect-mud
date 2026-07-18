@@ -189,6 +189,50 @@ export default async function regress({ check }) {
   }
   check('area: deck banter threads are well-formed two-handers', bantBad === null, bantBad || '');
 
+  // Name-varied entrances: Roxy and Bijou each draw from their own pool (never the
+  // shared default), the line carries her name, and § is always resolved.
+  check('entrance: Roxy resolves to her own pool', _test.ENTRANCES.roxy && _test.ENTRANCES.bijou && _test.ENTRANCES.roxy !== _test.ENTRANCES.bijou);
+  let entBad = null;
+  for (const [name, npc] of [['roxy', { name: 'Roxy' }], ['bijou', { name: 'Bijou' }], ['other', { name: 'Nobody' }]]) {
+    for (const kind of ['arrive', 'depart']) {
+      for (const via of [true, false]) {
+        const l = _test.pickEntrance(npc, kind, via);
+        if (typeof l !== 'string' || !l.trim() || l.includes('§') || !l.includes(npc.name)) { entBad = `${name}/${kind}/${via}`; break; }
+      }
+      if (entBad) break;
+    }
+    if (entBad) break;
+  }
+  check('entrance: every entrance line renders with her name, no leftover §', entBad === null, entBad || '');
+
+  // The interactive "settle it" beat. Setup + every reaction are well-formed
+  // two-handers; the classifier maps a spoken reply to the right reaction.
+  check('settle: setup is a well-formed two-hander', Array.isArray(_test.SETTLE_SETUP)
+    && _test.SETTLE_SETUP.length >= 2
+    && _test.SETTLE_SETUP.some(t => t[0] === 'R') && _test.SETTLE_SETUP.some(t => t[0] === 'B')
+    && _test.SETTLE_SETUP.every(([w, l]) => (w === 'R' || w === 'B') && typeof l === 'string' && l.trim()));
+  let reactBad = null;
+  for (const [key, thread] of Object.entries(_test.SETTLE_REACT)) {
+    const whos = thread.map(t => t[0]);
+    const ok = thread.length >= 1 && whos.every(w => w === 'R' || w === 'B')
+      && thread.every(([, l]) => typeof l === 'string' && l.trim() && (l.match(/"/g) || []).length % 2 === 0);
+    if (!ok) { reactBad = key; break; }
+  }
+  check('settle: every reaction pool is a well-formed two-hander', reactBad === null, reactBad || '');
+  check('settle: naming Roxy → roxy reaction', _test.classifySettle('Roxy, obviously') === 'roxy');
+  check('settle: naming Bijou → bijou reaction', _test.classifySettle('it has to be bijou') === 'bijou');
+  check('settle: naming both → both reaction', _test.classifySettle('both of you, always') === 'both');
+  check('settle: "roxy and bijou" → both reaction', _test.classifySettle('roxy and bijou') === 'both');
+  check('settle: "I can\'t choose" → both reaction', _test.classifySettle("I can't choose") === 'both');
+  check('settle: an unrelated reply → dodge', _test.classifySettle('the weather is nice') === 'dodge');
+  // onPlayerSay clears a pending question and never throws with the consorts absent.
+  _test.pendingSettle.set('regress_keeper', { zoneId: 'zone_nowhere', roxyId: 'x', bijouId: 'y', timer: null });
+  let sayThrew = false;
+  try { _test.onPlayerSay({ player: { id: 'regress_keeper', current_zone: 'zone_nowhere' }, text: 'roxy' }); }
+  catch { sayThrew = true; }
+  check('settle: onPlayerSay resolves without throwing and clears the pending question', sayThrew === false && !_test.pendingSettle.has('regress_keeper'));
+  check('settle: onPlayerSay is a no-op with no pending question', _test.onPlayerSay({ player: { id: 'nobody' }, text: 'hi' }) === undefined);
+
   // Furniture-describe hook: a line for a consort parked on the piece, nothing otherwise.
   const jac = { zone_id: 'zone_deck_x', name: 'jacuzzi' };
   check('furn: no describe line when nobody is parked', _test.onFurnitureDescribe(jac, null) === undefined);

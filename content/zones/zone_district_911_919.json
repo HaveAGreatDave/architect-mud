@@ -12,6 +12,7 @@
     "west": "zone_district_910_919"
   },
   "flags": {
+    "curtain": true,
     "district": "wasteland",
     "icon": "road_n",
     "planner": "bp_district",

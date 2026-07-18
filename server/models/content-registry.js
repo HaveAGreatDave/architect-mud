@@ -138,6 +138,7 @@ export const REGISTRY = [
   { table: 'recipes', class: 'content', pk: ['id'], readTier: 'boot' },        // RECIPE_CACHE (crafting.js)
   { table: 'drugs', class: 'content', pk: ['id'], readTier: 'boot' },          // DRUG_CACHE (drugs.js)
   { table: 'mutations', class: 'content', pk: ['id'], readTier: 'boot' },      // MUTATION_CACHE (mutations.js)
+  { table: 'augments', class: 'content', pk: ['id'], readTier: 'boot' },       // AUGMENT_CACHE (plugins/augments)
   { table: 'combat_config', class: 'content', pk: ['key'], readTier: 'boot' }, // tunables.js
   { table: 'command_aliases', class: 'content', pk: ['alias'], readTier: 'boot' }, // aliases.js
   { table: 'crimes', class: 'content', pk: ['id'], readTier: 'boot' },         // crimes.js
@@ -234,6 +235,7 @@ export const REGISTRY = [
   { table: 'player_deaths', class: 'player' },
   { table: 'player_drug_state', class: 'player' },
   { table: 'player_mutations', class: 'player' },
+  { table: 'player_augments', class: 'player' },     // installed cybernetics (plugins/augments)
   { table: 'player_flags', class: 'player' },
   { table: 'player_quests', class: 'player' },
   { table: 'bank_transactions', class: 'player' },   // Tablet OS Bank app deposit ledger

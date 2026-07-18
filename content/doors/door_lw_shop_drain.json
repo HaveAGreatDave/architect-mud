@@ -1,0 +1,26 @@
+{
+  "door_type": "reinforced",
+  "exit_dir": "down",
+  "flags": {},
+  "hololock_difficulty": 0,
+  "hp": 2000,
+  "hp_max": 2000,
+  "id": "door_lw_shop_drain",
+  "is_locked": 0,
+  "is_open": 0,
+  "lock_state": "locked",
+  "name": "drain hatch",
+  "tags": {
+    "lock:longwatch": {
+      "canHack": false,
+      "messages": {
+        "denied": "The drain hatch is barred from the far side. Only the Watch come up this way.",
+        "lock": "The hatch drops shut and the bar slides home.",
+        "unlock": "The bar draws back and the hatch lifts."
+      }
+    },
+    "unbreakable": true
+  },
+  "target_zone": "zone_under_terminus",
+  "zone_id": "zone_lw_shop_back"
+}

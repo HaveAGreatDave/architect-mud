@@ -60,6 +60,33 @@ registerLockType('keycardlock', {
   },
 });
 
+// The Long Watch bunker blast door — opens only for members the Watch trusts.
+// The gate is LIVE reputation, not a one-way flag: earn 'trusted' standing through
+// the vetting arc and the door knows you; betray the Watch and your rep falls back
+// below the line and it stops. Reuses the exact player_ideology_rep read the ATM
+// network gate runs (plugins/atm). Not hackable and the door is marked unbreakable
+// in content — there is no lockpick or bash path in, by design.
+const LW_TRUSTED_REP = 500;   // the 'trusted' tier floor (server/engine/ideologies.js)
+registerLockType('longwatch', {
+  tagType: 'lock:longwatch',
+  kitTag:  'lockkit:longwatch',
+  defaults: {
+    canHack: false,
+    messages: {
+      lock:   'The blast door seats itself with a pneumatic sigh.',
+      unlock: 'The blast door unseals and swings inward.',
+      denied: 'The blast door does not know you. It does not move.',
+    },
+  },
+  authFn: async (lockTag, door, player) => {
+    const { rows } = await query(
+      "SELECT reputation FROM player_ideology_rep WHERE player_id=$1 AND ideology_id='ideology_long_watch' LIMIT 1",
+      [player.id]
+    );
+    return (rows[0]?.reputation ?? 0) >= LW_TRUSTED_REP;
+  },
+});
+
 // Privacy lock — a simple bathroom-stall bolt. Anyone standing on the door's
 // `privacySide` (the bathroom side, auto-detected at placement or set via the
 // zone editor's lock-side switch) can lock AND unlock it; the other side is

@@ -38,6 +38,9 @@ is silently inert, so grep before renaming anything below.
 | `building_name` | world | display name of the enclosing building |
 | `building_type` | world | building category (shop, apartment, …) |
 | `checkpoint` | govgate | checkpoint gate zone |
+| `curtain` | perimeter (wildlands) | tile borders the Architect's energy wall on the city's land edge; renders a minimap shimmer-edge + a room-description curtain line; stays sealed (no crossing exit) except at a `perimeter_gate` |
+| `perimeter_gate` | perimeter (wildlands) | the one break in the Curtain — the guarded road out to the wilds; draws a gate glyph and carries the exit through the wall |
+| `glacis` | perimeter (wildlands) | outward-facing turret killing-ground just beyond a `perimeter_gate`; the cleared no-man's-land the wall guns sweep |
 | `claimable` | corps | territory override: force claimable (absent = derived from inferred danger) |
 | `claimable_asset` | corps | this building is a claimable corporate income asset (Corporate Assets Phase A); `corps/ventures.js` reads it for `corp asset claim` |
 | `danger` | danger | manual danger override (`safe/low/medium/high/lethal`) — normally inferred from spawns + radiation (`engine/danger.js`) |
@@ -58,17 +61,21 @@ is silently inert, so grep before renaming anything below.
 | `is_building` | power/world | groups interior zones into one building (junction-box scope) |
 | `is_interior` | environment | indoors (weather/temperature/lighting model) |
 | `lawless` | surveillance | crimes here raise no heat/wanted |
+| `safehouse` | surveillance | launders wanted heat: unseen time bleeds a wanted star 3× as fast as lying low on the street. Pair with `unsurveilled`/`sanctuary` for a true refuge |
 | `mining_table_id` | mining | scavenging-table id used for mining here |
 | `mis_ok` | mis | zone-gated NPC consent (see `mis_requires_zone_flag`) |
 | `no_spawn` | spawning | suppress enemy spawns |
 | `open_sky` | flight + environment | outdoor zone aircraft can overfly/land; on an `is_interior`/`is_building` zone (an open roof/deck) it also makes the zone climatically OUTDOORS — sky light, weather, and outdoor temp — while the raw interior flag keeps it in the power/building network (see `isIndoorZone`) |
+| `park_feature` | flight | on a `terrain:park` tile, forces which flight-sim park dressing draws (`grove\|pond\|benches\|flowerbeds\|path`) so a park lays out symmetrically; unset → tile position hash. Rides the flight cell as `pf` (live stream + baked snapshot) |
 | `planner` | zone-planner | provenance: blueprint id that generated this zone (tools/zone-planner) |
 | `prologue` | prologue | part of the prologue instance |
 | `radiation` | survival | ambient radiation 0–100 (entry gain `floor(v×0.1)`; ≥25/≥40 floors danger to high/lethal). Replaced the `radiation_level` column (legacy 1–5 values rescaled ×10) |
+| `rest_multiplier` | survival/posture | scales both stamina regen and HP knit-back for anyone resting here (`restRegenTick`, gameLoop.js); default 1. Comfort zones raise it — Solenne units 1.5, penthouse 2.0 |
 | `sanctuary` | protection/sleep/spawning | civilization carve-out: combat protection (protection substrate — now blocks NPC **and** enemy attacks too, not just player attack/loot/steal/shove; see `enemyAttackPlayer`/`npcAttackPlayer` in `combat.js`), safe sleep, AI safe-flee, no hostile spawns. DELIBERATE — replaced `is_safe_zone`, which was dropped without conversion |
 | `scavenging_table_id` | scavenging | loot table for searching here |
 | `street_life` | ambience | ambient street-life event pool strength |
-| `terrain` | map/minimap/flight | authored ground surface (`water\|road\|asphalt\|concrete\|grass\|dirt\|sand\|gravel\|dock`) — the SSOT `zoneTerrain()` prefers over inference; drives minimap/tablet fills + flight ground tint. Painted in dev panel Maps → Terrain mode. Road tiles auto-tile their connector from adjacent road terrain (`roadConnector` in `world.js`) |
+| `terrain` | map/minimap/flight | authored ground surface (`water\|road\|asphalt\|concrete\|grass\|park\|dirt\|sand\|gravel\|dock\|scrub\|redrock\|ash\|marsh`; `park` = manicured green w/ its own flight biome; last four = post-apoc wildlands, keep their glyph) — the SSOT `zoneTerrain()` prefers over inference; drives minimap/tablet fills + flight ground tint. Painted in dev panel Maps → Terrain mode. Road tiles auto-tile their connector from adjacent road terrain (`roadConnector` in `world.js`) |
+| `unsurveilled` | surveillance | off the Architect's grid — the witness roll (cameras/cops/bystanders) short-circuits to unseen, so no crime is witnessed and no heat earned. The Long Watch bunker uses this |
 | `utility_room` | power | building utility room (junction box lives here) |
 | `water` | movement | water zone (needs a `boat`-tagged item) |
 | `world_exit_zone` | movement | exterior seam zone for this building |

@@ -63,6 +63,10 @@ export function findPath(startId, targetId, { maxDistance = 60, roads = false, a
 
     for (const neighborId of neighborZoneIds(zone)) {
       if (avoid && neighborId !== targetId && avoid.has(neighborId)) continue;
+      // Open water isn't standable — skip it even in the plain-BFS fallback so the
+      // initial GPS line routes around the basin instead of cutting straight across
+      // it (the target itself is exempt, matching the road search / avoid handling).
+      if (neighborId !== targetId && world.zones.get(neighborId)?.flags?.water) continue;
       if (!parent.has(neighborId)) {
         parent.set(neighborId, current);
         dist.set(neighborId, currentDist + 1);

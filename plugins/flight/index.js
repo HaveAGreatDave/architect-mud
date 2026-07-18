@@ -239,6 +239,15 @@ async function boardFound(found, player, broadcast) {
 async function cmdDisembark(args, raw, player, broadcast) {
   const live = player.aircraftId ? liveAircraft.get(player.aircraftId) : null;
   if (!live) return { type: 'emote', message: "You're not aboard anything." };
+  // A continuous heli sets down off-field without sending a `land` event — the client
+  // keeps the sim "flying" so the pilot can lift straight off again, so the server still
+  // marks it airborne even while it's sitting on the ground. Commit the set-down HERE,
+  // on climb-out: park it on the tile it's actually on, so you step out where you landed
+  // rather than back at the field you took off from (parkAt moves everyone's current_zone).
+  if (live.row.airborne && player.seat === 'pilot' && isContinuous(live) && live.cont?.onGround) {
+    const spot = surfaceAt(live.row.grid_x, live.row.grid_y);
+    if (spot && !spot.flags?.water && districtBiome(spot) !== 'water') await parkAt(live, spot.id);
+  }
   if (live.row.airborne) return { type: 'emote', message: "You can't step out — you're in the air." };
   const name = live.type.name;
   detach(player);

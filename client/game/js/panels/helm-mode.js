@@ -348,7 +348,8 @@ export function openHelm(opts = {}) {
         <span class="helm-chip"><b data-wx>CLEAR</b></span>
         <span class="helm-chip"><b data-time>--:--</b></span>
         <button class="helm-icon" data-chart title="chart a course">🗺</button>
-        <button class="helm-icon" data-fs title="fullscreen">⛶</button>
+        <button class="helm-icon" data-hide title="collapse the panel — hide the log">⊟</button>
+        <button class="helm-icon" data-fs title="fullscreen — hide the log + command bar">⛶</button>
         <button class="helm-icon exit" data-exit title="leave the helm">✕</button>
       </div>
       <div class="helm-dash">
@@ -669,7 +670,7 @@ export function openHelm(opts = {}) {
       open.delete(key(cur.x, cur.y));
       if (cur.x === tx && cur.y === ty) { const p = []; for (let n = cur; n; n = n.parent) p.push([n.x, n.y]); return p.reverse(); }
       closed.add(key(cur.x, cur.y));
-      if (++count > 4000) return null;
+      if (++count > 8000) return null;   // node cap sized to the full basin window (radius 36) so a far pick still previews; the server re-charts authoritatively regardless
       for (const [dx, dy] of NB8) {
         const nx = cur.x + dx, ny = cur.y + dy;
         if (nx < 0 || ny < 0 || nx >= N || ny >= N || closed.has(key(nx, ny)) || !cellWater(rows, nx, ny)) continue;
@@ -770,11 +771,22 @@ export function openHelm(opts = {}) {
   const upH = () => { drag = false; }; addEventListener('pointerup', upH);
   sea.addEventListener('wheel', (e) => { e.preventDefault(); ctrl.zoom(e.deltaY > 0 ? 0.08 : -0.08); }, { passive: false });
 
-  // Fullscreen — the SAME body-class mechanism the flight sim uses (styles.css): the helm grows to
-  // fill the output column (⛶ also folds the command box) instead of an OS-fullscreen overlay. Cleared
-  // on close.
-  const fsBtn = q('[data-fs]');
-  fsBtn.addEventListener('click', () => { const on = document.body.classList.toggle('helm-fullscreen'); fsBtn.classList.toggle('on', on); fitCamera(); });
+  // Fullscreen + collapse-panel — the SAME body-class mechanism the flight sim uses (styles.css),
+  // instead of an OS-fullscreen overlay; both are cleared on close.
+  //   ⊟ collapse (helm-hidepanel): folds away just the scrollback log — the command bar stays.
+  //   ⛶ fullscreen (helm-fullscreen): folds the log AND the command bar for the fully immersive view.
+  // They're mutually exclusive (engaging one drops the other), mirroring the flight sim's ⊟ / ⛶ chrome.
+  const fsBtn = q('[data-fs]'), hideBtn = q('[data-hide]');
+  fsBtn.addEventListener('click', () => {
+    const on = document.body.classList.toggle('helm-fullscreen'); fsBtn.classList.toggle('on', on);
+    if (on) { document.body.classList.remove('helm-hidepanel'); hideBtn.classList.remove('on'); }   // fullscreen supersedes collapse
+    fitCamera();
+  });
+  hideBtn.addEventListener('click', () => {
+    const on = document.body.classList.toggle('helm-hidepanel'); hideBtn.classList.toggle('on', on);
+    if (on) { document.body.classList.remove('helm-fullscreen'); fsBtn.classList.remove('on'); }   // collapse supersedes fullscreen
+    fitCamera();
+  });
   q('[data-exit]').addEventListener('click', () => { closeHelm(); onExit(); });
 
   // Keyboard: Esc exits. (Course is the wheel; the throttle is the telegraph — both are grab-and-drag.)

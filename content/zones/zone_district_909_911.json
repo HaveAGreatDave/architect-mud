@@ -5,7 +5,7 @@
   "bg_color": "#2e3a38",
   "color": "#7fb0a0",
   "created_by": "zone-planner",
-  "description": "Cracked paving stones fan out around a monument to someone nobody remembers. The benches are all bolted flat so you cannot sleep on them. People do anyway.",
+  "description": "Cracked paving stones fan out around a monument to someone nobody remembers, but the square around it has been coaxed green — mown lawn, young trees, raked paths. The benches are all bolted flat so you cannot sleep on them. People do anyway.",
   "exits": {
     "east": "zone_district_910_911",
     "north": "zone_district_909_910",

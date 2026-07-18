@@ -1,0 +1,31 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "city",
+  "audio_theme_id": null,
+  "bg_color": "#2b2622",
+  "color": "#a89a86",
+  "created_by": "wildlands",
+  "description": "The far edge of the glacis, where the swept red rock finally loses to dead brush and rusted badland. The Curtain is a bright wall at your back now; ahead the land breaks into scrub and stone, rattling in a hot wind and alive in the wrong ways.",
+  "exits": {
+    "north": "zone_district_918_921",
+    "south": "zone_district_918_923",
+    "west": "zone_district_917_922",
+    "east": "zone_district_919_922"
+  },
+  "flags": {
+    "danger": "high",
+    "district": "wilds",
+    "glacis": true,
+    "planner": "bp_district",
+    "terrain": "redrock"
+  },
+  "grid_x": 918,
+  "grid_y": 922,
+  "grid_z": 0,
+  "id": "zone_district_918_922",
+  "map_id": "map_world",
+  "marker": "×",
+  "name": "The Glacis",
+  "parent_zone": null,
+  "updated_at": "1784500000"
+}

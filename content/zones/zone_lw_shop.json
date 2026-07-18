@@ -1,0 +1,31 @@
+{
+  "ambient_events": [
+    "The bell over the door settles on its spring.",
+    "Something on the bench ticks as it cools.",
+    "A radio with its guts open crackles once, catches a bar of old music, loses it again."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#241d16",
+  "color": "#d8c4a0",
+  "created_by": "longwatch",
+  "description": "A cramped, orderly repair shop that smells of flux and oil. Every wall is pegboard, every peg holds a tool worn smooth by a working hand — nothing newer than the last century, nothing that needs the grid to run. A heavy workbench dominates the room, a half-mended pump motor clamped in its vise. A steel door at the back is shut, and does not invite questions. The street lies south.",
+  "exits": {
+    "south": "zone_district_924_912",
+    "west": "zone_lw_shop_back"
+  },
+  "flags": {
+    "always_lit": true,
+    "district": "residential",
+    "is_interior": true
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_lw_shop",
+  "map_id": "map_int_halloran",
+  "marker": null,
+  "name": "Halloran's Fix-It",
+  "parent_zone": "zone_district_924_912",
+  "updated_at": "1784000000"
+}

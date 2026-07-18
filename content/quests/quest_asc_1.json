@@ -1,0 +1,45 @@
+{
+  "category": null,
+  "description": "Cyrelle's noticed it too: Halcyon Assurance settles its biggest claims by routing them west, past the grasslands, to somewhere that's on no map the Watch keeps. Watch the claims hall, follow the trail, and find out what's out there — without getting made.",
+  "id": "quest_asc_1",
+  "meta": {},
+  "name": "Follow the Money",
+  "objectives": [
+    {
+      "desc": "Watch the claims hall in Halcyon Towers",
+      "emotes": [
+        "{who} lingers by the claims-hall queue, counting how many payouts route somewhere nobody will name."
+      ],
+      "id": "o0",
+      "taskSeconds": 5,
+      "type": "visit",
+      "zone": "zone_halcyon_lobby"
+    },
+    {
+      "desc": "Follow the trail west (follow the green GPS line)",
+      "emotes": [
+        "{who} follows the graded track west until the grass gives way to mirror-polished plaza — and a chrome wall of a place turns its scanners on {who}."
+      ],
+      "id": "o1",
+      "requires": [
+        "o0"
+      ],
+      "taskSeconds": 5,
+      "type": "visit",
+      "zone": "zone_district_893_906"
+    }
+  ],
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 150,
+    "flags": [
+      {
+        "flag": "asc_q1_done",
+        "scope": "player",
+        "value": "done"
+      }
+    ]
+  },
+  "updated_at": "1783740000"
+}

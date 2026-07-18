@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 0,
+  "flags": {},
+  "generator_id": null,
+  "id": "zone_under_laddershaft",
+  "max_capacity_kw": 0,
+  "name": "Ladder Shaft",
+  "source_type": "city_grid"
+}

@@ -38,9 +38,12 @@ Every verb gates on the `echelon_bridge` zone flag.
   `SAIL_MS_PER_TILE_COURSE = 5000`.
 - **Console shell:** `client/game/js/panels/helm-mode.js` (`openHelm()`, brass/glass
   dash, telegraph, NAV scope; `isHelmActive()` gates room renders like
-  `isFlightSimActive()`).
+  `isFlightSimActive()`). Carries the same chrome pair as the flight sim: **⊟** collapses
+  just the scrollback log, **⛶** fullscreens (log + command bar hidden); mutually exclusive.
 - **Chase render:** `client/game/js/panels/helm-view.js` (`openHelmChase()` — the
-  flight-renderer-reuse controller: wake/wash/knots, orbit cam, `sailT`, boat audio).
+  flight-renderer-reuse controller: wake/wash/knots, orbit cam, `sailT`, boat audio). The
+  chase-cam pitch follows the dolly zoom (`pitchForZoom`): side-on near the water, tilting
+  top-down as the camera pulls back.
 - **Wheel:** `client/game/js/panels/helm-wheel.js`.
 - **Renderer (shared with flight):** `windshield.js` (`paintWindshield`,
   `drawYacht`, `YACHT_SCALE`).

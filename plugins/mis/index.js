@@ -19,7 +19,7 @@ import {
   NPC_WITNESS_AROUSED, NPC_WITNESS_DISGUST,
   FUCK_EVENT_MSGS, FUCK_EVENT_PLAYER_MSGS, FUCK_EVENT_TARGET_MSGS, EJACULATE_ZONE_MSGS,
   SERVICE_EVENTS, SERVICE_CLIMAX_ZONE, SERVICE_CLIMAX_ACTOR, triggerServiceClimax,
-  NPC_AROUSAL_MSGS, NPC_CLIMAX_MSGS,
+  NPC_AROUSAL_MSGS, NPC_CLIMAX_MSGS, THREESOME_JOIN_MSGS, THREESOME_CLIMAX_MSGS,
 } from './mis-system.js';
 import { world, getZone, getZonePlayers, getZoneNpcs, getLivePlayer, getAllLivePlayers } from '../../server/engine/world.js';
 import { stainZone, stainClothing } from '../../server/engine/bodily.js';
@@ -138,6 +138,45 @@ async function addNpcArousal(npc, amount, broadcast, zoneId) {
     broadcastMis(zoneId, { type: 'zone_event', message: pool[Math.floor(Math.random() * pool.length)].replace('{npc}', npc.name) }, broadcast);
   }
   return false;
+}
+
+// ── Threesome ─────────────────────────────────────────────────────────────────
+// A second present, aroused, MIS-willing partner (a player who's into the actor,
+// or a willing consort/NPC) gets pulled into an ongoing fuck. Detected once when
+// the event starts; then tickThreesome feeds them a share of the scene each beat.
+function findJoiner(player, primaryId, zoneId) {
+  for (const npc of getZoneNpcs(zoneId)) {
+    if (npc._dead || npc.id === primaryId) continue;
+    if (isNpcMisWilling(npc) && (npc._misHorny || 0) >= 30) return { id: npc.id, kind: 'npc', name: npc.name };
+  }
+  for (const p of getZonePlayers(zoneId)) {
+    if (p.id === player.id || p.id === primaryId) continue;
+    if (isMisActive(p) && isAttractedTo(p, player) && (p.horniness || 0) >= 30) return { id: p.id, kind: 'player', name: p.handle };
+  }
+  return null;
+}
+
+// One beat of the joiner's involvement: a room line + a share of arousal. `climax`
+// broadcasts their own finish line instead. Silently no-ops if the joiner has left.
+async function tickThreesome(joiner, live, targetId, targetName, broadcast, { climax = false } = {}) {
+  if (!joiner) return;
+  const pool = climax ? THREESOME_CLIMAX_MSGS : THREESOME_JOIN_MSGS;
+  const line = pool[Math.floor(Math.random() * pool.length)]
+    .replace(/\{name\}/g, live.handle).replace(/\{target\}/g, targetName || 'them').replace(/\{third\}/g, joiner.name);
+  if (joiner.kind === 'npc') {
+    const jn = world.npcs.get(joiner.id);
+    if (!jn || jn._dead || jn.zone_id !== live.current_zone) return;
+    broadcastMis(live.current_zone, { type: 'zone_event', message: line }, broadcast, live.id, targetId);
+    await addNpcArousal(jn, climax ? 40 : 15, broadcast, live.current_zone);
+  } else {
+    const jp = getLivePlayer(joiner.id);
+    if (!jp || !isMisActive(jp) || jp.current_zone !== live.current_zone) return;
+    broadcastMis(live.current_zone, { type: 'zone_event', message: line }, broadcast, live.id, targetId);
+    if (!climax) {
+      const m = await addHorniness(jp, 12, broadcast);
+      if (m.length) broadcast(null, { type: 'resource_tick', messages: m, player_update: { horniness: jp.horniness } }, null, jp.id);
+    }
+  }
 }
 
 // Shared NPC MIS reaction handler. verb is the action name for actor message copy.
@@ -1024,6 +1063,7 @@ async function startFuckEventNpc(player, npc, broadcast, location) {
 
   const playerId = player.id;
   const npcId = npc.id;
+  const joiner = findJoiner(player, npcId, player.current_zone);
   const zonePool = FUCK_EVENT_MSGS[location] || FUCK_EVENT_MSGS.default;
   const actorPool = FUCK_EVENT_PLAYER_MSGS[location] || FUCK_EVENT_PLAYER_MSGS.default;
   const ejacPart = location === 'mouth' ? 'throat' : location === 'ass' ? 'ass' : location === 'pussy' ? 'pussy' : 'body';
@@ -1046,6 +1086,7 @@ async function startFuckEventNpc(player, npc, broadcast, location) {
         .replace(/\{name\}/g, live.handle).replace(/\{target\}/g, name).replace(/\{part\}/g, ejacPart);
       broadcastMis(live.current_zone, { type: 'zone_event', message: ejacText }, broadcast, live.id);
       await addNpcArousal(liveNpc, 40, broadcast, live.current_zone); // finishing tips them over too
+      await tickThreesome(joiner, live, null, name, broadcast, { climax: true });
       npcWitnessMis(live.current_zone, broadcast, 0.7);
       broadcast(null, { type: 'resource_tick', messages: climaxMsgs, player_update: { horniness: live.horniness, erect: live.erect, sanity: live.sanity } }, null, playerId);
       return;
@@ -1057,10 +1098,11 @@ async function startFuckEventNpc(player, npc, broadcast, location) {
     broadcast(null, { type: 'output', message: actorPool[Math.floor(Math.random() * actorPool.length)].replace(/\{target\}/g, name) }, null, playerId);
 
     await addNpcArousal(liveNpc, 15, broadcast, live.current_zone);
+    if (joiner && Math.random() < 0.55) await tickThreesome(joiner, live, null, name, broadcast);
 
     const climaxMsgs = await addHorniness(live, 18, broadcast);
     broadcast(null, { type: 'resource_tick', messages: climaxMsgs, player_update: { horniness: live.horniness, erect: live.erect } }, null, playerId);
-  }, 8000, { action: 'fuck', target: name });
+  }, 8000, { action: 'fuck', target: name, location });
 
   return { type: 'output', message: opener };
 }
@@ -1185,6 +1227,7 @@ async function cmdFuck(args, raw, player, broadcast) {
   // Start ongoing event
   const playerId = player.id;
   const targetId = res.target.id;
+  const joiner = findJoiner(player, targetId, player.current_zone);
   const zonePool = FUCK_EVENT_MSGS[location] || FUCK_EVENT_MSGS.default;
   const actorPool = FUCK_EVENT_PLAYER_MSGS[location] || FUCK_EVENT_PLAYER_MSGS.default;
   const targetPool = FUCK_EVENT_TARGET_MSGS[location] || FUCK_EVENT_TARGET_MSGS.default;
@@ -1203,6 +1246,7 @@ async function cmdFuck(args, raw, player, broadcast) {
         .replace(/\{target\}/g, name)
         .replace(/\{part\}/g, ejacPart);
       broadcastMis(live.current_zone, { type: 'zone_event', message: ejacText }, broadcast, live.id, targetId);
+      await tickThreesome(joiner, live, targetId, name, broadcast, { climax: true });
       npcWitnessMis(live.current_zone, broadcast, 0.7);
       broadcast(null, {
         type: 'resource_tick',
@@ -1233,6 +1277,8 @@ async function cmdFuck(args, raw, player, broadcast) {
       message: actorTpl.replace(/\{target\}/g, name),
     }, null, playerId);
 
+    if (joiner && Math.random() < 0.55) await tickThreesome(joiner, live, targetId, name, broadcast);
+
     const climaxMsgs = await addHorniness(live, 18, broadcast);
     broadcast(null, {
       type: 'resource_tick',
@@ -1260,7 +1306,7 @@ async function cmdFuck(args, raw, player, broadcast) {
         }
       }
     }
-  }, 8000, { action: 'fuck', target: name });
+  }, 8000, { action: 'fuck', target: name, location });
 
   return { type:'output', message: actorMsg };
 }
@@ -1280,9 +1326,16 @@ async function cmdEjaculate(args, raw, player, broadcast) {
     return { type:'error', message:`You're not worked up enough for that.` };
   }
 
-  stopMisEvent(player.id); // cancel any ongoing event
+  // If you're mid-fuck and just say "cum" with no target, you finish where you're
+  // already buried — mouth/pussy/ass — rather than pulling out onto the floor.
+  // Naming a target ("cum on …" / "cum in …") still overrides and aims it there.
+  const activeMeta = getMisEventMeta(player.id);
+  let str = raw.replace(/^(?:ejaculate|cum|come)\s*/i, '').trim().toLowerCase();
+  if (!str && activeMeta?.action === 'fuck' && ['mouth', 'pussy', 'ass'].includes(activeMeta.location) && activeMeta.target) {
+    str = `in ${activeMeta.target.toLowerCase()}'s ${activeMeta.location}`;
+  }
 
-  const str = raw.replace(/^(?:ejaculate|cum|come)\s*/i, '').trim().toLowerCase();
+  stopMisEvent(player.id); // cancel any ongoing event
 
   // "in <target>'s <hole>" — finish INSIDE (cum in X's mouth / pussy / ass).
   // Distinct from "on <target>'s <part>" below, which marks the surface.
@@ -1858,6 +1911,32 @@ on('mis.toggled', ({ player, enabled }) => {
   } else {
     stopMisEvent(player.id);
     sendToPlayer(player.id, { type: 'output', message: 'MIS disabled.' });
+  }
+});
+
+// ── Watersports (bodily → MIS) ────────────────────────────────────────────────
+// Being pissed on is a kink for the opted-in: the bodily plugin emits when someone
+// relieves themselves on a creature, and here it becomes arousal for any MIS-active
+// participant. Target gets the bigger charge; a willing actor gets a smaller thrill.
+const WATERSPORTS_TARGET = [
+  `The warmth hits you and your body answers in a way you didn't plan on. God help you, you're into it.`,
+  `You should be revolted. You're not. The heat of it goes straight to your gut.`,
+  `Something low and shameful lights up in you as it soaks in. You want more.`,
+  `Filthy. Degrading. You're achingly turned on by every second of it.`,
+];
+
+on('bodily.pissedOnCreature', async ({ actor, target, zoneId }) => {
+  if (!target?.handle) return; // only players carry the kink wiring
+  const tp = getLivePlayer(target.id);
+  if (tp && isMisActive(tp)) {
+    const msgs = await addHorniness(tp, 12, () => {});
+    sendToPlayer(tp.id, { type: 'output', message: WATERSPORTS_TARGET[Math.floor(Math.random() * WATERSPORTS_TARGET.length)] });
+    if (msgs.length) sendToPlayer(tp.id, { type: 'resource_tick', messages: msgs, player_update: { horniness: tp.horniness } });
+  }
+  const ap = actor && getLivePlayer(actor.id);
+  if (ap && isMisActive(ap)) {
+    const msgs = await addHorniness(ap, 8, () => {});
+    if (msgs.length) sendToPlayer(ap.id, { type: 'resource_tick', messages: msgs, player_update: { horniness: ap.horniness } });
   }
 });
 

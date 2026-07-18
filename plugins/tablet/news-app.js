@@ -51,8 +51,9 @@ async function weatherSection() {
 }
 
 // ── Section: Word on the Street (generated headlines) ────────────────────────
-// The amusing world-aware feed — live event-sourced stories padded with today's
-// tabloid edition (news-generator.js). Leads the feed so there's always
+// The amusing world-aware feed — live event-sourced stories, then date-seeded
+// canonical-lore "wire" stories, padded with today's tabloid edition
+// (news-generator.js: live → wire → tabloid). Leads the feed so there's always
 // something to read even before any games are played.
 async function headlinesSection() {
   const stories = await getStories(6);

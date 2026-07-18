@@ -129,6 +129,10 @@ const BUILDING_TYPE_ICON = {
   // The Yards — semi-industrial freight district (docs/proposals/yards.md).
   warehouse: 'bldg_warehouse', container_yard: 'bldg_container', fuel_yard: 'bldg_fuel', cold_storage: 'bldg_cold',
   fabrication: 'bldg_fab', wharf: 'bldg_wharf', freight_office: 'bldg_freightoffice', freight_forwarder: 'bldg_forwarder',
+  // The Ascendant Stronghold (docs/proposals/ascendant-stronghold.md) — reuse the nearest existing
+  // glyphs so the campus reads on the 2-D map this build; bespoke SVGs are an optional polish pass.
+  asc_spire: 'bldg_office', asc_gate: 'bldg_police', asc_clinic: 'bldg_clinic',
+  asc_weave: 'bldg_fab', asc_vats: 'bldg_cold', asc_shrine: 'bldg_power',
 };
 export function buildingIconSvg(zone) {
   if (!zone || !hasTag(zone, 'facade')) return null;
@@ -883,6 +887,9 @@ export function getMinimapData(centerZoneId, depth = 8, viewer = null) {
       terrain: zoneTerrain(zone), // 'road' | 'water' | 'grass' | null — tileable terrain styling
       district: (() => { const d = districtFor(zone); return { key: d.key, name: d.name, color: d.color }; })(),
       artery: Array.isArray(zone.flags?.artery) ? zone.flags.artery : (zone.flags?.artery ? [zone.flags.artery] : null),
+      curtain: zone.flags?.curtain ? true : null, // the Architect's perimeter wall edge
+      perimeter_gate: zone.flags?.perimeter_gate ? true : null, // the one break in the Curtain
+      glacis: zone.flags?.glacis ? true : null, // turret killing-ground outside the gate
       is_current: zone.id === centerZoneId,
       reachable: visited.has(zone.id),
       player_count: zone.players.size,

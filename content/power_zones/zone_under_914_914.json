@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 0,
+  "flags": {},
+  "generator_id": null,
+  "id": "zone_under_914_914",
+  "max_capacity_kw": 0,
+  "name": "Drain Sump",
+  "source_type": "city_grid"
+}

@@ -533,6 +533,26 @@ export const FUCK_EVENT_MSGS = {
   ],
 };
 
+// Threesome — a second willing partner ({third}) pulled into an ongoing fuck.
+// {name} = the one doing the fucking, {target} = the primary partner, {third} =
+// the joiner. Fired occasionally on the fuck tick; keep them room-flavour, not a
+// full second event.
+export const THREESOME_JOIN_MSGS = [
+  `{third} presses in close, not content to just watch, hands roaming over {name} and {target} both.`,
+  `{third} slides up behind {name}, kissing their neck and murmuring encouragement.`,
+  `{third} straddles {target}'s face and grinds down while {name} keeps thrusting.`,
+  `{third} guides {name}'s free hand between their legs and rides it.`,
+  `{third} kisses {target} deep, swallowing their moans, then breaks off to lick their way down.`,
+  `{third} works themselves against {name}'s hip, greedy for a share of it.`,
+  `{third} traps {name}'s hand and uses it, gasping, refusing to be left out.`,
+  `{name}, {target} and {third} tangle together, all limbs and heat and no idea where one stops.`,
+];
+export const THREESOME_CLIMAX_MSGS = [
+  `{third} shudders through their own finish, clinging to the pair of them.`,
+  `{third} cries out and comes too, dragged over the edge by the sight of it.`,
+  `{third} presses their face to {target}'s shoulder and lets go, boneless.`,
+];
+
 // Zone-visible ejaculation broadcast messages
 export const EJACULATE_ZONE_MSGS = {
   ground: [

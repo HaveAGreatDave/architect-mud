@@ -1,0 +1,8 @@
+{
+  "enemy_id": "enemy_drain_snake",
+  "id": "zs_under_junction_snake",
+  "max_count": 2,
+  "respawn_seconds": 300,
+  "spawn_weight": 60,
+  "zone_id": "zone_under_junction"
+}

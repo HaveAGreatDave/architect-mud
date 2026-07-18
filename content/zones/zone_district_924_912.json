@@ -5,16 +5,17 @@
   "bg_color": "#332e28",
   "color": "#b89a72",
   "created_by": "zone-planner",
-  "description": "Stacked living units marketed as \"affordable modular habitation\" — landlord for a concrete drawer you rent by the month, utilities extra, dignity not included. Someone's AC unit drips onto someone else's only window. The whole block breathes through one wheezing vent.",
+  "description": "A narrow shopfront wedged between the modular housing stacks, its window crammed with the honest clutter of a repair trade — dead radios, a wall of salvaged hand tools, a hand-lettered card reading FIX-IT: IF IT RAN ONCE, IT'LL RUN AGAIN. No screens, no terminals, nothing that talks back to the grid. A bell hangs over the door. It smells of solder and machine oil.",
   "exits": {
     "east": "zone_district_925_912",
     "south": "zone_district_924_913",
-    "west": "zone_district_923_912"
+    "west": "zone_district_923_912",
+    "north": "zone_lw_shop"
   },
   "flags": {
+    "building_name": "Halloran's Fix-It",
     "district": "residential",
     "planner": "bp_district",
-    "scavenging_table_id": "scav_consumer_trash",
     "street_life": true,
     "terrain": "grass"
   },
@@ -23,8 +24,8 @@
   "grid_z": 0,
   "id": "zone_district_924_912",
   "map_id": "map_world",
-  "marker": "▨",
-  "name": "Residential Area",
+  "marker": "🔧",
+  "name": "Halloran's Fix-It",
   "parent_zone": null,
   "updated_at": "1784342750"
 }

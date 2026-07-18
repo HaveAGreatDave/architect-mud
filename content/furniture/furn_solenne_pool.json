@@ -1,0 +1,18 @@
+{
+  "description": "A long ribbon of heated water running to a vanishing edge, where it sheets silently off the roof and leaves nothing between you and the forty-metre drop but nerve.",
+  "flags": {
+    "interactions": [
+      "lean"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_solenne_pool",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "infinity pool",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_skydeck"
+}

@@ -1,0 +1,30 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "wasteland",
+  "audio_theme_id": null,
+  "bg_color": "#242a1c",
+  "color": "#8f9256",
+  "created_by": "wildlands-fill",
+  "description": "Low grey brush claws up through broken ground — brittle, half-dead stuff that shivers when there is no wind behind it.",
+  "exits": {
+    "north": "zone_district_899_921",
+    "west": "zone_district_898_922",
+    "south": "zone_district_899_923",
+    "east": "zone_district_900_922"
+  },
+  "flags": {
+    "district": "wilds",
+    "planner": "bp_district",
+    "radiation": 25,
+    "terrain": "scrub"
+  },
+  "grid_x": 899,
+  "grid_y": 922,
+  "grid_z": 0,
+  "id": "zone_district_899_922",
+  "map_id": "map_world",
+  "marker": null,
+  "name": "Bonewood Flats",
+  "parent_zone": null,
+  "updated_at": "1784600000"
+}

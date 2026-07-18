@@ -1,0 +1,13 @@
+{
+  "id": "aug_sprint_actuators",
+  "name": "Sprint Actuators",
+  "description": "Calf and thigh servos that fire on your reflexes, not your fatigue. You move before the meat around you has decided to.",
+  "slot": "legs",
+  "tier": 2,
+  "cost": 1200,
+  "rep_gate": "known",
+  "stat_modifiers": { "stat_reflexes": 1 },
+  "soak": {},
+  "visible": 1,
+  "special": null
+}

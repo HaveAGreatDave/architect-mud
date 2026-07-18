@@ -1,0 +1,45 @@
+{
+  "category": null,
+  "description": "The Architect runs a maintenance drone through the deep east tunnels, and it has started logging things it shouldn't — the Watch's marks, the Watch's door. Go down into the deep, put the drone down, and the Long Watch will call you one of their own.",
+  "id": "quest_lw_3",
+  "meta": {},
+  "name": "Ghost in the Works",
+  "objectives": [
+    {
+      "count": 1,
+      "desc": "Destroy the Architect's maintenance drone in the deep east tunnels (near the Machine Sump).",
+      "emotes": [
+        "{who} sets themselves against the drone's sweeping amber eye.",
+        "{who} drives another blow into the drone's chassis."
+      ],
+      "id": "o_kill_drone",
+      "target": "drone",
+      "type": "kill",
+      "zone": "zone_under_machsump"
+    }
+  ],
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 200,
+    "flags": [
+      {
+        "flag": "lw_q3_done",
+        "scope": "player",
+        "value": "done"
+      },
+      {
+        "flag": "lw_vetted",
+        "scope": "player",
+        "value": "done"
+      },
+      {
+        "flag": "lw_member",
+        "scope": "player",
+        "value": "done"
+      }
+    ],
+    "items": []
+  },
+  "updated_at": "1784000000"
+}

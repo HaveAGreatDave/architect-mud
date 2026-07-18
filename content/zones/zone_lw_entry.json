@@ -1,0 +1,34 @@
+{
+  "ambient_events": [
+    "The blast door seals behind you with a solid, reassuring weight.",
+    "A lantern on the guard table throws steady, honest light — no flicker, no grid.",
+    "Boot prints in the dust all point inward. Nobody leaves in a hurry from here."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#1c1710",
+  "color": "#e0a030",
+  "created_by": "longwatch",
+  "description": "The threshold of the Long Watch bunker — a low guard post of salvaged plate and honest carpentry, warm with lantern light after the cold crawl in. A firing slit covers the door; a rack of iron-sighted rifles, immaculately kept, stands within reach of the watch-stander's chair. Past here the bunker opens up east into the common room. Behind you, west, the blast door holds the dark out.",
+  "exits": {
+    "west": "zone_under_watchthresh",
+    "east": "zone_lw_commons"
+  },
+  "flags": {
+    "always_lit": true,
+    "district": "longwatch",
+    "is_interior": true,
+    "safehouse": true,
+    "sanctuary": true,
+    "unsurveilled": true
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_lw_entry",
+  "map_id": "map_int_longwatch",
+  "marker": null,
+  "name": "The Threshold",
+  "parent_zone": null,
+  "updated_at": "1784000000"
+}

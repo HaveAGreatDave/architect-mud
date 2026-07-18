@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 0,
+  "flags": {},
+  "generator_id": null,
+  "id": "zone_under_deepreach",
+  "max_capacity_kw": 0,
+  "name": "The Deep Reach",
+  "source_type": "city_grid"
+}

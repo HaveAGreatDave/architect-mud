@@ -1,0 +1,9 @@
+{
+  "fishing_bait_catches": [],
+  "fishing_monsters": [],
+  "flags": {},
+  "id": "scav_deep",
+  "messages": {},
+  "name": "Deep Tunnel Scavenge",
+  "replenish_interval_seconds": 180
+}

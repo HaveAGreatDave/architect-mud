@@ -1,0 +1,19 @@
+{
+  "description": "A wide platform bed angled to the corner glass, so you wake to the whole city turning past the windows.",
+  "flags": {
+    "interactions": [
+      "lie",
+      "sit"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_solenne_bed_b",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "platform bed",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_apt_b"
+}

@@ -1,0 +1,33 @@
+{
+  "ambient_events": [
+    "A brick drain riser climbs the north wall toward a faint grey coin of streetlight, impossibly far up.",
+    "The water here is oddly clean, diverted and settled — someone maintains this.",
+    "Bootscuffs and a coil of good rope say this landing is used, and often."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#141b19",
+  "color": "#8fae9a",
+  "created_by": "the-under",
+  "description": "A dry brick landing at the foot of a drain riser — the storm shaft that climbs, up and up, into the back room of a certain repair shop on the surface. The Watch keep this stretch clean and quiet: it is the members' way down, out of the machine's sight the whole descent. The threshold itself lies east.",
+  "exits": {
+    "north": "zone_under_deepreach",
+    "east": "zone_under_watchthresh",
+    "up": "zone_lw_shop_back",
+    "south": "zone_under_924_914",
+    "west": "zone_under_923_913"
+  },
+  "flags": {
+    "district": "sewer",
+    "is_interior": true
+  },
+  "grid_x": 924,
+  "grid_y": 913,
+  "grid_z": -1,
+  "id": "zone_under_terminus",
+  "map_id": "map_world",
+  "marker": "◈",
+  "name": "Terminus Landing",
+  "parent_zone": null,
+  "updated_at": "1784000000"
+}

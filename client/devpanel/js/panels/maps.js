@@ -996,14 +996,19 @@ const TERRAIN_TYPES = [
   { key: 'asphalt',  label: 'Asphalt',  fill: '#45484d' },
   { key: 'concrete', label: 'Concrete', fill: '#8a8d91' },
   { key: 'grass',    label: 'Grass',    fill: '#5a9e57' },
+  { key: 'park',     label: 'Park',     fill: '#46a24e' },
   { key: 'dirt',     label: 'Dirt',     fill: '#6b5138' },
   { key: 'sand',     label: 'Sand',     fill: '#c2b280' },
   { key: 'gravel',   label: 'Gravel',   fill: '#7d7a73' },
   { key: 'dock',     label: 'Dock',     fill: '#6e5636' },
   { key: 'water',    label: 'Water',    fill: '#3f7fb0' },
+  { key: 'scrub',    label: 'Scrubland',fill: '#6f7248' },
+  { key: 'redrock',  label: 'Red Rock', fill: '#9e4a30' },
+  { key: 'ash',      label: 'Ash',      fill: '#4f4b47' },
+  { key: 'marsh',    label: 'Marsh',    fill: '#4d5a30' },
 ];
 const TERRAIN_FILL_BY_KEY = Object.fromEntries(TERRAIN_TYPES.map(t => [t.key, t.fill]));
-let mapTerrainMode = false;
+let mapTerrainMode = true;   // Maps tab opens in the terrain editor by default
 let mapTerrainType = 'road';
 let mapTerrainTool = 'brush';       // 'brush' | 'fill' | 'pick' | 'rect'
 let mapTerrainPainting = false;
@@ -1090,6 +1095,98 @@ function _terrainBrush(zoneId, erase) {
   _saveTerrain(zoneId);
 }
 
+// ─── PAINT NEW TERRAIN INTO EXISTENCE ────────────────────────────────────────
+// In terrain mode an empty ("black") grid cell is paintable: brushing/rect-filling
+// it conjures a minimal ground zone carrying the brushed surface, auto-wired to its
+// orthogonal non-building neighbours (mirroring drag-place). Wildlands surfaces
+// become wilds ground (district + radiation); anything else is plain ground.
+const TERRAIN_TILE_DEFAULTS = {
+  redrock: { color: '#b5744a', bg: '#2a1c16', ambient: 'wasteland', name: 'The Rust Flats', wild: true, rad: 30, desc: 'Cracked red hardpan runs out flat to a rust-colored horizon. Wind-scoured rock, grit, and nothing that grows.' },
+  scrub:   { color: '#8f9256', bg: '#242a1c', ambient: 'wasteland', name: 'Dead Scrub',      wild: true, rad: 25, desc: 'Low grey brush claws up through broken ground — brittle, half-dead stuff that shivers when there is no wind behind it.' },
+  ash:     { color: '#8a857f', bg: '#211f1d', ambient: 'wasteland', name: 'The Ash Barrens', wild: true, rad: 35, desc: 'A grey waste of settled ash, soft and deep, printed with the tracks of things that passed and did not come back.' },
+  marsh:   { color: '#5f7a4a', bg: '#1c241a', ambient: 'wasteland', name: 'The Toxic Marsh', wild: true, rad: 30, desc: 'Murky water pools between hummocks of sick green weed, slicked with a chemical sheen that never quite settles.' },
+};
+function _newTerrainTile(id, x, y, z, terr, mapId) {
+  const d = TERRAIN_TILE_DEFAULTS[terr] || {};
+  const flags = { planner: 'bp_district', terrain: terr };
+  if (d.wild) { flags.district = 'wilds'; flags.radiation = d.rad; }
+  return {
+    id, name: d.name || (TERRAIN_TYPES.find(t => t.key === terr)?.label || 'Ground') + ' Ground',
+    description: d.desc || '', exits: {}, ambient_events: [], ambient_theme: d.ambient || 'city',
+    audio_theme_id: null, flags, grid_x: x, grid_y: y, grid_z: z, map_id: mapId,
+    color: d.color || null, bg_color: d.bg || null, marker: null, parent_zone: null,
+  };
+}
+// Paint a cell's fill straight onto its DOM (works for the create-cell too, which
+// _tileEl skips because it isn't yet a .bigmap-tile).
+function _paintCellBg(x, y, terr) {
+  const g = document.getElementById('bigmap-grid-scroll');
+  const el = g && g.querySelector(`[data-map-cell="${x},${y}"]`);
+  if (el) el.style.background = terr ? TERRAIN_FILL_BY_KEY[terr] : '';
+}
+// Stage a newly-conjured tile as a zone create, with its final exits.
+async function _stageCreatedTile(id) {
+  const t = mapOverview?.zones.get(id);
+  if (!t || mapTerrainPending.has(id)) return;
+  mapTerrainPending.add(id);
+  try {
+    const r = await API('/zones', 'POST', {
+      id, name: t.name, description: t.description, exits: t.exits, ambient_events: [],
+      ambient_theme: t.ambient_theme, audio_theme_id: null, flags: t.flags, marker: null,
+      color: t.color, bg_color: t.bg_color, parent_zone: null,
+      map_id: t.map_id, grid_x: t.grid_x, grid_y: t.grid_y, grid_z: t.grid_z,
+    });
+    if (r?.error) toast(r.error, true);
+  } finally { mapTerrainPending.delete(id); }
+}
+// Conjure one tile at an empty cell: add it locally, wire reciprocal exits to
+// orthogonal non-building neighbours, return the neighbour ids whose exits changed.
+function _conjureTileLocal(x, y) {
+  const o = mapOverview;
+  const id = `zone_district_${x}_${y}`;
+  if (o.zones.has(id)) return null;
+  if ([...o.zones.values()].some(z => (z.grid_z ?? 0) === o.z && z.grid_x === x && z.grid_y === y)) return null;
+  const tile = _newTerrainTile(id, x, y, o.z, mapTerrainType, o.map.id);
+  o.zones.set(id, tile);
+  const changedNeighbours = [];
+  for (const [dir, off] of Object.entries(MAP_DIR3D)) {
+    if (off[2] !== 0) continue; // orthogonal only; up/down stay manual
+    const n = [...o.zones.values()].find(z => z.id !== id && (z.grid_z ?? 0) === o.z && z.grid_x === x + off[0] && z.grid_y === y + off[1]);
+    if (!n || _isBuildingTile(n)) continue; // never punch an exit into a building
+    tile.exits[dir] = n.id;
+    n.exits = { ...(n.exits || {}) }; n.exits[MAP_OPP[dir]] = id;
+    changedNeighbours.push(n.id);
+  }
+  return { id, changedNeighbours };
+}
+// Brush a single empty cell into existence (during a stroke): local conjure + DOM
+// tint now, stage the create + neighbour exit updates.
+async function _terrainCreateAt(x, y) {
+  const plan = _conjureTileLocal(x, y);
+  if (!plan) return;
+  _paintCellBg(x, y, mapTerrainType);
+  await _stageCreatedTile(plan.id);
+  for (const nid of plan.changedNeighbours) {
+    const n = mapOverview.zones.get(nid);
+    if (n) await API(`/zones/${nid}`, 'PUT', { exits: n.exits });
+  }
+  updateStagingBadge();
+}
+function terrainCreateStart(e, x, y) {
+  e.preventDefault();
+  if (mapTerrainTool === 'pick' || mapTerrainTool === 'fill') return; // nothing to sample/flood on empty
+  if (mapTerrainTool === 'rect') { mapTerrainRectStart = { x, y }; return; }
+  mapTerrainPainting = true;
+  _terrainCreateAt(x, y);
+}
+function terrainCreateOver(e, x, y) {
+  if (mapTerrainTool === 'rect') { if (mapTerrainRectStart) _terrainRectOutline(mapTerrainRectStart, { x, y }); return; }
+  if (mapTerrainPainting) _terrainCreateAt(x, y);
+}
+function terrainCreateEnd(x, y) {
+  if (mapTerrainTool === 'rect' && mapTerrainRectStart) _terrainRectCommitXY(x, y);
+}
+
 function terrainPaintStart(e, zoneId) {
   e.preventDefault();
   if (mapTerrainTool === 'pick') { terrainPick(zoneId); return; }
@@ -1156,27 +1253,58 @@ function _terrainRectOutline(a, b) {
   const minX = Math.min(a.x, b.x), maxX = Math.max(a.x, b.x), minY = Math.min(a.y, b.y), maxY = Math.max(a.y, b.y);
   for (let y = minY; y <= maxY; y++) for (let x = minX; x <= maxX; x++) {
     const el = g.querySelector(`[data-map-cell="${x},${y}"]`);
-    if (el && el.classList.contains('bigmap-tile')) { el.style.boxShadow = 'inset 0 0 0 2px #fff'; _terrainOutlined.push(el); }
+    if (el && (el.classList.contains('bigmap-tile') || el.classList.contains('bm-terrain-empty'))) { el.style.boxShadow = 'inset 0 0 0 2px #fff'; _terrainOutlined.push(el); }
   }
 }
 async function terrainRectCommit(endId) {
   const end = mapOverview?.zones.get(endId);
+  if (!end) { mapTerrainRectStart = null; _terrainClearOutline(); return; }
+  await _terrainRectCommitXY(end.grid_x, end.grid_y);
+}
+// Apply the brush to every cell in the marquee: repaint existing (non-building)
+// tiles, and conjure empty cells into existence — one wired batch.
+async function _terrainRectCommitXY(endX, endY) {
   const a = mapTerrainRectStart;
   mapTerrainRectStart = null;
   _terrainClearOutline();
-  if (!a || !end) return;
-  const minX = Math.min(a.x, end.grid_x), maxX = Math.max(a.x, end.grid_x);
-  const minY = Math.min(a.y, end.grid_y), maxY = Math.max(a.y, end.grid_y);
-  const z0 = mapOverview.z;
-  const ids = [];
-  for (const z of mapOverview.zones.values()) {
-    if ((z.grid_z ?? 0) !== z0 || z.grid_x == null) continue;
-    if (z.grid_x < minX || z.grid_x > maxX || z.grid_y < minY || z.grid_y > maxY) continue;
-    if ((z.flags?.terrain || null) === mapTerrainType) continue;
-    z.flags = { ...(z.flags || {}) }; z.flags.terrain = mapTerrainType; ids.push(z.id);
+  if (!a) return;
+  const minX = Math.min(a.x, endX), maxX = Math.max(a.x, endX);
+  const minY = Math.min(a.y, endY), maxY = Math.max(a.y, endY);
+  const o = mapOverview, z0 = o.z;
+  const at = (x, y) => [...o.zones.values()].find(z => (z.grid_z ?? 0) === z0 && z.grid_x === x && z.grid_y === y);
+  const repaintIds = [], createdIds = new Set();
+  // Phase 1 — repaint existing / conjure empty (no wiring yet)
+  for (let y = minY; y <= maxY; y++) for (let x = minX; x <= maxX; x++) {
+    const z = at(x, y);
+    if (z) {
+      if (_isBuildingTile(z)) continue; // don't overwrite a building's surface
+      if ((z.flags?.terrain || null) === mapTerrainType) continue;
+      z.flags = { ...(z.flags || {}) }; z.flags.terrain = mapTerrainType; repaintIds.push(z.id);
+    } else {
+      const id = `zone_district_${x}_${y}`;
+      if (o.zones.has(id)) continue;
+      o.zones.set(id, _newTerrainTile(id, x, y, z0, mapTerrainType, o.map.id));
+      createdIds.add(id);
+    }
+  }
+  // Phase 2 — wire every conjured tile to orthogonal non-building neighbours
+  const neighbourPut = new Set();
+  for (const id of createdIds) {
+    const tile = o.zones.get(id);
+    for (const [dir, off] of Object.entries(MAP_DIR3D)) {
+      if (off[2] !== 0) continue;
+      const n = at(tile.grid_x + off[0], tile.grid_y + off[1]);
+      if (!n || n.id === id || _isBuildingTile(n)) continue;
+      tile.exits[dir] = n.id;
+      n.exits = { ...(n.exits || {}) }; n.exits[MAP_OPP[dir]] = id;
+      if (!createdIds.has(n.id)) neighbourPut.add(n.id);
+    }
   }
   renderMapOverview();
-  for (const id of ids) await _saveTerrain(id);
+  for (const id of repaintIds) await _saveTerrain(id);
+  for (const id of createdIds) await _stageCreatedTile(id);
+  for (const nid of neighbourPut) { const n = o.zones.get(nid); if (n) await API(`/zones/${nid}`, 'PUT', { exits: n.exits }); }
+  updateStagingBadge();
 }
 
 document.addEventListener('mouseup', () => {
@@ -1197,8 +1325,8 @@ function terrainPanelHtml() {
   const toolBtn = (t, label) => `<button onclick="setTerrainTool('${t}')" style="flex:1;font-size:11px;padding:5px 4px;border-radius:4px;cursor:pointer;border:1px solid var(--border);background:${mapTerrainTool === t ? 'var(--accent)' : 'var(--bg3)'};color:${mapTerrainTool === t ? '#111' : 'var(--text)'}">${label}</button>`;
   const hint = mapTerrainTool === 'fill' ? 'Click a tile to flood-fill its same-terrain region.'
     : mapTerrainTool === 'pick' ? 'Click a tile to sample its terrain onto the brush.'
-    : mapTerrainTool === 'rect' ? 'Drag a rectangle to fill every covered tile.'
-    : 'Click-drag to paint · Ctrl-drag or right-drag to erase.';
+    : mapTerrainTool === 'rect' ? 'Drag a rectangle to fill every covered tile — empty cells become new ground tiles.'
+    : 'Click-drag to paint · Ctrl-drag or right-drag to erase · paint an empty cell to conjure new ground.';
   return `<div id="map-terrain-panel" style="position:fixed;top:100px;right:28px;z-index:60;width:190px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 28px #000a;padding:11px;font-size:12px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px">
       <strong style="font-size:12px;letter-spacing:.3px">🌍 Terrain</strong>
@@ -1211,7 +1339,26 @@ function terrainPanelHtml() {
       <div style="font-size:10px;color:var(--yellow);margin-bottom:6px">⚠ ${pendingChanges.length} unpublished edit${pendingChanges.length !== 1 ? 's' : ''} — not saved to the world yet.</div>
       <button onclick="publishAll()" style="width:100%;font-size:11px;padding:6px;border-radius:4px;border:1px solid var(--border);background:var(--accent);color:#111;cursor:pointer;font-weight:600">⬆ Publish now</button>
     </div>` : ''}
+    <div style="border-top:1px solid var(--border);margin-top:9px;padding-top:9px">
+      <button id="rebake-flight-btn" onclick="rebakeFlightSnapshot()" title="Regenerate the flight sim's baked world so it reflects published terrain" style="width:100%;font-size:11px;padding:6px;border-radius:4px;border:1px solid var(--border);background:var(--bg3);color:var(--text);cursor:pointer">⟳ Re-bake flight sim</button>
+      <div style="font-size:10px;color:var(--text-dim);margin-top:6px;line-height:1.4">The open flight sim flies a baked snapshot — Publish, then re-bake so it matches the world.</div>
+    </div>
   </div>`;
+}
+
+// Re-bake the open flight sim's baked world (client/game/flightsim-world.json) from the
+// live server world, so painted+published terrain shows up over there. The server derives
+// it in-memory (zone publishes reloadZone() into the live world), so this is instant.
+async function rebakeFlightSnapshot() {
+  const btn = document.getElementById('rebake-flight-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⟳ Re-baking…'; }
+  try {
+    const r = await directAPI('/maps/flight-snapshot', 'POST', {});
+    if (r?.error) toast(r.error, true);
+    else toast(`Flight sim re-baked · ${r.tiles} tiles — reload the flight sim to see it.`);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '⟳ Re-bake flight sim'; }
+  }
 }
 
 // ─── MOVE BUILDING ───────────────────────────────────────────────────────────
@@ -1436,7 +1583,6 @@ function renderMapOverview() {
       <select onchange="switchInteriorMap(this.value)">${intOpts}</select>
       <button class="action-btn danger" style="font-size:10px;padding:2px 8px" onclick="mapDeleteInterior()" title="Delete this interior map and all its zones">Delete Map</button>
       <button class="action-btn${mapSafeZoneMode ? ' active' : ''}" style="font-size:10px;padding:2px 8px${mapSafeZoneMode ? ';background:var(--accent);color:#111' : ''}" onclick="toggleSafeZoneMode()" title="Paint zones as Safe (police cameras present) or not">${mapSafeZoneMode ? '✓ Painting Safe Zones' : 'Paint Safe Zones'}</button>
-      <button class="action-btn${mapPaintMode ? ' active' : ''}" style="font-size:10px;padding:2px 8px;margin-left:6px${mapPaintMode ? ';background:var(--accent);color:#111' : ''}" onclick="togglePaintMode()" title="Paint zone colours with a floating palette (brush, fill, luminance)">${mapPaintMode ? '✓ Painting Colours' : '🎨 Paint Colours'}</button>
       <button class="action-btn${mapTerrainMode ? ' active' : ''}" style="font-size:10px;padding:2px 8px;margin-left:6px${mapTerrainMode ? ';background:var(--accent);color:#111' : ''}" onclick="toggleTerrainMode()" title="Paint ground terrain (road auto-tiles into junctions; water, grass, asphalt, dock…) — writes flags.terrain">${mapTerrainMode ? '✓ Painting Terrain' : '🌍 Terrain'}</button>
       <button class="action-btn${mapMoveBuildingMode ? ' active' : ''}" style="font-size:10px;padding:2px 8px;margin-left:6px${mapMoveBuildingMode ? ';background:var(--accent);color:#111' : ''}" onclick="toggleMoveBuildingMode()" title="Relocate a building: pick it up, drop it on an empty cell, review + confirm — the interior and front door move with it">${mapMoveBuildingMode ? '✓ Moving Building' : '🏢 Move Building'}</button>
       <span style="margin-left:6px">Floor</span>
@@ -1449,7 +1595,6 @@ function renderMapOverview() {
     html += `<div class="map-toolbar">
       <span style="color:var(--text-bright);font-weight:600;font-size:13px">${o.map.name}</span>
       <button class="action-btn${mapSafeZoneMode ? ' active' : ''}" style="font-size:10px;padding:2px 8px;margin-left:12px${mapSafeZoneMode ? ';background:var(--accent);color:#111' : ''}" onclick="toggleSafeZoneMode()" title="Paint zones as Safe (police cameras present) or not">${mapSafeZoneMode ? '✓ Painting Safe Zones' : 'Paint Safe Zones'}</button>
-      <button class="action-btn${mapPaintMode ? ' active' : ''}" style="font-size:10px;padding:2px 8px;margin-left:6px${mapPaintMode ? ';background:var(--accent);color:#111' : ''}" onclick="togglePaintMode()" title="Paint zone colours with a floating palette (brush, fill, luminance)">${mapPaintMode ? '✓ Painting Colours' : '🎨 Paint Colours'}</button>
       <button class="action-btn${mapTerrainMode ? ' active' : ''}" style="font-size:10px;padding:2px 8px;margin-left:6px${mapTerrainMode ? ';background:var(--accent);color:#111' : ''}" onclick="toggleTerrainMode()" title="Paint ground terrain (road auto-tiles into junctions; water, grass, asphalt, dock…) — writes flags.terrain">${mapTerrainMode ? '✓ Painting Terrain' : '🌍 Terrain'}</button>
       <button class="action-btn${mapMoveBuildingMode ? ' active' : ''}" style="font-size:10px;padding:2px 8px;margin-left:6px${mapMoveBuildingMode ? ';background:var(--accent);color:#111' : ''}" onclick="toggleMoveBuildingMode()" title="Relocate a building: pick it up, drop it on an empty cell, review + confirm — the interior and front door move with it">${mapMoveBuildingMode ? '✓ Moving Building' : '🏢 Move Building'}</button>
       <span style="margin-left:auto">Floor</span>
@@ -1541,7 +1686,9 @@ function renderMapOverview() {
   if (allPlaced.length) {
     const xs = allPlaced.map(z => z.grid_x), ys = allPlaced.map(z => z.grid_y);
     minX = Math.min(...xs) - 1; maxX = Math.max(...xs) + 1;
-    minY = Math.min(...ys) - 1; maxY = Math.max(...ys) + 1;
+    // In terrain mode, open extra empty rows to the south so you can paint the
+    // wilds further out than the current extent (paint-to-create fills them in).
+    minY = Math.min(...ys) - 1; maxY = Math.max(...ys) + (mapTerrainMode && dbbox ? 6 : 1);
   } else { minX = -1; maxX = 1; minY = -1; maxY = 1; }
   const byCoord = new Map(onFloor.map(z => [`${z.grid_x},${z.grid_y}`, z]));
 
@@ -1566,6 +1713,12 @@ function renderMapOverview() {
       if (!z) {
         if (mapMoveBuildingMode && mapMoveArmed) {
           html += `<div class="bigmap-tile-create" ${cellStyle(x, y, ';cursor:cell;outline:1px dashed var(--accent)')} data-map-cell="${x},${y}" title="Place ${o.zones.get(mapMoveArmed)?.name || 'building'} here" onclick="moveBuildingDest(${x},${y})">▣</div>`;
+        } else if (mapTerrainMode && dbbox) {
+          // Paint terrain onto a black cell to conjure a new ground tile there.
+          // Gated to the district exterior grid — the zone_district_<x>_<y> id
+          // scheme (and south-extended rows) only make sense out in the world.
+          const handlers = `onmousedown="terrainCreateStart(event,${x},${y})" onmouseenter="terrainCreateOver(event,${x},${y})" onmouseup="terrainCreateEnd(${x},${y})" oncontextmenu="return false"`;
+          html += `<div class="bigmap-tile-create bm-terrain-empty" ${cellStyle(x, y, ';cursor:crosshair')} data-map-cell="${x},${y}" title="Paint ${mapTerrainType} here — creates a new tile" ${handlers}></div>`;
         } else {
           html += `<div class="bigmap-tile-create" ${cellStyle(x, y)} data-map-cell="${x},${y}" ondragover="event.preventDefault()" onclick="createZoneAt(${x},${y})">+</div>`;
         }
@@ -1628,9 +1781,30 @@ function renderMapOverview() {
         continue;
       }
 
-      const colorStyle = zoneColorStyle(z);
+      // Tile colour is terrain-driven: a non-building tile takes the fill for its terrain
+      // (flags.terrain, or inferred), so ground reads from what it IS without an independently
+      // painted colour. Buildings keep their authored colour. Unknown terrain falls back to the
+      // authored bg_color so nothing renders blank.
+      let colorStyle;
+      if (_isBuildingTile(z)) {
+        colorStyle = zoneColorStyle(z);
+      } else {
+        const terr = mapZoneTerrain(z);
+        const fill = terr ? TERRAIN_FILL_BY_KEY[terr] : null;
+        colorStyle = fill ? `;background:${fill};color:${luminanceTextColor(fill)}` : zoneColorStyle(z);
+      }
+      // Curtain (the Architect's forcefield): tiles flagged flags.curtain get a
+      // hard-light sheet on whichever sides face out of the district (no neighbour),
+      // so the sealed edge reads as a wall rather than plain terrain.
+      if (z.flags?.curtain) {
+        cls += ' bm-curtain';
+        for (const [d, dx, dy] of [['n', 0, -1], ['s', 0, 1], ['e', 1, 0], ['w', -1, 0]]) {
+          if (!byCoord.get(`${x + dx},${y + dy}`)) cls += ` bm-curtain-${d}`;
+        }
+      }
       const child = o.children.find(c => c.parent_zone_id === z.id);
       const dive = child ? `<span class="map-dive-btn" title="Dive into ${child.name}" onclick="event.stopPropagation();diveInto('${z.id}')">⤵</span>` : '';
+      const curtainBadge = z.flags?.curtain ? `<span class="map-curtain-badge" title="Architect's Curtain — sealed edge">⛨</span>` : '';
       const marker = z.marker ? `<span class="map-marker-badge">${z.marker}</span>` : '';
       const bset = brokenByZone.get(z.id) || new Set();
       const exitDirs = Object.keys(z.exits || {});
@@ -1639,7 +1813,7 @@ function renderMapOverview() {
         const sym = d === 'up' ? '▲' : d === 'down' ? '▼' : d[0].toUpperCase();
         return `<span class="${cl}">${sym}</span>`;
       }).join(' ')}</div>` : '';
-      html += `<div class="${cls}" ${cellStyle(x, y, colorStyle)} data-map-cell="${x},${y}" title="${z.id}" draggable="true" ondragstart="mapDragStart(event,'${z.id}')" ondragover="event.preventDefault()" onclick="mapTileEditClick('${z.id}')"><div>${dive}${marker}${z.name}${exHtml}</div></div>`;
+      html += `<div class="${cls}" ${cellStyle(x, y, colorStyle)} data-map-cell="${x},${y}" title="${z.id}" draggable="true" ondragstart="mapDragStart(event,'${z.id}')" ondragover="event.preventDefault()" onclick="mapTileEditClick('${z.id}')"><div>${dive}${curtainBadge}${marker}${z.name}${exHtml}</div></div>`;
     }
   }
 

@@ -18,6 +18,7 @@
   },
   "flags": {
     "aa_site": true,
+    "curtain": true,
     "district": "wasteland",
     "icon": "aa",
     "planner": "bp_district"

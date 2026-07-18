@@ -1,0 +1,33 @@
+{
+  "ambient_events": [
+    "A door clicks somewhere down the gallery, then silence folds back over the floor.",
+    "The lilies on the console table are, impossibly, always fresh."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#28323d",
+  "color": "#d9e6f2",
+  "created_by": null,
+  "description": "A hushed residential floor: a curved gallery of numbered doors set into panelled walnut, a runner of deep carpet swallowing every footstep, and a window at the end framing the bay far below. Fresh lilies stand on a console table. Three private residences open off this landing — <b>north</b>, <b>east</b>, and <b>west</b>. Step <b>in</b> to the elevator.",
+  "exits": {
+    "in": "zone_solenne_elevator",
+    "north": "zone_solenne_apt_a",
+    "east": "zone_solenne_apt_b",
+    "west": "zone_solenne_apt_c"
+  },
+  "flags": {
+    "building_name": "Solenne Residences",
+    "is_interior": true,
+    "always_lit": true,
+    "sanctuary": true
+  },
+  "grid_x": 0,
+  "grid_y": -1,
+  "grid_z": 3,
+  "id": "zone_solenne_residences",
+  "map_id": "map_int_solenne",
+  "marker": null,
+  "name": "Solenne Residences — The Residences",
+  "parent_zone": "zone_district_914_908",
+  "updated_at": "1784600000"
+}

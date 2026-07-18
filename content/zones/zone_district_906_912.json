@@ -1,29 +1,34 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
+  "ambient_theme": "urban",
   "audio_theme_id": null,
-  "bg_color": "#2f3a26",
+  "bg_color": "#22201c",
   "color": "#8ba36a",
   "created_by": "zone-planner",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "description": "A slot of a café wedged into a street-facing unit, JITTER stencilled small on the glass above a menu board that cycles its prices a little faster than feels honest. Inside, a chrome espresso rig hisses and gleams, tended by one bored figure and a queue of standing counters. The whole place smells of scorched sugar and ozone.",
   "exits": {
     "east": "zone_district_907_912",
+    "in": "zone_stimcafe",
     "north": "zone_district_906_911",
     "south": "zone_district_906_913",
     "west": "zone_district_905_912"
   },
   "flags": {
+    "building_name": "Jitter",
+    "building_type": "shop",
     "district": "wasteland",
+    "facade": true,
+    "is_building": true,
     "planner": "bp_district",
-    "scavenging_table_id": "scav_west_wastes"
+    "world_exit_zone": "zone_district_907_912"
   },
   "grid_x": 906,
   "grid_y": 912,
   "grid_z": 0,
   "id": "zone_district_906_912",
   "map_id": "map_world",
-  "marker": "#",
-  "name": "Grasslands",
+  "marker": "JT",
+  "name": "Jitter",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1784600000"
 }

@@ -1,0 +1,31 @@
+{
+  "ambient_events": [
+    "The blast door fills the east wall, matte and patient, a single worn handprint by the seam.",
+    "A camera housing hangs dead above the door — gutted, its lens pulled, a small act of defiance.",
+    "The Watch's sigil is cut clean into the lintel, no longer hiding."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#14100e",
+  "color": "#e0a030",
+  "created_by": "the-under",
+  "description": "The end of the road: a reinforced blast door set into a poured bulkhead the Watch built themselves, salvaged plate and honest welds. Here the hiding stops — their mark is carved openly into the lintel, and a gutted camera housing hangs above the door like a trophy. The door does not open for strangers. It opens for people the Long Watch have decided to trust.",
+  "exits": {
+    "west": "zone_under_terminus",
+    "north": "zone_under_cablingrun",
+    "east": "zone_lw_entry"
+  },
+  "flags": {
+    "district": "sewer",
+    "is_interior": true
+  },
+  "grid_x": 925,
+  "grid_y": 913,
+  "grid_z": -1,
+  "id": "zone_under_watchthresh",
+  "map_id": "map_world",
+  "marker": "▣",
+  "name": "The Watch Threshold",
+  "parent_zone": null,
+  "updated_at": "1784000000"
+}

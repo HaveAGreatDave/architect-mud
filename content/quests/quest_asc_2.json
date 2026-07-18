@@ -1,0 +1,37 @@
+{
+  "category": null,
+  "description": "The chrome fortress won't let baseline meat past the Gate — but a recruiter outside it says that's a solvable condition. Submit to the Ascension Gate scan and take their consultation pass. Whatever the Watch wanted you to find, you'll find it on the inside.",
+  "id": "quest_asc_2",
+  "meta": {},
+  "name": "The Threshold",
+  "objectives": [
+    {
+      "desc": "Submit to the Ascension Gate scan",
+      "emotes": [
+        "{who} steps under the scanline and lets the Gate read {who} down to the marrow."
+      ],
+      "id": "o0",
+      "taskSeconds": 5,
+      "type": "visit",
+      "zone": "zone_asc_gate_post"
+    }
+  ],
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 0,
+    "flags": [
+      {
+        "flag": "asc_q2_done",
+        "scope": "player",
+        "value": "done"
+      },
+      {
+        "flag": "ascendant_clearance",
+        "scope": "player",
+        "value": "done"
+      }
+    ]
+  },
+  "updated_at": "1783740000"
+}

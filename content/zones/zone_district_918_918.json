@@ -5,7 +5,7 @@
   "bg_color": "#2f3a26",
   "color": "#8ba36a",
   "created_by": "zone-planner",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "description": "The Gate Road's last clear stretch before the wall. The Curtain fills the southern sky — a floor-to-heaven sheet of hard light — pierced by the single lit throat of the South Gate just ahead.",
   "exits": {
     "east": "zone_district_919_918",
     "north": "zone_district_918_917",
@@ -13,8 +13,10 @@
     "west": "zone_district_917_918"
   },
   "flags": {
+    "artery": ["The Gate Road"],
     "district": "wasteland",
-    "planner": "bp_district"
+    "planner": "bp_district",
+    "terrain": "road"
   },
   "grid_x": 918,
   "grid_y": 918,

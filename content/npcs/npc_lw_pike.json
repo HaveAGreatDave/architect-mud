@@ -1,0 +1,56 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": { "next": "wait", "type": "start" },
+      "wait": { "next": "start", "seconds": 60, "type": "wait" }
+    }
+  },
+  "chitchat": [
+    "\"Door holds. That's my whole job, and I'm good at it.\"",
+    "\"Cold crawl in, warm room waiting. Best trade in the Basin.\"",
+    "\"If it got through that door, it got through me first. It didn't.\""
+  ],
+  "description": "A broad, easy-shouldered man on a stool beside the blast door, a lever-action carbine across his knees and a mug of something hot at his elbow. He has the settled watchfulness of a man who has held this exact spot for years and expects to hold it for years more.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Go on in. You're safe here.\" He settles back onto his stool."
+    },
+    "door": {
+      "options": [
+        { "label": "Good to know.", "next": "bye" }
+      ],
+      "text": "\"That door only opens for people the Watch have squared with. You're standing inside it, so that's you now.\" He nods at the dark beyond. \"Out there the machine's got eyes in every wire. In here it's got nothing. No cameras, no cops, no record you were ever here. Heat on you? Sit a while. It cools faster down here than anywhere in the Basin. That's the point of the place.\""
+    },
+    "root": {
+      "options": [
+        { "label": "How safe is 'safe'?", "next": "door" },
+        { "label": "Just getting my bearings.", "next": "bye" }
+      ],
+      "text": "The big man lifts his mug in greeting without getting up. \"Welcome in. Pike.\" He tips his head at the sealed door behind you. \"You made it past that, so you're one of ours — which means you can finally put your back to a wall and mean it. Warm stove's through in the commons.\""
+    }
+  },
+  "faction": "ideology_long_watch",
+  "flags": {
+    "clothing_layers": [
+      "a heavy watch-coat, worn soft",
+      "a cable-knit jumper the colour of wet slate",
+      "canvas trousers and steel-toed boots"
+    ],
+    "mis_willing": false
+  },
+  "home_activities": [],
+  "home_zone": "zone_lw_entry",
+  "hp": 38,
+  "hp_max": 38,
+  "id": "npc_lw_pike",
+  "name": "Pike",
+  "npc_type": "civilian",
+  "sex": "male",
+  "studio_zone_id": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_lw_entry"
+}

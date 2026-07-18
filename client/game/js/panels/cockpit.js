@@ -929,6 +929,30 @@ function ensureTakeoffStyles() {
 let _fsim = null;
 const lerpN = (a, b, t) => a + (b - a) * t;
 
+// Checkride guidance: highlight key (from the server's clientView) → the cockpit control
+// it spotlights. Renders the persistent instruction card and glows the target control(s).
+// cr = the server checkride clientView (null = not on a ride → tear the card + glows down).
+const CKRIDE_GLOW = { engine: 'fsim-eng', throttle: 'fsim-thr', yoke: 'fsim-yoke' };
+function renderCheckride(F, cr) {
+  const card = document.getElementById('fsim-ckride');
+  if (!card) return;
+  if (!cr) {   // ride over (passed/blown/never started): hide the card, clear every glow
+    card.classList.remove('show'); F.checkrideStage = null;
+    for (const id of Object.values(CKRIDE_GLOW)) document.getElementById(id)?.classList.remove('ck-glow');
+    return;
+  }
+  card.classList.add('show');
+  if (cr.stage === F.checkrideStage) return;   // same stage → card + glow already right; nothing to redo
+  F.checkrideStage = cr.stage;
+  const n = cr.stageNum || 1, total = cr.stageTotal || 4;
+  card.innerHTML = '<div class="fsim-ckride-hd"></div><div class="fsim-ckride-body"></div>';
+  card.querySelector('.fsim-ckride-hd').textContent = `✈ CHECKRIDE · STEP ${n}/${total}${cr.stageName ? ' — ' + cr.stageName : ''}`;
+  card.querySelector('.fsim-ckride-body').textContent = cr.instruction || '';
+  card.classList.remove('flash'); void card.offsetWidth; card.classList.add('flash');   // restart the attention pulse
+  for (const id of Object.values(CKRIDE_GLOW)) document.getElementById(id)?.classList.remove('ck-glow');
+  for (const key of (cr.highlight || [])) document.getElementById(CKRIDE_GLOW[key])?.classList.add('ck-glow');
+}
+
 // ── Flaps control — per-airframe style ────────────────────────────────────────
 // The detents map evenly onto the model's 0..1 `flaps` input; only the graphic + labels
 // differ. `johnson` = a Cessna-style white wing-flaps lever (light craft); `quadrant` = an
@@ -1045,6 +1069,9 @@ const FSIM_TUNE = [
   ['climbLift', 'Climb lift', 0, 20, 0.5],
   ['tile', 'Floor tiles', 0.1, 3, 0.05],
   ['pixel', 'Pixel size', 1, 10, 1],
+  ['fog', 'Fog (N64)', 0, 1, 0.05],
+  ['vlight', 'Vertex light', 0, 1.5, 0.05],
+  ['coastWarp', 'Coast wobble', 0, 1.5, 0.05],
   ['bldgH', 'Bldg height', 0.05, 3, 0.05],
   ['bldgStretch', 'Vert stretch', 1, 15, 0.5],
   ['bldgFoot', 'Bldg width', 0.05, 1.5, 0.05],
@@ -1118,6 +1145,21 @@ function ensureFlightSimStyles() {
     .fsim-toast{ position:absolute; top:38%; left:50%; transform:translateX(-50%); font:11px/1 monospace; letter-spacing:2px; z-index:5;
       color:var(--cy); background:rgba(6,12,18,.82); border:1px solid var(--cy); border-radius:5px; padding:4px 11px; opacity:0; transition:opacity .18s; pointer-events:none; white-space:nowrap; }
     .fsim-toast.show{ opacity:1; }
+    /* CHECKRIDE guidance card — the persistent instruction panel during a checkride. Sits
+       top-left (clear of the centre rings), stays up the whole stage, and re-pulses on a
+       stage change so the eye catches the new brief. Paired with .ck-glow spotlighting the
+       control this stage wants (engine/throttle/yoke). */
+    .fsim-ckride{ position:absolute; top:8px; left:8px; max-width:264px; z-index:6; padding:8px 10px;
+      background:rgba(6,14,20,.88); border:1px solid var(--cy); border-radius:6px; box-shadow:0 3px 14px rgba(0,0,0,.6);
+      color:#cfe9f2; font:10px/1.55 monospace; opacity:0; transform:translateY(-5px);
+      transition:opacity .25s, transform .25s; pointer-events:none; }
+    .fsim-ckride.show{ opacity:1; transform:none; }
+    .fsim-ckride-hd{ color:var(--cy); font-weight:bold; letter-spacing:1px; font-size:9px; margin-bottom:4px; text-shadow:0 0 6px var(--cy); }
+    .fsim-ckride.flash{ animation:ckflash .7s ease-out; }
+    @keyframes ckflash{ 0%{ box-shadow:0 0 0 2px var(--cy), 0 3px 14px rgba(0,0,0,.6); } 100%{ box-shadow:0 0 0 0 rgba(0,0,0,0), 0 3px 14px rgba(0,0,0,.6); } }
+    /* the pulsing spotlight on whichever control the current checkride stage points at */
+    .ck-glow{ animation:ckpulse 1.15s ease-in-out infinite; }
+    @keyframes ckpulse{ 0%,100%{ box-shadow:0 0 0 0 rgba(120,220,255,0); } 50%{ box-shadow:0 0 15px 3px rgba(120,220,255,.85); } }
     /* KILL FEED — big, loud confirmation stack across the top of the glass. Each kill
        slams in, holds, then fades; the whole column is anchored top-centre above the HUD. */
     .fsim-killfeed{ position:absolute; top:6px; left:50%; transform:translateX(-50%); z-index:9;
@@ -1407,10 +1449,14 @@ function ensureFlightSimStyles() {
     body.fsim-external .fsim-weap{ bottom:166px; }
     body.fsim-external .fsim-ctl{ position:absolute; left:0; right:0; bottom:18px; height:120px; z-index:5; background:transparent; pointer-events:none; justify-content:center; }
     body.fsim-external .fsim-yoke,
-    body.fsim-external #fsim-root.fsim-painted .fsim-yoke{ background:transparent; border-color:transparent; box-shadow:none; flex:0 0 300px; pointer-events:auto; }   /* the stick floats over the scene — no interior yoke-well slab out here, even on a painted craft (the painted-dashboard rule must not leak the cabin colour into the exterior view) */
+    body.fsim-external #fsim-root.fsim-painted .fsim-yoke{ background:transparent; border-color:transparent; box-shadow:none; flex:0 0 140px; pointer-events:auto; }   /* the stick floats over the scene — no interior yoke-well slab out here, even on a painted craft (the painted-dashboard rule must not leak the cabin colour into the exterior view). The grab pad is only 140px (±70) so it clears the rudder pedals that straddle it at ±75px — out here the pad sits ON TOP of the pedals (its .fsim-ctl row is z-index:5, the pedals are trapped in the z-index:0 .fsim-view), so a wide pad would swallow every pedal press. */
     /* External view: the yoke/stick sits a bit higher now (the chase cam rides the craft
-       higher/more centred, leaving room below it), a touch bigger. */
-    body.fsim-external .fsim-yoke-svg{ top:2%; left:13%; width:74%; height:150%; }
+       higher/more centred, leaving room below it), a touch bigger. The SVG is scaled UP and
+       re-centred so the visible stick keeps its old size/position despite the narrower pad
+       (it overflows the pad, which is fine — overflow:visible), and it no longer captures
+       pointers itself: the grab region is exactly the 140px pad, so a wide wheel's rim can't
+       reach over the pedals either. */
+    body.fsim-external .fsim-yoke-svg{ top:2%; left:-29%; width:159%; height:150%; pointer-events:none; }
     /* A couple of BIG important gauges, relocated to the bottom-right of the outside view. */
     .fsim-extg{ position:absolute; right:10px; bottom:10px; z-index:5; display:none; flex-direction:column; gap:7px; align-items:flex-end; pointer-events:none; }
     body.fsim-external .fsim-extg{ display:flex; }
@@ -1795,7 +1841,7 @@ export function openFlightSim(opts = {}) {
     fuel: opts.fuel ?? 100, fuelCap: opts.fuelCap || 100, warn: null,
     map: opts.map || null, sky: opts.sky || { hour: 12, weather: 'clear', wind: 0 }, biomeBelow: opts.biomeBelow ?? null,
     minimap: opts.minimap || null, mfdMode: 'local', fields: opts.fields || [],
-    checkride: opts.checkride || null, checkrideToast: null,   // guided-checkride instruction + ring gates (null off a checkride)
+    checkride: opts.checkride || null, checkrideStage: null,   // guided-checkride clientView (instruction + ring gates) + last-rendered stage (null off a checkride)
     deadStick: false, reportedAirborne: false, rolling: false, stopHinted: false,
     engineOn: !!opts.engineOn,
     yokeDrag: false, thrDrag: false,
@@ -1837,7 +1883,7 @@ export function openFlightSim(opts = {}) {
       <button class="fsim-pedal fsim-pedal-r" id="fsim-pedal-r" title="right rudder / yaw (hold — . or C)" tabindex="-1" aria-label="right rudder"><span class="fsim-pedal-face"><span class="fsim-pedal-lbl">R</span></span></button>
     </div>`;
   const html = `<div id="fsim-root" class="fsim${skin ? ' fsim-theme-' + skin.id : ''}">
-    <div class="fsim-view">${adminBtn}${windshieldHTML('fsim-ws', 'FWD VIEW · ' + esc((opts.deviceName || P.name).toUpperCase()))}<div class="fsim-lamp" id="fsim-lamp">⚠ STALL</div><div class="fsim-killfeed" id="fsim-killfeed"></div><div class="fsim-toast" id="fsim-toast"></div><div class="fsim-viewtag" id="fsim-viewtag"></div><div class="fsim-fuel" id="fsim-fuel"><span class="fsim-fuel-ic">⛽</span><span class="fsim-fuel-pct" id="fsim-fuel-pct">--%</span><button class="fsim-refuel" id="fsim-refuel" title="refuel at this field" tabindex="-1">REFUEL</button></div><div class="fsim-reticle" id="fsim-reticle"><svg viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="#ff6a3a" stroke-width="1"/><line x1="17" y1="1" x2="17" y2="7" stroke="#ff6a3a"/><line x1="17" y1="27" x2="17" y2="33" stroke="#ff6a3a"/><line x1="1" y1="17" x2="7" y2="17" stroke="#ff6a3a"/><line x1="27" y1="17" x2="33" y2="17" stroke="#ff6a3a"/><circle cx="17" cy="17" r="1.5" fill="#ff6a3a"/></svg></div><div class="fsim-weap" id="fsim-weap"><button class="fsim-weap-arm" id="fsim-arm" tabindex="-1">◈ SAFE</button><button class="fsim-weap-arm" id="fsim-wpn" tabindex="-1" title="weapon select — 1 guns / 2 missiles">GUN</button><button class="fsim-weap-fire" id="fsim-fire" tabindex="-1">FIRE</button><span class="fsim-weap-pips" id="fsim-weap-pips"></span><button class="fsim-weap-arm" id="fsim-flarebtn" tabindex="-1" title="countermeasures (X)">FLARE</button></div><button class="fsim-abortbtn" id="fsim-abortbtn" title="abort the flight — a recovery crew tows the aircraft back to a field and bills you">⤫ ABORT</button><button class="fsim-disembarkbtn" id="fsim-disembarkbtn" title="climb out of the aircraft (on the ground only)">⏏ DISEMBARK</button><button class="fsim-fsbtn" id="fsim-fsbtn" title="fullscreen">⛶</button><button class="fsim-viewbtn" id="fsim-viewbtn" title="external / cockpit view (V)">◎ EXT</button><button class="fsim-orbitreset" id="fsim-orbitreset" title="reset orbit camera to behind the craft">⟲</button><button class="fsim-hidebtn" id="fsim-hidebtn" title="hide the text panel — more outside view">⊟</button><button class="fsim-tunebtn" id="fsim-tunebtn" title="render tuning">⚙</button><div class="fsim-tune" id="fsim-tune" style="display:none"></div><div class="fsim-extg" id="fsim-extg"><div class="fsim-extg-row"><span class="fsim-extg-lbl">IAS</span><b id="fsim-extg-ias">0</b><span class="fsim-extg-u">kt</span></div><div class="fsim-extg-row"><span class="fsim-extg-lbl">ALT</span><b id="fsim-extg-alt">0</b><span class="fsim-extg-u">ft</span></div></div>${PEDALS_HTML}</div>
+    <div class="fsim-view">${adminBtn}${windshieldHTML('fsim-ws', 'FWD VIEW · ' + esc((opts.deviceName || P.name).toUpperCase()))}<div class="fsim-lamp" id="fsim-lamp">⚠ STALL</div><div class="fsim-killfeed" id="fsim-killfeed"></div><div class="fsim-toast" id="fsim-toast"></div><div class="fsim-ckride" id="fsim-ckride"></div><div class="fsim-viewtag" id="fsim-viewtag"></div><div class="fsim-fuel" id="fsim-fuel"><span class="fsim-fuel-ic">⛽</span><span class="fsim-fuel-pct" id="fsim-fuel-pct">--%</span><button class="fsim-refuel" id="fsim-refuel" title="refuel at this field" tabindex="-1">REFUEL</button></div><div class="fsim-reticle" id="fsim-reticle"><svg viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="#ff6a3a" stroke-width="1"/><line x1="17" y1="1" x2="17" y2="7" stroke="#ff6a3a"/><line x1="17" y1="27" x2="17" y2="33" stroke="#ff6a3a"/><line x1="1" y1="17" x2="7" y2="17" stroke="#ff6a3a"/><line x1="27" y1="17" x2="33" y2="17" stroke="#ff6a3a"/><circle cx="17" cy="17" r="1.5" fill="#ff6a3a"/></svg></div><div class="fsim-weap" id="fsim-weap"><button class="fsim-weap-arm" id="fsim-arm" tabindex="-1">◈ SAFE</button><button class="fsim-weap-arm" id="fsim-wpn" tabindex="-1" title="weapon select — 1 guns / 2 missiles">GUN</button><button class="fsim-weap-fire" id="fsim-fire" tabindex="-1">FIRE</button><span class="fsim-weap-pips" id="fsim-weap-pips"></span><button class="fsim-weap-arm" id="fsim-flarebtn" tabindex="-1" title="countermeasures (X)">FLARE</button></div><button class="fsim-abortbtn" id="fsim-abortbtn" title="abort the flight — a recovery crew tows the aircraft back to a field and bills you">⤫ ABORT</button><button class="fsim-disembarkbtn" id="fsim-disembarkbtn" title="climb out of the aircraft (on the ground only)">⏏ DISEMBARK</button><button class="fsim-fsbtn" id="fsim-fsbtn" title="fullscreen">⛶</button><button class="fsim-viewbtn" id="fsim-viewbtn" title="external / cockpit view (V)">◎ EXT</button><button class="fsim-orbitreset" id="fsim-orbitreset" title="reset orbit camera to behind the craft">⟲</button><button class="fsim-hidebtn" id="fsim-hidebtn" title="hide the text panel — more outside view">⊟</button><button class="fsim-tunebtn" id="fsim-tunebtn" title="render tuning">⚙</button><div class="fsim-tune" id="fsim-tune" style="display:none"></div><div class="fsim-extg" id="fsim-extg"><div class="fsim-extg-row"><span class="fsim-extg-lbl">IAS</span><b id="fsim-extg-ias">0</b><span class="fsim-extg-u">kt</span></div><div class="fsim-extg-row"><span class="fsim-extg-lbl">ALT</span><b id="fsim-extg-alt">0</b><span class="fsim-extg-u">ft</span></div></div>${PEDALS_HTML}</div>
     <div class="fsim-glass">
       <div class="fsim-pfd"><canvas id="fsim-pfd"></canvas></div>
       <div class="fsim-gauges"><canvas id="fsim-gauges"></canvas></div>
@@ -1911,9 +1957,26 @@ export function openFlightSim(opts = {}) {
   // Yoke — 2D pad, springs to centre. Physically inverted: drag DOWN = pull = nose up.
   const pad = q('#fsim-yoke');
   const padTo = (e) => { const r = pad.getBoundingClientRect(); F.input.aileron = clampNum(((e.clientX - r.left) / r.width) * 2 - 1, -1, 1); F.input.elevator = clampNum(((e.clientY - r.top) / r.height) * 2 - 1, -1, 1); };
-  add(pad, 'pointerdown', (e) => { if (e.button) return; F.yokeDrag = true; pad.classList.add('drag'); try { pad.setPointerCapture(e.pointerId); } catch {} padTo(e); });
+  // In the external chase view the grab pad floats ON TOP of the rudder pedals (higher stacking
+  // context), so a press meant for a pedal gets swallowed by the pad and grabs the stick. Before
+  // grabbing, hit-test the pedal boxes and, if the press landed on one, drive that pedal instead —
+  // the pad defers to the pedals so they never interfere, whatever the exact overlap.
+  const pedalHit = (e) => {
+    for (const el of [F.pedalL, F.pedalR]) {
+      if (!el) continue;
+      const r = el.getBoundingClientRect();
+      if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) return el === F.pedalR ? 1 : -1;
+    }
+    return 0;
+  };
+  add(pad, 'pointerdown', (e) => {
+    if (e.button) return;
+    const pd = pedalHit(e);
+    if (pd) { F.pedalKey = pd; F.padPedal = pd; try { pad.setPointerCapture(e.pointerId); } catch {} e.preventDefault(); return; }
+    F.yokeDrag = true; pad.classList.add('drag'); try { pad.setPointerCapture(e.pointerId); } catch {} padTo(e);
+  });
   add(pad, 'pointermove', (e) => { if (F.yokeDrag) padTo(e); });
-  add(window, 'pointerup', () => { F.yokeDrag = false; pad.classList.remove('drag'); });
+  add(window, 'pointerup', () => { F.yokeDrag = false; pad.classList.remove('drag'); if (F.padPedal) { if (F.pedalKey === F.padPedal) F.pedalKey = 0; F.padPedal = 0; } });
 
   // Rudder pedals — press-and-hold, exactly like the ,/. (X/C) keys: each drives F.pedalKey to a
   // side and releases to centre. Pointer capture means sliding a thumb off the pad still lets go.
@@ -2083,7 +2146,7 @@ export function openFlightSim(opts = {}) {
     F.toastT = setTimeout(() => toastEl.classList.remove('show'), 1100);
   };
   F.toast = fsimToast;   // so the frame loop (touchdown/rollout prompts) can raise toasts too
-  if (F.checkride?.instruction) { fsimToast(F.checkride.instruction); F.checkrideToast = F.checkride.instruction; }   // opening checkride brief
+  if (F.checkride) renderCheckride(F, F.checkride);   // opening checkride card + control glows
 
   // ── Keyboard flight controls ────────────────────────────────────────────────
   // A/Z throttle · Q/E/S hold-to-look (release → forward) · W forward · R/F flaps ·
@@ -2276,10 +2339,19 @@ export function openFlightSim(opts = {}) {
     `<div class="trow"><label>${lbl}</label><input type="range" data-pk="${k}" min="${lo}" max="${hi}" step="${stp}" value="${F.P[k]}"><span class="tv" id="fsim-pv-${k}">${fmtStp(F.P[k], stp)}</span></div>`;
   const rndRow = ([k, lbl, lo, hi, stp]) =>
     `<div class="trow"><label>${lbl}</label><input type="range" data-k="${k}" min="${lo}" max="${hi}" step="${stp}" value="${RENDER_TUNE[k]}"><span class="tv" id="fsim-tv-${k}">${fmtStp(RENDER_TUNE[k], stp)}</span></div>`;
+  // Vertex-light colour pickers (key/sky/shadow × day/night) — write hex straight into RENDER_TUNE.
+  const VLIGHT_COLORS = [
+    ['vlKeyDay', 'Key · day'], ['vlKeyNight', 'Key · night'],
+    ['vlSkyDay', 'Sky · day'], ['vlSkyNight', 'Sky · night'],
+    ['vlShadowDay', 'Shadow · day'], ['vlShadowNight', 'Shadow · night'],
+  ];
+  const colRow = ([k, lbl]) =>
+    `<div class="trow"><label>${lbl}</label><input type="color" data-ck="${k}" value="${RENDER_TUNE[k]}"><span class="tv"></span></div>`;
   tunePanel.innerHTML =
     `<div class="fsim-tune-drag" id="fsim-tune-drag">⠿ TUNING — drag to move</div>` +
     `<div class="thdr">✈ ${esc(F.P.name || 'AIRCRAFT')} · FEEL</div>` + PHYS_TUNE.map(physRow).join('') +
-    `<div class="thdr">▦ WORLD RENDER</div>` + FSIM_TUNE.map(rndRow).join('');
+    `<div class="thdr">▦ WORLD RENDER</div>` + FSIM_TUNE.map(rndRow).join('') +
+    `<div class="thdr">◧ VERTEX LIGHT COLOURS</div>` + VLIGHT_COLORS.map(colRow).join('');
   // Drag the tuning window by its header. Switches to left/top positioning (relative to the
   // view) on first grab so it can move anywhere; the sliders below keep their own pointer events.
   const dragH = q('#fsim-tune-drag');
@@ -2303,6 +2375,7 @@ export function openFlightSim(opts = {}) {
     const k = inp.dataset.k; RENDER_TUNE[k] = parseFloat(inp.value);
     const tv = document.getElementById('fsim-tv-' + k); if (tv) tv.textContent = fmtStp(RENDER_TUNE[k], inp.step);
   }));
+  tunePanel.querySelectorAll('input[data-ck]').forEach((inp) => add(inp, 'input', () => { RENDER_TUNE[inp.dataset.ck] = inp.value; }));
   add(tuneBtn, 'click', () => { tunePanel.style.display = tunePanel.style.display === 'none' ? 'block' : 'none'; });
 
   // Admin ⏪ rewind — set the plane back down at the departure hangar and reopen it (test tool).
@@ -2754,7 +2827,7 @@ function fsimFrame(now) {
   // Pedals held (,/. or X/C): ramp toward the held side, spring to centre on release. The heli
   // tail rotor yaws the nose in the flight model; on a fixed-wing the model ignores pedal, so this
   // only swings the rudder surface on the external view. Same ramp either way.
-  input.pedal = F.pedalKey ? clampNum(input.pedal + F.pedalKey * dt * 3, -1, 1) : lerpN(input.pedal, 0, Math.min(1, dt * 8));
+  input.pedal = F.pedalKey ? clampNum(input.pedal + F.pedalKey * dt * 2.2, -1, 1) : lerpN(input.pedal, 0, Math.min(1, dt * 12));
   // Belly-down: gear stowed with weight on the wheels. She's grinding on her keel — no wheels to
   // roll on, so no thrust reaches the ground and she can't move or take off until the gear's back
   // down (or you ABORT for a tow). This is the punishment for raising the gear parked/rolling.
@@ -3232,7 +3305,12 @@ function fsimFrame(now) {
     // Big IAS/ALT/VSI readouts over the glass — the two numbers the eye needs most, boxed large so
     // they read at a glance in every cockpit. vne feeds the tape a redline warn when the speed reddens.
     ias: Math.round(r.airspeed), alt: Math.round(r.altitude), vsi: Math.round(s.vs), vne: P.vne, vs0: P.vs0,
-    hour: F.sky?.hour, weather: F.sky?.weather, wind: F.sky?.wind, heading: d.hdg,
+    // Use the RAW s.heading, not the whole-degree-rounded readout the PFD tape eases toward
+    // (d.hdg). readout() quantises heading to integer degrees; easing the WORLD toward that
+    // stair-stepped target stutters the pan, and a 1° step throws distant horizon features
+    // several pixels sideways — the "horizon jumps around when you yaw". The raw float yaws
+    // continuously. (Same reason height uses raw s.altitude above.) d.hdg stays for the HUD.
+    hour: F.sky?.hour, weather: F.sky?.weather, wind: F.sky?.wind, heading: s.heading,
     // Spatial weather cells + our absolute world position → real clouds/rain out the canopy.
     wxField: F.sky?.field, acX: F.pos.x, acY: F.pos.y,
     map: F.map, mapCenter: F.mapCenter, phase: 'cruise', airport: F.airport, biomeBelow: F.biomeBelow,
@@ -3739,13 +3817,12 @@ export function flightSimContext(msg) {
   if ('surfaces' in msg) F.surfaces = msg.surfaces || null;   // authoritative sheared-surface state → asymmetric physics + live breakup model (null = intact/repaired)
   if (typeof msg.msl === 'number' && msg.msl !== F.msl) { F.msl = msg.msl; if (F.paintPips) F.paintPips(); }   // authoritative rail count
   F.warn = msg.warn || null;
-  // Guided checkride: store the current instruction + ring gates, and toast the
-  // instruction whenever it changes (a stage advance). Deduped so it doesn't re-toast
-  // every tick.
+  // Guided checkride: store the current instruction + ring gates, and refresh the
+  // persistent guidance card + control spotlight. renderCheckride redraws only on a stage
+  // change, so this is cheap to call every tick.
   if ('checkride' in msg) {
     F.checkride = msg.checkride;
-    const instr = msg.checkride?.instruction;
-    if (instr && instr !== F.checkrideToast) { F.checkrideToast = instr; if (F.toast) F.toast(instr); }
+    renderCheckride(F, msg.checkride);
   }
   const wasExposed = !!(F.aa && F.aa.exposed);
   F.aa = msg.aa || null;       // AA engagement-envelope telegraph (drives the windshield threat banner)

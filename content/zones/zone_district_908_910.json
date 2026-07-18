@@ -1,34 +1,31 @@
 {
   "ambient_events": [],
-  "ambient_theme": "urban",
+  "ambient_theme": "forest",
   "audio_theme_id": null,
-  "bg_color": "#2a241b",
-  "color": "#8ba36a",
+  "bg_color": "#31562c",
+  "color": "#8fd08a",
   "created_by": "zone-planner",
-  "description": "A chrome-sided diner beached at the edge of the plaza, its neon sign buzzing MEL WATER — the T long dead — over a fogged window full of pie no one's touched since morning. Steam curls from a roof vent that smells of griddle grease and burnt coffee. A hand-lettered card in the door reads CARD TAP ONLY. NO, NOT EVEN YOURS.",
+  "description": "A pocket of kept parkland: mown grass, planted beds, a low hedge that someone actually trims. Birds have found it, and so have the people who come to sit and not be moved along.",
   "exits": {
     "east": "zone_district_909_910",
-    "in": "zone_meltwater_diner",
     "north": "zone_district_908_909",
     "south": "zone_district_908_911",
     "west": "zone_district_907_910"
   },
   "flags": {
-    "building_name": "Meltwater Diner",
-    "building_type": "diner",
     "district": "wasteland",
-    "facade": true,
-    "is_building": true,
+    "park_feature": "pond",
     "planner": "bp_district",
-    "world_exit_zone": "zone_district_907_910"
+    "street_life": true,
+    "terrain": "park"
   },
   "grid_x": 908,
   "grid_y": 910,
   "grid_z": 0,
   "id": "zone_district_908_910",
   "map_id": "map_world",
-  "marker": "MD",
-  "name": "Meltwater Diner",
+  "marker": "❦",
+  "name": "Fisherman's Green",
   "parent_zone": null,
-  "updated_at": "1784500000"
+  "updated_at": "1784600000"
 }

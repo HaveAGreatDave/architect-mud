@@ -1,0 +1,30 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "wasteland",
+  "audio_theme_id": null,
+  "bg_color": "#242a1c",
+  "color": "#8f9256",
+  "created_by": "wildlands-fill",
+  "description": "Low grey brush claws up through broken ground — brittle, half-dead stuff that shivers when there is no wind behind it.",
+  "exits": {
+    "north": "zone_district_913_920",
+    "west": "zone_district_912_921",
+    "south": "zone_district_913_922",
+    "east": "zone_district_914_921"
+  },
+  "flags": {
+    "district": "wilds",
+    "planner": "bp_district",
+    "radiation": 25,
+    "terrain": "scrub"
+  },
+  "grid_x": 913,
+  "grid_y": 921,
+  "grid_z": 0,
+  "id": "zone_district_913_921",
+  "map_id": "map_world",
+  "marker": null,
+  "name": "Brittlebrush Draw",
+  "parent_zone": null,
+  "updated_at": "1784600000"
+}

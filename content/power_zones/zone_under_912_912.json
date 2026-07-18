@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 0,
+  "flags": {},
+  "generator_id": null,
+  "id": "zone_under_912_912",
+  "max_capacity_kw": 0,
+  "name": "Drain Junction",
+  "source_type": "city_grid"
+}

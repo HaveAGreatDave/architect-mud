@@ -7,14 +7,14 @@
   "created_by": null,
   "description": "A standing-room slot of chrome and steam, all counter and no chairs, built to move you through fast and caffeinated. A semi-automated espresso rig does most of the work while a barista babysits it and judges your order. The menu board overhead recalculates its prices with a soft chime that has trained regulars to flinch. It smells of scorched sugar, ozone, and other people's mornings.",
   "exits": {
-    "west": "zone_district_908_912"
+    "east": "zone_district_906_912"
   },
   "flags": {
     "building_name": "Jitter",
     "building_type": "shop",
     "is_building": true,
     "is_interior": true,
-    "world_exit_zone": "zone_district_908_912"
+    "world_exit_zone": "zone_district_906_912"
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -23,6 +23,6 @@
   "map_id": "map_int_jitter",
   "marker": null,
   "name": "Jitter",
-  "parent_zone": "zone_district_908_912",
+  "parent_zone": "zone_district_906_912",
   "updated_at": "1784500000"
 }

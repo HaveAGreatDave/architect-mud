@@ -1,0 +1,19 @@
+{
+  "description": "A padded bench beneath a loaded Olympic bar, chromed plates racked and ready, a run of mirrors throwing your effort back at you from every angle. Lie down and lift.",
+  "flags": {
+    "interactions": [
+      "lie",
+      "lift"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_solenne_bench_press",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "bench-press station",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_gym"
+}

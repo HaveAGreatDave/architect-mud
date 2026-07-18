@@ -1,0 +1,33 @@
+{
+  "category": null,
+  "description": "There is a street camera on the Precinct 9 approach the Watch have wanted dark for months. Halloran wants its memory core — not smashed, pulled. Bring back the eye, and prove you'll put your hands on the machine when it counts.",
+  "id": "quest_lw_2",
+  "meta": {},
+  "name": "Blind Spot",
+  "objectives": [
+    {
+      "desc": "Pull the memory core from the street camera on the Precinct 9 approach (follow the green GPS line).",
+      "emotes": [
+        "{who} works the camera housing open and lifts out its core; the amber light dies."
+      ],
+      "id": "o_core",
+      "item_id": "item_lw_camcore",
+      "type": "retrieve",
+      "zone": "zone_district_922_911"
+    }
+  ],
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 120,
+    "flags": [
+      {
+        "flag": "lw_q2_done",
+        "scope": "player",
+        "value": "done"
+      }
+    ],
+    "items": []
+  },
+  "updated_at": "1784000000"
+}

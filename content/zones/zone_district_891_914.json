@@ -5,13 +5,14 @@
   "bg_color": "#2f3a26",
   "color": "#8ba36a",
   "created_by": "zone-planner",
-  "description": "Open grassland quietly reclaiming old ground — seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "description": "Open grassland quietly reclaiming old ground — seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat. The Architect's Curtain seals the edge here — a floor-to-sky sheet of humming hard light. There is no way through but the South Gate.",
   "exits": {
     "east": "zone_district_892_914",
     "north": "zone_district_891_913",
     "south": "zone_district_891_915"
   },
   "flags": {
+    "curtain": true,
     "district": "wasteland",
     "planner": "bp_district"
   },

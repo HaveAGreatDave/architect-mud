@@ -1,0 +1,34 @@
+{
+  "ambient_events": [
+    "The concierge murmurs into a discreet headset and nods you through with a practiced half-smile.",
+    "Somewhere above, the elevator settles with a sound like a held breath."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#2a3947",
+  "color": "#e6d9c2",
+  "created_by": null,
+  "description": "A double-height atrium of pale stone and warm brass, floored in a river of book-matched marble that no one is allowed to scuff. A living wall of ferns breathes along one side; a concierge station of dark walnut anchors the other, always attended. Light pools from hidden coves, and the street noise dies the instant the revolving door seals behind you. A single elevator, its doors a sheet of mirror-bronze, waits at the far end. The way <b>out</b> is south, to the street; step <b>in</b> to the elevator.",
+  "exits": {
+    "south": "zone_district_914_908",
+    "in": "zone_solenne_elevator"
+  },
+  "flags": {
+    "building_name": "Solenne Residences",
+    "is_interior": true,
+    "always_lit": true,
+    "building_type": "apartment",
+    "is_building": true,
+    "sanctuary": true,
+    "world_exit_zone": "zone_district_914_908"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_solenne_lobby",
+  "map_id": "map_int_solenne",
+  "marker": null,
+  "name": "Solenne Residences — Grand Lobby",
+  "parent_zone": "zone_district_914_908",
+  "updated_at": "1784600000"
+}

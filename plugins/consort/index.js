@@ -28,9 +28,11 @@
 // a persisted Flag.
 
 import { schedule } from '../../server/engine/scheduler.js';
-import { world, getZone, getZonePlayers, getZoneNpcs, getZoneFurniture, getAllLivePlayers } from '../../server/engine/world.js';
+import { world, getZone, getZonePlayers, getZoneNpcs, getZoneFurniture, getAllLivePlayers, getLivePlayer } from '../../server/engine/world.js';
 import { sendToZone, sendToPlayer } from '../../server/engine/messaging.js';
 import { isMisActive } from '../../server/engine/mis.js';
+import { addHorniness } from '../mis/mis-system.js';
+import { registerInputMatcher } from '../../server/engine/plugins.js';
 import { formatChitchat, moveEntity } from '../../server/engine/ai-behaviour.js';
 import { on } from '../../server/engine/events.js';
 import { exitTargets } from '../../server/engine/exits.js';
@@ -51,6 +53,7 @@ const SPEAK_GAP_MS   = 75_000;          // min gap between an NPC's spoken beats
 const SPEAK_CHANCE   = 0.33;            // an eligible tick where she just is, quietly
 const SCENE_GAP_MS   = 8 * 60_000;      // keep the two-hander a rare treat, not a loop
 const SCENE_CHANCE   = 0.3;             // ...and only sometimes when it's eligible
+const SETTLE_CHANCE  = 0.35;            // of those keeper two-handers, how often it's the "pick one of us" question
 const SCENE_TURN_MS  = [4500, 8000];    // random delay between turns of a scene
 const MAX_TURNS      = 6;               // cap however long a chosen thread runs
 const FELLATIO_AT    = 84;              // arousal at/above which their signature act can happen
@@ -447,11 +450,6 @@ const PAIR_WITH_KEEPER = [
     ['B', `doesn't look up from the porthole. "I do not." A beat. "...it was the northern channel, though, wasn't it."`],
   ],
   [
-    ['B', `"We had an argument today about which of us you like best."`],
-    ['R', `"There was no argument. I won." A pause. "...it was a draw. We're calling it a draw."`],
-    ['B', `"We're asking you to settle it. Carefully. Whole evenings ride on this."`],
-  ],
-  [
     ['R', `"He's got that crease between his eyebrows again, Bijou."`],
     ['B', `already moving. "I see it. I've got the shoulders, you've got the rest. Come here, you — sit."`],
   ],
@@ -512,6 +510,116 @@ function playScene(zoneId, roxy, bijou, thread) {
 }
 
 const findConsort = (npcs, name) => npcs.find(n => String(n.name || '').toLowerCase().includes(name));
+
+// ── The one beat that waits on him: "settle it" ─────────────────────────────────
+// Both of them, keeper present, they stage a mock-argument about which he likes best
+// and then actually make him answer OUT LOUD. The tick arms it (plays the setup, then
+// hands the room back and starts a timer); the `player.say` hook below reads his reply
+// and both of them react to the name he chose — or to his dodge, or to his silence.
+const SETTLE_TIMEOUT_MS = 90_000;                 // how long they'll wait on an answer
+const pendingSettle = new Map();                  // keeperId -> { zoneId, roxyId, bijouId, timer }
+
+const SETTLE_SETUP = [
+  ['B', `"We had an argument today about which of us you like best."`],
+  ['R', `"There was no argument. I won." A beat. "...it was a draw. We're calling it a draw."`],
+  ['B', `leans in, eyes bright and merciless. "So settle it — out loud, a name. Whole evenings ride on this. Well?"`],
+];
+const SETTLE_REACT = {
+  roxy: [
+    ['R', `doesn't gloat. She simply lets a slow, satisfied smile arrive and stay. "...noted. For the record."`],
+    ['B', `clutches her chest like she's been shot. "BETRAYED. In my own cabin. Roxy, don't you DARE look smug—"`],
+    ['R', `looking thoroughly smug. "I would never."`],
+  ],
+  bijou: [
+    ['B', `lights up like the whole deck came on at once. "ME. He said ME — Roxy, are you hearing this—"`],
+    ['R', `dry as the good gin. "The entire harbour's hearing it, Bijou." A pause, softer. "...good taste, though. I'll allow it."`],
+  ],
+  both: [
+    ['R', `"Both of us. The diplomat's answer." She almost approves. "Cowardly. Effective. Very you."`],
+    ['B', `"He can't choose because he's SMART. Take notes, Roxy." She's delighted either way.`],
+  ],
+  dodge: [
+    ['B', `pouts to her full capacity. "That is not a name. That is a dodge. I know a dodge — I invented the dodge."`],
+    ['R', `"Leave him be. The non-answer IS the answer, and it's the kind one." She doesn't look entirely certain she believes that.`],
+  ],
+  timeout: [
+    ['B', `waits, and waits, and finally throws up her hands. "He's not going to say it. He never says it."`],
+    ['R', `"That's your answer, then. He keeps us both guessing on purpose." A wry look at him. "Clever man."`],
+  ],
+};
+
+const bothPresentWith = (zoneId, roxy, bijou, keeper) =>
+  roxy && bijou && !roxy._dead && !bijou._dead
+  && roxy.zone_id === zoneId && bijou.zone_id === zoneId
+  && keeper && keeper.current_zone === zoneId;
+
+function clearSettle(keeperId) {
+  const p = pendingSettle.get(keeperId);
+  if (p?.timer) clearTimeout(p.timer);
+  pendingSettle.delete(keeperId);
+}
+
+// Which reaction his spoken reply earns: a name, a "both of you", or a non-answer.
+function classifySettle(text) {
+  const lower = ` ${String(text || '').toLowerCase()} `;
+  const saysRoxy  = /\broxy\b/.test(lower);
+  const saysBijou = /\bbijou\b/.test(lower);
+  if ((saysRoxy && saysBijou)
+      || /\b(both|the two of you|you two|can'?t choose|won'?t choose|not choosing|equally|a draw|it'?s a tie|no favou?rite|love you both)\b/.test(lower)) return 'both';
+  if (saysRoxy)  return 'roxy';
+  if (saysBijou) return 'bijou';
+  return 'dodge';
+}
+
+// Play the setup two-hander, then arm the question and let the room go quiet on him.
+function playSettleQuestion(zoneId, roxy, bijou, keeper) {
+  sceneZones.add(zoneId);
+  let i = 0;
+  const step = () => {
+    if (!bothPresentWith(zoneId, roxy, bijou, keeper) || !getZonePlayers(zoneId).length) {
+      sceneZones.delete(zoneId);
+      return;
+    }
+    if (i < SETTLE_SETUP.length) {
+      const [who, line] = SETTLE_SETUP[i++];
+      const speaker = who === 'B' ? bijou : roxy;
+      sendToZone(zoneId, formatChitchat(speaker.name, line));
+      const now = Date.now();
+      lastSpoke.set(roxy.id, now);
+      lastSpoke.set(bijou.id, now);
+      setTimeout(step, randInt(SCENE_TURN_MS[0], SCENE_TURN_MS[1]));
+      return;
+    }
+    sceneZones.delete(zoneId);                    // hand the room back; now we wait on him
+    clearSettle(keeper.id);
+    const timer = setTimeout(() => {
+      pendingSettle.delete(keeper.id);
+      if (bothPresentWith(zoneId, roxy, bijou, keeper) && getZonePlayers(zoneId).length)
+        playScene(zoneId, roxy, bijou, SETTLE_REACT.timeout);
+    }, SETTLE_TIMEOUT_MS);
+    pendingSettle.set(keeper.id, { zoneId, roxyId: roxy.id, bijouId: bijou.id, timer });
+  };
+  step();
+}
+
+// The keeper answers with `say`. Resolve any pending question for him: parse the name
+// he chose and let both of them react. A no-longer-valid room (they've moved, he's
+// moved) just clears silently.
+function onPlayerSay({ player, text }) {
+  if (!player) return;
+  const p = pendingSettle.get(player.id);
+  if (!p) return;
+  const roxy = world.npcs.get(p.roxyId);
+  const bijou = world.npcs.get(p.bijouId);
+  clearSettle(player.id);
+  if (!bothPresentWith(p.zoneId, roxy, bijou, player)) return;
+  const key = classifySettle(text);
+  // Let his own say line land first, then they react.
+  setTimeout(() => {
+    if (bothPresentWith(p.zoneId, roxy, bijou, player) && getZonePlayers(p.zoneId).length)
+      playScene(p.zoneId, roxy, bijou, SETTLE_REACT[key]);
+  }, 900);
+}
 
 // ── Area life (beckoned out of the cabin) ───────────────────────────────────────
 // The suite and the boudoir are their INTIMATE spaces — arousal, undress, devotion
@@ -876,7 +984,12 @@ function consortTick() {
           const bijou = findConsort(consorts, 'bijou');
           if (roxy && bijou && roxy !== bijou) {
             sceneAt.set(zoneId, now);
-            playScene(zoneId, roxy, bijou, pick(keeperHere ? PAIR_WITH_KEEPER : PAIR_PRIVATE));
+            // Sometimes, with him here, they don't just perform — they make him answer.
+            if (keeperHere && keeper && !pendingSettle.has(keeper.id) && Math.random() < SETTLE_CHANCE) {
+              playSettleQuestion(zoneId, roxy, bijou, keeper);
+            } else {
+              playScene(zoneId, roxy, bijou, pick(keeperHere ? PAIR_WITH_KEEPER : PAIR_PRIVATE));
+            }
             break;                                               // the scene owns the room this tick
           }
         }
@@ -955,17 +1068,61 @@ function narrateToRoom(zoneId, keeperId, tame, hot) {
 }
 
 // Arrival / departure narration. From the suite she comes through the concealed
-// wardrobe; called out to any other deck she simply makes her way up to him.
-const arriveLines = (n, viaWardrobe) => viaWardrobe
-  ? [`The mirrored wardrobe swings inward and ${n} steps out, finding you at once.`,
-     `The mirrored wardrobe swings inward and ${n} slips out, all warm silk and welcome, her eyes going straight to you.`]
-  : [`${n} makes her way to you and settles in close.`,
-     `${n} makes her way to you, robe loose and eyes bright, and settles in close.`];
-const departLines = (n, viaWardrobe) => viaWardrobe
-  ? [`${n} slips back through the mirrored wardrobe and is gone.`,
-     `${n} presses a kiss to the air and slips back through the mirrored wardrobe, out of sight.`]
-  : [`${n} gathers herself and heads back below to the boudoir.`,
-     `${n} blows you a kiss and slips away below.`];
+// wardrobe; called out to any other deck she simply makes her way up to him. Each
+// consort moves in her own key — Roxy composed and unhurried, Bijou eager and
+// headlong — so beckoning both never prints the same beat twice. `§` → her name.
+const ENTRANCES = {
+  roxy: {
+    arriveWardrobe: [
+      `The mirrored wardrobe eases open and § steps through unhurried, taking in the room before she takes in you — then a small, private smile.`,
+      `The wardrobe panel swings back and § emerges, robe belted just so, her gaze finding you like she'd timed it to the second.`,
+    ],
+    arriveDeck: [
+      `§ crosses to you at her own measured pace and folds herself in at your side, as if she'd chosen the spot hours ago.`,
+      `§ makes her way over without hurry, settles in close, and lets the quiet do the greeting for her.`,
+    ],
+    departWardrobe: [
+      `§ holds your eye a beat, then slips back through the mirrored wardrobe without a wasted motion.`,
+      `§ touches two cool fingers to your jaw, unhurried, and steps back through the mirrored wardrobe out of sight.`,
+    ],
+    departDeck: [
+      `§ rises, smooths her robe, and makes her unhurried way back below to the boudoir.`,
+      `§ gives you one last measured look and heads below, in no particular hurry even now.`,
+    ],
+  },
+  bijou: {
+    arriveWardrobe: [
+      `The mirrored wardrobe bursts inward and § spills out mid-thought, reaching you before her feet quite catch up.`,
+      `The wardrobe barely clears before § slips through in a rush of warm silk, eyes going straight to you.`,
+    ],
+    arriveDeck: [
+      `§ comes across at a half-run and winds herself around your arm before you've properly turned.`,
+      `§ hurries over, robe loose and eyes bright, and folds herself in against you with a happy little sigh.`,
+    ],
+    departWardrobe: [
+      `§ steals one more look at you over her shoulder and ducks reluctantly back through the mirrored wardrobe.`,
+      `§ presses a kiss to your cheek, then one to the air, and slips back through the mirrored wardrobe.`,
+    ],
+    departDeck: [
+      `§ goes with a backward glance and a small wave, drifting below to the boudoir.`,
+      `§ blows you a kiss, holds it a beat too long, and slips away below.`,
+    ],
+  },
+  default: {
+    arriveWardrobe: [`The mirrored wardrobe swings inward and § steps out, finding you at once.`],
+    arriveDeck:     [`§ makes her way to you and settles in close.`],
+    departWardrobe: [`§ slips back through the mirrored wardrobe and is gone.`],
+    departDeck:     [`§ gathers herself and heads back below to the boudoir.`],
+  },
+};
+
+// Pick a name-varied entrance/exit line (a single line — an entrance isn't MIS-tiered).
+function pickEntrance(npc, kind, viaWardrobe) {
+  const n = String(npc.name || '').toLowerCase();
+  const table = n.includes('roxy') ? ENTRANCES.roxy : n.includes('bijou') ? ENTRANCES.bijou : ENTRANCES.default;
+  const pool = table[`${kind}${viaWardrobe ? 'Wardrobe' : 'Deck'}`];
+  return pick(pool).replace(/§/g, npc.name);
+}
 
 async function cmdBeckon(args, raw, player) {
   const mine = consortsOf(player.handle);
@@ -990,10 +1147,10 @@ async function cmdBeckon(args, raw, player) {
     if (npc._dead || npc.zone_id === dest) continue;               // dead or already here
     npc._activity = null; npc._activityUntil = 0;                  // fresh read of the new area
     npc.onFurniture = null;                                        // not parked on anything until she settles
-    const [tame, hot] = arriveLines(npc.name, viaWardrobe);
-    narrateToRoom(dest, player.id, tame, hot);
+    const line = pickEntrance(npc, 'arrive', viaWardrobe);
+    narrateToRoom(dest, player.id, line, line);
     moveEntity(npc, dest, NOOP, query);                            // silent hop; we narrate it
-    lines.push(isMisActive(player) ? hot : tame);
+    lines.push(line);
   }
   if (!lines.length) return { type: 'output', message: 'They’re already here with you.' };
   // Refresh the keeper's own top pane too, so the room lists her the moment she arrives.
@@ -1008,8 +1165,8 @@ function retreatConsorts(list, filterName) {
   for (const npc of list) {
     if (npc._dead || npc.zone_id === npc.home_zone) continue;      // already tucked away
     if (filterName && !String(npc.name || '').toLowerCase().includes(filterName)) continue;
-    const [tame, hot] = departLines(npc.name, npc.zone_id === emergeZoneOf(npc));
-    tieredZoneLine(npc.zone_id, tame, hot);
+    const line = pickEntrance(npc, 'depart', npc.zone_id === emergeZoneOf(npc));
+    tieredZoneLine(npc.zone_id, line, line);
     npc._activity = null; npc._activityUntil = 0; npc.onFurniture = null;
     moveEntity(npc, npc.home_zone, NOOP, query);
     sent.push(npc);
@@ -1077,6 +1234,7 @@ function onFurnitureDescribe(f, viewer) {
 export const hooks = {
   'npc.talk': (payload) => onTalk(payload).catch(e => { console.error('[consort] onTalk:', e.message); return undefined; }),
   'furniture.describe': (f, viewer) => { try { return onFurnitureDescribe(f, viewer); } catch (e) { console.error('[consort] onFurnitureDescribe:', e.message); return undefined; } },
+  'player.say': (payload) => { try { onPlayerSay(payload); } catch (e) { console.error('[consort] onPlayerSay:', e.message); } return undefined; },
 };
 
 // ── Pour (keeper asks a present consort to pour him a drink from the bar) ────────
@@ -1166,4 +1324,6 @@ export const _test = {
   consortsOf, cmdBeckon, cmdDismiss, cmdPour, barIn, retreatConsorts,
   areaProfile, isIntimateZone, runAreaActivity, AREA_ACTIVITIES, ACT_MIN_MS,
   AREA_BANTER, onFurnitureDescribe,
+  ENTRANCES, pickEntrance,
+  SETTLE_SETUP, SETTLE_REACT, classifySettle, onPlayerSay, pendingSettle, clearSettle,
 };

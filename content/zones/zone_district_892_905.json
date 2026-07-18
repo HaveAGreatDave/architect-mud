@@ -1,28 +1,34 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
+  "ambient_theme": "city",
   "audio_theme_id": null,
-  "bg_color": "#2f3a26",
-  "color": "#8ba36a",
-  "created_by": "zone-planner",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "bg_color": "#161a22",
+  "color": "#dbe7ff",
+  "created_by": "ascendant-stronghold",
+  "description": "A windowless drum of dull steel, humming with the deep note of coolant pumps. Frost creeps out from its seams. This is where the Ascendants keep their promise that death is only a billing problem — though from the outside it looks less like a promise than a very large, very cold filing cabinet.",
   "exits": {
     "east": "zone_district_893_905",
-    "north": "zone_district_892_904",
+    "in": "zone_asc_vats_registry",
     "south": "zone_district_892_906",
     "west": "zone_district_891_905"
   },
   "flags": {
+    "ascendant_campus": true,
+    "building_name": "The Vats",
+    "building_type": "asc_vats",
     "district": "wasteland",
-    "planner": "bp_district"
+    "facade": true,
+    "floors": 8,
+    "is_building": true,
+    "world_exit_zone": "zone_district_892_906"
   },
   "grid_x": 892,
   "grid_y": 905,
   "grid_z": 0,
   "id": "zone_district_892_905",
   "map_id": "map_world",
-  "marker": "#",
-  "name": "Grasslands",
+  "marker": "AV",
+  "name": "The Vats",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1783740000"
 }

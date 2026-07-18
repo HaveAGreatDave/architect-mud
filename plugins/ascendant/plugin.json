@@ -1,0 +1,7 @@
+{
+  "name": "ascendant",
+  "version": "1.0.0",
+  "description": "Ascendant Stronghold campus mechanics — The Threshold move-gate (inner ring turns away the uncleared).",
+  "dependencies": ["ideologies"],
+  "extensionPoints": []
+}

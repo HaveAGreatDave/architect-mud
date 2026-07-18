@@ -10,7 +10,8 @@
     "east": "zone_district_927_913",
     "north": "zone_district_926_912",
     "south": "zone_district_926_914",
-    "west": "zone_district_925_913"
+    "west": "zone_district_925_913",
+    "down": "zone_under_926_913"
   },
   "flags": {
     "district": "residential",

@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 0,
+  "flags": {},
+  "generator_id": null,
+  "id": "zone_under_watchthresh",
+  "max_capacity_kw": 0,
+  "name": "The Watch Threshold",
+  "source_type": "city_grid"
+}

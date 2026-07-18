@@ -1,0 +1,76 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": { "next": "wait", "type": "start" },
+      "wait": { "next": "start", "seconds": 60, "type": "wait" }
+    }
+  },
+  "chitchat": [],
+  "description": "A still, weathered figure set into a niche beside the blast door where you'd have walked right past them in the dark. No augments, no chrome — just old fatigues, a scoped rifle held like an extension of the arms, and the flat, reading stare of someone who has decided whether to trust you before you've finished breathing in.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "The picket says nothing more, and somehow you're already walking away."
+    },
+    "wary": {
+      "options": [
+        { "label": "Back.", "next": "root" }
+      ],
+      "text": "\"What this is,\" the picket says, \"is as far as you go. There's a door here, and it doesn't open for the curious.\" A pause, measuring you. \"The machine owns most people before they ever think to ask who does. Go and decide what kind of city you actually want — really decide — and maybe there's a place down here for you. Come back the same as you are now, and there isn't.\""
+    },
+    "give_pass": {
+      "actions": [
+        { "action": "SET_FLAG", "flag": "lw_passphrase", "value": "true" }
+      ],
+      "options": [
+        { "label": "Halloran. The lights stay on. Understood.", "next": "bye" }
+      ],
+      "text": "The picket studies you a long moment — your gear, your hands, the way you got this deep and lived — and something settles. \"You came all this way, and you lean the right direction. That's rare enough to spend a word on.\" The rifle lowers an inch. \"Don't loiter at this door. Go up top, Kessler Street, a repair shop called Halloran's Fix-It. Tell the man there: the lights stay on, somebody should keep the switch. He'll know what to do with you. Now move — before something with more teeth than me finds you here.\""
+    },
+    "root": {
+      "options": [
+        {
+          "conditions": [
+            { "flag": "stance_axis", "op": "gt", "value": 0, "scope": "player" },
+            { "flag": "lw_passphrase", "op": "unset", "scope": "player" }
+          ],
+          "label": "I'm not the machine's. I came looking for people who aren't either.",
+          "next": "give_pass"
+        },
+        {
+          "conditions": [
+            { "flag": "lw_passphrase", "op": "set", "scope": "player" }
+          ],
+          "label": "I'm going to see Halloran.",
+          "next": "bye"
+        },
+        { "label": "Who are you? What is this place?", "next": "wary" },
+        { "label": "Leave.", "next": "bye" }
+      ],
+      "text": "You almost don't see them until they want you to. \"Far enough.\" The voice is quiet, unhurried, certain. \"That door isn't for you, and the things back the way you came aren't either. State your business or turn around.\""
+    }
+  },
+  "faction": "ideology_long_watch",
+  "flags": {
+    "clothing_layers": [
+      "worn field fatigues in dead-leaf greys",
+      "a load-bearing vest, every pouch closed and squared",
+      "scuffed jump boots, laced tight"
+    ],
+    "mis_willing": false
+  },
+  "home_activities": [],
+  "home_zone": "zone_under_watchthresh",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_lw_rennick",
+  "name": "the Long Watch picket",
+  "npc_type": "civilian",
+  "sex": "female",
+  "studio_zone_id": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_under_watchthresh"
+}

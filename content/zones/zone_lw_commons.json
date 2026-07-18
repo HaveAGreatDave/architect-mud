@@ -1,0 +1,36 @@
+{
+  "ambient_events": [
+    "Low voices carry from another room and stop when they notice you, then start again, easier.",
+    "Someone has left a game of cards half-played and a mug still warm.",
+    "The air is dry and clean down here, ducted from somewhere the machine doesn't watch."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#1c1710",
+  "color": "#e0a030",
+  "created_by": "longwatch",
+  "description": "The heart of the operation: a long, warm common room hollowed out of an old plant sublevel and made livable by hand. Mismatched chairs ring a stove; a wall of shelves holds paper — manuals, maps, ledgers, the accumulated memory of people who refuse to keep it anywhere the Architect can read. This is a safe place, and it feels like one. The quartermaster's store lies north, the operations room east, the bunkroom south, and the way out west.",
+  "exits": {
+    "west": "zone_lw_entry",
+    "north": "zone_lw_quarter",
+    "east": "zone_lw_ops",
+    "south": "zone_lw_bunk"
+  },
+  "flags": {
+    "always_lit": true,
+    "district": "longwatch",
+    "is_interior": true,
+    "safehouse": true,
+    "sanctuary": true,
+    "unsurveilled": true
+  },
+  "grid_x": 1,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_lw_commons",
+  "map_id": "map_int_longwatch",
+  "marker": null,
+  "name": "The Common Room",
+  "parent_zone": null,
+  "updated_at": "1784000000"
+}

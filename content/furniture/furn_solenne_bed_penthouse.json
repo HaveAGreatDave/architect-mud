@@ -1,0 +1,19 @@
+{
+  "description": "An emperor bed floating on a raised platform beneath the north glass, dressed in linen so fine it barely creases. You could hold court from it.",
+  "flags": {
+    "interactions": [
+      "lie",
+      "sit"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_solenne_bed_penthouse",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "emperor bed",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_penthouse"
+}

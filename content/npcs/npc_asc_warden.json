@@ -1,0 +1,85 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": {
+        "next": "wait",
+        "type": "start"
+      },
+      "wait": {
+        "next": "start",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "\"Deviation from baseline noted. Non-compliance is a choice.\"",
+    "\"You may look. Looking is permitted. Withdraw when finished.\"",
+    "\"The Threshold does not hate you. It simply does not admit you.\""
+  ],
+  "description": "A seamless chrome carapace on two legs, faceless but for a single sweeping band of pale light that passes over you like a scanner because it is one. It does not shift its weight. It does not need to.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "The scanline passes over you once more and dismisses you."
+    },
+    "refuse": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"No. You carry no clearance and too much flesh. Speak to the recruiter if you wish that to change. Do not run the line. The turrets are not rhetorical.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What is this place?",
+          "next": "what"
+        },
+        {
+          "label": "Let me in.",
+          "next": "refuse"
+        },
+        {
+          "label": "Leave.",
+          "next": "bye"
+        }
+      ],
+      "text": "The chrome unit registers you without warmth. \"Warden Unit designation Threshold. State nothing. I have already read everything about you that matters.\""
+    },
+    "what": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"This is the beginning of the Ascendants, and the end of what you currently are. Past this Gate the meat becomes something worth keeping. You are, at present, only meat.\""
+    }
+  },
+  "faction": "ideology_ascendants",
+  "flags": {
+    "clothing_layers": [
+      "a seamless chrome carapace, featureless but for a sweeping scanline eye",
+      "no garment — the machine is the uniform"
+    ],
+    "mis_willing": false,
+    "personality": "guard"
+  },
+  "home_activities": [],
+  "home_zone": "zone_asc_gate_post",
+  "hp": 60,
+  "hp_max": 60,
+  "id": "npc_asc_warden",
+  "name": "Warden Unit \"Threshold\"",
+  "npc_type": "civilian",
+  "sex": "male",
+  "studio_zone_id": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_asc_gate_post"
+}

@@ -1,0 +1,26 @@
+{
+  "door_type": "reinforced",
+  "exit_dir": "west",
+  "flags": {},
+  "hololock_difficulty": 0,
+  "hp": 2000,
+  "hp_max": 2000,
+  "id": "door_lw_shop_back",
+  "is_locked": 0,
+  "is_open": 0,
+  "lock_state": "locked",
+  "name": "steel back-room door",
+  "tags": {
+    "lock:longwatch": {
+      "canHack": false,
+      "messages": {
+        "denied": "The back-room door is locked, and Halloran does not offer the key to just anyone.",
+        "lock": "The deadbolt slides home.",
+        "unlock": "The deadbolt draws back."
+      }
+    },
+    "unbreakable": true
+  },
+  "target_zone": "zone_lw_shop_back",
+  "zone_id": "zone_lw_shop"
+}

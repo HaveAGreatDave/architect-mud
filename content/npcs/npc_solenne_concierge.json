@@ -1,0 +1,38 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "inclines his head a precise few degrees. \"Welcome to Solenne. Mind the marble — it's just been done.\"",
+    "\"Anything at all, you ring the bell and it's handled. Discreetly.\"",
+    "glances at the door, then back to you, and says nothing at all — which is itself a kind of message.",
+    "\"The Sky Deck is residents only, I'm afraid. But the view from the lobby glass isn't nothing.\""
+  ],
+  "description": "Marchetti runs the front of Solenne the way a good surgeon runs a theatre — nothing wasted, nothing seen that shouldn't be. Charcoal three-piece, a lapel pin shaped like the tower, and a memory for faces that has kept more people out of this lobby than any lock. He is unfailingly warm and absolutely immovable.",
+  "dialogue_tree": {},
+  "faction": null,
+  "flags": {
+    "personality": "official",
+    "clothing_layers": [
+      "a charcoal three-piece suit, sharply cut",
+      "a pressed white shirt and a slate silk tie",
+      "a Solenne lapel pin in brushed brass"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_solenne_lobby",
+  "hp": 90,
+  "hp_max": 90,
+  "id": "npc_solenne_concierge",
+  "name": "Marchetti",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_solenne_lobby"
+}

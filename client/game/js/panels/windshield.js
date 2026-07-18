@@ -61,6 +61,15 @@ export const RENDER_TUNE = {
   climbLift: 7.0,     // eye-height ADDED per unit altitude: EH = max(floor, eh + climbLift*height). ~2 by 500ft → clears buildings
   tile: 0.85,         // Mode-7 floor tile frequency (higher = smaller terrain tiles)
   pixel: 4,           // Mode-7 render downscale → pixel chunkiness (higher = blockier/retro)
+  fog: 0.55,          // N64-style distance fog: how strongly the far floor dissolves into the sky/horizon colour (0 = off/modern clear view, 1 = far ground vanishes into the fog wall). Colour tracks the sky, so it fogs pale by day and dark-blue at night. Live 'Fog (N64)' slider
+  coastWarp: 0.5,     // shoreline de-blocking: domain-warps the Mode-7 terrain sample so the coast (and biome patches) meander off the square grid instead of poking out as hard 90° corners. Phased on ABSOLUTE world coords so it stays pinned to the world and never snaps on window recenter (0 = plain grid coast). Live 'Coast wobble' slider
+  vlight: 1.0,        // N64 Gouraud vertex light on buildings: strength of the cyberpunk-tinted top-lit/base-shadow wall gradient (0 = flat untinted faces, 1 = full, >1 = punchier). Live 'Vertex light' slider
+  // Vertex-light PALETTE (live colour pickers in ⚙). Three roles (key/sky/shadow) × day/night, lerped
+  // by sky.night. Defaults = post-apocalyptic cyberpunk: sodium-amber → magenta key, sickly-green →
+  // teal sky-catch, cold blue-grey → indigo-black base shadow.
+  vlKeyDay: '#c69654', vlKeyNight: '#962c78',       // sun/key-lit accent (upper wall, lit side)
+  vlSkyDay: '#969e96', vlSkyNight: '#1a607e',       // sky/neon catch (upper wall, shadow side)
+  vlShadowDay: '#222836', vlShadowNight: '#0a0c1a', // base ambient-occlusion shadow
   bldgH: 1.40,        // building height scale (from the user's tuned screenshot)
   bldgStretch: 5.0,   // extra VERTICAL stretch on top of bldgH — makes buildings stand tall instead of pancakes; live 'Vert stretch' slider
   bldgFoot: 1.0,      // building footprint (width) scale — 1.0 fills most of the tile (a building owns its whole zone)
@@ -85,6 +94,11 @@ const lerp = (a, b, t) => a + (b - a) * t;
 const rgb = (c, a) => a == null ? `rgb(${c[0]|0},${c[1]|0},${c[2]|0})` : `rgba(${c[0]|0},${c[1]|0},${c[2]|0},${a})`;
 const mix = (c1, c2, t) => [lerp(c1[0], c2[0], t), lerp(c1[1], c2[1], t), lerp(c1[2], c2[2], t)];
 const frac = (n) => { const x = Math.sin((n + 1) * 12.9898) * 43758.5453; return x - Math.floor(x); };   // deterministic 0..1 scatter
+// 1-D COHERENT value noise in [0,1): hash the integer lattice with `frac`, smoothstep between the two
+// neighbours. Raw frac(p*f) decorrelates EVERY sample, so scrolling p (a heading pan) reshuffles the
+// whole curve — the distant ridge visibly "waved" when you yawed. vnoise TRANSLATES rigidly instead:
+// scroll p and the silhouette just slides. Sample it finer than its lattice (period 1/f px) or it re-aliases.
+const vnoise = (x) => { const i = Math.floor(x), f = x - i, u = f * f * (3 - 2 * f); return frac(i) * (1 - u) + frac(i + 1) * u; };
 
 // Gentle, deterministic ground elevation in WORLD tile space (flight-sim visual only) — a
 // few low-frequency octaves of rolling relief. Small amplitude on purpose; used to hillshade
@@ -285,14 +299,24 @@ const BIOME_GROUND = {
   badlands: [150, 112, 72], water: [34, 62, 88], docks: [54, 90, 54],
   ruins: [78, 98, 56], oldcoldwater: [56, 94, 52], industrial: [52, 86, 48],
   infra: [54, 92, 50], freight: [54, 90, 50], marquee: [58, 96, 54],
-  citycore: [56, 96, 52], parkland: [58, 92, 54], uptown: [60, 104, 56], civic: [58, 98, 54],
+  citycore: [56, 96, 52], parkland: [58, 92, 54], park: [52, 112, 50], uptown: [60, 104, 56], civic: [58, 98, 54],
   airport: [60, 64, 60],
+  // Arid wildlands beyond the Curtain: dry olive scrub, rust-red mesa, burnt ash flats.
+  scrub: [126, 120, 78], redrock: [150, 82, 54], ash: [84, 80, 74],
+  // Painted paved surfaces (flags.terrain): dark tarmac, pale concrete slab, weathered
+  // dock planking. Deliberately NOT in GRASS_BIOMES, so they take the concrete-checker
+  // material and read as pavement instead of turf.
+  asphalt: [58, 60, 66], concrete: [108, 112, 116], pier: [96, 78, 54],
 };
 // Biomes whose bare ground reads as GRASS — the fine vegetation mottle instead of the
 // concrete checker, so the green above lands as turf. Kept OFF: water, desert badlands, and
 // the airport ramp (stays concrete grey).
-const GRASS_BIOMES = new Set(['parkland', 'citycore', 'uptown', 'civic', 'infra', 'freight',
+const GRASS_BIOMES = new Set(['parkland', 'park', 'citycore', 'uptown', 'civic', 'infra', 'freight',
   'marquee', 'oldcoldwater', 'industrial', 'ruins', 'docks']);
+// Man-made / paved surfaces — the coast-wobble domain warp skips these so a concrete slab, tarmac,
+// pier or airport ramp keeps its straight built edges instead of going wavy (apron tiles are added
+// dynamically in the LUT via the nearField test).
+const PAVED_BIOMES = new Set(['asphalt', 'concrete', 'pier', 'airport']);
 // Grey asphalt apron colour + a test for "next to a runway": a grassed district tile that
 // touches an airfield/field surface stays concrete-grey (and grows no trees), so the paved
 // area around a strip reads as tarmac, not turf, even though the wider district is green.
@@ -1286,7 +1310,7 @@ function drawCityBloom(ctx, cam, dx, dy, h, night, alpha) {
   if (c.f <= 0.25 || c.f > 8) return;
   const prox = clamp(1 - c.f / 8, 0, 1), r = clamp(150 / c.f, 8, 70);
   const a = night * alpha * (0.04 + 0.09 * prox);
-  emitFace(ON_TOP, () => {
+  emitFace(decoDepth(c.f), () => {
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
     const g = ctx.createRadialGradient(c.sx, c.sy, 0, c.sx, c.sy, r);
     g.addColorStop(0, `rgba(255,206,132,${a})`); g.addColorStop(0.55, `rgba(255,176,96,${a * 0.4})`); g.addColorStop(1, 'rgba(255,176,96,0)');
@@ -1703,6 +1727,75 @@ function m7buf(w, h) {
   return _m7;
 }
 
+// Smooth 2-D value noise in world-tile space (deterministic; reuses the `frac` hash). 0..1.
+function vnoise2(x, y) {
+  const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+  const h = (a, b) => frac(a * 157.31 + b * 113.7);
+  const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+  const a = h(xi, yi), b = h(xi + 1, yi), c = h(xi, yi + 1), d = h(xi + 1, yi + 1);
+  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+}
+
+// Approximate Euclidean distance to the nearest seeded cell (two-pass chamfer). seed[y][x]
+// truthy marks a source; returns a distance grid (0 on sources, growing outward).
+function distField(seed, mw, mh) {
+  const INF = 1e9, D1 = 1, D2 = 1.4142, d = new Array(mh);
+  for (let y = 0; y < mh; y++) { d[y] = new Float64Array(mw); for (let x = 0; x < mw; x++) d[y][x] = seed[y][x] ? 0 : INF; }
+  for (let y = 0; y < mh; y++) for (let x = 0; x < mw; x++) {
+    let val = d[y][x];
+    if (y > 0) { val = Math.min(val, d[y - 1][x] + D1); if (x > 0) val = Math.min(val, d[y - 1][x - 1] + D2); if (x < mw - 1) val = Math.min(val, d[y - 1][x + 1] + D2); }
+    if (x > 0) val = Math.min(val, d[y][x - 1] + D1);
+    d[y][x] = val;
+  }
+  for (let y = mh - 1; y >= 0; y--) for (let x = mw - 1; x >= 0; x--) {
+    let val = d[y][x];
+    if (y < mh - 1) { val = Math.min(val, d[y + 1][x] + D1); if (x < mw - 1) val = Math.min(val, d[y + 1][x + 1] + D2); if (x > 0) val = Math.min(val, d[y + 1][x - 1] + D2); }
+    if (x < mw - 1) val = Math.min(val, d[y][x + 1] + D1);
+    d[y][x] = val;
+  }
+  return d;
+}
+
+// The wildlands & sea beyond the built map. Off-map/unbuilt tiles used to read as endless open
+// ocean; instead we EXTEND the world's edge. Two distance fields — to the nearest built WATER and
+// the nearest built LAND — classify every empty cell as sea or land, and the divide is wobbled by
+// low-freq noise so the coastline is irregular (not a clean offset of the ragged built edge).
+//   · sea  → open water (waves/glint carry the coastline read out to the horizon)
+//   · land → the arid wildlands: DIRT at the shore giving way to rust-RED ROCK the deeper it runs,
+//            broken up by noise so the transition isn't a clean band (matches the biomes beyond the
+//            Curtain). It runs on infinitely; the sampler clamps to the window edge for the horizon.
+// A window with no built tile at all (far out to sea) is left as-is → ocean fallback at the call site.
+const COAST_WOBBLE = 6, DIRT = BIOME_GROUND.badlands, REDROCK = BIOME_GROUND.redrock, SEA = [BIOME_GROUND.water[0], BIOME_GROUND.water[1], BIOME_GROUND.water[2], 1, 0, 1];
+function fillOffMap(LUT, mw, mh, R, wcx, wcy, litX, litY) {
+  const water = new Array(mh), land = new Array(mh);
+  let anyBuilt = false;
+  for (let y = 0; y < mh; y++) {
+    water[y] = new Uint8Array(mw); land[y] = new Uint8Array(mw);
+    for (let x = 0; x < mw; x++) {
+      const c = LUT[y][x];
+      if (!c) continue;
+      anyBuilt = true;
+      if (c[3] > 0.5) water[y][x] = 1; else land[y][x] = 1;   // c[3] = waterness
+    }
+  }
+  if (!anyBuilt) return LUT;
+  const dW = distField(water, mw, mh), dL = distField(land, mw, mh);
+  for (let y = 0; y < mh; y++) for (let x = 0; x < mw; x++) {
+    if (LUT[y][x]) continue;                                  // a real built tile keeps its material
+    const awx = (x - R) + wcx, awy = (y - R) + wcy;           // absolute world tile
+    const wob = ((vnoise2(awx * 0.09, awy * 0.09) - 0.5) + (vnoise2(awx * 0.23, awy * 0.23) - 0.5) * 0.45) * COAST_WOBBLE;
+    if (dW[y][x] + wob < dL[y][x]) { LUT[y][x] = SEA; continue; }
+    // Land: dirt→redrock, redder the farther out (dL = tiles past the built land edge) + noise mottle.
+    const into = clamp((dL[y][x] - 1) / 26, 0, 1);
+    const rr = clamp(into * 0.7 + vnoise2(awx * 0.06, awy * 0.06) * 0.6 - 0.15, 0, 1);
+    const col = mix(DIRT, REDROCK, rr);
+    const e0 = groundElev(awx, awy), gx = groundElev(awx + 0.5, awy) - e0, gy = groundElev(awx, awy + 0.5) - e0;
+    const shade = clamp(1 + (-gx * litX - gy * litY) * 3.0, 0.74, 1.26);
+    LUT[y][x] = [col[0], col[1], col[2], 0, 0, shade];
+  }
+  return LUT;
+}
+
 function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chase, hazeMax = 0.32) {
   if (depth <= 2) return;
   // AUTHENTIC Mode 7: sample the ground PER PIXEL into a low-res buffer, then blit it
@@ -1723,13 +1816,19 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chas
   const map = v.map, R = map ? (map.length - 1) / 2 : 0;
   const cx = W / 2, halfW = W / 2, LAT = 1.15, FREQ = RENDER_TUNE.tile;
   const nm = 1 - sky.night * 0.42, hz = RENDER_TUNE.haze, hor = sky.hor;
-  // Per-tile material LUT for the small visible window (the map is a ~9×9 window), built
-  // once per frame so the per-pixel sampler just indexes it: each entry is
-  // [r, g, b, waterness, grassness, hillshade]. Off-map ALWAYS reads as endless OPEN OCEAN
-  // (waterness = 1 → the water treatment below gives it waves/glint), so the built world sits
-  // on a sea running to the horizon. Only real loaded tiles render as land; the moment the
-  // sampler steps outside the map window it returns this ocean cell, and the shore seam blend
-  // gives a natural coastline wherever the built terrain meets the void.
+  // N64 distance fog: the whole floor blends toward the sky/horizon colour over a near→far band,
+  // so the far ground and the wall of horizon buildings dissolve into the same fog the sky fades to
+  // (the classic short-draw-distance mask). Colour = horizon × night dim, so it's pale by day and
+  // dark by night and the seam at the horizon disappears. Precomputed per frame; the per-texel cost
+  // is one clamp + a lerp. FOG_NEAR/FAR are in Mode-7 world-distance (d) units.
+  const cwarp = RENDER_TUNE.coastWarp ?? 0.5, cwarpOn = cwarp > 0.001;   // shoreline/biome de-blocking amplitude (tiles); 0 = plain grid coast
+  const FOG = RENDER_TUNE.fog || 0;   // FOG_NEAR/FOG_FAR are module-shared with the building pass
+  const fogR = hor[0] * nm, fogG = hor[1] * nm, fogB = hor[2] * nm;
+  // Per-tile material LUT for the visible window, built once per frame so the per-pixel sampler
+  // just indexes it: each entry is [r, g, b, waterness, grassness, hillshade], or null for an
+  // unbuilt/off-map tile. The nulls are then resolved by fillOffMap: land edges run on as the arid
+  // dirt→redrock wildlands and water edges run on as open sea, split by a noise-wobbled irregular
+  // coastline (only a window with no built tile at all falls back to open ocean).
   const OFF = BIOME_GROUND.water;
   const OFF5 = [OFF[0], OFF[1], OFF[2], 1, 0, 1], mh = map ? map.length : 0;
   // Relief lighting: hillshade each tile off the procedural elevation gradient, lit by the
@@ -1747,16 +1846,24 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chas
         // Grassed district tile touching a runway → keep it grey tarmac apron, not turf.
         const apron = grassy && nearField(map, rx, ry);
         if (apron) grassy = false;
-        const col = apron ? APRON_GREY : (bi ? (BIOME_GROUND[bi] || gTop) : OFF);
+        if (!bi) { out[rx] = null; continue; }   // unbuilt/off-map — fillOffMap inherits it from the nearest built tile
+        const col = apron ? APRON_GREY : (BIOME_GROUND[bi] || gTop);
         const awx = (rx - R) + wcx, awy = (ry - R) + wcy;   // absolute world tile (relief stays put, doesn't slide)
         const e0 = groundElev(awx, awy), gx = groundElev(awx + 0.5, awy) - e0, gy = groundElev(awx, awy + 0.5) - e0;
         const shade = clamp(1 + (-gx * litX - gy * litY) * 3.0, 0.74, 1.26);
-        out[rx] = [col[0], col[1], col[2], bi === 'water' ? 1 : 0, grassy ? 1 : 0, shade];
+        const paved = apron || PAVED_BIOMES.has(bi) ? 1 : 0;   // man-made surface → excluded from the coast wobble
+        out[rx] = [col[0], col[1], col[2], bi === 'water' ? 1 : 0, grassy ? 1 : 0, shade, paved];
       }
       LUT[ry] = out;
     }
+    LUT = fillOffMap(LUT, mh ? map[0].length : 0, mh, R, wcx, wcy, litX, litY);   // extend the edge → wildlands + irregular coast
   }
-  const sample = (rx, ry) => (LUT && ry >= 0 && ry < mh && rx >= 0 && rx < LUT[ry].length) ? LUT[ry][rx] : OFF5;
+  const sample = (rx, ry) => {
+    if (!LUT) return OFF5;
+    const cy = ry < 0 ? 0 : ry >= mh ? mh - 1 : ry;                          // clamp into the window, then read the
+    const rw = LUT[cy], cx2 = rx < 0 ? 0 : rx >= rw.length ? rw.length - 1 : rx;   // (now edge-extended) LUT
+    return rw[cx2] || OFF5;
+  };
   const t = (now || 0) * 0.001;
   // A caller (the Helm chase, which holds position) can pass `seaScroll` — an accumulated
   // along-heading distance — so the swell streams past and reads as MAKING WAY even though the
@@ -1777,11 +1884,29 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chas
     for (let bx = 0; bx < bw; bx++) {
       const l = ((X0 + bx * DS - cx) / halfW) * d * LAT;
       const wx = ax + d * sinh + l * cosh, wy = ay - d * cosh + l * sinh;
+      // Domain-warp the SAMPLING position so the land/water boundary (and biome patches) meander off
+      // the square tile grid — rounds the blocky 90° corners off the coast. CRUCIAL: the sine PHASE
+      // reads ABSOLUTE world coords (wx+wcx, wy+wcy), so the wavy pattern is pinned to the world and
+      // does NOT snap when the map window recenters as you move (the old bug was phasing it on the
+      // window-relative wx/wy, which jumped a whole tile each recenter). The displacement itself is
+      // still added to the window-relative wx/wy that index the LUT.
+      let wpx = wx, wpy = wy;
+      // Keep man-made surfaces (concrete/tarmac/pier/airport/apron) dead straight-edged. The colour is
+      // a bilinear blend of the FOUR tiles around the warped position, so it's not enough to check the
+      // source + nearest tile — apply the warp only when ALL FOUR tiles the blend will actually sample
+      // are natural (plus the source). Otherwise a warped grass texel could still pull a paved tile into
+      // its blend footprint and wobble the paved edge. Near paved, texels stay unwarped → tile-straight.
+      if (cwarpOn && !sample(Math.floor(R + wx), Math.floor(R + wy))[6]) {
+        const awx = wx + wcx, awy = wy + wcy;
+        const nx = wx + cwarp * Math.sin(awy * 1.9 + awx * 0.5), ny = wy + cwarp * Math.sin(awx * 1.9 - awy * 0.5 + 2.1);
+        const jx = Math.floor(R + nx), jy = Math.floor(R + ny);   // the warped bilinear footprint
+        if (!sample(jx, jy)[6] && !sample(jx + 1, jy)[6] && !sample(jx, jy + 1)[6] && !sample(jx + 1, jy + 1)[6]) { wpx = nx; wpy = ny; }
+      }
       // Bilinear-blend the terrain across the four nearest tile centres so neighbouring
       // biomes (grass→road, land→water) fade into each other instead of switching hard at
       // the tile seam. waterW/grassW carry the same blend so the material treatment below
       // feathers out over the shoreline too.
-      const fx = R + wx, fy = R + wy, ix = Math.floor(fx), iy = Math.floor(fy), fxr = fx - ix, fyr = fy - iy;
+      const fx = R + wpx, fy = R + wpy, ix = Math.floor(fx), iy = Math.floor(fy), fxr = fx - ix, fyr = fy - iy;
       const s00 = sample(ix, iy), s10 = sample(ix + 1, iy), s01 = sample(ix, iy + 1), s11 = sample(ix + 1, iy + 1);
       const w00 = (1 - fxr) * (1 - fyr), w10 = fxr * (1 - fyr), w01 = (1 - fxr) * fyr, w11 = fxr * fyr;   // smooth blend — water/grass/relief keep this
       // Biome COLOUR blends only in a narrow band right at the tile seam, so each patch of
@@ -1884,9 +2009,28 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chas
       // Whitecaps: bright neutral foam on breaking crests — full by day, dimmer but still catching
       // moonlight at night (so the sea reads alive in both).
       const capAdd = cap * 205 * ih * (0.45 + 0.55 * nm);
-      data[idx] = ((br * tex + cr * 55 + foam * 150 + gln * 150) * ih + hr) * nm + mAdd * 120 + capAdd;
-      data[idx + 1] = ((bg * tex + cr * 70 + foam * 165 + gln * 132) * ih + hg) * nm + mAdd * 140 + capAdd;
-      data[idx + 2] = ((bb * tex + cr * 90 + foam * 175 + gln * 66) * ih + hb) * nm + mAdd * 185 + capAdd * 1.06;
+      let or_ = ((br * tex + cr * 55 + foam * 150 + gln * 150) * ih + hr) * nm + mAdd * 120 + capAdd;
+      let og = ((bg * tex + cr * 70 + foam * 165 + gln * 132) * ih + hg) * nm + mAdd * 140 + capAdd;
+      let ob = ((bb * tex + cr * 90 + foam * 175 + gln * 66) * ih + hb) * nm + mAdd * 185 + capAdd * 1.06;
+      // Aerial perspective for the arid wildlands. Clear-weather haze is deliberately light, so the
+      // dry dirt/redrock plain would otherwise keep near-full saturation right up to a high horizon
+      // and read as a looming wall / mountains. Fade DISTANT dry ground toward the horizon colour so
+      // the infinite plain recedes flat. Water (its own wave/glint) and parkland/city (grassW) are
+      // left alone — only bare dry land washes out.
+      const dry = clamp(1 - waterW * 4, 0, 1) * (1 - grassW);
+      if (dry > 0.02) {
+        const lh = dry * clamp((d - 10) / 44, 0, 1) * 0.6;   // 0 within ~10 tiles → up to 0.6 at the horizon
+        const inv = 1 - lh;
+        or_ = or_ * inv + hor[0] * nm * lh; og = og * inv + hor[1] * nm * lh; ob = ob * inv + hor[2] * nm * lh;
+      }
+      // N64 distance fog — applied last, uniformly to all terrain (water/grass/city alike), so the
+      // far field recedes into the sky. Squared ramp = crisp foreground, fog thickening into the far.
+      if (FOG > 0.001) {
+        const ff = clamp((d - FOG_NEAR) / (FOG_FAR - FOG_NEAR), 0, 1);
+        const w = ff * ff * FOG, iw = 1 - w;
+        or_ = or_ * iw + fogR * w; og = og * iw + fogG * w; ob = ob * iw + fogB * w;
+      }
+      data[idx] = or_; data[idx + 1] = og; data[idx + 2] = ob;
       data[idx + 3] = 255;
       idx += 4;
     }
@@ -2148,7 +2292,7 @@ function drawVolumetricClouds(ctx, cam, st, v, base, lit, alpha, storm, night, d
 function drawSkyline(ctx, W, H, horizonY, v, sky) {
   const OX = W, shift = ((v.heading || 0) / 360) * W * 2.5;
   const land = mix(sky.hor, sky.g2 || [40, 50, 40], 0.5);
-  const stepx = W * 0.05;
+  const stepx = 8;   // fixed px step — fine enough to resolve the ridge lattices so it slides smoothly instead of aliasing as it scrolls
   // Two RECEDING ridge bands instead of one flat bump line, so the far horizon reads as a
   // landmass with depth rather than a single seam against the sea. The FAR ridge sits low,
   // pale (hazed toward the horizon colour) and slow-varying; the NEAR ridge rides on top of it,
@@ -2160,8 +2304,8 @@ function drawSkyline(ctx, W, H, horizonY, v, sky) {
     ctx.beginPath(); ctx.moveTo(-OX, horizonY + 1);
     for (let x = -OX; x <= 2 * W; x += stepx) {
       const p = (x + shift * par);
-      let s = frac(p * 0.008) * 0.7 + frac(p * 0.021) * 0.3;
-      if (oct) s = s * 0.62 + (frac(p * 0.047) * 0.6 + frac(p * 0.11) * 0.4) * 0.38;   // add roughness to the near ridge
+      let s = vnoise(p * 0.008) * 0.7 + vnoise(p * 0.021) * 0.3;
+      if (oct) s = s * 0.68 + vnoise(p * 0.033) * 0.32;   // gentle extra roughness on the near ridge (no ultra-fine octave — its 9px teeth can't be sampled without re-aliasing)
       ctx.lineTo(x, horizonY - (base + s * amp));
     }
     ctx.lineTo(2 * W, horizonY + 1); ctx.closePath(); ctx.fill();
@@ -2195,12 +2339,14 @@ const WALL_COL = { uptown: [46, 64, 92], civic: [72, 68, 60], citycore: [52, 56,
   // Coldwater Clone Facility — clinical off-white shell + dark glowing vat glass.
   ty_clone: [176, 200, 204], ty_clone_vat: [30, 52, 58],
   // Statue/KSAB media-civic quarter (mid-basin, moderately high-tech: working holo, scuffed).
-  ty_ksab: [70, 56, 96], ty_greenroom: [40, 54, 46], ty_sentinel: [56, 58, 70], ty_jitter: [58, 54, 48],
+  ty_ksab: [70, 56, 96], ty_ksab_glass: [86, 78, 116], ty_greenroom: [40, 54, 46], ty_sentinel: [56, 58, 70], ty_jitter: [58, 54, 48],
   ty_ward: [66, 68, 62],
   // Bespoke named-building shells — a distinct wall tone per silhouette below.
   ty_lux: [58, 52, 78], ty_chrome: [118, 126, 136], ty_meridian: [98, 104, 90],
   // Halcyon Towers — dark smoked-teal curtain glass for the futuristic twisting spire.
   ty_halcyon: [26, 42, 62],
+  // Solenne Residences — warm champagne/bronze curtain glass for the opulent tapered spire.
+  ty_solenne: [60, 50, 34],
   // Airport hangar — ribbed steel siding (renders as corrugated metal, not windows; see METAL_WALL).
   ty_hangarmetal: [120, 128, 138],
   ty_grocery: [78, 100, 66], ty_tech: [46, 88, 96], ty_showroom: [56, 90, 86],
@@ -2216,6 +2362,11 @@ const WALL_COL = { uptown: [46, 64, 92], civic: [72, 68, 60], citycore: [52, 56,
   ty_wh_metal: [120, 124, 130], ty_cont_r: [150, 66, 54], ty_cont_b: [56, 84, 120], ty_cont_g: [70, 104, 80], ty_cont_y: [150, 128, 54],
   ty_pallet: [96, 74, 48], ty_cold: [186, 196, 204], ty_cold_unit: [70, 78, 86], ty_fab_metal: [96, 100, 108], ty_fab_steel: [70, 74, 82],
   ty_wharf: [72, 80, 86], ty_wharf_steel: [64, 70, 78], ty_freight_office: [86, 82, 74], ty_fwd_metal: [110, 116, 122],
+  // The Ascendant Stronghold — a chrome campus in the western waste (docs/proposals/ascendant-stronghold.md).
+  ty_asc_spire: [30, 50, 78], ty_asc_gate: [66, 80, 96], ty_asc_clinic: [150, 178, 190],
+  ty_asc_weave: [92, 104, 118], ty_asc_vats: [88, 102, 118], ty_asc_shrine: [20, 28, 44],
+  // The South Gate — scorched blast-concrete pylons + a darker riveted parapet cap.
+  ty_gate: [78, 76, 74], ty_gate_dk: [44, 42, 44],
   ty_door: [20, 22, 26] };
 const BLDG_H = { uptown: 0.36, civic: 0.21, citycore: 0.18, marquee: 0.22, freight: 0.14, industrial: 0.26, infra: 0.32, ruins: 0.16, oldcoldwater: 0.11, docks: 0.17, __nofly: 0.6 };
 
@@ -2246,6 +2397,14 @@ const BLDG_TYPE_3D = {
   casino:           { a: 'marquee',    h: 0.17 }, // neon-drowned gambling house
   fence:            { a: 'citycore',   h: 0.13 }, // grimy pawnshop
   chem_supply:      { a: 'industrial', h: 0.16 }, // drum-stacked depot
+  // The Ascendant Stronghold (docs/proposals/ascendant-stronghold.md) — heights come from
+  // flags.floors on each facade; these are the archetype/fallback if a model fails to load.
+  asc_spire:        { a: 'uptown',     h: 0.50 },
+  asc_gate:         { a: 'civic',      h: 0.12 },
+  asc_clinic:       { a: 'civic',      h: 0.16 },
+  asc_weave:        { a: 'industrial', h: 0.20 },
+  asc_vats:         { a: 'industrial', h: 0.24 },
+  asc_shrine:       { a: 'citycore',   h: 0.30 },
   default:          { a: 'citycore',  h: 0.22 }, // fallback when a type has no entry / fails to load
 };
 // The archetype + base height for a map cell: a building tile (has `bt`) renders its
@@ -2264,10 +2423,14 @@ function bldgStyle(cell) {
 // the ⚙ slider keeps working. This is the ONE height formula; buildingHeightZ (CFIT
 // collision) and drawWorldObjects (render) both call floorHeight so what you see is
 // exactly what you can hit.
+// Floor counts nudged UP for the low-rise commercial/civic types: a 1-storey pancake in a
+// dense ~50-year-future city reads wrong, so a corner shop is small-mixed-use, a soundstage
+// a tall clear-span volume, a bar/club a couple of storeys. Raises BOTH the rendered mass and
+// the CFIT collision ceiling (both key off floorsOf), so the taller look stays hittable.
 const TYPE_FLOORS = {
-  corporate_office: 22, hotel: 6, apartment: 8, residential: 3, shop: 1, diner: 1,
-  bar: 1, club: 2, studio: 2, police: 3, clinic: 3, power: 5, hangar: 1, civic: 5,
-  gun_shop: 1, casino: 2, fence: 1, chem_supply: 2, default: 4,
+  corporate_office: 22, hotel: 6, apartment: 8, residential: 4, shop: 3, diner: 2,
+  bar: 2, club: 3, studio: 4, police: 4, clinic: 4, power: 5, hangar: 1, civic: 6,
+  gun_shop: 2, casino: 3, fence: 2, chem_supply: 3, default: 4,
 };
 const FLOOR_Z = 0.028;   // world-z per storey — vertically stretched (taller storeys) so buildings stand up off the deck instead of reading flat; not more floors, just taller ones
 function floorsOf(cell) {
@@ -2285,7 +2448,7 @@ function floorHeight(cell, seed) {
 // is the SAME value the CFIT collision sweep reads (cockpit.js imports it) so a plane hits a
 // tower's mass exactly where its base is drawn, not a tiny box at the tile centre. Scaled by
 // the bldgFoot tuning knob at both the draw and the collision sites so they never drift.
-export const BUILDING_FOOT = 0.42;
+export const BUILDING_FOOT = 0.38;   // ~0.38–0.44 half-width → a real setback (sidewalk) from the tile edge, so a building doesn't touch its neighbour or spill onto the road on the next tile (was 0.42 → filled ~96% of the tile with no gap). Live-tunable via the dev-panel "Bldg width" slider (RENDER_TUNE.bldgFoot).
 
 // Deterministic building height (render world-z units) for a tile — the SAME value
 // drawWorldObjects paints (line ~1419), exposed so the flight sim can collision-check the
@@ -2343,7 +2506,7 @@ const TR = () => Math.max(0.5, RENDER_TUNE.texRes || 1);
 // Palette keys that render as CORRUGATED METAL SIDING (vertical ribs + rivets) instead of the
 // default windowed curtain wall — for hangars/sheds, which shouldn't carry lit office windows.
 const METAL_WALL = new Set(['ty_hangarmetal', 'ty_wh_metal', 'ty_cont_r', 'ty_cont_b', 'ty_cont_g', 'ty_cont_y', 'ty_cold', 'ty_fab_metal', 'ty_fwd_metal']);
-const GLASS_WALL = new Set(['ty_halcyon']);   // curtain-glass skins: floor-plate striping + sky sheen instead of a window grid
+const GLASS_WALL = new Set(['ty_halcyon', 'ty_solenne', 'ty_ksab_glass']);   // curtain-glass skins: floor-plate striping + sky sheen instead of a window grid
 function wallTex(biome, night) {
   const tr = TR(), nite = night > 0.4;
   return getTex('wall:' + biome + (nite ? ':n' : '') + ':' + tr, () => {
@@ -2464,13 +2627,36 @@ function makeCam(W, horizonY, depth, v, chase) {
 // paint nearer geometry — a tower drawn after the terminal shows THROUGH it, a marquee shows through
 // its own tower. While a sink is active (beginFaces), the building drawers don't paint immediately:
 // each face is queued as { d: camera-depth, fn }, and flushFaces() paints them BACK→FRONT (largest
-// `d` first). drawWorldObjects wraps each building in beginFaces/flushFaces, so a building's own faces
-// occlude each other correctly; between-building order stays the tile sort. Glows/lights/beacons queue
-// at d = ON_TOP (−∞) so they still paint last (on top of their own building), preserving their look.
+// `d` first). drawWorldObjects opens ONE shared sink for the whole tile loop, so a building's faces
+// occlude each other AND their neighbours correctly; between-building order is the real per-face depth.
 // Outside a sink (FACE_SINK null) every emitFace paints immediately — so the yacht, deck, HUD and any
 // non-building caller are completely unaffected.
 let FACE_SINK = null;
-const ON_TOP = -Infinity;
+// A building's floating adornments (glows, beacons, masts, signs, light-runners, holo ads) once queued
+// at a global −∞ "on top" depth so they'd paint last and always sit on top of their own building. But
+// −∞ sorts them last GLOBALLY, so a decoration on a FAR tower painted straight through any NEARER
+// building in front of it (the "lights from another building showing through this one" bug). `decoDepth`
+// instead gives an adornment a REAL camera depth: its own anchor distance, lifted DECO_LIFT tiles forward
+// so it still beats its own host walls (which span ±~0.44 tile around the anchor), but far less than the
+// ~1 tile gap to any building actually in front — so a nearer building now correctly occludes it.
+const DECO_LIFT = 0.6;
+const decoDepth = (...fs) => Math.min(...fs) - DECO_LIFT;
+// N64 distance fog, shared by the Mode-7 floor and the building pass so the horizon dissolves as ONE
+// wall (ground + skyline fade to the same sky colour over the same near→far band). FOG_NEAR/FAR are in
+// camera-forward tile units; FOG_FAR = the building draw limit (VISIBLE_FAR_F), so the farthest towers
+// hit full fog exactly where they'd otherwise pop in. FOG_STATE is set per-frame by drawWorldObjects
+// (null when fog is off or outside the world pass) and read by draw3DBoxAt to overlay each face.
+const FOG_NEAR = 6, FOG_FAR = 34;
+let FOG_STATE = null;
+function fogWeight(f) { if (!FOG_STATE) return 0; const ff = clamp((f - FOG_NEAR) / (FOG_FAR - FOG_NEAR), 0, 1); return ff * ff * FOG_STATE.amt; }
+// Per-wall Gouraud vertex light, tinted for a POST-APOCALYPTIC CYBERPUNK city: not a warm sunny key
+// but a toxic/neon one. Palette (0..255) lerps day→night by sky.night: by day the light is a sickly
+// sodium-haze (dusty amber key, pale green-grey sky-catch, cold blue-grey base shadow); by night it's
+// neon (magenta key spill, teal-cyan sky glow, indigo-black shadow). LIGHT_STATE is set per-frame by
+// drawWorldObjects and read by draw3DBoxAt to shade each wall (sun-facing = warm/neon catch up top,
+// shadow-facing = cool + dark at the base). Null when off or outside the world pass.
+const hexRgb = (h) => { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };   // '#rrggbb' → [r,g,b]; palette lives in RENDER_TUNE (live colour pickers)
+let LIGHT_STATE = null;
 function beginFaces() { FACE_SINK = []; }
 function emitFace(depth, fn) { if (FACE_SINK) FACE_SINK.push({ d: depth, fn }); else fn(); }
 function flushFaces() { const s = FACE_SINK; if (!s) return; FACE_SINK = null; s.sort((a, b) => b.d - a.d); for (const e of s) e.fn(); }
@@ -2480,7 +2666,7 @@ function flushFaces() { const s = FACE_SINK; if (!s) return; FACE_SINK = null; s
 // walls/roof are queued (per-face depth) instead of painted, so they interleave correctly with the
 // rest of the building instead of the whole box landing on top of whatever was drawn before it.
 function draw3DBoxAt(ctx, cam, dx, dy, fh, wz0, wz1, biome, seed, night, alpha, roof, yaw) {
-  fh = Math.min(fh, 0.48);   // keep a fat footprint inside its own tile (no bleed into the neighbour)
+  fh = Math.min(fh, 0.44);   // hard cap so even a WIDE model (warehouse/depot fh*1.1+) keeps a setback inside its tile and never bleeds onto the neighbour/road (was 0.48 → capped boxes reached the tile edge)
   // `yaw` (rad, optional) spins the footprint about its centre — buildings never pass it (axis-
   // aligned as before); a heading-aware object like the sailing Echelon passes its heading so the
   // extruded box turns with the hull. cs stays the SSOT the projection + backface cull read from.
@@ -2521,9 +2707,39 @@ function draw3DBoxAt(ctx, cam, dx, dy, fh, wz0, wz1, biome, seed, night, alpha, 
     const ti = cam.proj(ax, ay, wz1), tj = cam.proj(bx, by, wz1), bi = cam.proj(ax, ay, wz0), bj = cam.proj(bx, by, wz0);
     const P0 = [ti.sx, ti.sy], P1 = [tj.sx, tj.sy], P2 = [bj.sx, bj.sy], P3 = [bi.sx, bi.sy], sh = shade[i];
     const fL = ti.f, fR = tj.f;   // left/right vertical-edge depths → perspective-correct wall texturing
+    const fog = fogWeight(fc.af);
+    // Gouraud vertex light (cyberpunk-tinted): dot the wall's outward normal with the key direction →
+    // sun/key-facing walls catch the warm/neon tint up top; shadow-facing walls go cool + darker at the
+    // base (ambient occlusion). A vertical screen gradient across the wall fakes the per-vertex ramp.
+    const topY = (P0[1] + P1[1]) / 2, botY = (P2[1] + P3[1]) / 2;
+    // LOD: the vertical ramp only READS on tall near walls. On short/distant walls (a few px high) it's
+    // indistinguishable from a flat tint, so skip the gradient object entirely and fill one solid mid
+    // colour — same picture, and a dense skyline (mostly far faces) pays almost nothing.
+    let litTop = null, litBot = null, litSolid = null;
+    if (LIGHT_STATE) {
+      const nx = cs[i][0] + cs[j][0], ny = cs[i][1] + cs[j][1], nlen = Math.hypot(nx, ny) || 1;
+      const litC = clamp(0.5 + (nx / nlen * LIGHT_STATE.sx + ny / nlen * LIGHT_STATE.sy) * 0.5, 0, 1);
+      const tc = mix(LIGHT_STATE.sky, LIGHT_STATE.key, litC), sd = LIGHT_STATE.shadow, s = LIGHT_STATE.str;
+      const aTop = s * (0.06 + 0.14 * litC), aBot = s * (0.30 + 0.22 * (1 - litC));
+      if (Math.abs(botY - topY) > 18) {   // tall on screen → real gradient
+        litTop = `rgba(${tc[0] | 0},${tc[1] | 0},${tc[2] | 0},${aTop.toFixed(3)})`;
+        litBot = `rgba(${sd[0]},${sd[1]},${sd[2]},${aBot.toFixed(3)})`;
+      } else {   // short/far → one flat fill at the ramp's midpoint
+        const mc = mix(tc, sd, 0.5);
+        litSolid = `rgba(${mc[0] | 0},${mc[1] | 0},${mc[2] | 0},${((aTop + aBot) * 0.5).toFixed(3)})`;
+      }
+    }
     emitFace(fc.af, () => {
       ctx.globalAlpha = alpha; drawTexQuadP(ctx, wall, P0, P1, P2, P3, fL, fR);
-      if (sh) { ctx.beginPath(); ctx.moveTo(P0[0], P0[1]); ctx.lineTo(P1[0], P1[1]); ctx.lineTo(P2[0], P2[1]); ctx.lineTo(P3[0], P3[1]); ctx.closePath(); ctx.fillStyle = `rgba(0,0,0,${sh})`; ctx.fill(); }
+      ctx.beginPath(); ctx.moveTo(P0[0], P0[1]); ctx.lineTo(P1[0], P1[1]); ctx.lineTo(P2[0], P2[1]); ctx.lineTo(P3[0], P3[1]); ctx.closePath();
+      if (litTop) {
+        const g = ctx.createLinearGradient(0, topY, 0, Math.max(botY, topY + 1));
+        g.addColorStop(0, litTop); g.addColorStop(1, litBot); ctx.fillStyle = g; ctx.fill();
+      } else if (litSolid) { ctx.fillStyle = litSolid; ctx.fill(); }
+      else if (sh) { ctx.fillStyle = `rgba(0,0,0,${sh})`; ctx.fill(); }
+      // N64 fog overlay: paint the sky colour over the face, thickening with distance, so the far
+      // skyline recedes into the same fog wall as the ground (matched band + colour).
+      if (fog > 0.004) { ctx.globalAlpha = alpha * fog; ctx.fillStyle = FOG_STATE.css; ctx.beginPath(); ctx.moveTo(P0[0], P0[1]); ctx.lineTo(P1[0], P1[1]); ctx.lineTo(P2[0], P2[1]); ctx.lineTo(P3[0], P3[1]); ctx.closePath(); ctx.fill(); }
       ctx.globalAlpha = 1;
     });
   }
@@ -2532,11 +2748,85 @@ function draw3DBoxAt(ctx, cam, dx, dy, fh, wz0, wz1, biome, seed, night, alpha, 
   if (roof && cf[0] >= NEAR_CLIP && cf[1] >= NEAR_CLIP && cf[2] >= NEAR_CLIP && cf[3] >= NEAR_CLIP) {
     const t = cs.map(([a, c]) => cam.proj(dx + a, dy + c, wz1));
     const rp = [[t[0].sx, t[0].sy], [t[1].sx, t[1].sy], [t[2].sx, t[2].sy], [t[3].sx, t[3].sy]], rtex = roofTex(biome, night);
-    emitFace((t[0].f + t[1].f + t[2].f + t[3].f) / 4, () => { ctx.globalAlpha = alpha; drawTexQuad(ctx, rtex, rp[0], rp[1], rp[2], rp[3]); ctx.globalAlpha = 1; });
+    const rf = (t[0].f + t[1].f + t[2].f + t[3].f) / 4, rfog = fogWeight(rf);
+    emitFace(rf, () => { ctx.globalAlpha = alpha; drawTexQuad(ctx, rtex, rp[0], rp[1], rp[2], rp[3]); if (rfog > 0.004) { ctx.globalAlpha = alpha * rfog; ctx.fillStyle = FOG_STATE.css; ctx.beginPath(); ctx.moveTo(rp[0][0], rp[0][1]); ctx.lineTo(rp[1][0], rp[1][1]); ctx.lineTo(rp[2][0], rp[2][1]); ctx.lineTo(rp[3][0], rp[3][1]); ctx.closePath(); ctx.fill(); } ctx.globalAlpha = 1; });
   }
 }
 function draw3DBox(ctx, cam, dx, dy, fh, wz, biome, seed, night, alpha) {
   draw3DBoxAt(ctx, cam, dx, dy, fh, 0, wz, biome, seed, night, alpha, true);
+}
+
+// The Curtain — the Architect's energy wall sealing the city's land edges. A tall translucent
+// shimmer plane standing on the perimeter tile, drawn as ARMS reaching from the tile centre only
+// toward its real Curtain neighbours (`cur`: any of 'n','e','s','w'; see curtainRun). A straight
+// run carries opposite arms → one clean span; a corner carries an L (e.g. 'nw') and NEVER pokes a
+// stray stub into empty air; an endpoint carries a single arm. Purely a landmark; the actual seal
+// is a move-gate on flags.curtain, server-side.
+const CURTAIN_H = 0.9;   // world-z — taller than any district building, an imposing barrier
+function drawCurtainWall(ctx, cam, dx, dy, axis, alpha, now) {
+  const NEAR = 0.08;
+  const rawF = (x, y) => (x + (cam.back || 0) * cam.sinh) * cam.sinh - (y - (cam.back || 0) * cam.cosh) * cam.cosh;
+  const seg = (ax, ay, bx, by) => {
+    const fa = rawF(ax, ay), fb = rawF(bx, by);
+    if (fa < NEAR && fb < NEAR) return;
+    if (fa < NEAR) { const s = (NEAR - fa) / (fb - fa); ax += (bx - ax) * s; ay += (by - ay) * s; }
+    else if (fb < NEAR) { const s = (NEAR - fb) / (fa - fb); bx += (ax - bx) * s; by += (ay - by) * s; }
+    const tA = cam.proj(ax, ay, CURTAIN_H), tB = cam.proj(bx, by, CURTAIN_H);
+    const bA = cam.proj(ax, ay, 0), bB = cam.proj(bx, by, 0);
+    emitFace((tA.f + tB.f) / 2, () => {
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(tA.sx, tA.sy); ctx.lineTo(tB.sx, tB.sy); ctx.lineTo(bB.sx, bB.sy); ctx.lineTo(bA.sx, bA.sy); ctx.closePath();
+      const topY = (tA.sy + tB.sy) / 2, botY = (bA.sy + bB.sy) / 2, span = (botY - topY) || 1;
+      const pulse = 0.5 + 0.5 * Math.sin(now / 420);
+      // Body: a colder, brighter cyan→indigo→violet energy field with a hot white-cyan crown rim.
+      const g = ctx.createLinearGradient(0, topY, 0, botY);
+      g.addColorStop(0,    `rgba(215,250,255,${0.50 * alpha})`);                    // hot crown rim
+      g.addColorStop(0.12, `rgba(120,225,255,${(0.24 + 0.10 * pulse) * alpha})`);
+      g.addColorStop(0.55, `rgba(70,150,255,${(0.15 + 0.07 * pulse) * alpha})`);    // deepening indigo field
+      g.addColorStop(1,    `rgba(120,110,255,${(0.09 + 0.05 * pulse) * alpha})`);   // violet dissolve near the ground
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = g; ctx.fill();
+      ctx.clip();
+      // Height-fraction point (t: 0=top…1=bottom) on the left(0)/right(1) edge — so scan bands hug
+      // the plane's foreshortening instead of running flat across the clip box.
+      const lerp = (t, side) => side === 0
+        ? { x: tA.sx + (bA.sx - tA.sx) * t, y: tA.sy + (bA.sy - tA.sy) * t }
+        : { x: tB.sx + (bB.sx - tB.sx) * t, y: tB.sy + (bB.sy - tB.sy) * t };
+      for (let k = 0; k < 10; k++) {
+        const t = 1 - ((now / 1400 + k / 10) % 1), pA = lerp(t, 0), pB = lerp(t, 1);
+        ctx.strokeStyle = `rgba(200,245,255,${(0.05 + 0.10 * (1 - t)) * alpha})`;   // brighter low, faint high
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(pA.x, pA.y); ctx.lineTo(pB.x, pB.y); ctx.stroke();
+      }
+      // Vertical energy "rain" — short streaks sliding down the field for a shimmering-curtain read.
+      const xL = Math.min(tA.sx, tB.sx, bA.sx, bB.sx), xR = Math.max(tA.sx, tB.sx, bA.sx, bB.sx);
+      for (let k = 0; k < 5; k++) {
+        const sx = xL + (xR - xL) * (Math.sin(k * 12.9898) * 0.5 + 0.5);
+        const y0 = topY + span * ((now / 900 + k * 0.37) % 1), y1 = y0 + span * 0.16;
+        const vg = ctx.createLinearGradient(0, y0, 0, y1);
+        vg.addColorStop(0, 'rgba(220,250,255,0)');
+        vg.addColorStop(0.6, `rgba(190,240,255,${0.22 * alpha})`);
+        vg.addColorStop(1, 'rgba(220,250,255,0)');
+        ctx.strokeStyle = vg; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(sx, y0); ctx.lineTo(sx, y1); ctx.stroke();
+      }
+      // A hard energised crown line along the very top edge, above the haze.
+      ctx.strokeStyle = `rgba(225,252,255,${(0.5 + 0.3 * pulse) * alpha})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(tA.sx, tA.sy); ctx.lineTo(tB.sx, tB.sy); ctx.stroke();
+      ctx.restore();
+    });
+  };
+  // Pair opposite arms into one clean span where both neighbours exist (no centre seam on a
+  // straight run); otherwise reach a half-arm only toward the neighbour that's actually there.
+  const n = axis.indexOf('n') >= 0, s = axis.indexOf('s') >= 0, e = axis.indexOf('e') >= 0, w = axis.indexOf('w') >= 0;
+  if (n && s) seg(dx, dy - 0.5, dx, dy + 0.5);   // full N–S span
+  else if (n) seg(dx, dy, dx, dy - 0.5);          // reach north only
+  else if (s) seg(dx, dy, dx, dy + 0.5);          // reach south only
+  if (e && w) seg(dx - 0.5, dy, dx + 0.5, dy);   // full E–W span
+  else if (e) seg(dx, dy, dx + 0.5, dy);          // reach east only
+  else if (w) seg(dx, dy, dx - 0.5, dy);          // reach west only
 }
 
 // A faceted vertical DRUM (cylinder/cone) through the world camera — the rounded alternative to
@@ -2562,13 +2852,13 @@ function drawFacetDrum(ctx, cam, dx, dy, z0, z1, rb, rt, N, alpha, style, cap) {
     F.push({ af: (p[0].f + p[1].f + p[2].f + p[3].f) / 4, pts: p, nl: Math.max(0, nx * lx + ny * ly) });
   }
   for (const f of F) {
-    const ys = f.pts.map(q => q.sy), fill = style(f, Math.min(...ys), Math.max(...ys)), pts = f.pts;
-    emitFace(f.af, () => { ctx.globalAlpha = alpha; ctx.fillStyle = fill; ctx.beginPath(); pts.forEach((q, i) => i ? ctx.lineTo(q.sx, q.sy) : ctx.moveTo(q.sx, q.sy)); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1; });
+    const ys = f.pts.map(q => q.sy), fill = style(f, Math.min(...ys), Math.max(...ys)), pts = f.pts, fog = fogWeight(f.af);
+    emitFace(f.af, () => { ctx.globalAlpha = alpha; ctx.fillStyle = fill; ctx.beginPath(); pts.forEach((q, i) => i ? ctx.lineTo(q.sx, q.sy) : ctx.moveTo(q.sx, q.sy)); ctx.closePath(); ctx.fill(); if (fog > 0.004) { ctx.globalAlpha = alpha * fog; ctx.fillStyle = FOG_STATE.css; ctx.fill(); } ctx.globalAlpha = 1; });
   }
   if (cap) {   // top disc — flat roof cap
     const pts = []; let ok = true;
     for (let i = 0; i < N; i++) { const a = i / N * 6.2832, q = cam.proj(dx + Math.cos(a) * rt, dy + Math.sin(a) * rt, z1); if (q.f <= 0.08) { ok = false; break; } pts.push(q); }
-    if (ok) { const cd = pts.reduce((s, q) => s + q.f, 0) / pts.length; emitFace(cd, () => { ctx.globalAlpha = alpha; ctx.fillStyle = cap; ctx.beginPath(); pts.forEach((q, i) => i ? ctx.lineTo(q.sx, q.sy) : ctx.moveTo(q.sx, q.sy)); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1; }); }
+    if (ok) { const cd = pts.reduce((s, q) => s + q.f, 0) / pts.length, fog = fogWeight(cd); emitFace(cd, () => { ctx.globalAlpha = alpha; ctx.fillStyle = cap; ctx.beginPath(); pts.forEach((q, i) => i ? ctx.lineTo(q.sx, q.sy) : ctx.moveTo(q.sx, q.sy)); ctx.closePath(); ctx.fill(); if (fog > 0.004) { ctx.globalAlpha = alpha * fog; ctx.fillStyle = FOG_STATE.css; ctx.fill(); } ctx.globalAlpha = 1; }); }
   }
 }
 // A horizontal RING at world-z `z`, radius `r`, centred on (dx,dy) — a band line / catwalk rail
@@ -2576,7 +2866,7 @@ function drawFacetDrum(ctx, cam, dx, dy, z0, z1, rb, rt, N, alpha, style, cap) {
 function drawRing(ctx, cam, dx, dy, z, r, N, strokeStyle, lw, alpha) {
   const pts = [];
   for (let i = 0; i <= N; i++) { const a = i / N * 6.2832, p = cam.proj(dx + Math.cos(a) * r, dy + Math.sin(a) * r, z); if (p.f <= 0.08) return; pts.push(p); }
-  emitFace(ON_TOP, () => { ctx.globalAlpha = alpha; ctx.strokeStyle = strokeStyle; ctx.lineWidth = lw; ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)); ctx.stroke(); ctx.globalAlpha = 1; });
+  emitFace(decoDepth(...pts.map(p => p.f)), () => { ctx.globalAlpha = alpha; ctx.strokeStyle = strokeStyle; ctx.lineWidth = lw; ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)); ctx.stroke(); ctx.globalAlpha = 1; });
 }
 // A curved BARREL ROOF (half-cylinder) sitting on a hangar's walls — the rounded shed roof a box
 // can't make. Built in the building's LOCAL frame via `F(lx,ly)` (so it aligns to the frontage):
@@ -2604,11 +2894,12 @@ function drawBarrelRoof(ctx, cam, F, cxL, hl, hw, wallTop, archH, NF, alpha, bas
     add(pts, shade(sgn > 0 ? 0.74 : 0.5));
   }
   for (const it of list) {
-    const pts = it.pts, fill = it.fill;
+    const pts = it.pts, fill = it.fill, fog = fogWeight(it.af);
     emitFace(it.af, () => {
       ctx.globalAlpha = alpha; ctx.lineJoin = 'round'; ctx.fillStyle = fill;
       ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)); ctx.closePath(); ctx.fill();
       ctx.strokeStyle = 'rgba(0,0,0,0.18)'; ctx.lineWidth = 1; ctx.stroke();   // seam between corrugated bays
+      if (fog > 0.004) { ctx.globalAlpha = alpha * fog; ctx.fillStyle = FOG_STATE.css; ctx.fill(); }
       ctx.globalAlpha = 1;
     });
   }
@@ -2638,20 +2929,83 @@ function drawSkyscraper(ctx, cam, dx, dy, fh, h, biome, seed, night, alpha, now)
   }
 }
 
+// Fog a billboard's RGB toward the sky colour by its tile depth, so a distant treeline/boulder
+// dissolves into the same fog wall as the ground+skyline instead of staying crisp on hazy ground.
+function fogTint(col, f) { const w = fogWeight(f); return w > 0.004 ? mix(col, FOG_STATE.col, w) : col; }
 function drawTreeBB(ctx, cam, dx, dy, night, seed, alpha) {
   const p = cam.proj(dx, dy, 0), s = clamp(34 / p.f, 3, 64), n = 2 + (seed % 3);
+  const dark = fogTint([28, 56, 30], p.f), lit = fogTint([56, 94, 50], p.f);
   ctx.globalAlpha = alpha;
   for (let i = 0; i < n; i++) {
     const ox = (frac(seed + i) - 0.5) * s * 1.1, r = s * (0.3 + frac(seed + i * 2) * 0.22), tx = p.sx + ox, ty = p.sy - r * 0.5;
-    ctx.fillStyle = 'rgb(28,56,30)'; ctx.beginPath(); ctx.ellipse(tx, ty, r, r * 0.9, 0, 0, 7); ctx.fill();
-    ctx.fillStyle = `rgb(${56 + night * 0},${94},${50})`; ctx.beginPath(); ctx.ellipse(tx - r * 0.2 * (1 - _obsHgt), ty - r * 0.3 * (1 - _obsHgt), r * (0.55 + _obsHgt * 0.4), r * (0.5 + _obsHgt * 0.4), 0, 0, 7); ctx.fill();
+    ctx.fillStyle = rgb(dark); ctx.beginPath(); ctx.ellipse(tx, ty, r, r * 0.9, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = rgb(lit); ctx.beginPath(); ctx.ellipse(tx - r * 0.2 * (1 - _obsHgt), ty - r * 0.3 * (1 - _obsHgt), r * (0.55 + _obsHgt * 0.4), r * (0.5 + _obsHgt * 0.4), 0, 0, 7); ctx.fill();
   }
   ctx.globalAlpha = 1;
 }
 function drawRockBB(ctx, cam, dx, dy, night, seed, alpha) {
   const p = cam.proj(dx, dy, 0), s = clamp(22 / p.f, 2, 40);
-  ctx.globalAlpha = alpha; ctx.fillStyle = 'rgb(120,92,60)';
+  ctx.globalAlpha = alpha; ctx.fillStyle = rgb(fogTint([120, 92, 60], p.f));
   ctx.beginPath(); ctx.moveTo(p.sx - s, p.sy); ctx.lineTo(p.sx - s * 0.3, p.sy - s * 0.7); ctx.lineTo(p.sx + s * 0.4, p.sy - s * 0.5); ctx.lineTo(p.sx + s, p.sy); ctx.closePath(); ctx.fill();
+  ctx.globalAlpha = 1;
+}
+// A manicured PARK tile (flags.terrain 'park' → 'park' biome): one of five dressings — a tree
+// grove, an ornamental pond, a bench-and-lamp rest spot, flowerbeds, or a paved path — instead
+// of the feral single-tree parkland. `feature` (from the tile's authored `park_feature` flag)
+// forces the dressing so a park can be laid out symmetrically; unset falls back to the
+// world-stable tile seed, so a given tile always shows the same one.
+const PARK_FEATURE = { grove: 0, pond: 1, benches: 2, flowerbeds: 3, path: 4 };
+function drawParkTile(ctx, cam, dx, dy, night, seed, alpha, now, feature) {
+  const p0 = cam.proj(dx, dy, 0); if (!p0 || p0.f <= 0.06) return;
+  const s = clamp(30 / p0.f, 3, 58);
+  const variant = (feature != null && PARK_FEATURE[feature] != null) ? PARK_FEATURE[feature] : (seed % 5);
+  // A flat ground disc (on the turf, so it recedes with the Mode-7 warp). Returns quietly if
+  // any point crosses the near plane.
+  const disc = (rad, z, fill) => {
+    const pts = [];
+    for (let i = 0; i <= 16; i++) { const a = i / 16 * Math.PI * 2, q = cam.proj(dx + Math.cos(a) * rad, dy + Math.sin(a) * rad, z); if (!q || q.f <= 0.06) return; pts.push(q); }
+    ctx.fillStyle = fill; ctx.beginPath(); pts.forEach((q, i) => i ? ctx.lineTo(q.sx, q.sy) : ctx.moveTo(q.sx, q.sy)); ctx.closePath(); ctx.fill();
+  };
+  ctx.globalAlpha = alpha;
+  switch (variant) {
+    case 0: {   // tree grove — a fuller cluster, centred on the tile
+      drawTreeBB(ctx, cam, dx, dy, night, seed, alpha);
+      drawTreeBB(ctx, cam, dx, dy, night, seed + 5, alpha);
+      break;
+    }
+    case 1: {   // ornamental pond — stone rim, water, one travelling ripple
+      disc(0.34, 0.012, 'rgb(120,120,124)');
+      disc(0.27, 0.016, night ? 'rgb(26,54,80)' : 'rgb(58,120,152)');
+      const t = (now * 0.0005) % 1, pts = [];
+      for (let i = 0; i <= 16; i++) { const a = i / 16 * Math.PI * 2, rr = 0.27 * (0.3 + 0.6 * t), q = cam.proj(dx + Math.cos(a) * rr, dy + Math.sin(a) * rr, 0.02); if (!q || q.f <= 0.06) { pts.length = 0; break; } pts.push(q); }
+      if (pts.length) { ctx.globalAlpha = alpha * (1 - t) * 0.5; ctx.strokeStyle = 'rgba(205,232,246,0.6)'; ctx.lineWidth = 1; ctx.beginPath(); pts.forEach((q, i) => i ? ctx.lineTo(q.sx, q.sy) : ctx.moveTo(q.sx, q.sy)); ctx.closePath(); ctx.stroke(); ctx.globalAlpha = alpha; }
+      break;
+    }
+    case 2: {   // rest spot — a lamp post (warm at night) between two benches
+      const lz = cam.proj(dx, dy, 0.16);
+      if (lz && lz.f > 0.08) {
+        ctx.strokeStyle = 'rgb(52,56,60)'; ctx.lineWidth = Math.max(1, s * 0.05);
+        ctx.beginPath(); ctx.moveTo(p0.sx, p0.sy); ctx.lineTo(lz.sx, lz.sy); ctx.stroke();
+        ctx.fillStyle = night ? 'rgba(255,214,150,0.95)' : 'rgb(214,222,150)';
+        ctx.beginPath(); ctx.arc(lz.sx, lz.sy, Math.max(1.5, s * 0.09), 0, 7); ctx.fill();
+      }
+      ctx.fillStyle = 'rgb(96,70,44)';   // wooden benches
+      for (const off of [-0.24, 0.24]) { const b = cam.proj(dx + off, dy + 0.16, 0.03); if (b && b.f > 0.08) ctx.fillRect(b.sx - s * 0.22, b.sy - s * 0.06, s * 0.44, s * 0.09); }
+      if (night) glowPool(ctx, cam, dx, dy, 0.16, '255,214,150', 12, alpha * 0.3);
+      break;
+    }
+    case 3: {   // flowerbeds — a low planted bed dotted with bright blooms
+      disc(0.32, 0.011, night ? 'rgb(30,52,30)' : 'rgb(44,80,40)');
+      const cols = ['rgb(214,80,90)', 'rgb(232,192,72)', 'rgb(162,92,192)', 'rgb(232,140,80)'];
+      for (let i = 0; i < 7; i++) { const a = frac(seed + i * 3) * Math.PI * 2, rr = 0.1 + frac(seed + i) * 0.16, q = cam.proj(dx + Math.cos(a) * rr, dy + Math.sin(a) * rr, 0.02); if (!q || q.f <= 0.06) continue; ctx.fillStyle = cols[(seed + i) % cols.length]; ctx.beginPath(); ctx.ellipse(q.sx, q.sy, s * 0.07, s * 0.05, 0, 0, 7); ctx.fill(); }
+      break;
+    }
+    default: {   // paved path / plaza — a pale flagstone patch + a single ornamental tree
+      disc(0.3, 0.01, night ? 'rgb(94,96,100)' : 'rgb(150,150,150)');
+      drawTreeBB(ctx, cam, dx + 0.26, dy + 0.22, night, seed + 3, alpha);
+      break;
+    }
+  }
   ctx.globalAlpha = 1;
 }
 
@@ -3776,7 +4130,7 @@ function drawCityBuilding(ctx, cam, dx, dy, fh, h, biome, seed, night, alpha, no
 function drawSmoke(ctx, cam, dx, dy, wz, col, alpha, now, seed) {
   const p = cam.proj(dx, dy, wz); if (p.f <= 0.12) return;
   const s = clamp(20 / p.f, 2, 40);
-  emitFace(ON_TOP, () => {
+  emitFace(decoDepth(p.f), () => {
     for (let i = 0; i < 3; i++) {
       const t = ((now || 0) * 0.0002 + frac(seed + i)) % 1;
       ctx.fillStyle = `rgba(${col},${alpha * 0.24 * (1 - t)})`;
@@ -3789,7 +4143,7 @@ function drawGantry(ctx, cam, dx, dy, fh, h, alpha, seed) {
   const a = cam.proj(dx - lw, dy, 0), at = cam.proj(dx - lw, dy, hh), b = cam.proj(dx + lw, dy, 0), bt = cam.proj(dx + lw, dy, hh);
   if ([a, at, b, bt].some(p => p.f <= 0.12)) return;
   const jib = cam.proj(dx + lw * 2.1, dy, hh * 0.9);
-  emitFace(ON_TOP, () => {
+  emitFace(decoDepth(a.f, at.f, b.f, bt.f), () => {
     ctx.globalAlpha = alpha; ctx.strokeStyle = 'rgba(126,116,96,0.85)'; ctx.lineWidth = 1.4; ctx.lineJoin = 'round';
     ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(at.sx, at.sy); ctx.lineTo(bt.sx, bt.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke();
     if (jib.f > 0.12) { ctx.beginPath(); ctx.moveTo(at.sx, at.sy); ctx.lineTo(jib.sx, jib.sy); ctx.stroke(); }
@@ -3841,7 +4195,7 @@ function drawRuin(ctx, cam, dx, dy, fh, h, bi, seed, night, alpha, now) {
   if ((seed % 2) === 0) draw3DBoxAt(ctx, cam, dx + fh * 0.95, dy, fh * 0.55, 0, h * (0.2 + frac(seed + 1) * 0.3), bi, seed + 4, night, alpha, true);   // broken remnant
   if (bi === 'ruins') {   // Redline radioactive glow
     const g = cam.proj(dx, dy, h * 0.3);
-    if (g.f > 0.12) emitFace(ON_TOP, () => { const s = clamp(24 / g.f, 3, 50), rg = ctx.createRadialGradient(g.sx, g.sy, 1, g.sx, g.sy, s); rg.addColorStop(0, `rgba(150,220,80,${alpha * 0.22})`); rg.addColorStop(1, 'rgba(150,220,80,0)'); ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(g.sx, g.sy, s, 0, 7); ctx.fill(); });
+    if (g.f > 0.12) emitFace(decoDepth(g.f), () => { const s = clamp(24 / g.f, 3, 50), rg = ctx.createRadialGradient(g.sx, g.sy, 1, g.sx, g.sy, s); rg.addColorStop(0, `rgba(150,220,80,${alpha * 0.22})`); rg.addColorStop(1, 'rgba(150,220,80,0)'); ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(g.sx, g.sy, s, 0, 7); ctx.fill(); });
   }
 }
 function drawMarquee(ctx, cam, dx, dy, fh, h, bi, seed, night, alpha, now) {
@@ -3875,9 +4229,10 @@ const NAMED_MODELS = {
   precinct9:                      { type: 'police',    pal: 'ty_police' },
   hallofrecords:                  { type: 'archive',   pal: 'ty_archive' },
   coldwaterclonefacility:         { type: 'clone',     pal: 'ty_clone' },
-  ksabtvstudiostage:              { type: 'studio',    pal: 'ty_ksab' },
-  ksabaudiencegate:               { type: 'studio',    pal: 'ty_ksab' },
+  ksabtvstudiostage:              { type: 'studio',     pal: 'ty_ksab' },
+  ksabaudiencegate:               { type: 'studiogate', pal: 'ty_ksab', neon: '#b98cff' },
   thegreenroom:                   { type: 'divebar',   pal: 'ty_greenroom', neon: '#7dff6a' },
+  solenneresidences:              { type: 'solenne',   pal: 'ty_solenne',   neon: '#ffce78' },
   coldwatersentinel:              { type: 'office',    pal: 'ty_sentinel',  neon: '#5fd0ff' },
   meltwaterdiner:                 { type: 'diner',     pal: 'ty_diner',     neon: '#ffcf3e' },
   jitter:                         { type: 'shop',      pal: 'ty_jitter',    neon: '#5fd0ff' },
@@ -3931,6 +4286,13 @@ const TYPE_MODEL = {
   wharf:             { type: 'wharf',             pal: 'ty_wharf' },
   freight_office:    { type: 'freight_office',    pal: 'ty_freight_office', neon: '#ffb43a' },
   freight_forwarder: { type: 'freight_forwarder', pal: 'ty_fwd_metal' },
+  // The Ascendant Stronghold (docs/proposals/ascendant-stronghold.md).
+  asc_spire:  { type: 'asc_spire',  pal: 'ty_asc_spire' },
+  asc_gate:   { type: 'asc_gate',   pal: 'ty_asc_gate' },
+  asc_clinic: { type: 'asc_clinic', pal: 'ty_asc_clinic' },
+  asc_weave:  { type: 'asc_weave',  pal: 'ty_asc_weave' },
+  asc_vats:   { type: 'asc_vats',   pal: 'ty_asc_vats' },
+  asc_shrine: { type: 'asc_shrine', pal: 'ty_asc_shrine' },
 };
 function modelFor(cell) { return (cell.bn && namedModel(cell.bn)) || (cell.bt && TYPE_MODEL[cell.bt]) || null; }
 
@@ -3938,20 +4300,20 @@ function modelFor(cell) { return (cell.bn && namedModel(cell.bn)) || (cell.bt &&
 function blinkLight(ctx, cam, dx, dy, wz, rgb, now, seed, alpha, r = 1.6) {
   const p = cam.proj(dx, dy, wz); if (p.f <= 0.1) return;
   const k = 0.4 + 0.5 * Math.abs(Math.sin((now || 0) * 0.004 + seed));
-  emitFace(ON_TOP, () => { ctx.globalAlpha = alpha; ctx.fillStyle = `rgba(${rgb},${k})`; ctx.beginPath(); ctx.arc(p.sx, p.sy, r, 0, 7); ctx.fill(); ctx.globalAlpha = 1; });
+  emitFace(decoDepth(p.f), () => { ctx.globalAlpha = alpha; ctx.fillStyle = `rgba(${rgb},${k})`; ctx.beginPath(); ctx.arc(p.sx, p.sy, r, 0, 7); ctx.fill(); ctx.globalAlpha = 1; });
 }
 function mast(ctx, cam, dx, dy, h0, h1, alpha, now, seed) {   // guyed antenna mast + red aviation light
   const a = cam.proj(dx, dy, h0), b = cam.proj(dx, dy, h1);
-  if (a.f > 0.1 && b.f > 0.1) emitFace(ON_TOP, () => { ctx.globalAlpha = alpha; ctx.strokeStyle = 'rgba(184,192,206,0.8)'; ctx.lineWidth = 1.1; ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); ctx.globalAlpha = 1; });
+  if (a.f > 0.1 && b.f > 0.1) emitFace(decoDepth(a.f, b.f), () => { ctx.globalAlpha = alpha; ctx.strokeStyle = 'rgba(184,192,206,0.8)'; ctx.lineWidth = 1.1; ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); ctx.globalAlpha = 1; });
   blinkLight(ctx, cam, dx, dy, h1, '255,80,80', now, seed, alpha);
 }
 function dish(ctx, cam, dx, dy, wz, s0, alpha) {   // rooftop satellite dish
   const p = cam.proj(dx, dy, wz); if (p.f <= 0.1) return; const r = clamp(s0 / p.f, 2, 22);
-  emitFace(ON_TOP, () => { ctx.globalAlpha = alpha; ctx.fillStyle = 'rgba(198,204,214,0.85)'; ctx.beginPath(); ctx.ellipse(p.sx, p.sy, r, r * 0.5, -0.5, 0, 7); ctx.fill(); ctx.globalAlpha = 1; });
+  emitFace(decoDepth(p.f), () => { ctx.globalAlpha = alpha; ctx.fillStyle = 'rgba(198,204,214,0.85)'; ctx.beginPath(); ctx.ellipse(p.sx, p.sy, r, r * 0.5, -0.5, 0, 7); ctx.fill(); ctx.globalAlpha = 1; });
 }
 function crossMark(ctx, cam, dx, dy, wz, alpha) {   // red medical cross billboard
   const p = cam.proj(dx, dy, wz); if (p.f <= 0.1) return; const s = clamp(9 / p.f, 2, 16);
-  emitFace(ON_TOP, () => { ctx.globalAlpha = alpha; ctx.fillStyle = 'rgba(230,60,60,0.95)'; ctx.fillRect(p.sx - s * 0.28, p.sy - s, s * 0.56, s * 2); ctx.fillRect(p.sx - s, p.sy - s * 0.28, s * 2, s * 0.56); ctx.globalAlpha = 1; });
+  emitFace(decoDepth(p.f), () => { ctx.globalAlpha = alpha; ctx.fillStyle = 'rgba(230,60,60,0.95)'; ctx.fillRect(p.sx - s * 0.28, p.sy - s, s * 0.56, s * 2); ctx.fillRect(p.sx - s, p.sy - s * 0.28, s * 2, s * 0.56); ctx.globalAlpha = 1; });
 }
 function neonBlade(ctx, cam, dx, dy, h0, h1, color, night, alpha) {   // vertical marquee blade — a stacked sign board, not a bare line
   const b = cam.proj(dx, dy, h0), t = cam.proj(dx, dy, h1); if (b.f <= 0.12 || t.f <= 0.12) return;
@@ -3959,7 +4321,10 @@ function neonBlade(ctx, cam, dx, dy, h0, h1, color, night, alpha) {   // vertica
   const wpx = clamp(9 / ((b.f + t.f) / 2), 2, 9);            // blade half-width (screen px), distance-scaled
   const nx = -uy / len * wpx, ny = ux / len * wpx;           // perpendicular half-width offset
   const P = [[b.sx + nx, b.sy + ny], [t.sx + nx, t.sy + ny], [t.sx - nx, t.sy - ny], [b.sx - nx, b.sy - ny]];
-  emitFace((b.f + t.f) / 2, () => {
+  // Sort as a building-mounted deco (lifted DECO_LIFT tiles forward), not by its raw average depth:
+  // a back-corner blade's average sits BEHIND its own tile-centered roof cap, so the two flip-flop in
+  // the painter queue and the sign flashes on/off as the camera swings past (same fix as marqueeBand).
+  emitFace(decoDepth(b.f, t.f), () => {
     const trace = () => { ctx.beginPath(); P.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath(); };
     ctx.save();
     ctx.globalAlpha = alpha * (night ? 0.92 : 0.84); ctx.fillStyle = '#120d12'; trace(); ctx.fill();   // backing board
@@ -4023,7 +4388,7 @@ function verticalMarquee(ctx, cam, dx, dy, h0, h1, label, color, night, alpha, N
 }
 function glowPool(ctx, cam, dx, dy, wz, rgb, s0, alpha) {   // soft ground/roof glow (generalised ruin glow)
   const g = cam.proj(dx, dy, wz); if (g.f <= 0.12) return; const s = clamp(s0 / g.f, 3, 60);
-  emitFace(ON_TOP, () => { const rg = ctx.createRadialGradient(g.sx, g.sy, 1, g.sx, g.sy, s); rg.addColorStop(0, `rgba(${rgb},${alpha})`); rg.addColorStop(1, `rgba(${rgb},0)`); ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(g.sx, g.sy, s, 0, 7); ctx.fill(); });
+  emitFace(decoDepth(g.f), () => { const rg = ctx.createRadialGradient(g.sx, g.sy, 1, g.sx, g.sy, s); rg.addColorStop(0, `rgba(${rgb},${alpha})`); rg.addColorStop(1, `rgba(${rgb},0)`); ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(g.sx, g.sy, s, 0, 7); ctx.fill(); });
 }
 // A HORIZONTAL marquee SIGN across a building's entrance face (a hotel/bar marquee), at
 // height wz, spanning ±half across the front edge (E = entrance world vector). Drawn as a
@@ -4039,7 +4404,9 @@ function marqueeBand(ctx, cam, dx, dy, E, half, wz, color, night, alpha, label) 
   const bl = cam.proj(Lx, Ly, wz - hh), br = cam.proj(Rx, Ry, wz - hh);
   if ([tl, tr, bl, br].some((p) => p.f <= 0.12)) return;
   const quad = () => { ctx.beginPath(); ctx.moveTo(tl.sx, tl.sy); ctx.lineTo(tr.sx, tr.sy); ctx.lineTo(br.sx, br.sy); ctx.lineTo(bl.sx, bl.sy); ctx.closePath(); };
-  emitFace((tl.f + tr.f + bl.f + br.f) / 4, () => {
+  // Lift forward off the front wall it's mounted on (like every other signage helper) — a raw
+  // average depth is coplanar with that wall, so painter's-sort order flip-flops and the sign flickers.
+  emitFace(decoDepth(tl.f, tr.f, bl.f, br.f), () => {
   ctx.save();
   // 1. dark backing board
   ctx.globalAlpha = alpha * (night ? 0.94 : 0.86); ctx.fillStyle = '#140f14'; quad(); ctx.fill();
@@ -4247,7 +4614,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
           const p = cam.proj(dx + lx * cw - ly * sw, dy + lx * sw + ly * cw, segZ(i));
           if (p.f > 0.12) pts.push(p);
         }
-        if (pts.length > 1) emitFace(ON_TOP, () => {
+        if (pts.length > 1) emitFace(decoDepth(...pts.map(p => p.f)), () => {
           ctx.save(); ctx.globalAlpha = alpha * (night ? 0.95 : 0.55);
           ctx.strokeStyle = `rgba(${rgb},0.9)`; ctx.lineWidth = 1.6; ctx.lineJoin = 'round';
           if (night) { ctx.shadowColor = `rgb(${rgb})`; ctx.shadowBlur = 8; }
@@ -4264,6 +4631,56 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
         glowPool(ctx, cam, dx, dy, topZ + h * 0.08, neonB, 16, alpha * 0.3);          // crown halo
       }
       blinkLight(ctx, cam, dx, dy, topZ + h * 0.56, neonA, now, seed, alpha, 2);      // cyan beacon on the spire
+      break;
+    }
+    case 'solenne': {   // Solenne Residences: an opulent champagne-glass residential spire — three graceful
+      //                  setback tiers narrowing to a glowing rooftop sky-pool band + a lantern crown.
+      //                  WARM gold light-runners + a gentle quarter-turn — deliberately luxe/warm where
+      //                  Halcyon is cold and angular, and taller, so the two read as rival landmarks.
+      const gold = '255,206,120', warm = '255,232,190';
+      const baseZ = h * 0.30, topZ = h * 3.05, N = 24;         // taller than Halcyon; many thin glass plates
+      const twist = 0.52, fwBase = fh * 0.86;                  // ~30° gentle turn (elegant, not a helix)
+      const segZ = (i) => baseZ + (topZ - baseZ) * (i / N);
+      // Three setback tiers: the footprint steps in at ~1/3 and ~2/3 height, tapering within each tier.
+      const tierW = (t) => t < 0.34 ? fwBase * (1 - 0.10 * (t / 0.34))
+        : t < 0.68 ? fwBase * 0.80 * (1 - 0.12 * ((t - 0.34) / 0.34))
+        : fwBase * 0.62 * (1 - 0.18 * ((t - 0.68) / 0.32));
+      const segW = (i) => tierW(i / N);
+      const segYaw = (i) => twist * (i / N);
+      // 1) Lit stone podium the tower rises from + a low illuminated entrance canopy.
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.34, 0, baseZ, pal, seed + 4, night, alpha, true);
+      { const [cx, cy] = F(0, fh * 1.1); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.9, h * 0.1, h * 0.26, 'ty_door', seed + 5, night, alpha, false); }
+      // 2) The champagne-glass shaft — thin plates, gentle quarter-turn, stepping inward at each tier.
+      for (let i = 0; i < N; i++) draw3DBoxAt(ctx, cam, dx, dy, segW(i), segZ(i), segZ(i + 1), pal, seed + i, night, alpha, i === N - 1, segYaw(i));
+      // 3) Warm gold light-runners tracing two opposite corners up the tapering stack.
+      for (const dir of [[-1, -1], [1, 1]]) {
+        const pts = [];
+        for (let i = 0; i <= N; i++) {
+          const w = segW(Math.min(i, N - 1)), ya = segYaw(i), cw = Math.cos(ya), sw = Math.sin(ya), lx = dir[0] * w, ly = dir[1] * w;
+          const p = cam.proj(dx + lx * cw - ly * sw, dy + lx * sw + ly * cw, segZ(i));
+          if (p.f > 0.12) pts.push(p);
+        }
+        if (pts.length > 1) emitFace(decoDepth(...pts.map(p => p.f)), () => {
+          ctx.save(); ctx.globalAlpha = alpha * (night ? 0.92 : 0.5);
+          ctx.strokeStyle = `rgba(${gold},0.9)`; ctx.lineWidth = 1.6; ctx.lineJoin = 'round';
+          if (night) { ctx.shadowColor = `rgb(${gold})`; ctx.shadowBlur = 8; }
+          ctx.beginPath(); pts.forEach((p, k) => k ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)); ctx.stroke();
+          ctx.shadowBlur = 0; ctx.restore();
+        });
+      }
+      // 4) The glowing rooftop SKY-DECK POOL band just below the crown — a bright warm ring + a soft wash.
+      { const z = segZ(N) - h * 0.06, r = segW(N - 1) * 1.08;
+        drawRing(ctx, cam, dx, dy, z, r, 16, `rgba(${warm},${night ? 0.95 : 0.52})`, 2.2, alpha);
+        if (night) glowPool(ctx, cam, dx, dy, z, gold, 15, alpha * 0.3); }
+      // 5) Lantern crown — a short bright set-back box continuing the turn — + an antenna spire + warm beacon.
+      draw3DBoxAt(ctx, cam, dx, dy, segW(N) * 0.86, topZ, topZ + h * 0.26, pal, seed + 20, night, alpha, true, twist);
+      mast(ctx, cam, dx, dy, topZ + h * 0.26, topZ + h * 0.6, alpha, now, seed);
+      if (night) {
+        glowPool(ctx, cam, dx, dy, baseZ, warm, 22, alpha * 0.3);                     // warm lobby wash
+        glowPool(ctx, cam, dx, dy, baseZ + (topZ - baseZ) * 0.5, gold, 13, alpha * 0.2);  // mid sky-lobby glow
+        glowPool(ctx, cam, dx, dy, topZ + h * 0.1, gold, 16, alpha * 0.32);            // crown halo
+      }
+      blinkLight(ctx, cam, dx, dy, topZ + h * 0.6, gold, now, seed, alpha, 2);         // warm gold beacon on the spire
       break;
     }
     case 'chrome': {   // Chrome Court: a HIGH-TECH mirror-steel obelisk — a smooth tapered faceted chrome monolith
@@ -4343,9 +4760,9 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       glowPool(ctx, cam, dx, dy, h * 0.85, '255,74,120', 20, alpha * (night ? 0.36 : 0.16));            // roofline wash
       break;
     }
-    case 'grocery': {   // Ration Nine: low wide store + a long front awning, stacked crates, and a lit sign
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.28, 0, h * 0.55, pal, seed, night, alpha, true);
-      { const [ax, ay] = F(0, fh * 0.95); draw3DBoxAt(ctx, cam, ax, ay, fh * 1.2, h * 0.12, h * 0.24, 'ty_door', seed + 1, night, alpha, false); }   // full-width awning
+    case 'grocery': {   // Ration Nine: neighbourhood store + a long front awning, stacked crates, and a lit sign
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.12, 0, h * 0.6, pal, seed, night, alpha, true);
+      { const [ax, ay] = F(0, fh * 0.95); draw3DBoxAt(ctx, cam, ax, ay, fh * 1.06, h * 0.14, h * 0.28, 'ty_door', seed + 1, night, alpha, false); }   // full-width awning
       for (const s of [-0.7, 0.7]) { const [cx, cy] = F(s * fh * 0.7, fh * 0.82); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.22, 0, h * 0.14, 'ty_door', seed + 9 + s * 3, night, alpha, true); }   // crates out front
       neonBlade(ctx, cam, dx, dy, h * 0.55, h * 0.85, m.neon || '#ffcf3e', night, alpha);
       if (night) glowPool(ctx, cam, dx, dy, h * 0.26, '255,214,140', 12, alpha * 0.22);                 // lit aisles through the glass
@@ -4359,10 +4776,10 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       glowPool(ctx, cam, dx, dy, h * 0.3, '95,208,255', 12, alpha * (night ? 0.4 : 0.22));              // cyan gear-glow spilling off the counter
       break;
     }
-    case 'showroom': {   // Dead Space Interiors: a wide glazed showroom floor with a big lit display window
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.36, 0, h * 0.6, pal, seed, night, alpha, true);
-      { const [wx4, wy4] = F(0, fh * 0.92); glowPool(ctx, cam, wx4, wy4, h * 0.24, '150,220,190', 20, alpha * (night ? 0.42 : 0.24)); }   // display-window glow
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.7, h * 0.6, h * 0.7, pal, seed + 1, night, alpha, true);      // slim parapet band
+    case 'showroom': {   // Dead Space Interiors: a glazed showroom floor with a big lit display window
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.14, 0, h * 0.72, pal, seed, night, alpha, true);
+      { const [wx4, wy4] = F(0, fh * 0.92); glowPool(ctx, cam, wx4, wy4, h * 0.28, '150,220,190', 20, alpha * (night ? 0.42 : 0.24)); }   // display-window glow
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.66, h * 0.72, h * 0.84, pal, seed + 1, night, alpha, true);   // slim parapet band
       neonBlade(ctx, cam, dx, dy, h * 0.7, h * 0.98, m.neon || '#7dff6a', night, alpha);
       break;
     }
@@ -4380,15 +4797,19 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       if (night) glowPool(ctx, cam, dx, dy, h * 0.26, '255,170,110', 10, alpha * 0.2);
       break;
     }
-    case 'apartment': {   // podium + residential block + optional penthouse
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.3, 0, h * 0.28, pal, seed + 5, night, alpha, true);
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.0, h * 0.28, h, pal, seed, night, alpha, true);
-      if (m.penthouse) { const [px, py] = F(fh * 0.3, 0); draw3DBoxAt(ctx, cam, px, py, fh * 0.5, h, h * 1.16, pal, seed + 2, night, alpha, true); }
+    case 'apartment': {   // residential block — podium + tall slab, stepped roofline, rooftop water tank & lift housing
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.12, 0, h * 0.2, pal, seed + 5, night, alpha, true);          // ground-floor podium
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.98, h * 0.2, h * 1.02, pal, seed, night, alpha, true);        // main residential slab
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.64, h * 1.02, h * 1.18, pal, seed + 4, night, alpha, true);   // set-back top floors → a stepped roofline
+      if (m.penthouse) { const [px, py] = F(fh * 0.3, 0); draw3DBoxAt(ctx, cam, px, py, fh * 0.42, h * 1.18, h * 1.32, pal, seed + 2, night, alpha, true); }
+      { const [tx, ty] = F(-fh * 0.34, -fh * 0.22); draw3DBoxAt(ctx, cam, tx, ty, fh * 0.16, h * 1.18, h * 1.34, 'ty_door', seed + 6, night, alpha, true); }   // rooftop water tank on stilts
+      { const [cx, cy] = F(fh * 0.3, fh * 0.12); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.2, h * 1.18, h * 1.25, 'ty_door', seed + 7, night, alpha, true); }         // lift/AC housing
+      if (night) glowPool(ctx, cam, dx, dy, h * 0.6, '255,206,140', 10, alpha * 0.12);                   // scattered lit windows
       break;
     }
-    case 'police': {   // squat wide civic block + set-back roof house + blue beacon + antenna
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.4, 0, h * 0.85, pal, seed, night, alpha, true);
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.7, h * 0.85, h * 0.98, pal, seed + 1, night, alpha, true);
+    case 'police': {   // civic block + set-back roof house + blue beacon + antenna
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.14, 0, h * 0.85, pal, seed, night, alpha, true);
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.62, h * 0.85, h * 1.02, pal, seed + 1, night, alpha, true);
       { const [mx, my] = F(fh * 0.9, 0); mast(ctx, cam, mx, my, h * 0.85, h * 1.5, alpha, now, seed + 3); }
       { const [bx, by] = F(-fh * 0.7, 0); blinkLight(ctx, cam, bx, by, h, '90,150,255', now, seed, alpha, 1.8); }
       break;
@@ -4400,10 +4821,33 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       glowPool(ctx, cam, dx, dy, h * 0.4, '120,220,150', 16, alpha * (night ? 0.28 : 0.14));
       break;
     }
-    case 'studio': {   // broad low studio block + tall guyed mast + satellite dish
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.45, 0, h * 0.7, pal, seed, night, alpha, true);
-      { const [mx, my] = F(-fh * 0.7, 0); mast(ctx, cam, mx, my, h * 0.7, h * 2.1, alpha, now, seed + 2); }
-      { const [ex, ey] = F(fh * 0.7, 0); dish(ctx, cam, ex, ey, h * 0.72, 10, alpha); }
+    case 'studio': {   // TV sound-stage: a tall windowless stage volume + fly tower, a low glazed office wing, big scenery door
+      // Main stage — a monolithic near-cubic WINDOWLESS volume (soundstages are tall clear-span boxes, not low sheds).
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.98, 0, h * 1.15, pal, seed, night, alpha, true);
+      // Fly tower / lighting-grid loft — a taller set-back box over the rear third.
+      { const [tx, ty] = F(-fh * 0.28, -fh * 0.3); draw3DBoxAt(ctx, cam, tx, ty, fh * 0.5, h * 1.15, h * 1.55, pal, seed + 1, night, alpha, true); }
+      // Low glazed production-office wing across the entrance front (contrasting pale glass).
+      { const [ox, oy] = F(0, fh * 1.02); draw3DBoxAt(ctx, cam, ox, oy, fh * 0.9, 0, h * 0.5, 'ty_clinic', seed + 3, night, alpha, true); }
+      // Big roll-up scenery/loading door on the stage front (only when that face is toward us).
+      if (frontVis) { const [gx, gy] = F(fh * 0.5, fh * 0.52); draw3DBoxAt(ctx, cam, gx, gy, fh * 0.34, 0, h * 0.72, 'ty_door', seed + 4, night, alpha, false); }
+      // Roof kit — HVAC block, the tall guyed transmitter mast + a satellite uplink dish.
+      { const [hx, hy] = F(fh * 0.34, fh * 0.12); draw3DBoxAt(ctx, cam, hx, hy, fh * 0.26, h * 1.15, h * 1.3, 'ty_door', seed + 6, night, alpha, true); }
+      { const [mx, my] = F(-fh * 0.78, fh * 0.2); mast(ctx, cam, mx, my, h * 1.15, h * 2.45, alpha, now, seed + 2); }
+      { const [ex, ey] = F(fh * 0.72, -fh * 0.18); dish(ctx, cam, ex, ey, h * 1.2, 10, alpha); }
+      if (night) glowPool(ctx, cam, dx, dy, h * 0.24, '255,206,140', 10, alpha * 0.18);   // warm office-wing spill
+      break;
+    }
+    case 'studiogate': {   // KSAB Audience Gate: a glazed audience lobby with a violet KSAB parapet + a steady lit marquee. Deliberately simple and ENTIRELY within its own tile (no cantilevered canopy/turnstiles — those spilled onto the road). Reads low once flags.floors:2 reaches the DB.
+      // Curtain-glass lobby — real glazed skin (ty_ksab_glass ∈ GLASS_WALL: sky sheen, no window grid).
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.96, 0, h * 0.9, 'ty_ksab_glass', seed, night, alpha, true);
+      // Violet KSAB parapet cap tying it to the studio's palette.
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.98, h * 0.9, h * 1.02, pal, seed + 1, night, alpha, true);
+      // Steady lit marquee across the front — KSAB. Always drawn (the depth queue occludes it when the
+      // front faces away), so it no longer flashes on/off as the camera swings past the facing threshold.
+      marqueeBand(ctx, cam, dx, dy, E, fh * 0.82, h * 0.6, m.neon || '#b98cff', night, alpha, 'KSAB');
+      // A KSAB call-letter blade set on the roof (back corner, inside the footprint).
+      { const [bx, by] = F(-fh * 0.5, -fh * 0.42); neonBlade(ctx, cam, bx, by, h * 1.02, h * 1.34, m.neon || '#b98cff', night, alpha); }
+      if (night) glowPool(ctx, cam, dx, dy, h * 0.4, '150,120,220', 12, alpha * 0.24);   // violet marquee wash
       break;
     }
     case 'hangar': {   // AIRPORT: glazed passenger terminal + hangar shed + ATC tower, floodlit at night
@@ -4500,7 +4944,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
         mast(ctx, cam, txx, txy, roofTopZ, mastTop, alpha, now, seed + 6);                                            // antenna mast (draws its own red tip light)
         for (const s of [-0.018, 0.022]) {   // a couple of shorter whip antennas beside the mast
           const p0 = cam.proj(txx + s, txy, roofTopZ), p1 = cam.proj(txx + s, txy, cabTop + h * 0.2);
-          if (p0.f > 0.1 && p1.f > 0.1) emitFace(ON_TOP, () => { ctx.globalAlpha = alpha; ctx.strokeStyle = 'rgba(40,44,50,0.9)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(p0.sx, p0.sy); ctx.lineTo(p1.sx, p1.sy); ctx.stroke(); ctx.globalAlpha = 1; });
+          if (p0.f > 0.1 && p1.f > 0.1) emitFace(decoDepth(p0.f, p1.f), () => { ctx.globalAlpha = alpha; ctx.strokeStyle = 'rgba(40,44,50,0.9)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(p0.sx, p0.sy); ctx.lineTo(p1.sx, p1.sy); ctx.stroke(); ctx.globalAlpha = 1; });
         }
         if (night) {
           glowPool(ctx, cam, txx, txy, (cabBot + cabTop) / 2, '150,220,255', 10, alpha * 0.42);                   // lit cab halo
@@ -4538,9 +4982,11 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
         blinkLight(ctx, cam, sx, sy, h * 1.7, '255,80,80', now, seed, alpha); }
       break;
     }
-    case 'bar': {   // small box + a neon blade
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.95, 0, h * 0.7, pal, seed, night, alpha, true);
-      neonBlade(ctx, cam, dx, dy, h * 0.7, h * 1.05, m.neon || '#5fd0ff', night, alpha);
+    case 'bar': {   // narrow street-corner bar — a taller slim box, a lit door awning + a neon blade
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.82, 0, h * 0.95, pal, seed, night, alpha, true);
+      { const [ax, ay] = F(0, fh * 0.82); draw3DBoxAt(ctx, cam, ax, ay, fh * 0.78, h * 0.22, h * 0.34, 'ty_door', seed + 1, night, alpha, false); }   // door awning
+      { const [nx, ny] = F(fh * 0.5, fh * 0.4); neonBlade(ctx, cam, nx, ny, h * 0.34, h * 1.2, m.neon || '#5fd0ff', night, alpha); }
+      if (night) glowPool(ctx, cam, dx, dy, h * 0.24, '120,220,255', 9, alpha * 0.2);
       break;
     }
     case 'club': {   // box + twin neon roofline + colour glow
@@ -4550,11 +4996,13 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       glowPool(ctx, cam, dx, dy, h * 0.85, '255,74,154', 20, alpha * (night ? 0.34 : 0.16));
       break;
     }
-    case 'diner': {   // long low diner — warm box, street-side counter awning, rooftop neon, window glow
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.15, 0, h * 0.58, pal, seed, night, alpha, true);
-      { const [ax, ay] = F(0, fh * 0.95); draw3DBoxAt(ctx, cam, ax, ay, fh * 1.1, h * 0.1, h * 0.2, 'ty_door', seed + 1, night, alpha, false); }   // counter awning faces the street
-      neonBlade(ctx, cam, dx, dy, h * 0.58, h * 0.92, m.neon || '#ffcf3e', night, alpha);
-      if (night) glowPool(ctx, cam, dx, dy, h * 0.3, '255,200,120', 13, alpha * 0.24);              // warm window glow
+    case 'diner': {   // streamline diner — a long low stainless car under a curved barrel roof, glazed front, counter awning, rooftop neon
+      const hw = fh * 1.12, wallTop = h * 0.52, archH = hw * 0.34;
+      draw3DBoxAt(ctx, cam, dx, dy, hw, 0, wallTop, pal, seed, night, alpha, false);                                    // diner body (roof left open for the barrel)
+      drawBarrelRoof(ctx, cam, F, 0, hw, hw * 0.9, wallTop, archH, 12, alpha, [150, 150, 156]);                         // curved streamline stainless roof
+      { const [ax, ay] = F(0, fh * 0.95); draw3DBoxAt(ctx, cam, ax, ay, fh * 1.06, wallTop * 0.42, wallTop * 0.64, 'ty_door', seed + 1, night, alpha, false); }   // counter awning faces the street
+      neonBlade(ctx, cam, dx, dy, wallTop + archH, wallTop + archH + h * 0.42, m.neon || '#ffcf3e', night, alpha);      // rooftop neon sign
+      if (night) { const [wx, wy] = F(0, fh * 0.92); glowPool(ctx, cam, wx, wy, wallTop * 0.5, '255,200,120', 13, alpha * 0.26); }   // warm window band
       break;
     }
     case 'armory': {   // Ironside Arms: a squat riveted blockhouse — heavy overhanging parapet, vault door, slit-window glow
@@ -4633,7 +5081,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       draw3DBoxAt(ctx, cam, dx, dy, fh * 1.08, 0, h * 0.55, pal, seed, night, alpha, true);                // shed
       for (const s of [-1, 1]) { const [lx, ly] = F(s * fh * 0.8, 0); draw3DBoxAt(ctx, cam, lx, ly, fh * 0.06, 0, h * 0.85, 'ty_fab_steel', seed + s + 2, night, alpha, false); }   // gantry legs
       { const [l0x, l0y] = F(-fh * 0.8, 0), [l1x, l1y] = F(fh * 0.8, 0); const a = cam.proj(l0x, l0y, h * 0.85), b = cam.proj(l1x, l1y, h * 0.85);
-        if (a.f > 0.1 && b.f > 0.1) emitFace(ON_TOP, () => { ctx.globalAlpha = alpha; ctx.strokeStyle = 'rgba(90,96,104,0.95)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); ctx.globalAlpha = 1; }); }   // crane spanning beam
+        if (a.f > 0.1 && b.f > 0.1) emitFace(decoDepth(a.f, b.f), () => { ctx.globalAlpha = alpha; ctx.strokeStyle = 'rgba(90,96,104,0.95)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); ctx.globalAlpha = 1; }); }   // crane spanning beam
       { const [fx, fy] = F(fh * 0.55, -fh * 0.3); drawSmoke(ctx, cam, fx, fy, h * 0.55, '90,86,80', alpha * 0.7, now, seed + 5); }   // flue smoke
       if (night) glowPool(ctx, cam, dx, dy, h * 0.2, '255,150,70', 10, alpha * 0.24);                       // welding spark glow
       break;
@@ -4642,7 +5090,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       draw3DBoxAt(ctx, cam, dx, dy, fh * 1.02, 0, h * 0.44, pal, seed, night, alpha, true);                // shed
       const [mx, my] = F(-fh * 0.4, -fh * 0.2); draw3DBoxAt(ctx, cam, mx, my, fh * 0.08, 0, h * 1.2, 'ty_wharf_steel', seed + 2, night, alpha, false);   // crane mast
       { const top = cam.proj(mx, my, h * 1.2), [jx, jy] = F(fh * 0.5, fh * 0.9), jib = cam.proj(jx, jy, h * 0.75);
-        if (top.f > 0.1 && jib.f > 0.1) emitFace(ON_TOP, () => { ctx.globalAlpha = alpha; ctx.strokeStyle = 'rgba(70,76,84,0.95)'; ctx.lineWidth = 2.4; ctx.beginPath(); ctx.moveTo(top.sx, top.sy); ctx.lineTo(jib.sx, jib.sy); ctx.stroke(); ctx.globalAlpha = 1; }); }   // jib over the water
+        if (top.f > 0.1 && jib.f > 0.1) emitFace(decoDepth(top.f, jib.f), () => { ctx.globalAlpha = alpha; ctx.strokeStyle = 'rgba(70,76,84,0.95)'; ctx.lineWidth = 2.4; ctx.beginPath(); ctx.moveTo(top.sx, top.sy); ctx.lineTo(jib.sx, jib.sy); ctx.stroke(); ctx.globalAlpha = 1; }); }   // jib over the water
       blinkLight(ctx, cam, mx, my, h * 1.2, '255,90,70', now, seed, alpha, 1.5);                            // crane tip light
       break;
     }
@@ -4660,11 +5108,108 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       if (night) glowPool(ctx, cam, dx, dy, h * 0.3, '255,196,120', 12, alpha * 0.18);
       break;
     }
+    case 'asc_spire': {   // The Spire: a chrome helix twisting harder than Halcyon, in Ascendant blue,
+      //                    with the calm-eye seal glowing on the plaza at its foot.
+      const asc = '74,168,255';
+      const baseZ = h * 0.24, topZ = h * 3.0, N = 24;
+      const twist = 1.8, fwBase = fh * 0.78;
+      const segZ = (i) => baseZ + (topZ - baseZ) * (i / N);
+      const segW = (i) => fwBase * (1 - 0.5 * (i / N));
+      const segYaw = (i) => twist * (i / N);
+      glowPool(ctx, cam, dx, dy, 0.02, asc, 14, alpha * (night ? 0.5 : 0.28));                 // the calm-eye seal on the plaza
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.28, 0, baseZ, pal, seed + 4, night, alpha, true);   // podium
+      { const [cx, cy] = F(0, fh * 1.04); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.8, h * 0.1, h * 0.22, 'ty_door', seed + 5, night, alpha, false); }
+      for (let i = 0; i < N; i++) draw3DBoxAt(ctx, cam, dx, dy, segW(i), segZ(i), segZ(i + 1), pal, seed + i, night, alpha, i === N - 1, segYaw(i));
+      for (const dir of [[-1, -1], [1, 1]]) {   // spiralling Ascendant-blue corner light-runners
+        const pts = [];
+        for (let i = 0; i <= N; i++) {
+          const w = segW(Math.min(i, N - 1)), ya = segYaw(i), cw = Math.cos(ya), sw = Math.sin(ya), lx = dir[0] * w, ly = dir[1] * w;
+          const p = cam.proj(dx + lx * cw - ly * sw, dy + lx * sw + ly * cw, segZ(i));
+          if (p.f > 0.12) pts.push(p);
+        }
+        if (pts.length > 1) emitFace(decoDepth(...pts.map(p => p.f)), () => {
+          ctx.save(); ctx.globalAlpha = alpha * (night ? 0.95 : 0.5);
+          ctx.strokeStyle = `rgba(${asc},0.9)`; ctx.lineWidth = 1.6; ctx.lineJoin = 'round';
+          if (night) { ctx.shadowColor = `rgb(${asc})`; ctx.shadowBlur = 8; }
+          ctx.beginPath(); pts.forEach((p, k) => k ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)); ctx.stroke();
+          ctx.shadowBlur = 0; ctx.restore();
+        });
+      }
+      draw3DBoxAt(ctx, cam, dx, dy, segW(N) * 0.9, topZ, topZ + h * 0.22, pal, seed + 20, night, alpha, true, twist * 1.06);   // crown
+      mast(ctx, cam, dx, dy, topZ + h * 0.22, topZ + h * 0.6, alpha, now, seed);
+      if (night) { glowPool(ctx, cam, dx, dy, baseZ, asc, 24, alpha * 0.3); glowPool(ctx, cam, dx, dy, topZ + h * 0.08, asc, 16, alpha * 0.3); }
+      blinkLight(ctx, cam, dx, dy, topZ + h * 0.6, asc, now, seed, alpha, 2);
+      break;
+    }
+    case 'asc_gate': {   // The Ascension Gate: a low fortified chrome slab — flanking pylons, two turret
+      //                   housings that track (red blink), and a bright scanline across the frontage.
+      const asc = '74,168,255';
+      const wall = h * 0.9;
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.15, 0, wall, pal, seed, night, alpha, true);                        // main slab
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.2, wall, wall + h * 0.12, pal, seed + 1, night, alpha, true);       // parapet cap
+      for (const s of [-1, 1]) { const [px, py] = F(s * fh * 1.0, fh * 1.0); draw3DBoxAt(ctx, cam, px, py, fh * 0.16, 0, wall * 1.25, pal, seed + 2 + (s > 0 ? 1 : 0), night, alpha, true); }   // flanking pylons
+      for (const s of [-1, 1]) {   // turret housings + red tracking blink
+        const [tx, ty] = F(s * fh * 0.55, fh * 0.2);
+        draw3DBoxAt(ctx, cam, tx, ty, fh * 0.14, wall + h * 0.12, wall + h * 0.26, 'ty_door', seed + 4 + (s > 0 ? 1 : 0), night, alpha, true);
+        blinkLight(ctx, cam, tx, ty, wall + h * 0.3, '255,90,80', now, seed + (s > 0 ? 2 : 1), alpha, 1.4);
+      }
+      if (frontVis) { const [gx, gy] = F(0, fh * 1.06); glowPool(ctx, cam, gx, gy, wall * 0.5, asc, 12, alpha * (night ? 0.6 : 0.35)); }   // scanline wash
+      break;
+    }
+    case 'asc_clinic': {   // Chrome Clinic: a clean pale block, set-back upper, cyan clinical glow + roof emblem.
+      const asc = '120,220,255';
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.1, 0, h * 0.7, pal, seed, night, alpha, true);
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.7, h * 0.7, h * 0.9, pal, seed + 1, night, alpha, true);            // set-back upper
+      { const [cx, cy] = F(0, fh * 1.02); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.7, h * 0.06, h * 0.18, 'ty_door', seed + 2, night, alpha, false); }
+      { const [ex, ey] = F(0, 0); draw3DBoxAt(ctx, cam, ex, ey, fh * 0.12, h * 0.9, h * 1.0, 'ty_door', seed + 3, night, alpha, true); glowPool(ctx, cam, ex, ey, h * 0.98, asc, 6, alpha * (night ? 0.7 : 0.4)); }   // roof emblem
+      if (night) glowPool(ctx, cam, dx, dy, h * 0.2, asc, 12, alpha * 0.25);
+      break;
+    }
+    case 'asc_weave': {   // The Weave: an open fab shed straddled by a gantry, a smoking flue, welding-spark glow.
+      const spark = '255,180,90';
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.15, 0, h * 0.6, pal, seed, night, alpha, true);                     // shed
+      for (const s of [-1, 1]) { const [lx, ly] = F(s * fh * 0.95, 0); draw3DBoxAt(ctx, cam, lx, ly, fh * 0.08, h * 0.6, h * 0.95, pal, seed + 1 + (s > 0 ? 1 : 0), night, alpha, false); }   // gantry legs
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.05, h * 0.88, h * 0.95, pal, seed + 3, night, alpha, false);        // gantry span
+      { const [fx, fy] = F(-fh * 0.6, -fh * 0.4); draw3DBoxAt(ctx, cam, fx, fy, fh * 0.12, h * 0.6, h * 1.1, 'ty_door', seed + 4, night, alpha, true); drawSmoke(ctx, cam, fx, fy, h * 1.1, '150,150,150', alpha * 0.4, now, seed + 5); }   // flue + smoke
+      if (frontVis) { const [gx, gy] = F(0, fh * 1.0); glowPool(ctx, cam, gx, gy, 0.02, spark, 12, alpha * (night ? 0.5 : 0.3)); }   // spark spill
+      break;
+    }
+    case 'asc_vats': {   // The Vats: a windowless steel drum, coolant frost-band, vent pipes, cold base breath.
+      const cold = '120,200,255';
+      const steel = WALL_COL[pal] || [88, 102, 118];
+      const skin = (f) => { const s = 0.5 + f.nl * 0.55; return `rgba(${steel[0] * s | 0},${steel[1] * s | 0},${steel[2] * s | 0},0.97)`; };
+      const cap = night ? 'rgba(40,52,64,0.97)' : 'rgba(150,168,186,0.97)';
+      drawFacetDrum(ctx, cam, dx, dy, 0, h * 1.1, fh * 0.95, fh * 0.9, 12, alpha, skin, cap);                  // the drum
+      for (const s of [-1, 1]) { const [px, py] = F(s * fh * 0.4, 0); draw3DBoxAt(ctx, cam, px, py, fh * 0.1, h * 1.1, h * 1.35, 'ty_door', seed + 1 + (s > 0 ? 1 : 0), night, alpha, true); }   // vent pipes
+      drawRing(ctx, cam, dx, dy, h * 0.55, fh * 0.97, 12, `rgba(${cold},${night ? 0.7 : 0.35})`, 1.4, alpha);  // coolant band
+      glowPool(ctx, cam, dx, dy, 0.02, cold, 14, alpha * (night ? 0.55 : 0.3));                                // cold breath at the base
+      break;
+    }
+    case 'asc_shrine': {   // Architect Shrine: a black-glass slab leaning on the Curtain, server-rack glow,
+      //                     and a vertical uplink light-beam to the sky.
+      const asc = '74,168,255';
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.95, 0, h * 1.5, pal, seed, night, alpha, true);                     // tall slab
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.1, 0, h * 0.2, pal, seed + 1, night, alpha, true);                  // base
+      { const [wx, wy] = F(-fh * 0.9, 0); glowPool(ctx, cam, wx, wy, h * 0.8, asc, 10, alpha * (night ? 0.6 : 0.35)); }   // server-rack glow, Curtain side
+      mast(ctx, cam, dx, dy, h * 1.5, h * 2.1, alpha, now, seed);
+      emitFace(decoDepth(cam.proj(dx, dy, h * 1.5).f), () => {   // uplink beam
+        const a = cam.proj(dx, dy, h * 1.5), b = cam.proj(dx, dy, h * 2.6);
+        if (a.f > 0.1 && b.f > 0.1) {
+          ctx.save(); ctx.globalAlpha = alpha * (night ? 0.8 : 0.4); ctx.strokeStyle = `rgba(${asc},0.85)`; ctx.lineWidth = 2.4;
+          if (night) { ctx.shadowColor = `rgb(${asc})`; ctx.shadowBlur = 10; }
+          ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); ctx.shadowBlur = 0; ctx.restore();
+        }
+      });
+      blinkLight(ctx, cam, dx, dy, h * 2.6, asc, now, seed, alpha, 2);
+      break;
+    }
     case 'shop':
-    default: {   // low storefront + awning band + a small sign
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.15, 0, h * 0.7, pal, seed, night, alpha, true);
-      { const [gx, gy] = F(0, fh * 0.9); draw3DBoxAt(ctx, cam, gx, gy, fh * 1.15, h * 0.12, h * 0.2, 'ty_door', seed + 1, night, alpha, false); }   // storefront awning faces the street
-      neonBlade(ctx, cam, dx, dy, h * 0.7, h * 0.95, m.neon || '#5fd0ff', night, alpha);
+    default: {   // small mixed-use storefront: a glazed lit ground floor + residential floors above + awning + sign
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.0, 0, h * 0.4, 'ty_office', seed, night, alpha, true);      // glazed ground-floor retail (glass tone)
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.94, h * 0.4, h * 1.0, pal, seed + 2, night, alpha, true);    // residential floors above
+      { const [gx, gy] = F(0, fh * 0.92); draw3DBoxAt(ctx, cam, gx, gy, fh * 0.98, h * 0.32, h * 0.44, 'ty_door', seed + 1, night, alpha, false); }   // awning over the storefront
+      neonBlade(ctx, cam, dx, dy, h * 1.0, h * 1.26, m.neon || '#5fd0ff', night, alpha);
+      if (night) { const [wx, wy] = F(0, fh * 0.9); glowPool(ctx, cam, wx, wy, h * 0.2, '150,220,255', 10, alpha * 0.24); }   // lit storefront glow
       break;
     }
   }
@@ -4738,9 +5283,39 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
       drawBuildingShadow(ctx, cam, it.dx, it.dy, fh, h, sun, it.alpha);
     }
   }
+  // ONE depth-sorted face queue for the WHOLE world pass (not per-building). Every building's
+  // faces AND every atomic non-building object (statue, yacht, park/tree/rock billboards, curtain,
+  // nofly box) queue into a single sink and paint back→front TOGETHER — so ADJACENT buildings
+  // occlude each other correctly instead of each building painting as an atomic unit ordered only
+  // by its tile-centre distance (the "see-through / overlapping" bug on dense, tall clusters).
+  // Buildings emit their own faces directly (drawTypeModel/drawBuilding → draw3DBoxAt → emitFace);
+  // point-like objects are wrapped at their tile-centre depth `od` (in the projected-f frame that
+  // matches box faces: proj's f at a tile centre = it.f + back). During the final flush the sink is
+  // already null, so a wrapped drawer's own internal emitFace calls paint immediately — keeping each
+  // object internally ordered as before, just positioned correctly among the buildings.
+  // Decorations (glows, beacons, masts, signs, light-runners, holo ads) carry a REAL lifted depth via
+  // decoDepth — they sit on top of their own building but a nearer building correctly occludes them,
+  // instead of a distant landmark's crown/glow bleeding through everything in front (see decoDepth).
+  // Arm the shared N64 fog for the building pass (same colour/band as the Mode-7 floor, so ground and
+  // skyline dissolve into one wall). draw3DBoxAt reads FOG_STATE per face; cleared after the flush.
+  const fogAmt = RENDER_TUNE.fog || 0, fnm = 1 - night * 0.42;
+  const fogCol = [sky.hor[0] * fnm, sky.hor[1] * fnm, sky.hor[2] * fnm];
+  FOG_STATE = fogAmt > 0.001 ? { amt: fogAmt, col: fogCol, css: `rgb(${fogCol[0] | 0},${fogCol[1] | 0},${fogCol[2] | 0})` } : null;
+  // Arm the cyberpunk Gouraud vertex light (draw3DBoxAt reads LIGHT_STATE per wall). Key = the sun when
+  // it's up, else a fixed NW fill so night towers still model. Palette lerps day→toxic-neon by night.
+  const lStr = RENDER_TUNE.vlight ?? 1;
+  const keyUp = sun && sun.elev > 0.05;
+  LIGHT_STATE = lStr > 0.001 ? {
+    sx: keyUp ? sun.dir[0] : -0.707, sy: keyUp ? sun.dir[1] : -0.707, str: lStr,
+    sky: mix(hexRgb(RENDER_TUNE.vlSkyDay), hexRgb(RENDER_TUNE.vlSkyNight), night),
+    key: mix(hexRgb(RENDER_TUNE.vlKeyDay), hexRgb(RENDER_TUNE.vlKeyNight), night),
+    shadow: mix(hexRgb(RENDER_TUNE.vlShadowDay), hexRgb(RENDER_TUNE.vlShadowNight), night),
+  } : null;
+  beginFaces();
   for (const it of items) {
-    const alpha = it.alpha, bi = it.c.biome;
-    if (it.c.mark === 'statue') { drawStatue(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha, now); continue; }   // town-square monument + fountain
+    const alpha = it.alpha, bi = it.c.biome, od = it.f + (cam.back || 0);
+    if (it.c.mark === 'statue') { emitFace(od, () => drawStatue(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha, now)); continue; }   // town-square monument + fountain
+    if (it.c.mark === 'gate') { emitFace(od, () => drawSouthGate(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.c.cur || 'ew', it.seed, night, alpha, now)); continue; }   // the Curtain's fortified breach — flanking pylons + arch energy field + turrets
     if (it.c.mark === 'yacht') {
       // Normally she's drawn on her own tile (with a sub-tile glide while under way). While we're
       // PARKED on her deck (our own tile AND on the ground) we pin her AFT HELIPAD (yacht-local
@@ -4753,13 +5328,19 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
       const pinPad = it.c.self && v.onGround;
       const yx = pinPad ? Math.sin(hr) * padOY : it.dx + (sub ? sub.x : 0);
       const yy = pinPad ? -Math.cos(hr) * padOY : it.dy + (sub ? sub.y : 0);
-      drawYacht(ctx, cam, yx, yy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha, now, it.c.wake, it.c.heading, sun);
-      if (v.padDome) drawYachtPadDome(ctx, cam, yx, yy, hr, now, alpha, v.padDome.armed);
+      emitFace(od, () => {
+        drawYacht(ctx, cam, yx, yy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha, now, it.c.wake, it.c.heading, sun);
+        if (v.padDome) drawYachtPadDome(ctx, cam, yx, yy, hr, now, alpha, v.padDome.armed);
+      });
       continue;
     }   // the Echelon — a high-poly superyacht hull, sun-lit (wake/heading present only when she's under way; `sub` glides her sub-tile toward her destination across a passage). padDome = an auto-land guidance dome over her helipad, drawn for a nearby helicopter.
-    if (it.c.kind === 'nofly') { draw3DBox(ctx, cam, it.dx, it.dy, 0.3, 0.55, '__nofly', it.seed, night, alpha * 0.7); continue; }
-    if (bi === 'parkland') { drawTreeBB(ctx, cam, it.dx, it.dy, night, it.seed, alpha); continue; }
-    if (bi === 'badlands') { if ((it.seed % 3) === 0) drawRockBB(ctx, cam, it.dx, it.dy, night, it.seed, alpha); continue; }
+    if (it.c.kind === 'nofly') { emitFace(od, () => draw3DBox(ctx, cam, it.dx, it.dy, 0.3, 0.55, '__nofly', it.seed, night, alpha * 0.7)); continue; }
+    if (it.c.cur) { emitFace(od, () => drawCurtainWall(ctx, cam, it.dx, it.dy, it.c.cur, alpha, now)); continue; }   // the Curtain energy wall on a land-edge tile
+    if (bi === 'park') { emitFace(od, () => drawParkTile(ctx, cam, it.dx, it.dy, night, it.seed, alpha, now, it.c.pf)); continue; }   // manicured park: authored `park_feature` (symmetry) or a seeded dressing (grove / pond / benches / flowerbeds / path)
+    if (bi === 'parkland') { emitFace(od, () => drawTreeBB(ctx, cam, it.dx, it.dy, night, it.seed, alpha)); continue; }
+    if (bi === 'badlands') { if ((it.seed % 3) === 0) emitFace(od, () => drawRockBB(ctx, cam, it.dx, it.dy, night, it.seed, alpha)); continue; }
+    // Arid wildlands: scattered rocks/boulders. Rust mesa (redrock) is rockier than scrub/ash.
+    if (bi === 'scrub' || bi === 'redrock' || bi === 'ash') { if ((it.seed % (bi === 'redrock' ? 2 : 3)) === 0) emitFace(od, () => drawRockBB(ctx, cam, it.dx, it.dy, night, it.seed, alpha)); continue; }
     // Trees & small forests on OPEN grass (no building, no road here). A coarse per-area hash
     // makes whole ~4-tile patches lean wooded or clear, so stands cluster into small forests
     // instead of a uniform sprinkle; sparse areas still get the odd lone tree. Deterministic
@@ -4769,7 +5350,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
       const tileRoll = frac(it.wx * 57.1 + it.wy * 199.7);
       const bias = RENDER_TUNE.treeForest;
       const density = (areaBias > bias ? 0.32 + (areaBias - bias) * 1.3 : areaBias * 0.12) * RENDER_TUNE.treeDensity;   // wooded patch vs. lone trees, scaled by the Trees slider
-      if (tileRoll < density) drawTreeBB(ctx, cam, it.dx, it.dy, night, it.seed, alpha);
+      if (tileRoll < density) emitFace(od, () => drawTreeBB(ctx, cam, it.dx, it.dy, night, it.seed, alpha));
       continue;
     }
     // Only a real building tile (has `bt`) extrudes a 3-D building — a plain terrain tile
@@ -4787,20 +5368,21 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // the same mass; a non-building tile falls back to the shared biome archetype set
     // (industrial stacks, freight containers, cooling towers, broken ruins, neon marquee, …).
     const m = modelFor(it.c);
-    // Collect THIS building's faces into a per-building queue and paint them depth-sorted, so a
-    // sub-part (a tower, a marquee) can't over-paint nearer geometry of the same building (the
-    // "see-through" bug). Between-building order is still the far→near tile sort above.
-    beginFaces();
+    // Emit THIS building's faces into the SHARED world sink (opened before the loop): its sub-parts
+    // depth-sort against each other AND against every other building's faces, so a tower/marquee
+    // can't over-paint nearer geometry of the same building OR of a neighbour (the "see-through"
+    // bug). One flushFaces() after the loop paints the whole district back→front.
     if (m) drawTypeModel(ctx, cam, it.dx, it.dy, fh, h, m, it.seed, night, alpha, now, face);
     else drawBuilding(ctx, cam, it.dx, it.dy, fh, h, arch, it.seed, night, alpha, now);
     // Rooftop holo-ad: a flickering translucent sign floating over ~1 in 4 tall-ish city
     // buildings at night — post-singularity advertising, half its pixels dead. Generic
     // buildings only: named landmarks (m) carry their own bespoke rooftop signage.
-    if (!m && night > 0.3 && h > 0.35 && (it.seed % 4) === 0) drawHoloAd(ctx, cam, it.dx, it.dy, fh, h, it.seed, now, alpha * night);
+    if (!m && night > 0.3 && h > 0.35 && (it.seed % 7) === 0) drawHoloAd(ctx, cam, it.dx, it.dy, fh, h, it.seed, now, alpha * night);   // rooftop holo-ad on ~1 in 7 tall buildings (was 1 in 4 — too many flickering at once)
     // Warm bloom over the lit windows so near towers read as emitting light at night.
     if (night > 0.45) drawCityBloom(ctx, cam, it.dx, it.dy, h, night, alpha);
-    flushFaces();
   }
+  flushFaces();   // ONE depth-sorted paint across every building + object collected this pass
+  FOG_STATE = null; LIGHT_STATE = null;   // scoped to this world pass only — never bleed into the HUD/deck/yacht draws
 }
 
 // The town-square monument: a heroic bronze figure on a stone plinth, ringed by a working
@@ -4851,6 +5433,79 @@ function drawStatue(ctx, cam, dx, dy, fh, seed, night, alpha, now) {
   // 5. Night — warm uplight on the figure + a cool glimmer off the pool.
   if (night) { glowPool(ctx, cam, dx, dy, figTop * 0.6, '255,220,150', 15, alpha * 0.32); glowPool(ctx, cam, dx, dy, 0.02, '90,160,205', 18, alpha * 0.22); }
   ctx.restore();
+}
+
+// The South Gate — the Curtain's single lit breach, a fortified sally-port straddling the road.
+// Two battered blast-pylons flank the road gap; a heavy lintel beam bridges them; the Curtain's
+// "hard light" energy field fills the arch ABOVE the road (a lit gap you fly/drive through, open
+// at the bottom); a turret mast crowns each pylon (a barrel tracking out over the killing ground,
+// red blink) and hazard strobes wash the scorched threshold. `axis` is the Curtain run on its
+// neighbours (curtainRun) — the wall runs along it, so the pylons stand on the wall line and the
+// road passes through the perpendicular gap. Rises above CURTAIN_H so the gate reads as the
+// tallest, most deliberate thing on the whole perimeter.
+const GATE_H = 1.05;
+function drawSouthGate(ctx, cam, dx, dy, foot, axis, seed, night, alpha, now) {
+  const ew = axis.indexOf('e') >= 0 || axis.indexOf('w') >= 0;
+  const wx = ew ? 1 : 0, wy = ew ? 0 : 1;          // unit along the wall (where the pylons sit)
+  const gx = ew ? 0 : 1, gy = ew ? 1 : 0;          // unit along the road gap (perpendicular, points "out")
+  const po = 0.34, pf = 0.15;                       // pylon offset from tile centre + half-footprint
+  const pal = 'ty_gate', palDk = 'ty_gate_dk';
+  // 1. Two flanking blast-pylons — a battered three-box stack each (base → setback shaft → overhang cap).
+  for (const s of [-1, 1]) {
+    const px = dx + wx * po * s, py = dy + wy * po * s;
+    draw3DBoxAt(ctx, cam, px, py, foot * pf,        0,             GATE_H * 0.55, pal,   seed + s,     night, alpha, true);
+    draw3DBoxAt(ctx, cam, px, py, foot * pf * 0.82, GATE_H * 0.55, GATE_H * 0.94, pal,   seed + 2 + s, night, alpha, true);
+    draw3DBoxAt(ctx, cam, px, py, foot * pf * 1.14, GATE_H * 0.94, GATE_H,        palDk, seed + 4 + s, night, alpha, true);
+  }
+  // 2. Heavy lintel beam bridging the pylons over the road — three squat boxes across the wall span.
+  for (const t of [-0.17, 0, 0.17]) {
+    const lx = dx + wx * t, ly = dy + wy * t;
+    draw3DBoxAt(ctx, cam, lx, ly, foot * 0.14, GATE_H * 0.8, GATE_H * 0.94, palDk, seed + 9 + t * 100, night, alpha, true);
+  }
+  // 3. The Curtain "hard light" field filling the arch above the road — a translucent shimmering
+  //    panel between the pylons' inner faces, from road-clearance up to the lintel underside. Open
+  //    below (the drive/fly-through). Additive cyan→violet with descending energy rain + a crown line.
+  {
+    const inr = po - pf * 0.35, z0 = GATE_H * 0.34, z1 = GATE_H * 0.8;
+    const ax = dx - wx * inr, ay = dy - wy * inr, bx = dx + wx * inr, by = dy + wy * inr;
+    const tA = cam.proj(ax, ay, z1), tB = cam.proj(bx, by, z1), bA = cam.proj(ax, ay, z0), bB = cam.proj(bx, by, z0);
+    if (tA.f > 0.1 && tB.f > 0.1 && bA.f > 0.1 && bB.f > 0.1) {
+      ctx.save();
+      ctx.beginPath(); ctx.moveTo(tA.sx, tA.sy); ctx.lineTo(tB.sx, tB.sy); ctx.lineTo(bB.sx, bB.sy); ctx.lineTo(bA.sx, bA.sy); ctx.closePath();
+      const topY = (tA.sy + tB.sy) / 2, botY = (bA.sy + bB.sy) / 2, span = (botY - topY) || 1;
+      const pulse = 0.5 + 0.5 * Math.sin(now / 320);
+      const g = ctx.createLinearGradient(0, topY, 0, botY);
+      g.addColorStop(0,   `rgba(225,252,255,${0.55 * alpha})`);
+      g.addColorStop(0.5, `rgba(110,215,255,${(0.30 + 0.12 * pulse) * alpha})`);
+      g.addColorStop(1,   `rgba(120,120,255,${(0.16 + 0.08 * pulse) * alpha})`);
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = g; ctx.fill(); ctx.clip();
+      const lerp = (t, side) => side === 0
+        ? { x: tA.sx + (bA.sx - tA.sx) * t, y: tA.sy + (bA.sy - tA.sy) * t }
+        : { x: tB.sx + (bB.sx - tB.sx) * t, y: tB.sy + (bB.sy - tB.sy) * t };
+      for (let k = 0; k < 8; k++) {
+        const t = (now / 900 + k / 8) % 1, pA = lerp(t, 0), pB = lerp(t, 1);
+        ctx.strokeStyle = `rgba(210,248,255,${(0.06 + 0.12 * (1 - t)) * alpha})`; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(pA.x, pA.y); ctx.lineTo(pB.x, pB.y); ctx.stroke();
+      }
+      ctx.strokeStyle = `rgba(230,254,255,${(0.6 + 0.3 * pulse) * alpha})`; ctx.lineWidth = 2;   // hot crown line under the lintel
+      ctx.beginPath(); ctx.moveTo(tA.sx, tA.sy); ctx.lineTo(tB.sx, tB.sy); ctx.stroke();
+      ctx.restore();
+    }
+  }
+  // 4. Turret mast per pylon: a housing, a barrel raked out over the killing ground, a tracking blink,
+  //    and an aviation-lit sensor mast above. Plus floodlit scorched threshold + a warm gap wash.
+  for (const s of [-1, 1]) {
+    const px = dx + wx * po * s, py = dy + wy * po * s;
+    draw3DBoxAt(ctx, cam, px, py, foot * pf * 0.42, GATE_H, GATE_H * 1.14, 'ty_door', seed + 6 + s, night, alpha, true);   // turret housing
+    { const bx = px + gx * 0.14, by = py + gy * 0.14; draw3DBoxAt(ctx, cam, bx, by, foot * 0.05, GATE_H * 1.04, GATE_H * 1.09, 'ty_door', seed + 7 + s, night, alpha, false); }   // barrel, raked outward
+    blinkLight(ctx, cam, px, py, GATE_H * 1.18, '255,80,72', now, seed + s, alpha, 1.5);
+    mast(ctx, cam, px, py, GATE_H * 1.14, GATE_H * 1.5, alpha, now, seed + s);
+    if (night) glowPool(ctx, cam, px, py, 0.02, '255,210,150', 10, alpha * 0.4);   // pylon floodlight spill on the road
+  }
+  // The lit throat of the gap — a cold energy wash on the threshold, brighter at night.
+  { const gxp = dx + gx * 0.28, gyp = dy + gy * 0.28; glowPool(ctx, cam, gxp, gyp, 0.02, '150,225,255', 14, alpha * (night ? 0.5 : 0.28)); }
+  blinkLight(ctx, cam, dx, dy, GATE_H * 0.96, '255,190,90', now, seed + 3, alpha, 1.8);   // amber gate beacon on the lintel
 }
 
 // The Echelon — a long, low, mirror-black superyacht sitting on the open water, bow to the
@@ -5315,7 +5970,11 @@ function shadowScale(cls) { return 0.42 * (CONTACT_SIZE[cls] || SHADOW_REF) / SH
 // nose along heading `hr` (radians), scaled by `L` tiles. Each vertex is projected through
 // the camera so the shape lies flat on the surface and skews correctly with perspective.
 // Shared by the sun-cast shadow and the grounded contact shadow.
-function paintShadowSilhouette(ctx, cam, gx, gy, hr, L, alpha, cls) {
+// `soft` (0..1) blurs the edges into a penumbra: 0 = a crisp planted contact shadow, →1 =
+// the diffuse smear a craft casts from altitude. The blur radius tracks the shadow's on-screen
+// size (via cam.FL / forward-distance) so a near shadow softens more px than a far one and the
+// look holds across the whole depth range.
+function paintShadowSilhouette(ctx, cam, gx, gy, hr, L, alpha, cls, soft = 0) {
   const cs = Math.cos(hr), sn = Math.sin(hr);
   // craft-local (fwd,side) → world ground (z=0) → screen. forward = (sin,-cos), right = (cos,sin).
   const S = (fwd, side) => cam.proj(gx + fwd * sn + side * cs, gy - fwd * cs + side * sn, 0);
@@ -5329,6 +5988,12 @@ function paintShadowSilhouette(ctx, cam, gx, gy, hr, L, alpha, cls) {
   ctx.save();
   ctx.globalAlpha = alpha;
   ctx.fillStyle = 'rgb(6,8,12)';
+  if (soft > 0.01) {
+    const c = cam.proj(gx, gy, 0);
+    const pxPerTile = c.f > 0.1 ? cam.FL / c.f : 40;   // screen px per world tile at the shadow's distance
+    const blurPx = clamp(pxPerTile * L * soft * 0.55, 0.6, 30);
+    ctx.filter = `blur(${blurPx.toFixed(1)}px)`;
+  }
   if (cls === 'heli') {   // rotor disc + a stubby body
     const disc = [], body = [[0.62, 0], [0.1, 0.16], [-0.7, 0.12], [-0.7, -0.12], [0.1, -0.16]];
     for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2; disc.push([Math.cos(a) * 0.95, Math.sin(a) * 0.95]); }
@@ -5340,21 +6005,26 @@ function paintShadowSilhouette(ctx, cam, gx, gy, hr, L, alpha, cls) {
 }
 
 // The aircraft's own shadow on the ground — the airframe projected down onto the surface at
-// the point the sun casts it, sliding away and shrinking with altitude. Reads as a height cue
-// on a low, sun-behind pass; naturally culled when it wouldn't be visible.
+// the point the sun casts it. It slides away, shrinks, fades AND softens with altitude, so the
+// growing gap + growing blur read together as a height gauge. Rather than clamping the reach and
+// hard-culling past the draw distance (which snapped the shadow under the nose and then blinked
+// it out on climb-out), the true cast point runs free and the shadow soft-FADES over the last
+// few tiles before the far plane — a low-sun cast point dissolves toward the horizon instead.
 function drawAircraftShadow(ctx, cam, height, sun, worldBlend, heading, cls) {
   const sd = sun.shadowDir, alt = clamp(height, 0, 1);
-  // Offset the shadow toward the anti-sun direction, but CAP the reach: the true sun-cast point
-  // runs to ~24 tiles at altitude, past the 20-tile draw distance, so the shadow was culled the
-  // instant you climbed ("no shadow" in the air). Clamp it to a few tiles so it stays on the
-  // visible ground below the craft — a readable height cue that never silently disappears.
-  const reach = Math.min(3.2, alt * 6 / Math.max(0.25, sun.elev));
+  // Physical-ish sun cast: offset ≈ altitude / tan(elevation), toward the anti-sun direction.
+  // There's room to let it run — the ground draws to VISIBLE_FAR_F (34 tiles), far past the old
+  // 3.2-tile clamp — so the shadow genuinely trails the craft as it climbs.
+  const reach = alt * 10 / Math.max(0.35, sun.elev);
   const cxw = sd[0] * reach, cyw = sd[1] * reach;
   const p = cam.proj(cxw, cyw, 0);
-  if (p.f <= 0.12 || p.f > VISIBLE_FAR_F) return;
+  if (p.f <= 0.12) return;
+  const farFade = clamp((VISIBLE_FAR_F - p.f) / 8, 0, 1);   // dissolve over the last 8 tiles, no hard cull
+  if (farFade <= 0.01) return;
   const hr = (heading || 0) * Math.PI / 180;
+  const soft = clamp(0.15 + alt * 0.85, 0, 1);   // crisp near the deck → diffuse smear up high
   paintShadowSilhouette(ctx, cam, cxw, cyw, hr, shadowScale(cls) * (1 - alt * 0.4),
-    clamp(sun.alpha * 1.5 * worldBlend * (1 - alt * 0.5), 0, 0.4), cls);
+    clamp(sun.alpha * 1.5 * worldBlend * (1 - alt * 0.5) * farFade, 0, 0.4), cls, soft);
 }
 
 // A soft contact shadow directly beneath the craft, present whenever it's on the ground
@@ -5366,7 +6036,7 @@ function drawGroundContactShadow(ctx, cam, heading, cls, strength) {
   const hr = (heading || 0) * Math.PI / 180;
   // Alpha rides on `strength` only (NOT worldBlend, which is 0 on the deck — that zeroed the
   // shadow exactly when the craft is parked and it should read most solid).
-  paintShadowSilhouette(ctx, cam, 0, 0, hr, shadowScale(cls), clamp(0.36 * strength, 0, 0.36), cls);
+  paintShadowSilhouette(ctx, cam, 0, 0, hr, shadowScale(cls), clamp(0.36 * strength, 0, 0.36), cls, 0.14);
 }
 
 const HOLO_COLS = ['90,200,255', '255,90,160', '120,255,140', '255,200,80', '180,120,255'];
@@ -5374,12 +6044,12 @@ const HOLO_COLS = ['90,200,255', '255,90,160', '120,255,140', '255,200,80', '180
 // roof with scanline bars, stuttering and dropping frames (half its pixels dead).
 function drawHoloAd(ctx, cam, dx, dy, fh, h, seed, now, alpha) {
   const col = HOLO_COLS[seed % HOLO_COLS.length];
-  const z0 = h * 1.03, z1 = h * (1.28 + frac(seed) * 0.18), w = fh * (0.7 + frac(seed + 1) * 0.5);
+  const z0 = h * 1.03, z1 = h * (1.28 + frac(seed) * 0.18), w = fh * (0.5 + frac(seed + 1) * 0.4);   // width kept ≤ fh (≤0.9·fh) so the ad never overhangs its own tile into the street (was up to 1.2·fh)
   const b0 = cam.proj(dx - w, dy, z0), b1 = cam.proj(dx + w, dy, z0), t1 = cam.proj(dx + w, dy, z1), t0 = cam.proj(dx - w, dy, z1);
   if ([b0, b1, t1, t0].some((p) => p.f <= 0.12)) return;
   const dropped = frac(Math.floor(now * 0.018) + seed) < 0.16;   // some frames blink out entirely
   const flick = (0.45 + 0.55 * Math.abs(Math.sin(now * 0.006 + seed))) * (dropped ? 0.15 : 1);
-  emitFace(ON_TOP, () => {
+  emitFace(decoDepth(b0.f, b1.f, t1.f, t0.f), () => {
     ctx.save(); ctx.globalAlpha = alpha;
     ctx.fillStyle = `rgba(${col},${0.16 * flick})`;
     ctx.beginPath(); ctx.moveTo(t0.sx, t0.sy); ctx.lineTo(t1.sx, t1.sy); ctx.lineTo(b1.sx, b1.sy); ctx.lineTo(b0.sx, b0.sy); ctx.closePath(); ctx.fill();

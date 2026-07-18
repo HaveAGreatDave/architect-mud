@@ -1,0 +1,72 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": {
+        "next": "wait",
+        "type": "start"
+      },
+      "wait": {
+        "next": "start",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "\"The body is hardware. I don't know why everyone gets so sentimental about their hardware.\"",
+    "\"First install's always the hard one. After that you stop asking what you're losing.\""
+  ],
+  "description": "A composed woman in a bandage-pale smock, chromed gloves that never quite come off, one magnifying ocular clipped over an eye that is already better than yours. She prices you the way a mechanic prices a trade-in — not unkindly, just accurately.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Come back when you're ready to upgrade.\" She's already prepping the chair for someone else."
+    },
+    "how": {
+      "options": [
+        {
+          "label": "Understood.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Say <b>augment</b> and I'll show you what your standing and your credits can carry. <b>augment install &lt;name&gt;</b> in the theatre and you'll walk out better than you came in. Fair warning: the first chrome burns out any mutation you're carrying. Chrome doesn't share a body with the old evolution — and it won't mutate again, so radiation stops being your problem.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "How does this work?",
+          "next": "how"
+        },
+        {
+          "label": "Just browsing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Sit if you like. I'm Kesh.\" The ocular whirs, focusing on your least-improved parts. \"You've got good bones. Be a shame to die with them still original.\""
+    }
+  },
+  "faction": "ideology_ascendants",
+  "flags": {
+    "clothing_layers": [
+      "a surgical smock the colour of a fresh bandage",
+      "chromed gloves that never quite come off",
+      "a magnifying ocular clipped over one eye"
+    ],
+    "mis_willing": false,
+    "personality": "doctor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_asc_clinic_consult",
+  "hp": 30,
+  "hp_max": 30,
+  "id": "npc_asc_kesh",
+  "name": "Dr Sable Kesh",
+  "npc_type": "civilian",
+  "sex": "female",
+  "studio_zone_id": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_asc_clinic_consult"
+}

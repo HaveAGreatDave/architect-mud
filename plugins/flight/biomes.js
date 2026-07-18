@@ -17,16 +17,22 @@
 
 export const BIOMES = [
   'water', 'docks', 'ruins', 'oldcoldwater', 'badlands', 'industrial', 'infra',
-  'freight', 'marquee', 'citycore', 'parkland', 'uptown', 'civic', 'airport',
+  'freight', 'marquee', 'citycore', 'parkland', 'park', 'uptown', 'civic', 'airport',
+  'scrub', 'redrock', 'ash',   // the arid wildlands beyond the Curtain (dry, not water)
+  'asphalt', 'concrete', 'pier',   // painted paved surfaces — read as tarmac/slab/planking, NOT grass
 ];
 
-// An authored terrain type (flags.terrain, painted in the dev panel) maps to the
-// nearest existing ground biome for the flight-sim tint. 'road' is drawn by the
-// road channel (flags.icon/artery), not the biome, so it is intentionally absent.
+// An authored terrain type (flags.terrain, painted in the dev panel) maps to a
+// ground biome for the flight-sim tint. 'road' is drawn by the road channel
+// (flags.icon/artery), not the biome, so it is intentionally absent. Paved paints
+// (asphalt/concrete/dock) get their OWN biomes rather than borrowing citycore/docks —
+// those are in GRASS_BIOMES, so routing through them painted the pavement green.
 const TERRAIN_BIOME = {
-  water: 'water', dock: 'docks', grass: 'parkland',
-  asphalt: 'citycore', concrete: 'citycore',
+  water: 'water', dock: 'pier', grass: 'parkland', park: 'park',
+  asphalt: 'asphalt', concrete: 'concrete',
   dirt: 'badlands', sand: 'badlands', gravel: 'badlands',
+  // The wildlands read arid & desolate — dry scrub flats and rust mesa, never water.
+  scrub: 'scrub', redrock: 'redrock', ash: 'ash', marsh: 'badlands',
 };
 
 // The tag used for the map/silhouettes — airfields read as 'airport'.

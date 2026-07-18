@@ -45,19 +45,32 @@ const GATES = [
 const LANDING_FIELD = 'zone_district_925_903';
 const PASS_GRADES = new Set(['A+', 'A', 'A-', 'B+', 'B', 'B-']);
 
-// The opening brief — this is the "explain the controls" step, including the inverted
-// yoke (drag DOWN = pull back = climb), grounded in the real cockpit.js mapping.
-const CONTROLS_BRIEF =
-  'CHECKRIDE — Controls: the ENGINE switch lights her up · throttle with A (add) / Z (cut) · ' +
-  'steer with the mouse yoke: drag left/right to bank, and — she\'s inverted like a real control ' +
-  'column — drag DOWN to pull back and CLIMB, up to descend. First: flip the ENGINE switch.';
-
+// The per-stage instruction cards. These stay up on-screen for the whole stage (the
+// cockpit renders them as a persistent guidance panel, not a fleeting toast), so each
+// one is a full "how to fly this bit" brief. The inverted yoke (drag DOWN = pull back =
+// climb) is grounded in the real cockpit.js mapping.
 const INSTRUCTIONS = {
-  [STAGE.STARTUP]: CONTROLS_BRIEF,
-  [STAGE.TAKEOFF]: 'Throttle up (A). As she comes alive, drag the yoke DOWN to rotate and fly her off the runway.',
-  [STAGE.RINGS]:   'Fly through the glowing rings — climb through the high one, bank into the turns, then ease down.',
-  [STAGE.LAND]:    'Now bring her home to Coldwater Regional and set her down — Grade B or better.',
+  [STAGE.STARTUP]: 'Controls check: the THROTTLE is A (add) / Z (cut). The YOKE is your mouse — drag left/right to bank, ' +
+    'and she\'s inverted like a real control column: drag DOWN to pull back and CLIMB, up to descend. ' +
+    'To begin, flip the glowing ENGINE master (⏻).',
+  [STAGE.TAKEOFF]: 'Push the THROTTLE up to full (A). As the speed tape comes alive and she gets light on her wheels, ' +
+    'drag the YOKE DOWN to rotate — nose up — and fly her off the runway. Keep the wings level as you climb away.',
+  [STAGE.RINGS]:   'Fly the circuit through the glowing rings in order. Climb to the first, bank into the turns with the ' +
+    'YOKE, then ease the nose down toward the last. Watch the altitude tape — each ring has a target height.',
+  [STAGE.LAND]:    'Bring her home to Coldwater Regional. Line up on the runway from the south, ease the THROTTLE back (Z) ' +
+    'to bleed off speed, and hold a gentle descent on the YOKE. Set her down soft — Grade B or better to pass.',
 };
+
+// Human-readable stage label + which cockpit control(s) the client should spotlight for
+// each stage (keys map to DOM ids in cockpit.js: engine → #fsim-eng, throttle → #fsim-thr,
+// yoke → #fsim-yoke). The card and the glow together keep the player oriented.
+const STAGE_NAME = {
+  [STAGE.STARTUP]: 'STARTUP', [STAGE.TAKEOFF]: 'TAKEOFF', [STAGE.RINGS]: 'CLIMB & TURNS', [STAGE.LAND]: 'LANDING',
+};
+const HIGHLIGHT = {
+  [STAGE.STARTUP]: ['engine'], [STAGE.TAKEOFF]: ['throttle', 'yoke'], [STAGE.RINGS]: ['yoke'], [STAGE.LAND]: ['throttle', 'yoke'],
+};
+const STAGE_TOTAL = 4;
 
 // pid -> ride state. Transient; the licence flag is the only persisted result.
 const checkrides = new Map();
@@ -71,6 +84,10 @@ export function hasActiveCheckride(pid) { return checkrides.has(pid); }
 function syncState(live, state) {
   state.clientView = {
     stage: state.stage,
+    stageName: STAGE_NAME[state.stage],
+    stageNum: state.stage + 1,
+    stageTotal: STAGE_TOTAL,
+    highlight: HIGHLIGHT[state.stage] || [],
     instruction: state.instruction,
     gates: state.stage === STAGE.RINGS ? state.gates : [],
     gateIdx: state.gateIdx,

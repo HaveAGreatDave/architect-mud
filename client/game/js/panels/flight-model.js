@@ -426,11 +426,23 @@ export function step(state, input, p, dt) {
   const wasStalled = s.stalled;
   // Stall needs slow AND high AoA (nose up). Nosing DOWN drops the AoA, so a dive
   // always builds speed and recovers — it can never stall.
-  const preStall = !s.onGround && s.airspeed < stallSpeed && s.aoa > 4;
+  // HYSTERESIS so she breaks crisply AT the stall speed instead of far below it: as the wing bleeds
+  // toward Vs it mushes and sinks, and that sink builds speed back over Vs (§8) — which kept nudging
+  // airspeed a hair above the threshold and RESETTING the timer, so the break only ever committed
+  // once energy was truly gone (~½ Vs, a long parachuting mush). Once she first dips below Vs at high
+  // AoA the break ARMS and stays armed through that mush jitter; it only disarms when speed genuinely
+  // recovers (>1.08·Vs) or the nose drops (AoA < 4). Net: a clean wing-drop right at the stall speed.
+  // FLARE = flaps out or in ground effect: keep the ORIGINAL forgiving behaviour untouched (plain
+  // threshold, the long STALL_HOLD grace) so you can bleed to touchdown speed without letting go.
+  // The crisp break + hysteresis apply ONLY up high & clean — that's where the classic wing-drop lives.
+  const flareRegime = flaps > 0.2 || s.altitude < GROUND_EFFECT_FT;
+  const armSpeed = flareRegime ? stallSpeed : (s.stallTimer > 0 ? stallSpeed * 1.08 : stallSpeed * 1.04);
+  const preStall = !s.onGround && s.airspeed < armSpeed && s.aoa > 4;
   // Recovers FAST the instant you unload — level out with power (speed climbs back over
   // the stall speed) or nose down (AoA drops below 4) and the timer bleeds off quickly.
+  const stallHold = flareRegime ? STALL_HOLD : 0.5;
   s.stallTimer = preStall ? s.stallTimer + dt : Math.max(0, s.stallTimer - dt * 6);
-  s.stalled = s.stallTimer >= STALL_HOLD;
+  s.stalled = s.stallTimer >= stallHold;
   if (s.stalled && !wasStalled) {
     s.events.push({ type: 'stall' });
     // Which wing lets go first — follow any existing bank/aileron, else drop the left. Held for this stall.

@@ -1,0 +1,32 @@
+{
+  "ambient_events": [
+    "The whole south wall weeps, groundwater sheeting down it in a thin cold curtain.",
+    "Behind the running water something pale shifts, or seems to.",
+    "The drip here is constant enough that you stop hearing it, which feels like a mistake."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#151d1c",
+  "color": "#8fae9a",
+  "created_by": "the-under",
+  "description": "A long gallery where the water table has found the tunnel and never left. The south wall runs with groundwater year-round, slick and black and cold, and the floor is a shallow moving sheet. A cross-passage east ties back into the descending shaft; the way on drops south into deeper water.",
+  "exits": {
+    "north": "zone_under_junction",
+    "east": "zone_under_laddershaft",
+    "south": "zone_under_floodsub"
+  },
+  "flags": {
+    "district": "sewer",
+    "is_interior": true,
+    "scavenging_table_id": "scav_sewer"
+  },
+  "grid_x": 923,
+  "grid_y": 905,
+  "grid_z": -1,
+  "id": "zone_under_weepwall",
+  "map_id": "map_world",
+  "marker": "▚",
+  "name": "Weeping Wall",
+  "parent_zone": null,
+  "updated_at": "1784000000"
+}

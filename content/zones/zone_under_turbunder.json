@@ -1,0 +1,31 @@
+{
+  "ambient_events": [
+    "The turbine hum is loud enough here to feel in your teeth.",
+    "Warm water sheets down from a feed pipe overhead — the plant's cooling bleed, and the reason the deep things gather.",
+    "Steam ghosts across your light and beads cold on the back of your neck."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#1a1512",
+  "color": "#b08a6a",
+  "created_by": "the-under",
+  "description": "The underflow beneath the Coldwater Power Plant's turbine hall, where the station's warm cooling discharge bleeds into the sewer and keeps this whole deep quarter a few precious degrees above freezing. The warmth is why everything down here is bigger than it should be. The trunk continues south past the vault.",
+  "exits": {
+    "west": "zone_under_machsump",
+    "south": "zone_under_conduitvlt"
+  },
+  "flags": {
+    "district": "sewer",
+    "is_interior": true,
+    "scavenging_table_id": "scav_deep"
+  },
+  "grid_x": 925,
+  "grid_y": 910,
+  "grid_z": -1,
+  "id": "zone_under_turbunder",
+  "map_id": "map_world",
+  "marker": "◉",
+  "name": "Turbine Underflow",
+  "parent_zone": null,
+  "updated_at": "1784000000"
+}

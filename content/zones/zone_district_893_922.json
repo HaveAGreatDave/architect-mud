@@ -1,0 +1,30 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "wasteland",
+  "audio_theme_id": null,
+  "bg_color": "#2a1c16",
+  "color": "#b5744a",
+  "created_by": "wildlands-fill",
+  "description": "Cracked red hardpan runs out flat to a rust-colored horizon. Wind-scoured rock, grit, and nothing that grows.",
+  "exits": {
+    "north": "zone_district_893_921",
+    "west": "zone_district_892_922",
+    "south": "zone_district_893_923",
+    "east": "zone_district_894_922"
+  },
+  "flags": {
+    "district": "wilds",
+    "planner": "bp_district",
+    "radiation": 30,
+    "terrain": "redrock"
+  },
+  "grid_x": 893,
+  "grid_y": 922,
+  "grid_z": 0,
+  "id": "zone_district_893_922",
+  "map_id": "map_world",
+  "marker": null,
+  "name": "The Ferric Wash",
+  "parent_zone": null,
+  "updated_at": "1784600000"
+}

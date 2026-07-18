@@ -1,0 +1,28 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#161a22",
+  "color": "#dbe7ff",
+  "created_by": "ascendant-stronghold",
+  "description": "Rows of tall tanks recede into cold fog, each holding a shape that might be sleeping. This is where the backed-up wake up — where death, for those paid in full, is just a bad night's sleep in an expensive bed.",
+  "exits": {
+    "out": "zone_asc_vats_registry"
+  },
+  "flags": {
+    "always_lit": true,
+    "ascendant_vats": true,
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_892_905"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_asc_vats_hall",
+  "map_id": "map_int_asc_vats",
+  "marker": null,
+  "name": "The Vat Hall",
+  "parent_zone": "zone_district_892_905",
+  "updated_at": "1783740000"
+}

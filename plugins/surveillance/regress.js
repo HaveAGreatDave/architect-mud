@@ -1,11 +1,11 @@
 // Surveillance plugin regression suite — run by tests/regress.js (never loaded
 // in production). Verb routing plus the crime→star registry defaults/cap.
 import { CRIME_DEFAULTS, getCrimeStars, getCrimeList } from '../../server/engine/crimes.js';
-import { visFactorForCategory, isSpecterInstalled, cameraBufferLines, microreelList, deleteMicroreel, __refreshRecordingCams, __captureZoneLine, __cameraFrames, __cameraFull } from './index.js';
+import { visFactorForCategory, isSpecterInstalled, cameraBufferLines, microreelList, deleteMicroreel, isWitnessed, witnessRoll, __refreshRecordingCams, __captureZoneLine, __cameraFrames, __cameraFull } from './index.js';
 import { query } from '../../server/models/db.js';
 import { setFlag } from '../../server/engine/flags.js';
 import { reloadItem } from '../../server/engine/items-cache.js';
-import { insertFurniture, deleteFurniture } from '../../server/engine/world.js';
+import { insertFurniture, deleteFurniture, getZone } from '../../server/engine/world.js';
 
 export default async function regress({ run, check, getPlayer }) {
   const r = await run('wanted');
@@ -45,6 +45,17 @@ export default async function regress({ run, check, getPlayer }) {
   check('kill_police default = 5 stars', getCrimeStars('kill_police') === 5, getCrimeStars('kill_police'));
   check('hacking default = 2 stars', getCrimeStars('hacking') === 2, getCrimeStars('hacking'));
   check('unknown crime = 0 stars', getCrimeStars('nope') === 0, getCrimeStars('nope'));
+
+  // ── Unsurveilled zones (the Long Watch bunker) ──────────────────────────────
+  // A zone flagged `unsurveilled` is off the Architect's grid: the witness roll
+  // short-circuits to "unseen" BEFORE anything else — even a forced 'always'
+  // witness. Prove it against a normal zone (always ⇒ seen) vs the bunker.
+  const anyZone = (await query('SELECT id FROM zones WHERE (flags->>\'unsurveilled\') IS DISTINCT FROM \'true\' LIMIT 1')).rows[0]?.id;
+  check('witnessRoll honors a forced always-witness in a normal zone', (await witnessRoll(anyZone, 'always', false, 0)) === true, anyZone);
+  const bunker = getZone('zone_lw_commons');
+  check('bunker zone carries the unsurveilled flag', bunker?.flags?.unsurveilled === true, JSON.stringify(bunker?.flags)?.slice(0, 90));
+  check('unsurveilled zone: even an always-witness is unseen', (await witnessRoll('zone_lw_commons', 'always', false, 0)) === false);
+  check('unsurveilled zone: isWitnessed is false', (await isWitnessed('zone_lw_commons')) === false);
 
   const list = getCrimeList();
   check('crime list covers all defaults', list.length === Object.keys(CRIME_DEFAULTS).length, list.length);

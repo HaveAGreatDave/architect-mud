@@ -1,0 +1,32 @@
+{
+  "ambient_events": [
+    "Bundled cables the thickness of your arm run the length of the vault, humming with stolen current.",
+    "A splice box sparks once, blue and sudden, then sulks.",
+    "The east wall is newer than the rest — poured concrete, sealed, deliberate."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#1a1512",
+  "color": "#b08a6a",
+  "created_by": "the-under",
+  "description": "A conduit vault where the power plant's buried feeders run in armoured bundles along the ceiling. Someone has tapped them — neat, competent splices bleeding off just enough current to matter, the kind of work the Watch are proud of. A sealed sublevel lies walled off to the east; the trunk carries on west and north.",
+  "exits": {
+    "north": "zone_under_turbunder",
+    "west": "zone_under_deeptrunk",
+    "east": "zone_under_sealedsub"
+  },
+  "flags": {
+    "district": "sewer",
+    "is_interior": true,
+    "scavenging_table_id": "scav_deep"
+  },
+  "grid_x": 925,
+  "grid_y": 911,
+  "grid_z": -1,
+  "id": "zone_under_conduitvlt",
+  "map_id": "map_world",
+  "marker": "▦",
+  "name": "Conduit Vault",
+  "parent_zone": null,
+  "updated_at": "1784000000"
+}

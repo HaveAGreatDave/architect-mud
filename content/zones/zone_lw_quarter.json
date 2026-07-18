@@ -1,0 +1,33 @@
+{
+  "ambient_events": [
+    "Gear hangs in graded rows, every piece cleaned, checked, and accounted for.",
+    "A whetstone sits by a stool, still wet.",
+    "The quartermaster's ledger lies open, every entry in a small, exact hand."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#1c1710",
+  "color": "#e0a030",
+  "created_by": "longwatch",
+  "description": "The quartermaster's store — a narrow armoury-cum-shop where the Watch keep what they trust: no augments, no smart gear, nothing that phones home. Iron sights, hand tools, good boots, paper maps, honest steel, all of it maintained to a standard that borders on devotion. What you can draw from these shelves depends on what the Watch have decided you are worth. The common room is south.",
+  "exits": {
+    "south": "zone_lw_commons"
+  },
+  "flags": {
+    "always_lit": true,
+    "district": "longwatch",
+    "is_interior": true,
+    "safehouse": true,
+    "sanctuary": true,
+    "unsurveilled": true
+  },
+  "grid_x": 1,
+  "grid_y": -1,
+  "grid_z": 0,
+  "id": "zone_lw_quarter",
+  "map_id": "map_int_longwatch",
+  "marker": null,
+  "name": "Quartermaster's Store",
+  "parent_zone": null,
+  "updated_at": "1784000000"
+}

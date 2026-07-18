@@ -530,6 +530,32 @@ export const SCHEMA_SQL = `
     PRIMARY KEY (player_id, mutation_id)
   );
 
+  -- Augments: installable cybernetics, the machine-path mirror of mutations
+  -- (chosen/paid/removable, slot-limited, rep-gated). Owned by plugins/augments.
+  -- soak/special are authored now but INERT until the step-2 engine seams
+  -- (recomputeArmor augment pass, backup respawn hook) land.
+  CREATE TABLE IF NOT EXISTS augments (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    slot TEXT NOT NULL,
+    tier INTEGER DEFAULT 1,
+    cost INTEGER DEFAULT 0,
+    rep_gate TEXT DEFAULT 'unknown',
+    stat_modifiers JSONB DEFAULT '{}',
+    soak JSONB DEFAULT '{}',
+    visible INTEGER DEFAULT 1,
+    special TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS player_augments (
+    player_id TEXT NOT NULL,
+    augment_id TEXT NOT NULL,
+    slot TEXT,
+    installed_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()),
+    PRIMARY KEY (player_id, augment_id)
+  );
+
   CREATE INDEX IF NOT EXISTS idx_players_username ON players(username);
   CREATE INDEX IF NOT EXISTS idx_player_inventory_player ON player_inventory(player_id);
   CREATE INDEX IF NOT EXISTS idx_zone_spawns_zone ON zone_spawns(zone_id);

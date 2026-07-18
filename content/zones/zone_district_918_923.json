@@ -1,0 +1,30 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "wasteland",
+  "audio_theme_id": null,
+  "bg_color": "#2a1c16",
+  "color": "#b5744a",
+  "created_by": "wildlands",
+  "description": "The land past the glacis goes to rust. Cracked red hardpan runs flat to a shimmer of heat, dry-veined with old runoff that dried orange decades ago. Nothing moves, nothing grows — no reeds, no birds, just wind hissing over stone. A Geiger tick you can almost feel prickles across your skin. It looks dead. It isn't.",
+  "exits": {
+    "north": "zone_district_918_922",
+    "south": "zone_district_918_924",
+    "west": "zone_district_917_923",
+    "east": "zone_district_919_923"
+  },
+  "flags": {
+    "district": "wilds",
+    "planner": "bp_district",
+    "radiation": 28,
+    "terrain": "redrock"
+  },
+  "grid_x": 918,
+  "grid_y": 923,
+  "grid_z": 0,
+  "id": "zone_district_918_923",
+  "map_id": "map_world",
+  "marker": "^",
+  "name": "The Scald",
+  "parent_zone": null,
+  "updated_at": "1784500000"
+}

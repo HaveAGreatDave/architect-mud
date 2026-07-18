@@ -253,6 +253,12 @@ existing **Arbiters** (`plugins/emergency/index.js`). All in the "Wanted system"
   NPC, or another player present. Crime off-camera earns nothing (except `always`-witnessed crimes
   like `murder`, which self-report). Triggers: a player kill (`player.death` → the 5★ `murder`
   crime), smashing a PD device (+1★), hijacking one (+2★).
+  - **`flags.unsurveilled` overrides everything** — a zone off the Architect's grid short-circuits
+    both `isWitnessed()` and `witnessRoll()` to *unseen* before any cam/cop/bystander check, so **no
+    crime is ever witnessed there** — even an `always`-witnessed crime like `murder` self-reports to
+    nothing. The Long Watch bunker (`zone_lw_commons` &c.) uses this to stay hidden from the machine.
+    Distinct from `lawless` (which lets a crime be *seen* but earns no heat) — `unsurveilled` means it
+    is never seen at all.
 - **Escalation ladder** (`TIERS`, full roster per star): ★1 Patrol Officer · ★2 +Patrol Drone ·
   ★3 ×2 Enforcement Trooper · ★4 Heavy Enforcer +Trooper · ★5 **Arbiters** (reuses
   `enemy_arbiterclass_enforcement_unit`). Tiers 1–4 are new enemy templates
@@ -271,7 +277,9 @@ existing **Arbiters** (`plugins/emergency/index.js`). All in the "Wanted system"
   Escalating stars mid-pursuit shortens the threshold, so they can arrive sooner. Once *any* unit has
   deployed the gate is dropped — pursuit then continues every tick. (½★ has no `TIERS` roster anyway, so
   in practice half-star heat draws only the delayed APB, not dedicated hunters.)
-- **Clears**: decay one star per 60s **unseen**; **death/arrest** wipes it; **`bribe`** an on-scene
+- **Clears**: decay one star per 60s **unseen** (in a `flags.safehouse` zone this window is one third
+  as long — `DECAY_MS/3`, ~one star per 20s — so a safehouse *actively launders* heat, 3× faster than
+  lying low on the street); **death/arrest** wipes it; **`bribe`** an on-scene
   cop (≤2★, `stars×250c`); **`scrub`** a `police_terminal` (hacking check). *(Disguise deferred.)*
 - **Peak charge** (`WANTED_PEAK` action, `s.maxStars`, 2026-07-03) — the spree's highest star level is
   tracked and exposed for booking. Jail books the arrest on the **peak**, not the decayed current level:
@@ -390,7 +398,8 @@ the 12s debounce covers a resumed streak). Leaving the zone ends the offence. Tw
   ends it.
 
 `isWitnessed(zone)` stays deterministic — it now serves only heat-decay/visibility (wanted tick,
-witnessed-homicide gate), not the catch roll.
+witnessed-homicide gate), not the catch roll. Both `isWitnessed` and `witnessRoll` short-circuit to
+`false` in a `flags.unsurveilled` zone before any cam/cop/bystander check (see the Wanted System above).
 
 ### Cameras see worse in low visibility (2026-07-09)
 

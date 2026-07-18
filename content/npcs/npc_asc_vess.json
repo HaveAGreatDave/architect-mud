@@ -1,0 +1,103 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": {
+        "next": "wait",
+        "type": "start"
+      },
+      "wait": {
+        "next": "start",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "\"We did not build a god to kneel before it. We built it to become it.\"",
+    "\"Every rung looks like a loss from below, and like a gift from above.\""
+  ],
+  "description": "A serene woman in circuit-blue-edged whites, a chromed half-collar rising behind her neck like a halo turned inward. She greets you with both hands and total certainty that you have come to be improved.",
+  "dialogue_tree": {
+    "accept": {
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_asc_3"
+        }
+      ],
+      "options": [
+        {
+          "label": "Lead on.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Take the Gallery first — it's just inside. Walk it slowly. The exhibit does the persuading; I merely open the doors.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "\"Ascend well.\" She presses her palms together and is serene again."
+    },
+    "root": {
+      "options": [
+        {
+          "conditions": [
+            {
+              "flag": "asc_q3_done",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "quest_asc_3",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "label": "What is all this?",
+          "next": "tour_talk"
+        },
+        {
+          "label": "Just looking.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Welcome, welcome — past the Gate at last.\" Curator Vess takes both your hands. \"I'm Vess. I greet those the Threshold judges worth greeting. You've no idea how few that is.\""
+    },
+    "tour_talk": {
+      "options": [
+        {
+          "label": "Show me, then.",
+          "next": "accept"
+        },
+        {
+          "label": "Maybe later.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Then let me show you the Spire the way we show it to the promising. The Gallery of Rungs, to see the ladder whole. The Vats, to see what waiting at the top actually buys. And then the crown — where you'll understand, finally, what Halcyon has been selling all along.\""
+    }
+  },
+  "faction": "ideology_ascendants",
+  "flags": {
+    "clothing_layers": [
+      "flowing ceremonial whites edged in circuit-blue",
+      "a chromed half-collar rising behind the neck",
+      "soft slippers for the cathedral floor"
+    ],
+    "mis_willing": false,
+    "personality": "preacher"
+  },
+  "home_activities": [],
+  "home_zone": "zone_asc_spire_concourse",
+  "hp": 30,
+  "hp_max": 30,
+  "id": "npc_asc_vess",
+  "name": "Curator Vess",
+  "npc_type": "civilian",
+  "sex": "female",
+  "studio_zone_id": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_asc_spire_concourse"
+}

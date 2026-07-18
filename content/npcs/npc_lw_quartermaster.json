@@ -1,0 +1,91 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "check_work": { "action_type": "CHECK_VENDOR_WORK", "endShift": "have_life", "goToWork": "go_to_work", "haveLife": "have_life", "offWork": "off_home_check", "type": "action" },
+      "go_home_off": { "action_type": "GO_HOME", "next": "check_work", "type": "action" },
+      "go_to_work": { "action_type": "GO_TO_WORK", "next": "work_wait", "type": "action" },
+      "have_life": { "action_type": "HAVE_LIFE", "next": "check_work", "type": "action" },
+      "home_idle": { "action_type": "AT_HOME_LIFE", "next": "check_work", "type": "action" },
+      "off_home_check": { "condition_type": "AT_HOME", "ifFalse": "go_home_off", "ifTrue": "home_idle", "type": "condition" },
+      "player_check": { "condition_type": "PLAYER_IN_ZONE", "ifFalse": "check_work", "ifTrue": "work_say", "type": "condition" },
+      "start": { "next": "check_work", "type": "start" },
+      "work_say": { "action_type": "VENDOR_CHITCHAT", "next": "check_work", "type": "action" },
+      "work_wait": { "next": "player_check", "seconds": 60, "type": "wait" }
+    }
+  },
+  "chitchat": [
+    "\"Clean it, check it, know it. A tool you don't understand will get you killed.\"",
+    "\"No smart gear on my shelves. Nothing here has ever once phoned home.\"",
+    "\"You draw what you've earned. That's not meanness, it's arithmetic.\"",
+    "\"Iron sights. No battery to die, no chip to spoof. Learn them and you'll never be blind.\""
+  ],
+  "description": "A compact, unhurried woman with reading glasses on a cord and a whetstone never far from her hand. Behind her the shelves run in graded rows, every item cleaned and logged in a hand-kept ledger. She fits gear to people the way a good tailor fits a suit — a long look, a short question, and she knows what you should carry.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Keep it clean.\" She's already back to her ledger."
+    },
+    "creed": {
+      "options": [
+        { "label": "Show me the shelves.", "next": "__shop__" },
+        { "label": "Back.", "next": "root" }
+      ],
+      "text": "\"Everything here works without the grid, without an augment, without a wire to the machine. That's the whole idea.\" She taps a rifle's iron sights. \"The chromed will tell you flesh and steel is obsolete. Then a storm rolls through, their fancy optics die, and it's us still standing, still shooting straight over plain iron. Master the simple thing and nothing can take it from you.\""
+    },
+    "root": {
+      "options": [
+        { "label": "What's the philosophy of the shelf?", "next": "creed" },
+        { "label": "Let me see what I can draw.", "next": "__shop__" },
+        { "label": "Nothing today.", "next": "bye" }
+      ],
+      "text": "She looks up, marks her place in the ledger with one finger. \"So they let you in. Good for you.\" A measuring glance, head to boots. \"I'm the quartermaster. What the Watch trusts you with depends on what you've done for the Watch — but you're inside the door, so let's see what fits.\""
+    }
+  },
+  "faction": "ideology_long_watch",
+  "flags": {
+    "clothing_layers": [
+      "a quartermaster's canvas smock, pockets squared",
+      "a plain wool jumper, elbows patched",
+      "hard-wearing trousers and good boots"
+    ],
+    "mis_willing": false,
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_lw_bunk",
+  "hp": 30,
+  "hp_max": 30,
+  "id": "npc_lw_quartermaster",
+  "name": "the Quartermaster",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    { "item_id": "item_bat", "price": 40 },
+    { "item_id": "item_pipe_wrench", "price": 30 },
+    { "item_id": "item_rusty_pipe", "price": 12 },
+    { "item_id": "item_field_welder", "price": 45 },
+    { "item_id": "item_battery", "price": 16 },
+    { "item_id": "item_rag_bandage", "price": 8 },
+    { "item_id": "item_beef_jerky", "price": 9 },
+    { "item_id": "item_jerry_can", "price": 35 },
+    { "item_id": "item_keycard_lock_kit", "price": 120 }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [ { "from": 0, "to": 24 } ],
+    "mon": [ { "from": 0, "to": 24 } ],
+    "sat": [ { "from": 0, "to": 24 } ],
+    "sun": [ { "from": 0, "to": 24 } ],
+    "thu": [ { "from": 0, "to": 24 } ],
+    "tue": [ { "from": 0, "to": 24 } ],
+    "wed": [ { "from": 0, "to": 24 } ]
+  },
+  "vendor_shop_name": "Long Watch Quartermaster",
+  "vendor_stock_size": 9,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_lw_quarter"
+}

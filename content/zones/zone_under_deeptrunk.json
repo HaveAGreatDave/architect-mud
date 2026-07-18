@@ -1,0 +1,33 @@
+{
+  "ambient_events": [
+    "The deep trunk runs straight and black in both directions, further than your light will reach.",
+    "Water moves through here with quiet, enormous confidence.",
+    "A chalk arrow on the wall points south. Someone wanted to be sure of the way."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#141b19",
+  "color": "#8fae9a",
+  "created_by": "the-under",
+  "description": "The main deep trunk under the industrial east, a broad low tunnel that gathers every line in this quarter and carries it on toward the outfall. The Watch have marked the walls here in chalk — quiet, disciplined signs for people who know to read them — because this is the last easy stretch before their door. East ties into the conduit vault; south runs on to the deep reach.",
+  "exits": {
+    "north": "zone_under_machsump",
+    "east": "zone_under_conduitvlt",
+    "south": "zone_under_deepreach",
+    "west": "zone_under_923_911"
+  },
+  "flags": {
+    "district": "sewer",
+    "is_interior": true,
+    "scavenging_table_id": "scav_deep"
+  },
+  "grid_x": 924,
+  "grid_y": 911,
+  "grid_z": -1,
+  "id": "zone_under_deeptrunk",
+  "map_id": "map_world",
+  "marker": "║",
+  "name": "Deep Trunk",
+  "parent_zone": null,
+  "updated_at": "1784000000"
+}

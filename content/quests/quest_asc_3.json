@@ -1,0 +1,63 @@
+{
+  "category": null,
+  "description": "Inside at last. Curator Vess wants to show you the Spire the way the Ascendants show it to the promising: the ladder in the Gallery, a resurrection in the Vats, and whatever waits at the top. Walk it, and learn what Halcyon has really been selling.",
+  "id": "quest_asc_3",
+  "meta": {},
+  "name": "Assurance for the Assured",
+  "objectives": [
+    {
+      "desc": "Walk the Gallery of Rungs",
+      "emotes": [
+        "{who} walks the lit vitrines from crude jack to cortical backup, and feels the exhibit doing its quiet work."
+      ],
+      "id": "o0",
+      "taskSeconds": 5,
+      "type": "visit",
+      "zone": "zone_asc_spire_gallery"
+    },
+    {
+      "desc": "Witness a policy payout in the Vats",
+      "emotes": [
+        "{who} watches a tank drain and a backed-up client sit up, blinking, alive on a paid account."
+      ],
+      "id": "o1",
+      "requires": [
+        "o0"
+      ],
+      "taskSeconds": 5,
+      "type": "visit",
+      "zone": "zone_asc_vats_hall"
+    },
+    {
+      "desc": "Ascend to the Executive Sanctum",
+      "emotes": [
+        "{who} rides to the crown of the Spire, where the seal waits — the same calm eye that watches every Halcyon claim."
+      ],
+      "id": "o2",
+      "requires": [
+        "o1"
+      ],
+      "taskSeconds": 5,
+      "type": "visit",
+      "zone": "zone_asc_spire_sanctum"
+    }
+  ],
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 300,
+    "flags": [
+      {
+        "flag": "asc_q3_done",
+        "scope": "player",
+        "value": "done"
+      },
+      {
+        "flag": "halcyon_reveal",
+        "scope": "player",
+        "value": "done"
+      }
+    ]
+  },
+  "updated_at": "1783740000"
+}

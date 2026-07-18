@@ -1,34 +1,31 @@
 {
   "ambient_events": [],
-  "ambient_theme": "urban",
+  "ambient_theme": "forest",
   "audio_theme_id": null,
-  "bg_color": "#22201c",
-  "color": "#8ba36a",
+  "bg_color": "#31562c",
+  "color": "#8fd08a",
   "created_by": "zone-planner",
-  "description": "A slot of a café wedged into a plaza-facing unit, JITTER stencilled small on the glass above a menu board that cycles its prices a little faster than feels honest. Inside, a chrome espresso rig hisses and gleams, tended by one bored figure and a queue of standing counters. The whole place smells of scorched sugar and ozone.",
+  "description": "Soft turf underfoot, the drone of insects, water catching the light in a little ornamental pond. This close to the monument the ground has been talked back into something like a garden.",
   "exits": {
     "east": "zone_district_909_912",
-    "in": "zone_stimcafe",
     "north": "zone_district_908_911",
     "south": "zone_district_908_913",
     "west": "zone_district_907_912"
   },
   "flags": {
-    "building_name": "Jitter",
-    "building_type": "shop",
     "district": "wasteland",
-    "facade": true,
-    "is_building": true,
+    "park_feature": "pond",
     "planner": "bp_district",
-    "world_exit_zone": "zone_district_907_912"
+    "street_life": true,
+    "terrain": "park"
   },
   "grid_x": 908,
   "grid_y": 912,
   "grid_z": 0,
   "id": "zone_district_908_912",
   "map_id": "map_world",
-  "marker": "JT",
-  "name": "Jitter",
+  "marker": "❦",
+  "name": "Fisherman's Green",
   "parent_zone": null,
-  "updated_at": "1784500000"
+  "updated_at": "1784600000"
 }

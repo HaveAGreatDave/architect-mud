@@ -1,0 +1,13 @@
+{
+  "id": "aug_ocular_array",
+  "name": "Ocular Array",
+  "description": "Your eyes come out; something better goes in. Low-light overlays and threat-tagging sharpen everything you look at.",
+  "slot": "eyes",
+  "tier": 1,
+  "cost": 650,
+  "rep_gate": "neutral",
+  "stat_modifiers": { "stat_senses": 1 },
+  "soak": {},
+  "visible": 1,
+  "special": null
+}

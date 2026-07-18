@@ -1090,6 +1090,12 @@ function ensureStyles() {
     #tablet-os-overlay .tos-map-tile.d-lethal { box-shadow:inset 3px 0 0 rgba(214,55,55,.95); animation:tos-map-lethal 1.6s ease-in-out infinite; }
     @keyframes tos-map-lethal { 0%,100%{filter:none} 50%{filter:brightness(1.25)} }
     #tablet-os-overlay .tos-map-tile.unreach { opacity:.4; }
+    /* Perimeter wall (mirrors the sidebar minimap .mm-curtain/.mm-gate/.mm-glacis): the
+       Architect's Curtain shimmers, the glacis kill-zone gets a hazard edge, the one gate pulses. */
+    #tablet-os-overlay .tos-map-tile.tos-curtain { box-shadow:inset 0 0 0 1px rgba(122,196,255,.5), inset 0 0 4px rgba(122,196,255,.32); }
+    #tablet-os-overlay .tos-map-tile.tos-glacis { box-shadow:inset 0 0 0 1px rgba(224,120,90,.5); }
+    #tablet-os-overlay .tos-map-tile.tos-gate { color:#d6f4ff; font-weight:bold; z-index:2; animation:tos-gate-pulse 2.4s ease-in-out infinite; }
+    @keyframes tos-gate-pulse { 0%,100%{ box-shadow:inset 0 0 0 1px #7fe0ff, 0 0 5px rgba(127,224,255,.55); } 50%{ box-shadow:inset 0 0 0 1px #aef0ff, 0 0 10px rgba(127,224,255,.95); } }
     #tablet-os-overlay .tos-gps-svg { position:absolute; grid-column:1/-1; grid-row:1/-1; width:100%; height:100%; pointer-events:none; z-index:2; }
     #tablet-os-overlay .tos-gps-line { fill:none; stroke:var(--mg-accent); stroke-width:0.18; stroke-linecap:round; stroke-linejoin:round; }
     #tablet-os-overlay .tos-map-tile.dest { outline:2px solid #fff; }
@@ -1112,10 +1118,16 @@ function ensureStyles() {
        expanse, and lay a subtle connecting texture (one period per tile). Fill colour
        is set inline (grey asphalt for roads, authored blue/green for water/grass). */
     #tablet-os-overlay .tos-map-tile.terr { border-radius:0; border-color:transparent; }
-    #tablet-os-overlay .tos-map-tile.terr-water, #tablet-os-overlay .tos-map-tile.terr-grass, #tablet-os-overlay .tos-map-tile.terr-dock { background-repeat:no-repeat; background-size:100% 100%; }
+    #tablet-os-overlay .tos-map-tile.terr-water, #tablet-os-overlay .tos-map-tile.terr-grass, #tablet-os-overlay .tos-map-tile.terr-dock,
+    #tablet-os-overlay .tos-map-tile.terr-scrub, #tablet-os-overlay .tos-map-tile.terr-redrock, #tablet-os-overlay .tos-map-tile.terr-ash, #tablet-os-overlay .tos-map-tile.terr-marsh { background-repeat:no-repeat; background-size:100% 100%; }
     #tablet-os-overlay .tos-map-tile.terr-water { background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' stroke='%23ffffff' stroke-opacity='0.30' stroke-width='1.1' stroke-linecap='round'><path d='M0 7q6 -3 12 0t12 0'/><path d='M0 14q6 -3 12 0t12 0'/><path d='M0 21q6 -3 12 0t12 0'/></g></svg>"); }
     #tablet-os-overlay .tos-map-tile.terr-grass { background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' stroke='%237fc95a' stroke-opacity='0.40' stroke-width='1' stroke-linecap='round'><path d='M4 21v-5'/><path d='M9 22v-6'/><path d='M14 21v-5'/><path d='M19 22v-6'/><path d='M6 13v-4'/><path d='M12 12v-4'/><path d='M18 13v-4'/></g></svg>"); }
     #tablet-os-overlay .tos-map-tile.terr-dock { background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' stroke='%233b2c19' stroke-opacity='0.55' stroke-width='1'><path d='M0 6h24M0 12h24M0 18h24'/><path d='M8 0v6M16 6v6M8 12v6M16 18v6'/></g><g fill='none' stroke='%23987444' stroke-opacity='0.30' stroke-width='0.6'><path d='M0 3h24M0 9h24M0 15h24M0 21h24'/></g></svg>"); }
+    /* Wildlands surfaces — mirror the sidebar minimap (.mm-*/.map-*) so the tablet reads the same. */
+    #tablet-os-overlay .tos-map-tile.terr-scrub { background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' stroke='%23b5b06a' stroke-opacity='0.45' stroke-width='0.9' stroke-linecap='round'><path d='M5 20l-1.5-4M5 20l1.5-4M5 20v-5'/><path d='M17 22l-1.5-4M17 22l1.5-4M17 22v-5'/><path d='M11 14l-1-3M11 14l1-3'/></g><g fill='%23807a40' fill-opacity='0.4'><circle cx='9' cy='20' r='0.9'/><circle cx='20' cy='11' r='0.8'/><circle cx='3' cy='8' r='0.7'/></g></svg>"); }
+    #tablet-os-overlay .tos-map-tile.terr-redrock { background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' stroke='%235c2a1a' stroke-opacity='0.5' stroke-width='1'><path d='M0 9l7 3 6-4 5 4 6-2'/><path d='M4 24l3-8 6 2 4-6'/></g><g fill='none' stroke='%23c9744f' stroke-opacity='0.28' stroke-width='0.7'><path d='M0 11l7 3 6-4 5 4 6-2'/></g><g fill='%234a2115' fill-opacity='0.5'><circle cx='3' cy='19' r='1.3'/><circle cx='15' cy='7' r='1.1'/><circle cx='20' cy='18' r='1'/><circle cx='9' cy='4' r='0.8'/><circle cx='22' cy='3' r='0.7'/><circle cx='6.5' cy='12.5' r='0.6'/><circle cx='13' cy='20' r='0.7'/></g><g fill='%237e3521' fill-opacity='0.55' stroke='%23d98a5f' stroke-opacity='0.35' stroke-width='0.5'><path d='M17 15l2 1 -0.5 2 -2 -0.3z'/><path d='M4 6l1.8 0.6 -0.3 1.8 -1.8 -0.2z'/></g><g fill='%23e0a985' fill-opacity='0.3'><circle cx='11' cy='10' r='0.5'/><circle cx='18' cy='11' r='0.45'/><circle cx='7' cy='21' r='0.5'/><circle cx='21' cy='8' r='0.4'/></g></svg>"); }
+    #tablet-os-overlay .tos-map-tile.terr-ash { background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='%23cfcac4' fill-opacity='0.35'><circle cx='4' cy='6' r='0.8'/><circle cx='12' cy='10' r='0.7'/><circle cx='19' cy='5' r='0.9'/><circle cx='8' cy='17' r='0.7'/><circle cx='16' cy='19' r='0.8'/><circle cx='21' cy='14' r='0.6'/></g><path d='M2 21q6 -3 11 0t9 -1' fill='none' stroke='%23b8b2ac' stroke-opacity='0.2' stroke-width='0.8'/></svg>"); }
+    #tablet-os-overlay .tos-map-tile.terr-marsh { background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' stroke='%23aeca7e' stroke-opacity='0.28' stroke-width='1' stroke-linecap='round'><path d='M0 8q6 -3 12 0t12 0'/><path d='M0 16q6 -3 12 0t12 0'/></g><g fill='none' stroke='%236f8a3e' stroke-opacity='0.5' stroke-width='0.9' stroke-linecap='round'><path d='M7 20v-7M9 20l-1-6'/><path d='M18 21v-8'/></g></svg>"); }
     /* Entrance arrow — amber triangle on the edge the building's door faces. */
     #tablet-os-overlay .tos-map-tile .tos-ent { position:absolute; width:0; height:0; z-index:4; pointer-events:none; filter:drop-shadow(0 0 1px rgba(0,0,0,0.95)); }
     #tablet-os-overlay .tos-map-tile .tos-ent-north { top:1px; left:50%; transform:translateX(-50%); border-left:4px solid transparent; border-right:4px solid transparent; border-bottom:5px solid #ffb454; }
@@ -2772,8 +2784,9 @@ function renderMap(d) {
   let grid = `<div class="tos-map-grid" style="--tos-tile:${tosZoomPx(d)}px;grid-template-columns:repeat(${gCols},var(--tos-tile));grid-template-rows:repeat(${gRows},var(--tos-tile))">`;
   // Canonical terrain fills (mirror minimap.js TERRAIN_FILL). 'road' is handled separately.
   const TOS_TERRAIN_FILL = {
-    water: '#3f7fb0', grass: '#5a9e57', asphalt: '#45484d', concrete: '#8a8d91',
+    water: '#3f7fb0', grass: '#5a9e57', park: '#46a24e', asphalt: '#45484d', concrete: '#8a8d91',
     dirt: '#6b5138', sand: '#c2b280', gravel: '#7d7a73', dock: '#6e5636',
+    scrub: '#6f7248', redrock: '#9e4a30', ash: '#4f4b47', marsh: '#4d5a30',
   };
   for (let r = 0; r < gRows; r++) for (let c = 0; c < gCols; c++) {
     const t = cell[r][c];
@@ -2809,6 +2822,11 @@ function renderMap(d) {
     const ent = ['north', 'south', 'east', 'west'].includes(t.entrance) ? `<span class="tos-ent tos-ent-${t.entrance}"></span>` : '';
     // Interior exit arrows — same triangle, one per way out of the building (exit_dirs).
     const exits = Array.isArray(t.exit_dirs) ? t.exit_dirs.map(dr => `<span class="tos-ent tos-ent-${dr}"></span>`).join('') : '';
+    // Perimeter wall (mirrors the sidebar minimap): gate tiles get a highlighted
+    // opening, other curtain tiles a shimmer-edge, the glacis kill-zone a hazard tint.
+    if (t.perimeter_gate) cls.push('tos-gate');
+    else if (t.curtain) cls.push('tos-curtain');
+    else if (t.glacis) cls.push('tos-glacis');
     // Label mode: stamp the building's two-letter code over its tile (hides the icon).
     const code = _tosMapLabels && _mapIsBldg(t) ? `<span class="mt-code">${esc(_mapBldgCode(t))}</span>` : '';
     grid += `<div class="${cls.join(' ')}" style="${style}" data-map-zone="${esc(t.id)}" title="${esc(t.name)}">${badges}${code || sym}${ent}${exits}</div>`;

@@ -1,0 +1,59 @@
+{
+  "ambient_events": [
+    "The floor-number display ticks smoothly upward and resettles.",
+    "A note of piped strings, so quiet it might be imagined, threads the car."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#2c2c38",
+  "color": "#eae1cf",
+  "created_by": null,
+  "description": "The car is a jewel-box of mirror-bronze and hand-rubbed walnut, a bench of oxblood leather along the back wall and a single orchid on a shelf that is replaced before it can ever wilt. A brushed panel of lit buttons glows beside the door, and a small screen overhead reads SOLENNE and the car's drifting position. Step <b>out</b> to return to the Grand Lobby.",
+  "exits": {
+    "out": "zone_solenne_lobby",
+    "up": [
+      "zone_solenne_gym",
+      "zone_solenne_residences",
+      "zone_solenne_skydeck",
+      "zone_solenne_penthouse"
+    ]
+  },
+  "flags": {
+    "building_name": "Solenne Residences",
+    "is_interior": true,
+    "always_lit": true,
+    "sanctuary": true,
+    "elevator": true,
+    "elevator_floors": [
+      {
+        "n": 12,
+        "zone": "zone_solenne_gym",
+        "label": "Fitness Club"
+      },
+      {
+        "n": 30,
+        "zone": "zone_solenne_residences",
+        "label": "The Residences"
+      },
+      {
+        "n": 40,
+        "zone": "zone_solenne_skydeck",
+        "label": "Sky Deck & Pool"
+      },
+      {
+        "n": 44,
+        "zone": "zone_solenne_penthouse",
+        "label": "The Penthouse"
+      }
+    ]
+  },
+  "grid_x": 0,
+  "grid_y": -1,
+  "grid_z": 0,
+  "id": "zone_solenne_elevator",
+  "map_id": "map_int_solenne",
+  "marker": "EL",
+  "name": "Solenne Residences — Elevator",
+  "parent_zone": "zone_district_914_908",
+  "updated_at": "1784600000"
+}

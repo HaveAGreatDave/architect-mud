@@ -1,0 +1,30 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "forest",
+  "audio_theme_id": null,
+  "bg_color": "#16241a",
+  "color": "#6ab04c",
+  "created_by": "wildlands",
+  "description": "THE QUICKENING POOL. A sunken basin of luminous green water, ringed with offerings and old bones, ticking hard enough to taste metal. The Wildblood come here to change on purpose — to let the water rewrite them. Standing at its edge you can feel your own cells lean toward it. It is beautiful and it is lethal.",
+  "exits": {
+    "north": "zone_district_920_925",
+    "west": "zone_district_919_926",
+    "south": "zone_district_920_927",
+    "east": "zone_district_921_926"
+  },
+  "flags": {
+    "district": "wilds",
+    "planner": "bp_district",
+    "radiation": 65,
+    "terrain": "water"
+  },
+  "grid_x": 920,
+  "grid_y": 926,
+  "grid_z": 0,
+  "id": "zone_district_920_926",
+  "map_id": "map_world",
+  "marker": "☢",
+  "name": "The Quickening Pool",
+  "parent_zone": null,
+  "updated_at": "1784500000"
+}

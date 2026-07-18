@@ -5,7 +5,8 @@
 // needs a real hacking device + witnessed crime and is covered by manual QA.
 import { setDoorCache, deleteDoorCache, getZone, getApartment, setApartmentCache } from '../../server/engine/world.js';
 import { on, off, emit } from '../../server/engine/events.js';
-import { lockTypePassesWhileLocked } from '../../server/engine/locks.js';
+import { lockTypePassesWhileLocked, resolveLockAuth, getLockType } from '../../server/engine/locks.js';
+import { query } from '../../server/models/db.js';
 
 export default async function regress({ run, check, getPlayer }) {
   const p = getPlayer();
@@ -140,6 +141,23 @@ export default async function regress({ run, check, getPlayer }) {
   r = await run(`unlock ${dir}`);
   check('hololock: non-owner cannot unlock', /not recognized/.test(r?.message || '') && r?.type === 'error', JSON.stringify(r)?.slice(0, 100));
   deleteDoorCache(holoDoorId);
+
+  // Long Watch lock: the bunker blast door is gated on LIVE Long Watch standing,
+  // not a one-way flag. authFn reads player_ideology_rep and opens only at the
+  // 'trusted' floor (>=500) — below that (unknown, or merely 'known') it stays
+  // shut, and a rep that later falls back under the line shuts it again.
+  check('longwatch lock type registered', !!getLockType('longwatch'), JSON.stringify(getLockType('longwatch'))?.slice(0, 60));
+  const lwTag = { type: 'lock:longwatch' };
+  const lwDoor = { zone_id: p.current_zone, exit_dir: dir };
+  await query("DELETE FROM player_ideology_rep WHERE player_id=$1 AND ideology_id='ideology_long_watch'", [p.id]);
+  check('longwatch: no standing → door stays shut', (await resolveLockAuth(lwTag, lwDoor, p)) === false);
+  await query("INSERT INTO player_ideology_rep (player_id, ideology_id, reputation) VALUES ($1,'ideology_long_watch',150) ON CONFLICT (player_id, ideology_id) DO UPDATE SET reputation=150", [p.id]);
+  check('longwatch: known but below trusted → still shut', (await resolveLockAuth(lwTag, lwDoor, p)) === false);
+  await query("UPDATE player_ideology_rep SET reputation=525 WHERE player_id=$1 AND ideology_id='ideology_long_watch'", [p.id]);
+  check('longwatch: trusted standing → door opens', (await resolveLockAuth(lwTag, lwDoor, p)) === true);
+  await query("UPDATE player_ideology_rep SET reputation=-300 WHERE player_id=$1 AND ideology_id='ideology_long_watch'", [p.id]);
+  check('longwatch: standing lost (hostile) → shut again', (await resolveLockAuth(lwTag, lwDoor, p)) === false);
+  await query("DELETE FROM player_ideology_rep WHERE player_id=$1 AND ideology_id='ideology_long_watch'", [p.id]);
 
   p.role = savedRole;
 

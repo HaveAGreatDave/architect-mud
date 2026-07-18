@@ -1,0 +1,18 @@
+{
+  "description": "A slab of white marble under a cantilevered canopy, backed by a lit wall of bottles that costs more than most people's rent. Unattended, but never quite unstocked.",
+  "flags": {
+    "interactions": [
+      "lean"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_solenne_bar",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "cocktail bar",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_skydeck"
+}

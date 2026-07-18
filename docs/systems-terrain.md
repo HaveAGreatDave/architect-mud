@@ -15,11 +15,31 @@ Canonical values (palette `TERRAIN_TYPES`, [maps.js:994](../client/devpanel/js/p
 | `asphalt` | Asphalt | `#45484d` |
 | `concrete` | Concrete | `#8a8d91` |
 | `grass` | Grass | `#5a9e57` |
+| `park` | Park | `#46a24e` manicured green + authored flight-sim dressing |
 | `dirt` | Dirt | `#6b5138` |
 | `sand` | Sand | `#c2b280` |
 | `gravel` | Gravel | `#7d7a73` |
 | `dock` | Dock | `#6e5636` wooden decking |
 | `water` | Water | `#3f7fb0` |
+| `scrub` | Scrubland | `#6f7248` dry brush tufts (wildlands) |
+| `redrock` | Red Rock | `#9e4a30` rust mesa facets (wildlands) |
+| `ash` | Ash | `#4f4b47` burnt-grey flecks (wildlands) |
+| `marsh` | Marsh | `#4d5a30` toxic murky ripples (wildlands) |
+
+The four **wildlands** surfaces (`scrub`/`redrock`/`ash`/`marsh`, added for the post-apocalyptic wilds
+beyond the Curtain) are the only textured terrains that **keep their marker glyph** on the minimap
+(via `GLYPH_TERRAIN` in [minimap.js](../client/game/js/panels/minimap.js)) instead of blanking to a
+clean expanse — so camp/landmark tiles out in the wilds still read their glyph. They map to their own
+arid flight biomes — `scrub`→`scrub`, `redrock`→`redrock`, `ash`→`ash` (dry-land tints, never water) —
+while `marsh`→`badlands`, in [biomes.js](../plugins/flight/biomes.js).
+
+`park` is a **manicured** green (distinct from feral `grass`): it maps to its own `park` flight biome
+(designed park — benches, ponds, groves) where `grass`→`parkland` (feral single tree). A park tile can
+carry `flags.park_feature` (`grove`/`pond`/`benches`/`flowerbeds`/`path`) to force *which* dressing the
+flight-sim draws for that tile, so a park can be laid out symmetrically instead of by position-hash;
+unset falls back to the tile's position hash. `park_feature` rides the flight cell as `pf` (both the live
+stream and the baked snapshot — see [Flight](#runtime-consumption) below). Fisherman's Green (the statue
+3×3) is the first park.
 
 Commit `37805fd1` painted `concrete` (one `road`) across 37
 `content/zones/zone_district_*.json` cells with this tool.
@@ -57,6 +77,16 @@ block starts ~`:989`.
   **Flood-fill** `terrainFill()` (BFS over the *visible* surface),
   **Eyedropper** `terrainPick()`, **Rectangle-select**
   `terrainRectStart/Over/Commit` (marquee applies the brush to every covered cell).
+- **Paint terrain into existence** — on the **district exterior** grid (gated on
+  `dbbox`), an empty ("black") cell is paintable: **Brush** (`terrainCreateStart/Over`
+  → `_terrainCreateAt` → `_conjureTileLocal`) or **Rect** (`_terrainRectCommitXY`)
+  conjure a minimal ground zone (`zone_district_<x>_<y>`, `_newTerrainTile` +
+  `TERRAIN_TILE_DEFAULTS`) carrying the brushed surface, auto-wired reciprocally to
+  orthogonal **non-building** neighbours (mirrors drag-place; never punches into a
+  building) and staged as a zone `create`. Wildlands surfaces
+  (`redrock`/`scrub`/`ash`/`marsh`) become wilds ground (`district:'wilds'` +
+  `radiation`). In terrain mode the grid also opens **+6 empty rows to the south**
+  so the wilds can be extended past their current edge.
 - **Preview mirror** — `mapZoneTerrain()` (`:1025`) mirrors server `zoneTerrain`
   so the editor previews the true surface (incl. inference) even before backfill;
   road tiles preview their auto-tiled connector via `mapRoadConnector()`.
@@ -89,8 +119,21 @@ atomically; interior rooms + front door move with the facade.
   `TOS_TERRAIN_FILL` (`:2768`) + `terr-<type>` tile classes.
 - **Pacing** — `minimap.js` uses `terrain === 'road'` (or a non-empty `artery`)
   to pick the run-vs-walk step animation timing. Not passability.
-- **Flight** — `flags.terrain` does **not** flow into the aerial renderer
-  directly. The flight Mode-7 world consumes a separate aerial window whose cells
-  carry district-derived `biome` + road state; terrain edits reach flight only
-  indirectly (roads/water via their own flags). See
+- **Flight** — `flags.terrain` **does** drive the aerial ground tint (this changed with the
+  wildlands/park work). `districtBiome()` ([biomes.js:55](../plugins/flight/biomes.js)) checks
+  `TERRAIN_BIOME[flags.terrain]` **first**, before any id-prefix/danger inference — so an authored
+  terrain wins the flight biome. The map: `water→water`, `dock→pier`, `grass→parkland`, `park→park`,
+  `asphalt→asphalt`, `concrete→concrete`, `dirt/sand/gravel/marsh→badlands`, `scrub→scrub`,
+  `redrock→redrock`, `ash→ash`. (`road` is intentionally absent — it's drawn by the road channel
+  from `flags.icon`/`artery`, not the biome.) See
   [reference/world-rendering.md](reference/world-rendering.md).
+  - **The open flight sim flies a baked snapshot, not the live world.** `client/game/flightsim.html`
+    fetches a static `client/game/flightsim-world.json` (one cell per tile, no server/DB at fly time),
+    so painted+published terrain does **not** appear there until the snapshot is re-baked. Re-bake
+    from the dev panel: **Maps → Terrain palette → ⟳ Re-bake flight sim** (`POST /maps/flight-snapshot`,
+    derives from the live in-memory world — publishes `reloadZone()` into it, so it's current). Or from
+    the CLI: `node scripts/snapshot-flight-world.mjs` (local) / `node --env-file=.env.prod
+    scripts/snapshot-flight-world.mjs` (prod). Both share one builder,
+    [plugins/flight/snapshot.js](../plugins/flight/snapshot.js), so they can't drift. The JSON is a
+    checked-in asset — **commit it** alongside the terrain change. The **live in-game cockpit** flight,
+    by contrast, reads terrain live and needs no re-bake.

@@ -1,29 +1,36 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
+  "ambient_theme": "city",
   "audio_theme_id": null,
-  "bg_color": "#2f3a26",
-  "color": "#8ba36a",
-  "created_by": "zone-planner",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "bg_color": "#161a22",
+  "color": "#dbe7ff",
+  "created_by": "ascendant-stronghold",
+  "description": "The grass stops dead at a line of mirror-polished plaza, and on it stands the Gate: a slab of seamless chrome flanked by two augmented wardens who do not shift their weight and two turret housings that track you without pretending not to. A scanline of pale light sweeps you head to foot. Nothing here is hidden — that is the point. The unwired are simply, politely, not admitted.",
   "exits": {
     "east": "zone_district_894_906",
+    "in": "zone_asc_gate_post",
     "north": "zone_district_893_905",
     "south": "zone_district_893_907",
     "west": "zone_district_892_906"
   },
   "flags": {
+    "ascendant_campus": true,
+    "ascension_gate": true,
+    "building_name": "The Ascension Gate",
+    "building_type": "asc_gate",
     "district": "wasteland",
-    "planner": "bp_district",
-    "scavenging_table_id": "scav_west_wastes"
+    "facade": true,
+    "floors": 4,
+    "is_building": true,
+    "world_exit_zone": "zone_district_894_906"
   },
   "grid_x": 893,
   "grid_y": 906,
   "grid_z": 0,
   "id": "zone_district_893_906",
   "map_id": "map_world",
-  "marker": "#",
-  "name": "Grasslands",
+  "marker": "AG",
+  "name": "The Ascension Gate",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1783740000"
 }

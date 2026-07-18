@@ -1,0 +1,28 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#161a22",
+  "color": "#dbe7ff",
+  "created_by": "ascendant-stronghold",
+  "description": "A nave of humming server-racks under cold light, the Curtain a wall of white fire beyond the west glass. A celebrant tends the machines the way a priest tends an altar — because to him there is no difference. He is, as far as anyone can tell, the only person in the Basin who loves the Architect.",
+  "exits": {
+    "in": "zone_asc_shrine_uplink",
+    "west": "zone_district_892_907"
+  },
+  "flags": {
+    "always_lit": true,
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_892_907"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_asc_shrine_nave",
+  "map_id": "map_int_asc_shrine",
+  "marker": null,
+  "name": "The Nave",
+  "parent_zone": "zone_district_892_907",
+  "updated_at": "1783740000"
+}

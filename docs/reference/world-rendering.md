@@ -31,16 +31,19 @@ All of this is client-side in [`client/game/js/panels/windshield.js`](../../clie
 unless noted.
 
 1. **Server builds the map window.** [`plugins/flight/state.js`](../../plugins/flight/state.js)
-   (the surface-window builder, ~radius-24 tile block) turns each nearby zone into a lightweight
+   (the surface-window builder, ~radius-36 tile block) turns each nearby zone into a lightweight
    cell. The fields the renderer reads:
-   - `biome` — rendering biome (`airport`, `docks`, `citycore`, `water`, …; from `plugins/flight/biomes.js`).
+   - `biome` — rendering biome (`airport`, `docks`, `citycore`, `water`, `park`, `scrub`, `redrock`,
+     `ash`, `asphalt`, `concrete`, `pier`, …; from `plugins/flight/biomes.js`).
    - `kind` — `'field'` (airfield surface), `'nofly'`, or `'land'`.
    - `bt` — `building_type` flag (drives the **type** model).
    - `bn` — `building_name` flag (drives the **named** model).
    - `ent` — entrance door face (so the model can orient its frontage).
-   - `mark` — bespoke standalone landmark channel: `'yacht'` or `'statue'` (drawn by their own
-     renderers, independent of `bt`/`bn`).
-   - `road`, `sub`, `wake`, `heading`, `icon` — road/water/movement extras.
+   - `mark` — bespoke standalone landmark channel: `'yacht'`, `'statue'`, or `'gate'` (the perimeter
+     gate / South Gate) — drawn by their own renderers, independent of `bt`/`bn`.
+   - `road`, `sub`, `wake`, `heading`, `icon`, `cur`, `pf` — extras: road/water/movement, plus `cur`
+     (the Curtain wall run axis, from `curtainRun()`, on `flags.curtain`/`perimeter_gate` tiles) and
+     `pf` (the park-feature dressing selector, from `flags.park_feature`).
    - Tile precedence when two zones share a grid tile: yacht > airfield/building > road (see
      `state.js` — a landmark must outrank a road or it gets clobbered).
 
@@ -51,8 +54,10 @@ unless noted.
    - If a spec exists → `drawTypeModel(...)` renders that dedicated model.
    - If `null` → `drawBuilding(...)` falls back to a biome archetype (generic warehouse/office/etc).
    - Non-building marks are handled earlier in the loop: `mark === 'statue'` → `drawStatue`,
-     `mark === 'yacht'` → `drawYacht`, `kind === 'nofly'` → a translucent box, parkland/badlands
-     → tree/rock billboards.
+     `mark === 'yacht'` → `drawYacht`, `mark === 'gate'` → `drawSouthGate`, `kind === 'nofly'` → a
+     translucent box, parkland/badlands → tree/rock billboards, `biome === 'park'` → `drawParkTile`
+     (manicured grove/pond/benches/flowerbeds/path, chosen by `pf` or a position-hash), and a tile
+     carrying `cur` → `drawCurtainWall` (the shimmering energy wall).
 
 3. **`drawTypeModel`** is a big `switch (m.type)`. Each `case` composes a building out of
    `draw3DBoxAt` calls plus decoration helpers. This is where every landmark's look lives
@@ -104,14 +109,33 @@ texture (lit windows at night), `roofTex` a lighter roof. To give a model a dist
 
 ## Occlusion / draw order — the depth-sorted face queue
 
-A 2D canvas has **no depth buffer**, so order is painter's algorithm (back→front). Two levels:
+A 2D canvas has **no depth buffer**, so order is painter's algorithm (back→front). It runs as **one
+shared face queue for the whole world pass** (was a per-building queue — that only ordered a building
+against itself, so two *adjacent* tall buildings whose footprints overlap in depth could paint through
+each other; the "overlapping buildings / bad culling" look on dense clusters):
 
-- **Between buildings**: `drawWorldObjects` sorts the tile list `items` by `b.f - a.f` (far→near).
-- **Within one building**: a **per-building face queue**. `drawWorldObjects` wraps each building's draw
-  in `beginFaces()` … `flushFaces()`. While a sink is active, the drawing primitives don't paint
-  immediately — each face is queued via `emitFace(depth, fn)` and `flushFaces()` sorts them by depth and
-  paints back→front. This is what stops a sub-part (a tower, a marquee) from over-painting nearer
-  geometry of the same building (the "see-through" bug).
+- `drawWorldObjects` opens **one** sink with `beginFaces()` before the tile loop and paints it with a
+  single `flushFaces()` after. While a sink is active the drawing primitives don't paint immediately —
+  each face is queued via `emitFace(depth, fn)`; `flushFaces()` sorts **every** queued face (across all
+  buildings) by depth and paints back→front. So a sub-part (a tower, a marquee) can't over-paint nearer
+  geometry of the *same* building **or of a neighbour**.
+- **Buildings** emit their faces straight into the shared sink (`drawTypeModel`/`drawBuilding` →
+  `draw3DBoxAt` → `emitFace`) — no per-building begin/flush.
+- **Point-like / atomic objects** drawn in the same loop (statue, yacht, park/tree/rock billboards,
+  the Curtain wall, the `nofly` box) are wrapped as one closure at their tile-centre depth
+  `od = it.f + cam.back` (the projected-`f` frame box faces use). At flush time the sink is already
+  `null`, so the wrapped drawer's own internal `emitFace`s paint immediately — each object stays
+  internally ordered as before, just positioned correctly among the buildings.
+- The **shadow pre-pass** and ground decals draw *before* `beginFaces` / the flush, so they stay under
+  everything.
+- **Decorations carry real depth (`decoDepth`)**: glows, beacons, masts, signs, light-runners and holo ads
+  used to queue at `ON_TOP` (−∞) so they painted last *globally* — which meant a decoration on a **far**
+  tower bled straight through any **nearer** building in front of it (the "lights from another building
+  showing through this one" bug). They now emit at `decoDepth(...anchorF)` = the decoration's own camera
+  distance lifted `DECO_LIFT` (0.6) tiles forward: still on top of its **own** host walls (which span ±~0.44
+  tile), but a building ≳1 tile closer now correctly occludes it. Add a new adornment with a shared helper
+  (`glowPool`/`blinkLight`/`mast`/…) — they already call `decoDepth`. For a bespoke inline glow/line, pass
+  `decoDepth(<anchor point>.f)` (not `ON_TOP`) so it sorts against neighbours too.
 
 Rules for anyone adding to a building model:
 - **Geometry** (`draw3DBoxAt`, `drawFacetDrum`, `drawBarrelRoof`, and the shared decoration helpers —
@@ -124,8 +148,8 @@ Rules for anyone adding to a building model:
   they sort correctly; use `ON_TOP` (−∞, drawn last) for glows/lights/thin overlays that should always
   sit on top of their own building. Ground decals (apron paint at z≈0) can stay unwrapped — drawing them
   before the flush correctly puts them under the building.
-- Outside a sink (`FACE_SINK` null — the yacht, statue, trees, deck, HUD) every `emitFace` paints
-  immediately, so those paths are unaffected. Painter's order still can't resolve genuinely
+- Outside the world pass (`FACE_SINK` null — the Helm chase yacht, deck backdrop, HUD) every `emitFace`
+  paints immediately, so those paths are unaffected. Painter's order still can't resolve genuinely
   interpenetrating geometry, but buildings here don't interpenetrate.
 
 ## The three "tower" renderers (do not confuse them)

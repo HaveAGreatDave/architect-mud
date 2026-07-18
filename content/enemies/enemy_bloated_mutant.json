@@ -1,0 +1,48 @@
+{
+  "behavior": "aggressive",
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": { "next": "has_target", "type": "start" },
+      "has_target": { "condition_type": "HAS_TARGET", "ifFalse": "idle", "ifTrue": "attack", "type": "condition" },
+      "attack": { "action_type": "ATTACK", "next": "loop", "type": "action" },
+      "idle": { "action_type": "IDLE", "next": "loop", "type": "action" },
+      "loop": { "next": "start", "type": "loop" }
+    }
+  },
+  "body_parts": [
+    { "part": "head", "soak": { "kinetic": 1 }, "weight": 10 },
+    { "part": "torso", "soak": { "kinetic": 1 }, "weight": 44 },
+    { "part": "left_arm", "soak": { "kinetic": 1 }, "weight": 11 },
+    { "part": "right_arm", "soak": { "kinetic": 1 }, "weight": 11 },
+    { "part": "left_leg", "soak": { "kinetic": 1 }, "weight": 12 },
+    { "part": "right_leg", "soak": { "kinetic": 1 }, "weight": 12 }
+  ],
+  "butcher_difficulty": 4,
+  "butcher_table": [],
+  "death_message": "The bloated mutant sags, splits, and empties itself across the floor with a smell you will not forget.",
+  "description": "A human silhouette lost inside a straining envelope of grey, tumorous flesh — whatever it drank down here rewrote it into this. It cannot move fast and it cannot be reasoned with, and it does not stop coming. The rind of dead tissue turns a glancing blow like cheap armour.",
+  "dodge": 0,
+  "faction": null,
+  "flags": {
+    "attacks_npcs": false,
+    "battle_cries": [
+      "$enemy turns its swollen mass toward $player and moans.",
+      "$enemy drags a bloated arm up to swing at $player.",
+      "$enemy shambles another wet step into $player."
+    ],
+    "first_strike_delay_ms": 7000
+  },
+  "hit": 2,
+  "hp_max": 30,
+  "id": "enemy_bloated_mutant",
+  "loot_table": [
+    { "item": "item_depleted_battery", "qty": [1, 1], "weight": 20 },
+    { "item": "item_scrap_metal", "qty": [1, 2], "weight": 22 },
+    { "item": "item_credit_chip", "credits": [10, 26], "qty": [1, 1], "weight": 18 }
+  ],
+  "name": "bloated mutant",
+  "weapon": [
+    { "max": 5, "min": 2, "type": "kinetic" }
+  ]
+}
