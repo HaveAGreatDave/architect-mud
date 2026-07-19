@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 5000,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_dray_container",
+  "id": "zone_util_zone_dray_container",
+  "max_capacity_kw": 1000,
+  "name": "Coldwater Container Yard — Utility Room",
+  "source_type": "junction_box"
+}

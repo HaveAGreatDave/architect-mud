@@ -1,28 +1,32 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
+  "ambient_theme": "urban",
   "audio_theme_id": null,
   "bg_color": "#2f3a26",
   "color": "#8ba36a",
   "created_by": "zone-planner",
-  "description": "Open grassland quietly reclaiming old ground — seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "description": "The face of the Coldwater Container Yard — a chain-link gate on a rolling track, and behind it corroded shipping cans stacked four high in canyons that groan when the wind comes off the Basin. A tally board by the gate is scrawled with box numbers nobody has reconciled in years. Dray Lane runs off to the west.",
   "exits": {
-    "east": "zone_district_923_903",
-    "north": "zone_district_922_902",
+    "in": "zone_dray_container",
     "south": "zone_district_922_904",
     "west": "zone_district_921_903"
   },
   "flags": {
-    "district": "docks",
-    "planner": "bp_district"
+    "building_name": "Coldwater Container Yard",
+    "building_type": "container_yard",
+    "district": "yards",
+    "facade": true,
+    "is_building": true,
+    "planner": "bp_district",
+    "world_exit_zone": "zone_district_921_903"
   },
   "grid_x": 922,
   "grid_y": 903,
   "grid_z": 0,
   "id": "zone_district_922_903",
   "map_id": "map_world",
-  "marker": "#",
-  "name": "Grasslands",
+  "marker": "CY",
+  "name": "Coldwater Container Yard",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1784100000"
 }

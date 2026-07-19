@@ -1,0 +1,17 @@
+{
+  "description": "Caged incandescent work-lamps on swing-arms hang over each station, their filaments trembling with the shed’s bad wiring. Between them the arc welder throws a second, whiter light that burns after-images onto your eyes.",
+  "flags": {
+    "is_light": true,
+    "light_type": "overhead"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_dray_fab",
+  "light_type": "overhead",
+  "lumen_output": 1700,
+  "name": "caged work-lamps",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_dray_fab"
+}

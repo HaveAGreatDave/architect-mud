@@ -1,28 +1,33 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
+  "ambient_theme": "urban",
   "audio_theme_id": null,
   "bg_color": "#2f3a26",
   "color": "#8ba36a",
   "created_by": "zone-planner",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "description": "The face of the Basin Cold Store — a fat insulated box sheathed in frosted panelling, its roller door skinned with rime even in summer. Condensers the size of engines hammer away on the roof, dripping a permanent black puddle across the threshold. Dray Lane runs off to the west.",
   "exits": {
-    "east": "zone_district_923_905",
+    "in": "zone_dray_coldstore",
     "north": "zone_district_922_904",
     "south": "zone_district_922_906",
     "west": "zone_district_921_905"
   },
   "flags": {
-    "district": "wasteland",
-    "planner": "bp_district"
+    "building_name": "Basin Cold Store",
+    "building_type": "cold_storage",
+    "district": "yards",
+    "facade": true,
+    "is_building": true,
+    "planner": "bp_district",
+    "world_exit_zone": "zone_district_921_905"
   },
   "grid_x": 922,
   "grid_y": 905,
   "grid_z": 0,
   "id": "zone_district_922_905",
   "map_id": "map_world",
-  "marker": "#",
-  "name": "Grasslands",
+  "marker": "CS",
+  "name": "Basin Cold Store",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1784100000"
 }

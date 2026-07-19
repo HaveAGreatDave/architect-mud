@@ -1,0 +1,17 @@
+{
+  "description": "Flat white LED panels in a water-stained drop ceiling, one corner buzzing where damp got into the ballast. Bright enough to read a manifest, harsh enough to make you not want to.",
+  "flags": {
+    "is_light": true,
+    "light_type": "overhead"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_dray_freightoffice",
+  "light_type": "overhead",
+  "lumen_output": 1800,
+  "name": "drop-ceiling panels",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_dray_freightoffice"
+}

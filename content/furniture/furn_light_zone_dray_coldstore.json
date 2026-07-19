@@ -1,0 +1,17 @@
+{
+  "description": "Sealed vapour-proof battens glow a cold blue-white behind frosted lenses, each haloed in the freezer fog. They never warm the room — they only make the cold easier to see.",
+  "flags": {
+    "is_light": true,
+    "light_type": "overhead"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_dray_coldstore",
+  "light_type": "overhead",
+  "lumen_output": 1600,
+  "name": "vapour-proof battens",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_dray_coldstore"
+}

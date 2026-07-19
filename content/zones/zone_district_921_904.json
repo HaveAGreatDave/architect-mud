@@ -5,16 +5,17 @@
   "bg_color": "#2f3a26",
   "color": "#8ba36a",
   "created_by": "zone-planner",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "description": "A cracked strip of oil-black hardstand running behind the Ironside shops, wide enough for a rigid to turn if the driver has faith. Faded loading bays are stencilled along the kerb; a bent sign reads DRAY LANE — DELIVERIES ONLY. The Basin glitters cold to the east.",
   "exits": {
     "east": "zone_district_922_904",
     "north": "zone_district_921_903",
     "south": "zone_district_921_905"
   },
   "flags": {
-    "district": "wasteland",
+    "district": "yards",
     "planner": "bp_district",
-    "scavenging_table_id": "scav_west_wastes"
+    "scavenging_table_id": "scav_west_wastes",
+    "terrain": "road"
   },
   "grid_x": 921,
   "grid_y": 904,
@@ -22,7 +23,7 @@
   "id": "zone_district_921_904",
   "map_id": "map_world",
   "marker": "#",
-  "name": "Grasslands",
+  "name": "Dray Lane",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1784100000"
 }
