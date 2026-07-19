@@ -39,8 +39,8 @@ during load. Two **self-referential** content FKs — `zones.parent_zone → zon
 `setup-local` restore aborted the whole one-transaction load, leaving an empty DB whose only symptom
 was boot dying on `relation "server_settings" does not exist`. Fix: made both FKs `DEFERRABLE
 INITIALLY DEFERRED` in `SCHEMA_SQL` (same pattern as the `media_*` cycle), so the dump's existing
-`SET CONSTRAINTS ALL DEFERRED` holds them to COMMIT — no `session_replication_role` (Supabase
-restricts it). A full content→content FK sweep confirmed these two are the only self/cyclic FKs; all
+`SET CONSTRAINTS ALL DEFERRED` holds them to COMMIT — no `session_replication_role` (the managed
+host restricts it). A full content→content FK sweep confirmed these two are the only self/cyclic FKs; all
 others are satisfied by `CONTENT_TABLES` order. `db/seed.sql` regenerated with the deferrable schema
 and a fresh from-empty restore verified to COMMIT (333 zones, 6 aircraft_types, 3 aa_sites).
 
@@ -127,6 +127,6 @@ path at all (seed-script only), compounding finding B.
 ## Method note
 
 Static read-only code audit, fanned out across five domains (export coverage · dialogue/VINE ·
-combat/items · world/economy/survival). Supabase MCP was unauthenticated this session, so no live
+combat/items · world/economy/survival). The database MCP was unauthenticated this session, so no live
 DB row inspection or `npm run test:regress` run — blast radii are inferred from code, not measured.
 A regression test driving a dialogue `START_QUEST` end-to-end would confirm finding A fast.

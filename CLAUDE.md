@@ -2,7 +2,7 @@
 
 ## What This Is
 
-Post-singularity browser MUD in the HellMOO tradition. Text-driven, real-time, brutal, and funny. Node.js server with raw WebSockets, vanilla JS frontends (one HTML/JS file per client plus a sibling `styles.css`), PostgreSQL via Supabase. No build step, no ORM, no framework.
+Post-singularity browser MUD in the HellMOO tradition. Text-driven, real-time, brutal, and funny. Node.js server with raw WebSockets, vanilla JS frontends (one HTML/JS file per client plus a sibling `styles.css`), PostgreSQL via Neon. No build step, no ORM, no framework.
 
 ## Key Docs
 
@@ -88,7 +88,7 @@ Never wire it into production boot (same principle as no startup migrations — 
 `async ({ run, check, getPlayer }) => { … }`; see [plugin-standard.md](docs/plugin-standard.md)).
 Test code lives with the plugin and never loads in production.
 
-Caveats: it shares the Supabase session pool (pool_size 15) — if it dies with `EMAXCONNSESSION`,
+Caveats: it shares the Neon session pool (pool_size 15) — if it dies with `EMAXCONNSESSION`,
 an orphaned local `node server/index.js` is holding pool connections. A `pretest:regress` hook runs
 `scripts/kill-orphans.js` to sweep these automatically before every regress run (and `predev` does
 the same before `npm run dev`); run it by hand any time with `npm run kill:orphans`. It's Windows-only,

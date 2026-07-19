@@ -48,7 +48,12 @@ const reportDrift = args.has('--report-drift');
 const guardWip = args.has('--guard-wip');
 
 function git(...argv) {
-  return execFileSync('git', argv, { cwd: REPO_ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  // Capture stderr (don't inherit it): several call sites — notably the WIP
+  // guard's `git show <marker>:<path>` for files that didn't exist at the marker
+  // — expect git to fail and swallow it in a try/catch. Inheriting stderr would
+  // still spray git's `fatal:` lines onto the terminal, making a handled miss
+  // look like a real error. Piped stderr lands in the thrown error instead.
+  return execFileSync('git', argv, { cwd: REPO_ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] });
 }
 
 function contentPathOf(table, name) {
