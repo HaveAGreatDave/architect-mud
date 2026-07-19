@@ -5,15 +5,18 @@
   "effects": {
     "hallucination": {
       "duration_seconds": 600,
-      "eventEverySec": 14,
-      "eventPool": [
-        "[trip]The room inhales and the walls flow outward into cathedral vaults of liquid light.[/trip]",
-        "[trip]Fractal vines of every impossible colour crawl up from the floor and flower midair.[/trip]",
-        "[trip]Your own hands leave glowing trails, a hundred hands fanning out from your wrists.[/trip]",
-        "[trip]Sound has texture. A distant machine hum is velvet dragged across your teeth.[/trip]",
-        "[trip]The grinning sun from the tab is on the ceiling now, and it winks at you.[/trip]",
-        "[trip]You are absolutely certain, for one perfect second, that you understand it all.[/trip]",
-        "[trip]A stranger who is also you steps out of the wall, waves, and folds back in.[/trip]"
+      "events": [
+        { "atSec": 25, "text": "[trip]A cold electric tingle climbs your spine and the edges of everything start to breathe.[/trip]" },
+        { "atSec": 55, "text": "[trip]Colours are getting louder. The light has opinions now.[/trip]" },
+        { "atSec": 100, "text": "[trip]The room inhales and the walls flow outward into cathedral vaults of liquid light.[/trip]" },
+        { "atSec": 160, "text": "[trip]Fractal vines of every impossible colour crawl up from the floor and flower midair.[/trip]" },
+        { "atSec": 230, "text": "[trip]Your own hands leave glowing trails, a hundred hands fanning out from your wrists.[/trip]" },
+        { "atSec": 300, "text": "[trip]Sound has texture. A distant machine hum is velvet dragged across your teeth.[/trip]" },
+        { "atSec": 360, "text": "[trip]You are absolutely certain, for one perfect second, that you understand it all.[/trip]" },
+        { "atSec": 410, "text": "[trip]A stranger who is also you steps out of the wall, waves, and folds back in.[/trip]" },
+        { "atSec": 470, "text": "[trip]The grinning sun from the tab is still on the ceiling, but it's tired now, and so are you.[/trip]" },
+        { "atSec": 540, "text": "[trip]The fractals fold themselves away one by one, leaving the walls plain and faintly glowing.[/trip]" },
+        { "atSec": 585, "text": "[trip]You're mostly back. Everything is very slightly too meaningful, and will be for a while.[/trip]" }
       ],
       "intensity": 0.8,
       "mode": "overlay",
@@ -23,6 +26,21 @@
       "sanity": -8
     },
     "onset_seconds": 20,
+    "phases": {
+      "comedown_message": "<span class=\"msg-system\">The peak loosens its grip. The world starts remembering how to be ordinary.</span>",
+      "comedown_scale": 0.5,
+      "comedown_seconds": 150,
+      "comeup_message": "<span class=\"msg-system\">Your jaw tightens, your feet won't quite hold still, and the room shimmers at the edges.</span>",
+      "comeup_scale": 0.5,
+      "comeup_seconds": 90,
+      "end_message": "<span class=\"msg-system\">You're down — wrung-out and wide awake, thoughts still trailing colour.</span>",
+      "peak_message": "<span class=\"msg-system\">The come-up crests and breaks. You are all the way in it now.</span>",
+      "peak_mods": {
+        "stat_cool": -1,
+        "stat_reflexes": 1
+      },
+      "peak_seconds": 360
+    },
     "tolerance": {
       "gain_per_dose": 0.4,
       "max_reduction": 0.95,

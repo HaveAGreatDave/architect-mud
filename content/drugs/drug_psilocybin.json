@@ -5,14 +5,15 @@
   "effects": {
     "hallucination": {
       "duration_seconds": 240,
-      "eventEverySec": 12,
-      "eventPool": [
-        "[trip]The walls take a slow, deliberate breath.[/trip]",
-        "[trip]The floor is a carpet of soft breathing moss now. It doesn't mind you standing on it.[/trip]",
-        "[trip]Every surface is faintly patterned with eyes, all of them kind.[/trip]",
-        "[trip]You can hear the colour green. It sounds like your grandmother's kitchen.[/trip]",
-        "[trip]Time pools in the corners of the room like warm honey.[/trip]",
-        "[trip]A shaft of light bends toward you and asks, without words, if you are okay.[/trip]"
+      "events": [
+        { "atSec": 35, "text": "[trip]A cold wave rolls up from your stomach — the nausea that always comes first. You yawn, and yawn again.[/trip]" },
+        { "atSec": 60, "text": "[trip]The queasiness breaks like a fever and everything goes soft and significant.[/trip]" },
+        { "atSec": 85, "text": "[trip]The walls take a slow, deliberate breath.[/trip]" },
+        { "atSec": 115, "text": "[trip]The floor is a carpet of soft breathing moss now. It doesn't mind you standing on it.[/trip]" },
+        { "atSec": 145, "text": "[trip]Every surface is faintly patterned with eyes, all of them kind.[/trip]" },
+        { "atSec": 170, "text": "[trip]You can hear the colour green. It sounds like your grandmother's kitchen.[/trip]" },
+        { "atSec": 195, "text": "[trip]Time pools in the corners of the room like warm honey.[/trip]" },
+        { "atSec": 220, "text": "[trip]A shaft of light bends toward you and asks, without words, if you are okay. You think you might be.[/trip]" }
       ],
       "intensity": 0.5,
       "mode": "overlay",
@@ -22,6 +23,21 @@
       "sanity": -4
     },
     "onset_seconds": 30,
+    "phases": {
+      "comedown_message": "<span class=\"msg-system\">The eyes on the walls close, one by one. The world softens back toward ordinary.</span>",
+      "comedown_scale": 0.5,
+      "comedown_seconds": 60,
+      "comeup_message": "<span class=\"msg-system\">Your stomach turns over and a heaviness settles into your limbs. Something is coming on.</span>",
+      "comeup_scale": 0.5,
+      "comeup_seconds": 60,
+      "end_message": "<span class=\"msg-system\">You come down gentle and hollowed-out, like you've had a good cry you don't remember.</span>",
+      "peak_message": "<span class=\"msg-system\">The nausea passes and leaves you wide open. Everything means something now.</span>",
+      "peak_mods": {
+        "stat_cool": 1,
+        "stat_reflexes": -1
+      },
+      "peak_seconds": 120
+    },
     "tolerance": {
       "gain_per_dose": 0.3,
       "max_reduction": 0.9,

@@ -3,19 +3,53 @@
   "description": "Dulls pain and panic. Popular with people who have seen too much.",
   "duration_seconds": 600,
   "effects": {
-    "hp": 5,
+    "diuretic": 0.7,
+    "instant": {
+      "hp": 5,
+      "sanity": 15
+    },
     "onset_seconds": 8,
-    "sanity": 15
+    "overdose": {
+      "message": "You take enough to stop feeling anything, which turns out to include your legs. You fold up where you stand, breathing slow and shallow, hours gone before you surface.",
+      "mods": {
+        "hp": -15,
+        "sanity": -20
+      }
+    },
+    "phases": {
+      "comedown_scale": 0.5,
+      "comedown_seconds": 150,
+      "comeup_message": "<span class=\"msg-system\">A grey calm rolls in from somewhere behind your eyes. The sharp things go soft.</span>",
+      "comeup_scale": 0.5,
+      "comeup_seconds": 30,
+      "end_message": "<span class=\"msg-system\">The calm thins out. The sharp things are still there, waiting exactly where you left them.</span>",
+      "peak_message": "<span class=\"msg-system\">Nothing can reach you in here. Nothing wants to. It's almost restful.</span>",
+      "peak_mods": {
+        "sanity_regen_per_sec": 1,
+        "stat_cool": 3,
+        "stat_reflexes": -2
+      },
+      "peak_seconds": 300
+    },
+    "tolerance": {
+      "gain_per_dose": 0.12,
+      "max_reduction": 0.7,
+      "recovery_per_sec": 0.00015
+    },
+    "withdrawal": {
+      "addiction_per_dose": 0.1,
+      "message": "Everything is loud and close and unbearable, and the one thing that ever made it stop is not in your hand.",
+      "mods": {
+        "stat_cool": -3,
+        "stat_endurance": -2
+      },
+      "onset_seconds": 900
+    }
   },
   "flags": {},
   "id": "drug_slow",
   "item_id": "item_drug_slow",
   "name": "Slow",
-  "overdose_threshold": 2,
-  "withdrawal_effects": {
-    "overdose": {
-      "hp": -20,
-      "sanity": -15
-    }
-  }
+  "overdose_threshold": 3,
+  "withdrawal_effects": {}
 }

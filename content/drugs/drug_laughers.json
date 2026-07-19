@@ -5,13 +5,14 @@
   "effects": {
     "hallucination": {
       "duration_seconds": 240,
-      "eventEverySec": 12,
-      "eventPool": [
-        "[trip]The sheer absurdity of everything hits you and you have to lean on a wall, wheezing.[/trip]",
-        "[trip]That grim little machine in the corner looks, on reflection, deeply and hilariously stupid.[/trip]",
-        "[trip]Someone somewhere is taking all of this seriously and that is the funniest part.[/trip]",
-        "[trip]You catch your own reflection making a face and completely lose it.[/trip]",
-        "[trip]Even the dread feels like a joke with a punchline you already know.[/trip]"
+      "events": [
+        { "atSec": 10, "text": "[trip]A giggle you didn't authorise escapes you. Then another. Uh oh.[/trip]" },
+        { "atSec": 35, "text": "[trip]The sheer absurdity of everything hits you and you have to lean on a wall, wheezing.[/trip]" },
+        { "atSec": 70, "text": "[trip]That grim little machine in the corner looks, on reflection, deeply and hilariously stupid.[/trip]" },
+        { "atSec": 105, "text": "[trip]Someone somewhere is taking all of this seriously and that is the funniest part.[/trip]" },
+        { "atSec": 140, "text": "[trip]You catch your own reflection making a face and completely lose it.[/trip]" },
+        { "atSec": 175, "text": "[trip]Even the dread feels like a joke with a punchline you already know.[/trip]" },
+        { "atSec": 210, "text": "[trip]The laughing tapers into breathless little aftershocks. Your cheeks ache. Your ribs ache. Worth it.[/trip]" }
       ],
       "intensity": 0.5,
       "mode": "overlay",
@@ -21,6 +22,20 @@
       "sanity": 20
     },
     "onset_seconds": 0,
+    "phases": {
+      "comedown_message": "<span class=\"msg-system\">The laughter winds down to hiccups and a sore, happy exhaustion.</span>",
+      "comedown_scale": 0.5,
+      "comedown_seconds": 60,
+      "comeup_message": "<span class=\"msg-system\">Something bright and stupid bubbles up in your chest. You're grinning before you know why.</span>",
+      "comeup_scale": 0.5,
+      "comeup_seconds": 30,
+      "end_message": "<span class=\"msg-system\">The funny drains out. Everything's the same as it was, except your face hurts.</span>",
+      "peak_message": "<span class=\"msg-system\">You are helpless now. The whole grim world is the best joke ever told.</span>",
+      "peak_mods": {
+        "stat_cool": 2
+      },
+      "peak_seconds": 150
+    },
     "tolerance": {
       "gain_per_dose": 0.2,
       "max_reduction": 0.8

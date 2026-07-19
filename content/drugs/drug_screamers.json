@@ -5,14 +5,15 @@
   "effects": {
     "hallucination": {
       "duration_seconds": 300,
-      "eventEverySec": 10,
-      "eventPool": [
-        "[trip]The walls are the wrong colour. They know they are the wrong colour. They are furious about it.[/trip]",
-        "[trip]Something enormous is screaming just below the range of hearing and it is getting closer.[/trip]",
-        "[trip]Your reflection in every surface is a half-second behind you, and grinning.[/trip]",
-        "[trip]The floor tilts. The ceiling drips. None of it is trying to help you.[/trip]",
-        "[trip]You are being watched by the architecture and it does not like what it sees.[/trip]",
-        "[trip]For a moment you are certain you have always been here and will never leave.[/trip]"
+      "events": [
+        { "atSec": 15, "text": "[trip]It comes on too fast and wrong, like a lift dropping. Your heart is suddenly very loud.[/trip]" },
+        { "atSec": 45, "text": "[trip]The walls are the wrong colour. They know they are the wrong colour. They are furious about it.[/trip]" },
+        { "atSec": 85, "text": "[trip]Your reflection in every surface is a half-second behind you, and grinning.[/trip]" },
+        { "atSec": 125, "text": "[trip]Something enormous is screaming just below the range of hearing and it is getting closer.[/trip]" },
+        { "atSec": 165, "text": "[trip]The floor tilts. The ceiling drips. None of it is trying to help you.[/trip]" },
+        { "atSec": 205, "text": "[trip]You are being watched by the architecture and it does not like what it sees.[/trip]" },
+        { "atSec": 245, "text": "[trip]For a moment you are certain you have always been here and will never leave.[/trip]" },
+        { "atSec": 280, "text": "[trip]The screaming pulls back, inch by inch, but you can still feel exactly where it was.[/trip]" }
       ],
       "intensity": 1,
       "mode": "overlay",
@@ -22,6 +23,21 @@
       "sanity": -18
     },
     "onset_seconds": 10,
+    "phases": {
+      "comedown_message": "<span class=\"msg-system\">The worst of it drains away, leaving you shaking and drenched and unconvinced it's really gone.</span>",
+      "comedown_scale": 0.6,
+      "comedown_seconds": 90,
+      "comeup_message": "<span class=\"msg-system\">Your pulse spikes and the room lurches. This one isn't going to be kind.</span>",
+      "comeup_scale": 0.6,
+      "comeup_seconds": 45,
+      "end_message": "<span class=\"msg-system\">You surface. The walls are just walls. You keep checking anyway.</span>",
+      "peak_message": "<span class=\"msg-system\">There's no floor under this. You're in it, and it's in you.</span>",
+      "peak_mods": {
+        "stat_cool": -4,
+        "stat_reflexes": -2
+      },
+      "peak_seconds": 165
+    },
     "tolerance": {
       "gain_per_dose": 0.25,
       "max_reduction": 0.85

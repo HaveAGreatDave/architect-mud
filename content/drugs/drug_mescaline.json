@@ -5,13 +5,15 @@
   "effects": {
     "hallucination": {
       "duration_seconds": 480,
-      "eventEverySec": 13,
-      "eventPool": [
-        "[trip]Everything is edged in shimmering gold, as if the world were a coin held to the light.[/trip]",
-        "[trip]Geometric patterns bloom across every wall, precise and ancient and alive.[/trip]",
-        "[trip]Your stomach rolls, but the nausea is just the door you have to walk through.[/trip]",
-        "[trip]A desert wind you cannot feel moves the shadows in long slow waves.[/trip]",
-        "[trip]An old voice, patient as stone, tells you a story in a language you were born knowing.[/trip]"
+      "events": [
+        { "atSec": 30, "text": "[trip]Your stomach rolls hard. Mescaline always makes you pay the toll at the door first.[/trip]" },
+        { "atSec": 70, "text": "[trip]The nausea is just the door you have to walk through. You breathe, and walk through it.[/trip]" },
+        { "atSec": 110, "text": "[trip]Everything is edged in shimmering gold, as if the world were a coin held to the light.[/trip]" },
+        { "atSec": 170, "text": "[trip]Geometric patterns bloom across every wall, precise and ancient and alive.[/trip]" },
+        { "atSec": 240, "text": "[trip]A desert wind you cannot feel moves the shadows in long slow waves.[/trip]" },
+        { "atSec": 310, "text": "[trip]An old voice, patient as stone, tells you a story in a language you were born knowing.[/trip]" },
+        { "atSec": 385, "text": "[trip]The gold begins to cool. The patterns slow their turning, satisfied, and start to still.[/trip]" },
+        { "atSec": 445, "text": "[trip]The desert folds itself back into four plain walls. You feel older, and steadier, and very tired.[/trip]" }
       ],
       "intensity": 0.7,
       "mode": "overlay",
@@ -22,6 +24,21 @@
       "sanity": -6
     },
     "onset_seconds": 25,
+    "phases": {
+      "comedown_message": "<span class=\"msg-system\">The gold cools out of the air. The visions settle, unhurried, back into ordinary matter.</span>",
+      "comedown_scale": 0.5,
+      "comedown_seconds": 90,
+      "comeup_message": "<span class=\"msg-system\">Your stomach knots and your skin prickles. The long climb is starting.</span>",
+      "comeup_scale": 0.5,
+      "comeup_seconds": 90,
+      "end_message": "<span class=\"msg-system\">You come all the way down, wrung out and quietly rearranged.</span>",
+      "peak_message": "<span class=\"msg-system\">The nausea burns off and the world opens up gold and geometric and endless.</span>",
+      "peak_mods": {
+        "stat_brains": 1,
+        "stat_reflexes": -1
+      },
+      "peak_seconds": 300
+    },
     "tolerance": {
       "gain_per_dose": 0.3,
       "max_reduction": 0.9

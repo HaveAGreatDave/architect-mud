@@ -6,11 +6,11 @@
     "diuretic": 0.85,
     "hallucination": {
       "duration_seconds": 300,
-      "eventEverySec": 20,
-      "eventPool": [
-        "[trip]Time slows to a comfortable crawl. There is nowhere you need to be.[/trip]",
-        "[trip]You become deeply, urgently aware that you would demolish an entire vending machine of snacks.[/trip]",
-        "[trip]A thought drifts by, profound and important, and you completely fail to catch it.[/trip]"
+      "events": [
+        { "atSec": 25, "text": "[trip]Time slows to a comfortable crawl. There is nowhere you need to be.[/trip]" },
+        { "atSec": 90, "text": "[trip]A thought drifts by, profound and important, and you completely fail to catch it.[/trip]" },
+        { "atSec": 160, "text": "[trip]You become deeply, urgently aware that you would demolish an entire vending machine of snacks.[/trip]" },
+        { "atSec": 240, "text": "[trip]The plush heaviness thins out into a pleasant, dopey haze.[/trip]" }
       ],
       "intensity": 0.3,
       "mode": "overlay",

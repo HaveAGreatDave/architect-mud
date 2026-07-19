@@ -6,12 +6,13 @@
     "hallucination": {
       "dreamzone_id": "zone_dream_void",
       "duration_seconds": 260,
-      "eventEverySec": 20,
-      "eventPool": [
-        "[trip]The static sea hums your name and you feel it in your back teeth.[/trip]",
-        "[trip]A memory swims past wearing someone else's face. It nods at you.[/trip]",
-        "[trip]An advertisement for a product that does not exist plays across the whole sky.[/trip]",
-        "[trip]You wade deeper. The blue closes over your knees, your chest, your reasons for leaving.[/trip]"
+      "events": [
+        { "atSec": 12, "text": "[trip]The channel-hold slips. The room dissolves into blue snow and a low, patient hum.[/trip]" },
+        { "atSec": 45, "text": "[trip]The static sea hums your name and you feel it in your back teeth.[/trip]" },
+        { "atSec": 95, "text": "[trip]A memory swims past wearing someone else's face. It nods at you.[/trip]" },
+        { "atSec": 150, "text": "[trip]An advertisement for a product that does not exist plays across the whole sky.[/trip]" },
+        { "atSec": 200, "text": "[trip]You wade deeper. The blue closes over your knees, your chest, your reasons for leaving.[/trip]" },
+        { "atSec": 240, "text": "[trip]The signal starts to resolve. Somewhere above the static, a channel is trying to find you again.[/trip]" }
       ],
       "intensity": 0.9,
       "mode": "dreamzone",
@@ -28,6 +29,15 @@
     "tolerance": {
       "gain_per_dose": 0.2,
       "max_reduction": 0.8
+    },
+    "withdrawal": {
+      "addiction_per_dose": 0.1,
+      "message": "The world is too vivid, too present, too full of edges. You miss the blue quiet between the channels.",
+      "mods": {
+        "stat_brains": -2,
+        "stat_cool": -1
+      },
+      "onset_seconds": 2100
     }
   },
   "flags": {},
