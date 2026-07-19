@@ -29,7 +29,7 @@ function cardLines(card, faceDown) {
     '|         |',
     `|    ${s}    |`,
     '|         |',
-    `|       ${rPadR} |`,
+    `|      ${rPadR} |`,
     '+---------+',
   ];
 }
