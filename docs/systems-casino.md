@@ -20,7 +20,8 @@ changes were needed for either.
     tiltProne 0.5). Behaviour graph runs `HAVE_LIFE`.
   - `npc_neonvig_enforcer` — **"the Collector"**, `personality: thug`, hp 90.
     Pure loan-shark menace at the cage; no mechanics.
-  - `npc_neonvig_dealer` — **"Sennet 'Deadhand' Cole"** (poker dealer, below).
+  - `npc_neonvig_backroom_dealer` — **"Marguerite 'Margo' Sable"** (the poker
+    dealer, below). Runs the one felt in the main room, called-aloud.
 
 ## Slots ([plugins/slots/](../plugins/slots/index.js))
 
@@ -42,56 +43,35 @@ changes were needed for either.
   "Widow Maker") — identical config (`slot_min 5`, `slot_max 100`,
   `slot_default 10`), interaction `spin`.
 
-## Poker table
+## Poker table (the old-school called-aloud felt)
 
-Owned entirely by the [`gametable`](../plugins/gametable/index.js) plugin — the
-casino commit added **content + a seed only**, no code. See that plugin for the
-Hold'em rules, betting verbs, and bot logic ([bot-player.js](../plugins/gametable/bot-player.js)).
+One poker table, in the main casino room, run entirely by the
+[`gametable`](../plugins/gametable/index.js) plugin — content + a seed, no
+bespoke code. It's the **called-aloud** table, built on the
+[text-mode](#text-mode-screen-reader-accessibility) accessibility layer so it
+plays fully by the text log. Same Hold'em engine (rules/betting/bots in
+[bot-player.js](../plugins/gametable/bot-player.js)); the only plugin seam is
+`config.textTable`.
 
-- **Wiring:** furniture `furn_neonvig_poker_table` + four chairs
-  `furn_neonvig_chair_1..4` carry `flags.game_table_id: "gametable_neonvig"`
-  (chairs also `flags.seat_idx: 0..3`, interaction `sit`). The runtime
-  `game_tables` row `gametable_neonvig` links the zone + dealer.
-- **Dealer:** `npc_neonvig_dealer`, `flags.table_id: "gametable_neonvig"`,
-  `personality: dealer`. Hands can't be dealt unless the dealer is present;
-  `call dealer` / `calldealer` rushes him back if he wandered off.
-- **Summoning an opponent:** `summon` / `deal in <name>` / `call <name>` (when
-  not in a live hand) calls a `flags.poker_player` gambler NPC (Ledger) to an
-  open seat; you must be seated first. A lone seated human auto-invites a gambler
-  after ~45s.
+> **History:** originally two tables — a visual high-stakes table
+> (`gametable_neonvig`, dealer "Deadhand" Cole) on the floor and Margo's
+> old-school table in a back room (`zone_casino_backroom`), separate because the
+> seat/furniture-panel/`take_seat` bridges assume **one table per zone**. Both
+> the visual table (+ dealer, + furniture) and the back room were later retired;
+> Margo's felt moved into the main room as the casino's only poker.
 
-### Required seed (one-shot per environment)
-
-The `game_tables` row is runtime-classified and is **not** carried by
-`content:import` (same pattern as `gametable_embassy`). After a fresh deploy:
-
-```
-node scripts/seed-neonvig-poker.mjs                    # local
-node --env-file=.env.prod scripts/seed-neonvig-poker.mjs   # prod
-```
-
-Idempotent (insert-or-update). Inserts `game_tables` id `gametable_neonvig`,
-zone `zone_casino_interior`, `game_type: 'holdem'`, `smallBlind 10` /
-`bigBlind 20`, `buyIn 250` (`minBuyIn 100` / `maxBuyIn 2000`),
-`turnTimerSecs 30`, `dealerNpcId: "npc_neonvig_dealer"`. Reload the world after.
-
-## Back-room old-school (text) table
-
-A second, self-contained poker table in a back room off the floor — the
-**called-aloud** table, built around the [text-mode](#text-mode-screen-reader-accessibility)
-accessibility layer so it plays fully by the log. Same Hold'em engine; no plugin
-code beyond the `config.textTable` seam.
-
-- **Room:** `zone_casino_backroom` — "The Neon Vig — Back Room", `east` from the
-  floor / `west` back (shares the casino's interior `map_id`). A separate zone on
-  purpose: the seat/furniture-panel/`take_seat` bridges assume **one table per
-  zone**, so a second table in the main room would misroute seats.
 - **Dealer:** `npc_neonvig_backroom_dealer` — **Marguerite "Margo" Sable**
   (female, `personality: dealer`, `flags.table_id: "gametable_neonvig_oldschool"`,
-  homed to the back room). She deals by hand and "calls every card aloud, the old
-  way" — her dialogue/chitchat sell the accessible framing.
-- **Wiring:** `furn_backroom_poker_table` + `furn_backroom_chair_1..4`
-  (`flags.game_table_id: "gametable_neonvig_oldschool"`, `seat_idx 0..3`).
+  homed to `zone_casino_interior`). She deals by hand and "calls every card aloud,
+  the old way" — her dialogue/chitchat carry the accessible framing.
+- **Wiring:** furniture `furn_backroom_poker_table` + `furn_backroom_chair_1..4`
+  (`flags.game_table_id: "gametable_neonvig_oldschool"`, chairs `seat_idx 0..3`,
+  interaction `sit`), all in `zone_casino_interior`. The runtime `game_tables`
+  row `gametable_neonvig_oldschool` links the zone + dealer.
+- **Opponents:** `summon` / `deal in <name>` / `call <name>` (when not in a live
+  hand) calls a `flags.poker_player` gambler NPC (Ledger) to an open seat; sit
+  first. A lone seated human auto-invites a gambler after ~45s. `call dealer` /
+  `calldealer` rushes Margo back if she wandered off.
 - **The `textTable` flag** (on the `game_tables` config, not content): the
   `gametable` plugin (a) **force-enables text narration** for anyone who sits or
   spectates — no personal `pokertext` opt-in needed (`ensureTextPref`); (b)
@@ -102,30 +82,26 @@ code beyond the `config.textTable` seam.
   `look` return the **room look** (`paneOrLook` in index.js). The area pane stays
   the room; the whole game plays out in the text log. (This is the one difference
   from personal `pokertext`, which keeps the visual pane and layers narration on
-  top.) Cheaper, slower table: `smallBlind 5`/`bigBlind 10`, `buyIn 100`,
+  top.) Friendly stakes: `smallBlind 5`/`bigBlind 10`, `buyIn 100`,
   `turnTimerSecs 45` (more time to act by ear).
-- **Seed (runtime row, same as above):**
 
-  ```
-  node scripts/seed-neonvig-oldschool-poker.mjs                    # local
-  node --env-file=.env.prod scripts/seed-neonvig-oldschool-poker.mjs   # prod
-  ```
+### Required seed (runtime rows, one-shot per environment)
 
-  Inserts `game_tables` id `gametable_neonvig_oldschool`, zone
-  `zone_casino_backroom`, `textTable: true`,
-  `dealerNpcId: "npc_neonvig_backroom_dealer"`. Reload the world after.
-- **Lighting:** the room is on the casino's junction-box power via a
-  `power_zones` content row (`content/power_zones/zone_casino_backroom.json`,
-  same `generator_id` as the floor) and lit by `furn_light_zone_casino_backroom`
-  (`object_type: light`, 2200 lm). Because `light_on` / `lighting_states` are
-  runtime, export-excluded columns, a fixture lands **off** after an additive
-  deploy — run the lights one-shot once, post-deploy (same pattern as Solenne /
-  media-civic):
+`game_tables` rows are runtime-classified and **not** carried by `content:import`.
+On a fresh environment, register the table:
 
-  ```
-  node scripts/lights-casino-backroom.mjs                    # local
-  node --env-file=.env.prod scripts/lights-casino-backroom.mjs   # prod
-  ```
+```
+node scripts/seed-neonvig-oldschool-poker.mjs                        # local
+node --env-file=.env.prod scripts/seed-neonvig-oldschool-poker.mjs   # prod
+```
+
+Inserts `gametable_neonvig_oldschool`, zone `zone_casino_interior`,
+`textTable: true`, `dealerNpcId: "npc_neonvig_backroom_dealer"`. Reload after.
+
+The one-time **consolidation** (drop the retired visual table row, move the
+old-school row into the main room on an environment that already had both) runs
+via `scripts/consolidate-neonvig-poker.mjs` (idempotent; local, then prod after
+the deploy).
 
 ## Verb ownership
 

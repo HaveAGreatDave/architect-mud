@@ -20,10 +20,9 @@
   "bg_color": "#2a2620",
   "color": "#d8c8a0",
   "created_by": null,
-  "description": "A low, windowless room drowned in dying neon and secondhand smoke, the carpet a violent paisley chosen decades ago to hide blood, ash, and worse — and doing all three at once. Felt tables ring a cashier's cage bolted down like it expects to be robbed, and every surface tilts a fraction toward the house. The air is climate-controlled to a permanent, luckless 2 a.m., and it smells of spilled liquor, ozone, and people losing money they didn't have to begin with. Behind the machines, a door with no handle leads somewhere nobody comes back from smiling. To the east, a sagging bead curtain half-hides a low doorway to a quiet back room where they still deal by hand.",
+  "description": "A low, windowless room drowned in dying neon and secondhand smoke, the carpet a violent paisley chosen decades ago to hide blood, ash, and worse — and doing all three at once. Felt tables ring a cashier's cage bolted down like it expects to be robbed, and every surface tilts a fraction toward the house. The air is climate-controlled to a permanent, luckless 2 a.m., and it smells of spilled liquor, ozone, and people losing money they didn't have to begin with. Behind the machines, a door with no handle leads somewhere nobody comes back from smiling. Under a low green-shaded lamp near the cage, an old woman deals a hand-shuffled game and calls every card aloud.",
   "exits": {
-    "north": "zone_district_921_910",
-    "east": "zone_casino_backroom"
+    "north": "zone_district_921_910"
   },
   "flags": {
     "building_name": "The Neon Vig",

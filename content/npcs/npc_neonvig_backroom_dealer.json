@@ -11,7 +11,7 @@
     }
   },
   "chitchat": [
-    "\"We play the old way back here, hon — I deal by hand and I call every card aloud. No screens.\"",
+    "\"We play the old way at this table, hon — I deal by hand and I call every card aloud. No screens.\"",
     "riffles a worn deck one-handed and squares it with a soft, unhurried snap",
     "\"You don't need to see the felt to play at my table. Just listen — I'll call it all out.\"",
     "\"Back when I started, every card was read to the room. I never saw a reason to stop.\"",
@@ -23,7 +23,7 @@
   "description": "A trim, silver-haired woman in a high-collared black dress gone soft at the seams, a pair of reading glasses pushed up into her hair she never quite uses. Her hands are the tell — quick, sure, and entirely at home with a deck, shuffling and squaring without a downward glance. She deals the old way, by hand, and calls every card aloud in a low, carrying voice, as much for the players who can't see the felt as for the ones who can. They call her Margo. Everyone has, for longer than most of them have been alive.",
   "dialogue_tree": {
     "root": {
-      "text": "Marguerite 'Margo' Sable looks up over glasses she isn't wearing and gives the deck a lazy riffle. \"Come for the quiet game, hon? We do it the old way back here — dealt by hand, every card called aloud. Sit down and I'll read you in.\"",
+      "text": "Marguerite 'Margo' Sable looks up over glasses she isn't wearing and gives the deck a lazy riffle. \"Come for the quiet game, hon? I run this table the old way — dealt by hand, every card called aloud. Sit down and I'll read you in.\"",
       "options": [
         { "label": "I'd like to play.", "next": "play" },
         { "label": "What do you mean, the old way?", "next": "oldway" },
@@ -77,7 +77,7 @@
     "table_id": "gametable_neonvig_oldschool"
   },
   "home_activities": [],
-  "home_zone": "zone_casino_backroom",
+  "home_zone": "zone_casino_interior",
   "hp": 30,
   "hp_max": 30,
   "id": "npc_neonvig_backroom_dealer",
@@ -91,5 +91,5 @@
   "vendor_stock_size": 10,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": "zone_casino_backroom"
+  "work_zone_id": "zone_casino_interior"
 }

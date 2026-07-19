@@ -1,9 +1,0 @@
-{
-  "capacity_kw": 1000,
-  "flags": {},
-  "generator_id": "gen_zone_util_zone_casino_interior_1783840662042",
-  "id": "zone_casino_backroom",
-  "max_capacity_kw": 1000,
-  "name": "The Neon Vig — Back Room",
-  "source_type": "junction_box"
-}

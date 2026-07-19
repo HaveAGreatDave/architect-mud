@@ -1,11 +1,11 @@
-// One-shot: register the Neon Vig back-room "old-school" text-poker table.
+// One-shot: register the Neon Vig "old-school" text-poker table (the only poker
+// table in the casino — it lives in the main room, zone_casino_interior).
 //
-// The furniture (furn_backroom_poker_table + chairs), the dealer NPC
-// (npc_neonvig_backroom_dealer, "Margo"), and the back-room zone all ship
-// through the CODEX content pipeline (git). But the `game_tables` row is
-// runtime-classified (docs/content-pipeline.md) — it is NOT carried by
-// content:import — so, exactly like gametable_neonvig, it has to be inserted
-// directly. Idempotent: re-running just refreshes the config.
+// The furniture (furn_backroom_poker_table + chairs) and the dealer NPC
+// (npc_neonvig_backroom_dealer, "Margo") ship through the CODEX content pipeline
+// (git). But the `game_tables` row is runtime-classified
+// (docs/content-pipeline.md) — it is NOT carried by content:import — so it has
+// to be inserted directly. Idempotent: re-running just refreshes the config.
 //
 // The distinguishing config key is `textTable: true`: the gametable plugin
 // force-enables screen-reader text narration for anyone who sits (see
@@ -18,7 +18,7 @@ import 'dotenv/config';
 import { query } from '../server/models/db.js';
 
 const TABLE_ID = 'gametable_neonvig_oldschool';
-const ZONE_ID = 'zone_casino_backroom';
+const ZONE_ID = 'zone_casino_interior';
 const NAME = 'The Old-School Felt';
 
 const CONFIG = {
@@ -48,7 +48,7 @@ async function main() {
     );
     console.log(`[create] game_table ${TABLE_ID}`);
   }
-  console.log('Done. Restart the server (or reload the world) and step into the Neon Vig back room (east from the floor).');
+  console.log('Done. Restart the server (or reload the world) and walk into The Neon Vig — Margo runs the felt in the main room.');
   process.exit(0);
 }
 
