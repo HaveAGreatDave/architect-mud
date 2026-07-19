@@ -1,0 +1,17 @@
+{
+  "description": "A single green-shaded pendant lamp hangs low over the felt on a frayed cord, throwing a warm, close pool of light across the cards and leaving the corners of the room in soft shadow. It's the kind of light card rooms had before the neon — enough to read a hand by, and nothing more.",
+  "flags": {
+    "is_light": true,
+    "light_type": "overhead"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_casino_backroom",
+  "light_type": "overhead",
+  "lumen_output": 2200,
+  "name": "green-shaded lamp",
+  "object_type": "light",
+  "power_draw_kw": 0.01,
+  "price": null,
+  "zone_id": "zone_casino_backroom"
+}

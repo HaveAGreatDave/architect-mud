@@ -89,6 +89,19 @@ async function ensureTextPref(player, table) {
   else textModePlayers.delete(player.id);
 }
 
+// The area-pane result after a seat/spectate/look. Normal tables draw the visual
+// poker pane; an old-school text table leaves the area pane as the room look and
+// plays entirely in the text log — so hand it the room description instead.
+async function paneOrLook(t, player) {
+  if (t.config.textTable) {
+    const { describeZone } = await import('../../server/engine/commands/index.js');
+    const zone = getZone(player.current_zone);
+    if (!zone) return null;
+    return { type: 'look', message: await describeZone(zone, player), zone: zone.id };
+  }
+  return { type: 'poker_update', html: renderPane(t, player.id) };
+}
+
 // ── Commands ───────────────────────────────────────────────────────────────────
 
 async function cmdJoin(args, raw, player) {
@@ -103,10 +116,7 @@ async function cmdJoin(args, raw, player) {
 
   await ensureTextPref(player, t);
   t.pushPaneAll();
-  return {
-    type: 'poker_update',
-    html: renderPane(t, player.id),
-  };
+  return paneOrLook(t, player);
 }
 
 // `seat <n>` — take a specific seat (1-4). Buys in if not yet seated, or moves
@@ -141,7 +151,7 @@ async function cmdSeat(args, raw, player) {
     t.seats[n] = { ...t.seats[cur], seatIdx: n };
     t.seats[cur] = null;
     t.pushPaneAll();
-    return { type: 'poker_update', html: renderPane(t, player.id) };
+    return paneOrLook(t, player);
   }
 
   // Not seated yet — buy in at the chosen seat.
@@ -149,7 +159,7 @@ async function cmdSeat(args, raw, player) {
   if (!result.ok) return { type: 'error', message: result.error };
   await ensureTextPref(player, t);
   t.pushPaneAll();
-  return { type: 'poker_update', html: renderPane(t, player.id) };
+  return paneOrLook(t, player);
 }
 
 async function cmdLeave(args, raw, player) {
@@ -167,13 +177,13 @@ async function cmdWatch(args, raw, player) {
   const existing = tableForPlayer(player);
   if (existing) {
     if (existing.seatedIndex(player.id) >= 0) return { type: 'error', message: 'You are seated. Type `leave` to just watch.' };
-    return { type: 'poker_update', html: renderPane(existing, player.id) };
+    return paneOrLook(existing, player);
   }
   const t = tableInZone(player.current_zone, args.join(' ') || null);
   if (!t) return { type: 'error', message: 'No poker table here.' };
   t.addSpectator(player.id);
   await ensureTextPref(player, t);
-  return { type: 'poker_update', html: renderPane(t, player.id) };
+  return paneOrLook(t, player);
 }
 
 // ── `watch` router (poker table vs. TV vs. furniture disambiguation) ─────────────
@@ -281,6 +291,10 @@ async function cmdLook(args, raw, player) {
 
   const t = tableForPlayer(player);
   if (!t) return; // fall through to engine
+
+  // Old-school text table: `look` shows the room, not the visual pane — the game
+  // lives in the log. Fall through to the engine's room look.
+  if (t.config.textTable) return;
 
   return { type: 'poker_update', html: renderPane(t, player.id) };
 }

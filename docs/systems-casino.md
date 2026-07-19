@@ -94,11 +94,16 @@ code beyond the `config.textTable` seam.
   (`flags.game_table_id: "gametable_neonvig_oldschool"`, `seat_idx 0..3`).
 - **The `textTable` flag** (on the `game_tables` config, not content): the
   `gametable` plugin (a) **force-enables text narration** for anyone who sits or
-  spectates — no personal `pokertext` opt-in needed (`ensureTextPref`), and (b)
+  spectates — no personal `pokertext` opt-in needed (`ensureTextPref`); (b)
   unlocks Margo's **old-school dealer quips** (`OLD_SCHOOL_LINES` in
   [game-table.js](../plugins/gametable/game-table.js), blended into `_quip` at
-  ~50% for a flagged table). Cheaper, slower table: `smallBlind 5`/`bigBlind 10`,
-  `buyIn 100`, `turnTimerSecs 45` (more time to act by ear).
+  ~50% for a flagged table); and (c) **suppresses the visual poker pane
+  entirely** — `pushPaneAll` sends no `poker_update`, and `join`/`seat`/`spectate`/
+  `look` return the **room look** (`paneOrLook` in index.js). The area pane stays
+  the room; the whole game plays out in the text log. (This is the one difference
+  from personal `pokertext`, which keeps the visual pane and layers narration on
+  top.) Cheaper, slower table: `smallBlind 5`/`bigBlind 10`, `buyIn 100`,
+  `turnTimerSecs 45` (more time to act by ear).
 - **Seed (runtime row, same as above):**
 
   ```
@@ -109,6 +114,18 @@ code beyond the `config.textTable` seam.
   Inserts `game_tables` id `gametable_neonvig_oldschool`, zone
   `zone_casino_backroom`, `textTable: true`,
   `dealerNpcId: "npc_neonvig_backroom_dealer"`. Reload the world after.
+- **Lighting:** the room is on the casino's junction-box power via a
+  `power_zones` content row (`content/power_zones/zone_casino_backroom.json`,
+  same `generator_id` as the floor) and lit by `furn_light_zone_casino_backroom`
+  (`object_type: light`, 2200 lm). Because `light_on` / `lighting_states` are
+  runtime, export-excluded columns, a fixture lands **off** after an additive
+  deploy — run the lights one-shot once, post-deploy (same pattern as Solenne /
+  media-civic):
+
+  ```
+  node scripts/lights-casino-backroom.mjs                    # local
+  node --env-file=.env.prod scripts/lights-casino-backroom.mjs   # prod
+  ```
 
 ## Verb ownership
 
