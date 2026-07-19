@@ -114,6 +114,26 @@ function groundElev(wx, wy) {
        + Math.sin(wx * 0.13 - wy * 0.11 + 0.6) * 0.3     // medium rolling octave — steeper coastal hills, so the shore reads as a landmass rising, not a flat plate
        + Math.sin(wx * 0.19 - wy * 0.16) * 0.16;
 }
+// Extra relief ADDED only over arid land (the wildlands beyond the Curtain): sharper, carved
+// badland topography on top of groundElev's gentle hills — quantized mesa terraces bounded by
+// escarpment lines, plus continuous ridged rock (arroyo/canyon walls). Fed through the same
+// finite-difference hillshade as groundElev, so a terrace's step edge lights up as a cliff and
+// the flat tops read as plateaus. Amplitude is a few× the base hills so the plain no longer reads
+// as one flat sheet. Rendering-only, like groundElev.
+function wildsRelief(x, y) {
+  const ridge = 1 - Math.abs(Math.sin(x * 0.16 + 0.4) * Math.cos(y * 0.14 - 0.9));           // 0..1 sharp ridge lines
+  const terrace = Math.round((Math.sin(x * 0.11 - 0.6) + Math.sin(y * 0.09 + 1.7)) * 1.5) / 1.5;  // stepped mesa plateaus
+  return terrace * 1.3 + ridge * ridge * 1.1;
+}
+// Shared relief hillshade for the Mode-7 floor: shade a tile off the elevation gradient, lit by
+// the sun key. `arid` (0..1) folds in wildsRelief and widens the light/shadow range so badland
+// terrain reads with more relief than the soft city hills; arid 0 reproduces the original city
+// shade exactly. Called by both the built-tile LUT and the off-map wildlands fill.
+function reliefShade(awx, awy, litX, litY, arid) {
+  const e = (x, y) => groundElev(x, y) + (arid ? wildsRelief(x, y) * arid : 0);
+  const e0 = e(awx, awy), gx = e(awx + 0.5, awy) - e0, gy = e(awx, awy + 0.5) - e0;
+  return clamp(1 + (-gx * litX - gy * litY) * 3.0, 0.74 - 0.08 * arid, 1.26 + 0.08 * arid);
+}
 
 // ── Time-of-day sky keyframes (blended by hour) ───────────────────────────────
 const SKY = [
@@ -318,6 +338,10 @@ const BIOME_GROUND = {
 // the airport ramp (stays concrete grey).
 const GRASS_BIOMES = new Set(['parkland', 'park', 'citycore', 'uptown', 'civic', 'infra', 'freight',
   'marquee', 'oldcoldwater', 'industrial', 'ruins', 'docks']);
+// Bare dry-land biomes — get the carved badland relief (wildsRelief), a per-tile arid tint
+// jitter, and the sand-ripple/cracked-clay ground material instead of flat fill. The off-map
+// wildlands fill is arid by construction, so it isn't listed here (it passes arid=1 directly).
+const ARID_BIOMES = new Set(['scrub', 'redrock', 'ash', 'badlands']);
 // Man-made / paved surfaces — the coast-wobble domain warp skips these so a concrete slab, tarmac,
 // pier or airport ramp keeps its straight built edges instead of going wavy (apron tiles are added
 // dynamically in the LUT via the nearField test).
@@ -1825,8 +1849,7 @@ function fillOffMap(LUT, mw, mh, R, wcx, wcy, litX, litY) {
     const into = clamp((dL[y][x] - 1) / 26, 0, 1);
     const rr = clamp(into * 0.7 + vnoise2(awx * 0.06, awy * 0.06) * 0.6 - 0.15, 0, 1);
     const col = mix(DIRT, REDROCK, rr);
-    const e0 = groundElev(awx, awy), gx = groundElev(awx + 0.5, awy) - e0, gy = groundElev(awx, awy + 0.5) - e0;
-    const shade = clamp(1 + (-gx * litX - gy * litY) * 3.0, 0.74, 1.26);
+    const shade = reliefShade(awx, awy, litX, litY, 1);   // off-map plain is arid by construction → carved badland relief
     LUT[y][x] = [col[0], col[1], col[2], 0, 0, shade];
   }
   return LUT;
@@ -1890,10 +1913,13 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chas
         const apron = grassy && nearField(map, rx, ry);
         if (apron) grassy = false;
         if (!bi) { out[rx] = null; continue; }   // unbuilt/off-map — fillOffMap inherits it from the nearest built tile
-        const col = apron ? APRON_GREY : (BIOME_GROUND[bi] || gTop);
         const awx = (rx - R) + wcx, awy = (ry - R) + wcy;   // absolute world tile (relief stays put, doesn't slide)
-        const e0 = groundElev(awx, awy), gx = groundElev(awx + 0.5, awy) - e0, gy = groundElev(awx, awy + 0.5) - e0;
-        const shade = clamp(1 + (-gx * litX - gy * litY) * 3.0, 0.74, 1.26);
+        const arid = !apron && ARID_BIOMES.has(bi) ? 1 : 0;
+        let col = apron ? APRON_GREY : (BIOME_GROUND[bi] || gTop);
+        // Arid tint jitter: drift each dry tile between rust / ochre / pale sand off a per-tile
+        // noise value, so a whole redrock district isn't one flat plate but a mottled badland.
+        if (arid) { const j = vnoise2(awx * 0.21, awy * 0.21) - 0.5; col = [clamp(col[0] + j * 46, 40, 210), clamp(col[1] + j * 30, 30, 190), clamp(col[2] + j * 22, 24, 170)]; }
+        const shade = reliefShade(awx, awy, litX, litY, arid);
         const paved = apron || PAVED_BIOMES.has(bi) ? 1 : 0;   // man-made surface → excluded from the coast wobble
         out[rx] = [col[0], col[1], col[2], bi === 'water' ? 1 : 0, grassy ? 1 : 0, shade, paved];
       }
@@ -1990,6 +2016,7 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chas
       const waterW = s00[3] * w00 + s10[3] * w10 + s01[3] * w01 + s11[3] * w11;
       const grassW = s00[4] * w00 + s10[4] * w10 + s01[4] * w01 + s11[4] * w11;
       const shadeW = s00[5] * w00 + s10[5] * w10 + s01[5] * w01 + s11[5] * w11;
+      const dryW = clamp(1 - waterW * 4, 0, 1) * (1 - grassW);   // bare dry land coord (1 = open desert, 0 = water/turf); drives arid material + aerial perspective
       // Base material: a WHISPER of concrete tone variation + within-tile diagonal gradient.
       // Kept very low — a stronger checker read as a distracting tiled pattern on flat grey
       // asphalt/apron (the whole thing pulsing like a chessboard as you flew over it).
@@ -2004,6 +2031,15 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chas
       // Relief hillshade — brightens sun-facing slopes, darkens the lee; land only, so the
       // ground reads as gentle rolling hills. Water stays flat (its own wave shading below).
       tex *= shadeW * (1 - waterW) + waterW;
+      // Arid ground material: wind-blown sand ripple + broad cracked-clay patches so the dry
+      // wildlands read as textured desert, not a flat tinted plate. Gated to near/mid texels
+      // (detail) — like the water mottle — so the far plain stays flat and never aliases into a
+      // checker; one noise lookup, only on dry ground.
+      if (dryW > 0.02 && detail > 0.3) {
+        const rip = Math.sin(wx * 2.4 + wy * 0.8) + 0.6 * Math.sin(wx * 0.9 - wy * 1.7);
+        const clay = vnoise2(wx * 0.85 + 5, wy * 0.85 - 3) - 0.5;
+        tex *= 1 + (rip * 0.025 + clay * 0.11) * dryW * detail;
+      }
       // Water + shoreline. waterW rises 0→1 across the shore seam (bilinear), so it doubles
       // as a shoreline coordinate — ~0.5 is the waterline. On top of the blended base colour
       // we layer the cues that make a coast read as a coast instead of a colour crossfade:
@@ -2134,7 +2170,7 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chas
       // and read as a looming wall / mountains. Fade DISTANT dry ground toward the horizon colour so
       // the infinite plain recedes flat. Water (its own wave/glint) and parkland/city (grassW) are
       // left alone — only bare dry land washes out.
-      const dry = clamp(1 - waterW * 4, 0, 1) * (1 - grassW);
+      const dry = dryW;
       if (dry > 0.02) {
         const lh = dry * clamp((d - 10) / 44, 0, 1) * 0.6;   // 0 within ~10 tiles → up to 0.6 at the horizon
         const inv = 1 - lh;
@@ -3187,6 +3223,96 @@ function drawRockBB(ctx, cam, dx, dy, night, seed, alpha) {
   ctx.globalAlpha = alpha; ctx.fillStyle = rgb(fogTint([120, 92, 60], p.f));
   ctx.beginPath(); ctx.moveTo(p.sx - s, p.sy); ctx.lineTo(p.sx - s * 0.3, p.sy - s * 0.7); ctx.lineTo(p.sx + s * 0.4, p.sy - s * 0.5); ctx.lineTo(p.sx + s, p.sy); ctx.closePath(); ctx.fill();
   ctx.globalAlpha = 1;
+}
+// ── Arid-wildlands scatter vocabulary ─────────────────────────────────────────
+// The badlands answer to the park's five dressings: a handful of cheap screen-space
+// billboards (sized off the tile depth like drawRockBB, dimmed at night, fogged by distance),
+// picked per-tile by the world-stable seed so a tile always shows the same thing. drawWildScatter
+// dispatches by biome — rust mesa & spires over redrock, saguaro & dry brush over scrub, charred
+// snags & bleached bone over the ash flats. No authoring: they self-populate the district.
+function _wildBB(cam, dx, dy, k, lo, hi) { const p = cam.proj(dx, dy, 0); return p && p.f > 0.06 ? { p, s: clamp(k / p.f, lo, hi) } : null; }
+function drawMesaBB(ctx, cam, dx, dy, night, seed, alpha) {   // flat-topped rust butte
+  const d = _wildBB(cam, dx, dy, 26, 3, 54); if (!d) return; const { p, s } = d, nm = night ? 0.5 : 1;
+  const h = s * (1.1 + frac(seed) * 0.9), w = s * (0.9 + frac(seed + 3) * 0.5), topW = w * 0.82, bx = p.sx, by = p.sy, ty = by - h;
+  const lit = fogTint([168 * nm, 92 * nm, 60 * nm], p.f), shad = fogTint([104 * nm, 52 * nm, 34 * nm], p.f), band = fogTint([130 * nm, 66 * nm, 42 * nm], p.f);
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = rgb(shad); ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx + w, by); ctx.lineTo(bx + topW, ty); ctx.lineTo(bx, ty); ctx.closePath(); ctx.fill();   // shaded right face
+  ctx.fillStyle = rgb(lit); ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx - w, by); ctx.lineTo(bx - topW, ty); ctx.lineTo(bx, ty); ctx.closePath(); ctx.fill();   // sunlit left face
+  ctx.fillStyle = rgb(band);
+  for (let i = 1; i <= 2; i++) { const fTop = i / 3, yy = ty + (by - ty) * fTop, hw = topW + (w - topW) * fTop; ctx.fillRect(bx - hw, yy, hw * 2, Math.max(1, s * 0.05)); }   // strata bands, inset to the silhouette
+  ctx.globalAlpha = 1;
+}
+function drawHoodooBB(ctx, cam, dx, dy, night, seed, alpha) {   // thin capped spires
+  const d = _wildBB(cam, dx, dy, 22, 2, 44); if (!d) return; const { p, s } = d, nm = night ? 0.5 : 1, n = 1 + (seed % 3);
+  const body = fogTint([158 * nm, 84 * nm, 54 * nm], p.f), cap = fogTint([118 * nm, 60 * nm, 38 * nm], p.f);
+  ctx.globalAlpha = alpha;
+  for (let i = 0; i < n; i++) {
+    const ox = (frac(seed + i) - 0.5) * s * 1.4, h = s * (1 + frac(seed + i * 2) * 1.1), w = s * (0.16 + frac(seed + i * 3) * 0.1), x = p.sx + ox, by = p.sy, ty = by - h;
+    ctx.fillStyle = rgb(body); ctx.beginPath(); ctx.moveTo(x - w, by); ctx.lineTo(x + w, by); ctx.lineTo(x + w * 0.6, ty); ctx.lineTo(x - w * 0.6, ty); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = rgb(cap); ctx.beginPath(); ctx.ellipse(x, ty, w * 1.5, w * 0.9, 0, 0, 7); ctx.fill();   // caprock knob
+  }
+  ctx.globalAlpha = 1;
+}
+function drawCactusBB(ctx, cam, dx, dy, night, seed, alpha) {   // saguaro, 0–2 arms
+  const d = _wildBB(cam, dx, dy, 20, 2, 40); if (!d) return; const { p, s } = d, nm = night ? 0.55 : 1;
+  const col = rgb(fogTint([66 * nm, 102 * nm, 58 * nm], p.f)), x = p.sx, by = p.sy, h = s * (1.1 + frac(seed) * 0.7), w = Math.max(1.5, s * 0.16), arms = seed % 3;
+  ctx.globalAlpha = alpha; ctx.fillStyle = col; ctx.strokeStyle = col; ctx.lineWidth = w; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  ctx.fillRect(x - w / 2, by - h, w, h);
+  if (arms >= 1) { const ay = by - h * 0.55; ctx.beginPath(); ctx.moveTo(x, ay); ctx.lineTo(x - w * 2.2, ay); ctx.lineTo(x - w * 2.2, ay - h * 0.3); ctx.stroke(); }
+  if (arms >= 2) { const ay = by - h * 0.4; ctx.beginPath(); ctx.moveTo(x, ay); ctx.lineTo(x + w * 2, ay); ctx.lineTo(x + w * 2, ay - h * 0.34); ctx.stroke(); }
+  ctx.globalAlpha = 1;
+}
+function drawDeadTreeBB(ctx, cam, dx, dy, night, seed, alpha) {   // charred bare snag
+  const d = _wildBB(cam, dx, dy, 26, 2, 50); if (!d) return; const { p, s } = d, nm = night ? 0.5 : 1;
+  const col = rgb(fogTint([46 * nm, 40 * nm, 38 * nm], p.f)), x = p.sx, by = p.sy, h = s * (1 + frac(seed) * 0.8), lean = (frac(seed) - 0.5) * s * 0.3;
+  ctx.globalAlpha = alpha; ctx.strokeStyle = col; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.lineWidth = Math.max(1.4, s * 0.12); ctx.beginPath(); ctx.moveTo(x, by); ctx.lineTo(x + lean, by - h); ctx.stroke();
+  ctx.lineWidth = Math.max(1, s * 0.06);
+  const n = 2 + (seed % 3);
+  for (let i = 0; i < n; i++) { const t = 0.5 + frac(seed + i) * 0.45, bx2 = x + lean * t, byy = by - h * t, dir = i % 2 ? 1 : -1; ctx.beginPath(); ctx.moveTo(bx2, byy); ctx.lineTo(bx2 + dir * s * (0.3 + frac(seed + i * 2) * 0.3), byy - s * (0.2 + frac(seed + i) * 0.3)); ctx.stroke(); }
+  ctx.globalAlpha = 1;
+}
+function drawBonesBB(ctx, cam, dx, dy, night, seed, alpha) {   // bleached ribcage on the ground
+  const d = _wildBB(cam, dx, dy, 16, 2, 30); if (!d) return; const { p, s } = d, nm = night ? 0.6 : 1;
+  const col = rgb(fogTint([206 * nm, 198 * nm, 180 * nm], p.f)), x = p.sx, y = p.sy;
+  ctx.globalAlpha = alpha * 0.9; ctx.strokeStyle = col; ctx.lineCap = 'round'; ctx.lineWidth = Math.max(1, s * 0.09);
+  ctx.beginPath(); ctx.moveTo(x - s * 0.7, y); ctx.lineTo(x + s * 0.7, y); ctx.stroke();   // spine
+  for (let i = 0; i < 4; i++) { const rx = x - s * 0.6 + i * s * 0.4; ctx.beginPath(); ctx.arc(rx, y - s * 0.02, s * 0.22, Math.PI * 1.05, Math.PI * 1.95); ctx.stroke(); }   // ribs
+  ctx.globalAlpha = 1;
+}
+function drawBrushBB(ctx, cam, dx, dy, night, seed, alpha) {   // dry shrub tufts
+  const d = _wildBB(cam, dx, dy, 16, 2, 30); if (!d) return; const { p, s } = d, nm = night ? 0.55 : 1, n = 2 + (seed % 3);
+  ctx.globalAlpha = alpha; ctx.strokeStyle = rgb(fogTint([124 * nm, 116 * nm, 72 * nm], p.f)); ctx.lineCap = 'round'; ctx.lineWidth = Math.max(1, s * 0.05);
+  for (let i = 0; i < n; i++) { const bx2 = p.sx + (frac(seed + i) - 0.5) * s * 1.2, by = p.sy, spr = 3 + ((seed + i) % 3);
+    for (let k = 0; k < spr; k++) { const a = -Math.PI / 2 + (k / (spr - 1) - 0.5) * 1.4, L = s * (0.35 + frac(seed + i * 3 + k) * 0.3); ctx.beginPath(); ctx.moveTo(bx2, by); ctx.lineTo(bx2 + Math.cos(a) * L, by + Math.sin(a) * L); ctx.stroke(); } }
+  ctx.globalAlpha = 1;
+}
+function drawTumbleweedBB(ctx, cam, dx, dy, night, seed, alpha) {   // wiry tan ball
+  const d = _wildBB(cam, dx, dy, 14, 2, 26); if (!d) return; const { p, s } = d, nm = night ? 0.55 : 1;
+  const x = p.sx, y = p.sy - s * 0.5, r = s * 0.5;
+  ctx.globalAlpha = alpha * 0.9; ctx.strokeStyle = rgb(fogTint([150 * nm, 130 * nm, 86 * nm], p.f)); ctx.lineWidth = Math.max(1, s * 0.05);
+  for (let i = 0; i < 5; i++) { const a = frac(seed + i) * Math.PI; ctx.beginPath(); ctx.moveTo(x - Math.cos(a) * r, y - Math.sin(a) * r); ctx.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r); ctx.stroke(); }
+  ctx.beginPath(); ctx.arc(x, y, r * 0.7, 0, 7); ctx.stroke();
+  ctx.globalAlpha = 1;
+}
+function drawWildScatter(ctx, cam, dx, dy, bi, night, seed, alpha) {
+  const k = seed % 6;
+  if (bi === 'redrock') {
+    if (k <= 1) drawMesaBB(ctx, cam, dx, dy, night, seed, alpha);
+    else if (k === 2) { drawMesaBB(ctx, cam, dx, dy, night, seed, alpha); drawHoodooBB(ctx, cam, dx, dy, night, seed + 4, alpha); }
+    else if (k === 3 || k === 4) drawHoodooBB(ctx, cam, dx, dy, night, seed, alpha);
+    else drawRockBB(ctx, cam, dx, dy, night, seed, alpha);
+  } else if (bi === 'scrub') {
+    if (k <= 1) drawCactusBB(ctx, cam, dx, dy, night, seed, alpha);
+    else if (k === 2 || k === 3) drawBrushBB(ctx, cam, dx, dy, night, seed, alpha);
+    else if (k === 4) drawTumbleweedBB(ctx, cam, dx, dy, night, seed, alpha);
+    else drawRockBB(ctx, cam, dx, dy, night, seed, alpha);
+  } else {   // ash flats
+    if (k <= 1) drawDeadTreeBB(ctx, cam, dx, dy, night, seed, alpha);
+    else if (k === 2) drawBonesBB(ctx, cam, dx, dy, night, seed, alpha);
+    else if (k === 3) drawBrushBB(ctx, cam, dx, dy, night, seed, alpha);
+    else drawRockBB(ctx, cam, dx, dy, night, seed, alpha);
+  }
 }
 // A manicured PARK tile (flags.terrain 'park' → 'park' biome): one of five dressings — a tree
 // grove, an ornamental pond, a bench-and-lamp rest spot, flowerbeds, or a paved path — instead
@@ -6031,8 +6157,9 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     if (bi === 'park') { emitFace(od, () => drawParkTile(ctx, cam, it.dx, it.dy, night, it.seed, alpha, now, it.c.pf)); continue; }   // manicured park: authored `park_feature` (symmetry) or a seeded dressing (grove / pond / benches / flowerbeds / path)
     if (bi === 'parkland') { emitFace(od, () => drawTreeBB(ctx, cam, it.dx, it.dy, night, it.seed, alpha)); continue; }
     if (bi === 'badlands') { if ((it.seed % 3) === 0) emitFace(od, () => drawRockBB(ctx, cam, it.dx, it.dy, night, it.seed, alpha)); continue; }
-    // Arid wildlands: scattered rocks/boulders. Rust mesa (redrock) is rockier than scrub/ash.
-    if (bi === 'scrub' || bi === 'redrock' || bi === 'ash') { if ((it.seed % (bi === 'redrock' ? 2 : 3)) === 0) emitFace(od, () => drawRockBB(ctx, cam, it.dx, it.dy, night, it.seed, alpha)); continue; }
+    // Arid wildlands: per-biome scatter (mesa/hoodoo over redrock, cactus/brush over scrub, dead
+    // snags/bone over ash) picked by the tile seed. Rust mesa (redrock) is denser than scrub/ash.
+    if (bi === 'scrub' || bi === 'redrock' || bi === 'ash') { if ((it.seed % (bi === 'redrock' ? 2 : 3)) === 0) emitFace(od, () => drawWildScatter(ctx, cam, it.dx, it.dy, bi, night, it.seed, alpha)); continue; }
     // Trees & small forests on OPEN grass (no building, no road here). A coarse per-area hash
     // makes whole ~4-tile patches lean wooded or clear, so stands cluster into small forests
     // instead of a uniform sprinkle; sparse areas still get the odd lone tree. Deterministic
