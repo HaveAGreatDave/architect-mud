@@ -291,7 +291,7 @@
     "job_board_dispatcher": true
   },
   "home_activities": [],
-  "home_zone": "zone_mq_chrome_304",
+  "home_zone": "zone_district_919_904",
   "hp": 20,
   "hp_max": 20,
   "id": "npc_fs_dispatcher",
@@ -306,5 +306,5 @@
   "vendor_stock_size": 10,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": null
+  "work_zone_id": "zone_district_919_904"
 }
