@@ -9,7 +9,8 @@
   "exits": {
     "east": "zone_district_870_906",
     "north": "zone_district_869_905",
-    "south": "zone_district_869_907"
+    "south": "zone_district_869_907",
+    "west": "zone_district_868_906"
   },
   "flags": {
     "district": "wilds",
@@ -26,5 +27,5 @@
   "marker": null,
   "name": "Cinder Mesa",
   "parent_zone": null,
-  "updated_at": "1784700000"
+  "updated_at": "1784433929"
 }

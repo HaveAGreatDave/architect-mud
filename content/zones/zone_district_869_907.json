@@ -9,7 +9,8 @@
   "exits": {
     "east": "zone_district_870_907",
     "north": "zone_district_869_906",
-    "south": "zone_district_869_908"
+    "south": "zone_district_869_908",
+    "west": "zone_district_868_907"
   },
   "flags": {
     "district": "wilds",
@@ -26,5 +27,5 @@
   "marker": null,
   "name": "Rustwind Flat",
   "parent_zone": null,
-  "updated_at": "1784700000"
+  "updated_at": "1784433929"
 }

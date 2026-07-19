@@ -8,6 +8,7 @@
   "description": "Broken mesa shelves step away in ochre and iron-red, cut by dry washes where the wind funnels grit against your teeth.",
   "exits": {
     "east": "zone_district_864_908",
+    "north": "zone_district_863_907",
     "south": "zone_district_863_909"
   },
   "flags": {
@@ -25,5 +26,5 @@
   "marker": null,
   "name": "The Ironpan",
   "parent_zone": null,
-  "updated_at": "1784700000"
+  "updated_at": "1784433929"
 }

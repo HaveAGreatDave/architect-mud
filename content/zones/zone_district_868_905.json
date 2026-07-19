@@ -4,28 +4,27 @@
   "audio_theme_id": null,
   "bg_color": "#2a1c16",
   "color": "#b5744a",
-  "created_by": "wildlands-expand",
+  "created_by": null,
   "description": "Cracked red hardpan runs out flat to a rust-colored horizon. Wind-scoured rock, grit, and nothing that grows.",
   "exits": {
-    "east": "zone_district_865_904",
-    "north": "zone_district_864_903",
-    "south": "zone_district_864_905",
-    "west": "zone_district_863_904"
+    "east": "zone_district_869_905",
+    "north": "zone_district_868_904",
+    "south": "zone_district_868_906",
+    "west": "zone_district_867_905"
   },
   "flags": {
     "district": "wilds",
-    "district_id": "district_coldwater",
     "planner": "bp_district",
-    "radiation": 41,
+    "radiation": 30,
     "terrain": "redrock"
   },
-  "grid_x": 864,
-  "grid_y": 904,
+  "grid_x": 868,
+  "grid_y": 905,
   "grid_z": 0,
-  "id": "zone_district_864_904",
+  "id": "zone_district_868_905",
   "map_id": "map_world",
   "marker": null,
-  "name": "Red Hardpan",
+  "name": "The Rust Flats",
   "parent_zone": null,
-  "updated_at": "1784433929"
+  "updated_at": "1784434156"
 }

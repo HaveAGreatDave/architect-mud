@@ -8,7 +8,8 @@
   "description": "Cracked red hardpan runs out flat to a rust-colored horizon. Wind-scoured rock, grit, and nothing that grows.",
   "exits": {
     "east": "zone_district_864_904",
-    "north": "zone_district_863_903"
+    "north": "zone_district_863_903",
+    "south": "zone_district_863_905"
   },
   "flags": {
     "district": "wilds",
@@ -25,5 +26,5 @@
   "marker": null,
   "name": "Oxide Barrens",
   "parent_zone": null,
-  "updated_at": "1784700000"
+  "updated_at": "1784433929"
 }

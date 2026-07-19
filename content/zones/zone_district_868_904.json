@@ -9,6 +9,7 @@
   "exits": {
     "east": "zone_district_869_904",
     "north": "zone_district_868_903",
+    "south": "zone_district_868_905",
     "west": "zone_district_867_904"
   },
   "flags": {
@@ -26,5 +27,5 @@
   "marker": null,
   "name": "Slateback Rise",
   "parent_zone": null,
-  "updated_at": "1784700000"
+  "updated_at": "1784433929"
 }
