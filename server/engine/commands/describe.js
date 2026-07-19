@@ -72,6 +72,12 @@ function getConnectedDestinations(zone) {
 	const buildings = [],
 		rooms = [],
 		plain = [];
+	// A zone can hide its exits from the room description entirely (flags.hide_exits):
+	// the graph still connects — movement, NPC pathfinding, and the minimap read the
+	// real exits directly — only this player-facing list (and name-based `go <exit>`
+	// nav, which reuses it) is suppressed. The elevator car opts in, since its floor
+	// panel IS the exit UI.
+	if (zone?.flags?.hide_exits) return { buildings, rooms, plain };
 	for (const { dir: direction, target: targetId } of allExits(zone)) {
 		const targetZone = getZone(targetId);
 		// Leaving a building: an interior exit onto an enterable facade actually

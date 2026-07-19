@@ -24,12 +24,34 @@
  * plugin only adds the numbered, teleporting convenience layer on top.
  */
 import { getZone, getMinimapData, addPlayerToZone, removePlayerFromZone, getAllLivePlayers } from '../../server/engine/world.js';
+import { exitTargets } from '../../server/engine/exits.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
 import { emit, on } from '../../server/engine/events.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
+import { registerInputMatcher } from '../../server/engine/plugins.js';
 import { query } from '../../server/models/db.js';
 
 const sys = (s) => `<span class="msg-system">${s}</span>`;
+
+// The arrival chime — the classic two-note elevator "bing-bong" (a descending
+// major third, E5→C5), played to the rider's own socket when the doors open on
+// their floor. A self-contained synth def (like the audio plugin's inline vat /
+// ghost cues), so it needs no DB row: the client's `audio_sfx` handler feeds it
+// straight to AudioEngine.playSfx.
+const SFX_ELEVATOR_CHIME = {
+  id: 'sfx_elevator_chime', name: 'sfx_elevator_chime', category: 'sfx', priority: 6,
+  config: {
+    duration: 1.1,
+    layers: [
+      // "bing" — E5, with a soft octave shimmer on top.
+      { waveform: 'sine', freq: 659.25, adsr: { a: 0.004, d: 0.18, s: 0.25, r: 0.5 }, gain: 0.5 },
+      { waveform: 'triangle', freq: 1318.5, adsr: { a: 0.003, d: 0.12, s: 0.1, r: 0.4 }, gain: 0.12 },
+      // "bong" — C5, a beat later.
+      { waveform: 'sine', freq: 523.25, delay: 0.3, adsr: { a: 0.004, d: 0.2, s: 0.3, r: 0.6 }, gain: 0.5 },
+      { waveform: 'triangle', freq: 1046.5, delay: 0.3, adsr: { a: 0.003, d: 0.14, s: 0.12, r: 0.5 }, gain: 0.12 },
+    ],
+  },
+};
 
 // The car nominally rests at the lobby — call that Floor 1 for counter purposes.
 const GROUND_FLOOR = 1;
@@ -44,13 +66,23 @@ function travelMs(targetN) {
 
 // Floor list off a zone, cleaned + sorted top-to-bottom (highest floor first, the
 // way a real elevator panel reads). Tolerates a missing/garbled flag.
+//
+// The ground floor is implicit: every car returns to its lobby (the `out` exit)
+// as Floor 1, injected here so the panel always offers a way down without the
+// content repeating it — the ride down runs the same timed board→arrive→chime
+// path as any other floor. Skipped if the content already defines a floor there.
 function floorsOf(zone) {
   const raw = zone?.flags?.elevator_floors;
-  if (!Array.isArray(raw)) return [];
-  return raw
-    .filter((f) => f && f.zone && Number.isFinite(Number(f.n)))
-    .map((f) => ({ n: Number(f.n), zone: f.zone, label: f.label || getZone(f.zone)?.name || f.zone }))
-    .sort((a, b) => b.n - a.n);
+  const list = Array.isArray(raw)
+    ? raw
+        .filter((f) => f && f.zone && Number.isFinite(Number(f.n)))
+        .map((f) => ({ n: Number(f.n), zone: f.zone, label: f.label || getZone(f.zone)?.name || f.zone }))
+    : [];
+  if (!list.some((f) => f.n === GROUND_FLOOR)) {
+    const lobbyId = exitTargets(zone, 'out')[0];
+    if (lobbyId && getZone(lobbyId)) list.push({ n: GROUND_FLOOR, zone: lobbyId, label: 'Ground Floor — Lobby' });
+  }
+  return list.sort((a, b) => b.n - a.n);
 }
 
 function isElevator(zone) {
@@ -111,6 +143,10 @@ async function arrive(player, ride) {
   sendToZone(floor.zone, { type: 'zone_event', message: `The elevator chimes and ${player.handle} steps out onto Floor ${floor.n}.`, refresh: true }, player.id);
   emit('zone.entered', { actor: player, zone: floor.zone, from });
 
+  // The chime the flavour text describes — an actual bing-bong to the rider as
+  // the doors open on their floor.
+  sendToPlayer(player.id, { type: 'audio_sfx', def: SFX_ELEVATOR_CHIME });
+
   sendToPlayer(player.id, {
     type: 'move',
     message: await describeZone(target, player),
@@ -125,7 +161,7 @@ async function arrive(player, ride) {
 function board(player, floor) {
   const carZone = player.current_zone;
   const dur = travelMs(floor.n);
-  const rising = floor.n >= GROUND_FLOOR;
+  const rising = floor.n > GROUND_FLOOR;   // Floor 1 (the lobby) is the one you descend to
   const ride = { floor, carZone, timers: [] };
 
   // Two intermediate counter ticks — the floor number sliding by behind the doors.
@@ -175,6 +211,33 @@ async function cmdFloor(args, raw, player, broadcast) {
   return board(player, floor);
 }
 
+// ── Input matchers (run before movement routing) ────────────────────────────
+// Two conveniences that only bite inside a car; anywhere else they return
+// undefined so the input falls straight through to its normal handling.
+
+// Bare number typed in a car → ride to that floor, exactly as `floor <n>` would
+// ("enter the number only"). Outside a car, a stray number stays "unknown
+// command" as before.
+async function matchBareFloor(_args, raw, player, broadcast) {
+  if (!isElevator(getZone(player.current_zone))) return undefined;
+  const n = raw.trim();
+  return cmdFloor([n], `floor ${n}`, player, broadcast);
+}
+
+// up / down inside a car don't cabin-move it — the timed ride is the ONLY way
+// between floors (the real up-exits still exist for NPC pathfinding, but the
+// player never rides them raw). Reprint the panel and point them at the number.
+function matchElevatorDir(_args, _raw, player, _broadcast) {
+  const zone = getZone(player.current_zone);
+  if (!isElevator(zone)) return undefined;      // normal movement everywhere else
+  const floors = floorsOf(zone);
+  if (!floors.length) return undefined;
+  return { type: 'output', message: `The car only moves to a floor you choose. Enter a number:\n${buildPanel(floors)}` };
+}
+
+registerInputMatcher(/^\d+$/, matchBareFloor, 'elevator');
+registerInputMatcher(/^(up|down)$/i, matchElevatorDir, 'elevator');
+
 // A ride is fragile in-flight: if the player forces their way out of the car,
 // dies, or drops, drop the pending arrival so the timer can't teleport a corpse
 // (or a logged-out ghost) across town. zone.entered fires on any move including
@@ -191,6 +254,6 @@ export const commands = {
   floor: cmdFloor,
 };
 
-export const _test = { floorsOf, buildPanel, isElevator, describeRoom };
+export const _test = { floorsOf, buildPanel, isElevator, describeRoom, matchBareFloor, matchElevatorDir };
 
 console.log('[elevator] Plugin loaded.');

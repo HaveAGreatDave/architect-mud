@@ -22,7 +22,7 @@ const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 const D2R = Math.PI / 180, R2D = 180 / Math.PI;
 const G_KT = 19.06;               // gravity as a knots/second airspeed change (9.81 m/s²)
 const wrap360 = (d) => ((d % 360) + 360) % 360;
-const GROUND_EFFECT_FT = 38;      // AGL band (~a wingspan) where the wing rides a lift cushion → float + flare to land (raised: engages higher so there's more room to arrest the sink and a wider safe-landing window)
+const GROUND_EFFECT_FT = 26;      // AGL band (~a wingspan) where the wing rides a lift cushion → float + flare to land (kept close to the deck so the cushion doesn't arrest the sink a whole wingspan up and float her down the runway)
 const HELI_GROUND_EFFECT_FT = 40; // AGL band (~a rotor diameter) where the downwash piles into a lift cushion → soft settle onto the skids
 
 // ── Per-airframe tuning ───────────────────────────────────────────────────────
@@ -528,7 +528,7 @@ export function step(state, input, p, dt) {
   // wide cushion makes the touchdown forgiving — a slightly-fast/high-sink arrival still settles.
   if (!s.onGround && vsTarget < 0 && s.altitude < GROUND_EFFECT_FT) {
     const ge = 1 - s.altitude / GROUND_EFFECT_FT;   // 0 at the top of the band → 1 on the deck
-    vsTarget *= 1 - 0.62 * ge * ge;
+    vsTarget *= 1 - 0.45 * ge * ge;                 // softens the sink near the deck without cancelling it — she still settles onto the runway instead of floating
   }
   if (s.onGround && vsTarget <= 0) {
     s.vs = 0;                                 // sitting on the wheels — no lift to climb on

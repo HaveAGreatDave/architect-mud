@@ -21,6 +21,7 @@
   "flags": {
     "building_name": "Solenne Residences",
     "elevator": true,
+    "hide_exits": true,
     "elevator_floors": [
       {
         "label": "Fitness Club",

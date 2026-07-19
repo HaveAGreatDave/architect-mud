@@ -122,3 +122,42 @@ function dpAlert(message, opts = {}) {
   return _dpDialog({ kind: 'alert', message, title: opts.title || 'Notice', okLabel: opts.okLabel || 'OK' });
 }
 
+// ── Draggable dialog cards ──────────────────────────────────────────────────
+// One delegated pointer handler makes EVERY `.dp-dialog-card` moveable by its
+// title bar — the dpConfirm/Prompt/Alert cards and the world editor's inline
+// "New District" (terrain) dialog alike, no per-dialog wiring. The card is
+// flex-centered by its overlay, so we offset it with a translate transform
+// accumulated across the drag; a freshly-built card (each dialog rebuilds its
+// element) starts centered again. Mirrors the world-editor district-drag pattern
+// (document-level move/up, no pointer capture); grabbing the title never trips
+// the backdrop-close (that needs mousedown on the overlay itself).
+(function enableDialogDrag() {
+  if (window.__dpDialogDrag) return;      // install once
+  window.__dpDialogDrag = true;
+  const offsets = new WeakMap();          // card element → { x, y }
+  let card = null, startX = 0, startY = 0, baseX = 0, baseY = 0;
+  function onMove(e) {
+    if (!card) return;
+    const x = baseX + (e.clientX - startX);
+    const y = baseY + (e.clientY - startY);
+    offsets.set(card, { x, y });
+    card.style.transform = `translate(${x}px, ${y}px)`;
+  }
+  function onUp() {
+    card = null;
+    document.removeEventListener('pointermove', onMove);
+    document.removeEventListener('pointerup', onUp);
+  }
+  document.addEventListener('pointerdown', (e) => {
+    const title = e.target.closest?.('.dp-dialog-title');
+    if (!title) return;
+    card = title.closest('.dp-dialog-card');
+    if (!card) return;
+    const o = offsets.get(card) || { x: 0, y: 0 };
+    baseX = o.x; baseY = o.y; startX = e.clientX; startY = e.clientY;
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+    e.preventDefault();                   // no text selection while dragging
+  });
+})();
+

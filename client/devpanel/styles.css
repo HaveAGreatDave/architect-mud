@@ -294,6 +294,7 @@
   .dp-dialog-title {
     color: var(--accent); font-size: 12px; letter-spacing: 2px;
     text-transform: uppercase; margin-bottom: 12px;
+    cursor: move; user-select: none;   /* drag the card by its title bar */
   }
   .dp-dialog-card.danger .dp-dialog-title { color: var(--red); }
   .dp-dialog-msg { color: var(--text); font-size: 13px; line-height: 1.5; white-space: pre-wrap; }

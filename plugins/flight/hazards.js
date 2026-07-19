@@ -229,10 +229,13 @@ async function cmdSpot(args, raw, player) {
   return { type: 'output', message: `<span class="text-cyan">From altitude you make out:</span>\n· ${finds.join('\n· ')}` };
 }
 
-// Crop-dusting — an ag-plane capability (the Locust). On a LOW pass the pilot opens the
+// Crop-dusting — an ag-plane capability (the Grasshopper). On a LOW pass the pilot opens the
 // spray booms and lays a fine mist over the tile below. Flavour for now: the ground zone sees
 // the pass; no entity effect yet (the hook is here to add one). Rate-limited to feel like the
-// booms need to re-pressurise between runs.
+// booms need to re-pressurise between runs. A duster with a hopper (type.data.hopper) must have
+// liquid loaded to dust — each pass drains SPRAY_LOAD; loadhopper fills it on the ground.
+const SPRAY_LOAD = 20;   // hopper units burned per dusting pass
+const hopperCap = (live) => (live.type.data && live.type.data.hopper) || 0;
 async function cmdSpray(args, raw, player) {
   const { live, err } = requirePilot(player); if (err) return err;
   if (!(live.type.data && live.type.data.spray))
@@ -240,16 +243,80 @@ async function cmdSpray(args, raw, player) {
   if (!live.row.airborne) return { type: 'emote', message: 'Get in the air first — you dust on a low pass.' };
   if (live.row.altitude_band !== 'low')
     return { type: 'emote', message: 'Too high to dust — drop down to a <b>LOW</b> pass first.' };
+  // Gate on a loaded hopper — but only for dusters that have one (cap 0 = flavour-only spray).
+  const cap = hopperCap(live);
+  const hop = live.row.custom_data?.hopper;
+  if (cap > 0 && !(hop && hop.amount > 0))
+    return { type: 'emote', message: 'The hopper\'s dry — land and <b>loadhopper</b> a liquid before you can dust.' };
   const now = Date.now();
   if (live.lastSpray && now - live.lastSpray < 2500) return { type: 'noop' };   // booms still re-pressurising
   live.lastSpray = now;
+  let tail = '';
+  if (cap > 0 && hop) {
+    hop.amount = Math.max(0, hop.amount - SPRAY_LOAD);
+    if (hop.amount <= 0) hop.fluid_type = null;
+    await persist(live);
+    tail = hop.amount > 0
+      ? ` <span class="text-dim">(hopper ${Math.round(hop.amount / cap * 100)}%)</span>`
+      : ' <span class="text-amber">The hopper runs dry.</span>';
+  }
   const below = surfaceAt(live.row.grid_x, live.row.grid_y);
   if (below?.id) sendToZone(below.id, {
     type: 'zone_event',
     message: `<span class="text-dim">A crop-duster howls past low overhead, spray booms open, trailing a fine chemical mist that drifts down over ${below.name}.</span>`,
     refresh: false,
   }, player.id);
-  return { type: 'emote', message: '<span class="text-green">You open the spray booms — a fine mist streams off the trailing edges and settles over the ground below.</span>' };
+  return { type: 'emote', message: `<span class="text-green">You open the spray booms — a fine mist streams off the trailing edges and settles over the ground below.</span>${tail}` };
+}
+
+// Load the duster's chemical hopper from a liquid you're carrying. Any fillable container
+// holding fluid works (water, fuel, a future ag-chem) — pouring empties that liquid into the
+// hopper the same way generator refuel pours a jerry can into a tank, so the container comes
+// back empty. One fluid type at a time; a ground job. `loadhopper [with] <container>`.
+async function cmdLoadHopper(args, raw, player) {
+  const { live, err } = requirePilot(player); if (err) return err;
+  if (!(live.type.data && live.type.data.spray))
+    return { type: 'emote', message: `The ${live.type.name} has no spray gear.` };
+  const cap = hopperCap(live);
+  if (cap <= 0) return { type: 'emote', message: `The ${live.type.name} has no chemical hopper.` };
+  if (live.row.airborne) return { type: 'emote', message: 'Pouring chemical into the hopper is a ground job — land first.' };
+
+  const cd = live.row.custom_data || (live.row.custom_data = {});
+  const hop = cd.hopper || (cd.hopper = { amount: 0, fluid_type: null });
+  const space = cap - (hop.amount || 0);
+  if (space <= 0) return { type: 'output', message: `The ${live.type.name}'s hopper is already full.` };
+
+  // Any carried fillable container holding liquid — a filter of fluid_amount>0 is exactly the
+  // "must be a liquid" gate, since a fluid only exists inside a container that's been filled.
+  const canName = args.join(' ').replace(/^with\s+/i, '').trim();
+  const { rows: cans } = await query(
+    `SELECT pi.id, pi.custom_data, i.name
+       FROM player_inventory pi JOIN items i ON i.id = pi.item_id
+      WHERE pi.player_id=$1 AND pi.container_id IS NULL AND jsonb_exists(i.tags,'fillable')
+        AND COALESCE((pi.custom_data->>'fluid_amount')::numeric,0) > 0${canName ? ' AND i.name ILIKE $2' : ''}
+      ORDER BY length(i.name) LIMIT 1`,
+    canName ? [player.id, `%${canName}%`] : [player.id]);
+  const can = cans[0];
+  if (!can) return { type: 'emote', message: `You've nothing holding liquid to pour${canName ? ` matching "${canName}"` : ''}. Fill a container first.` };
+
+  const fluidType = can.custom_data.fluid_type || 'water';
+  if ((hop.amount || 0) > 0 && hop.fluid_type && hop.fluid_type !== fluidType)
+    return { type: 'emote', message: `The hopper already holds ${hop.fluid_type} — spray it dry before loading ${fluidType}.` };
+
+  const have = Number(can.custom_data.fluid_amount) || 0;
+  const pour = Math.min(space, have);
+  const left = have - pour;
+  hop.amount = (hop.amount || 0) + pour;
+  hop.fluid_type = fluidType;
+
+  if (left > 0)
+    await query(`UPDATE player_inventory SET custom_data = COALESCE(custom_data,'{}'::jsonb) || $1::jsonb WHERE id=$2`,
+      [JSON.stringify({ fluid_amount: left }), can.id]);
+  else
+    await query(`UPDATE player_inventory SET custom_data = COALESCE(custom_data,'{}'::jsonb) - 'fluid_amount' - 'fluid_type' - 'contaminated' WHERE id=$1`,
+      [can.id]);
+  await persist(live);
+  return { type: 'use', message: `You pour ${fluidType} from the ${can.name} into the ${live.type.name}'s hopper. <span class="text-dim">(hopper ${Math.round(hop.amount / cap * 100)}%)</span>` };
 }
 
 function bearing(from, to) {
@@ -305,6 +372,7 @@ export const commands = {
   spot: cmdSpot,
   scan: cmdSpot,
   spray: cmdSpray,
+  loadhopper: cmdLoadHopper,
   chart: cmdChart,
   squawk: cmdSquawk,
 };

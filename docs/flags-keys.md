@@ -48,7 +48,8 @@ is silently inert, so grep before renaming anything below.
 | `district` | districts | override the id-prefix-derived district key (`engine/districts.js`) |
 | `elevator` | movement | elevator car zone |
 | `facade` | movement | OPT-IN non-standable building tile: auto-forwards into the interior map's entry zone; OUT lands on `world_exit_zone` (needs a maps row with `parent_zone_id` = this zone) |
-| `elevator_floors` | movement | floor list for the elevator |
+| `elevator_floors` | movement | floor list for the elevator (Floor 1 / lobby is implicit — synthesized from the car's `out` exit) |
+| `hide_exits` | describe (engine) | suppress the player-facing exit/room/building list in the room description; graph (movement, NPC pathfinding, minimap) is untouched. Used by elevator cars so the floor panel is the sole exit UI |
 | `fishing_table_id` | fishing | scavenging-table id used for fishing here |
 | `gov_checkpoint` | govgate | government checkpoint (contraband scan) |
 | `gov_enclave` | govgate | inside the government enclave |
