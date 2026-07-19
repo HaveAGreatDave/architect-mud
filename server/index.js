@@ -233,9 +233,13 @@ const httpServer = createServer(async (req, res) => {
 	}
 	try {
 		// No build step means asset URLs never change, so browsers would serve
-		// stale JS/HTML after a deploy until a manual hard-refresh. Revalidate on
-		// every load (no-cache) but keep it cheap: Last-Modified lets an unchanged
-		// file answer with a 304. A redeploy rewrites mtimes, busting the cache.
+		// stale JS/HTML after a deploy until a manual hard-refresh. The HTML stays
+		// on no-cache (revalidate every load; Last-Modified lets an unchanged file
+		// answer with a 304, and a redeploy rewrites mtimes to bust it). The ~82
+		// JS/CSS assets get a short max-age instead: revalidating each one cost a
+		// round trip per file on every load, which dominated load time. A deploy is
+		// at most max-age seconds stale for an already-open page.
+		const ext = extname(filePath);
 		const lastMod = statSync(filePath).mtime.toUTCString();
 		if (req.headers["if-modified-since"] === lastMod) {
 			res.writeHead(304);
@@ -244,8 +248,8 @@ const httpServer = createServer(async (req, res) => {
 		}
 		const data = readFileSync(filePath);
 		res.writeHead(200, {
-			"Content-Type": MIME[extname(filePath)] || "text/plain",
-			"Cache-Control": "no-cache",
+			"Content-Type": MIME[ext] || "text/plain",
+			"Cache-Control": ext === ".html" ? "no-cache" : "public, max-age=60",
 			"Last-Modified": lastMod,
 		});
 		res.end(data);

@@ -57,6 +57,18 @@ pool.on('error', (err) => {
   console.error('DB pool error:', err.message);
 });
 
+// Pin search_path on every new connection. Neon's pooler endpoint has handed out
+// sessions with an EMPTY search_path, under which no unqualified table name
+// resolves — every query fails "relation ... does not exist" against tables that
+// plainly exist (this took /api/audio/* down in prod on 2026-07-19; the direct
+// endpoint was unaffected, so the server default can't be relied on). This fires
+// once per new physical connection, not per query, so it costs nothing on the hot
+// path. It has to be a SET rather than the `options` startup parameter — the
+// pooler rejects that outright with "unsupported startup parameter in options".
+pool.on('connect', (client) => {
+  client.query('SET search_path TO public').catch(() => { /* surfaces on the caller's own query */ });
+});
+
 // Run a query. Automatically acquires + releases a connection.
 export async function query(text, params) {
   const client = await pool.connect();

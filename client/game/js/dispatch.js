@@ -104,8 +104,10 @@ function playWelcomeVoice(handle, player) {
       line = (fresh.length ? fresh : pool)[Math.floor(Math.random() * (fresh.length ? fresh : pool).length)];
       try { localStorage.setItem('welcome-voice-last', line(name)); } catch { /* ignore */ }
     }
-    window.AudioEngine?.init?.();
-    window.AudioEngine?.speak(line(name), { seed: 'architect' });
+    // An auto-login connects with no click behind it, so the context is still
+    // gesture-blocked here. Waiting means the greeting plays on first input
+    // instead of being dropped (and no autoplay warning on the way out).
+    window.AudioEngine?.onUnlock?.(() => window.AudioEngine.speak(line(name), { seed: 'architect' }));
   } catch { /* audio unavailable — no greeting */ }
 }
 

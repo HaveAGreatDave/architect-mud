@@ -75,9 +75,30 @@
     return buf;
   }
 
+  // Browsers refuse to start an AudioContext until a user gesture. Anything the
+  // server pushes before the first click/keypress (e.g. the welcome greeting on
+  // an auto-login) would be silently dropped, so callers hand it to onUnlock and
+  // it fires the moment audio is actually allowed.
+  let _unlocked = false;
+  const _unlockWaiters = [];
+
+  function _markUnlocked() {
+    if (_unlocked) return;
+    _unlocked = true;
+    while (_unlockWaiters.length) {
+      try { _unlockWaiters.shift()(); } catch { /* one bad waiter shouldn't block the rest */ }
+    }
+  }
+
+  function onUnlock(fn) {
+    if (_unlocked || (ctx && ctx.state === 'running')) { fn(); return; }
+    _unlockWaiters.push(fn);
+  }
+
   function init() {
     const c = ensureContext();
-    if (c && c.state === 'suspended') c.resume();
+    if (c && c.state === 'suspended') c.resume().then(_markUnlocked, () => { /* still gesture-blocked */ });
+    else if (c) _markUnlocked();
     return c;
   }
 
@@ -100,7 +121,8 @@
     // on first tap/click — well before any server-pushed audio message arrives.
     function _unlockAudio() {
       ensureContext();
-      if (ctx && ctx.state === 'suspended') ctx.resume();
+      if (ctx && ctx.state === 'suspended') ctx.resume().then(_markUnlocked, () => { /* still gesture-blocked */ });
+      else _markUnlocked();
       document.removeEventListener('touchstart', _unlockAudio, true);
       document.removeEventListener('click',      _unlockAudio, true);
     }
@@ -1347,7 +1369,7 @@
   })();
 
   global.AudioEngine = {
-    init, applyVolumeSettings,
+    init, onUnlock, applyVolumeSettings,
     playSfx, playSample, clearSampleCache,
     loopSound, stopLoop, setLoopGain, duckLoop, setEcho,
     playMusic, stopMusic, pauseMusic, resumeMusic, queueMusic, fadeTo, crossFade, setLayerWeight,
