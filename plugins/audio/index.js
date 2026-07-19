@@ -3,12 +3,12 @@ import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { query } from '../../server/models/db.js';
-import { getZone, getZonePlayers, getLivePlayer } from '../../server/engine/world.js';
+import { getZone, getZonePlayers, getLivePlayer, getZoneFurniture } from '../../server/engine/world.js';
 import { neighborZoneIds } from '../../server/engine/exits.js';
 import { sendToZone, sendToPlayer, getBroadcast } from '../../server/engine/messaging.js';
 import { on, emit } from '../../server/engine/events.js';
 import { propagateAudio, getWeatherLeakGain, getWeatherLeakSource } from '../../server/engine/sounds.js';
-import { getZonePrecip, getWindKph } from '../../server/engine/environment.js';
+import { getZonePrecip, getWindKph, getZonePowerStatus } from '../../server/engine/environment.js';
 
 // ── In-memory library cache (loaded from DB at boot, refreshed after CRUD) ──
 
@@ -510,16 +510,13 @@ const INDUSTRIAL_AMBIENT_IDS = [AMB_POWER_STATION.id, AMB_UTILITY_ROOM.id, AMB_P
 
 // The live, powered destructible power device in a zone (generator preferred),
 // or null if the room has none / it's smashed / the zone is blacked out.
-async function liveDeviceInZone(zoneId) {
-  const { rows } = await query(
-    `SELECT f.object_type, f.hp, COALESCE(pz.status,'offline') AS zone_status
-       FROM furniture f LEFT JOIN power_zones pz ON pz.id = f.zone_id
-      WHERE f.zone_id=$1 AND f.hp_max IS NOT NULL
-      ORDER BY (f.object_type='generator') DESC LIMIT 1`,
-    [zoneId]
-  ).catch(() => ({ rows: [] }));
-  const dev = rows[0];
-  const live = dev && (dev.hp ?? 1) > 0 && dev.zone_status === 'powered';
+function liveDeviceInZone(zoneId) {
+  // power_zones.status is RAM-only derived state now, and furniture is cached —
+  // so this is a walk of the zone's rows rather than a per-call join.
+  const candidates = getZoneFurniture(zoneId).filter(f => f.hp_max != null);
+  candidates.sort((a, b) => (b.object_type === 'generator') - (a.object_type === 'generator'));
+  const dev = candidates[0];
+  const live = dev && (dev.hp ?? 1) > 0 && getZonePowerStatus(zoneId) === 'powered';
   return live ? dev : null;
 }
 
@@ -528,11 +525,11 @@ async function liveDeviceInZone(zoneId) {
 //  · otherwise a live generator in an adjacent zone bleeds through, fainter (only
 //    the generator's roar carries next door — a utility hum wouldn't).
 async function industrialBedFor(zoneId) {
-  const dev = await liveDeviceInZone(zoneId);
+  const dev = liveDeviceInZone(zoneId);
   if (dev) return dev.object_type === 'generator' ? AMB_POWER_STATION : AMB_UTILITY_ROOM;
   const zone = getZone(zoneId);
   for (const neighborId of new Set(neighborZoneIds(zone))) {
-    const nDev = await liveDeviceInZone(neighborId);
+    const nDev = liveDeviceInZone(neighborId);
     if (nDev?.object_type === 'generator') return AMB_POWER_STATION_FAINT;
   }
   return null;

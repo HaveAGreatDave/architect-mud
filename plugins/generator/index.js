@@ -19,7 +19,7 @@
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { tagValue } from '../../server/engine/tags.js';
-import { recomputePower } from '../../server/engine/environment.js';
+import { recomputePower, markPowerTopologyDirty } from '../../server/engine/environment.js';
 import { insertFurniture, deleteFurniture } from '../../server/engine/world.js';
 
 // Fallbacks if the item's portable_generator tag omits a field. Numbers are
@@ -87,6 +87,7 @@ async function deploy(args, raw, player, broadcast) {
      VALUES ($1,$2,$3,'player',$4,'fuel',$5,$6,0,'offline',$7)`,
     [genId, player.current_zone, row.name, capacity, startFuel, burn,
      JSON.stringify({ tank, item_id: row.item_id, owner_id: player.id, owner_handle: player.handle })]);
+  markPowerTopologyDirty(); // the sim reads generators from RAM
   await insertFurniture({
     id: furnId, zone_id: player.current_zone, name: row.name,
     description: row.description || 'A squat, fuel-fed portable generator, all cage-frame and grab-handle.',
@@ -201,6 +202,7 @@ async function pack(args, raw, player, broadcast) {
 
   await deleteFurniture(g.furn_id);
   await query('DELETE FROM generators WHERE id=$1', [g.id]);
+  markPowerTopologyDirty(); // the sim reads generators from RAM
   // Carry the remaining fuel back into the item instance so it survives the move.
   await query(
     `INSERT INTO player_inventory (id, player_id, item_id, quantity, is_equipped, custom_data)

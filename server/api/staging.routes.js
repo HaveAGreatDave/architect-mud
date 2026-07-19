@@ -7,7 +7,7 @@
 // call them inside async request handlers, never at module evaluation time).
 
 import { query } from '../models/db.js';
-import { removeGenerator } from '../engine/environment.js';
+import { removeGenerator, markPowerTopologyDirty } from '../engine/environment.js';
 import { reloadMaps } from '../engine/world.js';
 import {
   apiCreateZone, apiDeleteZone, apiCreateDistrict,
@@ -192,6 +192,8 @@ const DELETERS = {
     const col = ORPHAN_TABLES[table];
     if (!col) throw new Error(`Unknown orphan table: ${table}`);
     const { rowCount } = await query(`DELETE FROM ${table} WHERE ${col}=$1`, [refId]);
+    // generators/power_zones/lighting_states are mirrored in RAM by the power sim.
+    if (table === 'generators' || table === 'power_zones' || table === 'lighting_states') markPowerTopologyDirty();
     return { status: 200, body: { deleted: rowCount } };
   },
 };

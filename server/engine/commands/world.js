@@ -3,7 +3,7 @@ import { getZone, getZoneEnemies, getZoneNpcs, getZonePlayers, getDoorForExit, g
 import { getLockTagPublic } from './doors.js';
 import { isApartmentZone, getBuildingName, releaseApartment, findNearestVacantApartment, rehomeNpc, clearNpcResidence } from '../apartments.js';
 import { sendToPlayer } from '../messaging.js';
-import { getZonePowerStatus, recomputePower, recalcZoneLoad } from '../environment.js';
+import { getZonePowerStatus, recomputePower, recalcZoneLoad, syncZoneLighting, getGeneratorLoad } from '../environment.js';
 import { getPlayerSkills, SKILLS } from '../skills.js';
 import { describeZone } from './describe.js';
 import { getMinimapData, addPlayerToZone, removePlayerFromZone, removeLivePlayer, resolveLanding } from '../world.js';
@@ -654,12 +654,10 @@ async function cmdExamine(targetStr, player, broadcast) {
   );
   if (generatorRows.length) {
     const gen = generatorRows[0];
-    const { rows: loadRows } = await query(
-      `SELECT COALESCE(SUM(current_load_kw),0)::float AS total_load, COUNT(*)::int AS zone_count FROM power_zones WHERE generator_id=$1`,
-      [gen.id]
-    );
-    const totalLoad = loadRows[0]?.total_load || 0;
-    const zoneCount = loadRows[0]?.zone_count || 0;
+    // current_load_kw is RAM-only derived state (the power sim stopped
+    // persisting it), so this reads the live model rather than the DB column —
+    // which would otherwise be frozen at whatever it last held.
+    const { totalLoad, zoneCount } = getGeneratorLoad(gen.id);
     const statusLabel = gen.status === 'online' ? 'RUNNING' : gen.status.toUpperCase();
     const typeLabel = gen.generator_type === 'city_plant' ? 'city power plant' : gen.generator_type === 'building' ? 'building generator' : 'portable generator';
     let msg = `${gen.name || 'Generator'}\nA permanent ${typeLabel}. No fuel required — it just runs.\n\n` +
@@ -988,12 +986,8 @@ async function applyLightSwitch(nameStr, dir, player, broadcast) {
     return { type:'error', message:`The switch clicks, but nothing happens. No power reaches this room.` };
   }
   await updateFurniture(light.id, { light_on: newState });
-  const { rows: countRows } = await query(
-    `SELECT COUNT(*)::int AS cnt, COALESCE(SUM(COALESCE(lumen_output,0)),0)::int AS lm FROM furniture WHERE zone_id=$1 AND object_type='light' AND light_on=1`,
-    [player.current_zone]
-  );
-  await query(`UPDATE lighting_states SET fixture_count=$1, total_lumens=$2 WHERE zone_id=$3`, [countRows[0]?.cnt || 0, countRows[0]?.lm || 0, player.current_zone]).catch(()=>{});
-  await recalcZoneLoad(query, player.current_zone).catch(()=>{});
+  syncZoneLighting(player.current_zone);
+  recalcZoneLoad(player.current_zone);
   await recomputePower().catch(()=>{});
   const flipMsg = newState
     ? `The ${light.name} flickers on.`

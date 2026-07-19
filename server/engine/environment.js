@@ -28,7 +28,7 @@ import { schedule } from './scheduler.js';
 import { setTimeScale, getTimeScale } from './gametime.js';
 import { logActivity } from '../models/db.js';
 import { emit } from './events.js';
-import { world, addExitOverride, removeExitOverride, insertFurniture, updateFurniture, updateFurnitureWhere } from './world.js';
+import { world, addExitOverride, removeExitOverride, insertFurniture, updateFurniture, updateFurnitureWhere, getZoneFurniture } from './world.js';
 import { neighborZoneIds, allExits, addExit } from './exits.js';
 
 // ---------------------------------------------------------------------------
@@ -347,7 +347,8 @@ export async function initEnvironment({ query, emitHook, broadcast, getOccupiedZ
   // is populated when those functions read it.
   if (emitHook) await emitHook('environment.init', { setWeatherState, setCurrentPrecip, climateProfile: state.activeClimateProfile, registerWeatherField, registerWeatherFieldSnapshot, registerWeatherFieldAdvance, registerWeatherEventStep, registerWeatherEventTrigger });
 
-  await loadZonePowerAndLighting(query);
+  await loadPowerTopology(query);
+  loadZonePowerAndLighting();
   // Self-luminous zones (flags.always_lit) — loaded independently of the power sim
   // so getZoneVisibility can honor the property for zones with no power_zones row.
   const { rows: alwaysLitRows } = await query("SELECT id FROM zones WHERE flags->>'always_lit' = 'true'");
@@ -471,19 +472,121 @@ async function ensureClockRow(query) {
 // Forecast state (state.weatherType, state.tempC, state.forecast) is still
 // stored here and set via setWeatherState() — exported below.
 
-async function loadZonePowerAndLighting(query) {
-  const { rows: zones } = await query(`
-    SELECT pz.*, g.generator_type, z.flags AS zone_flags, z.grid_x, z.grid_y, z.map_id
-    FROM power_zones pz
-    LEFT JOIN generators g ON g.id = pz.generator_id
-    LEFT JOIN zones z ON z.id = pz.id
-  `);
-  const { rows: lights } = await query('SELECT * FROM lighting_states');
-  const lightByZone = new Map(lights.map((l) => [l.zone_id, l]));
+// ─── Power topology: RAM-resident, loaded once ──────────────────────────────
+// power_zones / generators / lighting_states are mirrored here at boot and
+// mutated in place by the sim. The per-cycle SELECTs these replaced were pure
+// egress: the sim computed from state.zones, wrote the derived columns to
+// Postgres, then read them straight back to rebuild state.zones — a remote
+// round trip in the middle of an in-memory calculation, ~3 MB every 5 minutes
+// while the grid was overloaded or storming.
+//
+// The derived columns (power_zones.status/available_kw/current_load_kw,
+// lighting_states.fixture_count/total_lumens) are no longer persisted at all.
+// content-registry.js already declares them excludeColumns — "recomputed every
+// power cycle (self-healing)" — so nothing durable depended on them, and the
+// sim recomputes the lot from topology + furniture on the next cycle anyway.
+//
+// Topology IS durable (rows, generator_id, capacity_kw), as is generator fuel
+// and status. Those still write the DB. Every site that mutates topology must
+// call reloadPowerTopology() afterwards — including the dev-panel power tools,
+// which are NOT blocked by CONTENT_READONLY (routes.js classifies /environment/
+// as live-ops), so they can and do run against prod.
+const powerZones = new Map();    // id      -> power_zones row
+const generatorRows = new Map(); // id      -> generators row
+const lightingRows = new Map();  // zone_id -> lighting_states row
+
+async function loadPowerTopology(query) {
+  const [pz, gens, lights] = await Promise.all([
+    query('SELECT * FROM power_zones'),
+    query('SELECT * FROM generators'),
+    query('SELECT * FROM lighting_states').catch(() => ({ rows: [] })),
+  ]);
+  powerZones.clear();
+  for (const r of pz.rows) powerZones.set(r.id, r);
+  generatorRows.clear();
+  for (const r of gens.rows) generatorRows.set(r.id, r);
+  lightingRows.clear();
+  for (const r of lights.rows) lightingRows.set(r.zone_id, r);
+}
+
+// Topology mutations (a player deploying a genset, dev-panel power tools, zone
+// deletes, the studio builder) invalidate the RAM mirror. They mark it dirty
+// rather than reloading inline: marking is free, so callers can be liberal,
+// and a burst of INSERTs collapses into ONE reload before the next sim rather
+// than one per row. The reload cannot live in recomputePower() unconditionally
+// — that runs on every light switch, which would put the egress straight back.
+let topologyDirty = false;
+export function markPowerTopologyDirty() { topologyDirty = true; }
+
+async function refreshTopologyIfDirty(query) {
+  if (!topologyDirty) return;
+  topologyDirty = false;
+  await loadPowerTopology(query);
+}
+
+// Immediate re-sync, for callers that must see the new topology before they
+// return (the dev-panel power tools report on what they just built).
+export async function reloadPowerTopology() {
+  topologyDirty = false;
+  if (deps.query) await loadPowerTopology(deps.query);
+}
+
+// A lighting_states row, created on demand. Mirrors the INSERT ... ON CONFLICT
+// upserts the sim used to issue.
+function lightingFor(zoneId) {
+  let row = lightingRows.get(zoneId);
+  if (!row) {
+    row = { zone_id: zoneId, has_emergency_lighting: 0, artificial_light_level: 0, fixture_count: 0, total_lumens: 0 };
+    lightingRows.set(zoneId, row);
+  }
+  return row;
+}
+
+// The furniture-draw predicate that used to live in Phase 2's SQL and in
+// recalcZoneLoad's SQL — now expressed exactly once, over the world.furniture
+// RAM mirror. Streetlights count as drawing whenever it's dark regardless of
+// light_on, which is what stops demand oscillating as they switch.
+// A fixture's draw: explicit power_draw_kw wins, else the per-light-type
+// default. Mirrors the CASE expression the replaced SQL used.
+function drawKwFor(f) {
+  if (f.power_draw_kw != null) return Number(f.power_draw_kw);
+  return f.light_type === 'overhead'    ? DRAW_OVERHEAD_W
+       : f.light_type === 'streetlight' ? DRAW_STREETLIGHT_W
+       : f.light_type === 'lamp'        ? DRAW_LAMP_W
+       : DRAW_DEFAULT_W;
+}
+
+function computeZoneLoad(zoneId) {
+  const isDark = state.phase === 'night' || state.phase === 'dusk';
+  let load = 0;
+  for (const f of getZoneFurniture(zoneId)) {
+    const draws = f.object_type === 'light'
+      ? (f.light_type === 'streetlight' ? isDark : (f.light_on_intended ?? f.light_on) === 1)
+      : Number(f.power_draw_kw) > 0;
+    if (draws) load += drawKwFor(f);
+  }
+  return load;
+}
+
+// Lit-fixture count/lumens for a zone — the RAM form of the GROUP BY the sim
+// used to run over the whole furniture table. Uses light_on (actual), not
+// light_on_intended, matching the original.
+function computeZoneLighting(zoneId) {
+  let cnt = 0, lm = 0;
+  for (const f of getZoneFurniture(zoneId)) {
+    if (f.object_type !== 'light' || f.light_on !== 1) continue;
+    cnt++;
+    lm += Number(f.lumen_output ?? 0);
+  }
+  return { cnt, lm };
+}
+
+function loadZonePowerAndLighting() {
   state.zones.clear();
-  for (const z of zones) {
-    const light = lightByZone.get(z.id);
-    const zf = z.zone_flags || {};
+  for (const z of powerZones.values()) {
+    const light = lightingRows.get(z.id);
+    const wz = world.zones.get(z.id);
+    const zf = wz?.flags || {};
     state.zones.set(z.id, {
       powerStatus: z.status,
       capacityKw: z.capacity_kw,
@@ -491,13 +594,13 @@ async function loadZonePowerAndLighting(query) {
       availableKw: z.available_kw,
       maxCapacityKw: z.max_capacity_kw ?? 1000,
       generatorId: z.generator_id,
-      generatorType: z.generator_type,
+      generatorType: z.generator_id ? (generatorRows.get(z.generator_id)?.generator_type ?? null) : null,
       hasEmergencyLighting: light ? !!light.has_emergency_lighting : false,
       artificialLight: computeArtificialLight(z.status, light),
       flags: zf,
-      gridX: z.grid_x,
-      gridY: z.grid_y,
-      mapId: z.map_id,
+      gridX: wz?.grid_x ?? null,
+      gridY: wz?.grid_y ?? null,
+      mapId: wz?.map_id ?? null,
     });
   }
   // Commit 3 prep: stamp/clear the continuous-overload clock off the same live
@@ -627,7 +730,7 @@ function stepIndoorTemps() {
 async function tick5m(reason = 'overload') {
   const { query } = deps;
   await simulatePowerNetwork(query, { weatherType: state.weatherType, reason });
-  await loadZonePowerAndLighting(query);
+  loadZonePowerAndLighting();
 }
 
 function _pluralizeLastWord(name) {
@@ -891,7 +994,7 @@ async function tick24h(fromCatchup = false) {
   // snow-load calculations.
   if (emitHook) await emitHook('environment.advanceWeather', { setWeatherState, rollAndSetCurrentPrecip, getHUDPayload, broadcast, currentForecast: state.forecast, currentDate: state.date, climateProfile: state.activeClimateProfile });
   await simulatePowerNetwork(query, { weatherType: state.weatherType, reason: 'daily' });
-  await loadZonePowerAndLighting(query);
+  loadZonePowerAndLighting();
   recalcAmbientAndVisibility();
 
   const payload = { ...getHUDPayload(), forecast: getForecast() };
@@ -916,7 +1019,7 @@ async function tick24h(fromCatchup = false) {
 
 // Handles light-state side-effects when a zone's power status changes.
 // prevStatus = status stored in DB before this tick; newStatus = just computed.
-async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, available, maxCap, opts = {}) {
+async function applyPowerLightEffects(zoneId, prevStatus, newStatus, available, maxCap, opts = {}) {
   const broadcast = deps.broadcast;
 
   const wasOk = prevStatus === 'powered';
@@ -925,20 +1028,29 @@ async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, avai
   const nowBrown = newStatus === 'overloaded';
 
   if (nowDown) {
+    // This branch runs for EVERY offline zone on EVERY cycle, not just on the
+    // transition into offline — so a permanently blacked-out zone used to pay
+    // three round trips a cycle forever. The reads come off the furniture cache
+    // and each write is gated on a row actually needing it, so a zone that is
+    // already dark (the steady state) now costs nothing at all.
+    const lights = getZoneFurniture(zoneId).filter(f => f.object_type === 'light');
     // Capture which lights are on before cutting them.
-    const { rows: activeLights } = await query(
-      `SELECT name FROM furniture WHERE zone_id=$1 AND object_type='light' AND light_on=1`,
-      [zoneId]
-    ).catch(() => ({ rows: [] }));
+    const activeLights = lights.filter(f => f.light_on === 1);
     // Preserve intended state for non-streetlights only.
     // Streetlights are managed by the day/night cycle — they don't need
     // light_on_intended because syncStreetlights sets them correctly on restore.
-    await updateFurnitureWhere(`UPDATE furniture SET light_on_intended = COALESCE(light_on_intended, light_on) WHERE zone_id=$1 AND object_type='light' AND light_type != 'streetlight'`, [zoneId]);
-    await updateFurnitureWhere(`UPDATE furniture SET light_on=0 WHERE zone_id=$1 AND object_type='light'`, [zoneId]);
+    if (lights.some(f => f.light_type !== 'streetlight' && f.light_on_intended == null)) {
+      await updateFurnitureWhere(`UPDATE furniture SET light_on_intended = COALESCE(light_on_intended, light_on) WHERE zone_id=$1 AND object_type='light' AND light_type != 'streetlight'`, [zoneId]);
+    }
+    if (activeLights.length) {
+      await updateFurnitureWhere(`UPDATE furniture SET light_on=0 WHERE zone_id=$1 AND object_type='light'`, [zoneId]);
+    }
     // Do NOT zero current_load_kw — demand stays constant; only available_kw=0 signals no supply.
-    await query(`UPDATE lighting_states SET fixture_count=0, total_lumens=0 WHERE zone_id=$1`, [zoneId]).catch(() => {});
+    const dark = lightingFor(zoneId);
+    dark.fixture_count = 0;
+    dark.total_lumens = 0;
     if (broadcast && prevStatus !== 'offline' && !opts.silent) {
-      const { text: nameStr, isSingular } = _fmtLightNames(activeLights.map(l => l.name));
+      const { text: nameStr, isSingular } = _fmtLightNames(activeLights.map(f => f.name));
       const CUTOUT_MSGS = [
         `${_cap(nameStr)} ${isSingular ? 'cuts' : 'cut'} out abruptly. Darkness.`,
         `${_cap(nameStr)} ${isSingular ? 'dies' : 'die'} with a sharp click as power fails.`,
@@ -948,26 +1060,25 @@ async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, avai
       broadcast(zoneId, { type: 'zone_event', message: `<span class="power-out">${msg}</span><br>`, refresh: true });
     }
   } else if (nowBrown) {
-    // Preserve intended state before any changes.
-    await updateFurnitureWhere(`UPDATE furniture SET light_on_intended = COALESCE(light_on_intended, light_on) WHERE zone_id=$1 AND object_type='light'`, [zoneId]);
-
-    // Per-device allocation: fetch all powered devices with their draw.
-    const { rows: lights } = await query(`
-      SELECT id, name, light_on_intended,
-        COALESCE(power_draw_kw,
-          CASE light_type
-            WHEN 'overhead'    THEN ${DRAW_OVERHEAD_W}
-            WHEN 'streetlight' THEN ${DRAW_STREETLIGHT_W}
-            WHEN 'lamp'        THEN ${DRAW_LAMP_W}
-            ELSE ${DRAW_DEFAULT_W}
-          END
-        ) AS draw_kw
-      FROM furniture WHERE zone_id=$1 AND object_type='light'
-    `, [zoneId]);
+    // Preserve intended state before any changes — gated, as above, so a zone
+    // sitting in a steady brownout doesn't rewrite rows that already carry it.
+    const lights = getZoneFurniture(zoneId).filter(f => f.object_type === 'light')
+      .map(f => ({ ...f, draw_kw: drawKwFor(f) }));
+    if (lights.some(f => f.light_on_intended == null)) {
+      await updateFurnitureWhere(`UPDATE furniture SET light_on_intended = COALESCE(light_on_intended, light_on) WHERE zone_id=$1 AND object_type='light'`, [zoneId]);
+    }
 
     // Streetlights are infrastructure — always on when dark, never compete for brownout pool.
+    // NOTE: the SQL this replaced never selected light_type, so both filters below
+    // saw `undefined` — streetlights were silently competing for the pool and were
+    // never day/night-synced here. Reading the cached row makes the code do what
+    // this comment always claimed.
     const isDark = state.phase === 'night' || state.phase === 'dusk';
-    const streetlightIds = lights.filter(l => l.light_type === 'streetlight').map(l => l.id);
+    // Only the streetlights actually out of step with the day/night phase.
+    const streetlightIds = lights
+      .filter(l => l.light_type === 'streetlight'
+        && (l.light_on !== (isDark ? 1 : 0) || l.light_on_intended != null))
+      .map(l => l.id);
     if (streetlightIds.length) {
       await updateFurnitureWhere(`UPDATE furniture SET light_on=$1, light_on_intended=NULL WHERE id=ANY($2::text[])`, [isDark ? 1 : 0, streetlightIds]);
     }
@@ -978,30 +1089,36 @@ async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, avai
 
     for (const light of wantOn) {
       if (pool >= light.draw_kw) {
-        fullyOn.push(light.id);
+        fullyOn.push(light);
         pool -= light.draw_kw;
       } else if (pool > 0) {
         flickering.push(light.id);
         pool = 0;
       } else {
-        forcedOff.push(light.id);
+        forcedOff.push(light);
       }
     }
 
-    if (fullyOn.length)   await updateFurnitureWhere(`UPDATE furniture SET light_on=1 WHERE id=ANY($1::text[])`, [fullyOn]);
-    if (forcedOff.length) await updateFurnitureWhere(`UPDATE furniture SET light_on=0 WHERE id=ANY($1::text[])`, [forcedOff]);
+    // Write only the fixtures whose state actually changes; a stable brownout
+    // re-derives the same allocation every cycle and should touch nothing.
+    const turnOn  = fullyOn.filter(l => l.light_on !== 1).map(l => l.id);
+    const turnOff = forcedOff.filter(l => l.light_on !== 0).map(l => l.id);
+    if (turnOn.length)  await updateFurnitureWhere(`UPDATE furniture SET light_on=1 WHERE id=ANY($1::text[])`, [turnOn]);
+    if (turnOff.length) await updateFurnitureWhere(`UPDATE furniture SET light_on=0 WHERE id=ANY($1::text[])`, [turnOff]);
     // Flickering devices randomly toggle each tick.
     for (const id of flickering) {
       await updateFurniture(id, { light_on: Math.random() > 0.5 ? 1 : 0 });
     }
 
-    await recalcZoneLoad(query, zoneId);
-    const { rows: lc } = await query(`SELECT COUNT(*)::int AS cnt, COALESCE(SUM(COALESCE(lumen_output,0)),0)::int AS lm FROM furniture WHERE zone_id=$1 AND object_type='light' AND light_on=1`, [zoneId]);
-    await query(`UPDATE lighting_states SET fixture_count=$1, total_lumens=$2 WHERE zone_id=$3`, [lc[0]?.cnt || 0, lc[0]?.lm || 0, zoneId]).catch(() => {});
+    recalcZoneLoad(zoneId);
+    const lc = computeZoneLighting(zoneId);
+    const ls = lightingFor(zoneId);
+    ls.fixture_count = lc.cnt;
+    ls.total_lumens = lc.lm;
 
     if (broadcast) {
       if (forcedOff.length) {
-        const { text: nameStr, isSingular } = _fmtLightNames(forcedOff.map(id => lights.find(l => l.id === id)?.name).filter(Boolean));
+        const { text: nameStr, isSingular } = _fmtLightNames(forcedOff.map(l => l.name).filter(Boolean));
         broadcast(zoneId, { type: 'zone_event', message: `<br><span class="power-flicker">${_cap(nameStr)} ${isSingular ? 'cuts' : 'cut'} out abruptly — not enough power to keep everything on.</span><br>`, refresh: true });
       } else if (flickering.length) {
         const { text: nameStr, isSingular } = _fmtLightNames(flickering.map(id => lights.find(l => l.id === id)?.name).filter(Boolean));
@@ -1020,48 +1137,44 @@ async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, avai
     // correct state for the current phase regardless of what light_on_intended was.
     const isDark = state.phase === 'night' || state.phase === 'dusk';
     await updateFurnitureWhere(`UPDATE furniture SET light_on=$1, light_on_intended=NULL WHERE zone_id=$2 AND light_type='streetlight'`, [isDark ? 1 : 0, zoneId]);
-    await recalcZoneLoad(query, zoneId);
-    const { rows: lc2 } = await query(`SELECT COUNT(*)::int AS cnt, COALESCE(SUM(COALESCE(lumen_output,0)),0)::int AS lm FROM furniture WHERE zone_id=$1 AND object_type='light' AND light_on=1`, [zoneId]);
-    await query(`UPDATE lighting_states SET fixture_count=$1, total_lumens=$2 WHERE zone_id=$3`, [lc2[0]?.cnt || 0, lc2[0]?.lm || 0, zoneId]).catch(() => {});
+    recalcZoneLoad(zoneId);
+    const lc2 = computeZoneLighting(zoneId);
+    const ls2 = lightingFor(zoneId);
+    ls2.fixture_count = lc2.cnt;
+    ls2.total_lumens = lc2.lm;
     if (broadcast) {
       broadcast(zoneId, { type: 'zone_event', message: '<span class="power-restore">Emergency power hums to life. The lights come back on.</span><br>', refresh: true });
     }
   }
 }
 
-// Diff-gated writer for a power_zones row. The comparison basis is the row we
-// SELECTed at the top of this same tick (the `zone` object) — the live DB
-// state — so we only issue the UPDATE when the newly computed status/available/
-// capacity actually differ. On a healthy grid nothing changes tick-to-tick, so
-// this drops the write volume to zero. Because the basis is re-read from the DB
-// every tick, a skipped write can never leave the row permanently stale: any
-// real divergence is re-detected next tick. REAL columns come back as native JS
-// numbers, so Number()-wrapped !== is exact.
-async function writeZonePower(query, zone, status, availableKw, capacityKw) {
-  if (zone.status === status
-      && Number(zone.available_kw) === Number(availableKw)
-      && Number(zone.capacity_kw) === Number(capacityKw)) return;
-  await query(`UPDATE power_zones SET status=$1, available_kw=$2, capacity_kw=$3 WHERE id=$4`,
-    [status, availableKw, capacityKw, zone.id]);
+// Applies the newly computed status/available/capacity to the RAM power_zones
+// row. All three are derived state — recomputed from topology + furniture every
+// cycle — so they are no longer persisted at all; `zone` IS the live row, and
+// mutating it is the write. Callers pass the previous zone.status to
+// applyPowerLightEffects BEFORE calling this, so transition detection still sees
+// the old value.
+function writeZonePower(zone, status, availableKw, capacityKw) {
+  zone.status = status;
+  zone.available_kw = availableKw;
+  zone.capacity_kw = capacityKw;
 }
 
-// Diff-gated writer for a generator's remaining_kw (the sibling of writeZonePower
-// for the generators table). Compares against the row read this tick and skips an
-// unchanged write; on a stable grid the plant/junction-box allocations don't move
-// tick-to-tick, so nothing is written. Mutates genRow.remaining_kw after a write
-// so a generator written twice in one pass (a JB gets a Phase-4 city allocation
-// and a Phase-5 leftover) compares the second write against the first, not the
-// original DB value.
-async function writeGeneratorRemaining(query, genRow, remainingKw) {
-  if (!genRow || Number(genRow.remaining_kw) === Number(remainingKw)) return;
-  await query(`UPDATE generators SET remaining_kw=$1 WHERE id=$2`, [remainingKw, genRow.id]);
+// Sibling of writeZonePower for the generators table. remaining_kw is the
+// plant/junction-box allocation left after distribution — derived, recomputed
+// every cycle, so it lives in RAM only. A generator written twice in one pass
+// (a JB gets a Phase-4 city allocation then a Phase-5 leftover) sees the first
+// value on the second call, same as before.
+function writeGeneratorRemaining(genRow, remainingKw) {
+  if (!genRow) return;
   genRow.remaining_kw = remainingKw;
 }
 
 async function simulatePowerNetwork(query, { weatherType, reason = 'unknown' } = {}) {
   powerSimCounts.set(reason, (powerSimCounts.get(reason) || 0) + 1);
-  const { rows: allGenerators } = await query('SELECT * FROM generators');
-  const genById = new Map(allGenerators.map(g => [g.id, g])); // for diff-gated remaining_kw writes
+  await refreshTopologyIfDirty(query);
+  const allGenerators = [...generatorRows.values()];
+  const genById = generatorRows; // rows are mutated in place; remaining_kw is RAM-only
   const loadMultiplier = weatherType === 'snow' ? SNOW_LOAD_MULTIPLIER : 1.0;
   // Global outdoor severity, defined once in the weather plugin and read here via
   // the field snapshot (no duplicated thresholds). Drives storm faults below.
@@ -1084,6 +1197,7 @@ async function simulatePowerNetwork(query, { weatherType, reason = 'unknown' } =
     if (gen.flags?.destroyed) {
       updatedStatus.set(gen.id, { ...gen, status: 'offline' });
       if (gen.status !== 'offline') await query(`UPDATE generators SET status=$1 WHERE id=$2`, ['offline', gen.id]);
+      gen.status = 'offline'; // keep the RAM row in step — nothing re-SELECTs it
       continue;
     }
     let status = (gen.generator_type === 'player') ? gen.status : 'online';
@@ -1140,6 +1254,8 @@ async function simulatePowerNetwork(query, { weatherType, reason = 'unknown' } =
     // 'online', no fuel), so their status/fuel write is pure churn on a stable
     // grid. flagsChanged means the flags object was rebuilt (storm scar or
     // player-gen battery drift) — still only persist if it actually differs.
+    // Generator status/fuel/flags ARE durable (a player's genset burning down
+    // has to survive a restart), so unlike the zone columns these still write.
     const stateChanged = gen.status !== status || Number(gen.fuel_remaining) !== Number(fuelRemaining);
     if (flagsChanged) {
       if (stateChanged || JSON.stringify(gen.flags ?? {}) !== JSON.stringify(flags ?? {})) {
@@ -1148,6 +1264,12 @@ async function simulatePowerNetwork(query, { weatherType, reason = 'unknown' } =
     } else if (stateChanged) {
       await query(`UPDATE generators SET status=$1, fuel_remaining=$2 WHERE id=$3`, [status, fuelRemaining, gen.id]);
     }
+    // The RAM row is the only basis the next cycle's diff-gate compares against
+    // (nothing re-SELECTs generators any more), so it must carry the new values
+    // whether or not they were persisted.
+    gen.status = status;
+    gen.fuel_remaining = fuelRemaining;
+    gen.flags = flags;
   }
   stormFaultActive = anyRecovering;
 
@@ -1156,57 +1278,26 @@ async function simulatePowerNetwork(query, { weatherType, reason = 'unknown' } =
   // owns nothing else's lighting. This is what lets a unit dropped in a
   // blacked-out room light itself before it back-feeds the building's fixtures.
   for (const [zoneId, lit] of genLightByZone) {
-    await query(
-      `INSERT INTO lighting_states (zone_id, has_emergency_lighting, artificial_light_level, fixture_count, total_lumens)
-       VALUES ($1, $2, 0, 0, 0)
-       ON CONFLICT (zone_id) DO UPDATE SET has_emergency_lighting=$2`,
-      [zoneId, lit ? 1 : 0]
-    );
+    lightingFor(zoneId).has_emergency_lighting = lit ? 1 : 0;
   }
 
   // ── Phase 2: Recalculate zone loads from active furniture ────────────────
   // Streetlights are always counted as drawing power when it's dark, regardless
   // of light_on — this prevents demand oscillation where lights turning off drops
   // demand to 0, causing the zone to flip to 'powered' and back on every tick.
-  const isDark = state.phase === 'night' || state.phase === 'dusk';
-  await query(`
-    UPDATE power_zones pz SET current_load_kw = sub.load
-    FROM (
-      SELECT pz2.id, (
-        SELECT COALESCE(SUM(CASE
-          WHEN f.power_draw_kw IS NOT NULL THEN f.power_draw_kw
-          WHEN f.light_type = 'overhead'    THEN ${DRAW_OVERHEAD_W}
-          WHEN f.light_type = 'streetlight' THEN ${DRAW_STREETLIGHT_W}
-          WHEN f.light_type = 'lamp'        THEN ${DRAW_LAMP_W}
-          ELSE ${DRAW_DEFAULT_W}
-        END), 0)
-        FROM furniture f WHERE f.zone_id = pz2.id AND (
-          (f.object_type = 'light' AND COALESCE(f.light_on_intended, f.light_on) = 1 AND f.light_type != 'streetlight') OR
-          (f.object_type = 'light' AND f.light_type = 'streetlight' AND $1) OR
-          (f.object_type != 'light' AND f.power_draw_kw > 0)
-        )
-      ) AS load
-      FROM power_zones pz2
-    ) sub
-    WHERE pz.id = sub.id AND pz.current_load_kw IS DISTINCT FROM sub.load
-  `, [isDark]);
+  for (const z of powerZones.values()) z.current_load_kw = computeZoneLoad(z.id);
   // Sync fixture counts and total lumens so visibility is always based on current light_on state.
-  await query(`
-    UPDATE lighting_states ls
-    SET fixture_count = sub.cnt,
-        total_lumens  = sub.lm
-    FROM (
-      SELECT zone_id,
-             COUNT(*)::int AS cnt,
-             COALESCE(SUM(COALESCE(lumen_output, 0)), 0)::int AS lm
-      FROM furniture
-      WHERE object_type = 'light' AND light_on = 1
-      GROUP BY zone_id
-    ) sub
-    WHERE ls.zone_id = sub.zone_id
-      AND (ls.fixture_count IS DISTINCT FROM sub.cnt OR ls.total_lumens IS DISTINCT FROM sub.lm)
-  `).catch(() => {});
-  const { rows: allZones } = await query('SELECT * FROM power_zones');
+  // Only zones that actually hold a lit fixture are touched, matching the GROUP BY
+  // this replaced — a zone with nothing lit keeps its previous counts, which
+  // applyPowerLightEffects zeroes explicitly when it cuts a zone's power.
+  for (const zoneId of powerZones.keys()) {
+    const { cnt, lm } = computeZoneLighting(zoneId);
+    if (!cnt) continue;
+    const row = lightingFor(zoneId);
+    row.fixture_count = cnt;
+    row.total_lumens = lm;
+  }
+  const allZones = [...powerZones.values()];
   const zonesByGen = new Map();
   for (const z of allZones) {
     const key = z.generator_id ?? '__orphan__';
@@ -1241,15 +1332,16 @@ async function simulatePowerNetwork(query, { weatherType, reason = 'unknown' } =
 
     if (!cpSt || cpSt.status === 'offline' || Number(cpSt.capacity_kw) === 0) {
       // City plant down — kill everything it feeds.
-      await writeGeneratorRemaining(query, cp, 0);
+      writeGeneratorRemaining(cp, 0);
       for (const z of directZones) {
         const cap = z.max_capacity_kw ?? 1000;
-        await writeZonePower(query, z, 'offline', 0, cap);
-        await applyPowerLightEffects(query, z.id, z.status, 'offline', 0, cap);
+        const prev_z = z.status; // capture before writeZonePower mutates the row
+        writeZonePower(z, 'offline', 0, cap);
+        await applyPowerLightEffects(z.id, prev_z, 'offline', 0, cap);
       }
       for (const jb of connectedJBs) {
         jbAlloc.set(jb.id, 0);
-        await writeGeneratorRemaining(query, jb, 0);
+        writeGeneratorRemaining(jb, 0);
       }
       continue;
     }
@@ -1285,14 +1377,15 @@ async function simulatePowerNetwork(query, { weatherType, reason = 'unknown' } =
           : alloc <= 0 ? 'offline'
           : alloc < demand ? 'overloaded'
           : 'powered';
-        await writeZonePower(query, zone, status, alloc, ceiling);
-        await applyPowerLightEffects(query, zone.id, zone.status, status, alloc, ceiling);
+        const prev_zone = zone.status; // capture before writeZonePower mutates the row
+        writeZonePower(zone, status, alloc, ceiling);
+        await applyPowerLightEffects(zone.id, prev_zone, status, alloc, ceiling);
       } else {
         jbAlloc.set(c.id, alloc);
-        await writeGeneratorRemaining(query, genById.get(c.id), alloc);
+        writeGeneratorRemaining(genById.get(c.id), alloc);
       }
     }
-    await writeGeneratorRemaining(query, cp, Math.max(0, pool));
+    writeGeneratorRemaining(cp, Math.max(0, pool));
   }
 
   // ── Phase 5: Junction boxes distribute their city-plant allocation ───────
@@ -1328,10 +1421,11 @@ async function simulatePowerNetwork(query, { weatherType, reason = 'unknown' } =
     if (cityDown && !onBackup) {
       for (const z of jbZones) {
         const cap = z.max_capacity_kw ?? 1000;
-        await writeZonePower(query, z, 'offline', 0, cap);
-        await applyPowerLightEffects(query, z.id, z.status, 'offline', 0, cap);
+        const prev_z = z.status; // capture before writeZonePower mutates the row
+        writeZonePower(z, 'offline', 0, cap);
+        await applyPowerLightEffects(z.id, prev_z, 'offline', 0, cap);
       }
-      if (jbSt) await writeGeneratorRemaining(query, gen, 0);
+      if (jbSt) writeGeneratorRemaining(gen, 0);
       continue;
     }
 
@@ -1351,20 +1445,22 @@ async function simulatePowerNetwork(query, { weatherType, reason = 'unknown' } =
         : alloc <= 0 ? 'offline'
         : alloc < demand ? 'overloaded'
         : 'powered';
-      await writeZonePower(query, zone, status, alloc, ceiling);
-      await applyPowerLightEffects(query, zone.id, zone.status, status, alloc, ceiling);
+      const prev_zone = zone.status; // capture before writeZonePower mutates the row
+      writeZonePower(zone, status, alloc, ceiling);
+      await applyPowerLightEffects(zone.id, prev_zone, status, alloc, ceiling);
     }
-    await writeGeneratorRemaining(query, gen, Math.max(0, pool));
+    writeGeneratorRemaining(gen, Math.max(0, pool));
   }
 
   // ── Phase 6: Orphan zones (no valid generator_id) go offline ────────────
   for (const z of (zonesByGen.get('__orphan__') || [])) {
     const cap = z.max_capacity_kw ?? 1000;
-    await writeZonePower(query, z, 'offline', 0, cap);
-    await applyPowerLightEffects(query, z.id, z.status, 'offline', 0, cap);
+    const prev_z = z.status; // capture before writeZonePower mutates the row
+    writeZonePower(z, 'offline', 0, cap);
+    await applyPowerLightEffects(z.id, prev_z, 'offline', 0, cap);
   }
 
-  await reconcileDevicePower(query);
+  reconcileDevicePower();
 }
 
 // Tracks the last-known operational state of each destructible power device
@@ -1374,23 +1470,22 @@ async function simulatePowerNetwork(query, { weatherType, reason = 'unknown' } =
 // unit (its generator offlines → zone dark) and an upstream blackout.
 const _devicePowerState = new Map(); // furnitureId -> boolean
 
-async function reconcileDevicePower(query) {
-  const { rows } = await query(
-    `SELECT f.id, f.zone_id, f.name, f.object_type, f.hp,
-            COALESCE(pz.status,'offline') AS zone_status
-       FROM furniture f
-       LEFT JOIN power_zones pz ON pz.id = f.zone_id
-      WHERE f.hp_max IS NOT NULL`
-  );
-  for (const d of rows) {
-    const destroyed = (d.hp ?? 1) <= 0;
-    const operational = !destroyed && d.zone_status === 'powered';
-    const prev = _devicePowerState.get(d.id);
-    _devicePowerState.set(d.id, operational);
+// Runs at the end of every power cycle. Reads the power_zones RAM rows rather
+// than state.zones, because state.zones isn't rebuilt until after the sim
+// returns — the rows here already carry this cycle's freshly computed status,
+// which is what the DB read this replaced was picking up.
+function reconcileDevicePower() {
+  for (const f of world.furniture.values()) {
+    if (f.hp_max == null) continue;
+    const zoneStatus = powerZones.get(f.zone_id)?.status ?? 'offline';
+    const destroyed = (f.hp ?? 1) <= 0;
+    const operational = !destroyed && zoneStatus === 'powered';
+    const prev = _devicePowerState.get(f.id);
+    _devicePowerState.set(f.id, operational);
     if (prev === undefined || prev === operational) continue; // first sight / no change
     emit('device.power.changed', {
-      zoneId: d.zone_id, deviceId: d.id, name: d.name,
-      deviceType: d.object_type, operational,
+      zoneId: f.zone_id, deviceId: f.id, name: f.name,
+      deviceType: f.object_type, operational,
     });
   }
 }
@@ -2180,6 +2275,7 @@ export function devResetBuildingTemps() {
 }
 
 export async function devSpawnGenerator({ id, zoneId, generatorType, capacityKw, fuelType, fuelRemaining, fuelBurnRate, connectionRange }) {
+  markPowerTopologyDirty(); // writes power_zones/generators below
   const { query } = deps;
   await query(
     `INSERT INTO generators (id, zone_id, generator_type, capacity_kw, fuel_type, fuel_remaining, fuel_burn_rate, connection_range, status)
@@ -2193,9 +2289,13 @@ export async function devSpawnGenerator({ id, zoneId, generatorType, capacityKw,
 
 export async function devModifyLoad(zoneId, loadKw) {
   const { query } = deps;
-  await query(`UPDATE power_zones SET current_load_kw = $1 WHERE id = $2`, [Number(loadKw) || 0, zoneId]);
+  // current_load_kw is RAM-only derived state. Note the sim recomputes load from
+  // furniture in Phase 2, so this forced value only survives to the end of this
+  // call — same as before, when the UPDATE was overwritten by the same pass.
+  const row = powerZones.get(zoneId);
+  if (row) row.current_load_kw = Number(loadKw) || 0;
   await simulatePowerNetwork(query, { weatherType: state.weatherType, reason: 'dev_action' });
-  await loadZonePowerAndLighting(query);
+  loadZonePowerAndLighting();
   return getPowerMap();
 }
 
@@ -2203,7 +2303,7 @@ export async function devSimulateFailure(generatorId) {
   const { query } = deps;
   await query(`UPDATE generators SET status = 'offline' WHERE id = $1`, [generatorId]);
   await simulatePowerNetwork(query, { weatherType: state.weatherType, reason: 'dev_action' });
-  await loadZonePowerAndLighting(query);
+  loadZonePowerAndLighting();
   return getPowerMap();
 }
 
@@ -2244,6 +2344,7 @@ async function getBuildingNetwork(query, startZoneId) {
 }
 
 export async function installGenerator({ zoneId, generatorType = 'junction_box', capacityKw, name, cityGeneratorId }) {
+  markPowerTopologyDirty(); // writes power_zones/generators below
   const { query } = deps;
   if (!zoneId) throw new Error('zoneId is required');
   const { rows: zoneRows } = await query('SELECT * FROM zones WHERE id=$1', [zoneId]);
@@ -2324,6 +2425,7 @@ export async function installGenerator({ zoneId, generatorType = 'junction_box',
 }
 
 export async function removeGenerator(generatorId) {
+  markPowerTopologyDirty(); // writes power_zones/generators below
   const { query } = deps;
   const { rows } = await query('SELECT * FROM generators WHERE id=$1', [generatorId]);
   if (!rows.length) throw new Error('Generator not found');
@@ -2373,6 +2475,7 @@ export async function removeGenerator(generatorId) {
 // Finds outdoor zones with no power_zones row and connects each to the
 // nearest city_plant generator (by Euclidean grid distance).
 export async function fixZonePowerConnections() {
+  markPowerTopologyDirty(); // writes power_zones/generators below
   const { query } = deps;
 
   const { rows: cityGens } = await query(`
@@ -2435,6 +2538,7 @@ const UTILITY_JBOX_HP = 1200;
 // fixBuildingPowerConnections to self-heal buildings that have no power source.
 // Idempotent by zone id (re-running just refreshes the room + box).
 async function createUtilityRoomWithJunctionBox(query, network, root) {
+  markPowerTopologyDirty(); // writes power_zones/generators below
   // Anchor on the building's own interior map: prefer the is_building entry room,
   // else the network root. Both are interior zones already in the network.
   const { rows: anchorRows } = await query(
@@ -2500,6 +2604,7 @@ async function createUtilityRoomWithJunctionBox(query, network, root) {
 // checks how many generators serve it and either connects (1 gen), auto-creates
 // a utility room + junction box (0 gens), or returns an error (2+ gens).
 export async function fixBuildingPowerConnections() {
+  markPowerTopologyDirty(); // writes power_zones/generators below
   const { query } = deps;
 
   const { rows: interiorZones } = await query(`
@@ -2621,6 +2726,7 @@ export async function autoResolvePower() {
 }
 
 export async function toggleGeneratorStatus(generatorId) {
+  markPowerTopologyDirty(); // writes power_zones/generators below
   const { query } = deps;
   const { rows } = await query(`SELECT capacity_kw, flags FROM generators WHERE id=$1`, [generatorId]);
   if (!rows.length) throw new Error(`Generator ${generatorId} not found`);
@@ -2643,6 +2749,7 @@ export async function toggleGeneratorStatus(generatorId) {
 }
 
 export async function setGeneratorCapacity(generatorId, capacityKw, name) {
+  markPowerTopologyDirty(); // writes power_zones/generators below
   const { query } = deps;
   const kw = Math.max(0, Number(capacityKw) || 0);
   const { rowCount } = await query(
@@ -2662,24 +2769,30 @@ export async function getGeneratorsList() {
         WHEN g.generator_type = 'city_plant' AND COALESCE((z.flags->>'is_interior')::boolean, false)
           THEN COALESCE(z.parent_zone, z.flags->>'world_exit_zone', g.zone_id)
         ELSE g.zone_id
-      END AS map_zone_id,
-      COALESCE((
-        SELECT SUM(pz.current_load_kw) FROM power_zones pz WHERE pz.generator_id = g.id
-      ), 0) AS zone_load_w,
-      COALESCE((
-        SELECT SUM(pz.available_kw) FROM power_zones pz WHERE pz.generator_id = g.id
-      ), 0) AS zone_supply_w,
-      COALESCE((
-        SELECT SUM(pz.current_load_kw) FROM power_zones pz WHERE pz.generator_id = g.id
-      ), 0) + COALESCE((
-        SELECT SUM(pz2.current_load_kw)
-        FROM generators jb JOIN power_zones pz2 ON pz2.generator_id = jb.id
-        WHERE jb.city_generator_id = g.id AND jb.generator_type = 'junction_box'
-      ), 0) AS total_demand_w
+      END AS map_zone_id
     FROM generators g LEFT JOIN zones z ON z.id = g.zone_id
     ORDER BY g.generator_type, g.id
   `);
-  return rows;
+  // The load/supply aggregates were SUM()s over power_zones' derived columns,
+  // which are no longer persisted — they come off the RAM model instead.
+  return rows.map(g => {
+    const direct = getGeneratorLoad(g.id);
+    let jbDemand = 0;
+    for (const jb of generatorRows.values()) {
+      if (jb.generator_type !== 'junction_box' || jb.city_generator_id !== g.id) continue;
+      jbDemand += getGeneratorLoad(jb.id).totalLoad;
+    }
+    let supply = 0;
+    for (const z of powerZones.values()) {
+      if (z.generator_id === g.id) supply += Number(z.available_kw ?? 0);
+    }
+    return {
+      ...g,
+      zone_load_w: direct.totalLoad,
+      zone_supply_w: supply,
+      total_demand_w: direct.totalLoad + jbDemand,
+    };
+  });
 }
 
 export async function getCityGenerators() {
@@ -2694,6 +2807,7 @@ export async function getCityGenerators() {
 }
 
 export async function setJunctionBoxCityGenerator(jbId, cityGenId) {
+  markPowerTopologyDirty(); // writes power_zones/generators below
   const { query } = deps;
   const { rows } = await query(
     `UPDATE generators SET city_generator_id=$1 WHERE id=$2 AND generator_type='junction_box' RETURNING *`,
@@ -2707,48 +2821,65 @@ export async function getGeneratorZones(generatorId) {
   const { query } = deps;
   const { rows: genRows } = await query('SELECT * FROM generators WHERE id=$1', [generatorId]);
   if (!genRows.length) throw new Error('Generator not found');
-  const { rows } = await query(`
-    SELECT pz.id, pz.status, pz.capacity_kw, pz.current_load_kw, pz.available_kw,
-           pz.max_capacity_kw, z.name, z.grid_x, z.grid_y,
-           COALESCE((z.flags->>'is_interior')::boolean, false) AS is_interior,
-           COALESCE((z.flags->>'is_apartment')::boolean, false) AS is_apartment
-    FROM power_zones pz
-    LEFT JOIN zones z ON z.id = pz.id
-    WHERE pz.generator_id = $1
-    ORDER BY z.name
-  `, [generatorId]);
-  return { generator: genRows[0], zones: rows };
+  // power_zones' status/load/available are RAM-only derived state now; the zone
+  // name/grid/flags come from the world cache rather than a join.
+  const zones = [];
+  for (const pz of powerZones.values()) {
+    if (pz.generator_id !== generatorId) continue;
+    const z = world.zones.get(pz.id);
+    zones.push({
+      id: pz.id, status: pz.status, capacity_kw: pz.capacity_kw,
+      current_load_kw: pz.current_load_kw, available_kw: pz.available_kw,
+      max_capacity_kw: pz.max_capacity_kw,
+      name: z?.name ?? null, grid_x: z?.grid_x ?? null, grid_y: z?.grid_y ?? null,
+      is_interior: !!z?.flags?.is_interior, is_apartment: !!z?.flags?.is_apartment,
+    });
+  }
+  zones.sort((a, b) => String(a.name ?? '').localeCompare(String(b.name ?? '')));
+  return { generator: genRows[0], zones };
 }
 
 // Sums intended demand for a zone and writes it to power_zones.current_load_kw.
 // Demand = COALESCE(light_on_intended, light_on) for non-streetlights (stable
 // through supply interruptions), plus streetlight draw when dark. Call this
 // whenever a light or device is toggled so the power sim has fresh demand data.
-export async function recalcZoneLoad(queryFn, zoneId) {
-  const isDark = state.phase === 'night' || state.phase === 'dusk';
-  const { rows } = await queryFn(`
-    SELECT COALESCE(SUM(
-      CASE
-        WHEN power_draw_kw IS NOT NULL THEN power_draw_kw
-        WHEN light_type = 'overhead'    THEN ${DRAW_OVERHEAD_W}
-        WHEN light_type = 'streetlight' THEN ${DRAW_STREETLIGHT_W}
-        WHEN light_type = 'lamp'        THEN ${DRAW_LAMP_W}
-        ELSE ${DRAW_DEFAULT_W}
-      END
-    ), 0) AS total_load
-    FROM furniture
-    WHERE zone_id = $1 AND (
-      (object_type = 'light' AND COALESCE(light_on_intended, light_on) = 1 AND light_type != 'streetlight') OR
-      (object_type = 'light' AND light_type = 'streetlight' AND $2) OR
-      (object_type != 'light' AND power_draw_kw > 0)
-    )
-  `, [zoneId, isDark]);
-  const load = rows[0]?.total_load ?? 0;
-  await queryFn(`UPDATE power_zones SET current_load_kw = $1 WHERE id = $2`, [load, zoneId]);
+// Recompute one zone's draw after its lights change. current_load_kw is derived
+// state held in RAM, so this is now a synchronous walk of the zone's furniture
+// (the same predicate the sim's Phase 2 uses) rather than a query pair. Kept
+// exported and callable per light-switch — it no longer costs a round trip.
+export function recalcZoneLoad(zoneId) {
+  const load = computeZoneLoad(zoneId);
+  const row = powerZones.get(zoneId);
+  if (row) row.current_load_kw = load;
   return load;
 }
 
+// Total draw and zone count behind one generator — the `examine <generator>`
+// readout. Reads the RAM model because current_load_kw is no longer persisted.
+export function getGeneratorLoad(generatorId) {
+  let totalLoad = 0, zoneCount = 0;
+  for (const z of powerZones.values()) {
+    if (z.generator_id !== generatorId) continue;
+    zoneCount++;
+    totalLoad += Number(z.current_load_kw ?? 0);
+  }
+  return { totalLoad, zoneCount };
+}
+
+// Re-derive one zone's lit-fixture count/lumens after its lights change. The
+// counterpart to recalcZoneLoad for callers outside the sim (the light switch,
+// the dev-panel zone builder), replacing a COUNT/SUM query plus a
+// lighting_states UPDATE with a walk of the zone's cached furniture.
+export function syncZoneLighting(zoneId) {
+  const { cnt, lm } = computeZoneLighting(zoneId);
+  const row = lightingFor(zoneId);
+  row.fixture_count = cnt;
+  row.total_lumens = lm;
+  return row;
+}
+
 export async function assignZoneToJunctionBox(zoneId, generatorId) {
+  markPowerTopologyDirty(); // writes power_zones/generators below
   const { query } = deps;
   const { rows: genRows } = await query(`SELECT id, name, capacity_kw FROM generators WHERE id=$1 AND generator_type='junction_box'`, [generatorId]);
   if (!genRows.length) throw new Error('Junction box not found');
@@ -2772,6 +2903,7 @@ export async function assignZoneToJunctionBox(zoneId, generatorId) {
 }
 
 export async function reassignZoneGenerator(zoneId, generatorId) {
+  markPowerTopologyDirty(); // writes power_zones/generators below
   const { query } = deps;
   const { rows: genRows } = await query('SELECT id, name, capacity_kw FROM generators WHERE id=$1', [generatorId]);
   if (!genRows.length) throw new Error('Generator not found');
@@ -2784,20 +2916,21 @@ export async function reassignZoneGenerator(zoneId, generatorId) {
   return { zoneId, generatorId: gen.id, generatorName: gen.name };
 }
 
-export async function getZonePowerInfo(zoneId) {
-  const { query } = deps;
-  const { rows } = await query(`
-    SELECT pz.status, pz.capacity_kw, pz.available_kw, pz.max_capacity_kw,
-           pz.current_load_kw, pz.generator_id,
-           g.name AS generator_name, g.generator_type, g.capacity_kw AS gen_capacity_kw, g.status AS gen_status
-    FROM power_zones pz
-    LEFT JOIN generators g ON g.id = pz.generator_id
-    WHERE pz.id = $1
-  `, [zoneId]);
-  return rows[0] || null;
+export function getZonePowerInfo(zoneId) {
+  const pz = powerZones.get(zoneId);
+  if (!pz) return null;
+  const g = pz.generator_id ? generatorRows.get(pz.generator_id) : null;
+  return {
+    status: pz.status, capacity_kw: pz.capacity_kw, available_kw: pz.available_kw,
+    max_capacity_kw: pz.max_capacity_kw, current_load_kw: pz.current_load_kw,
+    generator_id: pz.generator_id,
+    generator_name: g?.name ?? null, generator_type: g?.generator_type ?? null,
+    gen_capacity_kw: g?.capacity_kw ?? null, gen_status: g?.status ?? null,
+  };
 }
 
 export async function setZoneMaxCapacity(zoneId, maxCapacityKw) {
+  markPowerTopologyDirty(); // writes power_zones/generators below
   const { query } = deps;
   const kw = Math.max(0, Number(maxCapacityKw) || 50);
   const { rowCount } = await query(
@@ -2812,24 +2945,27 @@ export async function setZoneMaxCapacity(zoneId, maxCapacityKw) {
 // Resyncs lighting_states.total_lumens for every zone from its actual furniture.
 // Fixes zones (e.g. studio interiors) where lighting_states was never populated
 // or went stale. Safe to call at any time — all updates are upserts.
+// Dev repair tool. Note its counting rule differs from the sim's: fixture_count
+// here is EVERY light fixture in the zone, while lumens sum only the lit ones
+// (the sim counts only lit fixtures for both). Preserved as-is — this exists to
+// repair zones whose counts drifted, and changing the rule would change what
+// "repaired" means.
 export async function resyncAllLightingStates() {
-  const { query } = deps;
-  const { rows: zones } = await query(`SELECT DISTINCT zone_id FROM furniture WHERE object_type='light'`);
-  let fixed = 0;
-  for (const { zone_id } of zones) {
-    const { rows: lc } = await query(
-      `SELECT COUNT(*)::int AS cnt, COALESCE(SUM(CASE WHEN light_on=1 THEN COALESCE(lumen_output,0) ELSE 0 END),0)::int AS lm
-         FROM furniture WHERE zone_id=$1 AND object_type='light'`, [zone_id]
-    );
-    await query(
-      `INSERT INTO lighting_states (zone_id,has_emergency_lighting,artificial_light_level,fixture_count,total_lumens)
-       VALUES ($1,0,0,$2,$3) ON CONFLICT (zone_id) DO UPDATE SET fixture_count=$2, total_lumens=$3`,
-      [zone_id, lc[0]?.cnt || 0, lc[0]?.lm || 0]
-    );
-    fixed++;
+  const byZone = new Map();
+  for (const f of world.furniture.values()) {
+    if (f.object_type !== 'light' || !f.zone_id) continue;
+    let agg = byZone.get(f.zone_id);
+    if (!agg) byZone.set(f.zone_id, (agg = { cnt: 0, lm: 0 }));
+    agg.cnt++;
+    if (f.light_on === 1) agg.lm += Number(f.lumen_output ?? 0);
+  }
+  for (const [zoneId, agg] of byZone) {
+    const row = lightingFor(zoneId);
+    row.fixture_count = agg.cnt;
+    row.total_lumens = agg.lm;
   }
   await recomputePower();
-  return { fixed };
+  return { fixed: byZone.size };
 }
 
 // Re-runs the power simulation immediately (instead of waiting for the next
@@ -2838,7 +2974,7 @@ export async function resyncAllLightingStates() {
 export async function recomputePower() {
   const { query } = deps;
   await simulatePowerNetwork(query, { weatherType: state.weatherType, reason: 'generator_change' });
-  await loadZonePowerAndLighting(query);
+  loadZonePowerAndLighting();
   return getPowerMap();
 }
 
@@ -2850,15 +2986,16 @@ export async function recomputePower() {
 // power_zones row to drain.
 export async function drainZonePower(zoneId) {
   const { query } = deps;
-  const { rows } = await query('SELECT status, max_capacity_kw FROM power_zones WHERE id=$1', [zoneId]);
-  if (!rows.length) return { ok: false };
-  const prevStatus = rows[0].status;
-  const cap = rows[0].max_capacity_kw ?? 0;
-  await query(`UPDATE power_zones SET status='offline', available_kw=0, current_load_kw=0 WHERE id=$1`, [zoneId]);
+  const row = powerZones.get(zoneId);
+  if (!row) return { ok: false };
+  const prevStatus = row.status;
+  const cap = row.max_capacity_kw ?? 0;
+  writeZonePower(row, 'offline', 0, row.capacity_kw);
+  row.current_load_kw = 0;
   // silent: the generic "lights cut out" line is suppressed so the ghost layer
   // can broadcast its own dramatic, sourceless blackout emote (with refresh) instead.
-  await applyPowerLightEffects(query, zoneId, prevStatus, 'offline', 0, cap, { silent: true });
-  await loadZonePowerAndLighting(query);
+  await applyPowerLightEffects(zoneId, prevStatus, 'offline', 0, cap, { silent: true });
+  loadZonePowerAndLighting();
   return { ok: true, prevStatus };
 }
 

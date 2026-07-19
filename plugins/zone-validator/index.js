@@ -1,6 +1,7 @@
 import { query } from '../../server/models/db.js';
 import { world, deleteFurnitureWhere } from '../../server/engine/world.js';
 import { allExits, neighborZoneIds, addExit } from '../../server/engine/exits.js';
+import { markPowerTopologyDirty } from '../../server/engine/environment.js';
 
 async function fetchAllZones() {
   const { rows } = await query('SELECT id, exits, flags FROM zones');
@@ -220,6 +221,7 @@ async function _runFull(opts = {}) {
         await query('DELETE FROM power_zones      WHERE id=$1',                                                   [zid]);
         await query('DELETE FROM power_zones      WHERE generator_id IN (SELECT id FROM generators WHERE zone_id=$1)', [zid]);
         await query('DELETE FROM generators       WHERE zone_id=$1', [zid]);
+        markPowerTopologyDirty(); // power_zones/generators/lighting_states live in RAM
         await query('DELETE FROM player_corpses   WHERE zone_id=$1', [zid]);
         await query('DELETE FROM world_events     WHERE zone_id=$1', [zid]);
         await query('DELETE FROM windows          WHERE zone_interior=$1 OR zone_exterior=$1', [zid]);

@@ -48,7 +48,7 @@ import { handleStagingApi } from './staging.routes.js';
 import { handleBackupApi } from './backup.routes.js';
 import { fireRoutes, fireHook } from '../engine/plugins.js';
 import { handlePlayerDeath } from '../engine/gameLoop.js';
-import { reloadWindows as reloadWindowsEnv, recomputePower, getEnvironmentState } from '../engine/environment.js';
+import { reloadWindows as reloadWindowsEnv, recomputePower, getEnvironmentState, markPowerTopologyDirty } from '../engine/environment.js';
 import { ensureTunables, getTunable, reloadTunables } from '../engine/tunables.js';
 import { getNetXp, statSpent, maxHpForEndurance } from '../engine/ip.js';
 import { SKILLS } from '../engine/skills.js';
@@ -1341,6 +1341,7 @@ export async function apiDeleteZone(id) {
       await query('DELETE FROM power_zones      WHERE id=$1',                                                   [zid]);
       await query('DELETE FROM power_zones      WHERE generator_id IN (SELECT id FROM generators WHERE zone_id=$1)', [zid]);
       await query('DELETE FROM generators       WHERE zone_id=$1', [zid]);
+      markPowerTopologyDirty(); // power_zones/generators/lighting_states live in RAM
       await query('DELETE FROM player_corpses   WHERE zone_id=$1', [zid]);
       await query('DELETE FROM world_events     WHERE zone_id=$1', [zid]);
       await query('DELETE FROM windows          WHERE zone_interior=$1 OR zone_exterior=$1', [zid]);

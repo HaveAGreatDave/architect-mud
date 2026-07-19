@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 import { join, dirname } from 'path';
 import { query } from '../../server/models/db.js';
 import { getLivePlayer, getAllLivePlayers, getZone, getMinimapData, insertFurniture, updateFurnitureWhere } from '../../server/engine/world.js';
-import { autoResolvePower, recalcZoneLoad, getZonePowerStatus } from '../../server/engine/environment.js';
+import { autoResolvePower, recalcZoneLoad, syncZoneLighting, getZonePowerStatus } from '../../server/engine/environment.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
 
 const OUTFIT_FILE = join(dirname(fileURLToPath(import.meta.url)), 'cyd-outfit.json');
@@ -120,19 +120,9 @@ async function cmdLetThereBeLight(args, raw, player, broadcast) {
     created = true;
   }
 
-  // 2. Resync the zone's lighting_states from its actual lit fixtures, and its load.
-  const { rows: lc } = await query(
-    `SELECT COUNT(*)::int AS cnt, COALESCE(SUM(COALESCE(lumen_output,0)),0)::int AS lm
-     FROM furniture WHERE zone_id=$1 AND object_type='light' AND light_on=1`,
-    [zoneId]
-  );
-  await query(
-    `INSERT INTO lighting_states (zone_id, has_emergency_lighting, artificial_light_level, fixture_count, total_lumens)
-     VALUES ($1, 0, 0, $2, $3)
-     ON CONFLICT (zone_id) DO UPDATE SET fixture_count=$2, total_lumens=$3`,
-    [zoneId, lc[0]?.cnt || 0, lc[0]?.lm || 0]
-  );
-  await recalcZoneLoad(query, zoneId).catch(() => {});
+  // 2. Resync the zone's lighting state from its actual lit fixtures, and its load.
+  syncZoneLighting(zoneId);
+  recalcZoneLoad(zoneId);
 
   // 3. Reconnect power — wire this zone/building to the grid, then recompute
   //    power + lighting so getZonePowerStatus/visibility reflect it immediately.
