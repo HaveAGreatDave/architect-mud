@@ -1,8 +1,15 @@
 # Proposal: Steady Work (careers / advanced jobs over the quest system)
 
-**Status:** design only — not built. This doc is the workshopped spec so the build
-can start cleanly. It sits above the existing [job board](../systems-jobboard.md) and
-runs through the [unified quest system](../systems-jobboard.md); read those first.
+**Status:** **spine + shift BUILT** (`plugins/work/`, uncommitted) — the XP gate,
+the venue opt-in (`flags.work_venue`, first venue Meltwater Diner), the shift
+posture-tick with the satisfaction meter + seeded rush + sent-home fail, wage+tips
+payout, and the five shift-local response verbs are live and regress-covered
+(`plugins/work/regress.js`). Surface is **chat-first** (`work`/`clock in`/response
+verbs), matching the other posture activities; the dedicated **Tablet Work tab** and
+the whole **Courier archetype** (parcel classes, conceal/heat, fence hot-jobs, theft
+economy) remain the planned follow-up pass. It sits above the existing
+[job board](../systems-jobboard.md) and runs through the
+[unified quest system](../systems-jobboard.md); read those first.
 
 ## One-line
 

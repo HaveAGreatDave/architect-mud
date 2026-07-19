@@ -1,0 +1,14 @@
+{
+  "description": "Concealed warm-gold light washing down the mezzanine's walls and pooling over each booth, deliberately kind, the exact temperature of flattery. The only cool light up here comes filtered blue through the glass floor from the storm below.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_voltage_vip_light",
+  "light_type": "overhead",
+  "lumen_output": 900,
+  "name": "warm mezzanine wash",
+  "object_type": "light",
+  "power_draw_kw": 18,
+  "price": 0,
+  "zone_id": "zone_voltage_vip"
+}

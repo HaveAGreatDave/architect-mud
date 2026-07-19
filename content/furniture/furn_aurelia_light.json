@@ -1,0 +1,14 @@
+{
+  "description": "A ceiling grid of cold violet pin-spots, each aimed at a single garment, plus the one warm key-light angled at the mirror. The room is dark; only the clothes and the person considering them are lit.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_aurelia_light",
+  "light_type": "overhead",
+  "lumen_output": 1400,
+  "name": "gallery pin-spots",
+  "object_type": "light",
+  "power_draw_kw": 22,
+  "price": 0,
+  "zone_id": "zone_aurelia_floor"
+}

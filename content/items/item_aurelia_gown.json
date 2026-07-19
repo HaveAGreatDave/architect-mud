@@ -1,0 +1,16 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_aurelia_gown",
+  "name": "liquid-chrome evening gown",
+  "tags": {
+    "bulkiness": 1,
+    "description": "A single seamless pour of reactive chromatic film cut to the body, so fluid it reads as poured mercury standing upright. It holds a slow, oily rainbow that shifts as you move — the sort of garment that makes a room recalibrate who matters. It stops nothing sharper than a compliment.",
+    "insulation": 0,
+    "layer": "outerwear",
+    "slot": "torso"
+  },
+  "type": "clothing",
+  "value": 2600,
+  "weight": 500
+}

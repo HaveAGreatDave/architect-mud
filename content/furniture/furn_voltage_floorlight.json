@@ -1,0 +1,14 @@
+{
+  "description": "A rig of moving-head beams slung from the black ceiling, sweeping the haze in slow blue arcs, and beneath them the cold underfloor glow of the dancefloor lattice. Between the two the room is never quite dark and never quite lit — a permanent electric dusk you can just see faces in.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_voltage_floorlight",
+  "light_type": "overhead",
+  "lumen_output": 1000,
+  "name": "beam rig and floor glow",
+  "object_type": "light",
+  "power_draw_kw": 60,
+  "price": 0,
+  "zone_id": "zone_voltage_floor"
+}

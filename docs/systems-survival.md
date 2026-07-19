@@ -145,6 +145,36 @@ for pre-existing drugs). Per-drug state lives in `player_drug_state` (`doses_in_
   (and phantoms) are in-memory; a login rescue in `server/index.js` bounces anyone stranded in a dream
   zone by a restart back to their anchor.
 
+## Sanity — the slide into madness
+
+`players.sanity` (0–100, `sanity_max` default 100). Nothing in the **sanity plugin**
+([plugins/sanity/index.js](../plugins/sanity/index.js)) *drains* it — drugs (`instant.sanity`),
+`restore_sanity` consumables and sleep own the meter. The plugin owns only the **consequence**: a
+gradual, deliberately scarier-than-a-drug-trip dread that escalates as sanity falls, driven by its
+`tick.minute` hook walking the live `world.players` (no DB reads — reads `player.sanity` off the live
+object). One continuous intensity curve (`(50 − sanity)/50`, clamped) over three bands on the **raw**
+sanity value:
+
+- **creep (25–49)** — unease, no hallucinations yet. A cold closing-in vignette (`#sanity-overlay`)
+  that deepens as sanity drops, a low dread audio bed, and occasional **misperception whispers**
+  (private `.msg-dread` lines: "Something moves at the edge of your vision…").
+- **halluc (below 25)** — you **start seeing things**. Fake people and animals are conjured into the
+  player's **real** room and read as ordinary presences. These reuse the engine's shared per-player
+  **phantom registry** ([phantoms.js](../server/engine/phantoms.js)); the **trip** plugin's
+  look/examine/talk/attack specialized actions answer them for free (`matchPhantom` is global — a
+  whiffed swing evaporates one). Whispers turn specific and close.
+- **insane (≤0)** — full breakdown. The plugin sets `player.insane`; the engine's **substrate gate**
+  in [commands/index.js](../server/engine/commands/index.js) then collapses ~55% of deliberate
+  commands into nonsense (mirrors the `blackedOutUntil` blackout gate). `sleep`/`rest` always pass —
+  sleep is the only way to climb back out. The flag lifts with **hysteresis** at sanity 10, so 0→up
+  doesn't flicker; the FX/phantoms fully tear down only once sanity climbs back to the clear band (≥50).
+
+Client FX is its **own** channel (`sanity_fx` → a dark, desaturating overlay + `unhinged`/`insane`
+body classes) so it composes with an active drug trip rather than fighting the psychedelic
+`#trip-overlay`. All state is in-memory (mirrors trips); the plugin removes only the phantoms it
+spawned (`sane_*`), never `clearPhantoms` (which would wipe a concurrent trip's phantoms), and resets
+cleanly on death/logout.
+
 ## Buffs & heal-over-time
 
 Applied by the `use`/`eat`/`drink` command from item tags ([inventory.js](../server/engine/commands/inventory.js)):

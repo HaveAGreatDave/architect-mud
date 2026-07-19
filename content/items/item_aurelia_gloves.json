@@ -1,0 +1,16 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_aurelia_gloves",
+  "name": "opera-length satin gloves",
+  "tags": {
+    "bulkiness": 0,
+    "description": "Column-black satin drawn to well past the elbow, so fine they photograph as a single unbroken line from fingertip to shoulder. Fastened with a hairline seam of conductive thread that warms faintly to the touch. Utterly useless. Devastatingly correct.",
+    "insulation": 1,
+    "layer": "outerwear",
+    "slot": "hands"
+  },
+  "type": "clothing",
+  "value": 650,
+  "weight": 120
+}

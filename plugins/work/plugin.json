@@ -1,0 +1,6 @@
+{
+  "name": "work",
+  "version": "1.0.0",
+  "description": "Steady Work — tier-two employment above the job board. XP-gated shifts at a venue: clock in, ride a posture-tick of timed skill-check events, keep the manager's satisfaction up or get sent home. Wage flat, tips scale off how well you worked.",
+  "commands": ["work", "shift", "shifts", "clock", "serve", "bill", "douse", "soothe", "bounce"]
+}

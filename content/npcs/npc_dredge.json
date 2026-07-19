@@ -1,0 +1,188 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": { "next": "wait", "type": "start" },
+      "wait": { "next": "start", "seconds": 60, "type": "wait" }
+    }
+  },
+  "chitchat": [
+    "Dredge works a long hook through the silt without looking up, feeling for the shape of something worth keeping.",
+    "\"The deep gives it all back eventually. You just have to be the one still standing when it does.\"",
+    "She rinses a fistful of grit in the leak-water and squints at what's left in her palm."
+  ],
+  "description": "A lean, weather-cured woman folded into a dry niche of the old cistern, a coil of hook-line at her boot and a picked-over hoard of deep salvage stacked at her back. She doesn't startle when your light finds her — she's heard you coming since the Throat. Her eyes do the pricing that Grady's do up top, but slower, and with less hope. She has made the deepest safe place in the Under her own, and she intends to keep it.",
+  "dialogue_tree": {
+    "about": {
+      "options": [
+        { "label": "Back.", "next": "root" }
+      ],
+      "text": "\"Name's Dredge. Was something else, up top, a long time ago.\" She turns a corroded washer over in her fingers. \"I work the cistern — everything the deep drowned for a hundred years fetches up here, if you've the patience to feel for it. Patience I've got. What I haven't got is the legs to go past the Throat anymore, and the deep's got things worth more than washers.\" She looks at you, flat and reading. \"You've got the legs. Maybe we're useful to each other.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "\"Mind the water on the way out,\" Dredge says, already back at the silt. \"And the dark. Especially the dark.\""
+    },
+    "q1_offer": {
+      "options": [
+        { "label": "I'll thin them out.", "next": "q1_accept" },
+        { "label": "Not yet.", "next": "bye" }
+      ],
+      "text": "She weighs you a moment. \"You came down through the pocket and you're still upright, so you're not nothing. But the deep isn't the pocket. There's mutants shambling the Rust Gallery, south off the Throat — bloated, rad, whatever the water made of them. And hounds working the Groaning Main to the north. Put down three of the mutants and a couple of the hounds. Do that and I'll believe you can hold down here. Then we talk about real work.\""
+    },
+    "q1_accept": {
+      "actions": [
+        { "action": "START_QUEST", "quest_id": "quest_under_deepcuts" }
+      ],
+      "options": [
+        { "label": "Consider it done.", "next": "bye" }
+      ],
+      "text": "\"Good. Green line's on your map — Throat's the crossroads, mutants south, hounds north. Come back with the count and keep that light fed. Nobody wins a fight down here they can't see.\""
+    },
+    "q1_report": {
+      "actions": [
+        { "action": "TURN_IN", "quest_id": "quest_under_deepcuts" }
+      ],
+      "options": [
+        { "label": "Told you I had the legs.", "next": "bye" }
+      ],
+      "text": "Dredge listens to the tally, nods once, slow. \"Mutants and hounds both, and you walked it back. Most don't.\" She counts credits and a couple of cells into your hand. \"All right. You'll do. There's a thing I've wanted a long time, and now I've got someone who can fetch it.\""
+    },
+    "q2_offer": {
+      "options": [
+        { "label": "Where is it?", "next": "q2_accept" },
+        { "label": "Later.", "next": "bye" }
+      ],
+      "text": "\"A relay. Signal relay, went down with the old junction when they bored the new lines.\" She sketches the run in the silt with her hook. \"Past the Deep Trunk, all the way to the Deep Reach — the bottom of the works. I've dug this cistern twenty years and never had the legs to go that deep. It'll be silted over, but the core's good crystal, and to the right buyer that relay's worth more than everything I've pulled out of here. Bring it up.\""
+    },
+    "q2_accept": {
+      "actions": [
+        { "action": "START_QUEST", "quest_id": "quest_under_salvage" }
+      ],
+      "options": [
+        { "label": "I'll bring it up.", "next": "bye" }
+      ],
+      "text": "\"Map's got the line. Throat, Rust Gallery, Machine Sump, Deep Trunk, then down into the Reach. It gets worse every step — go fed and go armed. And if the light dies down there, you turn around, relay or no relay. A dead scavenger fetches nothing.\""
+    },
+    "q2_report": {
+      "actions": [
+        { "action": "TURN_IN", "quest_id": "quest_under_salvage" }
+      ],
+      "options": [
+        { "label": "One relay, as ordered.", "next": "bye" }
+      ],
+      "text": "She takes the relay in both hands like it's warm, turns it, listens to the crystal rattle, and for the first time something like a smile cracks the grit on her face. \"Twenty years.\" She pays you well and doesn't haggle. \"You went to the bottom and came back. That makes you the only one who has. Which means there's one last thing only you can do.\""
+    },
+    "q3_offer": {
+      "options": [
+        { "label": "Tell me what's down there.", "next": "q3_accept" },
+        { "label": "Not this time.", "next": "bye" }
+      ],
+      "text": "Her smile is gone. \"You saw it, even if you didn't know what you were looking at. Down in the Reach — the big mound that doesn't move right. I call it the Midden. A hundred drowned things grown into one, and it's been feeding down there longer than I've been alive. It's the reason the Reach never got thinned. And it's getting bigger.\" She looks at her cistern, her one safe place. \"Bigger means hungrier. One day it decides up here looks warm. I'd rather it never got the chance. End it.\""
+    },
+    "q3_accept": {
+      "actions": [
+        { "action": "START_QUEST", "quest_id": "quest_under_apex" }
+      ],
+      "options": [
+        { "label": "It ends.", "next": "bye" }
+      ],
+      "text": "\"Then go heavy. Medkit, a full light, the best you can swing. It soaks a blow like the dead flesh it's wrapped in, and it does not stop coming.\" She grips your arm, once, hard. \"Come back. I've buried enough down here.\""
+    },
+    "q3_report": {
+      "actions": [
+        { "action": "TURN_IN", "quest_id": "quest_under_apex" }
+      ],
+      "options": [
+        { "label": "The Reach is quiet.", "next": "bye" }
+      ],
+      "text": "Dredge is very still while you tell it. Then she lets out a breath she might have been holding for years. \"Dead. The Midden's dead, and I lived to hear it.\" She presses everything she can spare into your hands — credits, cells, medicine. \"You cleared the bottom of the world. The deep's yours as much as anyone's now. Come see me — there's always more the water gives up, and now I know who to send.\""
+    },
+    "done": {
+      "options": [
+        { "label": "Just checking in.", "next": "bye" }
+      ],
+      "text": "\"The one who killed the Midden,\" Dredge says, not quite mocking. \"Deep's a shade less lethal because of you. Rest here a minute if you want — this is the safest air in the Under, and I keep it that way.\""
+    },
+    "root": {
+      "options": [
+        {
+          "conditions": [
+            { "flag": "grady_sewer_cleared", "op": "set", "scope": "player" },
+            { "flag": "quest_under_deepcuts", "op": "unset", "scope": "player" }
+          ],
+          "label": "You're a long way down. What are you doing here?",
+          "next": "q1_offer"
+        },
+        {
+          "conditions": [
+            { "flag": "quest_under_deepcuts", "op": "eq", "value": "completed", "scope": "player" }
+          ],
+          "label": "Mutants down, hounds down.",
+          "next": "q1_report"
+        },
+        {
+          "conditions": [
+            { "flag": "dredge_proven", "op": "set", "scope": "player" },
+            { "flag": "quest_under_salvage", "op": "unset", "scope": "player" }
+          ],
+          "label": "You said real work.",
+          "next": "q2_offer"
+        },
+        {
+          "conditions": [
+            { "flag": "quest_under_salvage", "op": "eq", "value": "completed", "scope": "player" }
+          ],
+          "label": "Got your relay.",
+          "next": "q2_report"
+        },
+        {
+          "conditions": [
+            { "flag": "dredge_trusted", "op": "set", "scope": "player" },
+            { "flag": "quest_under_apex", "op": "unset", "scope": "player" }
+          ],
+          "label": "One last thing?",
+          "next": "q3_offer"
+        },
+        {
+          "conditions": [
+            { "flag": "quest_under_apex", "op": "eq", "value": "completed", "scope": "player" }
+          ],
+          "label": "It's done. The Midden's dead.",
+          "next": "q3_report"
+        },
+        {
+          "conditions": [
+            { "flag": "under_deep_cleared", "op": "set", "scope": "player" }
+          ],
+          "label": "Any more work?",
+          "next": "done"
+        },
+        { "label": "Who are you?", "next": "about" },
+        { "label": "Leave.", "next": "bye" }
+      ],
+      "text": "Your light finds her folded into the dry niche, and she was watching you before it did. \"Far enough in that you're either lost or looking for something,\" Dredge says. \"Lost, go back the way you came. Looking — say what for.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a hooded oilskin gone black with silt and grease",
+      "layered waders patched with salvaged rubber",
+      "fingerless gloves and a coil of hook-line at the belt"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_under_cistern",
+  "hp": 45,
+  "hp_max": 45,
+  "id": "npc_dredge",
+  "name": "Dredge",
+  "npc_type": "civilian",
+  "sex": "female",
+  "studio_zone_id": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_under_cistern"
+}

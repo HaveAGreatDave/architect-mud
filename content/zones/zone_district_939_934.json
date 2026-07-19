@@ -1,0 +1,31 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "wasteland",
+  "audio_theme_id": null,
+  "bg_color": "#2a1c16",
+  "color": "#b5744a",
+  "created_by": "wildlands-expand",
+  "description": "Broken mesa shelves step away in ochre and iron-red, cut by dry washes where the wind funnels grit against your teeth.",
+  "exits": {
+    "east": "zone_district_940_934",
+    "north": "zone_district_939_933",
+    "south": "zone_district_939_935",
+    "west": "zone_district_938_934"
+  },
+  "flags": {
+    "district": "wilds",
+    "district_id": "district_coldwater",
+    "planner": "bp_district",
+    "radiation": 32,
+    "terrain": "redrock"
+  },
+  "grid_x": 939,
+  "grid_y": 934,
+  "grid_z": 0,
+  "id": "zone_district_939_934",
+  "map_id": "map_world",
+  "marker": null,
+  "name": "The Ironpan",
+  "parent_zone": null,
+  "updated_at": "1784700000"
+}

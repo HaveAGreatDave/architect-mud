@@ -18,8 +18,9 @@
   },
   "flags": {
     "district": "docks",
-    "planner": "bp_district",
-    "pier": true
+    "district_id": "district_coldwater",
+    "pier": true,
+    "planner": "bp_district"
   },
   "grid_x": 897,
   "grid_y": 901,

@@ -1,0 +1,31 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "wasteland",
+  "audio_theme_id": null,
+  "bg_color": "#2a1c16",
+  "color": "#b5744a",
+  "created_by": "wildlands-expand",
+  "description": "Broken mesa shelves step away in ochre and iron-red, cut by dry washes where the wind funnels grit against your teeth.",
+  "exits": {
+    "east": "zone_district_890_922",
+    "north": "zone_district_889_921",
+    "south": "zone_district_889_923",
+    "west": "zone_district_888_922"
+  },
+  "flags": {
+    "district": "wilds",
+    "district_id": "district_coldwater",
+    "planner": "bp_district",
+    "radiation": 26,
+    "terrain": "redrock"
+  },
+  "grid_x": 889,
+  "grid_y": 922,
+  "grid_z": 0,
+  "id": "zone_district_889_922",
+  "map_id": "map_world",
+  "marker": null,
+  "name": "The Rust Flats",
+  "parent_zone": null,
+  "updated_at": "1784700000"
+}

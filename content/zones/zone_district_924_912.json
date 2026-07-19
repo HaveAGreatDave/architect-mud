@@ -8,13 +8,14 @@
   "description": "A narrow shopfront wedged between the modular housing stacks, its window crammed with the honest clutter of a repair trade — dead radios, a wall of salvaged hand tools, a hand-lettered card reading FIX-IT: IF IT RAN ONCE, IT'LL RUN AGAIN. No screens, no terminals, nothing that talks back to the grid. A bell hangs over the door. It smells of solder and machine oil.",
   "exits": {
     "east": "zone_district_925_912",
+    "north": "zone_lw_shop",
     "south": "zone_district_924_913",
-    "west": "zone_district_923_912",
-    "north": "zone_lw_shop"
+    "west": "zone_district_923_912"
   },
   "flags": {
     "building_name": "Halloran's Fix-It",
     "district": "residential",
+    "district_id": "district_coldwater",
     "planner": "bp_district",
     "street_life": true,
     "terrain": "grass"

@@ -13,6 +13,7 @@
   "flags": {
     "curtain": true,
     "district": "residential",
+    "district_id": "district_coldwater",
     "planner": "bp_district"
   },
   "grid_x": 927,

@@ -20,6 +20,7 @@
     "aa_site": true,
     "curtain": true,
     "district": "wasteland",
+    "district_id": "district_coldwater",
     "icon": "aa",
     "planner": "bp_district"
   },

@@ -20,6 +20,7 @@
   "flags": {
     "aa_site": true,
     "district": "docks",
+    "district_id": "district_coldwater",
     "icon": "aa",
     "planner": "bp_district"
   },

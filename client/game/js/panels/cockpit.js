@@ -14,7 +14,7 @@
 import { setAreaPane } from '../render.js';
 import { state } from '../state.js';
 import { sfx, clampInt, clampNum, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays, deckStrip, setDeckLevel } from './minigame-common.js';
-import { updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown, groundFx, flapWhir, stallHorn, gearFx, gunFx, aaWarn, tracerFx, aaGunFx, hitFx, lockTone, mslWarble, missileFx, flareFx } from './engine-audio.js';
+import { updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown, groundFx, flapWhir, stallHorn, gearFx, gunFx, aaWarn, tracerFx, aaGunFx, hitFx, lockTone, mslWarble, missileFx, flareFx, spraySfx } from './engine-audio.js';
 import { ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, RENDER_TUNE, buildingRoofFt, BUILDING_FOOT, climbOutClear, VISIBLE_NEAR_F, VISIBLE_FAR_F, CLIMBOUT_MAX_F, CLIMBOUT_LAT_IN, CLIMBOUT_LAT_OUT, pushLightningStrike, surfaceBreakup } from './windshield.js';
 import { suppressWeatherFx } from './weather-fx.js';
 import { createState, step, readout, TYPES } from './flight-model.js';
@@ -60,7 +60,7 @@ function angDelta(a, b) { let d = (b - a) % 360; if (d > 180) d -= 360; if (d < 
 const CLASS_THEME = {
   ultralight: { acc: '#7fd6ff', chrome: 'minimal',   radar: 'sm' },
   grasshopper:{ acc: '#9ad46a', chrome: 'minimal',   radar: 'sm' },   // olive-drab liaison scout
-  locust:     { acc: '#ffd24a', chrome: 'analog',    radar: 'sm' },   // hot-rod sport single
+  locust:     { acc: '#ffd24a', chrome: 'analog',    radar: 'sm' },   // crop-duster / ag-plane
   heli:       { acc: '#4fe0a0', chrome: 'rotor',      radar: 'md' },
   prop:       { acc: '#4fb8e0', chrome: 'analog',     radar: 'md' },
   heavy:      { acc: '#ffb23e', chrome: 'industrial', radar: 'lg' },
@@ -935,14 +935,81 @@ const lerpN = (a, b, t) => a + (b - a) * t;
 // it spotlights. Renders the persistent instruction card and glows the target control(s).
 // cr = the server checkride clientView (null = not on a ride → tear the card + glows down).
 const CKRIDE_GLOW = { engine: 'fsim-eng', throttle: 'fsim-thr', yoke: 'fsim-yoke' };
+// Every control the tour or the plain card can spotlight — cleared as a set on any redraw so
+// a stale glow (e.g. flaps/trim, which the plain-card highlight map doesn't know) never lingers.
+const GLOW_IDS = ['fsim-eng', 'fsim-thr', 'fsim-yoke', 'fsim-flap', 'fsim-trim'];
+function fsimClearGlows() { for (const id of GLOW_IDS) document.getElementById(id)?.classList.remove('ck-glow'); }
+
+// ── Flight-school tour ────────────────────────────────────────────────────────
+// The STARTUP stage of the checkride is taught with a self-paced, dismissable walkthrough
+// (centred over the glass) instead of the plain top-left card: one step per control, each
+// spotlighting the real cockpit widget with mobile/desktop-aware copy. Steps are pure UI
+// teaching (client-only); the server checkride stays telemetry-paced and takes over its
+// top-left cards from TAKEOFF on. `_touchPrimary` (pointer:coarse) picks the touch copy.
+// `.k` = a keycap accent. Bodies allow inline HTML.
+const TOUR_STEPS = [
+  { id: 'fsim-yoke', title: 'THE YOKE', body: (m) => m
+    ? 'The <b>yoke</b> is your control column — drag it with your <b>finger</b>. Left/right banks the wings into a turn. It\'s <b>inverted</b> like the real thing: drag <b>DOWN</b> to pull back and <b>climb</b>, drag up to descend.'
+    : 'The <b>yoke</b> is your control column — steer it with the <span class="k">mouse</span>. Drag <b>left/right</b> to bank the wings into a turn. It\'s <b>inverted</b> like the real thing: drag <b>DOWN</b> to pull back and <b>climb</b>, push <b>up</b> to descend.' },
+  { id: 'fsim-thr', title: 'THROTTLE', body: (m) => m
+    ? 'The <b>throttle</b> sets engine power — <b>drag the lever</b> up for more, down for less. Run it <b>full</b> for takeoff, and ease it back to bleed off speed for landing.'
+    : 'The <b>throttle</b> sets engine power. Tap <span class="k">A</span> to add power, <span class="k">Z</span> to cut it — or drag the lever. Run it <b>full</b> for takeoff, and ease it back to bleed off speed for landing.' },
+  { id: 'fsim-flap', title: 'FLAPS', body: (m) => m
+    ? '<b>Flaps</b> add lift so you can fly slower and steeper. <b>Drag the flap knob</b> down a notch or two for takeoff and landing; leave them <b>UP</b> for cruise.'
+    : '<b>Flaps</b> add lift so you can fly slower and steeper. Drag the flap knob, or tap <span class="k">Y</span> to extend / <span class="k">H</span> to retract — a notch or two for takeoff and landing; <b>UP</b> for cruise.' },
+  { id: 'fsim-trim', title: 'TRIM', body: (m) => m
+    ? '<b>Trim</b> takes the load off the yoke so you don\'t have to hold a climb by hand. <b>Drag the wheel</b> to the <b>T/O</b> mark for takeoff. Up = nose down, down = nose up.'
+    : '<b>Trim</b> takes the load off the yoke so you don\'t have to hold a climb by hand. Drag the wheel, or roll the <span class="k">mouse&nbsp;wheel</span> over it, to the <b>T/O</b> mark for takeoff. Up = nose down, down = nose up.' },
+  { id: 'fsim-eng', title: 'TAKEOFF', body: () =>
+    '<b>Takeoff:</b> full throttle straight down the runway. As the speed tape comes alive and she gets light on the wheels, ease the <b>yoke back</b> to lift the nose and climb away — keep the wings level. Then chase the glowing rings.<br><br>Flip the glowing <b>ENGINE&nbsp;master</b> (<span class="k">⏻</span>) to fire her up and begin.' },
+];
+
+function renderTour(F) {
+  const tour = document.getElementById('fsim-tour');
+  if (!tour) return;
+  if (F.tourStep == null) F.tourStep = 0;
+  tour.classList.add('show');
+  if (F.tourRenderedStep === F.tourStep) return;   // already drawn this step — idempotent per tick
+  F.tourRenderedStep = F.tourStep;
+  const i = F.tourStep, total = TOUR_STEPS.length, st = TOUR_STEPS[i], last = i === total - 1;
+  const dots = TOUR_STEPS.map((_, k) => `<span class="fsim-tour-dot${k === i ? ' on' : ''}"></span>`).join('');
+  tour.innerHTML =
+    `<button class="fsim-tour-x" id="fsim-tour-x" title="skip the tour" tabindex="-1">✕</button>` +
+    `<div class="fsim-tour-hd">✈ FLIGHT SCHOOL · ${i + 1}/${total} — ${st.title}</div>` +
+    `<div class="fsim-tour-body">${st.body(_touchPrimary)}</div>` +
+    `<div class="fsim-tour-dots">${dots}</div>` +
+    `<div class="fsim-tour-nav">` +
+      `<button class="fsim-tour-btn" id="fsim-tour-back"${i === 0 ? ' disabled' : ''} tabindex="-1">‹ Back</button>` +
+      `<button class="fsim-tour-btn fsim-tour-skip" id="fsim-tour-skip" tabindex="-1">Skip</button>` +
+      `<button class="fsim-tour-btn fsim-tour-next" id="fsim-tour-next" tabindex="-1">${last ? 'Let\'s fly ▸' : 'Next ›'}</button>` +
+    `</div>`;
+  fsimClearGlows();
+  document.getElementById(st.id)?.classList.add('ck-glow');
+  tour.classList.remove('flash'); void tour.offsetWidth; tour.classList.add('flash');
+  const dismiss = () => {   // ✕ / Skip / "Let's fly": tear the tour down and fall back to the
+    F.tourDismissed = true; tour.classList.remove('show');   // plain STARTUP card + engine glow so
+    F.checkrideStage = null;                                 // they still know to flip the engine
+    if (F.checkride) renderCheckride(F, F.checkride);
+  };
+  document.getElementById('fsim-tour-x').onclick = dismiss;
+  document.getElementById('fsim-tour-skip').onclick = dismiss;
+  document.getElementById('fsim-tour-back').onclick = () => { if (F.tourStep > 0) { F.tourStep--; renderTour(F); } };
+  document.getElementById('fsim-tour-next').onclick = () => { if (F.tourStep < total - 1) { F.tourStep++; renderTour(F); } else dismiss(); };
+}
+
 function renderCheckride(F, cr) {
   const card = document.getElementById('fsim-ckride');
+  const tour = document.getElementById('fsim-tour');
   if (!card) return;
-  if (!cr) {   // ride over (passed/blown/never started): hide the card, clear every glow
-    card.classList.remove('show'); F.checkrideStage = null;
-    for (const id of Object.values(CKRIDE_GLOW)) document.getElementById(id)?.classList.remove('ck-glow');
+  if (!cr) {   // ride over (passed/blown/never started): hide card + tour, clear every glow, reset tour
+    card.classList.remove('show'); tour?.classList.remove('show'); F.checkrideStage = null;
+    F.tourStep = null; F.tourRenderedStep = null; F.tourDismissed = false;
+    fsimClearGlows();
     return;
   }
+  // STARTUP → the self-paced flight-school tour, unless the player skipped it (then fall through)
+  if (cr.stageNum === 1 && !F.tourDismissed) { card.classList.remove('show'); renderTour(F); return; }
+  tour?.classList.remove('show');   // TAKEOFF onward (or tour skipped): the plain top-left card takes over
   card.classList.add('show');
   if (cr.stage === F.checkrideStage) return;   // same stage → card + glow already right; nothing to redo
   F.checkrideStage = cr.stage;
@@ -951,7 +1018,7 @@ function renderCheckride(F, cr) {
   card.querySelector('.fsim-ckride-hd').textContent = `✈ CHECKRIDE · STEP ${n}/${total}${cr.stageName ? ' — ' + cr.stageName : ''}`;
   card.querySelector('.fsim-ckride-body').textContent = cr.instruction || '';
   card.classList.remove('flash'); void card.offsetWidth; card.classList.add('flash');   // restart the attention pulse
-  for (const id of Object.values(CKRIDE_GLOW)) document.getElementById(id)?.classList.remove('ck-glow');
+  fsimClearGlows();
   for (const key of (cr.highlight || [])) document.getElementById(CKRIDE_GLOW[key])?.classList.add('ck-glow');
 }
 
@@ -974,7 +1041,7 @@ function buildFlapHtml(st) {
   if (!st) return '';   // heli — no flaps control at all
   const lbls = st.detents.map((d, i) => `<span data-fd="${i}"${i === 0 ? ' class="on"' : ''}>${d.l}</span>`).join('');
   const dual = st.key === 'quadrant';   // the airliner quadrant reads its scale down BOTH gate rails
-  return `<div class="fsim-flap fsim-flap-${st.key}">
+  return `<div class="fsim-flap fsim-flap-${st.key}" id="fsim-flap">
     <div class="fsim-flap-body">
       <div class="fsim-flap-scale">${lbls}</div>
       <div class="fsim-flapsw-track" id="fsim-flapsw-track"><div class="fsim-flapsw-knob" id="fsim-flapsw-knob"></div></div>
@@ -1133,11 +1200,11 @@ const FSIM_SKIN = {
   leviathan: { id: 'leviathan', acc: '#3fd6c0', rgb: [63, 214, 192] },   // Soviet An-124 turquoise flightdeck
   reaper: { id: 'reaper', acc: '#ff9a38', rgb: [255, 154, 56] },   // A-10 Warthog: olive-drab armour + gunsight amber
   dragonfly: { id: 'dragonfly', acc: '#8fe36b', rgb: [143, 227, 107] },   // Mini 500: a light, exposed kit-heli bubble
-  // The Grasshopper (a Cub) shares the Mayfly's light-single flightdeck skin outright — same
-  // aqua plexi-and-alloy cabin, as asked. The Locust keeps the mayfly deck chrome with its own
-  // sport-amber instrument accent.
-  grasshopper: { id: 'mayfly', acc: '#5fe0e6', rgb: [95, 224, 230] },
-  locust: { id: 'mayfly', acc: '#ffd24a', rgb: [255, 210, 74] },
+  // The two light singles each carry their own flightdeck now: the Grasshopper an olive-drab
+  // L-4 liaison deck (khaki plates, lime dials), the Locust a gloss-black hot-rod sport deck
+  // (amber dials, racing-red master).
+  grasshopper: { id: 'grasshopper', acc: '#9ad46a', rgb: [154, 212, 106] },
+  locust: { id: 'locust', acc: '#ffd24a', rgb: [255, 210, 74] },
 };
 
 function ensureFlightSimStyles() {
@@ -1167,6 +1234,34 @@ function ensureFlightSimStyles() {
     /* the pulsing spotlight on whichever control the current checkride stage points at */
     .ck-glow{ animation:ckpulse 1.15s ease-in-out infinite; }
     @keyframes ckpulse{ 0%,100%{ box-shadow:0 0 0 0 rgba(120,220,255,0); } 50%{ box-shadow:0 0 15px 3px rgba(120,220,255,.85); } }
+    /* FLIGHT-SCHOOL TOUR — the self-paced STARTUP walkthrough. Big, centred over the glass,
+       dismissable (✕ / Skip), one control per step with Back/Next paging. Replaces the small
+       checkride card for the ground-teaching phase; in-flight cards stay top-left, clear of the rings. */
+    .fsim-tour{ position:absolute; top:50%; left:50%; transform:translate(-50%,calc(-50% - 6px)); width:min(90%,460px); z-index:12;
+      background:linear-gradient(180deg,rgba(8,18,26,.95),rgba(5,11,17,.95)); border:1px solid var(--cy); border-radius:10px;
+      box-shadow:0 8px 42px rgba(0,0,0,.7), 0 0 22px rgba(95,208,255,.22); color:#daf0f7; font:13px/1.6 monospace;
+      padding:16px 18px 14px; opacity:0; pointer-events:none; transition:opacity .28s, transform .28s;
+      -webkit-backdrop-filter:blur(4px); backdrop-filter:blur(4px); }
+    .fsim-tour.show{ opacity:1; transform:translate(-50%,-50%); pointer-events:auto; }
+    .fsim-tour.flash{ animation:ckflash .7s ease-out; }
+    .fsim-tour-hd{ color:var(--cy); font-weight:bold; letter-spacing:1px; font-size:12px; margin-bottom:9px; text-shadow:0 0 8px var(--cy); }
+    .fsim-tour-body{ font-size:13px; line-height:1.65; color:#dbeef6; min-height:82px; }
+    .fsim-tour-body b{ color:#fff; }
+    .fsim-tour-body .k{ display:inline-block; color:var(--cy); font-weight:bold; border:1px solid rgba(95,208,255,.5); border-radius:4px; padding:0 4px; background:rgba(95,208,255,.08); }
+    .fsim-tour-dots{ display:flex; gap:6px; justify-content:center; margin:13px 0 11px; }
+    .fsim-tour-dot{ width:7px; height:7px; border-radius:50%; background:rgba(120,150,175,.35); }
+    .fsim-tour-dot.on{ background:var(--cy); box-shadow:0 0 6px var(--cy); }
+    .fsim-tour-nav{ display:flex; gap:8px; align-items:center; }
+    .fsim-tour-btn{ font:bold 12px monospace; letter-spacing:.5px; padding:8px 15px; border-radius:6px; cursor:pointer;
+      background:rgba(10,22,30,.8); color:#bfe0ee; border:1px solid rgba(95,208,255,.4); }
+    .fsim-tour-btn:hover{ border-color:var(--cy); color:#fff; }
+    .fsim-tour-btn:disabled{ opacity:.35; cursor:default; }
+    #fsim-tour-back{ margin-right:auto; }
+    .fsim-tour-next{ background:rgba(20,60,80,.72); border-color:var(--cy); color:#eaffff; }
+    .fsim-tour-skip{ opacity:.75; }
+    .fsim-tour-x{ position:absolute; top:8px; right:9px; width:23px; height:23px; border-radius:50%; border:1px solid rgba(120,150,175,.4);
+      background:rgba(6,12,18,.7); color:#9fb8c8; font:12px monospace; line-height:1; cursor:pointer; }
+    .fsim-tour-x:hover{ color:#fff; border-color:var(--cy); }
     /* KILL FEED — big, loud confirmation stack across the top of the glass. Each kill
        slams in, holds, then fades; the whole column is anchored top-centre above the HUD. */
     .fsim-killfeed{ position:absolute; top:6px; left:50%; transform:translateX(-50%); z-index:9;
@@ -1416,6 +1511,27 @@ function ensureFlightSimStyles() {
       background:linear-gradient(180deg, rgba(196,230,150,0) 0%, rgba(196,230,150,.16) 55%, rgba(210,240,170,.34) 100%); }
     .fsim-spray-mist.on{ animation:fsim-spray 1.7s ease-out; }
     @keyframes fsim-spray{ 0%{ opacity:0; transform:translateY(-8%); } 22%{ opacity:1; } 100%{ opacity:0; transform:translateY(4%); } }
+    /* Crop-duster hopper rig — a schematic of the plane's belly: on a dusting pass the clamshell
+       bay doors swing open and the booms fan atomised spray. Bottom-centre, one pass then closes. */
+    .fsim-sprayrig{ position:absolute; left:50%; bottom:7%; transform:translateX(-50%); width:min(48%,230px); z-index:5; pointer-events:none; opacity:0; }
+    .fsim-sprayrig.on{ animation:sr-show 1.9s ease-out; }
+    @keyframes sr-show{ 0%{ opacity:0; } 8%{ opacity:1; } 82%{ opacity:1; } 100%{ opacity:0; } }
+    .fsim-sprayrig svg{ width:100%; height:auto; overflow:visible; filter:drop-shadow(0 0 4px rgba(120,200,80,.4)); }
+    .fsim-sprayrig .sr-boom{ stroke:#8fce62; stroke-width:2.4; stroke-linecap:round; }
+    .fsim-sprayrig .sr-noz line{ stroke:#8fce62; stroke-width:1.6; }
+    .fsim-sprayrig .sr-hopper{ fill:rgba(18,40,18,.9); stroke:#7fbf55; stroke-width:1.6; }
+    .fsim-sprayrig .sr-hatch{ stroke:#5c8f3c; stroke-width:1.4; }
+    .fsim-sprayrig .sr-door{ fill:rgba(26,52,24,.95); stroke:#b6f26a; stroke-width:1.4; transform-box:fill-box; }
+    .fsim-sprayrig .sr-door-l{ transform-origin:left center; }
+    .fsim-sprayrig .sr-door-r{ transform-origin:right center; }
+    .fsim-sprayrig.on .sr-door-l{ animation:sr-door-l 1.9s ease-in-out; }
+    .fsim-sprayrig.on .sr-door-r{ animation:sr-door-r 1.9s ease-in-out; }
+    @keyframes sr-door-l{ 0%{ transform:rotate(0); } 16%{ transform:rotate(84deg); } 84%{ transform:rotate(84deg); } 100%{ transform:rotate(0); } }
+    @keyframes sr-door-r{ 0%{ transform:rotate(0); } 16%{ transform:rotate(-84deg); } 84%{ transform:rotate(-84deg); } 100%{ transform:rotate(0); } }
+    .fsim-sprayrig .sr-drop{ stroke:#c6ee8c; stroke-width:2; stroke-linecap:round; opacity:0; }
+    .fsim-sprayrig.on .sr-drop{ animation:sr-drop .7s ease-in infinite; }
+    @keyframes sr-drop{ 0%{ opacity:0; transform:translateY(0); } 20%{ opacity:.9; } 100%{ opacity:0; transform:translateY(30px); } }
+    .fsim-sprayrig .sr-tag{ display:block; text-align:center; margin-top:2px; font:bold 9px monospace; letter-spacing:2px; color:#b6f26a; text-shadow:0 0 5px rgba(0,0,0,.8); }
     /* Admin-only rewind button — bottom of the left exit column (under ABORT + fuel + DISEMBARK), deliberately red so it never reads as a normal control. */
     .fsim-adminbtn{ position:absolute; top:70px; left:8px; z-index:6; width:26px; height:22px; border-radius:5px; font-size:12px; cursor:pointer;
       background:rgba(40,10,10,.72); border:1px solid #7a3a3a; color:#ff8a5b; }
@@ -1636,6 +1752,65 @@ function ensureFlightSimStyles() {
     .fsim-theme-mayfly .fsim-thr-grip{ background:linear-gradient(180deg,#5fe0e6 0%,#1d7a80 55%,#0e2e30 100%); }
     .fsim-theme-mayfly .fsim-thr-grip::after{ background:repeating-linear-gradient(90deg,#0e2e30 0 2px,rgba(95,224,230,.32) 2px 4px); }
 
+    /* ══ GRASSHOPPER flightdeck skin — a Piper L-4 liaison: olive-drab fabric-and-tube, ══
+       khaki stencilled data plates, a lime instrument glow. Spartan military-observation deck. */
+    .fsim-theme-grasshopper{ --cy:#9ad46a; --mg:#d7c24a; --gr:#b6ff8a; --cy-dim:rgba(154,212,106,.20); }
+    .fsim-theme-grasshopper .fsim-view{ box-shadow:inset 0 0 0 2px #2c3a1c, inset 0 4px 20px rgba(154,212,106,.13), 0 0 14px rgba(0,0,0,.66); }
+    .fsim-theme-grasshopper .fsim-view::after{ content:''; position:absolute; left:0; right:0; top:0; height:13px; z-index:2; pointer-events:none;
+      background:linear-gradient(180deg,#1a1f10 0%,#12160b 60%,rgba(18,22,11,0) 100%); border-bottom:1px solid rgba(154,212,106,.4); box-shadow:0 1px 8px rgba(154,212,106,.22); }
+    .fsim-theme-grasshopper .fsim-pfd,.fsim-theme-grasshopper .fsim-mfd,.fsim-theme-grasshopper .fsim-gauges{ border-color:#3a4a24; box-shadow:inset 0 0 10px rgba(0,0,0,.74), 0 0 0 1px rgba(154,212,106,.16); }
+    /* maker's plate → stencilled olive-drab data plate w/ steel bolts */
+    .fsim-theme-grasshopper .fsim-placard{ border-color:#2c3618;
+      background:
+        radial-gradient(circle at 10px 10px, #c6cdae 0 1.4px, #8b9470 1.4px 2.6px, #4c5432 2.6px 3.6px, rgba(0,0,0,.5) 3.6px 4.4px, transparent 4.6px),
+        radial-gradient(circle at calc(100% - 10px) 10px, #c6cdae 0 1.4px, #8b9470 1.4px 2.6px, #4c5432 2.6px 3.6px, rgba(0,0,0,.5) 3.6px 4.4px, transparent 4.6px),
+        radial-gradient(circle at 10px calc(100% - 10px), #c6cdae 0 1.4px, #8b9470 1.4px 2.6px, #4c5432 2.6px 3.6px, rgba(0,0,0,.5) 3.6px 4.4px, transparent 4.6px),
+        radial-gradient(circle at calc(100% - 10px) calc(100% - 10px), #c6cdae 0 1.4px, #8b9470 1.4px 2.6px, #4c5432 2.6px 3.6px, rgba(0,0,0,.5) 3.6px 4.4px, transparent 4.6px),
+        repeating-linear-gradient(92deg, rgba(200,220,160,.04) 0 1px, rgba(0,0,0,.06) 1px 2px),
+        linear-gradient(157deg,#3c4522 0%,#47512a 24%,#2e3618 48%,#414a26 70%,#232a12 100%);
+      box-shadow:inset 0 1px 0 rgba(200,220,160,.18), inset 0 -2px 5px rgba(0,0,0,.55), 0 2px 5px rgba(0,0,0,.5); }
+    .fsim-theme-grasshopper .fsim-plac-title{ color:#18200a; text-shadow:0 1px 0 rgba(200,220,160,.28); }
+    .fsim-theme-grasshopper .fsim-plac-reg{ color:#0f1405; text-shadow:0 1px 0 rgba(200,220,160,.32); }
+    .fsim-theme-grasshopper .fsim-plac-own{ color:#2c3618; text-shadow:0 1px 0 rgba(200,220,160,.2); }
+    .fsim-theme-grasshopper .fsim-plac-own.rented{ color:#9a7a10; text-shadow:0 1px 0 rgba(200,220,160,.2); }
+    .fsim-theme-grasshopper .fsim-plac-sheen{ background:linear-gradient(133deg, rgba(210,230,170,0) 30%, rgba(210,230,170,.38) 46%, rgba(210,230,170,.06) 52%, rgba(210,230,170,0) 66%); }
+    .fsim-theme-grasshopper .fsim-xpdr{ border-color:#2c3618; background:linear-gradient(180deg,#3a4522 0%,#26300f 48%,#141a06 100%); box-shadow:inset 0 1px 0 rgba(154,212,106,.14), inset 0 -2px 6px rgba(0,0,0,.58), 0 2px 5px rgba(0,0,0,.5); }
+    .fsim-theme-grasshopper .fsim-xpdr-title{ color:#8ab05a; }
+    .fsim-theme-grasshopper .fsim-yoke{ border-color:#3a4a24; background:radial-gradient(circle at 50% 26%,#232c14,#0c0f07); }
+    .fsim-theme-grasshopper .fsim-throttle{ border-color:#3a4a24; background:linear-gradient(180deg,#26300f,#0c0f07); }
+    .fsim-theme-grasshopper .fsim-thr-grip{ background:linear-gradient(180deg,#9ad46a 0%,#4d7a2c 55%,#1e3010 100%); }
+    .fsim-theme-grasshopper .fsim-thr-grip::after{ background:repeating-linear-gradient(90deg,#1e3010 0 2px,rgba(154,212,106,.32) 2px 4px); }
+
+    /* ══ LOCUST flightdeck skin — a crop-duster / ag-plane: a workmanlike deck in scuffed ══
+       safety-yellow, chem-stained enamel and worn alloy, amber-lit dials. Honest and utilitarian —
+       built to fly low passes all day, not to look pretty. */
+    .fsim-theme-locust{ --cy:#ffd24a; --mg:#ff8a3a; --gr:#a6ff6a; --cy-dim:rgba(255,210,74,.20); }
+    .fsim-theme-locust .fsim-view{ box-shadow:inset 0 0 0 2px #3a2e0e, inset 0 4px 20px rgba(255,210,74,.12), 0 0 14px rgba(0,0,0,.7); }
+    .fsim-theme-locust .fsim-view::after{ content:''; position:absolute; left:0; right:0; top:0; height:14px; z-index:2; pointer-events:none;
+      background:linear-gradient(180deg,#191307 0%,#100c04 60%,rgba(16,12,4,0) 100%); border-bottom:1px solid rgba(255,210,74,.42); box-shadow:0 1px 9px rgba(255,210,74,.24); }
+    .fsim-theme-locust .fsim-pfd,.fsim-theme-locust .fsim-mfd,.fsim-theme-locust .fsim-gauges{ border-color:#4a3c14; box-shadow:inset 0 0 10px rgba(0,0,0,.78), 0 0 0 1px rgba(255,210,74,.16); }
+    /* maker's plate → scuffed chem-stained ag enamel w/ steel bolts (a workhorse data plate) */
+    .fsim-theme-locust .fsim-placard{ border-color:#3a3416;
+      background:
+        radial-gradient(circle at 10px 10px, #d9cf9e 0 1.4px, #9c9166 1.4px 2.6px, #57502c 2.6px 3.6px, rgba(0,0,0,.5) 3.6px 4.4px, transparent 4.6px),
+        radial-gradient(circle at calc(100% - 10px) 10px, #d9cf9e 0 1.4px, #9c9166 1.4px 2.6px, #57502c 2.6px 3.6px, rgba(0,0,0,.5) 3.6px 4.4px, transparent 4.6px),
+        radial-gradient(circle at 10px calc(100% - 10px), #d9cf9e 0 1.4px, #9c9166 1.4px 2.6px, #57502c 2.6px 3.6px, rgba(0,0,0,.5) 3.6px 4.4px, transparent 4.6px),
+        radial-gradient(circle at calc(100% - 10px) calc(100% - 10px), #d9cf9e 0 1.4px, #9c9166 1.4px 2.6px, #57502c 2.6px 3.6px, rgba(0,0,0,.5) 3.6px 4.4px, transparent 4.6px),
+        repeating-linear-gradient(92deg, rgba(225,215,150,.05) 0 1px, rgba(0,0,0,.06) 1px 2px),
+        linear-gradient(157deg,#b9a94e 0%,#c8b95e 24%,#8f8236 48%,#b0a24a 70%,#6f6528 100%);
+      box-shadow:inset 0 1px 0 rgba(235,225,160,.22), inset 0 -2px 5px rgba(0,0,0,.5), 0 2px 5px rgba(0,0,0,.5); }
+    .fsim-theme-locust .fsim-plac-title{ color:#2a2408; text-shadow:0 1px 0 rgba(235,225,160,.3); }
+    .fsim-theme-locust .fsim-plac-reg{ color:#1a1604; text-shadow:0 1px 0 rgba(235,225,160,.34); }
+    .fsim-theme-locust .fsim-plac-own{ color:#4a4218; text-shadow:0 1px 0 rgba(235,225,160,.2); }
+    .fsim-theme-locust .fsim-plac-own.rented{ color:#9a5010; text-shadow:0 1px 0 rgba(235,225,160,.2); }
+    .fsim-theme-locust .fsim-plac-sheen{ background:linear-gradient(133deg, rgba(240,232,180,0) 30%, rgba(240,232,180,.36) 46%, rgba(240,232,180,.06) 52%, rgba(240,232,180,0) 66%); }
+    .fsim-theme-locust .fsim-xpdr{ border-color:#231c08; background:linear-gradient(180deg,#2a2010 0%,#1a1408 48%,#0c0904 100%); box-shadow:inset 0 1px 0 rgba(255,210,74,.16), inset 0 -2px 6px rgba(0,0,0,.62), 0 2px 5px rgba(0,0,0,.5); }
+    .fsim-theme-locust .fsim-xpdr-title{ color:#b08a3a; }
+    .fsim-theme-locust .fsim-yoke{ border-color:#4a3c14; background:radial-gradient(circle at 50% 26%,#1f1808,#0c0904); }
+    .fsim-theme-locust .fsim-throttle{ border-color:#4a3c14; background:linear-gradient(180deg,#1a1408,#0c0904); }
+    .fsim-theme-locust .fsim-thr-grip{ background:linear-gradient(180deg,#ffd24a 0%,#8a6410 55%,#301c08 100%); }
+    .fsim-theme-locust .fsim-thr-grip::after{ background:repeating-linear-gradient(90deg,#301c08 0 2px,rgba(255,210,74,.32) 2px 4px); }
+
     /* ══ MOBILE — pare the cockpit to flyable essentials so it fits a phone ══════════
        On a narrow screen the dashboard is too cramped to fly. We drop the pure-flavour
        transponder/COM-NAV radio and the maker's-plate placard, and the nav-map MFD (the
@@ -1833,11 +2008,64 @@ const CYCLIC_DRAGONFLY = `<svg class="fsim-yoke-svg" id="fsim-yoke-svg" viewBox=
   <circle id="fsim-yk-red" cx="52.5" cy="23.5" r="1.9" fill="url(#ykred)" opacity="0.2"/>
 </svg>`;
 
+// GRASSHOPPER — a Piper L-4 Cub's bare bent-tube joystick: a slim olive-drab aluminium tube
+// rising from a floor socket to a single plain rubber ball grip. No buttons, no trim hat — the
+// most honest, spartan control in the fleet, matched to the fabric-and-tube liaison scout.
+const STICK_GRASSHOPPER = `<svg class="fsim-yoke-svg" id="fsim-yoke-svg" viewBox="0 0 100 74" preserveAspectRatio="xMidYMid meet">
+  <defs>${YK_LED_DEFS}
+    <linearGradient id="ghtube" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#7c8a55"/><stop offset="0.5" stop-color="#4d5733"/><stop offset="1" stop-color="#232a15"/></linearGradient>
+    <radialGradient id="ghball" cx="0.4" cy="0.3" r="0.75"><stop offset="0" stop-color="#3b4033"/><stop offset="0.6" stop-color="#181c12"/><stop offset="1" stop-color="#080a06"/></radialGradient>
+  </defs>
+  <!-- floor socket -->
+  <ellipse cx="50" cy="71" rx="15" ry="4" fill="#0b0f07"/>
+  <ellipse cx="50" cy="70" rx="7" ry="2.4" fill="#1a2012" stroke="#0b0f07" stroke-width="0.5"/>
+  <!-- slim tube shaft: rises then kinks slightly forward to the grip (a Cub's bent stick) -->
+  <path d="M47.5,69 L48.6,34 Q49,26 52,22" fill="none" stroke="url(#ghtube)" stroke-width="5" stroke-linecap="round"/>
+  <path d="M48.4,66 L49.2,36" fill="none" stroke="rgba(220,230,180,0.22)" stroke-width="1" stroke-linecap="round"/>
+  <!-- name plate clamped low on the shaft -->
+  <rect id="fsim-yoke-plate" x="33" y="44" width="34" height="7.5" rx="1.6" fill="#10160b" stroke="#2f3a1e" stroke-width="0.5"/>
+  <text id="fsim-yoke-name" class="fsim-yoke-name" x="50" y="49.6" text-anchor="middle" textLength="28" lengthAdjust="spacingAndGlyphs">GRASSHOPPER</text>
+  <!-- plain rubber ball grip -->
+  <circle cx="52.5" cy="18" r="9.5" fill="url(#ghball)" stroke="#000" stroke-width="0.7"/>
+  <ellipse cx="49" cy="13.5" rx="2.6" ry="3.6" fill="rgba(210,230,170,0.12)"/>
+  <!-- status LEDs on the collar -->
+  <circle id="fsim-yk-green" cx="47.5" cy="28.5" r="1.9" fill="url(#ykgreen)" opacity="0.2"/>
+  <circle id="fsim-yk-red" cx="52.8" cy="28.5" r="1.9" fill="url(#ykred)" opacity="0.2"/>
+</svg>`;
+
+// LOCUST — a crop-duster's stout utility centre stick: a thick worn shaft into a plain molded
+// grip with a green spray-boom arming toggle on the head. Workmanlike and honest — no aerobatic
+// contours, just a hand-filling grip you fly low passes with all day.
+const STICK_LOCUST = `<svg class="fsim-yoke-svg" id="fsim-yoke-svg" viewBox="0 0 100 74" preserveAspectRatio="xMidYMid meet">
+  <defs>${YK_LED_DEFS}
+    <linearGradient id="lcshaft" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#b7b39c"/><stop offset="0.5" stop-color="#6d6a54"/><stop offset="1" stop-color="#2e2c20"/></linearGradient>
+    <radialGradient id="lcgrip" cx="0.42" cy="0.3" r="0.8"><stop offset="0" stop-color="#4a4636"/><stop offset="0.6" stop-color="#232016"/><stop offset="1" stop-color="#0d0b06"/></radialGradient>
+  </defs>
+  <!-- floor mount + rubber boot -->
+  <ellipse cx="50" cy="71" rx="19" ry="4.4" fill="#0a0906"/>
+  <path d="M42,70 L45.5,44 L54.5,44 L58,70 Z" fill="#181509" stroke="#000" stroke-width="0.6"/>
+  <path d="M44,64 H56 M44.5,58 H55.5 M45,52 H55 M45.5,47 H54.5" stroke="#2b2818" stroke-width="0.8" fill="none"/>
+  <!-- stout shaft + name plate -->
+  <rect x="46" y="22" width="8" height="23" rx="2.6" fill="url(#lcshaft)" stroke="#000" stroke-width="0.5"/>
+  <rect id="fsim-yoke-plate" x="37" y="33" width="26" height="7.5" rx="1.6" fill="#12100a" stroke="#3a3418" stroke-width="0.5"/>
+  <text id="fsim-yoke-name" class="fsim-yoke-name" x="50" y="38.6" text-anchor="middle" textLength="20" lengthAdjust="spacingAndGlyphs">LOCUST</text>
+  <!-- plain molded utility grip -->
+  <path d="M43,26 Q42,8 50,6.5 Q58,8 57,26 Q56,31 50,31 Q44,31 43,26 Z" fill="url(#lcgrip)" stroke="#000" stroke-width="0.7"/>
+  <path d="M45,22 H55 M45,18 H55 M45.5,14 H54.5" stroke="rgba(0,0,0,0.38)" stroke-width="0.7" fill="none"/>
+  <ellipse cx="47.5" cy="12" rx="2.4" ry="3.4" fill="rgba(220,235,180,0.12)"/>
+  <!-- green spray-boom arming toggle on the head -->
+  <rect x="53.5" y="9" width="4.6" height="8" rx="2.2" fill="#0f2416" stroke="#000" stroke-width="0.5"/>
+  <circle cx="55.8" cy="11.4" r="1.9" fill="#3ad07a" stroke="#0a2a18" stroke-width="0.5"/>
+  <!-- status LEDs on the collar -->
+  <circle id="fsim-yk-green" cx="47.5" cy="29.5" r="1.9" fill="url(#ykgreen)" opacity="0.2"/>
+  <circle id="fsim-yk-red" cx="52.5" cy="29.5" r="1.9" fill="url(#ykred)" opacity="0.2"/>
+</svg>`;
+
 // Pick the control art for a craft type (Mule + anything unlisted → the caravan wheel).
 function yokeSvgFor(t) {
-  // The two light singles fly the Mayfly's yoke (Grasshopper = Cub-style light-plane deck; the
-  // Locust's a sport single but shares the same control).
-  return { mayfly: YOKE_MAYFLY, grasshopper: YOKE_MAYFLY, locust: YOKE_MAYFLY, leviathan: YOKE_LEVIATHAN, reaper: STICK_REAPER, dragonfly: CYCLIC_DRAGONFLY }[t] || YOKE_SVG;
+  // The light singles each fly their analogue's centre stick: the Grasshopper a Cub bent-tube
+  // joystick, the Locust a sport aerobatic stick. Only the Mayfly keeps the skeletal tube-yoke.
+  return { mayfly: YOKE_MAYFLY, grasshopper: STICK_GRASSHOPPER, locust: STICK_LOCUST, leviathan: YOKE_LEVIATHAN, reaper: STICK_REAPER, dragonfly: CYCLIC_DRAGONFLY }[t] || YOKE_SVG;
 }
 
 // Cabin-occupancy readout on the aircraft placard: one pip per seat — pilot in the accent,
@@ -1893,13 +2121,15 @@ export function openFlightSim(opts = {}) {
     map: opts.map || null, sky: opts.sky || { hour: 12, weather: 'clear', wind: 0 }, biomeBelow: opts.biomeBelow ?? null,
     minimap: opts.minimap || null, mfdMode: 'local', fields: opts.fields || [],
     checkride: opts.checkride || null, checkrideStage: null,   // guided-checkride clientView (instruction + ring gates) + last-rendered stage (null off a checkride)
+    tourStep: null, tourRenderedStep: null, tourDismissed: false,   // flight-school tour: current step, last-drawn step, and whether the player skipped it
+
     deadStick: false, reportedAirborne: false, rolling: false, stopHinted: false,
     engineOn: !!opts.engineOn,
     yokeDrag: false, thrDrag: false,
     viewYaw: 0, throttleKey: 0, flapIdx: 0,          // keyboard: hold-to-look yaw, A/Z throttle ramp, flap detent
     gearRetract: !!opts.gearRetract, gearUp: false, gearAnim: 1, external: false, extZoom: 1, cargoKg: opts.cargoKg || 0,   // gear (G) + jettison (J) + external view (V) — capabilities per airframe (Mayfly: none)
     craftType: opts.craftType,                       // airframe id (drives the reaper-only gun/stores panel)
-    sprayer: !!opts.sprayer,                          // ag-plane crop-duster (Grasshopper): shows the SPRAY button
+    sprayer: !!opts.sprayer,                          // ag-plane crop-duster (Locust): shows the SPRAY button
     hardpoints: opts.hardpoints || 0, armed: false,  // weapons (gunship): master-arm + fire
     gunCap: 1174, gunRounds: 1174,                   // GAU-8 ammo drum (cosmetic; counts down as the gun squirts)
     nightLight: false, landingLight: false,          // instrument-panel backlight (PANEL) + exterior landing/taxi lights (LIGHTS) — both need engine power
@@ -1935,7 +2165,7 @@ export function openFlightSim(opts = {}) {
       <button class="fsim-pedal fsim-pedal-r" id="fsim-pedal-r" title="right rudder / yaw (hold — . or C)" tabindex="-1" aria-label="right rudder"><span class="fsim-pedal-face"><span class="fsim-pedal-lbl">R</span></span></button>
     </div>`;
   const html = `<div id="fsim-root" class="fsim${skin ? ' fsim-theme-' + skin.id : ''}">
-    <div class="fsim-view">${adminBtn}${windshieldHTML('fsim-ws', 'FWD VIEW · ' + esc((opts.deviceName || P.name).toUpperCase()))}<div class="fsim-lamp" id="fsim-lamp">⚠ STALL</div><div class="fsim-killfeed" id="fsim-killfeed"></div><div class="fsim-toast" id="fsim-toast"></div><div class="fsim-ckride" id="fsim-ckride"></div><div class="fsim-viewtag" id="fsim-viewtag"></div><div class="fsim-fuel" id="fsim-fuel"><span class="fsim-fuel-ic">⛽</span><span class="fsim-fuel-pct" id="fsim-fuel-pct">--%</span><button class="fsim-refuel" id="fsim-refuel" title="refuel at this field" tabindex="-1">REFUEL</button></div><div class="fsim-reticle" id="fsim-reticle"><svg viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="#ff6a3a" stroke-width="1"/><line x1="17" y1="1" x2="17" y2="7" stroke="#ff6a3a"/><line x1="17" y1="27" x2="17" y2="33" stroke="#ff6a3a"/><line x1="1" y1="17" x2="7" y2="17" stroke="#ff6a3a"/><line x1="27" y1="17" x2="33" y2="17" stroke="#ff6a3a"/><circle cx="17" cy="17" r="1.5" fill="#ff6a3a"/></svg></div><div class="fsim-weap" id="fsim-weap"><button class="fsim-weap-arm" id="fsim-arm" tabindex="-1">◈ SAFE</button><button class="fsim-weap-arm" id="fsim-wpn" tabindex="-1" title="weapon select — 1 guns / 2 missiles">GUN</button><button class="fsim-weap-fire" id="fsim-fire" tabindex="-1">FIRE</button><span class="fsim-weap-pips" id="fsim-weap-pips"></span><button class="fsim-weap-arm" id="fsim-flarebtn" tabindex="-1" title="countermeasures (X)">FLARE</button></div><div class="fsim-spray-mist" id="fsim-spray"></div><button class="fsim-spraybtn" id="fsim-spraybtn" tabindex="-1" title="crop-duster — open the spray booms on a LOW pass" style="display:none">◊ SPRAY</button><button class="fsim-abortbtn" id="fsim-abortbtn" title="abort the flight — a recovery crew tows the aircraft back to a field and bills you">⤫ ABORT</button><button class="fsim-disembarkbtn" id="fsim-disembarkbtn" title="climb out of the aircraft (on the ground only)">⏏ DISEMBARK</button><button class="fsim-fsbtn" id="fsim-fsbtn" title="fullscreen">⛶</button><button class="fsim-viewbtn" id="fsim-viewbtn" title="external / cockpit view (V)">◎ EXT</button><button class="fsim-orbitreset" id="fsim-orbitreset" title="reset orbit camera to behind the craft">⟲</button><button class="fsim-hidebtn" id="fsim-hidebtn" title="hide the text panel — more outside view">⊟</button><button class="fsim-tunebtn" id="fsim-tunebtn" title="render tuning">⚙</button><div class="fsim-tune" id="fsim-tune" style="display:none"></div><div class="fsim-extg" id="fsim-extg"><div class="fsim-extg-row"><span class="fsim-extg-lbl">IAS</span><b id="fsim-extg-ias">0</b><span class="fsim-extg-u">kt</span></div><div class="fsim-extg-row"><span class="fsim-extg-lbl">ALT</span><b id="fsim-extg-alt">0</b><span class="fsim-extg-u">ft</span></div></div>${PEDALS_HTML}</div>
+    <div class="fsim-view">${adminBtn}${windshieldHTML('fsim-ws', 'FWD VIEW · ' + esc((opts.deviceName || P.name).toUpperCase()))}<div class="fsim-lamp" id="fsim-lamp">⚠ STALL</div><div class="fsim-killfeed" id="fsim-killfeed"></div><div class="fsim-toast" id="fsim-toast"></div><div class="fsim-ckride" id="fsim-ckride"></div><div class="fsim-tour" id="fsim-tour"></div><div class="fsim-viewtag" id="fsim-viewtag"></div><div class="fsim-fuel" id="fsim-fuel"><span class="fsim-fuel-ic">⛽</span><span class="fsim-fuel-pct" id="fsim-fuel-pct">--%</span><button class="fsim-refuel" id="fsim-refuel" title="refuel at this field" tabindex="-1">REFUEL</button></div><div class="fsim-reticle" id="fsim-reticle"><svg viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="#ff6a3a" stroke-width="1"/><line x1="17" y1="1" x2="17" y2="7" stroke="#ff6a3a"/><line x1="17" y1="27" x2="17" y2="33" stroke="#ff6a3a"/><line x1="1" y1="17" x2="7" y2="17" stroke="#ff6a3a"/><line x1="27" y1="17" x2="33" y2="17" stroke="#ff6a3a"/><circle cx="17" cy="17" r="1.5" fill="#ff6a3a"/></svg></div><div class="fsim-weap" id="fsim-weap"><button class="fsim-weap-arm" id="fsim-arm" tabindex="-1">◈ SAFE</button><button class="fsim-weap-arm" id="fsim-wpn" tabindex="-1" title="weapon select — 1 guns / 2 missiles">GUN</button><button class="fsim-weap-fire" id="fsim-fire" tabindex="-1">FIRE</button><span class="fsim-weap-pips" id="fsim-weap-pips"></span><button class="fsim-weap-arm" id="fsim-flarebtn" tabindex="-1" title="countermeasures (X)">FLARE</button></div><div class="fsim-spray-mist" id="fsim-spray"></div><div class="fsim-sprayrig" id="fsim-sprayrig" aria-hidden="true"><svg viewBox="0 0 200 96" preserveAspectRatio="xMidYMid meet"><line class="sr-boom" x1="14" y1="42" x2="186" y2="42"/><g class="sr-noz"><line x1="30" y1="42" x2="30" y2="47"/><line x1="54" y1="42" x2="54" y2="47"/><line x1="78" y1="42" x2="78" y2="47"/><line x1="122" y1="42" x2="122" y2="47"/><line x1="146" y1="42" x2="146" y2="47"/><line x1="170" y1="42" x2="170" y2="47"/></g><rect class="sr-hopper" x="80" y="16" width="40" height="26" rx="3"/><line class="sr-hatch" x1="86" y1="24" x2="114" y2="24"/><rect class="sr-door sr-door-l" x="80" y="42" width="20" height="6" rx="1.5"/><rect class="sr-door sr-door-r" x="100" y="42" width="20" height="6" rx="1.5"/><g class="sr-spray"><line class="sr-drop" x1="30" y1="48" x2="30" y2="58" style="animation-delay:.30s"/><line class="sr-drop" x1="54" y1="48" x2="54" y2="58" style="animation-delay:.42s"/><line class="sr-drop" x1="90" y1="50" x2="90" y2="60" style="animation-delay:.26s"/><line class="sr-drop" x1="100" y1="50" x2="100" y2="60" style="animation-delay:.36s"/><line class="sr-drop" x1="110" y1="50" x2="110" y2="60" style="animation-delay:.30s"/><line class="sr-drop" x1="122" y1="48" x2="122" y2="58" style="animation-delay:.46s"/><line class="sr-drop" x1="146" y1="48" x2="146" y2="58" style="animation-delay:.34s"/><line class="sr-drop" x1="170" y1="48" x2="170" y2="58" style="animation-delay:.40s"/></g></svg><span class="sr-tag">◊ BOOMS OPEN</span></div><button class="fsim-spraybtn" id="fsim-spraybtn" tabindex="-1" title="crop-duster — open the spray booms on a LOW pass" style="display:none">◊ SPRAY</button><button class="fsim-abortbtn" id="fsim-abortbtn" title="abort the flight — a recovery crew tows the aircraft back to a field and bills you">⤫ ABORT</button><button class="fsim-disembarkbtn" id="fsim-disembarkbtn" title="climb out of the aircraft (on the ground only)">⏏ DISEMBARK</button><button class="fsim-fsbtn" id="fsim-fsbtn" title="fullscreen">⛶</button><button class="fsim-viewbtn" id="fsim-viewbtn" title="external / cockpit view (V)">◎ EXT</button><button class="fsim-orbitreset" id="fsim-orbitreset" title="reset orbit camera to behind the craft">⟲</button><button class="fsim-hidebtn" id="fsim-hidebtn" title="hide the text panel — more outside view">⊟</button><button class="fsim-tunebtn" id="fsim-tunebtn" title="render tuning">⚙</button><div class="fsim-tune" id="fsim-tune" style="display:none"></div><div class="fsim-extg" id="fsim-extg"><div class="fsim-extg-row"><span class="fsim-extg-lbl">IAS</span><b id="fsim-extg-ias">0</b><span class="fsim-extg-u">kt</span></div><div class="fsim-extg-row"><span class="fsim-extg-lbl">ALT</span><b id="fsim-extg-alt">0</b><span class="fsim-extg-u">ft</span></div></div>${PEDALS_HTML}</div>
     <div class="fsim-glass">
       <div class="fsim-pfd"><canvas id="fsim-pfd"></canvas></div>
       <div class="fsim-gauges"><canvas id="fsim-gauges"></canvas></div>
@@ -2375,17 +2605,20 @@ export function openFlightSim(opts = {}) {
     }
   }
 
-  // Crop-duster SPRAY (ag-planes only — the Grasshopper): a low-pass dust that lays a mist over
+  // Crop-duster SPRAY (ag-planes only — the Locust): a low-pass dust that lays a mist over
   // the tile below. The button both fires the server pass and pulses the local mist FX; the server
   // gates it to a LOW pass and rate-limits, so a spam-click just no-ops.
-  const sprayBtn = q('#fsim-spraybtn'), sprayMist = q('#fsim-spray');
+  const sprayBtn = q('#fsim-spraybtn'), sprayMist = q('#fsim-spray'), sprayRig = q('#fsim-sprayrig');
   if (F.sprayer && sprayBtn) {
     sprayBtn.style.display = '';
+    const pulse = (el, ms) => { if (!el) return; el.classList.remove('on'); void el.offsetWidth; el.classList.add('on'); setTimeout(() => el.classList.remove('on'), ms); };
     const doSpray = () => {
       if (!F.reportedAirborne) { fsimToast('◊ AIRBORNE + LOW TO DUST'); return; }
       sendCmdSilent('spray');
       fsimToast('◊ CROP-DUSTING');
-      if (sprayMist) { sprayMist.classList.remove('on'); void sprayMist.offsetWidth; sprayMist.classList.add('on'); setTimeout(() => sprayMist.classList.remove('on'), 1700); }
+      spraySfx();                       // hopper bay doors thunk open + pressurised chemical hiss
+      pulse(sprayMist, 1700);           // haze drifting down the windshield
+      pulse(sprayRig, 1900);            // belly-hopper schematic: clamshell doors open, booms fan spray
     };
     add(sprayBtn, 'click', doSpray);
   }
@@ -2716,11 +2949,11 @@ function lerpAngle(a, b, t) {
   return (a + d * t + 360) % 360;
 }
 // ── Crash break-up death-cam ──────────────────────────────────────────────────
-// A severe write-off snaps to the external chase view and cartwheels the wreck while a wing
+// A severe write-off snaps to the external chase view and tumbles the wreck while a wing
 // (plus a tailplane and the fin) shear off; the fuselage falls, SLAMS into the ground at IMPACT_T
-// where the shed parts scatter to rest and fire + smoke ignite, then the crash is reported to the
-// server (which destroys the craft + kills every occupant + closes the sim). The report is deferred
-// by BREAKUP_MS so the player always sees her come apart and burn — the death is inevitable.
+// where the shed parts scatter and settle INDEPENDENTLY, crumpling onto the deck, then the crash is
+// reported to the server (which destroys the craft + kills every occupant + closes the sim). The
+// report is deferred by BREAKUP_MS so the player always sees her come apart — the death is inevitable.
 const BREAKUP_MS = 3400;   // fall → impact → settle-and-burn beat before the crash is reported
 const IMPACT_T = 0.42;     // fraction of the timeline where the wreck reaches the ground
 
@@ -2748,29 +2981,27 @@ function stepCrashBreakup(F, now) {
   const post = clampNum((t - IMPACT_T) / (1 - IMPACT_T), 0, 1);
   const bounce = post > 0 ? Math.sin(post * Math.PI) * 0.05 * (1 - post) : 0;
   const height = C.h0 * (1 - eFall) + C.h0 * bounce;      // the ground rises to meet her, then a settle hop
-  const spinB = C.bank0 + 300 * fall, spinP = C.pitch0 - 100 * fall;
-  const k = 1 - Math.pow(1 - post, 3);                    // ease-out into the resting pose
-  const bank = spinB + (108 - spinB) * k;                 // rolled over onto a wing
-  const pitch = spinP + (-32 - spinP) * k;                // nose down into the ground
-  // Debris PHYSICS (settling): each shed part is FLUNG out on impact then decelerates to rest by
-  // SETTLE_T (friction), its tumble-spin damping to a stop as it settles — so the wreckage scatters
-  // and comes to rest on the ground rather than sailing off forever. `spread` eases out (fast fling,
-  // decelerating) and then holds, freezing the pieces where they land while the fire burns.
-  const spread = 1 - Math.pow(1 - clampNum(t / 0.60, 0, 1), 2.4);
-  // The flying surfaces shear off: the RIGHT wing (+ its surfaces), the LEFT tailplane, and the fin.
-  // The FUSELAGE itself snaps in three along its length — nose cone forward, tail cone aft, mid
-  // section (with the canopy) as the core the death cam tracks. All settle via `spread`.
+  // FUSELAGE: it tumbles as it drops, then the tumble DAMPS OUT and it settles roughly flat on its
+  // belly (a slight cant) — it STOPS moving once it's down, so the frame the pieces sit in is
+  // ground-aligned rather than rolled onto a wing (which used to drag every shed part into the cant).
+  const settle = 1 - Math.pow(1 - post, 3);              // 0 at impact → 1 fully at rest
+  const tumbleB = C.bank0 + 96 * fall, tumbleP = C.pitch0 - 42 * fall;
+  const bank = tumbleB * (1 - settle) + 16 * settle;     // settles slightly canted onto one side
+  const pitch = tumbleP * (1 - settle) + -6 * settle;    // nose just into the ground
+  // Debris: each shed part settles on its OWN clock (staggered start + its own ease) so the pieces
+  // DON'T drift in lockstep — each is flung out, tumbles a little, and freezes where it lands, low
+  // in the ground plane around the fuselage. Small spins + near-zero vertical offset = they crumple
+  // onto the deck and lie there, not cartwheel away as one rigid group.
+  const settleOf = (delay) => 1 - Math.pow(1 - clampNum((t - delay) / 0.55, 0, 1), 2.4);
+  const s0 = settleOf(0), s1 = settleOf(0.06), s2 = settleOf(0.10), s3 = settleOf(0.03), s4 = settleOf(0.13);
   const parts = [
-    { roles: ['wing', 'aileron', 'flap'], side: 1,    off: [-0.6 * spread,  1.3 * spread, -0.5 * spread], spin: 9 * spread },
-    { roles: ['stab', 'elevator'],        side: -1,   off: [-0.9 * spread, -1.0 * spread, -0.45 * spread], spin: 7 * spread },
-    { roles: ['fin', 'rudder'],           side: null, off: [-1.0 * spread,  0.3 * spread, -0.40 * spread], spin: 6 * spread },
-    { roles: ['body'], side: null, fRange: [ 0.30,  9], off: [ 1.0 * spread,  0.2 * spread, -0.50 * spread], spin: 5 * spread },   // nose cone forward
-    { roles: ['body'], side: null, fRange: [-9, -0.35], off: [-1.1 * spread, -0.2 * spread, -0.35 * spread], spin: 8 * spread },   // tail cone aft
+    { roles: ['wing', 'aileron', 'flap'], side: 1,    off: [-0.6 * s0,  1.4 * s0, -0.05 * s0], spin: 3.2 * s0 },   // right wing sheared off to starboard
+    { roles: ['stab', 'elevator'],        side: -1,   off: [-1.0 * s1, -1.1 * s1, -0.05 * s1], spin: 2.6 * s1 },   // left tailplane to port
+    { roles: ['fin', 'rudder'],           side: null, off: [-1.1 * s2,  0.4 * s2, -0.05 * s2], spin: 2.2 * s2 },   // fin snapped off aft
+    { roles: ['body'], side: null, fRange: [ 0.30,  9], off: [ 1.2 * s3,  0.2 * s3, -0.05 * s3], spin: 1.6 * s3 },   // nose cone forward
+    { roles: ['body'], side: null, fRange: [-9, -0.35], off: [-1.2 * s4, -0.2 * s4, -0.05 * s4], spin: 2.0 * s4 },   // tail cone aft
   ];
-  // Fire + smoke ignite on impact: flames ramp fast, the smoke column builds and lingers.
-  const fire = clampNum((t - IMPACT_T) / 0.10, 0, 1);
-  const smoke = clampNum((t - IMPACT_T + 0.03) / 0.32, 0, 1);
-  const wreckFx = t > IMPACT_T - 0.02 ? { fire, smoke, t } : null;
+  const wreckFx = null;                                   // no fire/smoke — she just comes apart and crumples
   paintWindshield('fsim-ws', {
     external: true, hideOwnShip: false, phase: 'cruise', worldBlend: 1,
     cls: F.cls, heading: C.hdg, bank, pitch, livery: F.livery, gearAnim: F.gearAnim ?? 1,

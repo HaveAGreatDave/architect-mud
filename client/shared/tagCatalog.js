@@ -371,6 +371,8 @@
       help: 'One-time lore text shown on a player\'s first visit.' },
     planner: { label: 'Planner Blueprint', shape: 'text', scope: 'zone', group: 'Zone: Identity',
       help: 'Provenance marker: the blueprint id that generated this zone (tools/zone-planner). Re-running that blueprint may reassert this zone\'s grid position and planner-drawn exits.' },
+    district_id: { label: 'District (spatial)', shape: 'text', scope: 'zone', group: 'Zone: Identity',
+      help: 'Spatial district membership: the districts.id this tile belongs to (dev-panel World Editor). Distinct from "District Override" above (land-use). Selecting/moving a district acts on every zone sharing this id.' },
     icon: { label: 'Map Icon', shape: 'text', scope: 'zone', group: 'Zone: Identity',
       help: 'Name of an SVG in client/game/assets/zone-icons/ (without .svg) drawn on the minimap tile in place of the marker glyph, e.g. "store". The file is the asset; this just references it.' },
     prologue: { label: 'Prologue', shape: 'flag', scope: 'zone', group: 'Zone: Identity',
@@ -390,6 +392,8 @@
       help: 'Inside the government enclave.' },
     greeter: { label: 'Greeter Config', shape: 'text', scope: 'zone', group: 'Zone: Systems',
       help: 'Greeter NPC gate config for this zone (jobboard plugin).' },
+    work_venue: { label: 'Work Venue (Steady Work)', shape: 'text', scope: 'zone', group: 'Zone: Systems',
+      help: 'Marks this zone as a Steady Work shift venue: { role, wage, employer?, name? }. Players past the XP gate can `clock in` here (work plugin).' },
     mis_ok: { label: 'MIS OK', shape: 'flag', scope: 'zone', group: 'Zone: Systems',
       help: 'Zone-gated NPC consent (see npcs.flags.mis_requires_zone_flag).' },
 

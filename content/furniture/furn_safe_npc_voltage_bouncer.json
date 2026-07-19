@@ -1,0 +1,18 @@
+{
+  "description": "A battered floor safe wedged into the cabinet under the bar, half-hidden behind a crate of empties. The dial is worn smooth from the same fingers, year after year.",
+  "flags": {
+    "hack_difficulty": 5,
+    "vendor_npc_id": "npc_voltage_bouncer",
+    "vendor_safe": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_safe_npc_voltage_bouncer",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "Bishop's till-safe",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 600,
+  "zone_id": "zone_voltage_floor"
+}

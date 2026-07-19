@@ -7,13 +7,14 @@
   "created_by": "wildlands",
   "description": "THE QUICKENING POOL. A sunken basin of luminous green water, ringed with offerings and old bones, ticking hard enough to taste metal. The Wildblood come here to change on purpose — to let the water rewrite them. Standing at its edge you can feel your own cells lean toward it. It is beautiful and it is lethal.",
   "exits": {
+    "east": "zone_district_921_926",
     "north": "zone_district_920_925",
-    "west": "zone_district_919_926",
     "south": "zone_district_920_927",
-    "east": "zone_district_921_926"
+    "west": "zone_district_919_926"
   },
   "flags": {
     "district": "wilds",
+    "district_id": "district_coldwater",
     "planner": "bp_district",
     "radiation": 65,
     "terrain": "water"

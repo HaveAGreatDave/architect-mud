@@ -1,0 +1,209 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1320 1180" role="img" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, monospace">
+  <title>Architecture — Engine vs Plugins vs Content boundary</title>
+  <desc>The core architectural boundary of Architect MUD: engine (substrates, laws, registries) vs plugins (systems, verbs, hooks) vs content (JSON in git, loaded to Postgres). Litmus tests, what lives where, and the decision gate every new feature passes through.</desc>
+
+  <style>
+    :root{
+      --bg:#080b12; --grid:#0e1420; --panel:#111826; --panel2:#0c1120; --box:#0d1322;
+      --border:#1e2b42; --border2:#26374f;
+      --text:#cdd7e8; --dim:#7488a4; --faint:#556377;
+      --cyan:#22d3ee; --mag:#ff3caf; --green:#54e6a0; --amber:#f0b64a; --violet:#a888ff;
+      --wire:#334a63;
+    }
+    text{ fill:var(--text); }
+    .title{ font-size:46px; font-weight:800; letter-spacing:1px; }
+    .sub{ font-size:12.5px; fill:var(--dim); letter-spacing:.4px; }
+    .col{ font-size:19px; font-weight:800; letter-spacing:1px; }
+    .h{ font-size:14px; font-weight:700; }
+    .bt{ font-size:12.5px; font-weight:700; }
+    .tx{ font-size:11.5px; }
+    .sm{ font-size:10.5px; fill:var(--dim); }
+    .xs{ font-size:9.7px; fill:var(--faint); }
+    .dim{ fill:var(--dim); }
+    .cyan{ fill:var(--cyan); } .mag{ fill:var(--mag); } .green{ fill:var(--green); }
+    .amber{ fill:var(--amber); } .violet{ fill:var(--violet); }
+    .panel{ fill:var(--panel); stroke:var(--border); stroke-width:1; }
+    .box{ fill:var(--box); stroke:var(--border); stroke-width:1; }
+  </style>
+
+  <defs>
+    <marker id="arw2" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="var(--wire)"/>
+    </marker>
+    <filter id="glow2" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="4" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <linearGradient id="cyanline2" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#22d3ee" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#22d3ee" stop-opacity="0.7"/>
+      <stop offset="1" stop-color="#ff3caf" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="0" y="0" width="1320" height="1180" fill="var(--bg)"/>
+
+  <!-- ── Title ─────────────────────────────────────────────── -->
+  <text x="660" y="66" text-anchor="middle" class="title" filter="url(#glow2)"><tspan class="cyan">Architect</tspan><tspan class="mag">ure</tspan></text>
+  <text x="660" y="94" text-anchor="middle" class="sub">the core boundary — engine vs plugins vs content · where does new code live? · docs/proposals/engine-plugin-boundary.md</text>
+  <rect x="360" y="106" width="600" height="2" fill="url(#cyanline2)"/>
+
+  <!-- ── Litmus banner ─────────────────────────────────────── -->
+  <rect class="panel" x="40" y="128" width="1240" height="74" rx="6"/>
+  <text x="60" y="153" class="h amber">THE LITMUS</text>
+  <text x="150" y="153" class="tx"><tspan class="green">ENGINE</tspan> = substrates, laws &amp; registries every system leans on &#160;·&#160; <tspan class="cyan">PLUGIN</tspan> = one self-contained system (a verb, a mechanic) &#160;·&#160; <tspan class="mag">CONTENT</tspan> = the world's data, never code</text>
+  <text x="60" y="178" class="sm">Rule of thumb — could two unrelated features both need this at once? → engine. Is it one mechanic with its own verbs and state? → plugin. Is it a zone / item / npc / enemy / dialogue? → content.</text>
+  <text x="60" y="194" class="xs">Engine changes are load-bearing and rare; plugins are the default home for new behaviour; content never touches the codebase. When unsure, build a plugin.</text>
+
+  <!-- ══ THREE COLUMNS ══════════════════════════════════════ -->
+
+  <!-- ENGINE column -->
+  <rect class="panel" x="40" y="222" width="396" height="620" rx="6"/>
+  <rect x="40" y="222" width="396" height="42" rx="6" fill="#0d1a17" stroke="var(--green)" stroke-width="1"/>
+  <text x="238" y="250" text-anchor="middle" class="col green">ENGINE</text>
+  <text x="238" y="284" text-anchor="middle" class="sm">server/engine/ · the codebase itself</text>
+
+  <text x="60" y="316" class="bt green">Substrates — the loops &amp; laws</text>
+  <text x="60" y="337" class="tx">world · gameLoop · scheduler · gametime</text>
+  <text x="60" y="356" class="tx">combat · movement · exits · pathfinding</text>
+  <text x="60" y="375" class="tx">inventory · economy · vendor · dialogue</text>
+  <text x="60" y="394" class="tx">environment · danger · crimes · protection</text>
+  <text x="60" y="413" class="tx">ai-behaviour · graph · npc-personality</text>
+
+  <text x="60" y="446" class="bt green">Registries — the string-keyed seams</text>
+  <text x="60" y="467" class="tx">actions (registerAction / dispatchAction)</text>
+  <text x="60" y="486" class="tx">events (on / emit) · flags (get/set/eval)</text>
+  <text x="60" y="505" class="tx">tags · supertags · specializedActions</text>
+  <text x="60" y="524" class="tx">sift · skills · statmods · ip · panels</text>
+
+  <text x="60" y="557" class="bt green">Owns the SSOT for…</text>
+  <text x="60" y="578" class="tx">the player object · world Maps · time</text>
+  <text x="60" y="597" class="tx">the dispatch pipeline · move gates · posture</text>
+  <text x="60" y="616" class="tx">the query() helper &amp; read/write tiers</text>
+
+  <text x="60" y="649" class="bt amber">Rules</text>
+  <text x="60" y="670" class="tx dim">· no content hardcoded into engine files</text>
+  <text x="60" y="689" class="tx dim">· no new sparse columns on players/npcs</text>
+  <text x="60" y="708" class="tx dim">· hot paths read Maps, never add a query()</text>
+  <text x="60" y="727" class="tx dim">· plugin verbs shadow engine builtins</text>
+
+  <text x="60" y="760" class="bt violet">Change with care</text>
+  <text x="60" y="781" class="sm">editing a registry/seam or the pipeline</text>
+  <text x="60" y="800" class="sm">→ run npm run test:regress before push.</text>
+  <text x="60" y="822" class="xs">Phases 0–2 of the engine/plugin split are done; Phase 3 partial.</text>
+
+  <!-- PLUGINS column -->
+  <rect class="panel" x="462" y="222" width="396" height="620" rx="6"/>
+  <rect x="462" y="222" width="396" height="42" rx="6" fill="#0a1620" stroke="var(--cyan)" stroke-width="1"/>
+  <text x="660" y="250" text-anchor="middle" class="col cyan">PLUGINS</text>
+  <text x="660" y="284" text-anchor="middle" class="sm">plugins/&lt;name&gt;/ · ~88 self-contained systems</text>
+
+  <text x="482" y="316" class="bt cyan">Anatomy of a plugin</text>
+  <text x="482" y="337" class="tx">plugin.json — declares commands + hooks</text>
+  <text x="482" y="356" class="tx">index.js — register verbs, wire hooks</text>
+  <text x="482" y="375" class="tx">own state · request/response hooks</text>
+  <text x="482" y="394" class="tx">scheduler ticks (idle-gated)</text>
+  <text x="482" y="413" class="tx">regress.js — ships with the plugin, dev-only</text>
+
+  <text x="482" y="446" class="bt cyan">A verb is real only if…</text>
+  <text x="482" y="467" class="tx">it's listed in plugin.json "commands"</text>
+  <text x="482" y="486" class="sm">— otherwise it never registers (silent).</text>
+
+  <text x="482" y="519" class="bt cyan">Representative systems</text>
+  <text x="482" y="540" class="tx">flight · yacht · broadcast · audio · combat</text>
+  <text x="482" y="559" class="tx">drugs · weather · mutations · food · water</text>
+  <text x="482" y="578" class="tx">crafting · mining · fishing · scavenging</text>
+  <text x="482" y="597" class="tx">jail · burglary · surveillance · corps</text>
+  <text x="482" y="616" class="tx">ideologies · commerce · quests · jobboard</text>
+  <text x="482" y="635" class="tx">consort · strippers · gossip · ambient-life</text>
+  <text x="482" y="654" class="tx">slots · gametable · sportsbet · tablet …</text>
+
+  <text x="482" y="687" class="bt amber">The decision gate</text>
+  <text x="482" y="708" class="tx dim">New behaviour hook? → a plugin, by default.</text>
+  <text x="482" y="727" class="tx dim">Genuinely core &amp; shared? → promote to engine.</text>
+
+  <text x="482" y="760" class="bt violet">Talks to the world via…</text>
+  <text x="482" y="781" class="sm">the engine registries — actions, events,</text>
+  <text x="482" y="800" class="sm">flags, tags. Never reaches into another</text>
+  <text x="482" y="819" class="sm">plugin's internals; dispatchAction instead.</text>
+
+  <!-- CONTENT column -->
+  <rect class="panel" x="884" y="222" width="396" height="620" rx="6"/>
+  <rect x="884" y="222" width="396" height="42" rx="6" fill="#1a0a16" stroke="var(--mag)" stroke-width="1"/>
+  <text x="1082" y="250" text-anchor="middle" class="col mag">CONTENT</text>
+  <text x="1082" y="284" text-anchor="middle" class="sm">content/*.json → Postgres · git = source of truth</text>
+
+  <text x="904" y="316" class="bt mag">The world's data — never code</text>
+  <text x="904" y="337" class="tx">zones · items · npcs · enemies · furniture</text>
+  <text x="904" y="356" class="tx">doors · drugs · mutations · recipes · crimes</text>
+  <text x="904" y="375" class="tx">quests · loot/scavenging tables · job boards</text>
+  <text x="904" y="394" class="tx">aircraft_types · aa_sites · apartments · orgs</text>
+  <text x="904" y="413" class="tx">media_channels · broadcasts · audio_* · maps</text>
+  <text x="904" y="432" class="tx">power_zones · security_networks · ambient_*</text>
+
+  <text x="904" y="465" class="bt mag">Authored in…</text>
+  <text x="904" y="486" class="tx">the dev panel (world/content editors)</text>
+  <text x="904" y="505" class="tx">VINE graphs — dialogue · AI · broadcast · quest</text>
+  <text x="904" y="524" class="sm">stored as JSON: behaviour_graph · dialogue_tree</text>
+
+  <text x="904" y="557" class="bt mag">Shipped via CODEX</text>
+  <text x="904" y="578" class="tx">one JSON file per entity under content/</text>
+  <text x="904" y="597" class="tx">push to main = deploy (CI, backed-up, gated)</text>
+  <text x="904" y="616" class="tx">content-registry.js classifies each table</text>
+  <text x="904" y="635" class="tx">import applies SCHEMA_SQL, then loads the tree</text>
+
+  <text x="904" y="668" class="bt amber">Rules</text>
+  <text x="904" y="689" class="tx dim">· additive deploy — INSERT … ON CONFLICT</text>
+  <text x="904" y="708" class="tx dim">· deletions are git-diff-driven</text>
+  <text x="904" y="727" class="tx dim">· CONTENT_READONLY gate on prod</text>
+  <text x="904" y="746" class="tx dim">· never rewritten on boot</text>
+
+  <text x="904" y="779" class="bt violet">The drift trap</text>
+  <text x="904" y="800" class="sm">editing content on prod via the dev panel</text>
+  <text x="904" y="819" class="sm">= git↔prod drift → export-from-prod, then</text>
+  <text x="904" y="838" class="xs" fill="var(--dim)">commit surgically to reconcile.</text>
+
+  <!-- flow arrows between columns -->
+  <line x1="436" y1="480" x2="461" y2="480" stroke="var(--wire)" stroke-width="1.5" marker-end="url(#arw2)"/>
+  <line x1="858" y1="480" x2="883" y2="480" stroke="var(--wire)" stroke-width="1.5" marker-end="url(#arw2)"/>
+  <text x="449" y="472" text-anchor="middle" class="xs" fill="var(--faint)">reads</text>
+  <text x="871" y="472" text-anchor="middle" class="xs" fill="var(--faint)">reads</text>
+
+  <!-- ── Bottom: the runtime marriage ──────────────────────── -->
+  <rect class="panel" x="40" y="862" width="1240" height="132" rx="6"/>
+  <text x="60" y="888" class="h amber">AT RUNTIME THEY MARRY</text>
+  <text x="60" y="914" class="tx"><tspan class="mag">Content</tspan> is loaded into the <tspan class="amber">engine's</tspan> in-memory world Maps at boot &#160;→&#160; a player command hits the <tspan class="amber">dispatch pipeline</tspan> &#160;→&#160; a <tspan class="cyan">plugin</tspan> verb (or an engine builtin) runs,</text>
+  <text x="60" y="936" class="tx">mutating state through the <tspan class="green">registries</tspan> (actions · events · flags · tags) &#160;→&#160; <tspan class="green">engine</tspan> loops (combat · movement · scheduler) read that plugin-set state and react.</text>
+  <text x="60" y="962" class="sm">The registries are the only sanctioned coupling: a plugin never imports another plugin, and the engine never hardcodes content. Every crossing is a string key — which is exactly why a typo'd key is the seminal bug class (the posture break).</text>
+  <text x="60" y="982" class="xs">Read docs/proposals/engine-plugin-boundary.md before deciding where new code lives · docs/audits/source-of-truth-audit.md for the seam bug class.</text>
+
+  <!-- ── Decision gate flow ────────────────────────────────── -->
+  <rect class="box" x="40" y="1008" width="1240" height="120" rx="6"/>
+  <text x="60" y="1032" class="h">DECISION GATE — where does the new thing live?</text>
+
+  <rect class="box" x="60" y="1046" width="270" height="62" rx="4" stroke="var(--mag)"/>
+  <text x="76" y="1068" class="bt mag">Is it world data?</text>
+  <text x="76" y="1086" class="sm">a zone/item/npc/enemy/dialogue</text>
+  <text x="76" y="1101" class="xs">→ CONTENT · JSON under content/</text>
+
+  <rect class="box" x="360" y="1046" width="270" height="62" rx="4" stroke="var(--cyan)"/>
+  <text x="376" y="1068" class="bt cyan">Is it one mechanic?</text>
+  <text x="376" y="1086" class="sm">a verb, its state, its hooks</text>
+  <text x="376" y="1101" class="xs">→ PLUGIN · plugins/&lt;name&gt;/</text>
+
+  <rect class="box" x="660" y="1046" width="270" height="62" rx="4" stroke="var(--green)"/>
+  <text x="676" y="1068" class="bt green">Shared by everything?</text>
+  <text x="676" y="1086" class="sm">a substrate, law, or registry</text>
+  <text x="676" y="1101" class="xs">→ ENGINE · run test:regress</text>
+
+  <rect class="box" x="960" y="1046" width="300" height="62" rx="4" stroke="var(--amber)"/>
+  <text x="976" y="1068" class="bt amber">Still unsure?</text>
+  <text x="976" y="1086" class="sm">default to a plugin — it's the</text>
+  <text x="976" y="1101" class="xs">reversible, low-blast-radius choice.</text>
+
+  <line x1="330" y1="1077" x2="358" y2="1077" stroke="var(--wire)" stroke-width="1.5" marker-end="url(#arw2)"/>
+  <line x1="630" y1="1077" x2="658" y2="1077" stroke="var(--wire)" stroke-width="1.5" marker-end="url(#arw2)"/>
+  <line x1="930" y1="1077" x2="958" y2="1077" stroke="var(--wire)" stroke-width="1.5" marker-end="url(#arw2)"/>
+
+  <text x="660" y="1152" text-anchor="middle" class="sm">Boundary view · see architecture-stack.svg for the full client → WebSocket → server → Postgres stack</text>
+</svg>

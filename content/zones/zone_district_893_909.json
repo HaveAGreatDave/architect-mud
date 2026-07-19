@@ -22,6 +22,7 @@
     "airfield_name": "Threshold Helipad",
     "airfield_vtol_only": true,
     "district": "wasteland",
+    "district_id": "district_coldwater",
     "hangar_interior_zone": "zone_hangar_threshold",
     "icon": "helipad",
     "planner": "bp_district",

@@ -14,6 +14,12 @@
     "building_type": "diner",
     "is_building": true,
     "is_interior": true,
+    "work_venue": {
+      "employer": "npc_diner_cook",
+      "name": "the Meltwater Diner",
+      "role": "line server",
+      "wage": 65
+    },
     "world_exit_zone": "zone_district_906_910"
   },
   "grid_x": 0,

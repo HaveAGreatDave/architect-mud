@@ -1,0 +1,16 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_aurelia_mask",
+  "name": "filigree domino mask",
+  "tags": {
+    "bulkiness": 0,
+    "description": "A sliver of laser-cut titanium filigree that sits across the eyes, fine as frost on glass, throwing a faint violet underlight up onto the brow. It hides almost nothing and changes everything — the arcology's oldest trick, that a face half-seen is worth more than a face given away.",
+    "insulation": 0,
+    "layer": "outerwear",
+    "slot": "head"
+  },
+  "type": "clothing",
+  "value": 780,
+  "weight": 90
+}

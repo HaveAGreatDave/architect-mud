@@ -14,6 +14,7 @@
     "building_name": "Halcyon Towers",
     "building_type": "corporate_office",
     "district": "wasteland",
+    "district_id": "district_coldwater",
     "facade": true,
     "floors": 21,
     "is_building": true,

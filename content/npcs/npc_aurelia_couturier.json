@@ -1,0 +1,104 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Ondine circles you once, slowly, reading your silhouette like a bad first draft.",
+    "\"Anyone can be dressed. Almost no one consents to be *designed*.\"",
+    "She adjusts a garment on its rail by two millimetres and steps back, satisfied."
+  ],
+  "description": "Ondine Sarraf dresses the people who own the towers you can see from the boulevard. She is tall, narrow, and dressed entirely in one unbroken column of matte black, the only ornament a pair of measuring calipers worn like a necklace. She looks at you the way an architect looks at a demolition site — not unkindly, but with plans. Her voice is low and unhurried. She has never once had to raise it.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Come back when you're ready to be looked at.\" She has already turned to the mirror, adjusting something only she can see."
+    },
+    "philosophy": {
+      "options": [
+        {
+          "label": "Show me, then.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Down here everyone armours up — soak values, bulk ratings, a coat that stops a knife. Fine. Necessary.\" She lets a beat pass. \"But armour tells the street you're afraid of it. What I make tells the street the street should be afraid of *you*. That is a different kind of protection, and it costs more.\""
+    },
+    "menu": {
+      "options": [
+        {
+          "label": "Let's see the collection.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Everything on the floor is one of one. The gown turns under the pin-spot because it deserves to. The opera coat will outlive you and it knows it.\" A flicker of a smile. \"None of it will keep you warm. All of it will keep you *seen*.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What is this place?",
+          "next": "philosophy"
+        },
+        {
+          "label": "What have you got?",
+          "next": "menu"
+        },
+        {
+          "label": "Dress me.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Just looking.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"You walked in, so some part of you already knows.\" Ondine sets down the calipers. \"You can spend your whole life being *functional*. Or you can spend an obscene amount of money, once, and never be mistaken for furniture again.\" She spreads one hand at the room. \"Which are we doing?\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "an unbroken floor-length column of matte black, sleeveless and severe",
+      "a pair of chromed measuring calipers worn like a necklace",
+      "seamless underthings the exact colour of her skin"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_aurelia_floor",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_aurelia_couturier",
+  "name": "Ondine Sarraf",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    { "item_id": "item_aurelia_gown", "price": 2600 },
+    { "item_id": "item_aurelia_suit", "price": 2200 },
+    { "item_id": "item_aurelia_opera_coat", "price": 1900 },
+    { "item_id": "item_aurelia_heels", "price": 900 },
+    { "item_id": "item_aurelia_gloves", "price": 650 },
+    { "item_id": "item_aurelia_mask", "price": 780 }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "mon": [{ "from": 20, "to": 42 }],
+    "tue": [{ "from": 20, "to": 42 }],
+    "wed": [{ "from": 20, "to": 42 }],
+    "thu": [{ "from": 20, "to": 42 }],
+    "fri": [{ "from": 20, "to": 44 }],
+    "sat": [{ "from": 20, "to": 44 }],
+    "sun": [{ "from": 20, "to": 42 }]
+  },
+  "vendor_shop_name": "Aurelia",
+  "vendor_stock_size": 8,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

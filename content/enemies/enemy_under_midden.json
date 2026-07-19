@@ -1,0 +1,50 @@
+{
+  "behavior": "aggressive",
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": { "next": "has_target", "type": "start" },
+      "has_target": { "condition_type": "HAS_TARGET", "ifFalse": "idle", "ifTrue": "attack", "type": "condition" },
+      "attack": { "action_type": "ATTACK", "next": "loop", "type": "action" },
+      "idle": { "action_type": "IDLE", "next": "loop", "type": "action" },
+      "loop": { "next": "start", "type": "loop" }
+    }
+  },
+  "body_parts": [
+    { "part": "head", "soak": { "kinetic": 2 }, "weight": 8 },
+    { "part": "torso", "soak": { "kinetic": 2 }, "weight": 52 },
+    { "part": "left_arm", "soak": { "kinetic": 2 }, "weight": 10 },
+    { "part": "right_arm", "soak": { "kinetic": 2 }, "weight": 10 },
+    { "part": "left_leg", "soak": { "kinetic": 2 }, "weight": 10 },
+    { "part": "right_leg", "soak": { "kinetic": 2 }, "weight": 10 }
+  ],
+  "butcher_difficulty": 6,
+  "butcher_table": [],
+  "death_message": "The Midden comes apart in slabs, decades of fused sewer-life sloughing off the frame it grew around, until there's nothing left but a stink and a silence.",
+  "description": "Not one thing but a hundred, drowned together and grown into a single heaving mound — bone, plastic, rat and root and rag, all of it fused into a wet grey hulk that has been feeding down here longer than anyone's been counting. It is the reason the Deep Reach never got thinned. It turns toward warmth with the patience of geology, and it does not stop.",
+  "dodge": 1,
+  "faction": null,
+  "flags": {
+    "attacks_npcs": false,
+    "battle_cries": [
+      "$enemy heaves its whole reeking mass a step closer to $player.",
+      "$enemy sloughs a slab of itself aside and reaches for $player.",
+      "Something inside $enemy shifts and moans as it bears down on $player.",
+      "The stench off $enemy rolls over $player like a physical thing."
+    ],
+    "first_strike_delay_ms": 8000
+  },
+  "hit": 3,
+  "hp_max": 55,
+  "id": "enemy_under_midden",
+  "loot_table": [
+    { "item": "item_credit_chip", "credits": [40, 90], "qty": [1, 1], "weight": 30 },
+    { "item": "item_scrap_metal", "qty": [1, 3], "weight": 22 },
+    { "item": "item_battery", "qty": [1, 1], "weight": 14 },
+    { "item": "item_medkit", "qty": [1, 1], "weight": 8 }
+  ],
+  "name": "the Midden",
+  "weapon": [
+    { "max": 7, "min": 3, "type": "kinetic" }
+  ]
+}

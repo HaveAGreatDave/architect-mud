@@ -714,6 +714,7 @@ export const POI_LEGEND = {
   police:  { icon: '★', label: 'Police station' },
   power:   { icon: '⚡', label: 'Power plant' },
   club:    { icon: '♥', label: 'Strip club' },
+  nightclub: { icon: '🎶', label: 'Nightclub' },
   hotel:   { icon: '🏨', label: 'Hotel' },
   bar:     { icon: '🍺', label: 'Bar' },
   vendor:  { icon: '$', label: 'Vendor / shop' },
@@ -729,7 +730,7 @@ export const POI_LEGEND = {
 export const BUILDING_ICON = {
   residential: '⌂', apartment: '🏢',
   shop: '$', store: '$', grocery: '$',
-  bar: '🍺', club: '♥', police: '★',
+  bar: '🍺', club: '♥', nightclub: '🎶', boutique: '👗', police: '★',
   corporate_office: '💼', hotel: '🏨', power: '⚡',
   hangar: '✈', studio: '🎬', clinic: '✚', diner: '🍔',
   // The Yards — semi-industrial freight district.
@@ -752,7 +753,7 @@ const ROAD_MARKING = '#f2c53d';   // yellow lane markings (the road SVG mask tak
 const TERRAIN_FILL = {
   water: '#3f7fb0', grass: '#5a9e57', park: '#46a24e', asphalt: '#45484d', concrete: '#8a8d91',
   dirt: '#6b5138', sand: '#c2b280', gravel: '#7d7a73', dock: '#6e5636',
-  scrub: '#6f7248', redrock: '#9e4a30', ash: '#4f4b47', marsh: '#4d5a30',
+  scrub: '#6f7248', redrock: '#834f40', ash: '#4f4b47', marsh: '#4d5a30',
 };
 // water/grass prefer an authored bg_color; every other terrain uses its canonical fill.
 function terrainFill(terr, bg) {

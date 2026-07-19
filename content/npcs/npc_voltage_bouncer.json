@@ -1,0 +1,77 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Bishop stands at the foot of the VIP stair with his hands folded, moving only his eyes.",
+    "\"Rope's not personal. Rope's just math.\"",
+    "He unclips the velvet rope for someone with a band, clips it again before you can follow."
+  ],
+  "description": "Bishop holds the foot of the VIP stair the way a load-bearing wall holds a roof — without apparent effort and without moving. Immaculate black, an earpiece, a hand-scanner clipped at his hip, and a stillness that reads every approach before it arrives. He is unfailingly polite, which somehow makes the rope harder to argue with. Buy a band and the stair opens like it was always going to. Try it without one and discover how far his patience does not extend.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Enjoy your night.\" His gaze has already moved past you to the door."
+    },
+    "band": {
+      "options": [
+        { "label": "I'll take a band.", "next": "__shop__" },
+        { "label": "Maybe later.", "next": "root" }
+      ],
+      "text": "\"Band's the whole conversation. You get one from me, the reader on the stair reads it, the rope stops being my problem and starts being your good time.\" A small, professional smile. \"It is not cheap. That is the entire point of it.\""
+    },
+    "upstairs": {
+      "options": [
+        { "label": "How do I get up there?", "next": "band" },
+        { "label": "Forget it.", "next": "root" }
+      ],
+      "text": "He doesn't look at the stair. He doesn't have to. \"Up there is quiet, and the quiet costs. Booths, bottle service, a pour called Arc Light that the floor bar will deny exists.\" He shrugs, one centimetre. \"Get a band and it's all yours.\""
+    },
+    "root": {
+      "options": [
+        { "label": "What's upstairs?", "next": "upstairs" },
+        { "label": "I want a VIP band.", "next": "band" },
+        { "label": "Just heading in.", "next": "bye" }
+      ],
+      "text": "\"Evening.\" Bishop's eyes finish reading you before he speaks. \"Floor's open to everyone — drink, dance, be good. Stair's a different tier.\" A beat. \"You look like you're about to ask about the stair.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "bouncer": true,
+    "bouncer_eject_zone": "zone_district_895_908",
+    "clothing_layers": [
+      "a black bomber jacket cut for shoulders like his, matte and immaculate",
+      "an earpiece with a hair-thin wire vanishing into the collar",
+      "a hand-scanner clipped at the hip and boots you could shave in"
+    ],
+    "mis_willing": false,
+    "personality": "guard"
+  },
+  "home_activities": [],
+  "home_zone": "zone_voltage_floor",
+  "hp": 90,
+  "hp_max": 90,
+  "id": "npc_voltage_bouncer",
+  "name": "Bishop",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    { "item_id": "item_voltage_vip_band", "price": 600 }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "mon": [{ "from": 22, "to": 46 }],
+    "tue": [{ "from": 22, "to": 46 }],
+    "wed": [{ "from": 22, "to": 46 }],
+    "thu": [{ "from": 22, "to": 46 }],
+    "fri": [{ "from": 22, "to": 48 }],
+    "sat": [{ "from": 22, "to": 48 }],
+    "sun": [{ "from": 22, "to": 46 }]
+  },
+  "vendor_shop_name": "The Velvet Rope",
+  "vendor_stock_size": 20,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

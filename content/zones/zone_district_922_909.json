@@ -13,6 +13,7 @@
   },
   "flags": {
     "district": "residential",
+    "district_id": "district_coldwater",
     "icon": "road_nsw",
     "planner": "bp_district",
     "scavenging_table_id": "scav_roadside_junk",

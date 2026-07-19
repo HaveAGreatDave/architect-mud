@@ -869,17 +869,17 @@ const FW_PARAMS = {
     engines: [], prop: 'nose', struts: true, gear: true, gearStyle: 'taildragger', tundra: true, groundPitch: 11,
     windows: 3, noseBlunt: 2.2, noseCowl: 0.26, boxy: 0.42, bodyTube: 0.16, tailUp: 0.06,   // slim deep slab-sided fabric fuselage
     canopy: { f0: 0.54, f1: 0.30, w: 0.070, h: 0.062, front: 0.34, tail: 0.20, segs: 5, arc: 3, sink: 0.02 } },   // raked windscreen ahead of the high-wing LE; the side windows carry the greenhouse aft
-  // Locust — a low-wing sport MONOPLANE / racer: the fleet's only LOW-wing airframe. A cantilever
-  // (NO lift struts) tapered, swept low wing; a teardrop BUBBLE canopy; a pointed spinner nose
-  // (noseCowl floored low so the cowl draws down to the prop); spatted TAILDRAGGER gear. Short-
-  // coupled and clean — reads fast and agile next to the high-wing utility singles.
-  locust: { ...FW_DEFAULT, fr: 0.090, fv: 0.100, span: 0.94, noseF: 1.00, tailF: -0.98,
-    wingH: -0.10, dih: 0.06, wRootF: 0.32, wRootB: -0.16, wTipF: 0.12, wTipB: -0.04, hSpan: 0.38,
-    hF: -0.70, hB: -0.90, hTipF: -0.78, hTipB: -0.92,
-    finF0: -0.64, finF1: -0.92, finF2: -0.98, finH: 0.50, fins: [0],
-    engines: [], prop: 'nose', gear: true, gearStyle: 'taildragger',
-    noseBlunt: 2.0, noseCowl: 0.08, boxy: 0.24, bodyTube: 0.10, tailUp: 0.03,   // slim rounded body drawing to a pointed spinner
-    canopy: { f0: 0.50, f1: 0.14, w: 0.070, h: 0.088, front: 0.24, tail: 0.10, segs: 5, arc: 4, sink: 0.02 } },   // tall teardrop bubble set forward-mid
+  // Locust — a low-wing crop-duster / ag-plane (per ref: Air Tractor / Grumman Ag Cat): a big,
+  // BROAD constant-chord SQUARE wing (rectangular planform — no taper, no sweep, square-cut tips);
+  // a chunky slab-sided fuselage with a blunt radial cowl; a raised bubble cockpit set high for
+  // visibility over the nose; nose-high spatted TAILDRAGGER gear. Reads heavy and workmanlike.
+  locust: { ...FW_DEFAULT, fr: 0.100, fv: 0.105, span: 1.14, noseF: 1.00, tailF: -0.98,
+    wingH: -0.09, dih: 0.03, wRootF: 0.30, wRootB: -0.22, wTipF: 0.30, wTipB: -0.22, hSpan: 0.40,
+    hF: -0.70, hB: -0.90, hTipF: -0.74, hTipB: -0.92,
+    finF0: -0.64, finF1: -0.92, finF2: -0.98, finH: 0.52, fins: [0],
+    engines: [], prop: 'nose', gear: true, gearStyle: 'taildragger', groundPitch: 10,
+    noseBlunt: 2.6, noseCowl: 0.24, boxy: 0.5, bodyTube: 0.12, tailUp: 0.04,   // chunky slab-sided ag fuselage, blunt radial cowl
+    canopy: { f0: 0.50, f1: 0.20, w: 0.078, h: 0.100, front: 0.30, tail: 0.16, segs: 5, arc: 3, sink: 0.015 } },   // raised ag-plane cockpit set high for over-nose visibility
 };
 
 // The starboard (right) wingtip station [f, g, h] in normalised model space — the outboard

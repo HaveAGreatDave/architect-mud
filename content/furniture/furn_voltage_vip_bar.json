@@ -1,0 +1,22 @@
+{
+  "description": "A discreet private bar in the far corner of the mezzanine, smoked glass and brushed steel, backlit warm gold. It carries the bottles the floor bar will swear don't exist. LOOK IN it or TAKE what you like — up here the shelves refill themselves and no one is counting.",
+  "flags": {
+    "container": 40000,
+    "interactions": ["lean"],
+    "restock_items": [
+      "item_drink_arc_light",
+      "item_drink_voltage_signature",
+      "item_drink_neon_martini"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_voltage_vip_bar",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "private VIP bar",
+  "object_type": "container",
+  "power_draw_kw": 0,
+  "price": 0,
+  "zone_id": "zone_voltage_vip"
+}

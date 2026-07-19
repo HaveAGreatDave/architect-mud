@@ -3126,17 +3126,38 @@ function sendTvSchedule(playerId, channelId) {
       onNow: nowSec >= i.startTime && nowSec < i.startTime + i.duration,
     }));
   } else {
+    // A loop channel has no fixed daily grid, but it's still tied to the wall clock
+    // (loopOriginMs) and so is the in-world clock (nowMin ↔ Date.now() via timeScale).
+    // Project the loop across the whole in-world day so the guide reads as a real
+    // "what's on today" listing with clock times, not just a one-cycle countdown.
     const total = state.totalDuration || 1;
-    const elapsed = ((Date.now() - state.loopOriginMs) / 1000) % total;
-    slots = state.playlist.map(i => {
-      const onNow = elapsed >= i.startTime && elapsed < i.startTime + i.duration;
-      return {
-        name: nameFor(i),
-        durationSec: i.duration,
-        onNow,
-        startsInSec: onNow ? 0 : Math.round((i.startTime - elapsed + total) % total),
-      };
-    }).sort((a, b) => (b.onNow - a.onNow) || (a.startsInSec - b.startsInSec));
+    const timeScale = getEnvironmentState().timeScale || 1;
+    const msPerGameMin = 60000 / timeScale;
+    const now = Date.now();
+    const nowSec = now / 1000;
+    const originSec = (state.loopOriginMs || now) / 1000;
+    const t0Ms = now - nowMin * msPerGameMin;            // real time of in-world 00:00 today
+    const t24Ms = t0Ms + 1440 * msPerGameMin;            // …and of tomorrow's 00:00
+    const items = state.playlist.slice().sort((a, b) => a.startTime - b.startTime);
+    const kStart = Math.floor((t0Ms / 1000 - originSec) / total);
+    const kEnd = Math.ceil((t24Ms / 1000 - originSec) / total);
+    slots = [];
+    for (let k = kStart; k <= kEnd; k++) {
+      for (const i of items) {
+        const startSec = originSec + k * total + i.startTime;
+        const gameMin = (startSec * 1000 - t0Ms) / msPerGameMin;
+        if (gameMin < 0 || gameMin >= 1440) continue;
+        slots.push({
+          name: nameFor(i),
+          todLabel: _fmtHHMM(gameMin),
+          durationSec: i.duration,
+          onNow: nowSec >= startSec && nowSec < startSec + i.duration,
+          _sort: gameMin,
+        });
+      }
+    }
+    slots.sort((a, b) => a._sort - b._sort);
+    slots = slots.slice(0, 120).map(({ _sort, ...s }) => s);
   }
   sendToPlayer(playerId, { ...base, slots });
 }

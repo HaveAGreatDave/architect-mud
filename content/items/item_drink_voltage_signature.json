@@ -1,0 +1,19 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_drink_voltage_signature",
+  "name": "the Voltage",
+  "tags": {
+    "consumable": true,
+    "description": "The house signature, served in a heavy tumbler over a single clear sphere of ice with a filament suspended at its heart that throbs blue-white in time with the room's bass. Gin, blue curaçao, a cold-brew bitters, and a measured jolt of something that makes your fillings hum. Tastes like the drop feels.",
+    "hydrating": true,
+    "laced_drug": "drug_alcohol",
+    "laced_potency": 1.4,
+    "restore_sanity": 12,
+    "restore_thirst": 25,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 26,
+  "weight": 340
+}

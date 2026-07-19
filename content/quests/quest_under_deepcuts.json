@@ -1,0 +1,45 @@
+{
+  "category": "The Under",
+  "description": "Dredge won't spend real work on someone the shallow band could eat. Prove you can hold the deep reaches: put down the mutants that shamble the Rust Gallery and the hounds that work the Groaning Main, north and south of the Throat.",
+  "id": "quest_under_deepcuts",
+  "meta": {},
+  "name": "Deep Cuts",
+  "objectives": [
+    {
+      "count": 3,
+      "desc": "Kill 3 deep mutants (bloated or rad) — try the Rust Gallery, south off the Throat.",
+      "emotes": [
+        "{who} sets their feet and squares up against something far too big to be down here.",
+        "{who} drives a deep mutant back into the dark with a wet crack."
+      ],
+      "id": "o_mutants",
+      "target": "mutant",
+      "type": "kill",
+      "zone": "zone_under_rustgall"
+    },
+    {
+      "count": 2,
+      "desc": "Kill 2 gutter hounds — they run the Groaning Main, north off the Throat.",
+      "emotes": [
+        "{who} puts a gutter hound down before it can circle behind."
+      ],
+      "id": "o_hounds",
+      "target": "hound",
+      "type": "kill",
+      "zone": "zone_under_groanpipe"
+    }
+  ],
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 160,
+    "flags": [
+      { "flag": "dredge_proven", "scope": "player", "value": "done" }
+    ],
+    "items": [
+      { "item_id": "item_battery", "quantity": 3 },
+      { "item_id": "item_bandage", "quantity": 2 }
+    ]
+  },
+  "updated_at": "1784600000"
+}

@@ -13,8 +13,11 @@
     "west": "zone_district_917_919"
   },
   "flags": {
-    "artery": ["The Gate Road"],
+    "artery": [
+      "The Gate Road"
+    ],
     "district": "wasteland",
+    "district_id": "district_coldwater",
     "perimeter_gate": true,
     "planner": "bp_district",
     "terrain": "road"

@@ -1,0 +1,13 @@
+{
+  "description": "A corroded signal relay the size of a fist, ripped from some drowned junction deep in the works. Silt has fused half its casing, but the core still rattles with intact crystal. Someone who knew the old lines could make it sing again.",
+  "flags": {},
+  "id": "item_under_relay",
+  "name": "corroded signal relay",
+  "tags": {
+    "description": "A corroded signal relay the size of a fist, ripped from some drowned junction deep in the works. Silt has fused half its casing, but the core still rattles with intact crystal.",
+    "material": true
+  },
+  "type": null,
+  "value": 30,
+  "weight": 700
+}

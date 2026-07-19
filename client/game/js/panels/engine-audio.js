@@ -18,6 +18,7 @@ const CLASS_AUDIO = {
   ultralight: { idle: [42, 60], power: [70, 100], wave: 'sawtooth', nm: 0.9, wind: 1.1, fs: 0.5, chug: 9 },   // deep low rumble (was a mid-tone "alarm")
   heli:       { idle: [40, 80],  power: [92, 150],  wave: 'triangle', nm: 0.42, wind: 0.9, sub: 1 },
   prop:       { idle: [52, 84],  power: [120, 190], wave: 'sawtooth', nm: 0.5, wind: 1.0 },
+  locust:     { idle: [40, 66],  power: [96, 156],  wave: 'sawtooth', nm: 0.6, wind: 1.0, chug: 6 },   // big crop-duster radial: low, lumpy lope
   heavy:      { idle: [36, 68],  power: [110, 215], wave: 'sawtooth', nm: 0.72, wind: 1.35, whine: 1 },
   gunship:    { idle: [58, 116], power: [165, 300], wave: 'square',   nm: 0.8, wind: 1.35, whine: 1 },
   wreck:      { idle: [47, 73],  power: [100, 150], wave: 'sawtooth', nm: 0.6, wind: 1.0, detune: 1 },
@@ -45,6 +46,7 @@ const _cl = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 const FE_VOICE = {
   ultralight: { coreB: 38, coreS: 46, wave: 'sawtooth', pulseB: 28, pulseS: 22, pDep: [0.30, 0.35], biteB: 700,  biteS: 300,  biteM: 1.0, subB: 22, subM: 1.0, lpB: 220, lpS: 900,  crk: 1.0,  det: 1.007, mas: 1.0 },
   prop:       { coreB: 32, coreS: 58, wave: 'sawtooth', pulseB: 22, pulseS: 26, pDep: [0.24, 0.30], biteB: 600,  biteS: 340,  biteM: 1.1, subB: 19, subM: 1.3, lpB: 200, lpS: 1000, crk: 1.15, det: 1.008, mas: 1.05 },
+  locust:     { coreB: 28, coreS: 48, wave: 'sawtooth', pulseB: 16, pulseS: 18, pDep: [0.34, 0.40], biteB: 520,  biteS: 300,  biteM: 1.0, subB: 16, subM: 1.6, lpB: 180, lpS: 820,  crk: 1.5,  det: 1.012, mas: 1.1 },   // crop-duster radial: deep round-motor with a slow lumpy blade "lope" + burbling exhaust
   heavy:      { coreB: 20, coreS: 50, wave: 'sawtooth', pulseB: 30, pulseS: 30, pDep: [0.09, 0.14], biteB: 1050, biteS: 1700, biteM: 2.2, subB: 12, subM: 2.8, lpB: 260, lpS: 1700, crk: 0.4,  det: 1.005, mas: 1.3 },   // An-124: 4 D-18T turbofans — deep roar, huge lows, big turbine whine
   gunship:    { coreB: 30, coreS: 70, wave: 'sawtooth', pulseB: 36, pulseS: 40, pDep: [0.10, 0.15], biteB: 900,  biteS: 1400, biteM: 1.4, subB: 14, subM: 2.0, lpB: 300, lpS: 1500, crk: 0.45, det: 1.006, mas: 1.15 },   // A-10: twin TF34 turbofans — deep hum-growl + big lows, not a fighter scream
   wreck:      { coreB: 35, coreS: 40, wave: 'sawtooth', pulseB: 18, pulseS: 16, pDep: [0.34, 0.42], biteB: 540,  biteS: 260,  biteM: 0.9, subB: 23, subM: 1.0, lpB: 175, lpS: 680,  crk: 1.4,  det: 1.016, mas: 0.95 },
@@ -408,6 +410,14 @@ const SPOOL_UP = {
     { waveform: 'square', freq: 64, fm: { rate: 184, depth: 80 }, tremolo: { rate: 15, depth: 0.85 }, filter: { type: 'bandpass', freq: 780, q: 2 }, adsr: { a: 0.03, d: 1.1, s: 0.15, r: 0.2 }, gain: 0.04 },                                        // metallic gear chatter
     { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 1100, q: 0.7 }, adsr: { a: 0.3, d: 1.3, s: 0.3, r: 0.3 }, gain: 0.035 },                                                                                                     // compressor airflow
     { waveform: 'sawtooth', freq: 40, pitchBend: { to: 58, time: 0.9 }, delay: 1.15, filter: { type: 'lowpass', freq: 300, q: 1 }, tremolo: { rate: 26, depth: 0.4 }, adsr: { a: 0.25, d: 0, s: 0.85, r: 0.4 }, gain: 0.085 } ] },                   // low rumble → idle (settles in ~60% through)
+  // Crop-duster radial (P&W R-985 class): a slow inertia-starter whine winds up, the big
+  // cylinders turn over in a lumpy chug, then it catches with a bark and settles into a low,
+  // burbling round-motor lope. Slower and heavier to light than the little piston single.
+  locust:  { duration: 2.6, layers: [
+    { waveform: 'triangle', freq: 120, pitchBend: { to: 300, time: 1.0 }, filter: { type: 'bandpass', freq: 1200, q: 1.2 }, adsr: { a: 0.05, d: 1.0, s: 0.2, r: 0.2 }, gain: 0.05 },                       // inertia-starter whine winding up
+    { waveform: 'square', freq: 30, tremolo: { rate: 5.5, depth: 0.9 }, filter: { type: 'lowpass', freq: 300, q: 1 }, adsr: { a: 0.05, d: 1.1, s: 0.2, r: 0.2 }, gain: 0.10 },                              // big cylinders turning over (slow lumpy chug)
+    { waveform: 'sawtooth', freq: 34, delay: 1.0, pitchBend: { to: 150, time: 1.4 }, filter: { type: 'lowpass', freq: 620, q: 1 }, adsr: { a: 0.06, d: 1.3, s: 0.5, r: 0.3 }, gain: 0.12 },                 // catch + wind up to a loping idle
+    { waveform: 'noise', noiseMix: 1, delay: 1.0, filter: { type: 'bandpass', freq: 240, q: 1 }, tremolo: { rate: 8, depth: 0.5 }, adsr: { a: 0.06, d: 1.2, s: 0.35, r: 0.3 }, gain: 0.07 } ] },            // burbling radial exhaust
   // Salvaged wreck: it doesn't want to start — a couple of dead coughs, then a
   // rough, uneven catch.
   wreck:   { duration: 2.0, layers: [
@@ -444,6 +454,15 @@ export function creak(kind = 'creak') {
   const ae = AE(); const def = CREAKS[kind] || CREAKS.creak;
   try { ae?.playSfx?.(def); } catch { /* no audio */ }
 }
+
+// Crop-duster SPRAY release — the hopper bay doors / boom valves clack open with a solid
+// thunk, then the pressurised chemical dumps as a swelling atomised hiss with a fine spatter.
+const SPRAY_FX = { config: { duration: 1.4, layers: [
+  { waveform: 'square', freq: 150, pitchBend: { to: 90, time: 0.08 }, filter: { type: 'bandpass', freq: 420, q: 3 }, adsr: { a: 0.002, d: 0.12, s: 0, r: 0.05 }, gain: 0.10 },                     // boom valves clack open
+  { waveform: 'sine', freq: 70, delay: 0.02, adsr: { a: 0.002, d: 0.18, s: 0, r: 0.08 }, gain: 0.07 },                                                                                            // door thunk
+  { waveform: 'noise', noiseMix: 1, delay: 0.06, filter: { type: 'bandpass', freq: 2600, q: 0.6 }, adsr: { a: 0.06, d: 0.5, s: 0.5, r: 0.5 }, gain: 0.09 },                                        // pressurised atomised hiss (swells)
+  { waveform: 'noise', noiseMix: 1, delay: 0.06, filter: { type: 'highpass', freq: 5200, q: 0.5 }, tremolo: { rate: 22, depth: 0.4 }, adsr: { a: 0.1, d: 0.5, s: 0.4, r: 0.5 }, gain: 0.05 } ] } };  // fine spatter
+export function spraySfx() { const ae = AE(); try { ae?.playSfx?.(SPRAY_FX); } catch { /* no audio */ } }
 
 // ── Ground contact + mechanical one-shots (Mayfly pass) ───────────────────────
 // liftoff: wheels unweight and the tyres spin down as the strip drops away.

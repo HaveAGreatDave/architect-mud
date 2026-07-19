@@ -2514,6 +2514,8 @@ const WALL_COL = { uptown: [46, 64, 92], civic: [72, 68, 60], citycore: [52, 56,
   ty_hangarmetal: [120, 128, 138],
   ty_grocery: [78, 100, 66], ty_tech: [46, 88, 96], ty_showroom: [56, 90, 86],
   ty_boutique: [92, 60, 88], ty_junk: [94, 70, 48],
+  // Swanky Halcyon-Boulevard nightlife — Voltage (near-black club monolith, blue-white arc) + Aurelia (graphite-violet couture glass).
+  ty_voltage: [16, 18, 32], ty_aurelia: [38, 32, 50],
   // Hall of Records — the ancient civic temple: weathered limestone, cleaner column stone, verdigris copper dome.
   ty_archive: [126, 118, 102], ty_archive_col: [150, 142, 124], ty_archive_dome: [78, 138, 118],
   __statue_stone: [116, 114, 118],   // weathered plinth stone for the town-square monument
@@ -4572,6 +4574,8 @@ const NAMED_MODELS = {
   secondskin:                     { type: 'boutique',  pal: 'ty_boutique', neon: '#ff4a9a' },
   thecage:                        { type: 'shop',      pal: 'ty_shop_d',   neon: '#ffcf3e' },
   velkspreownedfurnishings:       { type: 'junkshop',  pal: 'ty_junk',     neon: '#ff8a4a' },
+  voltage:                        { type: 'nightclub', pal: 'ty_voltage',  neon: '#5cd6ff' },
+  aurelia:                        { type: 'atelier',   pal: 'ty_aurelia',  neon: '#b070ff' },
 };
 function namedModel(name) { return NAMED_MODELS[bldgSlug(name)] || null; }
 
@@ -4589,6 +4593,8 @@ const TYPE_MODEL = {
   diner:            { type: 'diner',     pal: 'ty_diner',  neon: '#ffcf3e' },
   bar:              { type: 'bar',       pal: 'ty_bar_a',  neon: '#7dff6a' },
   club:             { type: 'club',      pal: 'ty_club',   neon: '#ff4a9a' },
+  nightclub:        { type: 'nightclub', pal: 'ty_voltage', neon: '#5cd6ff' },
+  boutique:         { type: 'boutique',  pal: 'ty_boutique', neon: '#ff4a9a' },
   studio:           { type: 'studio',    pal: 'ty_studio' },
   police:           { type: 'police',    pal: 'ty_police' },
   clinic:           { type: 'clinic',    pal: 'ty_clinic' },
@@ -5394,6 +5400,24 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       draw3DBoxAt(ctx, cam, dx, dy, fh * 0.8, 0, h * 0.98, pal, seed, night, alpha, true);
       { const [nx, ny] = F(fh * 0.6, fh * 0.5); neonBlade(ctx, cam, nx, ny, h * 0.28, h * 1.05, m.neon || '#ff4a9a', night, alpha); }
       if (night) glowPool(ctx, cam, dx, dy, h * 0.22, '255,150,200', 10, alpha * 0.28);                 // lit boutique window
+      break;
+    }
+    case 'nightclub': {   // Voltage: a sleek near-black monolith split by a floor-to-roof blue-white name-arc, chasing crown bulbs, laser-blue wash
+      const neon = m.neon || '#5cd6ff';
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.02, 0, h * 1.05, pal, seed, night, alpha, true);              // tall near-black slab
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.1, h * 1.05, h * 1.2, pal, seed + 1, night, alpha, true);     // parapet crown band
+      { const [ax, ay] = F(0, fh * 0.98); neonBlade(ctx, cam, ax, ay, 0, h * 1.2, neon, night, alpha); } // the signature: the name struck floor-to-roof up the frontage like a live power line
+      for (const s of [-0.62, -0.2, 0.2, 0.62]) { const [lx, ly] = F(s * fh, fh * 0.98); blinkLight(ctx, cam, lx, ly, h * 1.16, '92,214,255', now, seed + s * 11, alpha, 1.6); }   // chasing crown bulbs
+      { const [gx, gy] = F(0, fh * 1.0); glowPool(ctx, cam, gx, gy, 0.02, '70,150,255', 18, alpha * (night ? 0.5 : 0.28)); }   // blue spill out the door
+      glowPool(ctx, cam, dx, dy, h * 1.14, '92,150,255', 22, alpha * (night ? 0.42 : 0.2));              // laser-blue roofline wash
+      break;
+    }
+    case 'atelier': {   // Aurelia: a narrow tall graphite-glass couture monolith — one slim violet name-blade, a bright lit cap, a single restrained vitrine glow
+      const neon = m.neon || '#b070ff';
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.74, 0, h * 1.12, pal, seed, night, alpha, true);              // slender dark-glass shaft
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.8, h * 1.12, h * 1.2, pal, seed + 1, night, alpha, true);     // slim lit parapet cap
+      { const [nx, ny] = F(fh * 0.5, fh * 0.6); neonBlade(ctx, cam, nx, ny, h * 0.2, h * 1.16, neon, night, alpha); }   // slim full-height violet name-blade by the door
+      if (night) { const [wx, wy] = F(0, fh * 0.72); glowPool(ctx, cam, wx, wy, h * 0.5, '176,112,255', 9, alpha * 0.22); }   // one restrained violet vitrine glow
       break;
     }
     case 'junkshop': {   // Velk's Pre-Owned Furnishings: cluttered main shed + lean-to + junk stacked on the roof

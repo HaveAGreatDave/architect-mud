@@ -1,0 +1,19 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_drink_plasma_shot",
+  "name": "plasma shot",
+  "tags": {
+    "consumable": true,
+    "description": "A layered shot that separates into three glowing bands — magenta, white, cyan — and is meant to be thrown back before they have the manners to mix. Goes down like a live wire and comes up, if it comes up, as a very short and regrettable speech.",
+    "hydrating": false,
+    "laced_drug": "drug_alcohol",
+    "laced_potency": 1.6,
+    "restore_sanity": 4,
+    "restore_thirst": 6,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 14,
+  "weight": 90
+}

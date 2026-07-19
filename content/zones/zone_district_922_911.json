@@ -14,6 +14,7 @@
     "building_name": "Precinct 9",
     "building_type": "police",
     "district": "residential",
+    "district_id": "district_coldwater",
     "facade": true,
     "is_building": true,
     "planner": "bp_district",

@@ -1,0 +1,33 @@
+{
+  "category": "The Under",
+  "description": "The reason the Deep Reach never got thinned has a name now, because Dredge gave it one: the Midden. A hundred drowned things grown into one heaving hulk, and it's getting bigger. Go down to the Deep Reach and end it before it decides the cistern looks warm.",
+  "id": "quest_under_apex",
+  "meta": {},
+  "name": "The Thing That Doesn't Thin",
+  "objectives": [
+    {
+      "count": 1,
+      "desc": "Kill the Midden in the Deep Reach — the deepest point of the works. Go in fed, lit, and armed.",
+      "emotes": [
+        "{who} stands their ground against the Midden as it bears down."
+      ],
+      "id": "o_midden",
+      "target": "midden",
+      "type": "kill",
+      "zone": "zone_under_deepreach"
+    }
+  ],
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 350,
+    "flags": [
+      { "flag": "under_deep_cleared", "scope": "player", "value": "done" }
+    ],
+    "items": [
+      { "item_id": "item_medkit", "quantity": 2 },
+      { "item_id": "item_battery", "quantity": 3 }
+    ]
+  },
+  "updated_at": "1784600000"
+}

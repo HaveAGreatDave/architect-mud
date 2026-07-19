@@ -1,0 +1,6 @@
+{
+  "name": "sanity",
+  "version": "1.0.0",
+  "description": "The slide into madness: a gradual, scarier-than-a-drug-trip dread that escalates as sanity falls — a creeping cold vignette + dread bed + misperception whispers (25–49), room-filling phantom hallucinations (below 25, via the shared phantom registry), and an incapacitated 'insane' state at 0 that the engine's substrate gate reads to scramble commands.",
+  "hooks": ["tick.minute"]
+}

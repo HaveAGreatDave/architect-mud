@@ -14,6 +14,7 @@
   },
   "flags": {
     "district": "wasteland",
+    "district_id": "district_coldwater",
     "greeter": {
       "lines": [
         "Hey — hey! Not so fast. You've got that fresh-decant shine and empty pockets, I can spot it blind. If you need money, that board's got work. Come back to me when it's done.",

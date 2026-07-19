@@ -1,0 +1,30 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "wasteland",
+  "audio_theme_id": null,
+  "bg_color": "#2a1c16",
+  "color": "#b5744a",
+  "created_by": "wildlands-expand",
+  "description": "A vast rust-stained plain, hammered flat and hard, printed here and there with the tracks of things that crossed it once.",
+  "exits": {
+    "east": "zone_district_888_902",
+    "south": "zone_district_887_903",
+    "west": "zone_district_886_902"
+  },
+  "flags": {
+    "district": "wilds",
+    "district_id": "district_coldwater",
+    "planner": "bp_district",
+    "radiation": 27,
+    "terrain": "redrock"
+  },
+  "grid_x": 887,
+  "grid_y": 902,
+  "grid_z": 0,
+  "id": "zone_district_887_902",
+  "map_id": "map_world",
+  "marker": null,
+  "name": "Rustwind Flat",
+  "parent_zone": null,
+  "updated_at": "1784700000"
+}

@@ -2786,7 +2786,7 @@ function renderMap(d) {
   const TOS_TERRAIN_FILL = {
     water: '#3f7fb0', grass: '#5a9e57', park: '#46a24e', asphalt: '#45484d', concrete: '#8a8d91',
     dirt: '#6b5138', sand: '#c2b280', gravel: '#7d7a73', dock: '#6e5636',
-    scrub: '#6f7248', redrock: '#9e4a30', ash: '#4f4b47', marsh: '#4d5a30',
+    scrub: '#6f7248', redrock: '#834f40', ash: '#4f4b47', marsh: '#4d5a30',
   };
   for (let r = 0; r < gRows; r++) for (let c = 0; c < gCols; c++) {
     const t = cell[r][c];

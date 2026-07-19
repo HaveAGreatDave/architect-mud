@@ -10,7 +10,7 @@ import { query } from '../models/db.js';
 import { removeGenerator } from '../engine/environment.js';
 import { reloadMaps } from '../engine/world.js';
 import {
-  apiCreateZone, apiDeleteZone,
+  apiCreateZone, apiDeleteZone, apiCreateDistrict,
   apiCreateFurniture, apiDeleteFurniture,
   apiCreateNpc, apiDeleteNpc, apiCreateItem, apiDeleteItem, apiCreateEnemy, apiDeleteEnemy,
   apiUpdateZone, apiUpdateEnemy, apiUpdateItem, apiUpdateNpc,
@@ -125,10 +125,34 @@ const UPDATERS = {
     await reloadMaps();
     return { status: 200, body: { moved: changes.length } };
   },
+  // A whole-district reposition: shift every member zone's grid coords. Published
+  // atomically as one change so a district never ends up half-moved.
+  district_move: async (districtId, data) => {
+    const changes = data?.changes || [];
+    for (const c of changes) {
+      const r = await apiUpdateZone(c.id, c.patch || {});
+      if (r?.body?.error) throw new Error(`${c.name || c.id}: ${r.body.error}`);
+    }
+    await reloadMaps();
+    return { status: 200, body: { moved: changes.length } };
+  },
 };
 
 const CREATORS = {
   zone:      (data) => apiCreateZone(data, null),
+  // A whole new blank district: insert the districts row, then every tile, then
+  // rebuild the map cache. One grouped change → the district appears atomically.
+  district_create: async (data) => {
+    const { district, zones } = data || {};
+    const dr = await apiCreateDistrict(district || {});
+    if (dr?.body?.error) throw new Error(dr.body.error);
+    for (const z of (zones || [])) {
+      const r = await apiCreateZone(z, null);
+      if (r?.body?.error) throw new Error(`${z.id}: ${r.body.error}`);
+    }
+    await reloadMaps();
+    return { status: 200, body: { created: (zones || []).length } };
+  },
   enemy:     (data) => apiCreateEnemy(data),
   item:      (data) => apiCreateItem(data),
   npc:       (data) => apiCreateNpc(data),

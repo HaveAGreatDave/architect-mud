@@ -229,7 +229,7 @@ async function cmdSpot(args, raw, player) {
   return { type: 'output', message: `<span class="text-cyan">From altitude you make out:</span>\n· ${finds.join('\n· ')}` };
 }
 
-// Crop-dusting — an ag-plane capability (the Grasshopper). On a LOW pass the pilot opens the
+// Crop-dusting — an ag-plane capability (the Locust). On a LOW pass the pilot opens the
 // spray booms and lays a fine mist over the tile below. Flavour for now: the ground zone sees
 // the pass; no entity effect yet (the hook is here to add one). Rate-limited to feel like the
 // booms need to re-pressurise between runs.

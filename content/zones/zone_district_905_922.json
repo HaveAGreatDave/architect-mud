@@ -7,13 +7,14 @@
   "created_by": "wildlands-fill",
   "description": "Cracked red hardpan runs out flat to a rust-colored horizon. Wind-scoured rock, grit, and nothing that grows.",
   "exits": {
+    "east": "zone_district_906_922",
     "north": "zone_district_905_921",
-    "west": "zone_district_904_922",
     "south": "zone_district_905_923",
-    "east": "zone_district_906_922"
+    "west": "zone_district_904_922"
   },
   "flags": {
     "district": "wilds",
+    "district_id": "district_coldwater",
     "planner": "bp_district",
     "radiation": 30,
     "terrain": "redrock"

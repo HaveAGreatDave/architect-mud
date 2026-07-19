@@ -14,6 +14,7 @@
   },
   "flags": {
     "district": "wasteland",
+    "district_id": "district_coldwater",
     "park_feature": "grove",
     "planner": "bp_district",
     "street_life": true,

@@ -1,0 +1,14 @@
+{
+  "description": "A DJ booth raised on a black plinth to one side of the floor like an altar, banked with decks and a wall of faders under a low blue glow. Behind it a figure in a mirrored visor rides the room — hands never still, head down, feeling the crowd through the soles of their feet. They never speak. They don't need to. The music is the whole conversation.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_voltage_djbooth",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "raised DJ booth",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_voltage_floor"
+}

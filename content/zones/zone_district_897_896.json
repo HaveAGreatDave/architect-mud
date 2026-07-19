@@ -13,6 +13,7 @@
   },
   "flags": {
     "district": "water",
+    "district_id": "district_coldwater",
     "planner": "bp_district",
     "water": true
   },

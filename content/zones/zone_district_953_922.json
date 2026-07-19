@@ -1,0 +1,31 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "wasteland",
+  "audio_theme_id": null,
+  "bg_color": "#2a1c16",
+  "color": "#b5744a",
+  "created_by": "wildlands-expand",
+  "description": "Cracked red hardpan runs out flat to a rust-colored horizon. Wind-scoured rock, grit, and nothing that grows.",
+  "exits": {
+    "east": "zone_district_954_922",
+    "north": "zone_district_953_921",
+    "south": "zone_district_953_923",
+    "west": "zone_district_952_922"
+  },
+  "flags": {
+    "district": "wilds",
+    "district_id": "district_coldwater",
+    "planner": "bp_district",
+    "radiation": 41,
+    "terrain": "redrock"
+  },
+  "grid_x": 953,
+  "grid_y": 922,
+  "grid_z": 0,
+  "id": "zone_district_953_922",
+  "map_id": "map_world",
+  "marker": null,
+  "name": "Ochre Draw",
+  "parent_zone": null,
+  "updated_at": "1784700000"
+}

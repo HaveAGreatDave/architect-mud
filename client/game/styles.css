@@ -10252,6 +10252,76 @@ body.tripping #output {
 	body.tripping #main { transform: none; }
 }
 
+/* ── Sanity "dread" FX ───────────────────────────────────────────────────────
+   The scary cousin of the trip overlay. Driven by dispatch.js `sanity_fx`: a
+   #sanity-overlay vignette + `unhinged`/`insane` body classes, scaled by one
+   live property:
+     --sanity-intensity  0–1, deepens the closing dark and the sick-red tint   */
+:root { --sanity-intensity: 0; }
+
+#sanity-overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 9996;
+	pointer-events: none;
+	/* Edges darken inward (multiply), with a faint sick-red bloom that grows as
+	   sanity falls. The vignette closes in tighter at high intensity. */
+	background:
+		radial-gradient(ellipse at 50% 45%,
+			transparent calc(62% - 32% * var(--sanity-intensity)),
+			rgba(0, 0, 0, calc(0.55 * var(--sanity-intensity))) 100%),
+		radial-gradient(circle at 50% 60%,
+			rgba(70, 6, 10, calc(0.18 * var(--sanity-intensity))),
+			transparent 75%);
+	mix-blend-mode: multiply;
+	animation: sanity-breathe calc(7s - 2.5s * var(--sanity-intensity)) ease-in-out infinite;
+}
+
+/* A slow, sick breathe — the walls closing in and easing back. */
+@keyframes sanity-breathe {
+	0%, 100% { opacity: calc(0.6 + 0.25 * var(--sanity-intensity)); transform: scale(1); }
+	50%      { opacity: 1; transform: scale(calc(1 + 0.03 * var(--sanity-intensity))); }
+}
+
+/* Hallucination band: colour drains out of the world and it sways, uneasy. */
+body.unhinged #main {
+	animation: sanity-sway calc(13s - 4s * var(--sanity-intensity)) ease-in-out infinite;
+	filter: saturate(calc(1 - 0.55 * var(--sanity-intensity))) contrast(calc(1 + 0.15 * var(--sanity-intensity))) brightness(calc(1 - 0.08 * var(--sanity-intensity)));
+	will-change: transform, filter;
+}
+
+@keyframes sanity-sway {
+	0%, 100% { transform: translateX(0) skewY(0deg); }
+	25%      { transform: translateX(calc(-3px * var(--sanity-intensity))) skewY(calc(-0.35deg * var(--sanity-intensity))); }
+	50%      { transform: translateX(0) skewY(0deg); filter: blur(calc(0.5px * var(--sanity-intensity))); }
+	75%      { transform: translateX(calc(3px * var(--sanity-intensity))) skewY(calc(0.35deg * var(--sanity-intensity))); }
+}
+
+/* Full breakdown: near-monochrome, and the log itself shudders faintly. */
+body.insane #main { filter: saturate(0.15) contrast(1.3) brightness(0.86); }
+body.insane #output { animation: sanity-shudder 5.5s steps(1) infinite; }
+
+@keyframes sanity-shudder {
+	0%, 92%, 100% { transform: translate(0, 0); }
+	94%  { transform: translate(-1px, 1px); }
+	96%  { transform: translate(1px, -1px); }
+	98%  { transform: translate(-1px, 0); }
+}
+
+/* Misperception whispers — cold, low, italic; not the rainbow trip text. */
+.msg-dread {
+	color: #9a6b6b;
+	font-style: italic;
+	opacity: 0.9;
+	letter-spacing: 0.4px;
+	text-shadow: 0 0 5px rgba(120, 10, 14, 0.45);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	#sanity-overlay, body.unhinged #main, body.insane #output { animation: none; }
+	body.unhinged #main { transform: none; }
+}
+
 /* ============================================================
    Custom sidebar panels (player-defined)
    ============================================================ */

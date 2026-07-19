@@ -17,6 +17,7 @@
     "building_name": "Dry Store 12",
     "building_type": "warehouse",
     "district": "yards",
+    "district_id": "district_coldwater",
     "facade": true,
     "is_building": true,
     "planner": "bp_district",

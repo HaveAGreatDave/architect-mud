@@ -1,0 +1,19 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_drink_neon_martini",
+  "name": "neon martini",
+  "tags": {
+    "consumable": true,
+    "description": "A classic dry martini poisoned a lovely radioactive green by a drop of bioluminescent tonic, so it glows through the glass and throws a faint sick light on whoever's holding it. Cold, clean, and dangerous in exactly the way a martini should be.",
+    "hydrating": true,
+    "laced_drug": "drug_alcohol",
+    "laced_potency": 1.1,
+    "restore_sanity": 8,
+    "restore_thirst": 20,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 20,
+  "weight": 300
+}

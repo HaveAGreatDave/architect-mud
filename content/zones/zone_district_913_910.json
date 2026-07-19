@@ -16,6 +16,7 @@
     "building_name": "KSAB Audience Gate",
     "building_type": "studio",
     "district": "wasteland",
+    "district_id": "district_coldwater",
     "facade": true,
     "floors": 2,
     "is_building": true,

@@ -1,0 +1,19 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_drink_arc_light",
+  "name": "Arc Light",
+  "tags": {
+    "consumable": true,
+    "description": "The VIP pour, and it does not appear on any menu you can reach from the floor. Aged rye, a cordial of rare bitter citrus, and a float of edible gold leaf that catches the private light and holds it. It is served with the unspoken understanding that if you have to ask what's in it, you are on the wrong side of the rope.",
+    "hydrating": true,
+    "laced_drug": "drug_alcohol",
+    "laced_potency": 1.5,
+    "restore_sanity": 16,
+    "restore_thirst": 24,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 42,
+  "weight": 330
+}

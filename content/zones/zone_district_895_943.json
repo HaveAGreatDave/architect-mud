@@ -1,0 +1,31 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "wasteland",
+  "audio_theme_id": null,
+  "bg_color": "#2a1c16",
+  "color": "#b5744a",
+  "created_by": "wildlands-expand",
+  "description": "A vast rust-stained plain, hammered flat and hard, printed here and there with the tracks of things that crossed it once.",
+  "exits": {
+    "east": "zone_district_896_943",
+    "north": "zone_district_895_942",
+    "south": "zone_district_895_944",
+    "west": "zone_district_894_943"
+  },
+  "flags": {
+    "district": "wilds",
+    "district_id": "district_coldwater",
+    "planner": "bp_district",
+    "radiation": 39,
+    "terrain": "redrock"
+  },
+  "grid_x": 895,
+  "grid_y": 943,
+  "grid_z": 0,
+  "id": "zone_district_895_943",
+  "map_id": "map_world",
+  "marker": null,
+  "name": "Red Hardpan",
+  "parent_zone": null,
+  "updated_at": "1784700000"
+}

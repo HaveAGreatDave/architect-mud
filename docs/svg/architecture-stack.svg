@@ -1,0 +1,230 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1320 1500" role="img" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, monospace">
+  <title>Architecture — Architect MUD full stack</title>
+  <desc>Dense layered diagram of the Architect MUD stack: vanilla-JS clients over a raw WebSocket to a Node.js server (dispatch pipeline, ~88 plugins, engine modules, cross-cutting registries) backed by PostgreSQL, with content shipped from git through the CODEX pipeline.</desc>
+
+  <style>
+    :root{
+      --bg:#080b12; --grid:#0e1420; --panel:#111826; --panel2:#0c1120; --box:#0d1322;
+      --border:#1e2b42; --border2:#26374f;
+      --text:#cdd7e8; --dim:#7488a4; --faint:#556377;
+      --cyan:#22d3ee; --mag:#ff3caf; --green:#54e6a0; --amber:#f0b64a; --violet:#a888ff;
+      --wire:#334a63;
+    }
+    text{ fill:var(--text); }
+    .title{ font-size:46px; font-weight:800; letter-spacing:1px; }
+    .sub{ font-size:12.5px; fill:var(--dim); letter-spacing:.4px; }
+    .lyr{ font-size:12px; font-weight:700; letter-spacing:3px; }
+    .h{ font-size:15px; font-weight:700; }
+    .bt{ font-size:13.5px; font-weight:700; }
+    .tx{ font-size:11.5px; }
+    .sm{ font-size:10.5px; fill:var(--dim); }
+    .xs{ font-size:9.7px; fill:var(--faint); }
+    .dim{ fill:var(--dim); }
+    .cyan{ fill:var(--cyan); } .mag{ fill:var(--mag); } .green{ fill:var(--green); }
+    .amber{ fill:var(--amber); } .violet{ fill:var(--violet); }
+    .panel{ fill:var(--panel); stroke:var(--border); stroke-width:1; }
+    .box{ fill:var(--box); stroke:var(--border); stroke-width:1; }
+    .pill{ fill:var(--panel2); stroke:var(--border2); stroke-width:1; }
+  </style>
+
+  <defs>
+    <marker id="arw" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="var(--wire)"/>
+    </marker>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="4" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <linearGradient id="cyanline" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#22d3ee" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#22d3ee" stop-opacity="0.7"/>
+      <stop offset="1" stop-color="#ff3caf" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="0" y="0" width="1320" height="1500" fill="var(--bg)"/>
+  <!-- faint scanline grid -->
+  <g stroke="var(--grid)" stroke-width="1">
+    <line x1="0" y1="375"  x2="1320" y2="375"/>
+    <line x1="0" y1="750"  x2="1320" y2="750"/>
+    <line x1="0" y1="1125" x2="1320" y2="1125"/>
+  </g>
+
+  <!-- ── Title ─────────────────────────────────────────────── -->
+  <text x="660" y="66" text-anchor="middle" class="title" filter="url(#glow)"><tspan class="cyan">Architect</tspan><tspan class="mag">ure</tspan></text>
+  <text x="660" y="94" text-anchor="middle" class="sub">post-singularity browser MUD · Node.js + raw WebSockets + PostgreSQL · no build step · no ORM · no framework</text>
+  <rect x="360" y="106" width="600" height="2" fill="url(#cyanline)"/>
+
+  <!-- ── 1. CLIENTS ────────────────────────────────────────── -->
+  <text x="40" y="146" class="lyr cyan">1 · CLIENTS</text>
+  <text x="188" y="146" class="sm">vanilla JS — one HTML/JS file per client + a sibling styles.css · no framework</text>
+
+  <rect class="box" x="40"  y="160" width="300" height="118" rx="5"/>
+  <text x="58" y="186" class="bt cyan">Game Client</text>
+  <text x="58" y="205" class="sm">client/game/ · index.html · js/</text>
+  <text x="58" y="226" class="tx">rooms · combat · inventory · shop</text>
+  <text x="58" y="245" class="tx">3D flight cockpit · helm chase-cam</text>
+  <text x="58" y="264" class="xs">smartbar macros · minimap · sidebar panels</text>
+
+  <rect class="box" x="356" y="160" width="300" height="118" rx="5"/>
+  <text x="374" y="186" class="bt cyan">Tablet (in-game)</text>
+  <text x="374" y="205" class="sm">apps launched from the game client</text>
+  <text x="374" y="226" class="tx">Map · Gear · Bank · Chat · News</text>
+  <text x="374" y="245" class="tx">Crafting · SPECTER · Arcade · Calendar</text>
+  <text x="374" y="264" class="xs">consolidating the old standalone panels</text>
+
+  <rect class="box" x="672" y="160" width="300" height="118" rx="5"/>
+  <text x="690" y="186" class="bt cyan">Dev Panel</text>
+  <text x="690" y="205" class="sm">client/devpanel/ · REST for editing</text>
+  <text x="690" y="226" class="tx">world · content · Maps/Terrain painter</text>
+  <text x="690" y="245" class="tx">VINE editors: AI · dialogue · broadcast</text>
+  <text x="690" y="264" class="xs">Power Tools · DB backup · Dev Log</text>
+
+  <rect class="box" x="988" y="160" width="292" height="118" rx="5"/>
+  <text x="1006" y="186" class="bt cyan">TV / Flightsim</text>
+  <text x="1006" y="205" class="sm">in-page popups + standalone sim</text>
+  <text x="1006" y="226" class="tx">TV: channels · ticker · camera feeds</text>
+  <text x="1006" y="245" class="tx">flightsim.html — real map, baked json</text>
+  <text x="1006" y="264" class="xs">read-aloud formant voice · gameday</text>
+
+  <line x1="660" y1="278" x2="660" y2="306" stroke="var(--wire)" stroke-width="1.5" marker-end="url(#arw)"/>
+
+  <!-- ── 2. WEBSOCKET SEAM ─────────────────────────────────── -->
+  <rect class="panel" x="40" y="310" width="1240" height="96" rx="6"/>
+  <text x="60" y="338" class="h"><tspan class="mag">2 · RAW WEBSOCKET</tspan> <tspan class="dim">— no REST for gameplay (the dev panel uses REST only for content editing)</tspan></text>
+  <text x="60" y="364" class="tx"><tspan class="green">client → server</tspan>&#160;&#160; auth · command · dialogue · buy_npc · sell_npc · trade · tune · watch · tv_schedule · specter</text>
+  <text x="60" y="386" class="tx"><tspan class="cyan">server → client</tspan>&#160;&#160; zone_event · dialogue_shop · broadcast · combat_incoming · player_update · flight_state · panel_update</text>
+
+  <line x1="660" y1="406" x2="660" y2="424" stroke="var(--wire)" stroke-width="1.5" marker-end="url(#arw)"/>
+
+  <!-- ── 3. SERVER ─────────────────────────────────────────── -->
+  <rect class="panel" x="40" y="428" width="1240" height="740" rx="6"/>
+  <text x="60" y="456" class="h"><tspan class="mag">3 · SERVER</tspan> <tspan class="dim">— Node.js (server/) · in-memory world Maps are the hot-path read tier; every query() is a remote round trip</tspan></text>
+
+  <!-- entry strip -->
+  <rect class="box" x="64" y="468" width="1192" height="38" rx="4"/>
+  <text x="80" y="492" class="tx">server/index.js — WebSocket auth + message routing <tspan class="dim">· boot sequence loads world into memory, wires plugins, registers scheduler ticks (no boot migrations)</tspan></text>
+
+  <!-- dispatch box -->
+  <rect class="box" x="64" y="518" width="360" height="286" rx="4"/>
+  <text x="80" y="544" class="bt amber">Command Dispatch</text>
+  <text x="80" y="561" class="sm">commands/index.js · handleCommand</text>
+  <text x="80" y="590" class="tx"><tspan class="dim">1</tspan>&#160; SIFT / FATE target resolution</text>
+  <text x="80" y="618" class="tx"><tspan class="dim">2</tspan>&#160; fireCommand → <tspan class="cyan">PLUGINS</tspan>&#160;&#160;<tspan class="mag">◀ first</tspan></text>
+  <text x="80" y="646" class="tx"><tspan class="dim">3</tspan>&#160; fireSpecializedAction <tspan class="dim">(tag-gated)</tspan></text>
+  <text x="80" y="674" class="tx"><tspan class="dim">4</tspan>&#160; use pre-intercept</text>
+  <text x="80" y="702" class="tx"><tspan class="dim">5</tspan>&#160; builtins → <tspan class="green">ENGINE</tspan>&#160;&#160;<tspan class="dim">◀ last</tspan></text>
+  <text x="80" y="732" class="sm">plugin verbs shadow engine builtins;</text>
+  <text x="80" y="748" class="sm">a verb in a plugin.json wins the name</text>
+  <text x="80" y="778" class="xs">move gates · posture · command aliases</text>
+
+  <!-- plugins box -->
+  <rect class="box" x="440" y="518" width="816" height="286" rx="4"/>
+  <text x="456" y="544" class="bt cyan">/plugins/ <tspan class="dim">— ~88 systems · registered commands win over engine builtins · own state · hooks · scheduler ticks</tspan></text>
+
+  <text x="456" y="570" class="xs violet">WORLD / MOVE</text>
+  <text x="456" y="586" class="tx">doors · elevator · gps · knock · lighting · generator · container · fillable · pacing · flashlight</text>
+
+  <text x="456" y="610" class="xs violet">SURVIVAL / BODY</text>
+  <text x="456" y="626" class="tx">food · water · consume · drugs · intoxication · mutations · weather · smoking · cannabis · rolling · synthesis · amp · bodily</text>
+
+  <text x="456" y="650" class="xs violet">COMBAT / CRIME</text>
+  <text x="456" y="666" class="tx">weapon · deaths · jail · burglary · thievery · shove · pinch · surveillance · smuggle · dealing · dealer · drugwar</text>
+
+  <text x="456" y="690" class="xs violet">ECONOMY / WORK</text>
+  <text x="456" y="706" class="tx">commerce · economy-ledger · vendor-safe · pay · trade · insurance · jobboard · quests · mining · butchering · fishing · scavenging · crafting · vending · cosmetic-machine</text>
+
+  <text x="456" y="730" class="xs violet">SOCIAL / NPC / FACTION</text>
+  <text x="456" y="746" class="tx">bartender · consort · strippers · gossip · ambient-life · district-ambience · ideologies · corps · govgate · emergency · mis · lore · bulletin · interactions · prologue · vale-apology</text>
+
+  <text x="456" y="770" class="xs violet">FLIGHT · MEDIA · PLAY · INFRA</text>
+  <text x="456" y="786" class="tx">flight · yacht · aa-sites · broadcast · audio · posters · fireworks · slots · gametable · sportsbet · sportsleague · tablet · augments · clothing-wetness · trip · weightbench · idle-logoff · debug · dev-tools · zone-validator</text>
+
+  <!-- engine box -->
+  <rect class="box" x="440" y="818" width="816" height="164" rx="4"/>
+  <text x="456" y="844" class="bt green">Engine <tspan class="dim">— server/engine/ · substrates · laws · reactions · the loops that read plugin-set state</tspan></text>
+  <text x="456" y="868" class="tx">world · combat · movement · exits · pathfinding · inventory · economy · vendor · vendor-session · vendor-reactions</text>
+  <text x="456" y="888" class="tx">ai-behaviour · graph · dialogue · npc-personality · npc-banter · npc-sex · phantoms · sift · specializedActions · actions · events</text>
+  <text x="456" y="908" class="tx">environment · danger · crimes · protection · locks · mutations · drugs · bodily · skills · statmods · ip · appearance</text>
+  <text x="456" y="928" class="tx">tags · supertags · zone-tags · flags · furniture · furniture-shop · panels · sounds · channels · broadcast-bridge · motd</text>
+  <text x="456" y="948" class="tx">gameLoop · scheduler · gametime · districts · apartments · ideologies · org-perms · messaging · text · tunables · mapValidation</text>
+  <text x="456" y="968" class="sm">loops · combat · movement read plugin-set state (posture · shop session · flight state · weather severity)</text>
+
+  <!-- dispatch → plugins / engine arrows -->
+  <line x1="424" y1="586" x2="438" y2="586" stroke="var(--wire)" stroke-width="1.5" marker-end="url(#arw)"/>
+  <line x1="424" y1="868" x2="438" y2="868" stroke="var(--wire)" stroke-width="1.5" marker-end="url(#arw)"/>
+  <line x1="244" y1="506" x2="244" y2="516" stroke="var(--wire)" stroke-width="1.5" marker-end="url(#arw)"/>
+
+  <!-- cross-cutting registries -->
+  <rect class="box" x="64" y="996" width="1192" height="150" rx="4"/>
+  <text x="80" y="1018" class="sm">cross-cutting registries — string-keyed seams (a typo'd key = a silent dead link; this is the bug class the source-of-truth audit hunts)</text>
+  <g>
+    <rect class="pill" x="80"   y="1030" width="222" height="48" rx="4"/>
+    <text x="94" y="1051" class="tx amber">Action Registry</text>
+    <text x="94" y="1068" class="sm">registerAction · dispatchAction</text>
+
+    <rect class="pill" x="316"  y="1030" width="222" height="48" rx="4"/>
+    <text x="330" y="1051" class="tx amber">Event Bus</text>
+    <text x="330" y="1068" class="sm">on · emit</text>
+
+    <rect class="pill" x="552"  y="1030" width="222" height="48" rx="4"/>
+    <text x="566" y="1051" class="tx amber">Flag Store</text>
+    <text x="566" y="1068" class="sm">getFlag · setFlag · evalConditions</text>
+
+    <rect class="pill" x="788"  y="1030" width="222" height="48" rx="4"/>
+    <text x="802" y="1051" class="tx amber">VINE Runner</text>
+    <text x="802" y="1068" class="sm">runGraph (behaviour · dialogue)</text>
+
+    <rect class="pill" x="1024" y="1030" width="216" height="48" rx="4"/>
+    <text x="1038" y="1051" class="tx amber">Scheduler</text>
+    <text x="1038" y="1068" class="sm">idle-gated tick cadences</text>
+
+    <rect class="pill" x="80"   y="1088" width="288" height="46" rx="4"/>
+    <text x="94" y="1108" class="tx amber">SIFT / FATE</text>
+    <text x="94" y="1125" class="sm">ambiguous-target resolution</text>
+
+    <rect class="pill" x="382"  y="1088" width="288" height="46" rx="4"/>
+    <text x="396" y="1108" class="tx amber">Tag → Action</text>
+    <text x="396" y="1125" class="sm">tags · supertags · specialized actions</text>
+
+    <rect class="pill" x="684"  y="1088" width="288" height="46" rx="4"/>
+    <text x="698" y="1108" class="tx amber">Skills / Stats / IP</text>
+    <text x="698" y="1125" class="sm">2D-roll checks · stat-raising</text>
+
+    <rect class="pill" x="986"  y="1088" width="254" height="46" rx="4"/>
+    <text x="1000" y="1108" class="tx amber">Read / Write tiers</text>
+    <text x="1000" y="1125" class="sm">Maps · cache · query() gate</text>
+  </g>
+
+  <line x1="660" y1="1168" x2="660" y2="1190" stroke="var(--wire)" stroke-width="1.5" marker-end="url(#arw)"/>
+
+  <!-- ── 4. DATA ───────────────────────────────────────────── -->
+  <rect class="panel" x="40" y="1194" width="1240" height="242" rx="6"/>
+  <text x="60" y="1222" class="h"><tspan class="mag">4 · DATA</tspan> <tspan class="dim">— PostgreSQL (Supabase → Neon) · git is the source of truth for world content</tspan></text>
+
+  <rect class="box" x="64"  y="1234" width="388" height="90" rx="4"/>
+  <text x="80" y="1260" class="bt cyan">query() helper</text>
+  <text x="80" y="1279" class="sm">server/models/db.js</text>
+  <text x="80" y="1300" class="tx dim">the single DB path — no ORM, ever</text>
+  <text x="80" y="1317" class="xs">SSL by host · remote round trips only where a read tier allows</text>
+
+  <rect class="box" x="466" y="1234" width="388" height="90" rx="4"/>
+  <text x="482" y="1260" class="bt cyan">Schema</text>
+  <text x="482" y="1279" class="sm">schema.js · SCHEMA_SQL (idempotent DDL)</text>
+  <text x="482" y="1300" class="tx dim">apply local: npm run db:schema</text>
+  <text x="482" y="1317" class="xs">no boot migrations — schema managed deliberately</text>
+
+  <rect class="box" x="868" y="1234" width="388" height="90" rx="4"/>
+  <text x="884" y="1260" class="bt cyan">Content — CODEX pipeline</text>
+  <text x="884" y="1279" class="sm">content/*.json · one file per entity</text>
+  <text x="884" y="1300" class="tx dim">push to main = deploy (CI, backed-up, gated)</text>
+  <text x="884" y="1317" class="xs">zones · items · npcs · enemies · furniture · VINE graphs</text>
+
+  <!-- data flow strip -->
+  <rect class="box" x="64" y="1336" width="1192" height="52" rx="4"/>
+  <text x="80" y="1358" class="tx"><tspan class="green">git (content/)</tspan>&#160; → &#160;content:import&#160; → &#160;<tspan class="cyan">Postgres</tspan>&#160; → &#160;boot loads into&#160;<tspan class="amber">in-memory world Maps</tspan>&#160; → &#160;plugins/engine read the Maps on hot paths, query() only off the hot path</text>
+  <text x="80" y="1378" class="xs">CONTENT_READONLY gate on prod · dev-panel edits export back to git as surgical commits · never rewritten on boot</text>
+
+  <text x="660" y="1420" text-anchor="middle" class="sm">VINE behaviour/dialogue graphs are authored in the dev panel, stored as JSON in the DB, and executed by graph.js / ai-behaviour.js via the VINE Runner.</text>
+  <text x="660" y="1436" text-anchor="middle" class="xs">Full stack view · see architecture-boundary.svg for the engine / plugins / content source-of-truth split</text>
+</svg>

@@ -1,0 +1,16 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_aurelia_heels",
+  "name": "mag-lev stiletto heels",
+  "tags": {
+    "bulkiness": 1,
+    "description": "The heel doesn't touch the ground. A whisper of magnetic repulsion holds each shoe a hair off the floor, so you glide rather than clack, silent and slightly impossible. They cost more than most people's boots, coats, and rent combined, and they do nothing at all except this.",
+    "insulation": 0,
+    "layer": "outerwear",
+    "slot": "feet"
+  },
+  "type": "clothing",
+  "value": 900,
+  "weight": 400
+}

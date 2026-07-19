@@ -1,0 +1,24 @@
+{
+  "door_type": "standard",
+  "exit_dir": "north",
+  "flags": {},
+  "hp": 400,
+  "hp_max": 400,
+  "id": "door_voltage_vip",
+  "is_locked": 1,
+  "is_open": 0,
+  "lock_state": "locked",
+  "name": "the velvet rope",
+  "tags": {
+    "lock:keycardlock": {
+      "keyItemId": "item_voltage_vip_band",
+      "messages": {
+        "denied": "The doorman's hand finds your chest without hurry. \"Band or booth, friend. No band, no stairs.\" The rope does not move.",
+        "lock": "The doorman unclips the rope from the far post and lets it fall across the stair.",
+        "unlock": "The reader on the post glows a soft gold at your wristband and the doorman steps aside. \"Upstairs. Enjoy.\""
+      }
+    }
+  },
+  "target_zone": "zone_voltage_vip",
+  "zone_id": "zone_voltage_floor"
+}

@@ -7,14 +7,15 @@
   "created_by": "wildlands",
   "description": "Open killing ground. Shell-craters pock the red rock, some still glassy at the rim. A scorched ribcage — too big to name — arches out of the stone where something died mid-charge. The wall's guns have a clean line all the way to here.",
   "exits": {
+    "east": "zone_district_919_921",
     "north": "zone_district_918_920",
     "south": "zone_district_918_922",
-    "west": "zone_district_917_921",
-    "east": "zone_district_919_921"
+    "west": "zone_district_917_921"
   },
   "flags": {
     "danger": "high",
     "district": "wilds",
+    "district_id": "district_coldwater",
     "glacis": true,
     "planner": "bp_district",
     "terrain": "redrock"

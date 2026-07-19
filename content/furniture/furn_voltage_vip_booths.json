@@ -1,0 +1,16 @@
+{
+  "description": "Deep half-moons of oxblood leather curved around low black tables, each in its own pool of warm light, each angled so its occupants can see the floor churning silently through the glass beneath. SIT and the leather takes your weight like it's been expecting you all night.",
+  "flags": {
+    "interactions": ["sit"]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_voltage_vip_booths",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "oxblood VIP booths",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_voltage_vip"
+}

@@ -1,0 +1,33 @@
+{
+  "ambient_events": [
+    "The bass drops a whole step and the floor answers — a hundred people finding the same pulse at once.",
+    "A sheet of blue laser fans out over the crowd, freezing everyone mid-motion for a strobe-lit instant.",
+    "The DJ rides a filter up and up until the room is holding its breath, then lets it break.",
+    "Someone's drink catches the light — a cold blue star travelling through the dark toward the floor.",
+    "The haze machine breathes out and the beams overhead turn solid, sweeping like searchlights.",
+    "A cheer goes up near the booth for a drop only the front row saw coming.",
+    "The whole ceiling pulses once, hard, in time — white, then black, then white."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#0b0a16",
+  "color": "#7fe8ff",
+  "created_by": null,
+  "description": "Voltage is a black box built around a beat. The dancefloor is sunk two steps into the middle of the room, lit from beneath through a lattice of blue-white cells that pulse with the music; above it, a rig of moving beams paints the haze in slow sweeps. The bar runs the length of the far wall in a single unbroken ribbon of backlit ice, the DJ booth raised on a plinth to one side like an altar. Off to the north, past a velvet rope and a doorman who has already decided about you, a stair climbs to somewhere quieter and much more expensive.",
+  "exits": {
+    "north": "zone_voltage_vip",
+    "west": "zone_district_895_908"
+  },
+  "flags": {
+    "is_interior": true
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_voltage_floor",
+  "map_id": "map_int_voltage",
+  "marker": null,
+  "name": "Voltage — Main Floor",
+  "parent_zone": "zone_district_895_908",
+  "updated_at": "1784332800"
+}

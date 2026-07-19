@@ -1,0 +1,31 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "wasteland",
+  "audio_theme_id": null,
+  "bg_color": "#2a1c16",
+  "color": "#b5744a",
+  "created_by": "wildlands-expand",
+  "description": "Broken mesa shelves step away in ochre and iron-red, cut by dry washes where the wind funnels grit against your teeth.",
+  "exits": {
+    "east": "zone_district_928_929",
+    "north": "zone_district_927_928",
+    "south": "zone_district_927_930",
+    "west": "zone_district_926_929"
+  },
+  "flags": {
+    "district": "wilds",
+    "district_id": "district_coldwater",
+    "planner": "bp_district",
+    "radiation": 31,
+    "terrain": "redrock"
+  },
+  "grid_x": 927,
+  "grid_y": 929,
+  "grid_z": 0,
+  "id": "zone_district_927_929",
+  "map_id": "map_world",
+  "marker": null,
+  "name": "Oxide Barrens",
+  "parent_zone": null,
+  "updated_at": "1784700000"
+}

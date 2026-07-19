@@ -16,6 +16,7 @@
     "building_name": "Airfreight Forwarding",
     "building_type": "freight_forwarder",
     "district": "yards",
+    "district_id": "district_coldwater",
     "facade": true,
     "is_building": true,
     "planner": "bp_district",

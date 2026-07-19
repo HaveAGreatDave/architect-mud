@@ -1,0 +1,30 @@
+{
+  "ambient_events": [
+    "Down through the glass floor the dancefloor churns, silent up here behind the soundproofing — a storm in a jar.",
+    "A bottle arrives at a neighbouring booth trailing a live sparkler and a woman carrying it like a torch.",
+    "The private feed on the wall cuts to a slow overhead shot of the floor below, then to your own booth, then away.",
+    "Someone laughs behind frosted glass, the sound expensive and unhurried.",
+    "The lighting warms half a degree, the way a room does when it's decided you belong in it."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#141020",
+  "color": "#ffd9a8",
+  "created_by": null,
+  "description": "The VIP mezzanine hangs over the floor behind a wall of soundproof glass, so the storm below plays out in total silence beneath your feet. The booths are deep half-moons of oxblood leather around low tables, each with its own bottle service and its own pool of warm, private light. Up here the bass is a suggestion you feel through the floor rather than hear, and the only people who make it past the rope are the ones who could buy the rope. A discreet bar tends the far corner, stocked with things that never see the main-floor menu.",
+  "exits": {
+    "south": "zone_voltage_floor"
+  },
+  "flags": {
+    "is_interior": true
+  },
+  "grid_x": 0,
+  "grid_y": 1,
+  "grid_z": 0,
+  "id": "zone_voltage_vip",
+  "map_id": "map_int_voltage",
+  "marker": null,
+  "name": "Voltage — VIP Mezzanine",
+  "parent_zone": "zone_district_895_908",
+  "updated_at": "1784332800"
+}

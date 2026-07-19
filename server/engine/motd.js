@@ -40,7 +40,6 @@ export const DEFAULT_BIG = `Connected: <date> as <player name>
 ║                                                                                                    ║
 ║  Need more help?                                                                                   ║
 ║  - type "help" for full command reference                                                          ║
-║  - speak to Angus in the Coldwater Clone Facility for guided tutorial assistance                   ║
 ║                                                                                                    ║
 ║ ╠══════════════════════════════════════════════════════════════════════════════════════════════╣ ║
 ║  RECENT NEWS:                                                                                      ║
@@ -87,7 +86,6 @@ export const DEFAULT_MEDIUM = `Connected: <date> as <player name>
 ║                                               ║
 ║  Need more help?                              ║
 ║  - type "help" for full reference             ║
-║  - speak to Angus in Clone Facility           ║
 ║                                               ║
 ║                                               ║
 ║  TIP:                                         ║

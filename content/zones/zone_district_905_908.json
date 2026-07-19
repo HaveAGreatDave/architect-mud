@@ -14,6 +14,7 @@
     "building_name": "Ampersand Electronics",
     "building_type": "shop",
     "district": "wasteland",
+    "district_id": "district_coldwater",
     "facade": true,
     "is_building": true,
     "planner": "bp_district",

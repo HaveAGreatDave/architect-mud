@@ -259,6 +259,16 @@ const PANELS = {
     render: renderMapsPanel,
     noEdit: true,
   },
+  world: {
+    title: 'World Editor',
+    description: 'Every district on the global grid. Create a new district (size + base terrain), jump into one to edit its tiles, or drag to reposition it. Changes are staged.',
+    fetch: async () => {
+      const [d, m] = await Promise.all([API('/maps/districts'), API('/maps/map_world')]);
+      return { districts: d?.districts || [], zones: m?.zones || [] };
+    },
+    noEdit: true,
+    render: renderWorldEditor,
+  },
   power: {
     title: 'Power Grid',
     description: 'Manage city power infrastructure and zone power dependencies.',

@@ -1,0 +1,14 @@
+{
+  "description": "A dancefloor sunk two steps into the middle of the room, its surface a lattice of blue-white cells lit from underneath that pulse and chase in time with the music. Step down onto it and the whole grid answers your weight with light. There is only one correct thing to do here, and the room will forgive you if you're bad at it.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_voltage_dancefloor",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "sunken dancefloor",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_voltage_floor"
+}

@@ -20,6 +20,7 @@ import { isEmailVerificationEnabled, setEmailVerificationEnabled } from '../engi
 import { randomAppearance } from '../engine/appearance.js';
 import { DEFAULT_CHITCHAT_LINES, isVendorWorkTime } from '../engine/ai-behaviour.js';
 import { npcTypeForPersonality, listPersonalityMeta, pickClothingForPersonality } from '../engine/npc-personality.js';
+import { vendorSafeRow, vendorHasSafe } from '../engine/vendor-safe-furniture.js';
 import { decideSex } from '../engine/npc-sex.js';
 import { loadBanterLibrary } from '../engine/npc-banter.js';
 import { OPPOSITE } from '../engine/directions.js';
@@ -261,6 +262,9 @@ async function dispatchApiRequest(url, method, body, headers) {
   if (path==='/maps' && method==='GET') return requireDev(auth, apiGetMaps);
   if (path==='/maps/link-interior' && method==='POST') return requireDev(auth, ()=>apiLinkInterior(body, auth));
   if (path==='/maps/move-building' && method==='POST') return requireDev(auth, ()=>apiMoveBuilding(body));
+  if (path==='/maps/generate-district' && method==='POST') return requireDev(auth, ()=>apiGenerateDistrict(body, auth));
+  if (path==='/maps/move-district' && method==='POST') return requireDev(auth, ()=>apiMoveDistrict(body));
+  if (path==='/maps/districts' && method==='GET') return requireDev(auth, apiGetSpatialDistricts);
   if (path==='/maps/flight-snapshot' && method==='POST') return requireDev(auth, ()=>apiFlightSnapshot());
   if (path.startsWith('/maps/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteMap(path.split('/')[2]));
   if (path.startsWith('/maps/') && method==='GET') return requireDev(auth, ()=>apiGetMap(path.split('/')[2]));
@@ -993,6 +997,135 @@ async function apiMoveBuilding(body) {
   return { status: 200, body: { plan, changes } };
 }
 
+// ── Spatial districts (dev-panel World Editor) ───────────────────────────────
+// A district here is a named rectangle of the map_world grid; member zones carry
+// flags.district_id. This is DISTINCT from the land-use DISTRICTS registry above
+// (apiGetDistricts / engine/districts.js), which is inferred from zone-id prefix.
+// Like apiMoveBuilding, the generate/move planners never mutate — they return a
+// payload the dev panel stages (published atomically as one grouped change).
+
+const DISTRICT_MAX_TILES = 400; // one publish = this many zone INSERTs; keep the first cut sane
+
+// districts.id → a short slug for member zone ids (zone_<slug>_<x>_<y>). The slug
+// is unique per district, so ids never collide with a second district generated
+// at the same coords after this one is moved away.
+function districtSlug(id) {
+  return String(id).replace(/^district_/, '').replace(/[^a-z0-9]+/gi, '_').toLowerCase() || 'district';
+}
+
+async function apiGetSpatialDistricts() {
+  const { rows } = await query('SELECT * FROM districts ORDER BY name');
+  return { status: 200, body: { districts: rows } };
+}
+
+// Add a districts row (used by the staging publisher). Idempotent.
+export async function apiCreateDistrict(row) {
+  const { id, name, base_terrain = null, grid_z = 0, created_by = null } = row || {};
+  if (!id || !name) return { status: 400, body: { error: 'district id and name are required.' } };
+  try {
+    await query(
+      `INSERT INTO districts (id, name, base_terrain, grid_z, created_by, updated_at)
+       VALUES ($1,$2,$3,$4,$5,EXTRACT(EPOCH FROM NOW())) ON CONFLICT (id) DO NOTHING`,
+      [id, name, base_terrain, grid_z, created_by]);
+    return { status: 201, body: { id } };
+  } catch (e) { return { status: 400, body: { error: e.message } }; }
+}
+
+// Plan a blank district: a width×height rectangle of walkable terrain tiles with
+// reciprocal N/S/E/W exits (the canonical zone-planner ORTHO pattern). Returns
+// { district, zones } for staging; never writes. Overlap-checked against every
+// placed tile on the target floor (covers other districts + the legacy cluster).
+export async function apiGenerateDistrict(body, auth) {
+  let { name, width, height, terrain, originX, originY, gridZ = 0 } = body || {};
+  name = (name || '').trim();
+  width = Math.floor(Number(width)); height = Math.floor(Number(height));
+  originX = Math.floor(Number(originX)); originY = Math.floor(Number(originY)); gridZ = Math.floor(Number(gridZ)) || 0;
+  if (!name) return { status: 400, body: { error: 'A district name is required.' } };
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width < 1 || height < 1)
+    return { status: 400, body: { error: 'width and height must be positive integers.' } };
+  if (!Number.isFinite(originX) || !Number.isFinite(originY))
+    return { status: 400, body: { error: 'originX and originY are required.' } };
+  if (width * height > DISTRICT_MAX_TILES)
+    return { status: 400, body: { error: `That's ${width * height} tiles — the limit is ${DISTRICT_MAX_TILES} per district. Make it smaller or build in passes.` } };
+  // Validate terrain against the shared tag catalog (reuses zone-flag validation,
+  // so the enum can never drift from what a tile is allowed to carry).
+  const terrErr = zoneFlagsError({ terrain });
+  if (terrErr) return { status: 400, body: { error: `Base terrain "${terrain}" is invalid — ${terrErr}` } };
+
+  // Unique district id from the name.
+  const base = 'district_' + districtSlug(name);
+  const { rows: existing } = await query('SELECT id FROM districts');
+  const taken = new Set(existing.map(r => r.id));
+  let districtId = base, n = 2;
+  while (taken.has(districtId)) districtId = `${base}_${n++}`;
+  const slug = districtSlug(districtId);
+
+  // Overlap check.
+  const occupied = new Set();
+  for (const t of getAllZones())
+    if (t.map_id === 'map_world' && t.grid_x != null && (t.grid_z ?? 0) === gridZ)
+      occupied.add(`${t.grid_x},${t.grid_y}`);
+  for (let dy = 0; dy < height; dy++) for (let dx = 0; dx < width; dx++) {
+    if (occupied.has(`${originX + dx},${originY + dy}`))
+      return { status: 400, body: { error: `That rectangle overlaps existing tiles (at ${originX + dx},${originY + dy}). Move it to open grid.` } };
+  }
+
+  const ORTHO = [['north', 0, -1], ['south', 0, 1], ['east', 1, 0], ['west', -1, 0]];
+  const zid = (x, y) => `zone_${slug}_${x}_${y}`;
+  const inRect = (x, y) => x >= originX && x < originX + width && y >= originY && y < originY + height;
+  const zones = [];
+  for (let dy = 0; dy < height; dy++) for (let dx = 0; dx < width; dx++) {
+    const x = originX + dx, y = originY + dy;
+    const exits = {};
+    for (const [dir, ex, ey] of ORTHO) if (inRect(x + ex, y + ey)) exits[dir] = zid(x + ex, y + ey);
+    zones.push({
+      id: zid(x, y),
+      name: `${name} ${x},${y}`,
+      description: 'A raw, undeveloped stretch of ground. [PLANNER STUB]',
+      exits,
+      ambient_theme: 'outdoors',
+      map_id: 'map_world',
+      grid_x: x, grid_y: y, grid_z: gridZ,
+      flags: { terrain, district_id: districtId, planner: 'world_editor' },
+    });
+  }
+  const district = {
+    id: districtId, name, base_terrain: terrain, grid_z: gridZ,
+    created_by: auth?.playerId || 'world-editor',
+  };
+  return { status: 200, body: { district, zones } };
+}
+
+// Plan a whole-district reposition: shift every member zone's grid_x/grid_y by
+// (dx, dy). Ids and exits are untouched (exits are id-based), so connectivity is
+// preserved — only coordinates move. Overlap-checked against non-member tiles.
+export async function apiMoveDistrict(body) {
+  let { districtId, dx, dy } = body || {};
+  dx = Math.floor(Number(dx)); dy = Math.floor(Number(dy));
+  if (!districtId) return { status: 400, body: { error: 'districtId is required.' } };
+  if (!Number.isFinite(dx) || !Number.isFinite(dy)) return { status: 400, body: { error: 'dx and dy are required.' } };
+  if (dx === 0 && dy === 0) return { status: 400, body: { error: 'That district is already there.' } };
+
+  const members = getAllZones().filter(t => t.flags?.district_id === districtId && t.grid_x != null);
+  if (!members.length) return { status: 404, body: { error: `District "${districtId}" has no placed zones.` } };
+
+  // Occupied cells that DON'T belong to this district, per floor.
+  const memberIds = new Set(members.map(t => t.id));
+  const occupied = new Set();
+  for (const t of getAllZones())
+    if (t.map_id === 'map_world' && t.grid_x != null && !memberIds.has(t.id))
+      occupied.add(`${t.grid_z ?? 0}:${t.grid_x},${t.grid_y}`);
+
+  const changes = [];
+  for (const t of members) {
+    const nx = t.grid_x + dx, ny = t.grid_y + dy, z = t.grid_z ?? 0;
+    if (occupied.has(`${z}:${nx},${ny}`))
+      return { status: 400, body: { error: `Move blocked — a tile would land on an occupied cell (${nx},${ny}). Pick a clearer spot.` } };
+    changes.push({ id: t.id, name: t.name || t.id, patch: { grid_x: nx, grid_y: ny } });
+  }
+  return { status: 200, body: { districtId, dx, dy, count: changes.length, changes } };
+}
+
 // Given a placed building root zone at 0,0,0, traverse the exit chain in
 // hallwayDir to order hallways, then place each hallway's children (units)
 // at the exit-direction offset from the hallway cell.
@@ -1598,6 +1731,12 @@ export async function apiCreateNpc(body) {
         description: formatScheduleBoard(npcForBoard),
         flags: JSON.stringify({ vendor_schedule_board: true, vendor_npc_id: id }), object_type: 'decoration',
       }, 'ON CONFLICT (id) DO NOTHING');
+      // Every vendor gets a strongbox in their shop — sales pay into it, and the
+      // end-of-shift AI loop hauls the takings to an ATM (see vendor-safe-furniture.js).
+      await insertFurniture(
+        vendorSafeRow({ id, name: body.name, vendor_shop_name: body.vendor_shop_name||null }, body.work_zone_id),
+        'ON CONFLICT (id) DO NOTHING'
+      );
     }
     return {status:201,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
@@ -1633,6 +1772,16 @@ export async function apiUpdateNpc(id,body) {
           id: boardId, zone_id: body.work_zone_id, name: `${body.name}'s Schedule`,
           description: boardDesc, flags: boardFlags, object_type: 'decoration',
         }, 'ON CONFLICT (id) DO UPDATE SET zone_id=EXCLUDED.zone_id, name=EXCLUDED.name, description=EXCLUDED.description');
+        // Give a newly-promoted vendor a safe if they lack one (dedupe by
+        // vendor_npc_id so a hand-authored bespoke safe isn't doubled up). Existing
+        // safes are left where they are — a bolted-down strongbox doesn't follow a
+        // relocation the way the schedule board does.
+        if (!(await vendorHasSafe(id))) {
+          await insertFurniture(
+            vendorSafeRow({ id, name: body.name, vendor_shop_name: body.vendor_shop_name||null }, body.work_zone_id),
+            'ON CONFLICT (id) DO NOTHING'
+          );
+        }
       } else {
         await deleteFurniture(boardId);
       }

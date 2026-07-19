@@ -7,14 +7,15 @@
   "created_by": "wildlands",
   "description": "THE GLACIS. Past the gate the ground is scraped to bare, blast-fused red rock — a wide cleared apron with no cover for a hundred metres, sown with the slag of things that tried to cross it. Behind you the Curtain's turret masts sit high on the wall, barrels idling in your direction. Nothing grows here on purpose.",
   "exits": {
+    "east": "zone_district_919_920",
     "north": "zone_district_918_919",
     "south": "zone_district_918_921",
-    "west": "zone_district_917_920",
-    "east": "zone_district_919_920"
+    "west": "zone_district_917_920"
   },
   "flags": {
     "danger": "high",
     "district": "wilds",
+    "district_id": "district_coldwater",
     "glacis": true,
     "planner": "bp_district",
     "terrain": "scrub"

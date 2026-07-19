@@ -17,6 +17,7 @@
     "building_name": "Wharf Transfer Shed",
     "building_type": "wharf",
     "district": "yards",
+    "district_id": "district_coldwater",
     "facade": true,
     "is_building": true,
     "planner": "bp_district",

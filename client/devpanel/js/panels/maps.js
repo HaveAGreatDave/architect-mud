@@ -1525,11 +1525,26 @@ function renderMapOverview() {
   const o = mapOverview;
   const panel = document.getElementById('list-panel');
   const all = [...o.zones.values()];
-  // Scope the exterior editor to the new district (the bp_district planner grid). The
-  // world map still carries legacy zones parked near the origin (~900 tiles away), and
-  // spanning both clusters would blow the grid up to ~900×900 mostly-empty cells. When
-  // there's no district grid (e.g. an interior map), show everything as before.
-  const districtZones = all.filter(z => z.flags?.planner === 'bp_district' && z.grid_x != null);
+  // Scope the exterior editor to ONE district's grid. The world map carries multiple
+  // districts (plus legacy zones parked near the origin ~900 tiles away); spanning them
+  // would blow the grid up to a mostly-empty ~900×900. window.worldSelectedDistrictId
+  // (set by the World Editor's "Edit tiles" hand-off) picks the district; with no
+  // selection we default to the largest one. When there's no district grid at all
+  // (e.g. an interior map), show everything as before.
+  const districtedZones = all.filter(z => z.flags?.district_id && z.grid_x != null);
+  let districtZones = [];
+  if (districtedZones.length) {
+    const sel = window.worldSelectedDistrictId;
+    if (sel && districtedZones.some(z => z.flags.district_id === sel)) {
+      districtZones = districtedZones.filter(z => z.flags.district_id === sel);
+    } else {
+      // Default to the district with the most placed tiles.
+      const counts = new Map();
+      for (const z of districtedZones) counts.set(z.flags.district_id, (counts.get(z.flags.district_id) || 0) + 1);
+      const main = [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
+      districtZones = districtedZones.filter(z => z.flags.district_id === main);
+    }
+  }
   let dbbox = null;
   if (districtZones.length) {
     const dxs = districtZones.map(z => z.grid_x), dys = districtZones.map(z => z.grid_y);

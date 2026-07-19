@@ -15,6 +15,7 @@
     "building_name": "Ration Nine",
     "building_type": "diner",
     "district": "wasteland",
+    "district_id": "district_coldwater",
     "facade": true,
     "is_building": true,
     "planner": "bp_district",

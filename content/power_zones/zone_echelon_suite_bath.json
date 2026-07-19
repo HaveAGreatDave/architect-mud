@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 1000,
+  "flags": {},
+  "generator_id": "gen_zone_echelon_engine_jbox",
+  "id": "zone_echelon_suite_bath",
+  "max_capacity_kw": 1000,
+  "name": "Echelon — Owner's Head",
+  "source_type": "building_generator"
+}

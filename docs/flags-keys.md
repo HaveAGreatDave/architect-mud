@@ -80,6 +80,7 @@ is silently inert, so grep before renaming anything below.
 | `utility_room` | power | building utility room (junction box lives here) |
 | `water` | movement | water zone (needs a `boat`-tagged item) |
 | `world_exit_zone` | movement | exterior seam zone for this building |
+| `work_venue` | work | Steady Work shift venue: `{ role, wage, employer?, name? }`. XP-gated players `clock in` here (Meltwater Diner is the first) |
 
 ## npcs.flags
 

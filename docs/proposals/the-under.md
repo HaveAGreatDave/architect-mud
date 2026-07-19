@@ -86,6 +86,30 @@ Grady's dialogue gains the offer, the send-off pointing at the drain, and the `T
 plus a dialogue edit. No plugin. Ships through `content/*.json` + `content:import` and a push to
 `main` (CODEX); regress-gated.
 
+## Deeper questline — Dredge's chain (BUILT, uncommitted)
+
+The district-wide grid (commit `3477d80e`) already carries a **deep tier** — the
+`scav_deep` cluster (Throat → Rust Gallery → Machine Sump → Deep Trunk → Deep Reach,
+plus the Old Cistern dead-end) and deep enemies (gutter hound, bloated/rad mutant,
+drain snake) — but no quests pulled players there. That gap is now filled:
+
+- **Dredge** (`npc_dredge`, she/her) — a stationary scavenger camped in the safe
+  **Old Cistern** (`zone_under_cistern`), the deepest safe air, one step east of the
+  Throat. She's the Under's own quest hub, discovered by pushing past the beginner
+  pocket (Grady plants a breadcrumb after `grady_sewer_cleared`). Neutral, non-ideology.
+- **3-quest descent** (`category: "The Under"`), gated in sequence off reward flags:
+  1. **Deep Cuts** (`quest_under_deepcuts`, gate `grady_sewer_cleared`) — cull 3 deep
+     mutants (Rust Gallery) + 2 gutter hounds (Groaning Main). → sets `dredge_proven`.
+  2. **What the Cistern Keeps** (`quest_under_salvage`, gate `dredge_proven`) — retrieve
+     `item_under_relay` from the Deep Reach (auto-spawned). → sets `dredge_trusted`.
+  3. **The Thing That Doesn't Thin** (`quest_under_apex`, gate `dredge_trusted`) —
+     kill the **Midden** (`enemy_under_midden`, hp 55, kinetic-soak tank; fixed
+     `max_count 1` spawn in the Deep Reach), the capstone. → sets `under_deep_cleared`.
+
+Content-only (quests + 1 NPC + 1 enemy + 1 item + 1 spawn + a Grady dialogue edit +
+the diner work_venue flag). Lint/import/regress green. Future rungs hang off Dredge
+(she hints at "always more the water gives up") and the `under_deep_cleared` flag.
+
 ## Future overlays (not built)
 
 The same z-1 geometry is the substrate for later systems, layered on rather than replacing:

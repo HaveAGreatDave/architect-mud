@@ -1,0 +1,14 @@
+{
+  "description": "A mag-lev display plinth in the centre of the floor, its top surface hovering a finger's width off the column beneath. The liquid-chrome gown turns on it slowly under a single pin-spot, never quite completing a rotation before you stop watching it.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_aurelia_plinth",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "mag-lev display plinth",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_aurelia_floor"
+}

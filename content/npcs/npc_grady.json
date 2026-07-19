@@ -162,6 +162,15 @@
       "options": [],
       "text": "\"Mind the alley. And the sky. And the water. Actually — mind everything.\" He goes back to watching the doors."
     },
+    "deep_tip": {
+      "options": [
+        {
+          "label": "How deep are we talking?",
+          "next": "bye"
+        }
+      ],
+      "text": "\"More work? Down there, always.\" He doesn't look thrilled about it. \"You thinned the shallows. But the Under goes down a long way past where you were, and it gets meaner every level. Word is there's an old scavenger who's dug in about as deep as anyone can and lived — works a walled cistern off a crossroads they call the Throat, east and down. Dredge, they call her. She pays real credits for the ugly work she can't do herself anymore.\" He shrugs. \"Push past the pocket, keep that light charged, and go find her. Just don't go dark down there. You go dark, you stay.\""
+    },
     "lore": {
       "options": [
         {
@@ -281,6 +290,22 @@
           ],
           "label": "The Under's a little quieter now.",
           "next": "sewer_reported"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "grady_sewer_cleared",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "quest_under_deepcuts",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "label": "Is there more work down in the Under?",
+          "next": "deep_tip"
         },
         {
           "conditions": [

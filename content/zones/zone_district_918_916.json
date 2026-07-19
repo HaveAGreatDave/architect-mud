@@ -13,8 +13,11 @@
     "west": "zone_district_917_916"
   },
   "flags": {
-    "artery": ["The Gate Road"],
+    "artery": [
+      "The Gate Road"
+    ],
     "district": "residential",
+    "district_id": "district_coldwater",
     "planner": "bp_district",
     "terrain": "road"
   },

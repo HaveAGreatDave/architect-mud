@@ -672,7 +672,7 @@ function buildingsAt(zone) {
 // Uses the clean signals (airfield_name flag, building_type on adjacent buildings)
 // plus vendor NPCs and up/down stairs. Deliberately SPARSE: most tiles return null.
 // Priority is the "what matters most here" order. { icon, poi } | null.
-const POI_ICON = { aa: '⌖', airport: '✈', police: '★', power: '⚡', club: '♥', bar: '🍺', hotel: '🏨', vendor: '$', home: '⌂', stairs: '⇕' };
+const POI_ICON = { aa: '⌖', airport: '✈', police: '★', power: '⚡', club: '♥', nightclub: '🎶', bar: '🍺', hotel: '🏨', vendor: '$', home: '⌂', stairs: '⇕' };
 const POWER_RE = /coolant|turbine|reactor|powerplant/i;
 function buildingTypesAt(zone) {
   const types = new Set();
@@ -698,6 +698,7 @@ function mapPoi(zone) {
       allExits(zone).some(e => { const t = getZone(e.target); return t?.flags?.is_building && (POWER_RE.test(t.id || '') || POWER_RE.test(t.name || '')); }))
     return { icon: POI_ICON.power, poi: 'power' };
   if (bt.has('club')) return { icon: POI_ICON.club, poi: 'club' };
+  if (bt.has('nightclub')) return { icon: POI_ICON.nightclub, poi: 'nightclub' };
   // Bar vs hotel are split by whether the building houses people (hotel = lodging);
   // both outrank the generic vendor $ so a bar with a bartender-vendor still reads as a bar.
   if (bt.has('hotel')) return { icon: POI_ICON.hotel, poi: 'hotel' };

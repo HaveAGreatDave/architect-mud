@@ -86,6 +86,22 @@ export const SCHEMA_SQL = `
     updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
   );
 
+  -- Districts are a SPATIAL grouping of map_world zones — a named rectangle of
+  -- the global grid, authored via the dev-panel World Editor. Member zones carry
+  -- flags.district_id = districts.id; bounds are derived from those members'
+  -- bbox at read time (never stored), so moving a district — which rewrites its
+  -- zones' grid_x/grid_y — can never desync stored bounds.
+  -- NOTE: distinct from server/engine/districts.js, which is the land-use
+  -- *registry* inferred from zone-id prefix (sense of place). Different concept.
+  CREATE TABLE IF NOT EXISTS districts (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    base_terrain TEXT,
+    grid_z INTEGER DEFAULT 0,
+    created_by TEXT,
+    updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
+  );
+
   -- Grid coordinates + map membership for every zone. Additive: exits stay
   -- the source of truth for traversability (adjacency never implies a
   -- connection); these only position zones on a map for display/editing.

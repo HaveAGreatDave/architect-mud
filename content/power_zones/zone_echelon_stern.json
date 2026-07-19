@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 1000,
+  "flags": {},
+  "generator_id": "gen_zone_echelon_engine_jbox",
+  "id": "zone_echelon_stern",
+  "max_capacity_kw": 1000,
+  "name": "Echelon — Stern Lounge",
+  "source_type": "building_generator"
+}

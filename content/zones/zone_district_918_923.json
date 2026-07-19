@@ -7,13 +7,14 @@
   "created_by": "wildlands",
   "description": "The land past the glacis goes to rust. Cracked red hardpan runs flat to a shimmer of heat, dry-veined with old runoff that dried orange decades ago. Nothing moves, nothing grows — no reeds, no birds, just wind hissing over stone. A Geiger tick you can almost feel prickles across your skin. It looks dead. It isn't.",
   "exits": {
+    "east": "zone_district_919_923",
     "north": "zone_district_918_922",
     "south": "zone_district_918_924",
-    "west": "zone_district_917_923",
-    "east": "zone_district_919_923"
+    "west": "zone_district_917_923"
   },
   "flags": {
     "district": "wilds",
+    "district_id": "district_coldwater",
     "planner": "bp_district",
     "radiation": 28,
     "terrain": "redrock"

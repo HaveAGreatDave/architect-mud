@@ -1,0 +1,18 @@
+{
+  "description": "A grease-filmed cashbox wedged behind the register, its dial worn to a shine and one corner dented inward from an argument nobody won.",
+  "flags": {
+    "hack_difficulty": 5,
+    "vendor_npc_id": "npc_fishmonger",
+    "vendor_safe": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_safe_npc_fishmonger",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "Brack the Fishmonger's cashbox",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 600,
+  "zone_id": "zone_mq_grocery"
+}

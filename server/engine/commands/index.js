@@ -73,6 +73,18 @@ builtins.set('hack', () => ({ type: 'error', message: "There's nothing worth hac
 // are shadowed by plugin-registered verbs (dispatch order makes those dead).
 export function builtinCommandNames() { return [...builtins.keys()]; }
 
+// Nonsense the insane gate throws back instead of running a command. Kept here
+// beside the engine gate that uses them (like WAKE_MESSAGES below); the sanity
+// plugin owns the *state* (player.insane), the engine owns this substrate law.
+const INSANE_REFUSALS = [
+  'The word makes no sense the moment you think it. Your hands do something else entirely.',
+  "You reach for the action and it isn't there — just a wet, laughing hole where the thought was.",
+  'The letters of your own command melt and run together. Nothing happens.',
+  'Something screams the instant you try, and you forget what you were doing.',
+  "You try, but the room tilts and the intent slides off it like water. Nonsense. All of it.",
+  'Your body refuses to be told. It has other ideas now, and it will not share them.',
+];
+
 export async function handleCommand(input, player, broadcast) {
   let raw = input.trim();
   if (!raw) return null;
@@ -159,6 +171,14 @@ export async function handleCommand(input, player, broadcast) {
     const result = await handleCommand(input, player, broadcast);
     if (result) result.message = `You wake up.\n\n${result.message ?? ''}`.trimEnd();
     return result;
+  }
+
+  // Insane gate — sanity has bottomed out and deliberate action collapses into
+  // nonsense about half the time. Set by the sanity plugin, read here as a
+  // substrate law (mirrors the blackout gate above). `sleep`/`rest` always pass
+  // — sleep is the only way to climb sanity back out of the insane state.
+  if (player.insane && cmd !== 'sleep' && cmd !== 'rest' && Math.random() < 0.55) {
+    return { type: 'error', message: INSANE_REFUSALS[Math.floor(Math.random() * INSANE_REFUSALS.length)] };
   }
 
   // Multi-word verbs (engine and plugin) — first matching pattern wins.

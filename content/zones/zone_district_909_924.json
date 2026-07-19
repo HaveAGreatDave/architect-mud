@@ -7,13 +7,14 @@
   "created_by": "wildlands-fill",
   "description": "Low grey brush claws up through broken ground — brittle, half-dead stuff that shivers when there is no wind behind it.",
   "exits": {
+    "east": "zone_district_910_924",
     "north": "zone_district_909_923",
-    "west": "zone_district_908_924",
     "south": "zone_district_909_925",
-    "east": "zone_district_910_924"
+    "west": "zone_district_908_924"
   },
   "flags": {
     "district": "wilds",
+    "district_id": "district_coldwater",
     "planner": "bp_district",
     "radiation": 25,
     "terrain": "redrock"

@@ -7,13 +7,14 @@
   "created_by": "wildlands",
   "description": "THE FLESHERY. Gristle's tent, and it smells of iodine and copper. Racks of clean tools, a scrubbed slab, jars of things budding in cloudy fluid. Gristle keeps it all gentle and spotless, which is somehow worse. This is where the Quickening is done — south, at the pool.",
   "exits": {
-    "south": "zone_district_920_926",
-    "west": "zone_district_919_925",
+    "east": "zone_district_921_925",
     "north": "zone_district_920_924",
-    "east": "zone_district_921_925"
+    "south": "zone_district_920_926",
+    "west": "zone_district_919_925"
   },
   "flags": {
     "district": "wilds",
+    "district_id": "district_coldwater",
     "planner": "bp_district",
     "radiation": 20,
     "terrain": "scrub"

@@ -1,0 +1,31 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "wasteland",
+  "audio_theme_id": null,
+  "bg_color": "#2a1c16",
+  "color": "#b5744a",
+  "created_by": "wildlands-expand",
+  "description": "A vast rust-stained plain, hammered flat and hard, printed here and there with the tracks of things that crossed it once.",
+  "exits": {
+    "east": "zone_district_942_920",
+    "north": "zone_district_941_919",
+    "south": "zone_district_941_921",
+    "west": "zone_district_940_920"
+  },
+  "flags": {
+    "district": "wilds",
+    "district_id": "district_coldwater",
+    "planner": "bp_district",
+    "radiation": 33,
+    "terrain": "redrock"
+  },
+  "grid_x": 941,
+  "grid_y": 920,
+  "grid_z": 0,
+  "id": "zone_district_941_920",
+  "map_id": "map_world",
+  "marker": null,
+  "name": "Mesa Shelf",
+  "parent_zone": null,
+  "updated_at": "1784700000"
+}

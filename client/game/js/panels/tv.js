@@ -543,7 +543,7 @@ export function renderTvSchedule(data) {
     rows = '<div class="tv-sched-empty">Nothing scheduled on this channel.</div>';
   } else {
     rows = slots.map(sl => {
-      const when = daily ? _esc(sl.todLabel || '') : (sl.onNow ? 'ON NOW' : fmtIn(sl.startsInSec));
+      const when = sl.todLabel ? _esc(sl.todLabel) : (sl.onNow ? 'ON NOW' : fmtIn(sl.startsInSec));
       const dur = fmtDur(sl.durationSec);
       return `<div class="tv-sched-row${sl.onNow ? ' now' : ''}">` +
         `<span class="tv-sched-when">${when}</span>` +

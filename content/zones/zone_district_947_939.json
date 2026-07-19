@@ -1,0 +1,31 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "wasteland",
+  "audio_theme_id": null,
+  "bg_color": "#2a1c16",
+  "color": "#b5744a",
+  "created_by": "wildlands-expand",
+  "description": "Cracked red hardpan runs out flat to a rust-colored horizon. Wind-scoured rock, grit, and nothing that grows.",
+  "exits": {
+    "east": "zone_district_948_939",
+    "north": "zone_district_947_938",
+    "south": "zone_district_947_940",
+    "west": "zone_district_946_939"
+  },
+  "flags": {
+    "district": "wilds",
+    "district_id": "district_coldwater",
+    "planner": "bp_district",
+    "radiation": 37,
+    "terrain": "redrock"
+  },
+  "grid_x": 947,
+  "grid_y": 939,
+  "grid_z": 0,
+  "id": "zone_district_947_939",
+  "map_id": "map_world",
+  "marker": null,
+  "name": "The Ironpan",
+  "parent_zone": null,
+  "updated_at": "1784700000"
+}

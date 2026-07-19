@@ -177,15 +177,17 @@ export const TYPES = {
     brake: 5.2, groundSteer: 32, ceiling: 11000, bestGlide: 44,
     groundPitch: 11,   // taildragger 3-point sit (deg nose-up): rests on the tailwheel; push forward to raise the tail on the roll
   },
-  // Locust — a low-wing sport RACER: light but FAST and AGILE for a single. Snappy roll & pitch,
-  // a real turn of speed, but twitchy — weak self-level and a thinner stall margin punish sloppy
-  // hands. Fastest of the light singles, and a strong climber.
+  // Locust — a low-wing CROP-DUSTER / ag-plane (Air Tractor analogue): a heavy, honest low-and-slow
+  // worker. Flies loaded with a chemical hopper, so she's HEAVY and DOCILE — gentle, unhurried rates,
+  // strong self-level (hands-off over the field), a big draggy square wing that's very stall-resistant
+  // and won't run away on top. Low ceiling — she works down in the weeds, not up high.
   locust: {
-    name: 'Locust', mass: 1.05, thrustMax: 21, vr: 52, vs0: 42, vne: 195, cruise: 148,
-    pitchRate: 13, pitchTau: 0.5, rollRate: 68, rollTau: 0.45, engineLag: 1.1,
-    pitchStable: 0.85, rollStable: 0.95, dragP: 0.00105, flapDrag: 0.55, flapLift: 0.38, flapVs: 0.18,
-    rollFric: 1.5, aoaCrit: 16, liftScale: 1.0, vsMax: 1600, vsGain: 2000, vsTau: 0.9,
-    brake: 6.0, groundSteer: 30, ceiling: 15000, bestGlide: 62,
+    name: 'Locust', mass: 1.35, thrustMax: 13, vr: 44, vs0: 30, vne: 125, cruise: 92,
+    pitchRate: 9, pitchTau: 0.65, rollRate: 42, rollTau: 0.62, engineLag: 1.4,
+    pitchStable: 1.05, rollStable: 1.25, dragP: 0.00150, flapDrag: 0.55, flapLift: 0.4, flapVs: 0.2,
+    rollFric: 1.7, aoaCrit: 20, liftScale: 1.0, vsMax: 750, vsGain: 1550, vsTau: 1.0,
+    brake: 5.5, groundSteer: 30, ceiling: 9500, bestGlide: 55,
+    groundPitch: 10,   // taildragger 3-point sit (deg nose-up): rests on the tailwheel
   },
 };
 

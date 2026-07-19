@@ -888,6 +888,12 @@ const handlers = {
   trip_fx:    (msg) => { updateTripFx(msg); if (msg.intensity != null) setDrugFx('trip', msg.profile || 'psychedelic', msg.intensity); },
   trip_end:   () => { endTripFx(); clearDrugFx('trip'); },
 
+  // Sanity dread stream (sanity plugin). Its own FX channel so it composes with
+  // a drug trip rather than fighting #trip-overlay: a dark creeping vignette
+  // whose depth scales with intensity, plus body classes at the hallucination
+  // and insane bands. band 'clear' / intensity 0 tears it all down.
+  sanity_fx:  (msg) => { setSanityFx(msg); },
+
   // Drunkenness level stream (intoxication plugin) → drives the drunk flight-view warp.
   intox_fx:   (msg) => { const lvl = Math.max(0, Math.min(100, Number(msg.level) || 0)); if (lvl <= 0) clearDrugFx('intox'); else setDrugFx('intox', 'drunk', lvl / 100); },
 
@@ -945,6 +951,30 @@ function endTripFx() {
   document.body.classList.remove('tripping');
   document.getElementById('trip-overlay')?.remove();
   window.AudioEngine?.stop('ambience', 'amb_trip_bed');
+}
+
+// ── Sanity "dread" visual FX ─────────────────────────────────────────────────
+// A dark, desaturating creep — the scary cousin of the psychedelic trip FX. A
+// #sanity-overlay vignette (edges close in, cold at the creep band, sick-red as
+// it deepens) plus `unhinged` (hallucination band: slow uneasy sway + drain of
+// colour) and `insane` (full breakdown) body classes. Intensity is live-tunable.
+function setSanityFx(msg) {
+  const intensity = Math.max(0, Math.min(1, msg?.intensity ?? 0));
+  const band = msg?.band || 'clear';
+  if (band === 'clear' || intensity <= 0) {
+    document.body.classList.remove('unhinged', 'insane');
+    document.getElementById('sanity-overlay')?.remove();
+    window.AudioEngine?.stop('ambience', 'amb_dread_bed');
+    return;
+  }
+  document.documentElement.style.setProperty('--sanity-intensity', String(intensity));
+  if (!document.getElementById('sanity-overlay')) {
+    const el = document.createElement('div');
+    el.id = 'sanity-overlay';
+    document.body.appendChild(el);
+  }
+  document.body.classList.toggle('unhinged', band === 'halluc' || band === 'insane');
+  document.body.classList.toggle('insane', band === 'insane');
 }
 
 // Room-wide flash when a generator / junction box loses or regains power.

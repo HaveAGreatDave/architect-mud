@@ -9,11 +9,12 @@
   "exits": {
     "east": "zone_district_919_925",
     "north": "zone_district_918_924",
-    "west": "zone_district_917_925",
-    "south": "zone_district_918_926"
+    "south": "zone_district_918_926",
+    "west": "zone_district_917_925"
   },
   "flags": {
     "district": "wilds",
+    "district_id": "district_coldwater",
     "planner": "bp_district",
     "radiation": 15,
     "terrain": "scrub"
