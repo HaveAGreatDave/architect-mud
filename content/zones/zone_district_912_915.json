@@ -16,7 +16,8 @@
     "district": "wasteland",
     "district_id": "district_coldwater",
     "planner": "bp_district",
-    "scavenging_table_id": "scav_west_wastes"
+    "scavenging_table_id": "scav_west_wastes",
+    "terrain": "grass"
   },
   "grid_x": 912,
   "grid_y": 915,
@@ -26,5 +27,5 @@
   "marker": "#",
   "name": "Grasslands",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1784441751"
 }

@@ -18,7 +18,8 @@
     "icon": "road_n",
     "planner": "bp_district",
     "scavenging_table_id": "scav_roadside_junk",
-    "street_life": true
+    "street_life": true,
+    "terrain": "grass"
   },
   "grid_x": 911,
   "grid_y": 919,
@@ -28,5 +29,5 @@
   "marker": "⸪.",
   "name": "Meltwater Row",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1784441751"
 }
