@@ -8,7 +8,6 @@
   "description": "The face of Ironside Arms — a low blockhouse of riveted plate with a slit window and a door like a bank vault. A board over it reads: YOU BREAK THE GLASS, YOU MEET THE OWNER. Ironside Street runs off to the west.",
   "exits": {
     "east": "zone_gunshop_interior",
-    "south": "zone_district_920_906",
     "west": "zone_district_919_905"
   },
   "flags": {
@@ -20,7 +19,8 @@
     "is_building": true,
     "planner": "bp_district",
     "scavenging_table_id": "scav_west_wastes",
-    "world_exit_zone": "zone_district_919_905"
+    "world_exit_zone": "zone_district_919_905",
+    "entrance": "west"
   },
   "grid_x": 920,
   "grid_y": 905,

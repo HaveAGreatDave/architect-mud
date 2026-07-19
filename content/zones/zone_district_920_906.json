@@ -8,8 +8,6 @@
   "description": "The face of Mercy Row — a walk-in clinic behind reinforced glass, a green cross guttering above the door. The queue started before dawn. Ironside Street runs off to the west.",
   "exits": {
     "east": "zone_clinic_interior",
-    "north": "zone_district_920_905",
-    "south": "zone_district_920_907",
     "west": "zone_district_919_906"
   },
   "flags": {
@@ -21,7 +19,8 @@
     "is_building": true,
     "planner": "bp_district",
     "scavenging_table_id": "scav_west_wastes",
-    "world_exit_zone": "zone_district_919_906"
+    "world_exit_zone": "zone_district_919_906",
+    "entrance": "west"
   },
   "grid_x": 920,
   "grid_y": 906,

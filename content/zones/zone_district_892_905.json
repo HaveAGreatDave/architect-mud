@@ -7,10 +7,8 @@
   "created_by": "ascendant-stronghold",
   "description": "A windowless drum of dull steel, humming with the deep note of coolant pumps. Frost creeps out from its seams. This is where the Ascendants keep their promise that death is only a billing problem — though from the outside it looks less like a promise than a very large, very cold filing cabinet.",
   "exits": {
-    "east": "zone_district_893_905",
     "in": "zone_asc_vats_registry",
-    "south": "zone_district_892_906",
-    "west": "zone_district_891_905"
+    "north": "zone_district_892_904"
   },
   "flags": {
     "ascendant_campus": true,
@@ -20,7 +18,8 @@
     "facade": true,
     "floors": 8,
     "is_building": true,
-    "world_exit_zone": "zone_district_892_906"
+    "world_exit_zone": "zone_district_892_906",
+    "entrance": "north"
   },
   "grid_x": 892,
   "grid_y": 905,

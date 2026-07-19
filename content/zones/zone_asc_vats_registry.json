@@ -8,7 +8,7 @@
   "description": "A cold clerical antechamber where a soft-voiced construct confirms the balance of your policy. It speaks of your death the way a teller speaks of an overdraft: a solvable inconvenience, provided your account is paid up.",
   "exits": {
     "in": "zone_asc_vats_hall",
-    "west": "zone_district_892_905"
+    "north": "zone_district_892_905"
   },
   "flags": {
     "always_lit": true,

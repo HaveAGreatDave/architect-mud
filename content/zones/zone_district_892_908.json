@@ -8,7 +8,8 @@
   "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
   "exits": {
     "south": "zone_district_892_909",
-    "west": "zone_district_891_908"
+    "west": "zone_district_891_908",
+    "north": "zone_district_892_907"
   },
   "flags": {
     "district": "wasteland",

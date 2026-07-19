@@ -8,8 +8,7 @@
   "description": "Cold water closes around your legs at the shoreline, the bottom shelving away fast into lightless murk. This is as far as you go on foot — the channel beyond is deep, and impassable without a boat.",
   "exits": {
     "north": "zone_district_927_907",
-    "south": "zone_district_927_909",
-    "west": "zone_district_926_908"
+    "south": "zone_district_927_909"
   },
   "flags": {
     "district": "water",

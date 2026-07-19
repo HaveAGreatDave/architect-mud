@@ -7,11 +7,8 @@
   "created_by": "zone-planner",
   "description": "An unmarked door beside the studio loading bay, known only by the smokers clustered under its one working sconce and the bass leaking through the wall. A brass plate reads THE GREEN ROOM — GUESTS & CREW; someone has keyed a cock beside it. The tint-glass window cycles slowly from smoke to clear and back, showing you nothing either way.",
   "exits": {
-    "east": "zone_district_913_910",
     "in": "zone_greenroom_lounge",
-    "north": "zone_district_912_909",
-    "south": "zone_district_912_911",
-    "west": "zone_district_911_910"
+    "north": "zone_district_912_909"
   },
   "flags": {
     "building_name": "The Green Room",
@@ -21,7 +18,8 @@
     "facade": true,
     "is_building": true,
     "planner": "bp_district",
-    "world_exit_zone": "zone_district_911_910"
+    "world_exit_zone": "zone_district_911_910",
+    "entrance": "north"
   },
   "grid_x": 912,
   "grid_y": 910,

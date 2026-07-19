@@ -7,10 +7,7 @@
   "created_by": "ascendant-stronghold",
   "description": "The Spire twists up out of the plaza in a slow chrome helix, each floor rotated a few degrees off the last so the whole tower seems mid-turn, caught ascending. Its glass throws back a cold blue sky that isn't quite the one overhead. At its foot a ten-metre seal is inlaid in the ground: a calm eye above a city skyline. You have seen that eye before, somewhere, and the memory won't quite surface.",
   "exits": {
-    "east": "zone_district_893_906",
     "in": "zone_asc_spire_concourse",
-    "north": "zone_district_892_905",
-    "south": "zone_district_892_907",
     "west": "zone_district_891_906"
   },
   "flags": {
@@ -21,7 +18,8 @@
     "facade": true,
     "floors": 30,
     "is_building": true,
-    "world_exit_zone": "zone_district_893_906"
+    "world_exit_zone": "zone_district_893_906",
+    "entrance": "west"
   },
   "grid_x": 892,
   "grid_y": 906,

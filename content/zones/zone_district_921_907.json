@@ -7,10 +7,8 @@
   "created_by": "yards-plan",
   "description": "A low prefab office ringed by roller-shuttered bays, the airfield aprons close enough north that jet-wash rattles the signage. Forwarders here book, bond, and mis-book air cargo all day; clipboards, barcode guns, and a coffee urn that never quite cools. The whole place smells of kerosene and carbon paper.",
   "exits": {
-    "east": "zone_district_922_907",
     "in": "zone_yard_forwarder",
-    "north": "zone_district_921_906",
-    "west": "zone_district_920_907"
+    "north": "zone_district_921_906"
   },
   "flags": {
     "building_name": "Airfreight Forwarding",
@@ -20,7 +18,8 @@
     "facade": true,
     "is_building": true,
     "planner": "bp_district",
-    "world_exit_zone": "zone_district_920_907"
+    "world_exit_zone": "zone_district_920_907",
+    "entrance": "north"
   },
   "grid_x": 921,
   "grid_y": 907,

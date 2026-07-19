@@ -8,8 +8,6 @@
   "description": "The face of the Ferro Fabrication Works — an open-fronted steel shed spitting the blue strobe of an arc welder, the air tasting of hot metal and flux. Offcuts and I-beam stubs are stacked like cordwood along the frontage under a hand-painted board: WE MAKE IT, WE MEND IT, WE DON'T ASK. Dray Lane runs off to the west.",
   "exits": {
     "in": "zone_dray_fab",
-    "north": "zone_district_922_905",
-    "south": "zone_district_922_907",
     "west": "zone_district_921_906"
   },
   "flags": {
@@ -20,7 +18,8 @@
     "facade": true,
     "is_building": true,
     "planner": "bp_district",
-    "world_exit_zone": "zone_district_921_906"
+    "world_exit_zone": "zone_district_921_906",
+    "entrance": "west"
   },
   "grid_x": 922,
   "grid_y": 906,

@@ -14,7 +14,7 @@
   "exits": {
     "down": "zone_mq_precinct_holding",
     "north": "zone_mq_precinct_bullpen",
-    "out": "zone_district_922_911"
+    "east": "zone_district_922_911"
   },
   "flags": {
     "building_name": "Precinct 9",

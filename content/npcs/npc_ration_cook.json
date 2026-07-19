@@ -70,7 +70,7 @@
     "personality": "vendor"
   },
   "home_activities": [],
-  "home_zone": "zone_ration_interior",
+  "home_zone": "zone_mq_grocery",
   "hp": 50,
   "hp_max": 50,
   "id": "npc_ration_cook",
@@ -154,5 +154,5 @@
   "vendor_stock_size": 12,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": "zone_ration_interior"
+  "work_zone_id": "zone_mq_grocery"
 }

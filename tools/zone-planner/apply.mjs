@@ -419,8 +419,13 @@ for (const c of cells.values()) {
   }
   // Building tile ⇒ an on-map facade marker (non-standable). Front door = the
   // first non-building neighbour the facade spills OUT onto (preferring south).
-  const streetNeighbor = [['south', 0, 1], ['north', 0, -1], ['west', -1, 0], ['east', 1, 0]]
-    .map(([, dx, dy]) => at(c.x + dx, c.y + dy)).find(n => n && !isBuildingCell(n));
+  // The DIRECTION of that neighbour is the authored door side (flags.entrance):
+  // baked in here so a new building ships with a door and never depends on the
+  // road graph at runtime — see server/engine/world.js buildingEntranceDir.
+  const doorPick = [['south', 0, 1], ['north', 0, -1], ['west', -1, 0], ['east', 1, 0]]
+    .map(([dir, dx, dy]) => ({ dir, n: at(c.x + dx, c.y + dy) })).find(({ n }) => n && !isBuildingCell(n));
+  const streetNeighbor = doorPick?.n;
+  const entranceDir = doorPick?.dir || null;
   const streetId = streetNeighbor ? zid(streetNeighbor.x, streetNeighbor.y) : null;
   const linked = c.link ? (linkInfo.get(c.link) || { name: c.link }) : null;
   if (linked) {
@@ -443,6 +448,7 @@ for (const c of cells.values()) {
         ambient_theme: 'indoors',
         flags: { is_building: true, facade: true, building_name: bName,
                  ...(bType ? { building_type: bType } : {}),
+                 ...(entranceDir ? { entrance: entranceDir } : {}),
                  ...(streetId ? { world_exit_zone: streetId } : {}), planner: bp.id },
         parent_zone: null,
       },
@@ -469,13 +475,16 @@ for (const c of cells.values()) {
       flags: { ...(c.leg.tags || {}), ...(c.leg.icon ? { icon: c.leg.icon } : {}),
                is_building: true, facade: true, building_name: bName,
                ...(c.leg.building_type ? { building_type: c.leg.building_type } : {}),
+               ...(entranceDir ? { entrance: entranceDir } : {}),
                world_exit_zone: streetId, planner: bp.id },
       parent_zone: null,
     },
   });
   const lobbyName = fillName(c.leg.interior.lobby_name || '{name} — Ground Floor', c.x, c.y, bName);
   plan.push({
-    id: lobbyId, kind: 'lobby', ownExits: { out: id },
+    // Leave toward the door (flags.entrance), not a neutral `out` — the interior
+    // map's exit arrow must mirror the facade's entrance arrow.
+    id: lobbyId, kind: 'lobby', ownExits: { [entranceDir]: id },
     // Every new prefab building gets an authored utility room + junction box +
     // lights by default (wired in the --apply write phase). A building opts out
     // with "interior": { "no_utility": true } in its palette/legend entry.
@@ -566,6 +575,7 @@ const relocations = [];
 let exteriorSevers = [];
 if (MANUAL_BLD) {
   const facadeWxz = new Map(plan.filter(p => p.kind === 'facade').map(p => [p.id, p.row.flags.world_exit_zone || null]));
+  const facadeEntrance = new Map(plan.filter(p => p.kind === 'facade').map(p => [p.id, p.row.flags.entrance || null]));
   const oldExtIds = new Set();
   for (const c of cells.values()) {
     if (!isBuildingCell(c) || !c.link) continue;
@@ -574,10 +584,16 @@ if (MANUAL_BLD) {
     const ex = info.exits || {};
     const oldExt = ex.out || info.flags?.world_exit_zone || null;
     if (!oldExt || oldExt === facadeId) continue; // no exterior, or already relocated
+    // Redirect the interior's exit into the facade, keyed by the door direction so
+    // the interior arrow mirrors the entrance — drop any prior exterior-pointing
+    // exit (the neutral `out` or a stale cardinal) rather than leaving both.
+    const doorDir = facadeEntrance.get(facadeId);
+    const keptExits = Object.fromEntries(Object.entries(ex).filter(([, t]) => t !== oldExt && t !== facadeId));
+    const newExits = doorDir ? { ...keptExits, [doorDir]: facadeId } : { ...keptExits, out: facadeId };
     relocations.push({
       interiorId: c.link, mapId: info.mapId, facadeId, oldExt,
       frontStreet: facadeWxz.get(facadeId) || null,
-      newExits: { ...ex, out: facadeId },
+      newExits,
       newFlags: info.flags?.world_exit_zone ? { ...info.flags, world_exit_zone: facadeId } : (info.flags || {}),
     });
     oldExtIds.add(oldExt);

@@ -8,18 +8,18 @@
   "description": "The face of Ration Nine.",
   "exits": {
     "east": "zone_mq_grocery",
-    "north": "zone_ration_interior",
     "west": "zone_district_919_908"
   },
   "flags": {
     "building_name": "Ration Nine",
-    "building_type": "diner",
+    "building_type": "grocery",
     "district": "wasteland",
     "district_id": "district_coldwater",
     "facade": true,
     "is_building": true,
     "planner": "bp_district",
-    "world_exit_zone": "zone_district_919_908"
+    "world_exit_zone": "zone_district_919_908",
+    "entrance": "west"
   },
   "grid_x": 920,
   "grid_y": 908,

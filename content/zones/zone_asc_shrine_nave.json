@@ -8,7 +8,7 @@
   "description": "A nave of humming server-racks under cold light, the Curtain a wall of white fire beyond the west glass. A celebrant tends the machines the way a priest tends an altar — because to him there is no difference. He is, as far as anyone can tell, the only person in the Basin who loves the Architect.",
   "exits": {
     "in": "zone_asc_shrine_uplink",
-    "west": "zone_district_892_907"
+    "south": "zone_district_892_907"
   },
   "flags": {
     "always_lit": true,

@@ -14,5 +14,5 @@
   "object_type": "fixture",
   "power_draw_kw": null,
   "price": 600,
-  "zone_id": "zone_ration_interior"
+  "zone_id": "zone_mq_grocery"
 }

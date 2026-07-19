@@ -18,7 +18,8 @@
     "facade": true,
     "is_building": true,
     "planner": "bp_district",
-    "world_exit_zone": "zone_district_913_912"
+    "world_exit_zone": "zone_district_913_912",
+    "entrance": "west"
   },
   "grid_x": 913,
   "grid_y": 911,

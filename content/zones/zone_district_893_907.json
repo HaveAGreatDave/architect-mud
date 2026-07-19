@@ -8,8 +8,7 @@
   "description": "A working foundry with its guts on show: robot arms stitch synthetic muscle onto frames behind blast glass, sparks falling in slow orange rain. A sign over the door reads THE WEAVE in letters cut from the same chrome they extrude. It smells of ozone and hot polymer even out here.",
   "exits": {
     "in": "zone_asc_weave_line",
-    "north": "zone_district_893_906",
-    "west": "zone_district_892_907"
+    "east": "zone_district_894_907"
   },
   "flags": {
     "ascendant_campus": true,
@@ -19,7 +18,8 @@
     "facade": true,
     "floors": 5,
     "is_building": true,
-    "world_exit_zone": "zone_district_893_906"
+    "world_exit_zone": "zone_district_893_906",
+    "entrance": "east"
   },
   "grid_x": 893,
   "grid_y": 907,
