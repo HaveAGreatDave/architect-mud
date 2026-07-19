@@ -164,12 +164,25 @@ const OPS_ROUTES = [
   /^\/atm\/units(\/|$)/,          // ATM cash ops (atm_units is runtime; networks are content)
   /^\/flight\/aircraft(\/|$)/,    // aircraft instances are runtime (test/owned/rental rows), not content
 ];
+// Environment writes are DEFAULT-DENY, like everything else. Only the routes
+// below are live-ops; the rest of /environment/ writes git-owned content
+// (`generators`, `power_zones`, `climate_profiles` are class:'content'), and a
+// prod edit there would be silently reverted by the next content deploy. The
+// power entries that ARE allowed only touch columns the registry marks
+// excludeColumns — self-healing state the sim recomputes each cycle.
+const ENV_OPS_ROUTES = [
+  /^\/environment\/time\//,              // world clock — runtime
+  /^\/environment\/weather\//,           // weather_forecast is class:'runtime'
+  /^\/environment\/tick\/force/,         // just runs a sim tick
+  /^\/environment\/power\/recompute$/,   // pure recompute
+  /^\/environment\/power\/load$/,        // power_zones.current_load_kw (excluded)
+  /^\/environment\/power\/fail$/,        // generators.status (excluded)
+  /^\/environment\/power\/resync-lighting$/, // lighting_states is class:'runtime'
+];
 function contentReadonlyBlocks(path, method) {
   if (!process.env.CONTENT_READONLY) return false;
   if (method === 'GET' || method === 'HEAD') return false;
-  // Environment routes are live-ops (time/weather/power controls) — except the
-  // climate profile editor, which writes the climate_profiles content table.
-  if (path.startsWith('/environment/') && !path.startsWith('/environment/climate/')) return false;
+  if (path.startsWith('/environment/')) return !ENV_OPS_ROUTES.some(re => re.test(path));
   return !OPS_ROUTES.some(re => re.test(path));
 }
 
