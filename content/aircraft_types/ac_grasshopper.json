@@ -5,6 +5,7 @@
   "cruise_speed": 1,
   "data": {
     "feel": "Featherweight tandem scout; slow and docile, sees everything below; the wind nudges her around.",
+    "hopper": 200,
     "spray": true
   },
   "engines": 1,

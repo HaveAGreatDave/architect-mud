@@ -349,15 +349,30 @@ export function moveEntity(entity, newZoneId, broadcast, query) {
   // ────────────────────────────────────────────────────────────────────────────
 
   const arriveDir = exitDirection(newZoneId, oldZoneId);
-  const departMsg = departDir ? `${entity.name} heads ${departDir}.` : `${entity.name} leaves.`;
   const sourceZoneName = getZone(oldZoneId)?.name || 'inside';
-  let arriveMsg;
-  if (arriveDir === 'out')       arriveMsg = `${entity.name} arrives from outside.`;
-  else if (arriveDir === 'in')   arriveMsg = `${entity.name} emerges from ${sourceZoneName}.`;
-  else if (arriveDir === 'up')   arriveMsg = `${entity.name} descends the stairs.`;
-  else if (arriveDir === 'down') arriveMsg = `${entity.name} climbs the stairs.`;
-  else if (arriveDir)            arriveMsg = `${entity.name} arrives from the ${arriveDir}.`;
-  else                           arriveMsg = `${entity.name} arrives.`;
+  // Elevator flavour: stepping into or out of a car (flags.elevator) reads as
+  // riding the lift, not "climbs the stairs" (every floor shares the `up`/`in`
+  // exit, so the stairs wording lands wrong). The car is a single zone the NPC
+  // pauses in between graph hops — a trip is two steps, into the car then out on
+  // the destination floor — and each observer sees the doors from their own side.
+  const toCar   = !!getZone(newZoneId)?.flags?.elevator;
+  const fromCar = !!getZone(oldZoneId)?.flags?.elevator;
+  let departMsg, arriveMsg;
+  if (toCar) {
+    departMsg = `${entity.name} steps into the elevator.`;                    // seen on the floor left behind
+    arriveMsg = `The doors part and ${entity.name} steps into the car.`;      // seen by anyone already aboard
+  } else if (fromCar) {
+    departMsg = `${entity.name} steps out of the elevator.`;                  // seen by anyone still in the car
+    arriveMsg = `The elevator chimes and ${entity.name} steps out.`;          // seen on the destination floor
+  } else {
+    departMsg = departDir ? `${entity.name} heads ${departDir}.` : `${entity.name} leaves.`;
+    if (arriveDir === 'out')       arriveMsg = `${entity.name} arrives from outside.`;
+    else if (arriveDir === 'in')   arriveMsg = `${entity.name} emerges from ${sourceZoneName}.`;
+    else if (arriveDir === 'up')   arriveMsg = `${entity.name} descends the stairs.`;
+    else if (arriveDir === 'down') arriveMsg = `${entity.name} climbs the stairs.`;
+    else if (arriveDir)            arriveMsg = `${entity.name} arrives from the ${arriveDir}.`;
+    else                           arriveMsg = `${entity.name} arrives.`;
+  }
 
   // Captured before the shop session is torn down below; used by the shop-close
   // branch for the vendor's farewell line (happy if they bought, whiny if not).

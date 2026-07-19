@@ -559,11 +559,20 @@ export function renderMinimap(nodes, direction) {
   // matching the full map's polyline rather than highlighting boxes.
   const tracePath = effectiveTracePath(current.id) || [];
 
+  // Overworld water: when standing on map_world we can map an empty window cell back
+  // to its absolute grid coord (current.grid_x/y + its offset) and tint the bay corners.
+  const worldMap = current.map_id === 'map_world' && current.grid_x != null && current.grid_y != null;
+
   let html = '';
   for (let r = 0; r < gRows; r++) {
     for (let c = 0; c < gCols; c++) {
       const id = cell[r][c];
-      if (!id) { html += `<span class="mm-c mm-void"></span>`; continue; }
+      if (!id) {
+        if (worldMap && isWorldWaterVoid('map_world', current.grid_x + (c - R), current.grid_y + (r - R)))
+          html += `<span class="mm-c mm-room mm-terr mm-water mm-styled" style="background-color:${WATER_VOID_FILL}" title="Coldwater Bay"></span>`;
+        else html += `<span class="mm-c mm-void"></span>`;
+        continue;
+      }
       const node = byId.get(id);
       if (!node) { html += `<span class="mm-c mm-void"></span>`; continue; }
       if (node.is_current) {
@@ -753,12 +762,36 @@ const ROAD_MARKING = '#f2c53d';   // yellow lane markings (the road SVG mask tak
 const TERRAIN_FILL = {
   water: '#3f7fb0', grass: '#5a9e57', park: '#46a24e', asphalt: '#45484d', concrete: '#8a8d91',
   dirt: '#6b5138', sand: '#c2b280', gravel: '#7d7a73', dock: '#6e5636',
-  scrub: '#6f7248', redrock: '#834f40', ash: '#4f4b47', marsh: '#4d5a30',
+  scrub: '#6f7248', redrock: '#6f3524', ash: '#4f4b47', marsh: '#4d5a30',
 };
 // water/grass prefer an authored bg_color; every other terrain uses its canonical fill.
 function terrainFill(terr, bg) {
   return (terr === 'water' || terr === 'grass') ? (bg || TERRAIN_FILL[terr]) : TERRAIN_FILL[terr];
 }
+
+// Cosmetic open water — Coldwater Bay. The overworld (`map_world`) has empty grid
+// cells in its north-west and north-east corners where the bay lies; rather than
+// author zones for open water we tint those VOID cells as water on the minimap + the
+// tablet map. Bounds are absolute world grid coords (north = smaller grid_y). Only
+// EMPTY cells are ever filled, so land tiles overlapping a band stay untouched.
+const WATER_VOID_REGIONS = [
+  (x, y) => x <= 890 && y <= 901, // north-west bay
+  (x, y) => x >= 927 && y <= 908, // north-east bay
+];
+export function isWorldWaterVoid(mapId, x, y) {
+  if (mapId !== 'map_world' || x == null || y == null) return false;
+  return WATER_VOID_REGIONS.some(fn => fn(x, y));
+}
+// Absolute [x,y] for an overworld tile from its id (zone_district_<x>_<y>), or null.
+// Lets the tablet map recover absolute world coords from its center-relative tiles.
+const DISTRICT_ID_RE = /^zone_district_(\d+)_(\d+)$/;
+export function districtCoord(id) {
+  const m = DISTRICT_ID_RE.exec(id || '');
+  return m ? [+m[1], +m[2]] : null;
+}
+// Match the authored Coldwater water zones' bg_color (dark teal) so the cosmetic bay
+// reads as one body with the real water tiles, not a second brighter blue.
+export const WATER_VOID_FILL = '#1d3b52';
 // Small entrance arrow overlaid on a building tile, pointing to the edge the door
 // faces (server `entrance` field). A CSS triangle (no glyph) via .<pfx>-ent-<dir>;
 // pfx is 'mm' (sidebar) or 'map' (full popup).

@@ -179,6 +179,8 @@ export default async function regress({ run, check, getPlayer }) {
   r = await run('airunlock'); check('airunlock not aboard blocked', /not aboard/i.test(r?.message || ''), r?.message);
   r = await run('flares'); check('flares not aboard blocked', /not aboard/i.test(r?.message || ''), r?.message);
   r = await run('jettison'); check('jettison not aboard blocked', /not aboard/i.test(r?.message || ''), r?.message);
+  r = await run('spray'); check('spray not aboard blocked', /not aboard/i.test(r?.message || ''), r?.message);
+  r = await run('loadhopper'); check('loadhopper not aboard blocked', /not aboard/i.test(r?.message || ''), r?.message);
 
   // ── Acquisition / contracts / hangars gate off an airfield ──────────────────
   r = await run('charter'); check('charter off-field reports no desk', /no .*(charter|dealer)/i.test(r?.message || ''), r?.message);

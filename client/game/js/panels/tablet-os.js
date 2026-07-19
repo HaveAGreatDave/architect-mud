@@ -16,7 +16,7 @@
 // (Tablet has no proactive multi-client push to patch against).
 import { sfx, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays } from './minigame-common.js';
 import { sendCmdSilent } from '../net.js';
-import { toggleAutoWalk, isAutoWalking, isRunning, onRunStateChange, setGpsRoute, routeBetween, getTracePath, setMapOpener, FUNC_LEGEND, POI_LEGEND } from './minimap.js';
+import { toggleAutoWalk, isAutoWalking, isRunning, onRunStateChange, setGpsRoute, routeBetween, getTracePath, setMapOpener, FUNC_LEGEND, POI_LEGEND, isWorldWaterVoid, districtCoord, WATER_VOID_FILL } from './minimap.js';
 import { state } from '../state.js';
 import { loadSettings, saveSettings, applySettings, openThemeEditor, probeBuiltinThemeColors, DARK_THEMES, LIGHT_THEMES, DEFAULT_AUDIO_SETTINGS } from '/shared/settings.js';
 import { getChatTabs, getChatMessages, sendChatMessage, markChatRead, onChatUpdate, getOnlinePlayers, refreshOnlinePlayers, ensureChatConversation, leaveChatConversation, removeCorpChannels, getClosedChatTabs, reopenChatTab, getMotdHtml } from './whisper.js';
@@ -1125,7 +1125,7 @@ function ensureStyles() {
     #tablet-os-overlay .tos-map-tile.terr-dock { background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' stroke='%233b2c19' stroke-opacity='0.55' stroke-width='1'><path d='M0 6h24M0 12h24M0 18h24'/><path d='M8 0v6M16 6v6M8 12v6M16 18v6'/></g><g fill='none' stroke='%23987444' stroke-opacity='0.30' stroke-width='0.6'><path d='M0 3h24M0 9h24M0 15h24M0 21h24'/></g></svg>"); }
     /* Wildlands surfaces — mirror the sidebar minimap (.mm-*/.map-*) so the tablet reads the same. */
     #tablet-os-overlay .tos-map-tile.terr-scrub { background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' stroke='%23b5b06a' stroke-opacity='0.45' stroke-width='0.9' stroke-linecap='round'><path d='M5 20l-1.5-4M5 20l1.5-4M5 20v-5'/><path d='M17 22l-1.5-4M17 22l1.5-4M17 22v-5'/><path d='M11 14l-1-3M11 14l1-3'/></g><g fill='%23807a40' fill-opacity='0.4'><circle cx='9' cy='20' r='0.9'/><circle cx='20' cy='11' r='0.8'/><circle cx='3' cy='8' r='0.7'/></g></svg>"); }
-    #tablet-os-overlay .tos-map-tile.terr-redrock { background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' stroke='%235c2a1a' stroke-opacity='0.5' stroke-width='1'><path d='M0 9l7 3 6-4 5 4 6-2'/><path d='M4 24l3-8 6 2 4-6'/></g><g fill='none' stroke='%23c9744f' stroke-opacity='0.28' stroke-width='0.7'><path d='M0 11l7 3 6-4 5 4 6-2'/></g><g fill='%234a2115' fill-opacity='0.5'><circle cx='3' cy='19' r='1.3'/><circle cx='15' cy='7' r='1.1'/><circle cx='20' cy='18' r='1'/><circle cx='9' cy='4' r='0.8'/><circle cx='22' cy='3' r='0.7'/><circle cx='6.5' cy='12.5' r='0.6'/><circle cx='13' cy='20' r='0.7'/></g><g fill='%237e3521' fill-opacity='0.55' stroke='%23d98a5f' stroke-opacity='0.35' stroke-width='0.5'><path d='M17 15l2 1 -0.5 2 -2 -0.3z'/><path d='M4 6l1.8 0.6 -0.3 1.8 -1.8 -0.2z'/></g><g fill='%23e0a985' fill-opacity='0.3'><circle cx='11' cy='10' r='0.5'/><circle cx='18' cy='11' r='0.45'/><circle cx='7' cy='21' r='0.5'/><circle cx='21' cy='8' r='0.4'/></g></svg>"); }
+    #tablet-os-overlay .tos-map-tile.terr-redrock { background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' stroke='%23431c10' stroke-opacity='0.42' stroke-width='0.9'><path d='M0 9l7 3 6-4 5 4 6-2'/><path d='M4 24l3-8 6 2 4-6'/></g><g fill='%233a170c' fill-opacity='0.45'><circle cx='3' cy='19' r='1.2'/><circle cx='15' cy='7' r='1'/><circle cx='20' cy='18' r='0.9'/><circle cx='9' cy='4' r='0.7'/><circle cx='22' cy='3' r='0.6'/></g></svg>"); }
     #tablet-os-overlay .tos-map-tile.terr-ash { background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='%23cfcac4' fill-opacity='0.35'><circle cx='4' cy='6' r='0.8'/><circle cx='12' cy='10' r='0.7'/><circle cx='19' cy='5' r='0.9'/><circle cx='8' cy='17' r='0.7'/><circle cx='16' cy='19' r='0.8'/><circle cx='21' cy='14' r='0.6'/></g><path d='M2 21q6 -3 11 0t9 -1' fill='none' stroke='%23b8b2ac' stroke-opacity='0.2' stroke-width='0.8'/></svg>"); }
     #tablet-os-overlay .tos-map-tile.terr-marsh { background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' stroke='%23aeca7e' stroke-opacity='0.28' stroke-width='1' stroke-linecap='round'><path d='M0 8q6 -3 12 0t12 0'/><path d='M0 16q6 -3 12 0t12 0'/></g><g fill='none' stroke='%236f8a3e' stroke-opacity='0.5' stroke-width='0.9' stroke-linecap='round'><path d='M7 20v-7M9 20l-1-6'/><path d='M18 21v-8'/></g></svg>"); }
     /* Entrance arrow — amber triangle on the edge the building's door faces. */
@@ -2768,14 +2768,27 @@ function renderMap(d) {
   const xs = tiles.map(t => t.x), ys = tiles.map(t => t.y);
   const minX = Math.min(...xs), minY = Math.min(...ys), maxX = Math.max(...xs), maxY = Math.max(...ys);
   let colOf, rowOf, gCols, gRows;
+  // absAt(c,r) → the absolute world grid [x,y] of grid cell (c,r), used to tint empty
+  // corner cells as the cosmetic Coldwater Bay. Set per mode below (null if we can't
+  // resolve absolute coords — e.g. an interior with no district tiles — so no fill).
+  let absAt = null;
   if (mode === 'regional') {
     const ux = [...new Set(xs)].sort((a, b) => a - b), uy = [...new Set(ys)].sort((a, b) => a - b);
     const xi = new Map(ux.map((x, i) => [x, i])), yi = new Map(uy.map((y, i) => [y, i]));
     colOf = t => xi.get(t.x); rowOf = t => yi.get(t.y);
     gCols = ux.length; gRows = uy.length;
+    // Regional tiles carry absolute grid coords, packed to dense indices — so a cell's
+    // absolute coord is just the unique value at that column/row.
+    absAt = (c, r) => [ux[c], uy[r]];
   } else {
     colOf = t => t.x - minX; rowOf = t => t.y - minY;
     gCols = maxX - minX + 1; gRows = maxY - minY + 1;
+    // Zone/interior tiles are center-relative; recover the absolute origin from any
+    // district tile (id = zone_district_<x>_<y>), then offset by the cell's column/row.
+    for (const t of tiles) {
+      const co = districtCoord(t.id);
+      if (co) { const ax0 = co[0] - colOf(t), ay0 = co[1] - rowOf(t); absAt = (c, r) => [ax0 + c, ay0 + r]; break; }
+    }
   }
   const cell = Array.from({ length: gRows }, () => new Array(gCols).fill(null));
   const tById = new Map();
@@ -2786,12 +2799,18 @@ function renderMap(d) {
   const TOS_TERRAIN_FILL = {
     water: '#3f7fb0', grass: '#5a9e57', park: '#46a24e', asphalt: '#45484d', concrete: '#8a8d91',
     dirt: '#6b5138', sand: '#c2b280', gravel: '#7d7a73', dock: '#6e5636',
-    scrub: '#6f7248', redrock: '#834f40', ash: '#4f4b47', marsh: '#4d5a30',
+    scrub: '#6f7248', redrock: '#6f3524', ash: '#4f4b47', marsh: '#4d5a30',
   };
   for (let r = 0; r < gRows; r++) for (let c = 0; c < gCols; c++) {
     const t = cell[r][c];
     const pos = `grid-column:${c + 1};grid-row:${r + 1}`;
-    if (!t) { grid += `<span style="${pos}"></span>`; continue; }
+    if (!t) {
+      const wc = absAt && absAt(c, r);
+      if (wc && isWorldWaterVoid('map_world', wc[0], wc[1]))
+        grid += `<span class="tos-map-tile terr terr-water" style="${pos};background-color:${WATER_VOID_FILL};pointer-events:none;" title="Coldwater Bay"></span>`;
+      else grid += `<span style="${pos}"></span>`;
+      continue;
+    }
     const cls = ['tos-map-tile'];
     if (t.danger && t.danger !== 'safe') cls.push('d-' + t.danger);
     if (t.reachable === false) cls.push('unreach');

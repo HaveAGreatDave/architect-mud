@@ -306,6 +306,8 @@
       help: 'Elevator car zone.' },
     elevator_floors: { label: 'Elevator Floors', shape: 'list', scope: 'zone', group: 'Zone: Structure',
       help: 'Floor list for the elevator, e.g. [{ "n": 50, "zone": "zone_x", "label": "Concourse" }].' },
+    hide_exits: { label: 'Hide Exits', shape: 'flag', scope: 'zone', group: 'Zone: Structure',
+      help: 'Suppress the exit/room/building list in the room description; graph (movement, pathfinding, minimap) is untouched. Elevator cars use it so the floor panel is the sole exit UI.' },
     open_sky: { label: 'Open Sky', shape: 'flag', scope: 'zone', group: 'Zone: Structure',
       help: 'Outdoor zone aircraft can overfly/land; on interiors, an open roof.' },
     water: { label: 'Water', shape: 'flag', scope: 'zone', group: 'Zone: Structure',

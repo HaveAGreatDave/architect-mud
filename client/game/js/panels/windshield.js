@@ -3812,7 +3812,8 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
     const spinBase = c.propPhase != null ? c.propPhase : (now || 0) * 0.001 * (2 + power * 16);
     drawRotorFX(ctx, c.cls, (lp) => { const q = P(lp); return q.f <= 0.08 ? null : q; },
       { spin: spinBase, power: 0.15 + power * 0.85,
-        disc: c.propDisc != null ? c.propDisc : null, spool: c.propSpin != null ? c.propSpin : null });
+        disc: c.propDisc != null ? c.propDisc : null, spool: c.propSpin != null ? c.propSpin : null,
+        bladeFade: 0.9 });   // past ~half disc, the blades melt into the blur disc (prop AND heli rotor) — full rpm reads as a pure spinning disc
   }
   ctx.globalAlpha = 1;
 
@@ -4500,7 +4501,9 @@ function drawWindsock(ctx, cam, dx, dy, A, end, windKt, windDeg, now, nite) {
   ctx.strokeStyle = 'rgba(176,182,190,0.9)'; ctx.lineWidth = clamp(2 / top.f, 1, 3); ctx.lineCap = 'round';
   ctx.beginPath(); ctx.moveTo(base.sx, base.sy); ctx.lineTo(top.sx, top.sy); ctx.stroke();
   const strength = clamp(windKt / 22, 0.12, 1), gust = 1 + 0.12 * Math.sin((now || 0) * 0.004 + wx0);
-  const dwr = (windDeg + 180) * Math.PI / 180, dwx = Math.sin(dwr) * gust, dwy = -Math.cos(dwr) * gust;
+  // windDeg is the bearing the wind blows TOWARD (matches the drift push in cockpit.js), and a
+  // windsock points downwind, so the tip follows windDeg directly — no +180 flip.
+  const dwr = windDeg * Math.PI / 180, dwx = Math.sin(dwr) * gust, dwy = -Math.cos(dwr) * gust;
   const len = 0.05 + strength * 0.13;
   const tip = cam.proj(wx0 + dwx * len, wy0 + dwy * len, 0.13 - (1 - strength) * 0.1);
   if (tip.f <= 0.08) return;

@@ -712,14 +712,14 @@ export const MODEL_SCALE = { ultralight: 0.52, prop: 1.0, gunship: 1.05, heavy: 
 // are actually turning → how smeared they read (0 = a stopped/crisp prop, 1 = full motion smear).
 // Split so the own-ship can spin the BLADES up first (spool) and fade the DISC in after (disc),
 // and reverse on shutdown. Contacts pass neither → both fall back to `power` / full smear (old look).
-export function drawRotorFX(ctx, cls, projFn, { spin = 0, power = 0.7, parked = false, disc = null, spool = null } = {}) {
+export function drawRotorFX(ctx, cls, projFn, { spin = 0, power = 0.7, parked = false, disc = null, spool = null, bladeFade = 0 } = {}) {
   const dsc = disc != null ? disc : power;      // blur-disc opacity
   const spl = spool != null ? spool : 1;        // blade motion amount
   if (cls === 'heli') {
     // Main rotor (f-g plane; matches buildHeli's cf 0.1 / cz 0.34) + tail rotor
     // (f-h plane on the boom's right side), geared ~5× the main.
-    spinDisc(ctx, projFn, [0.1, 0, 0.34], [1, 0, 0], [0, 1, 0], 1.02, spin, dsc, spl, parked, 2, 0.85);
-    spinDisc(ctx, projFn, [-1.04, 0.07, 0.12], [1, 0, 0], [0, 0, 1], 0.19, spin * 4.7 + 1.1, dsc, spl, parked, 2, 0.7);
+    spinDisc(ctx, projFn, [0.1, 0, 0.34], [1, 0, 0], [0, 1, 0], 1.02, spin, dsc, spl, parked, 2, 0.85, bladeFade);
+    spinDisc(ctx, projFn, [-1.04, 0.07, 0.12], [1, 0, 0], [0, 0, 1], 0.19, spin * 4.7 + 1.1, dsc, spl, parked, 2, 0.7, bladeFade);
   } else {
     // Cessna two-blade nose prop / Twin Otter three-blade wing turboprops. The
     // stations record the spinner apex (ultralight) vs base (prop) — nudge the
@@ -727,7 +727,7 @@ export function drawRotorFX(ctx, cls, projFn, { spin = 0, power = 0.7, parked = 
     const blades = (cls === 'ultralight' || cls === 'grasshopper') ? 2 : 3, off = cls === 'ultralight' ? -0.06 : 0.03;
     for (const st of (PROP_STATIONS[cls] || [])) {
       spinDisc(ctx, projFn, [st[0] + off, st[1], st[2]], [0, 0, 1], [0, 1, 0],
-        cls === 'ultralight' ? 0.21 : 0.21, spin * 2.2 + st[1] * 3, dsc, spl, parked, blades, 0.5);
+        cls === 'ultralight' ? 0.21 : 0.21, spin * 2.2 + st[1] * 3, dsc, spl, parked, blades, 0.5, bladeFade);
     }
   }
 }
@@ -744,13 +744,16 @@ export function drawCockpitProp(ctx, cls, { cx, cy, rad, spin = 0, disc = 0, spo
   const st = PROP_STATIONS[cls];
   if (!st || cls === 'prop' || st.length !== 1 || st[0][1] !== 0) return;   // one centred nose prop only
   const S = rad / 0.21;                                       // model disc r (0.21) → screen px
-  drawRotorFX(ctx, cls, ([, g, h]) => ({ sx: cx + g * S, sy: cy - h * S }), { spin, disc, spool });
+  // bladeFade: from the pilot's seat you look straight THROUGH the disc, so past ~half throttle
+  // let the individual blades melt into the blur disc — at high rpm you see only the spinning
+  // disc, never strobing blades over it (a real head-on GA prop). Chase view passes no fade.
+  drawRotorFX(ctx, cls, ([, g, h]) => ({ sx: cx + g * S, sy: cy - h * S }), { spin, disc, spool, bladeFade: 0.9 });
 }
 
 // One spinning disc: centre C, two unit axes U/V spanning its plane (model space), radius r.
 // `disc` = blur-disc opacity, `spool` = blade motion amount (see drawRotorFX). `lead` is the
 // front blade's opacity (helis read solid, props smear).
-function spinDisc(ctx, projFn, C, U, V, r, spin, disc, spool, parked, blades, lead) {
+function spinDisc(ctx, projFn, C, U, V, r, spin, disc, spool, parked, blades, lead, bladeFade = 0) {
   const at = (a, rad, wPerp) => {   // point at polar (a, rad) offset wPerp across the blade
     const ca = Math.cos(a), sa = Math.sin(a);
     return projFn([
@@ -793,9 +796,13 @@ function spinDisc(ctx, projFn, C, U, V, r, spin, disc, spool, parked, blades, le
   // The blades: crisp and stopped at spool 0 (a single dark blade per position, no smear),
   // dragging more fading ghosts and spreading them wider as `spool` climbs — so the prop reads
   // as speeding up / slowing down, not just present/absent. Ghost count grows with spool.
+  // `bladeFade` (>0, cockpit prop only) dissolves the discrete blades into the blur disc as it
+  // fills in past ~half opacity, so at high throttle the head-on view reads as a pure spinning
+  // disc with no individual blades — they melt into it rather than strobing under it.
+  const bladeVis = 1 - bladeFade * clampN((disc - 0.5) / 0.45, 0, 1);
   const ghosts = spool > 0.55 ? 3 : spool > 0.18 ? 2 : 1;
-  for (let i = 0; i < blades; i++) {
-    for (let k = 0; k < ghosts; k++) blade(spin + i * step - k * 0.17 * spool, `rgba(36,41,47,${lead * Math.pow(0.42, k)})`);
+  if (bladeVis > 0.02) for (let i = 0; i < blades; i++) {
+    for (let k = 0; k < ghosts; k++) blade(spin + i * step - k * 0.17 * spool, `rgba(36,41,47,${lead * bladeVis * Math.pow(0.42, k)})`);
   }
   ctx.fillStyle = 'rgba(30,34,40,0.9)';
   ctx.beginPath(); ctx.arc(hub.sx, hub.sy, Math.max(1, Math.min(rpx * 0.045, 6)), 0, 7); ctx.fill();
