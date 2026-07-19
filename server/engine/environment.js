@@ -1696,7 +1696,8 @@ export async function getWeatherMap() {
   if (deps.query) {
     const { rows } = await deps.query(
       `SELECT id, name, grid_x, grid_y FROM zones
-       WHERE map_id = 'map_world' AND grid_x IS NOT NULL AND grid_y IS NOT NULL`
+       WHERE map_id = 'map_world' AND grid_x IS NOT NULL AND grid_y IS NOT NULL
+         AND COALESCE(grid_z, 0) >= 0`
     ).catch(() => ({ rows: [] }));
     for (const z of rows) {
       const f = sampleField ? sampleField(z.grid_x, z.grid_y) : null;
@@ -2260,7 +2261,12 @@ export async function installGenerator({ zoneId, generatorType = 'junction_box',
         `Junction boxes go in building interiors only.`);
   }
 
-  const id = `gen_${zoneId}_${Date.now()}`;
+  // Junction boxes are a converge-to-stable self-heal: one per building, keyed on
+  // the (deterministic) utility-room zone. A DETERMINISTIC id (matching committed
+  // convention gen_<zoneId>) means re-running the power fixer never mints a divergent
+  // duplicate — the ON CONFLICT below makes the whole install idempotent. City plants
+  // stay timestamped (rare, one-off). This is what stops the gen_*_<timestamp> churn.
+  const id = generatorType === 'junction_box' ? `gen_${zoneId}` : `gen_${zoneId}_${Date.now()}`;
   // city_plant: 10 000 W. junction_box: 5 000 W default throughput (enough
   // for a multi-room building with several lights).
   const capacity = Number(capacityKw) || (generatorType === 'city_plant' ? 10000 : 5000);
@@ -2286,7 +2292,8 @@ export async function installGenerator({ zoneId, generatorType = 'junction_box',
 
   await query(
     `INSERT INTO generators (id, zone_id, name, generator_type, capacity_kw, fuel_type, fuel_remaining, fuel_burn_rate, connection_range, status, city_generator_id)
-     VALUES ($1,$2,$3,$4,$5,NULL,0,0,0,'online',$6)`,
+     VALUES ($1,$2,$3,$4,$5,NULL,0,0,0,'online',$6)
+     ON CONFLICT (id) DO UPDATE SET zone_id=EXCLUDED.zone_id, name=EXCLUDED.name, generator_type=EXCLUDED.generator_type, capacity_kw=EXCLUDED.capacity_kw, city_generator_id=EXCLUDED.city_generator_id`,
     [id, zoneId, genName, generatorType, capacity, cityGenId]
   );
 

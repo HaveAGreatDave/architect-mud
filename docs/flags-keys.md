@@ -129,7 +129,7 @@ is silently inert, so grep before renaming anything below.
 | `destructible` | combat | can be attacked (uses hp/hp_max) |
 | `device_id` | surveillance | security_devices row this furniture mirrors |
 | `game_table_id` | gametable | game_tables row (poker) |
-| `generator_id` | power | generators row this furniture mirrors |
+| `generator_id` | power | generators row this furniture mirrors. Auto-built junction boxes use a **deterministic** id `gen_<zoneId>` (converges on re-run; see `installGenerator` in environment.js); city plants and player units (`pgen_<uuid>`) do not. |
 | `hack_difficulty` | hacking | difficulty to hack this object |
 | `interactions` | engine (tags.js) | verb list surfaced as tags (`['switch','sit']`) |
 | `is_light` / `light_type` | environment | legacy light markers (see furniture columns) |
