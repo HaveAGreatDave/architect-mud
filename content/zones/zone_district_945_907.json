@@ -1,0 +1,30 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "wasteland",
+  "audio_theme_id": null,
+  "bg_color": "#2a1c16",
+  "color": "#b5744a",
+  "created_by": null,
+  "description": "Cracked red hardpan runs out flat to a rust-colored horizon. Wind-scoured rock, grit, and nothing that grows.",
+  "exits": {
+    "east": "zone_district_946_907",
+    "north": "zone_district_945_906",
+    "south": "zone_district_945_908",
+    "west": "zone_district_944_907"
+  },
+  "flags": {
+    "district": "wilds",
+    "planner": "bp_district",
+    "radiation": 30,
+    "terrain": "redrock"
+  },
+  "grid_x": 945,
+  "grid_y": 907,
+  "grid_z": 0,
+  "id": "zone_district_945_907",
+  "map_id": "map_world",
+  "marker": null,
+  "name": "The Rust Flats",
+  "parent_zone": null,
+  "updated_at": "1784498033"
+}

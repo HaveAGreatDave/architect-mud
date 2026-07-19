@@ -17,7 +17,7 @@
     "district_id": "district_coldwater",
     "planner": "bp_district",
     "radiation": 39,
-    "terrain": "redrock"
+    "terrain": "sand"
   },
   "grid_x": 867,
   "grid_y": 903,
@@ -27,5 +27,5 @@
   "marker": null,
   "name": "The Scoured Plain",
   "parent_zone": null,
-  "updated_at": "1784700000"
+  "updated_at": "1784496297"
 }

@@ -16,7 +16,7 @@
     "district_id": "district_coldwater",
     "planner": "bp_district",
     "radiation": 29,
-    "terrain": "redrock"
+    "terrain": "water"
   },
   "grid_x": 884,
   "grid_y": 902,

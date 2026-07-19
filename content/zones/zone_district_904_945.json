@@ -17,7 +17,7 @@
     "district_id": "district_coldwater",
     "planner": "bp_district",
     "radiation": 41,
-    "terrain": "redrock"
+    "terrain": "scrub"
   },
   "grid_x": 904,
   "grid_y": 945,
@@ -27,5 +27,5 @@
   "marker": null,
   "name": "Oxide Barrens",
   "parent_zone": null,
-  "updated_at": "1784700000"
+  "updated_at": "1784496297"
 }

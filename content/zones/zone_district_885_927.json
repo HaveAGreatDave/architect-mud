@@ -17,7 +17,7 @@
     "district_id": "district_coldwater",
     "planner": "bp_district",
     "radiation": 29,
-    "terrain": "redrock"
+    "terrain": "water"
   },
   "grid_x": 885,
   "grid_y": 927,
@@ -27,5 +27,5 @@
   "marker": null,
   "name": "Mesa Shelf",
   "parent_zone": null,
-  "updated_at": "1784700000"
+  "updated_at": "1784496296"
 }

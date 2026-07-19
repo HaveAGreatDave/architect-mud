@@ -17,7 +17,7 @@
     "district_id": "district_coldwater",
     "planner": "bp_district",
     "radiation": 35,
-    "terrain": "redrock"
+    "terrain": "scrub"
   },
   "grid_x": 908,
   "grid_y": 936,
@@ -27,5 +27,5 @@
   "marker": null,
   "name": "Cinder Mesa",
   "parent_zone": null,
-  "updated_at": "1784700000"
+  "updated_at": "1784497927"
 }

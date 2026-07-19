@@ -9,7 +9,8 @@
   "exits": {
     "east": "zone_district_892_897",
     "north": "zone_district_891_896",
-    "south": "zone_district_891_898"
+    "south": "zone_district_891_898",
+    "west": "zone_district_890_897"
   },
   "flags": {
     "district": "water",
@@ -25,5 +26,5 @@
   "marker": "≈",
   "name": "Coldwater Basin",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1784496295"
 }

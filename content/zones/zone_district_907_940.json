@@ -17,7 +17,7 @@
     "district_id": "district_coldwater",
     "planner": "bp_district",
     "radiation": 38,
-    "terrain": "redrock"
+    "terrain": "scrub"
   },
   "grid_x": 907,
   "grid_y": 940,
@@ -27,5 +27,5 @@
   "marker": null,
   "name": "Ochre Draw",
   "parent_zone": null,
-  "updated_at": "1784700000"
+  "updated_at": "1784496297"
 }

@@ -8,6 +8,7 @@
   "description": "Broken mesa shelves step away in ochre and iron-red, cut by dry washes where the wind funnels grit against your teeth.",
   "exits": {
     "east": "zone_district_953_909",
+    "north": "zone_district_952_908",
     "south": "zone_district_952_910",
     "west": "zone_district_951_909"
   },
@@ -26,5 +27,5 @@
   "marker": null,
   "name": "Mesa Shelf",
   "parent_zone": null,
-  "updated_at": "1784700000"
+  "updated_at": "1784496517"
 }

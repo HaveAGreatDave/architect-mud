@@ -17,7 +17,7 @@
     "district_id": "district_coldwater",
     "planner": "bp_district",
     "radiation": 38,
-    "terrain": "redrock"
+    "terrain": "water"
   },
   "grid_x": 901,
   "grid_y": 941,
@@ -27,5 +27,5 @@
   "marker": null,
   "name": "The Ironpan",
   "parent_zone": null,
-  "updated_at": "1784700000"
+  "updated_at": "1784496296"
 }

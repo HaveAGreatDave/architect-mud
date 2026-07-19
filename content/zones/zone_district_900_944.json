@@ -17,7 +17,7 @@
     "district_id": "district_coldwater",
     "planner": "bp_district",
     "radiation": 40,
-    "terrain": "redrock"
+    "terrain": "scrub"
   },
   "grid_x": 900,
   "grid_y": 944,
@@ -27,5 +27,5 @@
   "marker": null,
   "name": "The Rust Flats",
   "parent_zone": null,
-  "updated_at": "1784700000"
+  "updated_at": "1784496297"
 }

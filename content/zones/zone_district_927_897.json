@@ -7,6 +7,7 @@
   "created_by": "zone-planner",
   "description": "Cold water closes around your legs at the shoreline, the bottom shelving away fast into lightless murk. This is as far as you go on foot — the channel beyond is deep, and impassable without a boat.",
   "exits": {
+    "east": "zone_district_928_897",
     "north": "zone_district_927_896",
     "south": "zone_district_927_898",
     "west": "zone_district_926_897"
@@ -25,5 +26,5 @@
   "marker": "≈",
   "name": "Coldwater Basin",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1784496295"
 }

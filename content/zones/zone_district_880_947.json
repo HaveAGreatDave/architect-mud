@@ -16,7 +16,7 @@
     "district_id": "district_coldwater",
     "planner": "bp_district",
     "radiation": 32,
-    "terrain": "redrock"
+    "terrain": "water"
   },
   "grid_x": 880,
   "grid_y": 947,
@@ -26,5 +26,5 @@
   "marker": null,
   "name": "Rustwind Flat",
   "parent_zone": null,
-  "updated_at": "1784700000"
+  "updated_at": "1784496296"
 }

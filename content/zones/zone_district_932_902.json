@@ -1,0 +1,28 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "city",
+  "audio_theme_id": null,
+  "bg_color": null,
+  "color": null,
+  "created_by": null,
+  "description": "An empty place.",
+  "exits": {
+    "east": "zone_district_933_902",
+    "north": "zone_district_932_901",
+    "south": "zone_district_932_903",
+    "west": "zone_district_931_902"
+  },
+  "flags": {
+    "planner": "bp_district",
+    "terrain": "water"
+  },
+  "grid_x": 932,
+  "grid_y": 902,
+  "grid_z": 0,
+  "id": "zone_district_932_902",
+  "map_id": "map_world",
+  "marker": null,
+  "name": "Water Ground",
+  "parent_zone": null,
+  "updated_at": "1784496517"
+}

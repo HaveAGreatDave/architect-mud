@@ -8,6 +8,7 @@
   "description": "A vast rust-stained plain, hammered flat and hard, printed here and there with the tracks of things that crossed it once.",
   "exits": {
     "east": "zone_district_947_909",
+    "north": "zone_district_946_908",
     "south": "zone_district_946_910",
     "west": "zone_district_945_909"
   },
@@ -26,5 +27,5 @@
   "marker": null,
   "name": "The Scoured Plain",
   "parent_zone": null,
-  "updated_at": "1784700000"
+  "updated_at": "1784496516"
 }

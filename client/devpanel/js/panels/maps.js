@@ -1041,6 +1041,7 @@ const TERRAIN_FILL_BY_KEY = Object.fromEntries(TERRAIN_TYPES.map(t => [t.key, t.
 let mapTerrainMode = true;   // Maps tab opens in the terrain editor by default
 let mapTerrainType = 'road';
 let mapTerrainTool = 'brush';       // 'brush' | 'fill' | 'pick' | 'rect'
+let mapTerrainPanelPos = null;      // {left, top} once the palette is dragged; null = default top/right anchor
 let mapTerrainPainting = false;
 let mapTerrainPending = new Set();
 let mapTerrainRectStart = null;     // {x,y} anchor while dragging a rectangle
@@ -1123,6 +1124,7 @@ function _terrainBrush(zoneId, erase) {
   if (val) z.flags.terrain = val; else delete z.flags.terrain;
   _terrainTileDom(zoneId);
   _saveTerrain(zoneId);
+  if (val) _wireExistingTile(zoneId); // painting a surface also connects the tile; erasing leaves exits alone
 }
 
 // ─── PAINT NEW TERRAIN INTO EXISTENCE ────────────────────────────────────────
@@ -1182,12 +1184,34 @@ function _conjureTileLocal(x, y) {
   for (const [dir, off] of Object.entries(MAP_DIR3D)) {
     if (off[2] !== 0) continue; // orthogonal only; up/down stay manual
     const n = [...o.zones.values()].find(z => z.id !== id && (z.grid_z ?? 0) === o.z && z.grid_x === x + off[0] && z.grid_y === y + off[1]);
-    if (!n || _isBuildingTile(n)) continue; // never punch an exit into a building
+    if (!n || _isBuildingTile(n) || _crossesWildsBoundary(tile, n)) continue; // no building, no curtain crossing
     tile.exits[dir] = n.id;
     n.exits = { ...(n.exits || {}) }; n.exits[MAP_OPP[dir]] = id;
     changedNeighbours.push(n.id);
   }
   return { id, changedNeighbours };
+}
+// The repaint-path analogue of the conjure wiring above: an EXISTING tile that
+// gets painted also gets any MISSING orthogonal exit filled reciprocally to its
+// non-building neighbours. Fill-only (never overwrites a slot that already points
+// somewhere), so it's safe to run on every brush/fill stroke and idempotent. This
+// is what makes painting terrain over already-created tiles connect them, not just
+// conjured-from-empty ones. PUTs the tile and any neighbour it touched.
+async function _wireExistingTile(zoneId) {
+  const o = mapOverview;
+  const tile = o?.zones.get(zoneId);
+  if (!tile || _isBuildingTile(tile)) return;
+  let tileChanged = false;
+  const touched = new Set();
+  for (const [dir, off] of Object.entries(MAP_DIR3D)) {
+    if (off[2] !== 0) continue; // orthogonal only; up/down stay manual
+    const n = [...o.zones.values()].find(z => z.id !== zoneId && (z.grid_z ?? 0) === (tile.grid_z ?? 0) && z.grid_x === tile.grid_x + off[0] && z.grid_y === tile.grid_y + off[1]);
+    if (!n || _isBuildingTile(n) || _crossesWildsBoundary(tile, n)) continue; // edge, building, or curtain crossing
+    if (tile.exits?.[dir] == null) { tile.exits = { ...(tile.exits || {}) }; tile.exits[dir] = n.id; tileChanged = true; }
+    if (n.exits?.[MAP_OPP[dir]] == null) { n.exits = { ...(n.exits || {}) }; n.exits[MAP_OPP[dir]] = zoneId; touched.add(n.id); }
+  }
+  if (tileChanged) await API(`/zones/${zoneId}`, 'PUT', { exits: tile.exits });
+  for (const nid of touched) { const n = o.zones.get(nid); if (n) await API(`/zones/${nid}`, 'PUT', { exits: n.exits }); }
 }
 // Brush a single empty cell into existence (during a stroke): local conjure + DOM
 // tint now, stage the create + neighbour exit updates.
@@ -1263,6 +1287,7 @@ async function terrainFill(startId) {
   for (const z of hit) { z.flags = { ...(z.flags || {}) }; z.flags.terrain = mapTerrainType; }
   renderMapOverview();
   for (const z of hit) await _saveTerrain(z.id);
+  for (const z of hit) await _wireExistingTile(z.id); // connect the filled region, not just recolour it
 }
 
 // Rectangle-select: drag a marquee, apply the brush terrain to every covered cell at once.
@@ -1324,7 +1349,7 @@ async function _terrainRectCommitXY(endX, endY) {
     for (const [dir, off] of Object.entries(MAP_DIR3D)) {
       if (off[2] !== 0) continue;
       const n = at(tile.grid_x + off[0], tile.grid_y + off[1]);
-      if (!n || n.id === id || _isBuildingTile(n)) continue;
+      if (!n || n.id === id || _isBuildingTile(n) || _crossesWildsBoundary(tile, n)) continue;
       tile.exits[dir] = n.id;
       n.exits = { ...(n.exits || {}) }; n.exits[MAP_OPP[dir]] = id;
       if (!createdIds.has(n.id)) neighbourPut.add(n.id);
@@ -1334,6 +1359,7 @@ async function _terrainRectCommitXY(endX, endY) {
   for (const id of repaintIds) await _saveTerrain(id);
   for (const id of createdIds) await _stageCreatedTile(id);
   for (const nid of neighbourPut) { const n = o.zones.get(nid); if (n) await API(`/zones/${nid}`, 'PUT', { exits: n.exits }); }
+  for (const id of repaintIds) await _wireExistingTile(id); // repainted existing tiles get connected too (created tiles already wired in Phase 2)
   updateStagingBadge();
 }
 
@@ -1357,8 +1383,9 @@ function terrainPanelHtml() {
     : mapTerrainTool === 'pick' ? 'Click a tile to sample its terrain onto the brush.'
     : mapTerrainTool === 'rect' ? 'Drag a rectangle to fill every covered tile — empty cells become new ground tiles.'
     : 'Click-drag to paint · Ctrl-drag or right-drag to erase · paint an empty cell to conjure new ground.';
-  return `<div id="map-terrain-panel" style="position:fixed;top:100px;right:28px;z-index:60;width:190px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 28px #000a;padding:11px;font-size:12px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px">
+  const anchor = mapTerrainPanelPos ? `left:${mapTerrainPanelPos.left}px;top:${mapTerrainPanelPos.top}px` : 'top:100px;right:28px';
+  return `<div id="map-terrain-panel" style="position:fixed;${anchor};z-index:60;width:190px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 28px #000a;padding:11px;font-size:12px">
+    <div id="map-terrain-drag" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px;cursor:move;user-select:none">
       <strong style="font-size:12px;letter-spacing:.3px">🌍 Terrain</strong>
       <button onclick="toggleTerrainMode()" title="Close terrain painter" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:15px;line-height:1">✕</button>
     </div>
@@ -1375,6 +1402,38 @@ function terrainPanelHtml() {
     </div>
   </div>`;
 }
+
+// Drag the floating Terrain palette by its header. The card is position:fixed and
+// rebuilt on every renderMapOverview(), so the dragged position lives in
+// mapTerrainPanelPos and terrainPanelHtml() re-applies it; the handler updates it
+// live. Document-level move/up (no pointer capture), mirroring enableDialogDrag.
+(function enableTerrainPanelDrag() {
+  if (window.__dpTerrainDrag) return;   // install once
+  window.__dpTerrainDrag = true;
+  let panel = null, startX = 0, startY = 0, baseL = 0, baseT = 0;
+  function onMove(e) {
+    if (!panel) return;
+    const left = baseL + (e.clientX - startX), top = baseT + (e.clientY - startY);
+    mapTerrainPanelPos = { left, top };
+    panel.style.left = left + 'px'; panel.style.top = top + 'px'; panel.style.right = 'auto';
+  }
+  function onUp() {
+    panel = null;
+    document.removeEventListener('pointermove', onMove);
+    document.removeEventListener('pointerup', onUp);
+  }
+  document.addEventListener('pointerdown', (e) => {
+    if (!e.target.closest?.('#map-terrain-drag')) return;
+    if (e.target.closest('button')) return;   // let the ✕ close button through
+    panel = document.getElementById('map-terrain-panel');
+    if (!panel) return;
+    const r = panel.getBoundingClientRect();  // seeds from the current (possibly right-anchored) position
+    baseL = r.left; baseT = r.top; startX = e.clientX; startY = e.clientY;
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+    e.preventDefault();                        // no text selection while dragging
+  });
+})();
 
 // Re-bake the open flight sim's baked world (client/game/flightsim-world.json) from the
 // live server world, so painted+published terrain shows up over there. The server derives
@@ -1406,6 +1465,13 @@ function toggleMoveBuildingMode() {
 }
 function _isBuildingTile(z) {
   return !!(z && (z.flags?.building_type || z.flags?.is_building || mapOverview?.children.find(c => c.parent_zone_id === z.id)));
+}
+// The city↔wilds curtain: a wilds tile (flags.district==='wilds', set by
+// _newTerrainTile for wild surfaces) never auto-connects to a non-wilds neighbour,
+// so painting the frontier can't re-open the sealed boundary. Gates are authored by
+// hand. Inert between two same-side tiles.
+function _crossesWildsBoundary(a, b) {
+  return (a?.flags?.district === 'wilds') !== (b?.flags?.district === 'wilds');
 }
 function moveBuildingTileClick(zoneId) {
   const z = mapOverview?.zones.get(zoneId);

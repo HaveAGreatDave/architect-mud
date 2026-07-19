@@ -8,6 +8,7 @@
   "description": "Cracked red hardpan runs out flat to a rust-colored horizon. Wind-scoured rock, grit, and nothing that grows.",
   "exits": {
     "east": "zone_district_940_909",
+    "north": "zone_district_939_908",
     "south": "zone_district_939_910",
     "west": "zone_district_938_909"
   },
@@ -26,5 +27,5 @@
   "marker": null,
   "name": "The Scoured Plain",
   "parent_zone": null,
-  "updated_at": "1784700000"
+  "updated_at": "1784496516"
 }
