@@ -5,32 +5,45 @@ const SUIT_SYMBOL = { s: '♠', h: '♥', d: '♦', c: '♣' };
 const SUIT_CLASS   = { s: 'suit-black', h: 'suit-red', d: 'suit-red', c: 'suit-black' };
 const SUIT_FALL    = { s: 'S', h: 'H', d: 'D', c: 'C' }; // ASCII fallback
 
+// Colors for the ASCII cards, which render as HTML in the (dark) text log — NOT
+// the white-faced HTML cards above (those use suit-red/suit-black). Here red
+// suits pop in --red, black suits stay bright --text, and the frame recedes to
+// --text-dim so the ranks/pips read first. Spans wrap the exact same characters,
+// so the monospace layout is unchanged.
+const SUIT_INK  = { s: 'var(--text)', h: 'var(--red)', d: 'var(--red)', c: 'var(--text)' };
+const FRAME_COL = 'var(--text-dim)';
+const colr = (col, s) => `<span style="color:${col}">${s}</span>`;
+
 // ── ASCII (output pane) ───────────────────────────────────────────────────────
 
 // One card rendered as 6 lines of 11 chars each.
 function cardLines(card, faceDown) {
+  const F = t => colr(FRAME_COL, t); // frame / back — recedes
   if (faceDown) {
     return [
-      '+---------+',
-      '|#########|',
-      '|#########|',
-      '|#########|',
-      '|#########|',
-      '+---------+',
+      F('+---------+'),
+      F('|#########|'),
+      F('|#########|'),
+      F('|#########|'),
+      F('|#########|'),
+      F('+---------+'),
     ];
   }
   const r = card.rank;
   const s = SUIT_SYMBOL[card.suit] || SUIT_FALL[card.suit];
   const rPad = r.length === 1 ? r + ' ' : r;     // '10' is 2 chars
   const rPadR = r.length === 1 ? ' ' + r : r;
+  const I = t => colr(SUIT_INK[card.suit] || 'var(--text)', t); // rank / pip
+  // Same characters/spacing as before; only wrapped in color spans (frame dim,
+  // rank+suit inked). Keep the literal spaces so the 11-col layout is preserved.
   return [
-    '+---------+',
-    `| ${rPad}      |`,
-    '|         |',
-    `|    ${s}    |`,
-    '|         |',
-    `|      ${rPadR} |`,
-    '+---------+',
+    F('+---------+'),
+    `${F('| ')}${I(rPad)}${F('      |')}`,
+    F('|         |'),
+    `${F('|    ')}${I(s)}${F('    |')}`,
+    F('|         |'),
+    `${F('|      ')}${I(rPadR)}${F(' |')}`,
+    F('+---------+'),
   ];
 }
 
