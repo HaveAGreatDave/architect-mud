@@ -1,23 +1,40 @@
-// --- Map scale (shared by the Maps big-map overlay and the Power panel grids) ---
-// 'fit'  = shrink the whole grid so every tile is visible on screen without scrolling (default)
-// 'full' = native tile size (scroll to see the rest)
-let mapScaleMode = (() => { try { return localStorage.getItem('devMapScaleMode') || 'fit'; } catch { return 'fit'; } })();
+// --- Map zoom (shared by the Maps-tab editor, the big-map "world map" overlay,
+// and the Power panel grids) ---
+// A single stepped zoom axis with MAP_ZOOM_LEVELS stops. Level 0 = whole map in
+// view (never enlarged past native); the top level = native tile size (get close,
+// scroll to roam). Each intermediate level interpolates geometrically between the
+// per-map fit factor and native scale, measured live per grid in applyMapScale().
+const MAP_ZOOM_LEVELS = 10;
+let mapZoomLevel = (() => {
+  try { const n = parseInt(localStorage.getItem('devMapZoomLevel'), 10);
+        return (n >= 0 && n < MAP_ZOOM_LEVELS) ? n : 0; } catch { return 0; }
+})();
 
-function setMapScaleMode(mode) {
-  mapScaleMode = mode;
-  try { localStorage.setItem('devMapScaleMode', mode); } catch {}
+// Re-render whichever map view is currently on screen (mirrors the old scale flow).
+function _rerenderActiveMap() {
   const overlay = document.getElementById('bigmap-overlay');
   if (overlay && overlay.classList.contains('active')) renderBigMapOverlay();
   else if (typeof currentPanel !== 'undefined' && currentPanel === 'power') renderPowerPanelBody();
   else if (typeof currentPanel !== 'undefined' && currentPanel === 'maps') renderMapOverview();
 }
 
+// delta +1 = zoom in (closer), −1 = zoom out (wider). Clamped to the ladder ends.
+function setMapZoom(delta) {
+  const next = Math.min(MAP_ZOOM_LEVELS - 1, Math.max(0, mapZoomLevel + delta));
+  if (next === mapZoomLevel) return;
+  mapZoomLevel = next;
+  try { localStorage.setItem('devMapZoomLevel', String(mapZoomLevel)); } catch {}
+  _rerenderActiveMap();
+}
+
 function mapScaleControlHtml() {
-  const fit = mapScaleMode === 'fit';
+  const outOff = mapZoomLevel <= 0 ? ' disabled' : '';
+  const inOff = mapZoomLevel >= MAP_ZOOM_LEVELS - 1 ? ' disabled' : '';
   return `<div class="map-scale-ctrl" style="display:flex;align-items:center;gap:4px">
-    <span style="font-size:10px;color:var(--text-dim);letter-spacing:1px">SCALE</span>
-    <button class="action-btn${fit ? ' primary' : ''}" onclick="setMapScaleMode('fit')" title="Shrink the map so every tile fits on screen">Fit</button>
-    <button class="action-btn${fit ? '' : ' primary'}" onclick="setMapScaleMode('full')" title="Native tile size (scroll to see the rest)">Full</button>
+    <span style="font-size:10px;color:var(--text-dim);letter-spacing:1px">ZOOM</span>
+    <button class="action-btn"${outOff} onclick="setMapZoom(-1)" title="Zoom out (wider — whole map in view)">−</button>
+    <span style="font-size:10px;color:var(--text-dim);min-width:34px;text-align:center">${mapZoomLevel + 1}/${MAP_ZOOM_LEVELS}</span>
+    <button class="action-btn"${inOff} onclick="setMapZoom(1)" title="Zoom in (closer to the map)">+</button>
   </div>`;
 }
 
@@ -25,23 +42,35 @@ function wrapMapScale(gridHtml) {
   return `<div class="map-scale-viewport"><div class="map-scale-inner">${gridHtml}</div></div>`;
 }
 
-// Post-render: in 'fit' mode, measure each grid and CSS-transform it down to fit its container.
+// Post-render: measure each grid, work out its whole-map fit factor, then CSS-
+// transform it to the current zoom level's factor (geometric ramp fit→native).
 function applyMapScale(root) {
   const scope = root || document;
   scope.querySelectorAll('.map-scale-viewport').forEach(vp => {
     const inner = vp.querySelector('.map-scale-inner');
     if (!inner) return;
     inner.style.transform = 'none';
-    if (mapScaleMode !== 'fit') { vp.style.height = ''; vp.style.overflow = 'auto'; return; }
     const natW = inner.scrollWidth, natH = inner.scrollHeight;
     if (!natW || !natH) return;
     const availW = vp.clientWidth || (vp.parentElement && vp.parentElement.clientWidth) || natW;
     const availH = Math.max(200, window.innerHeight - vp.getBoundingClientRect().top - 90);
-    const factor = Math.min(availW / natW, availH / natH, 1);
+    // zMin = whole map in view (never enlarged past native); zMax = native tile size.
+    const zMin = Math.min(availW / natW, availH / natH, 1);
+    const zMax = 1;
+    const t = mapZoomLevel / (MAP_ZOOM_LEVELS - 1);
+    const factor = zMin * Math.pow(zMax / zMin, t); // pow(1,t)=1 when zMin===zMax
     inner.style.transformOrigin = 'top left';
     inner.style.transform = `scale(${factor})`;
-    vp.style.height = (natH * factor) + 'px';
-    vp.style.overflow = 'hidden';
+    const scaledW = natW * factor, scaledH = natH * factor;
+    if (scaledW <= availW + 1 && scaledH <= availH + 1) {
+      // Fits fully — pin the viewport to the content, no scrollbars.
+      vp.style.height = scaledH + 'px';
+      vp.style.overflow = 'hidden';
+    } else {
+      // Larger than the frame — bound the viewport and scroll to roam.
+      vp.style.height = Math.min(availH, scaledH) + 'px';
+      vp.style.overflow = 'auto';
+    }
   });
 }
 
