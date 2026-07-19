@@ -93,6 +93,7 @@ export const RENDER_TUNE = {
   chaseYaw: 12,       // EXTERNAL chase cam: resting off-astern angle (deg) so we view the craft from a slight 3/4 rear quarter, not dead-behind. Mouse orbit adds on top of this.
   chaseSink: 0.015,   // EXTERNAL view: small final trim (world-z) sinking the wheels a hair into the tarmac to hide the seam. The model is auto-anchored so its gear rests on the ground (see ownShipBaseWz) — this is just a nudge on top, no longer the whole ground offset
   chaseFrameY: 0.46,  // EXTERNAL chase cam: screen-y (fraction of canvas height) the craft's VISUAL CENTRE is pinned to — the camera pitch is solved to land it here regardless of zoom / ground vs air / orbit angle, so it never slides behind the bottom flight-stick HUD (lower = higher in frame)
+  yachtMidWz: 0.11,   // HELM chase (hideOwnShip): the Echelon's visual-centre world-z, used to pin her at frameY the same zoom-stable way the own ship is pinned — so she holds her screen spot on the dolly/orbit and always frames ABOVE the helm console (raise ⇒ she sits lower in frame)
 };
 const clamp = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -576,10 +577,16 @@ export function paintWindshield(id, view) {
     const D = H * 0.55;                                        // = focal, makeCam's vertical projection scale
     const baseWz = ownShipBaseWz({ EHbase: EHbaseC, R: v.map ? (v.map.length - 1) / 2 : 0 }, v);
     if (v.hideOwnShip) {
-      // Helm chase (no own aircraft — a yacht cell is the framed subject): keep the resting-pin
-      // compensation, which held that view's framing steady before the own-ship centre-pin below.
-      const craftY = (up, back) => D * (Math.max(0.05, EHbaseC + up) - baseWz) / Math.max(1e-3, back);
-      horizonY = st.horizon + craftY(orbR * Math.sin(restPitch), orbR * Math.cos(restPitch)) - craftY(chase.up, chase.back);
+      // Helm chase (no own aircraft — the Echelon's yacht cell is the framed subject, drawn at the
+      // centre tile dx,dy=0 exactly where the own ship would be). Pin her VISUAL CENTRE to a fixed
+      // screen fraction (frameY) the SAME zoom- and orbit-stable way the own ship is pinned below, so
+      // she holds that screen spot no matter the dolly/orbit and — crucially — always frames ABOVE the
+      // helm console. (The old resting-pin let her float low, so she read as blocked behind the dash.)
+      // frameY defaults to chaseFrameY; the helm console lowers it to seat her in the clear water band.
+      const EH = Math.max(0.05, EHbaseC + chase.up);
+      const midWz = RENDER_TUNE.yachtMidWz;
+      const fy = v.frameY != null ? v.frameY : RENDER_TUNE.chaseFrameY;
+      horizonY = H * fy - D * (EH - midWz) / Math.max(1e-3, chase.back);
     } else {
       // Own-ship external: pin the model's VISUAL CENTRE to a fixed screen fraction. The own ship draws at
       // dx,dy=0, so its centre (world-z = baseWz + modelMidH) projects to `horizonY + D*(EH - midWz)/back`;
@@ -6156,10 +6163,15 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     if (it.c.cur) { emitFace(od, () => drawCurtainWall(ctx, cam, it.dx, it.dy, it.c.cur, alpha, now)); continue; }   // the Curtain energy wall on a land-edge tile
     if (bi === 'park') { emitFace(od, () => drawParkTile(ctx, cam, it.dx, it.dy, night, it.seed, alpha, now, it.c.pf)); continue; }   // manicured park: authored `park_feature` (symmetry) or a seeded dressing (grove / pond / benches / flowerbeds / path)
     if (bi === 'parkland') { emitFace(od, () => drawTreeBB(ctx, cam, it.dx, it.dy, night, it.seed, alpha)); continue; }
-    if (bi === 'badlands') { if ((it.seed % 3) === 0) emitFace(od, () => drawRockBB(ctx, cam, it.dx, it.dy, night, it.seed, alpha)); continue; }
+    // Per-tile jitter: nudge a scattered object off its tile centre by a world-stable hash so the
+    // wilds don't read as objects lined up on the grid. Two independent hashes (x/y) span ±~0.4 tile,
+    // deterministic off the world coord so a given object stays put as the map window recentres.
+    const jx = (frac(it.wx * 12.9898 + it.wy * 78.233) - 0.5) * 0.8;
+    const jy = (frac(it.wx * 39.346 + it.wy * 11.135) - 0.5) * 0.8;
+    if (bi === 'badlands') { if ((it.seed % 3) === 0) emitFace(od, () => drawRockBB(ctx, cam, it.dx + jx, it.dy + jy, night, it.seed, alpha)); continue; }
     // Arid wildlands: per-biome scatter (mesa/hoodoo over redrock, cactus/brush over scrub, dead
     // snags/bone over ash) picked by the tile seed. Rust mesa (redrock) is denser than scrub/ash.
-    if (bi === 'scrub' || bi === 'redrock' || bi === 'ash') { if ((it.seed % (bi === 'redrock' ? 2 : 3)) === 0) emitFace(od, () => drawWildScatter(ctx, cam, it.dx, it.dy, bi, night, it.seed, alpha)); continue; }
+    if (bi === 'scrub' || bi === 'redrock' || bi === 'ash') { if ((it.seed % (bi === 'redrock' ? 2 : 3)) === 0) emitFace(od, () => drawWildScatter(ctx, cam, it.dx + jx, it.dy + jy, bi, night, it.seed, alpha)); continue; }
     // Trees & small forests on OPEN grass (no building, no road here). A coarse per-area hash
     // makes whole ~4-tile patches lean wooded or clear, so stands cluster into small forests
     // instead of a uniform sprinkle; sparse areas still get the odd lone tree. Deterministic

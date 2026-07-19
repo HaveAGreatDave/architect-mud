@@ -199,6 +199,7 @@ export function openHelmChase(container, opts = {}) {
     extYaw: opts.extYaw ?? REST.yaw, extPitch: opts.extPitch ?? REST.pitch, extZoom: opts.extZoom ?? REST.zoom,
     restPitch: opts.extPitch ?? REST.pitch,   // resting elevation — the console re-tunes this by panel size (setRestPitch)
     restZoom: opts.extZoom ?? REST.zoom,       // resting chase distance — the console re-tunes this by panel size (setRestZoom): a short pane pulls the camera back so the whole hull stays in the water band above the dash
+    frameY: opts.frameY ?? null,               // screen-y fraction her visual centre is pinned to (null ⇒ renderer default). The console sets this per pane so she always sits ABOVE the dash, not behind it.
     wx: { key: null, field: null },
     onArrive: opts.onArrive || null,
     alive: true, raf: 0, last: performance.now(),
@@ -343,7 +344,7 @@ export function openHelmChase(container, opts = {}) {
     st.extPitch = pitchForZoom(st.extZoom);
 
     paintWindshield(id, {
-      external: true, hideOwnShip: true, phase: 'cruise', worldBlend: 1,
+      external: true, hideOwnShip: true, phase: 'cruise', worldBlend: 1, frameY: st.frameY,
       heading: hdgN, extYaw: st.extYaw, extPitch: st.extPitch, extZoom: st.extZoom,
       height: 0, speed: st.spd, hour, weather, wxField: field, seaScroll: st.seaScroll || 0, contacts,
       map: st.map, mapCenter: { x: st.gx, y: st.gy }, mapOffset: st.mapOffset,
@@ -456,6 +457,9 @@ export function openHelmChase(container, opts = {}) {
     // to fit the band; a roomy/fullscreen pane eases back toward the resting frame. Adopts it live unless
     // the player has manually wheel-zoomed (extZoom drifted off the last resting value) — mirrors setRestPitch.
     setRestZoom(z) { const was = st.restZoom; st.restZoom = z; if (Math.abs(st.extZoom - was) < 1e-3) st.extZoom = z; },
+    // Screen-y fraction her visual centre is pinned to (lower ⇒ higher in frame). The console drives this
+    // from the visible water band so she always sits clear ABOVE the dash; null hands framing back to the renderer.
+    setFrameY(fy) { st.frameY = (fy == null ? null : Math.max(0.15, Math.min(0.8, fy))); },
     // Steer by the wheel's spin (RELATIVE): `deg` is the signed change in demanded course this frame
     // (+ = right/CW, − = left/CCW). It accumulates onto courseDemand — kept UNBOUNDED so the heading
     // climbs/falls the same way the wheel turned — and she eases toward it, EXCEPT within LOCK_TOL of
@@ -490,8 +494,8 @@ export function openHelmChase(container, opts = {}) {
     setTrim(pitch, zoom) { if (pitch != null) st.extPitch = pitch; if (zoom != null) st.extZoom = zoom; },
     // Live camera tuning handle (dev): read / set the whole resting chase pose at once, so the
     // framing can be dialled in from the console and the winning numbers baked into REST.
-    pose() { return { yaw: +st.extYaw.toFixed(1), pitch: +st.extPitch.toFixed(3), zoom: +st.extZoom.toFixed(3) }; },
-    setPose(p = {}) { if (p.yaw != null) st.extYaw = ((p.yaw % 360) + 360) % 360; if (p.pitch != null) st.extPitch = p.pitch; if (p.zoom != null) st.extZoom = p.zoom; return this.pose(); },
+    pose() { return { yaw: +st.extYaw.toFixed(1), pitch: +st.extPitch.toFixed(3), zoom: +st.extZoom.toFixed(3), frameY: st.frameY == null ? null : +st.frameY.toFixed(3) }; },
+    setPose(p = {}) { if (p.yaw != null) st.extYaw = ((p.yaw % 360) + 360) % 360; if (p.pitch != null) st.extPitch = p.pitch; if (p.zoom != null) st.extZoom = p.zoom; if (p.frameY !== undefined) st.frameY = (p.frameY == null ? null : Math.max(0.15, Math.min(0.8, p.frameY))); return this.pose(); },
     destroy() { st.alive = false; cancelAnimationFrame(st.raf); audio.stop(); disposeWindshield(id); container.innerHTML = ''; },
   };
 }

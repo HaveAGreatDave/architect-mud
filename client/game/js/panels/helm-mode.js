@@ -95,7 +95,7 @@ export function ensureHelmStyles() {
        or hides the Echelon — the ship reads clean through it. The frosted instrument wings + telegraph
        carry their own backdrop-glass, so the readouts stay legible with no slab behind them. Only the
        accent lip seam (::before) marks the console's edge. Fullscreen re-adds the smoked-glass slab. */
-    .helm-console{ position:relative; padding:6px 0 calc(6px + env(safe-area-inset-bottom)); border-radius:16px 16px 0 0;
+    .helm-console{ position:relative; padding:6px 0 env(safe-area-inset-bottom); border-radius:16px 16px 0 0;
       background:none; box-shadow:none; }
     /* a bright accent seam runs the lip — the money line that says "this cost something" */
     .helm-console::before{ content:''; position:absolute; left:8%; right:8%; top:0; height:1px; pointer-events:none;
@@ -115,7 +115,7 @@ export function ensureHelmStyles() {
        by the instrument cluster (left) and the engine telegraph (right). The 1fr/auto/1fr columns
        keep the wheel dead-centre in the bar. All still in-bar, so the water above stays clear. */
     .helm-console-face{ position:relative; isolation:isolate; display:grid; grid-template-columns:1fr auto 1fr; align-items:end; gap:calc(20px*var(--hs));
-      padding:calc(3px*var(--hs)) calc(26px*var(--hs)) calc(4px*var(--hs)); max-width:1280px; margin:0 auto; }
+      padding:calc(3px*var(--hs)) calc(26px*var(--hs)) 0; max-width:1280px; margin:0 auto; }
     /* Left instrument cluster — a FROSTED TRANSLUCENT GLASS panel that floats over the sea: it really
        blurs the water behind it (backdrop-filter), with chamfered tech-panel corners, a bright glass
        top edge and a faint accent tint. The instruments read like they're etched into a slab of smoked
@@ -455,6 +455,11 @@ export function openHelm(opts = {}) {
     const band = Math.max(40, paneH - consoleEl.offsetHeight);   // clear water above the console lip
     const z = Math.max(BASE_ZOOM, Math.min(2.4, BASE_ZOOM * REF_BAND / band));   // only ever pull BACK from the resting frame
     ctrl.setRestZoom(z);
+    // Seat the Echelon's visual centre at the MIDDLE of that clear band (as a fraction of the whole
+    // pane), so she's framed with water above and below her and never dips behind the console — no
+    // matter the pane size or fullscreen state. Clamped so she's always comfortably clear of the dash
+    // and never floated up into empty sky. The renderer holds her there through zoom/orbit (frameY pin).
+    ctrl.setFrameY(Math.max(0.30, Math.min(0.46, (band * 0.5) / paneH)));
   }
   const fitRO = new ResizeObserver(() => fitCamera());
   fitRO.observe(root);
