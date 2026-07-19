@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 1000,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_yard_coldline",
+  "id": "zone_yard_coldline",
+  "max_capacity_kw": 1000,
+  "name": "Coldline Reefer Depot",
+  "source_type": "junction_box"
+}

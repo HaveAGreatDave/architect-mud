@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 1000,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_yard_bonded",
+  "id": "zone_util_zone_yard_bonded",
+  "max_capacity_kw": 1000,
+  "name": "Customs Bonded Store 7 — Utility Room",
+  "source_type": "junction_box"
+}

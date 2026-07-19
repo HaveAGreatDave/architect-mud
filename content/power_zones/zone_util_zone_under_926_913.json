@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 1000,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_under_926_913",
+  "id": "zone_util_zone_under_926_913",
+  "max_capacity_kw": 1000,
+  "name": "Drain Sump — Utility Room",
+  "source_type": "junction_box"
+}

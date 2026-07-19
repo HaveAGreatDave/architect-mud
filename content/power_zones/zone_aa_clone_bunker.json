@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 1000,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_aa_clone_bunker",
+  "id": "zone_aa_clone_bunker",
+  "max_capacity_kw": 1000,
+  "name": "Guardian Battery — Bunker",
+  "source_type": "junction_box"
+}

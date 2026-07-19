@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 1000,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_asc_weave_cage",
+  "id": "zone_util_zone_asc_weave_cage",
+  "max_capacity_kw": 1000,
+  "name": "Stock Cage — Utility Room",
+  "source_type": "junction_box"
+}

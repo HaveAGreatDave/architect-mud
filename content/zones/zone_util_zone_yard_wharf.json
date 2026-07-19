@@ -1,0 +1,26 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": null,
+  "color": null,
+  "created_by": null,
+  "description": "A cramped below-grade utility room: bare concrete, sweating pipes, and the building junction box humming in its steel cabinet.",
+  "exits": {
+    "up": "zone_yard_wharf"
+  },
+  "flags": {
+    "is_interior": true,
+    "utility_room": true,
+    "world_exit_zone": "zone_district_926_908"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_yard_wharf",
+  "map_id": "map_int_yard_wharf",
+  "marker": null,
+  "name": "Wharf Transfer Shed — Utility Room",
+  "parent_zone": "zone_district_926_908",
+  "updated_at": "1784348804"
+}

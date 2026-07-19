@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 1000,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_asc_clinic_consult",
+  "id": "zone_asc_clinic_consult",
+  "max_capacity_kw": 1000,
+  "name": "Consultation",
+  "source_type": "junction_box"
+}

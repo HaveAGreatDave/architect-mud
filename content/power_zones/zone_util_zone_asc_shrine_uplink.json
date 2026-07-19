@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 1000,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_asc_shrine_uplink",
+  "id": "zone_util_zone_asc_shrine_uplink",
+  "max_capacity_kw": 1000,
+  "name": "The Uplink — Utility Room",
+  "source_type": "junction_box"
+}

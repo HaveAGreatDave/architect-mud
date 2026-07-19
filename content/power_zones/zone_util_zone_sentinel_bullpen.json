@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 1000,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_sentinel_bullpen",
+  "id": "zone_util_zone_sentinel_bullpen",
+  "max_capacity_kw": 1000,
+  "name": "Coldwater Sentinel — Bullpen — Utility Room",
+  "source_type": "junction_box"
+}

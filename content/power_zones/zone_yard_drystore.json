@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 1000,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_yard_drystore",
+  "id": "zone_yard_drystore",
+  "max_capacity_kw": 1000,
+  "name": "Dry Store 12",
+  "source_type": "junction_box"
+}

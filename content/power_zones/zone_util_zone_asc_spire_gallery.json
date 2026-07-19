@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 1000,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_asc_spire_gallery",
+  "id": "zone_util_zone_asc_spire_gallery",
+  "max_capacity_kw": 1000,
+  "name": "Gallery of Rungs — Utility Room",
+  "source_type": "junction_box"
+}

@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 1000,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_asc_spire_gallery",
+  "id": "zone_asc_spire_sanctum",
+  "max_capacity_kw": 1000,
+  "name": "Executive Sanctum",
+  "source_type": "junction_box"
+}

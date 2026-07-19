@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 1000,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_under_alcove",
+  "id": "zone_lw_bunk",
+  "max_capacity_kw": 1000,
+  "name": "The Bunkroom",
+  "source_type": "junction_box"
+}

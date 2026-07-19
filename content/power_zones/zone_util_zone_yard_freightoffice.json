@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 1000,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_yard_freightoffice",
+  "id": "zone_util_zone_yard_freightoffice",
+  "max_capacity_kw": 1000,
+  "name": "Yards Freight Office — Utility Room",
+  "source_type": "junction_box"
+}

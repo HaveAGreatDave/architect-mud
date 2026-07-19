@@ -1,0 +1,26 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": null,
+  "color": null,
+  "created_by": null,
+  "description": "A cramped below-grade utility room: bare concrete, sweating pipes, and the building junction box humming in its steel cabinet.",
+  "exits": {
+    "up": "zone_asc_weave_cage"
+  },
+  "flags": {
+    "is_interior": true,
+    "utility_room": true,
+    "world_exit_zone": "zone_district_893_907"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_asc_weave_cage",
+  "map_id": "map_int_asc_weave",
+  "marker": null,
+  "name": "Stock Cage — Utility Room",
+  "parent_zone": "zone_district_893_907",
+  "updated_at": "1784412685"
+}

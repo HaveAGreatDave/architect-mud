@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 1000,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_greenroom_booth",
+  "id": "zone_util_zone_greenroom_booth",
+  "max_capacity_kw": 1000,
+  "name": "The Green Room — Guest Booth — Utility Room",
+  "source_type": "junction_box"
+}

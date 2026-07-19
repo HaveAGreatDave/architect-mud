@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 1000,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_meltwater_diner",
+  "id": "zone_util_zone_meltwater_diner",
+  "max_capacity_kw": 1000,
+  "name": "Meltwater Diner — Utility Room",
+  "source_type": "junction_box"
+}
