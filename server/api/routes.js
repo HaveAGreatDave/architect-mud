@@ -840,10 +840,15 @@ async function apiGetMap(id) {
       )
     ORDER BY name
   `);
-  const { rows: buildingZoneRows } = await query(
-    `SELECT id FROM zones WHERE COALESCE((flags->>'is_building')::boolean, false) = true`
+  // One full scan yields both the building-zone set and the universe of zone ids
+  // the client validator needs to tell a real cross-map portal (valid) from a
+  // dangling exit (error) — allRecords is an unreliable proxy for that.
+  const { rows: allZoneRows } = await query(
+    `SELECT id, COALESCE((flags->>'is_building')::boolean, false) AS is_building FROM zones`
   );
-  return { status:200, body:{ map: mapRows[0], zones, children, unplaced, unplacedInterior, buildingZoneIds: buildingZoneRows.map(z => z.id) } };
+  return { status:200, body:{ map: mapRows[0], zones, children, unplaced, unplacedInterior,
+    buildingZoneIds: allZoneRows.filter(z => z.is_building).map(z => z.id),
+    allZoneIds: allZoneRows.map(z => z.id) } };
 }
 
 // Links an interior zone to an exterior zone: adds the exit, finds or creates

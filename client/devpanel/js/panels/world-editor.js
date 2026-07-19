@@ -15,6 +15,7 @@
 let _worldData = { districts: [], zones: [] };
 let _worldSelected = null;
 let _worldShowLegacy = false;
+let _worldShowTerrain = true;
 
 function _wdEsc(s) { return String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 function _wdName(id) { return _worldData.districts.find(d => d.id === id)?.name || id; }
@@ -44,9 +45,39 @@ function _wdBlocks() {
 }
 function _wdBlockCount(id) { return _wdBlocks().byDist.get(id)?.count || 0; }
 
+// Member zones per block id (district_id, or '__unassigned' for legacy tiles), floor 0 only.
+function _wdZonesByBlock() {
+  const m = new Map();
+  for (const z of _worldData.zones) {
+    if (z.grid_x == null || z.grid_y == null || (z.grid_z ?? 0) !== 0) continue;
+    const key = z.flags?.district_id || '__unassigned';
+    let arr = m.get(key); if (!arr) { arr = []; m.set(key, arr); }
+    arr.push(z);
+  }
+  return m;
+}
+
+// A district's real terrain, painted one <rect> per tile (roads/water/docks/grass) so the
+// block reads as a mini-map — directionality at a glance. Falls back to nothing where a tile
+// has no resolved terrain (the district base fill shows through). Uses the same authored-wins
+// inference as the Maps painter (mapZoneTerrain) so it matches what the game renders.
+function _wdTerrainTiles(zones) {
+  if (!zones?.length) return '';
+  let out = '';
+  for (const z of zones) {
+    const terr = typeof mapZoneTerrain === 'function' ? mapZoneTerrain(z) : z.flags?.terrain;
+    const fill = terr && TERRAIN_FILL_BY_KEY[terr];
+    if (!fill) continue;
+    out += `<rect x="${z.grid_x}" y="${z.grid_y}" width="1" height="1" style="fill:${fill};pointer-events:none"></rect>`;
+  }
+  return out;
+}
+
 function _wdToolbarHtml() {
   return `<div style="display:flex;align-items:center;gap:12px;padding:10px 12px;flex-wrap:wrap">
     <button class="action-btn primary" id="wd-new">＋ New District</button>
+    <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text-dim);cursor:pointer">
+      <input type="checkbox" id="wd-terrain" ${_worldShowTerrain ? 'checked' : ''} style="accent-color:var(--accent)"> Terrain snapshot</label>
     <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text-dim);cursor:pointer">
       <input type="checkbox" id="wd-legacy" ${_worldShowLegacy ? 'checked' : ''} style="accent-color:var(--accent)"> Show legacy tiles</label>
     <span style="margin-left:auto;font-size:11px;color:var(--text-dim)">Drag a district to reposition · click to select</span>
@@ -59,7 +90,7 @@ function _wdSelectedBarHtml() {
     <strong style="color:var(--text)">${_wdEsc(_wdName(_worldSelected))}</strong>
     <code style="font-size:11px;color:var(--text-dim)">${_wdEsc(_worldSelected)}</code>
     <span style="font-size:11px;color:var(--text-dim)">${_wdBlockCount(_worldSelected)} tiles</span>
-    <button class="action-btn" id="wd-edit">✎ Edit tiles in Maps</button>
+    <button class="action-btn" id="wd-edit">✎ Edit tiles in District Map</button>
     <button class="action-btn" id="wd-deselect" style="opacity:.7">Deselect</button>
   </div>`;
 }
@@ -93,6 +124,7 @@ function renderWorldEditor(data) {
   const pad = 2;
   const vbX = gMinX - pad, vbY = gMinY - pad, vbW = (gMaxX - gMinX) + 1 + pad * 2, vbH = (gMaxY - gMinY) + 1 + pad * 2;
 
+  const zonesByBlock = _worldShowTerrain ? _wdZonesByBlock() : null;
   let rects = '';
   for (const b of blocks) {
     const x = b.minX, y = b.minY, w = (b.maxX - b.minX) + 1, h = (b.maxY - b.minY) + 1;
@@ -101,13 +133,18 @@ function renderWorldEditor(data) {
     const fill = isDist ? (TERRAIN_FILL_BY_KEY[d?.base_terrain] || _wdHue(b.id)) : '#33373d';
     const sel = _worldSelected === b.id;
     const fs = Math.max(0.9, Math.min(w, h) * 0.2);
+    const tiles = zonesByBlock ? _wdTerrainTiles(zonesByBlock.get(b.id)) : '';
+    // Base fill sits under the per-tile terrain; when terrain is shown it just backs the gaps.
+    const baseOpacity = tiles ? (isDist ? 0.35 : 0.18) : (isDist ? 0.85 : 0.28);
     rects += `<g class="wd-block" data-id="${_wdEsc(b.id)}" data-kind="${b.kind}" style="cursor:${isDist ? 'grab' : 'pointer'}">
+      <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="0.4" style="fill:${fill};fill-opacity:${baseOpacity}"></rect>
+      ${tiles}
       <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="0.4"
-        style="fill:${fill};fill-opacity:${isDist ? 0.85 : 0.28};stroke:${sel ? 'var(--accent)' : '#000'};stroke-width:${sel ? 0.55 : 0.15};stroke-opacity:${isDist ? 0.9 : 0.5}"></rect>
+        style="fill:none;stroke:${sel ? 'var(--accent)' : '#000'};stroke-width:${sel ? 0.55 : 0.15};stroke-opacity:${isDist ? 0.9 : 0.5}"></rect>
       <text x="${x + w / 2}" y="${y + h / 2}" text-anchor="middle" dominant-baseline="middle" font-size="${fs}"
-        style="pointer-events:none;font-weight:700;fill:#fff;paint-order:stroke;stroke:#000;stroke-width:0.08">${_wdEsc(isDist ? _wdName(b.id) : 'legacy tiles')}</text>
+        style="pointer-events:none;font-weight:700;fill:#fff;paint-order:stroke;stroke:#000;stroke-width:0.14">${_wdEsc(isDist ? _wdName(b.id) : 'legacy tiles')}</text>
       <text x="${x + w / 2}" y="${y + h / 2 + fs}" text-anchor="middle" font-size="${fs * 0.62}"
-        style="pointer-events:none;fill:#d6dae0">${w}×${h} · ${b.count} tiles</text>
+        style="pointer-events:none;fill:#fff;paint-order:stroke;stroke:#000;stroke-width:0.1">${w}×${h} · ${b.count} tiles</text>
     </g>`;
   }
 
@@ -122,6 +159,7 @@ function renderWorldEditor(data) {
 
 function _wdWireChrome() {
   document.getElementById('wd-new')?.addEventListener('click', _wdNewDistrict);
+  document.getElementById('wd-terrain')?.addEventListener('change', e => { _worldShowTerrain = e.target.checked; renderWorldEditor(); });
   document.getElementById('wd-legacy')?.addEventListener('change', e => { _worldShowLegacy = e.target.checked; renderWorldEditor(); });
   document.getElementById('wd-edit')?.addEventListener('click', () => { window.worldSelectedDistrictId = _worldSelected; showPanel('maps'); });
   document.getElementById('wd-deselect')?.addEventListener('click', () => { _worldSelected = null; renderWorldEditor(); });

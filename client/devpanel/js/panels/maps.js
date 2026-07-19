@@ -537,6 +537,7 @@ let mapZoneEditReturn = false;    // true when zone editor was opened from the m
 let zoneEnemyEditReturn = null;   // zoneId when enemy editor was opened from zone edit panel
 let mapsList = [];
 let mapOverview = null;           // { map, zones:Map, unplaced:Map, unplacedInterior:Map, children, z }
+let _districtNames = null;        // Map<district_id, name>, lazily fetched — labels the exterior editor
 let mapDragId = null;
 let mapDragFromTray = false;
 let mapDragIsInterior = false;
@@ -1451,9 +1452,14 @@ async function loadMapOverview(mapId) {
   const unplaced = new Map((data.unplaced || []).map(z => [z.id, { ...z, exits: { ...(z.exits || {}) }, flags: z.flags || {} }]));
   const unplacedInterior = new Map((data.unplacedInterior || []).map(z => [z.id, { ...z, exits: { ...(z.exits || {}) }, flags: z.flags || {} }]));
   const keepZ = (mapOverview && mapOverview.map.id === mapId) ? mapOverview.z : 0;
-  mapOverview = { map: data.map, zones, unplaced, unplacedInterior, children: data.children || [], buildingZoneIds: data.buildingZoneIds || [], z: keepZ };
+  mapOverview = { map: data.map, zones, unplaced, unplacedInterior, children: data.children || [], buildingZoneIds: data.buildingZoneIds || [], allZoneIds: data.allZoneIds || [], z: keepZ };
   if (!data.map.parent_zone_id) {
     _exteriorBuildingZones = (data.zones || []).filter(z => z.flags?.is_building);
+    // The exterior editor is scoped to one district; fetch district names to label it.
+    if (!_districtNames) {
+      const dd = await API('/maps/districts').catch(() => null);
+      _districtNames = new Map((dd?.districts || []).map(d => [d.id, d.name]));
+    }
   }
   // Re-apply any staged-but-unpublished color/marker changes so the map stays in sync
   // even after a fresh fetch (tab switch, panel reload, etc.)
@@ -1533,17 +1539,18 @@ function renderMapOverview() {
   // (e.g. an interior map), show everything as before.
   const districtedZones = all.filter(z => z.flags?.district_id && z.grid_x != null);
   let districtZones = [];
+  let selectedDistrictId = null;
   if (districtedZones.length) {
     const sel = window.worldSelectedDistrictId;
     if (sel && districtedZones.some(z => z.flags.district_id === sel)) {
-      districtZones = districtedZones.filter(z => z.flags.district_id === sel);
+      selectedDistrictId = sel;
     } else {
       // Default to the district with the most placed tiles.
       const counts = new Map();
       for (const z of districtedZones) counts.set(z.flags.district_id, (counts.get(z.flags.district_id) || 0) + 1);
-      const main = [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
-      districtZones = districtedZones.filter(z => z.flags.district_id === main);
+      selectedDistrictId = [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
     }
+    districtZones = districtedZones.filter(z => z.flags.district_id === selectedDistrictId);
   }
   let dbbox = null;
   if (districtZones.length) {
@@ -1553,7 +1560,10 @@ function renderMapOverview() {
   const inDistrict = z => !dbbox || (z.grid_x >= dbbox.minX && z.grid_x <= dbbox.maxX && z.grid_y >= dbbox.minY && z.grid_y <= dbbox.maxY);
   const floors = [...new Set(all.filter(inDistrict).map(z => z.grid_z ?? 0))].sort((a, b) => a - b);
   const onFloor = all.filter(z => (z.grid_z ?? 0) === o.z && z.grid_x != null && z.grid_y != null && inDistrict(z));
-  const knownZoneIds = new Set((Array.isArray(allRecords) ? allRecords : []).map(z => z.id));
+  // Authoritative universe of zone ids from the map payload (mirrors the server's
+  // whole-world validator) — allRecords is only the last-loaded table, so it would
+  // mis-flag valid cross-map portals (e.g. an up-exit into an interior zone) as dangling.
+  const knownZoneIds = new Set((o.allZoneIds && o.allZoneIds.length ? o.allZoneIds : (Array.isArray(allRecords) ? allRecords : []).map(z => z.id)));
   const interiorZoneIds = new Set([
     ...o.unplacedInterior.keys(),
     ...o.children.map(c => c.entry_zone_id).filter(Boolean),
@@ -1607,8 +1617,9 @@ function renderMapOverview() {
       <span style="margin-left:14px">${mapScaleControlHtml()}</span>
     </div>`;
   } else {
+    const exteriorLabel = (selectedDistrictId && _districtNames?.get(selectedDistrictId)) || o.map.name;
     html += `<div class="map-toolbar">
-      <span style="color:var(--text-bright);font-weight:600;font-size:13px">${o.map.name}</span>
+      <span style="color:var(--text-bright);font-weight:600;font-size:13px">${exteriorLabel}</span>
       <button class="action-btn${mapSafeZoneMode ? ' active' : ''}" style="font-size:10px;padding:2px 8px;margin-left:12px${mapSafeZoneMode ? ';background:var(--accent);color:#111' : ''}" onclick="toggleSafeZoneMode()" title="Paint zones as Safe (police cameras present) or not">${mapSafeZoneMode ? '✓ Painting Safe Zones' : 'Paint Safe Zones'}</button>
       <button class="action-btn${mapTerrainMode ? ' active' : ''}" style="font-size:10px;padding:2px 8px;margin-left:6px${mapTerrainMode ? ';background:var(--accent);color:#111' : ''}" onclick="toggleTerrainMode()" title="Paint ground terrain (road auto-tiles into junctions; water, grass, asphalt, dock…) — writes flags.terrain">${mapTerrainMode ? '✓ Painting Terrain' : '🌍 Terrain'}</button>
       <button class="action-btn${mapMoveBuildingMode ? ' active' : ''}" style="font-size:10px;padding:2px 8px;margin-left:6px${mapMoveBuildingMode ? ';background:var(--accent);color:#111' : ''}" onclick="toggleMoveBuildingMode()" title="Relocate a building: pick it up, drop it on an empty cell, review + confirm — the interior and front door move with it">${mapMoveBuildingMode ? '✓ Moving Building' : '🏢 Move Building'}</button>
