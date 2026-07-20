@@ -773,13 +773,15 @@ function ensureStyles() {
     #tablet-os-overlay .tos-gear-bar span { display:block; height:100%; background:var(--mg-accent); box-shadow:0 0 6px var(--mg-accent); }
     #tablet-os-overlay .tos-gear-carry-txt { font-size:10px; letter-spacing:.5px; color:var(--tos-fg-dim); }
 
-    /* The doll is a fixed-aspect stage matching the femsil PNG (500×708), so the
-       masked figure fills it edge-to-edge and each slot box's percentage anchor lands
-       over the right body part. The figure is the alpha mask tinted to the live accent
-       colour (body → accent, background → transparent), with a soft accent glow. */
+    /* The doll is a fixed-aspect stage matching the silhouette PNG, so the masked
+       figure fills it edge-to-edge and each slot box's percentage anchor lands over
+       the right body part. The figure is the alpha mask tinted to the live accent
+       colour (body → accent, background → transparent), with a soft accent glow.
+       Default (female) matches femsil (500×708); .male matches paperdoll (242×540). */
     /* Height-driven so the whole figure (incl. the feet box at 94%) always fits the
-       screen without scrolling — width derives from the 500/708 aspect. */
+       screen without scrolling — width derives from the aspect. */
     #tablet-os-overlay .tos-doll { position:relative; height:min(46vh, 336px); width:auto; max-width:46vw; margin:0 auto; aspect-ratio:500 / 708; }
+    #tablet-os-overlay .tos-doll.male { aspect-ratio:242 / 540; }
     /* Loadout: inventory list on the LEFT (col 1), the layer selector + paperdoll
        centred in the middle (col 2), an empty right spacer (col 3) balancing the left
        so the doll stays centred. Both list and doll are on one screen for drag/drop;
@@ -829,6 +831,9 @@ function ensureStyles() {
       -webkit-mask:url('/assets/femsil-mask.png') center / contain no-repeat;
       mask:url('/assets/femsil-mask.png') center / contain no-repeat;
       filter:drop-shadow(0 0 6px color-mix(in srgb, var(--mg-accent) 38%, transparent)); }
+    #tablet-os-overlay .tos-doll.male .tos-doll-fig {
+      -webkit-mask-image:url('/assets/paperdoll-mask.png');
+      mask-image:url('/assets/paperdoll-mask.png'); }
 
     #tablet-os-overlay .tos-gslot { position:absolute; z-index:2; display:flex; flex-direction:column; gap:1px; padding:4px 6px; min-width:56px; max-width:47%; border-radius:5px; user-select:none; touch-action:none;
       background:color-mix(in srgb, var(--tos-surface-lo) 88%, transparent); border:1px solid color-mix(in srgb, var(--mg-accent) 22%, transparent);
@@ -3245,7 +3250,7 @@ function renderGearLoadout(d) {
 
   const acc = equipped.filter(i => i.slot === 'accessory').sort((a, b) => (a.layer || 0) - (b.layer || 0))[0];
   const doll =
-    `<div class="tos-doll">${gearDoll()}` +
+    `<div class="tos-doll${d.sex === 'female' ? '' : ' male'}">${gearDoll()}` +
       box('head', bodyItem('head')) +
       box('accessory', acc) +
       box('hands', bodyItem('hands')) +

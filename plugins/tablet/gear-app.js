@@ -14,6 +14,7 @@ async function buildGear(player) {
   const inv = await cmdInventory(player);   // full carried list → the tray
   return {
     view: 'gear',
+    sex: player.biological_sex === 'female' ? 'female' : 'male',  // doll silhouette
     items: g.items,                         // equippable subset (the doll reads equipped)
     inventory: inv.items || [],             // every carried item (tray = unequipped subset)
     effects: g.effects,
