@@ -854,6 +854,20 @@ export function pushHud(live) {
 export function pushWindowTo(live, player) {
   sendToPlayer(player.id, { type: 'cockpit_update', state: { ...gaugePayload(live), seat: 'passenger' } });
 }
+// The authoritative stall read for reconcile: the client's own stall flag OR the unambiguous
+// slow-nose-up-sinking signature. Pure + exported so the regress suite can pin the envelope.
+// LENIENT by design — the thresholds sit well below any airframe's flapped stall speed and
+// require a real nose-up AND a real sink, so an honest slow approach, or a pilot already
+// recovering (nose down), is never flagged; it only catches a client reporting "not stalled"
+// while plainly parked in the stall regime, so the flightTick consequences can't be dodged.
+// cruise_speed is the only speed anchor the server carries per type; 0.35× it is sub-stall for all.
+export function stalledState(type, d) {
+  if (d.stalled) return true;
+  if (!d.airborne || d.onGround) return false;
+  const ias = Math.max(0, d.ias || 0), pitch = Number.isFinite(d.pitch) ? d.pitch : 0;
+  return ias < (type?.cruise_speed || 80) * 0.35 && pitch > 3 && (d.vs || 0) < -400;
+}
+
 // ── Continuous-flight reconcile (client sim → authoritative server state) ─────
 // The client runs the physics at 60fps and reports state; the server clamps it to
 // a sane envelope (anti-cheat) and writes it into the live row so every consequence
@@ -877,9 +891,13 @@ export function reconcile(live, d) {
     if (vs > 0) vs = 0;
   }
   a.altitude_band = bandFromAltitude(alt, d.onGround);
-  live.cont = { altitude: alt, airspeed: Math.max(0, d.ias || 0), vs,
-    bank: Number.isFinite(d.bank) ? d.bank : 0, pitch: Number.isFinite(d.pitch) ? d.pitch : 0,
-    onGround: !!d.onGround, stalled: !!d.stalled };
+  const ias = Math.max(0, d.ias || 0), pitch = Number.isFinite(d.pitch) ? d.pitch : 0;
+  live.cont = { altitude: alt, airspeed: ias, vs,
+    bank: Number.isFinite(d.bank) ? d.bank : 0, pitch,
+    onGround: !!d.onGround,
+    // Trust the client's stall flag for feel, but the unambiguous slow/nose-up/sinking signature
+    // reads as stalled whatever a modified client claims (lenient anti-spoof; see stalledState).
+    stalled: stalledState(live.type, { airborne: a.airborne, ias, pitch, vs, onGround: d.onGround, stalled: d.stalled }) };
 }
 
 // The world context pushed back to the client sim each server tick: authoritative

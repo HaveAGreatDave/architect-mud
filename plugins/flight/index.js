@@ -1043,6 +1043,18 @@ async function flightTick() {
         if (!grounded) {
           a.fuel = Math.max(0, a.fuel - eff.burn * (0.15 + (a.throttle / 100)) * (BAND_BURN[a.altitude_band] || 1) * fuelBurnScale());
           if (a.fuel <= 0 && !live.starving) { live.starving = true; toOccupants(live, '<span class="text-red">⚠ ENGINE OUT — the tank\'s dry. Dead stick. Get it down.</span>'); }
+          // Stall consequences (authoritative). A BRIEF stall is free — nose down, unload, and the
+          // energy model flies again; that IS the recovery, no verb. But a SUSTAINED stall (a held
+          // mush or a spin you refuse to break) stresses the airframe past a short grace window and
+          // bleeds hull; carry it into the ground and it's already the emergent terrain crash below.
+          if (live.cont?.stalled) {
+            live.stallTicks = (live.stallTicks || 0) + 1;
+            if (live.stallTicks >= 2) {   // ~6s unbroken at TICK_MS=3s — a real, held stall, not a flick
+              a.damage = Math.min(1, a.damage + 0.05);
+              if (live.stallTicks === 2) toOccupants(live, '<span class="text-amber">⚠ Held in the stall — the airframe groans under the load. Nose down, unload, power up.</span>');
+              if (a.damage >= 1) { await crash(live, 'stall'); continue; }
+            }
+          } else live.stallTicks = 0;
           await checkAirspace(live);
           if (!liveAircraft.has(live.row.id)) continue;
           await tickCombat(live);

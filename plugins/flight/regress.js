@@ -11,7 +11,7 @@ import { crashSeverity, collateralBill, isSeverelyImpaired } from './collateral.
 import { sellAircraft, cancelRental, flushAirborne } from './hangars.js';
 import { computeStats, perfAxes, tuneRange, installedKits, KITS, TUNE_DIAL_MAX,
   shearRoll, surfacesWire, anyWingLost, resetSurfaces, SURFACE_KEYS,
-  isWalkableCabin, cabinTypeOf, cabinEntryZone, isCabinZone, liveAircraft, getZone, loadAircraft } from './state.js';
+  isWalkableCabin, cabinTypeOf, cabinEntryZone, isCabinZone, liveAircraft, getZone, loadAircraft, stalledState } from './state.js';
 import { isFreightLicensed, ensureFreightDrops } from './contracts.js';
 import { isPilotLicensed, _test as checkrideTest } from './checkride.js';
 import { setFlag } from '../../server/engine/flags.js';
@@ -24,6 +24,19 @@ export default async function regress({ run, check, getPlayer }) {
   check('crash severity scales with airframe', crashSeverity(8) === 1 && crashSeverity(30) === 2 && crashSeverity(85) === 3);
   check('collateral bill rises with casualties', collateralBill(2, 3, true) > collateralBill(2, 1, true));
   check('an empty tile has no cleanup charge', collateralBill(3, 0, false) === 0 && collateralBill(3, 0, true) > 0);
+
+  // ── Authoritative stall read (lenient anti-spoof) ───────────────────────────
+  const stallT = { cruise_speed: 80 };
+  check('stall: client-reported stall is always honoured',
+    stalledState(stallT, { airborne: true, onGround: false, stalled: true, ias: 90, pitch: 0, vs: 0 }) === true);
+  check('stall spoof: slow + nose-up + sinking reads stalled despite a "not stalled" client',
+    stalledState(stallT, { airborne: true, onGround: false, stalled: false, ias: 20, pitch: 10, vs: -800 }) === true);
+  check('stall: honest slow flapped approach (nose ~level, gentle sink) is NOT flagged',
+    stalledState(stallT, { airborne: true, onGround: false, stalled: false, ias: 34, pitch: 1, vs: -300 }) === false);
+  check('stall: a recovering pilot (nose down) is NOT flagged even when slow',
+    stalledState(stallT, { airborne: true, onGround: false, stalled: false, ias: 20, pitch: -8, vs: -900 }) === false);
+  check('stall: grounded/rolling never reads stalled',
+    stalledState(stallT, { airborne: true, onGround: true, stalled: false, ias: 10, pitch: 10, vs: -900 }) === false);
 
   // ── Fit-to-fly: severe impairment (any kind) is detected ────────────────────
   check('a sober pilot is not impaired', isSeverelyImpaired({ intoxication: 10, activeDrugs: [] }) === false);
