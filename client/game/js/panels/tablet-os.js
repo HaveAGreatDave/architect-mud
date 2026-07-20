@@ -140,6 +140,11 @@ let _tosCorpPage = 0; // Corp dashboard: current page (Overview/Operatives/Terri
 let _tosIdeoPage = 0; // Ideology reader: current page (Overview / per-order / Field), client-side
 let _tosMapSel = null; // Map app: tapped/destination zone id (client-side, drives the GPS route)
 let _tosMapLabels = false; // Map app: label mode — stamp a two-letter code on each building tile (client-side)
+// Void survey zoom: the off-grid "journey" map has no server tile-window ladder (it's
+// drawn purely from the minimap nodes), so its −/+ is a client-only scale on the trail.
+// Default sits large per the brief ("show the route big, zoom out from there").
+let _tosVoidZoom = 1.35;
+const VOID_ZMIN = 0.55, VOID_ZMAX = 2.3, VOID_ZSTEP = 0.35;
 // Map app zoom: one unified axis. The −/+ buttons walk the server's zoom ladder
 // (movement.js MAP_ZOOM_HALVES) — each step grows the tile window and, at the far
 // end, becomes the whole-region view — instead of just resizing pixels. This array
@@ -277,11 +282,18 @@ function ensureStyles() {
     #tablet-os-overlay .tos-hdr b { color:var(--mg-accent); }
     #tablet-os-overlay .tos-hdr-right { display:inline-flex; align-items:center; gap:7px; }
     /* Cell-signal bars: four ascending accent bars, bottom-aligned. */
-    #tablet-os-overlay .tos-signal { display:inline-flex; align-items:flex-end; gap:1.5px; height:9px; position:relative; }
+    #tablet-os-overlay .tos-signal { display:inline-flex; align-items:center; gap:4px; height:9px; position:relative; }
+    #tablet-os-overlay .tos-sig-bars { display:inline-flex; align-items:flex-end; gap:1.5px; height:9px; position:relative; }
     #tablet-os-overlay .tos-signal .tos-sig-bar { width:2.5px; border-radius:1px; background:var(--mg-accent); }
-    /* No service (off the grid): bars drop to hollow stubs and a red "!" flags it. */
-    #tablet-os-overlay .tos-signal-none .tos-sig-bar { background:color-mix(in srgb, var(--tos-fg-dim) 55%, transparent); }
-    #tablet-os-overlay .tos-signal-none .tos-sig-x { color:var(--red); font-weight:bold; font-size:11px; line-height:1; margin-left:1px; }
+    /* No service (off the grid): bars die to red stubs, a slash strikes through them,
+       and a flickering "NO SVC" label spells it out — no missing it out in the void. */
+    #tablet-os-overlay .tos-signal-none .tos-sig-bar { background:color-mix(in srgb, var(--red) 45%, transparent); opacity:.6; }
+    #tablet-os-overlay .tos-sig-slash { position:absolute; left:-1px; right:-1px; top:50%; height:1.5px; border-radius:1px;
+      background:var(--red); box-shadow:0 0 4px color-mix(in srgb, var(--red) 70%, transparent); transform:rotate(-38deg); }
+    #tablet-os-overlay .tos-sig-label { font-family:var(--font-mono,monospace); font-size:8.5px; font-weight:700; letter-spacing:1px;
+      color:var(--red); text-shadow:0 0 5px color-mix(in srgb, var(--red) 45%, transparent); animation:tos-nosvc-flicker 2.4s steps(1) infinite; }
+    @keyframes tos-nosvc-flicker { 0%,88%,100%{opacity:1} 90%{opacity:.25} 93%{opacity:1} 96%{opacity:.4} }
+    [data-motion="off"] #tablet-os-overlay .tos-sig-label { animation:none; }
 
     /* Player summary strip: persistent across every screen. Pseudo-3D raised
        bevel: light-accent gradient + inset highlight/shadow + a soft drop
@@ -299,6 +311,13 @@ function ensureStyles() {
       background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo)); box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -1px 1px var(--tos-bevel-lo); }
     #tablet-os-overlay .tos-crumb .tos-back:hover { filter:brightness(1.15); }
     #tablet-os-overlay .tos-crumb .tos-back:active { transform:translateY(1px); box-shadow:inset 0 1px 3px var(--tos-bevel-lo); }
+    /* In-app tab strip (renderTosTabs) — sits under the breadcrumb, e.g. Frontier's Routes / Map. */
+    #tablet-os-overlay .tos-tabs { display:flex; gap:4px; margin-bottom:11px; border-bottom:1px solid var(--tos-border); }
+    #tablet-os-overlay .tos-tab { font:inherit; font-size:12px; letter-spacing:1px; text-transform:uppercase; cursor:pointer;
+      color:var(--tos-fg-dim); background:none; border:0; border-bottom:2px solid transparent; padding:6px 12px; margin-bottom:-1px; }
+    #tablet-os-overlay .tos-tab:hover { color:var(--tos-fg); }
+    #tablet-os-overlay .tos-tab.active { color:var(--mg-accent); border-bottom-color:var(--mg-accent);
+      text-shadow:0 0 6px color-mix(in srgb, var(--mg-accent) 35%, transparent); }
 
     /* App grid (home) — raised tile: light-accent gradient + bevel edge, lifts
        on hover, presses in on click (pseudo-3D, not a flat grey fill). */
@@ -1134,10 +1153,11 @@ function ensureStyles() {
     #tablet-os-overlay .tos-map-tile .mt-you { position:absolute; top:0; right:2px; font-size:9px; color:var(--mg-accent); text-shadow:0 0 4px #000; }
     #tablet-os-overlay .tos-map-tile .mt-dest { position:absolute; top:0; left:2px; font-size:9px; color:#ffcf4a; text-shadow:0 0 4px #000; }
     /* Journey map — an off-grid "survey terminal" shown in place of the city map when
-       out in the void. Reuses the shared .mm-x-* trail markup (crossingInnerHtml),
-       blown up and framed with dead-signal instruments (scrambled coords, a wandering
-       compass, ground readout, live status chips) to fill the space + sell the void. */
-    #tablet-os-overlay .tos-journey { position:relative; overflow:hidden; min-height:60vh; display:flex; flex-direction:column; }
+       out in the void. Reuses the shared .mm-x-* trail markup (crossingInnerHtml) as the
+       hero: a big vertical "core sample" of the route, client-zoomable (--tos-void-scale),
+       flanked by dead-signal instrument rails (scrambled coords, ground/depth readout,
+       live status chips) with a scanning beam + corner brackets to fill the space. */
+    #tablet-os-overlay .tos-journey { position:relative; overflow:hidden; min-height:60vh; display:flex; flex-direction:column; --tos-void-scale:1.35; }
     /* Full-panel void backdrop: a faint hot horizon low, ash specks drifting across. */
     #tablet-os-overlay .tos-journey::before { content:''; position:absolute; inset:0; z-index:0; pointer-events:none; opacity:.6;
       background:
@@ -1153,34 +1173,70 @@ function ensureStyles() {
     [data-motion="off"] #tablet-os-overlay .tos-journey::before { animation:none; }
     #tablet-os-overlay .tos-journey > * { position:relative; z-index:1; }
     #tablet-os-overlay .tos-journey-hdr { display:flex; justify-content:space-between; align-items:center; gap:8px 14px; flex-wrap:wrap; padding:10px 14px; border-bottom:1px solid var(--tos-border); }
+    #tablet-os-overlay .tos-journey-hdr-r { display:flex; align-items:center; gap:12px; }
     #tablet-os-overlay .tos-journey-nosig { font-size:12px; letter-spacing:3px; color:var(--red); opacity:.85;
       text-shadow:0 0 8px color-mix(in srgb, var(--red) 45%, transparent); animation:tos-nosig-flicker 2.4s steps(1) infinite; }
     @keyframes tos-nosig-flicker { 0%,92%,100%{opacity:.85} 94%{opacity:.3} 96%{opacity:.85} 98%{opacity:.4} }
     [data-motion="off"] #tablet-os-overlay .tos-journey-nosig { animation:none; }
     #tablet-os-overlay .tos-journey-coord { font-family:var(--font-mono,monospace); font-size:11px; letter-spacing:1.5px; color:var(--tos-fg-dim); }
     #tablet-os-overlay .tos-journey-coord b { color:var(--tos-fg); letter-spacing:2px; font-weight:600; }
-    #tablet-os-overlay .tos-journey-stage { flex:1; display:flex; align-items:center; justify-content:center; gap:clamp(12px,4vw,44px); flex-wrap:wrap; padding:22px 14px; }
-    #tablet-os-overlay .tos-journey-trail { font-size:30px; padding:8px 0; }
-    /* Compass with no fix — a bezel whose needle wanders, never settling. */
-    #tablet-os-overlay .tos-journey-compass { position:relative; flex:0 0 auto; width:78px; height:78px; border-radius:50%;
-      border:1px solid color-mix(in srgb, var(--mg-accent) 40%, transparent);
-      box-shadow:inset 0 0 20px color-mix(in srgb, var(--mg-accent) 14%, transparent), 0 0 8px color-mix(in srgb, var(--mg-accent) 18%, transparent); opacity:.92; }
-    #tablet-os-overlay .tos-journey-compass span { position:absolute; left:50%; top:50%; font-size:9px; color:var(--tos-fg-dim); }
-    #tablet-os-overlay .tos-jc-n { transform:translate(-50%,-50%) translateY(-28px); }
-    #tablet-os-overlay .tos-jc-s { transform:translate(-50%,-50%) translateY(28px); }
-    #tablet-os-overlay .tos-jc-e { transform:translate(-50%,-50%) translateX(28px); }
-    #tablet-os-overlay .tos-jc-w { transform:translate(-50%,-50%) translateX(-28px); }
-    #tablet-os-overlay .tos-jc-nofix { transform:translate(-50%,-50%) translateY(15px) !important; font-size:7px !important; letter-spacing:1px; color:var(--red) !important; opacity:.7; }
-    #tablet-os-overlay .tos-jc-needle { position:absolute; left:50%; top:50%; width:2px; height:30px; transform-origin:50% 100%;
-      transform:translate(-50%,-100%) rotate(0deg); background:linear-gradient(var(--red), transparent); box-shadow:0 0 5px color-mix(in srgb, var(--red) 50%, transparent);
-      animation:tos-jc-wander 7s ease-in-out infinite; }
-    @keyframes tos-jc-wander { 0%{transform:translate(-50%,-100%) rotate(-42deg)} 22%{transform:translate(-50%,-100%) rotate(38deg)} 46%{transform:translate(-50%,-100%) rotate(-12deg)} 70%{transform:translate(-50%,-100%) rotate(64deg)} 100%{transform:translate(-50%,-100%) rotate(-42deg)} }
-    [data-motion="off"] #tablet-os-overlay .tos-jc-needle { animation:none; }
-    #tablet-os-overlay .tos-journey-panel { display:flex; flex-direction:column; gap:10px; align-items:flex-start; min-width:104px; }
+    /* Void zoom stepper — client-only scale on the trail (no server round trip). */
+    #tablet-os-overlay .tos-void-zoom { display:inline-flex; border:1px solid var(--tos-border); border-radius:6px; overflow:hidden; }
+    #tablet-os-overlay .tos-vz { font-family:var(--font-mono,monospace); font-size:14px; line-height:1; width:26px; height:24px; border:0; cursor:pointer;
+      background:color-mix(in srgb, var(--tos-fg) 6%, transparent); color:var(--tos-fg); }
+    #tablet-os-overlay .tos-vz + .tos-vz { border-left:1px solid var(--tos-border); }
+    #tablet-os-overlay .tos-vz:hover:not(:disabled) { background:color-mix(in srgb, var(--mg-accent) 22%, transparent); }
+    #tablet-os-overlay .tos-vz:disabled { opacity:.32; cursor:default; }
+    /* Stage: the route is the hero, centred, flanked by two instrument rails. */
+    #tablet-os-overlay .tos-journey-stage { position:relative; flex:1; display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);
+      align-items:center; gap:clamp(10px,3vw,36px); padding:20px clamp(12px,3vw,30px); overflow:hidden; }
+    /* Faint survey grid + a horizontal scanline crawling up the stage. */
+    #tablet-os-overlay .tos-journey-stage::before { content:''; position:absolute; inset:0; z-index:0; pointer-events:none; opacity:.5;
+      background:linear-gradient(color-mix(in srgb, var(--tos-fg-dim) 12%, transparent) 1px, transparent 1px),
+                linear-gradient(90deg, color-mix(in srgb, var(--tos-fg-dim) 12%, transparent) 1px, transparent 1px);
+      background-size:34px 34px, 34px 34px;
+      -webkit-mask-image:radial-gradient(80% 70% at 50% 50%, #000, transparent); mask-image:radial-gradient(80% 70% at 50% 50%, #000, transparent); }
+    #tablet-os-overlay .tos-journey-stage::after { content:''; position:absolute; left:0; right:0; height:2px; z-index:0; pointer-events:none;
+      background:linear-gradient(90deg, transparent, color-mix(in srgb, var(--mg-accent) 55%, transparent), transparent);
+      animation:tos-void-scan 6s linear infinite; }
+    @keyframes tos-void-scan { from{top:100%} to{top:-2%} }
+    [data-motion="off"] #tablet-os-overlay .tos-journey-stage::after { animation:none; opacity:.35; top:50%; }
+    #tablet-os-overlay .tos-journey-stage > * { position:relative; z-index:1; }
+    /* Corner brackets frame the survey window. */
+    #tablet-os-overlay .tos-journey-bracket { position:absolute; width:18px; height:18px; z-index:1; pointer-events:none;
+      border:1px solid color-mix(in srgb, var(--mg-accent) 50%, transparent); }
+    #tablet-os-overlay .tos-journey-bracket.tl { top:8px; left:8px; border-right:0; border-bottom:0; }
+    #tablet-os-overlay .tos-journey-bracket.tr { top:8px; right:8px; border-left:0; border-bottom:0; }
+    #tablet-os-overlay .tos-journey-bracket.bl { bottom:8px; left:8px; border-right:0; border-top:0; }
+    #tablet-os-overlay .tos-journey-bracket.br { bottom:8px; right:8px; border-left:0; border-top:0; }
+    /* The route, blown up. font-size = base × client zoom scale; scrolls when large. */
+    #tablet-os-overlay .tos-journey-trailwrap { position:relative; justify-self:center; max-height:52vh; overflow:auto;
+      padding:14px clamp(16px,3vw,40px); border-left:1px solid color-mix(in srgb, var(--tos-fg-dim) 22%, transparent);
+      border-right:1px solid color-mix(in srgb, var(--tos-fg-dim) 22%, transparent);
+      background:linear-gradient(color-mix(in srgb, var(--mg-accent) 5%, transparent), transparent); }
+    #tablet-os-overlay .tos-journey-trail { font-size:calc(clamp(28px,6.5vw,50px) * var(--tos-void-scale,1)); padding:8px 0; transition:font-size .18s ease; }
+    /* A soft beam sweeping down the core sample. */
+    #tablet-os-overlay .tos-journey-sweep { position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden; }
+    #tablet-os-overlay .tos-journey-sweep::before { content:''; position:absolute; left:0; right:0; height:40%;
+      background:linear-gradient(color-mix(in srgb, var(--mg-accent) 20%, transparent), transparent);
+      animation:tos-void-sweep 4.5s ease-in-out infinite; }
+    @keyframes tos-void-sweep { 0%{top:-40%} 100%{top:100%} }
+    [data-motion="off"] #tablet-os-overlay .tos-journey-sweep { display:none; }
+    #tablet-os-overlay .tos-journey-trailwrap > .mm-crossing { position:relative; z-index:1; }
+    /* Rails flanking the trail. */
+    #tablet-os-overlay .tos-journey-rail { display:flex; flex-direction:column; gap:12px; }
+    #tablet-os-overlay .tos-journey-rail.left { align-items:flex-end; text-align:right; }
+    #tablet-os-overlay .tos-journey-rail.right { align-items:flex-start; }
     #tablet-os-overlay .tos-journey-readout { font-family:var(--font-mono,monospace); display:flex; flex-direction:column; gap:2px; }
     #tablet-os-overlay .tos-journey-readout span { font-size:9px; letter-spacing:2px; color:var(--tos-fg-dim); }
-    #tablet-os-overlay .tos-journey-readout b { font-size:12px; letter-spacing:1px; color:var(--tos-fg); font-weight:600; }
+    #tablet-os-overlay .tos-journey-readout b { font-size:13px; letter-spacing:1px; color:var(--tos-fg); font-weight:600; }
+    #tablet-os-overlay .tos-journey-readout b.nofix { color:var(--red); opacity:.85; }
     #tablet-os-overlay .tos-journey-chips { display:flex; flex-direction:column; gap:6px; }
+    #tablet-os-overlay .tos-journey-quiet { font-family:var(--font-mono,monospace); font-size:9px; letter-spacing:2px; color:var(--tos-fg-dim); opacity:.7; }
+    @media (max-width:640px) {
+      #tablet-os-overlay .tos-journey-stage { grid-template-columns:1fr; justify-items:center; gap:16px; }
+      #tablet-os-overlay .tos-journey-rail, #tablet-os-overlay .tos-journey-rail.left { align-items:center; text-align:center; flex-direction:row; flex-wrap:wrap; justify-content:center; }
+    }
     #tablet-os-overlay .tos-jchip { font-family:var(--font-mono,monospace); font-size:9px; letter-spacing:1px; padding:3px 8px; border-radius:4px; border:1px solid var(--tos-border); color:var(--tos-fg-dim); white-space:nowrap; }
     #tablet-os-overlay .tos-jchip.hazard { color:var(--red); border-color:color-mix(in srgb, var(--red) 55%, transparent); background:color-mix(in srgb, var(--red) 12%, transparent); }
     #tablet-os-overlay .tos-jchip.dead { color:var(--red); border-color:color-mix(in srgb, var(--red) 45%, transparent); }
@@ -1722,7 +1778,8 @@ function renderSignal() {
   const noService = isOnCrossing();
   const bars = [1, 2, 3, 4].map(i => `<span class="tos-sig-bar" style="height:${i * 2 + 1}px"></span>`).join('');
   return `<span class="tos-signal${noService ? ' tos-signal-none' : ''}" title="${noService ? 'No Service — off the grid' : 'Signal'}">`
-    + `${bars}${noService ? '<span class="tos-sig-x">!</span>' : ''}</span>`;
+    + `<span class="tos-sig-bars">${bars}${noService ? '<span class="tos-sig-slash"></span>' : ''}</span>`
+    + `${noService ? '<span class="tos-sig-label">NO SVC</span>' : ''}</span>`;
 }
 
 function renderHeader(d) {
@@ -2063,6 +2120,17 @@ function wireDragScroll(scroll) {
 function renderBreadcrumb(appId, crumb) {
   const trail = (crumb || []).filter(Boolean).map(esc).join(' / ') || 'Home';
   return `<div class="tos-crumb"><span class="tos-back" data-back="${esc(appId || '')}">&#8592; Back</span><span>${trail}</span></div>`;
+}
+
+// A generic in-app tab strip: any screen payload carrying `tabs` (array of {id,label})
+// + `activeTab` gets one below the breadcrumb. Clicking a tab navigates the current
+// app to that screen id (server buildScreen keys off it). No-op payload → returns ''.
+function renderTosTabs(d) {
+  if (!d?.tabs?.length) return '';
+  const tabs = d.tabs.map(t =>
+    `<button class="tos-tab${t.id === d.activeTab ? ' active' : ''}" data-tos-tab="${esc(t.id)}">${esc(t.label)}</button>`
+  ).join('');
+  return `<div class="tos-tabs" role="tablist">${tabs}</div>`;
 }
 
 function renderList(items) {
@@ -2843,16 +2911,29 @@ function renderIdeology(d, crumb) {
 
 // Off the grid: the Map app has no city signal out in the void, so instead of the
 // city tile-map it becomes an "off-grid survey terminal" — the shared trail chart
-// (crossingInnerHtml, same source as the minimap) blown up and framed with dead-
-// signal instruments: scrambled coords, a wandering compass with no fix, the ground
-// underfoot, and live status chips. Fills the space and sells the void; carries no
-// data the minimap doesn't (payload is just `nodes`). Short-circuits the tile path.
+// (crossingInnerHtml, same source as the minimap) blown up as the hero (client-
+// zoomable) and framed with dead-signal instruments: scrambled coords, depth/ground
+// readout with no bearing fix, and live status chips. Fills the space and sells the
+// void; carries no data the minimap doesn't (payload is just `nodes`). Short-circuits
+// the tile path.
 const JOURNEY_SUBSTRATE = { scrub: 'SCRUBLAND', ash: 'ASH FLATS', redrock: 'RED ROCK', marsh: 'DEAD MARSH', road: 'OLD ROADBED', dirt_road: 'DIRT TRACK' };
 function journeyAhead(nodes, cur) {
   if (cur.void_detour) return 'dead';
   const sId = cur.exits?.south;
   if (!sId) return 'none';
   return nodes.some(n => n.id === sId) ? 'fog' : 'gate';
+}
+// How many void rooms sit behind you on the charted window (the walked trail depth),
+// following the "back" exit (north, or east on a dead-end detour) room to room.
+function journeyDepth(nodes, cur) {
+  const byId = new Map(nodes.map(n => [n.id, n]));
+  let depth = 0, n = cur, guard = 0;
+  while (guard++ < 40) {
+    const b = byId.get(n.exits?.[n.void_detour ? 'east' : 'north']);
+    if (!b || !b.void_crossing) break;
+    depth++; n = b;
+  }
+  return depth;
 }
 function renderJourneyMap(d) {
   const nodes = d.nodes || [];
@@ -2862,6 +2943,7 @@ function renderJourneyMap(d) {
   const substrate = JOURNEY_SUBSTRATE[cur.terrain] || 'TRACKLESS WASTE';
   const back = cur.void_detour ? 'east' : 'north', fwd = cur.void_detour ? null : 'south';
   const ways = Object.keys(cur.exits || {}).filter(dir => dir !== back && dir !== fwd).length;
+  const depth = journeyDepth(nodes, cur);
   const chips = [];
   if (cur.void_hard) chips.push(`<span class="tos-jchip hazard">⚠ HARD GROUND</span>`);
   if (cur.void_detour) chips.push(`<span class="tos-jchip dead">▚ DEAD END</span>`);
@@ -2869,20 +2951,33 @@ function renderJourneyMap(d) {
   else if (ahead === 'fog') chips.push(`<span class="tos-jchip fog">⋯ TRAIL UNKNOWN</span>`);
   if (ways > 0) chips.push(`<span class="tos-jchip fork">⋔ ${ways} WAY${ways > 1 ? 'S' : ''} OFF</span>`);
 
-  return `<div class="tos-journey">
+  const zoutOff = _tosVoidZoom <= VOID_ZMIN + 0.001 ? ' disabled' : '';
+  const zinOff = _tosVoidZoom >= VOID_ZMAX - 0.001 ? ' disabled' : '';
+  return `<div class="tos-journey" style="--tos-void-scale:${_tosVoidZoom}">
     <div class="tos-journey-hdr">
       <span class="tos-journey-nosig">▚ NO SIGNAL · OFF THE GRID ▚</span>
-      <span class="tos-journey-coord">POS <b>██·██ / ██·██</b> · UNCHARTED</span>
+      <span class="tos-journey-hdr-r">
+        <span class="tos-journey-coord">POS <b>██·██ / ██·██</b> · UNCHARTED</span>
+        <span class="tos-void-zoom">
+          <button class="tos-vz" data-void-zoom="out" title="Zoom out"${zoutOff}>−</button>
+          <button class="tos-vz" data-void-zoom="in" title="Zoom in"${zinOff}>+</button>
+        </span>
+      </span>
     </div>
     <div class="tos-journey-stage">
-      <div class="tos-journey-compass" aria-hidden="true">
-        <span class="tos-jc-n">N</span><span class="tos-jc-e">E</span><span class="tos-jc-s">S</span><span class="tos-jc-w">W</span>
-        <i class="tos-jc-needle"></i><span class="tos-jc-nofix">NO FIX</span>
-      </div>
-      <div class="mm-crossing tos-journey-trail">${crossingInnerHtml(nodes, cur)}</div>
-      <div class="tos-journey-panel">
+      <span class="tos-journey-bracket tl"></span><span class="tos-journey-bracket tr"></span>
+      <span class="tos-journey-bracket bl"></span><span class="tos-journey-bracket br"></span>
+      <div class="tos-journey-rail left">
+        <div class="tos-journey-readout"><span>DEPTH</span><b>${depth ? depth + ' DEEP' : 'THRESHOLD'}</b></div>
         <div class="tos-journey-readout"><span>SUBSTRATE</span><b>${substrate}</b></div>
-        ${chips.length ? `<div class="tos-journey-chips">${chips.join('')}</div>` : ''}
+        <div class="tos-journey-readout"><span>BEARING</span><b class="nofix">NO FIX · DRIFT</b></div>
+      </div>
+      <div class="tos-journey-trailwrap">
+        <div class="tos-journey-sweep" aria-hidden="true"></div>
+        <div class="mm-crossing tos-journey-trail">${crossingInnerHtml(nodes, cur)}</div>
+      </div>
+      <div class="tos-journey-rail right">
+        ${chips.length ? `<div class="tos-journey-chips">${chips.join('')}</div>` : `<div class="tos-journey-quiet">TRAIL QUIET</div>`}
       </div>
     </div>
     <div class="tos-journey-hint">No city map out here. The only way through the void is through it.</div>
@@ -4376,7 +4471,7 @@ function renderBody() {
     </div>`;
   }
   if (d.view === 'map') {
-    return `<div class="tos-body tos-map-view">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}
+    return `<div class="tos-body tos-map-view">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}${renderTosTabs(d)}
       <div id="tos-map-root">${renderMap(d)}</div>
     </div>`;
   }
@@ -4443,7 +4538,7 @@ function renderBody() {
     // A quest's detail carries its own action log — the narrative of what you did
     // on this quest, built from the server's structured quest_log beats.
     const qlog = d.appId === 'quests' && det.id ? renderQuestActivityLog(det.id) : '';
-    return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb || [d.appName])}
+    return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb || [d.appName])}${renderTosTabs(d)}
       ${d.notice ? `<div class="tos-error" style="text-align:left;padding:0 0 10px">${esc(d.notice)}</div>` : ''}
       <div class="tos-detail-name">${esc(det.name || '')}</div>
       ${det.desc ? `<div class="tos-detail-desc">${esc(det.desc)}</div>` : ''}
@@ -4496,6 +4591,13 @@ function wireBody() {
   });
   _overlay.querySelectorAll('[data-open-cat]').forEach(el => {
     el.addEventListener('click', () => nav(_data.appId, el.getAttribute('data-open-cat'), null));
+  });
+  // In-app tab strip (renderTosTabs): switch the current app to the tab's screen id.
+  _overlay.querySelectorAll('[data-tos-tab]').forEach(el => {
+    el.addEventListener('click', () => {
+      const id = el.getAttribute('data-tos-tab');
+      if (id !== _data?.activeTab) nav(_data.appId, id, null);
+    });
   });
   // Calendar month arrows: re-nav the app to a specific 'YYYY-MM' via screenId 'month'.
   _overlay.querySelectorAll('[data-cal-month]').forEach(el => {
@@ -4735,6 +4837,13 @@ function wireMap() {
   _overlay.querySelectorAll('[data-map-zoom]').forEach((b) => b.addEventListener('click', () => {
     const arg = _mapZoomArg(_data, b.getAttribute('data-map-zoom') === 'in' ? 1 : -1);
     if (arg) nav('map', arg, null);
+  }));
+  // Void survey zoom: client-only trail scale (no server round trip), re-render in place.
+  _overlay.querySelectorAll('[data-void-zoom]').forEach((b) => b.addEventListener('click', () => {
+    const dir = b.getAttribute('data-void-zoom') === 'in' ? 1 : -1;
+    _tosVoidZoom = Math.min(VOID_ZMAX, Math.max(VOID_ZMIN, +(_tosVoidZoom + dir * VOID_ZSTEP).toFixed(2)));
+    sfx(TOS_SELECT_DEF);
+    rebuildMap();
   }));
   // Drag anywhere on the map to scroll it; default to the player centred on (re)build.
   wireMapDrag(_overlay.querySelector('.tos-map-wrap'));
