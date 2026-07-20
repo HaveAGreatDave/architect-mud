@@ -394,13 +394,13 @@ export async function describeZone(zone, player, out = {}) {
 			const links = buildings.map((b) =>
 				destLink(b.direction, b.name, "building-link"),
 			);
-			darkDesc += `\n<span class="buildings-label">Buildings:</span> ${links.join(", ")}`;
+			darkDesc += `\n<span class="buildings-row"><span class="buildings-label">Buildings:</span> ${links.join(", ")}</span>`;
 		}
 		if (rooms.length) {
 			const links = rooms.map((r) =>
 				destLink(r.direction, r.name, "room-nav-link"),
 			);
-			darkDesc += `\n<span class="rooms-label">Rooms:</span> ${links.join(", ")}`;
+			darkDesc += `\n<span class="rooms-row"><span class="rooms-label">Rooms:</span> ${links.join(", ")}</span>`;
 		}
 		return darkDesc;
 	}
@@ -779,13 +779,13 @@ export async function describeZone(zone, player, out = {}) {
 		const links = buildings.map((b) =>
 			destLink(b.direction, b.name, "building-link"),
 		);
-		desc += `\n<span class="buildings-label">Buildings:</span> ${links.join(", ")}`;
+		desc += `\n<span class="buildings-row"><span class="buildings-label">Buildings:</span> ${links.join(", ")}</span>`;
 	}
 	if (rooms.length) {
 		const links = rooms.map((r) =>
 			destLink(r.direction, r.name, "room-nav-link"),
 		);
-		desc += `\n<span class="rooms-label">Rooms:</span> ${links.join(", ")}`;
+		desc += `\n<span class="rooms-row"><span class="rooms-label">Rooms:</span> ${links.join(", ")}</span>`;
 	}
 	return desc;
 }

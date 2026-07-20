@@ -1211,10 +1211,13 @@ body.fsim-external #look-resize-handle { display: none; }
 	transition: filter 1.75s ease;
 }
 
-/* Exits opt out of the low-light dimming so navigation stays readable in the
-   dark. --vis-undim (set in environment.js) is the inverse of the pane's
-   brightness filter, so this cancels it back to full brightness. */
-.exits-row {
+/* Navigation rows (Exits, Buildings, Rooms) opt out of the low-light dimming so
+   you can always find your way out of a dark room. --vis-undim (set in
+   environment.js) is the inverse of the pane's brightness filter, so this
+   cancels it back to full brightness. */
+.exits-row,
+.buildings-row,
+.rooms-row {
 	filter: brightness(var(--vis-undim, 1));
 }
 
