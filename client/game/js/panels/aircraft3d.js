@@ -1212,7 +1212,11 @@ export function drawNoseArt(ctx, proj, cls, lv, occluders = null) {
   for (let j = 0; j <= Nr; j++) {
     const row = [];
     for (let i = 0; i <= Nc; i++) {
-      const f = fF + (fR - fF) * (i / Nc), h = czAt(f) + hHalf - 2 * hHalf * (j / Nr);   // top(j=0) → bottom
+      const f = fF + (fR - fF) * (i / Nc);
+      // Reach decals ride the nose cone, so the vertical band tapers with the shrinking radius —
+      // it hugs the cone to the tip instead of overshooting the thin front as a fixed-height slab.
+      const hh = reach ? hHalf * (0.30 + 0.70 * radAt(f)) : hHalf;
+      const h = czAt(f) + hh - 2 * hh * (j / Nr);   // top(j=0) → bottom
       const P = proj(...surf(f, h, sign)); row.push(P); if (P.z > 0.18) anyNear = true;
     }
     grid.push(row);
@@ -1221,11 +1225,14 @@ export function drawNoseArt(ctx, proj, cls, lv, occluders = null) {
   // Texture-mapping the decal onto a handedness-flipped flank reads it BACKWARDS, so key the U flip
   // off the projected screen winding of the decal grid (nose→tail top edge × nose top→bottom left
   // edge). The authored source winding is positive; when the visible flank projects to a negative
-  // winding we flip U to un-mirror it. Net result: the art reads the SAME way — nose-forward, tail
-  // to nose — on BOTH flanks, whichever side faces the camera.
+  // winding we flip U to un-mirror it. This is only right for the flat mid-flank EMBLEMS (a mirrored
+  // emblem/text reads backwards). The directional reach decals (sharkmouth/flames) are physically
+  // nose-anchored — the grid already tracks the real fore-aft axis, so texture-nose sits at the
+  // plane's nose on BOTH flanks. Flipping those would sweep the flames off the tip the wrong way,
+  // so reach decals never flip.
   const n0 = grid[0][0], nT = grid[0][Nc], bL = grid[Nr][0];
   const cross = (nT.sx - n0.sx) * (bL.sy - n0.sy) - (nT.sy - n0.sy) * (bL.sx - n0.sx);
-  const flip = cross < 0;
+  const flip = !reach && cross < 0;
   const uOf = (col) => (flip ? (Nc - col) : col) / Nc * W;
   const occ = occluders || [];
   for (let j = 0; j < Nr; j++) for (let i = 0; i < Nc; i++) {

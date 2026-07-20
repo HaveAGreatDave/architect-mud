@@ -6656,8 +6656,8 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     }   // the Echelon — a high-poly superyacht hull, sun-lit (wake/heading present only when she's under way; `sub` glides her sub-tile toward her destination across a passage). padDome = an auto-land guidance dome over her helipad, drawn for a nearby helicopter.
     if (it.c.kind === 'nofly') { emitFace(od, () => draw3DBox(ctx, cam, it.dx, it.dy, 0.3, 0.55, '__nofly', it.seed, night, alpha * 0.7)); continue; }
     if (it.c.cur) { emitFace(od, () => drawCurtainWall(ctx, cam, it.dx, it.dy, it.c.cur, alpha, now)); continue; }   // the Curtain energy wall on a land-edge tile
-    if (bi === 'park') { emitFace(od, () => drawParkTile(ctx, cam, it.dx, it.dy, night, it.seed, alpha, now, it.c.pf)); continue; }   // manicured park: authored `park_feature` (symmetry) or a seeded dressing (grove / pond / benches / flowerbeds / path)
-    if (bi === 'parkland') { emitFace(od, () => drawTreeBB(ctx, cam, it.dx, it.dy, night, it.seed, alpha)); continue; }
+    if (bi === 'park' && !it.c.bt) { emitFace(od, () => drawParkTile(ctx, cam, it.dx, it.dy, night, it.seed, alpha, now, it.c.pf)); continue; }   // manicured park: authored `park_feature` (symmetry) or a seeded dressing (grove / pond / benches / flowerbeds / path)
+    if (bi === 'parkland' && !it.c.bt) { emitFace(od, () => drawTreeBB(ctx, cam, it.dx, it.dy, night, it.seed, alpha)); continue; }
     // Per-tile jitter: nudge a scattered object off its tile centre by a world-stable hash so the
     // wilds don't read as objects lined up on the grid. Two independent hashes (x/y) span ±~0.4 tile,
     // deterministic off the world coord so a given object stays put as the map window recentres.
@@ -6665,11 +6665,11 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     const jy = (frac(it.wx * 39.346 + it.wy * 11.135) - 0.5) * 0.8;
     // Procedural gap wildlands: scatter over an empty inter-region tile the floor filled as land, keyed to the
     // SAME classification the ground used (scrub near a shore, redrock mesa deeper) so scatter and tint agree.
-    if (it.wild) { if ((it.seed % (it.wild === 'redrock' ? 2 : 3)) === 0) emitFace(od, () => drawWildScatter(ctx, cam, it.dx + jx, it.dy + jy, it.wild, night, it.seed, alpha)); continue; }
-    if (bi === 'badlands') { if ((it.seed % 3) === 0) emitFace(od, () => drawRockBB(ctx, cam, it.dx + jx, it.dy + jy, night, it.seed, alpha)); continue; }
+    if (it.wild && !it.c.bt) { if ((it.seed % (it.wild === 'redrock' ? 2 : 3)) === 0) emitFace(od, () => drawWildScatter(ctx, cam, it.dx + jx, it.dy + jy, it.wild, night, it.seed, alpha)); continue; }
+    if (bi === 'badlands' && !it.c.bt) { if ((it.seed % 3) === 0) emitFace(od, () => drawRockBB(ctx, cam, it.dx + jx, it.dy + jy, night, it.seed, alpha)); continue; }
     // Arid wildlands: per-biome scatter (mesa/hoodoo over redrock, cactus/brush over scrub, dead
     // snags/bone over ash) picked by the tile seed. Rust mesa (redrock) is denser than scrub/ash.
-    if (bi === 'scrub' || bi === 'redrock' || bi === 'ash') { if ((it.seed % (bi === 'redrock' ? 2 : 3)) === 0) emitFace(od, () => drawWildScatter(ctx, cam, it.dx + jx, it.dy + jy, bi, night, it.seed, alpha)); continue; }
+    if ((bi === 'scrub' || bi === 'redrock' || bi === 'ash') && !it.c.bt) { if ((it.seed % (bi === 'redrock' ? 2 : 3)) === 0) emitFace(od, () => drawWildScatter(ctx, cam, it.dx + jx, it.dy + jy, bi, night, it.seed, alpha)); continue; }
     // Trees & small forests on OPEN grass (no building, no road here). A coarse per-area hash
     // makes whole ~4-tile patches lean wooded or clear, so stands cluster into small forests
     // instead of a uniform sprinkle; sparse areas still get the odd lone tree. Deterministic
