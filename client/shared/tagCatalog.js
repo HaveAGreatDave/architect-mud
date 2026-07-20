@@ -426,6 +426,8 @@
       help: 'The one break in the Curtain — the guarded road out to the wilds. Draws a gate glyph on the minimap and carries the exit through the wall. Owner: perimeter (wildlands).' },
     glacis: { label: 'Glacis (kill-zone)', shape: 'flag', scope: 'zone', group: 'Zone: Perimeter',
       help: 'Outward-facing turret killing-ground just beyond a perimeter_gate — the cleared no-man\'s-land the wall guns sweep. Owner: perimeter (wildlands).' },
+    gate_warning: { label: 'Gate Warning', shape: 'text', scope: 'zone', group: 'Zone: Perimeter',
+      help: 'One-time spoken briefing the gate guards deliver the first time a player steps onto this perimeter tile — what leaving the city costs and which regions lie past the Curtain. The prose lives here; the gatewarn plugin owns only the once-gating + delivery. Owner: gatewarn.' },
 
     airfield_id: { label: 'Airfield ID', shape: 'text', scope: 'zone', group: 'Zone: Flight',
       help: 'Which airfield this zone belongs to.' },

@@ -639,6 +639,16 @@ body.fsim-external #look-resize-handle { display: none; }
 	100% { -webkit-text-fill-color: var(--text); background-position: -50% 0;  text-shadow: none; }
 }
 
+/* Gate-guard border briefing (gatewarn plugin): a stern, one-time warning block
+   set off from ordinary prose by a warning-yellow rule down the side. */
+.gate-warning {
+	display: block;
+	margin: 6px 0 4px;
+	padding: 4px 0 4px 10px;
+	border-left: 2px solid var(--yellow);
+	color: var(--text);
+}
+
 #area-pane::-webkit-scrollbar {
 	width: 6px;
 }

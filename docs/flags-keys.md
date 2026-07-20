@@ -58,6 +58,7 @@ is silently inert, so grep before renaming anything below.
 | `hangar_interior_zone` | flight | link from ramp to hangar interior |
 | `hangar_ramp` | flight | hangar ramp (aircraft parking) |
 | `insurance_desk` | flight | aircraft insurance vendor here |
+| `gate_warning` | gatewarn plugin | one-time gate-guard border briefing, delivered on first entry to the tile |
 | `intro_lore` | lore plugin | one-time lore text on first visit |
 | `is_apartment` | housing | rentable apartment zone |
 | `is_building` | power/world | groups interior zones into one building (junction-box scope) |
