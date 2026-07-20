@@ -20,6 +20,7 @@
 import { query, withTransaction } from '../../server/models/db.js';
 import { getRecipeCache, findRecipeByName } from '../../server/engine/crafting.js';
 import { skillCheck, awardSkillUse, skillStatBonus, effectiveSkill } from '../../server/engine/skills.js';
+import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { getDrugCache } from '../../server/engine/drugs.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { getTunable } from '../../server/engine/tunables.js';
@@ -485,10 +486,9 @@ const SPLICE_STAGES = ['charge', 'mix', 'pour', 'stir', 'heat', 'rhythm'];
 // passes at a Chemistry-scaled score instead of being played by hand.
 async function automatedStages(player) {
   if (getTunable('splice_auto_test', false)) return SPLICE_STAGES.slice();
-  const { rows } = await query(
-    `SELECT DISTINCT i.tags->>'automates' AS stage FROM player_inventory pi JOIN items i ON i.id = pi.item_id
-      WHERE pi.player_id = $1 AND jsonb_exists(i.tags, 'automates')`, [player.id]).catch(() => ({ rows: [] }));
-  return rows.map(r => r.stage).filter(s => SPLICE_STAGES.includes(s));
+  const rows = await resolveInventoryItem(player, { tag: 'automates', topLevel: false, all: true }).catch(() => []);
+  const stages = new Set(rows.map(r => r.tags?.automates).filter(s => SPLICE_STAGES.includes(s)));
+  return [...stages];
 }
 
 // Live preview as the player designs (reuses composeSplice — authoritative math).

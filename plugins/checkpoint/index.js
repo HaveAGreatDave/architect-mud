@@ -40,9 +40,9 @@
  *   • Gov quarter (dormant, for the North City rebuild): { guards:"the checkpoint guards",
  *       insideFlag:"gov_enclave", checks:["wanted","contraband"], wantedMode:"hard" }.
  */
-import { query } from '../../server/models/db.js';
 import { skillCheck } from '../../server/engine/skills.js';
 import { dispatchAction } from '../../server/engine/actions.js';
+import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { getFlag } from '../../server/engine/flags.js';
@@ -102,11 +102,8 @@ const CHECKS = {
   },
 
   async contraband(player, cfg, guards, key) {
-    const { rows } = await query(
-      `SELECT 1 FROM player_inventory pi JOIN items i ON i.id = pi.item_id
-        WHERE pi.player_id=$1 AND (jsonb_exists(i.tags,'raw_drug') OR jsonb_exists(i.tags,'contraband')) LIMIT 1`,
-      [player.id]).catch(() => ({ rows: [] }));
-    if (!rows.length) return; // clean → walk through
+    const hit = await resolveInventoryItem(player, { tag: ['raw_drug', 'contraband'], topLevel: false }).catch(() => null);
+    if (!hit) return; // clean → walk through
 
     if (hot(key)) return { block: true, message: `${cap(guards)} are still watching you from the last pass — hang back, or slip in another way.` };
     const chk = await skillCheck(player, 'deception', SCAN_DIFF);

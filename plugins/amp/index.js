@@ -26,6 +26,7 @@ import { query } from '../../server/models/db.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { on, emit } from '../../server/engine/events.js';
+import { resolveInventoryItem } from '../../server/engine/inventory.js';
 
 const UNLOCK_FLAG = 'amp_unlocks';
 
@@ -42,15 +43,8 @@ async function cmdInsert(args, raw, player, broadcast) {
   const targetStr = (Array.isArray(args) ? args.join(' ') : String(args || '')).trim();
   if (!targetStr) return { type: 'error', message: 'Insert what? (Feed a cassette to the AMP.)' };
 
-  const { rows } = await query(
-    `SELECT pi.*, i.name, i.tags FROM player_inventory pi JOIN items i ON i.id = pi.item_id
-     WHERE pi.player_id = $1 AND pi.container_id IS NULL AND pi.is_equipped = 0
-       AND i.name ILIKE $2 AND jsonb_exists(i.tags, 'amp_cassette') LIMIT 1`,
-    [player.id, `%${targetStr}%`]
-  );
-  if (!rows.length) return { type: 'error', message: `You have no cassette like "${targetStr}" to insert.` };
-
-  const cass = rows[0];
+  const cass = await resolveInventoryItem(player, { tag: 'amp_cassette', name: targetStr, equipped: false });
+  if (!cass) return { type: 'error', message: `You have no cassette like "${targetStr}" to insert.` };
   const songId = cass.tags?.song_id;
   if (!songId) return { type: 'error', message: `${cass.name} is blank — the AMP whirrs, finds nothing, and spits it back out.` };
 
@@ -61,8 +55,8 @@ async function cmdInsert(args, raw, player, broadcast) {
   }
 
   // Destroy the tape (one copy) and unlock the track.
-  if (cass.quantity > 1) await query('UPDATE player_inventory SET quantity = quantity - 1 WHERE id = $1', [cass.id]);
-  else await query('DELETE FROM player_inventory WHERE id = $1', [cass.id]);
+  if (cass.quantity > 1) await query('UPDATE player_inventory SET quantity = quantity - 1 WHERE id = $1', [cass.inv_id]);
+  else await query('DELETE FROM player_inventory WHERE id = $1', [cass.inv_id]);
 
   unlocks.push(songId);
   await setFlag('player', UNLOCK_FLAG, JSON.stringify(unlocks), player);

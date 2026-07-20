@@ -6,6 +6,7 @@ import { awardSkillUse, effectiveSkill } from '../../server/engine/skills.js';
 import { getPowerMap } from '../../server/engine/environment.js';
 import { emit } from '../../server/engine/events.js';
 import { gameMsToReal } from '../../server/engine/gametime.js';
+import { resolveInventoryItem } from '../../server/engine/inventory.js';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -14,31 +15,21 @@ import { gameMsToReal } from '../../server/engine/gametime.js';
 // Any item tagged `hack_device` (see tagCatalog.js) is a valid deck — the gate
 // is the capability tag, not a specific item id.
 async function hasHackDevice(playerId) {
-  const { rows } = await query(
-    `SELECT 1 FROM player_inventory pi JOIN items i ON i.id = pi.item_id
-     WHERE pi.player_id=$1 AND pi.container_id IS NULL AND jsonb_exists(i.tags,'hack_device') LIMIT 1`,
-    [playerId]
-  );
-  return rows.length > 0;
+  return !!(await resolveInventoryItem(playerId, { tag: 'hack_device' }));
 }
 
 // A failed breach fries the deck a little — five failures and it's slag.
 // Marked `unique` on the item so multiple decks don't share one condition.
 const HACK_DEVICE_DAMAGE_PER_FAIL = 0.2;
 async function damageHackDevice(playerId) {
-  const { rows } = await query(
-    `SELECT pi.id, pi.condition FROM player_inventory pi JOIN items i ON i.id = pi.item_id
-     WHERE pi.player_id=$1 AND pi.container_id IS NULL AND jsonb_exists(i.tags,'hack_device') LIMIT 1`,
-    [playerId]
-  );
-  const dev = rows[0];
+  const dev = await resolveInventoryItem(playerId, { tag: 'hack_device' });
   if (!dev) return '';
   const newCond = Math.max(0, (dev.condition ?? 1) - HACK_DEVICE_DAMAGE_PER_FAIL);
   if (newCond <= 0) {
-    await query('DELETE FROM player_inventory WHERE id=$1', [dev.id]);
+    await query('DELETE FROM player_inventory WHERE id=$1', [dev.inv_id]);
     return ' Your hack deck fries, sparks, and crumbles to slag in your hands.';
   }
-  await query('UPDATE player_inventory SET condition=$1 WHERE id=$2', [newCond, dev.id]);
+  await query('UPDATE player_inventory SET condition=$1 WHERE id=$2', [newCond, dev.inv_id]);
   return ` Your hack deck takes damage (${Math.round(newCond * 100)}% integrity).`;
 }
 

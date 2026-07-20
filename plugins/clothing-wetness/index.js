@@ -26,6 +26,7 @@ import { query } from '../../server/models/db.js';
 import { hasTag } from '../../server/engine/tags.js';
 import { getZoneTemperature, getZonePrecip, getWindKph, getHumidityPct } from '../../server/engine/environment.js';
 import { getAllLivePlayers, getZone } from '../../server/engine/world.js';
+import { resolveInventoryItem } from '../../server/engine/inventory.js';
 
 function rainWettingRate(precipRate) {
   return precipRate * precipRate * 30;
@@ -86,12 +87,7 @@ export const hooks = {
       const humidMult = isIndoors ? 1 : humidityMultiplier(getHumidityPct());
       const dryRate = baseDryRate * dryMultiplier(zoneTemp) * windMult * humidMult;
 
-      const { rows } = await query(
-        `SELECT pi.id, pi.custom_data, i.tags
-         FROM player_inventory pi JOIN items i ON i.id = pi.item_id
-         WHERE pi.player_id = $1 AND pi.is_equipped = 1`,
-        [playerId]
-      );
+      const rows = await resolveInventoryItem(playerId, { equipped: true, topLevel: false, all: true });
       const wettable = rows.filter(r => hasTag(r, 'gets_wet'));
 
       // Submersion (swimming, player._submerged from the swimming plugin) soaks you
@@ -104,7 +100,7 @@ export const hooks = {
           if ((item.custom_data?.wetness ?? 0) < 100) {
             await query(
               `UPDATE player_inventory SET custom_data = COALESCE(custom_data, '{}'::jsonb) || $1::jsonb WHERE id = $2`,
-              [JSON.stringify({ wetness: 100 }), item.id]);
+              [JSON.stringify({ wetness: 100 }), item.inv_id]);
           }
         }
         const prevWetness = player.wetness ?? 0;
@@ -138,7 +134,7 @@ export const hooks = {
         if (Math.round(next) !== Math.round(prev)) {
           await query(
             `UPDATE player_inventory SET custom_data = COALESCE(custom_data, '{}'::jsonb) || $1::jsonb WHERE id = $2`,
-            [JSON.stringify({ wetness: Math.round(next) }), item.id]
+            [JSON.stringify({ wetness: Math.round(next) }), item.inv_id]
           );
         }
       }

@@ -21,6 +21,7 @@ import { query } from '../../server/models/db.js';
 import { tagValue } from '../../server/engine/tags.js';
 import { recomputePower, markPowerTopologyDirty } from '../../server/engine/environment.js';
 import { insertFurniture, deleteFurniture } from '../../server/engine/world.js';
+import { resolveInventoryItem } from '../../server/engine/inventory.js';
 
 // Fallbacks if the item's portable_generator tag omits a field. Numbers are
 // content tuning — a bigger tank/capacity is just a heftier (pricier) unit.
@@ -30,13 +31,9 @@ const DEFAULTS = { capacity_kw: 3000, tank: 20, burn_rate: 0.02 };
 // named lookup that misses falls back to the sole carried unit, so filler words
 // ("deploy the generator") don't strand an obvious target.
 async function resolveInvGenerator(player, name) {
-  const run = async filter => (await query(
-    `SELECT pi.id, pi.item_id, pi.quantity, pi.custom_data, i.name, i.description, i.tags
-       FROM player_inventory pi JOIN items i ON i.id = pi.item_id
-      WHERE pi.player_id=$1 AND pi.container_id IS NULL
-        AND jsonb_exists(i.tags,'portable_generator')${filter ? ' AND i.name ILIKE $2' : ''}
-      ORDER BY length(i.name) LIMIT 1`,
-    filter ? [player.id, `%${filter}%`] : [player.id])).rows[0] || null;
+  const run = filter => resolveInventoryItem(player, {
+    tag: 'portable_generator', name: filter || undefined, orderBy: 'length(i.name)',
+  });
   return (name && await run(name)) || run(null);
 }
 
@@ -77,8 +74,8 @@ async function deploy(args, raw, player, broadcast) {
   const startFuel = Math.min(tank, Number(row.custom_data?.fuel_remaining) || 0);
 
   // Consume one unit of the carried stack.
-  if (row.quantity > 1) await query('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [row.id]);
-  else await query('DELETE FROM player_inventory WHERE id=$1', [row.id]);
+  if (row.quantity > 1) await query('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [row.inv_id]);
+  else await query('DELETE FROM player_inventory WHERE id=$1', [row.inv_id]);
 
   const genId = `pgen_${randomUUID()}`;
   const furnId = `pgenf_${randomUUID()}`;

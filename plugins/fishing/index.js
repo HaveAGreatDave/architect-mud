@@ -29,6 +29,7 @@ import { effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { on } from '../../server/engine/events.js';
 import { setPosture, forceStand } from '../../server/engine/posture.js';
+import { resolveInventoryItem } from '../../server/engine/inventory.js';
 
 const ATTEMPT_MS = 4200;    // per-cast cadence — a touch slower than scavenging; fishing is patient
 const MAX_SWING = 14;       // best possible 2d8-2d8 roll — reachability ceiling
@@ -100,41 +101,27 @@ function pickWeighted(entries) {
 // capability tag on a carried, uncontained item — not a specific item id.
 
 async function hasRod(playerId) {
-  const { rows } = await query(
-    `SELECT 1 FROM player_inventory pi JOIN items i ON i.id = pi.item_id
-     WHERE pi.player_id=$1 AND pi.container_id IS NULL AND jsonb_exists(i.tags,'fishing_rod') LIMIT 1`,
-    [playerId]
-  );
-  return rows.length > 0;
+  return !!(await resolveInventoryItem(playerId, { tag: 'fishing_rod' }));
 }
 
 // A botched reel can snap the rod: shed condition, and retire it at zero.
 async function maybeSnapRod(playerId) {
   if (Math.random() >= ROD_SNAP_CHANCE) return '';
-  const { rows } = await query(
-    `SELECT pi.id, pi.condition FROM player_inventory pi JOIN items i ON i.id = pi.item_id
-     WHERE pi.player_id=$1 AND pi.container_id IS NULL AND jsonb_exists(i.tags,'fishing_rod') LIMIT 1`,
-    [playerId]
-  );
-  const rod = rows[0];
+  const rod = await resolveInventoryItem(playerId, { tag: 'fishing_rod' });
   if (!rod) return '';
   const newCond = Math.max(0, (rod.condition ?? 1) - ROD_SNAP_DAMAGE);
   if (newCond <= 0) {
-    await query('DELETE FROM player_inventory WHERE id=$1', [rod.id]);
+    await query('DELETE FROM player_inventory WHERE id=$1', [rod.inv_id]);
     return ' Your rod snaps clean in half and the pieces spin off into the water.';
   }
-  await query('UPDATE player_inventory SET condition=$1 WHERE id=$2', [newCond, rod.id]);
+  await query('UPDATE player_inventory SET condition=$1 WHERE id=$2', [newCond, rod.inv_id]);
   return ' Your rod groans and takes a worrying bend — that nearly cost you it.';
 }
 
 // The set of bait sub-tags the player is currently carrying (for bait-gated
 // catches), plus whether they hold any generic bait at all.
 async function baitState(playerId) {
-  const { rows } = await query(
-    `SELECT i.tags FROM player_inventory pi JOIN items i ON i.id = pi.item_id
-     WHERE pi.player_id=$1 AND pi.container_id IS NULL AND jsonb_exists(i.tags,'bait')`,
-    [playerId]
-  );
+  const rows = await resolveInventoryItem(playerId, { tag: 'bait', all: true });
   const tags = new Set();
   for (const r of rows) for (const t of Object.keys(r.tags || {})) tags.add(t);
   return { hasBait: rows.length > 0, tags };
@@ -142,16 +129,10 @@ async function baitState(playerId) {
 
 // Consume one bait item (decrement a stack, delete at zero). Called on a catch.
 async function consumeBait(playerId) {
-  const { rows } = await query(
-    `SELECT pi.id, pi.quantity FROM player_inventory pi JOIN items i ON i.id = pi.item_id
-     WHERE pi.player_id=$1 AND pi.container_id IS NULL AND jsonb_exists(i.tags,'bait')
-     ORDER BY pi.quantity ASC LIMIT 1`,
-    [playerId]
-  );
-  const b = rows[0];
+  const b = await resolveInventoryItem(playerId, { tag: 'bait', orderBy: 'pi.quantity ASC' });
   if (!b) return;
-  if ((b.quantity ?? 1) > 1) await query('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [b.id]);
-  else await query('DELETE FROM player_inventory WHERE id=$1', [b.id]);
+  if ((b.quantity ?? 1) > 1) await query('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [b.inv_id]);
+  else await query('DELETE FROM player_inventory WHERE id=$1', [b.inv_id]);
 }
 
 // ── Table + per-zone stock loading (lazy replenish) ───────────────────────────

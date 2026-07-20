@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { world, getZonePlayers, getZone, getZoneNpcs, getZoneEnemies, reloadZone, hasActivePlayers, insertFurniture, updateFurniture, deleteFurnitureWhere, getZoneFurniture } from '../../server/engine/world.js';
+import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { on, emit } from '../../server/engine/events.js';
 import { registerAction, dispatchAction } from '../../server/engine/actions.js';
@@ -4324,17 +4325,11 @@ const pirateLockout = new Map(); // playerId -> untilTs
 async function doInstallPiracyFirmware(args, raw, player) {
   if (!player) return undefined;
   const nameHint = args.join(' ').trim().toLowerCase();
-  const params = [player.id];
-  let sql = `SELECT pi.id AS inv_id, pi.quantity, i.name FROM player_inventory pi JOIN items i ON i.id = pi.item_id
-             WHERE pi.player_id=$1 AND pi.container_id IS NULL AND jsonb_exists(i.tags,'piracy_firmware')`;
-  if (nameHint) { sql += ` AND i.name ILIKE $2`; params.push(`%${nameHint}%`); }
-  sql += ' LIMIT 1';
-  const { rows } = await query(sql, params);
-  if (!rows.length) return undefined; // not carrying one / named something else — let other handlers try
+  const it = await resolveInventoryItem(player, { tag: 'piracy_firmware', name: nameHint || undefined });
+  if (!it) return undefined; // not carrying one / named something else — let other handlers try
   if (await isPiracyInstalled(player)) {
     return { type: 'error', message: 'The pirate firmware is already flashed onto your tablet.' };
   }
-  const it = rows[0];
   if (it.quantity > 1) await query('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [it.inv_id]);
   else await query('DELETE FROM player_inventory WHERE id=$1', [it.inv_id]);
   await setFlag('player', PIRACY_FLAG, '1', player);

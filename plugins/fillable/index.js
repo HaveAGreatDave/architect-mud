@@ -17,6 +17,7 @@
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { tagValue } from '../../server/engine/tags.js';
+import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { applyThirst } from '../../server/engine/bodily.js';
 import { dispatchAction } from '../../server/engine/actions.js';
 
@@ -26,13 +27,7 @@ const FLUID_RATES = { water: 1 };
 // Resolve a named fillable container in the player's top-level inventory.
 async function resolveContainer(player, name) {
   if (!name) return null;
-  const { rows } = await query(
-    `SELECT pi.id, pi.item_id, pi.quantity, pi.custom_data, i.name, i.tags
-     FROM player_inventory pi JOIN items i ON i.id = pi.item_id
-     WHERE pi.player_id=$1 AND pi.container_id IS NULL
-       AND jsonb_exists(i.tags,'fillable') AND i.name ILIKE $2 LIMIT 1`,
-    [player.id, `%${name}%`]);
-  return rows[0] || null;
+  return resolveInventoryItem(player, { tag: 'fillable', name });
 }
 
 async function fill(args, raw, player) {
@@ -80,9 +75,9 @@ async function fill(args, raw, player) {
 
   // Filling makes the unit non-empty (unique). If it's part of a stack of
   // empties, split one off so only that unit gets filled.
-  let invId = c.id;
+  let invId = c.inv_id;
   if (c.quantity > 1) {
-    await query('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [c.id]);
+    await query('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [c.inv_id]);
     invId = randomUUID();
     await query('INSERT INTO player_inventory (id,player_id,item_id,quantity,is_equipped) VALUES ($1,$2,$3,1,0)',
       [invId, player.id, c.item_id]);
@@ -124,10 +119,10 @@ async function drink(args, raw, player) {
   const remaining = amount - fluidUsed;
   if (remaining <= 0) {
     await query(`UPDATE player_inventory SET custom_data = COALESCE(custom_data,'{}'::jsonb) - 'fluid_amount' - 'fluid_type' - 'contaminated' WHERE id=$1`,
-      [c.id]);
+      [c.inv_id]);
   } else {
     await query(`UPDATE player_inventory SET custom_data = COALESCE(custom_data,'{}'::jsonb) || $1::jsonb WHERE id=$2`,
-      [JSON.stringify({ fluid_amount: remaining }), c.id]);
+      [JSON.stringify({ fluid_amount: remaining }), c.inv_id]);
   }
 
   // Foul water (filled from a fouled toilet) still slakes thirst, but makes you
@@ -156,7 +151,7 @@ async function empty(args, raw, player) {
     return { type:'error', message:`The ${c.name} is already empty.` };
 
   await query(`UPDATE player_inventory SET custom_data = COALESCE(custom_data,'{}'::jsonb) - 'fluid_amount' - 'fluid_type' - 'contaminated' WHERE id=$1`,
-    [c.id]);
+    [c.inv_id]);
   return { type:'use', message:`You empty the ${c.name} onto the ground.` };
 }
 

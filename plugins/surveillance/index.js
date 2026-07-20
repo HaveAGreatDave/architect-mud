@@ -10,6 +10,7 @@
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { getZone, getZonePlayers, getZoneNpcs, getZoneEnemies, getLivePlayer, getAllLivePlayers, spawnEnemySync, removeEnemyInstance, hasActivePlayers, world, insertFurniture, updateFurniture, deleteFurniture } from '../../server/engine/world.js';
+import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { exitTargets, neighborZoneIds } from '../../server/engine/exits.js';
 import { moveEntity } from '../../server/engine/ai-behaviour.js';
 import { findPath } from '../../server/engine/pathfinding.js';
@@ -89,15 +90,7 @@ async function cmdPlant(args, raw, player) {
   }
   const nameHint = words.join(' ').trim();
 
-  const params = [player.id];
-  let sql = `SELECT pi.id AS inv_id, pi.item_id, pi.quantity, i.name, i.description, i.tags
-             FROM player_inventory pi JOIN items i ON i.id = pi.item_id
-             WHERE pi.player_id = $1 AND pi.container_id IS NULL
-               AND jsonb_exists(i.tags, 'security_gear')`;
-  if (nameHint) { sql += ` AND i.name ILIKE $2`; params.push(`%${nameHint}%`); }
-  sql += ` ORDER BY i.name LIMIT 1`;
-  const { rows } = await query(sql, params);
-  const gear = rows[0];
+  const gear = await resolveInventoryItem(player, { tag: 'security_gear', name: nameHint || undefined, orderBy: 'i.name' });
   if (!gear) {
     return { type: 'error', message: nameHint
       ? `You aren't carrying a "${nameHint}" you can plant.`
@@ -403,12 +396,7 @@ async function buildHubPayload(player, open) {
 }
 
 async function playerHasSpyDeck(playerId) {
-  const { rows } = await query(
-    `SELECT 1 FROM player_inventory pi JOIN items i ON i.id = pi.item_id
-      WHERE pi.player_id = $1 AND jsonb_exists(i.tags, 'spy_deck') LIMIT 1`,
-    [playerId]
-  );
-  return rows.length > 0;
+  return !!(await resolveInventoryItem(playerId, { tag: 'spy_deck', topLevel: false }));
 }
 
 // ── SPECTER install (the hack-deck program) ──────────────────────────────────
@@ -425,17 +413,11 @@ export async function isSpecterInstalled(player) {
 // use <specter program> — install SPECTER onto the tablet, consuming the item.
 async function doInstallSpecter(args, raw, player) {
   const nameHint = args.join(' ').trim().toLowerCase();
-  const params = [player.id];
-  let sql = `SELECT pi.id AS inv_id, pi.quantity, i.name FROM player_inventory pi JOIN items i ON i.id = pi.item_id
-             WHERE pi.player_id=$1 AND pi.container_id IS NULL AND jsonb_exists(i.tags,'specter_program')`;
-  if (nameHint) { sql += ` AND i.name ILIKE $2`; params.push(`%${nameHint}%`); }
-  sql += ' LIMIT 1';
-  const { rows } = await query(sql, params);
-  if (!rows.length) return undefined; // named something else / not carrying one — let other handlers try
+  const it = await resolveInventoryItem(player, { tag: 'specter_program', name: nameHint || undefined });
+  if (!it) return undefined; // named something else / not carrying one — let other handlers try
   if (await isSpecterInstalled(player)) {
     return { type: 'error', message: 'SPECTER is already installed on your tablet — this program has nothing left to do.' };
   }
-  const it = rows[0];
   if (it.quantity > 1) await query('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [it.inv_id]);
   else await query('DELETE FROM player_inventory WHERE id=$1', [it.inv_id]);
   await setFlag('player', SPECTER_FLAG, '1', player);
@@ -473,12 +455,8 @@ async function doUseSpyDeck(args, raw, player) {
   if (!await playerHasSpyDeck(player.id)) return undefined; // fall through
   const nameHint = args.join(' ').trim().toLowerCase();
   if (nameHint) {
-    const { rows } = await query(
-      `SELECT i.name FROM player_inventory pi JOIN items i ON i.id = pi.item_id
-        WHERE pi.player_id = $1 AND jsonb_exists(i.tags, 'spy_deck') AND i.name ILIKE $2 LIMIT 1`,
-      [player.id, `%${nameHint}%`]
-    );
-    if (!rows.length) return undefined; // named something else — let other handlers try
+    const hit = await resolveInventoryItem(player, { tag: 'spy_deck', name: nameHint, topLevel: false });
+    if (!hit) return undefined; // named something else — let other handlers try
   }
   return openHubFor(player);
 }
@@ -894,14 +872,9 @@ async function buildReplayPayload(clipRow) {
 // use <datachip> — open the replay deck.
 async function doUseDatachip(args, raw, player) {
   const nameHint = args.join(' ').trim();
-  const params = [player.id];
-  let sql = `SELECT i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id
-             WHERE pi.player_id=$1 AND jsonb_exists(i.tags,'datachip')`;
-  if (nameHint) { sql += ` AND i.name ILIKE $2`; params.push(`%${nameHint}%`); }
-  sql += ` LIMIT 1`;
-  const { rows } = await query(sql, params);
-  if (!rows.length) return undefined; // no matching chip — fall through
-  const clipId = rows[0].tags?.clip_id;
+  const chip = await resolveInventoryItem(player, { tag: 'datachip', name: nameHint || undefined, topLevel: false });
+  if (!chip) return undefined; // no matching chip — fall through
+  const clipId = chip.tags?.clip_id;
   const { rows: clip } = await query(
     `SELECT c.*, z.name AS zone_name FROM security_clips c LEFT JOIN zones z ON z.id=c.zone_id WHERE c.id=$1`,
     [clipId]
@@ -919,11 +892,7 @@ async function cmdReplay(args, raw, player) {
 
 // clips — list the datachips you're carrying.
 async function cmdClips(args, raw, player) {
-  const { rows } = await query(
-    `SELECT i.name, i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id
-      WHERE pi.player_id=$1 AND jsonb_exists(i.tags,'datachip') ORDER BY i.name`,
-    [player.id]
-  );
+  const rows = await resolveInventoryItem(player, { tag: 'datachip', topLevel: false, orderBy: 'i.name', all: true });
   if (!rows.length) return { type: 'output', message: 'You have no datachips.' };
   const lines = rows.map(r => `  • <span class="furniture-link">${r.name}</span>`).join('\n');
   return { type: 'output', message: `Datachips in your kit:\n${lines}\n<span class="text-dim">(use one to replay it.)</span>` };
@@ -2106,13 +2075,7 @@ async function cmdSubmit(args, raw, player) {
   if (!cop) return { type: 'error', message: "There's no officer here to take evidence." };
 
   const nameHint = args.join(' ').trim();
-  const params = [player.id];
-  let sql = `SELECT pi.id AS inv_id, i.id AS item_id, i.name, i.tags FROM player_inventory pi JOIN items i ON i.id = pi.item_id
-             WHERE pi.player_id=$1 AND jsonb_exists(i.tags,'datachip')`;
-  if (nameHint) { sql += ` AND i.name ILIKE $2`; params.push(`%${nameHint}%`); }
-  sql += ` LIMIT 1`;
-  const { rows } = await query(sql, params);
-  const chip = rows[0];
+  const chip = await resolveInventoryItem(player, { tag: 'datachip', name: nameHint || undefined, topLevel: false });
   if (!chip) return { type: 'error', message: nameHint ? `You have no datachip matching "${nameHint}".` : "You have no datachip to submit." };
 
   const clipId = chip.tags?.clip_id;

@@ -18,6 +18,7 @@
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { world, getZone, getLivePlayer, getMinimapData, getDoorById, getZoneDoors, setDoorCache } from '../../server/engine/world.js';
+import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { getFlag } from '../../server/engine/flags.js';
 import { skillCheck, effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { on, emit } from '../../server/engine/events.js';
@@ -330,12 +331,7 @@ const GLYPH = (tags) => tags?.weapon ? '▮' : tags?.hack_device ? '◈' : tags?
 
 // Open (not-yet-concealed) palmable contraband the player is carrying.
 async function openPalmableContraband(playerId) {
-  const { rows } = await query(
-    `SELECT pi.id AS inv_id, pi.item_id, pi.custom_data, i.name, i.tags, i.weight
-       FROM player_inventory pi JOIN items i ON i.id = pi.item_id
-      WHERE pi.player_id = $1`,
-    [playerId]
-  ).catch(() => ({ rows: [] }));
+  const rows = await resolveInventoryItem(playerId, { topLevel: false, all: true }).catch(() => []);
   const out = [];
   for (const r of rows) {
     const tags = r.tags || {};
@@ -360,13 +356,7 @@ async function markConcealed(invId, data) {
 // search rolls Deception against it; a good stash beats the scanner.
 async function cmdConceal(args, raw, player) {
   const hint = args.join(' ').trim();
-  const params = [player.id];
-  let sql = `SELECT pi.id AS inv_id, pi.custom_data, i.name, i.tags, i.weight
-               FROM player_inventory pi JOIN items i ON i.id = pi.item_id
-              WHERE pi.player_id = $1`;
-  if (hint) { sql += ` AND i.name ILIKE $2`; params.push(`%${hint}%`); }
-  sql += ` LIMIT 10`;
-  const { rows } = await query(sql, params);
+  const rows = await resolveInventoryItem(player, { name: hint || undefined, topLevel: false, all: true });
   const cand = rows.find(r => isPalmable(r.tags, r.weight) && !((r.custom_data || {}).concealed));
   if (!cand) {
     return { type: 'error', message: hint

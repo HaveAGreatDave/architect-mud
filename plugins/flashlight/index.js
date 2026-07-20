@@ -24,6 +24,7 @@ import { sendToPlayer } from '../../server/engine/messaging.js';
 import { getAllLivePlayers, getZone, getMinimapData } from '../../server/engine/world.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
 import { LIGHT_LADDER, floorVisibility } from '../../server/engine/environment.js';
+import { resolveInventoryItem } from '../../server/engine/inventory.js';
 
 const BATTERY_MAX = 120;     // units of charge = minutes of light on a fresh cell
 const LIT_FLOOR = 'bright';  // perceived light level a lit flashlight guarantees
@@ -40,15 +41,11 @@ export function flashlightDrainRate(flags) {
 // Resolve a flashlight in the player's top-level inventory. With a name, match
 // it; otherwise take the first, preferring one that's already lit.
 async function resolveFlashlight(player, name) {
-  const { rows } = await query(
-    `SELECT pi.id, pi.custom_data, i.name
-       FROM player_inventory pi JOIN items i ON i.id = pi.item_id
-      WHERE pi.player_id=$1 AND pi.container_id IS NULL AND jsonb_exists(i.tags,'flashlight')
-        ${name ? 'AND i.name ILIKE $2' : ''}
-      ORDER BY COALESCE((pi.custom_data->>'lit')::boolean, false) DESC
-      LIMIT 1`,
-    name ? [player.id, `%${name}%`] : [player.id]);
-  return rows[0] || null;
+  return resolveInventoryItem(player, {
+    tag: 'flashlight',
+    name: name || undefined,
+    orderBy: `COALESCE((pi.custom_data->>'lit')::boolean, false) DESC`,
+  });
 }
 
 // The beam only changes how the *holder* perceives the room, so re-describe it
@@ -74,7 +71,7 @@ async function light(args, raw, player) {
     return { type: 'error', message: `The ${f.name}'s battery is dead. Reload it with a fresh battery.` };
   await query(
     `UPDATE player_inventory SET custom_data = COALESCE(custom_data,'{}'::jsonb) || $1::jsonb WHERE id=$2`,
-    [JSON.stringify({ lit: true, battery }), f.id]);
+    [JSON.stringify({ lit: true, battery }), f.inv_id]);
   return lookAfterToggle(player, `You switch on the ${f.name}. A hard white cone of light cuts through the gloom.`);
 }
 
@@ -84,7 +81,7 @@ async function unlight(args, raw, player) {
   if (!f.custom_data?.lit) return { type: 'error', message: `The ${f.name} is already off.` };
   await query(
     `UPDATE player_inventory SET custom_data = COALESCE(custom_data,'{}'::jsonb) || '{"lit":false}'::jsonb WHERE id=$1`,
-    [f.id]);
+    [f.inv_id]);
   return lookAfterToggle(player, `You switch off the ${f.name}.`);
 }
 
@@ -94,17 +91,13 @@ async function reload(args, raw, player) {
   if (!f) return undefined;
   if ((f.custom_data?.battery ?? BATTERY_MAX) >= BATTERY_MAX)
     return { type: 'error', message: `The ${f.name} already has a full charge.` };
-  const { rows: batt } = await query(
-    `SELECT pi.id, pi.quantity FROM player_inventory pi JOIN items i ON i.id = pi.item_id
-      WHERE pi.player_id=$1 AND pi.container_id IS NULL AND jsonb_exists(i.tags,'battery') LIMIT 1`,
-    [player.id]);
-  if (!batt.length) return { type: 'error', message: `You have no batteries.` };
-  const b = batt[0];
-  if (b.quantity > 1) await query(`UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1`, [b.id]);
-  else await query(`DELETE FROM player_inventory WHERE id=$1`, [b.id]);
+  const b = await resolveInventoryItem(player, { tag: 'battery' });
+  if (!b) return { type: 'error', message: `You have no batteries.` };
+  if (b.quantity > 1) await query(`UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1`, [b.inv_id]);
+  else await query(`DELETE FROM player_inventory WHERE id=$1`, [b.inv_id]);
   await query(
     `UPDATE player_inventory SET custom_data = COALESCE(custom_data,'{}'::jsonb) || $1::jsonb WHERE id=$2`,
-    [JSON.stringify({ battery: BATTERY_MAX }), f.id]);
+    [JSON.stringify({ battery: BATTERY_MAX }), f.inv_id]);
   return { type: 'use', message: `You snap a fresh battery into the ${f.name}. Full charge.` };
 }
 

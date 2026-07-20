@@ -14,6 +14,7 @@
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { getLivePlayer, getAllLivePlayers, getCorpse, getZoneCorpses, removeCorpse } from '../../server/engine/world.js';
+import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { skillCheck, awardSkillUse } from '../../server/engine/skills.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
@@ -37,11 +38,7 @@ function resolveCorpse(targetStr, player) {
 }
 
 async function hasButcheringTool(playerId) {
-	const { rows } = await query(
-		`SELECT i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND jsonb_exists(i.tags,'butchering') LIMIT 1`,
-		[playerId],
-	);
-	return rows.length > 0;
+	return !!(await resolveInventoryItem(playerId, { tag: 'butchering', topLevel: false }));
 }
 
 async function cmdButcher(targetStr, player, broadcast) {

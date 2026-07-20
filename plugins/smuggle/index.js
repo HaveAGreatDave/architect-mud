@@ -39,6 +39,7 @@ import { skillCheck, awardSkillUse } from '../../server/engine/skills.js';
 import { dispatchAction, registerAction } from '../../server/engine/actions.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { getLivePlayer } from '../../server/engine/world.js';
+import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 
 const DROP_ZONE = 'zone_district_925_903';    // Coldwater Regional — smuggle drop, consolidated onto the district airfield
@@ -129,12 +130,9 @@ schedule('1m', async () => {
 // with the fence. The crate is cipher-locked to the buyer, so nobody can pinch
 // your drop and cash the trust.
 async function unpack(args, raw, player) {
-  const { rows } = await query(
-    `SELECT pi.id, pi.custom_data FROM player_inventory pi JOIN items i ON i.id = pi.item_id
-      WHERE pi.player_id=$1 AND pi.container_id IS NULL AND jsonb_exists(i.tags, 'mule_crate') LIMIT 1`,
-    [player.id]);
-  if (!rows.length) return undefined; // no crate on you → fall through
-  const crate = rows[0], cd = crate.custom_data || {};
+  const crate = await resolveInventoryItem(player, { tag: 'mule_crate' });
+  if (!crate) return undefined; // no crate on you → fall through
+  const cd = crate.custom_data || {};
   if (cd.ownerId && cd.ownerId !== player.id)
     return { type: 'error', message: `The crate is cipher-locked to whoever ordered it — not you. It won't open.` };
 
@@ -148,7 +146,7 @@ async function unpack(args, raw, player) {
   if (ex.rows.length) await query(`UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2`, [qty, ex.rows[0].id]);
   else await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity) VALUES ($1,$2,$3,$4)`, [randomUUID(), player.id, rawId, qty]);
 
-  await query(`DELETE FROM player_inventory WHERE id=$1`, [crate.id]);
+  await query(`DELETE FROM player_inventory WHERE id=$1`, [crate.inv_id]);
   if (cd.orderId) await query(`UPDATE smuggle_orders SET status='collected' WHERE id=$1`, [cd.orderId]).catch(() => {});
 
   return {

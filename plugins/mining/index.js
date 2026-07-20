@@ -20,6 +20,7 @@
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { getZone, getAllLivePlayers, getLivePlayer } from '../../server/engine/world.js';
+import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
@@ -61,12 +62,7 @@ function pickWeighted(entries) {
 // The tool gate: a carried, uncontained item tagged `mining_tool` (the fishing-rod
 // carry-gate pattern — a capability tag, not a specific item id).
 async function hasPick(playerId) {
-  const { rows } = await query(
-    `SELECT 1 FROM player_inventory pi JOIN items i ON i.id = pi.item_id
-     WHERE pi.player_id=$1 AND pi.container_id IS NULL AND jsonb_exists(i.tags,'mining_tool') LIMIT 1`,
-    [playerId]
-  );
-  return rows.length > 0;
+  return !!(await resolveInventoryItem(playerId, { tag: 'mining_tool' }));
 }
 
 // ── Table + per-zone stock loading (with lazy replenish) ──────────────────────

@@ -34,6 +34,46 @@ export async function getEquippedWeapon(player) {
   return row;
 }
 
+// Resolve carried item row(s) by tag and/or name — the shared form of the
+// `player_inventory JOIN items` lookup that ~20 plugins each hand-rolled (flashlight,
+// fishing rod/bait, hack decks, butchering tools, amp cassettes, …). Same round-trip
+// count as the copies it replaces; the point is one place for the carried-item rules
+// (top-level vs. contained, equipped filter) instead of twenty subtly-drifting ones.
+//
+//   opts.tag       string | string[]  require jsonb_exists(i.tags, X); an array is OR
+//   opts.name      string             i.name ILIKE %name% (substring, case-insensitive)
+//   opts.topLevel  bool (default true) only uncontained rows (container_id IS NULL)
+//   opts.equipped  true | false | undefined   worn-only / not-worn / either
+//   opts.orderBy   string             raw ORDER BY clause — LITERAL only, never user input
+//   opts.all       bool (default false) return every match instead of just the first
+//
+// Rows carry: inv_id, item_id, quantity, condition, is_equipped, layer, slot,
+// custom_data, name, description, weight, tags, flags. Returns the first row (or
+// null), or an array with `all`.
+export async function resolveInventoryItem(player, opts = {}) {
+  const playerId = typeof player === 'object' ? player.id : player;
+  const { tag, name, topLevel = true, equipped, orderBy, all = false } = opts;
+  const where = ['pi.player_id = $1'];
+  const params = [playerId];
+  if (topLevel) where.push('pi.container_id IS NULL');
+  if (equipped === true) where.push('pi.is_equipped = 1');
+  else if (equipped === false) where.push('pi.is_equipped = 0');
+  if (tag) {
+    const tags = Array.isArray(tag) ? tag : [tag];
+    const ors = tags.map(t => { params.push(t); return `jsonb_exists(i.tags, $${params.length})`; });
+    where.push(`(${ors.join(' OR ')})`);
+  }
+  if (name) { params.push(`%${name}%`); where.push(`i.name ILIKE $${params.length}`); }
+  const sql =
+    `SELECT pi.id AS inv_id, pi.item_id, pi.quantity, pi.condition,
+            pi.is_equipped, pi.layer, pi.slot, pi.custom_data,
+            i.name, i.description, i.weight, i.tags, i.flags
+       FROM player_inventory pi JOIN items i ON i.id = pi.item_id
+      WHERE ${where.join(' AND ')}${orderBy ? `\n      ORDER BY ${orderBy}` : ''}${all ? '' : '\n      LIMIT 1'}`;
+  const { rows } = await query(sql, params);
+  return all ? rows : (rows[0] || null);
+}
+
 // A fillable container holding fluid is unique (non-stackable) — only empty
 // ones stack. The instance amount lives in custom_data.fluid_amount.
 const rowHasFluid = row => (row?.custom_data?.fluid_amount || 0) > 0;

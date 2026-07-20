@@ -6,6 +6,7 @@
 // commerce.buy_item Actions (builtin replay can't reach plugin verbs).
 import { query } from '../../server/models/db.js';
 import { getZoneNpcs, world } from '../../server/engine/world.js';
+import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { getVendorStock, getSellableInventory, buyFromVendor, sellToVendor } from '../../server/engine/vendor.js';
 import { buyFurniture } from '../../server/engine/furniture-shop.js';
 import { openShopSession, getNpcForShopper } from '../../server/engine/vendor-session.js';
@@ -97,9 +98,9 @@ async function cmdSell(args, player) {
   const npcs = getZoneNpcs(player.current_zone);
   const vendor = resolveVendor(player, npcs);
   if (!vendor) return { type:'error', message:'No vendor here.' };
-  const { rows } = await query(`SELECT pi.id FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND i.name ILIKE $2 LIMIT 1`, [player.id, `%${itemName}%`]);
-  if (!rows.length) return { type:'error', message:`You don't have "${itemName}".` };
-  const result = await sellToVendor(player, vendor, rows[0].id, 1);
+  const row = await resolveInventoryItem(player, { name: itemName, topLevel: false });
+  if (!row) return { type:'error', message:`You don't have "${itemName}".` };
+  const result = await sellToVendor(player, vendor, row.inv_id, 1);
   return { type:result.success?'sell':'error', message:result.message, player_update:{credits:player.credits} };
 }
 
