@@ -498,7 +498,11 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
   }
 
   let radGain = 0;
-  const zoneRad = getZoneRadiation(targetZone);
+  // Radiation gain is suspended outside the city for now — the wilds-flavored
+  // districts (wastes, slaglands, ashway, hazard) don't irradiate you even if a
+  // tile carries a radiation flag. Only the city grid still ticks up RAD.
+  const OUTSIDE_CITY_DISTRICTS = new Set(['wasteland', 'slaglands', 'ashway', 'hazard']);
+  const zoneRad = OUTSIDE_CITY_DISTRICTS.has(districtFor(targetZone).key) ? 0 : getZoneRadiation(targetZone);
   if (zoneRad > 0) {
     radGain = Math.floor(zoneRad * 0.1);
     if (radGain > 0) {
