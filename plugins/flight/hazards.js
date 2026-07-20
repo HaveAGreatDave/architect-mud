@@ -1,19 +1,19 @@
 // Flight — Phase B hazards + the airborne emergency verbs.
 //
-// The tick loop calls rollHazards() each airborne tick (after the fuel-starvation
-// check). Two hazards are persistent escalating ladders that occupy live.hazard —
-// STALL and ENGINE FIRE — each cleared by its own verb (recover / extinguish);
-// left alone they advance to a crash. WEATHER buffeting (hooked to the extreme-
-// weather severity scalar) and BIRD STRIKE are one-shot per-tick events that can
-// damage you or kick off a stall. Plus the airborne-only utility verbs (preflight,
-// hover, spot, chart, squawk) and the abandon-ship verb (eject).
+// The continuous flight tick calls rollHazards() each airborne tick (after the fuel-starvation
+// check). ENGINE FIRE is a persistent escalating ladder that occupies live.hazard, cleared by
+// `extinguish` (or a fuel cut); left alone it advances to a crash. WEATHER buffeting (hooked to
+// the extreme-weather severity scalar) and BIRD STRIKE are one-shot per-tick events that can
+// damage you. Stalls are NOT here — the continuous energy model owns them (stalledState +
+// flightTick). Plus the airborne-only utility verbs (preflight, hover, spot, chart, squawk) and
+// the abandon-ship verb (eject).
 
 import { query } from '../../server/models/db.js';
 import { skillCheck, effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { getZoneSeverity } from '../../server/engine/environment.js';
 import {
   liveAircraft, surfaceAt, pilotOf, persist, crash, toOccupants, out, sendToZone,
-  BANDS, BAND_LABEL, effStats, getLivePlayer, detach, getZone,
+  BANDS, effStats, getLivePlayer, detach, getZone,
 } from './state.js';
 // `eject` also belongs to broadcast (eject a cassette); flight wins it by load
 // order and hands back when you're not bailing out of an aircraft.
@@ -79,14 +79,8 @@ export async function rollHazards(live) {
     if (a.damage >= 1) { await crash(live, 'birdstrike'); return; }
   }
 
-  // STALL — high + slow. A wing needs airspeed; a low throttle up high loses it.
-  if (!live.hazard && BANDS.indexOf(a.altitude_band) >= 2 && a.throttle < 25 && pilot) {
-    const chk = await skillCheck(pilot, 'piloting', 5);
-    if (!chk.success) {
-      live.hazard = { type: 'STALL', stage: 0 };
-      toOccupants(live, '<span class="text-amber">⚠ STALL BUFFET — the controls go soft and the nose wants to drop. Get the nose down and power up — <b>recover</b>.</span>');
-    }
-  }
+  // (Stalls are owned by the continuous energy model — a real slow/high-AoA break with its own
+  // wing-drop, spin and authoritative consequences. See stalledState + flightTick. No dice-roll here.)
 
   // ENGINE FIRE — sustained overheat (from throttle, birds, tuning). Give one
   // OVERHEAT warning tick, then it lights.
@@ -106,18 +100,7 @@ export async function rollHazards(live) {
 
 async function escalate(live) {
   const a = live.row, h = live.hazard;
-  if (h.type === 'STALL') {
-    h.stage++;
-    const bi = BANDS.indexOf(a.altitude_band);
-    if (bi > 1) a.altitude_band = BANDS[bi - 1];   // mushing down through the bands
-    if (h.stage >= 2) {
-      // Spin — one band from the deck and departing. Terminal if it hits ground.
-      if (BANDS.indexOf(a.altitude_band) <= 1) { await crash(live, 'stall'); return; }
-      toOccupants(live, '<span class="text-red">The wing drops and you fall into a SPIN — the world starts to turn. <b>recover</b> NOW.</span>');
-    } else {
-      toOccupants(live, `<span class="text-amber">Still stalled — you sink to ${BAND_LABEL[a.altitude_band]}. Nose down, power up — <b>recover</b>.</span>`);
-    }
-  } else if (h.type === 'FIRE') {
+  if (h.type === 'FIRE') {
     h.stage++;
     a.damage = Math.min(1, a.damage + 0.18);
     if (a.damage >= 1) { await crash(live, 'fire'); return; }
@@ -126,16 +109,9 @@ async function escalate(live) {
 }
 
 // ── Emergency verbs ───────────────────────────────────────────────────────────
-async function cmdRecover(args, raw, player) {
-  const { live, err } = requirePilot(player); if (err) return err;
-  if (live.hazard?.type !== 'STALL') return { type: 'emote', message: "You're not stalled." };
-  if (live.row.throttle < 40) return { type: 'emote', message: 'Get some power in first — <b>throttle</b> up past 40%, then recover.' };
-  const chk = await skillCheck(player, 'piloting', 5 + live.hazard.stage * 2);
-  if (!chk.success) return { type: 'emote', message: 'You fight the controls but the stall holds — try again, and mean it.' };
-  live.hazard = null;
-  await awardSkillUse(player.id, 'piloting', 1);
-  return { type: 'emote', message: '<span class="text-green">The nose comes down, the wing bites, and the controls firm up. Flying again.</span>' };
-}
+// (No `recover` verb — a stall is recovered by flying: nose down, unload, add power, and the
+// continuous energy model bites and flies again. The old dice-roll STALL + skill-check recover
+// retired with the banded flight path. See docs/proposals/flight-unified-model.md.)
 
 async function cmdExtinguish(args, raw, player) {
   const { live, err } = requirePilot(player); if (err) return err;
@@ -363,7 +339,6 @@ async function cmdSquawk(args, raw, player) {
 }
 
 export const commands = {
-  recover: cmdRecover,
   extinguish: cmdExtinguish,
   eject: cmdEject,
   bail: cmdEject,

@@ -1,6 +1,6 @@
 # Flight — Unified Authoritative Model
 
-> Status: **In progress.** Ship 1 built & deployed (`60abfaef`); Ships 2–3 pending.
+> Status: **In progress.** Ships 1–2 built & deployed; Ship 3 (optional vocab tidy) pending.
 > This is the plan + implementation log for collapsing flight onto a single,
 > server-authoritative model and giving stalls real teeth.
 >
@@ -96,17 +96,30 @@ Purely additive (reconcile + flightTick + regress), no deletions.
 - **regress** — 5 checks pin the lenient envelope (client flag honoured; spoof caught; honest
   slow approach + nose-down recovery + grounded all NOT flagged).
 
-### Ship 2 — Collapse the tick — **PENDING** (deletions)
+### Ship 2 — Collapse the tick — **SHIPPED**
 
-- Delete the banded `advance()` branch in `flightTick`; delete `rollHazards()`'s probabilistic
-  STALL + the band-stepping escalation; delete the `recover` verb. **Keep** fire, bird-strike,
-  and weather-buffet (re-expressed against continuous state or left as discrete events).
-- Introduce **`flightMode(live)` → `'sim' | 'charter'`** and replace the scattered
-  `isContinuous()` reads with it (one switch, one place).
-- **regress** — assert no `aircraft_type` falls off the continuous path (nothing lands on a
-  now-deleted banded branch).
-- Run the **source-of-truth audit** first — this touches the `reconcile` authority seam and the
-  client↔server protocol.
+The audit found all 8 `aircraft_types` are in `CONTINUOUS_TYPES`, so the banded branch (and
+`rollHazards`, called only from it) was **completely dead for players** — which meant engine
+fire/overheat, bird-strike, weather-buffet and the thermal model had been **dormant** since the
+overhaul. Per the author's call, those hazards were **ported into the continuous tick** before the
+deletion, rather than dropped.
+
+- **Ported to the continuous `flightTick`:** the thermal model (engine temp tracks throttle +
+  cold-start bias — without it a continuous craft never runs hot, so overheat→fire could never
+  arm) and `rollHazards(live)` (cold-start fire, weather buffeting, bird strike, overheat fire,
+  and FIRE escalation). Fire/weather/birds are live for players again.
+- **Deleted:** the banded `advance()` branch in `flightTick`; `rollHazards()`'s probabilistic
+  STALL + the band-stepping escalation; the `recover` verb (unregistered from `plugin.json` +
+  `commands`). Orphaned imports cleaned (`advance` in index.js, `BAND_LABEL` in hazards.js). A
+  non-continuous airborne craft now falls through to a no-op with an explanatory comment.
+- **Deferred (judgment call):** the `flightMode(live)` rename. `isContinuous()` is correct and
+  widely read; renaming it across combat/contracts/index is churn with regression risk and no
+  behaviour change — left for a later dedicated cleanup if ever wanted.
+- **regress:** the 5 stall checks (Ship 1) + a **safety net** asserting every `aircraft_type` is
+  in `CONTINUOUS_TYPES` (nothing can silently fall onto the deleted banded model). Also swapped the
+  now-dead `recover` gate test for `extinguish`.
+- Client: the warn-strip label `STALL — RECOVER` → `STALL — NOSE DOWN` (no verb to reference).
+- Ran the source-of-truth sweep for lingering `recover`/`STALL`-hazard references (client + server).
 
 ### Ship 3 — Vocabulary tidy — **OPTIONAL**
 

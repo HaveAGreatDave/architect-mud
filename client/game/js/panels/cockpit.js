@@ -464,7 +464,7 @@ function applyText(s) {
   const warnEl = $('ck-warn');
   if (warnEl) {
     const W = { STARVATION: ['ENGINE OUT — DEAD STICK — LAND NOW', 'r'], BINGO: ['BINGO FUEL — DIVERT', 'a'],
-      STALL: ['STALL — RECOVER', 'r'], FIRE: ['ENGINE FIRE — EXTINGUISH', 'r'], WEATHER: ['SEVERE TURBULENCE', 'a'] };
+      STALL: ['STALL — NOSE DOWN', 'r'], FIRE: ['ENGINE FIRE — EXTINGUISH', 'r'], WEATHER: ['SEVERE TURBULENCE', 'a'] };
     const w = W[s.warn];
     warnEl.style.display = w ? '' : 'none';
     if (w) { warnEl.textContent = '⚠ ' + w[0]; warnEl.className = `ck-warn ck-warn-${w[1]}`; }

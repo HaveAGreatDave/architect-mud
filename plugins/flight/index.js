@@ -26,7 +26,7 @@ import {
   liveAircraft, surfaceAt, bounds, loadAircraft, pilotOf, persist, reap, effStats,
   pushHud, out, toOccupants, detach, takeoffDifficulty, landDifficulty,
   parkAt, crash, setHeading, getZone, getLivePlayer, sendToZone, sendToZoneExcept, sendToPlayer, setPosture,
-  advance, initFloat, initEngines, enginesAllStable, engineCount, syncEngineTemp,
+  initFloat, initEngines, enginesAllStable, engineCount, syncEngineTemp,
   ENGINE_IDLE, ENGINE_STABLE_BAND, toDeg, degToCardinal, bearingDeg, groundTheme,
   isContinuous, reconcile, pushContext, contextPayload, bandFromAltitude, effLoadout,
   RENTAL_BILL_MS, rentalOpFee, fieldFor, nearestAirfield, runwayFor, airfieldForRunway, yachtFieldNear, isGroundRolling,
@@ -1055,6 +1055,17 @@ async function flightTick() {
               if (a.damage >= 1) { await crash(live, 'stall'); continue; }
             }
           } else live.stallTicks = 0;
+          // Thermal — engine temp tracks throttle (+ a cold-start bias), per engine. Without it a
+          // continuous craft would never run hot, so the overheat→fire hazard below could never arm.
+          const target = 20 + a.throttle * 1.1 + eff.heatBias + (live.coldStart > 0 ? 22 : 0);
+          if (live.engines?.length) {
+            for (const e of live.engines) e.temp += (target + (e.seed % 2 ? 4 : -4) - e.temp) * 0.3;
+            syncEngineTemp(live);
+          } else { a.engine_temp += (target - a.engine_temp) * 0.3; }
+          // Deck hazards — cold-start fire, weather buffeting, bird strike, overheat fire, and the
+          // escalation of any persistent one. (Stalls are the energy model's own, handled above.)
+          await rollHazards(live);
+          if (!liveAircraft.has(live.row.id)) continue;   // a hazard may have crashed it
           await checkAirspace(live);
           if (!liveAircraft.has(live.row.id)) continue;
           await tickCombat(live);
@@ -1074,36 +1085,10 @@ async function flightTick() {
         continue;
       }
 
-      if (!live.row.airborne || live.pending) continue;
-      const a = live.row, eff = effStats(live);
-
-      // 1. Advance along the true heading (sub-tile float accumulation).
-      advance(live, live.hover ? 0 : eff.cruise * (a.throttle / 100));
-      // 2. Burn.
-      a.fuel = Math.max(0, a.fuel - eff.burn * (0.15 + (a.throttle / 100)) * (BAND_BURN[a.altitude_band] || 1) * fuelBurnScale());
-      // 3. Thermal — per engine (a cold-started plant runs hotter and rougher).
-      const target = 20 + a.throttle * 1.1 + eff.heatBias + (live.coldStart > 0 ? 22 : 0);
-      if (live.engines?.length) {
-        for (const e of live.engines) e.temp += (target + (e.seed % 2 ? 4 : -4) - e.temp) * 0.3;
-        syncEngineTemp(live);
-      } else { a.engine_temp += (target - a.engine_temp) * 0.3; }
-      // 4. Starvation → dead stick, then crash.
-      if (a.fuel <= 0) {
-        if (!live.starving) { live.starving = true; for (const pid of live.occupants) out(pid, '<span class="text-red">⚠ ENGINE OUT — the tank\'s dry. Dead stick. Get it down NOW.</span>'); }
-        else { await crash(live, 'fuel'); continue; }
-      }
-      // 5. Hazards + airspace + combat.
-      await rollHazards(live);
-      if (!liveAircraft.has(live.row.id)) continue;   // hazard may have crashed it
-      await checkAirspace(live);
-      await tickCombat(live);
-      if (!liveAircraft.has(live.row.id)) continue;
-      // 6. Emit HUD + propagate engine noise to the ground (identified passes,
-      //    directional rumble, and ground-threat reactions).
-      pushHud(live);
-      overflyNoise(live);
-      if (!liveAircraft.has(live.row.id)) continue;   // ground fire may have downed it
-      if (++live.persistCtr % 4 === 0) await persist(live);
+      // No banded/server-side flight model any more — EVERY aircraft_type is continuous
+      // (client-sim + reconcile; the tick above is the whole model). A craft reaching here is a
+      // content error (a type missing from CONTINUOUS_TYPES); skip it rather than run a physics
+      // model that no longer exists. See docs/proposals/flight-unified-model.md.
     }
   } finally { ticking = false; }
 }

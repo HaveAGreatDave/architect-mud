@@ -11,7 +11,7 @@ import { crashSeverity, collateralBill, isSeverelyImpaired } from './collateral.
 import { sellAircraft, cancelRental, flushAirborne } from './hangars.js';
 import { computeStats, perfAxes, tuneRange, installedKits, KITS, TUNE_DIAL_MAX,
   shearRoll, surfacesWire, anyWingLost, resetSurfaces, SURFACE_KEYS,
-  isWalkableCabin, cabinTypeOf, cabinEntryZone, isCabinZone, liveAircraft, getZone, loadAircraft, stalledState } from './state.js';
+  isWalkableCabin, cabinTypeOf, cabinEntryZone, isCabinZone, liveAircraft, getZone, loadAircraft, stalledState, CONTINUOUS_TYPES } from './state.js';
 import { isFreightLicensed, ensureFreightDrops } from './contracts.js';
 import { isPilotLicensed, _test as checkrideTest } from './checkride.js';
 import { setFlag } from '../../server/engine/flags.js';
@@ -37,6 +37,12 @@ export default async function regress({ run, check, getPlayer }) {
     stalledState(stallT, { airborne: true, onGround: false, stalled: false, ias: 20, pitch: -8, vs: -900 }) === false);
   check('stall: grounded/rolling never reads stalled',
     stalledState(stallT, { airborne: true, onGround: true, stalled: false, ias: 10, pitch: 10, vs: -900 }) === false);
+
+  // ── Unified model: every airframe flies the continuous path (banded model deleted) ──
+  const { rows: acTypes } = await query('SELECT id FROM aircraft_types');
+  const offContinuous = acTypes.filter(r => !CONTINUOUS_TYPES.has(r.id)).map(r => r.id);
+  check(`every aircraft_type is continuous — none falls to the deleted banded model${offContinuous.length ? ' (offenders: ' + offContinuous.join(', ') + ')' : ''}`,
+    acTypes.length > 0 && offContinuous.length === 0);
 
   // ── Fit-to-fly: severe impairment (any kind) is detected ────────────────────
   check('a sober pilot is not impaired', isSeverelyImpaired({ intoxication: 10, activeDrugs: [] }) === false);
@@ -179,7 +185,7 @@ export default async function regress({ run, check, getPlayer }) {
   r = await run('flightevent takeoff'); check('flightevent not aboard no-ops', r?.type === 'noop', r?.type);
 
   // ── Hazard / utility verbs gate when not aboard ─────────────────────────────
-  r = await run('recover'); check('recover not aboard blocked', /not aboard/i.test(r?.message || ''), r?.message);
+  r = await run('extinguish'); check('extinguish not aboard blocked', /not aboard/i.test(r?.message || ''), r?.message);
   r = await run('hover'); check('hover not aboard blocked', /not aboard/i.test(r?.message || ''), r?.message);
   r = await run('chart'); check('chart not aboard blocked', /not aboard/i.test(r?.message || ''), r?.message);
 
