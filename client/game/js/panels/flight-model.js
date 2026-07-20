@@ -31,6 +31,12 @@ const wrap360 = (d) => ((d % 360) + 360) % 360;
 // now reached by committing pitch, not by deleting the airframe's drag. Dive ONSET acceleration is
 // unchanged (it's gravity, not this term). Per-type override via p.diveShed if an airframe wants more.
 const DIVE_SHED = 0.2;
+// Forward slip — CROSSED CONTROLS (a held bank against OPPOSITE rudder) fly the fuselage sideways
+// to the airflow. It adds a lot of drag and spills some lift, so you sink STEEPLY WITHOUT gaining
+// speed (the drag eats the descent's energy) — the classic salvage-a-high/hot-approach or crosswind
+// technique. No net turn: §5's bank-turn and rudder-yaw already oppose when the controls are crossed.
+const SLIP_DRAG = 0.0005;   // extra parasitic drag ∝ V² per unit slip — sized to cancel the added sink's gravity so a slip HOLDS speed while it sinks (not so draggy it bleeds you into a stall)
+const SLIP_SINK = 4.0;      // extra sink per unit slip, as fpm PER KNOT of airspeed (energy-proportional: a slow light plane isn't over-sunk into a stall, a fast one drops harder)
 const GROUND_EFFECT_FT = 26;      // AGL band (~a wingspan) where the wing rides a lift cushion → float + flare to land (kept close to the deck so the cushion doesn't arrest the sink a whole wingspan up and float her down the runway)
 const HELI_GROUND_EFFECT_FT = 40; // AGL band (~a rotor diameter) where the downwash piles into a lift cushion → soft settle onto the skids
 
@@ -220,6 +226,7 @@ export function createState(p) {
     elevEff: 0,            // the yoke's built-up pitch effect (lags the raw input)
     rollEff: 0,            // the yoke's built-up roll effect (lags the raw input)
     aoa: 0, stallMargin: 1, stalled: false, stallTimer: 0, stallDir: 0,
+    slip: 0,               // forward-slip intensity (0..1), eased from crossed-control input
     onGround: true, groundSpeed: 0,
     // last-frame events the audio/feedback layers read (cleared each step)
     events: [],
@@ -449,6 +456,16 @@ export function step(state, input, p, dt) {
     s.heading = wrap360(s.heading + steer * (p.groundSteer || 0) * steerAuth * dt);
   }
 
+  // 5b. Forward slip — CROSSED CONTROLS: a held bank against OPPOSITE rudder (bank and pedal of
+  //     opposing sign). Intensity scales with BOTH — you need a real bank AND real opposite rudder,
+  //     full by ~22° of bank with full rudder. A sheared rudder can't slip; grounded can't slip. It
+  //     eases in/out over ~0.5s so it's a deliberate cross, not a flick. The drag + lift-spill it
+  //     drives (§7/§8) are what make a slip SINK without gaining speed; the no-net-turn falls out of
+  //     §5 (the bank's turn and the rudder's yaw already oppose). This is the approach-salvage tool.
+  const slipCross = (!rudderGone && !s.onGround && s.bank * pedal < 0)
+    ? clamp(Math.min(Math.abs(s.bank) / 22, 1) * Math.abs(pedal), 0, 1) : 0;
+  s.slip += (slipCross - s.slip) * Math.min(1, dt / 0.5);
+
   // 6. Angle of attack from the current flight path (uses last frame's vs — fine at
   //    small dt). Pitch up faster than the plane can climb → AoA rises → toward stall.
   //    Vertical speed is ft/min; 1 kt = 101.33 ft/min, so vs/101.33 is the vertical
@@ -525,6 +542,7 @@ export function step(state, input, p, dt) {
   const clNeed = weight / Math.max(20, dynBank);             // lift coefficient the wing must make to hold 1g
   const aoaTrim = clamp((clNeed / flapLiftF - CL0) / CL_ALPHA, 0, p.aoaCrit);   // AoA that buys it; saturates at the critical angle → mush/sink
   let vsTarget = s.airspeed * 101.33 * Math.sin((s.pitch - aoaTrim) * D2R);     // ft/min along the commanded flight path (1 kt = 101.33 ft/min)
+  vsTarget -= s.slip * SLIP_SINK * s.airspeed;   // forward slip spills lift → an extra sink (energy-proportional, so a slow plane isn't over-sunk) you can plant on final (§5b); ground effect still cushions it below
   // A real, sustained stall dumps the wing: the path collapses well past even the mushing sink so
   // the eye-height drops away (the "falling out of the sky" feel). A held stall sinks hardest.
   if (s.stalled) vsTarget = Math.min(vsTarget, -p.vsMax * (s.elevEff > 0.3 ? 2.4 : 1.4));
@@ -566,6 +584,7 @@ export function step(state, input, p, dt) {
   const drag = (p.dragP + flaps * p.flapDrag * 0.0022) * s.airspeed * s.airspeed * (1 - diveShed * diveClean)  // parasitic drag ∝ V² (a dive sheds `diveShed` of it → gravity-along-γ does the rest of the work). Flap drag term raised so extending flaps bleeds speed decisively on final — you can get slow for the touchdown zone instead of floating past it (overshoot)
              + gearExt * (p.gearDragFrac ?? 0.35) * p.dragP * s.airspeed * s.airspeed                     // gear-down parasitic drag (retractable craft only)
              + Math.max(0, s.aoa) ** 2 * 0.0016 * s.airspeed                    // profile-drag rise with a hard PULL only — a nose-down push (negative AoA) doesn't load the wing, so it never penalises a dive
+             + s.slip * (p.slipDrag ?? SLIP_DRAG) * s.airspeed * s.airspeed      // forward slip (§5b): the sideways fuselage adds big drag → you SINK without the descent building speed
              + (p.glideDrag || 0) * Math.max(0, 1 - s.rpm / 0.4) * (weight * weight) / (s.airspeed * s.airspeed + 40);   // DEAD-STICK induced drag (∝ 1/V²): engages only as the powerplant winds down toward idle (rpm below ~0.4), full at a stopped/windmilling engine. It penalises the SLOW end of a glide, so best-glide sits at a sensible speed with a realistic ratio instead of floating forever just above the stall — and because it's gated to low rpm it leaves ALL powered cruise/climb untouched. Per-type; unset ⇒ 0 (legacy floaty glide).
   // Gravity accelerates the airframe along its actual VELOCITY VECTOR (the flight-path angle γ),
   // not along where the NOSE points. Fast/powered/diving the wing carries its weight at a low AoA
@@ -612,6 +631,7 @@ export function readout(s, p) {
     aoa: +s.aoa.toFixed(1),
     stallMargin: +s.stallMargin.toFixed(2),
     stalled: s.stalled,
+    slip: +s.slip.toFixed(2),
     onGround: s.onGround,
     vr: p.vr, vs0: p.vs0, vne: p.vne,
   };
