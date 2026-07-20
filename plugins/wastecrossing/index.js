@@ -43,7 +43,9 @@ import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { on } from '../../server/engine/events.js';
 import { getFlag, setFlag, clearFlag } from '../../server/engine/flags.js';
 import { OPPOSITE } from '../../server/engine/directions.js';
+import { effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { query } from '../../server/models/db.js';
+import { randomUUID } from 'crypto';
 import { loadWindow, getTraces, addTrace } from './traces.js';
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -403,6 +405,52 @@ on('player.logout', ({ id }) => {
   } catch (e) { console.error('[wastecrossing] player.logout error:', e.message); }
 });
 
+// ── `salvage` — scavenge a room (Slice 5) ─────────────────────────────────────
+// Reuses the Scavenging skill + the 2d8−2d8 check. The waste's loot is generated in
+// RAM (no DB scavenge tables — the rooms are transient): a room offers a richness
+// tier (detours richer than the spine), and your Scavenging skill decides whether
+// you reach the good stuff. Survival staples (water/rations) up top so scavenging
+// literally extends your range; salvage/rare deeper. Once per room per crossing.
+const LOOT = {
+  1: { diff: 4,  items: ['item_water_bottle', 'item_ration', 'item_scrap_metal', 'item_tangled_wire'] },
+  2: { diff: 8,  items: ['item_salvaged_wiring', 'item_cracked_circuit', 'item_scrap_ore', 'item_bar_jerky'] },
+  3: { diff: 12, items: ['item_mystery_component', 'item_glowing_scrap', 'item_scrap_pistol'] },
+};
+let SALVAGE_FORCE = null; // regress override: null → real roll, 0/1 → forced fail/success
+function roll2d8() { return Math.floor(Math.random() * 8) + 1 + Math.floor(Math.random() * 8) + 1; }
+
+async function grantItem(playerId, itemId) {
+  await query('INSERT INTO player_inventory (id, player_id, item_id, quantity, condition) VALUES ($1,$2,$3,1,1.0)', [randomUUID(), playerId, itemId]).catch(() => {});
+  const { rows } = await query('SELECT name FROM items WHERE id=$1', [itemId]).catch(() => ({ rows: [] }));
+  return rows?.[0]?.name || 'a piece of salvage';
+}
+
+async function cmdSift(args, raw, player, broadcast) {
+  const live = player._crossing;
+  const c = live && crossings.get(live.instanceId);
+  if (!c) return { type: 'emote', message: "There's nothing out here worth picking through. (You sift the waste for salvage.)" };
+  const roomId = player.current_zone;
+  if (!getZone(roomId)?.flags?.void_salt) return { type: 'emote', message: 'Nothing here but dust and wind.' };
+  if (!live.scavenged) live.scavenged = new Set();
+  if (live.scavenged.has(roomId)) return { type: 'emote', message: "You've already picked this spot clean." };
+  live.scavenged.add(roomId);
+
+  const isDetour = c.detourSet.has(roomId);
+  const tiers = isDetour ? [2, 3] : [1, 2];       // detours hide the better hauls
+  const tier = tiers[Math.floor(Math.random() * tiers.length)];
+  const table = LOOT[tier];
+  const itemId = table.items[Math.floor(Math.random() * table.items.length)];
+
+  const effective = await effectiveSkill(player, 'scavenging');
+  const margin = (effective - table.diff) + (roll2d8() - roll2d8());
+  await awardSkillUse(player.id, 'scavenging', margin).catch(() => {}); // a near-miss still trains you
+  const success = SALVAGE_FORCE != null ? SALVAGE_FORCE : margin >= 0;
+  if (!success) return { type: 'emote', message: `You dig through the ${isDetour ? 'wreckage' : 'dust'} and come up with nothing but grit and disappointment.` };
+
+  const name = await grantItem(player.id, itemId);
+  return { type: 'emote', message: `<span class="item-grant">You dig ${name} out of the ${isDetour ? 'wreck' : 'waste'} and pocket it.</span>` };
+}
+
 // ── Death in the void: leave a corpse trace + clean up the crossing ───────────
 // Respawn is an in-memory move (gameLoop), NOT a cmdMove, so zone.entered never
 // fires on death — this is where a void crossing gets torn down. deathZone is still
@@ -458,6 +506,7 @@ on('player.login', async ({ id }) => {
 export const commands = {
   venture: cmdVenture,
   scrawl: cmdScrawl,
+  sift: cmdSift,
 };
 
 export const hooks = {
@@ -466,9 +515,10 @@ export const hooks = {
 
 export const _test = {
   crossings, VOIDS, totalLength, TILES_PER_ROOM, MIN_ROOMS, MAX_ROOMS,
-  loadFoes, spawnFoe, teardownInstance,
+  loadFoes, spawnFoe, teardownInstance, LOOT,
   foePool: () => FOE_POOL,
   setEncounters: (on) => { ENCOUNTERS_ON = on; },
+  setSalvage: (v) => { SALVAGE_FORCE = v; },
 };
 
 loadFoes(); // warm the void roster from the enemies table (one boot query)

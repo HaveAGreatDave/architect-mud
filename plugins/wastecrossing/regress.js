@@ -152,9 +152,31 @@ export default async function regress({ run, check, getPlayer }) {
     player.current_zone = savedZone;
     const noScrawl = await run('scrawl HELP');
     check('scrawl outside the void is a gentle no-op', /nothing out here/i.test(noScrawl?.message || ''), noScrawl?.message?.slice(0, 40));
+
+    // ── Salvage (Slice 5): scavenge a void room, once, Scavenging-gated ───────
+    player.current_zone = GATE; player._lastStepAt = 0;
+    await run('venture');
+    const lc = _test.crossings.get(player._crossing.instanceId);
+    const spineRooms = [...lc.roomSet].filter(id => id !== lc.entry && !lc.detourSet.has(id));
+    player.current_zone = spineRooms[0];
+    _test.setSalvage(1); // force a good roll
+    const got = await run('sift');
+    check('salvage yields loot on a good roll', /item-grant|pocket/i.test(got?.message || ''), got?.message?.slice(0, 60));
+    const again = await run('sift');
+    check('a room can only be salvaged once per crossing', /already picked/i.test(again?.message || ''), again?.message?.slice(0, 50));
+    player.current_zone = spineRooms[1];
+    _test.setSalvage(0); // force a bad roll
+    const dud = await run('sift');
+    check('a bad roll comes up empty', /grit|disappointment/i.test(dud?.message || ''), dud?.message?.slice(0, 50));
+    check('the void loot table is tiered (staples → rare)', _test.LOOT[1].diff < _test.LOOT[2].diff && _test.LOOT[2].diff < _test.LOOT[3].diff, JSON.stringify(Object.keys(_test.LOOT)));
+    player.current_zone = savedZone; delete player._crossing;
+    const noSalv = await run('sift');
+    check('salvage outside the void is a gentle no-op', /nothing out here/i.test(noSalv?.message || ''), noSalv?.message?.slice(0, 40));
   } finally {
     _test.setEncounters(true);
+    _test.setSalvage(null);
     await query('DELETE FROM void_traces WHERE handle=$1', [player.handle]).catch(() => {});
+    await query('DELETE FROM player_inventory WHERE player_id=$1', [player.id]).catch(() => {});
     wipe();
     for (const [id, z] of prev) { if (z) world.zones.set(id, z); else world.zones.delete(id); }
     player.current_zone = savedZone;

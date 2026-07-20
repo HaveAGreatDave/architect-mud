@@ -394,6 +394,16 @@ zones, the **generator assigns each room a scavenge table + richness tier determ
 tier a low-scav one walks past. This gives parties a genuine **role split** — navigator (leader),
 water-mule, and **scavenger** (turns a deadly detour into a payday).
 
+**BUILT (Slice 5a — ambient scavenging, branch `void-travel`):** the **`sift`** verb reuses
+`effectiveSkill(player,'scavenging')` + the 2d8−2d8 check + `awardSkillUse` (a near-miss still trains
+you). Loot is generated in RAM — a 3-tier table (`LOOT`: staples `diff 4` → salvage `diff 8` → rare
+`diff 12`), drawn from committed items (water/rations up top, wiring/circuits/ore mid, mystery-component/
+glowing-scrap/scrap-pistol rare). A room offers a **richness tier** — spine rooms `[1,2]`, **detours
+`[2,3]`** (the branching finally pays) — and your Scavenging skill decides whether you reach the good
+stuff. **Once per room per crossing.** Still pending (Slice 5b): the **claim-ledger big-scores** and
+**lootable corpse-packs** (the dead's actual dropped gear — Slice 3 corpses are still clue-only), plus
+depth-scaling and the rare-loot-is-heavy extraction tension. Regress 1293/1293.
+
 ### Loot tiers, scaled to risk
 
 - **Survival staples** (water, rations, scrap) — the *self-sustaining* reward: good scav extends your
