@@ -16,7 +16,7 @@
     "planner": "bp_district",
     "radiation": 31,
     "region_id": "region_coldwater",
-    "terrain": "water"
+    "terrain": "redrock"
   },
   "grid_x": 881,
   "grid_y": 947,
@@ -26,5 +26,5 @@
   "marker": null,
   "name": "Ferric Wash",
   "parent_zone": null,
-  "updated_at": "1784496296"
+  "updated_at": "1784564533"
 }

@@ -17,7 +17,7 @@
     "planner": "bp_district",
     "radiation": 15,
     "region_id": "region_coldwater",
-    "terrain": "road"
+    "terrain": "dirt_road"
   },
   "grid_x": 918,
   "grid_y": 925,
@@ -27,5 +27,5 @@
   "marker": "$",
   "name": "Rindle's Lean-to",
   "parent_zone": null,
-  "updated_at": "1784511319"
+  "updated_at": "1784564533"
 }

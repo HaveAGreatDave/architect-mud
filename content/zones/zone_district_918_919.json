@@ -17,12 +17,12 @@
       "The Gate Road"
     ],
     "checkpoint_cfg": {
-      "guards": "the gate guards",
-      "fromDistrict": "wilds",
       "checks": [
         "wanted",
         "smuggle"
       ],
+      "fromDistrict": "wilds",
+      "guards": "the gate guards",
       "wantedMode": "bluff"
     },
     "district": "wasteland",

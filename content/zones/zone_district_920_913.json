@@ -16,7 +16,8 @@
     "district": "residential",
     "planner": "bp_district",
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_west_wastes"
+    "scavenging_table_id": "scav_west_wastes",
+    "terrain": "grass"
   },
   "grid_x": 920,
   "grid_y": 913,
@@ -26,5 +27,5 @@
   "marker": "#",
   "name": "Grasslands",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1784564578"
 }

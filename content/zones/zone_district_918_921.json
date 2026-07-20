@@ -18,7 +18,7 @@
     "glacis": true,
     "planner": "bp_district",
     "region_id": "region_coldwater",
-    "terrain": "road"
+    "terrain": "dirt_road"
   },
   "grid_x": 918,
   "grid_y": 921,
@@ -28,5 +28,5 @@
   "marker": "×",
   "name": "The Glacis",
   "parent_zone": null,
-  "updated_at": "1784511319"
+  "updated_at": "1784564533"
 }

@@ -17,7 +17,7 @@
     "planner": "bp_district",
     "radiation": 26,
     "region_id": "region_coldwater",
-    "terrain": "water"
+    "terrain": "redrock"
   },
   "grid_x": 889,
   "grid_y": 928,
@@ -27,5 +27,5 @@
   "marker": null,
   "name": "Ochre Draw",
   "parent_zone": null,
-  "updated_at": "1784496296"
+  "updated_at": "1784564913"
 }

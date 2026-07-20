@@ -18,7 +18,8 @@
     "planner": "bp_district",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_roadside_junk",
-    "street_life": true
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 923,
   "grid_y": 912,
@@ -28,5 +29,5 @@
   "marker": "⁙∴",
   "name": "Kessler Street",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1784564578"
 }

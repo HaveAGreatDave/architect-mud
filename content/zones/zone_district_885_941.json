@@ -17,7 +17,7 @@
     "planner": "bp_district",
     "radiation": 29,
     "region_id": "region_coldwater",
-    "terrain": "marsh"
+    "terrain": "redrock"
   },
   "grid_x": 885,
   "grid_y": 941,
@@ -27,5 +27,5 @@
   "marker": null,
   "name": "Cinder Mesa",
   "parent_zone": null,
-  "updated_at": "1784496296"
+  "updated_at": "1784564913"
 }

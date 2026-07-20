@@ -17,7 +17,7 @@
     "planner": "bp_district",
     "radiation": 28,
     "region_id": "region_coldwater",
-    "terrain": "marsh"
+    "terrain": "redrock"
   },
   "grid_x": 886,
   "grid_y": 937,
@@ -27,5 +27,5 @@
   "marker": null,
   "name": "Red Hardpan",
   "parent_zone": null,
-  "updated_at": "1784496297"
+  "updated_at": "1784564913"
 }
