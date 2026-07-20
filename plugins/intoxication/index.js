@@ -19,11 +19,11 @@
  *
  * State is in-memory and cleared on death/logout (sober on respawn/reconnect),
  * mirroring how trips and the temperature/wetness runtime fields live on the
- * live player object. A single 4s self-scheduled tick decays the meter, narrates
- * band crossings, and runs the blackout lifecycle (butchering/scavenging set the
- * plugin-owned-setInterval precedent).
+ * live player object. A single 4s tick (on the shared idle-gated scheduler)
+ * decays the meter, narrates band crossings, and runs the blackout lifecycle.
  */
 import { getAllLivePlayers } from '../../server/engine/world.js';
+import { schedule } from '../../server/engine/scheduler.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { on } from '../../server/engine/events.js';
 import { applyMods, reverseMods } from '../../server/engine/statmods.js';
@@ -32,7 +32,6 @@ import { applyMods, reverseMods } from '../../server/engine/statmods.js';
 const SLUR_MIN     = 30;   // speech starts slurring at/above this
 const WOBBLE_MIN   = 40;   // movement starts staggering
 const BLACKOUT_MIN = 70;   // blackouts become possible
-const TICK_MS        = 4000;
 const DECAY_PER_TICK = 0.15;   // 0.0375/sec → sober from 100 in ~44 min
 const BLACKOUT_MIN_MS = 10000;
 const BLACKOUT_MAX_MS = 30000;
@@ -228,7 +227,7 @@ function intoxTick() {
   }
 }
 
-setInterval(() => { try { intoxTick(); } catch (e) { console.error('[intoxication] tick error:', e.message); } }, TICK_MS);
+schedule('4s', () => { try { intoxTick(); } catch (e) { console.error('[intoxication] tick error:', e.message); } });
 
 // Exposed for the regression suite.
 export const _test = { slur, addIntoxication, narrateBand, blackoutChance, BAND_MODS, SLUR_MIN, BLACKOUT_MIN };

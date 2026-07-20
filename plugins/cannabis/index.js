@@ -22,12 +22,12 @@
  */
 import { query } from '../../server/models/db.js';
 import { getAllLivePlayers } from '../../server/engine/world.js';
+import { schedule } from '../../server/engine/scheduler.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { on } from '../../server/engine/events.js';
 
 // --- tunables ----------------------------------------------------------------
 const DEFAULT_HIGH_SECONDS = 300;     // 5 min stoned per joint
-const TICK_MS = 15000;                // munchies / giggle cadence
 const MUNCH_DRAIN = 2;                // hunger lost per tick while high (~8/min)
 const CRAVE_CHANCE = 0.35;            // per tick: a food-craving line
 const GIGGLE_CHANCE = 0.25;           // per tick: a fit of giggles
@@ -116,7 +116,7 @@ function highTick() {
   }
 }
 
-setInterval(() => { try { highTick(); } catch (e) { console.error('[cannabis] tick error:', e.message); } }, TICK_MS);
+schedule('15s', () => { try { highTick(); } catch (e) { console.error('[cannabis] tick error:', e.message); } });
 
 // Exposed for the regression suite.
 export const _test = { DEFAULT_HIGH_SECONDS, MUNCH_DRAIN, redEyes: (target, isSelf) => hooks['player.appearanceNotes']({ target, isSelf }) };

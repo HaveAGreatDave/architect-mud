@@ -29,6 +29,7 @@
 import { hasActivePlayers } from './world.js';
 
 const CADENCE_MS = {
+  '1s':   1_000,
   '4s':   4_000,
   '5s':   5_000,
   '6s':   6_000,

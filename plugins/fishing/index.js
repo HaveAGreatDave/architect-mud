@@ -24,6 +24,7 @@
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { getZone, getAllLivePlayers, getLivePlayer, spawnEnemySync } from '../../server/engine/world.js';
+import { schedule } from '../../server/engine/scheduler.js';
 import { effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { on } from '../../server/engine/events.js';
@@ -389,7 +390,7 @@ async function fishTick() {
   }
 }
 
-setInterval(() => fishTick().catch(e => console.error('[fishing] tick error:', e.message)), 1000);
+schedule('1s', () => fishTick().catch(e => console.error('[fishing] tick error:', e.message)));
 
 on('player.stop', ({ player, stopped }) => {
   if (player.posture !== 'fishing') return;

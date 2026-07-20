@@ -28,6 +28,7 @@
 // posture-tick activities do.
 
 import { getTunable } from '../../server/engine/tunables.js';
+import { schedule } from '../../server/engine/scheduler.js';
 import { getZone, world, getAllLivePlayers, getLivePlayer } from '../../server/engine/world.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { setPosture, forceStand } from '../../server/engine/posture.js';
@@ -256,7 +257,7 @@ async function workTick() {
     ticking = false;
   }
 }
-setInterval(() => workTick().catch(e => console.error('[work] tick error:', e.message)), 1000);
+schedule('1s', () => workTick().catch(e => console.error('[work] tick error:', e.message)));
 
 // ── Event response (the shift verbs) ──────────────────────────────────────────
 // serve / bill / douse / soothe / bounce all route here. They only mean anything

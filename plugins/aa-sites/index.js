@@ -29,6 +29,7 @@
  */
 import { query } from '../../server/models/db.js';
 import { sendToZone } from '../../server/engine/messaging.js';
+import { schedule } from '../../server/engine/scheduler.js';
 import { on, emit } from '../../server/engine/events.js';
 import { getNpcsByFlag } from '../../server/engine/world.js';
 
@@ -36,7 +37,6 @@ const FIRING_WINDOW_MS = 12000;   // the look reads ● FIRING for this long aft
 const AA_BROADCAST_MS = 8000;     // cap the "guns erupt" room line to at most this often per site
 const CACHE_TTL_MS = 5000;        // aa_sites roster cache (sites are static content)
 const REPAIR_MS = 150000;         // engineer work to bring a strafed battery back online (2.5 min)
-const REPAIR_TICK_MS = 15000;     // how often the repair loop checks the damaged sites
 
 const lastFired = new Map();      // siteId → ms of last engagement
 const lastBroadcast = new Map();  // siteId → ms of last room "erupts" line
@@ -147,8 +147,7 @@ async function repairTick() {
   } catch { /* no aa_sites table → nothing to seed */ }
 })();
 
-const repairTimer = setInterval(() => { repairTick().catch(() => {}); }, REPAIR_TICK_MS);
-repairTimer.unref?.();   // never hold the process open (regress boot, clean shutdown)
+schedule('15s', () => { repairTick().catch(() => {}); });
 
 export const hooks = {
   'zone.describeRoom': describeRoom,

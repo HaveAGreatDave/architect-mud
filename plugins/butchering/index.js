@@ -14,6 +14,7 @@
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { getLivePlayer, getAllLivePlayers, getCorpse, getZoneCorpses, removeCorpse } from '../../server/engine/world.js';
+import { schedule } from '../../server/engine/scheduler.js';
 import { skillCheck, awardSkillUse } from '../../server/engine/skills.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { isStackable } from '../../server/engine/tags.js';
@@ -196,10 +197,7 @@ async function butcherTick() {
 	}
 }
 
-setInterval(
-	() => butcherTick().catch((e) => console.error("[butchering] tick error:", e.message)),
-	1000,
-);
+schedule('1s', () => butcherTick().catch((e) => console.error("[butchering] tick error:", e.message)));
 
 // The unified STOP command halts butchering like any other repeating action.
 on("player.stop", ({ player, stopped }) => {

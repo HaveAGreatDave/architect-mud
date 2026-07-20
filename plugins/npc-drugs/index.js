@@ -29,6 +29,7 @@
  */
 import { query } from '../../server/models/db.js';
 import { world, getZoneNpcs, getZone, getZonePlayers, getNpcsByFlag } from '../../server/engine/world.js';
+import { schedule } from '../../server/engine/scheduler.js';
 import { getDrugCache } from '../../server/engine/drugs.js';
 import { sendToZone } from '../../server/engine/messaging.js';
 import { setPosture, forceStand } from '../../server/engine/posture.js';
@@ -39,7 +40,6 @@ import { effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { on, emit } from '../../server/engine/events.js';
 
 // ── Tunables ──────────────────────────────────────────────────────────────────
-const TICK_MS       = 4000;    // driver cadence: flavour, flee steps, expiry
 const SEDATE_MS     = 90000;   // a downer runs ~90s on an NPC
 const PARANOID_MS   = 60000;   // a bad trip ~60s
 const WIRED_MS      = 60000;   // a stimulant jag ~60s
@@ -168,7 +168,7 @@ function tick() {
     if (d.wired && Math.random() < 0.4) sendToZone(npc.zone_id, { type: 'zone_event', message: pick(WIRED_MUTTER)(npc.name) });
   }
 }
-setInterval(() => { try { tick(); } catch (e) { console.error('[npc-drugs] tick error:', e.message); } }, TICK_MS);
+schedule('4s', () => { try { tick(); } catch (e) { console.error('[npc-drugs] tick error:', e.message); } });
 
 // ── Pre-show habit: an NPC's own vice ─────────────────────────────────────────
 // Data-driven, not hardcoded to anyone: any NPC with flags.preshow_habit set to a
@@ -177,7 +177,6 @@ setInterval(() => { try { tick(); } catch (e) { console.error('[npc-drugs] tick 
 // and applies the same effect the drug would (a stimulant → wired). The rarity is
 // a long cooldown × a low per-scan roll × "only when watched," so it's a treat you
 // stumble into, not a thing that's always happening.
-const PRESHOW_SCAN_MS  = 45000;
 const PRESHOW_COOLDOWN  = 30 * 60 * 1000;   // at most once every 30 min
 const PRESHOW_CHANCE    = 0.12;             // per scan, once all conditions are met
 const preshowLast = new Map();              // npcId -> ts of last ritual
@@ -210,7 +209,7 @@ function preshowScan() {
     doseNpc(npc, kindForNamed(drugName), drugName);
   }
 }
-setInterval(() => { try { preshowScan(); } catch (e) { console.error('[npc-drugs] preshow error:', e.message); } }, PRESHOW_SCAN_MS);
+schedule('45s', () => { try { preshowScan(); } catch (e) { console.error('[npc-drugs] preshow error:', e.message); } });
 
 // A killed/despawned NPC drops its effect so nothing lingers on a stale row.
 on('npc.killed', ({ npc }) => {

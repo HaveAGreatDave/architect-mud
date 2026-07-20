@@ -13,6 +13,7 @@
 // the spread cooldown, and getPowerMap diffing in the tick for blackout news.
 
 import { on, emit } from '../../server/engine/events.js';
+import { schedule } from '../../server/engine/scheduler.js';
 import { getZone, getZoneNpcs, world } from '../../server/engine/world.js';
 import { formatChitchat } from '../../server/engine/ai-behaviour.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
@@ -28,7 +29,6 @@ import * as pool from './pool.js';
 import { TEMPLATES, renderItem } from './templates.js';
 
 // ── Tunables ────────────────────────────────────────────────────────────────
-const TICK_MS             = 60_000;   // gc + power-diff + ambient cadence
 const AMBIENT_CHANCE      = 0.06;     // per witnessed zone per tick, unprompted gossip
 const PASSPHRASE_CHANCE   = 0.02;     // per tick chance to seed the (ask-only) dealer-passphrase rumour
 const FORTRESS_CHANCE     = 0.02;     // per tick chance to seed the (ask-only) western-fortress rumour
@@ -451,7 +451,7 @@ function gossipTick() {
   }
 }
 
-setInterval(() => { try { gossipTick(); } catch (e) { console.error('[gossip] tick error:', e.message); } }, TICK_MS);
+schedule('1m', () => { try { gossipTick(); } catch (e) { console.error('[gossip] tick error:', e.message); } });
 
 // ── Dev-panel route: live gossip pool inspector (read-only) ────────────────────
 const esc = (s) => String(s ?? '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));

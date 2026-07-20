@@ -25,6 +25,7 @@
 
 import { query } from '../../server/models/db.js';
 import { getZone, getAllLivePlayers, zoneTerrain } from '../../server/engine/world.js';
+import { schedule } from '../../server/engine/scheduler.js';
 import { effectiveSkill, skillCheck, awardSkillUse } from '../../server/engine/skills.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { on } from '../../server/engine/events.js';
@@ -213,7 +214,7 @@ async function swimTick() {
     ticking = false;
   }
 }
-setInterval(() => swimTick().catch(e => console.error('[swimming] tick error:', e.message)), 1000);
+schedule('1s', () => swimTick().catch(e => console.error('[swimming] tick error:', e.message)));
 
 export const _test = { isSwimZone, isUnderwater, hasBoatItem, hasRebreather, strokeCost, treadCost, BASE_STROKE, MIN_STROKE, DIVE_EXTRA, TREAD_BASE };
 

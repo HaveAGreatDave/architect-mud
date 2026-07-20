@@ -14,6 +14,7 @@
 
 import { query } from '../../server/models/db.js';
 import { world, getZoneNpcs, getLivePlayer } from '../../server/engine/world.js';
+import { schedule } from '../../server/engine/scheduler.js';
 import { sendToZone } from '../../server/engine/messaging.js';
 import { on, emit } from '../../server/engine/events.js';
 import { setPosture } from '../../server/engine/posture.js';
@@ -21,7 +22,6 @@ import { moveEntity } from '../../server/engine/ai-behaviour.js';
 import { findPath } from '../../server/engine/pathfinding.js';
 
 // ── Tunables ─────────────────────────────────────────────────────────────────
-const TICK_MS       = 5000;             // detection + flee cadence (spec: "every 5 second tick")
 const WAKE_PICKING  = 0.20;             // asleep resident, per tick, while the door is being picked
 const WAKE_INSIDE   = 0.03;             // asleep resident, per tick, once the intruder is inside (unless noise)
 const CALL_MS       = 10000;            // length of the panic cop-call before the charge lands
@@ -302,4 +302,4 @@ function alarmTick() {
     }
   }
 }
-setInterval(() => { try { alarmTick(); } catch (e) { console.error('[burglary] tick error:', e.message); } }, TICK_MS);
+schedule('5s', () => { try { alarmTick(); } catch (e) { console.error('[burglary] tick error:', e.message); } });

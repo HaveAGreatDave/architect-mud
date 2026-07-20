@@ -19,6 +19,7 @@
 
 import { query } from '../../server/models/db.js';
 import { getAllLivePlayers, getLivePlayer } from '../../server/engine/world.js';
+import { schedule } from '../../server/engine/scheduler.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { on } from '../../server/engine/events.js';
 import { getPosture, setPosture, forceStand } from '../../server/engine/posture.js';
@@ -189,7 +190,7 @@ async function workoutTick() {
   }
 }
 
-setInterval(() => workoutTick().catch(e => console.error('[weightbench] tick error:', e.message)), 1000);
+schedule('1s', () => workoutTick().catch(e => console.error('[weightbench] tick error:', e.message)));
 
 // The unified STOP command halts the workout like any other repeating action.
 on('player.stop', ({ player, stopped }) => {
