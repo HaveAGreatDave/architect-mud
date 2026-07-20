@@ -1,151 +1,101 @@
 // Waste Crossing — void-travel, on-foot travel between regions across the void.
 //
 // Regions are islands. Between them is the VOID — no authored corridor, just a
-// generated waste you cross on foot when you can't afford to fly. Strike out from
-// a perimeter edge and a deterministic LINEAR chain of transient rooms is
-// generated, walked south room by room, and deposits you at a distant region.
-// No loot, encounters, or ghost-traces yet — those are later slices.
+// generated waste you cross on foot when you can't afford to fly. Strike out from a
+// perimeter edge and a deterministic graph of transient rooms is generated, walked
+// on foot, and deposits you at a distant region.
 //
 // Two ways in, one code path (launchCrossing):
-//   • Walk off the map — moving the tile's void-direction off a `flags.void_gate`
-//     edge with no authored exit fires the engine's `movement.edge` hook.
-//   • `venture` — the explicit verb, from the same edge tile.
+//   • Walk off the map — moving the void-direction off a `flags.void_gate` edge with
+//     no authored exit fires the engine's `movement.edge` hook.
+//   • `venture [heading]` — the explicit verb, from the same edge tile.
 //
-// INSTANCING (Slice 4): a crossing is a per-crossing INSTANCE, keyed by a unique
-// instance id and registered in `crossings`. A PARTY shares one instance; two
-// separate crossings never share rooms (instanced — no live collision). The room
-// CONTENT is seeded by (route, window, node) — the shared-geometry model — so every
-// instance this window looks identical (and a relog regenerates it byte-for-byte),
-// but each instance's room IDS are namespaced by the instance so teardown and
-// occupancy are private. Cohort = the leader + everyone following them, co-present
-// at the origin: it reads the FOLLOW substrate (player.following), never the party
-// plugin — party membership expresses itself as follow, so the void needs no
-// party-aware code and the two systems don't import each other.
+// THE BRAID: a void off a gate is a SHARED TRUNK that forks toward MULTIPLE
+// destinations. You walk the trunk (identical for everyone this window), reach the
+// fork, and choose a limb toward a region — hold your declared heading, or divert to
+// a neighbour. Off trunk rooms hang risk-for-loot DETOURS (a lateral `west` gamble).
 //
-// It stands on the transient-zone substrate in server/engine/world.js
-// (registerTransientZone / removeTransientZone): synthetic zones that live in the
-// world store without a DB row, so movement/describe/minimap treat a void room
-// like any other zone.
+// INSTANCING (Slice 4): a crossing is a per-crossing INSTANCE (unique id) in
+// `crossings`. A PARTY shares one instance; two crossings never share rooms
+// (instanced — no live collision). Room CONTENT is seeded by (void, window, salt) —
+// shared geometry — so every instance this window is identical (relog regenerates it
+// byte-for-byte), but room IDS are namespaced by the instance so occupancy/teardown
+// are private. Cohort = the leader + everyone FOLLOWING them (the follow substrate,
+// never the party plugin) co-present at the origin.
+//
+// ENCOUNTERS (Slice 2): on first arrival at a non-threshold room a live roll spawns a
+// real enemy from the void roster — real combat via spawnEnemySync; despawned on
+// teardown. Detour rooms roll hotter.
 //
 // State model:
-//   • Live: player._crossing = { instanceId, node } — read on every zone.entered
-//     (the hot path). node is RAM-only and is NOT written per step.
-//   • Shared: crossings.get(instanceId) = { key, roomIds, origin, dest, heading,
-//     window, members:Set<pid> } — the instance, reference-counted by members.
-//   • Durable (per member): crossing_route / crossing_window / crossing_origin /
-//     crossing_instance / crossing_node in player_flags — the minimum to RE-DERIVE
-//     the instance after a server restart. node is flushed lazily on player.logout,
-//     not per step. A same-session reconnect needs nothing (rooms still in RAM).
+//   • Live: player._crossing = { instanceId, seen:Set } — read on every zone.entered.
+//   • Shared: crossings.get(id) = { voidKey, roomSet, detourSet, destSet, dests,
+//     entry, origin, window, members:Set, enemies:Set } — reference-counted.
+//   • Durable (per member): crossing_void / crossing_window / crossing_origin /
+//     crossing_instance / crossing_room in player_flags — enough to RE-DERIVE the
+//     instance after a server restart. crossing_room is flushed on player.logout, not
+//     per step. A same-session reconnect needs nothing (rooms still in RAM).
 
 import { getLivePlayer, getAllLivePlayers, getZone, getMinimapData, addPlayerToZone, removePlayerFromZone,
-  registerTransientZone, removeTransientZone, spawnEnemySync, removeEnemyInstance, getZoneEnemies } from '../../server/engine/world.js';
+  registerTransientZone, removeTransientZone, spawnEnemySync, removeEnemyInstance } from '../../server/engine/world.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { on } from '../../server/engine/events.js';
 import { getFlag, setFlag, clearFlag } from '../../server/engine/flags.js';
+import { OPPOSITE } from '../../server/engine/directions.js';
 import { query } from '../../server/models/db.js';
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const VOID_MAP = 'map_void'; // non-map_world → flag/map-filtered world iterators skip void rooms
 
-// ── Routes (the region adjacency graph — skeleton stub, one edge) ──────────────
-// `length` is OPTIONAL: omit it and the room count is derived from how far the
-// destination actually is (crossingLength, below); set it to hard-fix a route.
-export const ROUTES = {
-  reach: { dest: 'zone_the_reach_870_1958', heading: 'The Reach' },
+// ── Voids (the region adjacency graph — skeleton stub) ────────────────────────
+// A tile becomes an entry by carrying flags.void_gate = <voidKey> (+ flags.void_dir,
+// the walk-off direction, default 'south'). A void has a shared `trunk` (room count
+// before the fork) and `dests` — the adjacent regions it forks toward. Each dest
+// carries the fork-exit `dir` (n/s/e/w) that leads to its limb, and an optional
+// `length` override (else the total gate→dest length is distance-derived).
+export const VOIDS = {
+  southern_waste: {
+    trunk: 4,
+    dests: [
+      { key: 'reach',  dest: 'zone_the_reach_870_1958', heading: 'The Reach', dir: 'south' },
+      { key: 'exodus', dest: 'zone_exodus_waypoint',    heading: 'Exodus',    dir: 'east'  },
+    ],
+  },
 };
 
-// instanceId -> { id, key, roomIds, origin, dest, heading, window, length, members:Set<pid> }
 const crossings = new Map();
 let _seq = 0;
 
 function currentWindow() { return Math.floor(Date.now() / WEEK_MS); }
 
-// ── Distance-relative length ──────────────────────────────────────────────────
-// Farther regions are longer, thirstier crossings: one room per ~TILES_PER_ROOM
-// grid tiles between the entry tile and the destination, clamped so nowhere is
-// trivial (MIN) or tedious (MAX). Deterministic (fixed endpoint coords), so a relog
-// regenerates the same length. A route's explicit `length` overrides this.
+function voidGateOf(zone) {
+  const key = zone?.flags?.void_gate;
+  if (!key || !VOIDS[key]) return null;
+  return { key, void: VOIDS[key], dir: zone.flags.void_dir || 'south' };
+}
+function destByHeading(vdef, heading) {
+  if (!heading) return null;
+  const h = heading.toLowerCase();
+  return vdef.dests.find(d => d.heading.toLowerCase().includes(h) || d.key === h) || null;
+}
+
+// ── Distance-relative limb length ─────────────────────────────────────────────
 const TILES_PER_ROOM = 90;
 const MIN_ROOMS = 5;
 const MAX_ROOMS = 15;
-const DEFAULT_ROOMS = 8; // when neither an override nor endpoint coords are available
+const DEFAULT_ROOMS = 8;
 
 function gridDist(a, b) {
   if (!a || !b || a.grid_x == null || b.grid_x == null || a.grid_y == null || b.grid_y == null) return null;
   return Math.hypot(a.grid_x - b.grid_x, a.grid_y - b.grid_y);
 }
-function crossingLength(route, originZone, destZone) {
-  if (route.length) return route.length; // explicit hand-authored override
+// Total gate→dest room count (distance-derived, clamped; a dest `length` overrides).
+function totalLength(dest, originZone, destZone) {
+  if (dest.length) return dest.length;
   const d = gridDist(originZone, destZone);
   if (d == null) return DEFAULT_ROOMS;
   return Math.max(MIN_ROOMS, Math.min(MAX_ROOMS, Math.round(d / TILES_PER_ROOM)));
-}
-
-// ── Encounters (Slice 2) ──────────────────────────────────────────────────────
-// The waste hunts you. On first arrival at a room (not the threshold) a LIVE roll
-// may spawn a real enemy from the void roster — the design's "encounters roll live
-// per party per step" (private + fresh, over the shared geometry). It's real
-// combat: spawnEnemySync drops the foe in the room and the normal combat/AI systems
-// take over; the crossing reference-counts what it spawned and despawns it on
-// teardown so nothing leaks into a torn-down instance.
-const ENCOUNTER_CHANCE = 0.45;
-const VOID_FOE_IDS = [
-  'enemy_ash_crawler', 'enemy_bloated_mutant', 'enemy_rad_mutant', 'enemy_feral_dog',
-  'enemy_wire_jackal', 'enemy_gutter_hound', 'enemy_scav', 'enemy_scrap_picker',
-  'enemy_sprawl_ganger', 'enemy_slag_wretch', 'enemy_slag_wight',
-];
-let FOE_POOL = [];
-let ENCOUNTERS_ON = true; // regress flips this off so movement tests stay deterministic
-
-async function loadFoes() {
-  try {
-    const { rows } = await query('SELECT * FROM enemies WHERE id = ANY($1)', [VOID_FOE_IDS]);
-    FOE_POOL = rows;
-  } catch (e) { console.error('[wastecrossing] loadFoes:', e.message); }
-  return FOE_POOL;
-}
-
-const ENCOUNTER_LINES = [
-  'Something detaches from the haze and comes at you —',
-  'A shape you took for a rock uncoils and charges —',
-  'Grit scatters as it breaks cover —',
-  'You are not alone out here. It was waiting —',
-];
-
-// Spawn one foe into a room (bypasses the roll — the deterministic core). Skips if
-// the pool is empty or the room already holds an enemy (no stacking).
-function spawnFoe(c, roomId) {
-  if (!FOE_POOL.length) return null;
-  const zone = getZone(roomId);
-  if (!zone || zone.enemies.size > 0) return null;
-  const template = FOE_POOL[Math.floor(Math.random() * FOE_POOL.length)];
-  const inst = spawnEnemySync(template, roomId);
-  c.enemies.add(inst.instanceId);
-  const line = ENCOUNTER_LINES[Math.floor(Math.random() * ENCOUNTER_LINES.length)];
-  sendToZone(roomId, { type: 'zone_event', message: `${line} <b>${inst.name}</b>.`, refresh: true });
-  return inst;
-}
-
-// The per-step gate: first arrival at a non-threshold room, live roll, spawn.
-function maybeEncounter(actor, c, roomId, chance) {
-  if (!ENCOUNTERS_ON) return;
-  const live = actor._crossing;
-  if (!live) return;
-  if (!live.seen) live.seen = new Set();
-  if (live.seen.has(roomId)) return;   // only the first time you reach a room
-  live.seen.add(roomId);
-  if (roomId === c.roomIds[0]) return; // the threshold room is a beat to breathe
-  if (Math.random() >= chance) return;
-  spawnFoe(c, roomId);
-}
-
-// A tile is a void gate if flags.void_gate names a known route. flags.void_dir
-// (default 'south') is the direction you walk off the map into that route.
-function voidGateOf(zone) {
-  const key = zone?.flags?.void_gate;
-  if (!key || !ROUTES[key]) return null;
-  return { key, route: ROUTES[key], dir: zone.flags.void_dir || 'south' };
 }
 
 // ── Deterministic generator ───────────────────────────────────────────────────
@@ -177,117 +127,211 @@ const ROOM_DESCS = [
   'Distance stops meaning anything out here. You walk, and the nothing walks with you.',
   'Fine grey ash drifts down from a colorless sky, settling on your shoulders like a verdict.',
 ];
-
-// A room's CONTENT is a pure function of (route, window, node) — shared geometry,
-// so every instance this window is identical and relog regenerates it exactly. Its
-// room IDS are namespaced by the instance, so occupancy/teardown are private.
-function roomFor(instanceId, key, route, window, node, origin, length) {
-  const rng = mulberry32(hashSeed(`${key}|${window}|${node}`));
-  const north = node === 0 ? origin : `${instanceId}_${node - 1}`;
-  const south = node === length - 1 ? route.dest : `${instanceId}_${node + 1}`;
-  return {
-    id: `${instanceId}_${node}`,
-    name: pick(rng, ROOM_NAMES),
-    description: pick(rng, ROOM_DESCS),
-    map_id: VOID_MAP,
-    grid_x: null, grid_y: null, grid_z: null,
-    flags: { terrain: pick(rng, TERRAINS), void_crossing: true },
-    exits: { north, south },
-  };
-}
-
-// ── Branching: risk-for-loot detours (Slice 2) ────────────────────────────────
-// The safe spine is a linear chain; off some interior rooms a lateral `west` exit
-// leads to a dead-end DETOUR — a blind gamble (a wreck, a bunker) where the
-// encounter chance is higher and, once Slice 5 lands, the salvage lives. You commit
-// to it and claw back out (`east`), or press on down the line. Seeded per
-// (route, window, node) so the forks are the same for everyone this window;
-// guaranteed at least one per crossing so the choice always shows up.
-const DETOUR_CHANCE = 0.4;             // per interior spine room
-const DETOUR_ENCOUNTER_CHANCE = 0.7;   // the gamble bites harder than the safe line
 const DETOUR_NAMES = ['A Half-Buried Wreck', 'A Collapsed Bunker', "A Scavenger's Cache",
   'A Downed Hauler', 'A Wind-Scoured Ruin', 'A Sunken Rig', 'A Buried Silo'];
 const DETOUR_DESCS = [
   'Wreckage juts from the dust off the line — the kind of place that swallows the desperate and, sometimes, rewards them. No telling which until you are in it.',
   'A dark opening in the ground, half-collapsed. Salvage, maybe. A grave, maybe. Both, maybe.',
-  'Something went down out here a long time ago and was never picked clean — or it was, and what picked it is still around.',
+  'Something went down out here long ago and was never picked clean — or it was, and what picked it is still around.',
   'A hulk of rusted metal leans in the haze. Worth a look, if the look does not cost you.',
 ];
 
-function detourRoomFor(instanceId, key, window, node, spineRoomId) {
-  const rng = mulberry32(hashSeed(`${key}|${window}|${node}|detour`));
+function mkRoom(id, voidKey, window, salt, exits, extraFlags = {}) {
+  const rng = mulberry32(hashSeed(`${voidKey}|${window}|${salt}`));
   return {
-    id: `${instanceId}_d${node}`,
-    name: pick(rng, DETOUR_NAMES),
-    description: pick(rng, DETOUR_DESCS),
+    id, name: pick(rng, ROOM_NAMES), description: pick(rng, ROOM_DESCS),
+    map_id: VOID_MAP, grid_x: null, grid_y: null, grid_z: null,
+    flags: { terrain: pick(rng, TERRAINS), void_crossing: true, ...extraFlags },
+    exits,
+  };
+}
+function mkDetour(id, voidKey, window, salt, spineRoomId) {
+  const rng = mulberry32(hashSeed(`${voidKey}|${window}|${salt}|d`));
+  return {
+    id, name: pick(rng, DETOUR_NAMES), description: pick(rng, DETOUR_DESCS),
     map_id: VOID_MAP, grid_x: null, grid_y: null, grid_z: null,
     flags: { terrain: pick(rng, TERRAINS), void_crossing: true, void_detour: true },
     exits: { east: spineRoomId }, // the only way out is back the way you came in
   };
 }
-function addDetour(instanceId, key, window, node, spineRoomId, detourIds) {
-  const detour = registerTransientZone(detourRoomFor(instanceId, key, window, node, spineRoomId));
-  getZone(spineRoomId).exits.west = detour.id; // spine → detour (the lateral gamble)
-  detourIds.add(detour.id);
+
+// ── Encounters (Slice 2) ──────────────────────────────────────────────────────
+const ENCOUNTER_CHANCE = 0.45;
+const DETOUR_ENCOUNTER_CHANCE = 0.7;
+const VOID_FOE_IDS = [
+  'enemy_ash_crawler', 'enemy_bloated_mutant', 'enemy_rad_mutant', 'enemy_feral_dog',
+  'enemy_wire_jackal', 'enemy_gutter_hound', 'enemy_scav', 'enemy_scrap_picker',
+  'enemy_sprawl_ganger', 'enemy_slag_wretch', 'enemy_slag_wight',
+];
+let FOE_POOL = [];
+let ENCOUNTERS_ON = true; // regress flips this off so movement tests stay deterministic
+
+async function loadFoes() {
+  try {
+    const { rows } = await query('SELECT * FROM enemies WHERE id = ANY($1)', [VOID_FOE_IDS]);
+    FOE_POOL = rows;
+  } catch (e) { console.error('[wastecrossing] loadFoes:', e.message); }
+  return FOE_POOL;
+}
+const ENCOUNTER_LINES = [
+  'Something detaches from the haze and comes at you —',
+  'A shape you took for a rock uncoils and charges —',
+  'Grit scatters as it breaks cover —',
+  'You are not alone out here. It was waiting —',
+];
+function spawnFoe(c, roomId) {
+  if (!FOE_POOL.length) return null;
+  const zone = getZone(roomId);
+  if (!zone || zone.enemies.size > 0) return null;
+  const template = FOE_POOL[Math.floor(Math.random() * FOE_POOL.length)];
+  const inst = spawnEnemySync(template, roomId);
+  c.enemies.add(inst.instanceId);
+  const line = ENCOUNTER_LINES[Math.floor(Math.random() * ENCOUNTER_LINES.length)];
+  sendToZone(roomId, { type: 'zone_event', message: `${line} <b>${inst.name}</b>.`, refresh: true });
+  return inst;
+}
+function maybeEncounter(actor, c, roomId, chance) {
+  if (!ENCOUNTERS_ON) return;
+  const live = actor._crossing;
+  if (!live) return;
+  if (!live.seen) live.seen = new Set();
+  if (live.seen.has(roomId)) return; // only the first time you reach a room
+  live.seen.add(roomId);
+  if (roomId === c.entry) return;    // the threshold room is a beat to breathe
+  if (Math.random() >= chance) return;
+  spawnFoe(c, roomId);
 }
 
-// Get or build (on launch, or regenerate on relog) an instance's rooms + registry
-// entry. Idempotent: a second member relogging after a restart joins the instance
-// the first one already rebuilt.
-function ensureInstance(instanceId, key, window, origin) {
+// ── Instance generation (trunk → fork → limbs → detours) ──────────────────────
+function ensureInstance(instanceId, voidKey, window, origin) {
   let c = crossings.get(instanceId);
   if (c) return c;
-  const route = ROUTES[key];
-  const length = crossingLength(route, getZone(origin), getZone(route.dest));
-  const roomIds = [];
-  for (let node = 0; node < length; node++)
-    roomIds.push(registerTransientZone(roomFor(instanceId, key, route, window, node, origin, length)).id);
+  const vdef = VOIDS[voidKey];
+  const originZone = getZone(origin);
+  const roomSet = new Set(), detourSet = new Set(), destSet = new Set();
 
-  // Seed risk-for-loot detours off interior rooms; guarantee at least one fork.
-  const detourIds = new Set();
-  for (let node = 1; node < length - 1; node++) {
-    const drng = mulberry32(hashSeed(`${key}|${window}|${node}|detour`));
-    if (drng() < DETOUR_CHANCE) addDetour(instanceId, key, window, node, roomIds[node], detourIds);
+  // Shared trunk (linear). t0 exits back to the real origin tile.
+  const trunkLen = Math.max(1, vdef.trunk);
+  const trunkId = (i) => `${instanceId}_t${i}`;
+  for (let i = 0; i < trunkLen; i++) {
+    const exits = { north: i === 0 ? origin : trunkId(i - 1) };
+    if (i < trunkLen - 1) exits.south = trunkId(i + 1); // fork's forward exits added below
+    registerTransientZone(mkRoom(trunkId(i), voidKey, window, `t${i}`, exits));
+    roomSet.add(trunkId(i));
   }
-  if (detourIds.size === 0 && length >= 3) {
-    const node = Math.floor(length / 2);
-    addDetour(instanceId, key, window, node, roomIds[node], detourIds);
+  const fork = trunkId(trunkLen - 1);
+
+  // A limb per destination, forking off `fork` in the dest's `dir`.
+  for (const d of vdef.dests) {
+    destSet.add(d.dest);
+    const total = totalLength(d, originZone, getZone(d.dest));
+    const limbLen = Math.max(1, total - trunkLen);
+    const limbId = (i) => `${instanceId}_${d.key}${i}`;
+    for (let i = 0; i < limbLen; i++) {
+      const exits = {};
+      // The entry room hangs off the fork via the reciprocal of the fork's dir;
+      // deeper rooms use north(back)/south(forward).
+      exits[i === 0 ? OPPOSITE[d.dir] : 'north'] = i === 0 ? fork : limbId(i - 1);
+      exits.south = i === limbLen - 1 ? d.dest : limbId(i + 1);
+      registerTransientZone(mkRoom(limbId(i), voidKey, window, `${d.key}${i}`, exits));
+      roomSet.add(limbId(i));
+    }
+    getZone(fork).exits[d.dir] = limbId(0); // fork → this limb
   }
 
-  c = { id: instanceId, key, roomIds, detourIds, origin, dest: route.dest, heading: route.heading, window, length, members: new Set(), enemies: new Set() };
+  // Risk-for-loot detours off shared-trunk interior rooms (a `west` gamble).
+  for (let i = 1; i < trunkLen - 1; i++) {
+    const drng = mulberry32(hashSeed(`${voidKey}|${window}|t${i}|detour`));
+    if (drng() < 0.5) addDetour(instanceId, voidKey, window, `t${i}`, trunkId(i), detourSet, roomSet);
+  }
+  if (detourSet.size === 0 && trunkLen >= 3) {
+    const i = Math.floor(trunkLen / 2);
+    addDetour(instanceId, voidKey, window, `t${i}`, trunkId(i), detourSet, roomSet);
+  }
+
+  c = {
+    id: instanceId, voidKey, roomSet, detourSet, destSet, dests: vdef.dests,
+    entry: trunkId(0), origin, window, members: new Set(), enemies: new Set(),
+  };
   crossings.set(instanceId, c);
   return c;
 }
+function addDetour(instanceId, voidKey, window, salt, spineRoomId, detourSet, roomSet) {
+  const id = `${instanceId}_d_${salt}`;
+  registerTransientZone(mkDetour(id, voidKey, window, salt, spineRoomId));
+  getZone(spineRoomId).exits.west = id;
+  detourSet.add(id); roomSet.add(id);
+}
 
 function teardownInstance(c) {
-  for (const eid of c.enemies) removeEnemyInstance(eid); // despawn any spawned foes (no-op if already killed)
-  for (const id of c.roomIds) removeTransientZone(id);
-  for (const id of c.detourIds) removeTransientZone(id);
+  for (const eid of c.enemies) removeEnemyInstance(eid); // despawn spawned foes (no-op if already killed)
+  for (const id of c.roomSet) removeTransientZone(id);   // trunk + limbs + detours
   crossings.delete(c.id);
 }
 async function clearCrossingFlags(player) {
-  for (const k of ['crossing_route', 'crossing_window', 'crossing_node', 'crossing_origin', 'crossing_instance'])
+  for (const k of ['crossing_void', 'crossing_window', 'crossing_room', 'crossing_origin', 'crossing_instance'])
     await clearFlag('player', k, player).catch(() => {});
 }
 
-// Place one member into room 0 of the instance and stamp their durable state.
-async function enterMember(m, c, first, origin) {
+// ── Entry (shared by the verb and the walk-off-map hook) ──────────────────────
+async function enterMember(m, c, entry, origin) {
   removePlayerFromZone(m.id, m.current_zone);
-  addPlayerToZone(m.id, first.id);
-  m.current_zone = first.id;
-  m._crossing = { instanceId: c.id, node: 0, seen: new Set([first.id]) };
+  addPlayerToZone(m.id, entry.id);
+  m.current_zone = entry.id;
+  m._crossing = { instanceId: c.id, seen: new Set([entry.id]) };
   c.members.add(m.id);
-  await query('UPDATE players SET current_zone=$1 WHERE id=$2', [first.id, m.id]).catch(() => {});
-  await setFlag('player', 'crossing_route', c.key, m);
+  await query('UPDATE players SET current_zone=$1 WHERE id=$2', [entry.id, m.id]).catch(() => {});
+  await setFlag('player', 'crossing_void', c.voidKey, m);
   await setFlag('player', 'crossing_window', String(c.window), m);
   await setFlag('player', 'crossing_origin', origin, m);
   await setFlag('player', 'crossing_instance', c.id, m);
-  await setFlag('player', 'crossing_node', '0', m);
+  await setFlag('player', 'crossing_room', entry.id, m);
 }
 
-// Remove one member from the void (arrived / bailed / died / tp'd). Reference-
-// counted: the instance's transient rooms are torn down only when the last member
-// leaves — so a party member who lingers keeps the instance alive for the others.
+async function launchCrossing(leader, gate, broadcast, heading) {
+  if (leader._crossing) return { type: 'emote', message: 'You are already out in the waste. The only way through it is through it.' };
+  const origin = leader.current_zone;
+  const window = currentWindow();
+  const instanceId = `xing_${leader.id}_${++_seq}`;
+  const c = ensureInstance(instanceId, gate.key, window, origin);
+  const entry = getZone(c.entry);
+  const aim = destByHeading(gate.void, heading);
+
+  const followers = getAllLivePlayers().filter(p =>
+    p.id !== leader.id && p.following === leader.id && p.current_zone === origin && !p._crossing);
+  for (const m of [leader, ...followers]) await enterMember(m, c, entry, origin);
+
+  if (broadcast) broadcast(origin, { type: 'zone_event', message: `${leader.handle}${followers.length ? ' and their party' : ''} walk out past the edge, into the waste.` }, leader.id);
+  for (const f of followers) {
+    const fdesc = await describeZone(entry, f);
+    sendToPlayer(f.id, { type: 'move', message: `You follow ${leader.handle} out past the edge, into the waste.\n\n${fdesc}`, zone: entry.id, minimap: getMinimapData(entry.id, 8, f) });
+  }
+  const dests = gate.void.dests.map(d => d.heading).join(' or ');
+  const aimLine = aim ? ` You set your heading for ${aim.heading}.` : '';
+  const desc = await describeZone(entry, leader);
+  return {
+    type: 'move',
+    message: `→ You strike out into the waste. The edge of the map falls away behind you and the road is gone — only the going. Somewhere ahead it splits toward ${dests}.${aimLine}\n\n${desc}`,
+    zone: entry.id,
+    minimap: getMinimapData(entry.id, 8, leader),
+  };
+}
+
+async function cmdVenture(args, raw, player, broadcast) {
+  if (player._crossing) return { type: 'emote', message: 'You are already out in the waste. The only way through it is through it.' };
+  const gate = voidGateOf(getZone(player.current_zone));
+  if (!gate) return { type: 'emote', message: 'There is nowhere to strike out into the waste from here.' };
+  return launchCrossing(player, gate, broadcast, args.join(' ').trim());
+}
+
+async function onMovementEdge({ player, zone, direction, broadcast }) {
+  if (player._crossing) return undefined;
+  const gate = voidGateOf(zone);
+  if (!gate || direction !== gate.dir) return undefined;
+  return launchCrossing(player, gate, broadcast, null);
+}
+
+// ── Reference-counted leave (arrived / bailed / died / tp'd) ──────────────────
 function leaveCrossing(member, arrived) {
   const live = member._crossing;
   delete member._crossing;
@@ -295,81 +339,32 @@ function leaveCrossing(member, arrived) {
   const c = live && crossings.get(live.instanceId);
   if (!c) return;
   c.members.delete(member.id);
-  if (arrived) sendToPlayer(member.id, { type: 'output', message: `<span class="item-grant">You stagger up out of the waste onto solid ground. You crossed it on foot. You made it to ${c.heading}.</span>` });
+  if (arrived) sendToPlayer(member.id, { type: 'output', message: `<span class="item-grant">You stagger up out of the waste onto solid ground. You crossed it on foot.</span>` });
   if (c.members.size === 0) teardownInstance(c);
 }
 
-// ── Entry (shared by the verb and the walk-off-map hook) ──────────────────────
-async function launchCrossing(leader, gate, broadcast) {
-  if (leader._crossing) return { type: 'emote', message: 'You are already out in the waste. The only way through it is through it.' };
-  const origin = leader.current_zone;
-  const window = currentWindow();
-  const instanceId = `xing_${leader.id}_${++_seq}`;
-  const c = ensureInstance(instanceId, gate.key, window, origin);
-  const first = getZone(c.roomIds[0]);
-
-  // Cohort = the leader + everyone following them, co-present at the origin (the
-  // follow substrate — a party expresses itself as follow). Not already crossing.
-  const followers = getAllLivePlayers().filter(p =>
-    p.id !== leader.id && p.following === leader.id && p.current_zone === origin && !p._crossing);
-  for (const m of [leader, ...followers]) await enterMember(m, c, first, origin);
-
-  if (broadcast) broadcast(origin, { type: 'zone_event', message: `${leader.handle}${followers.length ? ' and their party' : ''} walk out past the edge, into the waste.` }, leader.id);
-
-  // Followers get their own pushed arrival view; the leader's is the verb return.
-  for (const f of followers) {
-    const fdesc = await describeZone(first, f);
-    sendToPlayer(f.id, { type: 'move', message: `You follow ${leader.handle} out past the edge, into the waste.\n\n${fdesc}`, zone: first.id, minimap: getMinimapData(first.id, 8, f) });
-  }
-  const partyNote = followers.length ? ` ${followers.length === 1 ? 'One follows' : `${followers.length} follow`} you.` : '';
-  const desc = await describeZone(first, leader);
-  return {
-    type: 'move',
-    message: `→ You strike out toward ${gate.route.heading}. The edge of the map falls away behind you and the waste swallows the road.${partyNote} There is no path now — only the going.\n\n${desc}`,
-    zone: first.id,
-    minimap: getMinimapData(first.id, 8, leader),
-  };
-}
-
-// ── `venture` — the explicit verb ────────────────────────────────────────────
-async function cmdVenture(args, raw, player, broadcast) {
-  if (player._crossing) return { type: 'emote', message: 'You are already out in the waste. The only way through it is through it.' };
-  const gate = voidGateOf(getZone(player.current_zone));
-  if (!gate) return { type: 'emote', message: 'There is nowhere to strike out into the waste from here.' };
-  if (!getZone(gate.route.dest)) return { type: 'error', message: 'Whatever lies out past the waste, there is no reaching it right now.' };
-  return launchCrossing(player, gate, broadcast);
-}
-
-// ── Walk off the map — the passive-edge departure ─────────────────────────────
-async function onMovementEdge({ player, zone, direction, broadcast }) {
-  if (player._crossing) return undefined;
-  const gate = voidGateOf(zone);
-  if (!gate || direction !== gate.dir) return undefined;
-  if (!getZone(gate.route.dest)) return undefined; // route closed → let the wall stand
-  return launchCrossing(player, gate, broadcast);
-}
-
-// ── Node tracking + teardown (every move within/out of the void) ──────────────
+// ── Node tracking + teardown + encounters (every move) ────────────────────────
 on('zone.entered', ({ actor, zone }) => {
   try {
     const live = actor?._crossing;
     if (!live) return;
     const c = crossings.get(live.instanceId);
     if (!c) { delete actor._crossing; return; }
-    const idx = c.roomIds.indexOf(zone);
-    if (idx >= 0) { live.node = idx; maybeEncounter(actor, c, zone, ENCOUNTER_CHANCE); return; } // node RAM-only (flushed on logout); the waste may be waiting
-    if (c.detourIds.has(zone)) { maybeEncounter(actor, c, zone, DETOUR_ENCOUNTER_CHANCE); return; } // a detour: no progress, hotter roll, no node change
-    leaveCrossing(actor, zone === c.dest);
+    if (c.roomSet.has(zone)) { // a crossing room (trunk / limb / detour)
+      maybeEncounter(actor, c, zone, c.detourSet.has(zone) ? DETOUR_ENCOUNTER_CHANCE : ENCOUNTER_CHANCE);
+      return; // crossing_room is RAM (player.current_zone); flushed lazily on logout, not per step
+    }
+    leaveCrossing(actor, c.destSet.has(zone)); // left the void
   } catch (e) { console.error('[wastecrossing] zone.entered error:', e.message); }
 });
 
-// ── Lazy node flush + RAM reclaim on a clean disconnect ──────────────────────
+// ── RAM reclaim on a clean disconnect (crossing_room already persisted per move) ─
 on('player.logout', ({ id }) => {
   try {
     const player = getLivePlayer(id);
     const live = player?._crossing;
     if (!live) return;
-    setFlag('player', 'crossing_node', String(live.node), player).catch(() => {}); // durable flush for restart-relog
+    setFlag('player', 'crossing_room', player.current_zone, player).catch(() => {}); // lazy flush for restart-relog
     const c = crossings.get(live.instanceId);
     delete player._crossing;
     if (c) { c.members.delete(id); if (c.members.size === 0) teardownInstance(c); }
@@ -381,21 +376,22 @@ on('player.login', async ({ id }) => {
   try {
     const player = getLivePlayer(id);
     if (!player) return;
-    const key = await getFlag('player', 'crossing_route', player);
-    if (!key) return;
+    const voidKey = await getFlag('player', 'crossing_void', player);
+    if (!voidKey) return;
     const instanceId = await getFlag('player', 'crossing_instance', player);
-    if (!ROUTES[key] || !instanceId) { await clearCrossingFlags(player); return; }
+    if (!VOIDS[voidKey] || !instanceId) { await clearCrossingFlags(player); return; }
     const window = Number(await getFlag('player', 'crossing_window', player)) || currentWindow();
     const origin = (await getFlag('player', 'crossing_origin', player)) || null;
-    let node = Number(await getFlag('player', 'crossing_node', player)) || 0;
 
-    const c = ensureInstance(instanceId, key, window, origin);
-    if (!(node >= 0 && node < c.length)) node = 0;
-    const room = getZone(c.roomIds[node]);
+    const c = ensureInstance(instanceId, voidKey, window, origin);
+    let roomId = await getFlag('player', 'crossing_room', player);
+    if (!c.roomSet.has(roomId)) roomId = c.entry;
+    const room = getZone(roomId);
+
     removePlayerFromZone(player.id, player.current_zone);
     addPlayerToZone(player.id, room.id);
     player.current_zone = room.id;
-    player._crossing = { instanceId, node, seen: new Set([room.id]) };
+    player._crossing = { instanceId, seen: new Set([room.id]) };
     c.members.add(player.id);
     await query('UPDATE players SET current_zone=$1 WHERE id=$2', [room.id, player.id]).catch(() => {});
 
@@ -418,7 +414,7 @@ export const hooks = {
 };
 
 export const _test = {
-  crossings, ROUTES, crossingLength, TILES_PER_ROOM, MIN_ROOMS, MAX_ROOMS,
+  crossings, VOIDS, totalLength, TILES_PER_ROOM, MIN_ROOMS, MAX_ROOMS,
   loadFoes, spawnFoe, teardownInstance,
   foePool: () => FOE_POOL,
   setEncounters: (on) => { ENCOUNTERS_ON = on; },

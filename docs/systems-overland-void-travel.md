@@ -127,6 +127,17 @@ something new. **Navigation itself becomes a mastered-and-re-lost skill, not jus
 diverging limbs keyed to each adjacent destination) rather than independent per-route maps. It buys the
 only version where the *destination* is part of the unknowable void the community charts weekly.
 
+**BUILT (branch `void-travel`):** a void is now a **`VOIDS[voidKey] = { trunk, dests[] }`** graph off a
+gate — a shared **trunk** (config room count) that forks toward each destination in that dest's `dir`
+(n/s/e/w), then a distance-derived **limb** per region down to its real edge tile. `venture [heading]`
+takes an optional declared heading (flavor/telegraph); the fork itself is the real choice — hold your
+heading down one limb, or **divert** down another to a different region. Detours hang off shared-trunk
+rooms. Persist `crossing_room` (the current room id) not a node index — the deterministic graph
+regenerates identical ids, so relog just replaces you at your room. Stub void `southern_waste` forks to
+**The Reach** (south) and **Exodus** (east). Regress proves both limbs reach their region and that you
+can divert at the fork. Still N/S/E/W only (engine has no diagonals) and single-fork (not yet nested
+forks). Regress 1284/1284.
+
 ### Where the graph lives — authoring vs. seeing
 
 The adjacency graph has two surfaces, and they are different things (SSOT vs. view):
