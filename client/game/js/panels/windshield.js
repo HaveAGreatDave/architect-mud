@@ -67,7 +67,7 @@ export const RENDER_TUNE = {
   decoFar: 16,        // distance (tiles) beyond which generic-building rooftop decorations (holo-ads, window bloom) are culled — a few px at range, not worth the fill. Higher = draw them further out.
   shadowFar: 18,      // distance (tiles) beyond which a building's ground shadow is skipped in the shadow pre-pass — distant shadows are invisible smears.
   fog: 0.2,           // N64-style distance fog: how strongly the far floor dissolves into the sky/horizon colour (0 = off/modern clear view, 1 = far ground vanishes into the fog wall). Colour tracks the sky, so it fogs pale by day and dark-blue at night. Live 'Fog (N64)' slider
-  coastWarp: 0.5,     // shoreline de-blocking: domain-warps the Mode-7 terrain sample so the coast (and biome patches) meander off the square grid instead of poking out as hard 90° corners. Phased on ABSOLUTE world coords so it stays pinned to the world and never snaps on window recenter (0 = plain grid coast). Live 'Coast wobble' slider
+  coastWarp: 0.9,     // shoreline de-blocking: domain-warps the Mode-7 terrain sample so the coast (and biome patches) meander off the square grid instead of poking out as hard 90° corners. Phased on ABSOLUTE world coords so it stays pinned to the world and never snaps on window recenter (0 = plain grid coast). Live 'Coast wobble' slider
   vlight: 1.0,        // N64 Gouraud vertex light on buildings: strength of the cyberpunk-tinted top-lit/base-shadow wall gradient (0 = flat untinted faces, 1 = full, >1 = punchier). Live 'Vertex light' slider
   // Vertex-light PALETTE (live colour pickers in ⚙). Three roles (key/sky/shadow) × day/night, lerped
   // by sky.night. Defaults = post-apocalyptic cyberpunk: sodium-amber → magenta key, sickly-green →
@@ -1957,12 +1957,14 @@ function fillOffMap(LUT, mw, mh, R, wcx, wcy, litX, litY, wildOut, st = null) {
     const awx = (x - R) + wcx, awy = (y - R) + wcy;           // absolute world tile
     const wob = ((vnoise2(awx * 0.09, awy * 0.09) - 0.5) + (vnoise2(awx * 0.23, awy * 0.23) - 0.5) * 0.45) * COAST_WOBBLE;
     // Sea is a NORTHERN feature only (the bay sits at low y). Extend water off-map ONLY where the
-    // nearest built water lies to this cell's SOUTH (wSrcY > y) — i.e. you're genuinely offshore,
-    // north of a water body. That keeps the coast running out to the horizon north of the bay, but
+    // nearest built water lies to this cell's SOUTH (wSrcY > y + wob — i.e. you're genuinely
+    // offshore, north of a water body; the same coast-wobble noise ragged-izes this clip so the
+    // E/W cutoff reads as a natural shore, not hard tile-row steps).
+    // That keeps the coast running out to the horizon north of the bay, but
     // stops rivers/canals/ponds on the WEST and EAST (whose water sits level with or south of you)
     // from flooding the off-map — the wildlands run on as land forever to the sides and south.
     // (Open ocean far to the north, past the last built tile, is still held by st.offLand memory.)
-    if (dW[y][x] + wob < dL[y][x] && wSrcY[y][x] > y) { LUT[y][x] = SEA; if (wildOut) wildOut[y][x] = 'sea'; continue; }
+    if (dW[y][x] + wob < dL[y][x] && wSrcY[y][x] > y + wob) { LUT[y][x] = SEA; if (wildOut) wildOut[y][x] = 'sea'; continue; }
     // Land: dirt→redrock, redder the farther out (dL = tiles past the built land edge) + noise mottle.
     const into = clamp((dL[y][x] - 1) / 26, 0, 1);
     const rr = clamp(into * 0.7 + vnoise2(awx * 0.06, awy * 0.06) * 0.6 - 0.15, 0, 1);
