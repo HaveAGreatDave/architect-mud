@@ -2155,37 +2155,37 @@ body.fsim-external #look-resize-handle { display: none; }
 }
 /* Crossing mode — the void trail view (renderCrossing). The grid keeps its track
    template, so the single crossing block spans every track to fill the minimap. */
-.mm-crossing-mode { background: radial-gradient(ellipse at center, #16120f, #0b0908); }
+.mm-crossing-mode { background: radial-gradient(ellipse at center, var(--bg2), var(--bg)); }
 .mm-crossing {
 	grid-column: 1 / -1; grid-row: 1 / -1;
 	display: flex; flex-direction: column; align-items: center; justify-content: center;
 	gap: 0.15em; width: 100%; height: 100%; padding: 0.3em 0;
-	font-family: var(--font-mono); color: #b9a483;
+	font-family: var(--font-mono); color: var(--text-dim);
 }
-.mm-x-cap { font-size: 0.62em; letter-spacing: 0.18em; color: #d9b675; opacity: 0.85; text-shadow: 0 0 6px rgba(217,182,117,0.4); }
+.mm-x-cap { font-size: 0.62em; letter-spacing: 0.18em; color: var(--accent); opacity: 0.85; text-shadow: 0 0 6px color-mix(in srgb, var(--accent) 40%, transparent); }
 .mm-x-trail { display: flex; flex-direction: column; align-items: center; gap: 0; line-height: 1; }
 /* Vertical trail connector: a thin dashed line behind the stacked nodes. */
 .mm-x-row { position: relative; display: flex; align-items: center; justify-content: center; padding: 0.05em 0; }
 .mm-x-row + .mm-x-row::before {
 	content: ''; position: absolute; top: -0.35em; left: 50%; width: 0; height: 0.5em;
-	border-left: 1px dashed rgba(185,164,131,0.5); transform: translateX(-50%);
+	border-left: 1px dashed color-mix(in srgb, var(--text-dim) 60%, transparent); transform: translateX(-50%);
 }
 .mm-x-node { font-size: 0.9em; }
-.mm-x-walked { color: #6f6350; }             /* trail behind — dim, walked */
+.mm-x-walked { color: var(--text-dim); opacity: 0.65; } /* trail behind — dim, walked */
 .mm-x-you .mm-x-here {
-	color: #ffd640; font-size: 1.15em;
-	text-shadow: 0 0 8px rgba(255,214,64,0.7); animation: mm-x-pulse 1.8s ease-in-out infinite;
+	color: var(--accent); font-size: 1.15em;
+	text-shadow: 0 0 8px color-mix(in srgb, var(--accent) 70%, transparent); animation: mm-x-pulse 1.8s ease-in-out infinite;
 }
 @keyframes mm-x-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.55; } }
 [data-motion="off"] .mm-x-you .mm-x-here { animation: none; }
-.mm-x-fog { color: #564d3f; opacity: 0.8; }  /* the blind gamble ahead */
-.mm-x-gate .mm-x-node { color: #5fd08a; text-shadow: 0 0 7px rgba(95,208,138,0.5); } /* the far gate — nearly across */
-.mm-x-dead .mm-x-node { color: #b8564a; }    /* dead-end detour */
+.mm-x-fog { color: var(--text-dim); opacity: 0.55; }  /* the blind gamble ahead */
+.mm-x-gate .mm-x-node { color: var(--green); text-shadow: 0 0 7px color-mix(in srgb, var(--green) 50%, transparent); } /* the far gate — nearly across */
+.mm-x-dead .mm-x-node { color: var(--red); }    /* dead-end detour */
 /* Branch tick beside "you" — a fork/divert (⋔) or a risk-for-loot detour (?). */
 .mm-x-branch { font-size: 0.7em; margin-left: 0.3em; cursor: default; }
-.mm-x-divert { color: #7fb8d0; }
-.mm-x-gamble { color: #d9b675; }
-.mm-x-foot { font-size: 0.56em; letter-spacing: 0.06em; color: #7a6d58; font-style: italic; opacity: 0.85; margin-top: 0.1em; }
+.mm-x-divert { color: var(--cyan); }
+.mm-x-gamble { color: var(--yellow); }
+.mm-x-foot { font-size: 0.56em; letter-spacing: 0.06em; color: var(--text-dim); font-style: italic; opacity: 0.85; margin-top: 0.1em; }
 .mm-room {
 	position: relative;
 	font-weight: bold;
