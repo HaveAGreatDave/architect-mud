@@ -1,0 +1,6 @@
+{
+  "name": "party",
+  "version": "1.0.0",
+  "description": "First-class player groups: consent-based invite→accept parties with a leader. Drives the engine `follow` primitive under the hood so a party travels together (and, later, crosses the void as one cohort). RAM-only runtime state — parties dissolve on restart, like follow. Verb front-end to the Tablet Party app.",
+  "commands": ["party"]
+}
