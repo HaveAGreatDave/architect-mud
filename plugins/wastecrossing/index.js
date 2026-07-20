@@ -377,13 +377,29 @@ async function buildStagingPanel(player, staging) {
     youReady: staging.ready.has(player.id),
     allReady: staging.members.every(id => staging.ready.has(id)),
     solo: staging.members.length === 1,
+    // Private party comms — history so a re-open / late render restores the log.
+    chat: staging.chat.map(c => ({ handle: c.handle, message: c.message, leader: c.pid === staging.leaderId, you: c.pid === player.id })),
   };
+}
+// Post a line to the muster's private comms and fan it out to every member.
+// Ephemeral: lives on the staging object, evaporates when the muster closes.
+function stagingChat(player, text) {
+  const staging = stagings.get(playerStaging.get(player.id));
+  if (!staging) return { type: 'emote', message: "You're not mustering for anything right now." };
+  const message = (text || '').trim().slice(0, 300);
+  if (!message) return undefined;
+  staging.chat.push({ pid: player.id, handle: player.handle, message });
+  if (staging.chat.length > 50) staging.chat.shift();
+  const leader = player.id === staging.leaderId;
+  for (const id of staging.members)
+    sendToPlayer(id, { type: 'journey_staging_chat', line: { handle: player.handle, message, leader, you: id === player.id } });
+  return undefined;
 }
 async function openStaging(leader, gate, heading, broadcast) {
   const followers = getAllLivePlayers().filter(p =>
     p.id !== leader.id && p.following === leader.id && p.current_zone === leader.current_zone && !p._crossing && !playerStaging.has(p.id));
   const members = [leader.id, ...followers.map(p => p.id)];
-  const staging = { id: `stg_${leader.id}_${++_seq}`, leaderId: leader.id, gate: gate.key, dir: gate.dir, heading, members, ready: new Set() };
+  const staging = { id: `stg_${leader.id}_${++_seq}`, leaderId: leader.id, gate: gate.key, dir: gate.dir, heading, members, ready: new Set(), chat: [] };
   stagings.set(staging.id, staging);
   for (const id of members) playerStaging.set(id, staging.id);
   for (const f of followers) sendToPlayer(f.id, await buildStagingPanel(f, staging));
@@ -419,7 +435,9 @@ async function cmdReady(args, raw, player, broadcast) {
 }
 
 async function cmdJourney(args, raw, player, broadcast) {
-  if ((args[0] || '').toLowerCase() === 'cancel') return cancelStaging(player);
+  const sub = (args[0] || '').toLowerCase();
+  if (sub === 'cancel') return cancelStaging(player);
+  if (sub === 'say') return stagingChat(player, args.slice(1).join(' '));
   if (player._crossing) return { type: 'emote', message: 'You are already out in the waste. The only way through it is through it.' };
   const existing = stagings.get(playerStaging.get(player.id));
   if (existing) return buildStagingPanel(player, existing); // already mustering — re-open the window

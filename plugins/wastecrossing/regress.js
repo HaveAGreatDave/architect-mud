@@ -2,7 +2,7 @@
 // Drives the real configured void using SYNTHETIC gate + destination zones, so it
 // doesn't depend on (possibly uncommitted) world content being loaded.
 import { world, getZone, isTransientZone, setLivePlayer, removeLivePlayer,
-  addPlayerToZone, removePlayerFromZone, getEnemyInstance } from '../../server/engine/world.js';
+  addPlayerToZone, removePlayerFromZone, getEnemyInstance, getMinimapData } from '../../server/engine/world.js';
 import { query } from '../../server/models/db.js';
 import { VOIDS, _test, commands } from './index.js';
 import { _test as traces } from './traces.js';
@@ -99,6 +99,13 @@ export default async function regress({ run, check, getPlayer }) {
     check('a detour hangs off a trunk room (west) and exits back (east)',
       isTransientZone(detourId) && !!spineWithDetour && getZone(detourId)?.exits?.east === spineWithDetour,
       `detour=${detourId} trunk=${spineWithDetour}`);
+    // The minimap payload must flag void rooms so the client swaps to crossing mode.
+    const mmNodes = getMinimapData(bc.entry, 8, player);
+    const mmEntry = mmNodes.find(n => n.id === bc.entry);
+    const mmDetour = mmNodes.find(n => n.id === detourId);
+    check('minimap nodes flag void rooms (crossing mode) — trunk + detour',
+      mmEntry?.void_crossing === true && mmDetour?.void_crossing === true && mmDetour?.void_detour === true,
+      `entry=${JSON.stringify([mmEntry?.void_crossing, mmEntry?.void_detour])} detour=${JSON.stringify([mmDetour?.void_crossing, mmDetour?.void_detour])}`);
     const bRooms = [...bc.roomSet];
     _test.teardownInstance(bc);
     check('teardown removes trunk + limbs + detours (no leak)', bRooms.every(id => !getZone(id)), `leaked=${bRooms.filter(id => getZone(id)).length}`);
@@ -112,6 +119,10 @@ export default async function regress({ run, check, getPlayer }) {
       player.current_zone = GATE; player._lastStepAt = 0;
       await run('journey'); // musters leader + Bob (Bob follows, co-present)
       check('the muster stages the whole party', _test.stagings.get(_test.playerStaging.get(player.id))?.members.length === 2, JSON.stringify([..._test.stagings.values()].map(s => s.members)));
+      await run('journey say hold up'); // leader posts to the private party comms
+      const pstg = _test.stagings.get(_test.playerStaging.get(player.id));
+      check('journey say posts a line to the muster comms, tagged to the sender',
+        pstg?.chat?.length === 1 && pstg.chat[0].pid === player.id && pstg.chat[0].message === 'hold up', JSON.stringify(pstg?.chat));
       await run('ready'); // leader readies — party still holding on Bob
       check('a party muster holds until ALL are ready', !player._crossing, `crossing=${!!player._crossing}`);
       await commands.ready([], 'ready', bob, () => {}); // Bob readies → all ready → launch

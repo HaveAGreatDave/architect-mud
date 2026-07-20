@@ -1,15 +1,24 @@
 // Journey staging overlay — the pre-crossing muster.
 //
 // A Tablet-OS-themed window that pops when you `journey` (or walk off the edge):
-// your kit, your party, lore for the road ahead, and a ready-check. Rendered from
-// the server's `journey_staging` payload; the buttons send commands via
-// window._sendRaw. It closes on { close: true } — which the server sends right
-// before the crossing's move payloads render the void behind it.
+// your kit, your party, lore for the road ahead, a ready-check, and a private
+// party-comms chat (the waiting room). Rendered from the server's
+// `journey_staging` payload; the buttons send commands via window._sendRaw.
+// Chat lines arrive live as `journey_staging_chat` and append without a rebuild.
+// It closes on { close: true } — which the server sends right before the
+// crossing's move payloads render the void behind it.
 
 let el = null;
 
 function esc(s) {
   return String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
+function chatLineHtml(l) {
+  return `<div class="jstage-chat-msg${l.you ? ' me' : ''}">
+    <span class="jstage-chat-from">${l.leader ? '<span class="jstage-crown" title="party leader">♛</span>' : ''}${esc(l.handle)}</span>
+    <span class="jstage-chat-text">${esc(l.message)}</span>
+  </div>`;
 }
 
 function ensureEl() {
@@ -26,9 +35,25 @@ export function closeJourneyStaging() {
   if (el) el.style.display = 'none';
 }
 
+// A single comms line pushed live while the muster is open — append in place so
+// we don't clobber a half-typed message or the party's scroll position.
+export function appendJourneyChat(line) {
+  if (!el || el.style.display === 'none' || !line) return;
+  const log = el.querySelector('.jstage-chat-log');
+  if (!log) return;
+  const empty = log.querySelector('.jstage-chat-empty');
+  if (empty) empty.remove();
+  log.insertAdjacentHTML('beforeend', chatLineHtml(line));
+  while (log.children.length > 60) log.removeChild(log.firstChild);
+  log.scrollTop = log.scrollHeight;
+}
+
 export function openJourneyStaging(msg) {
   if (!msg || msg.close) { closeJourneyStaging(); return; }
   const node = ensureEl();
+
+  // Preserve a half-typed comms message across a full re-render (ready/party change).
+  const draft = node.querySelector('.jstage-chat-input')?.value || '';
 
   const inv = msg.inventory || [];
   const invRows = inv.length
@@ -39,7 +64,7 @@ export function openJourneyStaging(msg) {
   const partyRows = party.map(p => `
     <li class="${p.ready ? 'jstage-p-ready' : ''}">
       <span class="jstage-dot">${p.ready ? '✓' : '○'}</span>
-      <span class="jstage-who">${esc(p.handle)}${p.leader ? '<span class="jstage-tag">lead</span>' : ''}${p.you ? '<span class="jstage-tag jstage-tag-you">you</span>' : ''}</span>
+      <span class="jstage-who">${p.leader ? '<span class="jstage-crown" title="party leader">♛</span>' : ''}${esc(p.handle)}${p.you ? '<span class="jstage-tag jstage-tag-you">you</span>' : ''}</span>
       <span class="jstage-pstate">${p.ready ? 'READY' : 'holding'}</span>
     </li>`).join('');
 
@@ -47,6 +72,20 @@ export function openJourneyStaging(msg) {
   const dests = (msg.dests || []).join('&nbsp; · &nbsp;') || 'the unknown';
   const btnLabel = msg.youReady ? '✓ Ready — holding for the party' : (msg.solo ? 'Set Out ▸' : 'Ready Up ▸');
   const btnClass = msg.youReady ? 'jstage-btn jstage-btn-done' : 'jstage-btn jstage-btn-go';
+
+  // Private comms only make sense with a party — hide it when you set out alone.
+  const leaderHandle = (party.find(p => p.leader) || {}).handle || 'the leader';
+  const chat = msg.chat || [];
+  const chatLog = chat.length ? chat.map(chatLineHtml).join('') : '<div class="jstage-chat-empty">No word yet. Rally the party.</div>';
+  const chatSection = msg.solo ? '' : `
+      <div class="jstage-chat">
+        <div class="jstage-colhead">Party Comms <span class="jstage-count"><span class="jstage-crown">♛</span> ${esc(leaderHandle)}</span></div>
+        <div class="jstage-chat-log">${chatLog}</div>
+        <div class="jstage-chat-row">
+          <input class="jstage-chat-input" type="text" maxlength="300" placeholder="Message the party…" autocomplete="off">
+          <button class="jstage-chat-send" data-jstage="say">Send</button>
+        </div>
+      </div>`;
 
   node.innerHTML = `
     <div class="jstage-panel">
@@ -66,6 +105,7 @@ export function openJourneyStaging(msg) {
           <ul class="jstage-list jstage-party">${partyRows}</ul>
         </div>
       </div>
+      ${chatSection}
       <div class="jstage-foot">
         <button class="jstage-btn jstage-btn-cancel" data-jstage="cancel">Stand Down</button>
         <button class="${btnClass}" data-jstage="ready" ${msg.youReady ? 'disabled' : ''}>${btnLabel}</button>
@@ -77,6 +117,23 @@ export function openJourneyStaging(msg) {
   if (cancelBtn) cancelBtn.onclick = () => window._sendRaw && window._sendRaw('journey cancel');
   const readyBtn = node.querySelector('[data-jstage="ready"]');
   if (readyBtn && !msg.youReady) readyBtn.onclick = () => window._sendRaw && window._sendRaw('ready');
+
+  const chatInput = node.querySelector('.jstage-chat-input');
+  if (chatInput) {
+    chatInput.value = draft;
+    const send = () => {
+      const t = (chatInput.value || '').trim();
+      if (!t) return;
+      window._sendRaw && window._sendRaw('journey say ' + t);
+      chatInput.value = '';
+      chatInput.focus();
+    };
+    const sendBtn = node.querySelector('[data-jstage="say"]');
+    if (sendBtn) sendBtn.onclick = send;
+    chatInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); send(); } });
+    const log = node.querySelector('.jstage-chat-log');
+    if (log) log.scrollTop = log.scrollHeight;
+  }
 
   node.style.display = 'flex';
 }

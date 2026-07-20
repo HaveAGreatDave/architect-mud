@@ -844,7 +844,17 @@ export function pushHud(live) {
     // on the cockpit-window HUD — don't clobber it. But once they open the WINDOW overlay
     // (cabinWindowOpen) it IS fed the live view here. Non-cabin occupants (a seated pilot)
     // always get the HUD.
-    if (walkable && isCabinZone(getZone(p.current_zone), live) && !p.cabinWindowOpen) continue;
+    if (walkable && isCabinZone(getZone(p.current_zone), live) && !p.cabinWindowOpen) {
+      // No HUD — but they should still HEAR the engines around them (throttle-reactive):
+      // a slim audio-only feed the client drives through the same engine-audio loops the
+      // window overlay uses, without mounting a panel. Stopped by the cockpit_close that
+      // landing/disembark already sends.
+      sendToPlayer(pid, { type: 'cabin_audio', audio: {
+        airborne: payload.airborne, engineOn: payload.engineOn, class: payload.class,
+        throttle: payload.throttle, spd: payload.spd, engines: payload.engines, bandIndex: payload.bandIndex,
+      } });
+      continue;
+    }
     sendToPlayer(pid, { type: 'cockpit_update', state: { ...payload, seat: p.cabinWindowOpen ? 'passenger' : p.seat } });
   }
 }

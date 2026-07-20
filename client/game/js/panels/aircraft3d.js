@@ -44,6 +44,8 @@ const STAB_ROLE = new Set(['stab', 'elevator']);
 // backface-cull (their far side is genuinely hidden). Kept OUT: wings/stabs/fins/struts/
 // nacelles/gear — thin or off-axis surfaces where an outward-from-origin test is unreliable.
 const CULL_ROLE = new Set(['body', 'glass', 'window']);
+// Solid appendages that can stand IN FRONT of the fuselage flank and so should occlude nose art.
+export const OCCLUDE_ROLE = new Set(['wing', 'aileron', 'flap', 'stab', 'elevator', 'fin', 'rudder', 'nacelle', 'gear', 'strut', 'gun']);
 // Centroid of a facet in the craft frame [f = fore+, g = right+, h = up+].
 function faceCentroid(pts) {
   let f = 0, g = 0, h = 0; for (const v of pts) { f += v[0]; g += v[1]; h += v[2]; }
@@ -1167,7 +1169,17 @@ function decalTex(id) {
   } else { _decalCache[id] = null; return null; }
   _decalCache[id] = c; return c;
 }
-export function drawNoseArt(ctx, proj, cls, lv) {
+// Even–odd point-in-polygon over a projected {sx,sy} ring — used to cull decal cells hidden
+// behind a nearer appendage (wing/nacelle/gear/…) that paints in front of the fuselage flank.
+function ptInScreenPoly(x, y, P) {
+  let inside = false;
+  for (let i = 0, j = P.length - 1; i < P.length; j = i++) {
+    const xi = P[i].sx, yi = P[i].sy, xj = P[j].sx, yj = P[j].sy;
+    if (((yi > y) !== (yj > y)) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+export function drawNoseArt(ctx, proj, cls, lv, occluders = null) {
   const id = lv?.decal; if (!id || id === 'none') return;
   const img = decalTex(id); if (!img) return;
   const p = FW_PARAMS[cls] || FW_PARAMS.prop;
@@ -1178,7 +1190,11 @@ export function drawNoseArt(ctx, proj, cls, lv) {
   // droops with the nose — so it sits LOW on the flank (accommodating it flat first), and only curls
   // onto the shoulder/belly where it's too tall to lie flat. Reconstructs the same cross-section
   // buildFixedWing skins (radius taper + boxy superellipse) so the decal tracks the real hull.
-  const fF = 0.64, fR = 0.18;                                        // forward-fuselage extent (front = nose)
+  // The mouth/flame decals READ better wrapped onto the nose cone itself (that's where a real
+  // sharkmouth belongs), so they reach forward toward the tip; the centred emblems stay flat on
+  // the mid-flank where the cone taper won't pinch them.
+  const reach = id === 'sharkmouth' || id === 'flames';
+  const fF = reach ? p.noseF * 0.9 : 0.64, fR = reach ? 0.06 : 0.18;   // forward-fuselage extent (front = nose)
   const fr = p.fr, fv = p.fv, shapeExp = 1 - (p.boxy || 0) * 0.55;
   const noseK = p.noseBlunt || 2.4, tube = p.bodyTube || 0, cowl = p.noseCowl || 0, OUT = 1.03;
   const radAt = (f) => { let u = Math.min(1, Math.abs(f / p.noseF)); u = u <= tube ? 0 : (u - tube) / (1 - tube); return cowl + (1 - cowl) * Math.pow(Math.max(0, 1 - Math.pow(u, noseK)), 1 / noseK); };
@@ -1202,14 +1218,24 @@ export function drawNoseArt(ctx, proj, cls, lv) {
     grid.push(row);
   }
   if (!anyNear) return;
-  // The single decal image is UV-mapped nose→tail in WORLD space, so viewing the far (starboard/right,
-  // sign=+1) flank projects it MIRRORED — the art reads backwards on that side. Flip U there only, so
-  // both flanks read forward-facing (port keeps the authored orientation; starboard is un-mirrored).
-  const flip = sign === 1;
+  // Texture-mapping the decal onto a handedness-flipped flank reads it BACKWARDS, so key the U flip
+  // off the projected screen winding of the decal grid (nose→tail top edge × nose top→bottom left
+  // edge). The authored source winding is positive; when the visible flank projects to a negative
+  // winding we flip U to un-mirror it. Net result: the art reads the SAME way — nose-forward, tail
+  // to nose — on BOTH flanks, whichever side faces the camera.
+  const n0 = grid[0][0], nT = grid[0][Nc], bL = grid[Nr][0];
+  const cross = (nT.sx - n0.sx) * (bL.sy - n0.sy) - (nT.sy - n0.sy) * (bL.sx - n0.sx);
+  const flip = cross < 0;
   const uOf = (col) => (flip ? (Nc - col) : col) / Nc * W;
+  const occ = occluders || [];
   for (let j = 0; j < Nr; j++) for (let i = 0; i < Nc; i++) {
     const a = grid[j][i], b = grid[j][i + 1], c = grid[j + 1][i + 1], d = grid[j + 1][i];
     if (a.z <= 0.18 || b.z <= 0.18 || c.z <= 0.18 || d.z <= 0.18) continue;             // skip cells crossing behind the eye
+    // Occlusion: skip a cell whose centre sits behind a NEARER appendage face (wing/nacelle/gear/…),
+    // so the decal no longer paints through parts of the airframe standing in front of the flank.
+    const mx = (a.sx + b.sx + c.sx + d.sx) / 4, my = (a.sy + b.sy + c.sy + d.sy) / 4;
+    const mz = (a.z + b.z + c.z + d.z) / 4;
+    if (occ.some(o => o.z < mz && ptInScreenPoly(mx, my, o.P))) continue;
     const s0 = [uOf(i), j / Nr * H], s1 = [uOf(i + 1), j / Nr * H];
     const s2 = [uOf(i + 1), (j + 1) / Nr * H], s3 = [uOf(i), (j + 1) / Nr * H];
     acTexTri(ctx, img, s0, s1, s2, [a.sx, a.sy], [b.sx, b.sy], [c.sx, c.sy]);
@@ -1807,7 +1833,9 @@ function paintTurntable(ctx, { cls, livery, yaw = 0, w, h, wreck = false, zoom =
     }
     if (fc.alpha < 1) ctx.globalAlpha = 1;
   }
-  if (!wreck) drawNoseArt(ctx, proj, cls, livery);   // real nose art on the visible fuselage side
+  // Appendage faces (wings/nacelles/gear/…) become nose-art occluders so the decal is culled where
+  // a nearer part of the airframe stands in front of the flank, instead of painting straight over it.
+  if (!wreck) drawNoseArt(ctx, proj, cls, livery, drawn.filter(fc => OCCLUDE_ROLE.has(fc.role)).map(fc => ({ P: fc.P, z: fc.avgZ })));
   // Props/rotors — engines off in here, so crisp STOPPED blades (not a blur),
   // projected through this same camera so they spin with the turntable.
   if (!wreck) drawRotorFX(ctx, cls, (v) => { const q = proj(v[0], v[1], v[2]); return q.z <= 0.2 ? null : q; }, { parked: true, spin: 2.3 });

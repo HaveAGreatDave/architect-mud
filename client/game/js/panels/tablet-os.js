@@ -5239,6 +5239,14 @@ export function refreshTabletGearIfOpen() {
   return false;
 }
 
+// Open the tablet straight to the Chat app — the replacement for toggling the
+// floating whisper window. The sidebar 💬 bubble routes here. Skip-boot for a
+// snappy open, same as the other deep-links.
+export function openTabletToChat() {
+  _skipBoot = true;
+  sendCmdSilent('tabletnav chat');
+}
+
 // ── SPECTER entry points (replace the retired surveillancehub.js / datachipreplay.js
 // / specterinstall.js popups; the surveillance plugin is untouched) ─────────────
 

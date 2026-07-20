@@ -914,6 +914,8 @@ export function getMinimapData(centerZoneId, depth = 8, viewer = null) {
       terrain: zoneTerrain(zone), // 'road' | 'water' | 'grass' | null — tileable terrain styling
       district: (() => { const d = districtFor(zone); return { key: d.key, name: d.name, color: d.color }; })(),
       artery: Array.isArray(zone.flags?.artery) ? zone.flags.artery : (zone.flags?.artery ? [zone.flags.artery] : null),
+      void_crossing: zone.flags?.void_crossing ? true : null, // a transient waste-crossing room → client renders the "crossing" trail view
+      void_detour: zone.flags?.void_detour ? true : null,     // a risk-for-loot dead-end gamble off the trail
       curtain: zone.flags?.curtain ? true : null, // the Architect's perimeter wall edge
       perimeter_gate: zone.flags?.perimeter_gate ? true : null, // the one break in the Curtain
       glacis: zone.flags?.glacis ? true : null, // turret killing-ground outside the gate

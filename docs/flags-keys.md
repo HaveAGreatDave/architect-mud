@@ -38,7 +38,7 @@ is silently inert, so grep before renaming anything below.
 | `artery` | movement/ambience | major street (traffic ambience, routing) |
 | `building_name` | world | display name of the enclosing building |
 | `building_type` | world | building category (shop, apartment, …) |
-| `checkpoint` | govgate | checkpoint gate zone |
+| `checkpoint_cfg` | checkpoint | security-checkpoint config object ({ guards, checks:[wanted\|smuggle\|contraband], wantedMode, entry predicate insideFlag\|fromFlag\|fromDistrict }) driving the checkpoint move-gate law |
 | `curtain` | perimeter (wildlands) | tile borders the Architect's energy wall on the city's land edge; renders a minimap shimmer-edge + a room-description curtain line; stays sealed (no crossing exit) except at a `perimeter_gate` |
 | `perimeter_gate` | perimeter (wildlands) | the one break in the Curtain — the guarded road out to the wilds; draws a gate glyph and carries the exit through the wall |
 | `glacis` | perimeter (wildlands) | outward-facing turret killing-ground just beyond a `perimeter_gate`; the cleared no-man's-land the wall guns sweep |

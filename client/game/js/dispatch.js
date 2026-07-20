@@ -20,7 +20,7 @@ import { openInsurancePanel, updateInsurancePanel } from './panels/insurance.js'
 import { openCorpConsole, updateCorpConsole } from './panels/corp-console.js';
 import { openTabletPanel, closeTabletPanel, tabletQuestUpdate, noteQuestLog, openTabletToSpecter, openTabletToReel, openTabletSpecterInstall, refreshTabletGearIfOpen, openTabletToMap, refreshTabletMapIfOpen } from './panels/tablet-os.js';
 import { openCorpMap } from './panels/corp-map.js';
-import { openJourneyStaging } from './panels/journey-staging.js';
+import { openJourneyStaging, appendJourneyChat } from './panels/journey-staging.js';
 import { openMediaDeckPanel, updateMediaDeckBroadcast, applyMediaDeckOverlay } from './panels/mediadeck.js';
 import { openDeviceInspectPanel, consumeExamineLogSuppression } from './panels/deviceinspect.js';
 import { openCircuitHack } from './panels/circuithack.js';
@@ -29,7 +29,7 @@ import { openSignalHijack } from './panels/signalhijack.js';
 import { openPirateConsole, closePirateConsole } from './panels/piratedeck.js';
 import { openFishing, armFishFight } from './panels/fishing.js';
 import { abortMacros } from './panels/smartbar-macros.js';
-import { updateCockpit, closeCockpit, openTakeoff, openGlideslope, openTargeting, openFlightSim, flightSimContext, flightSimContacts, flightSimAASites, flightSimAirHit, flightSimKill, flightSimAaTracer, flightSimAirThreat, flightSimFireworks, flightSimLightning, isFlightSimActive, isCockpitHudActive } from './panels/cockpit.js';
+import { updateCockpit, closeCockpit, cabinAudio, openTakeoff, openGlideslope, openTargeting, openFlightSim, flightSimContext, flightSimContacts, flightSimAASites, flightSimAirHit, flightSimKill, flightSimAaTracer, flightSimAirThreat, flightSimFireworks, flightSimLightning, isFlightSimActive, isCockpitHudActive } from './panels/cockpit.js';
 import { openHelm, closeHelm, isHelmActive, helmSetSky, helmSetWorld, helmSetContacts, helmEndTransit, helmBeginTransit } from './panels/helm-mode.js';
 import { setYachtAmbience, yachtUnderway, yachtSettled } from './panels/yacht-ambience.js';
 import { setDrugFx, clearDrugFx } from './panels/flight-drugfx.js';
@@ -386,6 +386,9 @@ const handlers = {
   tablet_close: () => { closeTabletPanel(); },
   // Journey staging (wastecrossing) — the pre-crossing muster overlay.
   journey_staging: (msg) => { openJourneyStaging(msg); },
+  // A live line in the muster's private party comms — append without rebuilding
+  // the overlay (keeps a half-typed message + scroll intact).
+  journey_staging_chat: (msg) => { appendJourneyChat(msg.line); },
   // A quest changed state server-side (objective ticked / completed / turned in) —
   // live-refresh the Tablet OS Quests app if it's open on that app (no-op otherwise).
   quest_update: () => { tabletQuestUpdate(); },
@@ -756,6 +759,7 @@ const handlers = {
   // ── Flight (cockpit HUD + takeoff/landing minigames) ─────────────────────
   cockpit_update: (msg) => { updateCockpit(msg.state); },
   cockpit_close: () => { closeCockpit(); sendCmdSilent('look'); },   // hand the area pane back to the room view
+  cabin_audio: (msg) => { cabinAudio(msg.audio); },   // walkable-cabin occupants HEAR the engines without the HUD taking over the room
   // Continuous cockpit (client-sim + server-reconcile) — the Mayfly slice.
   flight_sim: (msg) => { openFlightSim(msg); },
   // Echelon helm console — takes over the client like the flight sim. Engaging the telegraph fires

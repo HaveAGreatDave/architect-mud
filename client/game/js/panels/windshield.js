@@ -34,7 +34,7 @@
 // }
 
 import { isWeatherFxEnabled } from './weather-fx.js';
-import { aircraftFaces, wingtipStation, liveryPalette, faceBaseRgb, shadeRgb, hex2rgb, drawRotorFX, drawCockpitProp, glassSheen, drawNoseArt, deflectSurface, jazzTex, jazzUV, overlayJazz, JAZZ_ROLE } from './aircraft3d.js';
+import { aircraftFaces, wingtipStation, liveryPalette, faceBaseRgb, shadeRgb, hex2rgb, drawRotorFX, drawCockpitProp, glassSheen, drawNoseArt, deflectSurface, jazzTex, jazzUV, overlayJazz, JAZZ_ROLE, OCCLUDE_ROLE } from './aircraft3d.js';
 import { playThunderSample } from './engine-audio.js';
 
 const _scenes = new Map();      // id → persistent scene state (scroll, clouds, stars, particles)
@@ -1922,6 +1922,13 @@ function distField(seed, mw, mh) {
 // A window with no built tile at all inherits the craft's last land/sea memory (st.offLand): over
 // open sea it stays ocean; deep past a land edge the wildlands run on instead of flipping to ocean.
 const COAST_WOBBLE = 6, DIRT = BIOME_GROUND.badlands, REDROCK = BIOME_GROUND.redrock, SEA = [BIOME_GROUND.water[0], BIOME_GROUND.water[1], BIOME_GROUND.water[2], 1, 0, 1];
+// Shoreline latitude: only built water NORTH of this world-row is the BAY (a genuine sea source that
+// extends off-map to the horizon). The bay's southern frontier tops out around y≈908, so this sits
+// just south of it. Inland water south of the line — the N–S canals, rivers and ponds threading the
+// city — is deliberately NOT a sea source: it must not seed the off-map sea field (rivers "running on"
+// past the west edge) nor flip the craft's land/sea memory to sea (open ocean bleeding in behind them).
+// Same world-pinned assumption as the rest of this function ("the bay sits at low y, sea is north-only").
+const BAY_SHORE_Y = 910;
 function fillOffMap(LUT, mw, mh, R, wcx, wcy, litX, litY, wildOut, st = null) {
   const water = new Array(mh), land = new Array(mh);
   let anyBuilt = false;
@@ -1931,7 +1938,10 @@ function fillOffMap(LUT, mw, mh, R, wcx, wcy, litX, litY, wildOut, st = null) {
       const c = LUT[y][x];
       if (!c) continue;
       anyBuilt = true;
-      if (c[3] > 0.5) water[y][x] = 1; else land[y][x] = 1;   // c[3] = waterness
+      // Only the northern bay seeds off-map sea; inland water (south of the shore) is neither a sea
+      // nor a land source, so the wildlands run on around it instead of it dragging ocean off-map.
+      if (c[3] > 0.5) { if (((y - R) + wcy) <= BAY_SHORE_Y) water[y][x] = 1; }
+      else land[y][x] = 1;   // c[3] = waterness
     }
   }
   // Deep off-map: no built tile is in view at all (flown >36 tiles past the whole city). The window
@@ -1977,7 +1987,9 @@ function fillOffMap(LUT, mw, mh, R, wcx, wcy, litX, litY, wildOut, st = null) {
   // resolved, on- or off-map), smoothed across frames so a fully-empty window can inherit it above.
   if (st) {
     const ci = Math.round(R), cc = LUT[ci] && LUT[ci][ci];
-    const centerLand = cc ? (cc[3] > 0.5 ? 0 : 1) : (st.offLand ?? 0);   // water→0, land→1
+    // Only the northern bay reads as "over sea"; crossing an inland river/canal (south of the shore)
+    // must NOT flip the memory, or the deep-off-map fallback would paint ocean once you've passed it.
+    const centerLand = cc ? ((cc[3] > 0.5 && ((ci - R) + wcy) <= BAY_SHORE_Y) ? 0 : 1) : (st.offLand ?? 0);
     st.offLand = st.offLand == null ? centerLand : st.offLand + (centerLand - st.offLand) * 0.12;
   }
   return LUT;
@@ -3950,7 +3962,9 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
   // (own-ship chase + close contacts) so distant furball bogeys stay cheap. The adapter maps the
   // model-space projector P onto drawNoseArt's expected {sx,sy,z} (our depth lives in .f).
   if (detail && lv.decal && lv.decal !== 'none') {
-    drawNoseArt(ctx, (f, g, h) => { const q = P([f, g, h]); return { sx: q.sx, sy: q.sy, z: q.f }; }, c.cls, lv);
+    // Appendage faces occlude the decal so it doesn't paint through a nearer wing/nacelle/gear.
+    const occ = faces.filter(fc => OCCLUDE_ROLE.has(fc.role)).map(fc => ({ P: fc.pts, z: fc.af }));
+    drawNoseArt(ctx, (f, g, h) => { const q = P([f, g, h]); return { sx: q.sx, sy: q.sy, z: q.f }; }, c.cls, lv, occ);
   }
   // ── Engine effects ──────────────────────────────────────────────────────────
   // Jets trail an orange exhaust plume (growing with power); props spin a translucent disc at

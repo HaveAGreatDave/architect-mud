@@ -17,13 +17,15 @@
  *     ditch the shell, and **build trust** with the fence (`bm_trust` flag), which
  *     is what widens the fence's order menu (gated in his dialogue tree). This is
  *     the "order AND pickup" that earns standing.
- *   • Checkpoint move gate (`smuggle:checkpoint`) — carry raw into a
- *     flags.checkpoint zone → a Deception check scaled to cook_tier; fail =
- *     a Manufacturing charge + the guards APPREHEND you (the shared arrest engine:
- *     submit/run → booking, palm-search) + a 45s guard-heat cooldown. The
- *     scanner sees bagged raw too (unlike the street cameras). The sealed crate
- *     itself is tagged raw_drug at cook_tier 5, so hauling it whole is the *hardest*
- *     thing to sneak — you're meant to unpack at the Scald first.
+ *   • `runRawScan` + the `SMUGGLE_RAW_SCAN` action — the scanner run: carry raw
+ *     past a checkpoint → a Deception check scaled to cook_tier; pass earns `bm_trust`,
+ *     fail = a Manufacturing charge + the guards APPREHEND you (the shared arrest
+ *     engine: submit/run → booking, palm-search) + a 45s guard-heat cooldown. The
+ *     scanner sees bagged raw too (unlike the street cameras). The sealed crate itself
+ *     is tagged raw_drug at cook_tier 5, so hauling it whole is the *hardest* thing to
+ *     sneak — you're meant to unpack at the Scald first. Smuggle no longer owns a move
+ *     gate of its own; the generic `checkpoint` plugin dispatches SMUGGLE_RAW_SCAN so a
+ *     gate's raw check runs through this one economy (the live border is the South Gate).
  *
  * The unlock: reaching the Fixer's (the covert dealer's) inner circle sets the
  * `dealer_inner_circle` flag (engine vendor.js), which is what opens Sully's
@@ -35,7 +37,6 @@ import { adjustCredits } from '../../server/engine/economy.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { skillCheck, awardSkillUse } from '../../server/engine/skills.js';
 import { dispatchAction, registerAction } from '../../server/engine/actions.js';
-import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { getLivePlayer } from '../../server/engine/world.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
@@ -160,23 +161,31 @@ export const specializedActions = [
   { verb: 'unpack', requiredTag: 'mule_crate', handler: unpack },
 ];
 
-// ── checkpoint move gate ──────────────────────────────────────────────────────
-// Entering a flags.checkpoint zone with raw on you → a scanner run. Unlike the
-// street cameras, the scanner sees bagged raw too (no container filter). The
-// sealed MULE crate is tagged raw_drug at cook_tier 5, so hauling it whole is the
-// hardest thing to sneak — unpack at the Scald first.
-registerMoveGate(async ({ player, to }) => {
-  if (!to?.flags?.checkpoint) return;                      // cheap: only the border zones pay for the query
+// ── the raw scan (shared) ─────────────────────────────────────────────────────
+// The scanner run: raw on you → a cook_tier-scaled Deception check, bm_trust reward
+// on a clean run, manufacturing bust on a fail. Unlike the street cameras it sees
+// bagged raw too (no container filter). The sealed MULE crate is raw_drug@cook_tier 5,
+// so hauling it whole is the hardest sneak — unpack at the Scald first.
+//
+// Extracted from the move gate so the generic `checkpoint` plugin can route a gate's
+// contraband check through this SAME economy (via the SMUGGLE_RAW_SCAN action) instead
+// of duplicating the tier/trust/bag logic. Returns:
+//   { handled:false }                       — no raw on the player (walk through / run other checks)
+//   { handled:true }                        — clean pass (the "waved through" message is already sent)
+//   { handled:true, block:true, message }   — caught (charge + arrest already dispatched)
+// `guards` names the guards in the bust prose + the arrest.
+const capG = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+export async function runRawScan(player, guards = 'the border guards') {
   const { rows } = await query(
     `SELECT COUNT(*)::int AS n, MAX((i.flags->>'cook_tier')::int) AS tier
        FROM player_inventory pi JOIN items i ON i.id = pi.item_id
       WHERE pi.player_id=$1 AND jsonb_exists(i.tags, 'raw_drug')`,
     [player.id]).catch(() => ({ rows: [{ n: 0 }] }));
   const n = Number(rows[0]?.n || 0);
-  if (!n) return;                                          // clean → walk through
+  if (!n) return { handled: false };                       // clean → not the scanner's business
 
   if (Date.now() < (heat.get(player.id) || 0))
-    return { block: true, message: 'The checkpoint guards are still eyeing you from the last pass — hang back a moment, or find another way in.' };
+    return { handled: true, block: true, message: `${capG(guards)} are still eyeing you from the last pass — hang back a moment, or find another way in.` };
 
   const tier = Math.max(1, Number(rows[0]?.tier || 1));
   const diff = 3 + tier;                                   // tier 1 → 4 (easy), tier 5 → 8 (hard)
@@ -195,14 +204,23 @@ registerMoveGate(async ({ player, to }) => {
     } else {
       sendToPlayer(player.id, { type: 'output', message: `<span class="ambient">You keep your hands loose and your face bored. The scanner blinks green; the guard waves you through.</span>` });
     }
-    return;                                                // pass
+    return { handled: true };                              // pass (message already sent)
   }
 
-  // Caught with raw on you. Charge manufacturing, then the border guards move to
-  // detain — the same arrest a street cop runs (submit/run → booking, with a shot
-  // to palm the goods first). The checkpoint stays; a failed check just routes here.
+  // Caught with raw on you. Charge manufacturing, then the guards move to detain —
+  // the same arrest a street cop runs (submit/run → booking, with a shot to palm the
+  // goods first). The checkpoint stays; a failed check just routes here.
   heat.set(player.id, Date.now() + HEAT_MS);
   await dispatchAction({ type: 'CHARGE_CRIME', actor: player, params: { key: 'manufacturing' } });
-  await dispatchAction({ type: 'APPREHEND', actor: player, params: { officer: 'The border guards' } });
-  return { block: true, message: `The scanner shrills — <b>raw material</b>. The border guards move on you before you can turn — no bolting back this time.` };
-}, 'smuggle:checkpoint');
+  await dispatchAction({ type: 'APPREHEND', actor: player, params: { officer: capG(guards) } });
+  return { handled: true, block: true, message: `The scanner shrills — <b>raw material</b>. ${capG(guards)} move on you before you can turn — no bolting back this time.` };
+}
+
+// SMUGGLE_RAW_SCAN — the cross-plugin seam: the checkpoint plugin dispatches this to
+// run a gate's raw-drug check through the smuggle economy (params.guards names the
+// guards). Returns the runRawScan result verbatim. Smuggle registers NO move gate of
+// its own — checkpoint tiles (the South Gate) carry the scan via their config.
+registerAction({
+  type: 'SMUGGLE_RAW_SCAN',
+  handler: ({ actor, params }) => runRawScan(actor, params?.guards || 'the border guards'),
+});

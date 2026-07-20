@@ -229,6 +229,16 @@ export function closeCockpit() {
   stopEngineAudio();
 }
 
+// Engine sound for an occupant WALKING a walkable cabin (the Leviathan) — they're in a
+// real MUD room, not on the cockpit HUD, so this drives ONLY the engine-audio loops
+// (idle/power/wind, throttle- and speed-reactive) without mounting any panel over the
+// room view. Fed the slim `cabin_audio` payload each flight tick; stopped by the
+// `cockpit_close` the landing/disembark flow already sends (closeCockpit → stopEngineAudio).
+export function cabinAudio(s) {
+  if (isFlightSimActive() || isCockpitHudActive()) return;   // the pilot's cockpit / an open window overlay already owns the bus
+  updateEngineAudio(s || {});
+}
+
 // ── The per-frame animation loop ──────────────────────────────────────────────
 function hudFrame(t) {
   const root = document.getElementById('ck-hud-root');

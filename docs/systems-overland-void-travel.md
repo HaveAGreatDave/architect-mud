@@ -585,6 +585,16 @@ seam.
    "crossing" mode (branch-graph mini-view, or a stylized "you are in the void" panel); flight must
    treat a crosser as off-world (not visible from the air, or a deliberate "specks in the waste"
    read).
+   - **Minimap crossing mode — BUILT (branch `void-travel`).** `getMinimapData` now flags void rooms
+     (`void_crossing` / `void_detour`) on each node; when the current node is `void_crossing` the client
+     ([client/game/js/panels/minimap.js](../client/game/js/panels/minimap.js) `renderCrossing`) drops the
+     city grid for a stylized **ashen trail view** — the walked trail behind you (dim, following the
+     `north`/back exits room to room), a pulsing **◎ you** beacon, and the trail continuing into **fog**
+     (`⋯`) ahead or onto the **far gate** (`⌂`, when `south` leaves the void map onto a region). Fork/detour
+     options off your *current* room show as branch ticks (**⋔** divert / **?** gamble). Deliberately charts
+     only what you'd honestly know — the layout **ahead stays fogged** (the blind-gamble fiction holds); no
+     per-room "seen" state needed since `north` is always "back". All three minimaps (sidebar/HUD/mobile)
+     share the render. Regress asserts the node-flag contract. **Flight off-world read still pending.**
 7. **Party coordination** — mostly *extends the existing `follow`/`dragFollowers`* into the instance
    rather than new grouping: cohort-scoped encounter rolls, a leader "hold" call at forks, per-follower
    water toll on drag (override the `bypassEncumbrance` skip), Tablet chat signal-loss in the void, and

@@ -31,11 +31,7 @@ import { initContainerPanel } from "./panels/container.js";
 import { initLootPanel } from "./panels/loot.js";
 import { initDialogue } from "./panels/dialogue.js";
 import { initForecast } from "./panels/forecast.js";
-import {
-	initWhisperPanel,
-	debugFakeWhisper,
-	toggleWhisperPanel,
-} from "./panels/whisper.js";
+import { initWhisperPanel, debugFakeWhisper } from "./panels/whisper.js";
 import { initWho, openWhoModal } from "./panels/who.js";
 import { initPlayersPanel } from "./panels/players.js";
 import { showAmountDialog, showDangerDialog } from "./panels/confirm.js";
@@ -528,10 +524,12 @@ document.getElementById("minimap-grid-hud")?.addEventListener("click", () => {
 	sendCmd("map");
 });
 
-// Mobile chat button
+// Mobile chat button → tablet Chat app (replaces the floating whisper window)
 document
 	.getElementById("mobile-chat-btn")
-	?.addEventListener("click", toggleWhisperPanel);
+	?.addEventListener("click", () => {
+		import("./panels/tablet-os.js").then((m) => m.openTabletToChat());
+	});
 
 // Fire a d-pad button's command on RELEASE, not press — and only if the finger
 // is still over the button it started on. Holding does nothing until you let

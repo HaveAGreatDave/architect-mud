@@ -1,0 +1,54 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "stamps her boots against the cold and mutters about hazard pay.",
+    "\"You're braver than me, going out there. Or dumber. Coin toss.\"",
+    "scans the killing ground through a cracked monocular, sees nothing, looks disappointed about it."
+  ],
+  "description": "Young, wiry, and visibly wishing she'd drawn any other post. Trooper Quill keeps one hand near her sidearm and the other wrapped around a thermos of something that stopped being coffee hours ago. Her grey fatigues are a size too big and standard-issue bored.",
+  "dialogue_tree": {
+    "root": {
+      "text": "Quill straightens up like she's been caught slacking, which she has. \"Sergeant does the talking. I just make sure nothing walks IN off that ground.\"",
+      "options": [
+        { "label": "Rough post?", "next": "post" }
+      ]
+    },
+    "post": {
+      "text": "\"You have no idea. Wind screams all night, turrets ping every stray dog, and command still docks me if the road's not swept.\" She jerks her chin at the gap. \"You want the wilds, they're right there. Nobody's stopping you. Wish somebody'd stop me.\"",
+      "options": [
+        { "label": "Back.", "next": "root" }
+      ]
+    },
+    "bye": {
+      "text": "She's already turned back to the killing ground. \"Yeah. Watch the turrets.\"",
+      "options": []
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "an oversized grey perimeter-guard field jacket",
+      "grey city-guard fatigues cinched with a webbing belt",
+      "a plain grey sports bra and briefs"
+    ],
+    "personality": "guard"
+  },
+  "home_activities": [],
+  "home_zone": "zone_district_918_919",
+  "hp": 80,
+  "hp_max": 80,
+  "id": "npc_gate_trooper",
+  "name": "Trooper Quill",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_district_918_919"
+}

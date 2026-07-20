@@ -64,16 +64,18 @@ async function main() {
   if (stranded.length) { console.error(`✗ ABORT — the cuts would strand ${stranded.length} zone(s): ${stranded.join(', ')}`); process.exit(1); }
   console.log(`✓ connectivity holds: all ${Z.size} zones still reachable after the cuts.`);
 
-  // Flag the checkpoint + give it a visible cue (once).
+  // Flag the checkpoint + give it a visible cue (once). The scan runs through the
+  // generic `checkpoint` plugin: a checkpoint_cfg gate with the `smuggle` raw check.
+  const CP_CFG = { guards: 'the border guards', checks: ['smuggle'] };
   const cp = Z.get(CHECKPOINT);
   if (!cp) { console.error(`✗ checkpoint ${CHECKPOINT} not found`); process.exit(1); }
-  cp.flags.checkpoint = true;
+  cp.flags.checkpoint_cfg = CP_CFG;
   if (cp.description && !/Precinct checkpoint/.test(cp.description)) cp.description = cp.description + CHECKPOINT_LINE;
 
-  if (DRY) { console.log(`\n(dry) would update exits on: ${[...touched].join(', ')}`); console.log(`(dry) would flag ${CHECKPOINT} as checkpoint`); process.exit(0); }
+  if (DRY) { console.log(`\n(dry) would update exits on: ${[...touched].join(', ')}`); console.log(`(dry) would flag ${CHECKPOINT} with checkpoint_cfg`); process.exit(0); }
 
   for (const id of touched) await query('UPDATE zones SET exits=$1::jsonb WHERE id=$2', [JSON.stringify(Z.get(id).exits), id]);
-  await query('UPDATE zones SET flags = COALESCE(flags,\'{}\'::jsonb) || \'{"checkpoint":true}\'::jsonb, description=$1 WHERE id=$2', [cp.description, CHECKPOINT]);
+  await query('UPDATE zones SET flags = COALESCE(flags,\'{}\'::jsonb) || jsonb_build_object(\'checkpoint_cfg\', $1::jsonb), description=$2 WHERE id=$3', [JSON.stringify(CP_CFG), cp.description, CHECKPOINT]);
   console.log(`✓ funnel built: ${touched.size} zone exits rewired, ${CHECKPOINT} is now the sole scanned crossing. Restart / reload the world.`);
   process.exit(0);
 }

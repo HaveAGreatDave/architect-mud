@@ -5,7 +5,7 @@
   "bg_color": "#262a2e",
   "color": "#b9c0c8",
   "created_by": "zone-planner",
-  "description": "THE SOUTH GATE. The Gate Road runs up to a throat of scorched rockcrete where the Architect's Curtain parts — a single lit gap in a wall of humming hard light that seals the city's whole southern edge. Twin turret masts flank the road, their barrels tracking anything that stirs on the killing ground beyond. Guards in grey watch you with bored contempt: nobody sane goes south. The city is behind you. The wild is through the gap.",
+  "description": "THE SOUTH GATE. The Gate Road climbs to a throat of scorched rockcrete where the Architect's Curtain parts — a single lit gap in a floor-to-heaven wall of humming hard light that seals the city's whole southern edge. Twin turret masts flank the opening, barrels sweeping the killing ground beyond in slow, patient arcs. Grey-uniformed perimeter guards work the gap under a caged amber beacon, waving traffic through and logging every soul that walks south — because most of them don't walk back. The city is behind you. The wild, and everything past it, is through the throat. The gate is open. It's the going that costs you.",
   "exits": {
     "east": "zone_district_919_919",
     "north": "zone_district_918_918",
@@ -16,6 +16,15 @@
     "artery": [
       "The Gate Road"
     ],
+    "checkpoint_cfg": {
+      "guards": "the gate guards",
+      "fromDistrict": "wilds",
+      "checks": [
+        "wanted",
+        "smuggle"
+      ],
+      "wantedMode": "bluff"
+    },
     "district": "wasteland",
     "perimeter_gate": true,
     "planner": "bp_district",

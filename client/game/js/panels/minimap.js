@@ -451,6 +451,84 @@ function minimapMessage(msg) {
   }
 }
 
+// Toggle the void theming class on every minimap grid (dark ashen backdrop). Kept
+// separate so the normal city render can clear it when you step back onto the grid.
+function setMinimapCrossing(on) {
+  for (const id of ['minimap-grid', 'minimap-grid-hud', 'minimap-grid-mob']) {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('mm-crossing-mode', on);
+  }
+}
+
+// ── Crossing mode: the void has no grid, so we render the branch-trail instead ──
+// The void's exits are a convention: `north` is always "back the way you came"
+// (`east` for a dead-end detour), `south` is "deeper", `east`/`west` off the trunk
+// are a fork/divert or a risk-for-loot detour. We chart only what you'd honestly
+// know — the trail behind you (walked), where you stand, and that it goes on into
+// fog ahead (the layout ahead stays a blind gamble, per the design). Fork/detour
+// options off your CURRENT room show as branch ticks.
+const backDirOf = (n) => (n.void_detour ? 'east' : 'north');
+const fwdDirOf = (n) => (n.void_detour ? null : 'south');
+
+function renderCrossing(nodes, current, direction) {
+  setMinimapCrossing(true);
+  const byId = new Map(nodes.map(n => [n.id, n]));
+  const isVoid = (n) => !!(n && n.void_crossing);
+
+  // The walked trail behind: follow the "back" exit room to room (nearest first).
+  const behind = [];
+  let cur = current, guard = 0;
+  while (guard++ < 5) {
+    const b = byId.get(cur.exits?.[backDirOf(cur)]);
+    if (!isVoid(b)) break;      // hit the origin gate (off the void map) or the window edge
+    behind.push(b);
+    cur = b;
+  }
+
+  // What's ahead: a dead-end (detour), the far gate (south leaves the void map onto
+  // a region), or more trail into fog.
+  let ahead;
+  if (current.void_detour) ahead = 'dead';
+  else {
+    const sId = current.exits?.south;
+    ahead = !sId ? 'none' : (byId.has(sId) ? 'fog' : 'gate');
+  }
+
+  // Branch options off where you stand (anything that isn't back or forward).
+  const back = backDirOf(current), fwd = fwdDirOf(current);
+  const branches = [];
+  for (const [dir, tId] of Object.entries(current.exits || {})) {
+    if (dir === back || dir === fwd) continue;
+    const t = byId.get(tId);
+    if (t?.void_detour) branches.push({ dir, kind: 'gamble' });
+    else if (isVoid(t)) branches.push({ dir, kind: 'divert' });
+  }
+
+  let rows = '';
+  for (const b of behind.slice().reverse())
+    rows += `<div class="mm-x-row mm-x-walked" title="${escapeHtml(b.name || 'the waste')}"><span class="mm-x-node">●</span></div>`;
+  const ticks = branches.map(br =>
+    `<span class="mm-x-branch mm-x-${br.kind}" title="${br.dir}: ${br.kind === 'gamble' ? 'a risk-for-loot detour' : 'divert toward another region'}">${br.kind === 'gamble' ? '?' : '⋔'}</span>`
+  ).join('');
+  rows += `<div class="mm-x-row mm-x-you" title="${escapeHtml(current.name || 'the void')}"><span class="mm-x-node mm-x-here">◎</span>${ticks}</div>`;
+  if (ahead === 'gate') rows += `<div class="mm-x-row mm-x-gate" title="the far gate"><span class="mm-x-node">⌂</span></div>`;
+  else if (ahead === 'fog') rows += `<div class="mm-x-row mm-x-fog"><span class="mm-x-node">⋯</span></div>`;
+  else if (ahead === 'dead') rows += `<div class="mm-x-row mm-x-dead" title="a dead end"><span class="mm-x-node">▚</span></div>`;
+
+  const foot = current.void_detour ? 'a dead-end gamble'
+    : ahead === 'gate' ? 'the far gate is close'
+    : behind.length ? 'the waste goes on' : 'you strike out';
+  const html = `<div class="mm-crossing"><div class="mm-x-cap">◈ THE VOID</div>`
+    + `<div class="mm-x-trail">${rows}</div><div class="mm-x-foot">${foot}</div></div>`;
+
+  applyMinimapZoom();
+  for (const id of ['minimap-grid', 'minimap-grid-hud', 'minimap-grid-mob']) {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = html;
+  }
+  if (direction) slideMinimap(direction);
+}
+
 export function renderMinimap(nodes, direction) {
   if (!nodes || !nodes.length) { minimapMessage('(unmapped)'); return; }
 
@@ -458,6 +536,11 @@ export function renderMinimap(nodes, direction) {
   if (!current) { minimapMessage('(unmapped)'); return; }
   _lastMinimapNodes = nodes; // cache so the Avenue View toggle can re-render in place
   notifyAutoWalkArrival(current.id); // confirmation-driven auto-walk: advance only when we actually arrive
+
+  // Off the grid: a waste-crossing room isn't on the world map, so drop the city
+  // renderer for a stylized "you are in the void" trail view (walked → you → fog).
+  if (current.void_crossing) { renderCrossing(nodes, current, direction); return; }
+  setMinimapCrossing(false);
 
   const byId = new Map(nodes.map(n => [n.id, n]));
   const coords = new Map();

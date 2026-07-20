@@ -1,0 +1,7 @@
+{
+  "name": "checkpoint",
+  "version": "1.0.0",
+  "description": "Content-driven security-checkpoint law. A `flags.checkpoint_cfg` config object on a gate tile ({ guards, checks:[wanted|smuggle|contraband], wantedMode, and an entry predicate insideFlag|fromFlag|fromDistrict }) drives a single `registerMoveGate`: wanted (hard turn-away or scaling Deception bluff → APPREHEND), smuggle (routes raw-drug through the smuggle economy via the SMUGGLE_RAW_SCAN action — cook_tier diff, bm_trust reward, manufacturing bust), and contraband (generic Deception scan → contraband_possession bust). Replaces the bespoke govgate + perimeter plugins. No verbs. Ships the South Gate wanted+smuggle recipe; the gov-quarter recipe is dormant for the North City rebuild.",
+  "after": ["surveillance", "smuggle"],
+  "dataSchema": []
+}
