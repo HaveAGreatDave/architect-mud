@@ -147,18 +147,25 @@ let _tosVoidZoom = 1.35;
 const VOID_ZMIN = 0.55, VOID_ZMAX = 2.3, VOID_ZSTEP = 0.35;
 
 // ── Void reception ("pan the tablet to find a signal") ─────────────────────────
-// Out in the void the tablet is off the grid. A faint signal drifts around the
-// viewport; the closer the tablet's centre sits to it, the better your reception —
-// so on desktop you drag the tablet around hunting for bars (mobile can't pan, so
-// reception just waxes/wanes as the signal drifts past). Reception drives the bar
-// count, the screen static/flicker, and which apps can reach the grid: below a
-// threshold the network apps are dead; find a strong pocket and they revive.
+// Out in the void the tablet is off the grid. There's one SMALL signal pocket that
+// sits still, then jumps to a new spot every ~9–20s; the closer the tablet's centre
+// sits to it, the better your reception — so on desktop you drag the tablet around
+// hunting for it, and re-hunting each time it moves. Reception drives the bar count,
+// the screen static/flicker, and which apps reach the grid: below the revive
+// threshold the network apps flicker out to a "D/C" badge; find the pocket and they
+// flicker back on. Lose the signal while inside a network app and you're booted home.
 const VOID_OFFLINE_APPS = new Set(['map', 'frontier', 'settings', 'music', 'help']); // work off-grid, always
-const RX_REVIVE = 0.55;  // smoothed reception at/above this → network apps are launchable
+const RX_REVIVE = 0.55;  // smoothed reception at/above this → network apps launch / revive
+const RX_KICK   = 0.30;  // in a network app, drop below this → booted back to the home screen (hysteresis vs REVIVE)
 const RX_NOSVC  = 0.14;  // below this → zero bars, "NO SVC"
+const SPOT_SIGMA = 0.13; // sweet-spot radius as a fraction of the smaller viewport axis — small/precise
 let _voidRxTimer = null;   // the reception/flicker loop (runs while the tablet is open)
 let _voidRxSmooth = 0;     // eased reception 0..1 (drives bars + app gating — stable)
 let _voidRxActive = false; // are we currently in the off-grid reception state?
+let _voidSpot = null;      // { x, y } — the single small reception pocket, in screen px
+let _voidSpotMoveAt = 0;   // Date.now() ms when the pocket next jumps to a new spot
+let _voidAppsAlive;        // last known network-app availability (undefined until first paint) — drives flicker on change
+let _voidKickedDrop = false; // latch so a single reception drop kicks you out of an app exactly once
 // Map app zoom: one unified axis. The −/+ buttons walk the server's zoom ladder
 // (movement.js MAP_ZOOM_HALVES) — each step grows the tile window and, at the far
 // end, becomes the whole-region view — instead of just resizing pixels. This array
@@ -311,10 +318,11 @@ function ensureStyles() {
     [data-motion="off"] #tablet-os-overlay .tos-sig-label { animation:none; }
 
     /* ── Void reception: screen static + flicker, dead app tiles, no-signal sheet ──
-       In the void the tablet is off the grid. A drifting signal pocket sets your
-       reception (voidReceptionRaw, driven by where you've dragged the tablet); the
-       loop (tickReception) paints a static haze whose opacity tracks how weak the
-       signal is, plus rare hard flickers, so you pan around chasing clean bars. */
+       In the void the tablet is off the grid. A single small signal pocket that jumps
+       occasionally sets your reception (voidReceptionRaw, driven by where you've
+       dragged the tablet); the loop (tickReception) paints a static haze whose opacity
+       tracks how weak the signal is, plus rare hard flickers, so you pan around
+       chasing clean bars — and re-chasing each time the pocket moves. */
     #tablet-os-overlay .tos-rx-static { position:absolute; inset:0; z-index:5; pointer-events:none; opacity:0; mix-blend-mode:screen;
       background:
         repeating-linear-gradient(0deg, rgba(255,255,255,.10) 0 1px, transparent 1px 3px),
@@ -325,10 +333,23 @@ function ensureStyles() {
     /* Hard flicker: a momentary brightness/contrast crush + jolt on the whole screen. */
     #tablet-os-overlay .tos-panel.tos-rx-blip .tos-screen { filter:brightness(.32) contrast(1.5); transform:translate(1px,-1px); }
     [data-motion="off"] #tablet-os-overlay .tos-panel.tos-rx-blip .tos-screen { filter:none; transform:none; }
-    /* Dead app tiles (out of signal): greyed, dimmed, un-tappable-looking. Comes
-       back to life the instant reception crosses the revive threshold. */
+    /* Dead app tiles (out of signal): greyed, dimmed, with a red "D/C" (disconnected)
+       badge over the icon. They flicker OUT when the grid drops and flicker back IN
+       when a pocket returns; the resting state settles at .34 opacity / greyscale. */
     #tablet-os-overlay .tos-tile.tos-tile-dead { opacity:.34; filter:grayscale(.85); transition:opacity .2s ease, filter .2s ease; }
     #tablet-os-overlay .tos-tile.tos-tile-dead .tos-icon { color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-tile-dc { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); z-index:3; pointer-events:none;
+      font-family:var(--font-mono,monospace); font-size:9.5px; font-weight:700; letter-spacing:1px; color:var(--red);
+      padding:1px 4px; border:1px solid var(--red); border-radius:3px; background:color-mix(in srgb, var(--bg,#0c1114) 78%, transparent);
+      text-shadow:0 0 5px color-mix(in srgb, var(--red) 45%, transparent); box-shadow:0 0 6px color-mix(in srgb, var(--red) 30%, transparent);
+      animation:tos-nosvc-flicker 2.4s steps(1) infinite; }
+    [data-motion="off"] #tablet-os-overlay .tos-tile-dc { animation:none; }
+    #tablet-os-overlay .tos-tile-flick-out { animation:tos-tile-flick-out .5s steps(1) 1 both; }
+    #tablet-os-overlay .tos-tile-flick-in  { animation:tos-tile-flick-in  .5s steps(1) 1 both; }
+    @keyframes tos-tile-flick-out { 0%{opacity:1} 15%{opacity:.15} 25%{opacity:.85} 45%{opacity:.1} 60%{opacity:.55} 78%{opacity:.2} 100%{opacity:.34} }
+    @keyframes tos-tile-flick-in  { 0%{opacity:.34} 20%{opacity:.9} 35%{opacity:.25} 55%{opacity:1} 72%{opacity:.4} 100%{opacity:1} }
+    [data-motion="off"] #tablet-os-overlay .tos-tile-flick-out,
+    [data-motion="off"] #tablet-os-overlay .tos-tile-flick-in { animation:none; }
     #tablet-os-overlay .tos-tile.tos-tile-shake { animation:tos-tile-shake .34s ease; }
     @keyframes tos-tile-shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-5px)} 40%{transform:translateX(4px)} 60%{transform:translateX(-3px)} 80%{transform:translateX(2px)} }
     [data-motion="off"] #tablet-os-overlay .tos-tile.tos-tile-shake { animation:none; }
@@ -1819,28 +1840,27 @@ function renderSummary(p) {
   </div>`;
 }
 
-// Raw reception at the tablet's current on-screen position: two signal pockets
-// drift slowly across the viewport on a lazy Lissajous path; reception is a
-// Gaussian falloff from whichever pocket the tablet's centre is nearest. Pan the
-// tablet toward a pocket (desktop) and the value climbs toward 1.
+// Drop the single reception pocket at a fresh random spot (kept off the extreme
+// edges so it's always reachable) and schedule its next jump. The pocket sits
+// still, then relocates occasionally — so a signal you'd found suddenly craters.
+function relocateSpot() {
+  if (typeof window === 'undefined') return;
+  const W = window.innerWidth, H = window.innerHeight;
+  _voidSpot = { x: W * (0.14 + 0.72 * Math.random()), y: H * (0.16 + 0.68 * Math.random()) };
+  _voidSpotMoveAt = Date.now() + 9000 + Math.random() * 11000; // holds ~9–20s, then jumps
+}
+
+// Raw reception at the tablet's current on-screen position: a single SMALL signal
+// pocket (Gaussian falloff from _voidSpot). Pan the tablet's centre onto the
+// pocket to climb toward 1; it's tight, so it takes real aim.
 function voidReceptionRaw() {
   const anchor = _overlay?.querySelector('.tos-anchor');
-  if (!anchor || typeof window === 'undefined') return 0;
+  if (!anchor || !_voidSpot || typeof window === 'undefined') return 0;
   const r = anchor.getBoundingClientRect();
   const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-  const W = window.innerWidth, H = window.innerHeight;
-  const t = Date.now() / 1000;
-  const spots = [
-    [W * (0.5 + 0.34 * Math.sin(t * 0.090)),        H * (0.40 + 0.30 * Math.cos(t * 0.071))],
-    [W * (0.5 + 0.30 * Math.cos(t * 0.055 + 2.1)),  H * (0.58 + 0.26 * Math.sin(t * 0.083 + 1.0))],
-  ];
-  const sigma = Math.hypot(W, H) * 0.20;
-  let best = 0;
-  for (const [hx, hy] of spots) {
-    const d2 = (cx - hx) ** 2 + (cy - hy) ** 2;
-    best = Math.max(best, Math.exp(-d2 / (2 * sigma * sigma)));
-  }
-  return Math.max(0, Math.min(1, best));
+  const sigma = Math.min(window.innerWidth, window.innerHeight) * SPOT_SIGMA;
+  const d2 = (cx - _voidSpot.x) ** 2 + (cy - _voidSpot.y) ** 2;
+  return Math.max(0, Math.min(1, Math.exp(-d2 / (2 * sigma * sigma))));
 }
 
 // A cell-signal indicator in the header. Full bars on the grid; out in the void
@@ -1877,19 +1897,35 @@ function clearVoidVisuals() {
   if (!_overlay) return;
   _overlay.querySelector('.tos-panel')?.classList.remove('tos-rx-blip');
   const stat = _overlay.querySelector('#tos-rx-static'); if (stat) stat.style.opacity = '0';
-  _overlay.querySelectorAll('.tos-tile-dead').forEach(el => el.classList.remove('tos-tile-dead'));
+  _overlay.querySelectorAll('.tos-tile-dead, .tos-tile-flick-out, .tos-tile-flick-in')
+    .forEach(el => el.classList.remove('tos-tile-dead', 'tos-tile-flick-out', 'tos-tile-flick-in'));
+  _overlay.querySelectorAll('.tos-tile-dc').forEach(el => el.remove());
+  _voidSpot = null; _voidAppsAlive = undefined; _voidKickedDrop = false;
 }
 function tickReception() {
   if (!_overlay || !_overlay.isConnected) { stopReceptionLoop(); return; }
   if (!isOnCrossing()) { if (_voidRxActive) { clearVoidVisuals(); _voidRxActive = false; } return; }
   if (!_voidRxActive) {                                       // just went off-grid
     _voidRxActive = true;
+    if (!_voidSpot) relocateSpot();
     _voidRxSmooth = voidReceptionRaw();
   }
+  if (Date.now() >= _voidSpotMoveAt) relocateSpot();         // the pocket jumps occasionally
   const motionOff = document.documentElement.getAttribute('data-motion') === 'off';
   const raw = voidReceptionRaw();
   _voidRxSmooth += (raw - _voidRxSmooth) * 0.28;             // ease so bars/gating don't jitter
   const weak = 1 - _voidRxSmooth;
+
+  // In a network app when the signal craters → boot back to the home screen (once
+  // per drop; re-arms when you recover). Offline apps and the home screen stay put.
+  if (_voidRxSmooth >= RX_REVIVE) _voidKickedDrop = false;
+  else if (!_voidKickedDrop && _voidRxSmooth < RX_KICK && _data && _data.appId
+           && _data.screen !== 'home' && !VOID_OFFLINE_APPS.has(_data.appId)) {
+    _voidKickedDrop = true;
+    _overlay.querySelector('.tos-nosig-sheet')?.remove();   // any open no-signal card goes with it
+    home();                                                 // signal lost mid-app → back to the launcher
+    return;
+  }
   // Momentary dropout spike — this is the "flickers here and there": more frequent
   // and deeper the weaker the signal. Suppressed when the user asked for no motion.
   const spike = (!motionOff && Math.random() < (0.08 + 0.30 * weak)) ? Math.random() * weak : 0;
@@ -1906,15 +1942,47 @@ function tickReception() {
   }
   updateDeadTiles();
 }
-// Toggle the "no signal" look on the home-grid tiles that need the grid, live, so
-// dead apps visibly come back as you pan into a reception pocket.
+// Drive the home-grid tiles' signal state. Network app tiles flicker out and show
+// a "D/C" (disconnected) badge when the grid drops below the revive threshold, and
+// flicker back on when it returns — the flicker only plays on the transition, so a
+// steady state doesn't strobe. Offline apps never die.
 function updateDeadTiles() {
   if (!_overlay) return;
   const alive = _voidRxSmooth >= RX_REVIVE;
+  const changed = alive !== _voidAppsAlive;   // availability just flipped this tick
+  _voidAppsAlive = alive;
   _overlay.querySelectorAll('.tos-tile[data-nav-app]').forEach(t => {
     const id = t.getAttribute('data-nav-app');
-    t.classList.toggle('tos-tile-dead', !VOID_OFFLINE_APPS.has(id) && !alive);
+    if (VOID_OFFLINE_APPS.has(id)) { setTileDead(t, false, false); return; }
+    setTileDead(t, !alive, changed);
   });
+}
+// Put one tile into (or out of) the disconnected state. `animate` plays the
+// flicker only when the state actually changed, so re-renders/steady ticks are quiet.
+function setTileDead(tile, dead, animate) {
+  const already = tile.classList.contains('tos-tile-dead');
+  if (dead) {
+    if (!tile.querySelector('.tos-tile-dc')) {
+      const b = document.createElement('span');
+      b.className = 'tos-tile-dc'; b.textContent = 'D/C';
+      tile.appendChild(b);
+    }
+    tile.classList.add('tos-tile-dead');
+    if (animate && !already) flickerTile(tile, 'out');
+  } else {
+    tile.querySelector('.tos-tile-dc')?.remove();
+    tile.classList.remove('tos-tile-dead');
+    if (animate && already) flickerTile(tile, 'in');
+  }
+}
+// Restart the flicker-out / flicker-in animation on a tile (skipped for no-motion).
+function flickerTile(tile, dir) {
+  if (document.documentElement.getAttribute('data-motion') === 'off') return;
+  const cls = dir === 'out' ? 'tos-tile-flick-out' : 'tos-tile-flick-in';
+  tile.classList.remove('tos-tile-flick-out', 'tos-tile-flick-in');
+  void tile.offsetWidth; // reflow so the animation re-triggers
+  tile.classList.add(cls);
+  setTimeout(() => tile.classList.remove(cls), 520);
 }
 // Blocked-app feedback: a sheet over the screen explaining the app can't reach the
 // grid, nudging the player to pan for signal. Auto-updating bars aren't needed —
