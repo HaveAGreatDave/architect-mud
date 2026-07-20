@@ -36,7 +36,7 @@ async function arriveSleepOffline(playerId, handle, zoneId) {
 async function arriveSleepLive(player) {
   const spot = await findLieSpot(player.current_zone);
   const whereMsg = spot ? `onto the ${spot.name}` : 'onto the floor';
-  player.sleeping = { restore: { hp: 0.18, sanity: 0.15 }, reason: 'home', minutesSlept: 0 };
+  player.sleeping = { restore: { hp: 0.18, sanity: 0.15, stamina: 0.5 }, reason: 'home', minutesSlept: 0 };
   setPosture(player, 'lying');
   player.goingHome = false;
   sendToZone(player.current_zone, {

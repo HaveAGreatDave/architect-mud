@@ -194,13 +194,15 @@ Applied by the `use`/`eat`/`drink` command from item tags ([inventory.js](../ser
 [apartments.js](../server/engine/apartments.js) `cmdSleep` + `tickSleep` (run from `resourceTick`).
 
 - **Eligibility** (`getSleepEligibility`): your own apartment → best rest (`SLEEP_RESTORE_HOME` =
-  18% HP / 15% sanity of *missing* per minute); a `sanctuary`-tagged zone or someone's unlocked
-  apartment → shallower (`SLEEP_RESTORE_SAFE_ZONE` = 8% / 5%); anywhere else / a locked apartment
-  that isn't yours → can't sleep. **2026-07:** the `is_safe_zone` column (stamped on 61% of zones by
-  old builder defaults) was dropped WITHOUT conversion — sleeping in the open now requires a
+  18% HP / 15% sanity / 50% stamina of *missing* per minute); a `sanctuary`-tagged zone or someone's
+  unlocked apartment → shallower (`SLEEP_RESTORE_SAFE_ZONE` = 8% / 5% / 35%); anywhere else / a locked
+  apartment that isn't yours → can't sleep. **2026-07:** the `is_safe_zone` column (stamped on 61% of
+  zones by old builder defaults) was dropped WITHOUT conversion — sleeping in the open now requires a
   deliberately-curated sanctuary, so until sanctuaries are tagged, rest means renting a room.
-- **Per minute asleep:** restore a slice of missing HP/sanity, drain 1 hunger + 1 thirst.
-- **Auto-wake** on any of: fully rested, hunger or thirst ≤ 5, or 30 minutes slept (`SLEEP_MAX_MINUTES`).
+- **Per minute asleep:** restore a slice of missing HP/sanity/stamina (stamina fastest — a good
+  sleep leaves you rested well before your wounds knit or your head clears), drain 1 hunger + 1 thirst.
+- **Auto-wake** on any of: fully rested (HP **and** sanity **and** stamina full), hunger or thirst ≤ 5,
+  or 30 minutes slept (`SLEEP_MAX_MINUTES`).
 - Any command other than `sleep`/`rest` wakes the player and is then executed (`commands/index.js`).
 
 ## Bodily pressure

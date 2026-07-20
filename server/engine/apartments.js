@@ -291,12 +291,14 @@ const BASE_LOCK_DIFFICULTY = 4;
 const MAX_LOCK_DIFFICULTY = 14;
 const UPGRADE_COST = 75; // credits per difficulty point, after the first
 
-// How much of the player's *missing* HP/sanity is restored per minute of
-// sleep — gradual, not instant. Sleeping in your own locked apartment is
+// How much of the player's *missing* HP/sanity/stamina is restored per minute
+// of sleep — gradual, not instant. Sleeping in your own locked apartment is
 // the fastest, best rest; sleeping anywhere else "safe" is slower and
-// shallower; sleeping somewhere dangerous doesn't work at all.
-const SLEEP_RESTORE_HOME = { hp: 0.18, sanity: 0.15 };
-const SLEEP_RESTORE_SAFE_ZONE = { hp: 0.08, sanity: 0.05 };
+// shallower; sleeping somewhere dangerous doesn't work at all. Stamina comes
+// back fastest of the three — a good sleep leaves you rested well before your
+// wounds knit or your head clears.
+const SLEEP_RESTORE_HOME = { hp: 0.18, sanity: 0.15, stamina: 0.5 };
+const SLEEP_RESTORE_SAFE_ZONE = { hp: 0.08, sanity: 0.05, stamina: 0.35 };
 
 // Sleep isn't free — your body still burns through hunger/thirst while
 // you're out, just slower than the cost of staying awake and active would
@@ -792,19 +794,24 @@ export async function tickSleep(player, broadcastFn) {
 	if (!player.sleeping) return null;
 	const { restore } = player.sleeping;
 
+	const staminaMax = player.stamina_max ?? 100;
+	player.stamina = player.stamina ?? staminaMax;
+
 	const hpGain = Math.ceil((player.hp_max - player.hp) * restore.hp);
 	const sanGain = Math.ceil(
 		(player.sanity_max - player.sanity) * restore.sanity,
 	);
+	const stamGain = Math.ceil((staminaMax - player.stamina) * (restore.stamina ?? 0));
 	player.hp = Math.min(player.hp_max, player.hp + hpGain);
 	player.sanity = Math.min(player.sanity_max, player.sanity + sanGain);
+	player.stamina = Math.min(staminaMax, player.stamina + stamGain);
 	player.hunger = Math.max(0, player.hunger - SLEEP_HUNGER_DRAIN);
 	player.thirst = Math.max(0, player.thirst - SLEEP_THIRST_DRAIN);
 	player.sleeping.minutesSlept++;
 
 	await query(
-		"UPDATE players SET hp=$1, sanity=$2, hunger=$3, thirst=$4 WHERE id=$5",
-		[player.hp, player.sanity, player.hunger, player.thirst, player.id],
+		"UPDATE players SET hp=$1, sanity=$2, stamina=$3, hunger=$4, thirst=$5 WHERE id=$6",
+		[player.hp, player.sanity, player.stamina, player.hunger, player.thirst, player.id],
 	);
 
 	if (Math.random() < 0.25) {
@@ -814,7 +821,9 @@ export async function tickSleep(player, broadcastFn) {
 	}
 
 	const fullyRested =
-		player.hp >= player.hp_max && player.sanity >= player.sanity_max;
+		player.hp >= player.hp_max &&
+		player.sanity >= player.sanity_max &&
+		player.stamina >= staminaMax;
 	const runningOnEmpty = player.hunger <= 5 || player.thirst <= 5;
 	const tooLong = player.sleeping.minutesSlept >= SLEEP_MAX_MINUTES;
 
@@ -842,18 +851,25 @@ export async function tickSleep(player, broadcastFn) {
 			player_update: {
 				hp: player.hp,
 				sanity: player.sanity,
+				stamina: player.stamina,
 				hunger: player.hunger,
 				thirst: player.thirst,
 			},
 		};
 	}
 
+	const gains = [
+		hpGain > 0 ? `+${hpGain} HP` : null,
+		stamGain > 0 ? `+${stamGain} Stamina` : null,
+		sanGain > 0 ? `+${sanGain} Sanity` : null,
+	].filter(Boolean);
 	return {
 		type: "sleep_tick",
-		message: `Still asleep. (+${hpGain} HP, +${sanGain} Sanity)`,
+		message: `Still asleep.${gains.length ? ` (${gains.join(', ')})` : ''}`,
 		player_update: {
 			hp: player.hp,
 			sanity: player.sanity,
+			stamina: player.stamina,
 			hunger: player.hunger,
 			thirst: player.thirst,
 		},
