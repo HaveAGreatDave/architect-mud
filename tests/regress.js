@@ -760,7 +760,8 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
     delete homeZone.flags.sanctuary;
   }
 
-  // Radiation comes from the tag alone (entry formula: floor(rad/10)).
+  // Radiation comes from the tag alone; exposure now trickles from the RADIATION
+  // MODEL in the minute tick (+1/10min on any hot tile), NOT a per-step spike.
   check('getZoneRadiation reads the tag', getZoneRadiation({ flags: { radiation: 30 } }) === 30);
   check('getZoneRadiation ignores the dropped column', getZoneRadiation({ radiation_level: 20, flags: {} }) === 0);
   // Skip water (impassable) AND enterable facades: stepping onto a facade forwards you
@@ -774,8 +775,8 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
       destZone.flags.radiation = 30;
       p._lastStepAt = 0; // clear the pacing plugin's cadence clock (same as the layer-2 move fixtures)
       const mv = await cmdMove(exit0.dir, p, broadcast, { targetZoneId: exit0.target });
-      check('moving into a tag-radiation zone applies rad gain',
-        mv?.type !== 'error' && (getPlayer().radiation || 0) >= radBefore + 3,
+      check('moving into a tag-radiation zone no longer spikes rad on the step',
+        mv?.type !== 'error' && (getPlayer().radiation || 0) === radBefore,
         `rad ${radBefore} -> ${getPlayer().radiation} (${JSON.stringify(mv?.message ?? mv).slice(0, 80)})`);
     } finally {
       delete destZone.flags.radiation;

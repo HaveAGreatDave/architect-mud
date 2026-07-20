@@ -187,8 +187,6 @@ const handlers = {
     state.currentZone = msg.zone;
     setYachtAmbience(msg.ambience);   // naval on deck / engine below / null elsewhere
     parseZoneInfo(msg.message);
-    if (msg.radiation_gain > 0) appendMsg(`☢ +${msg.radiation_gain} radiation absorbed.`, 'system');
-    if (state.player) { state.player.radiation = Math.min(100, (state.player.radiation || 0) + (msg.radiation_gain || 0)); updateVitals(state.player); }
     if (msg.minimap) renderMinimap(msg.minimap, msg.direction);
     if (msg.tempC !== undefined) updateZoneTempHUD(msg.tempC);
     refreshZoneVisibility(msg.visibility);   // absent on an old server ⇒ falls back to fetching

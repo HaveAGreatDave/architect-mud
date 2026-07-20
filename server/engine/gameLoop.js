@@ -1,5 +1,5 @@
 import { world, tickSpawns, getRandomAmbient, getWeatherAmbient, getLivePlayer, getInterruptLoudness, registerInterrupt, createCorpse, removeCorpse, tryBattleCry, setApartmentCache, hasActivePlayers, resolveLanding, getZone } from './world.js';
-import { districtFor } from './districts.js';
+import { getZoneRadiation } from './zone-tags.js';
 import { randomUUID } from 'crypto';
 import { propagateSound } from './sounds.js';
 import { enemyAttackPlayer, enemyAttackNpc, npcAttackPlayer, isOnCooldown, pvpSwing, formatBattleCry, getPlayerCombat } from './combat.js';
@@ -336,15 +336,15 @@ async function tick() {
   }
 }
 
-// The wilds: wasteland-flavored districts (mirrors OUTSIDE_CITY_DISTRICTS in
-// commands/movement.js) plus any transient void-crossing room. Used by the minute
-// tick to trickle radiation onto anyone out past the city grid.
-const WILDS_DISTRICTS = new Set(['wasteland', 'slaglands', 'ashway', 'hazard']);
-function inWilds(player) {
+// Irradiated ground: a tile whose radiation tag is hot, or a transient void-
+// crossing room (off-grid waste). Exposure is driven by the RADIATION MODEL (the
+// tag), not by which district you stand in — so any hot tile trickles RAD up
+// regardless of place, and a clean tile lets it wash out. Used by the minute tick.
+function irradiatedGround(player) {
   const z = getZone(player.current_zone);
   if (!z) return false;
   if (z.flags?.void_crossing) return true; // mid-journey, off the grid
-  return WILDS_DISTRICTS.has(districtFor(z).key);
+  return getZoneRadiation(z) > 0;
 }
 
 async function minuteTickFn() {
@@ -353,11 +353,11 @@ async function minuteTickFn() {
   emit('tick.minute', { broadcast: broadcastFn });
 
   for (const [playerId, player] of world.players) {
-    // Out in the wilds (the wasteland-flavored districts) or mid-void-crossing, the
-    // waste slowly irradiates you — a gentle +1 every 10 minutes — and the normal
-    // wash-out is suspended (nothing out here scrubs the rad off). Back in the city,
-    // radiation decays as usual: -1/min, -2/min while hydrated.
-    if (inWilds(player)) {
+    // On irradiated ground (a hot tile, or mid-void-crossing), the exposure slowly
+    // trickles up — a gentle +1 every 10 minutes — and the normal wash-out is
+    // suspended (nothing here scrubs the rad off). On clean ground, radiation decays
+    // as usual: -1/min, -2/min while hydrated.
+    if (irradiatedGround(player)) {
       if (minuteTick % 10 === 0 && (player.radiation || 0) < 100) {
         player.radiation = Math.min(100, (player.radiation || 0) + 1);
         await query('UPDATE players SET radiation=$1 WHERE id=$2', [player.radiation, playerId]);

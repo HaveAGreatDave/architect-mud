@@ -17,7 +17,6 @@ import { doorGuardsOnlyUnownedApartment } from '../apartments.js';
 import { createSelectionState, getSelectionState, formatSelectionPage } from '../sift.js';
 import { districtFor } from '../districts.js';
 import { getFlag, setFlag } from '../flags.js';
-import { getZoneRadiation } from '../zone-tags.js';
 import { zoneDanger } from '../danger.js';
 
 const RAW_DIRECTIONS = ['north', 'south', 'east', 'west', 'up', 'down', 'in', 'out', 'exit'];
@@ -497,19 +496,9 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
     emit('door.toggled', { zoneId: door.zone_id, targetZoneId: door.target_zone });
   }
 
-  let radGain = 0;
-  // Radiation gain is suspended outside the city for now — the wilds-flavored
-  // districts (wastes, slaglands, ashway, hazard) don't irradiate you even if a
-  // tile carries a radiation flag. Only the city grid still ticks up RAD.
-  const OUTSIDE_CITY_DISTRICTS = new Set(['wasteland', 'slaglands', 'ashway', 'hazard']);
-  const zoneRad = OUTSIDE_CITY_DISTRICTS.has(districtFor(targetZone).key) ? 0 : getZoneRadiation(targetZone);
-  if (zoneRad > 0) {
-    radGain = Math.floor(zoneRad * 0.1);
-    if (radGain > 0) {
-      player.radiation = Math.min(100, (player.radiation||0) + radGain);
-      pendingWrite.radiation = player.radiation;
-    }
-  }
+  // Radiation no longer accrues on movement. Exposure is driven by the RADIATION
+  // MODEL (a tile's radiation tag), applied as a slow trickle in the minute tick
+  // (gameLoop.js) — not a per-step spike keyed on which district you walked into.
   const describeOut = {};
   const zoneDesc = await describeZone(targetZone, player, describeOut);
 
@@ -602,7 +591,7 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
     }
   }
 
-  return { type:'move', message:zoneDesc, narration, zone:targetId, direction, radiation_gain:radGain, minimap: getMinimapData(targetId, 8, player), tempC: getZoneTemperature(targetId), ambience: ambienceFor(targetZone), visibility: describeOut.vis };
+  return { type:'move', message:zoneDesc, narration, zone:targetId, direction, minimap: getMinimapData(targetId, 8, player), tempC: getZoneTemperature(targetId), ambience: ambienceFor(targetZone), visibility: describeOut.vis };
 }
 
 // Move every live player following `leaderId` (a player or NPC id) out of
