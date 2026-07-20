@@ -303,6 +303,15 @@ Why instanced is the right default:
 - **Tone** — lonely and haunted, not crowded. You're alone out there except for the dead. Scarier, and
   it matches the "off-grid / NO SIGNAL" mood.
 
+**BUILT (branch `void-travel`):** a crossing is a per-crossing **instance** in the `crossings` registry,
+keyed by a unique instance id; room IDs are namespaced by the instance (`xing_<leader>_<n>_<node>`) while
+room *content* is seeded by `(route, window, node)` — shared geometry, private instance. A **party shares
+one instance**: the cohort is the leader + everyone **following** them (the follow substrate — no party
+import) co-present at the origin, all placed into room 0 together and reference-counted, so the transient
+rooms tear down only when the **last** member leaves. Node is RAM-only, flushed to `player_flags` on
+`player.logout` (not per step). Relog re-derives the instance from `crossing_instance`; the first member
+back rebuilds it, the rest join. Regress 1275/1275 incl. follower-shares-instance / non-follower-excluded.
+
 **Decision: strictly instanced + async for v1.** But leave the door open — architect the instance
 seam so **opt-in live overlap can bolt on later** without a rewrite:
 
@@ -434,7 +443,7 @@ the number of routes. Against the [read/write tiers](architecture.md#read-tiers-
 
 | Event | Cost | Why |
 |---|---|---|
-| **Move through the void** (hot path) | **0 DB round trips** | Geometry is computed from `f(voidOrigin, window, node)` in memory (memoized per window); `crossing_node` lives on the live player object and flushes lazily; encounters roll from in-RAM tables. Nothing awaits a query per step. |
+| **Move through the void** (hot path) | **0 DB round trips** | Geometry is computed in memory; `crossing_node` lives on `player._crossing` and is flushed to `player_flags` only on `player.logout` (**not per step** — as built); encounters (later) roll from in-RAM tables. Nothing awaits a query per step. |
 | **Depart** | ~1 write (deferrable) | Set the crossing `player_flags`; coalesces with the zone-move persistence already happening. |
 | **Arrive** | ~1 write | Clear the flags — piggybacks the normal destination-zone move write. |
 | **Death** | 1 insert (rare) | Write the ghost-trace. Death is not a hot path. |
