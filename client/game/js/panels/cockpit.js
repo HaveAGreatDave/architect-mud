@@ -14,13 +14,13 @@
 import { setAreaPane } from '../render.js';
 import { state } from '../state.js';
 import { sfx, clampInt, clampNum, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays, deckStrip, setDeckLevel } from './minigame-common.js';
-import { updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown, groundFx, flapWhir, stallHorn, gearFx, gunFx, aaWarn, tracerFx, aaGunFx, hitFx, lockTone, mslWarble, missileFx, flareFx, spraySfx } from './engine-audio.js';
+import { updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown, groundFx, flapWhir, stallHorn, gearFx, visorFx, gunFx, aaWarn, tracerFx, aaGunFx, hitFx, lockTone, mslWarble, missileFx, flareFx, spraySfx } from './engine-audio.js';
 import { ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, RENDER_TUNE, buildingRoofFt, BUILDING_FOOT, climbOutClear, VISIBLE_NEAR_F, VISIBLE_FAR_F, CLIMBOUT_MAX_F, CLIMBOUT_LAT_IN, CLIMBOUT_LAT_OUT, pushLightningStrike, surfaceBreakup } from './windshield.js';
 import { suppressWeatherFx } from './weather-fx.js';
 import { createState, step, readout, TYPES } from './flight-model.js';
 import { applyFlightDrugFx, clearFlightDrugFx } from './flight-drugfx.js';
 import { sendCmdSilent } from '../net.js';
-import { hex2rgb } from './aircraft3d.js';
+import { hex2rgb, visorSpecFor } from './aircraft3d.js';
 
 // Touch-primary devices (phones/tablets) have no keyboard for rudder pedals, so their fin
 // auto-coordinates with the roll input; desktops (a fine pointer + keys) fly the rudder by hand
@@ -2680,12 +2680,14 @@ export function openFlightSim(opts = {}) {
       // input.throttle each frame, so zeroing it here also drops the lever to idle).
       F.input.throttle = 0; F.throttleKey = 0;
       try { spoolUp(F.cls); } catch {}
+      if (F.hasVisor && F.noseVisor > 0.02) { try { visorFx('close'); } catch {} }   // nose visor lowers home under power
       sendCmdSilent('flightevent engineon');
       syncLights();   // power restored — switches come live again (lights stay off until switched on)
     } else if (s.onGround && s.airspeed < 5) {
       if (F.rolling && !F.heli) { finishLanding(F, s); return; }   // fixed-wing rolled to a stop → park (opens the hangar at a field)
       F.engineOn = false; engBtn.classList.remove('on');
       try { spoolDown(F.cls); } catch {}
+      if (F.hasVisor) { try { visorFx('open'); } catch {} }   // shut down on the ramp → the nose yawns open
       sendCmdSilent('flightevent engineoff');
       syncLights();   // master off → kill instrument backlight + exterior lamps
       // A helicopter never auto-parks/leaves the sim on shutdown — it stays put so the pilot can
@@ -3374,6 +3376,16 @@ function fsimFrame(now) {
   if (F.gearRetract) { const tgt = F.gearUp ? 0 : 1; F.gearAnim = lerpN(F.gearAnim ?? 1, tgt, Math.min(1, dt / 1.6)); }
   else F.gearAnim = 1;
 
+  // Leviathan cargo visor nose: parked with the engine shut down the whole forward section hinges
+  // UP; powering on lowers it home. Eases over ~5s (a big hydraulic visor is slow) so the external
+  // and cockpit views both show it swing, not snap. Only the heavy (Leviathan) mesh has a visor.
+  if (F.hasVisor === undefined) F.hasVisor = !!visorSpecFor(F.cls);
+  if (F.hasVisor) {
+    const tgt = (!F.engineOn && s.onGround && s.airspeed < 5) ? 1 : 0;
+    if (F.noseVisor === undefined) F.noseVisor = tgt;   // already raised if you board her cold — no start-up sweep
+    F.noseVisor = lerpN(F.noseVisor, tgt, Math.min(1, dt / 5));
+  }
+
   // ── Building collision (CFIT) — flying into a tower you can see out the glass ─────
   // Checks the aircraft's swept path this frame against the deterministic building geometry
   // the windshield is drawing. A deep/fast hit writes her off (crash cfit); a shallow clip of
@@ -3856,6 +3868,7 @@ function fsimFrame(now) {
     // keyboard, so their fin auto-coordinates — a half-throw deflection INTO the roll as you bank.
     ctrl: F.external ? { aileron: F.input.aileron, elevator: clampNum(F.input.elevator + (F.input.trim || 0), -1, 1), flaps: F.input.flaps, rudder: clampNum((F.input.pedal || 0) + (_touchPrimary ? 0.5 * F.input.aileron : 0), -1, 1) } : null,
     gearAnim: F.gearRetract ? clampNum(F.gearAnim ?? 1, 0, 1) : 1,   // fixed-gear craft are always down
+    noseVisor: F.hasVisor ? clampNum(F.noseVisor ?? 0, 0, 1) : 0,   // Leviathan cargo visor: raised when parked/cold, lowered under power (external model + cockpit foreground)
     onGround: !!r.onGround,
     // Auto-land guidance dome over the Echelon's helipad — shown whenever you're flying a heli
     // near her (the dome only draws if a yacht cell is actually in the world window). It ARMS

@@ -280,6 +280,22 @@ function buildFixedWing(p, detail = 1) {
     faces.push({ role: 'glass', sh: 0.72, p: ringAt(0) });   // front windscreen
     faces.push({ role: 'glass', sh: 0.50, p: ringAt(1) });   // rear window
   }
+  // ── Cargo visor group (Leviathan) ───────────────────────────────────────────────
+  // Tag every skin/glass face forward of the cut ring as one hinged unit that swings UP
+  // about a transverse line at the fuselage crown. `ring()` builds fresh vertices per
+  // station, so the fore and aft quads that meet at the cut don't share points — at rest
+  // the seam is invisible; opening yawns a clean cargo mouth instead of stretching the hull.
+  // The nose gear (role 'gear') is deliberately left out so it stays planted on the ramp.
+  if (detail && p.visor) {
+    const cut = p.noseF * (p.visor.hingeAt ?? 0.33);
+    const crownZ = czAt(cut) + p.fv * radAt(cut);              // top of the fuselage at the cut station
+    const A = V(cut, p.fr, crownZ), B = V(cut, -p.fr, crownZ); // hinge axis: a lateral line across the crown
+    const LIFT = new Set(['body', 'glass', 'window']);         // skin + flight-deck glass lift; gear/struts/nacelles stay
+    for (const f of faces) {
+      if (!LIFT.has(f.role)) continue;
+      if (f.p.every(v => v[0] >= cut - 1e-6)) { f.visor = true; f.visorHinge = [A, B]; f.visorMax = p.visor.maxAng ?? 0.9; }
+    }
+  }
   return faces;
 }
 
@@ -363,11 +379,16 @@ export function deflectSurface(face, ctrl) {
   else if (face.defl === 'elevator') ang = face.side * SURF_MAX.elevator * (ctrl.elevator || 0);
   else if (face.defl === 'rudder') ang = SURF_MAX.rudder * (ctrl.rudder || 0);   // both fins swing together (yaw): +rudder = right
   if (!ang) return face.p;
-  const A = face.hinge[0], B = face.hinge[1];
+  return rotAboutAxis(face.p, face.hinge[0], face.hinge[1], ang);
+}
+
+// Rodrigues rotation of a point list about the axis A→B by `ang` (rad). Returns a fresh array;
+// never mutates the input. Shared by the control-surface deflection and the Leviathan visor nose.
+function rotAboutAxis(pts, A, B, ang) {
   let dx = B[0] - A[0], dy = B[1] - A[1], dz = B[2] - A[2];
   const L = Math.hypot(dx, dy, dz) || 1; dx /= L; dy /= L; dz /= L;
   const ct = Math.cos(ang), st = Math.sin(ang);
-  return face.p.map(pt => {                                // Rodrigues rotation about the hinge axis (A, dir d)
+  return pts.map(pt => {
     const vx = pt[0] - A[0], vy = pt[1] - A[1], vz = pt[2] - A[2];
     const dv = dx * vx + dy * vy + dz * vz;
     const cx = dy * vz - dz * vy, cy = dz * vx - dx * vz, cz = dx * vy - dy * vx;   // d × v
@@ -376,6 +397,16 @@ export function deflectSurface(face, ctrl) {
       A[1] + vy * ct + cy * st + dy * dv * (1 - ct),
       A[2] + vz * ct + cz * st + dz * dv * (1 - ct)];
   });
+}
+
+// Visor-nose group: does this class HAVE one (→ null if not), for the driver to gate the animation.
+export function visorSpecFor(cls) { return (FW_PARAMS[cls] || {}).visor || null; }
+
+// Swing a tagged visor face UP by `t` (0 = closed/home, 1 = fully raised). Untagged faces and t≈0
+// pass through untouched, so a craft with no visor (or a closed one) costs nothing.
+export function hingeVisorFace(face, t) {
+  if (!face.visorHinge || !t) return face.p;
+  return rotAboutAxis(face.p, face.visorHinge[0], face.visorHinge[1], (face.visorMax || 0.9) * t);
 }
 
 // A small forward-pointing spinner cone + hub (prop hub). `scale` sizes it: a big turboprop
@@ -865,6 +896,10 @@ const FW_PARAMS = {
     wingH: 0.17, dih: -0.05, wRootF: 0.34, wRootB: -0.14, wTipF: 0.20, wTipB: -0.10,
     engines: [-0.60, -0.34, 0.34, 0.60], nacF: 0.26, nacH: 0.0, nacR: 0.095, pylons: true, windows: 6, heavyGear: true,
     noseBlunt: 3.3, noseCowl: 0.16, boxy: 0.12, bodyTube: 0.5, tailUp: 0.10,   // noseCowl floors the radome so it's a blunt An-124 nose, not a point
+    // Cargo VISOR NOSE (C-5 Galaxy / An-124): parked with the engines shut down the whole forward
+    // section ahead of the noseF*0.33 ring hinges UP; powering on lowers it home. hingeAt is a
+    // fraction of noseF so the cut lands exactly on a fuselage ring (a clean break, no torn skin).
+    visor: { hingeAt: 0.33, maxAng: 0.92 },
     canopy: { f0: 0.80, f1: 0.38, w: 0.115, h: 0.085, front: 0.30, tail: 0.10, segs: 6, arc: 5, sink: 0.025 } },   // smooth raised forward flight-deck hump behind the radome   // An-124 raised forward flight-deck hump behind the radome
   // Grasshopper — a Piper L-4 (per ref): a high-wing, strut-braced TANDEM two-seat TAILDRAGGER
   // liaison/observation plane. Signatures vs the Cessna: a deeper, SLAB-SIDED slim fuselage; a

@@ -521,6 +521,29 @@ const GEAR_FX = {
 };
 export function gearFx(kind) { const ae = AE(); const d = GEAR_FX[kind] || GEAR_FX.extend; try { ae?.init?.(); ae?.playSfx?.(d); } catch {} }
 
+// Cargo visor nose (Leviathan) — a HUGE, slow hydraulic hinge, an order heavier and longer than
+// the gear: a deep electric screw-jack motor grind, a broad structural groan of the nose swinging
+// on its bearing, hydraulic hiss, and a terminal locking sequence.
+//  open  = an unlatch THUNK, then a low descending-load motor grind + groan as the nose yawns up.
+//  close = a rising motor grind that dims under load as the mass comes down, hydraulic hiss, then
+//          a deep seating THUNK and the up/down-locks driving home (clunk-clack).
+const VISOR_FX = {
+  open: { config: { duration: 4.6, layers: [
+    { waveform: 'square', freq: 120, fm: { rate: 268, depth: 170 }, pitchBend: { to: 84, time: 0.12 }, filter: { type: 'bandpass', freq: 700, q: 1.5 }, adsr: { a: 0.002, d: 0.22, s: 0, r: 0.1 }, gain: 0.11 },                                        // unlatch clunk
+    { waveform: 'sawtooth', freq: 220, pitchBend: { to: 150, time: 3.6 }, fm: { rate: 96, depth: 40 }, tremolo: { rate: 17, depth: 0.4 }, filter: { type: 'lowpass', freq: 520, q: 2 }, adsr: { a: 0.35, d: 3.6, s: 0.55, r: 0.35 }, delay: 0.24, gain: 0.075 },   // heavy screw-jack motor grind, descending under load
+    { waveform: 'sine', freq: 58, tremolo: { rate: 3.4, depth: 0.35 }, filter: { type: 'lowpass', freq: 130, q: 1 }, adsr: { a: 0.6, d: 3.4, s: 0.55, r: 0.5 }, delay: 0.24, gain: 0.06 },                                                                    // structural groan of the nose on its bearing
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 1300, q: 0.6 }, adsr: { a: 0.7, d: 2.6, s: 0.4, r: 0.6 }, delay: 0.3, gain: 0.03 },                                                                                                   // hydraulic hiss swelling under
+    { waveform: 'triangle', freq: 900, delay: 4.35, filter: { type: 'bandpass', freq: 900, q: 8 }, adsr: { a: 0.002, d: 0.26, s: 0, r: 0.14 }, gain: 0.03 } ] } },                                                                                            // up-lock ring as it reaches the raised stop
+  close: { config: { duration: 4.8, layers: [
+    { waveform: 'sawtooth', freq: 150, pitchBend: { to: 240, time: 3.4 }, fm: { rate: 110, depth: 46 }, tremolo: { rate: 15, depth: 0.42 }, filter: { type: 'lowpass', freq: 560, q: 2 }, adsr: { a: 0.3, d: 3.3, s: 0.6, r: 0.3 }, gain: 0.08 },              // motor grind rising then dimming as the mass comes down
+    { waveform: 'sine', freq: 66, pitchBend: { to: 50, time: 3.4 }, tremolo: { rate: 3, depth: 0.35 }, filter: { type: 'lowpass', freq: 140, q: 1 }, adsr: { a: 0.5, d: 3.4, s: 0.5, r: 0.4 }, gain: 0.06 },                                                   // descending structural groan
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 1500, q: 0.7 }, tremolo: { rate: 9, depth: 0.5 }, adsr: { a: 0.4, d: 3.2, s: 0.35, r: 0.5 }, gain: 0.03 },                                                                            // hydraulic hiss
+    { waveform: 'sine', freq: 74, pitchBend: { to: 40, time: 0.22 }, delay: 3.95, adsr: { a: 0.002, d: 0.34, s: 0, r: 0.14 }, gain: 0.13 },                                                                                                                   // deep seating thunk as it beds home
+    { waveform: 'square', freq: 150, fm: { rate: 317, depth: 190 }, pitchBend: { to: 100, time: 0.12 }, delay: 4.16, filter: { type: 'bandpass', freq: 820, q: 1.6 }, adsr: { a: 0.002, d: 0.18, s: 0, r: 0.07 }, gain: 0.1 },                                // down-lock clunk
+    { waveform: 'square', freq: 128, fm: { rate: 283, depth: 200 }, pitchBend: { to: 88, time: 0.12 }, delay: 4.36, filter: { type: 'bandpass', freq: 720, q: 1.7 }, adsr: { a: 0.002, d: 0.2, s: 0, r: 0.08 }, gain: 0.11 } ] } },                           // down-lock clack (harder)
+};
+export function visorFx(kind) { const ae = AE(); const d = VISOR_FX[kind] || VISOR_FX.close; try { ae?.init?.(); ae?.playSfx?.(d); } catch {} }
+
 // A single heavy .50-cal round — ONE percussive "thud", fired per round by the trigger loop
 // (GUN_FIRE_MS cadence) so the sound times up exactly with each muzzle flash + tracer instead
 // of a smooth GAU-8 buzz-saw: a deep muzzle THUMP that drops in pitch (recoil), a short low

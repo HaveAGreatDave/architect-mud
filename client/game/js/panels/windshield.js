@@ -34,7 +34,7 @@
 // }
 
 import { isWeatherFxEnabled } from './weather-fx.js';
-import { aircraftFaces, wingtipStation, liveryPalette, faceBaseRgb, shadeRgb, hex2rgb, drawRotorFX, drawCockpitProp, glassSheen, drawNoseArt, deflectSurface, jazzTex, jazzUV, overlayJazz, JAZZ_ROLE, OCCLUDE_ROLE } from './aircraft3d.js';
+import { aircraftFaces, wingtipStation, liveryPalette, faceBaseRgb, shadeRgb, hex2rgb, drawRotorFX, drawCockpitProp, glassSheen, drawNoseArt, deflectSurface, hingeVisorFace, jazzTex, jazzUV, overlayJazz, JAZZ_ROLE, OCCLUDE_ROLE } from './aircraft3d.js';
 import { playThunderSample } from './engine-audio.js';
 
 const _scenes = new Map();      // id → persistent scene state (scroll, clouds, stars, particles)
@@ -983,7 +983,7 @@ export function paintWindshield(id, view) {
     // external orbit camera without pasting an aircraft at world origin — the yacht cell that
     // sits at the map-window centre renders as the framed subject instead.
     if (ext && !v.hideOwnShip) {
-      const ownbb = drawAircraftModel(ctx, cam, { dx: 0, dy: 0, cls: v.cls, hdg: v.heading, bank: v.bank, pitch: v.pitch, livery: v.livery, sizeMul: OWN_EXT_MUL, gearAnim: v.gearAnim ?? 1, power: v.enginePct != null ? v.enginePct : v.speed, ctrl: v.ctrl, propPhase: v.propPhase, propSpin: v.propSpin, propDisc: v.propDisc, lights: v.engineOn !== false, landing: !!v.landingLight, breakup: v.breakup }, ownShipBaseWz(cam, v), sunFx, now);
+      const ownbb = drawAircraftModel(ctx, cam, { dx: 0, dy: 0, cls: v.cls, hdg: v.heading, bank: v.bank, pitch: v.pitch, livery: v.livery, sizeMul: OWN_EXT_MUL, gearAnim: v.gearAnim ?? 1, power: v.enginePct != null ? v.enginePct : v.speed, ctrl: v.ctrl, propPhase: v.propPhase, propSpin: v.propSpin, propDisc: v.propDisc, lights: v.engineOn !== false, landing: !!v.landingLight, breakup: v.breakup, noseVisor: v.noseVisor || 0 }, ownShipBaseWz(cam, v), sunFx, now);
       if (v.wreckFx && ownbb) drawWreckFire(ctx, ownbb, v.wreckFx, now);   // crash-cinematic fire + smoke over the burning wreck
     }
     if (ext && v.reticle) drawGunReticle(ctx, cam, v, W, H, horizonY);   // two-part gunsight over the chase model
@@ -1087,6 +1087,7 @@ export function paintWindshield(id, view) {
   if (!ext) drawGlass(ctx, W, H, wx, st, dt, speed, framed);
   if (!v.windowClass && !ext) drawCanopy(ctx, W, H);   // DA62-style curved windscreen header (forward view)
   if (!v.windowClass && !ext) drawCowl(ctx, W, H, v.cls);   // nose cowl / glareshield along the bottom — hides the bare near-ground band without lifting the camera
+  if (!v.windowClass && !ext && v.noseVisor > 0.01) drawVisorCockpit(ctx, W, H, v.noseVisor, sky.night);   // raised cargo visor hanging in the forward view while parked/cold (Leviathan)
   if (!v.windowClass) drawWxBadge(ctx, W, wx, v.wind);
   if (v.hud) drawHud(ctx, W, H, v);
   // Guns (Phase B): tracers are drawn as 3D world objects inside the banked world block
@@ -1256,6 +1257,40 @@ function drawCowl(ctx, W, H, cls) {
   // Glareshield lip: the top edge catching sky light.
   ctx.beginPath(); ctx.moveTo(0, yCorner); ctx.quadraticCurveTo(W * 0.5, yMid, W, yCorner);
   ctx.strokeStyle = 'rgba(150,185,215,0.16)'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.restore();
+}
+
+// The Leviathan's raised cargo visor as seen from the flight deck (first-person). Parked and
+// cold, the whole nose is hinged UP, so its ribbed underbelly hangs down into the upper forward
+// view; as you power on it swings down and out of sight, seating home and clearing the view. `t`
+// (1 = fully raised, 0 = closed) slides a full-width panel down off the bottom edge as it seats.
+function drawVisorCockpit(ctx, W, H, t, night = 0) {
+  const drop = (1 - t) * H * 1.22;        // seated → the whole panel has swept down off-screen
+  const yTop = -H * 0.12 + drop;          // hangs above the top edge when raised
+  const yBot = H * 0.47 + drop;           // underbelly lip; bows lower at the centre
+  const yLip = yBot + H * 0.05;
+  ctx.save();
+  // Underbelly panel — full width, its lower lip bowing down (the rounded nose seen from beneath).
+  ctx.beginPath();
+  ctx.moveTo(0, yTop); ctx.lineTo(W, yTop); ctx.lineTo(W, yBot);
+  ctx.quadraticCurveTo(W * 0.5, yLip, 0, yBot); ctx.closePath();
+  const dk = 1 - 0.55 * night;            // dim it at night (no sky bounce into the bay)
+  const g = ctx.createLinearGradient(0, yTop, 0, yLip);
+  g.addColorStop(0, `rgba(${18 * dk | 0},${22 * dk | 0},${28 * dk | 0},0.99)`);   // recessed structure up top
+  g.addColorStop(0.72, `rgba(${34 * dk | 0},${40 * dk | 0},${48 * dk | 0},1)`);
+  g.addColorStop(1, `rgba(${60 * dk | 0},${70 * dk | 0},${82 * dk | 0},1)`);      // lip catching daylight
+  ctx.fillStyle = g; ctx.fill();
+  // Longitudinal keel + two flanking rib seams running fore→aft down the underbelly.
+  ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 1.5;
+  for (const fx of [0.5, 0.24, 0.76]) {
+    const x = W * fx, sag = (1 - Math.abs(fx - 0.5) * 2) * H * 0.05;
+    ctx.beginPath(); ctx.moveTo(x, yTop); ctx.lineTo(x, yBot + sag); ctx.stroke();
+  }
+  // Cross frames (a couple of hoop ribs) + the sky-lit lower lip edge.
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 1;
+  for (let i = 1; i <= 2; i++) { const yy = lerp(yTop, yBot, i / 3); ctx.beginPath(); ctx.moveTo(0, yy); ctx.quadraticCurveTo(W * 0.5, yy + H * 0.03, W, yy); ctx.stroke(); }
+  ctx.beginPath(); ctx.moveTo(0, yBot); ctx.quadraticCurveTo(W * 0.5, yLip, W, yBot);
+  ctx.strokeStyle = `rgba(150,185,215,${0.22 * dk})`; ctx.lineWidth = 2; ctx.stroke();
   ctx.restore();
 }
 
@@ -3906,6 +3941,7 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
     // live pilot input: ailerons roll, flaps drop, elevators pitch. Contacts pass no ctrl → neutral.
     const lp = (isGear && gearDown < 1)
       ? face.p.map(v => [v[0], v[1] * gearDown, v[2] + (1 - gearDown) * 0.2])
+      : (face.visor && c.noseVisor > 0.001) ? hingeVisorFace(face, c.noseVisor)   // Leviathan cargo visor: forward section swung up when parked/cold
       : (face.hinge && c.ctrl) ? deflectSurface(face, c.ctrl)
       : face.p;
     // Crash break-up: a sheared-off part tumbles away from the wreck on its own. Ballistic pieces
