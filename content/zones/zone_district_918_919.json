@@ -19,7 +19,8 @@
     "checkpoint_cfg": {
       "checks": [
         "wanted",
-        "smuggle"
+        "smuggle",
+        "contraband"
       ],
       "fromDistrict": "wilds",
       "guards": "the gate guards",
