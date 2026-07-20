@@ -2,7 +2,7 @@ import { world, tickSpawns, getRandomAmbient, getWeatherAmbient, getLivePlayer, 
 import { getZoneRadiation } from './zone-tags.js';
 import { randomUUID } from 'crypto';
 import { propagateSound } from './sounds.js';
-import { enemyAttackPlayer, enemyAttackNpc, npcAttackPlayer, isOnCooldown, pvpSwing, formatBattleCry, getPlayerCombat } from './combat.js';
+import { enemyAttackPlayer, enemyAttackNpc, npcAttackPlayer, isOnCooldown, pvpSwing, formatBattleCry, getPlayerCombat, flushDirtyResources } from './combat.js';
 import { tickEntityAI, moveEntity, ensureBehaviourGraph } from './ai-behaviour.js';
 import { npcBanterTick } from './npc-banter.js';
 import { restockAllVendors } from './vendor.js';
@@ -14,6 +14,7 @@ import { schedule } from './scheduler.js';
 import { hasExit, neighborZoneIds } from './exits.js';
 import { setPosture, forceStand } from './posture.js';
 import { carryCapacity } from './commands/inventory.js';
+import { flushDirtyPositions } from './commands/movement.js';
 import { query, logActivity } from '../models/db.js';
 import { getEnvironmentState, getZoneTemperature, getZoneApparentTemperature, waterTemperature, recordLightningKill, getZoneStormIntensity, getWeatherFieldSnapshot } from './environment.js';
 import { tickDrugDecay, tickDrugs, tickOnsets, tickWithdrawal, clearActiveDrugState } from './drugs.js';
@@ -50,6 +51,8 @@ export function startGameLoop(broadcast) {
   schedule('10s', () => tickSpawns(broadcastFn));
   schedule('15s', restRegenTick);
   schedule('1m', npcWanderTick);
+  schedule('1m', flushDirtyPositions); // checkpoint moved players' current_zone/stamina in one batched write
+
   schedule('30s', () => npcBanterTick({ broadcast: broadcastFn }));
   // Once-per-GAME-day housekeeping + rent collection. Driven by the environment's
   // day-rollover event (not the real '24h'/'1m' cadences) so both track the
@@ -189,7 +192,7 @@ async function tick() {
         }
         if (result.hit) {
           target.hp = Math.max(0, target.hp - result.damage);
-          query('UPDATE players SET hp=$1 WHERE id=$2', [target.hp, target.id]).catch(()=>{});
+          target._resDirty = true; // coalesced into the 1s flushDirtyResources write
           broadcastFn(null, { type:'combat_incoming', message:result.message, player_update:{ hp:target.hp, hp_max:target.hp_max } }, null, target.id);
           if (target.hp <= 0) { await handlePlayerDeath(target, enemy); return; }
 
@@ -301,7 +304,7 @@ async function tick() {
       if (!result) return;
       if (result.hit) {
         target.hp = Math.max(0, target.hp - result.damage);
-        query('UPDATE players SET hp=$1 WHERE id=$2', [target.hp, target.id]).catch(() => {});
+        target._resDirty = true; // coalesced into the 1s flushDirtyResources write
         broadcastFn(null, { type: 'combat_incoming', message: result.message, player_update: { hp: target.hp, hp_max: target.hp_max } }, null, target.id);
         if (target.hp <= 0) {
           await handlePlayerDeath(target, null, { type: 'combat', label: `Killed by ${npc.name}` });
@@ -329,11 +332,17 @@ async function tick() {
     const hpChanged = player.hp !== hpBefore;
     const stamChanged = player.stamina !== stamBefore;
     if (hpChanged || stamChanged) {
-      await query('UPDATE players SET hp=$1, stamina=$2 WHERE id=$3', [player.hp, player.stamina, playerId]);
+      player._resDirty = true; // coalesced into flushDirtyResources at the end of the tick
       broadcastFn(null, { type:'resource_tick', messages:[], player_update:{ hp: player.hp, stamina: player.stamina } }, null, playerId);
     }
     if ((messages.length || hpChanged) && player.hp <= 0) await handlePlayerDeath(player, null, { type: 'survival', label: 'Succumbed to your condition' });
   }
+
+  // One coalesced write for every player whose hp/stamina changed this second —
+  // from a swing (async, may land any tick) or a status-effect tick above. Bounds
+  // combat crash-loss to ≤1s while collapsing the per-swing write storm to one round
+  // trip. Self-gates to a no-op when nobody is dirty (empty world included).
+  await flushDirtyResources();
 }
 
 // Irradiated ground: a tile whose radiation tag is hot, or a transient void-
@@ -560,6 +569,8 @@ export async function handlePlayerDeath(player, killer, cause = null) {
   for (const [,zone] of world.zones) zone.players.delete(player.id);
   world.zones.get(respawnZone)?.players.add(player.id);
   player.current_zone = respawnZone;
+  player._posDirty = false; // death write above already checkpointed current_zone (see cmdMove)
+  player._resDirty = false; // death write above already persisted hp/stamina (see flushDirtyResources)
 
   // Equip fresh underwear (layer 1) and basic clothing (layer 2) on respawn.
   // On a jail override the body is already in custody, so dress it immediately;
@@ -850,6 +861,10 @@ async function resourceTick() {
   // players — this just makes idle-safety explicit so future pre-loop work
   // doesn't silently start running against an empty server.
   if (!hasActivePlayers()) return;
+  // Players whose five tracked resources changed this minute — persisted in ONE
+  // batched write after the loop instead of a per-player round trip inside it. A
+  // player who dies mid-loop is dropped (their respawn write already persisted them).
+  const dirtyResources = new Set();
   for (const [playerId, player] of world.players) {
     if (player.sleeping) {
       const result = await tickSleep(player, broadcastFn);
@@ -1042,11 +1057,9 @@ async function resourceTick() {
       || last.hp !== player.hp || last.stamina !== player.stamina
       || Math.round(last.body_temp_c * 2) !== Math.round(player.body_temp_c * 2);
     if (changed) {
-      await query('UPDATE players SET hunger=$1,thirst=$2,hp=$3,stamina=$4,body_temp_c=$5 WHERE id=$6',
-        [player.hunger, player.thirst, player.hp, player.stamina, player.body_temp_c, playerId]);
-      player._lastSavedResources = { hunger: player.hunger, thirst: player.thirst, hp: player.hp, stamina: player.stamina, body_temp_c: player.body_temp_c };
-      player._resourceNoWriteTicks = 0;
-      player._resourceTripwireWarned = false;
+      // Defer the write to the batched flush after the loop; the _lastSavedResources
+      // stamp + counter resets happen there, only once the batch actually succeeds.
+      dirtyResources.add(player);
     } else if (gm > 0) {
       // Tripwire: with game-time elapsing, thirst trends down (and forces a
       // write) within a few minutes — a long dry spell means the diff above is
@@ -1061,10 +1074,41 @@ async function resourceTick() {
     const bodyTempChanged = player.body_temp_c !== prevBodyTemp;
     if (messages.length || bodyTempChanged) broadcastFn(null, { type:'resource_tick', messages, player_update:{hunger:player.hunger,thirst:player.thirst,hp:player.hp,stamina:player.stamina,body_temp_c:player.body_temp_c} }, null, playerId);
 
-    if (player.hp <= 0) await handlePlayerDeath(player, null, lethalCause);
+    if (player.hp <= 0) {
+      await handlePlayerDeath(player, null, lethalCause);
+      dirtyResources.delete(player); // respawn write already persisted this row — don't clobber it with pre-death stats
+    }
 
     // Bodily pressure lives in the bodily plugin; horniness decay in the MIS
     // plugin (both on their own 1m ticks).
+  }
+
+  // One coalesced write for every player whose resources changed this minute.
+  if (dirtyResources.size) {
+    const players = [...dirtyResources];
+    const rows = [], params = [];
+    players.forEach((p, i) => {
+      const b = i * 6;
+      rows.push(`($${b + 1}::text, $${b + 2}::int, $${b + 3}::int, $${b + 4}::int, $${b + 5}::int, $${b + 6}::real)`);
+      params.push(p.id, p.hunger, p.thirst, p.hp, p.stamina, p.body_temp_c);
+    });
+    try {
+      await query(
+        `UPDATE players AS pl SET hunger=v.hunger, thirst=v.thirst, hp=v.hp, stamina=v.stamina, body_temp_c=v.btemp
+         FROM (VALUES ${rows.join(', ')}) AS v(id, hunger, thirst, hp, stamina, btemp)
+         WHERE pl.id = v.id`,
+        params
+      );
+      // Stamp + counter resets only after the batch succeeds (matches the old
+      // per-row semantics: the stamp reflects the last SUCCESSFUL persist).
+      for (const p of players) {
+        p._lastSavedResources = { hunger: p.hunger, thirst: p.thirst, hp: p.hp, stamina: p.stamina, body_temp_c: p.body_temp_c };
+        p._resourceNoWriteTicks = 0;
+        p._resourceTripwireWarned = false;
+      }
+    } catch (err) {
+      console.error(`resourceTick batched write failed: ${err.message}`);
+    }
   }
 }
 
@@ -1120,7 +1164,7 @@ async function restRegenTick() {
     if (hp === player.hp && stamina === player.stamina) continue;
     player.hp = hp;
     player.stamina = stamina;
-    await query('UPDATE players SET hp=$1, stamina=$2 WHERE id=$3', [hp, stamina, player.id]).catch(() => {});
+    player._resDirty = true; // hp/stamina only — piggybacks the 1s flushDirtyResources write
 
     const messages = [];
     if (healed > 0) {

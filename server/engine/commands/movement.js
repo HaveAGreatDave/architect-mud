@@ -553,13 +553,24 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
     }
   }
 
-  // Flush the coalesced per-move players write (see pendingWrite above).
-  {
+  // Persistence tier: current_zone (and the stamina that rides a move) is
+  // CHECKPOINT, not write-through. Live position is authoritative in RAM (see the
+  // pendingWrite note above), so the per-step round trip was pure durability on the
+  // hottest path in the game. We write through immediately only when the move
+  // crosses a meaningful threshold — into or out of an interior/apartment/building,
+  // a place it would be jarring to NOT be after a crash. Every other step just marks
+  // the player dirty and lets the idle-gated periodic flush (flushDirtyPositions,
+  // registered in gameLoop.js) batch the whole server into one UPDATE. See
+  // docs/architecture.md (Persistence Tiers) and the movement-lag audit (Read Tiers).
+  if (isInteriorZone(zone) !== isInteriorZone(targetZone)) {
     const cols = Object.keys(pendingWrite);
     await query(
       `UPDATE players SET ${cols.map((c, i) => `${c}=$${i + 1}`).join(', ')} WHERE id=$${cols.length + 1}`,
       [...cols.map(c => pendingWrite[c]), player.id]
     );
+    player._posDirty = false;
+  } else {
+    player._posDirty = true;
   }
 
   // Stamp the move for the rest/regen tick — stamina only recovers after a short
@@ -592,6 +603,36 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
   }
 
   return { type:'move', message:zoneDesc, narration, zone:targetId, direction, minimap: getMinimapData(targetId, 8, player), tempC: getZoneTemperature(targetId), ambience: ambienceFor(targetZone), visibility: describeOut.vis };
+}
+
+// Idle-gated periodic checkpoint of live positions (registered on '1m' in
+// gameLoop.js). current_zone/stamina are CHECKPOINT-tier — live state is
+// RAM-authoritative (see cmdMove), so rather than a per-step round trip we batch
+// every player who has moved since the last flush into ONE UPDATE. Never a
+// per-player loop: N moved players cost exactly one round trip. A throw here is
+// benign — the rows stay dirty and the next tick retries. The scheduler idle-gates
+// this by default, so an empty world writes nothing.
+export async function flushDirtyPositions() {
+  const dirty = getAllLivePlayers().filter(p => p._posDirty);
+  if (!dirty.length) return;
+  const rows = [];
+  const params = [];
+  dirty.forEach((p, i) => {
+    const b = i * 3;
+    rows.push(`($${b + 1}::text, $${b + 2}::text, $${b + 3}::int)`);
+    params.push(p.id, p.current_zone, Math.round(p.stamina ?? p.stamina_max ?? 100));
+  });
+  try {
+    await query(
+      `UPDATE players AS pl SET current_zone = v.zone, stamina = v.stam
+       FROM (VALUES ${rows.join(', ')}) AS v(id, zone, stam)
+       WHERE pl.id = v.id`,
+      params
+    );
+    for (const p of dirty) p._posDirty = false;
+  } catch (err) {
+    console.error(`flushDirtyPositions failed: ${err.message}`);
+  }
 }
 
 // Move every live player following `leaderId` (a player or NPC id) out of

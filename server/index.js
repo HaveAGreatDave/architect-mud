@@ -387,9 +387,11 @@ wss.on("connection", (ws) => {
 					}
 					await activateForcefield(player, broadcast);
 					await query(
-						"UPDATE players SET last_seen=EXTRACT(EPOCH FROM NOW()), current_zone=$1, offline_sleeping=TRUE WHERE id=$2",
-						[player.current_zone, session.playerId],
+						"UPDATE players SET last_seen=EXTRACT(EPOCH FROM NOW()), current_zone=$1, hp=$2, stamina=$3, offline_sleeping=TRUE WHERE id=$4",
+						[player.current_zone, player.hp, player.stamina, session.playerId],
 					).catch(() => {});
+					player._posDirty = false; // authoritative clean-exit checkpoint for position (see cmdMove)
+					player._resDirty = false; // ...and for hp/stamina (see flushDirtyResources) — closes the combat-log window on a graceful logout
 				} else {
 					await query(
 						"UPDATE players SET last_seen=EXTRACT(EPOCH FROM NOW()), offline_sleeping=TRUE WHERE id=$1",

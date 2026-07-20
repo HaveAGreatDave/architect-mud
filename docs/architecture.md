@@ -310,12 +310,67 @@ The engine keeps live state in RAM (`world.js` Maps, `environment.js` `state`) a
 | **Checkpoint** | must survive a clean restart; bounded loss on a crash is fine | write at logout/despawn and coarse event boundaries — never per-tick | loses ≤ one interval, always in a benign direction |
 | **Derived / ephemeral** | recomputed or irrelevant at boot | never written from ticks or transits | recomputed / reset at boot |
 
-Examples as built: **durable** — credits/bank, inventory moves, deaths/kills, door `lock_state`/`hp`/installed-lock `tags`, `generators.fuel_remaining` + wiring/destroyed/recover flags, `furniture.hp`, apartments/rent. **Checkpoint** — surveillance heat (written on raise, on zero, and at logout; decay is RAM-only), `body_temp_c` (0.5 °C write granularity). **Derived** — door `is_open` during movement transits (DB always holds the resting state; explicit `open`/`close` verbs still persist), NPC live position (`npcs.zone_id` — boot places at last deliberate placement or `home_zone`; permanent relocation = edit `home_zone` or use the dev-panel move), power-derived columns (`power_zones.status/available_kw/current_load_kw`, `generators.remaining_kw`, `lighting_states` counts — all diff-gated and rebuilt by `recomputePower()` at boot), `zoneTemps`, the moving weather field, and the `world_clock` anchor (persisted only on 30-game-minute/day boundaries; boot catch-up math reconstructs exact time from any anchor).
+Examples as built: **durable** — credits/bank, inventory moves, deaths/kills, door `lock_state`/`hp`/installed-lock `tags`, `generators.fuel_remaining` + wiring/destroyed/recover flags, `furniture.hp`, apartments/rent. **Checkpoint** — surveillance heat (written on raise, on zero, and at logout; decay is RAM-only), `body_temp_c` (0.5 °C write granularity), and the coalesced hot-path player fields: `current_zone`, combat `hp`/`stamina`, survival `hunger`/`thirst` (all written off the hot path via a dirty flag + batched flush — see [Coalesced hot-path writes](#coalesced-hot-path-writes-dirty-flag--batched-flush) below). **Derived** — door `is_open` during movement transits (DB always holds the resting state; explicit `open`/`close` verbs still persist), NPC live position (`npcs.zone_id` — boot places at last deliberate placement or `home_zone`; permanent relocation = edit `home_zone` or use the dev-panel move), power-derived columns (`power_zones.status/available_kw/current_load_kw`, `generators.remaining_kw`, `lighting_states` counts — all diff-gated and rebuilt by `recomputePower()` at boot), `zoneTemps`, the moving weather field, and the `world_clock` anchor (persisted only on 30-game-minute/day boundaries; boot catch-up math reconstructs exact time from any anchor).
 
 Rules of thumb:
 - **New per-tick or per-transit state starts at derived/checkpoint unless it's money or inventory.** A decaying meter never needs a per-tick write — write it where it's raised, zeroed, and at logout.
-- There is deliberately **no** generic dirty-flag/flush framework and **no** shutdown flush: every checkpoint/derived field must be *crash-benign by construction* (restored slightly stale in a direction that doesn't reward crashing). If a field can't tolerate crash loss, it's durable — write it through.
+- There is deliberately **no** generic dirty-flag/flush *framework* and **no** shutdown flush: every checkpoint/derived field must be *crash-benign by construction* (restored slightly stale in a direction that doesn't reward crashing). If a field can't tolerate crash loss, it's durable — write it through. (The coalesced hot-path fields below carry their own ad-hoc `_*Dirty` flags — that's per-field plumbing, not a framework.)
 - Diff-gate any recurring bulk UPDATE (`IS DISTINCT FROM` in SQL, or a last-saved stamp in JS) so a stable world writes nothing.
+
+### Coalesced hot-path writes (dirty flag + batched flush)
+
+The highest-frequency player writes — position (per step), combat `hp` (per swing), and
+the survival/regen resources (per tick) — do **not** issue a round trip at the mutation
+site. Live state is authoritative in RAM (`world.players`), so the mutation site sets a
+per-field **dirty flag** and a low-frequency **batched flush** persists every dirty player
+in **one** `UPDATE … FROM (VALUES …)` round trip. This decouples DB round-trip *count* from
+player count × action-rate on exactly the paths that scale worst — a busy zone of 200
+players is the same handful of writes/interval as a quiet one (the payload grows; the
+round-trip count doesn't). It is the write-side mirror of the [Read Tiers](#read-tiers-where-data-lives-at-runtime)
+work from the same 2026-07 movement-lag audit.
+
+As built (all in `server/engine/`):
+
+| Field(s) | Dirty flag | Flush | Cadence | Crash-rewind bound |
+|---|---|---|---|---|
+| player `current_zone` (+ move `stamina`) | `_posDirty` | `flushDirtyPositions` (commands/movement.js) | `'1m'` scheduler | ≤ ~1 min, **plus** an immediate write-through on interior/building **threshold** crossings |
+| combat `hp` (+ `stamina`) | `_resDirty` | `flushDirtyResources` (combat.js), called at end of `tick()` | 1 s (combat tick) | ≤ ~1 s |
+| survival `hunger`/`thirst`/`hp`/`stamina`/`body_temp_c` | deferred into a local `Set` | inline batch at end of `resourceTick` (gameLoop.js) | `'1m'` scheduler | ≤ ~1 min |
+
+`restRegenTick` (hp/stamina regen) writes nothing of its own — it sets `_resDirty` and rides
+`flushDirtyResources`. Position also folds `stamina` into its flush; combat also carries
+`stamina`; the same value written by more than one flush is a harmless last-writer-wins no-op.
+
+**Invariants — the cost of this pattern is discipline, and a violation fails *silently*
+(no error, just an un-persisted change). Preserve all of these:**
+
+1. **Set the dirty flag at *every* mutation site.** Any new place that damages a player, moves
+   them, or drains a resource must set the matching `_*Dirty` flag (or add to the deferred
+   `Set`). A new damage source that forgets `_resDirty` deals damage that never persists.
+2. **Never mutate a coalesced field *after* its flush runs in the same tick.** `flushDirtyResources`
+   is the last statement in `tick()` on purpose. Code added after it that changes hp/stamina
+   won't be seen until the next tick's flush (usually fine — ≤1 s — but know it).
+3. **Write-through + clear the flag on death and graceful logout.** `handlePlayerDeath` and the
+   disconnect handler (`server/index.js`) both write the full row and clear `_posDirty`/`_resDirty`,
+   so those authoritative writes aren't re-clobbered by a later stale flush. Graceful logout also
+   persists `hp`/`stamina`, which closes the ≤1 s combat-log window for clean exits (only a hard
+   crash keeps it).
+4. **A player written through mid-loop must be dropped from that cycle's batch.** `resourceTick`
+   `.delete()`s a player from `dirtyResources` right after `handlePlayerDeath`, or the post-loop
+   batch would overwrite the fresh respawn row with pre-death stats. Any future "write this row now,
+   inside the loop" branch must do the same.
+5. **Offline players are DB rows, not live players — they keep direct writes.** `pvpSwingSleeping`
+   attacks an offline defender's row directly; it is not in `world.players` and must not be routed
+   through a flag/flush.
+6. **The batch persists RAM verbatim; stamps update only on success.** `resourceTick`'s diff-gate
+   stamp (`_lastSavedResources`) and no-write tripwire counters are set *after* the batched write
+   succeeds, so the stamp always reflects the last *successful* persist (a thrown batch leaves rows
+   dirty to retry next cycle).
+
+**What this trades:** the DB is no longer a live mirror of RAM — anything reading `players`
+out-of-band (admin dashboards, analytics, one-shot scripts) sees data stale by up to the flush
+interval. In-process reads are unaffected (RAM is authoritative). Money, inventory, deaths, and
+kills stay durable write-through, so none of that carries crash exposure.
 
 ---
 

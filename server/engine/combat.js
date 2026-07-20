@@ -387,6 +387,40 @@ export function killNpcInstance(npcId) {
 // raking the tile, a wreck coming down on them. Rolls a body part, subtracts that
 // part's typed soak (so a kevlar vest still helps under a strafing run), writes HP,
 // and reports whether it was lethal. No to-hit and no cooldown: the caller owns the
+// Coalesced combat-resource write, called once per second at the end of the combat
+// tick (gameLoop.js). hp/stamina change fast — every swing, every status-effect tick —
+// but the row write is durability-only: RAM is authoritative (combat reads player.hp
+// from world.players). Rather than one UPDATE per swing (N/sec per combatant), the
+// damage/effect sites just set player._resDirty; this batches every dirty player into
+// ONE round trip. Crash-loss is bounded to ≤1s of combat — a negligible reward for
+// crashing, so hp stays effectively durable while the per-swing write storm collapses
+// to a single UPDATE. Death and graceful logout still write hp through immediately, so
+// neither relies on this flush. Offline defenders (pvpSwingSleeping) are DB rows, not
+// live players, and keep their own direct write.
+export async function flushDirtyResources() {
+  const dirty = [];
+  for (const p of world.players.values()) if (p._resDirty) dirty.push(p);
+  if (!dirty.length) return;
+  const rows = [];
+  const params = [];
+  dirty.forEach((p, i) => {
+    const b = i * 3;
+    rows.push(`($${b + 1}::text, $${b + 2}::int, $${b + 3}::int)`);
+    params.push(p.id, Math.round(p.hp ?? p.hp_max ?? 0), Math.round(p.stamina ?? p.stamina_max ?? 100));
+  });
+  try {
+    await query(
+      `UPDATE players AS pl SET hp = v.hp, stamina = v.stam
+       FROM (VALUES ${rows.join(', ')}) AS v(id, hp, stam)
+       WHERE pl.id = v.id`,
+      params
+    );
+    for (const p of dirty) p._resDirty = false;
+  } catch (err) {
+    console.error(`flushDirtyResources failed: ${err.message}`);
+  }
+}
+
 // hit roll and its own fire-rate gate. Lethal outcomes are left for the caller to
 // route through handlePlayerDeath.
 export async function applyStrikeToPlayer(player, { min, max, damageType = 'kinetic' }) {
@@ -397,7 +431,7 @@ export async function applyStrikeToPlayer(player, { min, max, damageType = 'kine
   damage = Math.max(1, damage - playerPartSoak(player, part, damageType));
   const before = player.hp ?? player.hp_max ?? 100;
   player.hp = Math.max(0, before - damage);
-  await query('UPDATE players SET hp=$1 WHERE id=$2', [player.hp, player.id]);
+  player._resDirty = true; // coalesced into the 1s flushDirtyResources write
   return { damage, part, partLabel: PART_LABELS[part] || part, killed: player.hp <= 0 };
 }
 
@@ -469,7 +503,7 @@ export async function pvpSwing(attacker, defender) {
   const defHpBefore = defender.hp ?? defender.hp_max ?? 100;
   defender.hp = Math.max(0, defHpBefore - damage);
   const defHpMax = defender.hp_max ?? 100;
-  await query('UPDATE players SET hp=$1 WHERE id=$2', [defender.hp, defender.id]);
+  defender._resDirty = true; // coalesced into the 1s flushDirtyResources write
 
   const killed = defender.hp <= 0;
   const defHpTag = killed ? '' : selfHpTag(defender.hp, defHpMax);
