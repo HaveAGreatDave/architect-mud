@@ -26,6 +26,7 @@ const world = {
   maps: new Map(),       // mapId -> maps row (parent_zone_id links an interior to its overworld tile)
   furniture: new Map(),  // id -> furniture row (write funnel below keeps it in sync; DB stays SoT)
   regions: new Map(),    // regionId -> regions row (spatial world-map places; member zones carry flags.region_id)
+  transientZones: new Set(), // ids of synthetic (non-DB) zones injected at runtime — see registerTransientZone
 };
 
 // Last-resort home for an NPC whose current AND home zones were both deleted
@@ -750,6 +751,56 @@ export function removeVentureFromCache(zoneId) { world.orgVentures.delete(zoneId
 
 export function getZone(id) { return world.zones.get(id) || null; }
 
+// ── Transient zones (docs/systems-overland-void-travel.md) ───────────────────
+// Synthetic zones that live in the world store WITHOUT a DB row. The void-
+// crossing rooms are generated in memory and injected here so that movement,
+// describe, and the per-player minimap treat them like any other zone (they all
+// read world.zones). They are the ONE class of zone with no DB backing, so the
+// never-persist guarantee is load-bearing:
+//   • Nothing writes world.zones back to the DB — loadZones only reads, and the
+//     content export queries the DB directly, never the live Map. So a transient
+//     zone is inherently invisible to persistence/export.
+//   • getAllZones() (the bulk scan corps/gps/work/etc. run) EXCLUDES them via the
+//     transientZones marker set, so no wholesale reader treats a void room as a
+//     real tile.
+//   • Callers give void rooms a non-`map_world` map_id, so the flag/map-filtered
+//     direct `world.zones.values()` iterators skip them naturally.
+// Mirrors the setDoorCache / setZoneControlCache cache-setter idiom. Caller owns
+// lifecycle: move players out before removing.
+export function registerTransientZone(zone) {
+  if (!zone?.id) throw new Error('registerTransientZone: zone.id required');
+  const existing = world.zones.get(zone.id);
+  world.zones.set(zone.id, {
+    ...zone,
+    // describeZone hard-requires a string description; a generated room that
+    // forgets one would crash the arrival render. Default it like the rest.
+    description: zone.description ?? '',
+    exits: zone.exits || {},
+    ambient_events: zone.ambient_events || [],
+    flags: zone.flags || {},
+    stains: zone.stains || {},
+    // Preserve occupant sets across a re-register (relog re-derivation regenerates
+    // the same room id) so a player already placed here isn't orphaned.
+    players: existing?.players || new Set(),
+    enemies: existing?.enemies || new Set(),
+    npcs:    existing?.npcs    || new Set(),
+    corpses: existing?.corpses || new Set(),
+  });
+  world.transientZones.add(zone.id);
+  return world.zones.get(zone.id);
+}
+
+// Only ever removes a zone the transient registry owns — guards against a caller
+// accidentally evicting a real DB-backed zone from the live world.
+export function removeTransientZone(id) {
+  if (!world.transientZones.has(id)) return false;
+  world.zones.delete(id);
+  world.transientZones.delete(id);
+  return true;
+}
+
+export function isTransientZone(id) { return world.transientZones.has(id); }
+
 // Build a small graph snapshot for the minimap: current zone + everything
 // reachable within `depth` hops, with enough info to render an ASCII grid.
 // Per-viewer minimap node filters. A plugin registers fn(zone, viewer) → boolean;
@@ -875,7 +926,11 @@ export function getMinimapData(centerZoneId, depth = 8, viewer = null) {
 }
 
 export function getAllZones() {
-  return [...world.zones.values()].map(z => ({
+  // Transient (synthetic, non-DB) zones are excluded from the bulk scan — the
+  // void-crossing rooms must never be seen as real tiles by corps/gps/work/etc.
+  // The per-player minimap uses getMinimapData (exit-BFS from the center), not
+  // this, so a player standing in a void room still sees it.
+  return [...world.zones.values()].filter(z => !world.transientZones.has(z.id)).map(z => ({
     id: z.id, name: z.name, description: z.description,
     sanctuary: isSanctuary(z), radiation: getZoneRadiation(z), danger: zoneDanger(z),
     exits: z.exits, ambient_events: z.ambient_events, ambient_theme: z.ambient_theme, flags: z.flags,

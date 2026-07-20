@@ -23,7 +23,7 @@ import { readdir, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
-import { initWorld, setLivePlayer, removeLivePlayer, addPlayerToZone, removePlayerFromZone, getAllZones, getLivePlayer, world, setDoorCache, deleteDoorCache, getDoorForExit, getApartment, insertFurniture, deleteFurniture } from '../server/engine/world.js';
+import { initWorld, setLivePlayer, removeLivePlayer, addPlayerToZone, removePlayerFromZone, getAllZones, getLivePlayer, world, setDoorCache, deleteDoorCache, getDoorForExit, getApartment, insertFurniture, deleteFurniture, getZone, registerTransientZone, removeTransientZone, isTransientZone } from '../server/engine/world.js';
 import { moveEntity } from '../server/engine/ai-behaviour.js';
 import { exitTargets, allExits, neighborZoneIds, addExit, removeExit } from '../server/engine/exits.js';
 import { cmdMove, dragFollowers } from '../server/engine/commands/movement.js';
@@ -499,6 +499,49 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
     world.zones.delete(originId);
   } else {
     check('multi-exit behavioural (needs 2 named interiors)', true, 'skipped — insufficient interior zones');
+  }
+
+  // ── Transient zones (void-travel Slice 1 substrate) ────────────────────────
+  // A synthetic zone injected via registerTransientZone must behave like a real
+  // zone to movement/describe (which read world.zones) yet stay invisible to the
+  // bulk getAllZones scan and never be mistaken for a DB zone. This is the seam
+  // the whole void-crossing system stands on.
+  {
+    const voidId = 'zone_regress_void_' + process.pid;
+    const gateId = 'zone_regress_voidgate_' + process.pid;
+    world.zones.set(gateId, {
+      id: gateId, name: 'Void Gate', description: 'A gap in the perimeter wall.', flags: {}, exits: { south: voidId },
+      players: new Set(), npcs: new Set(), enemies: new Set(), corpses: new Set(),
+    });
+    const vz = registerTransientZone({
+      id: voidId, name: 'The Trackless Waste', description: 'Nothing but dust in every direction.',
+      map_id: 'map_void', exits: { north: gateId },
+    });
+    check('registerTransientZone injects into the world store', getZone(voidId) === vz && vz.name === 'The Trackless Waste', getZone(voidId)?.name);
+    check('registerTransientZone marks the zone transient', isTransientZone(voidId) === true, String(isTransientZone(voidId)));
+    check('registerTransientZone normalizes occupant sets', vz.players instanceof Set && vz.corpses instanceof Set, typeof vz.players);
+    check('transient zone excluded from the getAllZones bulk scan', !getAllZones().some(z => z.id === voidId), 'leaked into getAllZones');
+
+    // The spike's core claim: cmdMove tolerates walking INTO a synthetic non-DB zone.
+    const mover = getPlayer();
+    const savedZone = mover.current_zone;
+    mover.current_zone = gateId;
+    mover._lastStepAt = 0;
+    const into = await cmdMove('south', mover, broadcast);
+    check('cmdMove walks a player into a transient zone', into?.type === 'move' && mover.current_zone === voidId, `${into?.type} zone=${mover.current_zone}`);
+    check('player is an occupant of the transient zone after moving in', getZone(voidId).players.has(mover.id), [...getZone(voidId).players].join(','));
+
+    // …and back out again.
+    mover._lastStepAt = 0;
+    const out = await cmdMove('north', mover, broadcast);
+    check('cmdMove walks a player back out of a transient zone', out?.type === 'move' && mover.current_zone === gateId, `${out?.type} zone=${mover.current_zone}`);
+
+    // removeTransientZone cleans up, and refuses to evict a real DB zone.
+    check('removeTransientZone removes the synthetic zone', removeTransientZone(voidId) === true && !getZone(voidId), String(!!getZone(voidId)));
+    check('removeTransientZone refuses to evict a real DB zone', zones[0] && removeTransientZone(zones[0].id) === false && !!getZone(zones[0].id), 'evicted a real zone!');
+
+    mover.current_zone = savedZone;
+    world.zones.delete(gateId);
   }
 }
 
