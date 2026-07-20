@@ -1,0 +1,40 @@
+{
+  "ambient_events": [
+    "The urn burbles to itself, chained to its bracket so it can't wander in a hard bank.",
+    "A cupboard latch rattles against its keeper and holds.",
+    "Something in the galley smells faintly of scorched coffee and hot metal — home, more or less."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#0c1513",
+  "color": "#cdeae2",
+  "created_by": "leviathan_base",
+  "description": "The galley — a narrow working alley between the cabin and the hold, every surface bracketed and latched against the roll of flight. A chained urn, a fold-down counter, a couple of crew bunks slotted into the frame for the long hauls. It is cramped, warm, and stubbornly domestic in the belly of a freight aircraft. The cabin lies forward to the NORTH; the cargo hold aft to the SOUTH.",
+  "exits": {
+    "north": "zone_leviathan_cabin",
+    "south": "zone_leviathan_hold"
+  },
+  "flags": {
+    "aircraft_cabin": "leviathan",
+    "always_lit": true,
+    "building_name": "Leviathan",
+    "home_slots": [
+      {
+        "id": "coffee_nook",
+        "kind": "counter",
+        "label": "the galley counter"
+      }
+    ],
+    "is_building": true,
+    "is_interior": true
+  },
+  "grid_x": 0,
+  "grid_y": 1,
+  "grid_z": 1,
+  "id": "zone_leviathan_galley",
+  "map_id": "map_aircraft_leviathan",
+  "marker": null,
+  "name": "Leviathan — Galley",
+  "parent_zone": null,
+  "updated_at": "1784505600"
+}

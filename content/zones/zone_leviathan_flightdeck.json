@@ -1,0 +1,34 @@
+{
+  "ambient_events": [
+    "The four throttles inch forward under the pilot's hand, needles climbing in sympathy.",
+    "Green nav glass washes over the cramped deck, the world outside sliding past the wraparound glass.",
+    "A trim wheel spins itself a half-turn and stops, and the airframe settles into the new attitude."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#0a1512",
+  "color": "#bff0e4",
+  "created_by": "leviathan_base",
+  "description": "The flight deck of the Leviathan — a cramped glass nose bolted to the front of a cargo cathedral. Wraparound windows wrap the pilot's seat in the moving world; four throttle levers stand between the seats, and the panel is a wall of turquoise-lit gauges older than most cities. Whoever holds this seat holds the whole ship. The main cabin lies AFT, to the SOUTH.",
+  "exits": {
+    "south": "zone_leviathan_cabin"
+  },
+  "flags": {
+    "aircraft_cabin": "leviathan",
+    "always_lit": true,
+    "building_name": "Leviathan",
+    "cabin_window": true,
+    "flightdeck": true,
+    "is_building": true,
+    "is_interior": true
+  },
+  "grid_x": 0,
+  "grid_y": -1,
+  "grid_z": 1,
+  "id": "zone_leviathan_flightdeck",
+  "map_id": "map_aircraft_leviathan",
+  "marker": null,
+  "name": "Leviathan — Flight Deck",
+  "parent_zone": null,
+  "updated_at": "1784505600"
+}
