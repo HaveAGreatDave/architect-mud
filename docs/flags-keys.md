@@ -34,6 +34,7 @@ is silently inert, so grep before renaming anything below.
 | `aa_bunker` | aa-sites | interior bunker zone under an AA site; value = the owning `aa_sites.id` |
 | `airspace_restricted` | flight | AA-gated airspace over this zone |
 | `always_lit` | environment | never dark regardless of power/time |
+| `light_beacon` | environment | floods this tile + its 8 grid-neighbours to full brightness, overriding night/power/weather |
 | `allow_sleep` | protection/sleep | permit `sleep` here WITHOUT the sanctuary bundle — safe-zone-rate rest, but no combat protection/forcefield/spawn suppression (e.g. the Precinct 9 holding cell) |
 | `artery` | movement/ambience | major street (traffic ambience, routing) |
 | `building_name` | world | display name of the enclosing building |

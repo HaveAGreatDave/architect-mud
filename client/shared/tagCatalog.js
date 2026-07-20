@@ -428,6 +428,8 @@
       help: 'Outward-facing turret killing-ground just beyond a perimeter_gate — the cleared no-man\'s-land the wall guns sweep. Owner: perimeter (wildlands).' },
     gate_warning: { label: 'Gate Warning', shape: 'text', scope: 'zone', group: 'Zone: Perimeter',
       help: 'One-time spoken briefing the gate guards deliver the first time a player steps onto this perimeter tile — what leaving the city costs and which regions lie past the Curtain. The prose lives here; the gatewarn plugin owns only the once-gating + delivery. Owner: gatewarn.' },
+    light_beacon: { label: 'Light Beacon', shape: 'flag', scope: 'zone', group: 'Zone: Perimeter',
+      help: 'This tile glows bright enough to flood itself and every same-level tile one grid-step away (the 8 surrounding cells) to full brightness, overriding night, power, and weather. Set on the source tile only; the environment sim expands the spill. Owner: environment (getZoneVisibility).' },
 
     airfield_id: { label: 'Airfield ID', shape: 'text', scope: 'zone', group: 'Zone: Flight',
       help: 'Which airfield this zone belongs to.' },

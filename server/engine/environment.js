@@ -353,6 +353,14 @@ export async function initEnvironment({ query, emitHook, broadcast, getOccupiedZ
   // so getZoneVisibility can honor the property for zones with no power_zones row.
   const { rows: alwaysLitRows } = await query("SELECT id FROM zones WHERE flags->>'always_lit' = 'true'");
   state.alwaysLitZones = new Set(alwaysLitRows.map(r => r.id));
+
+  // Light-beacon zones (flags.light_beacon) — a tile that glows bright enough to
+  // flood itself AND every same-level tile one grid-step away (Chebyshev radius 1)
+  // to full brightness, overriding night/power (getZoneVisibility short-circuit).
+  // The beacon flag sits on the source tile only; we expand it to the lit set here
+  // so content marks one tile and the engine handles the spill (like the perimeter
+  // gate glowing over its approach). Loaded once at init, same as always_lit.
+  await loadBeaconLitZones(query);
   await loadWindows(query);
   recalcAmbientAndVisibility();
   initIndoorTemps();
@@ -613,6 +621,29 @@ function loadZonePowerAndLighting() {
 export async function loadWindows(query) {
   const { rows } = await query('SELECT * FROM windows').catch(() => ({ rows: [] }));
   state.windows = rows;
+}
+
+// Build the set of zones flooded to full brightness by a light beacon: each
+// `flags.light_beacon` tile plus every same-map, same-level tile one grid-step
+// away (the 8 surrounding cells). One cheap query per beacon at init; there are
+// only a handful of beacons in the world.
+async function loadBeaconLitZones(query) {
+  const lit = new Set();
+  const { rows: beacons } = await query(
+    "SELECT id, map_id, grid_x, grid_y, grid_z FROM zones WHERE flags->>'light_beacon' = 'true'"
+  ).catch(() => ({ rows: [] }));
+  for (const b of beacons) {
+    if (b.grid_x == null || b.grid_y == null) { lit.add(b.id); continue; } // no coords → light just itself
+    const { rows: near } = await query(
+      `SELECT id FROM zones
+        WHERE map_id = $1 AND grid_z IS NOT DISTINCT FROM $2
+          AND grid_x BETWEEN $3 - 1 AND $3 + 1
+          AND grid_y BETWEEN $4 - 1 AND $4 + 1`,
+      [b.map_id, b.grid_z, b.grid_x, b.grid_y]
+    ).catch(() => ({ rows: [] }));
+    for (const r of near) lit.add(r.id);
+  }
+  state.beaconLitZones = lit;
 }
 
 // Called by the API after a window is created/updated/deleted.
@@ -1531,6 +1562,9 @@ export function getZoneVisibility(zoneId) {
   const isInterior = isIndoorZone(zone);
   const ambientContrib = isInterior ? windowLight : state.ambientLight;
 
+  // A light beacon floods this tile to full brightness regardless of night, power,
+  // or weather — the source tile and its grid neighbours (see loadBeaconLitZones).
+  const beaconLit = state.beaconLitZones?.has(zoneId);
   const effectiveLight = Math.max(ambientContrib, artificial);
   const weatherFactor = WEATHER_VISIBILITY_FACTOR[state.weatherType] ?? 1.0;
   const fogFactor = FOG_FACTOR[state.weatherType] ?? DEFAULT_FOG_FACTOR;
@@ -1545,7 +1579,7 @@ export function getZoneVisibility(zoneId) {
     const localCloudFactor = clamp01(1 - 0.5 * f.cloudCover - 0.4 * activePrecip);
     envFactor = Math.min(envFactor, localCloudFactor);
   }
-  const visibility = clamp01(effectiveLight * envFactor);
+  const visibility = beaconLit ? 1.0 : clamp01(effectiveLight * envFactor);
 
   // 8-step light ladder, brightest → darkest. The bright half is finer-grained
   // (blazing/bright/clear) so well-lit zones read with more nuance; the dark
