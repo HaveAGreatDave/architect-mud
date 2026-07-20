@@ -525,8 +525,12 @@ Exodus.
 
 - **Water math** — exact drain rate vs. carry capacity vs. crossing length. The core tuning lever;
   needs a pass once the generator exists.
-- **Crossing length** — how many nodes deep is Coldwater→Reach? Long enough that provisioning is a real
-  gamble, short enough it isn't tedious.
+- **Crossing length** — **BUILT (distance-relative):** the room count is derived from the grid distance
+  between the entry tile and the destination — one room per ~`TILES_PER_ROOM` (90) tiles, clamped to
+  `[MIN_ROOMS 5, MAX_ROOMS 15]`, deterministic so a relog regenerates the same length. Far regions are
+  longer, thirstier crossings; near ones a quick dash; new routes auto-scale with no hand-tuning. A
+  route's explicit `length` overrides it. (Coldwater→Reach ≈ 1040 tiles → ~12 rooms.) `TILES_PER_ROOM`
+  is the one knob. Remaining open: whether to weight by danger/terrain rather than pure Euclidean.
 - **Rest-site frequency** and how much they heal vs. cost.
 - **Loot-detour value curve** — how good does the salvage need to be to pull pilots off their aircraft?
 - **Trace purge / griefing** — can a corpse-pack be camped? Does looting a ghost cost anything?

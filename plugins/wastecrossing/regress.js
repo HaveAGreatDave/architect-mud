@@ -24,8 +24,11 @@ export default async function regress({ run, check, getPlayer }) {
 
   const hadGate = world.zones.get(GATE);
   const hadDest = world.zones.get(dest);
-  world.zones.set(GATE, mkZone(GATE, 'Test Gate', { flags: { void_gate: ROUTE_KEY, void_dir: 'south' } }));
-  world.zones.set(dest, mkZone(dest, 'Test Destination'));
+  // Give the endpoints grid coords so the room count is derived from the distance
+  // between them (630 tiles → 630/90 = 7 rooms, within [MIN,MAX]).
+  world.zones.set(GATE, mkZone(GATE, 'Test Gate', { flags: { void_gate: ROUTE_KEY, void_dir: 'south' }, grid_x: 900, grid_y: 900 }));
+  world.zones.set(dest, mkZone(dest, 'Test Destination', { grid_x: 900, grid_y: 1530 }));
+  const L = _test.crossingLength(route, world.zones.get(GATE), world.zones.get(dest));
 
   const wipe = () => {
     for (const c of _test.crossings.values()) for (const id of c.roomIds) world.zones.delete(id);
@@ -41,12 +44,21 @@ export default async function regress({ run, check, getPlayer }) {
       enter?.type === 'move' && !!player._crossing && player.current_zone === roomsOf(player)[0],
       `${enter?.type} zone=${player.current_zone}`);
     const roomIds = roomsOf(player);
-    check('the instance holds the full room chain as transient zones',
-      roomIds.length === route.length && roomIds.every(id => getZone(id) && isTransientZone(id)),
-      `rooms=${roomIds.length}`);
+    check('the instance holds a distance-derived room chain as transient zones',
+      roomIds.length === L && L === 7 && roomIds.every(id => getZone(id) && isTransientZone(id)),
+      `rooms=${roomIds.length} expected=${L}`);
+
+    // Distance scaling: near → MIN, far → MAX (clamped), mid → proportional.
+    const cl = _test.crossingLength;
+    const near = cl(route, { grid_x: 0, grid_y: 0 }, { grid_x: 0, grid_y: 50 });
+    const far = cl(route, { grid_x: 0, grid_y: 0 }, { grid_x: 0, grid_y: 99999 });
+    const mid = cl(route, { grid_x: 0, grid_y: 0 }, { grid_x: 0, grid_y: 900 });
+    check('crossing length scales with distance and clamps',
+      near === _test.MIN_ROOMS && far === _test.MAX_ROOMS && mid > near && mid < far,
+      `near=${near} mid=${mid} far=${far} [${_test.MIN_ROOMS}..${_test.MAX_ROOMS}]`);
 
     // ── Traversal → arrival (solo) ─────────────────────────────────────────────
-    for (let i = 0; i < route.length; i++) { player._lastStepAt = 0; await run('south'); }
+    for (let i = 0; i < L; i++) { player._lastStepAt = 0; await run('south'); }
     check('walking south arrives at the destination region',
       player.current_zone === dest, player.current_zone);
     check('the last member leaving tears the instance down (no leak)',

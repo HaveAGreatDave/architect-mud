@@ -49,15 +49,38 @@ const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const VOID_MAP = 'map_void'; // non-map_world → flag/map-filtered world iterators skip void rooms
 
 // ── Routes (the region adjacency graph — skeleton stub, one edge) ──────────────
+// `length` is OPTIONAL: omit it and the room count is derived from how far the
+// destination actually is (crossingLength, below); set it to hard-fix a route.
 export const ROUTES = {
-  reach: { dest: 'zone_the_reach_870_1958', heading: 'The Reach', length: 8 },
+  reach: { dest: 'zone_the_reach_870_1958', heading: 'The Reach' },
 };
 
-// instanceId -> { id, key, roomIds, origin, dest, heading, window, members:Set<pid> }
+// instanceId -> { id, key, roomIds, origin, dest, heading, window, length, members:Set<pid> }
 const crossings = new Map();
 let _seq = 0;
 
 function currentWindow() { return Math.floor(Date.now() / WEEK_MS); }
+
+// ── Distance-relative length ──────────────────────────────────────────────────
+// Farther regions are longer, thirstier crossings: one room per ~TILES_PER_ROOM
+// grid tiles between the entry tile and the destination, clamped so nowhere is
+// trivial (MIN) or tedious (MAX). Deterministic (fixed endpoint coords), so a relog
+// regenerates the same length. A route's explicit `length` overrides this.
+const TILES_PER_ROOM = 90;
+const MIN_ROOMS = 5;
+const MAX_ROOMS = 15;
+const DEFAULT_ROOMS = 8; // when neither an override nor endpoint coords are available
+
+function gridDist(a, b) {
+  if (!a || !b || a.grid_x == null || b.grid_x == null || a.grid_y == null || b.grid_y == null) return null;
+  return Math.hypot(a.grid_x - b.grid_x, a.grid_y - b.grid_y);
+}
+function crossingLength(route, originZone, destZone) {
+  if (route.length) return route.length; // explicit hand-authored override
+  const d = gridDist(originZone, destZone);
+  if (d == null) return DEFAULT_ROOMS;
+  return Math.max(MIN_ROOMS, Math.min(MAX_ROOMS, Math.round(d / TILES_PER_ROOM)));
+}
 
 // A tile is a void gate if flags.void_gate names a known route. flags.void_dir
 // (default 'south') is the direction you walk off the map into that route.
@@ -100,10 +123,10 @@ const ROOM_DESCS = [
 // A room's CONTENT is a pure function of (route, window, node) — shared geometry,
 // so every instance this window is identical and relog regenerates it exactly. Its
 // room IDS are namespaced by the instance, so occupancy/teardown are private.
-function roomFor(instanceId, key, route, window, node, origin) {
+function roomFor(instanceId, key, route, window, node, origin, length) {
   const rng = mulberry32(hashSeed(`${key}|${window}|${node}`));
   const north = node === 0 ? origin : `${instanceId}_${node - 1}`;
-  const south = node === route.length - 1 ? route.dest : `${instanceId}_${node + 1}`;
+  const south = node === length - 1 ? route.dest : `${instanceId}_${node + 1}`;
   return {
     id: `${instanceId}_${node}`,
     name: pick(rng, ROOM_NAMES),
@@ -122,10 +145,11 @@ function ensureInstance(instanceId, key, window, origin) {
   let c = crossings.get(instanceId);
   if (c) return c;
   const route = ROUTES[key];
+  const length = crossingLength(route, getZone(origin), getZone(route.dest));
   const roomIds = [];
-  for (let node = 0; node < route.length; node++)
-    roomIds.push(registerTransientZone(roomFor(instanceId, key, route, window, node, origin)).id);
-  c = { id: instanceId, key, roomIds, origin, dest: route.dest, heading: route.heading, window, members: new Set() };
+  for (let node = 0; node < length; node++)
+    roomIds.push(registerTransientZone(roomFor(instanceId, key, route, window, node, origin, length)).id);
+  c = { id: instanceId, key, roomIds, origin, dest: route.dest, heading: route.heading, window, length, members: new Set() };
   crossings.set(instanceId, c);
   return c;
 }
@@ -253,13 +277,12 @@ on('player.login', async ({ id }) => {
     if (!key) return;
     const instanceId = await getFlag('player', 'crossing_instance', player);
     if (!ROUTES[key] || !instanceId) { await clearCrossingFlags(player); return; }
-    const route = ROUTES[key];
     const window = Number(await getFlag('player', 'crossing_window', player)) || currentWindow();
     const origin = (await getFlag('player', 'crossing_origin', player)) || null;
     let node = Number(await getFlag('player', 'crossing_node', player)) || 0;
-    if (!(node >= 0 && node < route.length)) node = 0;
 
     const c = ensureInstance(instanceId, key, window, origin);
+    if (!(node >= 0 && node < c.length)) node = 0;
     const room = getZone(c.roomIds[node]);
     removePlayerFromZone(player.id, player.current_zone);
     addPlayerToZone(player.id, room.id);
@@ -286,6 +309,6 @@ export const hooks = {
   'movement.edge': onMovementEdge,
 };
 
-export const _test = { crossings, ROUTES };
+export const _test = { crossings, ROUTES, crossingLength, TILES_PER_ROOM, MIN_ROOMS, MAX_ROOMS };
 
 console.log('[wastecrossing] Plugin loaded.');
