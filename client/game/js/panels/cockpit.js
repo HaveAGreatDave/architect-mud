@@ -3507,7 +3507,7 @@ function fsimFrame(now) {
 
   // PFD (attitude + speed/altitude tapes + heading + VSI) and MFD (map).
   paintPFD(document.getElementById('fsim-pfd'), {
-    pitch: d.pitch, bank: d.bank, ias: d.ias, alt: d.alt, vs: d.vs, hdg: d.hdg,
+    pitch: d.pitch, bank: d.bank, ias: d.ias, alt: d.alt, vs: d.vs, hdg: d.hdg, slip: r.slip || 0,
     vr: P.vr, vne: P.vne, vs0: P.vs0, sm: s.stallMargin, fuelPct: Math.round(F.fuel / (F.fuelCap || 1) * 100),
     warn: r.stalled || s.stallMargin < 0.35, bingo: F.fuel <= 0 || F.warn === 'BINGO', night: F.nightLight,
   });
@@ -3974,6 +3974,20 @@ function paintPFD(cv, s) {
   ctx.beginPath(); ctx.moveTo(cx - 15, cy); ctx.lineTo(cx - 6, cy); ctx.lineTo(cx - 6, cy + 3); ctx.moveTo(cx + 15, cy); ctx.lineTo(cx + 6, cy); ctx.lineTo(cx + 6, cy + 3); ctx.stroke();
   ctx.fillStyle = '#ffcf3e'; ctx.fillRect(cx - 1.5, cy - 1.5, 3, 3);
   ctx.beginPath(); ctx.moveTo(cx, 5); ctx.lineTo(cx - 4, 11); ctx.lineTo(cx + 4, 11); ctx.closePath(); ctx.fillStyle = '#dff0ff'; ctx.fill();
+  // Slip/skid ball (inclinometer): a ball in a curved tube below the attitude ball. Centred when
+  // coordinated; a FORWARD SLIP (crossed controls) shoves it toward the LOW wing — glowing amber with
+  // a SLIP legend — so you can read the slip you're holding to salvage a high/hot approach.
+  const slip = clampNum(s.slip || 0, 0, 1), half = 22, yB = Math.min(H - 8, cy + 30);
+  const off = slip * Math.sign(s.bank || 0) * (half - 5);
+  ctx.save();
+  ctx.fillStyle = 'rgba(10,18,26,0.9)'; ctx.strokeStyle = 'rgba(120,150,175,0.5)'; ctx.lineWidth = 1;
+  ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(cx - half, yB - 4, half * 2, 8, 4); else ctx.rect(cx - half, yB - 4, half * 2, 8); ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = 'rgba(200,230,255,0.55)'; ctx.beginPath(); ctx.moveTo(cx - 4.5, yB - 4); ctx.lineTo(cx - 4.5, yB + 4); ctx.moveTo(cx + 4.5, yB - 4); ctx.lineTo(cx + 4.5, yB + 4); ctx.stroke();
+  const active = slip > 0.05;
+  if (active) { ctx.shadowColor = '#ffb23e'; ctx.shadowBlur = 5; }
+  ctx.fillStyle = active ? '#ffb23e' : '#cfe0ee'; ctx.beginPath(); ctx.arc(cx + off, yB, 3, 0, 7); ctx.fill();
+  ctx.restore();
+  if (active) { ctx.fillStyle = '#ffb23e'; ctx.font = '6px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillText('SLIP', cx, yB - 6); }
   pfdTape(ctx, 0, TAPE, H, s.ias || 0, 10, 5, s.warn, [{ v: s.vr, col: '#5fe0a0' }, { v: s.vne, col: '#ff5a5b' }, { v: s.vs0, col: '#ff5a5b' }]);
   pfdTape(ctx, W - TAPE, TAPE, H, s.alt || 0, 100, 5, false, null);
   ctx.fillStyle = '#0b1219'; ctx.strokeStyle = ACCENT; ctx.lineWidth = 1; ctx.fillRect(cx - 17, 0, 34, 12); ctx.strokeRect(cx - 17, 0, 34, 12);
