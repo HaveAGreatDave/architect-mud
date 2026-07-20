@@ -59,6 +59,7 @@ const VOID_MAP = 'map_void'; // non-map_world → flag/map-filtered world iterat
 // `length` override (else the total gate→dest length is distance-derived).
 export const VOIDS = {
   southern_waste: {
+    origin: 'Coldwater',
     trunk: 4,
     dests: [
       { key: 'reach',  dest: 'zone_the_reach_870_1958', heading: 'The Reach', dir: 'south' },
@@ -313,6 +314,7 @@ async function launchCrossing(leader, gate, broadcast, heading) {
   if (leader._crossing) return { type: 'emote', message: 'You are already out in the waste. The only way through it is through it.' };
   const origin = leader.current_zone;
   const window = currentWindow();
+  await discoverRoutes(leader, gate.key); // striking out charts this gate's routes
   await loadWindow(gate.key, window); // warm the ghost-trace cache for this void+window
   const instanceId = `xing_${leader.id}_${++_seq}`;
   const c = ensureInstance(instanceId, gate.key, window, origin);
@@ -353,6 +355,50 @@ async function onMovementEdge({ player, zone, direction, broadcast }) {
   return launchCrossing(player, gate, broadcast, null);
 }
 
+// ── The Frontier map (Slice 6): fogged discovery of regions + void-routes ─────
+// You can't draw the void to scale, so the "map" is an abstract topology: origin
+// regions, and the routes you've CHARTED (seen a gate) or SURVIVED (crossed). Fogged
+// — what you haven't seen isn't on it. Stored per-player in a `frontier_log` flag
+// (JSON routeId → state), written only on discovery/arrival (rare).
+async function getFrontierLog(player) {
+  try { return JSON.parse((await getFlag('player', 'frontier_log', player)) || '{}'); } catch { return {}; }
+}
+async function setFrontierState(player, routeId, state) {
+  const log = await getFrontierLog(player);
+  // never downgrade survived → charted
+  if (log[routeId] === 'survived' && state !== 'survived') return;
+  if (log[routeId] === state) return;
+  log[routeId] = state;
+  await setFlag('player', 'frontier_log', JSON.stringify(log), player).catch(() => {});
+}
+async function discoverRoutes(player, voidKey) {
+  for (const d of VOIDS[voidKey].dests) await setFrontierState(player, `${voidKey}:${d.key}`, 'charted');
+}
+function markSurvived(player, voidKey, destKey) { return setFrontierState(player, `${voidKey}:${destKey}`, 'survived'); }
+
+// The map data the Tablet Frontier app renders: origin regions → the routes you know.
+export async function frontierView(player) {
+  const log = await getFrontierLog(player);
+  const regions = {};
+  for (const [voidKey, vdef] of Object.entries(VOIDS)) {
+    for (const d of vdef.dests) {
+      const state = log[`${voidKey}:${d.key}`];
+      if (!state) continue; // fogged — you haven't seen this route
+      (regions[vdef.origin || 'the frontier'] ??= []).push({ heading: d.heading, state });
+    }
+  }
+  return regions;
+}
+
+// `frontier` — read the signpost at a gate: where can you strike out to from here.
+async function cmdFrontier(args, raw, player, broadcast) {
+  const gate = voidGateOf(getZone(player.current_zone));
+  if (!gate) return { type: 'emote', message: 'You see no way to strike out into the waste from here — find a perimeter gate. (Your charted routes are on the Tablet Frontier map.)' };
+  await discoverRoutes(player, gate.key);
+  const dests = gate.void.dests.map(d => `<b>${d.heading}</b>`).join(', ');
+  return { type: 'output', message: `You read the waste from the edge. Somewhere out there, past the wind, the trail splits toward: ${dests}. (venture, or just walk off the edge — and pray the fork reads true.)` };
+}
+
 // ── `scrawl` — leave a four-letter mark for whoever comes next ─────────────────
 async function cmdScrawl(args, raw, player, broadcast) {
   const live = player._crossing;
@@ -368,14 +414,18 @@ async function cmdScrawl(args, raw, player, broadcast) {
 }
 
 // ── Reference-counted leave (arrived / bailed / died / tp'd) ──────────────────
-function leaveCrossing(member, arrived) {
+function leaveCrossing(member, zone) {
   const live = member._crossing;
   delete member._crossing;
   clearCrossingFlags(member).catch(() => {});
   const c = live && crossings.get(live.instanceId);
   if (!c) return;
   c.members.delete(member.id);
-  if (arrived) sendToPlayer(member.id, { type: 'output', message: `<span class="item-grant">You stagger up out of the waste onto solid ground. You crossed it on foot.</span>` });
+  const dest = c.dests.find(d => d.dest === zone); // arrived at a region?
+  if (dest) {
+    sendToPlayer(member.id, { type: 'output', message: `<span class="item-grant">You stagger up out of the waste onto solid ground — <b>${dest.heading}</b>. You crossed it on foot.</span>` });
+    markSurvived(member, c.voidKey, dest.key).catch(() => {}); // the route joins your charted frontier
+  }
   if (c.members.size === 0) teardownInstance(c);
 }
 
@@ -391,7 +441,7 @@ on('zone.entered', ({ actor, zone }) => {
       maybeEncounter(actor, c, zone, c.detourSet.has(zone) ? DETOUR_ENCOUNTER_CHANCE : ENCOUNTER_CHANCE);
       return; // crossing_room is RAM (player.current_zone); flushed lazily on logout, not per step
     }
-    leaveCrossing(actor, c.destSet.has(zone)); // left the void
+    leaveCrossing(actor, zone); // left the void (arrived at a region, or bailed)
   } catch (e) { console.error('[wastecrossing] zone.entered error:', e.message); }
 });
 
@@ -572,6 +622,7 @@ export const commands = {
   venture: cmdVenture,
   scrawl: cmdScrawl,
   sift: cmdSift,
+  frontier: cmdFrontier,
 };
 
 export const hooks = {
@@ -580,7 +631,7 @@ export const hooks = {
 
 export const _test = {
   crossings, VOIDS, totalLength, TILES_PER_ROOM, MIN_ROOMS, MAX_ROOMS,
-  loadFoes, spawnFoe, teardownInstance, LOOT, bigScoreSalt, handleDeath: onVoidDeath,
+  loadFoes, spawnFoe, teardownInstance, LOOT, bigScoreSalt, handleDeath: onVoidDeath, frontierView, markSurvived,
   foePool: () => FOE_POOL,
   setEncounters: (on) => { ENCOUNTERS_ON = on; },
   setSalvage: (v) => { SALVAGE_FORCE = v; },

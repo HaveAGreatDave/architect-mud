@@ -106,6 +106,11 @@ export default async function regress({ run, check, getPlayer }) {
   check('party app routes to a detail view', r?.type === 'tablet_panel' && r?.appId === 'party' && r?.view === 'detail' && !r?.error, JSON.stringify(r)?.slice(0, 200));
   check('party app root invites you to start a party', /not in a party/i.test(r?.detail?.desc || ''), JSON.stringify(r?.detail)?.slice(0, 160));
 
+  // Frontier app: the void-travel topology (charted/survived routes), fogged.
+  r = await run('tabletnav frontier');
+  check('frontier app routes to a detail view', r?.type === 'tablet_panel' && r?.appId === 'frontier' && r?.view === 'detail' && !r?.error, JSON.stringify(r)?.slice(0, 160));
+  check('frontier app names the frontier map', /frontier/i.test(r?.detail?.name || ''), JSON.stringify(r?.detail)?.slice(0, 120));
+
   // Calendar app: root is a month-grid calendar view leading with a weeks grid and
   // an agenda list beneath it (led by the "today" marker), carrying a new-reminder
   // action. Adding a +N reminder persists to player_flags, then shows in the agenda

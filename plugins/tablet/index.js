@@ -49,6 +49,7 @@ import './gear-app.js';
 import './arcade-app.js';
 import './ideology-app.js';
 import './party-app.js';
+import './frontier-app.js';
 
 export { registerTabletApp, getTabletApps } from './registry.js';
 

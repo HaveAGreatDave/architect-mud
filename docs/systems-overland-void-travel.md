@@ -163,6 +163,16 @@ The adjacency graph has two surfaces, and they are different things (SSOT vs. vi
 gate, or survived. The frontier map fills in as you explore; a route's current-window danger/trace
 intel is likewise earned by scouting or asking, not handed over. Discovery is a real progression layer.
 
+**BUILT (Slice 6, branch `void-travel`):** the `VOIDS` config gained an `origin` region per void, and the
+adjacency graph is now player-visible two ways: **(1) the gate readout** — the `frontier` verb at a
+`void_gate` tile reads out the reachable regions (*"the trail splits toward The Reach, Exodus"*); **(2)
+the Tablet Frontier app** (`tablet/frontier-app.js`, 🧭) — an abstract topology (origin regions → routes),
+*not* the grid, rendered from `frontierView(player)`. **Fog is per-player state** in a `frontier_log`
+flag (`routeId → charted|survived`): reading a gate or striking out **charts** a route; arriving at a
+region **upgrades** it to *survived*. Written only on discovery/arrival (rare). Still a **list**, not a
+graphical node-and-edge diagram (that'd need custom client rendering); the window ghost-trace intel
+overlay is future. Regress 1305/1305.
+
 ---
 
 ## The survival gauntlet

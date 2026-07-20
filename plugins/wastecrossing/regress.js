@@ -210,6 +210,23 @@ export default async function regress({ run, check, getPlayer }) {
     const bs2 = await run('sift');
     check('the big score is gone for the next crosser (claimed globally)', !/the prize this stretch/i.test(bs2?.message || ''), bs2?.message?.slice(0, 60));
     wipe();
+
+    // ── Slice 6: the frontier map (fogged discovery) ──────────────────────────
+    await query("DELETE FROM player_flags WHERE player_id=$1 AND flag_key='frontier_log'", [player.id]).catch(() => {});
+    player.current_zone = savedZone; delete player._crossing;
+    const noGate = await run('frontier');
+    check('frontier off a gate points you to a gate', /no way to strike out|perimeter gate/i.test(noGate?.message || ''), noGate?.message?.slice(0, 40));
+    player.current_zone = GATE;
+    const read = await run('frontier');
+    check('frontier at a gate reads out the reachable regions', /The Reach/.test(read?.message || '') && /Exodus/.test(read?.message || ''), read?.message?.slice(0, 60));
+    const fv = await _test.frontierView(player);
+    check('reading a gate charts its routes (fogged discovery)',
+      !!fv['Coldwater'] && fv['Coldwater'].some(r => r.heading === 'The Reach' && r.state === 'charted'), JSON.stringify(fv));
+    await _test.markSurvived(player, 'southern_waste', 'reach');
+    const fv2 = await _test.frontierView(player);
+    check('surviving a crossing upgrades the route to survived',
+      fv2['Coldwater']?.some(r => r.heading === 'The Reach' && r.state === 'survived'), JSON.stringify(fv2));
+    await query("DELETE FROM player_flags WHERE player_id=$1 AND flag_key='frontier_log'", [player.id]).catch(() => {});
   } finally {
     _test.setEncounters(true);
     _test.setSalvage(null);
