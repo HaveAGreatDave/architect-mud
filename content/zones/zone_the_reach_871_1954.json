@@ -16,6 +16,7 @@
   "flags": {
     "building_name": "Power Substation",
     "building_type": "power",
+    "entrance": "south",
     "facade": true,
     "is_building": true,
     "lawless": true,

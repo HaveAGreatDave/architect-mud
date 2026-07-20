@@ -19,6 +19,7 @@
     "airfield_name": "Buzzard Field",
     "building_name": "Hangar",
     "building_type": "hangar",
+    "entrance": "west",
     "facade": true,
     "hangar_interior_zone": "zone_bld_897_1175_lobby",
     "is_building": true,

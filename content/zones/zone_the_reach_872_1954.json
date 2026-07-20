@@ -16,6 +16,7 @@
   "flags": {
     "building_name": "The Watering Hole",
     "building_type": "bar",
+    "entrance": "south",
     "facade": true,
     "is_building": true,
     "lawless": true,

@@ -16,6 +16,7 @@
   "flags": {
     "building_name": "Residence",
     "building_type": "residential",
+    "entrance": "south",
     "facade": true,
     "is_building": true,
     "lawless": true,

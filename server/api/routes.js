@@ -1,6 +1,6 @@
 import { query, logActivity } from '../models/db.js';
 import { syncContentFromRequest, syncZoneDeletion } from './content-sync.js';
-import { reloadZone, getAllZones, world, getAllLivePlayers, getZone, addPlayerToZone, removePlayerFromZone, getMinimapData, reloadGlobalAmbients, spawnEnemySync, setDoorCache, deleteDoorCache, getZoneDoors, reloadSpawn, removeSpawn, isEnterableFacade, buildingEntranceDir, invalidateEntranceDirCache, resolveLanding, reloadMaps, insertFurniture, updateFurniture, deleteFurniture, deleteFurnitureWhere, refreshZoneFurniture, zoneTerrain } from '../engine/world.js';
+import { reloadZone, getAllZones, world, getAllLivePlayers, getZone, addPlayerToZone, removePlayerFromZone, getMinimapData, reloadGlobalAmbients, spawnEnemySync, setDoorCache, deleteDoorCache, getZoneDoors, reloadSpawn, removeSpawn, isEnterableFacade, buildingEntranceDir, resolveLanding, reloadMaps, insertFurniture, updateFurniture, deleteFurniture, deleteFurnitureWhere, refreshZoneFurniture, zoneTerrain } from '../engine/world.js';
 import { authorUtilityRoom } from '../../tools/lib/utility-room.mjs';
 import { templateForType } from '../../tools/lib/building-templates.mjs';
 import { describeZone, describeVoidTeleport } from '../engine/commands/index.js';
@@ -868,7 +868,6 @@ async function apiBuildBuilding(body, auth) {
     // the remaining free cardinals. Fallback to OPPOSITE[front.dir] if no door resolves.
     await reloadZone(facadeId);
     for (const { n } of neighbours) await reloadZone(n.id);
-    invalidateEntranceDirCache();
     backDir = buildingEntranceDir(getZone(facadeId)) || OPPOSITE[front.dir];
     const usedDirs = new Set([backDir]);
     rooms = [];
