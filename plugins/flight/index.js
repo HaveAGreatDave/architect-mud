@@ -761,7 +761,15 @@ async function cmdFlightEvent(args, raw, player, broadcast) {
     // island — flaring a tile wide of it left the coord index with no surface below and augered
     // the pilot in, respawning them clear back at the Coldwater clone vats. Tow them to the
     // nearest field (Buzzard Field itself, so they end up in its hangar) instead of killing them.
-    if (field || offstripRated) { await retrieveOffField(live, player); return { type: 'noop' }; }
+    if (field || offstripRated) {
+      await retrieveOffField(live, player);
+      // retrieveOffField parks the craft + relocates everyone via parkAt, but (like the abort
+      // path) we still have to climb them OUT — otherwise the pilot is left welded into a parked
+      // aircraft (aircraftId set, cockpit HUD live) and the player.login hook re-seats them on
+      // every reconnect. This is the common Reach case: a tile wide of Buzzard's island strip.
+      for (const pid of [...live.occupants]) { const p = getLivePlayer(pid); if (p) detach(p); }
+      return { type: 'noop' };
+    }
     await crash(live, 'offfield');
     return { type: 'noop' };
   }
