@@ -3,7 +3,10 @@
 // doesn't depend on (possibly uncommitted) world content being loaded.
 import { world, getZone, isTransientZone, setLivePlayer, removeLivePlayer,
   addPlayerToZone, removePlayerFromZone, getEnemyInstance } from '../../server/engine/world.js';
+import { emit } from '../../server/engine/events.js';
+import { query } from '../../server/models/db.js';
 import { VOIDS, _test } from './index.js';
+import { _test as traces } from './traces.js';
 
 const GATE = 'zone_regress_voidgate';
 const VOIDKEY = 'southern_waste';
@@ -124,8 +127,34 @@ export default async function regress({ run, check, getPlayer }) {
     check('tearing down an instance despawns its foes', !getEnemyInstance(inst.instanceId) && !_test.crossings.has(ec.id),
       `enemyGone=${!getEnemyInstance(inst?.instanceId)} instanceGone=${!_test.crossings.has(ec.id)}`);
     delete player._crossing;
+
+    // ── Ghost-traces (Slice 3): scrawls + corpses, cached per (void, window) ──
+    player.current_zone = GATE; player._lastStepAt = 0;
+    await run('venture');
+    const tc = _test.crossings.get(player._crossing.instanceId);
+    const scrawlSalt = getZone(tc.entry).flags.void_salt;
+    const sres = await run('scrawl running low');
+    check('scrawl leaves a ≤4-char note at the room (cached)',
+      /RUNN/.test(sres?.message || '') && traces.getTraces(tc.voidKey, tc.window, scrawlSalt).some(t => t.kind === 'scrawl' && t.note === 'RUNN'),
+      `msg=${sres?.message?.slice(0, 40)} cache=${JSON.stringify(traces.getTraces(tc.voidKey, tc.window, scrawlSalt))}`);
+
+    // Dying in the void leaves a corpse trace at that room AND cleans up the crossing.
+    const deathRoom = [...tc.roomSet].find(id => id !== tc.entry);
+    const deathSalt = getZone(deathRoom).flags.void_salt;
+    player.current_zone = deathRoom;
+    emit('player.death', { player, deathZone: deathRoom, cause: { label: 'Killed by a rad-mutant' } });
+    check('dying in the void leaves a corpse trace at that room',
+      traces.getTraces(tc.voidKey, tc.window, deathSalt).some(t => t.kind === 'corpse' && t.handle === player.handle), 'no corpse');
+    check('death cleans up the dangling crossing (respawn is not a cmdMove)',
+      !player._crossing && !_test.crossings.has(tc.id), `crossing=${!!player._crossing} instance=${_test.crossings.has(tc.id)}`);
+
+    // Outside the void, scrawl is a gentle no-op.
+    player.current_zone = savedZone;
+    const noScrawl = await run('scrawl HELP');
+    check('scrawl outside the void is a gentle no-op', /nothing out here/i.test(noScrawl?.message || ''), noScrawl?.message?.slice(0, 40));
   } finally {
     _test.setEncounters(true);
+    await query('DELETE FROM void_traces WHERE handle=$1', [player.handle]).catch(() => {});
     wipe();
     for (const [id, z] of prev) { if (z) world.zones.set(id, z); else world.zones.delete(id); }
     player.current_zone = savedZone;

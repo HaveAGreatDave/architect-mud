@@ -44,6 +44,7 @@ import { on } from '../../server/engine/events.js';
 import { getFlag, setFlag, clearFlag } from '../../server/engine/flags.js';
 import { OPPOSITE } from '../../server/engine/directions.js';
 import { query } from '../../server/models/db.js';
+import { loadWindow, getTraces, addTrace } from './traces.js';
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const VOID_MAP = 'map_void'; // non-map_world → flag/map-filtered world iterators skip void rooms
@@ -136,12 +137,15 @@ const DETOUR_DESCS = [
   'A hulk of rusted metal leans in the haze. Worth a look, if the look does not cost you.',
 ];
 
+// void_salt is the room's deterministic identity (the seed salt) — ghost-traces
+// key on it so a scrawl/corpse pins to the same room across every instance this
+// window. lawless: dying out here clone-vats you, never jails you (off-grid waste).
 function mkRoom(id, voidKey, window, salt, exits, extraFlags = {}) {
   const rng = mulberry32(hashSeed(`${voidKey}|${window}|${salt}`));
   return {
     id, name: pick(rng, ROOM_NAMES), description: pick(rng, ROOM_DESCS),
     map_id: VOID_MAP, grid_x: null, grid_y: null, grid_z: null,
-    flags: { terrain: pick(rng, TERRAINS), void_crossing: true, ...extraFlags },
+    flags: { terrain: pick(rng, TERRAINS), void_crossing: true, lawless: true, void_salt: salt, ...extraFlags },
     exits,
   };
 }
@@ -150,7 +154,7 @@ function mkDetour(id, voidKey, window, salt, spineRoomId) {
   return {
     id, name: pick(rng, DETOUR_NAMES), description: pick(rng, DETOUR_DESCS),
     map_id: VOID_MAP, grid_x: null, grid_y: null, grid_z: null,
-    flags: { terrain: pick(rng, TERRAINS), void_crossing: true, void_detour: true },
+    flags: { terrain: pick(rng, TERRAINS), void_crossing: true, void_detour: true, lawless: true, void_salt: `d_${salt}` },
     exits: { east: spineRoomId }, // the only way out is back the way you came in
   };
 }
@@ -190,6 +194,18 @@ function spawnFoe(c, roomId) {
   sendToZone(roomId, { type: 'zone_event', message: `${line} <b>${inst.name}</b>.`, refresh: true });
   return inst;
 }
+// The dead are your map: show any scrawls/corpses left at this room this window.
+function showTraces(actor, c, roomId) {
+  const salt = getZone(roomId)?.flags?.void_salt;
+  if (!salt) return;
+  const traces = getTraces(c.voidKey, c.window, salt);
+  if (!traces.length) return;
+  const lines = traces.map(t => t.kind === 'scrawl'
+    ? `Scratched into the ground, four letters: <b>${t.note}</b>`
+    : `A body half-buried in the dust${t.handle ? ` — what's left of <b>${t.handle}</b>` : ''}${t.note ? `, ${t.note.toLowerCase()}` : ''}.`);
+  sendToPlayer(actor.id, { type: 'output', message: lines.join('\n') });
+}
+
 function maybeEncounter(actor, c, roomId, chance) {
   if (!ENCOUNTERS_ON) return;
   const live = actor._crossing;
@@ -292,6 +308,7 @@ async function launchCrossing(leader, gate, broadcast, heading) {
   if (leader._crossing) return { type: 'emote', message: 'You are already out in the waste. The only way through it is through it.' };
   const origin = leader.current_zone;
   const window = currentWindow();
+  await loadWindow(gate.key, window); // warm the ghost-trace cache for this void+window
   const instanceId = `xing_${leader.id}_${++_seq}`;
   const c = ensureInstance(instanceId, gate.key, window, origin);
   const entry = getZone(c.entry);
@@ -331,6 +348,20 @@ async function onMovementEdge({ player, zone, direction, broadcast }) {
   return launchCrossing(player, gate, broadcast, null);
 }
 
+// ── `scrawl` — leave a four-letter mark for whoever comes next ─────────────────
+async function cmdScrawl(args, raw, player, broadcast) {
+  const live = player._crossing;
+  const c = live && crossings.get(live.instanceId);
+  if (!c) return { type: 'emote', message: 'There is nothing out here worth marking. (Scrawls are for the waste — you leave them for whoever comes after.)' };
+  const text = args.join('').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4);
+  if (!text) return { type: 'error', message: 'Scrawl what? Four letters, max — a warning, a curse, a name. (scrawl RUN)' };
+  const salt = getZone(player.current_zone)?.flags?.void_salt;
+  if (!salt) return { type: 'emote', message: "The ground here won't hold a mark." };
+  await addTrace(c.voidKey, c.window, salt, 'scrawl', player.handle, text);
+  if (broadcast) broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} scratches something into the ground.` }, player.id);
+  return { type: 'emote', message: `You scratch <b>${text}</b> into the hardpan. Whoever crosses here this window will find it — until the wind takes it.` };
+}
+
 // ── Reference-counted leave (arrived / bailed / died / tp'd) ──────────────────
 function leaveCrossing(member, arrived) {
   const live = member._crossing;
@@ -351,6 +382,7 @@ on('zone.entered', ({ actor, zone }) => {
     const c = crossings.get(live.instanceId);
     if (!c) { delete actor._crossing; return; }
     if (c.roomSet.has(zone)) { // a crossing room (trunk / limb / detour)
+      showTraces(actor, c, zone);
       maybeEncounter(actor, c, zone, c.detourSet.has(zone) ? DETOUR_ENCOUNTER_CHANCE : ENCOUNTER_CHANCE);
       return; // crossing_room is RAM (player.current_zone); flushed lazily on logout, not per step
     }
@@ -371,6 +403,23 @@ on('player.logout', ({ id }) => {
   } catch (e) { console.error('[wastecrossing] player.logout error:', e.message); }
 });
 
+// ── Death in the void: leave a corpse trace + clean up the crossing ───────────
+// Respawn is an in-memory move (gameLoop), NOT a cmdMove, so zone.entered never
+// fires on death — this is where a void crossing gets torn down. deathZone is still
+// the void room here (teardown runs after), so its void_salt is available.
+on('player.death', ({ player, deathZone, cause }) => {
+  try {
+    const live = player?._crossing;
+    if (!live) return;
+    const c = crossings.get(live.instanceId);
+    const salt = getZone(deathZone)?.flags?.void_salt;
+    if (c && salt) addTrace(c.voidKey, c.window, salt, 'corpse', player.handle, (cause?.label || 'killed by the waste').slice(0, 40)).catch(() => {});
+    delete player._crossing;
+    clearCrossingFlags(player).catch(() => {});
+    if (c) { c.members.delete(player.id); if (c.members.size === 0) teardownInstance(c); }
+  } catch (e) { console.error('[wastecrossing] player.death error:', e.message); }
+});
+
 // ── Relog re-derivation (after a server restart wiped the RAM rooms) ──────────
 on('player.login', async ({ id }) => {
   try {
@@ -382,6 +431,7 @@ on('player.login', async ({ id }) => {
     if (!VOIDS[voidKey] || !instanceId) { await clearCrossingFlags(player); return; }
     const window = Number(await getFlag('player', 'crossing_window', player)) || currentWindow();
     const origin = (await getFlag('player', 'crossing_origin', player)) || null;
+    await loadWindow(voidKey, window);
 
     const c = ensureInstance(instanceId, voidKey, window, origin);
     let roomId = await getFlag('player', 'crossing_room', player);
@@ -407,6 +457,7 @@ on('player.login', async ({ id }) => {
 
 export const commands = {
   venture: cmdVenture,
+  scrawl: cmdScrawl,
 };
 
 export const hooks = {

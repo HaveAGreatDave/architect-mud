@@ -419,6 +419,22 @@ export const SCHEMA_SQL = `
     created_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
   );
 
+  -- Void ghost-traces (wastecrossing plugin): scrawled 4-letter notes + corpses
+  -- left by prior crossers, keyed by (void_key, window, room_salt) so they're
+  -- shared across every private instance that window. Runtime play data — never
+  -- authored, never shipped; purged as windows rotate.
+  CREATE TABLE IF NOT EXISTS void_traces (
+    id BIGSERIAL PRIMARY KEY,
+    void_key TEXT NOT NULL,
+    window_id INTEGER NOT NULL,
+    room_salt TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    handle TEXT,
+    note TEXT,
+    created_at DOUBLE PRECISION NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS void_traces_lookup ON void_traces (void_key, window_id);
+
   -- Append-only log of player deaths, catalogued by the deaths plugin from the
   -- player.death broadcast. real_ts sorts; game_date/game_time are the in-world
   -- stamp; cause_label is the human string shown by the deaths command.

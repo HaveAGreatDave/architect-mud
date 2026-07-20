@@ -2,6 +2,6 @@
   "name": "wastecrossing",
   "version": "0.1.0",
   "description": "Void-travel: strike out from a `flags.void_gate` edge tile — by walking off the map (movement.edge hook) or the `venture [heading]` verb — into a generated BRAID of transient waste rooms (shared trunk forking toward multiple regions, risk-for-loot detours, live enemy encounters) and cross it on foot. Rooms are synthetic (non-DB) zones via the transient-zone substrate; a party shares one instance (via follow); relog-safe through crossing_* player_flags.",
-  "commands": ["venture"],
+  "commands": ["venture", "scrawl"],
   "hooks": ["movement.edge"]
 }

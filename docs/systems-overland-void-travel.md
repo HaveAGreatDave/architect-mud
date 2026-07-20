@@ -238,6 +238,23 @@ that *other crossers this window can find and loot*. You die for keeps; your gea
 else's fortune and a marker on the community's slowly-drawn map. (A small **traces** table keyed to
 `(route, window, node)` is the only persistent void state besides player flags.)
 
+**BUILT (Slice 3, branch `void-travel`):** the dead are your map. Two trace kinds, keyed by
+`(void_key, window, room_salt)` — the salt (`t2`/`reach1`/`d_t2`, carried on `flags.void_salt`) pins a
+trace to the same room across **every private instance this window** (async presence, no live
+collision — the bloodstain model):
+- **Corpses** — dying in the void writes a corpse trace (`handle` + cause) at the death room. *(This is
+  also where a void crossing gets torn down — respawn is an in-memory move, not a `cmdMove`, so
+  `zone.entered` never fires; the `player.death` handler cleans up the dangling crossing.)* Lootable
+  corpse-**packs** (the dead's dropped gear) land with Slice 5's loot economy — for now the corpse is a
+  *clue* (where people died = danger intel).
+- **Scrawls** — `scrawl <text>` leaves a **four-letter** mark (RUN, GAS, COLD, HELP…) at your room for
+  whoever crosses here this window.
+Both surface on room entry ("*Scratched into the ground, four letters: RUN*" / "*A body half-buried in
+the dust — what's left of Kaz, killed by a rad-mutant.*"). **Near-zero DB** exactly as specced: one
+INSERT per scrawl/death (rare), reads served from a per-`(void, window)` **RAM cache**, stale windows
+purged on load. Void rooms are `flags.lawless` (die out here → clone-vat, never jail). Table:
+`void_traces` (runtime-classified). Regress 1288/1288.
+
 ### Departure: free to die
 
 Entering is **passive** — the threshold gives a warning read ("you carry 1 water; the far gate is

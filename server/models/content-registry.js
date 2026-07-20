@@ -256,6 +256,7 @@ export const REGISTRY = [
 
   // ── runtime: world state regenerated / accumulated at play time ──
   { table: 'world_events', class: 'runtime' },
+  { table: 'void_traces', class: 'runtime' },      // wastecrossing — scrawls/corpses left in the void, purged as windows rotate
   { table: 'world_clock', class: 'runtime' },
   { table: 'world_flags', class: 'runtime' },
   { table: 'weather_forecast', class: 'runtime' },
