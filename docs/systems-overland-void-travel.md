@@ -127,13 +127,13 @@ something new. **Navigation itself becomes a mastered-and-re-lost skill, not jus
 diverging limbs keyed to each adjacent destination) rather than independent per-route maps. It buys the
 only version where the *destination* is part of the unknowable void the community charts weekly.
 
-**BUILT (branch `void-travel`):** a void is now a **`VOIDS[voidKey] = { trunk, dests[] }`** graph off a
-gate — a shared **trunk** (config room count) that forks toward each destination in that dest's `dir`
+**BUILT (branch `void-travel`):** a void is now a **`VOIDS[regionId] = { trunk, dests[] }`** graph owned
+by a region — a shared **trunk** (config room count) that forks toward each destination in that dest's `dir`
 (n/s/e/w), then a distance-derived **limb** per region down to its real edge tile. `journey [heading]`
 takes an optional declared heading (flavor/telegraph); the fork itself is the real choice — hold your
 heading down one limb, or **divert** down another to a different region. Detours hang off shared-trunk
 rooms. Persist `crossing_room` (the current room id) not a node index — the deterministic graph
-regenerates identical ids, so relog just replaces you at your room. Stub void `southern_waste` forks to
+regenerates identical ids, so relog just replaces you at your room. Void `region_coldwater` forks to
 **The Reach** (south) and **Exodus** (east). Regress proves both limbs reach their region and that you
 can divert at the fork. Still N/S/E/W only (engine has no diagonals) and single-fork (not yet nested
 forks). Regress 1284/1284.
@@ -145,9 +145,11 @@ The adjacency graph has two surfaces, and they are different things (SSOT vs. vi
 - **Authored in the dev-panel World Editor.** Regions already live there (`regions` table, New Region /
   Region Maps / drag-to-move — see [land-taxonomy.md](reference/land-taxonomy.md#region--the-spatial-place-renamed-2026-07-19-from-district)).
   The graph is **edges layered on that existing region set** — a mode where you wire a void-edge between
-  two regions and mark the departure-gate tile. Small authored config (which pairs connect + gate
-  tile), and it keeps the **one-SSOT** rule: the graph is region-editor data, *not* inferred from
-  zone-id prefixes or scattered flags.
+  two regions. Small authored config (which pairs connect), and it keeps the **one-SSOT** rule: the graph
+  is region-editor data, *not* inferred from zone-id prefixes or scattered flags. *(As built, there is no
+  departure-gate tile at all — the whole region edge is the gate: `VOIDS` is keyed by `flags.region_id`,
+  the region SSOT, so any tile in the region can strike out and any unexited region edge is porous to the
+  void.)*
 - **Seen by players as an abstract *frontier map*, not the grid.** You can't draw this to scale — the
   Reach is ~1,000 tiles from Coldwater and the void between has no real geometry. So the player view is
   a **topology diagram** (region-islands as nodes, void-routes as edges — a subway/travel-network read),
@@ -164,8 +166,8 @@ gate, or survived. The frontier map fills in as you explore; a route's current-w
 intel is likewise earned by scouting or asking, not handed over. Discovery is a real progression layer.
 
 **BUILT (Slice 6, branch `void-travel`):** the `VOIDS` config gained an `origin` region per void, and the
-adjacency graph is now player-visible two ways: **(1) the gate readout** — the `frontier` verb at a
-`void_gate` tile reads out the reachable regions (*"the trail splits toward The Reach, Exodus"*); **(2)
+adjacency graph is now player-visible two ways: **(1) the frontier readout** — the `frontier` verb
+anywhere in a void-region reads out the reachable regions (*"the trail splits toward The Reach, Exodus"*); **(2)
 the Tablet Frontier app** (`tablet/frontier-app.js`, 🧭) — an abstract topology (origin regions → routes),
 *not* the grid, rendered from `frontierView(player)`. **Fog is per-player state** in a `frontier_log`
 flag (`routeId → charted|survived`): reading a gate or striking out **charts** a route; arriving at a
@@ -271,12 +273,15 @@ Entering is **passive** — the threshold gives a warning read ("you carry 1 wat
 far") and then **lets you walk in and perish.** No hard supply gate. The player's funeral. Agency over
 hand-holding.
 
-**BUILT (branch `void-travel`):** a tile becomes an entry by carrying `flags.void_gate = <routeKey>`
-(+ optional `flags.void_dir`, default `south`). Two ways in, one code path: **walk off the map** —
-moving the void-direction off that edge with no authored exit fires a new generic engine hook
-**`movement.edge`** (added in `cmdMove`'s no-exit branch), which the plugin answers by launching the
-crossing; or the explicit **`journey`** verb from the same tile. The `movement.edge` seam is a law that
-names no system — any edge-of-map transition can use it.
+**BUILT (branch `void-travel`; region-edge model 2026-07-20):** the void is owned by a whole **region**,
+keyed by `flags.region_id` — `VOIDS` is indexed by region (`region_coldwater`), not a bespoke per-tile
+flag. Two ways in, one code path: **walk off the map** — moving in *any* direction with no authored exit
+off a tile in a void-region fires the generic engine hook **`movement.edge`** (added in `cmdMove`'s
+no-exit branch), which the plugin answers by opening the muster; or the explicit **`journey [heading]`**
+verb from *anywhere* in the region. The whole perimeter of a region is porous to the void — there is no
+special gate tile. (The earlier `flags.void_gate` / `flags.void_dir` per-tile model was retired: no zone
+ever actually carried it, and the South Gate is a plain `checkpoint`, not the void entry.) The
+`movement.edge` seam is a law that names no system — any edge-of-map transition can use it.
 
 ---
 
