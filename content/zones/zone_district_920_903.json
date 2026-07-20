@@ -8,13 +8,13 @@
   "description": "The face of Two-Cell Supply — a lean-to storefront of corrugated sheet and stacked crates wedged onto the pasture edge just north of the Embassy. A hand-lettered board over the door reads: IF IT KEEPS YOU BREATHING, WE'VE GOT IT. The door stands open to the east; Ironside Street runs off to the west.",
   "exits": {
     "east": "zone_twocell_interior",
-    "south": "zone_district_920_904",
     "west": "zone_district_919_903"
   },
   "flags": {
     "building_name": "Two-Cell Supply",
     "building_type": "shop",
     "district": "wasteland",
+    "entrance": "west",
     "facade": true,
     "is_building": true,
     "planner": "bp_district",

@@ -7,16 +7,14 @@
   "created_by": "yards-plan",
   "description": "A cramped freight office with a service window, a wall of pigeonholes stuffed with manifests, and a hand-lettered sign: ALL DELIVERIES CHECK IN. This is where the Yards' paperwork lives and dies, and where the Yardmaster holds court over every crate that moves.",
   "exits": {
-    "east": "zone_district_924_909",
     "in": "zone_yard_freightoffice",
-    "north": "zone_district_923_908",
-    "south": "zone_district_923_910",
     "west": "zone_district_922_909"
   },
   "flags": {
     "building_name": "Yards Freight Office",
     "building_type": "freight_office",
     "district": "yards",
+    "entrance": "west",
     "facade": true,
     "is_building": true,
     "planner": "bp_district",

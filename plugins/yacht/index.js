@@ -24,7 +24,7 @@
 // later slices; this slice is "boardable and secure."
 
 import { query } from '../../server/models/db.js';
-import { getZone, getLivePlayer, world, invalidateEntranceDirCache, addExitOverride, removeExitOverride, registerMinimapNodeFilter, getMinimapData } from '../../server/engine/world.js';
+import { getZone, getLivePlayer, world, addExitOverride, removeExitOverride, registerMinimapNodeFilter, getMinimapData } from '../../server/engine/world.js';
 import { sendToPlayer, getBroadcast } from '../../server/engine/messaging.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
 import { on } from '../../server/engine/events.js';
@@ -76,7 +76,10 @@ getFlag('world', YACHT_POS_FLAG)
     ext.grid_x = pos.x;
     ext.grid_y = pos.y;
     ext.flags = { ...(ext.flags || {}), heading: pos.heading ?? ext.flags?.heading ?? 0 };
-    invalidateEntranceDirCache();
+    // Her gangway persists in zone_exit_overrides across a reboot without re-running dockTo,
+    // so re-derive her live door from the pier she's alongside (buildingEntranceDir reads it).
+    const pier = adjacentPier(pos.x, pos.y);
+    if (pier) ext.flags.entrance = pier.dir; else delete ext.flags.entrance;
     // Her tile and a parked craft's tile persist through SEPARATE paths (this world-flag vs the
     // aircraft row), so on a cold boot they can come back apart — she restores here, but a heli left
     // on her deck reloads at whatever tile it was last written. Re-marry them: rebuild the flight
@@ -379,12 +382,19 @@ async function isDocked() {
 async function undockAll() {
   const { rows } = await query('SELECT zone_id, direction, target_zone FROM zone_exit_overrides WHERE source=$1', [DOCK_SOURCE]);
   for (const r of rows) await removeExitOverride(r.zone_id, r.direction, r.target_zone);
+  // No gangway ⇒ no entrance. The Echelon is the one facade whose door is dynamic:
+  // buildingEntranceDir reads flags.entrance, so clear it while she's underway.
+  const ext = getZone(EXTERIOR);
+  if (ext?.flags?.entrance != null) { ext.flags = { ...ext.flags }; delete ext.flags.entrance; }
 }
 
 // Wire the gangway both ways between the exterior tile and an adjacent pier.
 async function dockTo(pierZoneId, dirYachtToPier) {
   await addExitOverride(EXTERIOR, dirYachtToPier, pierZoneId, DOCK_SOURCE);
   await addExitOverride(pierZoneId, REVERSE[dirYachtToPier], EXTERIOR, DOCK_SOURCE);
+  // Her door faces the pier the gangway drops onto — authored live (see buildingEntranceDir).
+  const ext = getZone(EXTERIOR);
+  if (ext) ext.flags = { ...(ext.flags || {}), entrance: dirYachtToPier };
 }
 
 function rebuildFlightIndex() {
@@ -418,9 +428,9 @@ async function arriveEchelon() {
   // never snapping back to bow-north.
   const ext = getZone(EXTERIOR);
   const flags = { ...(ext?.flags || {}), heading: DIR_DEG[dir] };
+  delete flags.entrance;   // underway with no gangway yet; dockTo below re-sets it if a pier is alongside
   if (ext) { ext.grid_x = toX; ext.grid_y = toY; ext.flags = flags; }
   await persistYachtPos(toX, toY, DIR_DEG[dir]);
-  invalidateEntranceDirCache();
   rebuildFlightIndex();
   // A helicopter parked on her deck sails with her — move any craft parked on the exterior tile
   // to her new position, so its next takeoff lifts off from where she is now, not the water she

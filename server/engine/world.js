@@ -161,61 +161,20 @@ export function buildingTypeOf(zone) {
   return (zone.flags?.building_type || '').toLowerCase() || null;
 }
 
-// Which side a building's entrance is on, for the map's entrance arrow. The door
-// faces whichever adjacent street tile has an exit leading INTO the facade — that's
-// the tile you actually step in from (travel `east` into the tile ⇒ the door is on
-// its west face). We derive it from the real exit graph, NOT flags.world_exit_zone,
-// which is a planner hint that often points at the wrong side. Reverse-indexed once
-// and cached (rebuilt lazily; invalidated whenever exits change). 'north'|'south'|
+// Which side a building's entrance is on, for the map's entrance arrow. This is an
+// AUTHORED property (flags.entrance), baked once from the road graph by
+// scripts/bake-building-entrances.mjs and hand-corrected where inference can't
+// decide — NOT derived at runtime. A door is a property of the building, not a
+// function of what's currently painted around it: inferring it from the road graph
+// let unrelated terrain painting silently relocate doors (Dave painting a dirt
+// track west of Pawn & Pity moved its door off Marrow Street). 'north'|'south'|
 // 'east'|'west'|null.
 //
-// When more than one standable tile steps into the same facade (e.g. a shop that
-// backs onto grassland on one side and fronts a road on another), the door must be
-// pinned to the ROAD — that's the "first available open road" the building faces.
-// Without this, whichever neighbour happened to be scanned first won the entrance,
-// which is how Pawn & Pity and The Neon Vig ended up with a grassland-facing (west)
-// door when their real frontage is Marrow Street to the north.
-let _entranceDirCache = null;
-export function invalidateEntranceDirCache() { _entranceDirCache = null; }
-function buildEntranceDirIndex() {
-  // facadeId → array of { side, road } candidates (side = the facade face the
-  // neighbour is on = the door side). Resolved road-first below.
-  const cands = new Map();
-  for (const z of world.zones.values()) {
-    if (z.grid_x == null) continue;
-    // The entrance must be the STREET tile you step in from — so the source zone
-    // has to be standable. Skip facades as sources: two adjacent building faces can
-    // be wired directly to each other (Two-Cell's `south` ↔ Embassy's `north`), and
-    // if that building-to-building exit is scanned before the real road, the door
-    // gets pinned to the neighbouring building and facadeStreetTile spills you onto
-    // it instead of the street.
-    if (hasTag(z, 'facade')) continue;
-    const zIsRoad = zoneTerrain(z) === 'road';
-    for (const [dir, targetId] of Object.entries(z.exits || {})) {
-      const off = DIR_OFFSET[dir];
-      if (!off || off[2] !== 0 || (off[0] === 0 && off[1] === 0)) continue; // N/S/E/W only
-      const t = world.zones.get(targetId);
-      if (!t || t.grid_x == null || !hasTag(t, 'facade')) continue;
-      // z steps `dir` into facade t and they're grid-adjacent that way ⇒ the door
-      // faces t's side toward z, i.e. the opposite of dir.
-      if (t.grid_x - z.grid_x === off[0] && t.grid_y - z.grid_y === off[1] && (t.grid_z ?? 0) === (z.grid_z ?? 0)) {
-        if (!cands.has(t.id)) cands.set(t.id, []);
-        cands.get(t.id).push({ side: OPPOSITE[dir], road: zIsRoad });
-      }
-    }
-  }
-  const idx = new Map();
-  for (const [facadeId, list] of cands) {
-    // Prefer a road-facing side; fall back to the first candidate found.
-    const pick = list.find(c => c.road) || list[0];
-    idx.set(facadeId, pick.side);
-  }
-  return idx;
-}
+// The one legitimately dynamic entrance is the Echelon: her exterior tile sails, so
+// the yacht plugin writes flags.entrance as she docks (next to flags.heading).
 export function buildingEntranceDir(zone) {
   if (!zone || !hasTag(zone, 'facade')) return null;
-  if (!_entranceDirCache) _entranceDirCache = buildEntranceDirIndex();
-  return _entranceDirCache.get(zone.id) || null;
+  return zone.flags?.entrance || null;
 }
 
 // Cardinal directions from an interior room that lead OUT of the building — an exit to
@@ -370,7 +329,6 @@ export async function addExitOverride(zoneId, direction, targetZone, source = nu
   );
   const z = world.zones.get(zoneId);
   if (z) z.exits = addExit(z.exits, direction, targetZone);
-  invalidateEntranceDirCache();
 }
 
 // Unwire: deletes the override row and removes the exit from the live zone.
@@ -383,7 +341,6 @@ export async function removeExitOverride(zoneId, direction, targetZone) {
   );
   const z = world.zones.get(zoneId);
   if (z) z.exits = removeExit(z.exits, direction, targetZone);
-  invalidateEntranceDirCache();
 }
 
 async function loadZones() {
@@ -1185,7 +1142,6 @@ export async function reloadZone(zoneId) {
     _dangerInferred: existing._dangerInferred,
   });
   await applyExitOverrides(zoneId);
-  invalidateEntranceDirCache(); // a zone's exits may have changed — rebuild on next read
 }
 
 // Returns true and records the cooldown if this enemy type can shout; false if suppressed.

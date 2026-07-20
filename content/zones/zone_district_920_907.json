@@ -8,13 +8,13 @@
   "description": "The face of Bulk & Bond — a chem-supply depot stacked to the roofline with drums and double-bagged sacks, a yellow hazard chevron ringing the door. Ironside Street runs off to the west.",
   "exits": {
     "east": "zone_chemsupply_interior",
-    "north": "zone_district_920_906",
     "west": "zone_district_919_907"
   },
   "flags": {
     "building_name": "Bulk & Bond Supply",
     "building_type": "chem_supply",
     "district": "wasteland",
+    "entrance": "west",
     "facade": true,
     "is_building": true,
     "planner": "bp_district",

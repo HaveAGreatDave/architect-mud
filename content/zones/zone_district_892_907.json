@@ -7,16 +7,15 @@
   "created_by": "ascendant-stronghold",
   "description": "A cathedral of black glass and cold light stands with its back to the Architect's Curtain — that floor-to-sky sheet of humming hard light — as though leaning against it for warmth. Server racks glow behind the west wall in ranks like votive candles. Of everything out here, this is the only building that faces the Curtain instead of turning away from it.",
   "exits": {
-    "east": "zone_district_893_907",
     "in": "zone_asc_shrine_nave",
-    "north": "zone_district_892_906",
-    "west": "zone_district_891_907"
+    "south": "zone_district_892_908"
   },
   "flags": {
     "ascendant_campus": true,
     "building_name": "Architect Shrine",
     "building_type": "asc_shrine",
     "district": "wasteland",
+    "entrance": "south",
     "facade": true,
     "floors": 10,
     "is_building": true,

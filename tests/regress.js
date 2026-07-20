@@ -853,30 +853,33 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
 }
 
 // ── Facade↔interior arrow alignment (real content) ──────────────────────────
-// The overworld map's ENTRANCE arrow is buildingEntranceDir (the road-facing
-// door side); the interior map's EXIT arrow is interiorExitDirs. They're derived
-// independently, so content can ship them pointing opposite ways — the player
-// spills out a north door but the interior arrow says "west" (Neon Vig / Pawn &
-// Pity, twice). There is no reason for a building to face north and have you
-// leave west; the only reason it kept coming back is nothing failed when it did.
-// This IS that failure: a single cardinal interior out-exit that disagrees with
-// the derived door is a hard fail. Neutral `out` (interiorExitDirs → null) and
-// no-road-door facades (buildingEntranceDir → null) are the deliberate legacy
-// carve-outs and pass — matching scripts/fix-facade-interior-exits.mjs.
+// The door is now AUTHORED (facade flags.entrance), not inferred from the road
+// graph — so terrain painting can't silently relocate it (the recurrence that
+// moved Pawn & Pity's door off Marrow Street). Three invariants keep the arrows
+// honest, each a hard fail:
+//   1. every enterable facade has flags.entrance (buildingEntranceDir reads it;
+//      no flag ⇒ no door arrow, and no anchor for the interior exit)
+//   2. a facade has exactly ONE interior map — a duplicate hid the Ration Nine
+//      diner/grocery collision, because getMapByParentZone silently took the first
+//   3. the interior's single cardinal out-exit points the SAME way as the door
+//      (NOT the mirror of the facade→interior link — the reverted intuition)
 {
   const { isEnterableFacade, buildingEntranceDir, interiorExitDirs, getMapByParentZone } = await import('../server/engine/world.js');
-  const misaligned = [];
+  const noEntrance = [], dupMap = [], misaligned = [];
   for (const facade of world.zones.values()) {
     if (!isEnterableFacade(facade)) continue;
-    const door = buildingEntranceDir(facade);            // map entrance arrow, or null
-    if (!door) continue;                                  // no road door → legacy, skip
+    const maps = [...world.maps.values()].filter(m => m.parent_zone_id === facade.id);
+    if (maps.length > 1) dupMap.push(`${facade.name} [${facade.id}]: ${maps.length} maps`);
+    const door = buildingEntranceDir(facade);
+    if (!door) { noEntrance.push(`${facade.name} [${facade.id}]`); continue; }
     const interior = world.zones.get(getMapByParentZone(facade.id)?.entry_zone_id);
     const outs = interiorExitDirs(interior);              // interior exit arrow(s), or null
     if (!outs || outs.length !== 1) continue;             // neutral/multi out → not a contradiction
     if (outs[0] !== door) misaligned.push(`${facade.name} [${facade.id}]: door=${door} but interior leaves ${outs[0]}`);
   }
-  check('every building interior leaves toward its map entrance arrow',
-    misaligned.length === 0, misaligned.join(' | '));
+  check('every enterable facade has an authored flags.entrance', noEntrance.length === 0, noEntrance.join(' | '));
+  check('no facade has more than one interior map', dupMap.length === 0, dupMap.join(' | '));
+  check('every building interior leaves toward its map entrance arrow', misaligned.length === 0, misaligned.join(' | '));
 }
 
 // ── Layer 3: per-plugin suites (plugins/<name>/regress.js) ───────────────────

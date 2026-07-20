@@ -14,6 +14,7 @@
     "building_name": "Coldwater Power Plant — Turbine Hall",
     "building_type": "power",
     "district": "residential",
+    "entrance": "west",
     "facade": true,
     "is_building": true,
     "planner": "bp_district",

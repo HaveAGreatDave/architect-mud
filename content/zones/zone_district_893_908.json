@@ -7,12 +7,14 @@
   "created_by": "zone-planner",
   "description": "The face of Threshold Helipad Hangar.",
   "exits": {
+    "east": "zone_district_894_908",
     "in": "zone_hangar_threshold"
   },
   "flags": {
     "building_name": "Threshold Helipad Hangar",
     "building_type": "hangar",
     "district": "wasteland",
+    "entrance": "east",
     "facade": true,
     "is_building": true,
     "planner": "bp_district",

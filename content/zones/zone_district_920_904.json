@@ -8,13 +8,13 @@
   "description": "The face of Embassy Hotel & Bar.",
   "exits": {
     "east": "zone_residential_lobby",
-    "north": "zone_district_920_903",
     "west": "zone_district_919_904"
   },
   "flags": {
     "building_name": "Embassy Hotel & Bar",
     "building_type": "hotel",
     "district": "wasteland",
+    "entrance": "west",
     "facade": true,
     "is_building": true,
     "planner": "bp_district",

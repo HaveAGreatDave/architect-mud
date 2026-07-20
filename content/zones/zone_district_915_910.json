@@ -7,16 +7,14 @@
   "created_by": "zone-planner",
   "description": "A walk-in clinic in a converted storefront, a green cross buzzing in the window over a card reader and a sign that promises WE PATCH, WE DON'T ASK. Through the glass: a row of vinyl chairs, a triage counter, and the specific fluorescent pallor of a place that has seen every way a body comes apart. The floor drain by the door is a detail you try not to think about.",
   "exits": {
-    "east": "zone_district_916_910",
     "in": "zone_meltwater_clinic",
-    "north": "zone_district_915_909",
-    "south": "zone_district_915_911",
-    "west": "zone_district_914_910"
+    "north": "zone_district_915_909"
   },
   "flags": {
     "building_name": "Meltwater Walk-In Clinic",
     "building_type": "clinic",
     "district": "wasteland",
+    "entrance": "north",
     "facade": true,
     "is_building": true,
     "planner": "bp_district",

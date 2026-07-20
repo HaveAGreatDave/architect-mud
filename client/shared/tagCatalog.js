@@ -302,6 +302,8 @@
       help: 'Explicit storey count for the flight-sim skyline — overrides the per-building-type default so a landmark tower stands taller (or shorter). Read by the windshield building-height formula.' },
     world_exit_zone: { label: 'World Exit Zone', shape: 'text', scope: 'zone', group: 'Zone: Structure',
       help: 'Exterior seam zone for this building — where OUT ultimately lands.' },
+    entrance: { label: 'Entrance Direction', shape: 'text', scope: 'zone', group: 'Zone: Structure',
+      help: 'Authored door side (north/south/east/west) for the map entrance arrow — read by buildingEntranceDir. Baked once from the road graph, NOT inferred at runtime, so terrain painting can never relocate a door. The interior out-exit must mirror this.' },
     utility_room: { label: 'Utility Room', shape: 'flag', scope: 'zone', group: 'Zone: Structure',
       help: 'Building utility room (the junction box lives here).' },
     elevator: { label: 'Elevator', shape: 'flag', scope: 'zone', group: 'Zone: Structure',

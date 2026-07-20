@@ -27,14 +27,14 @@
   },
   "chitchat": [
     "\"Coffee's fresh. Well. It's hot. Same thing, after a while.\"",
-    "\"You want it fast or you want it good? Pick one — this is a diner.\"",
-    "\"Everything's a ration, friend. We just plate it.\""
+    "\"You want it cheap or you want it good? Pick one — this is a ration store.\"",
+    "\"Everything's a ration, friend. We just shelve it.\""
   ],
-  "description": "A broad, unhurried short-order cook with a paper hat gone limp and a spatula worn to a sliver. He never stops moving and never seems to hurry.",
+  "description": "A broad, unhurried counterman with a paper hat gone limp and an apron worn to a shine. He restocks and rings up without ever seeming to hurry.",
   "dialogue_tree": {
     "bye": {
       "options": [],
-      "text": "He turns back to the griddle."
+      "text": "He turns back to the register."
     },
     "root": {
       "options": [
@@ -43,7 +43,7 @@
           "next": "shop"
         }
       ],
-      "text": "\"Sit anywhere that'll hold you. Menu's on the wall, cash on the counter.\""
+      "text": "\"Aisles are where they are. Prices on the shelf, cash on the counter.\""
     },
     "shop": {
       "actions": [
@@ -58,7 +58,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Grill's hot. Point at what you want.\""
+      "text": "\"Counter's open. Point at what you want.\""
     }
   },
   "faction": null,
@@ -70,7 +70,7 @@
     "personality": "vendor"
   },
   "home_activities": [],
-  "home_zone": "zone_ration_interior",
+  "home_zone": "zone_mq_grocery",
   "hp": 50,
   "hp_max": 50,
   "id": "npc_ration_cook",
@@ -154,5 +154,5 @@
   "vendor_stock_size": 12,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": "zone_ration_interior"
+  "work_zone_id": "zone_mq_grocery"
 }

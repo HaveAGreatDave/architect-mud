@@ -8,13 +8,13 @@
   "description": "The face of Pawn & Pity — barred windows, a half-dead sign, and no questions. Whatever you lost is probably in the case out front. Ironside Street runs off to the west.",
   "exits": {
     "east": "zone_fence_interior",
-    "north": "zone_district_920_909",
-    "south": "zone_district_920_911"
+    "north": "zone_district_920_909"
   },
   "flags": {
     "building_name": "Pawn & Pity",
     "building_type": "fence",
     "district": "wasteland",
+    "entrance": "north",
     "facade": true,
     "is_building": true,
     "planner": "bp_district",

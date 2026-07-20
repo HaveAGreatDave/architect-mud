@@ -1,9 +1,0 @@
-{
-  "capacity_kw": 5000,
-  "flags": {},
-  "generator_id": "gen_zone_util_zone_ration_interior",
-  "id": "zone_util_zone_ration_interior",
-  "max_capacity_kw": 1000,
-  "name": "Ration Nine — Utility Room",
-  "source_type": "junction_box"
-}

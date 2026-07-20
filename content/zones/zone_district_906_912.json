@@ -8,15 +8,13 @@
   "description": "A slot of a café wedged into a street-facing unit, JITTER stencilled small on the glass above a menu board that cycles its prices a little faster than feels honest. Inside, a chrome espresso rig hisses and gleams, tended by one bored figure and a queue of standing counters. The whole place smells of scorched sugar and ozone.",
   "exits": {
     "east": "zone_district_907_912",
-    "in": "zone_stimcafe",
-    "north": "zone_district_906_911",
-    "south": "zone_district_906_913",
-    "west": "zone_district_905_912"
+    "in": "zone_stimcafe"
   },
   "flags": {
     "building_name": "Jitter",
     "building_type": "shop",
     "district": "wasteland",
+    "entrance": "east",
     "facade": true,
     "is_building": true,
     "planner": "bp_district",
