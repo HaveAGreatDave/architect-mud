@@ -140,8 +140,8 @@
             },
             {
               "action": "ADJUST_PATH",
-              "path": "flesh",
-              "delta": 8
+              "delta": 8,
+              "path": "flesh"
             },
             {
               "action": "SET_FLAG",
@@ -174,8 +174,8 @@
             },
             {
               "action": "ADJUST_PATH",
-              "path": "human",
-              "delta": 8
+              "delta": 8,
+              "path": "human"
             },
             {
               "action": "SET_FLAG",
@@ -208,8 +208,8 @@
             },
             {
               "action": "ADJUST_PATH",
-              "path": "machine",
-              "delta": 8
+              "delta": 8,
+              "path": "machine"
             },
             {
               "action": "SET_FLAG",
@@ -242,8 +242,8 @@
             },
             {
               "action": "ADJUST_PATH",
-              "path": "mind",
-              "delta": 8
+              "delta": 8,
+              "path": "mind"
             },
             {
               "action": "SET_FLAG",
@@ -267,8 +267,8 @@
             {
               "flag": "gig_ready",
               "op": "eq",
-              "value": "true",
-              "scope": "player"
+              "scope": "player",
+              "value": "true"
             }
           ],
           "next": "job_turnin",

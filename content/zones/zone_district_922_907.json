@@ -15,11 +15,11 @@
     "building_type": "warehouse",
     "district": "yards",
     "district_id": "district_coldwater",
+    "entrance": "south",
     "facade": true,
     "is_building": true,
     "planner": "bp_district",
-    "world_exit_zone": "zone_district_922_908",
-    "entrance": "south"
+    "world_exit_zone": "zone_district_922_908"
   },
   "grid_x": 922,
   "grid_y": 907,

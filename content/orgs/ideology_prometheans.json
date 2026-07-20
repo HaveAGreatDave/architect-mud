@@ -2,24 +2,30 @@
   "color": "#E8703A",
   "description": "The tools were never the mistake — surrendering them was. The Prometheans hold that humanity's ruin came the day it handed its cybernetics, its intelligences, and its machines to a single centralized mind. They would take them back: not smash the future, but wire it to human hands. Every rig they build, every AI they raise, every drone they fly is an argument that the Architect is a thief, not a god. The best of them move inside a workshop of their own making — drone-swarms coded by hand, an intelligence that answers to no one else, prototype gear that has no business existing yet — living proof that one free inventor can out-build a god that owns everything except their ingenuity.",
   "flags": {
-    "creed": "Technology belongs to humanity — not to the Architect.",
-    "stance": "redeem",
-    "path": "machine",
     "authority": "human",
+    "creed": "Technology belongs to humanity — not to the Architect.",
     "expansion": true,
-    "values": ["Freedom", "Innovation", "Decentralization", "Ingenuity", "Autonomy"],
+    "path": "machine",
     "reader": {
-      "motto": "liberate",
       "experience": "Side with the Prometheans and the workshop opens — parts, schematics, and makers who'll trade you the gear the Architect would rather never existed. You raise your own machines: drone-swarms coded by your hand, an intelligence that answers to no one else, prototype rigs with no business working yet. Every rig you build is the same argument made louder — that the Architect is a thief, not a god, and one free inventor can out-build everything it owns except your ingenuity. You take the fire back, and you hand it to no one.",
+      "motto": "liberate",
+      "path_text": "The Machine, on our terms. Cybernetics, AI, drones, and hardware are humanity's birthright to wield — not the Architect's to ration.",
       "pull": "The Architect did not invent the fire. It only chained the ones who carry it.",
+      "relnote": "Walk the machine road beside the Ascendants and despise where it leads them; nod to the Null, who at least distrust the central mind.",
       "tenets": [
         "Technology belongs to human hands, not a central mind.",
         "Build it open, run it yourself, owe it to no one.",
         "The Architect is a thief dressed as a god."
-      ],
-      "path_text": "The Machine, on our terms. Cybernetics, AI, drones, and hardware are humanity's birthright to wield — not the Architect's to ration.",
-      "relnote": "Walk the machine road beside the Ascendants and despise where it leads them; nod to the Null, who at least distrust the central mind."
-    }
+      ]
+    },
+    "stance": "redeem",
+    "values": [
+      "Freedom",
+      "Innovation",
+      "Decentralization",
+      "Ingenuity",
+      "Autonomy"
+    ]
   },
   "founded_at": "1783000349",
   "id": "ideology_prometheans",

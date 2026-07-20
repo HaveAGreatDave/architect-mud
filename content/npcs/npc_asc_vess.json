@@ -97,6 +97,11 @@
   "npc_type": "civilian",
   "sex": "female",
   "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
   "wander_zones": [],
   "wanders": 0,
   "work_zone_id": "zone_asc_spire_concourse"

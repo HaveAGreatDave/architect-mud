@@ -23,11 +23,21 @@
   "rewards": {
     "credits": 220,
     "flags": [
-      { "flag": "dredge_trusted", "scope": "player", "value": "done" }
+      {
+        "flag": "dredge_trusted",
+        "scope": "player",
+        "value": "done"
+      }
     ],
     "items": [
-      { "item_id": "item_medkit", "quantity": 1 },
-      { "item_id": "item_battery", "quantity": 2 }
+      {
+        "item_id": "item_medkit",
+        "quantity": 1
+      },
+      {
+        "item_id": "item_battery",
+        "quantity": 2
+      }
     ]
   },
   "updated_at": "1784600000"

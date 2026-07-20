@@ -7,12 +7,30 @@
       "dreamzone_id": "zone_dream_khole",
       "duration_seconds": 200,
       "events": [
-        { "atSec": 12, "text": "[trip]The floor goes soft and the walls slide back. You start, very gently, to come loose from yourself.[/trip]" },
-        { "atSec": 40, "text": "[trip]You slide a little further down the smooth grey funnel.[/trip]" },
-        { "atSec": 80, "text": "[trip]Your body is somewhere behind you now, waving. You wave back, or think about it.[/trip]" },
-        { "atSec": 120, "text": "[trip]Continents of thought drift past, too large and too slow to be afraid of.[/trip]" },
-        { "atSec": 155, "text": "[trip]Someone is speaking. It might be you. It was a long time ago.[/trip]" },
-        { "atSec": 185, "text": "[trip]The funnel widens, tips you out, and hands you back your arms and legs one at a time.[/trip]" }
+        {
+          "atSec": 12,
+          "text": "[trip]The floor goes soft and the walls slide back. You start, very gently, to come loose from yourself.[/trip]"
+        },
+        {
+          "atSec": 40,
+          "text": "[trip]You slide a little further down the smooth grey funnel.[/trip]"
+        },
+        {
+          "atSec": 80,
+          "text": "[trip]Your body is somewhere behind you now, waving. You wave back, or think about it.[/trip]"
+        },
+        {
+          "atSec": 120,
+          "text": "[trip]Continents of thought drift past, too large and too slow to be afraid of.[/trip]"
+        },
+        {
+          "atSec": 155,
+          "text": "[trip]Someone is speaking. It might be you. It was a long time ago.[/trip]"
+        },
+        {
+          "atSec": 185,
+          "text": "[trip]The funnel widens, tips you out, and hands you back your arms and legs one at a time.[/trip]"
+        }
       ],
       "intensity": 0.7,
       "mode": "dreamzone",

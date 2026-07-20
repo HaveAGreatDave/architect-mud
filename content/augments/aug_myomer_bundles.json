@@ -1,13 +1,15 @@
 {
+  "cost": 1200,
+  "description": "Synthetic muscle woven along the arms, torqued past anything meat can manage. It shows — the unwired step back when you flex.",
   "id": "aug_myomer_bundles",
   "name": "Myomer Bundles",
-  "description": "Synthetic muscle woven along the arms, torqued past anything meat can manage. It shows — the unwired step back when you flex.",
-  "slot": "arms",
-  "tier": 2,
-  "cost": 1200,
   "rep_gate": "known",
-  "stat_modifiers": { "stat_brawn": 1 },
+  "slot": "arms",
   "soak": {},
-  "visible": 1,
-  "special": null
+  "special": null,
+  "stat_modifiers": {
+    "stat_brawn": 1
+  },
+  "tier": 2,
+  "visible": 1
 }

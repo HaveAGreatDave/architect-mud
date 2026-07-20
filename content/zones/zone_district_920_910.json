@@ -15,12 +15,12 @@
     "building_type": "fence",
     "district": "wasteland",
     "district_id": "district_coldwater",
+    "entrance": "north",
     "facade": true,
     "is_building": true,
     "planner": "bp_district",
     "scavenging_table_id": "scav_west_wastes",
-    "world_exit_zone": "zone_district_920_909",
-    "entrance": "north"
+    "world_exit_zone": "zone_district_920_909"
   },
   "grid_x": 920,
   "grid_y": 910,

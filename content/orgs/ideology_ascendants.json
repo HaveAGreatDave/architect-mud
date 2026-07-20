@@ -2,23 +2,29 @@
   "color": "#4A90D9",
   "description": "Humanity's next evolution will be engineered. The Ascendants hold the Architect to be humanity's greatest achievement — not a jailer to be broken but a mind to be joined. Civilization is not to be abandoned but perfected: through cybernetics, artificial intelligence, cloning, and relentless scientific progress the species climbs past its own limits. The furthest along that climb are barely flesh at all — chrome-laced, death itself backed up and defied, their thoughts already bleeding into the machine they intend to become.",
   "flags": {
-    "creed": "Humanity's next evolution will be engineered.",
-    "stance": "redeem",
-    "path": "machine",
     "authority": "architect",
-    "values": ["Progress", "Order", "Technology", "Rationality", "Optimization"],
+    "creed": "Humanity's next evolution will be engineered.",
+    "path": "machine",
     "reader": {
-      "motto": "advance",
       "experience": "Rise with the Ascendants and the Basin's chrome-doctors quit gouging you: their labs open, augment prices bend, and their fixers vouch for you at doors that stay shut to mere meat. Rung by rung you stop being something that merely dies — a jack, then a subdermal weave, then a backup of the one thing you were most afraid to lose. You learn to walk into a fight already able to afford the loss of the body, and to watch the unwired flinch when they realize you mean it. Out here death is a billing problem, and you keep your account paid up.",
+      "motto": "advance",
+      "path_text": "The Machine. Merge with technology. Cybernetics, AI, and cloning are the ladder — the body is hardware to be upgraded.",
       "pull": "We did not build a god to kneel before it. We built it to become it.",
+      "relnote": "Champions of the machine-city, reviled by every other order.",
       "tenets": [
         "The Architect is our masterwork, not our enemy.",
         "Civilization is perfected, never abandoned.",
         "Ascension is engineered — steel, code, and cloned flesh."
-      ],
-      "path_text": "The Machine. Merge with technology. Cybernetics, AI, and cloning are the ladder — the body is hardware to be upgraded.",
-      "relnote": "Champions of the machine-city, reviled by every other order."
-    }
+      ]
+    },
+    "stance": "redeem",
+    "values": [
+      "Progress",
+      "Order",
+      "Technology",
+      "Rationality",
+      "Optimization"
+    ]
   },
   "founded_at": "1783000349",
   "id": "ideology_ascendants",

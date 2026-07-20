@@ -1,117 +1,30 @@
 {
   "banter": [],
+  "behaviour_graph": {},
   "chitchat": [],
   "description": "A statuesque woman with an hourglass figure wrapped in soft silk, all curves and heavy-lidded calm. Off any stage she moves slower, like the cabin belongs to her and she's in no hurry to prove it. Her eyes drift to the hatch whenever it so much as creaks.",
   "dialogue_tree": {
-    "root": {
-      "text": "She marks you the moment you clear the hatch, and lets a slow, unhurried smile answer for her before she does. \"There he is. The whole boat exhales when you're aboard, you know — I've stopped pretending I don't.\" She sets her book face-down, giving you the version of her attention that costs something. \"Sit. Talk to me. What are we tonight?\"",
-      "options": [
-        { "label": "How was it down here today?", "next": "day" },
-        { "label": "Tell me how you really ended up on this boat.", "next": "deal" },
-        { "label": "Was any of it real? The arrangement, I mean.", "next": "feeling", "conditions": [{ "flag": "roxy_deal", "op": "set", "scope": "player" }] },
-        { "label": "What are you actually afraid of, Roxy?", "next": "fear", "conditions": [{ "flag": "roxy_feeling", "op": "set", "scope": "player" }] },
-        { "label": "How's Bijou?", "next": "bijou" },
-        { "label": "Come here.", "next": "flirt" },
-        { "label": "(leave her to her book)", "next": "bye" }
-      ]
-    },
-    "day": {
-      "text": "\"Productive. I re-provisioned the galley, settled a very stupid dispute between the steward and the wine, and taught myself the exact temperature you take your coffee — which took a week and I will not be modest about it.\" She tilts her head. \"You think this place runs itself. It runs because I decided it would. That's the difference between a passenger and me.\"",
-      "options": [
-        { "label": "You don't have to do all that.", "next": "day_why" },
-        { "label": "(let her have the win)", "next": "root" }
-      ]
-    },
-    "day_why": {
-      "text": "\"No. I don't.\" She says it evenly, but something flickers. \"That's rather the point. Anyone can be wanted for what they can't help being. I'd rather be indispensable for what I choose to do. It's steadier. It lasts.\" A dry beat. \"Also I like it. Don't tell anyone. It ruins the mystique.\"",
-      "options": [
-        { "label": "Ask her something else.", "next": "root" }
-      ]
-    },
-    "deal": {
-      "actions": [{ "action": "SET_FLAG", "flag": "roxy_deal", "scope": "player", "value": "true" }],
-      "text": "She considers you for a moment, deciding how honest to be, and settles on all the way. \"You want the unromantic version? Good. I prefer it.\" She turns her glass a slow quarter-turn. \"I worked the harbour rooms. I was good, I was cold about it, and I could read a mark's whole future in how he tipped. Then you came through, and I did the arithmetic before you'd finished your first drink — the berth, the safety, the ceiling over my head that nobody else held the key to. I chose you like a good investment. Eyes open. No violins.\" She meets your eye, unflinching. \"I've never once regretted the maths.\"",
-      "options": [
-        { "label": "That's cold.", "next": "deal_cold" },
-        { "label": "Just the maths?", "next": "feeling" },
-        { "label": "Fair enough.", "next": "root" }
-      ]
-    },
-    "deal_cold": {
-      "text": "\"It's honest. There's a difference, though nobody out there'll teach it to you.\" She doesn't look away. \"Cold kept me alive in rooms that ate warmer girls whole. I'm not going to apologise for the thing that got me here.\" A pause, and the edge softens by a degree she'd deny. \"But I'll grant you it was simpler, back when it was only maths.\"",
-      "options": [
-        { "label": "What changed?", "next": "feeling", "conditions": [{ "flag": "roxy_feeling", "op": "unset", "scope": "player" }] },
-        { "label": "(let it rest)", "next": "root" }
-      ]
-    },
-    "feeling": {
-      "actions": [{ "action": "SET_FLAG", "flag": "roxy_feeling", "scope": "player", "value": "true" }],
-      "text": "For once she doesn't have the next line ready. \"...Here's the part I didn't price in.\" She turns the glass again, watching it instead of you. \"Somewhere in the performing of it, I stopped performing. I catch myself listening for the launch. I kept your coffee warm past any sane hour last week and lied to Bijou about why. The arrangement was supposed to be the whole of it, and it isn't, and that\" — a short, humourless breath — \"is the one variable I did not hedge. I don't like carrying a position I can't cover. And I can't cover you.\"",
-      "options": [
-        { "label": "You don't have to cover it. I'm not going anywhere.", "next": "feeling_reassure" },
-        { "label": "That sounds a lot like love.", "next": "feeling_love" },
-        { "label": "(let her sit with it)", "next": "root" }
-      ]
-    },
-    "feeling_reassure": {
-      "text": "She's quiet a moment, then gives a small, wry laugh at herself. \"You say that like it's simple. Maybe on this boat it is.\" She lets her hand settle over yours — a deliberate act from a woman who does nothing by accident. \"Fine. I'll try holding an uncovered position. Just this once. Don't make me regret the maths after all this time.\"",
-      "options": [
-        { "label": "Ask her something else.", "next": "root" }
-      ]
-    },
-    "feeling_love": {
-      "text": "\"Don't.\" It comes fast, then she catches it, and her mouth twists. \"...Don't say it like you've won something. I know what it is. I filed it under a different name for months precisely so I wouldn't have to look at it.\" She exhales. \"Yes. Obviously yes. Which is inconvenient, and permanent, and I've decided to allow it. Consider that the most romantic thing I will ever say sober.\"",
-      "options": [
-        { "label": "Ask her something else.", "next": "root" }
-      ]
-    },
-    "fear": {
-      "text": "She weighs it properly — you've earned a real answer. \"Not being replaced. I know my worth; I'll always be worth the berth.\" A beat. \"It's needing you. That's the fear. I spent my whole life making sure I was the one who could walk away, from any room, at any time, on my terms. And now there's a room I don't want to walk out of. That's not a feeling I have tools for.\" She holds your gaze, steady as ever, which is its own kind of admission. \"So I manage it the way I manage everything. Quietly. Competently. And I never let Bijou see it, because one of us has to be the calm one.\"",
-      "options": [
-        { "label": "You carry a lot for her.", "next": "fear_bijou" },
-        { "label": "You don't have to be calm with me.", "next": "fear_soft" },
-        { "label": "(just be with her)", "next": "root" }
-      ]
-    },
-    "fear_bijou": {
-      "text": "\"Someone has to. She feels everything at full volume — it's why you adore her, don't argue.\" A fond, tired smile. \"She watches that hatch like it might not open again. I watch it too. I'm just better at pretending I'm watching the water.\"",
-      "options": [
-        { "label": "Ask her something else.", "next": "root" }
-      ]
-    },
-    "fear_soft": {
-      "text": "\"...I know.\" A long breath, and for a moment the strategist is just a woman on a very expensive bed. \"Give me time. I've been calm for a living since before you knew my name. I'll learn the other thing. With you I might even want to.\"",
-      "options": [
-        { "label": "Ask her something else.", "next": "root" }
-      ]
-    },
     "bijou": {
-      "text": "Her whole face gentles. \"Restless. Radiant. Impossible. She reorganised your sock drawer by colour and called it devotion.\" A soft laugh. \"She loves you without an ounce of self-protection, which terrifies me on her behalf. So I keep an eye on her. I brush her hair when the water gets to her, and I let her win the arguments that don't matter.\" She glances at you. \"Be gentle with her. She hasn't got my armour. She never learned to make it.\"",
       "options": [
-        { "label": "You two look after each other.", "next": "bijou_us" },
-        { "label": "Ask her something else.", "next": "root" }
-      ]
+        {
+          "label": "You two look after each other.",
+          "next": "bijou_us"
+        },
+        {
+          "label": "Ask her something else.",
+          "next": "root"
+        }
+      ],
+      "text": "Her whole face gentles. \"Restless. Radiant. Impossible. She reorganised your sock drawer by colour and called it devotion.\" A soft laugh. \"She loves you without an ounce of self-protection, which terrifies me on her behalf. So I keep an eye on her. I brush her hair when the water gets to her, and I let her win the arguments that don't matter.\" She glances at you. \"Be gentle with her. She hasn't got my armour. She never learned to make it.\""
     },
     "bijou_us": {
-      "text": "\"We're all each other had, before you. That doesn't just switch off because the accommodation improved.\" She says it plainly. \"Whatever this is between the three of us — I'd have chosen her out of that harbour even if there'd been no boat and no you. So. Yes. We look after each other. You're simply lucky enough to be looked after by both of us now.\"",
       "options": [
-        { "label": "Ask her something else.", "next": "root" }
-      ]
-    },
-    "flirt": {
-      "text": "\"Mm. Now you're speaking my first language.\" She rises without hurry — everything Roxy does is on a tempo she sets — and closes the distance until there's none. \"Let me remind you what you're paying for. And then let me remind you it stopped being about the pay a while ago.\"",
-      "options": [
-        { "label": "(pull her in)", "next": "bye_warm" },
-        { "label": "Later. Just sit with me.", "next": "bye_warm" }
-      ]
-    },
-    "bye_warm": {
-      "options": [],
-      "text": [
-        "She settles against you like she was poured to fit there, and for once says nothing at all.",
-        "\"Good answer,\" she murmurs, and lets the rest of the evening be exactly what it is.",
-        "She tucks herself under your arm and lets the strategist off duty for a while."
-      ]
+        {
+          "label": "Ask her something else.",
+          "next": "root"
+        }
+      ],
+      "text": "\"We're all each other had, before you. That doesn't just switch off because the accommodation improved.\" She says it plainly. \"Whatever this is between the three of us — I'd have chosen her out of that harbour even if there'd been no boat and no you. So. Yes. We look after each other. You're simply lucky enough to be looked after by both of us now.\""
     },
     "bye": {
       "options": [],
@@ -122,18 +35,236 @@
         "\"Mind how you go. Come back to me in one piece — I've grown fond of all of them.\"",
         "\"The coffee'll be at temperature whenever you want it. So will I.\""
       ]
+    },
+    "bye_warm": {
+      "options": [],
+      "text": [
+        "She settles against you like she was poured to fit there, and for once says nothing at all.",
+        "\"Good answer,\" she murmurs, and lets the rest of the evening be exactly what it is.",
+        "She tucks herself under your arm and lets the strategist off duty for a while."
+      ]
+    },
+    "day": {
+      "options": [
+        {
+          "label": "You don't have to do all that.",
+          "next": "day_why"
+        },
+        {
+          "label": "(let her have the win)",
+          "next": "root"
+        }
+      ],
+      "text": "\"Productive. I re-provisioned the galley, settled a very stupid dispute between the steward and the wine, and taught myself the exact temperature you take your coffee — which took a week and I will not be modest about it.\" She tilts her head. \"You think this place runs itself. It runs because I decided it would. That's the difference between a passenger and me.\""
+    },
+    "day_why": {
+      "options": [
+        {
+          "label": "Ask her something else.",
+          "next": "root"
+        }
+      ],
+      "text": "\"No. I don't.\" She says it evenly, but something flickers. \"That's rather the point. Anyone can be wanted for what they can't help being. I'd rather be indispensable for what I choose to do. It's steadier. It lasts.\" A dry beat. \"Also I like it. Don't tell anyone. It ruins the mystique.\""
+    },
+    "deal": {
+      "actions": [
+        {
+          "action": "SET_FLAG",
+          "flag": "roxy_deal",
+          "scope": "player",
+          "value": "true"
+        }
+      ],
+      "options": [
+        {
+          "label": "That's cold.",
+          "next": "deal_cold"
+        },
+        {
+          "label": "Just the maths?",
+          "next": "feeling"
+        },
+        {
+          "label": "Fair enough.",
+          "next": "root"
+        }
+      ],
+      "text": "She considers you for a moment, deciding how honest to be, and settles on all the way. \"You want the unromantic version? Good. I prefer it.\" She turns her glass a slow quarter-turn. \"I worked the harbour rooms. I was good, I was cold about it, and I could read a mark's whole future in how he tipped. Then you came through, and I did the arithmetic before you'd finished your first drink — the berth, the safety, the ceiling over my head that nobody else held the key to. I chose you like a good investment. Eyes open. No violins.\" She meets your eye, unflinching. \"I've never once regretted the maths.\""
+    },
+    "deal_cold": {
+      "options": [
+        {
+          "conditions": [
+            {
+              "flag": "roxy_feeling",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "label": "What changed?",
+          "next": "feeling"
+        },
+        {
+          "label": "(let it rest)",
+          "next": "root"
+        }
+      ],
+      "text": "\"It's honest. There's a difference, though nobody out there'll teach it to you.\" She doesn't look away. \"Cold kept me alive in rooms that ate warmer girls whole. I'm not going to apologise for the thing that got me here.\" A pause, and the edge softens by a degree she'd deny. \"But I'll grant you it was simpler, back when it was only maths.\""
+    },
+    "fear": {
+      "options": [
+        {
+          "label": "You carry a lot for her.",
+          "next": "fear_bijou"
+        },
+        {
+          "label": "You don't have to be calm with me.",
+          "next": "fear_soft"
+        },
+        {
+          "label": "(just be with her)",
+          "next": "root"
+        }
+      ],
+      "text": "She weighs it properly — you've earned a real answer. \"Not being replaced. I know my worth; I'll always be worth the berth.\" A beat. \"It's needing you. That's the fear. I spent my whole life making sure I was the one who could walk away, from any room, at any time, on my terms. And now there's a room I don't want to walk out of. That's not a feeling I have tools for.\" She holds your gaze, steady as ever, which is its own kind of admission. \"So I manage it the way I manage everything. Quietly. Competently. And I never let Bijou see it, because one of us has to be the calm one.\""
+    },
+    "fear_bijou": {
+      "options": [
+        {
+          "label": "Ask her something else.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Someone has to. She feels everything at full volume — it's why you adore her, don't argue.\" A fond, tired smile. \"She watches that hatch like it might not open again. I watch it too. I'm just better at pretending I'm watching the water.\""
+    },
+    "fear_soft": {
+      "options": [
+        {
+          "label": "Ask her something else.",
+          "next": "root"
+        }
+      ],
+      "text": "\"...I know.\" A long breath, and for a moment the strategist is just a woman on a very expensive bed. \"Give me time. I've been calm for a living since before you knew my name. I'll learn the other thing. With you I might even want to.\""
+    },
+    "feeling": {
+      "actions": [
+        {
+          "action": "SET_FLAG",
+          "flag": "roxy_feeling",
+          "scope": "player",
+          "value": "true"
+        }
+      ],
+      "options": [
+        {
+          "label": "You don't have to cover it. I'm not going anywhere.",
+          "next": "feeling_reassure"
+        },
+        {
+          "label": "That sounds a lot like love.",
+          "next": "feeling_love"
+        },
+        {
+          "label": "(let her sit with it)",
+          "next": "root"
+        }
+      ],
+      "text": "For once she doesn't have the next line ready. \"...Here's the part I didn't price in.\" She turns the glass again, watching it instead of you. \"Somewhere in the performing of it, I stopped performing. I catch myself listening for the launch. I kept your coffee warm past any sane hour last week and lied to Bijou about why. The arrangement was supposed to be the whole of it, and it isn't, and that\" — a short, humourless breath — \"is the one variable I did not hedge. I don't like carrying a position I can't cover. And I can't cover you.\""
+    },
+    "feeling_love": {
+      "options": [
+        {
+          "label": "Ask her something else.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Don't.\" It comes fast, then she catches it, and her mouth twists. \"...Don't say it like you've won something. I know what it is. I filed it under a different name for months precisely so I wouldn't have to look at it.\" She exhales. \"Yes. Obviously yes. Which is inconvenient, and permanent, and I've decided to allow it. Consider that the most romantic thing I will ever say sober.\""
+    },
+    "feeling_reassure": {
+      "options": [
+        {
+          "label": "Ask her something else.",
+          "next": "root"
+        }
+      ],
+      "text": "She's quiet a moment, then gives a small, wry laugh at herself. \"You say that like it's simple. Maybe on this boat it is.\" She lets her hand settle over yours — a deliberate act from a woman who does nothing by accident. \"Fine. I'll try holding an uncovered position. Just this once. Don't make me regret the maths after all this time.\""
+    },
+    "flirt": {
+      "options": [
+        {
+          "label": "(pull her in)",
+          "next": "bye_warm"
+        },
+        {
+          "label": "Later. Just sit with me.",
+          "next": "bye_warm"
+        }
+      ],
+      "text": "\"Mm. Now you're speaking my first language.\" She rises without hurry — everything Roxy does is on a tempo she sets — and closes the distance until there's none. \"Let me remind you what you're paying for. And then let me remind you it stopped being about the pay a while ago.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "How was it down here today?",
+          "next": "day"
+        },
+        {
+          "label": "Tell me how you really ended up on this boat.",
+          "next": "deal"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "roxy_deal",
+              "op": "set",
+              "scope": "player"
+            }
+          ],
+          "label": "Was any of it real? The arrangement, I mean.",
+          "next": "feeling"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "roxy_feeling",
+              "op": "set",
+              "scope": "player"
+            }
+          ],
+          "label": "What are you actually afraid of, Roxy?",
+          "next": "fear"
+        },
+        {
+          "label": "How's Bijou?",
+          "next": "bijou"
+        },
+        {
+          "label": "Come here.",
+          "next": "flirt"
+        },
+        {
+          "label": "(leave her to her book)",
+          "next": "bye"
+        }
+      ],
+      "text": "She marks you the moment you clear the hatch, and lets a slow, unhurried smile answer for her before she does. \"There he is. The whole boat exhales when you're aboard, you know — I've stopped pretending I don't.\" She sets her book face-down, giving you the version of her attention that costs something. \"Sit. Talk to me. What are we tonight?\""
     }
   },
   "faction": "none",
   "flags": {
+    "clothing_layers": [
+      "a loosely-belted silk robe",
+      "a lace-trimmed slip",
+      "a matching lace bra and panties"
+    ],
     "consort": true,
-    "personality": "consort",
     "devoted_to": "Cyd",
-    "no_banter": true,
     "mis_requires_zone_flag": "mis_ok",
     "mis_willing": true,
-    "clothing_layers": ["a loosely-belted silk robe", "a lace-trimmed slip", "a matching lace bra and panties"]
+    "no_banter": true,
+    "personality": "consort"
   },
+  "home_activities": [],
   "home_zone": "zone_echelon_suite_boudoir",
   "hp": 40,
   "hp_max": 40,
@@ -141,5 +272,13 @@
   "name": "Roxy",
   "npc_type": "npc",
   "sex": "female",
-  "wanders": 0
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
 }

@@ -76,6 +76,7 @@
   "name": "Gus Hallory",
   "npc_type": "vendor",
   "sex": "male",
+  "studio_zone_id": null,
   "vendor_inventory": [
     {
       "item_id": "item_food_grill_special",
@@ -138,5 +139,6 @@
   "vendor_shop_name": "Meltwater Diner Counter",
   "vendor_stock_size": 30,
   "wander_zones": [],
-  "wanders": 0
+  "wanders": 0,
+  "work_zone_id": null
 }

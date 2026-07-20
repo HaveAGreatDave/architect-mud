@@ -11,19 +11,19 @@
   "created_by": "echelon",
   "description": "The engineering corridor, a narrow spine of grated deck and exposed conduit running the length of the lower deck. Everything down here is function over form — but even the pipework is machined to a tolerance that whispers money. The staircase climbs (UP) to the foyer. The engine room lies FORWARD (NORTH); the broadcast complex, AFT (SOUTH).",
   "exits": {
-    "up": "zone_echelon_foyer",
     "north": "zone_echelon_engine",
-    "south": "zone_echelon_broadcast"
+    "south": "zone_echelon_broadcast",
+    "up": "zone_echelon_foyer"
   },
   "flags": {
-    "yacht": true,
+    "always_lit": true,
+    "building_name": "The Echelon",
     "echelon": true,
     "engine_ambience": true,
-    "is_interior": true,
     "is_building": true,
-    "building_name": "The Echelon",
+    "is_interior": true,
     "world_exit_zone": "zone_echelon_exterior",
-    "always_lit": true
+    "yacht": true
   },
   "grid_x": 0,
   "grid_y": 0,

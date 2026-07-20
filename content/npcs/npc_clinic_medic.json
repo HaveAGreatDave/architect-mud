@@ -76,6 +76,7 @@
   "name": "Sister Wren Adler",
   "npc_type": "vendor",
   "sex": "female",
+  "studio_zone_id": null,
   "vendor_inventory": [
     {
       "item_id": "item_medkit",
@@ -146,5 +147,6 @@
   "vendor_shop_name": "Meltwater Walk-In",
   "vendor_stock_size": 30,
   "wander_zones": [],
-  "wanders": 0
+  "wanders": 0,
+  "work_zone_id": null
 }

@@ -1,6 +1,7 @@
 {
   "capacity_kw": 200,
   "flags": {},
+  "generator_id": null,
   "id": "zone_meltwater_diner",
   "max_capacity_kw": 200,
   "name": "Meltwater Diner",

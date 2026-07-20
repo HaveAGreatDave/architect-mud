@@ -11,8 +11,8 @@
   "created_by": "the-under",
   "description": "A flooded sublevel where a collapsed grade let the standing water pool deep and stay. Wading is slow and blind, the surface skinned with oil that throws your light back at you. Whatever lives down here has learned to use the murk. A short passage east rejoins the main descent.",
   "exits": {
-    "north": "zone_under_weepwall",
-    "east": "zone_under_confldeep"
+    "east": "zone_under_confldeep",
+    "north": "zone_under_weepwall"
   },
   "flags": {
     "district": "sewer",

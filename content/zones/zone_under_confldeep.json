@@ -12,8 +12,8 @@
   "description": "A deep confluence where the flooded sublevel and the descending shaft pour together into the main southern run. The water is strong here, funnelled and cold, and the walls have gone from brick to raw poured tunnel — the boundary where the maintained system ends and the forgotten one begins.",
   "exits": {
     "north": "zone_under_laddershaft",
-    "west": "zone_under_floodsub",
-    "south": "zone_under_groanpipe"
+    "south": "zone_under_groanpipe",
+    "west": "zone_under_floodsub"
   },
   "flags": {
     "district": "sewer",

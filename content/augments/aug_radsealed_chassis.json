@@ -1,13 +1,18 @@
 {
+  "cost": 2200,
+  "description": "A hermetic ceramic-and-lead shell fitted over the core. Nothing gets in — not fallout, not fire, not the slow rot of the waste. Chrome doesn't mutate, and neither, now, do you.",
   "id": "aug_radsealed_chassis",
   "name": "Rad-sealed Chassis",
-  "description": "A hermetic ceramic-and-lead shell fitted over the core. Nothing gets in — not fallout, not fire, not the slow rot of the waste. Chrome doesn't mutate, and neither, now, do you.",
-  "slot": "torso",
-  "tier": 3,
-  "cost": 2200,
   "rep_gate": "trusted",
+  "slot": "torso",
+  "soak": {
+    "torso": {
+      "energy": 4,
+      "radiation": 8
+    }
+  },
+  "special": "rad_sealed",
   "stat_modifiers": {},
-  "soak": { "torso": { "energy": 4, "radiation": 8 } },
-  "visible": 1,
-  "special": "rad_sealed"
+  "tier": 3,
+  "visible": 1
 }

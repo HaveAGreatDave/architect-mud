@@ -11,8 +11,8 @@
   "created_by": "sewer-grid",
   "description": "A grimy trunk of storm tunnel under Kessler Street, the concrete cracked and weeping, the air thick with the sour breath of the drains.",
   "exits": {
-    "south": "zone_under_922_909",
-    "east": "zone_under_923_908"
+    "east": "zone_under_923_908",
+    "south": "zone_under_922_909"
   },
   "flags": {
     "district": "sewer",

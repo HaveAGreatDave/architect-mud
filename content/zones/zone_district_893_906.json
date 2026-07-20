@@ -16,11 +16,11 @@
     "building_name": "The Ascension Gate",
     "building_type": "asc_gate",
     "district": "wasteland",
+    "entrance": "east",
     "facade": true,
     "floors": 4,
     "is_building": true,
-    "world_exit_zone": "zone_district_894_906",
-    "entrance": "east"
+    "world_exit_zone": "zone_district_894_906"
   },
   "grid_x": 893,
   "grid_y": 906,

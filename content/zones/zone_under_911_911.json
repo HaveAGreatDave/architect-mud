@@ -11,9 +11,9 @@
   "created_by": "sewer-grid",
   "description": "A grimy trunk of storm tunnel under Meltwater Row, the concrete cracked and weeping, the air thick with the sour breath of the drains.",
   "exits": {
+    "east": "zone_under_912_911",
     "north": "zone_under_911_910",
-    "south": "zone_under_911_912",
-    "east": "zone_under_912_911"
+    "south": "zone_under_911_912"
   },
   "flags": {
     "district": "sewer",

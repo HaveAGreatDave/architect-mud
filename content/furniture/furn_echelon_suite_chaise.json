@@ -1,7 +1,11 @@
 {
   "description": "A long velvet chaise the colour of old wine, angled toward the wall of screen. It is built for one person to drape across and a second to perch on the end of, and it has clearly been used for exactly that.",
   "flags": {
-    "interactions": ["sit", "lie", "lean"]
+    "interactions": [
+      "sit",
+      "lie",
+      "lean"
+    ]
   },
   "hp": null,
   "hp_max": null,

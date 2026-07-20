@@ -11,9 +11,9 @@
   "created_by": "the-under",
   "description": "A conduit vault where the power plant's buried feeders run in armoured bundles along the ceiling. Someone has tapped them — neat, competent splices bleeding off just enough current to matter, the kind of work the Watch are proud of. A sealed sublevel lies walled off to the east; the trunk carries on west and north.",
   "exits": {
+    "east": "zone_under_sealedsub",
     "north": "zone_under_turbunder",
-    "west": "zone_under_deeptrunk",
-    "east": "zone_under_sealedsub"
+    "west": "zone_under_deeptrunk"
   },
   "flags": {
     "district": "sewer",

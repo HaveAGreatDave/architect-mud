@@ -11,9 +11,9 @@
   "created_by": "sewer-grid",
   "description": "The tunnel beneath Kessler Street carries the quiet waste of the blocks above — grey water, lost things, the occasional startled scurry at the edge of your light.",
   "exits": {
-    "west": "zone_under_923_915",
     "north": "zone_under_924_914",
-    "south": "zone_under_924_916"
+    "south": "zone_under_924_916",
+    "west": "zone_under_923_915"
   },
   "flags": {
     "district": "sewer",

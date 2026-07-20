@@ -15,16 +15,16 @@
     "in": "zone_echelon_foyer"
   },
   "flags": {
-    "yacht": true,
-    "echelon": true,
-    "naval_ambience": true,
-    "district": "water",
-    "icon": "boat",
+    "airfield_charter": true,
     "airfield_id": "echelon_helipad",
     "airfield_name": "The Echelon — Helipad",
+    "charter_vtol_only": true,
+    "district": "water",
+    "echelon": true,
     "hangar_interior_zone": "zone_echelon_helipad",
-    "airfield_charter": true,
-    "charter_vtol_only": true
+    "icon": "boat",
+    "naval_ambience": true,
+    "yacht": true
   },
   "grid_x": 897,
   "grid_y": 898,

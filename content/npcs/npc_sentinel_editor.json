@@ -81,6 +81,7 @@
   "name": "Marlo Deng",
   "npc_type": "vendor",
   "sex": "male",
+  "studio_zone_id": null,
   "vendor_inventory": [
     {
       "item_id": "item_newspaper_sentinel",
@@ -135,5 +136,6 @@
   "vendor_shop_name": "Coldwater Sentinel — Front Desk",
   "vendor_stock_size": 40,
   "wander_zones": [],
-  "wanders": 0
+  "wanders": 0,
+  "work_zone_id": null
 }

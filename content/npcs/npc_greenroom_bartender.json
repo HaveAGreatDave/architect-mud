@@ -76,6 +76,7 @@
   "name": "Sable",
   "npc_type": "vendor",
   "sex": "female",
+  "studio_zone_id": null,
   "vendor_inventory": [
     {
       "item_id": "item_drink_greenroom",
@@ -138,5 +139,6 @@
   "vendor_shop_name": "The Green Room Bar",
   "vendor_stock_size": 24,
   "wander_zones": [],
-  "wanders": 0
+  "wanders": 0,
+  "work_zone_id": null
 }

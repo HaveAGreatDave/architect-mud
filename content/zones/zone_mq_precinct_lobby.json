@@ -13,8 +13,8 @@
   "description": "A bulletproof-glass lobby that manages to feel both fortified and abandoned. A duty officer sits behind the glass beneath a corporate charter seal and a laminated list of fees for services that used to be free. Bolted plastic chairs face a wall-screen scrolling WANTED faces and civic reminders. The floor is the specific institutional grey of a place designed to wear you down before you ever reach a desk. It is, however, warm, and no one gets murdered in here, which counts.",
   "exits": {
     "down": "zone_mq_precinct_holding",
-    "north": "zone_mq_precinct_bullpen",
-    "east": "zone_district_922_911"
+    "east": "zone_district_922_911",
+    "north": "zone_mq_precinct_bullpen"
   },
   "flags": {
     "building_name": "Precinct 9",

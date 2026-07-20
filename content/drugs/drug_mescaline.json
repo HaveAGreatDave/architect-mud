@@ -6,14 +6,38 @@
     "hallucination": {
       "duration_seconds": 480,
       "events": [
-        { "atSec": 30, "text": "[trip]Your stomach rolls hard. Mescaline always makes you pay the toll at the door first.[/trip]" },
-        { "atSec": 70, "text": "[trip]The nausea is just the door you have to walk through. You breathe, and walk through it.[/trip]" },
-        { "atSec": 110, "text": "[trip]Everything is edged in shimmering gold, as if the world were a coin held to the light.[/trip]" },
-        { "atSec": 170, "text": "[trip]Geometric patterns bloom across every wall, precise and ancient and alive.[/trip]" },
-        { "atSec": 240, "text": "[trip]A desert wind you cannot feel moves the shadows in long slow waves.[/trip]" },
-        { "atSec": 310, "text": "[trip]An old voice, patient as stone, tells you a story in a language you were born knowing.[/trip]" },
-        { "atSec": 385, "text": "[trip]The gold begins to cool. The patterns slow their turning, satisfied, and start to still.[/trip]" },
-        { "atSec": 445, "text": "[trip]The desert folds itself back into four plain walls. You feel older, and steadier, and very tired.[/trip]" }
+        {
+          "atSec": 30,
+          "text": "[trip]Your stomach rolls hard. Mescaline always makes you pay the toll at the door first.[/trip]"
+        },
+        {
+          "atSec": 70,
+          "text": "[trip]The nausea is just the door you have to walk through. You breathe, and walk through it.[/trip]"
+        },
+        {
+          "atSec": 110,
+          "text": "[trip]Everything is edged in shimmering gold, as if the world were a coin held to the light.[/trip]"
+        },
+        {
+          "atSec": 170,
+          "text": "[trip]Geometric patterns bloom across every wall, precise and ancient and alive.[/trip]"
+        },
+        {
+          "atSec": 240,
+          "text": "[trip]A desert wind you cannot feel moves the shadows in long slow waves.[/trip]"
+        },
+        {
+          "atSec": 310,
+          "text": "[trip]An old voice, patient as stone, tells you a story in a language you were born knowing.[/trip]"
+        },
+        {
+          "atSec": 385,
+          "text": "[trip]The gold begins to cool. The patterns slow their turning, satisfied, and start to still.[/trip]"
+        },
+        {
+          "atSec": 445,
+          "text": "[trip]The desert folds itself back into four plain walls. You feel older, and steadier, and very tired.[/trip]"
+        }
       ],
       "intensity": 0.7,
       "mode": "overlay",

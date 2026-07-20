@@ -1,6 +1,7 @@
 {
   "capacity_kw": 200,
   "flags": {},
+  "generator_id": null,
   "id": "zone_ward_permits",
   "max_capacity_kw": 200,
   "name": "Ward Nine Permits",

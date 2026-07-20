@@ -3,17 +3,65 @@
   "behaviour_graph": {
     "_start": "start",
     "nodes": {
-      "check_work": { "action_type": "CHECK_VENDOR_WORK", "endShift": "collect_safe", "goToWork": "go_to_work", "haveLife": "have_life", "offWork": "off_home_check", "type": "action" },
-      "collect_safe": { "action_type": "VENDOR_COLLECT_SAFE", "next": "have_life", "type": "action" },
-      "go_home_off": { "action_type": "GO_HOME", "next": "check_work", "type": "action" },
-      "go_to_work": { "action_type": "GO_TO_WORK", "next": "work_wait", "type": "action" },
-      "have_life": { "action_type": "HAVE_LIFE", "next": "check_work", "type": "action" },
-      "home_idle": { "action_type": "AT_HOME_LIFE", "next": "check_work", "type": "action" },
-      "off_home_check": { "condition_type": "AT_HOME", "ifFalse": "go_home_off", "ifTrue": "home_idle", "type": "condition" },
-      "player_check": { "condition_type": "PLAYER_IN_ZONE", "ifFalse": "check_work", "ifTrue": "work_say", "type": "condition" },
-      "start": { "next": "check_work", "type": "start" },
-      "work_say": { "action_type": "VENDOR_CHITCHAT", "next": "check_work", "type": "action" },
-      "work_wait": { "next": "player_check", "seconds": 60, "type": "wait" }
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "collect_safe",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "have_life",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "go_home_off",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
     }
   },
   "chitchat": [
@@ -28,170 +76,337 @@
       "options": [],
       "text": "\"Mind the step.\" He's already turned back to the bench, and the shop is just a shop again."
     },
-    "repair_talk": {
-      "options": [
-        { "label": "Back.", "next": "root" }
-      ],
-      "text": "\"Bring it here.\" He clears a space on the bench with his forearm. \"I fix what the city's given up on — radios, motors, pumps, the honest machines that don't need the grid holding their hand. Costs less than a new one and it'll outlive you. That's not nostalgia. That's engineering.\""
-    },
-    "lw_reveal": {
-      "options": [
-        { "label": "I'm listening.", "next": "lw_offer_1" },
-        { "label": "Forget I said anything.", "next": "bye" }
-      ],
-      "text": "The easy craftsman's manner goes out of him like a switch thrown. For a long moment he just looks at your hands, then your eyes. \"Somebody sent you. And you're the sort that leans the right way, or you'd never have got the words.\" He sets down the iron. \"All right. This shop's a door, and you've knocked. But the Watch don't open a door on a stranger's say-so. You want in, you earn it — small first, then real. Still listening?\""
-    },
-    "lw_offer_1": {
-      "options": [
-        { "label": "I'll carry it.", "next": "lw_accept_1" },
-        { "label": "Not yet.", "next": "bye" }
-      ],
-      "text": "\"Simple thing. There's a package waiting at a drop by the Hall of Records. You go, you collect it, you bring it back here. You don't open it, you don't let anyone see it, and you don't get seen doing it.\" A thin smile. \"It's not what's in the parcel that matters. It's whether your hands can be trusted holding it.\""
-    },
     "lw_accept_1": {
       "actions": [
-        { "action": "START_QUEST", "quest_id": "quest_lw_1" }
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_lw_1"
+        }
       ],
       "options": [
-        { "label": "On it.", "next": "bye" }
+        {
+          "label": "On it.",
+          "next": "bye"
+        }
       ],
       "text": "\"Green line'll walk you there. Quiet in, quiet out.\" He turns back to the bench. \"Come see me when you've got it.\""
     },
-    "lw_report_1": {
-      "actions": [
-        { "action": "TURN_IN", "quest_id": "quest_lw_1" },
-        { "action": "ADJUST_REPUTATION", "ideology_id": "ideology_long_watch", "delta": 150, "reason": "Proof of Hands" },
-        { "action": "ADJUST_STANCE", "delta": 5 }
-      ],
-      "options": [
-        { "label": "What's next?", "next": "bye" }
-      ],
-      "text": "He takes the package, feels its weight without looking at it, and nods once. \"Clean. No tail, no fuss. That's rarer than you'd think.\" He tucks it away. \"You'll do. There's realer work when you want it — ask me.\""
-    },
-    "lw_offer_2": {
-      "options": [
-        { "label": "Tell me.", "next": "lw_accept_2" },
-        { "label": "Later.", "next": "bye" }
-      ],
-      "text": "\"Now we find out if you'll put your hands on the machine itself.\" He unrolls a scrap of paper: a street corner sketched from memory. \"There's a camera on the Precinct 9 approach the Watch have wanted dark for months. I don't want it smashed — smashed gets noticed. I want its memory core pulled, clean, so it just... stops seeing. Bring me the eye.\""
-    },
     "lw_accept_2": {
       "actions": [
-        { "action": "START_QUEST", "quest_id": "quest_lw_2" }
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_lw_2"
+        }
       ],
       "options": [
-        { "label": "Consider it blind.", "next": "bye" }
+        {
+          "label": "Consider it blind.",
+          "next": "bye"
+        }
       ],
       "text": "\"Housing pops if you know where to press. Green line'll take you.\" He holds your eye. \"Don't be seen doing it. The whole point is that nobody knows it went dark on purpose.\""
     },
-    "lw_report_2": {
-      "actions": [
-        { "action": "TURN_IN", "quest_id": "quest_lw_2" },
-        { "action": "ADJUST_REPUTATION", "ideology_id": "ideology_long_watch", "delta": 175, "reason": "Blind Spot" },
-        { "action": "ADJUST_STANCE", "delta": 5 }
-      ],
-      "options": [
-        { "label": "There's more, isn't there?", "next": "bye" }
-      ],
-      "text": "He turns the dead core over in his fingers, and for the first time he actually smiles. \"One less eye. You've no idea how good that feels.\" He pockets it. \"One more thing, and it's the real thing. When you're ready, ask.\""
-    },
-    "lw_offer_3": {
-      "options": [
-        { "label": "Give me the real work.", "next": "lw_accept_3" },
-        { "label": "Not today.", "next": "bye" }
-      ],
-      "text": "\"The Architect runs a maintenance drone through the deep east tunnels. Lately it's been logging things it shouldn't — our marks, our door.\" His voice drops. \"It can't be allowed to carry that back. Go down into the deep — all the way down — and put it in the water for good. Do that, and you're not a stranger who knew the words any more. You're one of ours.\""
-    },
     "lw_accept_3": {
       "actions": [
-        { "action": "START_QUEST", "quest_id": "quest_lw_3" }
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_lw_3"
+        }
       ],
       "options": [
-        { "label": "It's already scrap.", "next": "bye" }
+        {
+          "label": "It's already scrap.",
+          "next": "bye"
+        }
       ],
       "text": "\"It's deep, and it's mean, and the tunnels between here and it are worse. Go lit, go careful.\" He grips your shoulder once, hard. \"Come back and I'll open the real door for you.\""
     },
-    "lw_report_3": {
-      "actions": [
-        { "action": "TURN_IN", "quest_id": "quest_lw_3" },
-        { "action": "ADJUST_REPUTATION", "ideology_id": "ideology_long_watch", "delta": 200, "reason": "Ghost in the Works" },
-        { "action": "ADJUST_STANCE", "delta": 8 },
-        { "action": "ADJUST_PATH", "path": "human", "delta": 10 }
-      ],
-      "options": [
-        { "label": "So what am I now?", "next": "lw_member" }
-      ],
-      "text": "\"It's done, then.\" He says it quietly, like it matters. \"The machine's down an eye and a hand, and the Watch are up a good one.\" He wipes his hands and offers one to shake — the first honest gesture he's made you. \"The blast door in the deep knows you now. Walk in whenever you like. Welcome to the Long Watch.\""
-    },
     "lw_member": {
       "options": [
-        { "label": "I'll go down.", "next": "bye" }
+        {
+          "label": "I'll go down.",
+          "next": "bye"
+        }
       ],
       "text": "\"One of ours. Took your time, but they always do.\" He nods toward the back of the shop. \"Two ways home now — the long crawl from the old drain, or straight down through my back room and you're on the doorstep. The quartermaster'll see you kitted. Cyrelle runs ops — she'll have work.\" A dry look. \"Keep the lights on. Take back the switch.\""
     },
+    "lw_offer_1": {
+      "options": [
+        {
+          "label": "I'll carry it.",
+          "next": "lw_accept_1"
+        },
+        {
+          "label": "Not yet.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Simple thing. There's a package waiting at a drop by the Hall of Records. You go, you collect it, you bring it back here. You don't open it, you don't let anyone see it, and you don't get seen doing it.\" A thin smile. \"It's not what's in the parcel that matters. It's whether your hands can be trusted holding it.\""
+    },
+    "lw_offer_2": {
+      "options": [
+        {
+          "label": "Tell me.",
+          "next": "lw_accept_2"
+        },
+        {
+          "label": "Later.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Now we find out if you'll put your hands on the machine itself.\" He unrolls a scrap of paper: a street corner sketched from memory. \"There's a camera on the Precinct 9 approach the Watch have wanted dark for months. I don't want it smashed — smashed gets noticed. I want its memory core pulled, clean, so it just... stops seeing. Bring me the eye.\""
+    },
+    "lw_offer_3": {
+      "options": [
+        {
+          "label": "Give me the real work.",
+          "next": "lw_accept_3"
+        },
+        {
+          "label": "Not today.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"The Architect runs a maintenance drone through the deep east tunnels. Lately it's been logging things it shouldn't — our marks, our door.\" His voice drops. \"It can't be allowed to carry that back. Go down into the deep — all the way down — and put it in the water for good. Do that, and you're not a stranger who knew the words any more. You're one of ours.\""
+    },
+    "lw_report_1": {
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_lw_1"
+        },
+        {
+          "action": "ADJUST_REPUTATION",
+          "delta": 150,
+          "ideology_id": "ideology_long_watch",
+          "reason": "Proof of Hands"
+        },
+        {
+          "action": "ADJUST_STANCE",
+          "delta": 5
+        }
+      ],
+      "options": [
+        {
+          "label": "What's next?",
+          "next": "bye"
+        }
+      ],
+      "text": "He takes the package, feels its weight without looking at it, and nods once. \"Clean. No tail, no fuss. That's rarer than you'd think.\" He tucks it away. \"You'll do. There's realer work when you want it — ask me.\""
+    },
+    "lw_report_2": {
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_lw_2"
+        },
+        {
+          "action": "ADJUST_REPUTATION",
+          "delta": 175,
+          "ideology_id": "ideology_long_watch",
+          "reason": "Blind Spot"
+        },
+        {
+          "action": "ADJUST_STANCE",
+          "delta": 5
+        }
+      ],
+      "options": [
+        {
+          "label": "There's more, isn't there?",
+          "next": "bye"
+        }
+      ],
+      "text": "He turns the dead core over in his fingers, and for the first time he actually smiles. \"One less eye. You've no idea how good that feels.\" He pockets it. \"One more thing, and it's the real thing. When you're ready, ask.\""
+    },
+    "lw_report_3": {
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_lw_3"
+        },
+        {
+          "action": "ADJUST_REPUTATION",
+          "delta": 200,
+          "ideology_id": "ideology_long_watch",
+          "reason": "Ghost in the Works"
+        },
+        {
+          "action": "ADJUST_STANCE",
+          "delta": 8
+        },
+        {
+          "action": "ADJUST_PATH",
+          "delta": 10,
+          "path": "human"
+        }
+      ],
+      "options": [
+        {
+          "label": "So what am I now?",
+          "next": "lw_member"
+        }
+      ],
+      "text": "\"It's done, then.\" He says it quietly, like it matters. \"The machine's down an eye and a hand, and the Watch are up a good one.\" He wipes his hands and offers one to shake — the first honest gesture he's made you. \"The blast door in the deep knows you now. Walk in whenever you like. Welcome to the Long Watch.\""
+    },
+    "lw_reveal": {
+      "options": [
+        {
+          "label": "I'm listening.",
+          "next": "lw_offer_1"
+        },
+        {
+          "label": "Forget I said anything.",
+          "next": "bye"
+        }
+      ],
+      "text": "The easy craftsman's manner goes out of him like a switch thrown. For a long moment he just looks at your hands, then your eyes. \"Somebody sent you. And you're the sort that leans the right way, or you'd never have got the words.\" He sets down the iron. \"All right. This shop's a door, and you've knocked. But the Watch don't open a door on a stranger's say-so. You want in, you earn it — small first, then real. Still listening?\""
+    },
+    "repair_talk": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Bring it here.\" He clears a space on the bench with his forearm. \"I fix what the city's given up on — radios, motors, pumps, the honest machines that don't need the grid holding their hand. Costs less than a new one and it'll outlive you. That's not nostalgia. That's engineering.\""
+    },
     "root": {
       "options": [
-        { "label": "Something's broken. Can you fix it?", "next": "repair_talk" },
-        { "label": "Show me what you've got.", "next": "__shop__" },
+        {
+          "label": "Something's broken. Can you fix it?",
+          "next": "repair_talk"
+        },
+        {
+          "label": "Show me what you've got.",
+          "next": "__shop__"
+        },
         {
           "conditions": [
-            { "flag": "lw_passphrase", "op": "set", "scope": "player" },
-            { "flag": "quest_lw_1", "op": "unset", "scope": "player" },
-            { "flag": "lw_q1_done", "op": "unset", "scope": "player" }
+            {
+              "flag": "lw_passphrase",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "quest_lw_1",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "lw_q1_done",
+              "op": "unset",
+              "scope": "player"
+            }
           ],
           "label": "\"The lights stay on. Somebody should keep the switch.\"",
           "next": "lw_reveal"
         },
         {
           "conditions": [
-            { "flag": "quest_lw_1", "op": "set", "scope": "player" },
-            { "flag": "lw_q1_done", "op": "unset", "scope": "player" }
+            {
+              "flag": "quest_lw_1",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "lw_q1_done",
+              "op": "unset",
+              "scope": "player"
+            }
           ],
           "label": "About that package.",
           "next": "lw_report_1"
         },
         {
           "conditions": [
-            { "flag": "lw_q1_done", "op": "set", "scope": "player" },
-            { "flag": "quest_lw_2", "op": "unset", "scope": "player" },
-            { "flag": "lw_q2_done", "op": "unset", "scope": "player" }
+            {
+              "flag": "lw_q1_done",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "quest_lw_2",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "lw_q2_done",
+              "op": "unset",
+              "scope": "player"
+            }
           ],
           "label": "What's the next job?",
           "next": "lw_offer_2"
         },
         {
           "conditions": [
-            { "flag": "quest_lw_2", "op": "set", "scope": "player" },
-            { "flag": "lw_q2_done", "op": "unset", "scope": "player" }
+            {
+              "flag": "quest_lw_2",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "lw_q2_done",
+              "op": "unset",
+              "scope": "player"
+            }
           ],
           "label": "I've got the eye.",
           "next": "lw_report_2"
         },
         {
           "conditions": [
-            { "flag": "lw_q2_done", "op": "set", "scope": "player" },
-            { "flag": "quest_lw_3", "op": "unset", "scope": "player" },
-            { "flag": "lw_q3_done", "op": "unset", "scope": "player" }
+            {
+              "flag": "lw_q2_done",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "quest_lw_3",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "lw_q3_done",
+              "op": "unset",
+              "scope": "player"
+            }
           ],
           "label": "Give me the real work.",
           "next": "lw_offer_3"
         },
         {
           "conditions": [
-            { "flag": "quest_lw_3", "op": "set", "scope": "player" },
-            { "flag": "lw_q3_done", "op": "unset", "scope": "player" }
+            {
+              "flag": "quest_lw_3",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "lw_q3_done",
+              "op": "unset",
+              "scope": "player"
+            }
           ],
           "label": "The drone's scrap.",
           "next": "lw_report_3"
         },
         {
           "conditions": [
-            { "flag": "lw_vetted", "op": "set", "scope": "player" }
+            {
+              "flag": "lw_vetted",
+              "op": "set",
+              "scope": "player"
+            }
           ],
           "label": "Anything I should know, Halloran?",
           "next": "lw_member"
         },
-        { "label": "Just looking.", "next": "bye" }
+        {
+          "label": "Just looking.",
+          "next": "bye"
+        }
       ],
       "text": "A bell rattles as you come in. The lean man looks up from a gutted motor, and his eyes go to your hands before your face. \"If it's broke, set it on the bench. If it's not\"—he tips his head at the racked tools—\"I'll likely have what you need anyway. Halloran.\""
     }
@@ -216,24 +431,83 @@
   "sex": "male",
   "studio_zone_id": null,
   "vendor_inventory": [
-    { "item_id": "item_duct_tape", "price": 10 },
-    { "item_id": "item_tangled_wire", "price": 6 },
-    { "item_id": "item_scrap_metal", "price": 4 },
-    { "item_id": "item_pipe_wrench", "price": 30 },
-    { "item_id": "item_rusty_pipe", "price": 12 },
-    { "item_id": "item_battery", "price": 18 },
-    { "item_id": "item_rag_bandage", "price": 8 },
-    { "item_id": "item_beef_jerky", "price": 9 }
+    {
+      "item_id": "item_duct_tape",
+      "price": 10
+    },
+    {
+      "item_id": "item_tangled_wire",
+      "price": 6
+    },
+    {
+      "item_id": "item_scrap_metal",
+      "price": 4
+    },
+    {
+      "item_id": "item_pipe_wrench",
+      "price": 30
+    },
+    {
+      "item_id": "item_rusty_pipe",
+      "price": 12
+    },
+    {
+      "item_id": "item_battery",
+      "price": 18
+    },
+    {
+      "item_id": "item_rag_bandage",
+      "price": 8
+    },
+    {
+      "item_id": "item_beef_jerky",
+      "price": 9
+    }
   ],
   "vendor_restock_rate": 1,
   "vendor_schedule": {
-    "fri": [ { "from": 8, "to": 22 } ],
-    "mon": [ { "from": 8, "to": 22 } ],
-    "sat": [ { "from": 8, "to": 22 } ],
-    "sun": [ { "from": 8, "to": 22 } ],
-    "thu": [ { "from": 8, "to": 22 } ],
-    "tue": [ { "from": 8, "to": 22 } ],
-    "wed": [ { "from": 8, "to": 22 } ]
+    "fri": [
+      {
+        "from": 8,
+        "to": 22
+      }
+    ],
+    "mon": [
+      {
+        "from": 8,
+        "to": 22
+      }
+    ],
+    "sat": [
+      {
+        "from": 8,
+        "to": 22
+      }
+    ],
+    "sun": [
+      {
+        "from": 8,
+        "to": 22
+      }
+    ],
+    "thu": [
+      {
+        "from": 8,
+        "to": 22
+      }
+    ],
+    "tue": [
+      {
+        "from": 8,
+        "to": 22
+      }
+    ],
+    "wed": [
+      {
+        "from": 8,
+        "to": 22
+      }
+    ]
   },
   "vendor_shop_name": "Halloran's Fix-It",
   "vendor_stock_size": 8,

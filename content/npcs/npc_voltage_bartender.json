@@ -12,28 +12,52 @@
       "options": [],
       "text": "\"Go dance it off.\" She's already reading the next hand at the rail."
     },
-    "vip": {
-      "options": [
-        { "label": "Pour me something, then.", "next": "__shop__" },
-        { "label": "Back.", "next": "root" }
-      ],
-      "text": "\"Upstairs?\" She tips her head at the rope. \"That's Bishop's call, not mine. See the man on the door about a band. Once you've got one, the stair knows you — and up there they pour things I'm not allowed to say out loud down here.\""
-    },
     "menu": {
       "options": [
-        { "label": "Set me up.", "next": "__shop__" },
-        { "label": "Back.", "next": "root" }
+        {
+          "label": "Set me up.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
       ],
       "text": "\"Signature's the Voltage — looks like the drop, hits like it too. Neon martini if you want to look like you know what you're doing. Plasma shot if you've given up on that. Or a static fizz and you might actually remember tonight.\" She shrugs. \"Your funeral, your money.\""
     },
     "root": {
       "options": [
-        { "label": "What's good?", "next": "menu" },
-        { "label": "Pour me something.", "next": "__shop__" },
-        { "label": "How do I get upstairs?", "next": "vip" },
-        { "label": "Nothing yet.", "next": "bye" }
+        {
+          "label": "What's good?",
+          "next": "menu"
+        },
+        {
+          "label": "Pour me something.",
+          "next": "__shop__"
+        },
+        {
+          "label": "How do I get upstairs?",
+          "next": "vip"
+        },
+        {
+          "label": "Nothing yet.",
+          "next": "bye"
+        }
       ],
       "text": "\"Hey.\" Rue doesn't stop moving. \"You want the board, or you want me to just look at you and decide?\" A glass lands in front of you, empty, an invitation. \"Talk fast, it's loud in here.\""
+    },
+    "vip": {
+      "options": [
+        {
+          "label": "Pour me something, then.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Upstairs?\" She tips her head at the rope. \"That's Bishop's call, not mine. See the man on the door about a band. Once you've got one, the stair knows you — and up there they pour things I'm not allowed to say out loud down here.\""
     }
   },
   "faction": null,
@@ -55,20 +79,67 @@
   "sex": "female",
   "studio_zone_id": null,
   "vendor_inventory": [
-    { "item_id": "item_drink_voltage_signature", "price": 26 },
-    { "item_id": "item_drink_neon_martini", "price": 20 },
-    { "item_id": "item_drink_plasma_shot", "price": 14 },
-    { "item_id": "item_drink_static_fizz", "price": 11 }
+    {
+      "item_id": "item_drink_voltage_signature",
+      "price": 26
+    },
+    {
+      "item_id": "item_drink_neon_martini",
+      "price": 20
+    },
+    {
+      "item_id": "item_drink_plasma_shot",
+      "price": 14
+    },
+    {
+      "item_id": "item_drink_static_fizz",
+      "price": 11
+    }
   ],
   "vendor_restock_rate": 1,
   "vendor_schedule": {
-    "mon": [{ "from": 22, "to": 46 }],
-    "tue": [{ "from": 22, "to": 46 }],
-    "wed": [{ "from": 22, "to": 46 }],
-    "thu": [{ "from": 22, "to": 46 }],
-    "fri": [{ "from": 22, "to": 48 }],
-    "sat": [{ "from": 22, "to": 48 }],
-    "sun": [{ "from": 22, "to": 46 }]
+    "fri": [
+      {
+        "from": 22,
+        "to": 48
+      }
+    ],
+    "mon": [
+      {
+        "from": 22,
+        "to": 46
+      }
+    ],
+    "sat": [
+      {
+        "from": 22,
+        "to": 48
+      }
+    ],
+    "sun": [
+      {
+        "from": 22,
+        "to": 46
+      }
+    ],
+    "thu": [
+      {
+        "from": 22,
+        "to": 46
+      }
+    ],
+    "tue": [
+      {
+        "from": 22,
+        "to": 46
+      }
+    ],
+    "wed": [
+      {
+        "from": 22,
+        "to": 46
+      }
+    ]
   },
   "vendor_shop_name": "Voltage",
   "vendor_stock_size": 48,

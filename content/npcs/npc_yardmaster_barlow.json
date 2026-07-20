@@ -263,13 +263,48 @@
   ],
   "vendor_restock_rate": 1,
   "vendor_schedule": {
-    "fri": [{ "from": 8, "to": 20 }],
-    "mon": [{ "from": 8, "to": 20 }],
-    "sat": [{ "from": 8, "to": 20 }],
-    "sun": [{ "from": 8, "to": 20 }],
-    "thu": [{ "from": 8, "to": 20 }],
-    "tue": [{ "from": 8, "to": 20 }],
-    "wed": [{ "from": 8, "to": 20 }]
+    "fri": [
+      {
+        "from": 8,
+        "to": 20
+      }
+    ],
+    "mon": [
+      {
+        "from": 8,
+        "to": 20
+      }
+    ],
+    "sat": [
+      {
+        "from": 8,
+        "to": 20
+      }
+    ],
+    "sun": [
+      {
+        "from": 8,
+        "to": 20
+      }
+    ],
+    "thu": [
+      {
+        "from": 8,
+        "to": 20
+      }
+    ],
+    "tue": [
+      {
+        "from": 8,
+        "to": 20
+      }
+    ],
+    "wed": [
+      {
+        "from": 8,
+        "to": 20
+      }
+    ]
   },
   "vendor_shop_name": "Freight Office Supply",
   "vendor_stock_size": 7,

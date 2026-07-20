@@ -1,7 +1,9 @@
 {
   "description": "A single unbroken ribbon of backlit ice running the length of the far wall, its surface lit from within so every glass set on it glows from beneath. Rue works behind it like it's a mixing desk. LEAN on it and wait to be noticed, which won't take long — noticing is the job.",
   "flags": {
-    "interactions": ["lean"]
+    "interactions": [
+      "lean"
+    ]
   },
   "hp": null,
   "hp_max": null,

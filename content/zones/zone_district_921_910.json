@@ -15,12 +15,12 @@
     "building_type": "casino",
     "district": "residential",
     "district_id": "district_coldwater",
+    "entrance": "north",
     "facade": true,
     "is_building": true,
     "planner": "bp_district",
     "scavenging_table_id": "scav_west_wastes",
-    "world_exit_zone": "zone_district_921_909",
-    "entrance": "north"
+    "world_exit_zone": "zone_district_921_909"
   },
   "grid_x": 921,
   "grid_y": 910,

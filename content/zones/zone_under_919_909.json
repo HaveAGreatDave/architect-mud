@@ -11,9 +11,9 @@
   "created_by": "sewer-grid",
   "description": "A grimy trunk of storm tunnel under Ironside Street + Marrow Street, the concrete cracked and weeping, the air thick with the sour breath of the drains.",
   "exits": {
-    "west": "zone_under_918_909",
+    "east": "zone_under_920_909",
     "north": "zone_under_919_908",
-    "east": "zone_under_920_909"
+    "west": "zone_under_918_909"
   },
   "flags": {
     "district": "sewer",

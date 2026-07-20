@@ -1,13 +1,13 @@
 {
   "description": "The oldest machine on the floor, mahogany-cased and hand-lettered THE WIDOW MAKER in flaking gold leaf. It smells of ozone and old cigarettes. The lever takes both hands and a grudge. They keep it around, the story goes, because it once paid a jackpot so large the house had to be rebuilt around the debt. Feed it credits and pull.",
   "flags": {
-    "slot_machine": true,
-    "slot_min": 5,
-    "slot_max": 100,
-    "slot_default": 10,
     "interactions": [
       "spin"
-    ]
+    ],
+    "slot_default": 10,
+    "slot_machine": true,
+    "slot_max": 100,
+    "slot_min": 5
   },
   "hp": null,
   "hp_max": null,

@@ -22,11 +22,21 @@
   "rewards": {
     "credits": 350,
     "flags": [
-      { "flag": "under_deep_cleared", "scope": "player", "value": "done" }
+      {
+        "flag": "under_deep_cleared",
+        "scope": "player",
+        "value": "done"
+      }
     ],
     "items": [
-      { "item_id": "item_medkit", "quantity": 2 },
-      { "item_id": "item_battery", "quantity": 3 }
+      {
+        "item_id": "item_medkit",
+        "quantity": 2
+      },
+      {
+        "item_id": "item_battery",
+        "quantity": 3
+      }
     ]
   },
   "updated_at": "1784600000"

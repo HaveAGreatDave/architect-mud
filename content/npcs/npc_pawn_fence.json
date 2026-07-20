@@ -76,6 +76,7 @@
   "name": "Hock",
   "npc_type": "vendor",
   "sex": "male",
+  "studio_zone_id": null,
   "vendor_inventory": [
     {
       "item_id": "item_pawn_watch",
@@ -142,5 +143,6 @@
   "vendor_shop_name": "The Hock Shop",
   "vendor_stock_size": 24,
   "wander_zones": [],
-  "wanders": 0
+  "wanders": 0,
+  "work_zone_id": null
 }

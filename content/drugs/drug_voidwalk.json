@@ -7,12 +7,30 @@
       "dreamzone_id": "zone_dream_void",
       "duration_seconds": 260,
       "events": [
-        { "atSec": 12, "text": "[trip]The channel-hold slips. The room dissolves into blue snow and a low, patient hum.[/trip]" },
-        { "atSec": 45, "text": "[trip]The static sea hums your name and you feel it in your back teeth.[/trip]" },
-        { "atSec": 95, "text": "[trip]A memory swims past wearing someone else's face. It nods at you.[/trip]" },
-        { "atSec": 150, "text": "[trip]An advertisement for a product that does not exist plays across the whole sky.[/trip]" },
-        { "atSec": 200, "text": "[trip]You wade deeper. The blue closes over your knees, your chest, your reasons for leaving.[/trip]" },
-        { "atSec": 240, "text": "[trip]The signal starts to resolve. Somewhere above the static, a channel is trying to find you again.[/trip]" }
+        {
+          "atSec": 12,
+          "text": "[trip]The channel-hold slips. The room dissolves into blue snow and a low, patient hum.[/trip]"
+        },
+        {
+          "atSec": 45,
+          "text": "[trip]The static sea hums your name and you feel it in your back teeth.[/trip]"
+        },
+        {
+          "atSec": 95,
+          "text": "[trip]A memory swims past wearing someone else's face. It nods at you.[/trip]"
+        },
+        {
+          "atSec": 150,
+          "text": "[trip]An advertisement for a product that does not exist plays across the whole sky.[/trip]"
+        },
+        {
+          "atSec": 200,
+          "text": "[trip]You wade deeper. The blue closes over your knees, your chest, your reasons for leaving.[/trip]"
+        },
+        {
+          "atSec": 240,
+          "text": "[trip]The signal starts to resolve. Somewhere above the static, a channel is trying to find you again.[/trip]"
+        }
       ],
       "intensity": 0.9,
       "mode": "dreamzone",

@@ -15,11 +15,11 @@
     "building_name": "Architect Shrine",
     "building_type": "asc_shrine",
     "district": "wasteland",
+    "entrance": "south",
     "facade": true,
     "floors": 10,
     "is_building": true,
-    "world_exit_zone": "zone_district_892_906",
-    "entrance": "south"
+    "world_exit_zone": "zone_district_892_906"
   },
   "grid_x": 892,
   "grid_y": 907,

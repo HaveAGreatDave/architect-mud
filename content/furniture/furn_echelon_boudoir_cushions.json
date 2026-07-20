@@ -1,7 +1,10 @@
 {
   "description": "A drift of oversized silk floor cushions in wine and gold, spilling out from the daybed across the warm floor. Comfortable enough that nobody in here ever seems to bother with actual furniture.",
   "flags": {
-    "interactions": ["sit", "lie"]
+    "interactions": [
+      "sit",
+      "lie"
+    ]
   },
   "hp": null,
   "hp_max": null,

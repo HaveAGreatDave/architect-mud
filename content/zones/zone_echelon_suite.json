@@ -15,6 +15,7 @@
     "south": "zone_echelon_landing"
   },
   "flags": {
+    "always_lit": true,
     "building_name": "The Echelon",
     "echelon": true,
     "echelon_suite": true,
@@ -22,8 +23,7 @@
     "is_interior": true,
     "mis_ok": true,
     "world_exit_zone": "zone_echelon_exterior",
-    "yacht": true,
-    "always_lit": true
+    "yacht": true
   },
   "grid_x": 0,
   "grid_y": -1,

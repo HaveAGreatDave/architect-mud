@@ -11,8 +11,8 @@
   "created_by": "the-under",
   "description": "A pump chamber where the storm system once lifted its overflow toward the river, the great electric sump long dead and drowned. The concrete carries a constant low thrum from the power plant overhead. Passages run east to the turbine underflow and on down south into the deep trunk — and this is where the Architect's maintenance units come, when they come.",
   "exits": {
-    "north": "zone_under_rustgall",
     "east": "zone_under_turbunder",
+    "north": "zone_under_rustgall",
     "south": "zone_under_deeptrunk",
     "west": "zone_under_923_910"
   },

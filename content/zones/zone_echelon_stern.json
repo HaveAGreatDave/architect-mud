@@ -14,16 +14,16 @@
     "north": "zone_echelon_foyer"
   },
   "flags": {
-    "yacht": true,
-    "echelon": true,
-    "naval_ambience": true,
-    "echelon_view": true,
-    "is_interior": true,
-    "is_building": true,
-    "building_name": "The Echelon",
-    "world_exit_zone": "zone_echelon_exterior",
     "always_lit": true,
-    "fishing_table_id": "fish_echelon_basin"
+    "building_name": "The Echelon",
+    "echelon": true,
+    "echelon_view": true,
+    "fishing_table_id": "fish_echelon_basin",
+    "is_building": true,
+    "is_interior": true,
+    "naval_ambience": true,
+    "world_exit_zone": "zone_echelon_exterior",
+    "yacht": true
   },
   "grid_x": 0,
   "grid_y": 1,

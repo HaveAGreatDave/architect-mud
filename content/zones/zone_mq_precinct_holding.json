@@ -15,8 +15,8 @@
     "up": "zone_mq_precinct_lobby"
   },
   "flags": {
-    "is_interior": true,
-    "allow_sleep": true
+    "allow_sleep": true,
+    "is_interior": true
   },
   "grid_x": 0,
   "grid_y": 0,

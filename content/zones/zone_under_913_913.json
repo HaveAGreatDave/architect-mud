@@ -11,8 +11,8 @@
   "created_by": "sewer-grid",
   "description": "A grimy trunk of storm tunnel under Foundry Way, the concrete cracked and weeping, the air thick with the sour breath of the drains.",
   "exits": {
-    "north": "zone_under_913_912",
-    "east": "zone_under_914_913"
+    "east": "zone_under_914_913",
+    "north": "zone_under_913_912"
   },
   "flags": {
     "district": "sewer",

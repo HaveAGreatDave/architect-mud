@@ -11,8 +11,8 @@
   "created_by": "the-under",
   "description": "A narrow service passage the Watch have quietly made their own, their tapped power line running its length toward the threshold below. There are signs of use everywhere for those who know to look — a dead drop, boot prints, a chalk sigil kept crisp. The run bends south toward the Watch's door.",
   "exits": {
-    "west": "zone_under_deepreach",
-    "south": "zone_under_watchthresh"
+    "south": "zone_under_watchthresh",
+    "west": "zone_under_deepreach"
   },
   "flags": {
     "district": "sewer",

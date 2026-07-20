@@ -15,11 +15,11 @@
     "building_name": "The Vats",
     "building_type": "asc_vats",
     "district": "wasteland",
+    "entrance": "north",
     "facade": true,
     "floors": 8,
     "is_building": true,
-    "world_exit_zone": "zone_district_892_906",
-    "entrance": "north"
+    "world_exit_zone": "zone_district_892_906"
   },
   "grid_x": 892,
   "grid_y": 905,

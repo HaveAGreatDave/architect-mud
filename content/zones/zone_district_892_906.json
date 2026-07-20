@@ -15,11 +15,11 @@
     "building_name": "The Spire",
     "building_type": "asc_spire",
     "district": "wasteland",
+    "entrance": "west",
     "facade": true,
     "floors": 30,
     "is_building": true,
-    "world_exit_zone": "zone_district_893_906",
-    "entrance": "west"
+    "world_exit_zone": "zone_district_893_906"
   },
   "grid_x": 892,
   "grid_y": 906,

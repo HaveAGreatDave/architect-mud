@@ -15,11 +15,11 @@
     "building_type": "container_yard",
     "district": "yards",
     "district_id": "district_coldwater",
+    "entrance": "west",
     "facade": true,
     "is_building": true,
     "planner": "bp_district",
-    "world_exit_zone": "zone_district_921_903",
-    "entrance": "west"
+    "world_exit_zone": "zone_district_921_903"
   },
   "grid_x": 922,
   "grid_y": 903,

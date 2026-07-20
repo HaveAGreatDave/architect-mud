@@ -15,14 +15,14 @@
     "building_type": "civic",
     "district": "residential",
     "district_id": "district_coldwater",
+    "entrance": "east",
     "facade": true,
     "is_building": true,
     "planner": "bp_district",
     "scavenging_table_id": "scav_roadside_junk",
     "street_life": true,
     "terrain": "road",
-    "world_exit_zone": "zone_district_923_910",
-    "entrance": "east"
+    "world_exit_zone": "zone_district_923_910"
   },
   "grid_x": 922,
   "grid_y": 910,

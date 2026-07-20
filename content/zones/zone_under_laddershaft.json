@@ -12,8 +12,8 @@
   "description": "A vertical service shaft where the tunnel steps down a full level, an old iron ladder bolted to one weeping wall. The manhole at the top is welded fast under a street that forgot it. Everything past here is deeper than the maintenance crews ever liked to go — and it feels it.",
   "exits": {
     "north": "zone_under_eastbend",
-    "west": "zone_under_weepwall",
-    "south": "zone_under_confldeep"
+    "south": "zone_under_confldeep",
+    "west": "zone_under_weepwall"
   },
   "flags": {
     "district": "sewer",

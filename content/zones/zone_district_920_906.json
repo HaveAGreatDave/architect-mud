@@ -15,12 +15,12 @@
     "building_type": "clinic",
     "district": "wasteland",
     "district_id": "district_coldwater",
+    "entrance": "west",
     "facade": true,
     "is_building": true,
     "planner": "bp_district",
     "scavenging_table_id": "scav_west_wastes",
-    "world_exit_zone": "zone_district_919_906",
-    "entrance": "west"
+    "world_exit_zone": "zone_district_919_906"
   },
   "grid_x": 920,
   "grid_y": 906,

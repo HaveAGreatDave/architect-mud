@@ -23,7 +23,6 @@
   "flags": {
     "building_name": "Halcyon Towers",
     "elevator": true,
-    "hide_exits": true,
     "elevator_floors": [
       {
         "label": "Halcyon Arcade",
@@ -51,6 +50,7 @@
         "zone": "zone_halcyon_exec"
       }
     ],
+    "hide_exits": true,
     "is_interior": true
   },
   "grid_x": 0,

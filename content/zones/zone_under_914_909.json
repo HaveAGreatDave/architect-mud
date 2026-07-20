@@ -11,8 +11,8 @@
   "created_by": "sewer-grid",
   "description": "The sewer beneath Marrow Street is all crumbling grade and standing filth, the kind of dark that has never once been disturbed by anyone with a reason to be here.",
   "exits": {
-    "west": "zone_under_913_909",
-    "east": "zone_under_915_909"
+    "east": "zone_under_915_909",
+    "west": "zone_under_913_909"
   },
   "flags": {
     "district": "sewer",

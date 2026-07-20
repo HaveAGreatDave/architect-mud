@@ -15,12 +15,12 @@
     "building_type": "studio",
     "district": "wasteland",
     "district_id": "district_coldwater",
+    "entrance": "north",
     "facade": true,
     "floors": 2,
     "is_building": true,
     "planner": "bp_district",
-    "world_exit_zone": "zone_district_913_909",
-    "entrance": "north"
+    "world_exit_zone": "zone_district_913_909"
   },
   "grid_x": 913,
   "grid_y": 910,

@@ -11,8 +11,8 @@
   "created_by": "sewer-grid",
   "description": "The sewer beneath Halcyon Boulevard is all crumbling grade and standing filth, the kind of dark that has never once been disturbed by anyone with a reason to be here.",
   "exits": {
-    "west": "zone_under_896_910",
-    "east": "zone_under_898_910"
+    "east": "zone_under_898_910",
+    "west": "zone_under_896_910"
   },
   "flags": {
     "district": "sewer",

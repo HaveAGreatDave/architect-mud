@@ -3,22 +3,89 @@
   "behaviour_graph": {
     "_start": "start",
     "nodes": {
-      "start": { "next": "has_target", "type": "start" },
-      "has_target": { "condition_type": "HAS_TARGET", "ifFalse": "idle", "ifTrue": "low_hp", "type": "condition" },
-      "low_hp": { "condition_type": "HP_BELOW", "ifFalse": "attack", "ifTrue": "flee", "params": { "pct": 20 }, "type": "condition" },
-      "attack": { "action_type": "ATTACK", "next": "loop", "type": "action" },
-      "flee": { "action_type": "FLEE", "next": "loop", "type": "action" },
-      "idle": { "action_type": "IDLE", "next": "loop", "type": "action" },
-      "loop": { "next": "start", "type": "loop" }
+      "attack": {
+        "action_type": "ATTACK",
+        "next": "loop",
+        "type": "action"
+      },
+      "flee": {
+        "action_type": "FLEE",
+        "next": "loop",
+        "type": "action"
+      },
+      "has_target": {
+        "condition_type": "HAS_TARGET",
+        "ifFalse": "idle",
+        "ifTrue": "low_hp",
+        "type": "condition"
+      },
+      "idle": {
+        "action_type": "IDLE",
+        "next": "loop",
+        "type": "action"
+      },
+      "loop": {
+        "next": "start",
+        "type": "loop"
+      },
+      "low_hp": {
+        "condition_type": "HP_BELOW",
+        "ifFalse": "attack",
+        "ifTrue": "flee",
+        "params": {
+          "pct": 20
+        },
+        "type": "condition"
+      },
+      "start": {
+        "next": "has_target",
+        "type": "start"
+      }
     }
   },
   "body_parts": [
-    { "part": "head", "soak": { "kinetic": 1 }, "weight": 12 },
-    { "part": "torso", "soak": { "kinetic": 1 }, "weight": 42 },
-    { "part": "left_arm", "soak": { "kinetic": 1 }, "weight": 11 },
-    { "part": "right_arm", "soak": { "kinetic": 1 }, "weight": 11 },
-    { "part": "left_leg", "soak": { "kinetic": 1 }, "weight": 12 },
-    { "part": "right_leg", "soak": { "kinetic": 1 }, "weight": 12 }
+    {
+      "part": "head",
+      "soak": {
+        "kinetic": 1
+      },
+      "weight": 12
+    },
+    {
+      "part": "torso",
+      "soak": {
+        "kinetic": 1
+      },
+      "weight": 42
+    },
+    {
+      "part": "left_arm",
+      "soak": {
+        "kinetic": 1
+      },
+      "weight": 11
+    },
+    {
+      "part": "right_arm",
+      "soak": {
+        "kinetic": 1
+      },
+      "weight": 11
+    },
+    {
+      "part": "left_leg",
+      "soak": {
+        "kinetic": 1
+      },
+      "weight": 12
+    },
+    {
+      "part": "right_leg",
+      "soak": {
+        "kinetic": 1
+      },
+      "weight": 12
+    }
   ],
   "butcher_difficulty": 4,
   "butcher_table": [],
@@ -39,12 +106,41 @@
   "hp_max": 34,
   "id": "enemy_tunnel_horror",
   "loot_table": [
-    { "item": "item_scrap_metal", "qty": [1, 2], "weight": 20 },
-    { "item": "item_battery", "qty": [1, 1], "weight": 10 },
-    { "item": "item_credit_chip", "credits": [14, 34], "qty": [1, 1], "weight": 22 }
+    {
+      "item": "item_scrap_metal",
+      "qty": [
+        1,
+        2
+      ],
+      "weight": 20
+    },
+    {
+      "item": "item_battery",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 10
+    },
+    {
+      "credits": [
+        14,
+        34
+      ],
+      "item": "item_credit_chip",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 22
+    }
   ],
   "name": "tunnel horror",
   "weapon": [
-    { "max": 6, "min": 3, "type": "kinetic" }
+    {
+      "max": 6,
+      "min": 3,
+      "type": "kinetic"
+    }
   ]
 }

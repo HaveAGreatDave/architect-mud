@@ -15,11 +15,11 @@
     "building_type": "diner",
     "district": "wasteland",
     "district_id": "district_coldwater",
+    "entrance": "north",
     "facade": true,
     "is_building": true,
     "planner": "bp_district",
-    "world_exit_zone": "zone_district_906_909",
-    "entrance": "north"
+    "world_exit_zone": "zone_district_906_909"
   },
   "grid_x": 906,
   "grid_y": 910,
