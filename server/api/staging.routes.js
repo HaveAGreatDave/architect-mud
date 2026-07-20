@@ -10,7 +10,7 @@ import { query } from '../models/db.js';
 import { removeGenerator, markPowerTopologyDirty } from '../engine/environment.js';
 import { reloadMaps } from '../engine/world.js';
 import {
-  apiCreateZone, apiDeleteZone, apiCreateDistrict,
+  apiCreateZone, apiDeleteZone, apiCreateRegion,
   apiCreateFurniture, apiDeleteFurniture,
   apiCreateNpc, apiDeleteNpc, apiCreateItem, apiDeleteItem, apiCreateEnemy, apiDeleteEnemy,
   apiUpdateZone, apiUpdateEnemy, apiUpdateItem, apiUpdateNpc,
@@ -62,10 +62,31 @@ async function stage(body, auth) {
     VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
     ON CONFLICT (entity_type, entity_id) DO UPDATE SET
       entity_name   = EXCLUDED.entity_name,
-      change_type   = EXCLUDED.change_type,
-      method        = EXCLUDED.method,
-      api_path      = EXCLUDED.api_path,
-      staged_data   = EXCLUDED.staged_data,
+      -- Collapse-safe merge. A pending CREATE followed by partial UPDATEs must stay a
+      -- CREATE (and vice-versa if they arrive out of order) — otherwise the create is
+      -- dropped and publish runs an UPDATE against a row that doesn't exist yet (0 rows,
+      -- no error) and the entity is silently never created. This is the terrain painter's
+      -- exact pattern: POST a new tile, then PUT its exits via neighbour wiring — which is
+      -- why clustered new tiles randomly vanished on publish. A delete supersedes all.
+      change_type   = CASE
+        WHEN EXCLUDED.change_type = 'delete' THEN 'delete'
+        WHEN staged_changes.change_type = 'create' OR EXCLUDED.change_type = 'create' THEN 'create'
+        ELSE EXCLUDED.change_type END,
+      -- When collapsing onto a create, keep the create's route (e.g. POST /zones), not the update's PUT.
+      method        = CASE
+        WHEN EXCLUDED.change_type <> 'delete' AND (staged_changes.change_type = 'create' OR EXCLUDED.change_type = 'create')
+          THEN CASE WHEN EXCLUDED.change_type = 'create' THEN EXCLUDED.method ELSE staged_changes.method END
+        ELSE EXCLUDED.method END,
+      api_path      = CASE
+        WHEN EXCLUDED.change_type <> 'delete' AND (staged_changes.change_type = 'create' OR EXCLUDED.change_type = 'create')
+          THEN CASE WHEN EXCLUDED.change_type = 'create' THEN EXCLUDED.api_path ELSE staged_changes.api_path END
+        ELSE EXCLUDED.api_path END,
+      -- Accumulate partial writes (shallow jsonb merge, newest key wins) rather than replacing,
+      -- so a create body keeps its fields when a later {exits}-only PUT lands, and an {exits}
+      -- update followed by a {flags} update keeps both. A delete carries only the incoming body.
+      staged_data   = CASE
+        WHEN EXCLUDED.change_type = 'delete' THEN EXCLUDED.staged_data
+        ELSE COALESCE(staged_changes.staged_data, '{}'::jsonb) || COALESCE(EXCLUDED.staged_data, '{}'::jsonb) END,
       description   = EXCLUDED.description,
       author        = EXCLUDED.author,
       staged_at     = NOW()
@@ -125,9 +146,9 @@ const UPDATERS = {
     await reloadMaps();
     return { status: 200, body: { moved: changes.length } };
   },
-  // A whole-district reposition: shift every member zone's grid coords. Published
-  // atomically as one change so a district never ends up half-moved.
-  district_move: async (districtId, data) => {
+  // A whole-region reposition: shift every member zone's grid coords. Published
+  // atomically as one change so a region never ends up half-moved.
+  region_move: async (regionId, data) => {
     const changes = data?.changes || [];
     for (const c of changes) {
       const r = await apiUpdateZone(c.id, c.patch || {});
@@ -140,14 +161,16 @@ const UPDATERS = {
 
 const CREATORS = {
   zone:      (data) => apiCreateZone(data, null),
-  // A whole new blank district: insert the districts row, then every tile, then
-  // rebuild the map cache. One grouped change → the district appears atomically.
-  district_create: async (data) => {
-    const { district, zones } = data || {};
-    const dr = await apiCreateDistrict(district || {});
+  // A whole new blank region: insert the regions row, then every tile, then
+  // rebuild the map cache. One grouped change → the region appears atomically.
+  region_create: async (data) => {
+    const { region, zones } = data || {};
+    const dr = await apiCreateRegion(region || {});
     if (dr?.body?.error) throw new Error(dr.body.error);
+    // skipHooks so the zone-validator's async autoRepair can't strip a tile's exits to
+    // siblings that aren't inserted yet — the fresh grid must stay internally connected.
     for (const z of (zones || [])) {
-      const r = await apiCreateZone(z, null);
+      const r = await apiCreateZone(z, null, { skipHooks: true });
       if (r?.body?.error) throw new Error(`${z.id}: ${r.body.error}`);
     }
     await reloadMaps();

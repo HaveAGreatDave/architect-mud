@@ -11,9 +11,9 @@
   "created_by": "sewer-grid",
   "description": "The sewer beneath Cinder Lane + Voss Avenue is all crumbling grade and standing filth, the kind of dark that has never once been disturbed by anyone with a reason to be here.",
   "exits": {
+    "east": "zone_under_903_909",
     "north": "zone_under_902_908",
-    "south": "zone_under_902_910",
-    "east": "zone_under_903_909"
+    "south": "zone_under_902_910"
   },
   "flags": {
     "district": "sewer",

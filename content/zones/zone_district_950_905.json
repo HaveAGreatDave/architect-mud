@@ -13,6 +13,7 @@
   },
   "flags": {
     "planner": "bp_district",
+    "region_id": "region_coldwater",
     "terrain": "redrock"
   },
   "grid_x": 950,

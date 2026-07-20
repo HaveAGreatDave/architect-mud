@@ -1,8 +1,10 @@
 {
   "description": "A private bar of smoked glass and brushed titanium, backlit amber, stocked with bottles that don't exist on any menu anywhere. Nothing here has a price because nothing here is for sale. LOOK IN it, or TAKE what you want — the shelves refill themselves.",
   "flags": {
-    "interactions": ["lean"],
     "container": 60000,
+    "interactions": [
+      "lean"
+    ],
     "restock_items": [
       "item_drink_pre_collapse_cognac",
       "item_drink_meridian_single_malt",

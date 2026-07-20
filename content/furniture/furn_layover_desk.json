@@ -1,0 +1,18 @@
+{
+  "description": "A scarred check-in desk with a board of numbered key hooks behind it, half of them empty. A hand-lettered card reads: ROOMS BY THE WEEK. NO NAMES TAKEN. SEE AMOS.",
+  "flags": {
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_layover_desk",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the front desk",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_bld_900_1171_lobby"
+}

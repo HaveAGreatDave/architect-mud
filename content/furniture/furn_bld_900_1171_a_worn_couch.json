@@ -1,0 +1,18 @@
+{
+  "description": "A deep, sagging couch that's hosted more quiet negotiations than any table in town. The cushions have swallowed a decade of loose change and worse.",
+  "flags": {
+    "interactions": [
+      "sit"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_bld_900_1171_a_worn_couch",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the sagging couch",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_bld_900_1171_lobby"
+}

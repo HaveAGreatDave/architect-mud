@@ -3,14 +3,18 @@
   "flags": {
     "broadcast_device_type": "tv",
     "broadcast_receiver": true,
+    "interactions": [
+      "watch"
+    ],
     "tv": true,
     "tv_dial_freq": 7,
-    "tv_skin": "flatscreen",
-    "interactions": ["watch"]
+    "tv_skin": "flatscreen"
   },
   "hp": null,
   "hp_max": null,
   "id": "furn_echelon_suite_tv",
+  "light_type": "lamp",
+  "lumen_output": null,
   "name": "wall-spanning flatscreen",
   "object_type": "furniture",
   "power_draw_kw": 2,

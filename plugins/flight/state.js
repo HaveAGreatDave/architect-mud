@@ -8,7 +8,7 @@
 // engine-facing seam the whole plugin shares.
 
 import { query } from '../../server/models/db.js';
-import { getZone, getAllZones, getLivePlayer, getMinimapData, buildingEntranceDir } from '../../server/engine/world.js';
+import { getZone, getAllZones, getLivePlayer, getMinimapData, buildingEntranceDir, getRegion } from '../../server/engine/world.js';
 import { biomeOf, districtBiome } from './biomes.js';
 import { normalizeLivery } from './livery.js';
 import { sendToPlayer, sendToZone, sendToZoneExcept } from '../../server/engine/messaging.js';
@@ -382,6 +382,8 @@ export const KITS = {
     blurb: 'Machined linkages and a wideband sensor — every knob turns further before she bites.' },
   kit_intercooler: { name: 'Intercooler & Oil Cooler', price: 1200, coolMult: 0.6,
     blurb: 'Sheds heat, so lean mixtures and boost cost far less temperature and reliability.' },
+  kit_smuggler_hold: { name: "Smuggler's False-Bottom Hold", price: 2200, smugglerHold: true,
+    blurb: 'A machined false floor and a lead-lined liner — customs scanners skate right over what rides underneath. Most of the time.' },
 };
 export function installedKits(cd) { return Array.isArray(cd?.kits) ? cd.kits.filter(k => KITS[k]) : []; }
 // The reachable ± for every knob: a base band, widened smoothly by Fabrication and
@@ -693,6 +695,32 @@ function nearbyLandmarks(x, y) {
   return out.map(({ _d, ...f }) => f);
 }
 
+// The spatial regions (Coldwater Basin, The Reach…) as coarse waypoints for the same
+// target guide — one entry per region, its centroid derived from its member tiles, in
+// the same {id,name,gx,gy,bearing,dist} shape so the client cycles them alongside fields
+// and landmarks. A region spans many tiles, so this is a "fly toward that place" marker
+// rather than a precise spot; capped to the nearest few centroids so the cycle stays sane.
+// Region display names come from the in-memory regions cache (no DB round trip here).
+const REGION_MAX = 6;
+function nearbyRegions(x, y) {
+  const acc = new Map();   // region_id → { sx, sy, n }
+  for (const z of getAllZones()) {
+    if (z.map_id !== 'map_world' || z.grid_x == null) continue;
+    const rid = z.flags?.region_id; if (!rid) continue;
+    const e = acc.get(rid) || { sx: 0, sy: 0, n: 0 };
+    e.sx += z.grid_x; e.sy += z.grid_y; e.n++;
+    acc.set(rid, e);
+  }
+  const all = [];
+  for (const [rid, e] of acc) {
+    const gx = Math.round(e.sx / e.n), gy = Math.round(e.sy / e.n);
+    const dist = Math.hypot(gx - x, gy - y);
+    all.push({ id: rid, name: getRegion(rid)?.name || rid, gx, gy, bearing: Math.round(bearingDeg(x, y, gx, gy)), dist: Math.round(dist), _d: dist });
+  }
+  all.sort((a, b) => a._d - b._d);
+  return all.slice(0, REGION_MAX).map(({ _d, ...f }) => f);
+}
+
 export function gaugePayload(live) {
   const a = live.row, t = live.type, eff = effStats(live);
   const cap = eff.fuelCap;
@@ -838,6 +866,7 @@ export function contextPayload(live) {
     minimap: (() => { const b = surfaceAt(a.grid_x, a.grid_y); return b ? getMinimapData(b.id, 3) : null; })(),
     fields: nearbyFields(a.grid_x, a.grid_y),   // airport bearing tags for the heading tape
     landmarks: nearbyLandmarks(a.grid_x, a.grid_y),   // named buildings you can lock the target guide onto
+    regions: nearbyRegions(a.grid_x, a.grid_y),   // spatial world-map places (Coldwater Basin…) you can lock the guide onto
     onField: !!surfaceAt(a.grid_x, a.grid_y)?.flags?.airfield_id,   // rolled onto a real airfield tile → auto-park + hangar on stop
     onYacht: !!yachtFieldNear(a.grid_x, a.grid_y),   // a VTOL set down alongside the Echelon → auto-land on her helipad
     cargo: a.custom_data?.cargoWeight || 0,     // current hold weight (drives the cockpit jettison bind)

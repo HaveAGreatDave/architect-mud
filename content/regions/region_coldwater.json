@@ -1,0 +1,9 @@
+{
+  "base_terrain": null,
+  "climate_bias": null,
+  "created_by": "backfill",
+  "grid_z": 0,
+  "id": "region_coldwater",
+  "name": "Coldwater",
+  "updated_at": "1784000000"
+}

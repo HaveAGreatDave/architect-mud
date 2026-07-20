@@ -1,0 +1,18 @@
+{
+  "description": "A welded stool bolted to the boards, the seat worn to a shine by a hundred people minding their own business.",
+  "flags": {
+    "interactions": [
+      "sit"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_bld_899_1171_a_bar_stool",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "a bar stool",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_bld_899_1171_lobby"
+}

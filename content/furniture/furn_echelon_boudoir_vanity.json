@@ -1,7 +1,10 @@
 {
   "description": "A mirrored vanity with a low padded stool, its surface a careful clutter of scent bottles, lip colours and a single silver brush. The glass is ringed with soft bulbs, most of them turned down low.",
   "flags": {
-    "interactions": ["sit", "lean"]
+    "interactions": [
+      "sit",
+      "lean"
+    ]
   },
   "hp": null,
   "hp_max": null,

@@ -22,5 +22,6 @@
   "map_id": null,
   "marker": null,
   "name": "Echelon — Owner's Head",
-  "parent_zone": "zone_echelon_suite"
+  "parent_zone": "zone_echelon_suite",
+  "updated_at": "1783957292"
 }

@@ -82,6 +82,7 @@ async function buildScreen(player) {
     return {
       id: f.id, name: f.name, color: f.color, expansion: f.expansion,
       stance: f.profile?.stance || null, path: f.profile?.path || null,
+      pathLabel: reader.path_label || f.profile?.path || null,
       lore: f.description || '',
       experience: reader.experience || null,
       motto: reader.motto || null, pull: reader.pull || null,

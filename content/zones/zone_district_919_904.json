@@ -14,7 +14,6 @@
   },
   "flags": {
     "district": "wasteland",
-    "district_id": "district_coldwater",
     "greeter": {
       "lines": [
         "Hey — hey! Not so fast. You've got that fresh-decant shine and empty pockets, I can spot it blind. If you need money, that board's got work. Come back to me when it's done.",
@@ -30,6 +29,7 @@
     },
     "icon": "road_nsw",
     "planner": "bp_district",
+    "region_id": "region_coldwater",
     "scavenging_table_id": "scav_roadside_junk",
     "street_life": true
   },

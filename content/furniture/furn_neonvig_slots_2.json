@@ -1,13 +1,13 @@
 {
   "description": "A squat, gaudy machine painted the red of a fresh wound, DOUBLE OR NOTHING arced across the top in dead bulbs. The reels judder when they stop, like they can't quite believe it either. Someone has scratched a tally of losses into the side panel; it runs off the edge. Feed it credits and pull.",
   "flags": {
-    "slot_machine": true,
-    "slot_min": 5,
-    "slot_max": 100,
-    "slot_default": 10,
     "interactions": [
       "spin"
-    ]
+    ],
+    "slot_default": 10,
+    "slot_machine": true,
+    "slot_max": 100,
+    "slot_min": 5
   },
   "hp": null,
   "hp_max": null,

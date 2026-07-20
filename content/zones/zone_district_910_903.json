@@ -14,9 +14,9 @@
   },
   "flags": {
     "district": "docks",
-    "district_id": "district_coldwater",
     "fishing_table_id": "fish_coldwater_bay",
     "planner": "bp_district",
+    "region_id": "region_coldwater",
     "street_life": true,
     "terrain": "concrete"
   },

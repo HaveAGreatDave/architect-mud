@@ -1,0 +1,19 @@
+{
+  "description": "A battered oval of felt gone bald in patches, ringed by four mismatched chairs under a tin lamp. The deck's hand-shuffled and squared at the dealer's end; the chips are old casino clay nobody asks the provenance of. Cards are dealt by hand and called aloud here — the Reach plays close, and cheating gets you planted out in the scrub. A board scratched into the rail reads: 10/20 · $200 TO SIT · NO MARKERS.",
+  "flags": {
+    "game_table_id": "gametable_coyote",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_reach_poker_table",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the poker table",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_bld_899_1171_lobby"
+}

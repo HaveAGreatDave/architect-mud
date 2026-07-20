@@ -7,6 +7,7 @@
   "created_by": null,
   "description": "A one-bedroom sky residence: engineered oak underfoot, a wall of glass framing the bay, and a low platform bed dressed in cloud-grey linen. The kitchen is a single seam of stone with no visible handles. Everything is quiet, warm, and exactly where it should be — the ambient hum of a life without friction. The door locks with a whisper. Leave <b>south</b> to the landing.",
   "exits": {
+    "in": "zone_solenne_apt_a_bath",
     "south": "zone_solenne_residences"
   },
   "flags": {

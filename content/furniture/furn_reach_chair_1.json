@@ -1,0 +1,20 @@
+{
+  "description": "A mismatched chair pulled up to the felt, the seat worn shiny by players who came for a quiet game and a hard one. Sink in, and Doc'll read you in.",
+  "flags": {
+    "game_table_id": "gametable_coyote",
+    "interactions": [
+      "sit"
+    ],
+    "seat_idx": 0
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_reach_chair_1",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "a player's chair",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_bld_899_1171_lobby"
+}

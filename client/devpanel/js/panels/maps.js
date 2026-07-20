@@ -566,7 +566,7 @@ let mapZoneEditReturn = false;    // true when zone editor was opened from the m
 let zoneEnemyEditReturn = null;   // zoneId when enemy editor was opened from zone edit panel
 let mapsList = [];
 let mapOverview = null;           // { map, zones:Map, unplaced:Map, unplacedInterior:Map, children, z }
-let _districtNames = null;        // Map<district_id, name>, lazily fetched — labels the exterior editor
+let _regionNames = null;          // Map<region_id, name>, lazily fetched — labels the exterior editor
 let mapDragId = null;
 let mapDragFromTray = false;
 let mapDragIsInterior = false;
@@ -582,11 +582,13 @@ let _mapPendingOverrides = new Map(); // zoneId → {color,bg_color,marker,terra
 // Display fields assign onto the zone; `terrain` merges into flags. Cleared per-zone on
 // publish/reject (staging.js), so a published/discarded edit stops overriding.
 function _applyMapOverride(z, overrides) {
-  const { terrain, ...display } = overrides;
-  Object.assign(z, display);
-  if (terrain !== undefined) {
+  const { terrain, runway, icon, ...display } = overrides;
+  Object.assign(z, display);   // color / bg_color / marker (present only for runway edits)
+  if (terrain !== undefined || runway !== undefined || icon !== undefined) {
     z.flags = { ...(z.flags || {}) };
-    if (terrain) z.flags.terrain = terrain; else delete z.flags.terrain;
+    if (terrain !== undefined) { if (terrain) z.flags.terrain = terrain; else delete z.flags.terrain; }
+    if (runway !== undefined) { if (runway) z.flags.runway = runway; else delete z.flags.runway; }
+    if (icon !== undefined) { if (icon) z.flags.icon = icon; else delete z.flags.icon; }
   }
 }
 let mapSafeZoneMode = false;   // true while the Sanctuary paint tool is active
@@ -598,7 +600,7 @@ function mapsGuard() { return true; }
 
 function toggleSafeZoneMode() {
   mapSafeZoneMode = !mapSafeZoneMode;
-  if (mapSafeZoneMode) { mapPaintMode = false; mapTerrainMode = false; mapMoveBuildingMode = false; }
+  if (mapSafeZoneMode) { mapPaintMode = false; mapTerrainMode = false; mapMoveBuildingMode = false; mapNewBuildingMode = false; }
   renderMapOverview();
 }
 
@@ -662,7 +664,7 @@ const PAINT_SWATCHES = [
 
 function togglePaintMode() {
   mapPaintMode = !mapPaintMode;
-  if (mapPaintMode) { mapSafeZoneMode = false; mapTerrainMode = false; mapMoveBuildingMode = false; mapUndoStack = []; mapRedoStack = []; }
+  if (mapPaintMode) { mapSafeZoneMode = false; mapTerrainMode = false; mapMoveBuildingMode = false; mapNewBuildingMode = false; mapUndoStack = []; mapRedoStack = []; }
   renderMapOverview();
 }
 function setPaintTool(t) { mapPaintTool = t; renderMapOverview(); }
@@ -1037,7 +1039,46 @@ const TERRAIN_TYPES = [
   { key: 'ash',      label: 'Ash',      fill: '#4f4b47' },
   { key: 'marsh',    label: 'Marsh',    fill: '#4d5a30' },
 ];
-const TERRAIN_FILL_BY_KEY = Object.fromEntries(TERRAIN_TYPES.map(t => [t.key, t.fill]));
+// Runway pseudo-surfaces. A runway isn't a flags.terrain value — it's a directional
+// centreline strip written as flags.runway ('ns'|'ew') + flags.icon (runway_ns/_ew)
+// plus the canonical yellow-marking / asphalt / bar-marker presentation, exactly how
+// the seeded runway tiles carry it, so runwayFor() and the map icon both pick it up.
+// These keys live in the terrain palette but branch away from the flags.terrain path.
+const RUNWAY_KEYS = {
+  runway_ns: { runway: 'ns', icon: 'runway_ns', marker: '┃', label: 'Runway ↕ N-S' },
+  runway_ew: { runway: 'ew', icon: 'runway_ew', marker: '━', label: 'Runway ↔ E-W' },
+};
+const RUNWAY_COLOR = '#f5d400', RUNWAY_BG = '#2b2b2b';
+const isRunwayKey = k => !!RUNWAY_KEYS[k];
+const TERRAIN_FILL_BY_KEY = Object.fromEntries([
+  ...TERRAIN_TYPES.map(t => [t.key, t.fill]),
+  ...Object.keys(RUNWAY_KEYS).map(k => [k, RUNWAY_COLOR]),
+]);
+// The surface key a tile currently carries (runway pseudo-key wins over flags.terrain),
+// so paint guards can no-op when a tile is already the brushed surface.
+function _tileSurfaceKey(z) {
+  if (z?.flags?.runway === 'ns') return 'runway_ns';
+  if (z?.flags?.runway === 'ew') return 'runway_ew';
+  return z?.flags?.terrain || null;
+}
+// Apply a palette surface (terrain string OR runway pseudo-key) to a tile's flags and
+// presentation in place; erase clears whatever surface it holds. Switching cleanly wipes
+// any prior terrain/runway before stamping the new one, and sheds the runway's yellow
+// colour/marker when a tile stops being a runway.
+function _setTileSurface(tile, key, erase) {
+  const wasRunway = !!tile.flags?.runway;
+  tile.flags = { ...(tile.flags || {}) };
+  delete tile.flags.terrain; delete tile.flags.runway;
+  if (/^runway_/.test(tile.flags.icon || '')) delete tile.flags.icon;
+  if (!erase && key && isRunwayKey(key)) {
+    const r = RUNWAY_KEYS[key];
+    tile.flags.runway = r.runway; tile.flags.icon = r.icon;
+    tile.color = RUNWAY_COLOR; tile.bg_color = RUNWAY_BG; tile.marker = r.marker;
+    return;
+  }
+  if (!erase && key) tile.flags.terrain = key;
+  if (wasRunway) { tile.color = null; tile.bg_color = null; tile.marker = null; } // drop runway livery
+}
 let mapTerrainMode = true;   // Maps tab opens in the terrain editor by default
 let mapTerrainType = 'road';
 let mapTerrainTool = 'brush';       // 'brush' | 'fill' | 'pick' | 'rect'
@@ -1045,15 +1086,20 @@ let mapTerrainPanelPos = null;      // {left, top} once the palette is dragged; 
 let mapTerrainPainting = false;
 let mapTerrainPending = new Set();
 let mapTerrainRectStart = null;     // {x,y} anchor while dragging a rectangle
+let mapEditingRegionId = null;      // the region the exterior editor is scoped to; painted/conjured tiles auto-join it
 let _terrainOutlined = [];          // tile els currently showing the rect preview outline
 
 function toggleTerrainMode() {
   mapTerrainMode = !mapTerrainMode;
-  if (mapTerrainMode) { mapPaintMode = false; mapSafeZoneMode = false; mapMoveBuildingMode = false; }
+  if (mapTerrainMode) { mapPaintMode = false; mapSafeZoneMode = false; mapMoveBuildingMode = false; mapNewBuildingMode = false; }
   renderMapOverview();
 }
 function setTerrainType(k) { mapTerrainType = k; renderMapOverview(); }
 function setTerrainTool(t) { mapTerrainTool = t; mapTerrainRectStart = null; renderMapOverview(); }
+// Re-scope the exterior editor to another region (the toolbar dropdown). Today every
+// region's tiles are already loaded, so this just re-filters + re-frames the grid.
+// When regions load one at a time this becomes the place to fetch the chosen one.
+function selectEditRegion(id) { window.worldSelectedRegionId = id || null; renderMapOverview(); }
 
 // Working-copy mirror of server zoneTerrain (authored terrain wins, then inference) so the
 // dev preview matches what the game renders — including tiles that were never painted, so
@@ -1085,6 +1131,30 @@ function mapRoadConnector(z, byCoord) {
   return s ? 'road_' + s : 'road_x';
 }
 
+// Terrain-aware tile visual — the same surface the terrain painter shows (fills + road
+// auto-tile + runway icon), with buildings kept as their authored colour + name. Returns
+// { style, inner } so the Move-Building / New-Building overlays render on the real terrain
+// map (streets, water, ground) with buildings on it, instead of a flat authored-colour view.
+function _terrainTileVisual(z, byCoord) {
+  const marker = z.marker ? `<span class="map-marker-badge">${z.marker}</span>` : '';
+  if (_isBuildingTile(z)) return { style: zoneColorStyle(z), inner: `${marker}${z.name}` };
+  const rwKey = _tileSurfaceKey(z);
+  if (isRunwayKey(rwKey)) {
+    const iconName = RUNWAY_KEYS[rwKey].icon;
+    const ico = `<span style="display:inline-block;width:26px;height:26px;background:currentColor;-webkit-mask:url(/assets/zone-icons/${iconName}.svg) center/contain no-repeat;mask:url(/assets/zone-icons/${iconName}.svg) center/contain no-repeat"></span>`;
+    return { style: `;background:${RUNWAY_BG};color:${RUNWAY_COLOR}`, inner: `${ico}${marker}` };
+  }
+  const terr = mapZoneTerrain(z);
+  if (terr === 'road') {
+    const conn = mapRoadConnector(z, byCoord);
+    const ico = `<span style="display:inline-block;width:26px;height:26px;background:currentColor;-webkit-mask:url(/assets/zone-icons/${conn}.svg) center/contain no-repeat;mask:url(/assets/zone-icons/${conn}.svg) center/contain no-repeat"></span>`;
+    return { style: `;background:${TERRAIN_FILL_BY_KEY.road};color:#f2c53d`, inner: `${ico}${marker}` };
+  }
+  const fill = terr ? TERRAIN_FILL_BY_KEY[terr] : null;
+  const style = fill ? `;background:${fill};color:${luminanceTextColor(fill)}` : zoneColorStyle(z);
+  return { style, inner: `${marker}${z.name}` };
+}
+
 // Stage a terrain edit through the Changes panel (nothing goes live until you Publish).
 // Routes through the staging-aware API() as a full-flags zone PUT — the shape the staging
 // publisher replays via apiUpdateZone. The working copy already holds the tile's COMPLETE
@@ -1098,9 +1168,21 @@ async function _saveTerrain(zoneId) {
     const z = mapOverview?.zones.get(zoneId);
     if (!z) return;
     // Remember the staged value so the preview survives tab switches / map reloads
-    // (the DB won't carry it until Publish). Cleared per-zone on publish/reject.
-    _mapPendingOverrides.set(zoneId, { ...(_mapPendingOverrides.get(zoneId) || {}), terrain: z.flags?.terrain || null });
-    const r = await API(`/zones/${zoneId}`, 'PUT', { flags: { ...(z.flags || {}) } });
+    // (the DB won't carry it until Publish). Runway tiles also carry presentation
+    // (icon + yellow/asphalt/marker) beyond flags.terrain; only tiles that are (or
+    // just stopped being) a runway record those extra keys, so a plain terrain paint
+    // never clobbers an unrelated tile's icon/colour.
+    const prev = _mapPendingOverrides.get(zoneId) || {};
+    const ov = { ...prev, terrain: z.flags?.terrain || null };
+    let body = { flags: { ...(z.flags || {}) } };
+    if (z.flags?.runway || prev.runway || prev.icon) {
+      ov.runway = z.flags?.runway || null;
+      ov.icon = /^runway_/.test(z.flags?.icon || '') ? z.flags.icon : null;
+      ov.color = z.color ?? null; ov.bg_color = z.bg_color ?? null; ov.marker = z.marker ?? null;
+      body = { ...body, color: z.color ?? null, bg_color: z.bg_color ?? null, marker: z.marker ?? null };
+    }
+    _mapPendingOverrides.set(zoneId, ov);
+    const r = await API(`/zones/${zoneId}`, 'PUT', body);
     if (r?.error) toast(r.error, true); else updateStagingBadge();
   } finally { mapTerrainPending.delete(zoneId); }
 }
@@ -1111,17 +1193,19 @@ function _terrainTileDom(zoneId) {
   const z = mapOverview?.zones.get(zoneId);
   const el = _tileEl(z);
   if (!el) return;
-  const terr = z.flags?.terrain;
-  el.style.background = terr ? TERRAIN_FILL_BY_KEY[terr] : '';
+  const surf = _tileSurfaceKey(z);
+  el.style.background = surf ? TERRAIN_FILL_BY_KEY[surf] : '';
 }
 
 function _terrainBrush(zoneId, erase) {
   const z = mapOverview?.zones.get(zoneId);
   if (!z) return;
   const val = erase ? null : mapTerrainType;
-  if ((z.flags?.terrain || null) === (val || null)) return;
-  z.flags = { ...(z.flags || {}) };
-  if (val) z.flags.terrain = val; else delete z.flags.terrain;
+  if (_tileSurfaceKey(z) === (val || null)) return;
+  _setTileSurface(z, val, erase);
+  // Painting a tile folds it into the region being edited if it isn't in one yet
+  // (legacy tiles predating the region system). Erasing doesn't claim ownership.
+  if (val && mapEditingRegionId && !z.flags.region_id) z.flags.region_id = mapEditingRegionId;
   _terrainTileDom(zoneId);
   _saveTerrain(zoneId);
   if (val) _wireExistingTile(zoneId); // painting a surface also connects the tile; erasing leaves exits alone
@@ -1139,14 +1223,19 @@ const TERRAIN_TILE_DEFAULTS = {
   marsh:   { color: '#5f7a4a', bg: '#1c241a', ambient: 'wasteland', name: 'The Toxic Marsh', wild: true, rad: 30, desc: 'Murky water pools between hummocks of sick green weed, slicked with a chemical sheen that never quite settles.' },
 };
 function _newTerrainTile(id, x, y, z, terr, mapId) {
+  const rw = RUNWAY_KEYS[terr];
   const d = TERRAIN_TILE_DEFAULTS[terr] || {};
-  const flags = { planner: 'bp_district', terrain: terr };
+  const flags = { planner: 'bp_district' };
+  if (rw) { flags.runway = rw.runway; flags.icon = rw.icon; } else { flags.terrain = terr; }
   if (d.wild) { flags.district = 'wilds'; flags.radiation = d.rad; }
+  if (mapEditingRegionId) flags.region_id = mapEditingRegionId;  // a conjured tile joins the edited region
   return {
-    id, name: d.name || (TERRAIN_TYPES.find(t => t.key === terr)?.label || 'Ground') + ' Ground',
-    description: d.desc || '', exits: {}, ambient_events: [], ambient_theme: d.ambient || 'city',
+    id, name: rw ? 'Runway' : (d.name || (TERRAIN_TYPES.find(t => t.key === terr)?.label || 'Ground') + ' Ground'),
+    description: rw ? 'Yellow runway markings stripe the asphalt, chipped and faded but still obeyed out of habit.' : (d.desc || ''),
+    exits: {}, ambient_events: [], ambient_theme: rw ? 'outdoors' : (d.ambient || 'city'),
     audio_theme_id: null, flags, grid_x: x, grid_y: y, grid_z: z, map_id: mapId,
-    color: d.color || null, bg_color: d.bg || null, marker: null, parent_zone: null,
+    color: rw ? RUNWAY_COLOR : (d.color || null), bg_color: rw ? RUNWAY_BG : (d.bg || null),
+    marker: rw ? rw.marker : null, parent_zone: null,
   };
 }
 // Paint a cell's fill straight onto its DOM (works for the create-cell too, which
@@ -1173,9 +1262,15 @@ async function _stageCreatedTile(id) {
 }
 // Conjure one tile at an empty cell: add it locally, wire reciprocal exits to
 // orthogonal non-building neighbours, return the neighbour ids whose exits changed.
+// District-tile id for a conjured cell. z=0 keeps the flat zone_district_<x>_<y>
+// scheme; other floors get a _z<z> suffix so a sub-level tile (e.g. z-1 water)
+// doesn't collide with the surface tile that shares its (x,y).
+function _districtTileId(x, y, z) {
+  return z ? `zone_district_${x}_${y}_z${z}` : `zone_district_${x}_${y}`;
+}
 function _conjureTileLocal(x, y) {
   const o = mapOverview;
-  const id = `zone_district_${x}_${y}`;
+  const id = _districtTileId(x, y, o.z);
   if (o.zones.has(id)) return null;
   if ([...o.zones.values()].some(z => (z.grid_z ?? 0) === o.z && z.grid_x === x && z.grid_y === y)) return null;
   const tile = _newTerrainTile(id, x, y, o.z, mapTerrainType, o.map.id);
@@ -1259,7 +1354,8 @@ function terrainPaintEnd(zoneId) {
 
 // Eyedropper: sample a tile's terrain (authored or inferred) onto the brush, then drop to Brush.
 function terrainPick(zoneId) {
-  const t = mapZoneTerrain(mapOverview?.zones.get(zoneId));
+  const z = mapOverview?.zones.get(zoneId);
+  const t = _tileSurfaceKey(z) || mapZoneTerrain(z);   // runway pseudo-key wins over the road inference
   if (!t) return;
   mapTerrainType = t;
   mapTerrainTool = 'brush';
@@ -1284,7 +1380,7 @@ async function terrainFill(startId) {
       if (n && !seen.has(n.id) && mapZoneTerrain(n) === from) { seen.add(n.id); queue.push(n); }
     }
   }
-  for (const z of hit) { z.flags = { ...(z.flags || {}) }; z.flags.terrain = mapTerrainType; }
+  for (const z of hit) _setTileSurface(z, mapTerrainType, false);
   renderMapOverview();
   for (const z of hit) await _saveTerrain(z.id);
   for (const z of hit) await _wireExistingTile(z.id); // connect the filled region, not just recolour it
@@ -1333,10 +1429,10 @@ async function _terrainRectCommitXY(endX, endY) {
     const z = at(x, y);
     if (z) {
       if (_isBuildingTile(z)) continue; // don't overwrite a building's surface
-      if ((z.flags?.terrain || null) === mapTerrainType) continue;
-      z.flags = { ...(z.flags || {}) }; z.flags.terrain = mapTerrainType; repaintIds.push(z.id);
+      if (_tileSurfaceKey(z) === mapTerrainType) continue;
+      _setTileSurface(z, mapTerrainType, false); repaintIds.push(z.id);
     } else {
-      const id = `zone_district_${x}_${y}`;
+      const id = _districtTileId(x, y, z0);
       if (o.zones.has(id)) continue;
       o.zones.set(id, _newTerrainTile(id, x, y, z0, mapTerrainType, o.map.id));
       createdIds.add(id);
@@ -1372,12 +1468,64 @@ document.addEventListener('mouseup', () => {
   if (mapTerrainPainting) { mapTerrainPainting = false; renderMapOverview(); }
 });
 
+// Middle-mouse drag = pan the big-map grid (never paint). The capture-phase
+// mousedown beats the tiles' inline paint handlers so button-1 grabs instead of
+// brushing, and living on document (not the scroll node) survives the panel's
+// frequent innerHTML re-renders. preventDefault also kills the OS autoscroll.
+// Horizontal scroll lives on the inner .map-scale-viewport and vertical on the
+// outer #list-panel, so we pan whichever ancestor actually scrolls per axis
+// (walking up from the tile, not from #bigmap-grid-scroll — the viewport is a
+// CHILD of it) rather than assuming one node holds both.
+let _mapPan = null;
+function _scrollParent(el, axis) {
+  for (let n = el; n && n !== document.body; n = n.parentElement) {
+    const s = getComputedStyle(n);
+    const ov = axis === 'x' ? s.overflowX : s.overflowY;
+    const can = axis === 'x' ? n.scrollWidth > n.clientWidth : n.scrollHeight > n.clientHeight;
+    if (can && (ov === 'auto' || ov === 'scroll')) return n;
+  }
+  return null;
+}
+document.addEventListener('mousedown', e => {
+  if (e.button !== 1) return;
+  const grid = e.target.closest && e.target.closest('#bigmap-grid-scroll');
+  if (!grid) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const xEl = _scrollParent(e.target, 'x'), yEl = _scrollParent(e.target, 'y');
+  if (!xEl && !yEl) return;
+  _mapPan = {
+    grid, x: e.clientX, y: e.clientY, xEl, yEl,
+    left: xEl ? xEl.scrollLeft : 0, top: yEl ? yEl.scrollTop : 0,
+  };
+  grid.style.cursor = 'grabbing';
+}, true);
+document.addEventListener('mousemove', e => {
+  if (!_mapPan) return;
+  if (_mapPan.xEl) _mapPan.xEl.scrollLeft = _mapPan.left - (e.clientX - _mapPan.x);
+  if (_mapPan.yEl) _mapPan.yEl.scrollTop = _mapPan.top - (e.clientY - _mapPan.y);
+});
+document.addEventListener('mouseup', e => {
+  if (!_mapPan || e.button !== 1) return;
+  _mapPan.grid.style.cursor = '';
+  _mapPan = null;
+});
+
 // The floating terrain palette card (position:fixed, hovers over the map).
 function terrainPanelHtml() {
-  const sw = TERRAIN_TYPES.map(t =>
-    `<button onclick="setTerrainType('${t.key}')" title="${t.label}" style="display:flex;align-items:center;gap:7px;width:100%;padding:5px 7px;border-radius:4px;cursor:pointer;border:1px solid ${t.key === mapTerrainType ? 'var(--accent)' : 'var(--border)'};background:${t.key === mapTerrainType ? 'var(--bg3)' : 'transparent'};color:var(--text);font-size:12px;text-align:left">
-      <span style="width:18px;height:18px;flex-shrink:0;border-radius:3px;background:${t.fill};border:1px solid #0007"></span>${t.label}</button>`
-  ).join('');
+  const swatchBtn = (key, label, fill, swatchCss = '') =>
+    `<button onclick="setTerrainType('${key}')" title="${label}" style="display:flex;align-items:center;gap:7px;width:100%;padding:5px 7px;border-radius:4px;cursor:pointer;border:1px solid ${key === mapTerrainType ? 'var(--accent)' : 'var(--border)'};background:${key === mapTerrainType ? 'var(--bg3)' : 'transparent'};color:var(--text);font-size:12px;text-align:left">
+      <span style="width:18px;height:18px;flex-shrink:0;border-radius:3px;background:${fill};border:1px solid #0007${swatchCss}"></span>${label}</button>`;
+  const sw = TERRAIN_TYPES.map(t => swatchBtn(t.key, t.label, t.fill)).join('');
+  // Runways sit below the terrains under their own heading — same brush/rect/pick tools,
+  // but they write flags.runway + the runway icon instead of flags.terrain. The swatch
+  // shows a yellow centreline over asphalt so it reads as a strip, not a plain colour.
+  const rw = Object.entries(RUNWAY_KEYS).map(([key, r]) => {
+    const stripe = r.runway === 'ns'
+      ? 'background:linear-gradient(90deg,#2b2b2b 40%,#f5d400 40%,#f5d400 60%,#2b2b2b 60%)'
+      : 'background:linear-gradient(0deg,#2b2b2b 40%,#f5d400 40%,#f5d400 60%,#2b2b2b 60%)';
+    return swatchBtn(key, r.label, '#2b2b2b', ';' + stripe);
+  }).join('');
   const toolBtn = (t, label) => `<button onclick="setTerrainTool('${t}')" style="flex:1;font-size:11px;padding:5px 4px;border-radius:4px;cursor:pointer;border:1px solid var(--border);background:${mapTerrainTool === t ? 'var(--accent)' : 'var(--bg3)'};color:${mapTerrainTool === t ? '#111' : 'var(--text)'}">${label}</button>`;
   const hint = mapTerrainTool === 'fill' ? 'Click a tile to flood-fill its same-terrain region.'
     : mapTerrainTool === 'pick' ? 'Click a tile to sample its terrain onto the brush.'
@@ -1391,6 +1539,8 @@ function terrainPanelHtml() {
     </div>
     <div style="display:flex;gap:6px;margin-bottom:9px">${toolBtn('brush', '🖌')}${toolBtn('fill', '🪣')}${toolBtn('pick', '💧')}${toolBtn('rect', '▭')}</div>
     <div style="display:flex;flex-direction:column;gap:4px">${sw}</div>
+    <div style="font-size:10px;color:var(--text-dim);margin:9px 0 4px;text-transform:uppercase;letter-spacing:.4px">✈ Runway</div>
+    <div style="display:flex;flex-direction:column;gap:4px">${rw}</div>
     <div style="font-size:10px;color:var(--text-dim);margin-top:9px;line-height:1.45">${hint}</div>
     ${(typeof pendingChanges !== 'undefined' && pendingChanges.length) ? `<div style="border-top:1px solid var(--border);margin-top:9px;padding-top:9px">
       <div style="font-size:10px;color:var(--yellow);margin-bottom:6px">⚠ ${pendingChanges.length} unpublished edit${pendingChanges.length !== 1 ? 's' : ''} — not saved to the world yet.</div>
@@ -1460,7 +1610,7 @@ let mapMoveArmed = null; // facade zoneId picked up for relocation
 function toggleMoveBuildingMode() {
   mapMoveBuildingMode = !mapMoveBuildingMode;
   mapMoveArmed = null;
-  if (mapMoveBuildingMode) { mapPaintMode = false; mapSafeZoneMode = false; mapTerrainMode = false; }
+  if (mapMoveBuildingMode) { mapPaintMode = false; mapSafeZoneMode = false; mapTerrainMode = false; mapNewBuildingMode = false; }
   renderMapOverview();
 }
 function _isBuildingTile(z) {
@@ -1482,7 +1632,11 @@ function moveBuildingTileClick(zoneId) {
     renderMapOverview();
     return;
   }
-  toast('That cell is occupied — click an empty cell to place the building.', true);
+  // Armed, clicked an occupied cell. In a fully-tiled region there are no empty cells,
+  // so dropping onto a plain ground tile SWAPS it into the building's vacated cell. Another
+  // building/interior can't be a target; the server does the final validation + rewiring.
+  if (_isBuildingTile(z)) { toast('That cell holds another building — pick an empty or ground tile.', true); return; }
+  moveBuildingPropose(mapMoveArmed, z.grid_x, z.grid_y);
 }
 function moveBuildingDest(x, y) {
   if (!mapMoveArmed) return;
@@ -1521,6 +1675,69 @@ async function moveBuildingPropose(facadeId, x, y) {
   renderMapOverview();
 }
 
+// ─── NEW BUILDING (templated generator) ──────────────────────────────────────
+// Place a whole building of a chosen type: pick a type, click a ground/empty cell,
+// confirm. The server stamps facade + interior + power/lights + type furniture/NPC in
+// one shot (POST /maps/build-building → apiBuildBuilding). Hangars reuse the flow and
+// get the flight-ops desk + hangar_interior wiring. Commits directly (not staged).
+let mapNewBuildingMode = false;
+let mapNewBuildingType = 'shop';
+let mapNewBuildingName = '';
+const NEW_BUILDING_TYPES = [
+  ['shop', 'Shop'], ['bar', 'Bar'], ['club', 'Nightclub'], ['diner', 'Diner'],
+  ['clinic', 'Clinic'], ['gun_shop', 'Gun Shop'], ['casino', 'Casino'], ['studio', 'Broadcast Studio'],
+  ['hotel', 'Hotel'], ['corporate_office', 'Corporate Office'], ['warehouse', 'Warehouse'],
+  ['residential', 'Residence'], ['police', 'Precinct'], ['power', '⚡ Power Plant'], ['hangar', '✈ Hangar'],
+];
+function toggleNewBuildingMode() {
+  mapNewBuildingMode = !mapNewBuildingMode;
+  if (mapNewBuildingMode) { mapPaintMode = false; mapSafeZoneMode = false; mapTerrainMode = false; mapMoveBuildingMode = false; mapMoveArmed = null; }
+  renderMapOverview();
+}
+function setNewBuildingType(t) { mapNewBuildingType = t; renderMapOverview(); }
+function setNewBuildingName(v) { mapNewBuildingName = v; }   // no re-render — keeps input focus while typing
+
+function newBuildingTileClick(x, y) {
+  const o = mapOverview;
+  const z = [...o.zones.values()].find(zz => (zz.grid_z ?? 0) === o.z && zz.grid_x === x && zz.grid_y === y);
+  if (z && _isBuildingTile(z)) { toast('That cell already holds a building — pick a ground tile.', true); return; }
+  buildBuildingPropose(x, y);
+}
+async function buildBuildingPropose(x, y) {
+  const label = NEW_BUILDING_TYPES.find(t => t[0] === mapNewBuildingType)?.[1] || mapNewBuildingType;
+  const nm = mapNewBuildingName.trim();
+  const extras = mapNewBuildingType === 'hangar' ? 'furniture + a flight-ops desk' : 'furniture + an inhabitant';
+  const summary = `Build a new ${label}${nm ? ` "${nm}"` : ''} at (${x}, ${y})?\n\n` +
+    `Creates a facade + a lit, powered interior (lobby, rooms, ${extras}) and wires the front door to an adjacent street.\n\n` +
+    `Commits directly to the dev DB (not staged) — export + push via CODEX to ship.`;
+  if (!(await dpConfirm(summary, { title: 'New Building' }))) return;
+  const r = await directAPI('/maps/build-building', 'POST', {
+    toX: x, toY: y, toZ: mapOverview.z, building_type: mapNewBuildingType, name: nm || undefined,
+  });
+  if (r?.error) { toast(r.error, true); return; }
+  toast(r.message || 'Building created ✓');
+  mapNewBuildingName = '';
+  await loadMapOverview(mapOverview.map.id);   // reload so the new facade + door render
+}
+
+// Floating New Building palette (position:fixed, hovers over the map — like the terrain one).
+function newBuildingPanelHtml() {
+  const opts = NEW_BUILDING_TYPES.map(([v, l]) => `<option value="${v}"${v === mapNewBuildingType ? ' selected' : ''}>${l}</option>`).join('');
+  const extras = mapNewBuildingType === 'hangar' ? ' + flight-ops desk' : ' + an inhabitant';
+  const anchor = dpFloatAnchor('map-newbuilding-panel', 'top:100px;right:28px');
+  return `<div id="map-newbuilding-panel" class="dp-float-panel" style="position:fixed;${anchor};z-index:60;width:212px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 28px #000a;padding:11px;font-size:12px">
+    <div class="dp-float-drag" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px;cursor:move;user-select:none">
+      <strong style="font-size:12px;letter-spacing:.3px">🏗 New Building</strong>
+      <button onclick="toggleNewBuildingMode()" title="Close" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:15px;line-height:1">✕</button>
+    </div>
+    <label style="display:block;font-size:10px;color:var(--text-dim);margin-bottom:3px">Type</label>
+    <select class="settings-select" style="width:100%;margin-bottom:8px" onchange="setNewBuildingType(this.value)">${opts}</select>
+    <label style="display:block;font-size:10px;color:var(--text-dim);margin-bottom:3px">Name (optional)</label>
+    <input value="${mapNewBuildingName.replace(/"/g, '&quot;')}" oninput="setNewBuildingName(this.value)" placeholder="auto from type" style="width:100%;box-sizing:border-box;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-size:12px;padding:5px 8px;border-radius:4px;margin-bottom:9px">
+    <div style="font-size:10px;color:var(--text-dim);line-height:1.45">Click a <strong>ground tile</strong> next to a street. Facade + interior + power/lights + ${mapNewBuildingType === 'hangar' ? 'a hangar bay' : 'furniture'}${extras} are generated. Commits directly (not staged).</div>
+  </div>`;
+}
+
 async function renderMapsPanel(data) {
   mapsList = Array.isArray(data) ? data : [];
   const panel = document.getElementById('list-panel');
@@ -1550,11 +1767,12 @@ async function loadMapOverview(mapId) {
   mapOverview = { map: data.map, zones, unplaced, unplacedInterior, children: data.children || [], buildingZoneIds: data.buildingZoneIds || [], allZoneIds: data.allZoneIds || [], z: keepZ };
   if (!data.map.parent_zone_id) {
     _exteriorBuildingZones = (data.zones || []).filter(z => z.flags?.is_building);
-    // The exterior editor is scoped to one district; fetch district names to label it.
-    if (!_districtNames) {
-      const dd = await API('/maps/districts').catch(() => null);
-      _districtNames = new Map((dd?.districts || []).map(d => [d.id, d.name]));
-    }
+    // The exterior editor is scoped to one region; fetch region names to label the
+    // toolbar + populate its switcher. Refreshed each exterior load so a region added
+    // in the World Map shows up in the dropdown without a full app reload.
+    const dd = await API('/maps/regions').catch(() => null);
+    if (dd?.regions) _regionNames = new Map(dd.regions.map(d => [d.id, d.name]));
+    else if (!_regionNames) _regionNames = new Map();
   }
   // Re-apply any staged-but-unpublished color/marker changes so the map stays in sync
   // even after a fresh fetch (tab switch, panel reload, etc.)
@@ -1626,35 +1844,38 @@ function renderMapOverview() {
   const o = mapOverview;
   const panel = document.getElementById('list-panel');
   const all = [...o.zones.values()];
-  // Scope the exterior editor to ONE district's grid. The world map carries multiple
-  // districts (plus legacy zones parked near the origin ~900 tiles away); spanning them
-  // would blow the grid up to a mostly-empty ~900×900. window.worldSelectedDistrictId
-  // (set by the World Editor's "Edit tiles" hand-off) picks the district; with no
-  // selection we default to the largest one. When there's no district grid at all
+  // Scope the exterior editor to ONE region's grid. The world map carries multiple
+  // regions (plus legacy zones parked near the origin ~900 tiles away); spanning them
+  // would blow the grid up to a mostly-empty ~900×900. window.worldSelectedRegionId
+  // (set by the World Editor's "Edit tiles" hand-off) picks the region; with no
+  // selection we default to the largest one. When there's no region grid at all
   // (e.g. an interior map), show everything as before.
-  const districtedZones = all.filter(z => z.flags?.district_id && z.grid_x != null);
-  let districtZones = [];
-  let selectedDistrictId = null;
-  if (districtedZones.length) {
-    const sel = window.worldSelectedDistrictId;
-    if (sel && districtedZones.some(z => z.flags.district_id === sel)) {
-      selectedDistrictId = sel;
+  const regionedZones = all.filter(z => z.flags?.region_id && z.grid_x != null);
+  let regionZones = [];
+  let selectedRegionId = null;
+  if (regionedZones.length) {
+    const sel = window.worldSelectedRegionId;
+    if (sel && regionedZones.some(z => z.flags.region_id === sel)) {
+      selectedRegionId = sel;
     } else {
-      // Default to the district with the most placed tiles.
+      // Default to the region with the most placed tiles.
       const counts = new Map();
-      for (const z of districtedZones) counts.set(z.flags.district_id, (counts.get(z.flags.district_id) || 0) + 1);
-      selectedDistrictId = [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
+      for (const z of regionedZones) counts.set(z.flags.region_id, (counts.get(z.flags.region_id) || 0) + 1);
+      selectedRegionId = [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
     }
-    districtZones = districtedZones.filter(z => z.flags.district_id === selectedDistrictId);
+    regionZones = regionedZones.filter(z => z.flags.region_id === selectedRegionId);
   }
+  // Remember the scoped region so terrain paints/conjures stamp it onto tiles that
+  // lack one — the editor implicitly grows the region you jumped in to edit.
+  mapEditingRegionId = selectedRegionId;
   let dbbox = null;
-  if (districtZones.length) {
-    const dxs = districtZones.map(z => z.grid_x), dys = districtZones.map(z => z.grid_y);
+  if (regionZones.length) {
+    const dxs = regionZones.map(z => z.grid_x), dys = regionZones.map(z => z.grid_y);
     dbbox = { minX: Math.min(...dxs), maxX: Math.max(...dxs), minY: Math.min(...dys), maxY: Math.max(...dys) };
   }
-  const inDistrict = z => !dbbox || (z.grid_x >= dbbox.minX && z.grid_x <= dbbox.maxX && z.grid_y >= dbbox.minY && z.grid_y <= dbbox.maxY);
-  const floors = [...new Set(all.filter(inDistrict).map(z => z.grid_z ?? 0))].sort((a, b) => a - b);
-  const onFloor = all.filter(z => (z.grid_z ?? 0) === o.z && z.grid_x != null && z.grid_y != null && inDistrict(z));
+  const inRegion = z => !dbbox || (z.grid_x >= dbbox.minX && z.grid_x <= dbbox.maxX && z.grid_y >= dbbox.minY && z.grid_y <= dbbox.maxY);
+  const floors = [...new Set(all.filter(inRegion).map(z => z.grid_z ?? 0))].sort((a, b) => a - b);
+  const onFloor = all.filter(z => (z.grid_z ?? 0) === o.z && z.grid_x != null && z.grid_y != null && inRegion(z));
   // Authoritative universe of zone ids from the map payload (mirrors the server's
   // whole-world validator) — allRecords is only the last-loaded table, so it would
   // mis-flag valid cross-map portals (e.g. an up-exit into an interior zone) as dangling.
@@ -1712,12 +1933,20 @@ function renderMapOverview() {
       <span style="margin-left:14px">${mapScaleControlHtml()}</span>
     </div>`;
   } else {
-    const exteriorLabel = (selectedDistrictId && _districtNames?.get(selectedDistrictId)) || o.map.name;
+    const exteriorLabel = (selectedRegionId && _regionNames?.get(selectedRegionId)) || o.map.name;
+    // Switch which region the editor is scoped to without hopping back to the World
+    // Map. Falls back to a plain label when the map has no regions (interiors, legacy).
+    const regionOpts = [...(_regionNames?.entries() || [])]
+      .map(([id, name]) => `<option value="${id}"${id === selectedRegionId ? ' selected' : ''}>${name}</option>`).join('');
+    const regionSelector = (selectedRegionId && regionOpts)
+      ? `<select class="settings-select" style="width:auto;padding:3px 26px 3px 8px;font-size:13px;font-weight:600;color:var(--text-bright)" onchange="selectEditRegion(this.value)" title="Switch which region you're editing">${regionOpts}</select>`
+      : `<span style="color:var(--text-bright);font-weight:600;font-size:13px">${exteriorLabel}</span>`;
     html += `<div class="map-toolbar">
-      <span style="color:var(--text-bright);font-weight:600;font-size:13px">${exteriorLabel}</span>
+      ${regionSelector}
       <button class="action-btn${mapSafeZoneMode ? ' active' : ''}" style="font-size:10px;padding:2px 8px;margin-left:12px${mapSafeZoneMode ? ';background:var(--accent);color:#111' : ''}" onclick="toggleSafeZoneMode()" title="Paint zones as Safe (police cameras present) or not">${mapSafeZoneMode ? '✓ Painting Safe Zones' : 'Paint Safe Zones'}</button>
       <button class="action-btn${mapTerrainMode ? ' active' : ''}" style="font-size:10px;padding:2px 8px;margin-left:6px${mapTerrainMode ? ';background:var(--accent);color:#111' : ''}" onclick="toggleTerrainMode()" title="Paint ground terrain (road auto-tiles into junctions; water, grass, asphalt, dock…) — writes flags.terrain">${mapTerrainMode ? '✓ Painting Terrain' : '🌍 Terrain'}</button>
       <button class="action-btn${mapMoveBuildingMode ? ' active' : ''}" style="font-size:10px;padding:2px 8px;margin-left:6px${mapMoveBuildingMode ? ';background:var(--accent);color:#111' : ''}" onclick="toggleMoveBuildingMode()" title="Relocate a building: pick it up, drop it on an empty cell, review + confirm — the interior and front door move with it">${mapMoveBuildingMode ? '✓ Moving Building' : '🏢 Move Building'}</button>
+      <button class="action-btn${mapNewBuildingMode ? ' active' : ''}" style="font-size:10px;padding:2px 8px;margin-left:6px${mapNewBuildingMode ? ';background:var(--accent);color:#111' : ''}" onclick="toggleNewBuildingMode()" title="Create a new building by type (shop, bar, hangar…): pick a type, click a ground tile — facade + interior + power/lights + furniture are generated. Build a ⚡ Power Plant to power the region.">${mapNewBuildingMode ? '✓ New Building' : '🏗 New Building'}</button>
       <span style="margin-left:auto">Floor</span>
       <button class="action-btn" onclick="changeFloor(-1)">▾</button>
       <span style="min-width:60px;text-align:center">z = ${o.z}</span>
@@ -1746,9 +1975,14 @@ function renderMapOverview() {
       : '';
     html += `<div style="padding:4px 12px;font-size:11px;color:var(--text-dim);background:var(--bg3);border-bottom:1px solid var(--border)">
       ${mapMoveArmed
-        ? `Armed: <strong style="color:var(--accent)">${o.zones.get(mapMoveArmed)?.name || mapMoveArmed}</strong> — click an empty cell next to a road to place it, then confirm. Click the building again to drop it.`
+        ? `Armed: <strong style="color:var(--accent)">${o.zones.get(mapMoveArmed)?.name || mapMoveArmed}</strong> — click an empty cell (or a ground tile, to swap) next to a road, then confirm. Click the building again to drop it.`
         : 'Move Building — click a building tile to pick it up. Its interior and front door move with it.'}${movePublish}
     </div>`;
+  }
+  if (mapNewBuildingMode) {
+    html += `<div style="padding:4px 12px;font-size:11px;color:var(--text-dim);background:var(--bg3);border-bottom:1px solid var(--border)">
+      New Building — pick a type in the floating panel (top-right), then click a ground tile next to a street. Facade + interior + power/lights + furniture are generated in one shot (commits directly).
+    </div>` + newBuildingPanelHtml();
   }
 
   // Validation panel
@@ -1799,10 +2033,10 @@ function renderMapOverview() {
   // Grid — pad by one cell so there are empty cells to place new zones into.
   // Bounds are computed across ALL floors so the grid stays the same size when
   // switching z-levels, meaning (x,y) positions align visually between floors.
-  // Scope to the district (inDistrict) like onFloor does — otherwise the legacy
-  // zones parked ~900 tiles from the district cluster stretch the bounds into a
+  // Scope to the region (inRegion) like onFloor does — otherwise the legacy
+  // zones parked ~900 tiles from the region cluster stretch the bounds into a
   // ~1800×1800 grid of empty cells and freeze the render.
-  const allPlaced = all.filter(z => z.grid_x != null && z.grid_y != null && inDistrict(z));
+  const allPlaced = all.filter(z => z.grid_x != null && z.grid_y != null && inRegion(z));
   let minX, maxX, minY, maxY;
   if (allPlaced.length) {
     const xs = allPlaced.map(z => z.grid_x), ys = allPlaced.map(z => z.grid_y);
@@ -1832,11 +2066,13 @@ function renderMapOverview() {
     for (let x = minX; x <= maxX; x++) {
       const z = byCoord.get(`${x},${y}`);
       if (!z) {
-        if (mapMoveBuildingMode && mapMoveArmed) {
+        if (mapNewBuildingMode) {
+          html += `<div class="bigmap-tile-create" ${cellStyle(x, y, ';cursor:cell;outline:1px dashed var(--accent)')} data-map-cell="${x},${y}" title="Build a ${mapNewBuildingType} here" onclick="newBuildingTileClick(${x},${y})">🏗</div>`;
+        } else if (mapMoveBuildingMode && mapMoveArmed) {
           html += `<div class="bigmap-tile-create" ${cellStyle(x, y, ';cursor:cell;outline:1px dashed var(--accent)')} data-map-cell="${x},${y}" title="Place ${o.zones.get(mapMoveArmed)?.name || 'building'} here" onclick="moveBuildingDest(${x},${y})">▣</div>`;
         } else if (mapTerrainMode && dbbox) {
           // Paint terrain onto a black cell to conjure a new ground tile there.
-          // Gated to the district exterior grid — the zone_district_<x>_<y> id
+          // Gated to the region exterior grid — the zone_district_<x>_<y> id
           // scheme (and south-extended rows) only make sense out in the world.
           const handlers = `onmousedown="terrainCreateStart(event,${x},${y})" onmouseenter="terrainCreateOver(event,${x},${y})" onmouseup="terrainCreateEnd(${x},${y})" oncontextmenu="return false"`;
           html += `<div class="bigmap-tile-create bm-terrain-empty" ${cellStyle(x, y, ';cursor:crosshair')} data-map-cell="${x},${y}" title="Paint ${mapTerrainType} here — creates a new tile" ${handlers}></div>`;
@@ -1870,11 +2106,17 @@ function renderMapOverview() {
       }
 
       if (mapTerrainMode) {
+        const rwKey = _tileSurfaceKey(z);                 // 'runway_ns'/'runway_ew' when this tile is a runway
         const terr = mapZoneTerrain(z);
         const fill = terr && terr !== 'road' ? TERRAIN_FILL_BY_KEY[terr] : null;
         const marker = z.marker ? `<span class="map-marker-badge">${z.marker}</span>` : '';
         let tStyle, ico = '', label = z.name;
-        if (terr === 'road') {
+        if (isRunwayKey(rwKey)) {
+          const iconName = RUNWAY_KEYS[rwKey].icon;
+          tStyle = `;background:${RUNWAY_BG};color:${RUNWAY_COLOR};cursor:crosshair`;
+          ico = `<span style="display:inline-block;width:26px;height:26px;background:currentColor;-webkit-mask:url(/assets/zone-icons/${iconName}.svg) center/contain no-repeat;mask:url(/assets/zone-icons/${iconName}.svg) center/contain no-repeat"></span>`;
+          label = '';
+        } else if (terr === 'road') {
           const conn = mapRoadConnector(z, byCoord);
           tStyle = `;background:${TERRAIN_FILL_BY_KEY.road};color:#f2c53d;cursor:crosshair`;
           ico = `<span style="display:inline-block;width:26px;height:26px;background:currentColor;-webkit-mask:url(/assets/zone-icons/${conn}.svg) center/contain no-repeat;mask:url(/assets/zone-icons/${conn}.svg) center/contain no-repeat"></span>`;
@@ -1894,11 +2136,24 @@ function renderMapOverview() {
       if (mapMoveBuildingMode) {
         const bldg = _isBuildingTile(z);
         const armed = z.id === mapMoveArmed;
-        const mStyle = zoneColorStyle(z) + (armed ? ';outline:2px solid var(--accent);cursor:grab'
+        // Render the real terrain surface (streets/water/ground) with buildings on it, then
+        // add the mode cursor/outline. With a building armed, plain ground tiles are valid
+        // swap targets (cursor:cell); without one armed, only buildings are pickable.
+        const vis = _terrainTileVisual(z, byCoord);
+        const mStyle = vis.style + (armed ? ';outline:2px solid var(--accent);cursor:grab'
+          : mapMoveArmed ? (bldg ? ';cursor:not-allowed;opacity:0.6' : ';cursor:cell;outline:1px dashed var(--accent)')
           : bldg ? ';cursor:grab' : ';cursor:not-allowed;opacity:0.6');
-        const marker = z.marker ? `<span class="map-marker-badge">${z.marker}</span>` : '';
         const grip = bldg ? '🏢 ' : '';
-        html += `<div class="${cls}" ${cellStyle(x, y, mStyle)} data-map-cell="${x},${y}" title="${z.id}" onclick="moveBuildingTileClick('${z.id}')"><div>${grip}${marker}${z.name}</div></div>`;
+        html += `<div class="${cls}" ${cellStyle(x, y, mStyle)} data-map-cell="${x},${y}" title="${z.id}" onclick="moveBuildingTileClick('${z.id}')"><div>${grip}${vis.inner}</div></div>`;
+        continue;
+      }
+
+      if (mapNewBuildingMode) {
+        const bldg = _isBuildingTile(z);
+        // Real terrain surface + buildings, so you can see the streets to place against.
+        const vis = _terrainTileVisual(z, byCoord);
+        const nbStyle = vis.style + (bldg ? ';cursor:not-allowed;opacity:0.5' : ';cursor:cell;outline:1px dashed var(--accent)');
+        html += `<div class="${cls}" ${cellStyle(x, y, nbStyle)} data-map-cell="${x},${y}" title="${bldg ? z.id + ' (occupied)' : 'Build a ' + mapNewBuildingType + ' here'}" onclick="newBuildingTileClick(${x},${y})"><div>${vis.inner}</div></div>`;
         continue;
       }
 
@@ -1915,7 +2170,7 @@ function renderMapOverview() {
         colorStyle = fill ? `;background:${fill};color:${luminanceTextColor(fill)}` : zoneColorStyle(z);
       }
       // Curtain (the Architect's forcefield): tiles flagged flags.curtain get a
-      // hard-light sheet on whichever sides face out of the district (no neighbour),
+      // hard-light sheet on whichever sides face out of the region (no neighbour),
       // so the sealed edge reads as a wall rather than plain terrain.
       if (z.flags?.curtain) {
         cls += ' bm-curtain';
@@ -2019,17 +2274,23 @@ function renderMapOverview() {
       ` : ''}
     </div>`;
   }
-  // Preserve scroll across the full innerHTML rebuild so paint-drag strokes
-  // (which re-render on every tile) don't yank the view back to the top.
+  // Preserve scroll across the full innerHTML rebuild so paint-drag strokes and
+  // floor changes (which re-render every tile) don't yank the view back. The
+  // outer #list-panel scrolls the page vertically; the inner .map-scale-viewport
+  // is the grid's real scroller on both axes, so both must be captured+restored.
   const prevPanelTop = panel.scrollTop, prevPanelLeft = panel.scrollLeft;
   const prevGrid = document.getElementById('bigmap-grid-scroll');
   const prevGridLeft = prevGrid?.scrollLeft || 0, prevGridTop = prevGrid?.scrollTop || 0;
+  const prevVp = prevGrid?.querySelector('.map-scale-viewport');
+  const prevVpLeft = prevVp?.scrollLeft || 0, prevVpTop = prevVp?.scrollTop || 0;
   panel.innerHTML = html;
   panel.scrollTop = prevPanelTop;
   panel.scrollLeft = prevPanelLeft;
   const newGrid = document.getElementById('bigmap-grid-scroll');
   if (newGrid) { newGrid.scrollLeft = prevGridLeft; newGrid.scrollTop = prevGridTop; }
-  applyMapScale(panel);
+  applyMapScale(panel); // resets the inner transform → do the viewport restore after, once scrollWidth is final
+  const newVp = newGrid?.querySelector('.map-scale-viewport');
+  if (newVp) { newVp.scrollLeft = prevVpLeft; newVp.scrollTop = prevVpTop; }
 }
 
 async function switchMap(id) {

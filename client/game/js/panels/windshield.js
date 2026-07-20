@@ -1833,7 +1833,7 @@ function distField(seed, mw, mh) {
 //            Curtain). It runs on infinitely; the sampler clamps to the window edge for the horizon.
 // A window with no built tile at all (far out to sea) is left as-is → ocean fallback at the call site.
 const COAST_WOBBLE = 6, DIRT = BIOME_GROUND.badlands, REDROCK = BIOME_GROUND.redrock, SEA = [BIOME_GROUND.water[0], BIOME_GROUND.water[1], BIOME_GROUND.water[2], 1, 0, 1];
-function fillOffMap(LUT, mw, mh, R, wcx, wcy, litX, litY) {
+function fillOffMap(LUT, mw, mh, R, wcx, wcy, litX, litY, wildOut) {
   const water = new Array(mh), land = new Array(mh);
   let anyBuilt = false;
   for (let y = 0; y < mh; y++) {
@@ -1851,18 +1851,20 @@ function fillOffMap(LUT, mw, mh, R, wcx, wcy, litX, litY) {
     if (LUT[y][x]) continue;                                  // a real built tile keeps its material
     const awx = (x - R) + wcx, awy = (y - R) + wcy;           // absolute world tile
     const wob = ((vnoise2(awx * 0.09, awy * 0.09) - 0.5) + (vnoise2(awx * 0.23, awy * 0.23) - 0.5) * 0.45) * COAST_WOBBLE;
-    if (dW[y][x] + wob < dL[y][x]) { LUT[y][x] = SEA; continue; }
+    if (dW[y][x] + wob < dL[y][x]) { LUT[y][x] = SEA; if (wildOut) wildOut[y][x] = 'sea'; continue; }
     // Land: dirt→redrock, redder the farther out (dL = tiles past the built land edge) + noise mottle.
     const into = clamp((dL[y][x] - 1) / 26, 0, 1);
     const rr = clamp(into * 0.7 + vnoise2(awx * 0.06, awy * 0.06) * 0.6 - 0.15, 0, 1);
     const col = mix(DIRT, REDROCK, rr);
     const shade = reliefShade(awx, awy, litX, litY, 1);   // off-map plain is arid by construction → carved badland relief
     LUT[y][x] = [col[0], col[1], col[2], 0, 0, shade];
+    if (wildOut) wildOut[y][x] = rr < 0.45 ? 'scrub' : 'redrock';   // hand the object pass a matching scatter biome (dirt shore → scrub, rust deep → redrock mesa)
   }
   return LUT;
 }
 
 function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chase, hazeMax = 0.32) {
+  v._wildFill = null;   // per-tile gap classification (sea|scrub|redrock) for drawWorldObjects; set once the LUT is built
   if (depth <= 2) return;
   // AUTHENTIC Mode 7: sample the ground PER PIXEL into a low-res buffer, then blit it
   // up with nearest-neighbour — that's the chunky, shimmering look, most visible when
@@ -1908,9 +1910,10 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chas
   // sun (a fixed NW key at night). Baked per-tile here (cheap) and bilinear-sampled per pixel.
   const wc = v.mapCenter || { x: 0, y: 0 }, wcx = wc.x, wcy = wc.y;
   const litX = sun && sun.elev > 0.05 ? sun.dir[0] : -0.62, litY = sun && sun.elev > 0.05 ? sun.dir[1] : -0.62;
-  let LUT = null;
+  let LUT = null, wildFill = null;
   if (map) {
     LUT = new Array(mh);
+    wildFill = map.map((row) => new Array(row.length).fill(null));   // parallel grid; fillOffMap tags each empty tile sea|scrub|redrock
     for (let ry = 0; ry < mh; ry++) {
       const row = map[ry], out = new Array(row.length);
       for (let rx = 0; rx < row.length; rx++) {
@@ -1932,8 +1935,9 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chas
       }
       LUT[ry] = out;
     }
-    LUT = fillOffMap(LUT, mh ? map[0].length : 0, mh, R, wcx, wcy, litX, litY);   // extend the edge → wildlands + irregular coast
+    LUT = fillOffMap(LUT, mh ? map[0].length : 0, mh, R, wcx, wcy, litX, litY, wildFill);   // extend the edge → wildlands + irregular coast
   }
+  v._wildFill = wildFill;   // hand the gap classification to drawWorldObjects (same frame, runs after this floor pass)
   const sample = (rx, ry) => {
     if (!LUT) return OFF5;
     const cy = ry < 0 ? 0 : ry >= mh ? mh - 1 : ry;                          // clamp into the window, then read the
@@ -6060,9 +6064,19 @@ function drawBuilding(ctx, cam, dx, dy, fh, h, bi, seed, night, alpha, now) {
 function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   const map = v.map; if (!map || !map.length) return; const R = cam.R, night = sky.night;
   const FAR = VISIBLE_FAR_F, wcx = v.mapCenter ? v.mapCenter.x : 0, wcy = v.mapCenter ? v.mapCenter.y : 0;
-  const items = [];
+  const items = [], wildF = v._wildFill;
   for (let ry = 0; ry < map.length; ry++) for (let rx = 0; rx < map[ry].length; rx++) {
-    const c = map[ry][rx]; if (!c || c.kind === 'air' || (c.self && c.mark !== 'yacht') || ((c.kind === 'field' || c.biome === 'water') && c.mark !== 'yacht')) continue;   // the Echelon is a field-on-water tile that DOES get a 3D model — and we draw her even on our OWN tile (parked on / lifting off her deck) so the pilot sits on the helipad, not open water
+    const c = map[ry][rx]; if (!c) continue;
+    // Empty gap between regions: the Mode-7 floor (fillOffMap) already paints it wildlands or sea. Scatter the
+    // matching desert dressing over the LAND fill so a long leg reads as real badlands, not bare tint; sea fill
+    // (waves carry it) and our own tile stay clear. Real tiles keep their original skip rules below.
+    let wild = null;
+    if (c.kind === 'air') {
+      wild = wildF && wildF[ry] ? wildF[ry][rx] : null;
+      if (!wild || wild === 'sea' || c.self) continue;
+    } else if ((c.self && c.mark !== 'yacht') || ((c.kind === 'field' || c.biome === 'water') && c.mark !== 'yacht')) {
+      continue;   // the Echelon is a field-on-water tile that DOES get a 3D model — drawn even on our OWN tile so the pilot sits on the helipad, not open water
+    }
     const dx = (rx - R) - cam.ox, dy = (ry - R) - cam.oy, f = dx * cam.sinh - dy * cam.cosh;
     // Near-clip against the CAMERA, not the craft: in the external chase view the camera sits
     // `back` tiles behind the aircraft, so a building that has slipped behind the model is still
@@ -6097,7 +6111,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // Seed from the WORLD tile (stable), NOT the array index — so a building keeps its shape
     // when the server recenters the map window (was the main "popping in and out" cause).
     const wx = Math.round((rx - R) + wcx), wy = Math.round((ry - R) + wcy);
-    items.push({ dx, dy, f, c, alpha, seed: (wx + 512) * 73 + (wy + 512) * 149, wx, wy, rx, ry });   // stable, positive, frac-friendly
+    items.push({ dx, dy, f, c, alpha, seed: (wx + 512) * 73 + (wy + 512) * 149, wx, wy, rx, ry, wild });   // stable, positive, frac-friendly
   }
   items.sort((a, b) => b.f - a.f);
   // Shadow pre-pass: lay every building's ground shadow FIRST (far→near) so the bodies drawn
@@ -6171,6 +6185,9 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // deterministic off the world coord so a given object stays put as the map window recentres.
     const jx = (frac(it.wx * 12.9898 + it.wy * 78.233) - 0.5) * 0.8;
     const jy = (frac(it.wx * 39.346 + it.wy * 11.135) - 0.5) * 0.8;
+    // Procedural gap wildlands: scatter over an empty inter-region tile the floor filled as land, keyed to the
+    // SAME classification the ground used (scrub near a shore, redrock mesa deeper) so scatter and tint agree.
+    if (it.wild) { if ((it.seed % (it.wild === 'redrock' ? 2 : 3)) === 0) emitFace(od, () => drawWildScatter(ctx, cam, it.dx + jx, it.dy + jy, it.wild, night, it.seed, alpha)); continue; }
     if (bi === 'badlands') { if ((it.seed % 3) === 0) emitFace(od, () => drawRockBB(ctx, cam, it.dx + jx, it.dy + jy, night, it.seed, alpha)); continue; }
     // Arid wildlands: per-biome scatter (mesa/hoodoo over redrock, cactus/brush over scrub, dead
     // snags/bone over ash) picked by the tile seed. Rust mesa (redrock) is denser than scrub/ash.

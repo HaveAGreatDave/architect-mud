@@ -13,8 +13,8 @@
   },
   "flags": {
     "district": "docks",
-    "district_id": "district_coldwater",
     "planner": "bp_district",
+    "region_id": "region_coldwater",
     "runway": "pad",
     "terrain": "asphalt"
   },

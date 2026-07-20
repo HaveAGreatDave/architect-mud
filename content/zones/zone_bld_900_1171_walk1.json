@@ -1,0 +1,30 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": null,
+  "color": null,
+  "created_by": "reach_dev",
+  "description": "A covered concrete walkway runs the length of the motel, a strip of dead bug-zapper light buzzing overhead and a row of numbered doors down one side. Somebody's boots are drying on the mat.",
+  "exits": {
+    "east": "zone_bld_900_1171_walk2",
+    "north": "zone_bld_900_1171_cabin_cass",
+    "south": "zone_bld_900_1171_cabin_marla",
+    "west": "zone_bld_900_1171_lobby"
+  },
+  "flags": {
+    "is_building": true,
+    "is_interior": true,
+    "lawless": true,
+    "world_exit_zone": "zone_the_reach_873_1954"
+  },
+  "grid_x": 1,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_bld_900_1171_walk1",
+  "map_id": "map_int_bld_900_1171",
+  "marker": null,
+  "name": "The Walkway",
+  "parent_zone": "zone_the_reach_873_1954",
+  "updated_at": "1784517512"
+}

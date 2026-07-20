@@ -1,0 +1,23 @@
+{
+  "description": "A wall-mounted flatscreen in a slim brushed-chrome bezel, angled toward the seating cluster so arriving residents catch the feed without breaking stride. Flat glass, no CRT bulge — a pre-Collapse luxury set kept in mint condition.",
+  "flags": {
+    "broadcast_device_type": "tv",
+    "broadcast_receiver": true,
+    "interactions": [
+      "watch"
+    ],
+    "tv": true,
+    "tv_dial_freq": 7,
+    "tv_skin": "flatscreen"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_solenne_tv_lobby",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "lobby flatscreen",
+  "object_type": "furniture",
+  "power_draw_kw": 2,
+  "price": 3500,
+  "zone_id": "zone_solenne_lobby"
+}

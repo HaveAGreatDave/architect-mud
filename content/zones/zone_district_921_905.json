@@ -13,8 +13,8 @@
   },
   "flags": {
     "district": "yards",
-    "district_id": "district_coldwater",
     "planner": "bp_district",
+    "region_id": "region_coldwater",
     "terrain": "road"
   },
   "grid_x": 921,

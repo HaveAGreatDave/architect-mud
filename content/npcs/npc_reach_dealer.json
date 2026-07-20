@@ -1,0 +1,110 @@
+{
+  "banter": [
+    "Doc squares the deck without looking down. \"Ante's ante, friend. The felt doesn't care who you were out there.\"",
+    "\"Cards fall how they fall. Only cheat I ever caught in here, we buried facing down so he'd keep losing.\"",
+    "He fans the deck one-handed. \"Sit if you're sitting. The Reach doesn't wait, and neither do I.\""
+  ],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "chat_wait": {
+        "next": "start",
+        "seconds": 90,
+        "type": "wait"
+      },
+      "chitchat": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "chat_wait",
+        "type": "action"
+      },
+      "idle_wait": {
+        "next": "start",
+        "seconds": 30,
+        "type": "wait"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "idle_wait",
+        "ifTrue": "chitchat",
+        "type": "condition"
+      },
+      "start": {
+        "next": "player_check",
+        "type": "start"
+      }
+    }
+  },
+  "chitchat": [],
+  "description": "A spare, courtly man with a card-sharp's still hands and a mortician's patience, dealing from a shoe he shuffles by feel. They call him Doc because he'll tell you exactly how your night is going to die. He runs a straight game — not from virtue, but because in the Reach a crooked dealer is a short-term position.",
+  "dialogue_tree": {},
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a threadbare dealer's waistcoat, watch-chain missing its watch",
+      "a collarless white shirt with biting sleeve garters",
+      "dark pinstripe trousers and boxers"
+    ],
+    "personality": "dealer",
+    "table_id": "gametable_coyote"
+  },
+  "home_activities": [],
+  "home_zone": "zone_bld_899_1171_lobby",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_reach_dealer",
+  "name": "Ambrose \"Doc\" Teller",
+  "npc_type": "dealer",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 10,
+        "to": 22
+      }
+    ],
+    "mon": [
+      {
+        "from": 10,
+        "to": 22
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 22
+      }
+    ],
+    "sun": [
+      {
+        "from": 10,
+        "to": 22
+      }
+    ],
+    "thu": [
+      {
+        "from": 10,
+        "to": 22
+      }
+    ],
+    "tue": [
+      {
+        "from": 10,
+        "to": 22
+      }
+    ],
+    "wed": [
+      {
+        "from": 10,
+        "to": 22
+      }
+    ]
+  },
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

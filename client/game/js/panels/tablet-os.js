@@ -2682,7 +2682,7 @@ function renderIdeoOrder(o, d, accent) {
     </div>
     <div class="tos-ideo-tags">
       ${o.stance ? `<span class="tos-ideo-tag" style="--ic:${o.color}">${esc(o.stance)}</span>` : ''}
-      ${o.path ? `<span class="tos-ideo-tag" style="--ic:${o.color}">path · ${esc(o.path)}</span>` : ''}
+      ${o.path ? `<span class="tos-ideo-tag" style="--ic:${o.color}">path · ${esc(o.pathLabel || o.path)}</span>` : ''}
       ${o.expansion ? `<span class="tos-ideo-tag" style="--ic:${o.color}">emerging</span>` : `<span class="tos-ideo-tag" style="--ic:${o.color}">${esc(o.tier)} · ${o.rep >= 0 ? '+' : ''}${o.rep}</span>`}
     </div>
     <p class="tos-ideo-lore"><span class="drop" style="color:${o.color};text-shadow:0 0 16px ${o.color}55">${drop}</span>${rest}</p>

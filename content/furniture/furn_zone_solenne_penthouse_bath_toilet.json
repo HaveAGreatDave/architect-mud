@@ -1,0 +1,14 @@
+{
+  "description": "A wall-hung toilet in warm bone-white stone, cistern buried in the wall, a soft-close seat and a warmed rim. It flushes without a whisper.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_zone_solenne_penthouse_bath_toilet",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "toilet",
+  "object_type": "toilet",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_penthouse_bath"
+}

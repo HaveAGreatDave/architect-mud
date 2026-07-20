@@ -3,20 +3,75 @@
   "behaviour_graph": {
     "_start": "start",
     "nodes": {
-      "start": { "next": "has_target", "type": "start" },
-      "has_target": { "condition_type": "HAS_TARGET", "ifFalse": "idle", "ifTrue": "attack", "type": "condition" },
-      "attack": { "action_type": "ATTACK", "next": "loop", "type": "action" },
-      "idle": { "action_type": "IDLE", "next": "loop", "type": "action" },
-      "loop": { "next": "start", "type": "loop" }
+      "attack": {
+        "action_type": "ATTACK",
+        "next": "loop",
+        "type": "action"
+      },
+      "has_target": {
+        "condition_type": "HAS_TARGET",
+        "ifFalse": "idle",
+        "ifTrue": "attack",
+        "type": "condition"
+      },
+      "idle": {
+        "action_type": "IDLE",
+        "next": "loop",
+        "type": "action"
+      },
+      "loop": {
+        "next": "start",
+        "type": "loop"
+      },
+      "start": {
+        "next": "has_target",
+        "type": "start"
+      }
     }
   },
   "body_parts": [
-    { "part": "head", "soak": { "kinetic": 1 }, "weight": 14 },
-    { "part": "torso", "soak": { "kinetic": 1 }, "weight": 48 },
-    { "part": "left_arm", "soak": { "kinetic": 1 }, "weight": 12 },
-    { "part": "right_arm", "soak": { "kinetic": 1 }, "weight": 12 },
-    { "part": "left_leg", "soak": { "kinetic": 1 }, "weight": 7 },
-    { "part": "right_leg", "soak": { "kinetic": 1 }, "weight": 7 }
+    {
+      "part": "head",
+      "soak": {
+        "kinetic": 1
+      },
+      "weight": 14
+    },
+    {
+      "part": "torso",
+      "soak": {
+        "kinetic": 1
+      },
+      "weight": 48
+    },
+    {
+      "part": "left_arm",
+      "soak": {
+        "kinetic": 1
+      },
+      "weight": 12
+    },
+    {
+      "part": "right_arm",
+      "soak": {
+        "kinetic": 1
+      },
+      "weight": 12
+    },
+    {
+      "part": "left_leg",
+      "soak": {
+        "kinetic": 1
+      },
+      "weight": 7
+    },
+    {
+      "part": "right_leg",
+      "soak": {
+        "kinetic": 1
+      },
+      "weight": 7
+    }
   ],
   "butcher_difficulty": 5,
   "butcher_table": [],
@@ -37,13 +92,49 @@
   "hp_max": 26,
   "id": "enemy_maint_drone",
   "loot_table": [
-    { "item": "item_tangled_wire", "qty": [1, 2], "weight": 24 },
-    { "item": "item_scrap_metal", "qty": [1, 2], "weight": 22 },
-    { "item": "item_battery", "qty": [1, 1], "weight": 16 },
-    { "item": "item_credit_chip", "credits": [12, 28], "qty": [1, 1], "weight": 16 }
+    {
+      "item": "item_tangled_wire",
+      "qty": [
+        1,
+        2
+      ],
+      "weight": 24
+    },
+    {
+      "item": "item_scrap_metal",
+      "qty": [
+        1,
+        2
+      ],
+      "weight": 22
+    },
+    {
+      "item": "item_battery",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 16
+    },
+    {
+      "credits": [
+        12,
+        28
+      ],
+      "item": "item_credit_chip",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 16
+    }
   ],
   "name": "maintenance drone",
   "weapon": [
-    { "max": 5, "min": 2, "type": "kinetic" }
+    {
+      "max": 5,
+      "min": 2,
+      "type": "kinetic"
+    }
   ]
 }

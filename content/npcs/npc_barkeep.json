@@ -42,7 +42,7 @@
           "next": "bm_menu"
         }
       ],
-      "text": "Done. Next time you're at an airfield, ask around for cargo — he keeps a pallet waiting for you at the Scald. Fly it home yourself; nobody's walking it through a checkpoint."
+      "text": "Done. Next time you're out at Buzzard Field in the Reach, ask Amos — he keeps a pallet waiting for you. Fly it home yourself; nobody's walking that through a checkpoint."
     },
     "bm_air_offer": {
       "_vine": {
@@ -65,7 +65,7 @@
           "next": "bm_menu"
         }
       ],
-      "text": "You lean in. \"Word is you know someone who flies heavier than a MULE drone — no checkpoint at all.\" Sully studies you a long moment. \"...Maybe. Guy runs cargo out past the Redline fence, off the Scald strip — same drop, bigger hauls. He won't deal with just anyone. You've done enough clean runs he'll take the meeting.\""
+      "text": "You lean in. \"Word is you know someone who flies heavier than a MULE drone — no checkpoint at all.\" Sully studies you a long moment. \"...Maybe. Guy works out of the Reach, way out past the wire — grows the raw himself and flies it to whoever's got the nerve. Ask for Amos when you're wheels-down at Buzzard Field. You've run clean enough he'll take the meeting.\""
     },
     "bm_broke": {
       "_vine": {

@@ -4,7 +4,9 @@
   "id": "item_aurelia_opera_coat",
   "name": "iridescent opera coat",
   "tags": {
-    "armor_soak": { "edged": 1 },
+    "armor_soak": {
+      "edged": 1
+    },
     "bulkiness": 2,
     "description": "A floor-sweeping column of woven photonic thread that runs a slow aurora down its length — teal, violet, a bruise of gold — never quite repeating. It is structured enough to hold its own silhouette in a gale off the boulevard and, incidentally, to turn a lazy blade. It will outlive you, and it knows it.",
     "insulation": 3,

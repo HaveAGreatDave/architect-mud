@@ -10,7 +10,7 @@
   },
   "engines": 1,
   "fuel_burn_base": 0.9,
-  "fuel_capacity": 200,
+  "fuel_capacity": 800,
   "fuel_type": "avgas",
   "handling": 1,
   "hardpoints": 0,

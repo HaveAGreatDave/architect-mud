@@ -1,7 +1,10 @@
 {
   "description": "A heaped daybed piled with silk cushions and a tumble of throws, the whole thing warm and slept-in and unmistakably shared. It takes up most of the little room. This is where the waiting happens.",
   "flags": {
-    "interactions": ["lie", "sit"]
+    "interactions": [
+      "lie",
+      "sit"
+    ]
   },
   "hp": null,
   "hp_max": null,

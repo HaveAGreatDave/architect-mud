@@ -11,9 +11,9 @@
   "created_by": "sewer-grid",
   "description": "A grimy trunk of storm tunnel under Cinder Lane + Halcyon Boulevard, the concrete cracked and weeping, the air thick with the sour breath of the drains.",
   "exits": {
-    "west": "zone_under_901_910",
     "north": "zone_under_902_909",
-    "south": "zone_under_902_911"
+    "south": "zone_under_902_911",
+    "west": "zone_under_901_910"
   },
   "flags": {
     "district": "sewer",

@@ -1,0 +1,17 @@
+{
+  "description": "Light rises out of the stone itself — a seamless cove tracing every seam of the walls and a soft ring around the mirror, washing the whole spa in a warm, shadowless glow that dims with the hour. No fixture is visible anywhere.",
+  "flags": {
+    "is_light": true,
+    "light_type": "overhead"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_solenne_penthouse_bath",
+  "light_type": "overhead",
+  "lumen_output": 1800,
+  "name": "recessed cove light",
+  "object_type": "light",
+  "power_draw_kw": 0.03,
+  "price": 0,
+  "zone_id": "zone_solenne_penthouse_bath"
+}

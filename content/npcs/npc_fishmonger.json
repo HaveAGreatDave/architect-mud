@@ -277,6 +277,14 @@
       "price": 45
     },
     {
+      "item_id": "item_wetsuit",
+      "price": 300
+    },
+    {
+      "item_id": "item_rebreather",
+      "price": 420
+    },
+    {
       "item_id": "item_bloodworm_bait",
       "price": 6
     },

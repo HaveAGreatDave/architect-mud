@@ -3,26 +3,88 @@
   "behaviour_graph": {
     "_start": "start",
     "nodes": {
-      "start": { "next": "has_target", "type": "start" },
-      "has_target": { "condition_type": "HAS_TARGET", "ifFalse": "idle", "ifTrue": "low_hp", "type": "condition" },
-      "low_hp": { "condition_type": "HP_BELOW", "ifFalse": "attack", "ifTrue": "flee", "params": { "pct": 25 }, "type": "condition" },
-      "attack": { "action_type": "ATTACK", "next": "loop", "type": "action" },
-      "flee": { "action_type": "FLEE", "next": "loop", "type": "action" },
-      "idle": { "action_type": "IDLE", "next": "loop", "type": "action" },
-      "loop": { "next": "start", "type": "loop" }
+      "attack": {
+        "action_type": "ATTACK",
+        "next": "loop",
+        "type": "action"
+      },
+      "flee": {
+        "action_type": "FLEE",
+        "next": "loop",
+        "type": "action"
+      },
+      "has_target": {
+        "condition_type": "HAS_TARGET",
+        "ifFalse": "idle",
+        "ifTrue": "low_hp",
+        "type": "condition"
+      },
+      "idle": {
+        "action_type": "IDLE",
+        "next": "loop",
+        "type": "action"
+      },
+      "loop": {
+        "next": "start",
+        "type": "loop"
+      },
+      "low_hp": {
+        "condition_type": "HP_BELOW",
+        "ifFalse": "attack",
+        "ifTrue": "flee",
+        "params": {
+          "pct": 25
+        },
+        "type": "condition"
+      },
+      "start": {
+        "next": "has_target",
+        "type": "start"
+      }
     }
   },
   "body_parts": [
-    { "part": "head", "soak": {}, "weight": 14 },
-    { "part": "torso", "soak": {}, "weight": 42 },
-    { "part": "left_arm", "soak": {}, "weight": 11 },
-    { "part": "right_arm", "soak": {}, "weight": 11 },
-    { "part": "left_leg", "soak": {}, "weight": 11 },
-    { "part": "right_leg", "soak": {}, "weight": 11 }
+    {
+      "part": "head",
+      "soak": {},
+      "weight": 14
+    },
+    {
+      "part": "torso",
+      "soak": {},
+      "weight": 42
+    },
+    {
+      "part": "left_arm",
+      "soak": {},
+      "weight": 11
+    },
+    {
+      "part": "right_arm",
+      "soak": {},
+      "weight": 11
+    },
+    {
+      "part": "left_leg",
+      "soak": {},
+      "weight": 11
+    },
+    {
+      "part": "right_leg",
+      "soak": {},
+      "weight": 11
+    }
   ],
   "butcher_difficulty": 2,
   "butcher_table": [
-    { "item": "item_raw_meat", "qty": [1, 1], "weight": 30 }
+    {
+      "item": "item_raw_meat",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 30
+    }
   ],
   "death_message": "The sewer bat drops out of the air and folds up small on the wet stone.",
   "description": "A leathery scrap of a thing, ribs and membrane, that lives upside-down in the vaulted stretches and comes off the ceiling in a clatter of wings when warmth walks under it. Hard to hit, easy to kill — if you can catch it.",
@@ -41,10 +103,21 @@
   "hp_max": 9,
   "id": "enemy_sewer_bat",
   "loot_table": [
-    { "item": "item_tangled_wire", "qty": [1, 1], "weight": 14 }
+    {
+      "item": "item_tangled_wire",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 14
+    }
   ],
   "name": "sewer bat",
   "weapon": [
-    { "max": 2, "min": 1, "type": "kinetic" }
+    {
+      "max": 2,
+      "min": 1,
+      "type": "kinetic"
+    }
   ]
 }

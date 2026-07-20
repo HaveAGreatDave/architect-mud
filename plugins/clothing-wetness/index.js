@@ -93,6 +93,32 @@ export const hooks = {
         [playerId]
       );
       const wettable = rows.filter(r => hasTag(r, 'gets_wet'));
+
+      // Submersion (swimming, player._submerged from the swimming plugin) soaks you
+      // completely — skin and every wettable garment — overriding the precipitation
+      // model. Runs BEFORE the no-wettables early-return so a bare-skinned swimmer
+      // still reads soaked. On climbing out, the normal drying below takes over
+      // (equipped garments drip-dry gradually; bare skin dries at once).
+      if (player._submerged) {
+        for (const item of wettable) {
+          if ((item.custom_data?.wetness ?? 0) < 100) {
+            await query(
+              `UPDATE player_inventory SET custom_data = COALESCE(custom_data, '{}'::jsonb) || $1::jsonb WHERE id = $2`,
+              [JSON.stringify({ wetness: 100 }), item.id]);
+          }
+        }
+        const prevWetness = player.wetness ?? 0;
+        player.wetness = 100;
+        const messages = [];
+        for (const t of WETNESS_THRESHOLDS) {
+          if (prevWetness < t.value && 100 >= t.value) messages.push(t.risingMsg);
+        }
+        if ((messages.length || Math.round(prevWetness) !== 100) && broadcast) {
+          broadcast(null, { type: 'resource_tick', messages, player_update: { wetness: 100 } }, null, playerId);
+        }
+        continue;
+      }
+
       if (!wettable.length) {
         player.wetness = 0;
         continue;

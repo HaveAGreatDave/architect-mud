@@ -14,8 +14,8 @@
   },
   "flags": {
     "district": "wasteland",
-    "district_id": "district_coldwater",
     "planner": "bp_district",
+    "region_id": "region_coldwater",
     "scavenging_table_id": "scav_west_wastes"
   },
   "grid_x": 913,

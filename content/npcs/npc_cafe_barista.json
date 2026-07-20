@@ -76,6 +76,7 @@
   "name": "Neve Ostrow",
   "npc_type": "vendor",
   "sex": "female",
+  "studio_zone_id": null,
   "vendor_inventory": [
     {
       "item_id": "item_drink_synthpresso",
@@ -138,5 +139,6 @@
   "vendor_shop_name": "Jitter",
   "vendor_stock_size": 24,
   "wander_zones": [],
-  "wanders": 0
+  "wanders": 0,
+  "work_zone_id": null
 }

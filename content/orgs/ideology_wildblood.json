@@ -3,21 +3,27 @@
   "description": "Life survives by adapting, not by preserving. The Wildblood reject the Architect and the artificial order of the Basin outright. To them mutation is no disease but humanity's natural future — the body remembering how to change. Civilization has become a cage; and if the old world must die so something new can crawl out of it, so be it. Their eldest wear their evolution in the open — armored hide, senses the old anatomy never named, limbs it never accounted for — each change carried not as damage but as another rung the species climbed without asking permission.",
   "flags": {
     "creed": "Life survives by adapting, not by preserving.",
-    "stance": "renounce",
     "path": "flesh",
-    "values": ["Adaptation", "Freedom", "Instinct", "Evolution", "Resilience"],
     "reader": {
-      "motto": "adapt",
       "experience": "Throw in with the Wildblood and the things that terrify everyone else become your inheritance — mutagen shared freely, changes read as promotions, kin who wear their evolution in the open and cheer on yours. The body remembers how to change and you stop fighting it: armored hide, senses the old anatomy never named, limbs it never accounted for. You walk the poisoned wastes and the acid rain like weather, while the preserved and the pampered stay indoors and call it safety. Civilization was a cage; you are what grows through the bars, and you grow on purpose now.",
+      "motto": "adapt",
+      "path_text": "The Flesh. Adapt the body. Mutation is embraced, not cured — evolution taken back into our own hands and blood.",
       "pull": "The cage rusts. We are what grows through the bars.",
+      "relnote": "Renounces the Basin alongside the Exodus — no quarrel there, only with those who'd save the city.",
       "tenets": [
         "Life survives by adapting, not preserving.",
         "Mutation is not disease — it is our future.",
         "Civilization is a cage; let the old world die."
-      ],
-      "path_text": "The Flesh. Adapt the body. Mutation is embraced, not cured — evolution taken back into our own hands and blood.",
-      "relnote": "Renounces the Basin alongside the Exodus — no quarrel there, only with those who'd save the city."
-    }
+      ]
+    },
+    "stance": "renounce",
+    "values": [
+      "Adaptation",
+      "Freedom",
+      "Instinct",
+      "Evolution",
+      "Resilience"
+    ]
   },
   "founded_at": "1783000349",
   "id": "ideology_wildblood",

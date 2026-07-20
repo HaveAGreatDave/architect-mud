@@ -86,14 +86,16 @@ export const SCHEMA_SQL = `
     updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
   );
 
-  -- Districts are a SPATIAL grouping of map_world zones — a named rectangle of
+  -- Regions are a SPATIAL grouping of map_world zones — a named rectangle of
   -- the global grid, authored via the dev-panel World Editor. Member zones carry
-  -- flags.district_id = districts.id; bounds are derived from those members'
-  -- bbox at read time (never stored), so moving a district — which rewrites its
+  -- flags.region_id = regions.id; bounds are derived from those members'
+  -- bbox at read time (never stored), so moving a region — which rewrites its
   -- zones' grid_x/grid_y — can never desync stored bounds.
   -- NOTE: distinct from server/engine/districts.js, which is the land-use
-  -- *registry* inferred from zone-id prefix (sense of place). Different concept.
-  CREATE TABLE IF NOT EXISTS districts (
+  -- *district* registry inferred from zone-id prefix (sense of place). A region is
+  -- the larger world-map place (Coldwater Basin, The Reach); a district is the
+  -- land-use character within it. Different concept.
+  CREATE TABLE IF NOT EXISTS regions (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     base_terrain TEXT,
@@ -101,6 +103,9 @@ export const SCHEMA_SQL = `
     created_by TEXT,
     updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
   );
+  -- Static per-region climate lean read by the weather field sampler:
+  -- { temp: <°C offset>, dryness: <0..1 precip/cloud multiplier> }. NULL = baseline.
+  ALTER TABLE regions ADD COLUMN IF NOT EXISTS climate_bias JSONB;
 
   -- Grid coordinates + map membership for every zone. Additive: exits stay
   -- the source of truth for traversability (adjacency never implies a

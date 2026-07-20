@@ -7,11 +7,26 @@
     "hallucination": {
       "duration_seconds": 120,
       "events": [
-        { "atSec": 4, "text": "[trip]The floor lurches sideways and the room smears into long cold streaks.[/trip]" },
-        { "atSec": 25, "text": "[trip]Your thoughts arrive out of order, each one wrapped in cotton wool.[/trip]" },
-        { "atSec": 55, "text": "[trip]You are extremely far away from your own hands.[/trip]" },
-        { "atSec": 85, "text": "[trip]A chemical wind blows straight through your skull and out the other side.[/trip]" },
-        { "atSec": 110, "text": "[trip]The room swings queasily back into place, reeking of solvent, and you with it.[/trip]" }
+        {
+          "atSec": 4,
+          "text": "[trip]The floor lurches sideways and the room smears into long cold streaks.[/trip]"
+        },
+        {
+          "atSec": 25,
+          "text": "[trip]Your thoughts arrive out of order, each one wrapped in cotton wool.[/trip]"
+        },
+        {
+          "atSec": 55,
+          "text": "[trip]You are extremely far away from your own hands.[/trip]"
+        },
+        {
+          "atSec": 85,
+          "text": "[trip]A chemical wind blows straight through your skull and out the other side.[/trip]"
+        },
+        {
+          "atSec": 110,
+          "text": "[trip]The room swings queasily back into place, reeking of solvent, and you with it.[/trip]"
+        }
       ],
       "intensity": 0.6,
       "mode": "overlay",

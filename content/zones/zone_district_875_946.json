@@ -14,9 +14,9 @@
   },
   "flags": {
     "district": "wilds",
-    "district_id": "district_coldwater",
     "planner": "bp_district",
     "radiation": 35,
+    "region_id": "region_coldwater",
     "terrain": "redrock"
   },
   "grid_x": 875,

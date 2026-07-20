@@ -11,8 +11,8 @@
   "created_by": null,
   "description": "A long civic reading room that has outlived the civics that built it. Ranks of steel flat-file cabinets line the walls, each drawer labelled in a small, precise hand. A scarred oak counter runs across the middle, worn pale where a thousand hands signed for a thousand permits. Green-shaded lamps throw honest pools of light onto blotters and index cards. It is warm, and quiet, and ordered to the point of devotion — the one room in this district that feels like someone still gives a damn about keeping the account straight.",
   "exits": {
-    "north": "zone_records_stacks",
-    "east": "zone_district_922_910"
+    "east": "zone_district_922_910",
+    "north": "zone_records_stacks"
   },
   "flags": {
     "always_lit": true,

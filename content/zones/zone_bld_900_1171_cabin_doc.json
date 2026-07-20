@@ -1,0 +1,27 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": null,
+  "color": null,
+  "created_by": "reach_dev",
+  "description": "Unnervingly neat: a made bed with hospital corners, a single chair squared to the window, and three sealed decks of cards fanned on the dresser like a tidy little threat.",
+  "exits": {
+    "north": "zone_bld_900_1171_walk2"
+  },
+  "flags": {
+    "is_building": true,
+    "is_interior": true,
+    "lawless": true,
+    "world_exit_zone": "zone_the_reach_873_1954"
+  },
+  "grid_x": 2,
+  "grid_y": 1,
+  "grid_z": 0,
+  "id": "zone_bld_900_1171_cabin_doc",
+  "map_id": "map_int_bld_900_1171",
+  "marker": null,
+  "name": "Doc's Cabin",
+  "parent_zone": "zone_the_reach_873_1954",
+  "updated_at": "1784517512"
+}

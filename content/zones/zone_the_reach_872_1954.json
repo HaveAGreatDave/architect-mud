@@ -1,0 +1,35 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": null,
+  "color": null,
+  "created_by": null,
+  "description": "A low saloon of welded plate and salvaged neon, a coyote sign buzzing over the door with half its letters dead. Inside there's warmth, liquor, and company that won't ask where you've been — the Reach's parlour, where every deal in town eventually gets a drink poured on it.",
+  "exits": {
+    "east": "zone_the_reach_873_1954",
+    "in": "zone_bld_899_1171_lobby",
+    "north": "zone_the_reach_872_1953",
+    "south": "zone_the_reach_872_1955",
+    "west": "zone_the_reach_871_1954"
+  },
+  "flags": {
+    "building_name": "The Watering Hole",
+    "building_type": "bar",
+    "facade": true,
+    "is_building": true,
+    "lawless": true,
+    "planner": "world_editor",
+    "region_id": "region_the_reach",
+    "world_exit_zone": "zone_the_reach_872_1953"
+  },
+  "grid_x": 899,
+  "grid_y": 1171,
+  "grid_z": 0,
+  "id": "zone_the_reach_872_1954",
+  "map_id": "map_world",
+  "marker": null,
+  "name": "The Coyote's Rest",
+  "parent_zone": null,
+  "updated_at": "1784516450"
+}

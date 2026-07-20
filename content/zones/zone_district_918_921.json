@@ -15,10 +15,10 @@
   "flags": {
     "danger": "high",
     "district": "wilds",
-    "district_id": "district_coldwater",
     "glacis": true,
     "planner": "bp_district",
-    "terrain": "redrock"
+    "region_id": "region_coldwater",
+    "terrain": "road"
   },
   "grid_x": 918,
   "grid_y": 921,
@@ -28,5 +28,5 @@
   "marker": "×",
   "name": "The Glacis",
   "parent_zone": null,
-  "updated_at": "1784500000"
+  "updated_at": "1784511319"
 }

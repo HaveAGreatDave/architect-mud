@@ -1,0 +1,18 @@
+{
+  "description": "A sagging motel bed under a thin cover, the mattress printed with the ghosts of every guest before you.",
+  "flags": {
+    "interactions": [
+      "lie"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_layover_bed_del",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "a bed",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_bld_900_1171_cabin_del"
+}

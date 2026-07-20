@@ -26,6 +26,15 @@ Canonical values (palette `TERRAIN_TYPES`, [maps.js:994](../client/devpanel/js/p
 | `ash` | Ash | `#4f4b47` burnt-grey flecks (wildlands) |
 | `marsh` | Marsh | `#4d5a30` toxic murky ripples (wildlands) |
 
+**Runways** are a special case in the palette but **not** a `flags.terrain` value. The two directional
+runway swatches (`Runway ↕ N-S`, `Runway ↔ E-W`, `RUNWAY_KEYS` in [maps.js](../client/devpanel/js/panels/maps.js))
+write `flags.runway` (`ns`/`ew`) + `flags.icon` (`runway_ns`/`runway_ew`) + the canonical yellow-marking
+(`#f5d400`) / asphalt (`#2b2b2b`) / bar-marker presentation, exactly how the seeded runway tiles carry it —
+so [`runwayFor()`](../plugins/flight/state.js) reads the painted strip as a field's real departure runway and
+the 2-D map draws the runway icon. Brush/rect/pick/erase all handle them via `_setTileSurface`/`_tileSurfaceKey`;
+the surface still infers as `road` for pacing/road-autotiling (server `zoneTerrain` line 251). Publish, then
+**⟳ Re-bake flight sim** so the baked snapshot picks the new runway up.
+
 The four **wildlands** surfaces (`scrub`/`redrock`/`ash`/`marsh`, added for the post-apocalyptic wilds
 beyond the Curtain) are the only textured terrains that **keep their marker glyph** on the minimap
 (via `GLYPH_TERRAIN` in [minimap.js](../client/game/js/panels/minimap.js)) instead of blanking to a
@@ -107,6 +116,43 @@ empty destination cell → `moveBuildingPropose()` POSTs `/maps/move-building`
 the destination is empty with an adjacent street, prefers a road-terrain
 neighbour). Staged as one grouped `building_move` change that publishes
 atomically; interior rooms + front door move with the facade.
+
+### New Building generator (templated, by type)
+
+`toggleNewBuildingMode()` in [maps.js](../client/devpanel/js/panels/maps.js) (the **🏗 New
+Building** toolbar toggle + floating type/name palette): pick a `building_type`, click a
+ground/empty cell → `buildBuildingPropose()` POSTs `/maps/build-building` (server
+`apiBuildBuilding`, [routes.js](../server/api/routes.js)). In one shot the server converts the
+ground tile (or fills the empty cell) into a **facade** (`building_type` + `facade` tag → its
+map icon via `BUILDING_TYPE_ICON`), stamps a **templated interior** (lobby + rooms + thematic
+furniture + an optional inhabitant NPC), **powers & lights** it via
+[`authorUtilityRoom`](../tools/lib/utility-room.mjs) (utility room + junction box + per-room light
+fixtures), and wires the **front door** onto the adjacent street (lobby exit back out = the
+compass dir opposite the fronting street, per [flags-keys](flags-keys.md)/the memory rule). The
+per-type blueprints live in [tools/lib/building-templates.mjs](../tools/lib/building-templates.mjs)
+(`templateForType`, synonym-aware, `GENERIC` fallback). **Hangars** reuse the same flow and
+additionally get `hangar_interior`/`hangar_ramp` + `hangar_interior_zone` wiring and the
+`the flight-ops desk chair` furniture (name matched by `plugins/flight/charter.js`) — but not an
+`airfield_id`, so a generator-placed hangar is a *structural* hangar; pair it with a painted
+runway + an `airfield_id` to make it a working field. Unlike Move Building this **commits directly**
+(too many cross-table rows — zones/maps/furniture/generators/power_zones/npcs — for zone staging),
+mirroring `apiBuildApartmentBlock`; export + push via CODEX to ship.
+
+### Region power plant (region-scoped city plant)
+
+Building a **⚡ Power Plant** (a `power`-type building) stands up power for the region it sits in:
+after the normal build, `apiBuildBuilding` calls `installRegionPlant({regionId, zoneId: facadeId})`
+in [environment.js](../server/engine/environment.js). (There is no standalone toolbar button — region
+power is done purely by placing a power building, so the substation *is* the plant.) Unlike the generic
+`installGenerator` city_plant path — which re-points **every** outdoor tile map-wide to the new plant
+(last-installed steals the whole grid) — `installRegionPlant` writes `city_grid` `power_zones` rows for
+**only** the tiles carrying `flags.region_id = regionId`, and re-points the region's building junction
+boxes to it (utility room → parent facade → `region_id`). Deterministic id `gen_region_<regionId>`
+(idempotent re-run). Hosts the plant on the power building's facade (or, if called without a host, a
+`building_type='power'` facade in the region, else the region-centroid tile). Direct commit; exportable
+content (generators/power_zones are `class:'content'`). This is the only region-aware power tool — the
+rest of the power model (city plant → junction box → interior) is otherwise global; see the power panel
+for the per-tile installer and Auto-Resolve.
 
 ## Runtime consumption
 

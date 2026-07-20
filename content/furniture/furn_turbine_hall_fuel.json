@@ -2,11 +2,15 @@
   "description": "A bulk fuel skid shoved against the turbine-hall wall: a rust-streaked tank on a bunded steel pallet, a hand-cranked transfer pump, and a grounded nozzle on a greasy hose. A stencil reads PLANT FUEL — AUTHORISED DRAW ONLY, which nobody has enforced in years. Fill a can here.",
   "flags": {
     "fuel_source": true,
-    "interactions": ["examine"]
+    "interactions": [
+      "examine"
+    ]
   },
   "hp": null,
   "hp_max": null,
   "id": "furn_turbine_hall_fuel",
+  "light_type": "lamp",
+  "lumen_output": null,
   "name": "the fuel skid",
   "object_type": "furniture",
   "power_draw_kw": null,

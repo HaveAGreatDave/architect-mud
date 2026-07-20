@@ -86,10 +86,10 @@ export const REGISTRY = [
     note: 'exits/tags are authored content but runtime systems may also wire them (power rooms, studios) — a known, drift-report-visible seam' },
   { table: 'maps', class: 'content', pk: ['id'], readTier: 'boot',
     runtimeInserts: 'environment.js power-room interiors; broadcast studio builder (dev-gated)' },
-  // Spatial district metadata (dev-panel World Editor). Member zones link via
-  // flags.district_id; bounds derived from members, not stored. Dev-panel-read
+  // Spatial region metadata (dev-panel World Editor). Member zones link via
+  // flags.region_id; bounds derived from members, not stored. Dev-panel-read
   // only — no runtime hot-path reader. Distinct from engine/districts.js land-use.
-  { table: 'districts', class: 'content', pk: ['id'], readTier: 'cold' },
+  { table: 'regions', class: 'content', pk: ['id'], readTier: 'cold' },
   { table: 'items', class: 'content', pk: ['id'], readTier: 'boot', // items-cache.js write-through Map
     runtimeInserts: 'doors.js keycard cutting (keycard_<door>); surveillance evidence datachips (item_datachip_<clip>, reaped on submission/retention); broadcast recorded cassettes (item_cassette_<slug>)' },
   { table: 'enemies', class: 'content', pk: ['id'], readTier: 'boot' },      // via world.spawnTimers join

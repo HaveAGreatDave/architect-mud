@@ -3,22 +3,28 @@
   "description": "Mutation is not a wound to be cured or a wilderness to flee into — it is the next draft of the species, and it can be written on purpose. The Synthesis embrace the changing body but refuse the Wildblood's bonfire: let the city stand, let the towers keep their lights, and grow something new inside them. Guided flesh, directed adaptation, diversity by design — a civilization that mutates without falling apart. Their exemplars read like something authored: every trait chosen and grown on purpose — senses tuned past the human band, wounds that knit closed as you watch, symbiotes woven in as living armor — the body remade with an architect's care and none of the Architect's leash.",
   "flags": {
     "creed": "Humanity should evolve — but civilization should evolve with it.",
-    "stance": "redeem",
-    "path": "flesh",
     "expansion": true,
-    "values": ["Evolution", "Integration", "Adaptation", "Diversity", "Acceptance"],
+    "path": "flesh",
     "reader": {
-      "motto": "flourish",
       "experience": "Join the Synthesis and mutation stops being something that happens to you and becomes something you author — guided flesh, chosen traits, adaptation grown on purpose in labs that let the towers keep their lights. Draft by draft you edit yourself the way an architect edits a plan: senses tuned past the human band, wounds that knit closed as you watch, symbiotes woven in as living armor. You get the Wildblood's power without the Wildblood's bonfire — the changed body and the standing city, both at once. The species gets its next draft, and you're the one holding the pen.",
+      "motto": "flourish",
+      "path_text": "The Flesh, guided. Controlled mutation, regenerative traits, and symbiosis — the body remade deliberately, inside a civilization built to survive the change.",
       "pull": "The Wildblood would burn the greenhouse to free one flower. We tend the whole garden.",
+      "relnote": "At odds with the Wildblood, who would tear down what the Synthesis would cultivate; dismiss the Ascendants' steel as an evolutionary dead end.",
       "tenets": [
         "Evolve the body on purpose, not by accident.",
         "Keep the city — grow something new inside it.",
         "Diversity is engineered, celebrated, and directed."
-      ],
-      "path_text": "The Flesh, guided. Controlled mutation, regenerative traits, and symbiosis — the body remade deliberately, inside a civilization built to survive the change.",
-      "relnote": "At odds with the Wildblood, who would tear down what the Synthesis would cultivate; dismiss the Ascendants' steel as an evolutionary dead end."
-    }
+      ]
+    },
+    "stance": "redeem",
+    "values": [
+      "Evolution",
+      "Integration",
+      "Adaptation",
+      "Diversity",
+      "Acceptance"
+    ]
   },
   "founded_at": "1783000349",
   "id": "ideology_synthesis",

@@ -1,90 +1,17 @@
 {
   "banter": [],
+  "behaviour_graph": {},
   "chitchat": [],
   "description": "A lush, full-figured woman with a wicked grin and a satin chemise that leaves little argument, draped along the end of the bed like she was poured there. She watches the hatch for exactly one person and treats every other face as furniture — politely, and from a careful distance.",
   "dialogue_tree": {
-    "root": {
-      "text": "She's off the bed and halfway to you before the hatch has finished swinging, wicked grin already in place. \"There you ARE. I was about to send a search party, and by search party I mean I was going to sulk very loudly until Roxy told me to stop.\" She catches your hand in both of hers. \"Sit, sit. Tell me everything. Or nothing. Just — stay a while, yeah?\"",
-      "options": [
-        { "label": "What did you get up to today?", "next": "day" },
-        { "label": "How did a girl like you end up out here?", "next": "deal" },
-        { "label": "You always watch that hatch. Why?", "next": "fear", "conditions": [{ "flag": "bijou_deal", "op": "set", "scope": "player" }] },
-        { "label": "You know you're not going anywhere, right?", "next": "reassure", "conditions": [{ "flag": "bijou_fear", "op": "set", "scope": "player" }] },
-        { "label": "How's Roxy treating you?", "next": "roxy" },
-        { "label": "Come here, you.", "next": "flirt" },
-        { "label": "(let her be)", "next": "bye" }
-      ]
-    },
-    "day": {
-      "text": "\"Ohh, a day of enormous consequence.\" She ticks it off on her fingers, delighted. \"I watched the water. I reorganised your things — you're welcome, they were in chaos. I invented three new drinks, two were crimes. And I watched the water some more.\" The grin softens a notch. \"Mostly I waited for the launch, if I'm honest, which I'm trying to be more of, lately. The days are just the bit between you coming back.\"",
-      "options": [
-        { "label": "That's a lot of waiting.", "next": "day_wait" },
-        { "label": "(smile, let it go)", "next": "root" }
-      ]
-    },
-    "day_wait": {
-      "text": "\"It is.\" She says it lightly, but her thumb worries at the hem of the chemise. \"Roxy fills her hours. She's got systems, projects, opinions about wine. I've never learned the trick of it — of being fine in the gap. I just... miss you, loudly, in an empty cabin, until you fix it by existing again.\" She flashes the grin back on like armour. \"Don't look at me like that. It's charming. I've decided it's charming.\"",
-      "options": [
-        { "label": "Ask her something else.", "next": "root" }
-      ]
-    },
-    "deal": {
-      "actions": [{ "action": "SET_FLAG", "flag": "bijou_deal", "scope": "player", "value": "true" }],
-      "text": "\"A girl like me.\" She laughs, but it's got a hook in it. \"I chose this, you know. Everyone assumes someone like me got rescued off a wave, but no — I looked at the whole ugly menu of that harbour and I picked the best table in the room. That was you. I flirted my way onto this boat on purpose, cold as anything, and I was very proud of the con.\" She looks down at your joined hands. \"The con was supposed to run one direction. Me, working you.\" A rueful little exhale. \"Nobody warned me I'd catch feelings off my own mark. Amateur mistake. I'd be furious if I weren't so stupidly happy about it.\"",
-      "options": [
-        { "label": "So it wasn't real at first?", "next": "deal_real" },
-        { "label": "And now?", "next": "fear" },
-        { "label": "(squeeze her hand)", "next": "root" }
-      ]
-    },
-    "deal_real": {
-      "text": "\"At first? It was a performance and a good one — I'd have fooled you blind.\" She meets your eyes, and drops the grin entirely, which she almost never does. \"The problem with performing wanting someone every night is that one night you forget you're performing. And then it's just true, and you've got no idea when the line got crossed because you weren't watching for it.\" Quietly: \"It's true now. Embarrassingly, inconveniently true. There's your honesty.\"",
-      "options": [
-        { "label": "And now?", "next": "fear" },
-        { "label": "(let it land)", "next": "root" }
-      ]
-    },
-    "fear": {
-      "actions": [{ "action": "SET_FLAG", "flag": "bijou_fear", "scope": "player", "value": "true" }],
-      "text": "The playfulness goes somewhere quiet and small. \"The hatch. Right.\" She pulls her knees up. \"Here's the ugly little secret. Every time it opens I'm afraid it's someone newer. Younger, cleverer, less trouble. This whole beautiful life is yours to give and take back, and I gave you the one thing I swore I'd never hand anyone — the part that can actually be broken.\" She tries for the grin and doesn't quite make it. \"So I watch the hatch. Because if the day ever comes that it's not for me, I'd rather see it walk in than hear about it after.\"",
-      "options": [
-        { "label": "That day is never coming.", "next": "reassure" },
-        { "label": "You gave that to me?", "next": "fear_gave" },
-        { "label": "(hold her)", "next": "root" }
-      ]
-    },
-    "fear_gave": {
-      "text": "\"Yeah. You. Not the boat, not the safety — you specifically, which is the dangerous part.\" She presses her face briefly to your shoulder. \"Roxy hedged. She always hedges; it's why she sleeps. I went all in on the first hand. If it goes bad I've got nothing in reserve and we both know it. I'd still do it again. That's either love or a personality defect. Possibly both.\"",
-      "options": [
-        { "label": "It's never going bad.", "next": "reassure" },
-        { "label": "(just hold her)", "next": "root" }
-      ]
-    },
-    "reassure": {
-      "actions": [{ "action": "SET_FLAG", "flag": "bijou_reassured", "scope": "player", "value": "true" }],
-      "text": "She searches your face for the lie, the way she was trained to, and doesn't find one. Something in her shoulders comes loose all at once. \"...Okay. Okay.\" A wet laugh. \"I'm going to believe you, which is a huge tactical error and I'm doing it anyway. If you make a liar of you I will be unbearable about it — you understand that.\" She burrows into your side, grin coming back watery but real. \"God. It's so much lighter, believing you. Don't tell Roxy I went soft. She'll insufferable about the maths.\"",
-      "options": [
-        { "label": "Your secret's safe.", "next": "root" }
-      ]
-    },
-    "roxy": {
-      "text": "\"Roxy?\" Her whole face lights. \"She's the reason I'm not a puddle on this very nice floor. She brushes my hair out when the missing-you gets loud. She pretends her coffee thing is about you and it's half about having something to be perfect at.\" A conspiratorial lean-in. \"She'd never say any of this, so I say it for both of us: I'd have followed her out of that harbour with or without a yacht attached. You got two of us as a set. No returns.\"",
-      "options": [
-        { "label": "You two are a package deal, then.", "next": "roxy_set" },
-        { "label": "Ask her something else.", "next": "root" }
-      ]
-    },
-    "roxy_set": {
-      "text": "\"Non-negotiable. She's my calm and I'm her noise and somewhere in the middle there's a whole person made of both of us.\" She grins. \"You're clever enough to have worked out you didn't fall for two girls. You fell for one thing wearing two bodies. We just let you think you had a favourite. Keeps you generous.\"",
-      "options": [
-        { "label": "Ask her something else.", "next": "root" }
-      ]
-    },
-    "flirt": {
-      "text": "The grin sharpens into something that has ended lesser men. \"Oh, FINALLY. I've been good for an entire conversation, it's been agony.\" She's already in your lap, satin sliding, mouth an inch from yours. \"Want me. Out loud, ideally. I fell for my own mark and I intend to make it extremely worth your while — I take my cons very seriously.\"",
-      "options": [
-        { "label": "(pull her in)", "next": "bye_warm" },
-        { "label": "Always. Now come here.", "next": "bye_warm" }
+    "bye": {
+      "options": [],
+      "text": [
+        "\"Go on. I'll be watching the hatch. You know I will.\"",
+        "\"Come back soon? Sooner than soon. Immediately, ideally.\"",
+        "She blows you a kiss and pretends she isn't already counting the minutes.",
+        "\"Be careful out there. You're carrying something breakable and it's mine.\"",
+        "\"I'll keep your side of the bed warm. It's a full-time job. I've applied for it.\""
       ]
     },
     "bye_warm": {
@@ -95,27 +22,219 @@
         "She melts into you completely, all the wicked gone soft, and for once the cabin is exactly the right shape."
       ]
     },
-    "bye": {
-      "options": [],
-      "text": [
-        "\"Go on. I'll be watching the hatch. You know I will.\"",
-        "\"Come back soon? Sooner than soon. Immediately, ideally.\"",
-        "She blows you a kiss and pretends she isn't already counting the minutes.",
-        "\"Be careful out there. You're carrying something breakable and it's mine.\"",
-        "\"I'll keep your side of the bed warm. It's a full-time job. I've applied for it.\""
-      ]
+    "day": {
+      "options": [
+        {
+          "label": "That's a lot of waiting.",
+          "next": "day_wait"
+        },
+        {
+          "label": "(smile, let it go)",
+          "next": "root"
+        }
+      ],
+      "text": "\"Ohh, a day of enormous consequence.\" She ticks it off on her fingers, delighted. \"I watched the water. I reorganised your things — you're welcome, they were in chaos. I invented three new drinks, two were crimes. And I watched the water some more.\" The grin softens a notch. \"Mostly I waited for the launch, if I'm honest, which I'm trying to be more of, lately. The days are just the bit between you coming back.\""
+    },
+    "day_wait": {
+      "options": [
+        {
+          "label": "Ask her something else.",
+          "next": "root"
+        }
+      ],
+      "text": "\"It is.\" She says it lightly, but her thumb worries at the hem of the chemise. \"Roxy fills her hours. She's got systems, projects, opinions about wine. I've never learned the trick of it — of being fine in the gap. I just... miss you, loudly, in an empty cabin, until you fix it by existing again.\" She flashes the grin back on like armour. \"Don't look at me like that. It's charming. I've decided it's charming.\""
+    },
+    "deal": {
+      "actions": [
+        {
+          "action": "SET_FLAG",
+          "flag": "bijou_deal",
+          "scope": "player",
+          "value": "true"
+        }
+      ],
+      "options": [
+        {
+          "label": "So it wasn't real at first?",
+          "next": "deal_real"
+        },
+        {
+          "label": "And now?",
+          "next": "fear"
+        },
+        {
+          "label": "(squeeze her hand)",
+          "next": "root"
+        }
+      ],
+      "text": "\"A girl like me.\" She laughs, but it's got a hook in it. \"I chose this, you know. Everyone assumes someone like me got rescued off a wave, but no — I looked at the whole ugly menu of that harbour and I picked the best table in the room. That was you. I flirted my way onto this boat on purpose, cold as anything, and I was very proud of the con.\" She looks down at your joined hands. \"The con was supposed to run one direction. Me, working you.\" A rueful little exhale. \"Nobody warned me I'd catch feelings off my own mark. Amateur mistake. I'd be furious if I weren't so stupidly happy about it.\""
+    },
+    "deal_real": {
+      "options": [
+        {
+          "label": "And now?",
+          "next": "fear"
+        },
+        {
+          "label": "(let it land)",
+          "next": "root"
+        }
+      ],
+      "text": "\"At first? It was a performance and a good one — I'd have fooled you blind.\" She meets your eyes, and drops the grin entirely, which she almost never does. \"The problem with performing wanting someone every night is that one night you forget you're performing. And then it's just true, and you've got no idea when the line got crossed because you weren't watching for it.\" Quietly: \"It's true now. Embarrassingly, inconveniently true. There's your honesty.\""
+    },
+    "fear": {
+      "actions": [
+        {
+          "action": "SET_FLAG",
+          "flag": "bijou_fear",
+          "scope": "player",
+          "value": "true"
+        }
+      ],
+      "options": [
+        {
+          "label": "That day is never coming.",
+          "next": "reassure"
+        },
+        {
+          "label": "You gave that to me?",
+          "next": "fear_gave"
+        },
+        {
+          "label": "(hold her)",
+          "next": "root"
+        }
+      ],
+      "text": "The playfulness goes somewhere quiet and small. \"The hatch. Right.\" She pulls her knees up. \"Here's the ugly little secret. Every time it opens I'm afraid it's someone newer. Younger, cleverer, less trouble. This whole beautiful life is yours to give and take back, and I gave you the one thing I swore I'd never hand anyone — the part that can actually be broken.\" She tries for the grin and doesn't quite make it. \"So I watch the hatch. Because if the day ever comes that it's not for me, I'd rather see it walk in than hear about it after.\""
+    },
+    "fear_gave": {
+      "options": [
+        {
+          "label": "It's never going bad.",
+          "next": "reassure"
+        },
+        {
+          "label": "(just hold her)",
+          "next": "root"
+        }
+      ],
+      "text": "\"Yeah. You. Not the boat, not the safety — you specifically, which is the dangerous part.\" She presses her face briefly to your shoulder. \"Roxy hedged. She always hedges; it's why she sleeps. I went all in on the first hand. If it goes bad I've got nothing in reserve and we both know it. I'd still do it again. That's either love or a personality defect. Possibly both.\""
+    },
+    "flirt": {
+      "options": [
+        {
+          "label": "(pull her in)",
+          "next": "bye_warm"
+        },
+        {
+          "label": "Always. Now come here.",
+          "next": "bye_warm"
+        }
+      ],
+      "text": "The grin sharpens into something that has ended lesser men. \"Oh, FINALLY. I've been good for an entire conversation, it's been agony.\" She's already in your lap, satin sliding, mouth an inch from yours. \"Want me. Out loud, ideally. I fell for my own mark and I intend to make it extremely worth your while — I take my cons very seriously.\""
+    },
+    "reassure": {
+      "actions": [
+        {
+          "action": "SET_FLAG",
+          "flag": "bijou_reassured",
+          "scope": "player",
+          "value": "true"
+        }
+      ],
+      "options": [
+        {
+          "label": "Your secret's safe.",
+          "next": "root"
+        }
+      ],
+      "text": "She searches your face for the lie, the way she was trained to, and doesn't find one. Something in her shoulders comes loose all at once. \"...Okay. Okay.\" A wet laugh. \"I'm going to believe you, which is a huge tactical error and I'm doing it anyway. If you make a liar of you I will be unbearable about it — you understand that.\" She burrows into your side, grin coming back watery but real. \"God. It's so much lighter, believing you. Don't tell Roxy I went soft. She'll insufferable about the maths.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What did you get up to today?",
+          "next": "day"
+        },
+        {
+          "label": "How did a girl like you end up out here?",
+          "next": "deal"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "bijou_deal",
+              "op": "set",
+              "scope": "player"
+            }
+          ],
+          "label": "You always watch that hatch. Why?",
+          "next": "fear"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "bijou_fear",
+              "op": "set",
+              "scope": "player"
+            }
+          ],
+          "label": "You know you're not going anywhere, right?",
+          "next": "reassure"
+        },
+        {
+          "label": "How's Roxy treating you?",
+          "next": "roxy"
+        },
+        {
+          "label": "Come here, you.",
+          "next": "flirt"
+        },
+        {
+          "label": "(let her be)",
+          "next": "bye"
+        }
+      ],
+      "text": "She's off the bed and halfway to you before the hatch has finished swinging, wicked grin already in place. \"There you ARE. I was about to send a search party, and by search party I mean I was going to sulk very loudly until Roxy told me to stop.\" She catches your hand in both of hers. \"Sit, sit. Tell me everything. Or nothing. Just — stay a while, yeah?\""
+    },
+    "roxy": {
+      "options": [
+        {
+          "label": "You two are a package deal, then.",
+          "next": "roxy_set"
+        },
+        {
+          "label": "Ask her something else.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Roxy?\" Her whole face lights. \"She's the reason I'm not a puddle on this very nice floor. She brushes my hair out when the missing-you gets loud. She pretends her coffee thing is about you and it's half about having something to be perfect at.\" A conspiratorial lean-in. \"She'd never say any of this, so I say it for both of us: I'd have followed her out of that harbour with or without a yacht attached. You got two of us as a set. No returns.\""
+    },
+    "roxy_set": {
+      "options": [
+        {
+          "label": "Ask her something else.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Non-negotiable. She's my calm and I'm her noise and somewhere in the middle there's a whole person made of both of us.\" She grins. \"You're clever enough to have worked out you didn't fall for two girls. You fell for one thing wearing two bodies. We just let you think you had a favourite. Keeps you generous.\""
     }
   },
   "faction": "none",
   "flags": {
+    "clothing_layers": [
+      "a sheer floor-length peignoir",
+      "a satin camisole",
+      "a delicate lace thong"
+    ],
     "consort": true,
-    "personality": "consort",
     "devoted_to": "Cyd",
-    "no_banter": true,
     "mis_requires_zone_flag": "mis_ok",
     "mis_willing": true,
-    "clothing_layers": ["a sheer floor-length peignoir", "a satin camisole", "a delicate lace thong"]
+    "no_banter": true,
+    "personality": "consort"
   },
+  "home_activities": [],
   "home_zone": "zone_echelon_suite_boudoir",
   "hp": 40,
   "hp_max": 40,
@@ -123,5 +242,13 @@
   "name": "Bijou",
   "npc_type": "npc",
   "sex": "female",
-  "wanders": 0
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
 }

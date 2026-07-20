@@ -11,8 +11,8 @@
   "created_by": "sewer-grid",
   "description": "The sewer beneath Meltwater Row is all crumbling grade and standing filth, the kind of dark that has never once been disturbed by anyone with a reason to be here.",
   "exits": {
-    "south": "zone_under_907_909",
-    "east": "zone_under_908_908"
+    "east": "zone_under_908_908",
+    "south": "zone_under_907_909"
   },
   "flags": {
     "district": "sewer",

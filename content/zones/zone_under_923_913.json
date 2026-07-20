@@ -12,9 +12,9 @@
   "description": "A run of domestic storm line under Kessler Street, the walls streaked with a century of household runoff. Somewhere a broken pipe drips with idiot patience.",
   "exits": {
     "east": "zone_under_terminus",
-    "west": "zone_under_922_913",
     "north": "zone_under_923_912",
-    "south": "zone_under_923_914"
+    "south": "zone_under_923_914",
+    "west": "zone_under_922_913"
   },
   "flags": {
     "district": "sewer",

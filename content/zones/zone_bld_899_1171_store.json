@@ -1,0 +1,27 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": null,
+  "color": null,
+  "created_by": "bb1b3a85-e716-4885-8de7-6c12a496086a",
+  "description": "Below the floor, past the kegs: crates that never had a manifest, stacked in the cool dark and smelling of yeast, gun-oil, and other people's secrets. What the Reach runs, it runs through rooms like this.",
+  "exits": {
+    "south": "zone_bld_899_1171_lobby"
+  },
+  "flags": {
+    "is_building": true,
+    "is_interior": true,
+    "lawless": true,
+    "world_exit_zone": "zone_the_reach_872_1954"
+  },
+  "grid_x": 0,
+  "grid_y": -1,
+  "grid_z": 0,
+  "id": "zone_bld_899_1171_store",
+  "map_id": "map_int_bld_899_1171",
+  "marker": null,
+  "name": "The Stash",
+  "parent_zone": "zone_the_reach_872_1954",
+  "updated_at": "1784516450"
+}

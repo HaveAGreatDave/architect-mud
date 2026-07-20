@@ -1,0 +1,27 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": null,
+  "color": null,
+  "created_by": "bb1b3a85-e716-4885-8de7-6c12a496086a",
+  "description": "The keeper's room, tucked behind the office so Amos hears every door. A narrow bed, a footlocker, and a gun-belt looped over the post, oiled and within reach. The window looks out on scrub going blue in the dusk.",
+  "exits": {
+    "south": "zone_bld_900_1171_lobby"
+  },
+  "flags": {
+    "is_building": true,
+    "is_interior": true,
+    "lawless": true,
+    "world_exit_zone": "zone_the_reach_873_1954"
+  },
+  "grid_x": 0,
+  "grid_y": -1,
+  "grid_z": 0,
+  "id": "zone_bld_900_1171_bed",
+  "map_id": "map_int_bld_900_1171",
+  "marker": null,
+  "name": "Amos's Room",
+  "parent_zone": "zone_the_reach_873_1954",
+  "updated_at": "1784517512"
+}

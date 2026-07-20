@@ -12,19 +12,6 @@
       "options": [],
       "text": "\"Come back when you're ready to be looked at.\" She has already turned to the mirror, adjusting something only she can see."
     },
-    "philosophy": {
-      "options": [
-        {
-          "label": "Show me, then.",
-          "next": "__shop__"
-        },
-        {
-          "label": "Back.",
-          "next": "root"
-        }
-      ],
-      "text": "\"Down here everyone armours up — soak values, bulk ratings, a coat that stops a knife. Fine. Necessary.\" She lets a beat pass. \"But armour tells the street you're afraid of it. What I make tells the street the street should be afraid of *you*. That is a different kind of protection, and it costs more.\""
-    },
     "menu": {
       "options": [
         {
@@ -37,6 +24,19 @@
         }
       ],
       "text": "\"Everything on the floor is one of one. The gown turns under the pin-spot because it deserves to. The opera coat will outlive you and it knows it.\" A flicker of a smile. \"None of it will keep you warm. All of it will keep you *seen*.\""
+    },
+    "philosophy": {
+      "options": [
+        {
+          "label": "Show me, then.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Down here everyone armours up — soak values, bulk ratings, a coat that stops a knife. Fine. Necessary.\" She lets a beat pass. \"But armour tells the street you're afraid of it. What I make tells the street the street should be afraid of *you*. That is a different kind of protection, and it costs more.\""
     },
     "root": {
       "options": [
@@ -79,22 +79,75 @@
   "sex": "female",
   "studio_zone_id": null,
   "vendor_inventory": [
-    { "item_id": "item_aurelia_gown", "price": 2600 },
-    { "item_id": "item_aurelia_suit", "price": 2200 },
-    { "item_id": "item_aurelia_opera_coat", "price": 1900 },
-    { "item_id": "item_aurelia_heels", "price": 900 },
-    { "item_id": "item_aurelia_gloves", "price": 650 },
-    { "item_id": "item_aurelia_mask", "price": 780 }
+    {
+      "item_id": "item_aurelia_gown",
+      "price": 2600
+    },
+    {
+      "item_id": "item_aurelia_suit",
+      "price": 2200
+    },
+    {
+      "item_id": "item_aurelia_opera_coat",
+      "price": 1900
+    },
+    {
+      "item_id": "item_aurelia_heels",
+      "price": 900
+    },
+    {
+      "item_id": "item_aurelia_gloves",
+      "price": 650
+    },
+    {
+      "item_id": "item_aurelia_mask",
+      "price": 780
+    }
   ],
   "vendor_restock_rate": 1,
   "vendor_schedule": {
-    "mon": [{ "from": 20, "to": 42 }],
-    "tue": [{ "from": 20, "to": 42 }],
-    "wed": [{ "from": 20, "to": 42 }],
-    "thu": [{ "from": 20, "to": 42 }],
-    "fri": [{ "from": 20, "to": 44 }],
-    "sat": [{ "from": 20, "to": 44 }],
-    "sun": [{ "from": 20, "to": 42 }]
+    "fri": [
+      {
+        "from": 20,
+        "to": 44
+      }
+    ],
+    "mon": [
+      {
+        "from": 20,
+        "to": 42
+      }
+    ],
+    "sat": [
+      {
+        "from": 20,
+        "to": 44
+      }
+    ],
+    "sun": [
+      {
+        "from": 20,
+        "to": 42
+      }
+    ],
+    "thu": [
+      {
+        "from": 20,
+        "to": 42
+      }
+    ],
+    "tue": [
+      {
+        "from": 20,
+        "to": 42
+      }
+    ],
+    "wed": [
+      {
+        "from": 20,
+        "to": 42
+      }
+    ]
   },
   "vendor_shop_name": "Aurelia",
   "vendor_stock_size": 8,

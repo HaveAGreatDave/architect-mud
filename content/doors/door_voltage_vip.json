@@ -2,6 +2,7 @@
   "door_type": "standard",
   "exit_dir": "north",
   "flags": {},
+  "hololock_difficulty": 5,
   "hp": 400,
   "hp_max": 400,
   "id": "door_voltage_vip",

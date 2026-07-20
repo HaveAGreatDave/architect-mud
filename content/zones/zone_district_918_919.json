@@ -17,9 +17,9 @@
       "The Gate Road"
     ],
     "district": "wasteland",
-    "district_id": "district_coldwater",
     "perimeter_gate": true,
     "planner": "bp_district",
+    "region_id": "region_coldwater",
     "terrain": "road"
   },
   "grid_x": 918,

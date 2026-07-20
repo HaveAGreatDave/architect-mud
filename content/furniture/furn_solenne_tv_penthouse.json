@@ -1,0 +1,23 @@
+{
+  "description": "A wall-spanning micro-LED wall in a frameless machined-titanium mount, edge-to-edge black glass that vanishes into the room when it's dark and detonates into colour when it's not. Brighter and deeper than any screen has a right to be — the kind of set that costs more than the apartments below it, installed for a man who watches himself on it. It can pull in anything on the air.",
+  "flags": {
+    "broadcast_device_type": "tv",
+    "broadcast_receiver": true,
+    "interactions": [
+      "watch"
+    ],
+    "tv": true,
+    "tv_dial_freq": 7,
+    "tv_skin": "flatscreen"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_solenne_tv_penthouse",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "wall-spanning micro-LED screen",
+  "object_type": "furniture",
+  "power_draw_kw": 5,
+  "price": 45000,
+  "zone_id": "zone_solenne_penthouse"
+}

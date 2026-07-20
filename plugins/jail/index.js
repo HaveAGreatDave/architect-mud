@@ -310,6 +310,10 @@ async function bookIntoCell(player, { teleport = false } = {}) {
 
 // ── Jailing (the respawn hook) ───────────────────────────────────────────────
 async function onRespawnZone(player, killer) {
+  // A lawless zone (the Reach, the wastes, the slags) is a haven — no precinct hauls
+  // you off for going down here, however wanted you are elsewhere. The cops don't come
+  // to a no-cop zone to book a corpse; you clone-vat back like any clean death.
+  if (getZone(player.current_zone)?.flags?.lawless) return undefined;
   const r = await bookIntoCell(player, { teleport: false });
   if (!r.booked) return undefined;   // clean death → normal clone-vat respawn
   return { zone: r.zone, message: r.message };

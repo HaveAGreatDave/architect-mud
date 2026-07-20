@@ -6,13 +6,34 @@
     "hallucination": {
       "duration_seconds": 240,
       "events": [
-        { "atSec": 10, "text": "[trip]A giggle you didn't authorise escapes you. Then another. Uh oh.[/trip]" },
-        { "atSec": 35, "text": "[trip]The sheer absurdity of everything hits you and you have to lean on a wall, wheezing.[/trip]" },
-        { "atSec": 70, "text": "[trip]That grim little machine in the corner looks, on reflection, deeply and hilariously stupid.[/trip]" },
-        { "atSec": 105, "text": "[trip]Someone somewhere is taking all of this seriously and that is the funniest part.[/trip]" },
-        { "atSec": 140, "text": "[trip]You catch your own reflection making a face and completely lose it.[/trip]" },
-        { "atSec": 175, "text": "[trip]Even the dread feels like a joke with a punchline you already know.[/trip]" },
-        { "atSec": 210, "text": "[trip]The laughing tapers into breathless little aftershocks. Your cheeks ache. Your ribs ache. Worth it.[/trip]" }
+        {
+          "atSec": 10,
+          "text": "[trip]A giggle you didn't authorise escapes you. Then another. Uh oh.[/trip]"
+        },
+        {
+          "atSec": 35,
+          "text": "[trip]The sheer absurdity of everything hits you and you have to lean on a wall, wheezing.[/trip]"
+        },
+        {
+          "atSec": 70,
+          "text": "[trip]That grim little machine in the corner looks, on reflection, deeply and hilariously stupid.[/trip]"
+        },
+        {
+          "atSec": 105,
+          "text": "[trip]Someone somewhere is taking all of this seriously and that is the funniest part.[/trip]"
+        },
+        {
+          "atSec": 140,
+          "text": "[trip]You catch your own reflection making a face and completely lose it.[/trip]"
+        },
+        {
+          "atSec": 175,
+          "text": "[trip]Even the dread feels like a joke with a punchline you already know.[/trip]"
+        },
+        {
+          "atSec": 210,
+          "text": "[trip]The laughing tapers into breathless little aftershocks. Your cheeks ache. Your ribs ache. Worth it.[/trip]"
+        }
       ],
       "intensity": 0.5,
       "mode": "overlay",

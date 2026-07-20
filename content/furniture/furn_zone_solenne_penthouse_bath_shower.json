@@ -1,0 +1,14 @@
+{
+  "description": "A frameless rain shower the size of a small room, a wide head set flush into the stone ceiling and a hidden steam vent alongside — endless hot water, real pressure, bronze controls. Step in and let it run.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_zone_solenne_penthouse_bath_shower",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "shower",
+  "object_type": "shower",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_penthouse_bath"
+}

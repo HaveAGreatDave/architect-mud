@@ -7,7 +7,8 @@
   "created_by": null,
   "description": "A serene one-bedroom facing the mountains: pale plaster, warm oak, a platform bed beneath a skylight that tracks the weather. A galley kitchen, a soaking tub, a window seat built for watching the storms roll in from somewhere safe and dry. The door seals with a soft magnetic sigh. Leave <b>east</b> to the landing.",
   "exits": {
-    "east": "zone_solenne_residences"
+    "east": "zone_solenne_residences",
+    "in": "zone_solenne_apt_c_bath"
   },
   "flags": {
     "building_name": "Solenne Residences",

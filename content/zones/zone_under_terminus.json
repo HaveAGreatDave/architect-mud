@@ -11,10 +11,10 @@
   "created_by": "the-under",
   "description": "A dry brick landing at the foot of a drain riser — the storm shaft that climbs, up and up, into the back room of a certain repair shop on the surface. The Watch keep this stretch clean and quiet: it is the members' way down, out of the machine's sight the whole descent. The threshold itself lies east.",
   "exits": {
-    "north": "zone_under_deepreach",
     "east": "zone_under_watchthresh",
-    "up": "zone_lw_shop_back",
+    "north": "zone_under_deepreach",
     "south": "zone_under_924_914",
+    "up": "zone_lw_shop_back",
     "west": "zone_under_923_913"
   },
   "flags": {

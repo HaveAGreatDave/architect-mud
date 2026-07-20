@@ -1,14 +1,16 @@
 {
   "description": "A mirrored wardrobe built flush into the suite's panelling, its glass gone soft and dark at the edges. It looks entirely ordinary.",
   "flags": {
-    "teleporter": true,
-    "teleport_target": "zone_echelon_suite_boudoir",
     "concealed": true,
-    "interactions": []
+    "interactions": [],
+    "teleport_target": "zone_echelon_suite_boudoir",
+    "teleporter": true
   },
   "hp": null,
   "hp_max": null,
   "id": "furn_echelon_suite_boudoir_door",
+  "light_type": "lamp",
+  "lumen_output": null,
   "name": "mirrored wardrobe",
   "object_type": "furniture",
   "power_draw_kw": 0,

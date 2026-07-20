@@ -1,0 +1,18 @@
+{
+  "description": "A booth of cracked vinyl in the darkest corner, angled so its occupants can watch the door. This is where the Reach does its actual business.",
+  "flags": {
+    "interactions": [
+      "sit"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_bld_899_1171_a_corner_booth",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the back booth",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_bld_899_1171_lobby"
+}

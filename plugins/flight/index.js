@@ -534,8 +534,14 @@ function sendFlightSim(player, live) {
     runway: runwayFor(zone), // real departure runway from the map's centreline tiles (null = VTOL pad / no strip)
     engineOn: !!live.row.engine_on,
     registration: String(live.row.name || live.type.name || 'MAYFLY').toUpperCase(),
-    owner: (live.row.rental || !live.row.owner_id) ? 'RENTED'
-      : (live.row.owner_id === player.id ? String(player.name || player.username || 'OWNER').toUpperCase() : 'PRIVATE'),
+    rented: !!live.row.rental,
+    // Registered owner on the cockpit certificate: a rental names the hangar/operator it's from
+    // (stamped into custom_data.operator at the rental desk; falls back to the field it's parked
+    // at). An owned craft names you; anyone else's reads PRIVATE; a stock/wreck reads UNREGISTERED.
+    owner: live.row.rental
+      ? String(live.row.custom_data?.operator || zone?.flags?.airfield_name || zone?.name || 'RENTAL FLEET').toUpperCase()
+      : (!live.row.owner_id ? 'UNREGISTERED'
+        : (live.row.owner_id === player.id ? String(player.name || player.username || 'OWNER').toUpperCase() : 'PRIVATE')),
     fuel: ctx.fuel, fuelCap: ctx.fuelCap, map: ctx.map, sky: ctx.sky, biomeBelow: ctx.biomeBelow, minimap: ctx.minimap, fields: ctx.fields,
     checkride: ctx.checkride,   // guided-checkride state carried on the initial cockpit open
     engines: ctx.engines, seats: ctx.seats, occupants: ctx.occupants,   // gauge count + cabin-occupancy readout

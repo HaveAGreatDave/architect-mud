@@ -103,6 +103,24 @@ old-school row into the main room on an environment that already had both) runs
 via `scripts/consolidate-neonvig-poker.mjs` (idempotent; local, then prod after
 the deploy).
 
+## The Coyote's Rest table (The Reach)
+
+A second old-school poker table, same content+seed pattern (no code), in the saloon at
+The Reach — `zone_bld_899_1171_lobby` ("The Saloon Floor"). Themed as a frontier smuggler's
+game; **stakes a notch above the Neon Vig**: `smallBlind 10`/`bigBlind 20`, `buyIn 200`
+(`minBuyIn 100`/`maxBuyIn 2000`), `textTable: true`, `turnTimerSecs 45`.
+
+- **Table id** `gametable_coyote`; furniture `furn_reach_poker_table` + `furn_reach_chair_1..4`
+  (`flags.game_table_id: "gametable_coyote"`, chairs `seat_idx 0..3`, `sit`). The stakes are
+  scratched into the table's rail description (`10/20 · $200 TO SIT · NO MARKERS`).
+- **Dealer** `npc_reach_dealer` — **Ambrose "Doc" Teller** (`personality: dealer`,
+  `flags.table_id: "gametable_coyote"`, homed to the saloon; Margo-style behaviour graph).
+- **Gambler** `npc_reach_gambler` — **Delphine "Del" Roan** (`flags.poker_player: true`,
+  `poker_bankroll 2200`, aggressive/tilty `poker_persona`, `npc_type gambler`, `HAVE_LIFE`
+  graph). Summonable to the felt like Ledger (the bot is matched purely on `poker_player`).
+- **Seed:** `node scripts/seed-coyote-poker.mjs` (local) / `--env-file=.env.prod` (prod) —
+  the `game_tables` row is runtime-classified, same as the Neon Vig table.
+
 ## Verb ownership
 
 | Verb(s) | Owner |

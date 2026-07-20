@@ -11,8 +11,8 @@
   "created_by": "the-under",
   "description": "A tight vertical squeeze the tunnellers called the throat, where the passage pinches down to shoulder width before the system falls away into its deepest reaches. Someone has been through here more than once: there are old chalk marks on the stone, deliberate and faded, and a cross-cut east to a walled cistern. The way down is south.",
   "exits": {
-    "north": "zone_under_groanpipe",
     "east": "zone_under_cistern",
+    "north": "zone_under_groanpipe",
     "south": "zone_under_rustgall",
     "west": "zone_under_923_908"
   },

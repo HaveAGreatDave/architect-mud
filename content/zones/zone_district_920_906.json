@@ -16,10 +16,10 @@
     "building_name": "Mercy Row Clinic",
     "building_type": "clinic",
     "district": "wasteland",
-    "district_id": "district_coldwater",
     "facade": true,
     "is_building": true,
     "planner": "bp_district",
+    "region_id": "region_coldwater",
     "scavenging_table_id": "scav_west_wastes",
     "world_exit_zone": "zone_district_919_906"
   },

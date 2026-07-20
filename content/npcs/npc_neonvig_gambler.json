@@ -3,9 +3,20 @@
   "behaviour_graph": {
     "_start": "start",
     "nodes": {
-      "start": { "type": "start", "next": "have_life" },
-      "have_life": { "type": "action", "action_type": "HAVE_LIFE", "next": "wait" },
-      "wait": { "type": "wait", "seconds": 20, "next": "start" }
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "wait",
+        "type": "action"
+      },
+      "start": {
+        "next": "have_life",
+        "type": "start"
+      },
+      "wait": {
+        "next": "start",
+        "seconds": 20,
+        "type": "wait"
+      }
     }
   },
   "chitchat": [
@@ -18,29 +29,44 @@
   ],
   "description": "A wiry man in a sweat-ringed shirt and a lucky jacket that has clearly run out of luck. His eyes track every chip in the room and every hand at the felt. He's been here since it opened, or possibly since it was built — nobody's sure he ever leaves. They call him Ledger, because he remembers exactly what everyone owes.",
   "dialogue_tree": {
-    "root": {
-      "text": "\"Buy in, sit down, lose slow. That's the whole philosophy.\" He grins, and it doesn't reach his eyes.",
-      "options": [
-        { "label": "Fancy a game?", "next": "game" },
-        { "label": "Any tips?", "next": "tips" },
-        { "label": "Later.", "next": "bye" }
-      ]
+    "bye": {
+      "options": [],
+      "text": "\"I'll be here. I'm always here.\""
     },
     "game": {
-      "text": "\"Always. Grab a seat at the felt and wave me over — I'll pull up a chair and take your credits personally.\"",
       "options": [
-        { "label": "You're on.", "next": "bye" }
-      ]
+        {
+          "label": "You're on.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Always. Grab a seat at the felt and wave me over — I'll pull up a chair and take your credits personally.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Fancy a game?",
+          "next": "game"
+        },
+        {
+          "label": "Any tips?",
+          "next": "tips"
+        },
+        {
+          "label": "Later.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Buy in, sit down, lose slow. That's the whole philosophy.\" He grins, and it doesn't reach his eyes."
     },
     "tips": {
-      "text": "\"Sure. Never bet the rent. Never chase the slots. And never, ever trust a man who tells you when to fold.\" He pauses. \"Present company excepted.\"",
       "options": [
-        { "label": "Noted.", "next": "bye" }
-      ]
-    },
-    "bye": {
-      "text": "\"I'll be here. I'm always here.\"",
-      "options": []
+        {
+          "label": "Noted.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Sure. Never bet the rent. Never chase the slots. And never, ever trust a man who tells you when to fold.\" He pauses. \"Present company excepted.\""
     }
   },
   "faction": null,
@@ -70,6 +96,7 @@
   "studio_zone_id": null,
   "vendor_inventory": [],
   "vendor_restock_rate": 1,
+  "vendor_schedule": {},
   "vendor_shop_name": null,
   "vendor_stock_size": 10,
   "wander_zones": [],

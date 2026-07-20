@@ -11,8 +11,8 @@
   "created_by": "sewer-grid",
   "description": "The sewer beneath Foundry Way is all crumbling grade and standing filth, the kind of dark that has never once been disturbed by anyone with a reason to be here.",
   "exits": {
-    "west": "zone_under_913_913",
-    "south": "zone_under_914_914"
+    "south": "zone_under_914_914",
+    "west": "zone_under_913_913"
   },
   "flags": {
     "district": "sewer",

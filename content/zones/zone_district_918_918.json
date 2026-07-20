@@ -17,8 +17,8 @@
       "The Gate Road"
     ],
     "district": "wasteland",
-    "district_id": "district_coldwater",
     "planner": "bp_district",
+    "region_id": "region_coldwater",
     "terrain": "road"
   },
   "grid_x": 918,
@@ -27,7 +27,7 @@
   "id": "zone_district_918_918",
   "map_id": "map_world",
   "marker": "#",
-  "name": "Grasslands",
+  "name": "The Gate Road",
   "parent_zone": null,
   "updated_at": "1783739474"
 }

@@ -345,7 +345,7 @@ export async function initEnvironment({ query, emitHook, broadcast, getOccupiedZ
   // Weather plugin initializes the forecast via this hook. Must run before
   // loadZonePowerAndLighting + recalcAmbientAndVisibility so state.weatherType
   // is populated when those functions read it.
-  if (emitHook) await emitHook('environment.init', { setWeatherState, setCurrentPrecip, climateProfile: state.activeClimateProfile, registerWeatherField, registerWeatherFieldSnapshot, registerWeatherFieldAdvance, registerWeatherEventStep, registerWeatherEventTrigger });
+  if (emitHook) await emitHook('environment.init', { setWeatherState, setCurrentPrecip, climateProfile: state.activeClimateProfile, registerWeatherField, registerWeatherFieldSnapshot, registerWeatherFieldAdvance, registerWeatherEventStep, registerWeatherEventTrigger, registerWeatherRegionRefresh });
 
   await loadPowerTopology(query);
   loadZonePowerAndLighting();
@@ -1711,8 +1711,10 @@ export function getWeatherFieldSnapshot() {
 // lines to broadcast; weatherEventTrigger(type) starts one on demand (dev tool).
 let weatherEventStep = null;        // () => string[]  (announce lines this step)
 let weatherEventTrigger = null;     // (type) => { ok, line?, label?, error? }
-export function registerWeatherEventStep(fn)    { weatherEventStep = fn; }
-export function registerWeatherEventTrigger(fn) { weatherEventTrigger = fn; }
+let weatherRegionRefresh = null;    // async () => void — rebuild the per-region climate boxes
+export function registerWeatherEventStep(fn)     { weatherEventStep = fn; }
+export function registerWeatherEventTrigger(fn)  { weatherEventTrigger = fn; }
+export function registerWeatherRegionRefresh(fn) { weatherRegionRefresh = fn; }
 
 // Broadcast weather-event announce lines to every player (sky-wide).
 function announceWeatherEvent(lines) {
@@ -1740,6 +1742,25 @@ export function devTriggerWeatherEvent(type) {
   const res = weatherEventTrigger(type);
   if (res?.ok) { announceWeatherEvent(res.line ? [res.line] : []); syncWeatherEventSignal(res.event ?? null); }
   return res;
+}
+
+// Dev tool: set (or clear) a region's static climate lean, then rebuild the field's
+// per-region boxes so it takes effect live. bias = { temp, dryness } | null.
+export async function devSetRegionClimateBias(regionId, bias) {
+  if (!regionId) return { ok: false, error: 'region_id is required' };
+  if (!deps.query) return { ok: false, error: 'DB unavailable' };
+  let value = null;
+  if (bias && (Number(bias.temp) || bias.dryness != null)) {
+    value = { temp: Number(bias.temp) || 0 };
+    if (bias.dryness != null && bias.dryness !== '') value.dryness = Math.max(0, Math.min(1, Number(bias.dryness)));
+  }
+  const { rowCount } = await deps.query(
+    `UPDATE regions SET climate_bias = $2, updated_at = EXTRACT(EPOCH FROM NOW()) WHERE id = $1`,
+    [regionId, value]
+  ).catch(() => ({ rowCount: 0 }));
+  if (!rowCount) return { ok: false, error: `Region ${regionId} not found` };
+  if (weatherRegionRefresh) await weatherRegionRefresh();
+  return { ok: true, climate_bias: value };
 }
 
 // Sample the field for an outdoor zone. Returns null for interiors / zones off
@@ -1790,7 +1811,7 @@ export async function getWeatherMap() {
   const zones = [];
   if (deps.query) {
     const { rows } = await deps.query(
-      `SELECT id, name, grid_x, grid_y FROM zones
+      `SELECT id, name, grid_x, grid_y, flags->>'region_id' AS region_id FROM zones
        WHERE map_id = 'map_world' AND grid_x IS NOT NULL AND grid_y IS NOT NULL
          AND COALESCE(grid_z, 0) >= 0`
     ).catch(() => ({ rows: [] }));
@@ -1801,7 +1822,7 @@ export async function getWeatherMap() {
       // Day humidity is the floor; tiles under cloud / active precip read damper.
       const localHum = localHumidity(baseHum, cloud, precip);
       zones.push({
-        id: z.id, name: z.name, grid_x: z.grid_x, grid_y: z.grid_y,
+        id: z.id, name: z.name, grid_x: z.grid_x, grid_y: z.grid_y, region_id: z.region_id,
         tempC: f ? Math.round(base + f.tempOffset) : Math.round(base),
         cloudCover: cloud,
         precipRate: precip,
@@ -1811,7 +1832,7 @@ export async function getWeatherMap() {
       });
     }
   }
-  return { bounds: snap.bounds, systems: snap.systems, zones };
+  return { bounds: snap.bounds, systems: snap.systems, zones, regionBias: snap.regionBias || [] };
 }
 
 // Muffled rain bleed: a tile that isn't directly under a storm cell but sits
@@ -2024,6 +2045,20 @@ export function getZoneApparentTemperature(zoneId, extraOffsetC = 0) {
   const z = state.zones.get(zoneId);
   if (isIndoorZone(z)) return ambient;
   return apparentTemperature(ambient, state.forecast[0]?.windKph ?? 0, getZoneHumidity(zoneId));
+}
+
+// The temperature a SUBMERGED swimmer's body drifts toward — water conducts heat
+// far faster than air, and the coastal/open water here runs cold regardless of the
+// day's air temp, so a long swim pulls the core toward hypothermia. Read by the
+// body-temperature tick when player._submerged. Authorable per tile via
+// flags.water_temp_c (e.g. a warm lagoon); underwater tiles default colder.
+const SURFACE_WATER_C = 12;
+const DEEP_WATER_C = 7;
+export function waterTemperature(zoneId) {
+  const z = state.zones.get(zoneId);
+  const authored = z?.flags?.water_temp_c;
+  if (Number.isFinite(authored)) return authored;
+  return z?.flags?.underwater ? DEEP_WATER_C : SURFACE_WATER_C;
 }
 
 export function getPowerMap() {
@@ -2422,6 +2457,84 @@ export async function installGenerator({ zoneId, generatorType = 'junction_box',
 
   await recomputePower();
   return { id, zoneId, name: genName, generatorType, capacityKw: capacity, poweredZones: networkZoneIds };
+}
+
+// Region-scoped city plant. Unlike installGenerator's city_plant path — which re-points
+// EVERY outdoor tile map-wide to the new plant (last-installed steals the whole grid) —
+// this powers only the tiles carrying `flags.region_id = regionId`, so each region can own
+// its own plant. It also re-points the junction boxes of buildings that sit in the region
+// (utility room → parent facade → region_id) to this plant, so the region draws off its own
+// power rather than a distant one. Deterministic id `gen_region_<regionId>` → re-runnable.
+// Writes exportable content (generators + power_zones + lighting_states are class:'content').
+export async function installRegionPlant({ regionId, zoneId = null, capacityKw, name } = {}) {
+  markPowerTopologyDirty();
+  const { query } = deps;
+  if (!regionId) throw new Error('regionId is required');
+
+  // The region's outdoor tiles (facades included; interiors never carry region_id).
+  const { rows: tiles } = await query(
+    `SELECT id, name, grid_x, grid_y, flags FROM zones
+      WHERE map_id='map_world' AND flags->>'region_id' = $1
+        AND NOT COALESCE((flags->>'is_apartment')::boolean,false)
+        AND NOT COALESCE((flags->>'is_interior')::boolean,false)`,
+    [regionId]
+  );
+  if (!tiles.length) throw new Error(`Region "${regionId}" has no placed outdoor tiles to power.`);
+
+  // Host the plant: an explicit zone, else a power-type building facade in the region,
+  // else the tile nearest the region's centroid (so it reads as "central").
+  let host = zoneId ? tiles.find(t => t.id === zoneId) || { id: zoneId } : null;
+  if (!host) host = tiles.find(t => (t.flags?.building_type) === 'power');
+  if (!host) {
+    const withGrid = tiles.filter(t => t.grid_x != null);
+    const cx = withGrid.reduce((s, t) => s + t.grid_x, 0) / (withGrid.length || 1);
+    const cy = withGrid.reduce((s, t) => s + t.grid_y, 0) / (withGrid.length || 1);
+    host = withGrid.slice().sort((a, b) =>
+      Math.hypot(a.grid_x - cx, a.grid_y - cy) - Math.hypot(b.grid_x - cx, b.grid_y - cy))[0] || tiles[0];
+  }
+
+  const id = `gen_region_${regionId}`;
+  const capacity = Number(capacityKw) || 10000;
+  const genName = name || `${regionId.replace(/^region_/, '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())} Power Plant`;
+
+  await query(
+    `INSERT INTO generators (id, zone_id, name, generator_type, capacity_kw, fuel_type, fuel_remaining, fuel_burn_rate, connection_range, status, city_generator_id)
+     VALUES ($1,$2,$3,'city_plant',$4,NULL,0,0,0,'online',NULL)
+     ON CONFLICT (id) DO UPDATE SET zone_id=EXCLUDED.zone_id, name=EXCLUDED.name, generator_type='city_plant', capacity_kw=EXCLUDED.capacity_kw`,
+    [id, host.id, genName, capacity]
+  );
+
+  // city_grid power_zones for the region's outdoor tiles ONLY (the scoping fix).
+  for (const t of tiles) {
+    await query(
+      `INSERT INTO power_zones (id, name, source_type, generator_id, capacity_kw, current_load_kw, status)
+       VALUES ($1,$2,'city_grid',$3,$4,0,'powered')
+       ON CONFLICT (id) DO UPDATE SET name=$2, source_type='city_grid', generator_id=$3, capacity_kw=$4`,
+      [t.id, t.name || t.id, id, capacity]
+    );
+    const { rows: fx } = await query(`SELECT COUNT(*)::int AS cnt, COALESCE(SUM(COALESCE(lumen_output,0)),0)::int AS lm FROM furniture WHERE zone_id=$1 AND object_type='light'`, [t.id]);
+    await query(
+      `INSERT INTO lighting_states (zone_id, has_emergency_lighting, artificial_light_level, fixture_count, total_lumens)
+       VALUES ($1,0,0,$2,$3) ON CONFLICT (zone_id) DO UPDATE SET fixture_count=$2, total_lumens=$3`,
+      [t.id, fx[0]?.cnt || 0, fx[0]?.lm || 0]
+    );
+  }
+
+  // Re-point the region's building junction boxes to this plant: utility room →
+  // parent facade → region_id. Their interior power still flows through the JB, but the
+  // JB now hangs off the region's own plant instead of a distant one.
+  const { rows: repointed } = await query(
+    `UPDATE generators SET city_generator_id=$1
+      WHERE generator_type='junction_box'
+        AND zone_id IN (
+          SELECT u.id FROM zones u JOIN zones f ON f.id = u.parent_zone
+           WHERE f.flags->>'region_id' = $2)
+      RETURNING id`,
+    [id, regionId]
+  );
+
+  await recomputePower();
+  return { id, zoneId: host.id, name: genName, capacityKw: capacity, poweredTiles: tiles.length, repointedBuildings: repointed.length };
 }
 
 export async function removeGenerator(generatorId) {

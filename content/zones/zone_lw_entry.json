@@ -11,8 +11,8 @@
   "created_by": "longwatch",
   "description": "The threshold of the Long Watch bunker — a low guard post of salvaged plate and honest carpentry, warm with lantern light after the cold crawl in. A firing slit covers the door; a rack of iron-sighted rifles, immaculately kept, stands within reach of the watch-stander's chair. Past here the bunker opens up east into the common room. Behind you, west, the blast door holds the dark out.",
   "exits": {
-    "west": "zone_under_watchthresh",
-    "east": "zone_lw_commons"
+    "east": "zone_lw_commons",
+    "west": "zone_under_watchthresh"
   },
   "flags": {
     "always_lit": true,

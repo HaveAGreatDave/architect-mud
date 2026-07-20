@@ -1,0 +1,14 @@
+{
+  "description": "A walk-in rain shower behind a single frameless pane of glass — a wide overhead head, hot water, real pressure. Step in and let it run.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_zone_solenne_apt_a_bath_shower",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "shower",
+  "object_type": "shower",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_apt_a_bath"
+}

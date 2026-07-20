@@ -1,0 +1,35 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": null,
+  "color": null,
+  "created_by": null,
+  "description": "A shack of bolted plate and cable, humming to itself at the edge of town — every wire in the Reach runs back here. Scorch marks fan up one wall from the last time it argued with a storm. It shouldn’t work. It works.",
+  "exits": {
+    "east": "zone_the_reach_872_1954",
+    "in": "zone_bld_898_1171_lobby",
+    "north": "zone_the_reach_871_1953",
+    "south": "zone_the_reach_871_1955",
+    "west": "zone_the_reach_870_1954"
+  },
+  "flags": {
+    "building_name": "Power Substation",
+    "building_type": "power",
+    "facade": true,
+    "is_building": true,
+    "lawless": true,
+    "planner": "world_editor",
+    "region_id": "region_the_reach",
+    "world_exit_zone": "zone_the_reach_871_1953"
+  },
+  "grid_x": 898,
+  "grid_y": 1171,
+  "grid_z": 0,
+  "id": "zone_the_reach_871_1954",
+  "map_id": "map_world",
+  "marker": null,
+  "name": "The Dynamo",
+  "parent_zone": null,
+  "updated_at": "1784516450"
+}

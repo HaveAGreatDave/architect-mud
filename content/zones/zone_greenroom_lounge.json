@@ -8,7 +8,7 @@
   "description": "Low light, lower ceilings, and a hush of programmable-tint glass gone the colour of a bruise. A drink-printer glows behind the bar, chrome nozzles poised over a rail of real bottles nobody trusts it to replace. Muted feed-screens throw the studio's colours across leather booths cracked and re-taped, and every ashtray is full. It's swank trying a little too hard, and mostly getting away with it.",
   "exits": {
     "east": "zone_greenroom_booth",
-    "west": "zone_district_912_910"
+    "north": "zone_district_912_910"
   },
   "flags": {
     "building_name": "The Green Room",

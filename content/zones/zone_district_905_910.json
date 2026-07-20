@@ -14,10 +14,10 @@
     "building_name": "The Dead Pigeon",
     "building_type": "bar",
     "district": "wasteland",
-    "district_id": "district_coldwater",
     "facade": true,
     "is_building": true,
     "planner": "bp_district",
+    "region_id": "region_coldwater",
     "world_exit_zone": "zone_district_905_911"
   },
   "grid_x": 905,

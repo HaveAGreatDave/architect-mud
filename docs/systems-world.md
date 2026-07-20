@@ -287,8 +287,13 @@ Helipad) relocated onto it and the legacy ramps de-airfielded. See
 [tools/zone-planner/processlog.md](../tools/zone-planner/processlog.md) for the palette→kind reference
 and the pre-ship checklist.
 
-Note this **generated district** (grid geometry) is distinct from the **district *registry*** below
-(land-use identity derived from zone-id prefix) — two unrelated uses of the word "district".
+Note the zone-planner **"District Editor"** and its `bp_district` marker are a build-time provenance
+tool — distinct from both the **region** (the spatial `regions` table / `flags.region_id` place, e.g.
+Coldwater, edited in the dev-panel World Editor) and the **district *registry*** below (land-use
+identity derived from zone-id prefix). Three different concepts; see
+[reference/land-taxonomy.md](reference/land-taxonomy.md) for the full breakdown and their single
+sources of truth. (The generated grid this tool produced *is* the Coldwater region — but that's the
+region layer's concern, not the planner's.)
 
 ## Districts (sense of place)
 

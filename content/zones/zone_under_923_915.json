@@ -11,9 +11,9 @@
   "created_by": "sewer-grid",
   "description": "A run of domestic storm line under Kessler Street, the walls streaked with a century of household runoff. Somewhere a broken pipe drips with idiot patience.",
   "exits": {
-    "west": "zone_under_922_915",
+    "east": "zone_under_924_915",
     "north": "zone_under_923_914",
-    "east": "zone_under_924_915"
+    "west": "zone_under_922_915"
   },
   "flags": {
     "district": "sewer",

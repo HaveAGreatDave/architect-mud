@@ -1341,7 +1341,10 @@ function ensureFlightSimStyles() {
     .fsim-mfd-lbl{ position:absolute; top:6px; left:7px; z-index:2; font:8px monospace; letter-spacing:1px; color:var(--cy); opacity:.85; }
     /* controls: full yoke + throttle quadrant */
     /* control row: badge (bottom-left) | YOKE (aligned under gauges) | transponder (bottom-right) */
-    .fsim-ctl{ display:flex; gap:6px; align-items:stretch; height:120px; }
+    /* min-height (not a fixed height): the radio deck on the right is taller than 120px, so a
+       hard height clipped its bottom row (buttons + knobs) — worst in fullscreen, which only grows
+       the view, never this band. Letting the row grow to its content shows the whole radio. */
+    .fsim-ctl{ display:flex; gap:6px; align-items:stretch; min-height:120px; }
     /* ── bottom-left placard: a bolted, brushed-metal maker's plate ──────────── */
     .fsim-placard{ position:relative; flex:0.6 1 0; justify-content:center; gap:3px; padding:10px 13px; overflow:hidden;
       border-radius:8px; border:1px solid #10161c;
@@ -1360,7 +1363,10 @@ function ensureFlightSimStyles() {
     .fsim-placard>*{ position:relative; z-index:1; }
     .fsim-plac-title{ font-size:8px; letter-spacing:2px; color:#20262c; text-shadow:0 1px 0 rgba(255,255,255,.3); }
     .fsim-plac-reg{ font-size:16px; font-weight:bold; letter-spacing:2px; color:#14181c; text-shadow:0 1px 0 rgba(255,255,255,.35); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .fsim-plac-own{ font-size:10px; letter-spacing:1px; color:#2a3037; text-shadow:0 1px 0 rgba(255,255,255,.25); }
+    .fsim-plac-model{ font-size:9px; letter-spacing:1.2px; color:#3c434a; text-shadow:0 1px 0 rgba(255,255,255,.24); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .fsim-plac-own{ font-size:10px; letter-spacing:1px; color:#2a3037; text-shadow:0 1px 0 rgba(255,255,255,.25); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    /* engraved field labels (REG / MODEL / OWNER) — the small caps to the left of each value, so the plate reads like a real registration certificate */
+    .fsim-plac-k{ font-size:6px; letter-spacing:1.5px; color:#20262c; text-shadow:0 1px 0 rgba(255,255,255,.3); opacity:.75; margin-right:4px; }
     .fsim-plac-own.rented{ color:#7a3410; text-shadow:0 1px 0 rgba(255,255,255,.25); }
     /* cabin-occupancy readout: engraved label + a row of seat "LED" pips on the plate */
     .fsim-plac-seats{ display:flex; align-items:center; gap:3px; margin-top:3px; }
@@ -1645,6 +1651,8 @@ function ensureFlightSimStyles() {
     .fsim-theme-mule .fsim-plac-title{ color:#a874ff; text-shadow:0 0 6px rgba(168,116,255,.5); }
     .fsim-theme-mule .fsim-plac-reg{ color:#ece2ff; text-shadow:0 0 9px rgba(168,116,255,.5); }
     .fsim-theme-mule .fsim-plac-own{ color:#9686bc; text-shadow:none; }
+    .fsim-theme-mule .fsim-plac-model{ color:#9686bc; text-shadow:none; }
+    .fsim-theme-mule .fsim-plac-k{ color:#7d6ba8; text-shadow:none; }
     .fsim-theme-mule .fsim-plac-own.rented{ color:#ff4a9a; text-shadow:0 0 6px rgba(255,74,154,.4); }
     /* the day-sheen glint reads violet on the carbon */
     .fsim-theme-mule .fsim-plac-sheen{ background:linear-gradient(133deg, rgba(184,150,255,0) 30%, rgba(184,150,255,.42) 46%, rgba(184,150,255,.06) 52%, rgba(184,150,255,0) 66%); }
@@ -2116,7 +2124,7 @@ export function openFlightSim(opts = {}) {
     rwHdg: opts.runway ? opts.runway.hdg : ((((opts.heading || 0) % 360) + 360) % 360),
     rwLen: opts.runway?.len || null,
     airport: opts.airport || 'default',
-    reg: opts.registration || (opts.deviceName || 'MAYFLY').toUpperCase(), owner: opts.owner || 'RENTED',
+    reg: opts.registration || (opts.deviceName || 'MAYFLY').toUpperCase(), owner: opts.owner || 'RENTED', rented: !!opts.rented,
     fuel: opts.fuel ?? 100, fuelCap: opts.fuelCap || 100, warn: null,
     map: opts.map || null, sky: opts.sky || { hour: 12, weather: 'clear', wind: 0 }, biomeBelow: opts.biomeBelow ?? null,
     minimap: opts.minimap || null, mfdMode: 'local', fields: opts.fields || [],
@@ -2200,9 +2208,10 @@ export function openFlightSim(opts = {}) {
     <div class="fsim-ctl">
       <div class="fsim-placard">
         <div class="fsim-plac-sheen" id="fsim-plac-sheen"></div>
-        <div class="fsim-plac-title">◈ AIRCRAFT</div>
+        <div class="fsim-plac-title">◈ REGISTRATION</div>
         <div class="fsim-plac-reg" id="fsim-reg">—</div>
-        <div class="fsim-plac-own" id="fsim-own">—</div>
+        <div class="fsim-plac-model"><span class="fsim-plac-k">MAKE</span><span id="fsim-model">—</span></div>
+        <div class="fsim-plac-own" id="fsim-own"><span class="fsim-plac-k" id="fsim-own-k">OWNER</span><span id="fsim-own-name">—</span></div>
         <div class="fsim-plac-seats" id="fsim-seats"></div>
       </div>
       <div class="fsim-yoke" id="fsim-yoke">${yokeSvgFor(opts.craftType)}</div>
@@ -2213,7 +2222,7 @@ export function openFlightSim(opts = {}) {
           <div class="fsim-radio-frow"><span class="k">NAV</span><b>112.30</b><i>110.90</i></div>
           <div class="fsim-radio-frow sq"><span class="k">SQWK</span><b id="fsim-sq">1200</b><i class="mode">ALT</i></div>
           <div class="fsim-radio-frow"><span class="k">TILE</span><b id="fsim-tile" style="font-size:9px;letter-spacing:0;">—</b></div>
-          <div class="fsim-radio-frow tgt"><span class="k">TGT</span><button class="fsim-tgt-btn" id="fsim-tgt-prev" title="previous field ([)" tabindex="-1">◂</button><b id="fsim-tgt-name">—</b><button class="fsim-tgt-btn" id="fsim-tgt-next" title="next field (])" tabindex="-1">▸</button></div>
+          <div class="fsim-radio-frow tgt"><span class="k">TGT</span><button class="fsim-tgt-btn" id="fsim-tgt-prev" title="previous target ([)" tabindex="-1">◂</button><b id="fsim-tgt-name">—</b><button class="fsim-tgt-btn" id="fsim-tgt-next" title="next target (])" tabindex="-1">▸</button><button class="fsim-tgt-btn" id="fsim-tgt-clear" title="clear all waypoints (\\)" tabindex="-1">✕</button></div>
         </div>
         <div class="fsim-radio-deck">
           <div class="fsim-radio-btns">
@@ -2317,10 +2326,14 @@ export function openFlightSim(opts = {}) {
     }, { passive: false });
   }
 
-  // Aircraft placard (bottom-left): registration + owner (RENTED if none).
-  const regEl = q('#fsim-reg'), ownEl = q('#fsim-own');
+  // Aircraft placard (bottom-left) — a certificate of registration: tail number, make/model,
+  // and the registered owner (your name if it's yours; the hangar/operator it's rented from).
+  const regEl = q('#fsim-reg'), ownEl = q('#fsim-own'), ownNameEl = q('#fsim-own-name'), ownKEl = q('#fsim-own-k'), modelEl = q('#fsim-model');
   if (regEl) regEl.textContent = F.reg;
-  if (ownEl) { ownEl.textContent = F.owner; ownEl.classList.toggle('rented', F.owner === 'RENTED'); }
+  if (modelEl) modelEl.textContent = String(opts.deviceName || P.name || 'AIRCRAFT').toUpperCase();
+  if (ownNameEl) ownNameEl.textContent = F.owner;
+  if (ownKEl) ownKEl.textContent = F.rented ? 'OPER' : 'OWNER';
+  if (ownEl) ownEl.classList.toggle('rented', F.rented);
   // Stamp the aircraft name across the yoke hub (themed accent via CSS) + the cabin readout.
   const yokeName = q('#fsim-yoke-name'); if (yokeName) yokeName.textContent = String(opts.deviceName || P.name || 'AIRCRAFT').toUpperCase();
   // Paint reads on the control itself: the name-plate PANEL takes the interior
@@ -2465,20 +2478,31 @@ export function openFlightSim(opts = {}) {
     F.cargoKg = 0; sendCmdSilent('jettison'); fsimToast('CARGO JETTISONED');
   };
   // Target guide — [ / ] (and the radio ◂/▸ buttons) step the destination the target ring /
-  // Home waypoint locks onto: airfields AND named landmarks (Precinct 9, the Embassy…), so you
-  // can point the guide at any real place. Keyed by id so the choice survives the list re-sort.
-  const targetList = () => [...(Array.isArray(F.fields) ? F.fields : []), ...(Array.isArray(F.landmarks) ? F.landmarks : [])];
+  // Home waypoint locks onto: airfields, named landmarks (Precinct 9, the Embassy…) AND spatial
+  // regions (Coldwater Basin, The Reach…), so you can point the guide at any real place. Keyed
+  // by id so the choice survives the list re-sort. ✕ (radio button / \ key) clears it entirely.
+  const targetList = () => [...(Array.isArray(F.fields) ? F.fields : []), ...(Array.isArray(F.landmarks) ? F.landmarks : []), ...(Array.isArray(F.regions) ? F.regions : [])];
   const cycleApTarget = (dir) => {
     const list = targetList();
     if (!list.length) { fsimToast('— NO DESTINATIONS IN RANGE —'); return; }
+    F.apCleared = false;   // stepping the guide re-arms it after a clear
     let i = list.findIndex((f) => f.id === F.apTargetId);
     i = i < 0 ? (dir > 0 ? 0 : list.length - 1) : (i + dir + list.length) % list.length;
     F.apTargetId = list[i].id;
     fsimToast(`◎ ${(list[i].name || 'FIELD').toUpperCase()} · ${list[i].dist}mi`);
   };
+  // Clear all waypoints — drop the target so no ring / Home marker is drawn, and hold that
+  // cleared state (the per-frame resolve won't auto-snap back to the nearest field) until the
+  // pilot picks a new target with [ / ] or the radio ◂/▸.
+  const clearApTarget = () => {
+    F.apTargetId = null; F.apCleared = true;
+    const nmEl = document.getElementById('fsim-tgt-name');
+    if (nmEl) nmEl.textContent = '—';
+    fsimToast('◎ WAYPOINTS CLEARED');
+  };
   let setExternal = () => {};   // assigned when the ◎ EXT button is wired below; V key + button share it
   let setWeapon = () => {};     // assigned in the weapons wiring below; 1/2 keys + WPN button share it
-  const KEYS = new Set(['a', 'z', 'q', 'w', 'e', 's', 'y', 'h', 'f', 'g', 'j', 'v', 'x', 'c', '1', '2', ' ', '[', ']', ',', '.']);
+  const KEYS = new Set(['a', 'z', 'q', 'w', 'e', 's', 'y', 'h', 'f', 'g', 'j', 'v', 'x', 'c', '1', '2', ' ', '[', ']', '\\', ',', '.']);
   const onKeyDown = (e) => {
     const tag = (e.target && e.target.tagName) || '';
     if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable)) return;
@@ -2506,8 +2530,9 @@ export function openFlightSim(opts = {}) {
       case 'f': if (!e.repeat && F.reportedAirborne) sendCmdSilent('flares'); break;   // countermeasures (server confirms via air_threat)
       case '1': if (!e.repeat) setWeapon('guns'); break;   // weapon select
       case '2': if (!e.repeat) setWeapon('msl'); break;
-      case '[': if (!e.repeat) cycleApTarget(-1); break;   // cycle target airport
+      case '[': if (!e.repeat) cycleApTarget(-1); break;   // cycle target (fields / landmarks / regions)
       case ']': if (!e.repeat) cycleApTarget(1); break;
+      case '\\': if (!e.repeat) clearApTarget(); break;    // clear all waypoints
       case ' ': F.firing = true; break;   // hold to fire guns (frame loop squirts bursts)
     }
   };
@@ -2750,9 +2775,10 @@ export function openFlightSim(opts = {}) {
   // same `refuel` verb the command line uses; the server tops the tank and pushes fuel back.
   add(q('#fsim-refuel'), 'click', (e) => { e.stopPropagation(); sendCmdSilent('refuel'); fsimToast('REFUELLING…'); });
 
-  // Radio target-cycle buttons — the panel twin of the [ / ] keys.
+  // Radio target-cycle buttons — the panel twin of the [ / ] / \ keys.
   add(q('#fsim-tgt-prev'), 'click', () => cycleApTarget(-1));
   add(q('#fsim-tgt-next'), 'click', () => cycleApTarget(1));
+  add(q('#fsim-tgt-clear'), 'click', () => clearApTarget());
 
   // Focus model: the sim pane owns the keyboard by default on embark (so A/Z/Q/E/S…
   // drive the plane immediately). Clicking anywhere on the pane takes focus off the
@@ -3567,16 +3593,20 @@ function fsimFrame(now) {
   // tile-offset from the craft, for the windshield's in-view accent ring / off-screen Home
   // waypoint. Tracked by airfield id; falls back to the nearest whenever the target drops out.
   let apTarget = null;
-  // Destinations = airfields + named landmarks (same shape), so the guide can lock onto either.
-  const fieldList = [...(Array.isArray(F.fields) ? F.fields : []), ...(Array.isArray(F.landmarks) ? F.landmarks : [])];
-  if (fieldList.length) {
+  // Destinations = airfields + named landmarks + spatial regions (same shape), so the guide can
+  // lock onto any of them. When the pilot has cleared all waypoints (F.apCleared) we resolve
+  // nothing and leave the readout blank — no auto-snap back to the nearest field.
+  const fieldList = [...(Array.isArray(F.fields) ? F.fields : []), ...(Array.isArray(F.landmarks) ? F.landmarks : []), ...(Array.isArray(F.regions) ? F.regions : [])];
+  const nmEl = document.getElementById('fsim-tgt-name');
+  if (F.apCleared) {
+    if (nmEl) nmEl.textContent = '—';
+  } else if (fieldList.length) {
     if (!F.apTargetId || !fieldList.some((f) => f.id === F.apTargetId)) F.apTargetId = fieldList[0].id;
     const tgt = fieldList.find((f) => f.id === F.apTargetId) || fieldList[0];
     if (tgt.gx != null) {
       const adx = tgt.gx - F.pos.x, ady = tgt.gy - F.pos.y;
       apTarget = { dx: adx, dy: ady, name: tgt.name, dist: Math.round(Math.hypot(adx, ady)) };
     }
-    const nmEl = document.getElementById('fsim-tgt-name');
     if (nmEl) nmEl.textContent = (tgt.name || 'FIELD').slice(0, 10).toUpperCase();
   }
 
@@ -4129,6 +4159,7 @@ export function flightSimContext(msg) {
   if (msg.minimap) F.minimap = msg.minimap;
   if (msg.fields) F.fields = msg.fields;
   if (msg.landmarks) F.landmarks = msg.landmarks;   // named buildings the target guide can lock onto (cycled alongside fields)
+  if (msg.regions) F.regions = msg.regions;   // spatial world-map places (Coldwater Basin…) the guide can lock onto (cycled alongside fields/landmarks)
   if ('onField' in msg) F.onField = !!msg.onField;   // rolled onto a real airfield → auto-park + open the hangar on full stop
   if ('onYacht' in msg) F.onYacht = !!msg.onYacht;   // a VTOL set down alongside the Echelon → auto-land on her helipad
   if (msg.occupants) { F.occupants = msg.occupants; if (msg.seats) F.seats = msg.seats; renderSeats(F); }   // cabin readout keeps pace with boarding

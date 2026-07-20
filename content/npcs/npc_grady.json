@@ -252,8 +252,8 @@
             {
               "flag": "quest_first_hour",
               "op": "eq",
-              "value": "completed",
-              "scope": "player"
+              "scope": "player",
+              "value": "completed"
             }
           ],
           "label": "I put those clonejackers down.",

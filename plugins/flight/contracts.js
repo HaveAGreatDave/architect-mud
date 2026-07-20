@@ -17,11 +17,12 @@
 
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
-import { getZone, liveAircraft, out, persist, fieldFor as fieldOf, isContinuous, pushContext, effLoadout, BAND_BURN, REFUEL_PRICE_PER_UNIT, rentalOpFee } from './state.js';
+import { getZone, liveAircraft, out, persist, fieldFor as fieldOf, isContinuous, pushContext, effLoadout, installedKits, BAND_BURN, REFUEL_PRICE_PER_UNIT, rentalOpFee } from './state.js';
 import { findPath } from '../../server/engine/pathfinding.js';
 import { registerAction, dispatchAction } from '../../server/engine/actions.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { adjustCredits } from '../../server/engine/economy.js';
+import { skillCheck, awardSkillUse } from '../../server/engine/skills.js';
 
 const nowSec = () => Math.floor(Date.now() / 1000);
 const cheb = (ax, ay, bx, by) => Math.max(Math.abs(ax - bx), Math.abs(ay - by));
@@ -293,7 +294,7 @@ export async function waitingDropAt(zoneId, playerId) {
 // way as an honest freight job. Every pallet weighs exactly SLOT_KG, so an
 // aircraft's hold naturally caps you at floor(cargoCap / SLOT_KG) of them —
 // "one per cargo slot" falls straight out of the existing weight math.
-const FENCE_ORIGIN = 'zone_district_925_903'; // Coldwater Regional — the smuggle/fence drop, consolidated onto the district airfield
+const FENCE_ORIGIN = 'zone_the_reach_870_1958'; // Buzzard Field, The Reach — the frontier grows the raw crop; you fly it in to process. (Amos opens the runs; Sully's tip points here too.)
 const SLOT_KG = 100;
 const AIR_UNLOCK_FLAG = 'air_cargo_unlocked';
 const MAX_FENCE_WAITING = 6;                 // the standing pool size, topped up as pallets get flown out
@@ -453,36 +454,131 @@ async function cmdLoadCargo(args, raw, player) {
   return { type: 'output', message: `<span class="item-grant">${loaded.map(d => d.label).join(', ')} loaded (${weight}kg, ${loaded.length} load${loaded.length > 1 ? 's' : ''}). Fly it to <b>${destName}</b> — the last leg home is on the courier once it's on the ground there.</span>` };
 }
 
+// ── Customs scan (contraband air cargo) ────────────────────────────────────────
+// Landing a hold of raw drugs at a POLICED field (any airfield NOT flags.airfield_lawless
+// — so the Reach's Buzzard strip is a safe base) triggers a customs scan: a Deception
+// check whose difficulty climbs with the purest drug AND the size of the haul. Pass = it
+// lands as normal; fail = the inspector flags you and you choose (bribe or bolt). A
+// Smuggler's False-Bottom Hold (kit_smuggler_hold) sometimes hides the load with no roll
+// at all, and eases the roll when it doesn't. A lawless field never scans.
+const pendingCustoms = new Map(); // playerId → { dropIds, bribe, fieldZoneId, aircraftId, timer }
+const CUSTOMS_DECIDE_MS = 45_000;
+
+function clearCustoms(playerId) {
+  const p = pendingCustoms.get(playerId);
+  if (p?.timer) clearTimeout(p.timer);
+  pendingCustoms.delete(playerId);
+}
+
+// Move ONE fence pallet's raws into the player's kit + bump fence standing.
+async function deliverFenceDrop(player, live, d) {
+  await query("UPDATE cargo_drops SET status='delivered' WHERE id=$1", [d.id]);
+  const cd = live.row.custom_data || {};
+  cd.cargoWeight = Math.max(0, (cd.cargoWeight || 0) - d.weight_kg);
+  live.row.custom_data = cd; await persist(live);
+  const manifest = d.contents || [];
+  for (const m of manifest) {
+    const ex = await query('SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL LIMIT 1', [player.id, m.itemId]);
+    if (ex.rows.length) await query('UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2', [m.qty, ex.rows[0].id]);
+    else await query('INSERT INTO player_inventory (id,player_id,item_id,quantity) VALUES ($1,$2,$3,$4)', [randomUUID(), player.id, m.itemId, m.qty]);
+  }
+  const trustGain = Math.max(1, Math.round(manifest.reduce((s, m) => s + (m.tier || 1) * m.qty, 0) / 6));
+  const next = (Number(await getFlag('player', 'bm_trust', player)) || 0) + trustGain;
+  await setFlag('player', 'bm_trust', String(next), player);
+  return { list: manifest.map(m => `${m.qty}× ${m.name}`).join(', '), trustGain, next };
+}
+async function deliverAllFence(player, live, drops) {
+  for (const d of drops) {
+    const r = await deliverFenceDrop(player, live, d);
+    out(player.id, `<span class="item-grant">${r.list}, quietly moved into your kit. <span class="text-dim">The fence hears about a clean run this size. (standing +${r.trustGain} → ${r.next})</span></span>`);
+  }
+}
+// Confiscate the pallets (dumped out of the hold) + a smuggling charge — heat/wanted,
+// but no arrest, so you can still fly out. Cops at the field may move on you.
+async function seizeFenceDrops(player, live, drops, fieldZoneId) {
+  for (const d of drops) {
+    await query("UPDATE cargo_drops SET status='lost' WHERE id=$1", [d.id]);
+    if (live) { const cd = live.row.custom_data || {}; cd.cargoWeight = Math.max(0, (cd.cargoWeight || 0) - d.weight_kg); live.row.custom_data = cd; await persist(live); }
+  }
+  await dispatchAction({ type: 'CHARGE_CRIME', actor: player, params: { key: 'manufacturing', zoneId: fieldZoneId } }).catch(() => {});
+}
+async function customsBolt(player, live, drops, fieldZoneId, auto) {
+  clearCustoms(player.id);
+  await seizeFenceDrops(player, live, drops, fieldZoneId);
+  out(player.id, auto
+    ? `<span class="text-amber">You hang back too long. The inspector trips the alarm — the guards seize the pallets and your name goes on a list. You gun it off the ramp with the heat on you.</span>`
+    : `<span class="text-amber">You leave the load and bolt for your plane. The alarm shrills behind you — the pallets are gone and you're marked, but you're rolling before they can close the gate.</span>`);
+}
+
 // Called from index.cmdLandResolve on a successful landing, alongside checkContractDelivery.
 export async function checkCargoDropDelivery(player, live, fieldZoneId) {
   const { rows } = await query(
     "SELECT * FROM cargo_drops WHERE aircraft_id=$1 AND owner_id=$2 AND status='loaded' AND dest_zone=$3",
     [live.row.id, player.id, fieldZoneId]);
-  for (const d of rows) {
+  if (!rows.length) return;
+  const fence = rows.filter(d => d.kind === 'fence');
+  const freight = rows.filter(d => d.kind !== 'fence');
+
+  // Legit freight always clears — pay it out and unload.
+  for (const d of freight) {
     await query("UPDATE cargo_drops SET status='delivered' WHERE id=$1", [d.id]);
     const cd = live.row.custom_data || {};
     cd.cargoWeight = Math.max(0, (cd.cargoWeight || 0) - d.weight_kg);
-    live.row.custom_data = cd;
-    await persist(live);
-
-    if (d.kind === 'fence') {
-      const manifest = d.contents || [];
-      for (const m of manifest) {
-        const ex = await query('SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL LIMIT 1', [player.id, m.itemId]);
-        if (ex.rows.length) await query('UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2', [m.qty, ex.rows[0].id]);
-        else await query('INSERT INTO player_inventory (id,player_id,item_id,quantity) VALUES ($1,$2,$3,$4)', [randomUUID(), player.id, m.itemId, m.qty]);
-      }
-      const trustGain = Math.max(1, Math.round(manifest.reduce((s, m) => s + (m.tier || 1) * m.qty, 0) / 6));
-      const next = (Number(await getFlag('player', 'bm_trust', player)) || 0) + trustGain;
-      await setFlag('player', 'bm_trust', String(next), player);
-      const list = manifest.map(m => `${m.qty}× ${m.name}`).join(', ');
-      out(player.id, `<span class="item-grant">The pallet's waiting when you touch down — ${list}, quietly moved into your kit. <span class="text-dim">The fence hears about a clean run this size. (standing +${trustGain} → ${next})</span></span>`);
-    } else {
-      player.credits = (player.credits || 0) + d.reward;
-      await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
-      out(player.id, `<span class="item-grant">${d.label} handed off to a courier here — it'll be waiting at home. Paid <b>${d.reward}c</b>.</span>`);
-    }
+    live.row.custom_data = cd; await persist(live);
+    player.credits = (player.credits || 0) + d.reward;
+    await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
+    out(player.id, `<span class="item-grant">${d.label} handed off to a courier here — it'll be waiting at home. Paid <b>${d.reward}c</b>.</span>`);
   }
+  if (!fence.length) return;
+
+  // Contraband: a lawless field waves it through; a policed one runs customs.
+  const policed = !getZone(fieldZoneId)?.flags?.airfield_lawless;
+  if (!policed) { await deliverAllFence(player, live, fence); return; }
+
+  const maxTier = Math.max(1, ...fence.flatMap(d => (d.contents || []).map(m => m.tier || 1)));
+  const hold = installedKits(live.row.custom_data).includes('kit_smuggler_hold');
+
+  // The false bottom sometimes hides the load outright — no roll.
+  if (hold && Math.random() < 0.4) {
+    out(player.id, `<span class="ambient">Customs runs a scanner over your hold. The false bottom does its job — nothing pings. You taxi in clean.</span>`);
+    await deliverAllFence(player, live, fence); return;
+  }
+  // Deception scan — purer drugs + bigger hauls raise it; the hold eases it.
+  const diff = Math.max(1, 3 + maxTier + (fence.length - 1) - (hold ? 2 : 0));
+  const chk = await skillCheck(player, 'deception', diff);
+  if (chk.success) {
+    await awardSkillUse(player.id, 'deception', chk.margin);
+    out(player.id, `<span class="ambient">You hold the inspector's eye and keep your hands loose. The scanner blinks green; they wave you onto the ramp.</span>`);
+    await deliverAllFence(player, live, fence); return;
+  }
+
+  // Caught. Offer bribe or bolt; a timeout auto-bolts.
+  const bribe = 200 * fence.length + 150 * maxTier;
+  clearCustoms(player.id);
+  const timer = setTimeout(() => { customsBolt(player, live, fence, fieldZoneId, true).catch(() => {}); }, CUSTOMS_DECIDE_MS);
+  pendingCustoms.set(player.id, { dropIds: fence.map(d => d.id), bribe, fieldZoneId, aircraftId: live.row.id, timer });
+  out(player.id, `<span class="text-amber">⚠ Customs pulls your hold aside — <b>raw material</b> lights the scanner. The inspector's hand hovers over the alarm, palm turned up.</span>\n<span class="ambient">Slip them <b>${bribe}c</b> and it disappears — <span class="action-link" data-action="cmd" data-cmd="customs bribe">customs bribe</span> — or leave the load and run for it — <span class="action-link" data-action="cmd" data-cmd="customs bolt">customs bolt</span>. <span class="text-dim">(They move on you in 45s either way.)</span></span>`);
+}
+
+// The bribe/bolt reply to a flagged customs scan.
+async function cmdCustoms(args, raw, player) {
+  const p = pendingCustoms.get(player.id);
+  if (!p) return { type: 'emote', message: "Customs isn't holding anything of yours right now." };
+  const choice = (args[0] || 'bolt').toLowerCase();
+  const live = liveAircraft.get(p.aircraftId);
+  const { rows: drops } = await query("SELECT * FROM cargo_drops WHERE id = ANY($1) AND status='loaded'", [p.dropIds]);
+
+  if (choice === 'bribe') {
+    if (!(await adjustCredits(player, -p.bribe, undefined, 'flight:customs-bribe')))
+      return { type: 'error', message: `The inspector wants ${p.bribe}c and your account won't cover it. Pay up — or <b>customs bolt</b> and lose the load.` };
+    clearCustoms(player.id);
+    if (live && drops.length) await deliverAllFence(player, live, drops);
+    return { type: 'output', message: `<span class="ambient">The credits change hands below the desk. The inspector's face goes flat; the scanner "malfunctions," and you taxi in with the load intact.</span>` };
+  }
+  // bolt (default)
+  if (live) await customsBolt(player, live, drops, p.fieldZoneId, false);
+  else clearCustoms(player.id);
+  return { type: 'noop' };
 }
 
 // ── jettison — blow the cargo doors and dump the hold (fails the active job) ───
@@ -529,4 +625,5 @@ export const commands = {
   loadcargo: cmdLoadCargo,
   freightlicense: cmdFreightLicense,
   cargolicense: cmdFreightLicense,
+  customs: cmdCustoms,
 };

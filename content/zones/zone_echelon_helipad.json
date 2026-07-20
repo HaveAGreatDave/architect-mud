@@ -14,19 +14,22 @@
     "north": "zone_echelon_landing"
   },
   "flags": {
-    "yacht": true,
-    "echelon": true,
-    "naval_ambience": true,
-    "echelon_helipad": true,
+    "airfield_fuels": [
+      "avgas",
+      "jet"
+    ],
     "always_lit": true,
-    "is_interior": true,
-    "is_building": true,
-    "open_sky": true,
+    "building_name": "The Echelon",
+    "echelon": true,
+    "echelon_helipad": true,
     "hangar_interior": true,
     "hangar_ramp": "zone_echelon_exterior",
-    "airfield_fuels": ["avgas", "jet"],
-    "building_name": "The Echelon",
-    "world_exit_zone": "zone_echelon_exterior"
+    "is_building": true,
+    "is_interior": true,
+    "naval_ambience": true,
+    "open_sky": true,
+    "world_exit_zone": "zone_echelon_exterior",
+    "yacht": true
   },
   "grid_x": 0,
   "grid_y": 1,

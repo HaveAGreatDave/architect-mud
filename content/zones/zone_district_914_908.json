@@ -20,10 +20,10 @@
     "building_name": "Solenne Residences",
     "building_type": "apartment",
     "district": "wasteland",
-    "district_id": "district_coldwater",
     "facade": true,
     "is_building": true,
     "planner": "bp_district",
+    "region_id": "region_coldwater",
     "world_exit_zone": "zone_district_914_909"
   },
   "grid_x": 914,

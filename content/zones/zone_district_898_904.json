@@ -14,8 +14,8 @@
   },
   "flags": {
     "district": "wasteland",
-    "district_id": "district_coldwater",
-    "planner": "bp_district"
+    "planner": "bp_district",
+    "region_id": "region_coldwater"
   },
   "grid_x": 898,
   "grid_y": 904,

@@ -1,0 +1,27 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": null,
+  "color": null,
+  "created_by": "utility-room-author",
+  "description": "A cramped below-grade utility room: bare concrete, sweating pipes, and the building junction box humming in its steel cabinet.",
+  "exits": {
+    "up": "zone_bld_897_1175_lobby"
+  },
+  "flags": {
+    "is_interior": true,
+    "lawless": true,
+    "utility_room": true,
+    "world_exit_zone": "zone_the_reach_870_1958"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_bld_897_1175_lobby",
+  "map_id": "map_int_bld_897_1175",
+  "marker": null,
+  "name": "Hangar Bay — Utility Room",
+  "parent_zone": "zone_the_reach_870_1958",
+  "updated_at": "1784515573"
+}

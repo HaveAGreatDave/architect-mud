@@ -1,0 +1,18 @@
+{
+  "description": "A made bed with an army blanket squared off at the corners, a gun-belt looped over the post. Whoever sleeps here sleeps light.",
+  "flags": {
+    "interactions": [
+      "lie"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_bld_900_1171_a_bed",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "a bed",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_bld_900_1171_bed"
+}

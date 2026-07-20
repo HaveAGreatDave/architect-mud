@@ -17,10 +17,10 @@
     "building_name": "Fabrication Shed",
     "building_type": "fabrication",
     "district": "yards",
-    "district_id": "district_coldwater",
     "facade": true,
     "is_building": true,
     "planner": "bp_district",
+    "region_id": "region_coldwater",
     "world_exit_zone": "zone_district_925_910"
   },
   "grid_x": 925,

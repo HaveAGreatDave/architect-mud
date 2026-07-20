@@ -161,3 +161,48 @@ function dpAlert(message, opts = {}) {
   });
 })();
 
+// ── Draggable FLOATING panels (the app-wide rule) ───────────────────────────
+// Any `position:fixed` panel that (a) has an `id`, (b) carries the `.dp-float-panel`
+// class, and (c) contains a `.dp-float-drag` handle becomes moveable by dragging that
+// handle — one delegated pointer handler, no per-panel wiring. This is the standard for
+// in-panel floating cards (tool palettes, inspectors); prefer it over bespoke drag code.
+// Position is remembered per panel id in window.dpFloatPos so it survives the frequent
+// innerHTML re-renders — a panel's template should seed its anchor from dpFloatPos[id]
+// (see dpFloatAnchor). Buttons/inputs inside the handle still work (we ignore them).
+window.dpFloatPos = window.dpFloatPos || {};
+// Style string for a floating panel's anchor: the remembered drag position if any, else
+// the passed default (e.g. 'top:100px;right:28px'). Use in the panel's inline style.
+function dpFloatAnchor(id, dflt) {
+  const p = window.dpFloatPos[id];
+  return p ? `left:${p.left}px;top:${p.top}px` : dflt;
+}
+(function enableFloatingPanelDrag() {
+  if (window.__dpFloatDrag) return;         // install once
+  window.__dpFloatDrag = true;
+  let panel = null, startX = 0, startY = 0, baseL = 0, baseT = 0, key = '';
+  function onMove(e) {
+    if (!panel) return;
+    const left = baseL + (e.clientX - startX), top = baseT + (e.clientY - startY);
+    panel.style.left = left + 'px'; panel.style.top = top + 'px';
+    panel.style.right = 'auto'; panel.style.bottom = 'auto';
+    if (key) window.dpFloatPos[key] = { left, top };
+  }
+  function onUp() {
+    panel = null;
+    document.removeEventListener('pointermove', onMove);
+    document.removeEventListener('pointerup', onUp);
+  }
+  document.addEventListener('pointerdown', (e) => {
+    if (!e.target.closest?.('.dp-float-drag')) return;
+    if (e.target.closest('button, input, select, textarea, a')) return;  // let controls through
+    panel = e.target.closest('.dp-float-panel');
+    if (!panel) return;
+    const r = panel.getBoundingClientRect();  // seed from current (maybe right-anchored) position
+    baseL = r.left; baseT = r.top; startX = e.clientX; startY = e.clientY;
+    key = panel.id || '';
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+    e.preventDefault();                       // no text selection while dragging
+  });
+})();
+

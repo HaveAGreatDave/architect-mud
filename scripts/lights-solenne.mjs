@@ -9,7 +9,8 @@ import { query } from '../server/models/db.js';
 const ZONES = [
   'zone_solenne_lobby', 'zone_solenne_elevator', 'zone_solenne_residences',
   'zone_solenne_apt_a', 'zone_solenne_apt_b', 'zone_solenne_apt_c',
-  'zone_solenne_penthouse', 'zone_solenne_ph_landing',
+  'zone_solenne_apt_a_bath', 'zone_solenne_apt_b_bath', 'zone_solenne_apt_c_bath',
+  'zone_solenne_penthouse', 'zone_solenne_penthouse_bath', 'zone_solenne_ph_landing',
   'zone_solenne_gym', 'zone_solenne_skydeck',
   'zone_util_zone_solenne_lobby',
 ];

@@ -253,7 +253,7 @@ const PANELS = {
     render: renderVineSuite,
   },
   maps: {
-    title: 'District Map',
+    title: 'Region Maps',
     description: 'Visual layout editor for connected zone maps.',
     fetch: () => API('/maps'),
     render: renderMapsPanel,
@@ -261,10 +261,10 @@ const PANELS = {
   },
   world: {
     title: 'World Map',
-    description: 'Every district on the global grid. Create a new district (size + base terrain), jump into one to edit its tiles, or drag to reposition it. Changes are staged.',
+    description: 'Every region on the global grid. Create a new region (size + base terrain), jump into one to edit its tiles, or drag to reposition it. Changes are staged.',
     fetch: async () => {
-      const [d, m] = await Promise.all([API('/maps/districts'), API('/maps/map_world')]);
-      return { districts: d?.districts || [], zones: m?.zones || [] };
+      const [d, m] = await Promise.all([API('/maps/regions'), API('/maps/map_world')]);
+      return { regions: d?.regions || [], zones: m?.zones || [] };
     },
     noEdit: true,
     render: renderWorldEditor,

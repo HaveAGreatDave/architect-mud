@@ -3,26 +3,88 @@
   "behaviour_graph": {
     "_start": "start",
     "nodes": {
-      "start": { "next": "has_target", "type": "start" },
-      "has_target": { "condition_type": "HAS_TARGET", "ifFalse": "idle", "ifTrue": "low_hp", "type": "condition" },
-      "low_hp": { "condition_type": "HP_BELOW", "ifFalse": "attack", "ifTrue": "flee", "params": { "pct": 20 }, "type": "condition" },
-      "attack": { "action_type": "ATTACK", "next": "loop", "type": "action" },
-      "flee": { "action_type": "FLEE", "next": "loop", "type": "action" },
-      "idle": { "action_type": "IDLE", "next": "loop", "type": "action" },
-      "loop": { "next": "start", "type": "loop" }
+      "attack": {
+        "action_type": "ATTACK",
+        "next": "loop",
+        "type": "action"
+      },
+      "flee": {
+        "action_type": "FLEE",
+        "next": "loop",
+        "type": "action"
+      },
+      "has_target": {
+        "condition_type": "HAS_TARGET",
+        "ifFalse": "idle",
+        "ifTrue": "low_hp",
+        "type": "condition"
+      },
+      "idle": {
+        "action_type": "IDLE",
+        "next": "loop",
+        "type": "action"
+      },
+      "loop": {
+        "next": "start",
+        "type": "loop"
+      },
+      "low_hp": {
+        "condition_type": "HP_BELOW",
+        "ifFalse": "attack",
+        "ifTrue": "flee",
+        "params": {
+          "pct": 20
+        },
+        "type": "condition"
+      },
+      "start": {
+        "next": "has_target",
+        "type": "start"
+      }
     }
   },
   "body_parts": [
-    { "part": "head", "soak": {}, "weight": 10 },
-    { "part": "torso", "soak": {}, "weight": 40 },
-    { "part": "left_arm", "soak": {}, "weight": 12 },
-    { "part": "right_arm", "soak": {}, "weight": 12 },
-    { "part": "left_leg", "soak": {}, "weight": 13 },
-    { "part": "right_leg", "soak": {}, "weight": 13 }
+    {
+      "part": "head",
+      "soak": {},
+      "weight": 10
+    },
+    {
+      "part": "torso",
+      "soak": {},
+      "weight": 40
+    },
+    {
+      "part": "left_arm",
+      "soak": {},
+      "weight": 12
+    },
+    {
+      "part": "right_arm",
+      "soak": {},
+      "weight": 12
+    },
+    {
+      "part": "left_leg",
+      "soak": {},
+      "weight": 13
+    },
+    {
+      "part": "right_leg",
+      "soak": {},
+      "weight": 13
+    }
   ],
   "butcher_difficulty": 3,
   "butcher_table": [
-    { "item": "item_raw_meat", "qty": [1, 2], "weight": 50 }
+    {
+      "item": "item_raw_meat",
+      "qty": [
+        1,
+        2
+      ],
+      "weight": 50
+    }
   ],
   "death_message": "The blind crawler shudders through its whole pale length and goes slack.",
   "description": "A hunched, chitinous grub grown to the size of a large dog, pallid and eyeless, its front pair of limbs ending in flat digging claws. It followed the warm-water pipes deeper than anything should and thrived down here, where the pickings never learned to fight back.",
@@ -41,12 +103,41 @@
   "hp_max": 20,
   "id": "enemy_blind_crawler",
   "loot_table": [
-    { "item": "item_scrap_metal", "qty": [1, 1], "weight": 22 },
-    { "item": "item_depleted_battery", "qty": [1, 1], "weight": 14 },
-    { "item": "item_credit_chip", "credits": [6, 18], "qty": [1, 1], "weight": 18 }
+    {
+      "item": "item_scrap_metal",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 22
+    },
+    {
+      "item": "item_depleted_battery",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 14
+    },
+    {
+      "credits": [
+        6,
+        18
+      ],
+      "item": "item_credit_chip",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 18
+    }
   ],
   "name": "blind crawler",
   "weapon": [
-    { "max": 4, "min": 2, "type": "kinetic" }
+    {
+      "max": 4,
+      "min": 2,
+      "type": "kinetic"
+    }
   ]
 }

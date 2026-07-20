@@ -14,14 +14,14 @@
     "north": "zone_echelon_engineering"
   },
   "flags": {
-    "yacht": true,
+    "always_lit": true,
+    "building_name": "The Echelon",
     "echelon": true,
     "echelon_broadcast": true,
-    "is_interior": true,
     "is_building": true,
-    "building_name": "The Echelon",
+    "is_interior": true,
     "world_exit_zone": "zone_echelon_exterior",
-    "always_lit": true
+    "yacht": true
   },
   "grid_x": 0,
   "grid_y": 1,

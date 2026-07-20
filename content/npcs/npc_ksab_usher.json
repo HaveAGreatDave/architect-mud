@@ -76,6 +76,7 @@
   "name": "Priya Vantz",
   "npc_type": "vendor",
   "sex": "female",
+  "studio_zone_id": null,
   "vendor_inventory": [
     {
       "item_id": "item_holo_ticket",
@@ -130,5 +131,6 @@
   "vendor_shop_name": "KSAB Box Office",
   "vendor_stock_size": 40,
   "wander_zones": [],
-  "wanders": 0
+  "wanders": 0,
+  "work_zone_id": null
 }

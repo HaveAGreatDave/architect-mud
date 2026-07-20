@@ -6,7 +6,6 @@ import { tickEntityAI, moveEntity, ensureBehaviourGraph } from './ai-behaviour.j
 import { npcBanterTick } from './npc-banter.js';
 import { restockAllVendors } from './vendor.js';
 import { tickEffects, applyEffect } from './effects.js';
-import { getItem } from './items-cache.js';
 import { tickSleep, releaseApartment, gameToday, ymd, addGameDays, gameDaysBetween, RENT_PERIOD_DAYS } from './apartments.js';
 import { fireHook } from './plugins.js';
 import { emit, on } from './events.js';
@@ -15,7 +14,7 @@ import { hasExit, neighborZoneIds } from './exits.js';
 import { setPosture, forceStand } from './posture.js';
 import { carryCapacity } from './commands/inventory.js';
 import { query, logActivity } from '../models/db.js';
-import { getEnvironmentState, getZoneTemperature, getZoneApparentTemperature, recordLightningKill, getZoneStormIntensity, getWeatherFieldSnapshot } from './environment.js';
+import { getEnvironmentState, getZoneTemperature, getZoneApparentTemperature, waterTemperature, recordLightningKill, getZoneStormIntensity, getWeatherFieldSnapshot } from './environment.js';
 import { tickDrugDecay, tickDrugs, tickOnsets, tickWithdrawal, clearActiveDrugState } from './drugs.js';
 import { getTimeScale } from './gametime.js';
 
@@ -316,21 +315,9 @@ async function tick() {
 
   // Status effects + phased drug effects
   for (const [playerId, player] of world.players) {
-    // Drowning: open water is impassable (engine:water move gate), but a teleport,
-    // script, or glitch can still strand a player on a water tile. The black water
-    // is lethal — you can't tread it — so anyone who ends up there drowns at once.
-    // A boat-carrier is boating across (the move gate permits that), so they're spared.
-    const pz = world.zones.get(player.current_zone);
-    if (pz?.flags?.water && player.hp > 0) {
-      const { rows: carried } = await query(
-        `SELECT item_id FROM player_inventory WHERE player_id=$1 AND container_id IS NULL`,
-        [playerId]);
-      if (!carried.some(r => getItem(r.item_id)?.tags?.boat)) {
-        player.hp = 0;
-        await handlePlayerDeath(player, null, { type: 'drowning', label: 'Drowned in the open water' });
-        continue;
-      }
-    }
+    // (Water is no longer instantly lethal — the swimming plugin governs it:
+    // stamina drain, breath underwater, and a `drowning` status effect that bleeds
+    // HP when you run dry. The old insta-drown failsafe was retired with swimming.)
     const hpBefore = player.hp;
     const stamBefore = player.stamina;
     const messages = [...tickEffects(player), ...tickDrugs(player), ...tickOnsets(player)];
@@ -920,14 +907,22 @@ async function resourceTick() {
     const tempOffset = zone?.flags?.temp_offset || 0;
     // Apparent ("feels like") temperature — folds the day's wind chill and
     // humidity into the ambient the body actually has to cope with (outdoors).
-    const effectiveAmbient = getZoneApparentTemperature(player.current_zone, tempOffset);
+    // A SUBMERGED swimmer (player._submerged, owned by the swimming plugin) drifts
+    // toward the cold WATER temperature instead, and is soaked (full wet multiplier)
+    // regardless of gear — a long cold swim pulls the core toward hypothermia via
+    // the existing cold-drift + <30°C lethal path below. Insulation (a wetsuit) still
+    // applies, so gear can offset the pull.
+    const submerged = !!player._submerged;
+    const effectiveAmbient = submerged
+      ? waterTemperature(player.current_zone)
+      : getZoneApparentTemperature(player.current_zone, tempOffset);
 
     // Effective temperature = ambient + clothing insulation (insulation in °C offset).
     // Bare core skin (no torso/legs clothing) subtracts an exposure penalty on the
     // cold side only — nakedness bites in the cold but still vents heat when hot.
     const warmthTemp = effectiveAmbient + (player.insulation || 0) - (player.exposurePenalty || 0);
     const heatTemp   = effectiveAmbient + (player.insulation || 0);
-    const playerWetness = player.wetness ?? 0;
+    const playerWetness = submerged ? 100 : (player.wetness ?? 0);
 
     // Below 10°C → cooling; above 35°C → heating; in the comfort band between,
     // the body's own thermoregulation restores the 37°C setpoint.

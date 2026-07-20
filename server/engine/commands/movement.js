@@ -10,7 +10,6 @@ import { emit } from '../events.js';
 import { closeShopSession } from '../vendor-session.js';
 import { computeCarriedWeight, carryCapacity, formatWeight } from './inventory.js';
 import { OPPOSITE } from '../directions.js';
-import { getItem } from '../items-cache.js';
 import { forceStand } from '../posture.js';
 import { registerMoveGate, runMoveGates } from '../movement-gates.js';
 import { doorGuardsOnlyUnownedApartment } from '../apartments.js';
@@ -83,19 +82,12 @@ registerMoveGate(async ({ player, opts }) => {
   }
 }, 'engine:encumbrance');
 
-// Open water is impassable on foot. Entering a water tile (zone flags.water)
-// needs a boat — an uncontained inventory item tagged 'boat' (capability tag,
-// same shape as the fishing rod / hack deck). Cheap: the DB check only runs when
-// the destination is actually water, so dry-land moves never touch it.
-registerMoveGate(async ({ player, to }) => {
-  if (!to?.flags?.water) return;
-  const { rows } = await query(
-    `SELECT item_id FROM player_inventory WHERE player_id=$1 AND container_id IS NULL`,
-    [player.id]
-  );
-  if (rows.some(r => getItem(r.item_id)?.tags?.boat)) return;
-  return { block: true, message: 'Black water laps at the edge — you need a boat to cross open water.' };
-}, 'engine:water');
+// Water is no longer a wall. Entering a water tile is a SWIM, not a block — the
+// swimming plugin (plugins/swimming) charges the stamina, soaks you, pulls your
+// core toward hypothermia in the cold, and drowns you if you run dry. Carrying an
+// uncontained `boat`-tagged item rides you across dry and free (handled there).
+// So there is deliberately no engine:water move gate anymore; the old boat-or-die
+// gate was retired when swimming shipped.
 
 function buildArriveMsg(name, arrivalDir, sourceZoneName) {
   if (arrivalDir === 'out') return `${name} arrives from outside.`;

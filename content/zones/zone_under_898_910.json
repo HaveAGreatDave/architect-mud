@@ -11,8 +11,8 @@
   "created_by": "sewer-grid",
   "description": "A grimy trunk of storm tunnel under Halcyon Boulevard, the concrete cracked and weeping, the air thick with the sour breath of the drains.",
   "exits": {
-    "west": "zone_under_897_910",
-    "east": "zone_under_899_910"
+    "east": "zone_under_899_910",
+    "west": "zone_under_897_910"
   },
   "flags": {
     "district": "sewer",

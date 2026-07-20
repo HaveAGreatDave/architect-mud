@@ -91,6 +91,7 @@ function renderTimeWeatherPanel(data) {
       <div style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:20px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
           <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim)">Weather Map <span style="font-weight:400;text-transform:none;color:var(--text-dim)">— live</span></div>
+          <select id="tw-wm-region" onchange="setWeatherRegion(this.value)" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:3px 6px;font-size:11px"></select>
           <div id="tw-wm-toggles" style="display:flex;gap:6px;flex-wrap:wrap">
             <button class="action-btn" onclick="setWeatherOverlay('temp')">🌡 Temp</button>
             <button class="action-btn" onclick="setWeatherOverlay('cloud')">☁ Cloud</button>
@@ -99,6 +100,7 @@ function renderTimeWeatherPanel(data) {
             <button class="action-btn" onclick="setWeatherOverlay('wind')">💨 Wind</button>
           </div>
         </div>
+        <div id="tw-wm-climate" style="font-size:11px;color:var(--text-dim);margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap"></div>
         <div id="tw-weathermap" style="overflow:auto;max-width:100%"><div style="color:var(--text-dim);font-size:12px">Loading weather map…</div></div>
         <div id="tw-wm-legend" style="font-size:10px;color:var(--text-dim);margin-top:8px"></div>
       </div>
@@ -347,6 +349,78 @@ function buildWeatherMapSVG(data, overlay) {
   </svg>`;
 }
 
+// region_id → display name, lazily fetched from /maps/regions (same source the Maps
+// panel uses). Falls back to the raw id label if the fetch hasn't landed yet.
+let _twRegionNames = null;
+async function _twLoadRegionNames() {
+  if (_twRegionNames) return;
+  const d = await API('/maps/regions').catch(() => null);
+  _twRegionNames = new Map((d?.regions || []).map(r => [r.id, r.name]));
+  const host = document.getElementById('tw-weathermap');
+  if (host && window._twWeatherMapData) paintWeatherMap();   // relabel options once names arrive
+}
+
+// Rebuild the region dropdown from the region_ids actually present in the current
+// weather-map data, so empty regions never clutter the list. There is no "all" view —
+// the map always shows exactly one region, defaulting to the Coldwater Basin.
+const TW_DEFAULT_REGION = 'region_coldwater';
+function _twPaintRegionOptions(zones) {
+  const sel = document.getElementById('tw-wm-region');
+  if (!sel) return;
+  const ids = [...new Set(zones.map(z => z.region_id).filter(Boolean))].sort();
+  // Resolve the active region: keep the current pick if it's still present, else the
+  // Coldwater Basin default, else the first available region.
+  let cur = window._twRegion;
+  if (!cur || !ids.includes(cur)) cur = ids.includes(TW_DEFAULT_REGION) ? TW_DEFAULT_REGION : (ids[0] || '');
+  window._twRegion = cur;
+  const label = id => (_twRegionNames?.get(id)) || id;
+  sel.innerHTML = ids.map(id => `<option value="${id}"${id === cur ? ' selected' : ''}>${label(id)}</option>`).join('');
+  sel.value = cur;
+}
+
+function setWeatherRegion(id) {
+  window._twRegion = id || '';
+  paintWeatherMap();
+}
+
+// Compact per-region climate-lean editor. Prefills from the field's *effective*
+// bias (data.regionBias — the applied numbers, incl. any hardcoded default), and
+// writes an override to regions.climate_bias, which rebuilds the field live.
+function _twPaintClimateEditor() {
+  const host = document.getElementById('tw-wm-climate');
+  if (!host) return;
+  const region = window._twRegion || '';
+  if (!region) { host.innerHTML = ''; host.dataset.region = ''; return; }
+  // Don't clobber the inputs while the dev is typing (the 12s poll re-paints).
+  const active = document.activeElement;
+  if (host.dataset.region === region && active && (active.id === 'tw-cl-temp' || active.id === 'tw-cl-dry')) return;
+  host.dataset.region = region;
+  const name = (_twRegionNames?.get(region)) || region;
+  const cur = (window._twWeatherMapData?.regionBias || []).find(b => b.id === region) || {};
+  const temp = cur.temp != null ? cur.temp : '';
+  const dry = cur.dryness != null ? cur.dryness : '';
+  host.innerHTML =
+    `<span>Climate lean — <strong style="color:var(--text)">${name}</strong>:</span>` +
+    `<label>Temp <input id="tw-cl-temp" type="number" step="1" value="${temp}" placeholder="0" style="width:52px;background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:3px;padding:2px 4px"> °C</label>` +
+    `<label>Dryness <input id="tw-cl-dry" type="number" step="0.05" min="0" max="1" value="${dry}" placeholder="normal" style="width:64px;background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:3px;padding:2px 4px"></label>` +
+    `<button class="action-btn" onclick="saveRegionClimate()" style="font-size:11px;padding:2px 8px">Save</button>` +
+    `<span style="color:var(--text-dim)">(blank = baseline; dryness 0–1, lower = drier)</span>`;
+}
+
+async function saveRegionClimate() {
+  const region = window._twRegion || '';
+  if (!region) return;
+  const tv = document.getElementById('tw-cl-temp')?.value ?? '';
+  const dv = document.getElementById('tw-cl-dry')?.value ?? '';
+  const body = { region_id: region, temp: tv === '' ? 0 : Number(tv), dryness: dv === '' ? null : Number(dv) };
+  const r = await API('/environment/climate/region-bias', 'POST', body);
+  if (r && r.ok) {
+    const d = await API('/environment/weathermap');   // pull the now-applied field
+    if (d && !d.error) { window._twWeatherMapData = d; paintWeatherMap(); }
+    if (typeof toast === 'function') toast(`Climate lean saved for ${(_twRegionNames?.get(region)) || region}`);
+  } else if (typeof toast === 'function') toast((r && r.error) || 'Save failed', true);
+}
+
 function paintWeatherMap() {
   const host = document.getElementById('tw-weathermap');
   if (!host) return;
@@ -355,8 +429,21 @@ function paintWeatherMap() {
     host.innerHTML = '<div style="color:var(--text-dim);font-size:12px">No outdoor zones placed on the map.</div>';
     return;
   }
+  if (!_twRegionNames) _twLoadRegionNames();
+  _twPaintRegionOptions(data.zones);
+  _twPaintClimateEditor();
   const overlay = window._twOverlay || 'temp';
-  host.innerHTML = buildWeatherMapSVG(data, overlay);
+  const region = window._twRegion || '';
+  // Scoping to a region drops data.bounds so buildWeatherMapSVG auto-fits to just the
+  // region's tiles (otherwise the whole-world snapshot bounds re-expand the extent).
+  const scoped = region
+    ? { ...data, zones: data.zones.filter(z => z.region_id === region), bounds: null }
+    : data;
+  if (!scoped.zones.length) {
+    host.innerHTML = '<div style="color:var(--text-dim);font-size:12px">No sampled zones in this region.</div>';
+  } else {
+    host.innerHTML = buildWeatherMapSVG(scoped, overlay);
+  }
   const legend = document.getElementById('tw-wm-legend');
   if (legend) legend.textContent = WM_LEGEND[overlay] || '';
 }

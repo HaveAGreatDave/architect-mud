@@ -1,0 +1,14 @@
+{
+  "description": "A recessed ceiling fixture buzzing on the motel circuit.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_bld_900_1171_cabin_marla",
+  "light_type": "overhead",
+  "lumen_output": 1200,
+  "name": "Overhead Light",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_bld_900_1171_cabin_marla"
+}

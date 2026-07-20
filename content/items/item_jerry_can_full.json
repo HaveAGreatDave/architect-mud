@@ -2,8 +2,8 @@
   "description": null,
   "flags": {
     "prefill": {
-      "fluid_type": "fuel",
-      "fluid_amount": 40
+      "fluid_amount": 40,
+      "fluid_type": "fuel"
     }
   },
   "id": "item_jerry_can_full",

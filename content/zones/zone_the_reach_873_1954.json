@@ -1,0 +1,35 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "outdoors",
+  "audio_theme_id": null,
+  "bg_color": null,
+  "color": null,
+  "created_by": null,
+  "description": "A low motel of poured slag and scavenged glass at the edge of town, a buzzing VACANCY sign missing its C, and a porch light kept burning like a habit. This is Amos Dune's place — where the Reach's regulars keep rooms, and where being allowed a key means Amos has decided you're staying.",
+  "exits": {
+    "east": "zone_the_reach_874_1954",
+    "in": "zone_bld_900_1171_lobby",
+    "north": "zone_the_reach_873_1953",
+    "south": "zone_the_reach_873_1955",
+    "west": "zone_the_reach_872_1954"
+  },
+  "flags": {
+    "building_name": "Residence",
+    "building_type": "residential",
+    "facade": true,
+    "is_building": true,
+    "lawless": true,
+    "planner": "world_editor",
+    "region_id": "region_the_reach",
+    "world_exit_zone": "zone_the_reach_873_1953"
+  },
+  "grid_x": 900,
+  "grid_y": 1171,
+  "grid_z": 0,
+  "id": "zone_the_reach_873_1954",
+  "map_id": "map_world",
+  "marker": null,
+  "name": "The Layover",
+  "parent_zone": null,
+  "updated_at": "1784517512"
+}

@@ -1,0 +1,16 @@
+{
+  "description": "A soft-edged basin of pale stone lit from the skylight above. A slim tap runs hot or cold, clean water — enough to drink, or to wash the day off your hands.",
+  "flags": {
+    "water_source": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_zone_solenne_apt_c_bath_sink",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "sink",
+  "object_type": "sink",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_apt_c_bath"
+}

@@ -6,17 +6,50 @@
     "hallucination": {
       "duration_seconds": 600,
       "events": [
-        { "atSec": 25, "text": "[trip]A cold electric tingle climbs your spine and the edges of everything start to breathe.[/trip]" },
-        { "atSec": 55, "text": "[trip]Colours are getting louder. The light has opinions now.[/trip]" },
-        { "atSec": 100, "text": "[trip]The room inhales and the walls flow outward into cathedral vaults of liquid light.[/trip]" },
-        { "atSec": 160, "text": "[trip]Fractal vines of every impossible colour crawl up from the floor and flower midair.[/trip]" },
-        { "atSec": 230, "text": "[trip]Your own hands leave glowing trails, a hundred hands fanning out from your wrists.[/trip]" },
-        { "atSec": 300, "text": "[trip]Sound has texture. A distant machine hum is velvet dragged across your teeth.[/trip]" },
-        { "atSec": 360, "text": "[trip]You are absolutely certain, for one perfect second, that you understand it all.[/trip]" },
-        { "atSec": 410, "text": "[trip]A stranger who is also you steps out of the wall, waves, and folds back in.[/trip]" },
-        { "atSec": 470, "text": "[trip]The grinning sun from the tab is still on the ceiling, but it's tired now, and so are you.[/trip]" },
-        { "atSec": 540, "text": "[trip]The fractals fold themselves away one by one, leaving the walls plain and faintly glowing.[/trip]" },
-        { "atSec": 585, "text": "[trip]You're mostly back. Everything is very slightly too meaningful, and will be for a while.[/trip]" }
+        {
+          "atSec": 25,
+          "text": "[trip]A cold electric tingle climbs your spine and the edges of everything start to breathe.[/trip]"
+        },
+        {
+          "atSec": 55,
+          "text": "[trip]Colours are getting louder. The light has opinions now.[/trip]"
+        },
+        {
+          "atSec": 100,
+          "text": "[trip]The room inhales and the walls flow outward into cathedral vaults of liquid light.[/trip]"
+        },
+        {
+          "atSec": 160,
+          "text": "[trip]Fractal vines of every impossible colour crawl up from the floor and flower midair.[/trip]"
+        },
+        {
+          "atSec": 230,
+          "text": "[trip]Your own hands leave glowing trails, a hundred hands fanning out from your wrists.[/trip]"
+        },
+        {
+          "atSec": 300,
+          "text": "[trip]Sound has texture. A distant machine hum is velvet dragged across your teeth.[/trip]"
+        },
+        {
+          "atSec": 360,
+          "text": "[trip]You are absolutely certain, for one perfect second, that you understand it all.[/trip]"
+        },
+        {
+          "atSec": 410,
+          "text": "[trip]A stranger who is also you steps out of the wall, waves, and folds back in.[/trip]"
+        },
+        {
+          "atSec": 470,
+          "text": "[trip]The grinning sun from the tab is still on the ceiling, but it's tired now, and so are you.[/trip]"
+        },
+        {
+          "atSec": 540,
+          "text": "[trip]The fractals fold themselves away one by one, leaving the walls plain and faintly glowing.[/trip]"
+        },
+        {
+          "atSec": 585,
+          "text": "[trip]You're mostly back. Everything is very slightly too meaningful, and will be for a while.[/trip]"
+        }
       ],
       "intensity": 0.8,
       "mode": "overlay",

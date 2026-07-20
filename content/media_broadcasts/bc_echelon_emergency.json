@@ -10,13 +10,27 @@
   "loop": 1,
   "message_interval": 6,
   "messages": [
-    { "text": "▓▓▓  EMERGENCY BROADCAST — STAND BY  ▓▓▓" },
-    { "text": "All programming has been suspended. This is a message from the Echelon." },
-    { "text": "Remain where you are. The Architect is aware of your situation." },
-    { "text": "The Architect is always aware." },
-    { "text": "Do not attempt to leave the district. Do not attempt to interfere." },
-    { "text": "Normal service will resume when it is permitted to resume." },
-    { "text": "Compliance is appreciated. This has been a message from the Echelon." }
+    {
+      "text": "▓▓▓  EMERGENCY BROADCAST — STAND BY  ▓▓▓"
+    },
+    {
+      "text": "All programming has been suspended. This is a message from the Echelon."
+    },
+    {
+      "text": "Remain where you are. The Architect is aware of your situation."
+    },
+    {
+      "text": "The Architect is always aware."
+    },
+    {
+      "text": "Do not attempt to leave the district. Do not attempt to interfere."
+    },
+    {
+      "text": "Normal service will resume when it is permitted to resume."
+    },
+    {
+      "text": "Compliance is appreciated. This has been a message from the Echelon."
+    }
   ],
   "name": "Echelon Emergency Address",
   "news_pools": null,

@@ -14,6 +14,20 @@ async function ensureDistrictData() {
   _districtMeta = d?.districts || {};
   _districtPrefix = d?.prefix || {};
 }
+
+// Region table (spatial regions — flags.region_id), fetched once to name the Zones
+// panel's region dropdown. Mirrors the Maps tab's region switcher. _regionMeta:
+// region_id -> name; cached module-wide, re-render once it arrives.
+let _regionMeta = null;
+async function ensureRegionData() {
+  if (_regionMeta) return;
+  const d = await API('/maps/regions').catch(() => null);
+  _regionMeta = Object.fromEntries((d?.regions || []).map(r => [r.id, r.name]));
+}
+// Which region the Zones accordion is scoped to: null = all regions, a region_id,
+// or '__none__' for zones carrying no region_id (legacy / hand-authored).
+let _zonesRegionFilter = null;
+function setZonesRegion(id) { _zonesRegionFilter = id || null; renderZonesTable(allRecords); }
 // Client-side mirror of server districtFor(): explicit flags.district override,
 // then the id-prefix table, then a lethal-zone fallback to 'hazard', else the
 // urban default. Uses the zone's already-computed `danger` field.
@@ -33,23 +47,38 @@ function districtKeyFor(z) {
 function renderZonesTable(records) {
   const panel = document.getElementById('list-panel');
   if (!records.length) { panel.innerHTML = '<div style="padding:24px;color:var(--text-dim)">No records found.</div>'; return; }
-  if (!_districtMeta) {
+  if (!_districtMeta || !_regionMeta) {
     panel.innerHTML = '<div style="padding:24px;color:var(--text-dim)">Loading districts…</div>';
-    ensureDistrictData().then(() => renderZonesTable(records));
+    Promise.all([ensureDistrictData(), ensureRegionData()]).then(() => renderZonesTable(records));
     return;
   }
+
+  // Region scoping (the dropdown). null = show every region; a region_id keeps only
+  // zones carrying it; '__none__' keeps zones with no region_id. Interiors have no
+  // region_id — they ride along with their building (claimed by the BFS below), so
+  // the filter is applied to buildings/exteriors/tiles, never to nested rooms.
+  const rf = _zonesRegionFilter;
+  const regionMatch = z => {
+    if (!rf) return true;
+    const r = z.flags?.region_id || null;
+    return rf === '__none__' ? !r : r === rf;
+  };
 
   const byId = new Map(records.map(z => [z.id, z]));
   const isInterior = z => !!(z.flags?.is_interior || z.flags?.is_apartment);
   const isBuilding = z => !!z.flags?.is_building;
   const isExterior = z => !isInterior(z) && !isBuilding(z);
-  // A bulk map-grid tile (planner-stamped zone_district_<x>_<y>) vs a hand-authored
-  // named exterior — decides what gets collapsed into the Terrain fold.
-  const isGridTile = z => /^zone_district_\d+_\d+$/.test(z.id || '');
+  // A bulk region grid tile (auto-generated terrain — `zone_district_<x>_<y>`,
+  // `zone_<region>_<x>_<y>`, optional `_z<z>`) vs a hand-authored named exterior:
+  // decides what collapses into the Terrain fold. ANY region's coordinate-suffixed
+  // grid tiles group here so a region never spams the list (interiors + buildings are
+  // already excluded before this test). This is the standard for every region.
+  const isGridTile = z => /_-?\d+_-?\d+(_z-?\d+)?$/.test(z.id || '');
   const byName = (a, b) => String(a.name || a.id).localeCompare(String(b.name || b.id));
-  // Terrain classification for sub-grouping the grid tiles: water flag, road_/
-  // runway_ icon, or a green-dominant surface colour (grassland); else 'land'.
+  // Terrain classification for sub-grouping the grid tiles: the `flags.terrain` SSOT
+  // wins (scrub/concrete/dock/…), else inferred water/road/grass, else 'land'.
   const terrainKey = z => {
+    if (z.flags?.terrain) return z.flags.terrain;
     if (z.flags?.water) return 'water';
     if (/^(road_|runway_)/.test(z.flags?.icon || '')) return 'road';
     const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(z.bg_color || '');
@@ -63,7 +92,7 @@ function renderZonesTable(records) {
   // it. Unclaimed interiors fall to the Unattached-rooms band at the bottom.
   const claimed = new Set();
   const buildingMembers = new Map();   // buildingId -> [interior zones], reachable via exits
-  for (const b of records.filter(isBuilding)) {
+  for (const b of records.filter(z => isBuilding(z) && regionMatch(z))) {
     const members = [];
     const queue = [b.id];
     const seen = new Set([b.id]);
@@ -90,6 +119,7 @@ function renderZonesTable(records) {
   const eTiles = new Map();      // district key -> [grid tiles]
   for (const z of records) {
     if (isInterior(z)) continue;   // nested under its building, or an orphan
+    if (!regionMatch(z)) continue; // scoped out by the region dropdown
     const k = districtKeyFor(z);
     if (isBuilding(z)) push(bDistrict, k, z);
     else if (isGridTile(z)) push(eTiles, k, z);
@@ -197,7 +227,15 @@ function renderZonesTable(records) {
     <div class="z-children" style="display:none">${inner}</div>
   </div>`;
 
-  const TERRAIN_SUB = [['water', '🌊 Water'], ['road', '🛣 Roads'], ['grass', '🌿 Grasslands'], ['land', '▪ Land']];
+  // Labels + display order for the terrain sub-buckets. Covers the full terrain palette
+  // (docs/systems-terrain.md) plus the inferred fallbacks; any key not listed still renders
+  // under its raw name at the end, so no tile is ever silently dropped from the fold.
+  const TERRAIN_LABELS = {
+    road: '🛣 Roads', water: '🌊 Water', dock: '🪵 Docks', grass: '🌿 Grass', park: '🌳 Park',
+    concrete: '▪ Concrete', asphalt: '▪ Asphalt', dirt: '▪ Dirt', sand: '🏜 Sand', gravel: '▪ Gravel',
+    scrub: '🌵 Scrubland', redrock: '🪨 Red Rock', ash: '🌫 Ash', marsh: '🐊 Marsh', land: '▪ Land',
+  };
+  const TERRAIN_ORDER = Object.keys(TERRAIN_LABELS);
   const districtBlock = (key, meta) => {
     const blds = (bDistrict.get(key) || []).slice().sort(byName);
     const named = (eNamed.get(key) || []).slice().sort(byName);
@@ -211,8 +249,14 @@ function renderZonesTable(records) {
     if (tiles.length) {
       const groups = {};
       for (const z of tiles) (groups[terrainKey(z)] = groups[terrainKey(z)] || []).push(z);
-      const tinner = TERRAIN_SUB.filter(([k]) => groups[k]?.length).map(([k, label]) =>
-        subFold(`__tile_${key}_${k}__`, label, groups[k].length,
+      // Render every present terrain group (known order first, then any extras alpha) —
+      // never filter to a fixed list, or an unlisted terrain would vanish from the tree.
+      const keys = Object.keys(groups).sort((a, b) => {
+        const ia = TERRAIN_ORDER.indexOf(a), ib = TERRAIN_ORDER.indexOf(b);
+        return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.localeCompare(b);
+      });
+      const tinner = keys.map(k =>
+        subFold(`__tile_${key}_${k}__`, TERRAIN_LABELS[k] || `▪ ${k}`, groups[k].length,
           groups[k].sort(byName).map(z => exteriorRow(z, 60)).join(''), 44)).join('');
       inner += subFold(`__tiles_${key}__`, '<em>Terrain tiles</em>', tiles.length, tinner, 28);
     }
@@ -228,7 +272,20 @@ function renderZonesTable(records) {
   };
 
   // --- Assemble ---
-  let html = `<div style="padding:10px 12px"><button class="action-btn" onclick="openBigMap()">🗺 View Big Map</button></div>`;
+  // Region dropdown: every region present in the data (named from _regionMeta), plus
+  // an "All regions" default and an "Unassigned" bucket for zones lacking a region_id.
+  const presentRegions = new Set();
+  for (const z of records) if (z.grid_x != null && z.flags?.region_id) presentRegions.add(z.flags.region_id);
+  const hasUnassigned = records.some(z => !isInterior(z) && z.grid_x != null && !z.flags?.region_id);
+  const regionOpt = (val, label) => `<option value="${val}"${(_zonesRegionFilter || '') === val ? ' selected' : ''}>${label}</option>`;
+  const regionOpts = [regionOpt('', 'All regions')]
+    .concat([...presentRegions].sort().map(id => regionOpt(id, _regionMeta[id] || id)))
+    .concat(hasUnassigned ? [regionOpt('__none__', 'Unassigned')] : [])
+    .join('');
+  let html = `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px">
+    <button class="action-btn" onclick="openBigMap()">🗺 View Big Map</button>
+    <select class="settings-select" style="margin-left:auto;width:auto;padding:4px 26px 4px 10px;font-size:12px" onchange="setZonesRegion(this.value)" title="Scope the zone list to one region">${regionOpts}</select>
+  </div>`;
   // Districts in the curated server order; any district holding zones is shown,
   // any unrecognised key (shouldn't happen) falls to the end.
   const present = new Set([...bDistrict.keys(), ...eNamed.keys(), ...eTiles.keys()]);
@@ -236,7 +293,7 @@ function renderZonesTable(records) {
   for (const k of present) if (!_districtMeta[k]) orderedKeys.push(k);
   html += orderedKeys.map(k => districtBlock(k, _districtMeta[k])).join('');
 
-  const orphans = records.filter(z => isInterior(z) && !claimed.has(z.id)).sort(byName);
+  const orphans = records.filter(z => isInterior(z) && !claimed.has(z.id) && regionMatch(z)).sort(byName);
   if (orphans.length) {
     html += catchAllBand('__orphan_rooms__', 'Unattached rooms', orphans.length,
       orphans.map(z => interiorRow(z, 28)).join(''));

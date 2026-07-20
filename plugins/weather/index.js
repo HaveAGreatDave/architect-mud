@@ -221,7 +221,64 @@ const field = {
   baseSeverity: 0,    // day-level extreme-weather severity floor from forecast[0]
   bounds: null,       // { minX, maxX, minY, maxY } of map_world, cached
   wind: null,         // { angle, kph } — the prevailing wind that drifts every cell
+  regionBoxes: [],    // [{ id, temp, dryness, minX..maxY, area }] — static per-region climate lean
 };
+
+// ── Per-region climate bias ─────────────────────────────────────────────────
+// A STATIC lean folded into the field sampler so a whole region reads warmer/
+// drier (or cooler/wetter) than the global forecast — WITHOUT its own forecast.
+// Because both the visual field (weather map, ambient light) and felt temperature
+// (getZoneTemperature → body-temp/survival) read sampleWeatherAt, this single spot
+// covers both. Regions absent here are the baseline (no bias).
+//   temp    — °C added to every cell's tempOffset in the region (felt warmer/cooler)
+//   dryness — 0..1 multiplier on local precip + cloud (0.6 = ~40% drier/clearer)
+// Boxes are resolved from each region's zone extent; a cell picks the SMALLEST box
+// it falls in, so a small region nested inside a big one wins. The effective bias
+// per region is regions.climate_bias (dev-panel editable) if set, else the
+// hardcoded default below — so The Reach ships hot+dry with no DB write required,
+// and a dev can retune any region (or bias a new one) from the Weather tab.
+const REGION_BIAS = {
+  region_the_reach: { temp: 9, dryness: 0.6 },   // far-future frontier: hotter + drier
+};
+
+function effectiveBias(id, dbBias) {
+  const b = dbBias || REGION_BIAS[id] || null;
+  if (!b) return null;
+  const temp = Number(b.temp) || 0;
+  const dryness = (b.dryness == null) ? null : Number(b.dryness);
+  if (!temp && dryness == null) return null;   // baseline — no box
+  return { temp, dryness };
+}
+
+async function computeRegionBoxes() {
+  // Join each region's stored bias to its zone extent on the outdoor map. Regions
+  // with neither a stored bias nor a hardcoded default fall out (baseline).
+  const { rows } = await query(
+    `SELECT r.id AS id, r.climate_bias AS bias,
+            MIN(z.grid_x) AS minx, MAX(z.grid_x) AS maxx,
+            MIN(z.grid_y) AS miny, MAX(z.grid_y) AS maxy
+       FROM regions r
+       JOIN zones z ON z.flags->>'region_id' = r.id
+      WHERE z.map_id = 'map_world' AND z.grid_x IS NOT NULL AND z.grid_y IS NOT NULL
+      GROUP BY r.id, r.climate_bias`
+  ).catch(() => ({ rows: [] }));
+  return rows
+    .map(r => ({ r, eff: effectiveBias(r.id, r.bias) }))
+    .filter(({ r, eff }) => eff && r.minx != null)
+    .map(({ r, eff }) => ({
+      id: r.id, temp: eff.temp, dryness: eff.dryness,
+      minX: r.minx, maxX: r.maxx, minY: r.miny, maxY: r.maxy,
+      area: (r.maxx - r.minx + 1) * (r.maxy - r.miny + 1),
+    }))
+    .sort((a, b) => a.area - b.area);   // smallest first → nested region wins
+}
+
+function regionBiasAt(gx, gy) {
+  for (const r of field.regionBoxes) {
+    if (gx >= r.minX && gx <= r.maxX && gy >= r.minY && gy <= r.maxY) return r;
+  }
+  return null;
+}
 
 // ── Named "hero" weather events (step 7) ────────────────────────────────────
 // Rare, announced events that ride ON TOP of the forecast/field with an
@@ -432,6 +489,14 @@ function sampleWeatherAt(gx, gy) {
       if (s.type === 'storm') stormIntensity = Math.max(stormIntensity, f);
     }
   }
+  // Static per-region climate lean (e.g. The Reach reads hotter + drier). Applied
+  // before severity so a drier region also reads a touch less precip-severe. Felt
+  // downstream because getZoneTemperature folds this tempOffset into ambient temp.
+  const bias = regionBiasAt(gx, gy);
+  if (bias) {
+    tempOffset += bias.temp;
+    if (bias.dryness != null) { precipRate *= bias.dryness; cloudCover *= bias.dryness; }
+  }
   // Local severity: the day-level floor (lifted by any named event), intensified
   // where a storm cell sits overhead or precip runs torrential on this tile.
   const precipSev = precipRate >= PRECIP_SEVERE ? (precipRate - PRECIP_SEVERE) / (1 - PRECIP_SEVERE) : 0;
@@ -455,6 +520,7 @@ function getWeatherFieldSnapshot() {
     bounds: field.bounds,
     baseSeverity: currentBaseSeverity(),
     wind: field.wind,
+    regionBias: field.regionBoxes.map(b => ({ id: b.id, temp: b.temp, dryness: b.dryness })),
     systems: field.systems.map(s => ({
       x: s.x, y: s.y, radius: s.radius, vx: s.vx, vy: s.vy,
       type: s.type, intensity: s.intensity, precipType: s.precipType,
@@ -469,10 +535,12 @@ async function reseedFromForecast0(forecast0) {
 }
 
 export const hooks = {
-  'environment.init': async ({ setWeatherState, climateProfile, registerWeatherField, registerWeatherFieldSnapshot, registerWeatherFieldAdvance, registerWeatherEventStep, registerWeatherEventTrigger }) => {
+  'environment.init': async ({ setWeatherState, climateProfile, registerWeatherField, registerWeatherFieldSnapshot, registerWeatherFieldAdvance, registerWeatherEventStep, registerWeatherEventTrigger, registerWeatherRegionRefresh }) => {
     const forecast = await loadForecast(setWeatherState, climateProfile);
     const bounds = await computeBounds();
     seedField(forecast[0].date, forecast[0], bounds);
+    field.regionBoxes = await computeRegionBoxes();   // static per-region climate lean
+    if (registerWeatherRegionRefresh) registerWeatherRegionRefresh(async () => { field.regionBoxes = await computeRegionBoxes(); });
     if (registerWeatherField) registerWeatherField(sampleWeatherAt);
     if (registerWeatherFieldSnapshot) registerWeatherFieldSnapshot(getWeatherFieldSnapshot);
     if (registerWeatherFieldAdvance) registerWeatherFieldAdvance(advectField);

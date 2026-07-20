@@ -19,6 +19,7 @@
     "facade": true,
     "floors": 5,
     "is_building": true,
+    "region_id": "region_coldwater",
     "world_exit_zone": "zone_district_893_906"
   },
   "grid_x": 893,

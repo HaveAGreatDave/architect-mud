@@ -11,8 +11,8 @@
   "created_by": "the-under",
   "description": "The eastern trunk takes a hard bend here and starts its long descent to the south, following the fall of the land above toward the industrial flats. The going gets tighter and older past this point, the brick giving way to poured concrete gone soft and crumbling at the edges.",
   "exits": {
-    "west": "zone_under_junction",
-    "south": "zone_under_laddershaft"
+    "south": "zone_under_laddershaft",
+    "west": "zone_under_junction"
   },
   "flags": {
     "district": "sewer",

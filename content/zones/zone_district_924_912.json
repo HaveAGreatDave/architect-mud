@@ -15,8 +15,8 @@
   "flags": {
     "building_name": "Halloran's Fix-It",
     "district": "residential",
-    "district_id": "district_coldwater",
     "planner": "bp_district",
+    "region_id": "region_coldwater",
     "street_life": true,
     "terrain": "grass"
   },

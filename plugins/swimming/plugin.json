@@ -1,0 +1,5 @@
+{
+  "name": "swimming",
+  "version": "1.0.0",
+  "description": "Swimming — entering water tiles is a stamina cost, not a wall. Stroking between water tiles drains stamina (scaled by the Swimming skill / Endurance+Brawn); treading water bleeds it slowly; running dry means you start to drown. Diving down to underwater tiles starts a breath timer that drowns you when it runs out. Submersion soaks you (wetness) and cold water pulls your core toward hypothermia. Carrying a boat-tagged item rides you across dry and free. No player verbs — it's all automatic on movement; boarding boats from the water is handled by the flight plugin's embark/disembark."
+}

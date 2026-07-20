@@ -1,0 +1,174 @@
+{
+  "banter": [
+    "\"Reach takes a certain kind. Haven’t decided yet if you’re it.\"",
+    "Amos rocks back a little. \"Out there they’d hang you for what gets you a handshake in here.\"",
+    "\"You want in, you don’t ask me. You just don’t give me a reason to say no.\""
+  ],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "home_check",
+        "type": "action"
+      },
+      "home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "have_life",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "have_life",
+        "type": "action"
+      },
+      "start": {
+        "next": "have_life",
+        "type": "start"
+      }
+    }
+  },
+  "chitchat": [],
+  "description": "Amos Dune has lived in the Reach longer than the Reach has had a name — a lean old smuggler gone gristle and grey, with a fixer's memory and a coyote's patience. Nothing moves through town he doesn't hear about; nobody stays who he decides shouldn't. He'll size you up from the porch and know your whole story before you've told him half a lie of it.",
+  "dialogue_tree": {
+    "about": {
+      "_vine": {
+        "x": 420,
+        "y": 160
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "Fair enough.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The Reach? Last honest place left, depending how you mean it.\" A dry almost-smile. \"Nobody here asks where you came from, or what you're running. That's the whole appeal — and the whole business.\""
+    },
+    "bye": {
+      "_vine": {
+        "x": 800,
+        "y": 160
+      },
+      "actions": [],
+      "options": [],
+      "text": "Amos is already looking past you at the door. \"Mind how you go.\""
+    },
+    "raws": {
+      "_vine": {
+        "x": 420,
+        "y": 380
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [
+            {
+              "action": "UNLOCK_AIR_CARGO"
+            }
+          ],
+          "label": "I'm in. I'll fly it myself.",
+          "next": "raws_done"
+        },
+        {
+          "label": "Not my line of work.",
+          "next": "root"
+        }
+      ],
+      "text": "Amos studies you a long moment. \"The hardpan out past the fence grows a crop the city pays stupid money for. Raw, uncut — no good to anyone till it's cooked down proper. We can't move it through a checkpoint, and we won't.\" He shrugs. \"But a flyer with a hold and no manifest? Land at Buzzard Field, load a pallet, fly it home, and cook it there. What happens after is your business.\""
+    },
+    "raws_done": {
+      "_vine": {
+        "x": 800,
+        "y": 380
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "Understood.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Then it's waiting on you. Whenever you're wheels-down at Buzzard Field — loadcargo, and take it home.\" He goes back to the ledger. \"Don't get caught between here and there. That part's on you.\""
+    },
+    "root": {
+      "_vine": {
+        "x": 60,
+        "y": 300
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "I hear the flats grow more than scrub.",
+          "next": "raws"
+        },
+        {
+          "label": "What is this place?",
+          "next": "about"
+        }
+      ],
+      "text": "Amos looks up from the ledger, unhurried, taking his time deciding what you are. \"Room, a name, or money. Which is it.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a long oilcloth duster gone soft with age",
+      "a buttoned work shirt, collar frayed",
+      "canvas trousers, suspenders, and long johns"
+    ],
+    "drug_buyer": true,
+    "personality": "unemployed"
+  },
+  "home_activities": [],
+  "home_zone": "zone_bld_900_1171_lobby",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_1784515608920",
+  "name": "Amos Dune",
+  "npc_type": "unemployed",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_scrap_pistol",
+      "price": 168
+    },
+    {
+      "item_id": "item_holdout_pistol",
+      "price": 126
+    },
+    {
+      "item_id": "item_combat_knife",
+      "price": 77
+    },
+    {
+      "item_id": "item_taser",
+      "price": 91
+    },
+    {
+      "item_id": "item_riot_shotgun",
+      "price": 224
+    },
+    {
+      "item_id": "item_hack_deck",
+      "price": 630
+    },
+    {
+      "item_id": "item_screamers",
+      "price": 140
+    },
+    {
+      "item_id": "item_khole",
+      "price": 252
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": "Dune's Back Room",
+  "vendor_stock_size": 8,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

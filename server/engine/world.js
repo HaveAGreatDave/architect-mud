@@ -25,6 +25,7 @@ const world = {
   orgVentures: new Map(),// zoneId -> org_ventures row (Corporate Assets: corp-owned operating businesses)
   maps: new Map(),       // mapId -> maps row (parent_zone_id links an interior to its overworld tile)
   furniture: new Map(),  // id -> furniture row (write funnel below keeps it in sync; DB stays SoT)
+  regions: new Map(),    // regionId -> regions row (spatial world-map places; member zones carry flags.region_id)
 };
 
 // Last-resort home for an NPC whose current AND home zones were both deleted
@@ -70,6 +71,7 @@ export async function initWorld() {
   await loadOrgAssets();
   await loadOrgVentures();
   await loadMaps();
+  await loadRegions();
   await loadPlayerCorpses();
   console.log(`✓ World loaded: ${world.zones.size} zones, ${world.npcs.size} NPCs, ${world.apartments.size} apartments, ${world.doors.size} doors, ${world.orgs.size} orgs`);
 }
@@ -82,10 +84,23 @@ async function loadMaps() {
 
 export function getMap(mapId) { return world.maps.get(mapId) || null; }
 
+// Spatial regions (the World Editor's named world-map places: Coldwater Basin, The
+// Reach…). A small, cold table — cached in RAM so runtime readers (e.g. the flight
+// target guide) can resolve a member zone's region name without a DB round trip.
+// Refreshed on reloadMaps() so a region create/move publish shows up without a reboot.
+async function loadRegions() {
+  const { rows } = await query('SELECT * FROM regions').catch(() => ({ rows: [] }));
+  world.regions.clear();
+  for (const row of rows) world.regions.set(row.id, row);
+}
+export function getRegion(id) { return world.regions.get(id) || null; }
+export function getAllRegions() { return [...world.regions.values()]; }
+
 // Maps are loaded at boot; the dev-panel routes that create interior maps
 // (add-room, link-interior) call this so a new building becomes enterable
-// without a reboot.
-export async function reloadMaps() { await loadMaps(); }
+// without a reboot. Region create/move publishes route through here too, so the
+// region cache refreshes in lockstep.
+export async function reloadMaps() { await loadMaps(); await loadRegions(); }
 
 // The interior map whose parent tile is this zone (i.e. this zone is a
 // building facade). Linear scan — the maps table is tiny.

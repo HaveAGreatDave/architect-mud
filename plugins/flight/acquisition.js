@@ -104,10 +104,13 @@ async function acquire(args, raw, player, kind) {
 
   const id = `aircraft_${kind}_${player.id.slice(0, 6)}_${randomUUID().slice(0, 8)}`;
   const tailNum = `${kind === 'buy' ? '' : 'R-'}${(player.handle || 'PLT').slice(0, 3).toUpperCase()}${Math.floor(Math.random() * 900 + 100)}`;
+  // A rental remembers the hangar/operator it came from so the cockpit registration certificate
+  // can name it as the registered operator, even after the plane's flown off to another field.
+  const customData = kind === 'rent' ? { operator: field.flags.airfield_name || field.name } : {};
   await query(
-    `INSERT INTO aircraft (id,type_id,name,owner_id,map_id,grid_x,grid_y,altitude_band,heading,parked_zone_id,fuel,engine_temp,rental)
-     VALUES ($1,$2,$3,$4,'map_world',$5,$6,'ground','n',$7,$8,20,$9)`,
-    [id, t.id, tailNum, player.id, field.grid_x, field.grid_y, field.id, Math.round((await typeCap(t.id)) * 0.5), kind === 'buy' ? 0 : 1]
+    `INSERT INTO aircraft (id,type_id,name,owner_id,map_id,grid_x,grid_y,altitude_band,heading,parked_zone_id,fuel,engine_temp,rental,custom_data)
+     VALUES ($1,$2,$3,$4,'map_world',$5,$6,'ground','n',$7,$8,20,$9,$10)`,
+    [id, t.id, tailNum, player.id, field.grid_x, field.grid_y, field.id, Math.round((await typeCap(t.id)) * 0.5), kind === 'buy' ? 0 : 1, JSON.stringify(customData)]
   );
   if (kind === 'buy') {
     // Point-of-sale insurance offer as an in-browser accept/decline popup (server

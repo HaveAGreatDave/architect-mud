@@ -11,20 +11,20 @@
   "created_by": "echelon",
   "description": "The boarding foyer of the Echelon: a double-height atrium in black marble and brushed titanium, lit by a single vast chandelier that costs more than most people will earn in a lifetime. A grand staircase sweeps UP to the cabin deck and DOWN to engineering. Forward (NORTH) lies the bridge; aft (SOUTH), the stern lounge. The gangway hatch leads OUT onto the water.",
   "exits": {
-    "up": "zone_echelon_landing",
     "down": "zone_echelon_engineering",
     "north": "zone_echelon_bridge",
+    "out": "zone_echelon_exterior",
     "south": "zone_echelon_stern",
-    "out": "zone_echelon_exterior"
+    "up": "zone_echelon_landing"
   },
   "flags": {
-    "yacht": true,
-    "echelon": true,
-    "is_interior": true,
-    "is_building": true,
+    "always_lit": true,
     "building_name": "The Echelon",
+    "echelon": true,
+    "is_building": true,
+    "is_interior": true,
     "world_exit_zone": "zone_echelon_exterior",
-    "always_lit": true
+    "yacht": true
   },
   "grid_x": 0,
   "grid_y": 0,

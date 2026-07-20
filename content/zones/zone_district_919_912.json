@@ -14,8 +14,8 @@
   },
   "flags": {
     "district": "residential",
-    "district_id": "district_coldwater",
     "planner": "bp_district",
+    "region_id": "region_coldwater",
     "terrain": "road"
   },
   "grid_x": 919,
@@ -24,7 +24,7 @@
   "id": "zone_district_919_912",
   "map_id": "map_world",
   "marker": "#",
-  "name": "Grasslands",
+  "name": "Ironside Street",
   "parent_zone": null,
   "updated_at": "1784441751"
 }

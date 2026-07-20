@@ -6,14 +6,38 @@
     "hallucination": {
       "duration_seconds": 240,
       "events": [
-        { "atSec": 35, "text": "[trip]A cold wave rolls up from your stomach — the nausea that always comes first. You yawn, and yawn again.[/trip]" },
-        { "atSec": 60, "text": "[trip]The queasiness breaks like a fever and everything goes soft and significant.[/trip]" },
-        { "atSec": 85, "text": "[trip]The walls take a slow, deliberate breath.[/trip]" },
-        { "atSec": 115, "text": "[trip]The floor is a carpet of soft breathing moss now. It doesn't mind you standing on it.[/trip]" },
-        { "atSec": 145, "text": "[trip]Every surface is faintly patterned with eyes, all of them kind.[/trip]" },
-        { "atSec": 170, "text": "[trip]You can hear the colour green. It sounds like your grandmother's kitchen.[/trip]" },
-        { "atSec": 195, "text": "[trip]Time pools in the corners of the room like warm honey.[/trip]" },
-        { "atSec": 220, "text": "[trip]A shaft of light bends toward you and asks, without words, if you are okay. You think you might be.[/trip]" }
+        {
+          "atSec": 35,
+          "text": "[trip]A cold wave rolls up from your stomach — the nausea that always comes first. You yawn, and yawn again.[/trip]"
+        },
+        {
+          "atSec": 60,
+          "text": "[trip]The queasiness breaks like a fever and everything goes soft and significant.[/trip]"
+        },
+        {
+          "atSec": 85,
+          "text": "[trip]The walls take a slow, deliberate breath.[/trip]"
+        },
+        {
+          "atSec": 115,
+          "text": "[trip]The floor is a carpet of soft breathing moss now. It doesn't mind you standing on it.[/trip]"
+        },
+        {
+          "atSec": 145,
+          "text": "[trip]Every surface is faintly patterned with eyes, all of them kind.[/trip]"
+        },
+        {
+          "atSec": 170,
+          "text": "[trip]You can hear the colour green. It sounds like your grandmother's kitchen.[/trip]"
+        },
+        {
+          "atSec": 195,
+          "text": "[trip]Time pools in the corners of the room like warm honey.[/trip]"
+        },
+        {
+          "atSec": 220,
+          "text": "[trip]A shaft of light bends toward you and asks, without words, if you are okay. You think you might be.[/trip]"
+        }
       ],
       "intensity": 0.5,
       "mode": "overlay",

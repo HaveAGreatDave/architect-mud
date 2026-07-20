@@ -131,7 +131,7 @@ const ENTITY_TYPE_LABELS = {
   zone: 'Zone', enemy: 'Enemy', item: 'Item', npc: 'NPC',
   furniture: 'Furniture', recipe: 'Recipe', mutation: 'Mutation', drug: 'Drug',
   building_move: 'Building Move',
-  district_create: 'New District', district_move: 'District Move',
+  region_create: 'New Region', region_move: 'Region Move',
 };
 
 // Drop the map-preview overrides a staged change was keeping alive, once it's
@@ -140,8 +140,8 @@ const ENTITY_TYPE_LABELS = {
 function _clearOverridesFor(c) {
   if (!c) return;
   if (c.entityType === 'zone') _mapPendingOverrides.delete(c.entityId);
-  else if (c.entityType === 'building_move' || c.entityType === 'district_move') for (const ch of (c.stagedData?.changes || [])) _mapPendingOverrides.delete(ch.id);
-  else if (c.entityType === 'district_create') for (const z of (c.stagedData?.zones || [])) _mapPendingOverrides.delete(z.id);
+  else if (c.entityType === 'building_move' || c.entityType === 'region_move') for (const ch of (c.stagedData?.changes || [])) _mapPendingOverrides.delete(ch.id);
+  else if (c.entityType === 'region_create') for (const z of (c.stagedData?.zones || [])) _mapPendingOverrides.delete(z.id);
 }
 const CHANGE_TYPE_ICONS = { create: '✚', update: '✎', delete: '✕' };
 

@@ -1,0 +1,23 @@
+{
+  "description": "A flatscreen bolted above the equipment in a thin brushed-chrome bezel, positioned so you can watch it flat on your back under the bar. Flat glass, crisp signal, no phosphor lines.",
+  "flags": {
+    "broadcast_device_type": "tv",
+    "broadcast_receiver": true,
+    "interactions": [
+      "watch"
+    ],
+    "tv": true,
+    "tv_dial_freq": 7,
+    "tv_skin": "flatscreen"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_solenne_tv_gym",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "fitness flatscreen",
+  "object_type": "furniture",
+  "power_draw_kw": 2,
+  "price": 3500,
+  "zone_id": "zone_solenne_gym"
+}

@@ -14,8 +14,8 @@
   },
   "flags": {
     "district": "water",
-    "district_id": "district_coldwater",
     "planner": "bp_district",
+    "region_id": "region_coldwater",
     "water": true
   },
   "grid_x": 907,

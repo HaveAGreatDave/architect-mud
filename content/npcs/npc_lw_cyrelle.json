@@ -3,8 +3,15 @@
   "behaviour_graph": {
     "_start": "start",
     "nodes": {
-      "start": { "next": "wait", "type": "start" },
-      "wait": { "next": "start", "seconds": 60, "type": "wait" }
+      "start": {
+        "next": "wait",
+        "type": "start"
+      },
+      "wait": {
+        "next": "start",
+        "seconds": 60,
+        "type": "wait"
+      }
     }
   },
   "chitchat": [
@@ -14,94 +21,173 @@
   ],
   "description": "A tall woman with cropped iron-grey hair, standing at the great hand-drawn wall map with a grease pencil behind one ear. She has the calm of someone who plans in years, not days. When she looks at you it's not unkind, but it is complete — she is deciding what you're good for, and she is usually right.",
   "dialogue_tree": {
+    "asc_accept": {
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_asc_1"
+        }
+      ],
+      "options": [
+        {
+          "label": "Consider it done.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Green line'll start you at Halcyon. Eyes open, mouth shut.\" She picks the pencil back up. \"Come tell me what breathes out there.\""
+    },
+    "asc_after": {
+      "options": [
+        {
+          "label": "I'll keep digging.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Dig carefully. A door that opens for you out there opens for a reason.\" She's already marking the western edge of the map — a shape she doesn't have a symbol for yet."
+    },
+    "asc_offer": {
+      "options": [
+        {
+          "label": "I'll go west.",
+          "next": "asc_accept"
+        },
+        {
+          "label": "Not yet.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Start at the source — the claims hall in Halcyon Towers. Watch where the payouts route, then follow the track west until it stops being grass.\" A beat. \"I don't know what's out there. That's exactly why I want eyes that'll come back.\""
+    },
+    "asc_report": {
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_asc_1"
+        },
+        {
+          "action": "ADJUST_REPUTATION",
+          "delta": 120,
+          "ideology_id": "ideology_long_watch",
+          "reason": "Follow the Money"
+        }
+      ],
+      "options": [
+        {
+          "label": "There's a whole complex out there.",
+          "next": "asc_after"
+        }
+      ],
+      "text": "She listens to all of it without moving, which is how you know it lands hard. \"A chrome city. Turrets. A Gate that turns you away.\" She exhales slowly. \"So that's where the money's been going. Whatever that place is, it's the machine's friend, not ours.\" A long look. \"Learn what it is, if you're going back. But Halcyon — don't ever trust a payout from them again.\""
+    },
+    "asc_reveal": {
+      "options": [
+        {
+          "label": "Go on.",
+          "next": "asc_offer"
+        },
+        {
+          "label": "Forget it.",
+          "next": "bye"
+        }
+      ],
+      "text": "Cyrelle sets down the grease pencil — rare. \"Bothering me too. Halcyon settles its biggest claims by moving money west, past the grass, off every map we keep. Insurance doesn't work like that. Something's out there wearing Halcyon's face.\" She studies you. \"You've earned enough rope to go pull on it. Quietly. Find out what's west — and don't let them learn you're Watch.\""
+    },
+    "blind": {
+      "options": [
+        {
+          "label": "I'll take the work.",
+          "next": "work"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"That's the long game, and it's slow, and it's the only one worth playing.\" A thin, real smile. \"We don't win this with a bomb. We win it one dark corner at a time, until the map's more ours than his.\""
+    },
     "bye": {
       "options": [],
       "text": "\"Stay sharp.\" She turns back to the map, already somewhere else."
     },
     "map": {
       "options": [
-        { "label": "And the blind spots?", "next": "blind" },
-        { "label": "Back.", "next": "root" }
+        {
+          "label": "And the blind spots?",
+          "next": "blind"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
       ],
       "text": "\"Every red mark is one of the Architect's eyes.\" She sweeps a hand across the east of the Basin. \"Every one struck through is an eye we've closed. It looks like a small thing, one camera. It isn't. A blind spot is a place people can breathe, meet, move — a place the machine has to guess about. String enough of them together and you've got something it can't see at all. You've got a city with rooms of its own again.\""
     },
-    "blind": {
-      "options": [
-        { "label": "I'll take the work.", "next": "work" },
-        { "label": "Back.", "next": "root" }
-      ],
-      "text": "\"That's the long game, and it's slow, and it's the only one worth playing.\" A thin, real smile. \"We don't win this with a bomb. We win it one dark corner at a time, until the map's more ours than his.\""
-    },
-    "work": {
-      "options": [
-        { "label": "Understood.", "next": "bye" }
-      ],
-      "text": "\"There'll be operations for you soon enough — cameras to close, people to move out from under the machine's eye, its little servants to inconvenience.\" She taps the map. \"For now, get the lie of the place. Talk to the quartermaster. Rest while you can. When there's a run with your name on it, you'll hear.\""
-    },
-    "asc_reveal": {
-      "options": [
-        { "label": "Go on.", "next": "asc_offer" },
-        { "label": "Forget it.", "next": "bye" }
-      ],
-      "text": "Cyrelle sets down the grease pencil — rare. \"Bothering me too. Halcyon settles its biggest claims by moving money west, past the grass, off every map we keep. Insurance doesn't work like that. Something's out there wearing Halcyon's face.\" She studies you. \"You've earned enough rope to go pull on it. Quietly. Find out what's west — and don't let them learn you're Watch.\""
-    },
-    "asc_offer": {
-      "options": [
-        { "label": "I'll go west.", "next": "asc_accept" },
-        { "label": "Not yet.", "next": "bye" }
-      ],
-      "text": "\"Start at the source — the claims hall in Halcyon Towers. Watch where the payouts route, then follow the track west until it stops being grass.\" A beat. \"I don't know what's out there. That's exactly why I want eyes that'll come back.\""
-    },
-    "asc_accept": {
-      "actions": [
-        { "action": "START_QUEST", "quest_id": "quest_asc_1" }
-      ],
-      "options": [
-        { "label": "Consider it done.", "next": "bye" }
-      ],
-      "text": "\"Green line'll start you at Halcyon. Eyes open, mouth shut.\" She picks the pencil back up. \"Come tell me what breathes out there.\""
-    },
-    "asc_report": {
-      "actions": [
-        { "action": "TURN_IN", "quest_id": "quest_asc_1" },
-        { "action": "ADJUST_REPUTATION", "ideology_id": "ideology_long_watch", "delta": 120, "reason": "Follow the Money" }
-      ],
-      "options": [
-        { "label": "There's a whole complex out there.", "next": "asc_after" }
-      ],
-      "text": "She listens to all of it without moving, which is how you know it lands hard. \"A chrome city. Turrets. A Gate that turns you away.\" She exhales slowly. \"So that's where the money's been going. Whatever that place is, it's the machine's friend, not ours.\" A long look. \"Learn what it is, if you're going back. But Halcyon — don't ever trust a payout from them again.\""
-    },
-    "asc_after": {
-      "options": [
-        { "label": "I'll keep digging.", "next": "bye" }
-      ],
-      "text": "\"Dig carefully. A door that opens for you out there opens for a reason.\" She's already marking the western edge of the map — a shape she doesn't have a symbol for yet."
-    },
     "root": {
       "options": [
-        { "label": "Tell me about the map.", "next": "map" },
-        { "label": "What does the Watch actually want?", "next": "blind" },
-        { "label": "I'm here to work.", "next": "work" },
+        {
+          "label": "Tell me about the map.",
+          "next": "map"
+        },
+        {
+          "label": "What does the Watch actually want?",
+          "next": "blind"
+        },
+        {
+          "label": "I'm here to work.",
+          "next": "work"
+        },
         {
           "conditions": [
-            { "flag": "lw_member", "op": "set", "scope": "player" },
-            { "flag": "quest_asc_1", "op": "unset", "scope": "player" },
-            { "flag": "asc_q1_done", "op": "unset", "scope": "player" }
+            {
+              "flag": "lw_member",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "quest_asc_1",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "asc_q1_done",
+              "op": "unset",
+              "scope": "player"
+            }
           ],
           "label": "Something about Halcyon's been bothering me.",
           "next": "asc_reveal"
         },
         {
           "conditions": [
-            { "flag": "quest_asc_1", "op": "set", "scope": "player" },
-            { "flag": "asc_q1_done", "op": "unset", "scope": "player" }
+            {
+              "flag": "quest_asc_1",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "asc_q1_done",
+              "op": "unset",
+              "scope": "player"
+            }
           ],
           "label": "About that Halcyon money.",
           "next": "asc_report"
         },
-        { "label": "Later.", "next": "bye" }
+        {
+          "label": "Later.",
+          "next": "bye"
+        }
       ],
       "text": "She doesn't turn from the map at first. \"New blood. Halloran vouches for you, and Halloran's not generous with that.\" Now she looks. \"I'm Cyrelle. I run operations down here — which is to say I decide, most days, what the Architect gets to see next. Sit with that a moment, then tell me what you want to know.\""
+    },
+    "work": {
+      "options": [
+        {
+          "label": "Understood.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"There'll be operations for you soon enough — cameras to close, people to move out from under the machine's eye, its little servants to inconvenience.\" She taps the map. \"For now, get the lie of the place. Talk to the quartermaster. Rest while you can. When there's a run with your name on it, you'll hear.\""
     }
   },
   "faction": "ideology_long_watch",
@@ -122,6 +208,11 @@
   "npc_type": "civilian",
   "sex": "female",
   "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
   "wander_zones": [],
   "wanders": 0,
   "work_zone_id": "zone_lw_ops"

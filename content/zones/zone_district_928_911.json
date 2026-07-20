@@ -13,9 +13,9 @@
   },
   "flags": {
     "district": "wilds",
-    "district_id": "district_coldwater",
     "planner": "bp_district",
     "radiation": 26,
+    "region_id": "region_coldwater",
     "terrain": "sand"
   },
   "grid_x": 928,

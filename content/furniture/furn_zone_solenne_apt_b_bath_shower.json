@@ -1,0 +1,14 @@
+{
+  "description": "An open wet-room shower with the head set flush into the stone ceiling, no visible fitting — hot water, real pressure. Step in and let it run.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_zone_solenne_apt_b_bath_shower",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "shower",
+  "object_type": "shower",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_apt_b_bath"
+}

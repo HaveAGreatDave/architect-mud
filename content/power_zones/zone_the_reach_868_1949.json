@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 10000,
+  "flags": {},
+  "generator_id": "gen_region_region_the_reach",
+  "id": "zone_the_reach_868_1949",
+  "max_capacity_kw": 1000,
+  "name": "The Reach 868,1949",
+  "source_type": "city_grid"
+}

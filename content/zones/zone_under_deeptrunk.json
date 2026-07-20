@@ -11,8 +11,8 @@
   "created_by": "the-under",
   "description": "The main deep trunk under the industrial east, a broad low tunnel that gathers every line in this quarter and carries it on toward the outfall. The Watch have marked the walls here in chalk — quiet, disciplined signs for people who know to read them — because this is the last easy stretch before their door. East ties into the conduit vault; south runs on to the deep reach.",
   "exits": {
-    "north": "zone_under_machsump",
     "east": "zone_under_conduitvlt",
+    "north": "zone_under_machsump",
     "south": "zone_under_deepreach",
     "west": "zone_under_923_911"
   },

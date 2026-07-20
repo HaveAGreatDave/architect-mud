@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 5000,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_bld_900_1171_lobby",
+  "id": "zone_bld_900_1171_walk1",
+  "max_capacity_kw": 1000,
+  "name": "The Walkway",
+  "source_type": "junction_box"
+}

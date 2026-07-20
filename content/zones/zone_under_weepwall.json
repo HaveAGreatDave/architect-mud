@@ -11,8 +11,8 @@
   "created_by": "the-under",
   "description": "A long gallery where the water table has found the tunnel and never left. The south wall runs with groundwater year-round, slick and black and cold, and the floor is a shallow moving sheet. A cross-passage east ties back into the descending shaft; the way on drops south into deeper water.",
   "exits": {
-    "north": "zone_under_junction",
     "east": "zone_under_laddershaft",
+    "north": "zone_under_junction",
     "south": "zone_under_floodsub"
   },
   "flags": {

@@ -1,13 +1,18 @@
 {
+  "cost": 900,
+  "description": "A lattice of impact-diffusing mesh threaded just beneath the skin of the torso. Invisible under clothes, it turns a killing blow into a bad bruise — armor you never take off.",
   "id": "aug_subdermal_weave",
   "name": "Subdermal Weave",
-  "description": "A lattice of impact-diffusing mesh threaded just beneath the skin of the torso. Invisible under clothes, it turns a killing blow into a bad bruise — armor you never take off.",
-  "slot": "torso",
-  "tier": 2,
-  "cost": 900,
   "rep_gate": "neutral",
+  "slot": "torso",
+  "soak": {
+    "torso": {
+      "energy": 2,
+      "kinetic": 3
+    }
+  },
+  "special": null,
   "stat_modifiers": {},
-  "soak": { "torso": { "kinetic": 3, "energy": 2 } },
-  "visible": 0,
-  "special": null
+  "tier": 2,
+  "visible": 0
 }

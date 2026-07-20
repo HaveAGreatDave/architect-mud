@@ -14,9 +14,9 @@
   },
   "flags": {
     "district": "wasteland",
-    "district_id": "district_coldwater",
     "icon": "road_es",
     "planner": "bp_district",
+    "region_id": "region_coldwater",
     "scavenging_table_id": "scav_roadside_junk",
     "street_life": true
   },

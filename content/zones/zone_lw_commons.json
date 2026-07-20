@@ -11,10 +11,10 @@
   "created_by": "longwatch",
   "description": "The heart of the operation: a long, warm common room hollowed out of an old plant sublevel and made livable by hand. Mismatched chairs ring a stove; a wall of shelves holds paper — manuals, maps, ledgers, the accumulated memory of people who refuse to keep it anywhere the Architect can read. This is a safe place, and it feels like one. The quartermaster's store lies north, the operations room east, the bunkroom south, and the way out west.",
   "exits": {
-    "west": "zone_lw_entry",
-    "north": "zone_lw_quarter",
     "east": "zone_lw_ops",
-    "south": "zone_lw_bunk"
+    "north": "zone_lw_quarter",
+    "south": "zone_lw_bunk",
+    "west": "zone_lw_entry"
   },
   "flags": {
     "always_lit": true,

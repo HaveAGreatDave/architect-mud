@@ -2,24 +2,30 @@
   "color": "#4FD1E0",
   "description": "The Lucid hold that evolution was never meant to be waited for — the human animal stopped a long way short of what it could be, and the rest of the climb is chemistry. The drug is their sacrament and their whole method: distilled in the lab, taken in measured communion, it drives the brain and body past the ceiling they were built under, one dose at a time. Where the Exodus fled the Basin to chase raw psionics like scripture, the Lucid stayed and engineered their own ascent — and the ones who have taken it long enough are no longer quite the species they started as. Nerves that fire cleaner and faster than nerves should; perception widened until a crowded room reads like weather and a stranger's next move is already old news. They are calm, they are gracious, and something behind the eyes runs hotter than anything left unaltered. They mean to steward Coldwater Basin with that engineered clarity — certain they out-think the Architect, and never needed the machine's permission to evolve.",
   "flags": {
-    "creed": "A disciplined mind can steward the Basin better than any machine.",
-    "stance": "redeem",
-    "path": "mind",
     "authority": "human",
+    "creed": "A disciplined mind can steward the Basin better than any machine.",
     "expansion": true,
-    "values": ["Clarity", "Discipline", "Foresight", "Reason", "Stewardship"],
+    "path": "mind",
     "reader": {
-      "motto": "clarify",
       "experience": "Align with the Lucid and you're handed the method, not just the mystery — the drills, the clarity-drug, the trained sight the fugitives in the waste only stumble into. Foresight sharpens into something you can aim: outcomes branch ahead like text, a crowded room reads itself. You don't flee the Basin to find a bigger mind — you stay, and quietly become the most dangerous one in it.",
+      "motto": "clarify",
+      "path_text": "The Mind, engineered. Not the Exodus's raw awakening but its science — nootropics, mnemonics, and predictive method that grant foresight, deduction, and influence while you keep the city.",
       "pull": "The Architect computes the city. We out-think it — and we never needed its permission to be brilliant.",
+      "relnote": "Quarrel with the Architect's servants and the reserved psychic wardens who mirror them; regard the Exodus as kin who mistook a discipline for a religion and walked away.",
       "tenets": [
         "The mind is the last frontier, and the only one you can't be sold.",
         "Clarity is engineered — discipline, chemistry, method. Not magic.",
         "Stay, and steward the Basin with a sharper mind than the machine's."
-      ],
-      "path_text": "The Mind, engineered. Not the Exodus's raw awakening but its science — nootropics, mnemonics, and predictive method that grant foresight, deduction, and influence while you keep the city.",
-      "relnote": "Quarrel with the Architect's servants and the reserved psychic wardens who mirror them; regard the Exodus as kin who mistook a discipline for a religion and walked away."
-    }
+      ]
+    },
+    "stance": "redeem",
+    "values": [
+      "Clarity",
+      "Discipline",
+      "Foresight",
+      "Reason",
+      "Stewardship"
+    ]
   },
   "founded_at": "1783000349",
   "id": "ideology_lucid",
