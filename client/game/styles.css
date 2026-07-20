@@ -2177,14 +2177,21 @@ body.fsim-external #look-resize-handle { display: none; }
 @keyframes mm-x-ash { from { background-position: 0 0,0 0,0 0,0 0; } to { background-position: -40px 120px, 30px 90px, -25px 140px, 20px 110px; } }
 [data-motion="off"] .mm-crossing::before { animation: none; }
 .mm-crossing > * { position: relative; z-index: 1; }
-.mm-x-cap { font-size: 0.62em; letter-spacing: 0.18em; color: var(--accent); opacity: 0.85; text-shadow: 0 0 6px color-mix(in srgb, var(--accent) 40%, transparent); }
+.mm-x-cap { font-size: 0.62em; letter-spacing: 0.22em; color: var(--accent); opacity: 0.9;
+	text-shadow: 0 0 8px color-mix(in srgb, var(--accent) 55%, transparent); padding-bottom: 0.35em;
+	border-bottom: 1px solid color-mix(in srgb, var(--accent) 22%, transparent); margin-bottom: 0.25em; }
 .mm-x-trail { display: flex; flex-direction: column; align-items: center; gap: 0; line-height: 1; }
-/* Vertical trail connector: a thin dashed line behind the stacked nodes. */
-.mm-x-row { position: relative; display: flex; align-items: center; justify-content: center; padding: 0.05em 0; }
+/* Vertical trail connector: a dashed line that flows downward — the going, drawn
+   on toward the far gate. Motion sells the trudge; static falls back cleanly. */
+.mm-x-row { position: relative; display: flex; align-items: center; justify-content: center; padding: 0.08em 0; }
 .mm-x-row + .mm-x-row::before {
-	content: ''; position: absolute; top: -0.35em; left: 50%; width: 0; height: 0.5em;
-	border-left: 1px dashed color-mix(in srgb, var(--text-dim) 60%, transparent); transform: translateX(-50%);
+	content: ''; position: absolute; top: -0.42em; left: 50%; width: 2px; height: 0.62em; transform: translateX(-50%);
+	background: repeating-linear-gradient(to bottom,
+		color-mix(in srgb, var(--text-dim) 70%, transparent) 0 2px, transparent 2px 4px);
+	background-size: 100% 4px; animation: mm-x-flow 1.4s linear infinite; opacity: 0.75;
 }
+@keyframes mm-x-flow { to { background-position: 0 4px; } }
+[data-motion="off"] .mm-x-row + .mm-x-row::before { animation: none; }
 .mm-x-node { font-size: 0.9em; }
 .mm-x-walked { color: var(--text-dim); opacity: 0.65; } /* trail behind — dim, walked */
 .mm-x-you .mm-x-here {
@@ -2200,7 +2207,6 @@ body.fsim-external #look-resize-handle { display: none; }
 .mm-x-branch { font-size: 0.7em; margin-left: 0.3em; cursor: default; }
 .mm-x-divert { color: var(--cyan); }
 .mm-x-gamble { color: var(--yellow); }
-.mm-x-foot { font-size: 0.56em; letter-spacing: 0.06em; color: var(--text-dim); font-style: italic; opacity: 0.85; margin-top: 0.1em; }
 /* Node captions: absolutely placed beside the centred trail so the dots stay aligned.
    Default sits to the right; "you" sits to the left (branch ticks take its right side). */
 .mm-x-lbl { position: absolute; top: 50%; left: calc(50% + 0.85em); transform: translateY(-50%);

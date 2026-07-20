@@ -526,10 +526,6 @@ export function crossingInnerHtml(nodes, current) {
   else if (ahead === 'fog') rows += `<div class="mm-x-row mm-x-fog"><span class="mm-x-node">⋯</span>${lbl('onward')}</div>`;
   else if (ahead === 'dead') rows += `<div class="mm-x-row mm-x-dead" title="a dead end"><span class="mm-x-node">▚</span>${lbl('dead end')}</div>`;
 
-  const foot = hotHere ? 'this stretch wants you dead'
-    : current.void_detour ? 'a dead-end gamble'
-    : ahead === 'gate' ? 'the far gate is close'
-    : behind.length ? 'the waste goes on' : 'you strike out';
   // Spell out the branch ticks (⋔ / ? / ⚠) only when there are any — otherwise they're cryptic.
   const legendBits = [];
   if (branches.some(b => b.kind === 'divert')) legendBits.push('⋔ another way');
@@ -537,7 +533,7 @@ export function crossingInnerHtml(nodes, current) {
   if (hotHere || hotBehind) legendBits.push('⚠ hard ground');
   const legend = legendBits.length ? `<div class="mm-x-legend">${legendBits.join(' · ')}</div>` : '';
   return `<div class="mm-x-cap">◈ THE VOID</div>`
-    + `<div class="mm-x-trail">${rows}</div><div class="mm-x-foot">${foot}</div>${legend}`;
+    + `<div class="mm-x-trail">${rows}</div>${legend}`;
 }
 
 // Whether the player is currently out on a void crossing (the last minimap payload
