@@ -916,6 +916,7 @@ export function getMinimapData(centerZoneId, depth = 8, viewer = null) {
       artery: Array.isArray(zone.flags?.artery) ? zone.flags.artery : (zone.flags?.artery ? [zone.flags.artery] : null),
       void_crossing: zone.flags?.void_crossing ? true : null, // a transient waste-crossing room → client renders the "crossing" trail view
       void_detour: zone.flags?.void_detour ? true : null,     // a risk-for-loot dead-end gamble off the trail
+      void_hard: zone.flags?.void_hard ? true : null,         // a seeded hard node — rougher ambush lives here
       curtain: zone.flags?.curtain ? true : null, // the Architect's perimeter wall edge
       perimeter_gate: zone.flags?.perimeter_gate ? true : null, // the one break in the Curtain
       glacis: zone.flags?.glacis ? true : null, // turret killing-ground outside the gate

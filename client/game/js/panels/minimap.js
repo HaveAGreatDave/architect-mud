@@ -510,26 +510,31 @@ export function crossingInnerHtml(nodes, current) {
   // A short label rides beside each meaningful node so the trail reads at a glance —
   // which way is back, where you stand, what's ahead — instead of a column of bare dots.
   const lbl = (t) => `<span class="mm-x-lbl">${t}</span>`;
+  const hotHere = !!current.void_hard;   // you're standing on a seeded hard node
+  const hotBehind = behind.some(b => b.void_hard);
   let rows = '';
   // Top cue: the vertical axis points BACK the way you came (north), so mark it.
   if (behind.length) rows += `<div class="mm-x-row mm-x-cue"><span class="mm-x-node">↑</span>${lbl('the way back')}</div>`;
   for (const b of behind.slice().reverse())
-    rows += `<div class="mm-x-row mm-x-walked" title="${escapeHtml(b.name || 'the waste')}"><span class="mm-x-node">●</span></div>`;
+    rows += `<div class="mm-x-row mm-x-walked${b.void_hard ? ' mm-x-hot' : ''}" title="${escapeHtml(b.name || 'the waste')}${b.void_hard ? ' — bad ground, and you came through it' : ''}"><span class="mm-x-node">${b.void_hard ? '✷' : '●'}</span></div>`;
   const ticks = branches.map(br =>
     `<span class="mm-x-branch mm-x-${br.kind}" title="${br.dir}: ${br.kind === 'gamble' ? 'a risk-for-loot detour' : 'divert toward another region'}">${br.kind === 'gamble' ? '?' : '⋔'}</span>`
   ).join('');
-  rows += `<div class="mm-x-row mm-x-you" title="${escapeHtml(current.name || 'the void')}">${lbl('you')}<span class="mm-x-node mm-x-here">◎</span>${ticks}</div>`;
+  const hotTick = hotHere ? `<span class="mm-x-branch mm-x-hazard" title="hard ground — a rougher ambush lives here">⚠</span>` : '';
+  rows += `<div class="mm-x-row mm-x-you${hotHere ? ' mm-x-hot' : ''}" title="${escapeHtml(current.name || 'the void')}">${lbl(hotHere ? 'bad ground' : 'you')}<span class="mm-x-node mm-x-here">◎</span>${ticks}${hotTick}</div>`;
   if (ahead === 'gate') rows += `<div class="mm-x-row mm-x-gate" title="the far gate"><span class="mm-x-node">⌂</span>${lbl('the gate')}</div>`;
   else if (ahead === 'fog') rows += `<div class="mm-x-row mm-x-fog"><span class="mm-x-node">⋯</span>${lbl('onward')}</div>`;
   else if (ahead === 'dead') rows += `<div class="mm-x-row mm-x-dead" title="a dead end"><span class="mm-x-node">▚</span>${lbl('dead end')}</div>`;
 
-  const foot = current.void_detour ? 'a dead-end gamble'
+  const foot = hotHere ? 'this stretch wants you dead'
+    : current.void_detour ? 'a dead-end gamble'
     : ahead === 'gate' ? 'the far gate is close'
     : behind.length ? 'the waste goes on' : 'you strike out';
-  // Spell out the branch ticks (⋔ / ?) only when there are any — otherwise they're cryptic.
+  // Spell out the branch ticks (⋔ / ? / ⚠) only when there are any — otherwise they're cryptic.
   const legendBits = [];
   if (branches.some(b => b.kind === 'divert')) legendBits.push('⋔ another way');
   if (branches.some(b => b.kind === 'gamble')) legendBits.push('? risk-for-loot');
+  if (hotHere || hotBehind) legendBits.push('⚠ hard ground');
   const legend = legendBits.length ? `<div class="mm-x-legend">${legendBits.join(' · ')}</div>` : '';
   return `<div class="mm-x-cap">◈ THE VOID</div>`
     + `<div class="mm-x-trail">${rows}</div><div class="mm-x-foot">${foot}</div>${legend}`;

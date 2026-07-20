@@ -1133,15 +1133,59 @@ function ensureStyles() {
       background:radial-gradient(closest-side, rgba(0,0,0,.55), rgba(0,0,0,.15)); pointer-events:none; z-index:2; }
     #tablet-os-overlay .tos-map-tile .mt-you { position:absolute; top:0; right:2px; font-size:9px; color:var(--mg-accent); text-shadow:0 0 4px #000; }
     #tablet-os-overlay .tos-map-tile .mt-dest { position:absolute; top:0; left:2px; font-size:9px; color:#ffcf4a; text-shadow:0 0 4px #000; }
-    /* Journey map — the void trail chart shown in place of the city map when off the
-       grid. Reuses the shared .mm-x-* trail markup (crossingInnerHtml), scaled up. */
-    #tablet-os-overlay .tos-journey { display:flex; flex-direction:column; align-items:center; gap:14px; padding:24px 12px; text-align:center; }
+    /* Journey map — an off-grid "survey terminal" shown in place of the city map when
+       out in the void. Reuses the shared .mm-x-* trail markup (crossingInnerHtml),
+       blown up and framed with dead-signal instruments (scrambled coords, a wandering
+       compass, ground readout, live status chips) to fill the space + sell the void. */
+    #tablet-os-overlay .tos-journey { position:relative; overflow:hidden; min-height:60vh; display:flex; flex-direction:column; }
+    /* Full-panel void backdrop: a faint hot horizon low, ash specks drifting across. */
+    #tablet-os-overlay .tos-journey::before { content:''; position:absolute; inset:0; z-index:0; pointer-events:none; opacity:.6;
+      background:
+        radial-gradient(120% 60% at 50% 118%, color-mix(in srgb, var(--red) 14%, transparent), transparent 70%),
+        radial-gradient(1px 1px at 12% 22%, color-mix(in srgb, var(--tos-fg-dim) 55%, transparent) 50%, transparent),
+        radial-gradient(1px 1px at 68% 40%, color-mix(in srgb, var(--tos-fg-dim) 45%, transparent) 50%, transparent),
+        radial-gradient(1px 1px at 38% 74%, color-mix(in srgb, var(--tos-fg-dim) 40%, transparent) 50%, transparent),
+        radial-gradient(1px 1px at 86% 62%, color-mix(in srgb, var(--tos-fg-dim) 48%, transparent) 50%, transparent),
+        radial-gradient(1px 1px at 55% 12%, color-mix(in srgb, var(--tos-fg-dim) 42%, transparent) 50%, transparent);
+      background-size:100% 100%, 160px 160px, 130px 130px, 190px 190px, 150px 150px, 170px 170px;
+      animation:tos-journey-ash 14s linear infinite; }
+    @keyframes tos-journey-ash { from{background-position:0 0,0 0,0 0,0 0,0 0,0 0} to{background-position:0 0,-40px 160px,30px 130px,-25px 190px,20px 150px,-15px 170px} }
+    [data-motion="off"] #tablet-os-overlay .tos-journey::before { animation:none; }
+    #tablet-os-overlay .tos-journey > * { position:relative; z-index:1; }
+    #tablet-os-overlay .tos-journey-hdr { display:flex; justify-content:space-between; align-items:center; gap:8px 14px; flex-wrap:wrap; padding:10px 14px; border-bottom:1px solid var(--tos-border); }
     #tablet-os-overlay .tos-journey-nosig { font-size:12px; letter-spacing:3px; color:var(--red); opacity:.85;
       text-shadow:0 0 8px color-mix(in srgb, var(--red) 45%, transparent); animation:tos-nosig-flicker 2.4s steps(1) infinite; }
     @keyframes tos-nosig-flicker { 0%,92%,100%{opacity:.85} 94%{opacity:.3} 96%{opacity:.85} 98%{opacity:.4} }
     [data-motion="off"] #tablet-os-overlay .tos-journey-nosig { animation:none; }
-    #tablet-os-overlay .tos-journey-trail { font-size:26px; padding:6px 0; }
-    #tablet-os-overlay .tos-journey-hint { font-size:12px; font-style:italic; color:var(--tos-fg-dim); max-width:22em; }
+    #tablet-os-overlay .tos-journey-coord { font-family:var(--font-mono,monospace); font-size:11px; letter-spacing:1.5px; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-journey-coord b { color:var(--tos-fg); letter-spacing:2px; font-weight:600; }
+    #tablet-os-overlay .tos-journey-stage { flex:1; display:flex; align-items:center; justify-content:center; gap:clamp(12px,4vw,44px); flex-wrap:wrap; padding:22px 14px; }
+    #tablet-os-overlay .tos-journey-trail { font-size:30px; padding:8px 0; }
+    /* Compass with no fix — a bezel whose needle wanders, never settling. */
+    #tablet-os-overlay .tos-journey-compass { position:relative; flex:0 0 auto; width:78px; height:78px; border-radius:50%;
+      border:1px solid color-mix(in srgb, var(--mg-accent) 40%, transparent);
+      box-shadow:inset 0 0 20px color-mix(in srgb, var(--mg-accent) 14%, transparent), 0 0 8px color-mix(in srgb, var(--mg-accent) 18%, transparent); opacity:.92; }
+    #tablet-os-overlay .tos-journey-compass span { position:absolute; left:50%; top:50%; font-size:9px; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-jc-n { transform:translate(-50%,-50%) translateY(-28px); }
+    #tablet-os-overlay .tos-jc-s { transform:translate(-50%,-50%) translateY(28px); }
+    #tablet-os-overlay .tos-jc-e { transform:translate(-50%,-50%) translateX(28px); }
+    #tablet-os-overlay .tos-jc-w { transform:translate(-50%,-50%) translateX(-28px); }
+    #tablet-os-overlay .tos-jc-nofix { transform:translate(-50%,-50%) translateY(15px) !important; font-size:7px !important; letter-spacing:1px; color:var(--red) !important; opacity:.7; }
+    #tablet-os-overlay .tos-jc-needle { position:absolute; left:50%; top:50%; width:2px; height:30px; transform-origin:50% 100%;
+      transform:translate(-50%,-100%) rotate(0deg); background:linear-gradient(var(--red), transparent); box-shadow:0 0 5px color-mix(in srgb, var(--red) 50%, transparent);
+      animation:tos-jc-wander 7s ease-in-out infinite; }
+    @keyframes tos-jc-wander { 0%{transform:translate(-50%,-100%) rotate(-42deg)} 22%{transform:translate(-50%,-100%) rotate(38deg)} 46%{transform:translate(-50%,-100%) rotate(-12deg)} 70%{transform:translate(-50%,-100%) rotate(64deg)} 100%{transform:translate(-50%,-100%) rotate(-42deg)} }
+    [data-motion="off"] #tablet-os-overlay .tos-jc-needle { animation:none; }
+    #tablet-os-overlay .tos-journey-panel { display:flex; flex-direction:column; gap:10px; align-items:flex-start; min-width:104px; }
+    #tablet-os-overlay .tos-journey-readout { font-family:var(--font-mono,monospace); display:flex; flex-direction:column; gap:2px; }
+    #tablet-os-overlay .tos-journey-readout span { font-size:9px; letter-spacing:2px; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-journey-readout b { font-size:12px; letter-spacing:1px; color:var(--tos-fg); font-weight:600; }
+    #tablet-os-overlay .tos-journey-chips { display:flex; flex-direction:column; gap:6px; }
+    #tablet-os-overlay .tos-jchip { font-family:var(--font-mono,monospace); font-size:9px; letter-spacing:1px; padding:3px 8px; border-radius:4px; border:1px solid var(--tos-border); color:var(--tos-fg-dim); white-space:nowrap; }
+    #tablet-os-overlay .tos-jchip.hazard { color:var(--red); border-color:color-mix(in srgb, var(--red) 55%, transparent); background:color-mix(in srgb, var(--red) 12%, transparent); }
+    #tablet-os-overlay .tos-jchip.dead { color:var(--red); border-color:color-mix(in srgb, var(--red) 45%, transparent); }
+    #tablet-os-overlay .tos-jchip.gate { color:var(--green); border-color:color-mix(in srgb, var(--green) 50%, transparent); background:color-mix(in srgb, var(--green) 10%, transparent); }
+    #tablet-os-overlay .tos-journey-hint { font-size:12px; font-style:italic; color:var(--tos-fg-dim); text-align:center; padding:10px 14px 20px; }
     /* Tileable terrain: drop the border/rounding so water & parkland read as one
        expanse, and lay a subtle connecting texture (one period per tile). Fill colour
        is set inline (grey asphalt for roads, authored blue/green for water/grass). */
@@ -2797,16 +2841,50 @@ function renderIdeology(d, crumb) {
   return `<div class="tos-ideo-root"><div class="tos-ideo-sticky">${crumb || ''}${renderIdeoNav(d, _tosIdeoPage)}</div>${body}</div>`;
 }
 
-// Off the grid: the Map app has no city signal out in the void, so it shows the
-// journey map instead — the same trail chart as the minimap, blown up, with a
-// dead-signal banner. Short-circuits the whole tile-map path (no zoom/route rail).
+// Off the grid: the Map app has no city signal out in the void, so instead of the
+// city tile-map it becomes an "off-grid survey terminal" — the shared trail chart
+// (crossingInnerHtml, same source as the minimap) blown up and framed with dead-
+// signal instruments: scrambled coords, a wandering compass with no fix, the ground
+// underfoot, and live status chips. Fills the space and sells the void; carries no
+// data the minimap doesn't (payload is just `nodes`). Short-circuits the tile path.
+const JOURNEY_SUBSTRATE = { scrub: 'SCRUBLAND', ash: 'ASH FLATS', redrock: 'RED ROCK', marsh: 'DEAD MARSH', road: 'OLD ROADBED', dirt_road: 'DIRT TRACK' };
+function journeyAhead(nodes, cur) {
+  if (cur.void_detour) return 'dead';
+  const sId = cur.exits?.south;
+  if (!sId) return 'none';
+  return nodes.some(n => n.id === sId) ? 'fog' : 'gate';
+}
 function renderJourneyMap(d) {
   const nodes = d.nodes || [];
   const cur = nodes.find(n => n.is_current);
   if (!cur) return `<div class="tos-empty">◈ NO SIGNAL — you are off the grid, out in the void.</div>`;
+  const ahead = journeyAhead(nodes, cur);
+  const substrate = JOURNEY_SUBSTRATE[cur.terrain] || 'TRACKLESS WASTE';
+  const back = cur.void_detour ? 'east' : 'north', fwd = cur.void_detour ? null : 'south';
+  const ways = Object.keys(cur.exits || {}).filter(dir => dir !== back && dir !== fwd).length;
+  const chips = [];
+  if (cur.void_hard) chips.push(`<span class="tos-jchip hazard">⚠ HARD GROUND</span>`);
+  if (cur.void_detour) chips.push(`<span class="tos-jchip dead">▚ DEAD END</span>`);
+  if (ahead === 'gate') chips.push(`<span class="tos-jchip gate">⌂ GATE IN SIGHT</span>`);
+  else if (ahead === 'fog') chips.push(`<span class="tos-jchip fog">⋯ TRAIL UNKNOWN</span>`);
+  if (ways > 0) chips.push(`<span class="tos-jchip fork">⋔ ${ways} WAY${ways > 1 ? 'S' : ''} OFF</span>`);
+
   return `<div class="tos-journey">
-    <div class="tos-journey-nosig">▚ NO SIGNAL · OFF THE GRID ▚</div>
-    <div class="mm-crossing tos-journey-trail">${crossingInnerHtml(nodes, cur)}</div>
+    <div class="tos-journey-hdr">
+      <span class="tos-journey-nosig">▚ NO SIGNAL · OFF THE GRID ▚</span>
+      <span class="tos-journey-coord">POS <b>██·██ / ██·██</b> · UNCHARTED</span>
+    </div>
+    <div class="tos-journey-stage">
+      <div class="tos-journey-compass" aria-hidden="true">
+        <span class="tos-jc-n">N</span><span class="tos-jc-e">E</span><span class="tos-jc-s">S</span><span class="tos-jc-w">W</span>
+        <i class="tos-jc-needle"></i><span class="tos-jc-nofix">NO FIX</span>
+      </div>
+      <div class="mm-crossing tos-journey-trail">${crossingInnerHtml(nodes, cur)}</div>
+      <div class="tos-journey-panel">
+        <div class="tos-journey-readout"><span>SUBSTRATE</span><b>${substrate}</b></div>
+        ${chips.length ? `<div class="tos-journey-chips">${chips.join('')}</div>` : ''}
+      </div>
+    </div>
     <div class="tos-journey-hint">No city map out here. The only way through the void is through it.</div>
   </div>`;
 }

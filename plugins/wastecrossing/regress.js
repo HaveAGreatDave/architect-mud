@@ -114,6 +114,12 @@ export default async function regress({ run, check, getPlayer }) {
     check('minimap nodes flag void rooms (crossing mode) — trunk + detour',
       mmEntry?.void_crossing === true && mmDetour?.void_crossing === true && mmDetour?.void_detour === true,
       `entry=${JSON.stringify([mmEntry?.void_crossing, mmEntry?.void_detour])} detour=${JSON.stringify([mmDetour?.void_crossing, mmDetour?.void_detour])}`);
+    // Hard nodes surface on the minimap payload so the client can mark bad ground.
+    const spineRoom = [...bc.roomSet].find(id => id !== bc.entry && !bc.detourSet.has(id));
+    getZone(spineRoom).flags.void_hard = true;
+    const mmHard = getMinimapData(bc.entry, 8, player).find(n => n.id === spineRoom);
+    check('minimap surfaces hard nodes (void_hard)', mmHard?.void_hard === true, `void_hard=${mmHard?.void_hard}`);
+    delete getZone(spineRoom).flags.void_hard;
     const bRooms = [...bc.roomSet];
     _test.teardownInstance(bc);
     check('teardown removes trunk + limbs + detours (no leak)', bRooms.every(id => !getZone(id)), `leaked=${bRooms.filter(id => getZone(id)).length}`);

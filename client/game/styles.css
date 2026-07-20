@@ -2158,10 +2158,25 @@ body.fsim-external #look-resize-handle { display: none; }
 .mm-crossing-mode { background: radial-gradient(ellipse at center, var(--bg2), var(--bg)); }
 .mm-crossing {
 	grid-column: 1 / -1; grid-row: 1 / -1;
+	position: relative; overflow: hidden;
 	display: flex; flex-direction: column; align-items: center; justify-content: center;
 	gap: 0.15em; width: 100%; height: 100%; padding: 0.3em 0;
 	font-family: var(--font-mono); color: var(--text-dim);
 }
+/* Drifting ash/grit — faint specks sliding across the waste behind the trail. */
+.mm-crossing::before {
+	content: ''; position: absolute; inset: -20%; z-index: 0; pointer-events: none; opacity: 0.5;
+	background-image:
+		radial-gradient(1px 1px at 20% 30%, color-mix(in srgb, var(--text-dim) 55%, transparent) 50%, transparent),
+		radial-gradient(1px 1px at 70% 60%, color-mix(in srgb, var(--text-dim) 45%, transparent) 50%, transparent),
+		radial-gradient(1px 1px at 45% 85%, color-mix(in srgb, var(--text-dim) 40%, transparent) 50%, transparent),
+		radial-gradient(1px 1px at 85% 15%, color-mix(in srgb, var(--text-dim) 50%, transparent) 50%, transparent);
+	background-size: 120px 120px, 90px 90px, 140px 140px, 110px 110px;
+	animation: mm-x-ash 9s linear infinite;
+}
+@keyframes mm-x-ash { from { background-position: 0 0,0 0,0 0,0 0; } to { background-position: -40px 120px, 30px 90px, -25px 140px, 20px 110px; } }
+[data-motion="off"] .mm-crossing::before { animation: none; }
+.mm-crossing > * { position: relative; z-index: 1; }
 .mm-x-cap { font-size: 0.62em; letter-spacing: 0.18em; color: var(--accent); opacity: 0.85; text-shadow: 0 0 6px color-mix(in srgb, var(--accent) 40%, transparent); }
 .mm-x-trail { display: flex; flex-direction: column; align-items: center; gap: 0; line-height: 1; }
 /* Vertical trail connector: a thin dashed line behind the stacked nodes. */
@@ -2196,6 +2211,13 @@ body.fsim-external #look-resize-handle { display: none; }
 .mm-x-cue { opacity: 0.7; }
 .mm-x-cue .mm-x-node { font-size: 0.7em; color: var(--text-dim); }
 .mm-x-legend { font-size: 0.5em; letter-spacing: 0.04em; color: var(--text-dim); opacity: 0.8; margin-top: 0.15em; }
+/* Hard ground — a seeded rough stretch (void_hard). Walked-through reads red-dim; standing on one throbs. */
+.mm-x-walked.mm-x-hot .mm-x-node { color: var(--red); opacity: 0.8; text-shadow: 0 0 5px color-mix(in srgb, var(--red) 45%, transparent); }
+.mm-x-you.mm-x-hot .mm-x-here { color: var(--red); text-shadow: 0 0 11px color-mix(in srgb, var(--red) 75%, transparent); animation: mm-x-hotpulse 1s ease-in-out infinite; }
+.mm-x-you.mm-x-hot .mm-x-lbl { color: var(--red); opacity: 1; }
+@keyframes mm-x-hotpulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+[data-motion="off"] .mm-x-you.mm-x-hot .mm-x-here { animation: none; }
+.mm-x-hazard { font-size: 0.72em; margin-left: 0.3em; color: var(--red); text-shadow: 0 0 5px color-mix(in srgb, var(--red) 50%, transparent); cursor: default; }
 .mm-room {
 	position: relative;
 	font-weight: bold;
