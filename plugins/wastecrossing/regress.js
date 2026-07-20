@@ -37,9 +37,9 @@ export default async function regress({ run, check, getPlayer }) {
   try {
     // ── Entry drops you onto the shared trunk ──────────────────────────────────
     player.current_zone = GATE; player._lastStepAt = 0;
-    const enter = await run('venture');
+    const enter = await run('journey');
     const c = _test.crossings.get(player._crossing?.instanceId);
-    check('venture drops you into the void trunk',
+    check('journey drops you into the void trunk',
       enter?.type === 'move' && !!c && player.current_zone === c.entry, `${enter?.type} zone=${player.current_zone}`);
 
     // ── The braid: the trunk forks toward BOTH regions ────────────────────────
@@ -61,7 +61,7 @@ export default async function regress({ run, check, getPlayer }) {
 
     // ── Divert at the fork: east limb reaches Exodus instead ──────────────────
     player.current_zone = GATE; player._lastStepAt = 0;
-    await run('venture');
+    await run('journey');
     const c2 = _test.crossings.get(player._crossing.instanceId);
     for (let i = 0; i < vdef.trunk - 1; i++) { player._lastStepAt = 0; await run('south'); } // to the fork
     check('you can walk the shared trunk to the fork', player.current_zone === `${c2.id}_t${vdef.trunk - 1}`, player.current_zone);
@@ -84,7 +84,7 @@ export default async function regress({ run, check, getPlayer }) {
 
     // ── Branching: risk-for-loot detour off the trunk ─────────────────────────
     player.current_zone = GATE; player._lastStepAt = 0;
-    await run('venture');
+    await run('journey');
     const bc = _test.crossings.get(player._crossing.instanceId);
     check('a crossing has at least one risk-for-loot detour', bc.detourSet.size >= 1, `detours=${bc.detourSet.size}`);
     const detourId = [...bc.detourSet][0];
@@ -103,7 +103,7 @@ export default async function regress({ run, check, getPlayer }) {
     setLivePlayer(BOB, bob); addPlayerToZone(BOB, GATE);
     try {
       player.current_zone = GATE; player._lastStepAt = 0;
-      await run('venture');
+      await run('journey');
       check('a co-present follower is pulled into the SAME instance',
         !!bob._crossing && bob._crossing.instanceId === player._crossing.instanceId, `bob=${bob._crossing?.instanceId} leader=${player._crossing?.instanceId}`);
       check('the follower lands on the trunk entry with the leader',
@@ -116,7 +116,7 @@ export default async function regress({ run, check, getPlayer }) {
     await _test.loadFoes();
     check('the void foe roster loads from the enemies table', _test.foePool().length > 0, `foes=${_test.foePool().length}`);
     player.current_zone = GATE; player._lastStepAt = 0;
-    await run('venture');
+    await run('journey');
     const ec = _test.crossings.get(player._crossing.instanceId);
     const foeRoom = [...ec.roomSet].find(id => id !== ec.entry);
     const inst = _test.spawnFoe(ec, foeRoom);
@@ -129,7 +129,7 @@ export default async function regress({ run, check, getPlayer }) {
 
     // ── Ghost-traces (Slice 3): scrawls + corpses, cached per (void, window) ──
     player.current_zone = GATE; player._lastStepAt = 0;
-    await run('venture');
+    await run('journey');
     const tc = _test.crossings.get(player._crossing.instanceId);
     const scrawlSalt = getZone(tc.entry).flags.void_salt;
     const sres = await run('scrawl running low');
@@ -154,7 +154,7 @@ export default async function regress({ run, check, getPlayer }) {
 
     // ── Salvage (Slice 5): scavenge a void room, once, Scavenging-gated ───────
     player.current_zone = GATE; player._lastStepAt = 0;
-    await run('venture');
+    await run('journey');
     const lc = _test.crossings.get(player._crossing.instanceId);
     const lcBig = _test.bigScoreSalt(lc.voidKey, lc.window, VOIDS[lc.voidKey].trunk);
     const spineRooms = [...lc.roomSet].filter(id => id !== lc.entry && !lc.detourSet.has(id) && getZone(id).flags.void_salt !== lcBig);
@@ -176,7 +176,7 @@ export default async function regress({ run, check, getPlayer }) {
     // ── Slice 5b: corpse-packs (loot the dead, first-come) ────────────────────
     _test.setSalvage(1);
     player.current_zone = GATE; player._lastStepAt = 0;
-    await run('venture');
+    await run('journey');
     const pc = _test.crossings.get(player._crossing.instanceId);
     const bsSalt = _test.bigScoreSalt(pc.voidKey, pc.window, VOIDS[pc.voidKey].trunk);
     const packRoom = [...pc.roomSet].find(id => /reach|exodus/.test(getZone(id).flags.void_salt)); // a limb room (not the trunk big-score)
@@ -193,7 +193,7 @@ export default async function regress({ run, check, getPlayer }) {
 
     // ── Slice 5b: the weekly big score (claimed globally, first-come) ─────────
     player.current_zone = GATE; player._lastStepAt = 0;
-    await run('venture');
+    await run('journey');
     const gc = _test.crossings.get(player._crossing.instanceId);
     const bsRoom = [...gc.roomSet].find(id => getZone(id).flags.void_salt === bsSalt);
     player.current_zone = bsRoom;
@@ -204,7 +204,7 @@ export default async function regress({ run, check, getPlayer }) {
     wipe();
     // A later crosser (fresh instance, same window/salt) finds it already gone.
     player.current_zone = GATE; player._lastStepAt = 0;
-    await run('venture');
+    await run('journey');
     const gc2 = _test.crossings.get(player._crossing.instanceId);
     player.current_zone = [...gc2.roomSet].find(id => getZone(id).flags.void_salt === bsSalt);
     const bs2 = await run('sift');

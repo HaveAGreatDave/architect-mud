@@ -8,7 +8,7 @@
 // Two ways in, one code path (launchCrossing):
 //   • Walk off the map — moving the void-direction off a `flags.void_gate` edge with
 //     no authored exit fires the engine's `movement.edge` hook.
-//   • `venture [heading]` — the explicit verb, from the same edge tile.
+//   • `journey [heading]` — the explicit verb, from the same edge tile.
 //
 // THE BRAID: a void off a gate is a SHARED TRUNK that forks toward MULTIPLE
 // destinations. You walk the trunk (identical for everyone this window), reach the
@@ -341,7 +341,7 @@ async function launchCrossing(leader, gate, broadcast, heading) {
   };
 }
 
-async function cmdVenture(args, raw, player, broadcast) {
+async function cmdJourney(args, raw, player, broadcast) {
   if (player._crossing) return { type: 'emote', message: 'You are already out in the waste. The only way through it is through it.' };
   const gate = voidGateOf(getZone(player.current_zone));
   if (!gate) return { type: 'emote', message: 'There is nowhere to strike out into the waste from here.' };
@@ -396,7 +396,7 @@ async function cmdFrontier(args, raw, player, broadcast) {
   if (!gate) return { type: 'emote', message: 'You see no way to strike out into the waste from here — find a perimeter gate. (Your charted routes are on the Tablet Frontier map.)' };
   await discoverRoutes(player, gate.key);
   const dests = gate.void.dests.map(d => `<b>${d.heading}</b>`).join(', ');
-  return { type: 'output', message: `You read the waste from the edge. Somewhere out there, past the wind, the trail splits toward: ${dests}. (venture, or just walk off the edge — and pray the fork reads true.)` };
+  return { type: 'output', message: `You read the waste from the edge. Somewhere out there, past the wind, the trail splits toward: ${dests}. (journey, or just walk off the edge — and pray the fork reads true.)` };
 }
 
 // ── `scrawl` — leave a four-letter mark for whoever comes next ─────────────────
@@ -619,7 +619,7 @@ on('player.login', async ({ id }) => {
 });
 
 export const commands = {
-  venture: cmdVenture,
+  journey: cmdJourney,
   scrawl: cmdScrawl,
   sift: cmdSift,
   frontier: cmdFrontier,
