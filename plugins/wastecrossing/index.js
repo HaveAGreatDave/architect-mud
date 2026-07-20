@@ -128,15 +128,15 @@ function spawnFoe(c, roomId) {
 }
 
 // The per-step gate: first arrival at a non-threshold room, live roll, spawn.
-function maybeEncounter(actor, c, node, roomId) {
+function maybeEncounter(actor, c, roomId, chance) {
   if (!ENCOUNTERS_ON) return;
   const live = actor._crossing;
   if (!live) return;
   if (!live.seen) live.seen = new Set();
-  if (live.seen.has(node)) return; // only the first time you reach a room
-  live.seen.add(node);
-  if (node === 0) return;           // the threshold room is a beat to breathe
-  if (Math.random() >= ENCOUNTER_CHANCE) return;
+  if (live.seen.has(roomId)) return;   // only the first time you reach a room
+  live.seen.add(roomId);
+  if (roomId === c.roomIds[0]) return; // the threshold room is a beat to breathe
+  if (Math.random() >= chance) return;
   spawnFoe(c, roomId);
 }
 
@@ -196,6 +196,41 @@ function roomFor(instanceId, key, route, window, node, origin, length) {
   };
 }
 
+// ── Branching: risk-for-loot detours (Slice 2) ────────────────────────────────
+// The safe spine is a linear chain; off some interior rooms a lateral `west` exit
+// leads to a dead-end DETOUR — a blind gamble (a wreck, a bunker) where the
+// encounter chance is higher and, once Slice 5 lands, the salvage lives. You commit
+// to it and claw back out (`east`), or press on down the line. Seeded per
+// (route, window, node) so the forks are the same for everyone this window;
+// guaranteed at least one per crossing so the choice always shows up.
+const DETOUR_CHANCE = 0.4;             // per interior spine room
+const DETOUR_ENCOUNTER_CHANCE = 0.7;   // the gamble bites harder than the safe line
+const DETOUR_NAMES = ['A Half-Buried Wreck', 'A Collapsed Bunker', "A Scavenger's Cache",
+  'A Downed Hauler', 'A Wind-Scoured Ruin', 'A Sunken Rig', 'A Buried Silo'];
+const DETOUR_DESCS = [
+  'Wreckage juts from the dust off the line — the kind of place that swallows the desperate and, sometimes, rewards them. No telling which until you are in it.',
+  'A dark opening in the ground, half-collapsed. Salvage, maybe. A grave, maybe. Both, maybe.',
+  'Something went down out here a long time ago and was never picked clean — or it was, and what picked it is still around.',
+  'A hulk of rusted metal leans in the haze. Worth a look, if the look does not cost you.',
+];
+
+function detourRoomFor(instanceId, key, window, node, spineRoomId) {
+  const rng = mulberry32(hashSeed(`${key}|${window}|${node}|detour`));
+  return {
+    id: `${instanceId}_d${node}`,
+    name: pick(rng, DETOUR_NAMES),
+    description: pick(rng, DETOUR_DESCS),
+    map_id: VOID_MAP, grid_x: null, grid_y: null, grid_z: null,
+    flags: { terrain: pick(rng, TERRAINS), void_crossing: true, void_detour: true },
+    exits: { east: spineRoomId }, // the only way out is back the way you came in
+  };
+}
+function addDetour(instanceId, key, window, node, spineRoomId, detourIds) {
+  const detour = registerTransientZone(detourRoomFor(instanceId, key, window, node, spineRoomId));
+  getZone(spineRoomId).exits.west = detour.id; // spine → detour (the lateral gamble)
+  detourIds.add(detour.id);
+}
+
 // Get or build (on launch, or regenerate on relog) an instance's rooms + registry
 // entry. Idempotent: a second member relogging after a restart joins the instance
 // the first one already rebuilt.
@@ -207,7 +242,19 @@ function ensureInstance(instanceId, key, window, origin) {
   const roomIds = [];
   for (let node = 0; node < length; node++)
     roomIds.push(registerTransientZone(roomFor(instanceId, key, route, window, node, origin, length)).id);
-  c = { id: instanceId, key, roomIds, origin, dest: route.dest, heading: route.heading, window, length, members: new Set(), enemies: new Set() };
+
+  // Seed risk-for-loot detours off interior rooms; guarantee at least one fork.
+  const detourIds = new Set();
+  for (let node = 1; node < length - 1; node++) {
+    const drng = mulberry32(hashSeed(`${key}|${window}|${node}|detour`));
+    if (drng() < DETOUR_CHANCE) addDetour(instanceId, key, window, node, roomIds[node], detourIds);
+  }
+  if (detourIds.size === 0 && length >= 3) {
+    const node = Math.floor(length / 2);
+    addDetour(instanceId, key, window, node, roomIds[node], detourIds);
+  }
+
+  c = { id: instanceId, key, roomIds, detourIds, origin, dest: route.dest, heading: route.heading, window, length, members: new Set(), enemies: new Set() };
   crossings.set(instanceId, c);
   return c;
 }
@@ -215,6 +262,7 @@ function ensureInstance(instanceId, key, window, origin) {
 function teardownInstance(c) {
   for (const eid of c.enemies) removeEnemyInstance(eid); // despawn any spawned foes (no-op if already killed)
   for (const id of c.roomIds) removeTransientZone(id);
+  for (const id of c.detourIds) removeTransientZone(id);
   crossings.delete(c.id);
 }
 async function clearCrossingFlags(player) {
@@ -227,7 +275,7 @@ async function enterMember(m, c, first, origin) {
   removePlayerFromZone(m.id, m.current_zone);
   addPlayerToZone(m.id, first.id);
   m.current_zone = first.id;
-  m._crossing = { instanceId: c.id, node: 0, seen: new Set([0]) };
+  m._crossing = { instanceId: c.id, node: 0, seen: new Set([first.id]) };
   c.members.add(m.id);
   await query('UPDATE players SET current_zone=$1 WHERE id=$2', [first.id, m.id]).catch(() => {});
   await setFlag('player', 'crossing_route', c.key, m);
@@ -309,7 +357,8 @@ on('zone.entered', ({ actor, zone }) => {
     const c = crossings.get(live.instanceId);
     if (!c) { delete actor._crossing; return; }
     const idx = c.roomIds.indexOf(zone);
-    if (idx >= 0) { live.node = idx; maybeEncounter(actor, c, idx, zone); return; } // node RAM-only (flushed on logout); the waste may be waiting
+    if (idx >= 0) { live.node = idx; maybeEncounter(actor, c, zone, ENCOUNTER_CHANCE); return; } // node RAM-only (flushed on logout); the waste may be waiting
+    if (c.detourIds.has(zone)) { maybeEncounter(actor, c, zone, DETOUR_ENCOUNTER_CHANCE); return; } // a detour: no progress, hotter roll, no node change
     leaveCrossing(actor, zone === c.dest);
   } catch (e) { console.error('[wastecrossing] zone.entered error:', e.message); }
 });
@@ -346,7 +395,7 @@ on('player.login', async ({ id }) => {
     removePlayerFromZone(player.id, player.current_zone);
     addPlayerToZone(player.id, room.id);
     player.current_zone = room.id;
-    player._crossing = { instanceId, node, seen: new Set([node]) };
+    player._crossing = { instanceId, node, seen: new Set([room.id]) };
     c.members.add(player.id);
     await query('UPDATE players SET current_zone=$1 WHERE id=$2', [room.id, player.id]).catch(() => {});
 

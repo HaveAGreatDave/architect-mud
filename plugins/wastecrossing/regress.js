@@ -114,6 +114,29 @@ export default async function regress({ run, check, getPlayer }) {
       wipe();
     }
 
+    // ── Branching: risk-for-loot detours ──────────────────────────────────────
+    player.current_zone = GATE; player._lastStepAt = 0;
+    await run('venture');
+    const bc = _test.crossings.get(player._crossing.instanceId);
+    check('a crossing has at least one risk-for-loot detour', bc.detourIds.size >= 1, `detours=${bc.detourIds.size}`);
+    const detourId = [...bc.detourIds][0];
+    const spineWithDetour = bc.roomIds.find(id => getZone(id)?.exits?.west === detourId);
+    check('a detour hangs off a spine room (west) and exits back (east)',
+      isTransientZone(detourId) && !!spineWithDetour && getZone(detourId)?.exits?.east === spineWithDetour,
+      `detour=${detourId} spine=${spineWithDetour}`);
+    const spineIdx = bc.roomIds.indexOf(spineWithDetour);
+    for (let i = 0; i < spineIdx; i++) { player._lastStepAt = 0; await run('south'); }
+    player._lastStepAt = 0; await run('west');
+    check('walking west enters the detour (no progress)',
+      player.current_zone === detourId && player._crossing.node === spineIdx, `zone=${player.current_zone} node=${player._crossing.node}`);
+    player._lastStepAt = 0; await run('east');
+    check('walking east returns to the spine, still crossing',
+      player.current_zone === spineWithDetour && !!player._crossing, `zone=${player.current_zone}`);
+    const bRooms = [...bc.roomIds, ...bc.detourIds];
+    _test.teardownInstance(bc);
+    check('teardown removes detour rooms too (no leak)', bRooms.every(id => !getZone(id)), `leaked=${bRooms.filter(id => getZone(id)).length}`);
+    delete player._crossing;
+
     // ── Encounters: a real foe spawns and is cleaned up on teardown ────────────
     await _test.loadFoes();
     check('the void foe roster loads from the enemies table', _test.foePool().length > 0, `foes=${_test.foePool().length}`);

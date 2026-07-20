@@ -174,6 +174,16 @@ Movement is through a **branching graph**, forward-biased, with meaningful forks
   unknowable within a fresh window; that's where the dread lives. (Ghost-traces are how the community
   gradually converts blind gambles into informed ones over the week.)
 
+**BUILT (Slice 2, branch `void-travel`):** a **safe spine** (the linear distance-derived chain) plus
+seeded **risk-for-loot detours** — off interior rooms, a lateral `west` exit into a dead-end gamble
+room (a half-buried wreck, a collapsed bunker; `east` is the only way back out). Detours carry a **higher
+encounter chance** (`0.7` vs `0.45`) and are where Slice 5's salvage will live; their description is a
+**blind gamble** ("salvage, maybe; a grave, maybe; both, maybe"). Seeded per `(route, window, node)` so
+the forks are the same for everyone this window; **guaranteed ≥1 per crossing** so the choice always
+shows up. Entering a detour is *not* progress (no node advance) and the instance reference-counts +
+tears down detour rooms too. Still linear-spine + detours, not yet a full multi-destination *braid*
+(that needs 2+ adjacent routes — the adjacency graph). Regress 1288/1288.
+
 ### Risky rest sites
 
 No safe haven, but not pure attrition either. Rare rooms (a cave, a wreck, a dead turret's shadow) let
