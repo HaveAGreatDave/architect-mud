@@ -3310,6 +3310,11 @@ function fsimFrame(now) {
   // roll on, so no thrust reaches the ground and she can't move or take off until the gear's back
   // down (or you ABORT for a tow). This is the punishment for raising the gear parked/rolling.
   const bellyDown = s.onGround && F.gearRetract && F.gearUp;
+  // Visor lock: the Leviathan can't ROLL until its cargo nose is closed and locked forward. The
+  // engines still light, spool and rev while it's open (the lock only severs the thrust force via
+  // `noThrust` below) — you start up, run the ~5s close, and only then can you taxi. (No visor →
+  // always "locked".)
+  const visorLocked = !F.hasVisor || (F.noseVisor ?? 0) <= 0.02;
   // Effective throttle: the lever always moves, but there's no thrust unless the
   // engine master switch is on and the tank isn't dry (dead stick) — and never on the belly.
   const thr = (F.engineOn && !F.deadStick && !bellyDown) ? input.throttle : 0;
@@ -3336,7 +3341,7 @@ function fsimFrame(now) {
     // collRaw + power let the heli model autorotate: the collective lever keeps working with the
     // engine dead (power=false), so a rotor-out descent is flyable to a flared touchdown. Fixed-wing
     // ignores both. power gates on engine master / dead-stick / belly (same conditions that gate thr).
-    step(s, { elevator: input.elevator, aileron: input.aileron, throttle: thr, collRaw: input.throttle, power: (F.engineOn && !F.deadStick && !bellyDown), flaps: input.flaps, pedal: input.pedal, trim: input.trim, gear: F.gearRetract ? (F.gearAnim ?? 1) : 0, dmgSurf: F.surfaces || null }, P, h);
+    step(s, { elevator: input.elevator, aileron: input.aileron, throttle: thr, collRaw: input.throttle, power: (F.engineOn && !F.deadStick && !bellyDown), noThrust: !visorLocked, flaps: input.flaps, pedal: input.pedal, trim: input.trim, gear: F.gearRetract ? (F.gearAnim ?? 1) : 0, dmgSurf: F.surfaces || null }, P, h);
 
     // Turbulence: the air disturbs the AIRCRAFT (you correct it), it never cheats the physics.
     // Deterministic summed-sine "noise" (no RNG) rolls/pitches you and bumps lift, ∝ severity.
@@ -3377,13 +3382,16 @@ function fsimFrame(now) {
   else F.gearAnim = 1;
 
   // Leviathan cargo visor nose: parked with the engine shut down the whole forward section hinges
-  // UP; powering on lowers it home. Eases over ~5s (a big hydraulic visor is slow) so the external
-  // and cockpit views both show it swing, not snap. Only the heavy (Leviathan) mesh has a visor.
+  // fully UP (~90°), exposing the hold + ramp; powering on lowers it home. LINEAR travel over a
+  // full 5s (a big hydraulic visor is slow, and it must read as a deliberate ~5s close after you
+  // hit power), so both the external model and the cockpit camera swing at a steady rate, not an
+  // ease-out that finishes early. Only the heavy (Leviathan) mesh has a visor.
   if (F.hasVisor === undefined) F.hasVisor = !!visorSpecFor(F.cls);
   if (F.hasVisor) {
     const tgt = (!F.engineOn && s.onGround && s.airspeed < 5) ? 1 : 0;
     if (F.noseVisor === undefined) F.noseVisor = tgt;   // already raised if you board her cold — no start-up sweep
-    F.noseVisor = lerpN(F.noseVisor, tgt, Math.min(1, dt / 5));
+    const stepV = dt / 5;                               // 0→1 (or 1→0) in five seconds flat
+    F.noseVisor = F.noseVisor < tgt ? Math.min(tgt, F.noseVisor + stepV) : Math.max(tgt, F.noseVisor - stepV);
   }
 
   // ── Building collision (CFIT) — flying into a tower you can see out the glass ─────
@@ -3868,7 +3876,8 @@ function fsimFrame(now) {
     // keyboard, so their fin auto-coordinates — a half-throw deflection INTO the roll as you bank.
     ctrl: F.external ? { aileron: F.input.aileron, elevator: clampNum(F.input.elevator + (F.input.trim || 0), -1, 1), flaps: F.input.flaps, rudder: clampNum((F.input.pedal || 0) + (_touchPrimary ? 0.5 * F.input.aileron : 0), -1, 1) } : null,
     gearAnim: F.gearRetract ? clampNum(F.gearAnim ?? 1, 0, 1) : 1,   // fixed-gear craft are always down
-    noseVisor: F.hasVisor ? clampNum(F.noseVisor ?? 0, 0, 1) : 0,   // Leviathan cargo visor: raised when parked/cold, lowered under power (external model + cockpit foreground)
+    noseVisor: F.hasVisor ? clampNum(F.noseVisor ?? 0, 0, 1) : 0,   // Leviathan cargo visor: raised when parked/cold, lowered under power (drives the external model swing)
+    cockpitTilt: F.hasVisor ? clampNum(F.noseVisor ?? 0, 0, 1) : 0,   // …and pitches the first-person camera up to match the raised nose (cockpit view only)
     onGround: !!r.onGround,
     // Auto-land guidance dome over the Echelon's helipad — shown whenever you're flying a heli
     // near her (the dome only draws if a yacht cell is actually in the world window). It ARMS

@@ -2052,6 +2052,9 @@ const TOS_APP_ICONS = {
   crafting: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M14.6 5.4a4 4 0 0 0-5.2 5.2l-6 6 3 3 6-6a4 4 0 0 0 5.2-5.2l-2.6 2.6-2.6-.4-.4-2.6z" fill="currentColor" fill-opacity=".2" stroke="none"/><path d="M14.6 5.4a4 4 0 0 0-5.2 5.2l-6 6 3 3 6-6a4 4 0 0 0 5.2-5.2l-2.6 2.6-2.6-.4-.4-2.6z"/></svg>`,
   // Party = two figures, monochrome like the rest so it drops the 👥 emoji.
   party: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><circle cx="9" cy="8" r="3"/><path class="dim" d="M3.5 20a5.5 5.5 0 0 1 11 0z" fill="currentColor" fill-opacity=".22" stroke="none"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><circle cx="16.5" cy="8.5" r="2.5"/><path d="M14.6 15.2A5 5 0 0 1 21 20"/></svg>`,
+  // DEADHEAD = an aircraft in a dashed holding orbit — the crew flying/loitering your base.
+  // Monochrome (currentColor) like the rest, so it drops the off-palette ✈ emoji.
+  deadhead: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><ellipse class="dim" cx="12" cy="13" rx="10" ry="6.2" fill="currentColor" fill-opacity=".12" stroke="none"/><ellipse cx="12" cy="13" rx="10" ry="6.2" stroke-opacity=".5" stroke-dasharray="2.4 2.6"/><path d="M12 4.6l1.05 5.7 4.9 2.5-4.9.7v2.2l1.7 1.6-2.75-.85-2.75.85 1.7-1.6v-2.2l-4.9-.7 4.9-2.5z" fill="currentColor" stroke="none"/></svg>`,
 };
 
 // Client-only tablet apps — appended to the server-registered roster. Unlike the
@@ -4662,6 +4665,61 @@ function renderActions(appId, actions, params) {
   ).join('')}</div>`;
 }
 
+// DEADHEAD — the Leviathan crew-dispatch console: a normalized map of the base + every airfield
+// (tap one to chart a course to land there, or tap ANYWHERE to set a hold point), a status line
+// with fuel, and contextual crew controls. Airfield tiles carry data-act-id="chart"; the map box
+// itself (id tos-dh-map) is wired to fire a 'loiter' action at the tapped tile — see the binding
+// in the render-events pass. _dhBox stashes the last bounding box so that click can invert to a tile.
+let _dhBox = null;
+function renderDeadhead(d) {
+  const dh = d.deadhead || {};
+  if (!dh.aboard) return `<div style="padding:26px 16px;text-align:center;color:var(--tos-dim,#8aa)">Board a <b>Leviathan</b> to run its crew from here.</div>`;
+  const fields = (dh.fields || []).slice().sort((a, b) => a.dist - b.dist);
+  const loiter = dh.charted?.loiter ? { gx: dh.charted.tx, gy: dh.charted.ty } : null;
+  const pts = [{ gx: dh.gx, gy: dh.gy }, ...fields, ...(loiter ? [loiter] : [])];
+  let minX = Math.min(...pts.map(p => p.gx)), maxX = Math.max(...pts.map(p => p.gx));
+  let minY = Math.min(...pts.map(p => p.gy)), maxY = Math.max(...pts.map(p => p.gy));
+  if (maxX === minX) { minX -= 1; maxX += 1; }
+  if (maxY === minY) { minY -= 1; maxY += 1; }
+  _dhBox = { minX, maxX, minY, maxY };
+  const P = 0.1, nx = (g) => (P + (1 - 2 * P) * (g - minX) / (maxX - minX)) * 100, ny = (g) => (P + (1 - 2 * P) * (g - minY) / (maxY - minY)) * 100;
+  const acc = 'var(--tos-accent,#f2b01e)';
+  const dots = fields.map(f => {
+    const charted = !dh.charted?.loiter && dh.charted?.id === f.id;
+    return `<button type="button" style="position:absolute;left:${nx(f.gx).toFixed(1)}%;top:${ny(f.gy).toFixed(1)}%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:1px;background:none;border:none;cursor:pointer;padding:2px;font-family:inherit"
+      data-act-id="chart" data-act-app="deadhead" data-act-params="${esc(f.id)}" title="${esc(f.name)} — ${f.dist} tiles">
+      <span style="font-size:13px;line-height:1;color:${charted ? '#7dffb0' : acc};filter:drop-shadow(0 0 3px ${charted ? '#2f8' : 'transparent'})">✈</span>
+      <span style="font-size:8.5px;letter-spacing:.3px;color:${charted ? '#7dffb0' : 'var(--tos-dim,#9ab)'};white-space:nowrap;max-width:76px;overflow:hidden;text-overflow:ellipsis">${esc(f.name)}</span>
+    </button>`;
+  }).join('');
+  const loiterMk = loiter ? `<div style="position:absolute;left:${nx(loiter.gx).toFixed(1)}%;top:${ny(loiter.gy).toFixed(1)}%;transform:translate(-50%,-50%);color:#7dffb0;font-size:15px;line-height:1;text-shadow:0 0 7px #2f8;pointer-events:none" title="hold point">◎</div>` : '';
+  const here = `<div style="position:absolute;left:${nx(dh.gx).toFixed(1)}%;top:${ny(dh.gy).toFixed(1)}%;transform:translate(-50%,-50%);color:#ff5a6a;font-size:15px;line-height:1;text-shadow:0 0 6px #ff5a6a;pointer-events:none" title="the Leviathan is here">◆</div>`;
+  const st = dh.status || {};
+  const stateColor = st.state === 'crew' ? '#5ad1ff' : st.state === 'parked' ? 'var(--tos-dim,#9ab)' : acc;
+  const fuel = typeof dh.fuel === 'number' ? `<span style="font-size:11px;color:${dh.fuel < 25 ? '#ff7a86' : 'var(--tos-dim,#9ab)'}">⛽ ${dh.fuel}%</span>` : '';
+  const notice = d.notice ? `<div style="margin:6px 0;padding:6px 9px;border-left:2px solid ${acc};background:rgba(255,255,255,.04);font-size:12px">${esc(d.notice)}</div>` : '';
+  const clearBtn = `<button type="button" class="tos-btn" style="padding:1px 8px;font-size:11px;margin-left:6px" data-act-id="clear" data-act-app="deadhead" data-act-params="">clear</button>`;
+  const charted = dh.charted
+    ? (dh.charted.loiter
+      ? `<div style="margin-top:8px;font-size:12px">Holding over <b style="color:#7dffb0">${esc(dh.charted.name)}</b> until bingo fuel, then divert to land ${clearBtn}</div>`
+      : `<div style="margin-top:8px;font-size:12px">Course set: <b style="color:#7dffb0">${esc(dh.charted.name)}</b> ${clearBtn}</div>`)
+    : `<div style="margin-top:8px;font-size:12px;color:var(--tos-dim,#8aa)">Tap an <b>airfield</b> to land there, or <b>anywhere</b> to hold that spot.</div>`;
+  const btns = [];
+  if (dh.seat === 'pilot') btns.push(`<button type="button" class="tos-btn" data-act-id="hand" data-act-app="deadhead" data-act-params="">Hand off to the crew</button>`);
+  else if (dh.atDeck && !dh.airborne && !dh.crew) btns.push(`<button type="button" class="tos-btn" data-act-id="take" data-act-app="deadhead" data-act-params="">Take the controls</button>`);
+  const controls = btns.length ? `<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">${btns.join('')}</div>` : '';
+  return `<div style="padding:4px 2px">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:8px 10px;border:1px solid var(--border,#2a3a44);border-radius:8px;background:rgba(255,255,255,.03)">
+      <span style="font-weight:bold;letter-spacing:.5px;color:${acc}">✈ ${esc(dh.name || 'Leviathan')}</span>
+      <span style="display:flex;gap:10px;align-items:baseline"><span style="font-size:12px;color:${stateColor}">${esc(st.text || '')}</span>${fuel}</span>
+    </div>
+    ${notice}
+    <div id="tos-dh-map" style="position:relative;height:210px;margin:10px 0;border:1px solid var(--border,#2a3a44);border-radius:9px;cursor:crosshair;background:repeating-linear-gradient(0deg,transparent,transparent 23px,rgba(255,255,255,.03) 24px),repeating-linear-gradient(90deg,transparent,transparent 23px,rgba(255,255,255,.03) 24px),radial-gradient(circle at 50% 50%,rgba(90,120,150,.10),transparent 70%);overflow:hidden">${dots}${loiterMk}${here}</div>
+    ${charted}
+    ${controls}
+  </div>`;
+}
+
 function renderBody() {
   const d = _data;
   if (!d) return '';
@@ -4698,6 +4756,9 @@ function renderBody() {
     return `<div class="tos-body tos-map-view">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}${renderTosTabs(d)}
       <div id="tos-map-root">${renderMap(d)}</div>
     </div>`;
+  }
+  if (d.view === 'deadhead') {
+    return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}${renderDeadhead(d)}</div>`;
   }
   if (d.view === 'gear') {
     return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}
@@ -4914,6 +4975,18 @@ function wireBody() {
       sfx(TOS_SELECT_DEF);
       openNewsStory(_newsStories[+el.getAttribute('data-news-idx')]);
     });
+  });
+  // DEADHEAD map — tapping empty space sets a hold point (airfield pips fire their own 'chart'
+  // action and are skipped here). Invert the click position back to a world tile via _dhBox.
+  const dhMap = _overlay.querySelector('#tos-dh-map');
+  if (dhMap && _dhBox) dhMap.addEventListener('click', (e) => {
+    if (e.target.closest('[data-act-id]')) return;
+    const r = dhMap.getBoundingClientRect(), P = 0.1;
+    const inv = (frac, mn, mx) => Math.round(mn + ((frac - P) / (1 - 2 * P)) * (mx - mn));
+    const gx = Math.max(_dhBox.minX, Math.min(_dhBox.maxX, inv((e.clientX - r.left) / r.width, _dhBox.minX, _dhBox.maxX)));
+    const gy = Math.max(_dhBox.minY, Math.min(_dhBox.maxY, inv((e.clientY - r.top) / r.height, _dhBox.minY, _dhBox.maxY)));
+    sfx(TOS_SELECT_DEF);
+    act('deadhead', 'loiter', `${gx} ${gy}`);
   });
   _overlay.querySelectorAll('[data-act-id]').forEach(el => {
     el.addEventListener('click', () => {

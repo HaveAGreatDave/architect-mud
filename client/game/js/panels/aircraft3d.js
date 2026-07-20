@@ -85,6 +85,8 @@ export function faceBaseRgb(face, pal) {
   const role = face.role;
   if (role === 'glass' || role === 'window') return face.tint || [14, 26, 36];   // per-face tint override (e.g. the heli's clear fishbowl bubble)
   if (role === 'strut' || role === 'gear' || role === 'gun') return [44, 48, 54];
+  if (role === 'interior') return [26, 28, 33];   // dark cargo-hold walls, livery-independent
+  if (role === 'ramp') return [58, 61, 68];        // bare metal cargo ramp
   if (pal.pat === 'jazz' && JAZZ_ROLE.has(role)) return pal.ground || JAZZ_GROUND;   // chosen undercoat; overlayJazz paints the splatter on top
   return faceWearsTrim(face, pal.pat) ? pal.trim : pal.base;
 }
@@ -290,10 +292,35 @@ function buildFixedWing(p, detail = 1) {
     const cut = p.noseF * (p.visor.hingeAt ?? 0.33);
     const crownZ = czAt(cut) + p.fv * radAt(cut);              // top of the fuselage at the cut station
     const A = V(cut, p.fr, crownZ), B = V(cut, -p.fr, crownZ); // hinge axis: a lateral line across the crown
-    const LIFT = new Set(['body', 'glass', 'window']);         // skin + flight-deck glass lift; gear/struts/nacelles stay
+    const LIFT = new Set(['body', 'glass', 'window']);         // skin + flight-deck glass lift with the nose
+    const noseGearF = p.noseF * 0.45;                          // fore of this centroid = the NOSE leg; the main centipede bogies sit well aft and stay planted
     for (const f of faces) {
-      if (!LIFT.has(f.role)) continue;
-      if (f.p.every(v => v[0] >= cut - 1e-6)) { f.visor = true; f.visorHinge = [A, B]; f.visorMax = p.visor.maxAng ?? 0.9; }
+      const fwd = f.p.every(v => v[0] >= cut - 1e-6);
+      // The nose gear rides up with the visor (the rear bogies alone hold her stable); the mains don't.
+      const isNoseGear = f.role === 'gear' && (f.p.reduce((a, v) => a + v[0], 0) / f.p.length) > noseGearF;
+      if ((LIFT.has(f.role) && fwd) || isNoseGear) { f.visor = true; f.visorHinge = [A, B]; f.visorMax = p.visor.maxAng ?? 0.9; }
+    }
+    // Cargo hold revealed when the visor stands up: a boxy inner bay (floor, ceiling, side walls,
+    // rear bulkhead) recessed inside the main fuselage — static geometry the closed outer skin
+    // occludes, seen only through the raised opening.
+    const bF0 = cut, bF1 = -0.06;                              // opening plane → rear bulkhead
+    const bw = p.fr * 0.66, bt = p.fv * 0.60, bb = -p.fv * 0.55;   // half-width, ceiling z, floor z (inset from the skin)
+    faces.push({ role: 'interior', sh: 0.30, p: [V(bF1, -bw, bb), V(bF1, bw, bb), V(bF0, bw, bb), V(bF0, -bw, bb)] });   // floor
+    faces.push({ role: 'interior', sh: 0.20, p: [V(bF0, -bw, bt), V(bF0, bw, bt), V(bF1, bw, bt), V(bF1, -bw, bt)] });   // ceiling
+    faces.push({ role: 'interior', sh: 0.26, p: [V(bF1, bw, bb), V(bF1, bw, bt), V(bF0, bw, bt), V(bF0, bw, bb)] });     // starboard wall
+    faces.push({ role: 'interior', sh: 0.26, p: [V(bF0, -bw, bb), V(bF0, -bw, bt), V(bF1, -bw, bt), V(bF1, -bw, bb)] }); // port wall
+    faces.push({ role: 'interior', sh: 0.36, p: [V(bF1, -bw, bb), V(bF1, -bw, bt), V(bF1, bw, bt), V(bF1, bw, bb)] });   // rear bulkhead
+    // Fold-down cargo ramp, hinged at the lower front lip. Authored DEPLOYED (lip → ground), then
+    // pre-rotated UP into its stowed pose (tucked flat inside the hold, hidden behind the closed
+    // nose); as part of the visor group, hingeVisorFace swings it back down as noseVisor → 1.
+    const lipZ = czAt(cut) - p.fv * radAt(cut);               // fuselage bottom at the cut station
+    const rw = bw * 0.94, rampAng = 2.9;
+    const hA = V(cut, rw, lipZ), hB = V(cut, -rw, lipZ);
+    const footF = cut + 0.62, footZ = -p.fv - 0.09;           // ramp foot reaches forward to the ground
+    const depTop = [V(cut, -rw, lipZ), V(cut, rw, lipZ), V(footF, rw, footZ), V(footF, -rw, footZ)];
+    const depBot = [V(footF, -rw, footZ - 0.01), V(footF, rw, footZ - 0.01), V(cut, rw, lipZ - 0.01), V(cut, -rw, lipZ - 0.01)];
+    for (const [sh, dep] of [[0.72, depTop], [0.44, depBot]]) {
+      faces.push({ role: 'ramp', sh, p: rotAboutAxis(dep, hA, hB, rampAng), visor: true, visorHinge: [hA, hB], visorMax: -rampAng });
     }
   }
   return faces;
@@ -897,9 +924,10 @@ const FW_PARAMS = {
     engines: [-0.60, -0.34, 0.34, 0.60], nacF: 0.26, nacH: 0.0, nacR: 0.095, pylons: true, windows: 6, heavyGear: true,
     noseBlunt: 3.3, noseCowl: 0.16, boxy: 0.12, bodyTube: 0.5, tailUp: 0.10,   // noseCowl floors the radome so it's a blunt An-124 nose, not a point
     // Cargo VISOR NOSE (C-5 Galaxy / An-124): parked with the engines shut down the whole forward
-    // section ahead of the noseF*0.33 ring hinges UP; powering on lowers it home. hingeAt is a
-    // fraction of noseF so the cut lands exactly on a fuselage ring (a clean break, no torn skin).
-    visor: { hingeAt: 0.33, maxAng: 0.92 },
+    // section ahead of the noseF*0.33 ring hinges fully UP (~90°), exposing the cargo hold + ramp;
+    // powering on lowers it home. hingeAt is a fraction of noseF so the cut lands exactly on a
+    // fuselage ring (a clean break, no torn skin).
+    visor: { hingeAt: 0.33, maxAng: 1.5708 },
     canopy: { f0: 0.80, f1: 0.38, w: 0.115, h: 0.085, front: 0.30, tail: 0.10, segs: 6, arc: 5, sink: 0.025 } },   // smooth raised forward flight-deck hump behind the radome   // An-124 raised forward flight-deck hump behind the radome
   // Grasshopper — a Piper L-4 (per ref): a high-wing, strut-braced TANDEM two-seat TAILDRAGGER
   // liaison/observation plane. Signatures vs the Cessna: a deeper, SLAB-SIDED slim fuselage; a
@@ -1267,7 +1295,7 @@ export function drawNoseArt(ctx, proj, cls, lv, occluders = null) {
   // so reach decals never flip.
   const n0 = grid[0][0], nT = grid[0][Nc], bL = grid[Nr][0];
   const cross = (nT.sx - n0.sx) * (bL.sy - n0.sy) - (nT.sy - n0.sy) * (bL.sx - n0.sx);
-  const flip = !reach && cross < 0;
+  const flip = !reach && cross > 0;   // un-mirror emblems onto the visible flank (winding sign corrected — was reading backwards)
   const uOf = (col) => (flip ? (Nc - col) : col) / Nc * W;
   const occ = occluders || [];
   for (let j = 0; j < Nr; j++) for (let i = 0; i < Nc; i++) {

@@ -45,7 +45,7 @@ const CHARTER_TICK_MS = 2500;
 // teleport: this is deliberately slow (~0.12 tiles/sec) so even the shortest hop
 // between adjacent fields runs a proper couple of dozen seconds of narrated flight.
 // 3x'd per a later request — the enroute leg was dragging.
-const CRUISE_TILES = 0.45;
+export const CRUISE_TILES = 0.45;
 const CHATTER_MIN_GAP_MS = 10000; // pilot speaks at most once every 10s of flight
 const CHARTER_ALT = 480;         // nominal 'low'-band cruise height for the synthesized attitude
 const HELD_EXPIRY_MS = 30 * 60 * 1000;  // a booked-and-paid charter waits this long for you to embark before it auto-cancels + refunds
@@ -418,7 +418,7 @@ export async function embarkCharter(player, ch) {
 // hold cruise, nose-down sink on short final — with vs/pitch following the ramp.
 // `remaining` is tiles to the destination (Infinity right after takeoff). Seed a
 // leg with live._contAlt = 0 so it climbs from the deck. Call each airborne tick.
-function chaseCont(live, remaining = Infinity) {
+export function chaseCont(live, remaining = Infinity) {
   const hdg = Number(live.row.heading) || 0;
   const prevHdg = live._contHdg ?? hdg;
   const turn = ((hdg - prevHdg + 540) % 360) - 180;   // signed shortest-arc turn since last tick

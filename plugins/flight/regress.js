@@ -11,7 +11,7 @@ import { crashSeverity, collateralBill, isSeverelyImpaired } from './collateral.
 import { sellAircraft, cancelRental, flushAirborne } from './hangars.js';
 import { computeStats, perfAxes, tuneRange, installedKits, KITS, TUNE_DIAL_MAX,
   shearRoll, surfacesWire, anyWingLost, resetSurfaces, SURFACE_KEYS,
-  isWalkableCabin, cabinTypeOf, cabinEntryZone, isCabinZone, liveAircraft, getZone, loadAircraft, stalledState, CONTINUOUS_TYPES } from './state.js';
+  isWalkableCabin, cabinTypeOf, cabinEntryZone, isCabinZone, liveAircraft, getZone, loadAircraft, stalledState, CONTINUOUS_TYPES, listAirfields } from './state.js';
 import { isFreightLicensed, ensureFreightDrops } from './contracts.js';
 import { isPilotLicensed, _test as checkrideTest } from './checkride.js';
 import { setFlag } from '../../server/engine/flags.js';
@@ -388,6 +388,91 @@ export default async function regress({ run, check, getPlayer }) {
     liveAircraft.delete(wAcId);
     for (const z of [lvCabin, lvFd, lvGalley, lvHold]) z?.players.delete(p.id);
     await query('DELETE FROM aircraft WHERE id=$1', [wAcId]);
+  }
+  p.current_zone = savedZoneW; delete p.aircraftId; delete p.seat; delete p.cabinWindowOpen;
+
+  // ── Walkable base: take the controls / hand off at the flight deck (Phase 2) ──
+  // From INSIDE the base you fly her by stepping to the flight deck and taking the
+  // controls (into the cockpit sim); `handoff` (ground only) steps you back out to walk.
+  if (lvFd && lvCabin && getZone(savedZoneW)) {
+    const cAcId = 'aircraft_regress_lv_ctrl';
+    await query('DELETE FROM aircraft WHERE id=$1', [cAcId]);
+    await query(`INSERT INTO aircraft (id,type_id,name,owner_id,rental,is_wreck,airborne,parked_zone_id) VALUES ($1,'ac_leviathan','REGR-LVC',$2,0,0,0,$3)`, [cAcId, p.id, savedZoneW]);
+    const cLive = await loadAircraft(cAcId);
+    if (cLive) {
+      liveAircraft.set(cAcId, cLive);
+      cLive.occupants.add(p.id); cLive.pilotId = null;
+      p.aircraftId = cAcId; p.seat = 'passenger'; p.posture = 'standing';
+      // A licensed non-admin, so the licence gate is exercised as a real pass (not a role bypass).
+      const roleC = p.role; p.role = 'player'; await setFlag('player', 'air_pilot_licensed', '1', p);
+      // From the cabin (not the deck) the controls are out of reach.
+      p.current_zone = 'zone_leviathan_cabin'; lvCabin.players.add(p.id);
+      let tc = await run('takecontrols');
+      check('takecontrols is refused away from the flight deck', /flight deck/i.test(tc?.message || ''), tc?.message);
+      // At the deck with no pilot: take the controls → seated as pilot, cockpit opens (noop).
+      lvCabin.players.delete(p.id); p.current_zone = 'zone_leviathan_flightdeck'; lvFd.players.add(p.id);
+      tc = await run('takecontrols');
+      check('takecontrols at the deck seats you as pilot and opens the cockpit', p.seat === 'pilot' && cLive.pilotId === p.id && tc?.type === 'noop', `${tc?.type}:${p.seat}:${cLive.pilotId}`);
+      check('taking the controls steps you out of the flight-deck room', !lvFd.players.has(p.id), String([...lvFd.players]));
+      // NAV console (flight-deck only): list airfields, chart one — it becomes the hand-off course.
+      let nv = await run('nav');
+      check('nav lists airfields to chart from the flight deck', nv?.type === 'output' && /NAV/i.test(nv?.message || ''), nv?.message);
+      const navField = listAirfields().find(f => f.id !== cLive.row.parked_zone_id);
+      if (navField) {
+        nv = await run(`nav ${navField.id}`);
+        check('nav <field> charts a course', /course charted/i.test(nv?.message || '') && cLive.navDest?.destZone === navField.id, `${cLive.navDest?.destZone}`);
+      }
+      // Mid-air hand-off engages the crew autopilot — to the CHARTED course when one is set.
+      cLive.row.airborne = 1; cLive.row.grid_x = 0; cLive.row.grid_y = 0; cLive.fx = 0; cLive.fy = 0;
+      let ho = await run('handoff');
+      check('mid-air handoff hands off to the crew and returns you to the cabin',
+        p.seat === 'passenger' && cLive.pilotId === null && !!cLive.crew && !!getZone(p.current_zone)?.flags?.aircraft_cabin,
+        `${p.seat}:${cLive.pilotId}:crew=${!!cLive.crew}:${p.current_zone}`);
+      check('the crew fly the charted NAV course, not just the nearest field',
+        !navField || cLive.crew?.destZone === navField.id, `${cLive.crew?.destZone} vs ${navField?.id}`);
+      // You can't take the controls back until the crew set her down.
+      lvCabin.players.delete(p.id); p.current_zone = 'zone_leviathan_flightdeck'; lvFd.players.add(p.id);
+      let tc2 = await run('takecontrols');
+      check('takecontrols is refused while the crew have the controls', /crew have the controls/i.test(tc2?.message || ''), tc2?.message);
+      delete cLive.crew; cLive.row.airborne = 0;
+      // On the ground, handing off is a plain step out of the seat back into a cabin room.
+      lvFd.players.delete(p.id); p.seat = 'pilot'; cLive.pilotId = p.id;
+      ho = await run('handoff');
+      check('handoff on the ground returns you to a cabin room as a passenger',
+        p.seat === 'passenger' && cLive.pilotId === null && !cLive.crew && !!getZone(p.current_zone)?.flags?.aircraft_cabin, `${p.seat}:${cLive.pilotId}:${p.current_zone}`);
+      // DEADHEAD tablet app — the portable NAV/crew console reads the live base state.
+      if (navField) cLive.navDest = { destZone: navField.id, destName: navField.name, tx: navField.gx, ty: navField.gy };
+      let dhp = await run('tabletnav deadhead');
+      check('DEADHEAD app shows the base as aboard with the airfield map',
+        dhp?.deadhead?.aboard === true && (dhp?.deadhead?.fields?.length || 0) > 0, `aboard=${dhp?.deadhead?.aboard} fields=${dhp?.deadhead?.fields?.length}`);
+      dhp = await run('tabletaction deadhead clear');
+      check('DEADHEAD "clear" drops the charted course', !dhp?.deadhead?.charted && !cLive.navDest, `charted=${dhp?.deadhead?.charted?.id}`);
+      // Loiter: tap a bare tile (DEADHEAD map's tap-empty 'loiter' action) → the crew orbit it,
+      // burning fuel, until bingo fuel forces a divert. Use an airfield's own tile so a divert is
+      // always reachable (the fuel maths otherwise depend on how far the nearest field is).
+      const lf = listAirfields()[0];
+      if (lf) {
+        await run(`tabletaction deadhead loiter ${lf.gx} ${lf.gy}`);
+        check('DEADHEAD map tap charts a bare HOLD tile (loiter), not an airfield course',
+          cLive.navDest?.loiter === true && cLive.navDest.tx === lf.gx && cLive.navDest.ty === lf.gy, JSON.stringify(cLive.navDest));
+        cLive.row.airborne = 1; cLive.row.grid_x = lf.gx; cLive.row.grid_y = lf.gy; cLive.fx = lf.gx; cLive.fy = lf.gy;
+        cLive.crew = { mode: 'loiter', phase: 'loiter', loiterX: lf.gx, loiterY: lf.gy, tx: lf.gx, ty: lf.gy, name: `${lf.gx},${lf.gy}`, theta: 0 };
+        cLive.row.fuel = cLive.type?.fuel_capacity || 1760;
+        await _test.crewStep(cLive);
+        const orbitR = Math.hypot(cLive.fx - lf.gx, cLive.fy - lf.gy);
+        check('crew hold a GENTLE wide orbit with fuel in the tank (not a tight turn on the tile)',
+          cLive.crew?.phase === 'loiter' && orbitR > 1.5 && orbitR < 3.5, `phase=${cLive.crew?.phase} r=${orbitR.toFixed(2)}`);
+        cLive.row.fuel = 1;   // bingo
+        await _test.crewStep(cLive);
+        check('on bingo fuel the crew break off to divert and land',
+          cLive.crew?.phase === 'divert' || (!cLive.crew && cLive.row.airborne === 0), `phase=${cLive.crew?.phase} air=${cLive.row.airborne}`);
+        delete cLive.crew; cLive.row.airborne = 0; delete cLive.navDest;
+      }
+      p.role = roleC; await setFlag('player', 'air_pilot_licensed', '0', p);
+    }
+    liveAircraft.delete(cAcId);
+    for (const z of [lvCabin, lvFd, lvGalley, lvHold]) z?.players.delete(p.id);
+    await query('DELETE FROM aircraft WHERE id=$1', [cAcId]);
   }
   p.current_zone = savedZoneW; delete p.aircraftId; delete p.seat; delete p.cabinWindowOpen;
 

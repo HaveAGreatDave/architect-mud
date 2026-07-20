@@ -18,7 +18,7 @@ import { on } from '../../server/engine/events.js';
 import { getTimeScale } from '../../server/engine/gametime.js';
 import { dispatchAction, registerAction } from '../../server/engine/actions.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
-import { getZoneEnemies, getZoneNpcs } from '../../server/engine/world.js';
+import { getZoneEnemies, getZoneNpcs, removePlayerFromZone } from '../../server/engine/world.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { getEnvironmentState } from '../../server/engine/environment.js';
 import {
@@ -29,7 +29,7 @@ import {
   initFloat, initEngines, enginesAllStable, engineCount, syncEngineTemp,
   ENGINE_IDLE, ENGINE_STABLE_BAND, toDeg, degToCardinal, bearingDeg, groundTheme,
   isContinuous, reconcile, pushContext, contextPayload, bandFromAltitude, effLoadout,
-  RENTAL_BILL_MS, rentalOpFee, fieldFor, nearestAirfield, runwayFor, airfieldForRunway, yachtFieldNear, isGroundRolling,
+  RENTAL_BILL_MS, rentalOpFee, fieldFor, nearestAirfield, listAirfields, runwayFor, airfieldForRunway, yachtFieldNear, isGroundRolling,
   isWalkableCabin, isCabinZone, boardCabin, lookPayload, pushWindowTo, closeHud,
 } from './state.js';
 import { describeExterior, rampColorWord, conspicuousnessMult, normalizeLivery } from './livery.js';
@@ -39,8 +39,9 @@ import { commands as acquisitionCommands, refuelAt, refuelParked, fieldStocks } 
 import { commands as combatCommands, tickCombat, relayContacts } from './combat.js';
 import { commands as contractCommands, checkContractDelivery, checkCargoDropDelivery, waitingDropAt, ensureFenceDrops, ensureFreightDrops, isFreightLicensed } from './contracts.js';
 import { commands as hangarCommands, pushHangarBay } from './hangars.js';
-import { commands as charterCommands, charterDebug, charterParkedAt, embarkCharter, activeCharters } from './charter.js';
+import { commands as charterCommands, charterDebug, charterParkedAt, embarkCharter, activeCharters, chaseCont, stepToward, CRUISE_TILES } from './charter.js';
 import { isPilotLicensed, beginCheckride, evaluateCheckride, checkrideEvent, getCheckrideState, hasActiveCheckride } from './checkride.js';
+import { registerTabletApp } from '../tablet/registry.js';
 
 // Verb-collision routers (see plugin.json `after`): flight wins `board`/`refuel`
 // and delegates to the prior owner by context.
@@ -302,6 +303,218 @@ async function cmdWindow(args, raw, player) {
 // Walking to another room (or stepping off) closes any open window overlay — the move
 // renders the new room, and pushHud should stop feeding the now-stale window.
 on('zone.entered', ({ actor }) => { if (actor?.cabinWindowOpen) actor.cabinWindowOpen = false; });
+
+// ── Flight-deck control: take the controls / hand off (walkable base) ──────────
+// The keystone of a walkable flying base (the Leviathan). A base is BOARDED into its
+// cabin and walked on foot; you fly her by stepping up to the flight deck and taking
+// the controls (into the real cockpit sim), and step back out with `handoff`. Mirrors
+// the Echelon's "take the helm": control is gated to the one room that holds the seat.
+async function cmdTakeControls(args, raw, player) {
+  const live = player.aircraftId ? liveAircraft.get(player.aircraftId) : null;
+  if (!live) return { type: 'emote', message: "You're not aboard anything." };
+  if (!isWalkableCabin(live)) return { type: 'emote', message: 'There are no controls to take here.' };
+  if (player.seat === 'pilot') return { type: 'emote', message: 'You already have the controls.' };
+  const zone = getZone(player.current_zone);
+  if (!zone?.flags?.flightdeck || !isCabinZone(zone, live))
+    return { type: 'emote', message: 'You have to be up at the <b>flight deck</b> to take the controls.' };
+  const other = pilotOf(live);
+  if (other) return { type: 'emote', message: `${getLivePlayer(other)?.handle || 'Someone'} already has the controls — they'd have to <b>handoff</b> first.` };
+  if (live.crew) return { type: 'emote', message: `The crew have the controls until they set her down at ${live.crew.destName}.` };
+  if (!(await isPilotLicensed(player)))
+    return { type: 'emote', message: '<span class="text-amber">You\'re not rated to fly. See the flight examiner at Coldwater Regional (its hangar office) for a checkride.</span>' };
+  // Take the seat: step out of the flight-deck room (you're flying her now, not walking
+  // it) and into the cockpit sim. She stays parked until you fly her off the deck.
+  removePlayerFromZone(player.id, zone.id);
+  player.seat = 'pilot'; live.pilotId = player.id; player.cabinWindowOpen = false;
+  sendFlightSim(player, live);
+  if (isContinuous(live)) pushContext(live);   // refresh the cabin-occupancy readout for anyone still walking aft
+  sendToZoneExcept(zone.id, player.id, { type: 'zone_event', message: `${player.handle} drops into the pilot's seat and takes the controls.`, refresh: true });
+  return { type: 'noop' };
+}
+
+// The counterpart: leave the seat and step back into the walkable cabin. On the ground
+// only for now — leaving the controls AIRBORNE (to an NPC pilot who keeps her flying) is
+// a later slice, so here you set her down first.
+async function cmdHandoff(args, raw, player) {
+  const live = player.aircraftId ? liveAircraft.get(player.aircraftId) : null;
+  if (!live) return { type: 'emote', message: "You're not aboard anything." };
+  if (!isWalkableCabin(live)) return { type: 'emote', message: "There's nothing to hand off here." };
+  if (player.seat !== 'pilot') return { type: 'emote', message: "You don't have the controls." };
+  // Mid-air hand-off: the crew take over and fly her to the nearest field, setting her down
+  // there, while you go walk the cabin. (Dispatching the crew to ANY charted destination waits
+  // on the NAV console; for now it's the nearest field.) On the ground it's just a straight
+  // step out of the seat — the base sits parked as a landmark.
+  let handedToCrew = null;
+  if (live.row.airborne) {
+    const nd = live.navDest;
+    if (nd?.loiter) {
+      // Charted a bare tile → the crew hold a gentle orbit over it until fuel forces a divert.
+      live.crew = { mode: 'loiter', phase: 'ingress', loiterX: nd.tx, loiterY: nd.ty, name: nd.name || `${nd.tx},${nd.ty}`, tx: nd.tx, ty: nd.ty, theta: 0 };
+      handedToCrew = `a holding orbit over ${live.crew.name}`;
+    } else {
+      // Charted a field (or nothing → nearest): run straight there and set down.
+      const target = navTarget(live);
+      if (!target) return { type: 'emote', message: "There's no field within reach for the crew to make — you'll have to set her down yourself." };
+      live.crew = { mode: 'field', destZone: target.id, destName: target.name, tx: target.tx, ty: target.ty };
+      handedToCrew = target.name;
+    }
+    live.fx = live.row.grid_x; live.fy = live.row.grid_y;
+    delete live._contHdg; delete live._contPitch; live._contAlt = live.cont?.altitude ?? 480;
+    chaseCont(live);   // seed the moving-world attitude the cabin windows read
+  }
+  live.pilotId = null; player.seat = 'passenger';
+  closeHud(player.id);
+  const look = await boardCabin(player, live);
+  if (isContinuous(live)) pushContext(live);
+  if (handedToCrew) toOccupants(live, `<span class="text-cyan">The crew take the controls. "We'll bring her into ${handedToCrew} — make yourself at home."</span>`);
+  const msg = handedToCrew
+    ? `<span class="text-dim">You hand the controls to the crew and step back into the cabin — they're taking her into ${handedToCrew}.</span>`
+    : '<span class="text-dim">You ease back from the controls and leave the seat. She\'s yours to walk.</span>';
+  if (look) { look.message = `${msg}\n${look.message}`; return look; }
+  return { type: 'emote', message: msg };
+}
+
+// The crew's destination: a NAV-charted airfield if one is set, else the nearest field.
+// Returns { id, name, tx, ty } (grid coords resolved) or null if there's no field at all.
+function navTarget(live) {
+  if (live.navDest) {
+    const z = getZone(live.navDest.destZone);
+    return { id: live.navDest.destZone, name: live.navDest.destName, tx: live.navDest.tx ?? z?.grid_x, ty: live.navDest.ty ?? z?.grid_y };
+  }
+  const near = nearestAirfield(live.row.grid_x, live.row.grid_y);
+  if (!near) return null;
+  const z = getZone(near.id);
+  return { id: near.id, name: near.name, tx: z?.grid_x, ty: z?.grid_y };
+}
+
+// ── NAV console: chart the crew's course from the flight deck ──────────────────
+// `nav` lists the airfields (distance in tiles) the crew can make; `nav <field>` charts one;
+// `nav clear` drops it. A charted course is where a mid-air `handoff` sends the crew — and if
+// they're already flying it retargets them in place. Flight-deck only (that's where the console is).
+async function cmdNav(args, raw, player) {
+  const live = player.aircraftId ? liveAircraft.get(player.aircraftId) : null;
+  if (!live) return { type: 'emote', message: "You're not aboard anything." };
+  if (!isWalkableCabin(live)) return { type: 'emote', message: "There's no NAV console here." };
+  const arg = args.join(' ').trim().toLowerCase();
+  if (/^(clear|off|cancel|none)$/.test(arg)) {
+    if (!live.navDest) return { type: 'emote', message: 'No course is charted.' };
+    const was = live.navDest.name; delete live.navDest;
+    return { type: 'emote', message: `Course to ${was} cleared — a hand-off now defaults to the nearest field.` };
+  }
+  // `nav loiter <x> <y>` — chart a bare tile the crew will circle (also how the DEADHEAD map's
+  // tap-empty-space sets a hold point). Fuel-aware: the crew orbit it until they must divert.
+  const lm = arg.match(/^loiter\s+(-?\d+)\s+(-?\d+)$/);
+  if (lm) {
+    const tx = +lm[1], ty = +lm[2];
+    live.navDest = { loiter: true, tx, ty, name: `${tx},${ty}` };
+    if (live.crew) {   // already flying → bring the crew around to hold it now
+      live.crew = { mode: 'loiter', phase: 'ingress', loiterX: tx, loiterY: ty, name: `${tx},${ty}`, tx, ty, theta: 0 };
+      toOccupants(live, `<span class="text-cyan">The crew come around for a holding orbit over ${tx},${ty}.</span>`);
+      return { type: 'emote', message: `<span class="text-green">Loiter point set at <b>${tx},${ty}</b> — the crew are bringing her around.</span>` };
+    }
+    return { type: 'emote', message: `<span class="text-green">Loiter point set at <b>${tx},${ty}</b>.</span> <span class="text-dim">Hand off and the crew orbit it until fuel forces a divert to land.</span>` };
+  }
+  const fields = listAirfields().filter(f => f.id !== live.row.parked_zone_id);
+  const cheb = (f) => Math.max(Math.abs(f.gx - (live.row.grid_x || 0)), Math.abs(f.gy - (live.row.grid_y || 0)));
+  if (!arg) {
+    if (!fields.length) return { type: 'emote', message: 'No airfields on the charts.' };
+    const cur = live.navDest ? `\n<span class="text-cyan">Charted: <b>${live.navDest.name}</b> — <span class="action-link" data-action="cmd" data-cmd="nav clear">clear</span></span>` : '';
+    const rows = fields.sort((a, b) => cheb(a) - cheb(b)).map(f =>
+      `<span class="furniture-label">${cheb(f)}</span> <span class="action-link" data-action="cmd" data-cmd="nav ${f.id}" title="chart a course">${f.name}</span>`);
+    return { type: 'output', message: `<span class="text-dim">NAV — chart the crew's destination (distance in tiles):</span>\n${rows.join('\n')}${cur}` };
+  }
+  const dest = fields.find(f => f.id.toLowerCase() === arg || f.name.toLowerCase() === arg)
+    || fields.find(f => f.name.toLowerCase().includes(arg) || f.id.toLowerCase().includes(arg));
+  if (!dest) return { type: 'emote', message: `No airfield matches "${args.join(' ')}". Type <b>nav</b> for the list.` };
+  live.navDest = { destZone: dest.id, destName: dest.name, tx: dest.gx, ty: dest.gy };
+  if (live.crew) {   // already handed off and flying → bring them around to the new course now
+    live.crew.destZone = dest.id; live.crew.destName = dest.name; live.crew.tx = dest.gx; live.crew.ty = dest.gy;
+    toOccupants(live, `<span class="text-cyan">The crew adjust course — now inbound to ${dest.name}.</span>`);
+    return { type: 'emote', message: `<span class="text-green">Course reset for <b>${dest.name}</b> — the crew are bringing her around.</span>` };
+  }
+  return { type: 'emote', message: `<span class="text-green">Course charted for <b>${dest.name}</b>.</span> <span class="text-dim">Hand off (<b>handoff</b>) and the crew will take her there.</span>` };
+}
+
+// ── Crew autopilot: fly a handed-off base, hold or land it, burning fuel as she goes ──
+// Engaged by a mid-air `handoff` (live.crew). Two modes:
+//   field  — run straight to a charted airfield and set her down.
+//   loiter — fly to a chosen tile and circle it in a GENTLE, cruise-speed orbit, burning fuel,
+//            until only bingo fuel remains to reach the nearest field and land — then divert
+//            there and set down ("brings her home"). Occupants stay aboard the whole time.
+// Uses charter's stepToward + chaseCont for the cabin-window attitude.
+const CREW_ORBIT_R = 2.5;        // loiter radius (tiles) — a wide, lazy circle, not a tight turn
+const CREW_RESERVE_TICKS = 6;    // fuel margin kept on top of the run-to-field estimate
+function crewBurn(live) { return effStats(live).burn || live.type.fuel_burn_base || 2; }   // fuel per crew tick
+
+// Fuel the crew needs to reach `field` from the current tile and land (with a margin).
+function crewDivertFuel(live, field) {
+  if (!field) return Infinity;
+  const z = getZone(field.id);
+  const d = Math.max(Math.abs((z?.grid_x ?? 0) - (live.row.grid_x || 0)), Math.abs((z?.grid_y ?? 0) - (live.row.grid_y || 0)));
+  return (d / CRUISE_TILES + CREW_RESERVE_TICKS) * crewBurn(live);
+}
+
+// Set the base down where she's arrived — PARK in place (occupants stay aboard, unlike a charter).
+async function crewLand(live, destZone, destName) {
+  const z = getZone(destZone);
+  if (z) { live.row.grid_x = z.grid_x; live.row.grid_y = z.grid_y; live.fx = z.grid_x; live.fy = z.grid_y; const rw = runwayFor(z); if (rw) live.row.heading = String(rw.hdg); }
+  live.row.airborne = 0; live.row.altitude_band = 'ground'; live.row.parked_zone_id = destZone; live.row.throttle = 0; live.cont = null;
+  delete live.crew;
+  await persist(live);
+  pushHud(live);
+  toOccupants(live, `<span class="text-green">A gentle thump — the crew bring her home at ${destName}. Step up to the flight deck to <b>takecontrols</b> again, or <b>disembark</b>.</span>`);
+}
+
+// One crew-autopilot tick for one base. Exported (via _test) so the regress can drive it.
+async function crewStep(live) {
+  const c = live.crew; if (!c) return;
+  live.row.fuel = Math.max(0, (live.row.fuel || 0) - crewBurn(live));   // every tick burns fuel — the point of the divert
+
+  if (c.mode === 'loiter' && c.phase === 'loiter') {
+    const near = nearestAirfield(live.row.grid_x, live.row.grid_y);
+    if (!near || live.row.fuel <= crewDivertFuel(live, near)) {
+      c.phase = 'divert';
+      const z = getZone(near?.id);
+      c.destZone = near?.id; c.destName = near?.name || 'the nearest field';
+      c.tx = z?.grid_x ?? c.loiterX; c.ty = z?.grid_y ?? c.loiterY;
+      toOccupants(live, `<span class="text-cyan">The crew break off the orbit — down to divert fuel. Bringing her into ${c.destName} to set down.</span>`);
+      // fall through to the transit leg below
+    } else {
+      // Gentle cruise-speed orbit: advance a small arc so tangential speed ≈ cruise (dθ = v / R).
+      c.theta = (c.theta || 0) + CRUISE_TILES / CREW_ORBIT_R;
+      live.fx = c.loiterX + Math.cos(c.theta) * CREW_ORBIT_R;
+      live.fy = c.loiterY + Math.sin(c.theta) * CREW_ORBIT_R;
+      live.row.grid_x = Math.round(live.fx); live.row.grid_y = Math.round(live.fy);
+      live.row.heading = String((Math.round(c.theta * 180 / Math.PI + 90) % 360 + 360) % 360);   // nose on the tangent
+      chaseCont(live, 999);
+      pushHud(live);
+      return;
+    }
+  }
+  // Transit leg: ingress toward the loiter tile, or run in to a field (charted or divert).
+  const step = stepToward(live.fx, live.fy, c.tx, c.ty, CRUISE_TILES);
+  live.fx = step.fx; live.fy = step.fy;
+  live.row.grid_x = Math.round(live.fx); live.row.grid_y = Math.round(live.fy);
+  live.row.heading = String(Math.round(bearingDeg(live.fx, live.fy, c.tx, c.ty)));
+  if (step.arrived) {
+    if (c.mode === 'loiter' && c.phase === 'ingress') {
+      c.phase = 'loiter'; c.theta = 0;
+      toOccupants(live, `<span class="text-cyan">The crew settle into a wide, lazy orbit over ${c.name}. "We'll hold here till the fuel says otherwise."</span>`);
+      chaseCont(live, 999); pushHud(live);
+    } else {
+      await crewLand(live, c.destZone, c.destName);
+    }
+  } else {
+    chaseCont(live, step.d); pushHud(live);
+  }
+}
+
+async function crewTick() {
+  for (const live of [...liveAircraft.values()].filter(l => l.crew)) {
+    try { await crewStep(live); } catch (e) { console.error('[flight] crew step error:', e.message); }
+  }
+}
+setInterval(() => crewTick().catch(e => console.error('[flight] crew tick error:', e.message)), 2500);
 
 // ── Engine / throttle ─────────────────────────────────────────────────────────
 export function requirePilot(player) {
@@ -1219,6 +1432,10 @@ async function describeHangarInterior(zone) {
 // the only reliable way to surface "there's a hangar here" at every field.
 async function describeAirfield(zone) {
   if (zone?.flags?.hangar_interior) return await describeHangarInterior(zone);
+  // Walkable-base flight deck (the Leviathan): the seat that flies the whole ship.
+  if (zone?.flags?.flightdeck)
+    return `<span class="furniture-label">Controls:</span> ${svcLink('takecontrols', 'take the controls')} <span class="text-dim">— drop into the seat and fly her; step back out with <b>handoff</b> once she's down</span>`
+      + `\n<span class="furniture-label">NAV console:</span> ${svcLink('nav', 'chart a course')} <span class="text-dim">— set where the crew fly her when you <b>handoff</b> in the air (also on the <b>DEADHEAD</b> tablet app)</span>`;
   if (!zone?.flags?.airfield_id) return undefined;
   const f = zone.flags;
   let line = serviceBits(zone);
@@ -1522,9 +1739,54 @@ async function cmdLookCraft(args, raw, player, broadcast) {
   return gametableCommands.look(args, raw, player, broadcast);         // prior owner → engine
 }
 
+// ── DEADHEAD — the Leviathan crew-dispatch Tablet app ─────────────────────────
+// A portable NAV console + status board for a walkable flying base: see where she is,
+// chart the crew's course on a map, hand off / take the controls. Registered on the Tablet
+// OS registry (kept HERE so all the flight state + verbs stay in the flight plugin).
+const _stripTags = (s) => String(s || '').replace(/<[^>]+>/g, '');
+function buildDeadhead(player) {
+  const live = player.aircraftId ? liveAircraft.get(player.aircraftId) : null;
+  if (!live || !isWalkableCabin(live)) return { view: 'deadhead', deadhead: { aboard: false } };
+  const gx = live.row.grid_x || 0, gy = live.row.grid_y || 0;
+  const fields = listAirfields().map(f => ({ id: f.id, name: f.name, gx: f.gx, gy: f.gy, dist: Math.max(Math.abs(f.gx - gx), Math.abs(f.gy - gy)) }));
+  let status;
+  if (live.crew) {
+    const c = live.crew;
+    if (c.mode === 'loiter') status = { state: 'crew', text:
+      c.phase === 'loiter' ? `Holding — a lazy orbit over ${c.name}.`
+      : c.phase === 'divert' ? `Bingo fuel — diverting to ${c.destName} to set down.`
+      : `Crew inbound to hold over ${c.name}.` };
+    else status = { state: 'crew', text: `The crew have her — inbound to ${c.destName}.` };
+  } else if (live.row.airborne) status = { state: 'flying', text: pilotOf(live) === player.id ? 'You have the controls.' : 'In the air.' };
+  else status = { state: 'parked', text: `Parked${getZone(live.row.parked_zone_id)?.name ? ' at ' + getZone(live.row.parked_zone_id).name : ''}.` };
+  return { view: 'deadhead', deadhead: {
+    aboard: true, name: live.type.name, gx, gy, fields, status,
+    charted: live.navDest ? (live.navDest.loiter
+      ? { loiter: true, tx: live.navDest.tx, ty: live.navDest.ty, name: live.navDest.name }
+      : { id: live.navDest.destZone, name: live.navDest.destName }) : null,
+    fuel: Math.round((live.row.fuel || 0) / (effStats(live).fuelCap || live.type.fuel_capacity || 1) * 100),
+    seat: player.seat === 'pilot' ? 'pilot' : 'cabin',
+    atDeck: !!getZone(player.current_zone)?.flags?.flightdeck,
+    airborne: !!live.row.airborne, crew: !!live.crew,
+  } };
+}
+registerTabletApp({
+  id: 'deadhead', name: 'DEADHEAD', icon: '✈', category: 'General',
+  buildScreen(player) { return buildDeadhead(player); },
+  async handleAction(player, actionId, params) {
+    if (actionId === 'chart' && params) { await cmdNav([params], `nav ${params}`, player); return buildDeadhead(player); }
+    if (actionId === 'loiter' && params) { const [gx, gy] = params.split(/\s+/); await cmdNav(['loiter', gx, gy], `nav loiter ${gx} ${gy}`, player); return buildDeadhead(player); }
+    if (actionId === 'clear') { await cmdNav(['clear'], 'nav clear', player); return buildDeadhead(player); }
+    if (actionId === 'take') { const r = await cmdTakeControls([], 'takecontrols', player); if (r?.type === 'noop') return { type: 'tablet_close' }; return { ...buildDeadhead(player), notice: _stripTags(r?.message) }; }
+    if (actionId === 'hand') { const r = await cmdHandoff([], 'handoff', player); return { ...buildDeadhead(player), notice: _stripTags(r?.message) }; }
+    return buildDeadhead(player);
+  },
+});
+
 export const commands = {
   examine: cmdExamineCraft, look: cmdLookCraft,
   embark: cmdBoard, board: cmdBoard, disembark: cmdDisembark, deplane: cmdDisembark, window: cmdWindow, testfly: cmdTestFly, taxi: cmdTaxi,
+  takecontrols: cmdTakeControls, controls: cmdTakeControls, handoff: cmdHandoff, standdown: cmdHandoff, nav: cmdNav,
   flight: cmdFlightStatus, fs: cmdFlightStatus,
   startup: cmdStartup, shutdown: cmdShutdown, throttle: cmdThrottle,
   heading: cmdHeading, climb: cmdClimb, dive: cmdDive,
@@ -1584,6 +1846,6 @@ export const routeHandler = async (path, method, body, auth) => {
   return null;
 };
 
-export const _test = { surfaceAt, takeoffDifficulty, landDifficulty, DIRS, liveAircraft, noiseReach, isContinuous, bandFromAltitude };
+export const _test = { surfaceAt, takeoffDifficulty, landDifficulty, DIRS, liveAircraft, noiseReach, isContinuous, bandFromAltitude, crewStep, crewDivertFuel };
 
 console.log('[flight] Plugin loaded.');

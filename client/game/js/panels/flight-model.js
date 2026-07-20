@@ -385,7 +385,9 @@ export function step(state, input, p, dt) {
 
   // 1. Engine inertia — rpm eases toward the throttle lever, never snaps.
   s.rpm += (throttle - s.rpm) * Math.min(1, dt / p.engineLag);
-  const thrust = s.rpm * p.thrustMax;
+  // `noThrust` (Leviathan visor lock) severs the thrust FORCE without touching the spool: the engines
+  // still run, rev and sound off the rpm above — she just makes no thrust to roll on until it clears.
+  const thrust = (input.noThrust ? 0 : s.rpm) * p.thrustMax;
 
   // 2. Control authority grows with airspeed. Below Vr the yoke is mushy — this is
   //    what forces you to build speed on the roll before rotation does anything.

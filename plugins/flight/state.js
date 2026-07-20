@@ -244,6 +244,20 @@ export function nearestAirfield(x, y) {
   return best;
 }
 
+// Every landable airfield on the world grid — { id, name, gx, gy } — for the NAV console's
+// destination list (the walkable-base crew flies charted airfield-to-airfield legs).
+export function listAirfields() {
+  if (!_coordIndex) buildCoordIndex();
+  const out = [];
+  for (const cell of _coordIndex.values()) {
+    if (!cell.flags?.airfield_id) continue;
+    const z = getZone(cell.id);
+    if (z?.grid_x == null) continue;
+    out.push({ id: cell.id, name: cell.flags.airfield_name || cell.name, gx: z.grid_x, gy: z.grid_y });
+  }
+  return out;
+}
+
 // The Echelon's helipad field if she's within `range` tiles of (x,y). She's a small,
 // moving target, so a VTOL setting down *alongside* her — not just dead-centre on her one
 // tile — still lands on the pad. Keyed off flags.yacht so only the Echelon gets this

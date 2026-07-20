@@ -562,9 +562,17 @@ export function paintWindshield(id, view) {
   // alike, so parked → roll → rotate → climb is a single believable move down the real runway. The
   // legacy modal decks (worldBlend < 1, paired with the hand-drawn airport strip) keep the old
   // reveal-driven ground horizon that sinks the apron off the bottom as you rotate.
+  // Cargo-visor tilt: while the Leviathan's nose (and the flight deck with it) is hinged up, the
+  // first-person camera pitches up to match — the horizon drops toward the bottom and the view
+  // fills with sky, sweeping back to level over the ~5s the nose takes to seat. Cockpit view only
+  // (the external chase keeps its own arc-solved horizon), so the drawn model attitude is untouched.
+  const visorTilt = ext ? 0 : (v.cockpitTilt || 0) * H * 0.52;
   const rawHorizon = (onDeck && worldBlend < 0.999)
     ? lerp(H * 1.08, H * 0.42, reveal)
-    : clamp(H * 0.46 + (v.pitch || 0) * H * 0.016 + (height - 0.2) * H * 0.09, H * 0.14, H * 0.84);
+    // Cockpit horizon: normal pitch/altitude term, plus the visor tilt — but HARD-CAPPED at 0.88H so
+    // even with the nose fully raised the horizon (and a sliver of apron beneath it) stays on-screen
+    // instead of sliding off the bottom into the Mode-7 floor's empty range.
+    : Math.min(H * 0.88, clamp(H * 0.46 + (v.pitch || 0) * H * 0.016 + (height - 0.2) * H * 0.09, H * 0.14, H * 0.84) + visorTilt);
   // Ease the horizon across frames so the runway→sky handoff (ground phase → cruise,
   // which swaps the formula) glides instead of snapping.
   if (st.horizon == null) st.horizon = rawHorizon;
@@ -1087,7 +1095,6 @@ export function paintWindshield(id, view) {
   if (!ext) drawGlass(ctx, W, H, wx, st, dt, speed, framed);
   if (!v.windowClass && !ext) drawCanopy(ctx, W, H);   // DA62-style curved windscreen header (forward view)
   if (!v.windowClass && !ext) drawCowl(ctx, W, H, v.cls);   // nose cowl / glareshield along the bottom — hides the bare near-ground band without lifting the camera
-  if (!v.windowClass && !ext && v.noseVisor > 0.01) drawVisorCockpit(ctx, W, H, v.noseVisor, sky.night);   // raised cargo visor hanging in the forward view while parked/cold (Leviathan)
   if (!v.windowClass) drawWxBadge(ctx, W, wx, v.wind);
   if (v.hud) drawHud(ctx, W, H, v);
   // Guns (Phase B): tracers are drawn as 3D world objects inside the banked world block
@@ -1260,39 +1267,6 @@ function drawCowl(ctx, W, H, cls) {
   ctx.restore();
 }
 
-// The Leviathan's raised cargo visor as seen from the flight deck (first-person). Parked and
-// cold, the whole nose is hinged UP, so its ribbed underbelly hangs down into the upper forward
-// view; as you power on it swings down and out of sight, seating home and clearing the view. `t`
-// (1 = fully raised, 0 = closed) slides a full-width panel down off the bottom edge as it seats.
-function drawVisorCockpit(ctx, W, H, t, night = 0) {
-  const drop = (1 - t) * H * 1.22;        // seated → the whole panel has swept down off-screen
-  const yTop = -H * 0.12 + drop;          // hangs above the top edge when raised
-  const yBot = H * 0.47 + drop;           // underbelly lip; bows lower at the centre
-  const yLip = yBot + H * 0.05;
-  ctx.save();
-  // Underbelly panel — full width, its lower lip bowing down (the rounded nose seen from beneath).
-  ctx.beginPath();
-  ctx.moveTo(0, yTop); ctx.lineTo(W, yTop); ctx.lineTo(W, yBot);
-  ctx.quadraticCurveTo(W * 0.5, yLip, 0, yBot); ctx.closePath();
-  const dk = 1 - 0.55 * night;            // dim it at night (no sky bounce into the bay)
-  const g = ctx.createLinearGradient(0, yTop, 0, yLip);
-  g.addColorStop(0, `rgba(${18 * dk | 0},${22 * dk | 0},${28 * dk | 0},0.99)`);   // recessed structure up top
-  g.addColorStop(0.72, `rgba(${34 * dk | 0},${40 * dk | 0},${48 * dk | 0},1)`);
-  g.addColorStop(1, `rgba(${60 * dk | 0},${70 * dk | 0},${82 * dk | 0},1)`);      // lip catching daylight
-  ctx.fillStyle = g; ctx.fill();
-  // Longitudinal keel + two flanking rib seams running fore→aft down the underbelly.
-  ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 1.5;
-  for (const fx of [0.5, 0.24, 0.76]) {
-    const x = W * fx, sag = (1 - Math.abs(fx - 0.5) * 2) * H * 0.05;
-    ctx.beginPath(); ctx.moveTo(x, yTop); ctx.lineTo(x, yBot + sag); ctx.stroke();
-  }
-  // Cross frames (a couple of hoop ribs) + the sky-lit lower lip edge.
-  ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 1;
-  for (let i = 1; i <= 2; i++) { const yy = lerp(yTop, yBot, i / 3); ctx.beginPath(); ctx.moveTo(0, yy); ctx.quadraticCurveTo(W * 0.5, yy + H * 0.03, W, yy); ctx.stroke(); }
-  ctx.beginPath(); ctx.moveTo(0, yBot); ctx.quadraticCurveTo(W * 0.5, yLip, W, yBot);
-  ctx.strokeStyle = `rgba(150,185,215,${0.22 * dk})`; ctx.lineWidth = 2; ctx.stroke();
-  ctx.restore();
-}
 
 // ── Cinematic flourishes ──────────────────────────────────────────────────────
 // A cluster of light-and-atmosphere touches, each self-contained and additive so
@@ -4012,12 +3986,17 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
       let ex = tp.sx - np.sx, ey = tp.sy - np.sy; const em = Math.hypot(ex, ey) || 1; ex /= em; ey /= em;
       ctx.lineCap = 'round';
       // Exhaust trails from the real nacelle exits: the A-10's twin rear pods, or the
-      // An-124's four underwing turbofans just behind the wing.
+      // An-124's four underwing turbofans out at their TRUE lateral stations (±0.34/±0.60,
+      // clear of the ±0.20-wide fuselage) so a plume never sits on the belly.
       const jets = c.cls === 'heavy'
-        ? [[0.04, -0.40, 0.03], [0.04, -0.20, 0.03], [0.04, 0.20, 0.03], [0.04, 0.40, 0.03]]
+        ? [[0.02, -0.60, 0.0], [0.02, -0.34, 0.0], [0.02, 0.34, 0.0], [0.02, 0.60, 0.0]]
         : [[-0.60, -0.30, 0.16], [-0.60, 0.30, 0.16]];
       for (const st of jets) {
         const q = P(st); if (q.f <= 0.08) continue;
+        // Occlusion cull (canvas has no depth buffer): an engine sitting BEHIND the fuselage
+        // centreline — its projected depth farther than the hull's at this station — is hidden by
+        // the hull, so skip its plume instead of painting it straight through the Leviathan.
+        if (q.f > P([st[0], 0, st[2]]).f + 0.06) continue;
         const len = (7 + power * 20) * big / Math.max(0.35, q.f);
         const grad = ctx.createLinearGradient(q.sx, q.sy, q.sx + ex * len, q.sy + ey * len);
         grad.addColorStop(0, `rgba(255,225,160,${0.6 * (0.3 + power)})`); grad.addColorStop(0.5, `rgba(255,140,60,${0.4 * (0.3 + power)})`); grad.addColorStop(1, 'rgba(255,70,40,0)');
