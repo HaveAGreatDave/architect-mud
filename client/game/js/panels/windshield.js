@@ -1885,29 +1885,36 @@ function vnoise2(x, y) {
 }
 
 // Approximate Euclidean distance to the nearest seeded cell (two-pass chamfer). seed[y][x]
-// truthy marks a source; returns a distance grid (0 on sources, growing outward).
+// truthy marks a source; returns { d, sy } — the distance grid (0 on sources, growing outward)
+// and, per cell, the ROW of the nearest source (sy), so callers can tell which DIRECTION the
+// nearest feature lies in (used to keep off-map sea a northern-only extension — see fillOffMap).
 function distField(seed, mw, mh) {
-  const INF = 1e9, D1 = 1, D2 = 1.4142, d = new Array(mh);
-  for (let y = 0; y < mh; y++) { d[y] = new Float64Array(mw); for (let x = 0; x < mw; x++) d[y][x] = seed[y][x] ? 0 : INF; }
+  const INF = 1e9, D1 = 1, D2 = 1.4142, d = new Array(mh), sy = new Array(mh);
+  for (let y = 0; y < mh; y++) {
+    d[y] = new Float64Array(mw); sy[y] = new Float64Array(mw);
+    for (let x = 0; x < mw; x++) { const s = !!seed[y][x]; d[y][x] = s ? 0 : INF; sy[y][x] = s ? y : INF; }
+  }
+  // Relax cell (y,x) against neighbour (ny,nx): if going through it is shorter, adopt its
+  // distance-plus-step AND inherit its nearest-source row, so sy tracks alongside d.
+  const relax = (y, x, ny, nx, cost) => { const nd = d[ny][nx] + cost; if (nd < d[y][x]) { d[y][x] = nd; sy[y][x] = sy[ny][nx]; } };
   for (let y = 0; y < mh; y++) for (let x = 0; x < mw; x++) {
-    let val = d[y][x];
-    if (y > 0) { val = Math.min(val, d[y - 1][x] + D1); if (x > 0) val = Math.min(val, d[y - 1][x - 1] + D2); if (x < mw - 1) val = Math.min(val, d[y - 1][x + 1] + D2); }
-    if (x > 0) val = Math.min(val, d[y][x - 1] + D1);
-    d[y][x] = val;
+    if (y > 0) { relax(y, x, y - 1, x, D1); if (x > 0) relax(y, x, y - 1, x - 1, D2); if (x < mw - 1) relax(y, x, y - 1, x + 1, D2); }
+    if (x > 0) relax(y, x, y, x - 1, D1);
   }
   for (let y = mh - 1; y >= 0; y--) for (let x = mw - 1; x >= 0; x--) {
-    let val = d[y][x];
-    if (y < mh - 1) { val = Math.min(val, d[y + 1][x] + D1); if (x < mw - 1) val = Math.min(val, d[y + 1][x + 1] + D2); if (x > 0) val = Math.min(val, d[y + 1][x - 1] + D2); }
-    if (x < mw - 1) val = Math.min(val, d[y][x + 1] + D1);
-    d[y][x] = val;
+    if (y < mh - 1) { relax(y, x, y + 1, x, D1); if (x < mw - 1) relax(y, x, y + 1, x + 1, D2); if (x > 0) relax(y, x, y + 1, x - 1, D2); }
+    if (x < mw - 1) relax(y, x, y, x + 1, D1);
   }
-  return d;
+  return { d, sy };
 }
 
 // The wildlands & sea beyond the built map. Off-map/unbuilt tiles used to read as endless open
 // ocean; instead we EXTEND the world's edge. Two distance fields — to the nearest built WATER and
 // the nearest built LAND — classify every empty cell as sea or land, and the divide is wobbled by
 // low-freq noise so the coastline is irregular (not a clean offset of the ragged built edge).
+// Sea is deliberately NORTH-ONLY: a cell only extends to water when the nearest built water lies to
+// its south (it's offshore, north of the bay). So the bay runs out to the northern horizon, while
+// inland rivers/canals — and everything to the WEST, EAST and SOUTH — stay dry wildlands forever.
 //   · sea  → open water (waves/glint carry the coastline read out to the horizon)
 //   · land → the arid wildlands: DIRT at the shore giving way to rust-RED ROCK the deeper it runs,
 //            broken up by noise so the transition isn't a clean band (matches the biomes beyond the
@@ -1943,12 +1950,19 @@ function fillOffMap(LUT, mw, mh, R, wcx, wcy, litX, litY, wildOut, st = null) {
     }
     return LUT;
   }
-  const dW = distField(water, mw, mh), dL = distField(land, mw, mh);
+  const fW = distField(water, mw, mh), fL = distField(land, mw, mh);
+  const dW = fW.d, dL = fL.d, wSrcY = fW.sy;   // wSrcY[y][x] = row of the nearest built water
   for (let y = 0; y < mh; y++) for (let x = 0; x < mw; x++) {
     if (LUT[y][x]) continue;                                  // a real built tile keeps its material
     const awx = (x - R) + wcx, awy = (y - R) + wcy;           // absolute world tile
     const wob = ((vnoise2(awx * 0.09, awy * 0.09) - 0.5) + (vnoise2(awx * 0.23, awy * 0.23) - 0.5) * 0.45) * COAST_WOBBLE;
-    if (dW[y][x] + wob < dL[y][x]) { LUT[y][x] = SEA; if (wildOut) wildOut[y][x] = 'sea'; continue; }
+    // Sea is a NORTHERN feature only (the bay sits at low y). Extend water off-map ONLY where the
+    // nearest built water lies to this cell's SOUTH (wSrcY > y) — i.e. you're genuinely offshore,
+    // north of a water body. That keeps the coast running out to the horizon north of the bay, but
+    // stops rivers/canals/ponds on the WEST and EAST (whose water sits level with or south of you)
+    // from flooding the off-map — the wildlands run on as land forever to the sides and south.
+    // (Open ocean far to the north, past the last built tile, is still held by st.offLand memory.)
+    if (dW[y][x] + wob < dL[y][x] && wSrcY[y][x] > y) { LUT[y][x] = SEA; if (wildOut) wildOut[y][x] = 'sea'; continue; }
     // Land: dirt→redrock, redder the farther out (dL = tiles past the built land edge) + noise mottle.
     const into = clamp((dL[y][x] - 1) / 26, 0, 1);
     const rr = clamp(into * 0.7 + vnoise2(awx * 0.06, awy * 0.06) * 0.6 - 0.15, 0, 1);
