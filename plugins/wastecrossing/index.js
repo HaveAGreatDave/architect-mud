@@ -6,9 +6,9 @@
 // on foot, and deposits you at a distant region.
 //
 // Two ways in, one code path (launchCrossing):
-//   • Walk off the map — moving the void-direction off a `flags.void_gate` edge with
-//     no authored exit fires the engine's `movement.edge` hook.
-//   • `journey [heading]` — the explicit verb, from the same edge tile.
+//   • Walk off the map — moving in any direction with no authored exit off a tile
+//     in a void-region fires the engine's `movement.edge` hook.
+//   • `journey [heading]` — the explicit verb, from anywhere in a void-region.
 //
 // THE BRAID: a void off a gate is a SHARED TRUNK that forks toward MULTIPLE
 // destinations. You walk the trunk (identical for everyone this window), reach the
@@ -41,24 +41,26 @@ import { getLivePlayer, getAllLivePlayers, getZone, getMinimapData, addPlayerToZ
 import { describeZone } from '../../server/engine/commands/describe.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { on } from '../../server/engine/events.js';
-import { getFlag, setFlag, clearFlag } from '../../server/engine/flags.js';
+import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { OPPOSITE } from '../../server/engine/directions.js';
 import { effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { query } from '../../server/models/db.js';
+import { getItem } from '../../server/engine/items-cache.js';
 import { randomUUID } from 'crypto';
 import { loadWindow, getTraces, addTrace, claimTrace } from './traces.js';
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const VOID_MAP = 'map_void'; // non-map_world → flag/map-filtered world iterators skip void rooms
 
-// ── Voids (the region adjacency graph — skeleton stub) ────────────────────────
-// A tile becomes an entry by carrying flags.void_gate = <voidKey> (+ flags.void_dir,
-// the walk-off direction, default 'south'). A void has a shared `trunk` (room count
+// ── Voids (the region adjacency graph — keyed by region) ──────────────────────
+// A void is owned by a whole REGION, keyed by flags.region_id. From anywhere in that
+// region you can `journey`, and walking off the region's map edge (any direction with
+// no authored exit) fires the same crossing. A void has a shared `trunk` (room count
 // before the fork) and `dests` — the adjacent regions it forks toward. Each dest
 // carries the fork-exit `dir` (n/s/e/w) that leads to its limb, and an optional
 // `length` override (else the total gate→dest length is distance-derived).
 export const VOIDS = {
-  southern_waste: {
+  region_coldwater: {
     origin: 'Coldwater',
     trunk: 4,
     dests: [
@@ -74,9 +76,9 @@ let _seq = 0;
 function currentWindow() { return Math.floor(Date.now() / WEEK_MS); }
 
 function voidGateOf(zone) {
-  const key = zone?.flags?.void_gate;
+  const key = zone?.flags?.region_id;
   if (!key || !VOIDS[key]) return null;
-  return { key, void: VOIDS[key], dir: zone.flags.void_dir || 'south' };
+  return { key, void: VOIDS[key] };
 }
 function destByHeading(vdef, heading) {
   if (!heading) return null;
@@ -291,8 +293,10 @@ function teardownInstance(c) {
   crossings.delete(c.id);
 }
 async function clearCrossingFlags(player) {
-  for (const k of ['crossing_void', 'crossing_window', 'crossing_room', 'crossing_origin', 'crossing_instance'])
-    await clearFlag('player', k, player).catch(() => {});
+  // One DELETE for all five crossing_* flags — folds five serial round trips into
+  // one (player_flags has no RAM cache, so this is equivalent to five clearFlags).
+  await query('DELETE FROM player_flags WHERE player_id=$1 AND flag_key = ANY($2)',
+    [player.id, ['crossing_void', 'crossing_window', 'crossing_room', 'crossing_origin', 'crossing_instance']]).catch(() => {});
 }
 
 // ── Entry (shared by the verb and the walk-off-map hook) ──────────────────────
@@ -303,11 +307,21 @@ async function enterMember(m, c, entry, origin) {
   m._crossing = { instanceId: c.id, seen: new Set([entry.id]) };
   c.members.add(m.id);
   await query('UPDATE players SET current_zone=$1 WHERE id=$2', [entry.id, m.id]).catch(() => {});
-  await setFlag('player', 'crossing_void', c.voidKey, m);
-  await setFlag('player', 'crossing_window', String(c.window), m);
-  await setFlag('player', 'crossing_origin', origin, m);
-  await setFlag('player', 'crossing_instance', c.id, m);
-  await setFlag('player', 'crossing_room', entry.id, m);
+  // One upsert for all five crossing_* flags — folds five serial setFlags into one
+  // round trip (mirror of clearCrossingFlags; player_flags has no RAM cache).
+  const flags = [
+    ['crossing_void', c.voidKey],
+    ['crossing_window', c.window],
+    ['crossing_origin', origin],
+    ['crossing_instance', c.id],
+    ['crossing_room', entry.id],
+  ];
+  const vals = flags.map((_, i) => `($1, $${i + 2}, $${i + 7}, EXTRACT(EPOCH FROM NOW()))`).join(', ');
+  await query(
+    `INSERT INTO player_flags (player_id, flag_key, flag_value, updated_at) VALUES ${vals}
+     ON CONFLICT (player_id, flag_key) DO UPDATE SET flag_value=EXCLUDED.flag_value, updated_at=EXCLUDED.updated_at`,
+    [m.id, ...flags.map(f => f[0]), ...flags.map(f => (f[1] == null ? 'true' : String(f[1])))]
+  ).catch(() => {});
 }
 
 async function launchCrossing(leader, gate, broadcast, heading) {
@@ -345,7 +359,7 @@ async function launchCrossing(leader, gate, broadcast, heading) {
 // `journey` (or walking off the edge) doesn't launch immediately — it opens a
 // Tablet-OS staging window: your kit, your party, some lore for the road, and a
 // ready-check. Everyone in the cohort must `ready` before the crossing launches.
-const stagings = new Map();      // stagingId -> { id, leaderId, gate, dir, heading, members:[pid], ready:Set }
+const stagings = new Map();      // stagingId -> { id, leaderId, gate, heading, members:[pid], ready:Set }
 const playerStaging = new Map(); // pid -> stagingId
 
 function stagingLore(vdef) {
@@ -399,7 +413,7 @@ async function openStaging(leader, gate, heading, broadcast) {
   const followers = getAllLivePlayers().filter(p =>
     p.id !== leader.id && p.following === leader.id && p.current_zone === leader.current_zone && !p._crossing && !playerStaging.has(p.id));
   const members = [leader.id, ...followers.map(p => p.id)];
-  const staging = { id: `stg_${leader.id}_${++_seq}`, leaderId: leader.id, gate: gate.key, dir: gate.dir, heading, members, ready: new Set(), chat: [] };
+  const staging = { id: `stg_${leader.id}_${++_seq}`, leaderId: leader.id, gate: gate.key, heading, members, ready: new Set(), chat: [] };
   stagings.set(staging.id, staging);
   for (const id of members) playerStaging.set(id, staging.id);
   for (const f of followers) sendToPlayer(f.id, await buildStagingPanel(f, staging));
@@ -420,7 +434,7 @@ async function launchFromStaging(staging, broadcast) {
   const leader = getLivePlayer(staging.leaderId);
   closeStaging(staging); // close the overlay for everyone; the move payloads render the void behind it
   if (!leader) return null;
-  const gate = { key: staging.gate, void: VOIDS[staging.gate], dir: staging.dir };
+  const gate = { key: staging.gate, void: VOIDS[staging.gate] };
   const leaderPanel = await launchCrossing(leader, gate, broadcast, staging.heading);
   sendToPlayer(leader.id, leaderPanel); // followers were already sent their move payloads inside launchCrossing
   return null;
@@ -449,8 +463,8 @@ async function cmdJourney(args, raw, player, broadcast) {
 async function onMovementEdge({ player, zone, direction, broadcast }) {
   if (player._crossing || playerStaging.has(player.id)) return undefined;
   const gate = voidGateOf(zone);
-  if (!gate || direction !== gate.dir) return undefined;
-  return openStaging(player, gate, null, broadcast); // walking off the edge opens the muster, not the crossing
+  if (!gate) return undefined; // not in a void-region — let the engine report the wall
+  return openStaging(player, gate, null, broadcast); // walking off any region edge opens the muster, not the crossing
 }
 
 // ── The Frontier map (Slice 6): fogged discovery of regions + void-routes ─────
@@ -491,7 +505,7 @@ export async function frontierView(player) {
 // `frontier` — read the signpost at a gate: where can you strike out to from here.
 async function cmdFrontier(args, raw, player, broadcast) {
   const gate = voidGateOf(getZone(player.current_zone));
-  if (!gate) return { type: 'emote', message: 'You see no way to strike out into the waste from here — find a perimeter gate. (Your charted routes are on the Tablet Frontier map.)' };
+  if (!gate) return { type: 'emote', message: 'You see no way to strike out into the waste from here — this is not a frontier region. (Your charted routes are on the Tablet Frontier map.)' };
   await discoverRoutes(player, gate.key);
   const dests = gate.void.dests.map(d => `<b>${d.heading}</b>`).join(', ');
   return { type: 'output', message: `You read the waste from the edge. Somewhere out there, past the wind, the trail splits toward: ${dests}. (journey, or just walk off the edge — and pray the fork reads true.)` };
@@ -595,8 +609,7 @@ function bigScoreOpen(voidKey, window, salt, trunk) {
 
 async function grantItem(playerId, itemId) {
   await query('INSERT INTO player_inventory (id, player_id, item_id, quantity, condition) VALUES ($1,$2,$3,1,1.0)', [randomUUID(), playerId, itemId]).catch(() => {});
-  const { rows } = await query('SELECT name FROM items WHERE id=$1', [itemId]).catch(() => ({ rows: [] }));
-  return rows?.[0]?.name || 'a piece of salvage';
+  return getItem(itemId)?.name || 'a piece of salvage'; // name lives in the RAM items cache — no need to re-query per grant
 }
 
 // The engine's spawnPlayerCorpse already stripped the dead's gear into a

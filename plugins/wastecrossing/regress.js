@@ -8,7 +8,8 @@ import { VOIDS, _test, commands } from './index.js';
 import { _test as traces } from './traces.js';
 
 const GATE = 'zone_regress_voidgate';
-const VOIDKEY = 'southern_waste';
+const NONVOID = 'zone_regress_nonvoid';
+const VOIDKEY = 'region_coldwater';
 const mkZone = (id, name, extra = {}) => ({
   id, name, description: `${name}.`, flags: {}, exits: {},
   players: new Set(), npcs: new Set(), enemies: new Set(), corpses: new Set(), ...extra,
@@ -22,8 +23,9 @@ export default async function regress({ run, check, getPlayer }) {
   const savedZone = player.current_zone;
 
   const prev = new Map();
-  for (const id of [GATE, REACH, EXODUS]) prev.set(id, world.zones.get(id));
-  world.zones.set(GATE, mkZone(GATE, 'Test Gate', { flags: { void_gate: VOIDKEY, void_dir: 'south' }, grid_x: 900, grid_y: 900 }));
+  for (const id of [GATE, NONVOID, REACH, EXODUS]) prev.set(id, world.zones.get(id));
+  world.zones.set(GATE, mkZone(GATE, 'Test Gate', { flags: { region_id: VOIDKEY }, grid_x: 900, grid_y: 900 }));
+  world.zones.set(NONVOID, mkZone(NONVOID, 'Nowhere', { grid_x: 900, grid_y: 900 })); // no region_id → not a void gate
   world.zones.set(REACH, mkZone(REACH, 'The Reach', { grid_x: 900, grid_y: 1530 }));   // 630 tiles → total 7
   world.zones.set(EXODUS, mkZone(EXODUS, 'Exodus', { grid_x: 1350, grid_y: 900 }));     // 450 tiles → total 5
 
@@ -85,9 +87,15 @@ export default async function regress({ run, check, getPlayer }) {
     check('readying from the walk-off muster launches the crossing',
       !!player._crossing && player.current_zone === _test.crossings.get(player._crossing.instanceId).entry, `zone=${player.current_zone}`);
     wipe();
+    // Any unexited edge of a void-region opens the muster (not just one direction).
     player.current_zone = GATE; player._lastStepAt = 0;
-    const wall = await run('north'); // not the void direction
-    check('a non-void direction off the gate is still a wall', wall?.type === 'error' && /no exit/i.test(wall?.message || ''), `${wall?.type}: ${wall?.message}`);
+    const north = await run('north'); // GATE has no north exit either → still the void
+    check('any edge of a void-region opens the muster', north?.type === 'journey_staging' && !player._crossing, `${north?.type}`);
+    await run('journey cancel'); // close the muster before the next case
+    // Off the map in a NON-void region is a plain wall.
+    player.current_zone = NONVOID; player._lastStepAt = 0;
+    const wall = await run('north');
+    check('walking off a non-void region is still a wall', wall?.type === 'error' && /no exit/i.test(wall?.message || ''), `${wall?.type}: ${wall?.message}`);
 
     // ── Branching: risk-for-loot detour off the trunk ─────────────────────────
     player.current_zone = GATE; player._lastStepAt = 0;
@@ -235,16 +243,16 @@ export default async function regress({ run, check, getPlayer }) {
 
     // ── Slice 6: the frontier map (fogged discovery) ──────────────────────────
     await query("DELETE FROM player_flags WHERE player_id=$1 AND flag_key='frontier_log'", [player.id]).catch(() => {});
-    player.current_zone = savedZone; delete player._crossing;
+    player.current_zone = NONVOID; delete player._crossing;
     const noGate = await run('frontier');
-    check('frontier off a gate points you to a gate', /no way to strike out|perimeter gate/i.test(noGate?.message || ''), noGate?.message?.slice(0, 40));
+    check('frontier outside a void-region says so', /no way to strike out|frontier region/i.test(noGate?.message || ''), noGate?.message?.slice(0, 40));
     player.current_zone = GATE;
     const read = await run('frontier');
     check('frontier at a gate reads out the reachable regions', /The Reach/.test(read?.message || '') && /Exodus/.test(read?.message || ''), read?.message?.slice(0, 60));
     const fv = await _test.frontierView(player);
     check('reading a gate charts its routes (fogged discovery)',
       !!fv['Coldwater'] && fv['Coldwater'].some(r => r.heading === 'The Reach' && r.state === 'charted'), JSON.stringify(fv));
-    await _test.markSurvived(player, 'southern_waste', 'reach');
+    await _test.markSurvived(player, VOIDKEY, 'reach');
     const fv2 = await _test.frontierView(player);
     check('surviving a crossing upgrades the route to survived',
       fv2['Coldwater']?.some(r => r.heading === 'The Reach' && r.state === 'survived'), JSON.stringify(fv2));
@@ -252,7 +260,7 @@ export default async function regress({ run, check, getPlayer }) {
   } finally {
     _test.setEncounters(true);
     _test.setSalvage(null);
-    await query("DELETE FROM void_traces WHERE void_key='southern_waste'").catch(() => {});
+    await query(`DELETE FROM void_traces WHERE void_key='${VOIDKEY}'`).catch(() => {});
     await query('DELETE FROM player_inventory WHERE player_id=$1', [player.id]).catch(() => {});
     wipe();
     for (const [id, z] of prev) { if (z) world.zones.set(id, z); else world.zones.delete(id); }
