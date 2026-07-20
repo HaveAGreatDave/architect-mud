@@ -113,10 +113,14 @@ export function openJourneyStaging(msg) {
       <div class="jstage-hint">${msg.solo ? 'You set out alone. The waste keeps no company.' : 'Every hand must ready before the party walks off the edge.'}</div>
     </div>`;
 
+  // The overlay buttons issue real commands — send them as { type:'command' }
+  // messages (sendRaw serializes the object straight to the socket; a bare string
+  // would arrive as JSON `"ready"` and be dropped by the server's dispatcher).
+  const sendCmd = cmd => window._sendRaw && window._sendRaw({ type: 'command', command: cmd });
   const cancelBtn = node.querySelector('[data-jstage="cancel"]');
-  if (cancelBtn) cancelBtn.onclick = () => window._sendRaw && window._sendRaw('journey cancel');
+  if (cancelBtn) cancelBtn.onclick = () => sendCmd('journey cancel');
   const readyBtn = node.querySelector('[data-jstage="ready"]');
-  if (readyBtn && !msg.youReady) readyBtn.onclick = () => window._sendRaw && window._sendRaw('ready');
+  if (readyBtn && !msg.youReady) readyBtn.onclick = () => sendCmd('ready');
 
   const chatInput = node.querySelector('.jstage-chat-input');
   if (chatInput) {
@@ -124,7 +128,7 @@ export function openJourneyStaging(msg) {
     const send = () => {
       const t = (chatInput.value || '').trim();
       if (!t) return;
-      window._sendRaw && window._sendRaw('journey say ' + t);
+      sendCmd('journey say ' + t);
       chatInput.value = '';
       chatInput.focus();
     };
