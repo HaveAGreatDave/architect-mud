@@ -341,18 +341,98 @@ async function launchCrossing(leader, gate, broadcast, heading) {
   };
 }
 
+// ── The muster (staging + ready-up) ───────────────────────────────────────────
+// `journey` (or walking off the edge) doesn't launch immediately — it opens a
+// Tablet-OS staging window: your kit, your party, some lore for the road, and a
+// ready-check. Everyone in the cohort must `ready` before the crossing launches.
+const stagings = new Map();      // stagingId -> { id, leaderId, gate, dir, heading, members:[pid], ready:Set }
+const playerStaging = new Map(); // pid -> stagingId
+
+function stagingLore(vdef) {
+  const dests = (vdef?.dests || []).map(d => d.heading).join(' or ') || 'the unknown';
+  return `Past the wall the map ends and the waste begins — no roads out here, no rescue, no second chance the Architect will pay for. Between you and ${dests} lies trackless killing ground: it shifts with the wind, it buries its own dead, and it does not forgive the unprepared. Check your water. Check your people. When everyone's set, walk off the edge of the known world — and don't look back for whoever falls.`;
+}
+async function stagingInventory(pid) {
+  const { rows } = await query(
+    `SELECT i.name AS name, SUM(pi.quantity)::int AS qty
+       FROM player_inventory pi JOIN items i ON i.id = pi.item_id
+      WHERE pi.player_id = $1 AND pi.container_id IS NULL
+      GROUP BY i.name ORDER BY i.name`, [pid]
+  ).catch(() => ({ rows: [] }));
+  return rows.map(r => ({ name: r.name, qty: r.qty }));
+}
+async function buildStagingPanel(player, staging) {
+  const vdef = VOIDS[staging.gate];
+  return {
+    type: 'journey_staging',
+    region: vdef?.origin || 'the frontier',
+    dests: (vdef?.dests || []).map(d => d.heading),
+    heading: staging.heading || null,
+    lore: stagingLore(vdef),
+    inventory: await stagingInventory(player.id),
+    party: staging.members.map(id => {
+      const p = getLivePlayer(id);
+      return { handle: p?.handle || 'someone', ready: staging.ready.has(id), you: id === player.id, leader: id === staging.leaderId };
+    }),
+    youReady: staging.ready.has(player.id),
+    allReady: staging.members.every(id => staging.ready.has(id)),
+    solo: staging.members.length === 1,
+  };
+}
+async function openStaging(leader, gate, heading, broadcast) {
+  const followers = getAllLivePlayers().filter(p =>
+    p.id !== leader.id && p.following === leader.id && p.current_zone === leader.current_zone && !p._crossing && !playerStaging.has(p.id));
+  const members = [leader.id, ...followers.map(p => p.id)];
+  const staging = { id: `stg_${leader.id}_${++_seq}`, leaderId: leader.id, gate: gate.key, dir: gate.dir, heading, members, ready: new Set() };
+  stagings.set(staging.id, staging);
+  for (const id of members) playerStaging.set(id, staging.id);
+  for (const f of followers) sendToPlayer(f.id, await buildStagingPanel(f, staging));
+  if (followers.length && broadcast) broadcast(leader.current_zone, { type: 'zone_event', message: `${leader.handle} musters a party at the edge, weighing the crossing.` }, leader.id);
+  return buildStagingPanel(leader, staging);
+}
+function closeStaging(staging) {
+  for (const id of staging.members) { playerStaging.delete(id); sendToPlayer(id, { type: 'journey_staging', close: true }); }
+  stagings.delete(staging.id);
+}
+function cancelStaging(player) {
+  const staging = stagings.get(playerStaging.get(player.id));
+  if (!staging) return { type: 'emote', message: 'You are not mustering for anything.' };
+  closeStaging(staging);
+  return { type: 'emote', message: 'You step back from the edge. The waste can wait.' };
+}
+async function launchFromStaging(staging, broadcast) {
+  const leader = getLivePlayer(staging.leaderId);
+  closeStaging(staging); // close the overlay for everyone; the move payloads render the void behind it
+  if (!leader) return null;
+  const gate = { key: staging.gate, void: VOIDS[staging.gate], dir: staging.dir };
+  const leaderPanel = await launchCrossing(leader, gate, broadcast, staging.heading);
+  sendToPlayer(leader.id, leaderPanel); // followers were already sent their move payloads inside launchCrossing
+  return null;
+}
+async function cmdReady(args, raw, player, broadcast) {
+  const staging = stagings.get(playerStaging.get(player.id));
+  if (!staging) return { type: 'emote', message: "You're not mustering for anything right now." };
+  staging.ready.add(player.id);
+  if (staging.members.every(id => staging.ready.has(id))) return launchFromStaging(staging, broadcast);
+  for (const id of staging.members) { const p = getLivePlayer(id); if (p) sendToPlayer(id, await buildStagingPanel(p, staging)); }
+  return buildStagingPanel(player, staging);
+}
+
 async function cmdJourney(args, raw, player, broadcast) {
+  if ((args[0] || '').toLowerCase() === 'cancel') return cancelStaging(player);
   if (player._crossing) return { type: 'emote', message: 'You are already out in the waste. The only way through it is through it.' };
+  const existing = stagings.get(playerStaging.get(player.id));
+  if (existing) return buildStagingPanel(player, existing); // already mustering — re-open the window
   const gate = voidGateOf(getZone(player.current_zone));
   if (!gate) return { type: 'emote', message: 'There is nowhere to strike out into the waste from here.' };
-  return launchCrossing(player, gate, broadcast, args.join(' ').trim());
+  return openStaging(player, gate, args.join(' ').trim(), broadcast);
 }
 
 async function onMovementEdge({ player, zone, direction, broadcast }) {
-  if (player._crossing) return undefined;
+  if (player._crossing || playerStaging.has(player.id)) return undefined;
   const gate = voidGateOf(zone);
   if (!gate || direction !== gate.dir) return undefined;
-  return launchCrossing(player, gate, broadcast, null);
+  return openStaging(player, gate, null, broadcast); // walking off the edge opens the muster, not the crossing
 }
 
 // ── The Frontier map (Slice 6): fogged discovery of regions + void-routes ─────
@@ -448,6 +528,8 @@ on('zone.entered', ({ actor, zone }) => {
 // ── RAM reclaim on a clean disconnect (crossing_room already persisted per move) ─
 on('player.logout', ({ id }) => {
   try {
+    const staging = stagings.get(playerStaging.get(id)); // dropping out of a muster cancels it
+    if (staging) closeStaging(staging);
     const player = getLivePlayer(id);
     const live = player?._crossing;
     if (!live) return;
@@ -620,6 +702,7 @@ on('player.login', async ({ id }) => {
 
 export const commands = {
   journey: cmdJourney,
+  ready: cmdReady,
   scrawl: cmdScrawl,
   sift: cmdSift,
   frontier: cmdFrontier,
@@ -632,6 +715,7 @@ export const hooks = {
 export const _test = {
   crossings, VOIDS, totalLength, TILES_PER_ROOM, MIN_ROOMS, MAX_ROOMS,
   loadFoes, spawnFoe, teardownInstance, LOOT, bigScoreSalt, handleDeath: onVoidDeath, frontierView, markSurvived,
+  stagings, playerStaging,
   foePool: () => FOE_POOL,
   setEncounters: (on) => { ENCOUNTERS_ON = on; },
   setSalvage: (v) => { SALVAGE_FORCE = v; },

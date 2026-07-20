@@ -20,6 +20,7 @@ import { openInsurancePanel, updateInsurancePanel } from './panels/insurance.js'
 import { openCorpConsole, updateCorpConsole } from './panels/corp-console.js';
 import { openTabletPanel, closeTabletPanel, tabletQuestUpdate, noteQuestLog, openTabletToSpecter, openTabletToReel, openTabletSpecterInstall, refreshTabletGearIfOpen, openTabletToMap, refreshTabletMapIfOpen } from './panels/tablet-os.js';
 import { openCorpMap } from './panels/corp-map.js';
+import { openJourneyStaging } from './panels/journey-staging.js';
 import { openMediaDeckPanel, updateMediaDeckBroadcast, applyMediaDeckOverlay } from './panels/mediadeck.js';
 import { openDeviceInspectPanel, consumeExamineLogSuppression } from './panels/deviceinspect.js';
 import { openCircuitHack } from './panels/circuithack.js';
@@ -383,6 +384,8 @@ const handlers = {
   // An app handed off to another UI (e.g. quests-app.js "Turn In" opening the
   // turn-in NPC's dialogue) — close the shell instead of re-rendering it.
   tablet_close: () => { closeTabletPanel(); },
+  // Journey staging (wastecrossing) — the pre-crossing muster overlay.
+  journey_staging: (msg) => { openJourneyStaging(msg); },
   // A quest changed state server-side (objective ticked / completed / turned in) —
   // live-refresh the Tablet OS Quests app if it's open on that app (no-op otherwise).
   quest_update: () => { tabletQuestUpdate(); },

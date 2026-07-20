@@ -4,7 +4,7 @@
 import { world, getZone, isTransientZone, setLivePlayer, removeLivePlayer,
   addPlayerToZone, removePlayerFromZone, getEnemyInstance } from '../../server/engine/world.js';
 import { query } from '../../server/models/db.js';
-import { VOIDS, _test } from './index.js';
+import { VOIDS, _test, commands } from './index.js';
 import { _test as traces } from './traces.js';
 
 const GATE = 'zone_regress_voidgate';
@@ -34,13 +34,19 @@ export default async function regress({ run, check, getPlayer }) {
   };
 
   _test.setEncounters(false); // keep movement/traversal tests deterministic
+  // Solo helper: journey opens the muster, then `ready` (all ready → launch).
+  const launch = async () => { await run('journey'); return run('ready'); };
   try {
-    // ── Entry drops you onto the shared trunk ──────────────────────────────────
+    // ── The muster: journey opens staging; ready launches ──────────────────────
     player.current_zone = GATE; player._lastStepAt = 0;
-    const enter = await run('journey');
+    const stage = await run('journey');
+    check('journey opens the muster overlay instead of launching',
+      stage?.type === 'journey_staging' && !player._crossing, `${stage?.type} crossing=${!!player._crossing}`);
+    check('the muster carries kit + party + lore', Array.isArray(stage?.inventory) && Array.isArray(stage?.party) && !!stage?.lore && stage?.solo === true, `party=${stage?.party?.length}`);
+    await run('ready'); // solo → all ready → launch
     const c = _test.crossings.get(player._crossing?.instanceId);
-    check('journey drops you into the void trunk',
-      enter?.type === 'move' && !!c && player.current_zone === c.entry, `${enter?.type} zone=${player.current_zone}`);
+    check('readying up launches the crossing onto the trunk',
+      !!c && player.current_zone === c.entry, `zone=${player.current_zone}`);
 
     // ── The braid: the trunk forks toward BOTH regions ────────────────────────
     const fork = `${c.id}_t${vdef.trunk - 1}`;
@@ -61,7 +67,7 @@ export default async function regress({ run, check, getPlayer }) {
 
     // ── Divert at the fork: east limb reaches Exodus instead ──────────────────
     player.current_zone = GATE; player._lastStepAt = 0;
-    await run('journey');
+    await launch();
     const c2 = _test.crossings.get(player._crossing.instanceId);
     for (let i = 0; i < vdef.trunk - 1; i++) { player._lastStepAt = 0; await run('south'); } // to the fork
     check('you can walk the shared trunk to the fork', player.current_zone === `${c2.id}_t${vdef.trunk - 1}`, player.current_zone);
@@ -71,12 +77,13 @@ export default async function regress({ run, check, getPlayer }) {
     check('diverting east at the fork reaches Exodus (the other region)', player.current_zone === EXODUS, player.current_zone);
     wipe();
 
-    // ── Walk off the map (movement.edge hook) ─────────────────────────────────
+    // ── Walk off the map (movement.edge hook) → opens the muster ──────────────
     player.current_zone = GATE; player._lastStepAt = 0;
-    const walked = await run('south'); // no south exit on the gate → edge hook launches
-    check('walking off the edge launches the crossing',
-      walked?.type === 'move' && !!player._crossing && player.current_zone === _test.crossings.get(player._crossing.instanceId).entry,
-      `${walked?.type} zone=${player.current_zone}`);
+    const walked = await run('south'); // no south exit → edge hook opens the muster
+    check('walking off the edge opens the muster', walked?.type === 'journey_staging' && !player._crossing, `${walked?.type}`);
+    await run('ready');
+    check('readying from the walk-off muster launches the crossing',
+      !!player._crossing && player.current_zone === _test.crossings.get(player._crossing.instanceId).entry, `zone=${player.current_zone}`);
     wipe();
     player.current_zone = GATE; player._lastStepAt = 0;
     const wall = await run('north'); // not the void direction
@@ -84,7 +91,7 @@ export default async function regress({ run, check, getPlayer }) {
 
     // ── Branching: risk-for-loot detour off the trunk ─────────────────────────
     player.current_zone = GATE; player._lastStepAt = 0;
-    await run('journey');
+    await launch();
     const bc = _test.crossings.get(player._crossing.instanceId);
     check('a crossing has at least one risk-for-loot detour', bc.detourSet.size >= 1, `detours=${bc.detourSet.size}`);
     const detourId = [...bc.detourSet][0];
@@ -103,7 +110,11 @@ export default async function regress({ run, check, getPlayer }) {
     setLivePlayer(BOB, bob); addPlayerToZone(BOB, GATE);
     try {
       player.current_zone = GATE; player._lastStepAt = 0;
-      await run('journey');
+      await run('journey'); // musters leader + Bob (Bob follows, co-present)
+      check('the muster stages the whole party', _test.stagings.get(_test.playerStaging.get(player.id))?.members.length === 2, JSON.stringify([..._test.stagings.values()].map(s => s.members)));
+      await run('ready'); // leader readies — party still holding on Bob
+      check('a party muster holds until ALL are ready', !player._crossing, `crossing=${!!player._crossing}`);
+      await commands.ready([], 'ready', bob, () => {}); // Bob readies → all ready → launch
       check('a co-present follower is pulled into the SAME instance',
         !!bob._crossing && bob._crossing.instanceId === player._crossing.instanceId, `bob=${bob._crossing?.instanceId} leader=${player._crossing?.instanceId}`);
       check('the follower lands on the trunk entry with the leader',
@@ -116,7 +127,7 @@ export default async function regress({ run, check, getPlayer }) {
     await _test.loadFoes();
     check('the void foe roster loads from the enemies table', _test.foePool().length > 0, `foes=${_test.foePool().length}`);
     player.current_zone = GATE; player._lastStepAt = 0;
-    await run('journey');
+    await launch();
     const ec = _test.crossings.get(player._crossing.instanceId);
     const foeRoom = [...ec.roomSet].find(id => id !== ec.entry);
     const inst = _test.spawnFoe(ec, foeRoom);
@@ -129,7 +140,7 @@ export default async function regress({ run, check, getPlayer }) {
 
     // ── Ghost-traces (Slice 3): scrawls + corpses, cached per (void, window) ──
     player.current_zone = GATE; player._lastStepAt = 0;
-    await run('journey');
+    await launch();
     const tc = _test.crossings.get(player._crossing.instanceId);
     const scrawlSalt = getZone(tc.entry).flags.void_salt;
     const sres = await run('scrawl running low');
@@ -154,7 +165,7 @@ export default async function regress({ run, check, getPlayer }) {
 
     // ── Salvage (Slice 5): scavenge a void room, once, Scavenging-gated ───────
     player.current_zone = GATE; player._lastStepAt = 0;
-    await run('journey');
+    await launch();
     const lc = _test.crossings.get(player._crossing.instanceId);
     const lcBig = _test.bigScoreSalt(lc.voidKey, lc.window, VOIDS[lc.voidKey].trunk);
     const spineRooms = [...lc.roomSet].filter(id => id !== lc.entry && !lc.detourSet.has(id) && getZone(id).flags.void_salt !== lcBig);
@@ -176,7 +187,7 @@ export default async function regress({ run, check, getPlayer }) {
     // ── Slice 5b: corpse-packs (loot the dead, first-come) ────────────────────
     _test.setSalvage(1);
     player.current_zone = GATE; player._lastStepAt = 0;
-    await run('journey');
+    await launch();
     const pc = _test.crossings.get(player._crossing.instanceId);
     const bsSalt = _test.bigScoreSalt(pc.voidKey, pc.window, VOIDS[pc.voidKey].trunk);
     const packRoom = [...pc.roomSet].find(id => /reach|exodus/.test(getZone(id).flags.void_salt)); // a limb room (not the trunk big-score)
@@ -193,7 +204,7 @@ export default async function regress({ run, check, getPlayer }) {
 
     // ── Slice 5b: the weekly big score (claimed globally, first-come) ─────────
     player.current_zone = GATE; player._lastStepAt = 0;
-    await run('journey');
+    await launch();
     const gc = _test.crossings.get(player._crossing.instanceId);
     const bsRoom = [...gc.roomSet].find(id => getZone(id).flags.void_salt === bsSalt);
     player.current_zone = bsRoom;
@@ -204,7 +215,7 @@ export default async function regress({ run, check, getPlayer }) {
     wipe();
     // A later crosser (fresh instance, same window/salt) finds it already gone.
     player.current_zone = GATE; player._lastStepAt = 0;
-    await run('journey');
+    await launch();
     const gc2 = _test.crossings.get(player._crossing.instanceId);
     player.current_zone = [...gc2.roomSet].find(id => getZone(id).flags.void_salt === bsSalt);
     const bs2 = await run('sift');

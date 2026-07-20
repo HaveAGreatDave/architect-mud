@@ -10631,3 +10631,79 @@ input.trade-qty { width: 56px; }
 .trade-btn:hover { border-color: var(--accent); color: var(--text-bright); }
 .trade-btn.on { border-color: var(--green, #5fbf5f); color: var(--green, #5fbf5f); }
 .trade-btn.trade-cancel:hover { border-color: var(--red); color: var(--red); }
+
+/* ── Journey staging overlay (wastecrossing muster) ─────────────────────────── */
+.jstage-overlay {
+	position: fixed; inset: 0; z-index: 9000;
+	display: flex; align-items: center; justify-content: center;
+	background: radial-gradient(ellipse at center, rgba(5,5,10,0.82), rgba(5,5,10,0.96));
+	backdrop-filter: blur(3px);
+	font-family: var(--font-mono);
+}
+.jstage-panel {
+	width: min(620px, 94vw); max-height: 92vh; overflow-y: auto;
+	background: linear-gradient(160deg, var(--bg2), var(--bg));
+	border: 1px solid var(--border);
+	border-radius: 14px;
+	box-shadow: 0 0 0 1px rgba(40,229,255,0.12), 0 18px 60px rgba(0,0,0,0.7), 0 0 40px rgba(255,46,196,0.08);
+	color: var(--text);
+	padding: 0 0 14px;
+}
+.jstage-topbar {
+	display: flex; justify-content: space-between; align-items: center;
+	padding: 8px 14px; border-bottom: 1px solid var(--border);
+	font-size: 0.68rem; letter-spacing: 2px; color: var(--text-dim);
+	background: rgba(40,229,255,0.04);
+}
+.jstage-os { color: var(--cyan); }
+.jstage-mode { color: var(--accent); }
+.jstage-head { padding: 16px 18px 6px; }
+.jstage-title {
+	font-size: 1.7rem; font-weight: 700; letter-spacing: 1px; color: var(--text-bright);
+	text-shadow: 0 0 18px rgba(255,46,196,0.4);
+}
+.jstage-route { margin-top: 3px; color: var(--cyan); font-size: 0.86rem; letter-spacing: 1px; }
+.jstage-lore {
+	margin: 10px 18px; padding: 12px 14px;
+	border-left: 2px solid var(--accent); background: rgba(255,46,196,0.05);
+	color: var(--text-dim); font-size: 0.82rem; line-height: 1.55; font-style: italic;
+}
+.jstage-cols { display: flex; gap: 12px; padding: 6px 18px; }
+.jstage-col { flex: 1; min-width: 0; }
+.jstage-colhead {
+	font-size: 0.72rem; letter-spacing: 1.5px; text-transform: uppercase;
+	color: var(--text-dim); border-bottom: 1px solid var(--border);
+	padding-bottom: 5px; margin-bottom: 6px;
+	display: flex; justify-content: space-between; align-items: baseline;
+}
+.jstage-count { color: var(--cyan); font-size: 0.66rem; }
+.jstage-list { list-style: none; margin: 0; padding: 0; max-height: 190px; overflow-y: auto; }
+.jstage-list li {
+	display: flex; align-items: center; gap: 6px;
+	padding: 4px 2px; font-size: 0.8rem; border-bottom: 1px dotted rgba(42,42,64,0.5);
+}
+.jstage-item { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jstage-qty { color: var(--yellow); font-size: 0.72rem; }
+.jstage-empty { color: var(--text-dim); font-style: italic; }
+.jstage-party .jstage-dot { color: var(--text-dim); width: 1em; }
+.jstage-party .jstage-p-ready .jstage-dot { color: var(--green); text-shadow: 0 0 8px rgba(57,255,143,0.6); }
+.jstage-party .jstage-p-ready .jstage-pstate { color: var(--green); }
+.jstage-who { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jstage-tag {
+	font-size: 0.6rem; letter-spacing: 1px; padding: 1px 5px; margin-left: 5px; border-radius: 6px;
+	background: var(--bg3); color: var(--text-dim); text-transform: uppercase;
+}
+.jstage-tag-you { background: var(--accent-dim); color: var(--text-bright); }
+.jstage-pstate { font-size: 0.66rem; letter-spacing: 1px; color: var(--text-dim); }
+.jstage-foot { display: flex; gap: 10px; padding: 14px 18px 4px; }
+.jstage-btn {
+	flex: 1; padding: 11px; border-radius: 9px; border: 1px solid var(--border);
+	font-family: var(--font-mono); font-size: 0.86rem; letter-spacing: 1px; cursor: pointer;
+	background: var(--bg3); color: var(--text); transition: all 0.12s;
+}
+.jstage-btn:hover { border-color: var(--cyan); }
+.jstage-btn-go { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; box-shadow: 0 0 20px rgba(255,46,196,0.35); }
+.jstage-btn-go:hover { filter: brightness(1.12); border-color: var(--accent); }
+.jstage-btn-done { background: rgba(57,255,143,0.12); color: var(--green); border-color: var(--green); cursor: default; }
+.jstage-btn-cancel { flex: 0 0 34%; color: var(--text-dim); }
+.jstage-hint { text-align: center; color: var(--text-dim); font-size: 0.7rem; letter-spacing: 0.5px; padding: 8px 18px 2px; }
