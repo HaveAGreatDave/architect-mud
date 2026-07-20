@@ -431,8 +431,12 @@ export const SCHEMA_SQL = `
     kind TEXT NOT NULL,
     handle TEXT,
     note TEXT,
+    pack JSONB,            -- corpse-pack: item ids the dead were carrying (looted first-come)
+    claimed BOOLEAN DEFAULT FALSE,  -- a corpse-pack / big-score already stripped (async scarcity)
     created_at DOUBLE PRECISION NOT NULL
   );
+  ALTER TABLE void_traces ADD COLUMN IF NOT EXISTS pack JSONB;
+  ALTER TABLE void_traces ADD COLUMN IF NOT EXISTS claimed BOOLEAN DEFAULT FALSE;
   CREATE INDEX IF NOT EXISTS void_traces_lookup ON void_traces (void_key, window_id);
 
   -- Append-only log of player deaths, catalogued by the deaths plugin from the

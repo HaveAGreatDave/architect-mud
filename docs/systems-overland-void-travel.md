@@ -400,9 +400,21 @@ you). Loot is generated in RAM — a 3-tier table (`LOOT`: staples `diff 4` → 
 `diff 12`), drawn from committed items (water/rations up top, wiring/circuits/ore mid, mystery-component/
 glowing-scrap/scrap-pistol rare). A room offers a **richness tier** — spine rooms `[1,2]`, **detours
 `[2,3]`** (the branching finally pays) — and your Scavenging skill decides whether you reach the good
-stuff. **Once per room per crossing.** Still pending (Slice 5b): the **claim-ledger big-scores** and
-**lootable corpse-packs** (the dead's actual dropped gear — Slice 3 corpses are still clue-only), plus
-depth-scaling and the rare-loot-is-heavy extraction tension. Regress 1293/1293.
+stuff. **Once per room per crossing.**
+
+**BUILT (Slice 5b — corpse-packs + claim-ledger):** `sift` now resolves in three tiers — **big score →
+corpse-pack → ambient scavenging**:
+- **Lootable corpse-packs** — the engine's `spawnPlayerCorpse` already strips the dead's gear into a
+  `player_corpses` row at the death room; the `player.death` handler **re-homes** those item ids onto the
+  shared void trace (`void_traces.pack`) and deletes the orphaned corpse. Another crosser, in their *own*
+  instance, sees the corpse at the same `room_salt` and `sift`s it — granted the gear, and the trace's
+  `claimed` flag flips **globally first-come** (the async race).
+- **Weekly big score** — one telegraphed prize per `(void, window)` at a seeded shared-trunk room ("*The
+  hulk of a downed gunship dominates this stretch*"), kept globally scarce by a `bigscore_claim` trace:
+  the **first** crosser to `sift` it takes it; everyone after finds it stripped. Same async-scarcity
+  mechanic, same cached `void_traces`.
+Still pending: depth-scaling + the rare-loot-is-heavy extraction tension; carried *credits* are lost on
+void death (not re-homed). Regress 1299/1299.
 
 ### Loot tiers, scaled to risk
 

@@ -46,7 +46,7 @@ import { OPPOSITE } from '../../server/engine/directions.js';
 import { effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { query } from '../../server/models/db.js';
 import { randomUUID } from 'crypto';
-import { loadWindow, getTraces, addTrace } from './traces.js';
+import { loadWindow, getTraces, addTrace, claimTrace } from './traces.js';
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const VOID_MAP = 'map_void'; // non-map_world → flag/map-filtered world iterators skip void rooms
@@ -200,12 +200,15 @@ function spawnFoe(c, roomId) {
 function showTraces(actor, c, roomId) {
   const salt = getZone(roomId)?.flags?.void_salt;
   if (!salt) return;
-  const traces = getTraces(c.voidKey, c.window, salt);
-  if (!traces.length) return;
-  const lines = traces.map(t => t.kind === 'scrawl'
-    ? `Scratched into the ground, four letters: <b>${t.note}</b>`
-    : `A body half-buried in the dust${t.handle ? ` — what's left of <b>${t.handle}</b>` : ''}${t.note ? `, ${t.note.toLowerCase()}` : ''}.`);
-  sendToPlayer(actor.id, { type: 'output', message: lines.join('\n') });
+  const trunk = VOIDS[c.voidKey].trunk;
+  const lines = [];
+  if (bigScoreOpen(c.voidKey, c.window, salt, trunk))
+    lines.push("The hulk of a downed gunship dominates this stretch — real salvage in it, if it's still here. <b>(sift)</b>");
+  for (const t of getTraces(c.voidKey, c.window, salt)) {
+    if (t.kind === 'scrawl') lines.push(`Scratched into the ground, four letters: <b>${t.note}</b>`);
+    else if (t.kind === 'corpse') lines.push(`A body half-buried in the dust${t.handle ? ` — what's left of <b>${t.handle}</b>` : ''}${t.note ? `, ${t.note.toLowerCase()}` : ''}.${!t.claimed && packItems(t.pack).length ? ' <b>(sift to strip it)</b>' : ''}`);
+  }
+  if (lines.length) sendToPlayer(actor.id, { type: 'output', message: lines.join('\n') });
 }
 
 function maybeEncounter(actor, c, roomId, chance) {
@@ -418,6 +421,27 @@ const LOOT = {
 };
 let SALVAGE_FORCE = null; // regress override: null → real roll, 0/1 → forced fail/success
 function roll2d8() { return Math.floor(Math.random() * 8) + 1 + Math.floor(Math.random() * 8) + 1; }
+function packItems(pack) {
+  if (Array.isArray(pack)) return pack;
+  if (typeof pack === 'string') { try { return JSON.parse(pack) || []; } catch { return []; } }
+  return pack || [];
+}
+
+// The weekly "big score" (Slice 5b): one telegraphed prize per (void, window), at a
+// seeded shared-trunk room, kept globally scarce by a claim trace — first crosser to
+// sift it takes it (the async race). Everyone this window sees the same wreck at the
+// same room; whoever gets there first wins.
+const BIGSCORE_POOL = ['item_scrap_pistol', 'item_mystery_component', 'item_glowing_scrap'];
+function bigScoreSalt(voidKey, window, trunk) {
+  const span = Math.max(1, trunk - 2);
+  return `t${1 + (hashSeed(`${voidKey}|${window}|bigscore`) % span)}`;
+}
+function bigScoreItem(voidKey, window) {
+  return pick(mulberry32(hashSeed(`${voidKey}|${window}|bigscore_item`)), BIGSCORE_POOL);
+}
+function bigScoreOpen(voidKey, window, salt, trunk) {
+  return salt === bigScoreSalt(voidKey, window, trunk) && !getTraces(voidKey, window, salt).some(t => t.kind === 'bigscore_claim');
+}
 
 async function grantItem(playerId, itemId) {
   await query('INSERT INTO player_inventory (id, player_id, item_id, quantity, condition) VALUES ($1,$2,$3,1,1.0)', [randomUUID(), playerId, itemId]).catch(() => {});
@@ -425,12 +449,49 @@ async function grantItem(playerId, itemId) {
   return rows?.[0]?.name || 'a piece of salvage';
 }
 
+// The engine's spawnPlayerCorpse already stripped the dead's gear into a
+// player_corpses row at the death room — but that room tears down and orphans it.
+// Capture the carried item ids, delete the orphaned corpse, and re-home the pack
+// onto the shared void trace so another crosser (in their own instance) can loot it.
+async function captureCorpsePack(playerId, deathZone) {
+  try {
+    const { rows: cr } = await query('SELECT id FROM player_corpses WHERE player_id=$1 AND zone_id=$2 ORDER BY created_at DESC LIMIT 1', [playerId, deathZone]);
+    const corpseId = cr?.[0]?.id;
+    if (!corpseId) return [];
+    const { rows: items } = await query("SELECT item_id FROM player_inventory WHERE player_id=$1 AND item_id <> 'item_credit_chip' LIMIT 24", [corpseId]);
+    const ids = items.map(r => r.item_id);
+    await query('DELETE FROM player_inventory WHERE player_id=$1', [corpseId]).catch(() => {});
+    await query('DELETE FROM player_corpses WHERE id=$1', [corpseId]).catch(() => {});
+    return ids;
+  } catch (e) { console.error('[wastecrossing] captureCorpsePack:', e.message); return []; }
+}
+
 async function cmdSift(args, raw, player, broadcast) {
   const live = player._crossing;
   const c = live && crossings.get(live.instanceId);
   if (!c) return { type: 'emote', message: "There's nothing out here worth picking through. (You sift the waste for salvage.)" };
   const roomId = player.current_zone;
-  if (!getZone(roomId)?.flags?.void_salt) return { type: 'emote', message: 'Nothing here but dust and wind.' };
+  const salt = getZone(roomId)?.flags?.void_salt;
+  if (!salt) return { type: 'emote', message: 'Nothing here but dust and wind.' };
+  const trunk = VOIDS[c.voidKey].trunk;
+
+  // 1. The weekly big score, first-come and gone (the async claim race).
+  if (bigScoreOpen(c.voidKey, c.window, salt, trunk)) {
+    const name = await grantItem(player.id, bigScoreItem(c.voidKey, c.window));
+    await addTrace(c.voidKey, c.window, salt, 'bigscore_claim', player.handle, name);
+    return { type: 'emote', message: `<span class="item-grant">You haul <b>${name}</b> out of the wreck — the prize this stretch of waste was hiding. It's gone now; word will spread.</span>` };
+  }
+
+  // 2. Strip the dead — a corpse-pack, first-come.
+  const corpse = getTraces(c.voidKey, c.window, salt).find(t => t.kind === 'corpse' && !t.claimed && packItems(t.pack).length);
+  if (corpse) {
+    await claimTrace(corpse);
+    const names = [];
+    for (const itemId of packItems(corpse.pack)) names.push(await grantItem(player.id, itemId));
+    return { type: 'emote', message: `<span class="item-grant">You strip what the waste left of ${corpse.handle || 'the dead'} — ${names.join(', ')}.</span>` };
+  }
+
+  // 3. Ambient scavenging (once per room).
   if (!live.scavenged) live.scavenged = new Set();
   if (live.scavenged.has(roomId)) return { type: 'emote', message: "You've already picked this spot clean." };
   live.scavenged.add(roomId);
@@ -455,18 +516,22 @@ async function cmdSift(args, raw, player, broadcast) {
 // Respawn is an in-memory move (gameLoop), NOT a cmdMove, so zone.entered never
 // fires on death — this is where a void crossing gets torn down. deathZone is still
 // the void room here (teardown runs after), so its void_salt is available.
-on('player.death', ({ player, deathZone, cause }) => {
+async function onVoidDeath({ player, deathZone, cause }) {
   try {
     const live = player?._crossing;
     if (!live) return;
     const c = crossings.get(live.instanceId);
     const salt = getZone(deathZone)?.flags?.void_salt;
-    if (c && salt) addTrace(c.voidKey, c.window, salt, 'corpse', player.handle, (cause?.label || 'killed by the waste').slice(0, 40)).catch(() => {});
+    if (c && salt) {
+      const pack = await captureCorpsePack(player.id, deathZone);
+      await addTrace(c.voidKey, c.window, salt, 'corpse', player.handle, (cause?.label || 'killed by the waste').slice(0, 40), pack.length ? pack : null);
+    }
     delete player._crossing;
     clearCrossingFlags(player).catch(() => {});
     if (c) { c.members.delete(player.id); if (c.members.size === 0) teardownInstance(c); }
   } catch (e) { console.error('[wastecrossing] player.death error:', e.message); }
-});
+}
+on('player.death', onVoidDeath);
 
 // ── Relog re-derivation (after a server restart wiped the RAM rooms) ──────────
 on('player.login', async ({ id }) => {
@@ -515,7 +580,7 @@ export const hooks = {
 
 export const _test = {
   crossings, VOIDS, totalLength, TILES_PER_ROOM, MIN_ROOMS, MAX_ROOMS,
-  loadFoes, spawnFoe, teardownInstance, LOOT,
+  loadFoes, spawnFoe, teardownInstance, LOOT, bigScoreSalt, handleDeath: onVoidDeath,
   foePool: () => FOE_POOL,
   setEncounters: (on) => { ENCOUNTERS_ON = on; },
   setSalvage: (v) => { SALVAGE_FORCE = v; },

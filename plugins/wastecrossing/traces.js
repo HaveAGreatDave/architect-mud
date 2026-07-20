@@ -7,10 +7,11 @@
 // `reach1`, `d_t2`), carried on `flags.void_salt`, so a trace pins to the same
 // room in everyone's instance.
 //
+// A corpse can carry a `pack` (the dead's item ids) and a `claimed` flag — the
+// first crosser to sift it takes it, globally (async scarcity = the claim ledger).
+//
 // Near-zero DB: one INSERT per scrawl/death (rare events, never a hot path), reads
 // served from a per-(void, window) RAM cache, stale windows purged as they rotate.
-// The cache is safe to hold because its only writers are addTrace (scrawl/death)
-// and loadWindow (a one-shot per void+window).
 import { query } from '../../server/models/db.js';
 
 const cache = new Map();  // `${voidKey}|${window}` -> Map<salt, trace[]>
@@ -18,8 +19,7 @@ const loaded = new Set(); // which (void, window) keys have been loaded from the
 
 function ck(voidKey, window) { return `${voidKey}|${window}`; }
 
-// Warm the cache for a (void, window) with one query. Idempotent; safe to call on
-// every crossing launch — only the first per key hits the DB.
+// Warm the cache for a (void, window) with one query. Idempotent.
 export async function loadWindow(voidKey, window) {
   const k = ck(voidKey, window);
   if (loaded.has(k)) return;
@@ -28,7 +28,7 @@ export async function loadWindow(voidKey, window) {
   cache.set(k, salts);
   try {
     const { rows } = await query(
-      'SELECT room_salt, kind, handle, note, created_at FROM void_traces WHERE void_key=$1 AND window_id=$2 ORDER BY id',
+      'SELECT id, room_salt, kind, handle, note, pack, claimed, created_at FROM void_traces WHERE void_key=$1 AND window_id=$2 ORDER BY id',
       [voidKey, window]
     );
     for (const r of rows) {
@@ -45,20 +45,28 @@ export function getTraces(voidKey, window, salt) {
 }
 
 // Leave a trace: cache immediately (RAM is authoritative for the session) + persist.
-export async function addTrace(voidKey, window, salt, kind, handle, note) {
-  const trace = { room_salt: salt, kind, handle: handle || null, note: note || null, created_at: 0 };
+export async function addTrace(voidKey, window, salt, kind, handle, note, pack = null) {
+  const trace = { id: null, room_salt: salt, kind, handle: handle || null, note: note || null, pack, claimed: false, created_at: 0 };
   const k = ck(voidKey, window);
   if (!cache.has(k)) { cache.set(k, new Map()); loaded.add(k); }
   const salts = cache.get(k);
   if (!salts.has(salt)) salts.set(salt, []);
   salts.get(salt).push(trace);
   try {
-    await query(
-      'INSERT INTO void_traces (void_key, window_id, room_salt, kind, handle, note, created_at) VALUES ($1,$2,$3,$4,$5,$6,EXTRACT(EPOCH FROM NOW()))',
-      [voidKey, window, salt, kind, trace.handle, trace.note]
+    const { rows } = await query(
+      'INSERT INTO void_traces (void_key, window_id, room_salt, kind, handle, note, pack, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,EXTRACT(EPOCH FROM NOW())) RETURNING id',
+      [voidKey, window, salt, kind, trace.handle, trace.note, pack ? JSON.stringify(pack) : null]
     );
+    trace.id = rows?.[0]?.id ?? null; // so it can be claimed later
   } catch (e) { console.error('[wastecrossing/traces] addTrace:', e.message); }
   return trace;
 }
 
-export const _test = { cache, loaded, loadWindow, getTraces, addTrace };
+// Mark a corpse-pack / big-score claimed — first come, globally (RAM + DB).
+export async function claimTrace(trace) {
+  trace.claimed = true;
+  if (trace.id == null) return;
+  await query('UPDATE void_traces SET claimed=TRUE WHERE id=$1', [trace.id]).catch(() => {});
+}
+
+export const _test = { cache, loaded, loadWindow, getTraces, addTrace, claimTrace };
