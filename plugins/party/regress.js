@@ -3,7 +3,7 @@
 // (the harness `run` only dispatches as its one player), calling the exported
 // command directly.
 import { setLivePlayer, removeLivePlayer, getLivePlayer, addPlayerToZone, removePlayerFromZone } from '../../server/engine/world.js';
-import { commands, getPartyView, _test } from './index.js';
+import { commands, getPartyView, getIncomingInvites, _test } from './index.js';
 
 const noop = () => {};
 
@@ -25,6 +25,8 @@ export default async function regress({ check, getPlayer }) {
     check('party invite creates a party with the inviter as leader',
       !!v && v.leaderId === leader.id && v.members.length === 1, JSON.stringify(v?.members?.map(m => m.handle)));
     check('party invite records a pending invite', v?.invites?.some(i => i.id === BOB), JSON.stringify(v?.invites));
+    check('getIncomingInvites surfaces the invite to the invitee (for the Tablet app)',
+      getIncomingInvites(BOB).some(inv => inv.leaderId === leader.id), JSON.stringify(getIncomingInvites(BOB)));
 
     // Bob accepts → joins, and is now following the leader (the follow wiring).
     B(['accept']);

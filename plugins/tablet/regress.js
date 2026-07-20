@@ -13,8 +13,8 @@ export default async function regress({ run, check, getPlayer }) {
   check('tablet verb opens home screen', r?.type === 'tablet_panel' && r?.screen === 'home', JSON.stringify(r));
   check('home screen carries player summary', !!r?.player && typeof r.player.credits === 'number', JSON.stringify(r?.player));
   check('home screen lists apps', Array.isArray(r?.apps) && r.apps.length >= 9, `apps=${r?.apps?.length}`);
-  check('home screen apps include quests/skills/bank/vehicles/properties/settings/corp/specter',
-    ['quests', 'skills', 'bank', 'vehicles', 'properties', 'settings', 'corp', 'specter']
+  check('home screen apps include quests/skills/bank/vehicles/properties/settings/corp/specter/party',
+    ['quests', 'skills', 'bank', 'vehicles', 'properties', 'settings', 'corp', 'specter', 'party']
       .every(id => r.apps.some(a => a.id === id)),
     JSON.stringify(r?.apps?.map(a => a.id)));
 
@@ -99,6 +99,12 @@ export default async function regress({ run, check, getPlayer }) {
   check('map app z1 is a wider window than z0', r?.view === 'map' && r?.mode === 'zone' && r?.zoomLevel === 1 && (r?.tiles?.length || 0) >= z0Count, JSON.stringify({ z0: z0Count, z1: r?.tiles?.length }));
   r = await run('tabletnav map regional');
   check('map app regional is the terminal zoom stop', r?.view === 'map' && r?.mode === 'regional' && r?.zoomLevel === r?.maxZoom, JSON.stringify({ v: r?.view, z: r?.zoomLevel, m: r?.maxZoom }));
+
+  // Party app: the fake player is in no party and has no invites, so the root is
+  // the "start a party" detail view (with an invite picker if anyone's online).
+  r = await run('tabletnav party');
+  check('party app routes to a detail view', r?.type === 'tablet_panel' && r?.appId === 'party' && r?.view === 'detail' && !r?.error, JSON.stringify(r)?.slice(0, 200));
+  check('party app root invites you to start a party', /not in a party/i.test(r?.detail?.desc || ''), JSON.stringify(r?.detail)?.slice(0, 160));
 
   // Calendar app: root is a month-grid calendar view leading with a weeks grid and
   // an agenda list beneath it (led by the "today" marker), carrying a new-reminder

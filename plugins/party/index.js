@@ -42,6 +42,20 @@ function changed(party) { emit('party.changed', { partyId: party.id, leaderId: p
 
 // Read API for the Tablet Party app / other systems (never import this plugin —
 // call through here or read the follow substrate).
+// Pending invites addressed TO this player (parties they're not in yet) — for the
+// Tablet Party app, which getPartyView can't show (it returns the party you're IN).
+export function getIncomingInvites(pid) {
+  const now = Date.now();
+  const out = [];
+  for (const party of parties.values()) {
+    const exp = party.invites.get(pid);
+    if (exp == null) continue;
+    if (exp < now) { party.invites.delete(pid); continue; }
+    out.push({ partyId: party.id, leaderId: party.leaderId, leader: handleOf(party.leaderId) });
+  }
+  return out;
+}
+
 export function getPartyView(pid) {
   const p = partyOf(pid);
   if (!p) return null;
