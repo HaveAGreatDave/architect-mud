@@ -275,6 +275,13 @@ function ensureStyles() {
     /* Header strip: time / location, persistent regardless of screen */
     #tablet-os-overlay .tos-hdr { display:flex; justify-content:space-between; font-size:11px; letter-spacing:1px; color:var(--tos-fg-dim); margin-bottom:8px; text-transform:uppercase; }
     #tablet-os-overlay .tos-hdr b { color:var(--mg-accent); }
+    #tablet-os-overlay .tos-hdr-right { display:inline-flex; align-items:center; gap:7px; }
+    /* Cell-signal bars: four ascending accent bars, bottom-aligned. */
+    #tablet-os-overlay .tos-signal { display:inline-flex; align-items:flex-end; gap:1.5px; height:9px; position:relative; }
+    #tablet-os-overlay .tos-signal .tos-sig-bar { width:2.5px; border-radius:1px; background:var(--mg-accent); }
+    /* No service (off the grid): bars drop to hollow stubs and a red "!" flags it. */
+    #tablet-os-overlay .tos-signal-none .tos-sig-bar { background:color-mix(in srgb, var(--tos-fg-dim) 55%, transparent); }
+    #tablet-os-overlay .tos-signal-none .tos-sig-x { color:var(--red); font-weight:bold; font-size:11px; line-height:1; margin-left:1px; }
 
     /* Player summary strip: persistent across every screen. Pseudo-3D raised
        bevel: light-accent gradient + inset highlight/shadow + a soft drop
@@ -1659,8 +1666,19 @@ function renderSummary(p) {
   </div>`;
 }
 
+// A cosmetic cell-signal indicator in the header's top-right. Full bars normally;
+// out on a void crossing the tablet is off the grid, so it drops to zero bars with
+// a "!" and a No Service tooltip (mirrors the Frontier tile's off-grid state).
+function renderSignal() {
+  const noService = isOnCrossing();
+  const bars = [1, 2, 3, 4].map(i => `<span class="tos-sig-bar" style="height:${i * 2 + 1}px"></span>`).join('');
+  return `<span class="tos-signal${noService ? ' tos-signal-none' : ''}" title="${noService ? 'No Service — off the grid' : 'Signal'}">`
+    + `${bars}${noService ? '<span class="tos-sig-x">!</span>' : ''}</span>`;
+}
+
 function renderHeader(d) {
-  return `<div class="tos-hdr"><span>${esc(d.time?.date || '')} <b>${esc(d.time?.time || '')}</b></span><span>${esc(d.location || '')}</span></div>`;
+  return `<div class="tos-hdr"><span>${esc(d.time?.date || '')} <b>${esc(d.time?.time || '')}</b></span>`
+    + `<span class="tos-hdr-right"><span>${esc(d.location || '')}</span>${renderSignal()}</span></div>`;
 }
 
 /* Theme-aware app icons, keyed by app id. Primary strokes use currentColor (inherits
