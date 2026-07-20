@@ -1,0 +1,9 @@
+{
+  "name": "gatewarn",
+  "version": "1.0.0",
+  "description": "One-time border briefing. The first time a player steps onto a tile carrying a `flags.gate_warning` string (the perimeter gates), the gate guards deliver that authored warning — the dangers of leaving the city and which regions lie past the Curtain — then a `gate_warned:<zone>` player-flag suppresses it forever. Plugin owns only the once-gating and delivery; the prose lives in zone content. No verbs.",
+  "commands": [],
+  "events": {
+    "consumes": ["zone.entered"]
+  }
+}
