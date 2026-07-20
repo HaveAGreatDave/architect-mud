@@ -1,5 +1,13 @@
 {
-  "ambient_events": [],
+  "ambient_events": [
+    "The windsock jerks upright on a gust, points a limp finger down the strip, then dies again.",
+    "Grit ticks off the corrugated hangar wall in a long dry hiss.",
+    "Far off, an engine drones — climbs, fades, and is gone. Nobody at Buzzard Field looks up.",
+    "Heat-shimmer crawls up off the packed-dust runway and wobbles the scrub at the far end.",
+    "A loose sheet of roofing metal bangs somewhere behind the hangar, over and over, in a wind that never fully quits.",
+    "Chained-down flyers creak against their tie-downs, straining at the wind like dogs on a short lead.",
+    "The oil-drum by the apron door still smells of last night's fire; a thread of ash lifts and scatters."
+  ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
   "bg_color": null,
@@ -17,6 +25,8 @@
     "airfield_id": "buzzard_field",
     "airfield_lawless": true,
     "airfield_name": "Buzzard Field",
+    "airfield_surface": "dust",
+    "airfield_theme": "wastes",
     "building_name": "Hangar",
     "building_type": "hangar",
     "entrance": "west",

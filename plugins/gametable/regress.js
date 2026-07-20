@@ -40,6 +40,16 @@ export default async function regress({ check }) {
     await pokertext('pokertext', player);
     check('bare pokertext toggles off', !isTextMode(PID), 'toggle did not turn off');
 
+    // `text` / `visual` are the same switch under natural names. With no table
+    // here they just store the pref (and return an output note, not a pane).
+    let tr = await commands.text([], 'text', player, noop);
+    check('text switches to text mode', isTextMode(PID), 'text did not opt in');
+    check('text with no table returns output', tr?.type === 'output', JSON.stringify(tr)?.slice(0, 120));
+    check('text persists the flag', (await flagVal()) === 'true', `flag=${await flagVal()}`);
+    let vr = await commands.visual([], 'visual', player, noop);
+    check('visual switches back to visual mode', !isTextMode(PID), 'visual did not opt out');
+    check('visual persists the flag', (await flagVal()) === 'false', `flag=${await flagVal()}`);
+
     // Narration builders must be safe no-ops when nobody at the table is opted in.
     const fakeGame = {
       pot: 100, currentBet: 40, bigBlind: 20, smallBlind: 10, dealerIdx: 0, community: [{ rank: 'A', suit: 's' }],

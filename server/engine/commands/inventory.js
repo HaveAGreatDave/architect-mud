@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import { query, withTransaction } from '../../models/db.js';
-import { useDrug } from '../drugs.js';
+import { useDrug, getDrugCache } from '../drugs.js';
 import { hasTag, tagValue, hasFlag, isStackable, TAG_CATALOG } from '../tags.js';
 import { foodLoad, applyThirst } from '../bodily.js';
 import { dispatchAction, getRegisteredActions } from '../actions.js';
@@ -539,17 +539,41 @@ async function cmdUse(targetStr, player, broadcast) {
   if (!rows.length) return cmdUseFurniture(targetStr, player, broadcast);
   const item = rows[0];
   const t = item.tags || {};
+  // A laced *alcoholic* drink (the cocktails: martini, whiskey, …) drinks like a
+  // beer — hand it to the timed consume plugin so its thirst pours out sip-by-sip
+  // and the drug lands on the last swallow, same as the drug-item drinks. Only
+  // alcohol-laced items qualify (a stim-laced energy drink stays an instant hit).
+  if (isSlowDrinkItem(t) && getRegisteredActions().includes('consume.begin')) {
+    const r = await dispatchAction({ type: 'consume.begin', actor: player, params: { item, itemKind: 'item' }, context: { broadcast } });
+    if (r && !r.passthrough) return r;
+  }
+  return applyItemUse(player, item, broadcast);
+}
+
+// A consumable that should be *drunk over time* rather than downed instantly:
+// an alcohol-laced drink. Mirrors the drug-drink category gate (flags.alcoholic).
+function isSlowDrinkItem(tags) {
+  return !!(tags?.laced_drug && getDrugCache()[tags.laced_drug]?.flags?.alcoholic);
+}
+
+// Apply a non-drug consumable's own restores (HP/hunger/thirst/…), consume it as
+// one atomic unit, then land any laced drug it carries. Shared by the instant
+// `use` path and the timed-drink finish. `opts.skipThirstRestore` lets the consume
+// plugin credit a laced drink's thirst sip-by-sip without this double-counting it;
+// `opts.takeLine` overrides the opening flavour line.
+export async function applyItemUse(player, item, broadcast, opts = {}) {
+  const t = item.tags || {};
   const cd = parseCustomData(item.custom_data);
   // An item can carry its own flavour line for the act of consuming it
   // (tags.use_message); otherwise fall back to the plain default.
-  const messages = [t.use_message || `You use ${item.name}.`];
+  const messages = [opts.takeLine || t.use_message || `You use ${item.name}.`];
   if (t.restore_hp) { player.hp = Math.min(player.hp_max, player.hp+t.restore_hp); messages.push(`+${t.restore_hp} HP.`); }
   if (t.restore_hunger) {
     player.hunger = Math.min(100, player.hunger+t.restore_hunger);
     messages.push(`+${t.restore_hunger} Hunger.`);
     player.digestive_load = Math.min(120, (player.digestive_load || 0) + foodLoad(t.restore_hunger));
   }
-  if (t.restore_thirst) {
+  if (t.restore_thirst && !opts.skipThirstRestore) {
     applyThirst(player, t.restore_thirst);
     messages.push(`+${t.restore_thirst} Thirst.`);
   }
@@ -601,6 +625,21 @@ async function cmdUse(targetStr, player, broadcast) {
   }
 
   return { type:'use', message:messages.join('\n'), player_update:{hp:player.hp,hunger:player.hunger,thirst:player.thirst,radiation:player.radiation,sanity:player.sanity,credits:player.credits} };
+}
+
+// Re-resolve a non-drug consumable row by id and apply it now. The consume
+// plugin's timed-drink finish uses this for laced drinks (which have no drugs
+// row, so finishConsume can't serve them) — re-queried fresh so a row dropped
+// mid-drink isn't applied off a stale snapshot. Returns null if the row is gone.
+export async function finishConsumeItem(player, itemRowId, broadcast, extraOpts = {}) {
+  const { rows } = await query(
+    `SELECT pi.*, i.name, i.tags FROM player_inventory pi
+     JOIN items i ON i.id = pi.item_id
+     WHERE pi.id=$1 AND pi.player_id=$2 LIMIT 1`,
+    [itemRowId, player.id]
+  );
+  if (!rows.length) return null;
+  return applyItemUse(player, rows[0], broadcast, extraOpts);
 }
 
 // Equip/unequip changes the worn set, so refresh derived armor + insulation

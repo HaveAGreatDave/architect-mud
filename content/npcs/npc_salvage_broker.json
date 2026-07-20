@@ -41,6 +41,20 @@
       "options": [],
       "text": "\"Wastes'll still be here when you change your mind.\""
     },
+    "courier_hot": {
+      "actions": [
+        {
+          "action": "OFFER_COURIER_HOT"
+        }
+      ],
+      "options": [
+        {
+          "label": "Back",
+          "next": "root"
+        }
+      ],
+      "text": "Voss finally looks up from the scale, the loupe magnifying one cold eye. \"Delicate. Sure. I've got a thing needs moving quiet, and the usual mules are all in a cell or a ditch.\""
+    },
     "gossip": {
       "actions": [
         {
@@ -68,6 +82,17 @@
         {
           "label": "Heard anything out here?",
           "next": "gossip"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "work_fence_blacklist",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "label": "[quietly] I can carry something that shouldn't be seen.",
+          "next": "courier_hot"
         },
         {
           "label": "Just passing through.",

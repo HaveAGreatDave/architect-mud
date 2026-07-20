@@ -53,6 +53,41 @@ export default async function regress({ run, check, getPlayer }) {
   check('resolveEvent consumes the event on the right verb', p.shiftState.pending === null);
   check('resolveEvent moves satisfaction', p.shiftState.satisfaction !== satBefore, `sat ${satBefore}→${p.shiftState.satisfaction}`);
 
+  // ── Courier archetype (read-only command paths + pure logic; no DB writes,
+  //    since the fake player isn't a real players row — mirrors the shift tests) ──
+  const C = _test.courier;
+  check('CLASSES cover clean/sketchy/hot', ['clean', 'sketchy', 'hot'].every(k => C.CLASSES[k]?.itemId));
+  check('hot pays more than clean (payMult)', C.CLASSES.hot.payMult > C.CLASSES.clean.payMult);
+  check('sketchy+hot are contraband, clean is not',
+    C.CLASSES.sketchy.contraband && C.CLASSES.hot.contraband && !C.CLASSES.clean.contraband);
+  check('cheb is Chebyshev distance', C.cheb(0, 0, 3, 1) === 3 && C.cheb(2, 5, 2, 5) === 0);
+
+  C.generateBoard();
+  const jobs = C.courierBoard();
+  check('courier board generates specs from the live world', Array.isArray(jobs));
+  if (jobs.length) {
+    const j = jobs[0];
+    check('a board spec is well-formed', !!j.id && !!j.dropoffZone && j.payout > 0 && j.dist > 0, JSON.stringify(j));
+    check('board spec class is clean or sketchy (never hot)', j.class === 'clean' || j.class === 'sketchy');
+  }
+  check('candidateZones finds placed named tiles', C.candidateZones().length > 0);
+  const synthRun = { deadlineAt: Date.now() + 60_000 };
+  check('minsLeft counts down a live run', C.minsLeft(synthRun) > 0 && !C.expired(synthRun));
+  check('expired run reads as expired', C.expired({ deadlineAt: Date.now() - 1000 }));
+
+  // Read-only command paths (activeRun is a SELECT; no run for the fake player).
+  p.posture = 'standing'; delete p.shiftState; p.total_xp = 5000;
+  check('activeRun is null with no parcel carried', (await C.activeRun(p)) === null);
+  r = await run('courier');
+  check('courier above gate lists the board', r?.type === 'output', r?.type);
+  r = await run('deliver');
+  check('deliver with no run is a gentle no-op', /not carrying a run/i.test(r?.message || ''), r?.message);
+  r = await run('crack');
+  check('crack with nothing sealed is a gentle no-op', /nothing sealed/i.test(r?.message || ''), r?.message);
+  p.total_xp = 0;
+  r = await run('courier');
+  check('courier locked below XP gate', /lifetime XP|proven/i.test(r?.message || ''), r?.message);
+
   // ── Cleanup — never leave the fake player clocked in (the tick would pay out) ─
   delete p.shiftState;
   p.posture = saved.posture; p.total_xp = saved.xp; p.npcCombatTargetId = saved.combat;

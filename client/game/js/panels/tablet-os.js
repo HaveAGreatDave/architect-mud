@@ -2798,7 +2798,7 @@ function renderMap(d) {
   // Canonical terrain fills (mirror minimap.js TERRAIN_FILL). 'road' is handled separately.
   const TOS_TERRAIN_FILL = {
     water: '#3f7fb0', grass: '#5a9e57', park: '#46a24e', asphalt: '#45484d', concrete: '#8a8d91',
-    dirt: '#6b5138', sand: '#c2b280', gravel: '#7d7a73', dock: '#6e5636',
+    dirt: '#6b5138', sand: '#c2b280', gravel: '#7d7a73', dock: '#6e5636', dirt_road: '#7d6236',
     scrub: '#6f7248', redrock: '#6f3524', ash: '#4f4b47', marsh: '#4d5a30',
   };
   for (let r = 0; r < gRows; r++) for (let c = 0; c < gCols; c++) {
@@ -2824,6 +2824,8 @@ function renderMap(d) {
     let sym = _mapTileSym(t);
     let style = pos + ';';
     if (terrain === 'road') { style += 'background-color:#4c5157;color:#f2c53d;'; cls.push('terr', 'terr-road'); }
+    // dirt_road: same auto-tiled connector, recoloured to a packed-dirt track (keep the symbol).
+    else if (terrain === 'dirt_road') { style += 'background-color:#7d6236;color:#c9a86a;'; cls.push('terr', 'terr-dirt_road'); }
     else if (terrain) {
       const fill = (terrain === 'water' || terrain === 'grass') ? (t.bg_color || TOS_TERRAIN_FILL[terrain]) : TOS_TERRAIN_FILL[terrain];
       style += `background-color:${fill};`;

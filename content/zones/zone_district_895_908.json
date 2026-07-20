@@ -13,6 +13,8 @@
     "west": "zone_district_894_908"
   },
   "flags": {
+    "building_name": "Voltage",
+    "building_type": "nightclub",
     "district": "wasteland",
     "planner": "bp_district",
     "region_id": "region_coldwater",
@@ -24,7 +26,7 @@
   "id": "zone_district_895_908",
   "map_id": "map_world",
   "marker": "#",
-  "name": "Grasslands",
+  "name": "Voltage",
   "parent_zone": null,
   "updated_at": "1783739474"
 }

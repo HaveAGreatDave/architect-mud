@@ -33,6 +33,7 @@ import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { setPosture, forceStand } from '../../server/engine/posture.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { on } from '../../server/engine/events.js';
+import { courierVerb, deliver, crack, registerCourierAction, _courierTest } from './courier.js';
 
 // ── Tunables (defaults; adjustable via the tunables table without a redeploy) ──
 const T = {
@@ -80,7 +81,39 @@ const DINER_EVENTS = [
     botched: 'It turns into a shoving match. A stool goes over, two tables clear out. Gus is not thrilled.' },
 ];
 
-const VERBS = new Set(DINER_EVENTS.map(e => e.verb));
+// A second venue shape: a bar/nightclub floor. Reuses the same five response
+// verbs (no new global verbs) but leans Brawn/Cool — the rowdy, keep-the-room-
+// smooth work the diner's Reflexes checks don't cover. Selected per venue by
+// flags.work_venue.pool = 'bar'.
+const BAR_EVENTS = [
+  { id: 'round', verb: 'serve', stat: 'reflexes', difficulty: 6,
+    prompt: 'A booth just ordered a full round and the rail\'s three deep. <b>serve</b> it before they wander off to the next bar.',
+    nailed: 'You build the round in one fluid sweep, slide it down the bar, and never miss a face. The tab grows; the crowd stays.',
+    botched: 'You lose track of who ordered what. Two drinks come back, one walks out the door unpaid.' },
+  { id: 'tab', verb: 'bill', stat: 'cool', difficulty: 6,
+    prompt: 'A suit at the end wants to close a fat tab and he\'s already arguing the total. <b>bill</b> him cool.',
+    nailed: 'You walk him through it line by line, smile fixed, and he signs with a flourish and a fat tip to prove he wasn\'t cheap.',
+    botched: 'He disputes every line, you blink first, and the tip evaporates along with your patience.' },
+  { id: 'spill', verb: 'douse', stat: 'reflexes', difficulty: 6,
+    prompt: 'Someone knocked a candle into a napkin pile on the VIP rail. <b>douse</b> it before the bottle service goes up.',
+    nailed: 'You smother it with a bar towel in one motion, barely breaking stride. Nobody in VIP even looks up.',
+    botched: 'It catches. A flare, a shriek, a very expensive bottle of nothing — and security glaring at you.' },
+  { id: 'vip', verb: 'soothe', stat: 'cool', difficulty: 5,
+    prompt: 'A regular high-roller feels ignored and is loudly threatening to take his money to Voltage\'s rival. <b>soothe</b> him.',
+    nailed: 'You comp him a top-shelf pour, remember his usual, and laugh at his terrible joke. He settles in for the night.',
+    botched: 'You say the wrong name. He deflates, closes out, and takes his whole entourage with him.' },
+  { id: 'brawl', verb: 'bounce', stat: 'brawn|cool', difficulty: 7,
+    prompt: 'Two drunks are squaring up over a spilled drink and the crowd\'s starting to circle. <b>bounce</b> it — muscle or mouth.',
+    nailed: 'You get between them, big and calm, and talk it down to a handshake before a fist flies. The floor barely notices.',
+    botched: 'It goes off. Glass, a table, a scream — and the whole floor\'s energy curdles for the rest of the night.' },
+];
+
+// Named event pools a venue can select via flags.work_venue.pool.
+const POOLS = { diner: DINER_EVENTS, bar: BAR_EVENTS };
+
+// Every verb any pool uses — so off-shift no-op wrappers cover them all. Kept as
+// a union so adding a pool never silently drops a verb from the set.
+const VERBS = new Set([...DINER_EVENTS, ...BAR_EVENTS].map(e => e.verb));
 
 // ── Dice / checks ─────────────────────────────────────────────────────────────
 function roll2d8() { return Math.floor(Math.random() * 8) + 1 + Math.floor(Math.random() * 8) + 1; }
@@ -123,7 +156,8 @@ function allVenues() {
 
 // ── Shift lifecycle ───────────────────────────────────────────────────────────
 function eventPool(venue) {
-  return Array.isArray(venue.events) && venue.events.length ? venue.events : DINER_EVENTS;
+  if (Array.isArray(venue.events) && venue.events.length) return venue.events;
+  return POOLS[venue.pool] || DINER_EVENTS;
 }
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
@@ -281,6 +315,7 @@ function cmdWork(args, raw, player) {
   const lines = ['<span class="msg-system">Steady work is going at:</span>'];
   for (const { zone, venue } of venues) lines.push(`  <span class="text-dim">${venue.name || zone.name} — ${venue.role || 'hand'}, ~${venue.wage || DEFAULT_WAGE}₵/shift (${zone.name})</span>`);
   lines.push('<span class="text-dim">Get to one of these and type</span> <span class="msg-system">clock in</span>.');
+  lines.push('<span class="text-dim">Or take a delivery run — type</span> <span class="msg-system">courier</span>.');
   return { type: 'output', message: lines.join('\n') };
 }
 
@@ -334,7 +369,15 @@ export const commands = {
   douse: makeVerb('douse'),
   soothe: makeVerb('soothe'),
   bounce: makeVerb('bounce'),
+  // Courier archetype (plugins/work/courier.js).
+  courier: courierVerb,
+  runs: courierVerb,
+  deliver: (args, raw, player) => deliver(player),
+  crack: (args, raw, player) => crack(player),
 };
+
+// The fence's hot-run offer (OFFER_COURIER_HOT), fired from dialogue.
+registerCourierAction();
 
 // ── Interruptions end the shift (posture is authoritative) ────────────────────
 // Any forced stand out of 'working' — a move, an attack, being attacked — pays
@@ -352,6 +395,6 @@ on('player.stop', ({ player, stopped }) => {
 });
 
 // Pure helpers exposed for the regression suite (never used in production).
-export const _test = { statCheck, statValue, tipFor, DINER_EVENTS, VERBS, resolveEvent, endShift, venueOf, allVenues };
+export const _test = { statCheck, statValue, tipFor, DINER_EVENTS, VERBS, resolveEvent, endShift, venueOf, allVenues, courier: _courierTest };
 
 console.log('[work] Plugin loaded.');

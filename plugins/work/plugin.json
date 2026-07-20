@@ -1,6 +1,6 @@
 {
   "name": "work",
   "version": "1.0.0",
-  "description": "Steady Work — tier-two employment above the job board. XP-gated shifts at a venue: clock in, ride a posture-tick of timed skill-check events, keep the manager's satisfaction up or get sent home. Wage flat, tips scale off how well you worked.",
-  "commands": ["work", "shift", "shifts", "clock", "serve", "bill", "douse", "soothe", "bounce"]
+  "description": "Steady Work — tier-two employment above the job board. XP-gated. Two archetypes: SHIFTS at a venue (clock in, ride a posture-tick of timed skill-check events, keep the manager's satisfaction up or get sent home; wage flat + tips) and COURIER runs (carry a real, keepable parcel across the map before a deadline; clean/sketchy on the board, hot from a fence; crack the seal to steal the contents and burn the run).",
+  "commands": ["work", "shift", "shifts", "clock", "serve", "bill", "douse", "soothe", "bounce", "courier", "runs", "deliver", "crack"]
 }

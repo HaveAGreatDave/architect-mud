@@ -21,6 +21,16 @@ import { sendToPlayer } from '../../server/engine/messaging.js';
 import { registerTabletApp, normScreen } from './registry.js';
 import { findTurnInNpc } from '../quests/index.js';
 import { renderDialogueNode } from '../../server/engine/dialogue.js';
+import { getTunable } from '../../server/engine/tunables.js';
+import { courierBoard, takeJob, activeRun } from '../work/courier.js';
+
+// Steady Work (courier archetype) is sourced live from the work plugin's
+// in-memory board — no quest rows, exactly like Job Board / Pilot Contracts pull
+// from their own plugins. Board specs carry 'cr_'-prefixed ids so the detail
+// view can tell them apart from real quest_ids.
+const WORK_TILE = 'Steady Work';
+function isCourierId(id) { return typeof id === 'string' && id.startsWith('cr_'); }
+function courierGate(player) { return (Number(player.total_xp) || 0) >= getTunable('work_xp_gate', 500); }
 
 function defaultCategory(quest) {
   if (quest.quest_type === 'flight') return 'Pilot Contracts';
@@ -66,6 +76,33 @@ async function buildHome(player) {
 async function buildScreen(player, screenId, params) {
   const rows = await myQuestRows(player.id);
   const questId = (params || '').trim();
+
+  // Non-drillable Work-screen rows (status/locked/empty) just bounce back to the
+  // Work list rather than falling through to a "quest not found".
+  if (['active_run', 'locked', 'empty'].includes(questId)) return buildScreen(player, WORK_TILE, '');
+
+  // Courier board posting (not a quest row) — synthesize its detail from the live
+  // work-plugin board, with a Take Run action.
+  if (isCourierId(questId)) {
+    const spec = courierBoard().find(j => j.id === questId);
+    if (!spec) return { view: 'error', message: 'That run just turned over — the board refreshed.' };
+    const badge = spec.class === 'sketchy' ? 'illegal' : 'open';
+    return {
+      view: 'detail',
+      breadcrumb: [WORK_TILE, spec.dropoffName],
+      quest: {
+        id: spec.id, name: `Run to ${spec.dropoffName}`,
+        description: spec.class === 'sketchy'
+          ? `An unmarked parcel — don't ask what's inside. ${spec.dist} tiles out. If you get searched carrying it, it's gone and so is the pay.`
+          : `A clean, above-board parcel bound for ${spec.dropoffName}, ${spec.dist} tiles out. Beat the clock and it pays ${spec.payout}₵.`,
+        status: 'open',
+        objectives: [{ desc: `Deliver to ${spec.dropoffName} before the deadline`, have: 0, need: 1, done: false }],
+        rewards: { credits: spec.payout },
+        tracked: false,
+      },
+      actions: [{ id: 'take_courier', label: 'Take Run' }],
+    };
+  }
 
   // Detail view: a specific quest. Covers both an already-taken quest (row from
   // player_quests) and an open Job Board posting the player hasn't accepted yet
@@ -155,6 +192,31 @@ async function buildScreen(player, screenId, params) {
     };
   }
 
+  // Steady Work — the courier board, sourced live from the work plugin. XP-gated
+  // (same 500-lifetime-XP line the chat `courier`/`work` verbs enforce). Shows the
+  // player's active run at the top if they're carrying one.
+  if (screenNorm === normScreen(WORK_TILE)) {
+    if (!courierGate(player)) {
+      return { view: 'list', breadcrumb: [WORK_TILE], boardName: 'Locked',
+        items: [{ id: 'locked', label: 'Steady work goes to those who\'ve proven themselves', sub: `Come back at ${getTunable('work_xp_gate', 500)} lifetime XP.`, badge: 'active', badgeLabel: 'LOCKED' }] };
+    }
+    const held = await activeRun(player);
+    const items = [];
+    if (held) {
+      const z = getZone(held.run.dropoffZone);
+      items.push({ id: 'active_run', label: held.run.cracked ? 'Cracked parcel (dead weight)' : `Active run → ${z?.name || held.run.dropoffName}`,
+        sub: held.run.cracked ? 'The seal\'s broken — it won\'t deliver.' : `${held.run.payout}₵ on delivery — get there and use "deliver".`, badge: 'active', badgeLabel: 'CARRYING' });
+    } else {
+      for (const j of courierBoard()) {
+        items.push({ id: j.id, label: `Run to ${j.dropoffName}`,
+          sub: `${j.dist} tiles · ${j.payout}₵${j.class === 'sketchy' ? ' · sketchy' : ''} — tap to take`,
+          badge: j.class === 'sketchy' ? 'illegal' : 'open', badgeLabel: 'TAKE' });
+      }
+      if (!items.length) items.push({ id: 'empty', label: 'Nothing on the board right now', sub: 'Dispatch turns the board over every few minutes.', badge: 'active', badgeLabel: '—' });
+    }
+    return { view: 'list', breadcrumb: [WORK_TILE], boardName: 'Dispatch', items };
+  }
+
   // Job Board — sourced live from the jobboard plugin's rotation (same data
   // `gigs`/`read <board>` used to text-render), not the player's own quest log,
   // since a posting the player hasn't taken yet still needs to show up here.
@@ -206,11 +268,15 @@ async function buildScreen(player, screenId, params) {
     const cat = r.category || defaultCategory(r);
     byCat.set(cat, (byCat.get(cat) || 0) + 1);
   }
-  return {
-    view: 'categories',
-    breadcrumb: [],
-    items: [...byCat.entries()].map(([cat, count]) => ({ id: cat, label: cat, sub: `${count} active` })),
-  };
+  const items = [...byCat.entries()].map(([cat, count]) => ({ id: cat, label: cat, sub: `${count} active` }));
+  // Steady Work is employment, not location-bound like a job board — surface it as
+  // an always-present tile for anyone past the XP gate (a courier run in progress
+  // shows as its own count).
+  if (courierGate(player)) {
+    const held = await activeRun(player);
+    items.push({ id: WORK_TILE, label: WORK_TILE, sub: held ? 'Run in progress' : 'Delivery runs available' });
+  }
+  return { view: 'categories', breadcrumb: [], items };
 }
 
 // ── Actions ───────────────────────────────────────────────────────────────
@@ -246,6 +312,15 @@ async function handleAction(player, actionId, params) {
     const res = await flightMod.commands.accept([String(idx + 1)], `accept ${idx + 1}`, player);
     if (res?.type === 'error' || res?.type === 'emote') return { view: 'error', message: res.message };
     return buildScreen(player, 'Pilot Contracts', '');
+  }
+
+  // Steady Work — take a courier run off the board (spawns the parcel into the
+  // player's inventory via the work plugin; no quest row).
+  if (actionId === 'take_courier') {
+    const res = await takeJob(player, questId);
+    if (res?.ok === false) return { view: 'error', message: res.message };
+    if (res?.message) sendToPlayer(player.id, { type: 'output', message: res.message });
+    return buildScreen(player, WORK_TILE, '');
   }
 
   if (actionId === 'track') {

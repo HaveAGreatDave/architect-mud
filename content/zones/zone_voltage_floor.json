@@ -19,7 +19,14 @@
     "west": "zone_district_895_908"
   },
   "flags": {
-    "is_interior": true
+    "is_interior": true,
+    "work_venue": {
+      "employer": "npc_voltage_bartender",
+      "name": "Voltage",
+      "pool": "bar",
+      "role": "bartender",
+      "wage": 85
+    }
   },
   "grid_x": 0,
   "grid_y": 0,

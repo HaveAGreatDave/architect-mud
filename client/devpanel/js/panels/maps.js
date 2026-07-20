@@ -1025,6 +1025,7 @@ function paintPanelHtml() {
 // connector piece from adjacent road tiles, previewed live in the grid.
 const TERRAIN_TYPES = [
   { key: 'road',     label: 'Road',     fill: '#4c5157' },
+  { key: 'dirt_road',label: 'Dirt Road',fill: '#7d6236' },
   { key: 'asphalt',  label: 'Asphalt',  fill: '#45484d' },
   { key: 'concrete', label: 'Concrete', fill: '#8a8d91' },
   { key: 'grass',    label: 'Grass',    fill: '#5a9e57' },
@@ -1122,7 +1123,8 @@ function mapZoneTerrain(z) {
 // roadConnector). `byCoord` maps "x,y" → zone on the current floor.
 function mapRoadConnector(z, byCoord) {
   if (!z || z.grid_x == null) return 'road_x';
-  const isRoad = (x, y) => mapZoneTerrain(byCoord.get(`${x},${y}`)) === 'road';
+  // Paved road and dirt_road auto-tile together (mirror of server isRoadTerrain).
+  const isRoad = (x, y) => { const t = mapZoneTerrain(byCoord.get(`${x},${y}`)); return t === 'road' || t === 'dirt_road'; };
   let s = '';
   if (isRoad(z.grid_x, z.grid_y - 1)) s += 'n';
   if (isRoad(z.grid_x + 1, z.grid_y)) s += 'e';
@@ -1145,10 +1147,11 @@ function _terrainTileVisual(z, byCoord) {
     return { style: `;background:${RUNWAY_BG};color:${RUNWAY_COLOR}`, inner: `${ico}${marker}` };
   }
   const terr = mapZoneTerrain(z);
-  if (terr === 'road') {
+  if (terr === 'road' || terr === 'dirt_road') {
     const conn = mapRoadConnector(z, byCoord);
     const ico = `<span style="display:inline-block;width:26px;height:26px;background:currentColor;-webkit-mask:url(/assets/zone-icons/${conn}.svg) center/contain no-repeat;mask:url(/assets/zone-icons/${conn}.svg) center/contain no-repeat"></span>`;
-    return { style: `;background:${TERRAIN_FILL_BY_KEY.road};color:#f2c53d`, inner: `${ico}${marker}` };
+    const dirt = terr === 'dirt_road';
+    return { style: `;background:${dirt ? TERRAIN_FILL_BY_KEY.dirt_road : TERRAIN_FILL_BY_KEY.road};color:${dirt ? '#c9a86a' : '#f2c53d'}`, inner: `${ico}${marker}` };
   }
   const fill = terr ? TERRAIN_FILL_BY_KEY[terr] : null;
   const style = fill ? `;background:${fill};color:${luminanceTextColor(fill)}` : zoneColorStyle(z);
@@ -1217,6 +1220,7 @@ function _terrainBrush(zoneId, erase) {
 // orthogonal non-building neighbours (mirroring drag-place). Wildlands surfaces
 // become wilds ground (district + radiation); anything else is plain ground.
 const TERRAIN_TILE_DEFAULTS = {
+  dirt_road: { color: '#c9a86a', bg: '#241d13', ambient: 'outdoors', name: 'Dirt Track', desc: 'A graded dirt lane, packed hard by tyres and scored with old ruts. No kerb, no paint — just where the driving wears the ground down.' },
   redrock: { color: '#b5744a', bg: '#2a1c16', ambient: 'wasteland', name: 'The Rust Flats', wild: true, rad: 30, desc: 'Cracked red hardpan runs out flat to a rust-colored horizon. Wind-scoured rock, grit, and nothing that grows.' },
   scrub:   { color: '#8f9256', bg: '#242a1c', ambient: 'wasteland', name: 'Dead Scrub',      wild: true, rad: 25, desc: 'Low grey brush claws up through broken ground — brittle, half-dead stuff that shivers when there is no wind behind it.' },
   ash:     { color: '#8a857f', bg: '#211f1d', ambient: 'wasteland', name: 'The Ash Barrens', wild: true, rad: 35, desc: 'A grey waste of settled ash, soft and deep, printed with the tracks of things that passed and did not come back.' },

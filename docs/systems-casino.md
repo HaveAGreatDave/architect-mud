@@ -80,10 +80,10 @@ plays fully by the text log. Same Hold'em engine (rules/betting/bots in
   ~50% for a flagged table); and (c) **suppresses the visual poker pane
   entirely** — `pushPaneAll` sends no `poker_update`, and `join`/`seat`/`spectate`/
   `look` return the **room look** (`paneOrLook` in index.js). The area pane stays
-  the room; the whole game plays out in the text log. (This is the one difference
-  from personal `pokertext`, which keeps the visual pane and layers narration on
-  top.) Friendly stakes: `smallBlind 5`/`bigBlind 10`, `buyIn 100`,
-  `turnTimerSecs 45` (more time to act by ear).
+  the room; the whole game plays out in the text log. (`textTable` is the *table
+  default*; individual players can also flip themselves in/out at any table with
+  `text`/`visual` — see below.) Friendly stakes: `smallBlind 5`/`bigBlind 10`,
+  `buyIn 100`, `turnTimerSecs 45` (more time to act by ear).
 
 ### Required seed (runtime rows, one-shot per environment)
 
@@ -126,17 +126,29 @@ game; **stakes a notch above the Neon Vig**: `smallBlind 10`/`bigBlind 20`, `buy
 | Verb(s) | Owner |
 |---|---|
 | `spin`, `slots` | `slots` |
-| `join`, `seat`, `leave`, `spectate`, `check`, `call`, `deal`, `summon`, `evict`, `calldealer`, `bet`, `raise`, `fold`, `allin`, `table`, `board`, `pot`, `players`, `showhand`, `pokertext` (+ routed `say`/`look`/`help`/`watch`) | `gametable` |
+| `join`, `seat`, `leave`, `spectate`, `check`, `call`, `deal`, `summon`, `evict`, `calldealer`, `bet`, `raise`, `fold`, `allin`, `table`, `board`, `pot`, `players`, `showhand`, `pokertext`, `text`, `visual` (+ routed `say`/`look`/`help`/`watch`) | `gametable` |
 
-## Text mode (screen-reader accessibility)
+## Visual ⇄ text switch (per player, any table)
 
 The visual table lives in the area pane (`poker_update` HTML) a screen reader
-can't follow. **`pokertext [on|off]`** (bare = toggle) is a per-player opt-in that
-narrates the pane-only moments to the scrolling log as ASCII, *on top of* the
-normal visual table — it doesn't replace it, and it's invisible to everyone else.
-Persisted in `player_flags.poker_text_mode`; the runtime check is an in-memory
-`Set` ([text-mode.js](../plugins/gametable/text-mode.js)) loaded once when you
-sit/spectate, so narration never touches the DB.
+can't follow. A player can switch their own view at any table between the
+**visual** table and the **text** version:
+
+- **`visual`** — the poker table in the top area pane (the default).
+- **`text`** (alias **`pokertext [on|off]`**, bare = toggle) — the table *leaves*
+  the top pane, which reverts to the **room look**, and the game is called out to
+  the scrolling log as ASCII. The visual pane also carries a **`text` button** in
+  its command bar for a one-click flip; `visual` (or the `pokertext off` alias)
+  brings the table back.
+
+`applyPokerView` in [index.js](../plugins/gametable/index.js) is the one switch
+behind all three verbs and the button: it toggles the in-memory
+`textModePlayers` `Set` ([text-mode.js](../plugins/gametable/text-mode.js)),
+persists `player_flags.poker_text_mode`, and — if you're at a table — flips the
+top pane immediately (returns the room `look` for text, the `poker_update` pane
+for visual). `pushPaneAll` skips text-mode players so their room view isn't
+re-covered on every action, and the `Set` is the hot-path check so narration
+never touches the DB. The switch is invisible to everyone else at the table.
 
 Three additions (everything else — opponent actions, dealer quips, winners —
 already reaches the log via `_dealerSay`):

@@ -1,0 +1,14 @@
+{
+  "description": "A battered fuel bowser on flat, cracked tyres, parked where the packed-dust runway meets the apron. Its tank is streaked with spilled avgas and desert varnish, the delivery hose looped over a hook worn bright. It hasn't moved under its own power in years — it doesn't need to. Everything that needs fuel out here comes to it.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_the_reach_870_1958_fuel_bowser",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the fuel bowser",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_the_reach_870_1958"
+}

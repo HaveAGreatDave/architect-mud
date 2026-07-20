@@ -875,6 +875,7 @@ function sportsRollAtBat(rand = Math.random) {
 // groundouts trade an out for a run or a base.
 const SPORTS_DP_CHANCE = 0.38;              // groundout, runner on 1st, <2 outs → two (~0.75 DP/team/game)
 const SPORTS_SACFLY_CHANCE = 0.90;          // flyout, runner on 3rd, <2 outs → run scores, out
+const SPORTS_FORCE_ADVANCE_CHANCE = 0.60;   // non-DP groundout, runner on 1st → batter out at first, runners forced up (else fielder's choice, bases hold)
 const SPORTS_PRODUCTIVE_OUT_CHANCE = 0.35;  // other groundout nudges a runner on 2nd/3rd up (3rd scores)
 
 // Extra innings. There is ALWAYS a winner — no ties, ever. The 10th plays out free;
@@ -1123,7 +1124,18 @@ function sportsSimGame(matchup, players, rand = Math.random) {
           outs += 1;
         } else {
           outs += 1;
-          if (ab.kind === 'groundout' && outs < 3 && (bases[1] || bases[2]) && rand() < SPORTS_PRODUCTIVE_OUT_CHANCE) {
+          // Groundout base-running. A runner on first is FORCED: either the batter is
+          // retired at first and every runner is pushed up a base (a run scores from
+          // third), or the defense takes the fielder's choice — the lead runner is out
+          // at second, the batter reaches, and the runners hold (bases untouched). With
+          // no man on first, a right-side grounder still nudges a runner on 2nd/3rd up.
+          if (ab.kind === 'groundout' && outs < 3 && bases[0] && rand() < SPORTS_FORCE_ADVANCE_CHANCE) {
+            kind = 'productout';                // batter out at first; runners forced up 90 ft
+            if (bases[2]) runs += 1;            // forced run scores from third
+            bases[2] = bases[1];                // second → third
+            bases[1] = bases[0];                // first → second
+            bases[0] = false;
+          } else if (ab.kind === 'groundout' && outs < 3 && !bases[0] && (bases[1] || bases[2]) && rand() < SPORTS_PRODUCTIVE_OUT_CHANCE) {
             kind = 'productout';                // grounder to the right side moves 'em up
             if (bases[2]) { runs += 1; bases[2] = false; }
             if (bases[1]) { bases[2] = true; bases[1] = false; }

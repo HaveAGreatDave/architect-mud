@@ -95,6 +95,14 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
 
   const structured = isStructured(eff);
   const instant = structured ? (eff.instant || {}) : eff;
+  // Timed drinks (the consume plugin) credit the drink's thirst restore
+  // incrementally — a slice per sip — then land the dose with this flag set so
+  // the final swallow doesn't re-apply the whole thirst on top. Cloned, never
+  // mutated, so the shared drug-cache row stays intact. The diuretic water-shift
+  // still bites at finish (it's dehydration, not the restore).
+  const instantEff = (opts.skipThirstRestore && instant && instant.thirst != null)
+    ? (() => { const { thirst, ...rest } = instant; return rest; })()
+    : instant;
   const phases = eff.phases;
   const tol = eff.tolerance || {};
   const wd = eff.withdrawal || {};
@@ -187,7 +195,7 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
     }
     // Non-lethal overdose: burst of penalty (legacy behaviour + new overdose.mods).
     const odEffects = eff.overdose?.mods || drug.withdrawal_effects?.overdose || {}; // structured editor (effects.overdose.mods) is canonical; withdrawal_effects.overdose is legacy fallback
-    return applyEffects(player, { ...scaleInstant(instant, potencyMult), ...odEffects, overdose: true }, `${message}\n<span class="overdose-warning">⚠ You've taken too much, too fast. Your body revolts.</span>`, diuretic);
+    return applyEffects(player, { ...scaleInstant(instantEff, potencyMult), ...odEffects, overdose: true }, `${message}\n<span class="overdose-warning">⚠ You've taken too much, too fast. Your body revolts.</span>`, diuretic);
   }
 
   if (justAddicted) {
@@ -195,7 +203,7 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
   }
 
   // --- Instant block ---------------------------------------------------------
-  const scaledInstant = scaleInstant(instant, potencyMult);
+  const scaledInstant = scaleInstant(instantEff, potencyMult);
   let result;
   if (opts.skipInstant) {
     // A laced carrier (a drink/food that applies this drug via tags.laced_drug)

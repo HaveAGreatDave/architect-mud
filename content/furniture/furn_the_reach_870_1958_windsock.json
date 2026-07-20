@@ -1,0 +1,14 @@
+{
+  "description": "A sun-bleached windsock on a leaning steel pole, faded from orange to the colour of old bone and patched with tape at the throat. It's the closest thing Buzzard Field has to a control tower — read it right and it tells you which way to come in; read it wrong and the scrub at the end of the strip tells you the rest.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_the_reach_870_1958_windsock",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the windsock",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_the_reach_870_1958"
+}

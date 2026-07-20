@@ -28,7 +28,9 @@ import {
   getZone, liveAircraft, loadAircraft, persist, detach, out, toOccupants, pushHud,
   sendToZone, sendToPlayer, getLivePlayer, surfaceAt, setPosture, forceStand, bearingDeg, degToCardinal, effStats,
   fieldFor as fieldOf, inHangarInterior, vtolOnlyField,
+  isWalkableCabin, isCabinZone, boardCabin,
 } from './state.js';
+import { removePlayerFromZone } from '../../server/engine/world.js';
 import { pushHangarBay } from './hangars.js';
 
 const SHIFT_HOURS = 8;
@@ -392,11 +394,17 @@ export async function embarkCharter(player, ch) {
   live.row.heading = String(Math.round(bearingDeg(ch.fx, ch.fy, ch.tx, ch.ty)));
   live.fx = ch.fx; live.fy = ch.fy; live.cont = null;
   const p = getLivePlayer(player.id);
-  if (p) { getZone(p.current_zone)?.players.delete(p.id); setPosture(p, 'flying'); }
+  // Walkable cabin (the Leviathan): the passenger boards into the real interior rooms
+  // and walks them for the whole ride, instead of the synthesized cabin-window HUD. Any
+  // other craft: pulled out of the zone and strapped into the flying-posture HUD as before.
+  if (p) {
+    if (isWalkableCabin(live)) { const look = await boardCabin(p, live); if (look) sendToPlayer(p.id, look); }
+    else { getZone(p.current_zone)?.players.delete(p.id); setPosture(p, 'flying'); }
+  }
   boardPilot(live, pilot);
   await persist(live);
   pushHud(live);
-  toOccupants(live, `<span class="text-green">You climb into the cabin and pull the harness on. ${ch.pilotName}: "Doors closed, avionics up — cleared to taxi. Sit back, ${ch.destName} coming up."</span>`);
+  toOccupants(live, `<span class="text-green">You climb aboard the ${live.type.name} and settle in. ${ch.pilotName}: "Doors closed, avionics up — cleared to taxi. Sit back, ${ch.destName} coming up."</span>`);
   sendToZone(ch.homeField, { type: 'zone_event', message: `${ch.pilotName}'s ${live.type.name} taxis out of the hangar toward the active, ${player.handle} aboard.`, refresh: true }, player.id);
   log({ player: player.handle, pilot: ch.pilotName, from: ch.homeName, to: ch.destName, status: 'departing' });
   return { type: 'noop' };
@@ -592,6 +600,9 @@ async function touchdown(ch, live) {
     if (pid === ch.pilotId) continue;
     const p = getLivePlayer(pid);
     if (!p) continue;
+    // Walkable cabin: leave the passenger in the cabin — they climb out on `disembark`
+    // (detach sets them down on the parked ramp), so we don't teleport them mid-cabin.
+    if (isCabinZone(getZone(p.current_zone), live)) continue;
     if (p.posture === 'flying') forceStand(p, 'charter.arrive');
     p.current_zone = dropZone;
     getZone(dropZone)?.players.add(pid);
@@ -620,7 +631,11 @@ async function dropoffReturn(ch, live) {
     const p = getLivePlayer(pid);
     detach(p || { id: pid, aircraftId: ch.aircraftId });
     if (p) {
-      const dz = dropZoneOf(ch.destZone); p.current_zone = dz; getZone(dz)?.players.add(pid);
+      // detach may have set the walkable passenger down on the parked ramp already —
+      // clear that zone before re-homing them to the drop zone so they aren't listed in two.
+      const dz = dropZoneOf(ch.destZone);
+      if (p.current_zone && p.current_zone !== dz) removePlayerFromZone(pid, p.current_zone);
+      p.current_zone = dz; getZone(dz)?.players.add(pid);
       out(pid, `<span class="text-dim">You climb down at ${ch.destName}. ${ch.pilotName} gives you a nod and starts buttoning up to head back.</span>`);
       // Set down inside the destination's walk-in hangar → open the hangar floor,
       // same as a manual disembark there (auto-eject skips cmdDisembark's open).

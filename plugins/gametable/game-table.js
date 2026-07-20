@@ -10,7 +10,7 @@ import { findPath } from '../../server/engine/pathfinding.js';
 import { HoldemGame } from './games/holdem.js';
 import { renderPane } from './render-pane.js';
 import { botId, isBotId, decideBotAction, botChatter, botOutcomeLine } from './bot-player.js';
-import { narrateDeal, narrateStreet, narrateShowdown, narrateTurn } from './text-mode.js';
+import { narrateDeal, narrateStreet, narrateShowdown, narrateTurn, isTextMode } from './text-mode.js';
 
 export const MAX_SEATS = 4;
 const AUTO_START_DELAY_MS = 15_000; // wait this long after 2nd player joins before starting
@@ -685,6 +685,10 @@ export class GameTable {
         ...this.spectators,
       ];
       for (const pid of recipients) {
+        // A player who has switched to text view plays in the log — their top
+        // pane is the room look, not the table. Don't blast the poker pane back
+        // over it on every action/quip (`text`/`visual` flip this per player).
+        if (isTextMode(pid)) continue;
         sendToPlayer(pid, { type: 'poker_update', html: renderPane(this, pid) });
       }
     }

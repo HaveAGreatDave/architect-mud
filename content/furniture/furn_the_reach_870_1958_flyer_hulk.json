@@ -1,0 +1,14 @@
+{
+  "description": "A burned-out flyer hulk dragged off to the edge of the strip and left to the weather — wings gone, cockpit a black socket, the whole frame settling slowly into the hardpan. Somebody's welded a row of empty fuel cans along a wing stub as a boundary marker. It's the closest thing the Reach keeps to a memorial, and the closest thing it keeps to a warning: come in too fast, too heavy, or too wanted, and this is the far end of the runway.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_the_reach_870_1958_flyer_hulk",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the burned-out flyer hulk",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_the_reach_870_1958"
+}

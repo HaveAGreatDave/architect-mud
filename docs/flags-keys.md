@@ -81,7 +81,8 @@ is silently inert, so grep before renaming anything below.
 | `utility_room` | power | building utility room (junction box lives here) |
 | `water` | movement | water zone (needs a `boat`-tagged item) |
 | `world_exit_zone` | movement | exterior seam zone for this building |
-| `work_venue` | work | Steady Work shift venue: `{ role, wage, employer?, name? }`. XP-gated players `clock in` here (Meltwater Diner is the first) |
+| `work_venue` | work | Steady Work shift venue: `{ role, wage, employer?, name?, pool? }`. XP-gated players `clock in` here. `pool` selects the event set (`'diner'` default, `'bar'` = Brawn/Cool-leaning); venues: Meltwater Diner, Voltage |
+| `work_fence_blacklist` (player) | work | Set `'true'` when a player burns a hot courier run (cracked the parcel). Hides the fence's hot-job dialogue option (`OFFER_COURIER_HOT`) from then on |
 
 ## npcs.flags
 
@@ -105,10 +106,12 @@ is silently inert, so grep before renaming anything below.
 | `personality` | npc-personality | personality archetype (drives outfit/banter) |
 | `poker_bankroll` / `poker_persona` / `poker_player` | gametable | NPC poker player config |
 | `police` | jail/surveillance | police unit (arrest powers) |
+| `preshow_habit` | npc-drugs | drug name this NPC rarely self-doses on at home when watched (e.g. Akerson's "Neural Overclock" pre-show ritual) |
 | `stripper` | strippers | performs at the club |
 | `studio_npc` | broadcast | broadcast-studio actor |
 | `table_id` | gametable | which game table the NPC sits at |
 | `trust_flag` / `trust_max` / `trust_per_buy` | vendor | per-player trust meter unlocking stock |
+| `uses_drugs` | npc-drugs | NPC willingly accepts a drug `slip`-ped to them (addict-economy seam) |
 
 ## furniture.flags
 

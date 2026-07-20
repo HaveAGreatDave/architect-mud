@@ -1621,6 +1621,11 @@ export async function tickEntityAI(entity, ctx) {
   // passive home-life below) until the plugin clears the flag.
   if (ai.alarm) return;
 
+  // Dosed unconscious or panicking (npc-drugs plugin) — the plugin drives the
+  // slumped/fleeing NPC directly. Same contract as ai.alarm: while the flag is
+  // set the engine yields the graph (and the passive home-life below).
+  if (ai.dosedOut) return;
+
   // Don't tick while a player has this NPC's shop open.
   if (ai.shopPaused) return;
 

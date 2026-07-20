@@ -82,7 +82,7 @@ const releasing = new Set();    // playerIds mid-release (suppress escape detect
 // are never taken (they'd soft-lock a quest — same carve-out spawnPlayerCorpse makes).
 // Gated on the `hack_device` capability tag (see tagCatalog.js), not a specific id.
 function isContraband(itemId, tags) {
-  return ('weapon' in tags) || ('drug' in tags) || ('hack_device' in tags);
+  return ('weapon' in tags) || ('drug' in tags) || ('hack_device' in tags) || ('contraband' in tags);
 }
 
 // Bag confiscated contraband into the shared evidence locker, then evict the

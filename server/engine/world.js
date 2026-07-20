@@ -225,10 +225,14 @@ export function zoneTerrain(zone) {
 // roadIcon, but computed live from adjacency). `at(x,y,z)` returns the neighbor zone at a
 // grid coord (null when out of the caller's window). Returns a `road_<nesw>` name, `road_x`
 // when isolated, or null for a non-grid tile.
+// A tile reads as road-for-connectivity if it's paved road OR a graded dirt road — the two
+// auto-tile together (a dirt lane meets a paved street at a proper junction), and both draw
+// the same road_<nesw> connector piece (dirt_road just recolours it to a packed-dirt track).
+export function isRoadTerrain(t) { return t === 'road' || t === 'dirt_road'; }
 export function roadConnector(zone, at) {
   if (!zone || zone.grid_x == null || zone.grid_y == null) return null;
   const x = zone.grid_x, y = zone.grid_y, z = zone.grid_z ?? 0;
-  const isRoad = (nx, ny) => zoneTerrain(at(nx, ny, z)) === 'road';
+  const isRoad = (nx, ny) => isRoadTerrain(zoneTerrain(at(nx, ny, z)));
   let s = '';
   if (isRoad(x, y - 1)) s += 'n';
   if (isRoad(x + 1, y)) s += 'e';
@@ -244,7 +248,7 @@ export function roadConnector(zone, at) {
 export function tileIconSvg(zone, at) {
   const authored = zone.flags?.icon || buildingIconSvg(zone);
   if (authored) return authored;
-  if (at && zoneTerrain(zone) === 'road') return roadConnector(zone, at);
+  if (at && isRoadTerrain(zoneTerrain(zone))) return roadConnector(zone, at);
   return null;
 }
 

@@ -1,0 +1,14 @@
+{
+  "description": "Cargo stacked shoulder-high along the back wall and lashed under oil-stained tarps — crates, drums, long flat cases the shape of things you don't say out loud. The stencils are painted over, burned off, or in a hand nobody at Buzzard Field will read to you. It came in on a plane. It'll leave on one. In between, it is nobody's, and asking whose is how outsiders stop being welcome.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_bld_897_1175_contraband_tarps",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the tarped contraband",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_bld_897_1175_lobby"
+}

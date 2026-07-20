@@ -32,6 +32,11 @@ const _touchPrimary = typeof matchMedia === 'function' && matchMedia('(pointer: 
 // exact default cam. The middle-drag orbit and the reset swing both work in this angle.
 const REST_PITCH = Math.asin(RENDER_TUNE.chaseUp / RENDER_TUNE.chaseBack);
 
+// Effective "speed of sound" (kt) for the orbit-cam engine doppler. Real sound is ~660 kt, which
+// bends the pitch far too hard at flight speeds; this softer constant keeps the chase-cam doppler a
+// gentle, chill wobble (clamped to ±~10% at the call site) rather than a jet-flyby shriek.
+const DOPPLER_C = 1300;
+
 // Theme accent for the canvas-drawn instruments (the CSS chrome uses var(--accent)
 // directly; canvas can't, so we sample it once when the cockpit opens).
 let ACCENT = '#8fd0ff', ACCENT_RGB = [143, 208, 255];
@@ -129,7 +134,7 @@ let _lastPushT = 0;
 // not the instant of liftoff/touchdown. `_lastGround`/`_lastMap`/`_lastBiome` cache
 // the last real values so the lingering scene has something to draw with during
 // the brief window where the server's payload has already moved on.
-let _lastGround = null, _lastMap = null, _lastBiome = null;
+let _lastGround = null, _lastMap = null, _lastBiome = null, _lastRegions = null;
 
 // Passenger cabin choreography (bank/pitch/height ramp on climb-out and descent).
 // Vertical-motion tuning: CLIMB_SEC governs how long the climb/descent portion of
@@ -198,6 +203,7 @@ export function updateCockpit(state) {
   if (_target.ground) _lastGround = _target.ground;
   if (_target.map) _lastMap = _target.map;
   if (_target.biomeBelow) _lastBiome = _target.biomeBelow;
+  if (_target.regions) _lastRegions = _target.regions;   // spatial regions → windshield region atmosphere grade
 
   // Rebuild the panel only when the aircraft's capability layout (or seat) changes.
   const sig = `${_target.seat}|${_target.class}|${_target.engines?.length || 1}|${(_target.hardpoints || 0) > 0}|${(_target.cargoCap || 0) > 0}|${!!_target.vtol}`;
@@ -360,6 +366,7 @@ function paintWindow(id, a, s) {
     airport: s.ground?.theme || _lastGround?.theme,
     biomeBelow: s.biomeBelow ?? _lastBiome,
     roll: a.rwyRoll || 0,   // ground-roll distance — how far down the strip you've travelled
+    regions: s.regions ?? _lastRegions,   // drives the windshield region atmosphere grade (The Reach dust, …)
     side: paxView === 'side', viewYaw: paxView === 'rear' ? 180 : 0,
     // Framed hull-cutout for the side/rear cabin windows only. Looking FORWARD (Q held) you're
     // seeing past the pilot out the windscreen — no cabin porthole frame — so the clean forward
@@ -1346,32 +1353,68 @@ function ensureFlightSimStyles() {
        the view, never this band. Letting the row grow to its content shows the whole radio. */
     .fsim-ctl{ display:flex; gap:6px; align-items:stretch; min-height:120px; }
     /* ── bottom-left placard: a bolted, brushed-metal maker's plate ──────────── */
-    .fsim-placard{ position:relative; flex:0.6 1 0; justify-content:center; gap:3px; padding:10px 13px; overflow:hidden;
+    /* display:flex is load-bearing, not cosmetic: as a plain block this flex-item computed a
+       runaway intrinsic height that dragged the whole control band tall (and left justify-content
+       inert). A real flex column packs the stamped lines and lets the band size to the radio. */
+    .fsim-placard{ position:relative; display:flex; flex-direction:column; flex:0.6 1 0; justify-content:center; align-items:center; text-align:center; gap:3px; padding:11px 15px; overflow:hidden;
       border-radius:8px; border:1px solid #10161c;
       /* four hex-head bolts at the corners, over a brushed-metal field */
       background:
-        radial-gradient(circle at 10px 10px, #d6dade 0 1.4px, #9098a0 1.4px 2.6px, #565e66 2.6px 3.6px, rgba(0,0,0,.5) 3.6px 4.4px, transparent 4.6px),
-        radial-gradient(circle at calc(100% - 10px) 10px, #d6dade 0 1.4px, #9098a0 1.4px 2.6px, #565e66 2.6px 3.6px, rgba(0,0,0,.5) 3.6px 4.4px, transparent 4.6px),
-        radial-gradient(circle at 10px calc(100% - 10px), #d6dade 0 1.4px, #9098a0 1.4px 2.6px, #565e66 2.6px 3.6px, rgba(0,0,0,.5) 3.6px 4.4px, transparent 4.6px),
-        radial-gradient(circle at calc(100% - 10px) calc(100% - 10px), #d6dade 0 1.4px, #9098a0 1.4px 2.6px, #565e66 2.6px 3.6px, rgba(0,0,0,.5) 3.6px 4.4px, transparent 4.6px),
+        radial-gradient(circle at 10px 10px, #ffffff 0 0.6px, #d6dade 0.6px 1.4px, #9098a0 1.4px 2.6px, #565e66 2.6px 3.6px, rgba(0,0,0,.5) 3.6px 4.4px, transparent 4.6px),
+        radial-gradient(circle at calc(100% - 10px) 10px, #ffffff 0 0.6px, #d6dade 0.6px 1.4px, #9098a0 1.4px 2.6px, #565e66 2.6px 3.6px, rgba(0,0,0,.5) 3.6px 4.4px, transparent 4.6px),
+        radial-gradient(circle at 10px calc(100% - 10px), #ffffff 0 0.6px, #d6dade 0.6px 1.4px, #9098a0 1.4px 2.6px, #565e66 2.6px 3.6px, rgba(0,0,0,.5) 3.6px 4.4px, transparent 4.6px),
+        radial-gradient(circle at calc(100% - 10px) calc(100% - 10px), #ffffff 0 0.6px, #d6dade 0.6px 1.4px, #9098a0 1.4px 2.6px, #565e66 2.6px 3.6px, rgba(0,0,0,.5) 3.6px 4.4px, transparent 4.6px),
         repeating-linear-gradient(92deg, rgba(255,255,255,.035) 0 1px, rgba(0,0,0,.05) 1px 2px),
         linear-gradient(157deg, #4c545c 0%, #6b747c 22%, #3a4147 46%, #575f67 68%, #363c42 100%);
       box-shadow:inset 0 1px 0 rgba(255,255,255,.28), inset 0 -2px 5px rgba(0,0,0,.55), 0 2px 5px rgba(0,0,0,.5); }
     /* scene-reactive sheen: a diagonal glint whose opacity is driven by --sheen (bright day → 1, night → 0) */
     .fsim-plac-sheen{ position:absolute; inset:0; pointer-events:none; opacity:var(--sheen,0); transition:opacity .5s linear;
-      background:linear-gradient(133deg, rgba(255,255,255,0) 30%, rgba(255,255,255,.5) 46%, rgba(255,255,255,.08) 52%, rgba(255,255,255,0) 66%); }
-    .fsim-placard>*{ position:relative; z-index:1; }
-    .fsim-plac-title{ font-size:8px; letter-spacing:2px; color:#20262c; text-shadow:0 1px 0 rgba(255,255,255,.3); }
-    .fsim-plac-reg{ font-size:16px; font-weight:bold; letter-spacing:2px; color:#14181c; text-shadow:0 1px 0 rgba(255,255,255,.35); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .fsim-plac-model{ font-size:9px; letter-spacing:1.2px; color:#3c434a; text-shadow:0 1px 0 rgba(255,255,255,.24); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .fsim-plac-own{ font-size:10px; letter-spacing:1px; color:#2a3037; text-shadow:0 1px 0 rgba(255,255,255,.25); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      background:linear-gradient(133deg, rgba(255,255,255,0) 34%, rgba(255,255,255,.26) 47%, rgba(255,255,255,.04) 52%, rgba(255,255,255,0) 62%); }
+    /* engine-turned inner frame — a hairline bevel a few px in from the bolts, so the plate reads
+       as a stamped bezel rather than a flat panel. Themes retint the border via their own rule. */
+    .fsim-placard::before{ content:''; position:absolute; inset:6px; border-radius:5px; pointer-events:none; z-index:1;
+      border:1px solid rgba(255,255,255,.10); box-shadow:inset 0 1px 0 rgba(255,255,255,.07), inset 0 -1px 0 rgba(0,0,0,.42), inset 0 0 20px rgba(0,0,0,.24); }
+    .fsim-placard>*{ position:relative; z-index:2; }
+    /* machined corner rivets — a domed steel head (off-centre catchlight) seated in the plate,
+       its drive slot canted a different way at each corner. Sits over the theme's flat bolt dot. */
+    .fsim-plac-rivet{ position:absolute; width:11px; height:11px; border-radius:50%; z-index:3; pointer-events:none;
+      background:radial-gradient(circle at 35% 28%, #f7f9fb 0 8%, #d2d8de 28%, #8b939d 60%, #474d55 86%, #2a2f36 100%);
+      box-shadow:0 1px 2px rgba(0,0,0,.6), inset 0 -1.5px 2px rgba(0,0,0,.5), inset 0 1px 1px rgba(255,255,255,.75), 0 0 0 1px rgba(0,0,0,.42); }
+    .fsim-plac-rivet::after{ content:''; position:absolute; inset:2.5px; border-radius:1px; border-top:1.5px solid rgba(0,0,0,.42); transform:rotate(var(--r,32deg)); }
+    .fsim-plac-rivet.tl{ top:6px; left:6px } .fsim-plac-rivet.tr{ top:6px; right:6px }
+    .fsim-plac-rivet.bl{ bottom:6px; left:6px } .fsim-plac-rivet.br{ bottom:6px; right:6px }
+    /* every label is engraved into the plate: a dark recessed top edge + a lit lower lip, so the
+       text reads as cut metal, never printed on top (matches the die-struck registration). */
+    .fsim-plac-title{ font-size:9px; letter-spacing:2.5px; color:#20262c; text-shadow:0 -1px 1px rgba(0,0,0,.42), 0 1px 0 rgba(255,255,255,.4); }
+    /* die-struck registration: the hero stamp — big, wide-tracked, and punched INTO the plate with a
+       recessed top edge + a lit lower lip + a soft cast shadow below the character. */
+    .fsim-plac-reg{ font-size:27px; font-weight:800; letter-spacing:5px; line-height:.98; color:#101418;
+      text-shadow:0 -1px 1px rgba(0,0,0,.78), 0 1px 0 rgba(255,255,255,.62), 0 2px 2px rgba(0,0,0,.55), 0 3px 7px rgba(0,0,0,.34);
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .fsim-plac-model{ font-size:10px; letter-spacing:1.4px; color:#3c434a; text-shadow:0 -1px 1px rgba(0,0,0,.42), 0 1px 0 rgba(255,255,255,.42); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .fsim-plac-own{ font-size:11px; letter-spacing:1.2px; color:#2a3037; text-shadow:0 -1px 1px rgba(0,0,0,.42), 0 1px 0 rgba(255,255,255,.42); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     /* engraved field labels (REG / MODEL / OWNER) — the small caps to the left of each value, so the plate reads like a real registration certificate */
-    .fsim-plac-k{ font-size:6px; letter-spacing:1.5px; color:#20262c; text-shadow:0 1px 0 rgba(255,255,255,.3); opacity:.75; margin-right:4px; }
-    .fsim-plac-own.rented{ color:#7a3410; text-shadow:0 1px 0 rgba(255,255,255,.25); }
+    .fsim-plac-k{ font-size:7px; letter-spacing:1.5px; color:#20262c; text-shadow:0 -1px 1px rgba(0,0,0,.38), 0 1px 0 rgba(255,255,255,.4); opacity:.75; margin-right:5px; }
+    .fsim-plac-own.rented{ color:#7a3410; text-shadow:0 -1px 1px rgba(0,0,0,.4), 0 1px 0 rgba(255,255,255,.3); }
     /* cabin-occupancy readout: engraved label + a row of seat "LED" pips on the plate */
-    .fsim-plac-seats{ display:flex; align-items:center; gap:3px; margin-top:3px; }
-    .fsim-plac-seats .lbl{ font-size:8px; letter-spacing:1px; color:#20262c; text-shadow:0 1px 0 rgba(255,255,255,.28); margin-right:2px; }
+    .fsim-plac-seats{ display:flex; align-items:center; justify-content:center; gap:3px; margin-top:3px; }
+    .fsim-plac-seats .lbl{ font-size:8px; letter-spacing:1px; color:#20262c; text-shadow:0 -1px 1px rgba(0,0,0,.4), 0 1px 0 rgba(255,255,255,.38); margin-right:2px; }
     .fsim-plac-seats .pip{ width:8px; height:8px; border-radius:50%; box-shadow:inset 0 1px 1px rgba(255,255,255,.4), inset 0 -1px 1px rgba(0,0,0,.4), 0 1px 2px rgba(0,0,0,.5); }
+    /* ── engine-turned (guilloché) face: overlapping spun-metal arcs, blended so it reads on any theme skin ── */
+    .fsim-plac-guilloche{ position:absolute; inset:0; pointer-events:none; opacity:.16; mix-blend-mode:overlay;
+      background:
+        repeating-radial-gradient(circle at 22% 46%, rgba(255,255,255,.5) 0 0.5px, rgba(0,0,0,.5) 0.5px 2.4px),
+        repeating-radial-gradient(circle at 78% 54%, rgba(255,255,255,.45) 0 0.5px, rgba(0,0,0,.45) 0.5px 2.4px),
+        repeating-radial-gradient(circle at 50% 128%, rgba(255,255,255,.4) 0 0.5px, rgba(0,0,0,.4) 0.5px 3px); }
+    /* ── engraved data strip: a barcode ETCHED into the plate — each bar is a groove (dark recess
+       wall + a lit lower lip), tone-matched so it reads as cut metal on any skin, not printed ink ── */
+    .fsim-plac-barcode{ display:flex; align-items:center; justify-content:center; gap:6px; margin-top:4px; }
+    .fsim-plac-barcode .bars{ height:10px; width:80px; border-radius:1px;
+      background:repeating-linear-gradient(90deg,
+        rgba(0,0,0,.55) 0 1px, rgba(255,255,255,.34) 1px 1.6px, transparent 1.6px 3px,
+        rgba(0,0,0,.55) 3px 4.3px, rgba(255,255,255,.34) 4.3px 4.9px, transparent 4.9px 6px,
+        rgba(0,0,0,.55) 6px 6.7px, rgba(255,255,255,.34) 6.7px 7.3px, transparent 7.3px 9px); }
+    .fsim-plac-barcode .sn{ font:7px/1 monospace; letter-spacing:1.5px; color:#20262c; text-shadow:0 -1px 1px rgba(0,0,0,.5), 0 1px 0 rgba(255,255,255,.4); white-space:nowrap; }
     /* ── bottom-right radio: transponder + COM/NAV with an LCD, buttons and knobs ── */
     .fsim-xpdr{ flex:1 1 0; display:flex; flex-direction:column; gap:5px; padding:7px 9px; overflow:hidden;
       border-radius:8px; border:1px solid #161c22;
@@ -1408,19 +1451,29 @@ function ensureFlightSimStyles() {
       font:8px/1 monospace; letter-spacing:1.5px; color:#6f8698; border-radius:5px;
       background:linear-gradient(180deg,#141b21,#0a0f14); border:1px solid #16303f; box-shadow:inset 0 1px 0 rgba(255,255,255,.08); }
     .fsim-nightsw-led{ width:6px; height:6px; border-radius:50%; background:#243038; box-shadow:inset 0 0 2px #000; }
-    .fsim-nightsw.on{ color:var(--cy); border-color:var(--cy); }
-    .fsim-nightsw.on .fsim-nightsw-led{ background:var(--cy); box-shadow:0 0 6px var(--cy); }
+    /* switch thrown ON: it lights up hard — accent border, a lit legend, an inner+outer accent bloom
+       and a bright twin-ring LED. Reads as a real backlit rocker snapping on. */
+    .fsim-nightsw.on{ color:var(--cy-lit,var(--cy)); border-color:var(--cy-lit,var(--cy));
+      background:linear-gradient(180deg, var(--cy-lit-dim,rgba(95,208,255,.24)), #0a0f14 72%);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.16), inset 0 0 8px var(--cy-lit-dim,rgba(95,208,255,.24)), 0 0 11px var(--cy-lit,var(--cy)), 0 0 24px var(--cy-lit-dim,rgba(95,208,255,.24));
+      text-shadow:0 0 7px var(--cy-lit,var(--cy)); }
+    .fsim-nightsw.on .fsim-nightsw-led{ background:var(--cy-lit,var(--cy)); box-shadow:0 0 5px var(--cy-lit,var(--cy)), 0 0 11px var(--cy-lit,var(--cy)), inset 0 0 2px rgba(255,255,255,.7); }
     /* no engine = no power to the light circuits: the switches read dead until the master's on */
     .fsim-nightsw.nopwr{ opacity:.4; cursor:not-allowed; }
-    /* instrument night lighting: an accent wash over the glass panels + a lit edge */
-    .fsim-nightlit .fsim-pfd,.fsim-nightlit .fsim-mfd,.fsim-nightlit .fsim-gauges{ box-shadow:inset 0 0 14px var(--cy-dim,rgba(95,208,255,.16)), 0 0 6px var(--cy-dim,rgba(95,208,255,.12)); border-color:var(--cy); }
-    .fsim-nightlit .fsim-mfd-lbl,.fsim-nightlit .fsim-mfd-tog{ text-shadow:0 0 6px var(--cy); }
+    /* ── PANEL lights ON: the flightdeck backlights in --cy-lit (the airframe's VIVID stock accent,
+       not the muted paint) — glass panels bloom from within, legends + titles glow, LCD haloes ── */
+    .fsim-nightlit .fsim-pfd,.fsim-nightlit .fsim-mfd,.fsim-nightlit .fsim-gauges{ box-shadow:inset 0 0 32px var(--cy-lit-dim,rgba(95,208,255,.22)), inset 0 0 7px var(--cy-lit,var(--cy)), 0 0 22px var(--cy-lit-dim,rgba(95,208,255,.18)); border-color:var(--cy-lit,var(--cy)); }
+    .fsim-nightlit .fsim-mfd-lbl,.fsim-nightlit .fsim-mfd-tog{ color:var(--cy-lit,var(--cy)); text-shadow:0 0 9px var(--cy-lit,var(--cy)), 0 0 3px var(--cy-lit,var(--cy)); }
+    .fsim-nightlit .fsim-radio-lcd{ box-shadow:inset 0 0 8px rgba(0,0,0,.85), 0 0 15px var(--cy-lit-dim,rgba(95,208,255,.2)); }
+    .fsim-nightlit .fsim-xpdr-title{ color:var(--cy-lit,var(--cy)); text-shadow:0 0 6px var(--cy-lit,var(--cy)); }
+    .fsim-nightlit .fsim-thr-slot{ box-shadow:inset 0 0 4px #000, 0 0 9px var(--cy-lit-dim,rgba(95,208,255,.2)); }
     .fsim-yoke{ position:relative; flex:2 1 0; background:radial-gradient(circle at 50% 26%,#0e1a24,#070d13); border:1px solid #16303f;
       border-radius:12px; touch-action:none; cursor:grab; overflow:visible; perspective:1000px; box-shadow:inset 0 0 14px rgba(0,0,0,.7); }
     .fsim-yoke.drag{ cursor:grabbing; }
     /* Big yoke anchored HIGH: it rises up into the centre of the gauges panel (between the
-       edge gauges) and its pull-down never drags it off the bottom of the frame. */
-    .fsim-yoke-svg{ position:absolute; left:17%; top:-120%; width:66%; height:194%; transform-style:preserve-3d; will-change:transform;
+       edge gauges) and its pull-down never drags it off the bottom of the frame. Seated so the
+       hub nameplate sits at the glass/band seam — not floating mid-gauges. */
+    .fsim-yoke-svg{ position:absolute; left:17%; top:-82%; width:66%; height:188%; transform-style:preserve-3d; will-change:transform;
       transform-origin:50% 66%; pointer-events:auto; filter:drop-shadow(0 7px 10px rgba(0,0,0,.65)); }
     /* the stick art rises up out of the yoke well; letting its painted shapes catch pointer
        events (they bubble to the #fsim-yoke pad) means you can grab it anywhere, not just the base */
@@ -1625,6 +1678,26 @@ function ensureFlightSimStyles() {
     #fsim-root.fsim-painted .fsim-pfd,#fsim-root.fsim-painted .fsim-mfd,#fsim-root.fsim-painted .fsim-gauges{ border-color:var(--panel-edge); }
     #fsim-root.fsim-painted .fsim-engbtn{ background:radial-gradient(circle at 50% 34%,var(--panel-hi),var(--panel-lo)); }
     #fsim-root.fsim-painted .fsim-nightsw{ background:linear-gradient(180deg,var(--panel-hi),var(--panel-lo)); }
+    #fsim-root.fsim-painted .fsim-nightsw.on{ background:linear-gradient(180deg, var(--cy-lit-dim,rgba(95,208,255,.24)), var(--panel-lo) 72%); }
+    /* The maker's plate is dashboard too: take the upholstery metal + the paint accent, so EVERY
+       painted airframe gets the stamped plate — not a Mule-only look. Bolts stay steel hardware. */
+    #fsim-root.fsim-painted .fsim-placard{ border-color:var(--panel-edge);
+      background:
+        radial-gradient(circle at 11px 11px, #d6dade 0 1.3px, #9098a0 1.3px 2.5px, #565e66 2.5px 3.7px, rgba(0,0,0,.6) 3.7px 4.6px, transparent 4.8px),
+        radial-gradient(circle at calc(100% - 11px) 11px, #d6dade 0 1.3px, #9098a0 1.3px 2.5px, #565e66 2.5px 3.7px, rgba(0,0,0,.6) 3.7px 4.6px, transparent 4.8px),
+        radial-gradient(circle at 11px calc(100% - 11px), #d6dade 0 1.3px, #9098a0 1.3px 2.5px, #565e66 2.5px 3.7px, rgba(0,0,0,.6) 3.7px 4.6px, transparent 4.8px),
+        radial-gradient(circle at calc(100% - 11px) calc(100% - 11px), #d6dade 0 1.3px, #9098a0 1.3px 2.5px, #565e66 2.5px 3.7px, rgba(0,0,0,.6) 3.7px 4.6px, transparent 4.8px),
+        repeating-linear-gradient(96deg, rgba(255,255,255,.055) 0 1px, rgba(0,0,0,.14) 1px 2px),
+        linear-gradient(158deg, var(--panel-hi) 0%, var(--panel-mid) 40%, var(--panel-lo) 78%, var(--panel-hi) 100%);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.24), inset 0 0 0 1px rgba(0,0,0,.32), inset 0 -3px 8px rgba(0,0,0,.58), 0 2px 6px rgba(0,0,0,.5); }
+    #fsim-root.fsim-painted .fsim-placard::before{ border-color:rgba(255,255,255,.16); }
+    /* light engraved inks clear the (typically dark) upholstery metal; the reg glows in the paint accent */
+    #fsim-root.fsim-painted .fsim-plac-title{ color:var(--cy); text-shadow:0 1px 0 rgba(0,0,0,.5); }
+    #fsim-root.fsim-painted .fsim-plac-reg{ color:#f6f2ff; text-shadow:0 -1px 1px rgba(0,0,0,.9), 0 1px 0 rgba(255,255,255,.28), 0 2px 3px rgba(0,0,0,.6), 0 0 8px var(--cy); }
+    #fsim-root.fsim-painted .fsim-plac-model, #fsim-root.fsim-painted .fsim-plac-own{ color:#e6eaf3; text-shadow:0 -1px 1px rgba(0,0,0,.85), 0 1px 0 rgba(255,255,255,.14); }
+    #fsim-root.fsim-painted .fsim-plac-k, #fsim-root.fsim-painted .fsim-plac-seats .lbl{ color:#c2cadb; text-shadow:0 -1px 1px rgba(0,0,0,.8), 0 1px 0 rgba(255,255,255,.12); }
+    /* etched serial (the base engraved barcode applies to painted plates too) */
+    #fsim-root.fsim-painted .fsim-plac-barcode .sn{ color:#c2cadb; text-shadow:0 -1px 1px rgba(0,0,0,.7); }
 
     /* ══ MULE flightdeck skin — a Grand-Caravan-scale glass cockpit, but cyberpunk: ══
        carbon-fibre chrome, violet+magenta neon, an aggressive glareshield. All the
@@ -1640,20 +1713,25 @@ function ensureFlightSimStyles() {
     /* maker's plate → carbon-fibre weave with a violet etch (kills the brushed-steel tan) */
     .fsim-theme-mule .fsim-placard{ border-color:#241832;
       background:
-        radial-gradient(circle at 10px 10px, #b79bff 0 1.4px, #6a52a0 1.4px 2.6px, #34285a 2.6px 3.6px, rgba(0,0,0,.55) 3.6px 4.4px, transparent 4.6px),
-        radial-gradient(circle at calc(100% - 10px) 10px, #b79bff 0 1.4px, #6a52a0 1.4px 2.6px, #34285a 2.6px 3.6px, rgba(0,0,0,.55) 3.6px 4.4px, transparent 4.6px),
-        radial-gradient(circle at 10px calc(100% - 10px), #b79bff 0 1.4px, #6a52a0 1.4px 2.6px, #34285a 2.6px 3.6px, rgba(0,0,0,.55) 3.6px 4.4px, transparent 4.6px),
-        radial-gradient(circle at calc(100% - 10px) calc(100% - 10px), #b79bff 0 1.4px, #6a52a0 1.4px 2.6px, #34285a 2.6px 3.6px, rgba(0,0,0,.55) 3.6px 4.4px, transparent 4.6px),
-        repeating-linear-gradient(45deg, rgba(168,116,255,.06) 0 3px, rgba(0,0,0,.30) 3px 6px),
-        repeating-linear-gradient(-45deg, rgba(255,255,255,.03) 0 3px, rgba(0,0,0,.24) 3px 6px),
-        linear-gradient(157deg,#171122 0%,#241738 42%,#120c1c 100%);
-      box-shadow:inset 0 1px 0 rgba(168,116,255,.24), inset 0 -2px 6px rgba(0,0,0,.62), 0 2px 5px rgba(0,0,0,.5); }
-    .fsim-theme-mule .fsim-plac-title{ color:#a874ff; text-shadow:0 0 6px rgba(168,116,255,.5); }
-    .fsim-theme-mule .fsim-plac-reg{ color:#ece2ff; text-shadow:0 0 9px rgba(168,116,255,.5); }
-    .fsim-theme-mule .fsim-plac-own{ color:#9686bc; text-shadow:none; }
-    .fsim-theme-mule .fsim-plac-model{ color:#9686bc; text-shadow:none; }
-    .fsim-theme-mule .fsim-plac-k{ color:#7d6ba8; text-shadow:none; }
-    .fsim-theme-mule .fsim-plac-own.rented{ color:#ff4a9a; text-shadow:0 0 6px rgba(255,74,154,.4); }
+        radial-gradient(circle at 11px 11px, #ffffff 0 0.6px, #cbb6ff 0.6px 1.3px, #7a63b4 1.3px 2.5px, #2a1e48 2.5px 3.7px, rgba(0,0,0,.6) 3.7px 4.6px, transparent 4.8px),
+        radial-gradient(circle at calc(100% - 11px) 11px, #ffffff 0 0.6px, #cbb6ff 0.6px 1.3px, #7a63b4 1.3px 2.5px, #2a1e48 2.5px 3.7px, rgba(0,0,0,.6) 3.7px 4.6px, transparent 4.8px),
+        radial-gradient(circle at 11px calc(100% - 11px), #ffffff 0 0.6px, #cbb6ff 0.6px 1.3px, #7a63b4 1.3px 2.5px, #2a1e48 2.5px 3.7px, rgba(0,0,0,.6) 3.7px 4.6px, transparent 4.8px),
+        radial-gradient(circle at calc(100% - 11px) calc(100% - 11px), #ffffff 0 0.6px, #cbb6ff 0.6px 1.3px, #7a63b4 1.3px 2.5px, #2a1e48 2.5px 3.7px, rgba(0,0,0,.6) 3.7px 4.6px, transparent 4.8px),
+        repeating-linear-gradient(96deg, rgba(200,170,255,.05) 0 1px, rgba(0,0,0,.16) 1px 2px),
+        linear-gradient(158deg,#241a38 0%,#312247 34%,#1a1228 72%,#241a38 100%);
+      box-shadow:inset 0 1px 0 rgba(198,166,255,.30), inset 0 0 0 1px rgba(0,0,0,.35), inset 0 -3px 8px rgba(0,0,0,.6), 0 2px 6px rgba(0,0,0,.55); }
+    .fsim-theme-mule .fsim-placard::before{ border-color:rgba(198,166,255,.14); }
+    .fsim-theme-mule .fsim-plac-title{ color:#a874ff; text-shadow:0 1px 0 rgba(255,255,255,.12), 0 -1px 0 rgba(0,0,0,.5); }
+    /* die-struck into the carbon: deep recessed top edge, a violet-lit lower lip, and an etch-glow rising from the groove */
+    .fsim-theme-mule .fsim-plac-reg{ color:#efe7ff;
+      text-shadow:0 -1px 1px rgba(0,0,0,.92), 0 1px 0 rgba(198,166,255,.42), 0 2px 3px rgba(0,0,0,.58), 0 0 8px rgba(168,116,255,.32); }
+    /* supporting text engraved into the carbon too: recess above + a faint violet-lit lip below */
+    .fsim-theme-mule .fsim-plac-own{ color:#b3a4d6; text-shadow:0 -1px 1px rgba(0,0,0,.85), 0 1px 0 rgba(198,166,255,.16); }
+    .fsim-theme-mule .fsim-plac-model{ color:#b3a4d6; text-shadow:0 -1px 1px rgba(0,0,0,.85), 0 1px 0 rgba(198,166,255,.16); }
+    .fsim-theme-mule .fsim-plac-k{ color:#8f7dbe; text-shadow:0 -1px 1px rgba(0,0,0,.8), 0 1px 0 rgba(198,166,255,.14); }
+    .fsim-theme-mule .fsim-plac-own.rented{ color:#ff4a9a; text-shadow:0 -1px 1px rgba(0,0,0,.7); }
+    /* etched serial (the base engraved barcode applies on the carbon too) */
+    .fsim-theme-mule .fsim-plac-barcode .sn{ color:#9686bc; text-shadow:0 -1px 1px rgba(0,0,0,.6); }
     /* the day-sheen glint reads violet on the carbon */
     .fsim-theme-mule .fsim-plac-sheen{ background:linear-gradient(133deg, rgba(184,150,255,0) 30%, rgba(184,150,255,.42) 46%, rgba(184,150,255,.06) 52%, rgba(184,150,255,0) 66%); }
     /* radio/transponder deck → carbon */
@@ -2208,11 +2286,14 @@ export function openFlightSim(opts = {}) {
     <div class="fsim-ctl">
       <div class="fsim-placard">
         <div class="fsim-plac-sheen" id="fsim-plac-sheen"></div>
+        <div class="fsim-plac-guilloche"></div>
+        <span class="fsim-plac-rivet tl" style="--r:22deg"></span><span class="fsim-plac-rivet tr" style="--r:-38deg"></span><span class="fsim-plac-rivet bl" style="--r:64deg"></span><span class="fsim-plac-rivet br" style="--r:8deg"></span>
         <div class="fsim-plac-title">◈ REGISTRATION</div>
         <div class="fsim-plac-reg" id="fsim-reg">—</div>
         <div class="fsim-plac-model"><span class="fsim-plac-k">MAKE</span><span id="fsim-model">—</span></div>
         <div class="fsim-plac-own" id="fsim-own"><span class="fsim-plac-k" id="fsim-own-k">OWNER</span><span id="fsim-own-name">—</span></div>
         <div class="fsim-plac-seats" id="fsim-seats"></div>
+        <div class="fsim-plac-barcode"><span class="bars"></span><span class="sn" id="fsim-plac-sn">S/N —</span></div>
       </div>
       <div class="fsim-yoke" id="fsim-yoke">${yokeSvgFor(opts.craftType)}</div>
       <div class="fsim-xpdr">
@@ -2330,6 +2411,8 @@ export function openFlightSim(opts = {}) {
   // and the registered owner (your name if it's yours; the hangar/operator it's rented from).
   const regEl = q('#fsim-reg'), ownEl = q('#fsim-own'), ownNameEl = q('#fsim-own-name'), ownKEl = q('#fsim-own-k'), modelEl = q('#fsim-model');
   if (regEl) regEl.textContent = F.reg;
+  const snEl = q('#fsim-plac-sn');
+  if (snEl) snEl.textContent = 'S/N ' + String(F.reg || '—') + '·' + String(opts.craftType || '').replace(/^ac_/, '').slice(0, 4).toUpperCase();
   if (modelEl) modelEl.textContent = String(opts.deviceName || P.name || 'AIRCRAFT').toUpperCase();
   if (ownNameEl) ownNameEl.textContent = F.owner;
   if (ownKEl) ownKEl.textContent = F.rented ? 'OPER' : 'OWNER';
@@ -2356,6 +2439,21 @@ export function openFlightSim(opts = {}) {
       root.classList.add('fsim-painted');
     }
   }
+  // Cockpit chrome accent follows the paint bay, not the game UI accent: blend the exterior
+  // paint (base + trim) and the upholstery (cabin) into --cy, which drives the radios, knobs,
+  // LEDs, night wash and the canvas instruments. No paint on file → fall back to the airframe's
+  // stock class accent — never the global --accent theme colour.
+  const stockAcc = (skin && skin.acc) || themeFor(F.cls).acc;
+  const chromeAcc = liveryAccent(F.livery, stockAcc);
+  const chromeRgb = hex2rgb(chromeAcc);
+  if (chromeRgb) { ACCENT = chromeAcc; ACCENT_RGB = chromeRgb; }   // canvas instruments (accA/ACCENT read the globals)
+  root.style.setProperty('--cy', chromeAcc);                       // beats the .fsim-theme-* class --cy (inline > class)
+  // --cy-lit is the BACKLIGHT colour: the airframe's vivid stock accent, NOT the (possibly muted)
+  // paint blend — so the panel/landing lights glow bright at night on any paint job. Chrome still
+  // follows --cy (paint); only the lit night-lighting reads --cy-lit.
+  const litRgb = hex2rgb(stockAcc) || chromeRgb;
+  root.style.setProperty('--cy-lit', stockAcc);
+  if (litRgb) root.style.setProperty('--cy-lit-dim', `rgba(${litRgb[0]},${litRgb[1]},${litRgb[2]},.24)`);
   // Floor-mounted controls (Reaper combat stick, Dragonfly cyclic) pivot near their
   // base, not the wheel-column mid-point the CSS default (50% 66%) assumes — so the
   // frame-loop lean rotates the whole stick about its boot instead of its shaft.
@@ -2893,16 +2991,21 @@ function deckLandingWindow(F) {
   return map;
 }
 
-// Cinematic timeline: a wide APPROACH shot as she comes in, a soft cut to a CLOSE helipad shot for
+// Cinematic timeline: a wide APPROACH shot as she comes in, dolly down to a CLOSE helipad shot for
 // the descent, then a SETTLE hold on the pad where the engine spools down before we hand off to the
-// park. Longer + phased than the old single continuous shot, so the transition reads smoothly and the
-// engine doesn't cut the instant the skids touch.
-// WIDE: a long, dramatic fly-in from out over the Basin, descending toward the pad. DROP: hard cut
+// park. The camera pose is value-continuous across the shots AND (via the ease-in-out `smooth` below)
+// velocity-continuous, so the dolly glides smoothly between shots with no speed jump at the seams.
+// The HOLD stays with her until the rotors fully stop (DECK_SPINDOWN) and then a further DECK_LINGER
+// (2s) on the still, quiet heli before the hand-off.
+// WIDE: a long, dramatic fly-in from out over the Basin, descending toward the pad. DROP: dolly down
 // to a close-up on the deck IN FRONT of her, tracking the last ~50ft down. HOLD: same close-up while
 // the rotors spin down and she goes quiet — a few beats before the hangar.
-const DECK_WIDE = 4000, DECK_DROP = 3000, DECK_HOLD = 2900;
+const DECK_WIDE = 4000, DECK_DROP = 3000;
+const DECK_SPINDOWN = 1900;   // rotors wind from full-speed to a dead stop over this stretch of the HOLD
+const DECK_LINGER = 2000;     // then we STAY with her, camera settled on the still heli, for 2 more seconds
+const DECK_HOLD = DECK_SPINDOWN + DECK_LINGER;   // HOLD = spin-down + the 2s linger
 const DECK_TOTAL = DECK_WIDE + DECK_DROP + DECK_HOLD;
-const DECK_HANDOFF_MS = 1800;   // extra stillness after the rotors stop before the hangar view pops
+const DECK_HANDOFF_MS = 600;   // the 2s live linger now carries the post-shutdown stillness, so hand off promptly after
 // Overall size of the Echelon's 3D model — a uniform shrink of her whole yacht-local frame. KEEP IN
 // SYNC with YACHT_SCALE in windshield.js: every yacht-local constant here (the pad at fore-aft 0.28,
 // the deck floor z, the catch radius) is multiplied by it so the deck-landing capture + cinematic
@@ -3014,18 +3117,29 @@ function stepCrashBreakup(F, now) {
   const tumbleB = C.bank0 + 96 * fall, tumbleP = C.pitch0 - 42 * fall;
   const bank = tumbleB * (1 - settle) + 16 * settle;     // settles slightly canted onto one side
   const pitch = tumbleP * (1 - settle) + -6 * settle;    // nose just into the ground
-  // Debris: each shed part settles on its OWN clock (staggered start + its own ease) so the pieces
-  // DON'T drift in lockstep — each is flung out, tumbles a little, and freezes where it lands, low
-  // in the ground plane around the fuselage. Small spins + near-zero vertical offset = they crumple
-  // onto the deck and lie there, not cartwheel away as one rigid group.
-  const settleOf = (delay) => 1 - Math.pow(1 - clampNum((t - delay) / 0.55, 0, 1), 2.4);
-  const s0 = settleOf(0), s1 = settleOf(0.06), s2 = settleOf(0.10), s3 = settleOf(0.03), s4 = settleOf(0.13);
+  // Debris: each shed part flies on its OWN clock — it tears free, tumbles on all three axes about
+  // its OWN centroid, scatters out across the deck, and comes to rest FLAT (roll+pitch damp to zero)
+  // where it lands. Staggered `land` times keep the pieces off lockstep. The renderer draws these
+  // decoupled from the fuselage's attitude (heading-only), so instead of one rigid shape spreading
+  // you see the wing cartwheeling one way, the tail spinning another, each crumpling onto the ground.
+  const debris = ({ roles, side, fRange, cen, dir, spin, mag, land }) => {
+    const air = clampNum(t / land, 0, 1);                       // 0 → 1 at this piece's ground contact
+    const rest = clampNum((t - land) / (1 - land), 0, 1);       // 0 → 1 after it lands
+    const ao = 1 - Math.pow(1 - air, 2);                        // ease-out flight → freezes at landing
+    const flat = 1 - rest;                                      // 1 airborne → 0 once settled on the deck
+    const hop = rest > 0 ? Math.sin(rest * Math.PI) * 0.08 * (1 - rest) : 0;   // a shallow bounce that dies out
+    return {
+      roles, side, fRange, ballistic: true, cen, hop,
+      scatter: [dir[0] * mag * ao, dir[1] * mag * ao],          // fan out in the ground plane, ease to rest
+      rot: [spin[0] * ao * flat, spin[1] * ao * flat, spin[2] * ao],   // roll+pitch go flat; yaw is kept (any heading down)
+    };
+  };
   const parts = [
-    { roles: ['wing', 'aileron', 'flap'], side: 1,    off: [-0.6 * s0,  1.4 * s0, -0.05 * s0], spin: 3.2 * s0 },   // right wing sheared off to starboard
-    { roles: ['stab', 'elevator'],        side: -1,   off: [-1.0 * s1, -1.1 * s1, -0.05 * s1], spin: 2.6 * s1 },   // left tailplane to port
-    { roles: ['fin', 'rudder'],           side: null, off: [-1.1 * s2,  0.4 * s2, -0.05 * s2], spin: 2.2 * s2 },   // fin snapped off aft
-    { roles: ['body'], side: null, fRange: [ 0.30,  9], off: [ 1.2 * s3,  0.2 * s3, -0.05 * s3], spin: 1.6 * s3 },   // nose cone forward
-    { roles: ['body'], side: null, fRange: [-9, -0.35], off: [-1.2 * s4, -0.2 * s4, -0.05 * s4], spin: 2.0 * s4 },   // tail cone aft
+    debris({ roles: ['wing', 'aileron', 'flap'], side: 1,    cen: [-0.1,  0.8, -0.02], dir: [-0.4,  1.3], spin: [ 6.5,  1.4,  1.6], mag: 1.0, land: 0.42 }),   // right wing cartwheels off to starboard
+    debris({ roles: ['stab', 'elevator'],        side: -1,   cen: [-1.4, -0.4, -0.02], dir: [-1.1, -0.8], spin: [ 4.6, -2.2,  2.6], mag: 1.0, land: 0.48 }),   // left tailplane spins off to port
+    debris({ roles: ['fin', 'rudder'],           side: null, cen: [-1.5,  0.0,  0.30], dir: [-1.2,  0.3], spin: [ 2.0,  3.8,  1.4], mag: 0.9, land: 0.46 }),   // fin snapped off aft
+    debris({ roles: ['body'], fRange: [ 0.30,  9], side: null, cen: [ 1.0,  0.0,  0.00], dir: [ 1.4,  0.2], spin: [ 3.2,  2.6,  1.0], mag: 1.1, land: 0.52 }),   // nose cone forward
+    debris({ roles: ['body'], fRange: [-9, -0.35], side: null, cen: [-1.3,  0.0,  0.05], dir: [-1.3, -0.3], spin: [ 3.8, -1.8,  2.2], mag: 1.1, land: 0.50 }),   // tail cone aft
   ];
   const wreckFx = null;                                   // no fire/smoke — she just comes apart and crumples
   paintWindshield('fsim-ws', {
@@ -3048,6 +3162,10 @@ function stepDeckLanding(F, now) {
   const C = F.deckCine; if (!C) return;
   const el = now - C.t0;
   const ease = (t) => 1 - Math.pow(1 - t, 2.2);
+  // Ease-IN-OUT for the CAMERA dolly: velocity is zero at BOTH ends of every shot, so where one shot's
+  // camera move hands to the next the pan has no velocity jump — the dolly glides smoothly between shots
+  // instead of snapping speed at each seam (the heli's own motion keeps the ease-out `ease` above).
+  const smooth = (t) => { const c = clampNum(t, 0, 1); return c * c * (3 - 2 * c); };
   const hr = C.hdg * Math.PI / 180, sinh = Math.sin(hr), cosh = Math.cos(hr);
   // yacht-local (beam ox +stbd, fore-aft oy +aft) → world offset from the hull, the same transform
   // drawYacht uses — so a local point tracks the deck whatever way she's pointing.
@@ -3069,28 +3187,29 @@ function stepDeckLanding(F, now) {
     // SHOT 1 — the fly-in, from an ON-DECK camera standing FORWARD of the pad (at the base of the
     // deckhouse) looking AFT over the pad, so the deckhouse is BEHIND the camera and out of frame and
     // she flies in over the open water toward you. Not a view of the whole boat — you're on her deck.
-    phase = 'wide'; const lp = ease(el / DECK_WIDE);
+    phase = 'wide'; const lp = ease(el / DECK_WIDE), clp = smooth(el / DECK_WIDE);
     ox = START[0] + (PAD[0] - START[0]) * lp; oy = START[1] + (PAD[1] - START[1]) * lp;   // fly IN
     alt = C.alt0 + (DECK_DROP_FT - C.alt0) * lp;
     landing = lp > 0.75; dome = true;
-    cam = { yaw: 180, pitch: 0.14, zoom: 0.85 - lp * 0.40 };   // looking AFT down the deck over the pad — reads her 3D fly-in, dollying toward the DROP
+    cam = { yaw: 180, pitch: 0.14, zoom: 0.85 - clp * 0.40 };   // looking AFT down the deck over the pad — reads her 3D fly-in, dollying toward the DROP
     lookAt = padWorld;
   } else if (el < DECK_WIDE + DECK_DROP) {
     // SHOT 2 — the same ON-DECK vantage (standing at the deckhouse, looking AFT over the pad), holding
     // low as she drops the last 75ft straight down in front of you onto the pad, open sea behind her.
     // No crane, no orbit — you stay planted on the deck and she comes down to you.
-    phase = 'drop'; const lp = ease((el - DECK_WIDE) / DECK_DROP);
+    phase = 'drop'; const lp = ease((el - DECK_WIDE) / DECK_DROP), clp = smooth((el - DECK_WIDE) / DECK_DROP);
     ox = PAD[0]; oy = PAD[1]; alt = DECK_DROP_FT * (1 - lp); landing = true;
-    cam = { yaw: 180, pitch: 0.14 - lp * 0.02, zoom: 0.45 - lp * 0.15 };   // hold the deck-level aft-looking view, dollying RIGHT onto the pad (down to 0.30) as she settles in
+    cam = { yaw: 180, pitch: 0.14 - clp * 0.02, zoom: 0.45 - clp * 0.15 };   // hold the deck-level aft-looking view, dollying RIGHT onto the pad (down to 0.30) as she settles in
     lookAt = padWorld;
   } else {
     // SHOT 3 — she's down; the camera arcs round from dead-ahead to a three-quarter broadside and
     // GROWS her into a big on-pad "inspect" close-up (like the hangar walkaround — right on top of
     // the helipad so she fills the frame) while the rotors spin down, before the hand-off to the hangar.
-    phase = 'hold'; const lp = Math.min(1, (el - DECK_WIDE - DECK_DROP) / DECK_HOLD);
+    phase = 'hold'; const hEl = el - DECK_WIDE - DECK_DROP;
     ox = PAD[0]; oy = PAD[1]; alt = 0; landing = true;
-    power = 0.5 * (1 - Math.min(1, lp / 0.7)); propSpin = 1 - Math.min(1, lp / 0.65);   // rotors fully stopped by ~65% through the hold
-    const ip = ease(Math.min(1, lp / 0.6));   // settle the tight framing over the first ~60% of the hold
+    const spin = Math.min(1, hEl / DECK_SPINDOWN);   // 0 = full-speed → 1 = dead stop at DECK_SPINDOWN, then we linger
+    power = 0.5 * (1 - spin); propSpin = 1 - spin;   // rotors fully stopped when the spin-down completes
+    const ip = smooth(hEl / DECK_SPINDOWN);   // settle the tight framing AS the rotors wind down, then hold it through the 2s linger
     // Dolly the CAMERA in (zoom 0.30→0.16) and swing to a three-quarter broadside — the heli AND the
     // pad scale together, a true zoom to a tight on-pad crop (NOT an enlarged model). Her real size
     // never changes; the camera just gets right on top of her. Pitch eases hard DOWN (→ -0.42) so the
@@ -3113,7 +3232,7 @@ function stepDeckLanding(F, now) {
   let heliPitch;
   if (phase === 'wide') heliPitch = -2 * clampNum(alt / 30, 0, 1);
   else if (phase === 'drop') heliPitch = -2 + 8 * ease(clampNum((DECK_DROP_FT - alt) / DECK_DROP_FT, 0, 1));
-  else heliPitch = 6 * (1 - ease(clampNum((el - DECK_WIDE - DECK_DROP) / (DECK_HOLD * 0.4), 0, 1)));
+  else heliPitch = 6 * (1 - ease(clampNum((el - DECK_WIDE - DECK_DROP) / (DECK_SPINDOWN * 0.6), 0, 1)));
   const heli = {
     id: 'deck-heli', dx: hx - lookAt[0], dy: hy - lookAt[1],
     // groundZ pins her gear to the physical helipad deck (its world-z in drawYacht), so `altDiff` is
@@ -3401,7 +3520,7 @@ function fsimFrame(now) {
     const day = clampNum(Math.sin(clampNum((hr - 6) / 12, 0, 1) * Math.PI), 0, 1);
     const wx = (F.sky?.weather || 'clear').toLowerCase();
     const wxMul = wx === 'clear' ? 1 : wx === 'cloudy' ? 0.5 : wx === 'fog' ? 0.28 : 0.4;
-    root.style.setProperty('--sheen', (day * wxMul).toFixed(2));
+    root.style.setProperty('--sheen', (day * wxMul * 0.42).toFixed(2));   // a restrained glint — the plate reads matte-stamped, not glossy
   }
 
   // Cosmetic engine gauges: the sim runs a single rpm, so fan it out across the airframe's
@@ -3607,7 +3726,8 @@ function fsimFrame(now) {
       const adx = tgt.gx - F.pos.x, ady = tgt.gy - F.pos.y;
       apTarget = { dx: adx, dy: ady, name: tgt.name, dist: Math.round(Math.hypot(adx, ady)) };
     }
-    if (nmEl) nmEl.textContent = (tgt.name || 'FIELD').slice(0, 10).toUpperCase();
+    // Name + live distance-to-run (tiles), matching the windshield field list's "NAME 42".
+    if (nmEl) nmEl.textContent = (tgt.name || 'FIELD').slice(0, 8).toUpperCase() + (apTarget ? '  ' + apTarget.dist : '');
   }
 
   // Checkride pilot-wings rings — resolve absolute gate tiles to live offsets for the
@@ -3667,6 +3787,7 @@ function fsimFrame(now) {
     // Spatial weather cells + our absolute world position → real clouds/rain out the canopy.
     wxField: F.sky?.field, acX: F.pos.x, acY: F.pos.y,
     map: F.map, mapCenter: F.mapCenter, phase: 'cruise', airport: F.airport, biomeBelow: F.biomeBelow,
+    regions: F.regions,   // drives the windshield region atmosphere grade (The Reach dust, …)
     mapOffset: { x: F.pos.x - F.mapCenter.x, y: F.pos.y - F.mapCenter.y }, travel: F.travel,
     // World-fixed runway: its origin + heading in the world, offset from the craft — so it
     // stays put and recedes/rotates naturally as you fly away (not glued ahead of the nose).
@@ -3716,6 +3837,7 @@ function fsimFrame(now) {
     // the ramp and winds up with the throttle instead of only spinning once she's moving.
     external: F.external, extZoom: F.extZoom || 1, cls: F.cls, livery: F.livery, enginePct: d.rpm,
     engineOn: F.engineOn, landingLight: F.landingLight,   // nav/strobe/beacon die with the engine; landing lamps add a bright forward set
+    panelLight: F.nightLight,   // PANEL switch → richer warm instrument glow reflected up onto the lower canopy
 
     propPhase: F.propPhase, propSpin: F.propSpin, propDisc,   // external prop/rotor spool choreography (blades spin up → disc fades in; reversed on shutdown)
     // Live control-surface deflection for the external chase model: ailerons/elevator/flaps
@@ -3748,9 +3870,22 @@ function fsimFrame(now) {
   }
   if (F.audioAcc >= 0.25) {
     F.audioAcc = 0;
+    // Perspective: external chase view = you're OUTSIDE the airframe → the full, bright
+    // exterior mix; cockpit view = you're in the cabin → the muffled interior mix (engine-audio
+    // rolls the highs/wind off + drops the tone filter when perspective isn't 'exterior').
+    // Doppler is only meaningful from the orbit cam: the engine sits at the aircraft, the camera
+    // trails it, so pitch bends with the airspeed component along the aircraft→camera line —
+    // receding (lower) when the cam is behind, approaching (higher) when you swing it out front,
+    // neutral abeam. Inside the cabin you ride with the engine, so no doppler (1).
+    let doppler = 1;
+    if (F.external) {
+      const vlos = -(s.airspeed || 0) * Math.cos(((F.extOrbit || 0)) * Math.PI / 180);   // >0 = closing on the cam
+      doppler = clampNum(1 / (1 - vlos / DOPPLER_C), 0.92, 1.1);
+    }
     updateEngineAudio({ continuous: true, airborne: F.reportedAirborne, engineOn: F.engineOn, class: F.cls, throttle: Math.round(thr * 100), spd: Math.round(s.airspeed), engines: [{ pct: Math.round(s.rpm * 100) }], bandIndex: s.altitude > 500 ? 1 : 0, sky: F.sky, atmos: F.atmos, acX: F.pos.x, acY: F.pos.y,
       rpm: s.rpm, airspeed: s.airspeed, vs: s.vs, altitude: s.altitude, onGround: s.onGround, groundSpeed: s.onGround ? s.airspeed : 0,
-      stallMargin: s.stallMargin, stalled: s.stalled, flaps: input.flaps });
+      stallMargin: s.stallMargin, stalled: s.stalled, flaps: input.flaps,
+      perspective: F.external ? 'exterior' : 'interior', doppler });
   }
 
   // Impact screen-shake — a decaying jitter on the whole panel, kicked by the sink rate at

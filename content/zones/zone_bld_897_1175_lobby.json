@@ -1,5 +1,14 @@
 {
-  "ambient_events": [],
+  "ambient_events": [
+    "The ops radio coughs a burst of static and a clipped voice — a callsign, a heading — then goes back to hissing.",
+    "Somewhere behind the tarps two people are haggling in low, flat voices; the numbers stop the second you glance over.",
+    "A rope of avgas fumes drifts off the half-stripped flyer, sweet and headache-sharp in the cold hangar air.",
+    "Dust hangs in the work-lights in long slow spirals, stirred by nothing you can feel.",
+    "A wrench slips somewhere in the dark at the back and rings once off the concrete. Nobody goes to see whose.",
+    "The corrugated roof ticks and pops as the desert heat leans on it, then eases off.",
+    "Grit sifts in under the apron door with every gust and lays a fresh film over everything that was clean an hour ago.",
+    "A tarp corner lifts in the draught, shows a stencilled crate-mark that isn't any shipping line you know, and settles back down."
+  ],
   "ambient_theme": "indoors",
   "audio_theme_id": null,
   "bg_color": null,

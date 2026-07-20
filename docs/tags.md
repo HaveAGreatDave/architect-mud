@@ -113,6 +113,12 @@ join on `jsonb_exists(i.tags,'hack_device')`) and `plugins/jail/index.js` (`'hac
 contraband). Any item tagged `hack_device` now works; the blessed deck was tagged in content. The reusable
 sweep for this whole bug class is [capability-tag-vs-itemid-audit.md](audits/capability-tag-vs-itemid-audit.md).
 
+The `contraband` tag (Systems group) already gated govgate checkpoint scanning; `plugins/jail/index.js`
+`isContraband` was extended (2026-07) to honour it too, so a `contraband`-tagged item is now confiscated on
+a search (→ evidence locker) and concealable with `conceal`, exactly like a weapon/drug/hack-deck. Steady
+Work's sketchy/hot courier parcels (`item_parcel_sketchy`/`item_parcel_hot`) carry it so the whole crime
+stack handles a search with zero new wiring. See the steady-work proposal.
+
 The `fishing_rod` and `bait` tags (Gear group) follow the same pattern: `plugins/fishing/index.js` gates
 `fish` on carrying any uncontained item tagged `fishing_rod` (`jsonb_exists(i.tags,'fishing_rod')`), and
 treats any `bait`-tagged item as optional bait (a sub-tag like `bait_bloodworm` gates specific catches).

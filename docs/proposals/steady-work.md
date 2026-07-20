@@ -1,15 +1,30 @@
 # Proposal: Steady Work (careers / advanced jobs over the quest system)
 
-**Status:** **spine + shift BUILT** (`plugins/work/`, uncommitted) — the XP gate,
-the venue opt-in (`flags.work_venue`, first venue Meltwater Diner), the shift
-posture-tick with the satisfaction meter + seeded rush + sent-home fail, wage+tips
-payout, and the five shift-local response verbs are live and regress-covered
-(`plugins/work/regress.js`). Surface is **chat-first** (`work`/`clock in`/response
-verbs), matching the other posture activities; the dedicated **Tablet Work tab** and
-the whole **Courier archetype** (parcel classes, conceal/heat, fence hot-jobs, theft
-economy) remain the planned follow-up pass. It sits above the existing
-[job board](../systems-jobboard.md) and runs through the
-[unified quest system](../systems-jobboard.md); read those first.
+**Status:** **BOTH archetypes BUILT** (`plugins/work/`) — regress-covered
+(`plugins/work/regress.js`, 1239/1239).
+- **Shift** (`plugins/work/index.js`): the XP gate, venue opt-in (`flags.work_venue`),
+  the posture-tick with satisfaction meter + seeded rush + sent-home fail, wage+tips
+  payout, the five response verbs. **Two venues** now — Meltwater Diner (`pool:'diner'`)
+  and Voltage nightclub (`pool:'bar'`, a Brawn/Cool-leaning event set); a venue picks
+  its event pool via `flags.work_venue.pool` (named `POOLS` registry in index.js).
+- **Courier** (`plugins/work/courier.js`): the board generator, `courier`/`runs`
+  (list / `courier <n>` take), `deliver`, `crack`. The run is a real keepable parcel
+  item whose `custom_data` IS the run (no quest row, no player field). Parcel classes
+  clean/sketchy/hot; sketchy+hot carry the new **`contraband`** tag so the existing
+  jail confiscation / `conceal` / gov-checkpoint stack handles a search for free. Hot
+  runs are fence-offered via the `OFFER_COURIER_HOT` dialogue action (Voss the
+  salvage-broker), gated on `work_fence_blacklist` being unset; `crack` is the
+  irreversible theft commit (yields a class-drawn loot item, burns the run) and burning
+  a hot run blacklists you + a value-scaled `WANTED_RAISE` bounty.
+- **Tablet Work tab**: a **Steady Work** tile in the Tablet Quests app
+  (`plugins/tablet/quests-app.js`), sourced live from the courier board (same pattern
+  as Pilot Contracts / Job Board), with a Take Run action and an active-run status row.
+
+Chat-first surface stays for both (matching the other posture activities). **Deferred
+(not blocking):** the separate physical pickup leg (the parcel spawns on take),
+sting/setup hot jobs, the evidence-locker recovery sub-story (confiscation still works
+automatically), and per-employer rep progression. It sits above the existing
+[job board](../systems-jobboard.md); read that first.
 
 ## One-line
 

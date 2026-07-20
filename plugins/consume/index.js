@@ -24,9 +24,11 @@
  */
 import { registerAction } from '../../server/engine/actions.js';
 import { getDrugCache } from '../../server/engine/drugs.js';
-import { finishConsume } from '../../server/engine/commands/inventory.js';
+import { finishConsume, finishConsumeItem } from '../../server/engine/commands/inventory.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { getAllLivePlayers } from '../../server/engine/world.js';
+import { applyThirst } from '../../server/engine/bodily.js';
+import { query } from '../../server/models/db.js';
 import { on } from '../../server/engine/events.js';
 
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
@@ -126,6 +128,37 @@ function categoryOf(drug) {
   return null;
 }
 
+// The drink's whole thirst restore (structured `effects.instant.thirst` or a flat
+// `effects.thirst`). This is the total we dole out one sip at a time.
+function thirstOf(drug) {
+  const eff = drug?.effects || {};
+  const instant = eff.instant || eff;
+  return Math.max(0, Number(instant.thirst) || 0);
+}
+
+// Credit one sip's worth of thirst mid-drink: bump the meter + bladder in memory,
+// persist (a rare, player-driven write, not a hot path), push the meter to the
+// client, and return a "+N Thirst." note to tack onto the sip line. The full
+// restore is skipped at finish (skipThirstRestore) so this never double-counts.
+function creditThirst(player, amount) {
+  amount = Math.max(0, Math.round(amount));
+  if (!amount) return '';
+  applyThirst(player, amount);
+  query('UPDATE players SET thirst=$1, hydration_load=$2 WHERE id=$3',
+    [player.thirst, player.hydration_load, player.id]).catch(() => {});
+  sendToPlayer(player.id, { type: 'player_update', thirst: player.thirst });
+  return ` +${amount} Thirst.`;
+}
+
+// One evenly-sized sip from the running total, capped at whatever's left.
+function sip(player) {
+  const c = player?._consume;
+  if (!c || !c.thirstPer) return '';
+  const amount = Math.min(c.thirstPer, c.thirstTotal - c.thirstApplied);
+  c.thirstApplied += Math.max(0, amount);
+  return creditThirst(player, amount);
+}
+
 // --- lifecycle ---------------------------------------------------------------
 
 function clearConsume(player) {
@@ -146,9 +179,15 @@ async function finish(player, broadcast) {
   const c = player?._consume;
   if (!c) return;
   player._consume = null;   // finish is the last timer; the mids already fired
-  const result = await finishConsume(player, c.itemRowId, broadcast, {
-    takeLine: sys(fill(c.finishLine, c.name)),
-    suppressComeupMessage: c.category !== 'drink',
+  // The last swallow lands the drug and pours out whatever thirst the earlier
+  // sips didn't cover — with skipThirstRestore so the dose doesn't add it again.
+  const drink = c.category === 'drink';
+  const finishNote = drink ? creditThirst(player, c.thirstTotal - c.thirstApplied) : '';
+  const finisher = c.kind === 'item' ? finishConsumeItem : finishConsume;
+  const result = await finisher(player, c.itemRowId, broadcast, {
+    takeLine: sys(fill(c.finishLine, c.name) + finishNote),
+    suppressComeupMessage: !drink,
+    skipThirstRestore: drink,
   });
   if (!result) {
     sendToPlayer(player.id, { type: 'output', message: sys('You reach for it — but it is gone.') });
@@ -165,8 +204,12 @@ registerAction({
   handler: async ({ actor: player, params, context }) => {
     const { item } = params;
     const broadcast = context.broadcast;
+    // Two shapes reach here: a drug-item drink/smoke/joint (kind 'drug', category
+    // read off the drug row), or a laced *alcoholic* consumable (kind 'item' — a
+    // cocktail whose thirst lives on the item, not a drug). Both drink over time.
+    const kind = params.itemKind === 'item' ? 'item' : 'drug';
     const drug = getDrugCache()[item.drug_id];
-    const category = categoryOf(drug);
+    const category = kind === 'item' ? 'drink' : categoryOf(drug);
     if (!category) return { passthrough: true };   // not a slow-consume drug → cmdUse handles it instantly
     if (player._consume) return { type: 'error', message: "You're still working on that. Finish it first." };
 
@@ -178,19 +221,28 @@ registerAction({
     const midLines = sample(cfg.mid, cfg.steps).map(m => fill(m, name));
     const finishLine = pick(cfg.finish);
 
+    // Split a drink's thirst restore evenly across every drinking action —
+    // start + each mid + the finish — so you gain a slice per sip instead of the
+    // whole lot on the last swallow. Non-drinks (smoke/joint) carry no thirst.
+    // Drug-drinks read it off the drug; laced cocktails off the item's restore.
+    const thirstTotal = category !== 'drink' ? 0
+      : kind === 'item' ? (Math.max(0, Number(item.tags?.restore_thirst) || 0)) : thirstOf(drug);
+    const thirstSteps = cfg.steps + 2;   // start, the mids, finish
+    const thirstPer = Math.round(thirstTotal / thirstSteps);
+
     const total = cfg.seconds * 1000;
     const timers = [];
     midLines.forEach((line, k) => {
       const t = Math.round(total * (k + 1) / (cfg.steps + 1));
       timers.push(setTimeout(() => {
-        if (player._consume) sendToPlayer(player.id, { type: 'output', message: sys(line) });
+        if (player._consume) sendToPlayer(player.id, { type: 'output', message: sys(line + sip(player)) });
       }, t));
     });
     timers.push(setTimeout(() => { finish(player, broadcast).catch(() => {}); }, total));
 
-    player._consume = { itemRowId: item.id, timers, finishLine, category, name };
+    player._consume = { itemRowId: item.id, timers, finishLine, category, name, kind, thirstTotal, thirstPer, thirstApplied: 0 };
     sendToZone(player.current_zone, { type: 'zone_event', message: pick(cfg.zoneStart).replace('{who}', player.handle) }, player.id);
-    return { type: 'use', message: sys(startLine) };
+    return { type: 'use', message: sys(startLine + sip(player)) };
   },
 });
 
@@ -213,4 +265,4 @@ export const hooks = {
 };
 
 // Exposed for the regression suite.
-export const _test = { CONFIG, categoryOf, interrupt, clearConsume };
+export const _test = { CONFIG, categoryOf, interrupt, clearConsume, thirstOf };

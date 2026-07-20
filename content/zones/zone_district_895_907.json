@@ -12,6 +12,8 @@
     "west": "zone_district_894_907"
   },
   "flags": {
+    "building_name": "Aurelia",
+    "building_type": "boutique",
     "district": "wasteland",
     "planner": "bp_district",
     "region_id": "region_coldwater",
@@ -23,7 +25,7 @@
   "id": "zone_district_895_907",
   "map_id": "map_world",
   "marker": "#",
-  "name": "Grasslands",
+  "name": "Aurelia",
   "parent_zone": null,
   "updated_at": "1783739474"
 }

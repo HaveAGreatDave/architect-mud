@@ -10,7 +10,8 @@ import { signatureMult, signatureScore, colorName, describeExterior,
 import { crashSeverity, collateralBill, isSeverelyImpaired } from './collateral.js';
 import { sellAircraft, cancelRental, flushAirborne } from './hangars.js';
 import { computeStats, perfAxes, tuneRange, installedKits, KITS, TUNE_DIAL_MAX,
-  shearRoll, surfacesWire, anyWingLost, resetSurfaces, SURFACE_KEYS } from './state.js';
+  shearRoll, surfacesWire, anyWingLost, resetSurfaces, SURFACE_KEYS,
+  isWalkableCabin, cabinTypeOf, cabinEntryZone, isCabinZone, liveAircraft, getZone, loadAircraft } from './state.js';
 import { isFreightLicensed, ensureFreightDrops } from './contracts.js';
 import { isPilotLicensed, _test as checkrideTest } from './checkride.js';
 import { setFlag } from '../../server/engine/flags.js';
@@ -316,6 +317,60 @@ export default async function regress({ run, check, getPlayer }) {
   r = await run('checkride');
   check('checkride is player-accessible (not access-denied) and gates on being aboard', /climb out/i.test(r?.message || ''), r?.message);
   if (savedAcC) p.aircraftId = savedAcC; else delete p.aircraftId;
+
+  // ── Walkable aircraft cabin — the Leviathan flying base, Phase 1 ─────────────
+  // Pure seams: which craft carry a walkable interior.
+  check('leviathan is a walkable-cabin craft; the mayfly is not',
+    isWalkableCabin({ type: { id: 'ac_leviathan' } }) === true && isWalkableCabin({ type: { id: 'ac_mayfly' } }) === false);
+  check('cabinTypeOf strips the ac_ prefix', cabinTypeOf({ type: { id: 'ac_leviathan' } }) === 'leviathan');
+  // The authored cabin shell (git content, loaded into the world).
+  const lvCabin = getZone('zone_leviathan_cabin'), lvFd = getZone('zone_leviathan_flightdeck'),
+    lvGalley = getZone('zone_leviathan_galley'), lvHold = getZone('zone_leviathan_hold');
+  check('the Leviathan cabin shell loaded (4 always-lit interior rooms, tagged aircraft_cabin)',
+    [lvCabin, lvFd, lvGalley, lvHold].every(z => z?.flags?.always_lit && z?.flags?.is_interior && z?.flags?.aircraft_cabin === 'leviathan'));
+  check('cabinEntryZone resolves the boarding room', cabinEntryZone({ type: { id: 'ac_leviathan' } })?.id === 'zone_leviathan_cabin');
+  check('isCabinZone matches a room to its craft type only',
+    isCabinZone(lvCabin, { type: { id: 'ac_leviathan' } }) === true && isCabinZone(lvCabin, { type: { id: 'ac_mule' } }) === false);
+  check('cabin rooms wire nose→tail with reciprocal exits',
+    lvFd?.exits?.south === 'zone_leviathan_cabin' && lvCabin?.exits?.north === 'zone_leviathan_flightdeck' &&
+    lvCabin?.exits?.south === 'zone_leviathan_galley' && lvGalley?.exits?.north === 'zone_leviathan_cabin' &&
+    lvGalley?.exits?.south === 'zone_leviathan_hold' && lvHold?.exits?.north === 'zone_leviathan_galley');
+
+  // End-to-end: seat the fake player as a PASSENGER in a live Leviathan, walk the
+  // cabin fore/aft (every other craft blocks walking while aboard), and disembark
+  // back onto the parked ramp.
+  const savedZoneW = p.current_zone;
+  if (lvCabin && getZone(savedZoneW)) {
+    const wAcId = 'aircraft_regress_leviathan';
+    await query('DELETE FROM aircraft WHERE id=$1', [wAcId]);
+    await query(`INSERT INTO aircraft (id,type_id,name,owner_id,rental,is_wreck,airborne,parked_zone_id) VALUES ($1,'ac_leviathan','REGR-LV',$2,0,0,0,$3)`, [wAcId, p.id, savedZoneW]);
+    const wLive = await loadAircraft(wAcId);
+    if (wLive) {
+      liveAircraft.set(wAcId, wLive);
+      wLive.occupants.add(p.id); wLive.occupants.add('npc_regress_pilot'); wLive.pilotId = 'npc_regress_pilot';
+      p.aircraftId = wAcId; p.seat = 'passenger'; p.posture = 'standing';
+      p.current_zone = 'zone_leviathan_cabin'; lvCabin.players.add(p.id);
+      // Window overlay: opens the through-hull moving-world view from a windowed cabin room, toggles closed.
+      let wr = await run('window');
+      check('window opens the through-hull view from a windowed cabin room', p.cabinWindowOpen === true && wr?.type === 'noop', `${wr?.type}:${p.cabinWindowOpen}`);
+      wr = await run('window');
+      check('a second window turns back to the cabin', p.cabinWindowOpen !== true, String(p.cabinWindowOpen));
+      // One live hop proves the move gate lets an aboard passenger walk the cabin
+      // (the reciprocal-exits check above proves every room is then reachable); the
+      // movement-pacing plugin defers rapid back-to-back steps, so we don't chain them.
+      const mv = await run('south');
+      check('a cabin passenger can WALK aft to the galley', p.current_zone === 'zone_leviathan_galley', `${mv?.type}:${p.current_zone}`);
+      wr = await run('window');
+      check('a windowless room (the galley) has nothing to look out of', /no window/i.test(wr?.message || ''), wr?.message);
+      await run('disembark');
+      check('disembark from the cabin sets them down on the ground (not in a cabin room)',
+        !getZone(p.current_zone)?.flags?.aircraft_cabin && !p.aircraftId, `${p.current_zone} ac=${p.aircraftId}`);
+    }
+    liveAircraft.delete(wAcId);
+    for (const z of [lvCabin, lvFd, lvGalley, lvHold]) z?.players.delete(p.id);
+    await query('DELETE FROM aircraft WHERE id=$1', [wAcId]);
+  }
+  p.current_zone = savedZoneW; delete p.aircraftId; delete p.seat; delete p.cabinWindowOpen;
 
   p.posture = savedPosture; p.npcCombatTargetId = savedCombat;
   if (savedAc) p.aircraftId = savedAc; else { delete p.aircraftId; delete p.seat; }

@@ -29,7 +29,8 @@ import {
   advance, initFloat, initEngines, enginesAllStable, engineCount, syncEngineTemp,
   ENGINE_IDLE, ENGINE_STABLE_BAND, toDeg, degToCardinal, bearingDeg, groundTheme,
   isContinuous, reconcile, pushContext, contextPayload, bandFromAltitude, effLoadout,
-  RENTAL_BILL_MS, rentalOpFee, fieldFor, nearestAirfield, runwayFor, yachtFieldNear, isGroundRolling,
+  RENTAL_BILL_MS, rentalOpFee, fieldFor, nearestAirfield, runwayFor, airfieldForRunway, yachtFieldNear, isGroundRolling,
+  isWalkableCabin, isCabinZone, boardCabin, lookPayload, pushWindowTo, closeHud,
 } from './state.js';
 import { describeExterior, rampColorWord, conspicuousnessMult, normalizeLivery } from './livery.js';
 import { districtBiome } from './biomes.js';
@@ -205,6 +206,16 @@ async function boardFound(found, player, broadcast) {
   } else {
     broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} climbs into the ${live.type.name}.` }, player.id);
   }
+  // Walkable cabin (the Leviathan): a passenger boards into the real interior rooms and
+  // walks them on foot, instead of the synthesized cabin-window HUD. The pilot (an NPC on
+  // a charter, or a player who takes the controls) still flies the cockpit sim — untouched.
+  if (seat !== 'pilot' && isWalkableCabin(live)) {
+    const look = await boardCabin(player, live);
+    if (isContinuous(live)) pushContext(live);   // refresh a seated pilot's cabin-occupancy readout
+    const climb = `<span class="text-green">You climb aboard the ${live.type.name} and step into the cabin.</span>`;
+    if (look) { look.message = `${climb}\n${look.message}`; return look; }
+    return { type: 'emote', message: climb };
+  }
   // A pilot flies the live cockpit sim; everyone else (passengers on any craft, and legacy
   // craft occupants) rides the cabin-window HUD — they look out a window, nothing to fly.
   if (seat === 'pilot' && isContinuous(live)) sendFlightSim(player, live); else pushHud(live);
@@ -250,15 +261,47 @@ async function cmdDisembark(args, raw, player, broadcast) {
   }
   if (live.row.airborne) return { type: 'emote', message: "You can't step out — you're in the air." };
   const name = live.type.name;
-  detach(player);
+  const wasWalkable = isWalkableCabin(live);
+  detach(player);   // for a walkable cabin, this also steps the player out onto the parked ramp
   // A remaining pilot's cabin readout updates as riders leave.
   if (liveAircraft.has(live.row.id) && isContinuous(live)) pushContext(live);
   broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} climbs down out of the ${name}.` }, player.id);
   // Climbed out inside a walk-in hangar (a charter set you down here, or you taxied
   // your own craft in) → drop straight onto the hangar floor, same as walking in.
-  if (getZone(player.current_zone)?.flags?.hangar_interior) await pushHangarBay(player);
+  const inHangarBay = getZone(player.current_zone)?.flags?.hangar_interior;
+  if (inHangarBay) await pushHangarBay(player);
+  // Walkable cabin: detach relocated us onto the ramp — render that room so the client
+  // leaves the cabin cleanly (there was no cockpit HUD whose close would trigger it).
+  if (wasWalkable && !inHangarBay) {
+    const look = await lookPayload(player);
+    if (look) { look.message = `<span class="text-dim">You climb down out of the ${name}.</span>\n${look.message}`; return look; }
+  }
   return { type: 'emote', message: `You climb down out of the ${name}.` };
 }
+
+// ── Cabin window — look out at the moving world from a walkable cabin ──────────
+// Opens the through-hull passenger view (the same windshield a charter passenger
+// rides) as an overlay over the cabin room; a second `window` (or `window close`)
+// turns back to the room. Only from a windowed cabin room aboard a walkable craft.
+async function cmdWindow(args, raw, player) {
+  const live = player.aircraftId ? liveAircraft.get(player.aircraftId) : null;
+  if (!live || !isWalkableCabin(live)) return { type: 'emote', message: "There's no window here to look out of." };
+  const zone = getZone(player.current_zone);
+  if (!isCabinZone(zone, live)) return { type: 'emote', message: "You're not in the cabin." };
+  const closing = /^(close|shut|off|away)$/i.test((args[0] || '').trim());
+  if (player.cabinWindowOpen || closing) {
+    player.cabinWindowOpen = false;
+    closeHud(player.id);   // client drops the overlay and re-renders the cabin room
+    return { type: 'emote', message: 'You turn back from the window into the cabin.' };
+  }
+  if (!zone?.flags?.cabin_window) return { type: 'emote', message: "There's no window in here — try the main cabin or the flight deck." };
+  player.cabinWindowOpen = true;
+  pushWindowTo(live, player);   // pushHud then keeps it live each tick while open
+  return { type: 'noop' };
+}
+// Walking to another room (or stepping off) closes any open window overlay — the move
+// renders the new room, and pushHud should stop feeding the now-stale window.
+on('zone.entered', ({ actor }) => { if (actor?.cabinWindowOpen) actor.cabinWindowOpen = false; });
 
 // ── Engine / throttle ─────────────────────────────────────────────────────────
 export function requirePilot(player) {
@@ -575,16 +618,14 @@ async function cmdFlightSync(args, raw, player) {
   return { type: 'noop' };
 }
 
-// Tow an off-strip landing home. The craft set down away from a field but under the
+// Tow an off-strip landing in. The craft set down away from a field but under the
 // crash threshold, so she's fine — the hangar dispatches a recovery crew, parks her at
-// the field she flew out of (or the nearest one), and bills the pilot a retrieval fee
+// the nearest airfield to where she came down, and bills the pilot a retrieval fee
 // scaled to the airframe's value. Short on credits? We garnish what you have — the
 // aircraft still comes back; consider the rest a debt to your dignity.
 async function retrieveOffField(live, player, { abort = false } = {}) {
   const spot = surfaceAt(live.row.grid_x, live.row.grid_y);
-  const home = (live.homeField && getZone(live.homeField)?.flags?.airfield_id)
-    ? { id: live.homeField, name: getZone(live.homeField).flags.airfield_name || getZone(live.homeField).name }
-    : nearestAirfield(live.row.grid_x, live.row.grid_y);
+  const home = nearestAirfield(live.row.grid_x, live.row.grid_y);
   const fee = Math.max(120, Math.round((live.type.price_buy || 400) * 0.05));
   const paid = Math.min(player.credits || 0, fee);
   player.credits = Math.max(0, (player.credits || 0) - fee);
@@ -637,14 +678,28 @@ async function cmdFlightEvent(args, raw, player, broadcast) {
     // without this `land` could read the stale airborne position and tow/ditch the craft off the yacht
     // (why a deck-landed heli only *sometimes* made it into her hangar). Omitted ⇒ use live position.
     const lx = Number(args[3]), ly = Number(args[4]);
-    if (Number.isFinite(lx) && Number.isFinite(ly)) { live.row.grid_x = lx; live.row.grid_y = ly; live.fx = lx; live.fy = ly; }
+    // Snap the touchdown tile to the integer grid before the surface lookup: `grid_x/grid_y`
+    // are the rounded tile (reconcile's contract), but the client reports a sub-tile float
+    // (F.pos.x.toFixed(2)). `surfaceAt` keys the coord index by integer tile, so a float here
+    // misses every cell and `field` comes back null — which silently kills the runway→airfield
+    // resolve below (`airfieldForRunway` never sees its runway tile). At Coldwater the rollout
+    // over the on-centreline airfield tile masked it via `rolloutField`; at Buzzard Field, whose
+    // hangar sits BESIDE the strip, nothing masked it, so a clean landing read as off-field and
+    // augered the pilot back to the Coldwater clone vats. Keep fx/fy as the smooth sub-tile pos.
+    if (Number.isFinite(lx) && Number.isFinite(ly)) { live.row.grid_x = Math.round(lx); live.row.grid_y = Math.round(ly); live.fx = lx; live.fy = ly; }
     let field = surfaceAt(live.row.grid_x, live.row.grid_y);
     // A long roll-out can drift the plane a tile off the runway before you shut down —
     // fall back to the airfield we actually touched down on (recorded while grounded over it).
     if (!field?.flags?.airfield_id && live.rolloutField) field = getZone(live.rolloutField);
+    // Touched down on a runway tile whose airfield_id lives on an adjacent ramp tile (the
+    // strip and the hangar aren't the same tile, as at Buzzard Field) — resolve to the field
+    // the runway serves so it parks here instead of towing home off-strip.
+    if (!field?.flags?.airfield_id && field?.flags?.runway) field = airfieldForRunway(field) || field;
     // Fixed-wing sets down on a real airfield; a VTOL (the Dragonfly) can flare onto any
-    // cleared surface tile below it.
+    // cleared surface tile below it. STOL craft (the Reaper) are rated for rough-field ops
+    // too, so like a VTOL they simply put down where they landed instead of being towed home.
     const isVtol = live.type.takeoff_mode === 'vtol';
+    const offstripRated = isVtol || live.type.takeoff_mode === 'stol';
     // A VTOL setting down alongside the Echelon lands on her helipad — she's a small, moving
     // target, so a set-down within a tile of her snaps to the pad instead of ditching in the
     // Basin. Resolve this BEFORE the water check below so an approach over open water still lands.
@@ -672,7 +727,7 @@ async function cmdFlightEvent(args, raw, player, broadcast) {
         out(player.id, `<span class="text-dim">Landing grade ${grade} (${fpm} fpm) — no IP earned (flight under 5 min).</span>`);
       }
     }
-    if (field?.flags?.airfield_id || (isVtol && field)) {
+    if (field?.flags?.airfield_id || (offstripRated && field)) {
       // Grade the checkride landing while the pilot's still aboard (a pass issues the
       // licence; a miss leaves the loaner parked for a retry). crDone → the loaner is a
       // free trainer that's served its purpose, so scrap it after everyone climbs out.
@@ -688,7 +743,7 @@ async function cmdFlightEvent(args, raw, player, broadcast) {
       await checkCargoDropDelivery(player, live, field.id);
       // Everyone climbs out onto the tile where she settled (parkAt set their zone to it).
       // At a real airfield the client opens straight into the hangar bay; off-field — a VTOL
-      // that flared onto any surface — they're simply put down where they landed and can walk
+      // or STOL rated for rough fields — they're simply put down where they landed and can walk
       // away, then `embark` the parked craft again to lift back off.
       for (const pid of [...live.occupants]) { const p = getLivePlayer(pid); if (p) detach(p); }
       if (crDone) await deleteAircraft(live.row.id);
@@ -699,7 +754,14 @@ async function cmdFlightEvent(args, raw, player, broadcast) {
     // fixed-wing that put down in a field/street doesn't die — the hangar sends a crew to
     // tow her back and bills you for the retrieval. Nothing solid below at all (open water/
     // the void off the map edge) is still a crash — there's nowhere to set down.
-    if (field) { await retrieveOffField(live, player); return { type: 'noop' }; }
+    //
+    // Rough-field-rated craft (VTOL/STOL) are the exception: a survivable flare onto UNAUTHORED
+    // ground (field null) is still a good landing, not a plunge off the world's edge. This is the
+    // common case out at a frontier strip like Buzzard Field, where the tiled scrub is a small
+    // island — flaring a tile wide of it left the coord index with no surface below and augered
+    // the pilot in, respawning them clear back at the Coldwater clone vats. Tow them to the
+    // nearest field (Buzzard Field itself, so they end up in its hangar) instead of killing them.
+    if (field || offstripRated) { await retrieveOffField(live, player); return { type: 'noop' }; }
     await crash(live, 'offfield');
     return { type: 'noop' };
   }
@@ -1076,13 +1138,16 @@ async function wreckSweep() {
 }
 schedule('5m', () => wreckSweep().catch(e => console.error('[flight] wreck sweep error:', e.message)));
 
-// ── Move gate: can't walk while aboard ────────────────────────────────────────
-registerMoveGate(({ player }) => {
-  if (player.aircraftId) {
-    const live = liveAircraft.get(player.aircraftId);
-    return { block: true, message: live?.row.airborne ? "You can't walk out of the sky." : "You're strapped into a cockpit — `disembark` first." };
-  }
-  return undefined;
+// ── Move gate: can't walk while aboard — EXCEPT within a walkable cabin ────────
+// A cockpit-sim occupant is strapped in and blocked. But a walkable-cabin craft
+// (the Leviathan) has real interior rooms: its occupants walk freely between them.
+// Any exit that would leave the aircraft is still blocked — the door is sealed while
+// airborne and opens on landing (deplane handled by the charter/land flow).
+registerMoveGate(({ player, from, to }) => {
+  if (!player.aircraftId) return undefined;
+  const live = liveAircraft.get(player.aircraftId);
+  if (live && isCabinZone(from, live) && isCabinZone(to, live)) return undefined;   // walk the cabin
+  return { block: true, message: live?.row.airborne ? "You can't walk out of the sky." : "You're strapped in — `disembark` first." };
 }, 'flight');
 
 // ── Cardinal-while-airborne → set heading (else fall through to the ground mover)
@@ -1454,7 +1519,7 @@ async function cmdLookCraft(args, raw, player, broadcast) {
 
 export const commands = {
   examine: cmdExamineCraft, look: cmdLookCraft,
-  embark: cmdBoard, board: cmdBoard, disembark: cmdDisembark, deplane: cmdDisembark, testfly: cmdTestFly, taxi: cmdTaxi,
+  embark: cmdBoard, board: cmdBoard, disembark: cmdDisembark, deplane: cmdDisembark, window: cmdWindow, testfly: cmdTestFly, taxi: cmdTaxi,
   flight: cmdFlightStatus, fs: cmdFlightStatus,
   startup: cmdStartup, shutdown: cmdShutdown, throttle: cmdThrottle,
   heading: cmdHeading, climb: cmdClimb, dive: cmdDive,

@@ -208,6 +208,9 @@ export function renderPane(table, viewerId) {
       if (!table.hasDealer()) parts.push(pbtn('call dealer', 'calldealer', { highlight: true }));
       if (table.spectators?.has?.(viewerId)) parts.push(pbtn('leave', 'leave'));
     }
+    // Drop the visual table for the text version (room look in this pane, the
+    // game called out to the log). `visual` brings it back.
+    parts.push(pbtn('text', 'text'));
     parts.push(pbtn('help', 'help'));
     return `<div class="poker-cmdbar">${parts.join('')}</div>`;
   }

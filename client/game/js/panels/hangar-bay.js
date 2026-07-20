@@ -153,6 +153,7 @@ function floorScreen() {
     <div class="hb-toolbar">
       <div class="hb-tb-group">${craftActs}</div>
       <div class="hb-tb-group hb-tb-right">
+        ${!d.isAdmin && !d.licensed ? tbtn('✈', 'Get your pilot licence', 'data-act="checkride"', 'hb-accent') : ''}
         ${d.canBuy || d.canRent ? tbtn('⊕', 'Buy / Rent', 'data-act="buyrent"', 'hb-accent') : ''}
         ${tbtn('⏻', d.inHangar ? 'Exit Hangar' : 'Close', 'data-act="close"', 'hb-close')}
       </div>

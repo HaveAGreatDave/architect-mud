@@ -1,0 +1,7 @@
+{
+  "name": "npc-drugs",
+  "version": "1.0.0",
+  "description": "Offensive NPC dosing: spike (covert), jab (forced), slip (willing). Derives a sedated/paranoid/wired effect from the drug's own data and drives the NPC's reaction on its AI blackboard.",
+  "hooks": [],
+  "commands": ["spike", "jab", "slip"]
+}

@@ -8,6 +8,6 @@
   "commands": [
     "join", "seat", "leave", "spectate", "watch", "say", "look", "help",
     "check", "call", "deal", "summon", "evict", "calldealer", "bet", "raise", "fold", "allin",
-    "table", "board", "pot", "players", "showhand", "pokertext"
+    "table", "board", "pot", "players", "showhand", "pokertext", "text", "visual"
   ]
 }

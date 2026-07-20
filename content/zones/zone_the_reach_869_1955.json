@@ -28,7 +28,8 @@
     "lawless": true,
     "planner": "world_editor",
     "region_id": "region_the_reach",
-    "runway": "ns"
+    "runway": "ns",
+    "terrain": "dirt_road"
   },
   "grid_x": 896,
   "grid_y": 1172,

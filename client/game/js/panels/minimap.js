@@ -583,6 +583,7 @@ export function renderMinimap(nodes, direction) {
         const cs = [];
         const cterr = TERRAIN.has(node.terrain) ? node.terrain : null;
         if (cterr === 'road') cs.push(`background-color:${ROAD_SURFACE}`);
+        else if (cterr === 'dirt_road') cs.push(`background-color:${DIRT_ROAD_SURFACE}`);
         else if (cterr) cs.push(`background-color:${terrainFill(cterr, node.bg_color)}`);
         else if (node.bg_color) cs.push(`background-color:${node.bg_color}`);
         else if (node.district?.color) { const [dr, dg, db] = hexToRgb(node.district.color); cs.push(`background-color:rgba(${dr},${dg},${db},0.20)`); }
@@ -620,9 +621,12 @@ export function renderMinimap(nodes, direction) {
       // used so the class's texture background-image survives.
       let content = symFor(node);
       const terr = TERRAIN.has(node.terrain) ? node.terrain : null;
-      if (terr === 'road') {
+      if (terr === 'road' || terr === 'dirt_road') {
+        // dirt_road reuses road's auto-tiled connector SVG (node.icon_svg → symFor), just
+        // recoloured to a packed-dirt track so it still reads as a lane, not a bare patch.
         styles.length = 0;
-        styles.push(`background-color:${ROAD_SURFACE}`, `color:${ROAD_MARKING}`);
+        styles.push(`background-color:${terr === 'dirt_road' ? DIRT_ROAD_SURFACE : ROAD_SURFACE}`,
+          `color:${terr === 'dirt_road' ? DIRT_ROAD_MARKING : ROAD_MARKING}`);
         styled = ' mm-styled';
       } else if (terr) {
         styles.length = 0;
@@ -750,18 +754,20 @@ export const BUILDING_ICON = {
 // Tileable terrain styling (server `terrain` field). Roads recolour to grey asphalt
 // with yellow lane markings; water/grass render as a seamless coloured expanse with a
 // connecting texture from the .mm-<terrain> / .map-<terrain> CSS classes.
-const TERRAIN = new Set(['road', 'water', 'grass', 'park', 'asphalt', 'concrete', 'dirt', 'sand', 'gravel', 'dock', 'scrub', 'redrock', 'ash', 'marsh']);
+const TERRAIN = new Set(['road', 'dirt_road', 'water', 'grass', 'park', 'asphalt', 'concrete', 'dirt', 'sand', 'gravel', 'dock', 'scrub', 'redrock', 'ash', 'marsh']);
 // Post-apocalyptic wildlands surfaces that KEEP their marker glyph over the fill (like
 // road does) instead of blanking to a clean expanse — so camp/landmark tiles out in the
 // wilds still read their ∩/▲/$ glyphs.
 const GLYPH_TERRAIN = new Set(['scrub', 'redrock', 'ash', 'marsh']);
 const ROAD_SURFACE = '#4c5157';   // grey asphalt
 const ROAD_MARKING = '#f2c53d';   // yellow lane markings (the road SVG mask takes `color`)
+const DIRT_ROAD_SURFACE = '#7d6236';   // packed-dirt track — same connector art, no paint
+const DIRT_ROAD_MARKING = '#c9a86a';   // pale tan (a graded dirt lane, not painted asphalt)
 // Canonical per-type surface colour. water/grass keep authored bg_color priority (legacy,
 // seamless); the newer painted types (asphalt…dock) use their fill so the terrain drives the look.
 const TERRAIN_FILL = {
   water: '#3f7fb0', grass: '#5a9e57', park: '#46a24e', asphalt: '#45484d', concrete: '#8a8d91',
-  dirt: '#6b5138', sand: '#c2b280', gravel: '#7d7a73', dock: '#6e5636',
+  dirt: '#6b5138', sand: '#c2b280', gravel: '#7d7a73', dock: '#6e5636', dirt_road: DIRT_ROAD_SURFACE,
   scrub: '#6f7248', redrock: '#6f3524', ash: '#4f4b47', marsh: '#4d5a30',
 };
 // water/grass prefer an authored bg_color; every other terrain uses its canonical fill.

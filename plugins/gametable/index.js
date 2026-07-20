@@ -525,22 +525,57 @@ async function cmdPlayers(args, raw, player) {
   return { type: 'output', message: lines.join('<br>') };
 }
 
-// `pokertext [on|off]` — toggle screen-reader text mode. When on, the table
-// narrates hole cards, the board, and your turn to the scrolling log (in ASCII),
-// on top of the normal visual pane. Persisted in player_flags so it sticks.
+// Switch a player between the visual table (top pane) and the text version
+// (room look in the pane, the game called out to the scrolling log). This is the
+// same per-player pref the screen-reader `pokertext` mode uses — `textModePlayers`
+// + the persisted `poker_text_mode` flag — so text view and narration are one
+// switch. If the player is at a table, the top pane is flipped immediately;
+// otherwise the pref is just stored for the next time they sit.
+async function applyPokerView(player, toText) {
+  // An old-school text table draws no visual pane for anyone (pushPaneAll skips
+  // it wholesale), so `visual` there would only hand out a pane that never
+  // updates. Refuse it and keep the player in the log.
+  if (!toText) {
+    const cur = tableForPlayer(player);
+    if (cur?.config?.textTable) {
+      return { type: 'error', message: 'This table is played by ear — there is no visual felt here.' };
+    }
+  }
+
+  if (toText) textModePlayers.add(player.id);
+  else textModePlayers.delete(player.id);
+  await setFlag('player', 'poker_text_mode', toText ? 'true' : 'false', player).catch(() => {});
+
+  const y = s => `<span style="color:var(--yellow)">${s}</span>`;
+  const note = toText
+    ? `${y('Text mode.')} The table drops out of the top pane back to the room view; your hole cards, the board on every street, and your turn (pot + to-call) are called out to this log. Type <b>visual</b> to bring the table back.`
+    : `${y('Visual mode.')} The poker table is back in the top pane. Type <b>text</b> to play in the log instead.`;
+
+  const t = tableForPlayer(player);
+  if (!t) return { type: 'output', message: note };
+
+  // At a table — confirm in the log, then flip the top pane itself.
+  out(player.id, note);
+  if (toText) {
+    const { describeZone } = await import('../../server/engine/commands/index.js');
+    const zone = getZone(player.current_zone);
+    if (!zone) return null;
+    return { type: 'look', message: await describeZone(zone, player), zone: zone.id };
+  }
+  return { type: 'poker_update', html: renderPane(t, player.id) };
+}
+
+// `text` — switch this player to the text version of the game.
+async function cmdTextView(args, raw, player) { return applyPokerView(player, true); }
+// `visual` — switch this player back to the visual table.
+async function cmdVisualView(args, raw, player) { return applyPokerView(player, false); }
+
+// `pokertext [on|off]` — the original screen-reader alias for the same switch
+// (on ⇒ text version, off ⇒ visual). Bare toggles from the current state.
 async function cmdPokerText(args, raw, player) {
   const a = (args[0] || '').toLowerCase();
   const on = a === 'on' ? true : a === 'off' ? false : !textModePlayers.has(player.id);
-  if (on) textModePlayers.add(player.id);
-  else textModePlayers.delete(player.id);
-  await setFlag('player', 'poker_text_mode', on ? 'true' : 'false', player).catch(() => {});
-  const y = s => `<span style="color:var(--yellow)">${s}</span>`;
-  return {
-    type: 'output',
-    message: on
-      ? `${y('Poker text mode ON.')} The table will narrate your hole cards, the board on every street, and your turn (with pot and to-call) to this log — in ASCII, alongside the visual table. Type <b>pokertext off</b> to stop.`
-      : `${y('Poker text mode OFF.')} Back to the visual table only.`,
-  };
+  return applyPokerView(player, on);
 }
 
 async function cmdShowHand(args, raw, player) {
@@ -588,7 +623,8 @@ function pokerHelpHTML(t) {
     ``,
     h(`INFO & OUT`),
     `  ${y('board')}  ${y('pot')}  ${y('players')}  ${y('showhand')}  ${y('table')}`,
-    `  ${y('pokertext')}    screen-reader mode: narrate cards/board/your turn to this log`,
+    `  ${y('text')}         play in the log: the table leaves the top pane, hands are called out (also: ${y('pokertext')})`,
+    `  ${y('visual')}       bring the visual table back to the top pane`,
     `  ${y('leave')}        cash your chips back to credits and stand up`,
     ``,
     `<i>Hands can't be dealt without the dealer present. Your money hits the felt as you bet.</i>`,
@@ -811,4 +847,6 @@ export const commands = {
   players:   cmdPlayers,
   showhand:  cmdShowHand,
   pokertext: cmdPokerText,
+  text:      cmdTextView,
+  visual:    cmdVisualView,
 };

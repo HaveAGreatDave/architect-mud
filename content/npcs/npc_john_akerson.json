@@ -23,6 +23,7 @@
   "dialogue_tree": {},
   "faction": null,
   "flags": {
+    "preshow_habit": "Neural Overclock",
     "studio_npc": true
   },
   "home_activities": [
@@ -35,7 +36,10 @@
     "signs a glossy headshot of himself, props it on the bar, and steps back to admire the work",
     "\"Room service up here is a helicopter. I'm not joking. Ask me about the helicopter.\"",
     "cranks something with a heavy bassline and air-drums the bridge, entirely unashamed",
-    "\"The trick to the desk is never letting them see you sweat. The trick to the penthouse is never letting them up.\""
+    "\"The trick to the desk is never letting them see you sweat. The trick to the penthouse is never letting them up.\"",
+    "thumbs a tab of Neural Overclock onto his tongue like a breath mint and carries on as though you didn't see it",
+    "\"Everyone in this business runs on something. I just have better taste in mine than the rest of them.\"",
+    "rubs a smear of Overclock into his gums mid-sentence, barely breaking stride"
   ],
   "home_zone": "zone_solenne_penthouse",
   "hp": 20,

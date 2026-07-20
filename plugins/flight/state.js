@@ -8,7 +8,8 @@
 // engine-facing seam the whole plugin shares.
 
 import { query } from '../../server/models/db.js';
-import { getZone, getAllZones, getLivePlayer, getMinimapData, buildingEntranceDir, getRegion } from '../../server/engine/world.js';
+import { getZone, getAllZones, getLivePlayer, getMinimapData, buildingEntranceDir, getRegion, addPlayerToZone, removePlayerFromZone } from '../../server/engine/world.js';
+import { describeZone } from '../../server/engine/commands/describe.js';
 import { biomeOf, districtBiome } from './biomes.js';
 import { normalizeLivery } from './livery.js';
 import { sendToPlayer, sendToZone, sendToZoneExcept } from '../../server/engine/messaging.js';
@@ -316,6 +317,24 @@ export function runwayFor(fieldZone) {
   return { ox: nearEnd, oy: near.grid_y, hdg: farEnd > nearEnd ? 90 : 270, len };
 }
 
+// The airfield a runway tile serves: given a tile that carries flags.runway but not
+// flags.airfield_id, find the airfield zone whose ramp sits within reach of the strip
+// (mirrors runwayFor's ≤3-tile field↔runway contract, inverted). Lets a craft that
+// touches down anywhere along the strip resolve to its field even when the airfield_id
+// tile sits BESIDE the centreline (e.g. Buzzard Field's hangar is east of its runway)
+// rather than on it (as at Coldwater Regional, where the airfield_id tile is a runway
+// end) — otherwise an off-centreline touchdown reads as off-strip and tows home.
+export function airfieldForRunway(tile) {
+  if (!tile || tile.grid_x == null || !tile.flags?.runway) return null;
+  let best = null, nd = Infinity;
+  for (const z of getAllZones()) {
+    if (z.map_id !== tile.map_id || z.grid_x == null || !z.flags?.airfield_id) continue;
+    const d = Math.max(Math.abs(z.grid_x - tile.grid_x), Math.abs(z.grid_y - tile.grid_y));
+    if (d <= 3 && d < nd) { nd = d; best = z; }
+  }
+  return best;
+}
+
 // True when the player is standing INSIDE a walk-in hangar interior (at the desk),
 // as opposed to out on the exterior ramp. Aircraft *requests* (buy/rent/charter) are
 // gated to inside the hangar — you deal with the desk indoors, then the machine is
@@ -510,7 +529,7 @@ function isRoadCell(c) {
   if (!f) return false;
   return (Array.isArray(f.artery) && f.artery.length > 0)
     || /^(road_|runway_)/.test(f.icon || '')
-    || f.terrain === 'road';
+    || f.terrain === 'road' || f.terrain === 'dirt_road';
 }
 
 // The Curtain — the Architect's energy wall on the city's land edges (flags.curtain). The
@@ -552,6 +571,15 @@ function mapWindow(a, radius = 36) {
       const biome = biomeOf(cell);
       const road = isRoadCell(cell) ? 1 : 0;
       const kind = cell.flags?.airfield_id ? 'field' : cell.flags?.airspace_restricted ? 'nofly' : 'land';
+      // Surface look ('dust' = graded dirt — wheel ruts, no paint/PAPI/edge lights). On a field
+      // tile an explicit `flags.airfield_surface` wins, else a lawless frontier strip defaults to
+      // dust (paved regional airports leave it undefined). A `dirt_road` terrain tile — including
+      // a frontier runway centreline painted as dirt_road — carries the same dust look so the
+      // road pass renders it as a packed-dirt track rather than asphalt.
+      const ft = (kind === 'field'
+        ? (cell.flags?.airfield_surface || (cell.flags?.airfield_lawless ? 'dust' : undefined))
+        : undefined)
+        || (cell.flags?.terrain === 'dirt_road' ? 'dust' : undefined);
       // Building tiles carry their building_type AND their name so the windshield can
       // render either a dedicated per-building model (keyed off the name) or, failing
       // that, the type's 3-D archetype (office tower, warehouse, diner…), with a fallback.
@@ -601,8 +629,8 @@ function mapWindow(a, radius = 36) {
       let rd;
       const im = /^road_([nesw]+|x)$/.exec(cell.flags?.icon || '');
       if (im) rd = im[1] === 'x' ? 'nesw' : im[1];
-      else if (cell.flags?.terrain === 'road') {
-        // Painted road with no authored icon: auto-tile the connector from adjacent road cells.
+      else if (cell.flags?.terrain === 'road' || cell.flags?.terrain === 'dirt_road') {
+        // Painted road/dirt_road with no authored icon: auto-tile the connector from adjacent road cells.
         const cx = a.grid_x + dx, cy = a.grid_y + dy;
         let s = '';
         if (isRoadCell(surfaceAt(cx, cy - 1))) s += 'n';
@@ -617,7 +645,7 @@ function mapWindow(a, radius = 36) {
       // (it's the gap) but still needs the wall's run — read it off its Curtain neighbours so the
       // gate's flanking pylons line up with the wall it breaches.
       const cur = (cell.flags?.curtain || cell.flags?.perimeter_gate) ? curtainRun(a.grid_x + dx, a.grid_y + dy) : undefined;
-      row.push({ kind, biome, road, danger: cell.danger, bt, bn, ent, flr, mark, rd, wake, sub, heading, self, cur, pf: cell.flags?.park_feature });
+      row.push({ kind, biome, road, danger: cell.danger, bt, bn, ent, flr, mark, rd, wake, sub, heading, self, cur, ft, pf: cell.flags?.park_feature });
     }
     rows.push(row);
   }
@@ -808,11 +836,23 @@ function weatherFieldForClient() {
 
 export function pushHud(live) {
   const payload = gaugePayload(live);
+  const walkable = isWalkableCabin(live);
   for (const pid of live.occupants) {
     const p = getLivePlayer(pid);
     if (!p) continue;
-    sendToPlayer(pid, { type: 'cockpit_update', state: { ...payload, seat: p.seat } });
+    // Walkable cabin: an occupant walking the interior rooms is in a real MUD room, not
+    // on the cockpit-window HUD — don't clobber it. But once they open the WINDOW overlay
+    // (cabinWindowOpen) it IS fed the live view here. Non-cabin occupants (a seated pilot)
+    // always get the HUD.
+    if (walkable && isCabinZone(getZone(p.current_zone), live) && !p.cabinWindowOpen) continue;
+    sendToPlayer(pid, { type: 'cockpit_update', state: { ...payload, seat: p.cabinWindowOpen ? 'passenger' : p.seat } });
   }
+}
+// Feed ONE occupant the through-hull window view (the passenger cockpit_update the client
+// mounts as the cabin-window overlay). The `window` verb calls this on open; pushHud then
+// keeps it live each tick while cabinWindowOpen is set.
+export function pushWindowTo(live, player) {
+  sendToPlayer(player.id, { type: 'cockpit_update', state: { ...gaugePayload(live), seat: 'passenger' } });
 }
 // ── Continuous-flight reconcile (client sim → authoritative server state) ─────
 // The client runs the physics at 60fps and reports state; the server clamps it to
@@ -956,9 +996,64 @@ export function closeHud(pid) { sendToPlayer(pid, { type: 'cockpit_close' }); }
 export function out(pid, message) { sendToPlayer(pid, { type: 'output', message }); }
 export function toOccupants(live, message) { for (const pid of live.occupants) out(pid, message); }
 
+// ── Walkable aircraft cabins ──────────────────────────────────────────────────
+// A craft type whose interior is authored as coordinate-free MUD rooms
+// (content/zones/zone_<type>_*, map_aircraft_<type>) that occupants WALK on foot
+// instead of riding the synthesized cabin-window HUD. Per-aircraft privacy comes
+// free from the in-memory occupant Set (who you see is scoped to your aircraft), so
+// two owners share the one authored shell with no runtime zone rows. Design +
+// roadmap: docs/proposals/leviathan-flying-base.md.
+export const WALKABLE_CABINS = new Set(['leviathan']);
+export function cabinTypeOf(live) {
+  const t = live?.type?.id?.replace(/^ac_/, '');
+  return t && WALKABLE_CABINS.has(t) ? t : null;
+}
+export function isWalkableCabin(live) { return !!cabinTypeOf(live); }
+// The room a boarder arrives in (mirrors the cabin map's entry_zone_id).
+export function cabinEntryZone(live) {
+  const t = cabinTypeOf(live);
+  return t ? getZone(`zone_${t}_cabin`) : null;
+}
+// Is this zone an interior room of THIS live aircraft's cabin? All instances of a
+// type share the one authored shell, so the aircraft_cabin flag (= the type) matches.
+export function isCabinZone(zone, live) {
+  const t = cabinTypeOf(live);
+  return !!(t && zone?.flags?.aircraft_cabin === t);
+}
+// Render the player's current room to their client — the same `look` payload the
+// move/look commands ship — so a boarding passenger drops straight into the cabin.
+export async function lookPayload(player) {
+  const zone = getZone(player.current_zone);
+  if (!zone) return null;
+  return { type: 'look', message: await describeZone(zone, player), zone: zone.id, minimap: getMinimapData(zone.id, 8, player) };
+}
+// Seat a boarder inside the walkable cabin: move them into the entry room on foot
+// (no posture-freeze — they walk it) and hand back the room render. The move gate
+// keeps world exits sealed while airborne; egress is via `disembark` (detach below).
+export async function boardCabin(player, live) {
+  const entry = cabinEntryZone(live);
+  if (!entry) return null;
+  const from = player.current_zone;
+  if (from) removePlayerFromZone(player.id, from);
+  player.current_zone = entry.id;
+  addPlayerToZone(player.id, entry.id);
+  setPosture(player, 'standing');
+  emit('zone.entered', { actor: player, zone: entry.id, from });
+  return await lookPayload(player);
+}
+
 // ── Attach / detach ───────────────────────────────────────────────────────────
 export function detach(player, { restore = true } = {}) {
   const live = player.aircraftId ? liveAircraft.get(player.aircraftId) : null;
+  // Walkable cabin: step the occupant out of the interior room onto the aircraft's
+  // current ground (its parked ramp). Airborne egress is impossible — the move gate
+  // seals it — so a detach from a cabin zone means we're parked. Non-walkable
+  // occupants are never in a cabin zone, so this is a no-op for every other craft.
+  if (live && isCabinZone(getZone(player.current_zone), live)) {
+    removePlayerFromZone(player.id, player.current_zone);
+    const ground = getZone(live.row.parked_zone_id);
+    if (ground) { player.current_zone = ground.id; addPlayerToZone(player.id, ground.id); }
+  }
   if (live) {
     live.occupants.delete(player.id);
     if (live.pilotId === player.id) live.pilotId = null;
@@ -966,6 +1061,7 @@ export function detach(player, { restore = true } = {}) {
   if (player.posture === 'flying') forceStand(player, 'flight.detach');
   delete player.aircraftId;
   delete player.seat;
+  delete player.cabinWindowOpen;
   if (restore) closeHud(player.id);
   if (live) reap(live);
 }
