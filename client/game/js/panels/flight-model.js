@@ -22,6 +22,15 @@ const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 const D2R = Math.PI / 180, R2D = 180 / Math.PI;
 const G_KT = 19.06;               // gravity as a knots/second airspeed change (9.81 m/s²)
 const wrap360 = (d) => ((d % 360) + 360) % 360;
+// Dive drag-shed (feel knob, NOT physics): fraction of parasitic drag a full nose-down attitude
+// removes, letting a dive accelerate faster than gravity-along-γ alone would. Lower = leans on the
+// real energy loop (gravity trades height for speed) instead of faking punch by deleting drag.
+// Was a hardcoded 0.9, which was pure fakery — it terminal'd dives at 3–4× Vne (a DEAD-STICK dive
+// hit 4× cruise). Measured down to 0.2 with scripts/dive-tune.mjs: a committed dive still redlines
+// at Vne (real gravity does it) and a dead-stick dive still builds ~1.3× cruise, but the redline is
+// now reached by committing pitch, not by deleting the airframe's drag. Dive ONSET acceleration is
+// unchanged (it's gravity, not this term). Per-type override via p.diveShed if an airframe wants more.
+const DIVE_SHED = 0.2;
 const GROUND_EFFECT_FT = 26;      // AGL band (~a wingspan) where the wing rides a lift cushion → float + flare to land (kept close to the deck so the cushion doesn't arrest the sink a whole wingspan up and float her down the runway)
 const HELI_GROUND_EFFECT_FT = 40; // AGL band (~a rotor diameter) where the downwash piles into a lift cushion → soft settle onto the skids
 
@@ -547,13 +556,14 @@ export function step(state, input, p, dt) {
   // wins and ANY dive accelerates hard past cruise — regardless of power, not just a dead-stick
   // glide. Ramps in with how far the nose is below the horizon and is gone the instant you level
   // out (pitch → 0), so powered level flight, cruise and top speed stay untouched.
-  const diveClean = s.pitch < 0 ? clamp(-s.pitch / 11, 0, 1) : 0;   // ramps in FAST — nose down and she cleans up and accelerates hard (full by ~11° down)
+  const diveClean = s.pitch < 0 ? clamp(-s.pitch / 11, 0, 1) : 0;   // ramps in with how far the nose is below the horizon (full by ~11° down)
+  const diveShed = p.diveShed ?? DIVE_SHED;   // how much parasitic drag a dive sheds (feel knob; low = real gravity carries the dive)
   // Gear drag: extended RETRACTABLE gear hangs into the airstream and bleeds speed (∝ V²), a real
   // penalty for cruising with the wheels down. Scaled as a fraction of the airframe's own parasitic
   // drag (per-type via gearDragFrac, default 0.35) so it's proportioned to each craft. `input.gear`
   // is the extended fraction (0 = up, 1 = down); fixed-gear craft pass 0 (drag already in dragP).
   const gearExt = clamp(input.gear || 0, 0, 1);
-  const drag = (p.dragP + flaps * p.flapDrag * 0.0022) * s.airspeed * s.airspeed * (1 - 0.9 * diveClean)  // parasitic drag ∝ V² (almost all shed in a dive → gravity wins and speed builds quickly). Flap drag term raised so extending flaps bleeds speed decisively on final — you can get slow for the touchdown zone instead of floating past it (overshoot)
+  const drag = (p.dragP + flaps * p.flapDrag * 0.0022) * s.airspeed * s.airspeed * (1 - diveShed * diveClean)  // parasitic drag ∝ V² (a dive sheds `diveShed` of it → gravity-along-γ does the rest of the work). Flap drag term raised so extending flaps bleeds speed decisively on final — you can get slow for the touchdown zone instead of floating past it (overshoot)
              + gearExt * (p.gearDragFrac ?? 0.35) * p.dragP * s.airspeed * s.airspeed                     // gear-down parasitic drag (retractable craft only)
              + Math.max(0, s.aoa) ** 2 * 0.0016 * s.airspeed                    // profile-drag rise with a hard PULL only — a nose-down push (negative AoA) doesn't load the wing, so it never penalises a dive
              + (p.glideDrag || 0) * Math.max(0, 1 - s.rpm / 0.4) * (weight * weight) / (s.airspeed * s.airspeed + 40);   // DEAD-STICK induced drag (∝ 1/V²): engages only as the powerplant winds down toward idle (rpm below ~0.4), full at a stopped/windmilling engine. It penalises the SLOW end of a glide, so best-glide sits at a sensible speed with a realistic ratio instead of floating forever just above the stall — and because it's gated to low rpm it leaves ALL powered cruise/climb untouched. Per-type; unset ⇒ 0 (legacy floaty glide).
