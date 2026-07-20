@@ -152,6 +152,22 @@ export default async function regress({ run, check, getPlayer }) {
     const inst = _test.spawnFoe(ec, foeRoom);
     check('an encounter spawns a real enemy into the room',
       !!inst && !!getEnemyInstance(inst.instanceId) && getZone(foeRoom).enemies.has(inst.instanceId) && ec.enemies.has(inst.instanceId), `inst=${inst?.instanceId}`);
+    // The pack scales to the party (capped): solo→1, 4→2, big party→MAX.
+    const set = (n) => ({ members: new Set(Array.from({ length: n }, (_, i) => `m${i}`)) });
+    check('the encounter pack scales to the party, capped',
+      _test.foesFor(set(1)) === 1 && _test.foesFor(set(4)) === 2 && _test.foesFor(set(20)) === _test.MAX_VOID_FOES,
+      `1→${_test.foesFor(set(1))} 4→${_test.foesFor(set(4))} 20→${_test.foesFor(set(20))}`);
+    // Hard nodes: seeded (a minority of rooms), and spawn one past the cap.
+    const hs = Array.from({ length: 60 }, (_, i) => _test.isHardNode('region_coldwater', 5, `probe${i}`));
+    check('hard nodes are a seeded minority of rooms',
+      hs.some(Boolean) && hs.some(x => !x) && hs.filter(Boolean).length < 30, `hard=${hs.filter(Boolean).length}/60`);
+    check('the hard-foe roster loads (tougher tier)', _test.hardFoePool().length > 0, `hard=${_test.hardFoePool().length}`);
+    const hardRoom = [...ec.roomSet].filter(id => id !== ec.entry && id !== foeRoom)[0];
+    getZone(hardRoom).flags.void_hard = true;
+    _test.spawnFoe(ec, hardRoom);
+    check('a hard node spawns one past the party cap',
+      getZone(hardRoom).enemies.size === _test.foesFor(ec) + 1,
+      `${getZone(hardRoom).enemies.size} vs ${_test.foesFor(ec) + 1}`);
     _test.teardownInstance(ec);
     check('tearing down an instance despawns its foes', !getEnemyInstance(inst.instanceId) && !_test.crossings.has(ec.id),
       `enemyGone=${!getEnemyInstance(inst?.instanceId)} instanceGone=${!_test.crossings.has(ec.id)}`);

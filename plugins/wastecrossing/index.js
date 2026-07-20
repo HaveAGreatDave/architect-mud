@@ -168,20 +168,33 @@ function mkDetour(id, voidKey, window, salt, spineRoomId) {
 // ── Encounters (Slice 2) ──────────────────────────────────────────────────────
 const ENCOUNTER_CHANCE = 0.45;
 const DETOUR_ENCOUNTER_CHANCE = 0.7;
+const HARD_ENCOUNTER_CHANCE = 0.85;  // a seeded hard node reliably bites
+const HARD_NODE_CHANCE = 0.22;       // ~1 in 5 spine/limb rooms this window is a hard node
 const VOID_FOE_IDS = [
   'enemy_ash_crawler', 'enemy_bloated_mutant', 'enemy_rad_mutant', 'enemy_feral_dog',
   'enemy_wire_jackal', 'enemy_gutter_hound', 'enemy_scav', 'enemy_scrap_picker',
   'enemy_sprawl_ganger', 'enemy_slag_wretch', 'enemy_slag_wight',
 ];
+// The deep-waste menaces — a clear tier above the normal roster (100–130 HP vs a
+// 65-HP top-end rad mutant). A hard node fields one of these on top of its pack.
+const VOID_HARD_FOE_IDS = ['enemy_arbiterclass_enforcement_unit', 'enemy_redline_horror'];
 let FOE_POOL = [];
+let HARD_FOE_POOL = [];
 let ENCOUNTERS_ON = true; // regress flips this off so movement tests stay deterministic
 
 async function loadFoes() {
   try {
-    const { rows } = await query('SELECT * FROM enemies WHERE id = ANY($1)', [VOID_FOE_IDS]);
-    FOE_POOL = rows;
+    const { rows } = await query('SELECT * FROM enemies WHERE id = ANY($1)', [[...VOID_FOE_IDS, ...VOID_HARD_FOE_IDS]]);
+    const hard = new Set(VOID_HARD_FOE_IDS);
+    FOE_POOL = rows.filter(r => !hard.has(r.id));
+    HARD_FOE_POOL = rows.filter(r => hard.has(r.id));
   } catch (e) { console.error('[wastecrossing] loadFoes:', e.message); }
   return FOE_POOL;
+}
+// A room is a hard node if its seed says so — deterministic per (void, window, salt),
+// so everyone this window meets the same rough stretches (and a scrawl warns the next).
+function isHardNode(voidKey, window, salt) {
+  return mulberry32(hashSeed(`${voidKey}|${window}|${salt}|hard`))() < HARD_NODE_CHANCE;
 }
 const ENCOUNTER_LINES = [
   'Something detaches from the haze and comes at you —',
@@ -189,16 +202,41 @@ const ENCOUNTER_LINES = [
   'Grit scatters as it breaks cover —',
   'You are not alone out here. It was waiting —',
 ];
+const HARD_ENCOUNTER_LINES = [
+  'The ground itself seems to give something up —',
+  "This is the kind of place people don't walk out of —",
+  'Whatever owns this stretch of waste steps into the open —',
+];
+const MAX_VOID_FOES = 4; // a pack this size is plenty — keeps a big party from a slog
+// Scale the pack to the party crossing together: solo/duo → 1, then +1 per pair,
+// capped. Sized to the whole crossing, not who's in the room this instant, so
+// splitting up costs you the numbers instead of thinning every ambush.
+function foesFor(c) {
+  return Math.max(1, Math.min(MAX_VOID_FOES, Math.ceil((c.members?.size || 1) / 2)));
+}
 function spawnFoe(c, roomId) {
   if (!FOE_POOL.length) return null;
   const zone = getZone(roomId);
-  if (!zone || zone.enemies.size > 0) return null;
-  const template = FOE_POOL[Math.floor(Math.random() * FOE_POOL.length)];
-  const inst = spawnEnemySync(template, roomId);
-  c.enemies.add(inst.instanceId);
-  const line = ENCOUNTER_LINES[Math.floor(Math.random() * ENCOUNTER_LINES.length)];
-  sendToZone(roomId, { type: 'zone_event', message: `${line} <b>${inst.name}</b>.`, refresh: true });
-  return inst;
+  if (!zone || zone.enemies.size > 0) return null; // one pack per room — the first arrival spawns it
+  const hard = !!zone.flags?.void_hard;
+  const n = foesFor(c) + (hard ? 1 : 0); // a hard node pushes the pack one past the cap
+  const spawned = [];
+  for (let i = 0; i < n; i++) {
+    // At a hard node the pack is led by a tougher foe (if the hard roster loaded);
+    // the rest are the usual waste vermin.
+    const pool = (hard && i === 0 && HARD_FOE_POOL.length) ? HARD_FOE_POOL : FOE_POOL;
+    const template = pool[Math.floor(Math.random() * pool.length)];
+    const inst = spawnEnemySync(template, roomId);
+    c.enemies.add(inst.instanceId);
+    spawned.push(inst);
+  }
+  if (!spawned.length) return null;
+  const lines = hard ? HARD_ENCOUNTER_LINES : ENCOUNTER_LINES;
+  const line = lines[Math.floor(Math.random() * lines.length)];
+  const names = spawned.map(s => `<b>${s.name}</b>`);
+  const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+  sendToZone(roomId, { type: 'zone_event', message: `${line} ${list}.`, refresh: true });
+  return spawned[0];
 }
 // The dead are your map: show any scrawls/corpses left at this room this window.
 function showTraces(actor, c, roomId) {
@@ -234,14 +272,16 @@ function ensureInstance(instanceId, voidKey, window, origin) {
   const vdef = VOIDS[voidKey];
   const originZone = getZone(origin);
   const roomSet = new Set(), detourSet = new Set(), destSet = new Set();
+  const hardFlags = (salt) => isHardNode(voidKey, window, salt) ? { void_hard: true } : {};
 
-  // Shared trunk (linear). t0 exits back to the real origin tile.
+  // Shared trunk (linear). t0 exits back to the real origin tile. The threshold
+  // room (t0) is never a hard node — it's a beat to breathe.
   const trunkLen = Math.max(1, vdef.trunk);
   const trunkId = (i) => `${instanceId}_t${i}`;
   for (let i = 0; i < trunkLen; i++) {
     const exits = { north: i === 0 ? origin : trunkId(i - 1) };
     if (i < trunkLen - 1) exits.south = trunkId(i + 1); // fork's forward exits added below
-    registerTransientZone(mkRoom(trunkId(i), voidKey, window, `t${i}`, exits));
+    registerTransientZone(mkRoom(trunkId(i), voidKey, window, `t${i}`, exits, i >= 1 ? hardFlags(`t${i}`) : {}));
     roomSet.add(trunkId(i));
   }
   const fork = trunkId(trunkLen - 1);
@@ -258,7 +298,7 @@ function ensureInstance(instanceId, voidKey, window, origin) {
       // deeper rooms use north(back)/south(forward).
       exits[i === 0 ? OPPOSITE[d.dir] : 'north'] = i === 0 ? fork : limbId(i - 1);
       exits.south = i === limbLen - 1 ? d.dest : limbId(i + 1);
-      registerTransientZone(mkRoom(limbId(i), voidKey, window, `${d.key}${i}`, exits));
+      registerTransientZone(mkRoom(limbId(i), voidKey, window, `${d.key}${i}`, exits, hardFlags(`${d.key}${i}`)));
       roomSet.add(limbId(i));
     }
     getZone(fork).exits[d.dir] = limbId(0); // fork → this limb
@@ -564,7 +604,9 @@ on('zone.entered', ({ actor, zone }) => {
     if (!c) { delete actor._crossing; return; }
     if (c.roomSet.has(zone)) { // a crossing room (trunk / limb / detour)
       showTraces(actor, c, zone);
-      maybeEncounter(actor, c, zone, c.detourSet.has(zone) ? DETOUR_ENCOUNTER_CHANCE : ENCOUNTER_CHANCE);
+      const chance = getZone(zone)?.flags?.void_hard ? HARD_ENCOUNTER_CHANCE
+        : c.detourSet.has(zone) ? DETOUR_ENCOUNTER_CHANCE : ENCOUNTER_CHANCE;
+      maybeEncounter(actor, c, zone, chance);
       return; // crossing_room is RAM (player.current_zone); flushed lazily on logout, not per step
     }
     leaveCrossing(actor, zone); // left the void (arrived at a region, or bailed)
@@ -759,7 +801,7 @@ export const hooks = {
 
 export const _test = {
   crossings, VOIDS, totalLength, TILES_PER_ROOM, MIN_ROOMS, MAX_ROOMS,
-  loadFoes, spawnFoe, teardownInstance, LOOT, bigScoreSalt, handleDeath: onVoidDeath, frontierView, markSurvived,
+  loadFoes, spawnFoe, foesFor, MAX_VOID_FOES, isHardNode, hardFoePool: () => HARD_FOE_POOL, teardownInstance, LOOT, bigScoreSalt, handleDeath: onVoidDeath, frontierView, markSurvived,
   stagings, playerStaging,
   foePool: () => FOE_POOL,
   setEncounters: (on) => { ENCOUNTERS_ON = on; },
