@@ -507,22 +507,39 @@ export function crossingInnerHtml(nodes, current) {
     else if (isVoid(t)) branches.push({ dir, kind: 'divert' });
   }
 
+  // A short label rides beside each meaningful node so the trail reads at a glance —
+  // which way is back, where you stand, what's ahead — instead of a column of bare dots.
+  const lbl = (t) => `<span class="mm-x-lbl">${t}</span>`;
   let rows = '';
+  // Top cue: the vertical axis points BACK the way you came (north), so mark it.
+  if (behind.length) rows += `<div class="mm-x-row mm-x-cue"><span class="mm-x-node">↑</span>${lbl('the way back')}</div>`;
   for (const b of behind.slice().reverse())
     rows += `<div class="mm-x-row mm-x-walked" title="${escapeHtml(b.name || 'the waste')}"><span class="mm-x-node">●</span></div>`;
   const ticks = branches.map(br =>
     `<span class="mm-x-branch mm-x-${br.kind}" title="${br.dir}: ${br.kind === 'gamble' ? 'a risk-for-loot detour' : 'divert toward another region'}">${br.kind === 'gamble' ? '?' : '⋔'}</span>`
   ).join('');
-  rows += `<div class="mm-x-row mm-x-you" title="${escapeHtml(current.name || 'the void')}"><span class="mm-x-node mm-x-here">◎</span>${ticks}</div>`;
-  if (ahead === 'gate') rows += `<div class="mm-x-row mm-x-gate" title="the far gate"><span class="mm-x-node">⌂</span></div>`;
-  else if (ahead === 'fog') rows += `<div class="mm-x-row mm-x-fog"><span class="mm-x-node">⋯</span></div>`;
-  else if (ahead === 'dead') rows += `<div class="mm-x-row mm-x-dead" title="a dead end"><span class="mm-x-node">▚</span></div>`;
+  rows += `<div class="mm-x-row mm-x-you" title="${escapeHtml(current.name || 'the void')}">${lbl('you')}<span class="mm-x-node mm-x-here">◎</span>${ticks}</div>`;
+  if (ahead === 'gate') rows += `<div class="mm-x-row mm-x-gate" title="the far gate"><span class="mm-x-node">⌂</span>${lbl('the gate')}</div>`;
+  else if (ahead === 'fog') rows += `<div class="mm-x-row mm-x-fog"><span class="mm-x-node">⋯</span>${lbl('onward')}</div>`;
+  else if (ahead === 'dead') rows += `<div class="mm-x-row mm-x-dead" title="a dead end"><span class="mm-x-node">▚</span>${lbl('dead end')}</div>`;
 
   const foot = current.void_detour ? 'a dead-end gamble'
     : ahead === 'gate' ? 'the far gate is close'
     : behind.length ? 'the waste goes on' : 'you strike out';
+  // Spell out the branch ticks (⋔ / ?) only when there are any — otherwise they're cryptic.
+  const legendBits = [];
+  if (branches.some(b => b.kind === 'divert')) legendBits.push('⋔ another way');
+  if (branches.some(b => b.kind === 'gamble')) legendBits.push('? risk-for-loot');
+  const legend = legendBits.length ? `<div class="mm-x-legend">${legendBits.join(' · ')}</div>` : '';
   return `<div class="mm-x-cap">◈ THE VOID</div>`
-    + `<div class="mm-x-trail">${rows}</div><div class="mm-x-foot">${foot}</div>`;
+    + `<div class="mm-x-trail">${rows}</div><div class="mm-x-foot">${foot}</div>${legend}`;
+}
+
+// Whether the player is currently out on a void crossing (the last minimap payload
+// put them in a void_crossing room). Cheap read of the cached nodes — the tablet
+// home grid uses it to make the Frontier app glow while you're mid-journey.
+export function isOnCrossing() {
+  return !!_lastMinimapNodes?.find(n => n.is_current)?.void_crossing;
 }
 
 function renderCrossing(nodes, current, direction) {

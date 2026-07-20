@@ -2186,6 +2186,16 @@ body.fsim-external #look-resize-handle { display: none; }
 .mm-x-divert { color: var(--cyan); }
 .mm-x-gamble { color: var(--yellow); }
 .mm-x-foot { font-size: 0.56em; letter-spacing: 0.06em; color: var(--text-dim); font-style: italic; opacity: 0.85; margin-top: 0.1em; }
+/* Node captions: absolutely placed beside the centred trail so the dots stay aligned.
+   Default sits to the right; "you" sits to the left (branch ticks take its right side). */
+.mm-x-lbl { position: absolute; top: 50%; left: calc(50% + 0.85em); transform: translateY(-50%);
+	white-space: nowrap; font-size: 0.5em; letter-spacing: 0.03em; color: var(--text-dim); opacity: 0.85; pointer-events: none; }
+.mm-x-you .mm-x-lbl { left: auto; right: calc(50% + 0.85em); color: var(--accent); opacity: 0.95; }
+.mm-x-gate .mm-x-lbl { color: var(--green); }
+.mm-x-dead .mm-x-lbl { color: var(--red); }
+.mm-x-cue { opacity: 0.7; }
+.mm-x-cue .mm-x-node { font-size: 0.7em; color: var(--text-dim); }
+.mm-x-legend { font-size: 0.5em; letter-spacing: 0.04em; color: var(--text-dim); opacity: 0.8; margin-top: 0.15em; }
 .mm-room {
 	position: relative;
 	font-weight: bold;

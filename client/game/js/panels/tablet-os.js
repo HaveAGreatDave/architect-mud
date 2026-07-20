@@ -16,7 +16,7 @@
 // (Tablet has no proactive multi-client push to patch against).
 import { sfx, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays } from './minigame-common.js';
 import { sendCmdSilent } from '../net.js';
-import { toggleAutoWalk, isAutoWalking, isRunning, onRunStateChange, setGpsRoute, routeBetween, getTracePath, setMapOpener, FUNC_LEGEND, POI_LEGEND, isWorldWaterVoid, districtCoord, WATER_VOID_FILL, crossingInnerHtml } from './minimap.js';
+import { toggleAutoWalk, isAutoWalking, isRunning, onRunStateChange, setGpsRoute, routeBetween, getTracePath, setMapOpener, FUNC_LEGEND, POI_LEGEND, isWorldWaterVoid, districtCoord, WATER_VOID_FILL, crossingInnerHtml, isOnCrossing } from './minimap.js';
 import { state } from '../state.js';
 import { loadSettings, saveSettings, applySettings, openThemeEditor, probeBuiltinThemeColors, DARK_THEMES, LIGHT_THEMES, DEFAULT_AUDIO_SETTINGS } from '/shared/settings.js';
 import { getChatTabs, getChatMessages, sendChatMessage, markChatRead, onChatUpdate, getOnlinePlayers, refreshOnlinePlayers, ensureChatConversation, leaveChatConversation, removeCorpChannels, getClosedChatTabs, reopenChatTab, getMotdHtml } from './whisper.js';
@@ -343,6 +343,13 @@ function ensureStyles() {
     /* Two-tone: primary uses currentColor (theme fg); the .dim parts pick up a muted derived tone. */
     #tablet-os-overlay .tos-tile .tos-icon svg .dim { color:var(--tos-fg-dim2); }
     #tablet-os-overlay .tos-tile .tos-name { font-size:11px; letter-spacing:.5px; color:var(--tos-fg); }
+    /* Journey glow — the Frontier tile pulses in the accent while you're out on a
+       void crossing (renderHomeApps adds .tos-tile-glow). currentColor drives the SVG. */
+    #tablet-os-overlay .tos-tile-glow .tos-icon { color:var(--mg-accent);
+      filter:drop-shadow(0 0 5px color-mix(in srgb, var(--mg-accent) 70%, transparent)); animation:tos-tile-glow-pulse 1.8s ease-in-out infinite; }
+    #tablet-os-overlay .tos-tile-glow .tos-name { color:var(--mg-accent); }
+    @keyframes tos-tile-glow-pulse { 0%,100%{opacity:1} 50%{opacity:.55} }
+    [data-motion="off"] #tablet-os-overlay .tos-tile-glow .tos-icon { animation:none; }
     /* Arcade tile icon: the circled-"A" ARCHITECT logo — the same mark as the
        tablet's boot screen (.tos-boot-logo), sized to the tile icon slot. */
     #tablet-os-overlay .tos-tile .tos-icon .tos-ic-a { width:22px; height:22px; border-radius:50%; box-sizing:border-box;
@@ -1687,6 +1694,16 @@ const TOS_APP_ICONS = {
   // Calendar = a wall-calendar sheet: torn-off binding tabs, a header band, and a
   // grid of day cells, monochrome like the rest so it drops the off-palette 📅 emoji.
   calendar: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path d="M8 2v3M16 2v3"/><rect x="3.5" y="5" width="17" height="16" rx="1.5"/><path class="dim" d="M3.5 9h17V6.5A1.5 1.5 0 0 0 19 5H5A1.5 1.5 0 0 0 3.5 6.5z" fill="currentColor" fill-opacity=".28" stroke="none"/><path d="M3.5 9h17"/><path d="M7.5 12.5h3M13.5 12.5h3M7.5 16.5h3M13.5 16.5h3"/></svg>`,
+  // Map = a folded paper map (two creased panels), monochrome like the rest so it
+  // drops the off-palette 🗺 emoji.
+  map: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z" fill="currentColor" fill-opacity=".18" stroke="none"/><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/></svg>`,
+  // Frontier = a compass rose: a ringed dial with a canted needle, the void-travel
+  // wayfinding motif (drops the 🧭 emoji; glows via .tos-tile-glow while mid-journey).
+  frontier: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><circle class="dim" cx="12" cy="12" r="9" fill="currentColor" fill-opacity=".14" stroke="none"/><circle cx="12" cy="12" r="9"/><path class="dim" d="M15 5l-7 3-3 7 7-3z" fill="currentColor" fill-opacity=".28" stroke="none"/><path d="M15 5l-7 3-3 7 7-3z"/><circle cx="12" cy="12" r=".9" fill="currentColor" stroke="none"/></svg>`,
+  // Crafting = a wrench, distinct from the Settings cog (which shares the ⚙ emoji).
+  crafting: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M14.6 5.4a4 4 0 0 0-5.2 5.2l-6 6 3 3 6-6a4 4 0 0 0 5.2-5.2l-2.6 2.6-2.6-.4-.4-2.6z" fill="currentColor" fill-opacity=".2" stroke="none"/><path d="M14.6 5.4a4 4 0 0 0-5.2 5.2l-6 6 3 3 6-6a4 4 0 0 0 5.2-5.2l-2.6 2.6-2.6-.4-.4-2.6z"/></svg>`,
+  // Party = two figures, monochrome like the rest so it drops the 👥 emoji.
+  party: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><circle cx="9" cy="8" r="3"/><path class="dim" d="M3.5 20a5.5 5.5 0 0 1 11 0z" fill="currentColor" fill-opacity=".22" stroke="none"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><circle cx="16.5" cy="8.5" r="2.5"/><path d="M14.6 15.2A5 5 0 0 1 21 20"/></svg>`,
 };
 
 // Client-only tablet apps — appended to the server-registered roster. Unlike the
@@ -1742,6 +1759,7 @@ function renderHomeApps(apps) {
   const hidden = new Set(loadHiddenApps());
   const all = applyAppOrder([...(apps || []), ...CLIENT_APPS]).filter(a => !hidden.has(a.id));
   if (!all.length && !hidden.size) return '<div class="tos-empty">No applications registered.</div>';
+  const onJourney = isOnCrossing(); // Frontier glows while you're out on a crossing
   const tiles = all.map(a => {
     const svg = TOS_APP_ICONS[a.id];
     const icon = svg ? svg : esc(a.icon || '▫');
@@ -1749,7 +1767,8 @@ function renderHomeApps(apps) {
     // red badge on the tile.
     const n = Number(a.notify) || 0;
     const badge = n > 0 ? `<span class="tos-tile-badge">${n > 9 ? '9+' : n}</span>` : '';
-    return `<div class="tos-tile" data-nav-app="${esc(a.id)}">${badge}<span class="tos-icon">${icon}</span><span class="tos-name">${esc(a.name)}</span></div>`;
+    const glow = (a.id === 'frontier' && onJourney) ? ' tos-tile-glow' : '';
+    return `<div class="tos-tile${glow}" data-nav-app="${esc(a.id)}">${badge}<span class="tos-icon">${icon}</span><span class="tos-name">${esc(a.name)}</span></div>`;
   }).join('');
   // The ⊕ tile — always last, opens the "add removed apps" sheet. Excluded from the
   // drag-reorder / drag-off machinery (it isn't a real app).

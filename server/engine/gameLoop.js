@@ -1,4 +1,5 @@
-import { world, tickSpawns, getRandomAmbient, getWeatherAmbient, getLivePlayer, getInterruptLoudness, registerInterrupt, createCorpse, removeCorpse, tryBattleCry, setApartmentCache, hasActivePlayers, resolveLanding } from './world.js';
+import { world, tickSpawns, getRandomAmbient, getWeatherAmbient, getLivePlayer, getInterruptLoudness, registerInterrupt, createCorpse, removeCorpse, tryBattleCry, setApartmentCache, hasActivePlayers, resolveLanding, getZone } from './world.js';
+import { districtFor } from './districts.js';
 import { randomUUID } from 'crypto';
 import { propagateSound } from './sounds.js';
 import { enemyAttackPlayer, enemyAttackNpc, npcAttackPlayer, isOnCooldown, pvpSwing, formatBattleCry, getPlayerCombat } from './combat.js';
@@ -335,15 +336,34 @@ async function tick() {
   }
 }
 
+// The wilds: wasteland-flavored districts (mirrors OUTSIDE_CITY_DISTRICTS in
+// commands/movement.js) plus any transient void-crossing room. Used by the minute
+// tick to trickle radiation onto anyone out past the city grid.
+const WILDS_DISTRICTS = new Set(['wasteland', 'slaglands', 'ashway', 'hazard']);
+function inWilds(player) {
+  const z = getZone(player.current_zone);
+  if (!z) return false;
+  if (z.flags?.void_crossing) return true; // mid-journey, off the grid
+  return WILDS_DISTRICTS.has(districtFor(z).key);
+}
+
 async function minuteTickFn() {
   minuteTick++;
   await fireHook('tick.minute', { broadcast: broadcastFn });
   emit('tick.minute', { broadcast: broadcastFn });
 
   for (const [playerId, player] of world.players) {
-    // Radiation decay: -1 per minute naturally, -2 per minute while hydrated
-    // (water "slightly accelerates radiation removal," per design).
-    if ((player.radiation || 0) > 0) {
+    // Out in the wilds (the wasteland-flavored districts) or mid-void-crossing, the
+    // waste slowly irradiates you — a gentle +1 every 10 minutes — and the normal
+    // wash-out is suspended (nothing out here scrubs the rad off). Back in the city,
+    // radiation decays as usual: -1/min, -2/min while hydrated.
+    if (inWilds(player)) {
+      if (minuteTick % 10 === 0 && (player.radiation || 0) < 100) {
+        player.radiation = Math.min(100, (player.radiation || 0) + 1);
+        await query('UPDATE players SET radiation=$1 WHERE id=$2', [player.radiation, playerId]);
+        broadcastFn(null, { type:'player_update', radiation: player.radiation }, null, playerId);
+      }
+    } else if ((player.radiation || 0) > 0) {
       const hydrated = player.hydratedUntil && Date.now() < player.hydratedUntil;
       const decay = hydrated ? 2 : 1;
       player.radiation = Math.max(0, player.radiation - decay);
