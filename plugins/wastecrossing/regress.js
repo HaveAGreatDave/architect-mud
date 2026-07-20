@@ -2,7 +2,7 @@
 // Drives the real configured route using SYNTHETIC gate + destination zones, so
 // it doesn't depend on (possibly uncommitted) world content being loaded.
 import { world, getZone, isTransientZone, setLivePlayer, removeLivePlayer,
-  addPlayerToZone, removePlayerFromZone } from '../../server/engine/world.js';
+  addPlayerToZone, removePlayerFromZone, getEnemyInstance } from '../../server/engine/world.js';
 import { ROUTES, _test } from './index.js';
 
 const ROUTE_KEY = 'reach';
@@ -36,6 +36,7 @@ export default async function regress({ run, check, getPlayer }) {
     delete player._crossing;
   };
 
+  _test.setEncounters(false); // keep the movement/traversal tests deterministic (no random spawns)
   try {
     // ── Solo entry via `venture` ───────────────────────────────────────────────
     player.current_zone = GATE; player._lastStepAt = 0;
@@ -112,7 +113,25 @@ export default async function regress({ run, check, getPlayer }) {
       removePlayerFromZone(CHAR, charlie.current_zone); removeLivePlayer(CHAR);
       wipe();
     }
+
+    // ── Encounters: a real foe spawns and is cleaned up on teardown ────────────
+    await _test.loadFoes();
+    check('the void foe roster loads from the enemies table', _test.foePool().length > 0, `foes=${_test.foePool().length}`);
+    player.current_zone = GATE; player._lastStepAt = 0;
+    await run('venture');
+    const ec = _test.crossings.get(player._crossing.instanceId);
+    const foeRoom = ec.roomIds[1];
+    const inst = _test.spawnFoe(ec, foeRoom);
+    check('an encounter spawns a real enemy into the room',
+      !!inst && !!getEnemyInstance(inst.instanceId) && getZone(foeRoom).enemies.has(inst.instanceId) && ec.enemies.has(inst.instanceId),
+      `inst=${inst?.instanceId}`);
+    check('a room already holding a foe does not stack another', _test.spawnFoe(ec, foeRoom) === null, 'stacked');
+    _test.teardownInstance(ec);
+    check('tearing down an instance despawns its foes', !getEnemyInstance(inst.instanceId) && !_test.crossings.has(ec.id),
+      `enemyGone=${!getEnemyInstance(inst?.instanceId)} instanceGone=${!_test.crossings.has(ec.id)}`);
+    delete player._crossing;
   } finally {
+    _test.setEncounters(true);
     if (hadGate) world.zones.set(GATE, hadGate); else world.zones.delete(GATE);
     if (hadDest) world.zones.set(dest, hadDest); else world.zones.delete(dest);
     player.current_zone = savedZone;

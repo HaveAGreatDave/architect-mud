@@ -197,7 +197,17 @@ The full bestiary, rolled per step:
 - **Desperate scavengers** — other broke crossers gone feral; might trade, might rob. Sometimes a
   resupply, sometimes a knife.
 - **The void itself** — environmental set-pieces as "encounters": sinkholes, chem pools, a collapsed
-  overpass, a turret-ghost still tracking.
+  overpass, a turret-ghost still tracking. *(Not yet built — creature encounters are.)*
+
+**BUILT (Slice 2, branch `void-travel`):** on **first arrival** at a non-threshold room a **live roll**
+(`ENCOUNTER_CHANCE 0.45`) spawns a **real enemy** from the void roster (`spawnEnemySync` → the normal
+combat/AI systems take over — actual fights, real loot on the corpse). The roster is a curated pool of
+committed wasteland foes (ash crawlers, rad/bloated mutants, feral dogs, wire jackals, scavengers,
+scrap pickers, sprawl gangers, slag wretches), loaded once from the `enemies` table at boot; live-rolled
+per step (private/fresh over the shared geometry — "same map, different war"). The crossing
+reference-counts what it spawned and **despawns on teardown** (no foe leaks into a torn-down instance);
+a room already holding an enemy never stacks another. Environmental "the void itself" hazards + the
+retreat-re-rolls-hot rule are still pending. Regress 1283/1283.
 
 ### Death and the trace it leaves
 

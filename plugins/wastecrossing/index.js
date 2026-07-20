@@ -38,9 +38,9 @@
 //     not per step. A same-session reconnect needs nothing (rooms still in RAM).
 
 import { getLivePlayer, getAllLivePlayers, getZone, getMinimapData, addPlayerToZone, removePlayerFromZone,
-  registerTransientZone, removeTransientZone } from '../../server/engine/world.js';
+  registerTransientZone, removeTransientZone, spawnEnemySync, removeEnemyInstance, getZoneEnemies } from '../../server/engine/world.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
-import { sendToPlayer } from '../../server/engine/messaging.js';
+import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { on } from '../../server/engine/events.js';
 import { getFlag, setFlag, clearFlag } from '../../server/engine/flags.js';
 import { query } from '../../server/models/db.js';
@@ -80,6 +80,64 @@ function crossingLength(route, originZone, destZone) {
   const d = gridDist(originZone, destZone);
   if (d == null) return DEFAULT_ROOMS;
   return Math.max(MIN_ROOMS, Math.min(MAX_ROOMS, Math.round(d / TILES_PER_ROOM)));
+}
+
+// ── Encounters (Slice 2) ──────────────────────────────────────────────────────
+// The waste hunts you. On first arrival at a room (not the threshold) a LIVE roll
+// may spawn a real enemy from the void roster — the design's "encounters roll live
+// per party per step" (private + fresh, over the shared geometry). It's real
+// combat: spawnEnemySync drops the foe in the room and the normal combat/AI systems
+// take over; the crossing reference-counts what it spawned and despawns it on
+// teardown so nothing leaks into a torn-down instance.
+const ENCOUNTER_CHANCE = 0.45;
+const VOID_FOE_IDS = [
+  'enemy_ash_crawler', 'enemy_bloated_mutant', 'enemy_rad_mutant', 'enemy_feral_dog',
+  'enemy_wire_jackal', 'enemy_gutter_hound', 'enemy_scav', 'enemy_scrap_picker',
+  'enemy_sprawl_ganger', 'enemy_slag_wretch', 'enemy_slag_wight',
+];
+let FOE_POOL = [];
+let ENCOUNTERS_ON = true; // regress flips this off so movement tests stay deterministic
+
+async function loadFoes() {
+  try {
+    const { rows } = await query('SELECT * FROM enemies WHERE id = ANY($1)', [VOID_FOE_IDS]);
+    FOE_POOL = rows;
+  } catch (e) { console.error('[wastecrossing] loadFoes:', e.message); }
+  return FOE_POOL;
+}
+
+const ENCOUNTER_LINES = [
+  'Something detaches from the haze and comes at you —',
+  'A shape you took for a rock uncoils and charges —',
+  'Grit scatters as it breaks cover —',
+  'You are not alone out here. It was waiting —',
+];
+
+// Spawn one foe into a room (bypasses the roll — the deterministic core). Skips if
+// the pool is empty or the room already holds an enemy (no stacking).
+function spawnFoe(c, roomId) {
+  if (!FOE_POOL.length) return null;
+  const zone = getZone(roomId);
+  if (!zone || zone.enemies.size > 0) return null;
+  const template = FOE_POOL[Math.floor(Math.random() * FOE_POOL.length)];
+  const inst = spawnEnemySync(template, roomId);
+  c.enemies.add(inst.instanceId);
+  const line = ENCOUNTER_LINES[Math.floor(Math.random() * ENCOUNTER_LINES.length)];
+  sendToZone(roomId, { type: 'zone_event', message: `${line} <b>${inst.name}</b>.`, refresh: true });
+  return inst;
+}
+
+// The per-step gate: first arrival at a non-threshold room, live roll, spawn.
+function maybeEncounter(actor, c, node, roomId) {
+  if (!ENCOUNTERS_ON) return;
+  const live = actor._crossing;
+  if (!live) return;
+  if (!live.seen) live.seen = new Set();
+  if (live.seen.has(node)) return; // only the first time you reach a room
+  live.seen.add(node);
+  if (node === 0) return;           // the threshold room is a beat to breathe
+  if (Math.random() >= ENCOUNTER_CHANCE) return;
+  spawnFoe(c, roomId);
 }
 
 // A tile is a void gate if flags.void_gate names a known route. flags.void_dir
@@ -149,12 +207,13 @@ function ensureInstance(instanceId, key, window, origin) {
   const roomIds = [];
   for (let node = 0; node < length; node++)
     roomIds.push(registerTransientZone(roomFor(instanceId, key, route, window, node, origin, length)).id);
-  c = { id: instanceId, key, roomIds, origin, dest: route.dest, heading: route.heading, window, length, members: new Set() };
+  c = { id: instanceId, key, roomIds, origin, dest: route.dest, heading: route.heading, window, length, members: new Set(), enemies: new Set() };
   crossings.set(instanceId, c);
   return c;
 }
 
 function teardownInstance(c) {
+  for (const eid of c.enemies) removeEnemyInstance(eid); // despawn any spawned foes (no-op if already killed)
   for (const id of c.roomIds) removeTransientZone(id);
   crossings.delete(c.id);
 }
@@ -168,7 +227,7 @@ async function enterMember(m, c, first, origin) {
   removePlayerFromZone(m.id, m.current_zone);
   addPlayerToZone(m.id, first.id);
   m.current_zone = first.id;
-  m._crossing = { instanceId: c.id, node: 0 };
+  m._crossing = { instanceId: c.id, node: 0, seen: new Set([0]) };
   c.members.add(m.id);
   await query('UPDATE players SET current_zone=$1 WHERE id=$2', [first.id, m.id]).catch(() => {});
   await setFlag('player', 'crossing_route', c.key, m);
@@ -250,7 +309,7 @@ on('zone.entered', ({ actor, zone }) => {
     const c = crossings.get(live.instanceId);
     if (!c) { delete actor._crossing; return; }
     const idx = c.roomIds.indexOf(zone);
-    if (idx >= 0) { live.node = idx; return; } // RAM only — node is flushed on logout, not per step
+    if (idx >= 0) { live.node = idx; maybeEncounter(actor, c, idx, zone); return; } // node RAM-only (flushed on logout); the waste may be waiting
     leaveCrossing(actor, zone === c.dest);
   } catch (e) { console.error('[wastecrossing] zone.entered error:', e.message); }
 });
@@ -287,7 +346,7 @@ on('player.login', async ({ id }) => {
     removePlayerFromZone(player.id, player.current_zone);
     addPlayerToZone(player.id, room.id);
     player.current_zone = room.id;
-    player._crossing = { instanceId, node };
+    player._crossing = { instanceId, node, seen: new Set([node]) };
     c.members.add(player.id);
     await query('UPDATE players SET current_zone=$1 WHERE id=$2', [room.id, player.id]).catch(() => {});
 
@@ -309,6 +368,13 @@ export const hooks = {
   'movement.edge': onMovementEdge,
 };
 
-export const _test = { crossings, ROUTES, crossingLength, TILES_PER_ROOM, MIN_ROOMS, MAX_ROOMS };
+export const _test = {
+  crossings, ROUTES, crossingLength, TILES_PER_ROOM, MIN_ROOMS, MAX_ROOMS,
+  loadFoes, spawnFoe, teardownInstance,
+  foePool: () => FOE_POOL,
+  setEncounters: (on) => { ENCOUNTERS_ON = on; },
+};
+
+loadFoes(); // warm the void roster from the enemies table (one boot query)
 
 console.log('[wastecrossing] Plugin loaded.');
