@@ -419,7 +419,7 @@ export const SCHEMA_SQL = `
     created_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
   );
 
-  -- Void ghost-traces (wastecrossing plugin): scrawled 4-letter notes + corpses
+  -- Void ghost-traces (voidwalking plugin): scrawled 4-letter notes + corpses
   -- left by prior crossers, keyed by (void_key, window, room_salt) so they're
   -- shared across every private instance that window. Runtime play data — never
   -- authored, never shipped; purged as windows rotate.

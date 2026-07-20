@@ -36,7 +36,7 @@ export async function loadWindow(voidKey, window) {
       salts.get(r.room_salt).push(r);
     }
     query('DELETE FROM void_traces WHERE window_id < $1', [window - 1]).catch(() => {}); // purge as windows rotate
-  } catch (e) { console.error('[wastecrossing/traces] loadWindow:', e.message); }
+  } catch (e) { console.error('[voidwalking/traces] loadWindow:', e.message); }
 }
 
 // All traces at a room this window (served from RAM; 0 DB round trips).
@@ -58,7 +58,7 @@ export async function addTrace(voidKey, window, salt, kind, handle, note, pack =
       [voidKey, window, salt, kind, trace.handle, trace.note, pack ? JSON.stringify(pack) : null]
     );
     trace.id = rows?.[0]?.id ?? null; // so it can be claimed later
-  } catch (e) { console.error('[wastecrossing/traces] addTrace:', e.message); }
+  } catch (e) { console.error('[voidwalking/traces] addTrace:', e.message); }
   return trace;
 }
 

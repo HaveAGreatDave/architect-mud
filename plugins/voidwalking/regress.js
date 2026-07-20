@@ -36,14 +36,14 @@ export default async function regress({ run, check, getPlayer }) {
   };
 
   _test.setEncounters(false); // keep movement/traversal tests deterministic
-  // Solo helper: journey opens the muster, then `ready` (all ready → launch).
-  const launch = async () => { await run('journey'); return run('ready'); };
+  // Solo helper: voidwalk opens the muster, then `ready` (all ready → launch).
+  const launch = async () => { await run('voidwalk'); return run('ready'); };
   try {
-    // ── The muster: journey opens staging; ready launches ──────────────────────
+    // ── The muster: voidwalk opens staging; ready launches ──────────────────────
     player.current_zone = GATE; player._lastStepAt = 0;
-    const stage = await run('journey');
-    check('journey opens the muster overlay instead of launching',
-      stage?.type === 'journey_staging' && !player._crossing, `${stage?.type} crossing=${!!player._crossing}`);
+    const stage = await run('voidwalk');
+    check('voidwalk opens the muster overlay instead of launching',
+      stage?.type === 'voidwalk_staging' && !player._crossing, `${stage?.type} crossing=${!!player._crossing}`);
     check('the muster carries kit + party + lore', Array.isArray(stage?.inventory) && Array.isArray(stage?.party) && !!stage?.lore && stage?.solo === true, `party=${stage?.party?.length}`);
     await run('ready'); // solo → all ready → launch
     const c = _test.crossings.get(player._crossing?.instanceId);
@@ -82,7 +82,7 @@ export default async function regress({ run, check, getPlayer }) {
     // ── Walk off the map (movement.edge hook) → opens the muster ──────────────
     player.current_zone = GATE; player._lastStepAt = 0;
     const walked = await run('south'); // no south exit → edge hook opens the muster
-    check('walking off the edge opens the muster', walked?.type === 'journey_staging' && !player._crossing, `${walked?.type}`);
+    check('walking off the edge opens the muster', walked?.type === 'voidwalk_staging' && !player._crossing, `${walked?.type}`);
     await run('ready');
     check('readying from the walk-off muster launches the crossing',
       !!player._crossing && player.current_zone === _test.crossings.get(player._crossing.instanceId).entry, `zone=${player.current_zone}`);
@@ -90,8 +90,8 @@ export default async function regress({ run, check, getPlayer }) {
     // Any unexited edge of a void-region opens the muster (not just one direction).
     player.current_zone = GATE; player._lastStepAt = 0;
     const north = await run('north'); // GATE has no north exit either → still the void
-    check('any edge of a void-region opens the muster', north?.type === 'journey_staging' && !player._crossing, `${north?.type}`);
-    await run('journey cancel'); // close the muster before the next case
+    check('any edge of a void-region opens the muster', north?.type === 'voidwalk_staging' && !player._crossing, `${north?.type}`);
+    await run('voidwalk cancel'); // close the muster before the next case
     // Off the map in a NON-void region is a plain wall.
     player.current_zone = NONVOID; player._lastStepAt = 0;
     const wall = await run('north');
@@ -131,11 +131,11 @@ export default async function regress({ run, check, getPlayer }) {
     setLivePlayer(BOB, bob); addPlayerToZone(BOB, GATE);
     try {
       player.current_zone = GATE; player._lastStepAt = 0;
-      await run('journey'); // musters leader + Bob (Bob follows, co-present)
+      await run('voidwalk'); // musters leader + Bob (Bob follows, co-present)
       check('the muster stages the whole party', _test.stagings.get(_test.playerStaging.get(player.id))?.members.length === 2, JSON.stringify([..._test.stagings.values()].map(s => s.members)));
-      await run('journey say hold up'); // leader posts to the private party comms
+      await run('voidwalk say hold up'); // leader posts to the private party comms
       const pstg = _test.stagings.get(_test.playerStaging.get(player.id));
-      check('journey say posts a line to the muster comms, tagged to the sender',
+      check('voidwalk say posts a line to the muster comms, tagged to the sender',
         pstg?.chat?.length === 1 && pstg.chat[0].pid === player.id && pstg.chat[0].message === 'hold up', JSON.stringify(pstg?.chat));
       await run('ready'); // leader readies — party still holding on Bob
       check('a party muster holds until ALL are ready', !player._crossing, `crossing=${!!player._crossing}`);

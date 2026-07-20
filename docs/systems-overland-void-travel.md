@@ -129,7 +129,7 @@ only version where the *destination* is part of the unknowable void the communit
 
 **BUILT (branch `void-travel`):** a void is now a **`VOIDS[regionId] = { trunk, dests[] }`** graph owned
 by a region — a shared **trunk** (config room count) that forks toward each destination in that dest's `dir`
-(n/s/e/w), then a distance-derived **limb** per region down to its real edge tile. `journey [heading]`
+(n/s/e/w), then a distance-derived **limb** per region down to its real edge tile. `voidwalk [heading]`
 takes an optional declared heading (flavor/telegraph); the fork itself is the real choice — hold your
 heading down one limb, or **divert** down another to a different region. Detours hang off shared-trunk
 rooms. Persist `crossing_room` (the current room id) not a node index — the deterministic graph
@@ -277,7 +277,7 @@ hand-holding.
 keyed by `flags.region_id` — `VOIDS` is indexed by region (`region_coldwater`), not a bespoke per-tile
 flag. Two ways in, one code path: **walk off the map** — moving in *any* direction with no authored exit
 off a tile in a void-region fires the generic engine hook **`movement.edge`** (added in `cmdMove`'s
-no-exit branch), which the plugin answers by opening the muster; or the explicit **`journey [heading]`**
+no-exit branch), which the plugin answers by opening the muster; or the explicit **`voidwalk [heading]`**
 verb from *anywhere* in the region. The whole perimeter of a region is porous to the void — there is no
 special gate tile. (The earlier `flags.void_gate` / `flags.void_dir` per-tile model was retired: no zone
 ever actually carried it, and the South Gate is a plain `checkpoint`, not the void entry.) The
@@ -553,7 +553,7 @@ Two consequences worth stating:
 This is the part that does **not** exist yet. It's bounded, but real — a new plugin plus a movement
 seam.
 
-1. **The crossing generator** (`plugins/wastecrossing/` or similar) — a deterministic
+1. **The crossing generator** (`plugins/voidwalking/` or similar) — a deterministic
    `roomFor(voidOrigin, window, node)` producing terrain, rad, rest-site/loot flags, and the **braided
    multi-destination branch graph** (shared trunk out of a region, limbs diverging toward each adjacent
    destination); plus a live `rollEncounter(salt, node, now)`. Memoized once per `(voidOrigin, window)`

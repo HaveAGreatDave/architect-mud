@@ -8,7 +8,7 @@
 // Two ways in, one code path (launchCrossing):
 //   • Walk off the map — moving in any direction with no authored exit off a tile
 //     in a void-region fires the engine's `movement.edge` hook.
-//   • `journey [heading]` — the explicit verb, from anywhere in a void-region.
+//   • `voidwalk [heading]` — the explicit verb, from anywhere in a void-region.
 //
 // THE BRAID: a void off a gate is a SHARED TRUNK that forks toward MULTIPLE
 // destinations. You walk the trunk (identical for everyone this window), reach the
@@ -55,7 +55,7 @@ const VOID_MAP = 'map_void'; // non-map_world → flag/map-filtered world iterat
 
 // ── Voids (the region adjacency graph — keyed by region) ──────────────────────
 // A void is owned by a whole REGION, keyed by flags.region_id. From anywhere in that
-// region you can `journey`, and walking off the region's map edge (any direction with
+// region you can `voidwalk`, and walking off the region's map edge (any direction with
 // no authored exit) fires the same crossing. A void has a shared `trunk` (room count
 // before the fork) and `dests` — the adjacent regions it forks toward. Each dest
 // carries the fork-exit `dir` (n/s/e/w) that leads to its limb, and an optional
@@ -188,7 +188,7 @@ async function loadFoes() {
     const hard = new Set(VOID_HARD_FOE_IDS);
     FOE_POOL = rows.filter(r => !hard.has(r.id));
     HARD_FOE_POOL = rows.filter(r => hard.has(r.id));
-  } catch (e) { console.error('[wastecrossing] loadFoes:', e.message); }
+  } catch (e) { console.error('[voidwalking] loadFoes:', e.message); }
   return FOE_POOL;
 }
 // A room is a hard node if its seed says so — deterministic per (void, window, salt),
@@ -397,7 +397,7 @@ async function launchCrossing(leader, gate, broadcast, heading) {
 }
 
 // ── The muster (staging + ready-up) ───────────────────────────────────────────
-// `journey` (or walking off the edge) doesn't launch immediately — it opens a
+// `voidwalk` (or walking off the edge) doesn't launch immediately — it opens a
 // Tablet-OS staging window: your kit, your party, some lore for the road, and a
 // ready-check. Everyone in the cohort must `ready` before the crossing launches.
 const stagings = new Map();      // stagingId -> { id, leaderId, gate, heading, members:[pid], ready:Set }
@@ -419,7 +419,7 @@ async function stagingInventory(pid) {
 async function buildStagingPanel(player, staging) {
   const vdef = VOIDS[staging.gate];
   return {
-    type: 'journey_staging',
+    type: 'voidwalk_staging',
     region: vdef?.origin || 'the frontier',
     dests: (vdef?.dests || []).map(d => d.heading),
     heading: staging.heading || null,
@@ -447,7 +447,7 @@ function stagingChat(player, text) {
   if (staging.chat.length > 50) staging.chat.shift();
   const leader = player.id === staging.leaderId;
   for (const id of staging.members)
-    sendToPlayer(id, { type: 'journey_staging_chat', line: { handle: player.handle, message, leader, you: id === player.id } });
+    sendToPlayer(id, { type: 'voidwalk_staging_chat', line: { handle: player.handle, message, leader, you: id === player.id } });
   return undefined;
 }
 async function openStaging(leader, gate, heading, broadcast) {
@@ -462,7 +462,7 @@ async function openStaging(leader, gate, heading, broadcast) {
   return buildStagingPanel(leader, staging);
 }
 function closeStaging(staging) {
-  for (const id of staging.members) { playerStaging.delete(id); sendToPlayer(id, { type: 'journey_staging', close: true }); }
+  for (const id of staging.members) { playerStaging.delete(id); sendToPlayer(id, { type: 'voidwalk_staging', close: true }); }
   stagings.delete(staging.id);
 }
 function cancelStaging(player) {
@@ -489,7 +489,7 @@ async function cmdReady(args, raw, player, broadcast) {
   return buildStagingPanel(player, staging);
 }
 
-async function cmdJourney(args, raw, player, broadcast) {
+async function cmdVoidwalk(args, raw, player, broadcast) {
   const sub = (args[0] || '').toLowerCase();
   if (sub === 'cancel') return cancelStaging(player);
   if (sub === 'say') return stagingChat(player, args.slice(1).join(' '));
@@ -549,7 +549,7 @@ async function cmdFrontier(args, raw, player, broadcast) {
   if (!gate) return { type: 'emote', message: 'You see no way to strike out into the waste from here — this is not a frontier region. (Your charted routes are on the Tablet Frontier map.)' };
   await discoverRoutes(player, gate.key);
   const dests = gate.void.dests.map(d => `<b>${d.heading}</b>`).join(', ');
-  return { type: 'output', message: `You read the waste from the edge. Somewhere out there, past the wind, the trail splits toward: ${dests}. (journey, or just walk off the edge — and pray the fork reads true.)` };
+  return { type: 'output', message: `You read the waste from the edge. Somewhere out there, past the wind, the trail splits toward: ${dests}. (voidwalk, or just walk off the edge — and pray the fork reads true.)` };
 }
 
 // ── `scrawl` — leave a four-letter mark for whoever comes next ─────────────────
@@ -593,7 +593,7 @@ registerMoveGate(({ player, from, direction }) => {
   if (direction !== 'south') return; // only the advancing exit is barred; retreat/detour stay open
   if (getZoneEnemies(from.id).length === 0) return;
   return { block: true, message: 'It plants itself between you and the way on — no getting past it until it is down.' };
-}, 'wastecrossing');
+}, 'voidwalking');
 
 // ── Node tracking + teardown + encounters (every move) ────────────────────────
 on('zone.entered', ({ actor, zone }) => {
@@ -610,7 +610,7 @@ on('zone.entered', ({ actor, zone }) => {
       return; // crossing_room is RAM (player.current_zone); flushed lazily on logout, not per step
     }
     leaveCrossing(actor, zone); // left the void (arrived at a region, or bailed)
-  } catch (e) { console.error('[wastecrossing] zone.entered error:', e.message); }
+  } catch (e) { console.error('[voidwalking] zone.entered error:', e.message); }
 });
 
 // ── RAM reclaim on a clean disconnect (crossing_room already persisted per move) ─
@@ -625,7 +625,7 @@ on('player.logout', ({ id }) => {
     const c = crossings.get(live.instanceId);
     delete player._crossing;
     if (c) { c.members.delete(id); if (c.members.size === 0) teardownInstance(c); }
-  } catch (e) { console.error('[wastecrossing] player.logout error:', e.message); }
+  } catch (e) { console.error('[voidwalking] player.logout error:', e.message); }
 });
 
 // ── `salvage` — scavenge a room (Slice 5) ─────────────────────────────────────
@@ -682,7 +682,7 @@ async function captureCorpsePack(playerId, deathZone) {
     await query('DELETE FROM player_inventory WHERE player_id=$1', [corpseId]).catch(() => {});
     await query('DELETE FROM player_corpses WHERE id=$1', [corpseId]).catch(() => {});
     return ids;
-  } catch (e) { console.error('[wastecrossing] captureCorpsePack:', e.message); return []; }
+  } catch (e) { console.error('[voidwalking] captureCorpsePack:', e.message); return []; }
 }
 
 async function cmdSift(args, raw, player, broadcast) {
@@ -748,7 +748,7 @@ async function onVoidDeath({ player, deathZone, cause }) {
     delete player._crossing;
     clearCrossingFlags(player).catch(() => {});
     if (c) { c.members.delete(player.id); if (c.members.size === 0) teardownInstance(c); }
-  } catch (e) { console.error('[wastecrossing] player.death error:', e.message); }
+  } catch (e) { console.error('[voidwalking] player.death error:', e.message); }
 }
 on('player.death', onVoidDeath);
 
@@ -784,11 +784,11 @@ on('player.login', async ({ id }) => {
       zone: room.id,
       minimap: getMinimapData(room.id, 8, player),
     });
-  } catch (e) { console.error('[wastecrossing] player.login error:', e.message); }
+  } catch (e) { console.error('[voidwalking] player.login error:', e.message); }
 });
 
 export const commands = {
-  journey: cmdJourney,
+  voidwalk: cmdVoidwalk,
   ready: cmdReady,
   scrawl: cmdScrawl,
   sift: cmdSift,
@@ -810,4 +810,4 @@ export const _test = {
 
 loadFoes(); // warm the void roster from the enemies table (one boot query)
 
-console.log('[wastecrossing] Plugin loaded.');
+console.log('[voidwalking] Plugin loaded.');

@@ -1,0 +1,7 @@
+{
+  "name": "voidwalking",
+  "version": "0.1.0",
+  "description": "Void-travel: strike out from any tile in a void-region (keyed by `flags.region_id`) — by walking off the region's map edge (movement.edge hook) or the `voidwalk [heading]` verb — into a generated BRAID of transient waste rooms (shared trunk forking toward multiple regions, risk-for-loot detours, live enemy encounters) and cross it on foot. Rooms are synthetic (non-DB) zones via the transient-zone substrate; a party shares one instance (via follow); relog-safe through crossing_* player_flags.",
+  "commands": ["voidwalk", "ready", "scrawl", "sift", "frontier"],
+  "hooks": ["movement.edge"]
+}

@@ -1,12 +1,12 @@
 // Tablet OS — Frontier app. The abstract topology of the void-travel frontier:
 // the regions and void-routes you've CHARTED (seen a gate) or SURVIVED (crossed).
 // Fogged — what you haven't seen isn't on it. Reads frontierView from the
-// wastecrossing plugin (which owns the discovery state), same as corp-app fronts
+// voidwalking plugin (which owns the discovery state), same as corp-app fronts
 // corps. You can't draw the void to scale, so this is a topology list, not the grid.
 import { registerTabletApp } from './registry.js';
 
 async function buildScreen(player) {
-  const { frontierView } = await import('../wastecrossing/index.js');
+  const { frontierView } = await import('../voidwalking/index.js');
   const regions = await frontierView(player);
   const origins = Object.entries(regions);
 

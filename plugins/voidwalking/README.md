@@ -1,11 +1,11 @@
-# wastecrossing
+# voidwalking
 
 Void-travel **Slice 1 (walking skeleton)** — on-foot travel between regions across
 the generated "void." Full design: [docs/systems-overland-void-travel.md](../../docs/systems-overland-void-travel.md).
 
 ## Purpose
 
-Regions are islands with no authored corridor between them. `journey` from a
+Regions are islands with no authored corridor between them. `voidwalk` from a
 perimeter gate and this plugin generates a **linear chain of transient rooms** —
 synthetic zones that live in the world store without a DB row (via the
 `registerTransientZone` substrate in `server/engine/world.js`) — that you walk
@@ -34,7 +34,7 @@ encounters, parties, ghost-traces, or frontier map yet — those are later slice
 
 ## Commands
 
-- `journey` — strike out from a perimeter gate into the waste toward the region it
+- `voidwalk` — strike out from a perimeter gate into the waste toward the region it
   leads to. No-op anywhere that isn't a configured gate; refused while already
   crossing.
 
