@@ -16,10 +16,14 @@
     "building_name": "Halloran's Fix-It",
     "building_type": "fabrication",
     "district": "residential",
+    "entrance": "south",
+    "facade": true,
+    "is_building": true,
     "planner": "bp_district",
     "region_id": "region_coldwater",
     "street_life": true,
-    "terrain": "grass"
+    "terrain": "grass",
+    "world_exit_zone": "zone_district_924_913"
   },
   "grid_x": 924,
   "grid_y": 912,
