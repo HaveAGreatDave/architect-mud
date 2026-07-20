@@ -14,7 +14,7 @@
     "west": "zone_the_reach_870_1954"
   },
   "flags": {
-    "building_name": "Power Substation",
+    "building_name": "The Dynamo",
     "building_type": "power",
     "entrance": "south",
     "facade": true,
@@ -24,13 +24,13 @@
     "region_id": "region_the_reach",
     "world_exit_zone": "zone_the_reach_871_1953"
   },
-  "grid_x": 898,
-  "grid_y": 1171,
+  "grid_x": 911,
+  "grid_y": 982,
   "grid_z": 0,
   "id": "zone_the_reach_871_1954",
   "map_id": "map_world",
   "marker": null,
   "name": "The Dynamo",
   "parent_zone": null,
-  "updated_at": "1784516450"
+  "updated_at": "1784533788"
 }

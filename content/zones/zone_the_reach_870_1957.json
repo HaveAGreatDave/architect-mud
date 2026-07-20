@@ -27,15 +27,15 @@
     "lawless": true,
     "planner": "world_editor",
     "region_id": "region_the_reach",
-    "terrain": "asphalt"
+    "terrain": "dirt"
   },
-  "grid_x": 897,
-  "grid_y": 1174,
+  "grid_x": 910,
+  "grid_y": 985,
   "grid_z": 0,
   "id": "zone_the_reach_870_1957",
   "map_id": "map_world",
   "marker": null,
   "name": "The Reach 870,1957",
   "parent_zone": null,
-  "updated_at": "1784511292"
+  "updated_at": "1784537903"
 }

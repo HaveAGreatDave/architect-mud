@@ -14,7 +14,7 @@
     "west": "zone_the_reach_872_1954"
   },
   "flags": {
-    "building_name": "Residence",
+    "building_name": "The Layover",
     "building_type": "residential",
     "entrance": "south",
     "facade": true,
@@ -24,13 +24,13 @@
     "region_id": "region_the_reach",
     "world_exit_zone": "zone_the_reach_873_1953"
   },
-  "grid_x": 900,
-  "grid_y": 1171,
+  "grid_x": 913,
+  "grid_y": 982,
   "grid_z": 0,
   "id": "zone_the_reach_873_1954",
   "map_id": "map_world",
   "marker": null,
   "name": "The Layover",
   "parent_zone": null,
-  "updated_at": "1784517512"
+  "updated_at": "1784533788"
 }

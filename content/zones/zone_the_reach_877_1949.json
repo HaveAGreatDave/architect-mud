@@ -29,13 +29,13 @@
     "region_id": "region_the_reach",
     "terrain": "scrub"
   },
-  "grid_x": 904,
-  "grid_y": 1166,
+  "grid_x": 917,
+  "grid_y": 977,
   "grid_z": 0,
   "id": "zone_the_reach_877_1949",
   "map_id": "map_world",
   "marker": null,
   "name": "The Reach 877,1949",
   "parent_zone": null,
-  "updated_at": "1784511290"
+  "updated_at": "1784533789"
 }
