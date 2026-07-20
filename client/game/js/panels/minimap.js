@@ -470,8 +470,11 @@ function setMinimapCrossing(on) {
 const backDirOf = (n) => (n.void_detour ? 'east' : 'north');
 const fwdDirOf = (n) => (n.void_detour ? null : 'south');
 
-function renderCrossing(nodes, current, direction) {
-  setMinimapCrossing(true);
+// The trail's inner markup (cap → walked → you → ahead → foot), from the minimap
+// nodes. Pure + exported so the tablet Map app renders the identical "journey map"
+// off the grid (tablet-os.js renderJourneyMap) — one source of truth for the void
+// chart, mirroring how the minimap and tablet map share the city tiles.
+export function crossingInnerHtml(nodes, current) {
   const byId = new Map(nodes.map(n => [n.id, n]));
   const isVoid = (n) => !!(n && n.void_crossing);
 
@@ -518,8 +521,13 @@ function renderCrossing(nodes, current, direction) {
   const foot = current.void_detour ? 'a dead-end gamble'
     : ahead === 'gate' ? 'the far gate is close'
     : behind.length ? 'the waste goes on' : 'you strike out';
-  const html = `<div class="mm-crossing"><div class="mm-x-cap">◈ THE VOID</div>`
-    + `<div class="mm-x-trail">${rows}</div><div class="mm-x-foot">${foot}</div></div>`;
+  return `<div class="mm-x-cap">◈ THE VOID</div>`
+    + `<div class="mm-x-trail">${rows}</div><div class="mm-x-foot">${foot}</div>`;
+}
+
+function renderCrossing(nodes, current, direction) {
+  setMinimapCrossing(true);
+  const html = `<div class="mm-crossing">${crossingInnerHtml(nodes, current)}</div>`;
 
   applyMinimapZoom();
   for (const id of ['minimap-grid', 'minimap-grid-hud', 'minimap-grid-mob']) {

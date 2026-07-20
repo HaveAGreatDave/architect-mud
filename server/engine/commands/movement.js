@@ -859,6 +859,14 @@ export function buildMapPayload(player, arg = '') {
   if (!current) return { mode:'zone', tiles: [], insideInterior: false, zoomLevel: 0, maxZoom: MAP_ZOOM_MAX };
   const inside = isInteriorZone(current);
   arg = String(arg || '').toLowerCase();
+
+  // Off the grid — a void-crossing room isn't on any world map, so the normal city
+  // map has no signal. Every zoom arg collapses to the "journey map": the same trail
+  // chart the minimap draws (getMinimapData nodes), rendered full-screen in the Map
+  // app. Client renderMap keys on mode:'crossing' (renderJourneyMap).
+  if (current.flags?.void_crossing)
+    return { mode: 'crossing', nodes: getMinimapData(current.id, 8, player), insideInterior: false, zoomLevel: 0, maxZoom: 0 };
+
   const owId = overworldTileId(current);
 
   // Interior — the innermost stop; only exists inside a building. Bare `map` while

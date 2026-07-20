@@ -2,7 +2,7 @@
 // Drives the real configured void using SYNTHETIC gate + destination zones, so it
 // doesn't depend on (possibly uncommitted) world content being loaded.
 import { world, getZone, isTransientZone, setLivePlayer, removeLivePlayer,
-  addPlayerToZone, removePlayerFromZone, getEnemyInstance, getMinimapData } from '../../server/engine/world.js';
+  addPlayerToZone, removePlayerFromZone, getEnemyInstance, removeEnemyInstance, getMinimapData } from '../../server/engine/world.js';
 import { query } from '../../server/models/db.js';
 import { VOIDS, _test, commands } from './index.js';
 import { _test as traces } from './traces.js';
@@ -156,6 +156,22 @@ export default async function regress({ run, check, getPlayer }) {
     check('tearing down an instance despawns its foes', !getEnemyInstance(inst.instanceId) && !_test.crossings.has(ec.id),
       `enemyGone=${!getEnemyInstance(inst?.instanceId)} instanceGone=${!_test.crossings.has(ec.id)}`);
     delete player._crossing;
+
+    // ── Foes bar the way forward: south is sealed until the room is cleared ─────
+    player.current_zone = GATE; player._lastStepAt = 0;
+    await launch();
+    const gk = _test.crossings.get(player._crossing.instanceId);
+    player.current_zone = gk.entry; player._lastStepAt = 0;
+    const barFoe = _test.spawnFoe(gk, gk.entry);
+    player._lastStepAt = 0;
+    const barred = await run('south');
+    check('a live foe bars the way forward (south) in the void',
+      !!barFoe && player.current_zone === gk.entry, `zone=${player.current_zone} msg=${barred?.message?.slice(0, 40)}`);
+    removeEnemyInstance(barFoe.instanceId); // clear the foe (as a kill would)
+    player._lastStepAt = 0;
+    await run('south');
+    check('clearing the foe opens the way forward again', player.current_zone !== gk.entry, `zone=${player.current_zone}`);
+    wipe();
 
     // ── Ghost-traces (Slice 3): scrawls + corpses, cached per (void, window) ──
     player.current_zone = GATE; player._lastStepAt = 0;

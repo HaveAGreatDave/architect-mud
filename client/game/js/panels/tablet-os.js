@@ -16,7 +16,7 @@
 // (Tablet has no proactive multi-client push to patch against).
 import { sfx, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays } from './minigame-common.js';
 import { sendCmdSilent } from '../net.js';
-import { toggleAutoWalk, isAutoWalking, isRunning, onRunStateChange, setGpsRoute, routeBetween, getTracePath, setMapOpener, FUNC_LEGEND, POI_LEGEND, isWorldWaterVoid, districtCoord, WATER_VOID_FILL } from './minimap.js';
+import { toggleAutoWalk, isAutoWalking, isRunning, onRunStateChange, setGpsRoute, routeBetween, getTracePath, setMapOpener, FUNC_LEGEND, POI_LEGEND, isWorldWaterVoid, districtCoord, WATER_VOID_FILL, crossingInnerHtml } from './minimap.js';
 import { state } from '../state.js';
 import { loadSettings, saveSettings, applySettings, openThemeEditor, probeBuiltinThemeColors, DARK_THEMES, LIGHT_THEMES, DEFAULT_AUDIO_SETTINGS } from '/shared/settings.js';
 import { getChatTabs, getChatMessages, sendChatMessage, markChatRead, onChatUpdate, getOnlinePlayers, refreshOnlinePlayers, ensureChatConversation, leaveChatConversation, removeCorpChannels, getClosedChatTabs, reopenChatTab, getMotdHtml } from './whisper.js';
@@ -1114,6 +1114,15 @@ function ensureStyles() {
       background:radial-gradient(closest-side, rgba(0,0,0,.55), rgba(0,0,0,.15)); pointer-events:none; z-index:2; }
     #tablet-os-overlay .tos-map-tile .mt-you { position:absolute; top:0; right:2px; font-size:9px; color:var(--mg-accent); text-shadow:0 0 4px #000; }
     #tablet-os-overlay .tos-map-tile .mt-dest { position:absolute; top:0; left:2px; font-size:9px; color:#ffcf4a; text-shadow:0 0 4px #000; }
+    /* Journey map — the void trail chart shown in place of the city map when off the
+       grid. Reuses the shared .mm-x-* trail markup (crossingInnerHtml), scaled up. */
+    #tablet-os-overlay .tos-journey { display:flex; flex-direction:column; align-items:center; gap:14px; padding:24px 12px; text-align:center; }
+    #tablet-os-overlay .tos-journey-nosig { font-size:12px; letter-spacing:3px; color:var(--red); opacity:.85;
+      text-shadow:0 0 8px color-mix(in srgb, var(--red) 45%, transparent); animation:tos-nosig-flicker 2.4s steps(1) infinite; }
+    @keyframes tos-nosig-flicker { 0%,92%,100%{opacity:.85} 94%{opacity:.3} 96%{opacity:.85} 98%{opacity:.4} }
+    [data-motion="off"] #tablet-os-overlay .tos-journey-nosig { animation:none; }
+    #tablet-os-overlay .tos-journey-trail { font-size:26px; padding:6px 0; }
+    #tablet-os-overlay .tos-journey-hint { font-size:12px; font-style:italic; color:var(--tos-fg-dim); max-width:22em; }
     /* Tileable terrain: drop the border/rounding so water & parkland read as one
        expanse, and lay a subtle connecting texture (one period per tile). Fill colour
        is set inline (grey asphalt for roads, authored blue/green for water/grass). */
@@ -2746,7 +2755,22 @@ function renderIdeology(d, crumb) {
   return `<div class="tos-ideo-root"><div class="tos-ideo-sticky">${crumb || ''}${renderIdeoNav(d, _tosIdeoPage)}</div>${body}</div>`;
 }
 
+// Off the grid: the Map app has no city signal out in the void, so it shows the
+// journey map instead — the same trail chart as the minimap, blown up, with a
+// dead-signal banner. Short-circuits the whole tile-map path (no zoom/route rail).
+function renderJourneyMap(d) {
+  const nodes = d.nodes || [];
+  const cur = nodes.find(n => n.is_current);
+  if (!cur) return `<div class="tos-empty">◈ NO SIGNAL — you are off the grid, out in the void.</div>`;
+  return `<div class="tos-journey">
+    <div class="tos-journey-nosig">▚ NO SIGNAL · OFF THE GRID ▚</div>
+    <div class="mm-crossing tos-journey-trail">${crossingInnerHtml(nodes, cur)}</div>
+    <div class="tos-journey-hint">No city map out here. The only way through the void is through it.</div>
+  </div>`;
+}
+
 function renderMap(d) {
+  if (d.mode === 'crossing') return renderJourneyMap(d);
   let tiles = d.tiles || [];
   // Regional: show the whole contiguous landmass (server landmassTiles already scopes
   // it to your cluster), like the full map. We no longer filter to a single land-use

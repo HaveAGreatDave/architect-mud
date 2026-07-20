@@ -36,11 +36,12 @@
 //     instance after a server restart. crossing_room is flushed on player.logout, not
 //     per step. A same-session reconnect needs nothing (rooms still in RAM).
 
-import { getLivePlayer, getAllLivePlayers, getZone, getMinimapData, addPlayerToZone, removePlayerFromZone,
+import { getLivePlayer, getAllLivePlayers, getZone, getZoneEnemies, getMinimapData, addPlayerToZone, removePlayerFromZone,
   registerTransientZone, removeTransientZone, spawnEnemySync, removeEnemyInstance } from '../../server/engine/world.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { on } from '../../server/engine/events.js';
+import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { OPPOSITE } from '../../server/engine/directions.js';
 import { effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
@@ -540,6 +541,19 @@ function leaveCrossing(member, zone) {
   }
   if (c.members.size === 0) teardownInstance(c);
 }
+
+// ── Forward is earned: a live foe out here blocks the way on ──────────────────
+// Encounters aren't optional in the void — you can't stroll past what's stalking you.
+// While an enemy stands in your room, the forward exit (`south`, "deeper", the design's
+// one advancing direction) is sealed; you can still retreat (`north`) or take a detour.
+// Clear the foe (kill it, or it flees) and the way opens.
+registerMoveGate(({ player, from, direction }) => {
+  if (!player?._crossing) return;
+  if (!from?.flags?.void_crossing) return;
+  if (direction !== 'south') return; // only the advancing exit is barred; retreat/detour stay open
+  if (getZoneEnemies(from.id).length === 0) return;
+  return { block: true, message: 'It plants itself between you and the way on — no getting past it until it is down.' };
+}, 'wastecrossing');
 
 // ── Node tracking + teardown + encounters (every move) ────────────────────────
 on('zone.entered', ({ actor, zone }) => {
