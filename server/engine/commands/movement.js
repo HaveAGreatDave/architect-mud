@@ -7,6 +7,7 @@ import { exitTargets, allExits, primaryExits } from '../exits.js';
 import { checkLockAuth, getLockTagPublic } from './doors.js';
 import { lockTypePassesWhileLocked } from '../locks.js';
 import { emit } from '../events.js';
+import { fireHook } from '../plugins.js';
 import { closeShopSession } from '../vendor-session.js';
 import { computeCarriedWeight, carryCapacity, formatWeight } from './inventory.js';
 import { OPPOSITE } from '../directions.js';
@@ -349,6 +350,12 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
     }
   }
   if (!targets.length) {
+    // No authored exit this way — but a plugin may turn a map edge into a
+    // transition (walking off the perimeter into the void-travel waste). Offer
+    // the edge to any handler before reporting a wall; a returned result is the
+    // move outcome. A law never names a system, so this is a generic seam.
+    const edge = await fireHook('movement.edge', { player, zone, direction, broadcast, opts });
+    if (edge) return edge;
     const cardinal = ['north', 'south', 'east', 'west'].includes(direction);
     return { type:'error', message: cardinal ? `No exit to the ${direction}.` : `No exit ${direction}.` };
   }

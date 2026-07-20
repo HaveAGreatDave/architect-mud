@@ -1,6 +1,7 @@
 {
   "name": "wastecrossing",
   "version": "0.1.0",
-  "description": "Void-travel Slice 1 (walking skeleton): `venture` out from a perimeter gate into a generated LINEAR chain of transient waste rooms that deposits you at a distant region on foot. Rooms are synthetic (non-DB) zones via the transient-zone substrate; relog-safe through crossing_* player_flags. No loot/encounters/parties/traces yet.",
-  "commands": ["venture"]
+  "description": "Void-travel Slice 1 (walking skeleton): strike out from a `flags.void_gate` edge tile — by walking off the map (movement.edge hook) or the `venture` verb — into a generated LINEAR chain of transient waste rooms that deposits you at a distant region on foot. Rooms are synthetic (non-DB) zones via the transient-zone substrate; relog-safe through crossing_* player_flags. No loot/encounters/parties/traces yet.",
+  "commands": ["venture"],
+  "hooks": ["movement.edge"]
 }

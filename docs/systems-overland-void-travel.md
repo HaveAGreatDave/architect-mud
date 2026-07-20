@@ -213,6 +213,13 @@ Entering is **passive** — the threshold gives a warning read ("you carry 1 wat
 far") and then **lets you walk in and perish.** No hard supply gate. The player's funeral. Agency over
 hand-holding.
 
+**BUILT (branch `void-travel`):** a tile becomes an entry by carrying `flags.void_gate = <routeKey>`
+(+ optional `flags.void_dir`, default `south`). Two ways in, one code path: **walk off the map** —
+moving the void-direction off that edge with no authored exit fires a new generic engine hook
+**`movement.edge`** (added in `cmdMove`'s no-exit branch), which the plugin answers by launching the
+crossing; or the explicit **`venture`** verb from the same tile. The `movement.edge` seam is a law that
+names no system — any edge-of-map transition can use it.
+
 ---
 
 ## The social layer
