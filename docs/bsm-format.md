@@ -802,3 +802,115 @@ start → IS_BROADCAST_SCHEDULED?
 ## Worked example
 
 See [data/scripts/Tonight_Show.bsm](../data/scripts/Tonight_Show.bsm) — **The Tonight Show with John Akerson** (host `npc_john_akerson`, announcer `npc_graham_mercer`, reusable `npc_guest`, eighteen guest personas each with their own signature-exchange pool, plus `sidekick_aside`/`desk_bit` optional beats). A minimal file needs `@type talkshow`, `@host`, `@guest`, a `::guests` line, and the `monologue` and `interview` (Q&A pairs) pools; add `@sidekick` + `open`/`announce_host`/`signoff` for the full show, and `interview.<tag>` pools to give each guest an on-topic, distinct voice. Import through the dev panel (Broadcast → Import BSM) and pick a channel — the show **auto-schedules to its `@airtime`** (a daily slot on that channel) and staffs the cast automatically, so it airs a fresh, live-acted episode at its broadcast time each night with no manual scheduling.
+
+---
+
+# Morning Shows (`@type morning`)
+
+The line library's **fifth** member, and the talk show's daytime cousin. Where a talk show's
+variable is the night's **guest**, a morning show's variable is the **world**: every segment is
+keyed to something live — the cold open reads the clock and the thermometer, the weather window
+reads the forecast, the Basin Beat reads the news generator, the run-in reads the city's standing
+alerts, and the ticker is *assembled from those facts* rather than authored. Like a talk show it is
+**acted live** on the studio couch by two real `npc_*` hosts, so it presence-gates.
+
+The couch's back-and-forth is the point: every pool is authored as an **exchange pair** —
+`host line >> cohost line`, the same `>>` convention the talk-show interview uses — so the setup and
+the deadpan always travel together no matter which alternative the day draws.
+
+## How it differs from the other library types
+
+| | `weather` | `news` | `talkshow` | `morning` |
+|---|---|---|---|---|
+| State source | live forecast | live news generator | the night's guest persona | **the live world: clock, forecast, news feed, alerts** |
+| Repeatable | re-rolls per day | per refresh bucket | fresh episode per in-game day | **fresh episode per in-game day** |
+| Acted live | yes (weathercaster) | no — names | yes — cast + roaming guest | **yes — two resident hosts** |
+| Airtime | its playlist slot | its playlist slot | `@airtime` block | **its playlist slot** (no separate gate) |
+| Compiler output | `weatherScript` | `newsScript` | `talkshowScript` | `morningScript` |
+
+## Headers
+
+Standard headers (`@broadcast`, `@category`, `@length`) plus:
+
+| Directive | Effect |
+|---|---|
+| `@type morning` | Switches the file to the morning-show line-library format. |
+| `@host npc_am_pace` | The lead host — a real `npc_*` id. Speaks the **left** side of every pair; the `{host}` token. |
+| `@cohost npc_am_dorn` | The second host on the couch — a real `npc_*` id. Speaks the **right** side; the `{cohost}` token. |
+| `@titlecard <graphic_id>` | Graphic shown before the show. Pair with a `::asset` block. |
+| `@theme <song>` | Intro theme; rides the title card when both are present. |
+
+Both hosts are added to `npcIds`, so the importer places them in the studio and the schedule recalc
+staffs them for the show's slot.
+
+## Line pools (`::lines <key>`)
+
+Every pool is a set of interchangeable **`host >> cohost` pairs** (a line with no `>>` is spoken by
+the host alone). Within one show a pool never repeats itself — each key is shuffled into a deck and
+walked — so two stories in a row can't land on the same reaction.
+
+**Cold open:** `open` (reads `{time}`/`{temp}`/`{day}`) · `couch` (small talk, ~60% of mornings)
+**Weather window:** `weather.banner` (the caption strip, `TEXT | SUBTEXT`) · `weather.<type>` — one per weather type (`weather.rain`, `weather.snow`, `weather.ash`, `weather.fog`, …), falling back to `weather` · `weather.severe` (only when the day's `severity ≥ 0.45`) · `weather.ahead` (tomorrow; skipped when the forecast hasn't populated yet)
+**The Basin Beat (live news):** `beat.banner` · `beat.lead` (the host reads `{headline}`) · `beat.detail` (~50%, expands `{body}`/`{byline}`) · `beat.aside` (~40% on the lead story)
+**Rotating segment:** `segment.banner` · `segment` (the recurring bit — the hotplate, the mailbag, whatever the file supplies; ~80% of mornings)
+**Your Morning Run-In (live alerts):** `runin.banner` · `runin.martial_law` · `runin.radiation` · `runin.blackout` (`{outages}`) · `runin.storm` · `runin.clear` — the runner picks **worst-first**, falling back to `runin`
+**Ticker & close:** `ticker.lead` (a plain prefix, not a pair) · `signoff` · `credits` (**not** alternatives — every line is a card of the same roll, so they're joined)
+
+Banner pools are authored as `TEXT | SUBTEXT` and become a `lower_third` overlay. Missing pools skip
+cleanly; `open`, `weather`, `beat.lead` and `signoff` have neutral built-in fallbacks so a thin file
+still airs.
+
+## Tokens
+
+| Token | Value |
+|---|---|
+| `{host}` / `{cohost}` | the two hosts' live names |
+| `{time}` `{day}` `{date}` `{season}` | the in-game clock and calendar |
+| `{temp}` `{feels}` `{weather}` `{wind}` `{windLabel}` `{precip}` | conditions right now |
+| `{hi}` `{lo}` `{tomorrow}` `{tomorrowTemp}` | the week's arc (falls back to today's reading before the forecast populates) |
+| `{headline}` `{body}` `{byline}` | *(Basin Beat pools)* the live story being read |
+| `{outages}` | *(run-in pools)* grid-connected zones currently dark |
+
+## Assembly order
+
+Each in-game day: `title_card` (+`@theme`) → `open` → *(~60%)* `couch` → **weather:** banner →
+`weather.<type>` → *(severe only)* `weather.severe` → *(~70%, forecast permitting)* `weather.ahead` →
+**Basin Beat:** banner → per story ×2: `beat.lead` → *(~50%)* `beat.detail` → *(~40%, lead only)*
+`beat.aside` → *(~80%)* **segment:** banner → `segment` → **run-in:** banner → `runin.<worst alert>` →
+**`ticker`** (assembled: conditions · standing alerts · the headlines that missed the couch) →
+`signoff` → `credits`. Counts and optional beats are **seeded off the day**, so both the content and
+the shape change morning to morning; within a day it's stable, so every TV in the city agrees.
+
+## Compiler & runtime contract (as built)
+
+- `compileBsm(text)` returns the standard envelope **plus** a `morningScript`, leaving
+  `broadcastGraph` minimal (just `start`):
+  ```js
+  morningScript: {
+    host: 'npc_am_pace', cohost: 'npc_am_dorn',   // real npc_ ids — added to npcIds
+    pools: { [key]: [line, …] },                  // ::lines blocks (pairs: 'host >> cohost')
+    title: 'coldwater_am_logo', theme: 'coldwater_am_theme',
+  }
+  ```
+- **Import** ([broadcast.js](../client/devpanel/js/panels/broadcast.js) `_bcImportSave`): saved with
+  `playback_mode = 'morning'`, `loop = 1`, `override_duration = @length`, `morning_pools` = the
+  `morningScript` (`media_broadcasts.morning_pools` JSONB). Both hosts are placed in the studio. No
+  cassette — it's acted live, not a recording. Unlike a talk show it does **not** auto-pin a slot:
+  its airtime is whatever daily playlist slot you give it.
+- **Runner** ([plugins/broadcast/index.js](../plugins/broadcast/index.js)): a `morning` playlist item
+  calls `getMorningGraph(item, nowMs)`, which reads the live forecast + `news.getStories` + the
+  `martial_law`/`nuclear_event` world flags + the power map **once per in-game day**, then
+  `assembleMorningGraph` emits the `npc_anchor`/`say` chain. The graph is stamped `_requireHost`, so
+  no hosts in-studio ⇒ camera-idle → technical difficulties. `recalculateNpcSchedules` staffs the two
+  hosts from `morning_pools` (the stored graph is start-only), and the ordinary daily-slot branch of
+  `IS_BROADCAST_SCHEDULED` puts them on-shift for the slot.
+- **Schema**: `ALTER TABLE media_broadcasts ADD COLUMN IF NOT EXISTS morning_pools JSONB;` in
+  `SCHEMA_SQL`. Apply with `npm run db:schema` before the runner loads.
+
+## Worked example
+
+See [data/scripts/coldwater_am.bsm](../data/scripts/coldwater_am.bsm) — **Coldwater A.M.** on KSAB-TV,
+hosted by Bijou Pace (`npc_am_pace`) and Hal Dorn (`npc_am_dorn`), 27 pools covering seven weather
+types, the Basin Beat, the hotplate segment and five run-in conditions. A minimal file needs
+`@type morning`, `@host`, `@cohost`, and the `open` and `signoff` pools; everything else is
+enrichment.

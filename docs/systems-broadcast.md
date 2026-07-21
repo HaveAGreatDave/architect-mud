@@ -33,7 +33,7 @@ name TEXT
 description TEXT
 category TEXT             — general | news | advertisement | entertainment | emergency | …
 tags JSONB                — []
-playback_mode TEXT        — scripted | dynamic_news | live_camera | recorded | weather | sports | news | talkshow
+playback_mode TEXT        — scripted | dynamic_news | live_camera | recorded | weather | sports | news | talkshow | morning
                             (the runtime branches only on scripted/weather/sports; 'weather'
                             assembles a live forecast graph, 'sports' simulates a DEADBALL
                             baseball game — see Weather & Sports broadcasts below)
@@ -47,6 +47,9 @@ fallback_messages JSONB   — ['[TECHNICAL DIFFICULTIES]…', …] — used when
 channel_id TEXT FK        — channel this broadcast is assigned to (informational, not scheduling)
 weather_pools JSONB       — line pools for 'weather' mode (forecast graph assembly)
 sports_pools JSONB        — line pools for 'sports' mode (play-by-play / announcer)
+news_pools JSONB          — line pools for 'news' mode (bulletin assembly from the live news feed)
+talkshow_pools JSONB      — line pools + guest personas for 'talkshow' mode
+morning_pools JSONB       — line pools + the two hosts for 'morning' mode (world-sourced show assembly)
 created_by TEXT, updated_at
 ```
 
@@ -265,13 +268,14 @@ on('flag.set', …)     → enqueueNews('martial_law', 'EMERGENCY ALERT: …',  
 
 ---
 
-## Live-Assembled Shows (`weather` / `sports` / `news` / `talkshow`)
+## Live-Assembled Shows (`weather` / `sports` / `news` / `talkshow` / `morning`)
 
-Four `playback_mode`s store a **line library** (`::lines` pools) instead of a baked graph, and assemble a fresh VINE graph on each airing rather than replaying stored content. They're authored as `.bsm` files (`@type weather|sports|news|talkshow`) — see [docs/bsm-format.md](bsm-format.md) — and stored in dedicated JSONB columns (`weather_pools` / `sports_pools` / `news_pools` / `talkshow_pools`). `getCurrentMessage` routes each `playback_mode` to its `assemble*Graph()` builder (cached per refresh bucket), then feeds the result to the same `tickBroadcastGraph` walker as any other graph.
+Five `playback_mode`s store a **line library** (`::lines` pools) instead of a baked graph, and assemble a fresh VINE graph on each airing rather than replaying stored content. They're authored as `.bsm` files (`@type weather|sports|news|talkshow|morning`) — see [docs/bsm-format.md](bsm-format.md) — and stored in dedicated JSONB columns (`weather_pools` / `sports_pools` / `news_pools` / `talkshow_pools` / `morning_pools`). `getCurrentMessage` routes each `playback_mode` to its `assemble*Graph()` builder (cached per refresh bucket), then feeds the result to the same `tickBroadcastGraph` walker as any other graph.
 
 - **`weather`** reads the live 7-day forecast; **`sports`** simulates a fresh game; **`news`** pulls from the news generator, which assembles **live → wire → tabloid**: live event-sourced stories, then date-seeded canonical-lore "wire" stories (the Long Watch framed as terrorists, the Ascendants as establishment, the Architect as "the Machine"; fixed outlet bylines like Coldwater Sentinel / Basin Civic Wire), padded with tabloid filler. Their announcers/anchors are **name strings** — no NPC is spawned.
 - **Title-card / theme sync**: when a `news`/`talkshow` script declares both `@title` and `@theme`, the assembler folds the theme onto the `title_card` node (`{ type: 'title_card', theme }`) instead of emitting a separate `music` node after it. The intro song then starts as the card appears and the card holds for the theme's length, so the first anchor/cold-open line doesn't step on the intro. With a theme but no title card, it still plays as a standalone `music` node.
 - **`sports`** is keyed to an absolute airing time-window so a re-simmed same-slot game produces the same `gameId`. While a game airs, the plugin **emits a `sports.game` event every 60s** with payload `{ channelId, gameId, away, home, awayScore, homeScore, winner, endsAtMs }` — consumed by the **sportsbet**, **sportsleague**, and **gossip** plugins (they read `winner`; there is no `result` field). Score-bug and standings overlays ride `tv_overlay`; the World Series takeover pulls standings back through the `sportsleague.getStandings`/`getSeason` actions.
+- **`morning`** is the talk show's daytime cousin — also **acted live**, by two resident host NPCs on the studio couch, but its variable is the WORLD rather than a guest: every segment reads something live (the clock, the forecast, `news.getStories`, the `martial_law`/`nuclear_event` flags, the power map), and the ticker is assembled from those facts rather than authored. Every pool is a `host >> cohost` exchange pair, so the couch's back-and-forth survives the shuffle. Airtime is just its daily playlist slot — no separate gate. See [Morning Shows](bsm-format.md#morning-shows-type-morning).
 - **`talkshow`** is the odd one out: it's **acted live by real cast NPCs**. A resident host + sidekick commute in on schedule, and ONE reusable guest NPC is renamed to a new persona each in-game day, appears in a random unobserved zone, walks across the map to the studio, performs, and vanishes backstage afterward (engine AI actions `TALKSHOW_APPEAR`/`TALKSHOW_HIDE`, plus `talkshowHeartbeat` for the nightly rename). The assembled graph sets `_requireHost`, so it presence-gates on any channel — no cast on-stage ⇒ camera-idle → technical difficulties. See [Talk-Show Broadcasts](bsm-format.md#talk-show-broadcasts-type-talkshow).
 
 ---

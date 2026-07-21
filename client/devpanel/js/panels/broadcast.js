@@ -375,10 +375,11 @@ function _bcCanvasHtml(rec, opts = {}) {
   // Weather + sports + news + talkshow are live-assembled: the runtime builds a fresh
   // graph from the broadcast's line pools every airing, so the stored graph is just the
   // Start node. Say so, or an empty storyboard/VINE reads as broken.
-  const liveAssembled = rec?.playback_mode === 'weather' || rec?.playback_mode === 'sports' || rec?.playback_mode === 'news' || rec?.playback_mode === 'talkshow';
+  const liveAssembled = rec?.playback_mode === 'weather' || rec?.playback_mode === 'sports' || rec?.playback_mode === 'news' || rec?.playback_mode === 'talkshow' || rec?.playback_mode === 'morning';
   const liveAssembledSource = rec?.playback_mode === 'weather' ? 'from the live 7-day forecast'
     : rec?.playback_mode === 'news' ? 'from the live news generator each airing'
     : rec?.playback_mode === 'talkshow' ? 'performed live on the studio stage by the host, sidekick and that night&rsquo;s guest'
+    : rec?.playback_mode === 'morning' ? 'from the live forecast, news feed and world alerts, performed on the studio couch by the two hosts'
     : 'a newly simulated game each airing';
   const liveAssembledEdit = rec?.playback_mode === 'talkshow'
     ? 'edit the <code>::lines</code> pools (and the <code>::guests</code> personas) in its <code>.bsm</code> and re-import'
@@ -1710,7 +1711,7 @@ async function _bcDepFinish() {
   if (_bcDepCompiled) await _bcImportSave(_bcDepCompiled);
 }
 
-async function _bcImportSave({ meta, broadcastGraph, weatherScript, sportsScript, newsScript, talkshowScript, messages, assets, cameras, actorIds, npcIds }) {
+async function _bcImportSave({ meta, broadcastGraph, weatherScript, sportsScript, newsScript, talkshowScript, morningScript, messages, assets, cameras, actorIds, npcIds }) {
   // Apply zone ID remaps to camera_cut nodes (BSM ID → real interior zone ID)
   for (const node of Object.values(broadcastGraph?.nodes || {})) {
     if (node.type === 'camera_cut') {
@@ -1748,14 +1749,18 @@ async function _bcImportSave({ meta, broadcastGraph, weatherScript, sportsScript
   // each night and ACTS it live with real cast NPCs (host + sidekick) plus a reusable guest
   // NPC renamed per episode. Like a live show it staffs the studio; like sports it gates on
   // an @airtime slot and loops so it re-airs each night.
+  // @type morning → a line library acted live by two resident hosts, whose facts come from the
+  // live world (forecast, news feed, alerts, the clock) instead of a guest. Like a talk show it
+  // staffs the studio; unlike it, the airtime is just its playlist slot.
   const isWeather  = meta.type === 'weather';
   const isSports   = meta.type === 'sports';
   const isNews     = meta.type === 'news';
   const isTalkshow = meta.type === 'talkshow';
-  const isPool     = isWeather || isSports || isNews || isTalkshow;
+  const isMorning  = meta.type === 'morning';
+  const isPool     = isWeather || isSports || isNews || isTalkshow || isMorning;
   const body = {
-    name: meta.name, category: meta.category || (isWeather ? 'weather' : isSports ? 'sport' : isNews ? 'news' : isTalkshow ? 'late_night' : 'general'),
-    playback_mode: isWeather ? 'weather' : isSports ? 'sports' : isNews ? 'news' : isTalkshow ? 'talkshow' : 'scripted', message_interval: 5,
+    name: meta.name, category: meta.category || (isWeather ? 'weather' : isSports ? 'sport' : isNews ? 'news' : isTalkshow ? 'late_night' : isMorning ? 'morning' : 'general'),
+    playback_mode: isWeather ? 'weather' : isSports ? 'sports' : isNews ? 'news' : isTalkshow ? 'talkshow' : isMorning ? 'morning' : 'scripted', message_interval: 5,
     override_duration: meta.length || null, loop: isPool ? 1 : 0, enabled: 1,
     messages: messages.map(t => ({ text: t })),
     broadcast_graph: broadcastGraph,
@@ -1763,6 +1768,7 @@ async function _bcImportSave({ meta, broadcastGraph, weatherScript, sportsScript
     sports_pools: isSports ? (sportsScript || { sport: meta.sport || 'baseball', announcer: meta.announcer, teams: [], players: [], pools: {}, airSlots: null }) : null,
     news_pools: isNews ? (newsScript || { anchors: [], reporters: [], announcer: meta.announcer, pools: {} }) : null,
     talkshow_pools: isTalkshow ? (talkshowScript || { host: meta.host, sidekick: meta.sidekick, guestNpc: meta.guestNpc, guests: [], pools: {}, title: meta.titlecard || '', theme: meta.theme || '', airSlots: null }) : null,
+    morning_pools: isMorning ? (morningScript || { host: meta.host, cohost: meta.cohost, pools: {}, title: meta.titlecard || '', theme: meta.theme || '' }) : null,
     channel_id: channelId,
   };
   try {
@@ -1782,7 +1788,7 @@ async function _bcImportSave({ meta, broadcastGraph, weatherScript, sportsScript
         // Non-live imports get a physical cassette of the recording, placed in
         // the production room and registered in the deck's library. A talk show is
         // acted live (not a recording), so it gets no cassette — like @type live.
-        if (meta.type !== 'live' && !isTalkshow) {
+        if (meta.type !== 'live' && !isTalkshow && !isMorning) {
           const broadcastId = res?.id || existing?.id;
           if (broadcastId) {
             const cassetteRes = await directAPI('/broadcast/cassette', 'POST', {
@@ -1825,7 +1831,7 @@ async function _bcImportSave({ meta, broadcastGraph, weatherScript, sportsScript
         // for them, even if the .bsm declares ::actors / SPEAKER lines. For a talk show the
         // host + sidekick + reusable guest are placed here; the server's schedule recalc then
         // assigns the guest its roaming lifecycle graph when the show is put on a playlist.
-        const spawnsNpcs = meta.type === 'live' || meta.type === 'weather' || isTalkshow;
+        const spawnsNpcs = meta.type === 'live' || meta.type === 'weather' || isTalkshow || isMorning;
         let npcSpawnCount = 0, npcMoveCount = 0;
         const existingNpcIds = _bcExistingNpcIds instanceof Set ? _bcExistingNpcIds : new Set();
         const actors = spawnsNpcs ? [...new Set([

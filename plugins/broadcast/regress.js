@@ -203,6 +203,77 @@ export default async function regress({ check, run, getPlayer }) {
     await query('DELETE FROM media_channels WHERE id=$1', [TCH]);
     await query('DELETE FROM media_broadcasts WHERE id=$1', [TBC]);
   }
+  // ── Morning-show assembly (live-acted, world-sourced) ────────────────────────
+  // A morning show assembles today's episode from the LIVE world — clock, forecast, news
+  // feed, standing alerts — and acts it on the couch. Check that each live channel actually
+  // reaches a spoken line, that the couch trades (host line → co-host line), and that the
+  // run-in picks the worst standing alert rather than the first one it finds.
+  const mnScript = {
+    host: 'npc_am_pace', cohost: 'npc_am_dorn', title: 'coldwater_am_logo', theme: 'coldwater_am_theme',
+    pools: {
+      open: ['It is {time} and it is {temp} degrees. >> Statistically.'],
+      'weather.rain': ['Rain, {temp} degrees. >> Of course it is.'],
+      'weather.ahead': ['Tomorrow: {tomorrow}, {tomorrowTemp}. >> Something to dread.'],
+      'beat.banner': ['THE BASIN BEAT | STORIES FROM YOUR STREET'],
+      'beat.lead': ['First up — {headline}! >> And there it is.'],
+      'runin.blackout': ['{outages} blocks are dark. >> Do not trust the stairwell.'],
+      'runin.clear': ['Clean run-in today. >> Enjoy it.'],
+      'ticker.lead': ['COLDWATER A.M.'],
+      signoff: ["That's us. >> Same sunrise."],
+      credits: ['LINE ONE', 'LINE TWO'],
+    },
+  };
+  const mnCtx = (over = {}) => ({
+    env: {
+      time: '06:00', date: '2231-03-04', dayOfWeek: 'Tuesday', season: 'winter',
+      tempC: 4, feelsLikeC: -2, currentWeatherType: 'rain',
+      forecast: [{ tempC: 4, windKph: 12, precipChance: 0.8, severity: 0.1, weatherType: 'rain' },
+                 { tempC: 6, weatherType: 'overcast' }],
+      powerMap: [],
+    },
+    stories: [{ headline: 'Redline Man Reunited With A Dog', body: 'Not the dog.', byline: 'The Crier' },
+              { headline: 'Vat Intake Within Normal Range', body: '', byline: 'Civic Wire' },
+              { headline: 'TICKER ONLY STORY', body: '', byline: 'x' }],
+    outages: 0, martialLaw: false, radiation: false, ...over,
+  });
+  const mg = _test.assembleMorningGraph(mnScript, 'bc_mn_regress', 'day1', mnCtx());
+  const mnNodes = Object.values(mg.nodes);
+  const mnSays = mnNodes.filter(n => n.type === 'say').map(n => n.data?.text || '');
+  check('morning show assembles spoken lines', mnSays.length >= 6, String(mnSays.length));
+  check('morning show is presence-gated (live-acted)', mg._requireHost === true, String(mg._requireHost));
+  check('morning show reads the live clock and thermometer',
+    mnSays.some(t => t.includes('06:00') && t.includes('4 degrees')), mnSays[0] || '');
+  check('morning show picks the weather pool matching the live sky',
+    mnSays.some(t => t.startsWith('Rain, 4 degrees')), mnSays.join(' | ').slice(0, 90));
+  check('morning show reads the live news feed into the Basin Beat',
+    mnSays.some(t => t.includes('Redline Man Reunited With A Dog')), 'basin-beat');
+  check('morning show leaves no unfilled {tokens}', !mnSays.some(t => /\{\w+\}/.test(t)), mnSays.find(t => /\{\w+\}/.test(t)) || 'clean');
+  // The couch trades: every authored pair puts the setup on the host and the reply on the co-host.
+  const openIdx = mnNodes.findIndex(n => n.type === 'say' && (n.data?.text || '').includes('06:00'));
+  const anchorBefore = (i) => { for (let k = i; k >= 0; k--) if (mnNodes[k].type === 'npc_anchor') return mnNodes[k].data?.npc_id; return null; };
+  check('morning show puts the setup on the host and the deadpan on the co-host',
+    anchorBefore(openIdx) === 'npc_am_pace' && anchorBefore(openIdx + 1) === 'npc_am_dorn',
+    `${anchorBefore(openIdx)} → ${anchorBefore(openIdx + 1)}`);
+  // The ticker is assembled from facts, not authored: conditions + the headlines that
+  // didn't make the couch.
+  const mnTicker = mnNodes.find(n => n.type === 'ticker')?.data?.text || '';
+  check('morning ticker carries live conditions', /RAIN · 4° \(feels -2°\)/.test(mnTicker), mnTicker.slice(0, 60));
+  check('morning ticker carries the headlines that missed the couch', mnTicker.includes('TICKER ONLY STORY'), mnTicker.slice(-60));
+  check('morning credits keep every card (joined, not picked)',
+    (mnNodes.find(n => n.type === 'credits')?.data?.text || '') === 'LINE ONE\nLINE TWO', 'credits');
+  // The run-in reads the city: alerts outrank an ordinary morning, worst-first.
+  check('morning run-in: an ordinary day is clear', _test.morningRunInKey(mnCtx()) === 'clear', _test.morningRunInKey(mnCtx()));
+  check('morning run-in: grid faults beat a clear morning', _test.morningRunInKey(mnCtx({ outages: 3 })) === 'blackout', 'blackout');
+  check('morning run-in: martial law outranks everything',
+    _test.morningRunInKey(mnCtx({ outages: 9, radiation: true, martialLaw: true })) === 'martial_law', 'martial_law');
+  const mgDark = _test.assembleMorningGraph(mnScript, 'bc_mn_regress', 'day1', mnCtx({ outages: 4 }));
+  const darkSays = Object.values(mgDark.nodes).filter(n => n.type === 'say').map(n => n.data?.text || '');
+  check('morning run-in speaks the live outage count', darkSays.some(t => t.startsWith('4 blocks are dark')), 'outages');
+  // Same day ⇒ same show on every TV; a new day ⇒ a new one.
+  check('morning show is stable within a day (all TVs agree)',
+    Object.values(_test.assembleMorningGraph(mnScript, 'bc_mn_regress', 'day1', mnCtx()).nodes)
+      .filter(n => n.type === 'say').map(n => n.data?.text || '').join('|') === mnSays.join('|'), 'deterministic');
+
   check('talkshowAiring: no @airtime airs continuously',
     _test.talkshowAiring({}) === true && _test.talkshowAiring({ airSlots: [] }) === true, 'continuous');
   check('talkshowAiring: an out-of-range slot is dark now', _test.talkshowAiring({ airSlots: [-1] }) === false, 'dark');

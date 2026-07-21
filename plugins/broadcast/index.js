@@ -295,6 +295,7 @@ async function scanChannelDay(channelId) {
     if (item.playback_mode === 'sports')  { add('info', 'sports_live',  `'${label}' is a sports broadcast — a fresh game is simulated each airing, not statically scannable.`, { broadcast: label }); continue; }
     if (item.playback_mode === 'news')    { add('info', 'news_live',    `'${label}' is a news broadcast — a fresh bulletin is assembled from the live news generator each airing, not statically scannable.`, { broadcast: label }); continue; }
     if (item.playback_mode === 'talkshow'){ add('info', 'talkshow_live', `'${label}' is a talk show — a fresh episode is assembled and acted live by the cast each night, not statically scannable.`, { broadcast: label }); continue; }
+    if (item.playback_mode === 'morning') { add('info', 'morning_live', `'${label}' is a morning show — a fresh episode is assembled from the live world each day and acted by the hosts, not statically scannable.`, { broadcast: label }); continue; }
     let graph = item.broadcast_graph;
     if (!graph) continue;
     if (typeof graph === 'string') { try { graph = JSON.parse(graph); } catch { add('error', 'bad_graph', `'${label}' has an unparseable broadcast graph.`, { broadcast: label }); continue; } }
@@ -347,6 +348,9 @@ function broadcastDuration(bc) {
   // A talk show assembles a fresh episode each night and airs across its whole @airtime
   // block, so a slot reserves the full in-game 3-hour window (same as a sports slot).
   if (bc.playback_mode === 'talkshow') return sportsSlotMs() / 1000;
+  // A morning show assembles today's episode from the live world (nothing baked to measure).
+  // Its real airtime is whatever daily slot it sits in; this is only the unscheduled default.
+  if (bc.playback_mode === 'morning') return 240;
   if (bc.broadcast_graph) {
     const d = _vineDuration(bc.broadcast_graph, bc.message_interval || 5);
     if (d > 0) return d;
@@ -419,7 +423,7 @@ async function loadChannelRuntimes() {
         WHERE c.enabled = 1 ORDER BY c.number`
     );
     const { rows: playlist } = await query(
-      `SELECT p.*, b.name AS broadcast_name, b.playback_mode, b.messages, b.message_interval, b.override_duration, b.loop, b.broadcast_graph, b.fallback_messages, b.weather_pools, b.sports_pools, b.news_pools, b.talkshow_pools
+      `SELECT p.*, b.name AS broadcast_name, b.playback_mode, b.messages, b.message_interval, b.override_duration, b.loop, b.broadcast_graph, b.fallback_messages, b.weather_pools, b.sports_pools, b.news_pools, b.talkshow_pools, b.morning_pools
          FROM media_channel_playlist p
          LEFT JOIN media_broadcasts b ON b.id = p.broadcast_id
         ORDER BY p.channel_id, p.start_time`
@@ -482,6 +486,8 @@ async function loadChannelRuntimes() {
       if (typeof newsScript === 'string') { try { newsScript = JSON.parse(newsScript); } catch { newsScript = null; } }
       let talkshowScript = item.talkshow_pools;
       if (typeof talkshowScript === 'string') { try { talkshowScript = JSON.parse(talkshowScript); } catch { talkshowScript = null; } }
+      let morningScript = item.morning_pools;
+      if (typeof morningScript === 'string') { try { morningScript = JSON.parse(morningScript); } catch { morningScript = null; } }
       playlistByChannel.get(item.channel_id).push({
         id: item.id,
         broadcastId: item.broadcast_id,
@@ -496,6 +502,7 @@ async function loadChannelRuntimes() {
         sportsScript: sportsScript || null,
         newsScript: newsScript || null,
         talkshowScript: talkshowScript || null,
+        morningScript: morningScript || null,
         messages: Array.isArray(item.messages) ? item.messages : (item.messages ? JSON.parse(item.messages) : []),
         message_interval: item.message_interval || 5,
         loop: item.loop,
@@ -510,13 +517,13 @@ async function loadChannelRuntimes() {
     for (const ch of channels) {
       if (ch.studio_zone_id) studioZoneIndex.set(ch.studio_zone_id, ch.id);
       const pl = playlistByChannel.get(ch.id) || [];
-      // Studio staffing only applies to LIVE channels, WEATHER forecasts, and TALK SHOWS
-      // (all three are acted on-stage and presence-gated). A scripted show's npc_anchor
+      // Studio staffing only applies to LIVE channels, WEATHER forecasts, TALK SHOWS, and
+      // MORNING SHOWS (all acted on-stage and presence-gated). A scripted show's npc_anchor
       // nodes are speaker attribution, not a cue for the NPC to appear on-stage — so the
-      // AI schedule/studio lookups must never see them as staff. Talk-show items carry
-      // their own staff (host/sidekick/guest) regardless of the channel's declared type.
+      // AI schedule/studio lookups must never see them as staff. Talk-show and morning-show
+      // items carry their own cast regardless of the channel's declared type.
       for (const it of pl) {
-        if (ch.channel_type !== 'live' && it.playback_mode !== 'weather' && it.playback_mode !== 'talkshow') it.npcStaff = [];
+        if (ch.channel_type !== 'live' && it.playback_mode !== 'weather' && it.playback_mode !== 'talkshow' && it.playback_mode !== 'morning') it.npcStaff = [];
       }
       const totalDuration = pl.length
         ? Math.max(...pl.map(i => i.startTime + i.duration))
@@ -2185,6 +2192,209 @@ async function talkshowHeartbeat() {
 setInterval(() => { if (hasActivePlayers()) talkshowHeartbeat().catch(e => console.error('[broadcast] talkshow heartbeat error:', e.message)); }, 60 * 1000);
 setTimeout(() => { talkshowHeartbeat().catch(() => {}); }, 10000);
 
+// ── Morning shows ────────────────────────────────────────────────────────────
+// A morning show (playback_mode 'morning') is the talk show's daytime cousin: the same
+// ::lines library, the same live-ACTED staging by real npc_ cast — but where a talk show's
+// variable is the night's GUEST, a morning show's variable is the WORLD. Every segment is
+// keyed to something live: the cold open reads the clock and the thermometer, the weather
+// window reads the forecast, the Basin Beat reads the news generator, the run-in reads the
+// city's alerts (martial law, radiation, grid faults, severe weather), and the ticker is
+// assembled from those facts rather than authored.
+//
+// The couch's back-and-forth is preserved by authoring every pool as an exchange PAIR —
+// "host line >> cohost line", the same `>>` convention the talk-show interview uses — so the
+// setup and the deadpan always belong together no matter which alternative is drawn.
+// Spec: docs/bsm-format.md#morning-shows-type-morning.
+
+const MORNING_STORIES = 2;   // featured Basin Beat stories per show (the rest ride the ticker)
+const MORNING_BLACKOUT_MIN = 2;   // grid-connected zones dark before the run-in calls it an outage
+
+// Episode bucket = the in-game calendar day: one show a day, identical on every TV.
+function morningDayBucket() {
+  const env = getEnvironmentState();
+  return (typeof env?.date === 'string' && env.date.length >= 10) ? env.date.slice(0, 10) : 'day0';
+}
+
+// Which run-in the city gets this morning. Ordered worst-first, so a martial-law morning
+// never leads with a traffic note. Falls through to 'clear' on an ordinary day.
+function morningRunInKey(ctx) {
+  if (ctx.martialLaw) return 'martial_law';
+  if (ctx.radiation) return 'radiation';
+  if (ctx.outages >= MORNING_BLACKOUT_MIN) return 'blackout';
+  if ((ctx.env.forecast?.[0]?.severity ?? 0) >= WX_SEVERE) return 'storm';
+  return 'clear';
+}
+
+// Live world → the tokens the couch speaks in. Everything here is read, never authored.
+function morningTokens(script, ctx) {
+  const env = ctx.env;
+  const today = env.forecast?.[0] || {};
+  const tomorrow = env.forecast?.[1] || today;
+  // The forecast is empty until the weather plugin's first tick, so the week's arc falls
+  // back to today's reading rather than speaking a blank number.
+  const temps = (env.forecast || []).map(f => Math.round(f.tempC)).filter(Number.isFinite);
+  const nowTemp = Math.round(env.tempC ?? 0);
+  return {
+    host: world.npcs.get(script.host)?.name || 'the host',
+    cohost: world.npcs.get(script.cohost)?.name || 'the co-host',
+    time: env.time || '', day: WX_DOW[env.dayOfWeek] || '', date: (env.date || '').slice(5), season: env.season || '',
+    temp: Math.round(env.tempC ?? today.tempC ?? 0),
+    feels: Math.round(env.feelsLikeC ?? env.tempC ?? 0),
+    weather: String(env.currentWeatherType || env.weatherType || '').replace(/_/g, ' '),
+    wind: Math.round(today.windKph ?? 0), windLabel: wxWindLabel(today.windKph),
+    precip: Math.round((today.precipChance ?? 0) * 100),
+    hi: temps.length ? Math.max(...temps) : nowTemp, lo: temps.length ? Math.min(...temps) : nowTemp,
+    tomorrow: String(tomorrow.weatherType || '').replace(/_/g, ' '), tomorrowTemp: Math.round(tomorrow.tempC ?? env.tempC ?? 0),
+    outages: ctx.outages,
+  };
+}
+
+// Assemble one morning's show. Deterministic given the day bucket (seeded rng) so every TV in
+// the city shows the same broadcast. Segments: title/theme → cold open (clock + thermometer) →
+// weather window (live forecast) → the Basin Beat (live news) → a rotating segment → Your
+// Morning Run-In (live alerts) → a fact-assembled ticker → sign-off.
+function assembleMorningGraph(script, broadcastId, bucket, ctx) {
+  const pools = script.pools || {};
+  const rand = sportsRng(sportsHash(...[...`${broadcastId}:${bucket}`].map(c => c.charCodeAt(0))));
+  const host = script.host || 'npc_host';
+  const cohost = script.cohost || host;
+  const tok = morningTokens(script, ctx);
+
+  const nodes = {};
+  let n = 0, prevId = null, startId = null, curAnchor = null;
+  const add = (data) => {
+    const id = `mn_${n++}`;
+    nodes[id] = { ...data };
+    if (prevId) nodes[prevId].next = id;
+    if (startId === null) startId = id;
+    prevId = id;
+    return id;
+  };
+  const anchor = (npcId) => { if (npcId !== curAnchor) { add({ type: 'npc_anchor', npc_id: npcId }); curAnchor = npcId; } };
+  const line = (npcId, text) => { if (!text) return; anchor(npcId); add({ type: 'say', text, style: 'raw' }); };
+  // Draw from a pool without repeating inside one show: each key gets a shuffled deck the
+  // first time it's asked for, then walks it. Two stories in a row can't land on the same
+  // "isn't that something?" — which a per-call random pick does surprisingly often.
+  const decks = new Map();
+  const draw = (keys) => {
+    for (const k of keys) {
+      const arr = pools[k];
+      if (!Array.isArray(arr) || !arr.length) continue;
+      if (!decks.has(k)) decks.set(k, { deck: sportsShuffle(arr, rand), i: 0 });
+      const d = decks.get(k);
+      return d.deck[d.i++ % d.deck.length];
+    }
+    return null;
+  };
+  // One authored beat is a "host >> cohost" pair (splitExchange, shared with the talk show):
+  // the host sets it up, the co-host answers. A line with no `>>` is spoken by the host alone.
+  const beat = (key, extraTok, fallback) => {
+    const src = draw(Array.isArray(key) ? key : [key]) || fallback;
+    if (!src) return false;
+    const t = extraTok ? { ...tok, ...extraTok } : tok;
+    const [q, a] = splitExchange(src);
+    if (q) line(host, talkshowFill(q, t).trim());
+    if (a) line(a && !q ? host : cohost, talkshowFill(a, t).trim());
+    return true;
+  };
+  // A show-specific segment banner, authored as "TEXT | SUBTEXT" so the caption strip stays
+  // content rather than engine copy. Missing pool ⇒ no overlay, the segment just plays.
+  const banner = (key) => {
+    const src = draw([key]);
+    if (!src) return;
+    const [text, subtext = ''] = talkshowFill(src, tok).split('|').map(s => s.trim());
+    if (text) add({ type: 'overlay', overlayType: 'lower_third', text, subtext, graphic_id: '' });
+  };
+
+  add({ type: 'start' });
+  if (script.title) add({ type: 'title_card', graphic_id: script.title, theme: script.theme || null });
+  else if (script.theme) add({ type: 'music', song: script.theme, text: '♪ The morning theme plays. ♪' });
+
+  // Cold open — the real clock, the real temperature, the real day of the week.
+  beat('open', null, 'Good morning — it is {time}, it is {temp} degrees, and you are alive. >> Statistically.');
+  if (rand() < 0.6) beat('couch');
+
+  // Weather window — keyed to what the sky is actually doing, with the severe channel
+  // folded in only when the forecast earns it, and a look at tomorrow.
+  banner('weather.banner');
+  beat([`weather.${(ctx.env.currentWeatherType || ctx.env.weatherType || '').replace(/\s+/g, '_')}`, 'weather'],
+    null, 'Out the window: {weather}, {temp} degrees, feels like {feels}. >> Feels like {feels}. It always feels like {feels}.');
+  if ((ctx.env.forecast?.[0]?.severity ?? 0) >= WX_SEVERE) beat('weather.severe');
+  // Only look ahead when there IS an ahead — the forecast is empty until the weather
+  // plugin's first tick, and a look-ahead with no day to look at reads as a dropped line.
+  if (ctx.env.forecast?.[1] && rand() < 0.7) beat('weather.ahead');
+
+  // The Basin Beat — the live news feed, read off the couch. The host takes the headline,
+  // the co-host takes the reaction, and some mornings they dig into the body copy.
+  const feature = (ctx.stories || []).slice(0, MORNING_STORIES);
+  if (feature.length) {
+    banner('beat.banner');
+    feature.forEach((s, idx) => {
+      const stok = { headline: String(s.headline || '').replace(/[.\s]+$/, ''), body: s.body || '', byline: s.byline || 'the wire' };
+      beat('beat.lead', stok, '{headline}. >> And there it is.');
+      if (rand() < 0.5) beat('beat.detail', stok);
+      if (idx === 0 && rand() < 0.4) beat('beat.aside', stok);
+    });
+  }
+
+  // A rotating recurring segment (the hotplate bit, the mailbag, whatever the file supplies).
+  if (rand() < 0.8) { banner('segment.banner'); beat('segment'); }
+
+  // Your Morning Run-In — what the city is actually doing to you today.
+  banner('runin.banner');
+  beat([`runin.${morningRunInKey(ctx)}`, 'runin']);
+
+  // Ticker — assembled from the same live facts, not authored: conditions, the alerts that
+  // apply, and the headlines that didn't make the couch. `ticker.lead` is a plain prefix line.
+  const crawl = [];
+  const lead = draw(['ticker.lead']);
+  if (lead) crawl.push(talkshowFill(lead, tok).trim());
+  crawl.push(`${tok.weather.toUpperCase()} · ${tok.temp}° (feels ${tok.feels}°) · high ${tok.hi}° low ${tok.lo}°`);
+  if (ctx.martialLaw) crawl.push('MARTIAL LAW IN EFFECT — CURFEW ENFORCED BASIN-WIDE');
+  if (ctx.radiation) crawl.push('RADIATION ADVISORY — SHELTER AND SEAL WHERE POSSIBLE');
+  if (ctx.outages >= MORNING_BLACKOUT_MIN) crawl.push(`GRID FAULTS REPORTED IN ${ctx.outages} BLOCKS — CREWS DISPATCHED`);
+  for (const s of (ctx.stories || []).slice(MORNING_STORIES)) if (s.headline) crawl.push(String(s.headline).replace(/[.\s]+$/, ''));
+  add({ type: 'ticker', text: crawl.filter(Boolean).join(' · ') });
+
+  beat('signoff', null, "That's the morning. >> Go be statistically alive.");
+  // Credits are the one pool that isn't alternatives — every line is a card of the same
+  // roll, so they're joined rather than picked between.
+  const credits = Array.isArray(pools.credits) ? pools.credits.join('\n') : '';
+  if (credits) { curAnchor = null; add({ type: 'credits', text: talkshowFill(credits, tok), duration: 5 }); }
+
+  const graph = _normalizeBroadcastGraph({ _start: startId, nodes });
+  graph._broadcastId = `${broadcastId}:morning:${bucket}`;
+  graph._requireHost = true;   // acted live on the couch — no hosts in-studio ⇒ tech difficulties
+  return graph;
+}
+
+// Return today's assembled show for a morning playlist item, rebuilt when the in-game day
+// rolls. Cached on the item between ticks; the live reads (news generator, world alerts)
+// happen once per bucket, never per tick.
+async function getMorningGraph(item, nowMs) {
+  const script = item.morningScript;
+  if (!script) return null;
+  const bucket = morningDayBucket();
+  if (item._morningGraph && item._morningBucket === bucket) return item._morningGraph;
+  const env = getEnvironmentState();
+  let stories = [];
+  try {
+    const res = await dispatchAction({ type: 'news.getStories', params: { total: MORNING_STORIES + 3 } });
+    if (Array.isArray(res?.stories)) stories = res.stories;
+  } catch { /* generator unavailable — the show just runs without a Basin Beat */ }
+  const [martialLaw, radiation] = await Promise.all([
+    getFlag('world', 'martial_law').catch(() => undefined),
+    getFlag('world', 'nuclear_event').catch(() => undefined),
+  ]);
+  // A grid-connected zone sitting dark is a fault, not an unwired ruin — so only zones that
+  // have a generator count toward the morning's outage number.
+  const outages = (env.powerMap || []).filter(z => z.generatorId && z.status === 'unpowered').length;
+  const ctx = { env, stories, outages, martialLaw: String(martialLaw) === 'true', radiation: String(radiation) === 'true' };
+  item._morningGraph = assembleMorningGraph(script, item.broadcastId, bucket, ctx);
+  item._morningBucket = bucket;
+  return item._morningGraph;
+}
+
 async function getCurrentMessage(state, nowMs) {
   const { channelType, playlist, totalDuration, idleBroadcast, newsCategories, camera, loopOriginMs, scheduleMode } = state;
 
@@ -2254,6 +2464,17 @@ async function getCurrentMessage(state, nowMs) {
         if (tsGraph) {
           state.currentFallbackMessages = item.fallbackMessages || [];
           const r = tickBroadcastGraph(state.channelId, tsGraph, state, nowMs, segElapsed);
+          if (r) r.programName = item.broadcastName || null;
+          return r;
+        }
+      }
+      // Morning show — today's episode, assembled from the live world and acted on the couch.
+      // Its airtime IS this daily slot, so there's no separate gate.
+      if (item.playback_mode === 'morning') {
+        const mnGraph = await getMorningGraph(item, nowMs);
+        if (mnGraph) {
+          state.currentFallbackMessages = item.fallbackMessages || [];
+          const r = tickBroadcastGraph(state.channelId, mnGraph, state, nowMs, segElapsed);
           if (r) r.programName = item.broadcastName || null;
           return r;
         }
@@ -2372,6 +2593,14 @@ async function getCurrentMessage(state, nowMs) {
         if (tsGraph) {
           state.currentFallbackMessages = item.fallbackMessages || [];
           return tickBroadcastGraph(state.channelId, tsGraph, state, nowMs);
+        }
+      }
+      // Morning show — today's episode, assembled from the live world and acted on the couch.
+      if (item.playback_mode === 'morning') {
+        const mnGraph = await getMorningGraph(item, nowMs);
+        if (mnGraph) {
+          state.currentFallbackMessages = item.fallbackMessages || [];
+          return tickBroadcastGraph(state.channelId, mnGraph, state, nowMs);
         }
       }
       // VINE graph (scripted/news with broadcast_graph) — walker manages its own timing
@@ -3514,7 +3743,7 @@ async function ensureTalkshowSlot(broadcastId, channelId, talkshowPools) {
 async function recalculateNpcSchedules() {
   const { rows: plItems } = await query(`
     SELECT p.id, p.channel_id, p.broadcast_id, p.conditions,
-           b.broadcast_graph, b.playback_mode, b.talkshow_pools,
+           b.broadcast_graph, b.playback_mode, b.talkshow_pools, b.morning_pools,
            c.channel_type, c.studio_zone_id
     FROM media_channel_playlist p
     JOIN media_broadcasts b ON b.id = p.broadcast_id
@@ -3555,10 +3784,21 @@ async function recalculateNpcSchedules() {
       for (const id of [ts?.host, ts?.sidekick, ts?.guestNpc]) if (id && !npcIds.includes(id)) npcIds.push(id);
     }
 
-    // Only LIVE channels, WEATHER forecasts, and TALK SHOWS physically staff the studio. For a
-    // scripted show, npc_anchor is speaker attribution only — never staff it, and strip any
-    // stale staffing a previous (buggy) pass merged into its conditions.
-    const staffsNpcs = row.channel_type === 'live' || row.playback_mode === 'weather' || isTalkshow;
+    // A morning show's stored graph is start-only too (assembled per airing from the live
+    // world), so its couch comes from morning_pools: the two resident hosts. Both staff the
+    // studio and commute in on the show's daily slot — no roaming guest, no backstage.
+    const isMorning = row.playback_mode === 'morning';
+    if (isMorning) {
+      let mn = row.morning_pools;
+      if (typeof mn === 'string') { try { mn = JSON.parse(mn); } catch { mn = null; } }
+      npcIds.length = 0;
+      for (const id of [mn?.host, mn?.cohost]) if (id && !npcIds.includes(id)) npcIds.push(id);
+    }
+
+    // Only LIVE channels, WEATHER forecasts, TALK SHOWS, and MORNING SHOWS physically staff the
+    // studio. For a scripted show, npc_anchor is speaker attribution only — never staff it, and
+    // strip any stale staffing a previous (buggy) pass merged into its conditions.
+    const staffsNpcs = row.channel_type === 'live' || row.playback_mode === 'weather' || isTalkshow || isMorning;
     const studioZoneId = row.studio_zone_id || null;
 
     // Reconcile npc_staff in the item's conditions (merge for live/weather/talkshow, clear otherwise)
@@ -3606,10 +3846,10 @@ async function recalculateNpcSchedules() {
       }
     }
 
-    // Re-inject work-phase actions from the broadcast graph. Skipped for talk shows — the
-    // episode is assembled live, so there's no baked per-NPC line sequence to extract, and
-    // the guest's lifecycle graph must not be overwritten.
-    if (!isTalkshow) await _injectWorkPhaseForPlaylistItem({ broadcast_id: row.broadcast_id, npcStaff: npcIds, studioZoneId });
+    // Re-inject work-phase actions from the broadcast graph. Skipped for talk shows and
+    // morning shows — the episode is assembled live, so there's no baked per-NPC line
+    // sequence to extract, and the guest's lifecycle graph must not be overwritten.
+    if (!isTalkshow && !isMorning) await _injectWorkPhaseForPlaylistItem({ broadcast_id: row.broadcast_id, npcStaff: npcIds, studioZoneId });
   }
 
   // Self-heal: any NPC still routed to a studio zone but no longer legitimately
@@ -5596,6 +5836,7 @@ export const _test = {
   sportsSlotMs, sportsAiring, SPORTS_GAMES_PER_DAY, nextAirSlot,
   assembleNewsGraph, newsFill, newsSceneNames,
   assembleTalkshowGraph, talkshowAiring, talkshowPersonaFor, talkshowFill, makeTalkshowGuestGraph, ensureTalkshowSlot,
+  assembleMorningGraph, morningRunInKey,
 };
 
 // ── Route handler (CRUD) ─────────────────────────────────────────────────────
@@ -5623,15 +5864,16 @@ export const routeHandler = async (path, method, body, auth) => {
         const spPools = body.sports_pools ? JSON.stringify(body.sports_pools) : null;
         const nwPools = body.news_pools ? JSON.stringify(body.news_pools) : null;
         const tsPools = body.talkshow_pools ? JSON.stringify(body.talkshow_pools) : null;
+        const mnPools = body.morning_pools ? JSON.stringify(body.morning_pools) : null;
         await query(
-          `INSERT INTO media_broadcasts (id,name,description,category,tags,playback_mode,messages,message_interval,override_duration,loop,enabled,created_by,updated_at,broadcast_graph,channel_id,fallback_messages,weather_pools,sports_pools,news_pools,talkshow_pools)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,EXTRACT(EPOCH FROM NOW()),$13,$14,$15,$16,$17,$18,$19)`,
+          `INSERT INTO media_broadcasts (id,name,description,category,tags,playback_mode,messages,message_interval,override_duration,loop,enabled,created_by,updated_at,broadcast_graph,channel_id,fallback_messages,weather_pools,sports_pools,news_pools,talkshow_pools,morning_pools)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,EXTRACT(EPOCH FROM NOW()),$13,$14,$15,$16,$17,$18,$19,$20)`,
           [bid, body.name || 'Untitled', body.description || '', body.category || 'general',
            JSON.stringify(body.tags || []), body.playback_mode || 'scripted',
            JSON.stringify(body.messages || []), body.message_interval || 5,
            body.override_duration || null, body.loop ? 1 : 0, body.enabled !== false ? 1 : 0,
            auth?.playerId || 'unknown', graph, body.channel_id || null,
-           JSON.stringify(body.fallback_messages || []), wxPools, spPools, nwPools, tsPools]
+           JSON.stringify(body.fallback_messages || []), wxPools, spPools, nwPools, tsPools, mnPools]
         );
         if (body.playback_mode === 'talkshow' && body.channel_id) await ensureTalkshowSlot(bid, body.channel_id, tsPools);
         await loadChannelRuntimes();
@@ -5643,15 +5885,16 @@ export const routeHandler = async (path, method, body, auth) => {
         const spPools = body.sports_pools ? JSON.stringify(body.sports_pools) : null;
         const nwPools = body.news_pools ? JSON.stringify(body.news_pools) : null;
         const tsPools = body.talkshow_pools ? JSON.stringify(body.talkshow_pools) : null;
+        const mnPools = body.morning_pools ? JSON.stringify(body.morning_pools) : null;
         await query(
           `UPDATE media_broadcasts SET name=$1,description=$2,category=$3,tags=$4,playback_mode=$5,
            messages=$6,message_interval=$7,override_duration=$8,loop=$9,enabled=$10,broadcast_graph=$11,
-           channel_id=$12,fallback_messages=$13,weather_pools=$14,sports_pools=$15,news_pools=$16,talkshow_pools=$17,updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$18`,
+           channel_id=$12,fallback_messages=$13,weather_pools=$14,sports_pools=$15,news_pools=$16,talkshow_pools=$17,morning_pools=$19,updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$18`,
           [body.name||'Untitled', body.description||'', body.category||'general',
            JSON.stringify(body.tags||[]), body.playback_mode||'scripted',
            JSON.stringify(body.messages||[]), body.message_interval||5,
            body.override_duration||null, body.loop?1:0, body.enabled!==false?1:0, graph,
-           body.channel_id||null, JSON.stringify(body.fallback_messages||[]), wxPools, spPools, nwPools, tsPools, id]
+           body.channel_id||null, JSON.stringify(body.fallback_messages||[]), wxPools, spPools, nwPools, tsPools, id, mnPools]
         );
         if (body.playback_mode === 'talkshow' && body.channel_id) await ensureTalkshowSlot(id, body.channel_id, tsPools);
         await loadChannelRuntimes();

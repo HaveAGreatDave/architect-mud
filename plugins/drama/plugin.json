@@ -1,0 +1,10 @@
+{
+  "name": "drama",
+  "version": "1.0.0",
+  "description": "Dramatic entrances — a player writes one line ($player stands in for their handle), arms it, and the next room they walk into gets that line instead of the usual \"arrives from the south\". One-shot: firing it disarms.",
+  "hooks": ["movement.arriveMessage"],
+  "commands": ["drama"],
+  "objectGatedCommands": {
+    "drama": { "discoverVia": "none", "exposed": false, "note": "Self-targeted authoring command; no world object to hang it off." }
+  }
+}

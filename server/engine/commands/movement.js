@@ -471,9 +471,12 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
     : doorWasClosed
       ? `${player.handle} opens the door and heads ${direction}.`
       : `${player.handle} heads ${direction}.`;
-  const arriveMsg = (doorWasLocked || doorWasClosed)
+  let arriveMsg = (doorWasLocked || doorWasClosed)
     ? (arrivalDir ? `${player.handle} comes through the door from the ${arrivalDir}.` : `${player.handle} comes through the door.`)
     : buildArriveMsg(player.handle, arrivalDir, zone.name);
+  // A plugin may replace the arrival line entirely (drama: armed dramatic entrances).
+  const customArrive = await fireHook('movement.arriveMessage', { player, fromZone: zone, toZoneId: targetId, direction, arrivalDir, defaultMessage: arriveMsg });
+  if (typeof customArrive === 'string' && customArrive.trim()) arriveMsg = customArrive.trim();
   broadcast(zone.id, { type:'zone_event', message: departMsg, refresh: true }, player.id);
   broadcast(targetId, { type:'zone_event', message: arriveMsg, refresh: true }, player.id);
 

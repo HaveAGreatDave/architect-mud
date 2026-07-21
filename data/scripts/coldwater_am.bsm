@@ -1,25 +1,74 @@
+# Coldwater A.M. — the morning show on KSAB-TV.
+#
+# @type morning: a LINE LIBRARY, not a script. Every airing the server assembles a fresh
+# episode from these pools and fills the {tokens} from the live world — the clock, the
+# thermometer, the 7-day forecast, the news generator, the city's standing alerts. Bijou
+# and Hal are real NPCs on the studio couch, so the show presence-gates like any live one.
+#
+# Every line is an EXCHANGE PAIR — "Bijou's line >> Hal's line". The setup and the deadpan
+# always travel together, so whichever alternative gets drawn, the couch still works.
+
 @broadcast "Coldwater A.M."
 @category morning
 @length 240
-@type scripted
+@type morning
+@host npc_am_pace
+@cohost npc_am_dorn
+@titlecard coldwater_am_logo
+@theme coldwater_am_theme
 
-::actors
-@actor npc_am_pace
-@alias npc_am_pace BIJOU
-@actor npc_am_dorn
-@alias npc_am_dorn HAL
-::endactors
-
+# The compiler switches an ::asset to type 'svg' on seeing a leading <svg, so this block
+# needs no directive of its own. The window frame is the joke: the sunrise behind it is
+# banded like a screen because it IS one, and the corner admits as much.
 ::asset coldwater_am_logo
-
-╔═══════════════════════════════════════╗
-║                                       ║
-║        C O L D W A T E R   A.M.       ║
-║                                       ║
-║     "You're up. Might as well be."    ║
-║                                       ║
-╚═══════════════════════════════════════╝
-
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360">
+  <defs>
+    <linearGradient id="cam-sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0e1117"/>
+      <stop offset="0.55" stop-color="#1b2434"/>
+      <stop offset="1" stop-color="#3d3247"/>
+    </linearGradient>
+  </defs>
+  <rect width="640" height="360" fill="url(#cam-sky)"/>
+  <circle cx="320" cy="228" r="96" fill="#f7a80a"/>
+  <circle cx="320" cy="228" r="72" fill="#ffc043"/>
+  <circle cx="320" cy="228" r="46" fill="#ffe08a"/>
+  <g fill="#1b2434" opacity="0.32">
+    <rect x="212" y="196" width="216" height="5"/>
+    <rect x="212" y="216" width="216" height="5"/>
+    <rect x="212" y="236" width="216" height="5"/>
+    <rect x="212" y="256" width="216" height="5"/>
+  </g>
+  <g fill="#0b0e14">
+    <rect x="0" y="252" width="640" height="108"/>
+    <rect x="26" y="216" width="34" height="40"/>
+    <rect x="72" y="232" width="22" height="24"/>
+    <rect x="104" y="200" width="28" height="56"/>
+    <rect x="112" y="176" width="8" height="26"/>
+    <rect x="150" y="224" width="46" height="32"/>
+    <rect x="206" y="238" width="26" height="18"/>
+    <rect x="404" y="230" width="40" height="26"/>
+    <rect x="456" y="204" width="30" height="52"/>
+    <rect x="464" y="180" width="8" height="26"/>
+    <rect x="498" y="240" width="24" height="16"/>
+    <rect x="534" y="212" width="38" height="44"/>
+    <rect x="586" y="234" width="30" height="22"/>
+    <path d="M236 256 L244 214 L266 214 L274 256 Z"/>
+    <path d="M366 256 L374 220 L392 220 L400 256 Z"/>
+  </g>
+  <rect x="24" y="24" width="592" height="312" fill="none" stroke="#2e3a4a" stroke-width="4"/>
+  <rect x="318" y="24" width="4" height="176" fill="#2e3a4a"/>
+  <g text-anchor="middle" font-family="Helvetica, Arial, sans-serif">
+    <text x="320" y="118" fill="#c8d8e8" font-size="52" font-weight="bold" letter-spacing="14">COLDWATER</text>
+    <text x="320" y="160" fill="#38b2f0" font-size="30" font-weight="bold" letter-spacing="26">A.M.</text>
+    <text x="320" y="308" fill="#8ea3ba" font-size="17" font-style="italic">&#8220;You&#8217;re up. Might as well be.&#8221;</text>
+  </g>
+  <g font-family="Helvetica, Arial, sans-serif">
+    <rect x="44" y="44" width="76" height="22" fill="#f05858"/>
+    <text x="82" y="60" text-anchor="middle" fill="#0e1117" font-size="14" font-weight="bold" letter-spacing="2">KSAB-7</text>
+    <text x="596" y="60" text-anchor="end" fill="#5d6b7d" font-size="11" letter-spacing="1">SUNRISE: COMPOSITE</text>
+  </g>
+</svg>
 ::endasset
 
 ::asset am_basin_beat_card
@@ -31,159 +80,161 @@
 
 ::endasset
 
-::scene COLD_OPEN
+# ── Cold open — reads the real clock, the real thermometer, the real weekday ──
+::lines open
+Good MORNING, Coldwater! It is {time}, it is {temp} degrees, and you are ALIVE! >> Statistically.
+Good morning, Coldwater — {day}, {time}, {temp} degrees. >> All four of those are true and only one of them is good news.
+It is {time} on a {season} {day} and you have made it to another one! >> Made it to. Not through.
+{time}. {temp} degrees. I'm Bijou Pace. >> Hal Dorn.
+Rise and SHINE, Basin! {temp} degrees, feels like {feels}! >> It does not feel like {feels}. It feels like {feels} and a grudge.
+::endlines
 
-ROOM zone_studio_1782953094650
+::lines couch
+Hal, did you sleep? >> I closed my eyes at the appropriate hour and time passed.
+We have SUCH a show for you this morning. >> We have a show. The adjective is doing the heavy lifting.
+Behind us, as always, the sunrise. >> That is a loop. That sunrise happened once, in a year none of us can verify.
+How are we feeling this morning, Hal? >> Present.
+::endlines
 
-EVENT FADE_IN
+# ── Weather window — keyed to what the sky is ACTUALLY doing ──────────────────
+::lines weather.banner
+THE WINDOW | WHAT IT IS DOING TO YOU OUT THERE
+::endlines
 
-MUSIC coldwater_am_theme
-♪ Bright synthetic brass, the audio equivalent of a smile held too long. ♪
-MUSIC_END
+::lines weather
+Out the window: {weather}, {temp} degrees, feels like {feels}. >> Feels like {feels}. It always feels like {feels}.
+Conditions right now — {weather}, {temp} degrees, wind {wind}. >> Dress for {feels}, not for {temp}. The thermometer is an optimist.
+{weather} out there this morning, {temp} degrees, {precip} percent chance of getting wet. >> Round that up.
+::endlines
 
-TITLE coldwater_am_logo
+::lines weather.clear
+CLEAR skies, Coldwater! {temp} degrees and you can see all the way to the ridge! >> You can see all the way to the ridge. Take a moment with that.
+Not a cloud, {temp} degrees. It's a beautiful morning. >> It's a visible morning. Beautiful is a stretch.
+::endlines
 
-CAM 1 WIDE morning_couch
+::lines weather.rain
+Rain, {temp} degrees, {precip} percent and climbing. >> It is raining on the window that is not a window. There is something in that.
+Wet one out there — rain, feels like {feels}. >> Everything you own will be damp by ten and stay damp until spring.
+::endlines
 
-SHOT
-Two hosts sit on a curved orange couch in front of a window that is not a window. Behind the glass, a looped sunrise plays. It is raining outside the building.
-SHOT_END
+::lines weather.snow
+Snow this morning! {temp} degrees. >> Snow is rain that decided to take its time about ruining your day.
+It's snowing, it's {temp}, and it is very pretty from in here. >> From in here.
+::endlines
 
-ENTER npc_am_pace
+::lines weather.fog
+Fog on the Basin — {temp} degrees, can't see past the Locks. >> The fog is doing us a favour. Let it.
+Thick fog this morning. Take it slow. >> Take it slow, or arrive somewhere unplanned and permanent.
+::endlines
 
-BIJOU:
-Good MORNING, Coldwater! It is six o'clock, it is four degrees, and you are ALIVE!
+::lines weather.ash
+Ashfall, Coldwater. {temp} degrees. Cover your mouth out there. >> Do not look up with your mouth open. I shouldn't have to say it annually.
+Ash coming down again — {temp} degrees, wind {wind}. >> Shake your coat out before you bring it inside. That's it. That's the segment.
+::endlines
 
-ENTER npc_am_dorn
+::lines weather.thunderstorm
+Thunderstorms, {temp} degrees, wind at {wind}. >> If you can hear it, it can reach you.
+Storms over the Basin this morning. >> The Basin has never won one of these.
+::endlines
 
-HAL:
-Statistically.
+::lines weather.severe
+The Service has this at a WARNING level, Hal. >> Then stay in. Whatever it is you were going to do, it will keep.
+This one has teeth. Wind {wind}, feels like {feels}. >> If you have somewhere with walls, be in it. If you don't, find someone who does.
+Severe conditions today, Coldwater. >> Severe means the city stops pretending it can protect you. Act accordingly.
+::endlines
 
-BIJOU:
-Statistically alive! I'm Bijou Pace.
+::lines weather.ahead
+Looking ahead — tomorrow it's {tomorrow}, around {tomorrowTemp}. >> Something to build towards.
+Week's running a high of {hi} and a low of {lo}. >> The low is the one that counts.
+Tomorrow: {tomorrow}. >> Same as today, then, but you'll be more tired.
+::endlines
 
-HAL:
-Hal Dorn.
+# ── The Basin Beat — the live news feed, read off the couch ───────────────────
+::lines beat.banner
+THE BASIN BEAT | STORIES FROM YOUR STREET
+::endlines
 
-ACTION npc_am_dorn holds his mug with both hands like a man warming himself at a very small fire.
+::lines beat.lead
+First up — {headline}! >> And there it is.
+Our top story this morning: {headline}. >> Mm.
+Here's one for you, Hal — {headline}. >> I don't want it.
+{headline}! Isn't that something? >> It's something.
+Now THIS is a heartwarming one — {headline}! >> That's not what heartwarming means.
+::endlines
 
-BIJOU:
-And we have SUCH a show for you.
+::lines beat.detail
+{byline} has it that {body} >> {byline} would.
+The details, and they are details — {body} >> They put that in writing. Someone typed that and let it leave the building.
+Here's what we know: {body} >> Here's what we know. Note the shape of the parts they left out.
+::endlines
 
-::scene BASIN_BEAT
+::lines beat.aside
+Moving on! >> We're not going to sit with that at all, are we.
+And we'll stay on that one as it develops. >> It won't develop. It'll be replaced.
+::endlines
 
-CAM 2 MEDIUM two_shot
+# ── The rotating segment — the hotplate bit and its relatives ─────────────────
+::lines segment.banner
+THE HOTPLATE | THE MOST IMPORTANT MEAL YOU CAN AFFORD
+::endlines
 
-TITLE am_basin_beat_card
+::lines segment
+Now — breakfast! Take your standard ration paste, squeeze it into a pan, and here's the trick: heat. >> That's the trick.
+Two minutes on the ring and the paste goes from grey to a sort of WARMER grey. >> My father used to do that.
+Got a little sweetener? Stir it through at the end and you have got yourself a TREAT. >> You have got yourself a warmer grey.
+Today's tip: crack the window while you cook. >> Today's tip: know which of your neighbours can smell that you ate.
+Letter from a viewer in Meltwater Row — she wants to know if the sunrise is real. >> Next letter.
+Cold morning like this, wear your layers LOOSE. Trapped air is warm air. >> Trapped air is warm air. Trapped people are not. Loose layers.
+::endlines
 
-LOWER_THIRD
-THE BASIN BEAT
-STORIES FROM YOUR STREET
-LOWER_THIRD_END
+# ── Your Morning Run-In — reads the city's actual standing alerts ─────────────
+::lines runin.banner
+YOUR MORNING RUN-IN | WHAT THE CITY IS DOING TO YOU TODAY
+::endlines
 
-BIJOU:
-First up — a heartwarming one. A Redline man has been reunited with his dog!
+::lines runin.clear
+Curfew lifts on schedule, gates are moving, the Locks are open. >> Which means today, if something goes wrong, it'll be your fault.
+Nothing standing on the boards this morning — a clean run-in. >> Enjoy it. Write it down.
+Roads are roads, gates are gates, and the Basin is BEAUTIFUL this morning. >> If you don't look directly at it.
+::endlines
 
-HAL:
-He has been reunited with a dog.
+::lines runin.blackout
+Grid crews are out — {outages} blocks dark this morning. >> If your block is one of them, don't open the freezer and don't trust the stairwell.
+We're hearing {outages} blocks off the grid. >> Charge what you can while you can. It comes back when it comes back.
+::endlines
 
-BIJOU:
-He has been reunited with A dog, and honestly? At this hour, that's a win.
+::lines runin.martial_law
+Curfew is in effect BASIN-WIDE and it is being enforced. >> Enforced means they don't have to explain afterwards. Be somewhere with a door.
+Patrols are up across every district this morning. >> Carry your papers. Carry nothing else.
+::endlines
 
-ACTION npc_am_pace beams directly down the lens with the full force of a woman who has decided.
+::lines runin.radiation
+There's a radiation advisory standing this morning. >> Seal what you can, stay off the high ground, and don't drink anything that came from a puddle.
+The counters are up across the Basin. >> Indoors. All day if you can manage it.
+::endlines
 
-HAL:
-The original dog remains outstanding.
+::lines runin.storm
+The weather's going to make a mess of the run-in — allow extra. >> Allow extra or don't go. Those are the two options and only one of them is free.
+Gates will be slow with this coming in. >> They always slow the gate when the sky turns. It's the one thing they're consistent about.
+::endlines
 
-BIJOU:
-The original dog remains outstanding! Moving on!
+::lines ticker.lead
+COLDWATER A.M.
+::endlines
 
-NARRATOR:
-Coldwater A.M. is brought to you by the people who would like you at work on time.
+# ── Sign-off ─────────────────────────────────────────────────────────────────
+::lines signoff
+That's us! Back tomorrow, same couch, same sunrise. >> Same sunrise.
+Go and have a WONDERFUL day, Coldwater. You've earned it. >> Probably.
+That's your morning. We'll be here. >> We're always here. That's not the same as being fine.
+Coldwater A.M. is brought to you by the people who would like you at work on time. >> On time.
+::endlines
 
-::scene KITCHEN
-
-CAM 3 CLOSEUP hotplate
-
-SHOT
-A single induction ring on a laminate counter. Bijou stands behind it holding an unlabelled grey tube. Hal has not moved from the couch.
-SHOT_END
-
-BIJOU:
-Now — breakfast! Because the most important meal of the day is the one you can afford.
-
-BIJOU:
-Take your standard ration paste. Squeeze it into a pan. And here's the trick — heat.
-
-ACTION npc_am_pace squeezes the tube into the pan. The sound is upsetting.
-
-HAL:
-That's the trick.
-
-BIJOU:
-That's the WHOLE trick, Hal. Two minutes, and it goes from grey to a sort of warmer grey.
-
-HAL:
-My father used to do that.
-
-ACTION npc_am_dorn looks at the middle distance for slightly longer than the format allows.
-
-BIJOU:
-Lovely! And if you've got a little sweetener, stir it through at the end and you have got yourself a TREAT.
-
-::scene TRAFFIC
-
-CAM 1 WIDE morning_couch
-
-LOWER_THIRD
-YOUR MORNING RUN-IN
-CURFEW LIFTS 06:30 · SOUTH GATE DELAYS
-LOWER_THIRD_END
-
-HAL:
-Curfew lifts at half six. South Gate is running long — they're searching everybody again.
-
-HAL:
-If you're heading in from the wastes, leave an hour. If you're carrying anything you'd rather not explain, leave it.
-
-BIJOU:
-Ha ha! Hal!
-
-HAL:
-I'm saying leave it at home. I'm saying that as a service.
-
-BIJOU:
-Haulage is slow on the Haul Road, the North Locks are frozen again, and the Basin is BEAUTIFUL this morning if you don't look directly at it.
-
-::scene SIGNOFF
-
-CAM 2 MEDIUM two_shot
-
-BIJOU:
-That's us! Back tomorrow, same couch, same sunrise.
-
-HAL:
-Same sunrise.
-
-ACTION npc_am_dorn glances at the window that is not a window.
-
-BIJOU:
-Go and have a WONDERFUL day, Coldwater. You've earned it. Probably.
-
-TICKER
-COLDWATER A.M. · Curfew lifts 06:30 · South Gate: extended searches, allow one hour · North Locks closed to foot traffic · Ration distribution at Meltwater Row from 07:00, bring documentation · Overnight vat intake was within normal range · The sunrise depicted is a composite and does not reflect current conditions
-TICKER_END
-
-MUSIC coldwater_am_theme
-♪ The bright brass returns, one semitone flatter than it started. ♪
-MUSIC_END
-
-CREDITS 5
+::lines credits
 COLDWATER A.M.
 Presented by Bijou Pace and Hal Dorn.
 Hal Dorn appears by arrangement with his contract.
-END_CREDITS
-
-EVENT FADE_OUT
+The sunrise depicted is a composite and does not reflect current conditions.
+::endlines
 
 END

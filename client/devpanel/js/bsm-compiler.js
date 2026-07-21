@@ -5,7 +5,7 @@ function compileBsm(text) {
   const lines = text.split('\n');
   let i = 0;
 
-  const meta = { name: '', channel: '', category: 'general', host: '', length: null, type: 'live', sport: '', announcer: '', airSlots: null, anchors: [], reporters: [], sidekick: '', guestNpc: '' };
+  const meta = { name: '', channel: '', category: 'general', host: '', length: null, type: 'live', sport: '', announcer: '', airSlots: null, anchors: [], reporters: [], sidekick: '', guestNpc: '', cohost: '' };
   const _debug = { unknownDirectives: [], nodeTypes: {}, unresolvedSpeakers: [] };
 
   // Pre-scan ::actors block to build alias map and actor list.
@@ -160,6 +160,9 @@ function compileBsm(text) {
         // reusable guest NPC renamed each episode. All three are spawned/placed by the importer.
         else if (key === 'sidekick') meta.sidekick = val;
         else if (key === 'guest')    meta.guestNpc = val;
+        // morning: the second host on the couch — a real npc_ id, like @host. The two trade
+        // every beat, so the pools are authored as "host line >> cohost line" pairs.
+        else if (key === 'cohost')   meta.cohost = val;
         // @actor / @alias are pre-scanned from ::actors block; skip here
       }
       i++; continue;
@@ -498,5 +501,18 @@ function compileBsm(text) {
     for (const id of [meta.host, meta.sidekick, meta.guestNpc]) if (id) npcIds.add(id);
   }
 
-  return { meta, broadcastGraph: { _start: startId, nodes }, weatherScript, sportsScript, newsScript, talkshowScript, messages, assets, rooms, cameras: cameraNumbers, npcIds: [...npcIds], actorIds, _debug };
+  // Morning shows (@type morning) are the talk show's daytime cousin: a line library acted
+  // live by TWO resident hosts, whose facts come from the live world (forecast, news feed,
+  // alerts, the clock) rather than a guest persona. Both hosts are real npc_ ids on the
+  // studio couch, so they ARE added to npcIds and the importer places them.
+  // See docs/bsm-format.md#morning-shows-type-morning.
+  const morningScript = {
+    host: meta.host || '', cohost: meta.cohost || '',
+    pools: weatherPools, title: meta.titlecard || '', theme: meta.theme || '',
+  };
+  if (meta.type === 'morning') {
+    for (const id of [meta.host, meta.cohost]) if (id) npcIds.add(id);
+  }
+
+  return { meta, broadcastGraph: { _start: startId, nodes }, weatherScript, sportsScript, newsScript, talkshowScript, morningScript, messages, assets, rooms, cameras: cameraNumbers, npcIds: [...npcIds], actorIds, _debug };
 }
