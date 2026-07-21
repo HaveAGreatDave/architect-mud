@@ -1693,13 +1693,17 @@ function ensureStyles() {
        .tv-st-*, .tv-fx-*, .tv-sched-*, .tv-overlay-*) come from styles.css for free.
        What's defined here is only the tablet's own chassis + the overlay hosts,
        which on the standalone set are positioned against the CRT cabinet. */
-    #tablet-os-overlay .tos-tv { display:flex; flex-direction:column; gap:10px; }
+    /* TV app fills the screen (same trick as the map app above): the body is a flex
+       column pinned to 100% height, and the set takes all the slack the header/dial
+       leave — so the picture is as big as the tablet allows instead of a fixed box. */
+    #tablet-os-overlay .tos-body.tos-tv-view { box-sizing:border-box; height:100%; display:flex; flex-direction:column; }
+    #tablet-os-overlay .tos-tv { display:flex; flex-direction:column; gap:10px; flex:1; min-height:0; }
     /* Theme vars land on this element (tv.js _writeTvTheme) — defaults keep the
        viewport legible on a channel with no theme of its own. */
     #tablet-os-overlay .tos-tv-set {
       --tv-bg:var(--bg, #05050a); --tv-border:var(--border, #2a2a40); --tv-text:var(--tos-fg, #e8e8f5);
       --tv-header-color:var(--accent); --tv-live-color:#ff4d4d; --tv-ticker-color:var(--accent);
-      display:flex; flex-direction:column; border-radius:8px; overflow:hidden;
+      display:flex; flex-direction:column; flex:1; min-height:0; border-radius:8px; overflow:hidden;
       border:1px solid var(--tv-border); background:var(--tv-bg);
       box-shadow:inset 0 0 22px rgba(0,0,0,.55);
       transition:background .5s, border-color .5s; }
@@ -1712,7 +1716,7 @@ function ensureStyles() {
       text-transform:none; letter-spacing:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     #tablet-os-overlay .tos-tv-live { flex:none; color:var(--tv-live-color); font-size:8px; }
     /* The picture. position:relative is what every overlay host below anchors to. */
-    #tablet-os-overlay .tos-tv-screen { position:relative; height:230px; overflow:hidden; background:var(--tv-bg); }
+    #tablet-os-overlay .tos-tv-screen { position:relative; flex:1; min-height:0; overflow:hidden; background:var(--tv-bg); }
     #tablet-os-overlay .tos-tv-screen [data-tv="content"] { position:absolute; inset:0; overflow:hidden; padding:12px 14px;
       transition:opacity .25s; }
     #tablet-os-overlay .tos-tv-screen [data-tv="content"].tv-hidden { opacity:0; }
@@ -1771,7 +1775,9 @@ function ensureStyles() {
     #tablet-os-overlay .tos-tv-ch-btn:active { transform:scale(.94); }
     #tablet-os-overlay .tos-tv-spacer { flex:1; }
     /* Direct channel chips — the tablet-native way to jump the dial. */
-    #tablet-os-overlay .tos-tv-dial { display:flex; flex-wrap:wrap; gap:6px; }
+    /* The dial never eats the picture: it keeps its natural height, but a long channel
+       list caps out and scrolls instead of squeezing the screen above it. */
+    #tablet-os-overlay .tos-tv-dial { display:flex; flex-wrap:wrap; gap:6px; flex:0 1 auto; max-height:30%; overflow-y:auto; }
     #tablet-os-overlay .tos-tv-chip { cursor:pointer; font-size:10px; padding:5px 9px; border-radius:4px;
       background:var(--bg2, #0d0d16); border:1px solid var(--border, #2a2a40); color:var(--tos-fg);
       transition:color .12s, border-color .12s; }
@@ -4999,7 +5005,7 @@ function renderBody() {
     </div>`;
   }
   if (d.view === 'tv') {
-    return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}
+    return `<div class="tos-body tos-tv-view">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}
       ${renderTv(d)}
     </div>`;
   }

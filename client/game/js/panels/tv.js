@@ -1032,15 +1032,26 @@ export function createTvView(root, opts = {}) {
           const h = parseFloat(svg.getAttribute('height')) || 360;
           svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
         }
-        const vbParts = svg.getAttribute('viewBox').split(/[\s,]+/);
-        const naturalWidth = parseFloat(vbParts[2]) || 640;
         svg.removeAttribute('width');
         svg.removeAttribute('height');
-        svg.style.width = `${naturalWidth}px`;
+        // FILL the picture. Width 100% scales the card up to the full screen — pinning it
+        // to the viewBox's natural px width left anything authored narrower than the
+        // viewport sitting small in the middle of the frame. The measured max-height then
+        // caps a TALL card to the picture box so it letterboxes inside the screen instead
+        // of overflowing and having its bottom clipped by the content box's overflow:hidden.
+        // viewBox + the default preserveAspectRatio keep it undistorted either way.
+        svg.style.width = '100%';
         svg.style.maxWidth = '100%';
         svg.style.height = 'auto';
         svg.style.display = 'block';
         svg.style.margin = '0 auto';
+        requestAnimationFrame(() => {
+          const content = el('content');
+          if (!content || !content.clientHeight) return;
+          const cs = getComputedStyle(content);
+          const availH = content.clientHeight - (parseFloat(cs.paddingTop) || 0) - (parseFloat(cs.paddingBottom) || 0);
+          if (availH > 24) svg.style.maxHeight = `${Math.round(availH)}px`;
+        });
       } catch (err) {
         // A malformed graphic must never break the broadcast — drop this card and
         // let the show carry on with the next message.
@@ -1057,9 +1068,15 @@ export function createTvView(root, opts = {}) {
         const plain = text.replace(/\[[^\]]*\]/g, '');
         const lines = plain.split('\n');
         const maxLen = Math.max(...lines.map(l => l.length), 1);
+        // Fit BOTH ways: the widest line has to fit ACROSS the screen, and the whole
+        // block has to fit DOWN it. Width-only fitting let tall art run past the bottom
+        // of the picture, where overflow:hidden simply cut it off.
+        const cs = getComputedStyle(content);
         const availPx = content.clientWidth - 36;
-        const targetPx = Math.min(availPx / (maxLen * 0.6), 18);
-        const finalPx  = Math.max(targetPx, 7);
+        const availH = content.clientHeight - (parseFloat(cs.paddingTop) || 0) - (parseFloat(cs.paddingBottom) || 0);
+        const byWidth = availPx / (maxLen * 0.6);
+        const byHeight = availH / (lines.length * 1.3);   // 1.3 = the ascii line-height
+        const finalPx = Math.max(Math.min(byWidth, byHeight, 18), 7);
         node.style.fontSize = `${finalPx.toFixed(1)}px`;
       });
     } else {

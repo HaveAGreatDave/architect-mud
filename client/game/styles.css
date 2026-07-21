@@ -7470,7 +7470,11 @@ body.fsim-external #look-resize-handle { display: none; }
 .tv-msg-ticker { color: var(--tv-ticker-color); font-style: italic; }
 .tv-msg-ambient { color: var(--tv-text); opacity: 0.6; font-style: italic; }
 .tv-msg-stage_direction { color: var(--tv-header-color); opacity: 0.55; font-size: 0.88em; }
-.tv-msg-ascii-art {
+/* The renderer emits the style key verbatim (`tv-msg-ascii_art`); the hyphen spelling
+   alone never matched, so none of this landed — the auto-fit's line-height assumption
+   included. Both spellings are matched so the rule applies either way. */
+.tv-msg-ascii-art,
+.tv-msg-ascii_art {
 	font-size: 12px;
 	line-height: 1.3;
 	color: var(--tv-header-color);
