@@ -132,7 +132,7 @@ const DEALERS = [
       { item_id: 'item_khole',     price: 250, min_trust: 70 },
       { item_id: 'item_memhack',   price: 300, min_trust: 70 },
       // Tier 90 — the static between channels
-      { item_id: 'item_voidwalk',  price: 480, min_trust: 90 },
+      { item_id: 'item_deadair',  price: 480, min_trust: 90 },
       { item_id: 'item_overclock', price: 500, min_trust: 90 },
     ],
   },

@@ -1,8 +1,8 @@
 {
   "description": "A designer dissociative that drops you into the static between channels.",
   "flags": {},
-  "id": "item_voidwalk",
-  "name": "Voidwalk",
+  "id": "item_deadair",
+  "name": "dead air",
   "tags": {
     "drug": true
   },

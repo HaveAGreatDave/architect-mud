@@ -13,7 +13,8 @@
  */
 import { query } from '../../server/models/db.js';
 import { cmdUse } from '../../server/engine/commands/inventory.js';
-import { getDrugStatus } from '../../server/engine/drugs.js';
+import { getDrugStatus, visibleIntoxication } from '../../server/engine/drugs.js';
+import { dispatchAction } from '../../server/engine/actions.js';
 
 async function findDrug(targetStr, player) {
   if (!targetStr) return false;
@@ -104,6 +105,31 @@ async function habits(args, raw, player) {
 }
 
 export const commands = { habits };
+
+// --- what other people can see, and what a bad dose does to you --------------
+
+export const hooks = {
+  // Being wrecked is social information. The engine owns the predicate so the law
+  // (surveillance's public-intoxication check) and this examine line can never
+  // disagree about who looks off their head.
+  'player.appearanceNotes': ({ target, isSelf }) => {
+    const seen = visibleIntoxication(target);
+    if (!seen) return undefined;
+    return isSelf
+      ? 'You are not holding it together as well as you think.'
+      : seen.note;
+  },
+
+  // A survivable overdose drops you where you stand. It used to be a stat burst
+  // and nothing else, which made the difference between "too much" and "far too
+  // much" invisible — and left no window for anyone to go through your pockets.
+  'drug.overdose': async ({ player, lethal }) => {
+    if (lethal || !player) return undefined;   // a corpse does not need blacking out
+    await dispatchAction({ type: 'blackout.begin', actor: player, params: {}, context: {} })
+      .catch(e => console.error('[drugs] overdose blackout failed:', e.message));
+    return undefined;
+  },
+};
 
 // Pure formatters, exposed for the regress suite only (the `_test` convention).
 export const _test = { ago, soon, bite };

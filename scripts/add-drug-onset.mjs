@@ -25,7 +25,7 @@ const ONSET = {
   drug_glasshollow: 6,
   drug_slow:        8,   // gradual wash — the name is the brief
   drug_khole:       8,   // sink into the hole
-  drug_voidwalk:    8,   // dissociative drift
+  drug_deadair:    8,   // dissociative drift
   drug_screamers:  10,   // dread builds
   drug_blotter:    20,   // long LSD come-up + trip
   drug_mescaline:  25,

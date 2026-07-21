@@ -15,6 +15,7 @@ import { exitTargets, neighborZoneIds } from '../../server/engine/exits.js';
 import { moveEntity } from '../../server/engine/ai-behaviour.js';
 import { findPath } from '../../server/engine/pathfinding.js';
 import { skillCheck, awardSkillUse, effectiveSkill } from '../../server/engine/skills.js';
+import { visibleIntoxication } from '../../server/engine/drugs.js';
 import { getPowerMap, getZoneVisibility, LIGHT_LADDER } from '../../server/engine/environment.js';
 import { sendToPlayer, sendToZone, getBroadcast } from '../../server/engine/messaging.js';
 import { on, emit } from '../../server/engine/events.js';
@@ -1666,6 +1667,22 @@ on('item.given', async ({ actor, item }) => {
 on('player.drugUsed', ({ player, illegal, zoneId }) => {
   if (player?.id && illegal) raiseCrime(player, 'drug_use', zoneId || player.current_zone, player.handle);
 });
+// Public intoxication: not the ACT of using (that's drug_use, camera-only above)
+// but the STATE — walking the street obviously off your head. Anyone can phone it
+// in, so it's witness 'any'. Throttled per player: staying out there wrecked is one
+// offence, not one per step, or a long high would paper the city in stars.
+const PUBLIC_INTOX_COOLDOWN = 5 * 60 * 1000;
+const lastIntoxSeen = new Map();
+on('zone.entered', ({ actor: player, zone }) => {
+  if (!player?.id) return;
+  const seen = visibleIntoxication(player);
+  if (!seen?.illegal) return;
+  const now = Date.now();
+  if (now - (lastIntoxSeen.get(player.id) || 0) < PUBLIC_INTOX_COOLDOWN) return;
+  lastIntoxSeen.set(player.id, now);
+  raiseCrime(player, 'public_intoxication', zone || player.current_zone, player.handle);
+});
+on('player.logout', ({ id }) => lastIntoxSeen.delete(id));
 on('hack.success', ({ player, zoneId }) => {
   if (player?.id) raiseCrime(player, 'hacking', zoneId || player.current_zone, player.handle);
 });

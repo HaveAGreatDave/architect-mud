@@ -1,0 +1,16 @@
+{
+  "description": "A jerrycan of crude dead air. Titrate and stabilise into the finished liquid. Raw material — contraband; carrying it is manufacturing.",
+  "flags": {
+    "cook_tier": 4,
+    "raw_of": "drug_deadair"
+  },
+  "id": "item_raw_deadair",
+  "name": "crude dead air",
+  "tags": {
+    "contraband": true,
+    "raw_drug": true
+  },
+  "type": "chemical",
+  "value": 63,
+  "weight": 2
+}

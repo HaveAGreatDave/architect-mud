@@ -329,8 +329,8 @@
               "value": "6"
             }
           ],
-          "label": "crude Voidwalk — 126₵/crate",
-          "next": "bm_q_voidwalk"
+          "label": "crude dead air — 126₵/crate",
+          "next": "bm_q_deadair"
         },
         {
           "conditions": [
@@ -1478,7 +1478,7 @@
       ],
       "text": "\"crude The Threshold. How many crates?\" Sully doesn't write anything down. \"28₵ apiece, dropped at the Scald.\""
     },
-    "bm_q_voidwalk": {
+    "bm_q_deadair": {
       "_vine": {
         "x": 1040,
         "y": 880
@@ -1490,7 +1490,7 @@
             {
               "action": "PLACE_SMUGGLE_ORDER",
               "params": {
-                "itemId": "item_raw_voidwalk",
+                "itemId": "item_raw_deadair",
                 "qty": 1
               }
             }
@@ -1503,7 +1503,7 @@
             {
               "action": "PLACE_SMUGGLE_ORDER",
               "params": {
-                "itemId": "item_raw_voidwalk",
+                "itemId": "item_raw_deadair",
                 "qty": 3
               }
             }
@@ -1516,7 +1516,7 @@
             {
               "action": "PLACE_SMUGGLE_ORDER",
               "params": {
-                "itemId": "item_raw_voidwalk",
+                "itemId": "item_raw_deadair",
                 "qty": 5
               }
             }
@@ -1529,7 +1529,7 @@
           "next": "bm_menu"
         }
       ],
-      "text": "\"crude Voidwalk. How many crates?\" Sully doesn't write anything down. \"126₵ apiece, dropped at the Scald.\""
+      "text": "\"crude dead air. How many crates?\" Sully doesn't write anything down. \"126₵ apiece, dropped at the Scald.\""
     },
     "gossip": {
       "_vine": {

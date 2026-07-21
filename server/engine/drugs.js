@@ -141,6 +141,45 @@ function crossTolerance(rows, excludeKey, drugClass, now) {
   return best * CROSS_TOLERANCE;
 }
 
+// What a bystander can SEE. 27 of 30 drugs were completely invisible — you could
+// be mid-trip on a deliriant, pupils like dinner plates, and look entirely normal
+// to everyone in the room. Drugs in a MUD are social; half the point is other
+// people clocking that you are a mess.
+//
+// A drug shows only if it is the kind of thing that WOULD show: it declares a
+// class, it makes you hallucinate, or it authors its own line. That deliberately
+// leaves coffee and a cigarette invisible (nobody can see your caffeine), and
+// leaves the joint's red eyes and the drink in your hand to the cannabis and
+// consume plugins, which already narrate them.
+const VISIBLE_BY_CLASS = {
+  stimulant:  'Their jaw is working at nothing, and their eyes are open a size too wide.',
+  depressant: 'Their eyelids keep sliding shut, and they surface a beat late from every sentence.',
+};
+const VISIBLE_TRIPPING = 'Their pupils are blown black, and they keep tracking something that is not there.';
+
+// The line a given drug would put on your face, or null if nothing would show.
+function appearanceNoteFor(drug) {
+  const eff = drug?.effects || {};
+  return eff.appearance_note
+    || (eff.hallucination ? VISIBLE_TRIPPING : null)
+    || VISIBLE_BY_CLASS[drug?.flags?.drug_class]
+    || null;
+}
+
+// Returns { note, illegal, name } while a visible dose is still working, else null.
+// Read by the drugs plugin (examine) and by surveillance (public intoxication), so
+// the mirror and the law can never disagree about who looks off their head.
+//
+// Stamped at dose time rather than derived from `activeDrugs`: five drugs — ether,
+// k-hole, threshold, voidwalk and alcohol — carry no `phases` block, so they never
+// create an activeDrugs entry at all and would have stayed invisible no matter how
+// wrecked they left you.
+export function visibleIntoxication(player) {
+  const v = player?._visibleDrug;
+  if (!v || Date.now() >= v.until) return null;
+  return v;
+}
+
 // Is the player currently running on something that would keep them awake?
 // Exported so the sleep command can ask the drug system a question instead of
 // growing its own opinion about pharmacology.
@@ -409,6 +448,16 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
     ? `\n<span class="addiction-warning">Something in you just changed. You'll want this again.</span>`
     : '';
 
+  // Stamp what a bystander can see, before the overdose branch — someone who has
+  // just taken far too much is the most obviously wrecked person in the room.
+  const shows = appearanceNoteFor(drug);
+  if (shows) {
+    player._visibleDrug = {
+      note: shows, illegal: !drug.flags?.legal, name: displayName,
+      until: Date.now() + durationSeconds * 1000,
+    };
+  }
+
   // A death you couldn't see coming is a bug, not difficulty. When the mix is
   // what did it — this dose alone was survivable — say so, both on the way down
   // and while there's still time to stop.
@@ -425,7 +474,10 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
     // ...and any dose of it still waiting to land. Without this, a non-lethal OD on
     // an onset drug still gets hit by the deferred instant it just cancelled.
     if (player.pendingOnsets) player.pendingOnsets = player.pendingOnsets.filter(o => o.stateKey !== stateKey);
-    fireHook('drug.overdose', { player, drug: drugForHooks, broadcast }).catch(e => console.error('[drugs] drug.overdose hook failed:', e.message));
+    // `lethal` matters to subscribers: a survivable overdose should drop you
+    // unconscious, but doing that to someone the very next line kills is pointless.
+    fireHook('drug.overdose', { player, drug: drugForHooks, broadcast, lethal: !!eff.overdose?.lethal })
+      .catch(e => console.error('[drugs] drug.overdose hook failed:', e.message));
 
     // Name the mix when the mix is what did it — dying to arithmetic you were
     // never shown is a bug, not difficulty.
@@ -909,5 +961,6 @@ export function clearActiveDrugBuffs(player) {
     if (/^(drug|withdrawal):/.test(source)) reverseMods(player, source);
   player.activeDrugs = [];
   player.pendingOnsets = [];
+  player._visibleDrug = null;      // a fresh clone doesn't wear the last one's pupils
   player._withdrawalActive?.clear?.();
 }

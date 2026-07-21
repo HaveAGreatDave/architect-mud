@@ -18,6 +18,7 @@ import { query } from '../models/db.js';
 export const CRIME_DEFAULTS = {
   drug_use:            { label: 'Illegal drug use (on camera)', stars: 0.5, witness: 'camera', description: 'Using a controlled substance in view of a camera.' },
   drug_dealing:        { label: 'Dealing (hand-to-hand)',       stars: 1,   witness: 'any',    description: 'Passing a controlled substance to another person. A camera might catch it; a bystander might phone it in — never a sure thing, never zero.' },
+  public_intoxication: { label: 'Visibly wrecked in public',    stars: 0.5, witness: 'any',    description: 'Not the act of using but the state of it — walking the street obviously off your head on something illegal. Anyone can phone that in, and it charges at most once every few minutes however long you stay out there.' },
   attack_player:       { label: 'Attacking a player',           stars: 4,   witness: 'any',    description: 'Opening fire on another player in view of a witness (camera, cop, or bystander) inside city limits — an immediate 4-star response.' },
   attack_npc:          { label: 'Attacking an NPC',             stars: 4,   witness: 'any',    description: 'Assaulting a non-player character in view of a witness inside city limits — an immediate 4-star response.' },
   kill_police:         { label: 'Killing police',               stars: 5,   witness: 'always', description: 'Killing a law-enforcement NPC.' },

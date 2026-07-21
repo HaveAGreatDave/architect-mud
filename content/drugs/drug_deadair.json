@@ -62,9 +62,9 @@
     "take_line": "You dose {name} and wait for the signal to drop."
   },
   "flags": {},
-  "id": "drug_voidwalk",
-  "item_id": "item_voidwalk",
-  "name": "Voidwalk",
+  "id": "drug_deadair",
+  "item_id": "item_deadair",
+  "name": "dead air",
   "overdose_threshold": 4,
   "withdrawal_effects": {}
 }

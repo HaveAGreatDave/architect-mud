@@ -2,7 +2,15 @@
   "name": "drugs",
   "version": "1.0.0",
   "description": "Drug domain: USE and INJECT specialized actions gated on the drug tag, plus HABITS — your own tolerance, dependency and withdrawal read-out.",
-  "hooks": [],
-  "commands": ["habits"],
-  "specializedActions": ["use", "inject"]
+  "hooks": [
+    "player.appearanceNotes",
+    "drug.overdose"
+  ],
+  "commands": [
+    "habits"
+  ],
+  "specializedActions": [
+    "use",
+    "inject"
+  ]
 }

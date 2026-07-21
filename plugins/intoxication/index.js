@@ -27,6 +27,7 @@ import { schedule } from '../../server/engine/scheduler.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { on } from '../../server/engine/events.js';
 import { applyMods, reverseMods } from '../../server/engine/statmods.js';
+import { registerAction } from '../../server/engine/actions.js';
 
 // --- tunables ----------------------------------------------------------------
 const SLUR_MIN     = 30;   // speech starts slurring at/above this
@@ -228,6 +229,20 @@ function intoxTick() {
 }
 
 schedule('4s', () => { try { intoxTick(); } catch (e) { console.error('[intoxication] tick error:', e.message); } });
+
+// Blacking out is this plugin's mechanic, but alcohol isn't the only thing that
+// can do it — a survivable overdose should drop you too. Exposed as an Action so
+// the drugs plugin can trigger it through the registry rather than importing
+// across plugins. Idempotent: already-out stays out, it doesn't stack.
+registerAction({
+  type: 'blackout.begin',
+  handler: ({ actor: player }) => {
+    if (!player) return { ok: false };
+    if (player.blackedOutUntil && Date.now() < player.blackedOutUntil) return { ok: true, already: true };
+    startBlackout(player);
+    return { ok: true };
+  },
+});
 
 // Exposed for the regression suite.
 export const _test = { slur, addIntoxication, narrateBand, blackoutChance, BAND_MODS, SLUR_MIN, BLACKOUT_MIN };

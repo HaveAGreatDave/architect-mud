@@ -1,16 +1,16 @@
 {
   "base_difficulty": 10,
   "base_output": {
-    "item_id": "item_voidwalk",
+    "item_id": "item_deadair",
     "quantity": 1
   },
   "category": "synthesis",
   "craft_time": 3,
-  "description": "Cook Voidwalk from crude Voidwalk + industrial solvent.",
-  "id": "cook_voidwalk",
+  "description": "Cook dead air from crude dead air + industrial solvent.",
+  "id": "cook_deadair",
   "ingredients": [
     {
-      "item_id": "item_raw_voidwalk",
+      "item_id": "item_raw_deadair",
       "quantity": 1
     },
     {
@@ -18,7 +18,7 @@
       "quantity": 1
     }
   ],
-  "name": "Cook Voidwalk",
+  "name": "Cook dead air",
   "requires_station": "chem_lab",
   "skill_id": "chemistry",
   "skill_req": {

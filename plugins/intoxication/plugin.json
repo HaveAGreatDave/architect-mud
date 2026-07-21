@@ -6,5 +6,6 @@
   "events": {
     "consumes": ["player.drugUsed", "zone.entered", "player.death", "player.logout"]
   },
-  "ticks": ["self-4s"]
+  "ticks": ["self-4s"],
+  "actions": ["blackout.begin"]
 }
