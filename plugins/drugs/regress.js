@@ -54,6 +54,31 @@ export default async function regress({ run, check }) {
     T.classBurden([{ drug_id: 'drug_alcohol', doses_in_system: 4, tolerance: 1 }], 'x', 'depressant')
       < T.classBurden([{ drug_id: 'drug_alcohol', doses_in_system: 4, tolerance: 0 }], 'x', 'depressant'));
 
+  // --- class membership cuts both ways ---------------------------------------
+  const NOW = 1_700_000_000;
+  const vet = [{ drug_id: 'drug_blacktar', tolerance: 1, last_used_at: NOW, doses_in_system: 0 }];
+  check('a same-class veteran carries half their tolerance across',
+    T.crossTolerance(vet, 'drug_grey', 'depressant', NOW) === T.CROSS_TOLERANCE);
+  check('cross-tolerance does not leak between classes',
+    T.crossTolerance(vet, 'drug_grey', 'stimulant', NOW) === 0);
+  check('cross-tolerance excludes the drug being taken',
+    T.crossTolerance(vet, 'drug_blacktar', 'depressant', NOW) === 0);
+  check('an unclassed drug gets no cross-tolerance',
+    T.crossTolerance(vet, 'drug_grey', undefined, NOW) === 0);
+
+  const freshCousin = [{ drug_id: 'drug_grey', last_used_at: NOW, tolerance: 0, doses_in_system: 1 }];
+  const goneCousin  = [{ drug_id: 'drug_grey', last_used_at: NOW - 99999, tolerance: 0, doses_in_system: 0 }];
+  check('a fresh cousin holds most of the withdrawal off',
+    T.substitutionRelief(freshCousin, 'drug_blacktar', 'depressant', NOW) === T.SUBSTITUTION_FLOOR);
+  check('a worn-off cousin holds none of it off',
+    T.substitutionRelief(goneCousin, 'drug_blacktar', 'depressant', NOW) === 1);
+  check('substitution does not cross classes',
+    T.substitutionRelief(freshCousin, 'drug_blacktar', 'stimulant', NOW) === 1);
+  check('substitution is never total — a cousin is not the drug you want',
+    T.SUBSTITUTION_FLOOR > 0 && T.SUBSTITUTION_FLOOR < 1);
+  check('a deep habit bites harder than a shallow one',
+    T.WD_DEPTH_FLOOR > 0 && T.WD_DEPTH_FLOOR < 1);
+
   // --- verb routing --------------------------------------------------------
   // `inject` must resolve as its own route, not collapse back into `use`.
   let r = await run('inject nothingxyz');

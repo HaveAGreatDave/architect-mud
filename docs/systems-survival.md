@@ -138,6 +138,16 @@ for pre-existing drugs). Per-drug state lives in `player_drug_state` (`doses_in_
   carrier row has none), so they don't stack. When the mix is what killed you — the dose alone was
   survivable — the death message says so, and a survivable mix warns you on the way in; a death you
   couldn't see coming is a bug, not difficulty.
+- **Class membership cuts four ways** — beyond the shared overdose ceiling above, `flags.drug_class`
+  also drives: **substitution** (any same-class drug taken recently holds part of the class's withdrawal
+  off, decaying back to full bite as its own `duration_seconds` runs out, floored at `SUBSTITUTION_FLOOR`
+  — a cousin is never the drug you want, but it is why an addict takes what's nearest); **cross-tolerance**
+  (`CROSS_TOLERANCE` = half of the strongest same-class tolerance, feeding *both* the dulled high and the
+  raised ceiling — so class membership protects as well as endangers, and is never written back into the
+  taken drug's own row); and **depth** (withdrawal severity scales from `WD_DEPTH_FLOOR` to 1 across the
+  addiction band, so a casual user at the latch and a 0.95 addict no longer suffer identically).
+  `isWired(player)` reports an active stimulant — `cmdSleep` asks it rather than growing its own
+  pharmacology, so you cannot lie down on a live upper.
 - **`habits` (the read-out)** — the whole model above is server-side and was otherwise invisible: a
   player could only infer tolerance, dependency and the withdrawal arc from stats moving for no stated
   reason. `habits` (drugs plugin) lists every substance you have a history with — decayed tolerance,
