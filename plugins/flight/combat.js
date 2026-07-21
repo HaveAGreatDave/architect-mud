@@ -232,6 +232,7 @@ function fireSwarm(live, args, player) {
   if (!live.row.airborne || !live.row.weapons_hot || (live.type.hardpoints || 0) < 1) return { type: 'noop' };
   const salvo = salvoOf(live);
   if (salvo < 2) return fireMissile(live, args, player);   // not a swarm airframe — fall back to the locked shot
+  if ((args[1] || '').toLowerCase() === 'ground') return fireSwarmGround(live, player);   // nothing in the air → hit the dirt
   if (mslAmmo(live) < 1) return { type: 'emote', message: '<span class="text-amber">Rails are empty — rearm at a field.</span>' };
   const nowMs = Date.now();
   if (live.lastMsl && nowMs - live.lastMsl < SWARM_COOLDOWN_MS) return { type: 'noop' };
@@ -251,6 +252,124 @@ function fireSwarm(live, args, player) {
   airThreatTo(target, { kind: 'missile', ms: MISSILE_FLIGHT_MS, by: player.handle || null });
   toOccupants(target, '<span class="text-red">⚠ MISSILE SWARM INBOUND — pop <b>flares</b> and break!</span>');
   return { type: 'emote', message: `<span class="text-cyan">RIPPLE — a swarm of ${n} missiles streaks off the rails at the ${target.type.name}.</span>` };
+}
+
+// ── Ground SWARM — the attack heli's real job ─────────────────────────────────
+// The standoff counterpart to the gun pass: `strafe` has to overfly the target at LOW and
+// rakes whatever is under the belly, while a swarm reaches out from a few tiles back and
+// guts a hard point at missile weight. It prefers an active AA emplacement inside the
+// forward cone (the thing you brought missiles for); with no turret in reach it saturates
+// the tile the nose is pointed at. Same no-lock contract as the air-to-air ripple.
+const GROUND_SWARM_RANGE = 4;                    // tiles — how far ahead an emplacement can be engaged
+const GROUND_SWARM_REACH = 2;                    // tiles ahead the barrage lands with no turret to kill
+const GROUND_SWARM_PK = 0.6;                     // per-warhead chance to connect with an emplacement
+const GROUND_SWARM_HIT = 0.55;                   // per-warhead chance to catch a body in the footprint
+const GROUND_SWARM_DMG = { min: 34, max: 58 };   // vs soft targets — ~2× a cannon rake, and 'explosive'
+
+async function fireSwarmGround(live, player) {
+  if (!live.row.airborne || !live.row.weapons_hot || (live.type.hardpoints || 0) < 1) return { type: 'noop' };
+  if (salvoOf(live) < 2) return { type: 'noop' };
+  if (mslAmmo(live) < 1) return { type: 'emote', message: '<span class="text-amber">Rails are empty — rearm at a field.</span>' };
+  if (live.row.altitude_band === 'high') return { type: 'emote', message: '<span class="text-amber">Too high to pick out a ground target — bring her down.</span>' };
+  const nowMs = Date.now();
+  if (live.lastMsl && nowMs - live.lastMsl < SWARM_COOLDOWN_MS) return { type: 'noop' };
+
+  // Unit vector along the nose. bearingDeg is atan2(dx, -dy), so invert it the same way.
+  const a = live.row;
+  const th = toDeg(a.heading) * Math.PI / 180;
+  const fx = Math.sin(th), fy = -Math.cos(th);
+
+  // Hard target first: the nearest live emplacement inside the forward cone + standoff range.
+  const { rows: sites } = await query(
+    `SELECT s.id, s.name, s.zone_id, z.grid_x, z.grid_y FROM aa_sites s JOIN zones z ON z.id = s.zone_id WHERE s.active = 1`
+  );
+  let best = null;
+  for (const s of sites) {
+    if (s.grid_x == null) continue;
+    const d = cheb(a.grid_x, a.grid_y, s.grid_x, s.grid_y);
+    if (d > GROUND_SWARM_RANGE) continue;
+    const off = Math.abs(((bearingDeg(a.grid_x, a.grid_y, s.grid_x, s.grid_y) - toDeg(a.heading) + 540) % 360) - 180);
+    if (off > SWARM_CONE) continue;
+    if (!best || d < best.d) best = { site: s, d };
+  }
+  const tx = best ? best.site.grid_x : Math.round(a.grid_x + fx * GROUND_SWARM_REACH);
+  const ty = best ? best.site.grid_y : Math.round(a.grid_y + fy * GROUND_SWARM_REACH);
+  const zone = surfaceAt(tx, ty);
+
+  const n = Math.min(salvoOf(live), mslAmmo(live));
+  live.lastMsl = nowMs;
+  live.msl = mslAmmo(live) - n;
+  pushContext(live);   // authoritative ammo pips, now
+
+  // Every warhead rolls on its own — a full ripple is near-certain to gut an emplacement,
+  // but it can still go wide, and it costs the rails either way.
+  let hits = 0;
+  for (let i = 0; i < n; i++) if (Math.random() < GROUND_SWARM_PK) hits++;
+
+  if (zone) {
+    emit('flight.strafeIncoming', { zoneId: zone.id });   // the ground side of the audio
+    sendToZone(zone.id, { type: 'zone_event',
+      message: '<span class="text-red">Missiles come in flat and fast out of the sky — the ground erupts in a walking line of blasts.</span>' });
+  }
+
+  if (best && hits > 0) {
+    const { rows: still } = await query('SELECT active FROM aa_sites WHERE id=$1', [best.site.id]);
+    if (still.length && still[0].active) {
+      await query('UPDATE aa_sites SET active=0 WHERE id=$1', [best.site.id]);
+      invalidateAASiteCache();   // drop the dead turret from pilots' 3D pictures next push
+      emit('flight.aaSilenced', { siteId: best.site.id, siteName: best.site.name, zoneId: best.site.zone_id });
+      await awardSkillUse(player.id, 'piloting', 2);
+      if (zone) sendToZone(zone.id, { type: 'zone_event', message: `${best.site.name} disappears inside a rolling fireball.`, refresh: true });
+      out(player.id, `<span class="text-green">SPLASH — the swarm guts ${best.site.name}. It's a smoking crater.</span>`);
+    }
+  } else if (best) {
+    out(player.id, `<span class="text-amber">The swarm walks wide of ${best.site.name} — and now it knows you're here.</span>`);
+  }
+  if (zone && hits > 0) await swarmBlastTile(zone, live, player);
+
+  const where = best ? best.site.name : `${tx},${ty}`;
+  return { type: 'emote', message: `<span class="text-cyan">RIFLE — ${n} missiles off the rails onto ${where}.</span>` };
+}
+
+// Soft targets standing in the blast footprint. Mirrors the strafe rake's shape (own
+// occupants excluded, crimes charged in the TARGET tile where the cameras are) but at
+// missile weight and 'explosive' type — a kinetic vest is far less help than vs cannon fire.
+async function swarmBlastTile(zone, live, player) {
+  const occ = new Set(live.occupants);
+  const players = getZonePlayers(zone.id).filter(p => p && !occ.has(p.id));
+  const npcs = getZoneNpcs(zone.id).filter(n => n && !n._dead);
+  const enemies = getZoneEnemies(zone.id).filter(e => e && (e.hp ?? 1) > 0);
+  if (!players.length && !npcs.length && !enemies.length) return;
+
+  let hitPlayer = false, killedPlayer = false;
+  for (const p of players) {
+    if (Math.random() >= GROUND_SWARM_HIT) {
+      out(p.id, '<span class="text-amber">A warhead bursts close enough to lift you off your feet — shrapnel sings past.</span>');
+      continue;
+    }
+    const r = await applyStrikeToPlayer(p, { min: GROUND_SWARM_DMG.min, max: GROUND_SWARM_DMG.max, damageType: 'explosive' });
+    hitPlayer = true;
+    if (r.killed) {
+      killedPlayer = true;
+      out(p.id, '<span class="text-red">The warhead finds you. There is not enough left to bury.</span>');
+      announceKill(player.id, p.handle);
+      await handlePlayerDeath(p, player, { type: 'swarm', label: `Blown apart from the air by ${player.handle}` });
+    } else {
+      out(p.id, `<span class="text-red">Shrapnel tears through your <span class="hit-part">${r.partLabel}</span> for <span class="dmg-taken">${r.damage}</span>.</span>`);
+    }
+  }
+  for (const n of npcs) {
+    if (Math.random() >= GROUND_SWARM_HIT) continue;
+    n.hp = Math.max(0, (n.hp ?? n.hp_max ?? 20) - rnd(GROUND_SWARM_DMG.min, GROUND_SWARM_DMG.max));
+    if (n.hp <= 0) { const dead = killNpcInstance(n.id); if (dead) { announceKill(player.id, dead.name); emit('npc.killed', { actor: player, npc: dead }); } }
+  }
+  for (const e of enemies) {
+    if (Math.random() >= GROUND_SWARM_HIT) continue;
+    e.hp = Math.max(0, (e.hp ?? e.hp_max ?? 20) - rnd(GROUND_SWARM_DMG.min, GROUND_SWARM_DMG.max));
+    if (e.hp <= 0) { announceKill(player.id, e.name); killEnemyInstance(player, e.instanceId); }
+  }
+  if (hitPlayer) await dispatchAction({ type: 'CHARGE_CRIME', actor: player, params: { key: 'attack_player', zoneId: zone.id } });
+  if (killedPlayer) await dispatchAction({ type: 'CHARGE_CRIME', actor: player, params: { key: 'murder', zoneId: zone.id } });
 }
 
 // Break a shooter's seeker lock (target gone / out of range / deliberate unlock) and

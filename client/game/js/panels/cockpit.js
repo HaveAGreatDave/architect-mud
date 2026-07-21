@@ -3777,11 +3777,13 @@ function fsimFrame(now) {
   // lock. With no air solution, an armed craft still falls back to the ground-AA strafe pass.
   if (F.firing && F.armed && F.reportedAirborne) {
     if (F.weapon === 'msl' && F.salvo > 1) {
-      // Swarm: one ripple per squeeze at the bore-designated bogey, no lock required.
-      if (!F.fireHeld && F.swarmReady && F.msl > 0 && (!F.lastMslMs || now - F.lastMslMs >= SWARM_FIRE_MS)) {
+      // Swarm: one ripple per squeeze, no lock required. A bogey under the nose takes it;
+      // with nothing in the air the salvo goes to the GROUND — the attack heli's real job
+      // (a standoff strike on what's ahead, rather than the gun pass's overfly).
+      if (!F.fireHeld && F.msl > 0 && (!F.lastMslMs || now - F.lastMslMs >= SWARM_FIRE_MS)) {
         F.lastMslMs = now;
         F.msl = Math.max(0, F.msl - F.salvo);   // optimistic; flight_ctx refreshes the authoritative count
-        sendCmdSilent(`airfire swarm ${F.swarmReady}`);
+        sendCmdSilent(F.swarmReady ? `airfire swarm ${F.swarmReady}` : 'airfire swarm ground');
         F.muzzleT = now;
         try { missileFx(); } catch {}
         if (F.paintPips) F.paintPips();

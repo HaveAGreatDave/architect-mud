@@ -206,6 +206,7 @@ export default async function regress({ run, check, getPlayer }) {
   r = await run('airfire guns x 1'); check('airfire (A2A guns) not aboard blocked', /not aboard/i.test(r?.message || ''), r?.message);
   r = await run('airfire missile x'); check('airfire (A2A missile) not aboard blocked', /not aboard/i.test(r?.message || ''), r?.message);
   r = await run('airfire swarm x'); check('airfire (A2A swarm) not aboard blocked', /not aboard/i.test(r?.message || ''), r?.message);
+  r = await run('airfire swarm ground'); check('airfire (air-to-ground swarm) not aboard blocked', /not aboard/i.test(r?.message || ''), r?.message);
   r = await run('airlock x'); check('airlock not aboard blocked', /not aboard/i.test(r?.message || ''), r?.message);
   r = await run('airunlock'); check('airunlock not aboard blocked', /not aboard/i.test(r?.message || ''), r?.message);
   r = await run('flares'); check('flares not aboard blocked', /not aboard/i.test(r?.message || ''), r?.message);

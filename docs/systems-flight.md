@@ -322,6 +322,18 @@ real players' aircraft fight each other end-to-end, server-authoritatively:
   `FLARE_DEFEAT` to drag the seeker onto the decoys, a hard `evade` break + a last-second
   piloting notch shave `MISSILE_PK`. Ammo = the airframe's hardpoints per sortie, rearmed
   free on parking (`mslAmmo`). All `MISSILE_*`/`FLARE_*` tunables live in `state.js`.
+- **Swarm (the Viper)** — an airframe with `data.salvo > 1` replaces the locked single shot
+  with a **no-lock ripple**: no seeker cycle, no RWR lock tone, just point the nose inside a
+  wide forward cone (`SWARM_CONE`) and squeeze. `airfire swarm <targetId>` spends `salvo`
+  rails at once, each riding the target as its own inbound at reduced `SWARM_PK_MULT` /
+  `SWARM_DMG_MULT` — so it overwhelms flares by **numbers, not certainty** (each seeker is
+  still individually defeatable). With nothing in the air the client sends
+  **`airfire swarm ground`**: the standoff counterpart to the gun pass — where `strafe` must
+  overfly at LOW and rakes what's under the belly, a ground swarm reaches `GROUND_SWARM_RANGE`
+  tiles ahead, prefers a live AA emplacement in the cone (killing it outright if any warhead
+  connects) and otherwise saturates the tile the nose points at, hitting bodies for
+  `GROUND_SWARM_DMG` as **`explosive`** (a kinetic vest is far less help than vs cannon fire).
+  Crimes are charged in the *target* tile, as with a strafing run.
 - **Structural shear-off in PvP** — guns *and* missiles both resolve through
   `applyAirDamage`, which rolls `shearRoll(target, amount)`: a heavy hit on an already-
   ravaged airframe can rip an **actual surface off another player's craft** — left/right
