@@ -1,0 +1,240 @@
+@broadcast "Coldwater's Finest - Ride-Along"
+@category reality
+@length 240
+@type scripted
+
+::actors
+@actor npc_pd_officer
+@alias npc_pd_officer VALE
+@actor npc_gate_sergeant
+@alias npc_gate_sergeant KESSLER
+@actor npc_gate_trooper
+@alias npc_gate_trooper QUILL
+@actor npc_precinct_guard
+@alias npc_precinct_guard KOHL
+::endactors
+
+::asset coldwaters_finest_logo
+
+═══════════════════════════════════════════
+       ★  C O L D W A T E R ' S  ★
+              F I N E S T
+      Precinct 9 · Ride-Along Unit
+═══════════════════════════════════════════
+
+   "They signed a release. That's the show."
+
+::endasset
+
+::asset finest_booking_card
+
+┌──────────────────────────────────────────┐
+│  BOOKING — PRECINCT 9 HOLDING            │
+│  STARS: ★★★☆☆         HOLD: 3 MINUTES    │
+│  CONTRABAND: SEIZED → EVIDENCE LOCKER    │
+│  EFFECTS: RETURNED ON RELEASE*           │
+└──────────────────────────────────────────┘
+  *Legal items only. Define "legal" at your peril.
+
+::endasset
+
+::scene COLD_OPEN
+
+ROOM zone_mq_precinct_bullpen
+
+EVENT FADE_IN
+
+MUSIC coldwaters_finest_theme
+♪ A cheap, swaggering guitar riff kicks in — four chords, no budget, enormous confidence. ♪
+MUSIC_END
+
+TITLE coldwaters_finest_logo
+
+CAM 1 WIDE basin_night
+
+SHOT
+The Basin at night, shot from a low drone: wet asphalt, sodium light, steam coming up through the grates. Somewhere below, a siren starts and then thinks better of it.
+SHOT_END
+
+NARRATOR:
+Coldwater Basin. Nine-forty PM.
+
+NARRATOR:
+Eleven hours into a nine-hour shift, Sergeant Vale is looking for a man who stole a coat.
+
+::scene ROLL_CALL
+
+CAM 2 MEDIUM bullpen
+
+ENTER npc_pd_officer
+
+ACTION npc_pd_officer thumbs through a clipboard that has clearly been rained on.
+
+VALE:
+Most nights it's not violence. Most nights it's somebody cold, or somebody owed.
+
+VALE:
+People think the stars mean you're dangerous. Stars just mean somebody saw you.
+
+ACTION npc_pd_officer glances at the camera, then away, like he regrets agreeing to this.
+
+VALE:
+I've apologised to more people than I've arrested. Put that in the show. They won't.
+
+::scene SEGMENT_ONE
+
+ROOM zone_district_918_919
+
+CAM 3 HANDHELD patrol_stop
+
+LOWER_THIRD
+SGT. VALE — PATROL
+SHIFT 11:04 · BASIN SOUTH
+LOWER_THIRD_END
+
+SHOT
+A young runner is up against a wall, hands flat, breathing hard. A vacuum-sealed brick of something green sits on the pavement between him and the officer.
+SHOT_END
+
+VALE:
+That yours?
+
+VALE:
+Don't answer that. It's yours.
+
+ACTION npc_pd_officer crouches, tags the brick, and writes on the tag with a pen that doesn't work until the fourth try.
+
+NARRATOR:
+Under Basin ordinance, possession at this weight is three stars and a night in Precinct 9.
+
+NARRATOR:
+The suspect's chief concern is not the night in Precinct 9.
+
+VALE:
+Hey. Look at me. When did you last back up?
+
+ACTION npc_pd_officer waits. The answer takes a while.
+
+VALE:
+Yeah. Well. Try not to die before Thursday, then.
+
+::scene SEGMENT_TWO
+
+CAM 1 WIDE south_gate
+
+SHOT
+The South Gate. A queue of people stands in the cold with their arms out while a scanner arch clicks over them, one at a time, forever.
+SHOT_END
+
+LOWER_THIRD
+SGT. KESSLER & TPR. QUILL
+SOUTH GATE CHECKPOINT
+LOWER_THIRD_END
+
+ENTER npc_gate_sergeant
+
+KESSLER:
+Everybody coming into this city gets searched. Everybody. I've searched the man who signs my cheques.
+
+ENTER npc_gate_trooper
+
+QUILL:
+I found a knife once. In a boot. It was a really good find.
+
+ACTION npc_gate_trooper looks at Kessler for confirmation. He does not get it.
+
+KESSLER:
+That was nine months ago, Quill.
+
+QUILL:
+It was a really good find.
+
+NARRATOR:
+Trooper Quill has been at the South Gate for two years and has recovered one knife.
+
+NARRATOR:
+He has recovered it repeatedly, in conversation, ever since.
+
+::scene SEGMENT_THREE
+
+ROOM zone_mq_precinct_lobby
+ROOM zone_mq_precinct_holding
+
+CAM 2 MEDIUM intake_desk
+
+TITLE finest_booking_card
+
+ENTER npc_precinct_guard
+
+KOHL:
+Belt. Laces. Anything sharp, anything that talks to anything else.
+
+ACTION npc_precinct_guard drops a handful of personal effects into a tray with the enthusiasm of a man filing his own paperwork.
+
+KOHL:
+Legal property comes back when you walk. Contraband goes in the locker downstairs.
+
+KOHL:
+Nothing comes out of the locker downstairs.
+
+SHOT
+A folded orange jumpsuit is pushed across the counter. It has been washed so many times it has gone the colour of weak tea.
+SHOT_END
+
+NARRATOR:
+Three stars. Three minutes a star. In Coldwater, the sentence is served in real time, and the clock does not care that you are bored.
+
+KOHL:
+Some of them cry. Some of them sleep. The ones who've been through a vat, they just sit there and stare at the wall like they're waiting for it to buffer.
+
+::scene WRAP
+
+ROOM zone_apt_6
+
+CAM 3 HANDHELD end_of_shift
+
+SHOT
+Vale's cruiser, parked. Engine ticking as it cools. He does not get out for a long moment.
+SHOT_END
+
+VALE:
+People ask if it gets to you.
+
+VALE:
+It's a job. You do the job. Then you go home and you sit in your kitchen with the light off for a bit, and then you're fine.
+
+ACTION npc_pd_officer gets out, closes the door quietly, and walks up to apartment six without looking back at the camera.
+
+NARRATOR:
+Sergeant Vale will be back on shift in nine hours.
+
+NARRATOR:
+Coldwater's Finest. Filmed on location, with the cooperation of people who had no realistic way to decline.
+
+TICKER
+COLDWATER'S FINEST is filmed with the cooperation of Precinct 9 · All suspects are innocent until processed · Persons appearing on this programme have waived likeness rights for themselves and all subsequent instances of themselves · Restored persons are legally distinct from the arrested party and may not appeal the arrest of a previous body · Footage of your arrest is the property of the network · Requests for removal may be filed in person at Precinct 9
+TICKER_END
+
+WAIT 3
+
+OVERLAY
+NEXT WEEK ON COLDWATER'S FINEST
+
+A ROUTINE STOP AT THE NORTH LOCKS
+
+TWO OFFICERS. ONE SUSPECT. NINE BODIES.
+OVERLAY_END
+
+MUSIC coldwaters_finest_theme
+♪ The cheap guitar riff returns, fading out over the wet street. ♪
+MUSIC_END
+
+CREDITS 6
+COLDWATER'S FINEST — A PRECINCT 9 CO-PRODUCTION
+No officer depicted has been disciplined for anything depicted.
+If you recognise yourself in this programme, you have already consented.
+END_CREDITS
+
+EVENT FADE_OUT
+
+END

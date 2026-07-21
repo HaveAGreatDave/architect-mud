@@ -1,0 +1,206 @@
+@broadcast "The Last Lot"
+@category shopping
+@length 240
+@type scripted
+
+::actors
+@actor npc_lot_vosk
+@alias npc_lot_vosk VOSK
+@actor npc_lot_operator
+@alias npc_lot_operator YOLANDA
+::endactors
+
+::asset the_last_lot_logo
+
+▛▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▜
+▌      T H E   L A S T   L O T      ▐
+▌   everything must go. it did.     ▐
+▙▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▟
+
+::endasset
+
+::asset lot_price_card
+
+┌────────────────────────────────────────┐
+│  LOT 41 · WINTER COAT, LONG, GREY      │
+│  PREVIOUS OWNERS: 1 (TECHNICALLY)      │
+│                                        │
+│      WAS ₵340      NOW ₵89             │
+│                                        │
+│  CALL NOW · 3 REMAINING · NO RETURNS   │
+└────────────────────────────────────────┘
+
+::endasset
+
+::scene OPEN
+
+ROOM zone_studio_1782953094650
+
+EVENT FADE_IN
+
+MUSIC last_lot_theme
+♪ A game-show sting that has been sold twice and repossessed once. ♪
+MUSIC_END
+
+TITLE the_last_lot_logo
+
+CAM 1 WIDE sales_floor
+
+SHOT
+A rotating display plinth under hard white light. Behind it, shelving stacked to the ceiling with unlabelled crates. A phone number sits burned into the bottom of frame, slightly crooked, and has been for years.
+SHOT_END
+
+ENTER npc_lot_vosk
+
+VOSK:
+Welcome back to The Last Lot, where everything must go — and I want to stress that most of it already has.
+
+ACTION npc_lot_vosk pats the plinth twice, the way a man pats a horse he is about to sell.
+
+VOSK:
+I'm Rennie Vosk. For the next two hours, I am going to put things in front of you, and you are going to decide how much your dignity costs.
+
+::scene LOT_41
+
+CAM 2 CLOSEUP plinth
+
+TITLE lot_price_card
+
+LOWER_THIRD
+LOT 41 — WINTER COAT
+₵89 · 3 REMAINING
+LOWER_THIRD_END
+
+SHOT
+A long grey coat turns slowly on the plinth. It is genuinely a very good coat. There is a neat, professionally repaired hole below the left shoulder blade.
+SHOT_END
+
+VOSK:
+Lot forty-one. Wool blend, storm-lined, deep pockets. Retail three-forty. Today: eighty-nine.
+
+VOSK:
+One previous owner.
+
+ACTION npc_lot_vosk holds up a single finger, and then, after a beat, lowers it.
+
+VOSK:
+Technically.
+
+VOSK:
+Now — you're looking at the repair. Everybody looks at the repair. I want you to look at the STITCHING on the repair. That is craftsmanship. Somebody cared about this coat.
+
+VOSK:
+Somebody cared about this coat more than they cared about the previous owner, and I think that's beautiful.
+
+::scene PHONES
+
+CAM 3 MEDIUM phone_bank
+
+ENTER npc_lot_operator
+
+YOLANDA:
+Rennie, I've got a caller on line two asking whose coat it was.
+
+VOSK:
+Tell them it's THEIR coat now, Yolanda. That's the magic of retail.
+
+YOLANDA:
+They're asking if it's cursed.
+
+VOSK:
+Nothing on this programme is cursed. Several items are HAUNTED, and those are clearly marked.
+
+ACTION npc_lot_operator covers the receiver and says something we do not hear.
+
+YOLANDA:
+They'll take two.
+
+VOSK:
+They'll take two! Two coats for a man who does not know how many arms he's going to need. That is FORWARD PLANNING.
+
+::scene LOT_42
+
+CAM 2 CLOSEUP plinth
+
+SHOT
+The coat is replaced by a sealed grey pallet, shrink-wrapped, with a Precinct 9 evidence tag still stapled to the corner.
+SHOT_END
+
+VOSK:
+Lot forty-two. Municipal surplus. Sealed pallet, mixed contents, sold as seen — and I do mean AS SEEN, because I haven't seen it either.
+
+VOSK:
+Could be tools. Could be somebody's whole life in a box. Could be forty kilos of one specific thing.
+
+VOSK:
+That happened last month. Somebody in Meltwater Row now owns every left boot in the district.
+
+YOLANDA:
+He's called back twice.
+
+VOSK:
+He has called back twice, and both times he sounded FINE.
+
+::scene LOT_43
+
+CAM 1 WIDE sales_floor
+
+SHOT
+Two attendants wheel out a full-height clone vat, empty, drained, lit from within. It hums. Nobody wheeling it makes eye contact with it.
+SHOT_END
+
+VOSK:
+And our big lot of the hour. Ex-display. One owner, and this time I mean that sincerely.
+
+VOSK:
+Fully functional, fluid system flushed, only cosmetic wear to the door seal. You have seen these in clinics at nine thousand.
+
+VOSK:
+Today — and I am going to get in trouble for this — twelve hundred.
+
+YOLANDA:
+Rennie, they want to know why it's cheap.
+
+VOSK:
+Because the man who ordered it is not in a position to collect it, Yolanda.
+
+ACTION npc_lot_vosk spreads his hands, entirely at peace.
+
+VOSK:
+That is the ENTIRE reason. There is no other reason. That is the business we are in.
+
+::scene CLOSE
+
+CAM 2 MEDIUM vosk
+
+OVERLAY
+THE LAST LOT
+
+CALL COLDWATER 4-4-LOTS
+
+NO RETURNS · NO PROVENANCE · NO QUESTIONS THAT HELP
+OVERLAY_END
+
+VOSK:
+Two hours a day, this is what the Basin leaves behind. And somebody's got to sell it, or it just sits there reminding everybody.
+
+VOSK:
+Might as well be you wearing it. Might as well be warm.
+
+TICKER
+THE LAST LOT · All lots sold as seen · No returns, no exchanges, no provenance provided or implied · Municipal surplus is sold post-forfeiture and cannot be reclaimed by prior holders or their estates · Restored persons may not claim property forfeited by a previous body · Items marked HAUNTED are sold under the same terms as items that are not · The management does not know what is in the pallets
+TICKER_END
+
+MUSIC last_lot_theme
+♪ The sting plays out, cheerful and completely unbothered. ♪
+MUSIC_END
+
+CREDITS 5
+THE LAST LOT
+Presented by Rennie Vosk. Phones by Yolanda.
+Lot 41 is still available.
+END_CREDITS
+
+EVENT FADE_OUT
+
+END

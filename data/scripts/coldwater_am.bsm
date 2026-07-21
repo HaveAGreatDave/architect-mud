@@ -1,0 +1,189 @@
+@broadcast "Coldwater A.M."
+@category morning
+@length 240
+@type scripted
+
+::actors
+@actor npc_am_pace
+@alias npc_am_pace BIJOU
+@actor npc_am_dorn
+@alias npc_am_dorn HAL
+::endactors
+
+::asset coldwater_am_logo
+
+╔═══════════════════════════════════════╗
+║                                       ║
+║        C O L D W A T E R   A.M.       ║
+║                                       ║
+║     "You're up. Might as well be."    ║
+║                                       ║
+╚═══════════════════════════════════════╝
+
+::endasset
+
+::asset am_basin_beat_card
+
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+█   T H E   B A S I N   B E A T   █
+█    stories from your street     █
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+
+::endasset
+
+::scene COLD_OPEN
+
+ROOM zone_studio_1782953094650
+
+EVENT FADE_IN
+
+MUSIC coldwater_am_theme
+♪ Bright synthetic brass, the audio equivalent of a smile held too long. ♪
+MUSIC_END
+
+TITLE coldwater_am_logo
+
+CAM 1 WIDE morning_couch
+
+SHOT
+Two hosts sit on a curved orange couch in front of a window that is not a window. Behind the glass, a looped sunrise plays. It is raining outside the building.
+SHOT_END
+
+ENTER npc_am_pace
+
+BIJOU:
+Good MORNING, Coldwater! It is six o'clock, it is four degrees, and you are ALIVE!
+
+ENTER npc_am_dorn
+
+HAL:
+Statistically.
+
+BIJOU:
+Statistically alive! I'm Bijou Pace.
+
+HAL:
+Hal Dorn.
+
+ACTION npc_am_dorn holds his mug with both hands like a man warming himself at a very small fire.
+
+BIJOU:
+And we have SUCH a show for you.
+
+::scene BASIN_BEAT
+
+CAM 2 MEDIUM two_shot
+
+TITLE am_basin_beat_card
+
+LOWER_THIRD
+THE BASIN BEAT
+STORIES FROM YOUR STREET
+LOWER_THIRD_END
+
+BIJOU:
+First up — a heartwarming one. A Redline man has been reunited with his dog!
+
+HAL:
+He has been reunited with a dog.
+
+BIJOU:
+He has been reunited with A dog, and honestly? At this hour, that's a win.
+
+ACTION npc_am_pace beams directly down the lens with the full force of a woman who has decided.
+
+HAL:
+The original dog remains outstanding.
+
+BIJOU:
+The original dog remains outstanding! Moving on!
+
+NARRATOR:
+Coldwater A.M. is brought to you by the people who would like you at work on time.
+
+::scene KITCHEN
+
+CAM 3 CLOSEUP hotplate
+
+SHOT
+A single induction ring on a laminate counter. Bijou stands behind it holding an unlabelled grey tube. Hal has not moved from the couch.
+SHOT_END
+
+BIJOU:
+Now — breakfast! Because the most important meal of the day is the one you can afford.
+
+BIJOU:
+Take your standard ration paste. Squeeze it into a pan. And here's the trick — heat.
+
+ACTION npc_am_pace squeezes the tube into the pan. The sound is upsetting.
+
+HAL:
+That's the trick.
+
+BIJOU:
+That's the WHOLE trick, Hal. Two minutes, and it goes from grey to a sort of warmer grey.
+
+HAL:
+My father used to do that.
+
+ACTION npc_am_dorn looks at the middle distance for slightly longer than the format allows.
+
+BIJOU:
+Lovely! And if you've got a little sweetener, stir it through at the end and you have got yourself a TREAT.
+
+::scene TRAFFIC
+
+CAM 1 WIDE morning_couch
+
+LOWER_THIRD
+YOUR MORNING RUN-IN
+CURFEW LIFTS 06:30 · SOUTH GATE DELAYS
+LOWER_THIRD_END
+
+HAL:
+Curfew lifts at half six. South Gate is running long — they're searching everybody again.
+
+HAL:
+If you're heading in from the wastes, leave an hour. If you're carrying anything you'd rather not explain, leave it.
+
+BIJOU:
+Ha ha! Hal!
+
+HAL:
+I'm saying leave it at home. I'm saying that as a service.
+
+BIJOU:
+Haulage is slow on the Haul Road, the North Locks are frozen again, and the Basin is BEAUTIFUL this morning if you don't look directly at it.
+
+::scene SIGNOFF
+
+CAM 2 MEDIUM two_shot
+
+BIJOU:
+That's us! Back tomorrow, same couch, same sunrise.
+
+HAL:
+Same sunrise.
+
+ACTION npc_am_dorn glances at the window that is not a window.
+
+BIJOU:
+Go and have a WONDERFUL day, Coldwater. You've earned it. Probably.
+
+TICKER
+COLDWATER A.M. · Curfew lifts 06:30 · South Gate: extended searches, allow one hour · North Locks closed to foot traffic · Ration distribution at Meltwater Row from 07:00, bring documentation · Overnight vat intake was within normal range · The sunrise depicted is a composite and does not reflect current conditions
+TICKER_END
+
+MUSIC coldwater_am_theme
+♪ The bright brass returns, one semitone flatter than it started. ♪
+MUSIC_END
+
+CREDITS 5
+COLDWATER A.M.
+Presented by Bijou Pace and Hal Dorn.
+Hal Dorn appears by arrangement with his contract.
+END_CREDITS
+
+EVENT FADE_OUT
+
+END

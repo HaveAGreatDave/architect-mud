@@ -1,0 +1,167 @@
+@broadcast "VITAL ENCORE™ - Death Is Just Intermission"
+@category commercial
+@length 90
+@type commercial
+
+::actors
+@actor npc_marv_sallow
+@alias npc_marv_sallow MARV
+@actor npc_deb_okonkwo
+@alias npc_deb_okonkwo DEB
+::endactors
+
+::asset vital_encore_logo
+
+██╗   ██╗██╗████████╗ █████╗ ██╗
+██║   ██║██║╚══██╔══╝██╔══██╗██║
+██║   ██║██║   ██║   ███████║██║
+╚██╗ ██╔╝██║   ██║   ██╔══██║██║
+ ╚████╔╝ ██║   ██║   ██║  ██║███████╗
+  ╚═══╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝╚══════╝
+
+        E  N  C  O  R  E     ™
+
+      "Death Is Just Intermission."
+
+::endasset
+
+::asset vital_encore_tiers
+
+┌────────────────────────────────────────────┐
+│  BRONZE    ₵49/mo   ·  1 backup, 30 days   │
+│  SILVER    ₵99/mo   ·  3 backups, 90 days  │
+│  GOLD     ₵249/mo   ·  UNLIMITED*          │
+└────────────────────────────────────────────┘
+   *Unlimited means twelve. Twelve is a lot.
+
+::endasset
+
+::scene COLD_OPEN
+
+ROOM zone_studio_1782953094650
+
+EVENT FADE_IN
+
+TITLE vital_encore_logo
+
+MUSIC vital_encore_jingle
+♪ A warm, syrupy jingle swells — the kind that plays in waiting rooms where nobody leaves. ♪
+MUSIC_END
+
+CAM 1 WIDE showroom_floor
+
+SHOT
+A showroom of clone vats stretches into the dark, each one lit from beneath like a display case. Something turns over slowly inside the nearest tank.
+SHOT_END
+
+NARRATOR:
+You died last Tuesday.
+
+WAIT 1.5
+
+NARRATOR:
+Statistically, you will die again before the weekend.
+
+NARRATOR:
+The question was never IF you come back. The question is: who's paying for it?
+
+::scene THE_PITCH
+
+CAM 2 MEDIUM pitchman_mark
+
+ENTER npc_marv_sallow
+
+ACTION npc_marv_sallow spreads his arms wide, sleeves damp, grinning with roughly nine too many teeth.
+
+MARV:
+Friend. Neighbour. Statistical inevitability. Marv Sallow, VITAL ENCORE™.
+
+MARV:
+Right now, if your heart stops in this city, you wake up in a municipal vat with a stranger's dental records and a bill for the electricity.
+
+ACTION npc_marv_sallow leans in until the lens fogs.
+
+MARV:
+That's not a comeback. That's a clerical error with a pulse.
+
+TITLE vital_encore_tiers
+
+MARV:
+For less than you spend on synthetic breakfast, we keep a YOU on file. Fresh. Filed. Ready to walk.
+
+::scene TESTIMONIAL
+
+CAM 3 CLOSEUP testimonial_chair
+
+LOWER_THIRD
+DEB OKONKWO
+SATISFIED CUSTOMER — LIKENESS APPROXIMATE
+LOWER_THIRD_END
+
+ENTER npc_deb_okonkwo
+
+ACTION npc_deb_okonkwo sits very still. She has not blinked since the camera cut to her.
+
+DEB:
+I've been with Encore since my third body.
+
+DEB:
+This is my seventh. It's my favourite so far. The hands are nearly right.
+
+ACTION npc_deb_okonkwo looks down at her hands for slightly too long.
+
+DEB:
+I don't remember my mother's face anymore. But that was the Bronze tier. That's on me.
+
+MARV:
+Ha ha! Deb, everybody. Living proof.
+
+ACTION npc_marv_sallow claps her on the shoulder. She does not move.
+
+::scene THE_CLOSE
+
+CAM 1 WIDE showroom_floor
+
+NARRATOR:
+VITAL ENCORE™. Because the worst thing that can happen to you isn't dying.
+
+NARRATOR:
+It's dying uninsured.
+
+OVERLAY
+CALL NOW — COLDWATER 7-7-ENCORE
+
+FIRST BACKUP FREE WITH ANY CORPSE
+
+OPERATORS ARE STANDING. NOT NECESSARILY BY. JUST STANDING.
+OVERLAY_END
+
+TICKER
+VITAL ENCORE™ is a wholly owned subsidiary of itself · Continuity of consciousness is a marketing term and not a guarantee · Backups older than 90 days may exhibit drift, gaps, or opinions the original did not hold · Restored persons are legally distinct from the deceased and may not inherit, marry, or testify · Do not restore more than one copy simultaneously; if this occurs, VITAL ENCORE™ will determine which is you · That determination is final · Side effects include phantom memory, vat lung, and the persistent sense of being slightly behind
+TICKER_END
+
+WAIT 3
+
+CAM 2 MEDIUM pitchman_mark
+
+MARV:
+Don't let the city decide what you come back as.
+
+ACTION npc_marv_sallow winks. It takes his whole face.
+
+MARV:
+Come back as YOU. Ish.
+
+MUSIC vital_encore_jingle
+♪ The jingle returns, warmer and slower, resolving on a chord that doesn't quite land. ♪
+MUSIC_END
+
+CREDITS 6
+VITAL ENCORE™ — A DIVISION OF ENCORE
+Not available in the Wildlands, the Under, or to persons currently deceased.
+By viewing this advertisement you have consented to a preliminary scan.
+END_CREDITS
+
+EVENT FADE_OUT
+
+END

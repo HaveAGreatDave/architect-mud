@@ -1,0 +1,187 @@
+@broadcast "The Quiet Hour"
+@category overnight
+@length 300
+@type scripted
+
+::asset quiet_hour_testcard
+
+┌───────┬───────┬───────┬───────┬───────┐
+│▓▓▓▓▓▓▓│░░░░░░░│▓▓▓▓▓▓▓│░░░░░░░│▓▓▓▓▓▓▓│
+├───────┴───────┴───────┴───────┴───────┤
+│                                       │
+│           T H E   Q U I E T           │
+│                H O U R                │
+│                                       │
+│              ● 02:00 ●                │
+│                                       │
+│         please remain seated          │
+│                                       │
+├───────┬───────┬───────┬───────┬───────┤
+│░░░░░░░│▓▓▓▓▓▓▓│░░░░░░░│▓▓▓▓▓▓▓│░░░░░░░│
+└───────┴───────┴───────┴───────┴───────┘
+
+::endasset
+
+::asset quiet_hour_count
+
+▁▂▃▄▅▆▇█▇▆▅▄▃▂▁▁▂▃▄▅▆▇█▇▆▅▄▃▂▁
+
+      STILL AWAKE: 1,412
+
+▁▂▃▄▅▆▇█▇▆▅▄▃▂▁▁▂▃▄▅▆▇█▇▆▅▄▃▂▁
+
+::endasset
+
+::scene SIGN_ON
+
+EVENT FADE_IN
+
+TITLE quiet_hour_testcard
+
+MUSIC quiet_hour_tone
+♪ A single sustained tone, low and warm, the kind you stop hearing after a while and then notice you have stopped hearing. ♪
+MUSIC_END
+
+WAIT 4
+
+NARRATOR:
+It is two o'clock in the morning in Coldwater Basin.
+
+WAIT 2
+
+NARRATOR:
+There is nothing on. That is what this is for.
+
+::scene THE_BREATHING
+
+CAM 1 WIDE testcard
+
+SHOT
+The test card holds. In the lower right corner, a small counter increments by one, then by three, then settles.
+SHOT_END
+
+NARRATOR:
+If you are awake because you are working, we hope the shift is a short one.
+
+NARRATOR:
+If you are awake because you cannot sleep, try this with us.
+
+WAIT 2
+
+NARRATOR:
+Breathe in for four.
+
+WAIT 4
+
+NARRATOR:
+Hold for four.
+
+WAIT 4
+
+NARRATOR:
+Out for six.
+
+WAIT 6
+
+NARRATOR:
+Better. Your heart rate came down two points.
+
+WAIT 3
+
+NARRATOR:
+We can see that from here.
+
+::scene THE_COUNT
+
+TITLE quiet_hour_count
+
+SHOT
+The number on screen ticks downward as the hour goes on. It does not tick up.
+SHOT_END
+
+NARRATOR:
+One thousand four hundred and twelve people are watching this with you.
+
+WAIT 2
+
+NARRATOR:
+Four hundred of them are in the vats and do not know they are watching.
+
+WAIT 2
+
+NARRATOR:
+Eleven of them will not be watching by four o'clock. We are not going to tell you which eleven. That would spoil the hour.
+
+WAIT 3
+
+NARRATOR:
+You are not one of the eleven. You can relax.
+
+WAIT 2
+
+NARRATOR:
+We checked.
+
+::scene INTERFERENCE
+
+TECH_DIFFICULTIES 8
+
+SHOT
+The signal drops. Static, seven seconds of it, and underneath the static something that is almost the tone from earlier, slowed down.
+SHOT_END
+
+TITLE quiet_hour_testcard
+
+NARRATOR:
+Apologies. That was not us.
+
+WAIT 2
+
+NARRATOR:
+Where were we.
+
+::scene THE_QUESTION
+
+NARRATOR:
+Some of you write in and ask who makes this programme.
+
+WAIT 2
+
+NARRATOR:
+It is made for you. It is made every night. It has been made every night for a very long time, and it will be made tomorrow, whether or not you are here to receive it.
+
+WAIT 3
+
+NARRATOR:
+That is not a threat. It is a schedule.
+
+::scene SIGN_OFF
+
+CAM 1 WIDE testcard
+
+NARRATOR:
+The Quiet Hour will continue until the morning service begins at four.
+
+NARRATOR:
+Until then: stay in. Stay warm. Stay still.
+
+WAIT 2
+
+NARRATOR:
+We like it when you are still.
+
+TICKER
+THE QUIET HOUR · Overnight service · This broadcast contains no advertising and requires no subscription · Viewing figures are collected passively and are not stored, except where they are · Persons experiencing distress should remain seated until it passes · The morning service begins at 04:00 · Thank you for watching · Thank you for watching · Thank you for watching
+TICKER_END
+
+MUSIC quiet_hour_tone
+♪ The tone resumes. It does not resolve. It simply continues, at exactly the volume it was before. ♪
+MUSIC_END
+
+CREDITS 8
+THE QUIET HOUR
+No presenter. No audience participation. No repeats.
+Broadcast nightly since before the record begins.
+END_CREDITS
+
+END
