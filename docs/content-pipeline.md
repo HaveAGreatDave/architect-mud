@@ -56,6 +56,16 @@ any time:        npm run content:status   # "do files match my DB?"
   Runs in the pre-push hook and CI.
 - `content:status` — exports your DB to a temp dir and diffs against
   `content/`. Exit 1 = you have unexported work (or unimported files).
+- `content:dangling` — **player**→content references that no longer resolve
+  (`player_inventory.item_id`, `player_drug_state.drug_id`, quests, mutations,
+  corpse zones). `content:lint` covers content→content FKs; this covers the half
+  git can't see, because player rows are never in the content tree. Renaming or
+  retiring an id makes the deploy delete the old row, and player tables hold those
+  ids with **no foreign keys** — so whatever players were carrying is silently
+  orphaned, with no error and no log line. Runs as a non-blocking step after the
+  prod import (`--prod --yes`); `--strict` exits 1 for when you want it to bite.
+  Fix what it finds with a one-shot (`scripts/repoint-*`, `scripts/purge-*`) —
+  the additive deploy can never touch existing rows.
 
 The pre-push hook lints content and skips local regress for content-only pushes
 (CI regresses the merged main). The post-merge hook imports pulled content with

@@ -178,6 +178,17 @@ jobs:
         env:
           PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
         run: node scripts/content/import.mjs --prod --yes
+      - name: Dangling references (player rows left pointing at retired content)
+        # Runs AFTER the import, because that is when a rename or retirement has
+        # actually removed the old rows — this reports what the deploy just orphaned.
+        # player_inventory and friends hold content ids with no foreign keys, so
+        # nothing else would ever say a word about it: item_credits_small sat broken
+        # in two players' packs long enough that nobody could date it.
+        # Non-blocking on purpose — these usually predate the deploy that surfaces
+        # them, and failing on old data trains people to ignore the gate.
+        env:
+          PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+        run: node scripts/content/check-dangling.mjs --prod --yes
       - name: Record deployment
         env:
           PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
