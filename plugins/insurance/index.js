@@ -57,7 +57,7 @@ function settlement(value) {
 // The player's owned, flyable (non-wreck, non-rental) aircraft + their live policy state.
 async function ownedFleet(playerId) {
   const { rows } = await query(
-    `SELECT a.id, a.name, t.name tname, t.class tclass, t.price_buy,
+    `SELECT a.id, a.name, t.name tname, t.class tclass, t.price_buy, t.hardpoints,
             p.id policy_id, p.insured_value, p.expires_at
      FROM aircraft a JOIN aircraft_types t ON t.id=a.type_id
      LEFT JOIN insurance_policies p ON p.aircraft_id=a.id AND p.expires_at > $2
@@ -83,7 +83,7 @@ async function buildInsurancePanel(player) {
     deductiblePct: Math.round(DEDUCTIBLE_FRAC * 100),
     paidClaims: paid,
     fleet: fleet.map(r => ({
-      id: r.id, name: r.name, typeName: r.tname, class: r.tclass,
+      id: r.id, name: r.name, typeName: r.tname, class: r.tclass, hardpoints: r.hardpoints || 0,   // armed heli ⇒ the Viper wireframe
       insured: !!r.policy_id, daysLeft: r.policy_id ? daysLeft(r.expires_at) : 0,
       premium: quotePremium(r.price_buy, paid), value: r.price_buy,
     })),

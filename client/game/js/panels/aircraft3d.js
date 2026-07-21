@@ -753,12 +753,14 @@ function buildHeli() {
 // gear. Built to the same station-ring + explicit-facet fidelity as the fixed-wing set.
 //
 // STANCE + SIZE: everything below is authored at unit scale and LEVEL, then the whole mesh is run
-// through viperXf() on the way out — double-size and 7° nose-up, so she squats back on her gear on
-// three points of contact and reads as a hovering gunship rather than a parked toy. Consequences to
-// respect if you touch this:
+// through viperXf() on the way out — double-size, and nothing else. The nose-high 3-point squat is
+// NOT baked in: like the fixed-wing taildraggers she carries a `groundPitch` (VIPER_GROUND_PITCH,
+// see groundPitchFor) that the renderers apply as an ATTITUDE, so the tail can fly first on the
+// lift-off and be walked back down on the landing instead of being welded nose-up forever.
+// Consequences to respect if you touch this:
 //   • the rotor mast (0.1,0,0.34) and tail rotor (-1.04,0.07,0.12) are PRE-transform stations;
-//     drawRotorFX runs its heli anchors through the same viperXf/viperRot when `armed`, so the discs
-//     tilt and scale with the airframe. Change one, you get the other for free — don't hardcode.
+//     drawRotorFX runs its heli anchors through the same viperXf when `armed`, so the discs scale
+//     with the airframe. Change one, you get the other for free — don't hardcode.
 //   • windshield.js measures ground contact per cls+armed (modelLowestH/modelGroundDrop/modelMidH),
 //     because this mesh hangs far lower than the unarmed Dragonfly it shares a class with.
 function buildAttackHeli() {
@@ -922,12 +924,13 @@ function buildAttackHeli() {
   // The real Apache is a taildragger: two tall trailing-arm mains carried well FORWARD
   // (under the stub wings) and one small wheel right at the end of the boom. Because the
   // mains are long and the tailwheel is short, the airframe sits markedly NOSE-HIGH — the
-  // ramp stance. VIPER_PITCH below rotates the whole mesh to that attitude, so these three
-  // wheel bottoms are deliberately NOT level in build space: they're offset by exactly
-  // (Δf · tan pitch) so that AFTER the transform all three land on one flat floor.
+  // ramp stance. That attitude is the VIPER_GROUND_PITCH the renderers pitch her to on the
+  // ground, so these three wheel bottoms are deliberately NOT level in build space: they're
+  // offset by exactly (Δf · tan pitch) so that AT the 3-point sit all three land on one flat
+  // floor (and airborne, at 0°, the mains hang below the tailwheel — as they should).
   // Change the pitch and these follow automatically — GEAR_DROP does the arithmetic.
   const mainF = 0.06, tailF = -1.00;                      // fore-aft stations
-  const GEAR_DROP = (tailF - mainF) * Math.tan(VIPER_PITCH);  // how much lower the mains hang
+  const GEAR_DROP = (tailF - mainF) * Math.tan(VIPER_GROUND_PITCH * Math.PI / 180);  // how much lower the mains hang
   const tailBot = -0.16, mainBot = tailBot + GEAR_DROP;   // wheel BOTTOMS in build space
   for (const s of [1, -1]) {
     const wr = 0.058;                                     // fat main tyre
@@ -941,26 +944,21 @@ function buildAttackHeli() {
   addStrut(faces, tailF + 0.02, 0, 0.095, tailBot + twr, 0.011);
   pushWheel(faces, tailF, 0, tailBot + twr, twr, 0.021, 8);
 
-  // ── Ship it double-size and nose-high. Applied as ONE transform over every vertex so
-  // the mesh and drawRotorFX's anchors (which run the same viperXf) can never drift apart.
+  // ── Ship it double-size. Applied as ONE transform over every vertex so the mesh and
+  // drawRotorFX's anchors (which run the same viperXf) can never drift apart.
   for (const fc of faces) fc.p = fc.p.map(viperXf);
   return faces;
 }
 
-// The Viper is authored at unit scale and level, then shipped DOUBLE-SIZE and pitched
-// nose-up so it squats back on its gear. Exported because drawRotorFX has to place the
-// rotor discs through the identical transform — one source of truth, no drift.
-export const VIPER_PITCH = 7 * Math.PI / 180;   // nose-up squat
+// The Viper is authored at unit scale and level, then shipped DOUBLE-SIZE. Exported because
+// drawRotorFX has to place the rotor discs through the identical transform — one source of
+// truth, no drift.
 export const VIPER_SCALE = 2;                   // "double the size"
-// Rotation only — for direction vectors (rotor disc axes), which must tilt but not scale.
-export function viperRot(v) {
-  const c = Math.cos(VIPER_PITCH), s = Math.sin(VIPER_PITCH);
-  return [v[0] * c - v[2] * s, v[1], v[0] * s + v[2] * c];
-}
-// Full transform — for positions.
+// Her nose-high 3-point sit (deg), the taildragger stance the gear above is cut for. Applied
+// as an attitude by groundPitchFor/the flight model — never baked into the mesh.
+export const VIPER_GROUND_PITCH = 7;
 export function viperXf(v) {
-  const r = viperRot(v);
-  return [r[0] * VIPER_SCALE, r[1] * VIPER_SCALE, r[2] * VIPER_SCALE];
+  return [v[0] * VIPER_SCALE, v[1] * VIPER_SCALE, v[2] * VIPER_SCALE];
 }
 
 // A slim exposed MISSILE lying under a wingtip: a body tube, a pointed seeker nose (triangle fan to
@@ -1012,14 +1010,14 @@ export function drawRotorFX(ctx, cls, projFn, { spin = 0, power = 0.7, parked = 
     // Main rotor (f-g plane; matches buildHeli's cf 0.1 / cz 0.34) + tail rotor
     // (f-h plane on the boom's right side), geared ~5× the main.
     //
-    // The ARMED heli (Viper) ships double-size and pitched nose-up, so its anchors, disc
-    // axes and radii all go through the SAME viperXf/viperRot the mesh used — otherwise
-    // the discs sit level inside a tilted airframe. Unarmed (Dragonfly) is untouched.
-    const P  = armed ? viperXf  : (v) => v;     // positions: rotate + scale
-    const D  = armed ? viperRot : (v) => v;     // directions: rotate only
-    const R  = armed ? VIPER_SCALE : 1;         // radii: scale only
-    spinDisc(ctx, projFn, P([0.1, 0, 0.34]), D([1, 0, 0]), D([0, 1, 0]), 1.02 * R, spin, dsc, spl, parked, 2, 0.85, bladeFade);
-    spinDisc(ctx, projFn, P([-1.04, 0.07, 0.12]), D([1, 0, 0]), D([0, 0, 1]), 0.19 * R, spin * 4.7 + 1.1, dsc, spl, parked, 2, 0.7, bladeFade);
+    // The ARMED heli (Viper) ships double-size, so its anchors and disc radii go through the
+    // SAME viperXf the mesh used — otherwise the discs sit inside a bigger airframe. The disc
+    // AXES need no transform: the mesh is authored level, and any ground/flight attitude is
+    // applied by the caller's projection to mesh and discs alike. Dragonfly is untouched.
+    const P  = armed ? viperXf : (v) => v;      // positions: scale
+    const R  = armed ? VIPER_SCALE : 1;         // radii: scale
+    spinDisc(ctx, projFn, P([0.1, 0, 0.34]), [1, 0, 0], [0, 1, 0], 1.02 * R, spin, dsc, spl, parked, 2, 0.85, bladeFade);
+    spinDisc(ctx, projFn, P([-1.04, 0.07, 0.12]), [1, 0, 0], [0, 0, 1], 0.19 * R, spin * 4.7 + 1.1, dsc, spl, parked, 2, 0.7, bladeFade);
   } else {
     // Cessna two-blade nose prop / Twin Otter three-blade wing turboprops. The
     // stations record the spinner apex (ultralight) vs base (prop) — nudge the
@@ -1206,8 +1204,14 @@ export function wingtipStation(cls) {
 
 // A class's static ground attitude (deg nose-up) — taildraggers rest nose-high on the tailwheel.
 // Read by every renderer that draws the craft PARKED (turntable, wireframe) so the sit is
-// consistent with how she flies off the deck. 0 = tricycle/level.
-export function groundPitchFor(cls) { return FW_PARAMS[cls]?.groundPitch || 0; }
+// consistent with how she flies off the deck. 0 = tricycle/level. `armed` picks the Viper out of
+// the heli class: she's a taildragger too (mains forward, tailwheel on the boom), the Dragonfly
+// sits flat on its skids. Keep this in step with the `groundPitch` in flight-model.js — the sim
+// flies the same stance, and these are the parked renderers' version of it.
+export function groundPitchFor(cls, armed = false) {
+  if (cls === 'heli') return armed ? VIPER_GROUND_PITCH : 0;
+  return FW_PARAMS[cls]?.groundPitch || 0;
+}
 
 // Faces for a class at a detail level (memoised per cls+detail — geometry is static).
 // detail 1 = the full-resolution mesh (hero/turntable/chase/near contacts); detail 0 = the
@@ -2143,9 +2147,9 @@ export function drawTurntable(ctx, opts) {
 // on top of it in the same pass instead of the model wiping the scene behind it.
 function paintTurntable(ctx, { cls, armed = false, livery, yaw = 0, w, h, wreck = false, zoom = 1, elev = 0.42, cam = null, floor = false, sky = null, venue = null }) {
   const faces = wreck ? buildWreck() : aircraftFaces(cls, 1, armed);
-  // Taildraggers (the Grasshopper) rest NOSE-HIGH on the ground — tilt the static model to its
-  // 3-point sit here too (the floor/room proj below is left untilted). Nose-up: f' = f·c − h·s.
-  const _gp = (FW_PARAMS[cls]?.groundPitch || 0) * Math.PI / 180;
+  // Taildraggers (the Grasshopper, and the Viper) rest NOSE-HIGH on the ground — tilt the static
+  // model to its 3-point sit here too (the floor/room proj below is left untilted). Nose-up: f' = f·c − h·s.
+  const _gp = groundPitchFor(cls, armed) * Math.PI / 180;
   const _cg = Math.cos(_gp), _sg = Math.sin(_gp);
   const tiltV = _gp ? (v) => [v[0] * _cg - v[2] * _sg, v[1], v[0] * _sg + v[2] * _cg] : null;
   const pal = liveryPalette(livery || {});
@@ -2253,7 +2257,7 @@ function paintTurntable(ctx, { cls, armed = false, livery, yaw = 0, w, h, wreck 
   if (!wreck) drawNoseArt(ctx, proj, cls, livery, drawn.filter(fc => OCCLUDE_ROLE.has(fc.role)).map(fc => ({ P: fc.P, z: fc.avgZ })));
   // Props/rotors — engines off in here, so crisp STOPPED blades (not a blur),
   // projected through this same camera so they spin with the turntable.
-  if (!wreck) drawRotorFX(ctx, cls, (v) => { const q = proj(v[0], v[1], v[2]); return q.z <= 0.2 ? null : q; }, { parked: true, spin: 2.3, armed });
+  if (!wreck) drawRotorFX(ctx, cls, (v) => { const t = tiltV ? tiltV(v) : v; const q = proj(t[0], t[1], t[2]); return q.z <= 0.2 ? null : q; }, { parked: true, spin: 2.3, armed });
 }
 
 // ── Outside world glimpse (through the open bay door) ─────────────────────────
@@ -2626,6 +2630,11 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
     const laneG = (i - (n - 1) / 2) * spacing;
     const sc = scales[i];   // real relative size — a Cessna parks much smaller than a Twin Otter
     const faces = e.wreck ? buildWreck() : aircraftFaces(e.cls, 1, !!e.armed);
+    // Taildraggers (Grasshopper/Locust, and the Viper) park nose-high on the tailwheel — same
+    // 3-point sit the turntable applies, so a craft looks identical on the floor and on the bench.
+    const gpr = e.wreck ? 0 : groundPitchFor(e.cls, !!e.armed) * Math.PI / 180;
+    const cgp = Math.cos(gpr), sgp = Math.sin(gpr);
+    const tilt = gpr ? (v) => [v[0] * cgp - v[2] * sgp, v[1], v[0] * sgp + v[2] * cgp] : null;
     const pal = liveryPalette(e.livery || {});
     const jazzImg = (!e.wreck && pal.pat === 'jazz') ? jazzTex(e.livery?.base, e.livery?.trim, e.livery?.accent, e.livery?.ground) : null;
     const roll = e.wreck ? -0.22 : 0, cro = Math.cos(roll), sro = Math.sin(roll);
@@ -2634,7 +2643,8 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
     const drawn = [];
     for (const face of faces) {
       if (face.role === 'rotor') continue;   // spinning surfaces drawn by drawRotorFX below
-      const P = face.p.map(v => {
+      const P = face.p.map(v0 => {
+        const v = tilt ? tilt(v0) : v0;
         const vy = v[1] * sc, vz = v[2] * sc;
         const g1 = vy * cro - vz * sro, h1 = vy * sro + vz * cro;   // static wreck roll (scaled to real size)
         return proj(v[0] * sc, laneG + g1, h1);
@@ -2669,7 +2679,7 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
     }
     const origin = proj(0.2, laneG, 0);
     hits.push({ id: e.id, sx: origin.sx, sy: origin.sy, r: Math.max(26, focal / origin.z * 0.55) });
-    return { entry: e, faces: drawn.filter(Boolean), avgZ: proj(0, laneG, 0).z, laneG, origin, selected, sc, jazzImg };
+    return { entry: e, faces: drawn.filter(Boolean), avgZ: proj(0, laneG, 0).z, laneG, origin, selected, sc, jazzImg, tilt };
   });
 
   // Depth-sort WHOLE PLANES first (far to near), then faces within each — so one
@@ -2700,7 +2710,7 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
     // Parked craft: crisp stopped blades, angled differently lane to lane so the
     // row doesn't read as clones.
     if (!grp.entry.wreck) drawRotorFX(ctx, grp.entry.cls,
-      (v) => { const q = proj(v[0] * grp.sc, grp.laneG + v[1] * grp.sc, v[2] * grp.sc); return q.z <= 0.15 ? null : q; },
+      (v0) => { const v = grp.tilt ? grp.tilt(v0) : v0; const q = proj(v[0] * grp.sc, grp.laneG + v[1] * grp.sc, v[2] * grp.sc); return q.z <= 0.15 ? null : q; },
       { parked: true, spin: 1.9 + grp.laneG * 0.6, armed: !!grp.entry.armed });
     // A thin bright outline on the SELECTED craft — reads at a glance in a room
     // full of other planes, where a colour cue alone would be too subtle.

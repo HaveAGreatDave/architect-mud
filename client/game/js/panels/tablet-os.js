@@ -238,7 +238,7 @@ function ensureStyles() {
        as a physical device sitting over the game instead of blending into a
        dark backdrop: a raised bevel edge, an embossed inset/outset shadow
        stack, and a diagonal gloss sweep + fine grain texture via ::after/::before. */
-    #tablet-os-overlay .tos-panel { width:min(760px,96vw); height:600px; max-height:90vh; display:flex; flex-direction:column;
+    #tablet-os-overlay .tos-panel { width:min(760px,96vw); height:680px; max-height:90vh; display:flex; flex-direction:column;
       position:relative; overflow:hidden; color:var(--mg-accent); transform-origin:center center;
       background:
         linear-gradient(160deg, rgba(255,255,255,0.09) 0%, rgba(255,255,255,0.02) 14%, transparent 30%),
@@ -5017,6 +5017,14 @@ function mountTabletTv() {
     unwatchMsg: 'tablet_tv_unwatch',
   });
   _tvView.init();
+  // Open with the picture centred rather than parked at the top of the body, where
+  // the clock/summary/Back row would eat the first ~80px of the screen.
+  requestAnimationFrame(() => {
+    const scroll = _overlay?.querySelector('.tos-scroll');
+    if (!scroll || !host.isConnected) return;
+    const top = host.offsetTop - Math.max(0, (scroll.clientHeight - host.offsetHeight) / 2);
+    scroll.scrollTop = Math.max(0, top);
+  });
   const channels = _data?.channels || [];
   const ch = channels.find(c => c.channelId === _data?.tuned);
   if (ch) {

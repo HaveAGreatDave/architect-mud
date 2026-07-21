@@ -24,7 +24,7 @@ export function drawWireframe3D(ctx, { cls, armed = false, w, h, accent = '#39ff
   ctx.clearRect(0, 0, w, h);
   const faces = aircraftFaces(cls, 1, armed);
   // Taildraggers render nose-high (their 3-point sit) on the schematic too.
-  const gp = groundPitchFor(cls) * Math.PI / 180, cgp = Math.cos(gp), sgp = Math.sin(gp);
+  const gp = groundPitchFor(cls, armed) * Math.PI / 180, cgp = Math.cos(gp), sgp = Math.sin(gp);
   const E = 0.42, cosE = Math.cos(E), sinE = Math.sin(E);
   const cy = Math.cos(yaw), sy = Math.sin(yaw);
   const camDist = 3.5, focal = Math.min(w, h) * 1.5, ox = w / 2, oy = h * 0.54;

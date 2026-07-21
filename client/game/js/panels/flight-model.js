@@ -195,6 +195,7 @@ export const TYPES = {
     vrsVs: 620,                           // high disc loading — settles later, then bites harder
     rollFric: 9,                          // wheeled gear, but she stops short (no rollout)
     ceiling: 16000,
+    groundPitch: 7,   // TAILDRAGGER: mains forward, tailwheel on the boom — she squats nose-high parked, flies the tail off first
   },
   // Carcass — salvaged wreck: underpowered, draggy, unstable. A junker you nurse into the air.
   carcass: {
@@ -244,6 +245,7 @@ function weightOf(p) { return 0.5 * p.vs0 * p.vs0 * (CL0 + CL_ALPHA * p.aoaCrit)
 export function createState(p) {
   return {
     airspeed: 0, altitude: 0, pitch: p.groundPitch || 0, bank: 0, heading: 0,   // taildraggers start parked nose-high on the tailwheel
+    tailDown: 1,           // taildragger heli: tailwheel planted (the parked 3-point sit) — see stepHeli §2
     vs: 0,                 // ft/min
     rpm: 0,                // 0..1 (spooled fraction of throttle)
     elevEff: 0,            // the yoke's built-up pitch effect (lags the raw input)
@@ -293,9 +295,32 @@ function stepHeli(state, input, p, dt) {
 
   // 2. Fuselage attitude from cyclic (builds over tau; weak self-level). Planted on the skids.
   if (s.onGround) {
-    s.pitch += (0 - s.pitch) * Math.min(1, dt * 5); s.bank += (0 - s.bank) * Math.min(1, dt * 5);
     s.elevEff += (cycP - s.elevEff) * Math.min(1, dt / p.pitchTau);
     s.rollEff += (cycR - s.rollEff) * Math.min(1, dt / p.rollTau);
+    s.bank += (0 - s.bank) * Math.min(1, dt * 5);
+    if (p.groundPitch) {
+      // TAILDRAGGER heli (the Viper): three points of contact, mains forward and a small tailwheel
+      // right at the end of the boom — so the whole airframe sits nose-high at `groundPitch`, and
+      // the tail is the light end. `tailDown` is that tailwheel's contact (1 = planted, 0 = flown):
+      //  • LIFT-OFF — as the collective takes the weight off the wheels, the tail (out at the end
+      //    of a long boom, far behind the mains) comes up FIRST and she rotates FLAT to the
+      //    horizon, still rolling on her mains, before she breaks ground. That's the attitude
+      //    change you see out the canopy and from the chase cam.
+      //  • TOUCHDOWN — she arrives level and lands on the two mains; the tail stays up until you
+      //    PULL BACK (or lower the lever) and walk it down onto the tailwheel into the 3-point sit.
+      const liftFrac = coll * Nr * (p.liftMax || 2.6) / (p.hoverThrust || 1);
+      // Tail-up band deliberately sits BELOW the hover point (liftFrac 1) — she's flat on her
+      // mains by ~0.35 collective and only breaks ground past ~0.42, so you always see the
+      // rotation happen on the wheels first rather than simultaneously with the lift-off.
+      const light = clamp((liftFrac - 0.6) / 0.25, 0, 1);    // weight coming off the wheels
+      const pull = clamp(s.elevEff, 0, 1);                   // aft cyclic settles the tail
+      let tailTgt;
+      if (light > 0.15) tailTgt = 0;                             // flying the tail
+      else if (pull > 0.1 || coll < 0.3) tailTgt = 1;            // pulled back / lever down → tail comes home
+      else tailTgt = s.tailDown ?? 1;                            // otherwise she holds what she's rolling on
+      s.tailDown = (s.tailDown ?? 1) + (tailTgt - (s.tailDown ?? 1)) * Math.min(1, dt * 2.2);
+      s.pitch += (p.groundPitch * s.tailDown - s.pitch) * Math.min(1, dt * 4);
+    } else s.pitch += (0 - s.pitch) * Math.min(1, dt * 5);   // skids: flat on the deck
   } else {
     s.elevEff += (cycP - s.elevEff) * Math.min(1, dt / p.pitchTau);
     s.rollEff += (cycR - s.rollEff) * Math.min(1, dt / p.rollTau);
@@ -375,6 +400,10 @@ function stepHeli(state, input, p, dt) {
   // 7. Ground contact — set down vertically (no rollout). A hard arrival flags a heavy touchdown.
   if (s.altitude <= 0) {
     if (!s.onGround && s.vs < -300) s.events.push({ type: 'touchdown', severity: s.vs < -600 ? 'hard' : 'firm', vs: s.vs });
+    // Taildragger: she rolls onto the mains at whatever attitude she arrived in, so seed the
+    // tailwheel's contact from the touchdown pitch rather than snapping into the 3-point sit —
+    // the pilot walks the tail down from there (§2).
+    if (!s.onGround && p.groundPitch) s.tailDown = clamp(s.pitch / p.groundPitch, 0, 1);
     s.altitude = 0; s.onGround = true; s.vs = Math.max(0, s.vs);
   } else s.onGround = false;
   return s;
