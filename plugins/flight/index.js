@@ -20,7 +20,7 @@ import { dispatchAction, registerAction } from '../../server/engine/actions.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
 import { getZoneEnemies, getZoneNpcs, removePlayerFromZone } from '../../server/engine/world.js';
 import { schedule } from '../../server/engine/scheduler.js';
-import { getEnvironmentState } from '../../server/engine/environment.js';
+import { getEnvironmentState, getZoneSeverity } from '../../server/engine/environment.js';
 import {
   TICK_MS, FUEL_RESERVE_FRAC, BANDS, BAND_LABEL, BAND_BURN, DIRS, DIR_ALIASES,
   liveAircraft, surfaceAt, bounds, loadAircraft, pilotOf, persist, reap, effStats,
@@ -374,6 +374,37 @@ async function cmdHandoff(args, raw, player) {
   return { type: 'emote', message: msg };
 }
 
+// ── Orders to the crew: circle an area / land at an airport ─────────────────────
+// Plain imperative verbs over the same NAV+crew machinery. `circle [x y]` holds an
+// orbit (here or a tile); `landat <field>` brings her down at an airport. Each either
+// REDIRECTS a crew already flying, or (if you're at the controls) hands off to the crew
+// with that order so they fly it while you walk. Thin wrappers over cmdNav/cmdHandoff.
+async function cmdCircle(args, raw, player) {
+  const live = player.aircraftId ? liveAircraft.get(player.aircraftId) : null;
+  if (!live || !isWalkableCabin(live)) return { type: 'emote', message: "You're not aboard a Leviathan." };
+  let tx = live.row.grid_x || 0, ty = live.row.grid_y || 0;
+  const m = args.join(' ').match(/(-?\d+)\D+(-?\d+)/);
+  if (m) { tx = +m[1]; ty = +m[2]; }
+  if (live.crew) return cmdNav(['loiter', String(tx), String(ty)], `nav loiter ${tx} ${ty}`, player);   // redirect the flying crew
+  if (player.seat === 'pilot' && live.row.airborne) { live.navDest = { loiter: true, tx, ty, name: `${tx},${ty}` }; return cmdHandoff([], 'handoff', player); }
+  if (!live.row.airborne) return { type: 'emote', message: "She's on the ground — get her aloft first." };
+  return { type: 'emote', message: 'No crew is flying her — take the controls or hand off first.' };
+}
+async function cmdLandAt(args, raw, player) {
+  const live = player.aircraftId ? liveAircraft.get(player.aircraftId) : null;
+  if (!live || !isWalkableCabin(live)) return { type: 'emote', message: "You're not aboard a Leviathan." };
+  const arg = args.join(' ').trim();
+  if (!arg) return cmdNav([], 'nav', player);   // no field named → show the list to choose from
+  if (live.crew) return cmdNav([arg], `nav ${arg}`, player);   // redirect the flying crew to land there
+  if (player.seat === 'pilot' && live.row.airborne) {
+    const r = await cmdNav([arg], `nav ${arg}`, player);
+    if (r?.type === 'emote' && /course charted/i.test(r.message || '')) return cmdHandoff([], 'handoff', player);
+    return r;   // couldn't resolve the field → pass the error back
+  }
+  if (!live.row.airborne) return { type: 'emote', message: "She's already on the ground." };
+  return { type: 'emote', message: 'No crew is flying her — take the controls or hand off first.' };
+}
+
 // The crew's destination: a NAV-charted airfield if one is set, else the nearest field.
 // Returns { id, name, tx, ty } (grid coords resolved) or null if there's no field at all.
 function navTarget(live) {
@@ -427,9 +458,9 @@ async function cmdNav(args, raw, player) {
     || fields.find(f => f.name.toLowerCase().includes(arg) || f.id.toLowerCase().includes(arg));
   if (!dest) return { type: 'emote', message: `No airfield matches "${args.join(' ')}". Type <b>nav</b> for the list.` };
   live.navDest = { destZone: dest.id, destName: dest.name, tx: dest.gx, ty: dest.gy };
-  if (live.crew) {   // already handed off and flying → bring them around to the new course now
-    live.crew.destZone = dest.id; live.crew.destName = dest.name; live.crew.tx = dest.gx; live.crew.ty = dest.gy;
-    toOccupants(live, `<span class="text-cyan">The crew adjust course — now inbound to ${dest.name}.</span>`);
+  if (live.crew) {   // already flying → bring them around to land at the new field (drops any loiter)
+    live.crew = { mode: 'field', destZone: dest.id, destName: dest.name, tx: dest.gx, ty: dest.gy };
+    toOccupants(live, `<span class="text-cyan">The crew adjust course — now inbound to land at ${dest.name}.</span>`);
     return { type: 'emote', message: `<span class="text-green">Course reset for <b>${dest.name}</b> — the crew are bringing her around.</span>` };
   }
   return { type: 'emote', message: `<span class="text-green">Course charted for <b>${dest.name}</b>.</span> <span class="text-dim">Hand off (<b>handoff</b>) and the crew will take her there.</span>` };
@@ -629,6 +660,28 @@ async function cmdDive(args, raw, player) {
   return { type: 'emote', message: `You nose down to ${BAND_LABEL[live.row.altitude_band]}.` };
 }
 
+// ── Ground stop ───────────────────────────────────────────────────────────────
+// Weather already has teeth in the air (hazards.js buffets and can break you up
+// above severity 0.35). This is the other half: past GROUND_STOP_SEVERITY the
+// field simply doesn't launch. It is the only weather rule in the game that
+// *blocks* a player action rather than taxing it — justified because the
+// alternative isn't "a harder flight", it's a scripted crash.
+//
+// The Reach feels this hardest by design: it's air-only, so a blown field means
+// nobody arrives, nobody leaves, and everyone already there ends up in the bar.
+const GROUND_STOP_SEVERITY = 0.7;
+
+// Returns a refusal message while the departure field is closed, else null.
+function groundStop(live) {
+  const zoneId = live?.row?.parked_zone_id;
+  if (!zoneId) return null;
+  const severity = getZoneSeverity(zoneId) || 0;
+  if (severity < GROUND_STOP_SEVERITY) return null;
+  const airfield = getZone(zoneId)?.flags?.airfield_name || 'The field';
+  return `<span class="text-amber">${airfield} is closed.</span> The air is solid grit and you can't see the far end of the strip. `
+    + `Nothing is going up in this — sit it out somewhere with a roof.`;
+}
+
 // ── Takeoff / land (minigames) ────────────────────────────────────────────────
 async function cmdTakeoff(args, raw, player, broadcast) {
   const { live, err } = requirePilot(player); if (err) return err;
@@ -637,6 +690,8 @@ async function cmdTakeoff(args, raw, player, broadcast) {
   if (!live.row.engine_on) return { type: 'emote', message: 'Spin the engine up first — `startup`.' };
   const zone = getZone(live.row.parked_zone_id);
   if (!zone?.flags?.airfield_id) return { type: 'emote', message: 'You can only take off from an airfield.' };
+  const closed = groundStop(live);
+  if (closed) return { type: 'emote', message: closed };
   if (live.row.fuel < effStats(live).fuelCap * FUEL_RESERVE_FRAC)
     return { type: 'emote', message: 'Not enough fuel to safely take off. Refuel first.' };
   if (effStats(live).overweight)
@@ -806,6 +861,7 @@ function sendFlightSim(player, live) {
     // hardpoints arm the weapons; cargo enables jettison.
     gearRetract: ['prop', 'gunship', 'heavy'].includes(live.type.class),
     hardpoints: live.type.hardpoints || 0,
+    salvo: (live.type.data && live.type.data.salvo) || 0,   // swarm airframe (Viper): >1 → no-lock ripple-fire, not the locked single shot
     sprayer: !!(live.type.data && live.type.data.spray),   // ag-plane crop-duster (Locust): shows the SPRAY control
     cargoCap: live.type.cargo_capacity || 0, cargoKg: ctx.cargo,
   });
@@ -1018,8 +1074,14 @@ async function cmdFlightEvent(args, raw, player, broadcast) {
   // world position). The state machine advances to the next gate / the landing stage.
   if (ev === 'gate') { if (live.checkride) await checkrideEvent(live, 'gate', args, player); return { type: 'noop' }; }
 
-  // Engine master switch (the on-panel replacement for `startup`).
-  if (ev === 'engineon') { live.row.engine_on = 1; await persist(live); pushContext(live); if (live.checkride) await checkrideEvent(live, 'engineon', args, player); return { type: 'noop' }; }
+  // Engine master switch (the on-panel replacement for `startup`). This is the
+  // continuous sim's departure gate, so the ground stop lands here rather than on
+  // the wheels-up event — refusing mid-takeoff-roll would be worse than useless.
+  if (ev === 'engineon') {
+    const closed = !live.row.airborne && groundStop(live);
+    if (closed) { out(player.id, closed); pushContext(live); return { type: 'noop' }; }
+    live.row.engine_on = 1; await persist(live); pushContext(live); if (live.checkride) await checkrideEvent(live, 'engineon', args, player); return { type: 'noop' };
+  }
   if (ev === 'engineoff') { if (!live.row.airborne) { live.row.engine_on = 0; live.row.throttle = 0; await persist(live); } return { type: 'noop' }; }
   return { type: 'noop' };
 }
@@ -1675,7 +1737,11 @@ async function cmdFlightStatus(args, raw, player) {
     `Fuel: <b>${fuel}/${cap}</b> (${Math.round(fuel / cap * 100)}% ${live.type.fuel_type}) · Hull: <b>${Math.round((1 - a.damage) * 100)}%</b> · Throttle: ${a.throttle}%`,
   ];
   if (eff.cargo) lines.push(`Cargo: ${eff.cargo}/${eff.maxTOW}kg${eff.overweight ? ' <span class="text-red">⚠ OVERWEIGHT</span>' : ''}`);
-  if (live.type.hardpoints) lines.push(`Weapons: <b>${a.weapons_hot ? 'ARMED' : 'safe'}</b> (${live.type.hardpoints} hardpoints)`);
+  if (live.type.hardpoints) {
+    const salvo = (live.type.data && live.type.data.salvo) || 0;
+    const wpn = salvo > 1 ? `${live.type.hardpoints} rails · ${salvo}-missile swarm` : `${live.type.hardpoints} hardpoints`;
+    lines.push(`Weapons: <b>${a.weapons_hot ? 'ARMED' : 'safe'}</b> (${wpn})`);
+  }
   return { type: 'output', message: lines.join('\n') };
 }
 
@@ -1744,9 +1810,45 @@ async function cmdLookCraft(args, raw, player, broadcast) {
 // chart the crew's course on a map, hand off / take the controls. Registered on the Tablet
 // OS registry (kept HERE so all the flight state + verbs stay in the flight plugin).
 const _stripTags = (s) => String(s || '').replace(/<[^>]+>/g, '');
+// The player's Leviathan "live in the world": the one they're ABOARD, else a live instance
+// they OWN. Drives both the app's visibility gate and its (remote) status when off the base.
+function ownLeviathan(player) {
+  const mine = player.aircraftId ? liveAircraft.get(player.aircraftId) : null;
+  if (mine && isWalkableCabin(mine)) return { live: mine, aboard: true };
+  for (const live of liveAircraft.values()) if (isWalkableCabin(live) && live.row.owner_id === player.id) return { live, aboard: false };
+  return { live: null, aboard: false };
+}
+// Dispatch an owned base with NO ONE at the controls — the crew fly her (a "charter" of your own
+// aircraft). Takes off if she's parked, or redirects one already flying. Occupants (if any) ride along.
+function crewDispatch(live, order) {
+  if (!live.row.airborne) {   // parked → the crew spin her up and go
+    live.row.airborne = 1; live.row.altitude_band = 'low'; live.row.parked_zone_id = null;
+    live.row.throttle = 75; live.row.engine_on = 1;
+    live.fx = live.row.grid_x || 0; live.fy = live.row.grid_y || 0;
+    delete live._contHdg; delete live._contPitch; live._contAlt = 0;   // climb from the deck
+    chaseCont(live);
+    toOccupants(live, '<span class="text-cyan">The crew spin her up and roll — wheels up.</span>');
+  }
+  live.crew = order.loiter
+    ? { mode: 'loiter', phase: 'ingress', loiterX: order.tx, loiterY: order.ty, name: `${order.tx},${order.ty}`, tx: order.tx, ty: order.ty, theta: 0 }
+    : { mode: 'field', destZone: order.destZone, destName: order.destName, tx: order.tx, ty: order.ty };
+}
+function remoteDispatchField(live, arg) {
+  const a = String(arg || '').toLowerCase(), fields = listAirfields();
+  const dest = fields.find(f => f.id.toLowerCase() === a || f.name.toLowerCase() === a)
+    || fields.find(f => f.name.toLowerCase().includes(a) || f.id.toLowerCase().includes(a));
+  if (!dest) return false;
+  live.navDest = { destZone: dest.id, destName: dest.name, tx: dest.gx, ty: dest.gy };
+  crewDispatch(live, { destZone: dest.id, destName: dest.name, tx: dest.gx, ty: dest.gy });
+  return true;
+}
+function remoteDispatchLoiter(live, tx, ty) {
+  live.navDest = { loiter: true, tx, ty, name: `${tx},${ty}` };
+  crewDispatch(live, { loiter: true, tx, ty });
+}
 function buildDeadhead(player) {
-  const live = player.aircraftId ? liveAircraft.get(player.aircraftId) : null;
-  if (!live || !isWalkableCabin(live)) return { view: 'deadhead', deadhead: { aboard: false } };
+  const { live, aboard } = ownLeviathan(player);
+  if (!live) return { view: 'deadhead', deadhead: { none: true } };
   const gx = live.row.grid_x || 0, gy = live.row.grid_y || 0;
   const fields = listAirfields().map(f => ({ id: f.id, name: f.name, gx: f.gx, gy: f.gy, dist: Math.max(Math.abs(f.gx - gx), Math.abs(f.gy - gy)) }));
   let status;
@@ -1757,10 +1859,10 @@ function buildDeadhead(player) {
       : c.phase === 'divert' ? `Bingo fuel — diverting to ${c.destName} to set down.`
       : `Crew inbound to hold over ${c.name}.` };
     else status = { state: 'crew', text: `The crew have her — inbound to ${c.destName}.` };
-  } else if (live.row.airborne) status = { state: 'flying', text: pilotOf(live) === player.id ? 'You have the controls.' : 'In the air.' };
+  } else if (live.row.airborne) status = { state: 'flying', text: (aboard && pilotOf(live) === player.id) ? 'You have the controls.' : 'In the air.' };
   else status = { state: 'parked', text: `Parked${getZone(live.row.parked_zone_id)?.name ? ' at ' + getZone(live.row.parked_zone_id).name : ''}.` };
   return { view: 'deadhead', deadhead: {
-    aboard: true, name: live.type.name, gx, gy, fields, status,
+    aboard, remote: !aboard, name: live.type.name, gx, gy, fields, status,
     charted: live.navDest ? (live.navDest.loiter
       ? { loiter: true, tx: live.navDest.tx, ty: live.navDest.ty, name: live.navDest.name }
       : { id: live.navDest.destZone, name: live.navDest.destName }) : null,
@@ -1772,13 +1874,28 @@ function buildDeadhead(player) {
 }
 registerTabletApp({
   id: 'deadhead', name: 'DEADHEAD', icon: '✈', category: 'General',
+  visible(player) { return !!ownLeviathan(player).live; },   // Home tile only when you have a Leviathan live in the world
   buildScreen(player) { return buildDeadhead(player); },
   async handleAction(player, actionId, params) {
-    if (actionId === 'chart' && params) { await cmdNav([params], `nav ${params}`, player); return buildDeadhead(player); }
-    if (actionId === 'loiter' && params) { const [gx, gy] = params.split(/\s+/); await cmdNav(['loiter', gx, gy], `nav loiter ${gx} ${gy}`, player); return buildDeadhead(player); }
-    if (actionId === 'clear') { await cmdNav(['clear'], 'nav clear', player); return buildDeadhead(player); }
-    if (actionId === 'take') { const r = await cmdTakeControls([], 'takecontrols', player); if (r?.type === 'noop') return { type: 'tablet_close' }; return { ...buildDeadhead(player), notice: _stripTags(r?.message) }; }
-    if (actionId === 'hand') { const r = await cmdHandoff([], 'handoff', player); return { ...buildDeadhead(player), notice: _stripTags(r?.message) }; }
+    const { live, aboard } = ownLeviathan(player);
+    if (aboard) {
+      // On the base → the orders run through the real verbs (gate + narrate as usual).
+      if (actionId === 'chart' && params) await cmdNav([params], `nav ${params}`, player);
+      else if (actionId === 'loiter' && params) { const [gx, gy] = params.split(/\s+/); await cmdNav(['loiter', gx, gy], `nav loiter ${gx} ${gy}`, player); }
+      else if (actionId === 'circlehere') { const r = await cmdCircle([], 'circle', player); return { ...buildDeadhead(player), notice: _stripTags(r?.message) }; }
+      else if (actionId === 'clear') await cmdNav(['clear'], 'nav clear', player);
+      else if (actionId === 'take') { const r = await cmdTakeControls([], 'takecontrols', player); if (r?.type === 'noop') return { type: 'tablet_close' }; return { ...buildDeadhead(player), notice: _stripTags(r?.message) }; }
+      else if (actionId === 'hand') { const r = await cmdHandoff([], 'handoff', player); return { ...buildDeadhead(player), notice: _stripTags(r?.message) }; }
+      return buildDeadhead(player);
+    }
+    if (live) {
+      // Remote: dispatch the owned base by crew — she takes off if parked and flies there herself.
+      let note;
+      if (actionId === 'chart' && params) note = remoteDispatchField(live, params) ? 'Dispatched — the crew are taking her there.' : 'No airfield by that name.';
+      else if (actionId === 'loiter' && params) { const [x, y] = params.split(/\s+/); remoteDispatchLoiter(live, +x, +y); note = 'Dispatched — the crew are holding that spot.'; }
+      else if (actionId === 'circlehere') { remoteDispatchLoiter(live, live.row.grid_x || 0, live.row.grid_y || 0); note = 'The crew hold a lazy orbit.'; }
+      return { ...buildDeadhead(player), notice: note };
+    }
     return buildDeadhead(player);
   },
 });
@@ -1787,6 +1904,7 @@ export const commands = {
   examine: cmdExamineCraft, look: cmdLookCraft,
   embark: cmdBoard, board: cmdBoard, disembark: cmdDisembark, deplane: cmdDisembark, window: cmdWindow, testfly: cmdTestFly, taxi: cmdTaxi,
   takecontrols: cmdTakeControls, controls: cmdTakeControls, handoff: cmdHandoff, standdown: cmdHandoff, nav: cmdNav,
+  circle: cmdCircle, orbit: cmdCircle, landat: cmdLandAt, divert: cmdLandAt,
   flight: cmdFlightStatus, fs: cmdFlightStatus,
   startup: cmdStartup, shutdown: cmdShutdown, throttle: cmdThrottle,
   heading: cmdHeading, climb: cmdClimb, dive: cmdDive,
@@ -1846,6 +1964,6 @@ export const routeHandler = async (path, method, body, auth) => {
   return null;
 };
 
-export const _test = { surfaceAt, takeoffDifficulty, landDifficulty, DIRS, liveAircraft, noiseReach, isContinuous, bandFromAltitude, crewStep, crewDivertFuel };
+export const _test = { surfaceAt, takeoffDifficulty, landDifficulty, DIRS, liveAircraft, noiseReach, isContinuous, bandFromAltitude, crewStep, crewDivertFuel, groundStop, GROUND_STOP_SEVERITY };
 
 console.log('[flight] Plugin loaded.');

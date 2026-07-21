@@ -1,0 +1,57 @@
+{
+  "category": "Job Board",
+  "description": "A message for a buyer staying at the Layover. Not written down, not on any deck — memorised, carried in a skull, and said once. If you get it wrong, you get it wrong out loud. 18₵.",
+  "id": "quest_reach_word",
+  "meta": {},
+  "name": "Word of Mouth",
+  "objectives": [
+    {
+      "desc": "The dirt street",
+      "emotes": [
+        "{who} walks the message down the street, mouthing it over and over so it doesn't come apart.",
+        "{who} repeats eleven words under their breath and tries not to improve any of them.",
+        "{who} carries nothing at all, which out here is the most conspicuous thing you can carry."
+      ],
+      "id": "o0",
+      "taskSeconds": 5,
+      "type": "visit",
+      "zone": "zone_the_reach_872_1955"
+    },
+    {
+      "desc": "The Layover — Front Office",
+      "emotes": [
+        "{who} asks at the desk which cabin. The desk considers it for a long moment before answering.",
+        "{who} waits at the front office while somebody decides whether the buyer is in.",
+        "{who} gets a cabin number and no name, which is how the Layover prefers to do business."
+      ],
+      "id": "o1",
+      "requires": [
+        "o0"
+      ],
+      "taskSeconds": 5,
+      "type": "visit",
+      "zone": "zone_bld_900_1171_lobby"
+    },
+    {
+      "desc": "The Walkway",
+      "emotes": [
+        "{who} says the message once, at a door, to a face that doesn't come all the way into the light.",
+        "{who} delivers eleven words, gets a grunt, and the door closes on the rest of the conversation.",
+        "{who} finishes the message and is already walking before the door is shut."
+      ],
+      "id": "o2",
+      "requires": [
+        "o1"
+      ],
+      "taskSeconds": 5,
+      "type": "visit",
+      "zone": "zone_bld_900_1171_walk2"
+    }
+  ],
+  "quest_type": "standard",
+  "repeatable": 1,
+  "rewards": {
+    "credits": 18
+  },
+  "updated_at": "1784600000"
+}

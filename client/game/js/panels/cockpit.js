@@ -1049,7 +1049,7 @@ const FLAP_STYLES = {
   quadrant: { cap: 'FLAPS',      detents: [{ v: 0, l: '0' }, { v: 0.25, l: '1' }, { v: 0.5, l: '2' }, { v: 0.75, l: '3' }, { v: 1, l: 'FULL' }] },
   switch:   { cap: '',           detents: [{ v: 0, l: 'UP' }, { v: 0.5, l: '½' }, { v: 1, l: 'FULL' }] },
 };
-const FLAP_BY_CRAFT = { mayfly: 'johnson', mule: 'johnson', leviathan: 'quadrant', reaper: 'switch', carcass: 'switch', dragonfly: null, grasshopper: 'johnson', locust: 'johnson' };
+const FLAP_BY_CRAFT = { mayfly: 'johnson', mule: 'johnson', leviathan: 'quadrant', reaper: 'switch', carcass: 'switch', dragonfly: null, viper: null, grasshopper: 'johnson', locust: 'johnson' };
 function flapStyleFor(craftType) {
   const key = craftType in FLAP_BY_CRAFT ? FLAP_BY_CRAFT[craftType] : 'switch';
   return key ? { key, ...FLAP_STYLES[key] } : null;   // null ⇒ no flaps (heli)
@@ -1087,6 +1087,9 @@ const GUN_CMD_GROUND_MS = 700;   // > server GROUND_GUN_COOLDOWN_MS (650)
 // nose), the hold-to-lock time, and the min gap between launches. Mirror the server's
 // MISSILE_* tunables in state.js — the server gate is deliberately a shade more lenient.
 const MSL_RANGE = 8, MSL_CONE = 25, MSL_LOCK_MS = 2500, MSL_FIRE_MS = 1600;
+// Swarm airframe (Viper): no lock — a bogey inside a wide forward cone is a valid ripple shot.
+// Client cone kept just under the server's SWARM_CONE (45°) so we only greenlight shots it'll take.
+const SWARM_CONE = 40, SWARM_FIRE_MS = 2300;
 // ── Building collision (CFIT) ─────────────────────────────────────────────────
 // The windshield draws one deterministic building per built-up tile from its floor count; the sim
 // collision-checks that SAME building so flying into a tower you can see out the glass hurts. The
@@ -1217,6 +1220,7 @@ const FSIM_SKIN = {
   leviathan: { id: 'leviathan', acc: '#3fd6c0', rgb: [63, 214, 192] },   // Soviet An-124 turquoise flightdeck
   reaper: { id: 'reaper', acc: '#ff9a38', rgb: [255, 154, 56] },   // A-10 Warthog: olive-drab armour + gunsight amber
   dragonfly: { id: 'dragonfly', acc: '#8fe36b', rgb: [143, 227, 107] },   // Mini 500: a light, exposed kit-heli bubble
+  viper: { id: 'viper', acc: '#5fe6c0', rgb: [95, 230, 192] },   // attack-heli glass cockpit: black composite + cyan-green HUD, threat-red weapons
   // The two light singles each carry their own flightdeck now: the Grasshopper an olive-drab
   // L-4 liaison deck (khaki plates, lime dials), the Locust a gloss-black hot-rod sport deck
   // (amber dials, racing-red master).
@@ -1814,6 +1818,36 @@ function ensureFlightSimStyles() {
     .fsim-theme-reaper .fsim-thr-grip{ background:linear-gradient(180deg,#ff9a38 0%,#8a5210 55%,#301c08 100%); }
     .fsim-theme-reaper .fsim-thr-grip::after{ background:repeating-linear-gradient(90deg,#301c08 0 2px,rgba(255,154,56,.32) 2px 4px); }
 
+    /* ══ VIPER flightdeck skin — a modern attack-heli GLASS COCKPIT: black composite armour, a ══
+       cool cyan-green phosphor HUD glow, threat-red weapons accents. Sleek and menacing — a gunship
+       deck built around the missile-swarm sight, not a bubble you sightsee from. */
+    .fsim-theme-viper{ --cy:#5fe6c0; --mg:#ff5a6a; --gr:#7dffcf; --cy-dim:rgba(95,230,192,.20); }
+    .fsim-theme-viper .fsim-view{ box-shadow:inset 0 0 0 2px #10231e, inset 0 4px 22px rgba(95,230,192,.13), 0 0 14px rgba(0,0,0,.78); }
+    .fsim-theme-viper .fsim-view::after{ content:''; position:absolute; left:0; right:0; top:0; height:16px; z-index:2; pointer-events:none;
+      background:linear-gradient(180deg,#0a1512 0%,#060d0b 62%,rgba(6,13,11,0) 100%); border-bottom:1px solid rgba(95,230,192,.5); box-shadow:0 1px 10px rgba(95,230,192,.3); }
+    .fsim-theme-viper .fsim-pfd,.fsim-theme-viper .fsim-mfd,.fsim-theme-viper .fsim-gauges{ border-color:#1c3a33; box-shadow:inset 0 0 12px rgba(0,0,0,.82), 0 0 0 1px rgba(95,230,192,.18); }
+    /* maker's plate → black carbon-composite w/ a fine cyan etch grain + corner bolts */
+    .fsim-theme-viper .fsim-placard{ border-color:#132a24;
+      background:
+        radial-gradient(circle at 10px 10px, #9feada 0 1.4px, #3f7a6e 1.4px 2.6px, #123028 2.6px 3.6px, rgba(0,0,0,.55) 3.6px 4.4px, transparent 4.6px),
+        radial-gradient(circle at calc(100% - 10px) 10px, #9feada 0 1.4px, #3f7a6e 1.4px 2.6px, #123028 2.6px 3.6px, rgba(0,0,0,.55) 3.6px 4.4px, transparent 4.6px),
+        radial-gradient(circle at 10px calc(100% - 10px), #9feada 0 1.4px, #3f7a6e 1.4px 2.6px, #123028 2.6px 3.6px, rgba(0,0,0,.55) 3.6px 4.4px, transparent 4.6px),
+        radial-gradient(circle at calc(100% - 10px) calc(100% - 10px), #9feada 0 1.4px, #3f7a6e 1.4px 2.6px, #123028 2.6px 3.6px, rgba(0,0,0,.55) 3.6px 4.4px, transparent 4.6px),
+        repeating-linear-gradient(45deg, rgba(95,230,192,.05) 0 1px, rgba(0,0,0,.16) 1px 3px),
+        linear-gradient(157deg,#16302a 0%,#1d3e36 24%,#0e211d 48%,#183a32 70%,#0a1c18 100%);
+      box-shadow:inset 0 1px 0 rgba(160,240,220,.16), inset 0 -2px 5px rgba(0,0,0,.6), 0 2px 5px rgba(0,0,0,.55); }
+    .fsim-theme-viper .fsim-plac-title{ color:#0a201b; text-shadow:0 1px 0 rgba(150,240,215,.3); }
+    .fsim-theme-viper .fsim-plac-reg{ color:#04120e; text-shadow:0 1px 0 rgba(150,240,215,.34); }
+    .fsim-theme-viper .fsim-plac-own{ color:#173a32; text-shadow:0 1px 0 rgba(150,240,215,.22); }
+    .fsim-theme-viper .fsim-plac-own.rented{ color:#c0304a; text-shadow:0 1px 0 rgba(150,240,215,.22); }
+    .fsim-theme-viper .fsim-plac-sheen{ background:linear-gradient(133deg, rgba(150,240,215,0) 30%, rgba(150,240,215,.42) 46%, rgba(150,240,215,.07) 52%, rgba(150,240,215,0) 66%); }
+    .fsim-theme-viper .fsim-xpdr{ border-color:#132a24; background:linear-gradient(180deg,#1a3630 0%,#102420 48%,#080f0d 100%); box-shadow:inset 0 1px 0 rgba(95,230,192,.16), inset 0 -2px 6px rgba(0,0,0,.62), 0 2px 5px rgba(0,0,0,.5); }
+    .fsim-theme-viper .fsim-xpdr-title{ color:#4fbfa4; }
+    .fsim-theme-viper .fsim-yoke{ border-color:#1c3a33; background:radial-gradient(circle at 50% 26%,#122a24,#070f0c); }
+    .fsim-theme-viper .fsim-throttle{ border-color:#1c3a33; background:linear-gradient(180deg,#102420,#070f0c); }
+    .fsim-theme-viper .fsim-thr-grip{ background:linear-gradient(180deg,#5fe6c0 0%,#1d8a72 55%,#0c2e26 100%); }
+    .fsim-theme-viper .fsim-thr-grip::after{ background:repeating-linear-gradient(90deg,#0c2e26 0 2px,rgba(95,230,192,.34) 2px 4px); }
+
     /* ══ MAYFLY flightdeck skin — an ultralight trainer: bright daytime plexiglass, ══
        bare riveted alloy, a clean sky-aqua glow. The lightest, friendliest deck — no
        carbon, no armour, just an honest little bubble you learn to fly in. */
@@ -2104,6 +2138,37 @@ const CYCLIC_DRAGONFLY = `<svg class="fsim-yoke-svg" id="fsim-yoke-svg" viewBox=
   <circle id="fsim-yk-red" cx="52.5" cy="23.5" r="1.9" fill="url(#ykred)" opacity="0.2"/>
 </svg>`;
 
+// VIPER — a futuristic attack-heli COMBAT CYCLIC: a low-pivot black-carbon pistol grip with a
+// coolie trim-hat, a red master/weapons trigger on the front, and a 2×2 cluster of cyan SWARM
+// launch pips on the grip face — the ripple made physical. Aggressive, glass-cockpit tactical.
+const CYCLIC_VIPER = `<svg class="fsim-yoke-svg" id="fsim-yoke-svg" viewBox="0 0 100 74" preserveAspectRatio="xMidYMid meet">
+  <defs>${YK_LED_DEFS}
+    <linearGradient id="vpshaft" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a3a35"/><stop offset="0.5" stop-color="#16211d"/><stop offset="1" stop-color="#080d0b"/></linearGradient>
+    <linearGradient id="vpgrip" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2e4640"/><stop offset="0.5" stop-color="#182722"/><stop offset="1" stop-color="#0a120f"/></linearGradient>
+  </defs>
+  <!-- floor gimbal + carbon shaft boot -->
+  <ellipse cx="50" cy="71" rx="20" ry="4.4" fill="#070d0b"/>
+  <path d="M44,70 L46,40 L54,40 L56,70 Z" fill="#0e1613" stroke="#000" stroke-width="0.6"/>
+  <path d="M45.5,64 H54.5 M46,58 H54 M46.5,52 H53.5" stroke="#1c2b26" stroke-width="0.8" fill="none"/>
+  <!-- shaft + name plate -->
+  <rect x="46" y="22" width="8" height="20" rx="2.5" fill="url(#vpshaft)" stroke="#000" stroke-width="0.6"/>
+  <rect id="fsim-yoke-plate" x="40" y="33" width="20" height="7" rx="1.5" fill="#0a120f" stroke="#20423a" stroke-width="0.5"/>
+  <text id="fsim-yoke-name" class="fsim-yoke-name" x="50" y="38.4" text-anchor="middle" textLength="16" lengthAdjust="spacingAndGlyphs">VIPER</text>
+  <!-- molded combat pistol grip, canted forward -->
+  <path d="M43,26 Q41,7 49,5.5 L55,5.5 Q62,7 60,16 L58,27 Q57,31 50,31 Q44,31 43,26 Z" fill="url(#vpgrip)" stroke="#000" stroke-width="0.7"/>
+  <path d="M45,11 H58 M45,15 H59 M45,19 H58 M45,23 H57" stroke="rgba(0,0,0,0.42)" stroke-width="0.7" fill="none"/>
+  <!-- coolie trim-hat -->
+  <circle cx="51" cy="6.5" r="3.5" fill="#122019" stroke="#000" stroke-width="0.5"/>
+  <path d="M51,4 V9 M48.5,6.5 H53.5" stroke="#5fe6c0" stroke-width="0.7"/>
+  <!-- 2x2 cyan SWARM launch pips on the grip face -->
+  ${[[47, 15], [52, 15], [47, 20], [52, 20]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.15" fill="#0a120f" stroke="#5fe6c0" stroke-width="0.5"/>`).join('')}
+  <!-- red master/weapons trigger on the front -->
+  <path d="M43,20 q-4.5,1.5 -3.5,6.5 q3.5,2 4.5,-1.5 Z" fill="#e0403a" stroke="#000" stroke-width="0.5"/>
+  <!-- status LEDs on the grip collar -->
+  <circle id="fsim-yk-green" cx="47.5" cy="29" r="1.9" fill="url(#ykgreen)" opacity="0.2"/>
+  <circle id="fsim-yk-red" cx="52.5" cy="29" r="1.9" fill="url(#ykred)" opacity="0.2"/>
+</svg>`;
+
 // GRASSHOPPER — a Piper L-4 Cub's bare bent-tube joystick: a slim olive-drab aluminium tube
 // rising from a floor socket to a single plain rubber ball grip. No buttons, no trim hat — the
 // most honest, spartan control in the fleet, matched to the fabric-and-tube liaison scout.
@@ -2161,7 +2226,7 @@ const STICK_LOCUST = `<svg class="fsim-yoke-svg" id="fsim-yoke-svg" viewBox="0 0
 function yokeSvgFor(t) {
   // The light singles each fly their analogue's centre stick: the Grasshopper a Cub bent-tube
   // joystick, the Locust a sport aerobatic stick. Only the Mayfly keeps the skeletal tube-yoke.
-  return { mayfly: YOKE_MAYFLY, grasshopper: STICK_GRASSHOPPER, locust: STICK_LOCUST, leviathan: YOKE_LEVIATHAN, reaper: STICK_REAPER, dragonfly: CYCLIC_DRAGONFLY }[t] || YOKE_SVG;
+  return { mayfly: YOKE_MAYFLY, grasshopper: STICK_GRASSHOPPER, locust: STICK_LOCUST, leviathan: YOKE_LEVIATHAN, reaper: STICK_REAPER, dragonfly: CYCLIC_DRAGONFLY, viper: CYCLIC_VIPER }[t] || YOKE_SVG;
 }
 
 // Cabin-occupancy readout on the aircraft placard: one pip per seat — pilot in the accent,
@@ -2227,6 +2292,7 @@ export function openFlightSim(opts = {}) {
     craftType: opts.craftType,                       // airframe id (drives the reaper-only gun/stores panel)
     sprayer: !!opts.sprayer,                          // ag-plane crop-duster (Locust): shows the SPRAY button
     hardpoints: opts.hardpoints || 0, armed: false,  // weapons (gunship): master-arm + fire
+    salvo: opts.salvo || 0,                          // swarm airframe (Viper): >1 → MSL fires a no-lock ripple
     gunCap: 1174, gunRounds: 1174,                   // GAU-8 ammo drum (cosmetic; counts down as the gun squirts)
     nightLight: false, landingLight: false,          // instrument-panel backlight (PANEL) + exterior landing/taxi lights (LIGHTS) — both need engine power
     raf: 0, last: 0, syncAcc: 0, hornBeat: 0, audioAcc: 0,
@@ -2234,7 +2300,7 @@ export function openFlightSim(opts = {}) {
     engines: Math.max(1, opts.engines || 1), seats: Math.max(1, opts.seats || 1), occupants: opts.occupants || [],
     // Powerplant class → engine-instrument labelling/scales (piston RPM · turboprop TQ/ITT ·
     // turbofan N1/EGT). Mule = twin turboprop; Reaper (A-10/TF34) + Leviathan (An-124) = jets.
-    engStyle: { mule: 'turboprop', reaper: 'turbofan', leviathan: 'turbofan', dragonfly: 'heli' }[opts.craftType] || 'piston',
+    engStyle: { mule: 'turboprop', reaper: 'turbofan', leviathan: 'turbofan', dragonfly: 'heli', viper: 'heli' }[opts.craftType] || 'piston',
     temps: [], rpms: [], engWander: 0,   // per-engine gauge state (twins get 2 RPM + 2 temp dials)
 
     disp: { ias: 0, alt: 0, vs: 0, hdg: s.heading, rpm: 0, pitch: 0, bank: 0 },
@@ -2468,7 +2534,7 @@ export function openFlightSim(opts = {}) {
   // base, not the wheel-column mid-point the CSS default (50% 66%) assumes — so the
   // frame-loop lean rotates the whole stick about its boot instead of its shaft.
   const yokeSvgEl = q('#fsim-yoke-svg');
-  if (yokeSvgEl && (opts.craftType === 'reaper' || opts.craftType === 'dragonfly')) yokeSvgEl.style.transformOrigin = '50% 92%';
+  if (yokeSvgEl && (opts.craftType === 'reaper' || opts.craftType === 'dragonfly' || opts.craftType === 'viper')) yokeSvgEl.style.transformOrigin = '50% 92%';
   renderSeats(F);
 
   // Flaps — a per-airframe lever (Cessna Johnson bar / airliner quadrant / switch), or absent
@@ -3655,8 +3721,8 @@ function fsimFrame(now) {
       // our eye level. Airborne contacts stay camera-relative on their altitude delta as before.
       const brk = surfaceBreakup(c.surfaces);   // a battle-damaged bogey renders its sheared wing/tail GONE, not pristine
       const cv = c.onGround
-        ? { id: c.id, dx, dy, groundZ: 0, altDiff: 0, rng, bore, reg: c.reg, hullPct: c.hullPct, cls: c.cls, hdg: c.hdg, bank: c.bank, pitch: c.pitch, livery: c.livery, firing: c.firing, breakup: brk }
-        : { id: c.id, dx, dy, altDiff: (c.alt || 0) - s.altitude, rng, bore, reg: c.reg, hullPct: c.hullPct, cls: c.cls, hdg: c.hdg, bank: c.bank, pitch: c.pitch, livery: c.livery, firing: c.firing, breakup: brk };
+        ? { id: c.id, dx, dy, groundZ: 0, altDiff: 0, rng, bore, reg: c.reg, hullPct: c.hullPct, cls: c.cls, armed: c.armed, hdg: c.hdg, bank: c.bank, pitch: c.pitch, livery: c.livery, firing: c.firing, breakup: brk }
+        : { id: c.id, dx, dy, altDiff: (c.alt || 0) - s.altitude, rng, bore, reg: c.reg, hullPct: c.hullPct, cls: c.cls, armed: c.armed, hdg: c.hdg, bank: c.bank, pitch: c.pitch, livery: c.livery, firing: c.firing, breakup: brk };
       contactView.push(cv);
       if (bore < bestBore) { bestBore = bore; designated = cv; }
     }
@@ -3681,7 +3747,12 @@ function fsimFrame(now) {
   // Missile seeker (Phase C): with MSL selected, holding the designated bogey inside the
   // seeker envelope builds a lock over MSL_LOCK_MS; full bar → ask the server (`airlock`),
   // which owns the lock and warns the target's RWR. Wander out and the lock decays off.
-  if (F.weapon === 'msl' && F.armed && F.hardpoints > 0 && designated && F.reportedAirborne) {
+  F.swarmReady = null;
+  if (F.salvo > 1 && F.weapon === 'msl' && F.armed && F.hardpoints > 0 && F.reportedAirborne) {
+    // Swarm airframe (Viper): NO lock cycle — point the nose at a bogey inside the forward
+    // envelope and a ripple shot is live immediately. No seeker tone, no RWR lock warning.
+    if (designated && designated.rng <= MSL_RANGE && designated.bore <= SWARM_CONE) F.swarmReady = designated.id;
+  } else if (F.weapon === 'msl' && F.armed && F.hardpoints > 0 && designated && F.reportedAirborne) {
     if (F.seekId !== designated.id) { F.seekId = designated.id; F.lockProg = 0; }   // new bogey → start over
     const inEnv = designated.rng <= MSL_RANGE && designated.bore <= MSL_CONE;
     if (inEnv) {
@@ -3705,7 +3776,17 @@ function fsimFrame(now) {
   // harder cap + validates the shot); missiles are a single launch per squeeze off a full
   // lock. With no air solution, an armed craft still falls back to the ground-AA strafe pass.
   if (F.firing && F.armed && F.reportedAirborne) {
-    if (F.weapon === 'msl') {
+    if (F.weapon === 'msl' && F.salvo > 1) {
+      // Swarm: one ripple per squeeze at the bore-designated bogey, no lock required.
+      if (!F.fireHeld && F.swarmReady && F.msl > 0 && (!F.lastMslMs || now - F.lastMslMs >= SWARM_FIRE_MS)) {
+        F.lastMslMs = now;
+        F.msl = Math.max(0, F.msl - F.salvo);   // optimistic; flight_ctx refreshes the authoritative count
+        sendCmdSilent(`airfire swarm ${F.swarmReady}`);
+        F.muzzleT = now;
+        try { missileFx(); } catch {}
+        if (F.paintPips) F.paintPips();
+      }
+    } else if (F.weapon === 'msl') {
       if (!F.fireHeld && F.lockId && F.msl > 0 && (!F.lastMslMs || now - F.lastMslMs >= MSL_FIRE_MS)) {
         F.lastMslMs = now;
         F.msl = Math.max(0, F.msl - 1);   // optimistic; flight_ctx refreshes the authoritative count
@@ -3734,7 +3815,7 @@ function fsimFrame(now) {
   // (guns on target, or a full missile lock).
   const retEl = document.getElementById('fsim-reticle');
   if (retEl) {
-    retEl.classList.toggle('lock', solReady || !!F.lockId);
+    retEl.classList.toggle('lock', solReady || !!F.lockId || !!F.swarmReady);
     retEl.classList.toggle('seek', F.weapon === 'msl' && F.lockProg > 0 && !F.lockId);
   }
 
@@ -3865,7 +3946,7 @@ function fsimFrame(now) {
     // Prop/rotor spin is driven by engine RPM (spooled fraction of throttle → reacts to the
     // engine being on and to throttle, with spool lag), NOT airspeed — so she turns at idle on
     // the ramp and winds up with the throttle instead of only spinning once she's moving.
-    external: F.external, extZoom: F.extZoom || 1, cls: F.cls, livery: F.livery, enginePct: d.rpm,
+    external: F.external, extZoom: F.extZoom || 1, cls: F.cls, armed: F.cls === 'heli' && F.hardpoints > 0, livery: F.livery, enginePct: d.rpm,
     engineOn: F.engineOn, landingLight: F.landingLight,   // nav/strobe/beacon die with the engine; landing lamps add a bright forward set
     panelLight: F.nightLight,   // PANEL switch → richer warm instrument glow reflected up onto the lower canopy
 

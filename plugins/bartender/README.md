@@ -23,10 +23,31 @@ player in the room**, reads the live room, and reacts in character:
   heads-up** state.
 - **The TV is on** (`broadcast`'s `getZoneNowPlaying`) → he comments on **what's
   actually airing** (program name, else station/channel).
+- **A guest is wearing heat** (surveillance's `WANTED_STARS` action, ≥1★) → the bar
+  reacts to who just walked in. What that *means* is per-bar: Lowry wants it out of
+  his respectable house; Marla treats it as a credential.
+- **The other old hand is on the floor** → a rare curated two-hander with this bar's
+  coworker (Lowry ⇄ Orion Dex; Marla ⇄ Doc Teller), on its own long cooldown.
 - **Otherwise** → bar business: pouring, wiping, the patter.
 
 Throttled (`AMBIENT_GAP_MS`) with a quiet-chance so he isn't a chatterbox; a new
 arrival's welcome is prompt and bypasses the throttle.
+
+## Voices
+
+The reactive **logic** is shared; the **words** are not. `VOICES` maps an NPC id to
+its line set (`welcomes`, `graduation`, `veteranAdvice`, `heat`, `idle`,
+`coworkerId`, `coworker`); anything unlisted falls back to `LOWRY_VOICE`.
+
+This matters because the tick is scoped by *personality*, not by id — without a
+voice entry, every bartender in the world introduces themselves as Lowry and
+welcomes players to the Embassy. **A new bar needs a `VOICES` entry, not a second
+copy of this plugin.** The shared `TIPS` pool stays common (the verbs it teaches are
+universal), but the per-player "which tips have you heard" memory is keyed
+`npcId:playerId`, so draining Lowry's pool doesn't leave Marla with nothing to say.
+
+Current voices: **Lowry** (`npc_embassy_barkeep`, the Embassy) and **Marla Kest**
+(`npc_1784515589442`, The Coyote's Rest in the Reach).
 
 ## Reactive dialogue actions
 
@@ -41,11 +62,13 @@ when a player `talk`s to him and picks the option):
 
 ## Scope & state
 
-Generic over the `bartender` personality — today that's **Lowry** at the Embassy
-(`npc_embassy_barkeep`, `zone_residential_lobby`); any future bartender inherits it
-for free. All memory (who's been welcomed, which tips each player has heard) is
-**in-memory** and resets on restart — a bartender's short memory doesn't warrant a
-persisted Flag.
+Generic over the `bartender` personality; any future bartender inherits the tick for
+free (give them a `VOICES` entry). Note `isNpcAtWork` requires `zone_id ===
+work_zone_id` **and** an open `vendor_schedule` — a bartender with a null
+`work_zone_id` never ticks at all.
+
+All memory (who's been welcomed, which tips each player has heard) is **in-memory**
+and resets on restart — a bartender's short memory doesn't warrant a persisted Flag.
 
 Reads two sibling plugins directly (`gametable`, `broadcast`) — read-only getters,
 no load-order dependency (ES imports resolve the module graph eagerly).

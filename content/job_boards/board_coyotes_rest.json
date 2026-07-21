@@ -1,0 +1,17 @@
+{
+  "description": "Whatever the Reach needs doing this week. No contracts, no manifests, no names — take a card off the wall, do the thing, come back and Marla pays you out of the till. Nobody will ever ask you what was in it.",
+  "id": "board_coyotes_rest",
+  "name": "The Coyote's Rest — Work Nobody Signs For",
+  "quest_pool": [
+    "quest_reach_nolabel",
+    "quest_reach_pallet",
+    "quest_reach_word",
+    "quest_reach_hulk",
+    "quest_reach_dynamo",
+    "quest_reach_deadhead"
+  ],
+  "rotation_period": "21600",
+  "rotation_size": 3,
+  "updated_at": "1784600000",
+  "zone_id": "zone_bld_899_1171_lobby"
+}

@@ -1,0 +1,57 @@
+{
+  "category": "Job Board",
+  "description": "Bram needs a second pair of hands at the Dynamo, which is his way of saying he needs somebody to hold a live thing steady while he does something ill-advised to it. Switch room, then the turbine floor, then go tell the street the lights are staying on. 24₵.",
+  "id": "quest_reach_dynamo",
+  "meta": {},
+  "name": "Hold This, Don't Let Go",
+  "objectives": [
+    {
+      "desc": "The Switch Room",
+      "emotes": [
+        "{who} holds a torch on the control board while Bram has both arms inside it up to the elbow.",
+        "{who} is told to hold this and not let go, and does not let go, and does not ask what it is.",
+        "{who} watches a needle drift while Bram swears at something behind the panel in two languages."
+      ],
+      "id": "o0",
+      "taskSeconds": 5,
+      "type": "visit",
+      "zone": "zone_bld_898_1171_lobby"
+    },
+    {
+      "desc": "The Turbine Floor",
+      "emotes": [
+        "{who} follows a cable run onto the turbine floor with the whole building humming up through their boots.",
+        "{who} braces the scavenged turbine's housing while Bram beats a mounting bracket back into approximately the right shape.",
+        "{who} finds the fault: a taped joint that has been re-taped so many times the tape is now structural."
+      ],
+      "id": "o1",
+      "requires": [
+        "o0"
+      ],
+      "taskSeconds": 5,
+      "type": "visit",
+      "zone": "zone_bld_898_1171_hall"
+    },
+    {
+      "desc": "The dirt street",
+      "emotes": [
+        "{who} comes out into the street to report that the Reach has power, for now, on a technicality.",
+        "{who} tells the first person they see that the lights are staying on. It gets around fast; there aren't many people.",
+        "{who} stands in the road, ears still ringing from the genset, and watches a porch light come back on."
+      ],
+      "id": "o2",
+      "requires": [
+        "o1"
+      ],
+      "taskSeconds": 5,
+      "type": "visit",
+      "zone": "zone_the_reach_872_1955"
+    }
+  ],
+  "quest_type": "standard",
+  "repeatable": 1,
+  "rewards": {
+    "credits": 24
+  },
+  "updated_at": "1784600000"
+}

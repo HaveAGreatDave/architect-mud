@@ -743,6 +743,178 @@ function buildHeli() {
   return faces;
 }
 
+// ── VIPER — a sleek futuristic ATTACK HELICOPTER (an Apache reimagined) ──────────────
+// An armed heli (class 'heli' with hardpoints → this mesh; the unarmed Dragonfly keeps the
+// bubble). Signatures vs the Mini-500: a slender, chined, tapering gunship fuselage; a TANDEM
+// STEPPED canopy (a low gunner blister ahead, a raised pilot blister behind); a chin GUN turret
+// + a nose sensor ball under the nose; short anhedral STUB-WINGS carrying rocket PODS inboard and
+// exposed MISSILES on the tips (the swarm made visible); twin "cheek" engine nacelles with exhausts
+// flanking the mast; a slim tailboom to a swept fin + stabilator + tail rotor; and fixed wheeled
+// gear. Built to the same station-ring + explicit-facet fidelity as the fixed-wing set. Rotor mast
+// is planted at (0.1,0,0.34) and the tail rotor at (-1.04,0.07,0.12) so drawRotorFX's baked heli
+// anchors land exactly on this geometry.
+function buildAttackHeli() {
+  const faces = [];
+  const q = (role, sh, a, b, c, d) => faces.push({ role, sh, p: d ? [a, b, c, d] : [a, b, c] });
+  const GLASS = [46, 68, 92];   // sleek dark-cyan canopy glass (a shade cooler/darker than the Dragonfly fishbowl)
+
+  // ── Fuselage: an angular, slender gunship body. Cross-sections are 10-gons squashed toward a
+  // chined profile (taller than wide up front, a keeled belly) sampled nose→boom and skinned smooth.
+  const sides = 10;
+  const ring = (f, rg, rv, cz, keel = 0) => {
+    const o = [];
+    for (let k = 0; k < sides; k++) {
+      const a = k / sides * Math.PI * 2, cs = Math.cos(a), sn = Math.sin(a);
+      // superellipse-ish chine: push the flanks out and flatten the top for a faceted, purposeful read
+      const gg = Math.sign(cs) * Math.pow(Math.abs(cs), 0.82) * rg;
+      const hh = sn >= 0 ? Math.pow(sn, 0.9) * rv : -Math.pow(-sn, 0.72) * (rv + keel);   // deeper, keeled belly
+      o.push(V(f, gg, cz + hh));
+    }
+    return o;
+  };
+  const shFor = (k) => 0.60 + 0.36 * (0.5 + 0.5 * Math.sin((k + 0.5) / sides * Math.PI * 2));   // top bright → belly dark
+  const skin = (A, B, role = 'body', m = 1) => { for (let k = 0; k < sides; k++) { const j = (k + 1) % sides; faces.push({ role, sh: shFor(k) * m, p: [A[k], A[j], B[j], B[k]] }); } };
+  const body = [
+    ring(0.70, 0.052, 0.072, 0.055, 0.01),   // pointed nose
+    ring(0.56, 0.086, 0.104, 0.050, 0.02),   // gunner station
+    ring(0.40, 0.108, 0.128, 0.048, 0.03),
+    ring(0.22, 0.122, 0.146, 0.052, 0.035),  // widest — cockpit
+    ring(0.04, 0.126, 0.150, 0.058, 0.035),  // mid / engine deck
+    ring(-0.14, 0.112, 0.128, 0.072, 0.028), // engine-bay shoulders
+    ring(-0.26, 0.074, 0.086, 0.084, 0.015), // boom taper
+    ring(-0.34, 0.050, 0.058, 0.095, 0.008), // boom junction
+  ];
+  for (let i = 0; i < body.length - 1; i++) skin(body[i], body[i + 1], 'body', 1);
+  // Faceted nose cap — a blunt chisel point ahead of the front ring (the chin turret hangs below it).
+  const noseApex = V(0.80, 0, 0.052);
+  for (let k = 0; k < sides; k++) { const j = (k + 1) % sides; q('body', shFor(k), noseApex, body[0][k], body[0][j]); }
+
+  // ── Tandem STEPPED canopy: a low gunner blister forward, a taller pilot blister stepped up behind,
+  // split by a raised inter-cockpit fairing. Each is a faceted greenhouse (windscreen + sides + roof).
+  const canopy = (f0, f1, w, hTop, hSill) => {
+    const nose = V(f0, 0, hSill + 0.02), tail = V(f1, 0, hTop);
+    const flL = V(f0 - 0.02, -w * 0.5, hSill), flR = V(f0 - 0.02, w * 0.5, hSill);
+    const mdL = V((f0 + f1) / 2, -w, (hTop + hSill) / 2 + 0.01), mdR = V((f0 + f1) / 2, w, (hTop + hSill) / 2 + 0.01);
+    const bkL = V(f1, -w * 0.7, hTop - 0.01), bkR = V(f1, w * 0.7, hTop - 0.01);
+    const G = (sh, ...p) => faces.push({ role: 'glass', tint: GLASS, sh, p });
+    // windscreen (two raked panels), side glass (fore + aft each side), and the roof
+    G(0.98, nose, flR, mdR); G(0.98, nose, mdL, flL);
+    G(0.86, flR, mdR, bkR); G(0.7, flL, bkL, mdL);
+    G(1.0, nose, mdR, tail); G(1.0, nose, tail, mdL);
+    G(0.9, mdR, bkR, tail); G(0.72, mdL, tail, bkL);
+  };
+  canopy(0.52, 0.30, 0.115, 0.190, 0.150);   // gunner (front, lower)
+  canopy(0.30, 0.06, 0.128, 0.235, 0.185);   // pilot (rear, raised — the step)
+  // Inter-cockpit step fairing (the vertical face where the rear canopy climbs above the front one).
+  q('body', 0.5, V(0.30, -0.10, 0.150), V(0.30, 0.10, 0.150), V(0.30, 0.09, 0.235), V(0.30, -0.09, 0.235));
+
+  // ── Chin GUN turret + barrel (the under-nose cannon) — a small faceted turret ball slung below
+  // the gunner, with a stubby cannon that points forward and slightly down.
+  addTube(faces, V(0.50, 0, -0.010), V(0.50, 0, 0.030), 0.045, 'gun', 0.5, 8);   // turret ball
+  addTube(faces, V(0.50, 0, -0.010), V(0.78, 0, -0.028), 0.016, 'gun', 0.62, 6); // cannon barrel
+  addTube(faces, V(0.50, -0.028, -0.006), V(0.71, -0.028, -0.020), 0.007, 'gun', 0.6, 5);  // twin muzzle detail
+  addTube(faces, V(0.50, 0.028, -0.006), V(0.71, 0.028, -0.020), 0.007, 'gun', 0.6, 5);
+  // Nose SENSOR turret (TADS/PNVS) — a stacked faceted sight above the gun at the very nose.
+  addTube(faces, V(0.74, 0, 0.055), V(0.83, 0, 0.055), 0.038, 'nacelle', 0.7, 8);
+  q('glass', 0.95, V(0.83, -0.024, 0.075), V(0.83, 0.024, 0.075), V(0.83, 0.024, 0.035), V(0.83, -0.024, 0.035));   // sensor face (glass)
+
+  // ── STUB-WINGS: short, thick, swept, ANHEDRAL slabs off the engine-deck flanks — the weapon rails.
+  const wingLE = 0.14, wingTErt = -0.24, tipDrop = -0.055;
+  for (const s of [1, -1]) {
+    const rG = 0.12, tG = 0.60;
+    // planform corners (root then tip, swept back + drooped)
+    const rlF = V(wingLE, s * rG, 0.055), rtF = V(wingTErt, s * rG, 0.050);      // root LE / TE
+    const tlF = V(wingLE - 0.05, s * tG, 0.055 + tipDrop), ttF = V(wingTErt + 0.02, s * tG, 0.050 + tipDrop); // tip LE / TE
+    const th = 0.024;   // half-thickness
+    const up = (v) => V(v[0], v[1], v[2] + th), dn = (v) => V(v[0], v[1], v[2] - th);
+    q('wing', 0.92, up(rlF), up(rtF), up(ttF), up(tlF));   // top skin
+    q('wing', 0.5, dn(rlF), dn(tlF), dn(ttF), dn(rtF));    // bottom skin
+    q('wing', 0.82, up(rlF), up(tlF), dn(tlF), dn(rlF));   // leading edge
+    q('wing', 0.44, up(rtF), dn(rtF), dn(ttF), up(ttF));   // trailing edge
+    q('nacelle', 0.7, up(tlF), up(ttF), dn(ttF), dn(tlF)); // tip cap
+    const wz = 0.050 + tipDrop * 0.55 - th;   // pylon underside height along the wing
+    // Inboard ROCKET POD (multi-tube launcher): a faceted cylinder with 4 tube mouths in the front face.
+    const pf = -0.02, pg = s * 0.33;
+    addTube(faces, V(pf + 0.14, pg, wz - 0.03), V(pf - 0.16, pg, wz - 0.03), 0.05, 'nacelle', 0.66, 8);
+    for (const [dg, dh] of [[-0.022, 0.022], [0.022, 0.022], [-0.022, -0.022], [0.022, -0.022]])
+      addTube(faces, V(pf + 0.145, pg + dg, wz - 0.03 + dh), V(pf + 0.11, pg + dg, wz - 0.03 + dh), 0.014, 'gun', 0.4, 5);   // recessed tube mouths (dark)
+    // Outboard TIP MISSILES — two exposed seekers stacked on the tip rail, pointed noses forward
+    // (the swarm, made visible).
+    for (const off of [0.028, -0.028]) addMissileBody(faces, -0.14, 0.16, s * 0.55, wz - 0.02 + off);
+  }
+
+  // ── Slim TAILBOOM: a tapering 8-gon tube from the boom junction back to the tail rotor gearbox,
+  // rising to meet the FX tail-rotor anchor height.
+  const bs = 8;
+  const bring = (f, r, cz) => { const o = []; for (let k = 0; k < bs; k++) { const a = k / bs * Math.PI * 2; o.push(V(f, Math.cos(a) * r, cz + Math.sin(a) * r)); } return o; };
+  const boom = [bring(-0.34, 0.050, 0.095), bring(-0.58, 0.038, 0.104), bring(-0.82, 0.030, 0.112), bring(-1.02, 0.024, 0.120)];
+  const bsh = (k) => 0.6 + 0.3 * (0.5 + 0.5 * Math.sin((k + 0.5) / bs * Math.PI * 2));
+  for (let i = 0; i < boom.length - 1; i++) for (let k = 0; k < bs; k++) { const j = (k + 1) % bs; faces.push({ role: 'body', sh: bsh(k) * 0.94, p: [boom[i][k], boom[i][j], boom[i + 1][j], boom[i + 1][k]] }); }
+
+  // Swept vertical FIN (a thin extruded blade) at the boom end.
+  const finT = 0.013, fin = [V(-0.84, 0, 0.14), V(-0.98, 0, 0.34), V(-1.10, 0, 0.44), V(-1.08, 0, 0.13)];
+  for (const s of [1, -1]) { const p = fin.map(v => V(v[0], s * finT, v[2])); faces.push({ role: 'fin', sh: s > 0 ? 0.92 : 0.7, p }); }
+  faces.push({ role: 'fin', sh: 0.82, p: [V(-0.98, finT, 0.34), V(-1.10, finT, 0.44), V(-1.10, -finT, 0.44), V(-0.98, -finT, 0.34)] });
+  // STABILATOR — a swept horizontal tailplane across the boom (a thin slab each side).
+  for (const s of [1, -1]) {
+    q('stab', s > 0 ? 0.9 : 0.66,
+      V(-0.72, s * 0.02, 0.116), V(-0.72, s * 0.26, 0.120), V(-0.86, s * 0.26, 0.124), V(-0.86, s * 0.02, 0.120));
+  }
+  // Tail-rotor GEARBOX fairing + a schematic disc face at the FX anchor (-1.04,0.07,0.12).
+  addTube(faces, V(-0.98, 0.02, 0.12), V(-1.06, 0.07, 0.12), 0.026, 'nacelle', 0.72, 7);
+  faces.push({ role: 'rotor', sh: 0.7, p: [V(-1.04, 0.07, -0.05), V(-1.04, 0.07, 0.29), V(-1.14, 0.07, 0.29), V(-1.14, 0.07, -0.05)] });
+
+  // ── Twin CHEEK ENGINE nacelles flanking the mast base, each with a dark rear exhaust.
+  for (const s of [1, -1]) {
+    const ef = 0.02, eg = s * 0.135, ez = 0.135;
+    addTube(faces, V(ef + 0.14, eg, ez), V(ef - 0.16, eg, ez), 0.062, 'nacelle', 0.72, 8);   // nacelle barrel
+    addTube(faces, V(ef - 0.14, eg, ez), V(ef - 0.20, eg * 1.15, ez + 0.01), 0.05, 'gun', 0.34, 8);   // exhaust (dark, canted out)
+  }
+
+  // ── Main ROTOR mast + hub at (0.1,0,0.34) — the FX blade plane. A stout mast off the engine deck,
+  // a swashplate ring, and an octagonal hub drum with two parked blade grips.
+  const cf = 0.1, cz = 0.34;
+  addTube(faces, V(cf, 0, 0.16), V(cf, 0, cz - 0.045), 0.020, 'nacelle', 0.82, 8);   // mast
+  const swZ = cz - 0.07, swR = 0.060, swLo = [], swHi = [];
+  for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2, cx = cf + Math.cos(a) * swR, cy = Math.sin(a) * swR; swLo.push(V(cx, cy, swZ - 0.012)); swHi.push(V(cx, cy, swZ + 0.012)); }
+  for (let i = 0; i < 8; i++) { const j = (i + 1) % 8; faces.push({ role: 'nacelle', sh: 0.55 + 0.12 * (i % 2), p: [swLo[i], swLo[j], swHi[j], swHi[i]] }); }
+  faces.push({ role: 'nacelle', sh: 0.7, p: swHi });
+  const hubR = 0.052, hubB = cz - 0.05, hubT = cz + 0.01, dB = [], dT = [];
+  for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2, cx = cf + Math.cos(a) * hubR, cy = Math.sin(a) * hubR; dB.push(V(cx, cy, hubB)); dT.push(V(cx, cy, hubT)); }
+  for (let i = 0; i < 8; i++) { const j = (i + 1) % 8; faces.push({ role: 'nacelle', sh: 0.7 + 0.2 * ((i + 1) % 2), p: [dB[i], dB[j], dT[j], dT[i]] }); }
+  faces.push({ role: 'nacelle', sh: 0.95, p: dT });
+  for (const s of [1, -1]) {   // parked blade grips
+    const gz = cz - 0.015, gw = 0.014;
+    faces.push({ role: 'nacelle', sh: s > 0 ? 0.9 : 0.66, p: [V(cf + s * hubR, gw, gz + gw), V(cf + s * 0.19, gw, gz + gw * 0.6), V(cf + s * 0.19, -gw, gz + gw * 0.6), V(cf + s * hubR, -gw, gz + gw)] });
+  }
+  // Main-rotor disc (schematic wireframe renderer only; painted renderers draw blades via FX).
+  const disc = [];
+  for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; disc.push(V(cf + Math.cos(a) * 1.02, Math.sin(a) * 1.02, cz)); }
+  faces.push({ role: 'rotor', sh: 0.65, p: disc });
+
+  // ── Fixed wheeled GEAR: two main wheels on short canted struts + a small tailwheel.
+  for (const s of [1, -1]) {
+    addStrut(faces, -0.02, s * 0.16, -0.02, -0.20, 0.014);
+    pushWheel(faces, -0.02, s * 0.20, -0.235, 0.052, 0.028, 10);
+  }
+  addStrut(faces, -0.86, 0, 0.10, -0.02, 0.010);
+  pushWheel(faces, -0.86, 0, -0.05, 0.032, 0.02, 8);
+  return faces;
+}
+
+// A slim exposed MISSILE lying under a wingtip: a body tube, a pointed seeker nose (triangle fan to
+// an apex ahead), and four little tail fins. Reads unmistakably as ordnance on the rail.
+function addMissileBody(faces, fB, fF, g, z) {
+  const r = 0.018;
+  addTube(faces, V(fB, g, z), V(fF, g, z), r, 'nacelle', 0.7, 6);
+  const apex = V(fF + 0.09, g, z);
+  const bs = 6, ringF = [];
+  for (let i = 0; i < bs; i++) { const a = i / bs * Math.PI * 2; ringF.push(V(fF, g + Math.cos(a) * r, z + Math.sin(a) * r)); }
+  for (let i = 0; i < bs; i++) { const j = (i + 1) % bs; faces.push({ role: 'nacelle', sh: 0.82, p: [apex, ringF[i], ringF[j]] }); }   // seeker cone
+  for (const [dg, dh] of [[1, 0], [-1, 0], [0, 1], [0, -1]])   // tail fins
+    faces.push({ role: 'fin', sh: 0.6, p: [V(fB, g + dg * r, z + dh * r), V(fB - 0.03, g + dg * r * 2.1, z + dh * r * 2.1), V(fB + 0.02, g + dg * r * 2.1, z + dh * r * 2.1)] });
+}
+
 // Where each class's prop discs spin — read by both renderers' engine-effect layers so
 // the translucent blur sits on the actual spinner(s), not a hardcoded nose position.
 export const PROP_STATIONS = {
@@ -974,10 +1146,11 @@ export function groundPitchFor(cls) { return FW_PARAMS[cls]?.groundPitch || 0; }
 // coarse LOD for distant contacts, where the extra facets would be sub-pixel anyway. The
 // heli mesh doesn't subdivide (its cabin is already fat/rounded), so it ignores detail.
 const _cache = {};
-export function aircraftFaces(cls, detail = 1) {
-  const key = cls + ':' + detail;
+export function aircraftFaces(cls, detail = 1, armed = false) {
+  const key = cls + ':' + detail + (armed ? ':a' : '');
   if (_cache[key]) return _cache[key];
-  const faces = cls === 'heli' ? buildHeli() : buildFixedWing(FW_PARAMS[cls] || FW_PARAMS.prop, detail);
+  const faces = cls === 'heli' ? (armed ? buildAttackHeli() : buildHeli())
+    : buildFixedWing(FW_PARAMS[cls] || FW_PARAMS.prop, detail);
   _cache[key] = faces;
   return faces;
 }
@@ -1798,8 +1971,8 @@ export function drawTurntable(ctx, opts) {
 // The turntable's paint step alone, with NO clear — so a caller that's already
 // painted a backdrop into the canvas (drawHangarFloorBay below) can draw the plane
 // on top of it in the same pass instead of the model wiping the scene behind it.
-function paintTurntable(ctx, { cls, livery, yaw = 0, w, h, wreck = false, zoom = 1, elev = 0.42, cam = null, floor = false, sky = null, venue = null }) {
-  const faces = wreck ? buildWreck() : aircraftFaces(cls);
+function paintTurntable(ctx, { cls, armed = false, livery, yaw = 0, w, h, wreck = false, zoom = 1, elev = 0.42, cam = null, floor = false, sky = null, venue = null }) {
+  const faces = wreck ? buildWreck() : aircraftFaces(cls, 1, armed);
   // Taildraggers (the Grasshopper) rest NOSE-HIGH on the ground — tilt the static model to its
   // 3-point sit here too (the floor/room proj below is left untilted). Nose-up: f' = f·c − h·s.
   const _gp = (FW_PARAMS[cls]?.groundPitch || 0) * Math.PI / 180;
@@ -2280,7 +2453,7 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
   const groups = entries.map((e, i) => {
     const laneG = (i - (n - 1) / 2) * spacing;
     const sc = scales[i];   // real relative size — a Cessna parks much smaller than a Twin Otter
-    const faces = e.wreck ? buildWreck() : aircraftFaces(e.cls);
+    const faces = e.wreck ? buildWreck() : aircraftFaces(e.cls, 1, !!e.armed);
     const pal = liveryPalette(e.livery || {});
     const jazzImg = (!e.wreck && pal.pat === 'jazz') ? jazzTex(e.livery?.base, e.livery?.trim, e.livery?.accent, e.livery?.ground) : null;
     const roll = e.wreck ? -0.22 : 0, cro = Math.cos(roll), sro = Math.sin(roll);

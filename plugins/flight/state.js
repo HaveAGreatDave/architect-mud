@@ -69,6 +69,20 @@ export const FLARE_COOLDOWN_MS = 8000;    // launcher recycle time
 // Missiles remaining on the rails (in-memory per sortie; null = full rails).
 export function mslAmmo(live) { return live.msl ?? (live.type?.hardpoints || 0); }
 
+// ── Missile SWARM (the Viper's fire-and-forget barrage) ───────────────────────
+// An armed heli with `data.salvo > 1` ripples that many seekers off the rails in ONE
+// trigger squeeze at the bore-designated bogey — NO lock, NO seeker tone, NO RWR lock
+// warning (the target only gets the inbound-missile shout as they arrive). The trade for
+// skipping the lock cycle: each dumb seeker is less likely to connect (SWARM_PK_MULT) and
+// carries a smaller warhead (SWARM_DMG_MULT) than a full locked Hellfire, and the launch
+// envelope is a wide forward cone rather than a tight seeker gate. Flares/notch still defeat
+// each one individually, so a swarm overwhelms by numbers, not certainty.
+export const SWARM_PK_MULT = 0.5;        // per-seeker kill-prob vs a clean locked shot (no lock = dumber)
+export const SWARM_DMG_MULT = 0.7;       // per-seeker warhead vs a full Hellfire
+export const SWARM_CONE = 45;            // forward launch cone (deg off the nose) — no lock, so lenient
+export const SWARM_COOLDOWN_MS = 2200;   // ripple reload between swarms
+export function salvoOf(live) { return Math.max(1, live.type?.data?.salvo || 1); }
+
 // ── Continuous-flight seam (Phase 1 slice) ────────────────────────────────────
 // The overhaul's continuous energy model runs client-side; the server reconciles
 // and owns the consequences. It's gated to ONE airframe (the Mayfly) for the slice
@@ -76,7 +90,7 @@ export function mslAmmo(live) { return live.msl ?? (live.type?.hardpoints || 0);
 // Craft flown on the continuous cockpit sim. The whole fleet is here now — the fixed-wing
 // set plus the Dragonfly (VTOL), which flies the client's dedicated hover model (collective
 // + cyclic + pedals) instead of the old modal VTOL-lift deck.
-export const CONTINUOUS_TYPES = new Set(['ac_mayfly', 'ac_mule', 'ac_leviathan', 'ac_reaper', 'ac_carcass', 'ac_dragonfly', 'ac_grasshopper', 'ac_locust']);
+export const CONTINUOUS_TYPES = new Set(['ac_mayfly', 'ac_mule', 'ac_leviathan', 'ac_reaper', 'ac_carcass', 'ac_dragonfly', 'ac_grasshopper', 'ac_locust', 'ac_viper']);
 export function isContinuous(live) { return !!live && CONTINUOUS_TYPES.has(live.type?.id); }
 
 // Continuous altitude (ft) → the legacy band the consequence systems still read
@@ -1003,6 +1017,7 @@ export function airContact(live) {
     surfaces: surfacesWire(a),   // sheared surfaces → spectators render the cripple too, not a pristine bogey
     reg: String(a.name || live.type?.name || '???').toUpperCase().slice(0, 8),
     cls: live.type?.class || 'prop',
+    armed: (live.type?.hardpoints || 0) > 0,   // an armed heli renders the attack-heli mesh (stub wings, pods, chin gun)
     firing: (live.firingUntil || 0) > Date.now(),   // guns hot right now → viewers draw its tracers
   };
 }

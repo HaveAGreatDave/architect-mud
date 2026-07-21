@@ -47,21 +47,48 @@ export default async function regress({ check }) {
   const pokerCold = await dispatchAction({ type: 'BARTENDER_POKER', actor: { id: 'regress_bartender_poker', current_zone: 'zone_nonexistent' }, params: {}, context: {} });
   check('BARTENDER_POKER handles a cold table', pokerCold?.type === 'dialogue_line' && /cold/i.test(pokerCold.text), pokerCold?.text);
 
-  // Coworker banter (Lowry ⇄ Orion Dex): every thread is a well-formed two-hander —
-  // non-empty, only 'L'/'O' speakers, both voices present, quotes balanced per turn.
-  check('coworker banter has threads', Array.isArray(_test.COWORKER) && _test.COWORKER.length > 0, `${_test.COWORKER?.length}`);
-  let badThread = null;
-  for (const thread of _test.COWORKER) {
-    const whos = thread.map(t => t[0]);
-    const twoSpeakers = whos.includes('L') && whos.includes('O');
-    const validWhos = whos.every(w => w === 'L' || w === 'O');
-    const linesOk = thread.every(([, line]) => typeof line === 'string' && line.trim().length > 0
-      && (line.match(/"/g) || []).length % 2 === 0);
-    if (!(thread.length >= 2 && twoSpeakers && validWhos && linesOk)) { badThread = thread; break; }
+  // Voices: every bartender's line set is complete, and an unknown NPC falls back
+  // to Lowry's. Without the fallback a new bartender would speak `undefined`.
+  check('voiceFor falls back to Lowry for an unlisted NPC',
+    _test.voiceFor({ id: 'npc_nobody' }) === _test.LOWRY_VOICE);
+  check('voiceFor handles a missing NPC', _test.voiceFor(undefined) === _test.LOWRY_VOICE);
+
+  const POOLS = ['welcomes', 'graduation', 'veteranAdvice', 'heat', 'idle'];
+  const allVoices = [['LOWRY', _test.LOWRY_VOICE], ...Object.entries(_test.VOICES)];
+  let badVoice = null;
+  for (const [id, v] of allVoices) {
+    for (const key of POOLS) {
+      if (!Array.isArray(v[key]) || v[key].length === 0
+        || !v[key].every(l => typeof l === 'string' && l.trim()
+          && (l.match(/"/g) || []).length % 2 === 0)) { badVoice = `${id}.${key}`; break; }
+    }
+    if (badVoice) break;
   }
-  check('coworker threads are well-formed two-handers', badThread === null, badThread ? JSON.stringify(badThread).slice(0, 120) : '');
+  check('every voice has complete, quote-balanced line pools', badVoice === null, badVoice || '');
+
+  // Coworker banter: every thread is a well-formed two-hander — non-empty, only
+  // 'L'/'O' speakers, both voices present, quotes balanced per turn.
+  let badThread = null;
+  let threadCount = 0;
+  for (const [id, v] of allVoices) {
+    if (!Array.isArray(v.coworker) || !v.coworker.length || !v.coworkerId) { badThread = `${id}: no coworker`; break; }
+    for (const thread of v.coworker) {
+      threadCount++;
+      const whos = thread.map(t => t[0]);
+      const twoSpeakers = whos.includes('L') && whos.includes('O');
+      const validWhos = whos.every(w => w === 'L' || w === 'O');
+      const linesOk = thread.every(([, line]) => typeof line === 'string' && line.trim().length > 0
+        && (line.match(/"/g) || []).length % 2 === 0);
+      if (!(thread.length >= 2 && twoSpeakers && validWhos && linesOk)) { badThread = JSON.stringify(thread).slice(0, 120); break; }
+    }
+    if (badThread) break;
+  }
+  check('coworker threads are well-formed two-handers', badThread === null, badThread || `${threadCount} threads`);
+
+  // Tip memory is per-bartender: a player who drained Lowry's pool still gets
+  // Marla's. (freshP spent the default-keyed pool above.)
+  check('tip pools are per-bartender', _test.nextTipFor(freshP, 'npc_reach_marla') !== null);
 
   // Housekeeping — don't leave regress ids in the shared in-memory maps.
-  _test.tipsGiven.delete('regress_bartender_new');
-  _test.tipsGiven.delete('regress_bartender_advice');
+  for (const k of [..._test.tipsGiven.keys()]) if (k.includes('regress_bartender')) _test.tipsGiven.delete(k);
 }

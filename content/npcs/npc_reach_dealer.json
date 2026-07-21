@@ -1,8 +1,14 @@
 {
   "banter": [
-    "Doc squares the deck without looking down. \"Ante's ante, friend. The felt doesn't care who you were out there.\"",
-    "\"Cards fall how they fall. Only cheat I ever caught in here, we buried facing down so he'd keep losing.\"",
-    "He fans the deck one-handed. \"Sit if you're sitting. The Reach doesn't wait, and neither do I.\""
+    [
+      "squares the deck without looking down. \"Ante's ante, friend. The felt doesn't care who you were out there.\""
+    ],
+    [
+      "\"Cards fall how they fall. Only cheat I ever caught in here, we buried facing down so he'd keep losing.\""
+    ],
+    [
+      "fans the deck one-handed. \"Sit if you're sitting. The Reach doesn't wait, and neither do I.\""
+    ]
   ],
   "behaviour_graph": {
     "_start": "start",
@@ -48,7 +54,7 @@
     "table_id": "gametable_coyote"
   },
   "home_activities": [],
-  "home_zone": "zone_bld_899_1171_lobby",
+  "home_zone": "zone_bld_900_1171_cabin_doc",
   "hp": 20,
   "hp_max": 20,
   "id": "npc_reach_dealer",
@@ -61,44 +67,72 @@
   "vendor_schedule": {
     "fri": [
       {
-        "from": 10,
-        "to": 22
+        "from": 0,
+        "to": 3
+      },
+      {
+        "from": 18,
+        "to": 24
       }
     ],
     "mon": [
       {
-        "from": 10,
-        "to": 22
+        "from": 0,
+        "to": 3
+      },
+      {
+        "from": 18,
+        "to": 24
       }
     ],
     "sat": [
       {
-        "from": 10,
-        "to": 22
+        "from": 0,
+        "to": 3
+      },
+      {
+        "from": 18,
+        "to": 24
       }
     ],
     "sun": [
       {
-        "from": 10,
-        "to": 22
+        "from": 0,
+        "to": 3
+      },
+      {
+        "from": 18,
+        "to": 24
       }
     ],
     "thu": [
       {
-        "from": 10,
-        "to": 22
+        "from": 0,
+        "to": 3
+      },
+      {
+        "from": 18,
+        "to": 24
       }
     ],
     "tue": [
       {
-        "from": 10,
-        "to": 22
+        "from": 0,
+        "to": 3
+      },
+      {
+        "from": 18,
+        "to": 24
       }
     ],
     "wed": [
       {
-        "from": 10,
-        "to": 22
+        "from": 0,
+        "to": 3
+      },
+      {
+        "from": 18,
+        "to": 24
       }
     ]
   },
@@ -106,5 +140,5 @@
   "vendor_stock_size": 10,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": null
+  "work_zone_id": "zone_bld_899_1171_lobby"
 }

@@ -328,7 +328,7 @@ function lotCard(t) {
       ${kind === 'buy' ? 'BUY' : 'RENT'} · ₵${price}${kind === 'rent' ? '/hr' : ''}</button>`;
   };
   return `<div class="hb-lot">
-    <div class="hb-lot-view"><canvas class="hb-wf-lot" data-wf-cls="${esc(t.class)}" width="200" height="142"></canvas></div>
+    <div class="hb-lot-view"><canvas class="hb-wf-lot" data-wf-cls="${esc(t.class)}" data-wf-armed="${t.class === 'heli' && (t.hardpoints > 0) ? '1' : ''}" width="200" height="142"></canvas></div>
     <div class="hb-lot-name">${esc(t.name)}</div>
     <div class="hb-lot-meta">${esc(t.class)} · ${t.seats} seat${t.seats > 1 ? 's' : ''} · ${esc(t.fuel)}</div>
     <div class="hb-lot-acts">
@@ -762,7 +762,7 @@ function benchScreen() {
   // paintTuning); every other tab keeps the real 3D turntable.
   const stage = B.benchTab === 'tuning'
     ? `<canvas id="hb-perf-radar" width="220" height="200"></canvas>`
-    : bayCanvas('hb-bench-hero', c.wreck ? 'wreck' : c.class, B.work, null, 240, 'data-hb-src="work" data-hb-zoom="1.5" data-hb-flat="1"');
+    : bayCanvas('hb-bench-hero', c.wreck ? 'wreck' : c.class, B.work, null, 240, 'data-hb-src="work" data-hb-zoom="1.5" data-hb-flat="1"' + (c.class === 'heli' && c.hardpoints > 0 ? ' data-hb-armed="1"' : ''));
 
   return `
     <div class="hb-bench">
@@ -1066,7 +1066,7 @@ function startSpin() {
       const c = (B.data.craft || []).find(x => x.id === B.selId);
       if (ctx && inspect._cw && c) {
         ctx.setTransform(inspect._dpr, 0, 0, inspect._dpr, 0, 0);
-        const opts = { cls: c.class, wreck: !!c.wreck, livery: c.livery, w: inspect._cw, h: inspect._ch, sky: { ...(B.data?.sky || {}), fx: skyFx }, floor: true, floor3d: true, venue: B.data?.venue };
+        const opts = { cls: c.class, armed: c.class === 'heli' && (c.hardpoints > 0), wreck: !!c.wreck, livery: c.livery, w: inspect._cw, h: inspect._ch, sky: { ...(B.data?.sky || {}), fx: skyFx }, floor: true, floor3d: true, venue: B.data?.venue };
         if (B.inspect.mode === 'walk') opts.cam = { ...B.inspect.cam, z: B.inspect.cam.z + (B.inspect.hop?.off || 0) };   // layer the hop bob onto the eye
         else { opts.yaw = B.inspect.yaw; opts.elev = B.inspect.elev; opts.zoom = B.inspect.zoom; }
         drawHangarFloorBay(ctx, opts);
@@ -1091,7 +1091,7 @@ function startSpin() {
       // Flat (bench hero) shots spin slower than the floor turntables — a lazier,
       // more "on display" turn instead of the showroom's regular pace.
       const spinYaw = flat ? yaw * 0.35 : yaw;
-      drawHangarFloorBay(ctx, { cls, livery: lv, yaw: spinYaw + (cv._phase || 0), w: cv._cw, h: cv._ch, tint, sky: B.data?.sky, zoom, flat });
+      drawHangarFloorBay(ctx, { cls, armed: cv.getAttribute('data-hb-armed') === '1', livery: lv, yaw: spinYaw + (cv._phase || 0), w: cv._cw, h: cv._ch, tint, sky: B.data?.sky, zoom, flat });
     });
     // Dealer lot cards — true-3D wireframe schematics, each spun at its own
     // phase offset (like the `.hb-bay` turntables) so a row of them doesn't
@@ -1102,7 +1102,7 @@ function startSpin() {
       const accent = themeColor('--accent', '#39ff9e');   // one getComputedStyle for the whole row, not per-card
       wfLots.forEach((cv) => {
         if (cv._phase == null) cv._phase = Math.random() * 6.28;
-        drawWireframe3D(cv.getContext('2d'), { cls: cv.getAttribute('data-wf-cls'), w: cv.width, h: cv.height, accent, yaw: yaw + cv._phase });
+        drawWireframe3D(cv.getContext('2d'), { cls: cv.getAttribute('data-wf-cls'), armed: cv.getAttribute('data-wf-armed') === '1', w: cv.width, h: cv.height, accent, yaw: yaw + cv._phase });
       });
     }
     raf = requestAnimationFrame(loop);

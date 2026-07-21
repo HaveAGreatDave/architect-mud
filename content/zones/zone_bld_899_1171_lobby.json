@@ -1,5 +1,16 @@
 {
-  "ambient_events": [],
+  "ambient_events": [
+    "The speaker in the corner coughs, loses the song, and finds it again a bar later.",
+    "Someone at the back booth laughs too loud, then remembers where they are.",
+    "The boards creak as the building lets go of the day's heat.",
+    "A moth batters itself against the lamp over the bar, patient and stupid.",
+    "Glasses knock. Nobody toasts anything.",
+    "The door goes. Everybody clocks it without looking up.",
+    "A chair scrapes back. Whoever it was decides to stay after all.",
+    "Somebody counts a fold of cash under the table, lips moving.",
+    "The lamp over the poker table swings a little, though nothing has touched it.",
+    "Dust comes off the ceiling when the wind gets under the roof."
+  ],
   "ambient_theme": "indoors",
   "audio_theme_id": null,
   "bg_color": null,

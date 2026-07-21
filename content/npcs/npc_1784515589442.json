@@ -1,8 +1,14 @@
 {
   "banter": [
-    "\"First one’s poured straight. After that I pour to how much I like you.\"",
-    "\"We don’t take manifests and we don’t take names. We take cash.\"",
-    "Marla wipes the bar without looking down. \"Reach is small. Whatever you did out there, leave it at the door — or it leaves with you.\""
+    [
+      "\"First one's poured straight. After that I pour to how much I like you.\""
+    ],
+    [
+      "\"We don't take manifests and we don't take names. We take cash.\""
+    ],
+    [
+      "wipes the bar without looking down. \"Reach is small. Whatever you did out there, leave it at the door — or it leaves with you.\""
+    ]
   ],
   "behaviour_graph": {
     "_start": "start",
@@ -140,7 +146,7 @@
     "personality": "bartender"
   },
   "home_activities": [],
-  "home_zone": "zone_bld_899_1171_lobby",
+  "home_zone": "zone_bld_900_1171_cabin_marla",
   "hp": 20,
   "hp_max": 20,
   "id": "npc_1784515589442",
@@ -153,44 +159,72 @@
   "vendor_schedule": {
     "fri": [
       {
-        "from": 10,
-        "to": 22
+        "from": 0,
+        "to": 4
+      },
+      {
+        "from": 16,
+        "to": 24
       }
     ],
     "mon": [
       {
-        "from": 10,
-        "to": 22
+        "from": 0,
+        "to": 4
+      },
+      {
+        "from": 16,
+        "to": 24
       }
     ],
     "sat": [
       {
-        "from": 10,
-        "to": 22
+        "from": 0,
+        "to": 4
+      },
+      {
+        "from": 16,
+        "to": 24
       }
     ],
     "sun": [
       {
-        "from": 10,
-        "to": 22
+        "from": 0,
+        "to": 4
+      },
+      {
+        "from": 16,
+        "to": 24
       }
     ],
     "thu": [
       {
-        "from": 10,
-        "to": 22
+        "from": 0,
+        "to": 4
+      },
+      {
+        "from": 16,
+        "to": 24
       }
     ],
     "tue": [
       {
-        "from": 10,
-        "to": 22
+        "from": 0,
+        "to": 4
+      },
+      {
+        "from": 16,
+        "to": 24
       }
     ],
     "wed": [
       {
-        "from": 10,
-        "to": 22
+        "from": 0,
+        "to": 4
+      },
+      {
+        "from": 16,
+        "to": 24
       }
     ]
   },
@@ -198,5 +232,5 @@
   "vendor_stock_size": 10,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": null
+  "work_zone_id": "zone_bld_899_1171_lobby"
 }

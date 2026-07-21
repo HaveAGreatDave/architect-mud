@@ -21,7 +21,7 @@ function startWfSpin() {
     last = t;
     const wf = document.getElementById('ins-wf');
     const sel = data.fleet.find(f => f.id === selId) || null;
-    if (wf && sel) drawWireframe3D(wf.getContext('2d'), { cls: sel.class, w: wf.width, h: wf.height, accent: themeColor('--yellow', '#ffb43a'), yaw: wfYaw });
+    if (wf && sel) drawWireframe3D(wf.getContext('2d'), { cls: sel.class, armed: sel.class === 'heli' && (sel.hardpoints > 0), w: wf.width, h: wf.height, accent: themeColor('--yellow', '#ffb43a'), yaw: wfYaw });
     else if (wf) wf.getContext('2d').clearRect(0, 0, wf.width, wf.height);
     wfRaf = requestAnimationFrame(loop);
   };

@@ -1,8 +1,14 @@
 {
   "banter": [
-    "Del riffles a stack of chips one-handed. \"Sit down, stranger. I'm owed a winning streak and you'll do fine.\"",
-    "\"Out there they fold when they're scared. In here we raise. It's more honest.\"",
-    "She grins over her cards. \"No markers, Doc says. Pity. My credit's the only thing I've got left.\""
+    [
+      "riffles a stack of chips one-handed. \"Sit down, stranger. I'm owed a winning streak and you'll do fine.\""
+    ],
+    [
+      "\"Out there they fold when they're scared. In here we raise. It's more honest.\""
+    ],
+    [
+      "grins over her cards. \"No markers, Doc says. Pity. My credit's the only thing I've got left.\""
+    ]
   ],
   "behaviour_graph": {
     "_start": "start",
@@ -48,7 +54,7 @@
     "poker_player": true
   },
   "home_activities": [],
-  "home_zone": "zone_bld_899_1171_lobby",
+  "home_zone": "zone_bld_900_1171_cabin_del",
   "hp": 20,
   "hp_max": 20,
   "id": "npc_reach_gambler",
@@ -61,44 +67,72 @@
   "vendor_schedule": {
     "fri": [
       {
-        "from": 10,
-        "to": 22
+        "from": 0,
+        "to": 2
+      },
+      {
+        "from": 19,
+        "to": 24
       }
     ],
     "mon": [
       {
-        "from": 10,
-        "to": 22
+        "from": 0,
+        "to": 2
+      },
+      {
+        "from": 19,
+        "to": 24
       }
     ],
     "sat": [
       {
-        "from": 10,
-        "to": 22
+        "from": 0,
+        "to": 2
+      },
+      {
+        "from": 19,
+        "to": 24
       }
     ],
     "sun": [
       {
-        "from": 10,
-        "to": 22
+        "from": 0,
+        "to": 2
+      },
+      {
+        "from": 19,
+        "to": 24
       }
     ],
     "thu": [
       {
-        "from": 10,
-        "to": 22
+        "from": 0,
+        "to": 2
+      },
+      {
+        "from": 19,
+        "to": 24
       }
     ],
     "tue": [
       {
-        "from": 10,
-        "to": 22
+        "from": 0,
+        "to": 2
+      },
+      {
+        "from": 19,
+        "to": 24
       }
     ],
     "wed": [
       {
-        "from": 10,
-        "to": 22
+        "from": 0,
+        "to": 2
+      },
+      {
+        "from": 19,
+        "to": 24
       }
     ]
   },
@@ -106,5 +140,5 @@
   "vendor_stock_size": 10,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": null
+  "work_zone_id": "zone_bld_899_1171_lobby"
 }

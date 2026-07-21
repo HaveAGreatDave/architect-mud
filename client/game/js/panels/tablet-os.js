@@ -4673,7 +4673,7 @@ function renderActions(appId, actions, params) {
 let _dhBox = null;
 function renderDeadhead(d) {
   const dh = d.deadhead || {};
-  if (!dh.aboard) return `<div style="padding:26px 16px;text-align:center;color:var(--tos-dim,#8aa)">Board a <b>Leviathan</b> to run its crew from here.</div>`;
+  if (dh.none) return `<div style="padding:26px 16px;text-align:center;color:var(--tos-dim,#8aa)">Board a <b>Leviathan</b> to run its crew from here.</div>`;
   const fields = (dh.fields || []).slice().sort((a, b) => a.dist - b.dist);
   const loiter = dh.charted?.loiter ? { gx: dh.charted.tx, gy: dh.charted.ty } : null;
   const pts = [{ gx: dh.gx, gy: dh.gy }, ...fields, ...(loiter ? [loiter] : [])];
@@ -4699,14 +4699,19 @@ function renderDeadhead(d) {
   const fuel = typeof dh.fuel === 'number' ? `<span style="font-size:11px;color:${dh.fuel < 25 ? '#ff7a86' : 'var(--tos-dim,#9ab)'}">⛽ ${dh.fuel}%</span>` : '';
   const notice = d.notice ? `<div style="margin:6px 0;padding:6px 9px;border-left:2px solid ${acc};background:rgba(255,255,255,.04);font-size:12px">${esc(d.notice)}</div>` : '';
   const clearBtn = `<button type="button" class="tos-btn" style="padding:1px 8px;font-size:11px;margin-left:6px" data-act-id="clear" data-act-app="deadhead" data-act-params="">clear</button>`;
+  const hint = dh.remote
+    ? `Tap a <b>field</b> to send her there, or <b>anywhere</b> to hold — the crew fly her. Board her to walk the decks.`
+    : `Tap an <b>airfield</b> to land there, or <b>anywhere</b> to hold that spot.`;
   const charted = dh.charted
     ? (dh.charted.loiter
       ? `<div style="margin-top:8px;font-size:12px">Holding over <b style="color:#7dffb0">${esc(dh.charted.name)}</b> until bingo fuel, then divert to land ${clearBtn}</div>`
-      : `<div style="margin-top:8px;font-size:12px">Course set: <b style="color:#7dffb0">${esc(dh.charted.name)}</b> ${clearBtn}</div>`)
-    : `<div style="margin-top:8px;font-size:12px;color:var(--tos-dim,#8aa)">Tap an <b>airfield</b> to land there, or <b>anywhere</b> to hold that spot.</div>`;
+      : `<div style="margin-top:8px;font-size:12px">${dh.remote ? 'Bound for' : 'Course set:'} <b style="color:#7dffb0">${esc(dh.charted.name)}</b> ${dh.remote ? '' : clearBtn}</div>`)
+    : `<div style="margin-top:8px;font-size:12px;color:var(--tos-dim,#8aa)">${hint}</div>`;
   const btns = [];
-  if (dh.seat === 'pilot') btns.push(`<button type="button" class="tos-btn" data-act-id="hand" data-act-app="deadhead" data-act-params="">Hand off to the crew</button>`);
-  else if (dh.atDeck && !dh.airborne && !dh.crew) btns.push(`<button type="button" class="tos-btn" data-act-id="take" data-act-app="deadhead" data-act-params="">Take the controls</button>`);
+  if (dh.remote) btns.push(`<button type="button" class="tos-btn" data-act-id="circlehere" data-act-app="deadhead" data-act-params="" title="send the crew to hold a lazy orbit over her current spot">Circle here</button>`);
+  else if (dh.crew || (dh.seat === 'pilot' && dh.airborne)) btns.push(`<button type="button" class="tos-btn" data-act-id="circlehere" data-act-app="deadhead" data-act-params="" title="hold a gentle orbit over her current position">Circle here</button>`);
+  if (!dh.remote && dh.seat === 'pilot') btns.push(`<button type="button" class="tos-btn" data-act-id="hand" data-act-app="deadhead" data-act-params="">Hand off to the crew</button>`);
+  else if (!dh.remote && dh.atDeck && !dh.airborne && !dh.crew) btns.push(`<button type="button" class="tos-btn" data-act-id="take" data-act-app="deadhead" data-act-params="">Take the controls</button>`);
   const controls = btns.length ? `<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">${btns.join('')}</div>` : '';
   return `<div style="padding:4px 2px">
     <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:8px 10px;border:1px solid var(--border,#2a3a44);border-radius:8px;background:rgba(255,255,255,.03)">

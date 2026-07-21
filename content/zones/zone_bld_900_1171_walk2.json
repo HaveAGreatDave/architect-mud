@@ -1,5 +1,11 @@
 {
-  "ambient_events": [],
+  "ambient_events": [
+    "A cabin light goes on behind a curtain, then off again.",
+    "The walkway boards give under you, one soft note each.",
+    "Somebody's left boots outside their door, turned neatly toward the wall.",
+    "The VACANCY sign buzzes. The C in it has been dead for years.",
+    "Wind runs the length of the walkway, turns the corner, and is gone."
+  ],
   "ambient_theme": "indoors",
   "audio_theme_id": null,
   "bg_color": null,

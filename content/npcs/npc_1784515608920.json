@@ -1,8 +1,17 @@
 {
   "banter": [
-    "\"Reach takes a certain kind. Haven’t decided yet if you’re it.\"",
-    "Amos rocks back a little. \"Out there they’d hang you for what gets you a handshake in here.\"",
-    "\"You want in, you don’t ask me. You just don’t give me a reason to say no.\""
+    [
+      "\"Reach takes a certain kind. Haven't decided yet if you're it.\""
+    ],
+    [
+      "rocks back a little. \"Out there they'd hang you for what gets you a handshake in here.\""
+    ],
+    [
+      "\"You want in, you don't ask me. You just don't give me a reason to say no.\""
+    ],
+    [
+      "\"Room's cash a night. Don't ask about the sixth cabin.\""
+    ]
   ],
   "behaviour_graph": {
     "_start": "start",
@@ -55,6 +64,36 @@
       "options": [],
       "text": "Amos is already looking past you at the door. \"Mind how you go.\""
     },
+    "inner": {
+      "_vine": {
+        "x": 1180,
+        "y": 600
+      },
+      "options": [
+        {
+          "label": "That's worth knowing.",
+          "next": "root"
+        },
+        {
+          "label": "Why tell me?",
+          "next": "inner_why"
+        }
+      ],
+      "text": "Amos looks at you for a while. Then he sets the pen down, which is the most he has ever committed to a conversation.\n\n\"You've flown enough of mine that I'll say it plain. It starts hard and gets harder: every step up in what you've cooked, that's one more thing he can find. Every extra pallet past the first, same again. The hold buys you back two steps and a coin-flip's worth of not being asked at all.\" <span class=\"text-dim\">He picks the pen back up.</span> \"So: one pallet, cooked light, false floor in. That's a milk run. Four pallets of your best work in a bare hold is you handing a man your licence and a pen.\""
+    },
+    "inner_why": {
+      "_vine": {
+        "x": 1180,
+        "y": 800
+      },
+      "options": [
+        {
+          "label": "Wouldn't dream of it.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Because you keep coming back, and every load you lose out there is a load I don't sell.\" <span class=\"text-dim\">He returns to the ledger.</span> \"Don't mistake it for fondness.\""
+    },
     "raws": {
       "_vine": {
         "x": 420,
@@ -104,11 +143,61 @@
           "next": "raws"
         },
         {
+          "label": "What happens if I get scanned on the way home?",
+          "next": "scans"
+        },
+        {
           "label": "What is this place?",
           "next": "about"
         }
       ],
       "text": "Amos looks up from the ledger, unhurried, taking his time deciding what you are. \"Room, a name, or money. Which is it.\""
+    },
+    "scans": {
+      "_vine": {
+        "x": 420,
+        "y": 600
+      },
+      "options": [
+        {
+          "label": "How do I make him like my answer?",
+          "next": "scans_hold"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "bm_trust",
+              "op": "gt",
+              "scope": "player",
+              "value": "9"
+            }
+          ],
+          "label": "What are the actual odds?",
+          "next": "inner"
+        },
+        {
+          "label": "I'll take my chances.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Getting it off the Reach is the easy half.\" Amos closes the ledger with one finger in it. \"Every field that flies a flag runs a scan on what comes out of your hold. Here we don't — that's what here is for. Anywhere else, you're talking your way past a man with a reader.\" <span class=\"text-dim\">He looks at you levelly.</span> \"If he doesn't like your answer you get one choice and about a minute to make it: pay him, or firewall it and go. Paying costs money. Running costs you the load and puts your name on a manufacturing charge.\""
+    },
+    "scans_hold": {
+      "_vine": {
+        "x": 800,
+        "y": 600
+      },
+      "options": [
+        {
+          "label": "Noted.",
+          "next": "root"
+        },
+        {
+          "label": "Back up — tell me about the scans again.",
+          "next": "scans"
+        }
+      ],
+      "text": "\"Two ways. Carry less and cook it lighter — a small clean load talks its way through fine. Or you stop relying on your mouth.\" <span class=\"text-dim\">He taps the desk twice.</span> \"There's a false floor a decent shop can put in a hold. Smuggler's hold. Costs you cargo room and it costs you money, and about half the time the reader just doesn't find anything to ask about. Any hangar that fits kits will fit one — <b>installkit</b>, and don't come crying when it eats your payload.\""
     }
   },
   "faction": null,

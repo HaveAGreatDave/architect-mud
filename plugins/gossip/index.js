@@ -32,6 +32,9 @@ import { TEMPLATES, renderItem } from './templates.js';
 const AMBIENT_CHANCE      = 0.06;     // per witnessed zone per tick, unprompted gossip
 const PASSPHRASE_CHANCE   = 0.02;     // per tick chance to seed the (ask-only) dealer-passphrase rumour
 const FORTRESS_CHANCE     = 0.02;     // per tick chance to seed the (ask-only) western-fortress rumour
+const REACH_WIRE_CHANCE   = 0.25;     // per tick chance to refresh the Reach grapevine (only while somebody's there)
+const REACH_REGION        = 'region_the_reach';
+const REACH_WIRE_ZONE     = 'zone_bld_899_1171_lobby'; // The Coyote's Rest — where the talk starts
 const SPREAD_COOLDOWN_MS  = 60_000;   // between a player's own planted rumours
 
 const zn = (id) => getZone(id)?.name || 'somewhere';
@@ -415,6 +418,21 @@ async function seedPassphraseGossip() {
   });
 }
 
+// Is anyone standing in the Reach right now? Outdoor tiles carry the region flag;
+// its interiors don't, so they're matched by the tile they open onto instead.
+function inReach(zoneId, zone) {
+  if (zone?.flags?.region_id === REACH_REGION) return true;
+  if (String(zoneId).startsWith('zone_the_reach_')) return true;
+  return String(zone?.flags?.world_exit_zone || '').startsWith('zone_the_reach_');
+}
+
+function playersInReach() {
+  for (const [zoneId, zone] of world.zones) {
+    if (zone.players?.size && inReach(zoneId, zone)) return true;
+  }
+  return false;
+}
+
 function gossipTick() {
   pool.gc();
 
@@ -433,6 +451,15 @@ function gossipTick() {
   // The western chrome fortress — an ask-only rumour of the Ascendant campus (its
   // existence only; the Halcyon tie stays behind the Gate). Coalesced so it stays one.
   if (Math.random() < FORTRESS_CHANCE) add('asc_fortress', { coalesceKey: 'asc_fortress', askOnly: true, subjectName: 'the western fortress', vars: {} });
+
+  // The Reach grapevine. A smuggler's haven has no news and no law, so what it has
+  // instead is talk — kept warm here so the bar always has something in the air.
+  // Coalesced to a single item (the template re-picks a line every telling) and
+  // only refreshed while a player is actually in the region, so an empty frontier
+  // never spends pool CAP on itself.
+  if (Math.random() < REACH_WIRE_CHANCE && playersInReach()) {
+    add('reach_wire', { zoneId: REACH_WIRE_ZONE, coalesceKey: 'reach_wire', subjectName: 'the Reach', vars: {} });
+  }
 
   // Unprompted gossip — low chance, only in zones with a player watching. Ask-only
   // items (e.g. the dealer passphrase) are excluded here; they surface only on ask.

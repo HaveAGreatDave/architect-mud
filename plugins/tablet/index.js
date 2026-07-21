@@ -68,6 +68,9 @@ async function buildHomePayload(player) {
 
   const appTiles = [];
   for (const app of getTabletApps()) {
+    // Optional per-player gate: an app can hide its Home tile when it's not relevant
+    // (e.g. DEADHEAD only when you have a Leviathan live in the world). On error, show it.
+    if (typeof app.visible === 'function') { try { if (!(await app.visible(player))) continue; } catch { /* default visible */ } }
     let extra = null;
     if (typeof app.buildHome === 'function') {
       try { extra = await app.buildHome(player); } catch { extra = null; }

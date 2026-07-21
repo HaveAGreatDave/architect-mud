@@ -1,0 +1,57 @@
+{
+  "category": "Job Board",
+  "description": "There's a crate in the Stash with no markings on it, and Marla would like it to be at the field instead of under her bar. Take it out through town and leave it on the apron. Nobody will ask you what's in it, and you will extend the same courtesy. 25₵.",
+  "id": "quest_reach_nolabel",
+  "meta": {},
+  "name": "Nothing To Declare",
+  "objectives": [
+    {
+      "desc": "The Stash",
+      "emotes": [
+        "{who} gets a shoulder under the unmarked crate and lifts. It is heavier than a crate that size has any business being.",
+        "{who} checks all six sides of the crate for a label, finds nothing, and stops looking.",
+        "{who} hauls the crate off the cellar floor. Something inside it shifts once and then goes very still."
+      ],
+      "id": "o0",
+      "taskSeconds": 5,
+      "type": "visit",
+      "zone": "zone_bld_899_1171_store"
+    },
+    {
+      "desc": "The dirt street",
+      "emotes": [
+        "{who} carries the crate down the middle of the street. Two people watch, and neither of them says a word.",
+        "{who} shifts the crate to the other shoulder and keeps walking, eyes on the road.",
+        "{who} passes a doorway. Whoever is in it steps back out of the light."
+      ],
+      "id": "o1",
+      "requires": [
+        "o0"
+      ],
+      "taskSeconds": 5,
+      "type": "visit",
+      "zone": "zone_the_reach_872_1955"
+    },
+    {
+      "desc": "Buzzard Field",
+      "emotes": [
+        "{who} sets the crate down on the apron, well clear of the fuel bowser, and walks away from it.",
+        "{who} leaves the crate on the hardpan and does not look back at it. That's the whole job.",
+        "{who} lowers the crate onto the apron, straightens up, and decides they were never here."
+      ],
+      "id": "o2",
+      "requires": [
+        "o1"
+      ],
+      "taskSeconds": 5,
+      "type": "visit",
+      "zone": "zone_the_reach_870_1958"
+    }
+  ],
+  "quest_type": "standard",
+  "repeatable": 1,
+  "rewards": {
+    "credits": 25
+  },
+  "updated_at": "1784600000"
+}

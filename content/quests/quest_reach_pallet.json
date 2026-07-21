@@ -1,0 +1,57 @@
+{
+  "category": "Job Board",
+  "description": "Cass counted the freight off a night arrival and came up one pallet light. It didn't fly away. Walk the apron, walk the scrub past the threshold, then go tell the hangar what you found — or didn't. 22₵.",
+  "id": "quest_reach_pallet",
+  "meta": {},
+  "name": "One Pallet Short",
+  "objectives": [
+    {
+      "desc": "The apron",
+      "emotes": [
+        "{who} paces the apron reading fuel stains like a tracker, looking for where a pallet sat and then didn't.",
+        "{who} finds a rectangle of clean hardpan where something heavy stood all night. Drag marks lead west.",
+        "{who} counts the tie-down rings twice. The arithmetic keeps coming out one short."
+      ],
+      "id": "o0",
+      "taskSeconds": 5,
+      "type": "visit",
+      "zone": "zone_the_reach_870_1958"
+    },
+    {
+      "desc": "The scrub past the threshold",
+      "emotes": [
+        "{who} follows the drag marks out past the threshold until the scrub eats them.",
+        "{who} kicks through the brush and turns up a strap, cut clean. Not chafed. Cut.",
+        "{who} squints west at four hundred miles of nothing and concedes the pallet has a head start."
+      ],
+      "id": "o1",
+      "requires": [
+        "o0"
+      ],
+      "taskSeconds": 5,
+      "type": "visit",
+      "zone": "zone_the_reach_869_1958"
+    },
+    {
+      "desc": "The Hangar Bay",
+      "emotes": [
+        "{who} reports back to the hangar: it left on foot, and it had help.",
+        "{who} drops the cut strap on the hangar floor and lets it make the argument.",
+        "{who} explains where the marks stopped. Nobody in the Reach writes any of it down."
+      ],
+      "id": "o2",
+      "requires": [
+        "o1"
+      ],
+      "taskSeconds": 5,
+      "type": "visit",
+      "zone": "zone_bld_897_1175_lobby"
+    }
+  ],
+  "quest_type": "standard",
+  "repeatable": 1,
+  "rewards": {
+    "credits": 22
+  },
+  "updated_at": "1784600000"
+}

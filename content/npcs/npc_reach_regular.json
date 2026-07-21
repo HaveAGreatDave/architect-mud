@@ -1,0 +1,197 @@
+{
+  "banter": [
+    [
+      "Windy raises his glass to nobody in particular and drinks to it anyway."
+    ],
+    [
+      "\"Three drums,\" Windy says, to the room. Nobody asks. He seems content."
+    ],
+    [
+      "Windy starts a sentence, loses it somewhere around the third word, and lets it go."
+    ],
+    [
+      "\"Anybody hear an engine just then?\" Windy asks. Nobody did."
+    ],
+    [
+      "Windy studies the bottom of his glass with the concentration of a man reading a map."
+    ],
+    [
+      "\"I could still fly,\" Windy announces. \"I choose not to.\" He settles back, vindicated."
+    ],
+    [
+      "Windy tips his stool back against the bar, closes his eyes, and does not fall."
+    ],
+    [
+      "\"You want to hear how I got out here?\"",
+      "\"No.\"",
+      "\"Right you are. Right you are.\""
+    ]
+  ],
+  "behaviour_graph": {},
+  "chitchat": [],
+  "description": "A weathered man welded to the third stool from the end, where the bar has worn pale in the shape of his forearms. Broken veins map his cheeks; a white seam of old scar runs up under his jaw and disappears into his beard. His hands are a pilot's hands — thick, scarred, still steady — and they never quite stop moving, walking through a checklist for an aircraft that is not there. He is delighted to see you. He is delighted to see everybody.",
+  "dialogue_tree": {
+    "root": {
+      "_vine": {
+        "x": 60,
+        "y": 200
+      },
+      "options": [
+        {
+          "label": "How'd you end up out here?",
+          "next": "tale_1"
+        },
+        {
+          "label": "That scar — where'd you get it?",
+          "next": "tale_2"
+        },
+        {
+          "label": "What's the worst run you ever flew?",
+          "next": "tale_3"
+        },
+        {
+          "label": "Heard anything worth hearing?",
+          "next": "word"
+        },
+        {
+          "label": "Maybe later.",
+          "next": null
+        }
+      ],
+      "text": [
+        "Windy focuses on you with some effort, and a great deal of goodwill. \"Now then. Now then. You're new.\"",
+        "He turns on his stool, slowly, like a gun turret. \"Sit. Sit down. You've got the look of someone who'd appreciate a bit of history.\"",
+        "\"There he is.\" He says this to you, though you have never met. \"Get a chair. I was just about to tell it.\""
+      ]
+    },
+    "tale_1": {
+      "_vine": {
+        "x": 460,
+        "y": 60
+      },
+      "options": [
+        {
+          "label": "Barefoot?",
+          "next": "tale_press"
+        },
+        {
+          "label": "Tell me another.",
+          "next": "root"
+        },
+        {
+          "label": "Right. Well.",
+          "next": null
+        }
+      ],
+      "text": "\"Flew a load out of the Redline with three drums of something the buyer wouldn't name and half a wing. Storm took me sideways over the flats — I put her down on her belly a mile short of this very strip and walked in \"<span class=\"text-dim\">— he holds up a finger —</span>\" barefoot. Boots burned off. Marla poured me one before I'd said a word. Never left. Never saw a reason to.\""
+    },
+    "tale_2": {
+      "_vine": {
+        "x": 460,
+        "y": 260
+      },
+      "options": [
+        {
+          "label": "Wasn't it a storm last time?",
+          "next": "tale_press"
+        },
+        {
+          "label": "Tell me another.",
+          "next": "root"
+        },
+        {
+          "label": "Right. Well.",
+          "next": null
+        }
+      ],
+      "text": "\"This?\" He tips his chin up so you get the full benefit. \"Customs man at a policed field, and he had a hook. Three drums in the hold and he's going through my manifest like it's scripture. So I put her nose up off the numbers with him still holding the door.\" <span class=\"text-dim\">He drinks.</span> \"Cost me a strip of throat and the door. Landed here on fumes and no boots. Never left.\""
+    },
+    "tale_3": {
+      "_vine": {
+        "x": 460,
+        "y": 460
+      },
+      "options": [
+        {
+          "label": "It's always three drums, isn't it.",
+          "next": "tale_press"
+        },
+        {
+          "label": "Tell me another.",
+          "next": "root"
+        },
+        {
+          "label": "Right. Well.",
+          "next": null
+        }
+      ],
+      "text": "\"Worst run.\" He says it like you've asked him to pick a favourite child. \"Three drums, a buyer who wouldn't give a name, and eleven hundred miles of nothing with the gauge sat on the peg the whole way. I came over that ridge out there \"<span class=\"text-dim\">— he gestures at a wall —</span>\" on vapour and prayer, and the strip came up out of the dust like a hand. Set her down. Walked in. No boots on me at all.\" He nods, satisfied. \"Never left.\""
+    },
+    "tale_press": {
+      "_vine": {
+        "x": 880,
+        "y": 260
+      },
+      "options": [
+        {
+          "label": "Fair enough.",
+          "next": "root"
+        },
+        {
+          "label": "Leave him to it.",
+          "next": null
+        }
+      ],
+      "text": "Windy looks at you with enormous, unhurried patience, the way you'd look at a child who has just discovered that the sea is wet. \"Son,\" he says, \"out here a story doesn't have to be true. It has to be worth the second telling.\" <span class=\"text-dim\">He turns back to the bar, entirely at peace.</span>"
+    },
+    "word": {
+      "_vine": {
+        "x": 880,
+        "y": 480
+      },
+      "actions": [
+        {
+          "action": "GOSSIP_TELL"
+        }
+      ],
+      "options": [
+        {
+          "label": "Huh.",
+          "next": "root"
+        },
+        {
+          "label": "That's enough for one night.",
+          "next": null
+        }
+      ],
+      "text": "He leans in with the terrible conspiratorial precision of the very drunk."
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a flight jacket so old the patches have gone to shadow and thread",
+      "a shirt that was white about four years ago",
+      "canvas trousers, a belt on its last hole, and long johns"
+    ],
+    "haunt_zone": "zone_bld_899_1171_lobby",
+    "personality": "vagrant"
+  },
+  "home_activities": [],
+  "home_zone": "zone_bld_899_1171_lobby",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_reach_regular",
+  "name": "Wendell \"Windy\" Marsh",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

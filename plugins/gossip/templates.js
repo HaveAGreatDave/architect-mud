@@ -188,6 +188,25 @@ export const TEMPLATES = {
       `"That wall of mirrors out west? Don't bother. People go to gawk and come back with nothing but a scanline burn and a bad feeling."`,
     ]),
   },
+  // The Reach's grapevine — the smuggler's-haven equivalent of a local paper. No
+  // subject, no vars: it's the shape of the talk, not a specific claim, and each
+  // telling picks a fresh line. Seeded only while somebody's actually out there
+  // (plugins/gossip/index.js), and short-reach so it never drifts into the city.
+  reach_wire: {
+    category: 'world', reach: 3, heat: 0.45,
+    render: () => pick([
+      `"Somebody set down on the flats last night with no lights and no call. Gone again by morning. Nobody's saying whose."`,
+      `"Heard a runner got scanned coming into a policed field. Paid the bribe, kept the load. Cheaper than the alternative."`,
+      `"There's a bounty out of the city on somebody drinking in this room. Been out three months. Nobody's collected."`,
+      `"That crate in the cellar's been down there since before I got here. Marla says it's not hers. Marla says a lot of things."`,
+      `"Word is the Dynamo's a bad winter from going dark for good. Then we're all just scrub and a runway."`,
+      `"Pallet went missing off the apron. Not stolen — missing. There's a difference out here and nobody wants to say what it is."`,
+      `"Fella came through asking questions with the wrong accent. Cass sent him back up before he got his boots dusty."`,
+      `"They say the city's tightening the scans again. Good for us. Everything that can't go by road comes by us."`,
+      `"Someone's been cutting the raws before they leave the Reach. If that's true, whoever it is won't be flying long."`,
+      `"Nobody's flown the long run east in a month. Either the buyer's dead or the buyer's law. Same thing, mostly."`,
+    ]),
+  },
   // The shadow dealer's passphrase — a secret worth whispering. Ask-only (never
   // ambient), seeded rarely, so an NPC only lets it slip when a player pushes.
   dealer_phrase: {

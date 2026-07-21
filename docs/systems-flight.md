@@ -262,6 +262,20 @@ are one-shot per-tick events. Utility verbs: `preflight`, `hover` (VTOL), `spot`
 field + fuel range), `squawk` (transponder; running dark evades cameras but is a
 crime), and `eject`/`bail` (parachute-gated — a pilot bailing dooms the craft).
 
+**Ground stop** (`index.groundStop`, threshold `GROUND_STOP_SEVERITY = 0.7`). Weather
+buffeting is the *in-air* half; this is the other half — past 0.7 severity the
+departure field simply doesn't launch. It's checked in **both** departure paths: the
+legacy `cmdTakeoff` preconditions and, for the continuous sim, the `engineon` flight
+event (the panel ENGINE switch) — deliberately *not* the wheels-up event, since
+refusing mid-takeoff-roll would be worse than useless. An airborne craft has no
+`parked_zone_id`, so it can never be caught by it; only departures are blocked.
+
+This is the only weather rule in the game that **blocks** a player action rather than
+taxing it (contrast `WIND_MOVE_SEVERITY` in `movement.js`, which only drains stamina).
+That's deliberate: above the threshold the alternative isn't a harder flight, it's a
+scripted crash. **The Reach feels it hardest by design** — it's air-only, so a blown
+field means nobody arrives, nobody leaves, and everyone already there is in the bar.
+
 **No-fly enforcement** (`index.checkAirspace`). Over an `airspace_restricted` cell:
 tower warning → `WANTED_RAISE` (+2) + interceptor scramble message. No-fly cells
 render as a red hatch on the moving-map.

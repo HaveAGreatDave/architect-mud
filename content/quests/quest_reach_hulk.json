@@ -1,0 +1,43 @@
+{
+  "category": "Job Board",
+  "description": "The burned-out flyer at the end of the strip has been a memorial for years. It has also been a parts bin for years, and the Reach has never seen a conflict there. Strip what's still good and run it into the hangar. 20₵.",
+  "id": "quest_reach_hulk",
+  "meta": {},
+  "name": "Picking the Bones",
+  "objectives": [
+    {
+      "desc": "The burned-out flyer hulk",
+      "emotes": [
+        "{who} climbs into the black socket of the cockpit and starts cutting loose anything that still looks like a part.",
+        "{who} works a scorched panel off the hulk's flank and finds the linkage behind it perfectly, insultingly intact.",
+        "{who} braces a boot on a wing stub and pulls until something gives — the bolt, thankfully, and not the wing stub.",
+        "{who} pauses over a seat frame, decides the dead won't mind, and takes it anyway."
+      ],
+      "id": "o0",
+      "taskSeconds": 5,
+      "type": "visit",
+      "zone": "zone_the_reach_870_1958"
+    },
+    {
+      "desc": "The Hangar Bay",
+      "emotes": [
+        "{who} dumps an armload of salvaged parts on the hangar floor and lets somebody else sort the good from the scrap.",
+        "{who} lays the salvage out in a row, soot to the elbows, and gets paid without a receipt.",
+        "{who} hands over the parts. Somewhere in the pile is a component worth more than the whole day's pay, and everybody knows it."
+      ],
+      "id": "o1",
+      "requires": [
+        "o0"
+      ],
+      "taskSeconds": 5,
+      "type": "visit",
+      "zone": "zone_bld_897_1175_lobby"
+    }
+  ],
+  "quest_type": "standard",
+  "repeatable": 1,
+  "rewards": {
+    "credits": 20
+  },
+  "updated_at": "1784600000"
+}

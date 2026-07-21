@@ -1,0 +1,72 @@
+{
+  "category": "Job Board",
+  "description": "Empty freight, wrong direction, on foot, because the thing that should have carried it is unserviceable and everyone here is out of favours. Hangar bay to the apron, up the road, into town. It pays because it is miserable. 30₵.",
+  "id": "quest_reach_deadhead",
+  "meta": {},
+  "name": "Deadhead",
+  "objectives": [
+    {
+      "desc": "The Hangar Bay",
+      "emotes": [
+        "{who} loads up in the hangar bay and is told, cheerfully, that it's not far. It is far.",
+        "{who} takes the whole load in one trip out of pure spite.",
+        "{who} straps the load on, looks at the door, and stops asking why nobody else volunteered."
+      ],
+      "id": "o0",
+      "taskSeconds": 5,
+      "type": "visit",
+      "zone": "zone_bld_897_1175_lobby"
+    },
+    {
+      "desc": "The apron",
+      "emotes": [
+        "{who} crosses the apron under the full weight of it, boots printing the hardpan.",
+        "{who} passes the fuel bowser and considers, briefly, setting the whole load down and living here.",
+        "{who} rebalances the load beside the dead windsock and pushes on."
+      ],
+      "id": "o1",
+      "requires": [
+        "o0"
+      ],
+      "taskSeconds": 5,
+      "type": "visit",
+      "zone": "zone_the_reach_870_1958"
+    },
+    {
+      "desc": "The road east",
+      "emotes": [
+        "{who} grinds east up the road with the heat coming off it in a sheet.",
+        "{who} is now carrying the load in a way that is bad for their back and good for their pace.",
+        "{who} counts buildings on the horizon. There are four. There have always been four."
+      ],
+      "id": "o2",
+      "requires": [
+        "o1"
+      ],
+      "taskSeconds": 5,
+      "type": "visit",
+      "zone": "zone_the_reach_871_1958"
+    },
+    {
+      "desc": "The dirt street",
+      "emotes": [
+        "{who} drops the load in the street and stands over it, breathing like a man who has just argued with geography.",
+        "{who} sets the freight down in town and swears never again, in the tone of somebody who will be back tomorrow.",
+        "{who} arrives, unloads, and is handed a drink they did not order and absolutely need."
+      ],
+      "id": "o3",
+      "requires": [
+        "o2"
+      ],
+      "taskSeconds": 5,
+      "type": "visit",
+      "zone": "zone_the_reach_872_1955"
+    }
+  ],
+  "quest_type": "standard",
+  "repeatable": 1,
+  "rewards": {
+    "credits": 30
+  },
+  "updated_at": "1784600000"
+}

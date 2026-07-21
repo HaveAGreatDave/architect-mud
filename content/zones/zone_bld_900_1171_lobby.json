@@ -1,5 +1,11 @@
 {
-  "ambient_events": [],
+  "ambient_events": [
+    "The desk fan turns a slow quarter-circle and gives up.",
+    "A key hangs on the board for a cabin nobody has claimed in a long time.",
+    "The register lies open. Most of the names in it are obviously not names.",
+    "Somebody moves in one of the cabins, and the whole building hears about it.",
+    "A moth ticks against the office window, on the outside, wanting in."
+  ],
   "ambient_theme": "indoors",
   "audio_theme_id": null,
   "bg_color": null,

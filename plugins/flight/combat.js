@@ -17,6 +17,7 @@ import {
   GUN_RANGE_GATE, GUN_CONE_GATE, GUN_DMG, GUN_COOLDOWN_MS,
   MISSILE_RANGE_GATE, MISSILE_FLIGHT_MS, MISSILE_PK, MISSILE_DMG, MISSILE_COOLDOWN_MS,
   FLARE_DEFEAT, FLARE_WINDOW_MS, FLARE_COOLDOWN_MS, mslAmmo,
+  SWARM_PK_MULT, SWARM_DMG_MULT, SWARM_CONE, SWARM_COOLDOWN_MS, salvoOf,
 } from './state.js';
 import { conspicuousnessMult } from './livery.js';
 import { getZonePlayers, getZoneNpcs, getZoneEnemies } from '../../server/engine/world.js';
@@ -26,6 +27,14 @@ import { dispatchAction } from '../../server/engine/actions.js';
 import { emit } from '../../server/engine/events.js';
 
 const cheb = (ax, ay, bx, by) => Math.max(Math.abs(ax - bx), Math.abs(ay - by));
+
+// An armoured airframe soaks incoming fire (gun bursts, missiles, ground AA). The A-10-style
+// Reaper earns it from its `gunship` class; other frames (the armoured attack-heli Viper, a
+// `heli` so it hovers) opt in with `data.armored` — same tub, different silhouette.
+const isArmored = (type) => type?.class === 'gunship' || !!type?.data?.armored;
+// Per-airframe gun-damage scalar (the Viper's chin peashooter is `data.gun_mult` 0.5). Applies
+// to its air-to-air burst and its ground strafe alike — a weak gun is weak everywhere.
+const gunMult = (type) => { const m = Number(type?.data?.gun_mult); return m > 0 ? m : 1; };
 
 // Plain-English name of a sheared structural surface, for the "she's coming apart" feedback line.
 const SHEAR_LABEL = { leftWing: 'the left wing', rightWing: 'the right wing', tail: 'the tailplane', rudder: 'the rudder' };
@@ -148,6 +157,7 @@ async function cmdAirFire(args, raw, player) {
   const { live, err } = requirePilot(player); if (err) return err;
   const weapon = (args[0] || '').toLowerCase();
   if (weapon === 'missile') return fireMissile(live, args, player);
+  if (weapon === 'swarm') return fireSwarm(live, args, player);
   if (weapon !== 'guns') return { type: 'noop' };
   if (!live.row.airborne || !live.row.weapons_hot || (live.type.hardpoints || 0) < 1) return { type: 'noop' };
   const nowMs = Date.now();
@@ -177,8 +187,8 @@ async function cmdAirFire(args, raw, player) {
   if (target.evadeUntil && nowMs < target.evadeUntil) mult *= 0.4;
   const defPilot = pilotOf(target);
   if (defPilot) { const jink = await skillCheck(defPilot, 'piloting', await effectiveSkill(player, 'piloting')); if (jink.success) mult *= 0.45; }
-  if (target.type.class === 'gunship') mult *= 0.6;
-  const dmg = GUN_DMG * aimQuality * mult;
+  if (isArmored(target.type)) mult *= 0.6;
+  const dmg = GUN_DMG * aimQuality * mult * gunMult(live.type);      // a weak-gun airframe (Viper) bites less
   if (dmg < 0.008) return { type: 'noop' };                          // grazing burst — no real bite
 
   const killed = await applyAirDamage(target, dmg, player, 'shotdown');
@@ -212,6 +222,35 @@ function fireMissile(live, args, player) {
   airThreatTo(target, { kind: 'missile', ms: MISSILE_FLIGHT_MS, by: player.handle || null });
   toOccupants(target, '<span class="text-red">⚠ MISSILE INBOUND — pop <b>flares</b> and break!</span>');
   return { type: 'emote', message: `<span class="text-cyan">FOX TWO — missile away at the ${target.type.name}.</span>` };
+}
+
+// Fire-and-forget SWARM (the Viper): rip `salvo` dumb seekers at the bore-designated bogey with
+// NO lock — just a forward-cone + range gate (point the nose at them). Each rides the target as
+// its own inbound at reduced PK + a smaller warhead, resolving independently so flares/notch can
+// still peel some off. The target only gets the inbound shout as they arrive — no prior lock tone.
+function fireSwarm(live, args, player) {
+  if (!live.row.airborne || !live.row.weapons_hot || (live.type.hardpoints || 0) < 1) return { type: 'noop' };
+  const salvo = salvoOf(live);
+  if (salvo < 2) return fireMissile(live, args, player);   // not a swarm airframe — fall back to the locked shot
+  if (mslAmmo(live) < 1) return { type: 'emote', message: '<span class="text-amber">Rails are empty — rearm at a field.</span>' };
+  const nowMs = Date.now();
+  if (live.lastMsl && nowMs - live.lastMsl < SWARM_COOLDOWN_MS) return { type: 'noop' };
+  const target = args[1] ? liveAircraft.get(args[1]) : null;
+  if (!target || target === live || !target.row.airborne || target.row.is_wreck) return { type: 'noop' };
+  const a = live.row, b = target.row;
+  if (cheb(a.grid_x, a.grid_y, b.grid_x, b.grid_y) > MISSILE_RANGE_GATE) return { type: 'noop' };
+  const off = Math.abs(((bearingDeg(a.grid_x, a.grid_y, b.grid_x, b.grid_y) - toDeg(a.heading) + 540) % 360) - 180);
+  if (off > SWARM_CONE) return { type: 'noop' };   // no lock, but you have to be pointed at them
+  const n = Math.min(salvo, mslAmmo(live));
+  live.lastMsl = nowMs;
+  live.msl = mslAmmo(live) - n;
+  pushContext(live);   // authoritative ammo pips, now
+  const inbound = [];
+  for (let i = 0; i < n; i++) inbound.push({ shooterId: player.id, launchedAt: nowMs, resolveAt: nowMs + MISSILE_FLIGHT_MS + i * 120, pkMult: SWARM_PK_MULT, dmgMult: SWARM_DMG_MULT });
+  target.inboundMsl = [...(target.inboundMsl || []), ...inbound];
+  airThreatTo(target, { kind: 'missile', ms: MISSILE_FLIGHT_MS, by: player.handle || null });
+  toOccupants(target, '<span class="text-red">⚠ MISSILE SWARM INBOUND — pop <b>flares</b> and break!</span>');
+  return { type: 'emote', message: `<span class="text-cyan">RIPPLE — a swarm of ${n} missiles streaks off the rails at the ${target.type.name}.</span>` };
 }
 
 // Break a shooter's seeker lock (target gone / out of range / deliberate unlock) and
@@ -250,7 +289,7 @@ async function tickMissiles(live) {
       continue;
     }
     // A hard defensive break + a good last-second notch both shave the kill probability.
-    let pk = MISSILE_PK;
+    let pk = MISSILE_PK * (m.pkMult ?? 1);   // dumb no-lock swarm seekers connect less often
     if (live.evadeUntil && nowMs < live.evadeUntil) pk *= 0.55;
     const defPilot = pilotOf(live);
     if (defPilot && (await skillCheck(defPilot, 'piloting', 8)).success) pk *= 0.7;
@@ -260,9 +299,10 @@ async function tickMissiles(live) {
       if (shooter) out(shooter.id, '<span class="text-amber">Miss — the shot loses the picture and goes ballistic.</span>');
       continue;
     }
-    const armor = live.type.class === 'gunship' ? 0.6 : 1;
-    const hullAfter = Math.round((1 - Math.min(1, (live.row.damage || 0) + MISSILE_DMG * armor)) * 100);
-    const killed = await applyAirDamage(live, MISSILE_DMG * armor, shooter, 'shotdown',
+    const armor = isArmored(live.type) ? 0.6 : 1;
+    const warhead = MISSILE_DMG * armor * (m.dmgMult ?? 1);          // swarm seekers carry a smaller warhead
+    const hullAfter = Math.round((1 - Math.min(1, (live.row.damage || 0) + warhead)) * 100);
+    const killed = await applyAirDamage(live, warhead, shooter, 'shotdown',
       `<span class="text-red">💥 MISSILE IMPACT — the airframe bucks hard and sheds metal. Hull ${hullAfter}%.</span>`);
     if (shooter) {
       await awardSkillUse(shooter.id, 'piloting', 2);
@@ -378,9 +418,9 @@ export async function tickCombat(live) {
     const isHit = Math.random() < Math.max(0.05, hitChance);
     sendAaTracer(live, s, Math.round(bearingDeg(a.grid_x, a.grid_y, s.grid_x, s.grid_y)), cheb(a.grid_x, a.grid_y, s.grid_x, s.grid_y), isHit);
     if (isHit) {
-      // Armoured gun platforms (the A-10-style Reaper) shrug off ground fire — their
-      // titanium tub soaks half the hit, so they can loiter over a target and survive.
-      const armor = live.type.class === 'gunship' ? 0.5 : 1;
+      // Armoured gun platforms (the A-10-style Reaper, the Viper attack-heli) shrug off ground
+      // fire — their titanium tub soaks half the hit, so they can loiter over a target and survive.
+      const armor = isArmored(live.type) ? 0.5 : 1;
       // Lethal against criminals: the guns hit HARD (and harder the more wanted you are), so a
       // wanted griefer can't just tank the fire loitering over new players. Scales 1.6×→2.4×.
       const lethal = 1.6 + Math.min(wantedStars, 5) * 0.16;
@@ -508,6 +548,9 @@ async function rakeGroundBelow(live, player) {
   const enemies = getZoneEnemies(zone.id).filter(e => e && (e.hp ?? 1) > 0);
   if (!players.length && !npcs.length && !enemies.length) return;
   live.lastGroundGun = now;
+  // A weak-gun airframe (Viper: data.gun_mult) rakes softer than the Reaper's GAU-8.
+  const gm = gunMult(live.type);
+  const dmin = Math.max(1, Math.round(STRAFE_DMG.min * gm)), dmax = Math.max(dmin, Math.round(STRAFE_DMG.max * gm));
 
   // Everyone on the tile feels the pass — the terror is the point.
   sendToZone(zone.id, { type: 'zone_event',
@@ -519,7 +562,7 @@ async function rakeGroundBelow(live, player) {
       out(p.id, '<span class="text-amber">Cannon rounds hammer the ground a body-length away — the shockwave punches the air out of you.</span>');
       continue;
     }
-    const r = await applyStrikeToPlayer(p, { min: STRAFE_DMG.min, max: STRAFE_DMG.max, damageType: 'kinetic' });
+    const r = await applyStrikeToPlayer(p, { min: dmin, max: dmax, damageType: 'kinetic' });
     hitPlayer = true;
     if (r.killed) {
       killedPlayer = true;
@@ -533,12 +576,12 @@ async function rakeGroundBelow(live, player) {
   // NPCs and enemies caught in the same seam — heavy, but they can ride out a pass.
   for (const n of npcs) {
     if (Math.random() >= STRAFE_HIT_CHANCE) continue;
-    n.hp = Math.max(0, (n.hp ?? n.hp_max ?? 20) - rnd(STRAFE_DMG.min, STRAFE_DMG.max));
+    n.hp = Math.max(0, (n.hp ?? n.hp_max ?? 20) - rnd(dmin, dmax));
     if (n.hp <= 0) { const dead = killNpcInstance(n.id); if (dead) { announceKill(player.id, dead.name); emit('npc.killed', { actor: player, npc: dead }); } }
   }
   for (const e of enemies) {
     if (Math.random() >= STRAFE_HIT_CHANCE) continue;
-    e.hp = Math.max(0, (e.hp ?? e.hp_max ?? 20) - rnd(STRAFE_DMG.min, STRAFE_DMG.max));
+    e.hp = Math.max(0, (e.hp ?? e.hp_max ?? 20) - rnd(dmin, dmax));
     if (e.hp <= 0) { announceKill(player.id, e.name); killEnemyInstance(player, e.instanceId); }
   }
 

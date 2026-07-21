@@ -1,8 +1,39 @@
 {
   "banter": [
-    "\"You came in on wings, so you’ve got money or trouble. Reach only turns away one of those.\"",
-    "She thumbs the radio. \"Weather’s clear. Company isn’t. Keep it that way.\"",
-    "\"Nobody flies out of here they didn’t fly in as. Remember that.\""
+    [
+      "\"You came in on wings, so you've got money or trouble. Reach only turns away one of those.\""
+    ],
+    [
+      "thumbs the radio. \"Weather's clear. Company isn't. Keep it that way.\""
+    ],
+    [
+      "\"Nobody flies out of here they didn't fly in as. Remember that.\""
+    ],
+    [
+      "\"I flew freight for people worse than anyone drinking in that bar. That's why they let me hold the door.\""
+    ],
+    [
+      "\"Anything come in today?\"",
+      "\"Nothing came in today.\"",
+      "\"Right.\""
+    ],
+    [
+      "\"You ever count how many of us there actually are out here?\"",
+      "\"I did once. I didn't like the number, so I stopped.\""
+    ],
+    [
+      "squints west, where the light is going. \"Storm in that.\"",
+      "\"There's storm in everything out here. Doesn't mean it's coming.\"",
+      "\"Doesn't mean it isn't.\""
+    ],
+    [
+      "\"Somebody's been in the cellar. Crate's moved.\"",
+      "\"Then somebody had a reason and it's not ours.\""
+    ],
+    [
+      "\"You think about where you'd go? If you had to go.\"",
+      "takes a while to answer. \"No. That's the point of here.\""
+    ]
   ],
   "behaviour_graph": {
     "_start": "start",
@@ -140,7 +171,7 @@
     "personality": "guard"
   },
   "home_activities": [],
-  "home_zone": "zone_bld_897_1175_lobby",
+  "home_zone": "zone_bld_900_1171_cabin_cass",
   "hp": 20,
   "hp_max": 20,
   "id": "npc_1784516450269",
@@ -153,44 +184,44 @@
   "vendor_schedule": {
     "fri": [
       {
-        "from": 10,
-        "to": 22
+        "from": 6,
+        "to": 20
       }
     ],
     "mon": [
       {
-        "from": 10,
-        "to": 22
+        "from": 6,
+        "to": 20
       }
     ],
     "sat": [
       {
-        "from": 10,
-        "to": 22
+        "from": 6,
+        "to": 20
       }
     ],
     "sun": [
       {
-        "from": 10,
-        "to": 22
+        "from": 6,
+        "to": 20
       }
     ],
     "thu": [
       {
-        "from": 10,
-        "to": 22
+        "from": 6,
+        "to": 20
       }
     ],
     "tue": [
       {
-        "from": 10,
-        "to": 22
+        "from": 6,
+        "to": 20
       }
     ],
     "wed": [
       {
-        "from": 10,
-        "to": 22
+        "from": 6,
+        "to": 20
       }
     ]
   },
@@ -198,5 +229,5 @@
   "vendor_stock_size": 10,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": null
+  "work_zone_id": "zone_bld_897_1175_lobby"
 }

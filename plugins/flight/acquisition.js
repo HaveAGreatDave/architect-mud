@@ -34,7 +34,7 @@ export function fieldStocks(zone) {
 async function listTypes(kind, field) {
   const vtolOnly = vtolOnlyField(field);
   const { rows } = await query(
-    `SELECT id, name, class, seats, cargo_capacity, fuel_type, price_buy, price_rent_hourly, takeoff_mode
+    `SELECT id, name, class, seats, cargo_capacity, fuel_type, price_buy, price_rent_hourly, takeoff_mode, hardpoints
        FROM aircraft_types WHERE class <> 'wreck'${vtolOnly ? " AND takeoff_mode = 'vtol'" : ''} ORDER BY price_buy`
   );
   return rows;

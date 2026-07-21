@@ -23,15 +23,20 @@
 // two of them are both on the floor. The pairing is hard-wired to Orion Dex.
 //
 // Scope: any NPC with flags.personality === 'bartender' who is on-shift at their
-// bar with at least one player watching. Today that's Lowry at the Embassy; any
-// future bartender inherits it for free. All state is in-memory (resets on
+// bar with at least one player watching. All state is in-memory (resets on
 // restart) — a bartender's memory of who's new doesn't warrant a persisted Flag.
+//
+// Voices: the *reactive logic* is shared, the *words* are not. VOICES keys a
+// per-bartender line set (welcomes, idle patter, coworker two-hander) off the NPC
+// id, falling back to Lowry's. Without this every bartender in the world greets
+// players to "the Embassy" in Lowry's name — so a new bar needs a VOICES entry,
+// not a second copy of this plugin.
 
 import { schedule } from '../../server/engine/scheduler.js';
 import { world, getZonePlayers } from '../../server/engine/world.js';
 import { isNpcAtWork, formatChitchat } from '../../server/engine/ai-behaviour.js';
 import { sendToZone } from '../../server/engine/messaging.js';
-import { registerAction } from '../../server/engine/actions.js';
+import { registerAction, dispatchAction } from '../../server/engine/actions.js';
 import { activeTables } from '../gametable/game-table.js';
 import { getZoneNowPlaying } from '../broadcast/index.js';
 
@@ -42,7 +47,6 @@ const AMBIENT_GAP_MS    = 45_000;                  // min gap between ambient li
 const WELCOME_MIN_GAP_MS = 8_000;                  // tiny anti-double-talk gap before a welcome
 const SPEAK_CHANCE      = 0.65;                     // an eligible tick where he just works quietly
 
-const ORION_ID          = 'npc_orion_dex';         // his coworker — the house card dealer
 const COWORKER_GAP_MS   = 5 * 60 * 1000;           // keep the two-hander a rare treat, not a loop
 const COWORKER_CHANCE   = 0.4;                      // ...and only sometimes when it's eligible
 const COWORKER_TURN_MS  = [4500, 8000];            // random delay between turns of the exchange
@@ -58,7 +62,7 @@ const sceneZones  = new Set(); // zoneIds with a coworker scene currently runnin
 // Fully-quoted lines render as a yellow "Lowry says:" bubble; unquoted lines
 // render as an emote ("Lowry wipes down the counter."). {name} → the guest's handle.
 
-const WELCOMES = [
+const LOWRY_WELCOMES = [
   `"Well. Fresh meat in a clean jacket. Welcome to the Embassy, {name} — Lowry's the name. You've got the look of someone who booted up about ten minutes ago."`,
   `"New face, and a green one. First week, unless I've lost my eye — and I haven't. Sit down, {name}. Let me point you at a few things before the basin does it the hard way."`,
   `"Valued guest, freshly minted. Welcome to the Embassy Lounge, {name}. Stick near the bar a while — I've kept more newcomers breathing than any clinic in this city."`,
@@ -66,7 +70,7 @@ const WELCOMES = [
 
 // Ordered roughly by how soon a newcomer needs it. Every verb here is real.
 const TIPS = [
-  `"Word of advice, {name}: hunger and thirst kill more newcomers than bullets do. Keep something in your gut. The Swill's four credits and it counts as both."`,
+  `"Word of advice, {name}: hunger and thirst kill more newcomers than bullets do. Keep something in your gut. The cheap stuff's a few credits and it counts as both."`,
   `"You die out here and whatever's in your pockets is anyone's, {name}. Whatever's in the bank is still yours. There's an ATM on the wall — 'deposit' before you go looking for trouble, not after."`,
   `"Cameras on every corner, and the law here doesn't do warnings, {name}. Build up enough heat and you'll wake in Precinct 9 with your gear in an evidence locker. Type 'wanted' if you want to know how deep you're in."`,
   `"Broke, {name}? Everyone starts broke. 'scavenge' the trash and the wastes for salvage, or check the job board — 'gigs' — for honest-ish work. Nobody out here got fed standing still."`,
@@ -80,19 +84,27 @@ const TIPS = [
   `"This bar's not the world, {name}, whatever it feels like at three in the morning. There's aircraft to fly, crews to run, a whole city under the city. Survive the first week and it all opens up."`,
 ];
 
-const GRADUATION = [
+const LOWRY_GRADUATION = [
   `"That's about all the free wisdom I've got, {name}. The rest you'll earn the way we all did — badly, and in public."`,
   `"You're asking sharper questions now, {name}. You'll do. Or you won't. Either way you're not my greenest guest anymore."`,
 ];
 
 // Non-newcomer / veteran deflections for the dialogue "advice?" option.
-const VETERAN_ADVICE = [
+const LOWRY_VETERAN_ADVICE = [
   `"Advice? You've got the calluses, {name}. You know how it works — keep breathing and keep paying."`,
   `"You don't need me holding your hand anymore. Drink up. That's the only tip that never expires."`,
   `"Same advice as ever: trust the room less than it wants you to. You've been here long enough to know I'm right."`,
 ];
 
-const IDLE = [
+// A guest walks in wearing heat. Lowry runs a respectable house and does NOT want
+// it — the Reach voice below inverts this, which is the whole point of the place.
+const LOWRY_HEAT = [
+  `"{name}. You're lit up like a signal fire and you brought it through my door. Drink fast."`,
+  `wipes the same spot twice, eyes on the door behind you. "Whatever's chasing you — settle up before it arrives."`,
+  `"I don't ask what you did. I do ask that you do the next one somewhere else."`,
+];
+
+const LOWRY_IDLE = [
   `wipes down the counter with a rag that's seen worse than you.`,
   `polishes a glass that was already clean.`,
   `lines up a fresh row of glasses nobody's asked for.`,
@@ -110,7 +122,7 @@ const IDLE = [
 // [who, line] turns; who is 'L' (Lowry) or 'O' (Orion). Same render convention as
 // chitchat: a fully-"quoted" turn is a say bubble, an unquoted turn is an emote.
 // These are unique to this pair — nobody else gets them.
-const COWORKER = [
+const LOWRY_COWORKER = [
   [
     ['L', `"Slow night at the felt, Dex. You've dealt the same four regulars into the ground since sundown."`],
     ['O', `"They keep sitting down. I keep dealing. The chairs do half my work."`],
@@ -151,6 +163,104 @@ const COWORKER = [
   ],
 ];
 
+// ── Marla Kest ⇄ Ambrose "Doc" Teller (The Coyote's Rest, the Reach) ───────────
+// The frontier mirror of Lowry & Orion: a bartender and a card dealer keeping the
+// only lit room for a hundred miles. Where the Embassy pair trade in polish, these
+// two trade in what nobody says out loud.
+const MARLA_COWORKER = [
+  [
+    ['L', `"Quiet strip tonight, Doc. Nothing's come in since the light went."`],
+    ['O', `squares the deck without looking up. "Something'll come in. Always does. That's what the strip is for."`],
+    ['L', `"That's what I'm afraid of."`],
+  ],
+  [
+    ['O', `"You water that bottle, Marla, or is it just old?"`],
+    ['L', `"It's old. Everything out here's old. Including the joke."`],
+  ],
+  [
+    ['L', `"New face at the bar, Doc. Flew in on their own wings."`],
+    ['O', `"Then they've got money or they've got trouble. Sit them down either way — the felt sorts it out faster than you will."`],
+  ],
+  [
+    ['O', `"Nobody's asked me for a marker in a month. Reach is getting honest."`],
+    ['L', `pours without being asked. "Reach is getting broke. Different thing."`],
+    ['O', `"From where I sit they pay the same."`],
+  ],
+  [
+    ['L', `"You ever think about flying out, Doc?"`],
+    ['O', `fans the deck one-handed, then folds it flat. "I thought about it once. Then I dealt myself a hand and stayed."`],
+    ['L', `"That's not an answer."`],
+    ['O', `"It's the one I've got."`],
+  ],
+  [
+    ['O', `"Dust is coming. My knuckles say so."`],
+    ['L', `"Your knuckles said so last week and we got nothing but heat."`],
+    ['O', `"Then my knuckles are patient."`],
+  ],
+  [
+    ['L', `"They come in here running from something. Every one of them."`],
+    ['O', `"So did we, Marla."`],
+    ['L', `wipes the bar down, slow. "So did we."`],
+  ],
+];
+
+// ── Voices ────────────────────────────────────────────────────────────────────
+// Per-bartender words behind the shared reactive logic. Keyed by NPC id; anyone
+// unlisted gets Lowry's set (he's the original and the safe default).
+const LOWRY_VOICE = {
+  welcomes: LOWRY_WELCOMES,
+  graduation: LOWRY_GRADUATION,
+  veteranAdvice: LOWRY_VETERAN_ADVICE,
+  heat: LOWRY_HEAT,
+  idle: LOWRY_IDLE,
+  coworkerId: 'npc_orion_dex',
+  coworker: LOWRY_COWORKER,
+};
+
+const VOICES = {
+  // Marla Kest — The Coyote's Rest, the Reach. A haven bartender: she doesn't
+  // hand out survival tips so much as house rules, and heat on a guest is a
+  // credential here rather than a problem.
+  npc_1784515589442: {
+    welcomes: [
+      `"Haven't seen you before, and I see everybody. Marla. That's my bar you're leaning on, {name}."`,
+      `"You came in by air, so you came in on purpose. Sit down, {name}. First one's poured straight."`,
+      `"New, and still clean about the boots. Won't last." <span class="text-dim">She sets a glass in front of you anyway.</span>`,
+    ],
+    graduation: [
+      `"You've stopped asking the green questions, {name}. That's the whole graduation. There's no certificate."`,
+      `"You know where the door is and you know why nobody uses it. You'll keep."`,
+    ],
+    veteranAdvice: [
+      `"Advice? You've been here long enough to know the Reach doesn't give any. It just watches."`,
+      `"Same as ever, {name}: fly in clean, drink slow, and don't ask whose crates those are."`,
+      `"You want advice, ask Doc. He'll deal you a hand and call it wisdom."`,
+    ],
+    // Inverted heat read — this is the haven's thesis. Wanted elsewhere is a
+    // reference here, not a liability.
+    heat: [
+      `"You've got heat on you, {name}. Out there that's a problem." <span class="text-dim">She fills your glass a little past the line.</span> "In here it's a reference."`,
+      `"Somebody wants you badly enough to put stars on it. Good. Means you're not a tourist."`,
+      `nods at you, unbothered. "Whatever they've got you for, it doesn't have wings. Sit down."`,
+      `"Half this room came in hotter than you, {name}. The other half's lying about it."`,
+    ],
+    idle: [
+      `wipes the bar with a rag that's mostly holes.`,
+      `"Kitchen's whatever's in the tin. The tin's whatever came in on the last plane."`,
+      `holds a glass up to the lamp, decides it's clean enough, sets it down.`,
+      `"Tab's cash. There's no bank out here and I wouldn't trust one if there was."`,
+      `"Music's the same three songs. Nobody's flown a new one in since spring."`,
+      `pours a measure for herself, thinks better of it, and puts it back in the bottle.`,
+      `"You hear an engine, you look up. Everybody here does it. You will too, give it a week."`,
+      `"Don't go out past the last light. There's nothing out there but scrub, and the scrub's got nothing but patience."`,
+    ],
+    coworkerId: 'npc_reach_dealer',
+    coworker: MARLA_COWORKER,
+  },
+};
+
+const voiceFor = (npc) => VOICES[npc?.id] || LOWRY_VOICE;
+
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const fmt  = (line, name) => line.replace(/\{name\}/g, name || 'guest');
 const randInt = (min, max) => min + Math.floor(Math.random() * (max - min + 1));
@@ -158,21 +268,21 @@ const randInt = (min, max) => min + Math.floor(Math.random() * (max - min + 1));
 // Play a coworker exchange turn-by-turn, re-validating before each line: both must
 // still be on the floor, alive, and someone must still be around to witness it.
 // Shares Lowry's lastSpoke clock so his solo ambient tick won't talk over the scene.
-function playCoworkerScene(lowry, orion, zoneId, thread) {
+function playCoworkerScene(barkeep, mate, zoneId, thread) {
   sceneZones.add(zoneId);
   let i = 0;
   const step = () => {
-    const bothHere = lowry && orion && !lowry._dead && !orion._dead
-      && lowry.zone_id === zoneId && orion.zone_id === zoneId;
+    const bothHere = barkeep && mate && !barkeep._dead && !mate._dead
+      && barkeep.zone_id === zoneId && mate.zone_id === zoneId;
     if (i >= thread.length || !bothHere || !getZonePlayers(zoneId).length) {
       sceneZones.delete(zoneId);
       return;
     }
     const [who, line] = thread[i++];
-    const speaker = who === 'O' ? orion : lowry;
+    const speaker = who === 'O' ? mate : barkeep;
     sendToZone(zoneId, formatChitchat(speaker.name, line));
     const now = Date.now();
-    lastSpoke.set(lowry.id, now);
+    lastSpoke.set(barkeep.id, now);
     if (speaker._ai) speaker._ai.lastSay = now;
     if (i >= thread.length) { sceneZones.delete(zoneId); return; }
     setTimeout(step, randInt(COWORKER_TURN_MS[0], COWORKER_TURN_MS[1]));
@@ -212,20 +322,38 @@ function tvLine(now) {
 // Pull an unused tip for this player, marking it given. Returns { line } or null
 // when they've heard them all. Shared by the ambient tick and BARTENDER_ADVICE so
 // a player never gets the same tip twice across either path.
-function nextTipFor(player) {
-  const given = tipsGiven.get(player.id) || new Set();
+//
+// Keyed per bartender: hearing Lowry out shouldn't leave Marla with nothing to say.
+function nextTipFor(player, npcId = '') {
+  const key = `${npcId}:${player.id}`;
+  const given = tipsGiven.get(key) || new Set();
   const unused = [];
   for (let i = 0; i < TIPS.length; i++) if (!given.has(i)) unused.push(i);
   if (!unused.length) return null;
   const idx = unused[Math.floor(Math.random() * unused.length)];
   given.add(idx);
-  tipsGiven.set(player.id, given);
+  tipsGiven.set(key, given);
   return fmt(TIPS[idx], player.handle);
+}
+
+// Current (decayed) wanted stars, via the surveillance plugin's cross-plugin seam.
+// In-memory Map read — no DB round trip, safe in a 30s tick.
+async function starsFor(player) {
+  try {
+    const r = await dispatchAction({ type: 'WANTED_STARS', actor: player, params: {}, context: {} });
+    return Number(r?.stars) || 0;
+  } catch { return 0; }
+}
+
+// First player in the room carrying real heat (1★+), or null.
+async function firstWantedIn(players) {
+  for (const p of players) if (await starsFor(p) >= 1) return p;
+  return null;
 }
 
 // ── Tick ──────────────────────────────────────────────────────────────────────
 let ticking = false;
-function bartenderTick() {
+async function bartenderTick() {
   if (ticking) return;
   ticking = true;
   try {
@@ -236,48 +364,53 @@ function bartenderTick() {
       const zoneId = npc.zone_id;
       const players = getZonePlayers(zoneId);
       if (!players.length) continue;                 // never talk to an empty room
+      const voice = voiceFor(npc);
       const spoke = lastSpoke.get(npc.id) || 0;
 
       // 1) Prompt welcome for an ungreeted newcomer (bypasses the quiet-chance).
       const toWelcome = players.find(p =>
-        isNewPlayer(p) && (now - (welcomedAt.get(p.id) || 0) > WELCOME_REPEAT_MS));
+        isNewPlayer(p) && (now - (welcomedAt.get(`${npc.id}:${p.id}`) || 0) > WELCOME_REPEAT_MS));
       if (toWelcome && now - spoke > WELCOME_MIN_GAP_MS) {
-        welcomedAt.set(toWelcome.id, now);
-        sendToZone(zoneId, formatChitchat(npc.name, fmt(pick(WELCOMES), toWelcome.handle)));
+        welcomedAt.set(`${npc.id}:${toWelcome.id}`, now);
+        sendToZone(zoneId, formatChitchat(npc.name, fmt(pick(voice.welcomes), toWelcome.handle)));
         lastSpoke.set(npc.id, now);
         continue;
       }
 
-      // 1.5) Coworker banter — a rare, curated two-hander with Orion Dex when the
-      // house dealer is on the same floor. Owns the tick when it fires; its own
-      // long cooldown keeps it special rather than a loop.
+      // 1.5) Coworker banter — a rare, curated two-hander with this bar's other
+      // old hand when they're on the same floor. Owns the tick when it fires; its
+      // own long cooldown keeps it special rather than a loop.
       if (!sceneZones.has(zoneId) && now - spoke > AMBIENT_GAP_MS
           && now - (coworkerAt.get(npc.id) || 0) > COWORKER_GAP_MS
           && Math.random() < COWORKER_CHANCE) {
-        const orion = world.npcs.get(ORION_ID);
-        if (orion && !orion._dead && orion.zone_id === zoneId) {
+        const mate = voice.coworkerId ? world.npcs.get(voice.coworkerId) : null;
+        if (mate && !mate._dead && mate.zone_id === zoneId) {
           coworkerAt.set(npc.id, now);
           lastSpoke.set(npc.id, now);
-          playCoworkerScene(npc, orion, zoneId, pick(COWORKER));
+          playCoworkerScene(npc, mate, zoneId, pick(voice.coworker));
           continue;
         }
       }
 
-      // 2) Ambient reaction — throttled, and sometimes he just works in silence.
+      // 2) Ambient reaction — throttled, and sometimes they just work in silence.
       if (now - spoke < AMBIENT_GAP_MS) continue;
       if (Math.random() > SPEAK_CHANCE) continue;
 
       const buckets = [];
       const newcomer = players.find(isNewPlayer);
       if (newcomer) {
-        const tip = nextTipFor(newcomer);            // drip a real tip, else graduate them
-        buckets.push({ w: 3, line: tip || fmt(pick(GRADUATION), newcomer.handle) });
+        const tip = nextTipFor(newcomer, npc.id);    // drip a real tip, else graduate them
+        buckets.push({ w: 3, line: tip || fmt(pick(voice.graduation), newcomer.handle) });
       }
+      // A guest wearing stars — the one live read that says what kind of house
+      // this is. Weighted high because it's rare and it's the whole character.
+      const hot = await firstWantedIn(players);
+      if (hot) buckets.push({ w: 3, line: fmt(pick(voice.heat), hot.handle) });
       const table = activePokerInZone(zoneId);
       if (table) buckets.push({ w: 2, line: pokerLine(table) });
       const nowPlaying = getZoneNowPlaying(zoneId);
       if (nowPlaying) buckets.push({ w: 2, line: tvLine(nowPlaying) });
-      buckets.push({ w: 2, line: pick(IDLE) });      // bar business — always available
+      buckets.push({ w: 2, line: pick(voice.idle) }); // bar business — always available
 
       const total = buckets.reduce((s, b) => s + b.w, 0);
       let roll = Math.random() * total;
@@ -301,11 +434,12 @@ schedule('30s', bartenderTick);
 
 registerAction({
   type: 'BARTENDER_ADVICE',
-  handler: ({ actor }) => {
-    if (!actor) return { type: 'dialogue_line', text: pick(VETERAN_ADVICE) };
-    if (!isNewPlayer(actor)) return { type: 'dialogue_line', text: pick(VETERAN_ADVICE) };
-    const tip = nextTipFor(actor);
-    return { type: 'dialogue_line', text: tip || fmt(pick(GRADUATION), actor.handle) };
+  handler: ({ actor, context }) => {
+    const voice = voiceFor(context?.npc);
+    const deflect = () => ({ type: 'dialogue_line', text: fmt(pick(voice.veteranAdvice), actor?.handle) });
+    if (!actor || !isNewPlayer(actor)) return deflect();
+    const tip = nextTipFor(actor, context?.npc?.id || '');
+    return { type: 'dialogue_line', text: tip || fmt(pick(voice.graduation), actor.handle) };
   },
 });
 
@@ -330,4 +464,4 @@ registerAction({
 export const commands = {};
 
 // Exposed for the regress suite.
-export const _test = { isNewPlayer, nextTipFor, pokerLine, tvLine, bartenderTick, TIPS, tipsGiven, welcomedAt, lastSpoke, COWORKER, ORION_ID };
+export const _test = { isNewPlayer, nextTipFor, pokerLine, tvLine, bartenderTick, TIPS, tipsGiven, welcomedAt, lastSpoke, voiceFor, VOICES, LOWRY_VOICE };

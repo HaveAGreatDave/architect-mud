@@ -1,5 +1,16 @@
 {
-  "ambient_events": [],
+  "ambient_events": [
+    "The windsock hangs dead. It has hung dead for days.",
+    "Tie-down chains tick against the hardpan in a wind that can't decide.",
+    "Somebody has chalked a tail number onto the apron, then crossed it out.",
+    "The smell of avgas rolls off the bowser, thick enough to taste.",
+    "A loose sheet of hangar cladding lifts, bangs, and settles.",
+    "Fuel stains map the apron in overlapping rings, oldest to newest.",
+    "The burned-out hulk at the edge of the strip ticks as the day's heat leaves it.",
+    "A buzzard drops onto the hangar roof, folds up, and settles in to wait.",
+    "Out past the threshold the strip runs off into scrub and just... stops.",
+    "Somewhere in the hangar a radio hisses, catches half a word, and loses it again."
+  ],
   "ambient_theme": "outdoors",
   "audio_theme_id": null,
   "bg_color": null,

@@ -1,0 +1,27 @@
+{
+  "altitude_ceiling": 2,
+  "cargo_capacity": 20,
+  "class": "heli",
+  "cruise_speed": 3,
+  "data": {
+    "armored": true,
+    "gun_mult": 0.5,
+    "salvo": 4,
+    "feel": "Sleek futuristic attack helicopter — an Apache reimagined. Fast and nimble for a gunship, thinly armoured but tanky against fire, it lives on its stub-wing missile rails: point the nose and rip a SWARM of fire-and-forget seekers downrange, no lock, no warning. The chin gun is an afterthought — a light peashooter to finish cripples. Glass-cannon: it hits like a truck and folds if you let it get hit back."
+  },
+  "engines": 2,
+  "fuel_burn_base": 2.0,
+  "fuel_capacity": 1400,
+  "fuel_type": "jet",
+  "handling": 1,
+  "hardpoints": 8,
+  "hull_hp": 55,
+  "id": "ac_viper",
+  "max_takeoff_weight": 380,
+  "name": "Viper",
+  "noise": 3,
+  "price_buy": 120000,
+  "price_rent_hourly": 2000,
+  "seats": 2,
+  "takeoff_mode": "vtol"
+}

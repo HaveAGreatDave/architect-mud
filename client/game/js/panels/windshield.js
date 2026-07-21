@@ -991,7 +991,7 @@ export function paintWindshield(id, view) {
     // external orbit camera without pasting an aircraft at world origin — the yacht cell that
     // sits at the map-window centre renders as the framed subject instead.
     if (ext && !v.hideOwnShip) {
-      const ownbb = drawAircraftModel(ctx, cam, { dx: 0, dy: 0, cls: v.cls, hdg: v.heading, bank: v.bank, pitch: v.pitch, livery: v.livery, sizeMul: OWN_EXT_MUL, gearAnim: v.gearAnim ?? 1, power: v.enginePct != null ? v.enginePct : v.speed, ctrl: v.ctrl, propPhase: v.propPhase, propSpin: v.propSpin, propDisc: v.propDisc, lights: v.engineOn !== false, landing: !!v.landingLight, breakup: v.breakup, noseVisor: v.noseVisor || 0 }, ownShipBaseWz(cam, v), sunFx, now);
+      const ownbb = drawAircraftModel(ctx, cam, { dx: 0, dy: 0, cls: v.cls, armed: !!v.armed, hdg: v.heading, bank: v.bank, pitch: v.pitch, livery: v.livery, sizeMul: OWN_EXT_MUL, gearAnim: v.gearAnim ?? 1, power: v.enginePct != null ? v.enginePct : v.speed, ctrl: v.ctrl, propPhase: v.propPhase, propSpin: v.propSpin, propDisc: v.propDisc, lights: v.engineOn !== false, landing: !!v.landingLight, breakup: v.breakup, noseVisor: v.noseVisor || 0 }, ownShipBaseWz(cam, v), sunFx, now);
       if (v.wreckFx && ownbb) drawWreckFire(ctx, ownbb, v.wreckFx, now);   // crash-cinematic fire + smoke over the burning wreck
     }
     if (ext && v.reticle) drawGunReticle(ctx, cam, v, W, H, horizonY);   // two-part gunsight over the chase model
@@ -3906,7 +3906,7 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
   // are airborne, so their gear is stowed (skipped). `nacelle` pods are structure — never tucked.
   const showGear = c.gearAnim > 0.02;                               // own-ship with gear not fully up; contacts (undefined) → false
   const gearDown = c.gearAnim == null ? 1 : clamp(c.gearAnim, 0, 1);
-  for (const face of aircraftFaces(c.cls, detail)) {
+  for (const face of aircraftFaces(c.cls, detail, !!c.armed)) {
     if (face.role === 'rotor') continue;                            // spinning surfaces drawn by drawRotorFX below
     const isGear = face.role === 'gear';
     if (isGear && !showGear) continue;                              // stowed (retracted) or a contact → no gear

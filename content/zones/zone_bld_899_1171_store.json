@@ -1,5 +1,12 @@
 {
-  "ambient_events": [],
+  "ambient_events": [
+    "Something in one of the crates shifts, settles, and is quiet.",
+    "Cold comes off the stone down here in a way it never does upstairs.",
+    "A keg sweats. Beside it, a crate with no markings at all sweats too.",
+    "The floorboards overhead take somebody's weight, cross the room, and go still.",
+    "Gun-oil, yeast, and underneath both of them something you can't place.",
+    "Chalk marks on the crate ends — tallies, initials, one that's been scrubbed at."
+  ],
   "ambient_theme": "indoors",
   "audio_theme_id": null,
   "bg_color": null,

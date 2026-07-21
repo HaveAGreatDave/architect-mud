@@ -11,7 +11,7 @@ import { crashSeverity, collateralBill, isSeverelyImpaired } from './collateral.
 import { sellAircraft, cancelRental, flushAirborne } from './hangars.js';
 import { computeStats, perfAxes, tuneRange, installedKits, KITS, TUNE_DIAL_MAX,
   shearRoll, surfacesWire, anyWingLost, resetSurfaces, SURFACE_KEYS,
-  isWalkableCabin, cabinTypeOf, cabinEntryZone, isCabinZone, liveAircraft, getZone, loadAircraft, stalledState, CONTINUOUS_TYPES, listAirfields } from './state.js';
+  isWalkableCabin, cabinTypeOf, cabinEntryZone, isCabinZone, liveAircraft, getZone, loadAircraft, stalledState, CONTINUOUS_TYPES, listAirfields, salvoOf } from './state.js';
 import { isFreightLicensed, ensureFreightDrops } from './contracts.js';
 import { isPilotLicensed, _test as checkrideTest } from './checkride.js';
 import { setFlag } from '../../server/engine/flags.js';
@@ -58,6 +58,13 @@ export default async function regress({ run, check, getPlayer }) {
   const hurt = { type: { handling: -1 }, row: { damage: 0.5, custom_data: {} } };
   check('landDifficulty rises with damage', _test.landDifficulty(hurt, false) > _test.landDifficulty(clean, false));
   check('emergency landing is harder', _test.landDifficulty(clean, true) > _test.landDifficulty(clean, false));
+
+  // Ground stop: the field closes above GROUND_STOP_SEVERITY. An airborne craft has
+  // no parked zone, so it can never be caught by it — only departures are blocked.
+  check('ground-stop threshold sits above the in-air buffeting threshold (0.35)',
+    _test.GROUND_STOP_SEVERITY > 0.35 && _test.GROUND_STOP_SEVERITY <= 1, String(_test.GROUND_STOP_SEVERITY));
+  check('ground stop never fires on an airborne craft', _test.groundStop({ row: { parked_zone_id: null } }) === null);
+  check('ground stop is clear in fair weather', _test.groundStop({ row: { parked_zone_id: 'zone_start' } }) === null);
 
   // ── Structural battle-damage surfaces ───────────────────────────────────────
   check('an intact craft reports no surfaces on the wire',
@@ -177,6 +184,9 @@ export default async function regress({ run, check, getPlayer }) {
   // ── Continuous-flight seam (whole fleet, incl. the Dragonfly hover model) ────
   check('fixed-wing fleet flies the continuous sim', _test.isContinuous({ type: { id: 'ac_mayfly' } }) === true && _test.isContinuous({ type: { id: 'ac_reaper' } }) === true);
   check('the Dragonfly (VTOL heli) flies the continuous sim too', _test.isContinuous({ type: { id: 'ac_dragonfly' } }) === true);
+  // Swarm airframe: salvo count comes off the type's data (the Viper ripples 4; every other frame is 1).
+  check('salvoOf reads the airframe salvo (Viper 4; a lock-only frame 1)',
+    salvoOf({ type: { data: { salvo: 4 } } }) === 4 && salvoOf({ type: {} }) === 1 && salvoOf({ type: { data: {} } }) === 1);
   check('bandFromAltitude: on the deck → ground', _test.bandFromAltitude(0, true) === 'ground');
   check('bandFromAltitude: 300ft → low', _test.bandFromAltitude(300) === 'low');
   check('bandFromAltitude: 800ft → cruise', _test.bandFromAltitude(800) === 'cruise');
@@ -195,6 +205,7 @@ export default async function regress({ run, check, getPlayer }) {
   r = await run('strafresolve tok 1'); check('strafresolve unarmed no-ops', r?.type === 'noop', r?.type);
   r = await run('airfire guns x 1'); check('airfire (A2A guns) not aboard blocked', /not aboard/i.test(r?.message || ''), r?.message);
   r = await run('airfire missile x'); check('airfire (A2A missile) not aboard blocked', /not aboard/i.test(r?.message || ''), r?.message);
+  r = await run('airfire swarm x'); check('airfire (A2A swarm) not aboard blocked', /not aboard/i.test(r?.message || ''), r?.message);
   r = await run('airlock x'); check('airlock not aboard blocked', /not aboard/i.test(r?.message || ''), r?.message);
   r = await run('airunlock'); check('airunlock not aboard blocked', /not aboard/i.test(r?.message || ''), r?.message);
   r = await run('flares'); check('flares not aboard blocked', /not aboard/i.test(r?.message || ''), r?.message);
@@ -466,8 +477,36 @@ export default async function regress({ run, check, getPlayer }) {
         await _test.crewStep(cLive);
         check('on bingo fuel the crew break off to divert and land',
           cLive.crew?.phase === 'divert' || (!cLive.crew && cLive.row.airborne === 0), `phase=${cLive.crew?.phase} air=${cLive.row.airborne}`);
+        // Orders: tell the flying crew to land at an airport, or circle a tile.
+        cLive.row.airborne = 1; cLive.row.grid_x = lf.gx; cLive.row.grid_y = lf.gy; cLive.fx = lf.gx; cLive.fy = lf.gy;
+        cLive.crew = { mode: 'loiter', phase: 'loiter', loiterX: lf.gx, loiterY: lf.gy, tx: lf.gx, ty: lf.gy, name: `${lf.gx},${lf.gy}`, theta: 0 };
+        await run(`landat ${lf.id}`);
+        check('landat redirects a LOITERING crew to fly-and-land (mode switches out of loiter)',
+          cLive.crew?.mode === 'field' && cLive.crew?.destZone === lf.id, `mode=${cLive.crew?.mode} dest=${cLive.crew?.destZone}`);
+        await run('circle 7 8');
+        check('circle redirects the flying crew to hold the named tile',
+          cLive.crew?.mode === 'loiter' && cLive.crew?.loiterX === 7 && cLive.crew?.loiterY === 8, `mode=${cLive.crew?.mode} ${cLive.crew?.loiterX},${cLive.crew?.loiterY}`);
         delete cLive.crew; cLive.row.airborne = 0; delete cLive.navDest;
       }
+      // Remote dispatch: own a live Leviathan but not aboard → tell her where to go from the app,
+      // and the crew take her up and fly her there (a "charter" of your own base).
+      const savedAcR = p.aircraftId; delete p.aircraftId;   // step off — you still own the live cLive
+      cLive.row.airborne = 0; cLive.row.parked_zone_id = savedZoneW; delete cLive.crew; delete cLive.navDest;
+      const rem = await run('tabletnav deadhead');
+      check('DEADHEAD is a REMOTE dispatcher when you own a live Leviathan but aren\'t aboard',
+        rem?.deadhead?.remote === true && rem?.deadhead?.aboard === false && (rem?.deadhead?.fields?.length || 0) > 0,
+        `remote=${rem?.deadhead?.remote} aboard=${rem?.deadhead?.aboard} fields=${rem?.deadhead?.fields?.length}`);
+      const rf = listAirfields().find(f => f.id !== savedZoneW);
+      if (rf) {
+        await run(`tabletaction deadhead chart ${rf.id}`);
+        check('remote dispatch launches the PARKED base by crew to the chosen field',
+          cLive.row.airborne === 1 && cLive.crew?.mode === 'field' && cLive.crew?.destZone === rf.id, `air=${cLive.row.airborne} mode=${cLive.crew?.mode} dest=${cLive.crew?.destZone}`);
+        delete cLive.crew; cLive.row.airborne = 0; cLive.row.parked_zone_id = savedZoneW;
+      }
+      if (savedAcR) p.aircraftId = savedAcR; else delete p.aircraftId;
+      // Visibility gate: the DEADHEAD Home tile only appears when you have a Leviathan live.
+      const homeIn = await run('tabletnav home');
+      check('DEADHEAD tile shows on the Home screen while a Leviathan is live', (homeIn?.apps || []).some(a => a.id === 'deadhead'), (homeIn?.apps || []).map(a => a.id).join(','));
       p.role = roleC; await setFlag('player', 'air_pilot_licensed', '0', p);
     }
     liveAircraft.delete(cAcId);
@@ -475,6 +514,9 @@ export default async function regress({ run, check, getPlayer }) {
     await query('DELETE FROM aircraft WHERE id=$1', [cAcId]);
   }
   p.current_zone = savedZoneW; delete p.aircraftId; delete p.seat; delete p.cabinWindowOpen;
+  // …and it's gone from Home once you have no Leviathan live in the world.
+  const homeOut = await run('tabletnav home');
+  check('DEADHEAD tile is hidden with no Leviathan in the world', !(homeOut?.apps || []).some(a => a.id === 'deadhead'), (homeOut?.apps || []).map(a => a.id).join(','));
 
   p.posture = savedPosture; p.npcCombatTargetId = savedCombat;
   if (savedAc) p.aircraftId = savedAc; else { delete p.aircraftId; delete p.seat; }
