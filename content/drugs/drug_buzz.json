@@ -22,7 +22,9 @@
     },
     "onset_message": "<span class=\"msg-system\">It catches — a cheap, bright little jolt behind the eyes.</span>"
   },
-  "flags": {},
+  "flags": {
+    "drug_class": "stimulant"
+  },
   "id": "drug_buzz",
   "item_id": "item_drug_buzz",
   "name": "Buzz",

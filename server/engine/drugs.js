@@ -73,6 +73,37 @@ const WD_FLOOR = 0.25;               // the ache never fully leaves until you're
 const ADDICT_LATCH = 0.5;
 const ADDICT_RELEASE = 0.3;
 
+// Polydrug load. Drugs of the same pharmacological class (`flags.drug_class`)
+// depress — or drive — the same system, so they share a ceiling. Booze plus an
+// opioid plus a benzo is the classic real-world death, and without this it was
+// SAFER than three of any one of them, because each overdosed on its own private
+// counter.
+//
+// Every same-class drug contributes its doses as a fraction of ITS OWN ceiling,
+// and you overdose when the total reaches 1. For a lone unclassed drug that
+// reduces to exactly `doses >= threshold` — the old law, untouched — so untagged
+// content behaves precisely as it did before. Half a skinful (4 of alcohol's 8)
+// plus one bag of tar (1 of blacktar's 2) is 1.0, and that is the whole point.
+const CLASS_BURDEN_LIMIT = 1;
+
+// What the player's OTHER same-class drugs are already doing to them; the caller
+// adds the share of the dose being taken. Each row counts against the ceiling of
+// its own drug, tolerance included — a seasoned drinker's beers weigh less.
+function classBurden(rows, excludeKey, drugClass) {
+  if (!drugClass) return 0;
+  let burden = 0;
+  for (const r of rows) {
+    if (r.drug_id === excludeKey) continue;
+    const other = DRUG_CACHE[r.drug_id];
+    if (!other || other.flags?.drug_class !== drugClass) continue;
+    const doses = r.doses_in_system || 0;
+    if (!doses) continue;
+    const ceiling = Math.max(1, Math.round((other.overdose_threshold ?? 3) * (1 + (r.tolerance || 0) * OD_TOLERANCE_BONUS)));
+    burden += doses / ceiling;
+  }
+  return burden;
+}
+
 // Resolve a consumption route to its multipliers. An unknown route, or an
 // accelerated route the drug doesn't support, degrades to neutral.
 function resolveRoute(routeName, drug) {
@@ -190,8 +221,10 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
   const stateKey = opts.stateKey || drugId;
 
   const now = Math.floor(Date.now() / 1000);
-  const { rows } = await query('SELECT * FROM player_drug_state WHERE player_id=$1 AND drug_id=$2', [player.id, stateKey]);
-  const state = rows[0];
+  // The player's WHOLE drug state, not just this drug's row — the polydrug law
+  // needs to see what else is already in them. Same single round trip either way.
+  const { rows } = await query('SELECT * FROM player_drug_state WHERE player_id=$1', [player.id]);
+  const state = rows.find(r => r.drug_id === stateKey);
   const lastUsed = state?.last_used_at || now;
   const elapsed = Math.max(0, now - lastUsed);
 
@@ -216,7 +249,14 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
 
   const dosesInSystem = (state?.doses_in_system || 0) + doseInc;
   const timesUsed = (state?.times_used || 0) + 1;
-  const overdosed = dosesInSystem >= effOdThreshold;
+
+  // Polydrug law: this dose's share of its own ceiling, plus whatever the other
+  // drugs of the same class are already contributing. Unclassed drugs carry no
+  // cross-load, so `burden >= 1` is identical to the old `doses >= threshold`.
+  const drugClass = drug.flags?.drug_class;
+  const crossBurden = classBurden(rows, stateKey, drugClass);
+  const burden = (dosesInSystem / effOdThreshold) + crossBurden;
+  const overdosed = burden >= CLASS_BURDEN_LIMIT;
 
   // Addiction: lazy decay since last use, then accumulate this dose.
   const addRec = wd.addiction_recovery_per_sec ?? (1 / 86400);
@@ -281,6 +321,14 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
     ? `\n<span class="addiction-warning">Something in you just changed. You'll want this again.</span>`
     : '';
 
+  // A death you couldn't see coming is a bug, not difficulty. When the mix is
+  // what did it — this dose alone was survivable — say so, both on the way down
+  // and while there's still time to stop.
+  const mixKilled = crossBurden > 0 && (dosesInSystem / effOdThreshold) < CLASS_BURDEN_LIMIT;
+  const mixLine = crossBurden > 0
+    ? `\n<span class="overdose-warning">It is landing on top of something that pulls the same way.</span>`
+    : '';
+
   // --- Overdose --------------------------------------------------------------
   if (overdosed) {
     // Cancel any active buff + trip for this drug.
@@ -291,9 +339,15 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
     if (player.pendingOnsets) player.pendingOnsets = player.pendingOnsets.filter(o => o.stateKey !== stateKey);
     fireHook('drug.overdose', { player, drug: drugForHooks, broadcast }).catch(e => console.error('[drugs] drug.overdose hook failed:', e.message));
 
+    // Name the mix when the mix is what did it — dying to arithmetic you were
+    // never shown is a bug, not difficulty.
+    const cause = mixKilled
+      ? `\n<span class="overdose-warning">On its own it would have been survivable. On top of what was already in you, it is not.</span>`
+      : '';
+
     if (eff.overdose?.lethal) {
       const odMsg = eff.overdose.message || "You've taken too much. Everything stops.";
-      return { success: true, overdose_death: true, message: `${message}${addictedLine}\n<span class="overdose-warning">⚠ ${odMsg}</span>` };
+      return { success: true, overdose_death: true, message: `${message}${addictedLine}\n<span class="overdose-warning">⚠ ${odMsg}</span>${cause}` };
     }
     // Non-lethal overdose: burst of penalty (legacy behaviour + new overdose.mods).
     const odEffects = eff.overdose?.mods || drug.withdrawal_effects?.overdose || {}; // structured editor (effects.overdose.mods) is canonical; withdrawal_effects.overdose is legacy fallback
@@ -301,10 +355,10 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
     // restores, so replaying the drug's instant block on top would make overdosing
     // on a drugged drink a way to FEED yourself.
     const odInstant = opts.skipInstant ? {} : scaleInstant(instantEff, effPotency);
-    return applyEffects(player, { ...odInstant, ...odEffects, overdose: true }, `${message}${addictedLine}\n<span class="overdose-warning">⚠ You've taken too much, too fast. Your body revolts.</span>`, diuretic);
+    return applyEffects(player, { ...odInstant, ...odEffects, overdose: true }, `${message}${addictedLine}\n<span class="overdose-warning">⚠ You've taken too much, too fast. Your body revolts.</span>${cause}`, diuretic);
   }
 
-  message += addictedLine;
+  message += addictedLine + mixLine;
 
   // --- Instant block ---------------------------------------------------------
   // effPotency, not intensityMult: tolerance has to blunt the one-shot hit as well
@@ -655,7 +709,7 @@ export async function tickDrugDecayAll(playerIds) {
 // Pure-law surface for the regression harness (the `_test` convention used by
 // plugins/consume). Exported for assertions only — nothing in the game reads this.
 export const _test = {
-  resolveRoute, withdrawalSeverity, scaleMods,
+  resolveRoute, withdrawalSeverity, scaleMods, classBurden, CLASS_BURDEN_LIMIT,
   ROUTES, ADDICT_LATCH, ADDICT_RELEASE, OD_TOLERANCE_BONUS, DOSE_CLEARANCE_FRACTION,
   odCeiling: (base, tolerance) => Math.max(1, Math.round(base * (1 + tolerance * OD_TOLERANCE_BONUS))),
   clearanceStep: (doses) => Math.max(0, doses - Math.ceil(doses * DOSE_CLEARANCE_FRACTION)),

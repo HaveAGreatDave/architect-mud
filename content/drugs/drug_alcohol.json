@@ -18,7 +18,8 @@
   "flags": {
     "alcoholic": true,
     "intox_per_dose": 22,
-    "legal": true
+    "legal": true,
+    "drug_class": "depressant"
   },
   "id": "drug_alcohol",
   "item_id": "item_drug_beer",

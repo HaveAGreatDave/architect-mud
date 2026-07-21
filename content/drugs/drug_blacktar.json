@@ -46,7 +46,8 @@
     "onset_message": "<span class=\"msg-system\">It arrives all at once, warm and enormous, and the waiting stops mattering.</span>"
   },
   "flags": {
-    "injectable": true
+    "injectable": true,
+    "drug_class": "depressant"
   },
   "id": "drug_blacktar",
   "item_id": "item_blacktar",

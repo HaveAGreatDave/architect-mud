@@ -47,7 +47,9 @@
     },
     "onset_message": "<span class=\"msg-system\">The edges come off everything. Whatever was urgent can wait.</span>"
   },
-  "flags": {},
+  "flags": {
+    "drug_class": "depressant"
+  },
   "id": "drug_slow",
   "item_id": "item_drug_slow",
   "name": "Slow",

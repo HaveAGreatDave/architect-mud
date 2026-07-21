@@ -27,6 +27,33 @@ export default async function regress({ run, check }) {
   check('withdrawal is described in escalating, distinct terms', new Set(bites).size === 4, bites.join(' | '));
   check('peak severity reads as the worst of it', /worst/i.test(F.bite(1)), F.bite(1));
 
+  // --- polydrug: same-class drugs share one ceiling --------------------------
+  // Each drug counts its doses as a fraction of ITS OWN ceiling; you overdose when
+  // the total reaches 1. A lone unclassed drug therefore behaves exactly as before.
+  const CEIL = { alcohol: 8, blacktar: 2, lull: 3, grey: 3 };
+  const share = (n, ceil) => n / ceil;
+  check('a lone drug at its ceiling is still an overdose (old law intact)',
+    share(2, CEIL.blacktar) >= 1);
+  check('a lone drug under its ceiling is still safe',
+    share(1, CEIL.blacktar) < 1);
+  check('half a skinful plus one bag of tar reaches the limit',
+    share(4, CEIL.alcohol) + share(1, CEIL.blacktar) >= 1);
+  check('two drinks plus one bag of tar does NOT',
+    share(2, CEIL.alcohol) + share(1, CEIL.blacktar) < 1);
+  check('booze + benzo + morphine stacks to the limit',
+    share(4, CEIL.alcohol) + share(1, CEIL.lull) + share(1, CEIL.grey) >= 1);
+  check('an unclassed drug contributes nothing to anyone', T.classBurden(
+    [{ drug_id: 'drug_psilocybin', doses_in_system: 5, tolerance: 0 }], 'x', 'depressant') === 0);
+  check('a different class does not cross-load',
+    T.classBurden([{ drug_id: 'drug_alcohol', doses_in_system: 6, tolerance: 0 }], 'x', 'stimulant') === 0);
+  check('the same class does cross-load',
+    T.classBurden([{ drug_id: 'drug_alcohol', doses_in_system: 4, tolerance: 0 }], 'x', 'depressant') === 0.5);
+  check('the drug being taken is excluded from its own cross-load',
+    T.classBurden([{ drug_id: 'drug_alcohol', doses_in_system: 4, tolerance: 0 }], 'drug_alcohol', 'depressant') === 0);
+  check('tolerance in the other drug lightens its contribution',
+    T.classBurden([{ drug_id: 'drug_alcohol', doses_in_system: 4, tolerance: 1 }], 'x', 'depressant')
+      < T.classBurden([{ drug_id: 'drug_alcohol', doses_in_system: 4, tolerance: 0 }], 'x', 'depressant'));
+
   // --- verb routing --------------------------------------------------------
   // `inject` must resolve as its own route, not collapse back into `use`.
   let r = await run('inject nothingxyz');

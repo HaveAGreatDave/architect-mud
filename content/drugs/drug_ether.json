@@ -43,7 +43,9 @@
     "comeon_message": "<span class=\"msg-system\">You put the rag over your face and breathe in. The smell is the whole world for a second.</span>",
     "onset_message": "<span class=\"msg-system\">The floor tilts politely away and the lights go soft at the edges.</span>"
   },
-  "flags": {},
+  "flags": {
+    "drug_class": "depressant"
+  },
   "id": "drug_ether",
   "item_id": "item_ether",
   "name": "Ether",

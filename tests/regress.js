@@ -32,6 +32,7 @@ import { tickOnsets } from '../server/engine/drugs.js';
 import { getSelectionState, clearSelectionState } from '../server/engine/sift.js';
 import { loadPlugins, getLoadedPlugins, getRegisteredCommands, getRegisteredHooks } from '../server/engine/plugins.js';
 import { loadItems } from '../server/engine/items-cache.js';
+import { loadDrugs } from '../server/engine/drugs.js';
 import { loadMisSettings } from '../server/engine/mis.js';
 import { handleCommand } from '../server/engine/commands/index.js';
 import { getRegisteredMoveGates } from '../server/engine/movement-gates.js';
@@ -59,6 +60,11 @@ const broadcast = (zoneId, payload, exclude, toPlayer) => { sent.push({ zoneId, 
 console.log('— regression: booting world + plugins (no server) —');
 await initWorld();
 await loadItems();
+// The drug cache is boot state in production (server/index.js loads it), and
+// anything that resolves a drug reads it. Without it DRUG_CACHE is {}, so every
+// drug-touching assertion in the suite silently degrades — a check expecting
+// "no cross-load" passes because the cache is empty, not because the law works.
+await loadDrugs();
 await loadMisSettings();
 await loadPlugins();
 

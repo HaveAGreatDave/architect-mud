@@ -43,7 +43,8 @@
     "onset_message": "<span class=\"msg-system\">Your lace comes up to temperature. Thoughts arrive already finished.</span>"
   },
   "flags": {
-    "injectable": true
+    "injectable": true,
+    "drug_class": "stimulant"
   },
   "id": "drug_overclock",
   "item_id": "item_overclock",

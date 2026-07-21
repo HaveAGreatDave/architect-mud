@@ -47,7 +47,8 @@
     "onset_message": "<span class=\"msg-system\">Your heart finds the new gear and stays there.</span>"
   },
   "flags": {
-    "injectable": true
+    "injectable": true,
+    "drug_class": "stimulant"
   },
   "id": "drug_redline",
   "item_id": "item_redline",

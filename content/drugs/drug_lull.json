@@ -38,7 +38,9 @@
       "onset_seconds": 900
     }
   },
-  "flags": {},
+  "flags": {
+    "drug_class": "depressant"
+  },
   "id": "drug_lull",
   "item_id": "item_lull",
   "name": "Lull",

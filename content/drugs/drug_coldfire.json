@@ -44,7 +44,8 @@
     "onset_message": "<span class=\"msg-system\">The fear goes out like a snuffed match. What is left is very calm and very willing.</span>"
   },
   "flags": {
-    "injectable": true
+    "injectable": true,
+    "drug_class": "stimulant"
   },
   "id": "drug_coldfire",
   "item_id": "item_coldfire",

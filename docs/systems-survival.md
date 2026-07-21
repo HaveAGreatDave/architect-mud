@@ -125,6 +125,19 @@ for pre-existing drugs). Per-drug state lives in `player_drug_state` (`doses_in_
   while still addicted. Per-drug overrides ride the `withdrawal` block. `player._withdrawalActive` is a
   **Map** of `drugId → applied-mod signature` so an unchanged severity doesn't churn the ledger through a
   reverse-and-reapply every minute.
+- **Polydrug load** (`flags.drug_class`) — drugs of the same class share one ceiling, because they
+  depress (or drive) the same system. Every same-class drug contributes its `doses_in_system` as a
+  **fraction of its own tolerance-scaled ceiling**, and you overdose when the total reaches 1. For a
+  lone unclassed drug that reduces to exactly `doses >= threshold` — the old law — so **untagged content
+  behaves precisely as before**. Worked example: 4 drinks (4/8) plus one bag of tar (1/2) is 1.0 and
+  kills, where either alone is survivable. Two classes are tagged, and only two, because only these kill
+  by additive load: **`depressant`** (alcohol, blacktar, grey, lull, slow, ether) and **`stimulant`**
+  (redline, coldfire, buzz, overclock). Psychedelics/dissociatives are deliberately unclassed — dangerous
+  in other ways, but they don't stop your breathing by stacking — as are coffee and cigarettes, which a
+  new player consumes constantly without meaning to take a risk. Spliced compounds carry no class (their
+  carrier row has none), so they don't stack. When the mix is what killed you — the dose alone was
+  survivable — the death message says so, and a survivable mix warns you on the way in; a death you
+  couldn't see coming is a bug, not difficulty.
 - **`habits` (the read-out)** — the whole model above is server-side and was otherwise invisible: a
   player could only infer tolerance, dependency and the withdrawal arc from stats moving for no stated
   reason. `habits` (drugs plugin) lists every substance you have a history with — decayed tolerance,

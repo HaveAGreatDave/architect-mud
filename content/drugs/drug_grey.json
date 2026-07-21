@@ -41,7 +41,9 @@
       "onset_seconds": 600
     }
   },
-  "flags": {},
+  "flags": {
+    "drug_class": "depressant"
+  },
   "id": "drug_grey",
   "item_id": "item_grey",
   "name": "Grey",
