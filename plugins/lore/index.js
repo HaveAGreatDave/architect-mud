@@ -25,11 +25,14 @@
  * any other world content — the plugin owns only the when, never the prose.
  */
 import { on } from '../../server/engine/events.js';
-import { getZone } from '../../server/engine/world.js';
+import { getZone, resolveLanding } from '../../server/engine/world.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
+import { findPath } from '../../server/engine/pathfinding.js';
+import { sendToPlayer } from '../../server/engine/messaging.js';
 import { query } from '../../server/models/db.js';
 
 const seenKey = (zoneId) => `lore_seen:${zoneId}`;
+const gpsSuggestKey = (zoneId) => `gps_suggest_seen:${zoneId}`;
 const STAFF = new Set(['admin', 'dev', 'builder', 'designer']);
 
 const loreFor = (zone) => {
@@ -60,6 +63,44 @@ function onZoneEntered({ actor, from }) {
 }
 
 on('zone.entered', onZoneEntered);
+
+// First-visit GPS SUGGESTION (content-driven, same "when" ownership as the lore above).
+// A zone can carry `flags.gps_suggest` = a destination zone id; the FIRST time a player
+// enters that zone we plot a one-off route to it and drop a short hint line, then stamp a
+// per-player seen-marker so it never nags again. This is the pre-quest nudge that steers a
+// fresh clone toward the NPC who hands out their first job (Grady at Two-Cell Supply) —
+// prose alone said "start there", this actually draws the green line. `flags.gps_suggest_label`
+// overrides the hint text. Fires on ARRIVAL (the entered `zone`), unlike the lore's seen-stamp
+// which keys on the zone left; the two are independent markers.
+async function onGpsSuggest({ actor, zone }) {
+  if (!actor || !zone) return;
+  const here = getZone(zone);
+  const dest = here?.flags?.gps_suggest;
+  if (!dest) return;
+  if (await getFlag('player', gpsSuggestKey(zone), actor)) return;      // suggested once already
+  const destZone = getZone(dest);
+  if (!destZone) return;
+  // Route to the building's INTERIOR entry (resolveLanding) so a facade destination "arrives"
+  // instead of stranding the walker one tile short — same fix plotRoute uses.
+  const targetId = resolveLanding(dest);
+  await setFlag('player', gpsSuggestKey(zone), 'true', actor).catch(() => {});   // once, arrival or not
+  if (targetId === actor.current_zone) return;
+  let path = findPath(actor.current_zone, targetId, { roads: true, maxDistance: 200 });
+  if (!path || path.length < 2) path = findPath(actor.current_zone, targetId, { roads: false, maxDistance: 300 });
+  if (!path || path.length < 2) return;
+  const hops = path.length - 1;
+  const label = here.flags.gps_suggest_label || `${destZone.name} — worth a look.`;
+  sendToPlayer(actor.id, {
+    type: 'gps_route',
+    message: `<span class="msg-system">📍 ${label} (${hops} stop${hops === 1 ? '' : 's'} away — hit AUTO to follow the line.)</span>`,
+    path,
+    // A hint, not a hijack: draw the line but don't arm auto-walk or prompt for it.
+    resumeAuto: false,
+    continueOnArrival: false,
+  });
+}
+
+on('zone.entered', onGpsSuggest);
 
 // `lorereset [handle]` (staff only) — clear a player's `lore_seen:*` markers so the
 // shimmering intros play again. Self, or another player by handle (online or not).
@@ -97,6 +138,6 @@ export const commands = {
   resetlore: (args, _raw, player) => cmdLoreReset(args.join(' '), player),
 };
 
-export const _test = { introLore, onZoneEntered, cmdLoreReset, loreFor, seenKey };
+export const _test = { introLore, onZoneEntered, onGpsSuggest, cmdLoreReset, loreFor, seenKey, gpsSuggestKey };
 
 console.log('[lore] Plugin loaded.');

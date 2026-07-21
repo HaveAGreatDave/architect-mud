@@ -1,6 +1,7 @@
 // Lore plugin regression suite — run by tests/regress.js (never loaded in production).
 import { _test } from './index.js';
-import { setFlag, clearFlag } from '../../server/engine/flags.js';
+import { setFlag, clearFlag, getFlag } from '../../server/engine/flags.js';
+import { getZone } from '../../server/engine/world.js';
 
 export default async function regress({ run, check, getPlayer }) {
   const player = getPlayer();
@@ -53,6 +54,29 @@ export default async function regress({ run, check, getPlayer }) {
   r = await run('lorereset nobody_xyz');
   check('lorereset rejects unknown handle', /No player named/.test(r?.message || ''), r?.message);
   player.role = prevRole;
+
+  // ── First-visit GPS suggestion (flags.gps_suggest) ──────────────────────────
+  // Guards: no throw with missing args, and a no-op for an unknown / flagless zone.
+  let threw = false;
+  try { await _test.onGpsSuggest({ actor: player, zone: undefined }); await _test.onGpsSuggest({ actor: null, zone: 'x' }); } catch { threw = true; }
+  check('gps-suggest guards missing args', !threw, 'threw on missing args');
+  threw = false;
+  try { await _test.onGpsSuggest({ actor: player, zone: 'zone_does_not_exist_xyz' }); } catch { threw = true; }
+  check('gps-suggest no-op on unknown zone', !threw, 'threw on unknown zone');
+
+  // Positive/once-only path, only when the seeded trigger tile is loaded in this world.
+  const trigger = getZone('zone_district_919_903');
+  if (trigger?.flags?.gps_suggest) {
+    await clearFlag('player', _test.gpsSuggestKey(trigger.id), player);
+    await _test.onGpsSuggest({ actor: player, zone: trigger.id });
+    const stamped = await getFlag('player', _test.gpsSuggestKey(trigger.id), player);
+    check('gps-suggest fires once and stamps a seen marker', !!stamped, String(stamped));
+    // Second entry is gated — the marker suppresses a repeat (we just confirm no throw).
+    threw = false;
+    try { await _test.onGpsSuggest({ actor: player, zone: trigger.id }); } catch { threw = true; }
+    check('gps-suggest does not re-fire once seen', !threw, 'threw on second entry');
+    await clearFlag('player', _test.gpsSuggestKey(trigger.id), player);
+  }
 
   // Tidy up so re-runs start clean.
   await clearFlag('player', _test.seenKey(zone.id), player);

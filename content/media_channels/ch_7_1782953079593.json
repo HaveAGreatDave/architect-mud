@@ -7,7 +7,7 @@
   "idle_broadcast_id": null,
   "loop_playlist": 1,
   "name": "KSAB-TV",
-  "news_categories": [],
+  "news_categories": ["murder"],
   "number": 7,
   "offline_graphic_id": "graphic_1782712334278",
   "priority": 0,

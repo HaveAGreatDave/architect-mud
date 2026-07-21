@@ -1,502 +1,459 @@
 {
   "broadcast_graph": {
-    "_start": "bsm_0",
+    "_start": "qh_start",
     "nodes": {
-      "bsm_0": {
-        "_vine": {
-          "x": 80,
-          "y": 80
-        },
-        "next": "bsm_1",
+      "qh_start": {
+        "_vine": { "x": 80, "y": 80 },
+        "next": "qh_fadein",
         "type": "start"
       },
-      "bsm_1": {
-        "_vine": {
-          "x": 300,
-          "y": 80
-        },
+      "qh_fadein": {
+        "_vine": { "x": 300, "y": 80 },
         "event_type": "FADE_IN",
-        "next": "bsm_2",
+        "next": "qh_card1",
         "type": "event"
       },
-      "bsm_10": {
-        "_vine": {
-          "x": 80,
-          "y": 400
-        },
-        "next": "bsm_11",
-        "style": "narration",
-        "text": "If you are awake because you are working, we hope the shift is a short one.",
-        "type": "say"
-      },
-      "bsm_11": {
-        "_vine": {
-          "x": 300,
-          "y": 400
-        },
-        "next": "bsm_12",
-        "style": "narration",
-        "text": "If you are awake because you cannot sleep, try this with us.",
-        "type": "say"
-      },
-      "bsm_12": {
-        "_vine": {
-          "x": 520,
-          "y": 400
-        },
-        "duration": 2,
-        "next": "bsm_13",
-        "type": "wait"
-      },
-      "bsm_13": {
-        "_vine": {
-          "x": 740,
-          "y": 400
-        },
-        "next": "bsm_14",
-        "style": "narration",
-        "text": "Breathe in for four.",
-        "type": "say"
-      },
-      "bsm_14": {
-        "_vine": {
-          "x": 960,
-          "y": 400
-        },
-        "duration": 4,
-        "next": "bsm_15",
-        "type": "wait"
-      },
-      "bsm_15": {
-        "_vine": {
-          "x": 80,
-          "y": 560
-        },
-        "next": "bsm_16",
-        "style": "narration",
-        "text": "Hold for four.",
-        "type": "say"
-      },
-      "bsm_16": {
-        "_vine": {
-          "x": 300,
-          "y": 560
-        },
-        "duration": 4,
-        "next": "bsm_17",
-        "type": "wait"
-      },
-      "bsm_17": {
-        "_vine": {
-          "x": 520,
-          "y": 560
-        },
-        "next": "bsm_18",
-        "style": "narration",
-        "text": "Out for six.",
-        "type": "say"
-      },
-      "bsm_18": {
-        "_vine": {
-          "x": 740,
-          "y": 560
-        },
-        "duration": 6,
-        "next": "bsm_19",
-        "type": "wait"
-      },
-      "bsm_19": {
-        "_vine": {
-          "x": 960,
-          "y": 560
-        },
-        "next": "bsm_20",
-        "style": "narration",
-        "text": "Better. Your heart rate came down two points.",
-        "type": "say"
-      },
-      "bsm_2": {
-        "_vine": {
-          "x": 520,
-          "y": 80
-        },
+      "qh_card1": {
+        "_vine": { "x": 520, "y": 80 },
         "graphic_id": "quiet_hour_testcard",
-        "next": "bsm_3",
+        "next": "qh_tone1",
         "type": "title_card"
       },
-      "bsm_20": {
-        "_vine": {
-          "x": 80,
-          "y": 720
-        },
-        "duration": 3,
-        "next": "bsm_21",
-        "type": "wait"
-      },
-      "bsm_21": {
-        "_vine": {
-          "x": 300,
-          "y": 720
-        },
-        "next": "bsm_22",
-        "style": "narration",
-        "text": "We can see that from here.",
-        "type": "say"
-      },
-      "bsm_22": {
-        "_vine": {
-          "x": 520,
-          "y": 720
-        },
-        "graphic_id": "quiet_hour_count",
-        "next": "bsm_23",
-        "type": "title_card"
-      },
-      "bsm_23": {
-        "_vine": {
-          "x": 740,
-          "y": 720
-        },
-        "next": "bsm_24",
-        "style": "narration",
-        "text": "The number on screen ticks downward as the hour goes on. It does not tick up.",
-        "type": "say"
-      },
-      "bsm_24": {
-        "_vine": {
-          "x": 960,
-          "y": 720
-        },
-        "next": "bsm_25",
-        "style": "narration",
-        "text": "One thousand four hundred and twelve people are watching this with you.",
-        "type": "say"
-      },
-      "bsm_25": {
-        "_vine": {
-          "x": 80,
-          "y": 880
-        },
-        "duration": 2,
-        "next": "bsm_26",
-        "type": "wait"
-      },
-      "bsm_26": {
-        "_vine": {
-          "x": 300,
-          "y": 880
-        },
-        "next": "bsm_27",
-        "style": "narration",
-        "text": "Four hundred of them are in the vats and do not know they are watching.",
-        "type": "say"
-      },
-      "bsm_27": {
-        "_vine": {
-          "x": 520,
-          "y": 880
-        },
-        "duration": 2,
-        "next": "bsm_28",
-        "type": "wait"
-      },
-      "bsm_28": {
-        "_vine": {
-          "x": 740,
-          "y": 880
-        },
-        "next": "bsm_29",
-        "style": "narration",
-        "text": "Eleven of them will not be watching by four o'clock. We are not going to tell you which eleven. That would spoil the hour.",
-        "type": "say"
-      },
-      "bsm_29": {
-        "_vine": {
-          "x": 960,
-          "y": 880
-        },
-        "duration": 3,
-        "next": "bsm_30",
-        "type": "wait"
-      },
-      "bsm_3": {
-        "_vine": {
-          "x": 740,
-          "y": 80
-        },
-        "next": "bsm_4",
+      "qh_tone1": {
+        "_vine": { "x": 740, "y": 80 },
+        "next": "qh_daycheck",
         "song": "quiet_hour_tone",
         "text": "♪ A single sustained tone, low and warm, the kind you stop hearing after a while and then notice you have stopped hearing. ♪",
         "type": "music"
       },
-      "bsm_30": {
-        "_vine": {
-          "x": 80,
-          "y": 1040
-        },
-        "next": "bsm_31",
+
+      "qh_daycheck": {
+        "_vine": { "x": 960, "y": 80 },
+        "condition_type": "IS_DAYTIME",
+        "ifTrue": "qh_open_day",
+        "ifFalse": "qh_hourcheck",
+        "type": "condition"
+      },
+      "qh_open_day": {
+        "_vine": { "x": 80, "y": 220 },
+        "next": "qh_open_day2",
         "style": "narration",
-        "text": "You are not one of the eleven. You can relax.",
+        "text": "The clock in the corner of the picture disagrees with the hour. It says the sun is up.",
         "type": "say"
       },
-      "bsm_31": {
-        "_vine": {
-          "x": 300,
-          "y": 1040
-        },
-        "duration": 2,
-        "next": "bsm_32",
-        "type": "wait"
-      },
-      "bsm_32": {
-        "_vine": {
-          "x": 520,
-          "y": 1040
-        },
-        "next": "bsm_33",
+      "qh_open_day2": {
+        "_vine": { "x": 300, "y": 220 },
+        "next": "qh_open_join",
         "style": "narration",
-        "text": "We checked.",
+        "text": "We have checked it against three others. It is the Quiet Hour regardless. Please draw whatever you have that closes.",
         "type": "say"
       },
-      "bsm_33": {
-        "_vine": {
-          "x": 740,
-          "y": 1040
-        },
-        "duration": 10,
-        "next": "bsm_34",
-        "type": "tech_difficulties"
+      "qh_hourcheck": {
+        "_vine": { "x": 520, "y": 220 },
+        "condition_type": "HOUR_RANGE",
+        "params": { "from": 2, "to": 3 },
+        "ifTrue": "qh_open_deep",
+        "ifFalse": "qh_open_shoulder",
+        "type": "condition"
       },
-      "bsm_34": {
-        "_vine": {
-          "x": 960,
-          "y": 1040
-        },
-        "next": "bsm_35",
-        "style": "narration",
-        "text": "The signal drops. Static, seven seconds of it, and underneath the static something that is almost the tone from earlier, slowed down.",
-        "type": "say"
-      },
-      "bsm_35": {
-        "_vine": {
-          "x": 80,
-          "y": 1200
-        },
-        "graphic_id": "quiet_hour_testcard",
-        "next": "bsm_36",
-        "type": "title_card"
-      },
-      "bsm_36": {
-        "_vine": {
-          "x": 300,
-          "y": 1200
-        },
-        "next": "bsm_37",
-        "style": "narration",
-        "text": "Apologies. That was not us.",
-        "type": "say"
-      },
-      "bsm_37": {
-        "_vine": {
-          "x": 520,
-          "y": 1200
-        },
-        "duration": 2,
-        "next": "bsm_38",
-        "type": "wait"
-      },
-      "bsm_38": {
-        "_vine": {
-          "x": 740,
-          "y": 1200
-        },
-        "next": "bsm_39",
-        "style": "narration",
-        "text": "Where were we.",
-        "type": "say"
-      },
-      "bsm_39": {
-        "_vine": {
-          "x": 960,
-          "y": 1200
-        },
-        "next": "bsm_40",
-        "style": "narration",
-        "text": "Some of you write in and ask who makes this programme.",
-        "type": "say"
-      },
-      "bsm_4": {
-        "_vine": {
-          "x": 960,
-          "y": 80
-        },
-        "duration": 4,
-        "next": "bsm_5",
-        "type": "wait"
-      },
-      "bsm_40": {
-        "_vine": {
-          "x": 80,
-          "y": 1360
-        },
-        "duration": 2,
-        "next": "bsm_41",
-        "type": "wait"
-      },
-      "bsm_41": {
-        "_vine": {
-          "x": 300,
-          "y": 1360
-        },
-        "next": "bsm_42",
-        "style": "narration",
-        "text": "It is made for you. It is made every night. It has been made every night for a very long time, and it will be made tomorrow, whether or not you are here to receive it.",
-        "type": "say"
-      },
-      "bsm_42": {
-        "_vine": {
-          "x": 520,
-          "y": 1360
-        },
-        "duration": 3,
-        "next": "bsm_43",
-        "type": "wait"
-      },
-      "bsm_43": {
-        "_vine": {
-          "x": 740,
-          "y": 1360
-        },
-        "next": "bsm_44",
-        "style": "narration",
-        "text": "That is not a threat. It is a schedule.",
-        "type": "say"
-      },
-      "bsm_44": {
-        "_vine": {
-          "x": 960,
-          "y": 1360
-        },
-        "label": "CAM — 1 — WIDE testcard",
-        "next": "bsm_45",
-        "type": "camera_cut",
-        "zone_id": ""
-      },
-      "bsm_45": {
-        "_vine": {
-          "x": 80,
-          "y": 1520
-        },
-        "next": "bsm_46",
-        "style": "narration",
-        "text": "The Quiet Hour will continue until the morning service begins at four.",
-        "type": "say"
-      },
-      "bsm_46": {
-        "_vine": {
-          "x": 300,
-          "y": 1520
-        },
-        "next": "bsm_47",
-        "style": "narration",
-        "text": "Until then: stay in. Stay warm. Stay still.",
-        "type": "say"
-      },
-      "bsm_47": {
-        "_vine": {
-          "x": 520,
-          "y": 1520
-        },
-        "duration": 2,
-        "next": "bsm_48",
-        "type": "wait"
-      },
-      "bsm_48": {
-        "_vine": {
-          "x": 740,
-          "y": 1520
-        },
-        "next": "bsm_49",
-        "style": "narration",
-        "text": "We like it when you are still.",
-        "type": "say"
-      },
-      "bsm_49": {
-        "_vine": {
-          "x": 960,
-          "y": 1520
-        },
-        "next": "bsm_50",
-        "text": "THE QUIET HOUR · Overnight service · This broadcast contains no advertising and requires no subscription · Viewing figures are collected passively and are not stored, except where they are · Persons experiencing distress should remain seated until it passes · The morning service begins at 04:00 · Thank you for watching · Thank you for watching · Thank you for watching",
-        "type": "ticker"
-      },
-      "bsm_5": {
-        "_vine": {
-          "x": 80,
-          "y": 240
-        },
-        "next": "bsm_6",
+      "qh_open_deep": {
+        "_vine": { "x": 740, "y": 220 },
+        "next": "qh_open_join",
         "style": "narration",
         "text": "It is two o'clock in the morning in Coldwater Basin.",
         "type": "say"
       },
-      "bsm_50": {
-        "_vine": {
-          "x": 80,
-          "y": 1680
-        },
-        "next": "bsm_51",
-        "song": "quiet_hour_tone",
-        "text": "♪ The tone resumes. It does not resolve. It simply continues, at exactly the volume it was before. ♪",
-        "type": "music"
+      "qh_open_shoulder": {
+        "_vine": { "x": 960, "y": 220 },
+        "next": "qh_open_join",
+        "style": "narration",
+        "text": "It is late in Coldwater Basin, though not as late as it gets. The exact hour is not important. You are still up; that is the only fact that concerns us.",
+        "type": "say"
       },
-      "bsm_51": {
-        "_vine": {
-          "x": 300,
-          "y": 1680
-        },
-        "duration": 8,
-        "text": "THE QUIET HOUR\nNo presenter. No audience participation. No repeats.\nBroadcast nightly since before the record begins.",
-        "type": "credits"
-      },
-      "bsm_6": {
-        "_vine": {
-          "x": 300,
-          "y": 240
-        },
-        "duration": 2,
-        "next": "bsm_7",
-        "type": "wait"
-      },
-      "bsm_7": {
-        "_vine": {
-          "x": 520,
-          "y": 240
-        },
-        "next": "bsm_8",
+
+      "qh_open_join": {
+        "_vine": { "x": 80, "y": 360 },
+        "next": "qh_wait_a",
         "style": "narration",
         "text": "There is nothing on. That is what this is for.",
         "type": "say"
       },
-      "bsm_8": {
-        "_vine": {
-          "x": 740,
-          "y": 240
-        },
+      "qh_wait_a": {
+        "_vine": { "x": 300, "y": 360 },
+        "duration": 2,
+        "next": "qh_cam1",
+        "type": "wait"
+      },
+      "qh_cam1": {
+        "_vine": { "x": 520, "y": 360 },
         "label": "CAM — 1 — WIDE testcard",
-        "next": "bsm_9",
+        "next": "qh_open_line2",
         "type": "camera_cut",
         "zone_id": ""
       },
-      "bsm_9": {
-        "_vine": {
-          "x": 960,
-          "y": 240
-        },
-        "next": "bsm_10",
+      "qh_open_line2": {
+        "_vine": { "x": 740, "y": 360 },
+        "next": "qh_viewer_check",
         "style": "narration",
         "text": "The test card holds. In the lower right corner, a small counter increments by one, then by three, then settles.",
         "type": "say"
+      },
+
+      "qh_viewer_check": {
+        "_vine": { "x": 960, "y": 360 },
+        "condition_type": "VIEWERS_PRESENT",
+        "ifTrue": "qh_watch_yes",
+        "ifFalse": "qh_watch_no",
+        "type": "condition"
+      },
+      "qh_watch_yes": {
+        "_vine": { "x": 80, "y": 500 },
+        "next": "qh_watch_yes2",
+        "style": "narration",
+        "text": "Someone is watching right now. The set is warm; we can tell that much from here.",
+        "type": "say"
+      },
+      "qh_watch_yes2": {
+        "_vine": { "x": 300, "y": 500 },
+        "next": "qh_reason",
+        "style": "narration",
+        "text": "Hello. We are glad it is you.",
+        "type": "say"
+      },
+      "qh_watch_no": {
+        "_vine": { "x": 520, "y": 500 },
+        "next": "qh_reason",
+        "style": "narration",
+        "text": "No one is watching tonight. The signal goes out anyway. It would be rude to stop just because the room is empty.",
+        "type": "say"
+      },
+      "qh_reason": {
+        "_vine": { "x": 740, "y": 500 },
+        "next": "qh_reason2",
+        "style": "narration",
+        "text": "If you are awake because you are working, we hope the shift is a short one.",
+        "type": "say"
+      },
+      "qh_reason2": {
+        "_vine": { "x": 960, "y": 500 },
+        "next": "qh_wait_b",
+        "style": "narration",
+        "text": "If you are awake because you cannot sleep, try this with us.",
+        "type": "say"
+      },
+
+      "qh_wait_b": {
+        "_vine": { "x": 80, "y": 640 },
+        "duration": 2,
+        "next": "qh_br1",
+        "type": "wait"
+      },
+      "qh_br1": {
+        "_vine": { "x": 300, "y": 640 },
+        "next": "qh_wbr1",
+        "style": "narration",
+        "text": "Breathe in for four.",
+        "type": "say"
+      },
+      "qh_wbr1": {
+        "_vine": { "x": 520, "y": 640 },
+        "duration": 4,
+        "next": "qh_br2",
+        "type": "wait"
+      },
+      "qh_br2": {
+        "_vine": { "x": 740, "y": 640 },
+        "next": "qh_wbr2",
+        "style": "narration",
+        "text": "Hold for four.",
+        "type": "say"
+      },
+      "qh_wbr2": {
+        "_vine": { "x": 960, "y": 640 },
+        "duration": 4,
+        "next": "qh_br3",
+        "type": "wait"
+      },
+      "qh_br3": {
+        "_vine": { "x": 80, "y": 780 },
+        "next": "qh_wbr3",
+        "style": "narration",
+        "text": "Out for six.",
+        "type": "say"
+      },
+      "qh_wbr3": {
+        "_vine": { "x": 300, "y": 780 },
+        "duration": 6,
+        "next": "qh_br_better",
+        "type": "wait"
+      },
+      "qh_br_better": {
+        "_vine": { "x": 520, "y": 780 },
+        "next": "qh_wbr4",
+        "style": "narration",
+        "text": "Better. Your heart rate came down two points.",
+        "type": "say"
+      },
+      "qh_wbr4": {
+        "_vine": { "x": 740, "y": 780 },
+        "duration": 3,
+        "next": "qh_br_see",
+        "type": "wait"
+      },
+      "qh_br_see": {
+        "_vine": { "x": 960, "y": 780 },
+        "next": "qh_card2",
+        "style": "narration",
+        "text": "We can see that from here.",
+        "type": "say"
+      },
+
+      "qh_card2": {
+        "_vine": { "x": 80, "y": 920 },
+        "graphic_id": "quiet_hour_count",
+        "next": "qh_count_line",
+        "type": "title_card"
+      },
+      "qh_count_line": {
+        "_vine": { "x": 300, "y": 920 },
+        "next": "qh_count_random",
+        "style": "narration",
+        "text": "The number on screen ticks downward as the hour goes on. It does not tick up.",
+        "type": "say"
+      },
+      "qh_count_random": {
+        "_vine": { "x": 520, "y": 920 },
+        "type": "random",
+        "branches": [{ "weight": 2 }, { "weight": 2 }, { "weight": 1 }],
+        "branch_0": "qh_count_a",
+        "branch_1": "qh_count_b",
+        "branch_2": "qh_count_c"
+      },
+      "qh_count_a": {
+        "_vine": { "x": 740, "y": 920 },
+        "next": "qh_vats",
+        "style": "narration",
+        "text": "One thousand four hundred and twelve people are watching this with you.",
+        "type": "say"
+      },
+      "qh_count_b": {
+        "_vine": { "x": 960, "y": 920 },
+        "next": "qh_vats",
+        "style": "narration",
+        "text": "Two thousand and nine people are watching this with you. It was more, an hour ago. It is always more, an hour ago.",
+        "type": "say"
+      },
+      "qh_count_c": {
+        "_vine": { "x": 80, "y": 1060 },
+        "next": "qh_vats",
+        "style": "narration",
+        "text": "We are not going to give you the number tonight. It upset some of you last time. You counted yourselves in it.",
+        "type": "say"
+      },
+      "qh_vats": {
+        "_vine": { "x": 300, "y": 1060 },
+        "next": "qh_wait_c",
+        "style": "narration",
+        "text": "Four hundred of them are in the vats and do not know they are watching.",
+        "type": "say"
+      },
+      "qh_wait_c": {
+        "_vine": { "x": 520, "y": 1060 },
+        "duration": 2,
+        "next": "qh_eleven_check",
+        "type": "wait"
+      },
+
+      "qh_eleven_check": {
+        "_vine": { "x": 740, "y": 1060 },
+        "condition_type": "NEWS_AVAILABLE",
+        "params": { "category": "murder" },
+        "ifTrue": "qh_eleven_real",
+        "ifFalse": "qh_eleven_classic",
+        "type": "condition"
+      },
+      "qh_eleven_real": {
+        "_vine": { "x": 960, "y": 1060 },
+        "next": "qh_eleven_real2",
+        "style": "narration",
+        "text": "One of the eleven has already gone. It happened tonight, out in the Basin, while you were breathing with us. We did not interrupt to say so. You were doing so well.",
+        "type": "say"
+      },
+      "qh_eleven_real2": {
+        "_vine": { "x": 80, "y": 1200 },
+        "next": "qh_relax",
+        "style": "narration",
+        "text": "We are not going to tell you who. You would only look for yourself in it. That leaves ten.",
+        "type": "say"
+      },
+      "qh_eleven_classic": {
+        "_vine": { "x": 300, "y": 1200 },
+        "next": "qh_wait_d",
+        "style": "narration",
+        "text": "Eleven of them will not be watching by four o'clock. We are not going to tell you which eleven. That would spoil the hour.",
+        "type": "say"
+      },
+      "qh_wait_d": {
+        "_vine": { "x": 500, "y": 1200 },
+        "duration": 3,
+        "next": "qh_relax",
+        "type": "wait"
+      },
+      "qh_relax": {
+        "_vine": { "x": 700, "y": 1200 },
+        "next": "qh_wait_e",
+        "style": "narration",
+        "text": "You are not one of them. You can relax.",
+        "type": "say"
+      },
+      "qh_wait_e": {
+        "_vine": { "x": 900, "y": 1200 },
+        "duration": 2,
+        "next": "qh_checked",
+        "type": "wait"
+      },
+      "qh_checked": {
+        "_vine": { "x": 1100, "y": 1200 },
+        "next": "qh_glitch_check",
+        "style": "narration",
+        "text": "We checked.",
+        "type": "say"
+      },
+
+      "qh_glitch_check": {
+        "_vine": { "x": 80, "y": 1340 },
+        "condition_type": "RANDOM_CHANCE",
+        "params": { "chance": 0.5 },
+        "ifTrue": "qh_techdiff",
+        "ifFalse": "qh_makers",
+        "type": "condition"
+      },
+      "qh_techdiff": {
+        "_vine": { "x": 300, "y": 1340 },
+        "duration": 10,
+        "next": "qh_glitch_line",
+        "type": "tech_difficulties"
+      },
+      "qh_glitch_line": {
+        "_vine": { "x": 520, "y": 1340 },
+        "next": "qh_card3",
+        "style": "narration",
+        "text": "The signal drops. Static, seven seconds of it, and underneath the static something that is almost the tone from earlier, slowed down.",
+        "type": "say"
+      },
+      "qh_card3": {
+        "_vine": { "x": 740, "y": 1340 },
+        "graphic_id": "quiet_hour_testcard",
+        "next": "qh_apolog",
+        "type": "title_card"
+      },
+      "qh_apolog": {
+        "_vine": { "x": 960, "y": 1340 },
+        "next": "qh_wait_f",
+        "style": "narration",
+        "text": "Apologies. That was not us.",
+        "type": "say"
+      },
+      "qh_wait_f": {
+        "_vine": { "x": 80, "y": 1480 },
+        "duration": 2,
+        "next": "qh_where",
+        "type": "wait"
+      },
+      "qh_where": {
+        "_vine": { "x": 300, "y": 1480 },
+        "next": "qh_makers",
+        "style": "narration",
+        "text": "Where were we.",
+        "type": "say"
+      },
+
+      "qh_makers": {
+        "_vine": { "x": 520, "y": 1480 },
+        "next": "qh_wait_g",
+        "style": "narration",
+        "text": "Some of you write in and ask who makes this programme.",
+        "type": "say"
+      },
+      "qh_wait_g": {
+        "_vine": { "x": 740, "y": 1480 },
+        "duration": 2,
+        "next": "qh_makers2",
+        "type": "wait"
+      },
+      "qh_makers2": {
+        "_vine": { "x": 960, "y": 1480 },
+        "next": "qh_wait_h",
+        "style": "narration",
+        "text": "It is made for you. It is made every night. It has been made every night for a very long time, and it will be made tomorrow, whether or not you are here to receive it.",
+        "type": "say"
+      },
+      "qh_wait_h": {
+        "_vine": { "x": 80, "y": 1620 },
+        "duration": 3,
+        "next": "qh_schedule",
+        "type": "wait"
+      },
+      "qh_schedule": {
+        "_vine": { "x": 300, "y": 1620 },
+        "next": "qh_cam2",
+        "style": "narration",
+        "text": "That is not a threat. It is a schedule.",
+        "type": "say"
+      },
+      "qh_cam2": {
+        "_vine": { "x": 520, "y": 1620 },
+        "label": "CAM — 1 — WIDE testcard",
+        "next": "qh_signoff",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+
+      "qh_signoff": {
+        "_vine": { "x": 740, "y": 1620 },
+        "next": "qh_stay",
+        "style": "narration",
+        "text": "The Quiet Hour will continue until the morning service begins at four.",
+        "type": "say"
+      },
+      "qh_stay": {
+        "_vine": { "x": 960, "y": 1620 },
+        "next": "qh_wait_i",
+        "style": "narration",
+        "text": "Until then: stay in. Stay warm. Stay still.",
+        "type": "say"
+      },
+      "qh_wait_i": {
+        "_vine": { "x": 80, "y": 1760 },
+        "duration": 2,
+        "next": "qh_still",
+        "type": "wait"
+      },
+      "qh_still": {
+        "_vine": { "x": 300, "y": 1760 },
+        "next": "qh_ticker",
+        "style": "narration",
+        "text": "We like it when you are still.",
+        "type": "say"
+      },
+      "qh_ticker": {
+        "_vine": { "x": 520, "y": 1760 },
+        "next": "qh_tone2",
+        "text": "THE QUIET HOUR · Overnight service · This broadcast contains no advertising and requires no subscription · Viewing figures are collected passively and are not stored, except where they are · Persons experiencing distress should remain seated until it passes · The morning service begins at 04:00 · Thank you for watching · Thank you for watching · Thank you for watching",
+        "type": "ticker"
+      },
+      "qh_tone2": {
+        "_vine": { "x": 740, "y": 1760 },
+        "next": "qh_credits",
+        "song": "quiet_hour_tone",
+        "text": "♪ The tone resumes. It does not resolve. It simply continues, at exactly the volume it was before. ♪",
+        "type": "music"
+      },
+      "qh_credits": {
+        "_vine": { "x": 960, "y": 1760 },
+        "duration": 8,
+        "text": "THE QUIET HOUR\nNo presenter. No audience participation. No repeats.\nBroadcast nightly since before the record begins.",
+        "type": "credits"
       }
     }
   },
@@ -510,84 +467,32 @@
   "loop": 0,
   "message_interval": 5,
   "messages": [
-    {
-      "text": "It is two o'clock in the morning in Coldwater Basin."
-    },
-    {
-      "text": "There is nothing on. That is what this is for."
-    },
-    {
-      "text": "The test card holds. In the lower right corner, a small counter increments by one, then by three, then settles."
-    },
-    {
-      "text": "If you are awake because you are working, we hope the shift is a short one."
-    },
-    {
-      "text": "If you are awake because you cannot sleep, try this with us."
-    },
-    {
-      "text": "Breathe in for four."
-    },
-    {
-      "text": "Hold for four."
-    },
-    {
-      "text": "Out for six."
-    },
-    {
-      "text": "Better. Your heart rate came down two points."
-    },
-    {
-      "text": "We can see that from here."
-    },
-    {
-      "text": "The number on screen ticks downward as the hour goes on. It does not tick up."
-    },
-    {
-      "text": "One thousand four hundred and twelve people are watching this with you."
-    },
-    {
-      "text": "Four hundred of them are in the vats and do not know they are watching."
-    },
-    {
-      "text": "Eleven of them will not be watching by four o'clock. We are not going to tell you which eleven. That would spoil the hour."
-    },
-    {
-      "text": "You are not one of the eleven. You can relax."
-    },
-    {
-      "text": "We checked."
-    },
-    {
-      "text": "The signal drops. Static, seven seconds of it, and underneath the static something that is almost the tone from earlier, slowed down."
-    },
-    {
-      "text": "Apologies. That was not us."
-    },
-    {
-      "text": "Where were we."
-    },
-    {
-      "text": "Some of you write in and ask who makes this programme."
-    },
-    {
-      "text": "It is made for you. It is made every night. It has been made every night for a very long time, and it will be made tomorrow, whether or not you are here to receive it."
-    },
-    {
-      "text": "That is not a threat. It is a schedule."
-    },
-    {
-      "text": "The Quiet Hour will continue until the morning service begins at four."
-    },
-    {
-      "text": "Until then: stay in. Stay warm. Stay still."
-    },
-    {
-      "text": "We like it when you are still."
-    },
-    {
-      "text": "THE QUIET HOUR · Overnight service · This broadcast contains no advertising and requires no subscription · Viewing figures are collected passively and are not stored, except where they are · Persons experiencing distress should remain seated until it passes · The morning service begins at 04:00 · Thank you for watching · Thank you for watching · Thank you for watching"
-    }
+    { "text": "It is two o'clock in the morning in Coldwater Basin." },
+    { "text": "There is nothing on. That is what this is for." },
+    { "text": "The test card holds. In the lower right corner, a small counter increments by one, then by three, then settles." },
+    { "text": "If you are awake because you are working, we hope the shift is a short one." },
+    { "text": "If you are awake because you cannot sleep, try this with us." },
+    { "text": "Breathe in for four." },
+    { "text": "Hold for four." },
+    { "text": "Out for six." },
+    { "text": "Better. Your heart rate came down two points." },
+    { "text": "We can see that from here." },
+    { "text": "The number on screen ticks downward as the hour goes on. It does not tick up." },
+    { "text": "One thousand four hundred and twelve people are watching this with you." },
+    { "text": "Four hundred of them are in the vats and do not know they are watching." },
+    { "text": "Eleven of them will not be watching by four o'clock. We are not going to tell you which eleven. That would spoil the hour." },
+    { "text": "You are not one of the eleven. You can relax." },
+    { "text": "We checked." },
+    { "text": "The signal drops. Static, seven seconds of it, and underneath the static something that is almost the tone from earlier, slowed down." },
+    { "text": "Apologies. That was not us." },
+    { "text": "Where were we." },
+    { "text": "Some of you write in and ask who makes this programme." },
+    { "text": "It is made for you. It is made every night. It has been made every night for a very long time, and it will be made tomorrow, whether or not you are here to receive it." },
+    { "text": "That is not a threat. It is a schedule." },
+    { "text": "The Quiet Hour will continue until the morning service begins at four." },
+    { "text": "Until then: stay in. Stay warm. Stay still." },
+    { "text": "We like it when you are still." },
+    { "text": "THE QUIET HOUR · Overnight service · This broadcast contains no advertising and requires no subscription · Viewing figures are collected passively and are not stored, except where they are · Persons experiencing distress should remain seated until it passes · The morning service begins at 04:00 · Thank you for watching · Thank you for watching · Thank you for watching" }
   ],
   "name": "The Quiet Hour",
   "news_pools": null,

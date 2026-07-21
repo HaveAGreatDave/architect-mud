@@ -63,6 +63,8 @@ is silently inert, so grep before renaming anything below.
 | `insurance_desk` | flight | aircraft insurance vendor here |
 | `gate_warning` | gatewarn plugin | one-time gate-guard border briefing, delivered on first entry to the tile |
 | `intro_lore` | lore plugin | one-time lore text on first visit |
+| `gps_suggest` | lore plugin | destination zone id; first entry to this tile plots a one-off GPS route there (pre-quest nudge) |
+| `gps_suggest_label` | lore plugin | optional hint text for the `gps_suggest` route line |
 | `is_apartment` | housing | rentable apartment zone |
 | `is_building` | power/world | groups interior zones into one building (junction-box scope) |
 | `is_interior` | environment | indoors (weather/temperature/lighting model) |

@@ -1618,7 +1618,7 @@ export function getZoneVisibility(zoneId) {
     outdoor: !isInterior,
     weatherType: state.weatherType,
     precipType: precipActive ? state.currentPrecip : 'none',
-    precipRate: precipActive && f ? f.precipRate : 0,
+    precipRate: precipActive ? precipFloor(f ? f.precipRate : 0) : 0,
     cloudCover: f ? f.cloudCover : 0,
     windKph: state.forecast[0]?.windKph ?? 0,
   };
@@ -1819,6 +1819,17 @@ function fieldAt(zoneId) {
   return sampleField(z.gridX, z.gridY);
 }
 
+// Global precip FLOOR. The moving field cells decide where precip INTENSIFIES, but on any
+// precipitating day the map-wide headline rate (state.precipRate) is felt on EVERY outdoor
+// tile — so a gentle light rain is both SEEN and HEARD everywhere, not only under a passing
+// cell. Before this, precip lived solely inside the cells: most tiles rendered rain (from the
+// headline TYPE) yet played no audio, because the audio beds gate on the local RATE, which sat
+// at 0 between cells. That's why light rain was silent. Returns the local rate on a dry day.
+function precipFloor(localRate) {
+  const r = localRate || 0;
+  return state.currentPrecip !== 'none' ? Math.max(r, state.precipRate || 0) : r;
+}
+
 // Local precipitation for a zone. The global 30-minute roll stays the map-wide
 // "is precip active" gate; the field decides which tiles are actually under it.
 export function getZonePrecip(zoneId) {
@@ -1827,7 +1838,7 @@ export function getZonePrecip(zoneId) {
   if (state.currentPrecip === 'none') return { precipType: 'none', precipRate: 0 };
   return {
     precipType: f.precipType === 'none' ? state.currentPrecip : f.precipType,
-    precipRate: f.precipRate,
+    precipRate: precipFloor(f.precipRate),
   };
 }
 
@@ -1952,7 +1963,10 @@ function broadcastZoneWeather(occupied) {
       gx = ext.grid_x; gy = ext.grid_y;
     }
     const f = sampleField(gx, gy);
-    let precipRate = active ? f.precipRate : 0;
+    // Floor the local cell rate at the day's headline rate so light rain is heard (and shown)
+    // on every tile, not just under a passing cell — the muffle-a-neighbour bleed below still
+    // layers a heavier nearby storm on top of the floor.
+    let precipRate = active ? precipFloor(f.precipRate) : 0;
     // Local precip TYPE comes from the field's full taxonomy (rain/sleet/thunder-
     // storm/storm/snow/blizzard/acid), not the coarse global roll — a passing storm
     // cell renders and sounds like what it actually is over this exact tile. This is

@@ -5156,7 +5156,7 @@ function renderBody() {
     </div>`;
   }
   if (d.view === 'accolades') {
-    return `<div class="tos-body">${hdr}${summary}
+    return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}
       ${renderAccolades(d)}
     </div>`;
   }

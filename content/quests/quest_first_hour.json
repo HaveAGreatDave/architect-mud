@@ -1,19 +1,19 @@
 {
   "category": null,
-  "description": "Grady says the clonejackers working Ironside Street are killing his business by killing his customers. Clear two of them out and bring back the flashlight cells they lifted off him.",
+  "description": "Grady says the clonejackers working the strip south of the Embassy are killing his business by killing his customers. Clear two of them out and bring back the flashlight cells they lifted off him.",
   "id": "quest_first_hour",
   "meta": {},
   "name": "The First Hour",
   "objectives": [
     {
-      "desc": "Head east out of the vats onto Ironside Street (follow the green GPS line — hit AUTO).",
+      "desc": "Head down Ironside — south past the Embassy — to where the clonejackers work (follow the green GPS line — hit AUTO).",
       "emotes": [
-        "{who} steps out of the vat-house, blinking hard, and gets their bearings on the street."
+        "{who} heads down Ironside, past the Embassy's warm lights, toward the clonejackers' patch."
       ],
       "id": "o_move",
       "taskSeconds": 3,
       "type": "visit",
-      "zone": "zone_district_919_903"
+      "zone": "zone_district_919_905"
     },
     {
       "count": 2,
@@ -25,7 +25,7 @@
       "id": "o_kill",
       "target": "clonejacker",
       "type": "kill",
-      "zone": "zone_district_919_903"
+      "zone": "zone_district_919_905"
     },
     {
       "count": 1,
@@ -37,7 +37,7 @@
       ],
       "spawn": false,
       "type": "retrieve",
-      "zone": "zone_district_919_903"
+      "zone": "zone_district_919_905"
     }
   ],
   "quest_type": "standard",
