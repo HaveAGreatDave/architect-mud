@@ -13,5 +13,15 @@ export default async function regress({ run, check, getPlayer }) {
   r = await run('dresscyd');
   check('dresscyd refused for non-admin', /unknown command/i.test(r?.message || ''), r?.message);
 
+  r = await run('testaccolade');
+  check('testaccolade refused for non-admin', /unknown command/i.test(r?.message || ''), r?.message);
+
+  // Admin path is safe to exercise: it only pushes a WS message to the caller
+  // (a no-op for the fake player) and writes nothing.
+  p.role = 'admin';
+  r = await run('testaccolade 3');
+  check('testaccolade fires for admin', /Fired <b>3<\/b>/.test(r?.message || ''), r?.message);
+  check('testaccolade logs nothing', /no row, no XP/.test(r?.message || ''), r?.message);
+
   p.role = savedRole;
 }

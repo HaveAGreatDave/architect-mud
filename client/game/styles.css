@@ -10964,3 +10964,134 @@ input.trade-qty { width: 56px; }
 	background: var(--bg3); color: var(--text); font-family: var(--font-mono); font-size: 0.78rem; cursor: pointer;
 }
 .vwstage-chat-send:hover { border-color: var(--cyan); }
+
+/* ── Accolades — unlock banner (plugins/accolades) ───────────────────────────
+   A corner stack, not a centre-stage interrupt: entries are private and frequent
+   enough that they must never sit in the reading path. Surfaces borrow the
+   Tablet OS bevel language (accent-tinted --bg2 with highlight/shadow edges) but
+   resolve through the GAME's theme tokens, so the banner follows every theme the
+   player can pick without a second palette to maintain.
+   Sparks are drawn on a sibling canvas (#accolade-fx) owned by accolades-banner.js. */
+#accolade-stack {
+	position: fixed; right: 16px; bottom: 16px; z-index: 9150;
+	display: flex; flex-direction: column; align-items: flex-end; gap: 9px;
+	width: min(342px, 42vw); pointer-events: none;
+}
+/* Pinned to the stack's corner, NOT the viewport — its pixel size is set by the
+   JS (420x560 @ DPR<=1.5). A full-screen canvas meant clearing ~15 megapixels a
+   frame for glints that only ever appear down here. */
+#accolade-fx {
+	position: fixed; right: 0; bottom: 0; z-index: 9151; pointer-events: none;
+}
+
+.accolade-card {
+	position: relative; width: 100%; overflow: hidden;
+	cursor: pointer; pointer-events: auto;
+	padding: 12px 14px 11px 16px;
+	font-family: var(--font-mono);
+	background: linear-gradient(180deg,
+		color-mix(in srgb, var(--accent) 18%, var(--bg2)),
+		color-mix(in srgb, var(--accent) 6%, var(--bg2)));
+	border: 1px solid var(--border);
+	box-shadow:
+		0 8px 26px rgba(0, 0, 0, 0.45),
+		0 0 24px color-mix(in srgb, var(--accent) 17%, transparent),
+		inset 0 1px 0 color-mix(in srgb, white 55%, transparent),
+		inset 0 -3px 6px color-mix(in srgb, black 45%, transparent);
+	animation: accolade-in 340ms cubic-bezier(0.16, 0.84, 0.44, 1) both;
+}
+.accolade-card.leaving { animation: accolade-out 520ms ease-out both; }
+@keyframes accolade-in  { from { opacity: 0; transform: translateX(26px); } to { opacity: 1; transform: none; } }
+/* Pure opacity — it fades where it stands rather than sliding away. A card that
+   slides reads as dismissed; one that fades reads as finished. */
+@keyframes accolade-out { to { opacity: 0; } }
+
+/* accent rail, fills top→bottom on entry */
+.accolade-card::before {
+	content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; z-index: 3;
+	background: var(--accent); box-shadow: 0 0 10px var(--accent);
+	transform-origin: top; animation: accolade-rail 420ms cubic-bezier(0.16, 0.84, 0.44, 1) both;
+}
+@keyframes accolade-rail { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+
+/* foil hairline across the top edge */
+.accolade-card::after {
+	content: ''; position: absolute; left: 0; right: 0; top: 0; height: 1px; z-index: 3;
+	background: linear-gradient(90deg, transparent, var(--accent) 20%,
+		color-mix(in srgb, white 70%, var(--accent)) 50%, var(--accent) 80%, transparent);
+	opacity: 0.9; transform-origin: left;
+	animation: accolade-wipe 520ms cubic-bezier(0.22, 0.9, 0.3, 1) both;
+}
+@keyframes accolade-wipe { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+.accolade-card .accolade-scan {
+	position: absolute; inset: 0; pointer-events: none; z-index: 2;
+	background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.1) 0 1px, transparent 1px 3px);
+}
+.accolade-card .accolade-body { position: relative; z-index: 4; }
+
+.accolade-kicker {
+	font-size: 9.5px; letter-spacing: 3.2px; text-transform: uppercase;
+	color: var(--text-dim); font-weight: bold; margin-bottom: 6px;
+	display: flex; align-items: center; gap: 6px;
+}
+.accolade-kicker i { font-style: normal; color: var(--accent); font-size: 8px; }
+
+/* The .intro-lore sheen, reused: accent body with a hot specular glint, dragged
+   across twice by animating background-position, landing on solid ink. Same
+   safety property as the original — the transparent fill exists ONLY inside the
+   keyframes, so the title stays legible if animations are disabled. */
+.accolade-title {
+	display: block; font-size: 17.5px; font-weight: bold; letter-spacing: 0.3px; line-height: 1.24;
+	background: linear-gradient(100deg,
+		var(--accent) 0%, var(--accent) 30%,
+		color-mix(in srgb, white 78%, var(--accent)) 42%,
+		var(--text-bright) 50%,
+		color-mix(in srgb, white 78%, var(--accent)) 58%,
+		var(--accent) 70%, var(--accent) 100%);
+	background-size: 300% 100%; background-position: 150% 0;
+	-webkit-background-clip: text; background-clip: text;
+	-webkit-text-fill-color: var(--text); color: var(--text);
+	animation: accolade-sheen 3.6s ease-in-out 1 both;
+}
+@keyframes accolade-sheen {
+	0%   { -webkit-text-fill-color: transparent; background-position: 150% 0; text-shadow: 0 0 10px var(--accent-dim); }
+	40%  { -webkit-text-fill-color: transparent; background-position: -50% 0; text-shadow: 0 0 14px var(--accent); }
+	42%  { -webkit-text-fill-color: transparent; background-position: 150% 0; text-shadow: 0 0 14px var(--accent); }
+	80%  { -webkit-text-fill-color: transparent; background-position: -50% 0; text-shadow: 0 0 8px var(--accent-dim); }
+	100% { -webkit-text-fill-color: var(--text);  background-position: -50% 0; text-shadow: none; }
+}
+
+/* Full --text, not --text-dim. The card surface is --bg2 tinted 6-18% with the
+   accent, and dim ink on that was too low a delta to read at a glance — bold
+   Courier made it worse, not better. --text-dim now only carries the footer meta,
+   which is genuinely secondary. */
+.accolade-line {
+	margin-top: 5px; font-size: 13.5px; font-weight: bold;
+	color: var(--text); line-height: 1.55;
+}
+.accolade-foot {
+	margin-top: 9px; padding-top: 7px; border-top: 1px solid var(--border);
+	display: flex; justify-content: space-between; align-items: center;
+	font-size: 10.5px; letter-spacing: 1.2px; font-weight: bold;
+}
+.accolade-foot .accolade-xp { color: var(--accent); font-variant-numeric: tabular-nums; }
+.accolade-foot .accolade-dismiss { color: var(--text-dim); opacity: 0; transition: opacity 140ms ease; }
+.accolade-card:hover .accolade-dismiss { opacity: 1; }
+
+/* Life bar — also the hover-pause tell. Duration comes from --accolade-hold, set
+   on the card by accolades-banner.js from its own HOLD_MS, so the bar and the timer
+   physically cannot drift apart. The fallback only applies if the JS never ran. */
+.accolade-life {
+	position: absolute; left: 0; bottom: 0; height: 2px; width: 100%; z-index: 3;
+	transform-origin: left;
+	background: color-mix(in srgb, var(--accent) 60%, transparent);
+	animation: accolade-life var(--accolade-hold, 5s) linear both;
+}
+.accolade-card:hover .accolade-life { animation-play-state: paused; }
+@keyframes accolade-life { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+@media (prefers-reduced-motion: reduce) {
+	.accolade-card, .accolade-card::before, .accolade-card::after { animation-duration: 1ms; }
+	.accolade-title { animation: none; -webkit-text-fill-color: var(--text); }
+}

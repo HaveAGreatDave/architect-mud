@@ -164,10 +164,47 @@ async function cmdMakeItRain(args, raw, player, broadcast) {
   };
 }
 
+/**
+ * Fire accolade banners without logging anything.
+ *
+ * The accolades system is unique-unlock by design, so every real entry can only be
+ * seen ONCE per character — which makes tuning the banner (or the cue, or the
+ * stacking) impossible without deleting rows between takes. This pushes the same
+ * `accolade_unlocked` message the plugin does, straight past the catalog and the
+ * DB: no row, no XP, no `accolade.unlocked` event, infinitely repeatable.
+ *
+ *   .testaccolade      — one card
+ *   .testaccolade 3    — three, staggered 450ms, to check the stack cap
+ */
+async function cmdTestAccolade(args, raw, player) {
+  if (!['admin', 'dev'].includes(player.role)) {
+    return { type: 'error', message: 'Unknown command: ".testaccolade".' };
+  }
+  const { sendToPlayer } = await import('../../server/engine/messaging.js');
+  const SAMPLES = [
+    ['So We Meat Again', 'Decanted, inventoried, and assigned a number. The algorithm was expecting you.'],
+    ['Load-Bearing', 'Found a chair. Committed to it.'],
+    ['Surrounded by Taps', 'Died of thirst. In a bar.'],
+    ['Meta', 'Noticed ten times now. Hardly a personality.'],
+  ];
+  const n = Math.min(6, Math.max(1, parseInt(args[0], 10) || 1));
+  for (let i = 0; i < n; i++) {
+    const [title, line] = SAMPLES[i % SAMPLES.length];
+    // Staggered so a multi-fire exercises the real stacking path rather than
+    // three cards arriving in the same frame.
+    setTimeout(() => sendToPlayer(player.id, { type: 'accolade_unlocked', title, line, xp: 1 }), i * 450);
+  }
+  return {
+    type: 'output',
+    message: `▓ Fired <b>${n}</b> test accolade banner${n === 1 ? '' : 's'}. Nothing was logged — no row, no XP.`,
+  };
+}
+
 export const commands = {
   // NB: register the BARE verb — the dispatcher strips a leading `.`/`/` before
   // matching, so a `.dresscyd` key would never fire.
   dresscyd: cmdDressCyd,
   lettherebelight: cmdLetThereBeLight,
   makeitrain: cmdMakeItRain,
+  testaccolade: cmdTestAccolade,
 };

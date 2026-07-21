@@ -1,0 +1,15 @@
+{
+  "name": "accolades",
+  "version": "1.0.0",
+  "description": "Accolades — sardonic achievement entries logged against you by something that is always watching. Discovery-only, fully private, flat +1 XP per unique entry.",
+  "hooks": [],
+  "commands": ["accolades", "file"],
+  "events": {
+    "emits": ["accolade.unlocked", "accolade.opened"],
+    "consumes": ["zone.entered", "player.death", "posture.changed", "item.taken", "credits.changed", "enemy.killed", "flight.crashed", "player.login", "player.logout", "accolade.unlocked", "accolade.opened"]
+  },
+  "dataSchema": ["player_achievements"],
+  "extensionPoints": [
+    "accolade.unlocked — { playerId, key, total } fires on every genuinely new entry"
+  ]
+}

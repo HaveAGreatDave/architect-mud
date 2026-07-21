@@ -38,6 +38,7 @@ import { openSynthMinigame, openCookMenu } from './panels/synthlab.js';
 import { openSpliceSelect, openSpliceStages, applySplicePreview } from './panels/splicelab.js';
 import { showSpliceReport } from './panels/spliceReport.js';
 import { updateWantedHud, setWantedHeat } from './panels/wanted.js';
+import { showAccoladeUnlock } from './panels/accolades-banner.js';
 import { openTvPanel, isTvOpen, getTvActiveChannelId, appendTvMessage, updateTvTicker, applyTvOverlay, clearTvMessages, showTvOffAir, showTvOnAir, shutdownTvPanel, tvSpeak, renderTvSchedule, tvViewsForChannel, tvOpenViews } from './panels/tv.js';
 import { applyAmpUnlocks, addAmpUnlock } from './panels/musicplayer.js';
 import { applyEspState, handleEspWarning } from './esp.js';
@@ -297,6 +298,9 @@ const handlers = {
   // Aircraft overhead: a transient banner pinned to the top of the room pane (auto-fades),
   // not a scrollback line. Server rate-limits these per zone, so they don't accumulate.
   sky: (msg) => { showSkyBanner(msg.message); },
+  // A new accolade logged against you. Corner stack, never scrollback — the
+  // banner is the whole payoff of a system that is otherwise entirely private.
+  accolade_unlocked: (msg) => { showAccoladeUnlock(msg); },
   emote: (msg) => {
     const el = appendHtml(msg.message, 'zone-event');
     if (msg.butcherMs) { closeLootPanel(); attachInlineProgress(el, msg.butcherMs); }

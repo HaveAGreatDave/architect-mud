@@ -793,8 +793,8 @@ function ensureStyles() {
     #tablet-os-overlay .tos-cam-feed.dead { color:var(--tos-fg-dim2); text-align:center; display:flex; align-items:center; justify-content:center; letter-spacing:2px; text-transform:uppercase; font-size:10.5px; text-shadow:none; }
     #tablet-os-overlay .tos-cam-foot { display:flex; justify-content:space-between; align-items:center; gap:6px; padding:4px 7px 6px; font-size:10px; color:var(--tos-fg-dim); }
     #tablet-os-overlay .tos-rec { color:#ff5a68; font-weight:bold; letter-spacing:1px; text-shadow:0 0 6px rgba(255,90,104,.6); }
-    #tablet-os-overlay .tos-rec .tos-rec-dot { animation:tos-rec-blink 1.1s steps(1) infinite; }
-    @keyframes tos-rec-blink { 0%,50%{opacity:1} 51%,100%{opacity:.25} }
+    #tablet-os-overlay .tos-rec .tos-acc-dot { animation:tos-acc-blink 1.1s steps(1) infinite; }
+    @keyframes tos-acc-blink { 0%,50%{opacity:1} 51%,100%{opacity:.25} }
     #tablet-os-overlay .tos-cam-focus { margin-bottom:10px; border:1px solid var(--shub); border-radius:6px; padding:8px; background:color-mix(in srgb, var(--shub) 7%, var(--bg,#0c1114)); box-shadow:0 0 14px color-mix(in srgb, var(--shub) 22%, transparent); }
     #tablet-os-overlay .tos-cam-focus .tos-cam-feed { min-height:82px; margin:0; font-size:12px; }
     #tablet-os-overlay .tos-surv-links { display:flex; gap:8px; margin:11px 0 3px; }
@@ -1370,6 +1370,45 @@ function ensureStyles() {
     html[data-density="compact"] #tablet-os-overlay .tos-map-side { flex:0 0 auto; max-height:34%; }
     html[data-density="compact"] #tablet-os-overlay .tos-map-side .tos-map-bldgs-list { flex-direction:row; }
     html[data-density="compact"] #tablet-os-overlay .tos-map-side .tos-map-bldg { width:auto; }
+
+    /* ── Accolades app — your permanent file ───────────────────────────────────────
+       Surfaces ride the shared --tos-surface bevel tokens, so the app follows
+       every theme without a palette of its own. Entry copy is 13.5px roman, NOT
+       italic: Courier has no true italic and the browser's synthetic oblique
+       smears badly at small sizes, which is what made the first pass unreadable. */
+    #tablet-os-overlay .tos-acc-head { display:flex; align-items:flex-end; justify-content:space-between; gap:12px;
+      padding-bottom:11px; border-bottom:1px solid var(--border); }
+    #tablet-os-overlay .tos-acc-app { font-size:16px; letter-spacing:5px; text-transform:uppercase; color:var(--tos-fg); font-weight:bold; }
+    #tablet-os-overlay .tos-acc-sub { font-size:10.5px; letter-spacing:1.6px; color:var(--tos-fg-dim2); margin-top:3px; }
+    #tablet-os-overlay .tos-acc-count { font-size:10px; letter-spacing:1.4px; color:var(--tos-fg-dim);
+      text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
+    #tablet-os-overlay .tos-acc-count b { display:block; font-size:23px; color:var(--mg-accent); letter-spacing:1px; }
+    #tablet-os-overlay .tos-acc-meter { margin:13px 0 15px; }
+    #tablet-os-overlay .tos-acc-meter-lbl { display:flex; justify-content:space-between; align-items:baseline;
+      font-size:10px; letter-spacing:1.8px; text-transform:uppercase; color:var(--tos-fg-dim2); margin-bottom:6px; }
+    #tablet-os-overlay .tos-acc-meter-lbl .v { color:var(--tos-fg-dim); letter-spacing:1px; font-variant-numeric:tabular-nums; }
+    #tablet-os-overlay .tos-acc-track { height:11px; position:relative; overflow:hidden; background:var(--tos-surface-lo);
+      border:1px solid var(--border); box-shadow:inset 0 1px 3px var(--tos-bevel-lo); }
+    #tablet-os-overlay .tos-acc-fill { position:absolute; left:0; top:0; bottom:0;
+      background:linear-gradient(180deg, color-mix(in srgb, var(--mg-accent) 88%, white), var(--mg-accent));
+      box-shadow:0 0 10px color-mix(in srgb, var(--mg-accent) 55%, transparent); }
+    #tablet-os-overlay .tos-acc-rows { display:flex; flex-direction:column; gap:8px; }
+    #tablet-os-overlay .tos-acc-row { position:relative; padding:12px 13px 11px 16px;
+      background:linear-gradient(180deg, var(--tos-surface-hi), var(--tos-surface-lo));
+      border:1px solid var(--border);
+      box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -2px 4px var(--tos-bevel-lo); }
+    #tablet-os-overlay .tos-acc-row::before { content:''; position:absolute; left:0; top:0; bottom:0; width:2px;
+      background:var(--mg-accent); opacity:.5; }
+    #tablet-os-overlay .tos-acc-row.first::before { opacity:1; box-shadow:0 0 9px var(--mg-accent); }
+    #tablet-os-overlay .tos-acc-title { font-size:15px; color:var(--tos-fg); font-weight:bold; letter-spacing:.3px; }
+    #tablet-os-overlay .tos-acc-line { font-size:13.5px; color:var(--tos-fg-dim); margin-top:5px; line-height:1.58; max-width:54ch; }
+    #tablet-os-overlay .tos-acc-foot { display:flex; justify-content:space-between; align-items:baseline; margin-top:9px;
+      font-size:10px; letter-spacing:1.4px; color:var(--tos-fg-dim2); font-variant-numeric:tabular-nums; }
+    #tablet-os-overlay .tos-acc-foot .xp { color:var(--mg-accent); }
+    #tablet-os-overlay .tos-acc-empty { padding:26px 8px; text-align:center; font-size:13.5px; color:var(--tos-fg-dim); line-height:1.8; }
+    #tablet-os-overlay .tos-acc-empty span { color:var(--tos-fg-dim2); font-size:12px; }
+    #tablet-os-overlay .tos-acc-endfile { margin-top:13px; padding-top:11px; border-top:1px dashed var(--border);
+      font-size:10px; letter-spacing:1.6px; color:var(--tos-fg-dim2); text-align:center; }
 
     /* ── News app — "The Coldwater Sentinel" ────────────────────────────────────
        The feed is dressed as a newsprint sheet. The paper look is done by
@@ -3247,6 +3286,58 @@ function changeIdeoPage(dir) {
   render();
 }
 
+/**
+ * The Accolades app — your file, newest entry first.
+ *
+ * Two deliberate absences, both load-bearing (see plugins/accolades):
+ *   • The entry count has NO denominator. Accolades is discovery-only, so
+ *     "11 of 40" would convert a set of jokes into a checklist and spoil every
+ *     unearned punchline by naming it.
+ *   • The contribution meter is scaled against ONE stat point (100 XP) and can
+ *     therefore never fill, because entries are worth 1 XP each and the catalog
+ *     is a dozen strong. That is the answer to "what is 1 XP actually worth",
+ *     drawn precisely and left without comment.
+ */
+function renderAccolades(d) {
+  const rows = (d.entries || []).map((e, i) => `
+    <div class="tos-acc-row${i === (d.entries.length - 1) ? ' first' : ''}">
+      <div class="tos-acc-title">${esc(e.title)}</div>
+      <div class="tos-acc-line">${esc(e.line)}</div>
+      <div class="tos-acc-foot"><span>${e.at ? esc(tosStamp(e.at)) : ''}</span><span class="xp">+1 XP</span></div>
+    </div>`).join('');
+
+  const empty = `<div class="tos-acc-empty">Your file is empty.<br><span>That is not the same as clean.</span></div>`;
+
+  return `
+    <div class="tos-acc-head">
+      <div>
+        <div class="tos-acc-app">Accolades</div>
+        <div class="tos-acc-sub">Observations on file</div>
+      </div>
+      <div class="tos-acc-count"><b>${d.count || 0}</b>${d.count === 1 ? 'entry' : 'entries'} on file</div>
+    </div>
+    <div class="tos-acc-meter">
+      <div class="tos-acc-meter-lbl">
+        <span>Lifetime contribution</span>
+        <span class="v">${esc(String(d.statPoints || '0.00'))} stat points &middot; ${d.xp || 0} / 100 XP</span>
+      </div>
+      <div class="tos-acc-track"><div class="tos-acc-fill" style="width:${Math.max(0, Math.min(100, d.meterPct || 0))}%"></div></div>
+    </div>
+    <div class="tos-acc-rows">${rows || empty}</div>
+    ${rows ? `<div class="tos-acc-endfile">&#9642; End of file &#9642; Further entries at our discretion</div>` : ''}
+  `;
+}
+
+// Entry timestamps are epoch seconds from the DB; the file wants a date, not a clock.
+function tosStamp(sec) {
+  try {
+    const dt = new Date(Number(sec) * 1000);
+    if (!Number.isFinite(dt.getTime())) return '';
+    return dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' +
+           dt.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  } catch { return ''; }
+}
+
 function renderIdeology(d, crumb) {
   const accent = _ideoAccent();
   const keys = IDEO_PAGES_KEY(d);
@@ -4357,7 +4448,7 @@ function renderSurveillance(d) {
   const focusPane = focus ? `<div class="tos-cam-focus">
       <div class="tos-cam-head"><span>${esc(focus.name)}</span><span class="tos-cam-kind">${focus.status === 'ok' ? '<span class="tos-cam-live">◉ LIVE</span> · ' : ''}${esc(focus.kind || '')}${focus.tier ? ` · T${esc(String(focus.tier))}` : ''}</span></div>
       ${renderCamFeed(focus)}
-      <div class="tos-cam-foot"><span>${esc(focus.zone || '')} · ${esc(focus.ts || '')}</span><span>${esc(focus.battery || '')}${camExpiry(focus)}${focus.recording ? ' · <span class="tos-rec"><span class="tos-rec-dot">●</span>REC</span>' : ''}</span></div>
+      <div class="tos-cam-foot"><span>${esc(focus.zone || '')} · ${esc(focus.ts || '')}</span><span>${esc(focus.battery || '')}${camExpiry(focus)}${focus.recording ? ' · <span class="tos-rec"><span class="tos-acc-dot">●</span>REC</span>' : ''}</span></div>
       ${focus.full ? '<div class="tos-cam-fullbar">⚠ BUFFER FULL — clip or clear to record again</div>' : ''}
       ${renderBufferLog(d.focusBuffer, focus.recording, focus.full)}
       ${renderActions(d.appId, [
@@ -4371,7 +4462,7 @@ function renderSurveillance(d) {
   const grid = `<div class="tos-cam-grid">${tiles.map(t => `<div class="tos-cam${t.id === d.focusId ? ' sel' : ''}" data-nav-tile="${esc(t.id)}">
       <div class="tos-cam-head"><span>${esc(t.name)}</span><span class="tos-cam-kind">${esc(t.kind || '')}${t.tier ? ` · T${esc(String(t.tier))}` : ''}</span></div>
       ${renderCamFeed(t)}
-      <div class="tos-cam-foot"><span>${esc(t.zone || '')}</span><span>${esc(t.battery || '')}${camExpiry(t)}${t.recording ?' · <span class="tos-rec"><span class="tos-rec-dot">●</span>REC</span>' : ''}</span></div>
+      <div class="tos-cam-foot"><span>${esc(t.zone || '')}</span><span>${esc(t.battery || '')}${camExpiry(t)}${t.recording ?' · <span class="tos-rec"><span class="tos-acc-dot">●</span>REC</span>' : ''}</span></div>
     </div>`).join('')}</div>`;
 
   return `<div class="tos-surv">${header}${alerts}${focusPane}${grid}
@@ -5016,6 +5107,11 @@ function renderBody() {
     const crumb = renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName]);
     return `<div class="tos-body">${hdr}${summary}
       ${renderIdeology(d, crumb)}
+    </div>`;
+  }
+  if (d.view === 'accolades') {
+    return `<div class="tos-body">${hdr}${summary}
+      ${renderAccolades(d)}
     </div>`;
   }
   if (d.view === 'reel') {

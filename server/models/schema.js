@@ -835,6 +835,28 @@ export const SCHEMA_SQL = `
     updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
   );
 
+  -- ── Accolades (plugins/accolades) ─────────────────────────────────────────
+  -- One row per (player, entry) the moment an entry is first observed. The
+  -- composite PK is the whole unlock guard: a re-trigger is an ON CONFLICT DO
+  -- NOTHING no-op, which is what caps the system's lifetime XP grant at one per
+  -- entry. entry_key references the in-plugin catalog (plugins/accolades/catalog.js),
+  -- deliberately NOT a table — each entry is welded to a code trigger, so there
+  -- is nothing here for anyone to author. Progress counters live in player_flags
+  -- under 'rec_*'; this table holds only the durable "it happened" facts.
+  -- The FK is load-bearing beyond tidiness: it makes a write against a
+  -- non-existent player a hard failure rather than an orphan row, which is what
+  -- keeps the regress harness's fake player (no players row) from accumulating
+  -- junk entries on every run — the same guard player_skills relies on. CASCADE
+  -- so deleting a character takes their file with them.
+  CREATE TABLE IF NOT EXISTS player_achievements (
+    player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+    entry_key TEXT NOT NULL,
+    unlocked_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()),
+    PRIMARY KEY (player_id, entry_key)
+  );
+  CREATE INDEX IF NOT EXISTS idx_player_achievements_player
+    ON player_achievements (player_id, unlocked_at DESC);
+
   -- Reusable Script graph assets. The 'graph' JSONB is the exact node format the
   -- shared graph runtime (server/engine/graph.js) executes — hand-authorable, and
   -- edited by the devpanel node editor. Dialogue stays on npcs.dialogue_tree; both

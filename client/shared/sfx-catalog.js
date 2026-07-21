@@ -352,9 +352,66 @@
         { waveform: 'sawtooth', freq: 800, pitchBend: { to: 120, time: 0.1 }, filter: { type: 'bandpass', freq: 1400, q: 3 }, adsr: { a: 0.001, d: 0.14, s: 0, r: 0.05 }, gain: 0.2 },
         { waveform: 'noise', noiseMix: 1, delay: 0.04, filter: { type: 'highpass', freq: 2400, q: 1 }, adsr: { a: 0.001, d: 0.06, s: 0, r: 0.03 }, gain: 0.2 },
         { waveform: 'triangle', freq: 160, delay: 0.08, pitchBend: { to: 50, time: 0.3 }, adsr: { a: 0.005, d: 0.24, s: 0.2, r: 0.2 }, gain: 0.15 } ] } },
+
+    // ── Accolades ────────────────────────────────────────────────────────────
+    // "Reach & relax": three glass bells, C5 → G5 → F5.
+    //
+    // The "glass" set is partials at x1, 2.00, 3.01 and 4.97 — pushed back toward
+    // whole numbers, so it is sweeter and more consonant than a tubular bell
+    // (whose x1.41/2.76 ratios clang). Nearer a glockenspiel. Higher partials get
+    // proportionally shorter decays, which is what makes a struck thing sound
+    // struck rather than merely played.
+    //
+    // The SHAPE is the joke: it overshoots up to the fifth and then settles back
+    // onto the fourth. Effort, then a shrug — it never fully resolves, because the
+    // entry copy underneath is never congratulating you. The first two notes are
+    // short and quiet; the third lands 235ms in and rings for a second.
+    //
+    // CHORUS is on the third note only. Beating needs time to develop, and the
+    // first two notes are ~0.34s — too short to hear it. Detuned twins at ±9 cents
+    // on the two loudest partials give the ringing note a slow shimmer for two
+    // extra oscillators instead of doubling the whole cue.
+    //
+    // SHIMMER is timed to the visual sparks (accolades-banner.js): a bright cluster
+    // in the first 60ms under the spark burst, then single high twinkles at 300 /
+    // 600 / 900ms matching the trickle interval, so each one lands with a fresh
+    // glint on screen. All drawn from the F chord so they stay musical, and quiet
+    // enough (0.010–0.016) to read as sparkle rather than melody.
+    //
+    // `duration` is the SUSTAIN HOLD, not the total: these partials have s:0 and
+    // decay on their own, so the hold is near-zero deliberately and the voice frees
+    // early while the tail rings out. Total audible length is ~1.3s.
+    { id: 'accolade-unlock', name: 'Accolades — entry logged', group: 'accolades', category: 'sfx', priority: 9,
+      config: { duration: 0.05, layers: [
+        // Note 1 — C5. The reach begins. Carries the sub.
+        { waveform: 'sine',     freq: 523,  adsr: { a: 0.003, d: 0.34,  s: 0,    r: 0.102 }, gain: 0.075 },
+        { waveform: 'sine',     freq: 1047, adsr: { a: 0.005, d: 0.238, s: 0,    r: 0.071 }, gain: 0.041 },
+        { waveform: 'triangle', freq: 1575, adsr: { a: 0.007, d: 0.177, s: 0,    r: 0.053 }, gain: 0.026 },
+        { waveform: 'sine',     freq: 2601, adsr: { a: 0.009, d: 0.116, s: 0,    r: 0.035 }, gain: 0.011 },
+        { waveform: 'sine',     freq: 262,  adsr: { a: 0.012, d: 0.204, s: 0.14, r: 0.153 }, gain: 0.032 },
+        // Note 2 — G5 at 110ms. The overshoot.
+        { waveform: 'sine',     freq: 784,  delay: 0.11, adsr: { a: 0.003, d: 0.36,  s: 0, r: 0.108 }, gain: 0.085 },
+        { waveform: 'sine',     freq: 1568, delay: 0.11, adsr: { a: 0.005, d: 0.252, s: 0, r: 0.076 }, gain: 0.047 },
+        { waveform: 'triangle', freq: 2360, delay: 0.11, adsr: { a: 0.007, d: 0.187, s: 0, r: 0.056 }, gain: 0.029 },
+        { waveform: 'sine',     freq: 3896, delay: 0.11, adsr: { a: 0.009, d: 0.122, s: 0, r: 0.037 }, gain: 0.013 },
+        // Note 3 — F5 at 235ms. Settles, and rings. Chorused twins on the two
+        // loudest partials (±9 cents) so the long tail shimmers instead of sitting still.
+        { waveform: 'sine',     freq: 698,  delay: 0.235, adsr: { a: 0.003, d: 1.05,  s: 0, r: 0.315 }, gain: 0.100 },
+        { waveform: 'sine',     freq: 698,  delay: 0.235, detune: 9,  adsr: { a: 0.004, d: 1.05,  s: 0, r: 0.315 }, gain: 0.052 },
+        { waveform: 'sine',     freq: 1397, delay: 0.235, adsr: { a: 0.005, d: 0.735, s: 0, r: 0.221 }, gain: 0.055 },
+        { waveform: 'sine',     freq: 1397, delay: 0.235, detune: -9, adsr: { a: 0.006, d: 0.735, s: 0, r: 0.221 }, gain: 0.028 },
+        { waveform: 'triangle', freq: 2102, delay: 0.235, adsr: { a: 0.007, d: 0.546, s: 0, r: 0.164 }, gain: 0.034 },
+        { waveform: 'sine',     freq: 3471, delay: 0.235, adsr: { a: 0.009, d: 0.357, s: 0, r: 0.107 }, gain: 0.015 },
+        // Shimmer — synced to the spark burst (0ms) and the trickle (300/600/900ms).
+        { waveform: 'sine', freq: 2794, delay: 0.010, adsr: { a: 0.004, d: 0.20, s: 0, r: 0.09 }, gain: 0.016 },
+        { waveform: 'sine', freq: 3520, delay: 0.032, adsr: { a: 0.004, d: 0.17, s: 0, r: 0.08 }, gain: 0.013 },
+        { waveform: 'sine', freq: 4186, delay: 0.056, adsr: { a: 0.004, d: 0.14, s: 0, r: 0.07 }, gain: 0.010 },
+        { waveform: 'sine', freq: 2794, delay: 0.300, adsr: { a: 0.004, d: 0.16, s: 0, r: 0.08 }, gain: 0.013 },
+        { waveform: 'sine', freq: 3520, delay: 0.600, adsr: { a: 0.004, d: 0.15, s: 0, r: 0.07 }, gain: 0.011 },
+        { waveform: 'sine', freq: 4186, delay: 0.900, adsr: { a: 0.004, d: 0.13, s: 0, r: 0.06 }, gain: 0.009 } ] } },
   ];
 
-  const GROUPS = { poker: 'Poker table', hack: 'Circuit Breach (hack)', hololock: 'Hololock Bypass', vault: 'Vault Crack', synth: 'Synth Lab (cook)', flight: 'Flight (cockpit)', fishing: 'Fishing (cast / reel)' };
+  const GROUPS = { poker: 'Poker table', hack: 'Circuit Breach (hack)', hololock: 'Hololock Bypass', vault: 'Vault Crack', synth: 'Synth Lab (cook)', flight: 'Flight (cockpit)', fishing: 'Fishing (cast / reel)', accolades: 'Accolades (entry logged)' };
 
   const _builtinById = new Map(BUILTINS.map(d => [d.id, d]));
   let _overrides = new Map(); // id -> { config, priority, enabled, name }

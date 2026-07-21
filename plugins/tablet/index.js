@@ -51,6 +51,7 @@ import './tv-app.js';
 import './ideology-app.js';
 import './party-app.js';
 import './frontier-app.js';
+import './accolades-app.js';
 
 export { registerTabletApp, getTabletApps } from './registry.js';
 
