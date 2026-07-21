@@ -66,7 +66,8 @@
       "gain_per_dose": 0.3,
       "max_reduction": 0.9,
       "recovery_per_sec": 0.0003
-    }
+    },
+    "onset_message": "<span class=\"msg-system\">The nausea lifts and the world steps forward to be looked at.</span>"
   },
   "flags": {},
   "id": "drug_psilocybin",

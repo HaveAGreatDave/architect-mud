@@ -54,7 +54,9 @@
         "stat_brains": -2
       },
       "onset_seconds": 1800
-    }
+    },
+    "comeon_message": "<span class=\"msg-system\">You take the dust and wait, already feeling further away than you were.</span>",
+    "onset_message": "<span class=\"msg-system\">Your body finishes its sentence without you. You are somewhere behind it now.</span>"
   },
   "flags": {},
   "id": "drug_khole",

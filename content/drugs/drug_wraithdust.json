@@ -72,7 +72,8 @@
       "gain_per_dose": 0.3,
       "max_reduction": 0.9,
       "recovery_per_sec": 0.0002
-    }
+    },
+    "onset_message": "<span class=\"msg-system\">The quiet finishes settling. You are no longer sure you are alone in here.</span>"
   },
   "flags": {},
   "id": "drug_wraithdust",

@@ -42,7 +42,9 @@
         "stat_reflexes": -2
       },
       "onset_seconds": 900
-    }
+    },
+    "onset_seconds": 10,
+    "onset_message": "<span class=\"msg-system\">Your heart finds the new gear and stays there.</span>"
   },
   "flags": {
     "injectable": true

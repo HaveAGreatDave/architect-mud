@@ -89,7 +89,8 @@
         "stat_cool": -2
       },
       "onset_seconds": 2400
-    }
+    },
+    "onset_message": "<span class=\"msg-system\">Something in the room thins out, and you can see how little is holding it together.</span>"
   },
   "flags": {},
   "id": "drug_glasshollow",

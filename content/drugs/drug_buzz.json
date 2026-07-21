@@ -19,7 +19,8 @@
         "stat_reflexes": 2
       },
       "peak_seconds": 180
-    }
+    },
+    "onset_message": "<span class=\"msg-system\">It catches — a cheap, bright little jolt behind the eyes.</span>"
   },
   "flags": {},
   "id": "drug_buzz",

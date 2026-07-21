@@ -66,7 +66,8 @@
     "tolerance": {
       "gain_per_dose": 0.3,
       "max_reduction": 0.9
-    }
+    },
+    "onset_message": "<span class=\"msg-system\">The colours arrive first, and they have opinions.</span>"
   },
   "flags": {},
   "id": "drug_mescaline",

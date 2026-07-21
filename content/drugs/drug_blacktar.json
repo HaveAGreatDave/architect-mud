@@ -40,7 +40,10 @@
         "stat_endurance": -4
       },
       "onset_seconds": 480
-    }
+    },
+    "onset_seconds": 30,
+    "comeon_message": "<span class=\"msg-system\">It is in you. Now the part nobody talks about — the waiting.</span>",
+    "onset_message": "<span class=\"msg-system\">It arrives all at once, warm and enormous, and the waiting stops mattering.</span>"
   },
   "flags": {
     "injectable": true

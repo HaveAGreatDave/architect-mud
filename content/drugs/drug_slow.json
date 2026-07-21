@@ -44,7 +44,8 @@
         "stat_endurance": -2
       },
       "onset_seconds": 900
-    }
+    },
+    "onset_message": "<span class=\"msg-system\">The edges come off everything. Whatever was urgent can wait.</span>"
   },
   "flags": {},
   "id": "drug_slow",

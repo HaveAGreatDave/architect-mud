@@ -65,7 +65,8 @@
     "tolerance": {
       "gain_per_dose": 0.25,
       "max_reduction": 0.85
-    }
+    },
+    "onset_message": "<span class=\"msg-system\">It does not ease in. It kicks the door off its hinges.</span>"
   },
   "flags": {},
   "id": "drug_screamers",

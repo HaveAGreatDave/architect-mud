@@ -38,7 +38,9 @@
         "stat_reflexes": -2
       },
       "onset_seconds": 900
-    }
+    },
+    "onset_seconds": 8,
+    "onset_message": "<span class=\"msg-system\">Your lace comes up to temperature. Thoughts arrive already finished.</span>"
   },
   "flags": {
     "injectable": true

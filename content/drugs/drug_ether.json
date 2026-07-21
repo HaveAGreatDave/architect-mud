@@ -39,7 +39,9 @@
     "overdose": {
       "lethal": true,
       "message": "You breathe in one rag too many. The lights go out mid-thought."
-    }
+    },
+    "comeon_message": "<span class=\"msg-system\">You put the rag over your face and breathe in. The smell is the whole world for a second.</span>",
+    "onset_message": "<span class=\"msg-system\">The floor tilts politely away and the lights go soft at the edges.</span>"
   },
   "flags": {},
   "id": "drug_ether",
