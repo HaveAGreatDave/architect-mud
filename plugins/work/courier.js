@@ -218,6 +218,7 @@ export async function deliver(player) {
   }
   await query('DELETE FROM player_inventory WHERE id=$1', [held.invId]);
   adjustCredits(player, run.payout, undefined, 'work:courier');
+  setFlag('player', 'work_shift_done', 'true', player).catch(() => {});  // a delivered run is a job held
   return { type: 'output', message:
     `<span class="item-grant">Handoff clean. The contact takes the parcel, counts ${run.payout}₵ into your palm, and is gone before you've pocketed it.</span>` };
 }

@@ -88,10 +88,21 @@ the ladder herself, which is what a labour dispatcher is *for*:
 
 ## Philosophical encounters → alignment
 
-The first encounter is Marta's opening line: _"So. What are you going to be?"_ Four
-value-laden answers (survival / memory / devotion / ruin) each move an **ideology**
-plus the player's **stance and path**, nudging you toward a force without ever naming
-good or evil. Everyone is just surviving. The creeds map: survival→Wildblood
+The first encounter is Marta's _"So. What are you going to be?"_ Four value-laden
+answers (survival / memory / devotion / ruin) each move an **ideology** plus the
+player's **stance and path**, nudging you toward a force without ever naming good or
+evil.
+
+**It is earned, not her opening line (changed 2026-07-21).** It used to be the first
+thing she said to a player who had existed for four minutes, and it permanently set
+their stance and path — the game's one identity beat spent on a coin flip by someone
+who hadn't done anything yet. The four answers now live on a **`creed`** node she opens
+herself, gated on **`work_shift_done`**: you must have seen a shift through (`clock
+out`/completed) or delivered a courier run. A gig off her own board is deliberately
+**not** enough — by her own account a tab is an errand and a shift is a job, and she
+says as much in `steady`. Being sent home or walking off mid-shift doesn't count
+either. Both the opening option and all four answers carry the gate, so no route
+reaches it early. Everyone is just surviving. The creeds map: survival→Wildblood
 (renounce · flesh), memory→the Long Watch (redeem · human), devotion→the Ascendants
 (redeem · machine), ruin→the Exodus (renounce · mind).
 

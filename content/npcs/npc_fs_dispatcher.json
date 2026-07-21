@@ -84,6 +84,167 @@
       ],
       "text": "She almost smiles. \"The Breakers say that too — right up until winter, when they come slinking back for the heaters they smashed.\" A shrug. \"Serve it or smash it, the board doesn't care. Neither do I. Pay's the same either way.\""
     },
+    "creed": {
+      "options": [
+        {
+          "actions": [
+            {
+              "action": "ADJUST_REPUTATION",
+              "delta": 8,
+              "ideology_id": "ideology_wildblood",
+              "reason": "creed:survival"
+            },
+            {
+              "action": "ADJUST_STANCE",
+              "delta": -8
+            },
+            {
+              "action": "ADJUST_PATH",
+              "delta": 8,
+              "path": "flesh"
+            },
+            {
+              "action": "SET_FLAG",
+              "flag": "fs_creed",
+              "scope": "player",
+              "value": "survival"
+            }
+          ],
+          "conditions": [
+            {
+              "flag": "fs_creed",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "work_shift_done",
+              "op": "set",
+              "scope": "player"
+            }
+          ],
+          "next": "eat",
+          "text": "\"Someone who eats. That's all.\""
+        },
+        {
+          "actions": [
+            {
+              "action": "ADJUST_REPUTATION",
+              "delta": 8,
+              "ideology_id": "ideology_long_watch",
+              "reason": "creed:memory"
+            },
+            {
+              "action": "ADJUST_STANCE",
+              "delta": 8
+            },
+            {
+              "action": "ADJUST_PATH",
+              "delta": 8,
+              "path": "human"
+            },
+            {
+              "action": "SET_FLAG",
+              "flag": "fs_creed",
+              "scope": "player",
+              "value": "memory"
+            }
+          ],
+          "conditions": [
+            {
+              "flag": "fs_creed",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "work_shift_done",
+              "op": "set",
+              "scope": "player"
+            }
+          ],
+          "next": "remember",
+          "text": "\"Someone who remembers what all this was before.\""
+        },
+        {
+          "actions": [
+            {
+              "action": "ADJUST_REPUTATION",
+              "delta": 8,
+              "ideology_id": "ideology_ascendants",
+              "reason": "creed:devotion"
+            },
+            {
+              "action": "ADJUST_STANCE",
+              "delta": 8
+            },
+            {
+              "action": "ADJUST_PATH",
+              "delta": 8,
+              "path": "machine"
+            },
+            {
+              "action": "SET_FLAG",
+              "flag": "fs_creed",
+              "scope": "player",
+              "value": "devotion"
+            }
+          ],
+          "conditions": [
+            {
+              "flag": "fs_creed",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "work_shift_done",
+              "op": "set",
+              "scope": "player"
+            }
+          ],
+          "next": "architect",
+          "text": "\"Whatever the Architect needs me to be.\""
+        },
+        {
+          "actions": [
+            {
+              "action": "ADJUST_REPUTATION",
+              "delta": 8,
+              "ideology_id": "ideology_exodus",
+              "reason": "creed:ruin"
+            },
+            {
+              "action": "ADJUST_STANCE",
+              "delta": -8
+            },
+            {
+              "action": "ADJUST_PATH",
+              "delta": 8,
+              "path": "mind"
+            },
+            {
+              "action": "SET_FLAG",
+              "flag": "fs_creed",
+              "scope": "player",
+              "value": "ruin"
+            }
+          ],
+          "conditions": [
+            {
+              "flag": "fs_creed",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "work_shift_done",
+              "op": "set",
+              "scope": "player"
+            }
+          ],
+          "next": "breaker",
+          "text": "\"The one who pulls the plug on all of it, eventually.\""
+        }
+      ],
+      "text": "She doesn't reach for the clipboard this time. \"You held a shift.\" A drag on the cigarette, and for once she looks at you properly — not pricing you, reading you. \"That's the part most of them never manage. They take a tab, and another tab, and one morning they're not in the queue and nobody asks after them.\" She taps ash into the tin lid. \"So I'll ask you the thing I don't waste on the ones who won't last. What are you going to be?\""
+    },
     "eat": {
       "options": [
         {
@@ -135,140 +296,20 @@
       ],
       "options": [
         {
-          "actions": [
-            {
-              "action": "ADJUST_REPUTATION",
-              "delta": 8,
-              "ideology_id": "ideology_wildblood",
-              "reason": "creed:survival"
-            },
-            {
-              "action": "ADJUST_STANCE",
-              "delta": -8
-            },
-            {
-              "action": "ADJUST_PATH",
-              "delta": 8,
-              "path": "flesh"
-            },
-            {
-              "action": "SET_FLAG",
-              "flag": "fs_creed",
-              "scope": "player",
-              "value": "survival"
-            }
-          ],
           "conditions": [
+            {
+              "flag": "work_shift_done",
+              "op": "set",
+              "scope": "player"
+            },
             {
               "flag": "fs_creed",
               "op": "unset",
               "scope": "player"
             }
           ],
-          "next": "eat",
-          "text": "\"Someone who eats. That's all.\""
-        },
-        {
-          "actions": [
-            {
-              "action": "ADJUST_REPUTATION",
-              "delta": 8,
-              "ideology_id": "ideology_long_watch",
-              "reason": "creed:memory"
-            },
-            {
-              "action": "ADJUST_STANCE",
-              "delta": 8
-            },
-            {
-              "action": "ADJUST_PATH",
-              "delta": 8,
-              "path": "human"
-            },
-            {
-              "action": "SET_FLAG",
-              "flag": "fs_creed",
-              "scope": "player",
-              "value": "memory"
-            }
-          ],
-          "conditions": [
-            {
-              "flag": "fs_creed",
-              "op": "unset",
-              "scope": "player"
-            }
-          ],
-          "next": "remember",
-          "text": "\"Someone who remembers what all this was before.\""
-        },
-        {
-          "actions": [
-            {
-              "action": "ADJUST_REPUTATION",
-              "delta": 8,
-              "ideology_id": "ideology_ascendants",
-              "reason": "creed:devotion"
-            },
-            {
-              "action": "ADJUST_STANCE",
-              "delta": 8
-            },
-            {
-              "action": "ADJUST_PATH",
-              "delta": 8,
-              "path": "machine"
-            },
-            {
-              "action": "SET_FLAG",
-              "flag": "fs_creed",
-              "scope": "player",
-              "value": "devotion"
-            }
-          ],
-          "conditions": [
-            {
-              "flag": "fs_creed",
-              "op": "unset",
-              "scope": "player"
-            }
-          ],
-          "next": "architect",
-          "text": "\"Whatever the Architect needs me to be.\""
-        },
-        {
-          "actions": [
-            {
-              "action": "ADJUST_REPUTATION",
-              "delta": 8,
-              "ideology_id": "ideology_exodus",
-              "reason": "creed:ruin"
-            },
-            {
-              "action": "ADJUST_STANCE",
-              "delta": -8
-            },
-            {
-              "action": "ADJUST_PATH",
-              "delta": 8,
-              "path": "mind"
-            },
-            {
-              "action": "SET_FLAG",
-              "flag": "fs_creed",
-              "scope": "player",
-              "value": "ruin"
-            }
-          ],
-          "conditions": [
-            {
-              "flag": "fs_creed",
-              "op": "unset",
-              "scope": "player"
-            }
-          ],
-          "next": "breaker",
-          "text": "\"The one who pulls the plug on all of it, eventually.\""
+          "next": "creed",
+          "text": "\"Something on your mind, Marta?\""
         },
         {
           "conditions": [
@@ -309,7 +350,7 @@
           "text": "\"What's on the board?\""
         }
       ],
-      "text": "The window's plexi is scratched to fog. Marta Kell slides a clipboard half an inch toward you without looking up. \"Board's on the wall. Take a tab, do the thing, bring it back, get paid. That's the whole religion.\" She finally lifts her eyes. \"You're new-made — I can always tell, they come out of that facility with the shine still on. So. What are you going to be?\""
+      "text": "The window's plexi is scratched to fog. Marta Kell slides a clipboard half an inch toward you without looking up. \"Board's on the wall. Take a tab, do the thing, bring it back, get paid. That's the whole religion.\" She finally lifts her eyes, weighs you for about as long as it takes to read a docket, and goes back to the clipboard. \"New-made. I can always tell — they come out of that facility with the shine still on.\""
     },
     "steady": {
       "options": [

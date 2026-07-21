@@ -37,6 +37,7 @@ import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { setPosture, forceStand } from '../../server/engine/posture.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { on } from '../../server/engine/events.js';
+import { setFlag } from '../../server/engine/flags.js';
 import { courierVerb, deliver, crack, registerCourierAction, _courierTest } from './courier.js';
 
 // ── Tunables (defaults; adjustable via the tunables table without a redeploy) ──
@@ -222,6 +223,14 @@ function endShift(player, reason) {
   parts.push(`<span class="msg-system">Wage ${pay}₵${tips ? ` + tips ${tips}₵` : ''} = <b>${total}₵</b>. (Table satisfaction ${sat}%.)</span>`);
   out(player.id, parts.join('\n'));
   sendToZone(st.zoneId, { type: 'zone_event', message: `${player.handle} clocks out.` }, player.id);
+
+  // You have now held a job. Content gates on this — Marta withholds her "so what
+  // are you going to be?" until it's set, because the question means nothing asked
+  // of someone who has never worked a day. Only the two endings you chose count:
+  // being thrown off the floor or wandering away mid-shift aren't holding a job.
+  if (reason === 'completed' || reason === 'clocked_out') {
+    setFlag('player', 'work_shift_done', 'true', player).catch(() => {});
+  }
 }
 
 function getPosture(player) { return player.posture || 'standing'; }
