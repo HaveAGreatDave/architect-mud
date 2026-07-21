@@ -3504,6 +3504,16 @@ async function sendTvStandings(playerId) {
   });
 }
 
+// The live matchup label for a sports slot in a running order — so a mixed channel's Deadball row
+// reads "DEADBALL — Away @ Home" (the game that's actually airing) like the dedicated sports guide
+// does, rather than the generic stored broadcast name. Returns null for any non-sports item.
+function _sportsSlotLabel(item) {
+  if (item.playback_mode !== 'sports' || !item.sportsScript) return null;
+  const s = _seasonCache || {};
+  if (s.phase === 'worldseries' && s.finalistA && s.finalistB) return `⚾ WORLD SERIES — ${s.finalistA} vs ${s.finalistB}`;
+  const gs = sportsGameForSlot(item.sportsScript, sportsSlotIndex(), worldSeriesOverride());
+  return gs ? `DEADBALL — ${gs.game.away.name} @ ${gs.game.home.name}` : (item.broadcastName || 'DEADBALL — Coldwater League Baseball');
+}
 function sendTvSchedule(playerId, channelId) {
   const state = channelId ? channelRuntime.get(channelId) : null;
   const nowMin = getEnvironmentState().minutes ?? 0;
@@ -3519,14 +3529,22 @@ function sendTvSchedule(playerId, channelId) {
     sendToPlayer(playerId, { ...base, slots: [] });
     return;
   }
-  // A `@airtime`-locked sports channel gets a real nightly guide (with the WS airtime).
-  const sportsItem = state.playlist.find((i) => i.playback_mode === 'sports' && i.sportsScript);
+  // A DEDICATED sports channel (its whole running order is Deadball) gets the special nightly
+  // guide: the featured games by air-slot, with "tomorrow"/"in Nd" tags and the WS airtime. This
+  // must NOT fire for a general-entertainment channel that merely CARRIES a Deadball slot among
+  // its news/weather/talk shows — that would throw the rest of the day's listing away and leave
+  // only the ball game showing. So gate it on the channel being sports-only.
+  const nonCommercial = state.playlist.filter((i) => i.slotType !== 'commercial_break');
+  const sportsOnly = nonCommercial.length > 0 && nonCommercial.every((i) => i.playback_mode === 'sports' && i.sportsScript);
+  const sportsItem = sportsOnly ? nonCommercial.find((i) => i.sportsScript) : null;
   const sportsSlots = sportsItem ? _sportsScheduleSlots(sportsItem.sportsScript, sportsSlotIndex()) : null;
   if (sportsSlots) {
     sendToPlayer(playerId, { ...base, scheduleMode: 'daily', slots: sportsSlots });
     return;
   }
-  const nameFor = (i) => (i.slotType === 'commercial_break') ? 'Commercial break' : (i.broadcastName || 'Untitled');
+  // On a mixed channel the Deadball row still reads with its live matchup, not the generic
+  // broadcast name, so the guide matches what's actually on — the rest of the day is untouched.
+  const nameFor = (i) => (i.slotType === 'commercial_break') ? 'Commercial break' : (_sportsSlotLabel(i) || i.broadcastName || 'Untitled');
   let slots;
   if (base.scheduleMode === 'daily') {
     const nowSec = nowMin * 60;

@@ -97,7 +97,7 @@ const V = (f, g, h) => [f, g, h];
 // A parametric fixed-wing: a lozenge fuselage (nose tip → mid ring → tail tip), high-
 // or low-set swept wings with dihedral, tailplane, one or two vertical fins, engine
 // nacelles (underwing tubes OR rear pods), and a canopy. Optional class-signature parts
-// — strut braces, fixed gear, prop spinners, nose gun, cabin windows, engine pylons —
+// — strut braces, fixed gear, prop spinners, nose gun, engine pylons —
 // give each class its real-world silhouette (Cessna / Twin Otter / An-124 / A-10).
 function buildFixedWing(p, detail = 1) {
   const faces = [];
@@ -108,15 +108,34 @@ function buildFixedWing(p, detail = 1) {
   // off a diamond mid-ring), used for distant/LOD renders where the extra facets are
   // sub-pixel. The tips collapse to the axis (rad→0), so the end quads fold into cap fans.
   const sides = detail ? 12 : 4;
-  const stations = detail
+  // `p.extraF` inserts additional fuselage stations (fore→aft, descending f). A class that GLAZES
+  // its hull (p.glaze, below) needs real rings at the windscreen and cockpit bulkhead so the glass
+  // starts and stops on a structural seam instead of halfway across a bay — the coarse 3-station
+  // nose can't do that. Near-duplicate stations are dropped so an inserted ring can't leave a
+  // sliver quad next to a default one. Coarse LOD is untouched.
+  let stations = detail
     ? [p.noseF, p.noseF * 0.66, p.noseF * 0.33, 0, p.tailF * 0.35, p.tailF * 0.7, p.tailF]
     : [p.noseF, 0, p.tailF];
-  const czAt = (f) => f >= 0 ? (p.noseZ ?? 0.02) * (f / p.noseF) : (p.tailUp ?? 0.05) * (f / p.tailF);   // centreline: 0 at mid, noseZ at the nose tip (negative = a drooped 'anteater' nose like the Twin Otter), tailUp at the tail (a cargo boat-tail upsweeps more)
+  if (detail && p.extraF) {
+    const keep = stations.filter(f => !p.extraF.some(e => Math.abs(e - f) < 0.03));   // an inserted ring wins over a default one right next to it
+    stations = [...keep, ...p.extraF].sort((a, b) => b - a);
+  }
   // Radius profile 1 (mid) → 0 (tips). A `bodyTube` plateau holds NEAR-FULL width across the
   // central span before tapering (a transport is a long constant-section tube; a light single
   // tapers straight from the cabin). The NOSE then rounds off as a blunt superellipse cowl
   // (p.noseBlunt), the TAIL as a clean taper. detail 0 stays a straight cone → coarse LOD unchanged.
   const noseK = p.noseBlunt || 2.4, tube = p.bodyTube || 0, cowl = p.noseCowl || 0;
+  // Centreline: 0 at mid, noseZ at the nose tip (negative = a drooped 'anteater' snout like the
+  // Twin Otter), tailUp at the tail. The droop is spent over the TAPERING SNOUT ONLY, not linearly
+  // from mid-fuselage — otherwise a drooped nose tips the whole forward cabin down with it and the
+  // roof can never stay level. `noseDroopK` < 1 dumps most of the drop right at the break, which is
+  // what turns those first facets into a windscreen rake instead of a gently sloping roof.
+  const czAt = (f) => {
+    if (f < 0) return (p.tailUp ?? 0.05) * (f / p.tailF);
+    const u = Math.min(1, f / p.noseF);
+    const t = (detail && tube) ? Math.max(0, (u - tube) / (1 - tube)) : u;
+    return (p.noseZ ?? 0.02) * Math.pow(t, p.noseDroopK ?? 1);
+  };
   const radAt = (f) => {
     let u = Math.min(1, Math.abs(f >= 0 ? f / p.noseF : f / p.tailF));
     if (!detail) return 1 - u;
@@ -141,11 +160,32 @@ function buildFixedWing(p, detail = 1) {
     }
     return out;
   };
+  // ── GLAZED HULL (p.glaze) — the Twin Otter way, and the same idea as the Viper's greenhouse:
+  // the cockpit glass is not a blister bolted to the crown, it IS the fuselage. Between stations
+  // f0 (windscreen) and f1 (cockpit bulkhead) the listed upper facets are simply glazed, so the
+  // flight-deck windows are flush with the flat sides and rake forward with the drooped nose
+  // exactly like the real aeroplane. The roof facets stay body-coloured (an Otter's roof is
+  // painted, not glass). Frames/reflections/crew are painted by the canopy texture through the
+  // UVs below: U runs f0→f1 (windscreen→bulkhead), V runs starboard→crown→port over the upper
+  // half of the ring (k 0…sides/2), matching the shared canopy texture space.
+  const GZ = detail && p.glaze ? p.glaze : null;
+  const gzU = (f) => (GZ.f0 - f) / (GZ.f0 - GZ.f1) * CP_TW;
+  const gzV = (k) => k / (sides / 2) * CP_TH;
   for (let i = 0; i < stations.length - 1; i++) {
     const A = ring(stations[i]), B = ring(stations[i + 1]);
+    const fA = stations[i], fB = stations[i + 1];
+    const inGlaze = GZ && fB > GZ.f1 - 1e-6 && fA < GZ.f0 + 1e-6;
     for (let k = 0; k < sides; k++) {
       const k2 = (k + 1) % sides;
       const sh = 0.62 + 0.36 * (0.5 + 0.5 * Math.sin((k + 0.5) / sides * Math.PI * 2));   // top bright (~0.98) → sides mid → bottom dark (~0.62)
+      // The WINDSCREEN bay wraps higher than the side windows do (GZ.wsKs forward of GZ.wsF) —
+      // the Otter's screen carries up onto the cheek, its side glass stops at the window line.
+      const gks = (GZ && GZ.wsKs && fA >= GZ.wsF - 1e-6) ? GZ.wsKs : (GZ ? GZ.ks : null);
+      if (inGlaze && gks.includes(k)) {
+        faces.push({ role: 'glass', sh, art: GZ.art, p: [A[k], A[k2], B[k2], B[k]],
+          uv: [[gzU(fA), gzV(k)], [gzU(fA), gzV(k2)], [gzU(fB), gzV(k2)], [gzU(fB), gzV(k)]] });
+        continue;
+      }
       faces.push({ role: 'body', sh, p: [A[k], A[k2], B[k2], B[k]] });
     }
   }
@@ -184,12 +224,22 @@ function buildFixedWing(p, detail = 1) {
     faces.push({ role: 'fin', sh: 0.9, p: [V(p.finF0, fg, 0.05), V(p.finF1, fg, p.finH), V(p.finF2, fg, 0.06)] });
     if (detail) addFinSurface(faces, p, fg);   // hinged rudder on the fin trailing edge (full mesh only)
   }
+  // DORSAL FIN FILLET (Twin Otter): a long shallow blade running forward off the fin leading edge
+  // along the spine. It's most of what makes an Otter's tail read as an Otter's, and it sits on the
+  // fuselage crown, so it follows the real tailcone line rather than a straight fudge.
+  if (detail && p.dorsal != null) {
+    const crownAt = (f) => czAt(f) + p.fv * radAt(f);
+    const kneeH = 0.05 + (p.finH - 0.05) * 0.34;                       // where it merges into the fin LE
+    const kneeF = p.finF0 + (p.finF1 - p.finF0) * 0.34;
+    faces.push({ role: 'fin', sh: 0.84, p: [
+      V(p.dorsal, 0, crownAt(p.dorsal)), V(kneeF, 0, kneeH), V(p.finF0, 0, crownAt(p.finF0))] });
+  }
   // Engine nacelles — underwing tubes (from `engines` lateral stations) or fatter rear
   // pods (from `podEngines` full [f,g,h] stations, e.g. the A-10's high tail-mounts).
   const nacStations = p.podEngines || (p.engines || []).map(g => [p.nacF, g, p.nacH]);
   for (const [nf, g, hc] of nacStations) {
     const nr = p.nacR || (p.podEngines ? 0.085 : 0.05);   // fat rear pods (A-10's TF34s); p.nacR sizes big underwing turbofans (An-124 D-18T)
-    const half = 0.17 + (nr - 0.05) * 1.3;                // fatter engines run longer too, so the tube stays proportioned
+    const half = p.nacHalf ?? (0.17 + (nr - 0.05) * 1.3);   // fatter engines run longer too, so the tube stays proportioned; nacHalf overrides for a long slung nacelle
     const rT = V(nf, g, hc + nr), rR = V(nf, g + nr, hc), rB = V(nf, g, hc - nr), rL = V(nf, g - nr, hc);
     const fr = V(nf + half, g, hc), bk = V(nf - half - 0.01, g, hc);
     for (const [a, b] of [[rT, rR], [rR, rB], [rB, rL], [rL, rT]]) {
@@ -203,7 +253,7 @@ function buildFixedWing(p, detail = 1) {
     if (p.podPylon) { const gi = Math.sign(g) * 0.06; faces.push({ role: 'strut', sh: 0.72, p: [   // A-10: rear pod on a stub pylon inboard to the fuselage
       V(nf + 0.09, g, hc - nr * 0.6), V(nf + 0.09, gi, hc - nr - 0.04),
       V(nf - 0.09, gi, hc - nr - 0.04), V(nf - 0.09, g, hc - nr * 0.6)] }); }
-    if (p.prop === 'wing') addSpinner(faces, nf + 0.17, g, hc);   // Twin Otter wing turboprops
+    if (p.prop === 'wing') addSpinner(faces, nf + half, g, hc);   // Twin Otter wing turboprops — on the nacelle's own nose, however long it is
   }
   if (p.prop === 'nose') addSpinner(faces, p.noseF, 0, 0.02, 0.5);   // Cessna single nose prop — a SMALL GA spinner
   // Under-wing cannon (gunship): a small forward-firing gun pod slung beneath each
@@ -240,16 +290,6 @@ function buildFixedWing(p, detail = 1) {
     else if (p.gearStyle === 'taildragger') addTaildraggerGear(faces, p, wz);   // conventional gear: two forward mains + a tailwheel
     else { addGear(faces, 0.10, p.fr + 0.06, wz); addGear(faces, 0.10, -(p.fr + 0.06), wz); addGear(faces, p.noseF * 0.55, 0, wz + 0.02); }
   }
-  // Cabin window row along the upper fuselage sides (transports: Twin Otter / An-124).
-  if (p.windows) {
-    for (const s of [1, -1]) {
-      for (let i = 0; i < p.windows; i++) {
-        const wf = 0.42 - i * (0.95 / p.windows), wy = s * p.fr * 1.02, wq = 0.045, wc = p.fv * 0.34;
-        faces.push({ role: 'window', sh: 0.86, p: [
-          V(wf + wq, wy, wc + wq), V(wf + wq, wy, wc - wq), V(wf - wq, wy, wc - wq), V(wf - wq, wy, wc + wq)] });
-      }
-    }
-  }
   // Cockpit canopy — a faceted transparent bubble mounted on the fuselage crown. Built from
   // upper-half elliptical rings sampled fore→aft and skinned into quads; the lateral facets give
   // the windscreen its real angled panes (more triangles = more accurate curved glass). The base
@@ -267,20 +307,40 @@ function buildFixedWing(p, detail = 1) {
       for (let k = 0; k <= arc; k++) { const a = Math.PI * k / arc; out.push(V(f, Math.cos(a) * cp.w * s, z0 + Math.sin(a) * cp.h * s)); }
       return out;   // k: 0 = starboard base → over the crown → arc = port base
     };
+    // Canopy ART (cp.art): the bubble unwraps onto the shared canopy texture exactly the way the
+    // Viper's greenhouse does — the SEGMENT index runs U (windscreen → rear), the ARC index runs
+    // V (starboard sill → crown → port sill) — so one painted sheet of mullions, sky reflection
+    // and the people inside wraps the whole cabin. Without `art` the bubble is plain tinted glass.
+    const art = cp.art;
     let A = ringAt(0);
     for (let i = 1; i <= segs; i++) {
       const B = ringAt(i / segs);
+      const uA = (i - 1) / segs * CP_TW, uB = i / segs * CP_TW;
       for (let k = 0; k < arc; k++) {
         const sh = 0.66 + 0.30 * Math.sin(Math.PI * (k + 0.5) / arc);   // crown pane brightest, side panes darker
-        faces.push({ role: 'glass', sh, p: [A[k], A[k + 1], B[k + 1], B[k]] });
+        const fc = { role: 'glass', sh, p: [A[k], A[k + 1], B[k + 1], B[k]] };
+        if (art) {
+          fc.art = art;
+          fc.uv = [[uA, k / arc * CP_TH], [uA, (k + 1) / arc * CP_TH], [uB, (k + 1) / arc * CP_TH], [uB, k / arc * CP_TH]];
+        }
+        faces.push(fc);
       }
       A = B;
     }
     // Cap the fore + aft rings so the greenhouse reads as a CLOSED bubble — a raked windscreen up
     // front and a faired rear window — instead of an open-ended tube. The backface cull auto-orients
     // each cap's normal from the model centre, so the flat end faces don't need a fixed winding.
-    faces.push({ role: 'glass', sh: 0.72, p: ringAt(0) });   // front windscreen
-    faces.push({ role: 'glass', sh: 0.50, p: ringAt(1) });   // rear window
+    // A cap is a flat ring at ONE station, so it has no extent in U: give it a narrow slab of the
+    // texture's leading (or trailing) edge, fanned across V, so the windscreen still carries its
+    // frame and glass wash rather than dropping back to bare tint. Only quads can be textured
+    // (drawCanopyGlass takes 3–4 points), i.e. arc 3 — a wider arc caps stay plain.
+    const front = ringAt(0), rear = ringAt(1);
+    const capUV = (uEdge, uIn) => [[uEdge, 0], [uIn, CP_TH / 3], [uIn, CP_TH * 2 / 3], [uEdge, CP_TH]];
+    const fCap = { role: 'glass', sh: 0.72, p: front };
+    const rCap = { role: 'glass', sh: 0.50, p: rear };
+    if (art && front.length === 4) { fCap.art = art; fCap.uv = capUV(0, CP_TW * 0.07); }
+    if (art && rear.length === 4) { rCap.art = art; rCap.uv = capUV(CP_TW, CP_TW * 0.93); }
+    faces.push(fCap, rCap);
   }
   // ── Cargo visor group (Leviathan) ───────────────────────────────────────────────
   // Tag every skin/glass face forward of the cut ring as one hinged unit that swings UP
@@ -826,7 +886,7 @@ function buildAttackHeli() {
       const j = (k + 1) % sides;
       const fc = { role: 'body', sh: shFor(k), p: [body[i][k], body[i][j], body[i + 1][j], body[i + 1][k]] };
       if (glz && glz.includes(k)) {
-        fc.role = 'glass'; fc.tint = GLASS;
+        fc.role = 'glass'; fc.tint = GLASS; fc.art = 'viper';
         fc.uv = [[uA, k / 5 * CP_TH], [uA, j / 5 * CP_TH], [uB, j / 5 * CP_TH], [uB, k / 5 * CP_TH]];
       }
       faces.push(fc);
@@ -1126,23 +1186,47 @@ const FW_PARAMS = {
   // it's rounded, not a spike), a LONG slim tailcone, a straight squared-off constant-chord wing
   // on the cabin roof, and a tall swept fin. Short-nose / long-tail, slightly boxy cabin.
   ultralight: { ...FW_DEFAULT, fr: 0.085, fv: 0.10, span: 1.12, noseF: 0.72, tailF: -0.92,
-    wingH: 0.12, dih: 0.03, wRootF: 0.26, wRootB: -0.14, wTipF: 0.24, wTipB: -0.14,
+    // The wing sits ON THE CABIN ROOF, not ahead of it (see the canopy note below): raised a
+    // touch off the fuselage crown so the glazed cabin band fills the gap underneath it.
+    wingH: 0.145, dih: 0.03, wRootF: 0.26, wRootB: -0.14, wTipF: 0.24, wTipB: -0.14,
     hF: -0.68, hB: -0.88, hTipF: -0.72, hTipB: -0.90, hSpan: 0.42,
     finF0: -0.62, finF1: -0.86, finF2: -0.92, finH: 0.46, fins: [0],
     engines: [], prop: 'nose', struts: true, gear: true, gearStyle: 'spring',
     noseBlunt: 3.0, noseCowl: 0.48, boxy: 0.4, bodyTube: 0.10, tailUp: 0.05,   // full, rounded cowl tapering to the small spinner
-    canopy: { f0: 0.50, f1: 0.30, w: 0.072, h: 0.05, front: 0.4, tail: 0.28, segs: 4, arc: 3, sink: 0.02 } },   // windscreen/front-cabin kept entirely AHEAD of the high wing LE (0.26) so it never pokes through the wing
+    // CABIN UNDER THE WING (per ref: a 152). The glass is not a blister parked ahead of the wing —
+    // it's the cabin itself: a raked windscreen up off the firewall (f0), then the side glass runs
+    // aft UNDERNEATH the wing root (LE 0.26 → TE −0.14) and finishes in a rear quarter-window just
+    // behind the trailing edge. `h` is sized so the roof tops out level with the wing underside
+    // (wingH − 0.01), so the wing reads as sitting ON the cabin instead of floating over it.
+    canopy: { f0: 0.36, f1: -0.17, w: 0.076, h: 0.038, front: 0.30, tail: 0.24, segs: 6, arc: 3, sink: 0.02, art: 'mayfly' } },
   // Mule — a high-wing, twin-turboprop, fixed-gear STOL hauler: a DHC-6 Twin Otter (per ref). A
   // deep, flat-sided BOX of a fuselage held near-constant most of its length, with the signature
   // DROOPED, POINTED "anteater" nose (noseZ pulls the radome down below the fuselage line to a
   // point). Shortened from the original (empennage pulled in to match) so it reads less stretched.
-  prop: { ...FW_DEFAULT, fr: 0.13, fv: 0.135, span: 1.02, noseF: 0.86, tailF: -0.92,
-    wingH: 0.13, dih: 0.01, wRootF: 0.36, wRootB: -0.10, wTipF: 0.26, wTipB: -0.06,
+  prop: { ...FW_DEFAULT, fr: 0.13, fv: 0.135, span: 1.02, noseF: 0.92, tailF: -0.92,
+    // The wing sits flat ON the cabin roof (crown 0.135), not half-buried in it.
+    wingH: 0.161, dih: 0.01, wRootF: 0.36, wRootB: -0.10, wTipF: 0.26, wTipB: -0.06,
     hF: -0.70, hB: -0.89, hTipF: -0.75, hTipB: -0.91, hSpan: 0.40,
     finH: 0.60, finF0: -0.63, finF1: -0.88, finF2: -0.94,
-    engines: [-0.42, 0.42], nacF: 0.30, nacH: 0.11, prop: 'wing',
-    struts: true, gear: true, gearStyle: 'oleo', windows: 4, noseBlunt: 1.9, noseZ: -0.055, boxy: 0.82, bodyTube: 0.42, tailUp: 0.075,
-    canopy: { f0: 0.58, f1: 0.28, w: 0.12, h: 0.075, front: 0.5, tail: 0.22, segs: 4, arc: 4, sink: 0.02 } },   // low wide flight-deck windscreen over the drooped nose
+    // Long nacelles that run from ahead of the wing to well BEHIND its trailing edge — the Otter's
+    // engines are slung along the wing, not bolted to the front of it (nacHalf sets the length).
+    engines: [-0.42, 0.42], nacF: 0.06, nacHalf: 0.28, nacH: 0.11, prop: 'wing',
+    dorsal: -0.24,   // the long dorsal fin fillet running forward off the fin along the spine
+    struts: true, gear: true, gearStyle: 'oleo', boxy: 0.86,
+    // Slab-sided BOX held at full section right back to the flight deck (bodyTube 0.60), then the
+    // whole snout tapers and DROOPS away below it — the anteater nose. noseDroopK 0.7 spends most
+    // of that drop in the first bay off the box, so the facets there rake like a real windscreen.
+    noseBlunt: 2.4, noseZ: -0.085, noseDroopK: 0.7, bodyTube: 0.60, tailUp: 0.075,
+    // FLIGHT DECK CUT INTO THE HULL (per ref photo), not a hump on the roof: the Otter's cockpit
+    // glass is flush with its flat slab sides and rakes forward over the drooped nose. Extra rings
+    // at 0.66/0.55/0.44/0.34 give the windscreen and each side window their own bay (the default
+    // 3-station nose was one coarse quad); `glaze` then turns the upper-side facets between them
+    // to glass. On a 12-gon the upper half runs k 0…5 — k0/k5 are the deep side band (mid-height
+    // up to ~0.7 of the fuselage height), k1/k4 the cheek above it, k2/k3 the roof. So the side
+    // windows take k0/k5 only and the windscreen bay also takes the cheek, while the roof and the
+    // centreline post between the two screens are simply unglazed hull — real geometry, not paint.
+    extraF: [0.70, 0.62, 0.55, 0.44, 0.30],
+    glaze: { f0: 0.70, f1: 0.30, ks: [0, 5], wsKs: [0, 1, 4, 5], wsF: 0.60, art: 'mule' } },
   // Reaper — an A-10 Warthog (per ref): a straight-wing, twin-tail gun platform with two fat
   // turbofans mounted HIGH on stub pylons off the rear fuselage. A SLIM fuselage (thin fr) that's
   // still deep, a slightly pointed nose, and the twin fins out at the tailplane tips.
@@ -1159,7 +1243,7 @@ const FW_PARAMS = {
   // a cantilever wing — NO lift struts (unlike the strut-braced Otter).
   heavy: { ...FW_DEFAULT, fr: 0.20, fv: 0.18, span: 1.05, noseF: 1.15, tailF: -1.12, hSpan: 0.46, finH: 0.66,
     wingH: 0.17, dih: -0.05, wRootF: 0.34, wRootB: -0.14, wTipF: 0.20, wTipB: -0.10,
-    engines: [-0.60, -0.34, 0.34, 0.60], nacF: 0.26, nacH: 0.0, nacR: 0.095, pylons: true, windows: 6, heavyGear: true,
+    engines: [-0.60, -0.34, 0.34, 0.60], nacF: 0.26, nacH: 0.0, nacR: 0.095, pylons: true, heavyGear: true,
     noseBlunt: 3.3, noseCowl: 0.16, boxy: 0.12, bodyTube: 0.5, tailUp: 0.10,   // noseCowl floors the radome so it's a blunt An-124 nose, not a point
     // Cargo VISOR NOSE (C-5 Galaxy / An-124): parked with the engines shut down the whole forward
     // section ahead of the noseF*0.33 ring hinges fully UP (~90°), exposing the cargo hold + ramp;
@@ -1173,12 +1257,18 @@ const FW_PARAMS = {
   // near-constant-chord high wing on lift struts; a tall light fin; and conventional (tailwheel)
   // gear that sits it nose-high. Short-nose / long slim tailcone.
   grasshopper: { ...FW_DEFAULT, fr: 0.080, fv: 0.115, span: 1.16, noseF: 0.80, tailF: -1.04,
-    wingH: 0.135, dih: 0.02, wRootF: 0.30, wRootB: -0.17, wTipF: 0.28, wTipB: -0.17, hSpan: 0.44,
+    // Cub cabin: the wing is carried clear of the fuselage crown on the cabin frame, and the gap
+    // between them IS the greenhouse (side glass + the skylight in the wing root).
+    wingH: 0.168, dih: 0.02, wRootF: 0.30, wRootB: -0.17, wTipF: 0.28, wTipB: -0.17, hSpan: 0.44,
     hF: -0.74, hB: -0.96, hTipF: -0.78, hTipB: -0.98,
     finF0: -0.66, finF1: -0.96, finF2: -1.02, finH: 0.52, fins: [0],
     engines: [], prop: 'nose', struts: true, gear: true, gearStyle: 'taildragger', tundra: true, groundPitch: 11,
-    windows: 3, noseBlunt: 2.2, noseCowl: 0.26, boxy: 0.42, bodyTube: 0.16, tailUp: 0.06,   // slim deep slab-sided fabric fuselage
-    canopy: { f0: 0.54, f1: 0.30, w: 0.070, h: 0.062, front: 0.34, tail: 0.20, segs: 5, arc: 3, sink: 0.02 } },   // raked windscreen ahead of the high-wing LE; the side windows carry the greenhouse aft
+    noseBlunt: 2.2, noseCowl: 0.26, boxy: 0.42, bodyTube: 0.16, tailUp: 0.06,   // slim deep slab-sided fabric fuselage
+    // CABIN UNDER THE WING (per ref: a Carbon Cub). Windscreen up off the cowl, then the long
+    // glazed cabin runs aft beneath the whole wing root (LE 0.30 → TE −0.17) — that band under the
+    // wing is the Cub's defining feature, and the skylight painted on its crown (canopy art 'xcub')
+    // only makes sense once the glass is actually up there against the wing.
+    canopy: { f0: 0.44, f1: -0.14, w: 0.074, h: 0.046, front: 0.30, tail: 0.22, segs: 6, arc: 3, sink: 0.02, art: 'xcub' } },
   // Locust — a low-wing crop-duster / ag-plane (per ref: Air Tractor / Grumman Ag Cat): a big,
   // BROAD constant-chord SQUARE wing (rectangular planform — no taper, no sweep, square-cut tips);
   // a chunky slab-sided fuselage with a blunt radial cowl; a raised bubble cockpit set high for
@@ -1407,64 +1497,162 @@ export function glassSheen(ctx, pts) {
   ctx.restore();
 }
 
-// ── Attack-heli canopy art (procedural, painted onto the hull) ────────────────
-// The Viper's greenhouse is fuselage geometry (see buildAttackHeli), so everything that makes
-// it read as a canopy rather than blue paint is baked into ONE transparent canvas and mapped
-// through the authored per-facet UVs. Alpha matters: the glazed areas stay translucent so each
-// facet's own lit/shaded fill carries through (the canopy still bends with the light), while
-// the mullions and the crew silhouettes paint opaque.
+// ── Canopy art (procedural, painted onto the glass) ───────────────────────────
+// Everything that makes a cockpit read as a CANOPY rather than a blue-tinted blister — heavy
+// mullions, the sky reflection, the dark interior, people in there — is baked into ONE
+// transparent canvas per airframe style and mapped through the authored per-facet UVs. Alpha
+// matters: the glazed areas stay translucent so each facet's own lit/shaded fill carries through
+// (the canopy still bends with the light), while frames and crew silhouettes paint opaque.
 //
-// Texture space: U 0→CP_TW runs windscreen→rear canopy, V 0→CP_TH runs right sill→roof→left
-// sill. Symmetric about V=0.5 so port and starboard wear the same glass. The frame stations
-// mirror the mesh's STATION_U/GLAZE, so a mullion always lands on a real facet seam.
+// Texture space (shared by every style): U 0→CP_TW runs windscreen→rear canopy, V 0→CP_TH runs
+// right sill→roof→left sill. Symmetric about V=0.5 so port and starboard wear the same glass.
+// The Viper's frame stations mirror its mesh's STATION_U/GLAZE so a mullion always lands on a
+// real facet seam; the fixed-wing bubbles unwrap the same way (segment → U, arc → V), so the
+// same spec shape drives both.
 export const CP_TW = 512, CP_TH = 256;
-let _canopyTex = null;
-export function canopyTex() {
-  if (_canopyTex) return _canopyTex;
+
+// Per-airframe canopy specs. Each is the same five things — the glass wash, who's inside, the
+// panel glow, the specular rake, and the frame — so a new airframe is a data entry, not code.
+//   wash    sill→roof→sill gradient stops (this is what sets the whole character: a gunship's
+//           near-opaque smoked glass vs a light aircraft's big bright greenhouse)
+//   crew    silhouettes behind the glass: u/v placement, scale, and what they're wearing
+//   glow    instrument light spilling up onto the inside of the windscreen, per station
+//   spec    hard diagonal sun streaks, clipped to a band of V (the roof panes)
+//   frame   posts (U bars), sills/hairs (V bars), the centreline beam, and the perimeter
+const CANOPY_ART = {
+  // Viper — a gunship's smoked armoured glass: dark, tight, heavily framed, two helmets inside.
+  viper: {
+    wash: [[0.00, 'rgba(6,11,16,0.90)'], [0.16, 'rgba(9,16,23,0.82)'], [0.34, 'rgba(34,60,80,0.40)'],
+           [0.46, 'rgba(150,196,222,0.32)'], [0.54, 'rgba(150,196,222,0.32)'], [0.66, 'rgba(34,60,80,0.40)'],
+           [0.84, 'rgba(9,16,23,0.82)'], [1.00, 'rgba(6,11,16,0.90)']],
+    // V=0.30/0.70 puts them mid-CHEEK-pane rather than on a sill rail, so a mullion never bisects
+    // a head; one per side means a crewman shows whichever cheek is turned to you.
+    crew: [{ u: 0.29, v: 0.30, sc: 0.9, visor: 'rgba(96,190,150,0.55)' }, { u: 0.29, v: 0.70, sc: 0.9, visor: 'rgba(96,190,150,0.55)' },
+           { u: 0.71, v: 0.30, sc: 1.0, visor: 'rgba(96,190,150,0.55)' }, { u: 0.71, v: 0.70, sc: 1.0, visor: 'rgba(96,190,150,0.55)' }],
+    glow: { u: [0.06, 0.50], col: '70,150,190', a: 0.22, r: 70 },
+    spec: { band: [0.26, 0.74], streaks: [[0.18, 30, 0.15], [0.62, 18, 0.10]] },
+    frame: { col: 'rgba(26,30,36,0.95)', lit: 'rgba(84,92,102,0.55)',
+      posts: [[0.00, 8], [0.14, 8], [0.44, 13], [0.56, 13], [0.86, 8], [1.00, 8]],   // the tandem step is the beefiest frame on the aircraft
+      sills: [[0.20, 10], [0.80, 10]], hairs: [0.40, 0.60], mid: 5, edge: 16 },
+  },
+  // Mayfly — a Cessna cabin: a big, bright, almost clear greenhouse with slim white frames and
+  // two people sitting SIDE BY SIDE up front. The opposite read to the Viper on purpose — you can
+  // see straight through a light single, and that legibility is the whole charm of the airframe.
+  mayfly: {
+    wash: [[0.00, 'rgba(22,34,44,0.62)'], [0.14, 'rgba(38,62,80,0.44)'], [0.32, 'rgba(120,168,196,0.26)'],
+           [0.46, 'rgba(196,226,244,0.30)'], [0.54, 'rgba(196,226,244,0.30)'], [0.68, 'rgba(120,168,196,0.26)'],
+           [0.86, 'rgba(38,62,80,0.44)'], [1.00, 'rgba(22,34,44,0.62)']],
+    // Two heads abreast at the SAME station (u), one at each side window — a side-by-side cabin.
+    // V≈0.18/0.82 is eye level just above the sill, in the middle of the side glass (the bubble's
+    // arc=3 unwrap puts the side panes at V 0–⅓ and ⅔–1, the crown pane between them).
+    crew: [{ u: 0.34, v: 0.18, sc: 0.85, hair: 'rgba(58,44,36,0.9)' }, { u: 0.34, v: 0.82, sc: 0.85, hair: 'rgba(30,32,38,0.9)' }],
+    glow: { u: [0.08], col: '120,190,150', a: 0.16, r: 56 },
+    spec: { band: [0.22, 0.78], streaks: [[0.26, 34, 0.20], [0.70, 22, 0.13]] },
+    frame: { col: 'rgba(224,226,230,0.92)', lit: 'rgba(255,255,255,0.5)',   // painted white cabin frames, not gunmetal
+      posts: [[0.00, 7], [0.30, 5], [0.62, 5], [1.00, 7]],
+      sills: [[1 / 3, 5], [2 / 3, 5]],   // the side-glass/roof chine — a real facet seam on an arc-3 bubble
+      mid: 4, edge: 11 },
+  },
+  // Mule — a Twin Otter FLIGHT DECK: a working commercial cockpit. Darker green-tinted glass than
+  // the Mayfly, chunky dark frames, two pilots abreast, panel glow up the windscreen, and wipers
+  // parked across the screen (the detail that says airliner rather than plaything).
+  mule: {
+    wash: [[0.00, 'rgba(12,20,26,0.80)'], [0.16, 'rgba(20,36,46,0.66)'], [0.34, 'rgba(58,102,116,0.34)'],
+           [0.47, 'rgba(150,198,208,0.30)'], [0.53, 'rgba(150,198,208,0.30)'], [0.66, 'rgba(58,102,116,0.34)'],
+           [0.84, 'rgba(20,36,46,0.66)'], [1.00, 'rgba(12,20,26,0.80)']],
+    // NB the Mule glazes its HULL (FW_PARAMS.prop.glaze) rather than wearing a canopy bubble, so
+    // only part of this sheet is ever visible: V 0–⅙ and ⅚–1 (the side windows) plus V ⅙–⅓ and
+    // ⅔–⅚ on the windscreen bay. Everything below lives in those bands — the middle of the sheet
+    // is the roof, which on an Otter is painted metal, so nothing is placed there.
+    crew: [{ u: 0.30, v: 0.09, sc: 0.95, cap: true, hair: 'rgba(24,26,32,0.92)' },
+           { u: 0.30, v: 0.91, sc: 0.95, cap: true, hair: 'rgba(24,26,32,0.92)' }],
+    glow: { u: [0.05, 0.13], col: '90,170,200', a: 0.26, r: 66 },
+    spec: { band: [0.0, 1.0], streaks: [[0.20, 26, 0.16], [0.58, 16, 0.10]] },
+    frame: { col: 'rgba(38,42,48,0.95)', lit: 'rgba(96,104,114,0.5)',
+      // On the real ring seams (glaze f 0.70→0.30 maps to U 0→1): the windscreen's two bays, then
+      // the two side windows. The heavy one at 0.375 is the post where the screen meets the cabin.
+      posts: [[0.00, 9], [0.20, 8], [0.375, 11], [0.65, 8], [1.00, 9]],
+      sills: [[1 / 6, 9], [5 / 6, 9]],   // the window line: the seam between the side band (k0/k5) and the cheek above it
+      hairs: [], mid: 0, edge: 14, extra: 'wipers' },
+  },
+  // Grasshopper — an XCub (per ref photo): the big wraparound backcountry greenhouse. A SKYLIGHT
+  // over the crown (you look up through the wing root), deep curved side glass, a black steel cage
+  // with white-painted frames, and TANDEM seating — one behind the other, headsets and shades on,
+  // in the high-vis jackets everybody wears out in the bush.
+  xcub: {
+    wash: [[0.00, 'rgba(18,28,36,0.66)'], [0.13, 'rgba(30,50,64,0.46)'], [0.30, 'rgba(108,158,186,0.26)'],
+           [0.44, 'rgba(206,234,248,0.34)'], [0.56, 'rgba(206,234,248,0.34)'], [0.70, 'rgba(108,158,186,0.26)'],
+           [0.87, 'rgba(30,50,64,0.46)'], [1.00, 'rgba(18,28,36,0.66)']],
+    // TANDEM: two stations at different U (fore/aft), each showing a head at both side windows.
+    crew: [{ u: 0.26, v: 0.17, sc: 0.9, shades: true, jacket: '206,74,34' }, { u: 0.26, v: 0.83, sc: 0.9, shades: true, jacket: '206,74,34' },
+           { u: 0.56, v: 0.17, sc: 0.9, shades: true, jacket: '32,36,44' }, { u: 0.56, v: 0.83, sc: 0.9, shades: true, jacket: '32,36,44' }],
+    glow: { u: [0.06], col: '110,180,210', a: 0.18, r: 52 },
+    spec: { band: [0.20, 0.80], streaks: [[0.30, 38, 0.22], [0.74, 20, 0.12]] },
+    frame: { col: 'rgba(22,24,28,0.95)', lit: 'rgba(238,240,244,0.75)',   // black cage, white-painted highlight
+      posts: [[0.00, 8], [0.20, 6], [0.44, 9], [0.72, 6], [1.00, 8]],
+      sills: [[1 / 3, 6], [2 / 3, 6]],   // the skylight's edge rails — the arc-3 seam either side of the crown
+      mid: 3, edge: 12, extra: 'skylight' },
+  },
+};
+
+const _canopyTex = {};
+export function canopyTex(art = 'viper') {
+  if (_canopyTex[art]) return _canopyTex[art];
+  const S = CANOPY_ART[art] || CANOPY_ART.viper;
   const cv = document.createElement('canvas'); cv.width = CP_TW; cv.height = CP_TH;
   const g = cv.getContext('2d'), W = CP_TW, H = CP_TH;
 
-  // 1) The glass itself — a sill→roof→sill wash. Bright cold sky reflection across the roof
-  //    band, falling away to a dark, near-opaque interior read down at the sills where you're
-  //    looking through the side glass into the cockpit rather than at the sky.
+  // 1) The glass itself — a sill→roof→sill wash. Bright sky reflection across the roof band,
+  //    falling away to a darker interior read down at the sills where you're looking through the
+  //    side glass into the cockpit rather than at the sky.
   const gl = g.createLinearGradient(0, 0, 0, H);
-  gl.addColorStop(0.00, 'rgba(6,11,16,0.90)');     // right sill — looking into the dark
-  gl.addColorStop(0.16, 'rgba(9,16,23,0.82)');
-  gl.addColorStop(0.34, 'rgba(34,60,80,0.40)');
-  gl.addColorStop(0.46, 'rgba(150,196,222,0.32)'); // roof — sky
-  gl.addColorStop(0.54, 'rgba(150,196,222,0.32)');
-  gl.addColorStop(0.66, 'rgba(34,60,80,0.40)');
-  gl.addColorStop(0.84, 'rgba(9,16,23,0.82)');
-  gl.addColorStop(1.00, 'rgba(6,11,16,0.90)');     // left sill
+  for (const [st, col] of S.wash) gl.addColorStop(st, col);
   g.fillStyle = gl; g.fillRect(0, 0, W, H);
 
-  // 2) Interior: the crew. Two helmeted silhouettes sitting at the gunner and pilot stations,
-  //    low in the frame (V near the sills is eye level through the side glass). Vague on purpose
-  //    — a hard shape at this size reads as a decal, a soft one reads as somebody in there.
-  //    V=0.30/0.70 puts them mid-CHEEK-pane rather than on a sill rail, so a mullion never
-  //    bisects a head; one per side means a crewman shows whichever cheek is turned to you.
-  for (const [u, sc] of [[0.29, 0.9], [0.71, 1.0]]) {
-    for (const v of [0.30, 0.70]) {
-      const cx = u * W, cy = v * H;
-      const sh = g.createRadialGradient(cx, cy, 2, cx, cy, 30 * sc);
-      sh.addColorStop(0, 'rgba(5,8,12,0.94)'); sh.addColorStop(1, 'rgba(5,8,12,0)');
-      g.fillStyle = sh; g.beginPath(); g.ellipse(cx, cy, 24 * sc, 26 * sc, 0, 0, 7); g.fill();   // shoulders/torso haze
-      g.fillStyle = 'rgba(3,5,8,0.92)'; g.beginPath(); g.ellipse(cx, cy, 12 * sc, 10 * sc, 0, 0, 7); g.fill();   // helmet
-      g.fillStyle = 'rgba(96,190,150,0.55)'; g.beginPath(); g.ellipse(cx - 7 * sc, cy + 1.5 * sc, 4.5 * sc, 2.6 * sc, 0, 0, 7); g.fill();   // visor glow — U falls toward the nose, so it looks forward
+  // 1b) Style extras that belong UNDER the crew and frames.
+  if (S.frame.extra === 'skylight') {
+    // The Cub skylight: an overhead pane running the length of the crown, so the roof band reads
+    // as open sky rather than fabric. Brighter than the wash and squared off at the door station.
+    const sk = g.createLinearGradient(0, H * 0.38, 0, H * 0.62);
+    sk.addColorStop(0, 'rgba(150,206,240,0)'); sk.addColorStop(0.5, 'rgba(186,226,252,0.34)'); sk.addColorStop(1, 'rgba(150,206,240,0)');
+    g.fillStyle = sk; g.fillRect(W * 0.16, H * 0.38, W * 0.62, H * 0.24);
+  }
+
+  // 2) Interior: the crew. Silhouettes sitting low in the frame (V near the sills is eye level
+  //    through the side glass). Vague on purpose — a hard shape at this size reads as a decal, a
+  //    soft one reads as somebody in there.
+  for (const c of (S.crew || [])) {
+    const cx = c.u * W, cy = c.v * H, sc = c.sc || 1;
+    // Torso haze — tinted by the jacket where the airframe's people wear one.
+    const jk = c.jacket || '5,8,12';
+    const sh = g.createRadialGradient(cx, cy, 2, cx, cy, 30 * sc);
+    sh.addColorStop(0, `rgba(${jk},${c.jacket ? 0.8 : 0.94})`); sh.addColorStop(1, `rgba(${jk},0)`);
+    g.fillStyle = sh; g.beginPath(); g.ellipse(cx, cy, 24 * sc, 26 * sc, 0, 0, 7); g.fill();
+    // Head — a helmet, a cap, or hair.
+    g.fillStyle = c.hair || 'rgba(3,5,8,0.92)';
+    g.beginPath(); g.ellipse(cx, cy, 12 * sc, 10 * sc, 0, 0, 7); g.fill();
+    if (c.cap) { g.fillStyle = 'rgba(14,16,20,0.95)'; g.beginPath(); g.ellipse(cx - 6 * sc, cy - 3 * sc, 9 * sc, 4 * sc, 0, 0, 7); g.fill(); }   // peaked cap, brim toward the nose
+    // Eyewear — a visor glow (gunship) or dark shades (everyone else). U falls toward the nose,
+    // so putting it on the -u side of the head makes them look FORWARD.
+    if (c.visor) { g.fillStyle = c.visor; g.beginPath(); g.ellipse(cx - 7 * sc, cy + 1.5 * sc, 4.5 * sc, 2.6 * sc, 0, 0, 7); g.fill(); }
+    else if (c.shades) {
+      g.fillStyle = 'rgba(8,10,14,0.9)'; g.beginPath(); g.ellipse(cx - 7 * sc, cy + 1 * sc, 4.2 * sc, 2.2 * sc, 0, 0, 7); g.fill();
+      g.fillStyle = 'rgba(60,68,78,0.9)'; g.beginPath(); g.ellipse(cx + 4 * sc, cy - 1 * sc, 3.4 * sc, 5 * sc, 0, 0, 7); g.fill();   // headset cup on the ear behind
     }
   }
   // Instrument glow spilling up onto the inside of the windscreen at each station.
-  for (const u of [0.06, 0.50]) {
-    const cx = u * W, hg = g.createRadialGradient(cx, H / 2, 4, cx, H / 2, 70);
-    hg.addColorStop(0, 'rgba(70,150,190,0.22)'); hg.addColorStop(1, 'rgba(70,150,190,0)');
-    g.fillStyle = hg; g.fillRect(cx - 70, 0, 140, H);
+  if (S.glow) for (const u of S.glow.u) {
+    const cx = u * W, r = S.glow.r || 70, hg = g.createRadialGradient(cx, H / 2, 4, cx, H / 2, r);
+    hg.addColorStop(0, `rgba(${S.glow.col},${S.glow.a})`); hg.addColorStop(1, `rgba(${S.glow.col},0)`);
+    g.fillStyle = hg; g.fillRect(cx - r, 0, r * 2, H);
   }
 
-  // 3) Specular: two hard diagonal streaks raking across the greenhouse, the way a low sun
-  //    catches flat panes. Clipped to the roof band so the side glass stays dark.
+  // 3) Specular: hard diagonal streaks raking across the greenhouse, the way a low sun catches
+  //    flat panes. Clipped to the roof band so the side glass stays dark.
   g.save();
-  g.beginPath(); g.rect(0, H * 0.26, W, H * 0.48); g.clip();
-  for (const [x, wd, a] of [[W * 0.18, 30, 0.15], [W * 0.62, 18, 0.10]]) {
+  g.beginPath(); g.rect(0, H * S.spec.band[0], W, H * (S.spec.band[1] - S.spec.band[0])); g.clip();
+  for (const [uu, wd, a] of S.spec.streaks) {
+    const x = uu * W;
     const sg = g.createLinearGradient(x - wd, 0, x + wd, 0);
     sg.addColorStop(0, 'rgba(255,255,255,0)'); sg.addColorStop(0.5, `rgba(255,255,255,${a})`); sg.addColorStop(1, 'rgba(255,255,255,0)');
     g.fillStyle = sg; g.save(); g.translate(x, H / 2); g.rotate(-0.38); g.translate(-x, -H / 2);
@@ -1472,36 +1660,47 @@ export function canopyTex() {
   }
   g.restore();
 
-  // 4) Mullions — the heavy structural frame. Bars along the station seams (U) and the roof/cheek
-  //    /sill chines (V), plus a centre post up the two windscreens. Opaque: this is airframe.
+  // 4) Mullions — the structural frame. Bars along the station seams (U) and the sill chines (V),
+  //    plus a centreline beam up the windscreen. Opaque: this is airframe, not glass.
   g.lineCap = 'butt';
+  const F = S.frame;
   const bar = (x0, y0, x1, y1, w, col) => { g.strokeStyle = col; g.lineWidth = w; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke(); };
-  const FRAME = 'rgba(26,30,36,0.95)', FRAME_LT = 'rgba(84,92,102,0.55)';
-  for (const u of [0.00, 0.14, 0.44, 0.56, 0.86, 1.00]) {          // station frames (the tandem step lands at 0.44/0.56)
-    const x = u * W, hv = (u === 0.44 || u === 0.56) ? 13 : 8;      // the step is the beefiest frame on the aircraft
-    bar(x, 0, x, H, hv, FRAME); bar(x - hv * 0.34, 0, x - hv * 0.34, H, 1.6, FRAME_LT);   // a lit highlight down one edge
+  for (const [u, hv] of F.posts) {
+    const x = u * W;
+    bar(x, 0, x, H, hv, F.col); bar(x - hv * 0.34, 0, x - hv * 0.34, H, 1.6, F.lit);   // a lit highlight down one edge
   }
   // Longitudinal chines: only the SILL rails are structure worth painting. The roof/cheek seams
-  // (V 0.40/0.60) are real facet edges the renderers already stroke — bar them too and the
-  // greenhouse reads as a bus window grid, so they get a hairline glint and nothing more.
-  for (const v of [0.20, 0.80]) {
+  // are real facet edges the renderers already stroke — bar them too and the greenhouse reads as
+  // a bus window grid, so they get a hairline glint and nothing more.
+  for (const [v, hv] of F.sills) {
     const y = v * H;
-    bar(0, y, W, y, 10, FRAME); bar(0, y - 3.4, W, y - 3.4, 1.6, FRAME_LT);
+    bar(0, y, W, y, hv, F.col); bar(0, y - hv * 0.34, W, y - hv * 0.34, 1.6, F.lit);
   }
-  for (const v of [0.40, 0.60]) bar(0, v * H, W, v * H, 1.4, FRAME_LT);
-  bar(0, H / 2, W, H / 2, 5, FRAME);                                // centreline beam / windscreen post
-  bar(0, H / 2 - 1.7, W, H / 2 - 1.7, 1.4, FRAME_LT);
+  for (const v of (F.hairs || [])) bar(0, v * H, W, v * H, 1.4, F.lit);
+  if (F.mid) { bar(0, H / 2, W, H / 2, F.mid, F.col); bar(0, H / 2 - F.mid * 0.34, W, H / 2 - F.mid * 0.34, 1.4, F.lit); }
+  // 4b) Style extras that belong ON TOP of the frame.
+  if (F.extra === 'wipers') {
+    // Two wiper arms parked low across the windscreen — the flight-deck tell.
+    g.strokeStyle = 'rgba(18,20,24,0.85)'; g.lineWidth = 3; g.lineCap = 'round';
+    for (const v of [0.06, 0.94]) { g.beginPath(); g.moveTo(W * 0.02, v * H); g.lineTo(W * 0.20, (v > 0.5 ? v - 0.13 : v + 0.13) * H); g.stroke(); }
+    g.lineCap = 'butt';
+  } else if (F.extra === 'skylight') {
+    // The cage: a diagonal door brace running down from the roof to the sill on each side — the
+    // steel triangle you see through the XCub's side glass.
+    g.strokeStyle = F.col; g.lineWidth = 4;
+    for (const [v0, v1] of [[0.42, 0.15], [0.58, 0.85]]) { g.beginPath(); g.moveTo(W * 0.46, v0 * H); g.lineTo(W * 0.70, v1 * H); g.stroke(); }
+  }
   // Perimeter: the canopy sill and the front/rear frames close the greenhouse off from the paint.
-  g.strokeStyle = FRAME; g.lineWidth = 16; g.strokeRect(0, 0, W, H);
+  g.strokeStyle = F.col; g.lineWidth = F.edge; g.strokeRect(0, 0, W, H);
 
-  _canopyTex = cv; return cv;
+  _canopyTex[art] = cv; return cv;
 }
 // Paint the baked canopy art into ONE projected facet over its already-shaded fill. Unlike
 // overlayJazz this composites source-over, not multiply — the frames have to sit ON the glass
 // as solid structure, while the texture's own alpha lets the lit fill read through the panes.
-export function drawCanopyGlass(ctx, P, uv) {
+export function drawCanopyGlass(ctx, P, uv, art) {
   const n = P.length; if (n < 3 || n > 4) return;
-  const img = canopyTex(), d = P.map(q => [q.sx, q.sy]);
+  const img = canopyTex(art), d = P.map(q => [q.sx, q.sy]);
   ctx.save();
   ctx.beginPath(); ctx.moveTo(d[0][0], d[0][1]); for (let i = 1; i < n; i++) ctx.lineTo(d[i][0], d[i][1]); ctx.closePath(); ctx.clip();
   if (n === 4) { acTexTri(ctx, img, uv[0], uv[1], uv[2], d[0], d[1], d[2]); acTexTri(ctx, img, uv[0], uv[2], uv[3], d[0], d[2], d[3]); }
@@ -2230,7 +2429,7 @@ function paintTurntable(ctx, { cls, armed = false, livery, yaw = 0, w, h, wreck 
     const alpha = cam ? clampN((avgZ - 0.25) / 0.9, 0.08, 1) : 1;
     const rec = { P, role: face.role, avgZ, alpha, col: shadeRgb(rgb, face.sh * pal.fmul * light * (wreck ? 0.8 : 1)) };
     if (jazzImg && JAZZ_ROLE.has(face.role)) rec.uv = face.p.map(v => jazzUV(v, face.role));
-    if (face.uv) rec.cuv = face.uv;                                // canopy art: UVs authored on the mesh, not derived
+    if (face.uv) { rec.cuv = face.uv; rec.cart = face.art; }        // canopy art: UVs + style authored on the mesh, not derived
     drawn.push(rec);
   }
   drawn.sort((a, b) => b.avgZ - a.avgZ);
@@ -2243,7 +2442,7 @@ function paintTurntable(ctx, { cls, armed = false, livery, yaw = 0, w, h, wreck 
     ctx.fillStyle = fc.col; ctx.fill();
     if (fc.uv) overlayJazz(ctx, fc.P, fc.uv, jazzImg);           // Memphis splatter, mapped in body space
     else if (TEXTURED.has(fc.role)) overlayHull(ctx, fc.P, texStr);   // procedural panel/rivet detail
-    if (fc.cuv) drawCanopyGlass(ctx, fc.P, fc.cuv);                   // greenhouse: mullions, sky reflection, the crew behind the glass
+    if (fc.cuv) drawCanopyGlass(ctx, fc.P, fc.cuv, fc.cart);          // greenhouse: mullions, sky reflection, the crew behind the glass
     if (!wreck && (fc.role === 'glass' || fc.role === 'window')) glassSheen(ctx, fc.P);   // glassy specular on canopy/windows
     ctx.strokeStyle = 'rgba(8,10,14,0.55)'; ctx.lineWidth = 1; ctx.stroke();
     if (!wreck && livery?.finish === 'gloss' && fc.role === 'body') {
@@ -2674,7 +2873,7 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
       let z = 0; for (const q of P) z += q.z;
       const rec = { P, role: face.role, avgZ: z / P.length, col: shadeRgb(rgb, face.sh * pal.fmul * light * (selected ? 1.12 : 1) * (e.wreck ? 0.8 : 1)) };
       if (jazzImg && JAZZ_ROLE.has(face.role)) rec.uv = face.p.map(v => jazzUV(v, face.role));
-      if (face.uv) rec.cuv = face.uv;                               // canopy art: UVs authored on the mesh
+      if (face.uv) { rec.cuv = face.uv; rec.cart = face.art; }      // canopy art: UVs + style authored on the mesh
       drawn.push(rec);
     }
     const origin = proj(0.2, laneG, 0);
@@ -2703,7 +2902,7 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
       ctx.closePath();
       ctx.fillStyle = fc.col; ctx.fill();
       if (fc.uv) overlayJazz(ctx, fc.P, fc.uv, grp.jazzImg);   // Memphis splatter (same body-space map as the turntable)
-      if (fc.cuv) drawCanopyGlass(ctx, fc.P, fc.cuv);          // greenhouse art (same authored map as the turntable)
+      if (fc.cuv) drawCanopyGlass(ctx, fc.P, fc.cuv, fc.cart);  // greenhouse art (same authored map as the turntable)
       if (!grp.entry.wreck && (fc.role === 'glass' || fc.role === 'window')) glassSheen(ctx, fc.P);   // glassy specular on canopy/windows
       ctx.strokeStyle = 'rgba(8,10,14,0.5)'; ctx.lineWidth = 1; ctx.stroke();
     }

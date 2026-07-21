@@ -1800,6 +1800,44 @@ function ensureStyles() {
     #tablet-os-overlay .tos-tv-screen [data-tv="standings"].on { display:flex; }
     #tablet-os-overlay .tos-tv-screen [data-tv="fx"] { position:absolute; inset:0; z-index:49; display:none; pointer-events:none; }
     #tablet-os-overlay .tos-tv-screen [data-tv="fx"].on { display:block; }
+
+    /* ── Legibility on a hand-held picture ─────────────────────────────────────
+       The shared broadcast styles are sized for a WALL SET a few feet wide; on a
+       tablet screen a third that size the same 13px/9px type at 0.55 opacity is a
+       smudge behind the scanlines. Everything below only raises weight, size and
+       contrast INSIDE the tablet's picture — the standalone CRT set is untouched,
+       and no layout/positioning is changed, so the renderer's own metrics (the
+       ascii auto-fit, the overlay hosts) still hold.
+       Weight comes from a real 600/700 plus a hard 1px dark shadow rather than a
+       glow: a glow would make it thicker AND blurrier, which is the opposite of
+       the point. */
+    #tablet-os-overlay .tos-tv-screen { font-weight:600; }
+    #tablet-os-overlay .tos-tv-screen [data-tv="content"] {
+      text-shadow:0 1px 0 rgba(0,0,0,.95), 0 0 3px rgba(0,0,0,.85), -1px 0 0 rgba(0,0,0,.55), 1px 0 0 rgba(0,0,0,.55); }
+    #tablet-os-overlay .tos-tv-screen .tv-msg { font-size:15px; line-height:1.42; font-weight:700; letter-spacing:.2px; }
+    /* The dim italics carry TONE (an aside, a stage direction) — keep them dimmer than
+       the dialogue, but nowhere near invisible: 0.6/0.55 was unreadable at this size. */
+    #tablet-os-overlay .tos-tv-screen .tv-msg-ambient { opacity:.82; }
+    #tablet-os-overlay .tos-tv-screen .tv-msg-stage_direction { opacity:.8; font-size:.94em; }
+    /* ASCII art is auto-fitted per-frame by tv.js, so it sets its own size — just stop
+       the bold from closing up the character cells. */
+    #tablet-os-overlay .tos-tv-screen .tv-msg-ascii-art,
+    #tablet-os-overlay .tos-tv-screen .tv-msg-ascii_art { font-weight:400; text-shadow:0 0 2px rgba(0,0,0,.9); }
+    /* The bugs: small standing panels over the picture, so they need the size floor most. */
+    #tablet-os-overlay .tos-tv-screen [data-tv="scorebug"] { font-size:12px; font-weight:700; }
+    #tablet-os-overlay .tos-tv-screen [data-tv="standings"] { font-size:11px; }
+    /* Guide/standings full-screen panels: their greys are 0.35–0.5 alpha for a big CRT. */
+    #tablet-os-overlay .tos-tv-screen .tv-sched-dur { color:rgba(220,240,235,.62); font-size:11.5px; }
+    #tablet-os-overlay .tos-tv-screen .tv-sched-foot { color:rgba(220,240,235,.55); font-size:11px; }
+    #tablet-os-overlay .tos-tv-screen .tv-sched-empty { color:rgba(220,240,235,.75); }
+    #tablet-os-overlay .tos-tv-screen .tv-overlay-lt-name { font-size:15px; font-weight:800; letter-spacing:.4px; }
+    #tablet-os-overlay .tos-tv-screen .tv-overlay-lt-sub { font-size:11.5px; font-weight:600; opacity:.9; }
+    /* Chassis type around the picture — the station bar and the ticker read as labels,
+       so they gain weight and a little size without losing their all-caps tracking. */
+    #tablet-os-overlay .tos-tv-bar { font-size:11px; font-weight:700; }
+    #tablet-os-overlay .tos-tv-prog { opacity:.9; font-weight:600; }
+    #tablet-os-overlay .tos-tv-live { font-size:9px; font-weight:800; }
+    #tablet-os-overlay .tos-tv-ticker { font-size:11.5px; font-weight:700; }
     /* Ticker strip */
     #tablet-os-overlay .tos-tv-ticker { overflow:hidden; white-space:nowrap; padding:4px 0; min-height:18px;
       border-top:1px solid var(--tv-border); color:var(--tv-ticker-color); font-size:10px; }

@@ -4024,7 +4024,7 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
     // Jazz UV mapped from the drawn (deflected) body coords so the splatter tracks moving surfaces.
     const uv = (jazzImg && JAZZ_ROLE.has(face.role)) ? dp.map(v => jazzUV(v, face.role)) : null;
     // Canopy art rides authored per-vertex UVs, so it survives deflection untouched (index-aligned).
-    faces.push({ pts, af: af / pts.length, col, role: face.role, alpha: isGear ? gearDown : 1, uv, cuv: face.uv }); drawn++;
+    faces.push({ pts, af: af / pts.length, col, role: face.role, alpha: isGear ? gearDown : 1, uv, cuv: face.uv, cart: face.art }); drawn++;
   }
   if (!drawn) return null;
   faces.sort((a, b) => b.af - a.af);
@@ -4038,7 +4038,7 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
     ctx.closePath();
     ctx.fillStyle = fc.col; ctx.fill();
     if (fc.uv && jazzImg) overlayJazz(ctx, fc.pts, fc.uv, jazzImg);             // Memphis splatter, mapped in body space (as in the hangar)
-    if (fc.cuv && detail) drawCanopyGlass(ctx, fc.pts, fc.cuv);                 // greenhouse art — near/hero LOD only, like nose art
+    if (fc.cuv && detail) drawCanopyGlass(ctx, fc.pts, fc.cuv, fc.cart);        // greenhouse art — near/hero LOD only, like nose art
     if (fc.role === 'glass' || fc.role === 'window') glassSheen(ctx, fc.pts);   // glassy specular on canopy/windows, in flight too
     ctx.strokeStyle = edge; ctx.lineWidth = 1; ctx.stroke();
     // Gloss finish: a bright specular flick on the fuselage crown.
