@@ -746,7 +746,7 @@ function buildHeli() {
 // ── VIPER — a sleek futuristic ATTACK HELICOPTER (an Apache reimagined) ──────────────
 // An armed heli (class 'heli' with hardpoints → this mesh; the unarmed Dragonfly keeps the
 // bubble). Signatures vs the Mini-500: a slender, chined, tapering gunship fuselage; a TANDEM
-// STEPPED canopy (a low gunner blister ahead, a raised pilot blister behind); a chin GUN turret
+// STEPPED canopy cut straight INTO the hull (see the greenhouse section below); a chin GUN turret
 // + a nose sensor ball under the nose; short anhedral STUB-WINGS carrying rocket PODS inboard and
 // exposed MISSILES on the tips (the swarm made visible); twin "cheek" engine nacelles with exhausts
 // flanking the mast; a slim tailboom to a swept fin + stabilator + tail rotor; and fixed TAILDRAGGER
@@ -781,40 +781,58 @@ function buildAttackHeli() {
     return o;
   };
   const shFor = (k) => 0.60 + 0.36 * (0.5 + 0.5 * Math.sin((k + 0.5) / sides * Math.PI * 2));   // top bright → belly dark
-  const skin = (A, B, role = 'body', m = 1) => { for (let k = 0; k < sides; k++) { const j = (k + 1) % sides; faces.push({ role, sh: shFor(k) * m, p: [A[k], A[j], B[j], B[k]] }); } };
+
+  // ── The CANOPY IS THE HULL. There is no glass blister bolted to the crown: the gunner and
+  // pilot stations are built as an angular GREENHOUSE cross-section — a flat roof between two
+  // canted cheek panes and near-vertical side glass down to a sill chine — and those fuselage
+  // facets are simply glazed. Everything that makes it read as an Apache canopy (heavy mullions,
+  // sky reflection, the dark cockpit behind the glass, crew silhouettes) is PAINTED by canopyTex()
+  // through the authored UVs below, not modelled.
+  //   gring() re-places only the upper 6 vertices (k=0..5); the lower half reuses ring()'s exact
+  //   formula so a greenhouse station welds seamlessly to the plain stations fore and aft. Roof
+  //   height (rvT) is decoupled from belly depth (rvB) so a tall canopy doesn't drag the keel down.
+  const GH = [[1.00, 0.00], [0.94, 0.62], [0.44, 1.00], [-0.44, 1.00], [-0.94, 0.62], [-1.00, 0.00]];   // k=0..5 upper profile, as fractions of (rg, rvT)
+  const gring = (f, rg, rvT, rvB, cz, keel = 0) => {
+    const o = [];
+    for (let k = 0; k < sides; k++) {
+      if (k <= 5) { o.push(V(f, GH[k][0] * rg, cz + GH[k][1] * rvT)); continue; }
+      const a = k / sides * Math.PI * 2, cs = Math.cos(a);
+      o.push(V(f, Math.sign(cs) * Math.pow(Math.abs(cs), 0.82) * rg, cz - Math.pow(-Math.sin(a), 0.72) * (rvB + keel)));
+    }
+    return o;
+  };
   const body = [
-    ring(0.70, 0.052, 0.072, 0.055, 0.01),   // pointed nose
-    ring(0.56, 0.086, 0.104, 0.050, 0.02),   // gunner station
-    ring(0.40, 0.108, 0.128, 0.048, 0.03),
-    ring(0.22, 0.122, 0.146, 0.052, 0.035),  // widest — cockpit
-    ring(0.04, 0.126, 0.150, 0.058, 0.035),  // mid / engine deck
-    ring(-0.14, 0.112, 0.128, 0.072, 0.028), // engine-bay shoulders
-    ring(-0.26, 0.074, 0.086, 0.084, 0.015), // boom taper
-    ring(-0.34, 0.050, 0.058, 0.095, 0.008), // boom junction
+    ring(0.70, 0.052, 0.072, 0.055, 0.01),            // 0 pointed nose
+    ring(0.60, 0.078, 0.092, 0.050, 0.02),            // 1 nose barrel — the canopy sill line starts here
+    gring(0.52, 0.100, 0.130, 0.108, 0.048, 0.03),    // 2 gunner windscreen top (bay 1 is the raked screen)
+    gring(0.36, 0.114, 0.146, 0.126, 0.048, 0.035),   // 3 gunner aft — level roof runs 2→3
+    gring(0.29, 0.118, 0.194, 0.130, 0.050, 0.035),   // 4 pilot windscreen top — THE STEP
+    gring(0.14, 0.126, 0.198, 0.142, 0.054, 0.035),   // 5 pilot aft
+    ring(0.04, 0.126, 0.150, 0.058, 0.035),           // 6 engine deck — the canopy closes back down
+    ring(-0.14, 0.112, 0.128, 0.072, 0.028),          // 7 engine-bay shoulders
+    ring(-0.26, 0.074, 0.086, 0.084, 0.015),          // 8 boom taper
+    ring(-0.34, 0.050, 0.058, 0.095, 0.008),          // 9 boom junction
   ];
-  for (let i = 0; i < body.length - 1; i++) skin(body[i], body[i + 1], 'body', 1);
+  // Which of the 5 upper facets each bay glazes (bay i spans station i→i+1), and the texture-U at
+  // each station. The unwrap is U 0→1 windscreen→rear canopy, V 0→1 right sill→roof→left sill
+  // (k/5) — so the whole greenhouse is one continuous painted sheet, symmetric about the centreline.
+  const GLAZE = { 1: [0, 1, 2, 3, 4], 2: [0, 1, 2, 3, 4], 3: [1, 2, 3], 4: [0, 1, 2, 3, 4], 5: [1, 2, 3] };
+  const STATION_U = [0, 0.00, 0.14, 0.44, 0.56, 0.86, 1.00];
+  for (let i = 0; i < body.length - 1; i++) {
+    const glz = GLAZE[i], uA = STATION_U[i] * CP_TW, uB = STATION_U[i + 1] * CP_TW;
+    for (let k = 0; k < sides; k++) {
+      const j = (k + 1) % sides;
+      const fc = { role: 'body', sh: shFor(k), p: [body[i][k], body[i][j], body[i + 1][j], body[i + 1][k]] };
+      if (glz && glz.includes(k)) {
+        fc.role = 'glass'; fc.tint = GLASS;
+        fc.uv = [[uA, k / 5 * CP_TH], [uA, j / 5 * CP_TH], [uB, j / 5 * CP_TH], [uB, k / 5 * CP_TH]];
+      }
+      faces.push(fc);
+    }
+  }
   // Faceted nose cap — a blunt chisel point ahead of the front ring (the chin turret hangs below it).
   const noseApex = V(0.80, 0, 0.052);
   for (let k = 0; k < sides; k++) { const j = (k + 1) % sides; q('body', shFor(k), noseApex, body[0][k], body[0][j]); }
-
-  // ── Tandem STEPPED canopy: a low gunner blister forward, a taller pilot blister stepped up behind,
-  // split by a raised inter-cockpit fairing. Each is a faceted greenhouse (windscreen + sides + roof).
-  const canopy = (f0, f1, w, hTop, hSill) => {
-    const nose = V(f0, 0, hSill + 0.02), tail = V(f1, 0, hTop);
-    const flL = V(f0 - 0.02, -w * 0.5, hSill), flR = V(f0 - 0.02, w * 0.5, hSill);
-    const mdL = V((f0 + f1) / 2, -w, (hTop + hSill) / 2 + 0.01), mdR = V((f0 + f1) / 2, w, (hTop + hSill) / 2 + 0.01);
-    const bkL = V(f1, -w * 0.7, hTop - 0.01), bkR = V(f1, w * 0.7, hTop - 0.01);
-    const G = (sh, ...p) => faces.push({ role: 'glass', tint: GLASS, sh, p });
-    // windscreen (two raked panels), side glass (fore + aft each side), and the roof
-    G(0.98, nose, flR, mdR); G(0.98, nose, mdL, flL);
-    G(0.86, flR, mdR, bkR); G(0.7, flL, bkL, mdL);
-    G(1.0, nose, mdR, tail); G(1.0, nose, tail, mdL);
-    G(0.9, mdR, bkR, tail); G(0.72, mdL, tail, bkL);
-  };
-  canopy(0.52, 0.30, 0.115, 0.190, 0.150);   // gunner (front, lower)
-  canopy(0.30, 0.06, 0.128, 0.235, 0.185);   // pilot (rear, raised — the step)
-  // Inter-cockpit step fairing (the vertical face where the rear canopy climbs above the front one).
-  q('body', 0.5, V(0.30, -0.10, 0.150), V(0.30, 0.10, 0.150), V(0.30, 0.09, 0.235), V(0.30, -0.09, 0.235));
 
   // ── Chin GUN turret + barrel (the under-nose cannon) — a small faceted turret ball slung below
   // the gunner, with a stubby cannon that points forward and slightly down.
@@ -1382,6 +1400,108 @@ export function glassSheen(ctx, pts) {
   g.addColorStop(0.6, 'rgba(120,150,170,0.04)');
   g.addColorStop(1, 'rgba(34,52,66,0.22)');        // darker lower edge
   ctx.fillStyle = g; ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+  ctx.restore();
+}
+
+// ── Attack-heli canopy art (procedural, painted onto the hull) ────────────────
+// The Viper's greenhouse is fuselage geometry (see buildAttackHeli), so everything that makes
+// it read as a canopy rather than blue paint is baked into ONE transparent canvas and mapped
+// through the authored per-facet UVs. Alpha matters: the glazed areas stay translucent so each
+// facet's own lit/shaded fill carries through (the canopy still bends with the light), while
+// the mullions and the crew silhouettes paint opaque.
+//
+// Texture space: U 0→CP_TW runs windscreen→rear canopy, V 0→CP_TH runs right sill→roof→left
+// sill. Symmetric about V=0.5 so port and starboard wear the same glass. The frame stations
+// mirror the mesh's STATION_U/GLAZE, so a mullion always lands on a real facet seam.
+export const CP_TW = 512, CP_TH = 256;
+let _canopyTex = null;
+export function canopyTex() {
+  if (_canopyTex) return _canopyTex;
+  const cv = document.createElement('canvas'); cv.width = CP_TW; cv.height = CP_TH;
+  const g = cv.getContext('2d'), W = CP_TW, H = CP_TH;
+
+  // 1) The glass itself — a sill→roof→sill wash. Bright cold sky reflection across the roof
+  //    band, falling away to a dark, near-opaque interior read down at the sills where you're
+  //    looking through the side glass into the cockpit rather than at the sky.
+  const gl = g.createLinearGradient(0, 0, 0, H);
+  gl.addColorStop(0.00, 'rgba(6,11,16,0.90)');     // right sill — looking into the dark
+  gl.addColorStop(0.16, 'rgba(9,16,23,0.82)');
+  gl.addColorStop(0.34, 'rgba(34,60,80,0.40)');
+  gl.addColorStop(0.46, 'rgba(150,196,222,0.32)'); // roof — sky
+  gl.addColorStop(0.54, 'rgba(150,196,222,0.32)');
+  gl.addColorStop(0.66, 'rgba(34,60,80,0.40)');
+  gl.addColorStop(0.84, 'rgba(9,16,23,0.82)');
+  gl.addColorStop(1.00, 'rgba(6,11,16,0.90)');     // left sill
+  g.fillStyle = gl; g.fillRect(0, 0, W, H);
+
+  // 2) Interior: the crew. Two helmeted silhouettes sitting at the gunner and pilot stations,
+  //    low in the frame (V near the sills is eye level through the side glass). Vague on purpose
+  //    — a hard shape at this size reads as a decal, a soft one reads as somebody in there.
+  //    V=0.30/0.70 puts them mid-CHEEK-pane rather than on a sill rail, so a mullion never
+  //    bisects a head; one per side means a crewman shows whichever cheek is turned to you.
+  for (const [u, sc] of [[0.29, 0.9], [0.71, 1.0]]) {
+    for (const v of [0.30, 0.70]) {
+      const cx = u * W, cy = v * H;
+      const sh = g.createRadialGradient(cx, cy, 2, cx, cy, 30 * sc);
+      sh.addColorStop(0, 'rgba(5,8,12,0.94)'); sh.addColorStop(1, 'rgba(5,8,12,0)');
+      g.fillStyle = sh; g.beginPath(); g.ellipse(cx, cy, 24 * sc, 26 * sc, 0, 0, 7); g.fill();   // shoulders/torso haze
+      g.fillStyle = 'rgba(3,5,8,0.92)'; g.beginPath(); g.ellipse(cx, cy, 12 * sc, 10 * sc, 0, 0, 7); g.fill();   // helmet
+      g.fillStyle = 'rgba(96,190,150,0.55)'; g.beginPath(); g.ellipse(cx - 7 * sc, cy + 1.5 * sc, 4.5 * sc, 2.6 * sc, 0, 0, 7); g.fill();   // visor glow — U falls toward the nose, so it looks forward
+    }
+  }
+  // Instrument glow spilling up onto the inside of the windscreen at each station.
+  for (const u of [0.06, 0.50]) {
+    const cx = u * W, hg = g.createRadialGradient(cx, H / 2, 4, cx, H / 2, 70);
+    hg.addColorStop(0, 'rgba(70,150,190,0.22)'); hg.addColorStop(1, 'rgba(70,150,190,0)');
+    g.fillStyle = hg; g.fillRect(cx - 70, 0, 140, H);
+  }
+
+  // 3) Specular: two hard diagonal streaks raking across the greenhouse, the way a low sun
+  //    catches flat panes. Clipped to the roof band so the side glass stays dark.
+  g.save();
+  g.beginPath(); g.rect(0, H * 0.26, W, H * 0.48); g.clip();
+  for (const [x, wd, a] of [[W * 0.18, 30, 0.15], [W * 0.62, 18, 0.10]]) {
+    const sg = g.createLinearGradient(x - wd, 0, x + wd, 0);
+    sg.addColorStop(0, 'rgba(255,255,255,0)'); sg.addColorStop(0.5, `rgba(255,255,255,${a})`); sg.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = sg; g.save(); g.translate(x, H / 2); g.rotate(-0.38); g.translate(-x, -H / 2);
+    g.fillRect(x - wd, -H, wd * 2, H * 3); g.restore();
+  }
+  g.restore();
+
+  // 4) Mullions — the heavy structural frame. Bars along the station seams (U) and the roof/cheek
+  //    /sill chines (V), plus a centre post up the two windscreens. Opaque: this is airframe.
+  g.lineCap = 'butt';
+  const bar = (x0, y0, x1, y1, w, col) => { g.strokeStyle = col; g.lineWidth = w; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke(); };
+  const FRAME = 'rgba(26,30,36,0.95)', FRAME_LT = 'rgba(84,92,102,0.55)';
+  for (const u of [0.00, 0.14, 0.44, 0.56, 0.86, 1.00]) {          // station frames (the tandem step lands at 0.44/0.56)
+    const x = u * W, hv = (u === 0.44 || u === 0.56) ? 13 : 8;      // the step is the beefiest frame on the aircraft
+    bar(x, 0, x, H, hv, FRAME); bar(x - hv * 0.34, 0, x - hv * 0.34, H, 1.6, FRAME_LT);   // a lit highlight down one edge
+  }
+  // Longitudinal chines: only the SILL rails are structure worth painting. The roof/cheek seams
+  // (V 0.40/0.60) are real facet edges the renderers already stroke — bar them too and the
+  // greenhouse reads as a bus window grid, so they get a hairline glint and nothing more.
+  for (const v of [0.20, 0.80]) {
+    const y = v * H;
+    bar(0, y, W, y, 10, FRAME); bar(0, y - 3.4, W, y - 3.4, 1.6, FRAME_LT);
+  }
+  for (const v of [0.40, 0.60]) bar(0, v * H, W, v * H, 1.4, FRAME_LT);
+  bar(0, H / 2, W, H / 2, 5, FRAME);                                // centreline beam / windscreen post
+  bar(0, H / 2 - 1.7, W, H / 2 - 1.7, 1.4, FRAME_LT);
+  // Perimeter: the canopy sill and the front/rear frames close the greenhouse off from the paint.
+  g.strokeStyle = FRAME; g.lineWidth = 16; g.strokeRect(0, 0, W, H);
+
+  _canopyTex = cv; return cv;
+}
+// Paint the baked canopy art into ONE projected facet over its already-shaded fill. Unlike
+// overlayJazz this composites source-over, not multiply — the frames have to sit ON the glass
+// as solid structure, while the texture's own alpha lets the lit fill read through the panes.
+export function drawCanopyGlass(ctx, P, uv) {
+  const n = P.length; if (n < 3 || n > 4) return;
+  const img = canopyTex(), d = P.map(q => [q.sx, q.sy]);
+  ctx.save();
+  ctx.beginPath(); ctx.moveTo(d[0][0], d[0][1]); for (let i = 1; i < n; i++) ctx.lineTo(d[i][0], d[i][1]); ctx.closePath(); ctx.clip();
+  if (n === 4) { acTexTri(ctx, img, uv[0], uv[1], uv[2], d[0], d[1], d[2]); acTexTri(ctx, img, uv[0], uv[2], uv[3], d[0], d[2], d[3]); }
+  else acTexTri(ctx, img, uv[0], uv[1], uv[2], d[0], d[1], d[2]);
   ctx.restore();
 }
 
@@ -2106,6 +2226,7 @@ function paintTurntable(ctx, { cls, armed = false, livery, yaw = 0, w, h, wreck 
     const alpha = cam ? clampN((avgZ - 0.25) / 0.9, 0.08, 1) : 1;
     const rec = { P, role: face.role, avgZ, alpha, col: shadeRgb(rgb, face.sh * pal.fmul * light * (wreck ? 0.8 : 1)) };
     if (jazzImg && JAZZ_ROLE.has(face.role)) rec.uv = face.p.map(v => jazzUV(v, face.role));
+    if (face.uv) rec.cuv = face.uv;                                // canopy art: UVs authored on the mesh, not derived
     drawn.push(rec);
   }
   drawn.sort((a, b) => b.avgZ - a.avgZ);
@@ -2118,6 +2239,7 @@ function paintTurntable(ctx, { cls, armed = false, livery, yaw = 0, w, h, wreck 
     ctx.fillStyle = fc.col; ctx.fill();
     if (fc.uv) overlayJazz(ctx, fc.P, fc.uv, jazzImg);           // Memphis splatter, mapped in body space
     else if (TEXTURED.has(fc.role)) overlayHull(ctx, fc.P, texStr);   // procedural panel/rivet detail
+    if (fc.cuv) drawCanopyGlass(ctx, fc.P, fc.cuv);                   // greenhouse: mullions, sky reflection, the crew behind the glass
     if (!wreck && (fc.role === 'glass' || fc.role === 'window')) glassSheen(ctx, fc.P);   // glassy specular on canopy/windows
     ctx.strokeStyle = 'rgba(8,10,14,0.55)'; ctx.lineWidth = 1; ctx.stroke();
     if (!wreck && livery?.finish === 'gloss' && fc.role === 'body') {
@@ -2542,6 +2664,7 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
       let z = 0; for (const q of P) z += q.z;
       const rec = { P, role: face.role, avgZ: z / P.length, col: shadeRgb(rgb, face.sh * pal.fmul * light * (selected ? 1.12 : 1) * (e.wreck ? 0.8 : 1)) };
       if (jazzImg && JAZZ_ROLE.has(face.role)) rec.uv = face.p.map(v => jazzUV(v, face.role));
+      if (face.uv) rec.cuv = face.uv;                               // canopy art: UVs authored on the mesh
       drawn.push(rec);
     }
     const origin = proj(0.2, laneG, 0);
@@ -2570,6 +2693,7 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
       ctx.closePath();
       ctx.fillStyle = fc.col; ctx.fill();
       if (fc.uv) overlayJazz(ctx, fc.P, fc.uv, grp.jazzImg);   // Memphis splatter (same body-space map as the turntable)
+      if (fc.cuv) drawCanopyGlass(ctx, fc.P, fc.cuv);          // greenhouse art (same authored map as the turntable)
       if (!grp.entry.wreck && (fc.role === 'glass' || fc.role === 'window')) glassSheen(ctx, fc.P);   // glassy specular on canopy/windows
       ctx.strokeStyle = 'rgba(8,10,14,0.5)'; ctx.lineWidth = 1; ctx.stroke();
     }
