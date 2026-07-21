@@ -5,10 +5,10 @@
 import { getRegisteredAINodes, tickEntityAI, initBlackboard } from '../../server/engine/ai-behaviour.js';
 import { world } from '../../server/engine/world.js';
 import { query } from '../../server/models/db.js';
-import { ensureClipBroadcast, _test, _piracyTest, startEmergency, stopEmergency, emergencyActive } from './index.js';
+import { ensureClipBroadcast, _test, _piracyTest, startEmergency, stopEmergency, emergencyActive, getTvChannelList, getTabletTunedChannel } from './index.js';
 import { getCrimeStars, getCrimeWitness } from '../../server/engine/crimes.js';
 
-export default async function regress({ check, run }) {
+export default async function regress({ check, run, getPlayer }) {
   // ── Deterministic DEADBALL league ───────────────────────────────────────────
   // Every game is a pure function of its slot: same slot → byte-identical result on
   // every server and every TV (this is what keeps all TVs in sync and lets the
@@ -412,4 +412,39 @@ export default async function regress({ check, run }) {
   check('startEmergency refuses an unknown bulletin', bad?.ok === false);
   const stop = stopEmergency();
   check('stopEmergency releases the airwaves', stop?.wasActive === true && emergencyActive() === false, JSON.stringify(stop));
+
+  // ── Tablet TV: the portable tuner ────────────────────────────────────────────
+  // The Tablet TV app is its own receiver — `tablettune` must resolve a channel
+  // straight from the in-memory runtime, with NO broadcast_receiver furniture in
+  // the zone (which is exactly what `tune` refuses to do).
+  const chans = getTvChannelList();
+  check('channel list is in-memory and shaped for the dial',
+    Array.isArray(chans) && chans.every(c => typeof c.number === 'number' && c.channelId),
+    JSON.stringify(chans.slice(0, 3)));
+  check('channel list is sorted by dial number',
+    chans.every((c, i) => i === 0 || chans[i - 1].number <= c.number), JSON.stringify(chans.map(c => c.number)));
+
+  const player = getPlayer();
+  check('no tablet tuner before tuning', getTabletTunedChannel(player.id) === null, String(getTabletTunedChannel(player.id)));
+
+  // `tune` in a zone with no device is refused — the contrast that makes the point.
+  const wallTune = await run(`tune ${chans[0]?.number ?? 1}`);
+  check('wall `tune` still needs a device in the zone',
+    wallTune?.type === 'output' && /no broadcast-capable device/i.test(wallTune.message || ''), JSON.stringify(wallTune));
+
+  if (chans.length) {
+    await run(`tablettune ${chans[0].number}`);
+    check('tablettune registers the portable tuner with no furniture',
+      getTabletTunedChannel(player.id) === chans[0].channelId,
+      `${getTabletTunedChannel(player.id)} vs ${chans[0].channelId}`);
+
+    await run('tablettune 0');
+    check('tablettune 0 powers the tablet screen down', getTabletTunedChannel(player.id) === null, String(getTabletTunedChannel(player.id)));
+
+    // An unknown dial position is silent (the dial sweeps across dead frequencies)
+    // and must not leave a stale tuner behind.
+    const dead = await run('tablettune 998');
+    check('tuning a dead frequency is silent', dead === null || dead === undefined, JSON.stringify(dead));
+    check('a dead frequency leaves no tuner', getTabletTunedChannel(player.id) === null, String(getTabletTunedChannel(player.id)));
+  }
 }

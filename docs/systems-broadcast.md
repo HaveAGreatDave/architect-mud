@@ -5,7 +5,9 @@ Architect's media framework: scripted channels, live cameras, dynamic news, and 
 Primary server file: [`plugins/broadcast/index.js`](../plugins/broadcast/index.js).  
 Dev panel files: [`client/devpanel/js/panels/broadcast.js`](../client/devpanel/js/panels/broadcast.js), [`client/devpanel/js/panels/broadcast-channel.js`](../client/devpanel/js/panels/broadcast-channel.js), [`client/devpanel/js/panels/broadcast-schedule.js`](../client/devpanel/js/panels/broadcast-schedule.js), [`client/devpanel/js/panels/broadcast-themes.js`](../client/devpanel/js/panels/broadcast-themes.js), [`client/devpanel/js/panels/broadcast-graphics.js`](../client/devpanel/js/panels/broadcast-graphics.js).  
 VINE schema: [`client/devpanel/js/vine/vine-schema-broadcast.js`](../client/devpanel/js/vine/vine-schema-broadcast.js).  
-Game client: [`client/game/js/panels/tv.js`](../client/game/js/panels/tv.js).
+Game client: [`client/game/js/panels/tv.js`](../client/game/js/panels/tv.js) (the shared renderer behind
+both the standalone CRT set and the Tablet TV app — see [Two TV surfaces, one renderer](#two-tv-surfaces-one-renderer)).
+Tablet app: [`plugins/tablet/tv-app.js`](../plugins/tablet/tv-app.js).
 
 ---
 
@@ -340,6 +342,7 @@ It runs automatically on **every** playlist save (`PUT /broadcast/channels/:id/p
 | `watch tv` / `tv` / `watch television` / `listen` | Opens the TV panel for the first `tv`-tagged device in the zone (`listen` is an alias of `watch`) |
 | `tune <n>` | Tunes the `broadcast_receiver` device in the zone to channel `n`; re-sends `tv_panel` if panel is open |
 | `tune 0` | Turns the device off; triggers CRT shutoff animation if panel is open |
+| `tablettune <n>` | **Portable** — the Tablet TV app's dial. Needs no furniture; `0` powers the app's screen down. Never typed (the TV app's viewport sends it) |
 | `use <deck name>` | Opens the media deck panel (`mediadeck_panel`) for the `media_deck`-tagged furniture in the zone |
 | `load cassette` | Loads a carried `media_cassette` item into the deck in the zone; **consumes the item from inventory** (the tape physically goes into the deck) and sets it active. (`load` also has a chip/footage branch for surveillance datachips) |
 | `eject` | Stops the deck's active cassette, **removes its broadcast from the deck's library**, and spawns the physical cassette item (`item_cassette_<showname>`) back into the player's inventory — at most one copy per broadcast can exist in the world at a time |
@@ -406,6 +409,50 @@ broadcast_ambient: (msg) => {
 ```
 
 ---
+
+## Two TV surfaces, one renderer
+
+Television is presented on **two** surfaces, both driven by the same code:
+
+| Surface | Opened by | Reception |
+|---|---|---|
+| Standalone CRT popup (`#tv-panel` in `index.html`) | `watch tv` / `tv` / `use <television>` at a physical set | Zone-tuned — needs a `broadcast_receiver` device in the room |
+| **Tablet TV app** (Tablet OS → 📺 TV) | Tapping the app tile | **Portable** — streams anywhere, no device required |
+
+`client/game/js/panels/tv.js` is a **factory**, not a singleton: `createTvView(root, opts)` binds an
+instance to any container carrying the `data-tv="…"` hooks (`window`, `content`, `messages`, `static`,
+`knob`, `scorebug`, `gameday`, …). The standalone markup in `index.html` keeps its `id`s purely so
+`styles.css` still matches; the renderer itself only ever looks up `data-tv`. The historical exports
+(`openTvPanel`, `appendTvMessage`, …) remain as thin delegates to a default instance bound to
+`#tv-panel`, so `dispatch.js` and `initTvPanel()` are unchanged.
+
+Because both surfaces can be open on **different channels at once**, `dispatch.js` no longer routes to
+one global panel — it fans each `broadcast` / `tv_overlay` message out via `tvViewsForChannel(channelId)`.
+`tv_panel` routes on `msg.dest`: `'tablet'` feeds the app's viewport, anything else pops the CRT set.
+
+Two instance-level details keep the surfaces from fighting over global audio: each gets **its own
+hum/static loop ids** (suffixed with the instance key), and a single module-level `_speechOwner`
+means only the most recently tuned surface narrates.
+
+### Portable reception (`tabletTuners`)
+
+`broadcastTick` iterates `zoneTunings`, so it can only ever serve players standing in a tuned zone —
+the tablet needed its own path:
+
+- **`tabletTuners: Map<playerId, channelId>`** — deliberately separate from `tvWatchers`, which is
+  what lets a player watch the wall set on CH 7 and the tablet on CH 3 simultaneously. Registered via
+  the raw `tablet_tv_watch` / `tablet_tv_unwatch` messages (bridged in `server/index.js` to the
+  `tablet_tv.watch`/`.unwatch` events) and by `tablettune`; cleared on logout.
+- **A final pass in `broadcastTick`** (`_tabletBroadcastPass`) delivers to those tuners. The critical
+  invariant: the VINE graph walker is stateful and must advance **exactly once per channel per tick**,
+  so every pass records what it resolved into a per-tick `tickResults` map, and the tablet pass
+  **reuses** that beat rather than re-resolving. It only resolves fresh for a channel nothing else
+  drove (and then claims it in `activeChannels`). Getting this wrong makes viewers skip lines.
+- Off-air, score-bug/gameday/standings/sports-FX overlays, `audio_music`/`audio_sample` and the
+  per-line `duration` all reach tablet tuners identically. There's no `broadcast_ambient` — a tablet
+  has no room to leak into. Formatting is always `tv` (no `[Radio]`/`[FEED]` prefix).
+- The whole pass is guarded by `if (tabletTuners.size)`, so it costs nothing when nobody has the app
+  open (and never wakes an idle server).
 
 ## TV Panel (`client/game/js/panels/tv.js`)
 

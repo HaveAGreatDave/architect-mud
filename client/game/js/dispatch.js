@@ -18,7 +18,7 @@ import { updateForecast } from './panels/forecast.js';
 import { openAtmPanel, closeAtmPanel, updateAtmPanel, playAtmDrainSfx } from './panels/atm.js';
 import { openInsurancePanel, updateInsurancePanel } from './panels/insurance.js';
 import { openCorpConsole, updateCorpConsole } from './panels/corp-console.js';
-import { openTabletPanel, closeTabletPanel, tabletQuestUpdate, noteQuestLog, openTabletToSpecter, openTabletToReel, openTabletSpecterInstall, refreshTabletGearIfOpen, openTabletToMap, refreshTabletMapIfOpen } from './panels/tablet-os.js';
+import { openTabletPanel, closeTabletPanel, tabletQuestUpdate, noteQuestLog, openTabletToSpecter, openTabletToReel, openTabletSpecterInstall, refreshTabletGearIfOpen, openTabletToMap, refreshTabletMapIfOpen, openTabletTvPanel } from './panels/tablet-os.js';
 import { openCorpMap } from './panels/corp-map.js';
 import { openVoidwalkStaging, appendVoidwalkChat } from './panels/voidwalk-staging.js';
 import { openMediaDeckPanel, updateMediaDeckBroadcast, applyMediaDeckOverlay } from './panels/mediadeck.js';
@@ -38,7 +38,7 @@ import { openSynthMinigame, openCookMenu } from './panels/synthlab.js';
 import { openSpliceSelect, openSpliceStages, applySplicePreview } from './panels/splicelab.js';
 import { showSpliceReport } from './panels/spliceReport.js';
 import { updateWantedHud, setWantedHeat } from './panels/wanted.js';
-import { openTvPanel, isTvOpen, getTvActiveChannelId, appendTvMessage, updateTvTicker, applyTvOverlay, clearTvMessages, showTvOffAir, showTvOnAir, shutdownTvPanel, tvSpeak, renderTvSchedule } from './panels/tv.js';
+import { openTvPanel, isTvOpen, getTvActiveChannelId, appendTvMessage, updateTvTicker, applyTvOverlay, clearTvMessages, showTvOffAir, showTvOnAir, shutdownTvPanel, tvSpeak, renderTvSchedule, tvViewsForChannel, tvOpenViews } from './panels/tv.js';
 import { applyAmpUnlocks, addAmpUnlock } from './panels/musicplayer.js';
 import { applyEspState, handleEspWarning } from './esp.js';
 import { playPokerSfx } from './poker-sfx.js';
@@ -230,33 +230,37 @@ const handlers = {
     setTimeout(() => { sendCmd('look'); }, 1500);
   },
 
+  // A player can have the wall set open on one channel AND the Tablet TV app open
+  // on another, so every broadcast/overlay is fanned out to whichever surface(s)
+  // are actually tuned to that channel rather than to a single global panel.
   broadcast: (msg) => {
+    const views = tvViewsForChannel(msg.channel);
+    if (!views.length) return;
     if (msg.style === 'off_air') {
-      if (isTvOpen() && getTvActiveChannelId() === msg.channel)
-        showTvOffAir(msg.offlineGraphicContent || null, msg.offlineGraphicType || 'ascii');
+      for (const v of views) v.showOffAir(msg.offlineGraphicContent || null, msg.offlineGraphicType || 'ascii');
       return;
     }
-    if (isTvOpen() && getTvActiveChannelId() === msg.channel) {
-      showTvOnAir();
-      if (msg.style === 'ticker') updateTvTicker(msg.message);
-      else { appendTvMessage(msg.message, msg.style, msg.duration, msg.hasGameday); tvSpeak(msg.message, msg.style, msg.duration); }
-      if (msg.programName !== undefined) {
-        const el = document.getElementById('tv-program-name');
-        if (el) el.textContent = msg.programName || '';
-      }
+    for (const v of views) {
+      v.showOnAir();
+      if (msg.style === 'ticker') v.updateTicker(msg.message);
+      else { v.appendMessage(msg.message, msg.style, msg.duration, msg.hasGameday); v.speak(msg.message, msg.style, msg.duration); }
+      if (msg.programName !== undefined) v.setProgramName(msg.programName);
     }
   },
   broadcast_ambient: (msg) => {
     if (msg.speechText) appendMsg(`[TV] "${msg.speechText}"`, 'broadcast-ambient');
   },
-  tv_panel: (msg) => { openTvPanel(msg); },
+  // `dest: 'tablet'` is the portable tuner answering — it feeds the Tablet TV app's
+  // viewport instead of popping the standalone CRT set open over the game.
+  tv_panel: (msg) => {
+    if (msg.dest === 'tablet') { openTabletTvPanel(msg); return; }
+    openTvPanel(msg);
+  },
   tv_off:   ()    => { if (isTvOpen()) shutdownTvPanel(); },
   tv_overlay: (msg) => {
-    if (isTvOpen() && getTvActiveChannelId() === msg.channelId) {
-      applyTvOverlay(msg.overlay);
-    }
+    for (const v of tvViewsForChannel(msg.channelId)) v.applyOverlay(msg.overlay);
   },
-  tv_schedule: (msg) => { if (isTvOpen()) renderTvSchedule(msg); },
+  tv_schedule: (msg) => { for (const v of tvOpenViews()) v.renderSchedule(msg); },
   system: (msg) => { appendHtml(msg.message, 'system'); },
   ambient: (msg) => { appendHtml(msg.message, 'ambient'); },
   sleep: (msg) => { appendHtml(msg.message, 'system'); },

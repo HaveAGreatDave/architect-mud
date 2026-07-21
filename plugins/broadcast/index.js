@@ -66,6 +66,12 @@ const furnitureChannelIndex = new Map();
 
 // tvWatchers.get(playerId) = channelId — players who currently have the TV panel open.
 const tvWatchers = new Map();
+// tabletTuners.get(playerId) = channelId — players watching on the Tablet TV app.
+// Deliberately SEPARATE from tvWatchers: the tablet receives with no physical
+// device in the zone (see the tablet delivery pass in broadcastTick), and keeping
+// its own map lets a player watch the wall set on one channel and the tablet on
+// another at the same time.
+const tabletTuners = new Map();
 // deckWatchers.get(playerId) = channelId — players with the mediadeck preview open.
 const deckWatchers = new Map();
 // deckRecent.get(channelId) = last few formatted lines, so a freshly-opened deck
@@ -144,7 +150,13 @@ on('deck.watch',   ({ playerId, channelId }) => {
     sendToPlayer(playerId, { type: 'deck_broadcast', message: line, channel: channelId, style: 'raw' });
 });
 on('deck.unwatch', ({ playerId })            => deckWatchers.delete(playerId));
-on('player.logout', ({ id })              => { tvWatchers.delete(id); deckWatchers.delete(id); });
+
+// The Tablet TV app registering/dropping its portable tuner. No furniture, no zone —
+// the tablet streams wherever the player is.
+on('tablet_tv.watch',   ({ playerId, channelId }) => { if (channelId) tabletTuners.set(playerId, channelId); });
+on('tablet_tv.unwatch', ({ playerId })            => { tabletTuners.delete(playerId); });
+
+on('player.logout', ({ id })              => { tvWatchers.delete(id); deckWatchers.delete(id); tabletTuners.delete(id); });
 
 // studioZoneIndex.get(studioZoneId) = channelId
 // Enables O(1) lookup in zone.broadcast relay listener.
@@ -2711,6 +2723,11 @@ async function broadcastTick() {
   // The deck-preview pass skips these so the stateful graph walker isn't advanced
   // twice in one tick.
   const activeChannels = new Set();
+  // What each channel actually resolved to this tick, so the tablet pass at the
+  // bottom can deliver the SAME content without re-running the stateful VINE walker
+  // (advancing it twice would make viewers skip lines).
+  // tickResults.get(channelId) = { result, scorebugOverlay, gamedayOverlay, standingsOverlay }
+  const tickResults = new Map();
   for (const [zoneId, channelMap] of zoneTunings) {
     if (!getZonePlayers(zoneId).length) continue;
     for (const cid of channelMap.keys()) activeChannels.add(cid);
@@ -2726,13 +2743,15 @@ async function broadcastTick() {
       // No working transmitter (media deck) → the channel can't get on air. Fire the
       // one-shot off_air transition (offline graphic / static) and skip content.
       if (!channelTransmitterLive(state)) {
+        let offAir = null;
         if (state.wasActive) {
           state.wasActive = false;
-          const offAir = _offAirMessage(state, channelId);
+          offAir = _offAirMessage(state, channelId);
           for (const player of players) {
             if (tvWatchers.get(player.id) === channelId) sendToPlayer(player.id, offAir);
           }
         }
+        if (!tickResults.has(channelId)) tickResults.set(channelId, { result: null, offAir });
         continue;
       }
 
@@ -2743,23 +2762,31 @@ async function broadcastTick() {
         result = await _resolveTickMessage(zoneId, state, nowMs);
       } catch (err) {
         console.error(`[broadcast] tick error (${channelId}):`, err.message);
+        // Mark it handled anyway — the walker may already have advanced, and the
+        // tablet pass must not re-resolve and advance it a second time.
+        if (!tickResults.has(channelId)) tickResults.set(channelId, { result: null, offAir: null });
         continue;
       }
       if (!result || result.key === state.lastMsgKey) {
         // null during a wait node means the graph is still running — don't trigger off_air
         const stillWaiting = !result && state.graphBlackboard?.waitUntil > nowMs;
+        let offAir = null;
         if (!stillWaiting && state.wasActive) {
           state.wasActive = false;
-          const offAir = _offAirMessage(state, channelId);
+          offAir = _offAirMessage(state, channelId);
           for (const player of players) {
             if (tvWatchers.get(player.id) === channelId)
               sendToPlayer(player.id, offAir);
           }
         }
+        if (!tickResults.has(channelId)) tickResults.set(channelId, { result: null, offAir });
         continue;
       }
       state.wasActive = true;
       state.lastMsgKey = result.key;
+      // Claim the tick for this channel before any early `continue` below, so the
+      // tablet pass reuses this beat rather than re-advancing the graph walker.
+      if (!tickResults.has(channelId)) tickResults.set(channelId, { result });
 
       // Overlay events (show_overlay / clear_overlay) go direct to TV watchers,
       // and mirror to deck-preview watchers so the media deck shows on-screen
@@ -2819,6 +2846,11 @@ async function broadcastTick() {
           rows: rows.slice(0, 8).map(r => ({ team: r.team, wins: r.wins, losses: r.losses, rd: (r.runs_for || 0) - (r.runs_against || 0) })),
         };
       }
+
+      // Attach this beat's graphics to the tick record so a portable tuner on the
+      // same channel gets the identical score-bug / gameday / standings.
+      const tr = tickResults.get(channelId);
+      if (tr && tr.result === result) Object.assign(tr, { scorebugOverlay, gamedayOverlay, standingsOverlay });
 
       // Rate-limit the overheard `[TV]` line for non-watchers so a talky channel
       // doesn't flood the room feed. Decided once per zone+channel per tick.
@@ -2883,10 +2915,13 @@ async function broadcastTick() {
               sendToPlayer(pid, { type: 'deck_broadcast', channel: channelId, style: 'no_broadcast' });
           }
         }
+        if (!tickResults.has(channelId)) tickResults.set(channelId, { result: null, offAir: null });
         continue;
       }
       state.wasActive = true;
       state.lastMsgKey = result.key;
+      // This pass advanced the walker — record the beat for the tablet pass.
+      if (!tickResults.has(channelId)) tickResults.set(channelId, { result });
       if (result.style === 'overlay' || result.style === 'live_relay') continue;
       const formatted = formatMessage(result.text, 'tv', null, result.style);
       if (!formatted) continue;
@@ -2911,13 +2946,16 @@ async function broadcastTick() {
     if (activeChannels.has(channelId)) continue;
     const state = channelRuntime.get(channelId);
     if (!state) continue;
+    activeChannels.add(channelId);   // claim it so the tablet pass won't re-tick
     let result;
     try {
       result = await _resolveTickMessage(state.deckZoneId, state, nowMs);
     } catch (err) {
       console.error(`[broadcast] deck-preview tick error (${channelId}):`, err.message);
+      if (!tickResults.has(channelId)) tickResults.set(channelId, { result: null, offAir: null });
       continue;
     }
+    if (!tickResults.has(channelId)) tickResults.set(channelId, { result: result && result.key !== state.lastMsgKey ? result : null, offAir: null });
     // Genuinely nothing on air (no live signal, no scheduled content, no tape) —
     // tell the deck monitors to raise the [NO BROADCAST] dead-air card, once per
     // transition into idle. A graph mid-wait isn't idle (content resumes shortly).
@@ -2944,6 +2982,111 @@ async function broadcastTick() {
     _recordDeckMessage(channelId, formatted);
     for (const [pid, cid] of deckWatchers) if (cid === channelId)
       sendToPlayer(pid, { type: 'deck_broadcast', message: formatted, channel: channelId, style: result.style || 'raw' });
+  }
+
+  // ── Tablet TV (portable tuner) ───────────────────────────────────────────
+  // The Tablet TV app streams with no broadcast device in the zone, so the zone
+  // loop above can never serve it. Deliver here instead: REUSE whatever beat another
+  // pass already resolved for that channel this tick (the VINE graph walker is
+  // stateful and must advance exactly once per tick, or viewers skip lines), and
+  // only resolve fresh for a channel nothing else drove. Whole pass is skipped when
+  // nobody has the app open, so it costs nothing on an idle server.
+  if (tabletTuners.size) await _tabletBroadcastPass(tickResults, activeChannels, nowMs);
+}
+
+// Per-channel fan-out to the portable tablet tuners. Split out of broadcastTick to
+// keep that already-long function readable.
+async function _tabletBroadcastPass(tickResults, activeChannels, nowMs) {
+  for (const channelId of new Set(tabletTuners.values())) {
+    const state = channelRuntime.get(channelId);
+    if (!state) continue;
+    const viewers = [];
+    for (const [pid, cid] of tabletTuners) if (cid === channelId) viewers.push(pid);
+    if (!viewers.length) continue;
+
+    let payload = tickResults.get(channelId);
+
+    // Nothing else drove this channel — resolve it ourselves, mirroring the zone
+    // loop's transmitter / off-air / dedup handling.
+    if (!payload) {
+      activeChannels.add(channelId);
+      if (!channelTransmitterLive(state)) {
+        if (state.wasActive) {
+          state.wasActive = false;
+          const offAir = _offAirMessage(state, channelId);
+          for (const pid of viewers) sendToPlayer(pid, offAir);
+        }
+        continue;
+      }
+      let result;
+      try {
+        result = await _resolveTickMessage(state.deckZoneId, state, nowMs);
+      } catch (err) {
+        console.error(`[broadcast] tablet tick error (${channelId}):`, err.message);
+        continue;
+      }
+      if (!result || result.key === state.lastMsgKey) {
+        const stillWaiting = !result && state.graphBlackboard?.waitUntil > nowMs;
+        if (!stillWaiting && state.wasActive) {
+          state.wasActive = false;
+          const offAir = _offAirMessage(state, channelId);
+          for (const pid of viewers) sendToPlayer(pid, offAir);
+        }
+        continue;
+      }
+      state.wasActive = true;
+      state.lastMsgKey = result.key;
+      payload = {
+        result,
+        scorebugOverlay: result.scorebug ? { overlayType: 'scorebug', ...result.scorebug } : null,
+        gamedayOverlay:  result.gameday  ? { overlayType: 'gameday',  ...result.gameday  } : null,
+        standingsOverlay: null,
+      };
+      // Same throttled league-table flash the zone loop raises during a sports airing.
+      if (payload.scorebugOverlay && _seasonCache.phase !== 'worldseries'
+          && nowMs - (_lastStandingsBug.get(channelId) || 0) > STANDINGS_BUG_EVERY_MS) {
+        _lastStandingsBug.set(channelId, nowMs);
+        const rows = await refreshStandings(nowMs);
+        if (rows.length) payload.standingsOverlay = {
+          overlayType: 'standings',
+          title: 'DEADBALL — LEAGUE STANDINGS',
+          duration: 9,
+          rows: rows.slice(0, 8).map(r => ({ team: r.team, wins: r.wins, losses: r.losses, rd: (r.runs_for || 0) - (r.runs_against || 0) })),
+        };
+      }
+      tickResults.set(channelId, payload);
+    }
+
+    // A pass ran but produced no new beat — forward only an off-air transition.
+    if (!payload.result) {
+      if (payload.offAir) for (const pid of viewers) sendToPlayer(pid, payload.offAir);
+      continue;
+    }
+
+    const { result, scorebugOverlay = null, gamedayOverlay = null, standingsOverlay = null } = payload;
+
+    if (result.style === 'overlay') {
+      for (const pid of viewers) sendToPlayer(pid, { type: 'tv_overlay', channelId, overlay: result.overlay ?? null });
+      continue;
+    }
+    if (result.style === 'live_relay') continue;
+
+    // The tablet is always a `tv` device — no [Radio]/[FEED] prefix.
+    const formatted = formatMessage(result.text, 'tv', null, result.style);
+    const isMusic = !!result.song;
+    const isSample = !!result.sample;
+    if (!formatted && !isMusic && !isSample) continue;
+    const programName = result.programName ?? state.currentProgramName ?? null;
+
+    for (const pid of viewers) {
+      if (formatted) sendToPlayer(pid, { type: 'broadcast', message: formatted, channel: channelId, style: result.style || 'raw', programName, ...(result.duration != null ? { duration: result.duration } : {}), ...(gamedayOverlay ? { hasGameday: true } : {}) });
+      if (isMusic) sendToPlayer(pid, { type: 'audio_music', def: result.song });
+      if (isSample) sendToPlayer(pid, { type: 'audio_sample', def: result.sample });
+      if (scorebugOverlay) sendToPlayer(pid, { type: 'tv_overlay', channelId, overlay: scorebugOverlay });
+      if (gamedayOverlay) sendToPlayer(pid, { type: 'tv_overlay', channelId, overlay: gamedayOverlay });
+      if (standingsOverlay) sendToPlayer(pid, { type: 'tv_overlay', channelId, overlay: standingsOverlay });
+      if (result.graphic) sendToPlayer(pid, { type: 'tv_overlay', channelId, overlay: result.graphic });
+    }
   }
 }
 
@@ -5134,24 +5277,29 @@ function _tvSkinForZone(zoneId) {
   return 'crt';
 }
 
-function buildTvPanel(channelId, player, dialFrequency) {
+// `dest` picks the client surface: undefined/'panel' opens the standalone CRT set,
+// 'tablet' feeds the Tablet TV app's viewport. A tablet has no furniture backing it,
+// so dial/skin fall back to sane defaults instead of a zone device lookup.
+function buildTvPanel(channelId, player, dialFrequency, dest) {
   const state = channelRuntime.get(channelId);
   if (!state) return null;
+  const isTablet = dest === 'tablet';
   const channelList = [...channelRuntime.values()]
     .filter(s => s.number != null)
     .sort((a, b) => a.number - b.number)
     .map(s => ({ number: s.number, name: s.name, channelId: s.channelId }));
   // Resolve dialFrequency + chassis skin from the zone's TV device if not passed directly
-  const fEntry = _furnitureEntryForZoneChannel(player.current_zone, channelId);
+  const fEntry = isTablet ? null : _furnitureEntryForZoneChannel(player.current_zone, channelId);
   if (dialFrequency === undefined) dialFrequency = fEntry?.dialFrequency ?? 0;
   sendToPlayer(player.id, {
     type: 'tv_panel',
+    ...(isTablet ? { dest: 'tablet' } : {}),
     channelId,
     channelName: state.name || channelId,
     stationName: state.stationName || state.name || channelId,
     channelNumber: state.number ?? 0,
     dialFrequency,
-    skin: fEntry?.skin || _tvSkinForZone(player.current_zone),
+    skin: isTablet ? 'tablet' : (fEntry?.skin || _tvSkinForZone(player.current_zone)),
     channelType: state.channelType || 'playlist',
     theme: state.theme || null,
     channelList,
@@ -5167,6 +5315,41 @@ function buildTvPanel(channelId, player, dialFrequency) {
     sendToPlayer(player.id, _offAirMessage(state, channelId));
   }
   return { type: 'output', message: 'You turn to the television.' };
+}
+
+// `tablettune <n>` — the Tablet TV app's dial. Unlike `tune`, it resolves the channel
+// straight out of the in-memory runtime with no furniture lookup, because the tablet
+// is its own receiver. `0` powers the app's screen down (drops the tuner registration).
+async function cmdTabletTune(args, raw, player) {
+  if (!player) return { type: 'error', message: 'No character.' };
+  const channelNumber = parseInt(args[0], 10);
+  if (isNaN(channelNumber)) return { type: 'output', message: 'Usage: tablettune <channel number>' };
+
+  if (channelNumber === 0) {
+    tabletTuners.delete(player.id);
+    sendToPlayer(player.id, { type: 'tv_off' });
+    return null;
+  }
+
+  const state = [...channelRuntime.values()].find(s => s.number === channelNumber);
+  if (!state) return null;   // silent — the dial sweeps across dead frequencies
+
+  tabletTuners.set(player.id, state.channelId);
+  buildTvPanel(state.channelId, player, channelNumber, 'tablet');
+  return null; // silent — the tablet's TV viewport reflects the new channel
+}
+
+// The channel dial listing, for the Tablet TV app's screen. In-memory only — never
+// a DB read (this is called on every tablet nav).
+export function getTvChannelList() {
+  return [...channelRuntime.values()]
+    .filter(s => s.number != null)
+    .sort((a, b) => a.number - b.number)
+    .map(s => ({ number: s.number, name: s.stationName || s.name, channelId: s.channelId }));
+}
+
+export function getTabletTunedChannel(playerId) {
+  return tabletTuners.get(playerId) || null;
 }
 
 function buildTvOffPanel(player, skin) {
@@ -5360,6 +5543,7 @@ export const commands = {
   pirate: cmdPirate,
   pirateresolve: cmdPirateResolve,
   air: cmdAir,
+  tablettune: cmdTabletTune,
 };
 
 export const specializedActions = [

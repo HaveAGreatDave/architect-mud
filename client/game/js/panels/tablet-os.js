@@ -23,6 +23,7 @@ import { getChatTabs, getChatMessages, sendChatMessage, markChatRead, onChatUpda
 import { showPromptDialog, showConfirmDialog, showSelectDialog } from './confirm.js';
 import { parseMarkup } from '../markup.js';
 import { openMusicPlayerPanel } from './musicplayer.js';
+import { createTvView } from './tv.js';
 import { resetOrder } from './sidebar-order.js';
 
 // Tablet's theme can be independent of the shared UI theme ("unlinked") —
@@ -1684,6 +1685,97 @@ function ensureStyles() {
     #tablet-os-overlay .tos-fk-mini-toast.show { opacity:.9; }
     #tablet-os-overlay .tos-fk-mini-home { width:26px; height:26px; border-radius:50%; margin:9px auto 0; border:2px solid color-mix(in srgb, var(--accent) 40%, transparent); cursor:pointer; }
     #tablet-os-overlay .tos-fk-mini-home:hover { border-color:var(--accent); box-shadow:0 0 8px color-mix(in srgb, var(--accent) 50%, transparent); }
+
+    /* ── TV app ───────────────────────────────────────────────────────────────
+       A portable television inside the tablet. The SCREEN is driven by the shared
+       broadcast renderer (panels/tv.js createTvView) through the same data-tv hooks
+       the wall set uses, so all the content classes it emits (.tv-msg, .tv-sb-*,
+       .tv-st-*, .tv-fx-*, .tv-sched-*, .tv-overlay-*) come from styles.css for free.
+       What's defined here is only the tablet's own chassis + the overlay hosts,
+       which on the standalone set are positioned against the CRT cabinet. */
+    #tablet-os-overlay .tos-tv { display:flex; flex-direction:column; gap:10px; }
+    /* Theme vars land on this element (tv.js _writeTvTheme) — defaults keep the
+       viewport legible on a channel with no theme of its own. */
+    #tablet-os-overlay .tos-tv-set {
+      --tv-bg:var(--bg, #05050a); --tv-border:var(--border, #2a2a40); --tv-text:var(--tos-fg, #e8e8f5);
+      --tv-header-color:var(--accent); --tv-live-color:#ff4d4d; --tv-ticker-color:var(--accent);
+      display:flex; flex-direction:column; border-radius:8px; overflow:hidden;
+      border:1px solid var(--tv-border); background:var(--tv-bg);
+      box-shadow:inset 0 0 22px rgba(0,0,0,.55);
+      transition:background .5s, border-color .5s; }
+    #tablet-os-overlay .tos-tv-bar { display:flex; align-items:center; gap:8px; padding:6px 10px;
+      border-bottom:1px solid var(--tv-border); font-size:10px; letter-spacing:1px; text-transform:uppercase;
+      color:var(--tv-header-color); transition:color .5s, border-color .5s; }
+    #tablet-os-overlay .tos-tv-station { font-weight:bold; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    #tablet-os-overlay .tos-tv-ch { opacity:.8; flex:none; }
+    #tablet-os-overlay .tos-tv-prog { flex:1; min-width:0; text-align:right; opacity:.75; font-style:italic;
+      text-transform:none; letter-spacing:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    #tablet-os-overlay .tos-tv-live { flex:none; color:var(--tv-live-color); font-size:8px; }
+    /* The picture. position:relative is what every overlay host below anchors to. */
+    #tablet-os-overlay .tos-tv-screen { position:relative; height:230px; overflow:hidden; background:var(--tv-bg); }
+    #tablet-os-overlay .tos-tv-screen [data-tv="content"] { position:absolute; inset:0; overflow:hidden; padding:12px 14px;
+      transition:opacity .25s; }
+    #tablet-os-overlay .tos-tv-screen [data-tv="content"].tv-hidden { opacity:0; }
+    #tablet-os-overlay .tos-tv-screen [data-tv="messages"] { display:flex; flex-direction:column; gap:5px; }
+    /* Static: the same rolling-noise look the CRT set uses, scaled to the viewport. */
+    #tablet-os-overlay .tos-tv-screen [data-tv="static"] { position:absolute; inset:0; z-index:40; opacity:0; pointer-events:none;
+      background-image:repeating-linear-gradient(0deg, rgba(255,255,255,.06) 0 1px, transparent 1px 3px),
+        repeating-linear-gradient(90deg, rgba(255,255,255,.05) 0 1px, transparent 1px 2px); }
+    #tablet-os-overlay .tos-tv-screen [data-tv="static"].tv-static-on { opacity:1; }
+    #tablet-os-overlay .tos-tv-screen [data-tv="static"].tv-static-loop { animation:tos-tv-static 0.28s steps(2) infinite; }
+    #tablet-os-overlay .tos-tv-screen [data-tv="static"].tv-static-fade { animation:tos-tv-staticout .45s ease-out forwards; }
+    @keyframes tos-tv-static { 0%{background-position:0 0,0 0} 100%{background-position:0 4px,3px 0} }
+    @keyframes tos-tv-staticout { to { opacity:0; } }
+    /* Overlay hosts — on the wall set these are positioned against the CRT cabinet;
+       here they anchor to the tablet's screen box instead. */
+    #tablet-os-overlay .tos-tv-screen [data-tv="overlay-container"] { position:absolute; inset:0; z-index:47; pointer-events:none; }
+    #tablet-os-overlay .tos-tv-screen [data-tv="schedule"],
+    #tablet-os-overlay .tos-tv-screen [data-tv="gameday"] { position:absolute; inset:0; z-index:48; display:none;
+      flex-direction:column; overflow:auto; background:var(--tv-bg); color:var(--tv-text);
+      font-family:var(--font-mono,'Courier New',monospace); padding:7px 9px; }
+    #tablet-os-overlay .tos-tv-screen [data-tv="schedule"].on,
+    #tablet-os-overlay .tos-tv-screen [data-tv="gameday"].on { display:flex; }
+    #tablet-os-overlay .tos-tv-screen [data-tv="scorebug"] { position:absolute; right:8px; bottom:8px; z-index:45; display:none;
+      pointer-events:none; background:rgba(0,0,0,.82); border:1px solid var(--tv-border);
+      border-left:3px solid var(--tv-header-color); border-radius:2px; padding:4px 7px; font-size:10px; }
+    #tablet-os-overlay .tos-tv-screen [data-tv="scorebug"].on { display:flex; gap:9px; align-items:center; }
+    #tablet-os-overlay .tos-tv-screen [data-tv="standings"] { position:absolute; top:8px; right:8px; z-index:46; display:none;
+      flex-direction:column; min-width:190px; pointer-events:none; background:rgba(0,0,0,.85);
+      border:1px solid var(--tv-border); border-radius:2px; padding:4px 7px; font-size:9px; }
+    #tablet-os-overlay .tos-tv-screen [data-tv="standings"].on { display:flex; }
+    #tablet-os-overlay .tos-tv-screen [data-tv="fx"] { position:absolute; inset:0; z-index:49; display:none; pointer-events:none; }
+    #tablet-os-overlay .tos-tv-screen [data-tv="fx"].on { display:block; }
+    /* Ticker strip */
+    #tablet-os-overlay .tos-tv-ticker { overflow:hidden; white-space:nowrap; padding:4px 0; min-height:18px;
+      border-top:1px solid var(--tv-border); color:var(--tv-ticker-color); font-size:10px; }
+    #tablet-os-overlay .tos-tv-ticker span { display:inline-block; will-change:transform; }
+    /* Controls — tablet buttons, not the CRT cabinet's knob cluster (the knob is
+       kept because tv.js drives its rotation as the dial's position readout). */
+    #tablet-os-overlay .tos-tv-ctl { display:flex; align-items:center; gap:6px; flex-wrap:wrap;
+      padding:7px 9px; border-top:1px solid var(--tv-border); }
+    #tablet-os-overlay .tos-tv-ctl button { cursor:pointer; font-family:inherit; font-size:11px; line-height:1;
+      padding:5px 9px; border-radius:4px; background:var(--bg2, #0d0d16);
+      border:1px solid var(--border, #2a2a40); color:var(--tos-fg); transition:color .12s, border-color .12s, box-shadow .12s; }
+    #tablet-os-overlay .tos-tv-ctl button:hover { color:var(--accent); border-color:var(--accent); }
+    #tablet-os-overlay .tos-tv-ctl button.on { color:var(--accent); border-color:var(--accent);
+      box-shadow:0 0 8px color-mix(in srgb, var(--accent) 40%, transparent); }
+    /* Gameday's toggle stays hidden until a sports broadcast reveals it (.avail). */
+    #tablet-os-overlay .tos-tv-ctl button[data-tv="gameday-btn"] { display:none; }
+    #tablet-os-overlay .tos-tv-ctl button[data-tv="gameday-btn"].avail { display:inline-block; }
+    #tablet-os-overlay .tos-tv-knob { width:26px; height:26px; flex:none; }
+    #tablet-os-overlay .tos-tv-knob circle { fill:none; stroke:var(--border, #2a2a40); stroke-width:2; }
+    #tablet-os-overlay .tos-tv-knob line { stroke:var(--accent); stroke-width:2; stroke-linecap:round; }
+    #tablet-os-overlay .tos-tv-freq { font-size:11px; color:var(--accent); min-width:38px; text-align:center; }
+    #tablet-os-overlay .tos-tv-spacer { flex:1; }
+    /* Direct channel chips — the tablet-native way to jump the dial. */
+    #tablet-os-overlay .tos-tv-dial { display:flex; flex-wrap:wrap; gap:6px; }
+    #tablet-os-overlay .tos-tv-chip { cursor:pointer; font-size:10px; padding:5px 9px; border-radius:4px;
+      background:var(--bg2, #0d0d16); border:1px solid var(--border, #2a2a40); color:var(--tos-fg);
+      transition:color .12s, border-color .12s; }
+    #tablet-os-overlay .tos-tv-chip:hover { color:var(--accent); border-color:var(--accent); }
+    #tablet-os-overlay .tos-tv-chip.on { color:var(--accent-ink, #05050a); background:var(--accent); border-color:var(--accent); }
+    #tablet-os-overlay .tos-tv-chip .n { opacity:.65; margin-right:5px; }
+    #tablet-os-overlay .tos-tv-chip.on .n { opacity:.8; }
 
   `;
   document.head.appendChild(s);
@@ -4725,6 +4817,109 @@ function renderDeadhead(d) {
   </div>`;
 }
 
+// ── TV app ───────────────────────────────────────────────────────────────────
+// The tablet's television. The viewport below carries the same `data-tv="…"` hooks
+// as the standalone set's markup in index.html, so the SHARED renderer
+// (panels/tv.js createTvView) drives it unchanged — that's what gives the app full
+// parity (tuner, guide, gameday, score-bug, sports FX, themes, ticker, read-aloud)
+// without a second copy of the broadcast rendering logic.
+let _tvView = null;
+
+function renderTv(d) {
+  const channels = Array.isArray(d.channels) ? d.channels : [];
+  const chips = channels.length
+    ? channels.map(c =>
+        `<div class="tos-tv-chip${c.channelId === d.tuned ? ' on' : ''}" data-tv-ch="${c.number}">` +
+          `<span class="n">${c.number}</span>${esc(c.name || '')}</div>`).join('')
+    : `<div class="tos-empty">No channels are broadcasting.</div>`;
+
+  return `<div class="tos-tv">
+    <div class="tos-tv-set" data-tv="window">
+      <div class="tos-tv-bar" data-tv="header">
+        <span class="tos-tv-station" data-tv="station-name">——</span>
+        <span class="tos-tv-ch" data-tv="channel-num">——</span>
+        <span class="tos-tv-prog" data-tv="program-name"></span>
+        <span class="tos-tv-live" data-tv="live-badge">&#x25CF; LIVE</span>
+      </div>
+      <div class="tos-tv-screen">
+        <div data-tv="content"><div data-tv="messages"></div></div>
+        <div data-tv="static"></div>
+        <div data-tv="overlay-container"></div>
+        <div data-tv="schedule"></div>
+        <div data-tv="gameday"></div>
+        <div data-tv="scorebug"></div>
+        <div data-tv="standings"></div>
+        <div class="tv-fx-host" data-tv="fx"></div>
+      </div>
+      <div class="tos-tv-ticker" data-tv="ticker-track"><span data-tv="ticker-inner"></span></div>
+      <div class="tos-tv-ctl">
+        <button data-tv="tune-down" title="Tune down">&#x2212;</button>
+        <svg class="tos-tv-knob" data-tv="knob" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg" aria-label="Dial position">
+          <circle cx="18" cy="18" r="15"/><line x1="18" y1="18" x2="18" y2="5"/>
+        </svg>
+        <button data-tv="tune-up" title="Tune up">&#x2b;</button>
+        <span class="tos-tv-freq" data-tv="freq-display">—</span>
+        <span class="tos-tv-spacer"></span>
+        <button data-tv="schedule-btn" title="TV guide — what's on and when">&#x1F5D3;</button>
+        <button data-tv="gameday-btn" title="Gameday — animated play-by-play">&#x26BE;</button>
+        <button data-tv="read-btn" title="Read broadcast aloud">&#x1F508;</button>
+        <button data-tv="close-btn" title="Switch the screen off">&#x23FB;</button>
+      </div>
+    </div>
+    <div class="tos-tv-dial">${chips}</div>
+  </div>`;
+}
+
+// Bind the shared renderer to the freshly-rendered viewport. render() rebuilds the
+// whole body on every nav, so the old instance is always torn down first.
+function mountTabletTv() {
+  unmountTabletTv();
+  const host = _overlay?.querySelector('.tos-tv-set');
+  if (!host) return;
+  _tvView = createTvView(host, {
+    key: 'tablet',
+    chassis: 'tablet',
+    tuneCmd: 'tablettune',
+    watchMsg: 'tablet_tv_watch',
+    unwatchMsg: 'tablet_tv_unwatch',
+  });
+  _tvView.init();
+  const channels = _data?.channels || [];
+  const ch = channels.find(c => c.channelId === _data?.tuned);
+  if (ch) {
+    // Re-entering the app lands back on the channel you were watching rather than a
+    // dead screen; the server answers with a dest:'tablet' tv_panel.
+    sendCmdSilent(`tablettune ${ch.number}`);
+  } else {
+    // Nothing tuned yet — power the screen up dark, on static, exactly like walking
+    // up to a set that's switched off. Tapping a channel chip lights it.
+    _tvView.open({ channelId: null, channelNumber: 0, stationName: '', channelName: '', channelList: channels });
+  }
+}
+
+function unmountTabletTv() {
+  if (!_tvView) return;
+  _tvView.destroy();   // closes the view, which drops the portable tuner server-side
+  _tvView = null;
+}
+
+// A `tv_panel` addressed to the tablet (dest:'tablet') — the portable tuner
+// answering a `tablettune`. Routed here from dispatch.js.
+export function openTabletTvPanel(msg) {
+  _tvView?.open(msg);
+  // Repaint the channel chips so the tuned one highlights, without a server round
+  // trip. The renderer owns the screen; this only updates the dial strip.
+  if (_data && _data.view === 'tv') {
+    _data.tuned = msg.channelId || null;
+    const dial = _overlay?.querySelector('.tos-tv-dial');
+    if (dial) {
+      const num = msg.channelNumber;
+      dial.querySelectorAll('[data-tv-ch]').forEach(chip =>
+        chip.classList.toggle('on', Number(chip.getAttribute('data-tv-ch')) === num));
+    }
+  }
+}
+
 function renderBody() {
   const d = _data;
   if (!d) return '';
@@ -4800,6 +4995,11 @@ function renderBody() {
       ${renderNews(d.sections, d.masthead)}
     </div>`;
   }
+  if (d.view === 'tv') {
+    return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}
+      ${renderTv(d)}
+    </div>`;
+  }
   if (d.view === 'fakeplay') {
     // Self-contained novelty — the breadcrumb Back exits the whole app; the fake
     // game (login → terminal → mini tablet) is mounted into #tos-fake-root by
@@ -4842,6 +5042,15 @@ function renderBody() {
 }
 
 function wireBody() {
+  // TV channel chips — jump the dial straight to a station. The renderer picks the
+  // change up through the `tv_panel` echo, same as the +/- sweep buttons.
+  _overlay.querySelectorAll('[data-tv-ch]').forEach(el => {
+    el.addEventListener('click', () => {
+      sfx(TOS_SELECT_DEF);
+      sendCmdSilent(`tablettune ${el.getAttribute('data-tv-ch')}`);
+    });
+  });
+
   _overlay.querySelectorAll('[data-nav-app]').forEach(el => {
     el.addEventListener('click', () => {
       if (_suppressTileClick) return; // a drag-reorder just ended; don't also open the app
@@ -6309,6 +6518,9 @@ function render() {
 
   if (_data.view === 'fakeplay') mountFakePlay();
   if (_data.view === 'reel') wireReel();
+  // The TV app mounts the shared broadcast renderer into its viewport (and tears it
+  // down whenever we navigate away, so the portable tuner is dropped server-side).
+  if (_data.view === 'tv') mountTabletTv(); else unmountTabletTv();
 
   if (isChat) {
     const log = _overlay.querySelector('#tos-chat-log');
@@ -6355,6 +6567,7 @@ function close() {
   if (_fakeTimer) { clearInterval(_fakeTimer); _fakeTimer = null; }
   if (_reelTimer) { clearInterval(_reelTimer); _reelTimer = null; _reelPlaying = false; }
   if (_chatUnsub) { _chatUnsub(); _chatUnsub = null; }
+  unmountTabletTv();
   _wasSurvLive = false;
   document.querySelectorAll('.tos-tile-drag').forEach(el => el.remove()); // stray lift clone, if torn down mid-drag
   if (_close) { _close(); _close = null; }

@@ -343,6 +343,16 @@ wss.on("connection", (ws) => {
 				emit("tv.unwatch", { playerId: session.playerId });
 			return;
 		}
+		// The Tablet TV app's portable tuner — same shape as tv_watch, but its own
+		// registry server-side (it receives with no broadcast device in the zone).
+		if (msg.type === "tablet_tv_watch" || msg.type === "tablet_tv_unwatch") {
+			if (!session.playerId) return;
+			if (msg.type === "tablet_tv_watch" && msg.channelId)
+				emit("tablet_tv.watch", { playerId: session.playerId, channelId: msg.channelId });
+			else
+				emit("tablet_tv.unwatch", { playerId: session.playerId });
+			return;
+		}
 		if (msg.type === "tv_poweroff") {
 			if (!session.playerId) return;
 			emit("tv.poweroff", { playerId: session.playerId });
