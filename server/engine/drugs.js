@@ -86,6 +86,69 @@ const ADDICT_RELEASE = 0.3;
 // plus one bag of tar (1 of blacktar's 2) is 1.0, and that is the whole point.
 const CLASS_BURDEN_LIMIT = 1;
 
+// Class membership cuts three more ways, all of them things the same shared
+// receptors would actually do:
+//
+//   SUBSTITUTION — any drug in the class takes the edge off the class's
+//   withdrawal, which is the entire reason methadone exists and the reason a
+//   sick addict takes whatever is nearest instead of holding out. It never fully
+//   relieves: a cousin is not the drug you want.
+//
+//   CROSS-TOLERANCE — a career opioid user does not feel their first gelcap of
+//   synthetic morphine like a virgin would. Half credit, and it feeds BOTH the
+//   dulled high and the raised ceiling, so class membership protects as well as
+//   endangers. Without this, sharing an overdose ceiling would be purely punitive.
+//
+//   DEPTH — how hard withdrawal bites should depend on how deep the habit got,
+//   not only on how long it has been. A two-pack smoker and someone at 0.95
+//   addiction had identical arcs.
+const SUBSTITUTION_FLOOR = 0.35;   // a fresh cousin dose leaves 35% of the bite
+const CROSS_TOLERANCE = 0.5;       // half of a same-class drug's tolerance carries
+const WD_DEPTH_FLOOR = 0.6;        // severity multiplier at the addiction latch
+
+// How much of the class's withdrawal a recently-taken cousin is holding off.
+// 1 = no relief. Decays back to 1 as the cousin's own active window runs out.
+function substitutionRelief(rows, excludeKey, drugClass, now) {
+  if (!drugClass) return 1;
+  let best = 1;
+  for (const r of rows) {
+    if (r.drug_id === excludeKey) continue;
+    const other = DRUG_CACHE[r.drug_id];
+    if (!other || other.flags?.drug_class !== drugClass) continue;
+    const since = now - (r.last_used_at || 0);
+    const window = other.duration_seconds || 300;
+    if (since < 0 || since >= window) continue;                  // worn off — no help
+    const relief = SUBSTITUTION_FLOOR + (1 - SUBSTITUTION_FLOOR) * (since / window);
+    if (relief < best) best = relief;
+  }
+  return best;
+}
+
+// The strongest same-class tolerance a player carries, at CROSS_TOLERANCE credit.
+function crossTolerance(rows, excludeKey, drugClass, now) {
+  if (!drugClass) return 0;
+  let best = 0;
+  for (const r of rows) {
+    if (r.drug_id === excludeKey) continue;
+    const other = DRUG_CACHE[r.drug_id];
+    if (!other || other.flags?.drug_class !== drugClass) continue;
+    // Decay it the same lazy way its own row would be decayed on use.
+    const rec = other.effects?.tolerance?.recovery_per_sec ?? (1 / 3600);
+    const elapsed = Math.max(0, now - (r.last_used_at || now));
+    const tol = Math.max(0, Math.min(1, (r.tolerance || 0) - rec * elapsed * getTimeScale()));
+    if (tol > best) best = tol;
+  }
+  return best * CROSS_TOLERANCE;
+}
+
+// Is the player currently running on something that would keep them awake?
+// Exported so the sleep command can ask the drug system a question instead of
+// growing its own opinion about pharmacology.
+export function isWired(player) {
+  return (player?.activeDrugs || []).some(a =>
+    DRUG_CACHE[String(a.drugId).replace(/:.*$/, '')]?.flags?.drug_class === 'stimulant');
+}
+
 // What the player's OTHER same-class drugs are already doing to them; the caller
 // adds the share of the dose being taken. Each row counts against the ceiling of
 // its own drug, tolerance included — a seasoned drinker's beers weigh less.
@@ -234,11 +297,17 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
   // span by the game-speed knob so tolerance/addiction fade over game time.
   const recPerSec = tol.recovery_per_sec ?? (1 / 3600);
   let tolerance = Math.max(0, Math.min(1, (state?.tolerance || 0) - recPerSec * elapsed * getTimeScale()));
-  const potency = Math.max(0, 1 - tolerance * (tol.max_reduction ?? 0.7));
+  // Cross-tolerance: a career opioid user does not meet their first gelcap of
+  // synthetic morphine like a virgin. Only the DERIVED numbers below use this —
+  // the drug's own stored tolerance is what gets written back, so a cousin habit
+  // is never laundered into this drug's row.
+  const effTolerance = Math.max(tolerance,
+    crossTolerance(rows, stateKey, drug.flags?.drug_class, now));
+  const potency = Math.max(0, 1 - effTolerance * (tol.max_reduction ?? 0.7));
   // Relapse law: the overdose ceiling rides on the tolerance carried into this dose
   // (pre-gain, post-decay), so the same habit dose that was routine at peak tolerance
   // becomes lethal once time clean has burned that tolerance off.
-  const effOdThreshold = Math.max(1, Math.round(odThreshold * (1 + tolerance * OD_TOLERANCE_BONUS)));
+  const effOdThreshold = Math.max(1, Math.round(odThreshold * (1 + effTolerance * OD_TOLERANCE_BONUS)));
   tolerance = Math.min(1, tolerance + (tol.gain_per_dose ?? 0));
 
   // A stronger dose counts for more in the system — higher potency, or a route that
@@ -282,6 +351,12 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
   // Re-dosing clears any active withdrawal for this drug.
   reverseMods(player, `withdrawal:${stateKey}`);
   player._withdrawalActive?.delete(stateKey);
+
+  // Substitution: if this dose is easing a DIFFERENT drug's withdrawal — a cousin
+  // in the same class — say so. The relief itself is applied by the withdrawal
+  // tick (which recomputes severity); this is the moment the player feels it.
+  const substituting = drug.flags?.drug_class && [...(player._withdrawalActive?.keys() || [])]
+    .some(k => DRUG_CACHE[k]?.flags?.drug_class === drug.flags.drug_class);
 
   // Consumption happened — flag it for the crime/wanted system. Legal drugs
   // (coffee, beer: drug.flags.legal) draw no police attention; controlled
@@ -371,7 +446,10 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
     return applyEffects(player, { ...odInstant, ...odEffects, overdose: true }, `${message}${addictedLine}\n<span class="overdose-warning">⚠ You've taken too much, too fast. Your body revolts.</span>${cause}`, diuretic);
   }
 
-  message += addictedLine + mixLine;
+  const substituteLine = substituting
+    ? `\n<span class="withdrawal-warning">It is not what you are actually craving, but the shakes ease off anyway.</span>`
+    : '';
+  message += addictedLine + mixLine + substituteLine;
 
   // --- Instant block ---------------------------------------------------------
   // effPotency, not intensityMult: tolerance has to blunt the one-shot hit as well
@@ -594,7 +672,7 @@ function applyWithdrawalDrip(player, drip, severity) {
 // time so sobriety is reachable without re-dosing. Pure in-memory apart from the
 // addiction-decay writes, which it appends to `writes` for the caller to batch.
 // Returns message strings for broadcast.
-function applyWithdrawal(player, states, now, writes) {
+function applyWithdrawal(player, states, now, writes, allRows = states) {
   const messages = [];
   // drugId -> the mod block currently applied, so a severity that hasn't moved
   // doesn't churn the ledger through a reverse-and-reapply every single minute.
@@ -629,7 +707,15 @@ function applyWithdrawal(player, states, now, writes) {
     if (stillAddicted && elapsed > onset && wd.mods) {
       // Withdrawal ramps in, peaks, then tapers to a floor — a shape you can feel
       // rather than a flat debuff that snaps on the moment the clock passes onset.
-      const severity = withdrawalSeverity(elapsed - onset, wd);
+      // Then two things bend that curve:
+      //   depth  — how deep the habit got, not just how long it has been. A casual
+      //            user at the latch and a 0.95 addict used to suffer identically.
+      //   relief — a same-class drug taken recently is holding some of it off.
+      const drugClass = DRUG_CACHE[state.drug_id]?.flags?.drug_class;
+      const depth = WD_DEPTH_FLOOR + (1 - WD_DEPTH_FLOOR)
+        * Math.min(1, Math.max(0, (newAddiction - ADDICT_RELEASE) / (1 - ADDICT_RELEASE)));
+      const relief = substitutionRelief(allRows, state.drug_id, drugClass, now);
+      const severity = withdrawalSeverity(elapsed - onset, wd) * depth * relief;
       const scaled = scaleMods(buffModsOf(wd.mods), severity);
       const sig = JSON.stringify(scaled);
       if (player._withdrawalActive.get(state.drug_id) !== sig) {
@@ -663,9 +749,11 @@ export async function tickWithdrawalAll(players) {
   if (!players?.length) return out;
   const now = Math.floor(Date.now() / 1000);
 
+  // ALL rows, not just the addicted ones: substitution relief has to see a cousin
+  // drug the player took and isn't hooked on. Same single round trip either way.
   const { rows } = await query(
-    'SELECT * FROM player_drug_state WHERE player_id = ANY($1) AND (addiction >= $2 OR is_addicted = 1)',
-    [players.map(p => p.id), ADDICT_LATCH]
+    'SELECT * FROM player_drug_state WHERE player_id = ANY($1)',
+    [players.map(p => p.id)]
   );
   if (!rows.length) return out;
 
@@ -677,9 +765,12 @@ export async function tickWithdrawalAll(players) {
 
   const writes = { playerIds: [], drugIds: [], addiction: [], addicted: [] };
   for (const player of players) {
-    const states = byPlayer.get(player.id);
-    if (!states) continue;
-    const messages = applyWithdrawal(player, states, now, writes);
+    const allRows = byPlayer.get(player.id);
+    if (!allRows) continue;
+    // The addiction filter that used to live in the WHERE clause.
+    const states = allRows.filter(r => (r.addiction || 0) >= ADDICT_LATCH || r.is_addicted);
+    if (!states.length) continue;
+    const messages = applyWithdrawal(player, states, now, writes, allRows);
     if (messages.length) out.set(player.id, messages);
   }
 
@@ -723,6 +814,7 @@ export async function tickDrugDecayAll(playerIds) {
 // plugins/consume). Exported for assertions only — nothing in the game reads this.
 export const _test = {
   resolveRoute, withdrawalSeverity, scaleMods, classBurden, CLASS_BURDEN_LIMIT,
+  crossTolerance, substitutionRelief, CROSS_TOLERANCE, SUBSTITUTION_FLOOR, WD_DEPTH_FLOOR,
   ROUTES, ADDICT_LATCH, ADDICT_RELEASE, OD_TOLERANCE_BONUS, DOSE_CLEARANCE_FRACTION,
   odCeiling: (base, tolerance) => Math.max(1, Math.round(base * (1 + tolerance * OD_TOLERANCE_BONUS))),
   clearanceStep: (doses) => Math.max(0, doses - Math.ceil(doses * DOSE_CLEARANCE_FRACTION)),
@@ -767,8 +859,17 @@ export async function getDrugStatus(player) {
       tolerance,
       addicted,
       sinceLastUse: elapsed,
-      // 0 when not biting; otherwise the live point on the ramp→peak→taper arc.
-      withdrawalSeverity: biting ? withdrawalSeverity(elapsed - onset, wd) : 0,
+      // 0 when not biting; otherwise the live point on the ramp→peak→taper arc,
+      // bent by habit depth and by any same-class drug currently holding it off —
+      // the identical arithmetic the tick uses, or the read-out would lie.
+      withdrawalSeverity: biting
+        ? withdrawalSeverity(elapsed - onset, wd)
+          * (WD_DEPTH_FLOOR + (1 - WD_DEPTH_FLOOR)
+             * Math.min(1, Math.max(0, (addiction - ADDICT_RELEASE) / (1 - ADDICT_RELEASE))))
+          * substitutionRelief(rows, s.drug_id, drug?.flags?.drug_class, now)
+        : 0,
+      // Is a cousin drug currently taking the edge off?
+      substituted: substitutionRelief(rows, s.drug_id, drug?.flags?.drug_class, now) < 1,
       // Seconds of grace left before it starts asking (0 if already biting or clean).
       withdrawalIn: addicted && !biting && wd.mods ? Math.max(0, onset - elapsed) : 0,
       dosesInSystem: s.doses_in_system || 0,

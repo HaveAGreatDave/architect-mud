@@ -5,6 +5,20 @@ dock…). It is authored per-zone in `flags.terrain` (a single string) and paint
 through a dev-panel Maps mode. It is **presentation + pacing, not passability** —
 passability is still governed by the separate `flags.water` boolean.
 
+## Water is terrain, not a flag
+
+Mark open water with **`flags.terrain = 'water'`** and nothing else. A legacy `flags.water`
+boolean used to be a parallel marker: the Coldwater Basin carried it with `terrain` unset, while
+the wildlands hydrology carried `terrain: 'water'` with no flag — two markers sharing **zero
+tiles**, so every consumer that picked one disagreed with the others (GPS route-blocking read the
+flag and happily routed players across the river). The 256 basin tiles were migrated on
+2026-07-21 and `flags.water` now exists on no zone.
+
+Read it back with **`zoneTerrain(zone) === 'water'`** — never a raw flag. That single predicate is
+what swimming, fishing, GPS route-blocking and the flight biome classifier all use. The
+`zoneTerrain()` line that still falls back to `flags.water` is kept only so hand-authored legacy
+content keeps working. See [reference/land-taxonomy.md](reference/land-taxonomy.md).
+
 ## `flags.terrain` — the SSOT
 
 Canonical values (palette `TERRAIN_TYPES`, [maps.js:994](../client/devpanel/js/panels/maps.js)):

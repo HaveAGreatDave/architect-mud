@@ -19,7 +19,7 @@ export default async function regress({ run, check, getPlayer }) {
     players: new Set(), npcs: new Set(), enemies: new Set(), corpses: new Set() });
   const prevFish = new Map();
   for (const id of [W, BANK, INLAND, SPECIAL]) prevFish.set(id, world.zones.get(id));
-  world.zones.set(W,       mk(W,       4000, 4000, { water: true }));
+  world.zones.set(W,       mk(W,       4000, 4000, { terrain: 'water' }));
   world.zones.set(BANK,    mk(BANK,    4000, 4001, {}));                       // due south of the water
   world.zones.set(INLAND,  mk(INLAND,  4000, 4003, {}));                       // two tiles off — dry
   world.zones.set(SPECIAL, mk(SPECIAL, 4001, 4000, { fishing_table_id: 'fish_echelon_basin' })); // east of the water

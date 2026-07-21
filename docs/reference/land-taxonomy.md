@@ -88,6 +88,14 @@ now the Coldwater **region**, but that is the region layer's business, not the p
   **districts**.
 - **`flags.region_id` ≠ `flags.district`.** The first is spatial region membership; the second is a
   land-use override. Both exist on the same tile and mean unrelated things.
+- **Water is marked ONE way: `flags.terrain = 'water'`.** There used to be two. The Coldwater
+  Basin carried a legacy `flags.water: true` with `terrain` unset, while the wildlands hydrology
+  (two corner seas plus a river) carried `terrain: 'water'` with no flag — two markers that shared
+  **zero tiles** and so disagreed at every consumer that picked one. GPS route-blocking read
+  `flags.water`, so it routed players straight across the river; fishing had to pick a side. The
+  256 basin tiles were migrated on 2026-07-21 and `flags.water` now exists on nothing — the
+  `zoneTerrain()` fallback that reads it is kept only for hand-authored legacy content. **Test
+  water with `zoneTerrain(zone) === 'water'`, never a raw flag.**
 - **Terrain ≠ biome.** Terrain is the authored surface SSOT (`flags.terrain`, gameplay-adjacent).
   Biome is a flight-render-only derivation that *reads* terrain among other things.
 - **`bp_district` (planner) ≠ district (land-use) ≠ region (spatial).** Three different meanings of a

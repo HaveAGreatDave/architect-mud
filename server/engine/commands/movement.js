@@ -769,7 +769,7 @@ function mapTile(zone, x, y, placed, currentId, at = null) {
     exit_dirs: interiorExitDirs(zone), // interior room's ways out — drives the interior map's exit arrows
     terrain: zoneTerrain(zone), // 'road' | 'water' | 'grass' | null — tileable terrain styling
 
-    water: !!zone.flags?.water, // impassable open water — the client refuses to route onto it
+    water: zoneTerrain(zone) === 'water', // open water — the client refuses to route onto it
 
     curtain: zone.flags?.curtain ? true : null, // the Architect's perimeter wall edge
     perimeter_gate: zone.flags?.perimeter_gate ? true : null, // the one break in the Curtain

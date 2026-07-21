@@ -6,6 +6,7 @@ import { adjustCredits } from "./economy.js";
 import { setPosture } from "./posture.js";
 import { registerProtectionProvider } from "./protection.js";
 import { isSanctuary, allowsSleep } from "./zone-tags.js";
+import { isWired } from "./drugs.js";
 import { hasPerm, PERM } from "./org-perms.js";
 import { exitTargets, neighborZoneIds } from "./exits.js";
 import { emit } from "./events.js";
@@ -677,6 +678,15 @@ export async function cmdSleep(player, broadcastFn) {
 			type: "error",
 			message:
 				"You are already asleep. (Send any other command to wake up.)",
+		};
+
+	// You cannot lie down on a live stimulant. Asked of the drug system rather
+	// than decided here, so this command never grows its own pharmacology.
+	if (isWired(player))
+		return {
+			type: "error",
+			message:
+				"You lie down, and your heart makes it clear that is not happening. Whatever you took is still driving.",
 		};
 
 	const zone = getZone(player.current_zone);

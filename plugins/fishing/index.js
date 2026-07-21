@@ -29,7 +29,7 @@
 
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
-import { getZone, getAllZones, getAllLivePlayers, getLivePlayer, spawnEnemySync } from '../../server/engine/world.js';
+import { getZone, getAllZones, getAllLivePlayers, getLivePlayer, spawnEnemySync, zoneTerrain } from '../../server/engine/world.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
@@ -154,13 +154,13 @@ async function consumeBait(playerId) {
 // so a player standing on a beach or a bank can simply cast.
 const DEFAULT_FISHING_TABLE = 'fish_coldwater_bay';
 
-// "Water" here is the hand-authored `flags.water` shoreline, deliberately NOT
-// zoneTerrain()'s notion of it. 689 tiles out in the badlands carry a painted
-// terrain:'water' with dry redrock prose and no flags.water, so keying off terrain
-// would open fishing in the middle of a rust mesa. flags.water has zero
-// contradictions across the world. If those 689 are ever resolved, widening
-// fishing is a one-line change to this predicate.
-const isWater = (z) => z?.flags?.water === true;
+// "Water" is zoneTerrain() — the single marker, since the legacy `flags.water`
+// duplicate was retired on 2026-07-21. This deliberately covers the wildlands
+// hydrology as well as the basin: connected-component analysis showed those tiles
+// form a north-west sea feeding a one-tile-wide river that meanders ~25 tiles south
+// into a delta, plus a north-east sea with a hand-eroded coastline — authored
+// geography whose descriptions simply haven't been written yet. A river fishes.
+const isWater = (z) => zoneTerrain(z) === 'water';
 
 // Coord index of water tiles per map/floor, so the adjacency test is a hash lookup
 // instead of a ~5,700-zone scan — runAttempt runs on a tick for every fishing

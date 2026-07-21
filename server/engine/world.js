@@ -206,6 +206,13 @@ export function zoneTerrain(zone) {
   // Authored terrain wins — the paint tool writes flags.terrain and it is the SSOT.
   // The inference below stays as the fallback for tiles that were never painted.
   if (zone.flags?.terrain) return zone.flags.terrain;
+  // DEPRECATED fallback. `flags.water` was a second, parallel way of marking water:
+  // the Coldwater Basin carried it with terrain unset, while the wildlands hydrology
+  // (two seas + a river) carried terrain:'water' with no flag — two markers that
+  // shared zero tiles and disagreed everywhere they were consulted. The 256 basin
+  // tiles were migrated to flags.terrain on 2026-07-21 and NOTHING carries this flag
+  // any more; the line stays only so hand-authored legacy content still reads right.
+  // Mark water with flags.terrain = 'water'. See reference/land-taxonomy.md.
   if (zone.flags?.water) return 'water';
   if (zone.flags?.pier) return 'dock';   // a jetty/pier reads as wooden decking, not bare ground
   if (/^(road_|runway_)/.test(zone.flags?.icon || '')) return 'road';

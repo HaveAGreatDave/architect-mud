@@ -16,7 +16,7 @@
     "district": "water",
     "planner": "bp_district",
     "region_id": "region_coldwater",
-    "water": true
+    "terrain": "water"
   },
   "grid_x": 904,
   "grid_y": 903,

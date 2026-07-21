@@ -117,12 +117,13 @@ armed `pending`, the zone matches, and the player still carries a rod. Then:
   common **`fish_coldwater_bay`** table, so a beach or a river bank simply works
   without being authored tile by tile. Standing *in* the water is not fishing —
   a water tile with no authored table returns null.
-  - "Water" is the hand-authored **`flags.water`**, deliberately **not**
-    `zoneTerrain()`'s water. 689 tiles out in the badlands carry a painted
-    `terrain:'water'` with dry redrock prose and no `flags.water`; keying off
-    terrain would open fishing in the middle of a rust mesa (171 extra tiles).
-    `flags.water` has zero contradictions worldwide. **If those 689 are ever
-    resolved, widening fishing is a one-line change to the `isWater` predicate.**
+  - "Water" is **`zoneTerrain(zone) === 'water'`** — the single marker, since the legacy
+    `flags.water` duplicate was retired on 2026-07-21 (see
+    [reference/land-taxonomy.md](reference/land-taxonomy.md)). It covers the wildlands hydrology
+    as well as the basin: connected-component analysis showed those tiles form a north-west sea
+    feeding a one-tile-wide river that meanders ~25 tiles south into a delta, plus a north-east
+    sea with a hand-eroded coastline — authored geography whose descriptions simply have not been
+    written yet. A river fishes. **236 shoreline tiles are now fishable**, up from 8 authored spots.
   - Adjacency runs off a 60s-TTL coord index, not a per-tick zone scan —
     `runAttempt` ticks for every fishing player.
   - Per-zone stock is created **lazily on first cast**, so each newly-fishable

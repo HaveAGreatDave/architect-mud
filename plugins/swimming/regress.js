@@ -10,7 +10,7 @@ export default async function regress({ check, getPlayer }) {
 
   // ── Water-tile classifiers ──────────────────────────────────────────────────
   check('isSwimZone: painted water', isSwimZone({ flags: { terrain: 'water' } }) === true);
-  check('isSwimZone: deep water flag', isSwimZone({ flags: { water: true } }) === true);
+  check('isSwimZone: legacy deep-water flag still reads (deprecated fallback)', isSwimZone({ flags: { water: true } }) === true);
   check('isSwimZone: underwater tile', isSwimZone({ flags: { underwater: true } }) === true);
   check('isSwimZone: dry land is not swim water', isSwimZone({ flags: { terrain: 'road' } }) === false);
   check('isSwimZone: null zone safe', isSwimZone(null) === false);

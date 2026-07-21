@@ -87,7 +87,8 @@ async function habits(args, raw, player) {
     lines.push(`  <b>${name}</b> ${hooked}  ${dim(tol)}  ${dim('last dose ' + ago(d.sinceLastUse))}`);
 
     if (d.withdrawalSeverity > 0) {
-      lines.push(`      <span class="withdrawal-warning">${bite(d.withdrawalSeverity)}</span>`);
+      const held = d.substituted ? ' Something close enough is holding it off.' : '';
+      lines.push(`      <span class="withdrawal-warning">${bite(d.withdrawalSeverity)}${held}</span>`);
     } else if (d.withdrawalIn > 0) {
       lines.push(dim(`      Quiet — ${soon(d.withdrawalIn)} before it starts asking.`));
     }
