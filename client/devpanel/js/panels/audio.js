@@ -1214,6 +1214,10 @@ function instrumentLikeConfigFields(cfg, prefix) {
       <div class="field"><label>Filter Freq (Hz)${_help('Cutoff / center frequency the filter pivots around.')}</label><input id="${prefix}-filterfreq" type="number" min="20" value="${filter.freq ?? 4000}"></div>
       <div class="field"><label>Filter Q${_help('Resonance: higher Q makes a sharper, more peaked response at the cutoff.')}</label><input id="${prefix}-filterq" type="number" step="0.1" min="0" value="${filter.q ?? 1}"></div>
     </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
+      <div class="field"><label>Filter Sweep To (Hz)${_help('Cutoff travels here over Sweep Time — the same idea as Pitch Bend, but on the filter. Leave 0 for a static filter. Opening a lowpass across the note is what reads as a bloom or a charge-up.')}</label><input id="${prefix}-filterto" type="number" min="0" value="${filter.to ?? 0}"></div>
+      <div class="field"><label>Filter Sweep Time (s)${_help('Seconds for the cutoff to reach (most of the way to) the sweep target.')}</label><input id="${prefix}-filtertime" type="number" step="0.05" min="0" value="${filter.time ?? 0}"></div>
+    </div>
     <canvas id="${prefix}-viz" class="audio-viz" title="Left: ADSR amplitude envelope. Right: filter frequency response."></canvas>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-top:10px">
       <div class="field"><label>Vibrato Rate${_help('Pitch-wobble speed in Hz. 0 = off.')}</label><input id="${prefix}-vibrate" type="number" step="0.5" min="0" value="${vibrato.rate ?? 0}"></div>
@@ -1240,7 +1244,10 @@ function readInstrumentLikeConfig(prefix, extra) {
   const echoMix = num(`${prefix}-echomix`, 0);
   return {
     adsr: { a: num(`${prefix}-a`, 0.01), d: num(`${prefix}-d`, 0.05), s: num(`${prefix}-s`, 0.7), r: num(`${prefix}-r`, 0.15) },
-    filter: { type: document.getElementById(`${prefix}-filtertype`).value, freq: num(`${prefix}-filterfreq`, 4000), q: num(`${prefix}-filterq`, 1) },
+    // Sweep keys are omitted entirely when To is 0, so a static filter keeps the
+    // exact shape it had before sweeps existed rather than gaining `to:0` noise.
+    filter: { type: document.getElementById(`${prefix}-filtertype`).value, freq: num(`${prefix}-filterfreq`, 4000), q: num(`${prefix}-filterq`, 1),
+      ...(num(`${prefix}-filterto`, 0) > 0 ? { to: num(`${prefix}-filterto`, 0), time: num(`${prefix}-filtertime`, 0.2) } : {}) },
     vibrato: { rate: num(`${prefix}-vibrate`, 0), depth: num(`${prefix}-vibdepth`, 0) },
     tremolo: { rate: num(`${prefix}-tremrate`, 0), depth: num(`${prefix}-tremdepth`, 0) },
     ...(fmRate > 0 ? { fm: { rate: fmRate, depth: num(`${prefix}-fmdepth`, 100) } } : {}),
@@ -1349,7 +1356,8 @@ function _sfxSaveOpenLayers() {
     const fmRate = num(`${p}-fmrate`, 0);
     const echoMix = num(`${p}-echomix`, 0);
     layer.adsr = { a: num(`${p}-a`, 0.01), d: num(`${p}-d`, 0.05), s: num(`${p}-s`, 0.7), r: num(`${p}-r`, 0.15) };
-    layer.filter = { type: document.getElementById(`${p}-filtertype`)?.value || 'lowpass', freq: num(`${p}-filterfreq`, 4000), q: num(`${p}-filterq`, 1) };
+    layer.filter = { type: document.getElementById(`${p}-filtertype`)?.value || 'lowpass', freq: num(`${p}-filterfreq`, 4000), q: num(`${p}-filterq`, 1),
+      ...(num(`${p}-filterto`, 0) > 0 ? { to: num(`${p}-filterto`, 0), time: num(`${p}-filtertime`, 0.2) } : {}) };
     layer.vibrato = { rate: num(`${p}-vibrate`, 0), depth: num(`${p}-vibdepth`, 0) };
     layer.tremolo = { rate: num(`${p}-tremrate`, 0), depth: num(`${p}-tremdepth`, 0) };
     layer.noiseMix = num(`${p}-noisemix`, 0);

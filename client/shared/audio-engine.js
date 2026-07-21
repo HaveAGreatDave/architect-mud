@@ -188,8 +188,10 @@
   }
 
   // ── Layer graph builder (shared by instruments, SFX, ambience) ───────────
-  // layer: { waveform, freq, detune, noiseMix, filter:{type,freq,q}, adsr:{a,d,s,r},
-  //          vibrato:{rate,depth}, tremolo:{rate,depth}, pitchBend:{to,time}, gain }
+  // layer: { waveform, freq, detune, noiseMix, filter:{type,freq,q,to,time},
+  //          adsr:{a,d,s,r}, vibrato:{rate,depth}, tremolo:{rate,depth},
+  //          pitchBend:{to,time}, gain }
+  // filter.to/.time sweep the cutoff exactly like pitchBend sweeps the pitch.
 
   function buildLayer(layer, destination, time, holdSeconds) {
     const nodes = [];
@@ -242,8 +244,20 @@
     if (layer.filter) {
       const filter = ctx.createBiquadFilter();
       filter.type = layer.filter.type || 'lowpass';
-      filter.frequency.value = layer.filter.freq || 4000;
       filter.Q.value = layer.filter.q ?? 1;
+      filter.frequency.setValueAtTime(layer.filter.freq || 4000, time);
+      // Filter sweep. Deliberately the SAME {to, time} contract and the same
+      // exponential-approach math as pitchBend above, so there is one mental
+      // model for "this parameter travels", not two. A cutoff that opens across
+      // the note is what reads as a bloom/whoosh/charge-up; without it every
+      // shaped sound has to be faked with stacked static-filtered layers.
+      // Omitting `to` leaves the filter static — exactly the previous behaviour,
+      // which is why this is safe for every cue already shipped.
+      if (layer.filter.to) {
+        filter.frequency.setTargetAtTime(
+          layer.filter.to, time, Math.max(0.01, (layer.filter.time || 0.2) / 3)
+        );
+      }
       gain.connect(filter);
       mixPoint = filter;
     }
