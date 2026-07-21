@@ -6,10 +6,13 @@
 //
 // Shape (this is the "spine + shift" first cut; couriers + the parcel/fence
 // theft economy are the planned follow-up — see docs/proposals/steady-work.md):
-//   - GATE: pure lifetime-XP threshold (`total_xp`, already on the live player,
-//     so the check is free — no query, no flag, no new column). Below the line,
-//     the work verbs show a locked teaser. `total_xp` only ever grows, so the
-//     gate never re-locks a player for spending XP raising a stat.
+//   - NO GATE (2026-07-21). This used to sit behind 500 lifetime XP, which was
+//     backwards twice over: lifetime XP comes only from probabilistic per-use
+//     skill rolls (quests award none — grantXp has no callers), so the whole
+//     early quest chain moved you no closer to it; and it locked the SAFE,
+//     indoor, repeatable earner behind proof you'd survived the dangerous ones.
+//     A shift is now open to anyone who finds a venue. The on-ramp is discovery,
+//     not permission — `work` with no venue underfoot lists every venue going.
 //   - VENUE: a zone opts in with flags.work_venue = { role, wage, employer? } —
 //     content-driven, exactly like scavenging_table_id / fishing_table_id.
 //   - SHIFT: `clock in` at a venue sets posture 'working' and starts a per-player
@@ -38,7 +41,6 @@ import { courierVerb, deliver, crack, registerCourierAction, _courierTest } from
 
 // ── Tunables (defaults; adjustable via the tunables table without a redeploy) ──
 const T = {
-  xpGate:     () => getTunable('work_xp_gate', 500),        // lifetime XP to unlock
   shiftSecs:  () => getTunable('work_shift_secs', 420),     // 7-minute shift
   tickSecs:   () => getTunable('work_shift_tick_secs', 20), // min gap between event rolls
   eventChance:() => getTunable('work_event_chance', 0.55),  // per-window fire chance
@@ -132,7 +134,6 @@ function statCheck(player, stat, difficulty) {
   return (statValue(player, stat) - difficulty) + (roll2d8() - roll2d8()) >= 0;
 }
 
-function lifetimeXp(player) { return Number(player.total_xp) || 0; }
 function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
 function tipFor(sat) { return Math.round(TIP_MAX * Math.max(0, sat - 40) / 60); }
 
@@ -287,14 +288,6 @@ function resolveEvent(player, verb) {
 }
 
 // ── Commands ──────────────────────────────────────────────────────────────────
-function lockedTeaser() {
-  return {
-    type: 'output',
-    message: `<span class="msg-system">Steady work goes to those who\'ve proven they can survive out here.</span>\n` +
-      `<span class="text-dim">Come back once you\'ve earned ${T.xpGate()} lifetime XP — you\'re not there yet. Keep taking gigs, keep leveling, keep breathing.</span>`,
-  };
-}
-
 // `work` / `shift` / `shifts` — the discovery + status surface.
 function cmdWork(args, raw, player) {
   if (!player) return { type: 'error', message: 'No character.' };
@@ -303,7 +296,6 @@ function cmdWork(args, raw, player) {
     const left = Math.max(0, Math.round((st.endsAt - Date.now()) / 1000));
     return { type: 'output', message: `<span class="msg-system">You\'re on shift — ${st.venue.role || 'working'} (${Math.round(st.satisfaction)}% satisfaction, ${left}s left). Respond to what the floor throws at you, or \`clock out\` to leave.</span>` };
   }
-  if (lifetimeXp(player) < T.xpGate()) return lockedTeaser();
 
   const here = venueOf(getZone(player.current_zone));
   if (here) {
@@ -335,7 +327,6 @@ function cmdClock(args, raw, player, broadcast) {
   if (getPosture(player) === 'working' && player.shiftState) return { type: 'emote', message: 'You\'re already on the clock.' };
   if (player.combatTargetId || player.pvpTargetId || player.npcCombatTargetId) return { type: 'emote', message: 'You\'re a little busy for a shift right now.' };
   if (getPosture(player) !== 'standing') return { type: 'emote', message: 'You need to be on your feet to clock in.' };
-  if (lifetimeXp(player) < T.xpGate()) return lockedTeaser();
 
   const zone = getZone(player.current_zone);
   const venue = venueOf(zone);

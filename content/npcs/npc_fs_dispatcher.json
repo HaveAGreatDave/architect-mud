@@ -105,6 +105,10 @@
           "text": "\"What else is on the board?\""
         },
         {
+          "next": "steady",
+          "text": "\"Is this ever going to be more than tabs?\""
+        },
+        {
           "next": "who_hires",
           "text": "\"Is this all there is?\""
         }
@@ -290,11 +294,52 @@
           "text": "\"Is the board all there is?\""
         },
         {
+          "conditions": [
+            {
+              "flag": "fs_gig_done",
+              "op": "set",
+              "scope": "player"
+            }
+          ],
+          "next": "steady",
+          "text": "\"Is there anything steadier than a tab?\""
+        },
+        {
           "cmd": "gigs",
           "text": "\"What's on the board?\""
         }
       ],
       "text": "The window's plexi is scratched to fog. Marta Kell slides a clipboard half an inch toward you without looking up. \"Board's on the wall. Take a tab, do the thing, bring it back, get paid. That's the whole religion.\" She finally lifts her eyes. \"You're new-made — I can always tell, they come out of that facility with the shine still on. So. What are you going to be?\""
+    },
+    "steady": {
+      "options": [
+        {
+          "cmd": "work",
+          "text": "\"Who's taking people on?\""
+        },
+        {
+          "next": "steady_warn",
+          "text": "\"What's the catch?\""
+        },
+        {
+          "cmd": "gigs",
+          "text": "\"I'll stay on the tabs.\""
+        }
+      ],
+      "text": "She squares the clipboard she doesn't need to square. \"Let me tell you what my board actually is, since you've now done one. It's tabs. A tab is an errand — ten, fifteen credits, and then it's over and you're standing here again.\" No bitterness in it; she's reading a meter. \"It exists so nobody starves in their first week. It is not a living, and whoever tells you it is, is taking something off the top.\" A drag. \"A shift is a living. Somebody puts you behind a counter for a stretch and pays you for the stretch, and tips on top if you turn out to be any good at it. It's dull work. Dull is the entire point. Dull is how you finish a week holding more than you started it with.\""
+    },
+    "steady_warn": {
+      "options": [
+        {
+          "cmd": "work",
+          "text": "\"Fine. Where?\""
+        },
+        {
+          "cmd": "gigs",
+          "text": "\"Some other time.\""
+        }
+      ],
+      "text": "\"The catch is it's real time and you can be thrown off it.\" She holds up fingers, flat. \"You turn up and you say clock in. Then you stay — wander off, start a fight, and you've walked out mid-shift and they'll pay you for the part you did and remember the part you didn't. Whatever the floor throws at you, deal with it while it's still in front of you. Keep whoever's watching you happy and there's a tip in it. Let it slide and they'll send you home early and light.\" She almost smiles. \"That's the whole trade. It's the most honest arrangement in this basin, which tells you plenty about the basin.\""
     },
     "the_waste": {
       "options": [
@@ -342,7 +387,7 @@
           "text": "\"Noted. Anything on the board meanwhile?\""
         }
       ],
-      "text": "\"Ma Cinder — old, mean, runs the bog crews, pays a hundred thirty to anyone who'll go into the tar for her. The Harbourmaster, if he's sober, has a lurker problem out on the water worth a hundred fifty. And Voss the yardmaster's been losing freight off the sidings on Dray Lane to scavengers — that one's close, and he's past caring how it gets solved.\" She taps ash. \"All of them sleep at the Embassy or the Meridian if you miss the shift. Don't knock after midnight. Especially not on Cinder.\""
+      "text": "\"Ma Cinder — old, mean, runs the bog crews, pays a hundred thirty to anyone who'll go into the tar for her. The Harbourmaster, if he's sober, has a lurker problem out on the water worth a hundred fifty. And Voss the yardmaster's been losing freight off the sidings on Dray Lane to scavengers — that one's close, and he's past caring how it gets solved.\" She taps ash. \"And if you want something closer and stupider — there's a spotter up on the gun battery north of the vats, Rooke, been moaning about ground returns for a week and getting nowhere with it. Pays like it's beneath him to ask. But it's two minutes' walk and it won't kill you, probably.\" \"All of them sleep at the Embassy or the Meridian if you miss the shift. Don't knock after midnight. Especially not on Cinder.\""
     }
   },
   "faction": null,

@@ -3,9 +3,10 @@
   "behaviour_graph": {},
   "chitchat": [
     "reads a bearing off his slate and thumbs it through to the gun.",
-    "\"Low and slow, they said. They always come in low and slow.\""
+    "\"Low and slow, they said. They always come in low and slow.\"",
+    "\"Twelve years on this slate. Sky's never once been the problem.\""
   ],
-  "description": "A Coldwater spotter with a slate of overlapping radar returns and a headset clamped to one ear. He calls bearings to the gunner in a flat, bored monotone.",
+  "description": "A Coldwater spotter gone grey at the temples, slate of overlapping radar returns propped on one knee and a headset clamped over the other ear. He calls bearings to the gunner in a flat, bored monotone, and has plainly been doing it long enough that nothing arriving on the slate could surprise him. A strip of tape on the casing reads ROOKE in marker, in case anyone forgets.",
   "dialogue_tree": {
     "accepted": {
       "actions": [
@@ -37,7 +38,7 @@
     },
     "bye": {
       "options": [],
-      "text": "They turn back to the guns and the sky."
+      "text": "Rooke turns back to the slate and the sky, and stops registering you entirely."
     },
     "reported": {
       "actions": [
@@ -84,7 +85,7 @@
           "next": "bye"
         }
       ],
-      "text": "He keeps one eye on the slate and does not look up. \"Unless you're here to help work the guns, you're in the way.\" A beat, flatter. \"Although.\""
+      "text": "He keeps one eye on the slate and does not look up. \"Unless you're here to help work the guns, you're in the way.\" A beat, flatter. \"Rooke. Ansel Rooke, if the gunner's asking, which she isn't.\" Another beat. \"Although.\""
     },
     "terms": {
       "options": [
@@ -110,7 +111,7 @@
   "hp": 24,
   "hp_max": 24,
   "id": "npc_aa_clone_spotter",
-  "name": "a Guardian battery spotter",
+  "name": "Ansel Rooke",
   "npc_type": "npc",
   "sex": "male",
   "studio_zone_id": null,

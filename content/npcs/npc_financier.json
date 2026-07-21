@@ -128,7 +128,7 @@
     "\"It's not gambling if you insure both outcomes.\"",
     "\"Everything on that yard is a number to me. Pleasant, isn't it?\""
   ],
-  "description": "A freight futures trader who owns a dozen ships he has never seen and cargoes that may not exist, and is, on paper, immensely wealthy. On paper.",
+  "description": "A freight futures trader who owns a dozen ships he has never seen and cargoes that may not exist, and is, on paper, immensely wealthy. On paper. He introduces himself as Corbin Estes of Estes Maritime, a company consisting entirely of Corbin Estes.",
   "dialogue_tree": {
     "bye": {
       "options": [],
@@ -141,7 +141,7 @@
           "next": "bye"
         }
       ],
-      "text": "The financier glances at you, prices you instantly, and finds the figure disappointing. \"Unless you're carrying a bill of lading, we've nothing to discuss.\""
+      "text": "The financier glances at you, prices you instantly, and finds the figure disappointing. \"Unless you're carrying a bill of lading, we've nothing to discuss.\" A card materialises regardless. \"Estes. Estes Maritime. You'll have heard of us.\""
     }
   },
   "faction": null,
@@ -158,7 +158,7 @@
   "hp": 14,
   "hp_max": 14,
   "id": "npc_financier",
-  "name": "a freight financier",
+  "name": "Corbin Estes",
   "npc_type": "npc",
   "sex": "male",
   "studio_zone_id": null,

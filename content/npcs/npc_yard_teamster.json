@@ -128,7 +128,7 @@
     "\"You're standing in a load lane. Don't.\"",
     "\"Everything in this yard is going somewhere. Are you?\""
   ],
-  "description": "A rope-armed teamster with a manifest board and no patience, directing forklifts by bellowed insult and pointing with whatever's in her hand.",
+  "description": "A rope-armed teamster with a manifest board and no patience, directing forklifts by bellowed insult and pointing with whatever's in her hand. The manifest board is signed R. BECK at the foot of every page, hard enough to emboss the sheet beneath.",
   "dialogue_tree": {
     "bye": {
       "options": [],
@@ -141,7 +141,7 @@
           "next": "bye"
         }
       ],
-      "text": "The teamster doesn't stop marking her board. \"If you're not freight and you're not crew, you're an obstacle. Which is it?\""
+      "text": "The teamster doesn't stop marking her board. \"If you're not freight and you're not crew, you're an obstacle. Which is it?\" She jabs the stylus at her own chest without breaking stride. \"Beck. Yard runs on my say-so, so don't make me say much.\""
     }
   },
   "faction": null,
@@ -158,7 +158,7 @@
   "hp": 18,
   "hp_max": 18,
   "id": "npc_yard_teamster",
-  "name": "a teamster",
+  "name": "Ruta Beck",
   "npc_type": "npc",
   "sex": "female",
   "studio_zone_id": null,

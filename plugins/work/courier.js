@@ -59,7 +59,6 @@ const CLASSES = {
 
 // ── Tunables ──────────────────────────────────────────────────────────────────
 const T = {
-  xpGate:    () => getTunable('work_xp_gate', 500),                 // shared with the shift gate
   basePay:   () => getTunable('work_courier_base_pay', 40),         // flat floor per run
   payPerTile:() => getTunable('work_courier_pay_per_tile', 14),     // distance component
   deadlineS: () => getTunable('work_courier_deadline_secs', 600),   // 10 min to cross the map
@@ -154,9 +153,6 @@ function expired(run) { return now() > run.deadlineAt; }
 
 // ── Take a clean/sketchy job off the board ──────────────────────────────────────
 export async function takeJob(player, jobId) {
-  if ((Number(player.total_xp) || 0) < T.xpGate()) {
-    return { ok: false, message: `You need ${T.xpGate()} lifetime XP before dispatch will trust you with a run.` };
-  }
   if (await activeRun(player)) {
     return { ok: false, message: "You're already carrying a run. Deliver what you've got before you take another." };
   }
@@ -177,10 +173,6 @@ export async function takeJob(player, jobId) {
 // spawns a hot run to a random distant tile. No board, no ideology gate — the
 // fence's trust is the only gate (see docs/proposals/steady-work.md §3).
 async function offerHot(player) {
-  if ((Number(player.total_xp) || 0) < T.xpGate()) {
-    sendToPlayer(player.id, { type: 'output', message: '<span class="text-dim">The fence looks you over and thinks better of it. Not yet.</span>' });
-    return { type: 'noop' };
-  }
   if (await activeRun(player)) {
     sendToPlayer(player.id, { type: 'output', message: '<span class="text-dim">"Finish what you\'re carrying first," the fence murmurs. "One at a time."</span>' });
     return { type: 'noop' };
@@ -281,11 +273,6 @@ export async function cmdCourier(args, raw, player) {
       `<span class="msg-system">Active run — ${CLASSES[run.class].board} → ${z?.name || run.dropoffName}` +
       (late ? ' <span class="text-red">(OVERDUE — blown)</span>' : ` (${Math.round(minsLeft(run) / 60)}m ${minsLeft(run) % 60}s left)`) +
       `.</span>\n<span class="text-dim">${run.payout}₵ on delivery. Get there and <b>deliver</b>.</span>` };
-  }
-  if ((Number(player.total_xp) || 0) < T.xpGate()) {
-    return { type: 'output', message:
-      `<span class="msg-system">Courier work goes to hands that have proven themselves.</span>\n` +
-      `<span class="text-dim">Come back at ${T.xpGate()} lifetime XP.</span>` };
   }
   const jobs = courierBoard();
   if (!jobs.length) return { type: 'output', message: '<span class="text-dim">Dispatch has nothing on the board right now. Check back shortly.</span>' };

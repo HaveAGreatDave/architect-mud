@@ -5,7 +5,7 @@
     "swirls something amber and watches the deep water with mild appetite.",
     "\"Everything down there is inventory. It simply doesn't know it yet.\""
   ],
-  "description": "A platinum-tier shareholder in a suit that costs more than the building you were born in. He looks at the bay the way a cat looks at a fishbowl, and at you not at all.",
+  "description": "A platinum-tier shareholder in a suit that costs more than the building you were born in. He looks at the bay the way a cat looks at a fishbowl, and at you not at all. The building's staff call him Mr Brandt; he has never once asked what they are called.",
   "dialogue_tree": {
     "bye": {
       "options": [],
@@ -18,7 +18,7 @@
           "next": "bye"
         }
       ],
-      "text": "The shareholder does not lower his glass. \"If you have to be up here, do try to be interesting. The last one wasn't.\""
+      "text": "The shareholder does not lower his glass. \"If you have to be up here, do try to be interesting. The last one wasn't.\" A pause, magnanimous. \"Brandt. Sinclair Brandt. You won't need it, but people find it settles them.\""
     }
   },
   "faction": null,
@@ -35,7 +35,7 @@
   "hp": 14,
   "hp_max": 14,
   "id": "npc_aerie_patron",
-  "name": "a platinum shareholder",
+  "name": "Sinclair Brandt",
   "npc_type": "npc",
   "sex": "male",
   "studio_zone_id": null,

@@ -26,7 +26,7 @@
     "\"Keep it moving, keep it moving.\"",
     "\"You a cop? You look like a cop.\""
   ],
-  "description": "A jittery kid loitering by the door, watching the street through the mesh and chewing something that isn't gum.",
+  "description": "A jittery kid loitering by the door, watching the street through the mesh and chewing something that isn't gum. The Ledger calls him Kit, mostly in the tone people reserve for a dog that keeps getting into the bins.",
   "dialogue_tree": {
     "bye": {
       "options": [],
@@ -39,7 +39,7 @@
           "next": "bye"
         }
       ],
-      "text": "He looks you up and down. \"Ledger's inside. Don't touch nothin'.\""
+      "text": "He looks you up and down. \"Ledger's inside. Don't touch nothin'.\" The chewing stops for a second. \"Kit. And I never said nothin' to you, neither.\""
     }
   },
   "faction": null,
@@ -56,7 +56,7 @@
   "hp": 40,
   "hp_max": 40,
   "id": "npc_fence_lookout",
-  "name": "a twitchy lookout",
+  "name": "Kit Mabry",
   "npc_type": "civilian",
   "sex": "male",
   "studio_zone_id": null,

@@ -26,7 +26,7 @@
     "\"Vega's the best trigger work in the district. Don't haggle her.\"",
     "\"Groupings don't lie. People do.\""
   ],
-  "description": "A broad-shouldered regular loitering by the firing lane, running a bore snake through a rifle he clearly doesn't need to sell.",
+  "description": "A broad-shouldered regular loitering by the firing lane, running a bore snake through a rifle he clearly doesn't need to sell. Vega's ledger has him down as DURO, M., and has done for eleven years.",
   "dialogue_tree": {
     "bye": {
       "options": [],
@@ -39,7 +39,7 @@
           "next": "bye"
         }
       ],
-      "text": "He barely glances up. \"New iron? Vega'll sort you.\""
+      "text": "He barely glances up. \"New iron? Vega'll sort you.\" He runs the bore snake through one more time. \"Duro. I'm here Tuesdays.\""
     }
   },
   "faction": null,
@@ -56,7 +56,7 @@
   "hp": 40,
   "hp_max": 40,
   "id": "npc_gun_regular",
-  "name": "a range regular",
+  "name": "Marek Duro",
   "npc_type": "civilian",
   "sex": "male",
   "studio_zone_id": null,

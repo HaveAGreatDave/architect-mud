@@ -128,7 +128,7 @@
     "\"Don't go west. That's all. Don't.\"",
     "\"I went west once. I came back less. Ask me nothing else.\""
   ],
-  "description": "A wretch who lives deep in the culvert's mouth, wrapped in everything she owns, guarding a small fire and a smaller hope. She has been west, once, and it is the only thing she will talk about and the last thing she wants to.",
+  "description": "A wretch who lives deep in the culvert's mouth, wrapped in everything she owns, guarding a small fire and a smaller hope. She has been west, once, and it is the only thing she will talk about and the last thing she wants to. She answers to Dessa, when anyone bothers to ask, which happens perhaps twice a year.",
   "dialogue_tree": {
     "bye": {
       "options": [],
@@ -145,7 +145,7 @@
           "next": "bye"
         }
       ],
-      "text": "The wretch pulls her coats tighter and eyes you from beside her fire. \"You're headed west, I can see it on you, you've got the look — the not-yet-scared look. I had it too. Warm yourself if you want. Then turn around.\""
+      "text": "The wretch pulls her coats tighter and eyes you from beside her fire. \"You're headed west, I can see it on you, you've got the look — the not-yet-scared look. I had it too. Warm yourself if you want. Then turn around.\" She watches you a moment longer than is comfortable. \"Dessa. Since you didn't ask.\""
     },
     "west": {
       "options": [
@@ -171,7 +171,7 @@
   "hp": 14,
   "hp_max": 14,
   "id": "npc_culvert_wretch",
-  "name": "a culvert wretch",
+  "name": "Dessa Croke",
   "npc_type": "npc",
   "sex": "female",
   "studio_zone_id": null,

@@ -17,20 +17,25 @@ export default async function regress({ run, check, getPlayer }) {
   check('statValue missing stat defaults', _test.statValue({}, 'cool') === 3);
   check('statCheck returns a boolean', typeof _test.statCheck(p, 'reflexes', 5) === 'boolean');
 
-  // ── XP gate ───────────────────────────────────────────────────────────────
+  // ── No XP gate (removed 2026-07-21) — a fresh clone can take a shift ───────
+  // Steady work is the safe, indoor, repeatable earner; gating it behind proof
+  // you'd survived the dangerous ones was backwards, and lifetime XP was a
+  // currency the quest chain never paid into.
   p.posture = 'standing'; p.npcCombatTargetId = null; delete p.shiftState;
   p.total_xp = 0;
   let r = await run('work');
-  check('work locked below XP gate', /lifetime XP|proven/i.test(r?.message || ''), r?.message);
+  check('work is open at zero XP (no gate)',
+    r?.type === 'output' && !/lifetime XP/i.test(r?.message || ''), r?.message?.slice(0, 80));
   r = await run('clock in');
-  check('clock in locked below XP gate', /lifetime XP|proven/i.test(r?.message || ''), r?.message);
+  check('clock in at zero XP fails on the venue, not the gate',
+    /no work to clock into/i.test(r?.message || ''), r?.message);
 
-  // ── Above the gate, but no venue here ───────────────────────────────────────
+  // ── No venue underfoot ─────────────────────────────────────────────────────
   p.total_xp = 5000;
   r = await run('clock in');
   check('clock in with no venue is refused', /no work to clock into/i.test(r?.message || ''), r?.message);
   r = await run('work');
-  check('work above gate lists venues or reports none', r?.type === 'output', r?.type);
+  check('work lists venues or reports none', r?.type === 'output', r?.type);
 
   // ── Event verbs off-shift are gentle no-ops ─────────────────────────────────
   r = await run('serve');
@@ -79,14 +84,15 @@ export default async function regress({ run, check, getPlayer }) {
   p.posture = 'standing'; delete p.shiftState; p.total_xp = 5000;
   check('activeRun is null with no parcel carried', (await C.activeRun(p)) === null);
   r = await run('courier');
-  check('courier above gate lists the board', r?.type === 'output', r?.type);
+  check('courier lists the board', r?.type === 'output', r?.type);
   r = await run('deliver');
   check('deliver with no run is a gentle no-op', /not carrying a run/i.test(r?.message || ''), r?.message);
   r = await run('crack');
   check('crack with nothing sealed is a gentle no-op', /nothing sealed/i.test(r?.message || ''), r?.message);
   p.total_xp = 0;
   r = await run('courier');
-  check('courier locked below XP gate', /lifetime XP|proven/i.test(r?.message || ''), r?.message);
+  check('courier is open at zero XP (no gate)',
+    r?.type === 'output' && !/lifetime XP/i.test(r?.message || ''), r?.message?.slice(0, 80));
 
   // ── Cleanup — never leave the fake player clocked in (the tick would pay out) ─
   delete p.shiftState;

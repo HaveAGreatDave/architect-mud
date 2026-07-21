@@ -128,7 +128,7 @@
     "\"One good seam. That's all a man needs. One good seam.\"",
     "\"You hear that ticking? Course you don't. You get used to it.\""
   ],
-  "description": "A lean, coughing man who works the scrap mesa with a bent rake and a rad-band he stopped looking at weeks ago. He is convinced the seam he's found will make him rich, and he is running out of the time it would take to spend it.",
+  "description": "A lean, coughing man who works the scrap mesa with a bent rake and a rad-band he stopped looking at weeks ago. He is convinced the seam he's found will make him rich, and he is running out of the time it would take to spend it. He has staked the claim in the name of ELIAS PIKE on four separate rocks, on the theory that one of them might count.",
   "dialogue_tree": {
     "bye": {
       "options": [],
@@ -141,7 +141,7 @@
           "next": "bye"
         }
       ],
-      "text": "The prospector barely looks up from his rake. \"Claim's mine, if that's what you're wondering. Whole mesa's mine. Found the seam, didn't I. You want a piece, you dig your own — plenty of mesa, plenty of...\" he coughs, \"...plenty of time.\""
+      "text": "The prospector barely looks up from his rake. \"Claim's mine, if that's what you're wondering. Whole mesa's mine. Found the seam, didn't I. You want a piece, you dig your own — plenty of mesa, plenty of...\" he coughs, \"...plenty of time.\" He straightens, briefly and genuinely proud. \"Pike. Elias Pike. Remember it — you'll be reading it soon enough.\""
     }
   },
   "faction": null,
@@ -158,7 +158,7 @@
   "hp": 16,
   "hp_max": 16,
   "id": "npc_prospector",
-  "name": "a slag prospector",
+  "name": "Elias Pike",
   "npc_type": "npc",
   "sex": "male",
   "studio_zone_id": null,

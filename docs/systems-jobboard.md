@@ -68,6 +68,24 @@ under `content/` (the script is kept only as provenance).
   back to me when it's done"), sets `fs_marta_met`, and the next step is free.
 - Extra desperation ambience on the zone.
 
+## Marta is the on-ramp, not the destination (2026-07-21)
+
+The board is a *teaching* income, not a living: 10–25₵ for round trips of 20–50 tiles. Left alone it
+was a dead end — the only thing above it was [steady work](../plugins/work/), which sat behind a
+500-lifetime-XP gate that quests never paid into. That gate is gone, so Marta now hands players up
+the ladder herself, which is what a labour dispatcher is *for*:
+
+- **`fs_gig_done`** — set by the `rewards.flags` of all six pool gigs (**not** by her `job_turnin`
+  dialogue node: `gigs claim` dispatches `TURN_IN` directly and never touches her tree, so a
+  dialogue-side flag would miss every board hand-in).
+- Once set, `root` and every `job_turnin` open **`steady`** → she draws the tab/shift distinction and
+  hands off to steady work; **`who_hires`** → the six residential quest-givers plus Rooke; and
+  **`the_waste`** → the game's only early mention of the void.
+- **The venue list is not authored in her dialogue.** The "who's taking people on?" option carries
+  `cmd: 'work'`, dispatching the live command, which reads `flags.work_venue` off the world — so a
+  third venue never makes her stale. Prefer this to hardcoding names into dialogue anywhere the
+  engine already has a list.
+
 ## Philosophical encounters → alignment
 
 The first encounter is Marta's opening line: _"So. What are you going to be?"_ Four

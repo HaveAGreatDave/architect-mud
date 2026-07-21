@@ -128,7 +128,7 @@
     "\"Something's always coming. Trick's calling it before it arrives.\"",
     "\"You go west, I'll whistle for you. That's a promise and a warning both.\""
   ],
-  "description": "A wiry scavenger perched high in the rusted gantry with a spyglass and a whistle, paid in salvage-shares to watch the western dark and call it when something comes out of it. He has good eyes and a worse imagination, and out here the imagination is usually right.",
+  "description": "A wiry scavenger perched high in the rusted gantry with a spyglass and a whistle, paid in salvage-shares to watch the western dark and call it when something comes out of it. He has good eyes and a worse imagination, and out here the imagination is usually right. Camp calls him Trask, and Trask calls the only shot that matters out here — the one about when to run.",
   "dialogue_tree": {
     "bye": {
       "options": [],
@@ -141,7 +141,7 @@
           "next": "bye"
         }
       ],
-      "text": "The lookout doesn't lower his glass. \"Camp pays me to watch west and whistle when it moves, so that's what I do. You're going out there? Then do me the courtesy of being visible, so when you don't come back I can log why. Keep to the slag bar. Off it, the dust'll have you.\""
+      "text": "The lookout doesn't lower his glass. \"Camp pays me to watch west and whistle when it moves, so that's what I do. You're going out there? Then do me the courtesy of being visible, so when you don't come back I can log why. Keep to the slag bar. Off it, the dust'll have you.\" He still doesn't lower the glass. \"Trask. If you hear the whistle, that's me, and you should already be moving.\""
     }
   },
   "faction": null,
@@ -158,7 +158,7 @@
   "hp": 16,
   "hp_max": 16,
   "id": "npc_gantry_lookout",
-  "name": "a gantry lookout",
+  "name": "Fen Trask",
   "npc_type": "npc",
   "sex": "male",
   "studio_zone_id": null,

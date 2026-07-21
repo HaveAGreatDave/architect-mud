@@ -26,7 +26,7 @@
     "\"Cash job, no names. Same as everybody in here.\"",
     "\"Careful with the jugs, friend. That one bites.\""
   ],
-  "description": "A day-laborer leaning on a hand-truck stacked with drums, waiting on a delivery run and the wages that come with it.",
+  "description": "A day-laborer leaning on a hand-truck stacked with drums, waiting on a delivery run and the wages that come with it. The name stencilled down the side of his hand-truck is T. OKORO, and he would like it back if it walks off again.",
   "dialogue_tree": {
     "bye": {
       "options": [],
@@ -39,7 +39,7 @@
           "next": "bye"
         }
       ],
-      "text": "He tips his chin at you. \"Angus is at the counter. Watch the forklift.\""
+      "text": "He tips his chin at you. \"Angus is at the counter. Watch the forklift.\" He shifts his grip on the hand-truck. \"Tam. In case the forklift gets me and somebody has to fill in a form.\""
     }
   },
   "faction": null,
@@ -56,7 +56,7 @@
   "hp": 40,
   "hp_max": 40,
   "id": "npc_chem_laborer",
-  "name": "a day-laborer",
+  "name": "Tam Okoro",
   "npc_type": "civilian",
   "sex": "male",
   "studio_zone_id": null,

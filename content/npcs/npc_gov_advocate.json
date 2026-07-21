@@ -127,7 +127,7 @@
     "cites a precedent from a court that no longer sits.",
     "\"Justice delayed, in my experience, is simply justice pending. Endlessly pending.\""
   ],
-  "description": "An advocate of Cobalt Court in robes gone shiny at the elbows, arguing a case he inherited and will bequeath, unresolved, to whoever comes next.",
+  "description": "An advocate of Cobalt Court in robes gone shiny at the elbows, arguing a case he inherited and will bequeath, unresolved, to whoever comes next. The brass plate he carries from bench to bench reads L. BREDE, ADVOCATE, and has outlasted two courthouses.",
   "dialogue_tree": {
     "bye": {
       "options": [],
@@ -140,7 +140,7 @@
           "next": "bye"
         }
       ],
-      "text": "The advocate turns, scenting a potential client. \"Do you have standing? Grievance? Retainer? No? Then I'm afraid we've nothing to discuss, which is, ironically, my entire caseload.\""
+      "text": "The advocate turns, scenting a potential client. \"Do you have standing? Grievance? Retainer? No? Then I'm afraid we've nothing to discuss, which is, ironically, my entire caseload.\" The plate appears from a pocket, apparently by reflex. \"Brede. Lazlo Brede. Retainers considered.\""
     }
   },
   "faction": null,
@@ -157,7 +157,7 @@
   "hp": 14,
   "hp_max": 14,
   "id": "npc_gov_advocate",
-  "name": "a court advocate",
+  "name": "Lazlo Brede",
   "npc_type": "npc",
   "sex": "male",
   "studio_zone_id": null,

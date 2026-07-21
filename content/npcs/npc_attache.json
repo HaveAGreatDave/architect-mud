@@ -128,7 +128,7 @@
     "\"I couldn't possibly say. I could, but I couldn't.\"",
     "\"Everyone up here is lying. The trick is knowing about what.\""
   ],
-  "description": "A junior attaché who carries other people's secrets in a locked case and their coffee in the other hand, and is quietly better informed than anyone he serves.",
+  "description": "A junior attaché who carries other people's secrets in a locked case and their coffee in the other hand, and is quietly better informed than anyone he serves. His card reads EMERIC SANDOVAL, JUNIOR ATTACHÉ, and he hands it over rather than say anything he would have to stand behind.",
   "dialogue_tree": {
     "bye": {
       "options": [],
@@ -141,7 +141,7 @@
           "next": "bye"
         }
       ],
-      "text": "The attaché gives you the smile of a man trained to reveal nothing. \"I'm afraid the Consul is unavailable, whoever you're looking for is unavailable, and this conversation is, ideally, also unavailable.\""
+      "text": "The attaché gives you the smile of a man trained to reveal nothing. \"I'm afraid the Consul is unavailable, whoever you're looking for is unavailable, and this conversation is, ideally, also unavailable.\" A card appears between two fingers, as though it had been waiting there all morning. \"Sandoval. If it becomes relevant.\""
     }
   },
   "faction": null,
@@ -158,7 +158,7 @@
   "hp": 14,
   "hp_max": 14,
   "id": "npc_attache",
-  "name": "a consular attaché",
+  "name": "Emeric Sandoval",
   "npc_type": "npc",
   "sex": "male",
   "studio_zone_id": null,
