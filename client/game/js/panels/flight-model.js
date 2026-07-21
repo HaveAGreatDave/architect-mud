@@ -173,6 +173,29 @@ export const TYPES = {
     rollFric: 11,                         // skid friction on the ground — skids bite and stop her quickly (no long rollout)
     ceiling: 15000,
   },
+  // Viper — the attack helicopter (an Apache reimagined). Flies the SAME heli branch as the
+  // Dragonfly (collective + cyclic + pedals) — it is not a fixed-wing — but it's a far bigger,
+  // heavier, more powerful airframe: nearly three times the mass, a slippery high-speed body
+  // (fastest rotorcraft in the fleet), and a stabilised flight-control system, so it's steady
+  // where the Mini 500 is twitchy — firmer self-level, slower-building cyclic, less pedal
+  // authority — while still turning hard for its size. Heavy disc loading means it drops into
+  // its own downwash later but sinks harder when it does.
+  viper: {
+    name: 'Viper', heli: true, mass: 2.6,
+    vne: 190, cruise: 150, vs0: 22,       // vs0 doubles as the translational-lift (ETL) speed
+    vr: 0, aoaCrit: 90, liftScale: 1,
+    pitchRate: 22, pitchTau: 0.5, rollRate: 40, rollTau: 0.45,   // authoritative but heavier cyclic
+    pitchStable: 1.0, rollStable: 1.15,   // stabilised FCS — she holds an attitude you set
+    yawRate: 68,                          // big tail rotor on a long boom: slower pedal turns than the Mini 500
+    engineLag: 1.2,                       // twin turbines spool slower than a piston kit-heli
+    cyclicThrust: 5.0,                    // heavy, powerful disc — real acceleration off a lean
+    dragP: 0.00105,                       // slippery armoured body: holds speed, high top end
+    liftMax: 2.4, hoverThrust: 1.0,       // strong power margin even loaded on the rails
+    vsGain: 1000, vsMax: 2100, vsTau: 1.0,
+    vrsVs: 620,                           // high disc loading — settles later, then bites harder
+    rollFric: 9,                          // wheeled gear, but she stops short (no rollout)
+    ceiling: 16000,
+  },
   // Carcass — salvaged wreck: underpowered, draggy, unstable. A junker you nurse into the air.
   carcass: {
     name: 'Carcass', mass: 1.4, thrustMax: 14, vr: 44, vs0: 28, vne: 115, cruise: 72,

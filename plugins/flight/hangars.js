@@ -132,6 +132,8 @@ async function buildCards(player, field) {
     const kits = installedKits(cd), cargoNow = cd.cargoWeight || 0;
     return {
       id: r.id, tail: r.name || r.tname, typeName: r.tname, typeId: r.type_id, class: r.class, seats: r.seats,
+      hardpoints: r.hardpoints || 0,   // >0 on a heli ⇒ the client draws the Viper attack mesh, not the Dragonfly
+
       damage: r.damage, hullPct: Math.max(0, Math.round((1 - r.damage) * 100)),
       fuelPct: Math.max(0, Math.min(100, Math.round((r.fuel / cap) * 100))), fuelType: r.fuel_type,
       location: r.is_wreck ? 'wreck' : (r.hangar_id ? 'hangar' : 'ramp'),

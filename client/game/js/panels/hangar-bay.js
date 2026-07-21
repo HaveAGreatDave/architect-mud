@@ -163,7 +163,9 @@ function floorScreen() {
 // the CHARTER Mule solid-painted in their signature colour.
 function sceneEntries() {
   const d = B.data, craft = (d.craft || []).filter(c => !c.wreck);
-  const entries = craft.map(c => ({ id: c.id, cls: c.class, livery: c.livery, label: c.tail }));
+  // `armed` picks the Viper's attack-heli mesh over the Dragonfly's — same test the
+  // bench/inspect views use, or the gunship sits on the floor as a plain Dragonfly.
+  const entries = craft.map(c => ({ id: c.id, cls: c.class, armed: c.class === 'heli' && c.hardpoints > 0, livery: c.livery, label: c.tail }));
   const pilot = d.pilot;
   // Booked-for-you reads exactly like an available pilot (full colour, clickable —
   // to embark instead of opening the booking dialog); a stranger's booking still
