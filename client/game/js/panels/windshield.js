@@ -982,6 +982,7 @@ export function paintWindshield(id, view) {
       if (vw.landGuide && vw.runway) drawGuideBoxes(ctx, cam, vw, now);
       if (vw.contacts) drawContacts(ctx, cam, vw, W, H, sunFx, now);   // air-to-air traffic (Phase A: see other craft)
       drawGunTracers(ctx, cam, v, now);   // 3D gun tracers — own rounds + any nearby shooter's, streaking through world space toward where they're aiming
+      if (v.missiles) drawMissiles(ctx, cam, v, now);   // our own shots in the air: motor flare + smoke trail, weaving downrange
       // Incoming ground-AA volley in the same 3D world space, rising off the gun's tile.
       // Remembers whether it drew: a site behind the view (or an old payload without site
       // coords) falls through to the screen-space streak after the banked block instead.
@@ -4263,15 +4264,20 @@ function drawGunTracers(ctx, cam, v, now) {
       const cr = Math.cos(roll), sr = Math.sin(roll), cp = Math.cos(pit), sp = Math.sin(pit);
       const toWorld = (f, g, hh) => { const f1 = f * cp - hh * sp, h1 = f * sp + hh * cp, g2 = g * cr + h1 * sr, h2 = -g * sr + h1 * cr;
         return [SIZE * (f1 * sh + g2 * ch), SIZE * (-f1 * ch + g2 * sh), baseWz + SIZE * CONTACT_VS * h2]; };
-      muzzles = [toWorld(0.34, -0.40, -0.10), toWorld(0.34, 0.40, -0.10)];   // the two under-wing gun barrels
+      // A CHIN gun (the attack heli's turret) is a single barrel slung under the NOSE, on the
+      // centreline — not the fixed-wing pair out on the wings.
+      muzzles = v.chinGun ? [toWorld(0.62, 0, -0.16)]
+                          : [toWorld(0.34, -0.40, -0.10), toWorld(0.34, 0.40, -0.10)];
     } else {
-      // Cockpit: the guns are just ahead + below + off each side of the eye.
-      muzzles = [[sh * 0.34 - ch * 0.24, -ch * 0.34 - sh * 0.24, cam.EH - 0.05],
-                 [sh * 0.34 + ch * 0.24, -ch * 0.34 + sh * 0.24, cam.EH - 0.05]];
+      // Cockpit: the guns are just ahead + below the eye — dead ahead off the chin turret, or
+      // off each side for the wing pair.
+      muzzles = v.chinGun ? [[sh * 0.34, -ch * 0.34, cam.EH - 0.09]]
+                          : [[sh * 0.34 - ch * 0.24, -ch * 0.34 - sh * 0.24, cam.EH - 0.05],
+                             [sh * 0.34 + ch * 0.24, -ch * 0.34 + sh * 0.24, cam.EH - 0.05]];
     }
     muzzles.forEach((m) => {
-      if (v.firing) tracerBurst(ctx, cam, m, aim, now, v.muzzleT || 0, v.gunMs || 150);
-      if (v.muzzle) muzzleFlash(ctx, cam, m[0], m[1], m[2]);
+      if (v.firing) tracerBurst(ctx, cam, m, aim, now, v.muzzleT || 0, v.gunMs || 150, v.chinGun ? 0.62 : 1);
+      if (v.muzzle) muzzleFlash(ctx, cam, m[0], m[1], m[2], v.chinGun ? 0.6 : 1);
     });
   }
   // — Nearby contacts firing: rounds stream forward off each of their wings —
@@ -4329,7 +4335,8 @@ function drawGunReticle(ctx, cam, v, W, H, horizonY) {
 // so one round leaves the muzzle at each shot and races to the aim over FLIGHT ms. The newest
 // round is at the muzzle (f≈0) exactly when the thud plays — so rounds match the audio one-for-
 // one, with no drift and no delay between the sound and the tracer.
-function tracerBurst(ctx, cam, M, A, now, muzzleT, gunMs) {
+// `sz` scales the round: the light chin gun throws a smaller, thinner tracer than the cannon.
+function tracerBurst(ctx, cam, M, A, now, muzzleT, gunMs, sz = 1) {
   const FLIGHT = Math.max(150, gunMs * 1.25);   // round flight time (ms) — ~1 round on its way at a time
   const pm = cam.proj(M[0], M[1], M[2]), pa = cam.proj(A[0], A[1], A[2]);
   if (pm.f > 0.08 && pa.f > 0.08) {   // faint aiming beam so the line of fire reads between rounds
@@ -4345,7 +4352,7 @@ function tracerBurst(ctx, cam, M, A, now, muzzleT, gunMs) {
     const h = lerp3(f0), tl = lerp3(Math.max(0, f0 - 0.14));
     const ph = cam.proj(h[0], h[1], h[2]), pt = cam.proj(tl[0], tl[1], tl[2]);
     if (ph.f <= 0.1 || pt.f <= 0.1) continue;
-    const rad = clamp(4.2 / ph.f, 1.6, 12), al = clamp(1.5 - ph.f / 11, 0.45, 1);
+    const rad = clamp(4.2 * sz / ph.f, 1.2, 12), al = clamp(1.5 - ph.f / 11, 0.45, 1);
     const tg = ctx.createLinearGradient(pt.sx, pt.sy, ph.sx, ph.sy);
     tg.addColorStop(0, 'rgba(255,170,60,0)'); tg.addColorStop(1, `rgba(255,250,222,${0.92 * al})`);
     ctx.strokeStyle = tg; ctx.lineWidth = rad * 1.1; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(pt.sx, pt.sy); ctx.lineTo(ph.sx, ph.sy); ctx.stroke();
@@ -4383,10 +4390,77 @@ function tracerStream(ctx, cam, M, A, phase, seed) {
     ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ph.sx, ph.sy, rad * 2.4, 0, 7); ctx.fill();
   }
 }
-// A muzzle-flash bloom at a world-space gun station.
-function muzzleFlash(ctx, cam, x, y, z) {
+// ── Missiles in flight ────────────────────────────────────────────────────────
+// The shots the cockpit is flying (cockpit.js stepShots) drawn as REAL world objects through the
+// same Mode-7 camera as the buildings and tracers — so a ripple leaves the rails and you watch it
+// wander away downrange with true perspective, shrinking as it goes, instead of a decal on the
+// glass. `v.missiles` = [{ dx, dy, altDiff, hdg, age, boom, trail:[[dx,dy,altDiff]…] }] (tile
+// offsets from us, refreshed every frame so the shots stay anchored in the world while we move).
+// Each missile is three things back-to-front: a SMOKE TRAIL (its recent path, fading with age),
+// the MOTOR flare burning at its tail, and the dart itself. `boom` (0..1) replaces all of it with
+// an expanding terminal burst.
+function drawMissiles(ctx, cam, v, now) {
+  const ms = v.missiles; if (!ms || !ms.length) return;
+  ctx.save(); ctx.lineCap = 'round';
+  const night = v.sky?.night || 0;
+  for (const m of ms) {
+    const wz = cam.EH + (m.altDiff || 0) * CONTACT_ALT_K;
+    const p = cam.proj(m.dx, m.dy, wz);
+    if (m.boom > 0) {
+      // Terminal burst — a hot core flashing out into a dirty orange ball that fades fast.
+      if (p.f <= 0.1) continue;
+      const b = m.boom, r = clamp((7 + b * 34) / p.f, 3, 130), al = (1 - b) * (1 - b);
+      const g = ctx.createRadialGradient(p.sx, p.sy, 0, p.sx, p.sy, r);
+      g.addColorStop(0, `rgba(255,250,225,${0.95 * al})`);
+      g.addColorStop(0.35, `rgba(255,168,60,${0.75 * al})`);
+      g.addColorStop(0.72, `rgba(190,70,25,${0.45 * al})`);
+      g.addColorStop(1, 'rgba(70,50,40,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.sx, p.sy, r, 0, 7); ctx.fill();
+      continue;
+    }
+    // Smoke trail: oldest sample first, thinning and fading toward the tail. Drawn per-segment
+    // so it curves through the missile's actual (weaving) path rather than a straight line.
+    const tr = m.trail || [];
+    for (let i = 1; i < tr.length; i++) {
+      const a = cam.proj(tr[i - 1][0], tr[i - 1][1], cam.EH + tr[i - 1][2] * CONTACT_ALT_K);
+      const b = cam.proj(tr[i][0], tr[i][1], cam.EH + tr[i][2] * CONTACT_ALT_K);
+      if (a.f <= 0.12 || b.f <= 0.12) continue;
+      const f = i / tr.length;                          // 0 = oldest wisp → 1 = at the motor
+      const al = 0.30 * f * clamp(1.4 - b.f / 12, 0.25, 1);
+      ctx.strokeStyle = `rgba(214,206,196,${al})`;
+      ctx.lineWidth = clamp((0.9 + f * 3.2) / b.f, 0.6, 9);
+      ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke();
+    }
+    // Point-blank (the frame or two right off the rail, in the cockpit view) is skipped rather
+    // than drawn — a motor a few centimetres from the eye would just white out the glass.
+    if (p.f <= 0.22) continue;
+    const rad = clamp(3.4 / p.f, 1.2, 14);
+    // Motor flare — a bright plume out the back, flickering on the burn. Blooms at night like
+    // the tracers do, so a salvo lights up the dark the way its rounds already do.
+    if (night > 0.3) { ctx.shadowColor = 'rgba(255,170,80,0.95)'; ctx.shadowBlur = 6 + night * 14; }
+    const flick = 0.78 + 0.22 * Math.sin(now * 0.05 + (m.age || 0) * 9);
+    const fg = ctx.createRadialGradient(p.sx, p.sy, 0, p.sx, p.sy, rad * 3.1 * flick);
+    fg.addColorStop(0, 'rgba(255,252,238,0.95)');
+    fg.addColorStop(0.4, `rgba(255,196,96,${0.7 * flick})`);
+    fg.addColorStop(1, 'rgba(255,140,40,0)');
+    ctx.fillStyle = fg; ctx.beginPath(); ctx.arc(p.sx, p.sy, rad * 3.1 * flick, 0, 7); ctx.fill();
+    ctx.shadowBlur = 0;
+    // The dart — a short dark body ahead of the flare, along its own heading, so you can read
+    // which way each seeker is pointed while it weaves.
+    const hr = (m.hdg || 0) * Math.PI / 180;
+    const nose = cam.proj(m.dx + Math.sin(hr) * 0.05, m.dy - Math.cos(hr) * 0.05, wz);
+    if (nose.f > 0.1) {
+      ctx.strokeStyle = 'rgba(38,40,46,0.9)'; ctx.lineWidth = clamp(2.6 / p.f, 1, 7);
+      ctx.beginPath(); ctx.moveTo(p.sx, p.sy); ctx.lineTo(nose.sx, nose.sy); ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
+// A muzzle-flash bloom at a world-space gun station. `sz` scales it (a light gun flashes smaller).
+function muzzleFlash(ctx, cam, x, y, z, sz = 1) {
   const p = cam.proj(x, y, z); if (p.f <= 0.1) return;
-  const r = clamp(6 / p.f, 2, 16);
+  const r = clamp(6 * sz / p.f, 2, 16);
   const g = ctx.createRadialGradient(p.sx, p.sy, 0, p.sx, p.sy, r);
   g.addColorStop(0, 'rgba(255,244,196,0.85)'); g.addColorStop(0.5, 'rgba(255,196,90,0.5)'); g.addColorStop(1, 'rgba(255,150,40,0)');
   ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.sx, p.sy, r, 0, 7); ctx.fill();

@@ -344,6 +344,24 @@ real players' aircraft fight each other end-to-end, server-authoritatively:
   connects) and otherwise saturates the tile the nose points at, hitting bodies for
   `GROUND_SWARM_DMG` as **`explosive`** (a kinetic vest is far less help than vs cannon fire).
   Crimes are charged in the *target* tile, as with a strafing run.
+- **What a shot LOOKS like** (client-side, `cockpit.js` + `windshield.js`). The server owns
+  every outcome; the visuals are flown locally and are pure feel.
+  - **Missiles in the air** — `launchShots`/`stepShots` fly each round as a real world object
+    (`v.missiles` → `drawMissiles`), through the same Mode-7 camera as the buildings: motor
+    flare, curving smoke trail, a dark dart on its own heading, and a terminal burst. A swarm
+    ripples off one rail at a time on the server's own `MSL_STAGGER_MS` (120 ms) stagger,
+    alternating sides. They fly **drunk** — each seeker leaves on its own heading and weaves
+    through a decaying sine wander before settling late onto the target: `SWARM_PK_MULT` made
+    visible. A *locked* single shot uses the same path with the wander turned nearly off.
+    With no bogey the salvo goes to `groundAim` — where the boresight meets the ground.
+  - **Chin gun (armed heli)** — `chinGun` puts the muzzle on the centreline **under the nose**
+    (one barrel) instead of the fixed-wing pair under the wings, at `GUN_FIRE_MS_LIGHT`
+    (~2× cadence), with a smaller tracer/flash. The damage half is the airframe's
+    `data.gun_mult` server-side; this is the matching *read*.
+  - **Audio** (`engine-audio.js`) — `missileRippleFx(n)` lights *n* staggered, detuned motors
+    (a ripple, not one launch played once); `gunFx(external, light)` gains a light chin-turret
+    voice: no chest-bass, an octave up, short and dry — a peashooter beside the Reaper's cannon.
+  - Not built: other players don't see your missiles (contacts relay `firing` for guns only).
 - **Structural shear-off in PvP** — guns *and* missiles both resolve through
   `applyAirDamage`, which rolls `shearRoll(target, amount)`: a heavy hit on an already-
   ravaged airframe can rip an **actual surface off another player's craft** — left/right

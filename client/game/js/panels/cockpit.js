@@ -14,7 +14,7 @@
 import { setAreaPane } from '../render.js';
 import { state } from '../state.js';
 import { sfx, clampInt, clampNum, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays, deckStrip, setDeckLevel } from './minigame-common.js';
-import { updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown, groundFx, flapWhir, stallHorn, gearFx, visorFx, gunFx, aaWarn, tracerFx, aaGunFx, hitFx, lockTone, mslWarble, missileFx, flareFx, spraySfx } from './engine-audio.js';
+import { updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown, groundFx, flapWhir, stallHorn, gearFx, visorFx, gunFx, aaWarn, tracerFx, aaGunFx, hitFx, lockTone, mslWarble, missileFx, missileRippleFx, flareFx, spraySfx } from './engine-audio.js';
 import { ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, RENDER_TUNE, buildingRoofFt, BUILDING_FOOT, climbOutClear, VISIBLE_NEAR_F, VISIBLE_FAR_F, CLIMBOUT_MAX_F, CLIMBOUT_LAT_IN, CLIMBOUT_LAT_OUT, pushLightningStrike, surfaceBreakup } from './windshield.js';
 import { suppressWeatherFx } from './weather-fx.js';
 import { createState, step, readout, TYPES } from './flight-model.js';
@@ -1091,6 +1091,103 @@ const MSL_RANGE = 8, MSL_CONE = 25, MSL_LOCK_MS = 2500, MSL_FIRE_MS = 1600;
 // Swarm airframe (Viper): no lock — a bogey inside a wide forward cone is a valid ripple shot.
 // Client cone kept just under the server's SWARM_CONE (45°) so we only greenlight shots it'll take.
 const SWARM_CONE = 40, SWARM_FIRE_MS = 2300;
+// The Viper's chin turret is a LIGHT machine gun, not the Reaper's cannon: it runs at roughly
+// double the cadence for a fraction of the punch (the airframe's `gun_mult` 0.5 does the damage
+// half server-side). Fires from ONE muzzle under the nose rather than a pair under the wings.
+const GUN_FIRE_MS_LIGHT = 62;
+
+// ── Missiles in the air (the shot you actually watch) ─────────────────────────
+// Rounds off the rails are flown CLIENT-SIDE purely as a visual: the server owns the outcome
+// (it resolves each inbound MISSILE_FLIGHT_MS after launch and prints the result), we just fly
+// the things leaving the aircraft. A swarm ripples off one rail at a time on the server's own
+// 120 ms stagger, alternating sides, so you see four separate launches, not one puff.
+//
+// They fly DRUNK on purpose. A no-lock ripple is a barrage of dumb seekers — that's what
+// SWARM_PK_MULT (half the kill probability of a locked shot) means in the fiction — so each one
+// leaves the rail on its own heading, wanders through a slow weave while the seeker gathers,
+// and only settles onto the target late in the flight. A single LOCKED missile (Reaper) is
+// launched through the same path with far less wander: it knows where it's going.
+const MSL_STAGGER_MS = 120;     // matches the server's per-seeker resolve stagger
+const MSL_LIFE_MS = 5200;       // how long we keep drawing one before it's out of the picture
+const MSL_TRAIL = 16;           // smoke-trail samples kept per missile
+const MSL_SPEED = 1.25;         // terminal speed (world tiles/s) — several × the airframe's own pace
+const MSL_BOOST_S = 0.55;       // motor burn: launch speed → MSL_SPEED over this long
+const MSL_TURN = 150;           // seeker authority (deg/s of heading correction)
+
+// Where a no-target salvo goes: the point on the ground the boresight is pointed at. Mirrors the
+// gun's ground convergence (windshield drawGunTracers) — nose down and the missiles walk in close,
+// nose level and they run out ahead. Clamped so a level/nose-up shot still has somewhere to land.
+function groundAim(F, s) {
+  const hr = s.heading * Math.PI / 180;
+  const pit = Math.min(-1.5, s.pitch || 0) * Math.PI / 180;         // treat level-or-up as a shallow dive
+  const R = clampNum(Math.max(0.6, s.altitude / 600) / Math.tan(-pit), 0.8, 6);   // tiles ahead where the line meets the ground
+  return { x: F.pos.x + Math.sin(hr) * R, y: F.pos.y - Math.cos(hr) * R, alt: 0 };
+}
+// Ripple `n` missiles off the rails at `tgt` — either { id } (track a live contact) or
+// { x, y, alt } (a fixed point on the ground). `wander` scales the drunkenness.
+function launchShots(F, now, n, tgt, wander) {
+  F.shots = F.shots || [];
+  for (let i = 0; i < n; i++) {
+    F.shots.push({
+      t0: now + i * MSL_STAGGER_MS, live: false, seed: Math.random() * 6.283,
+      side: i % 2 ? 1 : -1, wander, tgt, trail: [], boomT: 0,
+    });
+  }
+}
+// Fly every shot forward one frame and return the windshield's view of them (offsets from us).
+// Each missile: ignite on the aircraft's own vector (kicked off its rail to the side), boost to
+// speed, then steer toward the target at a limited turn rate with a decaying sinusoidal weave
+// laid over the top. It dies on proximity (a small burst) or when its life runs out.
+function stepShots(F, now, dt, s) {
+  if (!F.shots || !F.shots.length) return null;
+  const view = [];
+  for (const m of F.shots) {
+    if (now < m.t0) continue;
+    const age = (now - m.t0) / 1000;
+    if (!m.live) {
+      // Off the rail on our vector, angled out to its own side — the fan of a ripple launch.
+      // Ignites a little ahead of and beside us (the stub-wing rails, not the pilot's lap) so
+      // the motor doesn't light up in the middle of the cockpit view on the first frame.
+      m.live = true;
+      const lr = s.heading * Math.PI / 180;
+      m.x = F.pos.x + Math.sin(lr) * 0.06 + Math.cos(lr) * 0.03 * m.side;
+      m.y = F.pos.y - Math.cos(lr) * 0.06 + Math.sin(lr) * 0.03 * m.side;
+      m.alt = s.altitude - 3;
+      m.hdg = s.heading + m.side * (5 + m.wander * 12);
+      m.spd = Math.max(0.12, Math.abs(s.airspeed) * RENDER_TUNE.worldPace);
+    }
+    if (m.boomT) { if (now - m.boomT > 420) m.dead = true; }
+    else {
+      // Live target: a contact keeps moving, so re-aim at it every frame (that's the seeker).
+      let tx = m.tgt.x, ty = m.tgt.y, talt = m.tgt.alt;
+      if (m.tgt.id && F.contacts) {
+        const c = F.contacts.find(k => k.id === m.tgt.id);
+        if (c) { tx = c.x; ty = c.y; talt = c.alt || 0; }
+      }
+      const dx = tx - m.x, dy = ty - m.y, rng = Math.hypot(dx, dy);
+      // Seeker: turn toward the target, but only so fast — and add the weave. The wander decays
+      // over the flight, so a missile that starts out drunk sobers up as it closes.
+      const want = Math.atan2(dx, -dy) * 180 / Math.PI;
+      const drunk = m.wander * Math.exp(-age / 1.6) * 26 * Math.sin(age * 3.1 + m.seed);
+      let err = ((want + drunk - m.hdg + 540) % 360) - 180;
+      m.hdg += clampNum(err, -MSL_TURN * dt, MSL_TURN * dt);
+      m.spd += (MSL_SPEED - m.spd) * Math.min(1, dt / MSL_BOOST_S);
+      const hr = m.hdg * Math.PI / 180;
+      m.x += Math.sin(hr) * m.spd * dt; m.y += -Math.cos(hr) * m.spd * dt;
+      m.alt += clampNum((talt - m.alt), -900 * dt, 900 * dt);
+      if (rng < 0.14 || age > MSL_LIFE_MS / 1000) m.boomT = now;
+    }
+    m.trail.push([m.x, m.y, m.alt]);
+    if (m.trail.length > MSL_TRAIL) m.trail.shift();
+    view.push({
+      dx: m.x - F.pos.x, dy: m.y - F.pos.y, altDiff: m.alt - s.altitude, hdg: m.hdg, age,
+      boom: m.boomT ? clampNum((now - m.boomT) / 420, 0, 1) : 0,
+      trail: m.trail.map(p => [p[0] - F.pos.x, p[1] - F.pos.y, p[2] - s.altitude]),
+    });
+  }
+  F.shots = F.shots.filter(m => !m.dead);
+  return view.length ? view : null;
+}
 // ── Building collision (CFIT) ─────────────────────────────────────────────────
 // The windshield draws one deterministic building per built-up tile from its floor count; the sim
 // collision-checks that SAME building so flying into a tower you can see out the glass hurts. The
@@ -2295,6 +2392,12 @@ export function openFlightSim(opts = {}) {
     sprayer: !!opts.sprayer,                          // ag-plane crop-duster (Locust): shows the SPRAY button
     hardpoints: opts.hardpoints || 0, armed: false,  // weapons (gunship): master-arm + fire
     salvo: opts.salvo || 0,                          // swarm airframe (Viper): >1 → MSL fires a no-lock ripple
+    // An armed heli's gun is a CHIN turret — one light, fast-firing barrel under the nose, where
+    // the fixed-wing gunship carries a heavy pair under the wings. Drives the muzzle station, the
+    // firing cadence and the report.
+    chinGun: opts.craftClass === 'heli' && (opts.hardpoints || 0) > 0,
+    gunMs: (opts.craftClass === 'heli' && (opts.hardpoints || 0) > 0) ? GUN_FIRE_MS_LIGHT : GUN_FIRE_MS,
+    shots: [],                                       // missiles currently in the air (visual only — see stepShots)
     gunCap: 1174, gunRounds: 1174,                   // GAU-8 ammo drum (cosmetic; counts down as the gun squirts)
     nightLight: false, landingLight: false,          // instrument-panel backlight (PANEL) + exterior landing/taxi lights (LIGHTS) — both need engine power
     raf: 0, last: 0, syncAcc: 0, hornBeat: 0, audioAcc: 0,
@@ -3784,10 +3887,14 @@ function fsimFrame(now) {
       // (a standoff strike on what's ahead, rather than the gun pass's overfly).
       if (!F.fireHeld && F.msl > 0 && (!F.lastMslMs || now - F.lastMslMs >= SWARM_FIRE_MS)) {
         F.lastMslMs = now;
-        F.msl = Math.max(0, F.msl - F.salvo);   // optimistic; flight_ctx refreshes the authoritative count
+        const n = Math.min(F.salvo, F.msl);       // the rails can't ripple more than they're holding
+        F.msl = Math.max(0, F.msl - F.salvo);     // optimistic; flight_ctx refreshes the authoritative count
         sendCmdSilent(F.swarmReady ? `airfire swarm ${F.swarmReady}` : 'airfire swarm ground');
         F.muzzleT = now;
-        try { missileFx(); } catch {}
+        // Fly the ripple you just fired: at the bogey if there's one under the nose, otherwise
+        // at the ground point the boresight is pointed at (the standoff strike).
+        launchShots(F, now, n, F.swarmReady ? { id: F.swarmReady } : groundAim(F, s), 1);
+        try { missileRippleFx(n, F.external); } catch {}
         if (F.paintPips) F.paintPips();
       }
     } else if (F.weapon === 'msl') {
@@ -3796,10 +3903,11 @@ function fsimFrame(now) {
         F.msl = Math.max(0, F.msl - 1);   // optimistic; flight_ctx refreshes the authoritative count
         sendCmdSilent(`airfire missile ${F.lockId}`);
         F.muzzleT = now;
+        launchShots(F, now, 1, { id: F.lockId }, 0.15);   // a locked shot flies straight — it knows where it's going
         try { missileFx(); } catch {}
         if (F.paintPips) F.paintPips();
       }
-    } else if (!F.lastFireMs || now - F.lastFireMs >= GUN_FIRE_MS) {
+    } else if (!F.lastFireMs || now - F.lastFireMs >= F.gunMs) {
       F.lastFireMs = now;
       F.muzzleT = now;                                  // flash + tracers show whenever the trigger's down, solution or not
       // FX every squirt for feel, but only fire the actual command at the server's burst
@@ -3810,8 +3918,10 @@ function fsimFrame(now) {
         if (solReady) sendCmdSilent(`airfire guns ${F.gunSolution.id} ${F.gunSolution.aimQuality.toFixed(2)}`);
         else if (F.hardpoints > 0) sendCmdSilent('fire');
       }
-      F.gunRounds = Math.max(0, F.gunRounds - 65);      // ~65 rounds/squirt (GAU-8 cadence) → the drum counts down
-      try { gunFx(F.external); } catch {}
+      // Rounds/squirt scales with the cadence, so the light chin gun eats its belt at a
+      // believable rate rather than a cannon's (the drum readout is cosmetic either way).
+      F.gunRounds = Math.max(0, F.gunRounds - (F.chinGun ? 30 : 65));
+      try { gunFx(F.external, F.chinGun); } catch {}
     }
   }
   F.fireHeld = F.firing;   // edge detect: one missile per trigger squeeze
@@ -3919,7 +4029,10 @@ function fsimFrame(now) {
     // Phase B guns: tracers stream out whenever the trigger's held (armed, airborne,
     // gun selected) — solution or not — so you can SEE where you're shooting and walk
     // the rounds onto the bogey. A hull readout + a red battle-damage flash on a hit.
-    firing: !!(F.firing && F.armed && F.reportedAirborne && F.weapon !== 'msl'), muzzle: F.muzzleT && (now - F.muzzleT < 60), muzzleT: F.muzzleT || 0, gunMs: GUN_FIRE_MS,
+    firing: !!(F.firing && F.armed && F.reportedAirborne && F.weapon !== 'msl'), muzzle: F.muzzleT && (now - F.muzzleT < 60), muzzleT: F.muzzleT || 0, gunMs: F.gunMs,
+    chinGun: F.chinGun,   // gun station: one barrel under the nose (heli) vs a pair under the wings
+    // Missiles in the air right now — flown client-side (stepShots), drawn as real world objects.
+    missiles: stepShots(F, now, dt, s),
     // Two-part gunsight: shown while the guns are armed + airborne (aiming, not only firing). Also
     // aligns the chase camera dead-astern so the boresight runs up the screen centre (windshield.js).
     reticle: !!(F.armed && F.reportedAirborne && F.weapon !== 'msl'),

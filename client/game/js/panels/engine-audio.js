@@ -571,7 +571,26 @@ const GUN_FX_EXT = { config: { duration: 0.3, layers: [
   { waveform: 'sawtooth', freq: 1300, pitchBend: { to: 540, time: 0.15 }, filter: { type: 'bandpass', freq: 1300, q: 1.7 }, adsr: { a: 0.004, d: 0.1, s: 0, r: 0.07 }, gain: 0.04 },  // DOPPLER tracer whip-past (darkened + non-sustaining to kill the continuous whine)
   { waveform: 'noise', noiseMix: 1, delay: 0.06, filter: { type: 'bandpass', freq: 1300, q: 1.3 }, adsr: { a: 0.003, d: 0.11, s: 0, r: 0.06 }, gain: 0.05 },                // air-rush as it recedes
   { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 2800, q: 0.7 }, adsr: { a: 0.0005, d: 0.04, s: 0, r: 0.03 }, gain: 0.06 } ] } };                       // high muzzle snap (halved)
-export function gunFx(external) { const ae = AE(); try { ae?.init?.(); ae?.playSfx?.(external ? GUN_FX_EXT : GUN_FX); } catch {} }
+// The LIGHT chin gun (the Viper's turret) — a peashooter beside the cannon above, and it's meant
+// to sound like one. Same shot anatomy so the two read as the same family of weapon, but the
+// chest-bass is gone, the body sits an octave up, and everything is shorter and drier: a fast,
+// tinny RAT-TAT-TAT rather than a heavy thud. Fired at GUN_FIRE_MS_LIGHT (~2× the cadence), so
+// keeping each round brief is what stops the burst turning to mush.
+const GUN_LIGHT_FX = { config: { duration: 0.16, layers: [
+  { waveform: 'sine', freq: 150, pitchBend: { to: 92, time: 0.05 }, filter: { type: 'lowpass', freq: 320, q: 1 }, adsr: { a: 0.001, d: 0.06, s: 0, r: 0.03 }, gain: 0.2 },     // small muzzle thump (no sub-bass)
+  { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 1500, q: 0.9 }, adsr: { a: 0.0005, d: 0.045, s: 0, r: 0.02 }, gain: 0.26 },                              // dry, bright round-crack
+  { waveform: 'sawtooth', freq: 1500, pitchBend: { to: 780, time: 0.09 }, filter: { type: 'bandpass', freq: 1600, q: 1.8 }, adsr: { a: 0.003, d: 0.06, s: 0, r: 0.03 }, gain: 0.022 },  // thin doppler zip downrange
+  { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 3400, q: 0.7 }, adsr: { a: 0.0005, d: 0.02, s: 0, r: 0.015 }, gain: 0.03 } ] } };                        // muzzle snap
+const GUN_LIGHT_FX_EXT = { config: { duration: 0.16, layers: [
+  { waveform: 'sine', freq: 128, pitchBend: { to: 84, time: 0.05 }, filter: { type: 'lowpass', freq: 280, q: 1 }, adsr: { a: 0.001, d: 0.05, s: 0, r: 0.025 }, gain: 0.16 },
+  { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 1750, q: 0.9 }, adsr: { a: 0.0005, d: 0.05, s: 0, r: 0.025 }, gain: 0.32 },                              // sharper in open air
+  { waveform: 'sawtooth', freq: 1750, pitchBend: { to: 860, time: 0.1 }, filter: { type: 'bandpass', freq: 1800, q: 1.8 }, adsr: { a: 0.003, d: 0.065, s: 0, r: 0.035 }, gain: 0.03 },
+  { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 3600, q: 0.7 }, adsr: { a: 0.0005, d: 0.025, s: 0, r: 0.02 }, gain: 0.05 } ] } };
+// `light` picks the chin turret's voice over the wing cannon's; `external` the open-air mix.
+export function gunFx(external, light) {
+  const ae = AE(); const def = light ? (external ? GUN_LIGHT_FX_EXT : GUN_LIGHT_FX) : (external ? GUN_FX_EXT : GUN_FX);
+  try { ae?.init?.(); ae?.playSfx?.(def); } catch {}
+}
 
 // AA / radar-warning-receiver tone — the insistent launch-warning "deedle-deedle": a bright
 // square lead chopped by a fast tremolo with a fifth under it, cutting through the engine
@@ -657,6 +676,26 @@ const MISSILE_FX = { config: { duration: 1.3, layers: [
   { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 2400, q: 0.8 }, pitchBend: { to: 500, time: 1.0 }, adsr: { a: 0.03, d: 0.9, s: 0.2, r: 0.25 }, gain: 0.1 },    // tearing whoosh, falling away
   { waveform: 'sawtooth', freq: 340, pitchBend: { to: 120, time: 0.9 }, filter: { type: 'lowpass', freq: 900, q: 1 }, adsr: { a: 0.02, d: 0.8, s: 0.1, r: 0.2 }, gain: 0.045 } ] } };  // motor roar Dopplering down
 export function missileFx() { const ae = AE(); try { ae?.init?.(); ae?.playSfx?.(MISSILE_FX); } catch {} }
+
+// A SWARM ripple — `n` motors lighting one after another off the rails, not one launch played
+// once. Each seeker gets its own ignition thump + tearing whoosh delayed by the same 120 ms
+// stagger the missiles are drawn on (MSL_STAGGER_MS in cockpit.js), detuned a little per rail so
+// they don't phase-lock into a single fat noise, and the whole ripple rolls out as one long tear.
+// The tail rounds are quieter — by then you're hearing them leave, not go off beside you.
+export function missileRippleFx(n, external) {
+  const shots = Math.max(1, Math.min(8, n | 0));
+  const layers = [];
+  for (let i = 0; i < shots; i++) {
+    const d = i * 0.12, det = 1 + (i % 3) * 0.06, fall = 1 - i * 0.06;   // per-rail detune + roll-off
+    layers.push(
+      { waveform: 'sine', freq: 96 * det, pitchBend: { to: 46, time: 0.14 }, delay: d, adsr: { a: 0.002, d: 0.18, s: 0, r: 0.09 }, gain: 0.1 * fall },
+      { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 2300 * det, q: 0.8 }, pitchBend: { to: 520, time: 0.9 }, delay: d, adsr: { a: 0.025, d: 0.75, s: 0.15, r: 0.2 }, gain: (external ? 0.075 : 0.06) * fall },
+      { waveform: 'sawtooth', freq: 330 * det, pitchBend: { to: 120, time: 0.8 }, filter: { type: 'lowpass', freq: 900, q: 1 }, delay: d, adsr: { a: 0.02, d: 0.7, s: 0.08, r: 0.18 }, gain: 0.03 * fall },
+    );
+  }
+  const ae = AE();
+  try { ae?.init?.(); ae?.playSfx?.({ config: { duration: 1.3 + shots * 0.12, layers } }); } catch {}
+}
 
 // Flares away — a fast string of pyrotechnic thumps kicking out of the dispensers, with a
 // bright sizzle riding behind them.
