@@ -73,12 +73,13 @@
       "max_reduction": 0.9,
       "recovery_per_sec": 0.0002
     },
-    "onset_message": "<span class=\"msg-system\">The quiet finishes settling. You are no longer sure you are alone in here.</span>"
+    "onset_message": "<span class=\"msg-system\">The quiet finishes settling. You are no longer sure you are alone in here.</span>",
+    "take_line": "You tip out the {name} and snort it off your hand."
   },
   "flags": {},
   "id": "drug_wraithdust",
   "item_id": "item_wraithdust",
-  "name": "Wraithdust",
+  "name": "wraithdust",
   "overdose_threshold": 6,
   "withdrawal_effects": {}
 }

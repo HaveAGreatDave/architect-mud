@@ -49,12 +49,13 @@
     "tolerance": {
       "gain_per_dose": 0.15,
       "max_reduction": 0.7
-    }
+    },
+    "take_line": "You pack a bowl of {name} and burn it down."
   },
   "flags": {},
   "id": "drug_dreamsmoke",
   "item_id": "item_dreamsmoke",
-  "name": "Dreamsmoke",
+  "name": "dreamsmoke",
   "overdose_threshold": 8,
   "withdrawal_effects": {}
 }

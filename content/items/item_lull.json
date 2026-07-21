@@ -2,7 +2,7 @@
   "description": "A blue benzo tab that files the sharp edges off a bad night.",
   "flags": {},
   "id": "item_lull",
-  "name": "Lull",
+  "name": "lull",
   "tags": {
     "drug": true
   },

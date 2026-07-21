@@ -5,7 +5,8 @@
   "effects": {
     "instant": {
       "hunger": -3
-    }
+    },
+    "take_line": "You pinch off some {name}."
   },
   "flags": {
     "color": "#5a8a3a",

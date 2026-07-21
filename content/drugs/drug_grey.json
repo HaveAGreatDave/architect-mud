@@ -39,14 +39,15 @@
         "stat_endurance": -3
       },
       "onset_seconds": 600
-    }
+    },
+    "take_line": "You dry-swallow the {name} gelcap."
   },
   "flags": {
     "drug_class": "depressant"
   },
   "id": "drug_grey",
   "item_id": "item_grey",
-  "name": "Grey",
+  "name": "grey",
   "overdose_threshold": 3,
   "withdrawal_effects": {}
 }

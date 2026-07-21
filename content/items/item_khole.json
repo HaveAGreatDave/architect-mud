@@ -2,7 +2,7 @@
   "description": "A dissociative dust that unplugs you from your own body for a while.",
   "flags": {},
   "id": "item_khole",
-  "name": "K-Hole",
+  "name": "k-hole",
   "tags": {
     "drug": true
   },

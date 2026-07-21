@@ -26,7 +26,8 @@
         "stat_reflexes": -1
       },
       "peak_seconds": 240
-    }
+    },
+    "take_line": "You spark the {name} and pull on it."
   },
   "flags": {
     "cannabis": true,

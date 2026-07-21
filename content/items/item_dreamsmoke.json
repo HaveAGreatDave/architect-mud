@@ -2,7 +2,7 @@
   "description": "Two bags of engineered grass. Mellow, hungry, harmless-ish.",
   "flags": {},
   "id": "item_dreamsmoke",
-  "name": "Dreamsmoke",
+  "name": "dreamsmoke",
   "tags": {
     "drug": true
   },

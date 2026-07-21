@@ -66,12 +66,13 @@
       "gain_per_dose": 0.25,
       "max_reduction": 0.85
     },
-    "onset_message": "<span class=\"msg-system\">It does not ease in. It kicks the door off its hinges.</span>"
+    "onset_message": "<span class=\"msg-system\">It does not ease in. It kicks the door off its hinges.</span>",
+    "take_line": "You swallow a hit of {name}."
   },
   "flags": {},
   "id": "drug_screamers",
   "item_id": "item_screamers",
-  "name": "Screamers",
+  "name": "screamers",
   "overdose_threshold": 5,
   "withdrawal_effects": {}
 }

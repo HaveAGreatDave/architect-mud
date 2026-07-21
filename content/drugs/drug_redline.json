@@ -44,7 +44,8 @@
       "onset_seconds": 900
     },
     "onset_seconds": 10,
-    "onset_message": "<span class=\"msg-system\">Your heart finds the new gear and stays there.</span>"
+    "onset_message": "<span class=\"msg-system\">Your heart finds the new gear and stays there.</span>",
+    "take_line": "You dose {name}, the way the label tells you not to."
   },
   "flags": {
     "injectable": true,

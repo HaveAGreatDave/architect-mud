@@ -37,7 +37,8 @@
         "stat_cool": -2
       },
       "onset_seconds": 600
-    }
+    },
+    "take_line": "You light a cigarette and draw on it."
   },
   "flags": {
     "appetite_suppress_seconds": 900,

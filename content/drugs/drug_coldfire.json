@@ -41,7 +41,8 @@
     },
     "onset_seconds": 12,
     "comeon_message": "<span class=\"msg-system\">It hits your blood cold. Somewhere behind your sternum, something starts winding up.</span>",
-    "onset_message": "<span class=\"msg-system\">The fear goes out like a snuffed match. What is left is very calm and very willing.</span>"
+    "onset_message": "<span class=\"msg-system\">The fear goes out like a snuffed match. What is left is very calm and very willing.</span>",
+    "take_line": "You dose yourself with {name}, cold and clinical."
   },
   "flags": {
     "injectable": true,

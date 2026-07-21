@@ -79,12 +79,13 @@
       "max_reduction": 0.95,
       "recovery_per_sec": 0.0002
     },
-    "onset_message": "<span class=\"msg-system\">The paper was not a lie. The walls take their first slow breath.</span>"
+    "onset_message": "<span class=\"msg-system\">The paper was not a lie. The walls take their first slow breath.</span>",
+    "take_line": "You lay the square of {name} on your tongue and wait."
   },
   "flags": {},
   "id": "drug_blotter",
   "item_id": "item_blotter",
-  "name": "Blotter",
+  "name": "blotter",
   "overdose_threshold": 8,
   "withdrawal_effects": {}
 }

@@ -34,7 +34,8 @@
         "stat_cool": -2
       },
       "onset_seconds": 1200
-    }
+    },
+    "take_line": "You dose {name} and let it go looking."
   },
   "flags": {},
   "id": "drug_memhack",

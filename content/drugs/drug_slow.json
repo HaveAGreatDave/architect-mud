@@ -45,14 +45,15 @@
       },
       "onset_seconds": 900
     },
-    "onset_message": "<span class=\"msg-system\">The edges come off everything. Whatever was urgent can wait.</span>"
+    "onset_message": "<span class=\"msg-system\">The edges come off everything. Whatever was urgent can wait.</span>",
+    "take_line": "You swallow a {name} tab."
   },
   "flags": {
     "drug_class": "depressant"
   },
   "id": "drug_slow",
   "item_id": "item_drug_slow",
-  "name": "Slow",
+  "name": "slow",
   "overdose_threshold": 3,
   "withdrawal_effects": {}
 }

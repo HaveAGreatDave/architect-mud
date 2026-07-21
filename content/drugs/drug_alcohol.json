@@ -13,7 +13,8 @@
     "overdose": {
       "lethal": true,
       "message": "You've had far too much, far too fast. The room spins hard, your stomach heaves, and then everything just… stops. Alcohol poisoning."
-    }
+    },
+    "take_line": "You knock back {name}."
   },
   "flags": {
     "alcoholic": true,

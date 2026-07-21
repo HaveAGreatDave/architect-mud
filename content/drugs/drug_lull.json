@@ -36,14 +36,15 @@
         "stat_cool": -3
       },
       "onset_seconds": 900
-    }
+    },
+    "take_line": "You slip a {name} tab under your tongue."
   },
   "flags": {
     "drug_class": "depressant"
   },
   "id": "drug_lull",
   "item_id": "item_lull",
-  "name": "Lull",
+  "name": "lull",
   "overdose_threshold": 3,
   "withdrawal_effects": {}
 }

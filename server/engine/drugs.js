@@ -292,9 +292,22 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
   // consume plugin's substance-appropriate "You drain the last of the beer…"),
   // replacing the generic "You take X." + description. Drinks/smokes read better
   // as an act than as a flat "take".
+  // The ACT, not a generic "take": a cigarette is smoked, coffee is sipped, dust is
+  // snorted, a gelcap is swallowed. Authored per drug as `effects.take_line` (with a
+  // {name} token). Injecting overrides whatever the default act is — the needle is
+  // its own verb — and only when the drug actually supports it, since resolveRoute
+  // has already degraded `inject` to neutral for anything not flagged injectable.
+  const actLine = route === ROUTES.inject
+    ? `You find a vein and push ${displayName} into your blood.`
+    // A spliced compound's inline blob carries no take_line, so fall back to the
+    // carrier drug's — otherwise the authored line would be dead for every splice.
+    : (() => {
+        const authored = eff.take_line || drug.effects?.take_line;
+        return authored ? String(authored).replace(/\{name\}/g, displayName) : `You take ${displayName}.`;
+      })();
   let message = opts.takeLine != null
     ? opts.takeLine
-    : `You take ${displayName}. ${(opts.inlineEffects ? '' : drug.description) || ''}`.trim();
+    : `${actLine} ${(opts.inlineEffects ? '' : drug.description) || ''}`.trim();
 
   // Diuretic factor (effects.diuretic): how the substance shifts water balance.
   // 1 = neutral (water). >1 diuretic (beer, coffee, stims) — pulls water into the

@@ -5,7 +5,8 @@
   "effects": {
     "instant": {
       "sanity": 1
-    }
+    },
+    "take_line": "You pinch off some {name}."
   },
   "flags": {
     "color": "#8a6a3a",

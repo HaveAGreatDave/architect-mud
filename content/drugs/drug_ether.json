@@ -41,14 +41,15 @@
       "message": "You breathe in one rag too many. The lights go out mid-thought."
     },
     "comeon_message": "<span class=\"msg-system\">You put the rag over your face and breathe in. The smell is the whole world for a second.</span>",
-    "onset_message": "<span class=\"msg-system\">The floor tilts politely away and the lights go soft at the edges.</span>"
+    "onset_message": "<span class=\"msg-system\">The floor tilts politely away and the lights go soft at the edges.</span>",
+    "take_line": "You soak the rag and hold it over your face."
   },
   "flags": {
     "drug_class": "depressant"
   },
   "id": "drug_ether",
   "item_id": "item_ether",
-  "name": "Ether",
+  "name": "ether",
   "overdose_threshold": 3,
   "withdrawal_effects": {}
 }

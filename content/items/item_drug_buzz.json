@@ -2,7 +2,7 @@
   "description": "A cheap stimulant tab. Tastes like batteries.",
   "flags": {},
   "id": "item_drug_buzz",
-  "name": "Buzz",
+  "name": "buzz",
   "tags": {
     "description": "A cheap stimulant tab. Tastes like batteries.",
     "drug": true,

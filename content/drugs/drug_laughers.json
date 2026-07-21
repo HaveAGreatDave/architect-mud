@@ -60,12 +60,13 @@
     "tolerance": {
       "gain_per_dose": 0.2,
       "max_reduction": 0.8
-    }
+    },
+    "take_line": "You chew a couple of {name}."
   },
   "flags": {},
   "id": "drug_laughers",
   "item_id": "item_laughers",
-  "name": "Laughers",
+  "name": "laughers",
   "overdose_threshold": 5,
   "withdrawal_effects": {}
 }

@@ -2,7 +2,9 @@
   "addiction_chance": 0,
   "description": "A spliced compound. Effects vary batch to batch.",
   "duration_seconds": 300,
-  "effects": {},
+  "effects": {
+    "take_line": "You knock back the {name} and hope."
+  },
   "flags": {},
   "id": "drug_compound",
   "item_id": "item_compound",

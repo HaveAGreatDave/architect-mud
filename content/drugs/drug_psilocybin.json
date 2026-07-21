@@ -67,12 +67,13 @@
       "max_reduction": 0.9,
       "recovery_per_sec": 0.0003
     },
-    "onset_message": "<span class=\"msg-system\">The nausea lifts and the world steps forward to be looked at.</span>"
+    "onset_message": "<span class=\"msg-system\">The nausea lifts and the world steps forward to be looked at.</span>",
+    "take_line": "You chew the mushrooms down, stems and all."
   },
   "flags": {},
   "id": "drug_psilocybin",
   "item_id": "item_psilocybin",
-  "name": "Psilocybin",
+  "name": "psilocybin",
   "overdose_threshold": 6,
   "withdrawal_effects": {}
 }

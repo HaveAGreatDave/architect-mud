@@ -56,12 +56,13 @@
       "onset_seconds": 1800
     },
     "comeon_message": "<span class=\"msg-system\">You take the dust and wait, already feeling further away than you were.</span>",
-    "onset_message": "<span class=\"msg-system\">Your body finishes its sentence without you. You are somewhere behind it now.</span>"
+    "onset_message": "<span class=\"msg-system\">Your body finishes its sentence without you. You are somewhere behind it now.</span>",
+    "take_line": "You cut out a line of {name} and snort it."
   },
   "flags": {},
   "id": "drug_khole",
   "item_id": "item_khole",
-  "name": "K-Hole",
+  "name": "k-hole",
   "overdose_threshold": 4,
   "withdrawal_effects": {}
 }

@@ -27,12 +27,13 @@
     "tolerance": {
       "gain_per_dose": 0.2,
       "max_reduction": 0.7
-    }
+    },
+    "take_line": "You crack an amyl under your nose and breathe in."
   },
   "flags": {},
   "id": "drug_amyls",
   "item_id": "item_amyls",
-  "name": "Amyls",
+  "name": "amyls",
   "overdose_threshold": 4,
   "withdrawal_effects": {}
 }

@@ -67,12 +67,13 @@
       "gain_per_dose": 0.3,
       "max_reduction": 0.9
     },
-    "onset_message": "<span class=\"msg-system\">The colours arrive first, and they have opinions.</span>"
+    "onset_message": "<span class=\"msg-system\">The colours arrive first, and they have opinions.</span>",
+    "take_line": "You swallow a few {name} pellets."
   },
   "flags": {},
   "id": "drug_mescaline",
   "item_id": "item_mescaline",
-  "name": "Mescaline",
+  "name": "mescaline",
   "overdose_threshold": 6,
   "withdrawal_effects": {}
 }

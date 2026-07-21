@@ -58,7 +58,8 @@
       "onset_seconds": 2100
     },
     "comeon_message": "<span class=\"msg-system\">You dose and stand very still, waiting for the channel to change.</span>",
-    "onset_message": "<span class=\"msg-system\">The signal drops out. You are between stations, and it is quiet here.</span>"
+    "onset_message": "<span class=\"msg-system\">The signal drops out. You are between stations, and it is quiet here.</span>",
+    "take_line": "You dose {name} and wait for the signal to drop."
   },
   "flags": {},
   "id": "drug_voidwalk",

@@ -2,7 +2,7 @@
   "description": "A single square of high-powered blotter acid, printed with a grinning sun.",
   "flags": {},
   "id": "item_blotter",
-  "name": "Blotter",
+  "name": "blotter",
   "tags": {
     "drug": true
   },

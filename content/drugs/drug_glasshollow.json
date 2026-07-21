@@ -90,7 +90,8 @@
       },
       "onset_seconds": 2400
     },
-    "onset_message": "<span class=\"msg-system\">Something in the room thins out, and you can see how little is holding it together.</span>"
+    "onset_message": "<span class=\"msg-system\">Something in the room thins out, and you can see how little is holding it together.</span>",
+    "take_line": "You swallow a dose of {name}."
   },
   "flags": {},
   "id": "drug_glasshollow",

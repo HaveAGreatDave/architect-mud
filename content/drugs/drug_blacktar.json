@@ -43,7 +43,8 @@
     },
     "onset_seconds": 30,
     "comeon_message": "<span class=\"msg-system\">It is in you. Now the part nobody talks about — the waiting.</span>",
-    "onset_message": "<span class=\"msg-system\">It arrives all at once, warm and enormous, and the waiting stops mattering.</span>"
+    "onset_message": "<span class=\"msg-system\">It arrives all at once, warm and enormous, and the waiting stops mattering.</span>",
+    "take_line": "You cook {name} down and get it into you."
   },
   "flags": {
     "injectable": true,
@@ -51,7 +52,7 @@
   },
   "id": "drug_blacktar",
   "item_id": "item_blacktar",
-  "name": "Blacktar",
+  "name": "blacktar",
   "overdose_threshold": 2,
   "withdrawal_effects": {}
 }
