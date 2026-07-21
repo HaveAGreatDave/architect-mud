@@ -2,10 +2,10 @@
   "ambient_events": [],
   "ambient_theme": "wasteland",
   "audio_theme_id": null,
-  "bg_color": "#2a1c16",
-  "color": "#b5744a",
+  "bg_color": "#1d3b52",
+  "color": "#3f7fb0",
   "created_by": "wildlands-expand",
-  "description": "Broken mesa shelves step away in ochre and iron-red, cut by dry washes where the wind funnels grit against your teeth.",
+  "description": "Out where the bottom stops meaning anything. The surface lies flat and lightless and takes the sky's colour without improving on it. Somewhere below you the water goes on being cold, in the dark, at length.",
   "exits": {
     "east": "zone_district_899_934",
     "north": "zone_district_898_933",
@@ -25,7 +25,7 @@
   "id": "zone_district_898_934",
   "map_id": "map_world",
   "marker": null,
-  "name": "Oxide Barrens",
+  "name": "The Meltwater Mouth",
   "parent_zone": null,
   "updated_at": "1784496296"
 }

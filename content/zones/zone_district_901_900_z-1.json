@@ -2,10 +2,10 @@
   "ambient_events": [],
   "ambient_theme": "city",
   "audio_theme_id": null,
-  "bg_color": null,
-  "color": null,
+  "bg_color": "#14283a",
+  "color": "#356d90",
   "created_by": null,
-  "description": "An empty place.",
+  "description": "Cold, weighted water. Weed leans all one way in the current, and a slow rain of particulate drifts down through what light gets this far. Your own breath knocks about in your ears and sounds like somebody else's.",
   "exits": {
     "east": "zone_district_902_900_z-1",
     "north": "zone_district_901_899_z-1",
@@ -21,7 +21,7 @@
   "id": "zone_district_901_900_z-1",
   "map_id": "map_world",
   "marker": null,
-  "name": "Water Ground",
+  "name": "The Basin Floor",
   "parent_zone": null,
   "updated_at": "1784504312"
 }

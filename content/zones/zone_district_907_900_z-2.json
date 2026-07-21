@@ -2,10 +2,10 @@
   "ambient_events": [],
   "ambient_theme": "city",
   "audio_theme_id": null,
-  "bg_color": null,
-  "color": null,
+  "bg_color": "#0d1a26",
+  "color": "#2c5a7a",
   "created_by": null,
-  "description": "An empty place.",
+  "description": "Down where the basin keeps the things it doesn't give back. The bottom shelves away into a dark with no floor you can find, and the cold here is a different cold — patient, and faintly interested.",
   "exits": {
     "east": "zone_district_908_900_z-2",
     "north": "zone_district_907_899_z-2",
@@ -21,7 +21,7 @@
   "id": "zone_district_907_900_z-2",
   "map_id": "map_world",
   "marker": null,
-  "name": "Water Ground",
+  "name": "The Deep Channel",
   "parent_zone": null,
   "updated_at": "1784700000"
 }

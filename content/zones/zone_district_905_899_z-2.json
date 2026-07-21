@@ -2,10 +2,10 @@
   "ambient_events": [],
   "ambient_theme": "city",
   "audio_theme_id": null,
-  "bg_color": null,
-  "color": null,
+  "bg_color": "#0d1a26",
+  "color": "#2c5a7a",
   "created_by": null,
-  "description": "An empty place.",
+  "description": "The deep channel. Silt hangs in slow suspension and the current runs harder at this depth, walking you along the bottom in a direction you didn't pick. Something big enough to move water goes by, well out in the black.",
   "exits": {
     "east": "zone_district_906_899_z-2",
     "south": "zone_district_905_900_z-2",
@@ -21,7 +21,7 @@
   "id": "zone_district_905_899_z-2",
   "map_id": "map_world",
   "marker": null,
-  "name": "Water Ground",
+  "name": "The Deep Channel",
   "parent_zone": null,
   "updated_at": "1784504312"
 }

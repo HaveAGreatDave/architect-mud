@@ -2,10 +2,10 @@
   "ambient_events": [],
   "ambient_theme": "wasteland",
   "audio_theme_id": null,
-  "bg_color": "#2a1c16",
-  "color": "#b5744a",
+  "bg_color": "#1b3040",
+  "color": "#5f93b8",
   "created_by": "wildlands-expand",
-  "description": "Cracked red hardpan runs out flat to a rust-colored horizon. Wind-scoured rock, grit, and nothing that grows.",
+  "description": "The river quickens through a gut of red rock and throws up a cold spray that beads on everything you own. Driftwood sits jammed high on both banks — a mark, if you want one, of how big this gets when the melt comes down.",
   "exits": {
     "east": "zone_district_882_912",
     "north": "zone_district_881_911",
@@ -25,7 +25,7 @@
   "id": "zone_district_881_912",
   "map_id": "map_world",
   "marker": null,
-  "name": "Bloodrock Table",
+  "name": "The Meltwater",
   "parent_zone": null,
   "updated_at": "1784496295"
 }
