@@ -24,6 +24,7 @@ import { getTunable } from '../../server/engine/tunables.js';
 import { reloadItem, deleteItemCache } from '../../server/engine/items-cache.js';
 import { registerAction, dispatchAction } from '../../server/engine/actions.js';
 import { getCrimeStars, getCrimeWitness, getCrimeLabel, isCrimeEnabled } from '../../server/engine/crimes.js';
+import { gameMsToReal, realMsToGame } from '../../server/engine/gametime.js';
 
 const COMPASS = new Set(['north', 'south', 'east', 'west', 'up', 'down', 'n', 's', 'e', 'w', 'u', 'd']);
 
@@ -39,7 +40,14 @@ const DRAIN = { sticky_cam: 1, relay: 1, motion_sensor: 1, audio_sensor: 1, jamm
 
 // Adhesive sticky cams cook their own guts after a day on the wall — a planted cam
 // is a burner, not an installation. Wired taps run off zone mains and are exempt.
-const STICKY_CAM_TTL_MS = 24 * 60 * 60 * 1000;
+// A sticky cam's cell cooks it off the wall after 24 hours — 24 GAME hours, matching
+// the fiction and every in-world clock the player reads (was 24 real hours until
+// 2026-07-21, which at the live time_scale of 3 was really three in-world days).
+// Converted at the point of use, not at plant time, so a live time-scale change is
+// honoured on the next sweep — the tick-driven pattern in gametime.js.
+const STICKY_CAM_TTL_GAME_MS = 24 * 60 * 60 * 1000;
+const stickyCamTtlRealMs = () => gameMsToReal(STICKY_CAM_TTL_GAME_MS);
+export const __stickyCamTtl = () => ({ gameMs: STICKY_CAM_TTL_GAME_MS, realMs: stickyCamTtlRealMs() });
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -387,9 +395,11 @@ async function buildTiles(ownerId) {
       bufferLines: buf?.frames.length || 0,    // lines on tape waiting to be clipped
       frame: deviceFrame(d, status),
       ts: clock(),
-      // Minutes left before the 24h sticky-cam burnout (null = doesn't expire).
+      // GAME minutes left before the 24-game-hour sticky-cam burnout (null = doesn't
+      // expire). Game, not real: the Tablet renders this as "⏻ 23h" and the plant copy
+      // promises 24 hours, so a real-time figure would contradict both.
       expiresIn: (d.device_kind === 'sticky_cam' && !d.wired && d.placed_at)
-        ? Math.max(0, Math.round((Number(d.placed_at) * 1000 + STICKY_CAM_TTL_MS - Date.now()) / 60000))
+        ? Math.max(0, Math.round(realMsToGame(Number(d.placed_at) * 1000 + stickyCamTtlRealMs() - Date.now()) / 60000))
         : null,
     };
   });
@@ -2151,11 +2161,11 @@ async function destroyDevice(id) {
   cameraBuffers.delete(id);
 }
 
-// Sticky cams burn out 24h after they were planted. Runs on the same idle-tolerant
+// Sticky cams burn out 24 GAME hours after they were planted. Runs on the same idle-tolerant
 // cadence as the clip purge; the owner gets a ping so a dead tile isn't a mystery.
 export async function __expireStickyCams() { return expireStickyCams(); }
 async function expireStickyCams() {
-  const cutoff = Math.floor((Date.now() - STICKY_CAM_TTL_MS) / 1000);   // placed_at is epoch seconds
+  const cutoff = Math.floor((Date.now() - stickyCamTtlRealMs()) / 1000);   // placed_at is epoch seconds
   const { rows } = await query(
     `SELECT d.id, d.owner_id, f.name, z.name AS zone_name, d.zone_id
        FROM security_devices d

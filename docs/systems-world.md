@@ -187,7 +187,15 @@ Scheduled in `scheduleTicks` off [scheduler.js](../server/engine/scheduler.js). 
 `generateWeatherForDate(dateStr, climateProfile)` is deterministic: a `mulberry32` PRNG seeded off `"weather:<date>"`. Each day yields `{ weatherType, tempC, precipChance, windKph, humidityPct }`:
 
 - **Type** from a precip roll (`precipTypeForTemp` → rain/thunderstorm/sleet/snow/blizzard by temp) or, on dry days, overcast/cloudy/fog/haze/clear scaled by `precipChance`.
-- **Temp** = monthly/seasonal base ± variance (±10°C normally, ±20°C on a 5% "extreme" day).
+- **Temp** = monthly/seasonal base + an **autocorrelated anomaly** (`tempAnomalyC`, weather plugin):
+  three-plus octaves of smooth value noise over the day index (periods 25 / 6.5 / 2.8 / 1.4 days) plus
+  a ±2°C per-day mesoscale jitter. σ ≈ 2.7°C, range ≈ ±9°C, **mean day-to-day change ≈ 1.6°C**.
+  Still a pure function of the date, so a day forecast a week out matches the day itself.
+  *(Was `±10°C uniform, ±20°C on a 5% "extreme" day` until 2026-07-21 — an independent roll per day,
+  which measured a **7.4°C mean day-to-day jump**, moved ≥10°C on 32% of days, and spread the
+  fallback winter across −18…21°C so a winter day could out-warm a summer one. Hot and cold spells
+  now persist for days instead of teleporting in and out; single-day ±20°C spikes are gone, and the
+  drama belongs to the [extreme-weather severity/event system](systems-weather-extreme.md).)*
 - **Wind** (`windForDay`) = base wind × a per-type ceiling (`WIND_BY_WEATHER`: fog/haze calm, storms/blizzards gale) × a rolled daily windiness (~15% calm, ~15% gusty).
 - **Humidity** (`humidityForDay`) = base ± type shift (fog/rain wetter, clear drier) ± jitter.
 

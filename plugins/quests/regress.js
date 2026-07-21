@@ -19,7 +19,7 @@ export default async function regress({ run, check, getPlayer }) {
     `INSERT INTO quests (id,name,description,objectives,rewards,repeatable,quest_type,meta,updated_at)
      VALUES ($1,'Regress Smoke','',$2,$3,0,'standard','{}',EXTRACT(EPOCH FROM NOW()))
      ON CONFLICT (id) DO UPDATE SET objectives=$2, rewards=$3`,
-    [TEST_QUEST_ID, JSON.stringify([{ type: 'visit', zone: 'zone_nowhere', count: 1, desc: 'Go nowhere' }]), JSON.stringify({ credits: 5 })]
+    [TEST_QUEST_ID, JSON.stringify([{ type: 'visit', zone: 'zone_nowhere', count: 1, desc: 'Go nowhere' }]), JSON.stringify({ credits: 5, xp: 7 })]
   );
   await query('DELETE FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, TEST_QUEST_ID]);
 
@@ -32,8 +32,23 @@ export default async function regress({ run, check, getPlayer }) {
   r = await dispatchAction({ type: 'ADVANCE', actor: player, params: { quest_id: TEST_QUEST_ID, index: 0 } });
   check('ADVANCE completes the single-objective quest', r?.completed === true, JSON.stringify(r));
 
+  // rewards.xp — until 2026-07-21 quests awarded none at all, so the whole quest
+  // economy fed no progression. The DB half (grantXp → players.bonus_xp) can't be
+  // asserted here: the harness player is in-memory only and has no players row, so
+  // the UPDATE legitimately hits zero rows. What IS testable is the live mirror —
+  // total_xp/xp are computed columns refreshed only at login, so a turn-in that
+  // forgot to bump them would leave every mid-session reader stale.
+  const mirrorBefore = Number(player.total_xp) || 0;
+  const netBefore = Number(player.xp) || 0;
+
   r = await dispatchAction({ type: 'TURN_IN', actor: player, params: { quest_id: TEST_QUEST_ID } });
   check('TURN_IN pays out and closes the quest', r?.turned_in === true, JSON.stringify(r));
+
+  check('TURN_IN moves the live total_xp mirror by rewards.xp',
+    (Number(player.total_xp) || 0) - mirrorBefore === 7, `${mirrorBefore} → ${player.total_xp}`);
+  check('TURN_IN moves the live net-xp mirror too',
+    (Number(player.xp) || 0) - netBefore === 7, `${netBefore} → ${player.xp}`);
+  player.total_xp = mirrorBefore; player.xp = netBefore;
 
   ({ rows } = await query('SELECT status FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, TEST_QUEST_ID]));
   check('player_quests row is turned_in', rows[0]?.status === 'turned_in', JSON.stringify(rows[0]));

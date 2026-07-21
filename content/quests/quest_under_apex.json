@@ -37,7 +37,8 @@
         "item_id": "item_battery",
         "quantity": 3
       }
-    ]
+    ],
+    "xp": 60
   },
   "updated_at": "1784600000"
 }

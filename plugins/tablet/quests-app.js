@@ -21,7 +21,6 @@ import { sendToPlayer } from '../../server/engine/messaging.js';
 import { registerTabletApp, normScreen } from './registry.js';
 import { findTurnInNpc } from '../quests/index.js';
 import { renderDialogueNode } from '../../server/engine/dialogue.js';
-import { getTunable } from '../../server/engine/tunables.js';
 import { courierBoard, takeJob, activeRun } from '../work/courier.js';
 
 // Steady Work (courier archetype) is sourced live from the work plugin's
@@ -30,7 +29,6 @@ import { courierBoard, takeJob, activeRun } from '../work/courier.js';
 // view can tell them apart from real quest_ids.
 const WORK_TILE = 'Steady Work';
 function isCourierId(id) { return typeof id === 'string' && id.startsWith('cr_'); }
-function courierGate(player) { return (Number(player.total_xp) || 0) >= getTunable('work_xp_gate', 500); }
 
 function defaultCategory(quest) {
   if (quest.quest_type === 'flight') return 'Pilot Contracts';
@@ -192,14 +190,10 @@ async function buildScreen(player, screenId, params) {
     };
   }
 
-  // Steady Work — the courier board, sourced live from the work plugin. XP-gated
-  // (same 500-lifetime-XP line the chat `courier`/`work` verbs enforce). Shows the
-  // player's active run at the top if they're carrying one.
+  // Steady Work — the courier board, sourced live from the work plugin. Ungated,
+  // matching the chat `courier`/`work` verbs (the 500-lifetime-XP line was removed
+  // 2026-07-21). Shows the player's active run at the top if they're carrying one.
   if (screenNorm === normScreen(WORK_TILE)) {
-    if (!courierGate(player)) {
-      return { view: 'list', breadcrumb: [WORK_TILE], boardName: 'Locked',
-        items: [{ id: 'locked', label: 'Steady work goes to those who\'ve proven themselves', sub: `Come back at ${getTunable('work_xp_gate', 500)} lifetime XP.`, badge: 'active', badgeLabel: 'LOCKED' }] };
-    }
     const held = await activeRun(player);
     const items = [];
     if (held) {
@@ -270,9 +264,8 @@ async function buildScreen(player, screenId, params) {
   }
   const items = [...byCat.entries()].map(([cat, count]) => ({ id: cat, label: cat, sub: `${count} active` }));
   // Steady Work is employment, not location-bound like a job board — surface it as
-  // an always-present tile for anyone past the XP gate (a courier run in progress
-  // shows as its own count).
-  if (courierGate(player)) {
+  // an always-present tile (a courier run in progress shows as its own count).
+  {
     const held = await activeRun(player);
     items.push({ id: WORK_TILE, label: WORK_TILE, sub: held ? 'Run in progress' : 'Delivery runs available' });
   }

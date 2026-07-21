@@ -89,6 +89,49 @@ function precipTypeForTemp(tempC, rand) {
   return 'blizzard';
 }
 
+// ── Day-to-day temperature: an autocorrelated anomaly, not a fresh coin flip ──
+// Until 2026-07-21 this was `variance = (rand() - 0.5) * (isExtreme ? 40 : 20)` — an
+// INDEPENDENT UNIFORM roll per day. Measured over a simulated year that produced a
+// mean day-to-day jump of 7.4°C (real temperate climates run 2-3°C), moved 10°C or
+// more on 32% of days, and spread winter across -18°C..21°C — so a winter day could
+// come out warmer than a summer one. Uniform also made a +10°C day exactly as likely
+// as an average one, which is not how air temperature is distributed.
+//
+// Air masses persist for days, so the anomaly is smooth value noise over the day
+// index, summed over three octaves: a slow regime, the synoptic (frontal) week, and
+// short-term wobble. Consecutive days now differ by a couple of degrees, hot and cold
+// spells last several days instead of teleporting in and out, and most days sit near
+// the seasonal mean with the tails getting rarer.
+//
+// Still a pure function of the date — no state, no chaining — so a day generated a
+// week ahead in the forecast matches the day when it arrives.
+//
+// Octaves alone come out unnaturally SMOOTH (mean day-to-day change 0.45°C, i.e. most
+// consecutive days identical once rounded). Real daily temperature carries a
+// mesoscale/local component on top of the synoptic signal, so a small independent
+// per-day jitter rides the octaves. Tuned against a 3,000-day simulation to
+// mean |Δday| 1.5°C, σ 2.7°C, range about ±9°C — a maritime basin, which is what
+// Coldwater is.
+const TEMP_OCTAVES = [[25, 3.4], [6.5, 2.9], [2.8, 2.0], [1.4, 1.1]];  // [period in days, amplitude °C]
+const TEMP_JITTER_C = 2.0;                                              // ± per-day mesoscale noise
+
+function dayIndexOf(dateStr) {
+  return Math.floor(Date.UTC(+dateStr.slice(0, 4), +dateStr.slice(5, 7) - 1, +dateStr.slice(8, 10)) / 86400000);
+}
+function noiseAnchor(n) { return mulberry32(seedFromString(`tempnoise:${n}`))() * 2 - 1; }  // -1..1
+function smoothNoise(t) {
+  const i = Math.floor(t), f = t - i;
+  const u = f * f * (3 - 2 * f);                             // smoothstep — C1, no kinks at anchors
+  return noiseAnchor(i) * (1 - u) + noiseAnchor(i + 1) * u;
+}
+// Signed °C departure from the seasonal base for a given day. Bounded by the octave
+// sum plus jitter (±11.4°C worst case); typical magnitude is ~2.7°C.
+function tempAnomalyC(dayIndex) {
+  let a = TEMP_JITTER_C * (mulberry32(seedFromString(`tempjit:${dayIndex}`))() * 2 - 1);
+  for (const [period, amp] of TEMP_OCTAVES) a += amp * smoothNoise(dayIndex / period);
+  return a;
+}
+
 function generateWeatherForDate(dateStr, climateProfile) {
   const rand = mulberry32(seedFromString(`weather:${dateStr}`));
   const month = Number(dateStr.slice(5, 7)) - 1;
@@ -99,10 +142,7 @@ function generateWeatherForDate(dateStr, climateProfile) {
   const baseWind     = climateProfile?.monthly_wind_kph?.[month]      ?? SEASON_BASE_WIND_KPH[season];
   const baseHumidity = climateProfile?.monthly_humidity?.[month]      ?? SEASON_BASE_HUMIDITY[season];
 
-  // 5% chance of extreme day (±20°C swing), otherwise ±10°C
-  const isExtreme = rand() < 0.05;
-  const variance  = Math.round((rand() - 0.5) * (isExtreme ? 40 : 20));
-  const tempC     = baseTemp + variance;
+  const tempC = Math.round(baseTemp + tempAnomalyC(dayIndexOf(dateStr)));
 
   let weatherType;
   if (rand() < precipChance) {

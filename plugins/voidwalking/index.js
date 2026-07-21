@@ -699,11 +699,45 @@ on('player.logout', ({ id }) => {
 // tier (detours richer than the spine), and your Scavenging skill decides whether
 // you reach the good stuff. Survival staples (water/rations) up top so scavenging
 // literally extends your range; salvage/rare deeper. Once per room per crossing.
+// Salvage tiers. Entries are `[itemId, maxQty]` — the quantity rolls 1..maxQty, so
+// the stackable staples and bulk materials sometimes come up as an actual haul
+// instead of a single sad wire.
+//
+// Deliberately wide (2026-07-21). The first cut was 4/4/3 items with `item_scrap_metal`
+// on tier 1 — an item vendors buy for ₵0 — so the reward for crossing a place that
+// spawns enemy packs and eats your corpse was frequently nothing at all, and when it
+// wasn't, it was the same roadside junk you can scavenge free at the spawn tile.
+// The top end is unchanged; this widens the small/medium band, which is where a
+// crossing's felt value lives.
 const LOOT = {
-  1: { diff: 4,  items: ['item_water_bottle', 'item_ration', 'item_scrap_metal', 'item_tangled_wire'] },
-  2: { diff: 8,  items: ['item_salvaged_wiring', 'item_cracked_circuit', 'item_scrap_ore', 'item_bar_jerky'] },
-  3: { diff: 12, items: ['item_mystery_component', 'item_glowing_scrap', 'item_scrap_pistol'] },
+  // The waste's leavings — small, but a body could live on it.
+  1: { diff: 4, items: [
+    ['item_water_bottle', 2], ['item_ration', 2], ['item_bar_jerky', 2], ['item_rag_bandage', 2],
+    ['item_tangled_wire', 3], ['item_ball_bearings', 2], ['item_salvaged_wadding', 3],
+    ['item_steel_plate', 2], ['item_rusty_pipe', 1], ['item_mutated_bone', 2], ['item_duct_tape', 1],
+  ] },
+  // Proper salvage — worth the weight out, worth real credits back.
+  2: { diff: 8, items: [
+    ['item_battery', 2], ['item_bandage', 2], ['item_copper_bundle', 2], ['item_scrap_ore', 3],
+    ['item_slag_glass', 2], ['item_salvaged_wiring', 3], ['item_depleted_battery', 2],
+    ['item_cracked_circuit', 1], ['item_glowing_scrap', 2], ['item_industrial_tape', 1],
+    ['item_catalyst_pellets', 1], ['item_pressure_gauge', 1], ['item_valve_assembly', 1],
+    ['item_pain_pills', 1], ['item_scrap_shiv', 1], ['item_control_relay', 1],
+    ['item_field_splint', 1], ['item_scrap_helmet', 1], ['item_rad_band', 1], ['item_gun_oil_kit', 1],
+  ] },
+  // What people actually cross for. Kept DELIBERATELY narrow and high — widening this
+  // tier with ₵20-ish odds and ends would dilute the scrap-pistol roll, i.e. quietly
+  // nerf the payoff for the hardest check while appearing to add rewards.
+  3: { diff: 12, items: [
+    ['item_scrap_pistol', 1], ['item_buried_strongbox', 1], ['item_mystery_component', 1],
+    ['item_copper_nodule', 2], ['item_rad_pills', 2], ['item_busted_datapad', 1],
+  ] },
 };
+// A dig this close still turns something up. The waste is generous with rubbish and
+// stingy with everything else, and a flat miss is a dead 3.5s in a room that can kill you.
+const NEAR_MISS = -4;
+const rollEntry = (t) => t.items[Math.floor(Math.random() * t.items.length)];
+const rollQty = (maxQty = 1) => 1 + Math.floor(Math.random() * maxQty);
 let SALVAGE_FORCE = null; // regress override: null → real roll, 0/1 → forced fail/success
 function roll2d8() { return Math.floor(Math.random() * 8) + 1 + Math.floor(Math.random() * 8) + 1; }
 function packItems(pack) {
@@ -728,9 +762,10 @@ function bigScoreOpen(voidKey, window, salt, trunk) {
   return salt === bigScoreSalt(voidKey, window, trunk) && !getTraces(voidKey, window, salt).some(t => t.kind === 'bigscore_claim');
 }
 
-async function grantItem(playerId, itemId) {
-  await query('INSERT INTO player_inventory (id, player_id, item_id, quantity, condition) VALUES ($1,$2,$3,1,1.0)', [randomUUID(), playerId, itemId]).catch(() => {});
-  return getItem(itemId)?.name || 'a piece of salvage'; // name lives in the RAM items cache — no need to re-query per grant
+async function grantItem(playerId, itemId, qty = 1) {
+  await query('INSERT INTO player_inventory (id, player_id, item_id, quantity, condition) VALUES ($1,$2,$3,$4,1.0)', [randomUUID(), playerId, itemId, qty]).catch(() => {});
+  const name = getItem(itemId)?.name || 'a piece of salvage'; // name lives in the RAM items cache — no need to re-query per grant
+  return qty > 1 ? `${qty}× ${name}` : name;
 }
 
 // The engine's spawnPlayerCorpse already stripped the dead's gear into a
@@ -784,15 +819,23 @@ async function cmdSift(args, raw, player, broadcast) {
   const tiers = isDetour ? [2, 3] : [1, 2];       // detours hide the better hauls
   const tier = tiers[Math.floor(Math.random() * tiers.length)];
   const table = LOOT[tier];
-  const itemId = table.items[Math.floor(Math.random() * table.items.length)];
+  const [itemId, maxQty] = rollEntry(table);
 
   const effective = await effectiveSkill(player, 'scavenging');
   const margin = (effective - table.diff) + (roll2d8() - roll2d8());
   await awardSkillUse(player.id, 'scavenging', margin).catch(() => {}); // a near-miss still trains you
-  const success = SALVAGE_FORCE != null ? SALVAGE_FORCE : margin >= 0;
-  if (!success) return { type: 'emote', message: `You dig through the ${isDetour ? 'wreckage' : 'dust'} and come up with nothing but grit and disappointment.` };
+  const forced = SALVAGE_FORCE != null;                                // regress override: a hard pass/fail, no consolation
+  const success = forced ? !!SALVAGE_FORCE : margin >= 0;
+  if (!success) {
+    if (!forced && margin >= NEAR_MISS) {
+      const [scrapId, scrapMax] = rollEntry(LOOT[1]);
+      const scrap = await grantItem(player.id, scrapId, rollQty(scrapMax));
+      return { type: 'emote', message: `<span class="item-grant">Nothing in here worth the name — but you turn up ${scrap} on your way back out.</span>` };
+    }
+    return { type: 'emote', message: `You dig through the ${isDetour ? 'wreckage' : 'dust'} and come up with nothing but grit and disappointment.` };
+  }
 
-  const name = await grantItem(player.id, itemId);
+  const name = await grantItem(player.id, itemId, rollQty(maxQty));
   return { type: 'emote', message: `<span class="item-grant">You dig ${name} out of the ${isDetour ? 'wreck' : 'waste'} and pocket it.</span>` };
 }
 

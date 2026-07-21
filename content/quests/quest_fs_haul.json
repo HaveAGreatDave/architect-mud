@@ -71,7 +71,8 @@
         "scope": "player",
         "value": "true"
       }
-    ]
+    ],
+    "xp": 5
   },
   "updated_at": "1783369742"
 }

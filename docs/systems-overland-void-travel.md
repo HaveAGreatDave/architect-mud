@@ -296,6 +296,28 @@ edge of Coldwater (all 93 tiles of row y=896) is Coldwater Basin, plus 16 more d
 water margins. **109 of the 362 boundary tiles are open water, leaving 253 real land rim tiles.** Whatever
 is past the far shore belongs to boats and the leviathan, not to the void.
 
+**Salvage pays for the walk (rebalanced 2026-07-21).** `sift` fires once per room against a
+three-tier `LOOT` table (spine rolls tiers 1–2, detours 2–3). The first cut was 4/4/3 items with
+`item_scrap_metal` — which vendors buy for **₵0** — on tier 1, so a place that spawns enemy packs and
+eats your corpse frequently paid nothing, and when it paid, it paid the same roadside junk you can
+scavenge free on the spawn tile. Now:
+
+| tier | diff | before | after |
+|---|---|---|---|
+| 1 staples | 4 | 4 items, ~₵4.8 | **11 items, ~₵7.9** |
+| 2 salvage | 8 | 4 items, ~₵7.5 | **20 items, ~₵16.1** |
+| 3 rare | 12 | 3 items, ~₵63.3 | **6 items, ~₵75.1** |
+
+Entries are `[itemId, maxQty]` and the quantity rolls `1..maxQty`, so staples and bulk materials can
+come up as a real haul. A **near miss** (`margin >= NEAR_MISS`, −4) now yields a tier-1 scrap instead
+of nothing — a flat miss was a dead 3.5s in a room that can kill you. The regress `setSalvage` override
+stays a hard pass/fail so the dud path is still testable.
+
+**Widen the small/medium band, never tier 3.** The first pass at this added ₵20-ish odds and ends to
+tier 3 and *lowered* its average from ₵63 to ₵40 — quietly nerfing the scrap-pistol roll (the payoff
+for the hardest check) while appearing to add rewards. Those items belong in tier 2. Tier 3 stays
+narrow and high.
+
 **There is no entry verb.** `voidwalk` was retired as an entry point on the same date — you cannot decide
 to cross, you can only walk until the world runs out. The verb stays registered solely because the muster
 overlay's buttons send `voidwalk cancel` / `voidwalk say <text>`

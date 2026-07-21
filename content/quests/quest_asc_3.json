@@ -57,7 +57,8 @@
         "scope": "player",
         "value": "done"
       }
-    ]
+    ],
+    "xp": 60
   },
   "updated_at": "1783740000"
 }

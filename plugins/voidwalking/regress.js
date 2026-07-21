@@ -4,6 +4,7 @@
 import { world, getZone, isTransientZone, setLivePlayer, removeLivePlayer,
   addPlayerToZone, removePlayerFromZone, getEnemyInstance, removeEnemyInstance, getMinimapData } from '../../server/engine/world.js';
 import { query } from '../../server/models/db.js';
+import { getItem } from '../../server/engine/items-cache.js';
 import { VOIDS, _test, commands } from './index.js';
 import { _test as traces } from './traces.js';
 
@@ -290,6 +291,23 @@ export default async function regress({ run, check, getPlayer }) {
     const dud = await run('sift');
     check('a bad roll comes up empty', /grit|disappointment/i.test(dud?.message || ''), dud?.message?.slice(0, 50));
     check('the void loot table is tiered (staples → rare)', _test.LOOT[1].diff < _test.LOOT[2].diff && _test.LOOT[2].diff < _test.LOOT[3].diff, JSON.stringify(Object.keys(_test.LOOT)));
+    // Every entry is [itemId, maxQty] against a REAL item — a typo here is a silent
+    // no-op grant (the INSERT is .catch()'d), i.e. a dig that yields nothing forever.
+    const bad = [];
+    for (const [tier, t] of Object.entries(_test.LOOT))
+      for (const e of t.items) {
+        if (!Array.isArray(e) || typeof e[0] !== 'string' || !(e[1] >= 1)) { bad.push(`t${tier}:${JSON.stringify(e)}`); continue; }
+        if (!getItem(e[0])) bad.push(`t${tier}:${e[0]} (no such item)`);
+      }
+    check('every loot entry is [realItemId, maxQty>=1]', bad.length === 0, bad.join(', '));
+    check('the small/medium band is wide', _test.LOOT[1].items.length >= 8 && _test.LOOT[2].items.length >= 10,
+      `t1=${_test.LOOT[1].items.length} t2=${_test.LOOT[2].items.length}`);
+    // A near-miss pays out rubbish rather than nothing (forced rolls stay hard).
+    _test.setSalvage(null);
+    player.current_zone = spineRooms[2];
+    const near = await run('sift');
+    check('an unforced dig returns a dud or a grant, never a crash',
+      /grit|item-grant/i.test(near?.message || ''), near?.message?.slice(0, 60));
     player.current_zone = savedZone; delete player._crossing;
     const noSalv = await run('sift');
     check('salvage outside the void is a gentle no-op', /nothing out here/i.test(noSalv?.message || ''), noSalv?.message?.slice(0, 40));

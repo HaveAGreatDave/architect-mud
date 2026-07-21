@@ -35,6 +35,7 @@ import { on, emit } from '../../server/engine/events.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { setFlag, clearFlag } from '../../server/engine/flags.js';
 import { adjustCredits } from '../../server/engine/economy.js';
+import { grantXp } from '../../server/engine/ip.js';
 import { findPath } from '../../server/engine/pathfinding.js';
 import { getZone } from '../../server/engine/world.js';
 
@@ -660,6 +661,18 @@ registerAction({
     // Grant rewards through the canonical Action/service paths.
     const rewards = quest.rewards || {};
     if (rewards.credits) await adjustCredits(actor, rewards.credits, undefined, 'quest:reward');
+    // XP. Until 2026-07-21 quests awarded none at all — `grantXp` existed with zero
+    // callers, so lifetime XP came only from probabilistic per-use skill rolls and
+    // the entire quest economy fed no progression whatsoever. A stat point is a flat
+    // 100 XP (statCost), so these numbers are deliberately small.
+    if (rewards.xp) {
+      await grantXp(actor.id, rewards.xp);
+      // total_xp/xp aren't columns — they're computed (skill_ip + bonus_xp) and
+      // mirrored onto the live player at login only (server/index.js). Bump the
+      // mirror so anything reading them mid-session sees the grant.
+      actor.total_xp = (Number(actor.total_xp) || 0) + rewards.xp;
+      actor.xp = (Number(actor.xp) || 0) + rewards.xp;
+    }
     for (const it of (rewards.items || [])) {
       await dispatchAction({
         type: 'GRANT_ITEM',
@@ -681,7 +694,8 @@ registerAction({
       [actor.id, quest_id]
     );
     await setQuestFlag(actor, quest_id, 'turned_in');
-    const creditLine = rewards.credits ? ` (+${rewards.credits}₵)` : '';
+    const gains = [rewards.credits ? `+${rewards.credits}₵` : null, rewards.xp ? `+${rewards.xp} XP` : null].filter(Boolean);
+    const creditLine = gains.length ? ` (${gains.join(', ')})` : '';
     msg(actor.id, `<span class="msg-system">Quest turned in: ${quest.name}.${creditLine}</span>`);
     emit('quest.turned_in', { actor, quest_id });
     // Clear/keep the "finished gig ready" flag now this one's handed back, so Marta's

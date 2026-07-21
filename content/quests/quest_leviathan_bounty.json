@@ -29,7 +29,8 @@
         "item_id": "item_contraband_crate",
         "quantity": 1
       }
-    ]
+    ],
+    "xp": 50
   },
   "updated_at": "1783107866"
 }

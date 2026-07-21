@@ -51,7 +51,8 @@
   "quest_type": "standard",
   "repeatable": 1,
   "rewards": {
-    "credits": 15
+    "credits": 15,
+    "xp": 3
   },
   "updated_at": "1783600000"
 }

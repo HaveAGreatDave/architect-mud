@@ -1,7 +1,8 @@
 // Surveillance plugin regression suite — run by tests/regress.js (never loaded
 // in production). Verb routing plus the crime→star registry defaults/cap.
 import { CRIME_DEFAULTS, getCrimeStars, getCrimeList } from '../../server/engine/crimes.js';
-import { visFactorForCategory, isSpecterInstalled, cameraBufferLines, microreelList, deleteMicroreel, isWitnessed, witnessRoll, __refreshRecordingCams, __captureZoneLine, __cameraFrames, __cameraFull, selfDestructDevice, __expireStickyCams } from './index.js';
+import { visFactorForCategory, isSpecterInstalled, cameraBufferLines, microreelList, deleteMicroreel, isWitnessed, witnessRoll, __refreshRecordingCams, __captureZoneLine, __cameraFrames, __cameraFull, selfDestructDevice, __expireStickyCams, __stickyCamTtl } from './index.js';
+import { getTimeScale } from '../../server/engine/gametime.js';
 import { query } from '../../server/models/db.js';
 import { setFlag } from '../../server/engine/flags.js';
 import { reloadItem } from '../../server/engine/items-cache.js';
@@ -184,10 +185,21 @@ export default async function regress({ run, check, getPlayer }) {
   check('self-destruct removes both device and furniture rows', afterKill.length === 0 && furnAfterKill.length === 0,
     `dev=${afterKill.length} furn=${furnAfterKill.length}`);
 
-  // Two fresh cams: one planted a day ago (expired), one planted now (safe).
+  // Two fresh cams straddling the TTL. The window is 24 GAME hours, so the real-time
+  // boundary is 24h / timeScale — pinning the fixtures to real hours would silently
+  // stop testing the boundary the moment someone changed the world clock.
+  const scale = getTimeScale();
+  const ttl = __stickyCamTtl();
+  const ttlRealH = ttl.realMs / 3600000;
+  check('the sticky-cam window is 24 GAME hours', ttl.gameMs === 24 * 3600 * 1000, `${ttl.gameMs}ms`);
+  check('…which is 24/timeScale REAL hours, not a flat 24',
+    Math.abs(ttlRealH - 24 / scale) < 1e-6, `scale=${scale} → ${ttlRealH.toFixed(2)}h real`);
   const OLD_ID = 'secdev_regress_old', NEW_ID = 'secdev_regress_new';
   const nowSec = Math.floor(Date.now() / 1000);
-  for (const [id, placed] of [[OLD_ID, nowSec - 25 * 3600], [NEW_ID, nowSec]]) {
+  for (const [id, placed] of [
+    [OLD_ID, nowSec - Math.ceil((ttlRealH + 1) * 3600)],   // an hour past the window
+    [NEW_ID, nowSec - Math.floor((ttlRealH / 2) * 3600)],  // halfway through it
+  ]) {
     await query('DELETE FROM security_devices WHERE id=$1', [id]);
     await deleteFurniture(id);
     await query(
@@ -203,8 +215,8 @@ export default async function regress({ run, check, getPlayer }) {
   }
   await __expireStickyCams();
   const { rows: live } = await query('SELECT id FROM security_devices WHERE id = ANY($1::text[])', [[OLD_ID, NEW_ID]]);
-  check('sticky cam past 24h is auto-destroyed', !live.some(r => r.id === OLD_ID), JSON.stringify(live));
-  check('sticky cam inside 24h survives the sweep', live.some(r => r.id === NEW_ID), JSON.stringify(live));
+  check('sticky cam past 24 game-hours is auto-destroyed', !live.some(r => r.id === OLD_ID), JSON.stringify(live));
+  check('sticky cam inside 24 game-hours survives the sweep', live.some(r => r.id === NEW_ID), JSON.stringify(live));
   const { rows: oldFurn } = await query('SELECT 1 FROM furniture WHERE id=$1', [OLD_ID]);
   check('burnout takes the furniture row with it', oldFurn.length === 0, `furn=${oldFurn.length}`);
 
