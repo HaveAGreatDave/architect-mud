@@ -2,10 +2,10 @@
   "ambient_events": [],
   "ambient_theme": "forest",
   "audio_theme_id": null,
-  "bg_color": "#2f3a26",
-  "color": "#8ba36a",
+  "bg_color": "#3a3327",
+  "color": "#b8a880",
   "created_by": "zone-planner",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "description": "Coarse grey sand, more grit than beach, packed hard by the wind and stitched with the things the basin gives back — bottle glass worn smooth, a rib of some hull, plastic bleached to bone. It runs down to the waterline and stops being land somewhere you can't quite point at.",
   "exits": {
     "east": "zone_district_915_903",
     "north": "zone_district_914_902",
@@ -16,7 +16,7 @@
     "district": "docks",
     "planner": "bp_district",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "terrain": "sand"
   },
   "grid_x": 914,
   "grid_y": 903,
@@ -24,7 +24,7 @@
   "id": "zone_district_914_903",
   "map_id": "map_world",
   "marker": "#",
-  "name": "Grasslands",
+  "name": "The Strand",
   "parent_zone": null,
   "updated_at": "1784516878"
 }

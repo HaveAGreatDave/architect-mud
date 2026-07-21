@@ -1408,7 +1408,9 @@ function _terrainRectOutline(a, b) {
   const minX = Math.min(a.x, b.x), maxX = Math.max(a.x, b.x), minY = Math.min(a.y, b.y), maxY = Math.max(a.y, b.y);
   for (let y = minY; y <= maxY; y++) for (let x = minX; x <= maxX; x++) {
     const el = g.querySelector(`[data-map-cell="${x},${y}"]`);
-    if (el && (el.classList.contains('bigmap-tile') || el.classList.contains('bm-terrain-empty'))) { el.style.boxShadow = 'inset 0 0 0 2px #fff'; _terrainOutlined.push(el); }
+    // Accent, not white — every other tile cursor in this file (paint, move-building,
+    // new-building) outlines with var(--accent); this one was the odd hardcode out.
+    if (el && (el.classList.contains('bigmap-tile') || el.classList.contains('bm-terrain-empty'))) { el.style.boxShadow = 'inset 0 0 0 2px var(--accent)'; _terrainOutlined.push(el); }
   }
 }
 async function terrainRectCommit(endId) {
