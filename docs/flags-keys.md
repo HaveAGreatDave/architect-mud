@@ -38,6 +38,7 @@ is silently inert, so grep before renaming anything below.
 | `light_beacon` | environment | floods this tile + its 8 grid-neighbours to full brightness, overriding night/power/weather |
 | `allow_sleep` | protection/sleep | permit `sleep` here WITHOUT the sanctuary bundle — safe-zone-rate rest, but no combat protection/forcefield/spawn suppression (e.g. the Precinct 9 holding cell) |
 | `artery` | movement/ambience | major street (traffic ambience, routing) |
+| `cell_block` | jail | room behind the Precinct 9 cell door a prisoner may walk to without it counting as a jailbreak (Wash Block, The Pit). The cell itself is the plugin's `CELL_ZONE` and needs no flag; a room that reaches the street must never carry this |
 | `building_name` | world | display name of the enclosing building |
 | `building_type` | world | building category (shop, apartment, …) |
 | `checkpoint_cfg` | checkpoint | security-checkpoint config object ({ guards, checks:[wanted\|smuggle\|contraband], wantedMode, entry predicate insideFlag\|fromFlag\|fromDistrict }) driving the checkpoint move-gate law |

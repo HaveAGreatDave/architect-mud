@@ -508,8 +508,18 @@ async function escape(player) {
   getBroadcast()?.(rec.cell_zone, { type: 'zone_event', message: 'An alarm strobes over the empty cell — someone bypassed the lock.' }, player.id);
 }
 
+// The cell block is everything a prisoner may walk to WITHOUT it being a breakout:
+// the cell itself plus any room behind the same hololock (the wash block, the
+// exercise room). Membership is authored on the zone as `flags.cell_block`, not
+// listed here, so adding another room to the block is a content change and never
+// a code one — and a room that forgets the flag fails safe as an escape, which is
+// the direction you want that mistake to break in.
+function inCellBlock(zoneId) {
+  return zoneId === CELL_ZONE || getZone(zoneId)?.flags?.cell_block === true;
+}
+
 on('zone.entered', async ({ actor, zone }) => {
-  if (!actor?.id || releasing.has(actor.id) || zone === CELL_ZONE) return;
+  if (!actor?.id || releasing.has(actor.id) || inCellBlock(zone)) return;
   const { rows } = await query('SELECT 1 FROM jail_prisoners WHERE player_id = $1', [actor.id]);
   if (rows.length) await escape(actor).catch(e => console.error('[jail] escape error:', e.message));
 });
@@ -536,7 +546,7 @@ async function secureCellDoor() {
 
 on('zone.entered', async ({ actor, zone }) => {
   if (!actor?.id || !ADMIN_ROLES.has(actor.role)) return;
-  if (zone === CELL_ZONE) { adminInCell.add(actor.id); return; }
+  if (inCellBlock(zone)) { adminInCell.add(actor.id); return; }   // block-wide: stepping to the showers isn't leaving
   if (!adminInCell.delete(actor.id)) return;   // this admin wasn't in the cell
   if (await secureCellDoor().catch(() => false)) {
     sendToPlayer(actor.id, { type: 'output', message: '<span class="text-dim">The cell hololock re-engages behind you.</span>' });
@@ -590,6 +600,6 @@ export const commands = {
 export const hooks = { 'player.respawnZone': onRespawnZone };
 
 // Exposed for the regression harness.
-export const _test = { confiscate, restoreHeld, release, escape, onRespawnZone, isContraband, onDutyOfficerId, OFFICERS, CELL_ZONE, RELEASE_ZONE, BUNK_ZONE };
+export const _test = { confiscate, restoreHeld, release, escape, onRespawnZone, isContraband, onDutyOfficerId, inCellBlock, OFFICERS, CELL_ZONE, RELEASE_ZONE, BUNK_ZONE };
 
 console.log('[jail] Plugin loaded.');

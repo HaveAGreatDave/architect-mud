@@ -1,0 +1,18 @@
+{
+  "description": "A single caged lamp hung dead centre over the bench, throwing everything else in the room into a corner. Whatever you are doing in here, you are doing it in a spotlight.",
+  "flags": {
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_mq_precinct_gym",
+  "light_type": "overhead",
+  "lumen_output": 900,
+  "name": "caged lamp",
+  "object_type": "light",
+  "power_draw_kw": null,
+  "price": 40,
+  "zone_id": "zone_mq_precinct_gym"
+}

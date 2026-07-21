@@ -1,0 +1,18 @@
+{
+  "description": "A wet-rated strip light behind a scratched perspex cover, sunk into the ceiling well out of reach. It never goes off, which is the point: there is no hour in here that is dark enough to do anything in.",
+  "flags": {
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_mq_precinct_showers",
+  "light_type": "overhead",
+  "lumen_output": 1100,
+  "name": "wet-rated strip light",
+  "object_type": "light",
+  "power_draw_kw": null,
+  "price": 40,
+  "zone_id": "zone_mq_precinct_showers"
+}

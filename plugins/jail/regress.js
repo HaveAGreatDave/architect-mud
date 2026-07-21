@@ -69,6 +69,16 @@ export default async function regress({ run, check, getPlayer }) {
     check('confiscate round-trip (skipped — no sample items)', true);
   }
 
+  // ── Cell block membership (what counts as a jailbreak) ────────────────────
+  // A prisoner may walk to the wash block and the exercise room; anywhere else is
+  // an escape. Membership is authored as zones.flags.cell_block, so this doubles
+  // as proof that the two rooms actually carry the flag in content.
+  check('the cell itself is in the block', _test.inCellBlock(_test.CELL_ZONE) === true);
+  check('the wash block is in the block', _test.inCellBlock('zone_mq_precinct_showers') === true);
+  check('the exercise room is in the block', _test.inCellBlock('zone_mq_precinct_gym') === true);
+  check('the lobby is NOT in the block', _test.inCellBlock(_test.RELEASE_ZONE) === false);
+  check('an unknown zone is NOT in the block', _test.inCellBlock('zone_nowhere') === false);
+
   // unseal with nothing sealed must fail cleanly.
   const us = await run('unseal');
   check('unseal with nothing sealed errors cleanly', us?.type === 'error', us?.type);

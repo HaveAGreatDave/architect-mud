@@ -37,10 +37,18 @@ Owned by the **jail** plugin (`plugins/jail/`). Everything below is what ships.
    - Fires an **arrest-notice popup** (`type:'arrest_notice'`) with the charge,
      sentence, item count, fine, and new balance — a dismissible "Booking Record"
      window client-side.
-2. **Doing time.** You're locked in `zone_mq_precinct_holding` (now furnished with a
-   toilet, sink, and cot — the bodily + posture systems work in the cell). Its only
-   exit (`up` → Lobby) is a **police-only hololock** (`door_precinct_cell`, `canHack:false`) —
-   no deck can bypass it; you leave only when the guard walks you out.
+2. **Doing time.** You're locked in the **cell block**: `zone_mq_precinct_holding`
+   (cot; the bodily + posture systems work in the cell) plus two rooms behind the
+   same lock — the **Wash Block** (`zone_mq_precinct_showers`: the showers, and the
+   steel toilet + sink, moved out of the cell) and **The Pit**
+   (`zone_mq_precinct_gym`: the prison weight bench, so a sentence is somewhere to
+   spend XP rather than dead air). Block membership is authored per zone as
+   **`flags.cell_block`** and read by `inCellBlock()` — adding another room to the
+   block is a content change, not a code one, and a room that *forgets* the flag
+   fails safe (walking into it reads as an escape). The block's only exit
+   (`up` → Lobby) is a **police-only hololock** (`door_precinct_cell`,
+   `canHack:false`) — no deck can bypass it; you leave only when the guard walks
+   you out.
    Your **wanted HUD keeps your stars and visibly decays** over the sentence (the
    minute tick pushes the remaining stars, computed from `release_at`), hitting zero
    right as you're released. This is a cosmetic countdown — your street heat was
@@ -131,8 +139,9 @@ teleports them to Holding and clears their heat via `WANTED_CLEAR`.
 **The cell door is police-only (`canHack:false`)** — hacking it out is disabled, so
 there is no self-service jailbreak: you leave when the guard walks you out, full stop.
 The escape machinery below still exists for any *other* way out of the cell (a future
-tunnel, an admin move, etc.): the `zone.entered` listener treats leaving `holding` by
-anything but the guarded release as an escape —
+tunnel, an admin move, etc.): the `zone.entered` listener treats arriving anywhere
+**outside the cell block** (`inCellBlock()` — the cell plus every `flags.cell_block`
+room) by anything but the guarded release as an escape —
 - The legal gear the desk was holding is **bagged into evidence too** (forfeited).
 - `WANTED_RAISE` (surveillance action) puts your stars back — a jailbreak is a fresh
   crime, so you leave as a hot fugitive.
