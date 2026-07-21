@@ -171,6 +171,28 @@
       ],
       "text": "\"More work? Down there, always.\" He doesn't look thrilled about it. \"You thinned the shallows. But the Under goes down a long way past where you were, and it gets meaner every level. Word is there's an old scavenger who's dug in about as deep as anyone can and lived — works a walled cistern off a crossroads they call the Throat, east and down. Dredge, they call her. She pays real credits for the ugly work she can't do herself anymore.\" He shrugs. \"Push past the pocket, keep that light charged, and go find her. Just don't go dark down there. You go dark, you stay.\""
     },
+    "hiring_tip": {
+      "options": [
+        {
+          "label": "Names?",
+          "next": "hiring_tip_names"
+        },
+        {
+          "label": "I'll stick to the crates.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Hiring?\" He snorts. \"Everyone's hiring, nobody's advertising. That's the whole town.\" He leans on the crates. \"Look — Marta's board is fine for bus fare. But there's a class of people round here who've got a problem they can't be seen solving themselves, and a drawer they can pay you out of. Those are the ones worth walking to. They don't post. You knock.\""
+    },
+    "hiring_tip_names": {
+      "options": [
+        {
+          "label": "I'll pay them a visit.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Two worth your time, and both of ’em keep office hours where you can actually reach them.\" He counts on thick fingers. \"Precinct Nine lobby, out east past the Vig — there's a records clerk they call the Registrar, and an Assemblyman named Croll who’s usually in there leaning on somebody. Both have got wastes-work they’d rather not sign their name to. Registrar pays a hundred and change; Croll better than that.\" He shrugs. \"And if you get ambitious, Consul Reyes holds court in the Halcyon lobby. Pays double what I do and asks twice as much. Don’t go to any of them broke and unarmed — they can smell it, and the price of your help drops accordingly.\""
+    },
     "lore": {
       "options": [
         {
@@ -310,6 +332,17 @@
         {
           "conditions": [
             {
+              "flag": "grady_sewer_cleared",
+              "op": "set",
+              "scope": "player"
+            }
+          ],
+          "label": "Who else round here pays for work?",
+          "next": "hiring_tip"
+        },
+        {
+          "conditions": [
+            {
               "flag": "grady_regular",
               "op": "set",
               "scope": "player"
@@ -362,7 +395,7 @@
           "next": "bye"
         }
       ],
-      "text": "He hears the count and nods, slow. \"Six. And you walked back up under your own power — that’s the part most don’t manage.\" He counts a few spare cells into your palm along with the pay. \"A dead flashlight’s just a club, and you’re better than a club now. Barely. Keep it fed.\""
+      "text": "He hears the count and nods, slow. \"Six. And you walked back up under your own power — that's the part most don't manage.\" He counts the pay out first, deliberately, so you see it land. Then a separate handful of cells goes on top. \"Pay's the pay. The cells are what you burned getting there — I'm not so crooked I'll charge a man for the light I sent him down with.\" He taps the flashlight in your hand. \"A dead one's just a club, and you're better than a club now. Barely. Keep it fed.\""
     },
     "shop": {
       "actions": [
@@ -513,6 +546,11 @@
       "item_id": "item_jerry_can_full",
       "price": 120,
       "stock": 2
+    },
+    {
+      "item_id": "item_mining_pick",
+      "price": 55,
+      "stock": 4
     }
   ],
   "vendor_restock_rate": 1,

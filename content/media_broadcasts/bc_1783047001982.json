@@ -34,72 +34,77 @@
           "x": 80,
           "y": 3280
         },
-        "message": "Captain Nguyen:",
         "next": "bsm_101",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "For christ sake.",
+        "type": "say"
       },
       "bsm_101": {
         "_vine": {
           "x": 300,
           "y": 3280
         },
-        "message": "Let's try and move on.",
         "next": "bsm_102",
-        "type": "npc_action"
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
       },
       "bsm_102": {
         "_vine": {
           "x": 520,
           "y": 3280
         },
-        "message": "Neil Mcmanistan:",
         "next": "bsm_103",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "Just put the fuckin number up man, put up my number so my fans can call in.",
+        "type": "say"
       },
       "bsm_103": {
         "_vine": {
           "x": 740,
           "y": 3280
         },
-        "message": "That's what Barb told my kids and my dog.",
         "next": "bsm_104",
-        "type": "npc_action"
+        "text": "1-800-273-8255 ←── NEIL'S HOTLINE — OPERATORS STANDING BY ←── 1-800-273-8255 ←── CENTAUR SHREDS ON ←── DON'T LET HER WIN, BROTHER! — HULK HOGAN ←── CALL NOW ←── 1-800-273-8255 ←── NEIL'S HOTLINE ←──",
+        "type": "ticker"
       },
       "bsm_104": {
         "_vine": {
           "x": 960,
           "y": 3280
         },
-        "message": "Captain Nguyen:",
         "next": "bsm_105",
-        "type": "npc_action"
+        "style": "narration",
+        "text": "The number crawls across the bottom of the screen. It is the suicide hotline. It is being towed by a centaur playing electric guitar. Behind the centaur, a graphic element features Hulk Hogan pointing directly at the audience with one finger. He appears to be saying something encouraging.",
+        "type": "say"
       },
       "bsm_105": {
         "_vine": {
           "x": 80,
           "y": 3440
         },
-        "message": "For christ sake.",
         "next": "bsm_106",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "WHAT THE FUCK WAS THAT MAN?! WAS THAT THE SUICIDE HOTLINE NUMBER?!",
+        "type": "say"
       },
       "bsm_106": {
         "_vine": {
           "x": 300,
           "y": 3440
         },
-        "message": "Neil Mcmanistan:",
         "next": "bsm_107",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "And why was Hulk Hogan involved?",
+        "type": "say"
       },
       "bsm_107": {
         "_vine": {
           "x": 520,
           "y": 3440
         },
-        "message": "Just put the fuckin number up man, put up my number so my fans can call in.",
         "next": "bsm_108",
-        "type": "npc_action"
+        "npc_id": "npc_captain_nguyen",
+        "type": "npc_anchor"
       },
       "bsm_108": {
         "_vine": {
@@ -107,8 +112,9 @@
           "y": 3440
         },
         "next": "bsm_109",
-        "text": "1-800-273-8255 ←── NEIL'S HOTLINE — OPERATORS STANDING BY ←── 1-800-273-8255 ←── CENTAUR SHREDS ON ←── DON'T LET HER WIN, BROTHER! — HULK HOGAN ←── CALL NOW ←── 1-800-273-8255 ←── NEIL'S HOTLINE ←──",
-        "type": "ticker"
+        "style": "raw",
+        "text": "The Hulkster was your idea.",
+        "type": "say"
       },
       "bsm_109": {
         "_vine": {
@@ -116,9 +122,8 @@
           "y": 3440
         },
         "next": "bsm_110",
-        "style": "narration",
-        "text": "The number crawls across the bottom of the screen. It is the suicide hotline. It is being towed by a centaur playing electric guitar. Behind the centaur, a graphic element features Hulk Hogan pointing directly at the audience with one finger. He appears to be saying something encouraging.",
-        "type": "say"
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
       },
       "bsm_11": {
         "_vine": {
@@ -134,90 +139,95 @@
           "x": 80,
           "y": 3600
         },
-        "message": "Neil Mcmanistan:",
         "next": "bsm_111",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "Why the hell was it my idea when was that ever my idea to have Hulk Hogan telling my audience not to kill themselves?!",
+        "type": "say"
       },
       "bsm_111": {
         "_vine": {
           "x": 300,
           "y": 3600
         },
-        "message": "WHAT THE FUCK WAS THAT MAN?! WAS THAT THE SUICIDE HOTLINE NUMBER?!",
         "next": "bsm_112",
-        "type": "npc_action"
+        "npc_id": "npc_captain_nguyen",
+        "type": "npc_anchor"
       },
       "bsm_112": {
         "_vine": {
           "x": 520,
           "y": 3600
         },
-        "message": "Neil Mcmanistan:",
         "next": "bsm_113",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "I got a voicemail at 3 am. It sounded like you were drunk but you were quite insistent that we should use the Hulkster in a graphic for the show.",
+        "type": "say"
       },
       "bsm_113": {
         "_vine": {
           "x": 740,
           "y": 3600
         },
-        "message": "And why was Hulk Hogan involved?",
         "next": "bsm_114",
-        "type": "npc_action"
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
       },
       "bsm_114": {
         "_vine": {
           "x": 960,
           "y": 3600
         },
-        "message": "Captain Nguyen:",
         "next": "bsm_115",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "Since when did that mean get the Hulkster to tell my fans not to kill themselves after the divorce?! I was watching the Netflix documentary!",
+        "type": "say"
       },
       "bsm_115": {
         "_vine": {
           "x": 80,
           "y": 3760
         },
-        "message": "The Hulkster was your idea.",
         "next": "bsm_116",
-        "type": "npc_action"
+        "npc_id": "npc_captain_nguyen",
+        "type": "npc_anchor"
       },
       "bsm_116": {
         "_vine": {
           "x": 300,
           "y": 3760
         },
-        "message": "Neil Mcmanistan:",
         "next": "bsm_117",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "That's on me. I thought you'd appreciate the levity.",
+        "type": "say"
       },
       "bsm_117": {
         "_vine": {
           "x": 520,
           "y": 3760
         },
-        "message": "Why the hell was it my idea when was that ever my idea to have Hulk Hogan telling my audience not to kill themselves?!",
         "next": "bsm_118",
-        "type": "npc_action"
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
       },
       "bsm_118": {
         "_vine": {
           "x": 740,
           "y": 3760
         },
-        "message": "Captain Nguyen:",
         "next": "bsm_119",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "The Hulkster wouldn't stand for this. It was all a smear anyways, and we all know why...",
+        "type": "say"
       },
       "bsm_119": {
         "_vine": {
           "x": 960,
           "y": 3760
         },
-        "message": "I got a voicemail at 3 am. It sounded like you were drunk but you were quite insistent that we should use the Hulkster in a graphic for the show.",
         "next": "bsm_120",
-        "type": "npc_action"
+        "npc_id": "npc_captain_nguyen",
+        "type": "npc_anchor"
       },
       "bsm_12": {
         "_vine": {
@@ -233,90 +243,95 @@
           "x": 80,
           "y": 3920
         },
-        "message": "Neil Mcmanistan:",
         "next": "bsm_121",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "What are you talking about man?",
+        "type": "say"
       },
       "bsm_121": {
         "_vine": {
           "x": 300,
           "y": 3920
         },
-        "message": "Since when did that mean get the Hulkster to tell my fans not to kill themselves after the divorce?! I was watching the Netflix documentary!",
         "next": "bsm_122",
-        "type": "npc_action"
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
       },
       "bsm_122": {
         "_vine": {
           "x": 520,
           "y": 3920
         },
-        "message": "Captain Nguyen:",
         "next": "bsm_123",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "These Hollywood jews hate to see a blonde haired blue eyed macho friend of Jesus win.",
+        "type": "say"
       },
       "bsm_123": {
         "_vine": {
           "x": 740,
           "y": 3920
         },
-        "message": "That's on me. I thought you'd appreciate the levity.",
         "next": "bsm_124",
-        "type": "npc_action"
+        "npc_id": "npc_captain_nguyen",
+        "type": "npc_anchor"
       },
       "bsm_124": {
         "_vine": {
           "x": 960,
           "y": 3920
         },
-        "message": "Neil Mcmanistan:",
         "next": "bsm_125",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "You can't keep saying jews!",
+        "type": "say"
       },
       "bsm_125": {
         "_vine": {
           "x": 80,
           "y": 4080
         },
-        "message": "The Hulkster wouldn't stand for this. It was all a smear anyways, and we all know why...",
         "next": "bsm_126",
-        "type": "npc_action"
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
       },
       "bsm_126": {
         "_vine": {
           "x": 300,
           "y": 4080
         },
-        "message": "Captain Nguyen:",
         "next": "bsm_127",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "Why is Barb gonna go get her big jew lawyer to come after me, you know they love to litigate —",
+        "type": "say"
       },
       "bsm_127": {
         "_vine": {
           "x": 520,
           "y": 4080
         },
-        "message": "What are you talking about man?",
         "next": "bsm_128",
-        "type": "npc_action"
+        "npc_id": "npc_captain_nguyen",
+        "type": "npc_anchor"
       },
       "bsm_128": {
         "_vine": {
           "x": 740,
           "y": 4080
         },
-        "message": "Neil Mcmanistan:",
         "next": "bsm_129",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "Jesus!",
+        "type": "say"
       },
       "bsm_129": {
         "_vine": {
           "x": 960,
           "y": 4080
         },
-        "message": "These Hollywood jews hate to see a blonde haired blue eyed macho friend of Jesus win.",
         "next": "bsm_130",
-        "type": "npc_action"
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
       },
       "bsm_13": {
         "_vine": {
@@ -332,61 +347,66 @@
           "x": 80,
           "y": 4240
         },
-        "message": "Captain Nguyen:",
         "next": "bsm_131",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "YOU CANT SQUEEZE BLOOD FROM A STONE BARBRA I KNOW WHO DROVE US APART AND I HEARS THE TRUTH IS REALLY BAD!",
+        "type": "say"
       },
       "bsm_131": {
         "_vine": {
           "x": 300,
           "y": 4240
         },
-        "message": "You can't keep saying jews!",
         "next": "bsm_132",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "IS REALLY BAD.",
+        "type": "say"
       },
       "bsm_132": {
         "_vine": {
           "x": 520,
           "y": 4240
         },
-        "message": "Neil Mcmanistan:",
         "next": "bsm_133",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "ISRAELI BAD!",
+        "type": "say"
       },
       "bsm_133": {
         "_vine": {
           "x": 740,
           "y": 4240
         },
-        "message": "Why is Barb gonna go get her big jew lawyer to come after me, you know they love to litigate —",
         "next": "bsm_134",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "PRESS THE RED BUTTON NGUYEN!",
+        "type": "say"
       },
       "bsm_134": {
         "_vine": {
           "x": 960,
           "y": 4240
         },
-        "message": "Captain Nguyen:",
+        "label": "CAM — 3 — SWING to Nguyen in the corner",
         "next": "bsm_135",
-        "type": "npc_action"
+        "type": "camera_cut",
+        "zone_id": "zone_studio_1782953094650"
       },
       "bsm_135": {
         "_vine": {
           "x": 80,
           "y": 4400
         },
-        "message": "Jesus!",
         "next": "bsm_136",
-        "type": "npc_action"
+        "npc_id": "npc_nguyen",
+        "type": "npc_anchor"
       },
       "bsm_136": {
         "_vine": {
           "x": 300,
           "y": 4400
         },
-        "message": "Neil Mcmanistan:",
+        "message": "reaches out and presses the large red button mounted to the wall beside his barstool.",
         "next": "bsm_137",
         "type": "npc_action"
       },
@@ -395,27 +415,29 @@
           "x": 520,
           "y": 4400
         },
-        "message": "YOU CANT SQUEEZE BLOOD FROM A STONE BARBRA I KNOW WHO DROVE US APART AND I HEARS THE TRUTH IS REALLY BAD!",
         "next": "bsm_138",
-        "type": "npc_action"
+        "style": "narration",
+        "text": "From a speaker of indeterminate location, a single word is announced at considerable volume.",
+        "type": "say"
       },
       "bsm_138": {
         "_vine": {
           "x": 740,
           "y": 4400
         },
-        "message": "Neil Mcmanistan:",
+        "label": "CAM — 1 — BACK to Neil McManistan",
         "next": "bsm_139",
-        "type": "npc_action"
+        "type": "camera_cut",
+        "zone_id": "zone_studio_1782953094650"
       },
       "bsm_139": {
         "_vine": {
           "x": 960,
           "y": 4400
         },
-        "message": "IS REALLY BAD.",
         "next": "bsm_140",
-        "type": "npc_action"
+        "npc_id": "npc_captain_nguyen",
+        "type": "npc_anchor"
       },
       "bsm_14": {
         "_vine": {
@@ -432,46 +454,48 @@
           "x": 80,
           "y": 4560
         },
-        "message": "Neil Mcmanistan:",
         "next": "bsm_141",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "You can't have a Jew button are you insane!",
+        "type": "say"
       },
       "bsm_141": {
         "_vine": {
           "x": 300,
           "y": 4560
         },
-        "message": "ISRAELI BAD!",
         "next": "bsm_142",
-        "type": "npc_action"
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
       },
       "bsm_142": {
         "_vine": {
           "x": 520,
           "y": 4560
         },
-        "message": "Neil Mcmanistan:",
         "next": "bsm_143",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "THEN WHY DO THESE JEWS KEEP PUSHING MY BUTTONS?!",
+        "type": "say"
       },
       "bsm_143": {
         "_vine": {
           "x": 740,
           "y": 4560
         },
-        "message": "PRESS THE RED BUTTON NGUYEN!",
         "next": "bsm_144",
-        "type": "npc_action"
+        "npc_id": "npc_captain_nguyen",
+        "type": "npc_anchor"
       },
       "bsm_144": {
         "_vine": {
           "x": 960,
           "y": 4560
         },
-        "label": "CAM — 3 — SWING to Nguyen in the corner",
         "next": "bsm_145",
-        "type": "camera_cut",
-        "zone_id": "zone_studio_1782953094650"
+        "style": "raw",
+        "text": "I'm cutting to break.",
+        "type": "say"
       },
       "bsm_145": {
         "_vine": {
@@ -479,7 +503,7 @@
           "y": 4720
         },
         "next": "bsm_146",
-        "npc_id": "npc_nguyen",
+        "npc_id": "npc_neil_mcmanistan",
         "type": "npc_anchor"
       },
       "bsm_146": {
@@ -487,7 +511,7 @@
           "x": 300,
           "y": 4720
         },
-        "message": "reaches out and presses the large red button mounted to the wall beside his barstool.",
+        "message": "seizes Camera 1 and wrenches it toward Nguyen.",
         "next": "bsm_147",
         "type": "npc_action"
       },
@@ -497,28 +521,27 @@
           "y": 4720
         },
         "next": "bsm_148",
-        "style": "narration",
-        "text": "From a speaker of indeterminate location, a single word is announced at considerable volume.",
-        "type": "say"
+        "npc_id": "npc_captain_nguyen",
+        "type": "npc_anchor"
       },
       "bsm_148": {
         "_vine": {
           "x": 740,
           "y": 4720
         },
-        "label": "CAM — 1 — BACK to Neil McManistan",
+        "message": "grabs Camera 1 from the other side and hauls it back.",
         "next": "bsm_149",
-        "type": "camera_cut",
-        "zone_id": "zone_studio_1782953094650"
+        "type": "npc_action"
       },
       "bsm_149": {
         "_vine": {
           "x": 960,
           "y": 4720
         },
-        "message": "Captain Nguyen:",
         "next": "bsm_150",
-        "type": "npc_action"
+        "style": "narration",
+        "text": "The camera swings wildly between the two men, catching ceiling, floor, the laundromat pipes, and half-illuminated faces in roughly equal measure.",
+        "type": "say"
       },
       "bsm_15": {
         "_vine": {
@@ -535,45 +558,47 @@
           "x": 80,
           "y": 4880
         },
-        "message": "You can't have a Jew button are you insane!",
         "next": "bsm_151",
-        "type": "npc_action"
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
       },
       "bsm_151": {
         "_vine": {
           "x": 300,
           "y": 4880
         },
-        "message": "Neil Mcmanistan:",
         "next": "bsm_152",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "DO YOU HAVE TROUBLE GETTING IT UP CUZ YOUR WIFE WAS AN UGLY PIG?!",
+        "type": "say"
       },
       "bsm_152": {
         "_vine": {
           "x": 520,
           "y": 4880
         },
-        "message": "THEN WHY DO THESE JEWS KEEP PUSHING MY BUTTONS?!",
         "next": "bsm_153",
-        "type": "npc_action"
+        "npc_id": "npc_captain_nguyen",
+        "type": "npc_anchor"
       },
       "bsm_153": {
         "_vine": {
           "x": 740,
           "y": 4880
         },
-        "message": "Captain Nguyen:",
         "next": "bsm_154",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "Give me that!",
+        "type": "say"
       },
       "bsm_154": {
         "_vine": {
           "x": 960,
           "y": 4880
         },
-        "message": "I'm cutting to break.",
         "next": "bsm_155",
-        "type": "npc_action"
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
       },
       "bsm_155": {
         "_vine": {
@@ -581,17 +606,19 @@
           "y": 5040
         },
         "next": "bsm_156",
-        "npc_id": "npc_neil_mcmanistan",
-        "type": "npc_anchor"
+        "style": "raw",
+        "text": "WELL LOOK NO FURTHER THAN Captain Nguyen'S MAGIC ROOT! AVAILABLE VIA PAYPAL —",
+        "type": "say"
       },
       "bsm_156": {
         "_vine": {
           "x": 300,
           "y": 5040
         },
-        "message": "seizes Camera 1 and wrenches it toward Nguyen.",
+        "label": "CAM — 1 — SNAPS to Nguyen's midsection",
         "next": "bsm_157",
-        "type": "npc_action"
+        "type": "camera_cut",
+        "zone_id": "zone_studio_1782953094650"
       },
       "bsm_157": {
         "_vine": {
@@ -599,7 +626,7 @@
           "y": 5040
         },
         "next": "bsm_158",
-        "npc_id": "npc_captain_nguyen",
+        "npc_id": "npc_nguyen",
         "type": "npc_anchor"
       },
       "bsm_158": {
@@ -607,7 +634,7 @@
           "x": 740,
           "y": 5040
         },
-        "message": "grabs Camera 1 from the other side and hauls it back.",
+        "message": "reaches into his trousers and produces a strange, gnarled red root, which he holds aloft with quiet dignity.",
         "next": "bsm_159",
         "type": "npc_action"
       },
@@ -617,9 +644,8 @@
           "y": 5040
         },
         "next": "bsm_160",
-        "style": "narration",
-        "text": "The camera swings wildly between the two men, catching ceiling, floor, the laundromat pipes, and half-illuminated faces in roughly equal measure.",
-        "type": "say"
+        "npc_id": "npc_captain_nguyen",
+        "type": "npc_anchor"
       },
       "bsm_16": {
         "_vine": {
@@ -635,52 +661,55 @@
           "x": 80,
           "y": 5200
         },
-        "message": "Neil Mcmanistan:",
         "next": "bsm_161",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "THAT'S ENOUGH! I'VE HAD ENOUGH! I'M PULLING THE PLUG —",
+        "type": "say"
       },
       "bsm_161": {
         "_vine": {
           "x": 300,
           "y": 5200
         },
-        "message": "DO YOU HAVE TROUBLE GETTING IT UP CUZ YOUR WIFE WAS AN UGLY PIG?!",
         "next": "bsm_162",
-        "type": "npc_action"
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
       },
       "bsm_162": {
         "_vine": {
           "x": 520,
           "y": 5200
         },
-        "message": "Captain Nguyen:",
         "next": "bsm_163",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "She took everything. I'm living off tinned beans here. Let a man eat.",
+        "type": "say"
       },
       "bsm_163": {
         "_vine": {
           "x": 740,
           "y": 5200
         },
-        "message": "Give me that!",
         "next": "bsm_164",
-        "type": "npc_action"
+        "npc_id": "npc_captain_nguyen",
+        "type": "npc_anchor"
       },
       "bsm_164": {
         "_vine": {
           "x": 960,
           "y": 5200
         },
-        "message": "Neil Mcmanistan:",
         "next": "bsm_165",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "And now a word from our sponsor.",
+        "type": "say"
       },
       "bsm_165": {
         "_vine": {
           "x": 80,
           "y": 5360
         },
-        "message": "WELL LOOK NO FURTHER THAN Captain Nguyen'S MAGIC ROOT! AVAILABLE VIA PAYPAL —",
+        "message": "releases Camera 1 and it drops to the concrete floor.",
         "next": "bsm_166",
         "type": "npc_action"
       },
@@ -689,37 +718,38 @@
           "x": 300,
           "y": 5360
         },
-        "label": "CAM — 1 — SNAPS to Nguyen's midsection",
         "next": "bsm_167",
-        "type": "camera_cut",
-        "zone_id": "zone_studio_1782953094650"
+        "style": "narration",
+        "text": "The camera hits the floor and settles at a forty-five-degree angle. The image holds there. In the background, the argument continues to dissolve into ambient noise.",
+        "type": "say"
       },
       "bsm_167": {
         "_vine": {
           "x": 520,
           "y": 5360
         },
+        "event_type": "COMMERCIAL_BREAK",
         "next": "bsm_168",
-        "npc_id": "npc_nguyen",
-        "type": "npc_anchor"
+        "type": "event"
       },
       "bsm_168": {
         "_vine": {
           "x": 740,
           "y": 5360
         },
-        "message": "reaches into his trousers and produces a strange, gnarled red root, which he holds aloft with quiet dignity.",
+        "graphic_id": "jerry_rosenberg_logo",
         "next": "bsm_169",
-        "type": "npc_action"
+        "type": "title_card"
       },
       "bsm_169": {
         "_vine": {
           "x": 960,
           "y": 5360
         },
-        "message": "Captain Nguyen:",
         "next": "bsm_170",
-        "type": "npc_action"
+        "style": "narration",
+        "text": "Cut to exterior. California. The sun is aggressively bright. A convertible sports car rolls up a coastal road to the sound of smooth jazz.",
+        "type": "say"
       },
       "bsm_17": {
         "_vine": {
@@ -736,45 +766,49 @@
           "x": 80,
           "y": 5520
         },
-        "message": "THAT'S ENOUGH! I'VE HAD ENOUGH! I'M PULLING THE PLUG —",
+        "label": "CAM — 6 — WIDE on the beach",
         "next": "bsm_171",
-        "type": "npc_action"
+        "type": "camera_cut",
+        "zone_id": "zone_studio_1782953094650"
       },
       "bsm_171": {
         "_vine": {
           "x": 300,
           "y": 5520
         },
-        "message": "Neil Mcmanistan:",
         "next": "bsm_172",
-        "type": "npc_action"
+        "style": "narration",
+        "text": "The camera pans to the beach. An attractive woman and her handsome personal trainer are doing Pilates together. They are very in sync. They are having a genuinely lovely time.",
+        "type": "say"
       },
       "bsm_172": {
         "_vine": {
           "x": 520,
           "y": 5520
         },
-        "message": "She took everything. I'm living off tinned beans here. Let a man eat.",
         "next": "bsm_173",
-        "type": "npc_action"
+        "style": "narration",
+        "text": "A man in a crisp linen suit steps into frame. He has the easy confidence of someone who has never once paid his own parking tickets.",
+        "type": "say"
       },
       "bsm_173": {
         "_vine": {
           "x": 740,
           "y": 5520
         },
-        "message": "Captain Nguyen:",
         "next": "bsm_174",
-        "type": "npc_action"
+        "npc_id": "npc_jerry_rosenberg",
+        "type": "npc_anchor"
       },
       "bsm_174": {
         "_vine": {
           "x": 960,
           "y": 5520
         },
-        "message": "And now a word from our sponsor.",
         "next": "bsm_175",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "Do you ever wonder what your life could be, if this guy wasn't holding you back?",
+        "type": "say"
       },
       "bsm_175": {
         "_vine": {
@@ -782,17 +816,18 @@
           "y": 5680
         },
         "next": "bsm_176",
-        "npc_id": "npc_captain_nguyen",
-        "type": "npc_anchor"
+        "style": "narration",
+        "text": "The footage cuts abruptly to grainy home video: a man in a wife-beater and dirty underpants, cracking a beer and lighting a cigarette while a baby plays with a fork near a wall socket.",
+        "type": "say"
       },
       "bsm_176": {
         "_vine": {
           "x": 300,
           "y": 5680
         },
-        "message": "releases Camera 1 and it drops to the concrete floor.",
         "next": "bsm_177",
-        "type": "npc_action"
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
       },
       "bsm_177": {
         "_vine": {
@@ -800,8 +835,8 @@
           "y": 5680
         },
         "next": "bsm_178",
-        "style": "narration",
-        "text": "The camera hits the floor and settles at a forty-five-degree angle. The image holds there. In the background, the argument continues to dissolve into ambient noise.",
+        "style": "raw",
+        "text": "WTF IS THAT ME?!",
         "type": "say"
       },
       "bsm_178": {
@@ -809,27 +844,30 @@
           "x": 740,
           "y": 5680
         },
-        "event_type": "COMMERCIAL_BREAK",
         "next": "bsm_179",
-        "type": "event"
+        "style": "narration",
+        "text": "The ad continues, undeterred.",
+        "type": "say"
       },
       "bsm_179": {
         "_vine": {
           "x": 960,
           "y": 5680
         },
-        "graphic_id": "jerry_rosenberg_logo",
         "next": "bsm_180",
-        "type": "title_card"
+        "style": "narration",
+        "text": "The lawyer steps back into frame. He is now dressed as a mohel. He adjusts his equipment.",
+        "type": "say"
       },
       "bsm_18": {
         "_vine": {
           "x": 740,
           "y": 560
         },
-        "message": "Neil Mcmanistan:",
         "next": "bsm_19",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "They must think that I'm retarded. You'd have to be retarded not to put this together, and as sure as Barb took the kids the Jews will get me for this.",
+        "type": "say"
       },
       "bsm_180": {
         "_vine": {
@@ -837,19 +875,18 @@
           "y": 5840
         },
         "next": "bsm_181",
-        "style": "narration",
-        "text": "Cut to exterior. California. The sun is aggressively bright. A convertible sports car rolls up a coastal road to the sound of smooth jazz.",
-        "type": "say"
+        "npc_id": "npc_jerry_rosenberg",
+        "type": "npc_anchor"
       },
       "bsm_181": {
         "_vine": {
           "x": 300,
           "y": 5840
         },
-        "label": "CAM — 6 — WIDE on the beach",
         "next": "bsm_182",
-        "type": "camera_cut",
-        "zone_id": "zone_studio_1782953094650"
+        "style": "raw",
+        "text": "Let's bris this schmuck. Now cheaper — with our ten percent off circumcision discount! Spouses of gentiles now save ten percent!",
+        "type": "say"
       },
       "bsm_182": {
         "_vine": {
@@ -857,9 +894,8 @@
           "y": 5840
         },
         "next": "bsm_183",
-        "style": "narration",
-        "text": "The camera pans to the beach. An attractive woman and her handsome personal trainer are doing Pilates together. They are very in sync. They are having a genuinely lovely time.",
-        "type": "say"
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
       },
       "bsm_183": {
         "_vine": {
@@ -867,8 +903,8 @@
           "y": 5840
         },
         "next": "bsm_184",
-        "style": "narration",
-        "text": "A man in a crisp linen suit steps into frame. He has the easy confidence of someone who has never once paid his own parking tickets.",
+        "style": "raw",
+        "text": "YOU LET THEM RUN AN AD FOR MY EX WIFE'S JEW LAWYER?!",
         "type": "say"
       },
       "bsm_184": {
@@ -877,7 +913,7 @@
           "y": 5840
         },
         "next": "bsm_185",
-        "npc_id": "npc_jerry_rosenberg",
+        "npc_id": "npc_captain_nguyen",
         "type": "npc_anchor"
       },
       "bsm_185": {
@@ -887,7 +923,7 @@
         },
         "next": "bsm_186",
         "style": "raw",
-        "text": "Do you ever wonder what your life could be, if this guy wasn't holding you back?",
+        "text": "He pays good money —",
         "type": "say"
       },
       "bsm_186": {
@@ -896,27 +932,27 @@
           "y": 6000
         },
         "next": "bsm_187",
-        "style": "narration",
-        "text": "The footage cuts abruptly to grainy home video: a man in a wife-beater and dirty underpants, cracking a beer and lighting a cigarette while a baby plays with a fork near a wall socket.",
-        "type": "say"
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
       },
       "bsm_187": {
         "_vine": {
           "x": 520,
           "y": 6000
         },
-        "message": "Neil Mcmanistan:",
         "next": "bsm_188",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "THAT'S MY MONEY!",
+        "type": "say"
       },
       "bsm_188": {
         "_vine": {
           "x": 740,
           "y": 6000
         },
-        "message": "WTF IS THAT ME?!",
         "next": "bsm_189",
-        "type": "npc_action"
+        "npc_id": "npc_captain_nguyen",
+        "type": "npc_anchor"
       },
       "bsm_189": {
         "_vine": {
@@ -924,8 +960,8 @@
           "y": 6000
         },
         "next": "bsm_190",
-        "style": "narration",
-        "text": "The ad continues, undeterred.",
+        "style": "raw",
+        "text": "He's a friend of the show.",
         "type": "say"
       },
       "bsm_19": {
@@ -933,9 +969,9 @@
           "x": 960,
           "y": 560
         },
-        "message": "They must think that I'm retarded. You'd have to be retarded not to put this together, and as sure as Barb took the kids the Jews will get me for this.",
         "next": "bsm_20",
-        "type": "npc_action"
+        "npc_id": "npc_captain_nguyen",
+        "type": "npc_anchor"
       },
       "bsm_190": {
         "_vine": {
@@ -943,9 +979,8 @@
           "y": 6160
         },
         "next": "bsm_191",
-        "style": "narration",
-        "text": "The lawyer steps back into frame. He is now dressed as a mohel. He adjusts his equipment.",
-        "type": "say"
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
       },
       "bsm_191": {
         "_vine": {
@@ -954,7 +989,7 @@
         },
         "next": "bsm_192",
         "style": "raw",
-        "text": "Let's bris this schmuck. Now cheaper — with our ten percent off circumcision discount! Spouses of gentiles now save ten percent!",
+        "text": "HE IS NOT A FRIEND OF THE SHOW THIS GUY RUINED MY LIFE —",
         "type": "say"
       },
       "bsm_192": {
@@ -962,72 +997,77 @@
           "x": 520,
           "y": 6160
         },
-        "message": "Neil Mcmanistan:",
         "next": "bsm_193",
-        "type": "npc_action"
+        "npc_id": "npc_captain_nguyen",
+        "type": "npc_anchor"
       },
       "bsm_193": {
         "_vine": {
           "x": 740,
           "y": 6160
         },
-        "message": "YOU LET THEM RUN AN AD FOR MY EX WIFE'S JEW LAWYER?!",
         "next": "bsm_194",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "I'm muting your microphone.",
+        "type": "say"
       },
       "bsm_194": {
         "_vine": {
           "x": 960,
           "y": 6160
         },
-        "message": "Captain Nguyen:",
         "next": "bsm_195",
-        "type": "npc_action"
+        "style": "narration",
+        "text": "Neil's protests continue at length, reduced by the muted mic to a distant, indistinct hum. The ad presses on without him.",
+        "type": "say"
       },
       "bsm_195": {
         "_vine": {
           "x": 80,
           "y": 6320
         },
-        "message": "He pays good money —",
         "next": "bsm_196",
-        "type": "npc_action"
+        "style": "narration",
+        "text": "The lawyer returns, now dressed as a Hasid. He squares up to the camera with evident satisfaction. He begins to recite his contact information at a measured pace. Then his eyes go wide. His hands come together — slowly, fingers interlacing.",
+        "type": "say"
       },
       "bsm_196": {
         "_vine": {
           "x": 300,
           "y": 6320
         },
-        "message": "Neil Mcmanistan:",
         "next": "bsm_197",
-        "type": "npc_action"
+        "npc_id": "npc_jerry_rosenberg",
+        "type": "npc_anchor"
       },
       "bsm_197": {
         "_vine": {
           "x": 520,
           "y": 6320
         },
-        "message": "THAT'S MY MONEY!",
         "next": "bsm_198",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "For all your divorce needs, come to Jerry Rosenberg Family Law — where we will make him pay. And make him pay for me too!",
+        "type": "say"
       },
       "bsm_198": {
         "_vine": {
           "x": 740,
           "y": 6320
         },
-        "message": "Captain Nguyen:",
         "next": "bsm_199",
-        "type": "npc_action"
+        "style": "narration",
+        "text": "From somewhere behind the muted microphone, Neil can be observed commenting at some volume. The exact words are inaudible. The feeling is clear.",
+        "type": "say"
       },
       "bsm_199": {
         "_vine": {
           "x": 960,
           "y": 6320
         },
-        "message": "He's a friend of the show.",
+        "event_type": "RETURN_FROM_BREAK",
         "next": "bsm_200",
-        "type": "npc_action"
+        "type": "event"
       },
       "bsm_2": {
         "_vine": {
@@ -1044,65 +1084,67 @@
           "x": 80,
           "y": 720
         },
-        "message": "Captain Nguyen:",
         "next": "bsm_21",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "Jesus christ Neil we talked about this shit man you're gonna get us kicked off public access we need this man.",
+        "type": "say"
       },
       "bsm_200": {
         "_vine": {
           "x": 80,
           "y": 6480
         },
-        "message": "Neil Mcmanistan:",
         "next": "bsm_201",
-        "type": "npc_action"
+        "style": "narration",
+        "text": "The camera — which has been lying on the floor of the basement at a forty-five-degree angle for the duration of the break — is picked up by an unseen hand and levelled. It finds Neil already mid-sentence, microphone apparently reinstated.",
+        "type": "say"
       },
       "bsm_201": {
         "_vine": {
           "x": 300,
           "y": 6480
         },
-        "message": "HE IS NOT A FRIEND OF THE SHOW THIS GUY RUINED MY LIFE —",
         "next": "bsm_202",
-        "type": "npc_action"
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
       },
       "bsm_202": {
         "_vine": {
           "x": 520,
           "y": 6480
         },
-        "message": "Captain Nguyen:",
         "next": "bsm_203",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "Who makes an ad like that? That's like three antisemitic self-burns in a row. He looks like Jude Süss up there. This is egregious! I'm too riled up to continue. Nguyen, roll the credits!",
+        "type": "say"
       },
       "bsm_203": {
         "_vine": {
           "x": 740,
           "y": 6480
         },
-        "message": "I'm muting your microphone.",
         "next": "bsm_204",
-        "type": "npc_action"
+        "npc_id": "npc_nguyen",
+        "type": "npc_anchor"
       },
       "bsm_204": {
         "_vine": {
           "x": 960,
           "y": 6480
         },
+        "message": "rises from his barstool and produces a large flip chart from behind him with the calm efficiency of a man who was prepared for this.",
         "next": "bsm_205",
-        "style": "narration",
-        "text": "Neil's protests continue at length, reduced by the muted mic to a distant, indistinct hum. The ad presses on without him.",
-        "type": "say"
+        "type": "npc_action"
       },
       "bsm_205": {
         "_vine": {
           "x": 80,
           "y": 6640
         },
+        "duration": 45,
         "next": "bsm_206",
-        "style": "narration",
-        "text": "The lawyer returns, now dressed as a Hasid. He squares up to the camera with evident satisfaction. He begins to recite his contact information at a measured pace. Then his eyes go wide. His hands come together — slowly, fingers interlacing.",
-        "type": "say"
+        "text": "HOST\r\nNeil McManistan\r\n\r\nLEGEND\r\nNeil McManistan\r\n\r\nCAMERA\r\nNeil McManistan\r\n\r\nNARRATOR\r\nNeil McManistan\r\n\r\nDIVORCE WINNER\r\nNeil McManistan\r\n\r\nBIG GUY\r\nNeil McManistan\r\n\r\nProducer\r\nCaptain Nguyen\r\n\r\nTRAITOR\r\nGabe Owners",
+        "type": "credits"
       },
       "bsm_206": {
         "_vine": {
@@ -1110,9 +1152,8 @@
           "y": 6640
         },
         "next": "bsm_207",
-        "style": "raw",
-        "text": "For all your divorce needs, come to Jerry Rosenberg Family Law — where we will make him pay. And make him pay for me too!",
-        "type": "say"
+        "npc_id": "npc_captain_nguyen",
+        "type": "npc_anchor"
       },
       "bsm_207": {
         "_vine": {
@@ -1120,8 +1161,8 @@
           "y": 6640
         },
         "next": "bsm_208",
-        "style": "narration",
-        "text": "From somewhere behind the muted microphone, Neil can be observed commenting at some volume. The exact words are inaudible. The feeling is clear.",
+        "style": "raw",
+        "text": "DIVORCE WINNER?!",
         "type": "say"
       },
       "bsm_208": {
@@ -1129,9 +1170,9 @@
           "x": 740,
           "y": 6640
         },
-        "event_type": "RETURN_FROM_BREAK",
         "next": "bsm_209",
-        "type": "event"
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
       },
       "bsm_209": {
         "_vine": {
@@ -1139,8 +1180,8 @@
           "y": 6640
         },
         "next": "bsm_210",
-        "style": "narration",
-        "text": "The camera — which has been lying on the floor of the basement at a forty-five-degree angle for the duration of the break — is picked up by an unseen hand and levelled. It finds Neil already mid-sentence, microphone apparently reinstated.",
+        "style": "raw",
+        "text": "Oh fuck off!",
         "type": "say"
       },
       "bsm_21": {
@@ -1148,90 +1189,91 @@
           "x": 300,
           "y": 720
         },
-        "message": "Jesus christ Neil we talked about this shit man you're gonna get us kicked off public access we need this man.",
         "next": "bsm_22",
-        "type": "npc_action"
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
       },
       "bsm_210": {
         "_vine": {
           "x": 80,
           "y": 6800
         },
-        "label": "CAM — 1 — MEDIUM on Neil McManistan",
         "next": "bsm_211",
-        "type": "camera_cut",
-        "zone_id": "zone_studio_1782953094650"
+        "npc_id": "npc_captain_nguyen",
+        "type": "npc_anchor"
       },
       "bsm_211": {
         "_vine": {
           "x": 300,
           "y": 6800
         },
-        "message": "Neil Mcmanistan:",
         "next": "bsm_212",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "YOU CAN'T JUST CREDIT Captain Nguyen AS THE Captain Nguyen! I'M THE Captain Nguyen!",
+        "type": "say"
       },
       "bsm_212": {
         "_vine": {
           "x": 520,
           "y": 6800
         },
-        "message": "Who makes an ad like that? That's like three antisemitic self-burns in a row. He looks like Jude Süss up there. This is egregious! I'm too riled up to continue. Nguyen, roll the credits!",
         "next": "bsm_213",
-        "type": "npc_action"
+        "npc_id": "npc_nguyen",
+        "type": "npc_anchor"
       },
       "bsm_213": {
         "_vine": {
           "x": 740,
           "y": 6800
         },
+        "message": "flips to the next page of the flip chart.",
         "next": "bsm_214",
-        "npc_id": "npc_nguyen",
-        "type": "npc_anchor"
+        "type": "npc_action"
       },
       "bsm_214": {
         "_vine": {
           "x": 960,
           "y": 6800
         },
-        "message": "rises from his barstool and produces a large flip chart from behind him with the calm efficiency of a man who was prepared for this.",
         "next": "bsm_215",
-        "type": "npc_action"
+        "npc_id": "npc_captain_nguyen",
+        "type": "npc_anchor"
       },
       "bsm_215": {
         "_vine": {
           "x": 80,
           "y": 6960
         },
-        "duration": 45,
         "next": "bsm_216",
-        "text": "HOST\r\nNeil McManistan\r\n\r\nLEGEND\r\nNeil McManistan\r\n\r\nCAMERA\r\nNeil McManistan\r\n\r\nNARRATOR\r\nNeil McManistan\r\n\r\nDIVORCE WINNER\r\nNeil McManistan\r\n\r\nBIG GUY\r\nNeil McManistan\r\n\r\nProducer\r\nCaptain Nguyen\r\n\r\nTRAITOR\r\nGabe Owners",
-        "type": "credits"
+        "style": "raw",
+        "text": "Real mature, man. Real mature. Your buddy Nguyen couldn't captain a rowboat — whipping out his root on live television, what the fuck was that?! She was right to leave you, man.",
+        "type": "say"
       },
       "bsm_216": {
         "_vine": {
           "x": 300,
           "y": 6960
         },
-        "message": "Captain Nguyen:",
         "next": "bsm_217",
-        "type": "npc_action"
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
       },
       "bsm_217": {
         "_vine": {
           "x": 520,
           "y": 6960
         },
-        "message": "DIVORCE WINNER?!",
         "next": "bsm_218",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "... fair observation...",
+        "type": "say"
       },
       "bsm_218": {
         "_vine": {
           "x": 740,
           "y": 6960
         },
-        "message": "Neil Mcmanistan:",
+        "message": "pensively lights a cigarette, furrows his brow, and stares into the middle distance.",
         "next": "bsm_219",
         "type": "npc_action"
       },
@@ -1240,152 +1282,57 @@
           "x": 960,
           "y": 6960
         },
-        "message": "Oh fuck off!",
         "next": "bsm_220",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "Join us next week when we are joined by our special guest — my wife's personal trainer — where we will fight a grudge match to the death!",
+        "type": "say"
       },
       "bsm_22": {
         "_vine": {
           "x": 520,
           "y": 720
         },
-        "message": "Neil Mcmanistan:",
         "next": "bsm_23",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "Im sorry, I'm sorry where was I. I'll tell you where I was, I was at the grocery store and they had a coupon, Tim Horton's iced coffee syrup, save 2 dollars. And you know how I feel about Singh Hortons...",
+        "type": "say"
       },
       "bsm_220": {
         "_vine": {
           "x": 80,
           "y": 7120
         },
-        "message": "Captain Nguyen:",
-        "next": "bsm_221",
-        "type": "npc_action"
-      },
-      "bsm_221": {
-        "_vine": {
-          "x": 300,
-          "y": 7120
-        },
-        "message": "YOU CAN'T JUST CREDIT Captain Nguyen AS THE Captain Nguyen! I'M THE Captain Nguyen!",
-        "next": "bsm_222",
-        "type": "npc_action"
-      },
-      "bsm_222": {
-        "_vine": {
-          "x": 520,
-          "y": 7120
-        },
-        "message": "flips to the next page of the flip chart.",
-        "next": "bsm_223",
-        "type": "npc_action"
-      },
-      "bsm_223": {
-        "_vine": {
-          "x": 740,
-          "y": 7120
-        },
-        "message": "Captain Nguyen:",
-        "next": "bsm_224",
-        "type": "npc_action"
-      },
-      "bsm_224": {
-        "_vine": {
-          "x": 960,
-          "y": 7120
-        },
-        "message": "Real mature, man. Real mature. Your buddy Nguyen couldn't captain a rowboat — whipping out his root on live television, what the fuck was that?! She was right to leave you, man.",
-        "next": "bsm_225",
-        "type": "npc_action"
-      },
-      "bsm_225": {
-        "_vine": {
-          "x": 80,
-          "y": 7280
-        },
-        "message": "Neil Mcmanistan:",
-        "next": "bsm_226",
-        "type": "npc_action"
-      },
-      "bsm_226": {
-        "_vine": {
-          "x": 300,
-          "y": 7280
-        },
-        "message": "... fair observation...",
-        "next": "bsm_227",
-        "type": "npc_action"
-      },
-      "bsm_227": {
-        "_vine": {
-          "x": 520,
-          "y": 7280
-        },
-        "next": "bsm_228",
-        "npc_id": "npc_neil_mcmanistan",
-        "type": "npc_anchor"
-      },
-      "bsm_228": {
-        "_vine": {
-          "x": 740,
-          "y": 7280
-        },
-        "message": "pensively lights a cigarette, furrows his brow, and stares into the middle distance.",
-        "next": "bsm_229",
-        "type": "npc_action"
-      },
-      "bsm_229": {
-        "_vine": {
-          "x": 960,
-          "y": 7280
-        },
-        "message": "Neil Mcmanistan:",
-        "next": "bsm_230",
-        "type": "npc_action"
+        "event_type": "FADE_OUT",
+        "type": "event"
       },
       "bsm_23": {
         "_vine": {
           "x": 740,
           "y": 720
         },
-        "message": "Im sorry, I'm sorry where was I. I'll tell you where I was, I was at the grocery store and they had a coupon, Tim Horton's iced coffee syrup, save 2 dollars. And you know how I feel about Singh Hortons...",
         "next": "bsm_24",
-        "type": "npc_action"
-      },
-      "bsm_230": {
-        "_vine": {
-          "x": 80,
-          "y": 7440
-        },
-        "message": "Join us next week when we are joined by our special guest — my wife's personal trainer — where we will fight a grudge match to the death!",
-        "next": "bsm_231",
-        "type": "npc_action"
-      },
-      "bsm_231": {
-        "_vine": {
-          "x": 300,
-          "y": 7440
-        },
-        "event_type": "FADE_OUT",
-        "type": "event"
+        "npc_id": "npc_captain_nguyen",
+        "type": "npc_anchor"
       },
       "bsm_24": {
         "_vine": {
           "x": 960,
           "y": 720
         },
-        "message": "Captain Nguyen:",
         "next": "bsm_25",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "CUT!",
+        "type": "say"
       },
       "bsm_25": {
         "_vine": {
           "x": 80,
           "y": 880
         },
-        "message": "CUT!",
         "next": "bsm_26",
-        "type": "npc_action"
+        "style": "narration",
+        "text": "A beep sounds. Neil nods at the camera. The show resumes.",
+        "type": "say"
       },
       "bsm_26": {
         "_vine": {
@@ -1393,9 +1340,8 @@
           "y": 880
         },
         "next": "bsm_27",
-        "style": "narration",
-        "text": "A beep sounds. Neil nods at the camera. The show resumes.",
-        "type": "say"
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
       },
       "bsm_27": {
         "_vine": {
@@ -1421,9 +1367,10 @@
           "x": 960,
           "y": 880
         },
-        "message": "Neil Mcmanistan:",
         "next": "bsm_30",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "these fuckin grocery barons are sucking us dry! I had this coupon, and lo and behold, ill give it a go, why not save a few bucks. Regular price 8 bucks, brought it down to 6 with the coupon, but i price matched it down to 6 so the coupon made it 4....",
+        "type": "say"
       },
       "bsm_3": {
         "_vine": {
@@ -1439,27 +1386,29 @@
           "x": 80,
           "y": 1040
         },
-        "message": "these fuckin grocery barons are sucking us dry! I had this coupon, and lo and behold, ill give it a go, why not save a few bucks. Regular price 8 bucks, brought it down to 6 with the coupon, but i price matched it down to 6 so the coupon made it 4....",
         "next": "bsm_31",
-        "type": "npc_action"
+        "npc_id": "npc_captain_nguyen",
+        "type": "npc_anchor"
       },
       "bsm_31": {
         "_vine": {
           "x": 300,
           "y": 1040
         },
-        "message": "Captain Nguyen:",
         "next": "bsm_32",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "What the fuck are you talking about and get to the point!",
+        "type": "say"
       },
       "bsm_32": {
         "_vine": {
           "x": 520,
           "y": 1040
         },
-        "message": "What the fuck are you talking about and get to the point!",
         "next": "bsm_33",
-        "type": "npc_action"
+        "style": "narration",
+        "text": "The Captain Nguyen delivers this in a frantic whisper from somewhere just off-camera. It is not a quiet whisper.",
+        "type": "say"
       },
       "bsm_33": {
         "_vine": {
@@ -1467,25 +1416,25 @@
           "y": 1040
         },
         "next": "bsm_34",
-        "style": "narration",
-        "text": "The Captain Nguyen delivers this in a frantic whisper from somewhere just off-camera. It is not a quiet whisper.",
-        "type": "say"
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
       },
       "bsm_34": {
         "_vine": {
           "x": 960,
           "y": 1040
         },
-        "message": "Neil Mcmanistan:",
         "next": "bsm_35",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "Anyways I went back into the place for some vittles a week later, no 2 dollar off coupons, but the same bottle of syrup was now 2 dollars cheaper now that there were no coupons. Those greedy pricks they must think that we are SAPS!",
+        "type": "say"
       },
       "bsm_35": {
         "_vine": {
           "x": 80,
           "y": 1200
         },
-        "message": "Anyways I went back into the place for some vittles a week later, no 2 dollar off coupons, but the same bottle of syrup was now 2 dollars cheaper now that there were no coupons. Those greedy pricks they must think that we are SAPS!",
+        "message": "slams his fist on the table. The ashtray goes airborne. The camera jerks up and snaps directly into Neil's face.",
         "next": "bsm_36",
         "type": "npc_action"
       },
@@ -1494,128 +1443,135 @@
           "x": 300,
           "y": 1200
         },
-        "message": "slams his fist on the table. The ashtray goes airborne. The camera jerks up and snaps directly into Neil's face.",
+        "label": "CAM — 1 — SNAP_TIGHT on Neil McManistan",
         "next": "bsm_37",
-        "type": "npc_action"
+        "type": "camera_cut",
+        "zone_id": "zone_studio_1782953094650"
       },
       "bsm_37": {
         "_vine": {
           "x": 520,
           "y": 1200
         },
-        "label": "CAM — 1 — SNAP_TIGHT on Neil McManistan",
         "next": "bsm_38",
-        "type": "camera_cut",
-        "zone_id": "zone_studio_1782953094650"
+        "style": "raw",
+        "text": "Don't even get me started on that shithole hortons, its harder than Chinese calculus trying to get a jesus coffee in there, they gotta get some teenage girls in there, not like that, not at all, never...",
+        "type": "say"
       },
       "bsm_38": {
         "_vine": {
           "x": 740,
           "y": 1200
         },
-        "message": "Neil Mcmanistan:",
         "next": "bsm_39",
-        "type": "npc_action"
+        "npc_id": "npc_captain_nguyen",
+        "type": "npc_anchor"
       },
       "bsm_39": {
         "_vine": {
           "x": 960,
           "y": 1200
         },
-        "message": "Don't even get me started on that shithole hortons, its harder than Chinese calculus trying to get a jesus coffee in there, they gotta get some teenage girls in there, not like that, not at all, never...",
         "next": "bsm_40",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "Jesus christ man you can't keep saying that shit.",
+        "type": "say"
       },
       "bsm_4": {
         "_vine": {
           "x": 960,
           "y": 80
         },
-        "message": "trips violently over a chair, which screeches across the concrete floor and detonates into a wall of empty beer cans and food containers.",
         "next": "bsm_5",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "FUCK!",
+        "type": "say"
       },
       "bsm_40": {
         "_vine": {
           "x": 80,
           "y": 1360
         },
-        "message": "Captain Nguyen:",
         "next": "bsm_41",
-        "type": "npc_action"
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
       },
       "bsm_41": {
         "_vine": {
           "x": 300,
           "y": 1360
         },
-        "message": "Jesus christ man you can't keep saying that shit.",
         "next": "bsm_42",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "Pause, no diddy, respectfully.",
+        "type": "say"
       },
       "bsm_42": {
         "_vine": {
           "x": 520,
           "y": 1360
         },
-        "message": "Neil Mcmanistan:",
         "next": "bsm_43",
-        "type": "npc_action"
+        "npc_id": "npc_captain_nguyen",
+        "type": "npc_anchor"
       },
       "bsm_43": {
         "_vine": {
           "x": 740,
           "y": 1360
         },
-        "message": "Pause, no diddy, respectfully.",
         "next": "bsm_44",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "THATS NOT HELPING!",
+        "type": "say"
       },
       "bsm_44": {
         "_vine": {
           "x": 960,
           "y": 1360
         },
-        "message": "Captain Nguyen:",
         "next": "bsm_45",
-        "type": "npc_action"
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
       },
       "bsm_45": {
         "_vine": {
           "x": 80,
           "y": 1520
         },
-        "message": "THATS NOT HELPING!",
         "next": "bsm_46",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "And now a word from our sponsor:",
+        "type": "say"
       },
       "bsm_46": {
         "_vine": {
           "x": 300,
           "y": 1520
         },
-        "message": "Neil Mcmanistan:",
+        "label": "CAM — 3 — SWING to the far corner of the basement",
         "next": "bsm_47",
-        "type": "npc_action"
+        "type": "camera_cut",
+        "zone_id": "zone_studio_1782953094650"
       },
       "bsm_47": {
         "_vine": {
           "x": 520,
           "y": 1520
         },
-        "message": "And now a word from our sponsor:",
         "next": "bsm_48",
-        "type": "npc_action"
+        "style": "narration",
+        "text": "The camera drifts wide to catch the far corner of the basement. Perched on a barstool, just at the edge of the visible set, is an old Vietnamese man. He is holding a small brown paper bag. He has been there the entire time.",
+        "type": "say"
       },
       "bsm_48": {
         "_vine": {
           "x": 740,
           "y": 1520
         },
-        "label": "CAM — 3 — SWING to the far corner of the basement",
         "next": "bsm_49",
-        "type": "camera_cut",
-        "zone_id": "zone_studio_1782953094650"
+        "npc_id": "npc_captain_nguyen",
+        "type": "npc_anchor"
       },
       "bsm_49": {
         "_vine": {
@@ -1623,8 +1579,8 @@
           "y": 1520
         },
         "next": "bsm_50",
-        "style": "narration",
-        "text": "The camera drifts wide to catch the far corner of the basement. Perched on a barstool, just at the edge of the visible set, is an old Vietnamese man. He is holding a small brown paper bag. He has been there the entire time.",
+        "style": "raw",
+        "text": "Who the hell is that?!",
         "type": "say"
       },
       "bsm_5": {
@@ -1632,46 +1588,47 @@
           "x": 80,
           "y": 240
         },
+        "message": "trips violently over a chair, which screeches across the concrete floor and detonates into a wall of empty beer cans and food containers.",
         "next": "bsm_6",
-        "style": "narration",
-        "text": "A bare lightbulb swings into frame on its pull-string. It flickers on, casting a slow pendulum of amber light across a dishevelled man in a dirty wife-beater seated at a table. In front of him sits a microphone from the 1930s.",
-        "type": "say"
+        "type": "npc_action"
       },
       "bsm_50": {
         "_vine": {
           "x": 80,
           "y": 1680
         },
-        "message": "Captain Nguyen:",
         "next": "bsm_51",
-        "type": "npc_action"
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
       },
       "bsm_51": {
         "_vine": {
           "x": 300,
           "y": 1680
         },
-        "message": "Who the hell is that?!",
         "next": "bsm_52",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "Thats fuckin, nguyen, man, hey nguyen say hi.",
+        "type": "say"
       },
       "bsm_52": {
         "_vine": {
           "x": 520,
           "y": 1680
         },
-        "message": "Neil Mcmanistan:",
         "next": "bsm_53",
-        "type": "npc_action"
+        "npc_id": "npc_captain_nguyen",
+        "type": "npc_anchor"
       },
       "bsm_53": {
         "_vine": {
           "x": 740,
           "y": 1680
         },
-        "message": "Thats fuckin, nguyen, man, hey nguyen say hi.",
         "next": "bsm_54",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "[Extended Vietnamese at considerable volume, followed by a long and deliberate nod.]",
+        "type": "say"
       },
       "bsm_54": {
         "_vine": {
@@ -1679,7 +1636,7 @@
           "y": 1680
         },
         "next": "bsm_55",
-        "npc_id": "npc_captain_nguyen",
+        "npc_id": "npc_neil_mcmanistan",
         "type": "npc_anchor"
       },
       "bsm_55": {
@@ -1689,7 +1646,7 @@
         },
         "next": "bsm_56",
         "style": "raw",
-        "text": "[Extended Vietnamese at considerable volume, followed by a long and deliberate nod.]",
+        "text": "Im gonna be this guys sponsor im bringing him on the crew we can hire him for half wage do you believe this guy is from fuckin 'Nam hey nguyen tell this guy you're from 'nam!",
         "type": "say"
       },
       "bsm_56": {
@@ -1697,7 +1654,7 @@
           "x": 300,
           "y": 1840
         },
-        "message": "Neil Mcmanistan:",
+        "message": "lunges forward and grabs Camera 1, physically wrenching it toward Nguyen.",
         "next": "bsm_57",
         "type": "npc_action"
       },
@@ -1706,37 +1663,38 @@
           "x": 520,
           "y": 1840
         },
-        "message": "Im gonna be this guys sponsor im bringing him on the crew we can hire him for half wage do you believe this guy is from fuckin 'Nam hey nguyen tell this guy you're from 'nam!",
         "next": "bsm_58",
-        "type": "npc_action"
+        "npc_id": "npc_captain_nguyen",
+        "type": "npc_anchor"
       },
       "bsm_58": {
         "_vine": {
           "x": 740,
           "y": 1840
         },
+        "message": "reaches into frame and yanks Camera 1 back in the other direction.",
         "next": "bsm_59",
-        "npc_id": "npc_neil_mcmanistan",
-        "type": "npc_anchor"
+        "type": "npc_action"
       },
       "bsm_59": {
         "_vine": {
           "x": 960,
           "y": 1840
         },
-        "message": "lunges forward and grabs Camera 1, physically wrenching it toward Nguyen.",
+        "label": "CAM — 1 — SNAPS_BACK to Neil McManistan",
         "next": "bsm_60",
-        "type": "npc_action"
+        "type": "camera_cut",
+        "zone_id": "zone_studio_1782953094650"
       },
       "bsm_6": {
         "_vine": {
           "x": 300,
           "y": 240
         },
-        "label": "CAM — 1 — PULL_BACK on Neil McManistan at the table",
         "next": "bsm_7",
-        "type": "camera_cut",
-        "zone_id": "zone_studio_1782953094650"
+        "style": "narration",
+        "text": "A bare lightbulb swings into frame on its pull-string. It flickers on, casting a slow pendulum of amber light across a dishevelled man in a dirty wife-beater seated at a table. In front of him sits a microphone from the 1930s.",
+        "type": "say"
       },
       "bsm_60": {
         "_vine": {
@@ -1744,80 +1702,83 @@
           "y": 2000
         },
         "next": "bsm_61",
-        "npc_id": "npc_captain_nguyen",
-        "type": "npc_anchor"
+        "style": "raw",
+        "text": "NEIL WE HAVE TO THANK THE SPONSORS SAY AND NOW A WORD FROM OUR SPONSORS!",
+        "type": "say"
       },
       "bsm_61": {
         "_vine": {
           "x": 300,
           "y": 2000
         },
-        "message": "reaches into frame and yanks Camera 1 back in the other direction.",
         "next": "bsm_62",
-        "type": "npc_action"
+        "style": "narration",
+        "text": "The Captain Nguyen shouts this at a volume that could be heard in the laundromat upstairs.",
+        "type": "say"
       },
       "bsm_62": {
         "_vine": {
           "x": 520,
           "y": 2000
         },
-        "label": "CAM — 1 — SNAPS_BACK to Neil McManistan",
         "next": "bsm_63",
-        "type": "camera_cut",
-        "zone_id": "zone_studio_1782953094650"
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
       },
       "bsm_63": {
         "_vine": {
           "x": 740,
           "y": 2000
         },
-        "message": "Captain Nguyen:",
         "next": "bsm_64",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "And now a word from our sponsors.",
+        "type": "say"
       },
       "bsm_64": {
         "_vine": {
           "x": 960,
           "y": 2000
         },
-        "message": "NEIL WE HAVE TO THANK THE SPONSORS SAY AND NOW A WORD FROM OUR SPONSORS!",
+        "event_type": "COMMERCIAL_BREAK",
         "next": "bsm_65",
-        "type": "npc_action"
+        "type": "event"
       },
       "bsm_65": {
         "_vine": {
           "x": 80,
           "y": 2160
         },
+        "graphic_id": "hungry_man_just_meats_logo",
         "next": "bsm_66",
-        "style": "narration",
-        "text": "The Captain Nguyen shouts this at a volume that could be heard in the laundromat upstairs.",
-        "type": "say"
+        "type": "title_card"
       },
       "bsm_66": {
         "_vine": {
           "x": 300,
           "y": 2160
         },
-        "message": "Neil Mcmanistan:",
         "next": "bsm_67",
-        "type": "npc_action"
+        "style": "narration",
+        "text": "The basement drops away. We cut to a commercial. A sad man sits alone at a kitchen table, staring at a wall.",
+        "type": "say"
       },
       "bsm_67": {
         "_vine": {
           "x": 520,
           "y": 2160
         },
-        "message": "And now a word from our sponsors.",
+        "label": "CAM — 4 — CLOSEUP on the sad man",
         "next": "bsm_68",
-        "type": "npc_action"
+        "type": "camera_cut",
+        "zone_id": "zone_studio_1782953094650"
       },
       "bsm_68": {
         "_vine": {
           "x": 740,
           "y": 2160
         },
-        "event_type": "COMMERCIAL_BREAK",
+        "event_type": "DISSOLVE",
         "next": "bsm_69",
         "type": "event"
       },
@@ -1826,19 +1787,20 @@
           "x": 960,
           "y": 2160
         },
-        "graphic_id": "hungry_man_just_meats_logo",
+        "label": "CAM — 5 — WIDE dream sequence — sunlit park",
         "next": "bsm_70",
-        "type": "title_card"
+        "type": "camera_cut",
+        "zone_id": "zone_studio_1782953094650"
       },
       "bsm_7": {
         "_vine": {
           "x": 520,
           "y": 240
         },
+        "label": "CAM — 1 — PULL_BACK on Neil McManistan at the table",
         "next": "bsm_8",
-        "style": "narration",
-        "text": "The camera slowly pulls back. The host is wearing combat boots. He is not wearing pants. These two facts are presented without comment.",
-        "type": "say"
+        "type": "camera_cut",
+        "zone_id": "zone_studio_1782953094650"
       },
       "bsm_70": {
         "_vine": {
@@ -1847,7 +1809,7 @@
         },
         "next": "bsm_71",
         "style": "narration",
-        "text": "The basement drops away. We cut to a commercial. A sad man sits alone at a kitchen table, staring at a wall.",
+        "text": "A dream blooms into colour. The man pushes his child on a playground swing. Nearby, his partner holds a new baby and smiles at him — warm, full, genuine. This is everything. This is his whole life.",
         "type": "say"
       },
       "bsm_71": {
@@ -1855,29 +1817,30 @@
           "x": 300,
           "y": 2320
         },
-        "label": "CAM — 4 — CLOSEUP on the sad man",
         "next": "bsm_72",
-        "type": "camera_cut",
-        "zone_id": "zone_studio_1782953094650"
+        "style": "narration",
+        "text": "A thundercrack. A man on a Harley-Davidson roars up onto the grass, dismounts, kicks the baby, and begins making out with the man's wife. The kid on the swing jumps off, turns to face the camera, and speaks.",
+        "type": "say"
       },
       "bsm_72": {
         "_vine": {
           "x": 520,
           "y": 2320
         },
-        "event_type": "DISSOLVE",
         "next": "bsm_73",
-        "type": "event"
+        "style": "narration",
+        "text": "Loser.",
+        "type": "say"
       },
       "bsm_73": {
         "_vine": {
           "x": 740,
           "y": 2320
         },
-        "label": "CAM — 5 — WIDE dream sequence — sunlit park",
         "next": "bsm_74",
-        "type": "camera_cut",
-        "zone_id": "zone_studio_1782953094650"
+        "style": "narration",
+        "text": "The whole family piles onto the Harley and rides away without a backward glance. The man sinks to his knees. He begins to weep.",
+        "type": "say"
       },
       "bsm_74": {
         "_vine": {
@@ -1886,7 +1849,7 @@
         },
         "next": "bsm_75",
         "style": "narration",
-        "text": "A dream blooms into colour. The man pushes his child on a playground swing. Nearby, his partner holds a new baby and smiles at him — warm, full, genuine. This is everything. This is his whole life.",
+        "text": "A figure approaches from the right: a large man in a foam rubber Salisbury steak costume. He sits beside the crying man and places an arm around him in silence.\r\n\r\nA second figure approaches from the left: a rectangular man in a chicken patty costume, carrying a glass of whiskey. He hands it over.\r\n\r\nA third figure lumbers in from the rear — shaped like a rib patty, boombox on one shoulder. Creed is playing. He reaches a thick slab-like arm forward and passes the crying man a lit joint.",
         "type": "say"
       },
       "bsm_75": {
@@ -1894,10 +1857,9 @@
           "x": 80,
           "y": 2480
         },
+        "event_type": "DISSOLVE",
         "next": "bsm_76",
-        "style": "narration",
-        "text": "A thundercrack. A man on a Harley-Davidson roars up onto the grass, dismounts, kicks the baby, and begins making out with the man's wife. The kid on the swing jumps off, turns to face the camera, and speaks.",
-        "type": "say"
+        "type": "event"
       },
       "bsm_76": {
         "_vine": {
@@ -1905,8 +1867,8 @@
           "y": 2480
         },
         "next": "bsm_77",
-        "style": "raw",
-        "text": "Loser.",
+        "style": "narration",
+        "text": "The man is back in his kitchen. He is cleaned up. Shaved. Wearing a pressed shirt. On the table before him sits a Hungry Man dinner tray — wall to wall meat. Not a vegetable in sight. He looks at it the way a man looks at his oldest friend.",
         "type": "say"
       },
       "bsm_77": {
@@ -1916,7 +1878,7 @@
         },
         "next": "bsm_78",
         "style": "narration",
-        "text": "The whole family piles onto the Harley and rides away without a backward glance. The man sinks to his knees. He begins to weep.",
+        "text": "It's just the meats.",
         "type": "say"
       },
       "bsm_78": {
@@ -1926,7 +1888,7 @@
         },
         "next": "bsm_79",
         "style": "narration",
-        "text": "A figure approaches from the right: a large man in a foam rubber Salisbury steak costume. He sits beside the crying man and places an arm around him in silence.\r\n\r\nA second figure approaches from the left: a rectangular man in a chicken patty costume, carrying a glass of whiskey. He hands it over.\r\n\r\nA third figure lumbers in from the rear — shaped like a rib patty, boombox on one shoulder. Creed is playing. He reaches a thick slab-like arm forward and passes the crying man a lit joint.",
+        "text": "She can't control you anymore, king.",
         "type": "say"
       },
       "bsm_79": {
@@ -1934,7 +1896,7 @@
           "x": 960,
           "y": 2480
         },
-        "event_type": "DISSOLVE",
+        "event_type": "RETURN_FROM_BREAK",
         "next": "bsm_80",
         "type": "event"
       },
@@ -1943,9 +1905,10 @@
           "x": 740,
           "y": 240
         },
-        "message": "Neil Mcmanistan:",
         "next": "bsm_9",
-        "type": "npc_action"
+        "style": "narration",
+        "text": "The camera slowly pulls back. The host is wearing combat boots. He is not wearing pants. These two facts are presented without comment.",
+        "type": "say"
       },
       "bsm_80": {
         "_vine": {
@@ -1954,7 +1917,7 @@
         },
         "next": "bsm_81",
         "style": "narration",
-        "text": "The man is back in his kitchen. He is cleaned up. Shaved. Wearing a pressed shirt. On the table before him sits a Hungry Man dinner tray — wall to wall meat. Not a vegetable in sight. He looks at it the way a man looks at his oldest friend.",
+        "text": "The camera fades back to the basement. Neil is at the table. There are three more cigarette butts in the ashtray than there were before the break. He does not acknowledge this. The pendulum bulb has slowed to a gentle sway.",
         "type": "say"
       },
       "bsm_81": {
@@ -1962,10 +1925,10 @@
           "x": 300,
           "y": 2640
         },
+        "label": "CAM — 1 — MEDIUM on Neil McManistan",
         "next": "bsm_82",
-        "style": "raw",
-        "text": "It's just the meats.",
-        "type": "say"
+        "type": "camera_cut",
+        "zone_id": "zone_studio_1782953094650"
       },
       "bsm_82": {
         "_vine": {
@@ -1974,7 +1937,7 @@
         },
         "next": "bsm_83",
         "style": "raw",
-        "text": "She can't control you anymore, king.",
+        "text": "Where was I...",
         "type": "say"
       },
       "bsm_83": {
@@ -1982,9 +1945,9 @@
           "x": 740,
           "y": 2640
         },
-        "event_type": "RETURN_FROM_BREAK",
         "next": "bsm_84",
-        "type": "event"
+        "npc_id": "npc_captain_nguyen",
+        "type": "npc_anchor"
       },
       "bsm_84": {
         "_vine": {
@@ -1992,8 +1955,8 @@
           "y": 2640
         },
         "next": "bsm_85",
-        "style": "narration",
-        "text": "The camera fades back to the basement. Neil is at the table. There are three more cigarette butts in the ashtray than there were before the break. He does not acknowledge this. The pendulum bulb has slowed to a gentle sway.",
+        "style": "raw",
+        "text": "Maybe we should move on.",
         "type": "say"
       },
       "bsm_85": {
@@ -2001,145 +1964,152 @@
           "x": 80,
           "y": 2800
         },
-        "label": "CAM — 1 — MEDIUM on Neil McManistan",
         "next": "bsm_86",
-        "type": "camera_cut",
-        "zone_id": "zone_studio_1782953094650"
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
       },
       "bsm_86": {
         "_vine": {
           "x": 300,
           "y": 2800
         },
-        "message": "Neil Mcmanistan:",
         "next": "bsm_87",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "MAYBE YOU SHOULD MOVE ON!",
+        "type": "say"
       },
       "bsm_87": {
         "_vine": {
           "x": 520,
           "y": 2800
         },
-        "message": "Where was I...",
         "next": "bsm_88",
-        "type": "npc_action"
+        "npc_id": "npc_captain_nguyen",
+        "type": "npc_anchor"
       },
       "bsm_88": {
         "_vine": {
           "x": 740,
           "y": 2800
         },
-        "message": "Captain Nguyen:",
         "next": "bsm_89",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "You know that's not what I meant. Let's get to the top 10.",
+        "type": "say"
       },
       "bsm_89": {
         "_vine": {
           "x": 960,
           "y": 2800
         },
-        "message": "Maybe we should move on.",
         "next": "bsm_90",
-        "type": "npc_action"
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
       },
       "bsm_9": {
         "_vine": {
           "x": 960,
           "y": 240
         },
-        "message": "you're not gonna believe this shit!",
         "next": "bsm_10",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "you're not gonna believe this shit!",
+        "type": "say"
       },
       "bsm_90": {
         "_vine": {
           "x": 80,
           "y": 2960
         },
-        "message": "Neil Mcmanistan:",
         "next": "bsm_91",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "OK here's my top ten conspiracy theories of the week, as always I will be fielding calls but only at the end of the programme please, I know our phone lines are already lighting up, our operators are standing by...",
+        "type": "say"
       },
       "bsm_91": {
         "_vine": {
           "x": 300,
           "y": 2960
         },
-        "message": "MAYBE YOU SHOULD MOVE ON!",
         "next": "bsm_92",
-        "type": "npc_action"
+        "npc_id": "npc_captain_nguyen",
+        "type": "npc_anchor"
       },
       "bsm_92": {
         "_vine": {
           "x": 520,
           "y": 2960
         },
-        "message": "Captain Nguyen:",
         "next": "bsm_93",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "No one calls this show. This phone isn't even that type of phone. It's a payphone. You have a basement payphone. I didn't even think that was possible.",
+        "type": "say"
       },
       "bsm_93": {
         "_vine": {
           "x": 740,
           "y": 2960
         },
-        "message": "You know that's not what I meant. Let's get to the top 10.",
         "next": "bsm_94",
-        "type": "npc_action"
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
       },
       "bsm_94": {
         "_vine": {
           "x": 960,
           "y": 2960
         },
-        "message": "Neil Mcmanistan:",
         "next": "bsm_95",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "She fuckin took everything man...",
+        "type": "say"
       },
       "bsm_95": {
         "_vine": {
           "x": 80,
           "y": 3120
         },
-        "message": "OK here's my top ten conspiracy theories of the week, as always I will be fielding calls but only at the end of the programme please, I know our phone lines are already lighting up, our operators are standing by...",
         "next": "bsm_96",
-        "type": "npc_action"
+        "npc_id": "npc_captain_nguyen",
+        "type": "npc_anchor"
       },
       "bsm_96": {
         "_vine": {
           "x": 300,
           "y": 3120
         },
-        "message": "Captain Nguyen:",
         "next": "bsm_97",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "Let's try and move on.",
+        "type": "say"
       },
       "bsm_97": {
         "_vine": {
           "x": 520,
           "y": 3120
         },
-        "message": "No one calls this show. This phone isn't even that type of phone. It's a payphone. You have a basement payphone. I didn't even think that was possible.",
         "next": "bsm_98",
-        "type": "npc_action"
+        "npc_id": "npc_neil_mcmanistan",
+        "type": "npc_anchor"
       },
       "bsm_98": {
         "_vine": {
           "x": 740,
           "y": 3120
         },
-        "message": "Neil Mcmanistan:",
         "next": "bsm_99",
-        "type": "npc_action"
+        "style": "raw",
+        "text": "That's what Barb told my kids and my dog.",
+        "type": "say"
       },
       "bsm_99": {
         "_vine": {
           "x": 960,
           "y": 3120
         },
-        "message": "She fuckin took everything man...",
         "next": "bsm_100",
-        "type": "npc_action"
+        "npc_id": "npc_captain_nguyen",
+        "type": "npc_anchor"
       }
     }
   },
@@ -2157,10 +2127,16 @@
       "text": "Cut to Neil's basement. \r\n\r\nThe screen holds black. In the deep background, footsteps approach slowly through darkness. A faint reverb hangs in the air — the acoustic signature of a basement. Above it, muffled but unmistakable, the din of a bustling Vietnamese laundromat drifts down through the ceiling."
     },
     {
+      "text": "FUCK!"
+    },
+    {
       "text": "A bare lightbulb swings into frame on its pull-string. It flickers on, casting a slow pendulum of amber light across a dishevelled man in a dirty wife-beater seated at a table. In front of him sits a microphone from the 1930s."
     },
     {
       "text": "The camera slowly pulls back. The host is wearing combat boots. He is not wearing pants. These two facts are presented without comment."
+    },
+    {
+      "text": "you're not gonna believe this shit!"
     },
     {
       "text": "The basement dissolves to a sprawling conspiracy web: cork board, yarn, thumbtacks. Charlie Kirk is connected to Benito Mussolini by a red string. Both are connected to a laminated photograph of a lizard. Scattered across the map: celebrities, geopolitical figures, and anti-Zionist imagery of considerable ambition. It is the work of a very troubled and extremely productive man."
@@ -2169,19 +2145,70 @@
       "text": "The scene snaps into a hard spin cut — synchronized to the wet, gurgling crescendo of a bong reaching its full percolation. We slam back to the basement."
     },
     {
+      "text": "They must think that I'm retarded. You'd have to be retarded not to put this together, and as sure as Barb took the kids the Jews will get me for this."
+    },
+    {
+      "text": "Jesus christ Neil we talked about this shit man you're gonna get us kicked off public access we need this man."
+    },
+    {
+      "text": "Im sorry, I'm sorry where was I. I'll tell you where I was, I was at the grocery store and they had a coupon, Tim Horton's iced coffee syrup, save 2 dollars. And you know how I feel about Singh Hortons..."
+    },
+    {
+      "text": "CUT!"
+    },
+    {
       "text": "A beep sounds. Neil nods at the camera. The show resumes."
+    },
+    {
+      "text": "these fuckin grocery barons are sucking us dry! I had this coupon, and lo and behold, ill give it a go, why not save a few bucks. Regular price 8 bucks, brought it down to 6 with the coupon, but i price matched it down to 6 so the coupon made it 4...."
+    },
+    {
+      "text": "What the fuck are you talking about and get to the point!"
     },
     {
       "text": "The Captain Nguyen delivers this in a frantic whisper from somewhere just off-camera. It is not a quiet whisper."
     },
     {
+      "text": "Anyways I went back into the place for some vittles a week later, no 2 dollar off coupons, but the same bottle of syrup was now 2 dollars cheaper now that there were no coupons. Those greedy pricks they must think that we are SAPS!"
+    },
+    {
+      "text": "Don't even get me started on that shithole hortons, its harder than Chinese calculus trying to get a jesus coffee in there, they gotta get some teenage girls in there, not like that, not at all, never..."
+    },
+    {
+      "text": "Jesus christ man you can't keep saying that shit."
+    },
+    {
+      "text": "Pause, no diddy, respectfully."
+    },
+    {
+      "text": "THATS NOT HELPING!"
+    },
+    {
+      "text": "And now a word from our sponsor:"
+    },
+    {
       "text": "The camera drifts wide to catch the far corner of the basement. Perched on a barstool, just at the edge of the visible set, is an old Vietnamese man. He is holding a small brown paper bag. He has been there the entire time."
+    },
+    {
+      "text": "Who the hell is that?!"
+    },
+    {
+      "text": "Thats fuckin, nguyen, man, hey nguyen say hi."
     },
     {
       "text": "[Extended Vietnamese at considerable volume, followed by a long and deliberate nod.]"
     },
     {
+      "text": "Im gonna be this guys sponsor im bringing him on the crew we can hire him for half wage do you believe this guy is from fuckin 'Nam hey nguyen tell this guy you're from 'nam!"
+    },
+    {
+      "text": "NEIL WE HAVE TO THANK THE SPONSORS SAY AND NOW A WORD FROM OUR SPONSORS!"
+    },
+    {
       "text": "The Captain Nguyen shouts this at a volume that could be heard in the laundromat upstairs."
+    },
+    {
+      "text": "And now a word from our sponsors."
     },
     {
       "text": "The basement drops away. We cut to a commercial. A sad man sits alone at a kitchen table, staring at a wall."
@@ -2214,16 +2241,127 @@
       "text": "The camera fades back to the basement. Neil is at the table. There are three more cigarette butts in the ashtray than there were before the break. He does not acknowledge this. The pendulum bulb has slowed to a gentle sway."
     },
     {
+      "text": "Where was I..."
+    },
+    {
+      "text": "Maybe we should move on."
+    },
+    {
+      "text": "MAYBE YOU SHOULD MOVE ON!"
+    },
+    {
+      "text": "You know that's not what I meant. Let's get to the top 10."
+    },
+    {
+      "text": "OK here's my top ten conspiracy theories of the week, as always I will be fielding calls but only at the end of the programme please, I know our phone lines are already lighting up, our operators are standing by..."
+    },
+    {
+      "text": "No one calls this show. This phone isn't even that type of phone. It's a payphone. You have a basement payphone. I didn't even think that was possible."
+    },
+    {
+      "text": "She fuckin took everything man..."
+    },
+    {
+      "text": "Let's try and move on."
+    },
+    {
+      "text": "That's what Barb told my kids and my dog."
+    },
+    {
+      "text": "For christ sake."
+    },
+    {
+      "text": "Just put the fuckin number up man, put up my number so my fans can call in."
+    },
+    {
       "text": "1-800-273-8255 ←── NEIL'S HOTLINE — OPERATORS STANDING BY ←── 1-800-273-8255 ←── CENTAUR SHREDS ON ←── DON'T LET HER WIN, BROTHER! — HULK HOGAN ←── CALL NOW ←── 1-800-273-8255 ←── NEIL'S HOTLINE ←──"
     },
     {
       "text": "The number crawls across the bottom of the screen. It is the suicide hotline. It is being towed by a centaur playing electric guitar. Behind the centaur, a graphic element features Hulk Hogan pointing directly at the audience with one finger. He appears to be saying something encouraging."
     },
     {
+      "text": "WHAT THE FUCK WAS THAT MAN?! WAS THAT THE SUICIDE HOTLINE NUMBER?!"
+    },
+    {
+      "text": "And why was Hulk Hogan involved?"
+    },
+    {
+      "text": "The Hulkster was your idea."
+    },
+    {
+      "text": "Why the hell was it my idea when was that ever my idea to have Hulk Hogan telling my audience not to kill themselves?!"
+    },
+    {
+      "text": "I got a voicemail at 3 am. It sounded like you were drunk but you were quite insistent that we should use the Hulkster in a graphic for the show."
+    },
+    {
+      "text": "Since when did that mean get the Hulkster to tell my fans not to kill themselves after the divorce?! I was watching the Netflix documentary!"
+    },
+    {
+      "text": "That's on me. I thought you'd appreciate the levity."
+    },
+    {
+      "text": "The Hulkster wouldn't stand for this. It was all a smear anyways, and we all know why..."
+    },
+    {
+      "text": "What are you talking about man?"
+    },
+    {
+      "text": "These Hollywood jews hate to see a blonde haired blue eyed macho friend of Jesus win."
+    },
+    {
+      "text": "You can't keep saying jews!"
+    },
+    {
+      "text": "Why is Barb gonna go get her big jew lawyer to come after me, you know they love to litigate —"
+    },
+    {
+      "text": "Jesus!"
+    },
+    {
+      "text": "YOU CANT SQUEEZE BLOOD FROM A STONE BARBRA I KNOW WHO DROVE US APART AND I HEARS THE TRUTH IS REALLY BAD!"
+    },
+    {
+      "text": "IS REALLY BAD."
+    },
+    {
+      "text": "ISRAELI BAD!"
+    },
+    {
+      "text": "PRESS THE RED BUTTON NGUYEN!"
+    },
+    {
       "text": "From a speaker of indeterminate location, a single word is announced at considerable volume."
     },
     {
+      "text": "You can't have a Jew button are you insane!"
+    },
+    {
+      "text": "THEN WHY DO THESE JEWS KEEP PUSHING MY BUTTONS?!"
+    },
+    {
+      "text": "I'm cutting to break."
+    },
+    {
       "text": "The camera swings wildly between the two men, catching ceiling, floor, the laundromat pipes, and half-illuminated faces in roughly equal measure."
+    },
+    {
+      "text": "DO YOU HAVE TROUBLE GETTING IT UP CUZ YOUR WIFE WAS AN UGLY PIG?!"
+    },
+    {
+      "text": "Give me that!"
+    },
+    {
+      "text": "WELL LOOK NO FURTHER THAN Captain Nguyen'S MAGIC ROOT! AVAILABLE VIA PAYPAL —"
+    },
+    {
+      "text": "THAT'S ENOUGH! I'VE HAD ENOUGH! I'M PULLING THE PLUG —"
+    },
+    {
+      "text": "She took everything. I'm living off tinned beans here. Let a man eat."
+    },
+    {
+      "text": "And now a word from our sponsor."
     },
     {
       "text": "The camera hits the floor and settles at a forty-five-degree angle. The image holds there. In the background, the argument continues to dissolve into ambient noise."
@@ -2244,6 +2382,9 @@
       "text": "The footage cuts abruptly to grainy home video: a man in a wife-beater and dirty underpants, cracking a beer and lighting a cigarette while a baby plays with a fork near a wall socket."
     },
     {
+      "text": "WTF IS THAT ME?!"
+    },
+    {
       "text": "The ad continues, undeterred."
     },
     {
@@ -2251,6 +2392,24 @@
     },
     {
       "text": "Let's bris this schmuck. Now cheaper — with our ten percent off circumcision discount! Spouses of gentiles now save ten percent!"
+    },
+    {
+      "text": "YOU LET THEM RUN AN AD FOR MY EX WIFE'S JEW LAWYER?!"
+    },
+    {
+      "text": "He pays good money —"
+    },
+    {
+      "text": "THAT'S MY MONEY!"
+    },
+    {
+      "text": "He's a friend of the show."
+    },
+    {
+      "text": "HE IS NOT A FRIEND OF THE SHOW THIS GUY RUINED MY LIFE —"
+    },
+    {
+      "text": "I'm muting your microphone."
     },
     {
       "text": "Neil's protests continue at length, reduced by the muted mic to a distant, indistinct hum. The ad presses on without him."
@@ -2266,6 +2425,27 @@
     },
     {
       "text": "The camera — which has been lying on the floor of the basement at a forty-five-degree angle for the duration of the break — is picked up by an unseen hand and levelled. It finds Neil already mid-sentence, microphone apparently reinstated."
+    },
+    {
+      "text": "Who makes an ad like that? That's like three antisemitic self-burns in a row. He looks like Jude Süss up there. This is egregious! I'm too riled up to continue. Nguyen, roll the credits!"
+    },
+    {
+      "text": "DIVORCE WINNER?!"
+    },
+    {
+      "text": "Oh fuck off!"
+    },
+    {
+      "text": "YOU CAN'T JUST CREDIT Captain Nguyen AS THE Captain Nguyen! I'M THE Captain Nguyen!"
+    },
+    {
+      "text": "Real mature, man. Real mature. Your buddy Nguyen couldn't captain a rowboat — whipping out his root on live television, what the fuck was that?! She was right to leave you, man."
+    },
+    {
+      "text": "... fair observation..."
+    },
+    {
+      "text": "Join us next week when we are joined by our special guest — my wife's personal trainer — where we will fight a grudge match to the death!"
     }
   ],
   "name": "You're Not Gonna Believe This Shit With Neil McManistan",
@@ -2275,6 +2455,6 @@
   "sports_pools": null,
   "tags": [],
   "talkshow_pools": null,
-  "updated_at": "1783047002",
+  "updated_at": "1784637396",
   "weather_pools": null
 }

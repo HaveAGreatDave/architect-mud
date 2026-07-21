@@ -12,7 +12,9 @@ import { resolve as siftResolve, createSelectionState, formatSelectionPage } fro
 import { registerAction } from '../../server/engine/actions.js';
 import { on } from '../../server/engine/events.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
-import { textModePlayers } from './text-mode.js';
+import { textModePlayers, isTextMode } from './text-mode.js';
+import { isVendorWorkTime } from '../../server/engine/ai-behaviour.js';
+import { getEnvironmentState } from '../../server/engine/environment.js';
 
 // ── Boot ───────────────────────────────────────────────────────────────────────
 
@@ -78,22 +80,27 @@ function tableInZone(zoneId, name = null) {
 }
 
 // Sync a player's runtime text-mode membership when they sit or spectate (not a
-// hot path). Text mode is on if the player has personally opted in
-// (player_flags.poker_text_mode) OR the table itself is an old-school text table
-// (config.textTable) — the back-room felt always plays called-aloud. The
-// narration code only ever consults the Set, never the DB.
+// hot path). The narration code only ever consults the Set, never the DB.
+//
+// The player's own choice always wins. `config.textTable` is only the table's
+// STARTING preference — what an old-school felt opens in for someone who has
+// never expressed a view — and `text`/`visual` flip freely from there at any
+// table. (It used to be a hard override that made `visual` impossible.)
 async function ensureTextPref(player, table) {
-  if (table?.config?.textTable) { textModePlayers.add(player.id); return; }
   const v = await getFlag('player', 'poker_text_mode', player).catch(() => undefined);
-  if (v === 'true') textModePlayers.add(player.id);
+  const wantsText = v === 'true' ? true
+    : v === 'false' ? false
+    : !!table?.config?.textTable;   // no stored choice → the table's default
+  if (wantsText) textModePlayers.add(player.id);
   else textModePlayers.delete(player.id);
 }
 
-// The area-pane result after a seat/spectate/look. Normal tables draw the visual
-// poker pane; an old-school text table leaves the area pane as the room look and
-// plays entirely in the text log — so hand it the room description instead.
+// The area-pane result after a seat/spectate/look. A player in the visual view
+// gets the poker pane; a player in text view leaves the area pane as the room
+// look and plays entirely in the text log — so hand them the room description.
+// Per player, not per table.
 async function paneOrLook(t, player) {
-  if (t.config.textTable) {
+  if (isTextMode(player.id)) {
     const { describeZone } = await import('../../server/engine/commands/index.js');
     const zone = getZone(player.current_zone);
     if (!zone) return null;
@@ -292,9 +299,9 @@ async function cmdLook(args, raw, player) {
   const t = tableForPlayer(player);
   if (!t) return; // fall through to engine
 
-  // Old-school text table: `look` shows the room, not the visual pane — the game
-  // lives in the log. Fall through to the engine's room look.
-  if (t.config.textTable) return;
+  // In text view the game lives in the log, so `look` shows the room rather than
+  // the visual pane. Fall through to the engine's room look.
+  if (isTextMode(player.id)) return;
 
   return { type: 'poker_update', html: renderPane(t, player.id) };
 }
@@ -347,8 +354,11 @@ async function cmdSummon(args, raw, player) {
   if (t.seatedIndex(player.id) < 0) return { type: 'error', message: 'Take a seat first, then call a gambler over.' };
   if (t.openSeats() === 0) return { type: 'error', message: 'The table is full.' };
 
-  const gamblers = [...world.npcs.values()].filter(n => n.flags?.poker_player && (n.hp == null || n.hp > 0));
-  if (!gamblers.length) return { type: 'error', message: "You don't know any card players who'd show." };
+  // Off-shift gamblers are asleep, not antisocial — same reason `call dealer` won't
+  // wake the dealer: their commute graph would walk them straight back out.
+  const gamblers = [...world.npcs.values()].filter(n =>
+    n.flags?.poker_player && (n.hp == null || n.hp > 0) && !isOffShift(n));
+  if (!gamblers.length) return { type: 'error', message: "You don't know any card players who'd show at this hour." };
 
   let npc;
   const name = args.join(' ').replace(/^in\s+/i, '').trim(); // allow "deal in <name>"
@@ -421,6 +431,16 @@ function findAssignedDealer(t) {
   return null;
 }
 
+// A scheduled dealer who's currently off the clock. Without this, `call dealer`
+// would haul a sleeping dealer out of bed and his own commute graph (GO_HOME)
+// would immediately start walking him back — he'd abandon the table mid-hand.
+// Dealers with no vendor_schedule (the Neon Vig back room, the covert dealers)
+// are always available and never gated.
+function isOffShift(npc) {
+  if (!npc?.vendor_schedule || !Object.keys(npc.vendor_schedule).length) return false;
+  return !isVendorWorkTime(npc, getEnvironmentState()).working;
+}
+
 // `call dealer` / `calldealer` — rush the table's own dealer back to his post
 // if he's wandered off (and is free to come). Doesn't require a seat: calling
 // staff back is different from summoning an opponent to play.
@@ -431,6 +451,9 @@ async function cmdCallDealer(args, raw, player) {
 
   const npc = findAssignedDealer(t);
   if (!npc) return { type: 'error', message: 'This table has no dealer to call.' };
+  if (isOffShift(npc)) {
+    return { type: 'error', message: `${npc.name} isn't on the clock. The felt stays cold until he is.` };
+  }
 
   const result = await t.summonDealer(npc);
   if (!result.ok) return { type: 'error', message: result.error };
@@ -451,7 +474,7 @@ async function maybeAutoInvite(table) {
   if (table._lastAutoInvite && now - table._lastAutoInvite < 120_000) return;   // don't spam invites
 
   const cand = [...world.npcs.values()].find(n =>
-    n.flags?.poker_player && (n.hp == null || n.hp > 0)
+    n.flags?.poker_player && (n.hp == null || n.hp > 0) && !isOffShift(n)
     && !(n.flags.poker_cooldown_until && now < n.flags.poker_cooldown_until)
     && table.seatedIndex('npc:' + n.id) < 0
     && !table._incomingBots.some(w => w.npc.id === n.id));
@@ -532,16 +555,6 @@ async function cmdPlayers(args, raw, player) {
 // switch. If the player is at a table, the top pane is flipped immediately;
 // otherwise the pref is just stored for the next time they sit.
 async function applyPokerView(player, toText) {
-  // An old-school text table draws no visual pane for anyone (pushPaneAll skips
-  // it wholesale), so `visual` there would only hand out a pane that never
-  // updates. Refuse it and keep the player in the log.
-  if (!toText) {
-    const cur = tableForPlayer(player);
-    if (cur?.config?.textTable) {
-      return { type: 'error', message: 'This table is played by ear — there is no visual felt here.' };
-    }
-  }
-
   if (toText) textModePlayers.add(player.id);
   else textModePlayers.delete(player.id);
   await setFlag('player', 'poker_text_mode', toText ? 'true' : 'false', player).catch(() => {});
@@ -850,3 +863,6 @@ export const commands = {
   text:      cmdTextView,
   visual:    cmdVisualView,
 };
+
+// Exposed for the regress suite.
+export const _test = { isOffShift, ensureTextPref };

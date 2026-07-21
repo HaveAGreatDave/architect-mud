@@ -261,6 +261,7 @@ const handlers = {
     for (const v of tvViewsForChannel(msg.channelId)) v.applyOverlay(msg.overlay);
   },
   tv_schedule: (msg) => { for (const v of tvOpenViews()) v.renderSchedule(msg); },
+  tv_standings: (msg) => { for (const v of tvOpenViews()) v.renderStandings(msg); },
   system: (msg) => { appendHtml(msg.message, 'system'); },
   ambient: (msg) => { appendHtml(msg.message, 'ambient'); },
   sleep: (msg) => { appendHtml(msg.message, 'system'); },

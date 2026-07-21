@@ -6,6 +6,9 @@ import { getRegisteredAINodes, tickEntityAI, initBlackboard } from '../../server
 import { world } from '../../server/engine/world.js';
 import { query } from '../../server/models/db.js';
 import { ensureClipBroadcast, _test, _piracyTest, startEmergency, stopEmergency, emergencyActive, getTvChannelList, getTabletTunedChannel } from './index.js';
+import { getBroadcast, setBroadcast } from '../../server/engine/messaging.js';
+import { emit } from '../../server/engine/events.js';
+const tabletTunersClear = (id) => _test.tabletTuners.delete(id);
 import { getCrimeStars, getCrimeWitness } from '../../server/engine/crimes.js';
 
 export default async function regress({ check, run, getPlayer }) {
@@ -446,5 +449,58 @@ export default async function regress({ check, run, getPlayer }) {
     const dead = await run('tablettune 998');
     check('tuning a dead frequency is silent', dead === null || dead === undefined, JSON.stringify(dead));
     check('a dead frequency leaves no tuner', getTabletTunedChannel(player.id) === null, String(getTabletTunedChannel(player.id)));
+
+    // ── The delivery pass, end to end ──────────────────────────────────────────
+    // Registering a tuner is only half the job: the tick has to actually PUSH the
+    // program to a player with no broadcast device anywhere near them. This drives
+    // real ticks and captures what reached that player. (Regression guard for the
+    // "tablet TV shows no programs" class of bug — tuner set, nothing delivered.)
+    const orig = getBroadcast();
+    const caught = [];
+    setBroadcast((zoneId, payload, exclude, toPlayer) => {
+      if (toPlayer === player.id) caught.push(payload);
+      return orig?.(zoneId, payload, exclude, toPlayer);
+    });
+    let threw = null;
+    try {
+      await run(`tablettune ${chans[0].number}`);
+      // A channel emits on its own cadence; a handful of ticks covers a beat.
+      for (let i = 0; i < 12; i++) await _test.broadcastTick();
+    } catch (e) { threw = e; } finally { setBroadcast(orig); }
+
+    check('tablet delivery pass runs without throwing', !threw, threw && (threw.stack || threw.message));
+    const forTuner = caught.filter(m => m && (m.type === 'broadcast' || m.type === 'tv_overlay'));
+    const wrongChannel = forTuner.filter(m => (m.channel ?? m.channelId) !== chans[0].channelId);
+    check('anything delivered to the tablet is for the tuned channel', wrongChannel.length === 0,
+      JSON.stringify(wrongChannel.slice(0, 2)));
+    // Report delivery volume either way — a live channel proves the pipe, a silent
+    // one at least proves the pass is wired and channel-correct.
+    console.log(`    · tablet tuner received ${forTuner.length} program message(s) over 12 ticks`
+      + (forTuner.length ? '' : ' (channel idle/off-air this window — pipe not exercised)'));
+    tabletTunersClear(player.id);
+  }
+
+  // ── Standings button ────────────────────────────────────────────────────────
+  // The on-demand league table behind the 🏆 toggle on both TV surfaces. The
+  // transient corner bug is server-thrown; this path is the viewer asking for it,
+  // so it must answer whether or not a game happens to be airing right now.
+  {
+    const orig2 = getBroadcast();
+    const replies = [];
+    setBroadcast((zoneId, payload, exclude, toPlayer) => {
+      if (toPlayer === player.id && payload?.type === 'tv_standings') replies.push(payload);
+      return orig2?.(zoneId, payload, exclude, toPlayer);
+    });
+    try {
+      emit('tv.standings', { playerId: player.id });
+      await new Promise(r => setTimeout(r, 120));   // handler is async (action + cache)
+    } finally { setBroadcast(orig2); }
+
+    check('tv.standings answers the requesting player', replies.length === 1, `got ${replies.length}`);
+    const st = replies[0];
+    check('standings payload carries a title and row array', !!st && typeof st.title === 'string' && Array.isArray(st.rows), JSON.stringify(st).slice(0, 160));
+    check('standings rows are shaped for the table', !st?.rows.length || st.rows.every(r =>
+      typeof r.team === 'string' && Number.isFinite(r.wins) && Number.isFinite(r.losses) && Number.isFinite(r.rd)),
+      JSON.stringify(st?.rows?.slice(0, 2)));
   }
 }

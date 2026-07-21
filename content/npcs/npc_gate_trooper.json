@@ -8,21 +8,27 @@
   ],
   "description": "Young, wiry, and visibly wishing she'd drawn any other post. Trooper Quill keeps one hand near her sidearm and the other wrapped around a thermos of something that stopped being coffee hours ago. Her grey fatigues are a size too big and standard-issue bored.",
   "dialogue_tree": {
-    "root": {
-      "text": "Quill straightens up like she's been caught slacking, which she has. \"Sergeant does the talking. I just make sure nothing walks IN off that ground.\"",
-      "options": [
-        { "label": "Rough post?", "next": "post" }
-      ]
+    "bye": {
+      "options": [],
+      "text": "She's already turned back to the killing ground. \"Yeah. Watch the turrets.\""
     },
     "post": {
-      "text": "\"You have no idea. Wind screams all night, turrets ping every stray dog, and command still docks me if the road's not swept.\" She jerks her chin at the gap. \"You want the wilds, they're right there. Nobody's stopping you. Wish somebody'd stop me.\"",
       "options": [
-        { "label": "Back.", "next": "root" }
-      ]
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"You have no idea. Wind screams all night, turrets ping every stray dog, and command still docks me if the road's not swept.\" She jerks her chin at the gap. \"You want the wilds, they're right there. Nobody's stopping you. Wish somebody'd stop me.\""
     },
-    "bye": {
-      "text": "She's already turned back to the killing ground. \"Yeah. Watch the turrets.\"",
-      "options": []
+    "root": {
+      "options": [
+        {
+          "label": "Rough post?",
+          "next": "post"
+        }
+      ],
+      "text": "Quill straightens up like she's been caught slacking, which she has. \"Sergeant does the talking. I just make sure nothing walks IN off that ground.\""
     }
   },
   "faction": null,

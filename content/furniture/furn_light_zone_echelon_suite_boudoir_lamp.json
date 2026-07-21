@@ -1,0 +1,18 @@
+{
+  "description": "A single low lamp under a silk shade, throwing a close amber glow over the cushions. It never fully brightens — it was never meant to.",
+  "flags": {
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_echelon_suite_boudoir_lamp",
+  "light_type": "lamp",
+  "lumen_output": 700,
+  "name": "low silk-shaded lamp",
+  "object_type": "light",
+  "power_draw_kw": 8,
+  "price": 0,
+  "zone_id": "zone_echelon_suite_boudoir"
+}

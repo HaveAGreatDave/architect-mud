@@ -17,7 +17,7 @@ import { carryCapacity } from './commands/inventory.js';
 import { flushDirtyPositions } from './commands/movement.js';
 import { query, logActivity } from '../models/db.js';
 import { getEnvironmentState, getZoneTemperature, getZoneApparentTemperature, waterTemperature, recordLightningKill, getZoneStormIntensity, getWeatherFieldSnapshot } from './environment.js';
-import { tickDrugDecay, tickDrugs, tickOnsets, tickWithdrawal, clearActiveDrugState } from './drugs.js';
+import { tickDrugDecayAll, tickDrugs, tickOnsets, tickWithdrawalAll, clearActiveDrugState } from './drugs.js';
 import { getTimeScale } from './gametime.js';
 
 // Rest/regen tunables (restRegenTick, every 15 seconds).
@@ -382,14 +382,22 @@ async function minuteTickFn() {
       }
     }
     if (player.hydratedUntil && Date.now() >= player.hydratedUntil) player.hydratedUntil = null;
+  }
 
-    // Drug decay: once a dose's active window has expired, doses_in_system drops by 1/min
-    // so overdose thresholds clear over time instead of accumulating forever.
-    await tickDrugDecay(playerId);
+  // Drugs run ONCE for the whole player set, not once per player. Postgres is
+  // remote in prod, so a per-player call here would be N sequential round trips
+  // inside the minute tick; batched it is a fixed two regardless of population.
+  const roster = [...world.players.values()];
 
-    // Withdrawal: apply/clear addiction debuffs; decay addiction toward sobriety.
-    const wdMessages = await tickWithdrawal(player);
-    if (wdMessages.length) broadcastFn(null, { type: 'status_tick', messages: wdMessages }, null, playerId);
+  // Drug decay: once a dose's active window has expired, doses_in_system sheds a
+  // fraction of itself per minute (a half-life, not a flat step), so a heavy load
+  // clears fast and overdose thresholds recover instead of accumulating forever.
+  await tickDrugDecayAll(roster.map(p => p.id));
+
+  // Withdrawal: apply/clear addiction debuffs; decay addiction toward sobriety.
+  const wdByPlayer = await tickWithdrawalAll(roster);
+  for (const [playerId, messages] of wdByPlayer) {
+    broadcastFn(null, { type: 'status_tick', messages }, null, playerId);
   }
 }
 

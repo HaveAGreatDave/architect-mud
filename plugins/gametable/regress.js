@@ -4,8 +4,9 @@
 // Hold'em flow is exercised live in-game; here we pin the accessibility seam.
 import { query } from '../../server/models/db.js';
 import { world } from '../../server/engine/world.js';
-import { commands } from './index.js';
+import { commands, _test } from './index.js';
 import { textModePlayers, isTextMode, narrateTurn, narrateStreet, narrateDeal } from './text-mode.js';
+import { getEnvironmentState } from '../../server/engine/environment.js';
 
 export default async function regress({ check }) {
   const PID = `gametable_regress_${process.pid}`;
@@ -16,6 +17,22 @@ export default async function regress({ check }) {
 
   const player = { id: PID, handle: 'CardCounter', current_zone: 'void' };
   world.players.set(PID, player);
+
+  // Off-shift gate: `call dealer` / `summon` must not haul scheduled staff out of
+  // bed, because their own commute graph would walk them straight back out again.
+  // Unscheduled staff (the Neon Vig back room, covert dealers) are never gated.
+  // Built against the live GAME clock (not wall time) so the assertions hold at
+  // whatever hour the suite happens to run.
+  const gameHour = getEnvironmentState().hour;
+  const everyDay = (blocks) => Object.fromEntries(
+    ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map(d => [d, blocks]));
+  const onNow  = everyDay([{ from: gameHour, to: gameHour + 1 }]);          // covers right now
+  const offNow = everyDay([{ from: (gameHour + 2) % 24, to: (gameHour + 3) % 24 }]);
+
+  check('isOffShift: no schedule means always available', _test.isOffShift({ vendor_schedule: {} }) === false);
+  check('isOffShift: null schedule means always available', _test.isOffShift({}) === false);
+  check('isOffShift: a dealer scheduled for this hour is on', _test.isOffShift({ vendor_schedule: onNow }) === false, `hour=${gameHour}`);
+  check('isOffShift: a dealer scheduled for another hour is off', _test.isOffShift({ vendor_schedule: offNow }) === true, `hour=${gameHour}`);
 
   try {
     // Real players row so the player_flags write has a valid owner.
@@ -49,6 +66,31 @@ export default async function regress({ check }) {
     let vr = await commands.visual([], 'visual', player, noop);
     check('visual switches back to visual mode', !isTextMode(PID), 'visual did not opt out');
     check('visual persists the flag', (await flagVal()) === 'false', `flag=${await flagVal()}`);
+
+    // `config.textTable` is the table's OPENING DEFAULT, never an override: it
+    // decides the view only for a player with no stored preference, and a stored
+    // preference beats it at every table in both directions.
+    const plainTable = { config: {} };
+    const oldSchool  = { config: { textTable: true } };
+
+    await query('DELETE FROM player_flags WHERE player_id=$1', [PID]);
+    await _test.ensureTextPref(player, plainTable);
+    check('no stored pref at a normal table → visual', !isTextMode(PID));
+    await _test.ensureTextPref(player, oldSchool);
+    check('no stored pref at a textTable → opens in text', isTextMode(PID));
+
+    await commands.visual([], 'visual', player, noop);          // store an explicit "visual"
+    await _test.ensureTextPref(player, oldSchool);
+    check('an explicit `visual` beats a textTable default', !isTextMode(PID), 'textTable overrode the player');
+
+    await commands.text([], 'text', player, noop);              // store an explicit "text"
+    await _test.ensureTextPref(player, plainTable);
+    check('an explicit `text` survives at a normal table', isTextMode(PID));
+
+    // …and `visual` must never be refused, at any table.
+    const vAtOldSchool = await commands.visual([], 'visual', player, noop);
+    check('`visual` is not refused at a textTable', vAtOldSchool?.type !== 'error', JSON.stringify(vAtOldSchool)?.slice(0, 120));
+    await query('DELETE FROM player_flags WHERE player_id=$1', [PID]);
 
     // Narration builders must be safe no-ops when nobody at the table is opted in.
     const fakeGame = {

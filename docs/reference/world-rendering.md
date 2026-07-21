@@ -193,6 +193,25 @@ Rules for anyone adding to a building model:
 | 2 | `drawAirportFeature` (`drawAirportScenery`) | windshield.js | Flat backdrop flanking the runway, on-deck only, fades out on climb-out | No — deck dressing |
 | 3 | `drawATCTower` | [`aircraft3d.js`](../../client/game/js/panels/aircraft3d.js) | Through the open bay door in the **hangar-inspect diorama** | No — a separate scene |
 
+### The departure surface: strip vs. pad
+
+Two mutually-exclusive drawers paint the ground you sit on at a field, both in
+windshield.js and both using the same projection maths so they read as one world:
+
+| Drawer | When | Look |
+|---|---|---|
+| `drawGroundRunway` | default | Long tapering strip, dashed centreline scrolling toward you, TDZ paint, edge lights. `dust=true` (wastes/slag theme) swaps tarmac + paint for a beaten-dirt strip with wheel ruts. |
+| `drawGroundHelipad` | `v.helipad` | Square apron, perspective touchdown circle, a flat **H**, green perimeter lights. No centreline — a helipad is a spot, not a strip, so `roll` only nudges it rather than scrolling past. |
+
+The switch is **data-driven, not per-field art**: `state.vtolOnlyField(zone)` (i.e.
+`flags.airfield_vtol_only`, or the legacy `charter_vtol_only`) → `ground.helipad` in
+the context payload → `v.helipad`. **Any future helipad gets the pad automatically
+by carrying the flag** — there is nothing to author.
+
+Note the H is drawn as three foreshortened bars lying ON the pad, not as canvas
+text — same rule as the surface-text renderer: painted markings are never
+billboarded.
+
 The airport ATC tower is **built into the hangar model** (`case 'hangar'`, alongside the terminal
 concourse + hangar shed), not a standalone model. Edit it there; do **not** add a separate tower
 model or you'll get two.
@@ -223,3 +242,33 @@ model or you'll get two.
 - **What you see is what you can hit.** Building height comes from `floorHeight`/`bldgStyle`, the
   same value the CFIT collision sweep reads. Keep rooftop adornments visual-only; don't change the
   mass without meaning to change collisions.
+
+## Twin audit — buildings that share a model
+
+Two buildings of the same `building_type` with no `NAMED_MODELS` entry render as the
+**same silhouette**, which reads as a bug from the air ("didn't I just fly over this?").
+Audit it with:
+
+```sql
+SELECT flags->>'building_type' bt, array_agg(DISTINCT flags->>'building_name')
+  FROM zones
+ WHERE flags->>'building_type' IS NOT NULL
+   AND flags->>'building_name' IS NOT NULL
+   AND COALESCE(flags->>'is_interior','false') <> 'true'
+ GROUP BY 1 HAVING count(DISTINCT flags->>'building_name') > 1;
+```
+
+Five Yards pairs were resolved in 2026-07 by promoting the more characterful half of
+each pair to a `NAMED_MODELS` entry with its own `drawTypeModel` case, leaving the twin
+on the generic type model: **Coldline Reefer Depot** (`reefer`), **Interchange Stack**
+(`interstack`), **Ferro Fabrication Works** (`foundry`), **Meltwater Freight Office**
+(`oldoffice`), **Customs Bonded Store 7** (`bonded`). **The Neon Vig** (`neonvig`) was
+promoted off `casino` in the same pass so a future casino still has a generic to fall
+back on.
+
+**A weaker tier still exists and is deliberate:** several `NAMED_MODELS` entries share a
+`type` and differ only by `pal`/`neon` — same silhouette, different colours. Today that's
+`diner` (Ration Nine / Meltwater Diner), `hangar` (Coldwater Regional / Threshold
+Helipad), `office` (Coldwater Sentinel / Ward Nine Permits) and `divebar` (The Green Room
+/ The Dead Pigeon / Sump). Fine at altitude; the obvious next candidates if you want
+another pass.

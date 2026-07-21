@@ -262,6 +262,16 @@ are one-shot per-tick events. Utility verbs: `preflight`, `hover` (VTOL), `spot`
 field + fuel range), `squawk` (transponder; running dark evades cameras but is a
 crime), and `eject`/`bail` (parachute-gated — a pilot bailing dooms the craft).
 
+**Airfield desks are three independent flags.** `airfield_dealer` sells airframes,
+`airfield_rental` opens the self-fly rental desk (`rent`), `airfield_charter` books
+an NPC-piloted ride (needs a `charter_pilot` NPC assigned to the field). Any
+combination is legal — Buzzard Field and the Echelon pad both charter without
+renting. *(Until 2026-07-20 rental was implied by `airfield_charter`, so a charter
+desk could not be opened without also opening a rental counter; the only suppressor
+was `charter_vtol_only`, which `state.js` folds into `airfield_vtol_only` and would
+have made the whole field VTOL-only. `scripts/airfield-rental-flag.mjs` backfills
+the new flag onto the fields that rented under the old rule.)*
+
 **Ground stop** (`index.groundStop`, threshold `GROUND_STOP_SEVERITY = 0.7`). Weather
 buffeting is the *in-air* half; this is the other half — past 0.7 severity the
 departure field simply doesn't launch. It's checked in **both** departure paths: the

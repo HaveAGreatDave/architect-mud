@@ -37,6 +37,10 @@ const isAirborne = (player) => !!player?.aircraftId;
 // drone @864 ≈ 6 hours. Wired devices ignore this and follow zone power instead.
 const DRAIN = { sticky_cam: 1, relay: 1, motion_sensor: 1, audio_sensor: 1, jammer: 2, spoofer: 2, drone: 12 };
 
+// Adhesive sticky cams cook their own guts after a day on the wall — a planted cam
+// is a burner, not an installation. Wired taps run off zone mains and are exempt.
+const STICKY_CAM_TTL_MS = 24 * 60 * 60 * 1000;
+
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 function isZonePowered(zoneId) {
@@ -138,7 +142,8 @@ async function cmdPlant(args, raw, player) {
   await awardSkillUse(player.id, 'security', chk.margin);
 
   const quality = concealment >= 8 ? 'It all but vanishes.' : concealment >= 5 ? 'Nicely tucked away.' : 'It could be spotted by a careful eye.';
-  return { type: 'output', message: `You conceal the ${gear.name} facing ${direction}. ${quality}` };
+  const burnout = (kind === 'sticky_cam' && !wired) ? ' Its cell cooks the unit off the wall in 24 hours.' : '';
+  return { type: 'output', message: `You conceal the ${gear.name} facing ${direction}. ${quality}${burnout}` };
 }
 
 // ── retrieve ────────────────────────────────────────────────────────────────
@@ -358,7 +363,7 @@ async function buildTiles(ownerId) {
   const fx = await getInterferenceZones();
   const { rows } = await query(
     `SELECT d.id, d.device_kind, d.zone_id, d.tier, d.battery, d.battery_max, d.wired,
-            d.is_damaged, d.is_recording, d.status_flags, f.name, z.name AS zone_name
+            d.is_damaged, d.is_recording, d.status_flags, d.placed_at, f.name, z.name AS zone_name
        FROM security_devices d
        JOIN furniture f ON f.id = d.id
        LEFT JOIN zones z ON z.id = d.zone_id
@@ -382,6 +387,10 @@ async function buildTiles(ownerId) {
       bufferLines: buf?.frames.length || 0,    // lines on tape waiting to be clipped
       frame: deviceFrame(d, status),
       ts: clock(),
+      // Minutes left before the 24h sticky-cam burnout (null = doesn't expire).
+      expiresIn: (d.device_kind === 'sticky_cam' && !d.wired && d.placed_at)
+        ? Math.max(0, Math.round((Number(d.placed_at) * 1000 + STICKY_CAM_TTL_MS - Date.now()) / 60000))
+        : null,
     };
   });
 }
@@ -2132,6 +2141,36 @@ async function batteryTick() {
 
 schedule('5m', () => batteryTick().catch(e => console.error('[surveillance] battery tick error:', e.message)));
 
+// ── Device teardown ──────────────────────────────────────────────────────────
+// The one path that unmakes a planted device: both rows (security_devices +
+// its twin furniture) plus the in-memory buffer. No gear refund — this is a
+// destruction, not a `retrieve`.
+async function destroyDevice(id) {
+  await query('DELETE FROM security_devices WHERE id=$1', [id]);
+  await deleteFurniture(id);
+  cameraBuffers.delete(id);
+}
+
+// Sticky cams burn out 24h after they were planted. Runs on the same idle-tolerant
+// cadence as the clip purge; the owner gets a ping so a dead tile isn't a mystery.
+export async function __expireStickyCams() { return expireStickyCams(); }
+async function expireStickyCams() {
+  const cutoff = Math.floor((Date.now() - STICKY_CAM_TTL_MS) / 1000);   // placed_at is epoch seconds
+  const { rows } = await query(
+    `SELECT d.id, d.owner_id, f.name, z.name AS zone_name, d.zone_id
+       FROM security_devices d
+       JOIN furniture f ON f.id = d.id
+       LEFT JOIN zones z ON z.id = d.zone_id
+      WHERE d.device_kind='sticky_cam' AND d.wired=0 AND d.placed_at < $1`, [cutoff]);
+  for (const d of rows) {
+    await destroyDevice(d.id);
+    if (d.owner_id) sendToPlayer(d.owner_id, { type: 'system', message:
+      `<span class="text-dim">⏻ BURNOUT — ${d.name} at ${d.zone_name || d.zone_id || 'unknown'} hit its 24-hour limit and cooked itself off the wall.</span>` });
+  }
+  if (rows.length) console.log(`[surveillance] expired ${rows.length} sticky cam(s).`);
+}
+schedule('10m', () => expireStickyCams().catch(e => console.error('[surveillance] cam expiry error:', e.message)));
+
 // ── Evidence retention purge ─────────────────────────────────────────────────
 // security_clips accumulate forever otherwise: auto-banked evidence nobody
 // collects, and police clip_pd_ rows minted on every witnessed crime. Drop clips
@@ -2312,6 +2351,24 @@ export async function pendingClipCount(player) {
     if (mine.has(id) && buf.frames.length > 0) n++;
   }
   return n;
+}
+
+// Blow one of your own devices from the tablet — the remote kill the SPECTER app's
+// Self-Destruct button calls. Owner-checked; the unit is gone for good (no gear
+// refund, unlike `retrieve`) and anyone in the room hears it die.
+export async function selfDestructDevice(player, deviceId) {
+  if (!deviceId) return { ok: false };
+  const { rows } = await query(
+    `SELECT d.zone_id, f.name FROM security_devices d JOIN furniture f ON f.id=d.id
+      WHERE d.id=$1 AND d.owner_id=$2`, [deviceId, player.id]);
+  if (!rows.length) return { ok: false };
+  const dev = rows[0];
+  await destroyDevice(deviceId);
+  sendToPlayer(player.id, { type: 'output', message:
+    `You send the kill code. Somewhere across the city the ${dev.name} pops, spits a curl of smoke, and stops being evidence.` });
+  sendToZone(dev.zone_id, { type: 'zone_event', message:
+    '<span class="text-dim">Something hidden nearby pops with a dry electrical snap. A thread of smoke unwinds from a seam in the wall.</span>' });
+  return { ok: true };
 }
 
 // Clear a camera's live buffer without saving — the helper the tablet 'clear' action

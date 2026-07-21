@@ -98,7 +98,7 @@ function highTick() {
       const newHunger = Math.max(0, (player.hunger ?? 100) - MUNCH_DRAIN);
       if (newHunger !== player.hunger) {
         player.hunger = newHunger;
-        query('UPDATE players SET hunger=$1 WHERE id=$2', [newHunger, player.id]).catch(() => {});
+        query('UPDATE players SET hunger=$1 WHERE id=$2', [newHunger, player.id]).catch(e => console.error('[cannabis] munchies write failed for', player.id, e.message));
         sendToPlayer(player.id, { type: 'player_update', hunger: newHunger });
       }
       if (Math.random() < CRAVE_CHANCE) {

@@ -437,10 +437,22 @@ const parseCustomData = (v) => typeof v === 'string' ? (() => { try { return JSO
 // Build the useDrug opts for a resolved drug row: synthesized drugs carry a
 // potency multiplier baked into the inventory row; spliced compounds also carry
 // their whole composed effects blob inline.
-function buildDrugOpts(cd, item) {
-  const opts = { potencyMult: Number(cd?.potency) || 1 };
+// Every spliced compound rides the same carrier drug row (drug_compound), so a
+// per-recipe key is what keeps their doses, tolerance and buffs from pooling
+// together. Derived from what went into the splice, so the same recipe always
+// resolves to the same key across sessions.
+function compoundStateKey(drugId, cd) {
+  const sources = Array.isArray(cd?.sources)
+    ? cd.sources.map(s => s?.drug).filter(Boolean).sort()
+    : [];
+  return sources.length ? `${drugId}:${sources.join('+')}` : drugId;
+}
+
+function buildDrugOpts(cd, item, route) {
+  const opts = { potencyMult: Number(cd?.potency) || 1, route };
   if (cd && cd.effects) {
     opts.inlineEffects = cd.effects;
+    opts.stateKey = compoundStateKey(item.drug_id, cd);
     opts.displayName = cd.name || item.name;
     opts.overdoseThreshold = cd.overdose_threshold;
     opts.durationSeconds = cd.duration_seconds;
@@ -461,7 +473,10 @@ export async function applyDrugUse(player, item, cd, opts, broadcast) {
   // per use and is only destroyed once the last one is gone (burnCharge owns the
   // charge bookkeeping). Everything else keeps the one-item-per-dose behaviour.
   const itemTags = typeof item.tags === 'string' ? (() => { try { return JSON.parse(item.tags); } catch { return {}; } })() : (item.tags || {});
-  const burn = result.overdose_death ? { charged: false } : await burnCharge(item, itemTags);
+  // A fatal dose still only burns ONE charge. Skipping burnCharge here dropped
+  // through to the stack delete below, so dying on a drag would destroy the whole
+  // 20-pack instead of leaving 19 on the corpse.
+  const burn = await burnCharge(item, itemTags);
   if (burn.charged) {
     // A loose single (custom_data.loose — a hand-rolled or bummed cigarette) was
     // never a pack, so it gets its own end line and never "N left in the pack".
@@ -498,11 +513,14 @@ export async function finishConsume(player, itemRowId, broadcast, extraOpts = {}
   if (!rows.length) return null;
   const item = rows[0];
   const cd = parseCustomData(item.custom_data);
-  const opts = { ...buildDrugOpts(cd, item), ...extraOpts };
+  const opts = { ...buildDrugOpts(cd, item, extraOpts.route), ...extraOpts };
   return applyDrugUse(player, item, cd, opts, broadcast);
 }
 
-async function cmdUse(targetStr, player, broadcast) {
+// `route` is the verb that delivered the dose (use/inject/eat/drink/smoke). It rides
+// into useDrug, which owns the route→onset/intensity law and degrades an unsupported
+// route to neutral, so callers can pass their verb without checking the drug.
+async function cmdUse(targetStr, player, broadcast, route = 'use') {
   if (!targetStr) return { type:'error', message:'Use what?' };
 
   // Match by display name (substring), the instance's custom name, or the item
@@ -520,7 +538,7 @@ async function cmdUse(targetStr, player, broadcast) {
     const cd = parseCustomData(item.custom_data);
     // Sealed in a climate crate — frozen and search-proof until you break the seal.
     if (cd && cd.packaged) return { type: 'error', message: `That's sealed in a climate crate. <span class="text-dim">unseal</span> it first.` };
-    const opts = buildDrugOpts(cd, item);
+    const opts = buildDrugOpts(cd, item, route);
     // Timed consumption: beer/cigarettes/joints are consumed over several seconds
     // with the effect landing at the end. The consume plugin owns the sequencing —
     // it decides by drug category whether to defer, returning a "You crack it open…"
@@ -614,7 +632,7 @@ export async function applyItemUse(player, item, broadcast, opts = {}) {
   // useDrug with skipInstant, so its resource block doesn't double the restores.
   // This is the general "drugged drink/food" path — alcohol is just its first user.
   if (t.laced_drug) {
-    const laced = await useDrug(player, t.laced_drug, broadcast, { potencyMult: Number(t.laced_potency) || 1, skipInstant: true, takeLine: '' });
+    const laced = await useDrug(player, t.laced_drug, broadcast, { potencyMult: Number(t.laced_potency) || 1, skipInstant: true, takeLine: '', route: opts.route });
     if (laced?.overdose_death) {
       broadcast(null, { type: 'output', message: messages.join('\n') }, null, player.id);
       const { handlePlayerDeath } = await import('../gameLoop.js');
@@ -1158,9 +1176,9 @@ export const handlers = {
   drop: (args, raw, player, broadcast) => cmdDrop(args.join(' '), player, broadcast),
   dropid: (args, raw, player, broadcast) => cmdDropById(args[0], player, broadcast, parseInt(args[1]) || 0),
   give: (args, raw, player, broadcast) => cmdGive(args.join(' '), player, broadcast),
-  use:   (args, raw, player, broadcast) => cmdUse(args.join(' '), player, broadcast),
-  eat:   (args, raw, player, broadcast) => cmdUse(args.join(' '), player, broadcast),
-  drink: (args, raw, player, broadcast) => cmdUse(args.join(' '), player, broadcast),
+  use:   (args, raw, player, broadcast) => cmdUse(args.join(' '), player, broadcast, 'use'),
+  eat:   (args, raw, player, broadcast) => cmdUse(args.join(' '), player, broadcast, 'eat'),
+  drink: (args, raw, player, broadcast) => cmdUse(args.join(' '), player, broadcast, 'drink'),
   equip:    (args, raw, player, broadcast) => cmdEquip(args.join(' '), player, broadcast),
   unequip:  (args, raw, player) => cmdUnequip(args.join(' '), player),
   undress:  (args, raw, player, broadcast) => cmdUndress(player, broadcast),

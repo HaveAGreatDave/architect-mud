@@ -937,7 +937,9 @@ export function paintWindshield(id, view) {
     // diagonal instead of the strip just shrinking straight up in place.
     // A frontier field (wastes/slag theme) flies off a packed-dirt strip, not tarmac — paint the
     // departure/approach backdrop as graded dirt to match the dust the Mode-7 world renders below.
-    drawGroundRunway(ctx, W, H, horizonY, depthGround, { roll: v.roll || 0, alt: height }, st.scroll, sky.night, reveal, v.airport === 'wastes' || v.airport === 'slag');
+    // A helipad has no runway to roll down — swap the strip for a circle-H pad.
+    if (v.helipad) drawGroundHelipad(ctx, W, H, horizonY, depthGround, { roll: v.roll || 0, alt: height }, sky.night, reveal);
+    else drawGroundRunway(ctx, W, H, horizonY, depthGround, { roll: v.roll || 0, alt: height }, st.scroll, sky.night, reveal, v.airport === 'wastes' || v.airport === 'slag');
   }
   // Enter for the PILOT's own scene always (even parked on the deck, worldBlend 0) so her shadow
   // and external-chase model still draw — and for the PASSENGER window only once the Mode-7 world
@@ -1761,6 +1763,61 @@ function drawGroundRunway(ctx, W, H, horizonY, depth, rw, scroll, night, outerFa
   if (eff(farD) > 0.1) {
     ctx.fillStyle = 'rgba(240,244,220,0.7)';
     for (let b = -3; b <= 3; b++) { const bw = fW * 0.12; ctx.fillRect(cx + b * (fW * 0.26) - bw / 2, fY - 5, bw, 5); }
+  }
+  ctx.restore();
+}
+
+// The WORLD-ground counterpart of drawGroundRunway for a VTOL-only field: a square
+// apron with the standard circle-H, laid on the ground ahead of you and receding as
+// you climb away. Same projection maths as the runway (so the two read as the same
+// world), but there's nothing to roll down — a helipad is a spot, not a strip, so
+// `roll` only nudges it rather than scrolling a centreline past you.
+function drawGroundHelipad(ctx, W, H, horizonY, depth, rw, night, outerFade = 1) {
+  const roll = rw.roll || 0, alt = clamp(rw.alt || 0, 0, 1);
+  const VR = 1.9, cx = W / 2;
+  const fade = clamp(1.85 - alt * 1.0, 0, 1) * outerFade;
+  if (fade <= 0.01) return;
+  const eff = (d) => d - alt * RENDER_TUNE.rwyRecede;
+  const e = (d) => clamp(eff(d) / VR, -0.6, 1);
+  const projY = (d) => horizonY + depth * (1 - e(d));
+  const wid = (d) => (W * 0.30) * clamp(1 - eff(d) / VR, 0.04, 1.4);
+
+  // The pad sits just ahead of the parking spot and drifts back under you on a
+  // vertical departure. Square-ish in plan: near edge wider than the far edge.
+  const nearD = 0.15 - roll * 0.5, farD = 1.35 - roll * 0.5;
+  if (eff(farD) < -0.2) return;
+  const nY = projY(nearD), fY = projY(farD), nW = wid(nearD), fW = wid(farD);
+  const midY = (nY + fY) / 2, midW = (nW + fW) / 2;
+
+  ctx.save(); ctx.globalAlpha = fade;
+  // Apron slab
+  ctx.fillStyle = 'rgba(24,26,30,0.95)';
+  ctx.beginPath(); ctx.moveTo(cx - nW, nY); ctx.lineTo(cx + nW, nY); ctx.lineTo(cx + fW, fY); ctx.lineTo(cx - fW, fY); ctx.closePath(); ctx.fill();
+  // Painted border of the pad square
+  ctx.strokeStyle = 'rgba(226,236,220,0.75)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(cx - nW * 0.94, nY); ctx.lineTo(cx + nW * 0.94, nY); ctx.lineTo(cx + fW * 0.94, fY); ctx.lineTo(cx - fW * 0.94, fY); ctx.closePath(); ctx.stroke();
+
+  // Touchdown circle — an ellipse because we're looking at it in perspective.
+  const rx = midW * 0.62, ry = Math.max(3, (nY - fY) * 0.30);
+  ctx.strokeStyle = 'rgba(236,240,226,0.9)'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.ellipse(cx, midY, rx, ry, 0, 0, 7); ctx.stroke();
+
+  // The H, drawn as three foreshortened bars so it lies flat ON the pad rather
+  // than standing up like a billboard (see the surface-text rule in the render docs).
+  const hw = rx * 0.46, hh = ry * 0.92, bar = Math.max(2, rx * 0.15);
+  ctx.fillStyle = 'rgba(236,240,226,0.92)';
+  ctx.fillRect(cx - hw - bar / 2, midY - hh, bar, hh * 2);   // left upright
+  ctx.fillRect(cx + hw - bar / 2, midY - hh, bar, hh * 2);   // right upright
+  ctx.fillRect(cx - hw, midY - bar / 2, hw * 2, bar);        // crossbar
+
+  // Perimeter lights — green pad lighting, warm and brighter at night.
+  const lit = night > 0.35;
+  ctx.fillStyle = lit ? 'rgba(120,255,190,0.95)' : 'rgba(150,190,170,0.55)';
+  for (let k = 0; k <= 6; k++) {
+    const f = k / 6, y = lerp(fY, nY, f * f), w2 = lerp(fW, nW, f * f) * 0.94;
+    const r = 1 + f * 1.6;
+    ctx.beginPath(); ctx.arc(cx - w2, y, r, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx + w2, y, r, 0, 7); ctx.fill();
   }
   ctx.restore();
 }
@@ -2721,6 +2778,16 @@ const WALL_COL = { uptown: [46, 64, 92], civic: [72, 68, 60], citycore: [52, 56,
   ty_wharf: [72, 80, 86], ty_wharf_steel: [64, 70, 78], ty_freight_office: [86, 82, 74], ty_fwd_metal: [110, 116, 122],
   // Halloran's Fix-It — a grease-and-steel repair garage: oil-stained warm concrete block, darker roll-up bays.
   ty_garage: [92, 82, 70], ty_garage_bay: [46, 42, 40],
+  // Yards landmark twins — each of these shared a TYPE_MODEL with a same-type neighbour and
+  // read as its identical twin from the air, so the more characterful one got promoted to a
+  // NAMED_MODEL with its own silhouette (see NAMED_MODELS / drawTypeModel).
+  ty_reefer: [198, 204, 208], ty_reefer_blk: [64, 72, 80],           // Coldline: white reefer boxes on a dark plant block
+  ty_gantry: [58, 92, 132], ty_stack_dk: [58, 62, 68],               // Interchange Stack: blue rail gantry over ordered rows
+  ty_foundry: [88, 78, 70], ty_foundry_stack: [60, 54, 50], ty_slag: [74, 60, 50],   // Ferro: cupola + twin chimneys + slag
+  ty_meltoffice: [116, 84, 64], ty_melt_tank: [88, 80, 70],          // Meltwater: older brick, rooftop water tank
+  ty_bond_fence: [70, 74, 78], ty_guard: [98, 94, 86],               // Customs Bonded: lit compound + guard box
+  // The Neon Vig — the city's casino: dark plum stucco under an obscene amount of magenta neon.
+  ty_vig: [58, 34, 48], ty_vig_trim: [112, 62, 92],
   // The Ascendant Stronghold — a chrome campus in the western waste (docs/proposals/ascendant-stronghold.md).
   ty_asc_spire: [30, 50, 78], ty_asc_gate: [66, 80, 96], ty_asc_clinic: [150, 178, 190],
   ty_asc_weave: [92, 104, 118], ty_asc_vats: [88, 102, 118], ty_asc_shrine: [20, 28, 44],
@@ -2870,7 +2937,7 @@ export function climbOutClear(f, lat, height) {
 const TR = () => Math.max(0.5, RENDER_TUNE.texRes || 1);
 // Palette keys that render as CORRUGATED METAL SIDING (vertical ribs + rivets) instead of the
 // default windowed curtain wall — for hangars/sheds, which shouldn't carry lit office windows.
-const METAL_WALL = new Set(['ty_hangarmetal', 'ty_wh_metal', 'ty_cont_r', 'ty_cont_b', 'ty_cont_g', 'ty_cont_y', 'ty_cold', 'ty_fab_metal', 'ty_fwd_metal', 'ty_studio', 'ty_ksab', 'ty_reach_hangar', 'ty_reach_rust', 'ty_reach_dynamo', 'ty_reach_tank']);   // ...+ sound-stage shells: a stage is a windowless ribbed-panel clear-span box, never a windowed block
+const METAL_WALL = new Set(['ty_hangarmetal', 'ty_wh_metal', 'ty_cont_r', 'ty_cont_b', 'ty_cont_g', 'ty_cont_y', 'ty_cold', 'ty_fab_metal', 'ty_fwd_metal', 'ty_studio', 'ty_ksab', 'ty_reach_hangar', 'ty_reach_rust', 'ty_reach_dynamo', 'ty_reach_tank', 'ty_reefer', 'ty_stack_dk', 'ty_melt_tank']);   // ...+ sound-stage shells: a stage is a windowless ribbed-panel clear-span box, never a windowed block
 const GLASS_WALL = new Set(['ty_halcyon', 'ty_solenne', 'ty_ksab_glass']);   // curtain-glass skins: floor-plate striping + sky sheen instead of a window grid
 const DECO_WALL = new Set(['ty_meridian']);   // bespoke art-deco limestone: reeded vertical piers + tall paired windows + chevron spandrels (The Meridian)
 function wallTex(biome, night) {
@@ -4947,6 +5014,17 @@ const NAMED_MODELS = {
   halloransfixit:                 { type: 'garage',    pal: 'ty_garage',   neon: '#ffb14a' },
   // The Reach — four hand-built frontier landmarks. Grim-dark meets wild-west; each is a one-off
   // silhouette so the tiny outpost reads as unforgettable from the air (docs/reference/world-rendering.md).
+  // ── Yards twins: the distinguished half of each same-type pair ──────────────
+  // Each of these shared a TYPE_MODEL with a neighbour of the same building_type and
+  // was indistinguishable from it in the air. The twin keeps the generic type model;
+  // this one gets a silhouette you can name from a mile out.
+  coldlinereeferdepot:            { type: 'reefer',     pal: 'ty_reefer_blk' },
+  interchangestack:               { type: 'interstack', pal: 'ty_stack_dk' },
+  ferrofabricationworks:          { type: 'foundry',    pal: 'ty_foundry' },
+  meltwaterfreightoffice:         { type: 'oldoffice',  pal: 'ty_meltoffice', neon: '#ffb43a' },
+  customsbondedstore7:            { type: 'bonded',     pal: 'ty_wh_metal',   neon: '#6affa8' },
+  // Promoted off the generic `casino` type model so a future casino still has one.
+  theneonvig:                     { type: 'neonvig',    pal: 'ty_vig',        neon: '#ff3e8a' },
   buzzardfield:                   { type: 'buzzard',   pal: 'ty_reach_hangar', neon: '#ffb14a' },
   thecoyotesrest:                 { type: 'saloon',    pal: 'ty_reach_saloon', neon: '#ff6a3a' },
   thedynamo:                      { type: 'dynamo',    pal: 'ty_reach_dynamo', neon: '#6cf0ff' },
@@ -6329,6 +6407,135 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       { const [bx, by] = F(fh * 0.5, 0); neonBlade(ctx, cam, bx, by, h * 0.9, h * 1.3, neon, night, alpha); }
       for (const s of [-0.7, -0.24, 0.24, 0.7]) { const [lx, ly] = F(s * fh, fh * 0.9); blinkLight(ctx, cam, lx, ly, h * 0.92, '255,210,90', now, seed + s * 9, alpha, 1.7); }   // chasing marquee bulbs
       glowPool(ctx, cam, dx, dy, h * 0.86, '255,62,138', 22, alpha * (night ? 0.4 : 0.2));           // neon wash
+      break;
+    }
+    case 'neonvig': {   // The Neon Vig — the city's casino, promoted off the generic `casino` box into a
+      //                    landmark: a stepped marquee crown over a squat plum house, a TALL blade-sign
+      //                    tower with bulbs chasing up it, a porte-cochère over the entrance, a lit
+      //                    rooftop drum, and enough magenta spill to read from the far side of the basin.
+      const neon = m.neon || '#ff3e8a';
+      const houseTop = h * 0.72, crownTop = h * 0.95;
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.16, 0, houseTop, pal, seed, night, alpha, true);                    // the house
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.26, houseTop, crownTop, 'ty_vig_trim', seed + 1, night, alpha, true); // stepped marquee crown
+      // Sign tower — the tall vertical that makes it a landmark rather than a shed.
+      { const [tx, ty] = F(-fh * 0.72, -fh * 0.2);
+        draw3DBoxAt(ctx, cam, tx, ty, fh * 0.26, 0, h * 1.9, 'ty_vig_trim', seed + 2, night, alpha, true);
+        neonBlade(ctx, cam, tx, ty, h * 0.9, h * 2.35, neon, night, alpha);                                     // the blade itself
+        for (let k = 0; k < 7; k++) blinkLight(ctx, cam, tx, ty, h * (0.95 + k * 0.2), '255,210,90', now, seed + k * 3, alpha, 1.8);   // bulbs chasing up the tower
+        blinkLight(ctx, cam, tx, ty, h * 1.95, '255,80,80', now, seed, alpha, 2.0); }                           // aviation light on top
+      // Rooftop drum — a lit cupola over the gaming floor.
+      drawFacetDrum(ctx, cam, dx, dy, crownTop, crownTop + h * 0.26, fh * 0.42, fh * 0.42, 12, alpha,
+        (f) => { const sh = 0.5 + f.nl * 0.5; return `rgb(${112 * sh | 0},${62 * sh | 0},${92 * sh | 0})`; }, 'rgb(70,38,58)');
+      drawRing(ctx, cam, dx, dy, crownTop + h * 0.26, fh * 0.44, 14, night ? 'rgba(255,62,138,0.85)' : 'rgba(255,140,190,0.45)', 2, alpha);
+      // Porte-cochère over the entrance + marquee band on the frontage.
+      if (frontVis) marqueeBand(ctx, cam, dx, dy, E, fh, houseTop * 1.02, neon, night, alpha);
+      { const [cx, cy] = F(0, fh * 1.05); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.62, h * 0.30, h * 0.38, 'ty_vig_trim', seed + 6, night, alpha, false);
+        for (const s of [-1, 1]) { const [px, py] = F(s * fh * 0.5, fh * 1.05); draw3DBoxAt(ctx, cam, px, py, fh * 0.05, 0, h * 0.30, 'ty_vig_trim', seed + 7 + s, night, alpha, false); } }   // canopy + its posts
+      for (const s of [-0.78, -0.26, 0.26, 0.78]) { const [lx, ly] = F(s * fh, fh * 0.98); blinkLight(ctx, cam, lx, ly, crownTop * 0.99, '255,210,90', now, seed + s * 9, alpha, 1.7); }   // parapet bulbs
+      glowPool(ctx, cam, dx, dy, houseTop * 0.9, '255,62,138', 30, alpha * (night ? 0.55 : 0.24));              // the wash
+      if (night) glowPool(ctx, cam, dx, dy, h * 0.10, '255,150,200', 16, alpha * 0.3);                          // pavement spill at the doors
+      break;
+    }
+    case 'reefer': {   // Coldline Reefer Depot — twin of Basin Cold Store (a plain insulated block). Reads
+      //                   differently by being a PLANT plus a long rank of white reefer containers on
+      //                   plug-in racks, each with its own blue compressor light, under one tall ammonia stack.
+      const blockTop = h * 0.52;
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.78, 0, blockTop, pal, seed, night, alpha, true);                     // compressor plant (smaller than the twin's block)
+      for (const s of [-0.3, 0.3]) { const [ux, uy] = F(s * fh * 0.5, -fh * 0.1); draw3DBoxAt(ctx, cam, ux, uy, fh * 0.18, blockTop, blockTop + h * 0.14, 'ty_cold_unit', seed + 3 + s * 5, night, alpha, true); }
+      // The rank of reefers — an ordered LINE (the twin's containers are a random 3×3 scatter).
+      for (let k = -2; k <= 2; k++) {
+        const [bx, by] = F(k * fh * 0.42, fh * 0.72);
+        draw3DBoxAt(ctx, cam, bx, by, fh * 0.19, 0, h * 0.30, 'ty_reefer', seed + 10 + k, night, alpha, true);
+        blinkLight(ctx, cam, bx, by, h * 0.32, '110,190,255', now, seed + k * 7, alpha, 1.4);                   // compressor running light
+      }
+      { const [sx, sy] = F(fh * 0.55, -fh * 0.35);                                                              // ammonia stack
+        draw3DBoxAt(ctx, cam, sx, sy, fh * 0.10, 0, h * 1.5, 'ty_cold_unit', seed + 20, night, alpha, false);
+        drawSmoke(ctx, cam, sx, sy, h * 1.5, '190,205,215', alpha * 0.5, now, seed + 21); }
+      glowPool(ctx, cam, dx, dy, h * 0.20, '150,200,230', 16, alpha * (night ? 0.36 : 0.2));                    // cold breath, pooled low
+      break;
+    }
+    case 'interstack': {   // Interchange Stack — twin of Coldwater Container Yard (a loose 3×3 scatter ≤3 high).
+      //                     Reads differently by being ORDERED and TALLER: two regimented rows stacked 4–5
+      //                     high, straddled by a blue rail-mounted gantry crane. The crane is the tell.
+      const cols = ['ty_cont_r', 'ty_cont_b', 'ty_cont_g', 'ty_cont_y'];
+      const hsh = (a) => { a = (a ^ 61) ^ (a >> 16); a += a << 3; a ^= a >> 4; a = Math.imul(a, 0x27d4eb2d); return (a ^ (a >> 15)) >>> 0; };
+      for (const row of [-0.5, 0.5]) for (let k = -2; k <= 2; k++) {
+        const stack = 4 + hsh(seed + k * 11 + row * 31) % 2;                                                    // 4..5 high — over the twin's 1..3
+        const [bx, by] = F(k * fh * 0.40, row * fh * 0.62);
+        for (let z = 0; z < stack; z++) draw3DBoxAt(ctx, cam, bx, by, fh * 0.18, h * 0.20 * z, h * 0.20 * (z + 1), cols[hsh(seed + k * 3 + z * 5 + row * 17) & 3], seed + z, night, alpha, true);
+      }
+      // Rail gantry straddling both rows: two portal legs + a spanning girder + a trolley.
+      const gTop = h * 1.25;
+      for (const s of [-1, 1]) { const [lx, ly] = F(s * fh * 1.0, -fh * 0.05); draw3DBoxAt(ctx, cam, lx, ly, fh * 0.07, 0, gTop, 'ty_gantry', seed + 40 + s, night, alpha, false); }
+      { const [l0x, l0y] = F(-fh * 1.0, -fh * 0.05), [l1x, l1y] = F(fh * 1.0, -fh * 0.05);
+        const a = cam.proj(l0x, l0y, gTop), b = cam.proj(l1x, l1y, gTop);
+        if (a.f > 0.1 && b.f > 0.1) emitFace(decoDepth(a.f, b.f), () => { ctx.globalAlpha = alpha; ctx.strokeStyle = 'rgba(58,92,132,0.95)'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); ctx.globalAlpha = 1; }); }
+      { const [tx, ty] = F(fh * 0.25, -fh * 0.05); draw3DBoxAt(ctx, cam, tx, ty, fh * 0.13, gTop - h * 0.14, gTop, 'ty_gantry', seed + 45, night, alpha, true);
+        blinkLight(ctx, cam, tx, ty, gTop + 0.004, '255,190,80', now, seed + 46, alpha, 1.6); }                 // trolley + its beacon
+      break;
+    }
+    case 'foundry': {   // Ferro Fabrication Works — twin of Fabrication Shed (open shed + gantry + one flue).
+      //                    Reads differently as a real FOUNDRY: a fat cupola furnace with a glowing mouth,
+      //                    TWIN tall chimneys pushing heavy smoke, and a slag heap cooling out back.
+      const shedTop = h * 0.5;
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.0, 0, shedTop, pal, seed, night, alpha, true);                       // melt house
+      { const [fx, fy] = F(-fh * 0.15, -fh * 0.1);                                                              // cupola furnace — a fat drum
+        drawFacetDrum(ctx, cam, fx, fy, 0, h * 1.05, fh * 0.34, fh * 0.30, 12, alpha,
+          (f) => { const sh = 0.5 + f.nl * 0.5; return `rgb(${96 * sh | 0},${84 * sh | 0},${76 * sh | 0})`; }, 'rgb(62,54,50)');
+        drawRing(ctx, cam, fx, fy, h * 0.34, fh * 0.35, 12, 'rgba(255,120,40,0.55)', 2, alpha);                 // glowing tap ring
+        glowPool(ctx, cam, fx, fy, h * 0.30, '255,120,40', 14, alpha * (night ? 0.55 : 0.3)); }                 // the pour
+      for (const s of [-1, 1]) { const [sx, sy] = F(s * fh * 0.62, -fh * 0.45);                                 // twin chimneys
+        draw3DBoxAt(ctx, cam, sx, sy, fh * 0.12, 0, h * 1.95, 'ty_foundry_stack', seed + 50 + s, night, alpha, false);
+        blinkLight(ctx, cam, sx, sy, h * 1.95, '255,80,70', now, seed + 52 + s, alpha, 1.5);
+        drawSmoke(ctx, cam, sx, sy, h * 1.95, '86,80,74', alpha * 0.8, now, seed + 54 + s); }
+      { const [hx, hy] = F(fh * 0.72, fh * 0.7); draw3DBoxAt(ctx, cam, hx, hy, fh * 0.34, 0, h * 0.18, 'ty_slag', seed + 60, night, alpha, true);
+        if (night) glowPool(ctx, cam, hx, hy, h * 0.16, '255,90,40', 8, alpha * 0.35); }                        // slag heap, still cooling
+      break;
+    }
+    case 'oldoffice': {   // Meltwater Freight Office — twin of Yards Freight Office (a tidy 2-storey + sign band).
+      //                     Meltwater Row is the older, grimier end of town, so this one is BRICK and taller:
+      //                     three storeys with a stepped parapet, a rooftop water tank on legs, and a
+      //                     zig-zag external fire stair up the flank.
+      const top = h * 1.25;
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.92, 0, top, pal, seed, night, alpha, true);                          // brick block
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.98, top, top + h * 0.09, pal, seed + 1, night, alpha, true);         // stepped parapet cap
+      { const [tx, ty] = F(-fh * 0.3, -fh * 0.25);                                                              // rooftop water tank on legs
+        for (const [lx0, ly0] of [[-0.12, -0.12], [0.12, -0.12], [-0.12, 0.12], [0.12, 0.12]]) {
+          const [lx, ly] = F(-fh * 0.3 + lx0 * fh, -fh * 0.25 + ly0 * fh);
+          draw3DBoxAt(ctx, cam, lx, ly, fh * 0.03, top + h * 0.09, top + h * 0.30, 'ty_melt_tank', seed + 70, night, alpha, false);
+        }
+        drawFacetDrum(ctx, cam, tx, ty, top + h * 0.30, top + h * 0.62, fh * 0.22, fh * 0.22, 10, alpha,
+          (f) => { const sh = 0.5 + f.nl * 0.5; return `rgb(${88 * sh | 0},${80 * sh | 0},${70 * sh | 0})`; }, 'rgb(60,54,48)'); }
+      { const [fx, fy] = F(fh * 0.95, 0);                                                                       // external fire stair — three zig-zag flights
+        for (let k = 0; k < 3; k++) {
+          const a = cam.proj(fx, fy, h * (0.2 + k * 0.35)), b = cam.proj(fx, fy + (k % 2 ? -fh * 0.3 : fh * 0.3), h * (0.55 + k * 0.35));
+          if (a.f > 0.1 && b.f > 0.1) emitFace(decoDepth(a.f, b.f), () => { ctx.globalAlpha = alpha; ctx.strokeStyle = 'rgba(58,52,48,0.9)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); ctx.globalAlpha = 1; });
+        } }
+      if (frontVis) marqueeBand(ctx, cam, dx, dy, E, fh, h * 0.34, m.neon || '#ffb43a', night, alpha);          // sign band low on the frontage, not up top
+      if (night) glowPool(ctx, cam, dx, dy, h * 0.3, '255,190,120', 9, alpha * 0.2);
+      break;
+    }
+    case 'bonded': {   // Customs Bonded Store 7 — twin of Dry Store 12 (the same barrel-roof shed). "Bonded"
+      //                   means sealed and watched, so this one sits inside a LIT COMPOUND: perimeter fence,
+      //                   four corner floodlight masts, a guard box at the gate, and a green customs seal.
+      const hw = fh * 1.0, wallTop = h * 0.46, archH = hw * 0.40;
+      draw3DBoxAt(ctx, cam, dx, dy, hw, 0, wallTop, pal, seed, night, alpha, false);
+      drawBarrelRoof(ctx, cam, F, 0, hw, hw * 0.92, wallTop, archH, 12, alpha, [118, 124, 130]);
+      // Perimeter fence — a low run around the compound.
+      for (const [ax, ay, bx, by] of [[-1.3, -1.3, 1.3, -1.3], [1.3, -1.3, 1.3, 1.3], [1.3, 1.3, -1.3, 1.3], [-1.3, 1.3, -1.3, -1.3]]) {
+        const [p0x, p0y] = F(ax * fh, ay * fh), [p1x, p1y] = F(bx * fh, by * fh);
+        const a = cam.proj(p0x, p0y, h * 0.16), b = cam.proj(p1x, p1y, h * 0.16);
+        if (a.f > 0.1 && b.f > 0.1) emitFace(decoDepth(a.f, b.f), () => { ctx.globalAlpha = alpha * 0.8; ctx.strokeStyle = 'rgba(70,74,78,0.9)'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); ctx.globalAlpha = 1; });
+      }
+      for (const [sx, sy] of [[-1.3, -1.3], [1.3, -1.3], [-1.3, 1.3], [1.3, 1.3]]) {   // corner floodlight masts
+        const [mx, my] = F(sx * fh, sy * fh);
+        draw3DBoxAt(ctx, cam, mx, my, fh * 0.05, 0, h * 0.95, 'ty_bond_fence', seed + 80 + sx * 3 + sy, night, alpha, false);
+        if (night) glowPool(ctx, cam, mx, my, h * 0.9, '255,240,200', 10, alpha * 0.34);
+      }
+      { const [gx, gy] = F(-fh * 0.9, fh * 1.3); draw3DBoxAt(ctx, cam, gx, gy, fh * 0.20, 0, h * 0.26, 'ty_guard', seed + 90, night, alpha, true);
+        if (night) glowPool(ctx, cam, gx, gy, h * 0.2, '255,220,160', 5, alpha * 0.3); }                         // guard box at the gate
+      if (frontVis) marqueeBand(ctx, cam, dx, dy, E, fh, wallTop * 1.04, m.neon || '#6affa8', night, alpha);      // customs seal band
+      glowPool(ctx, cam, dx, dy, h * 0.22, '106,255,168', 12, alpha * (night ? 0.28 : 0.14));
       break;
     }
     case 'pawn': {   // Pawn & Pity: grimy box, barred storefront, three hanging pawn spheres, a half-dead sign

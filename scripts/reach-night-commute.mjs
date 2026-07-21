@@ -35,14 +35,20 @@ const SHIFT  = day([{ from: 8, to: 20 }]);                        // the genset 
 
 const STAFF = [
   // id,                    name,          home cabin,                        post,   schedule
-  ['npc_1784516450269', 'Cass Renner',  'zone_bld_900_1171_cabin_cass',  HANGAR, DAY],
   ['npc_1784515589442', 'Marla Kest',   'zone_bld_900_1171_cabin_marla', SALOON, LATE],
   ['npc_1784515536919', 'Bram Odell',   'zone_bld_900_1171_cabin_bram',  DYNAMO, SHIFT],
   ['npc_reach_dealer',  'Doc Teller',   'zone_bld_900_1171_cabin_doc',   SALOON, CARDS],
   ['npc_reach_gambler', 'Del Roan',     'zone_bld_900_1171_cabin_del',   SALOON, TABLE],
 ];
 
-// Amos Dune is deliberately NOT in this list. He is the fence and the motel keeper,
+// Cass Renner is deliberately NOT in this list. She became the Reach's charter
+// pilot (scripts/reach-charter-pilot.mjs), and charter.js `syncPilots()` owns a
+// pilot's position from `flags.charter_pilot.shift_start`, hard-relocating them
+// every tick. Giving her a vendor_schedule here would put the commute graph's
+// GO_TO_WORK/GO_HOME in a tug-of-war with it. She still sleeps in her cabin —
+// pilotTarget() sends an off-shift pilot to home_zone.
+//
+// Amos Dune is deliberately NOT in this list either. He is the fence and the motel keeper,
 // homed to the front office with an empty schedule — always on. The air-cargo raws
 // loop (UNLOCK_AIR_CARGO → fence pallets) starts by talking to him, so putting him
 // to bed would gate a whole supply chain behind the clock.

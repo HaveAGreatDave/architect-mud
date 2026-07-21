@@ -7,18 +7,97 @@
   ],
   "description": "A Coldwater spotter with a slate of overlapping radar returns and a headset clamped to one ear. He calls bearings to the gunner in a flat, bored monotone.",
   "dialogue_tree": {
+    "accepted": {
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_pest_control"
+        }
+      ],
+      "options": [
+        {
+          "label": "I'll thin them out.",
+          "next": "bye"
+        }
+      ],
+      "text": "He thumbs a bearing through to the gun without being asked, then flicks two fingers east. \"Freight lane past the yards, and the red flats further out — that's where the returns cluster. Two of them is enough to make the pattern go away for a while.\" A pause. \"The flats are hot. Take the pills off me when you're back; you'll want them.\""
+    },
+    "brief": {
+      "options": [
+        {
+          "label": "What's in it for me?",
+          "next": "terms"
+        },
+        {
+          "label": "Not my problem.",
+          "next": "bye"
+        }
+      ],
+      "text": "For the first time the monotone breaks — barely. \"Ground returns. All week.\" He tilts the slate so you can see the smear of contacts crawling across it. \"Scavengers, working in past the gate and stripping the facility while we're watching the sky. The gun points up. It doesn't point at them, and I can't leave the slate to go do it myself.\" He looks at you properly. \"You're ambulatory and you're standing in my revetment. That's two qualifications.\""
+    },
     "bye": {
       "options": [],
       "text": "They turn back to the guns and the sky."
     },
+    "reported": {
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_pest_control"
+        }
+      ],
+      "options": [
+        {
+          "label": "Anytime.",
+          "next": "bye"
+        }
+      ],
+      "text": "He watches the returns thin out on the slate, then thumbs the headset off one ear — the closest thing to ceremony he has. \"Pattern's gone. Good.\" Credits clear, and he presses a strip of foil pills into your hand without looking at you. \"Rad pills. You went out to the flats; you earned them whether you feel it yet or not. It's always later than you think with that stuff.\""
+    },
     "root": {
       "options": [
+        {
+          "conditions": [
+            {
+              "flag": "quest_pest_control",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "label": "You've been staring at that slate a while.",
+          "next": "brief"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "quest_pest_control",
+              "op": "eq",
+              "scope": "player",
+              "value": "completed"
+            }
+          ],
+          "label": "Your ground returns are gone.",
+          "next": "reported"
+        },
         {
           "label": "...",
           "next": "bye"
         }
       ],
-      "text": "They keep one eye on the sky. \"Unless you're here to help work the guns, you're in the way. Move.\""
+      "text": "He keeps one eye on the slate and does not look up. \"Unless you're here to help work the guns, you're in the way.\" A beat, flatter. \"Although.\""
+    },
+    "terms": {
+      "options": [
+        {
+          "label": "Done.",
+          "next": "accepted"
+        },
+        {
+          "label": "Find someone else.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Fifty, off the battery's discretionary, and a strip of rad pills out of our own kit.\" He says it like a man reading a bearing. \"It's not much. It's also not nothing, and nobody else has offered you anything for standing here.\""
     }
   },
   "faction": "coldwater",

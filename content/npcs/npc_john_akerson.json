@@ -3,18 +3,33 @@
   "behaviour_graph": {
     "_start": "n_start",
     "nodes": {
-      "n_life": {
-        "action_type": "HAVE_LIFE",
-        "next": "n_loop",
+      "n_atwork": {
+        "action_type": "AT_WORK",
+        "next": "n_check",
         "type": "action"
       },
-      "n_loop": {
-        "next": "n_start",
-        "type": "loop"
+      "n_check": {
+        "action_type": "CHECK_WORK",
+        "goToWork": "n_work",
+        "haveLife": "n_life",
+        "type": "action"
+      },
+      "n_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "n_check",
+        "type": "action"
       },
       "n_start": {
-        "next": "n_life",
+        "next": "n_check",
         "type": "start"
+      },
+      "n_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "n_atwork",
+        "params": {
+          "zone_id": "zone_studio_1782953094650"
+        },
+        "type": "action"
       }
     }
   },
@@ -56,5 +71,5 @@
   "vendor_stock_size": 10,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": null
+  "work_zone_id": "zone_studio_1782953094650"
 }

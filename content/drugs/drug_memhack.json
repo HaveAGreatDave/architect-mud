@@ -30,7 +30,7 @@
     "withdrawal": {
       "message": "The memories come back sharp and all at once. Only memhack files them down.",
       "mods": {
-        "sanity_regen_per_sec": -1,
+        "sanity_regen_per_sec": -0.05,
         "stat_cool": -2
       },
       "onset_seconds": 1200

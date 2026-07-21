@@ -32,7 +32,7 @@ import { dispatchAction } from "./engine/actions.js";
 import { filterDialogueOptions, renderDialogueNode } from "./engine/dialogue.js";
 import "./engine/graph.js";
 import { loadRecipes } from "./engine/crafting.js";
-import { loadDrugs } from "./engine/drugs.js";
+import { loadDrugs, clearActiveDrugBuffs } from "./engine/drugs.js";
 import { loadItems, getItem } from "./engine/items-cache.js";
 import { reloadCrimes } from "./engine/crimes.js";
 import { reloadAliases } from "./engine/commands/aliases.js";
@@ -363,6 +363,11 @@ wss.on("connection", (ws) => {
 			emit("tv.schedule", { playerId: session.playerId, channelId: msg.channelId });
 			return;
 		}
+		if (msg.type === "tv_standings") {
+			if (!session.playerId) return;
+			emit("tv.standings", { playerId: session.playerId });
+			return;
+		}
 		if (msg.type === "deck_watch" || msg.type === "deck_unwatch") {
 			if (!session.playerId) return;
 			if (msg.type === "deck_watch" && msg.channelId)
@@ -396,6 +401,11 @@ wss.on("connection", (ws) => {
 						if (dist > 0) broadcast(zoneId, { type: 'ambient', message: `<span class="msg-ambient msg-ambient-distant">Nearby, someone goes quiet.</span>` });
 					}
 					await activateForcefield(player, broadcast);
+					// Reverse drug/withdrawal ledger buffs BEFORE the checkpoint write below.
+					// activeDrugs live only in memory, so a buff still applied here would be
+					// saved as if it were a base stat — and reversing a raised cap clamps the
+					// current value under it, which the row must capture.
+					clearActiveDrugBuffs(player);
 					await query(
 						"UPDATE players SET last_seen=EXTRACT(EPOCH FROM NOW()), current_zone=$1, hp=$2, stamina=$3, offline_sleeping=TRUE WHERE id=$4",
 						[player.current_zone, player.hp, player.stamina, session.playerId],
@@ -789,6 +799,15 @@ async function finishAuth(ws, session, player) {
 		hunger: livePlayer.hunger, thirst: livePlayer.thirst, hp: livePlayer.hp,
 		stamina: livePlayer.stamina, body_temp_c: livePlayer.body_temp_c,
 	};
+	// Reconnect: this replaces the live player object, orphaning any timer that
+	// captured the old one. Hand the STALE object to plugins so they can cancel
+	// work bound to it. Deliberately not `player.logout` — that tears down state
+	// keyed by player id, which the incoming session now owns.
+	const stalePlayer = getLivePlayer(player.id);
+	if (stalePlayer) {
+		clearActiveDrugBuffs(stalePlayer);   // ledger buffs/onsets die with the old object, not into the new one
+		emit('player.sessionReplaced', { player: stalePlayer, id: player.id });
+	}
 	setLivePlayer(player.id, livePlayer);
 	logActivity('connect', player.handle);
 	broadcast(null, { type: 'online_change' });

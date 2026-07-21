@@ -40,7 +40,9 @@
       "onset_seconds": 1200
     }
   },
-  "flags": {},
+  "flags": {
+    "injectable": true
+  },
   "id": "drug_coldfire",
   "item_id": "item_coldfire",
   "name": "Coldfire",

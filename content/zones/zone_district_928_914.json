@@ -5,7 +5,7 @@
   "bg_color": "#2a1c16",
   "color": "#b5744a",
   "created_by": "wildlands-expand",
-  "description": "Cracked red hardpan runs out flat to a rust-colored horizon. Wind-scoured rock, grit, and nothing that grows.",
+  "description": "Cracked red hardpan runs out flat to a rust-colored horizon. Wind-scoured rock, grit, and nothing that grows. The ground drops into a shallow pit here, its banks of loose grey gravel shot through with seams that catch the light wrong.",
   "exits": {
     "east": "zone_district_929_914",
     "north": "zone_district_928_913",
@@ -13,6 +13,7 @@
   },
   "flags": {
     "district": "wilds",
+    "mining_table_id": "mine_gravel_pit",
     "planner": "bp_district",
     "radiation": 26,
     "region_id": "region_coldwater",

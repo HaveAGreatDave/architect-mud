@@ -83,6 +83,13 @@ export function createTvView(root, opts = {}) {
 
   // Scoped lookup — the whole reason two surfaces can coexist.
   const el = (name) => root ? root.querySelector(`[data-tv="${name}"]`) : null;
+  // Some readouts appear more than once on a surface (the tablet shows the tuned
+  // channel both in its header strip and as the big tuner readout by the CH buttons).
+  // Writing through this keeps every copy in step instead of only the first match.
+  const setAll = (name, text) => {
+    if (!root) return;
+    for (const n of root.querySelectorAll(`[data-tv="${name}"]`)) n.textContent = text;
+  };
 
   // ── per-instance state ────────────────────────────────────────────────────
   let _tvOpen = false;
@@ -103,6 +110,8 @@ export function createTvView(root, opts = {}) {
   let _lastGameday = null;
   let _scheduleOpen = false;
   let _scheduleTimer = null;
+  let _standingsPanelOpen = false;
+  let _standingsPanelTimer = null;
   let _tvChannelList = [];   // [{ number, name, channelId }] sorted by number
   let _tvFrequency   = 0;    // current dial position (float), quantized to 0.05 steps
   let _dialRaw       = 0;    // unquantized accumulator driving drag math
@@ -161,12 +170,20 @@ export function createTvView(root, opts = {}) {
   // ── open / close ──────────────────────────────────────────────────────────
   function open(data) {
     const wasAlreadyOn = _tvOpen;
+    const wasPoweredOff = _tvPoweredOff;
     // The server echoes a tv_panel message back after every player-initiated tune
     // (to push updated station/channel metadata). If the surface is already open,
     // this is just that echo, not a fresh power-on — so sync metadata only and
     // leave the dial position / power animation alone. Re-running the full reset
     // here snapped the knob back to 0 mid-drag and replayed the power-on static.
-    const isTuneEcho = wasAlreadyOn;
+    //
+    // ...UNLESS the set was sitting POWERED OFF and this message brings it a channel.
+    // That's a genuine power-on, not an echo, and it has to run the reveal below —
+    // treating it as an echo returns early with the screen still hidden behind static,
+    // so broadcast lines pile up in a display nobody can see. (Bites both surfaces: the
+    // Tablet TV app always mounts powered-off, and the wall set does it whenever you
+    // `use` a dark television and then tune it.)
+    const isTuneEcho = wasAlreadyOn && !(wasPoweredOff && data.channelId);
 
     if (data.sounds) {
       // Adopt any server/DB-supplied configs, but cap the idle hum/static gain to a
@@ -179,7 +196,7 @@ export function createTvView(root, opts = {}) {
     }
 
     const _channelChanged = (data.channelId || null) !== _tvActiveChannelId;
-    if (_channelChanged) { _clearScorebug(); _clearStandings(); _clearSportsFx(); _clearGameday(); }
+    if (_channelChanged) { _clearScorebug(); _clearStandings(); _clearSportsFx(); _clearGameday(); _clearStandingsPanel(); }
     _tvActiveChannelId = data.channelId || null;
     // Keep the TV guide open across a channel change, but refresh it for the new station.
     if (_channelChanged && _scheduleOpen) _requestSchedule();
@@ -198,8 +215,7 @@ export function createTvView(root, opts = {}) {
 
     const stationEl = el('station-name');
     if (stationEl) stationEl.textContent = data.stationName || data.channelName || '——';
-    const chanEl = el('channel-num');
-    if (chanEl) chanEl.textContent = (data.channelNumber > 0) ? `CH ${data.channelNumber}` : '——';
+    setAll('channel-num', (data.channelNumber > 0) ? `CH ${data.channelNumber}` : '——');
     const pnEl = el('program-name');
     if (pnEl) { pnEl.textContent = ''; pnEl.style.opacity = ''; }
     const msgs = el('messages');
@@ -219,10 +235,23 @@ export function createTvView(root, opts = {}) {
     const skinWin = el('window');
     if (skinWin) skinWin.dataset.skin = data.skin || (isCrt ? 'crt' : 'tablet');
 
+    // Keep the DIAL in step with whatever is actually tuned. The channel can change by a
+    // route that never touches the dial — a Tablet TV channel chip, or `tune` typed in the
+    // room — and both CH up/down and the lock logic step RELATIVE to _tvFrequency, so a
+    // stale 0 here sends "channel up" back to the bottom of the band instead of one step up.
+    // Only snap when the dial isn't already parked on this channel, so a live drag or sweep
+    // (which is already within LOCK_RANGE when the echo lands) is never fought mid-gesture.
+    if (data.channelNumber > 0 && Math.abs(_tvFrequency - data.channelNumber) > LOCK_RANGE) {
+      _tvFrequency = data.channelNumber;
+      _dialRaw = data.channelNumber;
+      _updateKnobRotation();
+      const fd = el('freq-display');
+      if (fd) fd.textContent = _tvFrequency.toFixed(2);
+    }
+
     if (isTuneEcho) return; // metadata synced; dial position and animations untouched
 
-    _tvFrequency = 0;
-    _dialRaw = 0;
+    if (!_tvActiveChannelId) { _tvFrequency = 0; _dialRaw = 0; }   // genuinely off — park the dial
     const freqDisplay = el('freq-display');
     if (freqDisplay) freqDisplay.textContent = _tvFrequency.toFixed(1);
 
@@ -255,7 +284,13 @@ export function createTvView(root, opts = {}) {
         staticEl.classList.remove('tv-static-on');
         staticEl.classList.add('tv-static-fade');
         content.classList.remove('tv-hidden');
-        staticEl.addEventListener('animationend', () => staticEl.classList.remove('tv-static-fade'), { once: true });
+        staticEl.addEventListener('animationend', () => {
+          staticEl.classList.remove('tv-static-fade');
+          // Drop the inline opacity:1 set on power-up too — it outranks the stylesheet's
+          // resting opacity:0, so leaving it would snap the static back over the picture
+          // the instant the fade class comes off.
+          staticEl.style.opacity = '';
+        }, { once: true });
         _setStaticAudio(0, 0.3);
       }, 720);
     }
@@ -379,6 +414,7 @@ export function createTvView(root, opts = {}) {
     _clearSportsFx();
     _clearGameday();
     _clearSchedule();
+    _clearStandingsPanel();
     const win = el('window');
     if (win) {
       win.classList.remove('tv-shutting-off');
@@ -511,6 +547,9 @@ export function createTvView(root, opts = {}) {
       `</div>` +
       `<div class="tv-sb-state">${diamond}<div class="tv-sb-status">${_esc(sb.status || '')}</div>${outs}</div>`;
     host.classList.add('on');
+    // A score-bug means a game is on air — that's when the standings button is worth
+    // offering. Same reveal pattern as the Gameday toggle.
+    el('standings-btn')?.classList.add('avail');
   }
 
   function _clearScorebug() {
@@ -595,6 +634,66 @@ export function createTvView(root, opts = {}) {
     const host = el('schedule');
     if (host) { host.classList.remove('on'); host.innerHTML = ''; }
     el('schedule-btn')?.classList.remove('on');
+  }
+
+  // ── Standings sub-screen ──────────────────────────────────────────────────
+  // The league table already flashes up on air as a transient corner bug the server
+  // throws on a throttle. This is the viewer pulling it up ON DEMAND and holding it —
+  // its own overlay panel (same placement as the TV guide), so it never fights the
+  // bug for the corner. Only offered while a game is actually on: the button is
+  // revealed by the first score-bug of a sports broadcast and hidden on channel change.
+  function _requestStandings() { sendRaw({ type: 'tv_standings' }); }
+
+  function _toggleStandings() {
+    const host = el('standings-panel');
+    const btn = el('standings-btn');
+    if (!host) return;
+    _standingsPanelOpen = !_standingsPanelOpen;
+    host.classList.toggle('on', _standingsPanelOpen);
+    btn?.classList.toggle('on', _standingsPanelOpen);
+    if (!_standingsPanelOpen) { _clearStandingsPanelTimer(); return; }
+    host.innerHTML = '<div class="tv-sched-empty">Fetching standings…</div>';
+    _requestStandings();
+    if (_standingsPanelTimer) clearInterval(_standingsPanelTimer);
+    _standingsPanelTimer = setInterval(_requestStandings, 5000);   // scores move mid-game
+  }
+
+  function _clearStandingsPanelTimer() {
+    if (_standingsPanelTimer) { clearInterval(_standingsPanelTimer); _standingsPanelTimer = null; }
+  }
+
+  function _clearStandingsPanel() {
+    _standingsPanelOpen = false;
+    _clearStandingsPanelTimer();
+    const host = el('standings-panel');
+    if (host) { host.classList.remove('on'); host.innerHTML = ''; }
+    el('standings-btn')?.classList.remove('on', 'avail');
+  }
+
+  function renderStandings(data) {
+    if (!_standingsPanelOpen || !data) return;
+    const host = el('standings-panel');
+    if (!host) return;
+    const rows = Array.isArray(data.rows) ? data.rows : [];
+    const body = rows.length
+      ? rows.map((r, i) => {
+          const rd = (r.rd > 0 ? '+' : '') + (Number.isFinite(r.rd) ? r.rd : 0);
+          const pct = (r.wins + r.losses) ? (r.wins / (r.wins + r.losses)) : 0;
+          return `<div class="tv-stp-row${i === 0 ? ' lead' : ''}">` +
+            `<span class="tv-stp-rank">${i + 1}</span>` +
+            `<span class="tv-stp-team">${_esc(r.team)}</span>` +
+            `<span class="tv-stp-rec">${r.wins}-${r.losses}</span>` +
+            `<span class="tv-stp-pct">${pct.toFixed(3).replace(/^0/, '')}</span>` +
+            `<span class="tv-stp-rd">${rd}</span>` +
+          `</div>`;
+        }).join('')
+      : '<div class="tv-sched-empty">No games played yet this season.</div>';
+    host.innerHTML =
+      `<div class="tv-sched-head"><span class="tv-sched-title">${_esc(data.title || 'STANDINGS')}</span></div>` +
+      `<div class="tv-stp-row tv-stp-hdr"><span class="tv-stp-rank">#</span><span class="tv-stp-team">TEAM</span>` +
+        `<span class="tv-stp-rec">W-L</span><span class="tv-stp-pct">PCT</span><span class="tv-stp-rd">RD</span></div>` +
+      `<div class="tv-stp-list">${body}</div>` +
+      `<div class="tv-sched-foot">${data.phase === 'worldseries' ? 'World Series — winner takes the season.' : 'Run differential over the season to date.'}</div>`;
   }
 
   function renderSchedule(data) {
@@ -885,7 +984,6 @@ export function createTvView(root, opts = {}) {
 
     const staticEl      = el('static');
     const contentEl     = el('content');
-    const chanNumEl     = el('channel-num');
     const programNameEl = el('program-name');
 
     // Progressive fade: static fills as you move away, content fades in as you approach
@@ -905,7 +1003,7 @@ export function createTvView(root, opts = {}) {
     // Program name fades in from invisible as you approach the channel frequency
     if (programNameEl) programNameEl.style.opacity = contentOpacity.toFixed(2);
     // Channel number only visible when exactly on an active channel
-    if (chanNumEl) chanNumEl.textContent = (dist < 0.01) ? `CH ${nearest.number}` : '——';
+    setAll('channel-num', (dist < 0.01) ? `CH ${nearest.number}` : '——');
 
     if (dist < LOCK_RANGE && nearest.channelId !== _tvActiveChannelId) {
       _tvTuneTo(nearest.number);
@@ -944,8 +1042,12 @@ export function createTvView(root, opts = {}) {
     if (!staticEl || !content) return;
     staticEl.classList.remove('tv-static-on', 'tv-static-loop');
     staticEl.classList.add('tv-static-fade');
-    staticEl.addEventListener('animationend', () => staticEl.classList.remove('tv-static-fade'), { once: true });
+    staticEl.addEventListener('animationend', () => {
+      staticEl.classList.remove('tv-static-fade');
+      staticEl.style.opacity = '';   // see the power-on reveal: inline opacity outranks the resting style
+    }, { once: true });
     content.classList.remove('tv-hidden');
+    content.style.opacity = '';      // a dial sweep leaves a partial inline fade behind
     _setStaticAudio(0, 0.3);
   }
 
@@ -1219,6 +1321,10 @@ export function createTvView(root, opts = {}) {
     // TV guide toggle: shows the tuned channel's running order + in-world time.
     el('schedule-btn')?.addEventListener('click', () => { if (_tvOpen) _toggleSchedule(); });
 
+    // Standings toggle: the DEADBALL league table, on demand. Hidden until a sports
+    // broadcast's first score-bug reveals it (adds `.avail`).
+    el('standings-btn')?.addEventListener('click', () => { if (_tvOpen) _toggleStandings(); });
+
     // Knob: click cycles channels, mousewheel fine-tunes. Drag-to-rotate is disabled
     // — it was unreliable to control smoothly.
     const knob = el('knob');
@@ -1299,7 +1405,7 @@ export function createTvView(root, opts = {}) {
   const view = {
     open, close, shutdown, init, destroy,
     applyOverlay, appendMessage, updateTicker, showOffAir, showOnAir,
-    renderSchedule, speak, applyTheme, tunerInput, setProgramName,
+    renderSchedule, renderStandings, speak, applyTheme, tunerInput, setProgramName,
     clearMessages: _clearTvMessages,
     isOpen: () => _tvOpen,
     activeChannelId: () => _tvActiveChannelId,

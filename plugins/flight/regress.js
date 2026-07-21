@@ -11,7 +11,8 @@ import { crashSeverity, collateralBill, isSeverelyImpaired } from './collateral.
 import { sellAircraft, cancelRental, flushAirborne } from './hangars.js';
 import { computeStats, perfAxes, tuneRange, installedKits, KITS, TUNE_DIAL_MAX,
   shearRoll, surfacesWire, anyWingLost, resetSurfaces, SURFACE_KEYS,
-  isWalkableCabin, cabinTypeOf, cabinEntryZone, isCabinZone, liveAircraft, getZone, loadAircraft, stalledState, CONTINUOUS_TYPES, listAirfields, salvoOf } from './state.js';
+  isWalkableCabin, cabinTypeOf, cabinEntryZone, isCabinZone, liveAircraft, getZone, loadAircraft, stalledState, CONTINUOUS_TYPES, listAirfields, salvoOf,
+  vtolOnlyField, acquirableTypes } from './state.js';
 import { isFreightLicensed, ensureFreightDrops } from './contracts.js';
 import { isPilotLicensed, _test as checkrideTest } from './checkride.js';
 import { setFlag } from '../../server/engine/flags.js';
@@ -65,6 +66,50 @@ export default async function regress({ run, check, getPlayer }) {
     _test.GROUND_STOP_SEVERITY > 0.35 && _test.GROUND_STOP_SEVERITY <= 1, String(_test.GROUND_STOP_SEVERITY));
   check('ground stop never fires on an airborne craft', _test.groundStop({ row: { parked_zone_id: null } }) === null);
   check('ground stop is clear in fair weather', _test.groundStop({ row: { parked_zone_id: 'zone_start' } }) === null);
+
+  // Airfield desks are three independent capabilities: dealer (buy), rental
+  // (self-fly), charter (an NPC flies you). Rental used to be implied by
+  // `airfield_charter`, which made a charter desk impossible to open without also
+  // opening a rental counter — the Reach wants the ride, not the hire desk.
+  {
+    const { rows: fields } = await query(
+      `SELECT id, flags->>'airfield_name' AS name,
+              COALESCE(flags->>'airfield_rental','false')  AS rent,
+              COALESCE(flags->>'airfield_charter','false') AS charter
+         FROM zones WHERE flags ? 'airfield_id'`);
+    check('airfields exist to check', fields.length > 0, `${fields.length}`);
+    const buzzard = fields.find(f => f.id === 'zone_the_reach_870_1958');
+    check('Buzzard Field charters', buzzard?.charter === 'true', JSON.stringify(buzzard));
+    check('Buzzard Field has no rental desk', buzzard?.rent !== 'true', JSON.stringify(buzzard));
+    // The flag must be genuinely separable, not just unset everywhere.
+    check('some field still rents (the split did not close every desk)',
+      fields.some(f => f.rent === 'true'), fields.filter(f => f.rent === 'true').map(f => f.name).join(',') || 'NONE');
+
+    // A helipad has no runway: it must never OFFER an airframe it can't launch.
+    // acquirableTypes is the SSOT for both the text desk and the hangar-bay lot —
+    // they used to run separate queries and the lot's was unfiltered.
+    let offender = null, sawVtolOnly = false, sawFull = false;
+    for (const f of fields) {
+      const zone = getZone(f.id);
+      const roster = await acquirableTypes(zone);
+      if (vtolOnlyField(zone)) {
+        sawVtolOnly = true;
+        const fixed = roster.filter(t => t.takeoff_mode !== 'vtol');
+        if (fixed.length) { offender = `${f.name}: ${fixed.map(t => t.id).join(',')}`; break; }
+      } else if (roster.some(t => t.takeoff_mode !== 'vtol')) sawFull = true;
+    }
+    check('a VTOL-only field never offers a fixed-wing', offender === null, offender || '');
+
+    // vtolOnlyField is also the ONLY key for the out-the-canopy render: a field it
+    // calls VTOL-only draws a circle-H pad instead of a departure strip
+    // (state.contextPayload → ground.helipad → windshield.drawGroundHelipad). Any
+    // future helipad inherits it by carrying airfield_vtol_only.
+    const pads = fields.filter(f => vtolOnlyField(getZone(f.id))).map(f => f.name);
+    check('both helipads read as VTOL-only (→ pad art, not a runway)',
+      pads.length >= 2, pads.join(', ') || 'NONE');
+    check('the VTOL filter is real (a helipad and a full field both exist)', sawVtolOnly && sawFull,
+      `vtolOnly=${sawVtolOnly} full=${sawFull}`);
+  }
 
   // ── Structural battle-damage surfaces ───────────────────────────────────────
   check('an intact craft reports no surfaces on the wire',

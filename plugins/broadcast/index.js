@@ -98,6 +98,14 @@ on('tv.unwatch', ({ playerId }) => { tvWatchers.delete(playerId); });
 // The TV-guide button asks for the tuned channel's running order + the current time.
 on('tv.schedule', ({ playerId, channelId }) => { sendTvSchedule(playerId, channelId); });
 
+// The standings button. The league table already flashes up on air as a transient bug,
+// but that's server-thrown and auto-dismisses — this is the viewer pulling it up on
+// demand and holding it. Same shape either way; refreshStandings is cached, so mashing
+// the button costs nothing.
+on('tv.standings', ({ playerId }) => {
+  sendTvStandings(playerId).catch(err => console.error('[broadcast] sendTvStandings error:', err.message));
+});
+
 // Press-and-hold on the power button is the deliberate "switch it off" — turns the
 // shared set off for the whole room.
 on('tv.poweroff', ({ playerId }) => {
@@ -3249,6 +3257,24 @@ function _sportsScheduleSlots(script, cur) {
     };
   });
 }
+// On-demand DEADBALL league table for the standings button (both TV surfaces).
+async function sendTvStandings(playerId) {
+  const nowMs = Date.now();
+  const rows = await refreshStandings(nowMs).catch(() => []);
+  await refreshSeason(nowMs).catch(() => {});
+  sendToPlayer(playerId, {
+    type: 'tv_standings',
+    title: _seasonCache.phase === 'worldseries' ? 'DEADBALL — WORLD SERIES' : 'DEADBALL — LEAGUE STANDINGS',
+    phase: _seasonCache.phase || 'regular',
+    rows: (rows || []).map(r => ({
+      team: r.team,
+      wins: r.wins || 0,
+      losses: r.losses || 0,
+      rd: (r.runs_for || 0) - (r.runs_against || 0),
+    })),
+  });
+}
+
 function sendTvSchedule(playerId, channelId) {
   const state = channelId ? channelRuntime.get(channelId) : null;
   const nowMin = getEnvironmentState().minutes ?? 0;
@@ -5326,8 +5352,11 @@ async function cmdTabletTune(args, raw, player) {
   if (isNaN(channelNumber)) return { type: 'output', message: 'Usage: tablettune <channel number>' };
 
   if (channelNumber === 0) {
+    // Just drop the tuner. Deliberately NO `tv_off` push: that message is the ROOM
+    // set's power-off and the client routes it to the standalone CRT panel, so
+    // sending it here would switch off the wall television because you turned your
+    // tablet's screen down. The tablet's own power button closes its view locally.
     tabletTuners.delete(player.id);
-    sendToPlayer(player.id, { type: 'tv_off' });
     return null;
   }
 
@@ -5559,6 +5588,10 @@ export const _piracyTest = { canOperateDeck, deckLockError: _deckLockError, next
 // Test seam (never loaded in production) — the deterministic league engine, so the
 // regress suite can assert same-slot reproducibility and the round-robin schedule.
 export const _test = {
+  // Lets the regress suite drive a tick by hand and assert what actually reached a
+  // player — the Tablet TV's portable tuner has no zone furniture, so "did a program
+  // come out the other end" is only observable this way.
+  broadcastTick, tabletTuners,
   sportsGameForSlot, sportsMatchupForSlot, roundRobinRounds, sportsSlotIndex,
   sportsSlotMs, sportsAiring, SPORTS_GAMES_PER_DAY, nextAirSlot,
   assembleNewsGraph, newsFill, newsSceneNames,

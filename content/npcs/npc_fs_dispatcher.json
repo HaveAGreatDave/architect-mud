@@ -103,6 +103,10 @@
         {
           "cmd": "gigs",
           "text": "\"What else is on the board?\""
+        },
+        {
+          "next": "who_hires",
+          "text": "\"Is this all there is?\""
         }
       ],
       "text": "Marta glances at the tab, then at you. \"{quest}. Done, then.\" She thumbs a worn stamp onto the clipboard and the credits clear before the ink's dry. \"Pay's logged. Take a tab, do the thing, bring it back — that's the whole religion.\" A drag on the cigarette. \"Come back when you're hungry again.\""
@@ -275,11 +279,70 @@
           "text": "\"I finished a job. Here.\""
         },
         {
+          "conditions": [
+            {
+              "flag": "fs_gig_done",
+              "op": "set",
+              "scope": "player"
+            }
+          ],
+          "next": "who_hires",
+          "text": "\"Is the board all there is?\""
+        },
+        {
           "cmd": "gigs",
           "text": "\"What's on the board?\""
         }
       ],
       "text": "The window's plexi is scratched to fog. Marta Kell slides a clipboard half an inch toward you without looking up. \"Board's on the wall. Take a tab, do the thing, bring it back, get paid. That's the whole religion.\" She finally lifts her eyes. \"You're new-made — I can always tell, they come out of that facility with the shine still on. So. What are you going to be?\""
+    },
+    "the_waste": {
+      "options": [
+        {
+          "next": "the_waste_how",
+          "text": "\"Where do they go?\""
+        },
+        {
+          "cmd": "gigs",
+          "text": "\"Sounds like a way to die.\""
+        }
+      ],
+      "text": "The cigarette stops halfway up. \"Some of them don't take work. Some of them just go.\" She says it evenly, the way you'd read a number off a meter. \"Out. Keep walking, past the last of everything, until the ground stops meaning anything and there's no next step to take, and then take it anyway. That's the waste.\" A pause. \"I log them as unfilled. It's the only column I've got for it.\""
+    },
+    "the_waste_how": {
+      "options": [
+        {
+          "cmd": "gigs",
+          "text": "\"I'll stick to the board. For now.\""
+        }
+      ],
+      "text": "\"Somewhere else. That's the whole appeal, isn't it.\" She taps ash and doesn't look at you. \"There's another basin out past it, and people who made it there, and people who write on the rocks so the next one knows which way is which. There's no ticket and no permit and nobody to ask. You want to know how it's done — you walk, and you don't stop when the map does.\" Now she does look at you. \"Not this month, sprat. Not on what you're carrying. But you asked, so now you know it's there, and that's the part nobody tells you.\""
+    },
+    "who_hires": {
+      "options": [
+        {
+          "next": "who_hires_names",
+          "text": "\"Who's on that shift?\""
+        },
+        {
+          "next": "the_waste",
+          "text": "\"Is that everyone who leaves?\""
+        },
+        {
+          "cmd": "gigs",
+          "text": "\"The board's fine by me.\""
+        }
+      ],
+      "text": "She looks at you properly for the first time. \"No. The board's what the district admits to.\" A drag on the cigarette, held a while. \"Walking a meter route pays ten because any fool can walk. What pays is a job somebody needs doing quietly, and there's three of those drinking coffee in the turbine hall at the power plant right now — east and south, you'll smell it before you see it. Day shift. They'll all three tell you they're too busy. They're not.\""
+    },
+    "who_hires_names": {
+      "options": [
+        {
+          "cmd": "gigs",
+          "text": "\"Noted. Anything on the board meanwhile?\""
+        }
+      ],
+      "text": "\"Ma Cinder — old, mean, runs the bog crews, pays a hundred thirty to anyone who'll go into the tar for her. The Harbourmaster, if he's sober, has a lurker problem out on the water worth a hundred fifty. And Voss the yardmaster's been losing freight off the sidings on Dray Lane to scavengers — that one's close, and he's past caring how it gets solved.\" She taps ash. \"All of them sleep at the Embassy or the Meridian if you miss the shift. Don't knock after midnight. Especially not on Cinder.\""
     }
   },
   "faction": null,

@@ -92,6 +92,14 @@ async function handleAction(player, actionId, params, broadcast) {
     return buildScreen(player, 'microreels', '');
   }
 
+  // destruct — remote-kill one of your own planted devices (the focused cam id
+  // arrives as params). The unit is destroyed, not recovered; re-render the hub
+  // unfocused since the tile it was showing is gone.
+  if (actionId === 'destruct') {
+    if (focus) await s.selfDestructDevice(player, focus);
+    return buildScreen(player, null, '');
+  }
+
   // record/clip/wipe run the plugin's own verbs (same behaviour as the standalone
   // hub buttons): record toggles the tape, clip saves a microreel + clears the
   // buffer, clear (wipe) discards it. Then re-render the hub focused on the cam.

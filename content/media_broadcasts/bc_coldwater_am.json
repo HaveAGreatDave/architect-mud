@@ -1,0 +1,771 @@
+{
+  "broadcast_graph": {
+    "_start": "bsm_0",
+    "nodes": {
+      "bsm_0": {
+        "_vine": {
+          "x": 80,
+          "y": 80
+        },
+        "next": "bsm_1",
+        "type": "start"
+      },
+      "bsm_1": {
+        "_vine": {
+          "x": 300,
+          "y": 80
+        },
+        "event_type": "FADE_IN",
+        "next": "bsm_2",
+        "type": "event"
+      },
+      "bsm_10": {
+        "_vine": {
+          "x": 80,
+          "y": 400
+        },
+        "message": "enters the frame.",
+        "next": "bsm_11",
+        "type": "npc_action"
+      },
+      "bsm_11": {
+        "_vine": {
+          "x": 300,
+          "y": 400
+        },
+        "next": "bsm_12",
+        "style": "raw",
+        "text": "Statistically.",
+        "type": "say"
+      },
+      "bsm_12": {
+        "_vine": {
+          "x": 520,
+          "y": 400
+        },
+        "next": "bsm_13",
+        "npc_id": "npc_am_pace",
+        "type": "npc_anchor"
+      },
+      "bsm_13": {
+        "_vine": {
+          "x": 740,
+          "y": 400
+        },
+        "next": "bsm_14",
+        "style": "raw",
+        "text": "Statistically alive! I'm Bijou Pace.",
+        "type": "say"
+      },
+      "bsm_14": {
+        "_vine": {
+          "x": 960,
+          "y": 400
+        },
+        "next": "bsm_15",
+        "npc_id": "npc_am_dorn",
+        "type": "npc_anchor"
+      },
+      "bsm_15": {
+        "_vine": {
+          "x": 80,
+          "y": 560
+        },
+        "next": "bsm_16",
+        "style": "raw",
+        "text": "Hal Dorn.",
+        "type": "say"
+      },
+      "bsm_16": {
+        "_vine": {
+          "x": 300,
+          "y": 560
+        },
+        "message": "holds his mug with both hands like a man warming himself at a very small fire.",
+        "next": "bsm_17",
+        "type": "npc_action"
+      },
+      "bsm_17": {
+        "_vine": {
+          "x": 520,
+          "y": 560
+        },
+        "next": "bsm_18",
+        "npc_id": "npc_am_pace",
+        "type": "npc_anchor"
+      },
+      "bsm_18": {
+        "_vine": {
+          "x": 740,
+          "y": 560
+        },
+        "next": "bsm_19",
+        "style": "raw",
+        "text": "And we have SUCH a show for you.",
+        "type": "say"
+      },
+      "bsm_19": {
+        "_vine": {
+          "x": 960,
+          "y": 560
+        },
+        "label": "CAM — 2 — MEDIUM two_shot",
+        "next": "bsm_20",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+      "bsm_2": {
+        "_vine": {
+          "x": 520,
+          "y": 80
+        },
+        "next": "bsm_3",
+        "song": "coldwater_am_theme",
+        "text": "♪ Bright synthetic brass, the audio equivalent of a smile held too long. ♪",
+        "type": "music"
+      },
+      "bsm_20": {
+        "_vine": {
+          "x": 80,
+          "y": 720
+        },
+        "graphic_id": "am_basin_beat_card",
+        "next": "bsm_21",
+        "type": "title_card"
+      },
+      "bsm_21": {
+        "_vine": {
+          "x": 300,
+          "y": 720
+        },
+        "graphic_id": "",
+        "next": "bsm_22",
+        "overlayType": "lower_third",
+        "subtext": "STORIES FROM YOUR STREET",
+        "text": "THE BASIN BEAT",
+        "type": "overlay"
+      },
+      "bsm_22": {
+        "_vine": {
+          "x": 520,
+          "y": 720
+        },
+        "next": "bsm_23",
+        "style": "raw",
+        "text": "First up — a heartwarming one. A Redline man has been reunited with his dog!",
+        "type": "say"
+      },
+      "bsm_23": {
+        "_vine": {
+          "x": 740,
+          "y": 720
+        },
+        "next": "bsm_24",
+        "npc_id": "npc_am_dorn",
+        "type": "npc_anchor"
+      },
+      "bsm_24": {
+        "_vine": {
+          "x": 960,
+          "y": 720
+        },
+        "next": "bsm_25",
+        "style": "raw",
+        "text": "He has been reunited with a dog.",
+        "type": "say"
+      },
+      "bsm_25": {
+        "_vine": {
+          "x": 80,
+          "y": 880
+        },
+        "next": "bsm_26",
+        "npc_id": "npc_am_pace",
+        "type": "npc_anchor"
+      },
+      "bsm_26": {
+        "_vine": {
+          "x": 300,
+          "y": 880
+        },
+        "next": "bsm_27",
+        "style": "raw",
+        "text": "He has been reunited with A dog, and honestly? At this hour, that's a win.",
+        "type": "say"
+      },
+      "bsm_27": {
+        "_vine": {
+          "x": 520,
+          "y": 880
+        },
+        "message": "beams directly down the lens with the full force of a woman who has decided.",
+        "next": "bsm_28",
+        "type": "npc_action"
+      },
+      "bsm_28": {
+        "_vine": {
+          "x": 740,
+          "y": 880
+        },
+        "next": "bsm_29",
+        "npc_id": "npc_am_dorn",
+        "type": "npc_anchor"
+      },
+      "bsm_29": {
+        "_vine": {
+          "x": 960,
+          "y": 880
+        },
+        "next": "bsm_30",
+        "style": "raw",
+        "text": "The original dog remains outstanding.",
+        "type": "say"
+      },
+      "bsm_3": {
+        "_vine": {
+          "x": 740,
+          "y": 80
+        },
+        "graphic_id": "coldwater_am_logo",
+        "next": "bsm_4",
+        "type": "title_card"
+      },
+      "bsm_30": {
+        "_vine": {
+          "x": 80,
+          "y": 1040
+        },
+        "next": "bsm_31",
+        "npc_id": "npc_am_pace",
+        "type": "npc_anchor"
+      },
+      "bsm_31": {
+        "_vine": {
+          "x": 300,
+          "y": 1040
+        },
+        "next": "bsm_32",
+        "style": "raw",
+        "text": "The original dog remains outstanding! Moving on!",
+        "type": "say"
+      },
+      "bsm_32": {
+        "_vine": {
+          "x": 520,
+          "y": 1040
+        },
+        "next": "bsm_33",
+        "style": "narration",
+        "text": "Coldwater A.M. is brought to you by the people who would like you at work on time.",
+        "type": "say"
+      },
+      "bsm_33": {
+        "_vine": {
+          "x": 740,
+          "y": 1040
+        },
+        "label": "CAM — 3 — CLOSEUP hotplate",
+        "next": "bsm_34",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+      "bsm_34": {
+        "_vine": {
+          "x": 960,
+          "y": 1040
+        },
+        "next": "bsm_35",
+        "style": "narration",
+        "text": "A single induction ring on a laminate counter. Bijou stands behind it holding an unlabelled grey tube. Hal has not moved from the couch.",
+        "type": "say"
+      },
+      "bsm_35": {
+        "_vine": {
+          "x": 80,
+          "y": 1200
+        },
+        "next": "bsm_36",
+        "style": "raw",
+        "text": "Now — breakfast! Because the most important meal of the day is the one you can afford.",
+        "type": "say"
+      },
+      "bsm_36": {
+        "_vine": {
+          "x": 300,
+          "y": 1200
+        },
+        "next": "bsm_37",
+        "style": "raw",
+        "text": "Take your standard ration paste. Squeeze it into a pan. And here's the trick — heat.",
+        "type": "say"
+      },
+      "bsm_37": {
+        "_vine": {
+          "x": 520,
+          "y": 1200
+        },
+        "message": "squeezes the tube into the pan. The sound is upsetting.",
+        "next": "bsm_38",
+        "type": "npc_action"
+      },
+      "bsm_38": {
+        "_vine": {
+          "x": 740,
+          "y": 1200
+        },
+        "next": "bsm_39",
+        "npc_id": "npc_am_dorn",
+        "type": "npc_anchor"
+      },
+      "bsm_39": {
+        "_vine": {
+          "x": 960,
+          "y": 1200
+        },
+        "next": "bsm_40",
+        "style": "raw",
+        "text": "That's the trick.",
+        "type": "say"
+      },
+      "bsm_4": {
+        "_vine": {
+          "x": 960,
+          "y": 80
+        },
+        "label": "CAM — 1 — WIDE morning_couch",
+        "next": "bsm_5",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+      "bsm_40": {
+        "_vine": {
+          "x": 80,
+          "y": 1360
+        },
+        "next": "bsm_41",
+        "npc_id": "npc_am_pace",
+        "type": "npc_anchor"
+      },
+      "bsm_41": {
+        "_vine": {
+          "x": 300,
+          "y": 1360
+        },
+        "next": "bsm_42",
+        "style": "raw",
+        "text": "That's the WHOLE trick, Hal. Two minutes, and it goes from grey to a sort of warmer grey.",
+        "type": "say"
+      },
+      "bsm_42": {
+        "_vine": {
+          "x": 520,
+          "y": 1360
+        },
+        "next": "bsm_43",
+        "npc_id": "npc_am_dorn",
+        "type": "npc_anchor"
+      },
+      "bsm_43": {
+        "_vine": {
+          "x": 740,
+          "y": 1360
+        },
+        "next": "bsm_44",
+        "style": "raw",
+        "text": "My father used to do that.",
+        "type": "say"
+      },
+      "bsm_44": {
+        "_vine": {
+          "x": 960,
+          "y": 1360
+        },
+        "message": "looks at the middle distance for slightly longer than the format allows.",
+        "next": "bsm_45",
+        "type": "npc_action"
+      },
+      "bsm_45": {
+        "_vine": {
+          "x": 80,
+          "y": 1520
+        },
+        "next": "bsm_46",
+        "npc_id": "npc_am_pace",
+        "type": "npc_anchor"
+      },
+      "bsm_46": {
+        "_vine": {
+          "x": 300,
+          "y": 1520
+        },
+        "next": "bsm_47",
+        "style": "raw",
+        "text": "Lovely! And if you've got a little sweetener, stir it through at the end and you have got yourself a TREAT.",
+        "type": "say"
+      },
+      "bsm_47": {
+        "_vine": {
+          "x": 520,
+          "y": 1520
+        },
+        "label": "CAM — 1 — WIDE morning_couch",
+        "next": "bsm_48",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+      "bsm_48": {
+        "_vine": {
+          "x": 740,
+          "y": 1520
+        },
+        "graphic_id": "",
+        "next": "bsm_49",
+        "overlayType": "lower_third",
+        "subtext": "CURFEW LIFTS 06:30 · SOUTH GATE DELAYS",
+        "text": "YOUR MORNING RUN-IN",
+        "type": "overlay"
+      },
+      "bsm_49": {
+        "_vine": {
+          "x": 960,
+          "y": 1520
+        },
+        "next": "bsm_50",
+        "npc_id": "npc_am_dorn",
+        "type": "npc_anchor"
+      },
+      "bsm_5": {
+        "_vine": {
+          "x": 80,
+          "y": 240
+        },
+        "next": "bsm_6",
+        "style": "narration",
+        "text": "Two hosts sit on a curved orange couch in front of a window that is not a window. Behind the glass, a looped sunrise plays. It is raining outside the building.",
+        "type": "say"
+      },
+      "bsm_50": {
+        "_vine": {
+          "x": 80,
+          "y": 1680
+        },
+        "next": "bsm_51",
+        "style": "raw",
+        "text": "Curfew lifts at half six. South Gate is running long — they're searching everybody again.",
+        "type": "say"
+      },
+      "bsm_51": {
+        "_vine": {
+          "x": 300,
+          "y": 1680
+        },
+        "next": "bsm_52",
+        "style": "raw",
+        "text": "If you're heading in from the wastes, leave an hour. If you're carrying anything you'd rather not explain, leave it.",
+        "type": "say"
+      },
+      "bsm_52": {
+        "_vine": {
+          "x": 520,
+          "y": 1680
+        },
+        "next": "bsm_53",
+        "npc_id": "npc_am_pace",
+        "type": "npc_anchor"
+      },
+      "bsm_53": {
+        "_vine": {
+          "x": 740,
+          "y": 1680
+        },
+        "next": "bsm_54",
+        "style": "raw",
+        "text": "Ha ha! Hal!",
+        "type": "say"
+      },
+      "bsm_54": {
+        "_vine": {
+          "x": 960,
+          "y": 1680
+        },
+        "next": "bsm_55",
+        "npc_id": "npc_am_dorn",
+        "type": "npc_anchor"
+      },
+      "bsm_55": {
+        "_vine": {
+          "x": 80,
+          "y": 1840
+        },
+        "next": "bsm_56",
+        "style": "raw",
+        "text": "I'm saying leave it at home. I'm saying that as a service.",
+        "type": "say"
+      },
+      "bsm_56": {
+        "_vine": {
+          "x": 300,
+          "y": 1840
+        },
+        "next": "bsm_57",
+        "npc_id": "npc_am_pace",
+        "type": "npc_anchor"
+      },
+      "bsm_57": {
+        "_vine": {
+          "x": 520,
+          "y": 1840
+        },
+        "next": "bsm_58",
+        "style": "raw",
+        "text": "Haulage is slow on the Haul Road, the North Locks are frozen again, and the Basin is BEAUTIFUL this morning if you don't look directly at it.",
+        "type": "say"
+      },
+      "bsm_58": {
+        "_vine": {
+          "x": 740,
+          "y": 1840
+        },
+        "label": "CAM — 2 — MEDIUM two_shot",
+        "next": "bsm_59",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+      "bsm_59": {
+        "_vine": {
+          "x": 960,
+          "y": 1840
+        },
+        "next": "bsm_60",
+        "style": "raw",
+        "text": "That's us! Back tomorrow, same couch, same sunrise.",
+        "type": "say"
+      },
+      "bsm_6": {
+        "_vine": {
+          "x": 300,
+          "y": 240
+        },
+        "next": "bsm_7",
+        "npc_id": "npc_am_pace",
+        "type": "npc_anchor"
+      },
+      "bsm_60": {
+        "_vine": {
+          "x": 80,
+          "y": 2000
+        },
+        "next": "bsm_61",
+        "npc_id": "npc_am_dorn",
+        "type": "npc_anchor"
+      },
+      "bsm_61": {
+        "_vine": {
+          "x": 300,
+          "y": 2000
+        },
+        "next": "bsm_62",
+        "style": "raw",
+        "text": "Same sunrise.",
+        "type": "say"
+      },
+      "bsm_62": {
+        "_vine": {
+          "x": 520,
+          "y": 2000
+        },
+        "message": "glances at the window that is not a window.",
+        "next": "bsm_63",
+        "type": "npc_action"
+      },
+      "bsm_63": {
+        "_vine": {
+          "x": 740,
+          "y": 2000
+        },
+        "next": "bsm_64",
+        "npc_id": "npc_am_pace",
+        "type": "npc_anchor"
+      },
+      "bsm_64": {
+        "_vine": {
+          "x": 960,
+          "y": 2000
+        },
+        "next": "bsm_65",
+        "style": "raw",
+        "text": "Go and have a WONDERFUL day, Coldwater. You've earned it. Probably.",
+        "type": "say"
+      },
+      "bsm_65": {
+        "_vine": {
+          "x": 80,
+          "y": 2160
+        },
+        "next": "bsm_66",
+        "text": "COLDWATER A.M. · Curfew lifts 06:30 · South Gate: extended searches, allow one hour · North Locks closed to foot traffic · Ration distribution at Meltwater Row from 07:00, bring documentation · Overnight vat intake was within normal range · The sunrise depicted is a composite and does not reflect current conditions",
+        "type": "ticker"
+      },
+      "bsm_66": {
+        "_vine": {
+          "x": 300,
+          "y": 2160
+        },
+        "next": "bsm_67",
+        "song": "coldwater_am_theme",
+        "text": "♪ The bright brass returns, one semitone flatter than it started. ♪",
+        "type": "music"
+      },
+      "bsm_67": {
+        "_vine": {
+          "x": 520,
+          "y": 2160
+        },
+        "duration": 5,
+        "next": "bsm_68",
+        "text": "COLDWATER A.M.\nPresented by Bijou Pace and Hal Dorn.\nHal Dorn appears by arrangement with his contract.",
+        "type": "credits"
+      },
+      "bsm_68": {
+        "_vine": {
+          "x": 740,
+          "y": 2160
+        },
+        "event_type": "FADE_OUT",
+        "type": "event"
+      },
+      "bsm_7": {
+        "_vine": {
+          "x": 520,
+          "y": 240
+        },
+        "message": "enters the frame.",
+        "next": "bsm_8",
+        "type": "npc_action"
+      },
+      "bsm_8": {
+        "_vine": {
+          "x": 740,
+          "y": 240
+        },
+        "next": "bsm_9",
+        "style": "raw",
+        "text": "Good MORNING, Coldwater! It is six o'clock, it is four degrees, and you are ALIVE!",
+        "type": "say"
+      },
+      "bsm_9": {
+        "_vine": {
+          "x": 960,
+          "y": 240
+        },
+        "next": "bsm_10",
+        "npc_id": "npc_am_dorn",
+        "type": "npc_anchor"
+      }
+    }
+  },
+  "category": "morning",
+  "channel_id": "ch_7_1782953079593",
+  "created_by": null,
+  "description": "",
+  "enabled": 1,
+  "fallback_messages": [],
+  "id": "bc_coldwater_am",
+  "loop": 0,
+  "message_interval": 5,
+  "messages": [
+    {
+      "text": "Two hosts sit on a curved orange couch in front of a window that is not a window. Behind the glass, a looped sunrise plays. It is raining outside the building."
+    },
+    {
+      "text": "Good MORNING, Coldwater! It is six o'clock, it is four degrees, and you are ALIVE!"
+    },
+    {
+      "text": "Statistically."
+    },
+    {
+      "text": "Statistically alive! I'm Bijou Pace."
+    },
+    {
+      "text": "Hal Dorn."
+    },
+    {
+      "text": "And we have SUCH a show for you."
+    },
+    {
+      "text": "First up — a heartwarming one. A Redline man has been reunited with his dog!"
+    },
+    {
+      "text": "He has been reunited with a dog."
+    },
+    {
+      "text": "He has been reunited with A dog, and honestly? At this hour, that's a win."
+    },
+    {
+      "text": "The original dog remains outstanding."
+    },
+    {
+      "text": "The original dog remains outstanding! Moving on!"
+    },
+    {
+      "text": "Coldwater A.M. is brought to you by the people who would like you at work on time."
+    },
+    {
+      "text": "A single induction ring on a laminate counter. Bijou stands behind it holding an unlabelled grey tube. Hal has not moved from the couch."
+    },
+    {
+      "text": "Now — breakfast! Because the most important meal of the day is the one you can afford."
+    },
+    {
+      "text": "Take your standard ration paste. Squeeze it into a pan. And here's the trick — heat."
+    },
+    {
+      "text": "That's the trick."
+    },
+    {
+      "text": "That's the WHOLE trick, Hal. Two minutes, and it goes from grey to a sort of warmer grey."
+    },
+    {
+      "text": "My father used to do that."
+    },
+    {
+      "text": "Lovely! And if you've got a little sweetener, stir it through at the end and you have got yourself a TREAT."
+    },
+    {
+      "text": "Curfew lifts at half six. South Gate is running long — they're searching everybody again."
+    },
+    {
+      "text": "If you're heading in from the wastes, leave an hour. If you're carrying anything you'd rather not explain, leave it."
+    },
+    {
+      "text": "Ha ha! Hal!"
+    },
+    {
+      "text": "I'm saying leave it at home. I'm saying that as a service."
+    },
+    {
+      "text": "Haulage is slow on the Haul Road, the North Locks are frozen again, and the Basin is BEAUTIFUL this morning if you don't look directly at it."
+    },
+    {
+      "text": "That's us! Back tomorrow, same couch, same sunrise."
+    },
+    {
+      "text": "Same sunrise."
+    },
+    {
+      "text": "Go and have a WONDERFUL day, Coldwater. You've earned it. Probably."
+    },
+    {
+      "text": "COLDWATER A.M. · Curfew lifts 06:30 · South Gate: extended searches, allow one hour · North Locks closed to foot traffic · Ration distribution at Meltwater Row from 07:00, bring documentation · Overnight vat intake was within normal range · The sunrise depicted is a composite and does not reflect current conditions"
+    }
+  ],
+  "name": "Coldwater A.M.",
+  "news_pools": null,
+  "override_duration": 240,
+  "playback_mode": "scripted",
+  "sports_pools": null,
+  "tags": [],
+  "talkshow_pools": null,
+  "updated_at": "1784636633",
+  "weather_pools": null
+}

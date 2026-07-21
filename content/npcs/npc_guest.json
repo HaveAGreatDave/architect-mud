@@ -1,25 +1,59 @@
 {
   "banter": [],
   "behaviour_graph": {
-    "_start": "n_start",
+    "_start": "g_start",
     "nodes": {
-      "n_life": {
-        "action_type": "HAVE_LIFE",
-        "next": "n_loop",
+      "g_appear": {
+        "action_type": "TALKSHOW_APPEAR",
+        "next": "g_work",
         "type": "action"
       },
-      "n_loop": {
-        "next": "n_start",
+      "g_atwork": {
+        "action_type": "AT_WORK",
+        "next": "g_wait",
+        "type": "action"
+      },
+      "g_hide": {
+        "action_type": "TALKSHOW_HIDE",
+        "next": "g_wait2",
+        "type": "action"
+      },
+      "g_loop": {
+        "next": "g_start",
         "type": "loop"
       },
-      "n_start": {
-        "next": "n_life",
+      "g_sched": {
+        "condition_type": "IS_BROADCAST_SCHEDULED",
+        "ifFalse": "g_hide",
+        "ifTrue": "g_appear",
+        "type": "condition"
+      },
+      "g_start": {
+        "next": "g_sched",
         "type": "start"
+      },
+      "g_wait": {
+        "next": "g_loop",
+        "seconds": 12,
+        "type": "wait"
+      },
+      "g_wait2": {
+        "next": "g_loop",
+        "seconds": 12,
+        "type": "wait"
+      },
+      "g_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "g_atwork",
+        "params": {
+          "zone_id": "zone_studio_1782953094650"
+        },
+        "type": "action"
       }
     }
   },
   "chitchat": [],
-  "description": "\"Sparky\" Reyes — an ex-grid saboteur now working as a safety consultant. Tonight's guest on The Tonight Show with John Akerson.",
+  "description": "Sparky\" Reyes — an ex-grid saboteur now working as a safety consultant. Tonight's guest on The Tonight Show with John Akerson.",
   "dialogue_tree": {},
   "faction": null,
   "flags": {
@@ -27,11 +61,11 @@
     "talkshow_guest": true
   },
   "home_activities": [],
-  "home_zone": "zone_studio_1782953094650",
+  "home_zone": "zone_talkshow_backstage",
   "hp": 20,
   "hp_max": 20,
   "id": "npc_guest",
-  "name": "\"Sparky\" Reyes",
+  "name": "Sparky\" Reyes",
   "npc_type": "npc",
   "sex": "male",
   "studio_zone_id": null,
@@ -85,5 +119,5 @@
   "vendor_stock_size": 10,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": null
+  "work_zone_id": "zone_studio_1782953094650"
 }

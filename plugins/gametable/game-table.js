@@ -676,21 +676,17 @@ export class GameTable {
   // ── Broadcasting ───────────────────────────────────────────────────────────
 
   pushPaneAll() {
-    // Old-school text tables (config.textTable) never draw the visual pane — the
-    // area pane stays the room look and the whole game plays out in the text log
-    // (see text-mode.js narration). Skip every poker_update push for them.
-    if (!this.config.textTable) {
-      const recipients = [
-        ...this.seats.filter(s => s && !s.isBot).map(s => s.playerId),
-        ...this.spectators,
-      ];
-      for (const pid of recipients) {
-        // A player who has switched to text view plays in the log — their top
-        // pane is the room look, not the table. Don't blast the poker pane back
-        // over it on every action/quip (`text`/`visual` flip this per player).
-        if (isTextMode(pid)) continue;
-        sendToPlayer(pid, { type: 'poker_update', html: renderPane(this, pid) });
-      }
+    const recipients = [
+      ...this.seats.filter(s => s && !s.isBot).map(s => s.playerId),
+      ...this.spectators,
+    ];
+    for (const pid of recipients) {
+      // Purely per-player. A player in text view plays in the log — their top
+      // pane is the room look, not the table — so don't blast the poker pane
+      // back over it on every action/quip. `text`/`visual` flip this freely, and
+      // config.textTable only seeds the starting preference (see ensureTextPref).
+      if (isTextMode(pid)) continue;
+      sendToPlayer(pid, { type: 'poker_update', html: renderPane(this, pid) });
     }
     // Clear one-render animation flags after first push (_shuffleAnim is NOT
     // one-shot — it spans the whole countdown, see _startShuffleLoop/_stopShuffleLoop)

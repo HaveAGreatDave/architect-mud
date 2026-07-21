@@ -1111,9 +1111,12 @@ function cmdAdmin(player) {
 // angle brackets; cmdHelp escapes them for its HTML transcript, the tablet esc()s
 // them itself. Add or reword a line here and both surfaces update together.
 export const HELP_GROUPS = [
-  { cat: 'MOVEMENT',   text: 'north south east west up down (n/s/e/w/u/d)  |  go <dir>' },
-  { cat: 'COMBAT',     text: 'attack <target>  |  loot <corpse>' },
+  { cat: 'MOVEMENT',   text: 'north south east west up down (n/s/e/w/u/d)  |  go <dir>  |  run  walk  sprint  |  gps <place>' },
+  { cat: 'COMBAT',     text: 'attack <target>  |  loot <corpse>  |  butcher <corpse>' },
   { cat: 'ITEMS',      text: 'inventory  take <item>  drop  use  equip' },
+  { cat: 'TABLET',     text: 'tablet (or os) — map, bank, gear, chat, TV guide and the full help book on your wrist' },
+  { cat: 'WORK',       text: 'quests  |  gigs (day work off a job board)  |  work / shift (steady jobs)' },
+  { cat: 'FORAGING',   text: 'scavenge (junk, anywhere)  |  fish (rod required, at water)  |  mine (pick required, at a deposit)' },
   { cat: 'CONTAINERS', text: 'look in <container>  |  stow <item> in <container>  |  pull <item> from <container>' },
   { cat: 'CRAFTING',   text: 'recipes  |  craft <recipe_id>' },
   { cat: 'TRADING',    text: 'shop <npc>  |  buy <item>  |  sell <item>' },

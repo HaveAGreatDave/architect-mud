@@ -1,0 +1,780 @@
+{
+  "broadcast_graph": {
+    "_start": "bsm_0",
+    "nodes": {
+      "bsm_0": {
+        "_vine": {
+          "x": 80,
+          "y": 80
+        },
+        "next": "bsm_1",
+        "type": "start"
+      },
+      "bsm_1": {
+        "_vine": {
+          "x": 300,
+          "y": 80
+        },
+        "event_type": "FADE_IN",
+        "next": "bsm_2",
+        "type": "event"
+      },
+      "bsm_10": {
+        "_vine": {
+          "x": 80,
+          "y": 400
+        },
+        "message": "enters the frame.",
+        "next": "bsm_11",
+        "type": "npc_action"
+      },
+      "bsm_11": {
+        "_vine": {
+          "x": 300,
+          "y": 400
+        },
+        "message": "thumbs through a clipboard that has clearly been rained on.",
+        "next": "bsm_12",
+        "type": "npc_action"
+      },
+      "bsm_12": {
+        "_vine": {
+          "x": 520,
+          "y": 400
+        },
+        "next": "bsm_13",
+        "style": "raw",
+        "text": "Most nights it's not violence. Most nights it's somebody cold, or somebody owed.",
+        "type": "say"
+      },
+      "bsm_13": {
+        "_vine": {
+          "x": 740,
+          "y": 400
+        },
+        "next": "bsm_14",
+        "style": "raw",
+        "text": "People think the stars mean you're dangerous. Stars just mean somebody saw you.",
+        "type": "say"
+      },
+      "bsm_14": {
+        "_vine": {
+          "x": 960,
+          "y": 400
+        },
+        "message": "glances at the camera, then away, like he regrets agreeing to this.",
+        "next": "bsm_15",
+        "type": "npc_action"
+      },
+      "bsm_15": {
+        "_vine": {
+          "x": 80,
+          "y": 560
+        },
+        "next": "bsm_16",
+        "style": "raw",
+        "text": "I've apologised to more people than I've arrested. Put that in the show. They won't.",
+        "type": "say"
+      },
+      "bsm_16": {
+        "_vine": {
+          "x": 300,
+          "y": 560
+        },
+        "label": "CAM — 3 — HANDHELD patrol_stop",
+        "next": "bsm_17",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+      "bsm_17": {
+        "_vine": {
+          "x": 520,
+          "y": 560
+        },
+        "graphic_id": "",
+        "next": "bsm_18",
+        "overlayType": "lower_third",
+        "subtext": "SHIFT 11:04 · BASIN SOUTH",
+        "text": "SGT. VALE — PATROL",
+        "type": "overlay"
+      },
+      "bsm_18": {
+        "_vine": {
+          "x": 740,
+          "y": 560
+        },
+        "next": "bsm_19",
+        "style": "narration",
+        "text": "A young runner is up against a wall, hands flat, breathing hard. A vacuum-sealed brick of something green sits on the pavement between him and the officer.",
+        "type": "say"
+      },
+      "bsm_19": {
+        "_vine": {
+          "x": 960,
+          "y": 560
+        },
+        "next": "bsm_20",
+        "style": "raw",
+        "text": "That yours?",
+        "type": "say"
+      },
+      "bsm_2": {
+        "_vine": {
+          "x": 520,
+          "y": 80
+        },
+        "next": "bsm_3",
+        "song": "coldwaters_finest_theme",
+        "text": "♪ A cheap, swaggering guitar riff kicks in — four chords, no budget, enormous confidence. ♪",
+        "type": "music"
+      },
+      "bsm_20": {
+        "_vine": {
+          "x": 80,
+          "y": 720
+        },
+        "next": "bsm_21",
+        "style": "raw",
+        "text": "Don't answer that. It's yours.",
+        "type": "say"
+      },
+      "bsm_21": {
+        "_vine": {
+          "x": 300,
+          "y": 720
+        },
+        "message": "crouches, tags the brick, and writes on the tag with a pen that doesn't work until the fourth try.",
+        "next": "bsm_22",
+        "type": "npc_action"
+      },
+      "bsm_22": {
+        "_vine": {
+          "x": 520,
+          "y": 720
+        },
+        "next": "bsm_23",
+        "style": "narration",
+        "text": "Under Basin ordinance, possession at this weight is three stars and a night in Precinct 9.",
+        "type": "say"
+      },
+      "bsm_23": {
+        "_vine": {
+          "x": 740,
+          "y": 720
+        },
+        "next": "bsm_24",
+        "style": "narration",
+        "text": "The suspect's chief concern is not the night in Precinct 9.",
+        "type": "say"
+      },
+      "bsm_24": {
+        "_vine": {
+          "x": 960,
+          "y": 720
+        },
+        "next": "bsm_25",
+        "style": "raw",
+        "text": "Hey. Look at me. When did you last back up?",
+        "type": "say"
+      },
+      "bsm_25": {
+        "_vine": {
+          "x": 80,
+          "y": 880
+        },
+        "message": "waits. The answer takes a while.",
+        "next": "bsm_26",
+        "type": "npc_action"
+      },
+      "bsm_26": {
+        "_vine": {
+          "x": 300,
+          "y": 880
+        },
+        "next": "bsm_27",
+        "style": "raw",
+        "text": "Yeah. Well. Try not to die before Thursday, then.",
+        "type": "say"
+      },
+      "bsm_27": {
+        "_vine": {
+          "x": 520,
+          "y": 880
+        },
+        "label": "CAM — 1 — WIDE south_gate",
+        "next": "bsm_28",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+      "bsm_28": {
+        "_vine": {
+          "x": 740,
+          "y": 880
+        },
+        "next": "bsm_29",
+        "style": "narration",
+        "text": "The South Gate. A queue of people stands in the cold with their arms out while a scanner arch clicks over them, one at a time, forever.",
+        "type": "say"
+      },
+      "bsm_29": {
+        "_vine": {
+          "x": 960,
+          "y": 880
+        },
+        "graphic_id": "",
+        "next": "bsm_30",
+        "overlayType": "lower_third",
+        "subtext": "SOUTH GATE CHECKPOINT",
+        "text": "SGT. KESSLER & TPR. QUILL",
+        "type": "overlay"
+      },
+      "bsm_3": {
+        "_vine": {
+          "x": 740,
+          "y": 80
+        },
+        "graphic_id": "coldwaters_finest_logo",
+        "next": "bsm_4",
+        "type": "title_card"
+      },
+      "bsm_30": {
+        "_vine": {
+          "x": 80,
+          "y": 1040
+        },
+        "next": "bsm_31",
+        "npc_id": "npc_gate_sergeant",
+        "type": "npc_anchor"
+      },
+      "bsm_31": {
+        "_vine": {
+          "x": 300,
+          "y": 1040
+        },
+        "message": "enters the frame.",
+        "next": "bsm_32",
+        "type": "npc_action"
+      },
+      "bsm_32": {
+        "_vine": {
+          "x": 520,
+          "y": 1040
+        },
+        "next": "bsm_33",
+        "style": "raw",
+        "text": "Everybody coming into this city gets searched. Everybody. I've searched the man who signs my cheques.",
+        "type": "say"
+      },
+      "bsm_33": {
+        "_vine": {
+          "x": 740,
+          "y": 1040
+        },
+        "next": "bsm_34",
+        "npc_id": "npc_gate_trooper",
+        "type": "npc_anchor"
+      },
+      "bsm_34": {
+        "_vine": {
+          "x": 960,
+          "y": 1040
+        },
+        "message": "enters the frame.",
+        "next": "bsm_35",
+        "type": "npc_action"
+      },
+      "bsm_35": {
+        "_vine": {
+          "x": 80,
+          "y": 1200
+        },
+        "next": "bsm_36",
+        "style": "raw",
+        "text": "I found a knife once. In a boot. It was a really good find.",
+        "type": "say"
+      },
+      "bsm_36": {
+        "_vine": {
+          "x": 300,
+          "y": 1200
+        },
+        "message": "looks at Kessler for confirmation. He does not get it.",
+        "next": "bsm_37",
+        "type": "npc_action"
+      },
+      "bsm_37": {
+        "_vine": {
+          "x": 520,
+          "y": 1200
+        },
+        "next": "bsm_38",
+        "npc_id": "npc_gate_sergeant",
+        "type": "npc_anchor"
+      },
+      "bsm_38": {
+        "_vine": {
+          "x": 740,
+          "y": 1200
+        },
+        "next": "bsm_39",
+        "style": "raw",
+        "text": "That was nine months ago, Quill.",
+        "type": "say"
+      },
+      "bsm_39": {
+        "_vine": {
+          "x": 960,
+          "y": 1200
+        },
+        "next": "bsm_40",
+        "npc_id": "npc_gate_trooper",
+        "type": "npc_anchor"
+      },
+      "bsm_4": {
+        "_vine": {
+          "x": 960,
+          "y": 80
+        },
+        "label": "CAM — 1 — WIDE basin_night",
+        "next": "bsm_5",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+      "bsm_40": {
+        "_vine": {
+          "x": 80,
+          "y": 1360
+        },
+        "next": "bsm_41",
+        "style": "raw",
+        "text": "It was a really good find.",
+        "type": "say"
+      },
+      "bsm_41": {
+        "_vine": {
+          "x": 300,
+          "y": 1360
+        },
+        "next": "bsm_42",
+        "style": "narration",
+        "text": "Trooper Quill has been at the South Gate for two years and has recovered one knife.",
+        "type": "say"
+      },
+      "bsm_42": {
+        "_vine": {
+          "x": 520,
+          "y": 1360
+        },
+        "next": "bsm_43",
+        "style": "narration",
+        "text": "He has recovered it repeatedly, in conversation, ever since.",
+        "type": "say"
+      },
+      "bsm_43": {
+        "_vine": {
+          "x": 740,
+          "y": 1360
+        },
+        "label": "CAM — 2 — MEDIUM intake_desk",
+        "next": "bsm_44",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+      "bsm_44": {
+        "_vine": {
+          "x": 960,
+          "y": 1360
+        },
+        "graphic_id": "finest_booking_card",
+        "next": "bsm_45",
+        "type": "title_card"
+      },
+      "bsm_45": {
+        "_vine": {
+          "x": 80,
+          "y": 1520
+        },
+        "next": "bsm_46",
+        "npc_id": "npc_precinct_guard",
+        "type": "npc_anchor"
+      },
+      "bsm_46": {
+        "_vine": {
+          "x": 300,
+          "y": 1520
+        },
+        "message": "enters the frame.",
+        "next": "bsm_47",
+        "type": "npc_action"
+      },
+      "bsm_47": {
+        "_vine": {
+          "x": 520,
+          "y": 1520
+        },
+        "next": "bsm_48",
+        "style": "raw",
+        "text": "Belt. Laces. Anything sharp, anything that talks to anything else.",
+        "type": "say"
+      },
+      "bsm_48": {
+        "_vine": {
+          "x": 740,
+          "y": 1520
+        },
+        "message": "drops a handful of personal effects into a tray with the enthusiasm of a man filing his own paperwork.",
+        "next": "bsm_49",
+        "type": "npc_action"
+      },
+      "bsm_49": {
+        "_vine": {
+          "x": 960,
+          "y": 1520
+        },
+        "next": "bsm_50",
+        "style": "raw",
+        "text": "Legal property comes back when you walk. Contraband goes in the locker downstairs.",
+        "type": "say"
+      },
+      "bsm_5": {
+        "_vine": {
+          "x": 80,
+          "y": 240
+        },
+        "next": "bsm_6",
+        "style": "narration",
+        "text": "The Basin at night, shot from a low drone: wet asphalt, sodium light, steam coming up through the grates. Somewhere below, a siren starts and then thinks better of it.",
+        "type": "say"
+      },
+      "bsm_50": {
+        "_vine": {
+          "x": 80,
+          "y": 1680
+        },
+        "next": "bsm_51",
+        "style": "raw",
+        "text": "Nothing comes out of the locker downstairs.",
+        "type": "say"
+      },
+      "bsm_51": {
+        "_vine": {
+          "x": 300,
+          "y": 1680
+        },
+        "next": "bsm_52",
+        "style": "narration",
+        "text": "A folded orange jumpsuit is pushed across the counter. It has been washed so many times it has gone the colour of weak tea.",
+        "type": "say"
+      },
+      "bsm_52": {
+        "_vine": {
+          "x": 520,
+          "y": 1680
+        },
+        "next": "bsm_53",
+        "style": "narration",
+        "text": "Three stars. Three minutes a star. In Coldwater, the sentence is served in real time, and the clock does not care that you are bored.",
+        "type": "say"
+      },
+      "bsm_53": {
+        "_vine": {
+          "x": 740,
+          "y": 1680
+        },
+        "next": "bsm_54",
+        "style": "raw",
+        "text": "Some of them cry. Some of them sleep. The ones who've been through a vat, they just sit there and stare at the wall like they're waiting for it to buffer.",
+        "type": "say"
+      },
+      "bsm_54": {
+        "_vine": {
+          "x": 960,
+          "y": 1680
+        },
+        "label": "CAM — 3 — HANDHELD end_of_shift",
+        "next": "bsm_55",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+      "bsm_55": {
+        "_vine": {
+          "x": 80,
+          "y": 1840
+        },
+        "next": "bsm_56",
+        "style": "narration",
+        "text": "Vale's cruiser, parked. Engine ticking as it cools. He does not get out for a long moment.",
+        "type": "say"
+      },
+      "bsm_56": {
+        "_vine": {
+          "x": 300,
+          "y": 1840
+        },
+        "next": "bsm_57",
+        "npc_id": "npc_pd_officer",
+        "type": "npc_anchor"
+      },
+      "bsm_57": {
+        "_vine": {
+          "x": 520,
+          "y": 1840
+        },
+        "next": "bsm_58",
+        "style": "raw",
+        "text": "People ask if it gets to you.",
+        "type": "say"
+      },
+      "bsm_58": {
+        "_vine": {
+          "x": 740,
+          "y": 1840
+        },
+        "next": "bsm_59",
+        "style": "raw",
+        "text": "It's a job. You do the job. Then you go home and you sit in your kitchen with the light off for a bit, and then you're fine.",
+        "type": "say"
+      },
+      "bsm_59": {
+        "_vine": {
+          "x": 960,
+          "y": 1840
+        },
+        "message": "gets out, closes the door quietly, and walks up to apartment six without looking back at the camera.",
+        "next": "bsm_60",
+        "type": "npc_action"
+      },
+      "bsm_6": {
+        "_vine": {
+          "x": 300,
+          "y": 240
+        },
+        "next": "bsm_7",
+        "style": "narration",
+        "text": "Coldwater Basin. Nine-forty PM.",
+        "type": "say"
+      },
+      "bsm_60": {
+        "_vine": {
+          "x": 80,
+          "y": 2000
+        },
+        "next": "bsm_61",
+        "style": "narration",
+        "text": "Sergeant Vale will be back on shift in nine hours.",
+        "type": "say"
+      },
+      "bsm_61": {
+        "_vine": {
+          "x": 300,
+          "y": 2000
+        },
+        "next": "bsm_62",
+        "style": "narration",
+        "text": "Coldwater's Finest. Filmed on location, with the cooperation of people who had no realistic way to decline.",
+        "type": "say"
+      },
+      "bsm_62": {
+        "_vine": {
+          "x": 520,
+          "y": 2000
+        },
+        "next": "bsm_63",
+        "text": "COLDWATER'S FINEST is filmed with the cooperation of Precinct 9 · All suspects are innocent until processed · Persons appearing on this programme have waived likeness rights for themselves and all subsequent instances of themselves · Restored persons are legally distinct from the arrested party and may not appeal the arrest of a previous body · Footage of your arrest is the property of the network · Requests for removal may be filed in person at Precinct 9",
+        "type": "ticker"
+      },
+      "bsm_63": {
+        "_vine": {
+          "x": 740,
+          "y": 2000
+        },
+        "duration": 3,
+        "next": "bsm_64",
+        "type": "wait"
+      },
+      "bsm_64": {
+        "_vine": {
+          "x": 960,
+          "y": 2000
+        },
+        "next": "bsm_65",
+        "overlayType": "text_card",
+        "text": "NEXT WEEK ON COLDWATER'S FINEST\n\nA ROUTINE STOP AT THE NORTH LOCKS\n\nTWO OFFICERS. ONE SUSPECT. NINE BODIES.",
+        "type": "overlay"
+      },
+      "bsm_65": {
+        "_vine": {
+          "x": 80,
+          "y": 2160
+        },
+        "next": "bsm_66",
+        "song": "coldwaters_finest_theme",
+        "text": "♪ The cheap guitar riff returns, fading out over the wet street. ♪",
+        "type": "music"
+      },
+      "bsm_66": {
+        "_vine": {
+          "x": 300,
+          "y": 2160
+        },
+        "duration": 6,
+        "next": "bsm_67",
+        "text": "COLDWATER'S FINEST — A PRECINCT 9 CO-PRODUCTION\nNo officer depicted has been disciplined for anything depicted.\nIf you recognise yourself in this programme, you have already consented.",
+        "type": "credits"
+      },
+      "bsm_67": {
+        "_vine": {
+          "x": 520,
+          "y": 2160
+        },
+        "event_type": "FADE_OUT",
+        "type": "event"
+      },
+      "bsm_7": {
+        "_vine": {
+          "x": 520,
+          "y": 240
+        },
+        "next": "bsm_8",
+        "style": "narration",
+        "text": "Eleven hours into a nine-hour shift, Sergeant Vale is looking for a man who stole a coat.",
+        "type": "say"
+      },
+      "bsm_8": {
+        "_vine": {
+          "x": 740,
+          "y": 240
+        },
+        "label": "CAM — 2 — MEDIUM bullpen",
+        "next": "bsm_9",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+      "bsm_9": {
+        "_vine": {
+          "x": 960,
+          "y": 240
+        },
+        "next": "bsm_10",
+        "npc_id": "npc_pd_officer",
+        "type": "npc_anchor"
+      }
+    }
+  },
+  "category": "reality",
+  "channel_id": "ch_7_1782953079593",
+  "created_by": null,
+  "description": "",
+  "enabled": 1,
+  "fallback_messages": [],
+  "id": "bc_coldwaters_finest",
+  "loop": 0,
+  "message_interval": 5,
+  "messages": [
+    {
+      "text": "The Basin at night, shot from a low drone: wet asphalt, sodium light, steam coming up through the grates. Somewhere below, a siren starts and then thinks better of it."
+    },
+    {
+      "text": "Coldwater Basin. Nine-forty PM."
+    },
+    {
+      "text": "Eleven hours into a nine-hour shift, Sergeant Vale is looking for a man who stole a coat."
+    },
+    {
+      "text": "Most nights it's not violence. Most nights it's somebody cold, or somebody owed."
+    },
+    {
+      "text": "People think the stars mean you're dangerous. Stars just mean somebody saw you."
+    },
+    {
+      "text": "I've apologised to more people than I've arrested. Put that in the show. They won't."
+    },
+    {
+      "text": "A young runner is up against a wall, hands flat, breathing hard. A vacuum-sealed brick of something green sits on the pavement between him and the officer."
+    },
+    {
+      "text": "That yours?"
+    },
+    {
+      "text": "Don't answer that. It's yours."
+    },
+    {
+      "text": "Under Basin ordinance, possession at this weight is three stars and a night in Precinct 9."
+    },
+    {
+      "text": "The suspect's chief concern is not the night in Precinct 9."
+    },
+    {
+      "text": "Hey. Look at me. When did you last back up?"
+    },
+    {
+      "text": "Yeah. Well. Try not to die before Thursday, then."
+    },
+    {
+      "text": "The South Gate. A queue of people stands in the cold with their arms out while a scanner arch clicks over them, one at a time, forever."
+    },
+    {
+      "text": "Everybody coming into this city gets searched. Everybody. I've searched the man who signs my cheques."
+    },
+    {
+      "text": "I found a knife once. In a boot. It was a really good find."
+    },
+    {
+      "text": "That was nine months ago, Quill."
+    },
+    {
+      "text": "It was a really good find."
+    },
+    {
+      "text": "Trooper Quill has been at the South Gate for two years and has recovered one knife."
+    },
+    {
+      "text": "He has recovered it repeatedly, in conversation, ever since."
+    },
+    {
+      "text": "Belt. Laces. Anything sharp, anything that talks to anything else."
+    },
+    {
+      "text": "Legal property comes back when you walk. Contraband goes in the locker downstairs."
+    },
+    {
+      "text": "Nothing comes out of the locker downstairs."
+    },
+    {
+      "text": "A folded orange jumpsuit is pushed across the counter. It has been washed so many times it has gone the colour of weak tea."
+    },
+    {
+      "text": "Three stars. Three minutes a star. In Coldwater, the sentence is served in real time, and the clock does not care that you are bored."
+    },
+    {
+      "text": "Some of them cry. Some of them sleep. The ones who've been through a vat, they just sit there and stare at the wall like they're waiting for it to buffer."
+    },
+    {
+      "text": "Vale's cruiser, parked. Engine ticking as it cools. He does not get out for a long moment."
+    },
+    {
+      "text": "People ask if it gets to you."
+    },
+    {
+      "text": "It's a job. You do the job. Then you go home and you sit in your kitchen with the light off for a bit, and then you're fine."
+    },
+    {
+      "text": "Sergeant Vale will be back on shift in nine hours."
+    },
+    {
+      "text": "Coldwater's Finest. Filmed on location, with the cooperation of people who had no realistic way to decline."
+    },
+    {
+      "text": "COLDWATER'S FINEST is filmed with the cooperation of Precinct 9 · All suspects are innocent until processed · Persons appearing on this programme have waived likeness rights for themselves and all subsequent instances of themselves · Restored persons are legally distinct from the arrested party and may not appeal the arrest of a previous body · Footage of your arrest is the property of the network · Requests for removal may be filed in person at Precinct 9"
+    }
+  ],
+  "name": "Coldwater's Finest - Ride-Along",
+  "news_pools": null,
+  "override_duration": 240,
+  "playback_mode": "scripted",
+  "sports_pools": null,
+  "tags": [],
+  "talkshow_pools": null,
+  "updated_at": "1784635999",
+  "weather_pools": null
+}

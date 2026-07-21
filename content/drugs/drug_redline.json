@@ -44,7 +44,9 @@
       "onset_seconds": 900
     }
   },
-  "flags": {},
+  "flags": {
+    "injectable": true
+  },
   "id": "drug_redline",
   "item_id": "item_redline",
   "name": "Redline",

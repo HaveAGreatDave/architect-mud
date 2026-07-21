@@ -5,7 +5,7 @@
 
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
-import { getZone, liveAircraft, persist, pushHud, sendToPlayer, REFUEL_PRICE_PER_UNIT, effStats, fieldFor as fieldOf, inHangarInterior, rentalOpFee, vtolOnlyField } from './state.js';
+import { getZone, liveAircraft, persist, pushHud, sendToPlayer, REFUEL_PRICE_PER_UNIT, effStats, fieldFor as fieldOf, inHangarInterior, rentalOpFee, vtolOnlyField, acquirableTypes } from './state.js';
 import { allExits } from '../../server/engine/exits.js';
 // `buy` belongs to commerce (shopping); flight wins it by load order (manifest
 // `after`) and delegates back unless you're buying an aircraft at a dealer field.
@@ -29,15 +29,11 @@ export function fieldStocks(zone) {
   return zone?.flags?.hangar_interior_zone ? of(getZone(zone.flags.hangar_interior_zone)) : [];
 }
 
-// A field's acquirable roster. A VTOL-only field (a helipad — no runway) sells/rents only
-// rotorcraft/VTOL; every other field carries the whole catalogue.
+// A field's acquirable roster — see state.acquirableTypes (shared with the
+// hangar-bay lot so the two can't drift). `kind` doesn't affect the roster today;
+// it's kept for the call signature.
 async function listTypes(kind, field) {
-  const vtolOnly = vtolOnlyField(field);
-  const { rows } = await query(
-    `SELECT id, name, class, seats, cargo_capacity, fuel_type, price_buy, price_rent_hourly, takeoff_mode, hardpoints
-       FROM aircraft_types WHERE class <> 'wreck'${vtolOnly ? " AND takeoff_mode = 'vtol'" : ''} ORDER BY price_buy`
-  );
-  return rows;
+  return acquirableTypes(field);
 }
 
 function typeLine(t, kind) {
@@ -70,7 +66,7 @@ function hangarEntryDir(field) {
 
 async function acquire(args, raw, player, kind) {
   const field = fieldOf(player);
-  const flagKey = kind === 'buy' ? 'airfield_dealer' : 'airfield_charter';
+  const flagKey = kind === 'buy' ? 'airfield_dealer' : 'airfield_rental';
   if (!field || !field.flags[flagKey])
     return { type: 'emote', message: `There's no ${kind === 'buy' ? 'aircraft dealer' : 'rental desk'} here.` };
   // The desk is INSIDE the hangar — you can't order a machine from out on the ramp.
@@ -207,13 +203,14 @@ async function cmdBuy(args, raw, player, broadcast) {
   return commerceCommands.buy(args, raw, player, broadcast);
 }
 
-// `rent` router: at a charter field, `rent` lists / `rent <type>` rents a
-// self-flown aircraft (owned by you, rental=1). Anywhere else it falls through to
-// the engine's apartment-rent builtin (return undefined). Distinct from `charter`
-// (an NPC-pilot ride, see charter.js).
+// `rent` router: at a field with a rental desk (`airfield_rental`), `rent` lists /
+// `rent <type>` rents a self-flown aircraft (owned by you, rental=1). Anywhere else
+// it falls through to the engine's apartment-rent builtin (return undefined).
+// Distinct from `charter` (an NPC-pilot ride, see charter.js) — a field can offer
+// one without the other, e.g. Buzzard Field charters but rents nothing.
 async function cmdRent(args, raw, player) {
   const field = fieldOf(player);
-  if (field?.flags?.airfield_charter) {
+  if (field?.flags?.airfield_rental) {
     const types = await listTypes('rent', field);
     const wanted = (args[0] || '').toLowerCase();
     if (!wanted || types.some(t => t.id === wanted || t.name.toLowerCase() === wanted || t.id.endsWith(wanted)))

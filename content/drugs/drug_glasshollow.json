@@ -64,8 +64,10 @@
     },
     "phases": {
       "comedown_message": "<span class=\"msg-system\">The walls firm up, mostly. The corners are still not quite where you left them.</span>",
+      "comedown_scale": 0.5,
       "comedown_seconds": 40,
       "comeup_message": "<span class=\"msg-system\">The light in the room goes thin and grey, as if the world were a print left too long in the sun.</span>",
+      "comeup_scale": 0.5,
       "comeup_seconds": 20,
       "end_message": "<span class=\"msg-system\">The room settles back into being only a room. You are fairly sure you are alone. Fairly.</span>",
       "peak_mods": {

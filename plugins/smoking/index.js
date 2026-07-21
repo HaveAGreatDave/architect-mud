@@ -81,7 +81,7 @@ async function smoke(args, raw, player, broadcast) {
   if (!(await findDrug(targetStr, player))) {
     return { type: 'error', message: targetStr ? `You've got nothing like that to smoke.` : 'Smoke what?' };
   }
-  return cmdUse(targetStr, player, broadcast);
+  return cmdUse(targetStr, player, broadcast, 'smoke');
 }
 
 // --- give a cigarette (bum one to a player/NPC) ------------------------------

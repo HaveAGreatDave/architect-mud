@@ -26,8 +26,8 @@ import { registerAction } from '../../server/engine/actions.js';
 import { getDrugCache } from '../../server/engine/drugs.js';
 import { finishConsume, finishConsumeItem } from '../../server/engine/commands/inventory.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
-import { getAllLivePlayers } from '../../server/engine/world.js';
-import { applyThirst } from '../../server/engine/bodily.js';
+import { getAllLivePlayers, isLivePlayer } from '../../server/engine/world.js';
+import { applyThirst, drinkLoad } from '../../server/engine/bodily.js';
 import { query } from '../../server/models/db.js';
 import { on } from '../../server/engine/events.js';
 
@@ -145,9 +145,24 @@ function creditThirst(player, amount) {
   if (!amount) return '';
   applyThirst(player, amount);
   query('UPDATE players SET thirst=$1, hydration_load=$2 WHERE id=$3',
-    [player.thirst, player.hydration_load, player.id]).catch(() => {});
+    [player.thirst, player.hydration_load, player.id])
+    .catch(e => console.error('[consume] sip thirst write failed for', player.id, e.message));
   sendToPlayer(player.id, { type: 'player_update', thirst: player.thirst });
   return ` +${amount} Thirst.`;
+}
+
+// Give back sips already banked on the meter. The item is only consumed at
+// finish, so an abandoned drink that KEPT its sips would be an unlimited water
+// source: `use beer` → walk away → `use beer` → … forever, off one bottle.
+function revokeThirst(player, amount) {
+  amount = Math.max(0, Math.round(amount));
+  if (!amount) return;
+  player.thirst = Math.max(0, (player.thirst || 0) - amount);
+  player.hydration_load = Math.max(0, (player.hydration_load || 0) - drinkLoad(amount));
+  query('UPDATE players SET thirst=$1, hydration_load=$2 WHERE id=$3',
+    [player.thirst, player.hydration_load, player.id])
+    .catch(e => console.error('[consume] thirst revoke write failed for', player.id, e.message));
+  sendToPlayer(player.id, { type: 'player_update', thirst: player.thirst });
 }
 
 // One evenly-sized sip from the running total, capped at whatever's left.
@@ -171,6 +186,7 @@ function interrupt(player) {
   const c = player?._consume;
   if (!c) return;
   const line = fill(CONFIG[c.category].interrupt, c.name);
+  revokeThirst(player, c.thirstApplied);   // before clearConsume drops the tally
   clearConsume(player);
   sendToPlayer(player.id, { type: 'output', message: sys(line) });
 }
@@ -178,18 +194,30 @@ function interrupt(player) {
 async function finish(player, broadcast) {
   const c = player?._consume;
   if (!c) return;
+  // A reconnect mid-drink builds a NEW live player and discards this object, but
+  // this timer still holds the old one. Landing the dose here would delete the
+  // item and write stats frozen at disconnect over the live session. Drop it.
+  if (!isLivePlayer(player)) { clearConsume(player); return; }
   player._consume = null;   // finish is the last timer; the mids already fired
   // The last swallow lands the drug and pours out whatever thirst the earlier
   // sips didn't cover — with skipThirstRestore so the dose doesn't add it again.
   const drink = c.category === 'drink';
-  const finishNote = drink ? creditThirst(player, c.thirstTotal - c.thirstApplied) : '';
+  const finishThirst = drink ? Math.max(0, c.thirstTotal - c.thirstApplied) : 0;
+  const finishNote = finishThirst ? creditThirst(player, finishThirst) : '';
   const finisher = c.kind === 'item' ? finishConsumeItem : finishConsume;
   const result = await finisher(player, c.itemRowId, broadcast, {
     takeLine: sys(fill(c.finishLine, c.name) + finishNote),
     suppressComeupMessage: !drink,
     skipThirstRestore: drink,
+    // The category IS the route — the engine rebuilds opts here, so it can't see
+    // the verb that started this and has to be told how the dose went in.
+    route: drink ? 'drink' : 'smoke',
   });
   if (!result) {
+    // The row vanished mid-drink (dropped, traded, stolen). The last swallow's
+    // thirst was credited above for the message — take it back, or a drink that
+    // never happened still hydrates.
+    revokeThirst(player, finishThirst);
     sendToPlayer(player.id, { type: 'output', message: sys('You reach for it — but it is gone.') });
     return;
   }
@@ -235,10 +263,14 @@ registerAction({
     midLines.forEach((line, k) => {
       const t = Math.round(total * (k + 1) / (cfg.steps + 1));
       timers.push(setTimeout(() => {
-        if (player._consume) sendToPlayer(player.id, { type: 'output', message: sys(line + sip(player)) });
+        // isLivePlayer: a reconnect discarded this object; crediting a sip here
+        // would persist stale stats over the new session.
+        if (player._consume && isLivePlayer(player)) {
+          sendToPlayer(player.id, { type: 'output', message: sys(line + sip(player)) });
+        }
       }, t));
     });
-    timers.push(setTimeout(() => { finish(player, broadcast).catch(() => {}); }, total));
+    timers.push(setTimeout(() => { finish(player, broadcast).catch(e => console.error('[consume] finish failed for', player.id, e.message)); }, total));
 
     player._consume = { itemRowId: item.id, timers, finishLine, category, name, kind, thirstTotal, thirstPer, thirstApplied: 0 };
     sendToZone(player.current_zone, { type: 'zone_event', message: pick(cfg.zoneStart).replace('{who}', player.handle) }, player.id);
@@ -252,6 +284,10 @@ registerAction({
 on('zone.entered', ({ actor }) => { if (actor?._consume) interrupt(actor); });
 on('player.death',  ({ player }) => clearConsume(player));
 on('player.logout', ({ id })     => clearConsume(getAllLivePlayers().find(p => p.id === id)));
+// A reconnect never fires player.logout (the old socket isn't the active one any
+// more), so without this the in-flight drink timers survive against a discarded
+// player object. The event carries that exact object — clear its timers directly.
+on('player.sessionReplaced', ({ player }) => clearConsume(player));
 
 // --- examine note while consuming --------------------------------------------
 

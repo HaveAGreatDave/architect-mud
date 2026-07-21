@@ -1,0 +1,18 @@
+{
+  "description": "Warm downlights ring the smoked-glass shower and pool over the low sink, while a soft band of vanity light traces the marble — gold-warm, dimmable, and flattering at any hour.",
+  "flags": {
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_echelon_suite_bath_vanity",
+  "light_type": "overhead",
+  "lumen_output": 1600,
+  "name": "head vanity lighting",
+  "object_type": "light",
+  "power_draw_kw": 18,
+  "price": 0,
+  "zone_id": "zone_echelon_suite_bath"
+}

@@ -47,9 +47,10 @@ changes were needed for either.
 
 One poker table, in the main casino room, run entirely by the
 [`gametable`](../plugins/gametable/index.js) plugin — content + a seed, no
-bespoke code. It's the **called-aloud** table, built on the
-[text-mode](#text-mode-screen-reader-accessibility) accessibility layer so it
-plays fully by the text log. Same Hold'em engine (rules/betting/bots in
+bespoke code. It's the **called-aloud** table: it *opens* in the
+[text-mode](#text-mode-screen-reader-accessibility) view, so by default it plays
+by the text log — though any player can flip to the visual felt with `visual`.
+Same Hold'em engine (rules/betting/bots in
 [bot-player.js](../plugins/gametable/bot-player.js)); the only plugin seam is
 `config.textTable`.
 
@@ -72,17 +73,21 @@ plays fully by the text log. Same Hold'em engine (rules/betting/bots in
   hand) calls a `flags.poker_player` gambler NPC (Ledger) to an open seat; sit
   first. A lone seated human auto-invites a gambler after ~45s. `call dealer` /
   `calldealer` rushes Margo back if she wandered off.
-- **The `textTable` flag** (on the `game_tables` config, not content): the
-  `gametable` plugin (a) **force-enables text narration** for anyone who sits or
-  spectates — no personal `pokertext` opt-in needed (`ensureTextPref`); (b)
-  unlocks Margo's **old-school dealer quips** (`OLD_SCHOOL_LINES` in
+- **The `textTable` flag** (on the `game_tables` config, not content) does exactly
+  two things: (a) it is the **opening default view** for a player who sits or
+  spectates with no stored `poker_text_mode` preference — they start in the
+  called-aloud log game (`ensureTextPref`); and (b) it unlocks Margo's
+  **old-school dealer quips** (`OLD_SCHOOL_LINES` in
   [game-table.js](../plugins/gametable/game-table.js), blended into `_quip` at
-  ~50% for a flagged table); and (c) **suppresses the visual poker pane
-  entirely** — `pushPaneAll` sends no `poker_update`, and `join`/`seat`/`spectate`/
-  `look` return the **room look** (`paneOrLook` in index.js). The area pane stays
-  the room; the whole game plays out in the text log. (`textTable` is the *table
-  default*; individual players can also flip themselves in/out at any table with
-  `text`/`visual` — see below.) Friendly stakes: `smallBlind 5`/`bigBlind 10`,
+  ~50% for a flagged table).
+
+  **It is a default, never an override.** The player's own `text`/`visual` choice
+  always wins, at every table, and is persisted per player. Whether the visual
+  pane is drawn is decided **per player** in `pushPaneAll` (`isTextMode(pid)`),
+  and `join`/`seat`/`spectate`/`look` return the room look only for players who
+  are personally in text view (`paneOrLook`). *(Until 2026-07-20 `textTable` was a
+  hard table-level lock that suppressed the pane for everyone and made `visual`
+  refuse outright — that override is gone.)* Friendly stakes: `smallBlind 5`/`bigBlind 10`,
   `buyIn 100`, `turnTimerSecs 45` (more time to act by ear).
 
 ### Required seed (runtime rows, one-shot per environment)
@@ -105,10 +110,15 @@ the deploy).
 
 ## The Coyote's Rest table (The Reach)
 
-A second old-school poker table, same content+seed pattern (no code), in the saloon at
+A second poker table, same content+seed pattern (no code), in the saloon at
 The Reach — `zone_bld_899_1171_lobby` ("The Saloon Floor"). Themed as a frontier smuggler's
 game; **stakes a notch above the Neon Vig**: `smallBlind 10`/`bigBlind 20`, `buyIn 200`
-(`minBuyIn 100`/`maxBuyIn 2000`), `textTable: true`, `turnTimerSecs 45`.
+(`minBuyIn 100`/`maxBuyIn 2000`), `turnTimerSecs 45`.
+
+**Visual felt** — it opened as a called-aloud table until 2026-07-20; `textTable`
+was dropped from its config so it now draws the poker pane like the Embassy table.
+Re-run `scripts/seed-coyote-poker.mjs` per environment to apply (the row is
+runtime-classified). Players who prefer the log game can still type `text`.
 
 - **Table id** `gametable_coyote`; furniture `furn_reach_poker_table` + `furn_reach_chair_1..4`
   (`flags.game_table_id: "gametable_coyote"`, chairs `seat_idx 0..3`, `sit`). The stakes are
@@ -149,6 +159,10 @@ top pane immediately (returns the room `look` for text, the `poker_update` pane
 for visual). `pushPaneAll` skips text-mode players so their room view isn't
 re-covered on every action, and the `Set` is the hot-path check so narration
 never touches the DB. The switch is invisible to everyone else at the table.
+
+**It works at every table.** A table's `config.textTable` only seeds the *starting*
+view for a player with no stored preference (`ensureTextPref`); it can't stop you
+flipping. Two players at the same felt can be in different views at the same time.
 
 Three additions (everything else — opponent actions, dealer quips, winners —
 already reaches the log via `_dealerSay`):

@@ -1,6 +1,8 @@
 # Overland Void Travel — crossing the waste between regions on foot
 
-**STATUS: DESIGN ONLY. Nothing built.** This is a workshopped design (2026-07-20) for letting
+**STATUS: BUILT** (`plugins/voidwalking/`) — the header below said "DESIGN ONLY. Nothing built." long
+after the plugin shipped; corrected 2026-07-21. Sections marked **BUILT** describe live behaviour; the
+scoping notes near the bottom are historical. This began as a workshopped design (2026-07-20) for letting
 players travel *on foot* between [regions](reference/land-taxonomy.md#region--the-spatial-place-renamed-2026-07-19-from-district)
 that are otherwise only reachable by air. It reuses the survival, weather, danger, and perimeter
 systems already shipped; the only genuinely net-new engine work is a movement seam + a deterministic
@@ -129,9 +131,8 @@ only version where the *destination* is part of the unknowable void the communit
 
 **BUILT (branch `void-travel`):** a void is now a **`VOIDS[regionId] = { trunk, dests[] }`** graph owned
 by a region — a shared **trunk** (config room count) that forks toward each destination in that dest's `dir`
-(n/s/e/w), then a distance-derived **limb** per region down to its real edge tile. `voidwalk [heading]`
-takes an optional declared heading (flavor/telegraph); the fork itself is the real choice — hold your
-heading down one limb, or **divert** down another to a different region. Detours hang off shared-trunk
+(n/s/e/w), then a distance-derived **limb** per region down to its real edge tile. The fork is the real
+choice — hold your heading down one limb, or **divert** down another to a different region. Detours hang off shared-trunk
 rooms. Persist `crossing_room` (the current room id) not a node index — the deterministic graph
 regenerates identical ids, so relog just replaces you at your room. Void `region_coldwater` forks to
 **The Reach** (south) and **Exodus** (east). Regress proves both limbs reach their region and that you
@@ -275,13 +276,31 @@ hand-holding.
 
 **BUILT (branch `void-travel`; region-edge model 2026-07-20):** the void is owned by a whole **region**,
 keyed by `flags.region_id` — `VOIDS` is indexed by region (`region_coldwater`), not a bespoke per-tile
-flag. Two ways in, one code path: **walk off the map** — moving in *any* direction with no authored exit
-off a tile in a void-region fires the generic engine hook **`movement.edge`** (added in `cmdMove`'s
-no-exit branch), which the plugin answers by opening the muster; or the explicit **`voidwalk [heading]`**
-verb from *anywhere* in the region. The whole perimeter of a region is porous to the void — there is no
-special gate tile. (The earlier `flags.void_gate` / `flags.void_dir` per-tile model was retired: no zone
-ever actually carried it, and the South Gate is a plain `checkpoint`, not the void entry.) The
-`movement.edge` seam is a law that names no system — any edge-of-map transition can use it.
+flag. **One way in: walk out of the world.** A cardinal step off a boundary tile fires the generic engine
+hook **`movement.edge`** (added in `cmdMove`'s no-exit branch), which the plugin answers by opening the
+muster. The whole rim of a region is porous — there is no special gate tile. (The earlier
+`flags.void_gate` / `flags.void_dir` per-tile model was retired: no zone ever actually carried it, and
+the South Gate is a plain `checkpoint`, not the void entry.) The `movement.edge` seam is a law that names
+no system — any edge-of-map transition can use it.
+
+**The rim is missing TILES, not missing exits (corrected 2026-07-21).** The first cut treated *any*
+no-exit move as the edge, which made all 483 world tiles that sit beside a neighbour they don't connect
+to — building facades, water margins — into void gates; bumping a wall inside the city opened the muster.
+`isMapRim(zone, direction)` now resolves the neighbouring **coordinate** on the same `map_id`/`grid_z` and
+only counts it as the rim when no tile exists there at all. Both landmasses are hole-free rectangles
+(Coldwater 863-955 × 896-947, The Reach 903-922 × 976-995), so the geometric boundary is 362 tiles.
+
+**Water is not the rim.** You cross the waste on foot, so a tile whose `zoneTerrain` reads `water` has no
+rim in any direction — no line, and no way in. This matters more than it sounds: the *entire* northern
+edge of Coldwater (all 93 tiles of row y=896) is Coldwater Basin, plus 16 more down the east and west
+water margins. **109 of the 362 boundary tiles are open water, leaving 253 real land rim tiles.** Whatever
+is past the far shore belongs to boats and the leviathan, not to the void.
+
+**There is no entry verb.** `voidwalk` was retired as an entry point on the same date — you cannot decide
+to cross, you can only walk until the world runs out. The verb stays registered solely because the muster
+overlay's buttons send `voidwalk cancel` / `voidwalk say <text>`
+(`client/game/js/panels/voidwalk-staging.js`); bare `voidwalk` now returns an in-fiction refusal that
+points at the rim.
 
 ---
 

@@ -926,6 +926,48 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   check('every building interior leaves toward its map entrance arrow', misaligned.length === 0, misaligned.join(' | '));
 }
 
+// ── Layer 2f: statmods ledger — caps and their current values stay consistent ─
+// The ledger is the substrate every timed buff/debuff writes through (drugs,
+// phases, withdrawal, intoxication). A cap can fall through BOTH paths — reversing
+// a buff, or applying a debuff — and the current value must follow it under either
+// way, or a player walks around with hp > hp_max. The two paths drifting apart is
+// exactly the split-source bug class this harness exists to catch.
+{
+  const { applyMods, reverseMods } = await import('../server/engine/statmods.js');
+  let p = { hp: 100, hp_max: 100 };
+  applyMods(p, 'wd', { hp_max: -25 });
+  check('debuff lowers the cap', p.hp_max === 75, JSON.stringify(p));
+  check('current hp follows a lowered cap under', p.hp === 75, JSON.stringify(p));
+  reverseMods(p, 'wd');
+  check('reversing restores the cap exactly', p.hp_max === 100, JSON.stringify(p));
+  check('reversing does not refund the spent hp', p.hp === 75, JSON.stringify(p));
+
+  p = { hp: 40, hp_max: 100 };
+  applyMods(p, 'wd', { hp_max: -25 });
+  check('a debuff never raises current hp', p.hp === 40, JSON.stringify(p));
+
+  p = { hp: 50, hp_max: 100 };
+  applyMods(p, 'buff', { hp_max: 20 });
+  check('a buff raises the cap only', p.hp_max === 120 && p.hp === 50, JSON.stringify(p));
+  p.hp = 120;
+  reverseMods(p, 'buff');
+  check('comedown pulls hp under the restored cap', p.hp === 100 && p.hp_max === 100, JSON.stringify(p));
+
+  // The withdrawal severity arc re-applies the same source with new values.
+  p = { hp: 100, hp_max: 100 };
+  applyMods(p, 'wd', { hp_max: -6 });
+  applyMods(p, 'wd', { hp_max: -25 });
+  check('re-applying a source replaces rather than stacks', p.hp_max === 75, JSON.stringify(p));
+  applyMods(p, 'wd', { hp_max: -6 });
+  check('tapering severity restores the cap', p.hp_max === 94, JSON.stringify(p));
+  reverseMods(p, 'wd');
+  check('full recovery restores the base cap', p.hp_max === 100, JSON.stringify(p));
+
+  p = { hp: 10, hp_max: 10 };
+  applyMods(p, 'brutal', { hp_max: -999 });
+  check('the ledger clamp can never kill (floors at 1)', p.hp === 1, JSON.stringify(p));
+}
+
 // ── Layer 3: per-plugin suites (plugins/<name>/regress.js) ───────────────────
 console.log('— layer 3: plugin suites —');
 const dirs = (await readdir(PLUGINS_DIR, { withFileTypes: true })).filter(e => e.isDirectory());

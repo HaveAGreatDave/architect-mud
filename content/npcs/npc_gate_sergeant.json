@@ -8,28 +8,40 @@
   ],
   "description": "A slab of a man gone grey at the temples and greyer in the uniform, Sergeant Kessler has manned this gate long enough to stop counting the ones who walked south. A worn service carbine rides one shoulder; a battered data-slate rides the other. He watches the killing ground the way other men watch a pot about to boil over.",
   "dialogue_tree": {
-    "root": {
-      "text": "Kessler looks you up and down, unhurried. \"Gate's open, citizen. Always has been. The question is whether you're walking back through it.\"",
-      "options": [
-        { "label": "What's out there?", "next": "what" },
-        { "label": "Anyone come back?", "next": "back_q" }
-      ]
-    },
-    "what": {
-      "text": "\"South of the Curtain? Killing ground first — mind the turrets, they don't check IDs. Past that, the wilds: mutants, renounce tribes, worse things wearing their skins. And if you keep going, the waste itself — the void between here and anywhere real. Nobody charts it twice.\"",
-      "options": [
-        { "label": "Back.", "next": "root" }
-      ]
-    },
     "back_q": {
-      "text": "\"Some. Fewer than go out. The smart ones come back with salvage and a story. The rest come back as the story.\" He shrugs, unbothered. \"Your funeral to plan. Muster your kit before you strike out — journey, if you've got the guts for it.\"",
       "options": [
-        { "label": "Back.", "next": "root" }
-      ]
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Some. Fewer than go out. The smart ones come back with salvage and a story. The rest come back as the story.\" He shrugs, unbothered. \"Your funeral to plan. Muster your kit before you strike out — journey, if you've got the guts for it.\""
     },
     "bye": {
-      "text": "Kessler grunts and turns back to the road. \"Try not to make paperwork of yourself.\"",
-      "options": []
+      "options": [],
+      "text": "Kessler grunts and turns back to the road. \"Try not to make paperwork of yourself.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What's out there?",
+          "next": "what"
+        },
+        {
+          "label": "Anyone come back?",
+          "next": "back_q"
+        }
+      ],
+      "text": "Kessler looks you up and down, unhurried. \"Gate's open, citizen. Always has been. The question is whether you're walking back through it.\""
+    },
+    "what": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"South of the Curtain? Killing ground first — mind the turrets, they don't check IDs. Past that, the wilds: mutants, renounce tribes, worse things wearing their skins. And if you keep going, the waste itself — the void between here and anywhere real. Nobody charts it twice.\""
     }
   },
   "faction": null,

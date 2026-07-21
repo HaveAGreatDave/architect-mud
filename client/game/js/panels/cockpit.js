@@ -374,6 +374,7 @@ function paintWindow(id, a, s) {
     phase: onGround ? 'ground' : 'cruise',
     worldBlend,
     airport: s.ground?.theme || _lastGround?.theme,
+    helipad: s.ground?.helipad ?? _lastGround?.helipad ?? false,
     biomeBelow: s.biomeBelow ?? _lastBiome,
     roll: a.rwyRoll || 0,   // ground-roll distance — how far down the strip you've travelled
     regions: s.regions ?? _lastRegions,   // drives the windshield region atmosphere grade (The Reach dust, …)
@@ -2277,6 +2278,7 @@ export function openFlightSim(opts = {}) {
     rwHdg: opts.runway ? opts.runway.hdg : ((((opts.heading || 0) % 360) + 360) % 360),
     rwLen: opts.runway?.len || null,
     airport: opts.airport || 'default',
+    helipad: !!opts.helipad,     // a VTOL-only field draws a circle-H pad, not a strip
     reg: opts.registration || (opts.deviceName || 'MAYFLY').toUpperCase(), owner: opts.owner || 'RENTED', rented: !!opts.rented,
     fuel: opts.fuel ?? 100, fuelCap: opts.fuelCap || 100, warn: null,
     map: opts.map || null, sky: opts.sky || { hour: 12, weather: 'clear', wind: 0 }, biomeBelow: opts.biomeBelow ?? null,
@@ -3227,7 +3229,7 @@ function stepCrashBreakup(F, now) {
     extYaw: (F.extOrbit || 0) + 26 * t, extPitch: F.extPitch ?? REST_PITCH, extZoom: F.extZoom || 1,
     height, speed: 0, hour: F.sky?.hour, weather: F.sky?.weather, wxField: F.sky?.field,
     map: F.map, mapCenter: F.mapCenter, mapOffset: { x: F.pos.x - F.mapCenter.x, y: F.pos.y - F.mapCenter.y },
-    acX: F.pos.x, acY: F.pos.y, biomeBelow: F.biomeBelow || 'default', airport: F.airport || 'default',
+    acX: F.pos.x, acY: F.pos.y, biomeBelow: F.biomeBelow || 'default', airport: F.airport || 'default', helipad: !!F.helipad,
   });
   if (t >= 1 && !C.reported) {
     C.reported = true;
@@ -3899,7 +3901,7 @@ function fsimFrame(now) {
     hour: F.sky?.hour, weather: F.sky?.weather, wind: F.sky?.wind, heading: s.heading,
     // Spatial weather cells + our absolute world position → real clouds/rain out the canopy.
     wxField: F.sky?.field, acX: F.pos.x, acY: F.pos.y,
-    map: F.map, mapCenter: F.mapCenter, phase: 'cruise', airport: F.airport, biomeBelow: F.biomeBelow,
+    map: F.map, mapCenter: F.mapCenter, phase: 'cruise', airport: F.airport, helipad: !!F.helipad, biomeBelow: F.biomeBelow,
     regions: F.regions,   // drives the windshield region atmosphere grade (The Reach dust, …)
     mapOffset: { x: F.pos.x - F.mapCenter.x, y: F.pos.y - F.mapCenter.y }, travel: F.travel,
     // World-fixed runway: its origin + heading in the world, offset from the craft — so it
@@ -4737,7 +4739,7 @@ export function openTakeoff(opts = {}) {
     q('#ck-to-pit').textContent = `${Math.round(pitch * 22)}°`;
     q('#ck-to-thrbar').style.width = `${Math.round(throttle * 100)}%`;
     setDeckLevel(overlay, roll);
-    paintWindshield('ck-ws-to', { pitch: pitch * 22, bank: 0, height: alt, speed, hour: _target?.sky?.hour, weather: _target?.sky?.weather, wind: _target?.sky?.wind, phase: 'takeoff', airport: o.airport || _target?.ground?.theme });
+    paintWindshield('ck-ws-to', { pitch: pitch * 22, bank: 0, height: alt, speed, hour: _target?.sky?.hour, weather: _target?.sky?.weather, wind: _target?.sky?.wind, phase: 'takeoff', airport: o.airport || _target?.ground?.theme, helipad: o.helipad ?? _target?.ground?.helipad });
     raf = requestAnimationFrame(tick);
   };
 
@@ -4957,7 +4959,7 @@ export function openGlideslope(opts = {}) {
     q('#ck-la-gsr').textContent = Math.abs(dev) < 0.16 ? 'ON' : dev > 0 ? 'HIGH' : 'LOW';
     q('#ck-la-thrbar').style.width = `${Math.round(throttle * 100)}%`;
     setDeckLevel(overlay, Math.min(1, Math.abs(dev) / 0.3));
-    paintWindshield('ck-ws-la', { pitch: pitch * 20, bank: 0, height, speed: 0.32 + throttle * 0.4, hour: _target?.sky?.hour, weather: _target?.sky?.weather, phase: 'landing', airport: o.airport });
+    paintWindshield('ck-ws-la', { pitch: pitch * 20, bank: 0, height, speed: 0.32 + throttle * 0.4, hour: _target?.sky?.hour, weather: _target?.sky?.weather, phase: 'landing', airport: o.airport, helipad: o.helipad ?? _target?.ground?.helipad });
     raf = requestAnimationFrame(tick);
   };
   window.AudioEngine?.init?.(); csfx('flight-approach', 'hololock-entry');

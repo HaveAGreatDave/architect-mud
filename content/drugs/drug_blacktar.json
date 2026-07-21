@@ -42,7 +42,9 @@
       "onset_seconds": 480
     }
   },
-  "flags": {},
+  "flags": {
+    "injectable": true
+  },
   "id": "drug_blacktar",
   "item_id": "item_blacktar",
   "name": "Blacktar",

@@ -16,7 +16,7 @@
  *   - `use holosign` grants +1 to every stat (via gifted_stat_points, so it costs
  *     no XP) + a first point of Architect Interface IP (interfacing IS the skill) +
  *     the X-90 holocaster; `use holocaster` opens the broadcast door and is
- *     consumed; sitting in The Broadcast drops the kit.
+ *     consumed; sitting in The Broadcast grants the kit.
  *
  * No engine files are imported in reverse; the only engine touch-points are the
  * generic seams (move gates, events, flags, specialized `use`, the no_attack NPC
@@ -29,8 +29,6 @@ import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { maxHpForEndurance, invalidateSkillCache } from '../../server/engine/ip.js';
-import { getZone, getMinimapData } from '../../server/engine/world.js';
-import { describeZone } from '../../server/engine/commands/describe.js';
 
 const Z_INBETWEEN = 'zone_the_inbetween';
 const Z_LATTICE   = 'zone_the_lattice';
@@ -42,8 +40,8 @@ const PROLOGUE_ZONES = new Set([Z_INBETWEEN, Z_LATTICE, Z_BROADCAST, Z_COLLAPSE]
 const ITEM_HOLOCASTER = 'item_x90_holocaster';
 
 // The Broadcast-room starter kit — the ONLY starting gear (registration hands out
-// nothing). Order = drop order. Names must match the items rows so the take-links
-// and the look refresh resolve.
+// nothing). Granted straight to inventory at the end of the welcome broadcast;
+// order = the order they're listed to the player.
 const KIT = [
   { id: 'item_bat',             name: 'aluminum bat',      qty: 1 },
   { id: 'item_football_helmet', name: 'football helmet',   qty: 1 },
@@ -203,7 +201,7 @@ on('appearance.changed', async ({ actor }) => {
 
 // ── The Broadcast: sitting plays the welcome ──────────────────────────────────
 // Guarded by a per-player in-memory cooldown rather than the permanent F_PLAYED
-// flag. The completion beat (kit drop + F_COLLAPSE door) only fires from the
+// flag. The completion beat (kit grant + F_COLLAPSE door) only fires from the
 // final setTimeout, so a player who disconnects mid-playback would otherwise be
 // left with F_PLAYED set but F_COLLAPSE never raised — permanently soft-locked,
 // since re-sitting was blocked and the door never opened. Now: once the door is
@@ -253,8 +251,8 @@ function firstClothing(actor) {
 }
 
 // The welcome script — timed, styled, and unstoppable: it runs on its own timers,
-// so standing up doesn't halt it (per design). Ends by dropping the starter kit
-// to the floor and opening the way to The Collapse.
+// so standing up doesn't halt it (per design). Ends by granting the starter kit
+// and opening the way to The Collapse.
 function playBroadcast(player) {
   const lines = [
     `<span class="broadcast-line">A screen blinks into being on the wall that wasn't there. It fills the black with a light the color of an old television.</span>`,
@@ -274,22 +272,16 @@ function playBroadcast(player) {
   // After the last line: the kit hits the floor and the way opens.
   setTimeout(async () => {
     try {
-      if (await isSet(player, F_COLLAPSE)) return; // a prior playback already finished — don't re-drop the kit
-      const ground = `_ground_${Z_BROADCAST}`;
-      for (const { id, qty, credits } of KIT) await grantItem(player, id, qty, ground, credits ? { credits, name: `credit chip (₵${credits})` } : null);
+      if (await isSet(player, F_COLLAPSE)) return; // a prior playback already finished — don't re-grant the kit
+      // Straight into inventory, never onto the floor. The prologue is one-way and
+      // this room is mid-cutscene: a player who walked north past a pile of ground
+      // items lost the entire starting bankroll permanently, with no way back.
+      for (const { id, qty, credits } of KIT) await grantItem(player, id, qty, player.id, credits ? { credits, name: `credit chip (₵${credits})` } : null);
       await raise(player, F_COLLAPSE);
-      // Highlight each dropped item as a clickable take-link (same convention as
-      // the room's "Lying here:" list), then refresh the room so the ground items
-      // are actually visible without the player having to look again.
-      const mentions = KIT.map(({ name, qty }) => {
-        const label = qty > 1 ? `${qty}x ${name}` : name;
-        return `<span class="action-link room-item" data-action="take" data-target="${name}" title="Take ${name}">${label}</span>`;
-      }).join(', ');
-      out(player, `<span class="ambient">Objects thud onto the invisible floor in front of you, one after another, as if the dark is emptying its pockets:</span> ${mentions}. <span class="hint">(take them or leave them — then go north to the collapse)</span>`);
-      const zone = getZone(Z_BROADCAST);
-      if (zone) sendToPlayer(player.id, { type: 'look', message: await describeZone(zone, player), zone: zone.id, minimap: getMinimapData(zone.id, 8, player) });
+      const mentions = KIT.map(({ name, qty }) => (qty > 1 ? `${qty}x ${name}` : name)).join(', ');
+      out(player, `<span class="ambient">The dark empties its pockets, and the objects do not fall. They arrive already in your hands, already yours, the way things do in a place that is not quite a place:</span> ${mentions}. <span class="hint">(they're in your INVENTORY — USE the credit chip to bank the ₵100 — then go north to the collapse)</span>`);
     } catch (e) {
-      console.error('[prologue] broadcast kit drop failed:', e.message);
+      console.error('[prologue] broadcast kit grant failed:', e.message);
     }
   }, t + 400);
 }

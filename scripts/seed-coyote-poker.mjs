@@ -6,9 +6,11 @@
 // by content:import — so it must be inserted directly. Idempotent: re-running just
 // refreshes the config. Mirrors scripts/seed-neonvig-oldschool-poker.mjs.
 //
-// Old-school called-aloud table (`textTable: true`): the gametable plugin
-// force-enables screen-reader text narration for anyone who sits and unlocks the
-// dealer's old-school quips — a hand-dealt frontier game that plays by the log.
+// VISUAL table (no `textTable`): sitting draws the poker pane, same as the
+// Embassy felt. `config.textTable: true` would only make the called-aloud log
+// game the *opening default* here — it's a starting preference, not a lock, and
+// any player can flip with `text` / `visual` at any table. That default belongs
+// to the Neon Vig back room, not this one.
 //
 //   local:  node scripts/seed-coyote-poker.mjs
 //   prod:   node --env-file=.env.prod scripts/seed-coyote-poker.mjs
@@ -30,7 +32,6 @@ const CONFIG = {
   turnTimerSecs: 45,
   autoStartDelaySecs: 12,
   dealerNpcId: 'npc_reach_dealer',
-  textTable: true,
 };
 
 async function main() {

@@ -990,6 +990,16 @@ export function getLivePlayer(pid) { return world.players.get(pid) || null; }
 export function getAllLivePlayers() { return [...world.players.values()]; }
 export function removeLivePlayer(pid) { world.players.delete(pid); }
 
+// Is this player object STILL the live session, by identity — not just by id?
+// A reconnect builds a brand-new live player object and replaces the old one, so
+// any deferred callback (a setTimeout captured mid-drink, a queued write) can be
+// holding a discarded object whose stats are frozen at the moment the old socket
+// died. Persisting from it silently rolls the new session back. Anything that
+// mutates or writes a player from a timer must gate on this first.
+export function isLivePlayer(player) {
+  return !!player && world.players.get(player.id) === player;
+}
+
 // True while at least one session is connected. O(1) — world.players is filled
 // at login (setLivePlayer) and cleared at logout (removeLivePlayer). The shared
 // idle gate for schedule-driven ticks that only matter when players are online.

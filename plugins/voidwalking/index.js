@@ -36,8 +36,8 @@
 //     instance after a server restart. crossing_room is flushed on player.logout, not
 //     per step. A same-session reconnect needs nothing (rooms still in RAM).
 
-import { getLivePlayer, getAllLivePlayers, getZone, getZoneEnemies, getMinimapData, addPlayerToZone, removePlayerFromZone,
-  registerTransientZone, removeTransientZone, spawnEnemySync, removeEnemyInstance } from '../../server/engine/world.js';
+import { getLivePlayer, getAllLivePlayers, getAllZones, getZone, getZoneEnemies, getMinimapData, addPlayerToZone, removePlayerFromZone,
+  registerTransientZone, removeTransientZone, spawnEnemySync, removeEnemyInstance, zoneTerrain } from '../../server/engine/world.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { on } from '../../server/engine/events.js';
@@ -54,9 +54,9 @@ const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const VOID_MAP = 'map_void'; // non-map_world → flag/map-filtered world iterators skip void rooms
 
 // ── Voids (the region adjacency graph — keyed by region) ──────────────────────
-// A void is owned by a whole REGION, keyed by flags.region_id. From anywhere in that
-// region you can `voidwalk`, and walking off the region's map edge (any direction with
-// no authored exit) fires the same crossing. A void has a shared `trunk` (room count
+// A void is owned by a whole REGION, keyed by flags.region_id. It is entered ONLY by
+// walking off that region's rim — a cardinal step from a boundary tile into a
+// coordinate that holds no tile at all (see isMapRim). A void has a shared `trunk` (room count
 // before the fork) and `dests` — the adjacent regions it forks toward. Each dest
 // carries the fork-exit `dir` (n/s/e/w) that leads to its limb, and an optional
 // `length` override (else the total gate→dest length is distance-derived).
@@ -81,6 +81,67 @@ function voidGateOf(zone) {
   if (!key || !VOIDS[key]) return null;
   return { key, void: VOIDS[key] };
 }
+// ── The rim: where the world actually stops ───────────────────────────────────
+// The void is entered by walking out of the world, so "off the map" has to mean the
+// real thing: no TILE at the neighbouring coordinate. A missing `exits` entry is NOT
+// the rim — 483 map_world tiles (building facades, water margins) sit beside a real
+// neighbour they simply don't connect to, and bumping those must stay an ordinary
+// wall. Cardinals only; up/down/in/out are never the rim.
+const RIM_DELTA = { north: [0, -1], south: [0, 1], east: [1, 0], west: [-1, 0] };
+
+// Coordinate index over placed tiles, so a rim test is a hash lookup instead of a
+// ~5,700-zone scan — describeRim runs on every look, which is a hot path. Transient
+// void rooms are coordless and never enter the index. Short TTL so a dev-panel zone
+// add self-heals without a restart; the shipped world is static between deploys.
+const RIM_INDEX_TTL_MS = 60_000;
+let coordIndex = null, coordIndexAt = 0;
+function placedCoords() {
+  const now = Date.now();
+  if (coordIndex && now - coordIndexAt < RIM_INDEX_TTL_MS) return coordIndex;
+  const set = new Set();
+  for (const z of getAllZones()) {
+    if (!z.map_id || z.grid_x == null || z.grid_y == null) continue;
+    set.add(`${z.map_id}|${z.grid_z ?? 0}|${z.grid_x},${z.grid_y}`);
+  }
+  coordIndex = set; coordIndexAt = now;
+  return set;
+}
+
+function isMapRim(zone, direction) {
+  const d = RIM_DELTA[direction];
+  if (!d || !zone?.map_id || zone.grid_x == null || zone.grid_y == null) return false;
+  // You cross the waste on foot. Open water is not the waste: the entire northern
+  // edge of Coldwater (y=896) is basin, and "the ground runs out to the north" is a
+  // lie told to someone who is swimming in it. A water tile has no rim in any
+  // direction — no line, and no way in. Whatever lies past the far shore is a
+  // different system's problem (boats, the leviathan), not the void's.
+  if (zoneTerrain(zone) === 'water') return false;
+  return !placedCoords().has(
+    `${zone.map_id}|${zone.grid_z ?? 0}|${zone.grid_x + d[0]},${zone.grid_y + d[1]}`);
+}
+
+// Which cardinals off this tile lead clean out of the world.
+function rimDirs(zone) {
+  if (!zone?.map_id || zone.grid_x == null || zone.grid_y == null) return [];
+  return Object.keys(RIM_DELTA).filter((dir) => isMapRim(zone, dir));
+}
+
+// zone.describeRoom: a boundary tile says so. The rim is the void's only entrance and
+// a full muster overlay is a hard thing to meet with no warning, so the edge announces
+// itself one step before you can walk off it — and the warning IS the tutorial. Returns
+// undefined everywhere else; fireHook keeps the last defined result, so a silent
+// non-rim zone never clobbers the airfield/elevator/AA panels.
+async function describeRim(zone) {
+  if (!zone?.map_id || zone.grid_x == null) return undefined;
+  if (!voidGateOf(zone)) return undefined; // a rim with no void behind it promises nothing
+  const dirs = rimDirs(zone);
+  if (!dirs.length) return undefined;
+  const where = dirs.length === 1
+    ? `to the ${dirs[0]}`
+    : `to the ${dirs.slice(0, -1).join(', ')} and ${dirs[dirs.length - 1]}`;
+  return `<span class="ambient">The ground runs out ${where}. There is no horizon that way to read and no distance to judge — only the waste, going on being nothing in particular for as long as you can stand to look at it. People do walk out into it from here. The ones who come back mostly come back somewhere else.</span>`;
+}
+
 function destByHeading(vdef, heading) {
   if (!heading) return null;
   const h = heading.toLowerCase();
@@ -489,23 +550,27 @@ async function cmdReady(args, raw, player, broadcast) {
   return buildStagingPanel(player, staging);
 }
 
+// `voidwalk` is no longer an entry point — the void is entered by walking out of the
+// world, not by naming it. The verb stays registered because the staging overlay's
+// buttons send `voidwalk cancel` / `voidwalk say <text>` (client/game/js/panels/
+// voidwalk-staging.js), and because the bare form is the best place to answer the
+// player who has heard of the void and is looking for the command.
 async function cmdVoidwalk(args, raw, player, broadcast) {
   const sub = (args[0] || '').toLowerCase();
   if (sub === 'cancel') return cancelStaging(player);
   if (sub === 'say') return stagingChat(player, args.slice(1).join(' '));
-  if (player._crossing) return { type: 'emote', message: 'You are already out in the waste. The only way through it is through it.' };
   const existing = stagings.get(playerStaging.get(player.id));
   if (existing) return buildStagingPanel(player, existing); // already mustering — re-open the window
-  const gate = voidGateOf(getZone(player.current_zone));
-  if (!gate) return { type: 'emote', message: 'There is nowhere to strike out into the waste from here.' };
-  return openStaging(player, gate, args.join(' ').trim(), broadcast);
+  if (player._crossing) return { type: 'emote', message: 'You are already out in the waste. The only way through it is through it.' };
+  return { type: 'emote', message: 'There is no word for it that works. Nobody steps into the waste by deciding to — they walk, and keep walking, out past the last street and the last fence and the last anything, until there is no next tile to step into. Then they take that step anyway. <span class="text-dim">(pick a direction and hold it until the world runs out)</span>' };
 }
 
 async function onMovementEdge({ player, zone, direction, broadcast }) {
   if (player._crossing || playerStaging.has(player.id)) return undefined;
+  if (!isMapRim(zone, direction)) return undefined; // an ordinary wall — let the engine report it
   const gate = voidGateOf(zone);
-  if (!gate) return undefined; // not in a void-region — let the engine report the wall
-  return openStaging(player, gate, null, broadcast); // walking off any region edge opens the muster, not the crossing
+  if (!gate) return undefined; // rim of a region with no void behind it
+  return openStaging(player, gate, null, broadcast); // stepping off the rim opens the muster, not the crossing
 }
 
 // ── The Frontier map (Slice 6): fogged discovery of regions + void-routes ─────
@@ -797,13 +862,15 @@ export const commands = {
 
 export const hooks = {
   'movement.edge': onMovementEdge,
+  'zone.describeRoom': describeRim,
 };
 
 export const _test = {
   crossings, VOIDS, totalLength, TILES_PER_ROOM, MIN_ROOMS, MAX_ROOMS,
   loadFoes, spawnFoe, foesFor, MAX_VOID_FOES, isHardNode, hardFoePool: () => HARD_FOE_POOL, teardownInstance, LOOT, bigScoreSalt, handleDeath: onVoidDeath, frontierView, markSurvived,
-  stagings, playerStaging,
+  stagings, playerStaging, isMapRim, rimDirs, describeRim,
   foePool: () => FOE_POOL,
+  invalidateRimIndex: () => { coordIndex = null; },
   setEncounters: (on) => { ENCOUNTERS_ON = on; },
   setSalvage: (v) => { SALVAGE_FORCE = v; },
 };

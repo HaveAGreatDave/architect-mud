@@ -1,0 +1,51 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "n_start",
+    "nodes": {
+      "n_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "n_loop",
+        "type": "action"
+      },
+      "n_loop": {
+        "next": "n_start",
+        "type": "loop"
+      },
+      "n_start": {
+        "next": "n_life",
+        "type": "start"
+      }
+    }
+  },
+  "chitchat": [],
+  "description": "Co-host of Coldwater A.M. She has been awake since three and intends for you to know it. Her smile is load-bearing.",
+  "dialogue_tree": {},
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a too-shiny anchor's blazer over a pencil skirt",
+      "a pressed blouse",
+      "a plain bra and panties"
+    ],
+    "personality": "tv_host",
+    "studio_npc": true
+  },
+  "home_activities": [],
+  "home_zone": "zone_studio_1782953094650",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_am_pace",
+  "name": "Bijou Pace",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": "zone_studio_1782953094650",
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

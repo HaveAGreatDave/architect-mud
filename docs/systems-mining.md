@@ -82,11 +82,18 @@ has no `mining_table_id`, or if not carrying a `mining_tool`. There is no stop v
 ## Authoring
 
 Mining tables are the same `scavenging_tables` rows the Scavenging dev panel edits;
-a dedicated Mining authoring tab is a **slice-2** item. For now,
-[scripts/seed-mining.js](../scripts/seed-mining.js) (idempotent) seeds the pick +
-ore items + a `mine_gravel_pit` table and attaches `flags.mining_table_id` to
-`zone_waste_gravel`. Reload the world (or restart) after running so the zone flag
-loads.
+a dedicated Mining authoring tab is a **slice-2** item. The pick, the ore items and
+the `mine_gravel_pit` table now live in the content tree under `content/`; a zone
+opts in by carrying `flags.mining_table_id` in its own JSON.
+
+**The live deposit** is a four-tile gravel cut in the redrock wilds east of Coldwater
+— `zone_district_928_913`, `928_914`, `929_913`, `929_914` (~10 tiles out, radiation
+26, so bring pills). `item_mining_pick` is stocked by Grady at Two-Cell Supply for
+₵55, mirroring the fishing-rod carry-gate.
+
+[scripts/seed-mining.js](../scripts/seed-mining.js) is retained only as provenance —
+it predates the CODEX pipeline and still points `ZONE` at `zone_waste_gravel`, which
+no longer exists. Don't run it; edit the zone JSON instead.
 
 ## Not yet built (slice 2)
 

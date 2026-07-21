@@ -507,6 +507,9 @@ export const SCHEMA_SQL = `
     item_id TEXT,
     duration_seconds INTEGER DEFAULT 300,
     effects JSONB DEFAULT '{}',
+    -- Misnomer: not a probability but an additive step (0-1) added to the player's
+    -- addiction scalar per dose, which latches is_addicted at 0.5. Superseded by
+    -- effects.withdrawal.addiction_per_dose, which useDrug prefers when present.
     addiction_chance REAL DEFAULT 0,
     overdose_threshold INTEGER DEFAULT 3,
     withdrawal_effects JSONB DEFAULT '{}',
@@ -523,6 +526,10 @@ export const SCHEMA_SQL = `
     last_used_at BIGINT,
     tolerance REAL DEFAULT 0,
     addiction REAL DEFAULT 0,
+    -- Inline-drug payload. Spliced compounds have no drugs row, so the withdrawal
+    -- tick has nothing to look up; their composed effects blob is stored here at use
+    -- time. NULL for every normal drug (which resolves from the drugs cache).
+    effects JSONB,
     PRIMARY KEY (player_id, drug_id)
   );
 
@@ -651,6 +658,8 @@ export const SCHEMA_SQL = `
   -- Drug tolerance + addiction accumulation (phased-effect drug system)
   ALTER TABLE player_drug_state ADD COLUMN IF NOT EXISTS tolerance REAL DEFAULT 0;
   ALTER TABLE player_drug_state ADD COLUMN IF NOT EXISTS addiction REAL DEFAULT 0;
+  -- Composed effects for inline (spliced-compound) drugs, which have no drugs row.
+  ALTER TABLE player_drug_state ADD COLUMN IF NOT EXISTS effects JSONB;
 
   CREATE TABLE IF NOT EXISTS combat_config (
     key TEXT PRIMARY KEY,

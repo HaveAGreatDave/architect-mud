@@ -1697,13 +1697,16 @@ function ensureStyles() {
        column pinned to 100% height, and the set takes all the slack the header/dial
        leave — so the picture is as big as the tablet allows instead of a fixed box. */
     #tablet-os-overlay .tos-body.tos-tv-view { box-sizing:border-box; height:100%; display:flex; flex-direction:column; }
-    #tablet-os-overlay .tos-tv { display:flex; flex-direction:column; gap:10px; flex:1; min-height:0; }
+    /* NB no flex:1 here — .tos-body is a plain BLOCK, so a flex item's grow factor
+       would be inert and the whole column would size to content instead. The picture
+       gets its height from an explicit aspect-ratio below. */
+    #tablet-os-overlay .tos-tv { display:flex; flex-direction:column; gap:10px; }
     /* Theme vars land on this element (tv.js _writeTvTheme) — defaults keep the
        viewport legible on a channel with no theme of its own. */
     #tablet-os-overlay .tos-tv-set {
       --tv-bg:var(--bg, #05050a); --tv-border:var(--border, #2a2a40); --tv-text:var(--tos-fg, #e8e8f5);
       --tv-header-color:var(--accent); --tv-live-color:#ff4d4d; --tv-ticker-color:var(--accent);
-      display:flex; flex-direction:column; flex:1; min-height:0; border-radius:8px; overflow:hidden;
+      display:flex; flex-direction:column; border-radius:8px; overflow:hidden;
       border:1px solid var(--tv-border); background:var(--tv-bg);
       box-shadow:inset 0 0 22px rgba(0,0,0,.55);
       transition:background .5s, border-color .5s; }
@@ -1716,7 +1719,14 @@ function ensureStyles() {
       text-transform:none; letter-spacing:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     #tablet-os-overlay .tos-tv-live { flex:none; color:var(--tv-live-color); font-size:8px; }
     /* The picture. position:relative is what every overlay host below anchors to. */
-    #tablet-os-overlay .tos-tv-screen { position:relative; flex:1; min-height:0; overflow:hidden; background:var(--tv-bg); }
+    /* The picture needs a DEFINITE height: every layer inside it (content, static,
+       gameday, the bugs) is position:absolute and so contributes no content height —
+       sized by flex alone this box collapses to 0px and the whole screen renders
+       blank. An aspect-ratio scales it with the tablet's width; the min-height keeps
+       DEADBALL's Gameday sub-screen (ballpark + line score + pitch tracker) legible
+       on a narrow tablet. Roughly the wall set's 760x520 proportion. */
+    #tablet-os-overlay .tos-tv-screen { position:relative; width:100%; aspect-ratio:3/2;
+      min-height:230px; overflow:hidden; background:var(--tv-bg); }
     #tablet-os-overlay .tos-tv-screen [data-tv="content"] { position:absolute; inset:0; overflow:hidden; padding:12px 14px;
       transition:opacity .25s; }
     #tablet-os-overlay .tos-tv-screen [data-tv="content"].tv-hidden { opacity:0; }
@@ -1734,10 +1744,12 @@ function ensureStyles() {
        here they anchor to the tablet's screen box instead. */
     #tablet-os-overlay .tos-tv-screen [data-tv="overlay-container"] { position:absolute; inset:0; z-index:47; pointer-events:none; }
     #tablet-os-overlay .tos-tv-screen [data-tv="schedule"],
+    #tablet-os-overlay .tos-tv-screen [data-tv="standings-panel"],
     #tablet-os-overlay .tos-tv-screen [data-tv="gameday"] { position:absolute; inset:0; z-index:48; display:none;
       flex-direction:column; overflow:auto; background:var(--tv-bg); color:var(--tv-text);
       font-family:var(--font-mono,'Courier New',monospace); padding:7px 9px; }
     #tablet-os-overlay .tos-tv-screen [data-tv="schedule"].on,
+    #tablet-os-overlay .tos-tv-screen [data-tv="standings-panel"].on,
     #tablet-os-overlay .tos-tv-screen [data-tv="gameday"].on { display:flex; }
     #tablet-os-overlay .tos-tv-screen [data-tv="scorebug"] { position:absolute; right:8px; bottom:8px; z-index:45; display:none;
       pointer-events:none; background:rgba(0,0,0,.82); border:1px solid var(--tv-border);
@@ -1763,9 +1775,12 @@ function ensureStyles() {
     #tablet-os-overlay .tos-tv-ctl button:hover { color:var(--accent); border-color:var(--accent); }
     #tablet-os-overlay .tos-tv-ctl button.on { color:var(--accent); border-color:var(--accent);
       box-shadow:0 0 8px color-mix(in srgb, var(--accent) 40%, transparent); }
-    /* Gameday's toggle stays hidden until a sports broadcast reveals it (.avail). */
-    #tablet-os-overlay .tos-tv-ctl button[data-tv="gameday-btn"] { display:none; }
-    #tablet-os-overlay .tos-tv-ctl button[data-tv="gameday-btn"].avail { display:inline-block; }
+    /* Gameday + Standings toggles stay hidden until a sports broadcast reveals them
+       (.avail — gameday on its first at-bat payload, standings on the first score-bug). */
+    #tablet-os-overlay .tos-tv-ctl button[data-tv="gameday-btn"],
+    #tablet-os-overlay .tos-tv-ctl button[data-tv="standings-btn"] { display:none; }
+    #tablet-os-overlay .tos-tv-ctl button[data-tv="gameday-btn"].avail,
+    #tablet-os-overlay .tos-tv-ctl button[data-tv="standings-btn"].avail { display:inline-block; }
     /* CH up/down — the tablet's digital tuner. No rotary knob and no analogue
        frequency readout here (both are wall-set idioms); the tuned channel already
        reads out in the header bar. */
@@ -1773,6 +1788,13 @@ function ensureStyles() {
     #tablet-os-overlay .tos-tv-ch-btn .l { font-size:9px; letter-spacing:1px; opacity:.7; }
     #tablet-os-overlay .tos-tv-ch-btn .c { font-size:9px; line-height:1; }
     #tablet-os-overlay .tos-tv-ch-btn:active { transform:scale(.94); }
+    /* Tuned-channel readout — the digital stand-in for the wall set's frequency dial.
+       Tabular figures so the number doesn't jitter width as it changes. */
+    #tablet-os-overlay .tos-tv-num { font-size:13px; font-weight:bold; letter-spacing:1px;
+      color:var(--accent); font-variant-numeric:tabular-nums; min-width:56px; text-align:center;
+      padding:4px 8px; border-radius:4px; background:var(--bg, #05050a);
+      border:1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+      box-shadow:inset 0 0 8px color-mix(in srgb, var(--accent) 18%, transparent); }
     #tablet-os-overlay .tos-tv-spacer { flex:1; }
     /* Direct channel chips — the tablet-native way to jump the dial. */
     /* The dial never eats the picture: it keeps its natural height, but a long channel
@@ -4302,6 +4324,13 @@ function wireGear() {
   }
 }
 
+// Sticky cams burn out 24h after planting — show the time left beside the battery.
+function camExpiry(t) {
+  if (t.expiresIn == null) return '';
+  if (t.expiresIn <= 0) return ' · <span class="tos-cam-fullbar">BURNOUT</span>';
+  return t.expiresIn < 60 ? ` · ⏻ ${t.expiresIn}m` : ` · ⏻ ${Math.floor(t.expiresIn / 60)}h`;
+}
+
 function renderSurveillance(d) {
   const tiles = d.tiles || [];
   const rec = tiles.filter(t => t.recording).length;
@@ -4328,20 +4357,21 @@ function renderSurveillance(d) {
   const focusPane = focus ? `<div class="tos-cam-focus">
       <div class="tos-cam-head"><span>${esc(focus.name)}</span><span class="tos-cam-kind">${focus.status === 'ok' ? '<span class="tos-cam-live">◉ LIVE</span> · ' : ''}${esc(focus.kind || '')}${focus.tier ? ` · T${esc(String(focus.tier))}` : ''}</span></div>
       ${renderCamFeed(focus)}
-      <div class="tos-cam-foot"><span>${esc(focus.zone || '')} · ${esc(focus.ts || '')}</span><span>${esc(focus.battery || '')}${focus.recording ? ' · <span class="tos-rec"><span class="tos-rec-dot">●</span>REC</span>' : ''}</span></div>
+      <div class="tos-cam-foot"><span>${esc(focus.zone || '')} · ${esc(focus.ts || '')}</span><span>${esc(focus.battery || '')}${camExpiry(focus)}${focus.recording ? ' · <span class="tos-rec"><span class="tos-rec-dot">●</span>REC</span>' : ''}</span></div>
       ${focus.full ? '<div class="tos-cam-fullbar">⚠ BUFFER FULL — clip or clear to record again</div>' : ''}
       ${renderBufferLog(d.focusBuffer, focus.recording, focus.full)}
       ${renderActions(d.appId, [
         { id: 'record', label: focus.recording ? 'Stop Recording' : 'Record' },
         { id: 'clip', label: 'Clip → Reel', disabled: !hasBuffer },
         { id: 'clear', label: 'Clear', disabled: !hasBuffer, confirm: 'Discard this buffer without saving a reel?' },
+        { id: 'destruct', label: 'Self-Destruct', confirm: 'Fry this device where it sits? It is destroyed, not recovered.' },
       ], focus.id)}
     </div>` : '';
 
   const grid = `<div class="tos-cam-grid">${tiles.map(t => `<div class="tos-cam${t.id === d.focusId ? ' sel' : ''}" data-nav-tile="${esc(t.id)}">
       <div class="tos-cam-head"><span>${esc(t.name)}</span><span class="tos-cam-kind">${esc(t.kind || '')}${t.tier ? ` · T${esc(String(t.tier))}` : ''}</span></div>
       ${renderCamFeed(t)}
-      <div class="tos-cam-foot"><span>${esc(t.zone || '')}</span><span>${esc(t.battery || '')}${t.recording ? ' · <span class="tos-rec"><span class="tos-rec-dot">●</span>REC</span>' : ''}</span></div>
+      <div class="tos-cam-foot"><span>${esc(t.zone || '')}</span><span>${esc(t.battery || '')}${camExpiry(t)}${t.recording ?' · <span class="tos-rec"><span class="tos-rec-dot">●</span>REC</span>' : ''}</span></div>
     </div>`).join('')}</div>`;
 
   return `<div class="tos-surv">${header}${alerts}${focusPane}${grid}
@@ -4855,6 +4885,7 @@ function renderTv(d) {
         <div data-tv="static"></div>
         <div data-tv="overlay-container"></div>
         <div data-tv="schedule"></div>
+        <div data-tv="standings-panel"></div>
         <div data-tv="gameday"></div>
         <div data-tv="scorebug"></div>
         <div data-tv="standings"></div>
@@ -4868,9 +4899,11 @@ function renderTv(d) {
         <button class="tos-tv-ch-btn" data-tv="tune-down" title="Channel down" aria-label="Channel down">
           <span class="l">CH</span><span class="c">&#x25BC;</span>
         </button>
+        <span class="tos-tv-num" data-tv="channel-num" aria-live="polite">——</span>
         <span class="tos-tv-spacer"></span>
         <button data-tv="schedule-btn" title="TV guide — what's on and when">&#x1F5D3;</button>
         <button data-tv="gameday-btn" title="Gameday — animated play-by-play">&#x26BE;</button>
+        <button data-tv="standings-btn" title="Standings — the DEADBALL league table">&#x1F3C6;</button>
         <button data-tv="read-btn" title="Read broadcast aloud">&#x1F508;</button>
         <button data-tv="close-btn" title="Switch the screen off">&#x23FB;</button>
       </div>

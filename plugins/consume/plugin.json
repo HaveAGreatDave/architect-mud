@@ -4,6 +4,6 @@
   "description": "Drinking and smoking as a timed act: beer/cigarettes/joints consume over 12-18s with varied narration, the drug effect landing at the end. Moving interrupts; death/logout clears. Driven by drug flags alcoholic/smokeable/cannabis.",
   "hooks": ["player.appearanceNotes"],
   "events": {
-    "consumes": ["zone.entered", "player.death", "player.logout"]
+    "consumes": ["zone.entered", "player.death", "player.logout", "player.sessionReplaced"]
   }
 }

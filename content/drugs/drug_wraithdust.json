@@ -57,8 +57,10 @@
     "onset_seconds": 40,
     "phases": {
       "comedown_message": "The air thins out. You're alone again — you think.",
+      "comedown_scale": 0.5,
       "comedown_seconds": 40,
       "comeup_message": "The room goes very quiet, and its corners feel closer than they were.",
+      "comeup_scale": 0.5,
       "comeup_seconds": 40,
       "peak_mods": {
         "stat_cool": -2,

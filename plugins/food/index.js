@@ -14,7 +14,7 @@ async function eat(args, raw, player) {
   if (!targetStr) return undefined;
   const row = await resolveInventoryItem(player, { name: targetStr, topLevel: false });
   if (!row || !hasTag(row, 'consumable')) return undefined;
-  return cmdUse(targetStr, player);
+  return cmdUse(targetStr, player, undefined, 'eat');
 }
 
 export const specializedActions = [

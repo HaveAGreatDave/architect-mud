@@ -20,6 +20,7 @@
     ],
     "airfield_id": "af_helipad",
     "airfield_name": "Threshold Helipad",
+    "airfield_rental": true,
     "airfield_vtol_only": true,
     "district": "wasteland",
     "hangar_interior_zone": "zone_hangar_threshold",

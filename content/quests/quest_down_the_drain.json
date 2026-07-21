@@ -33,7 +33,7 @@
   "quest_type": "standard",
   "repeatable": 0,
   "rewards": {
-    "credits": 100,
+    "credits": 180,
     "flags": [
       {
         "flag": "grady_sewer_cleared",

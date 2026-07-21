@@ -380,6 +380,17 @@ export function vtolOnlyField(field) {
   return !!(f.airfield_vtol_only || f.charter_vtol_only);
 }
 
+// The airframes a field may sell or rent. SSOT for both the text desk
+// (acquisition.js `buy`/`rent`) and the hangar-bay lot (hangars.js) — they used to
+// run separate copies of this query and drifted, so a helipad's lot offered
+// fixed-wings whose Buy/Rent buttons the text path then refused.
+export async function acquirableTypes(field) {
+  const { rows } = await query(
+    `SELECT id, name, class, seats, cargo_capacity, fuel_type, price_buy, price_rent_hourly, takeoff_mode, hardpoints
+       FROM aircraft_types WHERE class <> 'wreck'${vtolOnlyField(field) ? " AND takeoff_mode = 'vtol'" : ''} ORDER BY price_buy`);
+  return rows;
+}
+
 // ── Live aircraft registry (in-memory; the aircraft owns its occupant set) ────
 export const liveAircraft = new Map();   // id -> { row, type, occupants:Set<pid>, pending, starving, hazard, persistCtr }
 
@@ -818,7 +829,10 @@ export function gaugePayload(live) {
     minimap: a.airborne && below ? getMinimapData(below.id, 3) : null,
     guide: (a.airborne && fuelPct < 30) ? nearestField(a.grid_x, a.grid_y) : null,
     // Parked: the terrain look of the field, for the out-the-canopy airport scene.
-    ground: a.airborne ? null : { theme: groundTheme(parkedZone), field: parkedZone?.flags?.airfield_name || parkedZone?.name || null },
+    // `helipad` swaps the out-the-canopy departure STRIP for a circle-H pad. Keyed
+    // off the same vtolOnlyField() the rosters use, so any field flagged
+    // airfield_vtol_only renders correctly without extra art data.
+    ground: a.airborne ? null : { theme: groundTheme(parkedZone), field: parkedZone?.flags?.airfield_name || parkedZone?.name || null, helipad: vtolOnlyField(parkedZone) },
     sky: skyState(),
   };
 }

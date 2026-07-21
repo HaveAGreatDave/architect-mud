@@ -93,17 +93,63 @@ for pre-existing drugs). Per-drug state lives in `player_drug_state` (`doses_in_
   (`flags.alcoholic`) is one shared drug — beer is a drug item linked to it; the bar drinks are laced
   consumables at per-drink `laced_potency` — so all drinks share one BAC pool, tolerance and
   alcohol-poisoning OD. A non-alcohol laced item just points `laced_drug` at any other drug.
+- **Route of administration** (`opts.route` — the verb that delivered the dose: `use`/`inject`/`eat`/
+  `drink`/`smoke`) — `useDrug()` owns the `ROUTES` table and multiplies `onset_seconds` by `route.onset`
+  and dose strength by `route.intensity`. Injecting collapses the come-up and hits harder; eating stretches
+  it and softens it. The accelerated routes (`inject`, `smoke`) are **gated on a drug flag**
+  (`flags.injectable`, `flags.smokeable`) and silently fall back to neutral otherwise, so **a drug with no
+  route flags behaves exactly as it did before this existed**. Route intensity feeds `intensityMult`
+  (effects + dose weight); batch potency stays separate in `potencyMult` so the "this batch is strong" tell
+  still reports the *cook*, not the needle. Every `cmdUse` caller passes its verb; `finishConsume` can't see
+  the original verb, so the `consume` plugin supplies `route` in `extraOpts` from its category.
 - **Tolerance** (`tolerance` block) — each dose raises `player_drug_state.tolerance`; it recovers lazily
   off `last_used_at`. Potency (locked into the active-drug entry) is `1 − tolerance × max_reduction`,
   scaling both phased buff magnitude and hallucination intensity.
-- **Overdose = death** — when `doses_in_system ≥ overdose_threshold` and `effects.overdose.lethal`,
-  `useDrug()` returns `overdose_death` and `cmdUse` runs the full `handlePlayerDeath` path (corpse + vat
-  respawn), clearing any active buff/trip. Non-lethal overdose keeps the legacy burst-penalty behaviour.
-  `tickDrugDecay()` decrements `doses_in_system` after `active_until`, so OD risk clears over time.
+- **Overdose = death** — the ceiling is **`overdose_threshold × (1 + tolerance × 1.5)`**, computed from the
+  tolerance carried *into* the dose (post-decay, pre-gain). Tolerance therefore buys real headroom — and
+  losing it takes that headroom away, which is the **relapse law**: a habit dose that was routine at peak
+  tolerance becomes lethal once time clean has burned the tolerance off. When `doses_in_system` reaches that
+  ceiling and `effects.overdose.lethal` is set, `useDrug()` returns `overdose_death` and `cmdUse` runs the
+  full `handlePlayerDeath` path (corpse + vat respawn), clearing any active buff/trip. Non-lethal overdose
+  keeps the legacy burst-penalty behaviour. `tickDrugDecayAll()` clears `doses_in_system` on a **half-life**
+  (sheds `CEIL(doses × 0.25)` per minute once past `active_until`, so a heavy load falls away fast and the
+  last trace still terminates at zero on the integer column) — not the old flat `−1`/min step.
 - **Addiction & withdrawal** — `addiction` accumulates per dose (`withdrawal.addiction_per_dose`, default
-  `addiction_chance`) and decays over time; ≥ 0.5 marks the player addicted. `tickWithdrawal()` (minute
+  the misleadingly-named `addiction_chance`, which is an **additive step, not a probability**) and decays
+  over time. Dependency runs on **hysteresis**: it latches at `addiction ≥ 0.5` but only releases below
+  `0.3`, so a player hovering at the line can't flicker in and out every tick. `tickWithdrawalAll()` (minute
   cadence) applies `withdrawal.mods` through the ledger once time-since-last-use exceeds
-  `withdrawal.onset_seconds`; re-dosing reverses it.
+  `withdrawal.onset_seconds`; re-dosing reverses it. The debuff is **scaled by a severity arc** rather than
+  snapping on flat — ramps from a floor of `0.25` to full over `ramp_seconds` (30 min), holds through
+  `peak_seconds` (2 h), then tapers over `taper_seconds` (6 h) back to the floor, which it never drops below
+  while still addicted. Per-drug overrides ride the `withdrawal` block. `player._withdrawalActive` is a
+  **Map** of `drugId → applied-mod signature` so an unchanged severity doesn't churn the ledger through a
+  reverse-and-reapply every minute.
+- **Spliced-compound identity** — every compound rides the same carrier row (`drug_compound`), so
+  `player_drug_state` is keyed on a **`stateKey`** (`opts.stateKey`, built by `compoundStateKey()` in
+  `commands/inventory.js` from the splice's `custom_data.sources`), not the drug id. Without it, doses,
+  tolerance and the mod ledger pooled across unrelated compounds — three doses of one could overdose you
+  on the first dose of another, and dosing B cancelled A's buffs. The same key names the ledger sources
+  (`drug:<stateKey>` / `withdrawal:<stateKey>`). Because a compound has no `drugs` row, its composed blob
+  is stashed in **`player_drug_state.effects`** at use time; the withdrawal tick resolves
+  `DRUG_CACHE[drug_id]?.effects || state.effects`, which is what stops a compound latching `is_addicted`
+  forever with no debuff and no message.
+- **Withdrawal drip** — `*_regen_per_sec` keys in `withdrawal.mods` are a per-second rate, not a ledger
+  buff, and are applied by `applyWithdrawalDrip()` over the minute tick (`rate × severity × 60`), clamped
+  to the stat's cap and floored at 0. They used to be passed to `applyMods`, which wrote a nonexistent
+  `sanity_regen_per_sec` field nobody read — so an authored withdrawal bleed did nothing.
+- **Session boundaries** — `activeDrugs` and `pendingOnsets` are memory-only while doses/tolerance are
+  persisted, so `clearActiveDrugBuffs(player)` reverses the ledger and drops both at logout **and** on
+  session replacement (`player.sessionReplaced`, emitted in `server/index.js` because a reconnect never
+  fires `player.logout`). It deliberately does **not** clear `doses_in_system` — that would make logging
+  out a free way to shed overdose risk; only death (`clearActiveDrugState`) does that. Deferred callbacks
+  that write a player must gate on `isLivePlayer(player)` (world.js), since a reconnect discards the old
+  object and a stale timer would otherwise persist frozen stats over the new session.
+  **Ledger invariant:** a cap can fall through *either* ledger path — reversing a buff or applying a debuff
+  — and [statmods.js](../server/engine/statmods.js) clamps the current value under it both ways (floored at
+  1, so the ledger can never kill). So a withdrawal that carries `hp_max: -25` costs **real HP**: your
+  ceiling drops and your current hp follows it down. Recovery restores the ceiling but **not** the hp —
+  the cost stays paid, and you regen back up from there.
 - **Appetite suppression** — a drug flagged `flags.smokeable` (cigarettes) is driven by the **smoking
   plugin** ([plugins/smoking/index.js](../plugins/smoking/index.js)) off the `player.drugUsed` event. On a
   smoke the plugin sets `player.appetiteSuppressedUntil` (ms); the hunger-decay line in `resourceTick`

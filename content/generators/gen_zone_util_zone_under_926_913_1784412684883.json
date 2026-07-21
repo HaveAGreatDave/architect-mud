@@ -1,0 +1,14 @@
+{
+  "capacity_kw": 5000,
+  "city_generator_id": "gen_zone_powerplantnew_1782069598190",
+  "connection_range": 0,
+  "flags": {},
+  "fuel_burn_rate": 0,
+  "fuel_remaining": 0,
+  "fuel_type": null,
+  "generator_type": "junction_box",
+  "id": "gen_zone_util_zone_under_926_913_1784412684883",
+  "name": "Drain Sump — Utility Room Junction Box",
+  "owner_id": null,
+  "zone_id": "zone_util_zone_under_926_913"
+}

@@ -1,0 +1,12 @@
+{
+  "addiction_chance": 0,
+  "description": "A spliced compound. Effects vary batch to batch.",
+  "duration_seconds": 300,
+  "effects": {},
+  "flags": {},
+  "id": "drug_compound",
+  "item_id": "item_compound",
+  "name": "hand-mixed compound",
+  "overdose_threshold": 3,
+  "withdrawal_effects": {}
+}

@@ -7,10 +7,11 @@
 // (docs/content-pipeline.md) — it is NOT carried by content:import — so it has
 // to be inserted directly. Idempotent: re-running just refreshes the config.
 //
-// The distinguishing config key is `textTable: true`: the gametable plugin
-// force-enables screen-reader text narration for anyone who sits (see
-// plugins/gametable/text-mode.js) and unlocks Margo's "old-school" dealer
-// quips (game-table.js OLD_SCHOOL_LINES).
+// The distinguishing config key is `textTable: true`: it makes the called-aloud
+// log game the OPENING DEFAULT for anyone who sits without a stored preference
+// (see plugins/gametable/text-mode.js), and unlocks Margo's "old-school" dealer
+// quips (game-table.js OLD_SCHOOL_LINES). It is a default, not a lock — any
+// player can flip to the visual felt with `visual` at any table.
 //
 //   local:  node scripts/seed-neonvig-oldschool-poker.mjs
 //   prod:   node --env-file=.env.prod scripts/seed-neonvig-oldschool-poker.mjs

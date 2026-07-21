@@ -4,8 +4,8 @@
   "id": "item_parcel_hot",
   "name": "a padded envelope",
   "tags": {
-    "description": "A slim padded envelope, flat enough to palm, heat-sealed along a scored seam. Thin, dense, and very much not legal.",
     "contraband": true,
+    "description": "A slim padded envelope, flat enough to palm, heat-sealed along a scored seam. Thin, dense, and very much not legal.",
     "misc": true
   },
   "type": "misc",

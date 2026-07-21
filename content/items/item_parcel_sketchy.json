@@ -4,8 +4,8 @@
   "id": "item_parcel_sketchy",
   "name": "an unmarked parcel",
   "tags": {
-    "description": "An unmarked parcel, taped a little too carefully, no docket. Don't ask what's inside.",
     "contraband": true,
+    "description": "An unmarked parcel, taped a little too carefully, no docket. Don't ask what's inside.",
     "misc": true
   },
   "type": "misc",

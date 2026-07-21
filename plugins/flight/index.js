@@ -27,7 +27,7 @@ import {
   pushHud, out, toOccupants, detach, takeoffDifficulty, landDifficulty,
   parkAt, crash, setHeading, getZone, getLivePlayer, sendToZone, sendToZoneExcept, sendToPlayer, setPosture,
   initFloat, initEngines, enginesAllStable, engineCount, syncEngineTemp,
-  ENGINE_IDLE, ENGINE_STABLE_BAND, toDeg, degToCardinal, bearingDeg, groundTheme,
+  ENGINE_IDLE, ENGINE_STABLE_BAND, toDeg, degToCardinal, bearingDeg, groundTheme, vtolOnlyField,
   isContinuous, reconcile, pushContext, contextPayload, bandFromAltitude, effLoadout,
   RENTAL_BILL_MS, rentalOpFee, fieldFor, nearestAirfield, listAirfields, runwayFor, airfieldForRunway, yachtFieldNear, isGroundRolling,
   isWalkableCabin, isCabinZone, boardCabin, lookPayload, pushWindowTo, closeHud,
@@ -706,7 +706,7 @@ async function cmdTakeoff(args, raw, player, broadcast) {
   sendToPlayer(player.id, {
     type: 'flight_takeoff', token, vtol: isVtol,
     skill: await effectiveSkill(player, 'piloting'), difficulty: takeoffDifficulty(live), deviceName: live.type.name,
-    airport: groundTheme(zone),
+    airport: groundTheme(zone), helipad: vtolOnlyField(zone),
   });
   broadcast(live.row.parked_zone_id, { type: 'zone_event', message: `The ${live.type.name} runs up its engine and ${isVtol ? 'lifts on its rotors' : 'begins its takeoff roll'}.` }, player.id);
   return { type: 'emote', message: isVtol
@@ -731,7 +731,7 @@ async function cmdLand(args, raw, player, broadcast) {
   sendToPlayer(player.id, {
     type: 'flight_land', token, emergency, vtol: isVtol,
     skill: await effectiveSkill(player, 'piloting'), difficulty: landDifficulty(live, emergency), deviceName: field.name,
-    airport: groundTheme(field),
+    airport: groundTheme(field), helipad: vtolOnlyField(field),
   });
   return { type: 'emote', message: emergency
     ? '<span class="text-red">DEAD STICK — you get one pass. Fly the glideslope down.</span>'
@@ -840,7 +840,7 @@ function sendFlightSim(player, live) {
     craftClass: live.type.class,
     livery: normalizeLivery(live.row.custom_data),   // paint-bay scheme the external chase model renders in
     deviceName: live.type.name,
-    airport: groundTheme(zone),
+    airport: groundTheme(zone), helipad: vtolOnlyField(zone),
     gx: live.row.grid_x, gy: live.row.grid_y, heading: toDeg(live.row.heading),
     runway: runwayFor(zone), // real departure runway from the map's centreline tiles (null = VTOL pad / no strip)
     engineOn: !!live.row.engine_on,
@@ -1458,7 +1458,8 @@ function serviceBits(field) {
   const stocks = fieldStocks(field);
   if (stocks.length) bits.push(`${svcLink('refuel', 'refuel')} <span class="text-dim">(${stocks.join('/')})</span>`);
   if (f.airfield_dealer) bits.push(svcLink('buy', 'buy'));
-  if (f.airfield_charter) bits.push(svcLink('rent', 'rent'), svcLink('charter', 'charter'));
+  if (f.airfield_rental) bits.push(svcLink('rent', 'rent'));
+  if (f.airfield_charter) bits.push(svcLink('charter', 'charter'));
   return `<span class="furniture-label">Services:</span> ${bits.join('   ·   ')}`;
 }
 

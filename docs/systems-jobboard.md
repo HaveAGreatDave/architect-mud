@@ -44,22 +44,25 @@ out of the current rotation automatically.
 
 ## The Franchise Strip (first board)
 
-`zone_city_west` — a safe hub one step off the spawn. Seeded by
-`scripts/add-jobboard-content.js`:
+`zone_district_919_904` (Ironside Street) — an open street tile two steps east and
+one south of the spawn facade. Originally seeded by `scripts/add-jobboard-content.js`
+against a `zone_city_west` that no longer exists; the live content is now the JSON
+under `content/` (the script is kept only as provenance).
 
-- **5 gig quests** (`quest_fs_meter/parcel/count/line/loop`), 12–35₵, repeatable,
-  visit-errands to existing neighbours (Loading Bay, Threshold, Rust Quarter,
-  Embassy). `The Loop` is two `visit` objectives with a `requires` gate.
-- **`board_franchise_strip`** — pool of all five, 3 rotate, every 6h.
+- **6 gig quests** (`quest_fs_meter/parcel/count/line/loop/haul`), 10–25₵, repeatable,
+  visit-errands out into the wider district. `The Loop` and `The Haul` chain several
+  `visit` objectives with `requires` gates. (Twelve more `quest_fs_*` quests exist in
+  `content/quests/` but are in no board pool.)
+- **`board_franchise_strip`** — pool of all six, 3 rotate, every 6h.
 - **`furn_fs_jobboard`** — the board itself (examine points you at `gigs`).
 - **Marta Kell** (`npc_fs_dispatcher`) — the dispatcher behind the wire mesh; her
   dialogue is the first **philosophical encounter** (below), and she reads you the
   postings (`OPEN_JOBBOARD` on her `work` node). She is **pinned to the strip**: no
   `work_zone_id` (a work zone would make her an autonomous vendor that commutes
-  "home"), `home_zone` set to `zone_city_west`, and an explicit stationary behaviour
+  "home"), `home_zone` set to `zone_district_919_904`, and an explicit stationary behaviour
   graph (occasional at-the-window flavour, no movement node) so `ensureBehaviourGraph`
   never auto-assigns her a walking default.
-- **Marta is also the greeter** — `zone_city_west` carries `flags.greeter` pointing at
+- **Marta is also the greeter** — `zone_district_919_904` carries `flags.greeter` pointing at
   her with 6 varied barks. A new player's first attempt to leave the Strip (before
   meeting her) is stopped once: she hollers ("you look desperate… check the board, come
   back to me when it's done"), sets `fs_marta_met`, and the next step is free.

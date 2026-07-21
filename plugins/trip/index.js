@@ -87,7 +87,11 @@ async function startTrip({ player, drug, potency, broadcast }) {
   if (!hallu) return;
   if (activeTrips.has(player.id)) endTrip(player.id, { reason: 'silent' });
 
-  const mode = hallu.mode === 'dreamzone' || hallu.mode === 'phantom' ? hallu.mode : 'overlay';
+  let mode = hallu.mode === 'dreamzone' || hallu.mode === 'phantom' ? hallu.mode : 'overlay';
+  // Resolve a missing dreamzone HERE, before the mode is announced. enterDreamzone
+  // also degrades, but it runs after trip_start has already gone out — so the client
+  // would get dreamzone treatment for what is actually an overlay trip.
+  if (mode === 'dreamzone' && !(hallu.dreamzone_id && getZone(hallu.dreamzone_id))) mode = 'overlay';
   const durationSec = hallu.duration_seconds || 120;
   const intensity = Math.max(0.1, Math.min(1, (hallu.intensity ?? 0.6) * (0.5 + 0.5 * (potency ?? 1))));
   const palette = hallu.palette || 'green';
@@ -179,7 +183,7 @@ function syncPhantom(playerId) {
     const dmg = state.phantomPrevHp - phantom.hp;
     state.phantomPrevHp = phantom.hp;
     player.hp = Math.max(0, player.hp - dmg);
-    query('UPDATE players SET hp=$1 WHERE id=$2', [player.hp, playerId]).catch(() => {});
+    query('UPDATE players SET hp=$1 WHERE id=$2', [player.hp, playerId]).catch(e => console.error('[trip] phantom-damage hp write failed for', playerId, e.message));
     sendToPlayer(playerId, { type: 'combat_incoming', message: '<span class="msg-combat">Something reaches you through the visions — pain, distant but real.</span>', player_update: { hp: player.hp, hp_max: player.hp_max } });
     if (player.hp <= 0) {
       endTrip(playerId, { reason: 'death' });
@@ -396,7 +400,7 @@ function endTrip(playerId, { reason } = {}) {
   // silently tearing down on logout.
   if (state.mode === 'dreamzone' && reason !== 'death' && reason !== 'silent' && player && player.current_zone !== state.realZone) {
     const dest = getZone(state.realZone) ? state.realZone : (player.anchor_zone || 'zone_start');
-    dispatchAction({ type: 'TELEPORT', actor: player, params: { zone_id: dest }, context: { broadcast: state.broadcast } }).catch(() => {});
+    dispatchAction({ type: 'TELEPORT', actor: player, params: { zone_id: dest }, context: { broadcast: state.broadcast } }).catch(e => console.error('[trip] failed to teleport player out of the dreamzone:', e.message));
   }
 
   if (reason !== 'silent' && player) {
@@ -419,7 +423,7 @@ on('player.logout', ({ id }) => {
   const state = activeTrips.get(id);
   if (!state) return;
   if (state.mode === 'dreamzone') {
-    query('UPDATE players SET current_zone=$1 WHERE id=$2', [state.realZone, id]).catch(() => {});
+    query('UPDATE players SET current_zone=$1 WHERE id=$2', [state.realZone, id]).catch(e => console.error('[trip] failed to restore real zone for', id, '- player may wake in the dreamzone:', e.message));
   }
   endTrip(id, { reason: 'silent' });
 });

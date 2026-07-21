@@ -108,10 +108,17 @@ async function cmdAcceptDeal(args, raw, player) {
       if (!rows.length || rows[0].quantity < 1) { failed = 'gone'; throw new Error('rollback'); }
       if (!(await adjustCredits(player, -offer.price, tx, 'dealing:trade'))) { failed = 'funds'; throw new Error('rollback'); }
       await adjustCredits(seller, offer.price, tx, 'dealing:trade');
-      if (rows[0].quantity <= 1) await tx('DELETE FROM player_inventory WHERE id=$1', [offer.invId]);
-      else await tx('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [offer.invId]);
+      const splitting = rows[0].quantity > 1;
+      if (splitting) await tx('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [offer.invId]);
+      else await tx('DELETE FROM player_inventory WHERE id=$1', [offer.invId]);
+      // `charges` describes ONE opened pack, not each unit of a stack. When the
+      // whole row moves, copying it is right. When we split a stack the seller
+      // keeps their row — and its charges — so copying them here would mint a
+      // second part-used pack out of nothing. The buyer gets a fresh one instead.
+      const cd = { ...(offer.cd || {}) };
+      if (splitting) delete cd.charges;
       await tx('INSERT INTO player_inventory (id, player_id, item_id, quantity, condition, custom_data) VALUES ($1,$2,$3,1,1.0,$4)',
-        [randomUUID(), player.id, offer.itemId, JSON.stringify(offer.cd || {})]);
+        [randomUUID(), player.id, offer.itemId, JSON.stringify(cd)]);
     });
   } catch {
     if (failed === 'gone') return { type: 'error', message: `${seller.handle} doesn't have it anymore.` };

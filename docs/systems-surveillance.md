@@ -166,6 +166,19 @@ Reuses TV rendering internals (ticker, SVG, off-air static) — the hub is "a TV
 - `wired=1`: taps `isZonePowered()` (reuse ATM/broadcast power map) → **blackouts blind the grid**,
   tying into the [Extreme Weather](systems-weather-extreme.md) blackout scar + EMP hero event.
 
+### Sticky-cam burnout (24h TTL) + remote self-destruct — *2026-07-21*
+
+- An unwired `sticky_cam` is a **burner**: `expireStickyCams()` (`schedule('10m')`, index.js) destroys
+  any whose `placed_at` is more than `STICKY_CAM_TTL_MS` (24 h) old, and pings the owner
+  (`⏻ BURNOUT — <name> at <zone>`). Wired tap cams are exempt (they're an installation, not an
+  adhesive). `plant` says so in its confirmation line; hub tiles carry `expiresIn` (minutes left)
+  and the tablet renders `⏻ 5h` / `⏻ 40m` next to the battery readout.
+- **Self-destruct:** the SPECTER app's focus pane has a confirm-gated *Self-Destruct* button →
+  tablet action `destruct` → `selfDestructDevice(player, deviceId)` (owner-checked). The unit is
+  **destroyed, not recovered** — no gear refund, unlike `retrieve` — and the room hears a pop.
+- Both paths go through one teardown helper, `destroyDevice(id)`: `security_devices` row +
+  its twin `furniture` row + the in-memory `cameraBuffers` entry.
+
 ## NPC police — evidence + dispatch
 
 - Police run a `security_networks` row (`is_police=1`) of city cams.

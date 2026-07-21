@@ -20,13 +20,17 @@ async function findDrug(targetStr, player) {
   return rows.length > 0;
 }
 
-async function use(args, raw, player, broadcast) {
+// The route is the verb: injecting collapses the come-up and hits harder than
+// swallowing the same dose. useDrug owns that law and quietly falls back to the
+// neutral route for a drug that isn't flagged injectable, so `inject` on a pill
+// still works — it just doesn't get the needle's speed.
+const useVia = (route) => async (args, raw, player, broadcast) => {
   const targetStr = args.join(' ');
   if (!(await findDrug(targetStr, player))) return undefined;
-  return cmdUse(targetStr, player, broadcast);
-}
+  return cmdUse(targetStr, player, broadcast, route);
+};
 
 export const specializedActions = [
-  { verb: 'use', requiredTag: 'drug', handler: use },
-  { verb: 'inject', requiredTag: 'drug', handler: use },
+  { verb: 'use', requiredTag: 'drug', handler: useVia('use') },
+  { verb: 'inject', requiredTag: 'drug', handler: useVia('inject') },
 ];

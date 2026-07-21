@@ -1,0 +1,23 @@
+{
+  "ambient_events": [],
+  "ambient_theme": null,
+  "audio_theme_id": null,
+  "bg_color": null,
+  "color": null,
+  "created_by": null,
+  "description": "There is no floor and there is no ceiling and yet you are standing. Fractal architecture unfolds in every direction, breathing, made of light that has weight. Vast machine-elves of chrome and stained glass turn to regard you without eyes. A sound like a cathedral being tuned rolls through your chest. You understand everything. You will remember none of it.",
+  "exits": {},
+  "flags": {
+    "is_dreamzone": true,
+    "is_interior": true
+  },
+  "grid_x": null,
+  "grid_y": null,
+  "grid_z": null,
+  "id": "zone_dream_threshold",
+  "map_id": "map_dream",
+  "marker": null,
+  "name": "The Threshold",
+  "parent_zone": null,
+  "updated_at": "1784637695"
+}

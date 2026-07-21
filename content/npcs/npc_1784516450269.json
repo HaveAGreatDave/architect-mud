@@ -163,6 +163,10 @@
   "dialogue_tree": {},
   "faction": null,
   "flags": {
+    "charter_pilot": {
+      "field": "zone_the_reach_870_1958",
+      "shift_start": 8
+    },
     "clothing_layers": [
       "a cracked leather flight jacket, patches picked off",
       "an oil-dark thermal henley",
@@ -181,50 +185,7 @@
   "studio_zone_id": null,
   "vendor_inventory": [],
   "vendor_restock_rate": 1,
-  "vendor_schedule": {
-    "fri": [
-      {
-        "from": 6,
-        "to": 20
-      }
-    ],
-    "mon": [
-      {
-        "from": 6,
-        "to": 20
-      }
-    ],
-    "sat": [
-      {
-        "from": 6,
-        "to": 20
-      }
-    ],
-    "sun": [
-      {
-        "from": 6,
-        "to": 20
-      }
-    ],
-    "thu": [
-      {
-        "from": 6,
-        "to": 20
-      }
-    ],
-    "tue": [
-      {
-        "from": 6,
-        "to": 20
-      }
-    ],
-    "wed": [
-      {
-        "from": 6,
-        "to": 20
-      }
-    ]
-  },
+  "vendor_schedule": {},
   "vendor_shop_name": null,
   "vendor_stock_size": 10,
   "wander_zones": [],

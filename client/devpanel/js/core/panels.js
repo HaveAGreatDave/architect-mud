@@ -128,7 +128,9 @@ const PANELS = {
     columns: [
       { key: 'name', label: 'Name' },
       { key: 'duration_seconds', label: 'Duration (s)' },
-      { key: 'addiction_chance', label: 'Addiction %', render: v => `${Math.round((v||0)*100)}%` },
+      // Not a probability — an additive step toward the 0.5 addiction threshold, so
+      // 0.6 means hooked on the first dose. Superseded by effects.withdrawal.addiction_per_dose.
+      { key: 'addiction_chance', label: 'Addiction/dose', render: v => (v || 0).toFixed(2) },
       { key: 'overdose_threshold', label: 'OD Threshold' },
     ],
     editForm: drugEditForm,

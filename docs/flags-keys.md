@@ -17,7 +17,8 @@ is silently inert, so grep before renaming anything below.
 
 | key | owner | meaning |
 |---|---|---|
-| `airfield_charter` | flight | zone offers charter flights |
+| `airfield_charter` | flight | an NPC charter pilot flies you somewhere (needs a `charter_pilot` NPC assigned to this field) |
+| `airfield_rental` | flight | self-fly rental desk (`rent`). **Independent of `airfield_charter`** — a field can offer the NPC ride without a hire counter (Buzzard Field) |
 | `charter_vtol_only` | flight | charter pad is VTOL Dragonfly-only, off-airfield drops, no rental desk (Echelon helipad) |
 | `airfield_vtol_only` | flight | helipad — buy/rent/charter restricted to VTOL/rotorcraft; fixed-wings hidden from every roster (Threshold Helipad) |
 | `yacht` / `echelon` | yacht | marks an Echelon zone (the yacht) |

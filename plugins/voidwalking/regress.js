@@ -9,6 +9,10 @@ import { _test as traces } from './traces.js';
 
 const GATE = 'zone_regress_voidgate';
 const NONVOID = 'zone_regress_nonvoid';
+const NEIGHBOUR = 'zone_regress_voidneighbour';
+const FILLER = 'zone_regress_voidfill';
+const WATER = 'zone_regress_voidwater';
+const FILLERS = [[2001, 1999], [2001, 2001], [2002, 2000]]; // box NEIGHBOUR in on n/s/e
 const VOIDKEY = 'region_coldwater';
 const mkZone = (id, name, extra = {}) => ({
   id, name, description: `${name}.`, flags: {}, exits: {},
@@ -23,11 +27,28 @@ export default async function regress({ run, check, getPlayer }) {
   const savedZone = player.current_zone;
 
   const prev = new Map();
-  for (const id of [GATE, NONVOID, REACH, EXODUS]) prev.set(id, world.zones.get(id));
-  world.zones.set(GATE, mkZone(GATE, 'Test Gate', { flags: { region_id: VOIDKEY }, grid_x: 900, grid_y: 900 }));
-  world.zones.set(NONVOID, mkZone(NONVOID, 'Nowhere', { grid_x: 900, grid_y: 900 })); // no region_id → not a void gate
-  world.zones.set(REACH, mkZone(REACH, 'The Reach', { grid_x: 900, grid_y: 1530 }));   // 630 tiles → total 7
-  world.zones.set(EXODUS, mkZone(EXODUS, 'Exodus', { grid_x: 1350, grid_y: 900 }));     // 450 tiles → total 5
+  const fixtureIds = [GATE, NONVOID, NEIGHBOUR, WATER, REACH, EXODUS, ...FILLERS.map((_, i) => `${FILLER}${i}`)];
+  for (const id of fixtureIds) prev.set(id, world.zones.get(id));
+  // Parked at 2000+ — well clear of real map_world content (x 863-955, y 896-995),
+  // so the isMapRim scan sees genuine emptiness around GATE. Offsets from GATE are
+  // what set limb length, so they're preserved verbatim from the old 900,900 origin.
+  world.zones.set(GATE, mkZone(GATE, 'Test Gate', { map_id: 'map_world', flags: { region_id: VOIDKEY }, grid_x: 2000, grid_y: 2000 }));
+  world.zones.set(NONVOID, mkZone(NONVOID, 'Nowhere', { map_id: 'map_world', grid_x: 2100, grid_y: 2000 })); // no region_id → not a void gate
+  world.zones.set(REACH, mkZone(REACH, 'The Reach', { map_id: 'map_world', grid_x: 2000, grid_y: 2630 }));   // 630 tiles → total 7
+  world.zones.set(EXODUS, mkZone(EXODUS, 'Exodus', { map_id: 'map_world', grid_x: 2450, grid_y: 2000 }));     // 450 tiles → total 5
+  // A real neighbour east of GATE with no exit joining them: the 483-case that used
+  // to open the muster and must now stay an ordinary wall. Boxed in on its other
+  // three sides by fillers so it is genuinely INLAND — a tile with no rim at all.
+  world.zones.set(NEIGHBOUR, mkZone(NEIGHBOUR, 'Next Door', { map_id: 'map_world', flags: { region_id: VOIDKEY }, grid_x: 2001, grid_y: 2000 }));
+  // Open water on the map's edge: 109 real rim tiles are basin (the whole y=896 row),
+  // and you don't walk into the waste off a tile you're swimming in.
+  world.zones.set(WATER, mkZone(WATER, 'Open Basin', { map_id: 'map_world', flags: { region_id: VOIDKEY, terrain: 'water' }, grid_x: 2000, grid_y: 2005 }));
+  FILLERS.forEach(([fx, fy], i) =>
+    world.zones.set(`${FILLER}${i}`, mkZone(`${FILLER}${i}`, 'Filler', { map_id: 'map_world', flags: { region_id: VOIDKEY }, grid_x: fx, grid_y: fy })));
+
+  // The rim index is coordinate-cached with a TTL; the fixtures above were injected
+  // after any earlier build, so force a rebuild or NEIGHBOUR reads as empty space.
+  _test.invalidateRimIndex();
 
   const wipe = () => {
     for (const c of _test.crossings.values()) for (const id of c.roomSet) world.zones.delete(id);
@@ -36,13 +57,13 @@ export default async function regress({ run, check, getPlayer }) {
   };
 
   _test.setEncounters(false); // keep movement/traversal tests deterministic
-  // Solo helper: voidwalk opens the muster, then `ready` (all ready → launch).
-  const launch = async () => { await run('voidwalk'); return run('ready'); };
+  // Solo helper: step off the rim to open the muster, then `ready` (all ready → launch).
+  const launch = async () => { player._lastStepAt = 0; await run('north'); return run('ready'); };
   try {
-    // ── The muster: voidwalk opens staging; ready launches ──────────────────────
+    // ── The muster: stepping off the rim opens staging; ready launches ─────────
     player.current_zone = GATE; player._lastStepAt = 0;
-    const stage = await run('voidwalk');
-    check('voidwalk opens the muster overlay instead of launching',
+    const stage = await run('north'); // (2000,1999) holds no tile → the rim
+    check('stepping off the rim opens the muster overlay instead of launching',
       stage?.type === 'voidwalk_staging' && !player._crossing, `${stage?.type} crossing=${!!player._crossing}`);
     check('the muster carries kit + party + lore', Array.isArray(stage?.inventory) && Array.isArray(stage?.party) && !!stage?.lore && stage?.solo === true, `party=${stage?.party?.length}`);
     await run('ready'); // solo → all ready → launch
@@ -87,12 +108,44 @@ export default async function regress({ run, check, getPlayer }) {
     check('readying from the walk-off muster launches the crossing',
       !!player._crossing && player.current_zone === _test.crossings.get(player._crossing.instanceId).entry, `zone=${player.current_zone}`);
     wipe();
-    // Any unexited edge of a void-region opens the muster (not just one direction).
+    // Any rim direction opens the muster (not just one).
     player.current_zone = GATE; player._lastStepAt = 0;
-    const north = await run('north'); // GATE has no north exit either → still the void
-    check('any edge of a void-region opens the muster', north?.type === 'voidwalk_staging' && !player._crossing, `${north?.type}`);
+    const west = await run('west'); // (1999,2000) holds no tile → also the rim
+    check('any rim direction of a void-region opens the muster', west?.type === 'voidwalk_staging' && !player._crossing, `${west?.type}`);
     await run('voidwalk cancel'); // close the muster before the next case
-    // Off the map in a NON-void region is a plain wall.
+
+    // The rim is missing TILES, not missing exits. GATE has a real neighbour east
+    // with no exit joining them — that must stay an ordinary wall, or every facade
+    // and water margin in the world becomes a void gate.
+    player.current_zone = GATE; player._lastStepAt = 0;
+    const notRim = await run('east');
+    check('an unexited neighbour is a wall, not the rim',
+      notRim?.type === 'error' && /no exit/i.test(notRim?.message || ''), `${notRim?.type}: ${notRim?.message}`);
+
+    // `voidwalk` is no longer an entry point — walking out of the world is the only way in.
+    player.current_zone = GATE; player._lastStepAt = 0;
+    const verb = await run('voidwalk');
+    check('the voidwalk verb no longer opens the muster',
+      verb?.type !== 'voidwalk_staging' && !player._crossing && !_test.stagings.size, `${verb?.type}`);
+
+    // ── The rim announces itself before you can walk off it ───────────────────
+    const rimLine = await _test.describeRim(getZone(GATE));
+    check('a rim tile says where the ground runs out',
+      /ground runs out/.test(rimLine || '') && /north, south and west/.test(rimLine || ''), rimLine?.slice(0, 90));
+    check('the rim line names only open directions (east holds a real neighbour)',
+      !/east/.test(rimLine || ''), rimLine?.slice(0, 90));
+    check('an inland tile gets no rim line at all',
+      await _test.describeRim(getZone(NEIGHBOUR)) === undefined, `${await _test.describeRim(getZone(NEIGHBOUR))}`);
+    check('a rim with no void behind it says nothing', await _test.describeRim(getZone(NONVOID)) === undefined, 'nonvoid');
+    check('a coordless interior gets no rim line', await _test.describeRim({ id: 'x', map_id: 'map_interior_x' }) === undefined, 'interior');
+    check('open water has no rim in any direction', _test.rimDirs(getZone(WATER)).length === 0, `${_test.rimDirs(getZone(WATER))}`);
+    check('a water edge gets no rim line', await _test.describeRim(getZone(WATER)) === undefined, 'water');
+    player.current_zone = WATER; player._lastStepAt = 0;
+    const sea = await run('north'); // nothing north of it, but it is basin — not the waste
+    check('walking off a water edge is a wall, not the void',
+      sea?.type === 'error' && /no exit/i.test(sea?.message || ''), `${sea?.type}: ${sea?.message}`);
+
+    // Off the rim in a NON-void region is a plain wall.
     player.current_zone = NONVOID; player._lastStepAt = 0;
     const wall = await run('north');
     check('walking off a non-void region is still a wall', wall?.type === 'error' && /no exit/i.test(wall?.message || ''), `${wall?.type}: ${wall?.message}`);
@@ -131,7 +184,7 @@ export default async function regress({ run, check, getPlayer }) {
     setLivePlayer(BOB, bob); addPlayerToZone(BOB, GATE);
     try {
       player.current_zone = GATE; player._lastStepAt = 0;
-      await run('voidwalk'); // musters leader + Bob (Bob follows, co-present)
+      await run('north'); // leader steps off the rim → musters leader + Bob (Bob follows, co-present)
       check('the muster stages the whole party', _test.stagings.get(_test.playerStaging.get(player.id))?.members.length === 2, JSON.stringify([..._test.stagings.values()].map(s => s.members)));
       await run('voidwalk say hold up'); // leader posts to the private party comms
       const pstg = _test.stagings.get(_test.playerStaging.get(player.id));

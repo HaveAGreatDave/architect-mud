@@ -1,0 +1,16 @@
+{
+  "broadcast_id": "bc_1783897506108",
+  "channel_id": "ch_7_1782953079593",
+  "conditions": {
+    "npc_staff": [
+      "npc_john_akerson",
+      "npc_graham_mercer",
+      "npc_guest"
+    ]
+  },
+  "duration_override": 10800,
+  "id": "c38c65e4-805e-44be-a9a0-50569d9764e6",
+  "priority": 0,
+  "slot_type": "broadcast",
+  "start_time": 75600
+}

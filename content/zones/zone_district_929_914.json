@@ -5,7 +5,7 @@
   "bg_color": "#2a1c16",
   "color": "#b5744a",
   "created_by": "wildlands-expand",
-  "description": "Broken mesa shelves step away in ochre and iron-red, cut by dry washes where the wind funnels grit against your teeth.",
+  "description": "Broken mesa shelves step away in ochre and iron-red, cut by dry washes where the wind funnels grit against your teeth. One shelf has been quarried back to bare gravel, the cut face crumbling in slow steps where picks bit it and nobody came back.",
   "exits": {
     "east": "zone_district_930_914",
     "north": "zone_district_929_913",
@@ -14,6 +14,7 @@
   },
   "flags": {
     "district": "wilds",
+    "mining_table_id": "mine_gravel_pit",
     "planner": "bp_district",
     "radiation": 26,
     "region_id": "region_coldwater",

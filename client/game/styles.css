@@ -7687,6 +7687,76 @@ body.fsim-external #look-resize-handle { display: none; }
 @keyframes gd-in { from { opacity: 0; } to { opacity: 1; } }
 
 /* ── TV guide sub-screen ─────────────────────────────────────────────────────── */
+/* Standings toggle — same chassis button as the TV guide, but hidden until a sports
+   broadcast's first score-bug reveals it (.avail), lit while the panel is open (.on). */
+#tv-standings-btn {
+	background: #0c100e;
+	border: 2px solid #1e2e28;
+	color: #2e4840;
+	font-family: inherit;
+	font-size: 13px;
+	line-height: 1;
+	cursor: pointer;
+	padding: 0;
+	border-radius: 50%;
+	width: 28px;
+	height: 28px;
+	display: none;
+	align-items: center;
+	justify-content: center;
+	transition: color 0.2s, border-color 0.2s, box-shadow 0.2s, background 0.2s;
+}
+#tv-standings-btn.avail { display: flex; }
+#tv-standings-btn:hover {
+	color: var(--tv-header-color, #37d67a);
+	border-color: var(--tv-header-color, #2e6a44);
+}
+#tv-standings-btn.on {
+	color: var(--tv-header-color, #37d67a);
+	border-color: var(--tv-header-color, #37d67a);
+	box-shadow: 0 0 10px rgba(55, 214, 122, 0.4), inset 0 0 5px rgba(55, 214, 122, 0.15);
+}
+
+/* Standings PANEL — the on-demand league table. Its own overlay (same placement as
+   the TV guide) rather than the corner bug, so the player-held table never fights the
+   server-thrown transient one for the same corner. */
+#tv-standings-panel {
+	position: absolute;
+	inset: 45px 0 72px 0;
+	z-index: 48;
+	display: none;
+	flex-direction: column;
+	background:
+		repeating-linear-gradient(0deg, transparent 0 2px, rgba(0,0,0,0.10) 2px 3px),
+		radial-gradient(ellipse at 50% -10%, rgba(0, 60, 45, 0.35), transparent 60%),
+		var(--tv-bg, #080c10);
+	color: var(--tv-text, #b8d4c8);
+	font-family: var(--font-mono);
+	padding: 8px 10px;
+	overflow: hidden;
+	animation: gd-in 0.25s ease-out;
+}
+#tv-standings-panel.on { display: flex; }
+
+/* Standings-panel rows. Bare classes (no id scope) so the Tablet TV app's viewport
+   gets the identical table — same rule the rest of the sports layers follow. */
+.tv-stp-list { overflow-y: auto; flex: 1; min-height: 0; }
+.tv-stp-row {
+	display: flex; align-items: center; gap: 8px;
+	padding: 3px 4px; font-size: 11px;
+	border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.tv-stp-row.lead { color: var(--tv-header-color, #37d67a); font-weight: bold; }
+.tv-stp-hdr {
+	font-size: 9px; letter-spacing: 1px; opacity: 0.65;
+	border-bottom: 1px solid var(--tv-border, #1e2e28); margin-bottom: 2px;
+}
+.tv-stp-rank { width: 1.6em; text-align: right; opacity: 0.7; flex: none; }
+.tv-stp-team { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tv-stp-rec  { width: 4.2em; text-align: right; flex: none; font-variant-numeric: tabular-nums; }
+.tv-stp-pct  { width: 3.2em; text-align: right; flex: none; opacity: 0.8; font-variant-numeric: tabular-nums; }
+.tv-stp-rd   { width: 3.2em; text-align: right; flex: none; opacity: 0.8; font-variant-numeric: tabular-nums; }
+
 #tv-schedule {
 	position: absolute;
 	inset: 45px 0 72px 0;

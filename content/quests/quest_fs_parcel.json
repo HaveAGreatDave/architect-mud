@@ -50,7 +50,14 @@
   "quest_type": "standard",
   "repeatable": 1,
   "rewards": {
-    "credits": 15
+    "credits": 15,
+    "flags": [
+      {
+        "flag": "fs_gig_done",
+        "scope": "player",
+        "value": "true"
+      }
+    ]
   },
   "updated_at": "1783369742"
 }

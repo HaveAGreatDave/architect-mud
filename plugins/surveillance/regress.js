@@ -1,7 +1,7 @@
 // Surveillance plugin regression suite — run by tests/regress.js (never loaded
 // in production). Verb routing plus the crime→star registry defaults/cap.
 import { CRIME_DEFAULTS, getCrimeStars, getCrimeList } from '../../server/engine/crimes.js';
-import { visFactorForCategory, isSpecterInstalled, cameraBufferLines, microreelList, deleteMicroreel, isWitnessed, witnessRoll, __refreshRecordingCams, __captureZoneLine, __cameraFrames, __cameraFull } from './index.js';
+import { visFactorForCategory, isSpecterInstalled, cameraBufferLines, microreelList, deleteMicroreel, isWitnessed, witnessRoll, __refreshRecordingCams, __captureZoneLine, __cameraFrames, __cameraFull, selfDestructDevice, __expireStickyCams } from './index.js';
 import { query } from '../../server/models/db.js';
 import { setFlag } from '../../server/engine/flags.js';
 import { reloadItem } from '../../server/engine/items-cache.js';
@@ -171,6 +171,46 @@ export default async function regress({ run, check, getPlayer }) {
   check('destroyed reel is gone from the owner reel list', reelsAfterDelete.length === reelsAfterWipe.length - 1, `before=${reelsAfterWipe.length} after=${reelsAfterDelete.length}`);
 
   await query('DELETE FROM security_clips WHERE owner_id=$1', [p.id]);
+
+  // ── Self-destruct + the 24h sticky-cam burnout ──────────────────────────────
+  // The fixture cam is still planted (device + furniture rows) with placed_at=0,
+  // i.e. long past the TTL. First: a non-owner can't blow it.
+  const notMineKill = await selfDestructDevice({ id: 'someone_else', current_zone: CAM_ZONE }, CAM_ID);
+  check('selfDestructDevice refuses a non-owner', notMineKill?.ok === false, JSON.stringify(notMineKill));
+  const killed = await selfDestructDevice(p, CAM_ID);
+  check('selfDestructDevice kills the owner device', killed?.ok === true, JSON.stringify(killed));
+  const { rows: afterKill } = await query('SELECT 1 FROM security_devices WHERE id=$1', [CAM_ID]);
+  const { rows: furnAfterKill } = await query('SELECT 1 FROM furniture WHERE id=$1', [CAM_ID]);
+  check('self-destruct removes both device and furniture rows', afterKill.length === 0 && furnAfterKill.length === 0,
+    `dev=${afterKill.length} furn=${furnAfterKill.length}`);
+
+  // Two fresh cams: one planted a day ago (expired), one planted now (safe).
+  const OLD_ID = 'secdev_regress_old', NEW_ID = 'secdev_regress_new';
+  const nowSec = Math.floor(Date.now() / 1000);
+  for (const [id, placed] of [[OLD_ID, nowSec - 25 * 3600], [NEW_ID, nowSec]]) {
+    await query('DELETE FROM security_devices WHERE id=$1', [id]);
+    await deleteFurniture(id);
+    await query(
+      `INSERT INTO security_devices (id, owner_id, device_kind, zone_id, direction, tier,
+         concealment, battery, battery_max, wired, is_damaged, is_recording, hack_difficulty, placed_at)
+       VALUES ($1,$2,'sticky_cam',$3,'north',1,5,100,864,0,0,0,5,$4)`, [id, p.id, CAM_ZONE, placed]);
+    await insertFurniture({
+      id, zone_id: CAM_ZONE, name: 'Regress TTL Cam', description: '',
+      object_type: 'security_device',
+      flags: JSON.stringify({ security_device: true, device_id: id, concealed: true }),
+      origin: 'player', owner_id: p.id,
+    });
+  }
+  await __expireStickyCams();
+  const { rows: live } = await query('SELECT id FROM security_devices WHERE id = ANY($1::text[])', [[OLD_ID, NEW_ID]]);
+  check('sticky cam past 24h is auto-destroyed', !live.some(r => r.id === OLD_ID), JSON.stringify(live));
+  check('sticky cam inside 24h survives the sweep', live.some(r => r.id === NEW_ID), JSON.stringify(live));
+  const { rows: oldFurn } = await query('SELECT 1 FROM furniture WHERE id=$1', [OLD_ID]);
+  check('burnout takes the furniture row with it', oldFurn.length === 0, `furn=${oldFurn.length}`);
+
+  await query('DELETE FROM security_devices WHERE id = ANY($1::text[])', [[OLD_ID, NEW_ID]]);
+  await deleteFurniture(OLD_ID);
+  await deleteFurniture(NEW_ID);
   await deleteFurniture(CAM_ID);
   await query('DELETE FROM security_devices WHERE id=$1', [CAM_ID]);
 }

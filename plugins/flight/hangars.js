@@ -10,7 +10,7 @@ import { skillCheck, effectiveSkill, awardSkillUse } from '../../server/engine/s
 import { liveAircraft, persist, out, effStats, fieldFor as fieldOf,
   SEAT_KG, isConfigurable, loadoutBudget, effLoadout, sendToPlayer, skyState, inHangarInterior,
   FLIGHT_PACE, tuneRange, installedKits, KITS, perfAxes, parkAt, nearestAirfield, getZone,
-  detach, getLivePlayer, resetSurfaces } from './state.js';
+  detach, getLivePlayer, resetSurfaces, acquirableTypes } from './state.js';
 import { normalizeLivery, sanitizeLivery, signatureScore, describeExterior,
   paintCost, isPaintable, readSchemes, schemeOf,
   PATTERNS, FINISHES, UPHOLSTERY, DECALS, PRESETS } from './livery.js';
@@ -168,16 +168,21 @@ export async function pushHangarBay(player, selectId, opts = {}) {
   // held for them; clicking it embarks instead of opening the booking dialog.
   const parked = charterParkedAt(field.id);
   const charterWaiting = parked && parked.chartererId === player.id ? { destName: parked.destName } : null;
-  // `airfield_charter` normally means BOTH an NPC charter AND a self-fly rental desk.
-  // A VTOL-only charter pad (the Echelon) offers the NPC Dragonfly ride but NOT a full
-  // rental desk of every airframe — so the buy/rent screen stays closed there.
-  const canBuy = !!field.flags.airfield_dealer, canRent = !!field.flags.airfield_charter && !field.flags.charter_vtol_only;
+  // Three independent desks: `airfield_dealer` sells, `airfield_rental` rents
+  // self-flown airframes, `airfield_charter` books an NPC-piloted ride. A field can
+  // have any combination — the Echelon pad and Buzzard Field both charter without
+  // renting. (Rental used to be implied by `airfield_charter`, which made a
+  // charter desk impossible to open without also opening a rental counter.)
+  const canBuy = !!field.flags.airfield_dealer, canRent = !!field.flags.airfield_rental;
   // ONE lot per airframe carrying BOTH prices — the client shows a single wireframe with a
   // Buy and a Rent button under it (each gated on afford + licence), instead of separate
   // buy/rent sections. Buy/Rent buttons still show only where the field offers that desk.
   let lots = [];
   if (canBuy || canRent) {
-    const { rows: types } = await query("SELECT id, name, class, seats, fuel_type, price_buy, price_rent_hourly FROM aircraft_types WHERE class <> 'wreck' ORDER BY price_buy");
+    // Shared roster with the text desk — a helipad has no runway, so it offers
+    // VTOL only. This lot used to run its own unfiltered query, which showed
+    // fixed-wings whose Buy/Rent buttons the server then refused.
+    const types = await acquirableTypes(field);
     lots = types.map(t => ({ id: t.id, name: t.name, class: t.class, seats: t.seats, fuel: t.fuel_type, priceBuy: t.price_buy, priceRent: t.price_rent_hourly }));
   }
   // Licence gate for the acquisition buttons (admins/devs are auto-rated + bypass the price).

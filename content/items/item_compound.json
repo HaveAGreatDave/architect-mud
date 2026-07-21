@@ -1,0 +1,12 @@
+{
+  "description": "A hand-mixed compound in an unlabelled vial. Whatever it does, only its maker knows.",
+  "flags": {},
+  "id": "item_compound",
+  "name": "hand-mixed compound",
+  "tags": {
+    "drug": true
+  },
+  "type": "consumable",
+  "value": 200,
+  "weight": 15
+}

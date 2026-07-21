@@ -10,8 +10,10 @@
     "onset_seconds": 3,
     "phases": {
       "comedown_message": "The jitter drains out of you.",
+      "comedown_scale": 0.5,
       "comedown_seconds": 50,
       "comeup_message": "Your hands stop feeling like yours — everything speeds up.",
+      "comeup_scale": 0.5,
       "comeup_seconds": 10,
       "peak_mods": {
         "stat_reflexes": 2

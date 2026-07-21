@@ -25,6 +25,7 @@
     "west": "zone_the_reach_869_1958"
   },
   "flags": {
+    "airfield_charter": true,
     "airfield_id": "buzzard_field",
     "airfield_lawless": true,
     "airfield_name": "Buzzard Field",

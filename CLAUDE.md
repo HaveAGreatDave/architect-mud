@@ -98,6 +98,12 @@ scoped to this repo's own entrypoints (`server/index.js`, `tests/regress.js`, `s
 never runs in production (`npm start` has no pre-hook). If a sweep can't reach it, wait ~90 s. Player
 stat columns are `stat_brawn`/`stat_reflexes`/… (not `brawn`).
 
+`pretest:regress` also runs **`content:lint`** (and a `precontent:import` hook runs it before any
+`npm run content:import`), so a hand-authored content file carrying a runtime column — an
+`excludeColumns` key like `zones.stains` — fails locally instead of surviving to the CI deploy gate.
+Both mirror the CI order (lint → import → regress). `content:export` already strips those columns, so
+only hand-written files can trip this.
+
 ## VINE Graph Workflow
 
 When asked to create or update an NPC behaviour graph, dialogue tree, or enemy behaviour graph:
