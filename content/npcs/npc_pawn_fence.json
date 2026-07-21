@@ -24,6 +24,20 @@
       "options": [],
       "text": "\"Mind the grille.\" His eye is already back on the loupe, and on you."
     },
+    "gossip": {
+      "actions": [
+        {
+          "action": "GOSSIP_TELL"
+        }
+      ],
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"I hear a great deal. I retain almost none of it — that's a service I provide.\" The loupe turns over in his fingers. \"But some things stick to a man like lint.\""
+    },
     "root": {
       "options": [
         {
@@ -41,6 +55,10 @@
         {
           "label": "Just browsing.",
           "next": "bye"
+        },
+        {
+          "label": "You must hear things, back here.",
+          "next": "gossip"
         }
       ],
       "text": "Hock doesn't look up from the loupe. \"Buying or selling? — no, don't tell me, I can price a man from the door.\" He sets the loupe down. \"I buy what you've stopped needing, I sell what someone else stopped needing, and I never once ask which of those it is. What's it to be.\""

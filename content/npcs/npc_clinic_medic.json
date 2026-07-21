@@ -11,6 +11,20 @@
       "options": [],
       "text": "\"Stay whole if you can. Come here first if you can't.\" She's already washing her hands."
     },
+    "gossip": {
+      "actions": [
+        {
+          "action": "GOSSIP_TELL"
+        }
+      ],
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"People talk on my table. Pain loosens a jaw faster than drink does.\" She snaps a glove off. \"I don't repeat what a patient tells me. What the waiting room says is a different ledger.\""
+    },
     "noask": {
       "options": [
         {
@@ -41,6 +55,10 @@
         {
           "label": "Just checking in.",
           "next": "bye"
+        },
+        {
+          "label": "You must hear things, patching people up.",
+          "next": "gossip"
         }
       ],
       "text": "Sister Adler looks up, already assessing. \"Walk-in. Good — the ones who get carried in are a worse day for everyone.\" She wipes her hands. \"We patch, we don't ask. You want supplies to take with you, or are you bleeding on my vinyl right now?\""

@@ -402,17 +402,22 @@ const lastPower = new Map();
 // (dealer.passphrase action), so gossip never leaks a phrase that's already
 // expired. Falls back to the raw pool if the dealer plugin isn't loaded.
 async function seedPassphraseGossip() {
-  let dealer = null;
+  const dealers = [];
   for (const npc of world.npcs.values()) {
-    if (npc?.npc_type === 'dealer' && npc.flags?.covert && Array.isArray(npc.flags?.passphrases) && npc.flags.passphrases.length) { dealer = npc; break; }
+    if (npc?.npc_type === 'dealer' && npc.flags?.covert && Array.isArray(npc.flags?.passphrases) && npc.flags.passphrases.length) dealers.push(npc);
   }
-  if (!dealer) return;
+  if (!dealers.length) return;
+  // One crew per seed, picked at random — every covert dealer is reachable this
+  // way, but the pool still fills at the same rate as when only one could seed.
+  const dealer = dealers[Math.floor(Math.random() * dealers.length)];
   const rot = await dispatchAction({ type: 'dealer.passphrase', params: { npc: dealer } });
   const phrase = rot?.active || dealer.flags.passphrases[0];
   if (!phrase) return;
-  const dz = dealer.zone_id;
+  // zone_id is runtime-only (content excludes it), so a dealer who hasn't moved
+  // yet this boot is still sitting at home — that's the beat worth naming anyway.
+  const dz = dealer.zone_id || dealer.home_zone;
   add('dealer_phrase', {
-    zoneId: dz, subjectName: 'the shadow dealer', coalesceKey: 'dealer_phrase', askOnly: true,
+    zoneId: dz, subjectName: 'the shadow dealer', coalesceKey: `dealer_phrase:${dealer.id}`, askOnly: true,
     vars: { phrase },
     lead: dz ? { kind: 'place', zoneId: dz, hint: `the figure works after dark around ${zn(dz)}` } : null,
   });

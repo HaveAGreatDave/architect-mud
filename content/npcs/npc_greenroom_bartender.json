@@ -11,6 +11,20 @@
       "options": [],
       "text": "\"Tab's open. So's the door.\" She's already reading the next face in the mirror."
     },
+    "gossip": {
+      "actions": [
+        {
+          "action": "GOSSIP_TELL"
+        }
+      ],
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "Sable keeps polishing. The glass doesn't move, and neither does her voice. \"Everyone talks at a rail. It's the mirror — they forget I'm reading it too.\""
+    },
     "guest": {
       "options": [
         {
@@ -54,6 +68,10 @@
         {
           "label": "Nothing for now.",
           "next": "bye"
+        },
+        {
+          "label": "Quiet night. Anything moving out there?",
+          "next": "gossip"
         }
       ],
       "text": "\"Guest or crew?\" Sable doesn't look up from the glass she's polishing. \"Doesn't matter. Everyone drinks the same in here — like the couch is still warm and the mics are still hot.\" She sets the glass down. \"What'll it be?\""

@@ -66,6 +66,20 @@
   "chitchat": [],
   "description": "A wall of a man in a black bomber jacket that gave up trying to contain his shoulders. A coiled earpiece wire disappears into his collar; steel-toed boots are planted like he was poured into the floor. He isn't looking at anything in particular, which somehow means he's looking at everything — and his hands, big and still at his sides, have obviously done this work a long time.",
   "dialogue_tree": {
+    "gossip": {
+      "actions": [
+        {
+          "action": "GOSSIP_TELL"
+        }
+      ],
+      "options": [
+        {
+          "next": "rules",
+          "text": "\"What are the rules again?\""
+        }
+      ],
+      "text": "The folded arms don't move. \"Not my floor, not my problem. I don't watch the street.\" A pause exactly long enough to be a decision. \"But I stand out here four nights a week, and I've got eyes.\""
+    },
     "root": {
       "options": [
         {
@@ -87,6 +101,10 @@
             }
           ],
           "text": "\"Nothing. Just looking.\""
+        },
+        {
+          "next": "gossip",
+          "text": "\"Anything I should know about this block?\""
         }
       ],
       "text": "A slab of a man parked at the edge of the light, arms folded, earpiece curling down behind a collar built like a doorframe. He watches the room the way a camera does — no heat, no hurry, everything. When you slow down his eyes find you and stay there. \"Something you need.\" Not really a question."

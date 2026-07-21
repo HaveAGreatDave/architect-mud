@@ -11,6 +11,20 @@
       "options": [],
       "text": "\"Next.\" The board chimes and drops a price the second you turn to leave."
     },
+    "gossip": {
+      "actions": [
+        {
+          "action": "GOSSIP_TELL"
+        }
+      ],
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "Neve finally stops wiping the wand. \"Do you know how much people say in front of someone holding a steam wand? Like I'm furniture.\" Briefly, she is interested in you. \"Fine. Something I heard.\""
+    },
     "prices": {
       "options": [
         {
@@ -41,6 +55,10 @@
         {
           "label": "I'm good.",
           "next": "bye"
+        },
+        {
+          "label": "Hear anything worth hearing?",
+          "next": "gossip"
         }
       ],
       "text": "Neve doesn't stop wiping the wand. \"Welcome to Jitter, prices as marked, marks as moody.\" She nods at the flickering board. \"Synthpresso if you mean it, Jolt if you've given up on sleep entirely, drip if you're boring. Go.\""

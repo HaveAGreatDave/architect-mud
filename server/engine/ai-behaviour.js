@@ -86,18 +86,23 @@ export function isVendorWorkTime(npc, env) {
 }
 
 // True when a scheduled vendor is currently off-shift and should refuse to trade.
-// Vendors with no `vendor_schedule` trade around the clock (returns false), so
-// covert dealers and the like are never gated. Reads the live game clock so a
-// manual clock jump takes effect immediately.
+// Vendors with no `vendor_schedule` trade around the clock (returns false).
+// Covert dealers are exempt outright: their trading window is owned by the dealer
+// plugin's deal_from/deal_to (which wraps midnight, unlike vendor_schedule), so a
+// schedule left on one would silently close the shop mid-window. Reads the live
+// game clock so a manual clock jump takes effect immediately.
 export function isVendorClosed(npc) {
+  if (npc?.flags?.covert) return false;
   const schedule = npc?.vendor_schedule;
   if (!schedule || !Object.keys(schedule).length) return false;
   return !isVendorWorkTime(npc, getEnvironmentState()).working;
 }
 
 // The line an off-the-clock vendor gives when a player tries to shop/buy/sell.
+// Covert sellers don't do customer service hours — they just stop knowing you.
 export function vendorClosedLine(npc) {
   const name = npc?.name || 'The vendor';
+  if (npc?.flags?.covert) return `${name} looks straight through you. "Wrong time. Walk on."`;
   return `${name} shakes their head. "I'm off the clock right now — come back during business hours."`;
 }
 

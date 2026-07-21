@@ -115,78 +115,7 @@
     }
   ],
   "vendor_restock_rate": 1,
-  "vendor_schedule": {
-    "fri": [
-      {
-        "from": 0,
-        "to": 4
-      },
-      {
-        "from": 20,
-        "to": 24
-      }
-    ],
-    "mon": [
-      {
-        "from": 0,
-        "to": 4
-      },
-      {
-        "from": 20,
-        "to": 24
-      }
-    ],
-    "sat": [
-      {
-        "from": 0,
-        "to": 4
-      },
-      {
-        "from": 20,
-        "to": 24
-      }
-    ],
-    "sun": [
-      {
-        "from": 0,
-        "to": 4
-      },
-      {
-        "from": 20,
-        "to": 24
-      }
-    ],
-    "thu": [
-      {
-        "from": 0,
-        "to": 4
-      },
-      {
-        "from": 20,
-        "to": 24
-      }
-    ],
-    "tue": [
-      {
-        "from": 0,
-        "to": 4
-      },
-      {
-        "from": 20,
-        "to": 24
-      }
-    ],
-    "wed": [
-      {
-        "from": 0,
-        "to": 4
-      },
-      {
-        "from": 20,
-        "to": 24
-      }
-    ]
-  },
+  "vendor_schedule": {},
   "vendor_shop_name": null,
   "vendor_stock_size": 0,
   "wander_zones": [
