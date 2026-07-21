@@ -815,10 +815,13 @@ export function createTvView(root, opts = {}) {
     sendCmdSilent(`${tuneCmd} ${num}`);
   }
 
-  // Sweeps the dial from its current position toward the next/previous channel in
-  // the list, passing through the static in between (same lock logic as a manual
-  // drag) rather than snapping straight there. Used by the +/- buttons, which exist
-  // for touch/no-wheel input but read identically to a slow turn.
+  // Step to the next/previous channel in the list, wrapping at either end.
+  //
+  // The two chassis tune differently on purpose. The CRT set is an ANALOGUE dial:
+  // it sweeps from where it is toward the target, passing through the static in
+  // between (same lock logic as turning the knob by hand) — the +/- buttons exist
+  // for touch/no-wheel input but must read identically to a slow turn. The tablet
+  // is a DIGITAL tuner: CH up/down snaps straight to the channel, no scanning.
   function _stepChannel(direction) {
     if (!_tvChannelList.length) return;
     let target;
@@ -829,6 +832,7 @@ export function createTvView(root, opts = {}) {
       const prior = [..._tvChannelList].reverse().find(c => c.number < _tvFrequency - 0.001);
       target = prior ? prior.number : _tvChannelList[_tvChannelList.length - 1].number;
     }
+    if (!isCrt) { _tvTuneTo(target); return; }
     _sweepDialTo(target, direction);
   }
 

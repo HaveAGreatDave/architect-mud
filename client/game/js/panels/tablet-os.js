@@ -1762,10 +1762,13 @@ function ensureStyles() {
     /* Gameday's toggle stays hidden until a sports broadcast reveals it (.avail). */
     #tablet-os-overlay .tos-tv-ctl button[data-tv="gameday-btn"] { display:none; }
     #tablet-os-overlay .tos-tv-ctl button[data-tv="gameday-btn"].avail { display:inline-block; }
-    #tablet-os-overlay .tos-tv-knob { width:26px; height:26px; flex:none; }
-    #tablet-os-overlay .tos-tv-knob circle { fill:none; stroke:var(--border, #2a2a40); stroke-width:2; }
-    #tablet-os-overlay .tos-tv-knob line { stroke:var(--accent); stroke-width:2; stroke-linecap:round; }
-    #tablet-os-overlay .tos-tv-freq { font-size:11px; color:var(--accent); min-width:38px; text-align:center; }
+    /* CH up/down — the tablet's digital tuner. No rotary knob and no analogue
+       frequency readout here (both are wall-set idioms); the tuned channel already
+       reads out in the header bar. */
+    #tablet-os-overlay .tos-tv-ctl button.tos-tv-ch-btn { display:inline-flex; align-items:center; gap:5px; padding:5px 10px; }
+    #tablet-os-overlay .tos-tv-ch-btn .l { font-size:9px; letter-spacing:1px; opacity:.7; }
+    #tablet-os-overlay .tos-tv-ch-btn .c { font-size:9px; line-height:1; }
+    #tablet-os-overlay .tos-tv-ch-btn:active { transform:scale(.94); }
     #tablet-os-overlay .tos-tv-spacer { flex:1; }
     /* Direct channel chips — the tablet-native way to jump the dial. */
     #tablet-os-overlay .tos-tv-dial { display:flex; flex-wrap:wrap; gap:6px; }
@@ -4853,12 +4856,12 @@ function renderTv(d) {
       </div>
       <div class="tos-tv-ticker" data-tv="ticker-track"><span data-tv="ticker-inner"></span></div>
       <div class="tos-tv-ctl">
-        <button data-tv="tune-down" title="Tune down">&#x2212;</button>
-        <svg class="tos-tv-knob" data-tv="knob" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg" aria-label="Dial position">
-          <circle cx="18" cy="18" r="15"/><line x1="18" y1="18" x2="18" y2="5"/>
-        </svg>
-        <button data-tv="tune-up" title="Tune up">&#x2b;</button>
-        <span class="tos-tv-freq" data-tv="freq-display">—</span>
+        <button class="tos-tv-ch-btn" data-tv="tune-up" title="Channel up" aria-label="Channel up">
+          <span class="l">CH</span><span class="c">&#x25B2;</span>
+        </button>
+        <button class="tos-tv-ch-btn" data-tv="tune-down" title="Channel down" aria-label="Channel down">
+          <span class="l">CH</span><span class="c">&#x25BC;</span>
+        </button>
         <span class="tos-tv-spacer"></span>
         <button data-tv="schedule-btn" title="TV guide — what's on and when">&#x1F5D3;</button>
         <button data-tv="gameday-btn" title="Gameday — animated play-by-play">&#x26BE;</button>
