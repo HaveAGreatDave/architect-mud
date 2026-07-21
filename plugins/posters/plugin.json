@@ -1,7 +1,7 @@
 {
   "name": "posters",
   "version": "1.0.0",
-  "description": "Portable hero posters: `takedown` peels one off the wall (furniture -> rolled item), `putup` hangs a carried poster on the wall of the current room. Plus the Kiyo/Cyd easter egg — both posters were printed as one image, and hanging them in the same room reveals a hidden GRU at the seam on examine.",
+  "description": "Portable hero posters: `takedown` peels one off the wall (furniture -> rolled item), `putup` hangs a carried poster on the wall of the current room and reports where it falls in the mural. Two-layer easter egg — Kiyo and Cyd were printed as one image, so hanging that pair together reveals a hidden GRU at the seam on examine; hanging all seven sheets in one room spells HELLMOO across the seams.",
   "hooks": ["furniture.describe"],
   "commands": ["takedown", "take", "putup"]
 }

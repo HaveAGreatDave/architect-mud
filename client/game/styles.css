@@ -639,6 +639,80 @@ body.fsim-external #look-resize-handle { display: none; }
 	100% { -webkit-text-fill-color: var(--text); background-position: -50% 0;  text-shadow: none; }
 }
 
+/* Hero-poster mural reveal (posters plugin): hanging all seven sheets in one
+   room spells a word the prose describes as "gleaming" — so it gleams on
+   screen — the letters catch light, burn, get swept twice, and settle. Same
+   safety as .intro-lore above: the transparent fill that reveals the gradient
+   exists only inside the keyframes, so the word stays legible if animations are
+   off, and it lands on var(--text-bright) — the per-theme maximum-contrast ink
+   (dark on the light themes, white on the dark ones), never a literal colour.
+   One-shot: this is an entrance, not a standing effect. */
+.mural-word {
+	/* fit-content + auto margins: the box is exactly as wide as the lettering
+	   (a plain centred block would be as wide as the whole output pane, and the
+	   flame canvas measures off this box). */
+	display: block;
+	width: fit-content;
+	max-width: 100%;
+	margin: 10px auto 12px;
+	text-align: center;
+	font-size: 1.6em;
+	font-weight: bold;
+	letter-spacing: 0.45em;
+	text-indent: 0.45em;
+	color: var(--text-bright);
+	background: linear-gradient(100deg,
+		var(--text-bright) 0%, var(--text-bright) 38%,
+		#ffffff 46%, var(--cyan) 50%, #ffffff 54%,
+		var(--text-bright) 62%, var(--text-bright) 100%);
+	background-size: 300% 100%;
+	-webkit-background-clip: text;
+	background-clip: text;
+	animation: mural-ignite 7s ease-in-out 1 both;
+}
+/* Percentages are of 7s and are matched to burnBehind()'s envelope in flame.js
+   (250ms rise / 2.4s hold / 1.4s fade) — the fire holds alone for two full
+   seconds before anything legible arrives. */
+@keyframes mural-ignite {
+	/* the fire has the stage alone — nothing legible is here yet */
+	0%   { opacity: 0; -webkit-text-fill-color: transparent; text-shadow: none; background-position: 150% 0; }
+	28%  { opacity: 0; -webkit-text-fill-color: transparent; text-shadow: none; background-position: 150% 0; }
+	/* the glyphs come up out of the flame as embers, then heat */
+	33%  { opacity: 0.5; -webkit-text-fill-color: var(--red); text-shadow: 0 0 20px var(--red), 0 0 40px var(--orange); }
+	39%  { opacity: 1; -webkit-text-fill-color: var(--orange); text-shadow: 0 0 30px var(--orange), 0 0 62px var(--red); }
+	45%  { opacity: 1; -webkit-text-fill-color: var(--yellow); text-shadow: 0 0 40px var(--yellow), 0 0 78px var(--orange); }
+	51%  { opacity: 1; -webkit-text-fill-color: var(--orange); text-shadow: 0 0 24px var(--orange), 0 0 56px var(--red); background-position: 150% 0; }
+	/* first sweep */
+	56%  { opacity: 1; -webkit-text-fill-color: transparent; text-shadow: 0 0 26px var(--orange); background-position: 150% 0; }
+	74%  { opacity: 1; -webkit-text-fill-color: transparent; text-shadow: 0 0 22px var(--cyan); background-position: -50% 0; }
+	/* second sweep */
+	76%  { opacity: 1; -webkit-text-fill-color: transparent; text-shadow: 0 0 14px var(--accent-dim); background-position: 150% 0; }
+	93%  { opacity: 1; -webkit-text-fill-color: transparent; text-shadow: 0 0 16px var(--cyan); background-position: -50% 0; }
+	/* settle onto the theme's contrast ink */
+	100% { opacity: 1; -webkit-text-fill-color: var(--text-bright); text-shadow: none; background-position: -50% 0; }
+}
+/* Real fire in the glyphs' own space — the shared particle flame (flame.js),
+   the same renderer that burns behind the wanted-HUD stars. The canvas is a
+   child of .mural-word, centred on the lettering and painted BEHIND it
+   (z-index:-1 inside the word's own stacking context), so the fire occupies
+   exactly where the letters will be and then clears to leave them. Absolutely
+   positioned, so it never displaces a line of the surrounding prose; it removes
+   itself once the last ember dies. */
+.mural-word { position: relative; z-index: 1; }
+.mural-flame {
+	position: absolute; left: 50%; top: 50%; z-index: -1;
+	transform: translate(-50%, -50%); pointer-events: none;
+}
+.mural-reveal { animation: mural-settle 2.8s ease-out 1 both; }
+@keyframes mural-settle {
+	0%   { opacity: 0.35; filter: brightness(1.5); }
+	100% { opacity: 1; filter: brightness(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+	.mural-word { animation: none; }
+	.mural-reveal { animation: none; }
+}
+
 /* Gate-guard border briefing (gatewarn plugin): a stern, one-time warning block
    set off from ordinary prose by a warning-yellow rule down the side. */
 .gate-warning {

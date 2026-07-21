@@ -3,6 +3,7 @@ import { updateBodyTempHUD } from './panels/environment.js';
 import { refreshCustomPanels } from './panels/custom/manager.js';
 import { registerList, mountScopeToggle } from './panels/list-reorder.js';
 import { renderSmartBar } from './panels/smartbar.js';
+import { burnBehind } from './flame.js';
 
 // Make the Vitals list reorderable. Call after initSidebarOrder, which reparents
 // the section's rows into a .sidebar-section-body (the real row container).
@@ -28,6 +29,9 @@ export function appendHtml(html, cls = '') {
   el.className = `msg msg-${cls}`;
   el.innerHTML = html;
   document.getElementById('output').appendChild(el);
+  // Hero-poster mural reveal: the CSS burns the glyphs, this puts real fire
+  // behind them. Mounted after the node is in the document so it can be measured.
+  el.querySelectorAll('.mural-word').forEach(w => burnBehind(w));
   scrollOutput();
   return el;
 }

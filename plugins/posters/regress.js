@@ -83,8 +83,42 @@ export default async function regress({ run, check, getPlayer }) {
     check('GRU reveal fires when partner hangs in the same room', /G R U/.test(extra || ''), extra);
     check('non-poster furniture is ignored by the hook',
       (await hooks['furniture.describe']({ zone_id: zone, name: 'a chair', flags: {} })) === undefined);
+
+    // ── Mural: one sheet per letter, Djerk leftmost, full set spells HELLMOO ──
+    check('mural has one sheet per letter', _test.MURAL.length === _test.MURAL_WORD.length);
+    check('djerk holds the leftmost slot', _test.MURAL[0] === 'djerk');
+    check('kiyo and cyd stay adjacent in the run',
+      Math.abs(_test.MURAL.indexOf('kiyo') - _test.MURAL.indexOf('cyd')) === 1);
+
+    // Leftmost sheet, nothing beside it: clean-margin seat, no edges answered.
+    let line = _test.placementLine('djerk', new Set(['djerk']));
+    check('placement seats the leftmost sheet by its clean margin', /factory margin/i.test(line), line);
+    check('placement reports nothing answering yet', /Nothing beside it answers/i.test(line), line);
+    check('placement counts the run', /<b>1 of 7<\/b>/.test(line), line);
+    // Its right-hand neighbour present: the tearing lines up.
+    line = _test.placementLine('djerk', new Set(['djerk', 'alphagunman']));
+    check('placement names the neighbour and loses the seam',
+      /against the Alphagunman sheet/.test(line) && /never been apart/.test(line), line);
+    // The secret pair keep the understated wink instead of the seam prose —
+    // saying "the seam vanished" here would pre-empt the GRU reveal on examine.
+    const pair = _test.placementLine('kiyo', new Set(['kiyo', 'cyd']));
+    check('the pair keep their own wink', /almost seem to line up/.test(pair) && !/never been apart/.test(pair), pair);
+
+    // Hang the whole run in one room — the full reveal supersedes the GRU hint.
+    for (const k of _test.MURAL) {
+      await insertFurniture({
+        id: `furn_regress_mural_${k}`, zone_id: zone, name: `hero poster: ${k.toUpperCase()}`,
+        description: 'A test poster.', object_type: 'decoration',
+        flags: JSON.stringify({ hero_poster: true, poster_key: k }),
+      });
+    }
+    const full = await hooks['furniture.describe']({
+      zone_id: zone, name: 'hero poster: DJERK', flags: { hero_poster: true, poster_key: 'djerk' } });
+    check('full set spells the word across the seams', /H E L L M O O/.test(full || ''), full);
+    check('full reveal supersedes the GRU pair hint', !/three deliberate letters/i.test(full || ''), full);
+    check('full reveal still offers the take link', /data-action="take"/.test(full || ''), full);
   } finally {
-    await deleteFurnitureWhere(`DELETE FROM furniture WHERE id IN ('furn_regress_poster','furn_hero_poster_regress','furn_regress_cyd')`);
+    await deleteFurnitureWhere(`DELETE FROM furniture WHERE id IN ('furn_regress_poster','furn_hero_poster_regress','furn_regress_cyd') OR id LIKE 'furn_regress_mural_%'`);
     await query(`DELETE FROM player_inventory WHERE player_id=$1 AND item_id='item_poster_regress'`, [p.id]);
     p.current_zone = savedZone;
     world.apartments.delete(aptId);
