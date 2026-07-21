@@ -969,17 +969,57 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
 }
 
 // ── Layer 3: per-plugin suites (plugins/<name>/regress.js) ───────────────────
+//
+// Every suite drives the SAME live player object, and ~16 plugins arm real
+// setTimeouts on it (paced move queues, timed drinks, elevator rides, trips).
+// A suite that returns while one is still armed leaks it into whatever runs
+// next: the timer fires mid-assertion and moves the player, deletes an item, or
+// mutates posture — and because it lands wherever the wall clock happens to be,
+// a DIFFERENT assertion fails each run. That is the shape of a flaky gate, and a
+// gate that goes red at random trains people to force through it.
+//
+// So: between suites, disarm and clear the shared player's transient activity,
+// and NAME the suite that left something behind. Cleaning silently would fix the
+// flake but hide the culprit, so this reports — as a note, not a failure, since
+// leaking is sloppy rather than broken.
+const TRANSIENT = ['_moveQueue', '_moveTimer', '_consume', '_crossing', '_elevator', '_pendingTrade'];
+function disarm(p) {
+  const left = [];
+  if (p._moveTimer) { clearTimeout(p._moveTimer); left.push('paced move timer'); }
+  if (p._moveQueue?.length) left.push(`${p._moveQueue.length} queued step(s)`);
+  for (const t of p._consume?.timers || []) clearTimeout(t);
+  if (p._consume) left.push('timed consume');
+  for (const t of p._elevator?.timers || []) clearTimeout(t);
+  if (p._elevator) left.push('elevator ride');
+  if (p._crossing) left.push('void crossing');
+  if (p.activeDrugs?.length) left.push(`${p.activeDrugs.length} active drug(s)`);
+  if (p.pendingOnsets?.length) left.push(`${p.pendingOnsets.length} pending onset(s)`);
+  for (const k of TRANSIENT) delete p[k];
+  p.activeDrugs = []; p.pendingOnsets = [];
+  p._lastStepAt = 0;            // no suite should inherit another's move cadence
+  if (p.posture && p.posture !== 'standing') { left.push(`posture=${p.posture}`); p.posture = 'standing'; p.sittingOn = null; }
+  return left;
+}
+
 console.log('— layer 3: plugin suites —');
 const dirs = (await readdir(PLUGINS_DIR, { withFileTypes: true })).filter(e => e.isDirectory());
 for (const d of dirs) {
   const suitePath = join(PLUGINS_DIR, d.name, 'regress.js');
   if (!existsSync(suitePath)) continue;
+  const zoneBefore = getPlayer().current_zone;
   try {
     const mod = await import(pathToFileURL(suitePath).href);
     if (typeof mod.default !== 'function') { check(`${d.name}: regress.js has default export`, false, 'no default function'); continue; }
     await mod.default({ run, check: (name, cond, detail) => check(`${d.name}: ${name}`, cond, detail), getPlayer });
   } catch (e) {
     check(`${d.name}: suite runs`, false, e.message);
+  } finally {
+    const leaked = disarm(getPlayer());
+    if (getPlayer().current_zone !== zoneBefore) {
+      leaked.push(`left the player in ${getPlayer().current_zone} (was ${zoneBefore})`);
+      getPlayer().current_zone = zoneBefore;
+    }
+    if (leaked.length) console.log(`    ⚠ ${d.name}: left live state behind — ${leaked.join(', ')} (disarmed)`);
   }
 }
 
