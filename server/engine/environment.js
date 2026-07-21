@@ -277,11 +277,24 @@ function phaseForMinutes(minutesOfDay) {
 
 function clamp01(n) { return Math.max(0, Math.min(1, n)); }
 
-// Diurnal temperature offset: cosine curve peaking at 2pm (+5°C above daily
-// base) and troughing at 2am (-12°C below). Amplitude = 8.5, midpoint = -3.5.
+// Diurnal temperature offset: cosine curve peaking at 2pm (+2°C above daily base)
+// and troughing at 2am (-9°C below) — an 11°C day/night swing.
+//
+// Was amplitude 8.5 (a 17°C swing, +5°C/-12°C) until 2026-07-21. 17°C is continental
+// desert; Coldwater is a basin wrapped around a large body of water, and the live
+// climate profile is maritime (monthly_temp_c peaks at 16°C), where 6-10°C is normal.
+// It also became the single largest temperature movement in the game once the
+// day-to-day model was fixed to a 1.6°C mean step, so a player felt 17°C every night
+// and under 2°C between days.
+//
+// MIDPOINT IS DELIBERATELY UNCHANGED at -3.5, so the daily MEAN offset does not move
+// — nights warm by 3°C and days cool by 3°C in exchange. Cold keeps its teeth:
+// modelled against gameLoop's 0.002*(10-warmthTemp)^1.75 drift, a January night
+// (-3°C base) still takes a naked survivor from 37°C core to the 30°C lethal floor in
+// ~16 game minutes, ~35 in a starter outfit. See systems-weather-extreme.md.
 function diurnalOffset(minutesOfDay) {
   const peakMinute = 14 * 60; // 2 pm
-  const amplitude  = 8.5;
+  const amplitude  = 5.5;
   const midpoint   = -3.5;
   const t = (minutesOfDay - peakMinute) / (24 * 60);
   return Math.round(midpoint + amplitude * Math.cos(2 * Math.PI * t));

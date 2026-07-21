@@ -1,14 +1,12 @@
 {
-  "description": "Not a poster so much as a business card enlarged and taped crooked beside the decanting vats, where the newly-reprinted drip and blink at the light. A hand reaches out of the frame, offering a key. STEP ONE OF THE REST OF YOU: OWN SOMETHING. In tidy type beneath: \"You woke up with nothing and no one. That isn't a tragedy — it's an opening. Corps are hiring. Corps are founding. Be on the right side of the org chart.\"",
-  "flags": {
-    "corp_poster": true
-  },
+  "description": "A laminated card screwed to the wall at eye height beside the vats, the corners furred from a decade of thumbs. COLDWATER CLONE FACILITY — CONDITIONS OF DISCHARGE. Beneath, in the flat voice of something written by committee: \"1. You are released in good standing. 2. Property recovered from your prior instance, if any, is not held here. 3. Nutrition is available at the dispenser to your left at no charge and no limit; do not attempt to remove the dispenser. 4. The facility does not equip. TWO-CELL SUPPLY, two doors east on Ironside, trades in essentials at posted prices. 5. Do not re-enter the vat hall.\" Someone has inked beneath the last line, in small neat capitals: THEY MEAN IT.",
+  "flags": {},
   "hp": null,
   "hp_max": null,
   "id": "furn_corp_poster_start_b",
   "light_type": "lamp",
   "lumen_output": null,
-  "name": "a blown-up business card taped beside the vats",
+  "name": "a laminated discharge notice",
   "object_type": "decoration",
   "power_draw_kw": null,
   "price": 0,
