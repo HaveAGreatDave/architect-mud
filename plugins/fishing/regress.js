@@ -69,7 +69,20 @@ export default async function regress({ run, check, getPlayer }) {
   check('deep casts favour the deep prize over shallow casts', deepOnDeep > deepOnShallow, `deep=${deepOnDeep} shallow=${deepOnShallow}`);
   check('off-line casts favour the monster hook over straight casts', monOffAxis > monStraight, `off=${monOffAxis} straight=${monStraight}`);
 
-  // ── Command gating (no fishable water in the fake player's zone) ─────────────
+  // ── Command gating ─────────────────────────────────────────────────────────
+  // Stand on a KNOWN-dry synthetic tile rather than trusting wherever the harness
+  // happened to put us. Since "any bank fishes" (55e97090) merely BORDERING water
+  // makes a zone fishable, and the harness picks its zone by scanning the zone map
+  // — whose order differs between a fresh CI import and a long-lived dev DB — the
+  // "no water" assertion below was passing locally and failing in CI on luck of
+  // the draw. Parked at 4100+, clear of both real content and the fixtures above.
+  const DRY = 'zone_regress_fish_dry';
+  const prevDry = world.zones.get(DRY);
+  const savedZone = p.current_zone;
+  world.zones.set(DRY, mk(DRY, 4100, 4100, {}));
+  _test.invalidateWaterIndex();
+  p.current_zone = DRY;
+
   const savedPosture = p.posture, savedCombat = p.npcCombatTargetId;
 
   p.posture = 'standing';
@@ -97,5 +110,8 @@ export default async function regress({ run, check, getPlayer }) {
   check('fishresolve without a pending bite is a no-op', r?.type === 'noop', r?.type);
 
   p.posture = savedPosture; p.npcCombatTargetId = savedCombat;
+  p.current_zone = savedZone;
+  if (prevDry) world.zones.set(DRY, prevDry); else world.zones.delete(DRY);
+  _test.invalidateWaterIndex();
   delete p.fishState;
 }
