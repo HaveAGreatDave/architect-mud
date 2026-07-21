@@ -4,8 +4,29 @@
 // but this plugin owns the verbs that deliver a dose (use/inject), so the coverage
 // lives with it. Assertions run against the pure `_test` surface — no DB, no clock.
 import { _test as T } from '../../server/engine/drugs.js';
+import { _test as F } from './index.js';
 
 export default async function regress({ run, check }) {
+  // --- habits: the read-out of your own pharmacology -------------------------
+  // The fake player has no drug history, so this proves routing AND the empty case.
+  const h = await run('habits');
+  check('habits verb is routed (not an unknown command)',
+    h?.type !== 'error' && !/Unknown command/i.test(h?.message || ''), h?.message?.slice(0, 60));
+  check('a clean player is told nothing has hooks in them',
+    /nothing has its hooks/i.test(h?.message || ''), h?.message?.slice(0, 60));
+
+  // Durations read as human, not as raw seconds.
+  check('a fresh dose reads as just now', F.ago(30) === 'just now', F.ago(30));
+  check('minutes render as minutes', F.ago(600) === '10m ago', F.ago(600));
+  check('hours carry their minutes', F.ago(12000) === '3h 20m ago', F.ago(12000));
+  check('days render as days', /^2d /.test(F.ago(180000)), F.ago(180000));
+  check('grace time reads forward, not backward', F.soon(420) === 'about 7m', F.soon(420));
+
+  // The severity arc must be DESCRIBED monotonically — the numbers are the engine's.
+  const bites = [0.1, 0.4, 0.7, 1].map(F.bite);
+  check('withdrawal is described in escalating, distinct terms', new Set(bites).size === 4, bites.join(' | '));
+  check('peak severity reads as the worst of it', /worst/i.test(F.bite(1)), F.bite(1));
+
   // --- verb routing --------------------------------------------------------
   // `inject` must resolve as its own route, not collapse back into `use`.
   let r = await run('inject nothingxyz');

@@ -1021,6 +1021,7 @@ body.fsim-external #look-resize-handle { display: none; }
 	font-weight: 600;
 }
 .addiction-warning,
+.withdrawal-warning,
 .outcast-warning {
 	color: var(--orange);
 	font-style: italic;

@@ -125,6 +125,14 @@ for pre-existing drugs). Per-drug state lives in `player_drug_state` (`doses_in_
   while still addicted. Per-drug overrides ride the `withdrawal` block. `player._withdrawalActive` is a
   **Map** of `drugId → applied-mod signature` so an unchanged severity doesn't churn the ledger through a
   reverse-and-reapply every minute.
+- **`habits` (the read-out)** — the whole model above is server-side and was otherwise invisible: a
+  player could only infer tolerance, dependency and the withdrawal arc from stats moving for no stated
+  reason. `habits` (drugs plugin) lists every substance you have a history with — decayed tolerance,
+  whether it has you, time since the last dose, where you are on the withdrawal arc, and how many doses
+  are still in you against the **current** overdose ceiling (which shrinks as tolerance fades — the
+  relapse warning the system owes you). It formats `getDrugStatus()` and **computes nothing itself**:
+  every derived value comes from the same constants and curve functions the ticks use, so the read-out
+  cannot drift from the laws when one is tuned.
 - **Spliced-compound identity** — every compound rides the same carrier row (`drug_compound`), so
   `player_drug_state` is keyed on a **`stateKey`** (`opts.stateKey`, built by `compoundStateKey()` in
   `commands/inventory.js` from the splice's `custom_data.sources`), not the drug id. Without it, doses,

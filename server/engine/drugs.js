@@ -661,6 +661,55 @@ export const _test = {
   clearanceStep: (doses) => Math.max(0, doses - Math.ceil(doses * DOSE_CLEARANCE_FRACTION)),
 };
 
+// Everything the player has a history with, with the derived numbers already
+// worked out — decayed tolerance/addiction, whether dependency currently holds,
+// how hard withdrawal is biting, and where the overdose ceiling now sits.
+//
+// This lives here, not in the plugin, because every value is produced by the SAME
+// constants and curve functions the ticks use. A verb that recomputed the decay
+// or the severity arc itself would be a second source of truth for the laws, and
+// would drift the first time one was tuned. Callers format; they never compute.
+// One query, player-invoked — not a hot path.
+export async function getDrugStatus(player) {
+  const now = Math.floor(Date.now() / 1000);
+  const { rows } = await query(
+    'SELECT * FROM player_drug_state WHERE player_id=$1 AND times_used > 0 ORDER BY last_used_at DESC NULLS LAST',
+    [player.id]
+  );
+
+  return rows.map(s => {
+    const drug = DRUG_CACHE[s.drug_id];
+    const eff = drug?.effects || s.effects || {};   // compounds carry their blob on the row
+    const wd = eff.withdrawal || {};
+    const tol = eff.tolerance || {};
+    const elapsed = Math.max(0, now - (s.last_used_at || now));
+
+    // Same lazy decay useDrug and the withdrawal tick apply.
+    const tolerance = Math.max(0, Math.min(1,
+      (s.tolerance || 0) - (tol.recovery_per_sec ?? (1 / 3600)) * elapsed * getTimeScale()));
+    const addiction = Math.max(0,
+      (s.addiction || 0) - (wd.addiction_recovery_per_sec ?? (1 / 86400)) * elapsed * getTimeScale());
+    const addicted = addiction >= (s.is_addicted ? ADDICT_RELEASE : ADDICT_LATCH);
+    const onset = wd.onset_seconds ?? 3600;
+    const biting = addicted && elapsed > onset && !!wd.mods;
+
+    return {
+      drugId: s.drug_id,
+      name: drug?.name || String(s.drug_id).replace(/^drug_/, '').replace(/:.*$/, ' compound'),
+      timesUsed: s.times_used,
+      tolerance,
+      addicted,
+      sinceLastUse: elapsed,
+      // 0 when not biting; otherwise the live point on the ramp→peak→taper arc.
+      withdrawalSeverity: biting ? withdrawalSeverity(elapsed - onset, wd) : 0,
+      // Seconds of grace left before it starts asking (0 if already biting or clean).
+      withdrawalIn: addicted && !biting && wd.mods ? Math.max(0, onset - elapsed) : 0,
+      dosesInSystem: s.doses_in_system || 0,
+      odCeiling: Math.max(1, Math.round((drug?.overdose_threshold ?? 3) * (1 + tolerance * OD_TOLERANCE_BONUS))),
+    };
+  });
+}
+
 export async function getPlayerDrugState(playerId) {
   const { rows } = await query('SELECT * FROM player_drug_state WHERE player_id=$1', [playerId]);
   return rows;
