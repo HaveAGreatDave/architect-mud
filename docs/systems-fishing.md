@@ -110,6 +110,24 @@ armed `pending`, the zone matches, and the player still carries a rod. Then:
 - **Bait (optional):** any item tagged `bait`; a sub-tag (e.g. `bait_bloodworm`)
   gates specific catches. One is consumed per catch; presence boosts the odds
   toward better catches and lifts bite chance.
+- **Where you can fish (`fishingTableFor`, 2026-07-21):** two ways in, checked in
+  order. An authored **`flags.fishing_table_id`** always **wins outright** — that
+  is how a special spot gets its own list (the piers, the Echelon's stern, a
+  stocked pond). Otherwise **any tile orthogonally touching water** fishes the
+  common **`fish_coldwater_bay`** table, so a beach or a river bank simply works
+  without being authored tile by tile. Standing *in* the water is not fishing —
+  a water tile with no authored table returns null.
+  - "Water" is the hand-authored **`flags.water`**, deliberately **not**
+    `zoneTerrain()`'s water. 689 tiles out in the badlands carry a painted
+    `terrain:'water'` with dry redrock prose and no `flags.water`; keying off
+    terrain would open fishing in the middle of a rust mesa (171 extra tiles).
+    `flags.water` has zero contradictions worldwide. **If those 689 are ever
+    resolved, widening fishing is a one-line change to the `isWater` predicate.**
+  - Adjacency runs off a 60s-TTL coord index, not a per-tick zone scan —
+    `runAttempt` ticks for every fishing player.
+  - Per-zone stock is created **lazily on first cast**, so each newly-fishable
+    shoreline tile gets its own independent stock of the shared table rather than
+    drawing from a shared pool. No seeding needed.
 - **Loot storage:** reuses the `scavenging_tables` / `scavenging_table_items` /
   `scavenging_zone_stock` / `scavenging_zone_state` schema verbatim (per-zone
   stock + lazy replenish). A **separate** zone flag `flags.fishing_table_id`

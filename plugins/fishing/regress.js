@@ -3,9 +3,46 @@
 // no rod, so we exercise the gated no-mutation paths (nothing is ever caught)
 // plus the pure weighted-pick helper.
 import { _test } from './index.js';
+import { world } from '../../server/engine/world.js';
 
 export default async function regress({ run, check, getPlayer }) {
   const p = getPlayer();
+
+  // ── Where you can fish (fishingTableFor) ───────────────────────────────────
+  // Synthetic tiles parked at 4000+, clear of real world content: one open-water
+  // tile, a bank beside it, an inland tile, and a bank that already carries its
+  // own authored table.
+  const W = 'zone_regress_fish_water', BANK = 'zone_regress_fish_bank',
+        INLAND = 'zone_regress_fish_inland', SPECIAL = 'zone_regress_fish_special';
+  const mk = (id, x, y, flags) => ({ id, name: id, description: '', exits: {}, flags,
+    map_id: 'map_world', grid_x: x, grid_y: y,
+    players: new Set(), npcs: new Set(), enemies: new Set(), corpses: new Set() });
+  const prevFish = new Map();
+  for (const id of [W, BANK, INLAND, SPECIAL]) prevFish.set(id, world.zones.get(id));
+  world.zones.set(W,       mk(W,       4000, 4000, { water: true }));
+  world.zones.set(BANK,    mk(BANK,    4000, 4001, {}));                       // due south of the water
+  world.zones.set(INLAND,  mk(INLAND,  4000, 4003, {}));                       // two tiles off — dry
+  world.zones.set(SPECIAL, mk(SPECIAL, 4001, 4000, { fishing_table_id: 'fish_echelon_basin' })); // east of the water
+  _test.invalidateWaterIndex();
+  try {
+    check('a tile bordering water fishes the default table',
+      _test.fishingTableFor(world.zones.get(BANK)) === _test.DEFAULT_FISHING_TABLE,
+      `${_test.fishingTableFor(world.zones.get(BANK))}`);
+    check('an inland tile cannot be fished',
+      _test.fishingTableFor(world.zones.get(INLAND)) === null, `${_test.fishingTableFor(world.zones.get(INLAND))}`);
+    check('an authored fishing_table_id WINS over the default',
+      _test.fishingTableFor(world.zones.get(SPECIAL)) === 'fish_echelon_basin',
+      `${_test.fishingTableFor(world.zones.get(SPECIAL))}`);
+    check('you cannot fish while standing in the water itself',
+      _test.fishingTableFor(world.zones.get(W)) === null, `${_test.fishingTableFor(world.zones.get(W))}`);
+    check('a coordless interior without a table cannot be fished',
+      _test.fishingTableFor({ id: 'x', flags: {} }) === null);
+    check('bordersWater is orthogonal only', _test.bordersWater(world.zones.get(BANK)) === true
+      && _test.bordersWater(world.zones.get(INLAND)) === false);
+  } finally {
+    for (const [id, z] of prevFish) { if (z) world.zones.set(id, z); else world.zones.delete(id); }
+    _test.invalidateWaterIndex();
+  }
 
   // ── Weighted pick (pure) — always returns an entry, respects weights ────────
   const entries = [{ id: 'a', weight: 1 }, { id: 'b', weight: 50 }];

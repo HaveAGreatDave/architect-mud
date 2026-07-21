@@ -7,9 +7,15 @@
 // free. A companion `player.fishState = { zoneId, streak, lastAttempt, pending, token }`
 // carries the bookkeeping the posture string can't.
 //
-// A zone opts in via zones.flags.fishing_table_id -> a reusable scavenging_tables
-// template (fishing reuses that schema; a separate flag keeps the two systems
-// from colliding). Normal catches live in scavenging_table_items with per-zone
+// WHERE you can fish (see fishingTableFor): a zone may opt in explicitly with
+// zones.flags.fishing_table_id -> a reusable scavenging_tables template, and that
+// always wins — it's how a special spot gets its own list. Failing that, ANY tile
+// orthogonally touching water fishes the common bay table, so a beach or a bank
+// just works without being authored tile by tile. (Fishing reuses the scavenging
+// schema; a separate flag keeps the two systems from colliding.) Per-zone stock is
+// created lazily on first cast, so each new shoreline tile gets its own independent
+// stock of the shared table rather than sharing a pool.
+// Normal catches live in scavenging_table_items with per-zone
 // stock + lazy replenish, exactly like scavenging. Fishing-only extras — monster
 // hooks and bait-gated catches — live in dedicated scavenging_tables columns
 // (fishing_monsters / fishing_bait_catches).
@@ -23,7 +29,7 @@
 
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
-import { getZone, getAllLivePlayers, getLivePlayer, spawnEnemySync } from '../../server/engine/world.js';
+import { getZone, getAllZones, getAllLivePlayers, getLivePlayer, spawnEnemySync } from '../../server/engine/world.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
@@ -141,6 +147,52 @@ async function consumeBait(playerId) {
 // table pointed at by a different zone flag. Logic mirrors scavenging's
 // loadZoneTable (per-zone stock init on first touch, one weighted unit per
 // elapsed replenish interval).
+// ── Where you can fish ────────────────────────────────────────────────────────
+// A zone opts in explicitly with flags.fishing_table_id, and that ALWAYS wins —
+// it's how a special spot gets its own list (the Echelon's stern, the piers).
+// Failing that, any tile orthogonally touching water fishes the common bay table,
+// so a player standing on a beach or a bank can simply cast.
+const DEFAULT_FISHING_TABLE = 'fish_coldwater_bay';
+
+// "Water" here is the hand-authored `flags.water` shoreline, deliberately NOT
+// zoneTerrain()'s notion of it. 689 tiles out in the badlands carry a painted
+// terrain:'water' with dry redrock prose and no flags.water, so keying off terrain
+// would open fishing in the middle of a rust mesa. flags.water has zero
+// contradictions across the world. If those 689 are ever resolved, widening
+// fishing is a one-line change to this predicate.
+const isWater = (z) => z?.flags?.water === true;
+
+// Coord index of water tiles per map/floor, so the adjacency test is a hash lookup
+// instead of a ~5,700-zone scan — runAttempt runs on a tick for every fishing
+// player. Short TTL so a dev-panel repaint self-heals without a restart.
+const WATER_INDEX_TTL_MS = 60_000;
+let waterIndex = null, waterIndexAt = 0;
+function waterCoords() {
+  const now = Date.now();
+  if (waterIndex && now - waterIndexAt < WATER_INDEX_TTL_MS) return waterIndex;
+  const set = new Set();
+  for (const z of getAllZones()) {
+    if (!isWater(z) || !z.map_id || z.grid_x == null || z.grid_y == null) continue;
+    set.add(`${z.map_id}|${z.grid_z ?? 0}|${z.grid_x},${z.grid_y}`);
+  }
+  waterIndex = set; waterIndexAt = now;
+  return set;
+}
+function bordersWater(zone) {
+  if (!zone?.map_id || zone.grid_x == null || zone.grid_y == null) return false;
+  const idx = waterCoords(), z0 = zone.grid_z ?? 0;
+  return [[0, -1], [0, 1], [1, 0], [-1, 0]].some(([dx, dy]) =>
+    idx.has(`${zone.map_id}|${z0}|${zone.grid_x + dx},${zone.grid_y + dy}`));
+}
+
+// The table this zone fishes, or null if you can't fish here at all.
+export function fishingTableFor(zone) {
+  if (!zone) return null;
+  if (zone.flags?.fishing_table_id) return zone.flags.fishing_table_id;  // authored spot wins outright
+  if (isWater(zone)) return null;   // you cast FROM the bank, not while treading water
+  return bordersWater(zone) ? DEFAULT_FISHING_TABLE : null;
+}
+
 async function loadZoneTable(zoneId, tableId) {
   const { rows: tRows } = await query(
     'SELECT id, name, replenish_interval_seconds, messages, fishing_monsters, fishing_bait_catches FROM scavenging_tables WHERE id=$1',
@@ -255,7 +307,7 @@ function stopFishing(pid, zoneId, handle) {
 
 async function runAttempt(player, st, nowMs) {
   const zone = getZone(st.zoneId);
-  const tableId = zone?.flags?.fishing_table_id;
+  const tableId = fishingTableFor(zone);
   if (!zone || !tableId) { stopFishing(player.id, st.zoneId, player.handle); return; }
 
   if (!(await hasRod(player.id))) {
@@ -502,7 +554,7 @@ async function cmdFish(args, raw, player, broadcast) {
     return { type: 'emote', message: 'You need to be on your feet to fish.' };
 
   const zone = getZone(player.current_zone);
-  const tableId = zone?.flags?.fishing_table_id;
+  const tableId = fishingTableFor(zone);
   if (!zone || !tableId)
     return { type: 'emote', message: 'There\'s no water here worth fishing.' };
   if (!(await hasRod(player.id)))
@@ -526,6 +578,6 @@ export const commands = {
 };
 
 // Pure helpers exposed for the regression suite (never used in production).
-export const _test = { pickWeighted, pickCastTarget, BITE_CHANCE, ROD_SNAP_CHANCE, ATTEMPT_MS };
+export const _test = { pickWeighted, pickCastTarget, BITE_CHANCE, ROD_SNAP_CHANCE, ATTEMPT_MS, fishingTableFor, bordersWater, DEFAULT_FISHING_TABLE, invalidateWaterIndex: () => { waterIndex = null; } };
 
 console.log('[fishing] Plugin loaded.');
