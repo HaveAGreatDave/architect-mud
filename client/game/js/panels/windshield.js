@@ -34,7 +34,7 @@
 // }
 
 import { isWeatherFxEnabled } from './weather-fx.js';
-import { aircraftFaces, wingtipStation, liveryPalette, faceBaseRgb, shadeRgb, hex2rgb, drawRotorFX, drawCockpitProp, glassSheen, drawNoseArt, deflectSurface, hingeVisorFace, jazzTex, jazzUV, overlayJazz, JAZZ_ROLE, OCCLUDE_ROLE } from './aircraft3d.js';
+import { aircraftFaces, wingtipStation, liveryPalette, faceBaseRgb, shadeRgb, hex2rgb, drawRotorFX, drawCockpitProp, glassSheen, drawNoseArt, deflectSurface, hingeVisorFace, jazzTex, jazzUV, overlayJazz, JAZZ_ROLE, OCCLUDE_ROLE, VIPER_SCALE } from './aircraft3d.js';
 import { playThunderSample } from './engine-audio.js';
 
 const _scenes = new Map();      // id → persistent scene state (scroll, clouds, stars, particles)
@@ -484,7 +484,11 @@ export function paintWindshield(id, view) {
   // camera in so tight the resting chase read as an uncomfortably close, squashed crop. The floor still
   // lets a tiny craft sit CLOSER than a prop (so it isn't a distant speck) but keeps a comfortable
   // standoff — the wheel can always dolly further in from here.
-  const szFac = clamp((CONTACT_SIZE[v.cls] || szRef) / szRef, 0.46, 1.15);
+  // The armed heli (Viper) is a physically much bigger airframe than the Dragonfly it shares
+  // a class — and therefore a CONTACT_SIZE — with, so it counts as VIPER_SCALE× here or the
+  // camera would sit at Mini-500 standoff against a gunship and crop it tight.
+  const szOwn = (CONTACT_SIZE[v.cls] || szRef) * (v.cls === 'heli' && v.armed ? VIPER_SCALE : 1);
+  const szFac = clamp(szOwn / szRef, 0.46, 1.15);
   const extZoom = clamp(v.extZoom || 1, 0.15, 2.4);   // floor lowered 0.30→0.15 so the camera can dolly in for a genuinely TIGHT crop (the Echelon deck-cam's final on-pad hold pushes down here) — only extends how far the wheel can zoom IN, resting default (1) unchanged
   // Vertical orbit (middle-drag up/down): the chase camera rides a fixed-radius ARC around the
   // craft — a turntable, like the hangar walkaround — instead of sliding straight up. `extPitch` is
@@ -604,7 +608,7 @@ export function paintWindshield(id, view) {
       // altitude term cancels: baseWz climbs with EHbaseC), so the craft never slides behind the stick HUD
       // as you zoom in on the ground — the failure mode the old resting-pin had (its back scaled with zoom).
       const EH = Math.max(0.05, EHbaseC + chase.up);            // matches makeCam's summed, floored eye-height
-      const midWz = baseWz + modelMidH(v.cls);
+      const midWz = baseWz + modelMidH(v.cls, !!v.armed);
       horizonY = H * RENDER_TUNE.chaseFrameY - D * (EH - midWz) / Math.max(1e-3, chase.back);
     }
   }
@@ -3672,34 +3676,41 @@ const LOD_HI_TILES = 4.5;   // contacts nearer than this (or the own chase model
 //
 // Both are derived straight from the shared mesh, so they can never drift from the drawn geometry.
 const _groundDropCache = {};
-function modelGroundDrop(cls) {                                    // level gear drop (cached) → stable chase anchor
-  if (_groundDropCache[cls] != null) return _groundDropCache[cls];
-  return (_groundDropCache[cls] = (CONTACT_SIZE[cls] || 0.11) * OWN_EXT_MUL * CONTACT_VS * (-modelLowestH(cls, 0, 0, 1)));
+// NB the `armed` arg: an armed heli is a DIFFERENT mesh from the unarmed one of the same
+// class (the Viper vs the Dragonfly), and it ships double-size and nose-high — so measuring
+// the class alone would anchor the Viper on the Dragonfly's geometry and sink it through
+// the tarmac. Every cache below is therefore keyed on cls+armed, not cls.
+const mdlKey = (cls, armed) => cls + (armed ? ':a' : '');
+function modelGroundDrop(cls, armed) {                            // level gear drop (cached) → stable chase anchor
+  const k = mdlKey(cls, armed);
+  if (_groundDropCache[k] != null) return _groundDropCache[k];
+  return (_groundDropCache[k] = (CONTACT_SIZE[cls] || 0.11) * OWN_EXT_MUL * CONTACT_VS * (-modelLowestH(cls, 0, 0, 1, armed)));
 }
 // World-z of the model's vertical CENTRE above its ground anchor, at neutral attitude (cached per class).
 // Used to pin the chase framing on the model's middle, not its gear — so the same fraction of hull sits
 // above/below the frame line at every zoom. Excludes the rotor disc (matches modelLowestH) so a heli
 // frames on its fuselage, not its mast. Units match drawAircraftModel's vertex z (baseWz + SIZE·VS·h).
 const _modelMidCache = {};
-function modelMidH(cls) {
-  if (_modelMidCache[cls] != null) return _modelMidCache[cls];
+function modelMidH(cls, armed) {
+  const k = mdlKey(cls, armed);
+  if (_modelMidCache[k] != null) return _modelMidCache[k];
   let lo = 1e9, hi = -1e9;
-  for (const face of aircraftFaces(cls, 1)) {
+  for (const face of aircraftFaces(cls, 1, !!armed)) {
     if (face.role === 'rotor') continue;
     for (const p of face.p) { if (p[2] < lo) lo = p[2]; if (p[2] > hi) hi = p[2]; }
   }
   if (lo > hi) { lo = 0; hi = 0; }
   const S = (CONTACT_SIZE[cls] || 0.11) * OWN_EXT_MUL * CONTACT_VS;
-  return (_modelMidCache[cls] = S * (lo + hi) / 2);
+  return (_modelMidCache[k] = S * (lo + hi) / 2);
 }
 // The most-negative vertex height (craft units) with pitch/bank/gear applied — the model's true
 // lowest point. Mirrors drawAircraftModel's own transform + gear tuck so the floor matches the pixels.
-function modelLowestH(cls, pitchDeg, bankDeg, gearAnim) {
+function modelLowestH(cls, pitchDeg, bankDeg, gearAnim, armed) {
   const roll = (bankDeg || 0) * Math.PI / 180, pit = (pitchDeg || 0) * Math.PI / 180;
   const cr = Math.cos(roll), sr = Math.sin(roll), cp = Math.cos(pit), sp = Math.sin(pit);
   const showGear = gearAnim == null ? true : gearAnim > 0.02, gearDown = gearAnim == null ? 1 : clamp(gearAnim, 0, 1);
   let m = 0;
-  for (const face of aircraftFaces(cls, 1)) {
+  for (const face of aircraftFaces(cls, 1, !!armed)) {
     if (face.role === 'rotor') continue;                         // spinning disc isn't a ground contact
     const isGear = face.role === 'gear';
     if (isGear && !showGear) continue;                           // gear stowed → not a contact point
@@ -3737,8 +3748,8 @@ function deckLift(cam, v) {
 }
 function ownShipBaseWz(cam, v) {
   const S = (CONTACT_SIZE[v.cls] || 0.11) * OWN_EXT_MUL * CONTACT_VS;
-  const natural = modelGroundDrop(v.cls) + (cam.EHbase - RENDER_TUNE.eh) - RENDER_TUNE.chaseSink;   // chase anchor: level gear on deck + climb
-  const floor = S * (-modelLowestH(v.cls, v.pitch, v.bank, v.gearAnim ?? 1)) - RENDER_TUNE.chaseSink;   // lowest actual vertex on z=0 (minus the seam trim)
+  const natural = modelGroundDrop(v.cls, !!v.armed) + (cam.EHbase - RENDER_TUNE.eh) - RENDER_TUNE.chaseSink;   // chase anchor: level gear on deck + climb
+  const floor = S * (-modelLowestH(v.cls, v.pitch, v.bank, v.gearAnim ?? 1, !!v.armed)) - RENDER_TUNE.chaseSink;   // lowest actual vertex on z=0 (minus the seam trim)
   return Math.max(natural, floor) + deckLift(cam, v);   // + the Echelon's pad height when we're sitting on her deck
 }
 // Per-contact roll history → inferred aileron. We never get a bogey's stick input, but its
@@ -3775,7 +3786,7 @@ function drawContacts(ctx, cam, v, W, H, sun, now) {
     let baseWz;
     if (c.groundZ != null) {
       const SIZE = (CONTACT_SIZE[c.cls] || 0.11) * (c.sizeMul || 1);
-      const drop = SIZE * CONTACT_VS * (-modelLowestH(c.cls, c.pitch, c.bank, 1));   // gear-to-origin offset at this scale
+      const drop = SIZE * CONTACT_VS * (-modelLowestH(c.cls, c.pitch, c.bank, 1, !!c.armed));   // gear-to-origin offset at this scale
       baseWz = c.groundZ + drop + (c.altDiff || 0) * CONTACT_ALT_K;
     } else {
       baseWz = cam.EH + (c.altDiff || 0) * CONTACT_ALT_K;
@@ -4016,6 +4027,7 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
     drawRotorFX(ctx, c.cls, (lp) => { const q = P(lp); return q.f <= 0.08 ? null : q; },
       { spin: spinBase, power: 0.15 + power * 0.85,
         disc: c.propDisc != null ? c.propDisc : null, spool: c.propSpin != null ? c.propSpin : null,
+        armed: !!c.armed,   // the Viper's discs ride its double-size, nose-up transform
         bladeFade: 0.9 });   // past ~half disc, the blades melt into the blur disc (prop AND heli rotor) — full rpm reads as a pure spinning disc
   }
   ctx.globalAlpha = 1;

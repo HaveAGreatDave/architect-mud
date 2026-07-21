@@ -749,10 +749,18 @@ function buildHeli() {
 // STEPPED canopy (a low gunner blister ahead, a raised pilot blister behind); a chin GUN turret
 // + a nose sensor ball under the nose; short anhedral STUB-WINGS carrying rocket PODS inboard and
 // exposed MISSILES on the tips (the swarm made visible); twin "cheek" engine nacelles with exhausts
-// flanking the mast; a slim tailboom to a swept fin + stabilator + tail rotor; and fixed wheeled
-// gear. Built to the same station-ring + explicit-facet fidelity as the fixed-wing set. Rotor mast
-// is planted at (0.1,0,0.34) and the tail rotor at (-1.04,0.07,0.12) so drawRotorFX's baked heli
-// anchors land exactly on this geometry.
+// flanking the mast; a slim tailboom to a swept fin + stabilator + tail rotor; and fixed TAILDRAGGER
+// gear. Built to the same station-ring + explicit-facet fidelity as the fixed-wing set.
+//
+// STANCE + SIZE: everything below is authored at unit scale and LEVEL, then the whole mesh is run
+// through viperXf() on the way out — double-size and 7° nose-up, so she squats back on her gear on
+// three points of contact and reads as a hovering gunship rather than a parked toy. Consequences to
+// respect if you touch this:
+//   • the rotor mast (0.1,0,0.34) and tail rotor (-1.04,0.07,0.12) are PRE-transform stations;
+//     drawRotorFX runs its heli anchors through the same viperXf/viperRot when `armed`, so the discs
+//     tilt and scale with the airframe. Change one, you get the other for free — don't hardcode.
+//   • windshield.js measures ground contact per cls+armed (modelLowestH/modelGroundDrop/modelMidH),
+//     because this mesh hangs far lower than the unarmed Dragonfly it shares a class with.
 function buildAttackHeli() {
   const faces = [];
   const q = (role, sh, a, b, c, d) => faces.push({ role, sh, p: d ? [a, b, c, d] : [a, b, c] });
@@ -892,14 +900,49 @@ function buildAttackHeli() {
   for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; disc.push(V(cf + Math.cos(a) * 1.02, Math.sin(a) * 1.02, cz)); }
   faces.push({ role: 'rotor', sh: 0.65, p: disc });
 
-  // ── Fixed wheeled GEAR: two main wheels on short canted struts + a small tailwheel.
+  // ── TAILDRAGGER GEAR — three points of contact, squatting back on its haunches.
+  // The real Apache is a taildragger: two tall trailing-arm mains carried well FORWARD
+  // (under the stub wings) and one small wheel right at the end of the boom. Because the
+  // mains are long and the tailwheel is short, the airframe sits markedly NOSE-HIGH — the
+  // ramp stance. VIPER_PITCH below rotates the whole mesh to that attitude, so these three
+  // wheel bottoms are deliberately NOT level in build space: they're offset by exactly
+  // (Δf · tan pitch) so that AFTER the transform all three land on one flat floor.
+  // Change the pitch and these follow automatically — GEAR_DROP does the arithmetic.
+  const mainF = 0.06, tailF = -1.00;                      // fore-aft stations
+  const GEAR_DROP = (tailF - mainF) * Math.tan(VIPER_PITCH);  // how much lower the mains hang
+  const tailBot = -0.16, mainBot = tailBot + GEAR_DROP;   // wheel BOTTOMS in build space
   for (const s of [1, -1]) {
-    addStrut(faces, -0.02, s * 0.16, -0.02, -0.20, 0.014);
-    pushWheel(faces, -0.02, s * 0.20, -0.235, 0.052, 0.028, 10);
+    const wr = 0.058;                                     // fat main tyre
+    // Trailing-arm leg: a canted strut from the fuselage flank down and OUT to the hub,
+    // plus a shorter drag brace running aft — the splayed twin-leg read from the front.
+    addStrut(faces, mainF, s * 0.155, -0.020, mainBot + wr, 0.016);
+    addStrut(faces, mainF - 0.13, s * 0.175, -0.010, mainBot + wr, 0.011);
+    pushWheel(faces, mainF, s * 0.225, mainBot + wr, wr, 0.030, 10);
   }
-  addStrut(faces, -0.86, 0, 0.10, -0.02, 0.010);
-  pushWheel(faces, -0.86, 0, -0.05, 0.032, 0.02, 8);
+  const twr = 0.034;
+  addStrut(faces, tailF + 0.02, 0, 0.095, tailBot + twr, 0.011);
+  pushWheel(faces, tailF, 0, tailBot + twr, twr, 0.021, 8);
+
+  // ── Ship it double-size and nose-high. Applied as ONE transform over every vertex so
+  // the mesh and drawRotorFX's anchors (which run the same viperXf) can never drift apart.
+  for (const fc of faces) fc.p = fc.p.map(viperXf);
   return faces;
+}
+
+// The Viper is authored at unit scale and level, then shipped DOUBLE-SIZE and pitched
+// nose-up so it squats back on its gear. Exported because drawRotorFX has to place the
+// rotor discs through the identical transform — one source of truth, no drift.
+export const VIPER_PITCH = 7 * Math.PI / 180;   // nose-up squat
+export const VIPER_SCALE = 2;                   // "double the size"
+// Rotation only — for direction vectors (rotor disc axes), which must tilt but not scale.
+export function viperRot(v) {
+  const c = Math.cos(VIPER_PITCH), s = Math.sin(VIPER_PITCH);
+  return [v[0] * c - v[2] * s, v[1], v[0] * s + v[2] * c];
+}
+// Full transform — for positions.
+export function viperXf(v) {
+  const r = viperRot(v);
+  return [r[0] * VIPER_SCALE, r[1] * VIPER_SCALE, r[2] * VIPER_SCALE];
 }
 
 // A slim exposed MISSILE lying under a wingtip: a body tube, a pointed seeker nose (triangle fan to
@@ -944,14 +987,21 @@ export const MODEL_SCALE = { ultralight: 0.52, prop: 1.0, gunship: 1.05, heavy: 
 // are actually turning → how smeared they read (0 = a stopped/crisp prop, 1 = full motion smear).
 // Split so the own-ship can spin the BLADES up first (spool) and fade the DISC in after (disc),
 // and reverse on shutdown. Contacts pass neither → both fall back to `power` / full smear (old look).
-export function drawRotorFX(ctx, cls, projFn, { spin = 0, power = 0.7, parked = false, disc = null, spool = null, bladeFade = 0 } = {}) {
+export function drawRotorFX(ctx, cls, projFn, { spin = 0, power = 0.7, parked = false, disc = null, spool = null, bladeFade = 0, armed = false } = {}) {
   const dsc = disc != null ? disc : power;      // blur-disc opacity
   const spl = spool != null ? spool : 1;        // blade motion amount
   if (cls === 'heli') {
     // Main rotor (f-g plane; matches buildHeli's cf 0.1 / cz 0.34) + tail rotor
     // (f-h plane on the boom's right side), geared ~5× the main.
-    spinDisc(ctx, projFn, [0.1, 0, 0.34], [1, 0, 0], [0, 1, 0], 1.02, spin, dsc, spl, parked, 2, 0.85, bladeFade);
-    spinDisc(ctx, projFn, [-1.04, 0.07, 0.12], [1, 0, 0], [0, 0, 1], 0.19, spin * 4.7 + 1.1, dsc, spl, parked, 2, 0.7, bladeFade);
+    //
+    // The ARMED heli (Viper) ships double-size and pitched nose-up, so its anchors, disc
+    // axes and radii all go through the SAME viperXf/viperRot the mesh used — otherwise
+    // the discs sit level inside a tilted airframe. Unarmed (Dragonfly) is untouched.
+    const P  = armed ? viperXf  : (v) => v;     // positions: rotate + scale
+    const D  = armed ? viperRot : (v) => v;     // directions: rotate only
+    const R  = armed ? VIPER_SCALE : 1;         // radii: scale only
+    spinDisc(ctx, projFn, P([0.1, 0, 0.34]), D([1, 0, 0]), D([0, 1, 0]), 1.02 * R, spin, dsc, spl, parked, 2, 0.85, bladeFade);
+    spinDisc(ctx, projFn, P([-1.04, 0.07, 0.12]), D([1, 0, 0]), D([0, 0, 1]), 0.19 * R, spin * 4.7 + 1.1, dsc, spl, parked, 2, 0.7, bladeFade);
   } else {
     // Cessna two-blade nose prop / Twin Otter three-blade wing turboprops. The
     // stations record the spinner apex (ultralight) vs base (prop) — nudge the
@@ -2081,7 +2131,7 @@ function paintTurntable(ctx, { cls, armed = false, livery, yaw = 0, w, h, wreck 
   if (!wreck) drawNoseArt(ctx, proj, cls, livery, drawn.filter(fc => OCCLUDE_ROLE.has(fc.role)).map(fc => ({ P: fc.P, z: fc.avgZ })));
   // Props/rotors — engines off in here, so crisp STOPPED blades (not a blur),
   // projected through this same camera so they spin with the turntable.
-  if (!wreck) drawRotorFX(ctx, cls, (v) => { const q = proj(v[0], v[1], v[2]); return q.z <= 0.2 ? null : q; }, { parked: true, spin: 2.3 });
+  if (!wreck) drawRotorFX(ctx, cls, (v) => { const q = proj(v[0], v[1], v[2]); return q.z <= 0.2 ? null : q; }, { parked: true, spin: 2.3, armed });
 }
 
 // ── Outside world glimpse (through the open bay door) ─────────────────────────
@@ -2527,7 +2577,7 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
     // row doesn't read as clones.
     if (!grp.entry.wreck) drawRotorFX(ctx, grp.entry.cls,
       (v) => { const q = proj(v[0] * grp.sc, grp.laneG + v[1] * grp.sc, v[2] * grp.sc); return q.z <= 0.15 ? null : q; },
-      { parked: true, spin: 1.9 + grp.laneG * 0.6 });
+      { parked: true, spin: 1.9 + grp.laneG * 0.6, armed: !!grp.entry.armed });
     // A thin bright outline on the SELECTED craft — reads at a glance in a room
     // full of other planes, where a colour cue alone would be too subtle.
     if (grp.selected) {
