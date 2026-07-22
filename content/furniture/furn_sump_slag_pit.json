@@ -1,0 +1,14 @@
+{
+  "description": "A ring of chalk scuffed into the concrete around the center drain — the Sump's whole reason for being after last call. By day it is just a stain you step over. By night the stools scrape back, two lines of regulars toe the chalk, and the room becomes an arena the width of a bar. The drain in the middle takes the sweat, the spilled beer, and occasionally the loser. Faded numbers are painted at the edges where a scoreboard used to hang.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_sump_slag_pit",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the slag pit",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_mq_sump_bar"
+}
