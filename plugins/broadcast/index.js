@@ -1731,13 +1731,18 @@ function newsSceneNames() {
   if (_newsScenes && Date.now() - _newsScenesAt < 10 * 60 * 1000) return _newsScenes;
   const names = new Set();
   const INTERIORISH = /(roof|lobby|mezzanine|stairwell|basement|interior|ground floor| floor$)/i;
+  // Bulk-generated outdoor tiles are named "<Region> X,Y" (e.g. "The Reach 863,1948").
+  // A reporter says the place, not the grid ref — strip a trailing coordinate suffix so
+  // the {scene} token reads "The Reach". The Set then collapses the tiles to one entry.
+  const stripCoords = (s) => s.replace(/\s+-?\d+\s*,\s*-?\d+\s*$/, '').trim();
   for (const z of world.zones.values()) {
     if (!z?.name) continue;
     const f = z.flags || {};
     if (f.is_building) continue;                       // storefront tile named for its shop
     if (f.is_interior && f.artery !== true) continue;  // interiors, but keep named streets
     if (/^unit\s/i.test(z.name) || INTERIORISH.test(z.name)) continue;
-    names.add(z.name);
+    const name = stripCoords(z.name);
+    if (name) names.add(name);
   }
   _newsScenes = names.size ? [...names] : ['the Undermarket', 'the Yards', 'Franchise Strip', 'the Slagworks'];
   _newsScenesAt = Date.now();
