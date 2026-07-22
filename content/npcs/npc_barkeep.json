@@ -630,6 +630,59 @@
       ],
       "text": "\"crude Coldfire. How many crates?\" Sully doesn't write anything down. \"126₵ apiece, dropped at the Scald.\""
     },
+    "bm_q_deadair": {
+      "_vine": {
+        "x": 1040,
+        "y": 880
+      },
+      "actions": [],
+      "options": [
+        {
+          "actions": [
+            {
+              "action": "PLACE_SMUGGLE_ORDER",
+              "params": {
+                "itemId": "item_raw_deadair",
+                "qty": 1
+              }
+            }
+          ],
+          "label": "1 crate — 126₵",
+          "next": "bm_ordered"
+        },
+        {
+          "actions": [
+            {
+              "action": "PLACE_SMUGGLE_ORDER",
+              "params": {
+                "itemId": "item_raw_deadair",
+                "qty": 3
+              }
+            }
+          ],
+          "label": "3 crates — 378₵",
+          "next": "bm_ordered"
+        },
+        {
+          "actions": [
+            {
+              "action": "PLACE_SMUGGLE_ORDER",
+              "params": {
+                "itemId": "item_raw_deadair",
+                "qty": 5
+              }
+            }
+          ],
+          "label": "5 crates — 630₵",
+          "next": "bm_ordered"
+        },
+        {
+          "label": "On second thought — back.",
+          "next": "bm_menu"
+        }
+      ],
+      "text": "\"crude dead air. How many crates?\" Sully doesn't write anything down. \"126₵ apiece, dropped at the Scald.\""
+    },
     "bm_q_dreamsmoke": {
       "_vine": {
         "x": 1040,
@@ -1478,59 +1531,6 @@
       ],
       "text": "\"crude The Threshold. How many crates?\" Sully doesn't write anything down. \"28₵ apiece, dropped at the Scald.\""
     },
-    "bm_q_deadair": {
-      "_vine": {
-        "x": 1040,
-        "y": 880
-      },
-      "actions": [],
-      "options": [
-        {
-          "actions": [
-            {
-              "action": "PLACE_SMUGGLE_ORDER",
-              "params": {
-                "itemId": "item_raw_deadair",
-                "qty": 1
-              }
-            }
-          ],
-          "label": "1 crate — 126₵",
-          "next": "bm_ordered"
-        },
-        {
-          "actions": [
-            {
-              "action": "PLACE_SMUGGLE_ORDER",
-              "params": {
-                "itemId": "item_raw_deadair",
-                "qty": 3
-              }
-            }
-          ],
-          "label": "3 crates — 378₵",
-          "next": "bm_ordered"
-        },
-        {
-          "actions": [
-            {
-              "action": "PLACE_SMUGGLE_ORDER",
-              "params": {
-                "itemId": "item_raw_deadair",
-                "qty": 5
-              }
-            }
-          ],
-          "label": "5 crates — 630₵",
-          "next": "bm_ordered"
-        },
-        {
-          "label": "On second thought — back.",
-          "next": "bm_menu"
-        }
-      ],
-      "text": "\"crude dead air. How many crates?\" Sully doesn't write anything down. \"126₵ apiece, dropped at the Scald.\""
-    },
     "gossip": {
       "_vine": {
         "x": 360,
@@ -1609,7 +1609,7 @@
     "personality": "travelling_vendor"
   },
   "home_activities": [],
-  "home_zone": "zone_meridian_unit_303",
+  "home_zone": "zone_yards_tenement_u1_4",
   "hp": 20,
   "hp_max": 20,
   "id": "npc_barkeep",

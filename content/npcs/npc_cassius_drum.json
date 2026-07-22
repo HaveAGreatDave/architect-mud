@@ -226,7 +226,7 @@
     "cuts a pattern piece from a paper template with quiet precision",
     "holds two colors up to the window and stares at them for a long moment"
   ],
-  "home_zone": "zone_meridian_unit_202",
+  "home_zone": "zone_yards_tenement_u2_2",
   "hp": 25,
   "hp_max": 25,
   "id": "npc_cassius_drum",

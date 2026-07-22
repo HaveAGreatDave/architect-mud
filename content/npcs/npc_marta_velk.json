@@ -169,7 +169,7 @@
     "runs a cloth along an old shelf, checking the joints",
     "counts something quietly on her fingers, frowns"
   ],
-  "home_zone": "zone_meridian_unit_203",
+  "home_zone": "zone_yards_tenement_u4_5",
   "hp": 30,
   "hp_max": 30,
   "id": "npc_marta_velk",
