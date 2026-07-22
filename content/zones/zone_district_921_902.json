@@ -1,5 +1,10 @@
 {
-  "ambient_events": [],
+  "ambient_events": [
+    "Somewhere above, a window bangs open and a voice tells the whole Yards, at length, exactly what it can do with itself.",
+    "A sheet of freight manifest tumbles across the mouth of the door and keeps going, headed nowhere in particular.",
+    "A light in an upper window flickers on, thinks better of it, and goes back out.",
+    "Down the wall, a drainpipe empties a long grey ribbon of water onto the kerb."
+  ],
   "ambient_theme": "forest",
   "audio_theme_id": null,
   "bg_color": "#4a4642",

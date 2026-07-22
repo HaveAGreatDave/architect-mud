@@ -55,6 +55,12 @@ fac.bg_color = '#4a4642';
 fac.flags = { ...fac.flags, building_name: 'The Yards Tenement', building_type: 'apartment', district: 'yards',
   entrance: 'south', facade: true, is_building: true, floors: 10, world_exit_zone: STREET };
 fac.exits = { ...fac.exits, in: LOBBY };   // keep the 4 grassland neighbour exits; add the door
+fac.ambient_events = [
+  'Somewhere above, a window bangs open and a voice tells the whole Yards, at length, exactly what it can do with itself.',
+  'A sheet of freight manifest tumbles across the mouth of the door and keeps going, headed nowhere in particular.',
+  'A light in an upper window flickers on, thinks better of it, and goes back out.',
+  'Down the wall, a drainpipe empties a long grey ribbon of water onto the kerb.',
+];
 fac.updated_at = STAMP;
 write(`content/zones/${FACADE}.json`, fac);
 
