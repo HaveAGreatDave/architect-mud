@@ -112,6 +112,16 @@ added, and resurrects the rows it deleted. Verified in the Phase-2 drill.
   the pipeline scripts — code/docs-only pushes deploy nothing (each run costs
   Neon egress; unfiltered it blew the free plan's 5GB/month in one week,
   July 2026). `render.yaml`'s `buildFilter` mirrors this on the Render side.
+- **Deploys are debounced (a `gate` job between regress and deploy).** Each
+  deploy's Render restart cold-reloads the whole world from Neon (~36MB egress);
+  deploying one-for-one on every content commit (25/day in an active session)
+  blew the transfer cap a second time on reboots alone (July 2026). So a content
+  push now only **validates** (regress runs — zero Neon egress, it's a throwaway
+  local Postgres) and then stops. The deploy is batched onto a **2-hourly
+  `schedule`** that collapses a burst of commits into one reboot, and a scheduled
+  run whose HEAD sha is already the live deployment **skips** the idle reboot.
+  Two force paths deploy immediately: put **`[deploy]`** anywhere in the commit
+  message, or run the workflow by hand (Actions → deploy-content → Run workflow).
 - The snapshot replaced the old `pg_dump`-to-artifact backup when prod moved to
   Neon. Branches are near-free (data-only, no compute endpoint) but count against
   the project's branch cap — hence the prune step. `expires_at` alone was not

@@ -12,14 +12,21 @@
 # Catastrophic: Neon instant-restore prod's default branch from the
 # `predeploy-<run>-<sha>` snapshot branch created before the damaging run.
 #
-# ── ENABLING THE PUSH TRIGGER (the Phase-5 cutover gate) ──
-# This ships workflow_dispatch-only. After the content baseline lands on main,
-# rehearse first: restore the latest prod pg_dump into a scratch DB, point
-# PROD_DATABASE_URL at it (environment or temporary secret), dispatch this
-# workflow, and verify counts/drift/marker. Only then uncomment:
+# ── DEBOUNCE: pushes validate, the schedule deploys ──
+# Each deploy reboots Render, which cold-reloads the WHOLE world from Neon
+# (~36MB egress: SELECT * over zones + audio_songs + power_zones + furniture +
+# npcs + items). Deploying one-for-one on every content push — 25 in a day
+# during an active session — cold-reloaded the world 25 times and blew the free
+# plan's 5GB/month transfer cap on reboots alone (July 2026).
 #
-#   push:
-#     branches: [main]
+# So a content push no longer deploys. It runs the regress gate (validation,
+# against a throwaway local Postgres — zero Neon egress) and then STOPS. The
+# actual deploy is debounced onto a schedule, which collapses a burst of commits
+# into one reboot. Two escape hatches force an immediate deploy when you want the
+# change live now:
+#   • put `[deploy]` anywhere in the commit message, or
+#   • run this workflow by hand (Actions tab → deploy-content → Run workflow).
+# See the `gate` job for the exact decision.
 #
 # Required repo secrets:
 #   PROD_DATABASE_URL        — Neon connection string. Use the DIRECT (unpooled)
@@ -36,13 +43,14 @@
 name: deploy-content
 
 on:
-  workflow_dispatch:
+  workflow_dispatch:      # manual force: Actions tab → Run workflow
+  schedule:
+    - cron: '0 */2 * * *'  # debounced batch deploy, every 2 hours
   push:
     branches: [main]
-    # Only content-affecting pushes deploy. Code/docs/client-only pushes used to
-    # run this anyway, and each run costs ~30MB of Neon egress (drift report reads
-    # every content table) plus a Render reboot — that alone blew the free plan's
-    # 5GB/month transfer allowance in one week (July 2026).
+    # Content-affecting pushes trigger a run so regress validates them, but the
+    # gate job only lets the deploy through on a schedule / force (see header).
+    # Code/docs/client-only pushes don't run this at all.
     paths:
       - 'content/**'
       - 'server/models/schema.js'
@@ -88,8 +96,54 @@ jobs:
       - name: Regression suite (world built purely from files)
         run: npm run test:regress
 
-  deploy:
+  # ── Debounce gate — decides whether THIS run actually deploys ──────────────
+  #   push (no token)    → validate only; deploy waits for the schedule
+  #   push with [deploy] → deploy now (force from a commit)
+  #   workflow_dispatch  → deploy now (force button)
+  #   schedule           → deploy the batch, UNLESS HEAD is already the live sha
+  #                        (idle window — skip the pointless ~36MB reboot)
+  gate:
     needs: regress
+    runs-on: ubuntu-latest
+    outputs:
+      deploy: ${{ steps.decide.outputs.deploy }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - id: decide
+        env:
+          EVENT: ${{ github.event_name }}
+          PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+        run: |
+          deploy=false; why=""
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            deploy=true; why="manual dispatch — force deploy"
+          elif [ "$EVENT" = "push" ]; then
+            if git log -1 --pretty=%B | grep -qF '[deploy]'; then
+              deploy=true; why="[deploy] token in commit — force deploy"
+            else
+              why="content push validated; batched until the next 2-hourly deploy. Force with a [deploy] commit token or Run workflow."
+            fi
+          elif [ "$EVENT" = "schedule" ]; then
+            npm ci >/dev/null 2>&1 || true
+            # Fail-open: if the idle check can't run, deploy rather than risk
+            # silently skipping a real change (empty $last never equals $GITHUB_SHA).
+            last=$(node --input-type=module -e "import pg from 'pg'; const c=new pg.Client({connectionString:process.env.PROD_DATABASE_URL, ssl:{rejectUnauthorized:false}}); await c.connect(); const {rows}=await c.query(\"SELECT changes_summary->>'sha' AS sha FROM deployments WHERE deployed_by='ci' ORDER BY deployed_at DESC LIMIT 1\"); await c.end(); process.stdout.write(rows[0]?.sha||'');" || true)
+            if [ "$last" = "$GITHUB_SHA" ]; then
+              why="scheduled: HEAD ($GITHUB_SHA) already deployed — skipping the idle reboot"
+            else
+              deploy=true; why="scheduled batch deploy (last deployed: ${last:-none})"
+            fi
+          fi
+          echo "deploy=$deploy" >> "$GITHUB_OUTPUT"
+          echo "→ $why"
+
+  deploy:
+    needs: [regress, gate]
+    if: needs.gate.outputs.deploy == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -232,7 +286,14 @@ jobs:
       - uses: actions/github-script@v7
         with:
           script: |
-            const failed = ${{ contains(needs.*.result, 'failure') }};
+            // Only speak up about runs that actually tried to deploy. A validate-only
+            // push (gate skipped the deploy) has deployResult === 'skipped' — nothing
+            // to report, and it must NOT close the stall issue claiming "green again".
+            const deployResult = '${{ needs.deploy.result }}';
+            const regressResult = '${{ needs.regress.result }}';
+            const failed = regressResult === 'failure' || deployResult === 'failure';
+            const deployed = deployResult === 'success';
+            if (!failed && !deployed) return;   // validate-only / skipped — silent
             const TITLE = '🚨 prod content deploy is failing';
             const { data: open } = await github.rest.issues.listForRepo({
               owner: context.repo.owner, repo: context.repo.repo,
