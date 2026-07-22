@@ -10,7 +10,8 @@
     "stackable": true,
     "well_fed": true,
     "perishable": true,
-    "spoil_rate": "fast"
+    "spoil_rate": "fast",
+    "needs_cooking": true
   },
   "type": "consumable",
   "value": 7,

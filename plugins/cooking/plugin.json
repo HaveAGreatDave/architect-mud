@@ -1,0 +1,7 @@
+{
+  "name": "cooking",
+  "version": "1.0.0",
+  "description": "Weight/thaw-based timed cooking at stoves (flags.stove_tier) or a carried portable oven (tags.portable_oven). `heat <food>` — background/lazy, no tick; a bounded set of timers narrate stage transitions and completion, rescheduled on boot. Uses `heat` instead of `cook` (already owned by plugins/synthesis).",
+  "hooks": ["item.checkCooking"],
+  "commands": ["heat"]
+}

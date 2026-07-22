@@ -91,9 +91,11 @@ export async function ensureFreshnessCurrent(invRow, player) {
   const nowMs = Date.now();
   const cd = invRow.custom_data || {};
   const hadCheckpoint = !!cd.freshness;
-  const freshness = cd.freshness || { value: 100, checkpointAt: nowMs, envBucket: 'ambient', powerLostAt: null };
-
   const envNow = await resolveEnvironment(invRow, player);
+  // First touch: seed envBucket from the environment resolved just above, not
+  // a hardcoded guess — otherwise a same-instant second call would see the
+  // real tier "change" from the guess and rewrite for no real reason.
+  const freshness = cd.freshness || { value: 100, checkpointAt: nowMs, envBucket: envNow.tier, powerLostAt: null };
   // Opportunistic power-loss detection: the first time anything notices this
   // container isn't delivering, stamp the moment as "now" (a small grace to the
   // player if nobody looked sooner — no polling tick exists to catch it earlier).

@@ -3,6 +3,7 @@
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { reloadItem, deleteItemCache } from '../../server/engine/items-cache.js';
+import { insertFurniture, deleteFurniture } from '../../server/engine/world.js';
 import { computeCheckpoint, resolveEnvironment, ensureFreshnessCurrent } from './decay.js';
 import { TIER_FACTOR, BASE_DECAY_PER_HOUR, POWER_LOSS_BUFFER_MIN, STATE_CUTOFFS, stateFor } from './config.js';
 
@@ -68,6 +69,11 @@ export default async function regress({ run, check, getPlayer }) {
   check('an item with no container resolves via ambient zone temperature', typeof noContainer.tier === 'string' && noContainer.delivering === true, noContainer);
 
   // ── Integration: no write on two immediate no-elapsed-time calls ──────────
+  // Housed in a self-contained (no power_draw_kw) preserving container so its
+  // resolved environment never touches live ambient zone temperature — that
+  // reads real, ticking world state (weather/diurnal), which is genuinely free
+  // to change mid-suite and would otherwise make this check flaky, not wrong.
+  const FURN = 'furn_preservation_regress_box';
   try {
     await query(
       `INSERT INTO items (id,name,description,type,value,weight,tags) VALUES ($1,'test perishable','test perishable','consumable',1,10,$2)
@@ -75,10 +81,14 @@ export default async function regress({ run, check, getPlayer }) {
       [ITEM, JSON.stringify({ consumable: true, perishable: true, spoil_rate: 'normal', restore_hunger: 5 })]
     );
     await reloadItem(ITEM);
+    await insertFurniture({
+      id: FURN, name: 'test cold box', description: 'a test cold box', object_type: 'container',
+      zone_id: player.current_zone, flags: JSON.stringify({ preserves: 'refrigerated' }),
+    }, 'ON CONFLICT (id) DO UPDATE SET flags=EXCLUDED.flags, zone_id=EXCLUDED.zone_id');
     const invId = randomUUID();
     await query(
-      `INSERT INTO player_inventory (id, player_id, item_id, quantity, condition) VALUES ($1,$2,$3,1,1.0)`,
-      [invId, player.id, ITEM]
+      `INSERT INTO player_inventory (id, player_id, item_id, quantity, condition, container_id) VALUES ($1,$2,$3,1,1.0,$4)`,
+      [invId, player.id, ITEM, FURN]
     );
     const rowFor = async () => (await query(
       `SELECT pi.id, pi.custom_data, pi.container_id, i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.id=$1`,
@@ -88,19 +98,24 @@ export default async function regress({ run, check, getPlayer }) {
     let row = await rowFor();
     check('a fresh perishable has no checkpoint until first evaluated', !row.custom_data?.freshness, row.custom_data);
 
+    // Two calls back-to-back on the SAME in-memory row (no DB re-fetch between
+    // them, to keep the elapsed real time between checkpoints negligible) —
+    // ensureFreshnessCurrent mutates row.custom_data in place when it writes.
     await ensureFreshnessCurrent(row, player);
-    row = await rowFor();
     const firstCheckpointAt = row.custom_data?.freshness?.checkpointAt;
     check('first evaluation writes a checkpoint', !!firstCheckpointAt, row.custom_data);
 
     await ensureFreshnessCurrent(row, player);
+    check('a second immediate call with no elapsed time does not rewrite the in-memory checkpoint', row.custom_data?.freshness?.checkpointAt === firstCheckpointAt, row.custom_data);
+
     row = await rowFor();
-    check('a second immediate call with no elapsed time does not rewrite the checkpoint', row.custom_data?.freshness?.checkpointAt === firstCheckpointAt, row.custom_data);
+    check('the DB reflects only the first write, not a second', row.custom_data?.freshness?.checkpointAt === firstCheckpointAt, row.custom_data);
 
     await query('DELETE FROM player_inventory WHERE id=$1', [invId]);
   } finally {
     await query('DELETE FROM player_inventory WHERE item_id=$1', [ITEM]).catch(() => {});
     await query('DELETE FROM items WHERE id=$1', [ITEM]).catch(() => {});
     deleteItemCache(ITEM);
+    await deleteFurniture(FURN).catch(() => {});
   }
 }

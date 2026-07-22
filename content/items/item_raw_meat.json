@@ -10,6 +10,7 @@
     "stackable": true,
     "perishable": true,
     "spoil_rate": "fast",
+    "needs_cooking": true,
     "status_chance": {
       "food_poisoning": 0.6
     }

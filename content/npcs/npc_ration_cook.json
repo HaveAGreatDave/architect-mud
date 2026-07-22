@@ -118,6 +118,11 @@
       "item_id": "item_deli_wrap",
       "price": 12,
       "stock": 15
+    },
+    {
+      "item_id": "item_oven_zenith_compact",
+      "price": 850,
+      "stock": 3
     }
   ],
   "vendor_restock_rate": 1,

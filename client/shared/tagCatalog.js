@@ -97,6 +97,17 @@
     demolition: { label: 'Demolition Tool', shape: 'flag', scope: 'class', group: 'Combat',
       help: 'Marks a heavy tool/weapon (sledgehammer, cutting torch, breaching charge) capable of damaging armoured industrial infrastructure — generators and junction boxes. The main power plant can ONLY be damaged by an equipped item with this tag.' },
 
+    // --- Cooking ---
+    needs_cooking: { label: 'Needs Cooking', shape: 'flag', scope: 'class', group: 'Cooking',
+      help: 'Consumable is dangerous raw — eating it before the instance is cooked (see the `cooked` instance flag) applies food poisoning instead of its normal restores. Gates the `heat` verb (plugins/cooking).' },
+    stove_tier: { label: 'Stove Tier', shape: 'enum', scope: 'furniture', group: 'Cooking',
+      options: ['low', 'mid', 'high'],
+      help: 'Marks this furniture as a stove and sets its cook-speed multiplier (low 1.0x, mid 1.5x, high 2.5x). See plugins/cooking.' },
+    portable_oven: { label: 'Portable Oven', shape: 'flag', scope: 'class', group: 'Cooking',
+      help: 'Marks this item as a carried cooking appliance — the `heat` verb uses it when no room stove is available. Carry it uncontained (the fishing_rod/mining_tool tool-gate pattern). Pair with oven_capacity_g.' },
+    oven_capacity_g: { label: 'Oven Capacity (g)', shape: 'int', scope: 'class', group: 'Cooking',
+      help: 'Max food weight (grams) a portable_oven can cook at once — heavier food is refused outright ("small amounts only").' },
+
     // --- Consumable effects ---
     use_message: { label: 'Use Message', shape: 'text', scope: 'class', group: 'Consumable',
       help: 'Flavour line shown when the item is consumed via use / eat / drink; falls back to a plain default.' },
@@ -205,6 +216,10 @@
       help: 'Per-item state flag set on a carried instance.' },
     freshness: { label: 'Freshness', shape: 'statmap', scope: 'instance', group: 'Instance',
       help: 'Runtime-managed freshness checkpoint { value, checkpointAt, envBucket, powerLostAt } for a perishable item instance. Never dev-panel-editable — written and read only by the preservation plugin.' },
+    cooked: { label: 'Cooked', shape: 'flag', scope: 'instance', group: 'Instance',
+      help: 'Per-item state flag set once a needs_cooking instance finishes cooking. Never dev-panel-editable — written only by the cooking plugin.' },
+    cooking: { label: 'Cooking', shape: 'statmap', scope: 'instance', group: 'Instance',
+      help: 'Runtime-managed cook session { applianceId, startedAt, thawMs, cookMs, doneAt } for an instance mid-cook. Never dev-panel-editable — written and read only by the cooking plugin.' },
 
     // --- System tags (backfilled from live data by the tag-key sweep; each is
     // read by the named system. bait_* sub-tags are a parameterized family —

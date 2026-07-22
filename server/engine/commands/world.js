@@ -454,6 +454,12 @@ async function cmdExamine(targetStr, player, broadcast) {
       const fresh = await fireHook('item.checkFreshness', { ...it, id: it.inv_id }, player);
       if (fresh) msg += `\n<span class="text-dim">It looks ${fresh.state}.</span>`;
     }
+    if (it.custom_data?.cooking) {
+      const cooking = await fireHook('item.checkCooking', { ...it, id: it.inv_id }, player);
+      if (cooking && !cooking.done) msg += `\n<span class="text-dim">It's ${cooking.text}.</span>`;
+    } else if (it.tags && Object.prototype.hasOwnProperty.call(it.tags, 'needs_cooking')) {
+      msg += `\n<span class="text-dim">It's ${it.custom_data?.cooked ? 'cooked through' : 'raw — probably not safe to eat like this'}.</span>`;
+    }
     const acts = itemActionVerbs(it);
     if (acts.length) {
       const links = acts.map(v =>

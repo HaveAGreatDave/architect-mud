@@ -1,0 +1,19 @@
+{
+  "description": "A gleaming induction range with a heads-up temperature readout and a fan that spins up before you've even set the pan down. The brass plate reads MERIDIAN SEARMASTER, and it sears a crust like it's settling a grudge.",
+  "flags": {
+    "stove_tier": "high",
+    "interactions": [
+      "lean"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_solenne_stove_penthouse",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "Meridian Searmaster",
+  "object_type": "fixture",
+  "power_draw_kw": 0.5,
+  "price": 0,
+  "zone_id": "zone_solenne_penthouse"
+}

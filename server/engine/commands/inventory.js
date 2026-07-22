@@ -588,17 +588,22 @@ export async function applyItemUse(player, item, broadcast, opts = {}) {
   // (tags.use_message); otherwise fall back to the plain default.
   const messages = [opts.takeLine || t.use_message || `You use ${item.name}.`];
 
-  // A perishable's freshness is checked lazily right here, at the moment it
-  // matters most. Spoiled food skips every normal restore/buff below in favor
-  // of a food-poisoning debuff — still consumed, just gives you nothing good.
+  // Undercooked takes priority over spoiled (both are checked lazily right
+  // here, at the moment it matters most) — either one skips every normal
+  // restore/buff below in favor of a food-poisoning debuff; the item is still
+  // consumed, it just gives you nothing good.
+  const undercooked = t.needs_cooking && !(item.custom_data || {}).cooked;
   let spoiled = false;
-  if (t.perishable) {
+  if (!undercooked && t.perishable) {
     const fresh = await fireHook('item.checkFreshness', item, player);
     spoiled = fresh?.state === 'spoiled';
   }
+  const sick = undercooked || spoiled;
 
-  if (spoiled) {
-    messages[0] = `${item.name} is spoiled — you eat it anyway and immediately regret it.`;
+  if (sick) {
+    messages[0] = undercooked
+      ? `${item.name} is still raw in the middle — you eat it anyway and immediately regret it.`
+      : `${item.name} is spoiled — you eat it anyway and immediately regret it.`;
   } else {
   if (t.restore_hp) { player.hp = Math.min(player.hp_max, player.hp+t.restore_hp); messages.push(`+${t.restore_hp} HP.`); }
   if (t.restore_hunger) {
@@ -634,7 +639,7 @@ export async function applyItemUse(player, item, broadcast, opts = {}) {
   }
   }
 
-  if (spoiled) {
+  if (sick) {
     applyEffect(player, 'food_poisoning', 90);
     messages.push('Your stomach churns immediately.');
   }
