@@ -1,0 +1,19 @@
+{
+  "description": "A slab of matte ceramic composite, no bigger than a footlocker, radiating a faint chill you can feel through your boots before you've even touched it. The lid seals with a soft magnetic sigh and a status ring that pulses cyan for \"fine\" — it doesn't seem to have another color yet. Stamped along the seam: ZENITH ENTERPRISES — CRYOCELL, PORTABLE THERMAL SOLUTIONS. No plumbing, no bolted mounts, no permit. Just pick it up and walk. Whatever Zenith means by \"freezing\" on the spec sheet isn't switched on in this firmware revision — for now it just keeps things cold, and keeps them yours.",
+  "flags": {
+    "container": 20000,
+    "interactions": [
+      "lean"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_solenne_cryocell_lobby",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "Zenith Cryocell",
+  "object_type": "container",
+  "power_draw_kw": 0,
+  "price": 0,
+  "zone_id": "zone_solenne_lobby"
+}
