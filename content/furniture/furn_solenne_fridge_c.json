@@ -1,0 +1,19 @@
+{
+  "description": "Brushed alloy, a shelf array that reconfigures itself around whatever you put in it, and an interior glow that switches on a half-second before the door's even open — like it's been expecting you. The brass plate reads POLARIS EXECUTIVE, in a font too tasteful to be honest. It's polite. It's efficient. It is, in some deniable way, keeping track.",
+  "flags": {
+    "container": 90000,
+    "interactions": [
+      "lean"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_solenne_fridge_c",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "Polaris Executive Refrigeration Unit",
+  "object_type": "container",
+  "power_draw_kw": 0,
+  "price": 0,
+  "zone_id": "zone_solenne_apt_c"
+}
