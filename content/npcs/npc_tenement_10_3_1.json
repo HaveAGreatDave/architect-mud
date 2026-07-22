@@ -1,0 +1,41 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [],
+  "description": "Marlon Quill had letters after the name once, and a lab, and a future. Now there's a hot plate and a notebook full of increasingly small handwriting. Nods at everyone and remembers no one.",
+  "dialogue_tree": {},
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a hazmat smock pushed down to the waist",
+      "a sweat-damp undershirt",
+      "grey briefs"
+    ],
+    "personality": "scientist"
+  },
+  "home_activities": [],
+  "home_zone": "zone_yards_tenement_u10_3",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_tenement_10_3_1",
+  "name": "Marlon Quill",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [],
+    "mon": [],
+    "sat": [],
+    "sun": [],
+    "thu": [],
+    "tue": [],
+    "wed": []
+  },
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

@@ -1,0 +1,41 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [],
+  "description": "Cass Marsh had letters after the name once, and a lab, and a future. Now there's a hot plate and a notebook full of increasingly small handwriting. Sleeps through the day, awake all night.",
+  "dialogue_tree": {},
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a lead apron over a lab coat",
+      "a wrinkled polo",
+      "boxer shorts"
+    ],
+    "personality": "scientist"
+  },
+  "home_activities": [],
+  "home_zone": "zone_yards_tenement_u3_2",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_tenement_3_2_1",
+  "name": "Cass Marsh",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [],
+    "mon": [],
+    "sat": [],
+    "sun": [],
+    "thu": [],
+    "tue": [],
+    "wed": []
+  },
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

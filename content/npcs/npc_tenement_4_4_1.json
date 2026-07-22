@@ -1,0 +1,41 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [],
+  "description": "Rilla Prewitt is muscle for hire when there's hire to be had, and a problem when there isn't. The knuckles have stories the mouth won't tell. Collects the mail that isn't theirs and never opens it.",
+  "dialogue_tree": {},
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a studded denim vest",
+      "a tattoo-baring bralette",
+      "a lace thong"
+    ],
+    "personality": "thug"
+  },
+  "home_activities": [],
+  "home_zone": "zone_yards_tenement_u4_4",
+  "hp": 34,
+  "hp_max": 34,
+  "id": "npc_tenement_4_4_1",
+  "name": "Rilla Prewitt",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [],
+    "mon": [],
+    "sat": [],
+    "sun": [],
+    "thu": [],
+    "tue": [],
+    "wed": []
+  },
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

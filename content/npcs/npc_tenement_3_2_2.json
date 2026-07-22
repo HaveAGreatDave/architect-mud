@@ -1,0 +1,41 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [],
+  "description": "Bree Mott runs a quiet little trade out of the stairwell — nothing you'd notice unless you were looking to buy. Very polite about it. Keeps a chair wedged under the door handle.",
+  "dialogue_tree": {},
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a sharp dealer's vest over a pencil skirt",
+      "a pressed blouse",
+      "a plain bra and panties"
+    ],
+    "personality": "dealer"
+  },
+  "home_activities": [],
+  "home_zone": "zone_yards_tenement_u3_2",
+  "hp": 26,
+  "hp_max": 26,
+  "id": "npc_tenement_3_2_2",
+  "name": "Bree Mott",
+  "npc_type": "dealer",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [],
+    "mon": [],
+    "sat": [],
+    "sun": [],
+    "thu": [],
+    "tue": [],
+    "wed": []
+  },
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

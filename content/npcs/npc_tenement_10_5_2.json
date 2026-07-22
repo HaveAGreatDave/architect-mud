@@ -1,0 +1,41 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [],
+  "description": "Cleo Crost did contract work somewhere loud and came home wrong. Keeps the door double-locked and the light off. Keeps a chair wedged under the door handle.",
+  "dialogue_tree": {},
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a weathered tactical longcoat",
+      "a fitted base layer",
+      "a sports bra and panties"
+    ],
+    "personality": "mercenary"
+  },
+  "home_activities": [],
+  "home_zone": "zone_yards_tenement_u10_5",
+  "hp": 34,
+  "hp_max": 34,
+  "id": "npc_tenement_10_5_2",
+  "name": "Cleo Crost",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [],
+    "mon": [],
+    "sat": [],
+    "sun": [],
+    "thu": [],
+    "tue": [],
+    "wed": []
+  },
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

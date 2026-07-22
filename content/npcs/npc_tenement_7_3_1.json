@@ -1,0 +1,41 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [],
+  "description": "Len Dupre preaches to the stairwell most evenings, to whoever the acoustics deliver. The message drifts; the volume does not. Feeds a cat that may or may not exist.",
+  "dialogue_tree": {},
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a sandwich-board over a stained surplice",
+      "a plain tunic",
+      "threadbare boxers"
+    ],
+    "personality": "preacher"
+  },
+  "home_activities": [],
+  "home_zone": "zone_yards_tenement_u7_3",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_tenement_7_3_1",
+  "name": "Len Dupre",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [],
+    "mon": [],
+    "sat": [],
+    "sun": [],
+    "thu": [],
+    "tue": [],
+    "wed": []
+  },
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

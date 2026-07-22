@@ -1,0 +1,41 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [],
+  "description": "Jory Brack drifted in off the freight lanes and never quite drifted back out. Officially nobody's here; unofficially, this is home now. Nods at everyone and remembers no one.",
+  "dialogue_tree": {},
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a mildewed sleeping-bag worn as a cloak",
+      "a filthy thermal top",
+      "threadbare briefs"
+    ],
+    "personality": "vagrant"
+  },
+  "home_activities": [],
+  "home_zone": "zone_yards_tenement_u7_4",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_tenement_7_4_1",
+  "name": "Jory Brack",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [],
+    "mon": [],
+    "sat": [],
+    "sun": [],
+    "thu": [],
+    "tue": [],
+    "wed": []
+  },
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

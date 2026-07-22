@@ -1,0 +1,41 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [],
+  "description": "Sook Weir drifted in off the freight lanes and never quite drifted back out. Officially nobody's here; unofficially, this is home now. Argues with the radio.",
+  "dialogue_tree": {},
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a mildewed sleeping-bag worn as a cloak",
+      "a filthy thermal top",
+      "threadbare underthings"
+    ],
+    "personality": "vagrant"
+  },
+  "home_activities": [],
+  "home_zone": "zone_yards_tenement_u1_2",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_tenement_1_2_2",
+  "name": "Sook Weir",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [],
+    "mon": [],
+    "sat": [],
+    "sun": [],
+    "thu": [],
+    "tue": [],
+    "wed": []
+  },
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

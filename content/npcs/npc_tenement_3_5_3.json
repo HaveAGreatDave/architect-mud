@@ -1,0 +1,41 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [],
+  "description": "Rune Brandt belongs to something the rest of the building doesn't ask about, and leaves little chalk marks by the door that nobody scrubs off. Nods at everyone and remembers no one.",
+  "dialogue_tree": {},
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a rough hooded robe stained with ash",
+      "a coarse hair shirt",
+      "plain linen shorts"
+    ],
+    "personality": "cult_member"
+  },
+  "home_activities": [],
+  "home_zone": "zone_yards_tenement_u3_5",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_tenement_3_5_3",
+  "name": "Rune Brandt",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [],
+    "mon": [],
+    "sat": [],
+    "sun": [],
+    "thu": [],
+    "tue": [],
+    "wed": []
+  },
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

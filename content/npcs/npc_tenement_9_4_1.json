@@ -1,0 +1,41 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [],
+  "description": "Sig Yarrow preaches to the stairwell most evenings, to whoever the acoustics deliver. The message drifts; the volume does not. Counts the floors on the way up, every time, out loud.",
+  "dialogue_tree": {},
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a sandwich-board over a stained surplice",
+      "a plain tunic",
+      "a plain bra and panties"
+    ],
+    "personality": "preacher"
+  },
+  "home_activities": [],
+  "home_zone": "zone_yards_tenement_u9_4",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_tenement_9_4_1",
+  "name": "Sig Yarrow",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [],
+    "mon": [],
+    "sat": [],
+    "sun": [],
+    "thu": [],
+    "tue": [],
+    "wed": []
+  },
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

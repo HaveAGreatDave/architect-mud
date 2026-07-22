@@ -1,0 +1,41 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [],
+  "description": "Vera Dolan is one of the Tenement's long-term unemployed — thin, watchful, and permanently between things. The dole card is maxed and the days are all the same shape. Keeps a chair wedged under the door handle.",
+  "dialogue_tree": {},
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a fraying interview blazer gone shapeless",
+      "a coffee-stained blouse",
+      "a plain bra and worn panties"
+    ],
+    "personality": "unemployed"
+  },
+  "home_activities": [],
+  "home_zone": "zone_yards_tenement_u7_1",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_tenement_7_1_1",
+  "name": "Vera Dolan",
+  "npc_type": "unemployed",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [],
+    "mon": [],
+    "sat": [],
+    "sun": [],
+    "thu": [],
+    "tue": [],
+    "wed": []
+  },
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

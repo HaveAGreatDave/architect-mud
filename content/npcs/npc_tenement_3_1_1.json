@@ -1,0 +1,41 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [],
+  "description": "Ossie Ung drifted in off the freight lanes and never quite drifted back out. Officially nobody's here; unofficially, this is home now. Hums something nobody can place.",
+  "dialogue_tree": {},
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a rope-belted heap of coats",
+      "layers of unwashed rags",
+      "grey, holey boxers"
+    ],
+    "personality": "vagrant"
+  },
+  "home_activities": [],
+  "home_zone": "zone_yards_tenement_u3_1",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_tenement_3_1_1",
+  "name": "Ossie Ung",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [],
+    "mon": [],
+    "sat": [],
+    "sun": [],
+    "thu": [],
+    "tue": [],
+    "wed": []
+  },
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

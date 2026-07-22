@@ -1,0 +1,41 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [],
+  "description": "Nan Ossory is one of the Tenement's long-term unemployed — thin, watchful, and permanently between things. The dole card is maxed and the days are all the same shape. Coughs like the building does — in the pipes, at night.",
+  "dialogue_tree": {},
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "an oversized charity-bin coat",
+      "a threadbare cardigan",
+      "a faded bra and panties"
+    ],
+    "personality": "unemployed"
+  },
+  "home_activities": [],
+  "home_zone": "zone_yards_tenement_u4_3",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_tenement_4_3_1",
+  "name": "Nan Ossory",
+  "npc_type": "unemployed",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [],
+    "mon": [],
+    "sat": [],
+    "sun": [],
+    "thu": [],
+    "tue": [],
+    "wed": []
+  },
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

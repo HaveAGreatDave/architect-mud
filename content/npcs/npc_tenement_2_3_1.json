@@ -1,0 +1,41 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [],
+  "description": "Vera Vachs preaches to the stairwell most evenings, to whoever the acoustics deliver. The message drifts; the volume does not. Keeps a chair wedged under the door handle.",
+  "dialogue_tree": {},
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a patchwork robe hung with charms",
+      "a rough hair shift",
+      "coarse linen underthings"
+    ],
+    "personality": "preacher"
+  },
+  "home_activities": [],
+  "home_zone": "zone_yards_tenement_u2_3",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_tenement_2_3_1",
+  "name": "Vera Vachs",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [],
+    "mon": [],
+    "sat": [],
+    "sun": [],
+    "thu": [],
+    "tue": [],
+    "wed": []
+  },
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

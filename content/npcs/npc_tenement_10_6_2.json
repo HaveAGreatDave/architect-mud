@@ -1,0 +1,41 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [],
+  "description": "Mose Marsh belongs to something the rest of the building doesn't ask about, and leaves little chalk marks by the door that nobody scrubs off. Waters a dead plant on the sill with great faith.",
+  "dialogue_tree": {},
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a sackcloth shroud marked with an open eye",
+      "bare, scarred skin",
+      "a coarse loincloth"
+    ],
+    "personality": "cult_member"
+  },
+  "home_activities": [],
+  "home_zone": "zone_yards_tenement_u10_6",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_tenement_10_6_2",
+  "name": "Mose Marsh",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [],
+    "mon": [],
+    "sat": [],
+    "sun": [],
+    "thu": [],
+    "tue": [],
+    "wed": []
+  },
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}
