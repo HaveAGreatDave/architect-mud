@@ -3,11 +3,14 @@
   "description": "Heavy tar opioid, cut with whatever was nearby. The deepest nod there is.",
   "duration_seconds": 480,
   "effects": {
+    "comeon_message": "<span class=\"msg-system\">It is in you. Now the part nobody talks about — the waiting.</span>",
     "diuretic": 0.4,
     "instant": {
       "hunger": -6,
       "sanity": 18
     },
+    "onset_message": "<span class=\"msg-system\">It arrives all at once, warm and enormous, and the waiting stops mattering.</span>",
+    "onset_seconds": 30,
     "overdose": {
       "lethal": true,
       "message": "The nod goes all the way down and does not turn around."
@@ -26,6 +29,7 @@
       },
       "peak_seconds": 300
     },
+    "take_line": "You cook {name} down and get it into you.",
     "tolerance": {
       "gain_per_dose": 0.18,
       "max_reduction": 0.8,
@@ -40,15 +44,11 @@
         "stat_endurance": -4
       },
       "onset_seconds": 480
-    },
-    "onset_seconds": 30,
-    "comeon_message": "<span class=\"msg-system\">It is in you. Now the part nobody talks about — the waiting.</span>",
-    "onset_message": "<span class=\"msg-system\">It arrives all at once, warm and enormous, and the waiting stops mattering.</span>",
-    "take_line": "You cook {name} down and get it into you."
+    }
   },
   "flags": {
-    "injectable": true,
-    "drug_class": "depressant"
+    "drug_class": "depressant",
+    "injectable": true
   },
   "id": "drug_blacktar",
   "item_id": "item_blacktar",

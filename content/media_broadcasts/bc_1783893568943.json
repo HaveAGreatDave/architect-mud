@@ -21,6 +21,7 @@
   "loop": 1,
   "message_interval": 5,
   "messages": [],
+  "morning_pools": null,
   "name": "Raptor News Network — Nightly Fury",
   "news_pools": {
     "anchors": [

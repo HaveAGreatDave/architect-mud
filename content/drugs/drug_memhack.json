@@ -23,6 +23,7 @@
       },
       "peak_seconds": 240
     },
+    "take_line": "You dose {name} and let it go looking.",
     "tolerance": {
       "gain_per_dose": 0.12,
       "max_reduction": 0.7
@@ -34,8 +35,7 @@
         "stat_cool": -2
       },
       "onset_seconds": 1200
-    },
-    "take_line": "You dose {name} and let it go looking."
+    }
   },
   "flags": {},
   "id": "drug_memhack",

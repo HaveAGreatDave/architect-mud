@@ -7,7 +7,6 @@
   "created_by": "zone-planner",
   "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
   "exits": {
-    "east": "zone_district_922_912",
     "north": "zone_district_921_911",
     "south": "zone_district_921_913",
     "west": "zone_district_920_912"
@@ -26,5 +25,5 @@
   "marker": "#",
   "name": "Grasslands",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1784749332"
 }

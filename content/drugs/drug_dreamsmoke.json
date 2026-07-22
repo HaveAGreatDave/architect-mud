@@ -46,11 +46,11 @@
       },
       "peak_seconds": 200
     },
+    "take_line": "You pack a bowl of {name} and burn it down.",
     "tolerance": {
       "gain_per_dose": 0.15,
       "max_reduction": 0.7
-    },
-    "take_line": "You pack a bowl of {name} and burn it down."
+    }
   },
   "flags": {},
   "id": "drug_dreamsmoke",

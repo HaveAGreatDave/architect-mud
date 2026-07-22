@@ -32,6 +32,7 @@
       "text": "Compliance is appreciated. This has been a message from the Echelon."
     }
   ],
+  "morning_pools": null,
   "name": "Echelon Emergency Address",
   "news_pools": null,
   "override_duration": 30,

@@ -8,6 +8,7 @@
       "hp": 5,
       "sanity": 15
     },
+    "onset_message": "<span class=\"msg-system\">The edges come off everything. Whatever was urgent can wait.</span>",
     "onset_seconds": 8,
     "overdose": {
       "message": "You take enough to stop feeling anything, which turns out to include your legs. You fold up where you stand, breathing slow and shallow, hours gone before you surface.",
@@ -31,6 +32,7 @@
       },
       "peak_seconds": 300
     },
+    "take_line": "You swallow a {name} tab.",
     "tolerance": {
       "gain_per_dose": 0.12,
       "max_reduction": 0.7,
@@ -44,9 +46,7 @@
         "stat_endurance": -2
       },
       "onset_seconds": 900
-    },
-    "onset_message": "<span class=\"msg-system\">The edges come off everything. Whatever was urgent can wait.</span>",
-    "take_line": "You swallow a {name} tab."
+    }
   },
   "flags": {
     "drug_class": "depressant"

@@ -54,6 +54,7 @@
       "radiation": 5,
       "sanity": -10
     },
+    "onset_message": "<span class=\"msg-system\">Something in the room thins out, and you can see how little is holding it together.</span>",
     "onset_seconds": 6,
     "overdose": {
       "message": "Reality doesn't tear so much as admit it was never solid. Something looks back through the gap, knows your name, and takes a piece of you with it when it goes.",
@@ -76,6 +77,7 @@
       },
       "peak_seconds": 120
     },
+    "take_line": "You swallow a dose of {name}.",
     "tolerance": {
       "gain_per_dose": 0.25,
       "max_reduction": 0.85,
@@ -89,9 +91,7 @@
         "stat_cool": -2
       },
       "onset_seconds": 2400
-    },
-    "onset_message": "<span class=\"msg-system\">Something in the room thins out, and you can see how little is holding it together.</span>",
-    "take_line": "You swallow a dose of {name}."
+    }
   },
   "flags": {},
   "id": "drug_glasshollow",

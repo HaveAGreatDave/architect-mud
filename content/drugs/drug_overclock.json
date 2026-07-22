@@ -7,6 +7,8 @@
     "instant": {
       "sanity": -6
     },
+    "onset_message": "<span class=\"msg-system\">Your lace comes up to temperature. Thoughts arrive already finished.</span>",
+    "onset_seconds": 8,
     "overdose": {
       "lethal": true,
       "message": "Your wetware runs too hot for too long and something delicate inside simply melts."
@@ -27,6 +29,7 @@
       },
       "peak_seconds": 150
     },
+    "take_line": "You feed {name} into your lace.",
     "tolerance": {
       "gain_per_dose": 0.14,
       "max_reduction": 0.7
@@ -38,14 +41,11 @@
         "stat_reflexes": -2
       },
       "onset_seconds": 900
-    },
-    "onset_seconds": 8,
-    "onset_message": "<span class=\"msg-system\">Your lace comes up to temperature. Thoughts arrive already finished.</span>",
-    "take_line": "You feed {name} into your lace."
+    }
   },
   "flags": {
-    "injectable": true,
-    "drug_class": "stimulant"
+    "drug_class": "stimulant",
+    "injectable": true
   },
   "id": "drug_overclock",
   "item_id": "item_overclock",

@@ -9,6 +9,8 @@
       "sanity": 12,
       "thirst": -6
     },
+    "onset_message": "<span class=\"msg-system\">Your heart finds the new gear and stays there.</span>",
+    "onset_seconds": 10,
     "overdose": {
       "lethal": true,
       "message": "Your heart is a fist clenching until it cannot open again."
@@ -30,6 +32,7 @@
       },
       "peak_seconds": 150
     },
+    "take_line": "You dose {name}, the way the label tells you not to.",
     "tolerance": {
       "gain_per_dose": 0.12,
       "max_reduction": 0.7,
@@ -42,14 +45,11 @@
         "stat_reflexes": -2
       },
       "onset_seconds": 900
-    },
-    "onset_seconds": 10,
-    "onset_message": "<span class=\"msg-system\">Your heart finds the new gear and stays there.</span>",
-    "take_line": "You dose {name}, the way the label tells you not to."
+    }
   },
   "flags": {
-    "injectable": true,
-    "drug_class": "stimulant"
+    "drug_class": "stimulant",
+    "injectable": true
   },
   "id": "drug_redline",
   "item_id": "item_redline",

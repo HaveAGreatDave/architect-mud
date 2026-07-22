@@ -21,6 +21,7 @@
   "loop": 1,
   "message_interval": 5,
   "messages": [],
+  "morning_pools": null,
   "name": "DOOMCAST — Seven-Day Outlook",
   "news_pools": null,
   "override_duration": 120,

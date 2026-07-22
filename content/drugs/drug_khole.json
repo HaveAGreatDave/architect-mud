@@ -3,6 +3,7 @@
   "description": "A dissociative dust that unplugs you from your own body for a while.",
   "duration_seconds": 240,
   "effects": {
+    "comeon_message": "<span class=\"msg-system\">You take the dust and wait, already feeling further away than you were.</span>",
     "hallucination": {
       "dreamzone_id": "zone_dream_khole",
       "duration_seconds": 200,
@@ -39,11 +40,13 @@
     "instant": {
       "sanity": -8
     },
+    "onset_message": "<span class=\"msg-system\">Your body finishes its sentence without you. You are somewhere behind it now.</span>",
     "onset_seconds": 8,
     "overdose": {
       "lethal": true,
       "message": "You go so far down the hole that you forget the way back, and your body forgets to breathe."
     },
+    "take_line": "You cut out a line of {name} and snort it.",
     "tolerance": {
       "gain_per_dose": 0.2,
       "max_reduction": 0.8
@@ -54,10 +57,7 @@
         "stat_brains": -2
       },
       "onset_seconds": 1800
-    },
-    "comeon_message": "<span class=\"msg-system\">You take the dust and wait, already feeling further away than you were.</span>",
-    "onset_message": "<span class=\"msg-system\">Your body finishes its sentence without you. You are somewhere behind it now.</span>",
-    "take_line": "You cut out a line of {name} and snort it."
+    }
   },
   "flags": {},
   "id": "drug_khole",

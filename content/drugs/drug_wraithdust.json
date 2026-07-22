@@ -54,6 +54,7 @@
     "instant": {
       "sanity": -12
     },
+    "onset_message": "<span class=\"msg-system\">The quiet finishes settling. You are no longer sure you are alone in here.</span>",
     "onset_seconds": 40,
     "phases": {
       "comedown_message": "The air thins out. You're alone again — you think.",
@@ -68,13 +69,12 @@
       },
       "peak_seconds": 220
     },
+    "take_line": "You tip out the {name} and snort it off your hand.",
     "tolerance": {
       "gain_per_dose": 0.3,
       "max_reduction": 0.9,
       "recovery_per_sec": 0.0002
-    },
-    "onset_message": "<span class=\"msg-system\">The quiet finishes settling. You are no longer sure you are alone in here.</span>",
-    "take_line": "You tip out the {name} and snort it off your hand."
+    }
   },
   "flags": {},
   "id": "drug_wraithdust",

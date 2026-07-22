@@ -8,7 +8,6 @@
   "description": "A wide run of packed gravel and grit, graded flat by traffic and rain into something almost like a road. Puddles stand in the ruts, skinned with a chemical sheen. Nothing grows in the margins.",
   "exits": {
     "east": "zone_district_923_913",
-    "north": "zone_district_922_912",
     "south": "zone_district_922_914",
     "west": "zone_district_921_913"
   },
@@ -29,5 +28,5 @@
   "marker": "⁙∴",
   "name": "Kessler Street",
   "parent_zone": null,
-  "updated_at": "1784342750"
+  "updated_at": "1784749332"
 }

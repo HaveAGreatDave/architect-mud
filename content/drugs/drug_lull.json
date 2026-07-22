@@ -25,6 +25,7 @@
       },
       "peak_seconds": 240
     },
+    "take_line": "You slip a {name} tab under your tongue.",
     "tolerance": {
       "gain_per_dose": 0.12,
       "max_reduction": 0.7
@@ -36,8 +37,7 @@
         "stat_cool": -3
       },
       "onset_seconds": 900
-    },
-    "take_line": "You slip a {name} tab under your tongue."
+    }
   },
   "flags": {
     "drug_class": "depressant"

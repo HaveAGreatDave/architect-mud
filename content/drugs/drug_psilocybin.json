@@ -46,6 +46,7 @@
     "instant": {
       "sanity": -4
     },
+    "onset_message": "<span class=\"msg-system\">The nausea lifts and the world steps forward to be looked at.</span>",
     "onset_seconds": 30,
     "phases": {
       "comedown_message": "<span class=\"msg-system\">The eyes on the walls close, one by one. The world softens back toward ordinary.</span>",
@@ -62,13 +63,12 @@
       },
       "peak_seconds": 120
     },
+    "take_line": "You chew the mushrooms down, stems and all.",
     "tolerance": {
       "gain_per_dose": 0.3,
       "max_reduction": 0.9,
       "recovery_per_sec": 0.0003
-    },
-    "onset_message": "<span class=\"msg-system\">The nausea lifts and the world steps forward to be looked at.</span>",
-    "take_line": "You chew the mushrooms down, stems and all."
+    }
   },
   "flags": {},
   "id": "drug_psilocybin",

@@ -9,6 +9,7 @@
   "exits": {
     "east": "zone_district_924_908",
     "north": "zone_district_923_907",
+    "south": "zone_district_922_912",
     "west": "zone_district_922_908"
   },
   "flags": {
@@ -27,5 +28,5 @@
   "marker": "▚",
   "name": "Kessler Street",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1784749332"
 }

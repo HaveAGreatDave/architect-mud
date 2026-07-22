@@ -7,7 +7,7 @@
   "created_by": "zone-planner",
   "description": "Loose stone crunches underfoot, greyed with dust and old oil. A dead streetlight leans at the verge, and the wind carries grit that finds your teeth. Tyre tracks braid off into the haze.",
   "exits": {
-    "east": "zone_district_923_909",
+    "east": "zone_district_922_912",
     "north": "zone_district_922_908",
     "west": "zone_district_921_909"
   },
@@ -27,5 +27,5 @@
   "marker": "▚",
   "name": "Kessler Street + Marrow Street",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1784749332"
 }

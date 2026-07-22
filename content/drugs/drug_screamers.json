@@ -46,6 +46,7 @@
     "instant": {
       "sanity": -18
     },
+    "onset_message": "<span class=\"msg-system\">It does not ease in. It kicks the door off its hinges.</span>",
     "onset_seconds": 10,
     "phases": {
       "comedown_message": "<span class=\"msg-system\">The worst of it drains away, leaving you shaking and drenched and unconvinced it's really gone.</span>",
@@ -62,12 +63,11 @@
       },
       "peak_seconds": 165
     },
+    "take_line": "You swallow a hit of {name}.",
     "tolerance": {
       "gain_per_dose": 0.25,
       "max_reduction": 0.85
-    },
-    "onset_message": "<span class=\"msg-system\">It does not ease in. It kicks the door off its hinges.</span>",
-    "take_line": "You swallow a hit of {name}."
+    }
   },
   "flags": {},
   "id": "drug_screamers",

@@ -3,6 +3,7 @@
   "description": "A pint of raw ether and a rag. Not the smart choice, but here we are.",
   "duration_seconds": 120,
   "effects": {
+    "comeon_message": "<span class=\"msg-system\">You put the rag over your face and breathe in. The smell is the whole world for a second.</span>",
     "diuretic": 1.2,
     "hallucination": {
       "duration_seconds": 120,
@@ -35,13 +36,12 @@
     "instant": {
       "sanity": -10
     },
+    "onset_message": "<span class=\"msg-system\">The floor tilts politely away and the lights go soft at the edges.</span>",
     "onset_seconds": 2,
     "overdose": {
       "lethal": true,
       "message": "You breathe in one rag too many. The lights go out mid-thought."
     },
-    "comeon_message": "<span class=\"msg-system\">You put the rag over your face and breathe in. The smell is the whole world for a second.</span>",
-    "onset_message": "<span class=\"msg-system\">The floor tilts politely away and the lights go soft at the edges.</span>",
     "take_line": "You soak the rag and hold it over your face."
   },
   "flags": {

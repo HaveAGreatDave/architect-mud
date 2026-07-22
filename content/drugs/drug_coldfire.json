@@ -3,11 +3,14 @@
   "description": "A combat stim that turns fear into fuel. Frontline mercs swear by it, and at it.",
   "duration_seconds": 240,
   "effects": {
+    "comeon_message": "<span class=\"msg-system\">It hits your blood cold. Somewhere behind your sternum, something starts winding up.</span>",
     "diuretic": 1.5,
     "instant": {
       "hunger": -12,
       "sanity": 6
     },
+    "onset_message": "<span class=\"msg-system\">The fear goes out like a snuffed match. What is left is very calm and very willing.</span>",
+    "onset_seconds": 12,
     "overdose": {
       "lethal": true,
       "message": "Your body cannot tell it is dying. It sprints straight past the edge."
@@ -27,6 +30,7 @@
       },
       "peak_seconds": 140
     },
+    "take_line": "You dose yourself with {name}, cold and clinical.",
     "tolerance": {
       "gain_per_dose": 0.15,
       "max_reduction": 0.7
@@ -38,15 +42,11 @@
         "stat_endurance": -2
       },
       "onset_seconds": 1200
-    },
-    "onset_seconds": 12,
-    "comeon_message": "<span class=\"msg-system\">It hits your blood cold. Somewhere behind your sternum, something starts winding up.</span>",
-    "onset_message": "<span class=\"msg-system\">The fear goes out like a snuffed match. What is left is very calm and very willing.</span>",
-    "take_line": "You dose yourself with {name}, cold and clinical."
+    }
   },
   "flags": {
-    "injectable": true,
-    "drug_class": "stimulant"
+    "drug_class": "stimulant",
+    "injectable": true
   },
   "id": "drug_coldfire",
   "item_id": "item_coldfire",

@@ -33,11 +33,11 @@
       "sanity": -12
     },
     "onset_seconds": 0,
+    "take_line": "You take a single breath of {name}.",
     "tolerance": {
       "gain_per_dose": 0.2,
       "max_reduction": 0.6
-    },
-    "take_line": "You take a single breath of {name}."
+    }
   },
   "flags": {},
   "id": "drug_threshold",

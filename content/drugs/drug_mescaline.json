@@ -47,6 +47,7 @@
       "hunger": -6,
       "sanity": -6
     },
+    "onset_message": "<span class=\"msg-system\">The colours arrive first, and they have opinions.</span>",
     "onset_seconds": 25,
     "phases": {
       "comedown_message": "<span class=\"msg-system\">The gold cools out of the air. The visions settle, unhurried, back into ordinary matter.</span>",
@@ -63,12 +64,11 @@
       },
       "peak_seconds": 300
     },
+    "take_line": "You swallow a few {name} pellets.",
     "tolerance": {
       "gain_per_dose": 0.3,
       "max_reduction": 0.9
-    },
-    "onset_message": "<span class=\"msg-system\">The colours arrive first, and they have opinions.</span>",
-    "take_line": "You swallow a few {name} pellets."
+    }
   },
   "flags": {},
   "id": "drug_mescaline",

@@ -24,11 +24,11 @@
       },
       "peak_seconds": 30
     },
+    "take_line": "You crack an amyl under your nose and breathe in.",
     "tolerance": {
       "gain_per_dose": 0.2,
       "max_reduction": 0.7
-    },
-    "take_line": "You crack an amyl under your nose and breathe in."
+    }
   },
   "flags": {},
   "id": "drug_amyls",

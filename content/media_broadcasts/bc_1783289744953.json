@@ -21,6 +21,7 @@
   "loop": 1,
   "message_interval": 5,
   "messages": [],
+  "morning_pools": null,
   "name": "Deadball — Coldwater League Baseball",
   "news_pools": null,
   "override_duration": 300,

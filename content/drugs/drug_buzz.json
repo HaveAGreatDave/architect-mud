@@ -7,6 +7,7 @@
     "instant": {
       "hunger": -5
     },
+    "onset_message": "<span class=\"msg-system\">It catches — a cheap, bright little jolt behind the eyes.</span>",
     "onset_seconds": 3,
     "phases": {
       "comedown_message": "The jitter drains out of you.",
@@ -20,7 +21,6 @@
       },
       "peak_seconds": 180
     },
-    "onset_message": "<span class=\"msg-system\">It catches — a cheap, bright little jolt behind the eyes.</span>",
     "take_line": "You dry-swallow a tab of {name}."
   },
   "flags": {

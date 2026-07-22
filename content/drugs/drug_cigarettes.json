@@ -26,6 +26,7 @@
       },
       "peak_seconds": 90
     },
+    "take_line": "You light a cigarette and draw on it.",
     "tolerance": {
       "gain_per_dose": 0.1,
       "max_reduction": 0.5
@@ -37,8 +38,7 @@
         "stat_cool": -2
       },
       "onset_seconds": 600
-    },
-    "take_line": "You light a cigarette and draw on it."
+    }
   },
   "flags": {
     "appetite_suppress_seconds": 900,

@@ -3,7 +3,7 @@
   "city_generator_id": null,
   "connection_range": 0,
   "flags": {
-    "battery": 76,
+    "battery": 52,
     "battery_max": 100,
     "junction_box_id": "gen_zone_echelon_engine_jbox",
     "tank": 20

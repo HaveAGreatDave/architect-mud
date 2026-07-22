@@ -3,6 +3,7 @@
   "description": "A designer dissociative that drops you into the static between channels.",
   "duration_seconds": 300,
   "effects": {
+    "comeon_message": "<span class=\"msg-system\">You dose and stand very still, waiting for the channel to change.</span>",
     "hallucination": {
       "dreamzone_id": "zone_dream_void",
       "duration_seconds": 260,
@@ -39,11 +40,13 @@
     "instant": {
       "sanity": -14
     },
+    "onset_message": "<span class=\"msg-system\">The signal drops out. You are between stations, and it is quiet here.</span>",
     "onset_seconds": 8,
     "overdose": {
       "lethal": true,
       "message": "The static pulls you all the way under and keeps the channel dark."
     },
+    "take_line": "You dose {name} and wait for the signal to drop.",
     "tolerance": {
       "gain_per_dose": 0.2,
       "max_reduction": 0.8
@@ -56,10 +59,7 @@
         "stat_cool": -1
       },
       "onset_seconds": 2100
-    },
-    "comeon_message": "<span class=\"msg-system\">You dose and stand very still, waiting for the channel to change.</span>",
-    "onset_message": "<span class=\"msg-system\">The signal drops out. You are between stations, and it is quiet here.</span>",
-    "take_line": "You dose {name} and wait for the signal to drop."
+    }
   },
   "flags": {},
   "id": "drug_deadair",

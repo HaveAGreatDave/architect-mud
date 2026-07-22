@@ -21,6 +21,7 @@
   "loop": 1,
   "message_interval": 5,
   "messages": [],
+  "morning_pools": null,
   "name": "The Tonight Show with John Akerson",
   "news_pools": null,
   "override_duration": 300,

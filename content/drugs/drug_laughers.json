@@ -57,11 +57,11 @@
       },
       "peak_seconds": 150
     },
+    "take_line": "You chew a couple of {name}.",
     "tolerance": {
       "gain_per_dose": 0.2,
       "max_reduction": 0.8
-    },
-    "take_line": "You chew a couple of {name}."
+    }
   },
   "flags": {},
   "id": "drug_laughers",
