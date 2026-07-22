@@ -4068,6 +4068,68 @@ function _seekGraph(graph, bb, segElapsedMs, nowMs) {
   bb.currentNode = nodeId || null;
 }
 
+// ── Live-text tokens for scripted broadcasts ─────────────────────────────────
+// Scripted say/ticker/credits/title-card text may embed {tokens} that resolve at
+// airtime from live world state — the "smart trick" that lets a fixed graph speak
+// the actual clock, weekday, weather, and a per-airing viewer count. Unknown tokens
+// are left verbatim, and any text with no '{' skips the whole pass (the common case),
+// so this is free for the vast majority of lines. Mirrors the weather/sports
+// assemblers' {token} idiom (wxLine/sportsLine), but for hand-authored graphs.
+const _DOW_NAMES = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+// Live count of sets tuned to this channel right now (zone devices + tablet tuners).
+function _liveWatchers(channelId) {
+  let n = 0;
+  for (const [zoneId, channelMap] of zoneTunings) {
+    if (channelMap.has(channelId)) n += getZonePlayers(zoneId).length;
+  }
+  for (const chId of tabletTuners.values()) if (chId === channelId) n++;
+  return n;
+}
+
+// Words for the time left until the 04:00 morning service ("1 hour and 13 minutes").
+function _untilFour(minutes) {
+  let d = 4 * 60 - (minutes ?? 0);
+  if (d <= 0) d += 24 * 60;
+  const h = Math.floor(d / 60), m = d % 60;
+  const parts = [];
+  if (h) parts.push(`${h} hour${h === 1 ? '' : 's'}`);
+  if (m) parts.push(`${m} minute${m === 1 ? '' : 's'}`);
+  return parts.join(' and ') || 'no time at all';
+}
+
+// Per-airing spooky viewer count — stable within an in-world hour (so the on-screen
+// count card and the spoken line always agree), fresh each hour and each new airing.
+// Stashed on the blackboard, which the reset block clears so a new airing re-rolls.
+function _airingViewers(bb, hour) {
+  const stamp = hour ?? 2;
+  if (bb.viewers == null || bb.viewersStamp !== stamp) {
+    bb.viewers = 900 + Math.floor(Math.random() * 2700);   // 900..3,599 still awake
+    bb.viewersStamp = stamp;
+  }
+  return bb.viewers;
+}
+
+function _scriptedTokens(channelId, state, bb) {
+  const env = getEnvironmentState();
+  return {
+    clock:      env.time || '02:00',
+    weekday:    _DOW_NAMES[env.dayOfWeek] || 'a night with no name',
+    season:     String(env.season || '').replace(/_/g, ' '),
+    weather:    String(env.currentWeatherType || env.weatherType || 'still').replace(/_/g, ' '),
+    tempc:      Math.round(env.tempC ?? 0),
+    viewers:    _airingViewers(bb, env.hour).toLocaleString('en-US'),
+    watching:   _liveWatchers(channelId),
+    until_four: _untilFour(env.minutes),
+  };
+}
+
+function _subTokens(text, channelId, state, bb) {
+  if (!text || text.indexOf('{') === -1) return text;
+  const tok = _scriptedTokens(channelId, state, bb);
+  return text.replace(/\{(\w+)\}/g, (m, k) => (k in tok ? String(tok[k]) : m));
+}
+
 function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
   if (!state.graphBlackboard) return null;
   const bb = state.graphBlackboard;
@@ -4089,6 +4151,8 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
     bb.hostAbsent = false;
     bb.absentDetectedAt = null;
     bb.techDiffMode = false;
+    bb.viewers = null;
+    bb.viewersStamp = null;
     bb.activeBroadcastId = graph._broadcastId;
     // Seek to mid-program position if tuning in partway through
     if (segElapsedSec > 0) {
@@ -4159,7 +4223,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         break;
 
       case 'say': {
-        const raw = node.data?.text || '';
+        const raw = _subTokens(node.data?.text || '', channelId, state, bb);
         bb.currentNode = _resolveEdge(edges, nodeId, 'next');
         const holdMs_say = nodeHoldMs(node);
         bb.waitUntil = nowMs + holdMs_say;
@@ -4238,7 +4302,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
 
       case 'ticker': {
         if (bb.hostAbsent) { nodeId = _resolveEdge(edges, nodeId, 'next'); break; }
-        const text = `>> ${node.data?.text || ''} <<`;
+        const text = `>> ${_subTokens(node.data?.text || '', channelId, state, bb)} <<`;
         bb.currentNode = _resolveEdge(edges, nodeId, 'next');
         bb.waitUntil = nowMs + nodeHoldMs(node);
         return { text, key: `ticker:${channelId}:${nodeId}`, style: 'ticker' };
@@ -4364,7 +4428,8 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         bb.currentNode = _resolveEdge(edges, nodeId, 'next');
         bb.waitUntil = nowMs + nodeHoldMs(node);
         if (graphic && (graphic.content || '').trim()) {
-          const caption = node.data?.caption ? `\n${node.data.caption}` : '';
+          const cardContent = _subTokens(graphic.content, channelId, state, bb);
+          const caption = node.data?.caption ? `\n${_subTokens(node.data.caption, channelId, state, bb)}` : '';
           // A theme rides the card: the intro song starts the moment the card appears,
           // and the card holds for the theme's length (see nodeHoldMs) so no spoken line
           // drops until it ends. song/sample defs ride the result for broadcastTick to play.
@@ -4374,7 +4439,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
           if ((themeSong || themeSample) && liveActed && state.studioZoneId) {
             sendToZone(state.studioZoneId, themeSong ? { type: 'audio_music', def: themeSong } : { type: 'audio_sample', def: themeSample });
           }
-          return { text: graphic.content + caption, key: `graphic:${channelId}:${gid}:${nowMs}`, style: graphicStyle(graphic), ...(themeSong ? { song: themeSong } : {}), ...(themeSample ? { sample: themeSample } : {}) };
+          return { text: cardContent + caption, key: `graphic:${channelId}:${gid}:${nowMs}`, style: graphicStyle(graphic), ...(themeSong ? { song: themeSong } : {}), ...(themeSample ? { sample: themeSample } : {}) };
         }
         // Graphic missing or empty — log it and skip straight to the next card this
         // tick (no dead 5s hold on a card that can't render).
@@ -4385,7 +4450,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
       }
 
       case 'credits': {
-        const creditsText = node.data?.text || '';
+        const creditsText = _subTokens(node.data?.text || '', channelId, state, bb);
         bb.currentNode = _resolveEdge(edges, nodeId, 'next');
         bb.waitUntil = nowMs + nodeHoldMs(node);
         return { text: creditsText, key: `credits:${channelId}:${nodeId}:${nowMs}`, style: 'credits', duration: node.data?.duration ?? null };
@@ -5855,6 +5920,7 @@ export const _test = {
   assembleNewsGraph, newsFill, newsSceneNames,
   assembleTalkshowGraph, talkshowAiring, talkshowPersonaFor, talkshowFill, makeTalkshowGuestGraph, ensureTalkshowSlot,
   assembleMorningGraph, morningRunInKey,
+  subTokens: _subTokens, scriptedTokens: _scriptedTokens, untilFour: _untilFour, airingViewers: _airingViewers,
 };
 
 // ── Route handler (CRUD) ─────────────────────────────────────────────────────

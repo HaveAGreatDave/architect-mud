@@ -145,17 +145,31 @@ function buildFixedWing(p, detail = 1) {
     if (f >= 0) { const s = Math.pow(Math.max(0, 1 - Math.pow(u, noseK)), 1 / noseK); return cowl + (1 - cowl) * s; }
     return Math.pow(1 - u, 0.8);
   };
+  // VERTICAL nose taper (p.noseVTaper): shrink the fuselage HEIGHT faster than its width through
+  // the nose. This is what a Twin Otter's front end actually does — the flat-topped cabin box holds
+  // full height back to the windscreen, then the ROOF comes down hard (a steep, forward-raked
+  // windscreen) while the sides stay wide, and the nose tapers to a low drooped point with the
+  // belly rising gently to meet it (a wedge, not a sagging tube). Doing it with czAt droop alone
+  // dropped the whole ring, sinking the belly below the nose tip; a height-only taper keeps the
+  // keel up. Only active where set (the Mule) — every other craft's ring is unchanged.
+  const radVAt = (f) => {
+    const rH = radAt(f);
+    if (!(detail && p.noseVTaper && f > 0)) return rH;
+    const u = Math.min(1, f / p.noseF);
+    const t = u <= tube ? 0 : (u - tube) / (1 - tube);
+    return rH * Math.pow(1 - t, p.noseVTaper);
+  };
   // Cross-section: an ellipse (fr wide × fv tall) morphed toward a rounded RECTANGLE by p.boxy
   // (0 = round, →1 = slab-sided) — a Twin Otter is a flat-sided box, an An-124 near circular.
   // At the 4 cardinal points |cos|/|sin| are 0 or 1, so a 4-sided coarse ring is unaffected →
   // the LOD-0 silhouette is identical regardless of boxy.
   const shapeExp = 1 - (p.boxy || 0) * 0.55;
   const ring = (f) => {
-    const r = radAt(f), cz = czAt(f), out = [];
+    const rW = radAt(f), rH = radVAt(f), cz = czAt(f), out = [];
     for (let k = 0; k < sides; k++) {
       const a = k / sides * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a);
-      const g = Math.sign(ca) * Math.pow(Math.abs(ca), shapeExp) * p.fr * r;
-      const h = Math.sign(sa) * Math.pow(Math.abs(sa), shapeExp) * p.fv * r;
+      const g = Math.sign(ca) * Math.pow(Math.abs(ca), shapeExp) * p.fr * rW;   // width uses the plan taper
+      const h = Math.sign(sa) * Math.pow(Math.abs(sa), shapeExp) * p.fv * rH;   // height can taper faster in the nose (radVAt)
       out.push(V(f, g, cz + h));
     }
     return out;
@@ -1203,7 +1217,7 @@ const FW_PARAMS = {
   // deep, flat-sided BOX of a fuselage held near-constant most of its length, with the signature
   // DROOPED, POINTED "anteater" nose (noseZ pulls the radome down below the fuselage line to a
   // point). Shortened from the original (empennage pulled in to match) so it reads less stretched.
-  prop: { ...FW_DEFAULT, fr: 0.13, fv: 0.135, span: 1.02, noseF: 0.92, tailF: -0.92,
+  prop: { ...FW_DEFAULT, fr: 0.13, fv: 0.135, span: 1.02, noseF: 1.00, tailF: -0.92,
     // The wing sits flat ON the cabin roof (crown 0.135), not half-buried in it.
     wingH: 0.161, dih: 0.01, wRootF: 0.36, wRootB: -0.10, wTipF: 0.26, wTipB: -0.06,
     hF: -0.70, hB: -0.89, hTipF: -0.75, hTipB: -0.91, hSpan: 0.40,
@@ -1213,20 +1227,23 @@ const FW_PARAMS = {
     engines: [-0.42, 0.42], nacF: 0.06, nacHalf: 0.28, nacH: 0.11, prop: 'wing',
     dorsal: -0.24,   // the long dorsal fin fillet running forward off the fin along the spine
     struts: true, gear: true, gearStyle: 'oleo', boxy: 0.86,
-    // Slab-sided BOX held at full section right back to the flight deck (bodyTube 0.60), then the
-    // whole snout tapers and DROOPS away below it — the anteater nose. noseDroopK 0.7 spends most
-    // of that drop in the first bay off the box, so the facets there rake like a real windscreen.
-    noseBlunt: 2.4, noseZ: -0.085, noseDroopK: 0.7, bodyTube: 0.60, tailUp: 0.075,
-    // FLIGHT DECK CUT INTO THE HULL (per ref photo), not a hump on the roof: the Otter's cockpit
-    // glass is flush with its flat slab sides and rakes forward over the drooped nose. Extra rings
-    // at 0.66/0.55/0.44/0.34 give the windscreen and each side window their own bay (the default
-    // 3-station nose was one coarse quad); `glaze` then turns the upper-side facets between them
-    // to glass. On a 12-gon the upper half runs k 0…5 — k0/k5 are the deep side band (mid-height
-    // up to ~0.7 of the fuselage height), k1/k4 the cheek above it, k2/k3 the roof. So the side
-    // windows take k0/k5 only and the windscreen bay also takes the cheek, while the roof and the
-    // centreline post between the two screens are simply unglazed hull — real geometry, not paint.
-    extraF: [0.70, 0.62, 0.55, 0.44, 0.30],
-    glaze: { f0: 0.70, f1: 0.30, ks: [0, 5], wsKs: [0, 1, 4, 5], wsF: 0.60, art: 'mule' } },
+    // THE TWIN OTTER NOSE (per ref photos). The flat-topped slab box holds FULL width AND height
+    // back to the windscreen (bodyTube 0.62), then two things happen at once ahead of it:
+    //  • the ROOF drops hard (noseVTaper shrinks height ~1.6× faster than width) → a steep,
+    //    forward-raked 2-pane windscreen and, past it, a nose that tapers to a LOW point;
+    //  • the centreline eases down a touch (noseZ −0.05) so that low point sits just below the
+    //    fuselage line — the gentle droop — while the belly keeps rising to meet it (a wedge, not
+    //    the old sagging tube). Longer nose (noseF 0.92→1.00) for the anteater reach.
+    noseBlunt: 2.2, noseZ: -0.05, noseDroopK: 0.7, noseVTaper: 1.6, bodyTube: 0.62, tailUp: 0.075,
+    // FLIGHT DECK CUT INTO THE HULL (per ref photo), not a hump on the roof. Rings at the
+    // windscreen top/base + side-window divisions give each pane its own bay; `glaze` turns the
+    // upper facets between them to glass. On a 12-gon the upper half is k 0…5 (starboard sill →
+    // crown → port sill). The WINDSCREEN bay (fore of wsF) glazes the FULL upper half — k0…5 — so
+    // the two panes wrap up and over the crown and around the corners into the side glass, split
+    // only by the painted centre post; the side-window bays glaze the side band (k0/k5) alone, so
+    // the cabin ROOF behind the windscreen stays solid.
+    extraF: [0.84, 0.70, 0.62, 0.48, 0.34],
+    glaze: { f0: 0.70, f1: 0.30, ks: [0, 5], wsKs: [0, 1, 2, 3, 4, 5], wsF: 0.63, art: 'mule' } },
   // Reaper — an A-10 Warthog (per ref): a straight-wing, twin-tail gun platform with two fat
   // turbofans mounted HIGH on stub pylons off the rear fuselage. A SLIM fuselage (thin fr) that's
   // still deep, a slightly pointed nose, and the twin fins out at the tailplane tips.
@@ -1560,20 +1577,23 @@ const CANOPY_ART = {
     wash: [[0.00, 'rgba(12,20,26,0.80)'], [0.16, 'rgba(20,36,46,0.66)'], [0.34, 'rgba(58,102,116,0.34)'],
            [0.47, 'rgba(150,198,208,0.30)'], [0.53, 'rgba(150,198,208,0.30)'], [0.66, 'rgba(58,102,116,0.34)'],
            [0.84, 'rgba(20,36,46,0.66)'], [1.00, 'rgba(12,20,26,0.80)']],
-    // NB the Mule glazes its HULL (FW_PARAMS.prop.glaze) rather than wearing a canopy bubble, so
-    // only part of this sheet is ever visible: V 0–⅙ and ⅚–1 (the side windows) plus V ⅙–⅓ and
-    // ⅔–⅚ on the windscreen bay. Everything below lives in those bands — the middle of the sheet
-    // is the roof, which on an Otter is painted metal, so nothing is placed there.
-    crew: [{ u: 0.30, v: 0.09, sc: 0.95, cap: true, hair: 'rgba(24,26,32,0.92)' },
-           { u: 0.30, v: 0.91, sc: 0.95, cap: true, hair: 'rgba(24,26,32,0.92)' }],
-    glow: { u: [0.05, 0.13], col: '90,170,200', a: 0.26, r: 66 },
-    spec: { band: [0.0, 1.0], streaks: [[0.20, 26, 0.16], [0.58, 16, 0.10]] },
+    // The Mule glazes its HULL (FW_PARAMS.prop.glaze), so which of this sheet shows depends on the
+    // facet. The WINDSCREEN bays (U 0–0.20) glaze the full upper half → all of V 0–1 is glass, a
+    // two-pane wraparound split by the centre post at V=0.5. The SIDE-WINDOW bays (U 0.20–0.90)
+    // glaze only the side band → just V 0–⅙ and ⅚–1 show; the middle of the sheet there is cabin
+    // roof (painted, never drawn). So crew/glow sit low in V (the side glass) or forward in U (the
+    // windscreen); the centre post + window-line frames are the only things crossing the crown.
+    crew: [{ u: 0.32, v: 0.09, sc: 0.95, cap: true, hair: 'rgba(24,26,32,0.92)' },
+           { u: 0.32, v: 0.91, sc: 0.95, cap: true, hair: 'rgba(24,26,32,0.92)' }],
+    glow: { u: [0.05, 0.12], col: '90,170,200', a: 0.26, r: 66 },   // panel glow up the windscreen
+    spec: { band: [0.0, 1.0], streaks: [[0.09, 22, 0.18], [0.15, 14, 0.11]] },   // sun rake clipped to the windscreen U
     frame: { col: 'rgba(38,42,48,0.95)', lit: 'rgba(96,104,114,0.5)',
-      // On the real ring seams (glaze f 0.70→0.30 maps to U 0→1): the windscreen's two bays, then
-      // the two side windows. The heavy one at 0.375 is the post where the screen meets the cabin.
-      posts: [[0.00, 9], [0.20, 8], [0.375, 11], [0.65, 8], [1.00, 9]],
-      sills: [[1 / 6, 9], [5 / 6, 9]],   // the window line: the seam between the side band (k0/k5) and the cheek above it
-      hairs: [], mid: 0, edge: 14, extra: 'wipers' },
+      // U posts on the real ring seams (glaze f 0.70→0.30 ⇒ U 0→1): windscreen front (0), its
+      // inter-bay divider (0.10), the beefy A-pillar where the screen meets the cabin (0.20),
+      // the side-window divider (0.55), and the aft edge of the side glass (0.90).
+      posts: [[0.00, 8], [0.10, 6], [0.20, 12], [0.55, 8], [0.90, 8], [1.00, 8]],
+      sills: [[1 / 6, 8], [5 / 6, 8]],   // window line — the side-band/cheek seam; the base of the windscreen wrap
+      hairs: [], mid: 7, edge: 14, extra: 'wipers' },   // mid = the windscreen CENTRE POST between the two panes (V=0.5; only the windscreen glazes the crown, so it shows there alone)
   },
   // Grasshopper — an XCub (per ref photo): the big wraparound backcountry greenhouse. A SKYLIGHT
   // over the crown (you look up through the wing root), deep curved side glass, a black steel cage

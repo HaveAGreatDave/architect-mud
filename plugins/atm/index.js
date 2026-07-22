@@ -201,25 +201,24 @@ async function cmdWithdraw(args, raw, player) {
   if (!isZonePowered(player.current_zone)) return { type: 'error', message: 'The ATM screen is dark — no power.' };
   if (!await checkFactionAccess(player, atm)) return { type: 'error', message: `${atm.network_name || 'This network'} requires higher standing to access.` };
 
-  const limit = atm.withdrawal_limit ?? 5000;
+  // A physical ATM has NO per-transaction cap (the network's `withdrawal_limit` only bounds the
+  // tablet 'atm app' / remote banking). At the machine you're limited only by the cash it's holding
+  // and what you have banked — walk up and empty your account if the drum's got the notes for it.
   const cashAvail = atm.cash_stock ?? 0;
   const banked = player.bank_credits || 0;
   const feeRate = parseFloat(atm.fee_rate) || 0;
 
   let rawAmount;
   if (amountStr === 'all') {
-    // Max that fits within limit, cash stock, and what they can afford after fee
-    const maxByCash = Math.min(cashAvail, limit);
-    // fee is on top: banked >= rawAmount + ceil(rawAmount * feeRate)
-    // rawAmount <= banked / (1 + feeRate)
+    // Max the cash stock can dispense and the balance can cover after the fee.
+    // fee is on top: banked >= rawAmount + ceil(rawAmount * feeRate) ⇒ rawAmount <= banked/(1+feeRate)
     const maxByFunds = feeRate > 0 ? Math.floor(banked / (1 + feeRate)) : banked;
-    rawAmount = Math.min(maxByCash, maxByFunds);
+    rawAmount = Math.min(cashAvail, maxByFunds);
   } else {
     rawAmount = parseInt(amountStr, 10);
   }
 
   if (!rawAmount || rawAmount <= 0) return { type: 'error', message: 'Withdraw how much? Try "withdraw 50" or "withdraw all".' };
-  if (rawAmount > limit) return { type: 'error', message: `This ATM has a ${limit}c per-transaction limit.` };
   if (rawAmount > cashAvail) return { type: 'error', message: `ATM is low on cash. Max available: ${cashAvail}c.` };
 
   const fee = feeRate > 0 ? Math.ceil(rawAmount * feeRate) : 0;

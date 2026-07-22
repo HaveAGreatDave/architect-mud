@@ -574,4 +574,31 @@ export default async function regress({ check, run, getPlayer }) {
       typeof r.team === 'string' && Number.isFinite(r.wins) && Number.isFinite(r.losses) && Number.isFinite(r.rd)),
       JSON.stringify(st?.rows?.slice(0, 2)));
   }
+
+  // ── Live-text {token} substitution for scripted broadcasts ──────────────────
+  // The Quiet Hour (and any scripted graph) may embed {clock}/{weather}/{viewers}/…
+  // which resolve at airtime. Guard the safety properties: no-brace text is untouched,
+  // unknown tokens are left verbatim, known tokens resolve, and the per-airing viewer
+  // count is stable within an in-world hour (so the count card and spoken line agree).
+  {
+    const bb = {};
+    const st2 = { channelId: 'ch_does_not_exist' };
+    check('subTokens leaves brace-free text untouched',
+      _test.subTokens('There is nothing on.', st2.channelId, st2, bb) === 'There is nothing on.', 'plain text changed');
+    check('subTokens leaves an unknown token verbatim',
+      _test.subTokens('who makes {mystery}?', st2.channelId, st2, bb) === 'who makes {mystery}?', 'unknown token mangled');
+    const out = _test.subTokens('It is {clock}. {viewers} awake.', st2.channelId, st2, bb);
+    check('subTokens resolves known tokens (no leftover braces)', /^It is .+\. [\d,]+ awake\.$/.test(out), out);
+
+    // Stability within an hour: two reads at the same hour-stamp return the same number.
+    const v1 = _test.airingViewers(bb, 2);
+    const v2 = _test.airingViewers(bb, 2);
+    check('airingViewers is stable within an in-world hour', v1 === v2, `${v1} vs ${v2}`);
+    const v3 = _test.airingViewers(bb, 3);
+    check('airingViewers re-rolls on a new hour-stamp', bb.viewersStamp === 3, `stamp=${bb.viewersStamp}`);
+
+    check('untilFour counts down to the 04:00 service',
+      _test.untilFour(2 * 60 + 47) === '1 hour and 13 minutes', _test.untilFour(2 * 60 + 47));
+    check('untilFour wraps past four o’clock', /hour/.test(_test.untilFour(5 * 60)), _test.untilFour(5 * 60));
+  }
 }

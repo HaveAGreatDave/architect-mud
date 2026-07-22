@@ -225,17 +225,17 @@ function doAction(act) {
     sendCmdSilent(`withdraw ${amt}`);
     if (field && amt !== 'all') field.value = '';
   } else if (act === 'max') {
-    // Deposit caps at carried cash; withdraw caps at the min of machine stock,
-    // network limit, and what the bank balance can cover after the fee.
+    // Deposit caps at carried cash; withdraw caps at the machine's cash stock and what the bank
+    // balance covers after the fee — a physical ATM has no per-transaction limit (that lives only
+    // on the tablet 'atm app'), so the network withdrawal_limit is not applied here.
     const { player, network, cashStock } = atmData;
     let max;
     if (screen === 'deposit') {
       max = player.credits || 0;
     } else {
       const feeRate = network.fee_rate || 0;
-      const maxByCash = Math.min(cashStock, network.withdrawal_limit ?? 5000);
       const maxByFunds = feeRate > 0 ? Math.floor((player.bank_credits || 0) / (1 + feeRate)) : (player.bank_credits || 0);
-      max = Math.min(maxByCash, maxByFunds);
+      max = Math.min(cashStock, maxByFunds);
     }
     if (field) field.value = Math.max(0, max);
   } else if (act === 'jack') {

@@ -1,0 +1,12 @@
+{
+  "content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 640 360\" font-family=\"'Courier New',monospace\">\n  <defs>\n    <radialGradient id=\"v\" cx=\"50%\" cy=\"42%\" r=\"75%\">\n      <stop offset=\"0%\" stop-color=\"#12161c\"/>\n      <stop offset=\"100%\" stop-color=\"#04060a\"/>\n    </radialGradient>\n  </defs>\n  <rect width=\"640\" height=\"360\" fill=\"url(#v)\"/>\n  <g fill=\"none\" stroke=\"#2a3340\" stroke-width=\"1\">\n    <line x1=\"0\" y1=\"150\" x2=\"640\" y2=\"150\"/>\n    <line x1=\"0\" y1=\"214\" x2=\"640\" y2=\"214\"/>\n  </g>\n  <text x=\"320\" y=\"120\" text-anchor=\"middle\" fill=\"#7fd6c2\" font-size=\"18\" letter-spacing=\"8\">KSAB SATURDAY PICTURE</text>\n  <text x=\"320\" y=\"196\" text-anchor=\"middle\" fill=\"#f2efe6\" font-size=\"70\" letter-spacing=\"12\" font-weight=\"bold\">LAST CALL</text>\n  <text x=\"320\" y=\"250\" text-anchor=\"middle\" fill=\"#c8a24a\" font-size=\"15\" letter-spacing=\"5\">A COLDWATER FEATURE</text>\n  <text x=\"320\" y=\"300\" text-anchor=\"middle\" fill=\"#59636f\" font-size=\"12\" letter-spacing=\"3\">everyone comes to the Embassy · everyone waits</text>\n</svg>",
+  "created_at": "1783900000",
+  "description": "Title card for the LAST CALL feature.",
+  "id": "lastcall_title",
+  "name": "lastcall_title",
+  "tags": [
+    "movie"
+  ],
+  "type": "svg",
+  "updated_at": "1783900000"
+}
