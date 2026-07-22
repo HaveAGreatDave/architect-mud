@@ -8,6 +8,8 @@
     "description": "Something used to own this. Cook before eating.",
     "restore_hunger": 15,
     "stackable": true,
+    "perishable": true,
+    "spoil_rate": "fast",
     "status_chance": {
       "food_poisoning": 0.6
     }

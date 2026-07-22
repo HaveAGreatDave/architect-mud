@@ -83,13 +83,15 @@ const rowHasFluid = row => (row?.custom_data?.fluid_amount || 0) > 0;
 // and deletes the incoming one — which would dupe or destroy a cooked drug's
 // potency, a spliced compound's effects blob, a cigarette pack's charge count, a
 // loose single's flag, or a crate's owner lock.
-const INSTANCE_KEYS = ['fluid_amount', 'potency', 'effects', 'spliced', 'charges', 'ownerId', 'loose'];
+// 'freshness' joins this list once a perishable item gets its first checkpoint —
+// merging it into another stack would silently drop its independent decay history.
+const INSTANCE_KEYS = ['fluid_amount', 'potency', 'effects', 'spliced', 'charges', 'ownerId', 'loose', 'freshness'];
 export const rowIsInstanced = row => {
   const cd = typeof row?.custom_data === 'string' ? (() => { try { return JSON.parse(row.custom_data); } catch { return {}; } })() : (row?.custom_data || {});
   return INSTANCE_KEYS.some(k => { const v = cd[k]; return v != null && v !== false && v !== 0; });
 };
 // SQL predicate: a stack row safe to merge into (carries none of the instance keys).
-export const NOT_INSTANCED_SQL = `(custom_data IS NULL OR NOT jsonb_exists_any(custom_data, ARRAY['fluid_amount','potency','effects','spliced','charges','ownerId','loose']))`;
+export const NOT_INSTANCED_SQL = `(custom_data IS NULL OR NOT jsonb_exists_any(custom_data, ARRAY['fluid_amount','potency','effects','spliced','charges','ownerId','loose','freshness']))`;
 
 // Move a ground inventory row into a player's inventory. Stacking-aware: a
 // stackable item merges into an existing unequipped stack the player already

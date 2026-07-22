@@ -13,6 +13,8 @@ import { computeSellUnitPrice } from '../vendor.js';
 import { resolveCorpseOrPlayer, buildLootView } from './combat.js';
 import { titleCaseName } from '../text.js';
 import { getItem } from '../items-cache.js';
+import { fireHook } from '../plugins.js';
+import { applyEffect } from '../effects.js';
 
 // Throttle: only broadcast "rummages in container" once per 30s per player.
 const _ctrBroadcastTs = new Map();
@@ -585,6 +587,19 @@ export async function applyItemUse(player, item, broadcast, opts = {}) {
   // An item can carry its own flavour line for the act of consuming it
   // (tags.use_message); otherwise fall back to the plain default.
   const messages = [opts.takeLine || t.use_message || `You use ${item.name}.`];
+
+  // A perishable's freshness is checked lazily right here, at the moment it
+  // matters most. Spoiled food skips every normal restore/buff below in favor
+  // of a food-poisoning debuff — still consumed, just gives you nothing good.
+  let spoiled = false;
+  if (t.perishable) {
+    const fresh = await fireHook('item.checkFreshness', item, player);
+    spoiled = fresh?.state === 'spoiled';
+  }
+
+  if (spoiled) {
+    messages[0] = `${item.name} is spoiled — you eat it anyway and immediately regret it.`;
+  } else {
   if (t.restore_hp) { player.hp = Math.min(player.hp_max, player.hp+t.restore_hp); messages.push(`+${t.restore_hp} HP.`); }
   if (t.restore_hunger) {
     player.hunger = Math.min(100, player.hunger+t.restore_hunger);
@@ -616,6 +631,12 @@ export async function applyItemUse(player, item, broadcast, opts = {}) {
   if (t.hydrating) {
     player.hydratedUntil = Date.now() + 10 * 60 * 1000;
     messages.push(`Hydrated: radiation clears faster for a while.`);
+  }
+  }
+
+  if (spoiled) {
+    applyEffect(player, 'food_poisoning', 90);
+    messages.push('Your stomach churns immediately.');
   }
   // Apply the item's effects and consume it as one atomic unit, so a failure
   // between the two can't grant the effect (incl. credits) without spending the item.
@@ -804,7 +825,7 @@ async function resolveContainer(nameStr, player) {
 // the ground, or a furniture container in the player's current zone. Returns a
 // normalized { id, name, tags, kind, isTrash } (tags = item tags or furniture
 // flags, so tagValue/hasTag work the same way), or null.
-async function loadContainerById(id, player) {
+export async function loadContainerById(id, player) {
   const { rows } = await query(
     `SELECT pi.id,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id
      WHERE pi.id=$1 AND pi.player_id IN ($2,$3) AND pi.container_id IS NULL AND jsonb_exists(i.tags,'container')`,
@@ -812,10 +833,10 @@ async function loadContainerById(id, player) {
   );
   if (rows.length) return { id: rows[0].id, name: rows[0].name, tags: rows[0].tags, kind: 'item', isTrash: false };
   const { rows: fRows } = await query(
-    `SELECT id,name,flags FROM furniture WHERE id=$1 AND zone_id=$2 AND object_type='container'`,
+    `SELECT id,name,flags,power_draw_kw FROM furniture WHERE id=$1 AND zone_id=$2 AND object_type='container'`,
     [id, player.current_zone]
   );
-  if (fRows.length) return { id: fRows[0].id, name: fRows[0].name, tags: fRows[0].flags, kind: 'furniture', isTrash: fRows[0].flags?.trash_bin === true };
+  if (fRows.length) return { id: fRows[0].id, name: fRows[0].name, tags: fRows[0].flags, power_draw_kw: fRows[0].power_draw_kw, kind: 'furniture', isTrash: fRows[0].flags?.trash_bin === true };
   return null;
 }
 
@@ -962,6 +983,7 @@ async function cmdStowById(argStr, player, broadcast) {
     view.mainMsg = `You drop ${item.name} on ${corpse.name}.`;
     return view;
   }
+  if (item.tags?.perishable) await fireHook('item.checkFreshness', item, player);
   if (item.id === container.id) return { type:'container_error', message:`Can't put ${container.name} inside itself.` };
   if (hasTag(item, 'container') && !container.isTrash) {
     const { rows: innerItems } = await query('SELECT 1 FROM player_inventory WHERE container_id=$1 LIMIT 1', [item.id]);
@@ -1044,6 +1066,7 @@ async function cmdPullById(idStr, qtyStr, player, broadcast) {
 
   const container = await loadContainerById(containerId, player);
   if (!container) return { type:'container_error', message:'Not your container.' };
+  if (item.tags?.perishable) await fireHook('item.checkFreshness', item, player);
 
   // Partial pull: only move the requested qty when less than the full stack
   const reqQty = qtyStr && /^\d+$/.test(qtyStr) ? parseInt(qtyStr, 10) : null;
@@ -1115,6 +1138,7 @@ async function cmdStow(argStr, player) {
   const { rows } = await query(`SELECT pi.*,i.name,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND i.name ILIKE $2 AND NOT jsonb_exists(i.tags,'quest_item') LIMIT 1`, [player.id, `%${itemPart}%`]);
   if (!rows.length) return { type:'error', message:`You don't have "${itemPart}" to stow.` };
   const item = rows[0];
+  if (item.tags?.perishable) await fireHook('item.checkFreshness', item, player);
   if (item.id === container.id) return { type:'error', message:`You can't put ${container.name} inside itself.` };
   if (hasTag(item, 'container')) {
     const { rows: innerItems } = await query('SELECT 1 FROM player_inventory WHERE container_id=$1 LIMIT 1', [item.id]);
@@ -1149,6 +1173,7 @@ async function cmdPull(argStr, player) {
   const { rows } = await query(`SELECT pi.*,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.container_id=$1 AND i.name ILIKE $2 LIMIT 1`, [container.id, `%${itemPart}%`]);
   if (!rows.length) return { type:'error', message:`There's no "${itemPart}" in ${container.name}.` };
   const item = rows[0];
+  if (item.tags?.perishable) await fireHook('item.checkFreshness', item, player);
 
   if (isStackable(item) && !rowIsInstanced(item)) {
     const { rows: existing } = await query(`SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL AND is_equipped=0 AND ${NOT_INSTANCED_SQL} LIMIT 1`, [player.id, item.item_id]);

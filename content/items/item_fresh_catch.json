@@ -8,7 +8,9 @@
     "description": "A slab of pale bay fish, still cold.",
     "restore_hunger": 16,
     "stackable": true,
-    "well_fed": true
+    "well_fed": true,
+    "perishable": true,
+    "spoil_rate": "fast"
   },
   "type": "consumable",
   "value": 7,

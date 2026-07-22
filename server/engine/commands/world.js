@@ -439,7 +439,7 @@ async function cmdExamine(targetStr, player, broadcast) {
     return { type:'examine', message: await describePlayerAppearance(player, true, player, broadcast) };
   }
 
-  const { rows } = await query(`SELECT pi.id AS inv_id, pi.custom_data, pi.is_equipped, i.* FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND i.name ILIKE $2 LIMIT 1`, [player.id, `%${targetStr}%`]);
+  const { rows } = await query(`SELECT pi.id AS inv_id, pi.custom_data, pi.is_equipped, pi.container_id, i.* FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND i.name ILIKE $2 LIMIT 1`, [player.id, `%${targetStr}%`]);
   if (rows.length) {
     const it = rows[0];
     let msg = `<span class="zone-name">${it.name}</span>\n${it.tags?.description ?? it.description}`;
@@ -449,6 +449,10 @@ async function cmdExamine(targetStr, player, broadcast) {
     }
     if (it.tags && Object.prototype.hasOwnProperty.call(it.tags, 'fillable')) {
       msg += `\n${describeFill(it.custom_data, it.tags.fillable)}`;
+    }
+    if (it.tags && Object.prototype.hasOwnProperty.call(it.tags, 'perishable')) {
+      const fresh = await fireHook('item.checkFreshness', { ...it, id: it.inv_id }, player);
+      if (fresh) msg += `\n<span class="text-dim">It looks ${fresh.state}.</span>`;
     }
     const acts = itemActionVerbs(it);
     if (acts.length) {

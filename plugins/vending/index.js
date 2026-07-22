@@ -10,6 +10,7 @@ import { withTransaction } from '../../server/models/db.js';
 import { isStackable } from '../../server/engine/tags.js';
 import { getZoneFurniture } from '../../server/engine/world.js';
 import { getItem } from '../../server/engine/items-cache.js';
+import { isPluggedIn } from '../appliances/index.js';
 import { randomUUID } from 'crypto';
 
 // playerId:furnitureId -> last-vend timestamp. In-memory: a soft anti-spam guard,
@@ -19,6 +20,7 @@ const lastVend = new Map();
 async function cmdVend(args, raw, player, broadcast) {
   const machine = getZoneFurniture(player.current_zone).find(f => f.flags?.vends != null);
   if (!machine) return { type: 'error', message: "There's no dispenser here to vend from." };
+  if (!isPluggedIn(machine)) return { type: 'error', message: `You press the button, but nothing happens. The ${machine.name} must be broken.` };
   const itemId = machine.flags?.vends;
 
   const cooldownMs = Math.max(0, Number(machine.flags?.vend_cooldown_s ?? 20)) * 1000;

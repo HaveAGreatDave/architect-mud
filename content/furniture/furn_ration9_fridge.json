@@ -1,0 +1,20 @@
+{
+  "description": "A walk-in unit the size of a phone booth, ribbed steel panels dented from decades of restocking carts backing into it. The compressor never stops — a low mechanical groan under everything else in the room. A hazard sticker warns STAFF ONLY; nobody has enforced that in years.",
+  "flags": {
+    "container": 150000,
+    "preserves": "refrigerated",
+    "interactions": [
+      "lean"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_ration9_fridge",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "Ironchill Commercial Refrigerator",
+  "object_type": "container",
+  "power_draw_kw": 0.4,
+  "price": 0,
+  "zone_id": "zone_mq_grocery_stock"
+}

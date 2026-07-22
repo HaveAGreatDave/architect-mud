@@ -1,0 +1,18 @@
+{
+  "description": "A walk-in unit the size of a phone booth, ribbed steel panels dented from decades of restocking carts backing into it. The compressor never stops — a low mechanical groan under everything else in the room. A hazard sticker warns STAFF ONLY; nobody has enforced that in years.",
+  "flags": {
+    "interactions": [
+      "lean"
+    ]
+  },
+  "id": "item_furn_fridge_ironchill",
+  "name": "Ironchill Commercial Refrigerator",
+  "tags": {
+    "container": 150000,
+    "preserves": "refrigerated",
+    "description": "A walk-in unit the size of a phone booth, ribbed steel panels dented from decades of restocking carts backing into it. The compressor never stops — a low mechanical groan under everything else in the room. A hazard sticker warns STAFF ONLY; nobody has enforced that in years."
+  },
+  "type": "furniture",
+  "value": 5200,
+  "weight": 140000
+}

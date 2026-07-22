@@ -1,0 +1,17 @@
+{
+  "description": "A clamshell of pale, leggy greens grown under grow-lamps in a back room that's never seen the sun. Still faintly warm from the rack. Tastes mostly of chlorophyll and effort.",
+  "flags": {},
+  "id": "item_lamp_greens",
+  "name": "lamp-grown greens",
+  "tags": {
+    "consumable": true,
+    "description": "A clamshell of pale, leggy greens grown under grow-lamps in a back room that's never seen the sun. Still faintly warm from the rack. Tastes mostly of chlorophyll and effort.",
+    "restore_hunger": 8,
+    "stackable": true,
+    "perishable": true,
+    "spoil_rate": "fast"
+  },
+  "type": "consumable",
+  "value": 4,
+  "weight": 200
+}

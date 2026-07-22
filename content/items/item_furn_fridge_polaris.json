@@ -9,6 +9,7 @@
   "name": "Polaris Executive Refrigeration Unit",
   "tags": {
     "container": 90000,
+    "preserves": "refrigerated",
     "description": "Brushed alloy, a shelf array that reconfigures itself around whatever you put in it, and an interior glow that switches on a half-second before the door's even open — like it's been expecting you. The brass plate reads POLARIS EXECUTIVE, in a font too tasteful to be honest. It's polite. It's efficient. It is, in some deniable way, keeping track."
   },
   "type": "furniture",

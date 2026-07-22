@@ -130,6 +130,18 @@
     fillable: { label: 'Fillable Capacity', shape: 'int', scope: 'class', group: 'Container',
       help: 'Marks this item as a fillable fluid container. Value is the capacity in fluid units (a neutral volume). Fill at a water source; drink to consume the fluid. How much a fluid restores is a property of the fluid, not the container.' },
 
+    // --- Preservation ---
+    perishable: { label: 'Perishable', shape: 'flag', scope: 'class', group: 'Preservation',
+      help: 'Marks a consumable as subject to freshness decay. Presence gates the whole freshness system — an item without this tag never gets a freshness checkpoint.' },
+    spoil_rate: { label: 'Spoil Rate', shape: 'enum', scope: 'class', group: 'Preservation',
+      options: ['fast', 'normal', 'slow'],
+      help: 'Selects how quickly a perishable item decays at a given preservation tier (fresh produce vs. packaged/cured goods). Only meaningful alongside perishable.' },
+    preserves: { label: 'Preserves', shape: 'enum', scope: 'furniture', group: 'Preservation',
+      options: ['refrigerated', 'frozen'],
+      help: 'Marks this furniture (or portable container) as an active preservation environment at the given tier. A stronger tier satisfies a weaker requirement. Requires the furniture to also be plugged in and, if it draws power, on a live zone grid — see plugged_in.' },
+    plugged_in: { label: 'Plugged In', shape: 'flag', scope: 'furniture', group: 'Preservation',
+      help: 'Whether a powered appliance (vending machine, fridge/freezer) is connected to power right now. Absent/unset is treated as plugged in, for backward compatibility with furniture predating this tag. Toggled by the plug/unplug verbs.' },
+
     // --- Gear ---
     flashlight: { label: 'Flashlight', shape: 'flag', scope: 'class', group: 'Gear',
       help: 'Marks this item as a battery-powered handheld flashlight. LIGHT / UNLIGHT toggle it; RELOAD swaps in a battery. A lit, charged flashlight makes dark rooms readable for the holder. Pair with the Unique tag so each unit keeps its own on/charge state.' },
@@ -191,6 +203,8 @@
       help: 'Per-item state flag set on a carried instance.' },
     cursed: { label: 'Cursed', shape: 'flag', scope: 'instance', group: 'Instance',
       help: 'Per-item state flag set on a carried instance.' },
+    freshness: { label: 'Freshness', shape: 'statmap', scope: 'instance', group: 'Instance',
+      help: 'Runtime-managed freshness checkpoint { value, checkpointAt, envBucket, powerLostAt } for a perishable item instance. Never dev-panel-editable — written and read only by the preservation plugin.' },
 
     // --- System tags (backfilled from live data by the tag-key sweep; each is
     // read by the named system. bait_* sub-tags are a parameterized family —

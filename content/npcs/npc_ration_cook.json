@@ -103,6 +103,21 @@
       "item_id": "item_crushed_soda",
       "price": 3,
       "stock": 24
+    },
+    {
+      "item_id": "item_lamp_greens",
+      "price": 4,
+      "stock": 20
+    },
+    {
+      "item_id": "item_ration_milk",
+      "price": 5,
+      "stock": 20
+    },
+    {
+      "item_id": "item_deli_wrap",
+      "price": 12,
+      "stock": 15
     }
   ],
   "vendor_restock_rate": 1,
