@@ -16,7 +16,7 @@
   "bg_color": null,
   "color": null,
   "created_by": null,
-  "description": "A patched-steel hangar squats at the head of a cracked scrub airstrip — in the Reach the only road is the sky, and this is where it touches down. The windsock hangs dead-still over a hand-lettered board: NO MANIFESTS. NO QUESTIONS. CASH ON THE SKID.",
+  "description": "A patched-steel hangar squats at the head of a cracked scrub airstrip — in the Reach the sky is the easy road, and this is where it touches down. The windsock hangs dead-still over a hand-lettered board: NO MANIFESTS. NO QUESTIONS. CASH ON THE SKID.",
   "exits": {
     "east": "zone_the_reach_871_1958",
     "in": "zone_bld_897_1175_lobby",

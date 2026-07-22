@@ -283,8 +283,9 @@ refusing mid-takeoff-roll would be worse than useless. An airborne craft has no
 This is the only weather rule in the game that **blocks** a player action rather than
 taxing it (contrast `WIND_MOVE_SEVERITY` in `movement.js`, which only drains stamina).
 That's deliberate: above the threshold the alternative isn't a harder flight, it's a
-scripted crash. **The Reach feels it hardest by design** — it's air-only, so a blown
-field means nobody arrives, nobody leaves, and everyone already there is in the bar.
+scripted crash. **The Reach feels it hardest by design** — it leans on the sky (the
+overland way in is a punishing scrub gauntlet), so a blown field means almost nobody
+arrives, almost nobody leaves, and everyone already there is in the bar.
 
 **No-fly enforcement** (`index.checkAirspace`). Over an `airspace_restricted` cell:
 tower warning → `WANTED_RAISE` (+2) + interceptor scramble message. No-fly cells
