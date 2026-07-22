@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 5400,
+  "flags": {},
+  "generator_id": "gen_yards_tenement_util",
+  "id": "zone_yards_tenement_u6_5",
+  "max_capacity_kw": 5400,
+  "name": "Unit 605",
+  "source_type": "junction_box"
+}

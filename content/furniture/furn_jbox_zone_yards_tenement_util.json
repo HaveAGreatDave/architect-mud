@@ -1,0 +1,17 @@
+{
+  "description": "A grey steel junction cabinet of tired breakers and humming busbars, feeding every floor above. Scorch marks fan from one breaker; a sealed hacking port sits below the latch.",
+  "flags": {
+    "destructible": true,
+    "generator_id": "gen_yards_tenement_util"
+  },
+  "hp": 1200,
+  "hp_max": 1200,
+  "id": "furn_jbox_zone_yards_tenement_util",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "the tenement junction box",
+  "object_type": "junction_box",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_yards_tenement_util"
+}

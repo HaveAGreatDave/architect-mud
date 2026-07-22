@@ -1,0 +1,14 @@
+{
+  "capacity_kw": 5400,
+  "city_generator_id": "gen_zone_powerplantnew_1782069598190",
+  "connection_range": 0,
+  "flags": {},
+  "fuel_burn_rate": 0,
+  "fuel_remaining": 0,
+  "fuel_type": null,
+  "generator_type": "junction_box",
+  "id": "gen_yards_tenement_util",
+  "name": "The Yards Tenement Junction Box",
+  "owner_id": null,
+  "zone_id": "zone_yards_tenement_util"
+}

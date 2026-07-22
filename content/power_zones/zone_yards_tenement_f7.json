@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 5400,
+  "flags": {},
+  "generator_id": "gen_yards_tenement_util",
+  "id": "zone_yards_tenement_f7",
+  "max_capacity_kw": 5400,
+  "name": "The Yards Tenement — Floor 7",
+  "source_type": "junction_box"
+}

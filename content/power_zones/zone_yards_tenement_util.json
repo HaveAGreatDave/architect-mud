@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 5400,
+  "flags": {},
+  "generator_id": "gen_yards_tenement_util",
+  "id": "zone_yards_tenement_util",
+  "max_capacity_kw": 5400,
+  "name": "The Yards Tenement — Sub-basement",
+  "source_type": "junction_box"
+}

@@ -1,0 +1,27 @@
+{
+  "ambient_events": [
+    "Water ticks off a riser somewhere in the dark.",
+    "The junction box hums, catches, and settles."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#5a5450",
+  "color": null,
+  "created_by": "tenement-gen",
+  "description": "The tenement’s guts: a low, sweating concrete sub-basement of riser conduits, a long-dead boiler, and a floor drain choked with grit. A single junction box feeds all ten floors and trips if you so much as breathe on it wrong.",
+  "exits": {
+    "up": "zone_yards_tenement_lobby"
+  },
+  "flags": {
+    "is_interior": true
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_yards_tenement_util",
+  "map_id": "map_int_yards_tenement",
+  "marker": null,
+  "name": "The Yards Tenement — Sub-basement",
+  "parent_zone": "zone_yards_tenement_lobby",
+  "updated_at": "1783970000"
+}

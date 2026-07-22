@@ -1,0 +1,34 @@
+{
+  "ambient_events": [
+    "Behind one of the doors a radio mutters and cuts out.",
+    "The stairwell breathes a draught of cold concrete up the landing."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#5a5450",
+  "color": null,
+  "created_by": "tenement-gen",
+  "description": "A narrow landing off the stairwell, six numbered doors crowded around it, the stencilled numbers worn to grey ghosts. The carpet gave up years ago and the smell never will. A bare bulb buzzes overhead, throwing more shadow than light.",
+  "exits": {
+    "down": "zone_yards_tenement_f2",
+    "east": "zone_yards_tenement_u3_2",
+    "north": "zone_yards_tenement_u3_1",
+    "northeast": "zone_yards_tenement_u3_5",
+    "northwest": "zone_yards_tenement_u3_6",
+    "south": "zone_yards_tenement_u3_3",
+    "up": "zone_yards_tenement_f4",
+    "west": "zone_yards_tenement_u3_4"
+  },
+  "flags": {
+    "is_interior": true
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 3,
+  "id": "zone_yards_tenement_f3",
+  "map_id": "map_int_yards_tenement",
+  "marker": null,
+  "name": "The Yards Tenement — Floor 3",
+  "parent_zone": "zone_yards_tenement_lobby",
+  "updated_at": "1783970000"
+}

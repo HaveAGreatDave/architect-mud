@@ -1,0 +1,18 @@
+{
+  "description": "A bare bulb on a frayed cord, buzzing and browning at the filament — more a threat than a light, but it beats the dark.",
+  "flags": {
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_yards_tenement_u1_5",
+  "light_type": "overhead",
+  "lumen_output": 900,
+  "name": "a bare bulb",
+  "object_type": "light",
+  "power_draw_kw": null,
+  "price": 40,
+  "zone_id": "zone_yards_tenement_u1_5"
+}

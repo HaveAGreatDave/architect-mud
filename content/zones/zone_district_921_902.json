@@ -2,28 +2,36 @@
   "ambient_events": [],
   "ambient_theme": "forest",
   "audio_theme_id": null,
-  "bg_color": "#2f3a26",
+  "bg_color": "#4a4642",
   "color": "#8ba36a",
   "created_by": "zone-planner",
-  "description": "Open grassland quietly reclaiming old ground — seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "description": "A ten-storey slab of stained precast concrete shoved in between the freight lanes, its ground-floor windows bricked over and its upper ones dark, cracked, or gone. A board wired to the door reads ROOMS TO LET, and under it, in a shakier hand, NO REFUNDS NO EXCEPTIONS. It is the closest thing the Yards has to somewhere to live.",
   "exits": {
     "east": "zone_district_922_902",
+    "in": "zone_yards_tenement_lobby",
     "north": "zone_district_921_901",
     "south": "zone_district_921_903",
     "west": "zone_district_920_902"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "The Yards Tenement",
+    "building_type": "apartment",
+    "district": "yards",
+    "entrance": "south",
+    "facade": true,
+    "floors": 10,
+    "is_building": true,
     "planner": "bp_district",
-    "region_id": "region_coldwater"
+    "region_id": "region_coldwater",
+    "world_exit_zone": "zone_district_921_903"
   },
   "grid_x": 921,
   "grid_y": 902,
   "grid_z": 0,
   "id": "zone_district_921_902",
   "map_id": "map_world",
-  "marker": "#",
-  "name": "Grasslands",
+  "marker": "TN",
+  "name": "The Yards Tenement",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1783970000"
 }
