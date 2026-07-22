@@ -300,6 +300,8 @@
       help: 'OPT-IN pass-through building tile: stepping onto it auto-forwards into the building\'s interior entry zone (needs an interior map parented on this zone); OUT from inside lands on world_exit_zone. Without this tag a building tile is a normal standable zone — do NOT put it on street tiles that host a building.' },
     building_name: { label: 'Building Name', shape: 'text', scope: 'zone', group: 'Zone: Structure',
       help: 'Display name of the enclosing building.' },
+    rent_cost: { label: 'Rent Cost (₵/cycle)', shape: 'number', scope: 'zone', group: 'Zone: Structure',
+      help: 'AUTHORED weekly rent for this apartment unit (needs is_apartment). Read by authoredRentCost (apartments.js) when a player rents; omit for the 100c default. Ownership/tenancy itself is player data in the apartments table, never content.' },
     building_type: { label: 'Building Type', shape: 'text', scope: 'zone', group: 'Zone: Structure',
       help: 'Building category (bar, hotel, store, grocery, …) — controls entrance-discovery flavor text.' },
     floors: { label: 'Floors (Storeys)', shape: 'number', scope: 'zone', group: 'Zone: Structure',

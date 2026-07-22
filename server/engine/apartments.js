@@ -292,6 +292,17 @@ const BASE_LOCK_DIFFICULTY = 4;
 const MAX_LOCK_DIFFICULTY = 14;
 const UPGRADE_COST = 75; // credits per difficulty point, after the first
 
+// AUTHORED per-unit rent price. This is CONTENT — it lives on the zone (`flags.
+// rent_cost`) so it returns identically after any restart/rebuild, NOT in the
+// `apartments` table (which is now purely a player-tenancy ledger — owner/lock/dates
+// that never round-trip through git). Unpriced units fall back to the 100c default.
+// Owned units also cache their rent_cost in their apartments row (set from this at
+// rent time), so the recurring rent-charge tick keeps reading it off the tenancy.
+export function authoredRentCost(zone) {
+	const rc = zone?.flags?.rent_cost;
+	return (typeof rc === 'number' && rc >= 0) ? rc : 100;
+}
+
 // How much of the player's *missing* HP/sanity/stamina is restored per minute
 // of sleep — gradual, not instant. Sleeping in your own locked apartment is
 // the fastest, best rest; sleeping anywhere else "safe" is slower and
@@ -463,7 +474,7 @@ export async function cmdRent(player) {
 		};
 	}
 
-	const cost = apt?.rent_cost ?? 100;
+	const cost = authoredRentCost(zone);
 	if (!(await adjustCredits(player, -cost, undefined, 'apartment:rent-claim')))
 		return {
 			type: "error",
@@ -949,7 +960,7 @@ export async function describeApartmentStatus(zone) {
 	}
 	const apt = getApartment(zone.id);
 	if (!apt?.owner_id) {
-		return `\n<span class="apartment-label">This unit is unowned.</span> (<span class="action-link" data-raw-cmd="rent" title="Rent this unit">RENT</span> to claim it for ${apt?.rent_cost ?? 100}c/week)`;
+		return `\n<span class="apartment-label">This unit is unowned.</span> (<span class="action-link" data-raw-cmd="rent" title="Rent this unit">RENT</span> to claim it for ${authoredRentCost(zone)}c/week)`;
 	}
 	const lockState = apt.is_locked ? "locked" : "unlocked";
 	if (apt.owner_type === 'org') {

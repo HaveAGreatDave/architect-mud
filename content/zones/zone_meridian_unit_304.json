@@ -11,7 +11,8 @@
   },
   "flags": {
     "is_apartment": true,
-    "is_interior": true
+    "is_interior": true,
+    "rent_cost": 200
   },
   "grid_x": -1,
   "grid_y": 0,

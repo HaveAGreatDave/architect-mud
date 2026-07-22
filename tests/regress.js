@@ -38,7 +38,7 @@ import { handleCommand } from '../server/engine/commands/index.js';
 import { getRegisteredMoveGates } from '../server/engine/movement-gates.js';
 import { getRegisteredSpecializedActions } from '../server/engine/specializedActions.js';
 import { registerProtectionProvider, getZoneProtection, getRegisteredProtectionProviders } from '../server/engine/protection.js';
-import { npcHomedInOwnedUnit } from '../server/engine/apartments.js';
+import { npcHomedInOwnedUnit, authoredRentCost } from '../server/engine/apartments.js';
 import { validateTags } from '../server/engine/tags.js';
 import { stopAll } from '../server/engine/scheduler.js';
 import { CONTENT_TABLES, EXCLUDED_TABLES, REGISTRY } from '../server/models/content-registry.js';
@@ -619,6 +619,13 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   // Homed in a non-apartment, or nowhere → never a squat.
   check('NPC homed in a non-apartment is not a squatter', npcHomedInOwnedUnit({ id: 'x', home_zone: openId }) === false);
   check('NPC with no home is not a squatter', npcHomedInOwnedUnit({ id: 'x' }) === false);
+
+  // Authored rent price is CONTENT on the zone (flags.rent_cost), read via
+  // authoredRentCost — NOT the player-classed apartments tenancy row. Unpriced ⇒ 100c.
+  check('authoredRentCost reads flags.rent_cost', authoredRentCost({ flags: { rent_cost: 250 } }) === 250);
+  check('authoredRentCost defaults to 100c when unpriced', authoredRentCost({ flags: {} }) === 100 && authoredRentCost({}) === 100 && authoredRentCost(null) === 100);
+  check('authoredRentCost ignores a non-numeric flag', authoredRentCost({ flags: { rent_cost: 'lots' } }) === 100);
+  check('authoredRentCost honours a free (0c) unit', authoredRentCost({ flags: { rent_cost: 0 } }) === 0);
 
   world.apartments.delete(ownedId);
   world.zones.delete(ownedId);

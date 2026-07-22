@@ -12,7 +12,8 @@
     "west": "zone_mq_chrome_f2"
   },
   "flags": {
-    "is_apartment": true
+    "is_apartment": true,
+    "rent_cost": 50
   },
   "grid_x": 1,
   "grid_y": 0,

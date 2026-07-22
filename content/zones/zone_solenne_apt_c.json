@@ -14,6 +14,7 @@
     "building_name": "Solenne Residences",
     "is_apartment": true,
     "is_interior": true,
+    "rent_cost": 400,
     "rest_multiplier": 1.5
   },
   "grid_x": -1,

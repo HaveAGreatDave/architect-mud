@@ -148,14 +148,16 @@ export const REGISTRY = [
   { table: 'crimes', class: 'content', pk: ['id'], readTier: 'boot' },         // crimes.js
 
   // ── content: housing / power / climate ──
-  { table: 'apartments', class: 'content', pk: ['zone_id'], readTier: 'boot', // world.apartments
-    // Only personal apartments are content; corp HQs (owner_type='org') reference a
-    // player-crew org that isn't exported, which would break a restore's FK.
-    where: "owner_type = 'player'",
-    // Tenancy state — renting (apartments.js) upserts these on authored units.
-    // rent_cost / lock_difficulty / building_name are authored and stay.
-    excludeColumns: ['owner_id', 'owner_handle', 'is_locked', 'purchased_at', 'date_rented', 'rent_due_date'],
-    runtimeInserts: 'apartments.js renting (upsert); corps plugin org HQs (outside predicate)' },
+  // PLAYER data, NOT content. `apartments` is a pure tenancy ledger (owner_id/handle,
+  // lock, rent dates) — who has rented what. It must NOT round-trip through git:
+  // exporting it stamped ownerless "owner_type=player" phantom rows over every DB
+  // (making owned units look vacant and, worse, a file deletion would DELETE real
+  // player ownership on prod). Loaded into world.apartments at boot straight from the
+  // DB, so it persists across restarts and returns identically — the deploy pipeline
+  // never touches it. The one thing that WAS authored — per-unit rent price — moved to
+  // the zone as `flags.rent_cost` (content, read via authoredRentCost); lock_difficulty
+  // was vestigial (rent resets it to BASE) and building_name is derived from the zone. */
+  { table: 'apartments', class: 'player' },
   // Which apartment units NPCs live in — authored alongside npc.home_zone. Placed
   // after npcs + zones (both FK'd). Kept in sync by the NPC create/edit/auto-house
   // endpoints and the reconcile script.
