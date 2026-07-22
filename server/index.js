@@ -45,7 +45,7 @@ import {
 	setGhostTokenStore,
 } from "./api/routes.js";
 import { cmdGhostLook, cmdGhostMove, cmdGhostHaunt, cmdGhostPowerDrain, makeGhostBroadcast } from "./engine/commands/ghost.js";
-import { activateForcefield, deactivateForcefield, reconcileApartmentDoorLocks } from "./engine/apartments.js";
+import { activateForcefield, deactivateForcefield, reconcileApartmentDoorLocks, reconcileNpcHomesVsOwnership } from "./engine/apartments.js";
 import { startKeepalive } from "./keepalive.js";
 import { startUsageLog } from "./usage-log.js";
 import { setBroadcast as setMessagingBroadcast } from "./engine/messaging.js";
@@ -1263,6 +1263,10 @@ async function boot() {
 	// Door lock state isn't persisted (world.doors resets to authored state); re-apply
 	// each locked apartment's durable lock onto its door(s) in RAM.
 	reconcileApartmentDoorLocks();
+	// LAW: no NPC may be homed in a player-owned apartment. Rehome any squatter a
+	// hardcoded content home_zone parked in an owned unit (the "someone's in Akerson's
+	// 2A" bug class). Converges — a corrected NPC's home is unowned, so this no-ops next boot.
+	await reconcileNpcHomesVsOwnership();
 	// Sweep loot for monster corpses (not persisted) and expired player corpses.
 	// Player corpses loaded by initWorld() keep their player_inventory rows.
 	await query(

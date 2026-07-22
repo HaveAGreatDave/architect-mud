@@ -161,6 +161,10 @@ table, cached in `world.apartments`.
 - **`upgrade lock`:** +1 lock difficulty for 75c, up to a max of 14.
 - **`pick` / `picklock`:** a `security` check vs the unit's lock difficulty on someone else's locked door.
 
+### NPC homing vs. player ownership (the law)
+
+NPCs share the same housing pool — an NPC living in a rentable unit is intended (they carry their own key, `npc_residences` tracks who lives where). The one hard rule: **an NPC may never be homed in a unit a *player* owns** (`apartments.owner_id` set — the "flag on take"). The auto-home finder (`findNearestVacantApartment`) already skips owned units, so the only way a squatter appears is a **hardcoded content `home_zone`** authored into an owned unit — the recurring "someone's in Akerson's 2A" bug that used to need a bespoke plugin per case. `reconcileNpcHomesVsOwnership()` (apartments.js) runs once at boot (after `loadNpcs` + `loadApartments`, alongside `reconcileApartmentDoorLocks`) and rehomes any such squatter to the nearest vacancy via `rehomeNpc`, making ownership authoritative over homing everywhere. It's idempotent/converging — a corrected NPC's home is unowned, so the next boot re-checks and no-ops. `npcHomedInOwnedUnit(npc)` is the pure predicate it acts on (regress-covered). Note ownership itself is **player data**: `owner_id`/`owner_handle` are `excludeColumns` in the content registry, so a player's deed never round-trips through git — which is *why* content can't mark a unit as owned, and why this boot-time reconcile (reading live `owner_id`) is the enforcement point rather than a content flag.
+
 ### Lock state — source of truth
 
 Apartment lock status lives in **two fields that are kept in sync**, each read by different mechanics:

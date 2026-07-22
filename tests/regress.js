@@ -38,6 +38,7 @@ import { handleCommand } from '../server/engine/commands/index.js';
 import { getRegisteredMoveGates } from '../server/engine/movement-gates.js';
 import { getRegisteredSpecializedActions } from '../server/engine/specializedActions.js';
 import { registerProtectionProvider, getZoneProtection, getRegisteredProtectionProviders } from '../server/engine/protection.js';
+import { npcHomedInOwnedUnit } from '../server/engine/apartments.js';
 import { validateTags } from '../server/engine/tags.js';
 import { stopAll } from '../server/engine/scheduler.js';
 import { CONTENT_TABLES, EXCLUDED_TABLES, REGISTRY } from '../server/models/content-registry.js';
@@ -596,6 +597,32 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   deleteDoorCache(doorId);
   world.zones.delete(hallId);
   world.zones.delete(homeId);
+}
+
+// LAW: no NPC may be homed in a PLAYER-OWNED apartment (the "someone's in Akerson's
+// 2A" bug class). npcHomedInOwnedUnit is the predicate reconcileNpcHomesVsOwnership
+// acts on at boot; assert it against synthetic in-memory state (no DB writes). The
+// rehome path itself rides rehomeNpc/findNearestVacantApartment, exercised elsewhere.
+{
+  const ownedId = 'zone_regress_owned_' + process.pid;
+  const openId = 'zone_regress_open_' + process.pid;
+  world.zones.set(ownedId, { id: ownedId, name: 'Owned Flat', flags: { is_apartment: true }, exits: {}, players: new Set(), npcs: new Set(), enemies: new Set() });
+  world.zones.set(openId, { id: openId, name: 'Open Hall', flags: {}, exits: {}, players: new Set(), npcs: new Set(), enemies: new Set() });
+  const squatter = { id: 'npc_rg_squat_' + process.pid, name: 'Squatter', home_zone: ownedId };
+
+  // Unowned apartment → not a squat (the shared-housing pool is intended).
+  world.apartments.set(ownedId, { zone_id: ownedId, owner_id: null });
+  check('NPC in an UNOWNED apartment is not a squatter', npcHomedInOwnedUnit(squatter) === false, 'owner=null');
+  // A player takes the deed → the same NPC now squats a player-owned unit.
+  world.apartments.set(ownedId, { zone_id: ownedId, owner_id: 'player_regress' });
+  check('NPC in a PLAYER-OWNED apartment is a squatter', npcHomedInOwnedUnit(squatter) === true, 'owner set');
+  // Homed in a non-apartment, or nowhere → never a squat.
+  check('NPC homed in a non-apartment is not a squatter', npcHomedInOwnedUnit({ id: 'x', home_zone: openId }) === false);
+  check('NPC with no home is not a squatter', npcHomedInOwnedUnit({ id: 'x' }) === false);
+
+  world.apartments.delete(ownedId);
+  world.zones.delete(ownedId);
+  world.zones.delete(openId);
 }
 
 // dragFollowers leader-identity guard: an enemy keys on instanceId, so its

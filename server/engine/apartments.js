@@ -373,6 +373,43 @@ export async function clearNpcResidence(npc) {
 	if (world.zones.has(fallback)) moveNpcToZone(npc.id, fallback);
 }
 
+// LAW: an NPC may never be homed in an apartment a PLAYER owns. NPCs sharing the
+// general rentable pool is intended design (one housing pool; an NPC home in a
+// rentable unit is fine) — but once a player holds the deed (apartments.owner_id
+// set, i.e. the "flag on take"), that unit is theirs and no NPC may squat it.
+// The auto-home finder (findNearestVacantApartment) already skips owned units, so
+// the only way an NPC ends up in one is a hardcoded content home_zone authored into
+// an owned unit — the recurring "someone's in Akerson's 2A" bug that used to need a
+// bespoke plugin per case. This runs once at boot (after loadNpcs + loadApartments)
+// and rehomes any such squatter to the nearest vacancy, making ownership authoritative
+// over homing everywhere, not one apartment at a time. Idempotent/converging: after the
+// move the NPC's home is an unowned unit, so the next boot re-checks it and does nothing.
+// True when this NPC is homed in an apartment a player OWNS — the invariant the
+// boot reconcile corrects. Pure/read-only: the testable core of the law, split out
+// so a test can assert the predicate without the DB-writing rehome path.
+export function npcHomedInOwnedUnit(npc) {
+	const home = npc?.home_zone;
+	return !!home && isApartmentZone(getZone(home)) && !!getApartment(home)?.owner_id;
+}
+
+export async function reconcileNpcHomesVsOwnership() {
+	let moved = 0;
+	for (const npc of world.npcs.values()) {
+		if (!npcHomedInOwnedUnit(npc)) continue;   // only PLAYER-owned units
+		const home = npc.home_zone;
+		const dest = await findNearestVacantApartment(home, home);
+		if (dest) {
+			await rehomeNpc(npc, dest);
+			console.log(`[apartments] rehomed ${npc.name} out of player-owned ${home} → ${dest}`);
+		} else {
+			await clearNpcResidence(npc);
+			console.log(`[apartments] turned ${npc.name} out of player-owned ${home} → residential lobby (no vacancy)`);
+		}
+		moved++;
+	}
+	if (moved) console.log(`[apartments] reconciled ${moved} NPC home(s) out of player-owned units`);
+}
+
 // Defensive invariant: an apartment's lock is meaningful only while the unit is
 // owned. Without an owner nobody holds lock auth, so a door left locked on an
 // unrented apartment (authored content, a stale admin lock, an eviction that
