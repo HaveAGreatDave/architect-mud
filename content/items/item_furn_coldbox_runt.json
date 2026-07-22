@@ -1,0 +1,17 @@
+{
+  "description": "A squat little unit that hums like it's apologizing for something. The door seal is cracked and held shut with a strip of tape someone reapplies every few months.",
+  "flags": {
+    "interactions": [
+      "lean"
+    ]
+  },
+  "id": "item_furn_coldbox_runt",
+  "name": "Runt Coldbox",
+  "tags": {
+    "container": 15000,
+    "description": "A squat little unit that hums like it's apologizing for something. The door seal is cracked and held shut with a strip of tape someone reapplies every few months."
+  },
+  "type": "furniture",
+  "value": 400,
+  "weight": 22000
+}
