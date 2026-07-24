@@ -4,7 +4,10 @@
 // Local:  node scripts/seed-ration9-stock.mjs
 // Prod:   node --env-file=.env.prod scripts/seed-ration9-stock.mjs   (run once, after the deploy)
 import { query } from '../server/models/db.js';
+import { loadItems } from '../server/engine/items-cache.js';
 import { restockSourcedContainers } from '../server/engine/vendor.js';
+
+await loadItems(); // restockSourcedContainers reads item weight/existence off this cache
 
 const { rows } = await query(`SELECT id, vendor_inventory FROM npcs WHERE id = 'npc_ration_cook'`);
 if (!rows.length) {
