@@ -1198,7 +1198,13 @@ async function handleBuyFromNpc(ws, session, msg) {
 		return;
 	}
 	const { buyFromVendor } = await import("./engine/vendor.js");
-	const result = await buyFromVendor(player, npc, msg.itemId, 1);
+	const { isStackable } = await import("./engine/tags.js");
+	// The GUI shop can request a quantity (stepper / Max button). Clamp it, and
+	// force a single unit for non-stackable items so a stack can't collapse a
+	// unique into one over-counted row.
+	let qty = Math.max(1, Math.min(99, Number(msg.quantity) || 1));
+	if (boughtItem && !isStackable(boughtItem)) qty = 1;
+	const result = await buyFromVendor(player, npc, msg.itemId, qty);
 	await sendShopPanel(ws, npc, session.playerId, { buyResult: result.message, buySuccess: result.success });
 	if (result.success) {
 		ws.send(JSON.stringify({ type: "player_update", credits: player.credits }));

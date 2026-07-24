@@ -4,7 +4,7 @@ import { sendCmd, sendCmdSilent, closeConnection, attemptAutoReauth, showVerifyS
 import { renderMinimap, setGpsRoute, setRunState, startAutoWalk, resumeAutoWalkIfArmed, setAutoWalkPersist, isAutoWalking, isManualAutoWalkInProgress, cancelAutoWalk, autoWalkBlocked, resolveAutoWalkPicker, armAutoWalkPrompt } from './panels/minimap.js';
 import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility, signalPowerOut, isFxIndoors } from './panels/environment.js';
 import { setWeatherEventFx, setFireworksGlow, launchFirework } from './panels/weather-fx.js';
-import { openDialogue, closeDialogue, openShop, flashShopResult } from './panels/dialogue.js';
+import { openDialogue, closeDialogue, openShop } from './panels/dialogue.js';
 import { updateInventoryCache, consumeSilentInventory } from './panels/inventory-state.js';
 import { renderRecipesPanel } from './panels/recipes.js';
 import { renderStatsPanel } from './panels/stats.js';
@@ -445,13 +445,7 @@ const handlers = {
   },
 
   dialogue: (msg) => { openDialogue(msg); },
-  dialogue_shop: (msg) => {
-    openShop(msg);
-    // A fresh server result (buy/sell) carries a *Result string — pulse the panel
-    // green on success, shake it red on failure. Bare re-opens have no result.
-    if (msg.buyResult) flashShopResult(!!msg.buySuccess);
-    else if (msg.sellResult) flashShopResult(!!msg.sellSuccess);
-  },
+  dialogue_shop: (msg) => { openShop(msg); },
 
   dialogue_end: (msg) => {
     closeDialogue();

@@ -103,8 +103,8 @@ export function sendDialogue(npcId, choice, optionIndex) {
   _connection?.send({ type: 'dialogue', npcId, choice, optionIndex: optionIndex ?? null });
 }
 
-export function buyFromNpc(npcId, itemId) {
-  _connection?.send({ type: 'buy_npc', npcId, itemId });
+export function buyFromNpc(npcId, itemId, quantity = 1) {
+  _connection?.send({ type: 'buy_npc', npcId, itemId, quantity });
 }
 
 export function sellToNpc(npcId, inventoryId, quantity = 1) {
