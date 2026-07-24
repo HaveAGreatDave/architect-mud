@@ -338,6 +338,16 @@ try {
   } finally {
     await client.end();
   }
+
+  // Seed runtime-managed state (empty on a fresh DB) — LOCAL only. Runs through
+  // the engine's db.js pool (DATABASE_URL = localhost here); prod's runtime state
+  // persists across deploys and uses PROD_DATABASE_URL, so it's a deliberate
+  // manual step there (`node --env-file=.env.prod scripts/content/seed-runtime.mjs`).
+  if (!prod && !dryRun) {
+    console.log('— seeding runtime state (local) —');
+    const { seedRuntime } = await import('./seed-runtime.mjs');
+    await seedRuntime();
+  }
   process.exit(0);
 } catch (e) {
   console.error('✗ content:import failed:', e.message);
