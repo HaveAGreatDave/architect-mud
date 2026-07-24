@@ -10,6 +10,7 @@
   "tags": {
     "container": 15000,
     "preserves": "refrigerated",
+    "appliance_grade": "consumer",
     "description": "A beige box that hums like it's grinding its teeth. The compressor cycles every four minutes whether anything's inside or not, and the door seal gave up its ambitions years ago — held shut now by a strip of gaffer tape and pure spite. No logo, no serial plate, no warranty. Just cold, allegedly."
   },
   "type": "furniture",

@@ -10,14 +10,14 @@ let freezerBoxId = null;        // stow target for the freezer sub-box, null whe
 
 export function openContainerPanel(data) {
   activeContainerId = data.containerId;
-  renderContainerPanel(data);
+  renderContainerPanel(data, { isOpen: true });
   document.getElementById('container-panel').classList.add('active');
 }
 
 export function refreshContainerPanel(data) {
   if (!document.getElementById('container-panel').classList.contains('active')) return;
   activeContainerId = data.containerId;
-  renderContainerPanel(data);
+  renderContainerPanel(data, { isOpen: false });
 }
 
 export function closeContainerPanel() {
@@ -73,18 +73,34 @@ function promptQty(max, action) {
   });
 }
 
-function renderContainerPanel(data) {
+function renderContainerPanel(data, { isOpen = false } = {}) {
   // A paired container (e.g. a fridge with a separate freezer box) surfaces
   // both boxes in this ONE view — role is decided by `preserves`, not by
   // which one was actually opened, so the layout never swaps sides depending
   // on which box a stow/pull last refreshed.
-  const primary = { containerId: data.containerId, name: data.containerName, capacity: data.capacity, usedWeight: data.usedWeight, items: data.containerItems || [], preserves: data.preserves };
-  const secondary = data.secondary ? { containerId: data.secondary.containerId, name: data.secondary.containerName, capacity: data.secondary.capacity, usedWeight: data.secondary.usedWeight, items: data.secondary.containerItems || [], preserves: data.secondary.preserves } : null;
+  const primary = { containerId: data.containerId, name: data.containerName, capacity: data.capacity, usedWeight: data.usedWeight, items: data.containerItems || [], preserves: data.preserves, applianceGrade: data.applianceGrade };
+  const secondary = data.secondary ? { containerId: data.secondary.containerId, name: data.secondary.containerName, capacity: data.secondary.capacity, usedWeight: data.secondary.usedWeight, items: data.secondary.containerItems || [], preserves: data.secondary.preserves, applianceGrade: data.secondary.applianceGrade } : null;
 
   let fridge = primary, freezer = null;
   if (secondary) {
     if (primary.preserves === 'frozen' && secondary.preserves !== 'frozen') { freezer = primary; fridge = secondary; }
     else if (secondary.preserves === 'frozen') { freezer = secondary; fridge = primary; }
+  }
+
+  // Cold-appliance theming: only for an actual preserving fridge/freezer, not
+  // a normal crate/bag. Grade comes from whichever box has one set.
+  const isCold = !!(fridge.preserves || (freezer && freezer.preserves));
+  const grade = fridge.applianceGrade || (freezer && freezer.applianceGrade) || null;
+  const box = document.getElementById('container-box');
+  box.classList.toggle('ctr-theme-consumer', isCold && grade === 'consumer');
+  box.classList.toggle('ctr-theme-commercial', isCold && grade === 'commercial');
+  const fx = document.getElementById('container-cold-fx');
+  if (isOpen && isCold) {
+    fx.classList.remove('play');
+    void fx.offsetWidth; // restart the animation even if replayed back-to-back
+    fx.classList.add('play');
+  } else if (!isOpen) {
+    fx.classList.remove('play');
   }
 
   document.getElementById('container-title').textContent = fridge.name;
@@ -104,14 +120,14 @@ function renderContainerPanel(data) {
 
   const freezerBox = document.getElementById('container-freezer-box');
   if (freezer) {
-    freezerBox.classList.add('active');
+    freezerBox.classList.add('active', 'ctr-frost');
     document.getElementById('container-freezer-label').textContent = freezer.name;
     document.getElementById('container-freezer-capacity').textContent =
       `Capacity: ${formatWeight(freezer.usedWeight)} / ${formatWeight(freezer.capacity)}`;
     const freezerItems = freezer.items.filter(i => i.id !== freezer.containerId);
     renderList('container-freezer-list', freezerItems, 'contents', freezer.containerId);
   } else {
-    freezerBox.classList.remove('active');
+    freezerBox.classList.remove('active', 'ctr-frost');
     document.getElementById('container-freezer-list').innerHTML = '';
   }
 

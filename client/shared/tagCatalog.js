@@ -156,6 +156,9 @@
       help: 'Extra names this container furniture also answers to for open/stow/pull, e.g. ["fridge"] on a two-compartment refrigerator so either box opens by the generic name, not just its full product name.' },
     paired_container: { label: 'Paired Container', shape: 'text', scope: 'furniture', group: 'Preservation',
       help: 'Furniture id of a second container that opens alongside this one in the SAME container panel (e.g. a fridge and its separate freezer box) — set on both sides, pointing at each other.' },
+    appliance_grade: { label: 'Appliance Grade', shape: 'enum', scope: 'furniture', group: 'Preservation',
+      options: ['consumer', 'commercial'],
+      help: 'Cosmetic tier for a preserves-tagged container — picks the client container-panel theme (consumer: frosted-glass/condensation; commercial: industrial stainless steel). Only meaningful alongside `preserves`.' },
 
     // --- Gear ---
     flashlight: { label: 'Flashlight', shape: 'flag', scope: 'class', group: 'Gear',

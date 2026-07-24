@@ -3,6 +3,7 @@
   "flags": {
     "container": 20000,
     "preserves": "frozen",
+    "appliance_grade": "consumer",
     "aliases": ["fridge"],
     "paired_container": "furn_solenne_fridge_b",
     "interactions": [

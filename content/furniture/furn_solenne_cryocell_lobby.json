@@ -3,6 +3,7 @@
   "flags": {
     "container": 20000,
     "preserves": "frozen",
+    "appliance_grade": "consumer",
     "interactions": [
       "lean"
     ]

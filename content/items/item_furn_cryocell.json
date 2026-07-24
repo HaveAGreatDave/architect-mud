@@ -10,6 +10,7 @@
   "tags": {
     "container": 20000,
     "preserves": "frozen",
+    "appliance_grade": "consumer",
     "description": "A slab of matte ceramic composite, no bigger than a footlocker, radiating real cold you can feel through your boots before you've even touched it. The lid seals with a soft magnetic sigh and a status ring that glows a steady, satisfied blue. Stamped along the seam: ZENITH ENTERPRISES — CRYOCELL, PORTABLE THERMAL SOLUTIONS. No plumbing, no bolted mounts, no permit, no grid draw at all — just pick it up and walk, and whatever's inside stays hard-frozen the whole way."
   },
   "type": "furniture",

@@ -3,6 +3,7 @@
   "flags": {
     "container": 150000,
     "preserves": "refrigerated",
+    "appliance_grade": "commercial",
     "interactions": [
       "lean"
     ]

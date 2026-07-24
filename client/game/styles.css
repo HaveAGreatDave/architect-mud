@@ -3725,6 +3725,102 @@ body.fsim-external #look-resize-handle { display: none; }
 	display: flex;
 	flex-direction: column;
 	gap: 12px;
+	position: relative;
+	overflow: hidden;
+	transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+
+/* Cold-appliance theming — applied only when the opened container (or its
+   paired box) carries a `preserves` tag, i.e. an actual fridge/freezer, not
+   a crate/bag/trash bin. Two grades per the fridge/freezer redesign:
+   consumer (frosted glass, apartment units) vs. commercial (brushed
+   industrial steel, Ration Nine's Ironchill line). */
+#container-box.ctr-theme-consumer {
+	--ctr-cold: #bfe9ff;
+	background:
+		radial-gradient(120% 60% at 50% -10%, color-mix(in srgb, var(--ctr-cold) 20%, transparent), transparent 70%),
+		linear-gradient(165deg, color-mix(in srgb, var(--ctr-cold) 12%, var(--bg2)), var(--bg2) 55%, color-mix(in srgb, var(--ctr-cold) 5%, var(--bg2)));
+	border: 1px solid color-mix(in srgb, var(--ctr-cold) 55%, var(--border));
+	box-shadow:
+		inset 0 1px 0 color-mix(in srgb, white 25%, transparent),
+		0 0 28px color-mix(in srgb, var(--ctr-cold) 16%, transparent);
+}
+#container-box.ctr-theme-consumer #container-header h2,
+#container-box.ctr-theme-consumer .container-section-label {
+	color: var(--ctr-cold);
+	text-shadow: 0 0 6px color-mix(in srgb, var(--ctr-cold) 50%, transparent);
+}
+/* A thin bead of "condensation" along the top edge — a row of small, uneven
+   droplets rendered as a repeating radial-gradient strip. Purely cosmetic. */
+#container-box.ctr-theme-consumer::after {
+	content: "";
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	height: 10px;
+	pointer-events: none;
+	background-image: repeating-radial-gradient(
+		circle at 6px 2px,
+		color-mix(in srgb, var(--ctr-cold) 65%, white 20%) 0 1.4px,
+		transparent 1.4px 14px
+	);
+	opacity: 0.5;
+}
+
+#container-box.ctr-theme-commercial {
+	--ctr-steel-hi: #6b7176;
+	--ctr-steel-lo: #24272a;
+	--ctr-hazard: #e8b84b;
+	background:
+		repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.025) 0 2px, transparent 2px 6px),
+		linear-gradient(160deg, color-mix(in srgb, var(--ctr-steel-hi) 35%, var(--bg2)), var(--bg2) 55%, var(--ctr-steel-lo));
+	border: 2px solid var(--ctr-steel-hi);
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.08),
+		inset 0 0 0 1px rgba(0, 0, 0, 0.5),
+		0 10px 30px rgba(0, 0, 0, 0.5);
+}
+#container-box.ctr-theme-commercial #container-header h2 {
+	color: var(--ctr-hazard);
+	letter-spacing: 3px;
+	text-shadow: none;
+}
+#container-box.ctr-theme-commercial .container-section-label {
+	color: color-mix(in srgb, var(--ctr-hazard) 55%, var(--text-dim));
+}
+#container-box.ctr-theme-commercial #container-inv-col {
+	border-right-color: var(--ctr-steel-hi);
+}
+
+/* Freezer sub-box always gets a frost treatment when active, layered on top
+   of whichever theme the panel is in. */
+.ctr-subbox.ctr-frost {
+	border-color: #9fd8ff;
+	background: linear-gradient(160deg, rgba(159, 216, 255, 0.14), rgba(159, 216, 255, 0.03));
+	box-shadow: inset 0 0 14px rgba(159, 216, 255, 0.18);
+}
+.ctr-subbox.ctr-frost .container-section-label {
+	color: #9fd8ff;
+}
+
+/* Brief cold-mist flourish on open — a soft puff that fades out, never
+   replayed on a stow/pull refresh. */
+#container-cold-fx {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	opacity: 0;
+	background: radial-gradient(60% 50% at 50% 15%, rgba(255, 255, 255, 0.55), transparent 70%);
+	z-index: 5;
+}
+#container-cold-fx.play {
+	animation: ctr-cold-puff 0.9s ease-out forwards;
+}
+@keyframes ctr-cold-puff {
+	0% { opacity: 0; transform: scale(0.9); }
+	25% { opacity: 0.8; transform: scale(1.05); }
+	100% { opacity: 0; transform: scale(1.3); }
 }
 #container-header {
 	display: flex;

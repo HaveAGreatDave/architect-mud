@@ -896,7 +896,7 @@ async function loadBoxContents(container) {
   const used = await containerContentsWeight(container.id);
   const { rows: containerItems } = await query(`SELECT pi.*,i.name,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.container_id=$1 ORDER BY i.name`, [container.id]);
   for (const r of containerItems) r.name = titleCaseName(r.name);
-  return { capacity: cap, usedWeight: round1(used), containerItems, preserves: container.tags?.preserves ?? null };
+  return { capacity: cap, usedWeight: round1(used), containerItems, preserves: container.tags?.preserves ?? null, applianceGrade: container.tags?.appliance_grade ?? null };
 }
 
 async function buildContainerView(containerId, player) {

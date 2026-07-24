@@ -10,6 +10,7 @@
   "tags": {
     "container": 40000,
     "preserves": "refrigerated",
+    "appliance_grade": "consumer",
     "description": "Scratched white enamel, twin doors, a magnetic seal that still bites. GLACIER 400 is stamped across the front in the confident sans-serif of a manufacturer that went bankrupt three product cycles ago, though the units keep running out of pure institutional stubbornness. Every third kitchen in the city has one, inherited from whoever lived here first and never fully forgiven."
   },
   "type": "furniture",

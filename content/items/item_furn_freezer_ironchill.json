@@ -10,6 +10,7 @@
   "tags": {
     "container": 120000,
     "preserves": "frozen",
+    "appliance_grade": "commercial",
     "description": "A chest-high freezer case with a fogged glass lid and a compressor loud enough to hear from the sales floor. Frost has crept up the inside of the glass in a slow white curtain nobody scrapes anymore. Whatever's in here left the temperature charts behind a long time ago."
   },
   "type": "furniture",
