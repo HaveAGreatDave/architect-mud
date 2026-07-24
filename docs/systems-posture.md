@@ -19,6 +19,15 @@ persisted to the `players` table:
 boolean (an old dead `player.sitting` engine field caused the original bug). `player.posture` is the
 truth; `player.sittingOn` is only meaningful while `posture === "sitting"`.
 
+### Stance is not posture
+
+`player.combat_stance` ([stance.js](../server/engine/stance.js), see [combat.md](combat.md)) is a
+**separate, orthogonal** field with its own substrate deliberately modelled on this one. Posture is
+what your body is doing; stance is how you're fighting. You can be cautious while standing or
+cautious while kneeling — collapsing them into one field would recreate exactly the bug class this
+doc exists to prevent. `forceStand` does **not** touch stance, and nothing in the stance path reads
+posture.
+
 ## Who sets it (the plugin)
 
 `plugins/interactions/index.js` registers the posture verbs `sit`, `stand`, `lie`, `kneel` (plus

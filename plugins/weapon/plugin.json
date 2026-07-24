@@ -2,8 +2,8 @@
   "name": "weapon",
   "version": "1.1.0",
   "critical": true,
-  "description": "Player-initiated combat: attack target resolution, the player swing (kill handling, corpse+loot creation, enemy.killed/enemy.attacked), sleep-kills. Registers the ATTACK Action and the gameLoop auto-attack provider.",
+  "description": "Player-initiated combat: attack target resolution, the player swing (kill handling, corpse+loot creation, enemy.killed/enemy.attacked), sleep-kills, combat stances (fight), the pow/dodge moves, and the contested-flee move gate. Registers the ATTACK Action and the gameLoop auto-attack provider.",
   "hooks": [],
-  "commands": ["kamehameha", "seppuku"],
+  "commands": ["kamehameha", "seppuku", "fight", "pow", "power", "dodge", "flee"],
   "specializedActions": ["attack", "kill", "k"]
 }

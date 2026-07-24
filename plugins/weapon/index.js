@@ -15,8 +15,13 @@
  */
 import { randomUUID } from 'crypto';
 import { query, logActivity } from '../../server/models/db.js';
-import { getZoneEnemies, getZonePlayers, getZoneNpcs, getLivePlayer, createCorpse } from '../../server/engine/world.js';
-import { playerAttackEnemy, playerAttackNpc, isOnCooldown, getCooldownRemaining, pvpSwingSleeping, registerPlayerCombat, killEnemyInstance, killNpcInstance } from '../../server/engine/combat.js';
+import { getZoneEnemies, getZonePlayers, getZoneNpcs, getLivePlayer, getZone, createCorpse } from '../../server/engine/world.js';
+import { setFlag } from '../../server/engine/flags.js';
+import { playerAttackEnemy, playerAttackNpc, isOnCooldown, getCooldownRemaining, setCooldown, pvpSwingSleeping, registerPlayerCombat, killEnemyInstance, killNpcInstance, queuePowerAttack, powWindupMs, toughestAttacker, playerFleeRoll } from '../../server/engine/combat.js';
+import { STANCES, getStance, setStance, isStance, swingInterval, armDodge, isDodging, stanceSummary, stanceTell, DODGE_WINDOW_MS } from '../../server/engine/stance.js';
+import { registerMoveGate } from '../../server/engine/movement-gates.js';
+import { sendToPlayer, getBroadcast } from '../../server/engine/messaging.js';
+import { allExits } from '../../server/engine/exits.js';
 import { resolveForCommand, resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
 import { awardSkillUse } from '../../server/engine/skills.js';
 import { getEquippedWeapon } from '../../server/engine/inventory.js';
@@ -427,9 +432,246 @@ export async function cmdSeppuku(player, broadcast) {
 	return { type: 'combat', message: '', killed: true };
 }
 
+// ── Stances ──────────────────────────────────────────────────────────────────
+// `fight <stance>` is the risk/reward dial: hit, swing speed, and defense move
+// together, and the 60s cooldown applies to EVERY change including back to
+// normal — otherwise berserk has no downside, since you'd tap out of it the
+// moment it started to hurt. The engine substrate (stance.js) owns the numbers
+// and the writes; this owns the verb and the cooldown policy.
+function stanceLine(player) {
+	return `You settle into a <span class="stance-tag stance-${getStance(player)}">${getStance(player).toUpperCase()}</span> stance. <span class="stance-mods">${stanceSummary(player)}</span>`;
+}
+
+// Every stance line carries the stance on player_update so the HUD chip tracks
+// it — the canonical vitals rule (docs/combat.md), not a bespoke message type.
+function stanceReply(player, message) {
+	return { type: 'combat', message, noRefresh: true, player_update: { combat_stance: getStance(player) } };
+}
+
+export async function cmdFight(arg, player, broadcast) {
+	const want = (arg || '').trim().toLowerCase();
+	if (!want) return stanceReply(player, stanceLine(player));
+
+	// Prefix match, so `fight cau` works. An exact id always wins over a prefix.
+	const ids = Object.keys(STANCES);
+	const id = isStance(want) ? want : ids.filter(s => s.startsWith(want))[0];
+	if (!id) return { type: 'error', message: `No such stance. Pick one of: ${ids.join(', ')}.` };
+	if (id === getStance(player)) return stanceReply(player, `You're already fighting ${id}. <span class="stance-mods">${stanceSummary(player)}</span>`);
+
+	if (isOnCooldown(player.id, 'stance')) {
+		return { type: 'error', message: `You're still locked into ${getStance(player).toUpperCase()}. (${(getCooldownRemaining(player.id, 'stance') / 1000).toFixed(1)}s)` };
+	}
+
+	setStance(player, id);
+	setCooldown(player.id, 'stance');
+	setFlag('player', 'combat_stance', id, player).catch(() => {});
+	broadcast(player.current_zone, { type: 'zone_event', message: stanceTell(player, player.handle) }, player.id);
+	return stanceReply(player, stanceLine(player));
+}
+
+// ── Power attack ─────────────────────────────────────────────────────────────
+// `pow` is a WIND-UP, not a swing. It arms the one-shot power flag and **resets
+// the swing timer** to 1.5x the stance interval — you throw away whatever
+// progress your current swing had and commit to a longer one. The blow itself
+// then lands through the ordinary auto-attack path, so target resolution,
+// corpse/loot handling, and skill training are all the same code.
+//
+// It deliberately does NOT require being off the attack cooldown. In sustained
+// combat that cooldown is almost always running (the gameLoop swings the instant
+// it lifts), so gating on it made the move very nearly unreachable.
+//
+// Blocked in pacifist: you can still fight, you just can't commit to a haymaker.
+export async function cmdPow(targetStr, player, broadcast) {
+	if (getStance(player) === 'pacifist') {
+		return { type: 'error', message: "Not from a pacifist stance — you're covering up, not committing." };
+	}
+	if (isOnCooldown(player.id, 'combat_move')) {
+		return { type: 'error', message: `You're not set for it yet. (${(getCooldownRemaining(player.id, 'combat_move') / 1000).toFixed(1)}s)` };
+	}
+
+	// A named target routes through cmdAttack's SIFT resolution and engagement
+	// rules rather than duplicating them; bare `pow` just re-aims whatever you're
+	// already fighting.
+	const target = (targetStr || '').trim();
+	let engaged = null;
+	if (target) {
+		engaged = await cmdAttack(target, player, broadcast);
+		if (engaged?.type === 'error') return engaged;   // bad target — nothing spent
+		if (engaged?.killed) return engaged;             // it died on the way in; no wind-up to hold
+	} else if (!player.combatTargetId && !player.npcCombatTargetId && !player.pvpTargetId && !player.offlinePvpTargetId) {
+		return { type: 'error', message: 'Power attack what?' };
+	}
+
+	queuePowerAttack(player);
+	setCooldown(player.id, 'combat_move');
+	const windup = powWindupMs(player);
+	setCooldown(player.id, 'attack', windup);
+
+	// Winding up is visible — an opponent gets a beat to react to it.
+	broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} winds up for a heavy blow.` }, player.id);
+
+	// Engaging a new target produces its own line; send it first so the pane reads
+	// in order, then hand back the wind-up as this command's reply.
+	if (engaged) sendToPlayer(player.id, engaged);
+	return {
+		type: 'combat',
+		noRefresh: true,
+		progressMs: windup,
+		message: `You wind up for a <span class="pow-tag">POWER</span> swing.`,
+	};
+}
+
+// ── Dodge ────────────────────────────────────────────────────────────────────
+// +5 defense for 5s or until the next swing at you, whichever lands first. The
+// "you cannot attack for the duration" half is enforced by setting the ATTACK
+// cooldown to the same window — cmdAttack then refuses with its existing
+// "still recovering" line and all four gameLoop auto-attack loops skip on their
+// own, so this needs no new guard anywhere in the tick.
+export async function cmdDodge(player, broadcast) {
+	if (getStance(player) === 'berserk') {
+		return { type: 'error', message: "You're too far gone to give ground." };
+	}
+	if (isDodging(player)) return { type: 'error', message: "You're already giving ground." };
+	if (isOnCooldown(player.id, 'combat_move')) {
+		return { type: 'error', message: `You're not set for it yet. (${(getCooldownRemaining(player.id, 'combat_move') / 1000).toFixed(1)}s)` };
+	}
+
+	armDodge(player);
+	setCooldown(player.id, 'combat_move');
+	setCooldown(player.id, 'attack', DODGE_WINDOW_MS);
+	broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} gives ground, light on their feet.` }, player.id);
+	return {
+		type: 'combat',
+		noRefresh: true,
+		progressMs: DODGE_WINDOW_MS,
+		message: 'You give ground, weight on the balls of your feet.',
+	};
+}
+
+// ── Contested flee ───────────────────────────────────────────────────────────
+// Walking out of a fight used to be free and instant. Now an attempt costs a
+// full attack cycle and a contested roll — and because it burns the attack
+// cooldown either way, it automatically "interrupts your attack": the auto-attack
+// loops never get a spare cycle while you're trying to break away, so no guard is
+// needed in the tick.
+//
+// A stale intent must not fire minutes later, after the fight it belonged to.
+const FLEE_INTENT_TTL_MS = 15000;
+
+const FLEE_FAIL_CLAUSES = [
+	(n) => `${n} cuts you off.`,
+	(n) => `${n} is right there, and there's no gap.`,
+	(n) => `${n} shifts to block the way.`,
+	(n) => `you can't get clear of ${n}.`,
+];
+function fleeFailClause(name) {
+	return FLEE_FAIL_CLAUSES[Math.floor(Math.random() * FLEE_FAIL_CLAUSES.length)](name);
+}
+
+// One break-away attempt. Burns the attack cycle regardless of outcome — the
+// attempt is what costs, not the success. Returns true if the move may proceed.
+async function attemptFlee(player, direction, attacker) {
+	const broadcast = getBroadcast();
+	setCooldown(player.id, 'attack', swingInterval(player));
+
+	if (await playerFleeRoll(player, attacker.hit)) {
+		player._fleeIntent = null;
+		sendToPlayer(player.id, { type: 'combat', noRefresh: true, message: `You break ${direction}!` });
+		broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} breaks away to the ${direction}.` }, player.id);
+		return true;
+	}
+
+	armFleeIntent(player, direction);
+	sendToPlayer(player.id, {
+		type: 'combat',
+		noRefresh: true,
+		progressMs: swingInterval(player),
+		message: `You try to break ${direction} — <span class="flee-fail">${fleeFailClause(attacker.name)}</span>`,
+	});
+	broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} tries to break away — ${attacker.name} cuts them off.` }, player.id);
+	return false;
+}
+
+function armFleeIntent(player, direction) {
+	player._fleeIntent = { direction, at: player._fleeIntent?.at || Date.now() };
+}
+
+export function clearFleeIntent(player) {
+	if (player) player._fleeIntent = null;
+}
+
+// The move gate. Registered with a stable owner string — tests/regress.js asserts
+// on getRegisteredMoveGates().
+export async function fleeGate({ player, direction, opts }) {
+	if (opts?.bypassEncumbrance || opts?.fleeing) return;   // system moves, and our own retry
+	const attacker = toughestAttacker(player);
+	if (!attacker) { clearFleeIntent(player); return; }      // nobody on you — walking away is free
+
+	// The attempt costs an attack cycle, so it has to wait for one. Remember
+	// where you were headed and let the gameLoop retry when the cycle comes up.
+	if (isOnCooldown(player.id, 'attack')) {
+		if (!player._fleeIntent) {
+			armFleeIntent(player, direction);
+			sendToPlayer(player.id, {
+				type: 'combat',
+				noRefresh: true,
+				progressMs: getCooldownRemaining(player.id, 'attack'),
+				message: `You break off, looking for a gap to the ${direction}.`,
+			});
+		} else {
+			armFleeIntent(player, direction);   // re-aim an existing attempt
+		}
+		return { block: true, silent: true };
+	}
+
+	return (await attemptFlee(player, direction, attacker)) ? undefined : { block: true, silent: true };
+}
+registerMoveGate(fleeGate, 'weapon:flee');
+
+// Retried once per attack cycle from the gameLoop tick.
+export async function tickFleeIntent(player) {
+	const intent = player?._fleeIntent;
+	if (!intent) return;
+	if (Date.now() - intent.at > FLEE_INTENT_TTL_MS) { clearFleeIntent(player); return; }
+	if (isOnCooldown(player.id, 'attack')) return;
+
+	const attacker = toughestAttacker(player);
+	// The fight ended while you were trying to leave — you asked to go, so go.
+	if (!attacker) {
+		clearFleeIntent(player);
+		return completeFlee(player, intent.direction);
+	}
+	if (await attemptFlee(player, intent.direction, attacker)) {
+		clearFleeIntent(player);
+		return completeFlee(player, intent.direction);
+	}
+}
+
+// `fleeing: true` exempts the move from our own gate, so a won contest can't
+// re-enter it and roll again.
+async function completeFlee(player, direction) {
+	const { cmdMove } = await import('../../server/engine/commands/movement.js');
+	const result = await cmdMove(direction, player, getBroadcast(), { fleeing: true }).catch(() => null);
+	if (result) sendToPlayer(player.id, result);
+}
+
+// `flee [direction]` — the verb the client smartbar has advertised all along.
+// It just routes into ordinary movement; the gate above is what makes it cost
+// something. Bare `flee` picks a random exit.
+export async function cmdFlee(arg, player, broadcast) {
+	let direction = (arg || '').trim().toLowerCase();
+	if (!direction) {
+		const exits = allExits(getZone(player.current_zone));
+		if (!exits.length) return { type: 'error', message: 'There is nowhere to run.' };
+		direction = exits[Math.floor(Math.random() * exits.length)].dir;
+	}
+	const { cmdMove } = await import('../../server/engine/commands/movement.js');
+	return cmdMove(direction, player, broadcast, {});
+}
+
 // The auto-attack tick in gameLoop.js sustains combat through these — raw
 // function references, never the Action dispatcher (ADR-0001 hot path).
-registerPlayerCombat({ resolveAttack, resolveAttackNpc, offlineSleepSwing });
+registerPlayerCombat({ resolveAttack, resolveAttackNpc, offlineSleepSwing, tickFleeIntent });
 
 // Player-initiated combat is an Action. `params.candidate` carries a SIFT
 // selection replay (a player pick from an ambiguous `attack <name>`).
@@ -455,6 +697,11 @@ export const specializedActions = [
 export const commands = {
 	kamehameha: (args, raw, player, broadcast) => cmdKamehameha(args.join(' '), player, broadcast),
 	seppuku: (args, raw, player, broadcast) => cmdSeppuku(player, broadcast),
+	fight: (args, raw, player, broadcast) => cmdFight(args.join(' '), player, broadcast),
+	pow: (args, raw, player, broadcast) => cmdPow(args.join(' '), player, broadcast),
+	power: (args, raw, player, broadcast) => cmdPow(args.join(' '), player, broadcast),
+	dodge: (args, raw, player, broadcast) => cmdDodge(player, broadcast),
+	flee: (args, raw, player, broadcast) => cmdFlee(args.join(' '), player, broadcast),
 };
 
 console.log('[weapon] Plugin loaded.');

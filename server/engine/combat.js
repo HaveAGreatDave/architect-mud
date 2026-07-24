@@ -1,4 +1,4 @@
-import { world, getEnemyInstance, removeEnemyInstance, getLivePlayer, getZonePlayers, tryBattleCry } from './world.js';
+import { world, getEnemyInstance, removeEnemyInstance, getLivePlayer, getZonePlayers, getZoneEnemies, getZoneNpcs, tryBattleCry } from './world.js';
 import { getNpcCombatLine } from './npc-personality.js';
 import { effectiveSkill, awardSkillUse } from './skills.js';
 import { ensureTunables, getTunable } from './tunables.js';
@@ -7,6 +7,12 @@ import { fireHook } from './plugins.js';
 import { getZoneProtection } from './protection.js';
 import { query } from '../models/db.js';
 import { getEquippedWeapon } from './inventory.js';
+import { BASE_ATTACK_MS, hitBonus, defenseBonus, swingInterval, consumeDodge, swingVerb, missLine } from './stance.js';
+
+// A power attack (`pow`) multiplies the rolled damage after crit and before the
+// head bonus and soak, and costs 1.5x the stance's swing time.
+const POW_DAMAGE_MULT = 2.5;
+const POW_SWING_MULT = 1.5;
 
 // Darkness to-hit penalty for an attacker swinging in `zoneId`, from the
 // attacker's OWN perceived light. Pass the attacking player as `perceiver` so a
@@ -40,31 +46,117 @@ export function registerPlayerCombat(fns) { playerCombat = fns; }
 export function getPlayerCombat() { return playerCombat; }
 
 const COOLDOWNS = {
-  attack: 3500,
-  flee: 4000,
+  attack: BASE_ATTACK_MS,   // the BASE swing — stance shifts it, see setCooldown's override
   use_item: 2500,
   shove: 60000,
+  stance: 60000,            // `fight <stance>` — locks you into your choice
+  combat_move: 10000,       // shared by `pow` and `dodge`: one window, pick offense or defense
 };
 
-const playerCooldowns = new Map(); // playerId -> { action -> timestamp }
+// playerId -> { action -> { at, dur } }. The DURATION is stamped at set time
+// rather than looked up at read time, because the attack cooldown is now
+// per-player and variable (stance speed, pow's 1.5x, the dodge lock) while the
+// ~8 isOnCooldown(id,'attack') readers across gameLoop.js and the weapon plugin
+// have no stance in hand. Changing the writer keeps every reader untouched.
+const playerCooldowns = new Map();
 
 export function isOnCooldown(playerId, action) {
-  const cds = playerCooldowns.get(playerId) || {};
-  const cd = COOLDOWNS[action] || 1000;
-  return Date.now() - (cds[action] || 0) < cd;
+  const entry = playerCooldowns.get(playerId)?.[action];
+  if (!entry) return false;
+  return Date.now() - entry.at < entry.dur;
 }
 
-export function setCooldown(playerId, action) {
+export function setCooldown(playerId, action, durationMs = null) {
   const cds = playerCooldowns.get(playerId) || {};
-  cds[action] = Date.now();
+  cds[action] = { at: Date.now(), dur: durationMs ?? COOLDOWNS[action] ?? 1000 };
   playerCooldowns.set(playerId, cds);
 }
 
 export function getCooldownRemaining(playerId, action) {
-  const cds = playerCooldowns.get(playerId) || {};
-  const cd = COOLDOWNS[action] || 1000;
-  const elapsed = Date.now() - (cds[action] || 0);
-  return Math.max(0, cd - elapsed);
+  const entry = playerCooldowns.get(playerId)?.[action];
+  if (!entry) return 0;
+  return Math.max(0, entry.dur - (Date.now() - entry.at));
+}
+
+// Ends a cooldown early. Used when a dodge window is consumed by an incoming
+// swing before its 5s runs out — the attack lock that enforced "you cannot
+// attack for the duration" should lift with it.
+export function clearCooldown(playerId, action) {
+  const cds = playerCooldowns.get(playerId);
+  if (cds) delete cds[action];
+}
+
+// ── Contested flee ───────────────────────────────────────────────────────────
+// You can't simply walk out of a fight any more: breaking contact costs an
+// attack cycle and a roll, in both directions. Same shape as every to-hit in
+// this file — a flat rating comparison plus the symmetric 2d8−2d8 swing — so a
+// dangerous attacker is genuinely harder to escape than a weak one.
+//
+// The fleer eats a flat −1 on top: turning your back is supposed to cost you.
+export const FLEE_DODGE_PENALTY = 1;
+
+export function rollFleeContest(fleeRating, attackerHit) {
+  return (fleeRating - FLEE_DODGE_PENALTY - attackerHit) + rollSwing();
+}
+
+// Everyone actively swinging at this player right now — hostile enemies and NPCs
+// that have locked onto them, plus any live player holding them as a PvP target.
+// Deliberately NOT "things the player is attacking": you can always walk away
+// from a target that isn't fighting back.
+export function attackersOf(player) {
+  const out = [];
+  for (const e of getZoneEnemies(player.current_zone)) {
+    if (e.targetId === player.id && !e._dead) out.push({ name: e.name, hit: e.hit ?? 1 });
+  }
+  for (const n of getZoneNpcs(player.current_zone)) {
+    if (n._combatTargetId === player.id && !n._dead) out.push({ name: n.name, hit: n.flags?.hit ?? 1 });
+  }
+  for (const p of getZonePlayers(player.current_zone)) {
+    if (p.id !== player.id && p.pvpTargetId === player.id) out.push({ name: p.handle, hit: 1, player: p });
+  }
+  return out;
+}
+
+// The toughest thing currently on you — the one you have to slip. Null when
+// nobody is attacking, which is the "movement is free" case.
+export function toughestAttacker(player) {
+  const all = attackersOf(player);
+  if (!all.length) return null;
+  return all.reduce((best, a) => (a.hit > best.hit ? a : best), all[0]);
+}
+
+// The player half of the contest: dodge skill plus stance defense (so pacifist
+// really is the escape stance), against the best attacker in the room. Trains
+// Dodge on the attempt whether it lands or not, like every other evasion.
+export async function playerFleeRoll(player, attackerHit) {
+  const rating = (await effectiveSkill(player, 'dodge')) + defenseBonus(player);
+  const margin = rollFleeContest(rating, attackerHit);
+  await awardSkillUse(player.id, 'dodge', margin);
+  return margin >= 0;
+}
+
+// The mob half. Enemies use their flat `dodge` rating (or an explicit
+// flags.flee_skill override, which the old FLEE node already honoured).
+export function mobFleeRoll(entity, attackerHit) {
+  const rating = Number(entity?.flags?.flee_skill ?? entity?.dodge ?? entity?.flags?.dodge ?? 1);
+  return rollFleeContest(rating, attackerHit) >= 0;
+}
+
+// The player (if any) currently pressing an attack on this enemy/NPC — the
+// mirror of attackersOf(). Synchronous by design: moveEntity is the single
+// writer for every mob tile change and can't await, so the attacker's swing
+// skill is read from the value their last swing stamped on them.
+export function pressingAttacker(entity) {
+  if (!entity) return null;
+  const zoneId = entity.zoneId || entity.zone_id;
+  const isEnemyInstance = !!entity.instanceId;
+  for (const p of getZonePlayers(zoneId)) {
+    const pressing = isEnemyInstance
+      ? p.combatTargetId === entity.instanceId
+      : p.npcCombatTargetId === entity.id;
+    if (pressing) return { name: p.handle, hit: p._lastAttackSkill ?? 1 };
+  }
+  return null;
 }
 
 function roll2d8() {
@@ -80,6 +172,82 @@ function rollSwing() {
 function randInt(min, max) {
   const lo = Math.min(min, max), hi = Math.max(min, max);
   return Math.floor(Math.random() * (hi - lo + 1)) + lo;
+}
+
+// A power attack's 1.5x cost is charged UP FRONT, as a wind-up, the moment `pow`
+// is typed — it RESETS the swing timer rather than waiting for it. That's the
+// whole shape of the move: you throw away whatever progress the current swing
+// had and commit to a longer one.
+//
+// Which is why the swing that eventually lands charges only the plain stance
+// interval (below): charging 1.5x again on the way out would make the move cost
+// 3x a swing instead of 1.5x.
+export function powWindupMs(player) {
+  return Math.round(swingInterval(player) * POW_SWING_MULT);
+}
+
+// `pow` arms a ONE-SHOT flag that the next swing spends. The weapon plugin arms
+// it; the engine swing functions below are the only consumers, and they take it
+// only after every early return has passed — so a swing that never happened (on
+// cooldown, target gone) doesn't silently eat the move.
+//
+// It must be consumed rather than read, because resolveAttack rebuilds
+// weaponStats from scratch on EVERY swing including auto-attack ticks: a flag
+// that merely persisted would turn the whole auto-attack loop into power attacks.
+export function queuePowerAttack(player) { player._powQueued = true; }
+export function hasPowerQueued(player) { return !!player._powQueued; }
+function takePower(player) {
+  const queued = !!player._powQueued;
+  player._powQueued = false;
+  return queued;
+}
+
+// The body of a player's hit line, WITHOUT trailing punctuation — callers append
+// '.'/'!' plus their own death message or HP tag, matching the shapes that were
+// inlined here before.
+//
+// Crit and pow never show two badges: a critical power attack reads as one
+// CRITICAL POWER tag, because two badges on one line reads like a render bug.
+// Outside a crit, the plain verb is the stance's own (strike / tear into /
+// jab at / …) — the spans around it are byte-identical across stances, so the
+// client CSS and the `combat` dispatch handler need no stance awareness at all.
+function playerHitLine(player, targetName, partLabel, damage, damageType, critical, power) {
+  const part = `<span class="hit-part">${partLabel}</span>`;
+  const dmg = `<span class="dmg-dealt">${damage}</span> <span class="dmg-type">${damageType}</span>`;
+  if (critical) {
+    return `<span class="crit-tag">${power ? 'CRITICAL POWER' : 'CRITICAL HIT'}</span> to the ${part}! You deal ${dmg} to ${targetName}`;
+  }
+  if (power) return `<span class="pow-tag">POWER</span> You bring everything down on ${targetName}'s ${part} for ${dmg}`;
+  return `You ${swingVerb(player)} ${targetName}'s ${part} for ${dmg}`;
+}
+
+// A whiffed power attack has to sting — you just burned 1.5 swings for nothing.
+function playerMissLine(player, targetName, power) {
+  return power
+    ? `<span class="pow-tag">POWER</span> You commit everything — and hit nothing but air.`
+    : missLine(player, targetName);
+}
+
+// The defender half of every incoming swing against a player: their dodge term
+// (skill + stance defense + any live dodge-move bonus) and whether this swing is
+// the one that spends their dodge window.
+//
+// Order matters — defenseBonus() must be read BEFORE consumeDodge() clears the
+// window, or the move you just spent wouldn't apply to the swing that spent it.
+// Consuming also lifts the attack lock that `dodge` set, so the 5s "you cannot
+// attack" ends with the window rather than outliving it.
+async function playerDefence(player) {
+  const dodgeTerm = (await effectiveSkill(player, 'dodge')) + defenseBonus(player);
+  const dodged = consumeDodge(player);
+  if (dodged) clearCooldown(player.id, 'attack');
+  return { dodgeTerm, dodged };
+}
+
+// A spent dodge window decorates the incoming line rather than adding one of its
+// own — the output pane already prints a line every swing.
+const DODGE_BROKEN = ' <span class="dodge-tag">(guard broken)</span>';
+function dodgedMissLine(attackerName) {
+  return `${attackerName} lunges — <span class="dodge-tag">you slip aside</span>.`;
 }
 
 const DEFAULT_BODY_PART_WEIGHTS = { head:10, torso:40, left_arm:12, right_arm:12, left_leg:11, right_leg:11, feet:4 };
@@ -210,19 +378,25 @@ export async function playerAttackEnemy(player, enemyInstanceId, weaponStats) {
 
   const weaponSkillId = weaponStats?.weapon_skill || 'fists';
   const attackSkill = await effectiveSkill(player, weaponSkillId);
+  // Cached for the mob-side flee contest: moveEntity is synchronous and can't
+  // await effectiveSkill. A mob is only ever gated while a player is actively
+  // attacking it, so by then this has always been stamped by a real swing.
+  player._lastAttackSkill = attackSkill;
 
+  const power = takePower(player);
   const enemyDodge = enemy.dodge ?? 1;
-  const margin = (attackSkill - enemyDodge) + rollSwing() + await darknessHitPenalty(enemy.zoneId, player);
+  const margin = (attackSkill + hitBonus(player) - enemyDodge) + rollSwing() + await darknessHitPenalty(enemy.zoneId, player);
   const hit = margin >= 0;
 
-  setCooldown(player.id, 'attack');
+  setCooldown(player.id, 'attack', swingInterval(player));
 
   if (!hit) {
     return {
       success: true,
       hit: false,
       margin,
-      message: `You swing at ${enemy.name} and miss. It doesn't look impressed.`,
+      power,
+      message: playerMissLine(player, enemy.name, power),
       enemyId: enemyInstanceId,
       enemyHp: enemy.hp,
       enemyHpMax: enemy.hp_max,
@@ -238,6 +412,7 @@ export async function playerAttackEnemy(player, enemyInstanceId, weaponStats) {
   const damageType = weaponStats?.damage_type || 'kinetic';
   let damage = randInt(damage_min, damage_max);
   if (critical) damage = Math.floor(damage * critMultiplier);
+  if (power) damage = Math.floor(damage * POW_DAMAGE_MULT);
 
   const part = rollBodyPart(enemyBodyPartWeights(enemy));
   if (part === 'head') damage = Math.floor(damage * getTunable('head_damage_multiplier', 1.5));
@@ -259,9 +434,8 @@ export async function playerAttackEnemy(player, enemyInstanceId, weaponStats) {
       critical,
       damage,
       margin,
-      message: critical
-        ? `<span class="crit-tag">CRITICAL HIT</span> to the <span class="hit-part">${partLabel}</span>! You deal <span class="dmg-dealt">${damage}</span> <span class="dmg-type">${damageType}</span> to ${enemy.name}. ${enemy.death_message}`
-        : `You strike ${enemy.name}'s <span class="hit-part">${partLabel}</span> for <span class="dmg-dealt">${damage}</span> <span class="dmg-type">${damageType}</span>. ${enemy.death_message}`,
+      power,
+      message: `${playerHitLine(player, enemy.name, partLabel, damage, damageType, critical, power)}. ${enemy.death_message}`,
       loot,
       enemyId: enemyInstanceId,
       butcher_table: enemy.butcher_table || [],
@@ -276,9 +450,8 @@ export async function playerAttackEnemy(player, enemyInstanceId, weaponStats) {
     critical,
     damage,
     margin,
-    message: critical
-      ? `<span class="crit-tag">CRITICAL HIT</span> to the <span class="hit-part">${partLabel}</span>! You deal <span class="dmg-dealt">${damage}</span> <span class="dmg-type">${damageType}</span> to ${enemy.name}!${enemyHpTag(enemy)}`
-      : `You strike ${enemy.name}'s <span class="hit-part">${partLabel}</span> for <span class="dmg-dealt">${damage}</span> <span class="dmg-type">${damageType}</span>.${enemyHpTag(enemy)}`,
+    power,
+    message: `${playerHitLine(player, enemy.name, partLabel, damage, damageType, critical, power)}${critical ? '!' : '.'}${enemyHpTag(enemy)}`,
     enemyId: enemyInstanceId,
     enemyHp: enemy.hp,
     enemyHpMax: enemy.hp_max,
@@ -299,8 +472,8 @@ export async function enemyAttackPlayer(enemy, player) {
   enemy.lastAttack = now;
 
   const enemyHit = enemy.hit ?? 1;
-  const playerDodge = await effectiveSkill(player, 'dodge');
-  const margin = (enemyHit - playerDodge) + rollSwing() + await darknessHitPenalty(enemy.zoneId);
+  const { dodgeTerm, dodged } = await playerDefence(player);
+  const margin = (enemyHit - dodgeTerm) + rollSwing() + await darknessHitPenalty(enemy.zoneId);
   const hit = margin >= 0;
 
   const cries = enemy.flags?.battle_cries;
@@ -311,7 +484,7 @@ export async function enemyAttackPlayer(enemy, player) {
   if (!hit) {
     // Evading trains Dodge — the closer the call, the better you learn (abs margin).
     await awardSkillUse(player.id, 'dodge', margin);
-    return { hit: false, message: `${cry}${enemy.name} attacks you and misses.` };
+    return { hit: false, message: `${cry}${dodged ? dodgedMissLine(enemy.name) : `${enemy.name} attacks you and misses.`}` };
   }
 
   const critThreshold = getTunable('crit_threshold', 8);
@@ -344,8 +517,8 @@ export async function enemyAttackPlayer(enemy, player) {
     damage,
     critical,
     message: critical
-      ? `${cry}<span class="crit-tag-in">CRITICAL!</span> ${enemy.name} hits your <span class="hit-part">${partLabel}</span> for <span class="dmg-taken">${damage}</span> <span class="dmg-type">${damageTypes}</span>!${selfHp}`
-      : `${cry}${enemy.name} hits your <span class="hit-part">${partLabel}</span> for <span class="dmg-taken">${damage}</span> <span class="dmg-type">${damageTypes}</span>.${selfHp}`,
+      ? `${cry}<span class="crit-tag-in">CRITICAL!</span> ${enemy.name} hits your <span class="hit-part">${partLabel}</span> for <span class="dmg-taken">${damage}</span> <span class="dmg-type">${damageTypes}</span>!${dodged ? DODGE_BROKEN : ''}${selfHp}`
+      : `${cry}${enemy.name} hits your <span class="hit-part">${partLabel}</span> for <span class="dmg-taken">${damage}</span> <span class="dmg-type">${damageTypes}</span>.${dodged ? DODGE_BROKEN : ''}${selfHp}`,
   };
 }
 
@@ -464,7 +637,8 @@ function resolveEnemyLoot(enemy) {
 export async function pvpSwing(attacker, defender) {
   if ((defender.hp ?? defender.hp_max ?? 100) <= 0) return null;
   if (isOnCooldown(attacker.id, 'attack')) return null;
-  setCooldown(attacker.id, 'attack');
+  const power = takePower(attacker);
+  setCooldown(attacker.id, 'attack', swingInterval(attacker));
   await ensureTunables();
 
   const equipped = await getEquippedWeapon(attacker);
@@ -475,8 +649,8 @@ export async function pvpSwing(attacker, defender) {
   const damage_max = dmg.max ?? 4;
 
   const attackSkill = await effectiveSkill(attacker, weaponSkill);
-  const defDodge = await effectiveSkill(defender, 'dodge');
-  const margin = (attackSkill - defDodge) + rollSwing() + await darknessHitPenalty(attacker.current_zone, attacker);
+  const { dodgeTerm, dodged } = await playerDefence(defender);
+  const margin = (attackSkill + hitBonus(attacker) - dodgeTerm) + rollSwing() + await darknessHitPenalty(attacker.current_zone, attacker);
   const hit = margin >= 0;
 
   if (!hit) {
@@ -485,8 +659,8 @@ export async function pvpSwing(attacker, defender) {
     return {
       hit: false,
       killed: false,
-      attackerMsg: `You swing at ${defender.handle} and miss.`,
-      defenderMsg: `${attacker.handle} swings at you and misses.`,
+      attackerMsg: playerMissLine(attacker, defender.handle, power),
+      defenderMsg: dodged ? dodgedMissLine(attacker.handle) : `${attacker.handle} swings at you and misses.`,
     };
   }
 
@@ -497,6 +671,7 @@ export async function pvpSwing(attacker, defender) {
 
   let damage = randInt(damage_min, damage_max);
   if (critical) damage = Math.floor(damage * getTunable('crit_multiplier', 1.5));
+  if (power) damage = Math.floor(damage * POW_DAMAGE_MULT);
   damage = Math.floor(damage * headMult);
   damage = Math.max(1, damage - playerPartSoak(defender, part, damageType));
 
@@ -508,12 +683,10 @@ export async function pvpSwing(attacker, defender) {
   const killed = defender.hp <= 0;
   const defHpTag = killed ? '' : selfHpTag(defender.hp, defHpMax);
 
-  const attackerMsg = critical
-    ? `<span class="crit-tag">CRITICAL HIT</span> to ${defender.handle}'s <span class="hit-part">${partLabel}</span>! You deal <span class="dmg-dealt">${damage}</span> <span class="dmg-type">${damageType}</span>.`
-    : `You hit ${defender.handle}'s <span class="hit-part">${partLabel}</span> for <span class="dmg-dealt">${damage}</span> <span class="dmg-type">${damageType}</span>.`;
+  const attackerMsg = `${playerHitLine(attacker, defender.handle, partLabel, damage, damageType, critical, power)}${critical ? '!' : '.'}`;
   const defenderMsg = critical
-    ? `<span class="crit-tag-in">CRITICAL!</span> ${attacker.handle} hits your <span class="hit-part">${partLabel}</span> for <span class="dmg-taken">${damage}</span> <span class="dmg-type">${damageType}</span>!${defHpTag}`
-    : `${attacker.handle} hits your <span class="hit-part">${partLabel}</span> for <span class="dmg-taken">${damage}</span> <span class="dmg-type">${damageType}</span>.${defHpTag}`;
+    ? `<span class="crit-tag-in">CRITICAL!</span> ${attacker.handle} hits your <span class="hit-part">${partLabel}</span> for <span class="dmg-taken">${damage}</span> <span class="dmg-type">${damageType}</span>!${dodged ? DODGE_BROKEN : ''}${defHpTag}`
+    : `${attacker.handle} hits your <span class="hit-part">${partLabel}</span> for <span class="dmg-taken">${damage}</span> <span class="dmg-type">${damageType}</span>.${dodged ? DODGE_BROKEN : ''}${defHpTag}`;
 
   return { hit: true, killed, damage, attackerMsg, defenderMsg, defenderHp: defender.hp, defenderHpMax: defHpMax };
 }
@@ -536,13 +709,18 @@ export async function playerAttackNpc(player, npcId, weaponStats) {
   await ensureTunables();
   const weaponSkillId = weaponStats?.weapon_skill || 'fists';
   const attackSkill = await effectiveSkill(player, weaponSkillId);
+  // Cached for the mob-side flee contest: moveEntity is synchronous and can't
+  // await effectiveSkill. A mob is only ever gated while a player is actively
+  // attacking it, so by then this has always been stamped by a real swing.
+  player._lastAttackSkill = attackSkill;
+  const power = takePower(player);
   const npcDodge = npc.flags?.dodge ?? 1;
-  const margin = (attackSkill - npcDodge) + rollSwing() + await darknessHitPenalty(npc.zone_id, player);
+  const margin = (attackSkill + hitBonus(player) - npcDodge) + rollSwing() + await darknessHitPenalty(npc.zone_id, player);
   const hit = margin >= 0;
-  setCooldown(player.id, 'attack');
+  setCooldown(player.id, 'attack', swingInterval(player));
 
   if (!hit) {
-    return { success: true, hit: false, margin, npcId, message: `You swing at ${npc.name} and miss.` };
+    return { success: true, hit: false, margin, npcId, power, message: playerMissLine(player, npc.name, power) };
   }
 
   const critical = margin >= getTunable('crit_threshold', 8);
@@ -551,6 +729,7 @@ export async function playerAttackNpc(player, npcId, weaponStats) {
   const damageType = weaponStats?.damage_type || 'kinetic';
   let damage = randInt(damage_min, damage_max);
   if (critical) damage = Math.floor(damage * getTunable('crit_multiplier', 1.5));
+  if (power) damage = Math.floor(damage * POW_DAMAGE_MULT);
   const part = rollBodyPart(null);
   if (part === 'head') damage = Math.floor(damage * getTunable('head_damage_multiplier', 1.5));
   damage = Math.max(1, damage);
@@ -567,21 +746,17 @@ export async function playerAttackNpc(player, npcId, weaponStats) {
     const zone = world.zones.get(player.current_zone);
     if (zone) zone.npcs.delete(npcId);
     return {
-      success: true, hit: true, killed: true, critical, damage, margin, npcId, npcSpeech,
-      message: critical
-        ? `<span class="crit-tag">CRITICAL HIT</span> to the <span class="hit-part">${partLabel}</span>! You deal <span class="dmg-dealt">${damage}</span> <span class="dmg-type">${damageType}</span> to ${npc.name}. They crumple.`
-        : `You strike ${npc.name}'s <span class="hit-part">${partLabel}</span> for <span class="dmg-dealt">${damage}</span> <span class="dmg-type">${damageType}</span>. They crumple.`,
+      success: true, hit: true, killed: true, critical, damage, margin, npcId, npcSpeech, power,
+      message: `${playerHitLine(player, npc.name, partLabel, damage, damageType, critical, power)}. They crumple.`,
     };
   }
 
   const { bar, tier } = hpBar(npc.hp, npc.hp_max ?? 20);
   const hpTag = ` <span class="hpbar hp-${tier}">[${bar}]</span> <span class="hp-count">${npc.hp}/${npc.hp_max ?? 20}</span>`;
   return {
-    success: true, hit: true, killed: false, critical, damage, margin, npcId, npcSpeech,
+    success: true, hit: true, killed: false, critical, damage, margin, npcId, npcSpeech, power,
     npcHp: npc.hp, npcHpMax: npc.hp_max ?? 20,
-    message: critical
-      ? `<span class="crit-tag">CRITICAL HIT</span> to the <span class="hit-part">${partLabel}</span>! You deal <span class="dmg-dealt">${damage}</span> <span class="dmg-type">${damageType}</span> to ${npc.name}!${hpTag}`
-      : `You strike ${npc.name}'s <span class="hit-part">${partLabel}</span> for <span class="dmg-dealt">${damage}</span> <span class="dmg-type">${damageType}</span>.${hpTag}`,
+    message: `${playerHitLine(player, npc.name, partLabel, damage, damageType, critical, power)}${critical ? '!' : '.'}${hpTag}`,
   };
 }
 
@@ -690,14 +865,14 @@ export async function npcAttackPlayer(npc, player) {
   npc._lastAttack = now;
 
   const npcHit = npc.flags?.hit ?? 1;
-  const playerDodge = await effectiveSkill(player, 'dodge');
-  const margin = (npcHit - playerDodge) + rollSwing() + await darknessHitPenalty(npc.zone_id);
+  const { dodgeTerm, dodged } = await playerDefence(player);
+  const margin = (npcHit - dodgeTerm) + rollSwing() + await darknessHitPenalty(npc.zone_id);
   const hit = margin >= 0;
 
   if (!hit) {
     // Evading trains Dodge — the closer the call, the better you learn (abs margin).
     await awardSkillUse(player.id, 'dodge', margin);
-    return { hit: false, message: `${npc.name} attacks you and misses.` };
+    return { hit: false, message: dodged ? dodgedMissLine(npc.name) : `${npc.name} attacks you and misses.` };
   }
 
   const critical = margin >= getTunable('crit_threshold', 8);
@@ -719,8 +894,8 @@ export async function npcAttackPlayer(npc, player) {
   return {
     hit: true, damage, critical,
     message: critical
-      ? `<span class="crit-tag-in">CRITICAL!</span> ${npc.name} hits your <span class="hit-part">${partLabel}</span> for <span class="dmg-taken">${damage}</span> <span class="dmg-type">${damageTypes}</span>!${selfHpTag(player.hp - damage, player.hp_max)}`
-      : `${npc.name} hits your <span class="hit-part">${partLabel}</span> for <span class="dmg-taken">${damage}</span> <span class="dmg-type">${damageTypes}</span>.${selfHpTag(player.hp - damage, player.hp_max)}`,
+      ? `<span class="crit-tag-in">CRITICAL!</span> ${npc.name} hits your <span class="hit-part">${partLabel}</span> for <span class="dmg-taken">${damage}</span> <span class="dmg-type">${damageTypes}</span>!${dodged ? DODGE_BROKEN : ''}${selfHpTag(player.hp - damage, player.hp_max)}`
+      : `${npc.name} hits your <span class="hit-part">${partLabel}</span> for <span class="dmg-taken">${damage}</span> <span class="dmg-type">${damageTypes}</span>.${dodged ? DODGE_BROKEN : ''}${selfHpTag(player.hp - damage, player.hp_max)}`,
   };
 }
 
@@ -729,7 +904,10 @@ export async function npcAttackPlayer(npc, player) {
 export async function pvpSwingSleeping(attacker, defender) {
   if ((defender.hp ?? defender.hp_max ?? 100) <= 0) return null;
   if (isOnCooldown(attacker.id, 'attack')) return null;
-  setCooldown(attacker.id, 'attack');
+  // A sleeper can't dodge, so `pow` adds nothing here — but the flag is still
+  // spent rather than left armed to fire on some later, unrelated swing.
+  const power = takePower(attacker);
+  setCooldown(attacker.id, 'attack', swingInterval(attacker));
   await ensureTunables();
 
   const equipped = await getEquippedWeapon(attacker);
@@ -745,6 +923,7 @@ export async function pvpSwingSleeping(attacker, defender) {
 
   let damage = randInt(damage_min, damage_max);
   if (critical) damage = Math.floor(damage * getTunable('crit_multiplier', 1.5));
+  if (power) damage = Math.floor(damage * POW_DAMAGE_MULT);
   damage = Math.floor(damage * headMult);
   damage = Math.max(1, damage);
 

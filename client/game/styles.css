@@ -1064,6 +1064,58 @@ body.fsim-external #look-resize-handle { display: none; }
 	font-weight: bold;
 	letter-spacing: 1px;
 }
+/* Power attack. Deliberately shaped like .crit-tag — a crit and a pow never
+   render two badges (the server collapses them to one CRITICAL POWER tag). */
+.pow-tag {
+	color: var(--orange);
+	font-weight: bold;
+	letter-spacing: 1px;
+}
+/* The dodge move decorates the incoming attack line rather than adding one. */
+.dodge-tag {
+	color: var(--cyan);
+	font-weight: bold;
+}
+.flee-fail {
+	color: var(--yellow);
+}
+/* Stance: the tag on the change line, and the dim modifier summary after it. */
+.stance-tag {
+	font-weight: bold;
+	letter-spacing: 1px;
+}
+.stance-mods {
+	color: var(--text-dim);
+	font-size: 11px;
+}
+/* Persistent HUD chip. Stance is state, not an event — it belongs here rather
+   than being re-announced in the output pane every attack cycle. */
+.stance-chip {
+	display: inline-block;
+	padding: 2px 8px;
+	border: 1px solid currentColor;
+	border-radius: 3px;
+	font-family: var(--font-mono, monospace);
+	font-size: 10px;
+	font-weight: bold;
+	letter-spacing: 1px;
+	opacity: 0.9;
+}
+.stance-berserk {
+	color: var(--red);
+}
+.stance-aggressive {
+	color: var(--orange);
+}
+.stance-normal {
+	color: var(--text-dim);
+}
+.stance-cautious {
+	color: var(--cyan);
+}
+.stance-pacifist {
+	color: var(--green);
+}
 .hpbar {
 	font-family: var(--font-mono);
 	letter-spacing: -1px;

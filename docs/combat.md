@@ -6,6 +6,7 @@ scope (continuous skills, IP-funded stats, per-part typed soak). Much of that pl
 shipped; where the running code diverges from the plan, this file is the source of truth.
 
 Primary files: [combat.js](../server/engine/combat.js) (combat math, cooldowns, enemy swings),
+[stance.js](../server/engine/stance.js) (stance substrate: the modifier table, the dodge window, swing flavour),
 [plugins/weapon/index.js](../plugins/weapon/index.js) (**player-initiated combat** — target resolution,
 player swing, kill/corpse handling, sleep-kills), [commands/combat.js](../server/engine/commands/combat.js)
 (loot; `steal` lives in [plugins/thievery](../plugins/thievery/index.js)), [gameLoop.js](../server/engine/gameLoop.js), [skills.js](../server/engine/skills.js),
@@ -24,8 +25,12 @@ margin = (attackerHit − defenderDodge) + swing + darknessPenalty
 hit = margin >= 0
 ```
 
-- **Player → enemy:** `attackerHit = effectiveSkill(player, weaponSkill)`; `defenderDodge = enemy.dodge`.
-- **Enemy → player:** `attackerHit = enemy.hit`; `defenderDodge = effectiveSkill(player, 'dodge')`.
+- **Player → enemy:** `attackerHit = effectiveSkill(player, weaponSkill) + stanceHit`; `defenderDodge = enemy.dodge`.
+- **Enemy → player:** `attackerHit = enemy.hit`; `defenderDodge = effectiveSkill(player, 'dodge') + stanceDefense`.
+
+`stanceHit` / `stanceDefense` come from the player's combat stance (below). Stance defense is added to
+the **defender's dodge term**, never to soak — so it also lowers the rate at which you get critted,
+since crit is `margin >= crit_threshold`.
 
 ### Darkness penalty
 
@@ -112,19 +117,121 @@ their own `weapon` instead: a JSONB list of `{type, min, max}` damage components
 dev panel; if empty, the fallback is a fixed `1–3` strike typed by `flags.damage_type` (default
 `kinetic`) — the legacy `damage_min/damage_max` columns are not read.
 
+## Stances
+
+`fight <stance>` (weapon plugin) is the risk/reward dial. Five stances, prefix-matched
+(`fight cau`), on a **60 s cooldown that applies to every change including back to `normal`** —
+otherwise berserk would have no downside, since you'd tap out the moment it hurt. Bare `fight`
+reprints your current stance without burning the cooldown.
+
+| Stance | Hit | Speed | Defense | Swing | `pow` cost |
+|---|---|---|---|---|---|
+| berserk | −3 | −1000 ms | −2 | **2500 ms** | 3750 ms |
+| aggressive | +1 | −500 ms | −2 | **3000 ms** | 4500 ms |
+| normal | 0 | 0 | 0 | **3500 ms** | 5250 ms |
+| cautious | +2 | +500 ms | +1 | **4000 ms** | 6000 ms |
+| pacifist | −1 | +1000 ms | +4 | **4500 ms** | *blocked* |
+
+`speed` is a flat **millisecond delta on the swing timer**, not a multiplier and not a per-weapon
+term — **there is still no weapon speed in the engine**. `swingInterval(player)` (`stance.js`) is the
+single seam a future per-weapon speed would enter.
+
+Stance persists across sessions in `player_flags.combat_stance`, but is read from the **live player
+object** (`player.combat_stance`) on every roll — `getFlag()` is a DB round trip and can never live in
+a to-hit path, so login is the one place it's fetched. Death resets you to `normal` and clears the lock.
+
+Stance also swaps the **verb** on your swing lines (`tear into` / `drive into` / `strike` / `jab at` /
+`clip`) and the miss line. Only the verb clause changes — the damage/part/type spans are byte-identical
+across stances, so the client CSS and the `combat` dispatch handler need no stance awareness.
+
+## Active moves — `pow` and `dodge`
+
+Both draw on **one shared 10 s `combat_move` cooldown**: every 10 seconds you pick offense or defense,
+not both.
+
+- **`pow` / `power` `[target]`** — 250 % damage. It is a **wind-up, not a swing**: it arms the flag
+  and **resets the swing timer** to 1.5× the stance interval, discarding whatever progress the
+  current swing had. The blow then lands through the ordinary auto-attack path. Blocked in
+  `pacifist`. Bare `pow` re-aims your current target; a named target routes through `cmdAttack`'s
+  SIFT resolution rather than duplicating it. The multiplier lands after crit and before the head
+  bonus and soak. A crit and a pow render **one** `CRITICAL POWER` badge, never two.
+
+  It deliberately does **not** require being off the attack cooldown. In sustained combat that
+  cooldown is almost always running — the gameLoop swings the instant it lifts — so gating on it
+  made the move very nearly unreachable. The 1.5× is charged **once**, up front as the wind-up
+  (`powWindupMs`); the swing that eventually lands charges only the plain stance interval, or the
+  move would cost 3× a swing instead of 1.5×.
+- **`dodge`** — +5 defense for 5 s **or until the next attack attempt against you resolves**,
+  whichever lands first. Blocked in `berserk`. The "you cannot attack for the duration" half is
+  enforced by setting the *attack* cooldown to the same 5 s window, so `cmdAttack` refuses with its
+  existing "still recovering" line and all four gameLoop auto-attack loops skip on their own — no new
+  guard anywhere in the tick. Consuming the window early lifts that attack lock with it.
+
+`pow` is a **one-shot flag** (`player._powQueued`), armed by the plugin and consumed by the engine
+swing functions — and consumed *after* every early return, so a swing that never happened doesn't eat
+the move. It must be consumed rather than read: `resolveAttack` rebuilds `weaponStats` on every swing
+including auto-attack ticks, so a flag that merely persisted would turn the whole auto-attack loop
+into power attacks.
+
+## Contested flee
+
+Walking out of a fight is no longer free. Both directions use the same shape as every other roll here:
+
+```
+margin = (fleeRating − 1 − attackerHit) + 2d8−2d8      // the −1 is the cost of turning your back
+```
+
+**Player side** — a move gate registered by the weapon plugin (owner `weapon:flee`;
+`tests/regress.js` asserts on `getRegisteredMoveGates()`). `fleeRating = effectiveSkill(dodge) +
+stanceDefense`, contested by the **toughest thing currently attacking you** (`toughestAttacker`).
+"Being attacked" means an enemy/NPC has locked onto you or a player holds you as a PvP target —
+deliberately *not* "you are attacking something": you can always walk away from a passive target.
+
+An attempt **costs a full attack cycle** whether it lands or not, which is what makes it interrupt
+your attack — the auto-attack loops never get a spare cycle while you're breaking away, so no guard
+is needed in the tick. On failure the direction is remembered as `player._fleeIntent` and retried once
+per cycle from the gameLoop; the retry moves with `opts.fleeing` so it can't re-enter the gate and
+roll twice. Intents expire after 15 s and are cleared by `stop`/`disengage` and by death.
+
+The `flee [direction]` verb (the one the client smartbar has advertised all along, hitting nothing
+server-side until now) just routes into ordinary movement — the gate is what makes it cost something.
+Bare `flee` picks a random exit.
+
+**Mob side** — the same contest, enforced in **`moveEntity`** (`ai-behaviour.js`), the single writer
+for every enemy/NPC tile change. It lives there rather than in the AI's `FLEE` node because gating
+only FLEE would leave `ROAM`, `PATROL`, and the commute paths free to stroll a wounded enemy out of
+the room mid-swing. `fleeRating = flags.flee_skill ?? dodge`. Throttled to one attempt per attack
+cycle via `entity._fleeNextAt`.
+
+Only a **deliberate** flee announces a failure ("scrabbles for a way out but can't break away!") —
+an incidental roam/patrol step that bounces off the gate stays silent, or a mob you're fighting would
+spam the room every time its wander timer came up. The `FLEE` node passes `{ deliberateFlee: true }`
+and skips its own legacy `FLEE_DIFFICULTY 6` roll when a player is pressing (that roll now covers only
+mob-vs-mob).
+
+`moveEntity` is synchronous and can't await `effectiveSkill`, so the attacker's rating is read from
+`player._lastAttackSkill`, stamped by every real player swing. A mob is only ever gated while a player
+is actively attacking it, so the value is always present by then.
+
 ## Cooldowns
 
-In-memory per-player map (`combat.js`), keyed by action:
+In-memory per-player map (`combat.js`). The **duration is stamped at set time** rather than looked up
+at read time, because the attack cooldown is now per-player and variable (stance speed, pow's 1.5×,
+the dodge lock) while the ~8 `isOnCooldown(id,'attack')` readers across `gameLoop.js` and the weapon
+plugin have no stance in hand — changing the writer keeps every reader untouched.
 
 | Action | Cooldown |
 |--------|----------|
-| `attack` | 3500 ms |
-| `flee` | 4000 ms |
+| `attack` | 3500 ms **base**, ± stance speed (2500–4500); reset to ×1.5 by a `pow` wind-up, = 5000 while dodging |
 | `use_item` | 2500 ms |
 | `shove` | 60000 ms |
+| `stance` | 60000 ms |
+| `combat_move` | 10000 ms (shared by `pow` and `dodge`) |
 
-Attacking while on cooldown returns a "still recovering" message. Cooldowns live in process memory
-only; they reset on server restart.
+`clearCooldown(playerId, action)` ends one early — used when a dodge window is spent before its 5 s
+runs out. Attacking while on cooldown returns a "still recovering" message. Cooldowns live in process
+memory only; they reset on server restart. (The old dead `COOLDOWNS.flee = 4000` entry was removed —
+it had no readers, and fleeing now costs an attack cycle rather than its own timer.)
 
 ## Enemy AI & the combat tick
 
@@ -207,6 +314,25 @@ The server→client protocol has no schema; this is the contract for the combat/
 `Object.assign(state.player, msg.player_update)`. Do **not** send flat top-level vitals fields
 (`hp`, `sanity`, …) on a new message — `combat_incoming` used to (carrying flat `hp`/`hp_max`) and
 was realigned to `player_update: { hp, hp_max }`. Follow the canonical shape for anything new.
+
+**The output pane must not get denser.** Auto-attack already prints a line every 2.5–4.5 s, so
+stance, `pow`, `dodge`, and flee were built to **never add a line**. They decorate a line that already
+exists, replace the swing line for that cycle, or live in the HUD. This works because all of them
+consume your attack cycle — a flee attempt or a `pow` prints *instead of* the swing you'd have had.
+Three fields on `combat` carry it:
+
+- **`player_update`** — the `combat` handler applies it the same way `combat_incoming` does. Stance
+  rides `player_update.combat_stance` to the HUD chip (`#stance-chip` / `#stance-chip-m`, both
+  driven from `updateVitals`), so it is never re-announced in the pane. The chip is **hidden while
+  the stance is `normal`** — the default and the no-op — so it only appears once you've actually
+  committed to something. The mobile chip hides its whole `.mob-bar-row`, or an empty row is left.
+- **`progressMs`** — attaches the existing `attachInlineProgress` countdown bar (the one butchering
+  uses via `emote`'s `butcherMs`) to the dodge window and the wait for the next flee attempt.
+- **`noRefresh`** — suppresses the debounced area-pane `look`. A line that changed nobody's HP
+  (stance, dodge, a failed break-away) shouldn't repaint the room.
+
+A spent dodge window decorates the *incoming* line rather than adding one: `— you slip aside` on a
+miss, `(guard broken)` appended on a hit. An expired window prints nothing.
 
 **Corpse links on a kill:** a `combat` message with `killed: true` puts the clickable corpse link in
 its own `corpseLink` field (never embedded in `message`). The client renders `message`, then appends

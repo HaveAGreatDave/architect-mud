@@ -148,6 +148,9 @@ const COMMAND_REF = [
     { v: 'eat <item>', d: 'eat' }, { v: 'drink <item>', d: 'drink' } ] },
   { cat: 'Combat', cmds: [
     { v: 'attack <target>', d: 'engage' }, { v: 'flee', d: 'run from combat' },
+    { v: 'fight <stance>', d: 'berserk/aggressive/normal/cautious/pacifist' },
+    { v: 'pow', d: 'power attack — slow, 250% damage' },
+    { v: 'dodge', d: 'give ground: +5 defense, no attacking' },
     { v: 'loot <corpse>', d: 'loot the dead' } ] },
   { cat: 'Social', cmds: [
     { v: 'say <text>', d: 'speak aloud' }, { v: 'talk <npc>', d: 'start dialogue' },

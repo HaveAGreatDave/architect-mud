@@ -2,7 +2,9 @@ import { world, tickSpawns, getRandomAmbient, getWeatherAmbient, getLivePlayer, 
 import { getZoneRadiation } from './zone-tags.js';
 import { randomUUID } from 'crypto';
 import { propagateSound } from './sounds.js';
-import { enemyAttackPlayer, enemyAttackNpc, npcAttackPlayer, isOnCooldown, pvpSwing, formatBattleCry, getPlayerCombat, flushDirtyResources } from './combat.js';
+import { enemyAttackPlayer, enemyAttackNpc, npcAttackPlayer, isOnCooldown, clearCooldown, pvpSwing, formatBattleCry, getPlayerCombat, flushDirtyResources } from './combat.js';
+import { setStance, DEFAULT_STANCE } from './stance.js';
+import { setFlag } from './flags.js';
 import { tickEntityAI, moveEntity, ensureBehaviourGraph } from './ai-behaviour.js';
 import { npcBanterTick } from './npc-banter.js';
 import { restockAllVendors } from './vendor.js';
@@ -229,6 +231,15 @@ async function tick() {
         })
         .catch(() => {});
     }
+  }
+
+  // Contested flee: a player who tried to walk out of a fight has an intent
+  // armed by the weapon plugin's move gate. Retry it once per attack cycle —
+  // the attempt burns the attack cooldown, so this and the auto-attack loops
+  // can never both fire in the same cycle.
+  for (const [, player] of world.players) {
+    if (!player._fleeIntent || !playerCombat?.tickFleeIntent) continue;
+    playerCombat.tickFleeIntent(player).catch(() => {});
   }
 
   // PvP auto-attack: sustain combat between players each tick
@@ -548,6 +559,16 @@ export async function handlePlayerDeath(player, killer, cause = null) {
   player._dangerousTempTicks = 0;
   player.sleeping = null;
   setPosture(player, 'standing');
+  // A stance is a choice you make for a fight; the fight is over and so is the
+  // body that held it. Comes out of the vat neutral, and the 60s lock goes with
+  // the old one — dying shouldn't leave you stuck in berserk. The persisted flag
+  // resets too, or the old stance would come back on the next login.
+  setStance(player, DEFAULT_STANCE);
+  clearCooldown(player.id, 'stance');
+  setFlag('player', 'combat_stance', DEFAULT_STANCE, player).catch(() => {});
+  player._dodgeUntil = 0;
+  player._powQueued = false;
+  player._fleeIntent = null;
   player.combatTargetId = null;
   player.pvpTargetId = null;
   player.offlinePvpTargetId = null;
@@ -558,7 +579,7 @@ export async function handlePlayerDeath(player, killer, cause = null) {
     type:'player_death',
     message:`\n<span class="death-message">☠ ${msg}${killerMsg}</span>\n${vatLine}`,
     respawn_zone: respawnZone,
-    player_update: { hp:player.hp, sanity:player.sanity, hunger:player.hunger, thirst:player.thirst, radiation:player.radiation, stamina:player.stamina, body_temp_c:player.body_temp_c, credits:player.credits },
+    player_update: { hp:player.hp, sanity:player.sanity, hunger:player.hunger, thirst:player.thirst, radiation:player.radiation, stamina:player.stamina, body_temp_c:player.body_temp_c, credits:player.credits, combat_stance:DEFAULT_STANCE },
   }, null, player.id);
 
   emit('player.respawn', { player });
