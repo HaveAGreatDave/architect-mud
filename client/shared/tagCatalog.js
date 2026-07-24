@@ -152,6 +152,8 @@
       help: 'Marks this furniture (or portable container) as an active preservation environment at the given tier. A stronger tier satisfies a weaker requirement. Requires the furniture to also be plugged in and, if it draws power, on a live zone grid — see plugged_in.' },
     plugged_in: { label: 'Plugged In', shape: 'flag', scope: 'furniture', group: 'Preservation',
       help: 'Whether a powered appliance (vending machine, fridge/freezer) is connected to power right now. Absent/unset is treated as plugged in, for backward compatibility with furniture predating this tag. Toggled by the plug/unplug verbs.' },
+    aliases: { label: 'Aliases', shape: 'list', scope: 'furniture', group: 'Preservation',
+      help: 'Extra names this container furniture also answers to for open/stow/pull, e.g. ["fridge"] on a two-compartment refrigerator so either box opens by the generic name, not just its full product name.' },
 
     // --- Gear ---
     flashlight: { label: 'Flashlight', shape: 'flag', scope: 'class', group: 'Gear',

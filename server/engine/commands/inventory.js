@@ -908,7 +908,7 @@ async function cmdOpenContainer(nameStr, player, broadcast) {
   if (!container) {
     // No item container matched — try a furniture container in this zone.
     const { rows } = await query(
-      `SELECT id FROM furniture WHERE zone_id=$1 AND object_type='container' AND name ILIKE $2 LIMIT 1`,
+      `SELECT id FROM furniture WHERE zone_id=$1 AND object_type='container' AND (name ILIKE $2 OR flags->>'aliases' ILIKE $2) LIMIT 1`,
       [player.current_zone, `%${nameStr}%`]
     );
     if (!rows.length) return null;
@@ -1133,7 +1133,7 @@ async function cmdStow(argStr, player) {
   if (!container && containerPart) {
     // No item/ground container matched — fall through to a furniture container in this zone.
     const { rows: fRows } = await query(
-      `SELECT id FROM furniture WHERE zone_id=$1 AND object_type='container' AND name ILIKE $2 LIMIT 1`,
+      `SELECT id FROM furniture WHERE zone_id=$1 AND object_type='container' AND (name ILIKE $2 OR flags->>'aliases' ILIKE $2) LIMIT 1`,
       [player.current_zone, `%${containerPart}%`]
     );
     if (fRows.length) container = await loadContainerById(fRows[0].id, player);
