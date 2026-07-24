@@ -4,7 +4,9 @@ let containerDraggedId = null;
 let containerDragSource = null; // 'inv' or 'contents'
 let containerDraggedQty = 1;
 let dragHandled = false;
-let activeContainerId = null;
+let activeContainerId = null;   // the id used for `closecontainer` on close (whichever box was opened)
+let fridgeBoxId = null;         // stow target for the main contents list (== activeContainerId unless paired)
+let freezerBoxId = null;        // stow target for the freezer sub-box, null when this container has no pair
 
 export function openContainerPanel(data) {
   activeContainerId = data.containerId;
@@ -72,21 +74,50 @@ function promptQty(max, action) {
 }
 
 function renderContainerPanel(data) {
-  document.getElementById('container-title').textContent = data.containerName;
-  document.getElementById('container-contents-label').textContent = data.containerName;
+  // A paired container (e.g. a fridge with a separate freezer box) surfaces
+  // both boxes in this ONE view — role is decided by `preserves`, not by
+  // which one was actually opened, so the layout never swaps sides depending
+  // on which box a stow/pull last refreshed.
+  const primary = { containerId: data.containerId, name: data.containerName, capacity: data.capacity, usedWeight: data.usedWeight, items: data.containerItems || [], preserves: data.preserves };
+  const secondary = data.secondary ? { containerId: data.secondary.containerId, name: data.secondary.containerName, capacity: data.secondary.capacity, usedWeight: data.secondary.usedWeight, items: data.secondary.containerItems || [], preserves: data.secondary.preserves } : null;
+
+  let fridge = primary, freezer = null;
+  if (secondary) {
+    if (primary.preserves === 'frozen' && secondary.preserves !== 'frozen') { freezer = primary; fridge = secondary; }
+    else if (secondary.preserves === 'frozen') { freezer = secondary; fridge = primary; }
+  }
+
+  document.getElementById('container-title').textContent = fridge.name;
+  document.getElementById('container-contents-label').textContent = fridge.name;
   document.getElementById('container-capacity').textContent =
-    `Capacity: ${formatWeight(data.usedWeight)} / ${formatWeight(data.capacity)}`;
+    `Capacity: ${formatWeight(fridge.usedWeight)} / ${formatWeight(fridge.capacity)}`;
   const notify = document.getElementById('container-notify');
   if (notify) notify.textContent = data.notify || '';
 
-  const invItems = (data.invItems || []).filter(i => i.id !== data.containerId);
-  const containerItems = (data.containerItems || []).filter(i => i.id !== data.containerId);
+  fridgeBoxId = fridge.containerId;
+  freezerBoxId = freezer ? freezer.containerId : null;
 
-  renderList('container-inv-list', invItems, 'inv', data.containerId);
-  renderList('container-contents-list', containerItems, 'contents', data.containerId);
+  const invItems = (data.invItems || []).filter(i => i.id !== data.containerId && i.id !== data.secondary?.containerId);
+  const fridgeItems = fridge.items.filter(i => i.id !== fridge.containerId);
+  renderList('container-inv-list', invItems, 'inv', fridge.containerId);
+  renderList('container-contents-list', fridgeItems, 'contents', fridge.containerId);
 
-  document.getElementById('container-stow-all').style.display = invItems.length ? '' : 'none';
-  document.getElementById('container-take-all').style.display = containerItems.length ? '' : 'none';
+  const freezerBox = document.getElementById('container-freezer-box');
+  if (freezer) {
+    freezerBox.classList.add('active');
+    document.getElementById('container-freezer-label').textContent = freezer.name;
+    document.getElementById('container-freezer-capacity').textContent =
+      `Capacity: ${formatWeight(freezer.usedWeight)} / ${formatWeight(freezer.capacity)}`;
+    const freezerItems = freezer.items.filter(i => i.id !== freezer.containerId);
+    renderList('container-freezer-list', freezerItems, 'contents', freezer.containerId);
+  } else {
+    freezerBox.classList.remove('active');
+    document.getElementById('container-freezer-list').innerHTML = '';
+  }
+
+  const allContentsCount = fridgeItems.length + (freezer ? freezer.items.length : 0);
+  document.getElementById('container-stow-all').style.display = (invItems.length && !freezer) ? '' : 'none'; // ambiguous target when paired — use per-item stow or drag instead
+  document.getElementById('container-take-all').style.display = allContentsCount ? '' : 'none';
 }
 
 function renderList(listId, items, source, containerId) {
@@ -153,44 +184,53 @@ export function initContainerPanel() {
   });
 
   document.getElementById('container-stow-all').addEventListener('click', () => {
-    if (!activeContainerId) return;
+    if (!fridgeBoxId) return;
     const cards = document.getElementById('container-inv-list').querySelectorAll('.ctr-item-card');
     for (const card of cards) {
-      sendCmdSilent(`stowid ${card.getAttribute('data-id')} ${activeContainerId}`);
+      sendCmdSilent(`stowid ${card.getAttribute('data-id')} ${fridgeBoxId}`);
     }
   });
 
   document.getElementById('container-take-all').addEventListener('click', () => {
-    if (!activeContainerId) return;
-    const cards = document.getElementById('container-contents-list').querySelectorAll('.ctr-item-card');
-    for (const card of cards) {
-      sendCmdSilent(`pullid ${card.getAttribute('data-id')}`);
+    const lists = ['container-contents-list', 'container-freezer-list'];
+    for (const listId of lists) {
+      const cards = document.getElementById(listId).querySelectorAll('.ctr-item-card');
+      for (const card of cards) sendCmdSilent(`pullid ${card.getAttribute('data-id')}`);
     }
   });
 
   const invList = document.getElementById('container-inv-list');
   const contentsList = document.getElementById('container-contents-list');
+  const freezerList = document.getElementById('container-freezer-list');
 
-  contentsList.addEventListener('dragover', (e) => e.preventDefault());
-  contentsList.addEventListener('dragenter', () => contentsList.classList.add('ctr-drag-over'));
-  contentsList.addEventListener('dragleave', () => contentsList.classList.remove('ctr-drag-over'));
-  contentsList.addEventListener('drop', async (e) => {
-    e.preventDefault();
-    contentsList.classList.remove('ctr-drag-over');
-    dragHandled = true;
-    if (containerDraggedId && containerDragSource === 'inv' && activeContainerId) {
-      const dragId = containerDraggedId;
-      const dragQty = containerDraggedQty;
-      containerDraggedId = null;
-      const qty = await promptQty(dragQty, 'Stow');
-      if (qty != null) {
-        const qtyPart = dragQty > 1 ? ` ${qty}` : '';
-        sendCmdSilent(`stowid ${dragId} ${activeContainerId}${qtyPart}`);
+  // Dropping an inventory item into a contents box stows it in THAT box
+  // specifically (fridge vs. freezer) — `getTargetId` is read live at drop
+  // time so it always reflects whichever box is currently rendered there.
+  function wireStowDropZone(listEl, getTargetId) {
+    listEl.addEventListener('dragover', (e) => e.preventDefault());
+    listEl.addEventListener('dragenter', () => listEl.classList.add('ctr-drag-over'));
+    listEl.addEventListener('dragleave', () => listEl.classList.remove('ctr-drag-over'));
+    listEl.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      listEl.classList.remove('ctr-drag-over');
+      dragHandled = true;
+      const targetId = getTargetId();
+      if (containerDraggedId && containerDragSource === 'inv' && targetId) {
+        const dragId = containerDraggedId;
+        const dragQty = containerDraggedQty;
+        containerDraggedId = null;
+        const qty = await promptQty(dragQty, 'Stow');
+        if (qty != null) {
+          const qtyPart = dragQty > 1 ? ` ${qty}` : '';
+          sendCmdSilent(`stowid ${dragId} ${targetId}${qtyPart}`);
+        }
+      } else {
+        containerDraggedId = null;
       }
-    } else {
-      containerDraggedId = null;
-    }
-  });
+    });
+  }
+  wireStowDropZone(contentsList, () => fridgeBoxId);
+  wireStowDropZone(freezerList, () => freezerBoxId);
 
   invList.addEventListener('dragover', (e) => e.preventDefault());
   invList.addEventListener('dragenter', () => invList.classList.add('ctr-drag-over'));

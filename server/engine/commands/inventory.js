@@ -888,17 +888,38 @@ async function restockContainer(container) {
   }
 }
 
-async function buildContainerView(containerId, player) {
-  const container = await loadContainerById(containerId, player);
-  if (!container) return { type:'error', message:'Container not found.' };
+// One box's { capacity, usedWeight, containerItems } — shared by the primary
+// container and its optional paired one (e.g. a fridge's freezer box).
+async function loadBoxContents(container) {
   await restockContainer(container);
   const cap = containerCapacity(container);
   const used = await containerContentsWeight(container.id);
-  const { rows: invItems } = await query(`SELECT pi.*,i.name,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND pi.is_equipped=0 ORDER BY i.name`, [player.id]);
   const { rows: containerItems } = await query(`SELECT pi.*,i.name,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.container_id=$1 ORDER BY i.name`, [container.id]);
-  for (const r of invItems) r.name = titleCaseName(r.name);       // list display — Title Case
   for (const r of containerItems) r.name = titleCaseName(r.name);
-  return { type:'container_view', containerId: container.id, containerName: titleCaseName(container.name), capacity: cap, usedWeight: round1(used), invItems, containerItems };
+  return { capacity: cap, usedWeight: round1(used), containerItems, preserves: container.tags?.preserves ?? null };
+}
+
+async function buildContainerView(containerId, player) {
+  const container = await loadContainerById(containerId, player);
+  if (!container) return { type:'error', message:'Container not found.' };
+  const { rows: invItems } = await query(`SELECT pi.*,i.name,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND pi.is_equipped=0 ORDER BY i.name`, [player.id]);
+  for (const r of invItems) r.name = titleCaseName(r.name);       // list display — Title Case
+
+  const box = await loadBoxContents(container);
+  const view = { type:'container_view', containerId: container.id, containerName: titleCaseName(container.name), ...box, invItems };
+
+  // Paired container (e.g. a fridge's separate freezer box, same appliance,
+  // linked via flags.paired_container on each side): surface it as a second
+  // box in the SAME view so opening one opens both — no second `open` needed.
+  const pairedId = container.kind === 'furniture' ? container.tags?.paired_container : null;
+  if (pairedId && pairedId !== container.id) {
+    const paired = await loadContainerById(pairedId, player);
+    if (paired) {
+      const pairedBox = await loadBoxContents(paired);
+      view.secondary = { containerId: paired.id, containerName: titleCaseName(paired.name), ...pairedBox };
+    }
+  }
+  return view;
 }
 
 async function cmdOpenContainer(nameStr, player, broadcast) {

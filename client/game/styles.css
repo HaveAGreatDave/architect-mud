@@ -3782,6 +3782,54 @@ body.fsim-external #look-resize-handle { display: none; }
 #container-contents-col {
 	padding-left: 14px;
 }
+/* Freezer sub-box: shown only when the opened container has a paired box
+   (e.g. a fridge's separate freezer compartment) — a smaller drop zone
+   stacked above the main contents list, same panel, no second `open`. */
+.ctr-subbox {
+	display: none;
+	flex-direction: column;
+	flex-shrink: 0;
+	max-height: 35%;
+	border: 1px solid var(--border);
+	border-radius: 4px;
+	padding: 8px;
+	margin-bottom: 10px;
+	background: rgba(255, 255, 255, 0.02);
+}
+.ctr-subbox.active {
+	display: flex;
+}
+.ctr-subbox .container-section-label {
+	margin-bottom: 2px;
+}
+.ctr-subbox-capacity {
+	font-size: 10px;
+	color: var(--text-dim);
+	margin-bottom: 6px;
+}
+#container-freezer-list {
+	flex: 1;
+	overflow-y: auto;
+	min-height: 40px;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	padding: 4px;
+	border: 1px dashed transparent;
+	border-radius: 3px;
+	transition: border-color 0.15s, background 0.15s;
+}
+#container-freezer-list.ctr-drag-over {
+	border-color: var(--cyan);
+	background: rgba(40, 229, 255, 0.05);
+}
+#container-freezer-list:empty::after {
+	content: "(empty)";
+	color: var(--text-dim);
+	font-style: italic;
+	font-size: 11px;
+	padding: 4px;
+}
 #container-divider {
 	flex-shrink: 0;
 	display: flex;

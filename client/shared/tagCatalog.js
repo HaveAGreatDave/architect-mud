@@ -154,6 +154,8 @@
       help: 'Whether a powered appliance (vending machine, fridge/freezer) is connected to power right now. Absent/unset is treated as plugged in, for backward compatibility with furniture predating this tag. Toggled by the plug/unplug verbs.' },
     aliases: { label: 'Aliases', shape: 'list', scope: 'furniture', group: 'Preservation',
       help: 'Extra names this container furniture also answers to for open/stow/pull, e.g. ["fridge"] on a two-compartment refrigerator so either box opens by the generic name, not just its full product name.' },
+    paired_container: { label: 'Paired Container', shape: 'text', scope: 'furniture', group: 'Preservation',
+      help: 'Furniture id of a second container that opens alongside this one in the SAME container panel (e.g. a fridge and its separate freezer box) — set on both sides, pointing at each other.' },
 
     // --- Gear ---
     flashlight: { label: 'Flashlight', shape: 'flag', scope: 'class', group: 'Gear',

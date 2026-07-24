@@ -4,6 +4,7 @@
     "container": 70000,
     "preserves": "refrigerated",
     "aliases": ["fridge"],
+    "paired_container": "furn_solenne_freezer_b",
     "interactions": [
       "lean"
     ]
