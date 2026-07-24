@@ -1,6 +1,6 @@
 // GPS plugin regression — exercises SIFT location resolution + route plotting
 // against the live world without touching the client-side minimap overlay.
-import { getZone, getAllZones, isEnterableFacade, getMapByParentZone } from '../../server/engine/world.js';
+import { getZone, getAllZones, isEnterableFacade, getMapByParentZone, resolveLanding } from '../../server/engine/world.js';
 import { findPath } from '../../server/engine/pathfinding.js';
 import { dispatchAction } from '../../server/engine/actions.js';
 import { getBroadcast, setBroadcast } from '../../server/engine/messaging.js';
@@ -248,12 +248,20 @@ export default async function regress({ run, check, getPlayer }) {
     const savedCur = p.current_zone;
     const sent = [];
     setBroadcast((zoneId, message, excludeId, targetId) => { sent.push({ targetId, message }); });
-    // Pick a reachable origin/dest pair from the live map: a building tile and any other
-    // building tile a road route connects to. Deterministic enough (first reachable pair).
-    const buildings = getAllZones().filter(z => z.flags?.building_type && z.map_id === 'map_world');
+    // Pick a reachable origin/dest pair from the live map: two standable tiles a route
+    // connects. Probe reachability against resolveLanding(dest) — the tile plotRoute
+    // ACTUALLY routes to — not the raw dest: an enterable facade's landing is its INTERIOR
+    // entry zone, which lives on a different (interior) map findPath can't reach, so a
+    // facade dest looks reachable here yet makes plotRoute error and push nothing. Content-
+    // import row order decides which pair the loop lands on first, so probing the raw tile
+    // (rather than the landing) is a codex-order flake. Excluding facades from the pool keeps
+    // origin standable and keeps the probe honest.
+    const tiles = getAllZones().filter(z =>
+      z.map_id === 'map_world' && !z.flags?.water && !isEnterableFacade(z) &&
+      z.exits && Object.keys(z.exits).length > 0);
     let origin = null, dest = null;
-    for (const o of buildings) {
-      const d = buildings.find(z => z.id !== o.id && (findPath(o.id, z.id, { roads: false, maxDistance: 300 })?.length || 0) > 1);
+    for (const o of tiles.slice(0, 60)) {
+      const d = tiles.find(z => z.id !== o.id && (findPath(o.id, resolveLanding(z.id), { roads: false, maxDistance: 300 })?.length || 0) > 1);
       if (d) { origin = o.id; dest = d.id; break; }
     }
     try {
