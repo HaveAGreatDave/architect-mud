@@ -7,6 +7,15 @@
  *   npc.vendor_stock_size = max shelf size (default 10)
  *   npc.vendor_restock_rate = items added per 24 h tick (default 1)
  *   npc.vendor_credits    = credits earned from sales; physically held in the zone's vendor safe
+ *
+ * Sourced entries (physical stock, not the abstract shelf): a catalogue entry
+ * may carry `sourceContainer` (a furniture id, e.g. a cold-storage unit) and
+ * `restockToQty` (the delivery target). Such an entry always shows on the
+ * shelf (real scarcity replaces the vendor_stock rotation) and buying it MOVES
+ * a real player_inventory row out of that container instead of inserting a
+ * fresh one — so a unit that's been sitting in the fridge keeps its own
+ * freshness/cooked state right through the sale. Restocked by
+ * restockSourcedContainers(), run alongside the normal 24h restock tick.
  */
 import { query, withTransaction } from '../models/db.js';
 import { getIdeologyDiscount } from './ideologies.js';
@@ -43,10 +52,12 @@ export async function getVendorStock(npc, playerId) {
 
   const trust = await readTrust(npc, playerId);
   // Trust vendor → shelf is the whole catalogue, gated per-entry by min_trust.
-  // Normal vendor → shelf is the auto-managed random subset.
+  // Normal vendor → the auto-managed random subset, PLUS any sourced entries
+  // (physical stock bypasses the abstract shelf-rotation gate entirely).
+  const sourced = catalogue.filter(e => e.sourceContainer);
   const shelf = trust !== null
     ? catalogue.filter(e => (e.min_trust || 0) <= trust)
-    : activeStock;
+    : [...activeStock, ...sourced.filter(e => !activeStock.some(a => a.item_id === e.item_id))];
   if (!shelf.length) return [];
 
   const discount = npc.faction ? await getIdeologyDiscount(playerId, npc.faction) : 0;
@@ -54,6 +65,7 @@ export async function getVendorStock(npc, playerId) {
   // Price lookup from catalogue
   const priceMap = {};
   for (const e of catalogue) priceMap[e.item_id] = e.price;
+  const sourceMap = new Map(sourced.map(e => [e.item_id, e.sourceContainer]));
 
   // Item templates come from the boot-loaded items cache — the shelf listing
   // costs zero item round trips (was a batched SELECT, before that a serial one).
@@ -68,13 +80,17 @@ export async function getVendorStock(npc, playerId) {
     if (item.type === 'furniture' && !isConsumerFurniture(item)) continue;
     const basePrice = priceMap[entry.item_id] ?? item.value;
     const finalPrice = Math.max(1, Math.round(basePrice * (1 - discount)));
+    const containerId = sourceMap.get(entry.item_id);
+    const realStock = containerId
+      ? Number((await query('SELECT COUNT(*)::int AS n FROM player_inventory WHERE container_id=$1 AND item_id=$2', [containerId, entry.item_id])).rows[0]?.n) || 0
+      : 99;
     stock.push({
       item_id: entry.item_id,
       name: item.name,
       description: item.tags?.description ?? item.description ?? '',
       type: item.type,
       weight: item.weight,
-      stock: 99,
+      stock: realStock,
       price: finalPrice,
       base_price: basePrice,
       discounted: discount > 0,
@@ -102,12 +118,20 @@ export async function buyFromVendor(player, npc, itemId, quantity = 1) {
     if (!catalogueEntry || (catalogueEntry.min_trust || 0) > trust) {
       return { success: false, message: "They don't have that for you. Not yet." };
     }
-  } else if (!activeStock.find(e => e.item_id === itemId)) {
+  } else if (!activeStock.find(e => e.item_id === itemId) && !catalogueEntry?.sourceContainer) {
     return { success: false, message: "That item isn't on the shelf right now. Come back later." };
   }
 
   const item = getItem(itemId);
   if (!item) return { success: false, message: 'Item not found.' };
+
+  const sourceContainer = catalogueEntry?.sourceContainer;
+  if (sourceContainer) {
+    const { rows: n } = await query('SELECT COUNT(*)::int AS n FROM player_inventory WHERE container_id=$1 AND item_id=$2', [sourceContainer, itemId]);
+    if ((n[0]?.n || 0) < quantity) {
+      return { success: false, message: `${item.name} is out of stock — check back after the next delivery.` };
+    }
+  }
 
   const discount = npc.faction ? await getIdeologyDiscount(player.id, npc.faction) : 0;
   const basePrice = catalogueEntry?.price ?? item.value;
@@ -118,22 +142,37 @@ export async function buyFromVendor(player, npc, itemId, quantity = 1) {
   const paid = await withTransaction(async (q) => {
     if (!await adjustCredits(player, -price, q, 'vendor:buy')) return false;
 
-    const { rows: existing } = await q(
-      'SELECT id, quantity FROM player_inventory WHERE player_id = $1 AND item_id = $2 AND is_equipped = 0',
-      [player.id, itemId]
-    );
-    if (existing.length && isStackable(item)) {
-      await q('UPDATE player_inventory SET quantity = quantity + $1 WHERE id = $2', [quantity, existing[0].id]);
-    } else {
-      // Templates may ship a `flags.prefill` bag (e.g. a jerry can sold full of
-      // fuel) — seed it into the fresh instance's custom_data so the unit arrives
-      // in that state. Non-stacking items (fillable containers are `unique`) get
-      // their own row, so this can't smear across a stack.
-      const prefill = item.flags?.prefill;
-      await q(
-        'INSERT INTO player_inventory (id, player_id, item_id, quantity, condition, custom_data) VALUES ($1, $2, $3, $4, 1.0, $5)',
-        [randomUUID(), player.id, itemId, quantity, JSON.stringify(prefill || {})]
+    if (sourceContainer) {
+      // Physical stock: MOVE real rows out of the container (never a fresh
+      // INSERT), so whatever's been sitting there — freshness checkpoint,
+      // cooked state — travels intact with the sale, exactly like `pull`.
+      const { rows: picked } = await q(
+        'SELECT id FROM player_inventory WHERE container_id=$1 AND item_id=$2 ORDER BY id LIMIT $3',
+        [sourceContainer, itemId, quantity]
       );
+      if (picked.length < quantity) return false; // sold out from under us mid-transaction
+      await q(
+        'UPDATE player_inventory SET container_id=NULL, player_id=$1, is_equipped=0 WHERE id = ANY($2::text[])',
+        [player.id, picked.map(r => r.id)]
+      );
+    } else {
+      const { rows: existing } = await q(
+        'SELECT id, quantity FROM player_inventory WHERE player_id = $1 AND item_id = $2 AND is_equipped = 0',
+        [player.id, itemId]
+      );
+      if (existing.length && isStackable(item)) {
+        await q('UPDATE player_inventory SET quantity = quantity + $1 WHERE id = $2', [quantity, existing[0].id]);
+      } else {
+        // Templates may ship a `flags.prefill` bag (e.g. a jerry can sold full of
+        // fuel) — seed it into the fresh instance's custom_data so the unit arrives
+        // in that state. Non-stacking items (fillable containers are `unique`) get
+        // their own row, so this can't smear across a stack.
+        const prefill = item.flags?.prefill;
+        await q(
+          'INSERT INTO player_inventory (id, player_id, item_id, quantity, condition, custom_data) VALUES ($1, $2, $3, $4, 1.0, $5)',
+          [randomUUID(), player.id, itemId, quantity, JSON.stringify(prefill || {})]
+        );
+      }
     }
 
     // Accumulate credits in vendor's safe (SQL-side increment stays inside the
@@ -304,6 +343,42 @@ export async function restockVendor(npc) {
   await updateNpc(npc.id, { vendor_stock: newStock });
 }
 
+// Top up a vendor's sourced (physical-container) entries to their
+// restockToQty target — a "delivery." Each unit is inserted as its own fresh
+// quantity-1 row (never merged into an existing stack), so it starts life as
+// an ordinary item and only becomes instanced the moment something actually
+// checkpoints its freshness (examine/eat/stow/pull) — same lazy philosophy as
+// everywhere else. Capped by the container's own weight capacity so a big
+// delivery can't silently overfill it.
+export async function restockSourcedContainers(npc) {
+  const sourced = (npc.vendor_inventory || []).filter(e => e.sourceContainer && e.restockToQty > 0);
+  for (const entry of sourced) {
+    const item = getItem(entry.item_id);
+    if (!item) continue;
+    const { rows: cur } = await query(
+      'SELECT COUNT(*)::int AS n FROM player_inventory WHERE container_id=$1 AND item_id=$2',
+      [entry.sourceContainer, entry.item_id]
+    );
+    const need = entry.restockToQty - (cur[0]?.n || 0);
+    if (need <= 0) continue;
+
+    const { rows: cap } = await query('SELECT flags FROM furniture WHERE id=$1', [entry.sourceContainer]);
+    const capacityG = cap[0]?.flags?.container ?? 60000;
+    const { rows: used } = await query(
+      `SELECT COALESCE(SUM(i.weight*pi.quantity),0)::float AS w FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.container_id=$1`,
+      [entry.sourceContainer]
+    );
+    const room = Math.max(0, Math.floor((capacityG - (used[0]?.w || 0)) / (item.weight || 1)));
+    const toAdd = Math.min(need, room);
+    for (let i = 0; i < toAdd; i++) {
+      await query(
+        `INSERT INTO player_inventory (id, player_id, item_id, quantity, condition, container_id) VALUES ($1,'_restock',$2,1,1.0,$3)`,
+        [randomUUID(), entry.item_id, entry.sourceContainer]
+      );
+    }
+  }
+}
+
 /**
  * Run restockVendor for every NPC that has a non-empty vendor_inventory.
  * Called by dailyMaintenance() every 24 h.
@@ -316,6 +391,9 @@ export async function restockAllVendors() {
   for (const npc of vendors) {
     await restockVendor(npc).catch(err =>
       console.error(`[vendor] Restock failed for ${npc.id}:`, err.message)
+    );
+    await restockSourcedContainers(npc).catch(err =>
+      console.error(`[vendor] Sourced-container restock failed for ${npc.id}:`, err.message)
     );
   }
   if (vendors.length) console.log(`[vendor] Restocked ${vendors.length} vendor(s)`);

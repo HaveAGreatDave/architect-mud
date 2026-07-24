@@ -31,7 +31,9 @@ import { resolveNamedDestination } from '../server/engine/commands/describe.js';
 import { tickOnsets } from '../server/engine/drugs.js';
 import { getSelectionState, clearSelectionState } from '../server/engine/sift.js';
 import { loadPlugins, getLoadedPlugins, getRegisteredCommands, getRegisteredHooks } from '../server/engine/plugins.js';
-import { loadItems } from '../server/engine/items-cache.js';
+import { loadItems, reloadItem, deleteItemCache } from '../server/engine/items-cache.js';
+import { getVendorStock, buyFromVendor, restockSourcedContainers } from '../server/engine/vendor.js';
+import { randomUUID } from 'crypto';
 import { loadDrugs } from '../server/engine/drugs.js';
 import { loadMisSettings } from '../server/engine/mis.js';
 import { handleCommand } from '../server/engine/commands/index.js';
@@ -1006,6 +1008,94 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   p = { hp: 10, hp_max: 10 };
   applyMods(p, 'brutal', { hp_max: -999 });
   check('the ledger clamp can never kill (floors at 1)', p.hp === 1, JSON.stringify(p));
+}
+
+// ── Vendor sourced-container stock ───────────────────────────────────────────
+// A catalogue entry with sourceContainer/restockToQty is physical stock, not
+// the abstract vendor_stock shelf: getVendorStock must report the real count
+// in that furniture container, buyFromVendor must MOVE a real row out (not
+// insert a fresh one, so freshness/cooked state survives the sale), and
+// restockSourcedContainers must top it up to the target, capped by the
+// container's own weight capacity. Needs a real `players` row (adjustCredits
+// requires one to exist), torn down in finally.
+{
+  const ITEM = 'item_vendorstock_regress';
+  const FURN = 'furn_vendorstock_regress';
+  const PID = 'vsr_player_' + process.pid;
+  const npc = { id: 'npc_vendorstock_regress', vendor_inventory: [
+    { item_id: ITEM, price: 5, sourceContainer: FURN, restockToQty: 3 },
+  ], vendor_stock: [], vendor_credits: 0 };
+  try {
+    await query(
+      `INSERT INTO players (id, username, password_hash, handle, credits) VALUES ($1,$2,'x',$3,999)
+       ON CONFLICT (id) DO UPDATE SET credits=999`,
+      [PID, PID, PID]
+    );
+    const buyer = { id: PID, handle: 'VendorStockTester', credits: 999, current_zone: 'zone_start' };
+
+    await query(
+      `INSERT INTO items (id,name,description,type,value,weight,tags) VALUES ($1,'test frozen brick','test frozen brick','consumable',5,400,$2)
+       ON CONFLICT (id) DO UPDATE SET tags=$2`,
+      [ITEM, JSON.stringify({ consumable: true, perishable: true, needs_cooking: true, spoil_rate: 'normal', restore_hunger: 10 })]
+    );
+    await reloadItem(ITEM);
+    await insertFurniture({
+      id: FURN, name: 'test cold case', description: 'a test cold case', object_type: 'container',
+      zone_id: 'zone_start', flags: JSON.stringify({ preserves: 'frozen', container: 5000 }),
+    }, 'ON CONFLICT (id) DO UPDATE SET flags=EXCLUDED.flags, zone_id=EXCLUDED.zone_id');
+
+    let stock = await getVendorStock(npc, PID);
+    check('an empty sourced container reports zero real stock', stock.find(s => s.item_id === ITEM)?.stock === 0, JSON.stringify(stock));
+
+    let buyResult = await buyFromVendor(buyer, npc, ITEM, 1);
+    check('buying with nothing in the container is refused', buyResult.success === false, JSON.stringify(buyResult));
+
+    await restockSourcedContainers(npc);
+    let count = (await query('SELECT COUNT(*)::int AS n FROM player_inventory WHERE container_id=$1 AND item_id=$2', [FURN, ITEM])).rows[0].n;
+    check('restockSourcedContainers delivers up to restockToQty', count === 3, count);
+
+    stock = await getVendorStock(npc, PID);
+    check('getVendorStock now reports the real delivered count', stock.find(s => s.item_id === ITEM)?.stock === 3, JSON.stringify(stock));
+
+    // Down to exactly one unit left, give it a real freshness checkpoint, then
+    // buy it — since it's the ONLY row in the container, buyFromVendor's pick
+    // is unambiguous, proving the sale MOVES that exact row (custom_data
+    // intact) rather than inserting a fresh one.
+    const { rows: inContainer } = await query('SELECT id FROM player_inventory WHERE container_id=$1 AND item_id=$2 ORDER BY id', [FURN, ITEM]);
+    const markedId = inContainer[0].id;
+    await query('DELETE FROM player_inventory WHERE container_id=$1 AND item_id=$2 AND id<>$3', [FURN, ITEM, markedId]);
+    await query(`UPDATE player_inventory SET custom_data='{"freshness":{"value":42,"checkpointAt":1,"envBucket":"frozen","powerLostAt":null}}'::jsonb WHERE id=$1`, [markedId]);
+    count = (await query('SELECT COUNT(*)::int AS n FROM player_inventory WHERE container_id=$1 AND item_id=$2', [FURN, ITEM])).rows[0].n;
+    check('exactly one marked unit remains before the sale', count === 1, count);
+
+    const creditsBefore = buyer.credits;
+    buyResult = await buyFromVendor(buyer, npc, ITEM, 1);
+    check('buying a sourced item succeeds when in stock', buyResult.success === true, JSON.stringify(buyResult));
+    check('the purchase actually debits credits', buyer.credits === creditsBefore - 5, buyer.credits);
+
+    const sold = (await query('SELECT container_id, player_id, custom_data FROM player_inventory WHERE id=$1', [markedId])).rows[0];
+    check('the sold row moved out of the container to the buyer', sold?.container_id === null && sold?.player_id === PID, JSON.stringify(sold));
+    check('the sold row kept its freshness checkpoint (moved, not re-inserted)', sold?.custom_data?.freshness?.value === 42, JSON.stringify(sold));
+
+    count = (await query('SELECT COUNT(*)::int AS n FROM player_inventory WHERE container_id=$1 AND item_id=$2', [FURN, ITEM])).rows[0].n;
+    check('the container is empty after selling the last unit', count === 0, count);
+
+    buyResult = await buyFromVendor(buyer, npc, ITEM, 1);
+    check('buying once the container is empty again is refused', buyResult.success === false, JSON.stringify(buyResult));
+
+    // Weight-capacity cap: a 5000g container can't fit more than 12x a 400g item.
+    await query('DELETE FROM player_inventory WHERE container_id=$1', [FURN]);
+    npc.vendor_inventory[0].restockToQty = 50;
+    await restockSourcedContainers(npc);
+    count = (await query('SELECT COUNT(*)::int AS n FROM player_inventory WHERE container_id=$1', [FURN])).rows[0].n;
+    check('restock never overfills the container past its weight capacity', count === 12, count);
+  } finally {
+    await query('DELETE FROM player_inventory WHERE item_id=$1 OR player_id=$2', [ITEM, PID]).catch(() => {});
+    await query('DELETE FROM items WHERE id=$1', [ITEM]).catch(() => {});
+    deleteItemCache(ITEM);
+    await deleteFurniture(FURN).catch(() => {});
+    await query('DELETE FROM players WHERE id=$1', [PID]).catch(() => {});
+  }
 }
 
 // ── Layer 3: per-plugin suites (plugins/<name>/regress.js) ───────────────────

@@ -107,17 +107,32 @@
     {
       "item_id": "item_lamp_greens",
       "price": 4,
-      "stock": 20
+      "sourceContainer": "furn_ration9_fridge",
+      "restockToQty": 10
     },
     {
       "item_id": "item_ration_milk",
       "price": 5,
-      "stock": 20
+      "sourceContainer": "furn_ration9_fridge",
+      "restockToQty": 8
     },
     {
       "item_id": "item_deli_wrap",
       "price": 12,
-      "stock": 15
+      "sourceContainer": "furn_ration9_fridge",
+      "restockToQty": 6
+    },
+    {
+      "item_id": "item_raw_meat",
+      "price": 5,
+      "sourceContainer": "furn_ration9_freezer",
+      "restockToQty": 8
+    },
+    {
+      "item_id": "item_fresh_catch",
+      "price": 9,
+      "sourceContainer": "furn_ration9_freezer",
+      "restockToQty": 6
     },
     {
       "item_id": "item_oven_zenith_compact",
