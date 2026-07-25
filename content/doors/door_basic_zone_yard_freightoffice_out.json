@@ -1,6 +1,6 @@
 {
   "door_type": "basic",
-  "exit_dir": "west",
+  "exit_dir": "east",
   "flags": {},
   "hololock_difficulty": 5,
   "hp": 1000,

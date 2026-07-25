@@ -33,6 +33,11 @@ const REPO = path.resolve(HERE, '../../../..');
 const { canonicalJson } = await import(
   'file://' + path.join(REPO, 'scripts/content/lib.mjs').replace(/\\/g, '/')
 );
+// Read the district registry itself rather than mirroring its keys here — FLAG-3
+// asks "can the engine resolve this override", so it has to ask the engine.
+const { DISTRICTS } = await import(
+  'file://' + path.join(REPO, 'server/engine/districts.js').replace(/\\/g, '/')
+);
 const CONTENT = path.join(REPO, 'content');
 const DECISIONS = path.join(REPO, 'docs/audits/map-audit-decisions.json');
 
@@ -121,6 +126,10 @@ const RULES = [
     title: 'Building has no door record on its facade/interior seam',
     why: 'No door means no lock, no hololock, no breaking in, no closing time. The whole security surface of the building is absent.',
     rec: 'Add a doors row on the facade↔interior link. Decline for buildings that are genuinely open-air or always-open.' },
+  { code: 'DIR-2', sev: 'high', kind: 'mechanical', fix: null,
+    title: 'Interior out-exit does not point the way the entrance faces',
+    why: 'The interior map draws its way-out arrow from this exit, and tests/regress.js asserts it matches the door. A stale entrance and a stale interior link can agree with each other while both are wrong — correcting only one surfaces the mismatch, which is how this rule was found.',
+    rec: 'Point the interior exit the SAME way as flags.entrance (not the mirror of the facade→interior link), and move the interior-side door record to match.' },
   { code: 'SPAWN-1', sev: 'high', kind: 'mechanical', fix: 'moveSpawn',
     title: 'Enemy spawn sits on a building facade tile',
     why: 'A facade is never stood on — the spawn is unreachable, and anything that does resolve there is inside a wall.',
@@ -147,10 +156,16 @@ const RULES = [
     title: 'Tile has no flags.region_id',
     why: 'Region drives weather, climate profile and overland/void travel rim detection.',
     rec: 'Set the region that geographically contains the tile.' },
-  { code: 'FLAG-3', sev: 'medium', kind: 'judgement', fix: null,
-    title: 'Tile has no flags.district',
-    why: 'District is the naming/ambience grouping under a region. Mostly absent on open wilderness, which is fine.',
-    rec: 'Set for anything inside a settled area; decline for open wilderness.' },
+  // Replaced the old "tile has no flags.district" check (2026-07). Absence is
+  // BENIGN — districtFor() derives from the id prefix and always returns a real
+  // entry, so 962 tiles were flagged for omitting an optional override. The rule
+  // also missed the actual defect: an override the engine cannot resolve is
+  // silently DROPPED, and 2,993 wilderness tiles were reading as 'residential'.
+  // Flag invalidity, not absence.
+  { code: 'FLAG-3', sev: 'high', kind: 'mechanical', fix: null,
+    title: 'flags.district names a district the engine cannot resolve',
+    why: 'districtFor() honours an override only if DISTRICTS[value] exists; anything else is silently dropped and the tile falls back to residential (or hazard if lethal). That wrong district then drives ambience lines, the district shown on look, the minimap colour and the regional map.',
+    rec: 'Add the missing entry to DISTRICTS in server/engine/districts.js. Do NOT remap the content instead if the value is load-bearing elsewhere — `wilds` is read literally by the city↔wilds curtain, so renaming it would re-open the boundary.' },
 
   // ---- JUDGEMENT: content quality ----
   { code: 'SCAV-1', sev: 'judgement', kind: 'judgement', fix: null,
@@ -380,6 +395,19 @@ export function audit({ region = null, bbox = null } = {}) {
         if (enterable && interiorExits.some((d) => !CARD.includes(d)))
           emit('DIR-1', z, `interior link is '${interiorExits.join('/')}'; entrance=${entr} ⇒ should be '${OPP[entr]}'`, { from: interiorExits, to: OPP[entr] });
 
+        // The interior side of the same seam. The facade→interior link is the
+        // OPPOSITE of the entrance, but the interior's way out is the SAME as it —
+        // you walk out through the door, in the direction the door faces. Getting
+        // this backwards is the "reverted intuition" tests/regress.js warns about.
+        if (enterable) {
+          const entryZone = byId.get(interior.entry_zone_id);
+          const outs = Object.entries(entryZone?.exits || {})
+            .filter(([d, t]) => t === z.id && CARD.includes(d)).map(([d]) => d);
+          if (outs.length === 1 && outs[0] !== entr)
+            emit('DIR-2', z, `${entryZone.id} leaves '${outs[0]}' but entrance=${entr} — interior must leave the way the door faces`,
+              { interior: entryZone.id, from: outs[0], to: entr });
+        }
+
         const [dx, dy] = DELTA[entr];
         const nb = pos.get(K(z.grid_x + dx, z.grid_y + dy, z.grid_z));
         if (!f.world_exit_zone) emit('WEZ-1', z, `no world_exit_zone (entrance ${entr} ⇒ ${nb?.id ?? '?'})`, { want: nb?.id ?? null });
@@ -416,7 +444,10 @@ export function audit({ region = null, bbox = null } = {}) {
     // ---- flags ----
     if (!isFacade && !f.terrain) emit('FLAG-1', z, `no terrain (${z.name})`, { group: z.name });
     if (!f.region_id) emit('FLAG-2', z, 'no region_id', { group: z.name });
-    if (!f.district) emit('FLAG-3', z, 'no district', { group: `${z.name} / ${f.terrain ?? '(none)'}` });
+    // Absence is fine — districtFor() falls back to the id-prefix table. An
+    // override the registry doesn't know is what silently resolves to residential.
+    if (f.district && !DISTRICTS[f.district])
+      emit('FLAG-3', z, `flags.district='${f.district}' is not a district — override dropped, falls back`, { group: f.district, want: f.district });
 
     // ---- loot coverage ----
     const tbl = ['scavenging_table_id', 'fishing_table_id', 'mining_table_id'].map((k) => f[k]).filter(Boolean);

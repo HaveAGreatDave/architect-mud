@@ -204,6 +204,57 @@ export const DISTRICTS = {
       'The ground is dark and tacky underfoot, and you try not to look down.',
     ],
   },
+  // The four below are AUTHORED override values that had no entry here, so
+  // districtFor() silently dropped the override and fell back to 'residential' —
+  // 3,611 tiles, of which 2,993 were open wilderness reading as a residential
+  // neighbourhood (found by the map audit, 2026-07). Note `wilds` is also read
+  // literally by the city↔wilds curtain (maps.js, routes.js, seal-wilds-boundary),
+  // so the key has to stay exactly 'wilds' — that is why the fix is an entry here
+  // rather than a content remap.
+  wilds: {
+    key: 'wilds', name: 'the Wilds', color: '#9c5030',
+    blurb: 'The map runs out here. The land never noticed it was on one.',
+    landmark: null, skyline: null,
+    signature: [
+      'Red rock throws the heat back at you long after the sun has moved off it.',
+      'Wind comes across the open ground carrying grit and the smell of hot stone.',
+      'Nothing out here is shaped like anything a person built.',
+      'The horizon sits a very long way off, and it is in no hurry.',
+    ],
+  },
+  sewer: {
+    key: 'sewer', name: 'the Sewers', color: '#4f6b58',
+    blurb: 'The city’s plumbing outlived the city. It seems quietly pleased about it.',
+    landmark: null, skyline: null,
+    signature: [
+      'Water moves somewhere below, unhurried, going somewhere you are not.',
+      'The air is warm and thick and wet, and it has been breathed before.',
+      'A drip lands, echoes, and is answered by another much further off.',
+      'Everything down here is slick with a growth that does not want a name.',
+    ],
+  },
+  yards: {
+    key: 'yards', name: 'the Yards', color: '#7a8fa6',
+    blurb: 'Everything the city eats comes through here — in a box, with paperwork.',
+    landmark: null, skyline: null,
+    signature: [
+      'Diesel and cold iron, cut with something spoiling in a container.',
+      'A stacker groans out of sight, shifting a weight it plainly resents.',
+      'Gulls argue over the sheds, fat on cargo nobody logged.',
+      'A tannoy clips a number, a bay, and half a name before it gives up.',
+    ],
+  },
+  longwatch: {
+    key: 'longwatch', name: 'Longwatch', color: '#7d8a5c',
+    blurb: 'Somebody still stands the watch out here. Nobody has told them what for.',
+    landmark: null, skyline: null,
+    signature: [
+      'Scuffed floor and old coffee — a room that is never quite empty.',
+      'A radio hisses on a channel that has not carried a voice in a long time.',
+      'The lamps run low and steady, rationed by someone who counts.',
+      'Cold works its way in at the seams, the way it always has.',
+    ],
+  },
   hazard: {
     key: 'hazard', name: 'a Hazard Zone', color: '#e05555',
     blurb: 'Nothing good stays alive out here for long. Neither will you.',

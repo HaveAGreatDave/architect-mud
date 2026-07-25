@@ -237,11 +237,30 @@ silently doubles that item's share of both the per-attempt pick and the replenis
 
 Delete the extra rows; raise `weight` if the item really should be commoner.
 
-### FLAG-3 · Tile has no `flags.district` · judgement
+### FLAG-3 · `flags.district` names a district the engine cannot resolve · high
 
-District is the naming/ambience grouping *under* a region. Legitimately absent on open
-wilderness — this is a low-priority rule and a good candidate for a wide accepted
-exception.
+`districtFor()` honours an override **only if `DISTRICTS[value]` exists**. Anything else
+is silently dropped and the tile falls back to the id-prefix table — in practice
+`residential` (or `hazard` if the zone is lethal). That wrong district then drives the
+district-ambience leitmotif lines, the district named on `look`, the minimap colour and
+the regional map.
+
+**Absence is not a defect.** `districtFor()` always returns a real entry, so a tile with
+no `flags.district` is using the derived default, which is the normal case. This rule
+checked absence until 2026-07 and produced 962 findings of pure noise while missing the
+actual bug: 3,611 tiles carried an unresolvable override, 2,993 of them open wilderness
+(`district: 'wilds'`) announcing itself as a residential neighbourhood.
+
+**Fix in the engine, not the content.** Add the missing entry to `DISTRICTS` in
+[server/engine/districts.js](../../../server/engine/districts.js). Do **not** remap the
+content when the value is load-bearing elsewhere: `wilds` is read as a literal string by
+the city↔wilds curtain (`maps.js`, `routes.js`, `seal-wilds-boundary.mjs`,
+`wildlands-expand.mjs`), so renaming it would re-open the boundary.
+
+A new entry needs a non-empty `signature` pool — `plugins/district-ambience/regress.js`
+fails the build otherwise. `landmark`/`skyline` are optional (`null` is fine; `describe.js`
+guards on both). The dev panel reads the table over `/districts`, so there is no
+client-side mirror to update.
 
 ---
 

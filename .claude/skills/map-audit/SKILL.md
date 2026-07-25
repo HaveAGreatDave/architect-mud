@@ -229,9 +229,25 @@ Rules for the log:
 Content changed, so this is a CODEX shipment. Do not stop before:
 
 ```bash
+npm run content:import
 npm run content:lint
 npm run test:regress
 ```
+
+**`content:import` FIRST — this is not optional, and skipping it produces a false green.**
+The audit reads `content/`; **`test:regress` boots the world from the DATABASE.** So a
+regress run over un-imported edits validates the *old* data and passes no matter what you
+just broke. In the 2026-07 run that hid a real defect through two consecutive
+"1591/1591 passed" reports and let it reach a commit — it only surfaced on the first
+regress that followed an import.
+
+Note the import's deletion pass is git-diff-driven (`marker..HEAD`), so **if your batch
+deleted any content file, commit before importing** or the row survives locally. That
+same run had a deleted spawn row that would otherwise have sat in the DB re-creating the
+SPAWN-1 defect the batch had just fixed.
+
+Order that actually works: `commit` → `content:import` → `content:lint` → `test:regress`.
+If regress then fails, fix, re-import, re-run, and amend.
 
 Then invoke the **`codex`** skill to commit and ship. Zone exits and flags are read by
 the movement pipeline, so regress is not optional here.
