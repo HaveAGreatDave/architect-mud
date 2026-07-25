@@ -40,6 +40,38 @@
       "decided_by": "John",
       "decided_on": "2026-07-25",
       "reason": "Her four neighbours are open Coldwater Basin water. You do not step off the bay onto a moving yacht — boarding goes through the gangway, which the yacht plugin gates on the invite list. Linking these would be a way aboard that bypasses that check."
+    },
+    {
+      "rule": "SCAV-1",
+      "scope": { "terrain": "water", "region_id": "region_coldwater" },
+      "verdict": "accepted",
+      "decided_by": "John",
+      "decided_on": "2026-07-25",
+      "reason": "Open bay — Coldwater Basin, The Meltwater, The Meltwater Mouth. You do not `search` open water, you fish it, and the fishing plugin already models this deliberately: fishingTableFor() returns null ON a water tile because you cast FROM the bank, and water-ADJACENT tiles get fish_coldwater_bay for free. A scavenging table here would duplicate a system that already covers the case correctly. Surface bay only — the sub-surface tiles carry no region_id and are logged separately as todo."
+    },
+    {
+      "rule": "SCAV-1",
+      "scope": { "terrain": "water", "name": ["The Basin Floor", "The Deep Channel"] },
+      "verdict": "todo",
+      "decided_by": "John",
+      "decided_on": "2026-07-25",
+      "reason": "Sub-surface water at z-1 and z-2. Unlike the open bay these are divable and wreck-salvage loot down here would be real content — but underwater scavenging does not exist yet, so this is deferred, not declined. Left as todo so it keeps counting and does not quietly become a 'never'. Revisit with the diving content in docs/systems-swimming.md."
+    },
+    {
+      "rule": "SCAV-1",
+      "scope": { "terrain": "redrock", "region_id": "region_coldwater" },
+      "verdict": "accepted",
+      "decided_by": "John",
+      "decided_on": "2026-07-25",
+      "reason": "The deep wastes stay empty on purpose. The wilderness is meant to be hostile and unrewarding — loot lives in the city and in the hot zones, and the 960 tiles at radiation >= 38 already carry scav_irradiated_salvage. Giving the other 2,071 a general table would make search-anywhere the default and dilute what makes the irradiated band worth crossing."
+    },
+    {
+      "rule": "SCAV-1",
+      "scope": { "region_id": "region_the_reach" },
+      "verdict": "todo",
+      "decided_by": "John",
+      "decided_on": "2026-07-25",
+      "reason": "The Reach is unbuilt, not broken: 396 of its 400 tiles have no name and no description (they are still 'The Reach 863,1948' / 'An empty place.'). Loot tables before prose is backwards, so this waits on the region being authored. Deliberately todo rather than accepted — it should keep showing up until The Reach is actually built."
     }
   ]
 }
