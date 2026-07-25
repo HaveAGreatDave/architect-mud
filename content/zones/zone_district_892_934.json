@@ -5,7 +5,7 @@
   "bg_color": "#2a1c16",
   "color": "#b5744a",
   "created_by": "wildlands-expand",
-  "description": "Cracked red hardpan runs out flat to a rust-colored horizon. Wind-scoured rock, grit, and nothing that grows.",
+  "description": "Standing water lies in rust-scummed sheets between hummocks of grey reed, too shallow to swim and too soft to trust. Nothing grows here that anything would eat.",
   "exits": {
     "east": "zone_district_893_934",
     "north": "zone_district_892_933",

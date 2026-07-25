@@ -5,7 +5,7 @@
   "bg_color": "#2a1c16",
   "color": "#b5744a",
   "created_by": "wildlands-expand",
-  "description": "Cracked red hardpan runs out flat to a rust-colored horizon. Wind-scoured rock, grit, and nothing that grows.",
+  "description": "Ash lies over everything in a soft grey blanket, deep enough to take a boot to the ankle. Nothing grows through it and nothing has tried.",
   "exits": {
     "east": "zone_district_953_942",
     "north": "zone_district_952_941",

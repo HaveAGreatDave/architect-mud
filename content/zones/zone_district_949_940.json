@@ -5,7 +5,7 @@
   "bg_color": "#2a1c16",
   "color": "#b5744a",
   "created_by": "wildlands-expand",
-  "description": "A vast rust-stained plain, hammered flat and hard, printed here and there with the tracks of things that crossed it once.",
+  "description": "A flat of packed ash, hard below and loose on top. Footprints keep here a long time — there is no wind down in this hollow to take them.",
   "exits": {
     "east": "zone_district_950_940",
     "north": "zone_district_949_939",
