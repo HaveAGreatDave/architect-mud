@@ -5,14 +5,14 @@
   "bg_color": "#2f3a26",
   "color": "#8ba36a",
   "created_by": "zone-planner",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "description": "Dray Lane gives out here where Marrow Street cuts across, the hardstand going ragged at the join. A delivery bollard leans out of the kerb, sheared off at the base and never replaced. Someone has chalked a rig number and an arrow on the wall of Ration Nine, pointing the way the lane was already going.",
   "exits": {
     "east": "zone_district_922_908",
     "north": "zone_district_921_907",
     "south": "zone_district_921_909"
   },
   "flags": {
-    "district": "residential",
+    "district": "yards",
     "planner": "bp_district",
     "region_id": "region_coldwater",
     "terrain": "road"
@@ -23,7 +23,7 @@
   "id": "zone_district_921_908",
   "map_id": "map_world",
   "marker": "#",
-  "name": "Grasslands",
+  "name": "Dray Lane",
   "parent_zone": null,
   "updated_at": "1784749332"
 }

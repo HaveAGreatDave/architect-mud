@@ -13,7 +13,8 @@
   "flags": {
     "district": "residential",
     "planner": "bp_district",
-    "region_id": "region_coldwater"
+    "region_id": "region_coldwater",
+    "terrain": "grass"
   },
   "grid_x": 925,
   "grid_y": 910,

@@ -24,6 +24,14 @@
       "decided_by": "John",
       "decided_on": "2026-07-25",
       "reason": "The Echelon is the one legitimately dynamic entrance in the world: plugins/yacht/index.js sets flags.entrance from whichever pier she ties up against and deletes it while she is underway. A hardcoded cardinal interior link would contradict her the moment she docks on a different side, so 'in' is correct here and must stay."
+    },
+    {
+      "rule": "FLAG-1",
+      "scope": { "zone_id": "zone_echelon_exterior" },
+      "verdict": "accepted",
+      "decided_by": "John",
+      "decided_on": "2026-07-25",
+      "reason": "flags.terrain is the GROUND-surface SSOT and the Echelon is a vessel, not ground — her exterior tile sails, so any painted terrain would be wrong somewhere on the route. Every other outdoor tile on the map was painted in the same pass; this is the single deliberate omission."
     }
   ]
 }

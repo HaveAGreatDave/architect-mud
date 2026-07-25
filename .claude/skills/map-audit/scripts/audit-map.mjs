@@ -442,8 +442,15 @@ export function audit({ region = null, bbox = null } = {}) {
     }
 
     // ---- flags ----
-    if (!isFacade && !f.terrain) emit('FLAG-1', z, `no terrain (${z.name})`, { group: z.name });
-    if (!f.region_id) emit('FLAG-2', z, 'no region_id', { group: z.name });
+    // Outdoor only. terrain is the GROUND-SURFACE ssot; 0 of 384 interior tiles carry
+    // one, so flagging interiors was 120 false positives. Sub-surface open water still
+    // counts (the 82 basin/channel tiles are authored terrain:water).
+    if (!isFacade && !f.terrain && !f.is_interior) emit('FLAG-1', z, `no terrain (${z.name})`, { group: z.name });
+    // Surface only. region_id is an outdoor-surface property by design — environment.js
+    // scopes regional weather/power to "the region's outdoor tiles (facades included;
+    // interiors never carry region_id)". Every one of the 5,168 surface tiles has one and
+    // none of the 271 sub-surface tiles do, so flagging z<0 was 202 false positives.
+    if (!f.region_id && (z.grid_z ?? 0) >= 0) emit('FLAG-2', z, 'no region_id', { group: z.name });
     // Absence is fine — districtFor() falls back to the id-prefix table. An
     // override the registry doesn't know is what silently resolves to residential.
     if (f.district && !DISTRICTS[f.district])
