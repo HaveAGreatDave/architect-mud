@@ -51,9 +51,12 @@ the surface still infers as `road` for pacing/road-autotiling ([world.js:217](..
 **⟳ Re-bake flight sim** so the baked snapshot picks the new runway up.
 
 The four **wildlands** surfaces (`scrub`/`redrock`/`ash`/`marsh`, added for the post-apocalyptic wilds
-beyond the Curtain) are the only textured terrains that **keep their marker glyph** on the minimap
-(via `GLYPH_TERRAIN` in [minimap.js](../client/game/js/panels/minimap.js)) instead of blanking to a
-clean expanse — so camp/landmark tiles out in the wilds still read their glyph. They map to their own
+beyond the Curtain) once formed a `GLYPH_TERRAIN` set — the only textured terrains allowed to keep
+what stood on them, while every other painted surface blanked its tile to a clean expanse. That
+blanking was a bug, not a feature: it deleted authored `flags.icon` art and building labels along
+with the marker text, which is how painting the Fisherman Statue's square `park` deleted the statue.
+**Terrain now paints the ground *under* the icon layer on every surface**, so the set is gone and
+these four are no longer special. They map to their own
 arid flight biomes — `scrub`→`scrub`, `redrock`→`redrock`, `ash`→`ash` (dry-land tints, never water) —
 while `marsh`→`badlands`, in [biomes.js](../plugins/flight/biomes.js).
 
