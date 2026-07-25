@@ -1,9 +1,9 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
+  "ambient_theme": "city",
   "audio_theme_id": null,
-  "bg_color": "#2f3a26",
-  "color": "#8ba36a",
+  "bg_color": "#3f3a34",
+  "color": "#b9a888",
   "created_by": "zone-planner",
   "description": "Dray Lane gives out here where Marrow Street cuts across, the hardstand going ragged at the join. A delivery bollard leans out of the kerb, sheared off at the base and never replaced. Someone has chalked a rig number and an arrow on the wall of Ration Nine, pointing the way the lane was already going.",
   "exits": {

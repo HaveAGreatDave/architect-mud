@@ -16,6 +16,7 @@
     "planner": "bp_district",
     "radiation": 41,
     "region_id": "region_coldwater",
+    "scavenging_table_id": "scav_irradiated_salvage",
     "terrain": "sand"
   },
   "grid_x": 865,

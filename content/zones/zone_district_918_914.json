@@ -1,9 +1,9 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
+  "ambient_theme": "city",
   "audio_theme_id": null,
-  "bg_color": "#2f3a26",
-  "color": "#8ba36a",
+  "bg_color": "#3f3a34",
+  "color": "#b9a888",
   "created_by": "zone-planner",
   "description": "Open grassland quietly reclaiming old ground — seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
   "exits": {

@@ -1,9 +1,9 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
+  "ambient_theme": "city",
   "audio_theme_id": null,
-  "bg_color": "#2f3a26",
-  "color": "#8ba36a",
+  "bg_color": "#3f3a34",
+  "color": "#b9a888",
   "created_by": "zone-planner",
   "description": "The lane narrows between a bonded store and a chem supplier, both roller-shuttered, both stencilled with warnings nobody reads twice. Pallet-wrap tumbles along the kerb. A painted line on the hardstand still reads KEEP CLEAR, and everything in sight is parked on it.",
   "exits": {
