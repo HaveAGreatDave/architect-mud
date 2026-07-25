@@ -27,7 +27,7 @@
   "id": "zone_yards_tenement_lobby",
   "map_id": "map_int_yards_tenement",
   "marker": null,
-  "name": "The Yards Tenement — Lobby",
+  "name": "Lobby",
   "parent_zone": "zone_district_921_902",
   "updated_at": "1783970000"
 }

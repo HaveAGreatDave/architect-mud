@@ -17,7 +17,7 @@
     "rent_cost": 25
   },
   "grid_x": 0,
-  "grid_y": 0,
+  "grid_y": -1,
   "grid_z": 10,
   "id": "zone_yards_tenement_u10_1",
   "map_id": "map_int_yards_tenement",

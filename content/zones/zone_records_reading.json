@@ -27,7 +27,7 @@
   "id": "zone_records_reading",
   "map_id": "map_int_records_hall",
   "marker": "HR",
-  "name": "Hall of Records — Reading Room",
+  "name": "Reading Room",
   "parent_zone": "zone_district_922_910",
   "updated_at": "1783740000"
 }

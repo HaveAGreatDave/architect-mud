@@ -22,7 +22,7 @@
   "id": "zone_sentinel_editor",
   "map_id": "map_int_sentinel",
   "marker": null,
-  "name": "Coldwater Sentinel — Editor's Office",
+  "name": "Editor's Office",
   "parent_zone": "zone_district_914_910",
   "updated_at": "1784500000"
 }

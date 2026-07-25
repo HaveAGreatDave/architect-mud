@@ -252,6 +252,34 @@ If regress then fails, fix, re-import, re-run, and amend.
 Then invoke the **`codex`** skill to commit and ship. Zone exits and flags are read by
 the movement pipeline, so regress is not optional here.
 
+## When the content is right and the map still looks wrong
+
+This audit reads `content/`. It cannot see a defect that lives in the **renderer**, and
+there are two of those — the sidebar minimap
+([minimap.js](../../../client/game/js/panels/minimap.js)) and the tablet map
+([tablet-os.js](../../../client/game/js/panels/tablet-os.js)) — which lay tiles out by
+**different methods** and therefore fail differently:
+
+| | minimap | tablet |
+|---|---|---|
+| layout | BFS along the exit graph from where you stand | raw `grid_x`/`grid_y` |
+| blind to | bad coords (MAP-1 is invisible here) | nothing — collisions overwrite |
+
+So **"the minimap looks fine" is not evidence the map is fine.** Check both.
+
+The trap that produced this section: painting `flags.terrain` used to *blank the tile's
+contents* in both renderers. A ground surface silently deleted whatever was standing on
+it — the authored `flags.icon` SVG and the building's glyph/label. Painting the
+Fisherman Statue's square `park` deleted the statue; Halloran's Fix-It sat on `grass`
+and showed no lettering. Both were fixed by making terrain paint the ground *under* the
+icon layer rather than replacing it.
+
+The general shape is worth remembering, because a content linter structurally cannot
+catch it: **one content field silently suppressing another through code neither field
+mentions.** `flags.terrain` and `flags.icon` are both valid, both authored, and the
+tile JSON looks perfect. When a fix batch paints a field across many tiles, spot-check a
+few tiles that carry *other* optional fields and confirm those still render.
+
 ## Things that are correct and look wrong
 
 Do not "fix" these:

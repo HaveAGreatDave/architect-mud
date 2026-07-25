@@ -18,7 +18,7 @@
   "id": "zone_mq_cherry_util",
   "map_id": "map_int_mq_cherry",
   "marker": null,
-  "name": "The Cherry Pit — Utility Room",
+  "name": "Utility Room",
   "parent_zone": "zone_mq_cherry_office",
   "updated_at": "1783023535"
 }

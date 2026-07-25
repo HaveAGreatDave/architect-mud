@@ -740,10 +740,15 @@ export function renderMinimap(nodes, direction) {
       } else if (terr) {
         styles.length = 0;
         const fill = terrainFill(terr, node.bg_color);
-        styles.push(`background-color:${fill}`);
+        // Terrain paints the GROUND. Whatever stands on that ground is a separate
+        // layer and survives the fill: an authored flags.icon SVG (a statue, a
+        // helipad, an AA nest), the ▣ door marker, a building's overlay glyph or
+        // label. Painting the statue's square `park` must not delete the statue —
+        // symFor() already emits nothing for a bare tile, so there is no stray
+        // marker text here to blank, only meaning. Colour is always set so the
+        // icon mask and any overlay read against the fill.
+        styles.push(`background-color:${fill}`, `color:${node.color || luminanceTextColor(fill)}`);
         styled = ' mm-styled';
-        if (GLYPH_TERRAIN.has(terr)) styles.push(`color:${node.color || luminanceTextColor(fill)}`);
-        else content = '';
       }
       const terrCls = terr ? ` mm-terr mm-${terr}` : '';
       // Perimeter wall: gate tiles get a highlighted opening; other curtain tiles a
@@ -864,10 +869,9 @@ export const BUILDING_ICON = {
 // with yellow lane markings; water/grass render as a seamless coloured expanse with a
 // connecting texture from the .mm-<terrain> / .map-<terrain> CSS classes.
 const TERRAIN = new Set(['road', 'dirt_road', 'water', 'grass', 'park', 'asphalt', 'concrete', 'dirt', 'sand', 'gravel', 'dock', 'scrub', 'redrock', 'ash', 'marsh']);
-// Post-apocalyptic wildlands surfaces that KEEP their marker glyph over the fill (like
-// road does) instead of blanking to a clean expanse — so camp/landmark tiles out in the
-// wilds still read their ∩/▲/$ glyphs.
-const GLYPH_TERRAIN = new Set(['scrub', 'redrock', 'ash', 'marsh']);
+// (Every painted surface keeps whatever stands on it — see the terrain branch in the
+// cell loop. There is no longer a glyph-keeping subset: blanking icons and building
+// overlays on painted ground was the bug that hid the Fisherman Statue.)
 const ROAD_SURFACE = '#4c5157';   // grey asphalt
 const ROAD_MARKING = '#f2c53d';   // yellow lane markings (the road SVG mask takes `color`)
 const DIRT_ROAD_SURFACE = '#7d6236';   // packed-dirt track — same connector art, no paint

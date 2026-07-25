@@ -3548,7 +3548,11 @@ function renderMap(d) {
       const fill = (terrain === 'water' || terrain === 'grass') ? (t.bg_color || TOS_TERRAIN_FILL[terrain]) : TOS_TERRAIN_FILL[terrain];
       style += `background-color:${fill};`;
       cls.push('terr', 'terr-' + terrain);
-      sym = '';
+      // Terrain paints the GROUND, so an authored zone-icon SVG standing on it (a
+      // statue, a helipad, an AA nest) survives the fill — only the POI glyph, which
+      // is a landmark hint for the adjacent street rather than this tile's own
+      // footprint, drops for a clean expanse.
+      if (!t.isCurrent && !t.svg) sym = '';
     }
     // Regional view tints each non-terrain tile by land-use function, like the popup.
     else if (mode === 'regional' && FUNC_LEGEND[t.func]) {

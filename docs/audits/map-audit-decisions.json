@@ -66,6 +66,22 @@
       "reason": "The deep wastes stay empty on purpose. The wilderness is meant to be hostile and unrewarding — loot lives in the city and in the hot zones, and the 960 tiles at radiation >= 38 already carry scav_irradiated_salvage. Giving the other 2,071 a general table would make search-anywhere the default and dilute what makes the irradiated band worth crossing."
     },
     {
+      "rule": "MAP-1",
+      "scope": { "zone_id": "zone_echelon_exterior" },
+      "verdict": "accepted",
+      "decided_by": "John",
+      "decided_on": "2026-07-25",
+      "reason": "The Echelon moors on a Coldwater Basin water tile, so the yacht and the bay legitimately occupy (897,898,0) on map_world. This is the one collision the audit script already knew about — its position index deliberately keeps the district tile as the canonical occupant (see the comment in audit-map.mjs) so neighbour maths stays stable. Nothing to fix; recorded so MAP-1 stops re-reporting it."
+    },
+    {
+      "rule": "MAP-1",
+      "scope": { "map_id": ["map_int_asc_clinic", "map_int_asc_shrine", "map_int_asc_spire", "map_int_asc_vats", "map_int_asc_weave"] },
+      "verdict": "todo",
+      "decided_by": "John",
+      "decided_on": "2026-07-25",
+      "reason": "The five Ascendant interiors stack their rooms at (0,0,0). Unlike the Yards Tenement — whose units all exit on a compass direction, making the layout derivable exactly — these rooms link only by in/out and up/down, so the exit graph contains no answer and a layout would have to be invented (say: 'in' places the inner room one tile north, 'up' becomes grid_z + 1). That convention would bind every in/out interior in the world, so it is a design decision, not a repair. Deferred rather than declined: the tablet still collapses each of these interiors to one square. Left as todo so it keeps counting."
+    },
+    {
       "rule": "SCAV-1",
       "scope": { "region_id": "region_the_reach" },
       "verdict": "todo",

@@ -23,7 +23,7 @@
   "id": "zone_mq_pigeon_back",
   "map_id": "map_int_mq_pigeon",
   "marker": null,
-  "name": "The Dead Pigeon — Back Booth",
+  "name": "Back Booth",
   "parent_zone": "zone_mq_pigeon_bar",
   "updated_at": "1782964407"
 }

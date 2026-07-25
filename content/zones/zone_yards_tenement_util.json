@@ -21,7 +21,7 @@
   "id": "zone_yards_tenement_util",
   "map_id": "map_int_yards_tenement",
   "marker": null,
-  "name": "The Yards Tenement — Sub-basement",
+  "name": "Sub-basement",
   "parent_zone": "zone_yards_tenement_lobby",
   "updated_at": "1783970000"
 }

@@ -20,7 +20,7 @@
     "is_interior": true,
     "unsurveilled": true
   },
-  "grid_x": 0,
+  "grid_x": -1,
   "grid_y": 0,
   "grid_z": 0,
   "id": "zone_lw_shop_back",

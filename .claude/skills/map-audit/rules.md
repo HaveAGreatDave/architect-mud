@@ -225,6 +225,66 @@ Currently **no tile in the world sets this flag**, including all 82 `z-1` Basin 
 tiles. Either the sub-surface layer was built before the swimming system landed, or the
 flag was never backfilled.
 
+### MAP-1 · Two zones share one grid coordinate on the same map · high
+
+The tablet map lays a map out by raw grid coords — `cell[rowOf(t)][colOf(t)] = t` in
+[tablet-os.js](../../../client/game/js/panels/tablet-os.js) — so colliding tiles
+overwrite each other and **only the last one survives**. Every other room vanishes and
+the you-are-here marker lands in whichever room won. This is why Halloran's Fix-It drew
+its whole interior as a single square: the shop and its back room were both at `(0,0,0)`.
+
+**The sidebar minimap hides this**, because it derives its layout by walking the exit
+graph from where you stand rather than trusting coords. So the defect shows on one of
+the two map renderers and not the other — which is exactly the kind of half-visible
+breakage the audit exists to catch. Don't conclude a map is fine because the minimap
+looks right.
+
+Whole-tree check, like TABLE-1 — and it walks `zones`, not `targets`, because `targets`
+is `map_world` only and this is overwhelmingly an **interior** defect.
+
+Fix playbook, in order of how much the data tells you:
+
+1. **Rooms linked by compass exits** — derivable exactly. A room whose single exit is
+   `south` sits *north* of what it exits into; offset by the inverse of the exit
+   direction. All 60 Yards Tenement units were placed this way, from the exit graph,
+   with nothing hardcoded per unit.
+2. **Rooms linked only by `in`/`out` or `up`/`down`** — no derivable answer. Placing
+   them requires inventing a convention that would bind every in/out interior in the
+   world, so it is a design decision, not a repair. The five Ascendant interiors are
+   parked as `todo` in the decision log for this reason.
+3. **A genuine overlay** — the Echelon moors on a Coldwater Basin tile and legitimately
+   shares `(897,898,0)`. The script's own position index already knows about this one
+   (it keeps the district tile as canonical so neighbour maths stays stable); it is
+   `accepted` in the decision log.
+
+### NAME-2 · Interior room name repeats the building it is inside · judgement
+
+"Hall of Records — The Stacks" spends half the room title on something the player
+already knows: they walked through that door, the map is labelled with it, and
+`flags.building_name` carries it for the directory and the exit links. It's the
+most-repeated redundant text a player reads.
+
+**Key the building off three records, in descending authority** — this is the part that
+matters, and getting it wrong in either direction is easy:
+
+1. the room's own `flags.building_name`
+2. the facade at the map's `parent_zone_id` (its `building_name`, else its name)
+3. the map's own name up to the first em-dash (`Halloran's Fix-It — Interior`)
+
+Keying on (1) alone finds 18 rooms and **misses all ten Yards Tenement floors**, which
+never carried the flag. Keying on (3) alone over-reaches to 99 and starts mangling
+things.
+
+Two classes are exempt and the check skips them:
+
+- **`zone_util_*`** — power-sim utility rooms are named after their parent *room*, not
+  the building ("Guardian Battery — Bunker — Utility Room"), so stripping the building
+  yields a half-stripped "Bunker — Utility Room", and the ~40 survivors would all share
+  one name.
+- **single-room interiors** — where the one room IS the building, the prefix is the
+  identity rather than a repetition. Four separate AA bunkers must not all become
+  "Bunker".
+
 ### GATE-1 · Nothing crosses the city↔wilds curtain · critical
 
 A whole-map assertion, not a per-tile check, and the deliberate counterweight to LINK-1

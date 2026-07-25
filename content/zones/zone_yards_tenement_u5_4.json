@@ -16,7 +16,7 @@
     "is_apartment": true,
     "rent_cost": 25
   },
-  "grid_x": 0,
+  "grid_x": -1,
   "grid_y": 0,
   "grid_z": 5,
   "id": "zone_yards_tenement_u5_4",

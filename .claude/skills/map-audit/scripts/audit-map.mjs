@@ -188,6 +188,14 @@ const RULES = [
     title: 'Sub-surface water tile with no flags.underwater',
     why: 'isUnderwater() (swimming) and the water-temperature model both key off flags.underwater. Without it a tile below the surface never arms the breath timer and reads as surface-temperature water — you can stand on the basin floor and never drown.',
     rec: 'Set flags.underwater: true on water tiles below z=0, or confirm they were meant to be surface water.' },
+  { code: 'MAP-1', sev: 'high', kind: 'mechanical', fix: null,
+    title: 'Two zones share one grid coordinate on the same map',
+    why: 'The tablet map lays a map out by raw grid coords — `cell[rowOf(t)][colOf(t)] = t` — so colliding tiles overwrite each other and only the last one survives. Every other room vanishes and the you-are-here marker lands in whichever room won, which is how Halloran\'s Fix-It came to draw its whole interior as a single square. The sidebar minimap hides this, because it derives its layout by walking the exit graph instead, so the bug only shows on one of the two maps.',
+    rec: 'Give each room its own coord. Where the rooms are linked by compass exits the layout is derivable exactly — a room exiting south sits north of what it exits into. Where they are linked only by in/out or up/down there is no derivable answer and it needs a convention (see the Ascendant interiors, deferred in the decision log). One legitimate collision exists: the Echelon moors on a bay tile.' },
+  { code: 'NAME-2', sev: 'medium', kind: 'judgement', fix: null,
+    title: 'Interior room name repeats the building it is inside',
+    why: '"Hall of Records — The Stacks" spends half the room title telling you something you already know: you walked through that door, the map is labelled with it, and flags.building_name carries it for the directory and the exit links. The prefix is the most-repeated redundant text a player reads.',
+    rec: 'Strip the prefix — "The Stacks". Two classes are deliberately exempt and the check already skips them: zone_util_* power rooms (named after their parent ROOM, so stripping half-strips them) and single-room interiors (where the building name IS the room\'s identity — four AA bunkers must not all become "Bunker").' },
   { code: 'GATE-1', sev: 'critical', kind: 'mechanical', fix: null,
     title: 'Nothing crosses the city↔wilds curtain — the wilds are unreachable',
     why: 'The curtain is code-enforced (the map editor refuses to wire across it, seal-wilds-boundary.mjs strips crossings), so LINK-1 deliberately ignores its ~266 sealed edges. That silence is only safe while at least one gate survives. Today there is exactly one — The South Gate ↔ The Glacis — and if it is ever sealed too, 3,471 wilderness tiles become unreachable on foot with nothing else to report it.',
@@ -551,6 +559,56 @@ export function audit({ region = null, bbox = null } = {}) {
       if (!gates.length && !suppressed('GATE-1', pseudo))
         findings.push({ rule: 'GATE-1', sev: 'critical', zone: 'city_wilds_curtain', name: 'city↔wilds curtain',
           detail: 'no exit anywhere crosses the city↔wilds boundary — the wilds are unreachable on foot', group: 'curtain' });
+    }
+
+    // MAP-1 / NAME-2 — whole-tree questions like TABLE-1, and both about INTERIORS,
+    // which `targets` (map_world only) never walks. They have to iterate `zones`.
+    {
+      const slot = new Map();
+      for (const z of zones) {
+        if (!z.map_id || z.grid_x == null) continue;
+        const k = `${z.map_id}|${K(z.grid_x, z.grid_y, z.grid_z)}`;
+        if (!slot.has(k)) slot.set(k, []);
+        slot.get(k).push(z);
+      }
+      for (const [k, group] of slot) {
+        if (group.length < 2) continue;
+        const coord = k.split('|')[1];
+        // Anchor on every member but the first, so the surviving canonical occupant
+        // isn't itself reported and a per-zone decision can except one intruder.
+        for (const z of group.slice(1)) {
+          const others = group.filter((o) => o !== z);
+          emit('MAP-1', z, `shares (${coord}) on ${z.map_id} with ${others.map((o) => o.name).join(', ')}`,
+            { group: z.map_id, coord, collidesWith: others.map((o) => o.id) });
+        }
+      }
+    }
+    {
+      // The building an interior belongs to has three records, descending authority.
+      // Keying on flags.building_name alone misses every room that never carried the
+      // flag — which was all ten Yards Tenement floors.
+      const isUtil = (id) => id.startsWith('zone_util_');
+      const roomsPerMap = new Map();
+      for (const z of zones)
+        if (z.flags?.is_interior && z.map_id && !isUtil(z.id))
+          roomsPerMap.set(z.map_id, (roomsPerMap.get(z.map_id) || 0) + 1);
+      const mapById = new Map(maps.map((m) => [m.id, m]));
+      const SEP = /^\s*[—–:-]\s*/;
+      for (const z of zones) {
+        if (!z.flags?.is_interior || !z.name) continue;
+        if (isUtil(z.id) || (roomsPerMap.get(z.map_id) || 0) < 2) continue;
+        const m = mapById.get(z.map_id);
+        const par = m?.parent_zone_id ? byId.get(m.parent_zone_id) : null;
+        const bn = z.flags.building_name || par?.flags?.building_name || par?.name
+          || String(m?.name || '').split(/\s*[—–]\s*/)[0];
+        if (!bn) continue;
+        const n = z.name.trim(), b = String(bn).trim();
+        if (n === b || !n.toLowerCase().startsWith(b.toLowerCase())) continue;
+        const rest = n.slice(b.length);
+        if (!SEP.test(rest)) continue;
+        const short = rest.replace(SEP, '').trim();
+        if (short) emit('NAME-2', z, `"${z.name}" → "${short}"`, { group: b, want: short });
+      }
     }
 
     const rowsByTable = new Map();

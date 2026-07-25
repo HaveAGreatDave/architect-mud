@@ -24,7 +24,7 @@
   "id": "zone_mq_precinct_showers",
   "map_id": "map_int_mq_precinct",
   "marker": null,
-  "name": "Precinct 9 — Wash Block",
+  "name": "Wash Block",
   "parent_zone": "zone_mq_precinct_holding",
   "updated_at": "1784800000"
 }
