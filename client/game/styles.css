@@ -3750,23 +3750,6 @@ body.fsim-external #look-resize-handle { display: none; }
 	color: var(--ctr-cold);
 	text-shadow: 0 0 6px color-mix(in srgb, var(--ctr-cold) 50%, transparent);
 }
-/* A thin bead of "condensation" along the top edge — a row of small, uneven
-   droplets rendered as a repeating radial-gradient strip. Purely cosmetic. */
-#container-box.ctr-theme-consumer::after {
-	content: "";
-	position: absolute;
-	top: 0;
-	left: 0;
-	right: 0;
-	height: 10px;
-	pointer-events: none;
-	background-image: repeating-radial-gradient(
-		circle at 6px 2px,
-		color-mix(in srgb, var(--ctr-cold) 65%, white 20%) 0 1.4px,
-		transparent 1.4px 14px
-	);
-	opacity: 0.5;
-}
 
 #container-box.ctr-theme-commercial {
 	--ctr-steel-hi: #6b7176;
@@ -3796,31 +3779,54 @@ body.fsim-external #look-resize-handle { display: none; }
 /* Freezer sub-box always gets a frost treatment when active, layered on top
    of whichever theme the panel is in. */
 .ctr-subbox.ctr-frost {
-	border-color: #9fd8ff;
-	background: linear-gradient(160deg, rgba(159, 216, 255, 0.14), rgba(159, 216, 255, 0.03));
+	position: relative;
+	padding-left: 22px;
+	border-radius: 12px 12px 4px 4px;
+	border: 2px solid #9fd8ff;
+	border-bottom-width: 4px;
+	background: linear-gradient(160deg, rgba(159, 216, 255, 0.16), rgba(159, 216, 255, 0.04));
 	box-shadow: inset 0 0 14px rgba(159, 216, 255, 0.18);
 }
 .ctr-subbox.ctr-frost .container-section-label {
 	color: #9fd8ff;
 }
+/* Its own little door handle, matching the main body's. */
+.ctr-subbox.ctr-frost::before {
+	content: "";
+	position: absolute;
+	left: 6px;
+	top: 8px;
+	bottom: 8px;
+	width: 4px;
+	border-radius: 2px;
+	background: linear-gradient(180deg, #eaf8ff, #9fd8ff);
+	box-shadow: 0 0 5px rgba(159, 216, 255, 0.5);
+}
 
-/* Brief cold-mist flourish on open — a soft puff that fades out, never
-   replayed on a stow/pull refresh. */
+/* Brief cold-fog flourish on open — the whole panel reads as fogged-over
+   glass that clears, like a fridge door held open a second too long. A
+   straight fade, no pulse/brightening, and no center-focused glow. */
+#container-box {
+	--ctr-fx-tint: 205, 232, 245;
+}
+#container-box.ctr-theme-commercial {
+	--ctr-fx-tint: 198, 210, 218;
+}
 #container-cold-fx {
 	position: absolute;
 	inset: 0;
 	pointer-events: none;
 	opacity: 0;
-	background: radial-gradient(60% 50% at 50% 15%, rgba(255, 255, 255, 0.55), transparent 70%);
+	background:
+		linear-gradient(165deg, rgba(var(--ctr-fx-tint), 0.5), rgba(var(--ctr-fx-tint), 0.32) 55%, rgba(var(--ctr-fx-tint), 0.18));
 	z-index: 5;
 }
 #container-cold-fx.play {
-	animation: ctr-cold-puff 0.9s ease-out forwards;
+	animation: ctr-cold-clear 1.5s ease-out forwards;
 }
-@keyframes ctr-cold-puff {
-	0% { opacity: 0; transform: scale(0.9); }
-	25% { opacity: 0.8; transform: scale(1.05); }
-	100% { opacity: 0; transform: scale(1.3); }
+@keyframes ctr-cold-clear {
+	0% { opacity: 1; }
+	100% { opacity: 0; }
 }
 #container-header {
 	display: flex;
@@ -3877,6 +3883,89 @@ body.fsim-external #look-resize-handle { display: none; }
 }
 #container-contents-col {
 	padding-left: 14px;
+}
+/* Drawn as its own appliance body — a rounded fridge-door casing with a
+   handle — visually distinct from the plain inventory list on the left.
+   Only when a cold theme is active; ordinary containers (crates, bags) keep
+   the plain column look untouched. */
+#container-box.ctr-theme-consumer #container-contents-col,
+#container-box.ctr-theme-commercial #container-contents-col {
+	position: relative;
+	margin: 2px 2px 2px 8px;
+	padding: 16px 14px 16px 26px;
+	border-radius: 16px 16px 8px 8px;
+}
+#container-box.ctr-theme-consumer #container-contents-col {
+	border: 2px solid color-mix(in srgb, var(--ctr-cold) 55%, var(--border));
+	background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(191, 233, 255, 0.03));
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.2),
+		inset 0 0 20px rgba(191, 233, 255, 0.08);
+}
+#container-box.ctr-theme-commercial #container-contents-col {
+	border: 2px solid var(--ctr-steel-hi);
+	background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(0, 0, 0, 0.12));
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.06),
+		inset 0 0 16px rgba(0, 0, 0, 0.3);
+}
+/* The door handle — a vertical bar along the casing's inner edge. */
+#container-box.ctr-theme-consumer #container-contents-col::before,
+#container-box.ctr-theme-commercial #container-contents-col::before {
+	content: "";
+	position: absolute;
+	left: 8px;
+	top: 16px;
+	bottom: 16px;
+	width: 5px;
+	border-radius: 3px;
+}
+#container-box.ctr-theme-consumer #container-contents-col::before {
+	background: linear-gradient(180deg, #eaf8ff, #9fd8ff);
+	box-shadow: 0 0 6px rgba(159, 216, 255, 0.5);
+}
+#container-box.ctr-theme-commercial #container-contents-col::before {
+	background: linear-gradient(180deg, #cfd3d6, #82888c);
+	box-shadow: 0 0 4px rgba(0, 0, 0, 0.4);
+}
+/* A few uneven condensation beads + short drip trails near the top of the
+   fridge casing (consumer grade only) — hand-placed, not a repeating tile,
+   so it doesn't read as a ruled line. */
+#container-box.ctr-theme-consumer #container-contents-col::after {
+	content: "";
+	position: absolute;
+	top: 4px;
+	left: 30px;
+	right: 14px;
+	height: 26px;
+	pointer-events: none;
+	background-image:
+		radial-gradient(circle at 10% 4px, rgba(255, 255, 255, 0.55) 0 1.6px, transparent 2.6px),
+		radial-gradient(circle at 23% 11px, rgba(191, 233, 255, 0.55) 0 1.1px, transparent 2px),
+		radial-gradient(circle at 34% 3px, rgba(255, 255, 255, 0.4) 0 1.3px, transparent 2.2px),
+		radial-gradient(circle at 49% 13px, rgba(191, 233, 255, 0.5) 0 1.7px, transparent 2.8px),
+		radial-gradient(circle at 62% 5px, rgba(255, 255, 255, 0.35) 0 1px, transparent 1.8px),
+		radial-gradient(circle at 74% 12px, rgba(191, 233, 255, 0.55) 0 1.4px, transparent 2.4px),
+		radial-gradient(circle at 88% 4px, rgba(255, 255, 255, 0.4) 0 1.1px, transparent 2px),
+		linear-gradient(180deg, rgba(191, 233, 255, 0.4), transparent 80%),
+		linear-gradient(180deg, rgba(191, 233, 255, 0.32), transparent 65%);
+	background-size: auto, auto, auto, auto, auto, auto, auto, 2px 22px, 2px 15px;
+	background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 24% 0, 68% 0;
+	background-repeat: no-repeat;
+	opacity: 0.85;
+}
+/* Commercial grade skips condensation for a couple of subtle corner rivets. */
+#container-box.ctr-theme-commercial #container-contents-col::after {
+	content: "";
+	position: absolute;
+	top: 6px;
+	left: 14px;
+	right: 14px;
+	height: 4px;
+	pointer-events: none;
+	background-image:
+		radial-gradient(circle at 3px 2px, rgba(255, 255, 255, 0.3) 0 1.5px, transparent 2.2px),
+		radial-gradient(circle at calc(100% - 3px) 2px, rgba(255, 255, 255, 0.3) 0 1.5px, transparent 2.2px);
 }
 /* Freezer sub-box: shown only when the opened container has a paired box
    (e.g. a fridge's separate freezer compartment) — a smaller drop zone
