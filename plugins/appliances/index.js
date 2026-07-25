@@ -1,15 +1,21 @@
 // Pluggable appliances — a generic `flags.plugged_in` concept any powered
 // furniture (vending machines, fridges/freezers) can be gated on, plus the
-// `power on/off <name>` verb and a shared "looks broken" examine hook.
+// `unplug <name>` verb and a shared "looks broken" examine hook.
 // Absent/unset `plugged_in` is treated as plugged in, for backward
 // compatibility with every furniture row that predates this tag.
-// Verb note: `plug`/`unplug`/`connect`/`disconnect` are already the portable
-// GENERATOR plugin's verbs (wiring a deployed generator into a junction box).
-// Rather than fight players over the natural "plug in <machine>" phrasing,
-// the generator plugin falls through to togglePluggedByName() (exported here)
-// whenever it finds no deployed generator matching — see plugins/generator's
-// connect/disconnect. `power on/off <name>` is the collision-free alternative
-// verb for the same action.
+//
+// Verb note: the pair is split across two plugins on purpose.
+//   plug/connect <name> — owned by the portable GENERATOR plugin (wiring a
+//     deployed generator into a junction box). Rather than fight players over
+//     the natural "plug in <machine>" phrasing, generator falls through to
+//     togglePluggedByName() (exported here) when no deployed generator
+//     matches — see plugins/generator's connect/disconnect.
+//   unplug <name> — owned here; nothing else claims the bare verb (generator
+//     only exposes unplug as a `generator unplug` subcommand).
+// This previously used `power on/off <name>`, which the weapon plugin's combat
+// verbs later claimed (`pow`/`power`); weapon loads after appliances and won
+// the collision outright, silently shadowing it. Combat has the stronger claim
+// on that word, so the appliance side moved to the plug/unplug pair instead.
 import { getZoneFurniture, updateFurniture } from '../../server/engine/world.js';
 
 // True unless a furniture row has been explicitly unplugged.
@@ -27,7 +33,7 @@ function findPluggable(zoneId, nameStr) {
 // Shared core: connects/disconnects a room appliance to the building's own
 // supply (its `power_draw_kw` draws from the zone's junction-box-fed grid,
 // same as a light — no deployed generator involved). Returns null if no
-// matching appliance exists in the room, so a caller (cmdPower, or the
+// matching appliance exists in the room, so a caller (cmdUnplug, or the
 // generator plugin's plug/unplug fallback) can decide its own not-found
 // message. `broadcast` is optional (the generator fallback may not have one).
 export async function togglePluggedByName(player, nameStr, targetState, broadcast) {
@@ -42,18 +48,16 @@ export async function togglePluggedByName(player, nameStr, targetState, broadcas
   return { type: 'output', message: `You ${targetState ? 'plug in' : 'unplug'} the ${machine.name} — it draws straight off the building's supply.` };
 }
 
-async function cmdPower(args, raw, player, broadcast) {
-  const first = (args[0] || '').toLowerCase();
-  if (first !== 'on' && first !== 'off') {
-    return { type: 'error', message: 'Usage: power on/off <appliance name>' };
-  }
-  const targetState = first === 'on';
-  const nameStr = args.slice(1).join(' ').trim();
-  const result = await togglePluggedByName(player, nameStr, targetState, broadcast);
+// `unplug <name>` — pull a room appliance off the building's supply. The
+// inverse (`plug <name>`) arrives via the generator plugin's fallback.
+async function cmdUnplug(args, raw, player, broadcast) {
+  // Tolerate the natural phrasings: "unplug the fridge", "unplug in fridge".
+  const nameStr = args.join(' ').trim().replace(/^(the|in)\s+/i, '');
+  const result = await togglePluggedByName(player, nameStr, false, broadcast);
   if (result) return result;
   return { type: 'error', message: nameStr
-    ? `There's no powered appliance called "${nameStr}" here.`
-    : `Power on/off what? There's more than one powered appliance here — name it.` };
+    ? `There's no powered appliance called "${nameStr}" here. (To disconnect a deployed generator, use \`gen disconnect\`.)`
+    : `Unplug what? There's more than one powered appliance here — name it.` };
 }
 
 // Generic "looks broken" flavor for any unplugged powered appliance, surfaced
@@ -63,8 +67,8 @@ function onFurnitureDescribe(f) {
   return `<span class="text-dim">It's unplugged. Looks broken.</span>`;
 }
 
-export const commands = { power: cmdPower };
+export const commands = { unplug: cmdUnplug };
 export const hooks = { 'furniture.describe': onFurnitureDescribe };
 
 // Exposed for the regression harness.
-export const _test = { findPluggable, cmdPower, togglePluggedByName };
+export const _test = { findPluggable, cmdUnplug, togglePluggedByName };

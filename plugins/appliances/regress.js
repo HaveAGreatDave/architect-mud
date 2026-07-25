@@ -27,24 +27,26 @@ export default async function regress({ run, check, getPlayer }) {
     let f = await getFurnitureById(FURN);
     check('absent plugged_in flag defaults to plugged in', isPluggedIn(f) === true, JSON.stringify(f.flags));
 
-    let r = await run('power off test dispenser');
-    check('power off succeeds', r?.type === 'output', JSON.stringify(r));
+    let r = await run('unplug test dispenser');
+    check('unplug succeeds', r?.type === 'output', JSON.stringify(r));
     f = await getFurnitureById(FURN);
-    check('power off sets plugged_in false', isPluggedIn(f) === false, JSON.stringify(f.flags));
+    check('unplug sets plugged_in false', isPluggedIn(f) === false, JSON.stringify(f.flags));
 
-    r = await run('power off test dispenser');
-    check('powering off an already-unplugged machine is a no-op message', r?.type === 'message', JSON.stringify(r));
+    r = await run('unplug test dispenser');
+    check('unplugging an already-unplugged machine is a no-op message', r?.type === 'message', JSON.stringify(r));
 
     r = await run('examine test dispenser');
     check('unplugged appliance reads as broken on examine', /unplugged/i.test(r?.message || ''), r?.message);
 
-    r = await run('power on test dispenser');
-    check('power on succeeds', r?.type === 'output', JSON.stringify(r));
+    // `plug` is the generator plugin's verb; with no generator deployed it
+    // falls through to this plugin's togglePluggedByName — the pair's inverse.
+    r = await run('plug test dispenser');
+    check('plug (via the generator fallback) succeeds', r?.type === 'output', JSON.stringify(r));
     f = await getFurnitureById(FURN);
-    check('power on sets plugged_in true', isPluggedIn(f) === true, JSON.stringify(f.flags));
+    check('plug sets plugged_in true', isPluggedIn(f) === true, JSON.stringify(f.flags));
 
-    r = await run('power off test poster');
-    check('furniture with no power_draw_kw is not a valid power target', r?.type === 'error', JSON.stringify(r));
+    r = await run('unplug test poster');
+    check('furniture with no power_draw_kw is not a valid unplug target', r?.type === 'error', JSON.stringify(r));
   } finally {
     await deleteFurniture(FURN).catch(() => {});
     await deleteFurniture(DECOR).catch(() => {});
