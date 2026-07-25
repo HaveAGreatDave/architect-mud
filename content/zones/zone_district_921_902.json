@@ -12,11 +12,8 @@
   "created_by": "zone-planner",
   "description": "A ten-storey slab of stained precast concrete shoved in between the freight lanes, its ground-floor windows bricked over and its upper ones dark, cracked, or gone. A board wired to the door reads ROOMS TO LET, and under it, in a shakier hand, NO REFUNDS NO EXCEPTIONS. It is the closest thing the Yards has to somewhere to live.",
   "exits": {
-    "east": "zone_district_922_902",
-    "in": "zone_yards_tenement_lobby",
-    "north": "zone_district_921_901",
-    "south": "zone_district_921_903",
-    "west": "zone_district_920_902"
+    "north": "zone_yards_tenement_lobby",
+    "south": "zone_district_921_903"
   },
   "flags": {
     "building_name": "The Yards Tenement",

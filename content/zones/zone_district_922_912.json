@@ -1,31 +1,33 @@
 {
   "ambient_events": [],
-  "ambient_theme": "residential",
+  "ambient_theme": "urban",
   "audio_theme_id": null,
-  "bg_color": "#332e28",
-  "color": "#b89a72",
-  "created_by": "zone-planner",
-  "description": "A residential stack optimised for maximum tenants per cubic metre and the bare legal minimum of reasons to keep living. Corridors of identical doors, behind each a life the city quietly stopped counting. A cat holds the stairwell; nobody contests the claim.",
+  "bg_color": "#37322a",
+  "color": "#cdb489",
+  "created_by": "yards-plan",
+  "description": "A cramped freight office with a service window, a wall of pigeonholes stuffed with manifests, and a hand-lettered sign: ALL DELIVERIES CHECK IN. This is where the Yards' paperwork lives and dies, and where the Yardmaster holds court over every crate that moves.",
   "exits": {
-    "north": "zone_district_923_908",
-    "south": "zone_district_923_910",
-    "west": "zone_district_922_909"
+    "east": "zone_district_923_912",
+    "west": "zone_yard_freightoffice"
   },
   "flags": {
-    "district": "residential",
+    "building_name": "Yards Freight Office",
+    "building_type": "freight_office",
+    "district": "yards",
+    "entrance": "east",
+    "facade": true,
+    "is_building": true,
     "planner": "bp_district",
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_consumer_trash",
-    "street_life": true,
-    "terrain": "road"
+    "world_exit_zone": "zone_district_923_912"
   },
-  "grid_x": 923,
-  "grid_y": 909,
+  "grid_x": 922,
+  "grid_y": 912,
   "grid_z": 0,
   "id": "zone_district_922_912",
   "map_id": "map_world",
-  "marker": "▨",
-  "name": "Residential Area",
+  "marker": "FO",
+  "name": "Yards Freight Office",
   "parent_zone": null,
   "updated_at": "1784749332"
 }

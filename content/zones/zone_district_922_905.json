@@ -7,7 +7,7 @@
   "created_by": "zone-planner",
   "description": "The face of the Basin Cold Store — a fat insulated box sheathed in frosted panelling, its roller door skinned with rime even in summer. Condensers the size of engines hammer away on the roof, dripping a permanent black puddle across the threshold. Dray Lane runs off to the west.",
   "exits": {
-    "in": "zone_dray_coldstore",
+    "east": "zone_dray_coldstore",
     "west": "zone_district_921_905"
   },
   "flags": {

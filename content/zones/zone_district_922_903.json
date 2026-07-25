@@ -7,7 +7,7 @@
   "created_by": "zone-planner",
   "description": "The face of the Coldwater Container Yard — a chain-link gate on a rolling track, and behind it corroded shipping cans stacked four high in canyons that groan when the wind comes off the Basin. A tally board by the gate is scrawled with box numbers nobody has reconciled in years. Dray Lane runs off to the west.",
   "exits": {
-    "in": "zone_dray_container",
+    "east": "zone_dray_container",
     "west": "zone_district_921_903"
   },
   "flags": {

@@ -7,7 +7,7 @@
   "created_by": "yards-plan",
   "description": "A yard of intermodal boxes stacked four high in sun-bleached reds and blues, aisles between them like canyons. A reach-stacker sits idle, keys long gone. Half the containers are empty; the other half nobody will open on record.",
   "exits": {
-    "in": "zone_yard_container",
+    "north": "zone_yard_container",
     "south": "zone_district_924_908"
   },
   "flags": {

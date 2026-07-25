@@ -7,7 +7,7 @@
   "created_by": "zone-planner",
   "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
   "exits": {
-    "east": "zone_district_921_908",
+    "east": "zone_district_920_911",
     "north": "zone_district_919_910",
     "south": "zone_district_919_912",
     "west": "zone_district_918_911"

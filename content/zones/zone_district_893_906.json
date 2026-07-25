@@ -8,7 +8,7 @@
   "description": "The grass stops dead at a line of mirror-polished plaza, and on it stands the Gate: a slab of seamless chrome flanked by two augmented wardens who do not shift their weight and two turret housings that track you without pretending not to. A scanline of pale light sweeps you head to foot. Nothing here is hidden — that is the point. The unwired are simply, politely, not admitted.",
   "exits": {
     "east": "zone_district_894_906",
-    "in": "zone_asc_gate_post"
+    "west": "zone_asc_gate_post"
   },
   "flags": {
     "ascendant_campus": true,

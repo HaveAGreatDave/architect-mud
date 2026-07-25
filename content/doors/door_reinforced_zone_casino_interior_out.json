@@ -1,0 +1,16 @@
+{
+  "door_type": "reinforced",
+  "exit_dir": "north",
+  "flags": {},
+  "hololock_difficulty": 5,
+  "hp": 2000,
+  "hp_max": 2000,
+  "id": "door_reinforced_zone_casino_interior_out",
+  "is_locked": 0,
+  "is_open": 0,
+  "lock_state": null,
+  "name": null,
+  "tags": {},
+  "target_zone": "zone_district_921_910",
+  "zone_id": "zone_casino_interior"
+}

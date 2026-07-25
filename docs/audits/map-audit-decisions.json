@@ -1,0 +1,29 @@
+{
+  "$comment": "Accepted exceptions for the map-audit skill (.claude/skills/map-audit). A decision with verdict 'accepted' suppresses matching findings on every future run, so a deliberate choice never gets re-litigated. Written ONLY on an explicit human call — never by an agent acting on its own judgement.",
+  "$schema_notes": {
+    "rule": "the rule code being excepted, e.g. 'SCAV-1'. See rules.md.",
+    "scope": "which tiles the exception covers. Every key present must match. An empty scope {} excepts the whole rule world-wide — use sparingly. Keys: zone_id, terrain, region_id, district, name, map_id (each accepts a string or an array), and name_pattern (a case-insensitive regex).",
+    "verdict": "'accepted' suppresses the finding. 'todo' records the decision without suppressing, for things deferred rather than accepted.",
+    "decided_by": "who made the call — a real person. 'John' or 'Dave'.",
+    "decided_on": "ISO date.",
+    "reason": "why. Written for the person who finds this in a year and wonders."
+  },
+  "decisions": [
+    {
+      "rule": "DOOR-1",
+      "scope": { "zone_id": ["zone_district_892_907", "zone_district_893_906", "zone_district_913_910"] },
+      "verdict": "accepted",
+      "decided_by": "John",
+      "decided_on": "2026-07-25",
+      "reason": "Genuinely always-open thresholds, reviewed building by building. Architect Shrine opens on a nave and is open to the faithful; The Ascension Gate's interior IS the checkpoint (The Scanline), so a door in front of it would be a redundant second threshold; KSAB Audience Gate is the public audience entrance to a broadcast lobby. The other 38 doorless buildings all got doors in the same pass."
+    },
+    {
+      "rule": "DIR-1",
+      "scope": { "zone_id": "zone_echelon_exterior" },
+      "verdict": "accepted",
+      "decided_by": "John",
+      "decided_on": "2026-07-25",
+      "reason": "The Echelon is the one legitimately dynamic entrance in the world: plugins/yacht/index.js sets flags.entrance from whichever pier she ties up against and deletes it while she is underway. A hardcoded cardinal interior link would contradict her the moment she docks on a different side, so 'in' is correct here and must stay."
+    }
+  ]
+}

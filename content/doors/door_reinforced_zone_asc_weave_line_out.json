@@ -1,0 +1,16 @@
+{
+  "door_type": "reinforced",
+  "exit_dir": "east",
+  "flags": {},
+  "hololock_difficulty": 5,
+  "hp": 2000,
+  "hp_max": 2000,
+  "id": "door_reinforced_zone_asc_weave_line_out",
+  "is_locked": 0,
+  "is_open": 0,
+  "lock_state": null,
+  "name": null,
+  "tags": {},
+  "target_zone": "zone_district_893_907",
+  "zone_id": "zone_asc_weave_line"
+}

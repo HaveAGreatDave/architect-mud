@@ -7,10 +7,9 @@
   "created_by": "zone-planner",
   "description": "The road here is more suggestion than surface — compacted gravel, broken kerbstones, a storm drain choked with silt. Somebody dragged a mattress halfway across it and gave up.",
   "exits": {
-    "east": "zone_district_924_912",
     "north": "zone_district_923_911",
     "south": "zone_district_923_913",
-    "west": "zone_district_923_909"
+    "west": "zone_district_922_912"
   },
   "flags": {
     "district": "residential",

@@ -20,8 +20,7 @@
   "exits": {
     "east": "zone_the_reach_875_1954",
     "north": "zone_the_reach_874_1953",
-    "south": "zone_the_reach_874_1955",
-    "west": "zone_the_reach_873_1954"
+    "south": "zone_the_reach_874_1955"
   },
   "flags": {
     "lawless": true,

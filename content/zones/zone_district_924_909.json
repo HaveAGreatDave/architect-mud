@@ -7,8 +7,8 @@
   "created_by": "yards-plan",
   "description": "A plain dry-goods warehouse, concrete-floored and echoing, racking bolted to the ceiling. DRY STORE 12 is painted on the roller door in fading yellow. Cheap to hold, steady to run — the bread and butter of anyone building a freight empire down here.",
   "exits": {
-    "in": "zone_yard_drystore",
-    "north": "zone_district_924_908"
+    "north": "zone_district_924_908",
+    "south": "zone_yard_drystore"
   },
   "flags": {
     "building_name": "Dry Store 12",
@@ -19,7 +19,7 @@
     "is_building": true,
     "planner": "bp_district",
     "region_id": "region_coldwater",
-    "world_exit_zone": "zone_district_924_910"
+    "world_exit_zone": "zone_district_924_908"
   },
   "grid_x": 924,
   "grid_y": 909,

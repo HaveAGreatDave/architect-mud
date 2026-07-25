@@ -8,7 +8,7 @@
   "description": "A wide run of packed gravel and grit, graded flat by traffic and rain into something almost like a road. Puddles stand in the ruts, skinned with a chemical sheen. Nothing grows in the margins.",
   "exits": {
     "east": "zone_district_922_909",
-    "north": "zone_district_920_911",
+    "north": "zone_district_921_908",
     "south": "zone_district_921_910",
     "west": "zone_district_920_909"
   },

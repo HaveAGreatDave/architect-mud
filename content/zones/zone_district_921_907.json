@@ -1,33 +1,29 @@
 {
   "ambient_events": [],
-  "ambient_theme": "urban",
+  "ambient_theme": "forest",
   "audio_theme_id": null,
-  "bg_color": "#37322a",
-  "color": "#cdb489",
-  "created_by": "yards-plan",
-  "description": "A low prefab office ringed by roller-shuttered bays, the airfield aprons close enough north that jet-wash rattles the signage. Forwarders here book, bond, and mis-book air cargo all day; clipboards, barcode guns, and a coffee urn that never quite cools. The whole place smells of kerosene and carbon paper.",
+  "bg_color": "#2f3a26",
+  "color": "#8ba36a",
+  "created_by": "zone-planner",
+  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
   "exits": {
-    "in": "zone_yard_forwarder",
-    "west": "zone_district_923_910"
+    "north": "zone_district_921_906",
+    "south": "zone_district_921_908"
   },
   "flags": {
-    "building_name": "Airfreight Forwarding",
-    "building_type": "freight_forwarder",
-    "district": "yards",
-    "entrance": "north",
-    "facade": true,
-    "is_building": true,
+    "district": "residential",
     "planner": "bp_district",
     "region_id": "region_coldwater",
-    "world_exit_zone": "zone_district_920_907"
+    "scavenging_table_id": "scav_west_wastes",
+    "terrain": "road"
   },
-  "grid_x": 924,
-  "grid_y": 910,
+  "grid_x": 921,
+  "grid_y": 907,
   "grid_z": 0,
   "id": "zone_district_921_907",
   "map_id": "map_world",
-  "marker": "AF",
-  "name": "Airfreight Forwarding",
+  "marker": "#",
+  "name": "Grasslands",
   "parent_zone": null,
   "updated_at": "1784749332"
 }

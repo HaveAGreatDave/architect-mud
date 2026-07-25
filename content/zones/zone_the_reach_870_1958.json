@@ -18,10 +18,7 @@
   "created_by": null,
   "description": "A patched-steel hangar squats at the head of a cracked scrub airstrip — in the Reach the sky is the easy road, and this is where it touches down. The windsock hangs dead-still over a hand-lettered board: NO MANIFESTS. NO QUESTIONS. CASH ON THE SKID.",
   "exits": {
-    "east": "zone_the_reach_871_1958",
-    "in": "zone_bld_897_1175_lobby",
-    "north": "zone_the_reach_870_1957",
-    "south": "zone_the_reach_870_1959",
+    "east": "zone_bld_897_1175_lobby",
     "west": "zone_the_reach_869_1958"
   },
   "flags": {

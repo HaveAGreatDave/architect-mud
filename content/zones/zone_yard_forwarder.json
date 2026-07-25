@@ -7,14 +7,14 @@
   "created_by": "yards-plan",
   "description": "The forwarding floor: a counter of pigeonholes and airway-bill stamps, a scale bolted to the deck, and a wall map of routes nobody flies anymore. A dead conveyor runs out through a rubber-flapped hatch toward the aprons.",
   "exits": {
-    "north": "zone_district_921_907"
+    "north": "zone_district_924_910"
   },
   "flags": {
     "building_name": "Airfreight Forwarding",
     "building_type": "freight_forwarder",
     "is_building": true,
     "is_interior": true,
-    "world_exit_zone": "zone_district_921_907"
+    "world_exit_zone": "zone_district_924_910"
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -23,6 +23,6 @@
   "map_id": "map_int_yard_forwarder",
   "marker": null,
   "name": "Airfreight Forwarding",
-  "parent_zone": "zone_district_921_907",
+  "parent_zone": "zone_district_924_910",
   "updated_at": "1783739474"
 }
