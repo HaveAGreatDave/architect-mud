@@ -1,5 +1,10 @@
 # Egress Remediation — Phase 4b: Cameras (handoff doc)
 
+> **Status: SHIPPED** (stamped 2026-07-24 by doc audit — this doc had no status line).
+> The rolling camera buffer is RAM, not a rewritten DB JSON array: `class CameraBuffer`
+> + the `cameraBuffers` Map live in `plugins/surveillance/index.js:606,633`, and no
+> per-capture write remains. Historical handoff — the fix is in.
+
 > Part of a larger DB-egress remediation program. This file is self-contained for
 > the camera work specifically. The full program also includes Phase 1 (power
 > diff-gating), Phase 2 (power simulation-reason instrumentation), Phase 3

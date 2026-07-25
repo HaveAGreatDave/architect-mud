@@ -439,16 +439,12 @@ function removeZoneTag(btn) {
   refreshZoneTagPicker();
 }
 
-// Zone-aware value reader. readItemTag() JSON.parses 'text' values, which
-// would reject plain strings like an intro_lore paragraph — zone text tags
-// accept raw text (JSON objects/arrays still parse, e.g. the greeter config).
+// Zone-aware value reader. 'text' is handled by readItemTag (raw prose, with a
+// JSON object/array still parsing — e.g. the greeter config); this only adds the
+// zone-specific 'list' error message.
 function readZoneTag(rowEl) {
   const def = TAG_CATALOG[rowEl.dataset.tag];
   const input = rowEl.querySelector('.tag-input');
-  if (def.shape === 'text') {
-    const raw = input.value;
-    try { const p = JSON.parse(raw); return (typeof p === 'object' && p !== null) ? p : raw; } catch { return raw; }
-  }
   if (def.shape === 'list') {
     try { const p = JSON.parse(input.value); if (!Array.isArray(p)) throw 0; return p; }
     catch { throw new Error(`${def.label}: expected a JSON array, e.g. ["The Haul Road"]`); }

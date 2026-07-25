@@ -13,6 +13,10 @@ sweeps `content/zones/*.json`. Add a new zone key to the catalog FIRST, then
 here. NPC/furniture bags remain documented-not-validated — a typo'd key there
 is silently inert, so grep before renaming anything below.
 
+An owner of **`—`** means the key is authored in content and (for zones)
+catalogued, but **no code reads it**. Gating new behaviour on one of those does
+nothing, silently; wire a reader first.
+
 ## zones.flags
 
 | key | owner | meaning |
@@ -23,6 +27,14 @@ is silently inert, so grep before renaming anything below.
 | `airfield_vtol_only` | flight | helipad — buy/rent/charter restricted to VTOL/rotorcraft; fixed-wings hidden from every roster (Threshold Helipad) |
 | `yacht` / `echelon` | yacht | marks an Echelon zone (the yacht) |
 | `echelon_bridge` | yacht | the bridge — every `helm`/`sail`/`stop`/`dock` verb gates on this flag |
+| `echelon_suite` | yacht/consort | Cyd's private quarters — owner-gated behind the suite hatch; hosts the MIS-gated dancers |
+| `echelon_sundeck` | consort | open-air top-deck lounge (jacuzzi); beckoned consorts suntan/soak/lounge here |
+| `echelon_view` | consort | a deck you can LOOK out across the Basin from (stern lounge, stair landing) |
+| `echelon_helipad` | consort/flight | stern landing pad — a VTOL Dragonfly can set down here to embark/disembark |
+| `echelon_broadcast` | broadcast | lower-deck studio housing the emergency MediaDeck that overrides every tuned TV in the city |
+| `engine_ambience` | movement (client yacht-ambience) | engine-room rumble plays here, swelling while she makes way (`yacht_underway`) |
+| `heading` | yacht | **RUNTIME-only**: the vessel's last steered course in degrees (0=N). Injected onto the live Echelon exterior zone from the persisted world flag — never authored in content; catalogued so it survives the zone-flags sweep |
+| `vessel` | movement | this water tile is a boat you can embark/disembark from the water (needs an `in` exit to the vessel interior) |
 | `naval_ambience` | yacht | naval ambient-event pool (Echelon exterior) |
 | `pier` | terrain | pier tile → inferred `dock` surface by `zoneTerrain()` when no authored `terrain` |
 | `airfield_dealer` | flight | aircraft dealer here |
@@ -31,8 +43,16 @@ is silently inert, so grep before renaming anything below.
 | `airfield_id` | flight | which airfield this zone belongs to |
 | `airfield_lawless` | flight | airfield outside city law |
 | `airfield_name` | flight | display name of the airfield |
+| `airfield_surface` | flight | runway surface flavour for a rough strip (e.g. `dust` for a packed-dirt frontier field) |
+| `airfield_theme` | flight (zone-planner) | overrides the airport backdrop painted out the canopy (`city\|docks\|yards\|slag\|wastes\|default`); inferred from the zone id when unset |
+| `runway` | flight (zone-planner) | runway tile: `ns`/`ew` is the centreline orientation the flight sim aligns its drawn runway to; `pad` is the surrounding asphalt |
+| `aircraft_cabin` | flight | interior cabin room of a **walkable** aircraft; value = the craft-type id (e.g. `leviathan`). Binds these coordinate-free rooms to the live aircraft; the move gate seals world exits while airborne |
+| `cabin_entry` | flight | the cabin room boarders arrive in (and are set down near on deplane). One per cabin; mirrors the cabin map's `entry_zone_id` |
+| `cabin_window` | flight | cabin room with windows — `window` opens the through-hull moving-world view from here |
+| `flightdeck` | flight | cockpit room of a walkable aircraft: home of TAKE CONTROLS / HAND OFF and the NAV console |
+| `home_slots` | flight | authored decor anchors a walkable-base room offers, each `{ id, kind, label }`. The shell defines the anchors; per-owner choices are runtime overlays (`custom_data.home.slots`), never zone edits |
 | `aa_site` | aa-sites | this surface tile is an AA emplacement's exposed gun deck — drives the map AA POI (`⌖` / "AA battery") |
-| `aa_bunker` | aa-sites | interior bunker zone under an AA site; value = the owning `aa_sites.id` |
+| `aa_bunker` | — | **no reader.** Catalogued and authored on bunker zones, but nothing consumes it: the aa-sites repair loop finds its engineer by the NPC's `flags.aa_engineer` instead. Don't gate new behaviour on it without wiring it first |
 | `airspace_restricted` | flight | AA-gated airspace over this zone |
 | `always_lit` | environment | never dark regardless of power/time |
 | `light_beacon` | environment | floods this tile + its 8 grid-neighbours to full brightness, overriding night/power/weather |
@@ -42,9 +62,17 @@ is silently inert, so grep before renaming anything below.
 | `building_name` | world | display name of the enclosing building |
 | `building_type` | world | building category (shop, apartment, …) |
 | `checkpoint_cfg` | checkpoint | security-checkpoint config object ({ guards, checks:[wanted\|smuggle\|contraband], wantedMode, entry predicate insideFlag\|fromFlag\|fromDistrict }) driving the checkpoint move-gate law |
-| `curtain` | perimeter (wildlands) | tile borders the Architect's energy wall on the city's land edge; renders a minimap shimmer-edge + a room-description curtain line; stays sealed (no crossing exit) except at a `perimeter_gate` |
-| `perimeter_gate` | perimeter (wildlands) | the one break in the Curtain — the guarded road out to the wilds; draws a gate glyph and carries the exit through the wall |
-| `glacis` | perimeter (wildlands) | outward-facing turret killing-ground just beyond a `perimeter_gate`; the cleared no-man's-land the wall guns sweep |
+| `curtain` | engine minimap + flight | tile borders the Architect's energy wall on the city's land edge; renders a minimap shimmer-edge + a room-description curtain line; stays sealed (no crossing exit) except at a `perimeter_gate`. There is no `perimeter` plugin — the engine whitelists these three into the map payload (`world.js:928`, `commands/movement.js:778`) and `plugins/flight/state.js:574` renders the wall |
+| `perimeter_gate` | engine minimap + flight | the one break in the Curtain — the guarded road out to the wilds; draws a gate glyph and carries the exit through the wall |
+| `glacis` | engine minimap + flight; checkpoint | outward-facing turret killing-ground just beyond a `perimeter_gate`. Also usable as a `checkpoint_cfg.fromFlag` predicate |
+| `ascendant_campus` | ascendant | world tile is part of the Ascendant stronghold campus (western frontier) — ambience + faction framing |
+| `ascension_gate` | ascendant | the gated entrance tile into the Ascendant campus |
+| `ascendant_inner` | ascendant | the Spire sanctum — deepest Ascendant interior, reserved for the highest standing |
+| `ascendant_registry` | augments | the Vats registry desk — intake/enrolment room |
+| `ascendant_vats` | augments | the cloning/regrowth hall within The Vats |
+| `augment_clinic` | augments | room where cybernetic augments can be installed (Chrome Clinic) |
+| `assurance_policy` | augments | desk selling prepaid cortical-backup restores (the secret Halcyon front); enables the `policy` verb |
+| `architect_uplink` | — | **no reader.** The Architect Shrine uplink chamber; catalogued and authored, but nothing gates on it yet |
 | `claimable` | corps | territory override: force claimable (absent = derived from inferred danger) |
 | `claimable_asset` | corps | this building is a claimable corporate income asset (Corporate Assets Phase A); `corps/ventures.js` reads it for `corp asset claim` |
 | `danger` | danger | manual danger override (`safe/low/medium/high/lethal`) — normally inferred from spawns + radiation (`engine/danger.js`) |
@@ -54,8 +82,8 @@ is silently inert, so grep before renaming anything below.
 | `elevator_floors` | movement | floor list for the elevator (Floor 1 / lobby is implicit — synthesized from the car's `out` exit) |
 | `hide_exits` | describe (engine) | suppress the player-facing exit/room/building list in the room description; graph (movement, NPC pathfinding, minimap) is untouched. Used by elevator cars so the floor panel is the sole exit UI |
 | `fishing_table_id` | fishing | scavenging-table id used for fishing here |
-| `gov_checkpoint` | govgate | government checkpoint (contraband scan) |
-| `gov_enclave` | govgate | inside the government enclave |
+| `gov_checkpoint` | — | **no reader.** There is no `govgate` plugin; checkpoints are configured entirely through `checkpoint_cfg` |
+| `gov_enclave` | checkpoint | inside the government enclave — consumed only as a `checkpoint_cfg.insideFlag` value (the gate is generic, not special-cased) |
 | `greeter` | jobboard | greeter NPC gate zone |
 | `hangar_interior` | flight | inside a hangar |
 | `hangar_interior_zone` | flight | link from ramp to hangar interior |
@@ -66,8 +94,16 @@ is silently inert, so grep before renaming anything below.
 | `gps_suggest` | lore plugin | destination zone id; first entry to this tile plots a one-off GPS route there (pre-quest nudge) |
 | `gps_suggest_label` | lore plugin | optional hint text for the `gps_suggest` route line |
 | `is_apartment` | housing | rentable apartment zone |
+| `rent_cost` | housing | **authored** weekly rent for this apartment unit (needs `is_apartment`); read by `authoredRentCost` in `apartments.js`. Omit for the 100₵ default. Tenancy itself is player data in the `apartments` table, never content |
 | `is_building` | power/world | groups interior zones into one building (junction-box scope) |
 | `is_interior` | environment | indoors (weather/temperature/lighting model) |
+| `is_dreamzone` | trip | off-map hallucination zone the trip plugin teleports a mind into (`map_dream`, no exits). Kept off the minimap; login bounces anyone a restart stranded here |
+| `entrance` | world (map arrows) | **authored** door side (`north\|south\|east\|west`) for the facade's map entrance arrow, read by `buildingEntranceDir` (`world.js:176`). Baked once from the road graph by `scripts/bake-building-entrances.mjs`, **not** inferred at runtime — inference let unrelated terrain painting silently relocate doors. The interior's `out` exit must mirror it. The yacht plugin is the one legitimate runtime writer (the Echelon's exterior tile sails) |
+| `icon` | world (minimap/flight) | name of an SVG in `client/game/assets/zone-icons/` (without `.svg`) drawn on the minimap tile in place of the marker glyph. Flight also pattern-matches it (`road_*`, `runway_*`, `statue*`) |
+| `floors` | flight | explicit storey count for the flight-sim skyline, overriding the per-building-type default so a landmark tower stands taller |
+| `region_id` | world (World Editor) | spatial region membership — the `regions.id` this tile belongs to. **Distinct from `district`** (land-use); see [reference/land-taxonomy.md](reference/land-taxonomy.md) |
+| `underwater` | swimming | submerged tile below a surface water tile (link up/down). Always submerged (a boat doesn't help), colder and dark; starts the breath timer that drowns you |
+| `water_temp_c` | swimming | override the temperature a submerged swimmer here drifts toward (default 12 °C surface / 7 °C underwater) |
 | `lawless` | surveillance | crimes here raise no heat/wanted |
 | `safehouse` | surveillance | launders wanted heat: unseen time bleeds a wanted star 3× as fast as lying low on the street. Pair with `unsurveilled`/`sanctuary` for a true refuge |
 | `mining_table_id` | mining | scavenging-table id used for mining here |
@@ -94,20 +130,27 @@ is silently inert, so grep before renaming anything below.
 
 | key | owner | meaning |
 |---|---|---|
+| `aa_engineer` | aa-sites | bunker engineer who repairs a strafed AA battery; value = the owning `aa_sites.id` |
 | `battle_cries` | combat | lines shouted in combat |
+| `bouncer` | strippers | bouncer NPC — enforces club ejection |
+| `bouncer_eject_zone` | strippers | where this bouncer throws you (optional; falls back to a derived zone) |
 | `charter_pilot` | flight | offers charter flights |
 | `clothing_layers` | npc-clothing | descriptive outfit model (see npc-clothing.md) |
+| `consort` | consort | an Echelon kept companion — hidden in the boudoir until the keeper `beckon`s them |
+| `devoted_to` | consort | handle of the keeper this consort is devoted to |
 | `covert` | vendor/drugwar | covert dealer (passphrase-gated) |
 | `deal_from` / `deal_to` | drugwar | dealing hours window |
 | `drug_buyer` | drugwar | buys drugs from players |
-| `essential` | combat | cannot be killed |
-| `faction_guard` | factions | attacks on faction aggression |
+| `essential` | — | **no reader.** Nothing checks it; unkillability is `no_attack` (`combat.js:705`). Setting `essential` protects nobody |
+| `faction_guard` | — | **no reader.** There is no `factions` plugin (reworked into ideologies) and no code consumes this key, though ~5 content NPCs still carry it |
 | `gift_trade` | trade | accepts gifts |
+| `haunt_zone` | ai-behaviour | zone a wandering NPC gravitates back to (`haunt_zones` array wins when present) |
 | `inner_circle_flag` | vendor | player flag that unlocks inner-circle stock |
 | `job_board_dispatcher` | jobboard | quest turn-in dispatcher |
 | `mis_requires_zone_flag` | mis | only consents in zones carrying this flag |
 | `mis_willing` | mis | consents to MIS interactions |
-| `no_attack` / `no_attack_message` | combat | unattackable (+custom refusal line) |
+| `no_attack` / `no_attack_message` | combat | unattackable (+custom refusal line) — `combat.js:705`, the only unkillability seam |
+| `no_banter` | npc-banter/gossip | opt this NPC out of ambient banter (dev panel exposes it as a "joins ambient banter" checkbox) |
 | `passphrases` | vendor | covert-dealer passphrases |
 | `personality` | npc-personality | personality archetype (drives outfit/banter) |
 | `poker_bankroll` / `poker_persona` / `poker_player` | gametable | NPC poker player config |
@@ -137,6 +180,9 @@ is silently inert, so grep before renaming anything below.
 | `cosmetic_machine` | appearance | morphex/biosculpt station |
 | `crafting_station` | crafting | crafting station |
 | `deck_active` / `deck_cassettes` / `deck_ejected_slots` | broadcast | media deck state |
+| `emergency_deck` | broadcast | the Echelon's emergency MediaDeck — overrides every tuned TV in the city |
+| `tuned_channel` | broadcast | channel **number** a TV/receiver is tuned to (joined against `media_channels.number`) — distinct from `channel_id` |
+| `charge_sheet` | jail | the booking form clipped to the cell bars — `read <sheet>` prints the reader's own detention record (charge, stars, time remaining, held property) |
 | `destructible` | combat | can be attacked (uses hp/hp_max) |
 | `device_id` | surveillance | security_devices row this furniture mirrors |
 | `game_table_id` | gametable | game_tables row (poker) |
@@ -148,14 +194,19 @@ is silently inert, so grep before renaming anything below.
 | `junction_box` | power | junction-box housing |
 | `media_deck` | broadcast | cassette deck |
 | `police_terminal` | jail | police booking terminal |
-| `prologue_chair` / `prologue_holosign` | prologue | prologue set dressing |
-| `requires_demolition` | power | only `demolition`-tagged items damage it |
+| `prologue_holosign` | prologue | prologue set dressing (the `use` `requiredTag`). Sibling `prologue_chair` is authored but **has no reader** |
+| `requires_demolition` | — | **no reader.** Demolition gating is not a flag: it comes from `DEVICE_SPECS[furniture.object_type].requiresDemolition` (`commands/infrastructure.js:23-25,56`). Setting this key gates nothing |
+| `restock_items` | consort | item ids this furniture restocks (the Echelon bar's bottle shelf) |
 | `seat_idx` | gametable | seat number at a table |
 | `security_device` | surveillance | is a plantable security device |
 | `slot_machine` / `slot_min` / `slot_max` / `slot_default` | slots | slot machine + its bet bounds/default (targeted by `spin`) |
 | `station_quality` | crafting | crafting station quality |
+| `teleporter` / `teleport_target` | yacht | hidden furniture linking two zones; `teleport_target` is the destination zone id |
 | `trash_bin` | scavenging | searchable trash |
 | `tv` / `tv_dial_freq` / `tv_skin` | broadcast | television set config |
+| `vends` / `vend_line` / `vend_cooldown_s` | vending | dispenser machine: item id to dispense (required), flavour line, per-machine throttle in seconds (default 20; 0 = off) |
+| `fuel_source` | fillable | a fuel point in this zone that `fill` draws from |
+| `woven` | describe (engine) | fold this furniture into the room prose instead of listing it separately |
 | `vendor_npc_id` | vendor | vendor NPC whose shop this furniture belongs to |
 | `vendor_safe` | vendor-safe | crackable vendor safe |
 | `vendor_schedule_board` | vendor | shop-hours board |

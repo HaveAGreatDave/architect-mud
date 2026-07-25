@@ -1,10 +1,30 @@
 # Plugin Architecture Analysis
 
-> **STATUS NOTE (2026-06-22 — Second Pass):** Major portions of this roadmap are now complete. See §6 below for the full current-state audit and active remaining work. The §5 Migration Roadmap is historical; §6 is the live plan.
+> **STATUS (stamped 2026-07-24): SUPERSEDED. Do not plan against this doc.** The live authority on
+> where new code lives is [proposals/engine-plugin-boundary.md](../proposals/engine-plugin-boundary.md)
+> (2026-07-02) — a later, deeper audit of the same question with an implementation log, and the one
+> CLAUDE.md points at. §6's "active roadmap" below has since resolved **six of nine** items;
+> three are still open. This file is kept as the original survey (§1's coupling findings and §3's
+> stays-in-core reasoning still read true), not as a plan.
 >
-> **See also** the as-built system references added 2026-06-22: [combat.md](combat.md),
-> [systems-survival.md](systems-survival.md), [systems-economy.md](systems-economy.md),
-> [systems-world.md](systems-world.md), and the [QA audit](qa-audit-2026-06.md).
+> Re-checked against code, §6's nine-item roadmap:
+> **Done** — `server/engine/economy.js` with `adjustCredits` (#1); `player.create`/`player.login`
+> hooks fire from `server/api/routes.js:496,523` and `player.logout` on the event bus (#2);
+> `plugins/lighting/` (#3); `plugins/crafting/` (#4); `plugins/drugs/` (#6);
+> `server/engine/inventory.js` (#9).
+> **Still open** — drug effects are *not* unified: `server/engine/drugs.js:583` keeps its own local
+> `applyEffects` alongside `effects.js` (#5); no dev-panel UI registration exists, every panel is
+> still a hand edit (#7); `simulatePowerNetwork` is still in `server/engine/environment.js:1217` (#8).
+> **Those three now live in `engine-plugin-boundary.md`'s inherited-backlog block** — track them
+> there, not here.
+> §5's Phase-0 quick win landed too — the dead root-level `api/routes.js` is gone.
+> §6's "Phase 4 greenfield … none started" is stale: quests, NPC/enemy AI (`ai-behaviour.js`),
+> vehicles (the flight plugin) and scripting (`graph.js`/`actions.js`) all ship. Only **world events**
+> is genuinely untouched — the `world_events` table still has no reader but a cascade delete.
+>
+> **See also** the as-built system references added 2026-06-22: [combat.md](../combat.md),
+> [systems-survival.md](../systems-survival.md), [systems-economy.md](../systems-economy.md),
+> [systems-world.md](../systems-world.md).
 
 ---
 

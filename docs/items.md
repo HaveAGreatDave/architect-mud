@@ -6,7 +6,9 @@ described by one shared catalog. This doc explains that model; the catalog
 itself (`client/shared/tagCatalog.js`) is the machine-readable source of truth.
 
 Items are content, not code: they live in the `items` table and are edited
-through the dev panel's **🗡 Items** editor. Nothing here requires a deploy.
+through the dev panel's **🗡 Items** editor. No engine change is needed — but
+shipping an edit to prod goes through the CODEX pipeline (`content/items/*.json`
+→ push), see [content-pipeline.md](content-pipeline.md).
 
 ---
 
@@ -14,10 +16,10 @@ through the dev panel's **🗡 Items** editor. Nothing here requires a deploy.
 
 An item is identity/economy columns plus a bag of **tags**. A class tag has a
 name and an optional value; `true` for valueless markers. The engine reads
-behavior *only* from tags. There is no more `type`/`subtype` routing, no
-`effects`/`stat_modifiers`/`requirements`/`flags` blobs, and no `is_*` boolean
-columns — every one of those collapsed into a tag. The catalog documents what
-each tag does, so nothing gets silently forgotten as the list grows.
+behavior *only* from tags — the `subtype`, `is_*`, `effects`, `stat_modifiers`
+and `requirements` columns each collapsed into a tag and were dropped
+(`schema.js:122`). The catalog documents what each tag does, so nothing gets
+silently forgotten as the list grows.
 
 ---
 
@@ -29,13 +31,19 @@ each tag does, so nothing gets silently forgotten as the list grows.
 | `name` | TEXT | Display name, stored in **prose-case** (see below). Commands fuzzy-match on this (`ILIKE %name%`). |
 | `weight` | REAL | Carry weight, **in grams**. Default 1000 (1kg). Displayed as `g` below 1000g, else `kg` (e.g. `750g`, `1.5kg`). |
 | `value` | INTEGER | Base price; vendors mark up/down from this. |
+| `type` | TEXT | Authoring **category** only (the dev panel's Category dropdown: `clothing`/`armor`/`weapon`/`consumable`/`drug`/`key`/`misc`/`ammo`/`tool`/`implant`). Drives no behavior; the one runtime read left is `type === 'furniture'` for the vendor's category label ([vendor.js:41](../server/engine/vendor.js)). |
 | `tags` | JSONB | **Everything the item *does*.** A map of tag name → value. |
 
-> The legacy columns (`description`, `type`, `subtype`, `is_stackable`,
-> `is_unique`, `is_quest_item`, `effects`, `stat_modifiers`, `requirements`,
-> `flags`) are migrated into `tags` by `migrate.js`. They are dropped in a
-> separate later commit once the cutover is verified; until then they still
-> exist but are unused.
+> The behavioral legacy columns (`subtype`, `is_stackable`, `is_unique`,
+> `is_quest_item`, `effects`, `stat_modifiers`, `requirements`) were dropped in
+> 2026-07 — see the comment at [schema.js:122](../server/models/schema.js).
+> `description` and `flags` survive as **fallback** columns, not inert ones: vendor
+> buy stock and sell inventory both resolve
+> `item.tags?.description ?? item.description ?? ''`
+> ([vendor.js:118,266](../server/engine/vendor.js)), so the tag wins and the column
+> only shows through on a row that never got one. A few dual-read paths still
+> consult `flags` the same way. Author the `description` **tag**; don't write the
+> column.
 
 ---
 
@@ -51,11 +59,6 @@ the name exactly as it should read mid-sentence — **prose-case**:
 There is no "brand-ness" auto-detection — the casing you type *is* the decision.
 The same applies to `furniture.name`. Model/acronym tokens (`IX`, `SMG`, `ID`, `V3`,
 `MK2`, camelCase like `SynthCorp`) read fine capitalized and should keep their case.
-
-> Legacy names were bulk-normalized once by
-> `server/models/temp/normalize-name-case.js`, which lowercases ordinary words but
-> preserves ALL-CAPS / digit / camelCase tokens. It **can't** detect a plain
-> Title-Case brand word (`Nexis`) — those were left lowercased and hand-fixed.
 
 ---
 
@@ -79,9 +82,13 @@ tag model and the rationale behind it.
 | `range` | `{ min, max }` | two numbers |
 | `hot` | `{ amount, duration_seconds }` | two numbers |
 | `statmap` | `{ key: number, … }` | small JSON textarea |
+| `list` | array | small JSON textarea |
+| `number` | number | small JSON textarea |
 
-`scope` is `class` (on the item template, in `items.tags`) or `instance`
-(presence-only flag on a *carried* item, in `player_inventory.custom_data`).
+`scope` is engine storage: `class` (item template, `items.tags`), `instance`
+(presence-only flag on a *carried* item, `player_inventory.custom_data`),
+`furniture` (`furniture.flags`) or `zone` (`zones.flags`). Only `class` and
+`instance` concern items.
 
 ---
 
@@ -108,11 +115,11 @@ tag model and the rationale behind it.
 | `restore_hp` / `restore_hunger` / `restore_thirst` / `restore_radiation` / `restore_sanity` | int | Consumable stat changes (can be negative). |
 | `grants_credits` | int | Credits granted on use (credit chips). |
 | `heal_over_time` | hot | Gradual heal `{ amount, duration_seconds }`, ticks once/min, stacks. |
-| `use_message` | string | Flavour line shown in place of the default `You use X.` when a plain consumable is eaten/drunk. |
+| `use_message` | text | Flavour line shown in place of the default `You use X.` when a plain consumable is eaten/drunk. Also makes a non-consumable `use`-able. |
 | `well_fed` | flag | Grants the Well-Fed buff (faster HP regen), 10 min. |
 | `hydrating` | flag | Grants the Hydrated buff (faster radiation decay), 10 min. |
-| `laced_drug` | drug id | Consumable applies this drug on use (systemic effects only — meter/phases/OD, not its instant restores). The "drugged drink/food" path; alcohol uses `"drug_alcohol"`. See [systems-survival.md](systems-survival.md). |
-| `laced_potency` | number | Strength multiplier for `laced_drug` (default 1). Alcohol: scales `intox_per_dose` per drink. |
+| `laced_drug` | text (drug id) | Consumable applies this drug on use (systemic effects only — meter/phases/OD, not its instant restores). The "drugged drink/food" path; alcohol uses `"drug_alcohol"`. See [systems-survival.md](systems-survival.md). |
+| `laced_potency` | int | Strength multiplier for `laced_drug` (default 1). Alcohol: scales `intox_per_dose` per drink. |
 | `container` | int | Marks the item as a container; value is the max total weight it can hold. See **Containers** below. |
 
 This table covers the core item model; it is not the full catalog. The authoritative list is
@@ -189,10 +196,14 @@ container whose row id it references. Such rows are excluded from every
 location is determined by the container, so picking up or dropping a container
 only changes the container row's `player_id` and the contents travel with it.
 
-**Weight.** Carried weight is computed in `computeCarriedWeight()`
-(`server/engine/commands/inventory.js`): top-level items at full weight,
-contained items at 75%. There is no carry cap — it's surfaced in the
-`inventory` listing for information.
+**Weight.** Carried weight is computed in
+[`computeCarriedWeight()`](../server/engine/commands/inventory.js) (inventory.js:252):
+top-level items at full weight, contained items at 75%, cached on the live
+player for 5s. The cap is [`carryCapacity()`](../server/engine/commands/inventory.js)
+(inventory.js:237) — 14kg base + 1kg per Brawn — and it is enforced **at
+movement, not at pickup**: the `engine:encumbrance` move gate
+([movement.js:76](../server/engine/commands/movement.js)) blocks the step when
+you're over. You can hold more than you can walk with.
 
 **Commands.** `look in <container>` / `examine <container>` list contents and
 fill; `stow <item> [in <container>]` (alias `put`) moves an inventory item in

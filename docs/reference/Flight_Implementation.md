@@ -1,5 +1,11 @@
 # Flight Simulator Overhaul Implementation
 
+> **Author direction, not a spec — and largely shipped.** All eight milestones below are
+> built: every airframe flies the continuous cockpit model (`state.CONTINUOUS_TYPES`), the
+> separate takeoff/landing phases are gone, and the SVG yoke/throttle/flap-lever/collective/
+> pedals are live. See [docs/systems-flight.md](../systems-flight.md) for what exists and
+> [proposals/flight-overhaul.md](../proposals/flight-overhaul.md) for the implementation log.
+
 Before beginning, read all relevant project documentation (`.md` files)
 and inspect the existing flight plugin, cockpit panel, rendering
 pipeline, input handling, vehicle systems, state management, audio

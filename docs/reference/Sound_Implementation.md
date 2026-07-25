@@ -1,5 +1,12 @@
 # Flight Simulator Audio Design
 
+> **Author direction, not a spec — largely shipped** in
+> [`client/game/js/panels/engine-audio.js`](../../client/game/js/panels/engine-audio.js):
+> per-class FM engine beds (piston / turboshaft+rotor chop / turbofan / two-stroke /
+> degraded wreck) that track throttle and airspeed, a starter→catch→idle run-up arc,
+> a slipstream bed, `groundFx`/`gearFx`/`flapWhir`/`stallHorn`, and per-weather ambient
+> loops. Not built: surface-dependent rolling variants, icing/electrical texture.
+
 Extend the existing FM synthesis engine rather than relying on
 prerecorded samples.
 

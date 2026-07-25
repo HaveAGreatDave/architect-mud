@@ -35,7 +35,7 @@ Appear at the top, one per line, in any order. Recognized keys:
 | `@category general` | `meta.category` | defaults to `"general"` |
 | `@host npc_host_id` | `meta.host` | |
 | `@length 120` | `meta.length` | parsed as float (seconds) |
-| `@type live` | `meta.type` | lowercased; known values: `live`, `scripted`, `weather`, `sports`, `news`, `talkshow`; defaults to `"live"`. `weather`, `sports`, `news`, and `talkshow` switch the file to the line-library format — see [Weather Broadcasts](#weather-broadcasts-type-weather), [Sports Broadcasts](#sports-broadcasts-type-sports), [News Broadcasts](#news-broadcasts-type-news), and [Talk-Show Broadcasts](#talk-show-broadcasts-type-talkshow). |
+| `@type live` | `meta.type` | lowercased; known values: `live`, `scripted`, `weather`, `sports`, `news`, `talkshow`, `morning`; defaults to `"live"`. Everything but `live`/`scripted` switches the file to the line-library format — see [Weather](#weather-broadcasts-type-weather), [Sports](#sports-broadcasts-type-sports), [News](#news-broadcasts-type-news), [Talk-Show](#talk-show-broadcasts-type-talkshow), and [Morning Shows](#morning-shows-type-morning). |
 
 Any other `@key value` line is silently ignored at the top level (only `@actor`/`@alias` are meaningful elsewhere — see below).
 
@@ -52,11 +52,12 @@ Pre-scanned before the main pass, so actors/aliases can be referenced anywhere i
 
 - `@actor <entity_id>` — registers an exact NPC entity ID, added to `actorIds` (declaration order) and `npcIds`.
 - `@alias <entity_id> <LABEL>` (or `alias` without the `@`) — maps `LABEL` (case-insensitive, stored uppercase) to `entity_id`. `LABEL` may be multiple words (e.g. `Captain Nguyen`, `NARRATOR`) — everything after the entity id is the label. Used to resolve bare `SPEAKER:` lines later; an actor can have several aliases (e.g. a formal name plus `NARRATOR`), all resolving to the same entity id so only one NPC is ever created.
+- **Implicit aliases** — a `SPEAKER:` label with no explicit `@alias` still resolves to a declared `@actor` when it matches that actor's derived name: the humanized id (`npc_lucky_chen` → `LUCKY CHEN`), its first word (`LUCKY`), or its last word (`CHEN`). Only applied when exactly one declared actor owns the label; an ambiguous first name falls through to the `npc_<label>` fallback. This is what stops the importer minting a duplicate placeholder NPC for an already-declared actor.
 - Any other `::xxx` line ends the actors block.
 
 ## Structural Markers (`::`)
 
-- `::asset <id>` ... `::endasset` — collects raw block content as an ASCII asset: `{ id, name: id, type: 'ascii', content }`, pushed to `assets`.
+- `::asset <id>` ... `::endasset` — collects raw block content as a graphic asset: `{ id, name: id, type, content }`, pushed to `assets`. `type` is `'svg'` when the content starts with `<svg`, else `'ascii'`.
 - Any other line starting with `::` (e.g. `::actors`, `::endactors`, `::scene`) is consumed and skipped if not otherwise handled.
 
 ## Body Directives
@@ -72,14 +73,14 @@ Processed top to bottom, building a linked chain of VINE nodes (`node.next` poin
 | `TICKER` ... `TICKER_END` | `{ type: 'ticker', text }` | block content also pushed to `messages` |
 | `WAIT` or `WAIT <seconds>` | `{ type: 'wait', duration }` | bare `WAIT` defaults to `5` |
 | `ROOM <zone_id>` | no node; appends `zone_id` to `rooms` (deduped) | dependency declaration only |
-| `CAM <n> [label words...]` | `{ type: 'camera_cut', zone_id: '', label }` | `n` recorded in `cameras` (deduped, first-seen order); label is `"CAM n — rest"` |
+| `CAM <n> [label words...]` | `{ type: 'camera_cut', zone_id: '', label }` | `n` recorded in `cameras` (deduped, first-seen order); label is `"CAM — n — rest"` |
 | `OVERLAY` ... `OVERLAY_END` | `{ type: 'overlay', overlayType: 'text_card', text }` | bare form, no graphic id |
 | `OVERLAY <graphic_id>` ... (free text until a directive line or `OVERLAY_END`) | `{ type: 'overlay', graphic_id, text }` | text lines collected until another directive is recognized |
 | `LOWER_THIRD` ... `LOWER_THIRD_END` | `{ type: 'overlay', overlayType: 'lower_third', text, subtext, graphic_id: '' }` | first non-empty line = `text`, second = `subtext` |
 | `SHOT` ... `SHOT_END` | `{ type: 'say', text, style: 'narration' }` | narration (no NPC prefix); text also pushed to `messages`. Like `NARRATOR:`, on a live/host-acted channel it plays over the studio speakers, not from an NPC |
 | `CREDITS [seconds]` ... `END_CREDITS` | `{ type: 'credits', text, duration? }` | block content is the credits text; optional duration in seconds on the same line as `CREDITS` |
 | `NPC <npc_id>` | `{ type: 'npc_anchor', npc_id }` | only emitted if it changes the active speaker; sets `activeNpc` |
-| `SPEAKER:` (e.g. `JOHN:`, or a multi-word Title Case label like `Captain Nguyen:`) followed by a line of dialogue | `npc_anchor` (if speaker changed) + `{ type: 'say', text, style: 'raw' }` | label resolved via `::actors` aliases (uppercase match), else falls back to `npc_<label_lowercased_with_underscores>`; unresolved labels recorded in `_debug.unresolvedSpeakers`; dialogue text also pushed to `messages`. A second-or-later word in the label must be Title Case (like a surname) so a plain sentence ending in `:` isn't mistaken for a speaker line |
+| `SPEAKER:` (e.g. `JOHN:`, or a multi-word Title Case label like `Captain Nguyen:`) followed by a line of dialogue | `npc_anchor` (if speaker changed) + `{ type: 'say', text, style: 'raw' }` | label resolved via `::actors` aliases (uppercase match), then the implicit-alias match against declared `@actor`s, else falls back to `npc_<label_lowercased_with_underscores>`; unresolved labels recorded in `_debug.unresolvedSpeakers`; dialogue text also pushed to `messages`. A second-or-later word in the label must be Title Case (like a surname) so a plain sentence ending in `:` isn't mistaken for a speaker line |
 | `NARRATOR:` / `ANNOUNCER:` followed by a line | `{ type: 'say', text, style: 'narration' }` — **no** `npc_anchor` | Reserved labels for an **unseen off-screen announcer**, recognized in every broadcast type. No NPC is created (never added to `npcIds`, so no studio NPC spawns); on air the line plays on TV as a bare line and, on a live/host-acted channel, over the studio speakers (`The studio speakers announce, "…"`) with nobody on stage. An explicit `@alias <npc_id> NARRATOR` still wins and treats it as that actor, for back-compat. |
 | bare duration: `8`, `8s`, `1.5s` | `{ type: 'wait', duration }` | matches `^\d+(\.\d+)?s?$` |
 | `MUSIC` or `MUSIC <song>` ... `MUSIC_END` | `{ type: 'music', song, text: body }` (only if `song` or body non-empty) | `song` must match an `audio_songs.name` row to actually play; if no such song exists the node falls back to showing `body` as plain text (`style: 'raw'`) — see [systems-broadcast.md](systems-broadcast.md#music-cues) |
@@ -97,11 +98,11 @@ Several block collectors (e.g. `OVERLAY <id>`, `SPEAKER:` text) stop early if th
 
 ```
 @  ::  EVENT   TITLE   TICKER  WAIT  NPC   OVERLAY
-SHOT  SHOT_END  TICKER_END  OVERLAY_END  LOWER_THIRD_END  MUSIC_END  END  CAM   ROOM
+SHOT  SHOT_END  TICKER_END  OVERLAY_END  LOWER_THIRD_END  MUSIC_END  END  CAM   ROOM  LOWER_THIRD
 MUSIC  ENTER   ACTION  END_ACTION  ♪  TECH_DIFFICULTIES  CREDITS
 ```
 
-...or matches the speaker pattern `^[A-Za-z][A-Za-z0-9_]*:\s*$`, or is a bare duration (`^\d+(\.\d+)?s?$`).
+...or matches the speaker pattern `^([A-Za-z][A-Za-z0-9_]*(?:\s[A-Z][A-Za-z0-9_]*)*):\s*$`, or is a bare duration (`^\d+(\.\d+)?s?$`).
 
 ## Node Layout
 
@@ -133,6 +134,10 @@ The graph always starts with `{ type: 'start' }` as `bsm_0`. If the script produ
   }
 }
 ```
+
+The five line-library envelopes — `weatherScript`, `sportsScript`, `newsScript`, `talkshowScript`,
+`morningScript` — are **always** returned regardless of `@type`; the importer reads whichever one
+matches `meta.type`. Their shapes are documented in each type's section below.
 
 After import, the dev panel's broadcast UI resolves `rooms`/zone dependencies against real zone IDs (`_bcZoneRemap`) before the script can be saved — see the zone-picker flow in `broadcast.js`.
 
@@ -286,7 +291,7 @@ These carry the bulk of the report. Write several per type.
 
 **Humidity** — `humid.dry` (`<35`) · `humid.comfortable` (`35–65`) · `humid.humid` (`65–85`) · `humid.oppressive` (`>85` %)
 
-The runner only voices wind/humidity when they're worth a mention (e.g. wind ≥ `windy`, humidity in `dry`/`oppressive`); otherwise it stays quiet. Temperature is always voiced for today, optional for forecast days.
+The runner only voices wind/humidity when they're worth a mention — wind in `calm`/`windy`/`strong`/`gale` (`breezy` stays quiet), humidity in `dry`/`oppressive`. Temperature is voiced for today only, never for forecast days.
 
 ### 4. Severe-weather warnings — invoked when a day's `severity ≥ 0.45`
 
@@ -306,13 +311,9 @@ Keyed by lead time so the runner can say "tomorrow" vs "by the weekend":
 
 The runner compares day-0 to the week to pick one: `trend.warming` · `trend.cooling` · `trend.clearing` · `trend.deteriorating` · `trend.steady`.
 
-### 7. Ad-libs — optional character flavour, sprinkled between beats
-
-`adlib` (generic), or moods `adlib.grim` / `adlib.chipper`. Inserted between beats at low probability to keep the weatherman feeling like a person, not a readout. Purely optional.
-
 ## Tokens
 
-The runner substitutes `{token}` from the forecast day currently being described (per-day tokens) or from week aggregates (week tokens). Unknown tokens are stripped to empty and recorded in `_debug.unknownTokens`.
+The runner substitutes `{token}` from the forecast day currently being described (per-day tokens) or from week aggregates (week tokens). Unknown tokens are stripped to empty and logged once per assembly (`[broadcast] weather: unknown tokens`).
 
 **Per-day** (the day this line describes):
 
@@ -347,17 +348,17 @@ Each broadcast the runner builds this beat sequence, each beat a `say` node anch
 2. `today.lead`
 3. **Today:** `sky.<type>` → `temp.<band>` → `wind.<band>` (if notable) → `humid.<band>` (if notable) → `warn.<channel>` (if today is severe)
 4. `forecast.lead`
-5. **For each of days 1–6:** `ahead.<leadtime>` → `sky.<type>` → `temp.<band>` (optional) → `warn.<channel>` (if severe)
+5. **For each of days 1–6:** `ahead.<leadtime>` → `sky.<type>` → `warn.<channel>` (if severe)
 6. `trend.<arc>`
 7. `outro`
 
-Each beat becomes a `say` node anchored to `@host`, so lines render as `Weathercaster says, "…"` on-air and reach passive listeners as `[TV] "…"`. `adlib` pools are part of the format vocabulary; the current runner reserves them for future between-beat sprinkling and does not yet inject them. Auto-generated `overlay` graphic cards are likewise a future runner enhancement — for now the `.bsm` drives spoken lines only.
+Each beat becomes a `say` node anchored to `@host`, so lines render as `Weathercaster says, "…"` on-air and reach passive listeners as `[TV] "…"`. The chain has no explicit loop node — when it ends the walker restarts at `_start` on its own.
 
 ## Fallbacks
 
 The report degrades gracefully so a thin file still airs:
 - Missing framing pool (`intro`/`outro`/`*.lead`) → that beat is skipped.
-- Missing `sky.<type>` → a neutral built-in ("Conditions: {weather}, {temp}.") so no gap.
+- Missing `sky.<type>` → a neutral built-in (`Conditions right now: {weather}, {temp} degrees.` for today, `{day}: {weather}, around {temp} degrees.` for a forecast day) so no gap.
 - Missing `temp`/`wind`/`humid`/`warn`/`ahead`/`trend` pool → that garnish beat is skipped.
 
 **Minimum viable file:** `@type weather`, `@host`, an `intro`, an `outro`, and a `sky.*` pool for each weather type you expect to see. Everything else is enrichment.
@@ -370,11 +371,12 @@ For `@type weather`, `compileBsm(text)` ([bsm-compiler.js](../client/devpanel/js
 weatherScript: {
   pools: { [poolKey]: [line, line, ...] },   // from ::lines blocks
   host:  meta.host,                          // also force-added to npcIds so the importer places it
+  title: meta.titlecard || '',               // @titlecard graphic id
 }
 ```
 
 - The compiler special-cases `::lines <key>` … `::endlines` exactly like `::asset` (collect the block, split into non-empty lines, append to `pools[key]`; re-declared keys merge). Without this the pool body would fall through to the linear parser and be mis-read as stage directions.
-- **Import** ([broadcast.js](../client/devpanel/js/panels/broadcast.js) `_bcImportSave`): a weather file is saved with `playback_mode = 'weather'`, `loop = 1`, `override_duration = @length`, and its `weatherScript` stored in the new `media_broadcasts.weather_pools` JSONB column (`{ pools, host }`). The importer still creates/places the host NPC and a studio like any hosted broadcast.
+- **Import** ([broadcast.js](../client/devpanel/js/panels/broadcast.js) `_bcImportSave`): a weather file is saved with `playback_mode = 'weather'`, `loop = 1`, `override_duration = @length`, and its `weatherScript` stored in the `media_broadcasts.weather_pools` JSONB column (`{ pools, host, title }`). The importer still creates/places the host NPC and a studio like any hosted broadcast.
 - **Runner** ([plugins/broadcast/index.js](../plugins/broadcast/index.js)): when a playlist item has `playback_mode === 'weather'`, `getCurrentMessage` calls `getWeatherGraph(item)`, which reads the live forecast from `getEnvironmentState()`, maps values → bands, runs the assembly order (leading with a `title_card` if `@titlecard` is set), picks/​interpolates lines, and builds a normalised VINE graph via `assembleWeatherGraph`. The graph is cached on the item and re-rolled only when the forecast's lead day advances (the date is folded into the graph's `_broadcastId`, so the walker's blackboard resets and the report re-airs fresh for the new day). Downstream — `say` nodes, host anchoring, passive `[TV] "…"` leakage, off-air handling — reuses the existing broadcast walker. The one walker change: it treats a graph with `_requireHost` (which `assembleWeatherGraph` sets) exactly like a live channel — a `liveActed` flag drives presence gating and in-studio speech, so weather forecasts require the host on stage regardless of the channel's own type.
 - **Schema**: `ALTER TABLE media_broadcasts ADD COLUMN IF NOT EXISTS weather_pools JSONB;` in `SCHEMA_SQL`. Apply with `npm run db:schema` before the runner loads (it `SELECT`s the column in `loadChannelRuntimes`).
 
@@ -466,10 +468,6 @@ Trend's downhill — we shed {hiTemp} today for {loTemp} by week's end.
 It gets worse. {severeCount} severe days ahead, {worstDay} the worst of it.
 ::endlines
 
-::lines adlib.grim
-...not that any of us are going anywhere.
-::endlines
-
 ::lines outro
 That's the weather. It's still trying to kill you. Back to you in the studio.
 Sunny Calloway. Stay sealed.
@@ -484,7 +482,7 @@ At air time, on a day-0 blizzard with a cold snap midweek, the runner might asse
 
 # Sports Broadcasts (`@type sports`)
 
-A **sports** `.bsm` is the [weather](#weather-broadcasts-type-weather) format's sibling: a **line library** plus **team and player pools**, not a linear script. But where weather *reads* a live forecast, there is **no game in the world** — so the sports runner **simulates a whole game** each airing: it picks two teams, deals a lineup to each from the player pool, plays the sport out (for baseball: nine innings of randomized at-bats, tracking the score), and assembles a fresh play-by-play graph from the matching pools with `{tokens}` filled from the live game state. Same file, a different matchup and a **different final score every airing**.
+A **sports** `.bsm` is the [weather](#weather-broadcasts-type-weather) format's sibling: a **line library** plus **team and player pools**, not a linear script. But where weather *reads* a live forecast, there is **no game in the world** — so the sports runner **simulates a whole game** each airing: it takes the matchup the league's round-robin schedule assigns to the current game slot, deals a lineup to each side from the player pool, plays the sport out (for baseball: nine innings of randomized at-bats, tracking the score), and assembles a fresh play-by-play graph from the matching pools with `{tokens}` filled from the live game state. Same file, a different matchup and a **different final score every slot**.
 
 The authored `.bsm` holds the *voice* (the announcer's tone, the team/player flavour) and the *event language* (how a home run, a strikeout, a walk-off is called). The runner owns the *game* (who plays, what happens, what the score is). The author never hardcodes "team A wins 5–3" — they write home-run lines and the sim decides when to use them.
 
@@ -496,7 +494,7 @@ Baseball is the first (and currently only) implemented sport; `@sport` is the ex
 |---|---|---|---|
 | Body | ordered directives → linked chain | condition-keyed line pools | event-keyed line pools + team/player pools |
 | State source | none | live 7-day forecast (read) | a simulated game (generated) |
-| Repeatable | same each time | re-rolls per forecast day | **re-rolls a new game each loop cycle** |
+| Repeatable | same each time | re-rolls per forecast day | **a new game every league slot (3 in-game hours)** |
 | Acted live | live channels only | yes (`_requireHost`, host must be in-studio) | **no** — announcer is a name, no NPC, no presence gating |
 | Compiler output | `broadcastGraph` chain | `weatherScript` | `sportsScript` |
 
@@ -531,7 +529,7 @@ Rodriguez
 ::endplayers
 ```
 
-- `::teams` — one team name per line. The runner picks **two** at random per airing (home + away). Surrounding quotes are stripped, so a name can be quoted if you like.
+- `::teams` — one team name per line. The league runs a **round-robin** over the whole pool: each game slot gets a deterministic pairing (daily team order + a rolling window into the schedule; home/away flips on a per-slot coin; an odd roster is padded with a BYE that gets skipped). Surrounding quotes are stripped, so a name can be quoted if you like.
 - `::players` — one player name per line. The runner deals **nine** to each team's lineup plus a pitcher, per airing. Give it plenty (20+) so lineups vary. If the pool is thin, a built-in default set backs it up.
 - Blank lines and `#` comments inside either block are ignored.
 
@@ -600,15 +598,17 @@ The client renderer (`_applyScorebug` in [tv.js](../client/game/js/panels/tv.js)
 - `compileBsm(text)` returns the standard envelope **plus** a `sportsScript` field for `@type sports`, and leaves `broadcastGraph` minimal (just the `start` node — the real graph is generated per airing):
   ```js
   sportsScript: {
-    sport: 'baseball',          // @sport
-    announcer: 'Chip Vega',     // @announcer — a name, NOT added to npcIds
-    teams:   [ '…', … ],        // ::teams block
-    players: [ '…', … ],        // ::players block
-    pools:   { [key]: [line,…] } // ::lines blocks
+    sport: 'baseball',           // @sport
+    announcer: 'Chip Vega',      // @announcer — a name, NOT added to npcIds
+    teams:   [ '…', … ],         // ::teams block
+    players: [ '…', … ],         // ::players block
+    pools:   { [key]: [line,…] },// ::lines blocks
+    title:   '',                 // @titlecard graphic id
+    airSlots: [6],               // @airtime → in-game 3h block indices, or null for continuous
   }
   ```
 - **Import** ([broadcast.js](../client/devpanel/js/panels/broadcast.js) `_bcImportSave`): saved with `playback_mode = 'sports'`, `loop = 1`, `override_duration = @length`, `sports_pools` = the `sportsScript` (new `media_broadcasts.sports_pools` JSONB column). No studio/host is created — asset-only.
-- **Runner** ([plugins/broadcast/index.js](../plugins/broadcast/index.js)): a `sports` playlist item calls `getSportsGraph(item, cycle)`, which caches the assembled game and re-rolls when the loop cycle advances. `assembleSportsGraph` runs `sportsSimGame` (the baseball simulator) and emits a `say`-node chain via `sportsPick`/`sportsFill`. The graph does **not** set `_requireHost`, so no presence gating — it plays on any channel. Downstream (`say` nodes, dedup, passive `[TV] "…"` leakage, off-air) reuses the existing broadcast walker unchanged.
+- **Runner** ([plugins/broadcast/index.js](../plugins/broadcast/index.js)): a `sports` playlist item that is `sportsAiring` calls `getSportsGraph(sportsScript, sportsSlotIndex(), worldSeriesOverride())`, which caches the assembled game and re-rolls when the global game slot advances. `assembleSportsGraph` runs `sportsSimGame` (the baseball simulator) and emits a `say`-node chain via `sportsPick`/`sportsFill`. The graph does **not** set `_requireHost`, so no presence gating — it plays on any channel. Downstream (`say` nodes, dedup, passive `[TV] "…"` leakage, off-air) reuses the existing broadcast walker unchanged.
 - **Schema**: `ALTER TABLE media_broadcasts ADD COLUMN IF NOT EXISTS sports_pools JSONB;` in `SCHEMA_SQL`. Apply with `npm run db:schema` before the runner loads (it `SELECT`s the column in `loadChannelRuntimes`).
 
 ## Worked example
@@ -646,6 +646,7 @@ All the standard headers (`@broadcast`, `@channel`, `@category`, `@length`) work
 | `@reporter "Ronnie Vasquez"` | A field reporter — a display **name**. **Repeatable**; the runner rotates through them for `{reporter}` (live-on-scene segments). Not an NPC. |
 | `@announcer "The Voice of…"` | Optional station/voiceover name, available as `{announcer}` (cold opens, stings, sign-off). Not an NPC. |
 | `@titlecard <graphic_id>` | Shows this graphic as a `title_card` before the bulletin each airing. Pair it with a `::asset <graphic_id>` block (ASCII or `<svg>…</svg>`). |
+| `@theme <song>` | Intro sting — an `audio_songs` or `audio_samples` name (quote names with spaces). With a `@titlecard` it rides the card (song starts as the card appears, card holds for the theme's length); without one it plays as a standalone `music` node. |
 
 ## Line pools (`::lines <key>`)
 
@@ -686,6 +687,7 @@ Each airing: `title_card` (if `@titlecard`) → `open` → `anchor.intro` → **
     announcer: 'The Voice of Raptor',                 // @announcer
     pools:     { [key]: [line, …] },                  // ::lines blocks
     title:     'rnn_title',                           // @titlecard
+    theme:     'rnn_sting',                           // @theme
   }
   ```
 - **Import** ([broadcast.js](../client/devpanel/js/panels/broadcast.js) `_bcImportSave`): saved with `playback_mode = 'news'`, `loop = 1`, `override_duration = @length`, `news_pools` = the `newsScript` (new `media_broadcasts.news_pools` JSONB column). No studio/host is created — asset-only.

@@ -1,8 +1,14 @@
 # Flight Simulator Overhaul — Blueprint
 
-> Status: **Proposed / not built.** This is the locked blueprint agreed before Phase 1.
-> It captures the architecture, the resolved decisions, the phased plan, the shared
-> state contract, and the risks. Read this for intent.
+> Status: **BUILT** (stamped 2026-07-24 by doc audit; was "Proposed / not built"). All four
+> phases landed: the continuous energy sim (`client/game/js/panels/flight-model.js`) with
+> server reconcile (`plugins/flight/state.js:923-952`), the biome/render layer
+> (`plugins/flight/biomes.js`, [reference/world-rendering.md](../reference/world-rendering.md)),
+> the per-class controls incl. heli cyclic (`client/game/js/panels/cockpit.js:2117,2211`), and
+> the layered engine audio (`client/game/js/panels/engine-audio.js`). One follow-on remains
+> open — see [flight-unified-model.md](flight-unified-model.md) (Ship 3, vocab tidy). Read this
+> for intent and the resolved decisions; read [docs/systems-flight.md](../systems-flight.md)
+> for what exists.
 >
 > Companion sources:
 > - [docs/systems-flight.md](../systems-flight.md) — the flight system **as currently built** (Phases A–D).

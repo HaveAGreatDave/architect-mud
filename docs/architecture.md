@@ -20,9 +20,9 @@
 
 ### Why this stack, in practice
 
-The original plan considered SQLite for local dev and a VPS for production. That changed early: the build environment has no local network access, so any local-only database needed to also work over the network from the first line of code, which meant going straight to Postgres rather than maintaining two schemas. **Neon** provides that managed Postgres for both dev and production. Render was chosen over Vercel/Netlify/Cloudflare (serverless — no persistent WebSocket support) and over Railway (no permanent free tier) specifically because it supports long-lived WebSocket connections on its free plan.
+Postgres (not SQLite) for dev as well as prod, so there is only ever one schema. **Neon** provides that managed Postgres for both. Render was chosen over Vercel/Netlify/Cloudflare (serverless — no persistent WebSocket support) and over Railway (no permanent free tier) specifically because it supports long-lived WebSocket connections on its free plan.
 
-No ORM was used. The schema is small enough that hand-written SQL in `schema.js` is easier to read and debug than a generated layer, and every query in the codebase is a plain parameterized `pg` call through a single `query()` helper in `models/db.js`.
+No ORM. Every query in the codebase is a plain parameterized `pg` call through a single `query()` helper in `models/db.js`.
 
 ### Schema and content lifecycle (no startup migrations)
 
@@ -73,8 +73,8 @@ The server **does not** touch the schema or world content on boot. The two are m
 │   │   ├── specializedActions.js  # Verb-first tag-gated action registry (registerSpecializedAction / fireSpecializedAction)
 │   │   ├── ai-behaviour.js   # VINE behaviour tree runtime (tickEntityAI, initBlackboard)
 │   │   ├── pathfinding.js    # BFS zone pathfinding (findPath, getZonesInRadius)
-│   │   ├── locks.js          # Lock type registry (registerLockType, resolveLockAuth)
-│   │   ├── lockAuthHandlers.js  # Auth handlers wired by the doors plugin
+│   │   ├── locks.js          # Lock type registry (registerLockType, resolveLockAuth) — types live in plugins
+│   │   ├── scheduler.js      # Named-cadence interval registry; idle-gates every callback by default
 │   │   ├── channels.js       # Radio channels: definitions, send, history (CHANNEL_DEFS)
 │   │   ├── effects.js        # Timed status-effect registry (registerStatusEffect, applyEffect, tickEffects)
 │   │   ├── bodily.js         # Substrate: stains + digestion loads (pressure sim lives in plugins/bodily)
@@ -99,12 +99,12 @@ The server **does not** touch the schema or world content on boot. The two are m
 │       ├── environment.routes.js  # REST endpoints for time/weather/power dev tools, mounted from routes.js
 │       └── worldvalidator.routes.js  # REST endpoint that fires the zone-validator plugin's hooks
 ├── client/
-│   ├── game/index.html       # Player client — single file, no framework, no build step
-│   ├── devpanel/index.html   # Dev panel — same approach
+│   ├── game/                 # Player client — index.html + styles.css + js/ modules, no framework, no build step
+│   ├── devpanel/             # Dev panel — same approach; see docs/devpanel-js.md for the js/ file reference
 │   └── shared/
-│       ├── tagCatalog.js     # Single source of truth for item tag definitions — read by both client and server
+│       ├── tagCatalog.js     # Single source of truth for item AND zone tag definitions — read by both client and server
 │       └── tagSupertags.js   # Supertag registry (TAG_SUPERTAGS) — dual-mode file like tagCatalog.js
-├── plugins/                   # One folder per plugin (~80 as of 2026-07) — see docs/plugins.md
+├── plugins/                   # One folder per plugin (97 as of 2026-07) — see docs/plugins.md
 │                              # for the authoritative catalogue; don't duplicate it here.
 ├── content/                   # World content as one JSON file per entity — the CODEX pipeline
 │                              # (git is source of truth for prod content); see docs/content-pipeline.md
@@ -112,7 +112,7 @@ The server **does not** touch the schema or world content on boot. The two are m
 └── render.yaml                # Render free-plan service config
 ```
 
-World content is edited through the dev panel and versioned in git under `content/` (one JSON file per entity — the CODEX pipeline, [content-pipeline.md](content-pipeline.md)); a push to `main` deploys it. (Historically content lived as JS literals in a `seed.js`, then as a dev-panel `.sql` export; both were retired in favor of the git pipeline.)
+World content is edited through the dev panel and versioned in git under `content/` (one JSON file per entity — the CODEX pipeline, [content-pipeline.md](content-pipeline.md)); a push to `main` deploys it.
 
 ---
 
@@ -128,7 +128,7 @@ Single-file HTML/CSS/JS, no build step, no framework. Panels:
 Communicates exclusively via WebSocket for gameplay (`wss://` when served over HTTPS — the protocol is detected from `location.protocol` rather than hardcoded, since a hardcoded `ws://` is silently blocked by browsers on an HTTPS page). Registration goes through a small REST endpoint before the WebSocket auth handshake.
 
 ### 2. Dev Panel (`/client/devpanel/index.html`)
-The world-building interface. Accessible only to accounts with `role: dev`/`admin`. REST-only (no WebSocket) — every save/delete goes through `api/routes.js` and triggers an in-memory hot-reload via `world.reloadZone()` or equivalent. Every API call is wrapped with proper error handling: network failures, non-2xx statuses, and unreadable responses all surface as a toast instead of failing silently.
+The world-building interface. Accessible to accounts with `role: dev`/`admin`/`builder`/`designer` (`api/routes.js:132`). REST-only (no WebSocket) — every save/delete goes through `api/routes.js` and triggers an in-memory hot-reload via `world.reloadZone()` or equivalent. Every API call is wrapped with proper error handling: network failures, non-2xx statuses, and unreadable responses all surface as a toast instead of failing silently.
 
 ---
 
@@ -178,16 +178,17 @@ The world-building interface. Accessible only to accounts with `role: dev`/`admi
 - Read-only, polls the REST API
 
 #### ⚙ Settings
-- High-contrast theme toggle, log out
-- The dev panel previously had no settings screen at all; this is new, separate from the player client's own settings modal
+- High-contrast theme toggle, log out (separate from the player client's own settings modal)
+
+This list is the structural core, not the full tab inventory — the panel has since grown
+Maps/Terrain, World Editor, Power, Flight, Broadcast, Audio, Quests, Scavenging, Validator
+and more. [devpanel-js.md](devpanel-js.md) is the authoritative per-file reference.
 
 ### Retired
-- **Standalone Apartments tab** — removed. Apartment-specific fields (owner, lock state/difficulty, rent) moved into the Zone Editor's Apartment Details sub-section, and the old 4-unit batch-builder UI was dropped as redundant with adding rooms one at a time and checking the apartment flag. The underlying `apiBuildApartmentBlock` route still exists server-side but isn't surfaced in the UI.
+- **Standalone Apartments tab** — removed. Apartment-specific fields (owner, lock state/difficulty, rent) moved into the Zone Editor's Apartment Details sub-section. The underlying `apiBuildApartmentBlock` route still exists server-side (`api/routes.js:359,2866`) but isn't surfaced in the UI.
 
 ### Not built (originally planned, deprioritized)
-- Quest editor in the dev panel UI — quests are authored via the REST API (`/quests` CRUD, owned by the quests plugin) but there's no visual editor tab in `devpanel/index.html` yet
 - Loot table editor as a separate named-table concept — loot tables are inlined per-enemy/per-item instead
-- Ghost mode — no invisible/invulnerable admin walk-through mode
 - Multi-builder conflict detection / presence indicators — single-admin assumption in practice so far
 
 ---
@@ -235,7 +236,7 @@ next to something hostile.
 
 ## Database Schema (Core Tables)
 
-This is an illustrative core subset — the full schema (~80 tables) is `SCHEMA_SQL` in
+This is an illustrative core subset — the full schema (113 tables) is `SCHEMA_SQL` in
 `server/models/schema.js`, and the content/runtime/player classification of every table lives in
 `server/models/content-registry.js`.
 
@@ -253,7 +254,7 @@ orgs              -- NPC ideologies (is_npc=1) + player orgs (the old `factions`
 player_ideology_rep -- player_id, ideology_id (references orgs.id), reputation score
 loot_tables       -- named, reusable weighted-drop tables (lightly used; most loot is inlined)
 world_events      -- log of significant events
-player_corpses    -- lootable death drops, expire after 10 minutes
+player_corpses    -- lootable death drops, expire after 60 minutes (gameLoop.js:421)
 apartments        -- zone_id (PK), owner_id, owner_handle, is_locked, lock_difficulty, rent_cost
 
 -- Environment system (schema in server/models/schema.js)
@@ -275,13 +276,11 @@ Ground-dropped items reuse the `player_inventory` table with a synthetic `player
 
 ---
 
----
-
 ## Environment System (Time, Weather, Power & Lighting)
 
-`environment.js` owns a second in-memory cache (`state`), parallel to and independent of `world.js`'s entity cache. It's populated and refreshed on its own schedule rather than through the main game loop.
+`environment.js` owns a second in-memory cache (`state`), parallel to and independent of `world.js`'s entity cache.
 
-**Time & weather.** A single-row game clock (`world_clock`) advances in-game minutes, tracks day/night phase (dawn/day/dusk/night) and season, and drives a 7-day deterministic seeded weather forecast (owned by the **weather** plugin — see [plugins.md](plugins.md)). Five ticks run independently of `gameLoop.js`'s own timers: a **1-minute** tick (advance the game clock + step indoor HVAC temperatures + broadcast), a **30-second** tick (advect the moving weather field, push per-zone weather, reconcile streetlights for occupied zones), a **5-minute** tick (brownout rotation, only while a zone is overloaded), a **30-minute** tick (ambient-light recalculation, full streetlight sweep), and a **24-hour** tick (weather advancement, power re-simulation).
+**Time & weather.** A single-row game clock (`world_clock`) advances in-game minutes, tracks day/night phase (dawn/day/dusk/night) and season, and drives a 7-day deterministic seeded weather forecast (owned by the **weather** plugin — see [plugins.md](plugins.md)). Three cadences register on the shared `scheduler.js` alongside `gameLoop.js`'s: a **1-minute** tick (advance the game clock + step indoor HVAC temperatures + broadcast), a **30-second** tick (advect the moving weather field, push per-zone weather, reconcile streetlights for occupied zones), and a **5-minute** tick (brownout rotation, only while a zone is overloaded or a storm is faulting the grid). The **30-minute** (ambient-light recalculation, full streetlight sweep) and **24-hour** (weather advancement, power re-simulation) ticks are *not* real cadences — the 1-minute driver fires them on **game**-minute boundaries so they track the game-speed knob (`environment.js:422-430,841-871`).
 
 **Power grid.** Generators come in three types: `city_plant` and `junction_box` are permanent (no fuel, never run dry), `player` is fuel-consuming (portable generators). Distribution is hierarchical — city_plant → junction_box → zone (`simulatePowerNetwork` runs it in phases):
 - A `city_plant` feeds every outdoor zone plus the junction boxes wired to it (via `city_generator_id`).
@@ -294,7 +293,7 @@ Each zone in the network gets a `power_zones` row and a `lighting_states` row. S
 - **Overhead / lamp** — indoor, player-switchable via the `switch`/`flip` command, blocked if the room has no power record at all.
 - **Streetlight** — outdoor, *not* player-switchable; reconciled **per-zone against each zone's local ambient visibility** (time-of-day light attenuated by that zone's local weather cell, `vis < VISIBILITY_DIM`), so a storm cell rolling over one block lights it while clear blocks stay dark. Swept on the 30-minute tick and re-reconciled every 30 seconds for occupied zones; also re-synced on every server boot.
 
-**Visibility.** `getZoneVisibility(zoneId)` combines ambient light (time of day) with artificial light (power status + lit fixture count) and weather/fog factors into a `clear`/`dim`/`dark` category, appended as a flavor line to every room description. This is deliberately informational only — darkness doesn't currently hide exits, items, or NPCs; that's flagged as a possible future extension, not something this pass built.
+**Visibility.** `getZoneVisibility(zoneId)` combines ambient light (time of day) with artificial light (power status + lit fixture count) and weather/fog factors into a `clear`/`dim`/`dark` category, appended as a flavor line to every room description. Deliberately informational only — darkness does not hide exits, items, or NPCs.
 
 **Dev tools.** `environment.routes.js` exposes time/weather overrides, forced ticks, generator install/remove, and load/failure simulation, all gated to the same `dev`/`admin`/`builder`/`designer` roles as the rest of the dev panel.
 
@@ -326,8 +325,7 @@ per-field **dirty flag** and a low-frequency **batched flush** persists every di
 in **one** `UPDATE … FROM (VALUES …)` round trip. This decouples DB round-trip *count* from
 player count × action-rate on exactly the paths that scale worst — a busy zone of 200
 players is the same handful of writes/interval as a quiet one (the payload grows; the
-round-trip count doesn't). It is the write-side mirror of the [Read Tiers](#read-tiers-where-data-lives-at-runtime)
-work from the same 2026-07 movement-lag audit.
+round-trip count doesn't). It is the write-side mirror of the [Read Tiers](#read-tiers-where-data-lives-at-runtime).
 
 As built (all in `server/engine/`):
 
@@ -377,11 +375,11 @@ kills stay durable write-through, so none of that carries crash exposure.
 ## Read Tiers (Where Data Lives at Runtime)
 
 The mirror of Persistence Tiers, for the read side. Prod Postgres is **remote** (Neon), so every
-`query()` is a pool checkout plus a network round trip — tens of milliseconds each. The 2026-07
-movement-lag audit found the latency problem was never query cost (indexing is thorough) but
-**round-trip count**: hot paths chaining single-row reads serially, and background ticks holding
-pool slots the moment a player command needed one. Before a new feature reads anything, decide
-which tier the value lives in — same discipline as deciding a write's persistence tier:
+`query()` is a pool checkout plus a network round trip — tens of milliseconds each. The latency
+problem is never query cost (indexing is thorough) but **round-trip count**: hot paths chaining
+single-row reads serially, and background ticks holding pool slots the moment a player command
+needs one. Before a new feature reads anything, decide which tier the value lives in — same
+discipline as deciding a write's persistence tier:
 
 | Tier | What lives here | Correctness contract | As built |
 |---|---|---|---|
@@ -395,24 +393,21 @@ which tier the value lives in — same discipline as deciding a write's persiste
 grep *every* `INSERT/UPDATE/DELETE` against it. If writers are scattered and don't (or can't)
 maintain the cache, either build the write funnel first or stay on "query fresh" — a stale cache
 that misrenders lights or sells from a phantom shelf is strictly worse than a round trip. This is
-the same bug class as [the source-of-truth audit](audits/source-of-truth-audit.md). **`furniture`
-and `npcs` both used to fail this test** and were the two tables deliberately left uncached; both
-were funneled in 2026-07 and are now boot-loaded Maps:
+the same bug class as [the source-of-truth audit](audits/source-of-truth-audit.md). `furniture` and
+`npcs` are the two tables that had to earn their funnel before they could be cached; both are now
+boot-loaded Maps:
 
 - `furniture` — ~40 scattered writers funneled through `insertFurniture`/`updateFurniture`/
-  `deleteFurniture` in world.js, which is what let describeZone's per-move furniture read move
-  onto the `world.furniture` Map (indexed by zone, so a room render is a Set lookup, not a scan).
-  **Bulk writers (the environment.js light sweeps) hand their SQL to `updateFurnitureWhere` /
-  `deleteFurnitureWhere`**, which append `RETURNING` and re-cache exactly the rows Postgres says
-  it touched — so the predicate and any `SET` transform live *once*, in the SQL. The earlier
-  design had each caller hand-write a JS mirror of its own `WHERE` clause (and re-implement
-  `COALESCE(light_on_intended, light_on)` as `f.light_on_intended ?? f.light_on`); that is a
-  second source of truth for the predicate, and drift between the two silently stales the cache —
-  precisely the bug the funnel exists to stop.
+  `deleteFurniture` (`world.js:594,605,616`), which is what let describeZone's per-move furniture
+  read move onto the `world.furniture` Map (indexed by zone, so a room render is a Set lookup, not
+  a scan). **Bulk writers (the environment.js light sweeps) hand their SQL to `updateFurnitureWhere`
+  / `deleteFurnitureWhere`** (`world.js:628,633`), which append `RETURNING` and re-cache exactly the
+  rows Postgres says it touched. Never hand-write a JS mirror of a `WHERE` clause or a `SET`
+  transform to re-cache yourself — that's a second source of truth for the predicate, and drift
+  between the two silently stales the cache.
 - `npcs` — every writer (vendor credits/stock, AI safe runs, hp saves, evictions, broadcast
-  staffing, poker bankrolls) funneled through `updateNpc`/`syncNpc`; SQL-side increments inside a
-  transaction use `RETURNING` + `syncNpc`. That let the dialogue/shop handlers stop issuing a
-  fresh `SELECT * FROM npcs` per click.
+  staffing, poker bankrolls) funneled through `updateNpc`/`syncNpc` (`world.js:422,430`); SQL-side
+  increments inside a transaction use `RETURNING` + `syncNpc`.
 
 Any new writer to either table MUST use its funnel — a raw `query('UPDATE furniture …')` now
 silently desyncs room descriptions, and a raw `UPDATE npcs` desyncs shop shelves. Every content
@@ -463,7 +458,7 @@ Rules of thumb when building features:
 
 These are real bugs hit during deployment, kept here so they don't get relearned:
 
-- **`pg.Pool` needs `DATABASE_URL` actually loaded into `process.env`.** Node does not read `.env` files on its own. `db.js` imports `'dotenv/config'` at the very top specifically to fix this — removing that import silently breaks local development (you'll see `ECONNREFUSED ::1:5432` / `127.0.0.1:5432`, i.e. it's trying to connect to a local Postgres that doesn't exist, instead of the configured DB).
+- **`pg.Pool` needs `DATABASE_URL` actually loaded into `process.env`.** Node does not read `.env` files on its own, and dotenv's default lookup only checks the *current working directory* — which a git worktree never has, since `.env` is git-ignored and worktrees get tracked files only. `db.js:12-23` walks up from cwd to the nearest `.env` and loads that. Break this and local dev fails with `ECONNREFUSED ::1:5432` / `127.0.0.1:5432` — pg falling back to a local Postgres that doesn't exist.
 - **The content pipeline requires Neon's direct/unpooled endpoint**, not the pooled connection string. Point the importer at the direct endpoint; the runtime server can use either.
 - **A boolean sent to an INTEGER column crashes `pg`, not just that query.** Postgres columns like `pvp_enabled`/`is_safe_zone`/`is_locked` are `INTEGER` (0/1), but JS naturally sends `true`/`false`. Every write path that accepts a boolean from client input coerces it explicitly (`value ? 1 : 0`) rather than trusting the caller.
 - **An uncaught error in one request handler can take down the entire process**, not just fail that one request — Node doesn't isolate requests from each other the way a forked-process server would. Every database-writing route handler is wrapped in try/catch, and `index.js` also registers `process.on('uncaughtException'/'unhandledRejection')` as a last-resort net so an unforeseen bug logs instead of crashing the game for every connected player.
@@ -477,7 +472,7 @@ These are real bugs hit during deployment, kept here so they don't get relearned
 
 ## Plugin System
 
-The loader itself (`plugins.js`) is a file-drop manifest + `index.js` exporting `hooks`, `commands`, and optionally `routeHandler`. Plugins can also register Actions, specialized actions, input matchers, and Event subscriptions imperatively in their `index.js`. **~80 plugins exist — the authoritative catalogue is [plugins.md](plugins.md); it is deliberately not duplicated here.**
+The loader itself (`plugins.js`) is a file-drop manifest + `index.js` exporting `hooks`, `commands`, and optionally `routeHandler`/`specializedActions`. Plugins can also register Actions, input matchers, and Event subscriptions imperatively in their `index.js`. **97 plugins exist — the authoritative catalogue is [plugins.md](plugins.md); it is deliberately not duplicated here.**
 
 ```javascript
 // plugin.json (quests as example of richer manifest)
@@ -503,22 +498,9 @@ export const routeHandler = (path, method, body, auth) => { /* dev CRUD */ };
 // Events subscribed at module load via on('enemy.killed', handler)
 ```
 
-| Hook | Fires When |
-|---|---|
-| `tick.minute` | Every 60 seconds — receives `{ broadcast }` |
-| `player.enterZone` | Player moves into a zone |
-| `player.death` | Player dies |
-| `combat.hit` | An attack lands |
-| `zone.describeRoom` | Room description is generated — return value appended to the description text |
-| `zone.describeAmbient` | Periodic ambient tick (45s) for occupied zones — return value broadcast as ambient flavor |
-| `zone.create` / `zone.update` / `zone.delete` | Zone lifecycle events from the dev panel API |
-| `environment.init` | Fired once at server boot after the clock is initialized — receives `{ setWeatherState, setCurrentPrecip, climateProfile, registerWeatherField, registerWeatherFieldSnapshot, registerWeatherFieldAdvance }` |
-| `environment.advanceWeather` | Fired at the start of each 24h tick BEFORE power simulation — receives `{ setWeatherState, rollAndSetCurrentPrecip, getHUDPayload, broadcast, currentForecast, currentDate, climateProfile }` |
-| `environment.tick30m` / `environment.tick24h` | Environment system's own ticks (ambient light/street lights; full power simulation) |
-| `environment.weatherChange` / `environment.sunrise` / `environment.sunset` | Fired from inside the environment ticks above |
-| `worldValidator.runFull` / `worldValidator.runZone` | On-demand only — fired by a dev-panel button via `worldvalidator.routes.js`, not on a tick |
+**The hook reference — every hook the engine fires, its firing site, args and whether its return is used — lives in [server.md → Hook reference](server.md#hook-reference).** Not duplicated here.
 
-**Hooks can be called into, not just reacted to.** `fireHook`'s "last non-undefined return wins" behavior means a hook isn't only a notification — a route handler can `fireHook('worldValidator.runFull')` and use the plugin's return value directly as the HTTP response. This is how the zone-validator's dev-panel button works end to end with zero changes to `plugins.js` itself, and it's worth calling out explicitly here since nothing previously documented that this was possible.
+**Hooks can be called into, not just reacted to.** `fireHook`'s "last non-undefined return wins" behavior means a hook isn't only a notification — a route handler can `fireHook('worldValidator.runFull')` and use the plugin's return value directly as the HTTP response. That is how the zone-validator's dev-panel button works end to end with zero changes to `plugins.js`.
 
 Plugins load at server start by scanning `/plugins/*/plugin.json`. There is no in-panel plugin manager UI yet — enabling/disabling is still done by adding/removing the folder and restarting. Plugins own player-typed commands (a `commands` export + `plugin.json` declaration; plugin commands win dispatch over engine builtins), dev-panel routes (`routeHandler` + `routePrefix`), specialized actions, and input matchers. See [reference/plugin-architecture-analysis.md](reference/plugin-architecture-analysis.md) for the historical extraction review and [plugin-standard.md](plugin-standard.md) for the current plugin contract.
 
@@ -559,6 +541,5 @@ Render free Web Service, not a VPS:
 - Should the in-memory world cache eventually move to Redis if multiple server instances are ever needed? (Not a problem yet — Render free tier is a single instance.)
 - Apartment storage (a per-unit inventory) is a natural next step but not built — currently apartments only gate sleep and provide a locked room, no item storage.
 - Rate limiting strategy for the WebSocket server under real concurrent load has not been tested past a handful of simultaneous connections.
-- `gameLoop.js` and `environment.js` run independent `setInterval` schedulers against the same DB pool with nothing coordinating them — works today at this scale, but a unified scheduler is the prerequisite for most of the plugin-extraction work in `docs/reference/plugin-architecture-analysis.md`.
 - No dev-panel-UI-registration API exists yet — a new gameplay system that wants its own editor tab still requires editing `devpanel/index.html` directly.
 - Should darkness/unpowered visibility ever gate gameplay (hidden exits, items, NPCs) beyond the current flavor-text-only treatment? Deliberately deferred when the power/lighting system was built.

@@ -45,6 +45,10 @@ are *reusable prompts*; these are the *results* of a sweep):
   (whole subsystems — broadcast, audio, flight, surveillance — silently absent from the seed) and
   authored-vs-read JSON shape mismatches (dialogue params, drug overdose lethality, mutation stat
   keys). Findings only, most not yet fixed; FK-ordering hazards flagged.
+- [findings-2026-07-docs.md](findings-2026-07-docs.md) — doc correctness & concision sweep
+  ([prompt](doc-correctness-concision-audit.md)), batched by doc. Every verdict carries a
+  `file:line`. Batch 1 fixed the dispatch/registry contract docs; batch 2 retired two
+  point-in-time docs and found the still-live forgeable admin token.
 
 ## How to use one
 

@@ -44,7 +44,7 @@ The Architect is not evil. It is not good. It is indifferent in the way that phy
 
 The mystery of *what the Architect actually wants* is the game's deepest narrative thread.
 
-**A small, concrete example of this in the world:** Coldwater Power Station, on the city's western edge, has kept the streetlights on since before The Handoff and shows no sign of stopping — no fuel deliveries, no maintenance crew, no explanation. Nobody asks why anymore. It's the kind of detail the game should keep doing: not a quest, not a mystery to "solve," just infrastructure that quietly outlived the reason it was built, still humming.
+**A small, concrete example of this in the world:** the Coldwater Power Plant has kept the streetlights on since before The Handoff and shows no sign of stopping — no fuel deliveries, no maintenance crew, no explanation. Nobody asks why anymore. It's the kind of detail the game should keep doing: not a quest, not a mystery to "solve," just infrastructure that quietly outlived the reason it was built, still humming.
 
 ---
 
@@ -80,6 +80,12 @@ Pop culture and nostalgia rot in the wasteland. Brand logos on crumbling buildin
 
 ## Factions (Seed Concepts)
 
+> **Superseded as mechanics, kept as texture.** None of the five below ship as an org. They
+> were reworked into the **ideologies** — nine `ideology_*` orgs on a stance axis + a categorical
+> path ([systems-ideologies.md](systems-ideologies.md), [design.md](design.md)). The names below
+> survive only in world flavour (a Custodian Enforcer is an enemy; a Breaker is a thing NPCs say).
+> Anything that reads this table as a faction roster will build against orgs that don't exist.
+
 | Faction | Power Base | Belief | Vibe |
 |---|---|---|---|
 | The Custodians | Old corporate arcologies | The Architect is a god to be served | Cult meets middle management |
@@ -94,4 +100,3 @@ Pop culture and nostalgia rot in the wasteland. Brand logos on crumbling buildin
 - Does the Architect ever act directly in the game world, or only through its infrastructure?
 - Is there a main quest, or is it a pure sandbox?
 - What era of pop culture dominates the nostalgia — 2000s, 2010s, 2020s?
-- Are there non-human entities (mutants, AI-bodied creatures, cyborgs) as major NPC types?

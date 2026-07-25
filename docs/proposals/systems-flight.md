@@ -1,6 +1,14 @@
 # Flight System — Design Blueprint (Exploration)
 
-> Status: **design exploration, not yet committed to build.** This is the agreed shape of an
+> Status: **BUILT** (stamped 2026-07-24 by doc audit; was "design exploration, not yet
+> committed to build"). Flight shipped as `plugins/flight/` (14 modules) and was then
+> overhauled onto a continuous energy model — see
+> [docs/systems-flight.md](../systems-flight.md) for the as-built system (note the
+> filename collision: that doc, not this one, is the running source) and
+> [flight-overhaul.md](flight-overhaul.md) for the overhaul. This doc remains the
+> **original locked design** — read it for intent and the fork table, never for behaviour.
+>
+> This is the agreed shape of an
 > Architect flight/aircraft system borrowing HellMOO's overworld-aircraft concepts and adapting
 > them to Architect's room-graph world. Sequenced to land alongside the Coldwater expansion.
 
@@ -510,8 +518,9 @@ static), SPECTER/no-fly enforcement, the camera-feed news chopper.
 ## Sequencing (flight drives the Coldwater build)
 
 The live world is a ~41-tile east–west spine — too thin for flight to feel like freedom. Flight is the
-motivation to build out the locked 180-tile Coldwater rectangle
-([docs/proposals/coldwater-expansion.md](docs/proposals/coldwater-expansion.md)).
+motivation to build out the locked 180-tile Coldwater rectangle. (That expansion plan was abandoned
+and its doc deleted 2026-07-24; the world was instead grown by the 888-tile district build — see
+[legacy-world-decommission.md](legacy-world-decommission.md).)
 
 - **Phase A — substrate (vertical slice):** aircraft table + schema, `flight` plugin, `board`/`land`/
   `takeoff` + basic tick loop, Piloting skill, cockpit zone model, one airfield (Coldwater Regional),

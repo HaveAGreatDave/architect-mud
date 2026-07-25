@@ -1,8 +1,13 @@
 # Proposal: The Ascendant Stronghold (far-west campus + augment system)
 
-**Status:** design only — not built. Gated on the Long Watch introduction proving
-out first (see [Dependencies](#dependencies)). This doc is the workshopped spec so
-the build can start cleanly once that lands.
+**Status:** **BUILT** (stamped 2026-07-24 by doc audit — the stamp below replaces the
+old "design only, gated on the Long Watch" line). The campus ships as `plugins/ascendant/`
+(the Threshold move-gate, `flags.ascension_gate` / `flags.ascendant_campus`) and the augment
+mechanic as `plugins/augments/` (`augment`/`augments`/`backup`/`assurance`, the
+`augments`/`player_augments`/`player_backups` tables, the cortical-backup respawn hook);
+content is `content/zones/zone_asc_spire_*.json` + the `map_int_asc_*` interiors +
+8 `content/augments/` entries. Read this doc for intent and the locked forks, not for
+current behaviour.
 
 ## One-line
 

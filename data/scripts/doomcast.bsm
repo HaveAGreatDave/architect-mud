@@ -333,10 +333,4 @@ Doppler Dex Rime. Stay sealed, stay indoors, stay suspicious of clear skies. Bac
 That's your seven days. Dress for the worst of them. Rime, out.
 ::endlines
 
-# ── Ad-libs (format-reserved; the current runner doesn't inject these yet) ──
-::lines adlib.grim
-...not that any of us are going far.
-...for whatever that's worth to a person your age.
-::endlines
-
 END

@@ -3,9 +3,14 @@
 > **Status: Phase A server core BUILT (2026-07); rest is proposal.** The `org_ventures`
 > table, world cache/accessors, the `claimable_asset` flag, and `plugins/corps/ventures.js`
 > (restaurant asset type + `corp asset list|claim` + a live `vendor.purchase` sale-cut listener
-> + the 24h income tick) have shipped. Still pending: console/tablet UI, a placed example venture,
-> the full DB-loop verification, the non-restaurant asset types (warehouse/security_office/front_office
-> are stubs), and all staffing (Phase B). See the build-order note in
+> + the 24h income tick) have shipped. **Also since shipped** (stamped 2026-07-24 by doc audit,
+> which found these still listed as pending): the corp console UI
+> (`client/game/js/panels/corp-console.js`), placed ventures in content (`flags.claimable_asset`
+> on the shop/clinic/casino interiors), and the **warehouse** type — no longer a stub, it backs
+> the pooled Logistics Store (`plugins/corps/ventures.js:149-163`, `corp warehouse
+> list|deposit|withdraw`) and the [Yards district](yards.md) that exercises it. Still pending:
+> `security_office` and `front_office` (honest stubs with TODO effects,
+> `plugins/corps/ventures.js:49-50`) and all staffing (Phase B). See the build-order note in
 > [../systems-corps.md](../systems-corps.md). The working instructions below tell Claude how to
 > approach the remaining build.
 

@@ -4,8 +4,11 @@
 beneath Coldwater Basin at `map_world` grid_z −1. This supersedes the earlier "metro-first"
 framing of this doc: the walkable sewer tunnels **are** the canonical z-1 layer, and the old
 transit/cavern ideas become **future overlays** on this same geometry (see
-[Future overlays](#future-overlays)). **Phase 1 (the beginner pocket near the Clone Facility)
-is the current deliverable.**
+[Future overlays](#future-overlays)). **Phase 1 and Dredge's deep chain are BUILT and committed**
+(stamped 2026-07-24 by doc audit; Phase 1 was still marked "the current deliverable" and the deep
+chain "uncommitted"): 117 `zone_under_*` zones, `quest_down_the_drain` + `quest_under_salvage` /
+`_deepcuts` / `_apex`, `npc_dredge`, the four `enemy_sewer_*`, and both `scav_sewer` / `scav_deep`
+tables are all in `content/`. The **future overlays** section is still unbuilt.
 
 ## What The Under is
 
@@ -51,7 +54,7 @@ roads" means loosely following the generated street grid, not recreating named a
 zones currently sit on `map_world` at grid_z −1**, so the sewer is the first occupant of that
 layer — a clean slate.
 
-## Phase 1 — Beginner pocket (current deliverable)
+## Phase 1 — Beginner pocket (BUILT)
 
 ~11 new z-1 tiles under the Clone Facility corner (grid ~917–921 × 903–905), authored loose.
 
@@ -86,7 +89,7 @@ Grady's dialogue gains the offer, the send-off pointing at the drain, and the `T
 plus a dialogue edit. No plugin. Ships through `content/*.json` + `content:import` and a push to
 `main` (CODEX); regress-gated.
 
-## Deeper questline — Dredge's chain (BUILT, uncommitted)
+## Deeper questline — Dredge's chain (BUILT, committed)
 
 The district-wide grid (commit `3477d80e`) already carries a **deep tier** — the
 `scav_deep` cluster (Throat → Rust Gallery → Machine Sump → Deep Trunk → Deep Reach,

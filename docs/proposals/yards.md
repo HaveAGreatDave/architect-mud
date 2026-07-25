@@ -1,6 +1,10 @@
 # The Yards — a semi-industrial freight district (proposal)
 
-> **Status: SPEC — settled in workshop, not yet built.** A new district on `map_world` south of
+> **Status: BUILT** (stamped 2026-07-24 by doc audit; was "SPEC — not yet built"). 81
+> `zone_yard*` zones ship in `content/zones/` (the freight buildings plus the
+> `zone_yards_tenement_*` block), with `npc_yardmaster`/`npc_yardmaster_barlow`/`npc_yard_teamster`,
+> and the pooled Logistics Store is live as `corp warehouse list|deposit|withdraw`
+> (`plugins/corps/ventures.js:149-163`, help line `plugins/corps/index.js:1072`). A new district on `map_world` south of
 > Coldwater Regional airport, purpose-built as fertile ground for corporations. It reuses the shipped
 > corp **venture** framework, adds one distinctive warehouse mechanic (a pooled Logistics Store), and
 > gives every building type a bespoke flight-sim 3D model. Read [systems-corps.md](../systems-corps.md)

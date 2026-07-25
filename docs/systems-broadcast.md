@@ -34,9 +34,10 @@ description TEXT
 category TEXT             — general | news | advertisement | entertainment | emergency | …
 tags JSONB                — []
 playback_mode TEXT        — scripted | dynamic_news | live_camera | recorded | weather | sports | news | talkshow | morning
-                            (the runtime branches only on scripted/weather/sports; 'weather'
-                            assembles a live forecast graph, 'sports' simulates a DEADBALL
-                            baseball game — see Weather & Sports broadcasts below)
+                            (getCurrentMessage branches on weather/sports/news/talkshow/morning,
+                            each assembling a fresh graph from its *_pools column — see
+                            Live-Assembled Shows below; anything else plays its stored
+                            broadcast_graph or flat message list)
 messages JSONB            — [{ text: '...' }, ...] flat fallback list
 message_interval REAL     — seconds between messages (default 5)
 override_duration REAL    — if set, overrides computed duration
@@ -67,7 +68,8 @@ news_categories JSONB     — ['murder','martial_law',…] — news event filter
 loop_playlist INTEGER     — 1 = playlist loops continuously
 studio_zone_id TEXT FK    — zone where NPC hosts work; used for presence checks
 offline_graphic_id TEXT FK — media_graphics id shown when channel is off-air
-schedule_mode TEXT        — 'loop' | … (default 'loop')
+schedule_mode TEXT        — 'loop' | 'daily' (default 'loop'); 'daily' makes start_time
+                            seconds from in-game midnight instead of loop-relative
 commercial_pool JSONB     — broadcast ids eligible as commercial slots (default [])
 ```
 
@@ -95,7 +97,8 @@ streaming_channel_id TEXT FK
 recording_buffer JSONB    — [{ ts, text }, …] capped at storage_limit
 storage_limit INTEGER     — default 200
 is_damaged INTEGER        — a camera zone reads "working" only when is_powered && !is_damaged
-permissions JSONB, flags JSONB
+permissions TEXT          — default 'public'
+flags JSONB
 ```
 
 ### `media_graphics`
@@ -117,37 +120,21 @@ The `type` field controls how the content is rendered. `ascii` content is displa
 
 `plugins/broadcast/index.js` owns the entire server-side runtime. On plugin load:
 
-1. **`loadChannelRuntimes()`** — reads all enabled channels plus their joined playlist from DB, builds in-memory `channelRuntime: Map<channelId, state>`. Each state object holds:
-   ```js
-   {
-     channelId, name, stationName, number, channelType, theme,
-     playlist, loopOriginMs, newsQueue,
-     studioZoneId, offlineGraphicId,
-     wasActive: false,
-     currentFallbackMessages: [],
-     lastMsgKey: null,
-     graphBlackboard: {
-       currentNode: null, waitUntil: null, npcAnchor: null,
-       activeBroadcastId: null,
-       hostAbsent: false, absentDetectedAt: null, techDiffMode: false,
-     }
-   }
-   ```
-   > The object above is illustrative and has drifted. Current state also carries `totalDuration`, `newsCategories`, `idleBroadcast`, `camera`, `scheduleMode`, and `commercialPool` at the channel level, and each `playlist[]` item now carries `slotType` and `npcStaff`. Treat `index.js` (`loadChannelRuntimes`, ~lines 220–260) as authoritative.
+1. **`loadChannelRuntimes()`** — reads all enabled channels plus their joined playlist from DB, builds in-memory `channelRuntime: Map<channelId, state>`. The state object is the channel row (id/name/stationName/number/channelType/theme/studioZoneId/offlineGraphicId/newsCategories/scheduleMode/commercialPool/idleBroadcast/camera) plus the resolved `playlist[]` + `totalDuration` + `loopOriginMs`, plus per-tick bookkeeping (`wasActive`, `lastMsgKey`, `currentFallbackMessages`, `currentProgramName`, `graphBlackboard`). `plugins/broadcast/index.js:413` (`loadChannelRuntimes`) is the authoritative shape — read it before adding a field.
 
 2. **`loadZoneTunings()`** — reads all furniture with a `flags.tuned_channel` set (joined to the channel by `number`; device type comes from `broadcast_device_type`), builds `zoneTunings: Map<zoneId, Map<channelId, deviceType>>` and `furnitureChannelIndex: Map<furnitureId, { zoneId, channelId, deviceType }>`.
 
 3. **`loadGraphicsCache()`** — loads all `media_graphics` rows (`id`, `name`, `type`, `content`) into `graphicsCache: Map<id, row>` for zero-latency off-air graphic resolution.
 
-4. **`startBroadcastTick()`** — `setInterval(broadcastTick, 5000)`.
+4. `setInterval(broadcastTick, BROADCAST_TICK_MS)` — `BROADCAST_TICK_MS = 1000`.
 
 ### `broadcastTick()`
 
-Every 5 seconds:
+Every tick (1 s):
 
 1. Iterates `zoneTunings`.
 2. Skips zones with no players.
-3. For each tuned channel, calls `getCurrentMessage(channelId, nowMs)`.
+3. For each tuned channel, calls `getCurrentMessage(state, nowMs)` (via `_resolveTickMessage`, which gives a pirated/loaded media deck first refusal).
 4. If no result (or duplicate key): checks `state.wasActive`. If it was active last tick, fires a one-time `off_air` signal to all watching players (includes offline graphic content and type if set), then sets `state.wasActive = false`. Continues to next channel.
 5. If a result arrived: formats via `formatMessage(text, deviceType, zone, style)` and **splits the zone's players** — active TV watchers on that channel get `{ type: 'broadcast', message, channel, style, duration, programName }` (music lines also push `audio_music`; overlays push `tv_overlay`); everyone else gets a `broadcast_ambient` only when the line carries `speech` and the 30-second ambient throttle allows (see Passive vs Active below); media-deck preview watchers separately get `deck_broadcast`. Sets `state.wasActive = true`.
 
@@ -179,8 +166,8 @@ Computes how many seconds a broadcast asset occupies in the schedule:
 
 Signature is `formatMessage(text, deviceType, zone, style)`. Graphic styles (`svg` / `ascii_art` /
 `credits`, the `GRAPHIC_STYLES` set) bypass the device prefix entirely so a `radio`/`security_monitor`
-prefix can't corrupt graphic content. Device type is read from the `broadcast_device_type` tag on the
-furniture item.
+prefix can't corrupt graphic content. Device type is read from the furniture's
+`flags.broadcast_device_type` (default `tv`).
 
 ---
 
@@ -247,7 +234,6 @@ The `MUSIC <song>` ... `MUSIC_END` block in a `.bsm` script (or a `music` card i
 - `song` is matched against `audio_songs.name` (case-sensitive) via `getSongDefByName()`, exported from `plugins/audio/index.js`.
 - **Found**: the resolved song def (with `_instrumentsById` attached) is sent as `{ type: 'audio_music', def }` to every player currently watching that channel's TV. If the channel is `live` and has a `studioZoneId`, the same song is also sent to everyone physically in the studio zone via `sendToZone`, independent of who's watching a TV. The node holds for **8 seconds** of airtime (`nodeHoldMs`; `_vineDuration` bills music at 8s too) before the graph advances — independent of the song's authored length (seed instruments/songs in `scripts/seed-broadcast-music.js`). Any `text` on the node is still shown as a normal broadcast line alongside the song.
 - **Not found**: no audio plays. If `text` is set, it's shown exactly like a `say` node (`style: 'raw'`) and the node holds for 5 seconds. If `text` is empty too, the node is skipped with no delay.
-- `client/devpanel/js/bsm-compiler.js` no longer discards the theme name on the `MUSIC` line (it used to fold straight into an ambient `say` node) — it's preserved as `data.song` on a dedicated `music` node type.
 
 ### Audio System Cross-Reference
 
@@ -273,7 +259,7 @@ on('flag.set', …)     → enqueueNews('martial_law', 'EMERGENCY ALERT: …',  
 Five `playback_mode`s store a **line library** (`::lines` pools) instead of a baked graph, and assemble a fresh VINE graph on each airing rather than replaying stored content. They're authored as `.bsm` files (`@type weather|sports|news|talkshow|morning`) — see [docs/bsm-format.md](bsm-format.md) — and stored in dedicated JSONB columns (`weather_pools` / `sports_pools` / `news_pools` / `talkshow_pools` / `morning_pools`). `getCurrentMessage` routes each `playback_mode` to its `assemble*Graph()` builder (cached per refresh bucket), then feeds the result to the same `tickBroadcastGraph` walker as any other graph.
 
 - **`weather`** reads the live 7-day forecast; **`sports`** simulates a fresh game; **`news`** pulls from the news generator, which assembles **live → wire → tabloid**: live event-sourced stories, then date-seeded canonical-lore "wire" stories (the Long Watch framed as terrorists, the Ascendants as establishment, the Architect as "the Machine"; fixed outlet bylines like Coldwater Sentinel / Basin Civic Wire), padded with tabloid filler. Their announcers/anchors are **name strings** — no NPC is spawned.
-- **Title-card / theme sync**: when a `news`/`talkshow` script declares both `@title` and `@theme`, the assembler folds the theme onto the `title_card` node (`{ type: 'title_card', theme }`) instead of emitting a separate `music` node after it. The intro song then starts as the card appears and the card holds for the theme's length, so the first anchor/cold-open line doesn't step on the intro. With a theme but no title card, it still plays as a standalone `music` node.
+- **Title-card / theme sync**: when a `news`/`talkshow`/`morning` script declares both `@titlecard` and `@theme`, the assembler folds the theme onto the `title_card` node (`{ type: 'title_card', theme }`) instead of emitting a separate `music` node after it. The intro song then starts as the card appears and the card holds for the theme's length, so the first anchor/cold-open line doesn't step on the intro. With a theme but no title card, it still plays as a standalone `music` node.
 - **`sports`** is keyed to an absolute airing time-window so a re-simmed same-slot game produces the same `gameId`. While a game airs, the plugin **emits a `sports.game` event every 60s** with payload `{ channelId, gameId, away, home, awayScore, homeScore, winner, endsAtMs }` — consumed by the **sportsbet**, **sportsleague**, and **gossip** plugins (they read `winner`; there is no `result` field). Score-bug and standings overlays ride `tv_overlay`; the World Series takeover pulls standings back through the `sportsleague.getStandings`/`getSeason` actions.
 - **`morning`** is the talk show's daytime cousin — also **acted live**, by two resident host NPCs on the studio couch, but its variable is the WORLD rather than a guest: every segment reads something live (the clock, the forecast, `news.getStories`, the `martial_law`/`nuclear_event` flags, the power map), and the ticker is assembled from those facts rather than authored. Every pool is a `host >> cohost` exchange pair, so the couch's back-and-forth survives the shuffle. Airtime is just its daily playlist slot — no separate gate. See [Morning Shows](bsm-format.md#morning-shows-type-morning).
 - **`talkshow`** is the odd one out: it's **acted live by real cast NPCs**. A resident host + sidekick commute in on schedule, and ONE reusable guest NPC is renamed to a new persona each in-game day, appears in a random unobserved zone, walks across the map to the studio, performs, and vanishes backstage afterward (engine AI actions `TALKSHOW_APPEAR`/`TALKSHOW_HIDE`, plus `talkshowHeartbeat` for the nightly rename). The assembled graph sets `_requireHost`, so it presence-gates on any channel — no cast on-stage ⇒ camera-idle → technical difficulties. See [Talk-Show Broadcasts](bsm-format.md#talk-show-broadcasts-type-talkshow).
@@ -329,13 +315,18 @@ It runs automatically on **every** playlist save (`PUT /broadcast/channels/:id/p
 
 ---
 
-## Furniture Tag Contract
+## Furniture Contract
 
-| Tag | Shape | Purpose |
+| Key | Where | Purpose |
 |---|---|---|
-| `broadcast_receiver` | flag | Item can be tuned to a channel |
-| `broadcast_device_type` | enum: `tv\|radio\|security_monitor\|portable_monitor\|camera` | Controls `formatMessage()` output |
-| `tv` | flag | Item is openable as a TV panel via `watch tv` / `tv` command |
+| `tuned_channel` | furniture `flags` | Channel **number** this device is tuned to; what `loadZoneTunings()` joins on |
+| `broadcast_receiver` | furniture `flags` | Item can be tuned to a channel |
+| `broadcast_device_type` | furniture `flags` — `tv\|radio\|security_monitor\|portable_monitor\|camera` (default `tv`) | Controls `formatMessage()` output |
+| `media_deck` | furniture `flags` | Item is a cassette deck (see Media Deck & Cassettes) |
+| `tv` | item **tag** | `requiredTag` for the `use` specialized action that opens the TV panel |
+
+Note the split: the USE action gates on the **tag** `tv`, while `doUseTv` then looks up the
+`broadcast_receiver` **flag** — a set carrying the flag but no tag surfaces no examine action.
 
 ---
 
@@ -351,6 +342,10 @@ It runs automatically on **every** playlist save (`PUT /broadcast/channels/:id/p
 | `load cassette` | Loads a carried `media_cassette` item into the deck in the zone; **consumes the item from inventory** (the tape physically goes into the deck) and sets it active. (`load` also has a chip/footage branch for surveillance datachips) |
 | `eject` | Stops the deck's active cassette, **removes its broadcast from the deck's library**, and spawns the physical cassette item (`item_cassette_<showname>`) back into the player's inventory — at most one copy per broadcast can exist in the world at a time |
 | `selectcassette <broadcastId>` | Switches the deck's active cassette among ones already in its library, without needing to carry the tape (used by panel row clicks) |
+
+The plugin also owns the **media-deck piracy** verbs (`pirate`, `pirateresolve`, `air`) and the
+emergency-broadcast verbs (`airemergency`, `endemergency`) — see the broadcast row in
+[docs/plugins.md](plugins.md) for what each does.
 
 ---
 
@@ -396,15 +391,17 @@ standings / overlay nodes), **`deck_overlay`** and **`deck_broadcast`** (media-d
 
 ```js
 broadcast: (msg) => {
+  const views = tvViewsForChannel(msg.channel);   // every surface tuned to this channel
+  if (!views.length) return;
   if (msg.style === 'off_air') {
-    if (isTvOpen() && getTvActiveChannelId() === msg.channel)
-      showTvOffAir(msg.offlineGraphicContent || null, msg.offlineGraphicType || 'ascii');
+    for (const v of views) v.showOffAir(msg.offlineGraphicContent || null, msg.offlineGraphicType || 'ascii');
     return;
   }
-  if (isTvOpen() && getTvActiveChannelId() === msg.channel) {
-    showTvOnAir();
-    if (msg.style === 'ticker') updateTvTicker(msg.message);
-    else appendTvMessage(msg.message, msg.style);
+  for (const v of views) {
+    v.showOnAir();
+    if (msg.style === 'ticker') v.updateTicker(msg.message);
+    else { v.appendMessage(msg.message, msg.style, msg.duration, msg.hasGameday); v.speak(msg.message, msg.style, msg.duration); }
+    if (msg.programName !== undefined) v.setProgramName(msg.programName);
   }
 },
 broadcast_ambient: (msg) => {
@@ -473,11 +470,11 @@ the tablet needed its own path:
 ╠═══════════════════════════════════════════════════════╣
 ║  BREAKING • ticker text scrolls here right-to-left •  ║
 ╠═══════════════════════════════════════════════════════╣
-║  [knob]  ┄┄ 5.0 ┄┄┄[slider]┄┄┄┄┄┄┄┄┄┄┄┄┄┄           ║
+║      [ − ]  (knob)  [ + ]        5.00                 ║
 ╚═══════════════════════════════════════════════════════╝
 ```
 
-### Message rendering (`appendTvMessage(text, style, duration)`)
+### Message rendering (`appendTvMessage(text, style, duration, hasGameday)`)
 
 | Style | Render method |
 |---|---|
@@ -509,10 +506,10 @@ Built-in theme presets (applied via `data-theme` attribute): `corporate`, `crt`,
 
 ### Frequency Tuner
 
-- **`#tv-freq-display`**: current frequency as a decimal (e.g. `7.0`).
-- **`#tv-tuner-slider`**: range input from 0 to `(highest channel number + 2)`. Dragging calls `tvTunerInput(val)`.
-- **Knob click**: cycles to the next channel in `_tvChannelList`, wrapping around.
-- Lock range `LOCK_RANGE = 0.25`: within this many channel-numbers of a real channel, the tuner locks and calls `_tvTuneTo(n)`.
+- **`[data-tv="freq-display"]`** (`#tv-freq-display`): current dial position to two decimals (e.g. `7.00`).
+- **`[data-tv="tune-down"]` / `[data-tv="tune-up"]`**: step to the previous/next channel in `_tvChannelList`, wrapping. The two chassis step differently **on purpose** — the CRT is analogue and *sweeps* (`_sweepDialTo`, `DIAL_SWEEP_SPEED`) through the static in between so the buttons read like a slow hand-turn; the tablet is digital and snaps straight to the channel.
+- **Knob click**: cycles to the next channel in `_tvChannelList`, wrapping around. The knob's rotation tracks the dial (`_tvFrequency / TV_DIAL_MAX × 360°`).
+- Every dial position change routes through `tunerInput(val)`, which cross-fades static against content by distance from the nearest channel. Lock range `LOCK_RANGE = 0.25`: within this many channel-numbers of a real channel, the tuner locks and calls `_tvTuneTo(n)`.
 
 ### Off-Air State
 
@@ -689,7 +686,6 @@ All broadcast routes use `directAPI`:
 - **In-memory only**: `channelRuntime`, `zoneTunings`, `newsQueue`, `graphicsCache` — all rebuilt on server restart from DB. News queue starts empty on restart.
 - **Graphics cache**: holds `id`, `name`, `type`, `content`. `type` is used by `title_card` and `off_air` to set the correct wire style (`'svg'` vs `'ascii_art'`), which the client uses to pick `innerHTML` vs `textContent` rendering.
 - **VINE vs flat list**: runtime prefers `broadcastGraph` when present. Both are saved independently.
-- **Off-air signal fires once per transition**: `state.wasActive` tracks channel activity. The signal fires exactly once when a channel goes silent, and again immediately via `buildTvPanel()` when a player opens a currently-silent TV.
 - **NPC presence requires `studio_zone_id`**: if not set, presence checks are skipped — the broadcast runs regardless of NPC location.
 - **Blackboard lifetime**: one per channel, persists across ticks, resets when the active `broadcast_id` changes.
-- **SVG graphics**: displayed as inline SVG in the TV panel. Content is dev-authored, making `innerHTML` injection safe. The `max-width:100%; height:auto` rule on the injected `<svg>` ensures it scales to the panel width. The recommended canvas size for title sequences is 640×360.
+- **SVG title cards**: 640×360 is the recommended canvas size (and the Vector editor's default).

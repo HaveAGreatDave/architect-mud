@@ -1,9 +1,8 @@
 # Land taxonomy — the spatial concepts, and how they differ
 
-Several different systems describe "where a tile is" and "what it's like there." They overlap in
-casual speech (and historically overloaded the word *district*), which caused real confusion and a
-rename. This is the canonical reference for which concept is which, what its single source of truth
-is, and what it must **never** be confused with.
+Several different systems describe "where a tile is" and "what it's like there," and they overlap in
+casual speech. This is the canonical reference for which concept is which, what its single source of
+truth is, and what it must **never** be confused with.
 
 The golden rule: **each concept has exactly one SSOT.** If you're adding a reader, read the SSOT for
 the thing you actually mean — don't infer a region from a zone-id prefix, or a district from a
@@ -39,9 +38,8 @@ staging (`region_create` / `region_move`). Loaded into RAM at boot (`world.regio
 `getAllRegions`, refreshed on `reloadMaps`) so runtime readers resolve a region name without a DB hit.
 The flight target guide waypoints regions — see [systems-flight.md](../systems-flight.md).
 
-> This used to be called a "spatial district" (`districts` table, `flags.district_id`). It was
-> renamed to **region** to end the collision with the land-use district below. **Region > district**
-> in scale: a region contains districts.
+> **Region > district** in scale: a region contains districts. (Regions were called "spatial
+> districts" before 2026-07-19; the rename exists purely to end that collision.)
 
 ### District — the "sense of place" (land-use identity)
 A **district** is the coarse land-use *feel* of a zone — **North City**, **the Docks**, **the
@@ -57,8 +55,9 @@ and skyline landmarks. **Rendering/flavour only — never gates gameplay.** See
 **`flags.terrain`** is the physical surface of one tile: `road`, `water`, `grass`, `park`, `asphalt`,
 `concrete`, `dock`, `sand`, `dirt`, `scrub`… Authored in the **Terrain Painter** (dev-panel Maps),
 with server/client inference (`zoneTerrain`) filling unpainted tiles. Drives the minimap look, the
-flight tint, and movement *pacing* — but **not passability** (open water needs a `boat`-tag item via a
-separate gate) and not flight collision. See [systems-terrain.md](../systems-terrain.md).
+flight tint, and movement *pacing* — but **not passability** and not flight collision. Nothing about
+terrain blocks a step: water tiles are entered as a *swim* (`plugins/swimming`), and a `boat`-tagged
+item only makes the crossing dry and free. See [systems-terrain.md](../systems-terrain.md).
 
 ### Biome — the from-the-air look (flight only)
 `plugins/flight/biomes.js` `biomeOf(zone)` is a **pure, rendering-only classifier** that turns a tile
@@ -88,14 +87,10 @@ now the Coldwater **region**, but that is the region layer's business, not the p
   **districts**.
 - **`flags.region_id` ≠ `flags.district`.** The first is spatial region membership; the second is a
   land-use override. Both exist on the same tile and mean unrelated things.
-- **Water is marked ONE way: `flags.terrain = 'water'`.** There used to be two. The Coldwater
-  Basin carried a legacy `flags.water: true` with `terrain` unset, while the wildlands hydrology
-  (two corner seas plus a river) carried `terrain: 'water'` with no flag — two markers that shared
-  **zero tiles** and so disagreed at every consumer that picked one. GPS route-blocking read
-  `flags.water`, so it routed players straight across the river; fishing had to pick a side. The
-  256 basin tiles were migrated on 2026-07-21 and `flags.water` now exists on nothing — the
-  `zoneTerrain()` fallback that reads it is kept only for hand-authored legacy content. **Test
-  water with `zoneTerrain(zone) === 'water'`, never a raw flag.**
+- **Water is marked ONE way: `flags.terrain = 'water'`,** and **tested one way:
+  `zoneTerrain(zone) === 'water'`, never a raw flag.** The legacy `flags.water` marker is on no zone;
+  the `zoneTerrain()` line that still reads it survives only for hand-authored legacy content. See
+  [systems-terrain.md § Water is terrain, not a flag](../systems-terrain.md#water-is-terrain-not-a-flag).
 - **Terrain ≠ biome.** Terrain is the authored surface SSOT (`flags.terrain`, gameplay-adjacent).
   Biome is a flight-render-only derivation that *reads* terrain among other things.
 - **`bp_district` (planner) ≠ district (land-use) ≠ region (spatial).** Three different meanings of a

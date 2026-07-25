@@ -22,8 +22,7 @@ Also holds `STAGED_ENTITY_TYPES` (the path→entityType map) and `getEntityType(
 ### `table.js`
 The shared list/edit lifecycle that every panel rides on:
 
-- `renderTable(columns, records, noEdit)` — builds the sortable HTML table in `#list-panel`.
-- `renderZonesTable(records)` — zones-specific override: a furniture-panel-style accordion, not a table. Tiers: exterior zone (ordered by BFS distance out from `zone_start`) → buildings (attached via exits / `world_exit_zone`) → floors grouped by `grid_z` ascending (collapsible, skipped for single-floor buildings) → rooms. Building membership is BFS over exits from the entrance. `filterZones(q)` / `zToggle(header)` back its search and per-section expand/collapse (state in `_zonesExpanded`).
+- `renderTable(columns, records, noEdit)` — builds the sortable HTML table in `#list-panel`. A panel can replace it wholesale by declaring its own `render` (zones does — see `panels/zones.js`).
 - `sortTableBy(key)` / `sortWorldStateBy(key)` / `filterTable()` — sort and search.
 - `selectRecord(id)` / `editRecord(id)` / `newRecord()` — record selection.
 - `openEdit(record, isNew)` / `closeEdit()` — open/close the right-hand edit panel. The panel carries a **Save/Delete bar both above (`#edit-actions-top`) and below (`.edit-footer`) the form**; buttons share the `.js-save-btn`/`.js-delete-btn` classes so `openEdit`/`saveRecord` drive both. `openEdit` hides Delete on a new record; the broadcast NPC sidebar override hides the top bar (it swaps the footer for its own buttons).
@@ -33,16 +32,15 @@ The shared list/edit lifecycle that every panel rides on:
 ### `panels.js`
 The central dispatch table and panel lifecycle. **Must load after all `panels/*` and `ui/*` files** because the `PANELS` object literal evaluates function references at construction time.
 
-- **`PANELS`** — one entry per nav section (dashboard, zones, maps, power, enemies, items, npcs, furniture, recipes, scavenging, scripts, quests, vine, mutations, drugs, sounds, audio, bank, emergency, broadcasts, tags, worldstate, timeweather, players, validator, changes, aliases, devlog, gossip, flight, games, jobBoards). Each entry declares `title`, `fetch`, optional `columns`, `editForm`, `save`, `delete`, and `render`.
+- **`PANELS`** — one entry per nav section (dashboard, zones, maps, world, power, enemies, items, npcs, furniture, recipes, scavenging, scripts, quests, vine, mutations, drugs, sounds, audio, bank, emergency, broadcasts, tags, worldstate, timeweather, players, validator, changes, aliases, devlog, gossip, flight, games, jobBoards). Each entry declares `title`, `fetch`, optional `description`, `columns`, `editForm`, `save`, `delete`, `noEdit`, `filter`, and `render`.
 - `activatePanelNav(name)` — highlights the active nav item.
 - `showPanel(name)` / `loadPanel(name)` — fetch data, call the panel's render function, wire up the toolbar.
 
 ### `auth.js`
-Login, logout, and the play button:
+Login and logout. Loads after `panels.js` (it calls into the panel lifecycle on a successful login).
 
 - `devLogin()` — POSTs credentials, validates role, stores token, kicks off panel load and polling.
 - `devpanelLogout()` — clears token and reloads.
-- `launchPlayerClient()` / `showPlayButton()` — opens the game client in a new tab using a one-time session token.
 
 ### `staging.js`
 The staging/change-review system:
@@ -63,6 +61,8 @@ The generic modal and the toast notification:
 - `openModal(title, bodyHtml)` / `closeModal()` — populates and shows/hides `#generic-modal`.
 - `openSettingsPanel()` / `closeSettingsPanel()` — the settings overlay.
 - `toast(msg, isError)` — shows the bottom-center flash message.
+- `dpConfirm(msg, opts)` / `dpPrompt(msg, default, opts)` / `dpAlert(msg, opts)` — themed, promise-returning replacements for the native `confirm`/`prompt`/`alert` (over `_dpDialog`). Use these, not the browser dialogs.
+- `dpFloatAnchor(id, dflt)` / `window.dpFloatPos` — remembered positions for draggable floating panels.
 
 ### `settings.js`
 User preferences and the theme editor:
@@ -70,7 +70,7 @@ User preferences and the theme editor:
 - `loadDevSettings()` / `saveDevSettings(s)` / `applyDevSettings()` — read/write/apply settings from `localStorage`. Applies theme, font size, density, and custom color overrides to CSS variables.
 - `populateThemeDropdown()` — builds the theme `<select>` including any saved custom themes.
 - `THEME_COLOR_VARS` — the list of CSS variable names and human labels shown in the theme editor.
-- `BUILTIN_THEME_VALUES` — `['dark','light','contrast','phosphor','synthwave','bloodmoon','slate']`.
+- `LIGHT_THEMES` / `DARK_THEMES` — the `[id, label]` theme lists, kept in lockstep with `client/shared/settings.js`; every id needs a palette in `client/shared/themes.css`. `BUILTIN_THEME_VALUES` is their ids flattened (used to tell a builtin from a saved custom theme).
 - Theme editor functions: `openThemeEditor()`, `closeThemeEditor()`, `saveAsCustomTheme()`, `deleteCustomTheme()`, `_renderThemeEditorRows()`, `_loadBaseTheme()`, `onThemeColorHexInput()`, `onThemeColorPickerInput()`, `resetThemeColors()`.
 - Power tile color helpers (live with settings because they depend on theme CSS vars): `POWER_STATUS_RGBA`, `powerTileTextColor(status)`, `repaintPowerTileColors()`.
 
@@ -94,7 +94,7 @@ A dev-panel port of the client chat markup parser (`client/game/js/markup.js`). 
 ### `zones.js`
 Everything for the Zones list panel and the full zone editor form. The largest file.
 
-- **List/table**: `renderZonesTable(records)` (also in `table.js` for the shared override), `deleteZoneRow(id)`, `cloneZoneRow(id)`.
+- **List/table**: `renderZonesTable(records)` — a district-first accordion, not a table. Tier 1 is the zone's district (`districtKeyFor`: `flags.district` override → id-prefix map → `danger`-based default); within a district, buildings lead, then named exteriors, then the bulk map grid collapsed into one Terrain-tiles fold. Interiors nest under their building, derived live from the exit graph. A region dropdown (`setZonesRegion`) scopes the whole list; `filterZones(q)` / `zToggle(header)` back search and expand/collapse (state in `_zonesExpanded`). Plus `deleteZoneRow(id)`, `cloneZoneRow(id)`.
 - **Zone editor form**: `zoneEditForm(rec, isNew)` — builds the entire zone editor: metadata fields, building/apartment fields, exits builder, and all subsection tabs (rooms, NPCs, doors, spawns, furniture, generators, windows). Roughly 700 lines.
 - **Exits**: `renderExitsBuilder(selfId)`, `addExit(selfId)`, `removeExit(dir)`.
 - **Building fields**: `toggleBuildingFields(show, zoneId)`.
@@ -128,7 +128,7 @@ The global enemies panel and enemy editor.
 The Items panel and item editor.
 
 - **Tag widget**: `itemTagWidget(name, value)`, `itemTagRow()`, `itemAddTagPicker()`, `refreshItemTagPicker()`, `addItemTag()`, `removeItemTag()`, `readItemTag()`.
-- **Panel render**: `renderItemsPanel()` — groups items by type with collapsible sections; a row click opens the editor. Deletion is done from the editor's Delete button (like the other entity panels), not a per-row checkbox.
+- **Panel render**: `renderItemsPanel()` — groups items by type with collapsible sections; a row click opens the editor, and deletion is from the editor's Delete button.
 - **Editor + save**: `itemEditForm(rec, isNew)`, `saveItem(existing)`.
 
 ### `npcs.js`
@@ -174,16 +174,11 @@ Thin editor for the `quests` table (consumed by the quests plugin). Objectives a
 - `questEditForm(rec, isNew)` / `saveQuest(existing)`
 
 ### `vine-suite.js`
-The VINE Suite panel (`noEdit`, custom render): a cross-cutting **index** of every VINE graph. It owns no editor — it navigates to the owning panel and opens that record's real per-panel editor.
+The VINE Suite panel (`noEdit`, custom render): a cross-cutting **index** of every VINE graph. It owns no editor, no storage and no save path — a row navigates to the owning panel and fires that record's real per-panel editor. Entry points: `fetchVineSuite()`, `renderVineSuite(data)`, `vsRenderMasterList()`, `vsOpenExisting(family)`, `vineOpenAsset(kind, id)`, `vineJumpTo(kind, id)`, `vsHostPicker(family)`; registries `VINE_KINDS` / `VINE_FAMILIES`.
 
-- `fetchVineSuite()` — parallel-fetches npcs, enemies, scripts, quests.
-- `renderVineSuite(data)` / `vsRenderIndex()` — the searchable index: one colour-coded section per kind, each listing its assets (name, id, node-count badge). A row calls `vineOpenAsset`.
-- `vineOpenAsset(kind, id)` — the navigator: `activatePanelNav` + set `currentPanel`, `await loadPanel`, set `currentRecord`, `await openEdit`, then fire that panel's own VINE button (e.g. `npcOpenVineAI`). Reuses the core panel/edit helpers; opens nothing itself.
-- `vineJumpTo(kind, id)` — generic cross-editor jump fired from inside an editor: `vineModalSave()` (commit current graph to its form) then open the referenced asset in the standalone `#vine-modal`, saved straight to the DB via that kind's canonical route. Does **not** navigate panels, so the editor you jumped from stays behind it. Creates a quest stub on demand.
-- `vineJumpToQuest(questId)` — back-compat shim → `vineJumpTo('quest', …)`.
-- Holds `VINE_KINDS` (registry: index fields `label/icon/color/source/panel/opener/badge`; cross-jump fields `noun/schema/listRoute/toGraph/save[/createStub]`), `_VS_ORDER`, `_vineSuiteData`. Broadcasts are intentionally not in the index (the broadcast panel uses a custom selection flow, edited from its own panel).
+**[vine.md](vine.md) owns the behaviour** — front page, family tabs, cross-editor jumps, the registry field lists. Don't restate it here.
 
-`quests.js` also gained `questsOpenVine()` — opens the VINE quest editor seeded from the form fields; on save writes derived `objectives[]`/`rewards{}` back into them.
+`quests.js` also holds `questsOpenVine()` — opens the VINE quest editor seeded from the form fields; on save writes derived `objectives[]`/`rewards{}` back into them.
 
 ### `scripts.js`
 The NPC/world script graph editor.
@@ -206,6 +201,14 @@ The map overview editor and the shared big-map grid renderer used by both the Ma
 - **Interior maps**: `openInteriorLinkModal()`, `linkInteriorToExterior()`, `switchMapTab()`, `switchInteriorMap()`.
 - **Zone placement**: `createZoneAt()`, `pendingZonePlacement`.
 - Holds `MAP_PALETTE`, `MAP_DIR3D`, `MAP_OPP`, and all map state globals (`mapsList`, `mapOverview`, `mapViewTab`, etc.).
+
+### `world-editor.js`
+The World Map panel (`world`, `noEdit`) — every region on the global grid, drawn as one zoomable SVG. Distinct from `maps.js`: this edits **regions** (`/maps/regions`), not tiles. See [land-taxonomy.md](reference/land-taxonomy.md) for region vs. district vs. terrain.
+
+- **Render**: `renderWorldEditor(data)`, `_wdToolbarHtml()`, `_wdSelectedBarHtml()`, `_wdWireChrome()`, `_wdWireSvg()`.
+- **Viewport**: `_wdSetZoom()`, `_wdZoomLevel()`, `_wdFitBlock()`, `_wdClampView()`, `_wdGridLines()` — 10 zoom levels down to 6% of the full extent. Double-click is detected manually (`_wdLastClick`) because selecting re-renders the SVG.
+- **Regions**: `_wdNewRegion()` / `_wdNewRegionDialog()` (size + base terrain), `_wdStageMove(id, dx, dy)` — drag-to-reposition, staged like every other write.
+- Holds `_worldData`, `_worldSelected`, `_worldShowLegacy`, `_worldShowTerrain`, `_wdView`.
 
 ### `power.js`
 The Power Grid panel.
@@ -232,18 +235,17 @@ The Emergency Services panel — Emergency Service Provider (ESP) alerts and Arb
 - **Panel render**: `renderEmergencyPanel(data)`, `_arbiterDot(arbiters)` (status indicator).
 - **ESP**: `espActivate()`, `espDeactivate()`, `espSaveMessage()`.
 - **Arbiters**: `arbitersActivate()`, `arbitersStandDown()`, `arbitersAdminProtection()`.
-- **Crime registry**: `_loadCrimeConfig()` builds the per-crime rows (enable toggle + inline wanted-star weight input + witness mode). `toggleCrime(id, enabled)` and `saveCrimeStars(id, value)` both `PUT /crimes/:id` (partial: just the toggle or just the stars, clamped 0–5, reloaded live). This is where star weights are tuned now — the standalone Crimes panel was removed.
+- **Crime registry**: `_loadCrimeConfig()` builds the per-crime rows (enable toggle + inline wanted-star weight input + witness mode). `toggleCrime(id, enabled)` and `saveCrimeStars(id, value)` both `PUT /crimes/:id` (partial: just the toggle or just the stars, clamped 0–5, reloaded live). The only place star weights are tuned.
 
 ### `broadcast.js`
 The Broadcasts panel — list and modal editor for `media_broadcasts` assets.
 
-- **Panel render**: `renderBroadcastsPanel(data)` — table of broadcasts with name, category, playback mode, calculated duration. `data` contains both `broadcasts` and `channels` (channels are available for the channel editor but the broadcasts panel only uses broadcasts).
-- **Modal**: `openBroadcastModal(rec, isNew)` — metadata fields plus a flat message sequence builder with move/delete/add rows and a live duration preview.
+- **Panel render**: `renderBroadcastsPanel(data)` — a sidebar (`_bcRenderSidebar`) plus an edit canvas, not a list table. `data` carries both `broadcasts` and `channels`. Auto-generated surveillance clips are hidden from the sidebar behind `_bcShowClips`.
 - **VINE**: `broadcastOpenVine()` — opens the VINE broadcast graph editor (`VineBroadcastSchema`). A "VINE graph" badge appears when a graph is attached. Graph stored in `_broadcastGraph`.
 - **Save**: `saveBroadcast()` — POST/PUT to `/broadcast/broadcasts/:id`, includes `broadcast_graph`.
 - **Delete**: `deleteBroadcast(id, name)` — confirmation + DELETE.
 - **Clone**: `cloneBroadcast(rec)` — POST with a new id.
-- State globals: `_broadcastList`, `_broadcastEditTarget`, `_broadcastMessages`, `_broadcastGraph`.
+- State globals: `_broadcastList`, `_bcChannels`, `_bcSelected` (record under edit), `_bcCards` (its message sequence), `_bcExpandedIdx`, `_broadcastGraph`, `_bcSuiteTab`.
 - Constants: `BROADCAST_CATEGORIES`, `BROADCAST_MODES`.
 
 ### `broadcast-channel.js`
@@ -341,9 +343,6 @@ The Zone Validator panel (data integrity checks).
 
 ### `aliases.js`
 `renderAliasesPanel(data)` — the Aliases panel. CRUD over verb shortcuts (`command_aliases` table): a typed shortcut is rewritten to its canonical verb before command dispatch (invisible to players). Engine ships defaults (`server/engine/commands/aliases.js`); rows add/override, deleting an override restores the default. Writes go through `directAPI` (`POST`/`DELETE /command-aliases`) — applied live, not staged. Handlers: `window.aliasAdd`, `window.aliasDelete`.
-
-### `dashboard.js`
-`renderDashboard(data)` — the landing screen shown on login. Displays server health, online player count, recent changes, and quick-links to the most-used panels.
 
 ### `devlog.js`
 Dev Log panel — curated team heads-ups (`change`/`heads-up`/`action-required` kinds) plus recent code activity pulled live from git.

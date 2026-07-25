@@ -1,6 +1,8 @@
 # AI Behaviour System (As Built)
 
-VINE-powered behaviour trees for enemies and NPCs. Each entity can carry a `behaviour_graph` — a JSON graph authored in the dev panel — that is ticked once per second by `tickEntityAI`. The graph drives what the entity does each tick: patrol, attack, say something, flee, call allies.
+VINE-powered behaviour trees for enemies and NPCs. Each entity can carry a `behaviour_graph` — a JSON graph authored in the dev panel — driven by `tickEntityAI`. The graph drives what the entity does each tick: patrol, attack, say something, flee, call allies.
+
+**Tick rates differ by entity kind** and bound everything below: enemies tick **every 1 s** (the raw combat `tick` in [gameLoop.js:161](../server/engine/gameLoop.js#L161)), NPCs **every 1 minute** (`npcWanderTick`, [gameLoop.js:1243](../server/engine/gameLoop.js#L1243)). An NPC graph that walks one zone per tick moves one zone per game-minute — size waits and commutes accordingly.
 
 Primary file: [ai-behaviour.js](../server/engine/ai-behaviour.js). Uses [pathfinding.js](../server/engine/pathfinding.js) for BFS movement and is ticked from [gameLoop.js](../server/engine/gameLoop.js).
 
@@ -21,6 +23,8 @@ Each entity (enemy or NPC) that has a `behaviour_graph` gets a **blackboard** �
   alertCooldown: 0,     // timestamp — CALL_BACKUP debounce
   lastSay:      0,      // timestamp — SAY debounce
   flags:        {},     // SET_FLAG scope:self values
+  _roamNextAt:  0,      // timestamp — ROAM cooldown
+  _fleeNextAt:  0,      // timestamp — FLEE retry throttle (one attempt per attack cycle)
   // Vendor-specific
   vendor_was_working: false, // true while on a scheduled shift
   vendor_carrying:    0,     // credits extracted from safe, en route to ATM
@@ -35,13 +39,14 @@ Each entity (enemy or NPC) that has a `behaviour_graph` gets a **blackboard** �
 
 ### Tick
 
-`tickEntityAI(entity, ctx)` is called each second (via `gameLoop.js`) for every live enemy and NPC that has a `behaviour_graph`. It:
+`tickEntityAI(entity, ctx)` runs for every live enemy and NPC that has a `behaviour_graph`, at the per-kind rates above. It:
 
-1. Returns immediately if `ai.waitUntil` is in the future (WAIT node suspension).
-2. Resumes from `ai.currentNode` if set, otherwise restarts from `_start`.
-3. Walks the graph up to 50 steps.
-4. Stops at the first `action` node, executes it, and saves the cursor to the next node.
-5. WAIT nodes stop the walk, set `ai.waitUntil`, and save the cursor to the node after WAIT.
+1. Yields the whole graph while a plugin has taken the entity over — `ai.alarm` (burglary), `ai.dosedOut` (npc-drugs), `ai.shopPaused` (a player has the shop open) — and skips any entity with no zone ([ai-behaviour.js:1658-1671](../server/engine/ai-behaviour.js#L1658)). Setting one of those flags is the supported way for a plugin to drive an NPC directly.
+2. Returns if `ai.waitUntil` is in the future (WAIT node suspension).
+3. Resumes from `ai.currentNode` if set, otherwise restarts from `_start`.
+4. Walks the graph up to 50 steps (`MAX_STEPS`).
+5. Stops at the first `action` node and executes it. A string result names the out port to follow (e.g. `CHECK_WORK`'s `goToWork`); `'RUNNING'` keeps the cursor on the action; anything else follows `next`.
+6. WAIT nodes stop the walk, set `ai.waitUntil`, and save the cursor to the node after WAIT.
 
 Execution is **stateful**: `ai.currentNode` persists between ticks so sequential graphs (`ATTACK → WAIT → SAY`) execute in order. When `ai.currentNode` is null (natural end or graph restart), the next tick starts from `_start`.
 
@@ -51,21 +56,21 @@ Execution is **stateful**: `ai.currentNode` persists between ticks so sequential
 
 ## Graph Format
 
-The stored JSON differs slightly from the VINE save format — the runtime uses `_start` rather than `start` and edges are resolved inline:
+There are **two** shapes, and hand-authored graphs must use the stored one. What lives in `behaviour_graph` (what `toAiGraph` writes) carries its connections **inline on each node** and its params flat — there is no `edges` array:
 
 ```js
 {
   _start: 'nodeId',
   nodes: {
-    nodeId: { type, data: { ... } }
-  },
-  edges: [
-    { fromNode: 'n1', fromPort: 'next', toNode: 'n2' }
-  ]
+    check:  { type: 'condition', condition_type: 'AT_HOME', ifTrue: 'idle', ifFalse: 'go_home' },
+    go_home:{ type: 'action', action_type: 'GO_HOME', next: 'check' },
+  }
 }
 ```
 
-Edges are looked up by `(fromNode, fromPort)` to find the `toNode`. This is the same edge model used by [VINE](vine.md).
+Recognised connection keys are `next`, `ifTrue`, `ifFalse`, `branch_N`, and the four `CHECK_VENDOR_WORK` ports (`goToWork`/`haveLife`/`endShift`/`offWork`); every other key becomes `node.data` ([ai-behaviour.js:524-553](../server/engine/ai-behaviour.js#L524)).
+
+`normalizeGraph()` converts that to the runtime shape on first tick — `{ _start, nodes: { id: { type, data } }, edges: [{ fromNode, fromPort, toNode }], _normalized: true }` — caching it back onto the entity. It **builds the edges array from the inline keys and discards any `edges` array already present**, so a graph authored in VINE's own save format loses every connection. The `_normalized` flag is what keeps the conversion one-shot.
 
 ---
 
@@ -80,9 +85,12 @@ boolean` — read caches, never the DB); actions may be async
 (`fn(entity, params, { broadcast, query, ai, zone, zoneId, node }) →
 port-string | 'RUNNING' | undefined`). The broadcast plugin registers
 `CHANNEL_HAS_VIEWERS`, `IS_BROADCAST_SCHEDULED`, `AT_WORK_ZONE`, and
-`BROADCAST_SAY` this way; the vendor work/home-life nodes are slated to move
-the same way (docs/proposals/engine-plugin-boundary.md, Phase 3).
-`getRegisteredAINodes()` lists what plugins have added.
+`BROADCAST_SAY` this way. `getRegisteredAINodes()` lists what plugins have added.
+
+The editor's own catalogues (`AI_CONDITIONS`/`AI_ACTIONS` in
+`client/devpanel/js/vine/vine-schema-ai.js`) are a separate list — a node type
+only appears in the dropdown if it's added there too, and plugin-registered
+types have to be added by hand.
 
 ### `start`
 
@@ -103,6 +111,7 @@ Out ports: `ifTrue`, `ifFalse`.
 | `HP_ABOVE` | `pct` (default 70) | entity HP% > pct |
 | `IN_ZONE` | `zone_id` | entity is in zone_id |
 | `PLAYER_IN_ZONE` | `min` (default 1) | zone has ≥ min players |
+| `TARGETABLE_IN_ZONE` | — | zone holds something this entity would actually fight — respects `flags.ignores_admins` / `attacks_npcs` / `attacks_enemies` (use this over `PLAYER_IN_ZONE` for aggro gates) |
 | `TARGET_HP_BELOW` | `pct` (default 30) | target player HP% < pct |
 | `FACTION_MATCH` | `faction` | target player is a member of org (corp/faction) `faction` — reads `org_members`, not a player field. NPC-faction-vs-player reactions key off reputation (a future condition), not this. |
 | `FLAG_SET` | `scope`, `flag` | blackboard flag is truthy (scope:self only; world flags fall back to blackboard) |
@@ -127,19 +136,20 @@ Executes one action and stops the tick. The cursor is saved to the `next` port's
 | `ACQUIRE_TARGET` | `prefer: 'lowest_hp' \| 'random'` | Pick a player from the current zone as target |
 | `DROP_TARGET` | — | Clear `targetId`, `aggroedAt`; reset patrol state |
 | `PATROL` | `waypoints: [zone_id]`, `loop: bool`, `mode: 'walk' \| 'teleport'` | Step toward next waypoint; walk mode uses BFS (one zone per tick) |
-| `FLEE` | — | Roll to break contact, then move to an adjacent zone that doesn't contain the target. The roll is `flee_skill + (2d8−2d8)` vs a fixed difficulty (6); `flee_skill` = enemy `flags.flee_skill`, else the combat `dodge` stat, else 1. On a **fail** the entity keeps its aggro and stays put (broadcasts "can't break away", re-tries next tick) — so weak early enemies routinely botch the escape while nimbler ones slip away reliably |
-| `SAY` | `message`, `cooldown_s`, `once: bool` | Broadcast message to zone; respects cooldown and once-flag |
+| `FLEE` | — | Move to an adjacent zone that doesn't hold the target, then clear aggro. Gated by one break-contact roll per attack cycle (`ai._fleeNextAt`): `flee_skill + (2d8−2d8)` vs difficulty 6, where `flee_skill` = `flags.flee_skill`, else the combat `dodge` stat, else 1; a fail keeps aggro and stays put. **Skipped when a player is actively pressing the attack** — `moveEntity` gates every mob tile-exit itself, so rolling here too would charge two checks for one escape. The editor exposes a `max_distance` param the engine ignores |
+| `ROAM` | `interval_s` (default 10) | Step to a random adjacent zone every N seconds, unless something targetable is already here (same flag rules as `TARGETABLE_IN_ZONE`). Hunt-by-wandering, vs. PATROL's fixed route |
+| `SAY` | `message`, `cooldown_s`, `once: bool` | Broadcast message to zone; respects cooldown and once-flag. A studio NPC away from its `studio_zone_id` never delivers the authored line — it falls back to chitchat |
 | `CALL_BACKUP` | `radius`, `faction_only: bool` | Alert same-faction enemies/NPCs within radius to adopt entity's target (30s cooldown) |
-| `TELEPORT` | `zone_id` | Instantly move entity; persists `zone_id` to DB for NPCs |
+| `TELEPORT` | `zone_id` | Instantly move entity. **Not persisted** — `moveEntity` never writes `zone_id`, so every AI-driven position is RAM-only and boot re-places NPCs at `home_zone` |
 | `IDLE` | — | No-op; useful as the terminal action in a branch |
 | `SET_FLAG` | `scope: 'self'`, `flag`, `value` | Write to blackboard flags (self-scope only; world-scope is a no-op currently) |
 | `EMOTE` | `message` | Broadcast `"NpcName <message>"` to the NPC's current zone (e.g. `"waves at the camera"`) |
 | `BROADCAST_SAY` | `channel_id`, `text` | Inject a line of dialogue into a broadcast channel feed as this NPC |
 | `START_QUEST` | `quest_id`, `cooldown_s` | Offer a quest (dispatch the quests plugin's `START_QUEST`) to every player in the entity's zone. Per-player/per-quest cooldown via the blackboard so it fires once, not every tick; the plugin no-ops if the player already has it. Editor renders a jump into that quest's VINE editor. |
-| `GO_TO_WORK` | — | If scheduled (`IS_BROADCAST_SCHEDULED`) and not already at work zone, walk toward the studio; returns RUNNING while en route. No-ops otherwise. |
+| `GO_TO_WORK` | `zone_id?`, `arrive_by?` (hour), `depart_early_minutes?` | Commute to `zone_id` ?? `work_zone_id` ?? `studio_zone_id` ?? the broadcast-schedule studio, several zones per tick; returns RUNNING until arrived. **Checks no schedule of its own** — with `zone_id` + `arrive_by` it holds until the commute window opens, otherwise it leaves immediately, so gate it behind `CHECK_WORK`/`CHECK_VENDOR_WORK`. Destinations resolve facade → interior entry |
 | `HAVE_LIFE` | `waypoints?: [zone_id]` | If not scheduled, walk toward `home_zone` or a random waypoint. No-ops when scheduled. Does NOT return RUNNING — graph continues each tick. **Studio actors:** when off-shift and still inside their studio building (same interior map as their studio zone), walk out to the exterior world tile first — one step per tick — before any random activity; once outside, the normal wander resumes. |
 | `AT_WORK` | — | No-op that marks the "at work" position in the graph. Keeps NPC in place during scheduled hours; graph re-checks schedule on next loop. |
-| `GO_TO_WORK` (old) | `zone_id`, `arrive_by`, `depart_early_minutes` | Timed commute to a specific zone; superseded by the parameterless `GO_TO_WORK` above for studio NPCs |
+| `CHECK_WORK` | — | 2-way branch for studio NPCs. Ports: `goToWork` (scheduled now), `haveLife` (off-shift, or no studio assigned) |
 | `GO_HOME` | — | Walk toward `entity.home_zone`; returns RUNNING until arrived |
 | `GO_TO_STUDIO` | — | Walk toward the studio zone derived from the NPC's broadcast schedule; returns RUNNING until arrived |
 | `CHECK_VENDOR_WORK` | — | 4-way branch for vendor NPC routine. Ports: `goToWork` (work time + has work zone), `haveLife` (work time, no zone), `endShift` (shift just ended), `offWork` (off-duty). Reads `npc_type=vendor` schedule from `vendor_schedule`. |
@@ -147,7 +157,9 @@ Executes one action and stops the tick. The cursor is saved to the `next` port's
 | `VENDOR_COLLECT_SAFE` | — | Find linked vendor-safe furniture in `work_zone_id`, take 25% of `vendor_credits`, broadcast to zone |
 | `VENDOR_GO_TO_ATM` | — | Find nearest non-broken ATM furniture globally (BFS), walk toward it; returns RUNNING until arrived |
 | `VENDOR_DEPOSIT` | — | Add `blackboard.vendor_carrying` to `vendor_bank_credits` in DB; broadcast confirmation |
-| `AT_HOME_LIFE` | — | NPC does random home-life activities when players are watching; 15% chance/tick to fall asleep until 1h before next shift (or 7am for NPCs with no schedule). On sleep it sets a real posture via the engine substrate — `setPosture(entity, 'lying', { sittingOn })` bound to a bed/couch/etc. in the room (floor fallback, `sittingOn=null`) — and clears back to `standing` on wake. `ai.homeSleeping` is the *asleep* flag; `entity.posture === 'lying'` is the *physical stance* (so a future "lie down but awake" case just sets posture). Handles wake-up on re-entry. |
+| `AT_HOME_LIFE` | — | Owns the sleep cycle only (the random home activities come from the passive home-life ticker in `tickEntityAI`). 15% chance/tick to fall asleep until 1 game-hour before the next `vendor_schedule` shift, or 07:00 game time with no schedule. On sleep it sets a real posture through the engine substrate — `setPosture(entity, 'lying', { sittingOn })` bound to a bed/couch/etc. in the room (floor fallback, `sittingOn=null`) — and back to `standing` on wake. `ai.homeSleeping` is the *asleep* flag; `entity.posture === 'lying'` is the *physical stance*, so they stay separable |
+| `TALKSHOW_APPEAR` | — | Guest lifecycle (broadcast plugin's default guest graph): materialise out of the off-world backstage `home_zone` into a random **unobserved** zone near the studio, so no player sees it pop in. `GO_TO_WORK` then walks it onstage |
+| `TALKSHOW_HIDE` | — | The reverse: vanish back to `home_zone` the moment the current zone has no players and no camera on it; otherwise step toward the studio's exterior and re-check |
 
 ### `wait`
 
@@ -173,26 +185,27 @@ Out ports: `branch_0`, `branch_1`, … (one per entry).
 
 ---
 
-## Default Studio Behaviour Graph
+## Default Behaviour Graphs
 
-When a broadcast channel's playlist is saved with NPC staff, any NPC that has an empty `behaviour_graph` is automatically assigned the following default graph:
+`ensureBehaviourGraph(entity, kind)` assigns a type-appropriate default to any entity that has none, at load and at creation. It never touches an entity that already carries a graph, `_phantom` opt-outs, non-aggressive enemies, or plain untyped `npc` set-pieces. Four builders ([ai-behaviour.js:1498-1590](../server/engine/ai-behaviour.js#L1498)):
 
-```
-start → HAVE_LIFE → GO_TO_WORK → AT_WORK → wait(30) → loop
-```
+| Builder | For | Shape |
+|---|---|---|
+| `buildDefaultStudioGraph` | broadcast staff | `start → HAVE_LIFE → GO_TO_WORK → AT_WORK → GO_HOME → wait(60) → start` |
+| `buildDefaultVendorGraph` | vendors + anyone on a `vendor_schedule` | `CHECK_VENDOR_WORK` 4-way loop; end-of-shift branch runs collect-safe → ATM → deposit, then weights home vs. wander |
+| `buildDefaultUnemployedGraph` | unemployed NPCs | `HAVE_LIFE` loop, with `AT_HOME_LIFE` taking over at home |
+| `buildDefaultAggressiveEnemyGraph` | `aggressive`/`territorial` enemies | attack, but branch to `FLEE` below 20% HP. Target *acquisition* stays with the engine's escalating-aggro ramp in gameLoop, not the graph |
 
-Behaviour per cycle:
-- **Off-schedule**: `HAVE_LIFE` walks toward `home_zone` (or supplied waypoints). If the actor is still inside the studio building it first walks out to the exterior tile (one step/tick), so only scheduled actors ever remain on the studio stage. `GO_TO_WORK` and `AT_WORK` no-op.
-- **Scheduled, not at studio**: `HAVE_LIFE` no-ops. `GO_TO_WORK` navigates one step toward studio (RUNNING until arrived). `AT_WORK` no-op.
-- **Scheduled, at studio**: All three no-op. NPC stays put.
-
-The 30-second wait keeps the re-check at a reasonable pace without hammering the engine tick. NPCs with hand-authored graphs are unaffected.
+Studio graph per cycle:
+- **Off-schedule**: `HAVE_LIFE` walks toward `home_zone` (or supplied waypoints). If the actor is still inside the studio building it first walks out to the exterior tile (one step/tick), so only scheduled actors remain on the stage. `GO_TO_WORK` and `AT_WORK` no-op.
+- **Scheduled, not at studio**: `HAVE_LIFE` no-ops; `GO_TO_WORK` commutes (RUNNING until arrived).
+- **Scheduled, at studio**: `AT_WORK` holds RUNNING; when the shift ends it falls through to `GO_HOME`.
 
 ---
 
 ## Authoring in the Dev Panel
 
-Behaviour graphs are authored in the VINE editor in the dev panel's Enemies or NPCs panel. The VINE schema for behaviour graphs mirrors the node types above.
+Behaviour graphs are authored with `VineAISchema` from the dev panel's Enemies or NPCs panel (see [vine.md](vine.md)); `fromAiGraph`/`toAiGraph` convert between the stored inline shape above and the editor's graph.
 
 The stored graph lives in `enemies.behaviour_graph` or `npcs.behaviour_graph` (JSONB). The runtime reads it directly from the in-memory world cache (loaded at boot or zone-reload).
 
@@ -200,10 +213,12 @@ The stored graph lives in `enemies.behaviour_graph` or `npcs.behaviour_graph` (J
 
 ## Pathfinding
 
-PATROL's walk mode and FLEE both use BFS over the zone exits graph. [pathfinding.js](../server/engine/pathfinding.js) exports:
+Every routed move — PATROL walk mode, the commutes (`GO_TO_WORK`/`GO_HOME`/`GO_TO_STUDIO`/`VENDOR_GO_TO_ATM`), and the ESP evacuation — goes through `findPath`. FLEE and ROAM don't route: they pick from the current zone's immediate exits. [pathfinding.js](../server/engine/pathfinding.js) exports:
 
-- `findPath(startId, targetId, { maxDistance = 60 })` — returns an array of zone IDs from start to target (inclusive), or `null` if unreachable within maxDistance hops.
-- `getZonesInRadius(startId, radius)` — BFS out to `radius` hops; returns a Map of `zone_id → distance`. Used by CALL_BACKUP.
+- `findPath(startId, targetId, { maxDistance = 60, roads = false, avoid = null })` — array of zone IDs from start to target (inclusive), or `null` if unreachable within maxDistance hops. `roads: true` runs a road-preferring least-cost search instead of plain BFS.
+- `getZonesInRadius(originId, maxHops)` — BFS out to `maxHops`; returns a Map of `zone_id → distance`. Used by CALL_BACKUP.
+
+`ai-behaviour.js` shadows the raw import with its own wrapper ([ai-behaviour.js:254](../server/engine/ai-behaviour.js#L254)): NPCs path with `roads: true` so they commute along streets instead of cutting through buildings; enemies keep the direct BFS line.
 
 Pathfinding crosses map and interior/exterior boundaries freely — exits JSONB already encodes those connections.
 
@@ -211,6 +226,5 @@ Pathfinding crosses map and interior/exterior boundaries freely — exits JSONB 
 
 ## Known Limitations
 
-- **World-scope flags** in `FLAG_SET`/`FLAG_SET` conditions fall back to the in-memory blackboard rather than hitting the DB. World flag persistence via `SET_FLAG` for AI is a no-op pending a design decision on async DB writes in the hot tick loop.
-- **NPC movement** from PATROL/FLEE/TELEPORT is not broadcast to nearby players (no "arrives/leaves" message), unlike enemies.
-- **Blackboards reset on restart** — any runtime AI state (patrol progress, flags) is lost. Persistent cross-restart state needs a DB column.
+- **World-scope flags** are blackboard-only: `SET_FLAG` with `scope: 'world'` is a no-op, and the `FLAG_SET` condition falls back to the blackboard rather than reading `world_flags`. Pending a decision on async DB writes in the tick loop.
+- **Nothing an entity does through the graph persists.** Blackboards are in-memory, and `moveEntity` never writes `zone_id` — patrol progress, self-flags, and current position are all lost on restart (boot re-places NPCs at `home_zone`).

@@ -1,7 +1,14 @@
 import { state } from '../state.js';
+import { appendMsg } from '../render.js';
 import { sendDialogue, sendCmd, buyFromNpc, sellToNpc, sellAllToNpc, sendRaw } from '../net.js';
 
 let shopState = null; // { msg, mode, sort, sel, qty }
+// The zone the open dialogue/shop was started in. A conversation is face-to-face
+// on one tile, so leaving it ends the conversation — whether the player walked
+// off themselves or was moved (teleport, elevator, voidwalk, arrest, flight).
+// Watched here rather than in each mover: every move path the player can observe
+// repaints the room with a zone id, so this one check covers all of them.
+let dialogueZone = null;
 
 const SORTS = [
   { key: 'alpha', label: 'A–Z' },
@@ -66,6 +73,7 @@ function formatOptionLabel(raw) {
 
 export function openDialogue(msg) {
   state.currentNpcId = msg.npcId;
+  dialogueZone = state.currentZone;
   shopState = null;
   document.getElementById('dialogue-panel').classList.remove('shop-mode');
   document.getElementById('dialogue-box').classList.remove('shop-mode');
@@ -115,6 +123,17 @@ export function closeDialogue() {
   lastShownCredits = null;
   state.currentNpcId = null;
   shopState = null;
+  dialogueZone = null;
+}
+
+// Called from the dispatch `look`/`move` handlers with the zone the client is
+// now standing in. A different tile than the one the conversation started on
+// closes the panel (the server has already dropped any shop session on its side).
+export function notifyZoneChanged(zone) {
+  if (!zone || !dialogueZone || zone === dialogueZone) return;
+  if (!state.currentNpcId) return;
+  closeDialogue();
+  appendMsg('The conversation ends as you leave.', 'system');
 }
 
 // A stable per-row key: stock rows key on item_id, sellable rows on inventory_id.
@@ -137,6 +156,7 @@ function shopMaxQty(it, mode, credits) {
 // re-render locally from the same message — only buy/sell/back hit the server.
 export function openShop(msg) {
   state.currentNpcId = msg.npcId;
+  dialogueZone = state.currentZone;
   const mode = msg.sellResult ? 'sell' : msg.buyResult ? 'buy' : (shopState?.mode || 'buy');
   const sort = shopState?.sort || 'alpha';
   // A fresh entry (no buy/sell result) paints credits statically; a transaction
