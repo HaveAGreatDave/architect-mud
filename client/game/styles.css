@@ -3828,31 +3828,71 @@ body.fsim-external #look-resize-handle { display: none; }
 	border-right-color: var(--ctr-steel-hi);
 }
 
-/* Freezer sub-box always gets a frost treatment when active, layered on top
-   of whichever theme the panel is in. */
+/* Freezer sub-box: its own smaller door within the appliance body, layered
+   on top of whichever grade theme the panel is in — a freezer reads icy
+   regardless of whether the unit around it is domestic or industrial. */
 .ctr-subbox.ctr-frost {
 	position: relative;
 	padding-left: 22px;
-	border-radius: 12px 12px 4px 4px;
-	border: 2px solid #9fd8ff;
-	border-bottom-width: 4px;
-	background: linear-gradient(160deg, rgba(159, 216, 255, 0.16), rgba(159, 216, 255, 0.04));
-	box-shadow: inset 0 0 14px rgba(159, 216, 255, 0.18);
+	border-radius: 12px 6px 6px 12px;
+	border: 2px solid #8fcdf0;
+	background:
+		linear-gradient(168deg, rgba(190, 232, 255, 0.2), rgba(140, 200, 235, 0.05) 60%, rgba(190, 232, 255, 0.12));
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.3),
+		inset 0 0 0 4px rgba(150, 205, 235, 0.09),
+		inset 0 0 18px rgba(159, 216, 255, 0.2),
+		0 2px 8px rgba(0, 0, 0, 0.3);
 }
 .ctr-subbox.ctr-frost .container-section-label {
-	color: #9fd8ff;
+	color: #d8f2ff;
+	text-shadow: 0 0 7px rgba(200, 238, 255, 0.6);
 }
-/* Its own little door handle, matching the main body's. */
+/* Its own pull handle, matching the main door's chrome tube. */
 .ctr-subbox.ctr-frost::before {
 	content: "";
 	position: absolute;
 	left: 6px;
-	top: 8px;
-	bottom: 8px;
-	width: 4px;
-	border-radius: 2px;
-	background: linear-gradient(180deg, #eaf8ff, #9fd8ff);
-	box-shadow: 0 0 5px rgba(159, 216, 255, 0.5);
+	top: 10px;
+	bottom: 10px;
+	width: 5px;
+	border-radius: 3px;
+	background: linear-gradient(90deg, #6f9fbb, #f4fcff 40%, #e4f6ff 55%, #7fb2ce);
+	box-shadow: 0 0 7px rgba(200, 238, 255, 0.55), 0 1px 2px rgba(0, 0, 0, 0.4);
+	z-index: 2;
+}
+/* Rime creeping in from the corners — irregular blooms plus a few crystal
+   spurs, densest at the corners and thinning toward the middle. */
+.ctr-subbox.ctr-frost::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	border-radius: 10px 5px 5px 10px;
+	background-image:
+		/* corner blooms */
+		radial-gradient(ellipse 46px 26px at 100% 0%, rgba(238, 250, 255, 0.34), transparent 72%),
+		radial-gradient(ellipse 34px 20px at 0% 100%, rgba(238, 250, 255, 0.26), transparent 72%),
+		radial-gradient(ellipse 26px 16px at 100% 100%, rgba(238, 250, 255, 0.2), transparent 74%),
+		/* scattered crystal clusters */
+		radial-gradient(circle at 86% 30%, rgba(255, 255, 255, 0.42) 0 1.3px, transparent 2.4px),
+		radial-gradient(circle at 92% 52%, rgba(255, 255, 255, 0.34) 0 1px, transparent 2px),
+		radial-gradient(circle at 78% 12%, rgba(255, 255, 255, 0.46) 0 1.6px, transparent 2.8px),
+		radial-gradient(circle at 12% 84%, rgba(255, 255, 255, 0.36) 0 1.2px, transparent 2.2px),
+		radial-gradient(circle at 5% 62%, rgba(255, 255, 255, 0.3) 0 1px, transparent 1.9px),
+		radial-gradient(circle at 66% 92%, rgba(255, 255, 255, 0.28) 0 1.1px, transparent 2px),
+		/* crystal spurs feathering off the top edge */
+		linear-gradient(200deg, rgba(255, 255, 255, 0.3), transparent 55%),
+		linear-gradient(160deg, rgba(255, 255, 255, 0.24), transparent 50%);
+	background-size:
+		auto, auto, auto,
+		auto, auto, auto, auto, auto, auto,
+		3px 11px, 3px 8px;
+	background-position:
+		0 0, 0 0, 0 0,
+		0 0, 0 0, 0 0, 0 0, 0 0, 0 0,
+		72% 0, 89% 0;
+	background-repeat: no-repeat;
 }
 
 /* Brief cold-fog flourish on open — the whole panel reads as fogged-over
@@ -3936,88 +3976,199 @@ body.fsim-external #look-resize-handle { display: none; }
 #container-contents-col {
 	padding-left: 14px;
 }
-/* Drawn as its own appliance body — a rounded fridge-door casing with a
-   handle — visually distinct from the plain inventory list on the left.
-   Only when a cold theme is active; ordinary containers (crates, bags) keep
-   the plain column look untouched. */
+/* ── The appliance body ──────────────────────────────────────────────────
+   The contents column is drawn as a physical door: casing + rounded corners,
+   a pull handle down the inner edge, hinge plates on the OUTER edge (handle
+   and hinges on opposite sides, as on a real door), and a gasket ring just
+   inside the frame. Only when a cold theme is active — ordinary containers
+   (crates, bags, trash bins) keep the plain column look untouched. */
 #container-box.ctr-theme-consumer #container-contents-col,
 #container-box.ctr-theme-commercial #container-contents-col {
 	position: relative;
 	margin: 2px 2px 2px 8px;
-	padding: 16px 14px 16px 26px;
-	border-radius: 16px 16px 8px 8px;
+	padding: 14px 16px 14px 26px;
+	border-radius: 18px 10px 10px 18px;
+	background-repeat: no-repeat;
+	/* two hinge plates on the outer (right) edge + the door face beneath */
+	background-size: 7px 30px, 7px 30px, auto;
+	background-position: right 2px top 26px, right 2px bottom 26px, 0 0;
 }
 #container-box.ctr-theme-consumer #container-contents-col {
-	border: 2px solid color-mix(in srgb, var(--ctr-cold) 55%, var(--border));
-	background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(191, 233, 255, 0.03));
+	border: 2px solid color-mix(in srgb, var(--ctr-cold) 50%, var(--border));
+	background-image:
+		linear-gradient(180deg, #dff3ff, #7fb8d6 60%, #dff3ff),
+		linear-gradient(180deg, #dff3ff, #7fb8d6 60%, #dff3ff),
+		linear-gradient(172deg, rgba(255, 255, 255, 0.07), rgba(191, 233, 255, 0.02) 45%, rgba(120, 180, 210, 0.05));
 	box-shadow:
-		inset 0 1px 0 rgba(255, 255, 255, 0.2),
-		inset 0 0 20px rgba(191, 233, 255, 0.08);
+		inset 0 1px 0 rgba(255, 255, 255, 0.22),
+		inset 0 0 0 5px rgba(140, 190, 215, 0.07),   /* door gasket */
+		inset 0 0 26px rgba(191, 233, 255, 0.09),
+		-2px 0 10px rgba(0, 0, 0, 0.25);
 }
 #container-box.ctr-theme-commercial #container-contents-col {
 	border: 2px solid var(--ctr-steel-hi);
-	background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(0, 0, 0, 0.12));
+	background-image:
+		linear-gradient(180deg, #d8dcdf, #6e7478 60%, #d8dcdf),
+		linear-gradient(180deg, #d8dcdf, #6e7478 60%, #d8dcdf),
+		repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.022) 0 1px, transparent 1px 3px);
+	background-color: rgba(0, 0, 0, 0.14);
 	box-shadow:
-		inset 0 1px 0 rgba(255, 255, 255, 0.06),
-		inset 0 0 16px rgba(0, 0, 0, 0.3);
+		inset 0 1px 0 rgba(255, 255, 255, 0.07),
+		inset 0 0 0 5px rgba(0, 0, 0, 0.22),          /* heavy-duty gasket */
+		inset 0 0 20px rgba(0, 0, 0, 0.34),
+		-2px 0 10px rgba(0, 0, 0, 0.4);
 }
-/* The door handle — a vertical bar along the casing's inner edge. */
+/* The pull handle — a vertical bar down the casing's inner edge, with a
+   specular highlight so it reads as a round chrome/steel tube. */
 #container-box.ctr-theme-consumer #container-contents-col::before,
 #container-box.ctr-theme-commercial #container-contents-col::before {
 	content: "";
 	position: absolute;
-	left: 8px;
-	top: 16px;
-	bottom: 16px;
-	width: 5px;
+	left: 7px;
+	top: 26px;
+	bottom: 26px;
+	width: 6px;
 	border-radius: 3px;
 }
 #container-box.ctr-theme-consumer #container-contents-col::before {
-	background: linear-gradient(180deg, #eaf8ff, #9fd8ff);
-	box-shadow: 0 0 6px rgba(159, 216, 255, 0.5);
+	background: linear-gradient(90deg, #6f9fbb, #f2fbff 40%, #eaf8ff 55%, #7fb2ce);
+	box-shadow: 0 0 8px rgba(159, 216, 255, 0.45), 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 #container-box.ctr-theme-commercial #container-contents-col::before {
-	background: linear-gradient(180deg, #cfd3d6, #82888c);
-	box-shadow: 0 0 4px rgba(0, 0, 0, 0.4);
+	background: linear-gradient(90deg, #63696d, #eef1f2 40%, #d3d7da 55%, #6d7377);
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
 }
-/* A few uneven condensation beads + short drip trails near the top of the
-   fridge casing (consumer grade only) — hand-placed, not a repeating tile,
-   so it doesn't read as a ruled line. */
-#container-box.ctr-theme-consumer #container-contents-col::after {
-	content: "";
-	position: absolute;
-	top: 4px;
-	left: 30px;
-	right: 14px;
-	height: 26px;
-	pointer-events: none;
-	background-image:
-		radial-gradient(circle at 10% 4px, rgba(255, 255, 255, 0.55) 0 1.6px, transparent 2.6px),
-		radial-gradient(circle at 23% 11px, rgba(191, 233, 255, 0.55) 0 1.1px, transparent 2px),
-		radial-gradient(circle at 34% 3px, rgba(255, 255, 255, 0.4) 0 1.3px, transparent 2.2px),
-		radial-gradient(circle at 49% 13px, rgba(191, 233, 255, 0.5) 0 1.7px, transparent 2.8px),
-		radial-gradient(circle at 62% 5px, rgba(255, 255, 255, 0.35) 0 1px, transparent 1.8px),
-		radial-gradient(circle at 74% 12px, rgba(191, 233, 255, 0.55) 0 1.4px, transparent 2.4px),
-		radial-gradient(circle at 88% 4px, rgba(255, 255, 255, 0.4) 0 1.1px, transparent 2px),
-		linear-gradient(180deg, rgba(191, 233, 255, 0.4), transparent 80%),
-		linear-gradient(180deg, rgba(191, 233, 255, 0.32), transparent 65%);
-	background-size: auto, auto, auto, auto, auto, auto, auto, 2px 22px, 2px 15px;
-	background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 24% 0, 68% 0;
-	background-repeat: no-repeat;
-	opacity: 0.85;
-}
-/* Commercial grade skips condensation for a couple of subtle corner rivets. */
+/* Condensation on the consumer door face — uneven beads with a couple of
+   short drip trails, hand-placed rather than tiled so it never reads as a
+   ruled line. Commercial steel doesn't sweat; it gets corner rivets instead. */
+#container-box.ctr-theme-consumer #container-contents-col::after,
 #container-box.ctr-theme-commercial #container-contents-col::after {
 	content: "";
 	position: absolute;
-	top: 6px;
-	left: 14px;
-	right: 14px;
-	height: 4px;
 	pointer-events: none;
+}
+#container-box.ctr-theme-consumer #container-contents-col::after {
+	top: 6px;
+	left: 28px;
+	right: 18px;
+	height: 34px;
 	background-image:
-		radial-gradient(circle at 3px 2px, rgba(255, 255, 255, 0.3) 0 1.5px, transparent 2.2px),
-		radial-gradient(circle at calc(100% - 3px) 2px, rgba(255, 255, 255, 0.3) 0 1.5px, transparent 2.2px);
+		radial-gradient(circle at 7% 5px, rgba(255, 255, 255, 0.6) 0 1.7px, transparent 2.7px),
+		radial-gradient(circle at 19% 14px, rgba(210, 240, 255, 0.5) 0 1.1px, transparent 2px),
+		radial-gradient(circle at 31% 3px, rgba(255, 255, 255, 0.42) 0 1.4px, transparent 2.3px),
+		radial-gradient(circle at 40% 19px, rgba(210, 240, 255, 0.45) 0 1px, transparent 1.8px),
+		radial-gradient(circle at 52% 9px, rgba(255, 255, 255, 0.55) 0 1.8px, transparent 2.9px),
+		radial-gradient(circle at 63% 22px, rgba(210, 240, 255, 0.4) 0 1.2px, transparent 2.1px),
+		radial-gradient(circle at 71% 4px, rgba(255, 255, 255, 0.38) 0 1.1px, transparent 1.9px),
+		radial-gradient(circle at 84% 13px, rgba(210, 240, 255, 0.52) 0 1.5px, transparent 2.5px),
+		radial-gradient(circle at 93% 6px, rgba(255, 255, 255, 0.34) 0 1px, transparent 1.8px),
+		linear-gradient(180deg, rgba(200, 238, 255, 0.42), transparent 85%),
+		linear-gradient(180deg, rgba(200, 238, 255, 0.3), transparent 70%),
+		linear-gradient(180deg, rgba(200, 238, 255, 0.24), transparent 60%);
+	background-size:
+		auto, auto, auto, auto, auto, auto, auto, auto, auto,
+		2px 30px, 2px 19px, 1px 13px;
+	background-position:
+		0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0,
+		7% 4px, 52% 8px, 84% 12px;
+	background-repeat: no-repeat;
+}
+#container-box.ctr-theme-commercial #container-contents-col::after {
+	inset: 7px 9px auto 22px;
+	height: 5px;
+	background-image:
+		radial-gradient(circle at 3px 2.5px, rgba(255, 255, 255, 0.32) 0 1.6px, transparent 2.3px),
+		radial-gradient(circle at calc(100% - 3px) 2.5px, rgba(255, 255, 255, 0.32) 0 1.6px, transparent 2.3px);
+	background-repeat: no-repeat;
+}
+
+/* The decorations above (handle, hinges, condensation, frost) are absolutely
+   positioned, so they'd paint over the item cards. Lift the real content one
+   level so it always sits on top; the handle/hinges live in the casing's
+   padding gutter and stay visible either way. */
+#container-box.ctr-theme-consumer #container-contents-col > *,
+#container-box.ctr-theme-commercial #container-contents-col > *,
+.ctr-subbox.ctr-frost > * {
+	position: relative;
+	z-index: 1;
+}
+
+/* Compartment header row: label on the left, temperature readout right. */
+.ctr-shelf-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	flex-shrink: 0;
+	margin-bottom: 8px;
+}
+.ctr-shelf-head .container-section-label,
+.ctr-subbox .ctr-shelf-head .container-section-label {
+	margin-bottom: 0;
+}
+/* Small LED-style temperature readout. Empty (and hidden) unless the panel
+   is themed cold and the compartment reports a preservation tier. */
+.ctr-temp {
+	display: none;
+	font-size: 9px;
+	letter-spacing: 1px;
+	padding: 2px 6px;
+	border-radius: 3px;
+	font-variant-numeric: tabular-nums;
+	background: rgba(0, 0, 0, 0.5);
+	border: 1px solid rgba(255, 255, 255, 0.12);
+	flex-shrink: 0;
+}
+.ctr-temp.active {
+	display: inline-block;
+}
+#container-box.ctr-theme-consumer .ctr-temp {
+	color: #bfe9ff;
+	text-shadow: 0 0 6px rgba(159, 216, 255, 0.75);
+	border-color: rgba(159, 216, 255, 0.3);
+}
+#container-box.ctr-theme-commercial .ctr-temp {
+	color: var(--ctr-hazard);
+	text-shadow: 0 0 6px rgba(232, 184, 75, 0.6);
+	border-color: rgba(232, 184, 75, 0.28);
+}
+.ctr-temp.ctr-temp-frozen {
+	color: #d8f2ff !important;
+	text-shadow: 0 0 7px rgba(200, 238, 255, 0.85) !important;
+	border-color: rgba(200, 238, 255, 0.38) !important;
+}
+
+/* ── Compartment interiors ───────────────────────────────────────────────
+   Shelf edges + an interior light washing down from the top of each
+   compartment. Drawn on the list's own background so item cards sit ON the
+   shelves; an empty compartment still reads as a lit, shelved interior. */
+#container-box.ctr-theme-consumer #container-contents-list,
+#container-box.ctr-theme-commercial #container-contents-list,
+#container-box.ctr-theme-consumer #container-freezer-list,
+#container-box.ctr-theme-commercial #container-freezer-list {
+	border-radius: 4px;
+	background-repeat: no-repeat, repeat-y;
+	background-size: 100% 100%, 100% 58px;
+}
+#container-box.ctr-theme-consumer #container-contents-list,
+#container-box.ctr-theme-consumer #container-freezer-list {
+	background-image:
+		linear-gradient(180deg, rgba(214, 242, 255, 0.14), rgba(214, 242, 255, 0.03) 26%, transparent 55%),
+		linear-gradient(180deg,
+			transparent 0 54px,
+			rgba(226, 246, 255, 0.16) 54px 55px,
+			rgba(0, 0, 0, 0.2) 55px 57px,
+			transparent 57px 58px);
+}
+#container-box.ctr-theme-commercial #container-contents-list,
+#container-box.ctr-theme-commercial #container-freezer-list {
+	background-image:
+		linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.015) 24%, transparent 52%),
+		linear-gradient(180deg,
+			transparent 0 54px,
+			rgba(214, 220, 224, 0.14) 54px 55px,
+			rgba(0, 0, 0, 0.3) 55px 57px,
+			transparent 57px 58px);
 }
 /* Freezer sub-box: shown only when the opened container has a paired box
    (e.g. a fridge's separate freezer compartment) — a smaller drop zone
@@ -11283,40 +11434,83 @@ input.trade-qty { width: 56px; }
 .trade-btn.on { border-color: var(--green, #5fbf5f); color: var(--green, #5fbf5f); }
 .trade-btn.trade-cancel:hover { border-color: var(--red); color: var(--red); }
 
-/* ── Voidwalk staging overlay (voidwalking muster) ─────────────────────────── */
+/* ── Voidwalking muster overlay ──────────────────────────────────────────────
+   The last screen before the map ends. Dressed as the VOIDLINK firmware rather
+   than ArchitectOS (out past the edge the grid doesn't reach you) — cold slate,
+   scanline haze, survey-bracket corners, and a title that sits under a hairline
+   rule stamped with the terms of the walk. */
 .vwstage-overlay {
 	position: fixed; inset: 0; z-index: 9000;
 	display: flex; align-items: center; justify-content: center;
-	background: radial-gradient(ellipse at center, rgba(5,5,10,0.82), rgba(5,5,10,0.96));
+	background: radial-gradient(ellipse at 50% 35%, rgba(10,14,20,0.80), rgba(2,3,6,0.97));
 	backdrop-filter: blur(3px);
 	font-family: var(--font-mono);
 }
+/* A slow drifting interference band over the whole overlay — the void's own weather. */
+.vwstage-overlay::after {
+	content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 1;
+	background: repeating-linear-gradient(0deg, rgba(255,255,255,0.022) 0 1px, transparent 1px 3px);
+}
 .vwstage-panel {
-	width: min(620px, 94vw); max-height: 92vh; overflow-y: auto;
-	background: linear-gradient(160deg, var(--bg2), var(--bg));
+	position: relative; z-index: 2;
+	width: min(640px, 94vw); max-height: 92vh; overflow-y: auto;
+	background:
+		linear-gradient(180deg, rgba(40,229,255,0.05), transparent 22%),
+		linear-gradient(160deg, var(--bg2), var(--bg));
 	border: 1px solid var(--border);
-	border-radius: 14px;
-	box-shadow: 0 0 0 1px rgba(40,229,255,0.12), 0 18px 60px rgba(0,0,0,0.7), 0 0 40px rgba(255,46,196,0.08);
+	border-radius: 4px;
+	box-shadow: 0 0 0 1px rgba(40,229,255,0.10), 0 22px 70px rgba(0,0,0,0.78), 0 0 60px rgba(40,229,255,0.06);
 	color: var(--text);
 	padding: 0 0 14px;
 }
+/* Survey brackets at the four corners — the instrument framing the void map uses. */
+.vwstage-corner {
+	position: absolute; width: 14px; height: 14px; pointer-events: none;
+	border: 1px solid var(--cyan); opacity: 0.55;
+}
+.vwstage-corner.tl { top: 6px; left: 6px; border-right: 0; border-bottom: 0; }
+.vwstage-corner.tr { top: 6px; right: 6px; border-left: 0; border-bottom: 0; }
+.vwstage-corner.bl { bottom: 6px; left: 6px; border-right: 0; border-top: 0; }
+.vwstage-corner.br { bottom: 6px; right: 6px; border-left: 0; border-top: 0; }
 .vwstage-topbar {
 	display: flex; justify-content: space-between; align-items: center;
 	padding: 8px 14px; border-bottom: 1px solid var(--border);
-	font-size: 0.68rem; letter-spacing: 2px; color: var(--text-dim);
-	background: rgba(40,229,255,0.04);
+	font-size: 0.64rem; letter-spacing: 3px; color: var(--text-dim);
+	background: rgba(40,229,255,0.05);
 }
-.vwstage-os { color: var(--cyan); }
-.vwstage-mode { color: var(--accent); }
-.vwstage-head { padding: 16px 18px 6px; }
+.vwstage-os { color: var(--cyan); font-weight: 700; }
+.vwstage-mode { color: var(--text-dim); }
+.vwstage-head { padding: 18px 18px 4px; }
 .vwstage-title {
-	font-size: 1.7rem; font-weight: 700; letter-spacing: 1px; color: var(--text-bright);
-	text-shadow: 0 0 18px rgba(255,46,196,0.4);
+	position: relative;
+	font-size: 2.05rem; font-weight: 700; letter-spacing: 9px; color: var(--text-bright);
+	text-transform: uppercase; line-height: 1.05;
+	text-shadow: 0 0 26px rgba(40,229,255,0.35), 0 0 60px rgba(255,46,196,0.18);
 }
-.vwstage-route { margin-top: 3px; color: var(--cyan); font-size: 0.86rem; letter-spacing: 1px; }
+/* Chromatic-split ghost of the wordmark — the signal isn't clean out here. */
+.vwstage-title::before {
+	content: attr(data-text); position: absolute; inset: 0;
+	color: var(--accent); opacity: 0.35; transform: translate(-2px, 1px);
+	pointer-events: none;
+}
+.vwstage-route {
+	margin-top: 8px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+	font-size: 0.8rem; letter-spacing: 2px; text-transform: uppercase;
+}
+.vwstage-from { color: var(--text-dim); }
+.vwstage-arrow { color: var(--accent); letter-spacing: 0; opacity: 0.75; }
+.vwstage-to { color: var(--cyan); }
+.vwstage-rule {
+	margin-top: 12px; border-top: 1px solid var(--border); position: relative; height: 1px;
+}
+.vwstage-rule-tag {
+	position: absolute; top: -0.55em; left: 0; padding-right: 10px;
+	background: var(--bg2); color: var(--text-dim);
+	font-size: 0.58rem; letter-spacing: 3px;
+}
 .vwstage-lore {
-	margin: 10px 18px; padding: 12px 14px;
-	border-left: 2px solid var(--accent); background: rgba(255,46,196,0.05);
+	margin: 14px 18px 10px; padding: 12px 14px;
+	border-left: 2px solid var(--cyan); background: rgba(40,229,255,0.04);
 	color: var(--text); font-size: 0.88rem; line-height: 1.6; font-style: italic;
 }
 .vwstage-cols { display: flex; gap: 12px; padding: 6px 18px; }

@@ -41,6 +41,20 @@ function formatWeight(g) {
   return `${(Math.round(g / 100) / 10).toString()}kg`;
 }
 
+// Holding temperature shown on a compartment's little LED readout, keyed by
+// the `preserves` tier the server reports for that box. A compartment with no
+// tier (an ordinary crate) shows nothing at all.
+const TIER_TEMP = { refrigerated: '4°C', frozen: '-18°C' };
+
+function setTemp(elId, preserves) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  const label = TIER_TEMP[preserves];
+  el.textContent = label || '';
+  el.classList.toggle('active', !!label);
+  el.classList.toggle('ctr-temp-frozen', preserves === 'frozen');
+}
+
 function promptQty(max, action) {
   if (max <= 1) return Promise.resolve(max);
   return new Promise((resolve) => {
@@ -94,6 +108,8 @@ function renderContainerPanel(data, { isOpen = false } = {}) {
   const box = document.getElementById('container-box');
   box.classList.toggle('ctr-theme-consumer', isCold && grade === 'consumer');
   box.classList.toggle('ctr-theme-commercial', isCold && grade === 'commercial');
+  setTemp('container-temp', isCold ? fridge.preserves : null);
+  setTemp('container-freezer-temp', freezer ? freezer.preserves : null);
   const fx = document.getElementById('container-cold-fx');
   if (isOpen && isCold) {
     fx.classList.remove('play');
