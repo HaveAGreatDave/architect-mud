@@ -1583,6 +1583,9 @@ export const SCHEMA_SQL = `
   );
   ALTER TABLE jail_prisoners ADD COLUMN IF NOT EXISTS held_credits INTEGER NOT NULL DEFAULT 0;
   ALTER TABLE jail_prisoners ADD COLUMN IF NOT EXISTS fine INTEGER NOT NULL DEFAULT 0;
+  -- The rap sheet read off surveillance at booking, kept so the sentence readout
+  -- can state what you're in for (surveillance has cleared it by then).
+  ALTER TABLE jail_prisoners ADD COLUMN IF NOT EXISTS charge TEXT;
 
   -- Global police evidence locker: confiscated contraband (weapons/drugs/hacking
   -- gear). Capped at 50 rows (oldest evicted on insert); the whole locker purges

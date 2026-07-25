@@ -1,5 +1,7 @@
 // Jail plugin regression suite — run by tests/regress.js (never loaded in production).
 import { query } from '../../server/models/db.js';
+import { getDoorById } from '../../server/engine/world.js';
+import { getLockTagPublic } from '../../server/engine/commands/doors.js';
 import { _test } from './index.js';
 
 export default async function regress({ run, check, getPlayer }) {
@@ -78,6 +80,30 @@ export default async function regress({ run, check, getPlayer }) {
   check('the exercise room is in the block', _test.inCellBlock('zone_mq_precinct_gym') === true);
   check('the lobby is NOT in the block', _test.inCellBlock(_test.RELEASE_ZONE) === false);
   check('an unknown zone is NOT in the block', _test.inCellBlock('zone_nowhere') === false);
+
+  // ── The cell door actually locks ──────────────────────────────────────────
+  // The bug this guards: the door shipped `lock_state:"unlocked"`, so a prisoner
+  // walked `up` and the only consequence was a jailbreak log. Booking engages the
+  // lock, release disengages it, and the next booking engages it again.
+  const cellDoor = getDoorById(_test.CELL_DOOR);
+  check('the cell door exists', !!cellDoor, _test.CELL_DOOR);
+  if (cellDoor) {
+    const lockTag = getLockTagPublic(cellDoor);
+    check('the cell door carries a lock', !!lockTag, JSON.stringify(cellDoor.tags)?.slice(0, 80));
+    check('the cell lock is unhackable (police-only)', lockTag?.canHack === false, lockTag?.canHack);
+    await _test.secureCellDoor();
+    check('booking engages the hololock', cellDoor.lock_state === 'locked' && !cellDoor.is_open, `${cellDoor.lock_state}/${cellDoor.is_open}`);
+    await _test.releaseCellDoor();
+    check('release disengages the hololock', cellDoor.lock_state === 'unlocked', cellDoor.lock_state);
+    await _test.secureCellDoor();
+    check('the next booking re-engages it', cellDoor.lock_state === 'locked', cellDoor.lock_state);
+  }
+
+  // ── Sentence readout ──────────────────────────────────────────────────────
+  // A free player asking gets a clean answer, not a crash or an empty record.
+  await query('DELETE FROM jail_prisoners WHERE player_id=$1', [p.id]).catch(() => {});
+  const st = await run('sentence');
+  check('sentence outside jail answers cleanly', st?.type === 'output' && /not doing time/i.test(st.message || ''), st?.type);
 
   // unseal with nothing sealed must fail cleanly.
   const us = await run('unseal');
