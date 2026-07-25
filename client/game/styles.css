@@ -1064,6 +1064,58 @@ body.fsim-external #look-resize-handle { display: none; }
 	font-weight: bold;
 	letter-spacing: 1px;
 }
+/* Power attack. Deliberately shaped like .crit-tag — a crit and a pow never
+   render two badges (the server collapses them to one CRITICAL POWER tag). */
+.pow-tag {
+	color: var(--orange);
+	font-weight: bold;
+	letter-spacing: 1px;
+}
+/* The dodge move decorates the incoming attack line rather than adding one. */
+.dodge-tag {
+	color: var(--cyan);
+	font-weight: bold;
+}
+.flee-fail {
+	color: var(--yellow);
+}
+/* Stance: the tag on the change line, and the dim modifier summary after it. */
+.stance-tag {
+	font-weight: bold;
+	letter-spacing: 1px;
+}
+.stance-mods {
+	color: var(--text-dim);
+	font-size: 11px;
+}
+/* Persistent HUD chip. Stance is state, not an event — it belongs here rather
+   than being re-announced in the output pane every attack cycle. */
+.stance-chip {
+	display: inline-block;
+	padding: 2px 8px;
+	border: 1px solid currentColor;
+	border-radius: 3px;
+	font-family: var(--font-mono, monospace);
+	font-size: 10px;
+	font-weight: bold;
+	letter-spacing: 1px;
+	opacity: 0.9;
+}
+.stance-berserk {
+	color: var(--red);
+}
+.stance-aggressive {
+	color: var(--orange);
+}
+.stance-normal {
+	color: var(--text-dim);
+}
+.stance-cautious {
+	color: var(--cyan);
+}
+.stance-pacifist {
+	color: var(--green);
+}
 .hpbar {
 	font-family: var(--font-mono);
 	letter-spacing: -1px;
@@ -4336,160 +4388,293 @@ body.fsim-external #look-resize-handle { display: none; }
 	color: var(--text-dim, var(--text));
 }
 
-/* Shop layout */
-.shop-body {
-	font-size: 11px;
-	/* #dialogue-text is pre-wrap; without this any whitespace in the shop
-	   markup renders as blank space and bloats the item boxes. */
+/* ─── Shop (GUI vendor) — two-pane "Terminal Card" layout ──────────────────
+   List of items on the left, an examine card on the right, a transaction footer
+   below. Rendered into #dialogue-text by renderShop() in dialogue.js. The box is
+   widened to a fixed size via the .shop-mode class while a shop is open. */
+#dialogue-box.shop-mode {
+	width: 780px;
+	max-width: 94vw;
+	height: 560px;
+	max-height: 84vh;
+}
+#dialogue-box.shop-mode #dialogue-text {
+	overflow: hidden;
 	white-space: normal;
+	min-height: 0;
+	margin-bottom: 8px;
 }
-/* Reactive purchase feedback — green pulse on a successful buy/sell, red shake
-   when it bounces for lack of credits. Applied to #dialogue-text by
-   flashShopResult() in dialogue.js. */
-@keyframes shopFlashOk {
-	0%   { background: rgba(74, 222, 128, 0); }
-	25%  { background: rgba(74, 222, 128, 0.30); }
-	100% { background: rgba(74, 222, 128, 0); }
+/* Back + Leave share one row; the panel's static Leave button (a direct child
+   of the box) is hidden so only the in-options pair shows. */
+#dialogue-box.shop-mode #dialogue-options { flex-direction: row; gap: 6px; }
+#dialogue-box.shop-mode #dialogue-options .shop-back { flex: 1; }
+#dialogue-box.shop-mode > .dialogue-opt { display: none; }
+
+/* Reactive purchase feedback lives on the credits counter — it rolls to the new
+   balance (animateCredits in dialogue.js), tinted red while spending and green
+   while gaining, then eases back to its resting colour. */
+.shop-cred b { transition: color 0.25s ease; }
+.shop-cred.cred-up b { color: var(--green); }
+.shop-cred.cred-down b { color: var(--red); }
+
+.shop2 {
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+	white-space: normal;
+	font-size: 12px;
+	background: repeating-linear-gradient(0deg, transparent 0 3px, rgba(255, 46, 196, 0.02) 3px 4px);
 }
-@keyframes shopFlashBad {
-	0%, 100% { background: rgba(239, 68, 68, 0); transform: translateX(0); }
-	15% { background: rgba(239, 68, 68, 0.28); transform: translateX(-6px); }
-	35% { transform: translateX(6px); }
-	55% { transform: translateX(-4px); }
-	75% { transform: translateX(3px); }
+.shop-bar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding-bottom: 8px;
+	border-bottom: 1px dashed var(--accent-dim);
+	flex-shrink: 0;
 }
-.shop-flash-ok {
-	animation: shopFlashOk 0.6s ease-out;
-	border-radius: 4px;
+.shop-modes { display: flex; align-items: center; gap: 16px; }
+.shop-modes > button {
+	background: none;
+	border: none;
+	color: var(--text-dim);
+	cursor: pointer;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+	padding: 2px 0;
+	font-family: inherit;
+	font-size: 12px;
 }
-.shop-flash-bad {
-	animation: shopFlashBad 0.5s ease-in-out;
-	border-radius: 4px;
-}
+.shop-modes > button.on { color: var(--cyan); }
+.shop-modes > button.on::before { content: "["; color: var(--cyan); }
+.shop-modes > button.on::after { content: "]"; color: var(--cyan); }
 .shop-sort {
 	display: flex;
 	align-items: center;
-	gap: 4px;
-	margin-bottom: 6px;
+	gap: 6px;
+	font-size: 12px;
 	color: var(--text-dim);
-	font-size: 10px;
-}
-.shop-sort-btn {
-	padding: 1px 6px;
-	font-size: 10px;
-	font-family: inherit;
-	color: var(--text-dim);
-	background: var(--bg2);
-	border: 1px solid var(--border);
-	border-radius: 2px;
-	cursor: pointer;
-}
-.shop-sort-btn:hover {
-	color: var(--text);
-}
-.shop-sort-btn.active {
-	color: var(--accent2);
-	border-color: var(--accent2);
-}
-.shop-item-weight {
-	font-weight: normal;
-	font-size: 10px;
-	color: var(--cyan);
-	margin-left: 6px;
-}
-.shop-sell-all-btn {
-	width: 100%;
-	margin-top: 4px;
-	box-sizing: border-box;
-}
-.shop-credits {
-	margin-bottom: 6px;
-	color: var(--text-dim);
-}
-.shop-result {
-	margin-bottom: 6px;
-	/* The buy/sell line + the vendor's reaction are joined by \n; honour it so
-	   the shopkeeper's quip lands on its own line inside the panel. */
-	white-space: pre-line;
-}
-.shop-tabs {
-	display: flex;
-	gap: 4px;
-	margin-bottom: 6px;
-}
-.shop-tab {
-	flex: 1;
-	padding: 3px 8px;
-	font-size: 10px;
-	font-family: inherit;
+	letter-spacing: 0.12em;
 	text-transform: uppercase;
-	letter-spacing: 1px;
+}
+.shop-sort button {
+	background: var(--bg3);
+	border: 1px solid var(--border);
 	color: var(--text-dim);
-	background: var(--bg2);
-	border: 1px solid var(--border);
-	border-radius: 2px;
+	border-radius: 3px;
+	padding: 2px 8px;
 	cursor: pointer;
+	font-size: 12px;
+	text-transform: uppercase;
+	letter-spacing: 0.12em;
+	font-family: inherit;
 }
-.shop-tab:hover {
-	color: var(--text);
+.shop-sort button.on { color: #04121a; background: var(--cyan); border-color: var(--cyan); }
+.shop-bar-right { display: flex; align-items: center; gap: 16px; }
+.shop-cred { font-size: 12px; color: var(--text-dim); white-space: nowrap; }
+.shop-cred b { color: var(--yellow); font-size: 15px; font-variant-numeric: tabular-nums; }
+.shop-result {
+	padding-top: 6px;
+	/* Always holds its spot so the panes don't jump when a quip appears. */
+	min-height: 2.6em;
+	/* The buy/sell line + the vendor's reaction are joined by \n; honour it. */
+	white-space: pre-line;
+	font-size: 11px;
+	color: var(--text-dim);
+	flex-shrink: 0;
 }
-.shop-tab.active {
-	color: var(--accent2);
-	border-color: var(--accent2);
+.shop-2pane {
+	display: grid;
+	grid-template-columns: 1fr 300px;
+	flex: 1;
+	min-height: 0;
+	margin-top: 8px;
 }
-.shop-item {
-	border: 1px solid var(--border);
-	padding: 9px 11px;
-	margin-bottom: 7px;
-	border-radius: 2px;
+.shop-list {
+	overflow-y: auto;
+	min-height: 0;
+	border-right: 1px dashed var(--accent-dim);
+	padding-right: 2px;
 }
-.shop-item-row {
+/* Themed scrollbars for the two scrolling regions (list + description). */
+.shop-list, .shop-card-desc { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+.shop-list::-webkit-scrollbar, .shop-card-desc::-webkit-scrollbar { width: 8px; }
+.shop-list::-webkit-scrollbar-track, .shop-card-desc::-webkit-scrollbar-track { background: transparent; }
+.shop-list::-webkit-scrollbar-thumb, .shop-card-desc::-webkit-scrollbar-thumb {
+	background: var(--border);
+	border-radius: 4px;
+}
+.shop-list::-webkit-scrollbar-thumb:hover, .shop-card-desc::-webkit-scrollbar-thumb:hover {
+	background: var(--accent-dim);
+}
+.shop-row {
 	display: flex;
-	align-items: center;
 	justify-content: space-between;
-	gap: 8px;
+	gap: 10px;
+	padding: 7px 10px;
+	cursor: pointer;
+	border: 1px solid transparent;
 }
-.shop-item-btns {
+.shop-row:hover { background: rgba(40, 229, 255, 0.05); }
+.shop-row.sel { border-color: var(--cyan); background: rgba(40, 229, 255, 0.07); }
+.shop-row .nm { font-size: 13px; }
+.shop-row .nm::before { content: "· "; color: var(--text-dim); }
+.shop-row.sel .nm::before { content: "› "; color: var(--cyan); }
+.shop-row .wg { color: var(--text-dim); opacity: 0.7; }
+.shop-row .pr {
+	color: var(--text-dim);
+	font-size: 12px;
+	white-space: nowrap;
+	font-variant-numeric: tabular-nums;
+}
+.shop-row .pr.noafford { color: var(--red); }
+.shop-empty { color: var(--text-dim); text-align: center; padding: 20px; font-size: 12px; }
+.shop-card { padding-left: 14px; min-height: 0; display: flex; }
+.shop-card-empty {
+	color: var(--text-dim);
+	font-size: 12px;
+	text-align: center;
+	margin: auto;
+	padding: 20px;
+}
+.shop-card-inner {
+	border: 1px solid var(--accent-dim);
+	border-radius: 2px;
+	padding: 14px;
+	flex: 1;
 	display: flex;
 	flex-direction: column;
-	align-items: stretch;
-	gap: 4px;
-	flex-shrink: 0;
+	min-height: 0;
+	background: var(--bg3);
 }
-.shop-item-name {
-	font-weight: bold;
-	font-size: 11px;
+.shop-card-name { color: var(--text-bright); font-size: 15px; }
+.shop-card-cat {
+	color: var(--purple);
+	font-size: 10px;
+	letter-spacing: 0.16em;
+	text-transform: uppercase;
+	margin-top: 4px;
 }
-.shop-buy-btn {
-	padding: 2px 8px !important;
-	font-size: 10px !important;
-	flex-shrink: 0;
+.shop-card-inner hr {
+	border: none;
+	border-top: 1px dashed var(--accent-dim);
+	margin: 12px 0;
+	width: 100%;
 }
-.shop-sell-btn {
+.shop-card-desc {
+	color: var(--text-dim);
+	font-size: 12px;
+	line-height: 1.6;
+	flex: 1;
+	overflow-y: auto;
+	min-height: 24px;
+}
+.shop-stats { margin-top: 10px; display: flex; flex-direction: column; gap: 2px; }
+.shop-statline {
 	display: flex;
 	justify-content: space-between;
-	gap: 12px;
-}
-.shop-discount {
-	font-size: 10px;
-	color: var(--green, #4ade80);
-}
-.shop-item-desc {
-	font-size: 10px;
+	font-size: 11px;
 	color: var(--text-dim);
-	margin-top: 2px;
 }
-.shop-pager {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	margin-top: 6px;
+.shop-statline b { font-weight: 700; color: var(--text); }
+.shop-statline b.stat-dmg { color: var(--orange); }
+.shop-statline b.stat-soak { color: var(--cyan); }
+.shop-statline b.stat-good { color: var(--green); }
+.shop-card-meta {
+	font-size: 11px;
+	color: var(--text-dim);
+	line-height: 1.9;
+	margin-top: 10px;
+	display: grid;
+	grid-template-columns: 1fr auto;
 	flex-shrink: 0;
 }
-.shop-page-label {
-	color: var(--text-dim);
-	font-size: 11px;
+.shop-card-meta b { color: var(--text); text-align: right; font-variant-numeric: tabular-nums; }
+.shop-qtywrap { display: flex; align-items: center; gap: 8px; margin-top: 12px; flex-shrink: 0; }
+.shop-qty {
+	display: flex;
+	align-items: center;
+	border: 1px solid var(--accent-dim);
+	border-radius: 3px;
+	overflow: hidden;
 }
+.shop-qty button {
+	background: var(--bg3);
+	border: none;
+	color: var(--cyan);
+	width: 30px;
+	height: 30px;
+	font-size: 16px;
+	cursor: pointer;
+	font-family: inherit;
+}
+.shop-qty button:disabled { color: var(--border); cursor: not-allowed; }
+.shop-qty span {
+	min-width: 44px;
+	text-align: center;
+	font-size: 14px;
+	font-variant-numeric: tabular-nums;
+}
+.shop-max {
+	background: var(--bg3);
+	border: 1px solid var(--accent-dim);
+	color: var(--cyan);
+	border-radius: 3px;
+	height: 30px;
+	padding: 0 12px;
+	font-size: 11px;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+	cursor: pointer;
+	font-family: inherit;
+}
+.shop-max:hover { background: var(--accent-dim); color: var(--text-bright); }
+.shop-max:disabled { color: var(--border); border-color: var(--border); cursor: not-allowed; }
+.shop-foot {
+	display: flex;
+	gap: 10px;
+	align-items: center;
+	padding-top: 10px;
+	margin-top: 8px;
+	border-top: 1px dashed var(--accent-dim);
+	flex-shrink: 0;
+}
+.shop-foot:empty { display: none; }
+.shop-total { flex: 1; font-size: 12px; color: var(--text-dim); }
+.shop-total b { color: var(--yellow); font-size: 15px; }
+.shop-exec {
+	background: var(--cyan);
+	color: #04121a;
+	border: none;
+	border-radius: 3px;
+	padding: 11px 22px;
+	font-size: 13px;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	font-weight: 700;
+	cursor: pointer;
+	font-family: inherit;
+	transition: transform 0.06s ease, box-shadow 0.15s ease;
+}
+.shop-exec:hover { box-shadow: 0 0 16px -3px var(--cyan); }
+.shop-exec:active:not(:disabled) { transform: translateY(1px) scale(0.97); box-shadow: 0 0 20px -2px var(--cyan); }
+.shop-exec:disabled { background: var(--bg3); color: var(--red); cursor: not-allowed; box-shadow: none; }
+.shop-sellall {
+	flex: 1;
+	background: var(--bg3);
+	border: 1px solid var(--accent-dim);
+	color: var(--yellow);
+	border-radius: 3px;
+	padding: 10px;
+	font-size: 12px;
+	letter-spacing: 0.06em;
+	cursor: pointer;
+	font-family: inherit;
+	transition: transform 0.06s ease, background 0.15s ease;
+}
+.shop-sellall:hover { background: var(--accent-dim); color: var(--text-bright); }
+.shop-sellall:active { transform: translateY(1px) scale(0.99); }
+.shop2 .noafford { color: var(--red); }
 
 /* Auth screen */
 #auth-screen {

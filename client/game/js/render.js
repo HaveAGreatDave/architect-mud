@@ -128,6 +128,24 @@ export function updateVitals(p) {
     const mobileRow = mobileInner && mobileInner.closest('.mob-bar-row');
     if (mobileRow) mobileRow.style.display = showRad ? '' : 'none';
   }
+  // Combat stance chip. Stance is persistent state, so it lives in the HUD
+  // rather than being re-announced in the output pane every swing — the pane
+  // already prints a line every attack cycle. `normal` is the default and the
+  // no-op, so it stays hidden: the chip only appears when you've actually
+  // committed to something.
+  if (p.combat_stance !== undefined) {
+    const stance = p.combat_stance || 'normal';
+    for (const id of ['stance-chip', 'stance-chip-m']) {
+      const el = document.getElementById(id);
+      if (!el) continue;
+      el.textContent = `⚔ ${stance.toUpperCase()}`;
+      el.className = `stance-chip stance-${stance}`;
+      // The mobile chip sits inside its own bar row — hide the row, or an empty
+      // one is left behind.
+      const host = el.closest('.mob-bar-row') || el;
+      host.style.display = stance === 'normal' ? 'none' : '';
+    }
+  }
   if (p.credits !== undefined) {
     const el = document.getElementById('header-credits-val');
     if (el) el.textContent = p.credits;

@@ -1,0 +1,16 @@
+{
+  "description": "A booking form on carbonless triplicate, clipped to the bars at the height of a seated man's eyes. The precinct's own copy went upstairs; this is the pink one, the one they leave with you. Most of the boxes are ticked by a machine. Read the sheet to see what they've written down.",
+  "flags": {
+    "charge_sheet": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_cell_charge_sheet",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "the charge sheet",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_mq_precinct_holding"
+}

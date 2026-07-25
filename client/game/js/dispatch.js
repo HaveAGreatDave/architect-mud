@@ -4,7 +4,7 @@ import { sendCmd, sendCmdSilent, closeConnection, attemptAutoReauth, showVerifyS
 import { renderMinimap, setGpsRoute, setRunState, startAutoWalk, resumeAutoWalkIfArmed, setAutoWalkPersist, isAutoWalking, isManualAutoWalkInProgress, cancelAutoWalk, autoWalkBlocked, resolveAutoWalkPicker, armAutoWalkPrompt } from './panels/minimap.js';
 import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility, signalPowerOut, isFxIndoors } from './panels/environment.js';
 import { setWeatherEventFx, setFireworksGlow, launchFirework } from './panels/weather-fx.js';
-import { openDialogue, closeDialogue, openShop, flashShopResult } from './panels/dialogue.js';
+import { openDialogue, closeDialogue, openShop } from './panels/dialogue.js';
 import { updateInventoryCache, consumeSilentInventory } from './panels/inventory-state.js';
 import { renderRecipesPanel } from './panels/recipes.js';
 import { renderStatsPanel } from './panels/stats.js';
@@ -197,10 +197,18 @@ const handlers = {
   combat: (() => {
     let _lookTimer = null;
     return (msg) => {
-      appendHtml(msg.message, msg.killed ? 'loot' : 'combat');
+      const el = appendHtml(msg.message, msg.killed ? 'loot' : 'combat');
       if (msg.killed && msg.corpseLink) appendHtml(`${msg.corpseLink}`, 'loot');
+      // Timed combat lines (a dodge window, the wait for the next flee attempt)
+      // carry their own countdown bar, the same way a butchering emote does.
+      if (msg.progressMs && el) attachInlineProgress(el, msg.progressMs);
+      // Stance rides the canonical vitals path so the HUD chip tracks it.
+      if (state.player && msg.player_update) { Object.assign(state.player, msg.player_update); updateVitals(state.player); }
       // Kill refreshes the area pane immediately; a non-kill hit refreshes it
-      // (debounced) so the top pane shows the enemy's updated HP totals.
+      // (debounced) so the top pane shows the enemy's updated HP totals. Lines
+      // that changed nobody's HP (stance, dodge, a failed break-away) set
+      // noRefresh — repainting the area pane for them is pure churn.
+      if (msg.noRefresh) return;
       if (msg.killed) { clearTimeout(_lookTimer); sendCmdSilent('look'); }
       else { clearTimeout(_lookTimer); _lookTimer = setTimeout(() => sendCmdSilent('look'), 300); }
     };
@@ -445,13 +453,7 @@ const handlers = {
   },
 
   dialogue: (msg) => { openDialogue(msg); },
-  dialogue_shop: (msg) => {
-    openShop(msg);
-    // A fresh server result (buy/sell) carries a *Result string — pulse the panel
-    // green on success, shake it red on failure. Bare re-opens have no result.
-    if (msg.buyResult) flashShopResult(!!msg.buySuccess);
-    else if (msg.sellResult) flashShopResult(!!msg.sellSuccess);
-  },
+  dialogue_shop: (msg) => { openShop(msg); },
 
   dialogue_end: (msg) => {
     closeDialogue();

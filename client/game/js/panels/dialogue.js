@@ -1,12 +1,11 @@
 import { state } from '../state.js';
 import { sendDialogue, sendCmd, buyFromNpc, sellToNpc, sellAllToNpc, sendRaw } from '../net.js';
 
-const ITEMS_PER_PAGE = 10;
-let shopState = null; // { msg, page, mode, sort }
+let shopState = null; // { msg, mode, sort, sel, qty }
 
 const SORTS = [
   { key: 'alpha', label: 'A–Z' },
-  { key: 'value', label: 'Value' },
+  { key: 'value', label: 'Price' },
   { key: 'weight', label: 'Weight' },
 ];
 
@@ -24,16 +23,39 @@ function formatWeight(g) {
   return `${(Math.round(g / 100) / 10)}kg`;
 }
 
-// Reactive purchase feedback: a green pulse when a buy/sell lands, a red shake
-// when it bounces (no credits). Fired from the dispatch handler on a fresh
-// server result only, so tab/sort/page re-renders don't re-trigger it.
-export function flashShopResult(ok) {
-  const el = document.getElementById('dialogue-text');
+// Reactive purchase feedback lives on the credits counter: it rolls from the old
+// balance to the new one, tinted red while spending and green while gaining.
+// `lastShownCredits` is the value currently on screen; a null baseline (a fresh
+// shop open) paints statically. `creditTween` is the in-flight interval so a
+// rapid second transaction cancels the first.
+let lastShownCredits = null;
+let creditTween = null;
+
+function animateCredits(target) {
+  const wrap = document.querySelector('#dialogue-text .shop-cred');
+  const el = wrap?.querySelector('b');
   if (!el) return;
-  el.classList.remove('shop-flash-ok', 'shop-flash-bad');
-  void el.offsetWidth; // reflow so the animation restarts on repeat purchases
-  el.classList.add(ok ? 'shop-flash-ok' : 'shop-flash-bad');
-  setTimeout(() => el.classList.remove('shop-flash-ok', 'shop-flash-bad'), 650);
+  if (creditTween) { clearInterval(creditTween); creditTween = null; }
+  const from = lastShownCredits == null ? target : lastShownCredits;
+  lastShownCredits = target;
+  wrap.classList.remove('cred-up', 'cred-down');
+  if (from === target) { el.textContent = target; return; }
+  wrap.classList.add(target > from ? 'cred-up' : 'cred-down');
+  // Count by 1s for small changes; step larger so a big sale still settles in
+  // ~600ms rather than ticking through hundreds of frames.
+  const diff = target - from;
+  const step = Math.max(1, Math.ceil(Math.abs(diff) / 30)) * Math.sign(diff);
+  let cur = from;
+  el.textContent = cur;
+  creditTween = setInterval(() => {
+    cur += step;
+    if ((step > 0 && cur >= target) || (step < 0 && cur <= target)) {
+      cur = target;
+      clearInterval(creditTween); creditTween = null;
+      setTimeout(() => wrap.classList.remove('cred-up', 'cred-down'), 350);
+    }
+    el.textContent = cur;
+  }, 20);
 }
 
 function formatOptionLabel(raw) {
@@ -45,6 +67,8 @@ function formatOptionLabel(raw) {
 export function openDialogue(msg) {
   state.currentNpcId = msg.npcId;
   shopState = null;
+  document.getElementById('dialogue-panel').classList.remove('shop-mode');
+  document.getElementById('dialogue-box').classList.remove('shop-mode');
   document.getElementById('dialogue-npc-name').textContent = msg.npcName;
   document.getElementById('dialogue-text').innerHTML = msg.text;
   const opts = document.getElementById('dialogue-options');
@@ -84,109 +108,178 @@ export function openDialogue(msg) {
 }
 
 export function closeDialogue() {
-  document.getElementById('dialogue-panel').classList.remove('active');
+  document.getElementById('dialogue-panel').classList.remove('active', 'shop-mode');
+  document.getElementById('dialogue-box').classList.remove('shop-mode');
   if (shopState) sendRaw({ type: 'shop_close' });
+  if (creditTween) { clearInterval(creditTween); creditTween = null; }
+  lastShownCredits = null;
   state.currentNpcId = null;
   shopState = null;
 }
 
-export function openShop(msg, page = 0, mode, sort) {
+// A stable per-row key: stock rows key on item_id, sellable rows on inventory_id.
+function shopUid(it) {
+  return it.inventory_id != null ? `v${it.inventory_id}` : `i${it.item_id}`;
+}
+
+// Max quantity for the stepper: on Sell, the held stack; on Buy, what the player
+// can afford (non-stackable items cap at 1 — the server enforces this too).
+function shopMaxQty(it, mode, credits) {
+  if (mode === 'sell') return it.quantity || 1;
+  if (it.stackable === false) return 1;
+  if (!it.price) return 1;
+  return Math.max(1, Math.min(99, Math.floor(credits / it.price)));
+}
+
+// Entry point: called on every `dialogue_shop` message (fresh open + post-buy/sell
+// refresh). Tab, sort, and selection persist across the round-trip; quantity
+// resets to 1 after any server refresh. All tab/sort/selection/stepper changes
+// re-render locally from the same message — only buy/sell/back hit the server.
+export function openShop(msg) {
   state.currentNpcId = msg.npcId;
-  // Infer the active tab: a sell/buy result keeps you on that tab; otherwise preserve
-  // the prior tab across refreshes, defaulting to Buy on first open.
-  if (!mode) mode = msg.sellResult ? 'sell' : msg.buyResult ? 'buy' : (shopState?.mode || 'buy');
-  if (!sort) sort = shopState?.sort || 'alpha';
-  shopState = { msg, page, mode, sort };
-
+  const mode = msg.sellResult ? 'sell' : msg.buyResult ? 'buy' : (shopState?.mode || 'buy');
+  const sort = shopState?.sort || 'alpha';
+  // A fresh entry (no buy/sell result) paints credits statically; a transaction
+  // refresh keeps the prior baseline so the counter rolls to the new balance.
+  if (!msg.buyResult && !msg.sellResult) lastShownCredits = null;
+  shopState = { msg, mode, sort, sel: shopState?.sel ?? null, qty: 1 };
   document.getElementById('dialogue-npc-name').textContent = msg.npcName;
+  document.getElementById('dialogue-panel').classList.add('active', 'shop-mode');
+  document.getElementById('dialogue-box').classList.add('shop-mode');
+  renderShop();
+}
 
+function renderShop() {
+  if (!shopState) return;
+  const { msg, mode, sort } = shopState;
+  const credits = msg.credits ?? 0;
   const list = sortItems(mode === 'sell' ? (msg.inventory || []) : (msg.stock || []), sort);
-  const totalPages = Math.max(1, Math.ceil(list.length / ITEMS_PER_PAGE));
-  const safePage = Math.max(0, Math.min(page, totalPages - 1));
-  const pageItems = list.slice(safePage * ITEMS_PER_PAGE, (safePage + 1) * ITEMS_PER_PAGE);
 
-  // NB: #dialogue-text renders white-space:pre-wrap, so this HTML must stay
-  // newline-free or every line break becomes visible blank space in the panel.
-  let html = `<div class="shop-body">`;
-  html += `<div class="shop-credits">Credits: <span style="color:var(--accent2);font-weight:bold">${msg.credits ?? 0}₵</span></div>`;
-  html += `<div class="shop-tabs"><button class="shop-tab${mode === 'buy' ? ' active' : ''}" data-mode="buy">Buy</button><button class="shop-tab${mode === 'sell' ? ' active' : ''}" data-mode="sell">Sell</button></div>`;
-  html += `<div class="shop-sort">Sort:${SORTS.map(s => `<button class="shop-sort-btn${sort === s.key ? ' active' : ''}" data-sort="${s.key}">${s.label}</button>`).join('')}</div>`;
-  const resultText = mode === 'sell' ? msg.sellResult : msg.buyResult;
-  const resultOk = mode === 'sell' ? msg.sellSuccess : msg.buySuccess;
-  if (resultText) {
-    const color = resultOk ? 'var(--green, #4ade80)' : 'var(--red)';
-    html += `<div class="shop-result" style="color:${color}">${resultText}</div>`;
-  }
-  if (pageItems.length) {
-    for (const item of pageItems) {
-      const weight = item.weight != null ? `<span class="shop-item-weight">${formatWeight(item.weight)}</span>` : '';
-      const desc = item.description ? `<div class="shop-item-desc">${item.description}</div>` : '';
-      if (mode === 'sell') {
-        const qty = item.quantity > 1 ? ` <span class="shop-item-desc">×${item.quantity}</span>` : '';
-        const sellStack = item.quantity > 1
-          ? `<button class="dialogue-opt shop-buy-btn shop-sell-btn shop-sell-stack-btn" data-inventory-id="${item.inventory_id}" data-npc-id="${msg.npcId}" data-quantity="${item.quantity}"><span>Sell All</span><span>${item.price * item.quantity}₵</span></button>`
-          : '';
-        html += `<div class="shop-item"><div class="shop-item-row"><span class="shop-item-name">${item.name}${qty}${weight}</span><div class="shop-item-btns"><button class="dialogue-opt shop-buy-btn shop-sell-btn" data-inventory-id="${item.inventory_id}" data-npc-id="${msg.npcId}"><span>Sell 1</span><span>${item.price}₵</span></button>${sellStack}</div></div>${desc}</div>`;
-      } else {
-        html += `<div class="shop-item"><div class="shop-item-row"><span class="shop-item-name">${item.name}${weight}</span><button class="dialogue-opt shop-buy-btn" data-item-id="${item.item_id}" data-npc-id="${msg.npcId}">${item.price}₵ — Buy</button></div>${item.discounted ? '<span class="shop-discount">(rep discount applied)</span>' : ''}${desc}</div>`;
-      }
-    }
-    if (totalPages > 1) {
-      html += `<div class="shop-pager">`;
-      if (safePage > 0) html += `<button class="dialogue-opt shop-prev-btn">← Prev</button>`;
-      html += `<span class="shop-page-label">Page ${safePage + 1} / ${totalPages}</span>`;
-      if (safePage < totalPages - 1) html += `<button class="dialogue-opt shop-next-btn">Next →</button>`;
-      html += `</div>`;
-    }
+  // Drop a stale selection (e.g. the last of a stack was just sold).
+  if (shopState.sel && !list.some(it => shopUid(it) === shopState.sel)) shopState.sel = null;
+  const selItem = list.find(it => shopUid(it) === shopState.sel) || null;
+  const maxQ = selItem ? shopMaxQty(selItem, mode, credits) : 1;
+  shopState.qty = Math.max(1, Math.min(maxQ, shopState.qty));
+  const qty = shopState.qty;
+
+  const bar = `<div class="shop-bar">`
+    + `<div class="shop-modes">`
+    + `<button data-mode="buy" class="${mode === 'buy' ? 'on' : ''}">Buy</button>`
+    + `<button data-mode="sell" class="${mode === 'sell' ? 'on' : ''}">Sell</button>`
+    + `</div>`
+    + `<div class="shop-bar-right">`
+    + `<div class="shop-sort"><span>Sort</span>`
+    + SORTS.map(s => `<button data-sort="${s.key}" class="${sort === s.key ? 'on' : ''}">${s.label}</button>`).join('')
+    + `</div>`
+    + `<div class="shop-cred">Credits <b>${credits}</b>₵</div>`
+    + `</div></div>`;
+
+  const rows = list.length ? list.map(it => {
+    const uid = shopUid(it);
+    const unaff = mode === 'buy' && it.price > credits;
+    const qtyTxt = it.quantity > 1 ? ` ×${it.quantity}` : '';
+    return `<div class="shop-row${shopState.sel === uid ? ' sel' : ''}" data-uid="${uid}">`
+      + `<span class="nm">${it.name}${qtyTxt} <span class="wg">(${formatWeight(it.weight)})</span></span>`
+      + `<span class="pr${unaff ? ' noafford' : ''}">${it.price}₵</span></div>`;
+  }).join('') : `<div class="shop-empty">${mode === 'sell' ? 'Nothing to sell.' : 'Nothing in stock.'}</div>`;
+
+  let card;
+  if (!selItem) {
+    card = `<div class="shop-card-empty">── no item selected ──<br><br>pick a line to open its record</div>`;
   } else {
-    html += `<div style="color:var(--text-dim)">${mode === 'sell' ? 'Nothing to sell.' : 'Nothing in stock.'}</div>`;
+    const stats = (selItem.stats || []).map(s =>
+      `<div class="shop-statline"><span>${s.k}</span><b class="${s.c ? 'stat-' + s.c : ''}">${s.v}</b></div>`).join('');
+    card = `<div class="shop-card-inner">`
+      + `<div class="shop-card-name">${selItem.name}</div>`
+      + `<div class="shop-card-cat">${selItem.category || ''}</div><hr>`
+      + `<div class="shop-card-desc">${selItem.description || ''}</div>`
+      + (stats ? `<div class="shop-stats">${stats}</div>` : '')
+      + `<div class="shop-card-meta">`
+      + `<span>unit ${mode === 'buy' ? 'price' : 'value'}</span><b>${selItem.price}₵</b>`
+      + `<span>weight (each)</span><b>${formatWeight(selItem.weight)}</b>`
+      + (mode === 'sell' ? `<span>in pack</span><b>${selItem.quantity}</b>` : '')
+      + (mode === 'buy' && selItem.discounted ? `<span>rep discount</span><b class="stat-good">applied</b>` : '')
+      + `</div>`
+      + `<div class="shop-qtywrap"><div class="shop-qty">`
+      + `<button data-step="-1" ${qty <= 1 ? 'disabled' : ''}>−</button><span>${qty}</span>`
+      + `<button data-step="1" ${qty >= maxQ ? 'disabled' : ''}>+</button></div>`
+      + `<button class="shop-max" ${maxQ <= 1 ? 'disabled' : ''}>Max ${maxQ}</button></div></div>`;
   }
-  if (mode === 'sell' && list.length) {
+
+  let foot = '';
+  if (selItem) {
+    const total = selItem.price * qty;
+    const aff = mode === 'sell' || total <= credits;
+    foot = `<div class="shop-total">${mode === 'buy' ? 'cost' : 'you receive'} <b>${total}₵</b>`
+      + `${mode === 'buy' && !aff ? ' <span class="noafford">insufficient</span>' : ''}</div>`
+      + `<button class="shop-exec" ${aff ? '' : 'disabled'}>${mode === 'buy' ? 'Purchase' : 'Sell'} ×${qty}</button>`;
+  } else if (mode === 'sell' && list.length) {
     const totalQty = list.reduce((n, it) => n + (it.quantity || 1), 0);
     const totalValue = list.reduce((n, it) => n + (it.price || 0) * (it.quantity || 1), 0);
-    html += `<button class="dialogue-opt shop-sell-all-btn" data-npc-id="${msg.npcId}">Sell All (${totalQty} item${totalQty === 1 ? '' : 's'}) — ${totalValue}₵</button>`;
+    foot = `<button class="shop-sellall">Sell all (${totalQty} item${totalQty === 1 ? '' : 's'}) — ${totalValue}₵</button>`;
   }
-  html += `</div>`;
 
-  document.getElementById('dialogue-text').innerHTML = html;
+  // The vendor quip band always holds its spot (reserved min-height) so the panes
+  // don't jump when a buy/sell reaction appears. Empty until a transaction lands.
+  const resultText = mode === 'sell' ? msg.sellResult : msg.buyResult;
+  const resultOk = mode === 'sell' ? msg.sellSuccess : msg.buySuccess;
+  const resultBanner = `<div class="shop-result"${resultText ? ` style="color:${resultOk ? 'var(--green)' : 'var(--red)'}"` : ''}>${resultText || ''}</div>`;
 
+  document.getElementById('dialogue-text').innerHTML =
+    `<div class="shop2">${bar}${resultBanner}`
+    + `<div class="shop-2pane"><div class="shop-list">${rows}</div><div class="shop-card">${card}</div></div>`
+    + `<div class="shop-foot">${foot}</div></div>`;
+
+  // Back + Leave share one row (the panel's static Leave button is hidden in
+  // shop mode via CSS, so we render our own here to keep them on a single line).
   const opts = document.getElementById('dialogue-options');
   opts.innerHTML = '';
   const backBtn = document.createElement('button');
-  backBtn.className = 'dialogue-opt';
+  backBtn.className = 'dialogue-opt shop-back';
   backBtn.textContent = '← Back';
   backBtn.onclick = () => sendDialogue(msg.npcId, 'root');
-  opts.appendChild(backBtn);
+  const leaveBtn = document.createElement('button');
+  leaveBtn.className = 'dialogue-opt shop-leave';
+  leaveBtn.textContent = '[ Leave ]';
+  leaveBtn.onclick = closeDialogue;
+  opts.append(backBtn, leaveBtn);
 
-  document.querySelectorAll('.shop-tab').forEach(btn => {
-    btn.addEventListener('click', () => openShop(shopState.msg, 0, btn.dataset.mode));
+  animateCredits(credits);
+  wireShopEvents();
+}
+
+function wireShopEvents() {
+  const { msg, mode, sort } = shopState;
+  const root = document.getElementById('dialogue-text');
+  const currentList = () => sortItems(mode === 'sell' ? (msg.inventory || []) : (msg.stock || []), sort);
+  const selected = () => currentList().find(it => shopUid(it) === shopState.sel);
+
+  root.querySelectorAll('.shop-modes > button').forEach(b => b.onclick = () => {
+    shopState.mode = b.dataset.mode; shopState.sel = null; shopState.qty = 1; renderShop();
   });
-
-  document.querySelectorAll('.shop-sort-btn').forEach(btn => {
-    btn.addEventListener('click', () => openShop(shopState.msg, 0, mode, btn.dataset.sort));
+  root.querySelectorAll('.shop-sort button').forEach(b => b.onclick = () => {
+    shopState.sort = b.dataset.sort; renderShop();
   });
-
-  document.querySelectorAll('.shop-sell-btn:not(.shop-sell-stack-btn)').forEach(btn => {
-    btn.addEventListener('click', () => sellToNpc(btn.dataset.npcId, btn.dataset.inventoryId));
+  root.querySelectorAll('.shop-row').forEach(r => r.onclick = () => {
+    shopState.sel = r.dataset.uid; shopState.qty = 1; renderShop();
   });
-
-  document.querySelectorAll('.shop-sell-stack-btn').forEach(btn => {
-    btn.addEventListener('click', () => sellToNpc(btn.dataset.npcId, btn.dataset.inventoryId, Number(btn.dataset.quantity)));
+  root.querySelectorAll('.shop-qty button').forEach(b => b.onclick = () => {
+    shopState.qty += Number(b.dataset.step); renderShop();
   });
-
-  const sellAllBtn = document.querySelector('.shop-sell-all-btn');
-  if (sellAllBtn) sellAllBtn.addEventListener('click', () => sellAllToNpc(sellAllBtn.dataset.npcId));
-  document.querySelectorAll('.shop-buy-btn:not(.shop-sell-btn)').forEach(btn => {
-    btn.addEventListener('click', () => buyFromNpc(btn.dataset.npcId, btn.dataset.itemId));
-  });
-
-  const prevBtn = document.querySelector('.shop-prev-btn');
-  if (prevBtn) prevBtn.addEventListener('click', () => openShop(shopState.msg, shopState.page - 1, mode));
-
-  const nextBtn = document.querySelector('.shop-next-btn');
-  if (nextBtn) nextBtn.addEventListener('click', () => openShop(shopState.msg, shopState.page + 1, mode));
-
-  document.getElementById('dialogue-panel').classList.add('active');
+  const maxBtn = root.querySelector('.shop-max');
+  if (maxBtn) maxBtn.onclick = () => {
+    const it = selected();
+    if (it) { shopState.qty = shopMaxQty(it, mode, msg.credits ?? 0); renderShop(); }
+  };
+  const exec = root.querySelector('.shop-exec');
+  if (exec) exec.onclick = () => {
+    const it = selected();
+    if (!it) return;
+    if (mode === 'buy') buyFromNpc(msg.npcId, it.item_id, shopState.qty);
+    else sellToNpc(msg.npcId, it.inventory_id, shopState.qty);
+  };
+  const sellAll = root.querySelector('.shop-sellall');
+  if (sellAll) sellAll.onclick = () => sellAllToNpc(msg.npcId);
 }
 
 export function initDialogue() {

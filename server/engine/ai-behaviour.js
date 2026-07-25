@@ -3,7 +3,7 @@ import { isSanctuary } from './zone-tags.js';
 import { zoneDanger, DANGER_RANK } from './danger.js';
 import { allExits, neighborZoneIds, exitTargets } from './exits.js';
 import { findPath as findPathRaw, getZonesInRadius } from './pathfinding.js';
-import { enemyAttackPlayer, enemyAttackNpc, enemyAttackEnemy } from './combat.js';
+import { enemyAttackPlayer, enemyAttackNpc, enemyAttackEnemy, pressingAttacker, mobFleeRoll } from './combat.js';
 import { getEnvironmentState } from './environment.js';
 import { gameMsToReal } from './gametime.js';
 import { dispatchAction } from './actions.js';
@@ -289,10 +289,37 @@ function pickUnobservedZoneNear(studioZone, entity) {
   return nearest[Math.floor(Math.random() * nearest.length)][0];
 }
 
-// Returns true if the move succeeded, false if blocked by a locked door.
-export function moveEntity(entity, newZoneId, broadcast, query) {
+// Returns true if the move succeeded, false if blocked (locked door, or a
+// failed break-away from a player who's actively attacking).
+//
+// `opts.deliberateFlee` marks a move the FLEE node asked for, which is the only
+// kind that announces a failed break-away — see the gate below.
+export function moveEntity(entity, newZoneId, broadcast, query, opts = {}) {
   const oldZoneId = entityZone(entity);
   if (oldZoneId === newZoneId) return true;
+
+  // ── Contested break-away ────────────────────────────────────────────────────
+  // A mob can't walk out of a fight a player is pressing without passing the
+  // same contested roll the player has to. This lives HERE rather than in the
+  // FLEE node because moveEntity is the single writer for every mob tile change:
+  // gating only FLEE would leave ROAM, PATROL, and the commute paths free to
+  // stroll a wounded enemy out of the room mid-swing.
+  const pressed = pressingAttacker(entity);
+  if (pressed) {
+    // One attempt per attack cycle, not per AI tick — otherwise a roaming mob
+    // rerolls several times a second.
+    if (Date.now() < (entity._fleeNextAt || 0)) return false;
+    entity._fleeNextAt = Date.now() + FLEE_RETRY_MS;
+    if (!mobFleeRoll(entity, pressed.hit)) {
+      // Only a DELIBERATE flee announces itself. An incidental roam/patrol step
+      // that bounces off this gate stays silent — otherwise a mob you're fighting
+      // spams the room every time its wander timer comes up.
+      if (opts.deliberateFlee) {
+        broadcast(oldZoneId, { type: 'output', message: `<span style="color:var(--yellow)">${entity.name} scrabbles for a way out but can't break away!</span>` });
+      }
+      return false;
+    }
+  }
 
   // Facade pass-through (mirrors cmdMove's revolving door): NPCs/enemies never
   // stand on an enterable facade either — entering forwards to the interior
@@ -820,16 +847,23 @@ async function execAction(node, entity, ctx) {
       const exits = neighborZoneIds(zone);
       if (!exits.length) break;
 
-      // One break-away attempt per attack cycle — not once per AI tick.
-      if (Date.now() < ai._fleeNextAt) break;
-      ai._fleeNextAt = Date.now() + FLEE_RETRY_MS;
+      // When a PLAYER is pressing the attack, moveEntity owns the contest (it
+      // gates every mob tile-exit, so ROAM and PATROL can't sneak out either) —
+      // rolling here too would make the mob pass two checks for one escape.
+      // Without one, fall back to the flat break-contact check that covers
+      // mob-vs-mob and fleeing an aggro it can't reach.
+      if (!pressingAttacker(entity)) {
+        // One break-away attempt per attack cycle — not once per AI tick.
+        if (Date.now() < ai._fleeNextAt) break;
+        ai._fleeNextAt = Date.now() + FLEE_RETRY_MS;
 
-      // Roll to actually break contact. Weak enemies routinely fail and stay
-      // cornered (keeping aggro so they re-try next tick); tough ones get away.
-      const fleeSkill = Number(entity.flags?.flee_skill ?? entity.dodge ?? 1);
-      if (fleeSkill + (d8() + d8()) - (d8() + d8()) < FLEE_DIFFICULTY) {
-        broadcast(zone.id, { type: 'output', message: `<span style="color:var(--yellow)">${entity.name} scrabbles for a way out but can't break away!</span>` });
-        break;
+        // Roll to actually break contact. Weak enemies routinely fail and stay
+        // cornered (keeping aggro so they re-try next tick); tough ones get away.
+        const fleeSkill = Number(entity.flags?.flee_skill ?? entity.dodge ?? 1);
+        if (fleeSkill + (d8() + d8()) - (d8() + d8()) < FLEE_DIFFICULTY) {
+          broadcast(zone.id, { type: 'output', message: `<span style="color:var(--yellow)">${entity.name} scrabbles for a way out but can't break away!</span>` });
+          break;
+        }
       }
 
       // Move to any adjacent zone that doesn't contain the target
@@ -838,8 +872,10 @@ async function execAction(node, entity, ctx) {
         ? safeExits[Math.floor(Math.random() * safeExits.length)]
         : exits[Math.floor(Math.random() * exits.length)];
 
-      const moved = moveEntity(entity, dest, broadcast, query);
-      if (!moved) break; // locked door — stay put
+      // deliberateFlee: this is the one mob move that announces a failed
+      // break-away — an incidental roam step bouncing off the gate stays silent.
+      const moved = moveEntity(entity, dest, broadcast, query, { deliberateFlee: true });
+      if (!moved) break; // locked door, or the contest went against it — stay put
       // Clear target after fleeing
       entity.targetId = null;
       entity.aggroedAt = null;

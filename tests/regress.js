@@ -1160,4 +1160,15 @@ stopAll();
 
 const failed = results.filter(x => !x.pass);
 console.log(`\n${results.length - failed.length}/${results.length} passed${failed.length ? ` — ${failed.length} FAILED` : ''}`);
+
+// With 1500+ checks, a single failure scrolls far off the top. Reprint every
+// failure together at the very end so what broke — and why — is the last thing
+// on screen.
+if (failed.length) {
+  console.log(`\n— FAILURES (${failed.length}) —`);
+  for (const f of failed) {
+    console.log(`  ✗ ${f.name}${f.detail ? `\n      ↳ ${f.detail}` : ''}`);
+  }
+}
+
 process.exit(failed.length ? 1 : 0);

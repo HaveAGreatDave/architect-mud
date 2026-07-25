@@ -46,7 +46,16 @@ async function cmdStopAll(args, raw, player, broadcast) {
     // Grace window so enemy/NPC retaliation and aggro don't instantly re-arm our
     // target on the next combat tick — long enough to actually break off and flee.
     player.disengagedUntil = Date.now() + 6000;
+    // A wound-up power swing has nothing left to land on.
+    player._powQueued = false;
     stopped.push('fighting');
+  }
+
+  // An armed break-away attempt is an ongoing action too — `stop` abandons it
+  // rather than leaving the gameLoop retrying a move you've changed your mind about.
+  if (player._fleeIntent) {
+    player._fleeIntent = null;
+    stopped.push('trying to break away');
   }
 
   if (player.following) {

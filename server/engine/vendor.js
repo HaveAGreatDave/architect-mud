@@ -43,6 +43,50 @@ async function readTrust(npc, playerId) {
   return Number(await getFlag('player', flagKey, { id: playerId })) || 0;
 }
 
+// ─── Examine metadata (shared by Buy stock + Sell inventory) ──────────────────
+
+// A short category label for the examine pane, derived from tags (there is no
+// more `type` routing — see items.md). Body-slot armor/apparel vs. weapon vs.
+// consumable etc. `type` is only consulted for furniture, which the cache still
+// carries as a column.
+export function vendorCategory(tags = {}, type) {
+  if (tags.weapon) return 'Weapon';
+  if (tags.armor_soak) return 'Armor';
+  const BODY = ['head', 'torso', 'hands', 'legs', 'feet'];
+  if (BODY.includes(tags.slot)) return 'Apparel';
+  if (tags.slot === 'accessory') return 'Accessory';
+  if (tags.drug) return 'Drug';
+  if (tags.consumable) return 'Consumable';
+  if (tags.container) return 'Container';
+  if (type === 'furniture') return 'Furniture';
+  if (tags.material) return 'Material';
+  return 'Goods';
+}
+
+// Display-ready gameplay stat lines for the examine pane. Derived purely from
+// tags so a template (Buy) and an inventory row (Sell) render identically. `c`
+// is a colour hint the client maps to a class (dmg/soak/good).
+export function vendorStatLines(tags = {}) {
+  const lines = [];
+  if (tags.damage && tags.damage.min != null) {
+    const dt = tags.damage_type ? ` ${tags.damage_type}` : '';
+    lines.push({ k: 'Damage', v: `${tags.damage.min}–${tags.damage.max}${dt}`, c: 'dmg' });
+  }
+  if (tags.armor_soak && typeof tags.armor_soak === 'object') {
+    const soak = Object.entries(tags.armor_soak).filter(([, n]) => n).map(([t, n]) => `${n} ${t}`).join(', ');
+    if (soak) lines.push({ k: 'Soak', v: soak, c: 'soak' });
+  }
+  const RESTORE = { restore_hp: 'HP', restore_hunger: 'Food', restore_thirst: 'Water', restore_radiation: 'Rads', restore_sanity: 'Sanity' };
+  for (const [key, label] of Object.entries(RESTORE)) {
+    if (tags[key]) lines.push({ k: label, v: `${tags[key] > 0 ? '+' : ''}${tags[key]}`, c: 'good' });
+  }
+  if (tags.stat_bonus && typeof tags.stat_bonus === 'object') {
+    const b = Object.entries(tags.stat_bonus).filter(([, n]) => n).map(([s, n]) => `${n > 0 ? '+' : ''}${n} ${s.replace(/^stat_/, '')}`).join(', ');
+    if (b) lines.push({ k: 'Bonus', v: b });
+  }
+  return lines;
+}
+
 // ─── Stock display ───────────────────────────────────────────────────────────
 
 export async function getVendorStock(npc, playerId) {
@@ -89,6 +133,9 @@ export async function getVendorStock(npc, playerId) {
       name: item.name,
       description: item.tags?.description ?? item.description ?? '',
       type: item.type,
+      category: vendorCategory(item.tags, item.type),
+      stats: vendorStatLines(item.tags),
+      stackable: isStackable(item),
       weight: item.weight,
       stock: realStock,
       price: finalPrice,
@@ -256,6 +303,8 @@ export async function getSellableInventory(player, npc) {
         name: r.name,
         quantity: r.quantity,
         description: r.tags?.description ?? r.description ?? '',
+        category: vendorCategory(r.tags),
+        stats: vendorStatLines(r.tags),
         weight: r.weight,
         price: computeSellUnitPrice(r.value, r.stat_cool, discount, { potency: Number(cd?.potency) || 1, drugBuyer: isDrugBuyer && !!r.tags?.drug }),
       };

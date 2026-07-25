@@ -59,6 +59,8 @@ import { getPlayerChannels, getChannelHistory } from "./engine/channels.js";
 import { getMotd } from "./engine/motd.js";
 import { openShopSession, closeShopSession } from "./engine/vendor-session.js";
 import { getSoundReach } from "./engine/sounds.js";
+import { getFlag } from "./engine/flags.js";
+import { DEFAULT_STANCE } from "./engine/stance.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
@@ -793,6 +795,10 @@ async function finishAuth(ws, session, player) {
 	const { total: totalXp, net: netXp } = await getNetXp(player.id);
 	livePlayer.xp = Math.floor(netXp);
 	livePlayer.total_xp = totalXp;
+	// Combat stance persists across sessions (player_flags), but is read from the
+	// LIVE object on every to-hit roll — getFlag is a DB round trip and can never
+	// live in that hot path. Login is the one place it's fetched.
+	livePlayer.combat_stance = (await getFlag('player', 'combat_stance', livePlayer)) || DEFAULT_STANCE;
 	// Seed the resource diff-gate stamp (Phase 6) from the freshly-loaded row so
 	// the first resourceTick after login doesn't write values that never changed.
 	livePlayer._lastSavedResources = {
@@ -1198,7 +1204,13 @@ async function handleBuyFromNpc(ws, session, msg) {
 		return;
 	}
 	const { buyFromVendor } = await import("./engine/vendor.js");
-	const result = await buyFromVendor(player, npc, msg.itemId, 1);
+	const { isStackable } = await import("./engine/tags.js");
+	// The GUI shop can request a quantity (stepper / Max button). Clamp it, and
+	// force a single unit for non-stackable items so a stack can't collapse a
+	// unique into one over-counted row.
+	let qty = Math.max(1, Math.min(99, Number(msg.quantity) || 1));
+	if (boughtItem && !isStackable(boughtItem)) qty = 1;
+	const result = await buyFromVendor(player, npc, msg.itemId, qty);
 	await sendShopPanel(ws, npc, session.playerId, { buyResult: result.message, buySuccess: result.success });
 	if (result.success) {
 		ws.send(JSON.stringify({ type: "player_update", credits: player.credits }));

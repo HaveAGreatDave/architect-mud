@@ -3,8 +3,9 @@
 // 1 base-minute per wanted star, scaled up by the world clock (so at 3× a 5★
 // stretch is 15 real minutes). A guard then walks you out to the lobby and hands
 // back your legal property; contraband (weapons/drugs/hacking decks) is logged to
-// a shared police evidence locker and never returned. The cell door is a very
-// high-difficulty hololock — breaking out is a jailbreak (heat comes back) and
+// a shared police evidence locker and never returned. The cell door is an
+// unhackable police hololock: booking engages it, the guard disengages it at
+// release. Leaving through it any other way is a jailbreak (heat comes back) and
 // forfeits everything the police were holding.
 //
 // Integration seams (no engine coupling beyond the hook):
@@ -19,6 +20,7 @@ import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { world, getZone, getLivePlayer, getMinimapData, getDoorById, getZoneDoors, setDoorCache } from '../../server/engine/world.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
+import { hasTag } from '../../server/engine/tags.js';
 import { getFlag } from '../../server/engine/flags.js';
 import { skillCheck, effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { on, emit } from '../../server/engine/events.js';
@@ -269,14 +271,18 @@ async function bookIntoCell(player, { teleport = false } = {}) {
   // real minutes). release_at + the release timer both use this real duration.
   const ms = realMsToGame(stars * MINUTE * mult);
   await query(
-    `INSERT INTO jail_prisoners (player_id, cell_zone, release_zone, release_at, stars, held_items, held_credits, fine)
-     VALUES ($1,$2,$3, NOW() + ($4 || ' milliseconds')::interval, $5,$6,$7,$8)
+    `INSERT INTO jail_prisoners (player_id, cell_zone, release_zone, release_at, stars, held_items, held_credits, fine, charge)
+     VALUES ($1,$2,$3, NOW() + ($4 || ' milliseconds')::interval, $5,$6,$7,$8,$9)
      ON CONFLICT (player_id) DO UPDATE SET
        cell_zone=$2, release_zone=$3, release_at=NOW() + ($4 || ' milliseconds')::interval,
-       stars=$5, held_items=$6, held_credits=$7, fine=$8, created_at=NOW()`,
-    [player.id, CELL_ZONE, RELEASE_ZONE, String(ms), stars, JSON.stringify(held), heldCredits, fine]
+       stars=$5, held_items=$6, held_credits=$7, fine=$8, charge=$9, created_at=NOW()`,
+    [player.id, CELL_ZONE, RELEASE_ZONE, String(ms), stars, JSON.stringify(held), heldCredits, fine, charge]
   );
   scheduleRelease(player.id, ms);
+  // Engage the hololock behind the new prisoner. The door ships locked in content
+  // and re-locks here on every booking, so a release (which leaves it disengaged)
+  // or an admin poking at it can't leave the next stretch servable by walking out.
+  await secureCellDoor().catch(() => {});
 
   // Label the sentence in the real minutes actually served (base stars × the
   // world-clock scale), so the desk sergeant and booking notice don't undersell it.
@@ -462,16 +468,20 @@ async function release(playerId) {
       if (balRes?.rows[0]) player.credits = balRes.rows[0].credits;
       const bc = getBroadcast();
       // The officer on duty right now walks into the cell, says their piece, and
-      // walks only the prisoner out — the lock re-engages behind, so no cellmate
-      // slips through. Their name is whoever's shift it is.
+      // walks the prisoner out. Their name is whoever's shift it is.
       const officer = world.npcs.get(onDutyOfficerId());
       const officerName = officer?.name || 'The duty officer';
       const line = RELEASE_LINES[Math.floor(Math.random() * RELEASE_LINES.length)];
+      // Serving your time genuinely opens the way out: the hololock disengages and
+      // STAYS disengaged until the next booking re-secures it. A door that only
+      // ever opens for a timer is a door nobody can trust, so the tradeoff is
+      // deliberate — a cellmate who strolls through it is still an escape().
+      await releaseCellDoor().catch(() => {});
       // Clear the countdown HUD — you walk out clean.
       sendToPlayer(playerId, { type: 'wanted_level', stars: 0 });
       bc?.(rec.cell_zone, {
         type: 'zone_event',
-        message: `<span class="text-yellow">${officerName} steps into the cell, keys jangling. "${player.handle}. ${line}"</span> The door buzzes open just long enough to walk ${player.handle} out, then clanks shut and re-locks behind them.`,
+        message: `<span class="text-yellow">${officerName} steps into the cell, keys jangling. "${player.handle}. ${line}"</span> The hololock drops with a heavy clunk and stays dark as ${player.handle} is walked out.`,
       }, playerId);
       await dispatchAction({ type: 'TELEPORT', actor: player, params: { zone_id: rec.release_zone }, context: { broadcast: bc } });
       const zone = getZone(rec.release_zone);
@@ -490,6 +500,61 @@ async function release(playerId) {
   } finally {
     releasing.delete(playerId);
   }
+}
+
+// ── Doing time: the readout ──────────────────────────────────────────────────
+// The booking popup states the sentence exactly once and is dismissible, and the
+// star HUD only counts down in whole stars (indistinguishable from street heat),
+// so without this a prisoner has no way to ask how long they're in for. `sentence`
+// answers from anywhere; `read sheet` answers off the form clipped to the bars.
+async function prisonerRow(playerId) {
+  const { rows } = await query(
+    'SELECT release_at, stars, fine, held_credits, charge FROM jail_prisoners WHERE player_id = $1',
+    [playerId]
+  ).catch(() => ({ rows: [] }));
+  return rows[0] || null;
+}
+
+function fmtRemaining(ms) {
+  const secs = Math.max(0, Math.round(ms / 1000));
+  const mins = Math.floor(secs / 60), rem = secs % 60;
+  if (!mins) return `${secs} second${secs === 1 ? '' : 's'}`;
+  return `${mins} minute${mins === 1 ? '' : 's'}${rem ? ` ${rem} seconds` : ''}`;
+}
+
+function renderRecord(rec) {
+  const left = new Date(rec.release_at).getTime() - Date.now();
+  const lines = [
+    '[ PRECINCT 9 — DETENTION RECORD ]',
+    `Charge:    ${rec.charge || 'multiple outstanding warrants'}`,
+    `Booked at: ${rec.stars}★`,
+    `Remaining: ${left > 0 ? fmtRemaining(left) : 'time served — the duty officer is on their way'}`,
+  ];
+  if (rec.held_credits || rec.fine) {
+    lines.push(`Property:  ₵${rec.held_credits} held at the desk, ₵${rec.fine} of it kept as your fine`);
+  }
+  return { type: 'output', message: lines.join('\n') };
+}
+
+async function cmdSentence(args, raw, player) {
+  const rec = await prisonerRow(player.id);
+  if (!rec) return { type: 'output', message: "You're not doing time." };
+  return renderRecord(rec);
+}
+
+// read <sheet> — the same record, read off the charge sheet clipped to the bars.
+// Self-resolves its target and self-gates on the tag, falling through (undefined)
+// to whatever else owns `read` when the thing you named isn't a charge sheet.
+async function readChargeSheet(args, raw, player) {
+  const target = args.join(' ').replace(/^(the)\s+/i, '').trim();
+  const { rows } = target
+    ? await query('SELECT * FROM furniture WHERE zone_id=$1 AND name ILIKE $2 LIMIT 1', [player.current_zone, `%${target}%`])
+    : await query(`SELECT * FROM furniture WHERE zone_id=$1 AND jsonb_exists(flags,'charge_sheet') LIMIT 1`, [player.current_zone]);
+  const furn = rows[0];
+  if (!furn || !hasTag(furn, 'charge_sheet')) return undefined;   // fall through
+  const rec = await prisonerRow(player.id);
+  if (!rec) return { type: 'output', message: 'The form clipped to the bars is blank. Nobody has filled one out in your name — yet.' };
+  return renderRecord(rec);
 }
 
 // ── Escape (any exit from the cell that isn't the guard) ─────────────────────
@@ -539,6 +604,18 @@ async function secureCellDoor() {
   if (!door) return false;
   if (door.lock_state === 'locked' && !door.is_open) return false;   // already shut + locked
   door.lock_state = 'locked'; door.is_open = 0;
+  setDoorCache(door.id, door);
+  emit('door.toggled', { zoneId: door.zone_id, targetZoneId: door.target_zone });
+  return true;
+}
+
+// The other half of the pair: the guard drops the lock at the end of a sentence.
+// Door state is RAM-only (world.doors; runtime never writes it back), so this is
+// a cache mutation like every other open/close/lock in the game.
+async function releaseCellDoor() {
+  const door = getDoorById(CELL_DOOR) || getZoneDoors(CELL_ZONE)[0];
+  if (!door || door.lock_state !== 'locked') return false;
+  door.lock_state = 'unlocked';
   setDoorCache(door.id, door);
   emit('door.toggled', { zoneId: door.zone_id, targetZoneId: door.target_zone });
   return true;
@@ -595,11 +672,17 @@ setTimeout(() => { try { syncShift(); } catch (e) { console.error('[jail] shift 
 export const commands = {
   conceal: cmdConceal,
   concealresolve: cmdConcealResolve,
+  sentence: cmdSentence,
+  time: cmdSentence,
 };
+
+export const specializedActions = [
+  { verb: 'read', requiredTag: 'charge_sheet', handler: readChargeSheet },
+];
 
 export const hooks = { 'player.respawnZone': onRespawnZone };
 
 // Exposed for the regression harness.
-export const _test = { confiscate, restoreHeld, release, escape, onRespawnZone, isContraband, onDutyOfficerId, inCellBlock, OFFICERS, CELL_ZONE, RELEASE_ZONE, BUNK_ZONE };
+export const _test = { confiscate, restoreHeld, release, escape, onRespawnZone, isContraband, onDutyOfficerId, inCellBlock, secureCellDoor, releaseCellDoor, CELL_DOOR, OFFICERS, CELL_ZONE, RELEASE_ZONE, BUNK_ZONE };
 
 console.log('[jail] Plugin loaded.');

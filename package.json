@@ -25,6 +25,7 @@
     "content:export": "node scripts/content/export.mjs",
     "precontent:import": "node scripts/content/lint.mjs",
     "content:import": "node scripts/content/import.mjs",
+    "content:seed-runtime": "node scripts/content/seed-runtime.mjs",
     "content:lint": "node scripts/content/lint.mjs",
     "content:status": "node scripts/content/status.mjs",
     "content:dangling": "node scripts/content/check-dangling.mjs",
