@@ -37,10 +37,16 @@ const result = await dispatchAction({
 
 ### Built-in actions
 
-Registered across `graph.js` and `flags.js`:
+Registered across `actions.js`, `graph.js` and `flags.js`:
 
 | Action | Source | What it does |
 |---|---|---|
+| `TAKE` | actions.js | Pick a ground row up; refuses `custom_data.ownerId` items belonging to someone else |
+| `DROP` | actions.js | Drop a row (optional `params.qty`) to the zone floor |
+| `GIVE` | actions.js | Hand a row to `params.toPlayer` |
+| `EQUIP` / `UNEQUIP` | actions.js | Equip a row into `params.slot`/`layer`, or take it off |
+| `MOVE` | actions.js | `cmdMove(params.direction, …, params.opts)` — runs the move-gate chain |
+| `EXAMINE` | actions.js | Stub — returns an error; use the look command |
 | `GRANT_ITEM` | graph.js | Insert item into `player_inventory`; once-guard optional |
 | `REMOVE_ITEM` | graph.js | Remove item from `player_inventory` by item_id + quantity |
 | `TELEPORT` / `TELEPORT_PLAYER` | graph.js | Move player to zone_id; broadcasts departure/arrival |
@@ -79,7 +85,10 @@ Return values from subscribers are ignored. Async subscribers run but their reje
 |---|---|
 | `item.granted` | `{ actor, item_id, quantity }` |
 | `item.removed` | `{ actor, item_id, quantity }` |
+| `item.taken` | `{ actor, item, zone }` |
 | `item.dropped` | `{ actor, item, zone }` |
+| `item.given` | `{ actor, recipient, item }` |
+| `item.equipped` / `item.unequipped` | `{ actor, item, slot }` (no `slot` on unequip) |
 | `inventory.changed` | `{ actor }` |
 | `zone.entered` | `{ actor, zone, from }` |
 | `flag.set` | `{ actor, scope, flag, value }` |
@@ -91,9 +100,11 @@ Return values from subscribers are ignored. Async subscribers run but their reje
 
 ## Flags (`flags.js`)
 
-Persistent key/value state keyed by player or world scope. Stored in `player_flags` and `world_flags` (each a `(key, value, updated_at)` row). Values are always strings; numeric comparisons coerce with `Number()`.
+Persistent key/value state keyed by player or world scope. Stored in `player_flags` (`player_id, flag_key, flag_value, updated_at`) and `world_flags` (`flag_key, flag_value, updated_at`). Values are always strings; numeric comparisons coerce with `Number()`.
 
 > Not to be confused with the legacy `flags` JSONB bag on item/entity rows — that belongs to the Tag system (ADR-0003).
+
+**World-scope reads are cached for the life of the process** ([flags.js:19](../server/engine/flags.js#L19)) — `world_flags` loads once and every later `getFlag('world', …)` is served from memory. `setFlag`/`clearFlag` keep the cache coherent; **a write from outside the process does not** — a one-shot script, psql, or the Neon console. Restart the server after touching `world_flags` out of band. A stale *cleared* flag is the nastier direction: `op: 'set'` gates stay true forever (this is what makes `scripts/reach-jobboard.mjs` look like it did nothing).
 
 ### Store API
 

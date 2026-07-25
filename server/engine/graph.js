@@ -54,7 +54,10 @@ export async function runGraph(graph, ctx) {
   while (nodeId && steps++ < MAX_STEPS) {
     const node = graph.nodes[nodeId];
     if (!node) break;
-    nodeId = await runNode(node, { ...ctx, depth });
+    // `graph` on the ctx is what a `wait` node's delayed continuation resumes
+    // from — set it here rather than trusting every caller to pass it, or a
+    // direct runGraph() call silently drops everything after the first wait.
+    nodeId = await runNode(node, { ...ctx, graph, depth });
   }
   if (steps >= MAX_STEPS) console.warn('[graph] script hit step limit — possible cycle');
 }

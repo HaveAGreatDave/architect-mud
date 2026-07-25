@@ -1,33 +1,37 @@
 # Plugin Standard
 
 Every plugin in `/plugins/<name>/` is a self-describing unit. This document defines the manifest
-schema, the required README, and the doc-generation convention adopted in the 2026 architecture
-rework. See [docs/adr/](adr/) for the architectural decisions that define Action / Event / Hook / Tag.
+schema, the README convention, and the doc-generation convention. See [docs/adr/](adr/) for the
+architectural decisions that define Action / Event / Hook / Tag.
 
 ## Files
 
 ```
 plugins/<name>/
 ├── plugin.json     # manifest (required)
-├── index.js        # server module: exports hooks / commands / actions / routeHandler (required)
+├── index.js        # server module: exports hooks / commands / specializedActions / routeHandler (required — at least one)
 ├── regress.js      # regression suite (optional — run by tests/regress.js, never loaded in production)
-├── client.js       # client module (optional — deferred; not loaded yet, see rework plan §8)
-└── README.md       # generated/maintained from plugin.json (required)
+└── README.md       # maintained from plugin.json (convention — see below)
 ```
 
 ## `plugin.json` schema
 
-Existing fields (`name`, `version`, `description`, `hooks`, `commands`, `routePrefix`) are unchanged
-and stay valid. Two loader-wired fields were added in the engine/plugin boundary work (2026-07):
+Core fields: `name`, `version`, `description`, `hooks`, `commands`, `routePrefix`. Three more are
+read at runtime:
 
 - `"after": ["otherPlugin", …]` — load after the named plugins. Load order is otherwise
   filesystem-alphabetical; declare this whenever a verb override is intentional (the loader warns on
   every plugin↔plugin verb collision at boot).
 - `"critical": true` — a load failure aborts boot instead of logging and skipping. Use for plugins
   the game is unplayable without (weapon).
+- `"objectGatedCommands": { "<verb>": { "discoverVia": "<tag>", "exposed": false, "note": "…" } }` —
+  verbs that only work near a specific world object. **The regression harness enforces this**
+  (layer 1b): the verb must be in `commands[]`, and unless `exposed:false` marks it a logged gap, a
+  specialized action registered under the `discoverVia` tag must surface it on that object's examine.
+  A verb the player can't find is invisible content.
 
-The rework also adds optional declarative fields so a plugin's full surface is inspectable
-without reading its code, and so READMEs can be generated:
+Optional declarative fields make a plugin's full surface inspectable without reading its code, and
+let READMEs be generated:
 
 ```jsonc
 {
@@ -61,9 +65,9 @@ without reading its code, and so READMEs can be generated:
 ```
 
 Unknown fields are ignored by the loader; declaring them is for documentation and tooling, not runtime
-behavior. The loader (`server/engine/plugins.js`) continues to wire only `hooks`, `commands`, and
-`routePrefix`; `actions`/`events`/`ticks` are registered imperatively in `index.js` today and
-*described* here for inspection. (A future pass may have the loader read them directly.)
+behavior. The loader (`server/engine/plugins.js`) wires only the manifest's `hooks`, `commands`, and
+`routePrefix` (plus the module's own `specializedActions` export); `actions`/`events`/`ticks` are
+registered imperatively in `index.js` and *described* here for inspection.
 
 **`dataSchema` is documentation, not wiring — and it does not export your content.** Listing a table
 here records ownership; it does **not** add the table's DDL to `SCHEMA_SQL`, nor its rows to the git
@@ -87,8 +91,8 @@ seed. Both are separate, deliberate steps:
 ## Ticks and DB burden
 
 A plugin's recurring work shares one small connection pool with every player command — prod
-Postgres is remote, so each `query()` is a full network round trip holding a pool slot. The 2026-07
-lag audit traced most idle DB traffic to plugin heartbeats. Rules for any scheduled work:
+Postgres is remote, so each `query()` is a full network round trip holding a pool slot. Rules for any
+scheduled work:
 
 - **Register through `scheduler.js`** (`schedule('1m', fn)`), never your own `setInterval`, for any
   timer that touches the DB. The scheduler jitters cadence phase and staggers same-cadence
@@ -97,7 +101,7 @@ lag audit traced most idle DB traffic to plugin heartbeats. Rules for any schedu
   bug class that pinned Neon's compute awake 24/7 (surveillance's camera refresh). Raw `setInterval`
   is reserved for pure in-memory hot loops that never hit the DB (the 1 s combat/gameplay ticks).
 - **Idle-gate is automatic — the scheduler skips your callback entirely when `hasActivePlayers()` is
-  false.** You no longer type the guard; forgetting it is now safe. This exists because a clock-driven
+  false.** The guard is not yours to type — forgetting it is safe. This exists because a clock-driven
   `query()` on an empty world keeps a pool connection alive inside its idle window, so Neon's compute
   never suspends (scale-to-zero) and the empty server bills 24/7. Derive state from the game clock or
   `resolve_at`-style timestamps so the first tick after a login catches up correctly (see
@@ -111,9 +115,9 @@ lag audit traced most idle DB traffic to plugin heartbeats. Rules for any schedu
   [Read Tiers in architecture.md](architecture.md#read-tiers-where-data-lives-at-runtime) for the
   cache tiers and the write-funnel safety test.
 
-## README requirement
+## README convention
 
-Every plugin has a `README.md` with these sections (mirroring `plugin.json`):
+A plugin's `README.md` carries these sections (mirroring `plugin.json`):
 
 ```md
 # <name>
@@ -149,9 +153,8 @@ Every plugin has a `README.md` with these sections (mirroring `plugin.json`):
 
 `plugin.json` is the source of truth; the README's machine-listable sections (Registered actions,
 Events emitted/consumed, Tick usage, Dependencies, Config, Data schema, Extension points) are
-generated from it, leaving only **Purpose** and prose as hand-written. Missing READMEs are generated
-on demand. Existing plugins gain their declarative `plugin.json` fields and README in the phase that
-gives them Actions/Events (most have none until then) — backfilling empty sections now would be noise.
+generated from it, leaving only **Purpose** and prose as hand-written. Most plugins have no README
+yet — write one when the plugin gains Actions/Events worth listing; backfilling empty sections is noise.
 
 ## `regress.js` — per-plugin regression suite
 

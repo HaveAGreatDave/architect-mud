@@ -12,7 +12,7 @@ Commands enter via WebSocket (`{ type: "command", command: "..." }`), routed thr
 6. **Specialized actions** (`fireSpecializedAction`) — tag- or self-gated (doors, containers, food, weapons, cosmetic machine, toilets…).
 7. **Builtins** — the `Map` built from the engine domain handler exports.
 
-There are no per-verb special cases in the pipeline; anything that used to be one (the cosmetic-machine `use` pre-intercept, the MIS regexes) now registers through steps 4–6.
+No per-verb special cases: every verb routes through steps 4–7. Three substrate gates wrap the chain in `index.js`: a leading `@`/`/`/`.` sigil is stripped before matching; the **blackout** gate (`player.blackedOutUntil`, set by intoxication) refuses everything; the **insane** gate (`player.insane`, set by sanity) scrambles ~55% of commands — `sleep`/`rest` always pass.
 
 ---
 
@@ -35,6 +35,7 @@ Used for all non-combat entity lookup. Fuzzy scoring with a paged disambiguation
 - Scores candidates 0–100 (exact match = 100, substring = 90–99, prefix = 70–88, word overlap = 40–69, partial word match = 10–38).
 - If the top two candidates are within 8 points of each other (and have different names), it returns `type: 'ambiguous'` and presents a numbered selection list.
 - If only one candidate scores above 0, or one has a clear lead (≥8 points), it returns `type: 'match'`.
+- **Quoted queries bypass scoring entirely.** `"scarred courier"` or `'scarred courier'` (matching quotes) is a literal exact-match request: only a candidate whose name equals the unquoted text wins, otherwise `type: 'none'` — no fuzz, no ambiguity prompt. This is the player's escape hatch out of a disambiguation loop, and it applies to `matchAll` too.
 - Entry points: `resolve(query, candidates, context)` — SIFT only; and `matchAll(query, candidates)` — returns **all** candidates scoring above 0, best-first, with no ambiguity gate (for bulk verbs that act on every match rather than prompting, e.g. `drop all <filter>`).
 
 ### Selection State (disambiguation UI)
@@ -52,6 +53,9 @@ When SIFT returns `ambiguous`:
   `gametable.watch_choice`).
 - **Engine builtins only:** `{ verb }` — replays through `builtins.get(verb)` with the candidate's
   *name*. This route cannot reach plugin verbs; using it for one is the classic silent-breakage trap.
+- **Movement picker:** `{ verb: 'move', moveDirection }` — the pick carries the destination zone id, so
+  `index.js` calls `cmdMove(moveDirection, …, { targetZoneId: candidate.id })` instead of replaying a
+  `go <name>` round trip (long/duplicate zone names fail that way). Used by `movement.js` only.
 
 ---
 
@@ -128,7 +132,9 @@ const target = result.candidate; // auto-selected by FATE, no UI
 | `plugins/mis` | Players (all MIS targeting) | SIFT via its `resolveTarget` helpers |
 | `combat.js` | Players (loot) | SIFT with disambiguation UI |
 | `social.js` | NPCs (talk), players (obama) | SIFT with disambiguation UI |
-| `world.js` | Enemies + NPCs + players (examine) | SIFT with disambiguation UI, combined pool |
+| `world.js` | Enemies + NPCs + players (examine) | SIFT with disambiguation UI, combined pool. The **interactions** plugin owns the `examine` verb and falls through here for entity targets |
+| `doors.js` | Hackable locks (hack) | SIFT UI; replay via `dispatchType: 'doors.hack'` |
+| `movement.js` | Same-direction destinations (move) | SIFT UI; replay via `moveDirection` + the candidate's zone id |
 | `inventory.js` | Items (take, drop) | SIFT via `dispatchType/dispatchParam`; `drop all` → `confirm` result (`drop __allconfirm`, sheds everything incl. equipped); `drop all <filter>` → `matchAll`, drops every match with no prompt. Equipped items are included and `recomputeArmor`/`recomputeInsulation` re-run if any dropped item was equipped |
 | `inventory.js` | Players (give) | SIFT scoring only, error on ambiguous |
 | `housing.js` | Windows (open, close) | SIFT with disambiguation UI |

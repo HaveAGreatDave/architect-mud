@@ -22,6 +22,7 @@ posture/HP-regen break). The rest generalize that success to the other seams.
 | **Capability ↔ Item** | a "you need a ⟨tool⟩" gate hardcodes one item id instead of reading a tag, so a correctly-tagged second item is silently rejected | [capability-tag-vs-itemid-audit.md](capability-tag-vs-itemid-audit.md) |
 | **Verb ↔ Affordance** | an object-gated verb (works only near a specific furniture/item/NPC) never advertises itself on that object's `examine`, so the player can't discover it — invisible content | [affordance-discoverability-audit.md](affordance-discoverability-audit.md) |
 | **Runtime code ↔ remote DB** | hot paths stacking awaited round trips; queries in loops; ungated always-on ticks; caches without a write funnel — no error, just aggregate latency and pool starvation | [db-burden-audit.md](db-burden-audit.md) |
+| **Docs ↔ code** | a doc claim that drifted from the code (ghost path, renamed field, "as built" for something unbuilt) — nothing executes a doc, so it silently mis-briefs every future reader; plus prose that taxes every context load without changing a decision | [doc-correctness-concision-audit.md](doc-correctness-concision-audit.md) |
 
 Two flavors live here:
 
