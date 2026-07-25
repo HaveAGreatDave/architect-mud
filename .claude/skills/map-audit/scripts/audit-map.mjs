@@ -170,8 +170,8 @@ const RULES = [
   // ---- JUDGEMENT: content quality ----
   { code: 'SCAV-1', sev: 'judgement', kind: 'judgement', fix: null,
     title: 'Non-building tile with no scavenging / fishing / mining table',
-    why: 'A tile with no loot table is a tile where the search, fish and mine verbs do nothing. Fine for some terrain, a dead spot for the rest.',
-    rec: 'Decide once per (terrain, name, region) group — the wilderness is thousands of tiles across a few dozen distinct kinds.' },
+    why: 'A tile with no loot table is a tile where the search, fish and mine verbs do nothing. NOT a defect list — only 6.5% of world tiles carry a table and they are hand-placed on city, road and sewer ground (4 of 2,996 redrock tiles have one). This is a coverage BACKLOG measuring how much of the map the search verbs reach, so read the count as "how far could loot extend", never as "how many tiles are broken".',
+    rec: 'Decide once per (terrain, name, region) group — the wilderness is thousands of tiles across a few dozen distinct kinds. Work top-down and stop when the coverage feels right; finishing the list is not the goal.' },
   { code: 'SCAV-2', sev: 'high', kind: 'mechanical', fix: null,
     title: 'Loot table id points at a table that does not exist',
     why: 'The verb resolves to nothing at runtime.',
@@ -188,6 +188,10 @@ const RULES = [
     title: 'Sub-surface water tile with no flags.underwater',
     why: 'isUnderwater() (swimming) and the water-temperature model both key off flags.underwater. Without it a tile below the surface never arms the breath timer and reads as surface-temperature water — you can stand on the basin floor and never drown.',
     rec: 'Set flags.underwater: true on water tiles below z=0, or confirm they were meant to be surface water.' },
+  { code: 'GATE-1', sev: 'critical', kind: 'mechanical', fix: null,
+    title: 'Nothing crosses the city↔wilds curtain — the wilds are unreachable',
+    why: 'The curtain is code-enforced (the map editor refuses to wire across it, seal-wilds-boundary.mjs strips crossings), so LINK-1 deliberately ignores its ~266 sealed edges. That silence is only safe while at least one gate survives. Today there is exactly one — The South Gate ↔ The Glacis — and if it is ever sealed too, 3,471 wilderness tiles become unreachable on foot with nothing else to report it.',
+    rec: 'Restore a crossing. Check The South Gate (zone_district_918_919) ↔ The Glacis (zone_district_918_920) first — that is the authored way out.' },
   { code: 'TABLE-1', sev: 'medium', kind: 'judgement', fix: null,
     title: 'Loot table is defined but no tile references it',
     why: 'Dead content — someone wrote the items and the messages and it can never fire. Usually means the table was authored ahead of the tiles that were meant to use it.',
@@ -217,6 +221,10 @@ const SEV_ORDER = { critical: 0, high: 1, medium: 2, judgement: 3 };
 // stamped before the terrain was repainted.
 const STALE_NATURAL = { colors: new Set(['#8ba36a', '#7f9e5c']), themes: new Set(['forest']) };
 const BUILT_TERRAIN = new Set(['road', 'asphalt', 'concrete', 'park']);
+// `park` is built ground that is SUPPOSED to look natural — it is a green with trees.
+// All 8 Fisherman's Green tiles carry the same green/forest palette deliberately, so
+// PAL-1 excludes park while PROSE-2 (a natural NAME on built ground) still covers it.
+const PALETTE_EXEMPT = new Set(['park']);
 const NATURAL_NAME = /\b(grass|grassland|meadow|field|scrub|moor|heath|prairie|wood|forest)s?\b/i;
 const PLACEHOLDER_DESC = [/^The face of /i, /^An empty place\.?$/i, /^A nondescript /i, /\[PLANNER STUB\]/i, /^A raw, undeveloped stretch of ground/i];
 // Ground words that betray the real surface, for TERRAIN-1. Deliberately narrow —
@@ -437,6 +445,16 @@ export function audit({ region = null, bbox = null } = {}) {
         continue;
       }
       if (isFacade) continue;
+      // The city↔wilds curtain is a CODE-ENFORCED invariant, not an oversight: the map
+      // editor refuses to wire across it (_crossesWildsBoundary), routes.js won't
+      // re-open it, and seal-wilds-boundary.mjs strips any crossing that appears. It is
+      // deliberately pierced in exactly one place — The South Gate — which GATE-1 guards.
+      if ((f.district === 'wilds') !== (nb.flags?.district === 'wilds')) continue;
+      // Hand-authored underground networks have authored topology: the sewer rooms are a
+      // maze where grid adjacency is not connectivity (Rat Warren is a one-exit "drowned
+      // side-chamber", Silt Pocket is "a blind pocket"). Only open surface ground carries
+      // the "adjacent means walkable" expectation this rule tests.
+      if (f.is_interior || nb.flags?.is_interior || (z.grid_z ?? 0) < 0) continue;
       const pair = [f.terrain ?? '(none)', nb.flags?.terrain ?? '(none)'];
       emit('LINK-1', z, `${d} → ${nb.id} (${nb.name})`, { dir: d, target: nb.id, group: `${pair[0]} → ${pair[1]}`, sameName: nb.name === z.name });
     }
@@ -503,7 +521,7 @@ export function audit({ region = null, bbox = null } = {}) {
     if (ph) emit('NAME-1', z, `"${z.name}"`, { group: ph.source, coarse: `${f.region_id ?? '(no region)'} · ${f.terrain ?? '(none)'}` });
     if (BUILT_TERRAIN.has(f.terrain) && NATURAL_NAME.test(z.name || ''))
       emit('PROSE-2', z, `name "${z.name}" vs terrain "${f.terrain}"`, { group: `${z.name} · ${f.terrain}` });
-    if (BUILT_TERRAIN.has(f.terrain) && (STALE_NATURAL.colors.has(z.color) || STALE_NATURAL.themes.has(z.ambient_theme)))
+    if (BUILT_TERRAIN.has(f.terrain) && !PALETTE_EXEMPT.has(f.terrain) && (STALE_NATURAL.colors.has(z.color) || STALE_NATURAL.themes.has(z.ambient_theme)))
       emit('PAL-1', z, `terrain=${f.terrain} but color=${z.color} theme=${z.ambient_theme}`, { group: `${f.terrain} · ${z.color} · ${z.ambient_theme}` });
   }
 
@@ -517,6 +535,24 @@ export function audit({ region = null, bbox = null } = {}) {
     for (const z of zones)
       for (const k of ['scavenging_table_id', 'fishing_table_id', 'mining_table_id'])
         if (z.flags?.[k]) referenced.add(z.flags[k]);
+    // GATE-1 — the counterweight to LINK-1 skipping the curtain. LINK-1 stays quiet
+    // about the ~266 sealed edges because sealing them is the design; the failure that
+    // silence could hide is the opposite one, where the last gate gets sealed too and
+    // the wilds become unreachable. This is a whole-map assertion, not a per-tile check.
+    {
+      const W = (z) => z?.flags?.district === 'wilds';
+      const gates = [];
+      for (const z of zones)
+        for (const [d, t] of Object.entries(z.exits || {})) {
+          const n = byId.get(t);
+          if (n && W(z) !== W(n)) gates.push(`${z.name} (${z.id}) --${d}--> ${n.name}`);
+        }
+      const pseudo = { id: 'city_wilds_curtain', name: 'city↔wilds curtain', flags: {}, map_id: null };
+      if (!gates.length && !suppressed('GATE-1', pseudo))
+        findings.push({ rule: 'GATE-1', sev: 'critical', zone: 'city_wilds_curtain', name: 'city↔wilds curtain',
+          detail: 'no exit anywhere crosses the city↔wilds boundary — the wilds are unreachable on foot', group: 'curtain' });
+    }
+
     const rowsByTable = new Map();
     for (const it of tableItems) {
       if (!rowsByTable.has(it.table_id)) rowsByTable.set(it.table_id, new Map());

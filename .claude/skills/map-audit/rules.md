@@ -186,6 +186,20 @@ Grouped by terrain pair (`redrock → water`) so a whole boundary is one decisio
 than hundreds. Note that transient waste rooms off a region rim aren't in `content/` at
 all — a rim tile with no outward link isn't necessarily orphaned.
 
+**Two things this rule deliberately does NOT flag** (added 2026-07, when they were 279 of
+its 283 findings):
+
+- **The city↔wilds curtain.** Sealing it is code-enforced, not an oversight — the map
+  editor refuses to wire across it (`_crossesWildsBoundary`), `routes.js` won't re-open
+  it, and `seal-wilds-boundary.mjs` strips any crossing that appears. It is pierced in
+  exactly one authored place, The South Gate ↔ The Glacis, which **[GATE-1](#gate-1)**
+  guards.
+- **Interiors and anything below z=0.** Hand-authored underground networks have authored
+  topology, so grid adjacency is not connectivity: Rat Warren is a one-exit "drowned
+  side-chamber", Silt Pocket is "a blind pocket", and Sealed Maintenance Door is a steel
+  door with a dead keypad. Only open surface ground carries the "adjacent means walkable"
+  expectation this rule tests.
+
 ### LINK-2 · Facade's door faces this tile but there is no link into it · mechanical
 
 The inverse of BLD-1: the building declares its entrance on this side and yet can't be
@@ -210,6 +224,18 @@ reads as surface-temperature water — you can stand on the basin floor and neve
 Currently **no tile in the world sets this flag**, including all 82 `z-1` Basin Floor
 tiles. Either the sub-surface layer was built before the swimming system landed, or the
 flag was never backfilled.
+
+### GATE-1 · Nothing crosses the city↔wilds curtain · critical
+
+A whole-map assertion, not a per-tile check, and the deliberate counterweight to LINK-1
+ignoring ~266 sealed curtain edges. That silence is only safe while at least one gate
+survives. Today there is exactly one — **The South Gate** (`zone_district_918_919`) ↔
+**The Glacis** (`zone_district_918_920`) — and if it were ever sealed too, 3,471
+wilderness tiles would become unreachable on foot with nothing else in the audit to
+report it.
+
+Fires only when the crossing count reaches zero. Verified by cutting both directions of
+the gate and confirming it trips, then restoring.
 
 ### TABLE-1 · Loot table is defined but no tile references it · judgement
 
@@ -270,6 +296,12 @@ client-side mirror to update.
 
 A tile with no loot table is a tile where `search`, `fish` and `mine` do nothing. Fine
 for some terrain; a dead spot for the rest.
+
+**This is a coverage backlog, not a defect list.** Only **6.5%** of world tiles carry a
+table, and they are hand-placed on city, road and sewer ground — 4 of the 2,996 redrock
+tiles have one. So the count measures *how far the search verbs currently reach*, never
+*how many tiles are broken*. Work top-down and stop when coverage feels right; finishing
+the list is not the goal, and a run that leaves thousands outstanding is not a failure.
 
 **Always work this grouped, and start with `--coarse`.**
 
@@ -341,3 +373,8 @@ woodland underfoot.
 
 Restyle to the terrain palette. Use the **`tile-palette`** skill to design the bg/text
 colours rather than picking hex by hand.
+
+**`park` is exempt.** It is built ground that is *supposed* to look natural — a green
+with trees. All 8 Fisherman's Green tiles carry the same `#8fd08a` / `forest` palette
+deliberately, so flagging them was 8 of the rule's 31 findings. PROSE-2 still covers the
+related case (a natural *name* on built ground).
