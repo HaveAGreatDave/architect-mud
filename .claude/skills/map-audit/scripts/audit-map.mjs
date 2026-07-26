@@ -38,6 +38,13 @@ const { canonicalJson } = await import(
 const { DISTRICTS } = await import(
   'file://' + path.join(REPO, 'server/engine/districts.js').replace(/\\/g, '/')
 );
+// Same reason as DISTRICTS: TERRAIN-2 asks "what ground does the engine actually
+// draw here", which only the engine can answer. Mirroring zoneTerrain's inference
+// chain here would drift the moment someone adds a fallback to it — and an
+// unnoticed fallback is the entire defect this rule exists to catch.
+const { zoneTerrain } = await import(
+  'file://' + path.join(REPO, 'server/engine/world.js').replace(/\\/g, '/')
+);
 const CONTENT = path.join(REPO, 'content');
 const DECISIONS = path.join(REPO, 'docs/audits/map-audit-decisions.json');
 
@@ -174,6 +181,10 @@ const RULES = [
     title: 'Building tile has no 2-character map marker',
     why: 'A building is the one thing on the map a player navigates BY, and marker is the label it wears in Labels mode on every map surface. With no marker the renderers fall back to deriving an acronym from the name, which is how the same building read "HA" on the sidebar and "HO" on the tablet. The convention across the 54 buildings that have one is a 2-letter acronym of the building name — a 1-glyph marker is a leftover terrain glyph (the "#" the planner stamped on grassland) or a decorative emoji, neither of which reads as a building.',
     rec: 'Set a 2-character acronym from the building name. `want` carries the derived suggestion — check it against the markers already in use before accepting it.' },
+  { code: 'TERRAIN-2', sev: 'high', kind: 'mechanical', fix: null,
+    title: 'Interior room draws as outdoor ground it never declared',
+    why: 'An interior legitimately carries no flags.terrain — but zoneTerrain() does not stop at the authored value. It falls through to an inference chain ending in "green-dominant bg_color => grass", and an interior\'s bg_color is authored for the map tile, not for a ground surface. So a room with a green swatch draws as a field: Ration Nine and its stockroom, all 33 Meridian hallways. FLAG-1 could never catch this — it asks whether terrain is ABSENT, which for an interior is correct and expected. The question that matters is what the engine RENDERS, which is why this rule calls zoneTerrain() rather than reading the flag.',
+    rec: 'Fix in the engine, not the content: an interior has no ground surface to infer, so zoneTerrain() should return null for one before it reaches the bg_color rule. There is no indoor value to author instead — the terrain enum is all outdoor surfaces (water/road/grass/sand/...) — so repainting the content cannot express "this is a floor", and recolouring the tiles would be fixing the symptom by making the swatch uglier.' },
   { code: 'MARK-4', sev: 'medium', kind: 'mechanical', fix: null,
     title: 'Two buildings wear the same map marker',
     why: 'The marker IS the building\'s identity on the map now that the renderers stop deriving one — two buildings sharing a code are indistinguishable on the tablet bigmap and the full-map popup, which show both at once. This is only worth checking BECAUSE the derivation is gone: the old fallback gave 61 buildings just 33 distinct codes (fifteen of them read "Th"), so collisions were the norm and unmeasurable.',
@@ -618,6 +629,19 @@ export function audit({ region = null, bbox = null } = {}) {
       if (!gates.length && !suppressed('GATE-1', pseudo))
         findings.push({ rule: 'GATE-1', sev: 'critical', zone: 'city_wilds_curtain', name: 'city↔wilds curtain',
           detail: 'no exit anywhere crosses the city↔wilds boundary — the wilds are unreachable on foot', group: 'curtain' });
+    }
+
+    // TERRAIN-2 — interiors, which `targets` (map_world only) never walks. Ask the
+    // engine what ground it draws; anything non-null on a tile that authored no
+    // terrain came from the inference chain, not from an author.
+    for (const z of zones) {
+      const f = z.flags || {};
+      if (f.terrain) continue;                              // authored — TERRAIN-1's problem, not this one
+      if (!f.is_interior && (!z.map_id || z.map_id === 'map_world')) continue;
+      const drawn = zoneTerrain(z);
+      if (!drawn) continue;
+      emit('TERRAIN-2', z, `draws as '${drawn}' — no flags.terrain, inferred from bg_color ${z.bg_color || '(none)'}`,
+        { group: `${drawn} · ${z.bg_color || '(none)'}`, coarse: z.map_id, drawn });
     }
 
     // MARK-4 — a whole-map question like TABLE-1: you cannot see a collision from one
