@@ -26,7 +26,7 @@
   "grid_z": 0,
   "id": "zone_the_reach_872_1954",
   "map_id": "map_world",
-  "marker": null,
+  "marker": "CO",
   "name": "The Coyote's Rest",
   "parent_zone": null,
   "updated_at": "1784533788"

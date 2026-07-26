@@ -162,6 +162,18 @@ const RULES = [
   // also missed the actual defect: an override the engine cannot resolve is
   // silently DROPPED, and 2,993 wilderness tiles were reading as 'residential'.
   // Flag invalidity, not absence.
+  { code: 'MARK-1', sev: 'medium', kind: 'mechanical', fix: 'clearMarker',
+    title: 'Interior room carries a map marker',
+    why: 'zones.marker is the <=2-char glyph a tile draws on the MAP — the dev-panel map badge and the flight cockpit strip. An interior room is never drawn on the world map, so the glyph is dead data that only shows up in the authoring view, where it reads as "this room is a place on the map" and invites the acronym being kept in two places at once. The world-map underground level (map_world, z<0) is excluded: the sewer network IS drawn on the map, and its box-drawing markers are the authored corridor art. Apartments are excluded too — MARK-3 makes the opposite demand of them.',
+    rec: 'Clear the marker (marker: null). The building the room belongs to carries the acronym on its facade — that is the one that renders.' },
+  { code: 'MARK-3', sev: 'medium', kind: 'mechanical', fix: 'setMarker',
+    title: 'Apartment has no floor designation as its marker',
+    why: 'The one interior that IS a distinct place worth marking: an apartment stack is dozens of near-identical rooms whose only distinguishing feature is which floor it is on, and the interior map is the only view that shows them all at once. Halcyon 41-A..E each carry "41" and read as a floor; the other 111 units carry nothing and read as an undifferentiated grid.',
+    rec: 'Set the floor designation from the unit name. `want` carries it: the full designation when it fits in 2 glyphs ("Unit 2A" -> "2A"), otherwise the floor alone ("Unit 1001" -> "10", "Halcyon Residence 41-A" -> "41"), so units sharing a floor share a marker.' },
+  { code: 'MARK-2', sev: 'medium', kind: 'mechanical', fix: null,
+    title: 'Building tile has no 2-character map marker',
+    why: 'A building is the one thing on the map a player navigates BY, and marker is what identifies it at a glance in the dev-panel map and the cockpit minimap strip (which falls back to a generic dot). The convention across the 54 buildings that have one is a 2-letter acronym of the building name — a 1-glyph marker is a leftover terrain glyph (the "#" the planner stamped on grassland) or a decorative emoji, neither of which reads as a building.',
+    rec: 'Set a 2-character acronym from the building name. `want` carries the derived suggestion — check it against the markers already in use before accepting it.' },
   { code: 'FLAG-3', sev: 'high', kind: 'mechanical', fix: null,
     title: 'flags.district names a district the engine cannot resolve',
     why: 'districtFor() honours an override only if DISTRICTS[value] exists; anything else is silently dropped and the tile falls back to residential (or hazard if lethal). That wrong district then drives ambience lines, the district shown on look, the minimap colour and the regional map.',
@@ -248,6 +260,39 @@ const TERRAIN_WORDS = {
 // A name the generator produced rather than a person: the tile's own grid position,
 // or its raw terrain word plus a noun.
 const PLACEHOLDER_NAME = [/\d+\s*,\s*\d+/, /^(water|sand|dirt|rock|grass|ash|mud|stone) (ground|tile|area)$/i, /^(zone|tile|room)[ _-]?\d+$/i, /^untitled\b/i, /^new zone\b/i];
+
+// The marker column is a <=2-char glyph, so count GLYPHS, not UTF-16 units — a
+// single emoji marker ("🔧") is length 2 by `.length` and would pass a naive check.
+const markerOf = (z) => (z.marker == null ? '' : String(z.marker).trim());
+const glyphLen = (s) => [...s].length;
+// Suggested acronym for MARK-2, mirroring the client's own Avenue-View label
+// (streetAbbrev in minimap.js): initials of the significant words, or the first
+// two letters of a single word. A suggestion only — collisions are a human call.
+function twoLetterAbbrev(name) {
+  // Strip the possessive before splitting, or "Halloran's Fix-It" becomes the words
+  // [Halloran, s, Fix, It] and suggests "HS" instead of "HF".
+  const words = String(name || '').replace(/['’]s\b/g, '').replace(/[^A-Za-z0-9\s]/g, ' ').split(/\s+/)
+    .filter((w) => w && !/^(the|of|and|at|a|an|&)$/i.test(w));
+  if (!words.length) return null;
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase() || null;
+  return words.map((w) => w[0]).join('').slice(0, 2).toUpperCase();
+}
+// MARK-3's suggestion: the floor designation carried in an apartment's own name
+// ("Unit 2A", "Unit 1001", "Halcyon Residence 41-A"). Keep the whole designation
+// when it fits the 2-glyph column; otherwise drop to the FLOOR, so the units on one
+// floor share a marker — which is what the authored Halcyon stack already does
+// (41-A..E all carry "41"), and the only precedent there is.
+function floorDesignation(name) {
+  const m = /(?:unit|apt|apartment|residence|room|suite)\s+([A-Za-z0-9][A-Za-z0-9-]*)\s*$/i.exec(String(name || '').trim());
+  if (!m) return null;
+  const desig = m[1].toUpperCase();
+  if (glyphLen(desig) <= 2) return desig;
+  // "41-A" → the part before the separator. "1001" → all but the last two digits
+  // (the unit within the floor), which is the numbering these stacks are authored in.
+  const head = desig.split('-')[0];
+  if (glyphLen(head) <= 2) return head;
+  return /^\d+$/.test(head) ? head.slice(0, -2) : head.slice(0, 2);
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 function loadDir(dir) {
@@ -393,6 +438,16 @@ export function audit({ region = null, bbox = null } = {}) {
     if (f.is_building && !f.building_type) emit('BLD-5', z, 'is_building with no building_type');
     if (f.is_building && !isFacade) emit('BLD-6', z, `is_building with no facade tag${interior ? ' (has an interior map!)' : ''}`);
     if (f.is_building && !f.building_name) emit('BLD-8', z, 'no building_name');
+    // MARK-2 — the map glyph, on the world tile that IS the building. Keyed on
+    // facade OR is_building rather than facade alone so a building whose facade tag
+    // is missing (BLD-6) is still asked for its acronym.
+    if (isFacade || f.is_building) {
+      const mk = markerOf(z);
+      const want = twoLetterAbbrev(f.building_name || z.name);
+      if (glyphLen(mk) !== 2)
+        emit('MARK-2', z, `${f.building_name || z.name} — marker=${mk ? `"${mk}"` : '(unset)'}${want ? `, suggest "${want}"` : ''}`,
+          { group: mk ? `${glyphLen(mk)}-glyph marker` : 'no marker', want });
+    }
 
     if (isFacade) {
       const entr = f.entrance;
@@ -561,6 +616,28 @@ export function audit({ region = null, bbox = null } = {}) {
           detail: 'no exit anywhere crosses the city↔wilds boundary — the wilds are unreachable on foot', group: 'curtain' });
     }
 
+    // MARK-1 — the inverse of MARK-2, and like MAP-1/NAME-2 it is about INTERIORS,
+    // which `targets` (map_world only) never walks. The exclusion is deliberate: a
+    // tile ON map_world draws on the map by definition, so its marker is legitimate
+    // however interior it feels — that covers the 117 z<0 sewer tiles whose
+    // box-drawing markers ARE the underground level's corridor art.
+    for (const z of zones) {
+      if (!z.map_id || z.map_id === 'map_world') continue;
+      // An apartment is the exception in both directions: it SHOULD carry its floor
+      // designation, so MARK-1 leaves it alone and MARK-3 asks for the missing one.
+      // Only absence is reported — an authored marker that disagrees with the derived
+      // designation is the author's call, not a defect.
+      if (z.flags?.is_apartment) {
+        if (markerOf(z)) continue;
+        const want = floorDesignation(z.name);
+        emit('MARK-3', z, `${z.name} — no marker${want ? `, suggest "${want}"` : ' (no designation in the name)'}`,
+          { group: z.map_id, want });
+        continue;
+      }
+      if (!markerOf(z)) continue;
+      emit('MARK-1', z, `"${markerOf(z)}" on ${z.name} (${z.map_id})`, { group: z.map_id });
+    }
+
     // MAP-1 / NAME-2 — whole-tree questions like TABLE-1, and both about INTERIORS,
     // which `targets` (map_world only) never walks. They have to iterate `zones`.
     {
@@ -690,6 +767,22 @@ const FIXERS = {
       }
     }
     return touched;
+  },
+  // MARK-1: an interior draws on no map, so its glyph is dead data. `null` (not a
+  // deleted key) is how content/ represents "no marker" — see any zone_util_* file.
+  clearMarker(f, ctx) {
+    const z = ctx.zones.get(f.zone);
+    if (!z) return new Set();
+    z.marker = null;
+    return new Set([z]);
+  },
+  // MARK-3: stamp the floor designation derived from the unit's own name.
+  setMarker(f, ctx) {
+    if (!f.want) return new Set();
+    const z = ctx.zones.get(f.zone);
+    if (!z) return new Set();
+    z.marker = f.want;
+    return new Set([z]);
   },
   // SPAWN-1: relocate the spawn to the entrance-side street tile.
   moveSpawn(f, ctx) {

@@ -257,6 +257,75 @@ Fix playbook, in order of how much the data tells you:
    (it keeps the district tile as canonical so neighbour maths stays stable); it is
    `accepted` in the decision log.
 
+### MARK-1 · Interior room carries a map marker · mechanical · [auto]
+
+`zones.marker` is the ≤2-char glyph a tile draws **on a map** — the dev-panel map badge
+(`map-marker-badge`) and the flight cockpit's minimap strip
+([cockpit.js](../../../client/game/js/panels/cockpit.js), which falls back to `▪`). An
+interior room is never drawn on the world map, so its glyph is dead data: it shows up only
+in the authoring view, where it reads as "this room is a place on the map" and quietly puts
+the building's acronym in two places at once. Every one of the 22 is a pre-convention
+hand-authored interior (the early shop rooms, the Halcyon floors, the Records hall).
+
+The dev panel already agrees: converting a tile into a facade explicitly writes
+`marker=NULL` ([routes.js](../../../server/api/routes.js) `UPDATE zones SET … marker=NULL`).
+
+**`map_world` is excluded, at every z.** A tile on the world map draws on the world map by
+definition, however interior it feels — which covers the **117 `z<0` sewer tiles**
+(`flags.is_interior`, `zone_under_*`) whose box-drawing markers (`║ ╠ ╬ ╝`) *are* the
+underground level's corridor art. Flagging those would be 117 findings of pure noise.
+
+**Apartments are excluded**, because [MARK-3](#mark-3) makes the opposite demand of them.
+
+**Fix:** `marker: null` — the literal null, not a deleted key, which is how `content/`
+represents "no marker" (see any `zone_util_*.json`).
+
+### MARK-3 · Apartment has no floor designation as its marker · mechanical · [auto]
+
+The one interior that **is** a distinct place worth marking, and the exception that MARK-1
+carves out. An apartment stack is dozens of near-identical rooms — 60 of them in the Yards
+Tenement alone — whose only distinguishing feature is which floor they are on, and the
+interior map is the only view that shows them all at once. `Halcyon Residence 41-A..E` each
+carry `41` and read as a floor; the other 111 units carry nothing and read as an
+undifferentiated grid.
+
+The designation is already in the unit's own name, so `want` derives it:
+
+| name | want | why |
+|---|---|---|
+| `Unit 2A` | `2A` | the whole designation fits the 2-glyph column |
+| `Unit 1001` | `10` | too long → the floor, dropping the unit-within-floor digits |
+| `Unit 203` | `2` | same rule, single-digit floor |
+| `Halcyon Residence 41-A` | `41` | too long → the part before the separator |
+
+Dropping to the **floor** rather than truncating is what makes units on one floor share a
+marker, which is the only authored precedent there is (the five Halcyon 41s).
+
+**Only absence is reported.** A marker that disagrees with the derived designation is the
+author's call, not a defect — otherwise the rule would start fighting hand-numbered stacks.
+
+### MARK-2 · Building tile has no 2-character map marker · mechanical
+
+The inverse. A building is the one thing on the map a player navigates *by*, and the marker
+is what identifies it at a glance in the same two renderers. The convention across the 54
+buildings that carry one is a **2-letter acronym of the building name** — `HR` Hall of
+Records, `NV` The Neon Vig, `P9` Precinct 9.
+
+A **1-glyph** marker is not a short acronym, it's a leftover: `#` is the glyph the district
+planner stamped on grassland, and `🔧` is decoration that reads as an icon, not a label.
+Note the check counts **glyphs, not UTF-16 units** — a single emoji is `.length === 2` and
+passes a naive test.
+
+Keyed on `facade` **or** `is_building` rather than facade alone, so a building whose facade
+tag is missing (BLD-6) is still asked for its acronym. On today's map the two sets coincide
+at 61 world tiles.
+
+The finding carries `want` — an acronym derived the way the client's own Avenue-View label
+does (initials of the significant words, possessives stripped). It is a **suggestion, not a
+fix**, which is why this rule has no auto-fixer: `CC`, `CS`, `DS`, `FO` and `CY` are each
+already on two buildings, so a derived acronym has to be checked against the ones in use
+before it goes in.
+
 ### NAME-2 · Interior room name repeats the building it is inside · judgement
 
 "Hall of Records — The Stacks" spends half the room title on something the player

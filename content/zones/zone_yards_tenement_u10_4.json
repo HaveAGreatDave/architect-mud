@@ -21,7 +21,7 @@
   "grid_z": 10,
   "id": "zone_yards_tenement_u10_4",
   "map_id": "map_int_yards_tenement",
-  "marker": null,
+  "marker": "10",
   "name": "Unit 1004",
   "parent_zone": "zone_yards_tenement_f10",
   "updated_at": "1783970000"

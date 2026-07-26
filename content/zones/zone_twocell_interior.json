@@ -23,7 +23,7 @@
   "grid_z": 0,
   "id": "zone_twocell_interior",
   "map_id": "map_interior_zone_twocell_interior",
-  "marker": "TS",
+  "marker": null,
   "name": "Two-Cell Supply",
   "parent_zone": "zone_district_920_903",
   "updated_at": "1783739474"

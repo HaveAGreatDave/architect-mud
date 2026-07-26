@@ -21,7 +21,7 @@
   "grid_z": 6,
   "id": "zone_yards_tenement_u6_3",
   "map_id": "map_int_yards_tenement",
-  "marker": null,
+  "marker": "6",
   "name": "Unit 603",
   "parent_zone": "zone_yards_tenement_f6",
   "updated_at": "1783970000"

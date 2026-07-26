@@ -19,7 +19,7 @@
   "grid_z": 3,
   "id": "zone_halcyon_claims",
   "map_id": "map_int_halcyon",
-  "marker": "CL",
+  "marker": null,
   "name": "Halcyon Assurance — Claims",
   "parent_zone": "zone_halcyon_lobby",
   "updated_at": "1783316802"

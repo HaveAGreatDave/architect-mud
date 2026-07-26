@@ -21,7 +21,7 @@
   "grid_z": 9,
   "id": "zone_yards_tenement_u9_2",
   "map_id": "map_int_yards_tenement",
-  "marker": null,
+  "marker": "9",
   "name": "Unit 902",
   "parent_zone": "zone_yards_tenement_f9",
   "updated_at": "1783970000"

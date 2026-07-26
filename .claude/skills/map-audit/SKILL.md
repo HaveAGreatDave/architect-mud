@@ -296,6 +296,10 @@ Do not "fix" these:
   boundary in one decision.
 - **Transient waste rooms off a region's rim** are not in `content/` at all — they are
   registered at runtime. A rim tile with no outward link is not necessarily orphaned.
+- **A `marker` on an underground `map_world` tile is map art, not an interior leak.** The
+  117 `zone_under_*` sewer tiles are `is_interior` and carry box-drawing glyphs
+  (`║ ╠ ╬`) that draw the corridor network on the world map's `z<0` level. MARK-1 skips
+  `map_world` at every z for exactly this reason.
 
 ## Reference
 

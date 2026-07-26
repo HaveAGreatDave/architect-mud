@@ -19,7 +19,7 @@
   "grid_z": 3,
   "id": "zone_apt_9",
   "map_id": "map_interior_zone_residential_lobby",
-  "marker": null,
+  "marker": "4A",
   "name": "Unit 4A",
   "parent_zone": "zone_embassy_floor3",
   "updated_at": "1783045464"

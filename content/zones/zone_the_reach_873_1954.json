@@ -26,7 +26,7 @@
   "grid_z": 0,
   "id": "zone_the_reach_873_1954",
   "map_id": "map_world",
-  "marker": null,
+  "marker": "LA",
   "name": "The Layover",
   "parent_zone": null,
   "updated_at": "1784533788"

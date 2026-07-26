@@ -24,7 +24,7 @@
   "grid_z": 0,
   "id": "zone_gunshop_interior",
   "map_id": "map_interior_zone_gunshop_interior",
-  "marker": "GN",
+  "marker": null,
   "name": "Ironside Arms",
   "parent_zone": "zone_district_920_905",
   "updated_at": "1783740000"

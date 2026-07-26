@@ -19,7 +19,7 @@
   "grid_z": 1,
   "id": "zone_meridian_unit_102",
   "map_id": "map_int_meridian",
-  "marker": null,
+  "marker": "1",
   "name": "Unit 102",
   "parent_zone": "zone_meridian_floor_1",
   "updated_at": "1782898109"

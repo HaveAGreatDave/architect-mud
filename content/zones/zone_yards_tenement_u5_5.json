@@ -21,7 +21,7 @@
   "grid_z": 5,
   "id": "zone_yards_tenement_u5_5",
   "map_id": "map_int_yards_tenement",
-  "marker": null,
+  "marker": "5",
   "name": "Unit 505",
   "parent_zone": "zone_yards_tenement_f5",
   "updated_at": "1783970000"

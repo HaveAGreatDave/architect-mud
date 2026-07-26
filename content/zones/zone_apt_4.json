@@ -20,7 +20,7 @@
   "grid_z": 1,
   "id": "zone_apt_4",
   "map_id": "map_interior_zone_residential_lobby",
-  "marker": null,
+  "marker": "2D",
   "name": "Unit 2D",
   "parent_zone": "zone_residential_lobby",
   "updated_at": "1783111686"
