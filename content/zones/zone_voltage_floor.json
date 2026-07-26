@@ -34,7 +34,7 @@
   "id": "zone_voltage_floor",
   "map_id": "map_int_voltage",
   "marker": null,
-  "name": "Voltage — Main Floor",
+  "name": "Main Floor",
   "parent_zone": "zone_district_895_908",
   "updated_at": "1784332800"
 }

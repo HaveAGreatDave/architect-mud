@@ -82,7 +82,14 @@ function readItemTag(rowEl) {
     case 'int': return +inputs[0].value || 0;
     case 'enum': return inputs[0].value;
     case 'range': case 'hot': { const o = {}; inputs.forEach(i => o[i.dataset.k] = +i.value || 0); return o; }
-    default: { try { return JSON.parse(inputs[0].value); } catch { throw new Error(`${def.label}: invalid JSON`); } } // statmap/text
+    // Text tags accept raw prose (a use_message, a laced_drug id) — JSON.parsing
+    // them would reject every plain string. A JSON object/array still parses, for
+    // the handful of text tags that hold structured config.
+    case 'text': {
+      const raw = inputs[0].value;
+      try { const p = JSON.parse(raw); return (typeof p === 'object' && p !== null) ? p : raw; } catch { return raw; }
+    }
+    default: { try { return JSON.parse(inputs[0].value); } catch { throw new Error(`${def.label}: invalid JSON`); } } // statmap/list/number
   }
 }
 

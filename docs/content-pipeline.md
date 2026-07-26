@@ -12,11 +12,6 @@ becomes an ordinary, visible git conflict instead of a silent overwrite.
 > CI, which is the only path that mutates prod content. The old seed pipeline
 > (db/seed.sql + content:publish/sync) is retired. This pipeline is authoritative
 > — the [cutover runbook](#cutover-runbook) below is kept for reference only.
->
-> As of 2026-07-11 the pipeline has shipped real content at scale: the 888-zone
-> district (see [systems-world.md](systems-world.md#the-district-a-generated-slice-of-map_world))
-> deployed additively through a normal push, with the airfield relocation and its
-> door/map rewiring handled as reviewable git diffs.
 
 ## The one table that rules them all
 
@@ -50,7 +45,12 @@ any time:        npm run content:status   # "do files match my DB?"
 - `content:import` — files → DB. Applies SCHEMA_SQL first, then one
   transaction: registry-order upserts (`ON CONFLICT (pk) DO UPDATE`, no-op when
   identical), then the deletion pass (below). Never drops the DB; player rows
-  are untouched.
+  are untouched. On a **local** target it then runs `content:seed-runtime`.
+- `content:seed-runtime` — initialises runtime-managed state that `excludeColumns`
+  keeps out of files and that therefore starts at its table default on a fresh DB
+  (most visibly `npcs.vendor_stock`: every shop empty until the first in-game daily
+  tick). Auto-invoked by a local import; on prod it is a deliberate manual step,
+  only ever needed on a truly fresh DB. Every task must be idempotent.
 - `content:lint` — no DB needed: JSON validity, schema-column agreement, no
   excluded columns, pk/filename agreement, dangling content→content FK refs.
   Runs in the pre-push hook and CI.
@@ -67,11 +67,17 @@ any time:        npm run content:status   # "do files match my DB?"
   Fix what it finds with a one-shot (`scripts/repoint-*`, `scripts/purge-*`) —
   the additive deploy can never touch existing rows.
 
-The pre-push hook lints content and skips local regress for content-only pushes
-(CI regresses the merged main). The post-merge hook imports pulled content with
-`--guard-wip`: if a pulled commit touches an entity you edited locally but
-haven't exported, the whole import aborts and tells you to export/resolve — a
-silent local overwrite becomes a visible git conflict.
+The pre-push hook (`scripts/git-hooks/pre-push`) lints content and skips local
+regress for content-only pushes (CI regresses the merged main). A push that
+**deletes** content files gets an extra gate — `scripts/content/guard-deletions.mjs`
+blocks it when your local DB never imported those rows, the fingerprint of
+`content:export` run against a stale DB.
+
+The post-merge hook imports pulled content with `--guard-wip`: if a pulled commit
+touches an entity you edited locally but haven't exported, the whole import aborts
+and tells you to export/resolve — a silent local overwrite becomes a visible git
+conflict. GUI git clients often skip hooks, so `scripts/content/check-stale.mjs`
+runs the same guarded import again from the `predev` and `pretest:regress` hooks.
 
 ## Deletions: git-diff-driven, never absence-based
 
@@ -111,7 +117,10 @@ added, and resurrects the rows it deleted. Verified in the Phase-2 drill.
   trigger is **paths-filtered** to `content/**`, `schema.js`, the registry, and
   the pipeline scripts — code/docs-only pushes deploy nothing (each run costs
   Neon egress; unfiltered it blew the free plan's 5GB/month in one week,
-  July 2026). `render.yaml`'s `buildFilter` mirrors this on the Render side.
+  July 2026). `render.yaml`'s `buildFilter` is the complement: it *ignores*
+  `content/**`, `docs/**`, `tools/**`, `tests/**`, `scripts/**`, `.github/**`, so a
+  content push never triggers a Render rebuild. Content still reaches the live
+  server — the workflow's `RENDER_DEPLOY_HOOK_URL` call bypasses `buildFilter`.
 - **Deploys are debounced (a `gate` job between regress and deploy).** Each
   deploy's Render restart cold-reloads the whole world from Neon (~36MB egress);
   deploying one-for-one on every content commit (25/day in an active session)

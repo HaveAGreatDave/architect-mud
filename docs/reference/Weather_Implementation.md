@@ -3,8 +3,18 @@
 Author-supplied design direction for the flight sim's weather system. Sits alongside
 [Flight_Implementation](Flight_Implementation.md), [Rendering_Implementation](Rendering_Implementation.md),
 and [Sound_Implementation](Sound_Implementation.md). This is the vision; see
-[docs/systems-flight.md](../systems-flight.md) for what's actually built and the
-"as-built" notes below each section.
+[docs/systems-flight.md](../systems-flight.md) for what's actually built.
+
+> **Status: the visual half shipped, the aerodynamic half did not.** `windshield.js`
+> draws rain/storm/snow/ash particles, canopy droplets, lightning, fog banks and the WX
+> badge; `engine-audio.js` layers a per-weather ambient bed; the flight plugin taxes
+> weather through `hazards.rollHazards` (buffeting off `getZoneSeverity`) and the
+> `GROUND_STOP_SEVERITY` departure block. But the continuous integrator
+> [`flight-model.js`](../../client/game/js/panels/flight-model.js) **takes no wind vector
+> at all** — so headwind/tailwind/crosswind drift, gusts, turbulence-as-force, icing,
+> density altitude, wind shear, thermals and microbursts are all **unbuilt**, as is the
+> "one atmosphere field sampled at the aircraft's position" architecture below. Treat
+> every "Flight model:" line here as a to-do, and every "Visuals:" line as mostly done.
 
 The governing principle: **weather is a set of continuously-sampled atmospheric properties
 at the aircraft's position**, and the flight model applies real aerodynamic forces from

@@ -8,7 +8,7 @@
   "description": "A low, sterile block of frosted glass and brushed steel, lit from within by a light that never flickers. Through the frontage you can make out reclining chairs, articulated arms folded overhead like patient insects, and a price board whose numbers rearrange themselves as you watch — cheaper, the longer the Ascendants have known you.",
   "exits": {
     "east": "zone_district_894_905",
-    "in": "zone_asc_clinic_consult"
+    "west": "zone_asc_clinic_consult"
   },
   "flags": {
     "ascendant_campus": true,
@@ -20,7 +20,7 @@
     "floors": 6,
     "is_building": true,
     "region_id": "region_coldwater",
-    "world_exit_zone": "zone_district_893_906"
+    "world_exit_zone": "zone_district_894_905"
   },
   "grid_x": 893,
   "grid_y": 905,

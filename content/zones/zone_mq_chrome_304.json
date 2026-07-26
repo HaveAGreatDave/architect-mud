@@ -20,7 +20,7 @@
   "grid_z": 3,
   "id": "zone_mq_chrome_304",
   "map_id": "map_int_mq_chrome",
-  "marker": null,
+  "marker": "3",
   "name": "Unit 304",
   "parent_zone": "zone_mq_chrome_lobby",
   "updated_at": "1782964410"

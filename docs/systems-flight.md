@@ -1,9 +1,10 @@
-# Flight System — As Built (Phases A–D)
+# Flight System — As Built
 
-> Status: **Phases A–D built 2026-07-03.** This is the running source for flight
-> *as actually built*. The full locked design lives in the blueprint:
-> [docs/proposals/systems-flight.md](proposals/systems-flight.md). Read that for
-> intent; read this for what exists.
+> This is the running source for flight *as actually built*. Blueprints:
+> [proposals/systems-flight.md](proposals/systems-flight.md) (the locked design),
+> [proposals/flight-overhaul.md](proposals/flight-overhaul.md) (the continuous
+> client-sim/server-reconcile model), [proposals/flight-unified-model.md](proposals/flight-unified-model.md)
+> (collapsing onto that one model), [proposals/systems-flight-pvp.md](proposals/systems-flight-pvp.md).
 >
 > Author-direction reference docs (the vision the continuous overhaul reconciles):
 > [Flight](reference/Flight_Implementation.md) · [Rendering](reference/Rendering_Implementation.md) ·
@@ -15,118 +16,104 @@
 - **state.js** — the shared substrate: the live-aircraft registry (the aircraft
   owns its occupant set), the computed-overlay coord index (`surfaceAt`), the
   synthesized HUD payload, `effStats` (tune + weight-&-balance → effective numbers),
-  and the `parkAt` / `crash` transitions. Every module imports this.
-- **index.js** — the verbs (board/startup/throttle/heading/climb/dive/takeoff/land/
-  refuel) + the airborne tick loop + move gate + cardinal input matcher + no-fly.
-- **hazards.js** — Phase B hazards + emergency/utility verbs.
-- **combat.js** — AA fire + the armed gun pass.
+  `reconcile` (client telemetry → authoritative state), `CONTINUOUS_TYPES`, and the
+  `parkAt` / `crash` transitions. Every module imports this.
+- **index.js** — the verbs + the `flightsync`/`flightevent` seam + the airborne tick
+  loop + move gate + cardinal input matcher + no-fly.
+- **hazards.js** — hazards + emergency/utility verbs.
+- **combat.js** — AA fire, the armed gun pass, and the air-to-air PvP damage path.
 - **contracts.js** — the freight economy.
 - **hangars.js** — ownership: hangars, repair, salvage, rebuild, tuning.
-- **acquisition.js** — charter / buy / refuel.
-- **charter.js** — charter flights (see §Charter below).
+- **acquisition.js** — buy / rent / refuel.
+- **charter.js** — NPC-piloted charter flights (see §Charter below).
+- **checkride.js** — the guided-checkride tutorial (`checkride`).
 - **biomes.js** — overflight biomes.
 - **collateral.js** — ground collateral (crash/strike effects).
 - **livery.js** — aircraft liveries.
+- **snapshot.js** — flight-world snapshot/export helpers.
 
-## Six airfields (live)
+## Airfields (live)
 
 Flagged onto fitting zones (the `zones.flags.airfield_id` pattern):
 
-| Field | Zone | Services |
-|---|---|---|
-| Threshold Helipad | The Threshold (0,0) | charter · avgas/jet |
-| **Coldwater Regional** | The Rust Quarter (−2,0) | **dealer + charter** · all fuels |
-| Marshalling Field | The Marshalling Yard (7,−1) | charter · avgas/jet |
-| Slagworks Strip | Slagworks Gate (−8,0) | charter · avgas/biofuel |
-| Redline Airstrip | The Scald (−5,−6) | derelict · biofuel only |
-| Smuggler's Slip Pad | Smuggler's Slip (4,−3) | charter · avgas/biofuel |
+| Field | `airfield_id` | Ramp zone (x,y) | Services |
+|---|---|---|---|
+| Threshold Helipad | `af_helipad` | `zone_district_893_909` (893,909) | charter + rental · avgas/jet · **VTOL-only** |
+| **Coldwater Regional** | `af_regional` | `zone_district_925_903` (925,903) | **dealer + charter + rental** · all fuels |
+| The Echelon — Helipad | `echelon_helipad` | `zone_echelon_exterior` (897,898) | charter only · VTOL-only |
+| Buzzard Field | `buzzard_field` | `zone_the_reach_870_1958` (910,986) | charter only · **lawless** · dust strip |
 
-Eight aircraft types seeded (Mayfly · Dragonfly · Mule · Leviathan · Reaper · Carcass ·
-**Grasshopper** · **Locust**),
-three fuel types (avgas/jet/biofuel), standing charter rentals at several fields,
-three ground AA sites (Redline/Wastes/Slagworks), a Core no-fly cluster, and one
-downed Carcass to salvage/rebuild. Content: [`scripts/seed-flight.js`](../scripts/seed-flight.js).
-
-## What Phase A gives you
-
-Stand at an airfield, `board` a parked aircraft, `startup`, set a `throttle`,
-`takeoff` through an interactive rolling-acceleration bar, fly over the
-`map_world` tile grid on a real-time tick loop (heading / throttle / altitude
-bands / fuel burn), and `land` through an interactive glideslope minigame. Run the
-tank dry and it's a lethal dead-stick crash that leaves a salvageable wreck.
-
-**Live content:** one airfield (The Marshalling Yard, flagged, city-edge freight
-yard at 7,−1, named *Coldwater Regional (Marshalling Field)*) and one rentable
-**Dragonfly** scout heli, full tank, parked there.
+Nine aircraft types (Mayfly · Dragonfly · Mule · Leviathan · Reaper · Carcass ·
+Grasshopper · Locust · **Viper**), three fuel types (avgas/jet/biofuel), four ground AA
+sites (Redline SAM / wastes autocannon / Slagworks flak / Clone Vats guardian), a Core
+no-fly cluster, and one downed Carcass to salvage/rebuild. All of it is CODEX content
+(`content/aircraft_types/`, `content/aa_sites/`, `content/zones/`), not a seed script.
 
 ## Architecture (the load-bearing decisions)
 
 ### The aircraft is a first-class object that owns its occupants
-There is **no cabin `zones` row** — runtime zone creation would break the
-"content is deliberate" rule. Instead:
+There is **no runtime-created cabin `zones` row** — runtime zone creation would break
+the "content is deliberate" rule. Instead:
 - `aircraft` table = per-craft runtime state (position, fuel, throttle, band,
   heading, damage, airborne/engine flags, wreck flag). Schema exported, rows
   production-owned (like `generators`/`atm_units`).
 - `aircraft_types` table = per-template **content** (Dragonfly, …): tank, burn,
-  speed, ceiling, seats, hull, handling, noise, prices. Seed/dev-panel editable.
+  speed, ceiling, seats, hull, handling, noise, prices. CODEX content
+  (`content/aircraft_types/`), dev-panel editable.
 - "Being aboard" is **player state**: `player.aircraftId` + `player.seat`
   (`pilot` | `passenger`). The plugin keeps an in-memory `liveAircraft` registry
   where each craft owns an `occupants` Set (mirrors live-zone membership).
-- The cockpit the player sees is **synthesized** from the live aircraft object and
-  pushed as a `cockpit_update` HUD payload each tick — not rendered from a zone.
+- The cockpit the player sees is **synthesized** from the live aircraft object (the
+  `flight_sim` open + `flight_ctx` per-tick push; passengers get `cockpit_update`) —
+  not rendered from a zone.
+- **Exception — walkable cabins** (`state.WALKABLE_CABINS`, today just the Leviathan,
+  state.js:1077): the interior is *authored* content (`content/zones/zone_leviathan_*`,
+  `map_aircraft_leviathan`, matched by `flags.aircraft_cabin`) that occupants walk on
+  foot instead of riding the cabin-window HUD. Every instance of the type shares the
+  one authored shell — privacy comes from the occupant Set, so still no runtime rows.
+  See [proposals/leviathan-flying-base.md](proposals/leviathan-flying-base.md).
 
 ### The sky is a computed overlay
-An airborne craft carries its own `(grid_x, grid_y, altitude_band, heading)`.
+An airborne craft carries its own `(grid_x, grid_y, altitude, heading)`.
 Flying advances `x/y`; the "view below" is read from the `map_world` zone at that
 coord via a cached coord index (`surfaceAt(x,y)`); **empty cells = open air**
 (fly-over, no obstacle). Zero content cost, stays correct as the map grows.
 
-### Real-time tick loop (the machine feel)
-`posture === 'flying'` on the pilot is the activity flag (inherits engine
-force-stand interruptions for free). A `setInterval` (~3s) ticks each airborne
-craft: **advance** along heading at throttle → **burn** fuel (scaled by throttle ×
-altitude band) → **thermal** drift → **starvation** check → **emit** HUD to
-occupants + engine noise to the surface zone below. Modeled on the
-fishing/scavenging posture loops.
+### One model: continuous client sim, server-reconciled
+**There is no banded/server-side flight model any more.** Every seeded airframe is
+in `state.CONTINUOUS_TYPES` (state.js:93), and `flightTick` treats a craft outside
+that set as a content error (index.js:1363). The live model is the 60 fps client
+energy integrator [`client/game/js/panels/flight-model.js`](../client/game/js/panels/flight-model.js);
+the server owns the consequences:
+- The client streams packed telemetry via **`flightsync`** (`gx gy alt ias hdg thr vs
+  onGround stalled [bank pitch]`) and reports discrete transitions (wheels-up,
+  touchdown, crash, `engineon`) via **`flightevent`**.
+- `state.reconcile` (state.js:928) clamps that into `live.cont` + `live.row`, applies
+  a **damage-aware envelope** (a craft that's shed a wing can hold height or lose it,
+  never climb) and a lenient anti-spoof stall read (`stalledState`). `altitude_band`
+  survives only as a derived compat field (`bandFromAltitude`).
+- `flightTick` (`TICK_MS = 3000`) owns fuel burn, hazards, engine noise, contracts and
+  persistence, and pushes the world context (`flight_ctx`) back each tick.
+- `posture === 'flying'` on the pilot is the activity flag (inherits engine
+  force-stand interruptions for free).
 
-### Takeoff & landing are interactive, server-authoritative
-Both are minigames armed with an anti-spoof token (fishing-reel pattern):
-- **Takeoff** (`flight_takeoff` → `takeoffresolve`): a hand-flown departure on two
-  drag controls — a **THROTTLE lever** (0–100%, holds where you leave it) and a
-  **CONTROL COLUMN** (drag up = push forward = pitch down; drag down = pull back =
-  pitch up; holds). Roll begins once the throttle's up; at **80% of runway with
-  ≥60% throttle** the centre flashes **V1 — ROTATE!**, and a *gentle* pull-back
-  (~20–30%) lifts you off. Over-rotate → **STALL** (level out or crash); nose-down
-  → **nose-first crash**; no rotation before the end → **overrun**. On success the
-  server sets climb power (throttle → 70) since the deck flew it off the runway.
-  (Throttle is no longer a takeoff precondition — you set it *in* the run.)
-- **Landing** (`flight_land` → `landresolve`): **unified with takeoff** — the same
-  **THROTTLE lever + CONTROL COLUMN** pair. Throttle trades energy, column trades
-  pitch; hold the **glidepath diamond** centred (HIGH/ON/LOW) as the approach clock
-  runs, then a *gentle* pull-back **FLARE** at the threshold. Fail modes mirror
-  takeoff: pitch-up + idle → **STALL on final**, nose-down near the ground →
-  **nose-first**, too much sink at touchdown → **hard landing**, off the glidepath →
-  miss, dropping it in before ~80% of the approach → **short**. Emergency
-  (dead-stick) approaches are narrower and faster (no engine energy to trade).
-- **VTOL lift** (rotorcraft, e.g. the **Dragonfly**): both takeoff and landing route
-  to a dedicated **collective + cyclic** deck. Raise/lower the **COLLECTIVE** lever
-  for vertical rate; nudge **◀ ▶ (cyclic)** to hold station over the pad against a
-  wind that scales with difficulty. Takeoff = climb off the pad to altitude; landing
-  = ease the collective down to settle onto it. **Drift off the pad** or **thump it
-  down too hard (V/S)** and you wreck it. `takeoff_mode = 'vtol'` on the aircraft
-  type flips both decks; the server tags `flight_takeoff`/`flight_land` with `vtol`.
+Takeoff and landing are therefore **flown from the cockpit, not commanded**: `takeoff`
+and `land` return a nudge ("throttle up … ease back on the yoke") for a continuous
+craft (index.js:688). A botched landing does hull damage; enough damage → crash. A
+crash kills everyone aboard (`handlePlayerDeath`) and turns the craft into a wreck at
+the surface cell. Landing grade → piloting IP (`LANDING_IP`, ≥5 min airborne).
 
-Piloting skill vs. computed difficulty (handling + damage + emergency) **widens or
-narrows the band**; the client renders, the server decides. A botched landing does
-hull damage; enough damage → crash. A crash kills everyone aboard
-(`handlePlayerDeath`) and turns the craft into a wreck at the surface cell.
+> **Legacy, unreachable:** the interactive `flight_takeoff` / `flight_land` /
+> `takeoffresolve` / `landresolve` minigame decks (server + client) still exist but no
+> shipped airframe can reach them, because all nine are continuous. Don't build against
+> them; see [proposals/flight-unified-model.md](proposals/flight-unified-model.md).
 
 ## Player-facing surface
 
-**Verbs** (`plugins/flight`): `board` · `disembark`/`deplane` · `startup` ·
-`shutdown` · `throttle <0-100>` · `heading <dir>` · `climb` · `dive` · `takeoff` ·
-`land` · `refuel [amount]`. Bare compass verbs set heading **only while airborne**
-(input matcher; falls through to the ground mover otherwise).
+**Verbs** — the manifest [`plugins/flight/plugin.json`](../plugins/flight/plugin.json)
+is the authoritative list (~80 verbs across boarding, autopilot/nav, hazards, combat,
+contracts, hangar/ownership, charter). Bare compass verbs set heading **only while
+airborne** (input matcher; falls through to the ground mover otherwise).
 
 **Piloting skill** (`server/engine/skills.js`, tech, Reflexes+Brains): every
 startup/takeoff/landing/climb runs `skillCheck`/`awardSkillUse`.
@@ -134,8 +121,9 @@ startup/takeoff/landing/climb runs `skillCheck`/`awardSkillUse`.
 **Move gate** (`flight`): you can't walk while aboard an aircraft (airborne or
 parked) — `disembark` first.
 
-**Client** (`client/game/js/panels/cockpit.js`) — dressed in the shared minigame
-hardware idiom (Vault Crack / Circuit Breach / the reel), all display-only:
+**Client** (`client/game/js/panels/cockpit.js`) — the cockpit is opened by the
+`flight_sim` push on `board` and is the *whole* flight interface (engine switch,
+throttle, yoke, pedals, flap detent lever, trim):
 - **Windshield / out-the-front-window view** (`client/game/js/panels/windshield.js`,
   `paintWindshield(id, view)`): a **canvas** forward scene — a time-of-day sky
   (palette blended from the in-game `hour`; stars, sun/moon, parallax clouds), a
@@ -148,41 +136,28 @@ hardware idiom (Vault Crack / Circuit Breach / the reel), all display-only:
   **WX badge** (weather + wind) — speed streaks, and a static canopy frame + glass
   sheen. Under it all rides an **ambient weather audio bed** (`engine-audio.js`: a
   per-weather loop — rain/storm/snow/ash/fog — layered *beneath* the engine drone,
-  gain scaled by wind, with the odd thunderclap in a storm). It appears in **three
-  places**, all fed the same way (eased pitch/bank/height/speed): a **canopy band**
-  atop the pilot HUD, the **whole cabin window** in the passenger view, and a slim
-  **FWD VIEW band** in each takeoff/landing/VTOL deck (driven by that deck's own
-  physics loop, so the ground rushes up on takeoff and sinks toward you on landing).
-  Time-of-day + weather ride in a new `sky:{hour,weather,wind}` field on the gauge
+  gain scaled by wind, with the odd thunderclap in a storm). The same renderer feeds
+  the pilot's canopy band, the passenger cabin window, and the Helm chase cam.
+  Time-of-day + weather ride in a `sky:{hour,weather,wind}` field on the gauge
   payload (`state.js`, from `getEnvironmentState()`).
-- **Area-pane avionics HUD:** a graphical **artificial horizon** (SVG, pitched by
-  altitude band), a rotating **compass card**, a **5×5 moving-map** nav display
-  (the server pushes a `map` window each tick; north-up, craft glyph oriented by
-  heading, land/air cells + a radar sweep), colour-graded **FUEL/THR/HULL/ENG**
-  gauges, an ALT/SPD/HDG/surface-below readout, and a flashing warning strip.
-  Parked shows a pre-flight checklist; passengers get the cabin-window layout
-  (the windshield fills the pane above a dest/alt/spd/hdg strip — no controls).
-- **Takeoff deck** (`flight_takeoff`): full `mg-chassis`/`mg-bezel`/`mg-screen`
-  with a perspective **runway** SVG (scrolling centreline, Vr gate, sliding
-  craft), an airspeed tape, and a live `deckStrip` (RWY-used tension).
-- **Approach deck** (`flight_land`): the takeoff hardware reused — the same
-  **THROTTLE lever + CONTROL COLUMN**, a side-view of the craft sinking toward a
-  growing runway, a right-hand **glidepath diamond** (HIGH/ON/LOW), a live SINK
-  readout, a big centre call-out (ON GLIDEPATH / FLARE / STALL …), and a `deckStrip`
-  deviation meter.
-- **VTOL deck** (`openVtolLift`, rotorcraft): a **COLLECTIVE lever + ◀ ▶ cyclic**,
-  a 2-D pad view (craft glyph climbs/descends and drifts), an altitude tape, and
-  ALT/DRIFT/VS readouts — one function serves both takeoff (`'takeoff'`) and landing
-  (`'landing'`).
+- **PFD** (`paintPFD`, cockpit.js:4186): a canvas primary flight display — banking/
+  pitching attitude ball with a ±30° pitch ladder, **airspeed and altitude tapes**
+  flanking it (airspeed marked with Vr/Vne/Vs0), a VSI bar, a digital heading box, a
+  slip/skid ball, and a fuel percentage. **MFD** (`paintMFD`) is the moving map off
+  the server's `map` window. **`paintGauges`** draws the engine cluster (one dial per
+  `aircraft_types.engines`), the annunciator strip, gear/flap/stores state and the
+  stall lamp. Passengers get the cabin-window layout (windshield above a
+  dest/alt/spd/hdg strip — no controls).
 - **SFX:** a `flight` group in `client/shared/sfx-catalog.js` (engine start, roll,
   rotate, abort, warble, approach, flare, touchdown, crash) — dev-panel editable.
 
-Routed in `dispatch.js` (`cockpit_update`/`cockpit_close`/`flight_takeoff`/
-`flight_land`). UTF-8 box glyphs preserved.
+Routed in `dispatch.js`: `flight_sim` (open) · `flight_ctx` (per-tick world context) ·
+`flight_contacts` · `flight_aasites` · `flight_kill` · `flight_target` ·
+`cockpit_update`/`cockpit_close` (passenger/cabin HUD). UTF-8 box glyphs preserved.
 
-## Cockpit controls & damage cinematics (post-2026-07 batch)
+## Cockpit controls & damage cinematics
 
-### On-screen rudder pedals (`917f1ec8`, restyled `b1a3a5e9`)
+### On-screen rudder pedals
 A pair of hold-to-yaw foot plates at the base of the cockpit view, flanking the
 stick — press-and-hold (touch **or** mouse) the left plate for left rudder, right
 for right, exactly equivalent to the `,`/`.` (X/C) keys and the **only** rudder
@@ -195,11 +170,11 @@ via CSS var `--d`, toggles `.act` past ±0.04). Physics: `flight-model.js` `step
 feeds `pedal * rudderYaw * auth` into the heading integrator; a sheared rudder
 zeroes pedal authority.
 
-### Crash break-up death-cam (`5d7f6fcb`)
+### Crash break-up death-cam
 A severe write-off — **CFIT** (into a building), **ditch** (into water), or a
 **>800 fpm hard landing** — snaps to the external chase cam and cartwheels the
-wreck while a **wing + tailplane + fin shear off and tumble away** over ~1.9 s
-(`BREAKUP_MS`), *then* shows the CRASHED card and reports to the server. The
+wreck while a **wing + tailplane + fin shear off and tumble away** over 3.4 s
+(`BREAKUP_MS`, cockpit.js:3269), *then* shows the CRASHED card and reports to the server. The
 player always sees her come apart. In `cockpit.js`: `beginCrashBreakup(F, reason)`
 (freezes physics, forces `F.setExternalView(true)`, snapshots attitude),
 `stepCrashBreakup(F, now)` (cartwheel + three shed `parts`, then
@@ -223,36 +198,16 @@ client reads new `msg.sheared` / `msg.surfaces` fields. In `flight-model.js` `st
 map to a `{t:1, parts}` spec (shared by own-ship, bogeys, **and the Helm chase
 cam** — see [systems-helm.md](systems-helm.md)).
 
-### Chase-camera & button polish
-- **Heli standoff** (`2fe949ee`): the resting orbit-cam no longer crops
-  heli-class craft (Dragonfly, Mini 500) uncomfortably tight — `paintWindshield`'s
-  `szFac` clamp floor raised `0.28 → 0.46`. You can still wheel-dolly in.
-- **Over-the-top fix** (`5d7f6fcb`): near top-down the camera pulls proportionally
-  farther out (`orbRcam = orbR * (1 + topFrac*1.4)`) so buildings directly below
-  stop streaking; `extZoom` floor lowered to 0.30 for a tighter crop.
-- **Button contrast + left-column reflow** (`b1a3a5e9`): the corner buttons
-  (⚙ tune, ⛶ fullscreen, ⊟ hide, ◎ EXT, ⟲ orbit-reset) got higher contrast; the
-  left column now stacks ABORT → fuel gauge → disembark → admin-rewind. Pure CSS.
+### Chase-camera tunables (windshield.js)
+`szFac` clamps to `[0.46, 1.15]` (line 491) so heli-class craft aren't cropped tight
+at rest; `extZoom` clamps to `[0.15, 2.4]` (line 492 — the floor is what lets the
+Echelon deck-cam push in); near top-down the camera pulls proportionally farther out
+(`orbRcam = orbR * (1 + topFrac*1.4)`, line 513) so buildings directly below stop
+streaking.
 
-## Files
+## Hazards, airfield flags, contracts & combat
 
-- **New:** `plugins/flight/` (index.js, plugin.json, regress.js, README.md),
-  `client/game/js/panels/cockpit.js`, `scripts/seed-flight.js`, this doc.
-- **Edit:** `server/models/schema.js` (`aircraft` + `aircraft_types` in
-  `SCHEMA_SQL`), `server/engine/skills.js` (Piloting),
-  `client/game/js/dispatch.js` (4 message routes), `docs/plugins.md`.
-
-## Go-live steps
-
-1. `npm run db:schema` — create the two tables (idempotent).
-2. `node scripts/seed-flight.js` — Dragonfly type + rental + airfield flags.
-3. Reload the world (`POST /api/world/reload`) or restart — the airfield zone
-   flags take effect.
-4. Stand in The Marshalling Yard → `board` · `startup` · `throttle 60` · `takeoff`.
-
-## Phases B–D as built
-
-**Phase B — hazards & instruments** (`hazards.js`). The tick loop calls
+**Hazards** (`hazards.js`). The tick loop calls
 `rollHazards()`: **STALL** (high + slow → buffet → stall → spin → crash, cleared by
 `recover` after powering up) and **ENGINE FIRE** (overheat → fire, cleared by
 `extinguish`/`cut fuel`) are persistent escalating ladders; **WEATHER buffeting**
@@ -266,18 +221,15 @@ crime), and `eject`/`bail` (parachute-gated — a pilot bailing dooms the craft)
 `airfield_rental` opens the self-fly rental desk (`rent`), `airfield_charter` books
 an NPC-piloted ride (needs a `charter_pilot` NPC assigned to the field). Any
 combination is legal — Buzzard Field and the Echelon pad both charter without
-renting. *(Until 2026-07-20 rental was implied by `airfield_charter`, so a charter
-desk could not be opened without also opening a rental counter; the only suppressor
-was `charter_vtol_only`, which `state.js` folds into `airfield_vtol_only` and would
-have made the whole field VTOL-only. `scripts/airfield-rental-flag.mjs` backfills
-the new flag onto the fields that rented under the old rule.)*
+renting. The legacy `charter_vtol_only` flag is folded into `airfield_vtol_only` by
+`state.vtolOnlyField`.
 
 **Ground stop** (`index.groundStop`, threshold `GROUND_STOP_SEVERITY = 0.7`). Weather
 buffeting is the *in-air* half; this is the other half — past 0.7 severity the
-departure field simply doesn't launch. It's checked in **both** departure paths: the
-legacy `cmdTakeoff` preconditions and, for the continuous sim, the `engineon` flight
-event (the panel ENGINE switch) — deliberately *not* the wheels-up event, since
-refusing mid-takeoff-roll would be worse than useless. An airborne craft has no
+departure field simply doesn't launch. It's checked on the `engineon` flight event
+(the panel ENGINE switch) — deliberately *not* the wheels-up event, since refusing
+mid-takeoff-roll would be worse than useless — and in the legacy `cmdTakeoff`
+preconditions. An airborne craft has no
 `parked_zone_id`, so it can never be caught by it; only departures are blocked.
 
 This is the only weather rule in the game that **blocks** a player action rather than
@@ -291,24 +243,26 @@ arrives, almost nobody leaves, and everyone already there is in the bar.
 tower warning → `WANTED_RAISE` (+2) + interceptor scramble message. No-fly cells
 render as a red hatch on the moving-map.
 
-**Phase D — contracts** (`contracts.js`). A field's board lazily tops up to ~4
-open jobs drawn from an **authored job-type table** (`JOB_TYPES`) — a spread of
-legal and illegal work, each with its own flavour, load, deadline and pay:
+**Contracts** (`contracts.js`). Job archetypes are **DB content, not code**: `quests`
+rows with `quest_type='flight_template'`, devpanel/VINE-editable (`contracts.js:42`).
+`topUp()` lazily tops a field's board up to ~4 concrete `quest_type='flight'` instances
+rolled from those templates — a spread of legal and illegal work, each with its own
+flavour, load, deadline and pay:
 - **Legal:** Freight · Priority Courier (tight deadline premium) · Cold-Chain Meds ·
   Passenger/VIP Charter · Medevac (urgent) · Relief Run (dangerous but honest) · Survey Drop.
 - **Illegal** (contraband → **run dark**, +heavy pay, higher risk): Smuggling ·
   Gun-Running · Chop-Shop Parts · Disposal · Toxic Dump · Exfil (hot) · Data Mule.
 
-Illegal jobs only appear at **lawless fields** (`airfield_lawless` — Slagworks,
-Redline, Smuggler's Slip) and prefer a lawless drop; honest fields (Core, Regional,
-Marshalling) carry legal work only. `accept` loads the weight onto the craft (fed
+Illegal jobs only appear at **lawless fields** (`airfield_lawless` — today only
+Buzzard Field) and prefer a lawless drop; every other field carries legal work
+only. `accept` loads the weight onto the craft (fed
 through `effStats` → takeoff difficulty + fuel burn + overweight gate); `manifest`
 tracks active jobs; delivery is detected on landing at the destination (on-time =
 full, late = half; contraband pays in "unmarked cash"). Payout = distance × weight
 (or passenger rate) × risk × the job's `payMult`. The board tags each job
 LEGAL/ILLEGAL and shows the deadline.
 
-**Phase D — combat** (`combat.js`). `tickCombat()` each airborne tick: AA sites in
+**Ground combat** (`combat.js`). `tickCombat()` each airborne tick: AA sites in
 range fire on low/slow overflights (altitude, speed, `evade`, and a piloting jink
 cut the hit chance); a hit walks the hull-damage ladder → breakup → `crash`.
 `arm`/`safe` toggle weapons (hardpoints only); `strafe`/`fire` arms the **targeting-
@@ -350,7 +304,8 @@ real players' aircraft fight each other end-to-end, server-authoritatively:
   - **Missiles in the air** — `launchShots`/`stepShots` fly each round as a real world object
     (`v.missiles` → `drawMissiles`), through the same Mode-7 camera as the buildings: motor
     flare, curving smoke trail, a dark dart on its own heading, and a terminal burst. A swarm
-    ripples off one rail at a time on the server's own `MSL_STAGGER_MS` (120 ms) stagger,
+    ripples off one rail at a time on `MSL_STAGGER_MS` (cockpit.js:1110, 120 ms — matched to
+    the server's per-seeker resolve stagger in `combat.js`),
     alternating sides. They fly **drunk** — each seeker leaves on its own heading and weaves
     through a decaying sine wander before settling late onto the target: `SWARM_PK_MULT` made
     visible. A *locked* single shot uses the same path with the wander turned nearly off.
@@ -391,16 +346,16 @@ returns the exterior ramp whether you stand on it or inside its hangar, so **eve
 service works from inside too** (hangar/repair/rebuild/tune/modify, buy/rent,
 charter, contracts — all four `fieldOf` copies now import `fieldFor`) and everything
 always parks/transacts against the ramp (aircraft never leave the `map_world` grid).
-The three **charter pilots sit at the ops desk inside** their hangar while on shift
+**Charter pilots sit at the ops desk inside** their hangar while on shift
 (`syncPilots` seats them via `setPosture(...,'sitting')`, `forceStand` on any move
 out); `inHangar` counts a pilot present at the ramp **or** the interior. Chartering
 happens **entirely from inside the hangar**: you book a ride and a destination at the
 desk, the pilot **taxis the machine up to the hangar door**, and `embark` (reachable
-from inside, resolved to the ramp aircraft) is what rolls it. Content:
-`scripts/seed-hangar-interiors.js` (all 6 fields; idempotent).
+from inside, resolved to the ramp aircraft) is what rolls it. The interiors are CODEX
+content (`content/zones/zone_hangar_*.json`).
 Room text: `describeAirfield`/`describeHangarInterior` share a `serviceBits` builder.
 
-**Phase D — ownership** (`hangars.js`). `hangar rent/store/pull` (stored = theft-
+**Ownership** (`hangars.js`). `hangar rent/store/pull` (stored = theft-
 proof; an owned craft on an open ramp can be stolen — grand theft, +3 stars);
 `repair` (Fabrication + credits); `salvage` a wreck for scrap; `rebuild` a Carcass
 (Fabrication + Chemistry + 1500c → a random flyable type).
@@ -420,15 +375,15 @@ systems (`effStats` → tick loop, hazards, HUD) **and** the bench graphs
 (`perfAxes`) read it, so the dyno can never disagree with how she flies. Signs are
 internally coherent: **lean** (+mixture) saves fuel but runs hot and sheds a little
 power; **coarse pitch** and **boost** buy cruise speed (boost also drinks fuel,
-heats, and twitches the handling — previously boost was a strict-loss no-op);
+heats, and twitches the handling);
 **tail-heavy CG** trades stability for agility. Each knob is a signed float; how far
 it turns (its "reasonable range") is `tuneRange(fabSkill, kits)` — a base band
 widened smoothly by Fabrication and by range-widening kits, hard-capped at
 `TUNE_DIAL_MAX`. The dials clamp to that range server-side; `tuneset <id> <mixture>
 <pitch> <boost> <cg>` commits all four floats from the panel at once.
 
-**Upgrade kits** (`state.KITS`, an authored catalogue like the contracts'
-`JOB_TYPES` — a mechanic, not DB content) are bought and fitted per-craft via
+**Upgrade kits** (`state.KITS`, an authored in-code catalogue — a mechanic, not DB
+content) are bought and fitted per-craft via
 `installkit <id> <kitId>`, stored on `custom_data.kits`. Two ship today: the
 **Precision Tuning Kit** (`rangeBonus` — widens every dial) and the **Intercooler &
 Oil Cooler** (`coolMult` — halves the heat cost of lean/boost). New kits are one
@@ -449,65 +404,62 @@ self-corrects). The **UPGRADE KITS** shop is folded into the same tab.
 routes back to commerce for ordinary shopping).
 
 **NPC-pilot charters** (`charter.js`). `charter` is a *ride*, not a self-flown
-rental: an on-duty **charter-pilot NPC** (a new `charter_pilot` personality;
-three seeded — Ratchet Doyle @ Coldwater Regional 0000–0800, Magpie Soto @
-Marshalling Field 0800–1600, Old Kessler @ Smuggler's Slip 1600–0000) flies you as
-a passenger. Each pilot works a fixed **8-hour shift** at one field (the three tile
-the day). Pilots **physically clock in and out** (`syncPilots` moves the NPC): a
+rental: an on-duty **charter-pilot NPC** (`charter_pilot` personality + flags) flies
+you as a passenger. Four are seeded — Ratchet Doyle (`shift_start` 0), Magpie Soto
+(8) and Old Kessler (16) all at **Coldwater Regional**, plus Wren Halloran (0) at the
+**Echelon** pad. Each works a fixed **8-hour shift** (`withinShift`, `SHIFT_HOURS`).
+Pilots **physically clock in and out** (`syncPilots` moves the NPC): a
 pilot is **at work** when they're **in their hangar** or **out on a flight** —
 `available()` = in-hangar + free. On shift they stand at the desk; off shift they
 go **home** (desk closed, "back at 08:00"); out on a run they're gone until they
 **return**. A flight that **overruns the shift** keeps them at work (flying) until
 they land — then the next sync sends them **home, off the clock**. A pilot already
-out means you **wait for their return**. `charter` lists **passenger-capable** aircraft (seats ≥ 2)
-at **10× the hourly rate**. **The destination is chosen up front, at the desk**:
-`charter <ride>` offers a numbered **airport list** (or, for the VTOL **Dragonfly**,
-**any exterior tile clicked on the full map** — `flight_pick_dest` carries a `cmd`
-the click completes as `charter <ride> <tile>`); `charter <ride> <dest>` (via
-`resolveDest`) **books it** — the aircraft is generated at the ramp (narratively
-taxied **up to the hangar door**), pilot aboard, bound for your destination and
-waiting in the **`boarding`** phase. You are *not* charged and *not* aboard yet.
-**`embark` is the trigger for both**: it charges the fare, seats you, and moves the
-charter to **`departing`** — the pilot taxis out on the ground for `TAXI_MS`, then
-the tick **rotates** her (→ `enroute`) and flies the leg. A charter aircraft is
+out means you **wait for their return**.
+
+**The booking flow is a visual dialog, not typed arguments.** `charter` (alias
+`charterinfo`) pushes **`charter_open`** with the field's fare quotes and destination
+tiles; the dialog sends **`charterbook <destZoneId> [any]`**. `any` (forced at a
+VTOL-only field) is the **Dragonfly** land-anywhere run to any `map_world` tile at ~2×
+fare; otherwise it's the **Mule** to another airfield (`resolveDest` rejects
+non-airfield destinations). Fare = `charterFare` — `90 + 6 × Chebyshev-tiles`,
+doubled for the anywhere run, rounded to 5c.
+
+**The fare is charged at booking** (`cmdCharterBook`, charter.js:317), not at embark.
+`charterbook` generates the aircraft at the ramp (narratively taxied up to the hangar
+door), pilot aboard, bound for your destination, in the **`boarding`** phase.
+`embark` then just goes: it seats you and moves the charter to **`departing`** — the
+pilot taxis out on the ground for `TAXI_MS`, then the tick **rotates** her
+(→ `enroute`) and flies the leg. A charter aircraft is
 **locked without its pilot**: `embark` is refused unless the assigned pilot is aboard
 (`charterParkedAt` / `embarkCharter`, gated in `index.cmdBoard`). If nobody embarks
-within **2 min** the pilot gives up and the craft despawns; orphaned charter rows are
-swept on plugin load.
+within **`HELD_EXPIRY_MS` (30 min)** the pilot gives up, the craft despawns and the
+fare is refunded; orphaned charter rows are swept on plugin load.
 A booked charter is **reserved to the player who chartered it** (`ch.chartererId`):
 a second player can't `embark` it (they fall through to normal boarding, the charter
-invisible to them). It's **free to cancel before you embark** — type **`cancel`** or
-simply **leave the airfield** (the tick sees the charterer is no longer at the field
-via `fieldFor` and scrubs it); the fare is only charged at `embark`, so a pre-embark
-cancel refunds anything taken (`ch.paid`, normally 0). Once you've embarked she's
-committed — rolling. The pilot does everything (a server-driven autoflight tick, no minigames —
+invisible to them). Cancelling before you embark **refunds in full** — type
+**`cancel`** or simply **leave the airfield** (the tick sees the charterer is no
+longer at the field via `fieldFor` and scrubs it). Once you've embarked she's
+committed — rolling. The pilot does everything (a server-driven autoflight tick —
 the main physics tick skips `live.charter` craft); you have **no controls**. The pilot
 **rides along as a real aircraft occupant** — `boardPilot` puts the NPC in
 `live.occupants` and pulls them out of the world at departure (so bystanders see
 them leave with the plane; the engine `npc._aboard` guard in `gameLoop` freezes
 their AI), and `disembarkPilot` sets them back down at the home field on the return. On arrival
-they set you down and tell you to `disembark`; if you don't within **20 s** they put
-you out automatically, then the craft despawns and the pilot frees up. Payment is
-taken on departure; can't-afford cleanly cancels. **Admin:** `.testfly <type>`
+they set you down and tell you to `disembark`; if you don't within **20 s**
+(`AUTO_DISEMBARK_MS`) they put you out automatically, then the craft despawns and the
+pilot frees up. **Admin:** `.testfly <type>`
 spawns any aircraft free at a field and boards you as pilot for normal flight.
 **Dev-panel:** a **Flight** panel (`GET /flight/debug`) shows each pilot's
 work-status (on duty / off shift / flying → where) and a live flight-request log.
 
-**The glass cockpit** (`cockpit.js` + `engine-audio.js`). The area pane becomes a
+**The glass cockpit** (`cockpit.js` + `engine-audio.js`). The area pane is a
 brushed-metal/glass instrument panel animated every frame by a local rAF loop that
 *eases* toward each server push (the compass spins to a bearing, the horizon banks
-into turns, needles glide): artificial horizon · expanded **heading-up RADAR**
-(sweep, range rings, land/field/no-fly blips, and the **fuel-guide arrow** to the
-nearest field shown below 30% fuel) · a rotating **compass** · **per-engine temp
-gauges** · the **real minimap** (`getMinimapData`, danger-coloured) · seven-segment
-digital dials. **Engine run-up:** `startup` warms each engine live; the gauges must
-settle to green or a cold takeoff runs hot and can fail. **Numeric headings:**
-`heading 247` flies a true bearing (sub-tile float advance). **Engine audio:** a
-live throttle-tracking drone + slipstream + airframe creaks/gear/gust. The four
-decks are deepened — **takeoff** (run-up → centreline + V1/Vr callouts → rotate →
-gear up), **glideslope** (two-axis localizer + glideslope, gear, flare, roll-out),
-**targeting** — all shared chassis + the `flight` SFX group.
-`aircraft_types.engines` sets the powerplant count.
+into turns, needles glide): the PFD/MFD/gauge cluster above, plus a heading-up
+**RADAR** (sweep, range rings, land/field/no-fly blips, and the **fuel-guide arrow**
+to the nearest field shown below 30% fuel) and the **real minimap**
+(`getMinimapData`, danger-coloured). **Engine audio:** a live throttle-tracking drone
++ slipstream + airframe creaks/gear/gust.
 
 **Per-aircraft adaptive layout.** The panel composes itself from each craft's
 capabilities + size (`mountHud`): the engine cluster shows one gauge per engine; a
@@ -536,15 +488,8 @@ below knows exactly what you are and where you're headed.
 
 ## Verb-collision routers
 
-Flight wins several verbs by manifest `after` and delegates by context:
-`board`→gametable (poker), `refuel`→generator, `buy`→commerce, `eject`/`tune`→
-broadcast, and `repair` falls through to the engine gear-repair builtin off-context.
-
-## Still lighter / follow-on
-
-PvP air-to-air is **built** (guns/missiles/flares/lock/RWR + structural shear, all
-opposed and player-attributed — see §Air-to-air PvP above); what's still lighter is
-dedicated *interception tooling* (scramble-to-intercept mechanics rather than
-happen-to-be-in-range duels). Beyond that: authored storm-cell/offshore
-special-airspace *content*, comms/ATC channel flavor, corp-owned aircraft + insurance,
-and discrete parts-as-items slots (the continuous tune curves are in). See the blueprint.
+Flight wins several verbs by manifest `after`
+(`["gametable","generator","commerce","broadcast","interactions","quests"]`) and
+delegates by context: `board`/`look`→gametable (poker), `refuel`→generator,
+`buy`/`sell`→commerce, `eject`/`tune`→broadcast, `examine`→interactions, and `repair`
+falls through to the engine gear-repair builtin off-context.

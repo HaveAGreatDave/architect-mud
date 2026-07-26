@@ -1,9 +1,17 @@
 # HellMOO Combat & Stats — Reverse-Engineering Reference
 
+> **Status (stamped 2026-07-24): closed — §6's open choices were all decided, and Architect's
+> combat shipped.** The live doc is [combat.md](../combat.md); this file stays as the external
+> design basis it was, and is **not** a description of the Architect engine. Where the two differ,
+> combat.md wins. What §6 actually resolved to: the 2d9 margin check was **rejected** for a
+> 2d8 − 2d8 opposed swing (`server/engine/skills.js:52,62`); drug-as-everything was **split**
+> (`server/engine/effects.js` for combat status, `server/engine/drugs.js` for consumables);
+> per-body-part hits, learn-by-doing IP, typed armour soak and real-time cooldowns were **kept**;
+> `threat_rating` was **not** adopted (no such field exists).
+
 This documents how **HellMOO** (the inspiration for Architect) implemented stats,
-skills, combat, equipment, damage, and NPCs. It is **not** a description of the
-Architect engine — it's a parsed-from-source design basis we can borrow from,
-simplify, or reject deliberately.
+skills, combat, equipment, damage, and NPCs. It's a parsed-from-source design basis we
+can borrow from, simplify, or reject deliberately.
 
 Source: `hellcore.db`, a **LambdaMOO textdump, Format Version 5** running on the
 **Stunt** server lineage (it uses `TYPE_MAP`/`TYPE_BOOL`/`TYPE_WAIF`, which stock
@@ -14,9 +22,9 @@ and mobs on top as *content*. So this file is the engine skeleton, which is
 exactly what's useful here.
 
 All formulas below are read directly from the MOO verb code. A full parse
-(object hierarchy, resolved property values, every verb program) lives in
-`Downloads/hellmoo_analysis/` if we need to pull another system later
-(economy, factions, crafting, drugs, areas, quests are all present).
+(object hierarchy, resolved property values, every verb program) lived in a local
+`Downloads/hellmoo_analysis/` — outside this repo, so treat it as gone unless you still
+have it — covering economy, factions, crafting, drugs, areas and quests too.
 
 ---
 

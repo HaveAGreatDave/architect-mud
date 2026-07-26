@@ -15,7 +15,8 @@
   "flags": {
     "district": "docks",
     "planner": "bp_district",
-    "region_id": "region_coldwater"
+    "region_id": "region_coldwater",
+    "terrain": "grass"
   },
   "grid_x": 904,
   "grid_y": 905,

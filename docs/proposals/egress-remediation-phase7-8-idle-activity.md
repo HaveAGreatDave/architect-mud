@@ -1,5 +1,12 @@
 # Egress Remediation — Phases 7 & 8: Idle-Activity Gating
 
+> **Status: SHIPPED, and generalised past what this doc proposed** (stamped 2026-07-24 by
+> doc audit — this doc had no status line). `hasActivePlayers()` exists
+> (`server/engine/world.js:1013`) and has ~25 call sites, but the live law is stronger than
+> the per-tick gating designed here: `server/engine/scheduler.js:56-60` idle-gates **every**
+> registered callback by default, with `{ runWhenEmpty: true }` as the deliberate opt-out.
+> Read scheduler.js, not this doc, for how idle-gating works now.
+
 > Part of a larger DB-egress remediation program (see
 > `docs/proposals/egress-remediation-phase4b-cameras.md` for the same
 > `tick != save` framing applied to power/cameras/spawns/player resources —

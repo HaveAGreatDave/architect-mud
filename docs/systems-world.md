@@ -11,7 +11,10 @@ scheduler, and balance tunables. Primary files: [world.js](../server/engine/worl
 [world.js](../server/engine/world.js) holds the live mirror of the DB (the DB remains source of truth):
 
 ```
-world = { zones, players, enemies, npcs, corpses, spawnTimers, apartments }   // all Maps
+world = { zones, players, enemies, npcs, corpses, spawnTimers,   // all Maps except transientZones
+          apartments, doors, orgs, orgMembers, zoneControl, orgAssets, orgVentures,
+          maps, furniture, regions,
+          transientZones }   // Set of synthetic non-DB zone ids (registerTransientZone)
 ```
 
 Zones carry live membership Sets (`players`, `enemies`, `npcs`, `corpses`) layered over the DB row.
@@ -90,8 +93,7 @@ bucketed at 60/100/180), floored by heavy `radiation` (≥25 → high, ≥40 →
 and recomputed on spawn edits (`computeZoneDanger` in `world.js`). PvP is the default law everywhere;
 the `sanctuary` tag registers zone protection through the protection substrate (`engine:sanctuary`
 provider) and additionally grants safe sleep, AI safe-flee targeting, and spawn suppression. NPC
-wanderers avoid zones whose inferred danger is high+ (this also fixed lethal zones never being
-avoided — the old set checked values that didn't exist).
+wanderers avoid zones whose inferred danger is high+.
 
 ### Movement pacing (stamina) — the `pacing` plugin
 
@@ -174,7 +176,7 @@ The clock is a single `world_clock` row (`id = 1`). `state.minutes` is minutes-s
 
 ### Tick cadences
 
-Scheduled in `scheduleTicks` off [scheduler.js](../server/engine/scheduler.js). The **`1m` driver is the single time engine**: it advances the clock by the scaled game-minutes elapsed and fires the environmental (`tick30m`) and world (`tick24h`) ticks on **game-minute boundaries** — every 30 game-minutes and every game-day crossed — so they scale with `timeScale` and the date/phase/streetlights can never desync from the sped-up day. (`tick30m`/`tick24h` are no longer registered on the real `30m`/`24h` cadences.)
+Scheduled in `scheduleTicks` off [scheduler.js](../server/engine/scheduler.js). The **`1m` driver is the single time engine**: it advances the clock by the scaled game-minutes elapsed and fires the environmental (`tick30m`) and world (`tick24h`) ticks on **game-minute boundaries** — every 30 game-minutes and every game-day crossed — so they scale with `timeScale` and the date/phase/streetlights can never desync from the sped-up day. Neither is registered on the real `30m`/`24h` cadence; don't add them there.
 
 - **1m** (`tick1m` driver) — advance `state.minutes` by elapsed game-minutes, persist, fire `tick24h` per game-day and `tick30m` per 30-game-minute boundary crossed, `stepIndoorTemps`, broadcast `environment.clockTick` + per-zone `environment.zoneTempTick`, flicker overloaded zones.
 - **30s** — `advanceWeatherField()` (advect the field one step), `broadcastZoneWeather(occupied)` to occupied outdoor zones, and snap streetlights for those zones (in-memory; no DB writes).
@@ -190,12 +192,10 @@ Scheduled in `scheduleTicks` off [scheduler.js](../server/engine/scheduler.js). 
 - **Temp** = monthly/seasonal base + an **autocorrelated anomaly** (`tempAnomalyC`, weather plugin):
   three-plus octaves of smooth value noise over the day index (periods 25 / 6.5 / 2.8 / 1.4 days) plus
   a ±2°C per-day mesoscale jitter. σ ≈ 2.7°C, range ≈ ±9°C, **mean day-to-day change ≈ 1.6°C**.
-  Still a pure function of the date, so a day forecast a week out matches the day itself.
-  *(Was `±10°C uniform, ±20°C on a 5% "extreme" day` until 2026-07-21 — an independent roll per day,
-  which measured a **7.4°C mean day-to-day jump**, moved ≥10°C on 32% of days, and spread the
-  fallback winter across −18…21°C so a winter day could out-warm a summer one. Hot and cold spells
-  now persist for days instead of teleporting in and out; single-day ±20°C spikes are gone, and the
-  drama belongs to the [extreme-weather severity/event system](systems-weather-extreme.md).)*
+  Still a pure function of the date, so a day forecast a week out matches the day itself. The
+  autocorrelation is the point — hot and cold spells persist for days rather than being rerolled
+  independently; single-day drama belongs to the
+  [extreme-weather severity/event system](systems-weather-extreme.md), not to this curve.
 - **Wind** (`windForDay`) = base wind × a per-type ceiling (`WIND_BY_WEATHER`: fog/haze calm, storms/blizzards gale) × a rolled daily windiness (~15% calm, ~15% gusty).
 - **Humidity** (`humidityForDay`) = base ± type shift (fog/rain wetter, clear drier) ± jitter.
 
@@ -222,22 +222,24 @@ The engine holds the sampler via `registerWeatherField` / `registerWeatherFieldS
 
 ### Indoor HVAC temps
 
-`stepIndoorTemps` (every 1m tick) drives each indoor zone (`is_interior` / `is_apartment` / `is_building`) toward a target. **Powered** zones head to `INDOOR_HVAC_TARGET_C = 20`°C at `INDOOR_HVAC_RATE_PER_MIN = 2.0`°C/min (heating or cooling, ~10 min from an extreme). **Unpowered** zones drift toward the current outdoor temp by **passive conduction proportional to the indoor↔outdoor gap** (`step = (outdoor − current) × INDOOR_PASSIVE_CONDUCTION`, `= 0.01`): ΔT=10°C ≈ 0.1°C/min (the old flat rate), but ΔT=50°C bleeds at ~0.5°C/min — so a mild outage stays survivable while a blackout in an extreme cold snap or heatwave becomes lethal (**no free safe haven**; a −30°C snap drops an interior to 10°C in ~23 min, 0°C in ~51 min). Per-zone temps live in `state.zoneTemps`, seeded at boot by `initIndoorTemps`, and are read via `getZoneTemperature`.
+`stepIndoorTemps` (every 1m tick) drives each indoor zone (`is_interior` / `is_apartment` / `is_building`) toward a target. **Powered** zones head to `INDOOR_HVAC_TARGET_C = 20`°C at `INDOOR_HVAC_RATE_PER_MIN = 2.0`°C/min (heating or cooling, ~10 min from an extreme). **Unpowered** zones drift toward the current outdoor temp by **passive conduction proportional to the indoor↔outdoor gap** (`step = (outdoor − current) × INDOOR_PASSIVE_CONDUCTION`, `= 0.01`): ΔT=10°C ≈ 0.1°C/min, but ΔT=50°C bleeds at ~0.5°C/min — so a mild outage stays survivable while a blackout in an extreme cold snap or heatwave becomes lethal (**no free safe haven**; a −30°C snap drops an interior to 10°C in ~23 min, 0°C in ~51 min). Per-zone temps live in `state.zoneTemps`, seeded at boot by `initIndoorTemps`, and are read via `getZoneTemperature`.
 
 ## Spawning & corpses
 
 `tickSpawns` (every 10s) joins `zone_spawns` with `enemies`, and for each timer that's due, spawns if the
 live count of that template in the zone is below `max_count` and a `Math.random()×100 < spawn_weight`
-roll passes; then it reschedules `nextSpawn` by `respawn_seconds`. `cleanCorpses` (every 30s) expires
-corpses past their `expiresAt`. Corpses are created by `createCorpse` on player death
-(`gameLoop.js`) and enemy kills (weapon plugin via `spawnEnemyCorpse`) — see [combat.md](combat.md).
+roll passes; then it reschedules `nextSpawn` by `respawn_seconds`. Corpses are created by `createCorpse`
+on player death (`gameLoop.js`) and enemy kills (weapon plugin via `spawnEnemyCorpse`) — see
+[combat.md](combat.md). **Corpse cleanup is wholesale, not per-corpse:** `dailyMaintenance` (the
+once-per-game-day `environment.dayRollover` job) removes *every* corpse. `createCorpse` stamps a 1-hour
+`expiresAt`, but no sweeper reads it — a corpse survives until the day rolls over.
 
 ## Minimap
 
-`getMinimapData(centerZoneId, depth=4)` BFS's exits up to 4 hops, staying within the same `map_id`
-(so interiors and exteriors don't bleed into each other), and returns node snapshots (grid coords,
-markers, colours, danger, player counts) for the client's grid. `cmdMap` returns the full
-same-`map_id`/same-`grid_z` tile set (a `MAP_WINDOW_HALF = 7` half-window in
+`getMinimapData(centerZoneId, depth = 8, viewer = null)` BFS's exits up to `depth` hops (every caller
+passes 8), staying within the same `map_id` (so interiors and exteriors don't bleed into each other),
+and returns node snapshots (grid coords, markers, colours, danger, player counts) for the client's
+grid. `cmdMap` returns the full same-`map_id`/same-`grid_z` tile set (a `MAP_WINDOW_HALF = 5` half-window in
 [movement.js](../server/engine/commands/movement.js)) for the full-screen map popup and the tablet
 bigmap.
 
@@ -344,10 +346,13 @@ global pool still carry most of the atmosphere. Interiors are hard-excluded
 ## Scheduler
 
 [scheduler.js](../server/engine/scheduler.js) is the single interval dispatcher. Named cadences
-(`10s, 15s, 30s, 45s, 1m, 5m, 30m, 24h`) each own one `setInterval`; multiple callbacks share it, and errors
+(`CADENCE_MS`: `1s, 4s, 5s, 6s, 10s, 15s, 30s, 45s, 1m, 5m, 10m, 30m, 1h, 24h`) each own one `setInterval`; multiple callbacks share it, and errors
 in one callback are caught and logged without killing the timer. The **1-second combat tick is
 deliberately not on the scheduler** — it's the latency-critical hot path and uses a raw `setInterval`
-in `gameLoop.js`. Plugins and the environment system subscribe via `schedule()`.
+in `gameLoop.js`. Plugins and the environment system subscribe via `schedule()`. **Every callback is
+idle-gated by default** — it is skipped while `hasActivePlayers()` is false, so an empty world lets
+Neon scale to zero; `schedule(cadence, cb, { runWhenEmpty: true })` is the deliberate opt-out. Never use a raw `setInterval` + `query()` for a
+scheduled job: that defeats the gate.
 
 ## Pathfinding
 
@@ -366,12 +371,13 @@ in `gameLoop.js`. Plugins and the environment system subscribe via `schedule()`.
 |---|---|---|
 | `#system` | All players | Server-only broadcast — players cannot send |
 | `#arcnet` | admin/dev/builder/designer roles | Staff chat |
+| `#corp:<orgId>` | the player's own corp | **Dynamic, not in `CHANNEL_DEFS`** — derived from `getPlayerMembership`; display label is `#<corp name>` but the id stays `#corp:<orgId>` so renames never break routing |
 
-`CHANNEL_DEFS` is the definition registry (id, `permanent`, `systemOnly`, `isMember(player)`). New channels are added here.
+`CHANNEL_DEFS` is the **static** definition registry (id, `permanent`, `systemOnly`, `isMember(player)`). New fixed channels are added here; membership-derived ones need a `startsWith` branch in `canAccessChannel`/`sendToChatChannel` alongside the corp case.
 
 - `getPlayerChannels(player)` — the channels a player should subscribe to on login.
-- `sendToChatChannel(channelId, msg, broadcast)` — send to all eligible online players.
-- `saveChannelMessage(channelId, msg)` / `getChannelHistory(channelId)` — persist and replay last 50 messages per channel (stored in `channel_history` table).
+- `sendToChatChannel(channelId, msg, broadcast)` — send to all eligible online players; persists player-authored messages.
+- `getChannelHistory(player)` / `getChannelMessagesSince(player, since)` — replay. Messages live in the **`channel_messages`** table, pruned to the newest `HISTORY_LIMIT` (50) rows per channel on every insert. The writer (`storeChannelMessage`) is module-private — everything goes through `sendToChatChannel`, which is what lets `newestMessageAt()` cache the high-water mark and skip Postgres on idle polls.
 
 ## Appearance
 
@@ -409,7 +415,7 @@ you. It does not move."*
 
 Any lock type whose `defaults` include `canHack: true` (currently just `hololock`) can be bypassed without the normal `authFn` check by hacking it. Implemented in [doors.js](../server/engine/commands/doors.js) (`cmdHackLock` / `cmdHackResolve`), same client/server split as the ATM and security-device hacks (see [systems-atm.md](systems-atm.md)) but with its own **HOLOLOCK BYPASS** minigame — an electronic pin-tumbler lockpick ([client/game/js/panels/hololock.js](../client/game/js/panels/hololock.js)), distinct from the ATM's Circuit Breach:
 
-1. `hack [door] [dir]` arms the attempt — no skill roll gates it, just the lock's `canHack` flag, **carrying a hacking device** (`item_hack_deck`, same gate as the ATM jack), the apartment's forcefield being down (a sleeping owner's quantum shield makes the lock unhackable), and a per-player 5-minute lockout after a failure. Returns `{ type: 'hololock_game', resolveCmd: 'hackresolve', doorId, skill, difficulty, … }`, which opens the lockpick minigame client-side (set each tumbler pin while its scanner is in the sweet zone before the feedback meter fills; skill vs. difficulty scales pin count, sweet-zone width, scanner speed, and miss penalty).
+1. `hack [door] [dir]` arms the attempt — no skill roll gates it, just the lock's `canHack` flag, **carrying any item tagged `hack_device`** (the capability tag, not a specific item id — same gate as the ATM jack; see [tags.md](tags.md)), the apartment's forcefield being down (a sleeping owner's quantum shield makes the lock unhackable), and a per-player 5 **game**-minute lockout after a failure. Returns `{ type: 'hololock_game', resolveCmd: 'hackresolve', doorId, skill, difficulty, … }`, which opens the lockpick minigame client-side (set each tumbler pin while its scanner is in the sweet zone before the feedback meter fills; skill vs. difficulty scales pin count, sweet-zone width, scanner speed, and miss penalty).
 2. **The moment the attempt starts** (not on resolve), the lock panel's whine is broadcast directly to the zone(s) on the *other side* of that specific door — bypassing the normal `propagateSound` muffling, which would otherwise treat the door being hacked as also deadening the sound of itself being worked on. Anyone on the far side always hears "A faint electronic whine buzzes from the door — someone is working the lock," regardless of distance/loudness physics.
 3. `hackresolve <doorId> <1|0>` — silent; the minigame's own win/loss is authoritative, validated against a per-player pending-arm record (anti-spoof, 180 s TTL). A win **unlocks the door persistently** (via `updateDoor`, which mirrors to `apartments.is_locked`), awards hacking XP, and emits `hololock.breached` → the surveillance plugin raises the **`burglary`** crime (2★, `witness: 'any'` — caught by a live camera, on-duty cop, or bystander). A loss sets the 5-minute lockout.
    - **Resident owner present → guaranteed report.** If an NPC whose `home_zone` is the room on the far side of the door is standing in it when you break in, they witness it and call the cops on the spot: `hololock.breached` carries `ownerWitness: true`, and the surveillance listener passes `forced` to `raiseCrime`, bypassing the generic camera/cop/bystander witness sweep. `residentOwnerInResidence` (doors.js) resolves the resident by `home_zone` matching the specific unit, so it never matches an NPC merely passing through or homed to a shared lobby.

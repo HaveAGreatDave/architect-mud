@@ -8,7 +8,7 @@
   "description": "A squat municipal box wedged onto the Meltwater Row verge, its frontage all scuffed institutional glass and a holo-shingle that reads WARD NINE — PERMITS · LICENCES · GRIEVANCES, the last word flickering like it's the honest one. A queue-line is painted on the crete outside, faded to a suggestion. A slot in the door is stuffed with forms nobody filed.",
   "exits": {
     "east": "zone_district_907_911",
-    "in": "zone_ward_permits"
+    "west": "zone_ward_permits"
   },
   "flags": {
     "building_name": "Ward Nine Permits",

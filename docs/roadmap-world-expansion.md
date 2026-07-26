@@ -1,11 +1,16 @@
 # World Expansion Roadmap — Toward the 100×100 Coldwater Basin
 
-> **Status:** Vision + phased plan + open decisions. Nothing here is built. This is the guide we
-> steer by, not a spec. Every section ends with **multiple-choice decisions** — answer them inline
-> (edit the doc, or tell me) and the plan sharpens around your picks.
+> **Status (re-stamped 2026-07-24): the canvas is built; the decisions below were never answered
+> here.** The header used to read "Nothing here is built." That is now badly wrong — `map_world`
+> spans **93 × 100 grid cells holding 5,439 outdoor zones**, which is the §0 target reached. The
+> world was grown by the district build (2026-07-11 replaced the legacy 358-zone overworld), not by
+> walking these phases, so **the phase numbering below never mapped onto what shipped** — read §3's
+> band model and §5–§11's content/tone thinking as still-useful design, and treat §2 and §4 as
+> historical. Items resolved by shipped systems are marked inline.
 >
-> **Companion:** [roadmap-world-map.svg](roadmap-world-map.svg) — the zoomed-out overview of the
-> target world. Open it in a browser or the dev panel.
+> **Companion:** the referenced `roadmap-world-map.svg` does not exist. The live map artefacts are
+> [proposals/coldwater-basin-map.html](proposals/coldwater-basin-map.html) and the
+> `proposals/coldwater-style_*.svg` set (danger / faction / function / phases / terrain lenses).
 
 ---
 
@@ -37,6 +42,9 @@ This is grounded in how the engine already works, so the vision is buildable, no
 - **10,000 cells is the ceiling, not the target.** A fully-packed grid would be miserable to build
   and to walk. Realistic authored surface content is more like **600–1,500 distinct outdoor rooms**,
   with the rest as connective tissue, terrain, or deliberate emptiness. The rings do the heavy lifting.
+  *(Overshot: 5,439 outdoor zones ship, ~55 % of the grid. Generated district fill, not hand-authored
+  rooms, is what made that affordable — so the estimate was right about authoring cost and wrong
+  about the cap.)*
 - **The minimap and map popup already scope by `map_id` + `grid_z`** and BFS the exit graph, so they
   scale to a big surface as-is — but wayfinding *at 100×100* needs new affordances (see §9).
 
@@ -60,6 +68,11 @@ This is grounded in how the engine already works, so the vision is buildable, no
 ---
 
 ## 2. Where We Are Today (the seed)
+
+> **Historical — every zone named in this section is deleted.** The Threshold, Franchise Strip,
+> Embassy Hotel & Bar, Rust Quarter West, Static Wood, the Marquee District and Coldwater Power
+> Station went with the legacy overworld on 2026-07-11. This is what "today" meant when the doc
+> was written; it is not a description of the world.
 
 The current live world is the **safe core + a sliver of the first ring** — the dashed "BUILT TODAY"
 boundary on the map. Roughly:
@@ -121,10 +134,12 @@ are ordered by dependency, not calendar — we do the next one when the prior is
 
 ### Phase 0 — Foundations (build-the-tools-to-build)
 *Before pouring 1,000 rooms, make pouring them cheap and safe.*
-- **Bulk zone authoring** — reliable direct-DB + `/world/reload` path already proven
-  ([reference: MUD Content Build](../MEMORY.md)); harden it into a repeatable district-stamping flow.
-- **Region metadata** — a `region` tag on zones (band + district name) so danger, ambience,
-  spawn tables, and faction ownership can be assigned *per region* instead of per room.
+- **Bulk zone authoring** — *superseded.* Direct-DB authoring is no longer the path: world content
+  lives as one JSON file per entity under `content/` and ships by pushing to `main`
+  ([content-pipeline.md](content-pipeline.md)).
+- **Region metadata** — **built.** A `regions` table plus `flags.region_id`, with per-region climate
+  bias; see [reference/land-taxonomy.md](reference/land-taxonomy.md) for how region, district and
+  terrain divide the responsibility this bullet lumped together.
 - **Wayfinding primitives** — see §9 (fast travel, road network, map-at-scale). At least one must
   exist before the city gets big enough to walk across.
 - **Regression + backup discipline** — every wave ends with `npm run test:regress` and a dev-panel
@@ -279,6 +294,10 @@ At 100×100, walking core-to-edge tile-by-tile could be dozens of moves. That ca
 (distance = danger = commitment) or a chore. We need a stance.
 
 ### Decision 12 — Primary long-distance travel
+*Partly answered by what shipped, and not with (A): **(D) vehicles** landed — player-owned aircraft
+([systems-flight.md](systems-flight.md)) — alongside on-foot region crossings
+([systems-overland-void-travel.md](systems-overland-void-travel.md)) and `gps` autopilot pathing
+within a region. No anchor-unlock fast travel exists.*
 - **(A) Fast-travel between discovered safe anchors.** *(Recommended)* Walk it once to unlock it;
   thereafter jump between anchors you've reached. Distance still matters the *first* time and in
   hot zones (no fast-travel while in danger / combat).
@@ -304,12 +323,14 @@ Hunger/thirst/thermal deplete in real time. Long crossings interact with surviva
 
 ## 9. Wayfinding at Scale (don't get lost)
 
-The current 5×5 ASCII minimap and BFS map popup are fine for 30 rooms; at 1,000 they need help:
+The minimap and BFS map popup were fine for 30 rooms; at 1,000 they need help. (Since written: the
+server BFS runs `depth=8` over a `WIN=4` window and the client minimap gained a zoom ladder.)
 
-- **Region-level overworld map** — a zoomed-out view (like the SVG) showing bands/districts, not
+- **Region-level overworld map** — a zoomed-out view showing bands/districts, not
   individual rooms; drill into the local minimap for detail.
-- **Named destinations & `go`** — already supported ([systems-world.md](systems-world.md)); extend
-  with discovered-landmark waypoints.
+- **Named destinations** — `go` is only a synonym for `move` and takes a direction, not a place
+  name. Named-destination travel is the **gps** plugin (`gps` / `run` / `walk` autopilot); extend
+  that with discovered-landmark waypoints.
 - **Fog-of-war / discovery** — the overworld reveals as you explore, giving a sense of a *big
   unknown* to fill in (leans into the wastes fantasy).
 
@@ -342,10 +363,10 @@ A checklist so growth doesn't silently break existing systems:
 - **Performance** — in-memory world cache loads all zones at boot; 1,000+ zones is fine for Postgres
   + Maps, but worth a load-time check at each ring.
 
-### Decision 17 — Regionization approach
-- **(A) Add a `region` field to zones; assign danger/spawns/ambience/ownership per region.**
-  *(Recommended)* One schema touch (deliberate, per the no-migration rule), huge authoring leverage.
-- **(B) Keep everything per-zone.** No schema change; more repetitive authoring, more drift risk.
+### Decision 17 — Regionization approach — **RESOLVED (A), built**
+A `regions` table + `flags.region_id` ship, with per-region climate bias feeding the weather
+sampler. Danger and ambience did *not* follow it — see [reference/land-taxonomy.md](reference/land-taxonomy.md)
+for which of region / district / terrain owns what.
 
 ---
 
@@ -370,26 +391,22 @@ The bigger it gets, the easier it is to drift into generic open-world. Anchors f
 - **(C) 2020s.** AI hype, crypto, remote-work ghost offices — closest to the bone.
 - **(D) Deliberately blurred across all three.**
 
-### Decision 19 — Non-human NPC types in the deep map ([story.md](story.md) open question)
-*(multi-select)*
-- **(A) Mutants** (already have a mutation system to hang this off).
-- **(B) Cyborgs / augmented humans.**
-- **(C) AI-bodied creatures / drones / rogue automata** (fits the Architect theme).
-- **(D) Keep it human — the horror is that it's all just people.**
+### Decision 19 — Non-human NPC types in the deep map — **RESOLVED: A + B + C all shipped**
+Mutants, augmented humans (the augments plugin / chrome), and Architect automata (Architect Scout
+Drone, Arbiter-Class Enforcement Unit) all exist as enemies today.
 
 ---
 
 ## 12. How We'll Actually Build It (working method)
 
-- **One wave at a time**, each ending in `npm run test:regress` + a dev-panel DB export.
-- **Content lives in Postgres**, authored via the dev panel / bulk-DB flow — never hardcoded
-  ([CLAUDE.md](../CLAUDE.md) core rule).
+- **One wave at a time**, each ending in `npm run test:regress`.
+- **Content lives in git** — one JSON file per entity under `content/`, deployed by pushing to
+  `main`; never hardcoded ([CLAUDE.md](../CLAUDE.md) core rule,
+  [content-pipeline.md](content-pipeline.md)). *(This bullet used to say "Content lives in
+  Postgres, authored via the dev panel / bulk-DB flow" — that was the pre-CODEX pipeline.)*
 - **Engine changes are rare and deliberate** — most of this is *content* + a little Phase-0 tooling
   (region metadata, wayfinding). Any schema touch follows the no-startup-migration rule
-  (one-shot script + `SCHEMA_SQL` edit).
-- **The SVG is the north star** — as districts land, update
-  [roadmap-world-map.svg](roadmap-world-map.svg) and the "BUILT TODAY" boundary so the map always
-  shows real progress.
+  (idempotent `SCHEMA_SQL` edit, one-shot script only for data transformations).
 
 ### Decision 20 — First concrete step after you approve this plan
 - **(A) Phase 0 tooling** (region metadata + a wayfinding primitive) so scale-building is cheap.
@@ -416,12 +433,12 @@ The bigger it gets, the easier it is to drift into generic open-world. Anchors f
 | 9 | Territory mechanics | A — influence tug-of-war |
 | 10 | Player agency over territory | A — corps can capture badlands |
 | 11 | Reasons to travel | A — every district a unique draw |
-| 12 | Long-distance travel | A — fast-travel between anchors |
+| 12 | Long-distance travel | A — fast-travel between anchors — *shipped as (D) vehicles instead* |
 | 13 | Distance gates danger | A — yes |
 | 14 | Travel vs survival clock | A — crossings stress meters |
 | 15 | Overworld map style | A — district map + drill-down |
 | 16 | Fog-of-war | A — yes, fills in |
-| 17 | Regionization | A — add `region` field |
+| 17 | Regionization | A — add `region` field — **RESOLVED, built** |
 | 18 | Nostalgia era | A — 2010s |
-| 19 | Non-human NPC types | *(multi-select)* |
+| 19 | Non-human NPC types | **RESOLVED — A + B + C all shipped** |
 | 20 | First concrete step | A — Phase 0 tooling |

@@ -6,14 +6,14 @@ A single long-lived Node.js process. It owns everything: HTTP file serving, WebS
 
 On startup (`boot()` in `index.js`), it runs in order:
 
-1. `loadMisSettings()` — loads miscellaneous server settings from the DB
-2. `initWorld()` — loads zones, NPCs, spawn templates, and apartments from Postgres into memory
-3. `loadRecipes()` / `loadDrugs()` / `loadMutations()` — loads content definitions into memory
+1. `loadMisSettings()` / `loadEmailVerificationSetting()` — server settings from the DB
+2. `initWorld()` — loads zones, NPCs, doors, furniture, orgs, spawn templates, and apartments from Postgres into memory, then reconciles apartment door locks and NPC homes vs. ownership
+3. `loadRecipes()` / `loadDrugs()` / `loadItems()` / `reloadCrimes()` / `reloadAliases()` / `loadMutations()` / `loadBanterLibrary()` — content definitions into memory (`loadItems` populates the `items-cache.js` write-through cache)
 4. `loadPlugins()` — scans `/plugins/` and wires up hook/command/route registrations
 5. `initEnvironment()` — loads the game clock and weather state, fires `environment.init` hooks (non-fatal if schema not yet applied)
 6. `startGameLoop()` — starts all the timed intervals
 7. `startKeepalive()` — begins pinging Render `/health` every 10 minutes (deliberately does **not** touch the database, so the Neon compute can sleep)
-8. HTTP server listens
+8. HTTP server listens — behind an `EADDRINUSE` guard that exits rather than lingering as a zombie holding pool connections
 
 **Note:** there is no `migrate()` call at startup. The server never touches the schema on boot — schema changes are applied deliberately with `npm run db:schema`.
 
@@ -23,21 +23,29 @@ On startup (`boot()` in `index.js`), it runs in order:
 
 **Postgres (source of truth):** Player accounts, stats, skills, inventory, items on the ground, zone definitions, NPC definitions, enemy templates, spawn rules, the world clock. Anything that needs to survive a server restart lives here.
 
-**In-memory (`world.js`):** The live, fast-moving state the game loop needs every second — which players are in which zone, enemy HP, enemy aggro targets, spawn cooldowns, corpse expiry. This is populated from Postgres at boot and kept in sync during play. Enemy HP is *never* persisted — if the server restarts, all live enemies vanish and `tickSpawns` rebuilds them within 10 seconds.
+**In-memory (`world.js`):** The live, fast-moving state the game loop needs every second — which players are in which zone, enemy HP, enemy aggro targets, spawn cooldowns, corpse expiry. This is populated from Postgres at boot and kept in sync during play. Enemy instance HP is *never* persisted — if the server restarts, all live enemies vanish and `tickSpawns` rebuilds them within 10 seconds. Player corpses *are* persisted (`player_corpses`, 60-minute expiry) and reloaded at boot.
 
 The in-memory cache is a single module-level object in `world.js`:
 
 ```js
 const world = {
-  zones: new Map(),    // zoneId -> zone object (includes .players, .enemies sets)
-  players: new Map(),  // playerId -> live player object
-  enemies: new Map(),  // instanceId -> live enemy instance
+  zones: new Map(),      // zoneId -> zone object (includes .players, .enemies sets)
+  players: new Map(),    // playerId -> live player object
+  enemies: new Map(),    // instanceId -> live enemy instance
   npcs: new Map(),
   corpses: new Map(),
   spawnTimers: new Map(),
-  apartments: new Map(),
+  apartments: new Map(), // zoneId -> apartment row
+  doors: new Map(),
+  orgs: new Map(),       // + orgMembers / zoneControl / orgAssets / orgVentures
+  maps: new Map(),       // mapId -> maps row (parent_zone_id links interior to overworld tile)
+  furniture: new Map(),  // id -> furniture row (write funnel keeps it in sync; DB stays SoT)
+  regions: new Map(),
+  transientZones: new Set(), // synthetic non-DB zones injected at runtime
 };
 ```
+
+Several of these Maps are read tiers with a **mandatory write funnel** — a raw `UPDATE furniture`/`UPDATE npcs` silently desyncs them. See [architecture.md → Read Tiers](architecture.md#read-tiers-where-data-lives-at-runtime).
 
 Any engine file that needs world state imports directly from `world.js`. There is no pub/sub or event bus between engine modules — they call each other synchronously or await shared helpers.
 
@@ -45,18 +53,26 @@ Any engine file that needs world state imports directly from `world.js`. There i
 
 ## The Game Loop
 
-`gameLoop.js` owns all recurring server-side logic. It uses a thin scheduler (`scheduler.js`) that wraps `setInterval` with named intervals, plus one raw `setInterval` for the latency-critical 1-second combat tick.
+`gameLoop.js` owns all recurring server-side logic. It uses a thin scheduler (`scheduler.js`) that wraps `setInterval` with named cadences, plus one raw `setInterval` for the latency-critical 1-second combat tick.
 
 | Name | Interval | Responsibility |
 |---|---|---|
-| `tick()` | 1 second | Enemy AI decisions, enemy attacks on players, auto-retaliation, status effect ticks |
-| `minuteTickFn` | 1 minute | Radiation decay, fires `tick.minute` plugin hook |
-| `ambientTick` | 45 seconds | Sends flavor text to occupied zones (via plugin hook or zone's own ambient pool) |
-| `resourceTick` | 1 minute | Hunger/thirst decay, starvation/dehydration damage, heal-over-time, well-fed regen |
+| `tick()` | 1 second | Enemy AI decisions, enemy attacks on players, auto-retaliation, status effect ticks; ends by calling `flushDirtyResources` |
+| `stormTick` | 5 seconds | Lightning across the storm field (the server is the single strike authority) |
 | `tickSpawns` | 10 seconds | Spawns enemy instances into zones that are below their `zone_spawns` max count |
-| `cleanCorpses` | 30 seconds | Expires lootable player corpse objects from memory (they never hit the DB) |
+| `restRegenTick` | 15 seconds | HP/stamina regen while resting — sets `_resDirty`, writes nothing itself |
+| `npcBanterTick` | 30 seconds | Two-NPC ambient banter in occupied zones |
+| `ambientTick` | 45 seconds | Sends flavor text to occupied zones (via plugin hook or zone's own ambient pool) |
+| `minuteTickFn` | 1 minute | Radiation decay, drug decay, fires the `tick.minute` plugin hook |
+| `resourceTick` | 1 minute | Hunger/thirst decay, starvation/dehydration damage, heal-over-time, well-fed regen |
+| `npcWanderTick` | 1 minute | Idle NPC wandering |
+| `flushDirtyPositions` | 1 minute | Batched write of every moved player's `current_zone`/`stamina` |
 
-The environment system (`environment.js`) runs its own independent intervals outside the game loop: a 30-minute tick for ambient light and street-light toggling, and a 24-hour tick for full power network simulation and weather advancement. These are not coordinated with `gameLoop.js` — they share the same DB pool and fire independently.
+Only `tick()` is a raw `setInterval`, and it carries its own `hasActivePlayers` guard because it does not inherit the scheduler's. Everything else registers through `scheduler.js` and is idle-gated automatically (`gameLoop.js:46-70`).
+
+`dailyMaintenance` and `rentCollectionTick` run on the **game** calendar rather than a real interval — both subscribe to the `environment.dayRollover` event, so they track the game-speed knob.
+
+The environment system (`environment.js`) registers on the same scheduler: a **1-minute** clock driver, a **5-minute** brownout check (only while a zone is overloaded or a storm is faulting the grid), and a **30-second** flicker + weather-field advection pass. Its 30-minute and 24-hour ticks are *not* real cadences — the 1-minute driver fires them on **game**-minute boundaries, so date, day-phase and streetlights stay in lockstep with a sped-up day (`environment.js:422-430,841-871`).
 
 ---
 
@@ -74,9 +90,11 @@ Incoming messages are dispatched by `type`:
 | `dialogue` | `handleDialogue()` | Looks up NPC, resolves the chosen dialogue node, optionally grants items |
 | `ping` | inline | Responds with `pong`, also resets the socket liveness flag |
 
-`handleCommand()` in `commands.js` is the main dispatcher — it parses the command string and routes it to the appropriate function (movement, attack, inventory, crafting, etc.). Plugin-registered commands are checked first via `fireCommand()` before the built-in switch statement.
+Four more families sit alongside these in the same `msg.type` chain (`server/index.js:308-380`): shop (`buy_npc`/`sell_npc`/`sell_all_npc`/`shop_close`), ghost session (`auth_ghost`/`ghost_command`/`ghost_jump`/`ghost_refresh`), client panels (`panel_data`/`panel_watch`/`panel_catalog`), and broadcast viewing (`tv_watch`/`tablet_tv_watch`/`deck_watch`/`tv_schedule`/…).
 
-**Broadcasting:** `broadcast(zoneId, message, excludePlayerId, targetPlayerId)` in `index.js` is the single send function. Pass a `zoneId` to send to everyone in that zone; pass a `targetPlayerId` to send to one player; pass neither to send to all connected players. Every engine module that needs to push messages to clients receives `broadcast` as a passed-in function — nothing imports it directly from `index.js`.
+`handleCommand()` in `engine/commands/index.js` is the main dispatcher — see [commands.md](commands.md) for the full dispatch pipeline. Plugin-registered commands are checked via `fireCommand()` ahead of the engine builtins.
+
+**Broadcasting:** `broadcast(zoneId, message, excludePlayerId, targetPlayerId, excludePlayerId2, excludeSet)` in `index.js` is the single send function (`server/index.js:99-106`). Pass a `zoneId` to send to everyone in that zone; pass a `targetPlayerId` to send to one player; pass neither to send to all connected players. Engine modules receive `broadcast` as a passed-in function or via `setBroadcast()` (`engine/messaging.js:12`) — nothing imports it directly from `index.js`.
 
 ---
 
@@ -101,7 +119,11 @@ plugins/
 
 `loadPlugins()` scans the directory at boot, imports each `index.js`, and wires up whatever the plugin declares.
 
-### Three extension points
+### Extension points
+
+Four are wired by the loader (`engine/plugins.js`), plus specialized actions and Events
+registered imperatively at module load. [plugin-standard.md](plugin-standard.md) owns the
+full manifest contract; the three below are the ones the loader reads off the manifest.
 
 **1. Hooks** — the most common. A plugin subscribes to named events fired by the engine:
 
@@ -130,7 +152,7 @@ export const commands = {
 };
 ```
 
-`commands.js` calls `fireCommand()` before its own switch statement, so plugin commands take precedence over any future built-in with the same name.
+`engine/commands/index.js` calls `fireCommand()` ahead of the engine builtins, so a plugin command shadows a builtin of the same name (which becomes dead code — see [plugins.md](plugins.md)).
 
 **3. Route handlers** — a plugin can handle REST requests under a path prefix:
 
@@ -147,22 +169,46 @@ export function routeHandler(path, method, body, auth) {
 
 `routes.js` calls `fireRoutes()` before its own route matching. Return `null` to pass through.
 
+**4. Input matchers** — `registerInputMatcher(pattern, handler)` runs against the raw input line before single-word command routing, for multi-word verbs a `commandName` can't express ("jerk off on", "eat out"). First matching pattern wins.
+
 ### Hook reference
+
+Every hook the engine fires. **A name not in this table is not a hook** — subscribing to
+one costs nothing and does nothing, silently. (Zone *entry* and combat *hits* are Events,
+not hooks: `zone.entered` is emitted on the event bus at `commands/movement.js:441` — see
+[scripting.md](scripting.md).)
 
 | Hook | Fired by | Args | Return value used? |
 |---|---|---|---|
-| `tick.minute` | `gameLoop.js` minuteTick | `{ broadcast }` | No |
-| `player.enterZone` | `commands.js` move | `(player, zone)` | No |
-| `player.death` | `gameLoop.js` handlePlayerDeath | `(player, killer)` | No |
-| `combat.hit` | `commands.js` resolveAttack | `(player, enemy, result)` | No |
-| `zone.describeRoom` | `commands.js` describeZone | `(zone)` | Yes — appended to room description |
-| `zone.describeAmbient` | `gameLoop.js` ambientTick | `(zone)` | Yes — broadcast as ambient text if returned |
-| `zone.create` / `zone.update` / `zone.delete` | `api/routes.js` | `(zone)` | No |
-| `environment.init` | `environment.js` boot | `{ setWeatherState }` | No |
-| `environment.advanceWeather` | `environment.js` 24h tick | `{ setWeatherState, currentForecast, currentDate }` | No |
-| `environment.tick30m` / `environment.tick24h` | `environment.js` | — | No |
-| `environment.weatherChange` / `environment.sunrise` / `environment.sunset` | `environment.js` | — | No |
-| `worldValidator.runFull` / `worldValidator.runZone` | `worldvalidator.routes.js` on demand | — | Yes — used as the HTTP response body |
+| `tick.minute` | `gameLoop.js:372` | `{ broadcast }` | No |
+| `player.death` | `gameLoop.js:614` | `(player, killer)` | No |
+| `player.respawnZone` | `gameLoop.js:523` | `(player, killer)` | Yes — overrides the respawn zone |
+| `zone.describeAmbient` | `gameLoop.js:632` ambientTick | `(zone)` | Yes — broadcast as ambient text |
+| `zone.describeRoom` | `commands/describe.js:522` | `(zone)` | Yes — appended to room description |
+| `zone.introLore` | `commands/describe.js:568` | `(zone, player)` | Yes |
+| `zone.furniturePanel` | `commands/describe.js:487` | `(zone, furniture, player)` | Yes |
+| `visibility.perceive` | `commands/describe.js:363`, `combat.js:25`, `environment.routes.js:82` | `(perceiver, vis, zone?)` | Yes — the perceiver's effective light |
+| `movement.edge` | `commands/movement.js:356` | `{ player, zone, direction, broadcast, opts }` | Yes |
+| `movement.arriveMessage` | `commands/movement.js:478` | `{ player, fromZone, toZoneId, direction, arrivalDir, defaultMessage }` | Yes |
+| `npc.talk` | `commands/social.js:25` | `{ player, npc, broadcast }` | Yes |
+| `speech.transform` | `commands/social.js:73` | `{ player, text }` | Yes — replaces the spoken text |
+| `player.say` | `commands/social.js:79` | `{ player, text, zoneId, broadcast }` | No |
+| `player.appearanceNotes` | `commands/world.js:312` | `{ target, viewer, isSelf }` | Yes |
+| `player.appearanceMisNotes` | `commands/world.js:351,386` | `{ target, viewer, isSelf, broadcast, naked, … }` | Yes |
+| `furniture.describe` | `commands/world.js:476` | `(furniture, player)` | Yes |
+| `forcefield.gate` | `apartments.js:144` | `{ player, zoneId }` | Yes — a non-empty return blocks the forcefield |
+| `drug.used` / `drug.overdose` | `drugs.js:520,541,570` / `:479` | `{ player, drug, potency\|lethal, broadcast }` | No |
+| `player.create` / `player.login` | `api/routes.js:496,523` | `{ id, handle, username?, role }` | No |
+| `zone.create` / `zone.update` / `zone.delete` | `api/routes.js:658,686,711,1668` | `(id, body)` / `(id, deletedIds)` | No |
+| `environment.init` | `environment.js:361` boot | `{ setWeatherState, setCurrentPrecip, climateProfile, registerWeatherField, registerWeatherFieldSnapshot, registerWeatherFieldAdvance, registerWeatherEventStep, registerWeatherEventTrigger, registerWeatherRegionRefresh }` | No |
+| `environment.advanceWeather` | `environment.js:1039` 24h tick | `{ setWeatherState, rollAndSetCurrentPrecip, getHUDPayload, broadcast, currentForecast, currentDate, climateProfile }` | No |
+| `environment.tick30m` / `environment.tick24h` | `environment.js:1002,1047` | payload + `{ setCurrentPrecip, getHUDPayload, broadcast }` on 30m | No |
+| `environment.sunrise` / `environment.sunset` | `environment.js:1004,1005` | payload | No |
+| `environment.weatherChange` | `environment.js:1048` | `{ weatherType, tempC }` | No |
+| `environment.recalculateForecast` | `environment.js:2284,2324` | `{ setWeatherState, climateProfile, currentDate }` | No |
+| `environment.scheduleForecastDay` | `environment.js:2341` | `{ forecastDay, weatherType, tempC, windKph, humidityPct, setWeatherState, currentForecast }` | No |
+| `environment.weatherFieldSync` | `environment.js:2310` | `{ forecast0 }` | No |
+| `worldValidator.runFull` / `worldValidator.runZone` | `worldvalidator.routes.js:25,34` on demand | `(body)` / `(zoneId, opts)` | Yes — used as the HTTP response body |
 
 ### Plugins cannot do (yet)
 
@@ -172,17 +218,6 @@ export function routeHandler(path, method, body, auth) {
 
 ---
 
-## Boot Sequence Summary
+## After Boot
 
-```
-index.js boot()
-  ├── loadMisSettings()      misc server settings from DB (no schema touch — ever)
-  ├── initWorld()            zones/NPCs/spawns loaded into world.*
-  ├── loadRecipes/Drugs/Mutations()
-  ├── loadPlugins()          hooks/commands/routes registered
-  ├── initEnvironment()      clock + weather loaded, environment.init hook fired
-  ├── startGameLoop()        setIntervals begin ticking
-  └── httpServer.listen()    accepting connections
-```
-
-After boot, nothing re-reads the world from DB unless `world.reloadZone()` (or similar) is called explicitly by an API write. The in-memory cache is the game's working state.
+Nothing re-reads the world from the DB unless `world.reloadZone()` (or similar) is called explicitly by an API write. The in-memory cache is the game's working state.

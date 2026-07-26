@@ -7,11 +7,8 @@
   "created_by": null,
   "description": "A shack of bolted plate and cable, humming to itself at the edge of town — every wire in the Reach runs back here. Scorch marks fan up one wall from the last time it argued with a storm. It shouldn’t work. It works.",
   "exits": {
-    "east": "zone_the_reach_872_1954",
-    "in": "zone_bld_898_1171_lobby",
-    "north": "zone_the_reach_871_1953",
-    "south": "zone_the_reach_871_1955",
-    "west": "zone_the_reach_870_1954"
+    "north": "zone_bld_898_1171_lobby",
+    "south": "zone_the_reach_871_1955"
   },
   "flags": {
     "building_name": "The Dynamo",
@@ -22,14 +19,14 @@
     "lawless": true,
     "planner": "world_editor",
     "region_id": "region_the_reach",
-    "world_exit_zone": "zone_the_reach_871_1953"
+    "world_exit_zone": "zone_the_reach_871_1955"
   },
   "grid_x": 911,
   "grid_y": 982,
   "grid_z": 0,
   "id": "zone_the_reach_871_1954",
   "map_id": "map_world",
-  "marker": null,
+  "marker": "DY",
   "name": "The Dynamo",
   "parent_zone": null,
   "updated_at": "1784533788"

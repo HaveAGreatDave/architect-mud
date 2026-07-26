@@ -27,7 +27,7 @@
   "id": "zone_embassy_floor_2nd",
   "map_id": "map_interior_zone_residential_lobby",
   "marker": null,
-  "name": "Embassy Hotel & Bar — Second Floor Landing",
+  "name": "Second Floor Landing",
   "parent_zone": "zone_residential_lobby",
   "updated_at": "1783800000"
 }

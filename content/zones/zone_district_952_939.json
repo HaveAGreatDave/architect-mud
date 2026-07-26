@@ -5,7 +5,7 @@
   "bg_color": "#2a1c16",
   "color": "#b5744a",
   "created_by": "wildlands-expand",
-  "description": "Broken mesa shelves step away in ochre and iron-red, cut by dry washes where the wind funnels grit against your teeth.",
+  "description": "Grey ash banks against every ruin and rise, sliding away in slow falls where the ground steps down. It tastes of burnt paper and gets into every seam.",
   "exits": {
     "east": "zone_district_953_939",
     "north": "zone_district_952_938",
@@ -17,6 +17,7 @@
     "planner": "bp_district",
     "radiation": 40,
     "region_id": "region_coldwater",
+    "scavenging_table_id": "scav_irradiated_salvage",
     "terrain": "ash"
   },
   "grid_x": 952,

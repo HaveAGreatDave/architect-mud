@@ -8,13 +8,13 @@
   "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
   "exits": {
     "east": "zone_district_923_902",
-    "north": "zone_district_922_901",
-    "west": "zone_district_921_902"
+    "north": "zone_district_922_901"
   },
   "flags": {
     "district": "docks",
     "planner": "bp_district",
-    "region_id": "region_coldwater"
+    "region_id": "region_coldwater",
+    "terrain": "grass"
   },
   "grid_x": 922,
   "grid_y": 902,

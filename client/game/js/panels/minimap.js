@@ -644,11 +644,33 @@ export function renderMinimap(nodes, direction) {
   // building type, or has a building name — broader than building_type alone so labels
   // still land on buildings the type-detector misses.
   const isBuilding = (node) => !!(node.building_type || node.enterable || node.building_name);
+  // The label is the AUTHORED zones.marker, and nothing else. That column exists to be
+  // the tile's map glyph; deriving one here instead meant the authored value rendered
+  // nowhere while this map and the tablet derived two DIFFERENT codes from the same
+  // name ("Hall of Records" → "HA" here, "HO" there, authored "HR" on neither).
+  //
+  // Derivation now happens ONCE, at authoring time — the dev panel stamps a suggested
+  // acronym when it converts a tile into a facade — so it is a value someone can see
+  // and edit. The trade is deliberate: a building authored outside the panel shows no
+  // letters until someone sets one. That gap is visible and audited (MARK-2 asks for
+  // the missing marker, MARK-4 catches two buildings wearing the same one), which beats
+  // a plausible-looking code that differs per screen.
+  //
+  // Interiors fall out of this for free. An unmarked room inside a building inherits
+  // flags.building_name from its parent for the directory and the exit links, so a
+  // derived label stamped the parent's acronym on every room ("The Stacks" reading
+  // "HA"). Its own marker still shows if it has one — that is how an apartment shows
+  // its floor.
+  const bldLabel = (node) => (node.marker || '').trim() || null;
   const symFor = (node) => {
     // Labels: hide the building graphic entirely and show a 2-letter acronym filling the
     // tile square (mm-bld-label turns the tile into a solid labelled box).
-    if (overlay === 'labels' && isBuilding(node))
-      return `<span class="map-bld-ov map-bld-label">${twoLetterAbbrev(node.building_name || node.name)}</span>`;
+    if (overlay === 'labels' && isBuilding(node)) {
+      const lbl = bldLabel(node);
+      // No label ⇒ an unmarked interior room. Draw the bare tile, not the building
+      // furniture — falling through would stamp the building-type glyph on it instead.
+      return lbl ? `<span class="map-bld-ov map-bld-label">${escapeHtml(lbl)}</span>` : baseSym(node);
+    }
     const base = baseSym(node);
     if (overlay === 'none' || !node.building_type) return base;
     const glyph = BUILDING_ICON[node.building_type] || BUILDING_ICON._default;
@@ -740,10 +762,15 @@ export function renderMinimap(nodes, direction) {
       } else if (terr) {
         styles.length = 0;
         const fill = terrainFill(terr, node.bg_color);
-        styles.push(`background-color:${fill}`);
+        // Terrain paints the GROUND. Whatever stands on that ground is a separate
+        // layer and survives the fill: an authored flags.icon SVG (a statue, a
+        // helipad, an AA nest), the ▣ door marker, a building's overlay glyph or
+        // label. Painting the statue's square `park` must not delete the statue —
+        // symFor() already emits nothing for a bare tile, so there is no stray
+        // marker text here to blank, only meaning. Colour is always set so the
+        // icon mask and any overlay read against the fill.
+        styles.push(`background-color:${fill}`, `color:${node.color || luminanceTextColor(fill)}`);
         styled = ' mm-styled';
-        if (GLYPH_TERRAIN.has(terr)) styles.push(`color:${node.color || luminanceTextColor(fill)}`);
-        else content = '';
       }
       const terrCls = terr ? ` mm-terr mm-${terr}` : '';
       // Perimeter wall: gate tiles get a highlighted opening; other curtain tiles a
@@ -864,10 +891,9 @@ export const BUILDING_ICON = {
 // with yellow lane markings; water/grass render as a seamless coloured expanse with a
 // connecting texture from the .mm-<terrain> / .map-<terrain> CSS classes.
 const TERRAIN = new Set(['road', 'dirt_road', 'water', 'grass', 'park', 'asphalt', 'concrete', 'dirt', 'sand', 'gravel', 'dock', 'scrub', 'redrock', 'ash', 'marsh']);
-// Post-apocalyptic wildlands surfaces that KEEP their marker glyph over the fill (like
-// road does) instead of blanking to a clean expanse — so camp/landmark tiles out in the
-// wilds still read their ∩/▲/$ glyphs.
-const GLYPH_TERRAIN = new Set(['scrub', 'redrock', 'ash', 'marsh']);
+// (Every painted surface keeps whatever stands on it — see the terrain branch in the
+// cell loop. There is no longer a glyph-keeping subset: blanking icons and building
+// overlays on painted ground was the bug that hid the Fisherman Statue.)
 const ROAD_SURFACE = '#4c5157';   // grey asphalt
 const ROAD_MARKING = '#f2c53d';   // yellow lane markings (the road SVG mask takes `color`)
 const DIRT_ROAD_SURFACE = '#7d6236';   // packed-dirt track — same connector art, no paint

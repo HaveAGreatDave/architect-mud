@@ -21,7 +21,6 @@
   "created_by": null,
   "description": "A raw, undeveloped stretch of ground. [PLANNER STUB]",
   "exits": {
-    "east": "zone_the_reach_871_1954",
     "north": "zone_the_reach_870_1953",
     "south": "zone_the_reach_870_1955",
     "west": "zone_the_reach_869_1954"

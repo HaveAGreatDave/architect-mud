@@ -5,7 +5,7 @@
   "bg_color": "#2a1c16",
   "color": "#b5744a",
   "created_by": "wildlands-expand",
-  "description": "Cracked red hardpan runs out flat to a rust-colored horizon. Wind-scoured rock, grit, and nothing that grows.",
+  "description": "Loose sand runs out in long low dunes, combed into ridges by a wind that never quite stops. Bright, bare, and growing nothing at all.",
   "exits": {
     "east": "zone_district_890_902",
     "south": "zone_district_889_903",

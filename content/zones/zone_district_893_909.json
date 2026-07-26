@@ -5,7 +5,7 @@
   "bg_color": "#2b2b2b",
   "color": "#f5d400",
   "created_by": "zone-planner",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "description": "A circle of stained concrete scored with a faded H, ringed by landing lights that mostly still work. Tie-down rings are set into the pad at intervals, and the downwash has scoured the ground bare for ten metres in every direction. A windsock stands off to one side, more grey than orange now.",
   "exits": {
     "east": "zone_district_894_909",
     "south": "zone_district_893_910",
@@ -28,7 +28,8 @@
     "planner": "bp_district",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_roadside_junk",
-    "street_life": true
+    "street_life": true,
+    "terrain": "concrete"
   },
   "grid_x": 893,
   "grid_y": 909,

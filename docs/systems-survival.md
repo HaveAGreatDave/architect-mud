@@ -8,11 +8,13 @@ what the engine actually does today. Primary files: [gameLoop.js](../server/engi
 
 ## Hunger & thirst
 
-Driven by `resourceTick` (`gameLoop.js`), which runs once per minute via the scheduler. Each awake
-player carries a `_tickCounter`; decay is gated on it:
+Driven by `resourceTick` (`gameLoop.js`), which runs once per real minute via the scheduler. Each awake
+player accumulates the **game**-minutes elapsed this tick (`getTimeScale()`, carried fractionally in
+`player._gmAccum`) into `_thirstAccum` / `_hungerAccum`, and whole points drain off those — so the
+pacing below is in **game** minutes and scales with the game-speed knob:
 
-- **Thirst:** −1 every 3 minutes (`THIRST_DECAY_INTERVAL_MIN = 3`) → ~5 hours from full to empty.
-- **Hunger:** −1 every 4 minutes (`HUNGER_DECAY_INTERVAL_MIN = 4`) → ~6.7 hours from full to empty.
+- **Thirst:** −1 every 3 game-minutes (`THIRST_DECAY_INTERVAL_MIN = 3`) → ~5 game-hours from full to empty.
+- **Hunger:** −1 every 4 game-minutes (`HUNGER_DECAY_INTERVAL_MIN = 4`) → ~6.7 game-hours from full to empty.
 
 At ≤20 the player is warned ("very hungry/thirsty"). At 0:
 
@@ -26,16 +28,16 @@ and partially by sleep economics.
 
 Range 0–100. Three sources/sinks:
 
-- **Zone exposure on entry** (`commands/movement.js`): entering a zone with a `radiation` zone tag
-  (`zones.flags.radiation`, 0–100, read via `getZoneRadiation()` in `engine/zone-tags.js`) adds
-  `floor(radiation × 0.1)`, capped at 100. The legacy `radiation_level` column was dropped 2026-07;
-  its 1–5 values (which made the formula always 0 — zone radiation used to be cosmetic) were
-  rescaled ×10 into the tag, so rad zones now actually bite. Radiation ≥25/≥40 also floors the
-  zone's inferred danger to high/lethal (`engine/danger.js`).
-- **Natural decay** (`minuteTickFn`, `gameLoop.js`): −1/min normally, **−2/min while hydrated**
+- **Irradiated ground** (`irradiatedGround` + `minuteTickFn`, `gameLoop.js`): exposure is driven by
+  the tile, **not** by entering it — standing anywhere whose `radiation` zone tag is `> 0`
+  (`zones.flags.radiation`, 0–100, read via `getZoneRadiation()` in `engine/zone-tags.js`), or on a
+  transient `flags.void_crossing` room, trickles **+1 RAD every 10 minutes** and **suspends the
+  wash-out below**. Radiation ≥25/≥40 also floors the zone's inferred danger to high/lethal
+  (`engine/danger.js`).
+- **Natural decay** on clean ground (`minuteTickFn`): −1/min normally, **−2/min while hydrated**
   (the `hydrated` buff). A `player_update` is pushed to the client whenever radiation crosses a
   multiple of 10.
-- **`irradiated` status effect** (+2/tick) — defined but currently inert (see **Status effects**).
+- **`irradiated` status effect** (+2/tick) — defined but nothing applies it (see **Status effects**).
 
 Sustained radiation feeds the mutation system.
 
@@ -53,10 +55,6 @@ HellMOO-style, permanent, dev-panel editable, cached in memory at boot.
   `players.visibly_mutated`. In zones flagged `custodian_controlled`, visibly-mutated players get
   hostility text on look; if the zone also has `has_turrets`, `describeZone` fires a turret for
   6–14 damage on an 8-second per-player cooldown (floored so it can't kill).
-
-> **Known bug:** the in-memory live player object built at login ([index.js](../server/index.js))
-> does **not** copy `visibly_mutated` from the DB, so the outcast/turret mechanic only fires during the
-> same session in which the mutation was gained — it resets on reconnect. See the QA report.
 
 ## Drugs & addiction
 
@@ -113,7 +111,7 @@ for pre-existing drugs). Per-drug state lives in `player_drug_state` (`doses_in_
   full `handlePlayerDeath` path (corpse + vat respawn), clearing any active buff/trip. Non-lethal overdose
   keeps the legacy burst-penalty behaviour. `tickDrugDecayAll()` clears `doses_in_system` on a **half-life**
   (sheds `CEIL(doses × 0.25)` per minute once past `active_until`, so a heavy load falls away fast and the
-  last trace still terminates at zero on the integer column) — not the old flat `−1`/min step.
+  last trace still terminates at zero on the integer column).
 - **Addiction & withdrawal** — `addiction` accumulates per dose (`withdrawal.addiction_per_dose`, default
   the misleadingly-named `addiction_chance`, which is an **additive step, not a probability**) and decays
   over time. Dependency runs on **hysteresis**: it latches at `addiction ≥ 0.5` but only releases below
@@ -167,8 +165,7 @@ for pre-existing drugs). Per-drug state lives in `player_drug_state` (`doses_in_
   forever with no debuff and no message.
 - **Withdrawal drip** — `*_regen_per_sec` keys in `withdrawal.mods` are a per-second rate, not a ledger
   buff, and are applied by `applyWithdrawalDrip()` over the minute tick (`rate × severity × 60`), clamped
-  to the stat's cap and floored at 0. They used to be passed to `applyMods`, which wrote a nonexistent
-  `sanity_regen_per_sec` field nobody read — so an authored withdrawal bleed did nothing.
+  to the stat's cap and floored at 0. Never route them through `applyMods` — the ledger has no such field.
 - **Session boundaries** — `activeDrugs` and `pendingOnsets` are memory-only while doses/tolerance are
   persisted, so `clearActiveDrugBuffs(player)` reverses the ledger and drops both at logout **and** on
   session replacement (`player.sessionReplaced`, emitted in `server/index.js` because a reconnect never
@@ -272,10 +269,10 @@ Applied by the `use`/`eat`/`drink` command from item tags ([inventory.js](../ser
 
 - **Eligibility** (`getSleepEligibility`): your own apartment → best rest (`SLEEP_RESTORE_HOME` =
   18% HP / 15% sanity / 50% stamina of *missing* per minute); a `sanctuary`-tagged zone or someone's
-  unlocked apartment → shallower (`SLEEP_RESTORE_SAFE_ZONE` = 8% / 5% / 35%); anywhere else / a locked
-  apartment that isn't yours → can't sleep. **2026-07:** the `is_safe_zone` column (stamped on 61% of
-  zones by old builder defaults) was dropped WITHOUT conversion — sleeping in the open now requires a
-  deliberately-curated sanctuary, so until sanctuaries are tagged, rest means renting a room.
+  unlocked apartment → shallower (`SLEEP_RESTORE_SAFE_ZONE` = 8% / 5% / 35%); a zone that merely
+  `allowsSleep` (e.g. a holding cell) → the same shallow restore but **no** sanctuary protection;
+  anywhere else / a locked apartment that isn't yours → can't sleep. The `is_safe_zone` column was
+  dropped WITHOUT conversion, so sleeping in the open requires a deliberately-tagged `sanctuary`.
 - **Per minute asleep:** restore a slice of missing HP/sanity/stamina (stamina fastest — a good
   sleep leaves you rested well before your wounds knit or your head clears), drain 1 hunger + 1 thirst.
 - **Auto-wake** on any of: fully rested (HP **and** sanity **and** stamina full), hunger or thirst ≤ 5,
@@ -293,9 +290,9 @@ Two hidden float columns on the `players` row — `digestive_load` (bowel) and `
 
 - **Eating:** adds `restoreHunger × 0.5` digestive load (the `consumable` path **and** drugs that restore hunger).
 - **Drinking:** adds `restoreThirst × 0.6` hydration load (the `consumable` path **and** drugs that restore thirst).
-- **Natural decay:** −1 digestive / −2 hydration per minute (bladder clears faster than bowel).
+- **No natural decay.** Waste doesn't evaporate by waiting: load only rises with intake and falls when you relieve yourself (or overflow).
 
-**Threshold messages** (80–110) fire occasionally — every 3 minutes — as private ambient descriptions of increasing urgency, randomly selected from flavour pools. At >110 an **involuntary release** occurs with a zone-visible ambient message (no source attribution) and a dump to 0.
+**Threshold messages** (80–110) fire occasionally — every 3 minutes — as private ambient descriptions of increasing urgency, randomly selected from flavour pools. From digestive 60 an **involuntary fart** rolls each minute (~2%/min at 60 ramping to ~20%/min by 110) as a zone-audible warning. At >110 an **involuntary release** occurs with a zone-visible ambient message (no source attribution) and a dump to 0.
 
 `foodLoad(restoreHunger)` and `drinkLoad(restoreThirst)` are exported so the `use`/`eat`/`drink` path can apply load at the same time as it applies the hunger/thirst restore.
 
@@ -305,7 +302,7 @@ Two hidden float columns on the `players` row — `digestive_load` (bowel) and `
 
 `players.body_temp_c` (float, initialised to `37.0` on login in [index.js](../server/index.js)), drifted once per minute by `resourceTick` in [gameLoop.js](../server/engine/gameLoop.js) for each awake player. Clamped to **25–45°C** and rounded to one decimal. This is an **engine** system; the clothing fields it reads (`player.insulation`, `player.exposurePenalty`) are derived by `recomputeInsulation` in [inventory.js](../server/engine/commands/inventory.js), and the wetness field it reads (`player.wetness`) is owned by the clothing-wetness plugin (see below). The three must agree on those field names.
 
-**Ambient the body drifts toward.** `getZoneApparentTemperature(zoneId, tempOffset)` in [environment.js](../server/engine/environment.js) — the "feels like" temperature (diurnal + per-tile weather offset outdoors, or a stored interior temp indoors; wind chill + humidity folded in outdoors only). See the apparent-temperature detail in [systems-world.md](systems-world.md); the temperature tick does not re-derive the curves.
+**Ambient the body drifts toward.** `getZoneApparentTemperature(zoneId, tempOffset)` in [environment.js](../server/engine/environment.js) — the "feels like" temperature (diurnal + per-tile weather offset outdoors, or a stored interior temp indoors; wind chill + humidity folded in outdoors only). See the apparent-temperature detail in [systems-world.md](systems-world.md); the temperature tick does not re-derive the curves. A **submerged** swimmer (`player._submerged`, owned by the swimming plugin) drifts toward `waterTemperature(zone)` instead and counts as fully wet regardless of gear — see [systems-swimming.md](systems-swimming.md).
 
 **Clothing offsets.** Two effective temperatures are computed from the ambient:
 - `warmthTemp = effectiveAmbient + insulation − exposurePenalty` — used on the **cold** side.
@@ -349,10 +346,14 @@ Indoors, or when precipitation stops, items **dry** instead.
 
 ## Status effects
 
-[effects.js](../server/engine/effects.js) is a clean data-driven framework (`bleeding`, `burning`,
-`irradiated`, `choking`) that ticks every second. Its **first caller** is the extreme-weather ashfall
-hazard: `resourceTick` applies `choking` to unmasked players outdoors during `ash` weather (see
-[systems-weather-extreme.md](systems-weather-extreme.md) §4). `choking` drains stamina (−4/s), then HP
-(−2/s) once winded. The per-second tick now **persists and broadcasts** hp/stamina whenever an effect
-changes them (previously effect damage was invisible on the HUD until the minute tick). Wiring weapon
-`status_chance` and drug overdose into `applyEffect` remains the next intended use.
+[effects.js](../server/engine/effects.js) is a data-driven registry that ticks every second.
+`registerStatusEffect({ name, label, onTick })` is the extensibility seam — the engine ships
+`bleeding` / `burning` / `irradiated` / `choking`, and plugins add their own (`refreshed`, `sick` in
+bodily; `exhausted` in weightbench; `drowning` in swimming). `applyEffect(player, name, ticks)`
+applies or refreshes one; the per-second tick persists and broadcasts hp/stamina whenever an effect
+changes them.
+
+Live callers: `resourceTick` applies `choking` to unmasked players outdoors during `ash` weather (see
+[systems-weather-extreme.md](systems-weather-extreme.md) §4) — it drains stamina (−4/s), then HP
+(−2/s) once winded — plus the plugin effects above. Nothing applies `irradiated`; weapon
+`status_chance` and drug overdose are still unwired.

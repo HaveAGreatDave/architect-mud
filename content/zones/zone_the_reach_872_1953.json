@@ -20,7 +20,6 @@
   "exits": {
     "east": "zone_the_reach_873_1953",
     "north": "zone_the_reach_872_1952",
-    "south": "zone_the_reach_872_1954",
     "west": "zone_the_reach_871_1953"
   },
   "flags": {

@@ -1,9 +1,11 @@
 # Zone System Redesign — 2026-07
 
 Reference record of the zone re-imagining implemented 2026-07-09: what changed, why,
-the decisions and discoveries behind it, and what remains. All work is **local-only**
-until the prod runbook ([zone-cutover-runbook.md](zone-cutover-runbook.md)) is executed —
-delete that runbook (and trim the "Outstanding" section here) once it's done.
+the decisions and discoveries behind it, and what remains. **Shipped to prod in
+`e3e1b1b8` (2026-07-10)** — the four columns are dropped everywhere. Note that the
+358-zone `map_world` measured below was retired the next day (`c1f964e5`, 2026-07-11)
+and replaced by the district world; the substrate survived the swap, the zone counts
+did not.
 
 ## The problem
 
@@ -111,16 +113,33 @@ confirmed), Redline shows `[LETHAL] ☢ RAD:50` with real rad gain. `content:lin
 
 ## Outstanding
 
-1. **Prod rollout** — [zone-cutover-runbook.md](zone-cutover-runbook.md): run the migration
-   one-shot against prod **before** pushing (the push is the deploy that drops the columns).
-2. **Sanctuary curation** — until hubs are tagged, players can only sleep at home. The runbook
-   prints the 218-zone shortlist; the Maps "Paint Safe Zones" tool now paints sanctuary.
-3. **Triage the 112 lint gaps** (`node tools/zone-planner/lint.mjs`) — each line has a
-   paste-ready exit fix.
-4. **Review** `zone_deep_deepmaw` / `zone_deep_gasp`: authored high, spawns infer low — beef
-   spawns or add a `danger` tag.
-5. Known-stale one-shot seeds that reference dropped columns (listed in the runbook) — historical,
-   only matter if re-run.
+1. **Sanctuary curation — never done, and the spawn point is the hole.** Decision 1 dropped
+   `is_safe_zone` with no conversion on the promise of a manual curation pass. That pass has not
+   happened: **10 zones carry `sanctuary`, and all 10 are interiors on two interior maps** —
+   `map_int_longwatch` (`zone_lw_entry` "The Threshold", commons, bunkroom, ops, quartermaster) and
+   `map_int_solenne` (Solenne lobby, elevator, residences, gym, sky deck). **Zero of the 5,439
+   `map_world` tiles is a sanctuary**, and neither complex is where players arrive.
+
+   The sharp end: **`zone_start` (Coldwater Clone Facility) — where every character is born and
+   where every death respawns them — has neither `sanctuary` nor `allow_sleep`.** Since sanctuary
+   is what publishes zone protection (`world.js:57`) and suppresses hostile spawns
+   (`world.js:450,1093`), the respawn point is a legal PvP kill box that enemies may spawn into.
+   Tagging `zone_start` is the one-tag fix and should precede any broader pass.
+
+   Sleep is less starved than the count suggests — `getSleepEligibility`
+   (`apartments.js:683-721`) grants safe-zone-rate rest in **any unowned apartment unit** (an
+   unrented unit is always unlocked, so its lock never bars sleep), and 116 zones are
+   `is_apartment`. The newer `allow_sleep` tag (`zone-tags.js:29`) grants rest *without* the
+   protection bundle and is on exactly two zones (`zone_lw_bunk`, `zone_mq_precinct_holding`).
+
+   Curate against the district world with the Maps "Paint Safe Zones" tool, which paints
+   `sanctuary`. The 218-zone shortlist is moot — those zones are gone.
+2. **Re-run the connectivity lint** (`node tools/zone-planner/lint.mjs`) — each line has a
+   paste-ready exit fix. The measured 112 gaps were on the retired `map_world`; the district
+   world's count is unmeasured.
+3. Known-stale one-shot seeds still INSERT the dropped columns and would error if re-run:
+   `scripts/seed-hangar-interiors.js`, `seed-surveillance-vendor.js`, `seed-furniture-store.js`,
+   `seed-clothing-store.js`, `seed-wanted-police.js`, and everything under `server/models/temp/`.
 
 ## Doc trail
 

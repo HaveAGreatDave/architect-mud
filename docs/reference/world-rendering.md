@@ -41,9 +41,13 @@ unless noted.
    - `ent` — entrance door face (so the model can orient its frontage).
    - `mark` — bespoke standalone landmark channel: `'yacht'`, `'statue'`, or `'gate'` (the perimeter
      gate / South Gate) — drawn by their own renderers, independent of `bt`/`bn`.
-   - `road`, `sub`, `wake`, `heading`, `icon`, `cur`, `pf` — extras: road/water/movement, plus `cur`
-     (the Curtain wall run axis, from `curtainRun()`, on `flags.curtain`/`perimeter_gate` tiles) and
-     `pf` (the park-feature dressing selector, from `flags.park_feature`).
+   - `road`, `sub`, `wake`, `heading`, `rd`, `cur`, `pf`, `ft`, `flr`, `danger` — extras:
+     road/water/movement, plus `rd` (the road-piece connector `ns`/`ne`/`nesw`…, parsed off the
+     tile's `flags.icon` suffix or auto-tiled from neighbours), `cur` (the Curtain wall run axis,
+     from `curtainRun()`, on `flags.curtain`/`perimeter_gate` tiles), `pf` (the park-feature
+     dressing selector, from `flags.park_feature`), `ft` (field/surface theme) and `flr`
+     (`flags.floors` → extrusion height). The authoritative shape is the `row.push({…})` at
+     [`state.js:687`](../../plugins/flight/state.js).
    - Tile precedence when two zones share a grid tile: yacht > airfield/building > road (see
      `state.js` — a landmark must outrank a road or it gets clobbered).
 
@@ -128,7 +132,8 @@ blade paints the real venue name for free; pass `''` to force the old abstract "
 you add any new world sign, use `drawSurfaceText`; do not `fillText` onto the scene.**
 
 **The one carve-out — HUD / instrument text STAYS billboarded.** Airfield ID + distance tags
-(`drawFieldMarker`), bogey reg/range labels, ring numbers, the ⚠ weather band, heading tape and hull
+(drawn inline off `v.airports` on the heading tape, windshield.js:1642), bogey reg/range labels,
+ring numbers, the ⚠ weather band, heading tape and hull
 readout are cockpit-*glass* overlays, not world objects — they are deliberately screen-space and
 upright so they stay legible at any attitude. Those keep their `fillText`. The test: does the text
 belong to a **surface in the world** (→ `drawSurfaceText`) or to the **instrument panel over the
@@ -143,9 +148,9 @@ texture (lit windows at night), `roofTex` a lighter roof. To give a model a dist
 ## Occlusion / draw order — the depth-sorted face queue
 
 A 2D canvas has **no depth buffer**, so order is painter's algorithm (back→front). It runs as **one
-shared face queue for the whole world pass** (was a per-building queue — that only ordered a building
-against itself, so two *adjacent* tall buildings whose footprints overlap in depth could paint through
-each other; the "overlapping buildings / bad culling" look on dense clusters):
+shared face queue for the whole world pass** — a per-building queue only orders a building against
+itself, which lets two *adjacent* tall buildings whose footprints overlap in depth paint through each
+other (the "overlapping buildings / bad culling" look on dense clusters):
 
 - `drawWorldObjects` opens **one** sink with `beginFaces()` before the tile loop and paints it with a
   single `flushFaces()` after. While a sink is active the drawing primitives don't paint immediately —
@@ -161,14 +166,13 @@ each other; the "overlapping buildings / bad culling" look on dense clusters):
   internally ordered as before, just positioned correctly among the buildings.
 - The **shadow pre-pass** and ground decals draw *before* `beginFaces` / the flush, so they stay under
   everything.
-- **Decorations carry real depth (`decoDepth`)**: glows, beacons, masts, signs, light-runners and holo ads
-  used to queue at `ON_TOP` (−∞) so they painted last *globally* — which meant a decoration on a **far**
-  tower bled straight through any **nearer** building in front of it (the "lights from another building
-  showing through this one" bug). They now emit at `decoDepth(...anchorF)` = the decoration's own camera
-  distance lifted `DECO_LIFT` (0.6) tiles forward: still on top of its **own** host walls (which span ±~0.44
-  tile), but a building ≳1 tile closer now correctly occludes it. Add a new adornment with a shared helper
-  (`glowPool`/`blinkLight`/`mast`/…) — they already call `decoDepth`. For a bespoke inline glow/line, pass
-  `decoDepth(<anchor point>.f)` (not `ON_TOP`) so it sorts against neighbours too.
+- **Decorations carry real depth (`decoDepth`)**: glows, beacons, masts, signs, light-runners and holo
+  ads emit at `decoDepth(...anchorF)` = `min(f) - DECO_LIFT` (0.6 tiles forward, windshield.js:3135) —
+  still on top of their **own** host walls (which span ±~0.44 tile), but a building ≳1 tile closer
+  correctly occludes them. **Never paint a decoration last-globally**: that's what makes a far tower's
+  lights bleed through a nearer building in front of it. Add a new adornment with a shared helper
+  (`glowPool`/`blinkLight`/`mast`/…) — they already call `decoDepth`. For a bespoke inline glow/line,
+  pass `decoDepth(<anchor point>.f)` so it sorts against neighbours too.
 
 Rules for anyone adding to a building model:
 - **Geometry** (`draw3DBoxAt`, `drawFacetDrum`, `drawBarrelRoof`, and the shared decoration helpers —
@@ -178,9 +182,8 @@ Rules for anyone adding to a building model:
 - **Any inline `ctx` draw inside a model `case`** (a bespoke gable, a dome disc, a door) MUST be wrapped
   in `emitFace(depth, () => { …ctx ops… })`, or it will paint *before* the flushed geometry (i.e. behind
   the building). Use the real camera depth (average projected `.f` of its points) for opaque parts so
-  they sort correctly; use `ON_TOP` (−∞, drawn last) for glows/lights/thin overlays that should always
-  sit on top of their own building. Ground decals (apron paint at z≈0) can stay unwrapped — drawing them
-  before the flush correctly puts them under the building.
+  they sort correctly, and `decoDepth(...)` for glows/lights/thin overlays. Ground decals (apron paint
+  at z≈0) can stay unwrapped — drawing them before the flush correctly puts them under the building.
 - Outside the world pass (`FACE_SINK` null — the Helm chase yacht, deck backdrop, HUD) every `emitFace`
   paints immediately, so those paths are unaffected. Painter's order still can't resolve genuinely
   interpenetrating geometry, but buildings here don't interpenetrate.
@@ -232,12 +235,12 @@ model or you'll get two.
 
 ## Gotchas
 
-- **No cache-busting on assets.** Scripts load as ES modules; the dev server (`server/index.js`)
-  serves them `Cache-Control: no-cache` + `Last-Modified` (fresh `readFileSync` per request), so a
-  correct browser never shows stale JS on localhost. Persistent "old build" symptoms usually mean:
-  a leftover **service worker from another localhost app** (bypasses hard-refresh — check DevTools →
-  Application → Service Workers), Opera Turbo/VPN proxying, or you're viewing the **deployed** URL
-  not your local edits.
+- **No cache-busting on assets.** Scripts load as ES modules; asset URLs never change. `server/index.js`
+  (line 254) serves `.html` as `Cache-Control: no-cache` but **every JS/CSS asset as
+  `public, max-age=60`** — so an already-open page can be up to a minute stale after an edit. Beyond
+  that minute, persistent "old build" symptoms usually mean: a leftover **service worker from another
+  localhost app** (bypasses hard-refresh — check DevTools → Application → Service Workers), Opera
+  Turbo/VPN proxying, or you're viewing the **deployed** URL not your local edits.
 - **UTF-8 glyphs** — this file (like `index.html`) uses box-drawing/emoji; preserve UTF-8, no BOM.
 - **What you see is what you can hit.** Building height comes from `floorHeight`/`bldgStyle`, the
   same value the CFIT collision sweep reads. Keep rooftop adornments visual-only; don't change the
@@ -258,13 +261,12 @@ SELECT flags->>'building_type' bt, array_agg(DISTINCT flags->>'building_name')
  GROUP BY 1 HAVING count(DISTINCT flags->>'building_name') > 1;
 ```
 
-Five Yards pairs were resolved in 2026-07 by promoting the more characterful half of
-each pair to a `NAMED_MODELS` entry with its own `drawTypeModel` case, leaving the twin
-on the generic type model: **Coldline Reefer Depot** (`reefer`), **Interchange Stack**
-(`interstack`), **Ferro Fabrication Works** (`foundry`), **Meltwater Freight Office**
-(`oldoffice`), **Customs Bonded Store 7** (`bonded`). **The Neon Vig** (`neonvig`) was
-promoted off `casino` in the same pass so a future casino still has a generic to fall
-back on.
+The fix is to promote the more characterful half of a pair to a `NAMED_MODELS` entry
+with its own `drawTypeModel` case, leaving the twin on the generic type model — as with
+**Coldline Reefer Depot** (`reefer`), **Interchange Stack** (`interstack`), **Ferro
+Fabrication Works** (`foundry`), **Meltwater Freight Office** (`oldoffice`), **Customs
+Bonded Store 7** (`bonded`) and **The Neon Vig** (`neonvig`, promoted off `casino` so a
+future casino still has a generic to fall back on).
 
 **A weaker tier still exists and is deliberate:** several `NAMED_MODELS` entries share a
 `type` and differ only by `pal`/`neon` — same silhouette, different colours. Today that's

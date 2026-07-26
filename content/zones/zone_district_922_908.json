@@ -10,7 +10,7 @@
     "east": "zone_district_923_908",
     "north": "zone_district_922_907",
     "south": "zone_district_922_909",
-    "west": "zone_district_920_911"
+    "west": "zone_district_921_908"
   },
   "flags": {
     "district": "wasteland",
@@ -18,7 +18,8 @@
     "planner": "bp_district",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_roadside_junk",
-    "street_life": true
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 922,
   "grid_y": 908,

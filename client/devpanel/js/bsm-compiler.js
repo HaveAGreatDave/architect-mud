@@ -242,7 +242,7 @@ function compileBsm(text) {
 
     // ── TECH_DIFFICULTIES — channel offline graphic for N seconds ───────────
     if (ln.startsWith('TECH_DIFFICULTIES ')) {
-      makeNode({ type: 'tech_difficulties', duration: parseFloat(ln.slice(19)) || 10 });
+      makeNode({ type: 'tech_difficulties', duration: parseFloat(ln.slice(18)) || 10 });
       i++; continue;
     }
 

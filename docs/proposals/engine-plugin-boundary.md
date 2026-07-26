@@ -2,6 +2,25 @@
 
 **Status: Phases 0–2 built (ghost deferred); Phase 3 partially built — protection substrate + AI node registry done, vendor-life and housing extractions next.** Produced 2026-07-02 from a full audit of `server/engine/` (~17,600 lines).
 
+> **Inherited backlog (added 2026-07-24).** This doc supersedes the earlier
+> [reference/plugin-architecture-analysis.md](../reference/plugin-architecture-analysis.md)
+> (2026-06-21/22), whose nine-item roadmap has since resolved six ways. Its **three unresolved
+> items** are recorded here so they don't die with a doc nobody reads — all three verified still
+> open on 2026-07-24:
+> - **Drug/mutation effects never unified with `effects.js`.** `server/engine/drugs.js:583` keeps a
+>   local `applyEffects` applying stat deltas its own way, parallel to the engine's `applyEffect`.
+>   Two applicators, slightly different semantics — the older doc called this out and it survived
+>   the extraction to `plugins/drugs/`.
+> - **No dev-panel UI registration.** A plugin still cannot add a tab or a panel section; every
+>   dev-panel feature is a hand edit to `client/devpanel/`. The 2026-06 pass called this the
+>   highest-leverage missing API for this codebase specifically, and it is still unbuilt.
+> - **Power-grid simulation still in the engine.** `simulatePowerNetwork`
+>   (`server/engine/environment.js:1217`) is a self-contained sim that reacts to ticks — a plugin
+>   shape by the litmus tests in §2. Routes stay core either way.
+>
+> Everything else from that doc landed: `engine/economy.js` + `adjustCredits`, `engine/inventory.js`,
+> `player.create`/`login`/`logout` hooks, and the lighting/crafting/drugs plugins.
+
 > **Phase 3 log (2026-07-02):**
 > - **Protection substrate built** — `engine/protection.js` (`registerProtectionProvider`/`getZoneProtection`,
 >   sync-by-contract provider chain). apartments.js publishes forcefields through it; the four law sites

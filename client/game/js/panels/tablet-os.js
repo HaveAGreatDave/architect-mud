@@ -3066,13 +3066,20 @@ function _mapHexRgb(hex) {
 function _mapIsBldg(t) {
   return !!(t.building_type || t.building_name);
 }
-// Two-letter code for a building tile: initials of its first two words, else the
-// first two letters of a single-word name. Upper-cased.
+// The code a building tile wears in Labels mode: the AUTHORED zones.marker, and
+// nothing else. That column exists to be the tile's map glyph; deriving one here meant
+// the authored value rendered nowhere while this map and the sidebar minimap derived
+// two DIFFERENT codes from the same name ("Hall of Records" → "HO" here, "HA" there,
+// authored "HR" on neither).
+//
+// Derivation now happens ONCE at authoring time (the dev panel stamps a suggested
+// acronym when it converts a tile into a facade), so a building with no marker
+// deliberately draws no letters — a gap the map audit reports (MARK-2/MARK-4) rather
+// than a code that differs per screen. An unmarked room inside a building draws
+// nothing for the same reason it always should have: it inherits flags.building_name
+// from its parent, so a derived code stamped the parent's acronym on every room.
 function _mapBldgCode(t) {
-  const name = String(t.building_name || t.name || '').trim();
-  const words = name.split(/[\s/&-]+/).filter(Boolean);
-  const code = words.length >= 2 ? words[0][0] + words[1][0] : name.replace(/[^a-z0-9]/gi, '').slice(0, 2);
-  return code.toUpperCase() || '··';
+  return String(t.marker || '').trim() || null;
 }
 function _mapTileSym(t) {
   if (t.isCurrent) return '<span class="mt-icon">◉</span>';
@@ -3548,7 +3555,11 @@ function renderMap(d) {
       const fill = (terrain === 'water' || terrain === 'grass') ? (t.bg_color || TOS_TERRAIN_FILL[terrain]) : TOS_TERRAIN_FILL[terrain];
       style += `background-color:${fill};`;
       cls.push('terr', 'terr-' + terrain);
-      sym = '';
+      // Terrain paints the GROUND, so an authored zone-icon SVG standing on it (a
+      // statue, a helipad, an AA nest) survives the fill — only the POI glyph, which
+      // is a landmark hint for the adjacent street rather than this tile's own
+      // footprint, drops for a clean expanse.
+      if (!t.isCurrent && !t.svg) sym = '';
     }
     // Regional view tints each non-terrain tile by land-use function, like the popup.
     else if (mode === 'regional' && FUNC_LEGEND[t.func]) {
@@ -3567,7 +3578,8 @@ function renderMap(d) {
     else if (t.curtain) cls.push('tos-curtain');
     else if (t.glacis) cls.push('tos-glacis');
     // Label mode: stamp the building's two-letter code over its tile (hides the icon).
-    const code = _tosMapLabels && _mapIsBldg(t) ? `<span class="mt-code">${esc(_mapBldgCode(t))}</span>` : '';
+    const _bc = _tosMapLabels && _mapIsBldg(t) ? _mapBldgCode(t) : null;
+    const code = _bc ? `<span class="mt-code">${esc(_bc)}</span>` : '';
     grid += `<div class="${cls.join(' ')}" style="${style}" data-map-zone="${esc(t.id)}" title="${esc(t.name)}">${badges}${code || sym}${ent}${exits}</div>`;
   }
   // GPS route line: an accent polyline through route tile centres, laid over the grid

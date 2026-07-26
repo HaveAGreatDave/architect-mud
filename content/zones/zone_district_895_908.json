@@ -7,9 +7,7 @@
   "created_by": "zone-planner",
   "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
   "exits": {
-    "east": "zone_district_896_908",
-    "north": "zone_district_895_907",
-    "south": "zone_district_895_909",
+    "east": "zone_voltage_floor",
     "west": "zone_district_894_908"
   },
   "flags": {
@@ -29,7 +27,7 @@
   "grid_z": 0,
   "id": "zone_district_895_908",
   "map_id": "map_world",
-  "marker": "#",
+  "marker": "VO",
   "name": "Voltage",
   "parent_zone": null,
   "updated_at": "1783739474"

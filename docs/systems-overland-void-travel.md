@@ -1,12 +1,10 @@
 # Overland Void Travel — crossing the waste between regions on foot
 
-**STATUS: BUILT** (`plugins/voidwalking/`) — the header below said "DESIGN ONLY. Nothing built." long
-after the plugin shipped; corrected 2026-07-21. Sections marked **BUILT** describe live behaviour; the
-scoping notes near the bottom are historical. This began as a workshopped design (2026-07-20) for letting
-players travel *on foot* between [regions](reference/land-taxonomy.md#region--the-spatial-place-renamed-2026-07-19-from-district)
-that are otherwise only reachable by air. It reuses the survival, weather, danger, and perimeter
-systems already shipped; the only genuinely net-new engine work is a movement seam + a deterministic
-crossing generator (scoped at the bottom).
+**STATUS: BUILT** (`plugins/voidwalking/`). Sections marked **BUILT** describe live behaviour;
+everything else is the design intent behind it. The system lets players travel *on foot* between
+[regions](reference/land-taxonomy.md#region--the-spatial-place-renamed-2026-07-19-from-district)
+that are otherwise only reachable by air, reusing the survival, weather, danger, and perimeter
+systems already shipped.
 
 Related: [[project_wildlands_curtain]] (the near leg), [[project_the_reach]] (first destination),
 [docs/systems-survival.md](systems-survival.md), [docs/systems-weather-extreme.md](systems-weather-extreme.md),
@@ -42,12 +40,13 @@ persists almost nothing:
 - **Geometry** (rooms, branches, terrain, rad bands, rest sites, loot detours) is derived from the
   **route + window seed** (see below). Given the seed and your position, the current room is
   reconstructable at any time.
-- **Per-player state** is four scalars in `player_flags`: `crossing_route`, `crossing_window`,
-  `crossing_node` (where you are in the branch graph), and a small carried salt for live rolls.
-- **Relog-safe by construction:** log out mid-void, log back in, the engine re-derives your current
-  room from the seed + `crossing_node` and drops you back in it. Nothing about the void geometry is
-  stored, so nothing can desync.
-- **Death** clears the four flags → normal clone-vat respawn. The run simply evaporates.
+- **Per-player state** is five scalars in `player_flags` (written/cleared in one batched
+  upsert/DELETE): `crossing_void`, `crossing_window`, `crossing_origin`, `crossing_instance`, and
+  `crossing_room` — the current room id, flushed lazily on logout, not per step.
+- **Relog-safe by construction:** log out mid-void, log back in, the plugin re-derives the instance
+  from `crossing_instance` and replaces you at `crossing_room` (the deterministic graph regenerates
+  identical room ids). Nothing about the void geometry is stored, so nothing can desync.
+- **Death** clears the five flags → normal clone-vat respawn. The run simply evaporates.
 
 This honors the project rule against new content in the DB and against per-tick DB writes: the void is
 computed, not queried.
@@ -129,15 +128,13 @@ something new. **Navigation itself becomes a mastered-and-re-lost skill, not jus
 diverging limbs keyed to each adjacent destination) rather than independent per-route maps. It buys the
 only version where the *destination* is part of the unknowable void the community charts weekly.
 
-**BUILT (branch `void-travel`):** a void is now a **`VOIDS[regionId] = { trunk, dests[] }`** graph owned
-by a region — a shared **trunk** (config room count) that forks toward each destination in that dest's `dir`
-(n/s/e/w), then a distance-derived **limb** per region down to its real edge tile. The fork is the real
-choice — hold your heading down one limb, or **divert** down another to a different region. Detours hang off shared-trunk
-rooms. Persist `crossing_room` (the current room id) not a node index — the deterministic graph
-regenerates identical ids, so relog just replaces you at your room. Void `region_coldwater` forks to
-**The Reach** (south) and **Exodus** (east). Regress proves both limbs reach their region and that you
-can divert at the fork. Still N/S/E/W only (engine has no diagonals) and single-fork (not yet nested
-forks). Regress 1284/1284.
+**BUILT:** a void is a **`VOIDS[regionId] = { origin, trunk, dests[] }`** graph owned by a region — a
+shared **trunk** (config room count) that forks toward each destination in that dest's `dir` (n/s/e/w),
+then a distance-derived **limb** per region down to its real edge tile. The fork is the real choice —
+hold your heading down one limb, or **divert** down another to a different region. Detours hang off
+shared-trunk rooms. Void `region_coldwater` forks to **The Reach** (south) and **Exodus** (east).
+Regress proves both limbs reach their region and that you can divert at the fork. Still N/S/E/W only
+(the engine has no diagonals) and single-fork (no nested forks).
 
 ### Where the graph lives — authoring vs. seeing
 
@@ -166,15 +163,15 @@ The adjacency graph has two surfaces, and they are different things (SSOT vs. vi
 gate, or survived. The frontier map fills in as you explore; a route's current-window danger/trace
 intel is likewise earned by scouting or asking, not handed over. Discovery is a real progression layer.
 
-**BUILT (Slice 6, branch `void-travel`):** the `VOIDS` config gained an `origin` region per void, and the
-adjacency graph is now player-visible two ways: **(1) the frontier readout** — the `frontier` verb
-anywhere in a void-region reads out the reachable regions (*"the trail splits toward The Reach, Exodus"*); **(2)
-the Tablet Frontier app** (`tablet/frontier-app.js`, 🧭) — an abstract topology (origin regions → routes),
-*not* the grid, rendered from `frontierView(player)`. **Fog is per-player state** in a `frontier_log`
-flag (`routeId → charted|survived`): reading a gate or striking out **charts** a route; arriving at a
-region **upgrades** it to *survived*. Written only on discovery/arrival (rare). Still a **list**, not a
-graphical node-and-edge diagram (that'd need custom client rendering); the window ghost-trace intel
-overlay is future. Regress 1305/1305.
+**BUILT:** each void carries an `origin` region, and the adjacency graph is player-visible two ways:
+**(1) the frontier readout** — the `frontier` verb anywhere in a void-region reads out the reachable
+regions (*"the trail splits toward The Reach, Exodus"*); **(2) the Tablet Frontier app**
+([`plugins/tablet/frontier-app.js`](../plugins/tablet/frontier-app.js), 🧭) — an abstract topology
+(origin regions → routes), *not* the grid, rendered from `frontierView(player)`. **Fog is per-player
+state** in a `frontier_log` flag (`routeId → charted|survived`): reading a gate or striking out
+**charts** a route; arriving at a region **upgrades** it to *survived*. Written only on
+discovery/arrival (rare). Still a **list**, not a graphical node-and-edge diagram; the window
+ghost-trace intel overlay is not built.
 
 ---
 
@@ -198,15 +195,15 @@ Movement is through a **branching graph**, forward-biased, with meaningful forks
   unknowable within a fresh window; that's where the dread lives. (Ghost-traces are how the community
   gradually converts blind gambles into informed ones over the week.)
 
-**BUILT (Slice 2, branch `void-travel`):** a **safe spine** (the linear distance-derived chain) plus
-seeded **risk-for-loot detours** — off interior rooms, a lateral `west` exit into a dead-end gamble
-room (a half-buried wreck, a collapsed bunker; `east` is the only way back out). Detours carry a **higher
-encounter chance** (`0.7` vs `0.45`) and are where Slice 5's salvage will live; their description is a
-**blind gamble** ("salvage, maybe; a grave, maybe; both, maybe"). Seeded per `(route, window, node)` so
-the forks are the same for everyone this window; **guaranteed ≥1 per crossing** so the choice always
-shows up. Entering a detour is *not* progress (no node advance) and the instance reference-counts +
-tears down detour rooms too. Still linear-spine + detours, not yet a full multi-destination *braid*
-(that needs 2+ adjacent routes — the adjacency graph). Regress 1288/1288.
+**BUILT:** a **safe spine** (the distance-derived chain) plus seeded **risk-for-loot detours** — off
+interior rooms, a lateral `west` exit into a dead-end gamble room (a half-buried wreck, a collapsed
+bunker; `east` is the only way back out). Detours carry a **higher encounter chance**
+(`DETOUR_ENCOUNTER_CHANCE 0.7` vs `ENCOUNTER_CHANCE 0.45`; a seeded hard node runs
+`HARD_ENCOUNTER_CHANCE 0.85`) and hold the richer salvage tiers; their description is a **blind
+gamble** ("salvage, maybe; a grave, maybe; both, maybe"). Seeded per `(route, window, node)` so the
+forks are the same for everyone this window; **guaranteed ≥1 per crossing** so the choice always shows
+up. Entering a detour is *not* progress (no node advance) and the instance reference-counts + tears
+down detour rooms too.
 
 ### Risky rest sites
 
@@ -233,7 +230,7 @@ The full bestiary, rolled per step:
 - **The void itself** — environmental set-pieces as "encounters": sinkholes, chem pools, a collapsed
   overpass, a turret-ghost still tracking. *(Not yet built — creature encounters are.)*
 
-**BUILT (Slice 2, branch `void-travel`):** on **first arrival** at a non-threshold room a **live roll**
+**BUILT:** on **first arrival** at a non-threshold room a **live roll**
 (`ENCOUNTER_CHANCE 0.45`) spawns a **real enemy** from the void roster (`spawnEnemySync` → the normal
 combat/AI systems take over — actual fights, real loot on the corpse). The roster is a curated pool of
 committed wasteland foes (ash crawlers, rad/bloated mutants, feral dogs, wire jackals, scavengers,
@@ -241,7 +238,7 @@ scrap pickers, sprawl gangers, slag wretches), loaded once from the `enemies` ta
 per step (private/fresh over the shared geometry — "same map, different war"). The crossing
 reference-counts what it spawned and **despawns on teardown** (no foe leaks into a torn-down instance);
 a room already holding an enemy never stacks another. Environmental "the void itself" hazards + the
-retreat-re-rolls-hot rule are still pending. Regress 1283/1283.
+retreat-re-rolls-hot rule are **not built**.
 
 ### Death and the trace it leaves
 
@@ -251,7 +248,7 @@ that *other crossers this window can find and loot*. You die for keeps; your gea
 else's fortune and a marker on the community's slowly-drawn map. (A small **traces** table keyed to
 `(route, window, node)` is the only persistent void state besides player flags.)
 
-**BUILT (Slice 3, branch `void-travel`):** the dead are your map. Two trace kinds, keyed by
+**BUILT:** the dead are your map. Two trace kinds, keyed by
 `(void_key, window, room_salt)` — the salt (`t2`/`reach1`/`d_t2`, carried on `flags.void_salt`) pins a
 trace to the same room across **every private instance this window** (async presence, no live
 collision — the bloodstain model):
@@ -266,7 +263,7 @@ Both surface on room entry ("*Scratched into the ground, four letters: RUN*" / "
 the dust — what's left of Kaz, killed by a rad-mutant.*"). **Near-zero DB** exactly as specced: one
 INSERT per scrawl/death (rare), reads served from a per-`(void, window)` **RAM cache**, stale windows
 purged on load. Void rooms are `flags.lawless` (die out here → clone-vat, never jail). Table:
-`void_traces` (runtime-classified). Regress 1288/1288.
+`void_traces` (runtime-classified).
 
 ### Departure: free to die
 
@@ -274,55 +271,50 @@ Entering is **passive** — the threshold gives a warning read ("you carry 1 wat
 far") and then **lets you walk in and perish.** No hard supply gate. The player's funeral. Agency over
 hand-holding.
 
-**BUILT (branch `void-travel`; region-edge model 2026-07-20):** the void is owned by a whole **region**,
-keyed by `flags.region_id` — `VOIDS` is indexed by region (`region_coldwater`), not a bespoke per-tile
-flag. **One way in: walk out of the world.** A cardinal step off a boundary tile fires the generic engine
-hook **`movement.edge`** (added in `cmdMove`'s no-exit branch), which the plugin answers by opening the
-muster. The whole rim of a region is porous — there is no special gate tile. (The earlier
-`flags.void_gate` / `flags.void_dir` per-tile model was retired: no zone ever actually carried it, and
-the South Gate is a plain `checkpoint`, not the void entry.) The `movement.edge` seam is a law that names
-no system — any edge-of-map transition can use it.
+**BUILT:** the void is owned by a whole **region**, keyed by `flags.region_id` — `VOIDS` is indexed by
+region (`region_coldwater`), not a bespoke per-tile flag. **One way in: walk out of the world.** A
+cardinal step off a boundary tile fires the generic engine hook **`movement.edge`** (from `cmdMove`'s
+no-exit branch), which the plugin answers by opening the muster. The whole rim of a region is porous —
+there is no gate tile, and no `flags.void_gate`. The `movement.edge` seam is a law that names no
+system: any edge-of-map transition can use it.
 
-**The rim is missing TILES, not missing exits (corrected 2026-07-21).** The first cut treated *any*
-no-exit move as the edge, which made all 483 world tiles that sit beside a neighbour they don't connect
-to — building facades, water margins — into void gates; bumping a wall inside the city opened the muster.
-`isMapRim(zone, direction)` now resolves the neighbouring **coordinate** on the same `map_id`/`grid_z` and
-only counts it as the rim when no tile exists there at all. Both landmasses are hole-free rectangles
-(Coldwater 863-955 × 896-947, The Reach 903-922 × 976-995), so the geometric boundary is 362 tiles.
+**The rim is missing TILES, not missing exits.** `isMapRim(zone, direction)` resolves the neighbouring
+**coordinate** on the same `map_id`/`grid_z` and counts it as rim only when no tile exists there at
+all. Do not equate "no exit that way" with "edge of the world" — 483 world tiles sit beside a
+neighbour they simply don't connect to (building facades, water margins), and treating those as rim
+opens the muster when you bump a wall downtown. Both landmasses are hole-free rectangles
+(Coldwater 863-955 × 896-947, The Reach 903-922 × 976-995) → 362 boundary tiles.
 
 **Water is not the rim.** You cross the waste on foot, so a tile whose `zoneTerrain` reads `water` has no
-rim in any direction — no line, and no way in. This matters more than it sounds: the *entire* northern
-edge of Coldwater (all 93 tiles of row y=896) is Coldwater Basin, plus 16 more down the east and west
-water margins. **109 of the 362 boundary tiles are open water, leaving 253 real land rim tiles.** Whatever
-is past the far shore belongs to boats and the leviathan, not to the void.
+rim in any direction — no line, and no way in. The *entire* northern edge of Coldwater (all 93 tiles of
+row y=896) is Coldwater Basin, plus 16 more down the east and west water margins. **109 of the 362
+boundary tiles are open water, leaving 253 real land rim tiles.** Whatever is past the far shore belongs
+to boats and the leviathan, not to the void.
 
-**Salvage pays for the walk (rebalanced 2026-07-21).** `sift` fires once per room against a
-three-tier `LOOT` table (spine rolls tiers 1–2, detours 2–3). The first cut was 4/4/3 items with
-`item_scrap_metal` — which vendors buy for **₵0** — on tier 1, so a place that spawns enemy packs and
-eats your corpse frequently paid nothing, and when it paid, it paid the same roadside junk you can
-scavenge free on the spawn tile. Now:
+**Salvage pays for the walk.** `sift` fires once per room against a three-tier `LOOT` table (spine
+rolls tiers 1–2, detours 2–3):
 
-| tier | diff | before | after |
-|---|---|---|---|
-| 1 staples | 4 | 4 items, ~₵4.8 | **11 items, ~₵7.9** |
-| 2 salvage | 8 | 4 items, ~₵7.5 | **20 items, ~₵16.1** |
-| 3 rare | 12 | 3 items, ~₵63.3 | **6 items, ~₵75.1** |
+| tier | diff | pool |
+|---|---|---|
+| 1 staples | 4 | 11 items, ~₵7.9 |
+| 2 salvage | 8 | 20 items, ~₵16.1 |
+| 3 rare | 12 | 6 items, ~₵75.1 |
 
 Entries are `[itemId, maxQty]` and the quantity rolls `1..maxQty`, so staples and bulk materials can
-come up as a real haul. A **near miss** (`margin >= NEAR_MISS`, −4) now yields a tier-1 scrap instead
-of nothing — a flat miss was a dead 3.5s in a room that can kill you. The regress `setSalvage` override
+come up as a real haul. A **near miss** (`margin >= NEAR_MISS`, −4) yields a tier-1 scrap rather than
+nothing — a flat miss is a dead 3.5s in a room that can kill you. The regress `setSalvage` override
 stays a hard pass/fail so the dud path is still testable.
 
-**Widen the small/medium band, never tier 3.** The first pass at this added ₵20-ish odds and ends to
-tier 3 and *lowered* its average from ₵63 to ₵40 — quietly nerfing the scrap-pistol roll (the payoff
-for the hardest check) while appearing to add rewards. Those items belong in tier 2. Tier 3 stays
-narrow and high.
+**Two balance rules that bind when editing `LOOT`:** nothing worth ₵0 (e.g. `item_scrap_metal`, which
+vendors won't buy) goes in a tier the spine can roll, or the void pays nothing for the risk it charges;
+and **widen tiers 1–2, never tier 3** — adding ₵20-ish odds and ends to tier 3 dilutes the scrap-pistol
+roll and *lowers* the payoff for the hardest check while looking like a reward increase.
 
-**There is no entry verb.** `voidwalk` was retired as an entry point on the same date — you cannot decide
-to cross, you can only walk until the world runs out. The verb stays registered solely because the muster
-overlay's buttons send `voidwalk cancel` / `voidwalk say <text>`
-(`client/game/js/panels/voidwalk-staging.js`); bare `voidwalk` now returns an in-fiction refusal that
-points at the rim.
+**There is no entry verb.** You cannot decide to cross, only walk until the world runs out. `voidwalk`
+stays registered solely because the muster overlay's buttons send `voidwalk cancel` /
+`voidwalk say <text>` ([`client/game/js/panels/voidwalk-staging.js`](../client/game/js/panels/voidwalk-staging.js));
+bare `voidwalk` returns an in-fiction refusal that points at the rim. The muster is a ready-check:
+**every member of the cohort must `ready`** before the crossing launches.
 
 ---
 
@@ -368,12 +360,16 @@ leader's *exact move* to same-zone followers; the void just extends that into th
 
 ### The void is a comms dead zone
 
-The **Tablet chat app** ([[project_tablet_chat_app]]) **loses signal in the void** — off the grid,
-no network. Split party members go dark on normal comms. Coordination across nodes is **gear-gated: a
-radio item** grants a short-range party channel; without it, only co-present (same-node) players hear
-each other. This ties coordination to provisioning (one more thing to pack) and reinforces that a
-crossing is genuinely off-map. The Tablet showing **"NO SIGNAL"** on entry is also a clean diegetic
-tell that you've left the world behind.
+**BUILT (client-side, `tablet-os.js`):** the Tablet **loses signal in the void**. Grid-dependent apps
+are dead — tapping one raises a **NO SIGNAL** sheet (`showNoSignal`) telling you to drag the tablet
+around and hunt for a roaming pocket of reception; the header meter is live, tiles flicker, and the
+bigmap is replaced by a **Journey Map** (`renderJourneyMap`) that reads out substrate, trail depth
+behind you, and whether the way ahead is fog, a dead end, or a gate in sight. That's the diegetic tell
+that you've left the world behind.
+
+**Not built:** the gear-gated fix. The intent is a **radio item** granting a short-range party channel,
+so that without it only co-present (same-node) players hear each other — tying coordination to
+provisioning. Today a split party simply goes dark.
 
 ### Party seam note
 
@@ -407,14 +403,14 @@ Why instanced is the right default:
 - **Tone** — lonely and haunted, not crowded. You're alone out there except for the dead. Scarier, and
   it matches the "off-grid / NO SIGNAL" mood.
 
-**BUILT (branch `void-travel`):** a crossing is a per-crossing **instance** in the `crossings` registry,
+**BUILT:** a crossing is a per-crossing **instance** in the `crossings` registry,
 keyed by a unique instance id; room IDs are namespaced by the instance (`xing_<leader>_<n>_<node>`) while
 room *content* is seeded by `(route, window, node)` — shared geometry, private instance. A **party shares
 one instance**: the cohort is the leader + everyone **following** them (the follow substrate — no party
 import) co-present at the origin, all placed into room 0 together and reference-counted, so the transient
-rooms tear down only when the **last** member leaves. Node is RAM-only, flushed to `player_flags` on
-`player.logout` (not per step). Relog re-derives the instance from `crossing_instance`; the first member
-back rebuilds it, the rest join. Regress 1275/1275 incl. follower-shares-instance / non-follower-excluded.
+rooms tear down only when the **last** member leaves. The current room is RAM-only, flushed to
+`crossing_room` on `player.logout` (not per step). Relog re-derives the instance from
+`crossing_instance`; the first member back rebuilds it, the rest join.
 
 **Decision: strictly instanced + async for v1.** But leave the door open — architect the instance
 seam so **opt-in live overlap can bolt on later** without a rewrite:
@@ -450,7 +446,7 @@ zones, the **generator assigns each room a scavenge table + richness tier determ
 tier a low-scav one walks past. This gives parties a genuine **role split** — navigator (leader),
 water-mule, and **scavenger** (turns a deadly detour into a payday).
 
-**BUILT (Slice 5a — ambient scavenging, branch `void-travel`):** the **`sift`** verb reuses
+**BUILT (ambient scavenging):** the **`sift`** verb reuses
 `effectiveSkill(player,'scavenging')` + the 2d8−2d8 check + `awardSkillUse` (a near-miss still trains
 you). Loot is generated in RAM — a 3-tier table (`LOOT`: staples `diff 4` → salvage `diff 8` → rare
 `diff 12`), drawn from committed items (water/rations up top, wiring/circuits/ore mid, mystery-component/
@@ -458,7 +454,7 @@ glowing-scrap/scrap-pistol rare). A room offers a **richness tier** — spine ro
 `[2,3]`** (the branching finally pays) — and your Scavenging skill decides whether you reach the good
 stuff. **Once per room per crossing.**
 
-**BUILT (Slice 5b — corpse-packs + claim-ledger):** `sift` now resolves in three tiers — **big score →
+**BUILT (corpse-packs + claim-ledger):** `sift` resolves in three tiers — **big score →
 corpse-pack → ambient scavenging**:
 - **Lootable corpse-packs** — the engine's `spawnPlayerCorpse` already strips the dead's gear into a
   `player_corpses` row at the death room; the `player.death` handler **re-homes** those item ids onto the
@@ -469,8 +465,8 @@ corpse-pack → ambient scavenging**:
   hulk of a downed gunship dominates this stretch*"), kept globally scarce by a `bigscore_claim` trace:
   the **first** crosser to `sift` it takes it; everyone after finds it stripped. Same async-scarcity
   mechanic, same cached `void_traces`.
-Still pending: depth-scaling + the rare-loot-is-heavy extraction tension; carried *credits* are lost on
-void death (not re-homed). Regress 1299/1299.
+Not built: depth-scaling + the rare-loot-is-heavy extraction tension. Carried *credits* are lost on
+void death (not re-homed).
 
 ### Loot tiers, scaled to risk
 
@@ -569,7 +565,7 @@ the number of routes. Against the [read/write tiers](architecture.md#read-tiers-
 
 | Event | Cost | Why |
 |---|---|---|
-| **Move through the void** (hot path) | **0 DB round trips** | Geometry is computed in memory; `crossing_node` lives on `player._crossing` and is flushed to `player_flags` only on `player.logout` (**not per step** — as built); encounters (later) roll from in-RAM tables. Nothing awaits a query per step. |
+| **Move through the void** (hot path) | **0 DB round trips** | Geometry is computed in memory; the live instance is `player._crossing` and the current room is flushed to the `crossing_room` flag only on `player.logout` (**not per step**); encounters roll from in-RAM tables. Nothing awaits a query per step. |
 | **Depart** | ~1 write (deferrable) | Set the crossing `player_flags`; coalesces with the zone-move persistence already happening. |
 | **Arrive** | ~1 write | Clear the flags — piggybacks the normal destination-zone move write. |
 | **Death** | 1 insert (rare) | Write the ghost-trace. Death is not a hot path. |
@@ -589,71 +585,34 @@ Two consequences worth stating:
 
 ---
 
-## Net-new engine work (honest scope)
+## The engine work, and what's left
 
-This is the part that does **not** exist yet. It's bounded, but real — a new plugin plus a movement
-seam.
+The generator, adjacency graph + its two surfaces, fog state, traces table, and loot/claim-ledger are
+covered in the sections above. Two engine-side contracts and the honest remainder:
 
-1. **The crossing generator** (`plugins/voidwalking/` or similar) — a deterministic
-   `roomFor(voidOrigin, window, node)` producing terrain, rad, rest-site/loot flags, and the **braided
-   multi-destination branch graph** (shared trunk out of a region, limbs diverging toward each adjacent
-   destination); plus a live `rollEncounter(salt, node, now)`. Memoized once per `(voidOrigin, window)`
-   at process level so geometry isn't regenerated per crosser.
-2. **The region adjacency graph + its surfaces** — which region-islands have a void-edge (and the
-   departure-gate tile per edge), authored as a **World Editor** mode ([[project_world_editor_districts]]).
-   SSOT is region-editor data. Plus the two player views: a **gate readout** (in-world, reachable
-   neighbours at a threshold) and a **Tablet Frontier view** ([[project_tablet_map_app]]) — an abstract
-   island-and-routes topology map, *not* the tile grid.
-2a. **Discovery / fog state** — per-player set of known regions + routes + earned per-window intel
-   (fogged/earned model). Small per-player state (a `player_flags` set or a tiny `known_routes` table),
-   written on discovery (rare), read into the Frontier view. Not a hot path.
-3. **The movement seam** — a region-edge threshold whose "into the void" exit resolves to a *generated*
-   room instead of a static zone. This is the one place the engine's DB-Map world model has to admit a
-   synthetic zone object. Movement into/out of the instance, and back-and-forth within it, must round-
-   trip cleanly.
-   - **Transient-zone substrate — BUILT (Slice 1a, branch `void-travel`).** `world.js` now exports
-     `registerTransientZone(zone)` / `removeTransientZone(id)` / `isTransientZone(id)` — an engine-owned
-     write API for the zone store (which previously had none, unlike doors/apartments/zoneControl).
-     Contract: a transient zone lives in `world.zones` like any zone (movement, `describeZone`, per-player
-     minimap all read it), is normalized to the full loaded-zone shape (occupant Sets + `exits`/`flags`/
-     `description` defaults), and is **never persisted** — nothing writes `world.zones`→DB, export queries
-     the DB directly, and `getAllZones()` (the bulk corps/gps/work scan) excludes it via a `transientZones`
-     marker set. `removeTransientZone` refuses to evict a real DB zone. Give void rooms a non-`map_world`
-     `map_id` so flag/map-filtered iterators skip them. Source-of-truth audit clean; regress 1253/1253.
-4. **Player flags** — `crossing_origin` / `crossing_heading` / `crossing_window` / `crossing_node` /
-   salt in `player_flags` (no new `players` columns, per project rule). `crossing_node` lives on the
-   live player object and flushes lazily — it is **not** written per step.
-5. **The traces table** — deaths only: `(void_origin, window, node, dropped_pack, epitaph)`, purged when
-   the window rotates. The only persistent void geometry-adjacent state. Cached at process level per
-   `(void_origin, window)` — **safe to cache** because it has exactly one writer (death) and one purge
-   (weekly).
-6. **Minimap / flight story** — instanced void space is not on the world grid. Minimap needs a
-   "crossing" mode (branch-graph mini-view, or a stylized "you are in the void" panel); flight must
-   treat a crosser as off-world (not visible from the air, or a deliberate "specks in the waste"
-   read).
-   - **Minimap crossing mode — BUILT (branch `void-travel`).** `getMinimapData` now flags void rooms
-     (`void_crossing` / `void_detour`) on each node; when the current node is `void_crossing` the client
-     ([client/game/js/panels/minimap.js](../client/game/js/panels/minimap.js) `renderCrossing`) drops the
-     city grid for a stylized **ashen trail view** — the walked trail behind you (dim, following the
-     `north`/back exits room to room), a pulsing **◎ you** beacon, and the trail continuing into **fog**
-     (`⋯`) ahead or onto the **far gate** (`⌂`, when `south` leaves the void map onto a region). Fork/detour
-     options off your *current* room show as branch ticks (**⋔** divert / **?** gamble). Deliberately charts
-     only what you'd honestly know — the layout **ahead stays fogged** (the blind-gamble fiction holds); no
-     per-room "seen" state needed since `north` is always "back". All three minimaps (sidebar/HUD/mobile)
-     share the render. Regress asserts the node-flag contract. **Flight off-world read still pending.**
-7. **Party coordination** — mostly *extends the existing `follow`/`dragFollowers`* into the instance
-   rather than new grouping: cohort-scoped encounter rolls, a leader "hold" call at forks, per-follower
-   water toll on drag (override the `bypassEncumbrance` skip), Tablet chat signal-loss in the void, and
-   a radio gear item for a split-party channel. See [Parties](#parties).
-8. **Loot & scavenging** — *extends the existing [Scavenging system](systems-scavenging.md)*: the
-   generator assigns each room a scavenge table + richness tier (`f(origin, window, node)`), the
-   Scavenging skill + 2D8−2D8 check runs in RAM (per-instance depletion in the instance object), plus a
-   **claim ledger** (tiny global counter per `(void_origin, window, prize)`) for weekly big-score
-   uniques — telegraphed headline prize + hidden rares. See [Loot & scavenging](#loot--scavenging).
+**Transient-zone substrate (`server/engine/world.js`).** `registerTransientZone(zone)` /
+`removeTransientZone(id)` / `isTransientZone(id)` — the engine-owned write API for the zone store. A
+transient zone lives in `world.zones` like any zone (movement, `describeZone`, per-player minimap all
+read it), is normalized to the full loaded-zone shape (occupant Sets + `exits`/`flags`/`description`
+defaults), and is **never persisted**: nothing writes `world.zones`→DB, export queries the DB
+directly, and `getAllZones()` (the bulk corps/gps/work scan) excludes it via the `world.transientZones`
+marker Set. `removeTransientZone` refuses to evict a real DB zone. **Give a transient room a
+non-`map_world` `map_id`** so flag/map-filtered iterators skip it.
 
-**Build order suggestion:** solo linear crossing first (prove the seam + generator + relog), then
-branching, then traces/ghosts, then party. Ship Coldwater→Reach as the reference route, then template
-Exodus.
+**Minimap crossing mode.** `getMinimapData` flags void rooms (`void_crossing` / `void_detour`) on each
+node; when the current node is `void_crossing` the client
+([client/game/js/panels/minimap.js](../client/game/js/panels/minimap.js) `renderCrossing`) drops the
+city grid for a stylized **ashen trail view** — the walked trail behind you (dim, following the
+`north`/back exits room to room), a pulsing **◎ you** beacon, and the trail continuing into **fog**
+(`⋯`) ahead or onto the **far gate** (`⌂`, when `south` leaves the void map onto a region). Fork/detour
+options off your *current* room show as branch ticks (**⋔** divert / **?** gamble). It charts only what
+you'd honestly know — the layout **ahead stays fogged**; no per-room "seen" state is needed since
+`north` is always "back". All three minimaps (sidebar/HUD/mobile) share the render.
+
+**Not built:** the flight off-world read (a crosser should be invisible from the air, or a deliberate
+"specks in the waste"); the party-coordination extras (leader "hold" at forks, per-follower water toll
+on drag — `dragFollowers` still passes `bypassEncumbrance` — and the radio gear item for a split-party
+channel); environmental "the void itself" hazards; the retreat-re-rolls-hot rule; loot depth-scaling.
 
 ---
 

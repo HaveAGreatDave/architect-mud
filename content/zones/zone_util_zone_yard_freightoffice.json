@@ -12,7 +12,7 @@
   "flags": {
     "is_interior": true,
     "utility_room": true,
-    "world_exit_zone": "zone_district_923_909"
+    "world_exit_zone": "zone_district_922_912"
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -21,6 +21,6 @@
   "map_id": "map_int_yard_freightoffice",
   "marker": null,
   "name": "Yards Freight Office — Utility Room",
-  "parent_zone": "zone_district_923_909",
+  "parent_zone": "zone_district_922_912",
   "updated_at": "1784348804"
 }

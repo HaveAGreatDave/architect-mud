@@ -14,11 +14,12 @@
 > [Flight_Implementation.md](Flight_Implementation.md) and the as-built
 > [docs/systems-flight.md](../systems-flight.md).
 >
-> **Reference image:** `docs/reference/cockpit-ref-diamond-da42.png` (Diamond DA42
-> Twin Star, Garmin G1000 panel). Save the supplied image at that path so the link
-> below resolves.
+> **Status:** mostly shipped. The PFD (tapes · pitch ladder · VSI · slip ball), the MFD
+> moving map, the engine/annunciator cluster, the flap detent lever and the panel/exterior
+> light switches are all live in `cockpit.js` — see the mapping table at the bottom for
+> what's left. Correctness of this doc = that table, not the prose specs.
 >
-> ![Diamond DA42 G1000 cockpit reference](cockpit-ref-diamond-da42.png)
+> **Reference image:** ![Diamond DA42 G1000 cockpit reference](cockpit-ref-diamond-da42.png)
 
 ## Why this reference
 
@@ -85,8 +86,8 @@ Read left-to-right, the DA42 panel has five zones:
 
 ## PFD spec — the upgrade from our current readouts
 
-Today the Mayfly cockpit shows digital IAS/ALT/VS/HDG boxes + a small ADI. The
-reference pushes us to a **proper PFD**:
+The reference pushes us to a **proper PFD** (most of this is now built — see the
+mapping table):
 - Replace the digital IAS/ALT boxes with **vertical scrolling tapes** flanking the
   attitude indicator (airspeed left, altitude right), each with the current value
   boxed at centre and a coloured scale. Mark **Vr** on the airspeed tape (per the
@@ -151,15 +152,17 @@ Mayfly can read a Leviathan.
 
 | Reference element | Have it? | Action |
 |---|---|---|
-| Attitude indicator | ✅ (small) | grow to hero, add roll arc + pitch ladder |
-| Airspeed/altitude | ✅ digital boxes | convert to scrolling **tapes**, mark Vr |
-| VSI / HSI | ⚠️ partial | add VSI + a heading/HSI strip |
-| Moving-map MFD | ✅ (biome map) | dress as the right-hand MFD + engine strip |
-| Engine gauges | ✅ (fuel/rpm/temp) | restyle as a vertical bar **strip** |
-| Yoke / throttle / flaps | ✅ | dress yoke to panel, flaps → detent lever |
+| Attitude indicator | ✅ hero, ±30° pitch ladder (`paintPFD`) | add the roll scale arc + pointer |
+| Airspeed/altitude | ✅ scrolling **tapes**, Vr/Vne/Vs0 marked (`pfdTape`) | — |
+| VSI / HSI | ✅ VSI bar · ⚠️ heading is a digital box, not an HSI | add a compass-rose/HSI strip |
+| Moving-map MFD | ✅ (`paintMFD`, biome map) | add the vertical engine strip down its edge |
+| Engine gauges | ✅ per-engine dials + annunciator strip (`paintGauges`) | restyle as a vertical bar **strip** |
+| Yoke / throttle / flaps | ✅ yoke · throttle · **flap detent lever** (UP/10°/20°/FULL, per class) · rudder pedals · trim | — |
 | Engine start/master | ✅ (ENGINE switch) | evolve → round start + guarded master |
-| Master caution/warning | ⚠️ (stall lamp) | add an amber/red annunciator block |
-| Switch rows / breakers | ❌ | add light-switch row + breaker texture |
+| Master caution/warning | ✅ annunciator tiles (stall · low-Nr · VRS · autorotation · bingo) | — |
+| Switch rows / breakers | ⚠️ PANEL + LIGHTS switches | add the breaker texture |
+| Landing-gear selector | ✅ up/down/fixed state per class (`gearRetract`) | add green down-and-locked lamps |
+| Slip/skid ball | ✅ (not in the reference — ours) | — |
 | Dark composite panel + bezels | ⚠️ | deepen the panel material + insets |
 
 ## The one rule

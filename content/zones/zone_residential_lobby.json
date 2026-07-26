@@ -27,8 +27,8 @@
   "grid_z": 0,
   "id": "zone_residential_lobby",
   "map_id": "map_interior_zone_residential_lobby",
-  "marker": "FS",
-  "name": "Embassy Hotel & Bar — Lobby",
+  "marker": null,
+  "name": "Lobby",
   "parent_zone": "zone_district_920_904",
   "updated_at": "1782356877"
 }

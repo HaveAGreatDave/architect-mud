@@ -23,8 +23,8 @@
   "grid_z": 0,
   "id": "zone_halcyon_lobby",
   "map_id": "map_int_halcyon",
-  "marker": "HA",
-  "name": "Halcyon Towers — Grand Lobby",
+  "marker": null,
+  "name": "Grand Lobby",
   "parent_zone": "zone_district_895_906",
   "updated_at": "1783316802"
 }

@@ -5,7 +5,7 @@
   "bg_color": "#2a1c16",
   "color": "#b5744a",
   "created_by": "wildlands-expand",
-  "description": "A vast rust-stained plain, hammered flat and hard, printed here and there with the tracks of things that crossed it once.",
+  "description": "A pale grit plain, soft underfoot and treacherous where the last storm buried something. A line of prints crosses it, already half filled in.",
   "exits": {
     "east": "zone_district_929_911",
     "north": "zone_district_928_910",

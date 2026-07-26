@@ -10,7 +10,7 @@
   "created_by": "zone-planner",
   "description": "Solenne Residences rises out of the low studio-row roofline like a blade of pale glass — thirty-odd floors of it, tapering to a lit crown you have to lean back to see. A brass-lettered canopy runs out over the pavement to the kerb, and beyond the revolving door the lobby glows warm and unhurried, the kind of warm that is quietly checking whether you belong in it. Step <b>in</b>.",
   "exits": {
-    "in": "zone_solenne_lobby",
+    "north": "zone_solenne_lobby",
     "south": "zone_district_914_909"
   },
   "flags": {

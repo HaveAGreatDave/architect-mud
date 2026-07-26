@@ -7,8 +7,8 @@
   "created_by": "yards-plan",
   "description": "A working fab shed, its gantry crane crawling on overhead rails, sparks fountaining from a cutting bench. The air tastes of ozone and hot steel. Somebody in here can weld, bend, or fake almost anything you bring them, for the right number.",
   "exits": {
-    "in": "zone_yard_fab",
-    "north": "zone_district_925_908"
+    "north": "zone_district_925_908",
+    "south": "zone_yard_fab"
   },
   "flags": {
     "building_name": "Fabrication Shed",
@@ -19,7 +19,7 @@
     "is_building": true,
     "planner": "bp_district",
     "region_id": "region_coldwater",
-    "world_exit_zone": "zone_district_925_910"
+    "world_exit_zone": "zone_district_925_908"
   },
   "grid_x": 925,
   "grid_y": 909,

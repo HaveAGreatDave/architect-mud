@@ -15,7 +15,8 @@
     "curtain": true,
     "district": "residential",
     "planner": "bp_district",
-    "region_id": "region_coldwater"
+    "region_id": "region_coldwater",
+    "terrain": "grass"
   },
   "grid_x": 920,
   "grid_y": 919,

@@ -24,6 +24,20 @@ posture/HP-regen break). The rest generalize that success to the other seams.
 | **Runtime code ↔ remote DB** | hot paths stacking awaited round trips; queries in loops; ungated always-on ticks; caches without a write funnel — no error, just aggregate latency and pool starvation | [db-burden-audit.md](db-burden-audit.md) |
 | **Docs ↔ code** | a doc claim that drifted from the code (ghost path, renamed field, "as built" for something unbuilt) — nothing executes a doc, so it silently mis-briefs every future reader; plus prose that taxes every context load without changing a decision | [doc-correctness-concision-audit.md](doc-correctness-concision-audit.md) |
 
+## Not a prompt — an executable audit
+
+The **map audit** is the odd one out: instead of a prompt you paste, it's a skill with a
+deterministic linter behind it. The seam is **tile data ↔ the systems that read it** — a building
+whose authored door side disagrees with its exits, a facade you can walk through the wall of, a
+terrain flag that contradicts its own description. Same silent bug class, but the map is ~5,400
+tiles, so the checks had to become a script rather than a reading exercise.
+
+- **Skill:** `.claude/skills/map-audit/` — say "audit the map", or run
+  `node .claude/skills/map-audit/scripts/audit-map.mjs`
+- **Criteria:** [`.claude/skills/map-audit/rules.md`](../../.claude/skills/map-audit/rules.md)
+- **Decisions:** [map-audit-decisions.json](map-audit-decisions.json) — accepted exceptions, so a
+  deliberate call ("no loot in open water") never gets re-flagged. Human-authored only.
+
 Two flavors live here:
 
 - **Bug-class audits** (source-of-truth, protocol, content↔engine, registry harmony-mode) hunt a *silent
@@ -45,6 +59,10 @@ are *reusable prompts*; these are the *results* of a sweep):
   (whole subsystems — broadcast, audio, flight, surveillance — silently absent from the seed) and
   authored-vs-read JSON shape mismatches (dialogue params, drug overdose lethality, mutation stat
   keys). Findings only, most not yet fixed; FK-ordering hazards flagged.
+- [findings-2026-07-docs.md](findings-2026-07-docs.md) — doc correctness & concision sweep
+  ([prompt](doc-correctness-concision-audit.md)), batched by doc. Every verdict carries a
+  `file:line`. Batch 1 fixed the dispatch/registry contract docs; batch 2 retired two
+  point-in-time docs and found the still-live forgeable admin token.
 
 ## How to use one
 

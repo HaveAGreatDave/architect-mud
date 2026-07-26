@@ -4,7 +4,7 @@ import { sendCmd, sendCmdSilent, closeConnection, attemptAutoReauth, showVerifyS
 import { renderMinimap, setGpsRoute, setRunState, startAutoWalk, resumeAutoWalkIfArmed, setAutoWalkPersist, isAutoWalking, isManualAutoWalkInProgress, cancelAutoWalk, autoWalkBlocked, resolveAutoWalkPicker, armAutoWalkPrompt } from './panels/minimap.js';
 import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility, signalPowerOut, isFxIndoors } from './panels/environment.js';
 import { setWeatherEventFx, setFireworksGlow, launchFirework } from './panels/weather-fx.js';
-import { openDialogue, closeDialogue, openShop } from './panels/dialogue.js';
+import { openDialogue, closeDialogue, openShop, notifyZoneChanged } from './panels/dialogue.js';
 import { updateInventoryCache, consumeSilentInventory } from './panels/inventory-state.js';
 import { renderRecipesPanel } from './panels/recipes.js';
 import { renderStatsPanel } from './panels/stats.js';
@@ -171,7 +171,7 @@ const handlers = {
     // description with their own app in the same area-pane.
     if (!isFlightSimActive() && !isCockpitHudActive() && !isHangarBayActive() && !isHelmActive()) setAreaPane(msg.message);
     if (state.echoNextLook) { appendMsg('You look around.', 'system'); state.echoNextLook = false; }
-    if (msg.zone) state.currentZone = msg.zone;
+    if (msg.zone) { notifyZoneChanged(msg.zone); state.currentZone = msg.zone; }
     setYachtAmbience(msg.ambience);   // naval on deck / engine below / null elsewhere
     parseZoneInfo(msg.message);
     if (msg.minimap) renderMinimap(msg.minimap);
@@ -185,6 +185,7 @@ const handlers = {
     // until the player actually leaves (hangar_close triggers a fresh look).
     if (!isFlightSimActive() && !isCockpitHudActive() && !isHangarBayActive() && !isHelmActive()) setAreaPane(msg.message, msg.direction);
     if (msg.narration) appendHtml(msg.narration, 'move');
+    notifyZoneChanged(msg.zone);
     state.currentZone = msg.zone;
     setYachtAmbience(msg.ambience);   // naval on deck / engine below / null elsewhere
     parseZoneInfo(msg.message);

@@ -1,21 +1,24 @@
 # VINE — Visual Interaction Node Editor
 
-VINE is the dev panel's graph editor for authoring structured data that has conditional branching and sequential flow — currently dialogue trees (NPCs) and script graphs (scripted events). It lives entirely in `client/devpanel/js/vine/`.
+VINE is the dev panel's graph editor for authoring structured data that has conditional branching and sequential flow — dialogue trees, script graphs, AI behaviour trees, quests, and broadcast scripts. It lives entirely in `client/devpanel/js/vine/`.
 
 ---
 
 ## Architecture
 
-VINE is split into four layers:
+An engine (core + edges + history) plus one schema file per use case:
 
 | File | Role |
 |---|---|
-| `vine-core.js` | Generic DOM/SVG graph editor — nodes, edges, drag, pan/zoom, undo, properties panel |
+| `vine-core.js` | Generic DOM/SVG graph editor — nodes, edges, drag, pan/zoom, undo, properties panel; also the `#vine-modal` host |
 | `vine-edges.js` | Bezier edge rendering, obstacle avoidance, gradients |
+| `vine-history.js` | Undo/redo command stack |
+| `vine-action-types.js` | Catalogue of dialogue/script action types and their parameter definitions |
 | `vine-schema-dialogue.js` | Dialogue tree node types, form editor, graph ↔ JSON conversion |
 | `vine-schema-script.js` | Script graph node types, form editor, graph ↔ JSON conversion |
-| `vine-action-types.js` | Catalogue of all action types and their parameter definitions |
-| `vine-history.js` | Undo/redo command stack |
+| `vine-schema-ai.js` | Behaviour-tree node types + its own `AI_CONDITIONS`/`AI_ACTIONS` catalogues |
+| `vine-schema-quest.js` | Quest DAG node types |
+| `vine-schema-broadcast.js` | Broadcast script node types |
 
 **Engine vs. content:** `vine-core.js` knows nothing about dialogue or scripts. All domain logic lives in schema files. To add a new use case, write a schema object and pass it to `new VineEditor(container, schema)`.
 
@@ -69,7 +72,7 @@ Nodes are absolutely positioned `div`s inside `_canvas`. Edges are `<path>` elem
 
 | Action | How |
 |---|---|
-| Pan | Middle-click drag, or Alt+left-drag |
+| Pan | Middle-click drag, Alt+left-drag, or plain scroll |
 | Zoom | Ctrl+scroll |
 | Select node | Click node body |
 | Select all | Ctrl+A |
@@ -234,7 +237,9 @@ VineScriptSchema.toScriptGraph(vineGraph)  // VINE graph → script JSON
 
 Supported param types: `text`, `number`, `boolean`, `select` (with `options` array), `json`.
 
-The full list of action types: `GRANT_ITEM`, `REMOVE_ITEM`, `START_QUEST`, `COMPLETE`, `TURN_IN`, `OPEN_SHOP`, `OPEN_BANK`, `OPEN_STORAGE`, `OPEN_CRAFTING`, `TELEPORT`, `EXECUTE_SCRIPT`, `TRIGGER_EVENT`, `SET_FLAG`, `CLEAR_FLAG`, `END_CONVERSATION`, `GOTO_NODE`.
+The full list of action types: `GRANT_ITEM`, `REMOVE_ITEM`, `START_QUEST`, `COMPLETE`, `TURN_IN`, `OPEN_SHOP`, `OPEN_BANK`, `OPEN_STORAGE`, `OPEN_CRAFTING`, `TELEPORT`, `EXECUTE_SCRIPT`, `TRIGGER_EVENT`, `SET_FLAG`, `CLEAR_FLAG`, `ADJUST_REPUTATION`, `ADJUST_STANCE`, `ADJUST_PATH`, `END_CONVERSATION`, `GOTO_NODE`.
+
+AI behaviour nodes come from a **separate** pair of catalogues (`AI_CONDITIONS`/`AI_ACTIONS` in `vine-schema-ai.js`) — see [ai-behaviour.md](ai-behaviour.md) for what each does at runtime.
 
 Plugins also register dialogue actions via `registerAction` that the editor catalog (`vine-action-types.js`) doesn't yet list, so they're authored by hand in the JSON. Notably **`GPS_TO`** (from the **gps** plugin, `params.zone`) plots a route onto the player's map and pushes a `gps_route` independently of the dialogue text — an NPC can send you somewhere (e.g. `npc_claude_merrin`). No-ops when you're already at the destination.
 
@@ -249,7 +254,7 @@ The ⟳ Auto-layout toolbar button runs a Sugiyama-style layered layout:
 3. **Barycenter cross-minimisation** — 3 forward + 3 backward sweeps reorder nodes within each column by the average rank of their neighbors in the adjacent column, reducing crossing count.
 4. **Position assignment** — fixed 320px column width, 180px row height, origin at 40,60.
 
-Auto-layout is undoable (Ctrl+Z restores previous positions).
+A second button, **⬇ Layout Vertical**, runs the same layering top-to-bottom and wraps each layer into `ceil(sqrt(widest layer))` columns (200×110 grid, origin 40,50) to pack more nodes on screen. Both are undoable (Ctrl+Z restores previous positions).
 
 ---
 
@@ -297,11 +302,13 @@ whatever theme the dev panel is set to:
 `vine-core.js` knows nothing about what a "family" is; it just renders whatever tab
 descriptors it's handed. `vine-suite.js` supplies the actual 4-family strip via
 `vineFamilyTabs(activeFamilyKey)` — always in the order Quest/Dialogue/AI/Scripts,
-each colored to its family, the active one inert. Clicking any other tab calls
-`vineGoToFamily(key)`: commits + closes the current editor (`vineModalSave()`), then
-navigates to the VINE Suite panel opened straight into that family's compact existing
-list. Every family opener (`npcOpenVine`, `npcOpenVineAI`, `enemyOpenVineAI`,
-`scriptsOpenVine`, `questsOpenVine`, and `vineJumpTo`) passes its own `vineFamilyTabs(...)`.
+each colored to its family. **No tab navigates panels**: clicking another family calls
+`vineGoToFamily(key)`, which reopens whatever you last had open in that family (through
+`vineJumpTo`, so the current graph is committed first) or, with nothing to reopen, raises
+`vsHostPicker(key)` — a record-picker popup layered over the editor, non-destructive if
+dismissed. Clicking the *active* tab raises that same picker. Every family opener
+(`npcOpenVine`, `npcOpenVineAI`, `enemyOpenVineAI`, `scriptsOpenVine`, `questsOpenVine`,
+and `vineJumpTo`) passes its own `vineFamilyTabs(...)`.
 
 ---
 
@@ -309,24 +316,11 @@ list. Every family opener (`npcOpenVine`, `npcOpenVineAI`, `enemyOpenVineAI`,
 
 Node types for the visual broadcast script editor. Saved to `media_broadcasts.broadcast_graph`.
 
-### Node types
-
-| Type | Out ports | Purpose |
-|---|---|---|
-| `start` | `next` | Entry point. One per graph. |
-| `say` | `next` | Push a line to viewers. Stops execution for this tick. `style: raw\|ticker`. |
-| `ticker` | `next` | Push `>> text <<` formatted ticker line. |
-| `npc_anchor` | `next` | Set the active NPC voice — prefixes say nodes with `[NPC Name]`. |
-| `inject_news` | `next` | Pull from news queue (category-filtered); fallback text if queue empty. |
-| `camera_cut` | `next` | Read a live zone description, push as `[CAM: label] …`. |
-| `break` | `next` | Natural cut-point; drains news queue inline. Lets urgent news interrupt a show cleanly. |
-| `condition` | `ifTrue`, `ifFalse` | Branch on a world condition (synchronous). |
-| `wait` | `next` | Pause N seconds for this channel only. |
-| `loop` | `next` | Jump to connected node, or `_start` if unconnected. |
-| `random` | N branch ports | Weighted random branch. |
-| `set_flag` | `next` | Set a world flag. |
-
-Conditions available: `IS_DAYTIME`, `VIEWERS_PRESENT`, `NEWS_AVAILABLE`, `HOUR_RANGE`, `RANDOM_CHANCE`.
+The node-type catalogue (20+ types — say/ticker/npc_anchor/npc_action/inject_news/camera_cut/
+title_card/music/overlay/credits/tech_difficulties/…) is **owned by
+[systems-broadcast.md](systems-broadcast.md)**, which documents what each one does at
+air time. Conditions available here: `IS_DAYTIME`, `VIEWERS_PRESENT`, `NEWS_AVAILABLE`,
+`HOUR_RANGE`, `RANDOM_CHANCE`.
 
 ### Conversion helpers
 
@@ -339,13 +333,13 @@ Auto-layout runs when a graph has no `_vine` position data. See [`docs/systems-b
 
 ---
 
-## AI Schema additions (`vine-schema-ai.js`)
+## AI Schema (`vine-schema-ai.js`)
 
-Two entries were added to the AI catalogue to support broadcast-aware NPC behaviour:
-
-**Condition:** `CHANNEL_HAS_VIEWERS` — params: `channel_id`. Synchronous check via `broadcast-bridge.js`.
-
-**Action:** `BROADCAST_SAY` — params: `channel_id`, `text`. Emits `npc.broadcast_say`; the broadcast plugin queues the text on the target channel.
+Behaviour-tree nodes for NPCs and enemies. `fromAiGraph`/`toAiGraph` convert between
+`npcs`/`enemies.behaviour_graph` (connections stored inline on each node, **no** `edges`
+array) and the editor's graph. The node catalogue and its runtime semantics are owned by
+[ai-behaviour.md](ai-behaviour.md); a type registered by a plugin still has to be added to
+`AI_CONDITIONS`/`AI_ACTIONS` by hand before it appears in the dropdown.
 
 ---
 
@@ -385,7 +379,8 @@ it subscribes to `enemy.killed` / `item.given` / `zone.entered` to advance
 every objective it depends on is met (`requiresMet` in the plugin, judged against
 the pre-tick progress snapshot). The plugin also owns the `/quests` CRUD routes
 (via its `routeHandler`) and the `START_QUEST`/`ADVANCE`/`COMPLETE`/`TURN_IN`
-actions the VINE action picker lists.
+actions — of which the dialogue/script action picker lists all but `ADVANCE`
+(authored by hand, and recognised as a quest-jump trigger).
 
 ---
 
@@ -416,9 +411,9 @@ card has:
   Rows carry a small kind tag ("NPC Behaviour" vs "Enemy Behaviour") when the family
   spans more than one VINE_KINDS entry. A "← Back" button returns to the front page.
 
-`renderVineSuite(data)` resets to the front page on every normal panel load, unless
-`_vsPendingOpen` was set by `vineGoToFamily` (see below) — consumed once, to land
-directly on a given family's existing list instead.
+Below the cards, `vsRenderMasterList()` renders an **All graphs** search box over every
+kind at once (`_VS_ORDER`), each row opening through `vineOpenAsset`. `renderVineSuite(data)`
+always resets to the front page on panel load.
 
 ### Navigator (`vineOpenAsset(kind, id)`)
 

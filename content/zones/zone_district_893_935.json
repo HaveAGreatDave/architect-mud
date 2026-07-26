@@ -5,7 +5,7 @@
   "bg_color": "#2a1c16",
   "color": "#b5744a",
   "created_by": "wildlands-expand",
-  "description": "Broken mesa shelves step away in ochre and iron-red, cut by dry washes where the wind funnels grit against your teeth.",
+  "description": "Brackish channels wander through beds of iron-stained reed, going nowhere in particular. The ground between them gives underfoot and smells of rot and old metal.",
   "exits": {
     "east": "zone_district_894_935",
     "north": "zone_district_893_934",

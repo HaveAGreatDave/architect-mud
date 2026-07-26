@@ -6,7 +6,12 @@ longer exist**. The map migration (2026-07-11) replaced the surface with the gen
 district (`tools/zone-planner` + `bp_district`), and the population wave gave it street life, scav,
 fishing, and spawns. What it still lacks is exactly what v1 was for: **insides**.
 
-## Where the world actually is (audited 2026-07-11)
+## Where the world actually is (audited 2026-07-11 — snapshot now stale)
+
+> The 2026-07-24 doc audit re-counted: **149** zones now carry `flags.is_building`, not 18. The
+> growth came from other builds (the [Yards](yards.md), the [Ascendant campus](ascendant-stronghold.md),
+> The Reach), **not** from this pass — no tenement block or waterfront cluster from the phase table
+> exists in `content/zones/`. The plan stands; the numbers below do not.
 
 - **Surface:** 888 `zone_district_*` tiles on `map_world`. Sub-districts: water (257) / docks
   shoreline (64) / residential pocket (93, SE around Sump + Precinct 9) / wasteland flats (474,

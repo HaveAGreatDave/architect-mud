@@ -1,5 +1,11 @@
 # Supabase → Neon migration
 
+> **Status: SHIPPED** (stamped 2026-07-24 by doc audit — this doc had no status line).
+> Prod runs on Neon: `@neondatabase/serverless` is a dependency (`package.json:42`), the
+> deploy workflow is Neon-native end to end (branch snapshots + instant-restore rollback,
+> `.github/workflows/deploy-content.yml:5,12,32-37`), and no Supabase reference remains in
+> `package.json` or the workflow. Historical record of the cutover — not a live plan.
+
 Goal: move production Postgres from Supabase to Neon, **without removing or
 touching Supabase until the final cutover step**. Every phase before that is
 additive/parallel — Supabase stays the live production database and nothing

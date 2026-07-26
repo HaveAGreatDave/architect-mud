@@ -188,5 +188,10 @@ latter *is* mutating zone content. Bigger base ⇒ a different, bigger authored 
   in-memory occupant Set on a shared authored shell, so no runtime zones are ever written (holds for 2b too).
 
 ## Status
-Design/spec locked; **no code written yet.** North star = 2b (Phase 5); Phase 1 is the first slice when we
-start, and every phase is load-bearing toward 2b with zero rework.
+**Phases 1–2 BUILT** (stamped 2026-07-24 by doc audit; was "no code written yet"). The walkable
+cabin ships as `content/maps/map_aircraft_leviathan.json` + `zone_leviathan_cabin` /
+`_flightdeck` / `_galley` / `_hold`, boarded through `isWalkableCabin`/`boardCabin`
+(`plugins/flight/charter.js:397-401`); flight-deck control is live as `take controls` / `handoff`
+(`plugins/flight/index.js:307-341`). Phases 3–5 (owned base + 2a, customization, the 2b
+persistent hangout) are still design. North star = 2b (Phase 5); every phase is load-bearing
+toward it with zero rework.

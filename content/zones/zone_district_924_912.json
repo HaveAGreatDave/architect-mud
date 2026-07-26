@@ -7,10 +7,8 @@
   "created_by": "zone-planner",
   "description": "A narrow shopfront wedged between the modular housing stacks, its window crammed with the honest clutter of a repair trade — dead radios, a wall of salvaged hand tools, a hand-lettered card reading FIX-IT: IF IT RAN ONCE, IT'LL RUN AGAIN. No screens, no terminals, nothing that talks back to the grid. A bell hangs over the door. It smells of solder and machine oil.",
   "exits": {
-    "east": "zone_district_925_912",
     "north": "zone_lw_shop",
-    "south": "zone_district_924_913",
-    "west": "zone_district_923_912"
+    "south": "zone_district_924_913"
   },
   "flags": {
     "building_name": "Halloran's Fix-It",
@@ -30,7 +28,7 @@
   "grid_z": 0,
   "id": "zone_district_924_912",
   "map_id": "map_world",
-  "marker": "🔧",
+  "marker": "HF",
   "name": "Halloran's Fix-It",
   "parent_zone": null,
   "updated_at": "1784342750"

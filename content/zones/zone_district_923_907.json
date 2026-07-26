@@ -7,7 +7,7 @@
   "created_by": "yards-plan",
   "description": "Stacked pallets and a cluster of squat fuel bowsers behind chain-link, hoses coiled like sleeping snakes. Placards warn NO NAKED FLAME in three languages and one skull. The avgas smell gets into your teeth and stays there.",
   "exits": {
-    "in": "zone_yard_fuelyard",
+    "north": "zone_yard_fuelyard",
     "south": "zone_district_923_908"
   },
   "flags": {

@@ -1,9 +1,9 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
+  "ambient_theme": "city",
   "audio_theme_id": null,
-  "bg_color": "#2f3a26",
-  "color": "#8ba36a",
+  "bg_color": "#3f3a34",
+  "color": "#b9a888",
   "created_by": "zone-planner",
   "description": "The old grass track hardens underfoot into cracked blacktop here — the Gate Road, running dead straight south toward the city's edge. Faded chevrons still ghost the centre line, pointing the way out.",
   "exits": {

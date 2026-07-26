@@ -7,8 +7,8 @@
   "created_by": "zone-planner",
   "description": "A narrow pawnshop with a grille over every pane and a window crammed floor-to-ceiling with other people's worst days — dead men's watches, hocked tools, a wedding band on a nail. A buzzing sign reads THE HOCK SHOP · WE BUY · WE HOLD · WE DON'T REMEMBER. The security shutter is up a hopeful eighteen inches. Something inside is always quietly appraising you.",
   "exits": {
-    "in": "zone_hock_pawn",
-    "north": "zone_district_916_909"
+    "north": "zone_district_916_909",
+    "south": "zone_hock_pawn"
   },
   "flags": {
     "building_name": "The Hock Shop",

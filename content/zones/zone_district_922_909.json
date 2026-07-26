@@ -7,7 +7,7 @@
   "created_by": "zone-planner",
   "description": "Loose stone crunches underfoot, greyed with dust and old oil. A dead streetlight leans at the verge, and the wind carries grit that finds your teeth. Tyre tracks braid off into the haze.",
   "exits": {
-    "east": "zone_district_922_912",
+    "east": "zone_district_923_909",
     "north": "zone_district_922_908",
     "west": "zone_district_921_909"
   },
@@ -17,7 +17,8 @@
     "planner": "bp_district",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_roadside_junk",
-    "street_life": true
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 922,
   "grid_y": 909,

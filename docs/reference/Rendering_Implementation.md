@@ -1,5 +1,10 @@
 # Environmental Rendering Guidelines
 
+> **Author direction, not a spec — largely shipped.** The Mode-7 world, biome categories,
+> building archetypes, terrain, roads and airport surfaces are all built in
+> `windshield.js`. [reference/world-rendering.md](world-rendering.md) is the
+> as-built implementation map; read that before editing anything you see out the canopy.
+
 ## Philosophy
 
 Render the real Architect world, not generic scenery.

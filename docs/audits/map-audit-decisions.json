@@ -1,0 +1,93 @@
+{
+  "$comment": "Accepted exceptions for the map-audit skill (.claude/skills/map-audit). A decision with verdict 'accepted' suppresses matching findings on every future run, so a deliberate choice never gets re-litigated. Written ONLY on an explicit human call — never by an agent acting on its own judgement.",
+  "$schema_notes": {
+    "rule": "the rule code being excepted, e.g. 'SCAV-1'. See rules.md.",
+    "scope": "which tiles the exception covers. Every key present must match. An empty scope {} excepts the whole rule world-wide — use sparingly. Keys: zone_id, terrain, region_id, district, name, map_id (each accepts a string or an array), and name_pattern (a case-insensitive regex).",
+    "verdict": "'accepted' suppresses the finding. 'todo' records the decision without suppressing, for things deferred rather than accepted.",
+    "decided_by": "who made the call — a real person. 'John' or 'Dave'.",
+    "decided_on": "ISO date.",
+    "reason": "why. Written for the person who finds this in a year and wonders."
+  },
+  "decisions": [
+    {
+      "rule": "DOOR-1",
+      "scope": { "zone_id": ["zone_district_892_907", "zone_district_893_906", "zone_district_913_910"] },
+      "verdict": "accepted",
+      "decided_by": "John",
+      "decided_on": "2026-07-25",
+      "reason": "Genuinely always-open thresholds, reviewed building by building. Architect Shrine opens on a nave and is open to the faithful; The Ascension Gate's interior IS the checkpoint (The Scanline), so a door in front of it would be a redundant second threshold; KSAB Audience Gate is the public audience entrance to a broadcast lobby. The other 38 doorless buildings all got doors in the same pass."
+    },
+    {
+      "rule": "DIR-1",
+      "scope": { "zone_id": "zone_echelon_exterior" },
+      "verdict": "accepted",
+      "decided_by": "John",
+      "decided_on": "2026-07-25",
+      "reason": "The Echelon is the one legitimately dynamic entrance in the world: plugins/yacht/index.js sets flags.entrance from whichever pier she ties up against and deletes it while she is underway. A hardcoded cardinal interior link would contradict her the moment she docks on a different side, so 'in' is correct here and must stay."
+    },
+    {
+      "rule": "FLAG-1",
+      "scope": { "zone_id": "zone_echelon_exterior" },
+      "verdict": "accepted",
+      "decided_by": "John",
+      "decided_on": "2026-07-25",
+      "reason": "flags.terrain is the GROUND-surface SSOT and the Echelon is a vessel, not ground — her exterior tile sails, so any painted terrain would be wrong somewhere on the route. Every other outdoor tile on the map was painted in the same pass; this is the single deliberate omission."
+    },
+    {
+      "rule": "LINK-1",
+      "scope": { "zone_id": "zone_echelon_exterior" },
+      "verdict": "accepted",
+      "decided_by": "John",
+      "decided_on": "2026-07-25",
+      "reason": "Her four neighbours are open Coldwater Basin water. You do not step off the bay onto a moving yacht — boarding goes through the gangway, which the yacht plugin gates on the invite list. Linking these would be a way aboard that bypasses that check."
+    },
+    {
+      "rule": "SCAV-1",
+      "scope": { "terrain": "water", "region_id": "region_coldwater" },
+      "verdict": "accepted",
+      "decided_by": "John",
+      "decided_on": "2026-07-25",
+      "reason": "Open bay — Coldwater Basin, The Meltwater, The Meltwater Mouth. You do not `search` open water, you fish it, and the fishing plugin already models this deliberately: fishingTableFor() returns null ON a water tile because you cast FROM the bank, and water-ADJACENT tiles get fish_coldwater_bay for free. A scavenging table here would duplicate a system that already covers the case correctly. Surface bay only — the sub-surface tiles carry no region_id and are logged separately as todo."
+    },
+    {
+      "rule": "SCAV-1",
+      "scope": { "terrain": "water", "name": ["The Basin Floor", "The Deep Channel"] },
+      "verdict": "todo",
+      "decided_by": "John",
+      "decided_on": "2026-07-25",
+      "reason": "Sub-surface water at z-1 and z-2. Unlike the open bay these are divable and wreck-salvage loot down here would be real content — but underwater scavenging does not exist yet, so this is deferred, not declined. Left as todo so it keeps counting and does not quietly become a 'never'. Revisit with the diving content in docs/systems-swimming.md."
+    },
+    {
+      "rule": "SCAV-1",
+      "scope": { "terrain": "redrock", "region_id": "region_coldwater" },
+      "verdict": "accepted",
+      "decided_by": "John",
+      "decided_on": "2026-07-25",
+      "reason": "The deep wastes stay empty on purpose. The wilderness is meant to be hostile and unrewarding — loot lives in the city and in the hot zones, and the 960 tiles at radiation >= 38 already carry scav_irradiated_salvage. Giving the other 2,071 a general table would make search-anywhere the default and dilute what makes the irradiated band worth crossing."
+    },
+    {
+      "rule": "MAP-1",
+      "scope": { "zone_id": "zone_echelon_exterior" },
+      "verdict": "accepted",
+      "decided_by": "John",
+      "decided_on": "2026-07-25",
+      "reason": "The Echelon moors on a Coldwater Basin water tile, so the yacht and the bay legitimately occupy (897,898,0) on map_world. This is the one collision the audit script already knew about — its position index deliberately keeps the district tile as the canonical occupant (see the comment in audit-map.mjs) so neighbour maths stays stable. Nothing to fix; recorded so MAP-1 stops re-reporting it."
+    },
+    {
+      "rule": "MAP-1",
+      "scope": { "map_id": ["map_int_asc_clinic", "map_int_asc_shrine", "map_int_asc_spire", "map_int_asc_vats", "map_int_asc_weave"] },
+      "verdict": "todo",
+      "decided_by": "John",
+      "decided_on": "2026-07-25",
+      "reason": "The five Ascendant interiors stack their rooms at (0,0,0). Unlike the Yards Tenement — whose units all exit on a compass direction, making the layout derivable exactly — these rooms link only by in/out and up/down, so the exit graph contains no answer and a layout would have to be invented (say: 'in' places the inner room one tile north, 'up' becomes grid_z + 1). That convention would bind every in/out interior in the world, so it is a design decision, not a repair. Deferred rather than declined: the tablet still collapses each of these interiors to one square. Left as todo so it keeps counting."
+    },
+    {
+      "rule": "SCAV-1",
+      "scope": { "region_id": "region_the_reach" },
+      "verdict": "todo",
+      "decided_by": "John",
+      "decided_on": "2026-07-25",
+      "reason": "The Reach is unbuilt, not broken: 396 of its 400 tiles have no name and no description (they are still 'The Reach 863,1948' / 'An empty place.'). Loot tables before prose is backwards, so this waits on the region being authored. Deliberately todo rather than accepted — it should keep showing up until The Reach is actually built."
+    }
+  ]
+}

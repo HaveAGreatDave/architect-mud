@@ -16,12 +16,12 @@
     "is_apartment": true,
     "rent_cost": 25
   },
-  "grid_x": 0,
+  "grid_x": 1,
   "grid_y": 0,
   "grid_z": 8,
   "id": "zone_yards_tenement_u8_2",
   "map_id": "map_int_yards_tenement",
-  "marker": null,
+  "marker": "8",
   "name": "Unit 802",
   "parent_zone": "zone_yards_tenement_f8",
   "updated_at": "1783970000"

@@ -7,14 +7,14 @@
   "created_by": "zone-planner",
   "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
   "exits": {
-    "east": "zone_district_921_902",
     "north": "zone_district_920_901",
     "west": "zone_district_919_902"
   },
   "flags": {
     "district": "wasteland",
     "planner": "bp_district",
-    "region_id": "region_coldwater"
+    "region_id": "region_coldwater",
+    "terrain": "grass"
   },
   "grid_x": 920,
   "grid_y": 902,

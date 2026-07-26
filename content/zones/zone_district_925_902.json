@@ -17,7 +17,9 @@
     "icon": "runway_ns",
     "planner": "bp_district",
     "region_id": "region_coldwater",
-    "runway": "ns"
+    "runway": "ns",
+    "scavenging_table_id": "scav_industrial_salvage",
+    "terrain": "asphalt"
   },
   "grid_x": 925,
   "grid_y": 902,

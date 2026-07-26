@@ -1,6 +1,12 @@
 # Legacy Overworld Decommission — "Salvage + Abandon"
 
-> **Status:** Plan, not built. Approved direction: *fully replace the old `map_world`
+> **Status: EXECUTED** (stamped 2026-07-24 by doc audit; was "Plan, not built"). The legacy
+> exterior is gone — `content/zones/` holds **zero** `zone_nc_*` / `zone_gov_*` / `zone_up_*`
+> tiles, and the surface is the 888-tile `zone_district_*` grid. The gov-quarter security
+> recipe survives only as a dormant config awaiting the rebuild
+> (`plugins/checkpoint/plugin.json`, "the gov-quarter recipe is dormant for the North City
+> rebuild"); the rebuild spec is [north-city-under-rebuild.md](north-city-under-rebuild.md).
+> Kept as the record of what was salvaged vs. abandoned. Approved direction was: *fully replace the old `map_world`
 > exterior overworld with the generated 888-zone `bp_district`, salvaging only the
 > load-bearing pieces and deleting the rest.* This doc is the reviewable safety gate
 > before any destructive change (per [CLAUDE.md](../../CLAUDE.md) — deletions ship via

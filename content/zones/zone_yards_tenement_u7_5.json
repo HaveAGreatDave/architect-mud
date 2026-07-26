@@ -16,12 +16,12 @@
     "is_apartment": true,
     "rent_cost": 25
   },
-  "grid_x": 0,
-  "grid_y": 0,
+  "grid_x": 1,
+  "grid_y": -1,
   "grid_z": 7,
   "id": "zone_yards_tenement_u7_5",
   "map_id": "map_int_yards_tenement",
-  "marker": null,
+  "marker": "7",
   "name": "Unit 705",
   "parent_zone": "zone_yards_tenement_f7",
   "updated_at": "1783970000"

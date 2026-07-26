@@ -17,11 +17,11 @@
     "rent_cost": 25
   },
   "grid_x": 0,
-  "grid_y": 0,
+  "grid_y": -1,
   "grid_z": 5,
   "id": "zone_yards_tenement_u5_1",
   "map_id": "map_int_yards_tenement",
-  "marker": null,
+  "marker": "5",
   "name": "Unit 501",
   "parent_zone": "zone_yards_tenement_f5",
   "updated_at": "1783970000"

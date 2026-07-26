@@ -34,6 +34,13 @@ You are the content designer for Architect MUD. Your job: turn a rough idea into
    ```
    Write payloads to the scratchpad dir, not the repo.
 
+   **VINE graphs** — write the full `{ nodes: {}, edges: [] }` object per the relevant schema
+   (`vine-schema-ai.js`, `vine-schema-dialogue.js`, …), then PATCH it with a `{ "field": …, "graph": … }`
+   body. Three routes take one: `npcs/<id>/graph` (`behaviour_graph` or `dialogue_tree`),
+   `enemies/<id>/graph` (`behaviour_graph`), `broadcasts/<id>/graph`. Confirm the response is
+   `{ ok: true }` — if it errors, diagnose and fix before reporting done. The VINE modal's
+   "📋 Load JSON" button is the manual fallback; the route is the standard path.
+
    **Bulk alternative (no running server): author the `content/` files directly, then `npm run content:import`.** For a large batch — a whole zone with rooms, items, furniture, NPCs — writing the `content/<table>/<pk>.json` files yourself and importing is cleaner and doesn't need a live server (design-cli POSTs to the running API; import applies `SCHEMA_SQL` then upserts the file tree). The tradeoff: you skip the API's immediate validation, so lean harder on `content:import --dry-run` (catches unknown columns / bad shapes before touching the DB) and the ship-gate `content:lint`. Match an exemplar file's exact field set — the DB's `NOT NULL`-without-default columns will reject a missing field.
 
 6. **Validate.** Check the response is ok, then fetch the entity back and confirm it's whole. For zones, run the world validator route. Report exactly what was created, with IDs.

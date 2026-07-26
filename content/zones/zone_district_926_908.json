@@ -7,7 +7,7 @@
   "created_by": "yards-plan",
   "description": "A long open-sided shed where the Yards meet the water, a loading crane cantilevered out over the Basin. Barge cargo comes ashore here — nets, drums, the day's catch bound inland. Gulls argue over the spillage. The planking is slick and black underfoot.",
   "exits": {
-    "in": "zone_yard_wharf",
+    "east": "zone_yard_wharf",
     "west": "zone_district_925_908"
   },
   "flags": {

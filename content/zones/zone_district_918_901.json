@@ -22,7 +22,8 @@
     "district": "docks",
     "icon": "aa",
     "planner": "bp_district",
-    "region_id": "region_coldwater"
+    "region_id": "region_coldwater",
+    "terrain": "concrete"
   },
   "grid_x": 918,
   "grid_y": 901,

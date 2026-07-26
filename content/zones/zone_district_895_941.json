@@ -5,7 +5,7 @@
   "bg_color": "#2a1c16",
   "color": "#b5744a",
   "created_by": "wildlands-expand",
-  "description": "A vast rust-stained plain, hammered flat and hard, printed here and there with the tracks of things that crossed it once.",
+  "description": "A low fen of silt and sedge, the water beneath it black and slow. Something crossed it recently enough that the reeds are still bent, and the mud has not yet closed.",
   "exits": {
     "east": "zone_district_896_941",
     "north": "zone_district_895_940",
@@ -17,6 +17,7 @@
     "planner": "bp_district",
     "radiation": 38,
     "region_id": "region_coldwater",
+    "scavenging_table_id": "scav_irradiated_salvage",
     "terrain": "marsh"
   },
   "grid_x": 895,

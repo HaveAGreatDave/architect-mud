@@ -1,16 +1,16 @@
 {
   "door_type": "shoddy",
-  "exit_dir": "west",
+  "exit_dir": "east",
   "flags": {},
   "hololock_difficulty": 0,
   "hp": 300,
   "hp_max": 300,
-  "id": "door_shoddy_zone_district_921_908_in",
+  "id": "door_shoddy_zone_district_920_910_in",
   "is_locked": 0,
   "is_open": 0,
   "lock_state": null,
   "name": null,
   "tags": {},
-  "target_zone": "zone_velk_shop",
-  "zone_id": "zone_district_921_908"
+  "target_zone": "zone_fence_interior",
+  "zone_id": "zone_district_920_910"
 }

@@ -19,7 +19,7 @@
     "is_building": true,
     "planner": "bp_district",
     "region_id": "region_coldwater",
-    "world_exit_zone": "zone_district_920_905"
+    "world_exit_zone": "zone_district_919_904"
   },
   "grid_x": 920,
   "grid_y": 904,

@@ -4,12 +4,10 @@
 Grows the **camera half of the [broadcast system](systems-broadcast.md)** into a player-deployable,
 PvP-capable surveillance layer. NPC police run the same tech to track crime.
 
-> Status: **shipped** — all six phases live in [`plugins/surveillance/`](../plugins/surveillance/index.js)
-> (with its own `regress.js`); tables are in `SCHEMA_SQL` and classified in the content registry.
-> Phase 6 became a **witnessed-crime Wanted System** (below) rather than plain
-> evidence+dispatch — see [the Wanted System section](#wanted-system-phase-6). This doc keeps its
-> phased-design structure as a history of how it was built; the per-phase "pending schema/restart"
-> caveats are obsolete.
+> Status: **shipped** — all six subsystems live in [`plugins/surveillance/`](../plugins/surveillance/index.js)
+> (with its own `regress.js`); `security_networks`/`security_devices`/`security_clips` are in
+> `SCHEMA_SQL` and classified in the content registry. Phase 6 landed as a **witnessed-crime Wanted
+> System** rather than plain evidence+dispatch — see [the Wanted System section](#wanted-system-phase-6).
 
 > **Cops don't chase you while you're airborne.** Ground policing runs normally, but the pursuit
 > engine leaves a suspect alone while they're in a cockpit: `searchAndPursue` and the `APPREHEND`
@@ -126,39 +124,10 @@ Carried device item + `plant <device> [direction]`:
   [scavenging check](systems-scavenging.md)) via `sweep` surfaces it.
 - `retrieve <device>` picks it up (yours, or a found hostile one — theft loop → [Crime System](../CLAUDE.md)).
 
-## Surveillance Hub (new panel — the centerpiece)
-
-`client/game/js/panels/surveillancehub.js` + markup in `client/game/index.html`. Opened by a
-carried **spy-deck / wrist-terminal item** (`use deck`) — monitor from anywhere.
-
-- **Grid of live tiles**, each a mini feed reusing `buildCameraSnapshot` output; click to **focus**.
-- Per-tile **chrome** = the "mechanical functions visible in the display": battery, signal bars,
-  REC dot, timestamp, and **status skins** (JAMMED static, SPOOFED shimmer, OFFLINE snow). Rendered
-  with the TV panel's SVG-injection path (engine-authored → safe innerHTML).
-- **Sound:** each tile subscribes to the **audio sparkle system**
-  ([`project_ambient_sparkle_system`]) — idle telemetry beeps, alert chirp on motion, buzz on feed
-  drop/jam. New sparkle defs only, no new audio infra.
-- **Alerts feed** drains sensor + event-bus hits (`player.death`, door-force, gunshot).
-
-Reuses TV rendering internals (ticker, SVG, off-air static) — the hub is "a TV with N tiles + a control bar."
-
-## Recording → datachip clips (shareable evidence)
-
-- `record` toggles `is_recording`; buffer fills like `media_cameras.recording_buffer`.
-- `CLIP→CHIP` exports the buffer into a `security_clips` row + a physical `item_datachip_<id>`
-  (mirrors the cassette `eject` → item convention in the broadcast doc).
-- A chip can be **replayed** (scrub popup), **handed off**, **sold**, or **submitted to police**.
-- `crime_tags` auto-stamped when the buffer window overlaps a crime event in that zone → gives value.
-
-## Counterplay (all three)
-
-- **Find & destroy:** `sweep` (Perception vs `concealment`) reveals hidden devices → the
-  device-inspect panel's existing **attack/repair/rescan** action bar
-  ([`deviceinspect.js`](../client/game/js/panels/deviceinspect.js)) rips them down.
-- **Hack & hijack:** the **Circuit Breach minigame** ([`circuithack.js`], currently cosmetic-only)
-  finally wired for real — `hijack <cam>` launches it with the *real* `hack_difficulty` + player
-  hacking skill. Win → **blind** it, **loop** its feed, or **annex** it into your network.
-- **Jam & spoof:** deployable jammer/spoofer devices set `status_flags`; hub shows degraded tiles.
+`sweep` (Perception vs `concealment`) also feeds the counterplay path: a revealed device gets the
+device-inspect panel's attack/repair/rescan action bar
+([`deviceinspect.js`](../client/game/js/panels/deviceinspect.js)). The hub UI and the
+record→reel→datachip path are described in the shipped subsystems below.
 
 ## Power & upkeep (battery + zone power)
 
@@ -204,57 +173,37 @@ Reuses TV rendering internals (ticker, SVG, off-air static) — the hub is "a TV
 - Basics (tier-1 cams, batteries, datachips) from an open surveillance vendor.
 - **Crafting/upgrade** tiers via the existing crafting system.
 
-## Suggested additions
+## The six subsystems (all shipped)
 
-- **Hololock tie-in:** lock a device with a [hololock](systems-world.md); ripping a locked cam
-  without the key trips a **tamper alert** to the owner's hub.
-- **Dead-man / tamper ping:** any destroyed/hijacked device fires a final `⚠ TAMPER` + last-frame
-  snapshot to its network before dying — losing a cam still yields intel.
-- **Feed-as-broadcast crossover:** a relay can `stream` a spy feed onto a real broadcast channel
-  (reuse `is_streaming`/`streaming_channel_id`) — pirate-TV a rival's private moment citywide.
-- **Signal-integrity minigame:** spotting a spoofed feed is a small "is this footage real?" check.
-- **Networks are social:** `grant <player> access` → shared surveillance for a crew/faction.
-
-## Phased build (each phase independently shippable)
-
-1. **Foundation** — ✅ *shipped.*
-   `security_networks`/`security_devices`/`security_clips` tables in `SCHEMA_SQL`; new
+1. **Foundation** — `security_networks`/`security_devices`/`security_clips` tables in `SCHEMA_SQL`;
    [`plugins/surveillance/`](../plugins/surveillance/index.js) with `plant`/`retrieve`/`sweep`/`feed`;
    concealed furniture hidden from `look` via a `flags.concealed` filter in `describe.js`;
-   battery/power tick (cams days / drone hours). Feed = own `feedSnapshot()` (zone snapshot, same
-   shape as broadcast's `buildCameraSnapshot`, which is plugin-private so not importable). Test gear:
+   battery/power tick (cams days / drone hours). Feed = its own `feedSnapshot()` (zone snapshot, same
+   shape as broadcast's `buildCameraSnapshot`, which is plugin-private so **not** importable). Test gear:
    [`scripts/seed-surveillance-gear.js`](../scripts/seed-surveillance-gear.js) (sticky/tap cam, recon drone).
-2. **Surveillance Hub** — ✅ *shipped.*
-   New client panel `surveillancehub.js` (*since deleted — UI is tablet-only, see the 2026-07-10 note*) (+ `#shub-panel`
-   markup, CSS): grid of live feed tiles + a focus pane, per-tile chrome (battery, signal bars, ●REC,
-   scanlines, and static skins for offline/jammed/spoofed/damaged), self-contained WebAudio blips.
-   Opened by the carried **Surveillance Deck** (`hub`, or `use deck`) or a `security_console` furniture.
-   Server pushes `surveillance_hub` (open) then `surveillance_hub_update` every 5s to a `hubViewers`
-   set; client sends `hubclose` on close; `player.logout` prunes. Frames = `feedSnapshot()`.
-3. **Records** — ✅ *shipped.*
-   `record`/`clip`/`clips`/`replay` commands + hub RECORD / CLIP→CHIP focus buttons. Recording banks a
-   frame per 5s tick into `recording_buffer` (capped at `storage_limit`); `clip` burns the buffer to a
-   `security_clips` row **and** a physical `item_datachip_<id>` (tradeable/sellable). Crimes witnessed
-   in-frame (in-memory `crimeLog` fed by `player.death`) auto-stamp `crime_tags` → the chip becomes
-   evidence (higher value). `use <datachip>` / `replay` opened the **Datachip Replay Deck**
-   (`datachipreplay.js`, *since deleted — the tablet reel viewer renders the pushed payload now, see
-   the 2026-07-10 note*) — an 80s VHS/cyberdeck: spinning reels, amber timecode, VHS tracking band,
-   scanlines, evidence sticker, transport controls + scrub.
-4. **Counterplay** — ✅ *shipped.*
-   **Find & destroy:** `smash <name>` rips a swept-out device off its mount (deletes it) and fires a
-   `⚠ TAMPER` **dead-man ping** to its owner. **Hack & hijack:** `hijack <name>` validates + arms a
-   breach and returns a `circuit_hack` message → the client opens the **Circuit Breach** minigame
-   (finally wired for real — real hacking skill + device `hack_difficulty`); on resolve it fires
-   `hijackresolve <id> <win>` → win **annexes** the device to your ownership (appears in your hub),
-   loss = 5-min rig lockout; either way the old owner gets a tamper ping. Server arms a
-   `pendingHijack` token so the resolve can't be spoofed without going through `hijack`.
+2. **Surveillance Hub** — opened by the carried **Surveillance Deck** (`hub`, or `use deck`) or a
+   `security_console` furniture. Server pushes `surveillance_hub` (open) then `surveillance_hub_update`
+   every 5s to a `hubViewers` set; client sends `hubclose` on close; `player.logout` prunes. Frames =
+   `feedSnapshot()`. The rendering client is the tablet app — see the 2026-07-10 note below.
+3. **Records** — `record`/`clip`/`clips`/`replay` commands + RECORD / CLIP→CHIP focus buttons.
+   Recording banks a frame per 5s tick into the **in-memory** `CameraBuffer` (capped at the
+   `camera_buffer_lines` tunable, default 25 — *not* the dead `recording_buffer`/`storage_limit`
+   columns); `clip` burns the buffer to a `security_clips` row. Crimes witnessed in-frame (in-memory
+   `crimeLog` fed by `player.death`) auto-stamp `crime_tags` → the reel becomes evidence (higher
+   value). See the 2026-07-10 note for the reel/datachip possession model.
+4. **Counterplay** — **Find & destroy:** `smash <name>` rips a swept-out device off its mount
+   (deletes it) and fires a `⚠ TAMPER` **dead-man ping** to its owner. **Hack & hijack:**
+   `hijack <name>` validates + arms a breach and returns a `circuit_hack` message → the client opens
+   the **Circuit Breach** minigame with the real hacking skill + device `hack_difficulty`; on resolve
+   it fires `hijackresolve <id> <win>` → win **annexes** the device to your ownership, loss = 5-min rig
+   lockout; either way the old owner gets a tamper ping. Server arms a `pendingHijack` token so the
+   resolve can't be spoofed without going through `hijack`.
    **Jam & spoof:** `jammer`/`spoofer` are planted like any device; a live jammer statics every cam
    in its zone (`jammed`), a spoofer feeds cams a clean empty-room frame (`spoofed`) — even into
    recordings. Effect computed live in `deviceStatus`/`deviceFrame` via a cached `getInterferenceZones()`.
-5. **Device variety** — ✅ *shipped.*
-   **Motion/audio sensors** push alerts (no video): motion via per-tick occupancy diffing (`pollSensors`),
-   audio via the `player.death` hook (gunfire/scream). Alerts land in a per-owner ring, ping the owner if
-   online, and render in a new **hub ALERTS strip** (with a chirp on arrival). **Drone piloting** —
+5. **Device variety** — **Motion/audio sensors** push alerts (no video): motion via per-tick occupancy
+   diffing (`pollSensors`), audio via the `player.death` hook (gunfire/scream). Alerts land in a
+   per-owner ring, ping the owner if online, and render in the hub ALERTS strip. **Drone piloting** —
    `pilot [drone] <dir>` flies a drone through a zone exit (`drone_ops` check); both zones hear it (loud
    → counterplay). **Relays** — a powered relay in a zone punches feeds through a jammer there.
    **Tiers** surfaced on hub tiles (`kind·T2`). **Acquisition** — black-market vendor **Glitch** at *The
@@ -263,7 +212,7 @@ Reuses TV rendering internals (ticker, SVG, off-air static) — the hub is "a TV
    [`seed-surveillance-crafting.js`](../scripts/seed-surveillance-crafting.js) adds 3 salvage components
    (Optic Module / Signal Board / Micro Cell) + 6 `electronics` recipes (`craft <gear name>`, no station;
    higher tiers need higher electronics rank); components also stock at Glitch.
-6. **Police / Wanted System** — ✅ *shipped.* See below.
+6. **Police / Wanted System** — see below.
 
 ## Wanted System (Phase 6)
 
@@ -368,8 +317,8 @@ camera-catch reaction. Stars are now **fractional** (half-steps) so petty acts r
 
 - **Crime registry** — [`server/engine/crimes.js`](../server/engine/crimes.js) ships the canonical
   crime keys + default star weights (dev-panel editable via the new **`crimes`** table & panel).
-  Keys/witness-mode are engine constants; only the star value is content. The registry ships **~31
-  crime keys** (see `crimes.js` for the full list — theft, robbery, burglary, atm_robbery, arson,
+  Keys/witness-mode are engine constants; only the star value is content. The registry ships **30
+  distinct crime keys** (see `crimes.js` for the full list — theft, robbery, burglary, atm_robbery, arson,
   manufacturing, contraband_possession, indecent_exposure, murder, …). Representative defaults:
   `drug_use` 0.5 (camera-only), `attack_player` 4, `attack_npc` 4, `kill_police` 5 (always reported),
   `hacking` 2, `murder` 5 (always). `getCrimeStars(key)` = DB override → shipped default → 0. Loaded
@@ -491,7 +440,3 @@ became self-contained, and "clipping" was re-pointed at reels rather than physic
   log fills a progress bar before "SPECTER INSTALLED". The old carried **spy-deck** (`item_spy_deck` →
   `hub`/standalone `#shub-panel`) still works but is superseded by the tablet app; retiring it is a
   vendor-side follow-up.
-
-## Resolved forks
-
-All settled 2026-07-01 — see the two decision tables above. All phases have since shipped.
