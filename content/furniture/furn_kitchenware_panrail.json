@@ -1,0 +1,14 @@
+{
+  "description": "A length of scaffold pipe bracketed across the whole back wall, hung with pans by size — skillets the width of a manhole down to a saucepan you could palm. Each one has a string tag on the handle with a price in the same cramped hand.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_kitchenware_panrail",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "pan rail",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_kitchenware"
+}

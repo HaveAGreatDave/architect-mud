@@ -5,6 +5,22 @@ function _escHtml(s) {
   return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+// A node's `text` may be an ARRAY of interchangeable lines — the engine picks one
+// at random per render (server/engine/dialogue.js). The properties panel is a single
+// textarea, so variants are edited as blocks separated by a lone `---` line, and
+// collapse back to a plain string when there's only one.
+const _TEXT_SPLIT = /\n[ \t]*---[ \t]*\n/;
+
+function _joinTextLines(text) {
+  if (Array.isArray(text)) return text.join('\n---\n');
+  return text || '';
+}
+
+function _splitTextLines(text) {
+  const parts = String(text || '').split(_TEXT_SPLIT).map(s => s.trim()).filter(Boolean);
+  return parts.length > 1 ? parts : (parts[0] || '');
+}
+
 // Auto-layout a dialogue_tree left-to-right (BFS from 'root').
 function _autoLayout(tree) {
   const pos = {};
@@ -185,6 +201,30 @@ function _buildActionsEditor(container, actions, onChange) {
 // ── Options editor ─────────────────────────────────────────────────────────────
 // Renders a list of option cards into `container`.
 
+// Options are wired to their next node by INDEX (port `opt_N`), so any reorder or
+// removal has to move the edges with them — otherwise deleting option 1 leaves
+// every branch below it pointing one slot too high, and the tree quietly reroutes.
+// Shared with the play-view editor (vine-dialogue-preview.js).
+function _vineDropOptionEdge(graph, nodeId, removed) {
+  for (let j = graph.edges.length - 1; j >= 0; j--) {
+    const e = graph.edges[j];
+    if (e.fromNode !== nodeId) continue;
+    const m = /^opt_(\d+)$/.exec(e.fromPort);
+    if (!m) continue;
+    const n = Number(m[1]);
+    if (n === removed) graph.edges.splice(j, 1);
+    else if (n > removed) e.fromPort = `opt_${n - 1}`;
+  }
+}
+
+function _vineSwapOptionEdges(graph, nodeId, a, b) {
+  for (const e of graph.edges) {
+    if (e.fromNode !== nodeId) continue;
+    if (e.fromPort === `opt_${a}`) e.fromPort = `opt_${b}`;
+    else if (e.fromPort === `opt_${b}`) e.fromPort = `opt_${a}`;
+  }
+}
+
 function _buildOptionsEditor(container, node, editor, nodeId) {
   const options = node.data.options || (node.data.options = []);
 
@@ -225,11 +265,11 @@ function _buildOptionsEditor(container, node, editor, nodeId) {
       delBtn.className = 'action-btn danger';
       delBtn.style.cssText = 'padding:1px 5px;font-size:10px';
       delBtn.textContent = '✕';
-      delBtn.onclick = () => { options.splice(i, 1); onChange(); render(); };
+      delBtn.onclick = () => { options.splice(i, 1); _vineDropOptionEdge(editor.graph, nodeId, i); onChange(); render(); };
 
       hdr.appendChild(title);
-      hdr.appendChild(mkMoveBtn('↑', i === 0, () => { [options[i-1], options[i]] = [options[i], options[i-1]]; onChange(); render(); }));
-      hdr.appendChild(mkMoveBtn('↓', i === options.length - 1, () => { [options[i], options[i+1]] = [options[i+1], options[i]]; onChange(); render(); }));
+      hdr.appendChild(mkMoveBtn('↑', i === 0, () => { [options[i-1], options[i]] = [options[i], options[i-1]]; _vineSwapOptionEdges(editor.graph, nodeId, i-1, i); onChange(); render(); }));
+      hdr.appendChild(mkMoveBtn('↓', i === options.length - 1, () => { [options[i], options[i+1]] = [options[i+1], options[i]]; _vineSwapOptionEdges(editor.graph, nodeId, i, i+1); onChange(); render(); }));
       hdr.appendChild(delBtn);
       card.appendChild(hdr);
 
@@ -238,8 +278,32 @@ function _buildOptionsEditor(container, node, editor, nodeId) {
       textInp.style.cssText = _IS + ';margin-bottom:5px';
       textInp.placeholder = 'Choice text shown to player…';
       textInp.value = opt.text || opt.label || '';
-      textInp.oninput = () => { opt.text = textInp.value; onChange(); };
+      // Drop the legacy `label` once edited here — both this editor and the game
+      // client read `text || label`, so leaving it would resurrect the old wording
+      // the moment you cleared the field.
+      textInp.oninput = () => { opt.text = textInp.value; delete opt.label; onChange(); };
       card.appendChild(textInp);
+
+      // Icon: the glyph shown ahead of this choice in the game. Blank = the engine's
+      // derived one (shop/quest/turn-in/leave/hostile). The play view has a palette
+      // for this; here it's a plain field so a glyph can be pasted in.
+      const iconRow = document.createElement('div');
+      iconRow.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:6px';
+      const iconInp = document.createElement('input');
+      iconInp.style.cssText = _IS + ';width:46px;text-align:center;font-size:14px;padding:2px';
+      iconInp.value = opt.icon || '';
+      iconInp.placeholder = '·';
+      iconInp.oninput = () => {
+        const v = iconInp.value.trim();
+        if (v) opt.icon = v; else delete opt.icon;
+        onChange();
+      };
+      const iconLbl = document.createElement('span');
+      iconLbl.style.cssText = 'font-size:10px;color:var(--text-dim)';
+      iconLbl.textContent = 'Icon (blank = automatic)';
+      iconRow.appendChild(iconInp);
+      iconRow.appendChild(iconLbl);
+      card.appendChild(iconRow);
 
       // Enabled
       const enabledRow = document.createElement('div');
@@ -297,10 +361,20 @@ function _buildOptionsEditor(container, node, editor, nodeId) {
 
 window.VineDialogueSchema = {
   vineIdentity: { kind: 'dialogue', tagline: 'NPC conversation tree', color: 'var(--accent2)', icon: '💬' },
+  // Header button: open the play view on the conversation's entry node, so it's one
+  // click from any NPC's dialogue without hunting for a node first.
+  headerButton: {
+    label: '🎮 Play view',
+    title: 'Write, read and edit this conversation as the player sees it — starts a root beat if the graph is empty',
+    onClick: () => vineDialoguePreviewOpen(window._vineActiveEditor),
+  },
   nodeTypes: {
     dialogue: {
       label: 'Dialogue Node',
-      color: '#2a6644',
+      // Tracks the active theme instead of a fixed green: VineDialogue's family
+      // colour (--accent2), darkened so the header's white text stays legible on
+      // light themes too.
+      color: 'color-mix(in srgb, var(--accent2) 65%, #000)',
       defaultData: { text: '', options: [], actions: [] },
 
       renderBody(node) {
@@ -330,9 +404,13 @@ window.VineDialogueSchema = {
           (node.data.options || []).some(o => /quest/i.test(o.text || o.label || ''));
         return `
           ${_dialogueHelpBox(nodeId,
-            'One beat of NPC dialogue. The NPC Text is what the character says. Each Option is a choice shown to the player — draw an edge from an option\'s output port to the next dialogue node. Node Actions fire the moment this node is entered, before the player sees the text.',
-            'NPC Text: "You look lost, stranger."\n\nOption 1: "I\'m looking for the docks."  → node: give_directions\nOption 2: "None of your business."     → node: npc_offended\n\nNode Action: SET_FLAG  flag=met_harker'
+            'One beat of NPC dialogue. The NPC Text is what the character says — separate alternate wordings with a line containing only <b>---</b> and the NPC picks one at random each time. Each Option is a choice shown to the player — draw an edge from an option\'s output port to the next dialogue node. Node Actions fire the moment this node is entered, before the player sees the text.',
+            'NPC Text: "You look lost, stranger."\n           ---\n           "Lost, are you?"\n\nOption 1: "I\'m looking for the docks."  → node: give_directions\nOption 2: "None of your business."     → node: npc_offended\n\nNode Action: SET_FLAG  flag=met_harker'
           )}
+          <button class="action-btn" style="font-size:10px;margin-bottom:10px;width:100%"
+                  data-node="${_escHtml(nodeId)}"
+                  onclick="vineDialoguePreviewOpen(window._vineActiveEditor, this.dataset.node)"
+                  title="See this beat as the player does — and edit the text and options right in it">🎮 Play view — preview &amp; edit ▸</button>
           ${mentionsQuest ? `<button class="action-btn" style="font-size:10px;margin-bottom:10px;width:100%" onclick="vineGoToFamily('quest')" title="This node's text mentions &quot;quest&quot; — commit and jump to VineQuest">🌿 Mentions "quest" → Open VineQuest ▸</button>` : ''}
           <div style="margin-bottom:12px">
             <label style="${_LS}">NPC Text</label>
@@ -381,12 +459,17 @@ window.VineDialogueSchema = {
         const { next, ...rest } = opt;
         return rest;
       });
+      // Anything the engine reads that this editor has no field for (grants_item,
+      // node-level conditions, …) rides along untouched instead of being dropped
+      // on save.
+      const { text, options, actions, _vine, ...rest } = node;
       nodes[id] = {
         type: 'dialogue',
         x: pos.x,
         y: pos.y,
+        _rest: rest,
         data: {
-          text: node.text || '',
+          text: _joinTextLines(node.text),
           options: opts,
           actions: node.actions || [],
         },
@@ -409,7 +492,8 @@ window.VineDialogueSchema = {
         return { ...opt, next: edge?.toNode || '' };
       });
       tree[id] = {
-        text: data.text || '',
+        ...(node._rest || {}),
+        text: _splitTextLines(data.text),
         options: opts,
         actions: data.actions || [],
         _vine: { x: node.x, y: node.y },

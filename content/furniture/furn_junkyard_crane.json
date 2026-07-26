@@ -1,0 +1,14 @@
+{
+  "hp": null,
+  "hp_max": null,
+  "light_type": null,
+  "lumen_output": null,
+  "power_draw_kw": null,
+  "price": 0,
+  "flags": {},
+  "id": "furn_junkyard_crane",
+  "zone_id": "zone_junkyard_yard",
+  "name": "grabber crane",
+  "object_type": "decoration",
+  "description": "A pedestal crane in a yellow that was chosen once, decades ago, and has been touched up ever since with whatever yellow was going. The grab hangs open at the end of its cable, five hydraulic fingers spread, close enough to the ground that you could stand in it. People do. There is a photograph of somebody's wedding party doing exactly that, taped inside the shack window."
+}

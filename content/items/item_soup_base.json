@@ -1,0 +1,25 @@
+{
+  "description": "A sealed pouch of grey-brown concentrate, thick as engine grease. The label says HEARTY. It needs a pot, a low flame, and someone willing to keep stirring it.",
+  "flags": {},
+  "id": "item_soup_base",
+  "name": "soup base",
+  "tags": {
+    "description": "A sealed pouch of grey-brown concentrate, thick as engine grease. The label says HEARTY. It needs a pot, a low flame, and someone willing to keep stirring it.",
+    "consumable": true,
+    "restore_hunger": 22,
+    "restore_thirst": 12,
+    "restore_hp": 4,
+    "stackable": true,
+    "perishable": true,
+    "spoil_rate": "normal",
+    "needs_cooking": true,
+    "food_profile": "liquid",
+    "status_chance": {
+      "food_poisoning": 0.4
+    },
+    "food_noun": "broth"
+  },
+  "type": "consumable",
+  "value": 9,
+  "weight": 600
+}

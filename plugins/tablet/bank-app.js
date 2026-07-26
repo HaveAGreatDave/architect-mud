@@ -1,7 +1,8 @@
 // Tablet OS — Bank app. Remote banking from anywhere, but throttled: a single
 // transfer moves at most REMOTE_CAP credits in either direction. Bulk cash
 // movement stays at the physical ATM (a terminal you have to be standing at,
-// with a much higher network withdrawal_limit). Reuses the engine's
+// with a much higher network withdrawal_limit) — and past THAT ceiling, at a
+// bank counter with a `bank_teller` NPC, which is uncapped. Reuses the engine's
 // transferCredits (server/engine/economy.js) — the exact function the ATM
 // plugin's own deposit/withdraw commands call — and logs through atm's
 // logBankTx so both paths share one ledger.

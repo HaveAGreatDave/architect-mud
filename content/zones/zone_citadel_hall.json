@@ -1,0 +1,38 @@
+{
+  "ambient_events": [
+    "The Robo Teller's servos whir as it rotates a precise eleven degrees to face the next nobody.",
+    "A woman at the far ATM counts a withdrawal twice, folds it small, and puts it somewhere unpleasant.",
+    "The floor guard's coat shifts. Something under it shifts with a different weight.",
+    "Footsteps come back off the marble twice — once for you, once a half-second late.",
+    "The camera in the cornice tracks a slow arc across the hall and settles, briefly, on you.",
+    "A cleaning drone works a single square metre of floor to a mirror shine and moves on to the next.",
+    "Somewhere behind the wall, machinery that isn't an elevator moves something heavy.",
+    "The air handling comes on with a sigh. It smells of stone dust and money that has been counted many times."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#2f3034",
+  "color": "#ede8dc",
+  "created_by": null,
+  "description": "A hall built to make you feel small and largely succeeding. Veined white marble goes up the walls to a coffered ceiling four storeys overhead, and every sound you make comes back at you a half-second later, cleaner. There are no chairs. There is nowhere to wait, because Citadel does not want you to wait — it wants you to transact and leave. Two cash terminals sit recessed in stone alcoves, their orange fascias the only colour in the room. At the far end, behind a marble counter with no gap in it anywhere, a chest-high machine of enamel and brushed steel swivels to face whoever comes through the doors. A guard in a charcoal coat stands where the floor is worn faintly grey, which tells you how many years he has stood exactly there. Beyond him the marble stops and a slab of armoured steel begins.",
+  "exits": {
+    "north": "zone_citadel_vestibule",
+    "south": "zone_district_921_911"
+  },
+  "flags": {
+    "building_name": "Citadel Financial",
+    "citadel_public": true,
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_921_911"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_citadel_hall",
+  "map_id": "map_int_citadel",
+  "marker": "CF",
+  "name": "Citadel Financial — The Marble Hall",
+  "parent_zone": "zone_district_921_911",
+  "updated_at": "1785110400"
+}

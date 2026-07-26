@@ -581,6 +581,11 @@ function isSlowDrinkItem(tags) {
 // `use` path and the timed-drink finish. `opts.skipThirstRestore` lets the consume
 // plugin credit a laced drink's thirst sip-by-sip without this double-counting it;
 // `opts.takeLine` overrides the opening flavour line.
+// Cooked-quality payoff. The cooking plugin stamps `custom_data.cook_quality`
+// on a plated meal; this is the only place it is spent. Keep the middle band at
+// exactly 1.0 — an ordinary cook must feel like the baseline, not a penalty.
+const COOK_QUALITY_MULT = { poor: 0.5, acceptable: 1.0, good: 1.15, excellent: 1.35, masterful: 1.6 };
+
 export async function applyItemUse(player, item, broadcast, opts = {}) {
   const t = item.tags || {};
   const cd = parseCustomData(item.custom_data);
@@ -605,11 +610,21 @@ export async function applyItemUse(player, item, broadcast, opts = {}) {
       ? `${item.name} is still raw in the middle — you eat it anyway and immediately regret it.`
       : `${item.name} is spoiled — you eat it anyway and immediately regret it.`;
   } else {
-  if (t.restore_hp) { player.hp = Math.min(player.hp_max, player.hp+t.restore_hp); messages.push(`+${t.restore_hp} HP.`); }
-  if (t.restore_hunger) {
-    player.hunger = Math.min(100, player.hunger+t.restore_hunger);
-    messages.push(`+${t.restore_hunger} Hunger.`);
-    player.digestive_load = Math.min(120, (player.digestive_load || 0) + foodLoad(t.restore_hunger));
+  // How well it was cooked scales what it gives back. Absent (every item that
+  // isn't a plated profiled meal) is 1.0, so nothing that existed before this
+  // changes. Applies to the nourishment restores only — not credits, not radiation.
+  const qm = COOK_QUALITY_MULT[cd?.cook_quality] ?? 1;
+  if (cd?.cook_quality) {
+    const done = cd.doneness ? `${cd.doneness[0].toUpperCase()}${cd.doneness.slice(1)}, ` : '';
+    messages.push(`<span class="text-dim">${done}${done ? cd.cook_quality : `${cd.cook_quality[0].toUpperCase()}${cd.cook_quality.slice(1)}`}, this one.</span>`);
+  }
+  const hp = Math.round((t.restore_hp || 0) * qm);
+  const hunger = Math.round((t.restore_hunger || 0) * qm);
+  if (hp) { player.hp = Math.min(player.hp_max, player.hp+hp); messages.push(`+${hp} HP.`); }
+  if (hunger) {
+    player.hunger = Math.min(100, player.hunger+hunger);
+    messages.push(`+${hunger} Hunger.`);
+    player.digestive_load = Math.min(120, (player.digestive_load || 0) + foodLoad(hunger));
   }
   if (t.restore_thirst && !opts.skipThirstRestore) {
     applyThirst(player, t.restore_thirst);
@@ -629,7 +644,8 @@ export async function applyItemUse(player, item, broadcast, opts = {}) {
     player.healOverTime.push({ perTick, ticksRemaining: ticks });
     messages.push(`Bleeding slows. You'll recover ${amount} HP over the next ${Math.round(duration_seconds/60)} minute(s).`);
   }
-  if (t.well_fed) {
+  // A masterful meal is well-fed whether or not the raw ingredient ever was.
+  if (t.well_fed || cd?.cook_quality === 'masterful') {
     player.wellFedUntil = Date.now() + 10 * 60 * 1000;
     messages.push(`Well-fed: HP regen is faster for a while.`);
   }
@@ -642,6 +658,16 @@ export async function applyItemUse(player, item, broadcast, opts = {}) {
   if (sick) {
     applyEffect(player, 'food_poisoning', 90);
     messages.push('Your stomach churns immediately.');
+  } else if (cd?.doneness) {
+    // Doneness has a consequence, or it's just a label. Food deliberately pulled
+    // rare carries a real chance of making you ill — which is what stops "blue"
+    // from being a free way to skip most of the cook. The risk lives on the
+    // profile (plugins/cooking/profiles.js); this is only where it's paid.
+    const risk = await fireHook('cooking.donenessRisk', cd, player);
+    if (risk > 0 && Math.random() < risk) {
+      applyEffect(player, 'food_poisoning', 60);
+      messages.push('It was pinker in the middle than it should have been. You feel it almost at once.');
+    }
   }
   // Apply the item's effects and consume it as one atomic unit, so a failure
   // between the two can't grant the effect (incl. credits) without spending the item.
@@ -845,6 +871,23 @@ export async function loadContainerById(id, player) {
   return null;
 }
 
+// ── Shop stock: unpaid goods ─────────────────────────────────────────────────
+// A furniture container flagged `vendor_stock: <npcId>` is a shop's display unit —
+// a cooler on the sales floor, not a private fridge. Its contents are the vendor's
+// until you settle up, so anything lifted out leaves marked `custom_data.unpaid`
+// with the owning vendor's id. `checkout` (commerce) clears the mark; carrying it
+// out of the shop is shoplifting. Returns the vendor id, or null for a normal
+// container (which behaves exactly as it always has).
+const vendorStockOwner = container =>
+  (container?.kind === 'furniture' && container?.tags?.vendor_stock) || null;
+
+// SQL fragment stamping the mark; expects the vendor id as the LAST bound param.
+const UNPAID_SET_SQL = `, custom_data = COALESCE(custom_data,'{}'::jsonb) || jsonb_build_object('unpaid', $3::text)`;
+// And the fragment that clears it, for putting stock back where it came from.
+const UNPAID_CLEAR_SQL = `, custom_data = COALESCE(custom_data,'{}'::jsonb) - 'unpaid'`;
+const unpaidNote = name =>
+  `<span class="text-dim">The ${name} isn't yours yet — pay at the counter (<b>checkout</b>) before you leave.</span>`;
+
 // Container capacity in grams. Furniture containers default to 60000 (60kg) when unset.
 function containerCapacity(container) {
   return tagValue(container, 'container', container.kind === 'furniture' ? 60000 : 0);
@@ -919,6 +962,10 @@ async function buildContainerView(containerId, player) {
       view.secondary = { containerId: paired.id, containerName: titleCaseName(paired.name), ...pairedBox };
     }
   }
+  // A container furniture can be more than a box — a wardrobe layers saved
+  // outfits over the same storage. Handlers mutate `view` in place (retyping it
+  // and hanging their own block off it); an unhooked container is untouched.
+  await fireHook('container.view', { view, container, player });
   return view;
 }
 
@@ -1077,7 +1124,8 @@ async function cmdStowById(argStr, player, broadcast) {
       return view1;
     }
   }
-  await query('UPDATE player_inventory SET container_id=$1, is_equipped=0, slot=NULL WHERE id=$2', [container.id, item.id]);
+  // Putting shop stock back clears the unpaid mark (see vendorStockOwner).
+  await query(`UPDATE player_inventory SET container_id=$1, is_equipped=0, slot=NULL${vendorStockOwner(container) ? UNPAID_CLEAR_SQL : ''} WHERE id=$2`, [container.id, item.id]);
   const echoed2 = throttledContainerBroadcast(player, broadcast, container.name);
   const view2 = await buildContainerView(container.id, player);
   if (echoed2) view2.mainMsg = `You rummage through ${withArticle(container.name)}.`;
@@ -1097,21 +1145,27 @@ async function cmdPullById(idStr, qtyStr, player, broadcast) {
   // Partial pull: only move the requested qty when less than the full stack
   const reqQty = qtyStr && /^\d+$/.test(qtyStr) ? parseInt(qtyStr, 10) : null;
   const takeQty = (reqQty && reqQty > 0 && reqQty < item.quantity) ? reqQty : null;
+  // Shop stock keeps its own row (never merges into what you already carry) so the
+  // unpaid mark survives the trip to the counter — see vendorStockOwner.
+  const vendorId = vendorStockOwner(container);
   if (takeQty && isStackable(item) && !rowIsInstanced(item)) {
-    const { rows: exPull } = await query(`SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL AND is_equipped=0 AND ${NOT_INSTANCED_SQL} LIMIT 1`, [player.id, item.item_id]);
+    const { rows: exPull } = vendorId ? { rows: [] }
+      : await query(`SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL AND is_equipped=0 AND ${NOT_INSTANCED_SQL} LIMIT 1`, [player.id, item.item_id]);
     if (exPull.length) {
       await query('UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2', [takeQty, exPull[0].id]);
     } else {
-      await query('INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,$3,$4,1.0)', [randomUUID(), player.id, item.item_id, takeQty]);
+      await query('INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,custom_data) VALUES ($1,$2,$3,$4,1.0,$5)',
+        [randomUUID(), player.id, item.item_id, takeQty, JSON.stringify(vendorId ? { unpaid: vendorId } : {})]);
     }
     await query('UPDATE player_inventory SET quantity=quantity-$1 WHERE id=$2', [takeQty, item.id]);
     const pePart = throttledContainerBroadcast(player, broadcast, container.name);
     const pvPart = await buildContainerView(containerId, player);
     if (pePart) pvPart.mainMsg = `You rummage through ${withArticle(container.name)}.`;
+    if (vendorId) pvPart.mainMsg = unpaidNote(item.name);
     return pvPart;
   }
 
-  if (isStackable(item) && !rowIsInstanced(item)) {
+  if (!vendorId && isStackable(item) && !rowIsInstanced(item)) {
     const { rows: existing } = await query(`SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL AND is_equipped=0 AND ${NOT_INSTANCED_SQL} LIMIT 1`, [player.id, item.item_id]);
     if (existing.length) {
       await query('UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2', [item.quantity, existing[0].id]);
@@ -1122,10 +1176,12 @@ async function cmdPullById(idStr, qtyStr, player, broadcast) {
       return pv1;
     }
   }
-  await query('UPDATE player_inventory SET container_id=NULL, player_id=$1 WHERE id=$2', [player.id, item.id]);
+  await query(`UPDATE player_inventory SET container_id=NULL, player_id=$1${vendorId ? UNPAID_SET_SQL : ''} WHERE id=$2`,
+    vendorId ? [player.id, item.id, vendorId] : [player.id, item.id]);
   const pe2 = throttledContainerBroadcast(player, broadcast, container.name);
   const pv2 = await buildContainerView(containerId, player);
   if (pe2) pv2.mainMsg = `You rummage through ${withArticle(container.name)}.`;
+  if (vendorId) pv2.mainMsg = unpaidNote(item.name);
   return pv2;
 }
 
@@ -1184,7 +1240,9 @@ async function cmdStow(argStr, player) {
       return { type:'stow', message:`You stow ${item.name} in ${container.name}.` };
     }
   }
-  await query('UPDATE player_inventory SET container_id=$1, is_equipped=0, slot=NULL WHERE id=$2', [container.id, item.id]);
+  // Putting shop stock back on the shelf un-marks it — changing your mind at the
+  // cooler is not a crime, and the row rejoins the vendor's sellable stock.
+  await query(`UPDATE player_inventory SET container_id=$1, is_equipped=0, slot=NULL${vendorStockOwner(container) ? UNPAID_CLEAR_SQL : ''} WHERE id=$2`, [container.id, item.id]);
   return { type:'stow', message:`You stow ${item.name} in ${container.name}.` };
 }
 
@@ -1192,8 +1250,18 @@ async function cmdPull(argStr, player) {
   if (!argStr) return { type:'error', message:'Pull what?' };
   const [itemPart, containerPart] = splitOn(argStr, ' from ');
   if (!itemPart) return { type:'error', message:'Pull what?' };
-  const container = await resolveContainer(containerPart, player);
+  let container = await resolveContainer(containerPart, player);
   if (container === 'ambiguous') return { type:'error', message:`Which container? Try "pull <item> from <name>".` };
+  if (!container && containerPart) {
+    // No item/ground container matched — fall through to a furniture container in
+    // this zone, same as `stow` does. Without this the text path could never reach
+    // a shop cooler or any other furniture container; only the GUI `pullid` could.
+    const { rows: fRows } = await query(
+      `SELECT id FROM furniture WHERE zone_id=$1 AND object_type='container' AND (name ILIKE $2 OR flags->>'aliases' ILIKE $2) LIMIT 1`,
+      [player.current_zone, `%${containerPart}%`]
+    );
+    if (fRows.length) container = await loadContainerById(fRows[0].id, player);
+  }
   if (!container) return { type:'error', message:`You don't see a container${containerPart?` matching "${containerPart}"`:''} here.` };
 
   const { rows } = await query(`SELECT pi.*,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.container_id=$1 AND i.name ILIKE $2 LIMIT 1`, [container.id, `%${itemPart}%`]);
@@ -1201,7 +1269,10 @@ async function cmdPull(argStr, player) {
   const item = rows[0];
   if (item.tags?.perishable) await fireHook('item.checkFreshness', item, player);
 
-  if (isStackable(item) && !rowIsInstanced(item)) {
+  const vendorId = vendorStockOwner(container);
+  // Shop stock never merges into what you already carry — it has to stay a
+  // distinct, markable row so the counter (and the door) can tell it apart.
+  if (!vendorId && isStackable(item) && !rowIsInstanced(item)) {
     const { rows: existing } = await query(`SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL AND is_equipped=0 AND ${NOT_INSTANCED_SQL} LIMIT 1`, [player.id, item.item_id]);
     if (existing.length) {
       await query('UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2', [item.quantity, existing[0].id]);
@@ -1209,7 +1280,8 @@ async function cmdPull(argStr, player) {
       return { type:'pull', message:`You pull ${item.name} from ${container.name}.` };
     }
   }
-  await query('UPDATE player_inventory SET container_id=NULL, player_id=$1 WHERE id=$2', [player.id, item.id]);
+  await query(`UPDATE player_inventory SET container_id=NULL, player_id=$1${vendorId ? UNPAID_SET_SQL : ''} WHERE id=$2`, vendorId ? [player.id, item.id, vendorId] : [player.id, item.id]);
+  if (vendorId) return { type:'pull', message:`You take ${item.name} from ${container.name}. ${unpaidNote(item.name)}` };
   return { type:'pull', message:`You pull ${item.name} from ${container.name}.` };
 }
 
@@ -1244,4 +1316,4 @@ export const handlers = {
 };
 
 export { cmdLookInContainer, describeContainer, cmdOpenContainer, cmdUse, cmdGear,
-  cmdInventory, cmdEquipById, cmdUnequipById, cmdDropById };
+  cmdInventory, cmdEquipById, cmdUnequipById, cmdDropById, buildContainerView };

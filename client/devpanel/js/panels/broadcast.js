@@ -132,7 +132,7 @@ async function bcSuiteRefresh(focusTab) {
 }
 
 const BROADCAST_CATEGORIES = ['general','news','advertisement','entertainment','emergency','weather','sport','music','documentary','surveillance'];
-const BROADCAST_MODES      = ['scripted','dynamic_news','live','recorded','weather','sports','news'];
+const BROADCAST_MODES      = ['scripted','dynamic_news','live','recorded','weather','sports','news','talkshow','morning','gameshow'];
 
 const BC_CAT_COLOR = {
   entertainment: 'var(--cyan)',    news: 'var(--yellow)',
@@ -1711,7 +1711,7 @@ async function _bcDepFinish() {
   if (_bcDepCompiled) await _bcImportSave(_bcDepCompiled);
 }
 
-async function _bcImportSave({ meta, broadcastGraph, weatherScript, sportsScript, newsScript, talkshowScript, morningScript, messages, assets, cameras, actorIds, npcIds }) {
+async function _bcImportSave({ meta, broadcastGraph, weatherScript, sportsScript, newsScript, talkshowScript, morningScript, gameshowScript, messages, assets, cameras, actorIds, npcIds }) {
   // Apply zone ID remaps to camera_cut nodes (BSM ID → real interior zone ID)
   for (const node of Object.values(broadcastGraph?.nodes || {})) {
     if (node.type === 'camera_cut') {
@@ -1757,10 +1757,14 @@ async function _bcImportSave({ meta, broadcastGraph, weatherScript, sportsScript
   const isNews     = meta.type === 'news';
   const isTalkshow = meta.type === 'talkshow';
   const isMorning  = meta.type === 'morning';
-  const isPool     = isWeather || isSports || isNews || isTalkshow || isMorning;
+  // @type gameshow → a line library acted live by a host (+ optional sidekick), whose
+  // questions are dealt from the live item catalog. Staffs the studio and gates on an
+  // @airtime slot like a talk show; uniquely, any PLAYER standing in the studio can play.
+  const isGameshow = meta.type === 'gameshow';
+  const isPool     = isWeather || isSports || isNews || isTalkshow || isMorning || isGameshow;
   const body = {
-    name: meta.name, category: meta.category || (isWeather ? 'weather' : isSports ? 'sport' : isNews ? 'news' : isTalkshow ? 'late_night' : isMorning ? 'morning' : 'general'),
-    playback_mode: isWeather ? 'weather' : isSports ? 'sports' : isNews ? 'news' : isTalkshow ? 'talkshow' : isMorning ? 'morning' : 'scripted', message_interval: 5,
+    name: meta.name, category: meta.category || (isWeather ? 'weather' : isSports ? 'sport' : isNews ? 'news' : isTalkshow ? 'late_night' : isMorning ? 'morning' : isGameshow ? 'gameshow' : 'general'),
+    playback_mode: isWeather ? 'weather' : isSports ? 'sports' : isNews ? 'news' : isTalkshow ? 'talkshow' : isMorning ? 'morning' : isGameshow ? 'gameshow' : 'scripted', message_interval: 5,
     override_duration: meta.length || null, loop: isPool ? 1 : 0, enabled: 1,
     messages: messages.map(t => ({ text: t })),
     broadcast_graph: broadcastGraph,
@@ -1769,6 +1773,7 @@ async function _bcImportSave({ meta, broadcastGraph, weatherScript, sportsScript
     news_pools: isNews ? (newsScript || { anchors: [], reporters: [], announcer: meta.announcer, pools: {} }) : null,
     talkshow_pools: isTalkshow ? (talkshowScript || { host: meta.host, sidekick: meta.sidekick, guestNpc: meta.guestNpc, guests: [], pools: {}, title: meta.titlecard || '', theme: meta.theme || '', airSlots: null }) : null,
     morning_pools: isMorning ? (morningScript || { host: meta.host, cohost: meta.cohost, pools: {}, title: meta.titlecard || '', theme: meta.theme || '' }) : null,
+    gameshow_pools: isGameshow ? (gameshowScript || { host: meta.host, sidekick: meta.sidekick, contestants: [], pools: {}, title: meta.titlecard || '', theme: meta.theme || '', airSlots: null, rounds: null }) : null,
     channel_id: channelId,
   };
   try {
@@ -1831,7 +1836,7 @@ async function _bcImportSave({ meta, broadcastGraph, weatherScript, sportsScript
         // for them, even if the .bsm declares ::actors / SPEAKER lines. For a talk show the
         // host + sidekick + reusable guest are placed here; the server's schedule recalc then
         // assigns the guest its roaming lifecycle graph when the show is put on a playlist.
-        const spawnsNpcs = meta.type === 'live' || meta.type === 'weather' || isTalkshow || isMorning;
+        const spawnsNpcs = meta.type === 'live' || meta.type === 'weather' || isTalkshow || isMorning || isGameshow;
         let npcSpawnCount = 0, npcMoveCount = 0;
         const existingNpcIds = _bcExistingNpcIds instanceof Set ? _bcExistingNpcIds : new Set();
         const actors = spawnsNpcs ? [...new Set([

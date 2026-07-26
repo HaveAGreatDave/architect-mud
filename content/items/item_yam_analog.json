@@ -1,0 +1,23 @@
+{
+  "description": "A long purple tuber with skin like bark, engineered to grow in soil that kills everything else. Sweet, dense, and it stains your hands for a day.",
+  "flags": {},
+  "id": "item_yam_analog",
+  "name": "yam-analog",
+  "tags": {
+    "description": "A long purple tuber with skin like bark, engineered to grow in soil that kills everything else. Sweet, dense, and it stains your hands for a day.",
+    "consumable": true,
+    "restore_hunger": 24,
+    "stackable": true,
+    "food_profile": "starchy_vegetable",
+    "food_noun": "yam",
+    "needs_cooking": true,
+    "perishable": true,
+    "spoil_rate": "slow",
+    "status_chance": {
+      "food_poisoning": 0.25
+    }
+  },
+  "type": "consumable",
+  "value": 7,
+  "weight": 400
+}

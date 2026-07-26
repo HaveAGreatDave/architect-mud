@@ -18,9 +18,52 @@
 import 'dotenv/config';
 import { pathToFileURL } from 'node:url';
 import { restockAllVendors } from '../../server/engine/vendor.js';
+import { query } from '../../server/models/db.js';
+
+// atm_units is runtime-class (one row per placed ATM, drained/refilled by play), so
+// content:import never writes it — but the row only ever gets created by the dev-panel
+// furniture route. On a freshly-imported DB every authored ATM therefore has furniture
+// and no unit, and the plugin degrades it to an UNLINKED "CENTRAL BANK" terminal with
+// default cash. Provision the missing units from the furniture, and bind the brand from
+// the authored `flags.atm_network` so a content-authored ATM keeps its network.
+async function provisionAtmUnits() {
+  await query(`
+    INSERT INTO atm_units (id, network_id)
+    SELECT f.id, n.id
+      FROM furniture f
+      LEFT JOIN atm_networks n ON n.id = f.flags->>'atm_network'
+     WHERE jsonb_exists(f.flags, 'atm')
+    ON CONFLICT (id) DO NOTHING`);
+  // Late-authored network on an ATM that already had a unit — only ever fills a blank.
+  await query(`
+    UPDATE atm_units a SET network_id = n.id
+      FROM furniture f
+      JOIN atm_networks n ON n.id = f.flags->>'atm_network'
+     WHERE f.id = a.id AND a.network_id IS NULL`);
+}
+
+// furniture.light_on is excluded from content (the power/day-night sim owns it), so
+// every authored fixture imports OFF. That is not self-healing for interior lights:
+// the first power tick backfills light_on_intended = COALESCE(intended, light_on) = 0
+// and the fixture is then deliberately off forever — a freshly-imported building is
+// dark with all its lights "installed". Switch on fixtures the sim has never touched
+// (light_on_intended IS NULL); once it has, intended is non-null and this leaves the
+// player's own switch decisions alone. Streetlights are excluded — syncStreetlights
+// drives those off the day/night clock.
+async function lightAuthoredFixtures() {
+  const { rowCount } = await query(`
+    UPDATE furniture SET light_on = 1
+     WHERE object_type = 'light' AND light_on = 0
+       AND light_on_intended IS NULL
+       AND COALESCE(light_type, '') <> 'streetlight'
+       AND COALESCE(lumen_output, 0) > 0`);
+  if (rowCount) console.log(`[lighting] switched on ${rowCount} newly-imported fixture(s)`);
+}
 
 const TASKS = [
   ['restock vendors', restockAllVendors],
+  ['provision ATM units', provisionAtmUnits],
+  ['light authored fixtures', lightAuthoredFixtures],
   // ['<label>', <async fn>],  ← add future fresh-start tasks here
 ];
 

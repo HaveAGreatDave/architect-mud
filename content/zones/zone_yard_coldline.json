@@ -11,7 +11,7 @@
     "south": "zone_district_926_909"
   },
   "flags": {
-    "building_name": "Coldline Reefer Depot",
+    "building_name": "Chill Out Logistics",
     "building_type": "cold_storage",
     "claimable_asset": "warehouse",
     "is_building": true,
@@ -24,7 +24,7 @@
   "id": "zone_yard_coldline",
   "map_id": "map_int_yard_coldline",
   "marker": null,
-  "name": "Coldline Reefer Depot",
+  "name": "Chill Out Logistics",
   "parent_zone": "zone_district_926_909",
   "updated_at": "1783739474"
 }

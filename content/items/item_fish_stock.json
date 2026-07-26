@@ -1,0 +1,23 @@
+{
+  "description": "Cloudy, grey-green, and pungent enough through the seal to announce itself. Made from the parts of the catch nobody sells. Transforms in a pot; punishing anywhere else.",
+  "flags": {},
+  "id": "item_fish_stock",
+  "name": "fish stock",
+  "tags": {
+    "description": "Cloudy, grey-green, and pungent enough through the seal to announce itself. Made from the parts of the catch nobody sells. Transforms in a pot; punishing anywhere else.",
+    "consumable": true,
+    "restore_hunger": 10,
+    "stackable": true,
+    "food_profile": "liquid",
+    "food_noun": "fish",
+    "needs_cooking": true,
+    "perishable": true,
+    "spoil_rate": "fast",
+    "status_chance": {
+      "food_poisoning": 0.4
+    }
+  },
+  "type": "consumable",
+  "value": 7,
+  "weight": 500
+}

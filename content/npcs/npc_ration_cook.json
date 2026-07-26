@@ -107,37 +107,315 @@
     {
       "item_id": "item_lamp_greens",
       "price": 4,
-      "sourceContainer": "furn_ration9_fridge",
+      "sourceContainer": "furn_ration9_case_chiller",
       "restockToQty": 10
     },
     {
       "item_id": "item_ration_milk",
       "price": 5,
-      "sourceContainer": "furn_ration9_fridge",
+      "sourceContainer": "furn_ration9_case_chiller",
       "restockToQty": 8
     },
     {
       "item_id": "item_deli_wrap",
       "price": 12,
-      "sourceContainer": "furn_ration9_fridge",
+      "sourceContainer": "furn_ration9_case_chiller",
       "restockToQty": 6
     },
     {
       "item_id": "item_raw_meat",
       "price": 5,
-      "sourceContainer": "furn_ration9_freezer",
+      "sourceContainer": "furn_ration9_case_freezer",
       "restockToQty": 8
     },
     {
       "item_id": "item_fresh_catch",
       "price": 9,
-      "sourceContainer": "furn_ration9_freezer",
+      "sourceContainer": "furn_ration9_case_freezer",
       "restockToQty": 6
+    },
+    {
+      "item_id": "item_potato",
+      "price": 6,
+      "sourceContainer": "furn_ration9_case_chiller",
+      "restockToQty": 12
+    },
+    {
+      "item_id": "item_tomato",
+      "price": 8,
+      "sourceContainer": "furn_ration9_case_chiller",
+      "restockToQty": 10
+    },
+    {
+      "item_id": "item_soup_base",
+      "price": 12,
+      "stock": 20
+    },
+    {
+      "item_id": "item_pancake_batter",
+      "price": 7,
+      "stock": 16
+    },
+    {
+      "item_id": "item_frying_pan",
+      "price": 60,
+      "stock": 4
+    },
+    {
+      "item_id": "item_stock_pot",
+      "price": 90,
+      "stock": 3
+    },
+    {
+      "item_id": "item_spatula",
+      "price": 15,
+      "stock": 6
+    },
+    {
+      "item_id": "item_wooden_spoon",
+      "price": 10,
+      "stock": 6
     },
     {
       "item_id": "item_oven_zenith_compact",
       "price": 850,
       "stock": 3
+    },
+    {
+      "item_id": "item_orange",
+      "price": 28,
+      "sourceContainer": "furn_ration9_case_chiller",
+      "restockToQty": 8
+    },
+    {
+      "item_id": "item_ration_apple",
+      "price": 12,
+      "sourceContainer": "furn_ration9_case_chiller",
+      "restockToQty": 12
+    },
+    {
+      "item_id": "item_lemon_analog",
+      "price": 14,
+      "sourceContainer": "furn_ration9_case_chiller",
+      "restockToQty": 10
+    },
+    {
+      "item_id": "item_melon_chunk",
+      "price": 11,
+      "sourceContainer": "furn_ration9_case_chiller",
+      "restockToQty": 6
+    },
+    {
+      "item_id": "item_battery_egg",
+      "price": 7,
+      "sourceContainer": "furn_ration9_case_chiller",
+      "restockToQty": 18
+    },
+    {
+      "item_id": "item_powdered_egg",
+      "price": 4,
+      "stock": 20
+    },
+    {
+      "item_id": "item_cured_strip",
+      "price": 17,
+      "stock": 20
+    },
+    {
+      "item_id": "item_salt_fish",
+      "price": 13,
+      "stock": 14
+    },
+    {
+      "item_id": "item_tinned_meat",
+      "price": 10,
+      "stock": 24
+    },
+    {
+      "item_id": "item_pickled_veg",
+      "price": 9,
+      "stock": 16
+    },
+    {
+      "item_id": "item_offcut",
+      "price": 8,
+      "sourceContainer": "furn_ration9_case_freezer",
+      "restockToQty": 8
+    },
+    {
+      "item_id": "item_onion",
+      "price": 7,
+      "sourceContainer": "furn_ration9_case_chiller",
+      "restockToQty": 16
+    },
+    {
+      "item_id": "item_pale_cabbage",
+      "price": 6,
+      "sourceContainer": "furn_ration9_case_chiller",
+      "restockToQty": 10
+    },
+    {
+      "item_id": "item_hydro_pepper",
+      "price": 8,
+      "sourceContainer": "furn_ration9_case_chiller",
+      "restockToQty": 12
+    },
+    {
+      "item_id": "item_vat_mushroom",
+      "price": 10,
+      "sourceContainer": "furn_ration9_case_chiller",
+      "restockToQty": 8
+    },
+    {
+      "item_id": "item_grey_rice",
+      "price": 4,
+      "stock": 30
+    },
+    {
+      "item_id": "item_ersatz_noodle",
+      "price": 5,
+      "stock": 24
+    },
+    {
+      "item_id": "item_flat_bread",
+      "price": 6,
+      "stock": 18
+    },
+    {
+      "item_id": "item_dry_pulse",
+      "price": 7,
+      "stock": 20
+    },
+    {
+      "item_id": "item_bone_broth",
+      "price": 12,
+      "stock": 16
+    },
+    {
+      "item_id": "item_tomato_paste",
+      "price": 12,
+      "stock": 18
+    },
+    {
+      "item_id": "item_vinegar",
+      "price": 8,
+      "stock": 14
+    },
+    {
+      "item_id": "item_synth_cream",
+      "price": 11,
+      "sourceContainer": "furn_ration9_case_chiller",
+      "restockToQty": 8
+    },
+    {
+      "item_id": "item_dough_ball",
+      "price": 7,
+      "sourceContainer": "furn_ration9_case_chiller",
+      "restockToQty": 10
+    },
+    {
+      "item_id": "item_cracker_meal",
+      "price": 5,
+      "stock": 18
+    },
+    {
+      "item_id": "item_cooking_oil",
+      "price": 13,
+      "stock": 16
+    },
+    {
+      "item_id": "item_rendered_fat",
+      "price": 8,
+      "sourceContainer": "furn_ration9_case_chiller",
+      "restockToQty": 10
+    },
+    {
+      "item_id": "item_butter_analog",
+      "price": 16,
+      "sourceContainer": "furn_ration9_case_chiller",
+      "restockToQty": 8
+    },
+    {
+      "item_id": "item_salt_ration",
+      "price": 3,
+      "stock": 40
+    },
+    {
+      "item_id": "item_black_pepper",
+      "price": 18,
+      "stock": 12
+    },
+    {
+      "item_id": "item_chili_flake",
+      "price": 10,
+      "stock": 14
+    },
+    {
+      "item_id": "item_garlic_bulb",
+      "price": 9,
+      "sourceContainer": "furn_ration9_case_chiller",
+      "restockToQty": 14
+    },
+    {
+      "item_id": "item_cast_iron_skillet",
+      "price": 110,
+      "stock": 2
+    },
+    {
+      "item_id": "item_steel_saucepan",
+      "price": 45,
+      "stock": 4
+    },
+    {
+      "item_id": "item_roasting_tray",
+      "price": 70,
+      "stock": 3
+    },
+    {
+      "item_id": "item_kitchen_tongs",
+      "price": 18,
+      "stock": 6
+    },
+    {
+      "item_id": "item_ladle",
+      "price": 12,
+      "stock": 6
+    },
+    {
+      "item_id": "item_wire_whisk",
+      "price": 14,
+      "stock": 5
+    },
+    {
+      "item_id": "item_recipe_card",
+      "price": 35,
+      "stock": 5
+    },
+    {
+      "item_id": "item_battery_chicken",
+      "price": 15,
+      "sourceContainer": "furn_ration9_case_chiller",
+      "restockToQty": 10
+    },
+    {
+      "item_id": "item_jerk_paste",
+      "price": 34,
+      "stock": 8
+    },
+    {
+      "item_id": "item_ramen_noodles",
+      "price": 10,
+      "stock": 24
+    },
+    {
+      "item_id": "item_okonomi_sauce",
+      "price": 20,
+      "stock": 10
+    },
+    {
+      "item_id": "item_bonito_flakes",
+      "price": 24,
+      "stock": 12
     }
   ],
   "vendor_restock_rate": 1,

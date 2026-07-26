@@ -128,7 +128,7 @@
     "\"Up here, the weather is a rumour and so is everyone else.\"",
     "\"A member once asked me the time. I told them it was whatever they preferred.\""
   ],
-  "description": "A poised, unreadable bartender who runs the Aerie's floor like a chess clock. She remembers every drink, every debt, and every indiscretion, and files them all somewhere you will never reach.",
+  "description": "A poised, unreadable bartender who runs Altitude Sickness's floor like a chess clock. She remembers every drink, every debt, and every indiscretion, and files them all somewhere you will never reach.",
   "dialogue_tree": {
     "accepted": {
       "actions": [
@@ -192,7 +192,7 @@
           "next": "bye"
         }
       ],
-      "text": "The bartender sets down a glass she was already polishing and takes your measure in one clean sweep. \"The Aerie. Members and their curiosities only — which, tonight, apparently means you. Drink? Or something more interesting?\""
+      "text": "The bartender sets down a glass she was already polishing and takes your measure in one clean sweep. \"Altitude Sickness. Members and their curiosities only — which, tonight, apparently means you. Drink? Or something more interesting?\""
     }
   },
   "faction": null,
@@ -276,7 +276,7 @@
       }
     ]
   },
-  "vendor_shop_name": "The Aerie",
+  "vendor_shop_name": "Altitude Sickness",
   "vendor_stock_size": 8,
   "wander_zones": [],
   "wanders": 0,

@@ -1,5 +1,5 @@
 {
-  "description": "A bare bulb on a pull-chain, buzzing faintly. Functional, nothing more.",
+  "description": "A seamless run of recessed lights washes the stone and oak in warm, even light — no fixture visible anywhere.",
   "flags": {
     "interactions": [
       "switch"
@@ -9,8 +9,8 @@
   "hp_max": null,
   "id": "furn_light_zone_mq_chrome_203",
   "light_type": "overhead",
-  "lumen_output": 1200,
-  "name": "overhead light",
+  "lumen_output": 1600,
+  "name": "recessed ceiling wash",
   "object_type": "light",
   "power_draw_kw": null,
   "price": 40,

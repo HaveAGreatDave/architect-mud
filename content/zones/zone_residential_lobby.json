@@ -11,6 +11,7 @@
   "description": "A converted hotel lobby, marble floors gone dull under a permanent film of dust, repurposed into the basin's closest thing to real estate. A corkboard by the door — bolted over what used to be the concierge desk — is covered in handwritten unit listings, half of them crossed out. Along one wall, a bar still operates under a brass sign reading THE EMBASSY LOUNGE — a half-dozen cracked vinyl stools lined up at the counter, free to sit if you don't mind the wobble. Lowry stands behind it, polishing a glass that was already clean. The building still has working locks upstairs, which around here makes it valuable.",
   "exits": {
     "down": "zone_residential_lobby_z-1_1782105292491",
+    "east": "zone_embassy_lobby_bathroom",
     "up": "zone_embassy_floor_2nd",
     "west": "zone_district_920_904"
   },

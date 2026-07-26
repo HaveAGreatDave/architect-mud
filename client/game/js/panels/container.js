@@ -44,15 +44,34 @@ function formatWeight(g) {
 // Holding temperature shown on a compartment's little LED readout, keyed by
 // the `preserves` tier the server reports for that box. A compartment with no
 // tier (an ordinary crate) shows nothing at all.
-const TIER_TEMP = { refrigerated: '4°C', frozen: '-18°C' };
+// The reading is split into digits + unit so the display can size them
+// separately — big tabular numerals, small unit — the way an appliance panel
+// does it. `mode` names the setpoint the way the unit's own controls would.
+const TIER_TEMP = {
+  refrigerated: { value: '4', unit: '°C', mode: 'chill' },
+  frozen: { value: '-18', unit: '°C', mode: 'freeze' },
+};
 
 function setTemp(elId, preserves) {
   const el = document.getElementById(elId);
   if (!el) return;
-  const label = TIER_TEMP[preserves];
-  el.textContent = label || '';
-  el.classList.toggle('active', !!label);
+  const t = TIER_TEMP[preserves];
+  el.innerHTML = t
+    ? `<span class="ctr-temp-mode">${t.mode}</span>` +
+      `<span class="ctr-temp-val">${t.value}</span>` +
+      `<span class="ctr-temp-unit">${t.unit}</span>`
+    : '';
+  el.classList.toggle('active', !!t);
   el.classList.toggle('ctr-temp-frozen', preserves === 'frozen');
+}
+
+// Capacity readout + its load gauge (the `--fill` the CSS bar draws to).
+function setCapacity(elId, used, capacity) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  el.textContent = `Capacity: ${formatWeight(used)} / ${formatWeight(capacity)}`;
+  const pct = capacity > 0 ? Math.min(100, Math.round((used / capacity) * 100)) : 0;
+  el.style.setProperty('--fill', `${pct}%`);
 }
 
 function promptQty(max, action) {
@@ -120,9 +139,13 @@ function renderContainerPanel(data, { isOpen = false } = {}) {
   }
 
   document.getElementById('container-title').textContent = fridge.name;
-  document.getElementById('container-contents-label').textContent = fridge.name;
-  document.getElementById('container-capacity').textContent =
-    `Capacity: ${formatWeight(fridge.usedWeight)} / ${formatWeight(fridge.capacity)}`;
+  // The unit's name is already the panel title; repeating it over every
+  // compartment just reads as noise. Inside a cold cabinet the compartments
+  // name themselves, the way the labels on a real appliance do. Ordinary
+  // containers keep the server-supplied name.
+  document.getElementById('container-contents-label').textContent =
+    isCold ? (fridge.preserves === 'frozen' ? 'Freezer' : 'Fresh Food') : fridge.name;
+  setCapacity('container-capacity', fridge.usedWeight, fridge.capacity);
   const notify = document.getElementById('container-notify');
   if (notify) notify.textContent = data.notify || '';
 
@@ -137,9 +160,9 @@ function renderContainerPanel(data, { isOpen = false } = {}) {
   const freezerBox = document.getElementById('container-freezer-box');
   if (freezer) {
     freezerBox.classList.add('active', 'ctr-frost');
-    document.getElementById('container-freezer-label').textContent = freezer.name;
-    document.getElementById('container-freezer-capacity').textContent =
-      `Capacity: ${formatWeight(freezer.usedWeight)} / ${formatWeight(freezer.capacity)}`;
+    document.getElementById('container-freezer-label').textContent =
+      isCold ? 'Freezer' : freezer.name;
+    setCapacity('container-freezer-capacity', freezer.usedWeight, freezer.capacity);
     const freezerItems = freezer.items.filter(i => i.id !== freezer.containerId);
     renderList('container-freezer-list', freezerItems, 'contents', freezer.containerId);
   } else {
@@ -161,9 +184,11 @@ function renderList(listId, items, source, containerId) {
     card.setAttribute('draggable', 'true');
     card.setAttribute('data-id', item.id);
     card.setAttribute('data-source', source);
-    const qty = item.quantity > 1 ? ` x${item.quantity}` : '';
-    const wt = item.weight != null ? ` ${formatWeight(item.weight)}` : '';
-    card.innerHTML = `<span class="ctr-name">${item.name}${qty}</span><span class="ctr-meta">${wt}</span>`;
+    // Quantity is its own badge rather than inline text, so a stack reads at a
+    // glance and the name keeps a single clean baseline.
+    const qty = item.quantity > 1 ? `<span class="ctr-qty">×${item.quantity}</span>` : '';
+    const wt = item.weight != null ? `<span class="ctr-meta">${formatWeight(item.weight)}</span>` : '';
+    card.innerHTML = `<span class="ctr-name">${item.name}</span>${qty}${wt}`;
 
     if (source === 'inv') {
       const btn = document.createElement('button');

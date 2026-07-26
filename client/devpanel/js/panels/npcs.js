@@ -1043,6 +1043,19 @@ async function saveNpc(existing) {
   return API(`/npcs/${existing.id}`, 'PUT', body);
 }
 
+// VINE's 💾 Save & Close used to only write the graph back into the edit form, so
+// navigating away before clicking the record's Save silently threw the edits out.
+// Commit to the form AND persist straight to the DB via the same /graph PATCH route
+// vineJumpTo uses. A brand-new NPC has no row yet, so it stays form-only.
+async function _npcCommitGraph(field, value, noun) {
+  document.getElementById(`f-${field}`).value = JSON.stringify(value, null, 2);
+  const id = currentRecord?.id;
+  if (!id) { toast(`${noun} saved to form — click Save to persist.`); return; }
+  const res = await directAPI(`/npcs/${id}/graph`, 'PATCH', { field, graph: value });
+  if (res && res.error) return toast(`${noun}: ${res.error}`, true);
+  toast(`${noun} saved.`);
+}
+
 function npcOpenVine() {
   let tree;
   try { tree = JSON.parse(document.getElementById('f-dialogue_tree').value || '{}'); }
@@ -1053,9 +1066,7 @@ function npcOpenVine() {
     VineDialogueSchema,
     graphData,
     (savedGraph) => {
-      const treeOut = VineDialogueSchema.toDialogueTree(savedGraph);
-      document.getElementById('f-dialogue_tree').value = JSON.stringify(treeOut, null, 2);
-      toast('Dialogue saved to form — click Save to persist.');
+      _npcCommitGraph('dialogue_tree', VineDialogueSchema.toDialogueTree(savedGraph), 'Dialogue');
     },
     { label: '🧠 AI Behaviour ▸', title: "Commit and open this NPC's AI behaviour graph", onClick: () => npcJumpToSibling('ai') },
     vineFamilyTabs('dialogue')
@@ -1080,9 +1091,7 @@ function npcOpenVineAI() {
     VineAISchema,
     graphData,
     (savedGraph) => {
-      const out = VineAISchema.toAiGraph(savedGraph);
-      document.getElementById('f-behaviour_graph').value = JSON.stringify(out, null, 2);
-      toast('Behaviour graph saved to form — click Save to persist.');
+      _npcCommitGraph('behaviour_graph', VineAISchema.toAiGraph(savedGraph), 'Behaviour graph');
     },
     { label: '💬 Dialogue ▸', title: "Commit and open this NPC's dialogue graph", onClick: () => npcJumpToSibling('dialogue') },
     vineFamilyTabs('ai')

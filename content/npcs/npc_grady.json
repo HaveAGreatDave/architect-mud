@@ -135,6 +135,10 @@
   "description": "A broad, unhurried man in a patched vendor’s apron, planted behind a counter of scavenged crates in the cramped front room of his shop. Flashlights and coils of spare cells hang off every nail within reach. He watches the door the way a fisherman watches a net — patient, and already pricing whoever walks through it.",
   "dialogue_tree": {
     "accepted": {
+      "_vine": {
+        "x": 680,
+        "y": 240
+      },
       "actions": [
         {
           "action": "START_QUEST",
@@ -159,10 +163,20 @@
       "text": "\"Good. There’s a green line on your map now — that’s the way. East, into the alley. Try not to die out there; the paperwork on a fresh clone is murder.\""
     },
     "bye": {
+      "_vine": {
+        "x": 680,
+        "y": 60
+      },
+      "actions": [],
       "options": [],
       "text": "\"Mind the alley. And the sky. And the water. Actually — mind everything.\" He goes back to watching the doors."
     },
     "deep_tip": {
+      "_vine": {
+        "x": 360,
+        "y": 1140
+      },
+      "actions": [],
       "options": [
         {
           "label": "How deep are we talking?",
@@ -172,6 +186,11 @@
       "text": "\"More work? Down there, always.\" He doesn't look thrilled about it. \"You thinned the shallows. But the Under goes down a long way past where you were, and it gets meaner every level. Word is there's an old scavenger who's dug in about as deep as anyone can and lived — works a walled cistern off a crossroads they call the Throat, east and down. Dredge, they call her. She pays real credits for the ugly work she can't do herself anymore.\" He shrugs. \"Push past the pocket, keep that light charged, and go find her. Just don't go dark down there. You go dark, you stay.\""
     },
     "hiring_tip": {
+      "_vine": {
+        "x": 360,
+        "y": 1320
+      },
+      "actions": [],
       "options": [
         {
           "label": "Names?",
@@ -182,27 +201,42 @@
           "next": "bye"
         }
       ],
-      "text": "\"Hiring?\" He snorts. \"Everyone's hiring, nobody's advertising. That's the whole town.\" He leans on the crates. \"Look — Marta's board is fine for bus fare. But there's a class of people round here who've got a problem they can't be seen solving themselves, and a drawer they can pay you out of. Those are the ones worth walking to. They don't post. You knock.\""
+      "text": "\"Hiring?\" He snorts. \"Everyone's hiring, nobody's advertising. That's the whole town.\" He leans on the crates. \"Look — Delia's board is fine for bus fare. But there's a class of people round here who've got a problem they can't be seen solving themselves, and a drawer they can pay you out of. Those are the ones worth walking to. They don't post. You knock.\""
     },
     "hiring_tip_names": {
+      "_vine": {
+        "x": 680,
+        "y": 600
+      },
+      "actions": [],
       "options": [
         {
           "label": "I'll pay them a visit.",
           "next": "bye"
         }
       ],
-      "text": "\"Two worth your time, and both of ’em keep office hours where you can actually reach them.\" He counts on thick fingers. \"Precinct Nine lobby, out east past the Vig — there's a records clerk they call the Registrar, and an Assemblyman named Croll who’s usually in there leaning on somebody. Both have got wastes-work they’d rather not sign their name to. Registrar pays a hundred and change; Croll better than that.\" He shrugs. \"And if you get ambitious, Consul Reyes holds court in the Halcyon lobby. Pays double what I do and asks twice as much. Don’t go to any of them broke and unarmed — they can smell it, and the price of your help drops accordingly.\""
+      "text": "\"Two worth your time, and both of ’em keep office hours where you can actually reach them.\" He counts on thick fingers. \"Precinct Nine lobby, out east past the Lucky Bastard — there's a records clerk they call the Registrar, and an Assemblyman named Croll who’s usually in there leaning on somebody. Both have got wastes-work they’d rather not sign their name to. Registrar pays a hundred and change; Croll better than that.\" He shrugs. \"And if you get ambitious, Consul Reyes holds court in the Halcyon lobby. Pays double what I do and asks twice as much. Don’t go to any of them broke and unarmed — they can smell it, and the price of your help drops accordingly.\""
     },
     "lore": {
+      "_vine": {
+        "x": 360,
+        "y": 240
+      },
+      "actions": [],
       "options": [
         {
           "label": "Noted.",
           "next": "root"
         }
       ],
-      "text": "He taps a scratched flashlight hanging off his belt. \"Two cells. That’s all this old thing ever needed. Everyone out here’s hunting some big score, some perfect gun. Me, I found the one tool that never quit on me and I stopped looking. Learn that before something out there teaches it to you the hard way.\""
+      "text": "He taps a scratched flashlight hanging off his belt. \n“Two cells. That’s all this old thing ever needed. Everyone out here’s hunting some big score, some perfect gun. Me? I learned early that seeing trouble before it sees you is worth more than most things you can carry. Learn that before you head into the Under. Down there, knowing what’s three feet in front of you can be the difference between a bad day and a very short one.”"
     },
     "quest_offer": {
+      "_vine": {
+        "x": 360,
+        "y": 420
+      },
+      "actions": [],
       "options": [
         {
           "label": "I’ll clear them out.",
@@ -213,9 +247,14 @@
           "next": "bye"
         }
       ],
-      "text": "\"Funny you should say it. There’s a crew of clonejackers working the strip south of here — down past the Embassy, on Ironside. They wait for sprats like you to wobble out of the vats, then lift everything you’ve got before you know you had it. Bad for you. Worse for me: dead customers don’t spend.\" He pulls a battered bat off the crate and holds it out. \"Put two of them down, bring back the cells they boosted off me, and I’ll make it worth your while. Take the loaner. Bring it back or don’t — I’ve a crate of ’em.\""
+      "text": "\"Fresh clone, huh?\"\nHe glances at the vat-slick sheen on your skin, then at the empty space where your belongings presumably ought to be.\n\"Well, you're in luck. I've got work for people with no experience, no equipment, no money, and absolutely no idea what they're doing.\"\n\"There's a crew of clonejackers creeping around somewhere nearby. They wait for fresh clones to wobble out of the vats, then take everything they own. Take care of them for me and I’ll see what else I can find for you.\""
     },
     "regular": {
+      "_vine": {
+        "x": 360,
+        "y": 1500
+      },
+      "actions": [],
       "options": [
         {
           "label": "Show me the crates.",
@@ -226,9 +265,13 @@
           "next": "bye"
         }
       ],
-      "text": "\"Back for more, regular? Good. You keep breathing, I keep selling. Beautiful arrangement, this.\""
+      "text": "\"Back for more? Good. You keep breathing, I keep selling. Beautiful arrangement, this.\""
     },
     "reported": {
+      "_vine": {
+        "x": 360,
+        "y": 600
+      },
       "actions": [
         {
           "action": "REMOVE_ITEM",
@@ -249,6 +292,11 @@
       "text": "He weighs the recovered cells in one hand and, for the first time, actually smiles. \"Well. Look at you — upright AND useful. Rare combination round here.\" He unclips the scratched flashlight from his belt and folds your fingers around it. \"This one’s mine. Was. Never once left me in the dark. Graduation gift. Consider yourself a regular.\""
     },
     "root": {
+      "_vine": {
+        "x": 40,
+        "y": 60
+      },
+      "actions": [],
       "options": [
         {
           "label": "What are you selling?",
@@ -352,9 +400,13 @@
           "next": "regular"
         }
       ],
-      "text": "The broad man clocks you the instant you’re upright. \"There it is. Another fresh one, blinking in the light.\" He spreads his hands over the crates. \"Name’s Grady. Folks call me Two-Cell. I sell the things that keep you breathing long enough to become a repeat customer.\""
+      "text": "\"Name’s Grady. Folks call me Two-Cell. I sell the things that keep you breathing long enough to become a repeat customer.\""
     },
     "sewer_accepted": {
+      "_vine": {
+        "x": 680,
+        "y": 420
+      },
       "actions": [
         {
           "action": "START_QUEST",
@@ -370,6 +422,11 @@
       "text": "\"Good. Green line’s on your map — walks you right to the drain. Keep that light charged; I sell cells if you run dry, and don’t be too proud to buy them. Six of the buggers. Then home.\""
     },
     "sewer_offer": {
+      "_vine": {
+        "x": 360,
+        "y": 780
+      },
+      "actions": [],
       "options": [
         {
           "label": "Point me at it.",
@@ -383,6 +440,10 @@
       "text": "\"Earn? Same way I do — off what nobody else’ll touch.\" He jerks a thumb at the floor. \"That storm drain out on Ironside, the one with the grate kicked off — it drops into the Under. Old sewers. Something’s breeding down there and it’s working its way up toward my vats. Rats. Roaches. Worse.\" He taps the flashlight he gave you. \"You’ve got the light now. Go down, thin ’em out — call it six of the things — and come tell me it’s done. The dark’s the only thing down there that’ll kill you, and you’re carrying the cure.\""
     },
     "sewer_reported": {
+      "_vine": {
+        "x": 360,
+        "y": 960
+      },
       "actions": [
         {
           "action": "TURN_IN",
@@ -398,6 +459,10 @@
       "text": "He hears the count and nods, slow. \"Six. And you walked back up under your own power — that's the part most don't manage.\" He counts the pay out first, deliberately, so you see it land. Then a separate handful of cells goes on top. \"Pay's the pay. The cells are what you burned getting there — I'm not so crooked I'll charge a man for the light I sent him down with.\" He taps the flashlight in your hand. \"A dead one's just a club, and you're better than a club now. Barely. Keep it fed.\""
     },
     "shop": {
+      "_vine": {
+        "x": 360,
+        "y": 60
+      },
       "actions": [
         {
           "action": "OPEN_SHOP",

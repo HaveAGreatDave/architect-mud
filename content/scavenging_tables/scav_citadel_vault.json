@@ -1,0 +1,24 @@
+{
+  "flags": {},
+  "id": "scav_citadel_vault",
+  "messages": {
+    "broadcast": [
+      "starts going through the vault shelving with the focus of someone on a clock."
+    ],
+    "player": [
+      "You work along the racking, reading strap bands and crest stamps.",
+      "You pull a tray, weigh what's in it against what you can carry, and put half of it back.",
+      "Somewhere above you a floor creaks, and you spend four seconds not breathing.",
+      "You take the sleeved paper first. It weighs nothing and it is worth everything.",
+      "The cold off the steel is getting into your hands. You keep going."
+    ],
+    "quiet": [
+      "This whole run is scrip Citadel already voided. Worthless.",
+      "Empty trays. Somebody has been here more recently than the ledger says.",
+      "You get a shelf open and find nothing but dessicant packs and dust.",
+      "Just deposit records. Fascinating, and completely unspendable."
+    ]
+  },
+  "name": "Citadel Vault",
+  "replenish_interval_seconds": 86400
+}

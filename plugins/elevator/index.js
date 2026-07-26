@@ -25,6 +25,7 @@
  */
 import { getZone, getMinimapData, addPlayerToZone, removePlayerFromZone, getAllLivePlayers } from '../../server/engine/world.js';
 import { exitTargets } from '../../server/engine/exits.js';
+import { runMoveGates } from '../../server/engine/movement-gates.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
 import { emit, on } from '../../server/engine/events.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
@@ -59,9 +60,17 @@ const GROUND_FLOOR = 1;
 // A ride shouldn't be instant, but it also shouldn't feel like a loading screen.
 // Time scales with how far the car climbs: a quick hop to the gym, a long haul to
 // the penthouse. Clamped so nothing feels broken at either extreme.
-function travelMs(targetN) {
-  const floors = Math.abs(targetN - GROUND_FLOOR);
+function travelMs(fromN, targetN) {
+  const floors = Math.abs(targetN - fromN);
   return Math.min(5000, Math.max(1600, 900 + floors * 95));
+}
+
+// Which floor the car is sitting on for this rider. The car is a single zone, so
+// the only thing that knows we came down from 44 is the last ride we took —
+// remembered in `_elevatorAt` and dropped as soon as the player walks off that
+// floor (see the zone.entered listener below).
+function currentFloor(player) {
+  return player?._elevatorAt?.n ?? GROUND_FLOOR;
 }
 
 // Floor list off a zone, cleaned + sorted top-to-bottom (highest floor first, the
@@ -140,6 +149,8 @@ async function arrive(player, ride) {
   player.combatTargetId = null;
   await query('UPDATE players SET current_zone=$1 WHERE id=$2', [floor.zone, player.id]);
 
+  player._elevatorAt = { n: floor.n, zone: floor.zone, car: from };
+
   sendToZone(floor.zone, { type: 'zone_event', message: `The elevator chimes and ${player.handle} steps out onto Floor ${floor.n}.`, refresh: true }, player.id);
   emit('zone.entered', { actor: player, zone: floor.zone, from });
 
@@ -160,14 +171,15 @@ async function arrive(player, ride) {
 // acknowledgement; the counter climbs on a timer and arrival lands later.
 function board(player, floor) {
   const carZone = player.current_zone;
-  const dur = travelMs(floor.n);
-  const rising = floor.n > GROUND_FLOOR;   // Floor 1 (the lobby) is the one you descend to
+  const fromN = currentFloor(player);
+  const dur = travelMs(fromN, floor.n);
+  const rising = floor.n > fromN;
   const ride = { floor, carZone, timers: [] };
 
   // Two intermediate counter ticks — the floor number sliding by behind the doors.
   const ticks = [0.42, 0.76];
   ticks.forEach((frac) => {
-    const passing = Math.round(GROUND_FLOOR + (floor.n - GROUND_FLOOR) * frac);
+    const passing = Math.round(fromN + (floor.n - fromN) * frac);
     ride.timers.push(setTimeout(() => {
       if (player._elevator === ride) sendToPlayer(player.id, { type: 'output', message: sys(`      ${rising ? '▲' : '▼'} ${passing}`) });
     }, Math.round(dur * frac)));
@@ -208,6 +220,14 @@ async function cmdFloor(args, raw, player, broadcast) {
   if (floor.zone === player.current_zone) {
     return { type: 'error', message: `You're already at the elevator on Floor ${floor.n}.` };
   }
+  // A ride is a teleport, so it would otherwise skip every law a walked step
+  // obeys — including the residents-only gate on a private amenity floor. Run
+  // the same chain here, refusing at the panel rather than the doorway.
+  // bypassEncumbrance marks this a system move: the pacing cadence and load
+  // laws are about walking and have no business queuing an elevator ride.
+  const target = getZone(floor.zone);
+  const gate = target && await runMoveGates({ player, from: zone, to: target, direction: 'up', door: null, opts: { bypassEncumbrance: true } });
+  if (gate?.block) return gate.silent ? null : { type: 'error', message: gate.message };
   return board(player, floor);
 }
 
@@ -243,6 +263,13 @@ registerInputMatcher(/^(up|down)$/i, matchElevatorDir, 'elevator');
 // (or a logged-out ghost) across town. zone.entered fires on any move including
 // the elevator's own arrival, so only cancel when they're no longer in the car.
 on('zone.entered', ({ actor }) => { if (actor?._elevator && actor.current_zone !== actor._elevator.carZone) clearRide(actor); });
+// The remembered floor only holds while the player is still on it (or back in the
+// car); wander off and the car is no longer theirs to be parked anywhere but the
+// lobby.
+on('zone.entered', ({ actor }) => {
+  const at = actor?._elevatorAt;
+  if (at && actor.current_zone !== at.zone && actor.current_zone !== at.car) actor._elevatorAt = null;
+});
 on('player.death',  ({ player }) => clearRide(player));
 on('player.logout', ({ id })     => clearRide(getAllLivePlayers().find(p => p.id === id)));
 

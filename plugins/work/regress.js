@@ -17,17 +17,21 @@ export default async function regress({ run, check, getPlayer }) {
   check('statValue missing stat defaults', _test.statValue({}, 'cool') === 3);
   check('statCheck returns a boolean', typeof _test.statCheck(p, 'reflexes', 5) === 'boolean');
 
-  // ── No XP gate (removed 2026-07-21) — a fresh clone can take a shift ───────
-  // Steady work is the safe, indoor, repeatable earner; gating it behind proof
-  // you'd survived the dangerous ones was backwards, and lifetime XP was a
-  // currency the quest chain never paid into.
+  // ── The gate is gigs, not XP ───────────────────────────────────────────────
+  // The 500-lifetime-XP gate was removed 2026-07-21 (XP measured surviving
+  // fights, which the early quest chain never paid into). The gate is now job-
+  // board hand-ins: N gigs before anyone hands you an apron.
   p.posture = 'standing'; p.npcCombatTargetId = null; delete p.shiftState;
   p.total_xp = 0;
   let r = await run('work');
-  check('work is open at zero XP (no gate)',
+  check('work is open at zero XP (XP is not the gate)',
     r?.type === 'output' && !/lifetime XP/i.test(r?.message || ''), r?.message?.slice(0, 80));
+  check('the gig gate is a positive number of runs', _test.gigGate() > 0, String(_test.gigGate()));
+  const gateMsg = _test.gigGateMessage(2, 5);
+  check('the gig refusal quotes the requirement and the tally',
+    /5 runs off the job board/.test(gateMsg) && /you've got 2/.test(gateMsg), gateMsg.slice(0, 120));
   r = await run('clock in');
-  check('clock in at zero XP fails on the venue, not the gate',
+  check('clock in with no venue underfoot fails on the venue, not the gate',
     /no work to clock into/i.test(r?.message || ''), r?.message);
 
   // ── No venue underfoot ─────────────────────────────────────────────────────

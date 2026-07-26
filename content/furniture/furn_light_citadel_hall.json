@@ -1,0 +1,18 @@
+{
+  "description": "Recessed fittings buried in the coffers four storeys up, throwing an even, shadowless white down the marble. No fixture is visible. No bulb has ever been changed where anyone could see it.",
+  "flags": {
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_citadel_hall",
+  "light_type": "overhead",
+  "lumen_output": 3000,
+  "name": "coffered ceiling lights",
+  "object_type": "light",
+  "power_draw_kw": null,
+  "price": 400,
+  "zone_id": "zone_citadel_hall"
+}

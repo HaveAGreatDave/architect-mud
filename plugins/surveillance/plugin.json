@@ -9,10 +9,11 @@
     { "verb": "use", "requiredTag": "specter_program" },
     { "verb": "use", "requiredTag": "spy_deck" },
     { "verb": "use", "requiredTag": "security_console" },
-    { "verb": "use", "requiredTag": "datachip" }
+    { "verb": "use", "requiredTag": "datachip" },
+    { "verb": "scrub", "requiredFlag": "police_terminal" }
   ],
   "objectGatedCommands": {
-    "scrub":  { "discoverVia": "police_terminal", "exposed": false, "note": "KNOWN GAP: plain command, no examine hint on the police records terminal" },
+    "scrub":  { "discoverVia": "police_terminal", "exposed": true, "note": "Declaration-only specializedAction (requiredFlag) — the terminal advertises scrub on examine; cmdScrub still owns the verb." },
     "bribe":  { "discoverVia": "npc:police",       "exposed": false, "note": "KNOWN GAP: on-scene cop NPC advertises this only via dialogue, not examine" },
     "submit": { "discoverVia": "npc:police",       "exposed": false, "note": "KNOWN GAP: on-scene cop NPC advertises this only via dialogue, not examine" },
     "retrieve": { "discoverVia": "furniture:security_device", "exposed": false, "note": "KNOWN GAP: acts on a concealed planted-device furniture revealed only by sweep; sweep output hints retrieve but examine lists no action (the device carries no tag/interactions)." },

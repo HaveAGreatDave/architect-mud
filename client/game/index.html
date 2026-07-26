@@ -1388,6 +1388,7 @@
 		<!-- CONTAINER PANEL -->
 		<div id="container-panel">
 			<div id="container-box">
+				<div id="container-glow" aria-hidden="true"></div>
 				<div id="container-cold-fx" aria-hidden="true"></div>
 				<div id="container-header">
 					<h2 id="container-title">Container</h2>
@@ -1402,6 +1403,7 @@
 					</div>
 					<div id="container-divider">⇄</div>
 					<div class="container-col" id="container-contents-col">
+						<div class="ctr-door-fx" aria-hidden="true"><i></i><i></i><i></i></div>
 						<div id="container-freezer-box" class="ctr-subbox ctr-subbox-freezer">
 							<div class="ctr-shelf-head">
 								<div class="container-section-label" id="container-freezer-label">Freezer</div>
@@ -1421,6 +1423,41 @@
 					<button id="container-stow-all" class="loot-btn loot-btn-stow-all">Stow All</button>
 					<button id="container-take-all" class="loot-btn loot-btn-take-all">Take All</button>
 					<button id="container-close-btn" class="loot-btn">Close</button>
+				</div>
+			</div>
+		</div>
+
+		<!-- WARDROBE PANEL (container furniture flagged `wardrobe`) -->
+		<div id="wardrobe-panel">
+			<div id="wardrobe-box">
+				<div id="wardrobe-header">
+					<h2 id="wardrobe-title">Wardrobe</h2>
+					<button id="wardrobe-close" aria-label="Close">✕</button>
+				</div>
+				<div id="wardrobe-notify"></div>
+				<div id="wardrobe-body">
+					<div class="wdr-col" id="wardrobe-outfits-col">
+						<div class="container-section-label">Saved Outfits</div>
+						<div id="wardrobe-outfit-list"></div>
+					</div>
+					<div class="wdr-col" id="wardrobe-doll-col">
+						<div class="container-section-label" id="wardrobe-doll-label">Drag clothes onto the doll</div>
+						<div id="wardrobe-doll"></div>
+						<div id="wardrobe-doll-actions">
+							<input id="wardrobe-outfit-name" type="text" maxlength="24" placeholder="name this look" autocomplete="off">
+							<button id="wardrobe-save" class="loot-btn">Save</button>
+							<button id="wardrobe-clear" class="loot-btn">Clear</button>
+						</div>
+					</div>
+					<div class="wdr-col" id="wardrobe-stock-col">
+						<div class="container-section-label">Hanging</div>
+						<div id="wardrobe-hanging-list"></div>
+						<div class="container-section-label">Carried</div>
+						<div id="wardrobe-carried-list"></div>
+					</div>
+				</div>
+				<div id="wardrobe-footer">
+					<button id="wardrobe-close-btn" class="loot-btn">Close</button>
 				</div>
 			</div>
 		</div>
@@ -1500,6 +1537,8 @@
 					<button id="dialogue-close">×</button>
 				</div>
 				<div id="dialogue-text"></div>
+				<div id="dialogue-stage"></div>
+				<div id="dialogue-hint"></div>
 				<div id="dialogue-options"></div>
 				<button
 					class="dialogue-opt"

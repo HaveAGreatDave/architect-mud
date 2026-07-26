@@ -2,13 +2,14 @@
   "name": "broadcast",
   "version": "1.0.0",
   "description": "Unified media framework: scripted channels, dynamic news, live cameras, recorded footage.",
-  "commands": ["tune", "watch", "listen", "tv", "load", "eject", "selectcassette", "pirate", "pirateresolve", "air", "airemergency", "endemergency", "tablettune"],
+  "commands": ["tune", "watch", "listen", "tv", "load", "eject", "selectcassette", "pirate", "pirateresolve", "air", "airemergency", "endemergency", "tablettune", "guess"],
   "objectGatedCommands": {
     "tune":           { "discoverVia": "furniture:broadcast_receiver", "exposed": false, "note": "KNOWN GAP: raw tune verb gates on broadcast_receiver-flagged furniture; discovery is via the use/tv specializedAction panel, not the verb. NOTE tag/flag mismatch: use/tv gates on tag 'tv' but doUseTv queries the broadcast_receiver flag — a set with the flag but no 'tv' tag surfaces no examine action." },
     "tablettune":     { "discoverVia": "tablet:tv", "exposed": false, "note": "Internal — the Tablet TV app's dial. Needs no furniture (the tablet is its own receiver); sent only by the TV app's viewport, never typed." },
     "load":           { "discoverVia": "furniture:media_deck", "exposed": false, "note": "KNOWN GAP: `load cassette` gates on media_deck furniture; discovered via the use/media_deck panel, not the verb." },
     "eject":          { "discoverVia": "furniture:media_deck", "exposed": false, "note": "KNOWN GAP: gates on media_deck furniture; discovered via use/media_deck panel." },
-    "selectcassette": { "discoverVia": "furniture:media_deck", "exposed": false, "note": "KNOWN GAP: client-driven cassette pick; gates on media_deck furniture; use/media_deck panel is the discovery path." }
+    "selectcassette": { "discoverVia": "furniture:media_deck", "exposed": false, "note": "KNOWN GAP: client-driven cassette pick; gates on media_deck furniture; use/media_deck panel is the discovery path." },
+    "guess":          { "discoverVia": "broadcast:gameshow", "exposed": false, "note": "The game-show answer verb. Inert everywhere except a channel's studio_zone_id while a gameshow round is open; discovery is the host's on-air invitation, which carries the teachVerb shimmer. Not furniture-gated — the studio floor and the live round ARE the gate." }
   },
   "routePrefix": "/broadcast",
   "actions": { "registers": ["TUNE_DEVICE", "CAMERA_RECORD", "CAMERA_STREAM"] },

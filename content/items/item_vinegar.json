@@ -1,0 +1,21 @@
+{
+  "description": "A bottle of something clear and vicious that makes your eyes water across the room. Cleans wounds, cleans floors, and makes food taste of itself.",
+  "flags": {},
+  "id": "item_vinegar",
+  "name": "sharp vinegar",
+  "tags": {
+    "description": "A bottle of something clear and vicious that makes your eyes water across the room. Cleans wounds, cleans floors, and makes food taste of itself.",
+    "consumable": true,
+    "restore_hunger": 2,
+    "stackable": true,
+    "food_profile": "liquid",
+    "food_noun": "soured",
+    "needs_cooking": true,
+    "status_chance": {
+      "food_poisoning": 0.1
+    }
+  },
+  "type": "consumable",
+  "value": 6,
+  "weight": 400
+}

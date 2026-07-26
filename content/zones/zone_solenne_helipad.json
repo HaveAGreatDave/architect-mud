@@ -1,0 +1,43 @@
+{
+  "ambient_events": [
+    "The landing circle's marker lights breathe a slow, patient red.",
+    "The windsock snaps toward the bay and goes slack again.",
+    "A bay door runs down its track somewhere behind you and seals.",
+    "Wind scours straight across the open deck and off into the dark."
+  ],
+  "ambient_theme": "urban",
+  "audio_theme_id": null,
+  "bg_color": "#1c242c",
+  "color": "#cfd8e0",
+  "created_by": null,
+  "description": "The crown of the tower, given over to one circle of non-slip deck ringed in recessed landing lights, cantilevered clear of the parapet so there is nothing under its outer edge but four hundred feet of grey air. A lit windsock stands at the northern rail. Two glass-doored bays are set back into the crown behind the pad, deep enough to swallow a light rotorcraft each and roll the doors down on it. A refuelling point sits flush in the deck under a brass cover. The wind up here is clean and constant, and it arrives without asking. Step <b>in</b> to the elevator.",
+  "exits": {
+    "in": "zone_solenne_elevator"
+  },
+  "flags": {
+    "airfield_fuels": [
+      "avgas",
+      "jet"
+    ],
+    "always_lit": true,
+    "building_name": "Solenne Residences",
+    "hangar_interior": true,
+    "hangar_ramp": "zone_district_914_908",
+    "is_building": true,
+    "is_interior": true,
+    "open_sky": true,
+    "residents_only": "Solenne Residences",
+    "residents_only_deny": "The panel by the pad door reads your hand, finds no residence attached to it, and stays shut. Somewhere below, a concierge is already deciding not to mention it.",
+    "sanctuary": true,
+    "world_exit_zone": "zone_district_914_908"
+  },
+  "grid_x": 0,
+  "grid_y": -1,
+  "grid_z": 7,
+  "id": "zone_solenne_helipad",
+  "map_id": "map_int_solenne",
+  "marker": null,
+  "name": "Solenne Sky Pad",
+  "parent_zone": "zone_district_914_908",
+  "updated_at": "1784900000"
+}

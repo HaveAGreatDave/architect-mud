@@ -17,6 +17,7 @@ import { setPosture, forceStand } from '../../server/engine/posture.js';
 import { handlePlayerDeath } from '../../server/engine/gameLoop.js';
 import { emit } from '../../server/engine/events.js';
 import { applyCrashCollateral, isSeverelyImpaired } from './collateral.js';
+import { isResidentOf } from '../../server/engine/apartments.js';
 import { getEnvironmentState, getWeatherFieldSnapshot } from '../../server/engine/environment.js';
 
 export const TICK_MS = 3000;
@@ -313,9 +314,16 @@ export function groundTheme(zone) {
 export function fieldFor(player) {
   const z = getZone(player.current_zone);
   if (!z) return null;
-  if (z.flags?.airfield_id) return z;                                      // on the ramp
-  if (z.flags?.hangar_ramp) return getZone(z.flags.hangar_ramp) || null;   // inside the hangar → its ramp
-  return null;
+  const f = z.flags?.airfield_id ? z                                       // on the ramp
+    : z.flags?.hangar_ramp ? getZone(z.flags.hangar_ramp)                  // inside the hangar → its ramp
+    : null;
+  if (!f) return null;
+  // A PRIVATE field — a building's own pad (`airfield_residents_only: "<building>"`) —
+  // serves only that building's residents. Reporting "no field here" for everyone else
+  // gates the whole services surface in one place: bay, rent/store, refuel, tuning.
+  const priv = f.flags?.airfield_residents_only;
+  if (priv && !isResidentOf(player, priv)) return null;
+  return f;
 }
 
 // The real runway a field's aircraft take off along, derived from the map's yellow
@@ -359,6 +367,26 @@ export function airfieldForRunway(tile) {
     if (z.map_id !== tile.map_id || z.grid_x == null || !z.flags?.airfield_id) continue;
     const d = Math.max(Math.abs(z.grid_x - tile.grid_x), Math.abs(z.grid_y - tile.grid_y));
     if (d <= 3 && d < nd) { nd = d; best = z; }
+  }
+  return best;
+}
+
+// The hangar a landing rolls up to. A field's walk-in hangar sits on ONE ramp tile, but a
+// strip is many tiles long — set down on a runway end (or a second ramp tile) and the craft
+// used to file itself on a tile the hangar office can't see, so `embark` from inside found
+// nothing ("boarded from inside the hangar office" became a dead end). Resolve any airfield
+// tile to the CLOSEST tile that actually carries a hangar interior, so every landing parks
+// her at a hangar. Returns null when no hangar is in reach (a bare strip parks where it is).
+export const HANGAR_REACH = 4;
+export function hangarRampFor(zone) {
+  if (!zone || zone.grid_x == null || !zone.flags?.airfield_id) return null;
+  if (zone.flags.hangar_interior_zone) return zone;
+  let best = null, nd = Infinity;
+  for (const z of getAllZones()) {
+    if (z.map_id !== zone.map_id || z.grid_x == null) continue;
+    if (!z.flags?.airfield_id || !z.flags?.hangar_interior_zone) continue;
+    const d = Math.max(Math.abs(z.grid_x - zone.grid_x), Math.abs(z.grid_y - zone.grid_y));
+    if (d <= HANGAR_REACH && d < nd) { nd = d; best = z; }
   }
   return best;
 }
@@ -930,6 +958,14 @@ export function reconcile(live, d) {
   const cl = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
   live.fx = cl(d.gx, b.minx, b.maxx); live.fy = cl(d.gy, b.miny, b.maxy);
   a.grid_x = Math.round(live.fx); a.grid_y = Math.round(live.fy);
+  // TAXIING MOVES THE PLANE. On the wheels (not airborne) the tile under her IS where she's
+  // parked — so rolling from the strip up to the hangar apron re-files her there, and a
+  // shutdown/disembark puts her (and you) at the tile you actually taxied to. Confined to
+  // airfield tiles: a taxi never re-parks her onto the grass or a neighbouring street cell.
+  if (!a.airborne && a.parked_zone_id) {
+    const under = surfaceAt(a.grid_x, a.grid_y);
+    if (under?.flags?.airfield_id && under.id !== a.parked_zone_id) a.parked_zone_id = under.id;
+  }
   a.heading = String(((Math.round(d.hdg) % 360) + 360) % 360);
   a.throttle = cl(Math.round(d.thr), 0, 100);
   let alt = Math.max(0, d.alt || 0), vs = d.vs || 0;
@@ -1204,6 +1240,13 @@ export function landDifficulty(live, emergency) {
 
 // ── Bring a craft to rest at an airfield; restore occupants to the ground ──────
 export async function parkAt(live, zoneId) {
+  // Landing files her at a HANGAR, not wherever the rollout stopped: any airfield tile
+  // resolves to the closest tile that has a walk-in hangar (hangarRampFor). That keeps the
+  // craft and the office you climb out into on the same tile, so the "board from inside the
+  // hangar office" contract below actually finds her. The Echelon's pad is exempt — she's a
+  // moving field and must never snap to a shore hangar she happens to be moored near.
+  const landed = getZone(zoneId);
+  if (!landed?.flags?.yacht) zoneId = hangarRampFor(landed)?.id || zoneId;
   const z = getZone(zoneId);
   if (z) {
     live.row.grid_x = z.grid_x; live.row.grid_y = z.grid_y; live.fx = z.grid_x; live.fy = z.grid_y;

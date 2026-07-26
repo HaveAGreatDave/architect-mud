@@ -355,7 +355,7 @@ function nearField(map, rx, ry) {
   for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
     if (!dx && !dy) continue;
     const row = map[ry + dy], c = row && row[rx + dx];
-    if (c && (c.kind === 'field' || c.biome === 'airport')) return true;
+    if (c && ((c.kind === 'field' && !c.bt) || c.biome === 'airport')) return true;   // a rooftop pad's block keeps its own ground — no apron greying around a tower
   }
   return false;
 }
@@ -2773,12 +2773,16 @@ const WALL_COL = { uptown: [46, 64, 92], civic: [72, 68, 60], citycore: [52, 56,
   ty_yacht: [16, 18, 22], ty_yacht_deck: [30, 33, 40], ty_yacht_glass: [24, 30, 42],
   // Corporate-Assets claimable businesses — a distinct wall tone per storefront type.
   ty_armory: [70, 74, 80], ty_casino: [58, 30, 60], ty_pawn: [74, 62, 44], ty_chem: [76, 92, 70],
+  ty_kitchen: [74, 68, 58],
   // The Yards — semi-industrial freight district models (see TYPE_MODEL). The ribbed-steel keys also join METAL_WALL.
   ty_wh_metal: [120, 124, 130], ty_cont_r: [150, 66, 54], ty_cont_b: [56, 84, 120], ty_cont_g: [70, 104, 80], ty_cont_y: [150, 128, 54],
   ty_pallet: [96, 74, 48], ty_cold: [186, 196, 204], ty_cold_unit: [70, 78, 86], ty_fab_metal: [96, 100, 108], ty_fab_steel: [70, 74, 82],
   ty_wharf: [72, 80, 86], ty_wharf_steel: [64, 70, 78], ty_freight_office: [86, 82, 74], ty_fwd_metal: [110, 116, 122],
   // Halloran's Fix-It — a grease-and-steel repair garage: oil-stained warm concrete block, darker roll-up bays.
   ty_garage: [92, 82, 70], ty_garage_bay: [46, 42, 40],
+  // Salvage Rites — the scrapyard: a rusted site shack, oxidised bales of crushed car,
+  // and the yellow of a grabber crane that has been repainted exactly once.
+  ty_junk_shack: [104, 84, 62], ty_junk_bale: [126, 72, 44], ty_junk_bale_dk: [88, 54, 36], ty_junk_crane: [168, 140, 48],
   // Yards landmark twins — each of these shared a TYPE_MODEL with a same-type neighbour and
   // read as its identical twin from the air, so the more characterful one got promoted to a
   // NAMED_MODEL with its own silhouette (see NAMED_MODELS / drawTypeModel).
@@ -2787,13 +2791,16 @@ const WALL_COL = { uptown: [46, 64, 92], civic: [72, 68, 60], citycore: [52, 56,
   ty_foundry: [88, 78, 70], ty_foundry_stack: [60, 54, 50], ty_slag: [74, 60, 50],   // Ferro: cupola + twin chimneys + slag
   ty_meltoffice: [116, 84, 64], ty_melt_tank: [88, 80, 70],          // Meltwater: older brick, rooftop water tank
   ty_bond_fence: [70, 74, 78], ty_guard: [98, 94, 86],               // Customs Bonded: lit compound + guard box
-  // The Neon Vig — the city's casino: dark plum stucco under an obscene amount of magenta neon.
+  // The Lucky Bastard — the city's casino: dark plum stucco under an obscene amount of magenta neon.
   ty_vig: [58, 34, 48], ty_vig_trim: [112, 62, 92],
   // The Ascendant Stronghold — a chrome campus in the western waste (docs/proposals/ascendant-stronghold.md).
   ty_asc_spire: [30, 50, 78], ty_asc_gate: [66, 80, 96], ty_asc_clinic: [150, 178, 190],
   ty_asc_weave: [92, 104, 118], ty_asc_vats: [88, 102, 118], ty_asc_shrine: [20, 28, 44],
   // The South Gate — scorched blast-concrete pylons + a darker riveted parapet cap.
   ty_gate: [78, 76, 74], ty_gate_dk: [44, 42, 44],
+  // Citadel Financial — the only marble in Ward Nine: cold white stone, brighter
+  // columns standing proud of it, and a dark bronze entrance band.
+  ty_marble: [172, 170, 164], ty_marble_col: [198, 196, 190], ty_marble_bronze: [86, 62, 34],
   // The Reach — grim-dark frontier: patched steel, sun-bleached plate, poured slag, salvaged neon.
   // Every wall carries dust and rust; the corrugated keys join METAL_WALL for a ribbed, windowless read.
   ty_reach_hangar: [126, 108, 88], ty_reach_rust: [128, 74, 46], ty_reach_shack: [96, 82, 64],
@@ -2893,7 +2900,9 @@ export const BUILDING_FOOT = 0.38;   // ~0.38–0.44 half-width → a real setba
 export function buildingHeightZ(wx, wy, cell) {
   if (!cell) return 0;
   const k = cell.kind, bi = cell.biome;
-  if (k === 'air' || cell.self || k === 'field' || k === 'nofly'
+  // A rooftop pad (a `bt` building tile that also carries an airfield_id) keeps its
+  // mass — the tower is still there to fly into; only bare field surfaces are clear.
+  if (k === 'air' || cell.self || (k === 'field' && !cell.bt) || k === 'nofly'
       || !bi || bi === 'water' || bi === 'parkland' || bi === 'badlands' || !cell.bt) return 0;
   const seed = (wx + 512) * 73 + (wy + 512) * 149;
   return floorHeight(cell, seed);
@@ -4750,7 +4759,8 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {
   const at = (rx, ry) => (ry >= 0 && ry < map.length && rx >= 0 && rx < map[ry].length) ? map[ry][rx] : null;
   const kindOf = (c) => !c ? null : c.kind === 'field' ? 'field' : c.road ? 'road' : null;   // an airfield tile paints as runway even if it also carries a road icon
   for (let ry = 0; ry < map.length; ry++) for (let rx = 0; rx < map[ry].length; rx++) {
-    const c = map[ry][rx], surf = kindOf(c); if (!surf || c.mark === 'yacht') continue;   // the yacht's own deck is drawn as a 3D model over open water — no runway concrete
+    // …and a ROOFTOP pad (a field tile carrying a building) keeps its street: the pad is up on the roof, not painted on the block.
+    const c = map[ry][rx], surf = kindOf(c); if (!surf || c.mark === 'yacht' || (surf === 'field' && c.bt)) continue;   // the yacht's own deck is drawn as a 3D model over open water — no runway concrete
     const dx = (rx - R) - cam.ox, dy = (ry - R) - cam.oy, f = dx * cam.sinh - dy * cam.cosh;
     // Near-clip per CORNER against the CAMERA. proj() clamps its returned f to 0.06, so a test on
     // proj's f is dead (never trips) — and clipping the tile CENTRE (f+back) dropped the whole tile
@@ -5064,8 +5074,8 @@ const NAMED_MODELS = {
   hallofrecords:                  { type: 'archive',   pal: 'ty_archive' },
   coldwaterclonefacility:         { type: 'clone',     pal: 'ty_clone' },
   ksabtvstudiostage:              { type: 'ksabstudio', pal: 'ty_ksab', neon: '#b98cff' },
-  ksabaudiencegate:               { type: 'studiogate', pal: 'ty_ksab', neon: '#b98cff' },
-  thegreenroom:                   { type: 'divebar',   pal: 'ty_greenroom', neon: '#7dff6a' },
+  ksabwriterswing:                { type: 'studiogate', pal: 'ty_ksab', neon: '#b98cff' },
+  thelatedesk:                    { type: 'divebar',   pal: 'ty_greenroom', neon: '#7dff6a' },
   solenneresidences:              { type: 'solenne',   pal: 'ty_solenne',   neon: '#ffce78' },
   coldwatersentinel:              { type: 'office',    pal: 'ty_sentinel',  neon: '#5fd0ff' },
   meltwaterdiner:                 { type: 'diner',     pal: 'ty_diner',     neon: '#ffcf3e' },
@@ -5133,6 +5143,10 @@ const TYPE_MODEL = {
   casino:           { type: 'casino',    pal: 'ty_casino', neon: '#ff3e8a' },
   fence:            { type: 'pawn',      pal: 'ty_pawn',   neon: '#ffcf3e' },
   chem_supply:      { type: 'chemsupply', pal: 'ty_chem',  neon: '#7dff6a' },
+  // Reuses the shop mesh with its own iron-toned palette + warm sign, the same
+  // "nearest existing model, bespoke colour" call the Ascendant campus makes.
+  kitchenware:      { type: 'shop',      pal: 'ty_kitchen', neon: '#ff9a3e' },
+  bank:             { type: 'bank',      pal: 'ty_marble' },
   // The Yards — semi-industrial freight district (see docs/proposals/yards.md).
   warehouse:         { type: 'warehouse',         pal: 'ty_wh_metal' },
   container_yard:    { type: 'container_yard',    pal: 'ty_cont_b' },
@@ -5142,6 +5156,8 @@ const TYPE_MODEL = {
   wharf:             { type: 'wharf',             pal: 'ty_wharf' },
   freight_office:    { type: 'freight_office',    pal: 'ty_freight_office', neon: '#ffb43a' },
   freight_forwarder: { type: 'freight_forwarder', pal: 'ty_fwd_metal' },
+  // The scrapyard on the wasteland edge — crushed-car bales, a grabber crane, a shack.
+  junkyard:          { type: 'junkyard',          pal: 'ty_junk_shack', neon: '#ffb43a' },
   // The Ascendant Stronghold (docs/proposals/ascendant-stronghold.md).
   asc_spire:  { type: 'asc_spire',  pal: 'ty_asc_spire' },
   asc_gate:   { type: 'asc_gate',   pal: 'ty_asc_gate' },
@@ -5662,6 +5678,38 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
   // (it lives ON that face) instead of letting it float through the building from behind.
   const frontVis = (E[0] * (dx + E[0] * fh) + E[1] * (dy + E[1] * fh) + (cam.back || 0) * (E[0] * cam.sinh - E[1] * cam.cosh)) < 0;
   switch (m.type) {
+    case 'bank': {   // Citadel Financial — a windowless marble strongbox pretending to be a temple.
+      // Deliberately the archive's austere cousin: same civic vocabulary (stylobate, colonnade,
+      // entablature) with every window taken out, because the whole building is one wall. Four
+      // columns, a bronze entrance band under the portico, a blank attic block, and a floodlit
+      // frontage at night — no neon, nothing that could be switched off.
+      const stone = pal, colPal = 'ty_marble_col', bronze = 'ty_marble_bronze';
+      const plinth = h * 0.16, colTop = h * 0.88, entTop = h * 1.04, atticTop = h * 1.22;
+      // 1) Two broad stone steps up off the deck.
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.34, 0, h * 0.08, stone, seed, night, alpha, false);
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.20, h * 0.08, plinth, stone, seed + 1, night, alpha, false);
+      // 2) The strongbox itself — one solid windowless mass. This is the whole point of the model.
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.00, plinth, colTop, stone, seed + 2, night, alpha, false);
+      // 3) Four fluted columns standing proud of it on the entrance side.
+      for (let i = 0; i < 4; i++) {
+        const [cx, cy] = F((-0.9 + i * 0.6) * fh * 0.98, fh * 1.10);
+        draw3DBoxAt(ctx, cam, cx, cy, fh * 0.11, plinth, colTop, colPal, seed + 10 + i, night, alpha, false);
+      }
+      // 4) Heavy entablature over the colonnade, and the blank attic block above it.
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.16, colTop, entTop, stone, seed + 3, night, alpha, false);
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.82, entTop, atticTop, stone, seed + 4, night, alpha, false);
+      // 5) The bronze doors — a dark band recessed under the portico, front face only.
+      if (frontVis) {
+        const [bx, by] = F(0, fh * 0.96);
+        draw3DBoxAt(ctx, cam, bx, by, fh * 0.30, plinth, plinth + h * 0.30, bronze, seed + 5, night, alpha, false);
+        // Floodlights wash the columns from the step line up — the frontage is never dark.
+        glowPool(ctx, cam, bx, by, plinth + h * 0.06, '236,226,200', 11, alpha * (night ? 0.75 : 0.3));
+      }
+      // 6) Rooftop plant and one steady red obstruction light. No beacon theatrics.
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.30, atticTop, atticTop + h * 0.10, colPal, seed + 6, night, alpha, false);
+      blinkLight(ctx, cam, dx, dy, atticTop + h * 0.14, '255,90,80', now, seed, alpha, 1);
+      break;
+    }
     case 'archive': {   // Hall of Records — the oldest thing on the skyline: a weathered stone
       // civic temple. A stepped stylobate lifts a six-column portico under a heavy entablature and
       // a classical pediment; behind it a drum of clerestory windows carries a verdigris copper
@@ -6157,7 +6205,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
         const [kx, ky] = F(-fh * 0.05, sfw * 0.6); glowPool(ctx, cam, kx, ky, h * 0.3, '190,200,255', 12, alpha * 0.16); }
       break;
     }
-    case 'studiogate': {   // KSAB Audience Gate: a glazed audience lobby with a violet KSAB parapet + a steady lit marquee. Deliberately simple and ENTIRELY within its own tile (no cantilevered canopy/turnstiles — those spilled onto the road). Reads low once flags.floors:2 reaches the DB.
+    case 'studiogate': {   // KSAB Writers' Wing: a glazed office annex with a violet KSAB parapet + a steady lit marquee. Deliberately simple and ENTIRELY within its own tile (no cantilevered canopy/turnstiles — those spilled onto the road). Reads low once flags.floors:2 reaches the DB.
       // Curtain-glass lobby — real glazed skin (ty_ksab_glass ∈ GLASS_WALL: sky sheen, no window grid).
       // No roof cap: the wider parapet below caps the footprint at h*0.9, so a lobby cap here would only
       // z-fight the parapet's own roof (near-identical queue depth → the roof strobed dark↔light purple).
@@ -6475,7 +6523,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       neonBlade(ctx, cam, dx, dy, h * 0.82, h * 1.06, m.neon || '#ff6a4a', night, alpha);           // small hard sign
       break;
     }
-    case 'casino': {   // The Neon Vig: a squat house drowned in neon — marquee crown, chasing bulbs, magenta wash
+    case 'casino': {   // The Lucky Bastard: a squat house drowned in neon — marquee crown, chasing bulbs, magenta wash
       const neon = m.neon || '#ff3e8a';
       draw3DBoxAt(ctx, cam, dx, dy, fh * 1.15, 0, h * 0.7, pal, seed, night, alpha, true);
       draw3DBoxAt(ctx, cam, dx, dy, fh * 1.22, h * 0.7, h * 0.9, pal, seed + 1, night, alpha, true); // marquee crown band
@@ -6485,7 +6533,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       glowPool(ctx, cam, dx, dy, h * 0.86, '255,62,138', 22, alpha * (night ? 0.4 : 0.2));           // neon wash
       break;
     }
-    case 'neonvig': {   // The Neon Vig — the city's casino, promoted off the generic `casino` box into a
+    case 'neonvig': {   // The Lucky Bastard — the city's casino, promoted off the generic `casino` box into a
       //                    landmark: a stepped marquee crown over a squat plum house, a TALL blade-sign
       //                    tower with bulbs chasing up it, a porte-cochère over the entrance, a lit
       //                    rooftop drum, and enough magenta spill to read from the far side of the basin.
@@ -6647,6 +6695,28 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
         const [bx, by] = F(gx * fh * 0.6, gy * fh * 0.6);
         for (let k = 0; k < stack; k++) draw3DBoxAt(ctx, cam, bx, by, fh * 0.26, h * 0.26 * k, h * 0.26 * (k + 1), cols[hsh(seed + gx * 3 + gy + k * 5) & 3], seed + k, night, alpha, true);
       }
+      break;
+    }
+    case 'junkyard': {   // bales of crushed car in uneven rows, a grabber crane over them, a site shack
+      const hsh = (a) => { a = (a ^ 61) ^ (a >> 16); a += a << 3; a ^= a >> 4; a = Math.imul(a, 0x27d4eb2d); return (a ^ (a >> 15)) >>> 0; };   // deterministic — no per-frame flicker
+      // The stacks: squat, rust-toned, deliberately not squared off like the container yard's.
+      for (let gx = -1; gx <= 1; gx++) for (let gy = -1; gy <= 1; gy++) {
+        if (gx === 0 && gy === 0) continue;                                                                  // keep the middle clear for the crane
+        const stack = 1 + hsh(seed + gx * 11 + gy * 17) % 3;
+        const [bx, by] = F(gx * fh * 0.58, gy * fh * 0.58);
+        const w = fh * (0.2 + (hsh(seed + gx + gy * 3) % 5) * 0.014);                                        // uneven bale widths
+        for (let k = 0; k < stack; k++) {
+          draw3DBoxAt(ctx, cam, bx, by, w, h * 0.2 * k, h * 0.2 * (k + 1),
+            (hsh(seed + gx * 5 + gy + k * 7) & 1) ? 'ty_junk_bale' : 'ty_junk_bale_dk', seed + k, night, alpha, true);
+        }
+      }
+      // Grabber crane: a lattice mast over the middle with a jib reaching out over the rows.
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.12, 0, h * 1.15, 'ty_junk_crane', seed + 21, night, alpha, true);
+      { const [jx, jy] = F(fh * 0.42, 0); draw3DBoxAt(ctx, cam, jx, jy, fh * 0.9, h * 1.0, h * 1.1, 'ty_junk_crane', seed + 22, night, alpha, true); }
+      // Site shack at the gate — the only part of this you can actually walk into.
+      { const [sx, sy] = F(-fh * 0.55, fh * 0.72); draw3DBoxAt(ctx, cam, sx, sy, fh * 0.42, 0, h * 0.34, pal, seed + 23, night, alpha, true); }
+      if (frontVis) { const [gx2, gy2] = F(-fh * 0.55, fh * 0.94); draw3DBoxAt(ctx, cam, gx2, gy2, fh * 0.18, 0, h * 0.22, 'ty_door', seed + 24, night, alpha, false); }
+      if (night) glowPool(ctx, cam, dx, dy, 0.02, '255,180,90', 11, alpha * 0.13);                            // one sodium lamp over the gate
       break;
     }
     case 'fuel_yard': {   // a cluster of squat cylindrical storage tanks + a low pallet stack
@@ -6849,8 +6919,9 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     if (c.kind === 'air') {
       wild = wildF && wildF[ry] ? wildF[ry][rx] : null;
       if (!wild || wild === 'sea' || c.self) continue;
-    } else if ((c.self && c.mark !== 'yacht') || ((c.kind === 'field' || c.biome === 'water') && c.mark !== 'yacht')) {
+    } else if ((c.self && c.mark !== 'yacht') || ((c.kind === 'field' || c.biome === 'water') && c.mark !== 'yacht' && !c.bt)) {
       continue;   // the Echelon is a field-on-water tile that DOES get a 3D model — drawn even on our OWN tile so the pilot sits on the helipad, not open water
+                  // …and a ROOFTOP pad is a field tile carrying a real building (`bt`): draw the tower, the pad is on top of it
     }
     const dx = (rx - R) - cam.ox, dy = (ry - R) - cam.oy, f = dx * cam.sinh - dy * cam.cosh;
     // Near-clip against the CAMERA, not the craft: in the external chase view the camera sits

@@ -7,7 +7,7 @@
 //   flags.slot_max       maximum bet in credits (optional, default 100)
 //   flags.slot_default   the bet a bare `spin` uses (optional, default slot_min)
 //
-// The Neon Vig floor is the first customer. House-favoured: long-run RTP is
+// The Lucky Bastard floor is the first customer. House-favoured: long-run RTP is
 // roughly three-quarters of the money fed in — the machine always eats.
 import { adjustCredits } from '../../server/engine/economy.js';
 import { getZoneFurniture } from '../../server/engine/world.js';

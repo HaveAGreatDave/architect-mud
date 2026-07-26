@@ -1,0 +1,252 @@
+{
+  "broadcast_graph": {
+    "_start": "bsm_0",
+    "nodes": {
+      "bsm_0": {
+        "_vine": {
+          "x": 80,
+          "y": 80
+        },
+        "type": "start",
+        "next": "bsm_1"
+      },
+      "bsm_1": {
+        "_vine": {
+          "x": 300,
+          "y": 80
+        },
+        "type": "event",
+        "event_type": "FADE_IN",
+        "next": "bsm_2"
+      },
+      "bsm_2": {
+        "_vine": {
+          "x": 520,
+          "y": 80
+        },
+        "type": "title_card",
+        "graphic_id": "nextlife_logo",
+        "next": "bsm_3"
+      },
+      "bsm_3": {
+        "_vine": {
+          "x": 740,
+          "y": 80
+        },
+        "type": "music",
+        "song": "nextlife_theme",
+        "text": "♪ A slow funereal organ hymn, played in a suspiciously cheerful major key. ♪",
+        "next": "bsm_4"
+      },
+      "bsm_4": {
+        "_vine": {
+          "x": 960,
+          "y": 80
+        },
+        "type": "camera_cut",
+        "label": "CAM — 1 — WIDE",
+        "zone_id": "elderly_actor_set",
+        "next": "bsm_5"
+      },
+      "bsm_5": {
+        "_vine": {
+          "x": 80,
+          "y": 240
+        },
+        "type": "npc_anchor",
+        "npc_id": "npc_narrator",
+        "next": "bsm_6"
+      },
+      "bsm_6": {
+        "_vine": {
+          "x": 300,
+          "y": 240
+        },
+        "type": "say",
+        "style": "narration",
+        "text": "Margaret, seventy-four, worked forty years so her family wouldn't have to worry.",
+        "next": "bsm_7"
+      },
+      "bsm_7": {
+        "_vine": {
+          "x": 520,
+          "y": 240
+        },
+        "type": "say",
+        "style": "narration",
+        "text": "Then she died anyway.",
+        "next": "bsm_8"
+      },
+      "bsm_8": {
+        "_vine": {
+          "x": 740,
+          "y": 240
+        },
+        "type": "say",
+        "style": "raw",
+        "text": "That's where NextLife™ comes in.",
+        "next": "bsm_9"
+      },
+      "bsm_9": {
+        "_vine": {
+          "x": 960,
+          "y": 240
+        },
+        "type": "camera_cut",
+        "label": "CAM — 2 — CLOSEUP",
+        "zone_id": "resurrection_pod",
+        "next": "bsm_10"
+      },
+      "bsm_10": {
+        "_vine": {
+          "x": 80,
+          "y": 400
+        },
+        "type": "say",
+        "style": "narration",
+        "text": "The camera pulls back to reveal a gleaming reprint chamber, fogging gently at the seams.",
+        "next": "bsm_11"
+      },
+      "bsm_11": {
+        "_vine": {
+          "x": 300,
+          "y": 400
+        },
+        "type": "say",
+        "style": "raw",
+        "text": "For as little as forty credits a week, NextLife™ guarantees a full-body reprint within seventy-two hours of clinical death.",
+        "next": "bsm_12"
+      },
+      "bsm_12": {
+        "_vine": {
+          "x": 520,
+          "y": 400
+        },
+        "type": "say",
+        "style": "raw",
+        "text": "Same face. Similar personality. Legally, the same person.",
+        "next": "bsm_13"
+      },
+      "bsm_13": {
+        "_vine": {
+          "x": 740,
+          "y": 400
+        },
+        "type": "say",
+        "style": "raw",
+        "text": "Ask about our Basic, Premium, and \"Please Don't Let Them Know I'm Gone Yet\" tiers.",
+        "next": "bsm_14"
+      },
+      "bsm_14": {
+        "_vine": {
+          "x": 960,
+          "y": 400
+        },
+        "type": "overlay",
+        "overlayType": "text_card",
+        "text": "STARTING AT 40₵/WEEK",
+        "subtext": "PREMIUMS CONTINUE AFTER DEATH VIA NEXT-OF-KIN GARNISHMENT",
+        "graphic_id": "",
+        "next": "bsm_15"
+      },
+      "bsm_15": {
+        "_vine": {
+          "x": 80,
+          "y": 560
+        },
+        "type": "npc_action",
+        "message": "cuts to a reprinted Margaret, waving stiffly from a factory floor",
+        "next": "bsm_16"
+      },
+      "bsm_16": {
+        "_vine": {
+          "x": 300,
+          "y": 560
+        },
+        "type": "say",
+        "style": "raw",
+        "text": "I died in a machining accident on a Tuesday. NextLife had me back at that same machine by Friday.",
+        "next": "bsm_17"
+      },
+      "bsm_17": {
+        "_vine": {
+          "x": 520,
+          "y": 560
+        },
+        "type": "say",
+        "style": "narration",
+        "text": "The clock behind her reads a date that does not quite match the one on her paperwork.",
+        "next": "bsm_18"
+      },
+      "bsm_18": {
+        "_vine": {
+          "x": 740,
+          "y": 560
+        },
+        "type": "ticker",
+        "text": "NextLife™ is a resurrection-adjacent product, not a resurrection guarantee · Reprinted memories accurate to last successful backup, backups not guaranteed to be recent · Original body remains property of the estate until premiums are current · Garnishment continues for three (3) generations or until the debt is resolved, whichever the actuary prefers",
+        "next": "bsm_19"
+      },
+      "bsm_19": {
+        "_vine": {
+          "x": 960,
+          "y": 560
+        },
+        "type": "event",
+        "event_type": "FADE_OUT"
+      }
+    }
+  },
+  "category": "advertisement",
+  "channel_id": null,
+  "created_by": "author",
+  "description": "Life-insurance parody: a resurrection assurance plan that guarantees a cheap reprint body and a lifetime — technically posthumous-lifetime — of continued premiums.",
+  "enabled": 1,
+  "fallback_messages": [],
+  "id": "bc_commercial_nextlife",
+  "loop": 0,
+  "message_interval": 5,
+  "messages": [
+    {
+      "text": "Margaret, seventy-four, worked forty years so her family wouldn't have to worry."
+    },
+    {
+      "text": "Then she died anyway."
+    },
+    {
+      "text": "That's where NextLife™ comes in."
+    },
+    {
+      "text": "The camera pulls back to reveal a gleaming reprint chamber, fogging gently at the seams."
+    },
+    {
+      "text": "For as little as forty credits a week, NextLife™ guarantees a full-body reprint within seventy-two hours of clinical death."
+    },
+    {
+      "text": "Same face. Similar personality. Legally, the same person."
+    },
+    {
+      "text": "Ask about our Basic, Premium, and \"Please Don't Let Them Know I'm Gone Yet\" tiers."
+    },
+    {
+      "text": "I died in a machining accident on a Tuesday. NextLife had me back at that same machine by Friday."
+    },
+    {
+      "text": "The clock behind her reads a date that does not quite match the one on her paperwork."
+    }
+  ],
+  "morning_pools": null,
+  "name": "NextLife™ — \"Because Dying Is Not An Excuse\"",
+  "news_pools": null,
+  "override_duration": 30,
+  "playback_mode": "scripted",
+  "sports_pools": null,
+  "tags": [
+    "commercial",
+    "nextlife",
+    "insurance"
+  ],
+  "talkshow_pools": null,
+  "updated_at": "1784700000",
+  "weather_pools": null
+}

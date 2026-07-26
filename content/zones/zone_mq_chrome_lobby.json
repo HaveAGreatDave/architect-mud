@@ -1,16 +1,16 @@
 {
   "ambient_events": [
-    "The stairwell fire door drifts open an inch and settles.",
-    "A mailbox door hangs open, ticking against its frame in the draft.",
-    "Somewhere above, a TV murmurs through a floor.",
-    "The dead elevator's call button glows, hopeful and useless."
+    "A lift car sighs open on nothing, waits its polite interval, and closes.",
+    "The cove band dims a half-step, tracking the sky outside.",
+    "Somewhere up the core the stair carries a single set of footsteps and lets them go.",
+    "The concierge screen wakes, reads you, and goes tactfully dark."
   ],
   "ambient_theme": "indoors",
   "audio_theme_id": null,
-  "bg_color": "#8b9096",
-  "color": null,
+  "bg_color": "#1b232c",
+  "color": "#cfe9ff",
   "created_by": null,
-  "description": "The ground-floor lobby of Chrome Court: a bank of tenant mailboxes, most jimmied, and an elevator with a hand-lettered OUT OF ORDER SINCE sign where the date has been scratched out and re-guessed by successive residents. A stairwell climbs into the amber gloom of the upper floors behind a fire door that no longer latches. A resident's bicycle is chained to the radiator with more security than the front door offers. It is quiet, and locked, and warm, and that is enough.",
+  "description": "The plinth, inside: a ten-sided atrium of mirror steel where every facet holds a slightly different, slightly better version of you. A cyan cove band runs the whole decagon at shoulder height, cool as a held breath. The concierge counter is a single wet-looking slab with nobody behind it and a screen that already knows your name. Two express cars wait behind bronze glass, and the stair — a mirrored helix wrapped around the core — climbs into the shaft for residents who prefer their own legs. It is quiet the way expensive rooms are quiet: not empty, just insulated.",
   "exits": {
     "down": "zone_mq_chrome_util",
     "up": "zone_mq_chrome_f1",

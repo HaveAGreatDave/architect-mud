@@ -1,0 +1,18 @@
+{
+  "description": "A bank of cold white floods on their own circuit and their own battery, bolted where nothing can reach them. Citadel worked out a long time ago that darkness is where the ideas start.",
+  "flags": {
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_citadel_vault",
+  "light_type": "overhead",
+  "lumen_output": 3400,
+  "name": "vault floodbank",
+  "object_type": "light",
+  "power_draw_kw": null,
+  "price": 600,
+  "zone_id": "zone_citadel_vault"
+}

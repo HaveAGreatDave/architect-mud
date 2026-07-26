@@ -1,0 +1,18 @@
+{
+  "description": "A twin fluorescent batten hung on chains directly over the pan rail, angled so every piece on the wall throws the same hard highlight. It is the only thing in the shop anyone has spent money on.",
+  "flags": {
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_kitchenware_light",
+  "light_type": "overhead",
+  "lumen_output": 1400,
+  "name": "batten light",
+  "object_type": "light",
+  "power_draw_kw": 20,
+  "price": 40,
+  "zone_id": "zone_kitchenware"
+}

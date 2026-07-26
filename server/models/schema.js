@@ -857,6 +857,22 @@ export const SCHEMA_SQL = `
   CREATE INDEX IF NOT EXISTS idx_player_achievements_player
     ON player_achievements (player_id, unlocked_at DESC);
 
+  -- ── Wardrobe outfits (plugins/wardrobe) ───────────────────────────────────
+  -- A saved look: an ordered list of ITEM TEMPLATE ids (not inventory row ids),
+  -- so an outfit survives the piece being stowed, re-bought, or replaced by an
+  -- identical one. Scoped to the wardrobe furniture it was composed in — your
+  -- apartment's wardrobe and a hotel's are separate closets, which is also why
+  -- there is no FK on furniture_id: a demolished wardrobe simply orphans rows
+  -- nothing reads. The composite PK is the rename/overwrite guard.
+  CREATE TABLE IF NOT EXISTS player_outfits (
+    player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+    furniture_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    item_ids JSONB NOT NULL DEFAULT '[]',
+    created_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()),
+    PRIMARY KEY (player_id, furniture_id, name)
+  );
+
   -- Reusable Script graph assets. The 'graph' JSONB is the exact node format the
   -- shared graph runtime (server/engine/graph.js) executes — hand-authorable, and
   -- edited by the devpanel node editor. Dialogue stays on npcs.dialogue_tree; both
@@ -1155,6 +1171,8 @@ export const SCHEMA_SQL = `
   ALTER TABLE media_broadcasts ADD COLUMN IF NOT EXISTS talkshow_pools JSONB;
   -- Morning shows (playback_mode='morning') store a line library + the two resident hosts here: { host, cohost, pools:{key:[…]}, title, theme }. A fresh episode is assembled each in-game day from the LIVE world — forecast, news feed, world alerts, the clock — and ACTED on the studio couch by the two host NPCs.
   ALTER TABLE media_broadcasts ADD COLUMN IF NOT EXISTS morning_pools JSONB;
+  -- Game shows (playback_mode='gameshow') store a line library + real cast + contestant names here: { host, sidekick, contestants:[…], pools:{key:[…]}, title, theme, airSlots, rounds }. A fresh episode is assembled each in-game day from the LIVE item catalog — contestants guess what things are worth — and ACTED on the studio floor by the host (+ optional sidekick). Any player standing in the studio can play; with none, the contestants are name-only strangers.
+  ALTER TABLE media_broadcasts ADD COLUMN IF NOT EXISTS gameshow_pools JSONB;
   ALTER TABLE media_channels ADD COLUMN IF NOT EXISTS commercial_pool JSONB DEFAULT '[]';
   ALTER TABLE media_channel_playlist ADD COLUMN IF NOT EXISTS slot_type TEXT DEFAULT 'broadcast';
 

@@ -1,0 +1,18 @@
+{
+  "hp": null,
+  "hp_max": null,
+  "light_type": "lamp",
+  "lumen_output": 400,
+  "power_draw_kw": null,
+  "price": 25,
+  "flags": {
+    "interactions": [
+      "switch"
+    ]
+  },
+  "id": "furn_light_zone_util_junkyard",
+  "zone_id": "zone_util_junkyard",
+  "name": "inspection lamp",
+  "object_type": "light",
+  "description": "A caged bulb on a hooked lead, hung off the cabinet door. Somebody wrapped the flex in three colours of tape, in an order that presumably meant something to them."
+}

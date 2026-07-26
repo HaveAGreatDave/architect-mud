@@ -1,7 +1,7 @@
 {
   "name": "atm",
   "version": "1.0.0",
-  "description": "ATM terminals — power-aware, faction-networked, hackable cash dispensers with finite stock.",
+  "description": "ATM terminals — power-aware, faction-networked, hackable cash dispensers with finite stock and a per-transaction cap; a `bank_teller` NPC lifts the cap at a bank counter.",
   "commands": ["atm", "deposit", "withdraw", "jack", "jackresolve", "drain", ".hackpreview"],
   "specializedActions": [{ "verb": "use", "requiredTag": "atm" }],
   "routePrefix": "/atm"

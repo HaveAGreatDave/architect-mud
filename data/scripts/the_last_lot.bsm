@@ -1,7 +1,23 @@
 @broadcast "The Last Lot"
 @category shopping
 @length 240
-@type scripted
+@type gameshow
+@host npc_lot_vosk
+@sidekick npc_lot_operator
+@titlecard the_last_lot_logo
+@theme last_lot_theme
+@airtime 13
+@rounds 4
+
+# The Last Lot used to be a shopping channel: Vosk described municipal surplus and
+# Yolanda took calls. The network noticed people were phoning in to ARGUE about the
+# prices, and turned the argument into the programme.
+#
+# It is now a live game show. The lots are real items from the world's own catalog, so
+# the questions write themselves and every new item ever added becomes a prize. The
+# contestants are three name-only strangers — unless somebody walks into the KSAB
+# soundstage, in which case they're a contestant too, and the whole Basin watches them
+# guess. Vosk has not changed at all.
 
 ::actors
 @actor npc_lot_vosk
@@ -12,10 +28,10 @@
 
 ::asset the_last_lot_logo
 
-▛▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▜
+▛▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▜
 ▌      T H E   L A S T   L O T      ▐
 ▌   everything must go. it did.     ▐
-▙▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▟
+▙▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▟
 
 ::endasset
 
@@ -32,175 +48,202 @@
 
 ::endasset
 
-::scene OPEN
+# The strangers. Names only — they have no bodies, never commute, never spawn. Their
+# guesses are generated from the episode seed, so they lose the same way on every set.
+::contestants
+Renna Voss
+Dex-4
+Marguerite Okonkwo-Bell
+A Man Who Would Not Give His Name
+Tollier
+Bex from Meltwater Row
+The Widow Ansty
+::endcontestants
 
-ROOM zone_studio_1782953094650
+# ── Cold open ────────────────────────────────────────────────────────────────
+::lines open
+From the soundstage where the lights are on because nobody could find the switch — this is THE LAST LOT.
+Everything must go. Most of it already has. Some of it twice.
+This programme is recorded in front of a live audience, and we do mean live, and we do check.
+Two hours a day, the Basin puts its belongings on a plinth and we all decide what a life was worth.
+::endlines
 
-EVENT FADE_IN
+::lines announce_host
+Ladies and gentlemen, the man who can price your grandmother — {host}!
+He has sold everything in this building including, on one occasion, this building — {host}!
+Here he is. He is always here. {host}!
+::endlines
 
-MUSIC last_lot_theme
-♪ A game-show sting that has been sold twice and repossessed once. ♪
-MUSIC_END
+::lines audience_call
+If you're standing on my floor, you're playing. Type {verb}, then a number, and say it like you mean it.
+Anyone in this studio can bid — {verb} and a figure. You don't sign anything. That's what makes it fun and that's what makes it legal.
+You there. Yes, you, breathing on my cyclorama. {verb} a number. Out loud. On television.
+The rules are: I show you a thing, you {verb} what it costs, and we all find out something about you.
+::endlines
 
-TITLE the_last_lot_logo
+# ── Round intros ─────────────────────────────────────────────────────────────
+::lines round_intro.overunder
+First round. Two lots. You tell me whether the second one costs MORE than the first. Higher, or lower.
+We start easy. Two items. Is the second dearer than the first? That's the whole question.
+Round one. A pair of lots and a fifty-fifty. Nobody has ever made this look harder than you're about to.
+::endlines
 
-CAM 1 WIDE sales_floor
+::lines round_intro.price
+Now the real thing. One lot, one price, and you get as close as you can WITHOUT going over. Over is out.
+Round two. Name the price. Go over by a single credit and you're not close, you're wrong.
+Here's the game the network built this stage for. Closest to the price without exceeding it.
+::endlines
 
-SHOT
-A rotating display plinth under hard white light. Behind it, shelving stacked to the ceiling with unlabelled crates. A phone number sits burned into the bottom of frame, slightly crooked, and has been for years.
-SHOT_END
+::lines round_intro.lot
+Three lots. Put them in order, cheapest first. Say three numbers. This is where the confident ones die.
+Round three — THE LOT. Three items, one order, cheapest to dearest. Two of you will get this backwards.
+Three things. Rank them. I have watched people rank a corpse's boots above a working kidney.
+::endlines
 
-ENTER npc_lot_vosk
+::lines showcase_intro
+And now the money. This is THE SHOWCASE, and the man who ordered it is not in a position to collect it.
+Our final lot. Get within a fifth of the price either way and you take it home. The actual object. Today.
+The Showcase. Big lot, big purse, and the estate has stopped returning our calls.
+::endlines
 
-VOSK:
-Welcome back to The Last Lot, where everything must go — and I want to stress that most of it already has.
+# ── Prize copy (the announcer's read) ────────────────────────────────────────
+# Written to avoid a/an: the lot name comes from the item catalog and could start with
+# anything. `prize_copy.<format>` overrides the generic read where a round shows more
+# than one lot.
+::lines prize_copy
+Tonight's lot: {prize}. Sold as seen. Provenance available on request and then declined.
+On the plinth — {prize}. One owner. We think.
+Up next: {prize}. Municipal surplus. Post-forfeiture. Cannot be reclaimed by prior holders or their estates.
+{prize}. It was somebody's. Now it's inventory.
+{prize}, up on the plinth, turning slowly under the good lights so you can't see the repair.
+::endlines
 
-ACTION npc_lot_vosk pats the plinth twice, the way a man pats a horse he is about to sell.
+::lines prize_copy.overunder
+First, {prize}. Then, against it — {prize2}.
+Lot one: {prize}. Lot two: {prize2}. Both sold as seen, both previously loved, allegedly.
+On the left, {prize}. On the right, {prize2}. Neither of them asked for this.
+::endlines
 
-VOSK:
-I'm Rennie Vosk. For the next two hours, I am going to put things in front of you, and you are going to decide how much your dignity costs.
+::lines prize_copy.lot
+Three lots tonight: {prize}, {prize2}, and {prize3}. All from the same address. We're not saying which.
+Number one, {prize}. Number two, {prize2}. Number three, {prize3}.
+Tonight's three: {prize}, {prize2}, {prize3}. Sold as seen, sold as a set, sold regardless.
+::endlines
 
-::scene LOT_41
+# ── The guess window ─────────────────────────────────────────────────────────
+# `prompt.<format>` overrides the generic ask — "what's it worth" is nonsense for a
+# higher-or-lower or an ordering round.
+::lines prompt
+So. What's it worth? Name a figure.
+Bids, please. Anyone on my floor. Anyone at all.
+Don't think. Thinking is how you lose this. What's the price?
+Go on then. Price it.
+::endlines
 
-CAM 2 CLOSEUP plinth
+::lines prompt.overunder
+Higher, or lower? Say one.
+Second lot against the first — higher or lower? That's all I need.
+Up or down. One word. Say it.
+::endlines
 
-TITLE lot_price_card
+::lines prompt.lot
+Order them. Three numbers, cheapest first.
+Rank them for me. Three numbers, in order, cheapest to dearest.
+Give me the order. One, two, three — in whatever sequence you think is right.
+::endlines
 
-LOWER_THIRD
-LOT 41 — WINTER COAT
-₵89 · 3 REMAINING
-LOWER_THIRD_END
+::lines stall
+Take your time. The previous owner did not have this luxury.
+I can hear you doing arithmetic and I want you to know it will not help.
+Yolanda has the sealed card. Yolanda will not blink. I have tried.
+Somebody bid. The lights cost money and the lights are the only thing here that does, reliably.
+Look at the stitching. Everybody looks at the damage. Look at the STITCHING.
+Still time. Barely. Not really.
+::endlines
 
-SHOT
-A long grey coat turns slowly on the plinth. It is genuinely a very good coat. There is a neat, professionally repaired hole below the left shoulder blade.
-SHOT_END
+# ── The reveal ───────────────────────────────────────────────────────────────
+::lines reveal
+Bids are in — {guesses}. And the actual retail price of {prize}… {price} credits.
+Let's have it. {guesses}. The card says {price}.
+The floor said {guesses}. The card says {price} credits. The card does not negotiate.
+{guesses}. And it's {price}.
+::endlines
 
-VOSK:
-Lot forty-one. Wool blend, storm-lined, deep pockets. Retail three-forty. Today: eighty-nine.
+# The ordering round shows three lots, so it needs its own reveal — the generic one would
+# read a single price for a three-item question.
+::lines reveal.lot
+The floor said {guesses}. Cheapest first, it goes: {order}.
+Bids: {guesses}. And the true order — {order}.
+Here's how it actually falls: {order}. You said {guesses}.
+{guesses}. Wrong, most of you. It's {order}.
+::endlines
 
-VOSK:
-One previous owner.
+::lines reveal.overunder
+{guesses}. And it's {prices}. So there's your answer.
+The floor said {guesses}. {prices}. Do the arithmetic you should have done a minute ago.
+Bids in: {guesses}. The card reads {prices}.
+::endlines
 
-ACTION npc_lot_vosk holds up a single finger, and then, after a beat, lowers it.
+::lines showcase_reveal
+The Showcase bids: {guesses}. And {prize} — the whole thing, one owner — comes to {price} credits.
+{guesses}, against {price} credits of {prize}. Let's find out who's going home with a story.
+Sealed card, Yolanda. Thank you. The lot comes to {price} credits. The bids were {guesses}.
+::endlines
 
-VOSK:
-Technically.
+::lines verdict_read
+{verdict} That's {purse} credits and a handshake I will not be providing.
+{verdict} Take the money. Take it before somebody upstairs reads the paperwork.
+{verdict} And that is the business we are in.
+{verdict} Yolanda, mark the ledger. Mark it in pencil.
+{verdict} The Basin thanks you for your service to price discovery.
+::endlines
 
-VOSK:
-Now — you're looking at the repair. Everybody looks at the repair. I want you to look at the STITCHING on the repair. That is craftsmanship. Somebody cared about this coat.
+# ── Crowd ────────────────────────────────────────────────────────────────────
+::lines audience
+The audience makes a noise that could be either thing.
+Somebody in the third row says the number out loud, too late, to nobody.
+A low groan rolls across the floor and dies near the phone bank.
+Laughter, brief, slightly ashamed of itself.
+Someone whistles. Someone else tells them not to.
+The audience inhales as one and holds it.
+A single person claps. They stop.
+Nervous laughter from the direction of the plinth.
+::endlines
 
-VOSK:
-Somebody cared about this coat more than they cared about the previous owner, and I think that's beautiful.
+::lines applause
+Applause — the real kind, brief and startled.
+The floor manager waves both arms and the applause arrives on cue.
+Applause, and the plinth begins to turn.
+Sustained applause. The APPLAUSE sign was not lit. Nobody has mentioned this.
+::endlines
 
-::scene PHONES
+# ── Sponsor ──────────────────────────────────────────────────────────────────
+::lines commercial
+THE LAST LOT is brought to you by Coldwater Municipal Storage. Your things, kept, until they are ours.
+This programme is sponsored by ACID COLA. Thirteen flavours. One of them is cola.
+Brought to you by the Basin Estates Office. If you have been contacted about a relative, you have not been contacted about a relative.
+::endlines
 
-CAM 3 MEDIUM phone_bank
+# ── Nobody's home ────────────────────────────────────────────────────────────
+::lines walkoff
+Our contestant has left the building mid-lot. That happens. The lot stays.
+Gone. Walked off my floor with a bid in the air. I respect it and I'm keeping the money.
+::endlines
 
-ENTER npc_lot_operator
+::lines no_payout
+Network policy, friend — one purse a day. You keep the glory. We keep the glory's cash value.
+You've had your purse today. The win stands, the money doesn't. Take it up with Legal, who are also me.
+::endlines
 
-YOLANDA:
-Rennie, I've got a caller on line two asking whose coat it was.
+# ── Sign-off ─────────────────────────────────────────────────────────────────
+::lines signoff
+That's the last lot. Somebody's got to sell it, or it just sits there reminding everybody. Might as well be you. Might as well be warm.
+Two hours a day, this is what the Basin leaves behind. We'll be here tomorrow. So will most of it.
+From all of us on the floor: no returns, no provenance, no questions that help. Goodnight.
+::endlines
 
-VOSK:
-Tell them it's THEIR coat now, Yolanda. That's the magic of retail.
-
-YOLANDA:
-They're asking if it's cursed.
-
-VOSK:
-Nothing on this programme is cursed. Several items are HAUNTED, and those are clearly marked.
-
-ACTION npc_lot_operator covers the receiver and says something we do not hear.
-
-YOLANDA:
-They'll take two.
-
-VOSK:
-They'll take two! Two coats for a man who does not know how many arms he's going to need. That is FORWARD PLANNING.
-
-::scene LOT_42
-
-CAM 2 CLOSEUP plinth
-
-SHOT
-The coat is replaced by a sealed grey pallet, shrink-wrapped, with a Precinct 9 evidence tag still stapled to the corner.
-SHOT_END
-
-VOSK:
-Lot forty-two. Municipal surplus. Sealed pallet, mixed contents, sold as seen — and I do mean AS SEEN, because I haven't seen it either.
-
-VOSK:
-Could be tools. Could be somebody's whole life in a box. Could be forty kilos of one specific thing.
-
-VOSK:
-That happened last month. Somebody in Meltwater Row now owns every left boot in the district.
-
-YOLANDA:
-He's called back twice.
-
-VOSK:
-He has called back twice, and both times he sounded FINE.
-
-::scene LOT_43
-
-CAM 1 WIDE sales_floor
-
-SHOT
-Two attendants wheel out a full-height clone vat, empty, drained, lit from within. It hums. Nobody wheeling it makes eye contact with it.
-SHOT_END
-
-VOSK:
-And our big lot of the hour. Ex-display. One owner, and this time I mean that sincerely.
-
-VOSK:
-Fully functional, fluid system flushed, only cosmetic wear to the door seal. You have seen these in clinics at nine thousand.
-
-VOSK:
-Today — and I am going to get in trouble for this — twelve hundred.
-
-YOLANDA:
-Rennie, they want to know why it's cheap.
-
-VOSK:
-Because the man who ordered it is not in a position to collect it, Yolanda.
-
-ACTION npc_lot_vosk spreads his hands, entirely at peace.
-
-VOSK:
-That is the ENTIRE reason. There is no other reason. That is the business we are in.
-
-::scene CLOSE
-
-CAM 2 MEDIUM vosk
-
-OVERLAY
-THE LAST LOT
-
-CALL COLDWATER 4-4-LOTS
-
-NO RETURNS · NO PROVENANCE · NO QUESTIONS THAT HELP
-OVERLAY_END
-
-VOSK:
-Two hours a day, this is what the Basin leaves behind. And somebody's got to sell it, or it just sits there reminding everybody.
-
-VOSK:
-Might as well be you wearing it. Might as well be warm.
-
-TICKER
-THE LAST LOT · All lots sold as seen · No returns, no exchanges, no provenance provided or implied · Municipal surplus is sold post-forfeiture and cannot be reclaimed by prior holders or their estates · Restored persons may not claim property forfeited by a previous body · Items marked HAUNTED are sold under the same terms as items that are not · The management does not know what is in the pallets
-TICKER_END
-
-MUSIC last_lot_theme
-♪ The sting plays out, cheerful and completely unbothered. ♪
-MUSIC_END
-
-CREDITS 5
-THE LAST LOT
-Presented by Rennie Vosk. Phones by Yolanda.
-Lot 41 is still available.
-END_CREDITS
-
-EVENT FADE_OUT
-
-END
+# ── The crawl ────────────────────────────────────────────────────────────────
+# Runs under the sign-off. One entry: it is meant to be the same every episode.
+::lines ticker
+THE LAST LOT · All lots sold as seen · No returns, no exchanges, no provenance provided or implied · Municipal surplus is sold post-forfeiture and cannot be reclaimed by prior holders or their estates · Restored persons may not claim property forfeited by a previous body · Contestant winnings are capped by network policy at one purse per person per day · Studio guests appear on air by standing in the studio and are deemed to have consented by breathing · Items marked HAUNTED are sold under the same terms as items that are not · The management does not know what is in the pallets
+::endlines

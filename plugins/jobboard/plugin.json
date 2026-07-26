@@ -1,13 +1,13 @@
 {
   "name": "jobboard",
-  "version": "1.1.0",
-  "description": "Rotating job board: a discovery + rotation layer over the quests plugin. Surfaces a devpanel-authored pool of repeatable 'gig' quests in a zone as legal, low-pay early-money work; gigs/take/claim delegate to START_QUEST/TURN_IN. The board is an actionable object (read <board>, clickable Take/Hand-in). OPEN_JOBBOARD lets an NPC read you the postings. Also registers a content-driven greeter move gate (a first-time NPC stops you leaving once).",
+  "version": "1.2.0",
+  "description": "Rotating job board: a discovery + rotation layer over the quests plugin. Surfaces a devpanel-authored pool of repeatable 'gig' quests in a zone as legal, low-pay early-money work; gigs/take/claim delegate to START_QUEST/TURN_IN. The board is an actionable object (read <board>, clickable Take/Hand-in). OPEN_JOBBOARD lets an NPC read you the postings. Also registers a content-driven greeter move gate (a first-time NPC stops you leaving once), and keeps the lifetime `gigs_completed` player-flag tally that plugins/work gates a shift on.",
   "commands": ["gigs", "postings", "jobboard"],
   "hooks": [],
   "routePrefix": "/job-boards",
   "specializedActions": [{ "verb": "read", "requiredTag": "job_board" }],
   "actions": { "registers": ["OPEN_JOBBOARD"], "tagGated": [] },
-  "events": { "emits": [], "consumes": [] },
+  "events": { "emits": [], "consumes": ["quest.turned_in"] },
   "dependencies": ["quests"],
   "dataSchema": ["job_boards"]
 }

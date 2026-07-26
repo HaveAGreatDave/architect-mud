@@ -26,12 +26,13 @@
  */
 import { on } from '../../server/engine/events.js';
 import { getZone, resolveLanding } from '../../server/engine/world.js';
-import { getFlag, setFlag } from '../../server/engine/flags.js';
+import { getFlag, setFlag, clearFlag } from '../../server/engine/flags.js';
 import { findPath } from '../../server/engine/pathfinding.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { query } from '../../server/models/db.js';
 
 const seenKey = (zoneId) => `lore_seen:${zoneId}`;
+const ALWAYS_KEY = 'lore_always';
 const gpsSuggestKey = (zoneId) => `gps_suggest_seen:${zoneId}`;
 const STAFF = new Set(['admin', 'dev', 'builder', 'designer']);
 
@@ -47,8 +48,30 @@ async function introLore(zone, player) {
   if (!player || !zone) return;
   const lore = loreFor(zone);
   if (!lore) return;
+  // "Extra Lore" preference (Settings): show the block on every visit, not just the
+  // first. Read once per session and cached on the live player object so the hot
+  // look path doesn't pay a round trip per render.
+  if (player._loreAlways === undefined) {
+    player._loreAlways = (await getFlag('player', ALWAYS_KEY, player)) === 'true';
+  }
+  if (player._loreAlways) return `<span class="intro-lore">${lore}</span>`;
   if (await getFlag('player', seenKey(zone.id), player)) return; // already visited once
   return `<span class="intro-lore">${lore}</span>`;
+}
+
+// `lorealways on|off` — the server side of the Settings toggle. Sent silently by
+// the client (on change and at login), so it never needs to print anything unless
+// asked bare.
+async function cmdLoreAlways(argStr, player) {
+  const arg = (argStr || '').trim().toLowerCase();
+  if (!arg) {
+    return { type: 'system', message: `<span class="msg-system">Extra lore is ${player._loreAlways ? 'ON' : 'OFF'}. Use "lorealways on|off".</span>` };
+  }
+  const enable = arg === 'on' || arg === 'true' || arg === '1';
+  player._loreAlways = enable;
+  if (enable) await setFlag('player', ALWAYS_KEY, 'true', player);
+  else await clearFlag('player', ALWAYS_KEY, player);
+  return null;   // falsy result = nothing sent (server/index.js only forwards truthy results)
 }
 
 // On entering a new zone, the zone the player just LEFT (`from`) has had its one
@@ -136,8 +159,9 @@ export const hooks = {
 export const commands = {
   lorereset: (args, _raw, player) => cmdLoreReset(args.join(' '), player),
   resetlore: (args, _raw, player) => cmdLoreReset(args.join(' '), player),
+  lorealways: (args, _raw, player) => cmdLoreAlways(args.join(' '), player),
 };
 
-export const _test = { introLore, onZoneEntered, onGpsSuggest, cmdLoreReset, loreFor, seenKey, gpsSuggestKey };
+export const _test = { introLore, onZoneEntered, onGpsSuggest, cmdLoreReset, cmdLoreAlways, loreFor, seenKey, gpsSuggestKey };
 
 console.log('[lore] Plugin loaded.');

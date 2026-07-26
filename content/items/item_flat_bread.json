@@ -1,0 +1,23 @@
+{
+  "description": "A blistered disc off a hot plate, folded once and gone slightly stiff. The cheapest way to make a meal into two meals.",
+  "flags": {},
+  "id": "item_flat_bread",
+  "name": "flatbread",
+  "tags": {
+    "description": "A blistered disc off a hot plate, folded once and gone slightly stiff. The cheapest way to make a meal into two meals.",
+    "consumable": true,
+    "restore_hunger": 17,
+    "stackable": true,
+    "food_profile": "starchy_vegetable",
+    "food_noun": "bread",
+    "needs_cooking": true,
+    "perishable": true,
+    "spoil_rate": "normal",
+    "status_chance": {
+      "food_poisoning": 0.1
+    }
+  },
+  "type": "consumable",
+  "value": 4,
+  "weight": 180
+}

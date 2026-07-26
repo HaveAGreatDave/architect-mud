@@ -1,0 +1,23 @@
+{
+  "description": "A sealed pouch of something amber and faintly gelid, rendered off bones that were probably cattle. Cold it looks like a mistake. Hot it is the base of anything worth eating.",
+  "flags": {},
+  "id": "item_bone_broth",
+  "name": "bone broth",
+  "tags": {
+    "description": "A sealed pouch of something amber and faintly gelid, rendered off bones that were probably cattle. Cold it looks like a mistake. Hot it is the base of anything worth eating.",
+    "consumable": true,
+    "restore_hunger": 12,
+    "stackable": true,
+    "food_profile": "liquid",
+    "food_noun": "broth",
+    "needs_cooking": true,
+    "perishable": true,
+    "spoil_rate": "normal",
+    "status_chance": {
+      "food_poisoning": 0.3
+    }
+  },
+  "type": "consumable",
+  "value": 9,
+  "weight": 500
+}

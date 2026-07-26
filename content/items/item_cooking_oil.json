@@ -1,0 +1,20 @@
+{
+  "description": "A squat jug of pressed something, pale gold, with a scorch rating printed on the side in six languages. The workhorse. No kitchen functions without one.",
+  "flags": {},
+  "id": "item_cooking_oil",
+  "name": "jug of cooking oil",
+  "tags": {
+    "description": "A squat jug of pressed something, pale gold, with a scorch rating printed on the side in six languages. The workhorse. No kitchen functions without one.",
+    "consumable": true,
+    "restore_hunger": 4,
+    "stackable": true,
+    "food_profile": "fat_or_oil",
+    "food_noun": "fried",
+    "status_chance": {
+      "food_poisoning": 0.1
+    }
+  },
+  "type": "consumable",
+  "value": 10,
+  "weight": 600
+}

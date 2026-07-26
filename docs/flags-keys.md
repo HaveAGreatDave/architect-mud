@@ -25,6 +25,9 @@ nothing, silently; wire a reader first.
 | `airfield_rental` | flight | self-fly rental desk (`rent`). **Independent of `airfield_charter`** — a field can offer the NPC ride without a hire counter (Buzzard Field) |
 | `charter_vtol_only` | flight | charter pad is VTOL Dragonfly-only, off-airfield drops, no rental desk (Echelon helipad) |
 | `airfield_vtol_only` | flight | helipad — buy/rent/charter restricted to VTOL/rotorcraft; fixed-wings hidden from every roster (Threshold Helipad) |
+| `airfield_residents_only` | flight | a PRIVATE field: set to a building name, only that building's residents resolve a field here at all (`fieldFor` → null for everyone else — no bay, no hangar rent/store, no fuel). Solenne Sky Pad |
+| `residents_only` | residency | interior tile only enterable by a player holding a unit in the named building — walked in OR ridden to by lift (the lift runs the gate chain too) |
+| `residents_only_deny` | residency | optional refusal line for `residents_only`, in the building's voice |
 | `yacht` / `echelon` | yacht | marks an Echelon zone (the yacht) |
 | `echelon_bridge` | yacht | the bridge — every `helm`/`sail`/`stop`/`dock` verb gates on this flag |
 | `echelon_suite` | yacht/consort | Cyd's private quarters — owner-gated behind the suite hatch; hosts the MIS-gated dancers |
@@ -84,6 +87,7 @@ nothing, silently; wire a reader first.
 | `fishing_table_id` | fishing | scavenging-table id used for fishing here |
 | `gov_checkpoint` | — | **no reader.** There is no `govgate` plugin; checkpoints are configured entirely through `checkpoint_cfg` |
 | `gov_enclave` | checkpoint | inside the government enclave — consumed only as a `checkpoint_cfg.insideFlag` value (the gate is generic, not special-cased) |
+| `citadel_public` | checkpoint | the public floor of Citadel Financial (the Marble Hall); the security vestibule's `checkpoint_cfg.fromFlag`, so the scan runs on the way in and not on the way back out |
 | `greeter` | jobboard | greeter NPC gate zone |
 | `hangar_interior` | flight | inside a hangar |
 | `hangar_interior_zone` | flight | link from ramp to hangar interior |
@@ -131,6 +135,7 @@ nothing, silently; wire a reader first.
 | key | owner | meaning |
 |---|---|---|
 | `aa_engineer` | aa-sites | bunker engineer who repairs a strafed AA battery; value = the owning `aa_sites.id` |
+| `bank_teller` | atm | a bank counter clerk — `deposit`/`withdraw <amount> from <them>` bypasses the terminal entirely (no cap, no fee, no power gate). Presence alone does NOT lift the cap; they must be addressed |
 | `battle_cries` | combat | lines shouted in combat |
 | `bouncer` | strippers | bouncer NPC — enforces club ejection |
 | `bouncer_eject_zone` | strippers | where this bouncer throws you (optional; falls back to a derived zone) |
@@ -175,6 +180,8 @@ nothing, silently; wire a reader first.
 | `channel_id` | broadcast | channel a deck/TV is tuned to |
 | `chargen` | prologue | character-generation terminal |
 | `concealed` | surveillance | planted device concealment state |
+| `backstock` | commerce | container id a `vendor_stock` case refills from (stockroom → shop floor) before minting a delivery |
+| `checkout` | commerce | vendor id whose till this counter is — enables `checkout` here |
 | `container` | inventory | holds items |
 | `corp_poster` / `hero_poster` / `poster_key` | corps/events | wall poster identity |
 | `cosmetic_machine` | appearance | morphex/biosculpt station |
@@ -210,4 +217,6 @@ nothing, silently; wire a reader first.
 | `vendor_npc_id` | vendor | vendor NPC whose shop this furniture belongs to |
 | `vendor_safe` | vendor-safe | crackable vendor safe |
 | `vendor_schedule_board` | vendor | shop-hours board |
+| `vendor_stock` | commerce | vendor id owning this container's contents — a self-service display case. Goods pulled out are marked `custom_data.unpaid` until `checkout`; carrying them out of the shop is `shoplifting` |
+| `wardrobe` | wardrobe | this container opens the wardrobe/outfits panel (pair with `container`) |
 | `water_source` | water plugin | drink/wash here |

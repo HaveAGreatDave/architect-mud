@@ -1,0 +1,34 @@
+{
+  "ambient_events": [
+    "A box slides out of the wall somewhere down the row, then slides back. Nobody is down the row.",
+    "The shift supervisor turns a page on her clipboard, which is paper, which is the point.",
+    "One of the boxes on the bottom tier is warm. You notice this and immediately wish you hadn't.",
+    "The dehumidifier cycles. Whatever's in here is being kept very dry indeed.",
+    "A brass number plate has been unscrewed and rescrewed enough times to strip the slots.",
+    "The camera at the end of the row does not sweep. It simply looks at the stairwell, always."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#302b26",
+  "color": "#c9b98e",
+  "created_by": null,
+  "description": "Two thousand brass-fronted doors in a room built for eight people at a time, stacked floor to ceiling down both walls in tiers, each with a number and a keyhole and absolutely no explanation. There's a viewing table in the middle under a lamp with a shade angled so the cameras can't see the tabletop — a courtesy Citadel advertises and does not, on the evidence, honour. The air is bone-dry and smells faintly of brass polish and old paper. A shift supervisor works the row with a clipboard, and does not look up when you come in, and knows precisely where you are. At the far end the floor gives way to a short flight of steel steps going down into the dark, closed off by a slab the size of a car door.",
+  "exits": {
+    "down": "zone_citadel_vault",
+    "south": "zone_citadel_vestibule"
+  },
+  "flags": {
+    "building_name": "Citadel Financial",
+    "is_building": true,
+    "is_interior": true
+  },
+  "grid_x": 0,
+  "grid_y": -2,
+  "grid_z": 0,
+  "id": "zone_citadel_gallery",
+  "map_id": "map_int_citadel",
+  "marker": null,
+  "name": "Citadel Financial — Safe Deposit Gallery",
+  "parent_zone": "zone_district_921_911",
+  "updated_at": "1785110400"
+}

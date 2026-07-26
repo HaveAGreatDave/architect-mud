@@ -1,0 +1,190 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "e_coat": {
+        "action_type": "EMOTE",
+        "next": "loop",
+        "params": {
+          "message": "adjusts the hang of his coat with one hand, and the shape underneath it settles somewhere else."
+        },
+        "type": "action"
+      },
+      "e_doors": {
+        "action_type": "EMOTE",
+        "next": "loop",
+        "params": {
+          "message": "looks at the bronze doors for four full seconds, then back at the room, then back at the doors."
+        },
+        "type": "action"
+      },
+      "e_step": {
+        "action_type": "EMOTE",
+        "next": "loop",
+        "params": {
+          "message": "shifts his weight to the other foot, onto the same worn grey patch, and goes still again."
+        },
+        "type": "action"
+      },
+      "loop": {
+        "next": "start",
+        "type": "loop"
+      },
+      "pick": {
+        "branch_0": "loop",
+        "branch_1": "e_step",
+        "branch_2": "e_doors",
+        "branch_3": "e_coat",
+        "branches": [
+          {
+            "weight": 3
+          },
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "wait",
+        "type": "start"
+      },
+      "wait": {
+        "next": "pick",
+        "seconds": 75,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [],
+  "description": "A long charcoal coat, cut generously enough to be polite about what's under it, over a man who has clearly been doing this since before the coat was fashionable. Grey at the temples, mirrored lenses he doesn't take off indoors, hands folded at his belt buckle. He stands on a patch of marble worn faintly grey by eleven years of standing on it. He does not pace and he does not lean on anything, and when you move across the hall his head comes round at exactly the speed of the camera in the cornice, which is either training or a very long time spent working alongside one.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "He goes back to watching the doors. You have already stopped existing."
+    },
+    "guns": {
+      "options": [
+        {
+          "label": "\"Understood.\"",
+          "next": "bye"
+        },
+        {
+          "label": "\"What's the rule in here?\"",
+          "next": "rules"
+        }
+      ],
+      "text": "\"Everyone asks.\" The lenses don't move. \"Yes. Licensed, insured, and logged with the precinct next door, which took Citadel four years and a great deal of money.\" A pause with nothing in it. \"Nobody has made me open the coat since the second year. I'd rather it stayed a rumour. Rumours don't have to be reloaded.\""
+    },
+    "police": {
+      "options": [
+        {
+          "label": "\"Cosy.\"",
+          "next": "bye"
+        },
+        {
+          "label": "\"Are you armed?\"",
+          "next": "guns"
+        }
+      ],
+      "text": "\"They're forty metres that way and they answer the phone.\" He tips his chin a fraction toward the east wall. \"Our cameras run on their network. Their evidence locker banks with us. It's not a friendship, it's plumbing — but it means anything that happens in this hall is already happening at Precinct 9 as well, just slightly later and with worse lighting.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "\"What's the rule in here?\"",
+          "next": "rules"
+        },
+        {
+          "label": "\"Are you armed?\"",
+          "next": "guns"
+        },
+        {
+          "label": "\"Eleven years in one spot?\"",
+          "next": "years"
+        },
+        {
+          "label": "\"How does this work with the cops next door?\"",
+          "next": "police"
+        },
+        {
+          "label": "\"Nothing. Just banking.\"",
+          "next": "bye"
+        }
+      ],
+      "text": "The lenses come round and hold on you a beat past comfortable. \"Terminals are in the alcoves. The machine will answer anything you've got.\" His hands stay folded. \"I'm not here for questions, but I'll take a couple if you're going to stand there anyway.\""
+    },
+    "rules": {
+      "options": [
+        {
+          "label": "\"Clear.\"",
+          "next": "bye"
+        },
+        {
+          "label": "\"Eleven years in one spot?\"",
+          "next": "years"
+        }
+      ],
+      "text": "\"Two,\" he says. \"Don't run in the hall. Don't stand still in the hall.\" He lets that sit. \"One of those tells me you've done something. The other tells me you're about to. Walk in, do your business, walk out, and I will forget your face by the time the door shuts. That is the service I'm actually providing.\""
+    },
+    "years": {
+      "options": [
+        {
+          "label": "\"Four times in eleven years isn't bad.\"",
+          "next": "years2"
+        },
+        {
+          "label": "\"How does this work with the cops next door?\"",
+          "next": "police"
+        }
+      ],
+      "text": "\"Eleven.\" No pride in it, no complaint. \"I've had to move four times. Twice was a medical thing and once was a kid who'd got himself very confused about which building the card room was.\""
+    },
+    "years2": {
+      "options": [
+        {
+          "label": "\"...right.\"",
+          "next": "bye"
+        }
+      ],
+      "text": "\"It isn't.\" The lenses tip fractionally toward the marble at his feet. \"That's the whole marketing budget, standing here in a coat. The columns and the bronze and me — that's the security. What's downstairs is just what happens if all three of us fail at once, and I would strongly encourage you not to find out how thorough Citadel got about that.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "bouncer": true,
+    "bouncer_eject_zone": "zone_district_921_911",
+    "clothing_layers": [
+      "a long charcoal coat cut generously through the chest",
+      "a pressed white shirt and a Citadel-orange tie clip",
+      "a concealment rig, worn smooth at the strap",
+      "grey boxer briefs"
+    ],
+    "mis_willing": false,
+    "personality": "guard"
+  },
+  "home_activities": [],
+  "home_zone": "zone_citadel_hall",
+  "hp": 70,
+  "hp_max": 70,
+  "id": "npc_citadel_guard_floor",
+  "name": "Emmerich Sund",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

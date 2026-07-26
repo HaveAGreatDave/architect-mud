@@ -1,0 +1,23 @@
+{
+  "description": "A slack grey sphere under a film of oil, proofed and ready. Warm to the touch from whatever is going on inside it. Wants a hot surface and about four minutes of attention.",
+  "flags": {},
+  "id": "item_dough_ball",
+  "name": "dough ball",
+  "tags": {
+    "description": "A slack grey sphere under a film of oil, proofed and ready. Warm to the touch from whatever is going on inside it. Wants a hot surface and about four minutes of attention.",
+    "consumable": true,
+    "restore_hunger": 15,
+    "stackable": true,
+    "food_profile": "batter",
+    "food_noun": "dough",
+    "needs_cooking": true,
+    "perishable": true,
+    "spoil_rate": "fast",
+    "status_chance": {
+      "food_poisoning": 0.4
+    }
+  },
+  "type": "consumable",
+  "value": 5,
+  "weight": 250
+}

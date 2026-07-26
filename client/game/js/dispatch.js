@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { appendMsg, appendHtml, appendPre, updateVitals, parseZoneInfo, showDevPanelButton, setAreaPane, showSkyBanner } from './render.js';
+import { appendMsg, appendHtml, appendPre, updateVitals, parseZoneInfo, showDevPanelButton, setAreaPane, showSkyBanner, pointAtRoomTarget } from './render.js';
 import { sendCmd, sendCmdSilent, closeConnection, attemptAutoReauth, showVerifyScreen } from './net.js';
 import { renderMinimap, setGpsRoute, setRunState, startAutoWalk, resumeAutoWalkIfArmed, setAutoWalkPersist, isAutoWalking, isManualAutoWalkInProgress, cancelAutoWalk, autoWalkBlocked, resolveAutoWalkPicker, armAutoWalkPrompt } from './panels/minimap.js';
 import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility, signalPowerOut, isFxIndoors } from './panels/environment.js';
@@ -11,6 +11,7 @@ import { renderStatsPanel } from './panels/stats.js';
 import { renderSkillsPanel } from './panels/skills.js';
 import { receiveWhisper, sentWhisper, receiveChannelMsg, initChannels, initChannelHistory, receiveMOTD, refreshOnlinePlayers, rollbackSelfEcho, removeCorpChannels } from './panels/whisper.js';
 import { openContainerPanel, refreshContainerPanel, getActiveContainerId, showContainerNotify } from './panels/container.js';
+import { openWardrobePanel, refreshWardrobePanel, getActiveWardrobeId, showWardrobeNotify } from './panels/wardrobe.js';
 import { openLootPanel, closeLootPanel } from './panels/loot.js';
 import { openLightViewDialog } from './panels/lightview.js';
 import { openMorphexPanel } from './panels/morphex.js';
@@ -29,6 +30,7 @@ import { openSignalHijack } from './panels/signalhijack.js';
 import { openPirateConsole, closePirateConsole } from './panels/piratedeck.js';
 import { openFishing, armFishFight } from './panels/fishing.js';
 import { abortMacros } from './panels/smartbar-macros.js';
+import { offerInterfaceTour, startInterfaceTour } from './panels/tour.js';
 import { updateCockpit, closeCockpit, cabinAudio, openTakeoff, openGlideslope, openTargeting, openFlightSim, flightSimContext, flightSimContacts, flightSimAASites, flightSimAirHit, flightSimKill, flightSimAaTracer, flightSimAirThreat, flightSimFireworks, flightSimLightning, isFlightSimActive, isCockpitHudActive } from './panels/cockpit.js';
 import { openHelm, closeHelm, isHelmActive, helmSetSky, helmSetWorld, helmSetContacts, helmEndTransit, helmBeginTransit } from './panels/helm-mode.js';
 import { setYachtAmbience, yachtUnderway, yachtSettled } from './panels/yacht-ambience.js';
@@ -143,6 +145,9 @@ const handlers = {
     if (DEV_ROLES.includes(state.player.role)) showDevPanelButton();
     if (wasReconnect) appendMsg('Reconnected.', 'system');
     else playWelcomeVoice(state.player.handle, state.player);   // spoken login greeting (fresh logins only)
+    // Push this device's Extra Lore preference — the server keeps the per-player
+    // flag, but the Settings toggle is local, so re-assert it each login.
+    sendCmdSilent(`lorealways ${(loadSettings().extraLore || 'off') === 'on' ? 'on' : 'off'}`);
     syncPanels(); // request data + cam catalog for any custom panels
   },
 
@@ -274,6 +279,12 @@ const handlers = {
   tv_standings: (msg) => { for (const v of tvOpenViews()) v.renderStandings(msg); },
   system: (msg) => { appendHtml(msg.message, 'system'); },
   ambient: (msg) => { appendHtml(msg.message, 'ambient'); },
+  // Cosmetic nudge: ripple a room-pane link so the player sees where to click.
+  point_at: (msg) => { pointAtRoomTarget(msg.action, msg.target); },
+  // Onboarding (prologue plugin): ask a first-time player whether they've played
+  // a text game before, and — if not — walk them round the interface.
+  tour_offer: () => { offerInterfaceTour(); },
+  tour_start: () => { startInterfaceTour(); },
   sleep: (msg) => { appendHtml(msg.message, 'system'); },
   rent:         (msg) => { appendHtml(msg.message, 'help'); },
   unrent:       (msg) => { appendHtml(msg.message, 'help'); },
@@ -335,25 +346,35 @@ const handlers = {
     openContainerPanel(msg);
   },
 
+  // A wardrobe is a container that answers with its own view. Refresh rather
+  // than re-open when the panel is already up, so a hang/take/save doesn't wipe
+  // the look the player is composing on the doll.
+  wardrobe_view: (msg) => {
+    if (msg.mainMsg) appendHtml(msg.mainMsg, 'help');
+    if (getActiveWardrobeId()) refreshWardrobePanel(msg);
+    else openWardrobePanel(msg);
+  },
+
   loot_view: (msg) => {
     if (msg.mainMsg) appendHtml(msg.mainMsg, 'help');
     openLootPanel(msg);
   },
 
   container_error: (msg) => {
-    showContainerNotify(msg.message);
+    if (getActiveWardrobeId()) showWardrobeNotify(msg.message);
+    else showContainerNotify(msg.message);
   },
 
   stow: (msg) => {
     appendHtml(msg.message, 'help');
-    const cid = getActiveContainerId();
+    const cid = getActiveContainerId() || getActiveWardrobeId();
     if (cid) sendCmdSilent(`opencontainer ${cid}`);
     else refreshTabletGearIfOpen();
   },
 
   pull: (msg) => {
     appendHtml(msg.message, 'help');
-    const cid = getActiveContainerId();
+    const cid = getActiveContainerId() || getActiveWardrobeId();
     if (cid) sendCmdSilent(`opencontainer ${cid}`);
     else refreshTabletGearIfOpen();
   },

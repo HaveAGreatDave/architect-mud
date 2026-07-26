@@ -98,12 +98,45 @@ export function isVendorClosed(npc) {
   return !isVendorWorkTime(npc, getEnvironmentState()).working;
 }
 
+// Game-hours until this vendor's next scheduled block opens, or null (no schedule,
+// or nothing scheduled in the coming week). Same clock + day-keying as
+// isVendorWorkTime, so it agrees with whatever just told the player "closed".
+export function hoursUntilOpen(npc) {
+  const schedule = npc?.vendor_schedule;
+  if (!schedule || !Object.keys(schedule).length) return null;
+  const env = getEnvironmentState();
+  const nowMinutes = env.minutes;
+  const todayIdx = env.dayOfWeek % 7; // ISO 1=Mon…7=Sun → DAY_KEYS 0=Sun…6=Sat
+  let best = null;
+  for (let dayOffset = 0; dayOffset <= 7; dayOffset++) {
+    for (const block of schedule[DAY_KEYS[(todayIdx + dayOffset) % 7]] || []) {
+      const gap = dayOffset * 1440 + (block.from ?? 0) * 60 - nowMinutes;
+      if (gap > 0 && (best === null || gap < best)) best = gap;
+    }
+    if (best !== null) break; // the earliest block on the first day that has one wins
+  }
+  return best === null ? null : best / 60;
+}
+
+// "about 3 hours" / "about 20 minutes" — the wait an off-shift vendor quotes you.
+// Empty string when they have no schedule to quote from.
+export function openInPhrase(npc) {
+  const h = hoursUntilOpen(npc);
+  if (h == null) return '';
+  if (h < 1) { const m = Math.max(1, Math.round(h * 60)); return `about ${m} minute${m === 1 ? '' : 's'}`; }
+  const r = Math.round(h);
+  return `about ${r} hour${r === 1 ? '' : 's'}`;
+}
+
 // The line an off-the-clock vendor gives when a player tries to shop/buy/sell.
 // Covert sellers don't do customer service hours — they just stop knowing you.
 export function vendorClosedLine(npc) {
   const name = npc?.name || 'The vendor';
   if (npc?.flags?.covert) return `${name} looks straight through you. "Wrong time. Walk on."`;
-  return `${name} shakes their head. "I'm off the clock right now — come back during business hours."`;
+  const when = openInPhrase(npc);
+  return when
+    ? `${name} shakes their head. "I'm off the clock right now — I open again in ${when}."`
+    : `${name} shakes their head. "I'm off the clock right now — come back during business hours."`;
 }
 
 // ── Chitchat ────────────────────────────────────────────────────────────────

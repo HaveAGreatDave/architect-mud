@@ -1,0 +1,19 @@
+{
+  "description": "A sagging vinyl armchair wedged in beside the crates, patched at one arm with duct tape and worn shiny where a hundred bleeding customers have sat down before you. Grady keeps it there on purpose.",
+  "flags": {
+    "interactions": [
+      "sit",
+      "lean"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_twocell_chair",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "sagging vinyl armchair",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 45,
+  "zone_id": "zone_twocell_interior"
+}

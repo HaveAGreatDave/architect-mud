@@ -195,7 +195,11 @@ program lands mid-broadcast instead of restarting from the top.
 
 **Phase 1 — Normal**: the walker follows the graph normally. When it hits an `npc_anchor` node, it checks whether that NPC is physically present in `state.studioZoneId`. If absent and `studioZoneId` is configured, it sets `bb.hostAbsent = true` and `bb.absentDetectedAt = nowMs`.
 
-**Phase 2 — Show-delay card (until the cast arrives)**: once `hostAbsent` is true, the walker short-circuits each tick and returns a clean, centred **`text_card` overlay** (`style: 'overlay'`) that names exactly who's missing — `_absentCastNames(graph, studioZoneId)` scans the graph's `npc_anchor` nodes and lists any not currently in the studio: *"PLEASE STAND BY — Tonight's programme is delayed — `<name(s)>` `has/have` not yet arrived in the studio. We apologise for the inconvenience…"*. This is deliberately **not** the technical-difficulties fallback (which reads as "signal lost") and **not** the old empty-studio camera spam — the viewer is told what's happening. The card holds (`duration: 0`, no auto-dismiss) and is re-emitted on a 5-second slot so late-tuners pick it up. The walker recovers automatically — clearing `hostAbsent` and resuming the graph — the instant `_absentCastNames` comes back empty (every scheduled anchor is back on the studio floor).
+**Phase 2 — Show-delay card (until the cast arrives)**: `hostAbsent` now means an **empty
+stage** — *no* scheduled cast member is on the studio floor (`_anyCastPresent`), i.e. a show
+that cannot start. A partially-absent cast does **not** raise the card: the show goes ahead
+short-handed and the missing actor's lines simply never air (see
+[Live realism](#live-realism-the-broadcast-is-the-studio)). Once `hostAbsent` is true, the walker short-circuits each tick and returns a clean, centred **`text_card` overlay** (`style: 'overlay'`) that names exactly who's missing — `_absentCastNames(graph, studioZoneId)` scans the graph's `npc_anchor` nodes and lists any not currently in the studio: *"PLEASE STAND BY — Tonight's programme is delayed — `<name(s)>` `has/have` not yet arrived in the studio. We apologise for the inconvenience…"*. This is deliberately **not** the technical-difficulties fallback (which reads as "signal lost") and **not** the old empty-studio camera spam — the viewer is told what's happening. The card holds (`duration: 0`, no auto-dismiss) and is re-emitted on a 5-second slot so late-tuners pick it up. The walker recovers automatically — clearing `hostAbsent` and resuming the graph — the instant `_absentCastNames` comes back empty (every scheduled anchor is back on the studio floor).
 
 Technical-difficulties (`bb.techDiffMode`, a rotating line from `state.currentFallbackMessages`, default `'[TECHNICAL DIFFICULTIES] Please stand by.'`) is still reachable, but only for genuine signal failures — an explicit `tech_difficulties` node, a downed studio camera (`camera_cut` with the studio feed off/damaged), or a graph-walk error — never for a merely-late cast member.
 
@@ -208,7 +212,7 @@ Technical-difficulties (`bb.techDiffMode`, a rotating line from `state.currentFa
 | `music` | Looks up `data.song` against `audio_songs` (via `getSongDefByName` in `plugins/audio/index.js`). If found, returns `{ text, song, key, style: 'music' }` and holds for 8s; if the channel is `live` with a `studioZoneId`, also `sendToZone`s the song there directly. If not found, falls back to `{ text, key, style: 'raw' }` (or is skipped if `text` is also empty). See [Music Cues](#music-cues). |
 | `wait` | Set `waitUntil = nowMs + data.seconds * 1000`. Block until elapsed. |
 | `npc_anchor` | Set `bb.npcAnchor`. Check NPC presence against `studioZoneId`. Advance. |
-| `camera_cut` | Return `[CAM: label] <zone snapshot>`. |
+| `camera_cut` | Assign a **real** working `media_cameras` unit in the target zone (`_pickCamera`, round-robin per channel) and return `[<Camera N> — label] <zone snapshot>`. No working camera in that zone ⇒ the shot has no source: the studio's own feed falling over is tech-difficulties, a remote feed falling over just kills that cut. See [Live realism](#live-realism-the-broadcast-is-the-studio). |
 | `inject_news` | Pull one item from `newsQueue` by category, or emit `fallback_text`. |
 | `break` | Drain one item from `newsQueue`; if empty, continue graph. |
 | `condition` | Branch `ifTrue` / `ifFalse` synchronously. |
@@ -226,6 +230,43 @@ Technical-difficulties (`bb.techDiffMode`, a rotating line from `state.currentFa
 Guards against cycles: max 50 hops per tick before early exit.
 
 ---
+
+## Live Realism — the broadcast IS the studio
+
+For an **acted-live** graph (`liveActed` — a `live` channel or any `_requireHost` graph), the
+broadcast is a literal readout of what is physically happening on the studio floor. The graph is
+a *shooting plan*, not a guarantee of what airs. Four rules, all in `tickBroadcastGraph`:
+
+**1. Cameras are objects, not instructions.** `zoneCameras: Map<zoneId, [{id, direction, label}]>`
+holds the **working** (`is_powered && !is_damaged`) `media_cameras` rows per zone, rebuilt beside
+`cameraZoneStatus` in `loadChannelRuntimes`. A `camera_cut` is executed by a specific unit picked
+round-robin (`_pickCamera`, `state._camSeq`), and the cut is **acted out where it happens**: the
+studio sees *"Camera 3 swings around and takes the couch; its tally light blinks red,"* and a
+remote zone being cut to sees its own lens pivot. On air the shot is labelled with the real unit.
+A live channel whose studio has **no** working camera has no picture at all — a per-tick blackout
+gate raises tech-difficulties (`bb.cameraBlackout`) and lifts it by itself when a unit comes back.
+
+**2. Room authority — a line belongs to whoever is standing there.** `npc_anchor` records
+`bb.anchorPresent`. If that actor has walked off set, their `say`/`npc_action` beats are **dropped,
+not deferred** — dead air, and the show moves on. Only a completely empty stage falls back to the
+stand-by card.
+
+**3. Every line is attempted live; the actor's condition decides what lands.** `_actorImpairment(npcId)`
+reads the performer's real state — the dose on their AI blackboard (`npc._ai.dose` from
+[`plugins/npc-drugs`](../plugins/npc-drugs/README.md): `loose`/`wired`/`paranoid`/`out`) and any
+`npc.intoxication` — and `_garbleLine` degrades the delivery in the Paul Masson register: repeated
+words, fumbled clause starts, softened consonants, and past ~0.55 the line doesn't survive to its
+own full stop (*"…I can't read this. Who wrote this?"*). An `out`-cold actor can't perform at all:
+the studio sees them fold, and the air gets nothing. Above the floor the mangling is **never** a
+silent no-op. This is the payoff of `flags.preshow_habit` — Akerson dosing before the cameras roll
+now audibly changes the broadcast.
+
+**4. The audience seam.** The studio-floor relay (`zone.broadcast` → `server/index.js:134`) puts
+**untagged** room events out on air whenever the channel is acting a show there and the room has a
+working camera — so a player can walk into shot, heckle the host, or break something and the city
+sees it. It reaches zone-tuned sets, deck previews, and tablet tuners alike. The show's own
+performance is exempt: every line the acting layer puts in the room goes through `_stageLine`,
+which tags it `_fromBroadcast` so the relay can't pick the performance back up and re-air it.
 
 ## Music Cues
 
@@ -254,14 +295,17 @@ on('flag.set', …)     → enqueueNews('martial_law', 'EMERGENCY ALERT: …',  
 
 ---
 
-## Live-Assembled Shows (`weather` / `sports` / `news` / `talkshow` / `morning`)
+## Live-Assembled Shows (`weather` / `sports` / `news` / `talkshow` / `morning` / `gameshow`)
 
-Five `playback_mode`s store a **line library** (`::lines` pools) instead of a baked graph, and assemble a fresh VINE graph on each airing rather than replaying stored content. They're authored as `.bsm` files (`@type weather|sports|news|talkshow|morning`) — see [docs/bsm-format.md](bsm-format.md) — and stored in dedicated JSONB columns (`weather_pools` / `sports_pools` / `news_pools` / `talkshow_pools` / `morning_pools`). `getCurrentMessage` routes each `playback_mode` to its `assemble*Graph()` builder (cached per refresh bucket), then feeds the result to the same `tickBroadcastGraph` walker as any other graph.
+Six `playback_mode`s store a **line library** (`::lines` pools) instead of a baked graph, and assemble a fresh VINE graph on each airing rather than replaying stored content. They're authored as `.bsm` files (`@type weather|sports|news|talkshow|morning|gameshow`) — see [docs/bsm-format.md](bsm-format.md) — and stored in dedicated JSONB columns (`weather_pools` / `sports_pools` / `news_pools` / `talkshow_pools` / `morning_pools` / `gameshow_pools`). `getCurrentMessage` routes each `playback_mode` to its `assemble*Graph()` builder (cached per refresh bucket), then feeds the result to the same `tickBroadcastGraph` walker as any other graph.
+
+There is **no show-type registry** — a type is a `playback_mode` string branched on in ~9 places (`scanChannelDay`, `broadcastDuration`, the `loadChannelRuntimes` SELECT + item mapping, the `npcStaff` exemption, both `getCurrentMessage` branches, `_scriptedTokens`, the walker switch, `recalculateNpcSchedules`). Adding a type means touching each; mirror the nearest existing one.
 
 - **`weather`** reads the live 7-day forecast; **`sports`** simulates a fresh game; **`news`** pulls from the news generator, which assembles **live → wire → tabloid**: live event-sourced stories, then date-seeded canonical-lore "wire" stories (the Long Watch framed as terrorists, the Ascendants as establishment, the Architect as "the Machine"; fixed outlet bylines like Coldwater Sentinel / Basin Civic Wire), padded with tabloid filler. Their announcers/anchors are **name strings** — no NPC is spawned.
 - **Title-card / theme sync**: when a `news`/`talkshow`/`morning` script declares both `@titlecard` and `@theme`, the assembler folds the theme onto the `title_card` node (`{ type: 'title_card', theme }`) instead of emitting a separate `music` node after it. The intro song then starts as the card appears and the card holds for the theme's length, so the first anchor/cold-open line doesn't step on the intro. With a theme but no title card, it still plays as a standalone `music` node.
 - **`sports`** is keyed to an absolute airing time-window so a re-simmed same-slot game produces the same `gameId`. While a game airs, the plugin **emits a `sports.game` event every 60s** with payload `{ channelId, gameId, away, home, awayScore, homeScore, winner, endsAtMs }` — consumed by the **sportsbet**, **sportsleague**, and **gossip** plugins (they read `winner`; there is no `result` field). Score-bug and standings overlays ride `tv_overlay`; the World Series takeover pulls standings back through the `sportsleague.getStandings`/`getSeason` actions.
 - **`morning`** is the talk show's daytime cousin — also **acted live**, by two resident host NPCs on the studio couch, but its variable is the WORLD rather than a guest: every segment reads something live (the clock, the forecast, `news.getStories`, the `martial_law`/`nuclear_event` flags, the power map), and the ticker is assembled from those facts rather than authored. Every pool is a `host >> cohost` exchange pair, so the couch's back-and-forth survives the shuffle. Airtime is just its daily playlist slot — no separate gate. See [Morning Shows](bsm-format.md#morning-shows-type-morning).
+- **`gameshow`** is the only broadcast type a **player can be inside**. Its variable is the ITEM CATALOG: each round is a question about what something is worth, dealt from `items.value` via the boot-loaded item cache (so question generation costs **zero queries**, and every item added later becomes a prize with no authoring). Four rounds — over-or-under, closest-without-going-over, order-three-lots, and a ±20% Showcase — all answered by the single `guess` verb. **Anyone standing in the channel's `studio_zone_id` when a round opens is a contestant**, and the existing studio relay televises their spoken answer citywide; with nobody there the contestants are name-only strings and the show plays out identically. Round control is a pair of *instantaneous* side-effect nodes (`gameshow_round` / `gameshow_reveal`) — **the guess window is the host's patter between them**, not a timer — and the outcome reaches air through the `{winner}`/`{verdict}`/`{guesses}` tokens rather than by graph branching (the `FLAG_SET` broadcast condition is a stub that always returns `false`). Wins pay credits gated by a 6-hour `player_flags.gameshow_win_cooldown`; the Showcase also grants the actual lot. Lives in the sibling module [plugins/broadcast/gameshow.js](../plugins/broadcast/gameshow.js). See [Game Shows](bsm-format.md#game-shows-type-gameshow).
 - **`talkshow`** is the odd one out: it's **acted live by real cast NPCs**. A resident host + sidekick commute in on schedule, and ONE reusable guest NPC is renamed to a new persona each in-game day, appears in a random unobserved zone, walks across the map to the studio, performs, and vanishes backstage afterward (engine AI actions `TALKSHOW_APPEAR`/`TALKSHOW_HIDE`, plus `talkshowHeartbeat` for the nightly rename). The assembled graph sets `_requireHost`, so it presence-gates on any channel — no cast on-stage ⇒ camera-idle → technical difficulties. See [Talk-Show Broadcasts](bsm-format.md#talk-show-broadcasts-type-talkshow).
 
 ---
@@ -449,6 +493,12 @@ the tablet needed its own path:
   so every pass records what it resolved into a per-tick `tickResults` map, and the tablet pass
   **reuses** that beat rather than re-resolving. It only resolves fresh for a channel nothing else
   drove (and then claims it in `activeChannels`). Getting this wrong makes viewers skip lines.
+- **One player, two surfaces, one copy of each beat.** `tvWatchers` and `tabletTuners` are separate
+  registrations on purpose, but `dispatch.js` fans a `broadcast` message out to *every* view on that
+  channel — so if both passes send the same beat to the same player, each screen renders it twice,
+  plays the music twice, and stacks the overlays. `broadcastTick` records `"<playerId>:<channelId>"`
+  in a per-tick `servedThisTick` set as the zone pass delivers, and `_tabletBroadcastPass` skips
+  anyone already in it. The studio-floor relay does the same with its own `sentTv` set.
 - Off-air, score-bug/gameday/standings/sports-FX overlays, `audio_music`/`audio_sample` and the
   per-line `duration` all reach tablet tuners identically. There's no `broadcast_ambient` — a tablet
   has no room to leak into. Formatting is always `tv` (no `[Radio]`/`[FEED]` prefix).

@@ -1176,17 +1176,16 @@ function despawnHunters(s) {
   s.hunters.clear();
 }
 
-// A crime counts only if someone's watching: a live PD cam, an on-duty cop, or
-// another player in the room.
+// A crime counts if a LENS or a BADGE is watching: a live (un-jammed) camera, or an
+// on-scene `flags.police` NPC. Bystanders were dropped — another player in the room
+// is not a witness the law hears from.
 export async function isWitnessed(zoneId) {
   if (!zoneId) return false;
   if (getZone(zoneId)?.flags?.unsurveilled) return false;   // off the Architect's grid (Long Watch bunker &c.) — no eyes reach here
-  const cams = await getPoliceCamZones();
+  if (copInZone(zoneId)) return true;
   const fx = await getInterferenceZones();
-  if (cams.has(zoneId) && !fx.jammed.has(zoneId)) return true;
-  if ((getZoneNpcs(zoneId) || []).some(n => n.flags?.police)) return true;
-  if ((getZonePlayers(zoneId) || []).length > 1) return true;   // a bystander could report
-  return false;
+  if (fx.jammed.has(zoneId)) return false;
+  return await cameraLiveInZone(zoneId);
 }
 
 async function raiseWanted(player, amount, reason, zoneId) {
@@ -1513,6 +1512,21 @@ function flashCamera(zoneId, suspectName, crimeLabel) {
   sendToZone(zoneId, { type: 'camera_flash', suspect: suspectName, crime: crimeLabel });
 }
 
+// A COP catching a crime is a different beast entirely — no lens, no red flare, just
+// an officer who was standing there and saw it. Same red callout line for the room,
+// named to the officer; the full-screen camera flash is deliberately NOT sent (the
+// client treats that overlay as "a camera made you", and this wasn't one).
+const COP_SPOT_LINES = [
+  (o, s) => `${o} stops mid-step, eyes fixed on ${s}. "Hey. HEY." A hand goes to the shoulder mic.`,
+  (o, s) => `${o} saw the whole thing. No camera needed — just a cop and a bad sense of timing on ${s}'s part.`,
+  (o, s) => `${o} watches ${s} do it, unhurried, and starts reciting into the mic like they're reading a shopping list.`,
+  (o, s) => `${o}'s head comes round. ${s} is looking straight down the barrel of an eyewitness with a badge.`,
+];
+function flashCop(zoneId, officerName, suspectName) {
+  const line = COP_SPOT_LINES[Math.floor(Math.random() * COP_SPOT_LINES.length)](officerName, suspectName);
+  sendToZone(zoneId, { type: 'zone_event', message: `<span class="camera-alert">⚠ ${line}</span>` });
+}
+
 // A soft, low-level "something's wrong nearby" cue — a faint red pulse plus a
 // short siren chirp, distinct from the full-screen camera flash (which only
 // fires when a camera catches the suspect) and the ESP lockdown siren (which
@@ -1602,10 +1616,12 @@ async function raiseCrime(player, key, zoneId, suspectName, forced = false) {
 
   const onCamera = await cameraLiveInZone(zoneId);
   const pdCamera = (await getPoliceCamZones()).has(zoneId);
+  const cop = copInZone(zoneId);
   const witness = getCrimeWitness(key);
   // Nobody catches a crime with certainty anymore: a camera rolls a (flat, for a
-  // one-shot act) catch chance, an on-scene cop is very likely to make you, and a
-  // bystander only rarely bothers to phone it in. `forced` still short-circuits.
+  // one-shot act) catch chance and an on-scene cop is very likely to make you.
+  // `forced` still short-circuits. Truthy result is the witness SOURCE ('camera' /
+  // 'cop' / 'always'), which picks the callout below.
   const seen = forced ? true : await witnessRoll(zoneId, witness, onCamera, CAM_CATCH_BASE);
   if (!seen) return;
 
@@ -1617,7 +1633,14 @@ async function raiseCrime(player, key, zoneId, suspectName, forced = false) {
   const label = getCrimeLabel(key);
   // Single-sourced witness gate: gossip listens here rather than re-deriving it.
   emit('crime.witnessed', { player: { id: player.id, handle: player.handle }, key, zoneId, label });
-  if (onCamera) flashCamera(zoneId, suspectName || player.handle, label);
+  // Who made you decides what the room sees. A cop's eyeball gets the officer named
+  // (no lens flare, no full-screen flash); otherwise the camera callout stands. A
+  // `forced` charge with no live camera and a cop on scene is the cop's collar too —
+  // that's the ongoing-crime scan and the guaranteed-witness paths (a witnessed
+  // attack, a vendor catching you at their safe).
+  const byCop = seen === 'cop' || (!onCamera && !!cop);
+  if (byCop) flashCop(zoneId, cop?.name || 'An officer', suspectName || player.handle);
+  else if (onCamera) flashCamera(zoneId, suspectName || player.handle, label);
   logCrime(zoneId, key);
   await raiseWanted(player, stars, label.toLowerCase(), zoneId);
   await addHeat(player, stars * HEAT_PER_STAR, `${label.toLowerCase()} on the wire`);
@@ -1628,7 +1651,9 @@ async function raiseCrime(player, key, zoneId, suspectName, forced = false) {
     // right on top of the ATM's own drain sfx. That reads as a broken echo
     // (quiet drain clatter, then ~1s later a loud siren) rather than a layered
     // effect, so skip just the tone; the visual alert + wanted stars still fire.
-    crimeAlert(zoneId, pdCamera ? SFX_PD_ALERT : SFX_CRIME_ALERT, { silent: key === 'atm_robbery' });
+    // A cop's collar gets the same crisp dispatch ping a PD camera does — it went
+    // straight onto the police net either way.
+    crimeAlert(zoneId, (pdCamera || byCop) ? SFX_PD_ALERT : SFX_CRIME_ALERT, { silent: key === 'atm_robbery' });
     dispatchPolice(zoneId, label, player.handle);
   }
 }
@@ -1692,6 +1717,12 @@ on('atm.drained', ({ player, zoneId }) => {
 on('theft.caught', ({ player, zoneId }) => {
   if (player?.id) raiseCrime(player, 'theft', zoneId || player.current_zone, player.handle);
 });
+// Commerce fires this when you carry unpaid shop stock out the door. Charged at
+// the SHOP's zone, not the street you stepped onto — the clerk and the shop's
+// camera are the witnesses, and the normal 'any' roll decides if they made you.
+on('shoplifting.caught', ({ player, zoneId }) => {
+  if (player?.id) raiseCrime(player, 'shoplifting', zoneId || player.current_zone, player.handle);
+});
 on('hololock.breached', ({ player, zoneId }) => {
   // Breaching a lock is only a burglary charge here if a camera/cop/bystander
   // witnesses it (the generic 'any' gate). A resident NPC who hears you no
@@ -1738,7 +1769,6 @@ const CAM_CATCH_MAX = 0.9;        // ceiling, no matter how long it runs
 const CAM_CATCH_RAMP_MS = 30000;  // reaches the ceiling after ~30s of offending
 const ATM_JACK_MAX_MS = 180000;   // safety cap: drop an abandoned ATM session
 const COP_CATCH = 0.9;            // an on-scene cop is very likely to make you
-const BYSTANDER_REPORT = 0.12;    // another player rarely bothers to phone it in
 
 function camCatchChance(elapsedMs) {
   const t = Math.min(1, Math.max(0, elapsedMs) / CAM_CATCH_RAMP_MS);
@@ -1766,20 +1796,30 @@ export function visFactorForCategory(category) {
 }
 const cameraVisibilityFactor = (zoneId) => visFactorForCategory(getZoneVisibility(zoneId)?.category);
 
-// The single probabilistic witness gate for every crime. A live camera rolls
-// `camChance` (flat for a one-shot act; time-ramped for an ongoing one). For an
-// `any`-witnessed crime an on-scene cop is very likely to catch it, while a mere
-// bystander only rarely reports. `camera`-only crimes ignore cops/bystanders;
-// `always` crimes are self-reporting.
+// The single probabilistic witness gate for every crime. Two things catch you: a
+// live camera, which rolls `camChance` (flat for a one-shot act, time-ramped for an
+// ongoing one), and **a cop standing right there**, who makes you at `COP_CATCH` —
+// eyes on the scene are the one thing as good as a lens. `camera`-only crimes ignore
+// the cop; `always` crimes are self-reporting. Bystanders no longer report — a
+// passer-by seeing it isn't the law seeing it.
+//
+// Returns the WITNESS SOURCE, not a plain bool: `'camera'` | `'cop'` | `'always'` |
+// false. Every caller still reads it as truthy/falsy; raiseCrime uses the source to
+// pick the callout — an officer clocking you reads nothing like a lens flaring red.
 export async function witnessRoll(zoneId, witness, onCamera, camChance) {
   if (!zoneId) return false;
   if (getZone(zoneId)?.flags?.unsurveilled) return false;   // un-surveilled sanctuary: nothing witnessed, not even a forced 'always'
-  if (witness === 'always') return true;
-  if (onCamera && Math.random() < camChance * cameraVisibilityFactor(zoneId)) return true;
+  if (witness === 'always') return 'always';
+  if (onCamera && Math.random() < camChance * cameraVisibilityFactor(zoneId)) return 'camera';
   if (witness === 'camera') return false;
-  if ((getZoneNpcs(zoneId) || []).some(n => n.flags?.police) && Math.random() < COP_CATCH) return true;
-  if ((getZonePlayers(zoneId) || []).length > 1 && Math.random() < BYSTANDER_REPORT) return true;
+  if (copInZone(zoneId) && Math.random() < COP_CATCH) return 'cop';
   return false;
+}
+
+// The on-scene officer, if any — the witness with a badge, and the one named in the
+// callout when they're the one who makes you.
+function copInZone(zoneId) {
+  return (getZoneNpcs(zoneId) || []).find(n => n.flags?.police && !n._dead) || null;
 }
 
 // playerId -> Map(crimeKey -> { zoneId, startTs, cap })
@@ -1844,7 +1884,7 @@ async function scanActiveCrimes() {
   }
   const candidates = [];   // { id, zone }
   for (const [zoneId, ps] of byZone) {
-    const cop = (getZoneNpcs(zoneId) || []).some(n => n.flags?.police);
+    const cop = copInZone(zoneId);
     if (!cop && !await cameraLiveInZone(zoneId)) continue;
     for (const p of ps) candidates.push({ id: p.id, zone: zoneId });
   }
@@ -1948,6 +1988,28 @@ function huntStep(e, targetZone, bc) {
   if (dest && dest !== e.zoneId && bc) moveEntity(e, dest, bc, query);
 }
 
+// Every badge is a badge: any NPC flagged `police` — a street cop, a desk
+// sergeant, a Precinct 9 detention officer — makes a wanted suspect standing in
+// front of them on sight. Cameras originate charges; police act on the heat
+// that's already on your file. No dispatch delay applies: they're already here.
+// At ≤3.5★ the officer detains (the same submit/run prompt a hunting unit runs);
+// above that a lone officer radios it in rather than tackling a manhunt target.
+const COP_RADIO_MS = 30000;      // one call-in per suspect per 30s, not per tick
+async function policeSpot(suspect, s) {
+  if (!suspect?.current_zone || isAirborne(suspect)) return false;
+  const cop = copInZone(suspect.current_zone);
+  if (!cop) return false;
+  s.lastSeenTs = Date.now();   // eyes on you — heat doesn't bleed off in front of a cop
+  if (s.stars <= APPREHEND_MAX) {
+    await startApprehension(suspect, s, cop).catch(e => console.error('[surveillance] cop apprehend error:', e.message));
+  } else if (Date.now() - (s.copCalledTs || 0) > COP_RADIO_MS) {
+    s.copCalledTs = Date.now();
+    sendToZone(suspect.current_zone, { type: 'ambient', message: `${cop.name} clocks ${suspect.handle}, steps back, and talks fast into a shoulder mic.` });
+    dispatchPolice(suspect.current_zone, 'a wanted suspect sighted', suspect.handle);
+  }
+  return true;
+}
+
 // Deploy from the crime scene, then hunt: each tick a unit either engages (same
 // zone as the suspect) or takes one search step toward them. Units are NOT
 // teleported onto the suspect — you can lose them by moving and staying unseen.
@@ -2022,6 +2084,11 @@ async function wantedTick() {
     if (s.offline) { s.offline = false; s.lastSeenTs = Date.now(); s.pursuitStartTs = Date.now(); }
 
     if (await isWitnessed(suspect.current_zone)) s.lastSeenTs = Date.now();
+
+    // Any cop in the room makes you on sight — before the dispatch clock, before
+    // any unit deploys. This is what gives every police NPC (detention officers
+    // included) real arrest powers rather than decoration.
+    await policeSpot(suspect, s);
 
     // A safehouse (the Long Watch bunker) actively launders heat: unseen time
     // bleeds a star three times as fast as just lying low on the street.
@@ -2457,6 +2524,9 @@ export const specializedActions = [
   { verb: 'use', requiredTag: 'spy_deck', handler: doUseSpyDeck },
   { verb: 'use', requiredTag: 'security_console', handler: doUseConsole },
   { verb: 'use', requiredTag: 'datachip', handler: doUseDatachip },
+  // Declaration-only: `scrub` stays a plain command (cmdScrub self-resolves the
+  // terminal), this entry just makes the terminal advertise it on examine.
+  { verb: 'scrub', requiredFlag: 'police_terminal', handler: null },
 ];
 
 // ── Dev route: live crime log for the Emergency panel ─────────────────────────

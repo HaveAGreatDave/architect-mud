@@ -1,13 +1,14 @@
 {
   "name": "commerce",
-  "version": "1.0.0",
-  "description": "Vendor shopping verbs (shop/browse/buy/sell) and balance display. Vendor services (stock, pricing, trust, restock) stay engine.",
+  "version": "1.1.0",
+  "description": "Vendor shopping verbs (shop/browse/buy/sell/checkout) and balance display. Vendor services (stock, pricing, trust, restock) stay engine. Also owns shop HOURS as a room rule: a `commerce:shop-hours` move gate locks an interior shop while every vendor who works it is off the clock, and a 30s closing sweep puts anyone still inside back out on the street. And SELF-SERVICE: goods pulled from a `vendor_stock` display cooler carry an unpaid mark (engine stamps it), `checkout` settles it at a `checkout`-flagged counter, and carrying it out of the shop building emits `shoplifting.caught` for surveillance to charge.",
   "hooks": [],
-  "commands": ["shop", "browse", "buy", "sell", "balance"],
+  "commands": ["shop", "browse", "buy", "sell", "balance", "checkout"],
   "objectGatedCommands": {
     "shop":   { "discoverVia": "npc:vendor_inventory", "exposed": false, "note": "KNOWN GAP: vendor NPC verb; examine shows only talk/attack for NPCs. Discoverable via the click-a-vendor shop panel / dialogue, not examine." },
     "browse": { "discoverVia": "npc:vendor_inventory", "exposed": false, "note": "KNOWN GAP: alias of shop; same NPC gap." },
     "buy":    { "discoverVia": "npc:vendor_inventory", "exposed": false, "note": "KNOWN GAP: targets on-scene vendor via resolveVendor; NPC-gated, discoverable via shop panel." },
-    "sell":   { "discoverVia": "npc:vendor_inventory", "exposed": false, "note": "KNOWN GAP: targets on-scene vendor via resolveVendor; NPC-gated, discoverable via shop panel." }
+    "sell":   { "discoverVia": "npc:vendor_inventory", "exposed": false, "note": "KNOWN GAP: targets on-scene vendor via resolveVendor; NPC-gated, discoverable via shop panel." },
+    "checkout": { "discoverVia": "checkout", "exposed": true, "note": "Gated on a furniture counter flagged `checkout: <npcId>` in the room; taught by the unpaid-goods line printed when you pull from a vendor_stock cooler." }
   }
 }

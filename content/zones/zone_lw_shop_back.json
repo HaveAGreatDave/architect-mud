@@ -26,7 +26,7 @@
   "id": "zone_lw_shop_back",
   "map_id": "map_int_halloran",
   "marker": null,
-  "name": "Fix-It Back Room",
+  "name": "Percussive Maintenance — Back Room",
   "parent_zone": "zone_district_924_912",
   "updated_at": "1784000000"
 }

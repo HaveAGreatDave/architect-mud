@@ -1,0 +1,20 @@
+{
+  "description": "A dented tin with a key soldered to the lid and a date nobody can read. Comes out in one piece, holding the shape of the tin, wearing a coat of jelly.",
+  "flags": {},
+  "id": "item_tinned_meat",
+  "name": "tinned meat",
+  "tags": {
+    "description": "A dented tin with a key soldered to the lid and a date nobody can read. Comes out in one piece, holding the shape of the tin, wearing a coat of jelly.",
+    "consumable": true,
+    "restore_hunger": 22,
+    "stackable": true,
+    "food_profile": "preserved",
+    "food_noun": "tinned meat",
+    "status_chance": {
+      "food_poisoning": 0.15
+    }
+  },
+  "type": "consumable",
+  "value": 8,
+  "weight": 340
+}

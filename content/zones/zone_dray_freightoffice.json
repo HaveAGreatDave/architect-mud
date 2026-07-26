@@ -11,7 +11,7 @@
     "west": "zone_district_922_904"
   },
   "flags": {
-    "building_name": "Meltwater Freight Office",
+    "building_name": "Shipping & Handling",
     "building_type": "freight_office",
     "is_building": true,
     "is_interior": true,
@@ -23,7 +23,7 @@
   "id": "zone_dray_freightoffice",
   "map_id": "map_interior_zone_dray_freightoffice",
   "marker": null,
-  "name": "Meltwater Freight Office",
+  "name": "Shipping & Handling",
   "parent_zone": "zone_district_922_904",
   "updated_at": "1784100000"
 }

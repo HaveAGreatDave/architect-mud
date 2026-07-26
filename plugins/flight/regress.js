@@ -12,7 +12,7 @@ import { sellAircraft, cancelRental, flushAirborne } from './hangars.js';
 import { computeStats, perfAxes, tuneRange, installedKits, KITS, TUNE_DIAL_MAX,
   shearRoll, surfacesWire, anyWingLost, resetSurfaces, SURFACE_KEYS,
   isWalkableCabin, cabinTypeOf, cabinEntryZone, isCabinZone, liveAircraft, getZone, loadAircraft, stalledState, CONTINUOUS_TYPES, listAirfields, salvoOf,
-  vtolOnlyField, acquirableTypes } from './state.js';
+  vtolOnlyField, acquirableTypes, hangarRampFor, HANGAR_REACH } from './state.js';
 import { isFreightLicensed, ensureFreightDrops } from './contracts.js';
 import { isPilotLicensed, _test as checkrideTest } from './checkride.js';
 import { setFlag } from '../../server/engine/flags.js';
@@ -109,6 +109,25 @@ export default async function regress({ run, check, getPlayer }) {
       pads.length >= 2, pads.join(', ') || 'NONE');
     check('the VTOL filter is real (a helipad and a full field both exist)', sawVtolOnly && sawFull,
       `vtolOnly=${sawVtolOnly} full=${sawFull}`);
+
+    // Landing files the craft at a HANGAR, not wherever the rollout stopped — otherwise
+    // `embark` from inside the hangar office (the only place you can board) finds nothing
+    // on a field whose airfield_id tile isn't the tile carrying the hangar interior.
+    let stranded = null;
+    for (const f of fields) {
+      const zone = getZone(f.id);
+      const ramp = hangarRampFor(zone);
+      if (!ramp) continue;                            // no hangar in reach — parks where it lands
+      if (!getZone(ramp.id)?.flags?.hangar_interior_zone) { stranded = `${f.name} → ${ramp.id}`; break; }
+    }
+    check('every field that resolves a hangar ramp resolves one with a hangar interior',
+      stranded === null, stranded || '');
+    check('a field with its own hangar resolves to itself', (() => {
+      const own = fields.map(f => getZone(f.id)).find(z => z?.flags?.hangar_interior_zone);
+      return !own || hangarRampFor(own)?.id === own.id;
+    })());
+    check('a non-airfield tile never resolves a hangar ramp', hangarRampFor(getZone('zone_start')) === null);
+    check('the hangar reach is a real, bounded search', HANGAR_REACH > 0 && HANGAR_REACH <= 8, `${HANGAR_REACH}`);
   }
 
   // ── Structural battle-damage surfaces ───────────────────────────────────────

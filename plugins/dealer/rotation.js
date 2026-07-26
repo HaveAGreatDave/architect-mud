@@ -1,14 +1,14 @@
 // plugins/dealer/rotation.js
 //
 // Passphrase rotation. The dealer's `flags.passphrases` list is treated as a
-// POOL: only one entry is accepted at a time, and it advances every two in-game
-// days. The window is derived purely from the world clock's game-date, so the
+// POOL: only one entry is accepted at a time, and it advances every N in-game
+// days (WINDOW_DAYS). The window is derived purely from the world clock's game-date, so the
 // active phrase is deterministic (no stored state, survives restarts) and the
 // dealer plugin + gossip plugin agree on which phrase is "live" right now.
 
 import { getEnvironmentState } from '../../server/engine/environment.js';
 
-const WINDOW_DAYS = 2;   // phrase changes every N in-game days
+const WINDOW_DAYS = 7;   // phrase changes every N in-game days
 
 // Whole days since the Unix epoch for an ISO "YYYY-MM-DD" date (UTC — no DST
 // drift). getEnvironmentState().date is the in-game game-date advanced by the

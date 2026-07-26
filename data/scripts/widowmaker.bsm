@@ -1,0 +1,73 @@
+@broadcast "Ironclad Motors - The Widowmaker Family Edition"
+@category commercial
+@length 30
+@type commercial
+
+::actors
+@actor npc_narrator
+@alias npc_narrator NARRATOR
+@actor npc_car_salesman
+@alias npc_car_salesman SALESMAN
+::endactors
+
+::scene TITLE
+
+ROOM dealership_lot
+
+EVENT FADE_IN
+
+TITLE widowmaker_logo
+
+MUSIC widowmaker_jingle
+♪ A twangy dealership guitar riff, four chords, played like it owes someone money. ♪
+MUSIC_END
+
+::scene COMMERCIAL
+
+CAM 1 WIDE dealership_lot
+
+NPC npc_narrator
+
+SHOT
+A family of four walks toward a matte-grey armored transport in aggressive slow motion, hair blown by an off-camera fan.
+SHOT_END
+
+NARRATOR:
+This year, give your family the gift of arriving.
+
+CAM 2 CLOSEUP blast_gauge
+
+NARRATOR:
+The Widowmaker seats six, stops small-arms fire, and comes standard with an apology plaque for the trade-in.
+
+NPC npc_car_salesman
+
+ACTION npc_car_salesman slaps the hood twice, the universal signal of trust
+
+SALESMAN:
+Rated for whatever the road throws at you. And lately, the road throws a lot.
+
+OVERLAY
+0% APR* / AMMO INCLUDED FOR FIRST 90 DAYS
+
+*APR REDEFINED AT DEALER'S CONVENIENCE
+OVERLAY_END
+
+CAM 3 CONTROLLED DETONATION TEST proving_ground
+
+NPC npc_narrator
+
+SHOT
+The vehicle absorbs a modest controlled explosion; the family inside gives a thumbs-up slightly too quickly.
+SHOT_END
+
+NARRATOR:
+The Widowmaker. Because "affordable sedan" was never going to cut it out here.
+
+TICKER
+Ironclad Motors is not responsible for the name · "Widowmaker" is a legacy trim designation and does not reflect current-year statistical outcomes · Financing subject to a background check that also checks your background's background · Detonation test performed by professionals who were compensated fairly, we are told
+TICKER_END
+
+EVENT FADE_OUT
+
+END

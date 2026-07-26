@@ -4,17 +4,18 @@
     "A regular knocks the bar twice; the bartender pours without looking.",
     "The single TV shows horse racing from a track that no longer exists.",
     "A fly, impossibly, in this cold, orbits the room in slow figure-eights.",
-    "Someone toes the chalk ring around the drain, testing whether tonight is a pit night. It usually is.",
-    "A foam-wrapped slag rolls out from under a stool, is quietly kicked back toward the crate."
+    "A dull thud carries through from the back room, followed by a short, appreciative silence.",
+    "A foam-wrapped slag rolls out from under a stool; someone toes it back north without looking."
   ],
   "ambient_theme": "indoors",
   "audio_theme_id": null,
   "bg_color": "#55603f",
   "color": null,
   "created_by": null,
-  "description": "The kind of bar that doesn't need a name over the door because if you're here, you already knew where you were going. SUMP is scratched into the paint anyway. It is one narrow room, a plank bar, and a floor that slopes toward a literal drain in the center — hence the name, and hence the smell. Around that drain someone has chalked a ring, because the Sump's real trade happens after the stools are cleared: this is a slag pit, half gym and half grudge match, where the regulars throw foam-wrapped orbs at each other until only one is left standing. By day it sells drinks — cheap, strong, served without conversation. By night it runs the game the whole basin plays, the one a made-for-TV picture on Sub-Channel 2½ swears blind was invented right here. The regulars are fixtures, welded to their stools by decades of gravity and grievance, and every last one of them has taken a slag to the face and asked for another round.",
+  "description": "The kind of bar that doesn't need a name over the door because if you're here, you already knew where you were going. SUMP is scratched into the paint anyway. It is one narrow room, a plank bar, and a floor that slopes toward a literal drain in the center — hence the name, and hence the smell. It sells drinks, cheap and strong and served without conversation, and it does that mostly as a formality: the Sump's real trade is through the doorway <b>north</b>, in the back room, where the chalk ring is. That's the pit — half gym and half grudge match, where the regulars throw foam-wrapped orbs at each other until only one is left standing. It runs the game the whole basin plays, the one a made-for-TV picture on Sub-Channel 2½ swears blind was invented right here. The regulars out front are fixtures, welded to their stools by decades of gravity and grievance, and every last one of them has taken a slag to the face and asked for another round.",
   "exits": {
     "down": "zone_mq_sump_cellar",
+    "north": "zone_mq_sump_pit",
     "south": "zone_district_921_914"
   },
   "flags": {

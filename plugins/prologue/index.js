@@ -26,10 +26,10 @@ import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { on } from '../../server/engine/events.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
-import { sendToPlayer } from '../../server/engine/messaging.js';
+import { sendToPlayer, teachVerb, pointAt } from '../../server/engine/messaging.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { maxHpForEndurance, invalidateSkillCache } from '../../server/engine/ip.js';
-import { getZone, getMinimapData } from '../../server/engine/world.js';
+import { getZone, getMinimapData, getLivePlayer } from '../../server/engine/world.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
 
 const Z_INBETWEEN = 'zone_the_inbetween';
@@ -220,6 +220,37 @@ on('posture.changed', async ({ player, to }) => {
   playBroadcast(player);
 });
 
+// ── Arrival: the first thought a new soul ever has ───────────────────────────
+// Registration drops the player straight into The Inbetween, so there is no
+// zone.entered to hang this off — the login push is the arrival. Two beats: the
+// missing memory, then the attendant, closing on the first verb the game ever
+// teaches (talk, shimmering per teachVerb) plus a ripple on the attendant's link
+// up in the room pane, so the nudge exists in both places a player might look.
+const F_ARRIVED = 'prologue_arrival_seen';
+on('player.login', async ({ id }) => {
+  const player = getLivePlayer(id);
+  if (!player || player.current_zone !== Z_INBETWEEN) return;
+  if (await isSet(player, F_ARRIVED)) return;
+  await raise(player, F_ARRIVED);
+  // Before any fiction: the interface question. Client-side from here — the
+  // server only records the answer (see the `tutorial` verb below) so a player
+  // isn't asked again on a second device.
+  if (!(await isSet(player, F_TOUR_ASKED))) {
+    setTimeout(() => sendToPlayer(player.id, { type: 'tour_offer' }), 500);
+  }
+  setTimeout(() => out(player, `<span class="ambient">I don't know how I got here. That's the first thing — not <i>where</i> I am, but <i>how</i>. I reach back for the moment before this one and my hand closes on nothing at all. There was something. There must have been something. A name, a room, a life with a Tuesday in it. It's gone the way a dream goes, and I can't even find the shape of the hole it left.</span>`), 1400);
+  setTimeout(() => {
+    out(player, `<span class="ambient">Then I notice I'm not alone.</span>`);
+  }, 8200);
+  setTimeout(() => {
+    out(player, `<span class="ambient">It's tall, and it's chrome — warm chrome, seamless, shaped like a person the way a word is shaped like the thing it means. No face, just a smooth curve where one belongs, and I'd swear it's looking at me. When it shifts its weight the light follows a half-second late. One hand rests on a humming terminal. It doesn't hurry. It has the stillness of something that's been standing exactly there for a very long time, waiting for exactly me.</span>`);
+  }, 11400);
+  setTimeout(() => {
+    out(player, `<span class="ambient">Maybe I should ${teachVerb('talk', 'talk', 'chrome attendant')} to it.</span>`);
+    pointAt(player.id, 'talk', 'chrome attendant');
+  }, 17600);
+});
+
 // ── Room telegraphs + the wake-up beat ────────────────────────────────────────
 on('zone.entered', async ({ actor, zone, from }) => {
   if (!actor) return;
@@ -298,6 +329,74 @@ function playBroadcast(player) {
   }, t + 400);
 }
 
+// ── First blood → Grady's chair ──────────────────────────────────────────────
+// The one tutorial beat that lands AFTER the vat: the game never says out loud
+// that sitting heals you. Grady does, once, the first time you walk back into
+// his shop having killed something. Two flags — one records that you've fought,
+// one that he's said his piece — so the tip can't fire before the fight or twice
+// after it. Sitting itself is the interactions plugin's `sit`; the HP regen is
+// the engine's (see docs/systems-posture.md). Nothing here touches either.
+const Z_TWOCELL     = 'zone_twocell_interior';
+const F_FIRST_BLOOD = 'grady_first_blood';   // player has won a fight
+const F_SEAT_TIP    = 'grady_seat_tip';      // Grady has given the sit-to-heal tip
+
+on('enemy.killed', async ({ actor }) => {
+  if (!actor?.id) return;
+  if (await isSet(actor, F_FIRST_BLOOD)) return;
+  await raise(actor, F_FIRST_BLOOD);
+});
+
+on('zone.entered', async ({ actor, zone }) => {
+  if (!actor || zone !== Z_TWOCELL) return;
+  if (!(await isSet(actor, F_FIRST_BLOOD))) return;
+  if (await isSet(actor, F_SEAT_TIP)) return;
+  await raise(actor, F_SEAT_TIP);
+  setTimeout(() => {
+    out(actor, `<span class="ambient">Grady looks up, takes one read of the state of you, and jerks his chin at the sagging armchair by the crates. "Sit down before you fall down. Go on — off your feet, and stay off 'em a while. Body knits itself back together when you stop asking it to carry you around. Cheapest medicine in the basin, and I can't charge you a credit for it."</span>`);
+  }, 1200);
+  setTimeout(() => {
+    out(actor, `<span class="ambient">Maybe I should ${teachVerb('sit', 'sit', 'sagging vinyl armchair')} and let it mend.</span>`);
+    pointAt(actor.id, 'sit', 'sagging vinyl armchair');
+  }, 8000);
+});
+
+// ── The interface tour ───────────────────────────────────────────────────────
+// The only out-of-fiction beat in the prologue: a first-time player is asked
+// once whether they've played a multiplayer text game before, and if not the
+// client walks them round the UI (spotlight + shimmer + a card per region; see
+// client/game/js/panels/tour.js). The server's whole job is the memory of it —
+// two flags, so the offer doesn't repeat on another browser — plus the verb
+// that replays the tour on demand.
+const F_TOUR_ASKED = 'tour_asked';   // the question has been put to them
+const F_TOUR_TAKEN = 'tour_taken';   // they finished (or started) the walkthrough
+
+async function cmdTutorial(args, _raw, player) {
+  const arg = (args[0] || '').toLowerCase();
+
+  if (arg === 'no') { // "yes, I've played text games" → never ask again
+    await raise(player, F_TOUR_ASKED);
+    return { type: 'system', message: `<span class="hint">Noted — no tour. Type <b>tutorial</b> any time if you want the interface walkthrough.</span>` };
+  }
+  if (arg === 'yes') { // they asked to be shown around
+    await raise(player, F_TOUR_ASKED);
+    return null; // the client is already running the tour; nothing to say
+  }
+  if (arg === 'done') {
+    await raise(player, F_TOUR_ASKED);
+    await raise(player, F_TOUR_TAKEN);
+    return { type: 'system', message: `<span class="hint">That's the interface. Everything else you learn by doing. (<b>help</b> lists the commands; <b>tutorial</b> replays this.)</span>` };
+  }
+
+  // Bare `tutorial` — replay it.
+  await raise(player, F_TOUR_ASKED);
+  sendToPlayer(player.id, { type: 'tour_start' });
+  return null;
+}
+
+export const commands = {
+  tutorial: cmdTutorial,
+};
+
 // Test surface for plugins/prologue/regress.js (never used in production).
 export const _test = {
   prologueMoveGate, useHolosign, useHolocaster,
@@ -305,6 +404,7 @@ export const _test = {
   Z_INBETWEEN, Z_LATTICE, Z_BROADCAST, Z_COLLAPSE,
   ITEM_HOLOCASTER,
   F_ALIGNED, F_INTERFACED, F_BROADCAST, F_COLLAPSE, F_PLAYED,
+  cmdTutorial, F_TOUR_ASKED, F_TOUR_TAKEN,
 };
 
 console.log('[prologue] Plugin loaded.');

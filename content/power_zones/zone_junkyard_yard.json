@@ -1,0 +1,9 @@
+{
+  "id": "zone_junkyard_yard",
+  "name": "Salvage Rites — The Rows",
+  "generator_id": "gen_junkyard_util",
+  "source_type": "junction_box",
+  "capacity_kw": 1000,
+  "max_capacity_kw": 1000,
+  "flags": {}
+}

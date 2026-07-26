@@ -1,0 +1,13 @@
+{
+  "flags": {},
+  "id": "item_scrap_torch",
+  "name": "cutting torch",
+  "description": "A hand torch with a scorched nozzle and a gauge that reads whatever it feels like. The bottle is a third full, which the sticker on the side describes, generously, as HALF.",
+  "type": "misc",
+  "value": 130,
+  "weight": 5200,
+  "tags": {
+    "description": "A hand torch with a scorched nozzle and a gauge that reads whatever it feels like. The bottle is a third full, which the sticker on the side describes, generously, as HALF.",
+    "misc": true
+  }
+}

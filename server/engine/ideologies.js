@@ -30,7 +30,7 @@ export const REP_TIERS = [
 export const PATHS = ['machine', 'flesh', 'mind', 'human'];
 export const STANCE_DIR = { redeem: 1, renounce: -1 };
 
-function getTier(rep) {
+export function getTier(rep) {
   for (let i = REP_TIERS.length - 1; i >= 0; i--) {
     if (rep >= REP_TIERS[i].min) return REP_TIERS[i];
   }

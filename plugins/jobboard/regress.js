@@ -6,9 +6,9 @@ import { query } from '../../server/models/db.js';
 import { dispatchAction } from '../../server/engine/actions.js';
 import { getRegisteredMoveGates } from '../../server/engine/movement-gates.js';
 import { getZone } from '../../server/engine/world.js';
-import { setFlag, getFlag } from '../../server/engine/flags.js';
+import { setFlag, getFlag, clearFlag } from '../../server/engine/flags.js';
 import { renderDialogueNode } from '../../server/engine/dialogue.js';
-import { turnInNpcForQuest } from './index.js';
+import { turnInNpcForQuest, gigsCompleted, GIGS_DONE_FLAG } from './index.js';
 import { findTurnInNpc } from '../quests/index.js';
 
 export default async function regress({ run, check, getPlayer }) {
@@ -31,7 +31,7 @@ export default async function regress({ run, check, getPlayer }) {
   // the board. Prove the fix by standing at a real board and checking a
   // player_quests row actually gets created.
   const home = player.current_zone;
-  const boardZone = 'zone_district_919_904'; // where board_franchise_strip is posted
+  const boardZone = 'zone_district_919_908'; // where board_franchise_strip is posted
   player.current_zone = boardZone;
 
   // Co-location rule: taking a gig needs the dispatcher (Marta) AT the board. She
@@ -103,7 +103,19 @@ export default async function regress({ run, check, getPlayer }) {
       [player.id, poolQuestId]
     );
     await setFlag('player', 'gig_ready', 'true', player);
+    // The lifetime gig tally plugins/work gates a shift on. Counted off
+    // `quest.turned_in`, which the event bus fires and forgets — so poll briefly
+    // rather than assuming the handler's write has landed by the next line.
+    await setFlag('player', GIGS_DONE_FLAG, '0', player);
+    check('gigsCompleted reads the tally', (await gigsCompleted(player)) === 0, 'expected 0');
     const tr = await dispatchAction({ type: 'TURN_IN', actor: player, params: {} });
+    let tally = 0;
+    for (let i = 0; i < 20 && tally < 1; i++) {
+      tally = await gigsCompleted(player);
+      if (tally < 1) await new Promise(res => setTimeout(res, 100));
+    }
+    check('handing in a board gig increments the gig tally', tally === 1, `tally=${tally}`);
+    await clearFlag('player', GIGS_DONE_FLAG, player);
     check('context-less TURN_IN resolves the completed gig', tr?.turned_in === true && tr?.quest_id === poolQuestId, JSON.stringify(tr));
     check('TURN_IN result names the gig for the {quest} placeholder', typeof tr?.quest_name === 'string' && tr.quest_name.length > 0, JSON.stringify(tr));
     check('gig_ready clears once the last gig is handed in', !(await getFlag('player', 'gig_ready', player)), 'flag still set');

@@ -408,11 +408,26 @@ export async function restockSourcedContainers(npc) {
       'SELECT COUNT(*)::int AS n FROM player_inventory WHERE container_id=$1 AND item_id=$2',
       [entry.sourceContainer, entry.item_id]
     );
-    const need = entry.restockToQty - (cur[0]?.n || 0);
+    let need = entry.restockToQty - (cur[0]?.n || 0);
     if (need <= 0) continue;
 
     const { rows: cap } = await query('SELECT flags FROM furniture WHERE id=$1', [entry.sourceContainer]);
     const capacityG = cap[0]?.flags?.container ?? 60000;
+    // A shop-floor case flagged `backstock: <containerId>` is filled from the back
+    // room first — real rows walked forward out of the stockroom, keeping whatever
+    // freshness they've accrued — and only the shortfall is minted as a delivery.
+    const backstock = cap[0]?.flags?.backstock;
+    if (backstock) {
+      const { rows: moved } = await query(
+        'SELECT id FROM player_inventory WHERE container_id=$1 AND item_id=$2 ORDER BY id LIMIT $3',
+        [backstock, entry.item_id, need]
+      );
+      if (moved.length) {
+        await query('UPDATE player_inventory SET container_id=$1 WHERE id = ANY($2::text[])', [entry.sourceContainer, moved.map(r => r.id)]);
+        need -= moved.length;
+        if (need <= 0) continue;
+      }
+    }
     const { rows: used } = await query(
       `SELECT COALESCE(SUM(i.weight*pi.quantity),0)::float AS w FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.container_id=$1`,
       [entry.sourceContainer]

@@ -1,0 +1,29 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#2b3a34",
+  "color": "#e8ddc7",
+  "created_by": null,
+  "description": "A serene one-bedroom facing the mountains, higher than its twin below and quieter for it: pale plaster, warm oak, a platform bed beneath a skylight that tracks the weather. A galley kitchen, a window seat built for watching the storms arrive from somewhere safe and dry. Leave <b>east</b> to the landing.",
+  "exits": {
+    "east": "zone_solenne_residences_34",
+    "in": "zone_solenne_apt_f_bath"
+  },
+  "flags": {
+    "building_name": "Solenne Residences",
+    "is_apartment": true,
+    "is_interior": true,
+    "rent_cost": 460,
+    "rest_multiplier": 1.5
+  },
+  "grid_x": -1,
+  "grid_y": -1,
+  "grid_z": 6,
+  "id": "zone_solenne_apt_f",
+  "map_id": "map_int_solenne",
+  "marker": null,
+  "name": "Solenne Residence 34-F",
+  "parent_zone": "zone_district_914_908",
+  "updated_at": "1784900000"
+}

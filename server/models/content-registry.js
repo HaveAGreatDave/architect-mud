@@ -246,6 +246,7 @@ export const REGISTRY = [
   { table: 'player_flags', class: 'player' },
   { table: 'player_quests', class: 'player' },
   { table: 'player_achievements', class: 'player' }, // record plugin — which entries a player has been observed doing
+  { table: 'player_outfits', class: 'player' },      // wardrobe plugin — saved looks, per player per wardrobe
   { table: 'bank_transactions', class: 'player' },   // Tablet OS Bank app deposit ledger
   { table: 'economy_ledger', class: 'player' },      // economy-ledger plugin — per-player credit mutations
   { table: 'insurance_policies', class: 'player' },  // Halcyon Assurance — bought policies

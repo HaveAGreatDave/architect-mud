@@ -11,7 +11,7 @@
     "south": "zone_yard_fab"
   },
   "flags": {
-    "building_name": "Fabrication Shed",
+    "building_name": "Some Assembly Required",
     "building_type": "fabrication",
     "district": "yards",
     "entrance": "north",
@@ -27,7 +27,7 @@
   "id": "zone_district_925_909",
   "map_id": "map_world",
   "marker": "FB",
-  "name": "Fabrication Shed",
+  "name": "Some Assembly Required",
   "parent_zone": null,
   "updated_at": "1783739474"
 }

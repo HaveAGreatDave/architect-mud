@@ -52,11 +52,18 @@ export default async function regress({ run, check, getPlayer }) {
   // short-circuits to "unseen" BEFORE anything else — even a forced 'always'
   // witness. Prove it against a normal zone (always ⇒ seen) vs the bunker.
   const anyZone = (await query('SELECT id FROM zones WHERE (flags->>\'unsurveilled\') IS DISTINCT FROM \'true\' LIMIT 1')).rows[0]?.id;
-  check('witnessRoll honors a forced always-witness in a normal zone', (await witnessRoll(anyZone, 'always', false, 0)) === true, anyZone);
+  // witnessRoll returns the witness SOURCE ('camera' | 'cop' | 'always' | false).
+  check('witnessRoll honors a forced always-witness in a normal zone', (await witnessRoll(anyZone, 'always', false, 0)) === 'always', anyZone);
   const bunker = getZone('zone_lw_commons');
   check('bunker zone carries the unsurveilled flag', bunker?.flags?.unsurveilled === true, JSON.stringify(bunker?.flags)?.slice(0, 90));
   check('unsurveilled zone: even an always-witness is unseen', (await witnessRoll('zone_lw_commons', 'always', false, 0)) === false);
   check('unsurveilled zone: isWitnessed is false', (await isWitnessed('zone_lw_commons')) === false);
+  // A `camera`-witnessed crime is caught by a lens or not at all — no cop eyeball,
+  // no bystander, whoever is standing there. (`any` also accepts an on-scene cop,
+  // so it isn't deterministic here and isn't asserted.)
+  check('no camera, no witness (camera-only crime)', (await witnessRoll(anyZone, 'camera', false, 1)) === false, anyZone);
+  // camChance 100 so the visibility scalar (never below 0.1×) can't make this flaky.
+  check('a live camera at full odds does witness', (await witnessRoll(anyZone, 'any', true, 100)) === 'camera', anyZone);
 
   const list = getCrimeList();
   check('crime list covers all defaults', list.length === Object.keys(CRIME_DEFAULTS).length, list.length);

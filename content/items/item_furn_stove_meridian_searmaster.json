@@ -1,15 +1,15 @@
 {
-  "description": "A gleaming induction range with a heads-up temperature readout and a fan that spins up before you've even set the pan down. The brass plate reads MERIDIAN SEARMASTER, and it sears a crust like it's settling a grudge.",
+  "description": "A gleaming induction range with a heads-up temperature readout and a fan that spins up before you've even set the pan down. The brass plate reads ZENITH SEARMASTER, and it sears a crust like it's settling a grudge.",
   "flags": {
     "interactions": [
       "lean"
     ]
   },
   "id": "item_furn_stove_meridian_searmaster",
-  "name": "Meridian Searmaster",
+  "name": "Zenith Searmaster",
   "tags": {
     "stove_tier": "high",
-    "description": "A gleaming induction range with a heads-up temperature readout and a fan that spins up before you've even set the pan down. The brass plate reads MERIDIAN SEARMASTER, and it sears a crust like it's settling a grudge."
+    "description": "A gleaming induction range with a heads-up temperature readout and a fan that spins up before you've even set the pan down. The brass plate reads ZENITH SEARMASTER, and it sears a crust like it's settling a grudge."
   },
   "type": "furniture",
   "value": 5800,

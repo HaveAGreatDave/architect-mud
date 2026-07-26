@@ -1,0 +1,23 @@
+{
+  "description": "Pale, thin-shelled, and printed with a cage number. The yolk is the colour of a fire door. It will do what an egg does, without any of the romance.",
+  "flags": {},
+  "id": "item_battery_egg",
+  "name": "battery egg",
+  "tags": {
+    "description": "Pale, thin-shelled, and printed with a cage number. The yolk is the colour of a fire door. It will do what an egg does, without any of the romance.",
+    "consumable": true,
+    "restore_hunger": 9,
+    "stackable": true,
+    "food_profile": "egg",
+    "food_noun": "egg",
+    "needs_cooking": true,
+    "perishable": true,
+    "spoil_rate": "normal",
+    "status_chance": {
+      "food_poisoning": 0.4
+    }
+  },
+  "type": "consumable",
+  "value": 5,
+  "weight": 60
+}

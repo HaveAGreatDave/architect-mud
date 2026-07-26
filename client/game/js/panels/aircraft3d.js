@@ -107,7 +107,9 @@ function buildFixedWing(p, detail = 1) {
   // rounder both across and along); detail 0 = the original 4-sided bipyramid (two cones
   // off a diamond mid-ring), used for distant/LOD renders where the extra facets are
   // sub-pixel. The tips collapse to the axis (rad→0), so the end quads fold into cap fans.
-  const sides = detail ? 12 : 4;
+  // `p.sides` raises the ring resolution for a class whose whole read is roundness (the
+  // Leviathan's near-circular wide-body tube) — more facets across, nothing else changes.
+  const sides = detail ? (p.sides || 12) : 4;
   // `p.extraF` inserts additional fuselage stations (fore→aft, descending f). A class that GLAZES
   // its hull (p.glaze, below) needs real rings at the windscreen and cockpit bulkhead so the glass
   // starts and stops on a structural seam instead of halfway across a bay — the coarse 3-station
@@ -346,15 +348,27 @@ function buildFixedWing(p, detail = 1) {
     // each cap's normal from the model centre, so the flat end faces don't need a fixed winding.
     // A cap is a flat ring at ONE station, so it has no extent in U: give it a narrow slab of the
     // texture's leading (or trailing) edge, fanned across V, so the windscreen still carries its
-    // frame and glass wash rather than dropping back to bare tint. Only quads can be textured
-    // (drawCanopyGlass takes 3–4 points), i.e. arc 3 — a wider arc caps stay plain.
+    // frame and glass wash rather than dropping back to bare tint. drawCanopyGlass only takes 3–4
+    // points, so an arc-3 ring caps as one textured quad; a FINER arc (the rounder bubbles) fans
+    // from the ring's centre into arc textured triangles instead of dropping back to bare tint.
     const front = ringAt(0), rear = ringAt(1);
     const capUV = (uEdge, uIn) => [[uEdge, 0], [uIn, CP_TH / 3], [uIn, CP_TH * 2 / 3], [uEdge, CP_TH]];
-    const fCap = { role: 'glass', sh: 0.72, p: front };
-    const rCap = { role: 'glass', sh: 0.50, p: rear };
-    if (art && front.length === 4) { fCap.art = art; fCap.uv = capUV(0, CP_TW * 0.07); }
-    if (art && rear.length === 4) { rCap.art = art; rCap.uv = capUV(CP_TW, CP_TW * 0.93); }
-    faces.push(fCap, rCap);
+    const pushCap = (ring, sh, uEdge, uIn) => {
+      if (ring.length === 4) {
+        const fc = { role: 'glass', sh, p: ring };
+        if (art) { fc.art = art; fc.uv = capUV(uEdge, uIn); }
+        faces.push(fc);
+        return;
+      }
+      const C = ring.reduce((a, v) => [a[0] + v[0] / ring.length, a[1] + v[1] / ring.length, a[2] + v[2] / ring.length], [0, 0, 0]);
+      for (let k = 0; k < ring.length - 1; k++) {
+        const fc = { role: 'glass', sh, p: [C, ring[k], ring[k + 1]] };
+        if (art) { fc.art = art; fc.uv = [[uIn, CP_TH / 2], [uEdge, k / arc * CP_TH], [uEdge, (k + 1) / arc * CP_TH]]; }
+        faces.push(fc);
+      }
+    };
+    pushCap(front, 0.72, 0, CP_TW * 0.07);
+    pushCap(rear, 0.50, CP_TW, CP_TW * 0.93);
   }
   // ── Cargo visor group (Leviathan) ───────────────────────────────────────────────
   // Tag every skin/glass face forward of the cut ring as one hinged unit that swings UP
@@ -1252,22 +1266,49 @@ const FW_PARAMS = {
     engines: [], podEngines: [[-0.40, 0.27, 0.15], [-0.40, -0.27, 0.15]], podPylon: true,
     fins: [-0.34, 0.34], finF0: -0.82, finF1: -1.02, finF2: -1.08, finH: 0.44, wingGuns: true, gear: true, gearPods: true,
     noseBlunt: 2.5, boxy: 0.22, bodyTube: 0.15, tailUp: 0.04,   // slim roundish central body — the bulk reads from the wings/nacelles
-    canopy: { f0: 0.60, f1: 0.16, w: 0.075, h: 0.11, front: 0.16, tail: 0.06, segs: 5, arc: 3, sink: 0.01 } },   // tall narrow fighter bubble set on the nose
+    // THE WARTHOG BUBBLE (per ref): a single-seat clamshell canopy sitting proud of the nose, with
+    // a heavy windscreen bow ahead of it and near-frameless glass over the crown. arc 5 + segs 8
+    // round the bubble properly (it's a hemisphere in section, not a three-facet tent), and the
+    // 'reaper' canopy art paints the bow frame, the gold-flashed armoured panes, the HUD glow and
+    // the one pilot in there — the same treatment the Viper's greenhouse gets.
+    canopy: { f0: 0.60, f1: 0.16, w: 0.078, h: 0.112, front: 0.16, tail: 0.06, segs: 8, arc: 5, sink: 0.01, art: 'reaper' } },
   // Leviathan — an Antonov An-124 (per ref): a huge four-engine wide-body heavy freighter. A
   // long near-circular constant tube with an upswept cargo boat-tail; a swept HIGH wing set with
   // ANHEDRAL (drooping tips) carrying four big podded turbofans on underwing pylons; a tall swept
   // fin; a blunt rounded radome nose; and its signature multi-wheel 'centipede' belly gear. It's
   // a cantilever wing — NO lift struts (unlike the strut-braced Otter).
-  heavy: { ...FW_DEFAULT, fr: 0.20, fv: 0.18, span: 1.05, noseF: 1.15, tailF: -1.12, hSpan: 0.46, finH: 0.66,
-    wingH: 0.17, dih: -0.05, wRootF: 0.34, wRootB: -0.14, wTipF: 0.20, wTipB: -0.10,
-    engines: [-0.60, -0.34, 0.34, 0.60], nacF: 0.26, nacH: 0.0, nacR: 0.095, pylons: true, heavyGear: true,
-    noseBlunt: 3.3, noseCowl: 0.16, boxy: 0.12, bodyTube: 0.5, tailUp: 0.10,   // noseCowl floors the radome so it's a blunt An-124 nose, not a point
+  heavy: { ...FW_DEFAULT, fr: 0.205, fv: 0.215, span: 1.05, noseF: 1.15, tailF: -1.12, hSpan: 0.46, finH: 0.66,
+    wingH: 0.20, dih: -0.05, wRootF: 0.34, wRootB: -0.14, wTipF: 0.20, wTipB: -0.10,
+    engines: [-0.60, -0.34, 0.34, 0.60], nacF: 0.26, nacH: -0.03, nacR: 0.095, pylons: true, heavyGear: true,
+    // BODY (per ref photos): the An-124 is a DEEP near-circular tube — taller than it is wide (the
+    // upper flight deck sits over a full-height cargo bay) — held at constant section over most of
+    // its length, closed by a bluntly rounded radome up front and an UPSWEPT cargo boat-tail aft.
+    // sides 16 rounds the section properly (12 facets read as a barrel on something this fat), the
+    // longer bodyTube gives the constant-section run, and the radome dips a touch below the
+    // fuselage line (noseZ) with the drop spent on the snout alone, the way the real nose does.
+    sides: 16, noseBlunt: 4.2, noseCowl: 0.27, boxy: 0.06, bodyTube: 0.74, tailUp: 0.145,
+    noseZ: -0.02, noseDroopK: 0.7,
     // Cargo VISOR NOSE (C-5 Galaxy / An-124): parked with the engines shut down the whole forward
     // section ahead of the noseF*0.33 ring hinges fully UP (~90°), exposing the cargo hold + ramp;
     // powering on lowers it home. hingeAt is a fraction of noseF so the cut lands exactly on a
     // fuselage ring (a clean break, no torn skin).
     visor: { hingeAt: 0.33, maxAng: 1.5708 },
-    canopy: { f0: 0.80, f1: 0.38, w: 0.115, h: 0.085, front: 0.30, tail: 0.10, segs: 6, arc: 5, sink: 0.025 } },   // smooth raised forward flight-deck hump behind the radome   // An-124 raised forward flight-deck hump behind the radome
+    // FLIGHT DECK CUT INTO THE HULL, not a hump bolted on the roof (the Mule's treatment, and what
+    // the real aeroplane does): the An-124's cockpit windows are set into the upper forward
+    // fuselage above the cargo deck, so the glass IS the skin there. Rings at 0.76/0.66/0.58/0.48
+    // and the visor cut give each pane bay its own facet; on a 16-gon the upper half is k 0…7
+    // (starboard mid-height → crown at 4 → port). The WINDSCREEN bays (fore of wsF) glaze the whole
+    // upper band k1…6 — six panes wrapping cheek-to-cheek, split by the painted centre post — and
+    // the bays behind it glaze only the high side band (k1/k6) so the spine stays solid metal.
+    // f1 / the last extraF station are noseF*0.33 exactly, i.e. the visor cut, so the flight deck
+    // ends ON the hinge ring and rides up with the nose in one piece.
+    // 1.08/0.96 are the RADOME rings: the blunt superellipse only shows up if the mesh actually
+    // samples it, and the default nose has no station between the windscreen and the tip — without
+    // these the whole nose is one straight wedge from full section to the cowl face.
+    extraF: [1.08, 0.96, 0.87, 0.76, 0.66, 0.58, 0.48, 0.3795],
+    // wsF is tested against a bay's FORWARD station, so 0.66 means the two bays ahead of f=0.58
+    // are windscreen and everything aft of it is side glass.
+    glaze: { f0: 0.76, f1: 0.3795, ks: [2, 5], wsKs: [1, 2, 3, 4, 5, 6], wsF: 0.66, art: 'leviathan' } },
   // Grasshopper — a Piper L-4 (per ref): a high-wing, strut-braced TANDEM two-seat TAILDRAGGER
   // liaison/observation plane. Signatures vs the Cessna: a deeper, SLAB-SIDED slim fuselage; a
   // long GLAZED "greenhouse" cabin (a row of big observation windows + a raked windscreen); a
@@ -1594,6 +1635,50 @@ const CANOPY_ART = {
       posts: [[0.00, 8], [0.10, 6], [0.20, 12], [0.55, 8], [0.90, 8], [1.00, 8]],
       sills: [[1 / 6, 8], [5 / 6, 8]],   // window line — the side-band/cheek seam; the base of the windscreen wrap
       hairs: [], mid: 7, edge: 14, extra: 'wipers' },   // mid = the windscreen CENTRE POST between the two panes (V=0.5; only the windscreen glazes the crown, so it shows there alone)
+  },
+  // Reaper — an A-10's canopy: a single-seat bubble of thick armoured glass with the faint GOLD
+  // flash of its lamination, near-frameless over the crown (that's the Warthog's whole visibility
+  // pitch) but shut off up front by a heavy bow frame carrying the HUD. One pilot, helmeted, visor
+  // down, green HUD light on the inside of the screen. arc 5 ⇒ V bands of 0.2: side panes at the
+  // sills, the crown pane across V 0.4–0.6.
+  reaper: {
+    wash: [[0.00, 'rgba(8,12,14,0.86)'], [0.15, 'rgba(14,22,24,0.74)'], [0.32, 'rgba(58,74,54,0.38)'],
+           [0.44, 'rgba(196,196,150,0.26)'], [0.56, 'rgba(196,196,150,0.26)'], [0.68, 'rgba(58,74,54,0.38)'],
+           [0.85, 'rgba(14,22,24,0.74)'], [1.00, 'rgba(8,12,14,0.86)']],
+    // Single seat: ONE station, a head showing at each side pane (whichever cheek is turned to you).
+    crew: [{ u: 0.30, v: 0.28, sc: 1.0, visor: 'rgba(120,200,160,0.5)', hair: 'rgba(24,28,26,0.94)' },
+           { u: 0.30, v: 0.72, sc: 1.0, visor: 'rgba(120,200,160,0.5)', hair: 'rgba(24,28,26,0.94)' }],
+    glow: { u: [0.05, 0.14], col: '110,220,140', a: 0.24, r: 62 },   // HUD + panel light up the bow
+    spec: { band: [0.24, 0.76], streaks: [[0.22, 30, 0.19], [0.66, 18, 0.11]] },
+    frame: { col: 'rgba(30,34,32,0.95)', lit: 'rgba(96,104,96,0.5)',
+      posts: [[0.00, 16], [0.13, 11], [0.98, 9], [1.00, 12]],   // the bow frame is the heaviest thing on the canopy; the rear arch closes it
+      sills: [[0.20, 9], [0.80, 9]],   // the canopy rails the clamshell seals onto — a real facet seam at arc 5
+      hairs: [0.40, 0.60], mid: 0, edge: 13 },
+  },
+  // Leviathan — an An-124 FLIGHT DECK glazed into the hull (FW_PARAMS.heavy.glaze). A working heavy
+  // freighter's cockpit: six big green-tinted screen panes wrapping the nose, a chunky painted
+  // frame, wipers parked low, and a FULL Antonov crew — two pilots at the screen, engineer and
+  // navigator at the side glass behind them. Which of this sheet shows depends on the facet: the
+  // WINDSCREEN bays (U 0–0.47) glaze the whole upper band, so all of V is glass there; the bays
+  // behind glaze only the high side band (V 0.25–0.375 and 0.625–0.75) — the middle of the sheet
+  // aft of the screen is painted spine and never drawn.
+  leviathan: {
+    wash: [[0.00, 'rgba(10,18,22,0.82)'], [0.15, 'rgba(18,34,40,0.68)'], [0.33, 'rgba(52,96,104,0.36)'],
+           [0.47, 'rgba(146,196,204,0.30)'], [0.53, 'rgba(146,196,204,0.30)'], [0.67, 'rgba(52,96,104,0.36)'],
+           [0.85, 'rgba(18,34,40,0.68)'], [1.00, 'rgba(10,18,22,0.82)']],
+    crew: [{ u: 0.16, v: 0.34, sc: 0.95, cap: true, hair: 'rgba(22,24,30,0.92)' },   // captain + first officer at the screen
+           { u: 0.16, v: 0.66, sc: 0.95, cap: true, hair: 'rgba(22,24,30,0.92)' },
+           { u: 0.62, v: 0.31, sc: 0.9, hair: 'rgba(30,28,26,0.92)' },               // engineer / navigator at the side glass
+           { u: 0.62, v: 0.69, sc: 0.9, hair: 'rgba(30,28,26,0.92)' }],
+    glow: { u: [0.06, 0.16], col: '90,180,190', a: 0.26, r: 70 },
+    spec: { band: [0.0, 1.0], streaks: [[0.12, 26, 0.18], [0.20, 16, 0.11]] },   // sun rake across the windscreen U
+    frame: { col: 'rgba(40,44,50,0.95)', lit: 'rgba(104,112,122,0.5)',
+      // U posts on the real ring seams (glaze f 0.76→0.3795 ⇒ U 0→1): screen front (0), its two
+      // inter-pane dividers (0.26 / 0.47 — the beefy A-pillar where the screen ends), the
+      // side-window divider (0.74), and the aft edge of the glass at the visor hinge (1).
+      posts: [[0.00, 9], [0.26, 6], [0.47, 13], [0.74, 8], [1.00, 9]],
+      sills: [[0.25, 9], [0.75, 9]],   // window line — the bottom rail of the side glass and the base of the screen wrap
+      hairs: [0.375, 0.625], mid: 7, edge: 15, extra: 'wipers' },   // mid = the windscreen centre post
   },
   // Grasshopper — an XCub (per ref photo): the big wraparound backcountry greenhouse. A SKYLIGHT
   // over the crown (you look up through the wing root), deep curved side glass, a black steel cage

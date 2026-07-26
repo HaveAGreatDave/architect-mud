@@ -66,6 +66,8 @@ const PANELS = {
     editForm: enemyEditForm,
     save: saveEnemy,
     delete: id => API(`/enemies/${id}`, 'DELETE'),
+    render: renderEnemiesPanel,
+    filter: filterEnemies,
   },
   items: {
     title: 'Items',

@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 1000,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_solenne_lobby_1784412683549",
+  "id": "zone_solenne_helipad",
+  "max_capacity_kw": 1000,
+  "name": "Solenne Sky Pad",
+  "source_type": "junction_box"
+}

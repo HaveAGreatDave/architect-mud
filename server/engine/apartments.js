@@ -285,6 +285,20 @@ export function getBuildingName(zone) {
   return null;
 }
 
+// Does this player hold a unit in the named building? Reads the in-memory
+// apartments cache (world.apartments) and the same getBuildingName() every other
+// caller uses, so it's a pure sync query — safe on a move gate or in the flight
+// field resolver. Backs `flags.residents_only` (the residency plugin's law) and
+// the private-pad gate on a building's own airfield.
+export function isResidentOf(player, buildingName) {
+	if (!player || !buildingName) return false;
+	for (const [zoneId, apt] of world.apartments) {
+		if (!playerControlsApt(player, apt)) continue;
+		if (getBuildingName(getZone(zoneId)) === buildingName) return true;
+	}
+	return false;
+}
+
 // Picking a lock gets harder the more the owner has invested in it.
 // Difficulty is a flat number compared against a d10 + rank + stat-bonus roll
 // (see skills.js:skillCheck) — same shape as every other check in the game.

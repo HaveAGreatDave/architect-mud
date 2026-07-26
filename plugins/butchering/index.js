@@ -26,6 +26,15 @@ import { setPosture } from '../../server/engine/posture.js';
 
 const BUTCHER_MS = 5000;
 
+// The creature a corpse came from, for naming what you carve off it. Corpses are
+// named `<Enemy>'s corpse` (plugins/weapon) or `<handle>'s corpse` (gameLoop);
+// either way the possessive is the part we want, lowercased to match item style.
+function creatureFrom(corpseName) {
+	const m = String(corpseName || "").match(/^(.*?)(?:'s)?\s+corpse$/i);
+	const name = (m ? m[1] : "").trim().toLowerCase();
+	return name && name.length <= 40 ? name : null;
+}
+
 // Resolve a corpse in the player's current zone by id (preferred, from a click
 // or the loot router) or by a substring of its name (typed command).
 function resolveCorpse(targetStr, player) {
@@ -121,7 +130,19 @@ async function resolveButcher(player) {
 				? Math.floor(Math.random() * (entry.qty[1] - entry.qty[0] + 1)) +
 					entry.qty[0]
 				: entry.qty || 1;
-			const { rows: existing } = isStackable(meta)
+			// Meat remembers what it came off. Anything with a food_profile is
+			// stamped with the creature, so it reads as "feral dog meat" in the
+			// pack and cooks into "feral dog and potato stew" — the cooking
+			// system prefers a per-instance food_noun over the class one.
+			const creature = creatureFrom(corpse.name);
+			const stamp = (creature && meta?.tags?.food_profile)
+				? { name: `${creature} meat`, food_noun: creature }
+				: null;
+			const carvedName = stamp?.name || itemName;
+
+			// Named meat must never stack-merge across species: a dog haunch and
+			// a sewer rat are not interchangeable rows.
+			const { rows: existing } = (isStackable(meta) && !stamp)
 				? await query(
 						"SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND is_equipped=0 AND container_id IS NULL LIMIT 1",
 						[player.id, entry.item],
@@ -134,11 +155,11 @@ async function resolveButcher(player) {
 				);
 			} else {
 				await query(
-					"INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,$3,$4,1.0)",
-					[randomUUID(), player.id, entry.item, qty],
+					"INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,custom_data) VALUES ($1,$2,$3,$4,1.0,$5)",
+					[randomUUID(), player.id, entry.item, qty, stamp ? JSON.stringify(stamp) : null],
 				);
 			}
-			const label = qty > 1 ? `${qty}x ${itemName}` : itemName;
+			const label = qty > 1 ? `${qty}x ${carvedName}` : carvedName;
 			carved.push(
 				`<span class="action-link room-item" data-action="examine" data-target="${itemName}" title="Examine ${itemName}">${label}</span>`,
 			);

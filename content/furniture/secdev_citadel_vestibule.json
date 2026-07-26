@@ -1,0 +1,18 @@
+{
+  "description": "A camera behind the ballistic glass, looking at the arch rather than the doors. It is not interested in who leaves.",
+  "flags": {
+    "concealed": false,
+    "device_id": "secdev_citadel_vestibule",
+    "security_device": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "secdev_citadel_vestibule",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "Citadel security camera",
+  "object_type": "security_device",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_citadel_vestibule"
+}

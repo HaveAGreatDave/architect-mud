@@ -1,0 +1,22 @@
+{
+  "description": "A wedge of pale orange flesh, cold and dripping, cut from something that took up a whole crate. Mostly water and entirely worth it.",
+  "flags": {},
+  "id": "item_melon_chunk",
+  "name": "melon chunk",
+  "tags": {
+    "description": "A wedge of pale orange flesh, cold and dripping, cut from something that took up a whole crate. Mostly water and entirely worth it.",
+    "consumable": true,
+    "restore_hunger": 14,
+    "stackable": true,
+    "food_profile": "fruit",
+    "food_noun": "melon",
+    "perishable": true,
+    "spoil_rate": "fast",
+    "status_chance": {
+      "food_poisoning": 0.2
+    }
+  },
+  "type": "consumable",
+  "value": 8,
+  "weight": 300
+}

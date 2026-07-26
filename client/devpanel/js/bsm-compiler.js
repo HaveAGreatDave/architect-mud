@@ -5,7 +5,7 @@ function compileBsm(text) {
   const lines = text.split('\n');
   let i = 0;
 
-  const meta = { name: '', channel: '', category: 'general', host: '', length: null, type: 'live', sport: '', announcer: '', airSlots: null, anchors: [], reporters: [], sidekick: '', guestNpc: '', cohost: '' };
+  const meta = { name: '', channel: '', category: 'general', host: '', length: null, type: 'live', sport: '', announcer: '', airSlots: null, anchors: [], reporters: [], sidekick: '', guestNpc: '', cohost: '', rounds: null };
   const _debug = { unknownDirectives: [], nodeTypes: {}, unresolvedSpeakers: [] };
 
   // Pre-scan ::actors block to build alias map and actor list.
@@ -57,6 +57,7 @@ function compileBsm(text) {
   const teams = [];           // team names from ::teams block  (only meaningful for @type sports)
   const players = [];         // player names from ::players block (only meaningful for @type sports)
   const guests = [];          // guest personas {name,title,theme} from ::guests block (only meaningful for @type talkshow)
+  const contestants = [];     // plain contestant NAMES from ::contestants block (only meaningful for @type gameshow)
   const messages = [];
   const rooms = [];           // zone IDs from ROOM directives (ordered, deduplicated)
   const cameraNumbers = [];   // unique CAM numbers in order of first appearance
@@ -163,6 +164,8 @@ function compileBsm(text) {
         // morning: the second host on the couch — a real npc_ id, like @host. The two trade
         // every beat, so the pools are authored as "host line >> cohost line" pairs.
         else if (key === 'cohost')   meta.cohost = val;
+        // gameshow: how many rounds an episode plays (1–4). Omit ⇒ all four.
+        else if (key === 'rounds')   { const r = parseInt(val, 10); if (Number.isFinite(r)) meta.rounds = r; }
         // @actor / @alias are pre-scanned from ::actors block; skip here
       }
       i++; continue;
@@ -228,6 +231,20 @@ function compileBsm(text) {
         // that are part of the value (e.g. a nickname like "Sparky" Reyes).
         const [name, title, theme, tag] = s.split('|').map(p => p.trim().replace(/^(["'])([\s\S]*)\1$/, '$2'));
         if (name) guests.push({ name, title: title || '', theme: theme || '', tag: tag || '' });
+      }
+      continue;
+    }
+
+    // ── Game-show contestant names (::contestants … ::endcontestants) ────────
+    // One name per line, PLAIN STRINGS — not npc_ ids. The strangers on the studio floor
+    // are spoken attribution only: they never get bodies, never commute, never spawn. Their
+    // guesses are generated deterministically from the episode seed, so they lose
+    // convincingly for free. A player standing in the studio plays alongside them.
+    if (ln === '::contestants') {
+      i++;
+      const content = collectBlock('::endcontestants');
+      for (const s of content.split('\n').map(t => t.trim()).filter(t => t && !t.startsWith('#'))) {
+        contestants.push(s.replace(/^(["'])([\s\S]*)\1$/, '$2'));
       }
       continue;
     }
@@ -514,5 +531,20 @@ function compileBsm(text) {
     for (const id of [meta.host, meta.cohost]) if (id) npcIds.add(id);
   }
 
-  return { meta, broadcastGraph: { _start: startId, nodes }, weatherScript, sportsScript, newsScript, talkshowScript, morningScript, messages, assets, rooms, cameras: cameraNumbers, npcIds: [...npcIds], actorIds, _debug };
+  // Game shows (@type gameshow) are the talk show's audience-participation sibling: a line
+  // library acted live by a host (+ optional sidekick reading the prize copy), whose QUESTIONS
+  // come from the live item catalog rather than from the file. Only the cast are real npc_ ids;
+  // the ::contestants are name strings with no bodies. Any player standing in the studio when a
+  // round opens is a contestant too. See docs/bsm-format.md#game-shows-type-gameshow.
+  const gameshowScript = {
+    host: meta.host || '', sidekick: meta.sidekick || '',
+    contestants, pools: weatherPools, title: meta.titlecard || '', theme: meta.theme || '',
+    airSlots: (meta.airSlots && meta.airSlots.length) ? meta.airSlots : null,
+    rounds: meta.rounds || null,
+  };
+  if (meta.type === 'gameshow') {
+    for (const id of [meta.host, meta.sidekick]) if (id) npcIds.add(id);
+  }
+
+  return { meta, broadcastGraph: { _start: startId, nodes }, weatherScript, sportsScript, newsScript, talkshowScript, morningScript, gameshowScript, messages, assets, rooms, cameras: cameraNumbers, npcIds: [...npcIds], actorIds, _debug };
 }

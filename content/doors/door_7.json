@@ -17,9 +17,9 @@
         "lock": "You slide the privacy bolt shut.",
         "unlock": "You slide the privacy bolt open."
       },
-      "privacySide": "zone_clone_facility_bathroom"
+      "privacySide": "zone_embassy_lobby_bathroom"
     }
   },
   "target_zone": null,
-  "zone_id": "zone_clone_facility_bathroom"
+  "zone_id": "zone_embassy_lobby_bathroom"
 }

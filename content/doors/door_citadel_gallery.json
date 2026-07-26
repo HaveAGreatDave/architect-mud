@@ -1,0 +1,28 @@
+{
+  "door_type": "reinforced",
+  "exit_dir": "north",
+  "flags": {},
+  "hololock_difficulty": 8,
+  "hp": 6000,
+  "hp_max": 6000,
+  "id": "door_citadel_gallery",
+  "is_locked": 1,
+  "is_open": 0,
+  "lock_state": "locked",
+  "name": "the gallery door",
+  "tags": {
+    "lock:hololock": {
+      "canHack": true,
+      "difficulty": 8,
+      "messages": {
+        "denied": "The gallery lock flashes amber. Box holders only, and you are not one.",
+        "hackFail": "The gallery lock closes its logic against you and goes quiet.",
+        "hackSuccess": "The gallery lock gives up its matrix and the brass row opens to you.",
+        "lock": "The gallery door draws shut and the dry air seals behind it.",
+        "unlock": "The gallery door releases with a soft brassy click."
+      }
+    }
+  },
+  "target_zone": "zone_citadel_gallery",
+  "zone_id": "zone_citadel_vestibule"
+}

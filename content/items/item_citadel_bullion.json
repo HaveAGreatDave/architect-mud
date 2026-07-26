@@ -1,0 +1,14 @@
+{
+  "description": "A half-kilo ingot of palladium with the Citadel crest struck deep into one face and a serial struck into the other. The serial is the problem. Every fence in Coldwater will take it; every one of them will take a bite out of the price for the trouble of grinding that off.",
+  "flags": {},
+  "id": "item_citadel_bullion",
+  "name": "Citadel palladium ingot",
+  "tags": {
+    "description": "A crested half-kilo palladium ingot. Serialised, which is somebody's problem.",
+    "stackable": true,
+    "valuable": true
+  },
+  "type": null,
+  "value": 900,
+  "weight": 50
+}

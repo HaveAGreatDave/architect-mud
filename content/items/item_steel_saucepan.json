@@ -1,0 +1,18 @@
+{
+  "description": "A small pressed-steel pan with a riveted handle that has worked loose and been peened back twice. Thin enough to scorch anything you turn your back on.",
+  "flags": {},
+  "id": "item_steel_saucepan",
+  "name": "steel saucepan",
+  "tags": {
+    "description": "A small pressed-steel pan with a riveted handle that has worked loose and been peened back twice. Thin enough to scorch anything you turn your back on.",
+    "container": 1500,
+    "vessel": true,
+    "heat_distribution": 0.7,
+    "heat_retention": 0.35,
+    "unique": true,
+    "vessel_kind": "pot"
+  },
+  "type": "misc",
+  "value": 38,
+  "weight": 900
+}

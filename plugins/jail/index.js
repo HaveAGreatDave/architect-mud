@@ -1,12 +1,16 @@
-// Jail — get downed while WANTED and the cops scrape you up instead of the
-// cloning vat. You wake in Precinct 9's holding cell, gear confiscated, and do
+// Jail — get downed while WANTED and the resurrection grid reroutes you: an open
+// file outranks the civic queue, so your pattern is pulled off the clone facility
+// mid-print and finished in Precinct 9's own custodial vat
+// (furn_precinct_clone_vat, in the holding cell). You come up in custody, gear
+// confiscated, and do
 // 1 base-minute per wanted star, scaled up by the world clock (so at 3× a 5★
 // stretch is 15 real minutes). A guard then walks you out to the lobby and hands
 // back your legal property; contraband (weapons/drugs/hacking decks) is logged to
 // a shared police evidence locker and never returned. The cell door is an
-// unhackable police hololock: booking engages it, the guard disengages it at
-// release. Leaving through it any other way is a jailbreak (heat comes back) and
-// forfeits everything the police were holding.
+// unhackable detention lock that stays engaged and reads your record instead of a
+// key: no wanted stars and no sentence left to serve and it opens for you,
+// otherwise it doesn't. Leaving the block any other way is a jailbreak (heat comes
+// back) and forfeits everything the police were holding.
 //
 // Integration seams (no engine coupling beyond the hook):
 //   - engine `player.respawnZone` hook: diverts respawn to the cell + skips the
@@ -25,6 +29,7 @@ import { getFlag } from '../../server/engine/flags.js';
 import { skillCheck, effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { on, emit } from '../../server/engine/events.js';
 import { dispatchAction, registerAction } from '../../server/engine/actions.js';
+import { registerLockType } from '../../server/engine/locks.js';
 import { getBroadcast, sendToPlayer } from '../../server/engine/messaging.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
 import { moveEntity } from '../../server/engine/ai-behaviour.js';
@@ -279,9 +284,9 @@ async function bookIntoCell(player, { teleport = false } = {}) {
     [player.id, CELL_ZONE, RELEASE_ZONE, String(ms), stars, JSON.stringify(held), heldCredits, fine, charge]
   );
   scheduleRelease(player.id, ms);
-  // Engage the hololock behind the new prisoner. The door ships locked in content
-  // and re-locks here on every booking, so a release (which leaves it disengaged)
-  // or an admin poking at it can't leave the next stretch servable by walking out.
+  // Engage the detention lock behind the new prisoner. The door ships locked in
+  // content and re-locks here on every booking, so an admin poking at it can't
+  // leave the next stretch servable by walking out.
   await secureCellDoor().catch(() => {});
 
   // Label the sentence in the real minutes actually served (base stars × the
@@ -301,7 +306,7 @@ async function bookIntoCell(player, { teleport = false } = {}) {
 
   const message = teleport
     ? `<span class="clone-vat-message">The cuffs bite in and a knee folds you down — then the cold steel bench of Precinct 9's holding block. Pockets empty, a charge sheet taped to the bars. "${mins}," the desk sergeant says, not looking up. Anything the law calls contraband has been logged to evidence; you won't be seeing that again.</span>`
-    : `<span class="clone-vat-message">You come to on a steel bench in Precinct 9's holding block — wrists zip-tied, pockets empty, a charge sheet taped to the bars. The desk sergeant doesn't look up: "${mins}. Sit tight." Anything the law calls contraband has been logged to evidence; you won't be seeing that again.</span>`;
+    : `<span class="clone-vat-message">The dark takes you, and the grid catches you — but the print never reaches the civic hall. An open file outranks the queue: your pattern is pulled mid-decant and finished in Precinct 9's custodial vat, and you come up choking warm fluid onto the drain grate of the holding cell. Pockets empty, a charge sheet taped to the bars. The desk sergeant doesn't look up: "${mins}. Sit tight." Anything the law calls contraband has been logged to evidence; you won't be seeing that again.</span>`;
 
   if (teleport) {
     // No death occurred, so nothing has moved them or cleared their heat — do both.
@@ -472,16 +477,15 @@ async function release(playerId) {
       const officer = world.npcs.get(onDutyOfficerId());
       const officerName = officer?.name || 'The duty officer';
       const line = RELEASE_LINES[Math.floor(Math.random() * RELEASE_LINES.length)];
-      // Serving your time genuinely opens the way out: the hololock disengages and
-      // STAYS disengaged until the next booking re-secures it. A door that only
-      // ever opens for a timer is a door nobody can trust, so the tradeoff is
-      // deliberate — a cellmate who strolls through it is still an escape().
-      await releaseCellDoor().catch(() => {});
+      // The lock stays engaged — it doesn't need to open for anyone. Your record
+      // is clear the moment the row is deleted above, and the detention lock reads
+      // records, so the door simply stops refusing *you*. A cellmate still doing
+      // time gets no such courtesy.
       // Clear the countdown HUD — you walk out clean.
       sendToPlayer(playerId, { type: 'wanted_level', stars: 0 });
       bc?.(rec.cell_zone, {
         type: 'zone_event',
-        message: `<span class="text-yellow">${officerName} steps into the cell, keys jangling. "${player.handle}. ${line}"</span> The hololock drops with a heavy clunk and stays dark as ${player.handle} is walked out.`,
+        message: `<span class="text-yellow">${officerName} steps into the cell, keys jangling. "${player.handle}. ${line}"</span> The lock reads ${player.handle}'s file, finds it closed, and lets them through.`,
       }, playerId);
       await dispatchAction({ type: 'TELEPORT', actor: player, params: { zone_id: rec.release_zone }, context: { broadcast: bc } });
       const zone = getZone(rec.release_zone);
@@ -574,7 +578,7 @@ async function escape(player) {
 }
 
 // The cell block is everything a prisoner may walk to WITHOUT it being a breakout:
-// the cell itself plus any room behind the same hololock (the wash block, the
+// the cell itself plus any room behind the same lock (the wash block, the
 // exercise room). Membership is authored on the zone as `flags.cell_block`, not
 // listed here, so adding another room to the block is a content change and never
 // a code one — and a room that forgets the flag fails safe as an escape, which is
@@ -589,11 +593,49 @@ on('zone.entered', async ({ actor, zone }) => {
   if (rows.length) await escape(actor).catch(e => console.error('[jail] escape error:', e.message));
 });
 
+// ── The detention lock: a door that reads your file, not your keys ───────────
+// The cell block's lock stays engaged permanently. What it checks isn't a
+// credential — it's your record: **clean walks, wanted stays**. Anyone with no
+// outstanding stars and no sentence still to serve (a visitor, a lawyer, a
+// prisoner the desk has just released) passes straight through; a suspect with
+// heat on them, or a prisoner mid-stretch, gets the flat refusal. Not hackable —
+// there's no deck bypass and never was.
+//
+// Two reads, both only on an actual attempt to walk the block's one door:
+//   - live wanted stars (surveillance's WANTED_STARS, falling back to the flag)
+//   - an open `jail_prisoners` row (doing time is its own gate)
+async function detentionAuth(lockTag, door, player) {
+  if (!player?.id) return false;
+  let stars = 0;
+  try {
+    const r = await dispatchAction({ type: 'WANTED_STARS', actor: player });
+    if (typeof r?.stars === 'number') stars = r.stars;
+  } catch { /* surveillance not loaded */ }
+  if (!stars) stars = parseFloat(await getFlag('player', 'wanted', player) || '0') || 0;
+  if (stars > 0) return false;
+  const { rows } = await query('SELECT 1 FROM jail_prisoners WHERE player_id = $1', [player.id]).catch(() => ({ rows: [] }));
+  return rows.length === 0;
+}
+
+registerLockType('detentionlock', {
+  tagType: 'lock:detentionlock',
+  kitTag:  'lockkit:detentionlock',
+  defaults: {
+    canHack: false,
+    messages: {
+      lock:   'The detention lock seats itself with a heavy magnetic clunk.',
+      unlock: 'The detention lock disengages.',
+      denied: 'The detention lock reads your file, finds it open, and does not move.',
+    },
+  },
+  authFn: detentionAuth,
+});
+
 // ── Fail-safe: re-lock the cell behind an admin ──────────────────────────────
-// An admin can pop the holding-cell hololock (to fish someone out, or just testing).
+// An admin can pop the holding-cell detention lock (to fish someone out, or just testing).
 // If they wander off and forget to re-lock it, the block sits wide open and any prisoner
 // strolls free. So: track an admin from the moment they step INTO the cell, and the moment
-// they step back OUT, slam the hololock shut + closed behind them. Only admins trip this —
+// they step back OUT, slam the lock shut + closed behind them. Only admins trip this —
 // prisoners/guards run their own (escape / walk-out) paths, untouched.
 const ADMIN_ROLES = new Set(['admin', 'dev', 'builder', 'designer']);
 const CELL_DOOR = 'door_precinct_cell';
@@ -609,25 +651,13 @@ async function secureCellDoor() {
   return true;
 }
 
-// The other half of the pair: the guard drops the lock at the end of a sentence.
-// Door state is RAM-only (world.doors; runtime never writes it back), so this is
-// a cache mutation like every other open/close/lock in the game.
-async function releaseCellDoor() {
-  const door = getDoorById(CELL_DOOR) || getZoneDoors(CELL_ZONE)[0];
-  if (!door || door.lock_state !== 'locked') return false;
-  door.lock_state = 'unlocked';
-  setDoorCache(door.id, door);
-  emit('door.toggled', { zoneId: door.zone_id, targetZoneId: door.target_zone });
-  return true;
-}
-
 on('zone.entered', async ({ actor, zone }) => {
   if (!actor?.id || !ADMIN_ROLES.has(actor.role)) return;
   if (inCellBlock(zone)) { adminInCell.add(actor.id); return; }   // block-wide: stepping to the showers isn't leaving
   if (!adminInCell.delete(actor.id)) return;   // this admin wasn't in the cell
   if (await secureCellDoor().catch(() => false)) {
-    sendToPlayer(actor.id, { type: 'output', message: '<span class="text-dim">The cell hololock re-engages behind you.</span>' });
-    getBroadcast()?.(CELL_ZONE, { type: 'zone_event', message: 'The cell hololock slams shut with a heavy magnetic clunk.', refresh: true }, actor.id);
+    sendToPlayer(actor.id, { type: 'output', message: '<span class="text-dim">The cell detention lock re-engages behind you.</span>' });
+    getBroadcast()?.(CELL_ZONE, { type: 'zone_event', message: 'The cell detention lock slams shut with a heavy magnetic clunk.', refresh: true }, actor.id);
   }
 });
 
@@ -683,6 +713,6 @@ export const specializedActions = [
 export const hooks = { 'player.respawnZone': onRespawnZone };
 
 // Exposed for the regression harness.
-export const _test = { confiscate, restoreHeld, release, escape, onRespawnZone, isContraband, onDutyOfficerId, inCellBlock, secureCellDoor, releaseCellDoor, CELL_DOOR, OFFICERS, CELL_ZONE, RELEASE_ZONE, BUNK_ZONE };
+export const _test = { confiscate, restoreHeld, release, escape, onRespawnZone, isContraband, onDutyOfficerId, inCellBlock, secureCellDoor, detentionAuth, CELL_DOOR, OFFICERS, CELL_ZONE, RELEASE_ZONE, BUNK_ZONE };
 
 console.log('[jail] Plugin loaded.');

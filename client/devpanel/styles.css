@@ -427,6 +427,11 @@
   .bigmap-tile.bm-power-plant      { background: rgba(80,160,255,0.28);  border-color: rgba(100,180,255,0.9); box-shadow: 0 0 8px rgba(80,160,255,0.4); color: #c8e8ff; }
   .bigmap-tile.bm-power-plant.bm-power-overloaded { background: rgba(255,165,0,0.38); border-color: rgba(255,165,0,0.95); color: var(--text); }
   .bigmap-tile.bm-power-plant.bm-power-offline    { background: rgba(220,40,60,0.42); border-color: rgba(230,50,70,0.95); color: var(--text); }
+  /* Spawn map (Enemies panel) — tint by how many spawn rows a tile carries. */
+  .bigmap-tile.bm-spawn-1 { background: rgba(255,165,0,0.16); border-color: rgba(255,165,0,0.5); }
+  .bigmap-tile.bm-spawn-2 { background: rgba(255,110,40,0.26); border-color: rgba(255,120,50,0.7); }
+  .bigmap-tile.bm-spawn-3 { background: rgba(220,40,60,0.34); border-color: rgba(230,50,70,0.85); }
+  .bigmap-tile.bm-spawn-sel { outline: 2px solid var(--accent); outline-offset: -2px; }
   #bigmap-legend, #power-legend { font-size: 10px; color: var(--text-dim); margin-top: 12px; display: flex; gap: 14px; flex-wrap: wrap; }
   .legend-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
 

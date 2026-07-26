@@ -1,0 +1,28 @@
+{
+  "door_type": "reinforced",
+  "exit_dir": "north",
+  "flags": {},
+  "hololock_difficulty": 6,
+  "hp": 3000,
+  "hp_max": 3000,
+  "id": "door_citadel_mantrap",
+  "is_locked": 1,
+  "is_open": 0,
+  "lock_state": "locked",
+  "name": "the mantrap door",
+  "tags": {
+    "lock:hololock": {
+      "canHack": true,
+      "difficulty": 6,
+      "messages": {
+        "denied": "The reader takes your credentials, considers them, and declines to elaborate.",
+        "hackFail": "The mantrap lock rejects the sequence and logs the attempt somewhere you cannot reach.",
+        "hackSuccess": "The mantrap lock drops its challenge and the outer slab breathes open.",
+        "lock": "The mantrap door seats itself with a pneumatic thump.",
+        "unlock": "The mantrap door unseals, one bolt at a time, in no hurry at all."
+      }
+    }
+  },
+  "target_zone": "zone_citadel_vestibule",
+  "zone_id": "zone_citadel_hall"
+}

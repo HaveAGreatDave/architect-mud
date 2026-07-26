@@ -85,14 +85,19 @@ const rowHasFluid = row => (row?.custom_data?.fluid_amount || 0) > 0;
 // loose single's flag, or a crate's owner lock.
 // 'freshness' joins this list once a perishable item gets its first checkpoint —
 // merging it into another stack would silently drop its independent decay history.
-// 'cooking' joins it the moment a cook session starts, for the same reason.
-const INSTANCE_KEYS = ['fluid_amount', 'potency', 'effects', 'spliced', 'charges', 'ownerId', 'loose', 'freshness', 'cooking'];
+// 'cooking' joins it the moment a cook session starts, for the same reason, and
+// 'cook_quality' stays on for good once plated — a Masterful steak must never
+// merge into a Poor one.
+// 'unpaid' joins this list for goods lifted out of a shop's display cooler: an
+// unpaid steak must never merge into a steak you already own and launder itself
+// clean on the way to the door.
+const INSTANCE_KEYS = ['fluid_amount', 'potency', 'effects', 'spliced', 'charges', 'ownerId', 'loose', 'freshness', 'cooking', 'cook_quality', 'unpaid', 'dish', 'food_noun'];
 export const rowIsInstanced = row => {
   const cd = typeof row?.custom_data === 'string' ? (() => { try { return JSON.parse(row.custom_data); } catch { return {}; } })() : (row?.custom_data || {});
   return INSTANCE_KEYS.some(k => { const v = cd[k]; return v != null && v !== false && v !== 0; });
 };
 // SQL predicate: a stack row safe to merge into (carries none of the instance keys).
-export const NOT_INSTANCED_SQL = `(custom_data IS NULL OR NOT jsonb_exists_any(custom_data, ARRAY['fluid_amount','potency','effects','spliced','charges','ownerId','loose','freshness','cooking']))`;
+export const NOT_INSTANCED_SQL = `(custom_data IS NULL OR NOT jsonb_exists_any(custom_data, ARRAY['fluid_amount','potency','effects','spliced','charges','ownerId','loose','freshness','cooking','cook_quality','unpaid']))`;
 
 // Move a ground inventory row into a player's inventory. Stacking-aware: a
 // stackable item merges into an existing unequipped stack the player already

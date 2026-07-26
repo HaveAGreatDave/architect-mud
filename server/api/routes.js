@@ -4,6 +4,7 @@ import { reloadZone, getAllZones, world, getAllLivePlayers, getZone, addPlayerTo
 import { authorUtilityRoom } from '../../tools/lib/utility-room.mjs';
 import { templateForType } from '../../tools/lib/building-templates.mjs';
 import { describeZone, describeVoidTeleport } from '../engine/commands/index.js';
+import { reincarnatePlayer } from '../engine/commands/world.js';
 import { allExits } from '../engine/exits.js';
 import { detectBathroomSide } from '../engine/commands/doors.js';
 import { loadRecipes } from '../engine/crafting.js';
@@ -297,6 +298,7 @@ async function dispatchApiRequest(url, method, body, headers) {
   if (path.startsWith('/zones/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteZone(_zoneId(path)));
   if (path.startsWith('/zones/') && method==='PUT')    return requireDev(auth,   ()=>apiUpdateZone(_zoneId(path),body));
   if (path.startsWith('/zones/') && method==='GET')    return apiGetZone(_zoneId(path));
+  if (path==='/spawns' && method==='GET') return requireDev(auth, apiGetAllSpawns);
   if (path==='/spawns' && method==='POST') return requireDev(auth, ()=>apiCreateSpawn(body));
   if (path.startsWith('/spawns/') && method==='PUT')    return requireDev(auth, ()=>apiUpdateSpawn(path.split('/')[2],body));
   if (path.startsWith('/spawns/') && method==='DELETE') return requireDev(auth, ()=>apiDeleteZoneSpawn(path.split('/')[2]));
@@ -437,6 +439,7 @@ async function dispatchApiRequest(url, method, body, headers) {
   }
   if (path==='/players/me/profile' && method==='PUT') return apiUpdateOwnProfile(auth, body);
   if (path==='/players' && method==='GET') return requireAdmin(auth, apiGetPlayers);
+  if (path==='/players/wipe-all' && method==='POST') return requireAdmin(auth, ()=>apiServerWipe(auth));
   if (path.startsWith('/players/') && method==='PUT' && !path.endsWith('/role') && !path.endsWith('/kick') && !path.endsWith('/teleport')) return requireAdmin(auth, ()=>apiUpdatePlayer(path.split('/')[2], body));
   if (path.startsWith('/players/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeletePlayer(path.split('/')[2]));
   if (path.startsWith('/players/') && path.endsWith('/progression') && method==='GET') return requireAdmin(auth, ()=>apiGetPlayerProgression(path.split('/')[2]));
@@ -1679,6 +1682,14 @@ async function apiGetZoneSpawns(zoneId) {
   );
   return { status:200, body:rows };
 }
+// Every spawn in the world in one round trip — the Enemies panel's spawn map
+// needs all of them at once (a per-zone fetch would be hundreds of requests).
+async function apiGetAllSpawns() {
+  const { rows } = await query(
+    `SELECT zs.*, e.name AS enemy_name FROM zone_spawns zs JOIN enemies e ON e.id = zs.enemy_id ORDER BY zs.zone_id, e.name`
+  );
+  return { status:200, body:rows };
+}
 async function apiAddZoneSpawn(zoneId, body) {
   if (!body?.enemy_id) return { status:400, body:{ error:'enemy_id is required' } };
   if (isEnterableFacade(getZone(zoneId))) return { status:400, body:{ error:'That zone is a building facade (players auto-forward through it) — put the spawn in an interior room or on the street instead.' } };
@@ -2584,6 +2595,18 @@ async function apiSmitePlayer(id) {
 
   handlePlayerDeath(player, null, { type: 'admin', label: 'Smitten by the Architect' });
   return {status:200,body:{smited:true,handle}};
+}
+
+// Server wipe: reincarnate every non-staff player (same blank slate the
+// `reincarnate` command produces). Staff accounts — admin/dev/builder/designer,
+// the panel's "Admins & Staff" section — are left untouched.
+const WIPE_EXEMPT_ROLES = ['admin', 'dev', 'builder', 'designer'];
+
+async function apiServerWipe(auth) {
+  const { rows } = await query('SELECT id, handle FROM players WHERE role IS NULL OR NOT (role = ANY($1))', [WIPE_EXEMPT_ROLES]);
+  for (const row of rows) await reincarnatePlayer(row);
+  logActivity('admin_cmd', auth?.handle || 'admin', null, `server wipe — reincarnated ${rows.length} player(s)`);
+  return { status:200, body:{ wiped: rows.length, handles: rows.map(r=>r.handle) } };
 }
 
 async function apiWhisperPlayer(id, body) {

@@ -31,6 +31,9 @@ import { resolveNamedDestination } from '../server/engine/commands/describe.js';
 import { tickOnsets } from '../server/engine/drugs.js';
 import { getSelectionState, clearSelectionState } from '../server/engine/sift.js';
 import { loadPlugins, getLoadedPlugins, getRegisteredCommands, getRegisteredHooks } from '../server/engine/plugins.js';
+import { getHelpTopic, listHelpTopics } from '../server/engine/help.js';
+import { TOPIC_VERBS } from '../server/engine/help-topics.js';
+import { getAlias } from '../server/engine/commands/aliases.js';
 import { loadItems, reloadItem, deleteItemCache } from '../server/engine/items-cache.js';
 import { getVendorStock, buyFromVendor, restockSourcedContainers } from '../server/engine/vendor.js';
 import { randomUUID } from 'crypto';
@@ -86,6 +89,25 @@ console.log('— layer 1: manifest contracts —');
     }
   }
   check(`manifest contracts hold for ${getLoadedPlugins().length} plugins`, drift.length === 0, drift.join('; '));
+
+  // Help guides name verbs. A guide that names a verb nobody registers is worse
+  // than no guide — it teaches a player something that does not work. Engine
+  // builtins aren't in the plugin registry, so they're allowed through by name.
+  const ENGINE_VERBS = new Set([
+    'eat', 'drink', 'sleep', 'stats', 'skills', 'raise', 'steal', 'pick', 'hack',
+    'balance', 'deposit', 'withdraw', 'time', 'take', 'join', 'bet', 'raise', 'fold',
+  ]);
+  const missing = [];
+  for (const [topic, verbs] of Object.entries(TOPIC_VERBS)) {
+    if (!getHelpTopic(topic)) { missing.push(`topic "${topic}" is not registered`); continue; }
+    for (const v of verbs) {
+      if (!registeredCommands.has(v) && !ENGINE_VERBS.has(v) && !getAlias(v)) missing.push(`help ${topic}: names unknown verb "${v}"`);
+    }
+  }
+  check(`every verb named by the ${Object.keys(TOPIC_VERBS).length} help guides actually exists`, missing.length === 0, missing.join('; '));
+
+  const topicNames = listHelpTopics().map(t => t.name);
+  check(`help guides are reachable (${topicNames.join(', ')})`, topicNames.length >= 6, topicNames);
 }
 
 // ── Layer 1a: content-registry coverage (anti-drift for exports + the pipeline) ─
@@ -174,8 +196,8 @@ console.log('— layer 1b: object-gated verb discoverability —');
         problems.push(`${e.name}: objectGatedCommands "${verb}" is not in commands[]`);
       }
       if (spec.exposed === false) { knownGaps.push(`${e.name}:${verb} (via ${spec.discoverVia || '?'})`); continue; }
-      const wired = (specialized[verb] || []).some(x => x.requiredTag === spec.discoverVia);
-      if (!wired) problems.push(`${e.name}: "${verb}" declared discoverable via tag "${spec.discoverVia}" but no specializedAction surfaces it (examine shows no hint)`);
+      const wired = (specialized[verb] || []).some(x => x.requiredTag === spec.discoverVia || x.requiredFlag === spec.discoverVia);
+      if (!wired) problems.push(`${e.name}: "${verb}" declared discoverable via "${spec.discoverVia}" but no specializedAction surfaces it (examine shows no hint)`);
     }
   }
   check('object-gated verbs are discoverable or logged', problems.length === 0, problems.join('; '));

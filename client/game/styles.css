@@ -639,6 +639,53 @@ body.fsim-external #look-resize-handle { display: none; }
 	100% { -webkit-text-fill-color: var(--text); background-position: -50% 0;  text-shadow: none; }
 }
 
+/* Verb teaching (server `teachVerb()` in messaging.js) — THE STANDARD for the
+   first mention of any verb a player hasn't been taught yet. The verb is
+   highlighted like the accent link it is and a specular band sweeps across it
+   three times, then it comes to rest as an ordinary (still clickable) link.
+   Same legibility safety as .intro-lore: the transparent fill only exists inside
+   the keyframes, so with animations off the word is a plain accent link. */
+.verb-teach {
+	font-weight: 700;
+	letter-spacing: 0.4px;
+	background: linear-gradient(100deg,
+		var(--accent) 0%, var(--accent) 34%,
+		var(--text-bright) 50%,
+		var(--accent) 66%, var(--accent) 100%);
+	background-size: 300% 100%;
+	background-position: 150% 0;
+	-webkit-background-clip: text;
+	background-clip: text;
+	-webkit-text-fill-color: var(--accent);
+	color: var(--accent);
+	animation: verb-teach-shimmer 1.8s ease-in-out 3 both;
+}
+@keyframes verb-teach-shimmer {
+	0%   { -webkit-text-fill-color: transparent; background-position: 150% 0; text-shadow: 0 0 8px var(--accent-dim); }
+	60%  { -webkit-text-fill-color: transparent; background-position: -50% 0; text-shadow: 0 0 12px var(--accent); }
+	100% { -webkit-text-fill-color: var(--accent); background-position: -50% 0; text-shadow: none; }
+}
+
+/* Pointing at a room-pane link (server `pointAt()`): rings ripple out of the
+   thing the player should click. Cosmetic only — the ::after ring is the whole
+   effect and the class is stripped when it finishes. */
+.point-ripple {
+	position: relative;
+}
+.point-ripple::after {
+	content: "";
+	position: absolute;
+	inset: -2px -4px;
+	border-radius: 6px;
+	pointer-events: none;
+	border: 1px solid var(--accent);
+	animation: point-ripple-out 1.1s ease-out 3;
+}
+@keyframes point-ripple-out {
+	0%   { opacity: 0.9; transform: scale(1);    box-shadow: 0 0 0 0 var(--accent-dim); }
+	100% { opacity: 0;   transform: scale(1.55); box-shadow: 0 0 12px 6px transparent; }
+}
+
 /* Hero-poster mural reveal (posters plugin): hanging all seven sheets in one
    room spells a word the prose describes as "gleaming" — so it gleams on
    screen — the letters catch light, burn, get swept twice, and settle. Same
@@ -3779,6 +3826,9 @@ body.fsim-external #look-resize-handle { display: none; }
 	gap: 12px;
 	position: relative;
 	overflow: hidden;
+	/* Own stacking context, so the light-spill layer (z-index -1) paints above
+	   the panel's background instead of vanishing behind it. */
+	isolation: isolate;
 	transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
 }
 
@@ -3788,7 +3838,23 @@ body.fsim-external #look-resize-handle { display: none; }
    consumer (frosted glass, apartment units) vs. commercial (brushed
    industrial steel, Ration Nine's Ironchill line). */
 #container-box.ctr-theme-consumer {
-	--ctr-cold: #bfe9ff;
+	/* A domestic unit is finished in the player's own palette: every colour
+	   below derives from the theme's cool channel (--cyan), so a Void fridge
+	   is icy blue and an Ember one is warm brass without a second ruleset.
+	   Only genuine light — speculars, condensation, the interior lamp — stays
+	   white, because light isn't a finish. Commercial steel is deliberately
+	   NOT themed: Ironchill is a brand, and it looks the same in every kitchen.
+
+	   The unit's FINISH is the theme colour, undiluted — door face, casing,
+	   handle metal, shelf lips, LEDs, the light it throws. Blue-white is kept
+	   for the things that are physically blue-white whatever the cabinet is
+	   painted: frost and ice crystals, condensation beads, speculars. */
+	--ctr-cold: var(--cyan);
+	--ctr-accent: var(--cyan);
+	--ctr-frost: #cfeeff;
+	--ctr-shelf-lip: color-mix(in srgb, var(--ctr-cold) 55%, transparent);
+	--ctr-card-bg: linear-gradient(180deg, color-mix(in srgb, var(--ctr-cold) 9%, transparent), rgba(6, 14, 20, 0.44));
+	--ctr-card-border: color-mix(in srgb, var(--ctr-cold) 24%, transparent);
 	background:
 		radial-gradient(120% 60% at 50% -10%, color-mix(in srgb, var(--ctr-cold) 20%, transparent), transparent 70%),
 		linear-gradient(165deg, color-mix(in srgb, var(--ctr-cold) 12%, var(--bg2)), var(--bg2) 55%, color-mix(in srgb, var(--ctr-cold) 5%, var(--bg2)));
@@ -3807,6 +3873,11 @@ body.fsim-external #look-resize-handle { display: none; }
 	--ctr-steel-hi: #6b7176;
 	--ctr-steel-lo: #24272a;
 	--ctr-hazard: #e8b84b;
+	--ctr-accent: #e8b84b;
+	--ctr-frost: #cfeeff;
+	--ctr-shelf-lip: rgba(222, 230, 235, 0.42);
+	--ctr-card-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(0, 0, 0, 0.4));
+	--ctr-card-border: rgba(214, 220, 224, 0.2);
 	background:
 		repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.025) 0 2px, transparent 2px 6px),
 		linear-gradient(160deg, color-mix(in srgb, var(--ctr-steel-hi) 35%, var(--bg2)), var(--bg2) 55%, var(--ctr-steel-lo));
@@ -3833,33 +3904,55 @@ body.fsim-external #look-resize-handle { display: none; }
    regardless of whether the unit around it is domestic or industrial. */
 .ctr-subbox.ctr-frost {
 	position: relative;
-	padding-left: 22px;
-	border-radius: 12px 6px 6px 12px;
-	border: 2px solid #8fcdf0;
+	padding-left: 20px;
+	border-radius: 10px;
+	border: none;
 	background:
-		linear-gradient(168deg, rgba(190, 232, 255, 0.2), rgba(140, 200, 235, 0.05) 60%, rgba(190, 232, 255, 0.12));
+		linear-gradient(178deg,
+			color-mix(in srgb, var(--ctr-cold, #bfe9ff) 12%, transparent),
+			transparent 40%,
+			rgba(0, 0, 0, 0.22));
 	box-shadow:
-		inset 0 1px 0 rgba(255, 255, 255, 0.3),
-		inset 0 0 0 4px rgba(150, 205, 235, 0.09),
-		inset 0 0 18px rgba(159, 216, 255, 0.2),
-		0 2px 8px rgba(0, 0, 0, 0.3);
+		/* the same machined ring as the cabinet, one size down */
+		0 1px 0 1px color-mix(in srgb, var(--ctr-cold, #bfe9ff) 40%, #ffffff),
+		0 0 0 2px color-mix(in srgb, var(--ctr-cold, #bfe9ff) 40%, #262c31),
+		0 2px 0 2px rgba(0, 0, 0, 0.45),
+		inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+		inset 0 2px 14px rgba(0, 0, 0, 0.5),
+		0 8px 20px -10px rgba(0, 0, 0, 0.7);
 }
 .ctr-subbox.ctr-frost .container-section-label {
-	color: #d8f2ff;
-	text-shadow: 0 0 7px rgba(200, 238, 255, 0.6);
+	color: color-mix(in srgb, var(--ctr-cold, #bfe9ff) 75%, #ffffff);
+	text-shadow: 0 0 7px color-mix(in srgb, var(--ctr-cold, #bfe9ff) 55%, transparent);
 }
-/* Its own pull handle, matching the main door's chrome tube. */
+/* Its own touch rail, matching the cabinet's — no handle, no hardware. */
 .ctr-subbox.ctr-frost::before {
 	content: "";
 	position: absolute;
-	left: 6px;
-	top: 10px;
-	bottom: 10px;
-	width: 5px;
-	border-radius: 3px;
-	background: linear-gradient(90deg, #6f9fbb, #f4fcff 40%, #e4f6ff 55%, #7fb2ce);
-	box-shadow: 0 0 7px rgba(200, 238, 255, 0.55), 0 1px 2px rgba(0, 0, 0, 0.4);
+	left: 7px;
+	top: 12px;
+	bottom: 12px;
+	width: 3px;
+	border-radius: 2px;
+	background:
+		linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.85) 45% 55%, transparent) no-repeat,
+		linear-gradient(180deg,
+			color-mix(in srgb, var(--ctr-cold, #bfe9ff) 25%, transparent),
+			var(--ctr-cold, #bfe9ff) 28% 72%,
+			color-mix(in srgb, var(--ctr-cold, #bfe9ff) 25%, transparent));
+	background-size: 100% 20%, auto;
+	background-position: 0 -30%, 0 0;
+	box-shadow:
+		0 0 9px color-mix(in srgb, var(--ctr-cold, #bfe9ff) 55%, transparent),
+		inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+	animation: ctr-glint 9s ease-in-out infinite;
 	z-index: 2;
+}
+/* A highlight sliding the length of a chrome tube, with long dead time between
+   passes so it reads as ambient, not as a loading bar. */
+@keyframes ctr-glint {
+	0%, 62% { background-position: 0 -30%, 0 0; }
+	88%, 100% { background-position: 0 130%, 0 0; }
 }
 /* Rime creeping in from the corners — irregular blooms plus a few crystal
    spurs, densest at the corners and thinning toward the middle. */
@@ -3868,7 +3961,7 @@ body.fsim-external #look-resize-handle { display: none; }
 	position: absolute;
 	inset: 0;
 	pointer-events: none;
-	border-radius: 10px 5px 5px 10px;
+	border-radius: 10px;
 	background-image:
 		/* corner blooms */
 		radial-gradient(ellipse 46px 26px at 100% 0%, rgba(238, 250, 255, 0.34), transparent 72%),
@@ -3893,8 +3986,45 @@ body.fsim-external #look-resize-handle { display: none; }
 		0 0, 0 0, 0 0, 0 0, 0 0, 0 0,
 		72% 0, 89% 0;
 	background-repeat: no-repeat;
+	/* Rime grows and gives back a little, on a long cycle — the cabinet
+	   cycling its compressor, not a pulsing UI element. */
+	animation: ctr-rime-creep 14s ease-in-out infinite;
+}
+@keyframes ctr-rime-creep {
+	0%, 100% { opacity: 0.82; transform: scale(1); }
+	50% { opacity: 1; transform: scale(1.015); }
 }
 
+/* ── The unit's own light ────────────────────────────────────────────────
+   A cold appliance lights the room around it rather than lighting itself
+   from inside: a soft bloom anchored on the door, breathing on the same slow
+   compressor cycle as the frost and the sweat. It sits below every child
+   (z-index -1) so it washes the panel, never the text on it. */
+#container-glow {
+	display: none;
+	position: absolute;
+	inset: -12%;
+	pointer-events: none;
+	z-index: -1;
+}
+/* Deliberately static. A breathing glow costs a repaint every frame and
+   reads as nothing — a fridge's light doesn't throb. The budget went into
+   the compartment light bars and the contact shadows under the items. */
+#container-box.ctr-theme-consumer #container-glow,
+#container-box.ctr-theme-commercial #container-glow {
+	display: block;
+}
+#container-box.ctr-theme-consumer #container-glow {
+	background:
+		radial-gradient(66% 62% at 76% 52%, color-mix(in srgb, var(--ctr-cold) 52%, transparent), transparent 72%),
+		radial-gradient(42% 32% at 70% 18%, color-mix(in srgb, var(--ctr-cold) 30%, transparent), transparent 78%);
+}
+/* Industrial units throw a dimmer, colder spill with a hazard cast to it. */
+#container-box.ctr-theme-commercial #container-glow {
+	background:
+		radial-gradient(66% 62% at 76% 52%, rgba(198, 210, 218, 0.26), transparent 72%),
+		radial-gradient(38% 26% at 72% 20%, color-mix(in srgb, var(--ctr-hazard) 22%, transparent), transparent 78%);
+}
 /* Brief cold-fog flourish on open — the whole panel reads as fogged-over
    glass that clears, like a fridge door held open a second too long. A
    straight fade, no pulse/brightening, and no center-focused glow. */
@@ -3917,8 +4047,29 @@ body.fsim-external #look-resize-handle { display: none; }
 	animation: ctr-cold-clear 1.5s ease-out forwards;
 }
 @keyframes ctr-cold-clear {
-	0% { opacity: 1; }
-	100% { opacity: 0; }
+	0% { opacity: 1; transform: translateY(0) scale(1.04); }
+	100% { opacity: 0; transform: translateY(14px) scale(1); }
+}
+
+/* Every animation here is ambience — it all stops dead when the player has
+   motion turned off (or the OS asks for reduced motion). */
+[data-motion="off"] .ctr-door-fx i,
+[data-motion="off"] .ctr-temp::before,
+[data-motion="off"] .ctr-subbox.ctr-frost::before,
+[data-motion="off"] .ctr-subbox.ctr-frost::after,
+[data-motion="off"] #container-contents-col::before {
+	animation: none;
+}
+[data-motion="off"] .ctr-door-fx i { display: none; }
+@media (prefers-reduced-motion: reduce) {
+	.ctr-door-fx i,
+	.ctr-temp::before,
+	.ctr-subbox.ctr-frost::before,
+	.ctr-subbox.ctr-frost::after,
+	#container-contents-col::before {
+		animation: none;
+	}
+	.ctr-door-fx i { display: none; }
 }
 #container-header {
 	display: flex;
@@ -3946,9 +4097,30 @@ body.fsim-external #look-resize-handle { display: none; }
 	color: var(--red);
 }
 #container-capacity {
+	font-family: var(--font-mono, monospace);
 	font-size: 11px;
+	font-variant-numeric: tabular-nums;
+	letter-spacing: 0.6px;
 	color: var(--text-dim);
 	text-align: center;
+}
+/* Load gauge under each capacity readout — `--fill` is set from JS as the
+   used/total percentage; 0% simply draws an empty track. */
+#container-capacity::after,
+.ctr-subbox-capacity::after {
+	content: "";
+	display: block;
+	height: 2px;
+	margin: 4px auto 0;
+	max-width: 220px;
+	border-radius: 1px;
+	background:
+		linear-gradient(90deg, var(--ctr-accent, var(--cyan)) var(--fill, 0%), rgba(255, 255, 255, 0.09) var(--fill, 0%));
+	box-shadow: 0 0 6px color-mix(in srgb, var(--ctr-accent, var(--cyan)) 25%, transparent);
+	transition: background 0.25s;
+}
+.ctr-subbox-capacity::after {
+	margin-left: 0;
 }
 #container-notify {
 	font-size: 11px;
@@ -3976,121 +4148,169 @@ body.fsim-external #look-resize-handle { display: none; }
 #container-contents-col {
 	padding-left: 14px;
 }
-/* ── The appliance body ──────────────────────────────────────────────────
-   The contents column is drawn as a physical door: casing + rounded corners,
-   a pull handle down the inner edge, hinge plates on the OUTER edge (handle
-   and hinges on opposite sides, as on a real door), and a gasket ring just
-   inside the frame. Only when a cold theme is active — ordinary containers
-   (crates, bags, trash bins) keep the plain column look untouched. */
+/* ── The appliance body — a frameless glass cabinet ──────────────────────
+   No hinges, no pull handle: this is a sealed slab of smoked glass in a
+   machined trim ring, opened by a capacitive touch rail down the inner edge.
+   The shell reuses the vocabulary the TV flatscreen skin settled on — a
+   layered directional box-shadow for the bezel, plus a screen-blended
+   specular that drifts across the pane — retuned to the appliance's own
+   palette. Only when a cold theme is active; crates and bags are untouched. */
 #container-box.ctr-theme-consumer #container-contents-col,
 #container-box.ctr-theme-commercial #container-contents-col {
 	position: relative;
-	margin: 2px 2px 2px 8px;
-	padding: 14px 16px 14px 26px;
-	border-radius: 18px 10px 10px 18px;
+	margin: 5px 6px 5px 10px;
+	padding: 14px 14px 14px 24px;
+	border-radius: 14px;
 	background-repeat: no-repeat;
-	/* two hinge plates on the outer (right) edge + the door face beneath */
-	background-size: 7px 30px, 7px 30px, auto;
-	background-position: right 2px top 26px, right 2px bottom 26px, 0 0;
 }
 #container-box.ctr-theme-consumer #container-contents-col {
-	border: 2px solid color-mix(in srgb, var(--ctr-cold) 50%, var(--border));
+	border: none;
+	background-color: rgba(4, 9, 13, 0.35);
 	background-image:
-		linear-gradient(180deg, #dff3ff, #7fb8d6 60%, #dff3ff),
-		linear-gradient(180deg, #dff3ff, #7fb8d6 60%, #dff3ff),
-		linear-gradient(172deg, rgba(255, 255, 255, 0.07), rgba(191, 233, 255, 0.02) 45%, rgba(120, 180, 210, 0.05));
+		/* ambient glare over the top-left of the pane (static — it belongs to
+		   the room's light, and nothing about it needs to move) */
+		radial-gradient(120% 85% at 12% 0%, rgba(205, 224, 238, 0.09), transparent 55%),
+		/* smoked pane, clearest where the cabinet light hits it */
+		linear-gradient(178deg, color-mix(in srgb, var(--ctr-cold) 13%, transparent), transparent 34%, rgba(0, 0, 0, 0.26)),
+		/* the unit's own light pooling behind the glass */
+		radial-gradient(125% 62% at 50% 0%, color-mix(in srgb, var(--ctr-cold) 20%, transparent), transparent 64%);
 	box-shadow:
-		inset 0 1px 0 rgba(255, 255, 255, 0.22),
-		inset 0 0 0 5px rgba(140, 190, 215, 0.07),   /* door gasket */
-		inset 0 0 26px rgba(191, 233, 255, 0.09),
-		-2px 0 10px rgba(0, 0, 0, 0.25);
+		/* machined trim ring — top-lit, shadowed underneath, so it reads as a
+		   real bevel rather than a drawn outline */
+		0 1px 0 1px color-mix(in srgb, var(--ctr-cold) 45%, #ffffff),
+		0 0 0 2px color-mix(in srgb, var(--ctr-cold) 45%, #262c31),
+		0 2px 0 2px rgba(0, 0, 0, 0.5),
+		0 0 0 4px color-mix(in srgb, var(--ctr-cold) 14%, #101418),
+		/* the unit standing off the panel */
+		0 16px 38px -14px rgba(0, 0, 0, 0.8),
+		/* pane seated into the ring */
+		inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+		inset 0 2px 18px rgba(0, 0, 0, 0.55),
+		inset 0 0 60px rgba(0, 0, 0, 0.38);
 }
 #container-box.ctr-theme-commercial #container-contents-col {
-	border: 2px solid var(--ctr-steel-hi);
+	border: none;
+	background-color: rgba(0, 0, 0, 0.32);
 	background-image:
-		linear-gradient(180deg, #d8dcdf, #6e7478 60%, #d8dcdf),
-		linear-gradient(180deg, #d8dcdf, #6e7478 60%, #d8dcdf),
-		repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.022) 0 1px, transparent 1px 3px);
-	background-color: rgba(0, 0, 0, 0.14);
+		radial-gradient(120% 85% at 12% 0%, rgba(205, 224, 238, 0.08), transparent 55%),
+		linear-gradient(178deg, rgba(216, 224, 230, 0.09), transparent 34%, rgba(0, 0, 0, 0.3)),
+		radial-gradient(125% 62% at 50% 0%, rgba(216, 224, 230, 0.1), transparent 64%),
+		repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.02) 0 1px, transparent 1px 3px);
 	box-shadow:
-		inset 0 1px 0 rgba(255, 255, 255, 0.07),
-		inset 0 0 0 5px rgba(0, 0, 0, 0.22),          /* heavy-duty gasket */
-		inset 0 0 20px rgba(0, 0, 0, 0.34),
-		-2px 0 10px rgba(0, 0, 0, 0.4);
+		0 1px 0 1px #aab1b7,
+		0 0 0 2px var(--ctr-steel-hi),
+		0 2px 0 2px rgba(0, 0, 0, 0.6),
+		0 0 0 4px #14171a,
+		0 16px 38px -14px rgba(0, 0, 0, 0.85),
+		inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+		inset 0 2px 18px rgba(0, 0, 0, 0.6),
+		inset 0 0 60px rgba(0, 0, 0, 0.45);
 }
-/* The pull handle — a vertical bar down the casing's inner edge, with a
-   specular highlight so it reads as a round chrome/steel tube. */
+/* The touch rail — a lit capacitive strip sunk into the inner edge. It does
+   the job the pull handle used to do, without any moving hardware. */
 #container-box.ctr-theme-consumer #container-contents-col::before,
 #container-box.ctr-theme-commercial #container-contents-col::before {
 	content: "";
 	position: absolute;
-	left: 7px;
-	top: 26px;
-	bottom: 26px;
-	width: 6px;
-	border-radius: 3px;
+	left: 9px;
+	top: 20px;
+	bottom: 20px;
+	width: 3px;
+	border-radius: 2px;
+	z-index: 3;
+	background-repeat: no-repeat;
+	background-size: 100% 20%, auto;
+	background-position: 0 -30%, 0 0;
+	animation: ctr-glint 11s ease-in-out infinite;
 }
 #container-box.ctr-theme-consumer #container-contents-col::before {
-	background: linear-gradient(90deg, #6f9fbb, #f2fbff 40%, #eaf8ff 55%, #7fb2ce);
-	box-shadow: 0 0 8px rgba(159, 216, 255, 0.45), 0 1px 2px rgba(0, 0, 0, 0.4);
+	background-image:
+		linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.85) 45% 55%, transparent),
+		linear-gradient(180deg,
+			color-mix(in srgb, var(--ctr-cold) 25%, transparent),
+			var(--ctr-cold) 28% 72%,
+			color-mix(in srgb, var(--ctr-cold) 25%, transparent));
+	box-shadow:
+		0 0 10px color-mix(in srgb, var(--ctr-cold) 60%, transparent),
+		inset 0 0 0 1px rgba(0, 0, 0, 0.35);
 }
 #container-box.ctr-theme-commercial #container-contents-col::before {
-	background: linear-gradient(90deg, #63696d, #eef1f2 40%, #d3d7da 55%, #6d7377);
-	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
-}
-/* Condensation on the consumer door face — uneven beads with a couple of
-   short drip trails, hand-placed rather than tiled so it never reads as a
-   ruled line. Commercial steel doesn't sweat; it gets corner rivets instead. */
-#container-box.ctr-theme-consumer #container-contents-col::after,
-#container-box.ctr-theme-commercial #container-contents-col::after {
-	content: "";
-	position: absolute;
-	pointer-events: none;
-}
-#container-box.ctr-theme-consumer #container-contents-col::after {
-	top: 6px;
-	left: 28px;
-	right: 18px;
-	height: 34px;
 	background-image:
-		radial-gradient(circle at 7% 5px, rgba(255, 255, 255, 0.6) 0 1.7px, transparent 2.7px),
-		radial-gradient(circle at 19% 14px, rgba(210, 240, 255, 0.5) 0 1.1px, transparent 2px),
-		radial-gradient(circle at 31% 3px, rgba(255, 255, 255, 0.42) 0 1.4px, transparent 2.3px),
-		radial-gradient(circle at 40% 19px, rgba(210, 240, 255, 0.45) 0 1px, transparent 1.8px),
-		radial-gradient(circle at 52% 9px, rgba(255, 255, 255, 0.55) 0 1.8px, transparent 2.9px),
-		radial-gradient(circle at 63% 22px, rgba(210, 240, 255, 0.4) 0 1.2px, transparent 2.1px),
-		radial-gradient(circle at 71% 4px, rgba(255, 255, 255, 0.38) 0 1.1px, transparent 1.9px),
-		radial-gradient(circle at 84% 13px, rgba(210, 240, 255, 0.52) 0 1.5px, transparent 2.5px),
-		radial-gradient(circle at 93% 6px, rgba(255, 255, 255, 0.34) 0 1px, transparent 1.8px),
-		linear-gradient(180deg, rgba(200, 238, 255, 0.42), transparent 85%),
-		linear-gradient(180deg, rgba(200, 238, 255, 0.3), transparent 70%),
-		linear-gradient(180deg, rgba(200, 238, 255, 0.24), transparent 60%);
-	background-size:
-		auto, auto, auto, auto, auto, auto, auto, auto, auto,
-		2px 30px, 2px 19px, 1px 13px;
-	background-position:
-		0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0,
-		7% 4px, 52% 8px, 84% 12px;
-	background-repeat: no-repeat;
+		linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.7) 45% 55%, transparent),
+		linear-gradient(180deg,
+			color-mix(in srgb, var(--ctr-hazard) 20%, transparent),
+			var(--ctr-hazard) 28% 72%,
+			color-mix(in srgb, var(--ctr-hazard) 20%, transparent));
+	box-shadow:
+		0 0 9px color-mix(in srgb, var(--ctr-hazard) 45%, transparent),
+		inset 0 0 0 1px rgba(0, 0, 0, 0.5);
 }
-#container-box.ctr-theme-commercial #container-contents-col::after {
-	inset: 7px 9px auto 22px;
-	height: 5px;
-	background-image:
-		radial-gradient(circle at 3px 2.5px, rgba(255, 255, 255, 0.32) 0 1.6px, transparent 2.3px),
-		radial-gradient(circle at calc(100% - 3px) 2.5px, rgba(255, 255, 255, 0.32) 0 1.6px, transparent 2.3px);
-	background-repeat: no-repeat;
-}
-
-/* The decorations above (handle, hinges, condensation, frost) are absolutely
-   positioned, so they'd paint over the item cards. Lift the real content one
-   level so it always sits on top; the handle/hinges live in the casing's
-   padding gutter and stay visible either way. */
+/* The touch rail is absolutely positioned; lift the real
+   content above it and the pooled light. */
 #container-box.ctr-theme-consumer #container-contents-col > *,
 #container-box.ctr-theme-commercial #container-contents-col > *,
 .ctr-subbox.ctr-frost > * {
 	position: relative;
 	z-index: 1;
+}
+
+/* ── Behind the glass ────────────────────────────────────────────────────
+   Condensation on the inner face of the pane, under the contents (z-index 0
+   against their 1) so it never fights the item text. Domestic units only —
+   an industrial cabinet runs its pane dry. */
+.ctr-door-fx {
+	display: none;
+	position: absolute;
+	inset: 0;
+	overflow: hidden;
+	pointer-events: none;
+	border-radius: 14px;
+}
+#container-box.ctr-theme-consumer #container-contents-col > .ctr-door-fx {
+	display: block;
+	z-index: 0;
+}
+/* The hairline where the slab meets the cabinet — the only seam on the unit,
+   with the interior light bleeding through it. */
+.ctr-door-fx::before {
+	content: "";
+	position: absolute;
+	top: 10%;
+	bottom: 10%;
+	right: 9px;
+	width: 1px;
+	background: linear-gradient(180deg,
+		transparent,
+		color-mix(in srgb, var(--ctr-cold, #bfe9ff) 60%, transparent) 18% 82%,
+		transparent);
+	box-shadow: 0 0 6px color-mix(in srgb, var(--ctr-cold, #bfe9ff) 35%, transparent);
+}
+/* Beads that gather and run, each on its own long cycle so two rarely fall
+   together. They track down the gutters, clear of the shelves. */
+.ctr-door-fx i {
+	position: absolute;
+	top: 6%;
+	width: 3px;
+	height: 3px;
+	border-radius: 50%;
+	opacity: 0;
+	background: radial-gradient(circle at 35% 30%, #ffffff, rgba(200, 238, 255, 0.4));
+	box-shadow: 0 0 4px rgba(255, 255, 255, 0.5);
+	/* Travels by transform, in viewport units against a panel that is itself
+	   sized in vh — same reason as the pane above: animating `top` repaints
+	   the layer, and this one sits under the item cards. */
+	animation: ctr-drip 13s linear infinite;
+}
+.ctr-door-fx i:nth-child(1) { right: 4px; animation-duration: 13s; }
+.ctr-door-fx i:nth-child(2) { right: 14px; animation-duration: 19s; animation-delay: -7s; }
+.ctr-door-fx i:nth-child(3) { left: 16px; animation-duration: 23s; animation-delay: -14s; }
+@keyframes ctr-drip {
+	0% { transform: translateY(0); opacity: 0; }
+	5% { opacity: 0.9; }
+	8% { transform: translateY(1vh); }   /* hangs a moment before it lets go */
+	60% { opacity: 0.75; }
+	72% { transform: translateY(56vh); opacity: 0; }
+	100% { transform: translateY(56vh); opacity: 0; }
 }
 
 /* Compartment header row: label on the left, temperature readout right. */
@@ -4110,17 +4330,61 @@ body.fsim-external #look-resize-handle { display: none; }
    is themed cold and the compartment reports a preservation tier. */
 .ctr-temp {
 	display: none;
-	font-size: 9px;
-	letter-spacing: 1px;
-	padding: 2px 6px;
-	border-radius: 3px;
+	align-items: baseline;
+	gap: 6px;
+	font-family: var(--font-mono, monospace);
+	line-height: 1;
+	padding: 5px 9px 5px 8px;
+	border-radius: 4px;
 	font-variant-numeric: tabular-nums;
-	background: rgba(0, 0, 0, 0.5);
-	border: 1px solid rgba(255, 255, 255, 0.12);
+	background: linear-gradient(180deg, rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0.48));
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	box-shadow:
+		inset 0 1px 3px rgba(0, 0, 0, 0.75),
+		inset 0 0 12px color-mix(in srgb, currentColor 16%, transparent),
+		0 1px 0 rgba(255, 255, 255, 0.05);
 	flex-shrink: 0;
 }
 .ctr-temp.active {
-	display: inline-block;
+	display: inline-flex;
+}
+/* The setpoint name, set small and wide against the large numerals — the
+   contrast between the two is what makes a readout look engineered rather
+   than merely small. */
+.ctr-temp-mode {
+	font-size: 8px;
+	letter-spacing: 1.6px;
+	text-transform: uppercase;
+	opacity: 0.62;
+	align-self: center;
+	padding-right: 7px;
+	border-right: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+}
+.ctr-temp-val {
+	font-size: 15px;
+	font-weight: 700;
+	letter-spacing: 0.5px;
+}
+.ctr-temp-unit {
+	font-size: 9px;
+	letter-spacing: 0.5px;
+	opacity: 0.8;
+}
+/* Compressor-status pip, breathing slowly beside the reading. */
+.ctr-temp::before {
+	content: "";
+	width: 5px;
+	height: 5px;
+	flex-shrink: 0;
+	align-self: center;
+	border-radius: 50%;
+	background: currentColor;
+	box-shadow: 0 0 5px currentColor;
+	animation: ctr-temp-pip 3.2s ease-in-out infinite;
+}
+@keyframes ctr-temp-pip {
+	0%, 100% { opacity: 0.85; }
+	50% { opacity: 0.25; }
 }
 #container-box.ctr-theme-consumer .ctr-temp {
 	color: #bfe9ff;
@@ -4133,42 +4397,197 @@ body.fsim-external #look-resize-handle { display: none; }
 	border-color: rgba(232, 184, 75, 0.28);
 }
 .ctr-temp.ctr-temp-frozen {
-	color: #d8f2ff !important;
-	text-shadow: 0 0 7px rgba(200, 238, 255, 0.85) !important;
-	border-color: rgba(200, 238, 255, 0.38) !important;
+	color: color-mix(in srgb, var(--ctr-frost, #cfeeff) 70%, #ffffff) !important;
+	text-shadow: 0 0 7px color-mix(in srgb, var(--ctr-frost, #cfeeff) 85%, transparent) !important;
+	border-color: color-mix(in srgb, var(--ctr-frost, #cfeeff) 38%, transparent) !important;
 }
 
 /* ── Compartment interiors ───────────────────────────────────────────────
-   Shelf edges + an interior light washing down from the top of each
-   compartment. Drawn on the list's own background so item cards sit ON the
-   shelves; an empty compartment still reads as a lit, shelved interior. */
+   A lit well: interior light washing down from the top, darkness pooling at
+   the bottom. The shelves themselves are drawn per item card (below) rather
+   than at a fixed pitch here — a repeating background can't know where the
+   variable-height cards are, so its lines sliced through them. */
 #container-box.ctr-theme-consumer #container-contents-list,
 #container-box.ctr-theme-commercial #container-contents-list,
 #container-box.ctr-theme-consumer #container-freezer-list,
 #container-box.ctr-theme-commercial #container-freezer-list {
+	position: relative;
 	border-radius: 4px;
-	background-repeat: no-repeat, repeat-y;
-	background-size: 100% 100%, 100% 58px;
+	padding: 12px 6px 10px;
+	background-repeat: no-repeat;
+	scrollbar-width: thin;
+	scrollbar-color: color-mix(in srgb, var(--ctr-accent) 45%, transparent) transparent;
 }
 #container-box.ctr-theme-consumer #container-contents-list,
 #container-box.ctr-theme-consumer #container-freezer-list {
 	background-image:
-		linear-gradient(180deg, rgba(214, 242, 255, 0.14), rgba(214, 242, 255, 0.03) 26%, transparent 55%),
-		linear-gradient(180deg,
-			transparent 0 54px,
-			rgba(226, 246, 255, 0.16) 54px 55px,
-			rgba(0, 0, 0, 0.2) 55px 57px,
-			transparent 57px 58px);
+		linear-gradient(180deg, color-mix(in srgb, var(--ctr-cold) 9%, transparent), transparent 40%),
+		radial-gradient(120% 40% at 50% 100%, rgba(0, 0, 0, 0.3), transparent 70%);
+	box-shadow: inset 0 0 22px rgba(0, 0, 0, 0.3);
 }
 #container-box.ctr-theme-commercial #container-contents-list,
 #container-box.ctr-theme-commercial #container-freezer-list {
 	background-image:
-		linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.015) 24%, transparent 52%),
+		linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 38%),
+		radial-gradient(120% 40% at 50% 100%, rgba(0, 0, 0, 0.4), transparent 70%);
+	box-shadow: inset 0 0 22px rgba(0, 0, 0, 0.42);
+}
+/* The light bar — actual hardware at the top of each compartment, blazing at
+   its centre and falling off to nothing at the ends, throwing a wide soft
+   spill down into the well. This is where the light in here comes FROM;
+   before, the wells were lit by a gradient with no source. */
+#container-box.ctr-theme-consumer #container-contents-list::before,
+#container-box.ctr-theme-consumer #container-freezer-list::before,
+#container-box.ctr-theme-commercial #container-contents-list::before,
+#container-box.ctr-theme-commercial #container-freezer-list::before {
+	content: "";
+	position: absolute;
+	top: 4px;
+	left: 12%;
+	right: 12%;
+	height: 3px;
+	border-radius: 2px;
+	pointer-events: none;
+}
+#container-box.ctr-theme-consumer #container-contents-list::before,
+#container-box.ctr-theme-consumer #container-freezer-list::before {
+	background: linear-gradient(90deg,
+		transparent,
+		color-mix(in srgb, var(--ctr-cold) 70%, transparent) 14%,
+		#ffffff 50%,
+		color-mix(in srgb, var(--ctr-cold) 70%, transparent) 86%,
+		transparent);
+	box-shadow:
+		0 0 12px color-mix(in srgb, var(--ctr-cold) 70%, transparent),
+		0 10px 34px -6px color-mix(in srgb, var(--ctr-cold) 40%, transparent);
+}
+#container-box.ctr-theme-commercial #container-contents-list::before,
+#container-box.ctr-theme-commercial #container-freezer-list::before {
+	background: linear-gradient(90deg, transparent, rgba(226, 235, 244, 0.65) 14%, #ffffff 50%, rgba(226, 235, 244, 0.65) 86%, transparent);
+	box-shadow:
+		0 0 12px rgba(226, 235, 244, 0.5),
+		0 10px 34px -6px rgba(226, 235, 244, 0.22);
+}
+
+/* An empty compartment has no cards to hang shelves off, and a bare well that
+   tall reads as a bug. Draw the empty shelf run instead — nothing is standing
+   on them, so a fixed pitch is exactly right here. */
+#container-box.ctr-theme-consumer #container-contents-list:empty,
+#container-box.ctr-theme-consumer #container-freezer-list:empty,
+#container-box.ctr-theme-commercial #container-contents-list:empty,
+#container-box.ctr-theme-commercial #container-freezer-list:empty {
+	background-repeat: no-repeat, no-repeat, repeat-y;
+	background-size: 100% 100%, 100% 100%, 100% 62px;
+	background-position: 0 0, 0 0, 0 24px;
+}
+#container-box.ctr-theme-consumer #container-contents-list:empty,
+#container-box.ctr-theme-consumer #container-freezer-list:empty {
+	background-image:
+		linear-gradient(180deg, color-mix(in srgb, var(--ctr-cold) 9%, transparent), transparent 40%),
+		radial-gradient(120% 40% at 50% 100%, rgba(0, 0, 0, 0.3), transparent 70%),
 		linear-gradient(180deg,
-			transparent 0 54px,
-			rgba(214, 220, 224, 0.14) 54px 55px,
-			rgba(0, 0, 0, 0.3) 55px 57px,
-			transparent 57px 58px);
+			transparent 0 58px,
+			var(--ctr-shelf-lip) 58px 59px,
+			rgba(0, 0, 0, 0.5) 59px 61px,
+			transparent 61px 62px);
+}
+#container-box.ctr-theme-commercial #container-contents-list:empty,
+#container-box.ctr-theme-commercial #container-freezer-list:empty {
+	background-image:
+		linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 38%),
+		radial-gradient(120% 40% at 50% 100%, rgba(0, 0, 0, 0.4), transparent 70%),
+		linear-gradient(180deg,
+			transparent 0 58px,
+			var(--ctr-shelf-lip) 58px 59px,
+			rgba(0, 0, 0, 0.5) 59px 61px,
+			transparent 61px 62px);
+}
+
+/* Every card stands on its own shelf lip — a lit edge over its shadow, drawn
+   in the gutter under the card so shelf and contents always line up. */
+/* Only the cards actually inside the appliance are chilled — the inventory
+   column is your pockets, and keeps the standard card look. */
+#container-box.ctr-theme-consumer #container-contents-list .ctr-item-card,
+#container-box.ctr-theme-consumer #container-freezer-list .ctr-item-card,
+#container-box.ctr-theme-commercial #container-contents-list .ctr-item-card,
+#container-box.ctr-theme-commercial #container-freezer-list .ctr-item-card {
+	position: relative;
+	background: var(--ctr-card-bg);
+	border-color: var(--ctr-card-border);
+	/* A contact shadow, so the item is standing ON the shelf rather than
+	   floating in front of it. Cheap, static, and does more for the sense of
+	   depth in here than any amount of animation. */
+	box-shadow:
+		0 6px 10px -6px rgba(0, 0, 0, 0.8),
+		inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+/* Light bouncing off the shelf beneath the item — a soft smear the width of
+   the card, tucked under it and above the shelf lip. */
+#container-box.ctr-theme-consumer #container-contents-list .ctr-item-card::before,
+#container-box.ctr-theme-consumer #container-freezer-list .ctr-item-card::before,
+#container-box.ctr-theme-commercial #container-contents-list .ctr-item-card::before,
+#container-box.ctr-theme-commercial #container-freezer-list .ctr-item-card::before {
+	content: "";
+	position: absolute;
+	left: 10%;
+	right: 10%;
+	bottom: -6px;
+	height: 6px;
+	border-radius: 50%;
+	pointer-events: none;
+	filter: blur(2px);
+	background: radial-gradient(ellipse at 50% 0%, var(--ctr-shelf-lip), transparent 72%);
+	opacity: 0.5;
+}
+#container-box.ctr-theme-consumer #container-contents-list .ctr-item-card::after,
+#container-box.ctr-theme-consumer #container-freezer-list .ctr-item-card::after,
+#container-box.ctr-theme-commercial #container-contents-list .ctr-item-card::after,
+#container-box.ctr-theme-commercial #container-freezer-list .ctr-item-card::after {
+	content: "";
+	position: absolute;
+	left: -6px;
+	right: -6px;
+	bottom: -6px;
+	height: 3px;
+	border-radius: 1px;
+	pointer-events: none;
+	background: linear-gradient(180deg, var(--ctr-shelf-lip) 0 1px, rgba(0, 0, 0, 0.55) 1px);
+}
+#container-box.ctr-theme-consumer .ctr-item-card:hover,
+#container-box.ctr-theme-commercial .ctr-item-card:hover,
+#container-box.ctr-theme-consumer #container-contents-list .ctr-item-card:hover,
+#container-box.ctr-theme-consumer #container-freezer-list .ctr-item-card:hover,
+#container-box.ctr-theme-commercial #container-contents-list .ctr-item-card:hover,
+#container-box.ctr-theme-commercial #container-freezer-list .ctr-item-card:hover {
+	border-color: var(--ctr-accent);
+	box-shadow:
+		0 6px 10px -6px rgba(0, 0, 0, 0.8),
+		inset 0 1px 0 rgba(255, 255, 255, 0.06),
+		0 0 12px color-mix(in srgb, var(--ctr-accent) 25%, transparent);
+}
+#container-box.ctr-theme-consumer .ctr-action-btn:hover,
+#container-box.ctr-theme-commercial .ctr-action-btn:hover {
+	border-color: var(--ctr-accent);
+	color: var(--ctr-accent);
+}
+#container-box.ctr-theme-consumer .ctr-drag-over,
+#container-box.ctr-theme-commercial .ctr-drag-over {
+	border-color: var(--ctr-accent);
+	background-color: color-mix(in srgb, var(--ctr-accent) 8%, transparent);
+}
+/* The "(empty)" line reads as a label inside a lit, empty interior. */
+#container-box.ctr-theme-consumer #container-contents-list:empty::after,
+#container-box.ctr-theme-consumer #container-freezer-list:empty::after,
+#container-box.ctr-theme-commercial #container-contents-list:empty::after,
+#container-box.ctr-theme-commercial #container-freezer-list:empty::after {
+	margin: auto;
+	font-family: var(--font-mono, monospace);
+	font-style: normal;
+	font-size: 10px;
+	letter-spacing: 3.5px;
+	text-indent: 3.5px;                  /* balance the trailing letter-space */
+	text-transform: uppercase;
+	opacity: 0.5;
 }
 /* Freezer sub-box: shown only when the opened container has a paired box
    (e.g. a fridge's separate freezer compartment) — a smaller drop zone
@@ -4191,7 +4610,10 @@ body.fsim-external #look-resize-handle { display: none; }
 	margin-bottom: 2px;
 }
 .ctr-subbox-capacity {
+	font-family: var(--font-mono, monospace);
 	font-size: 10px;
+	font-variant-numeric: tabular-nums;
+	letter-spacing: 0.5px;
 	color: var(--text-dim);
 	margin-bottom: 6px;
 }
@@ -4227,12 +4649,16 @@ body.fsim-external #look-resize-handle { display: none; }
 	padding: 0 4px;
 }
 .container-section-label {
-	font-size: 9px;
+	font-size: 10px;
+	font-weight: 600;
 	text-transform: uppercase;
-	letter-spacing: 2px;
+	letter-spacing: 2.2px;
 	color: var(--text-dim);
 	margin-bottom: 8px;
 	flex-shrink: 0;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 #container-inv-list,
 #container-contents-list {
@@ -4265,14 +4691,14 @@ body.fsim-external #look-resize-handle { display: none; }
 .ctr-item-card {
 	background: var(--bg3);
 	border: 1px solid var(--border);
-	border-radius: 3px;
-	padding: 8px;
+	border-radius: 4px;
+	padding: 9px 10px;
+	min-height: 38px;
 	cursor: grab;
-	font-size: 11px;
-	transition: border-color 0.15s;
+	transition: border-color 0.15s, box-shadow 0.15s, transform 0.12s;
 	display: flex;
 	align-items: center;
-	gap: 6px;
+	gap: 8px;
 }
 .ctr-item-card:hover {
 	border-color: var(--cyan);
@@ -4280,13 +4706,41 @@ body.fsim-external #look-resize-handle { display: none; }
 .ctr-item-card.dragging {
 	opacity: 0.4;
 }
+/* Type hierarchy on a card: the name carries it at a readable size, the
+   quantity is a badge, and the weight is small tabular mono hard against the
+   right edge so a column of cards lines up as a table would. */
 .ctr-name {
 	color: var(--text-bright);
 	flex: 1;
+	min-width: 0;
+	font-size: 12.5px;
+	line-height: 1.3;
+	letter-spacing: 0.2px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.ctr-qty {
+	flex-shrink: 0;
+	font-family: var(--font-mono, monospace);
+	font-size: 10px;
+	font-weight: 700;
+	line-height: 1;
+	padding: 3px 5px;
+	border-radius: 3px;
+	color: var(--text);
+	background: rgba(255, 255, 255, 0.07);
+	box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
 }
 .ctr-meta {
+	flex-shrink: 0;
 	color: var(--text-dim);
-	font-size: 10px;
+	font-family: var(--font-mono, monospace);
+	font-size: 10.5px;
+	font-variant-numeric: tabular-nums;
+	letter-spacing: 0.3px;
+	min-width: 46px;
+	text-align: right;
 }
 .ctr-action-btn {
 	display: none;
@@ -4294,19 +4748,31 @@ body.fsim-external #look-resize-handle { display: none; }
 	border: 1px solid var(--border);
 	color: var(--text-dim);
 	font-size: 9px;
-	letter-spacing: 1px;
+	letter-spacing: 1.4px;
 	text-transform: uppercase;
-	padding: 2px 6px;
+	padding: 4px 8px;
 	cursor: pointer;
-	border-radius: 2px;
+	border-radius: 3px;
 	flex-shrink: 0;
 }
 .ctr-action-btn:hover {
 	border-color: var(--cyan);
 	color: var(--cyan);
 }
-.ctr-item-card:hover .ctr-action-btn {
+/* The button holds its space and fades in, rather than appearing and shoving
+   the name and weight sideways on every hover. */
+.ctr-item-card .ctr-action-btn {
 	display: block;
+	opacity: 0;
+	pointer-events: none;
+	transform: translateX(3px);
+	transition: opacity 0.15s, transform 0.15s, border-color 0.15s, color 0.15s;
+}
+.ctr-item-card:hover .ctr-action-btn,
+.ctr-action-btn:focus-visible {
+	opacity: 1;
+	pointer-events: auto;
+	transform: none;
 }
 
 /* Quantity split dialog */
@@ -4437,20 +4903,43 @@ body.fsim-external #look-resize-handle { display: none; }
 	inset: 0;
 	background: transparent;
 	z-index: 100;
-	align-items: center;
+	/* Anchored low and wide rather than dead-centre: a centred rectangle reads as
+	   an OS dialog no matter how big it gets, while a low band leaves the room
+	   above it visible and reads as the world being talked over. */
+	align-items: flex-end;
 	justify-content: center;
+	padding-bottom: 4vh;
+	box-sizing: border-box;
 }
 #dialogue-panel.active {
 	display: flex;
 }
 
+/* The panel takes the floor: rises into place rather than popping. Exit is the
+   same move reversed, driven by `.closing` (see closeDialogue in dialogue.js). */
+@keyframes dlg-in {
+	from { opacity: 0; transform: translateY(22px) scale(0.985); }
+	to   { opacity: 1; transform: none; }
+}
+@keyframes dlg-out {
+	from { opacity: 1; transform: none; }
+	to   { opacity: 0; transform: translateY(14px) scale(0.99); }
+}
+#dialogue-panel.active #dialogue-box {
+	animation: dlg-in 0.18s ease-out;
+}
+#dialogue-panel.closing #dialogue-box {
+	animation: dlg-out 0.15s ease-in forwards;
+}
+
 #dialogue-box {
 	background: var(--bg2);
 	border: 1px solid var(--accent);
-	padding: 16px 18px;
-	width: 480px;
-	min-height: 360px;
-	max-height: 70vh;
+	padding: 22px 26px;
+	width: 760px;
+	max-width: 92vw;
+	min-height: 420px;
+	max-height: 78vh;
 	border-radius: 2px;
 	display: flex;
 	flex-direction: column;
@@ -4466,9 +4955,9 @@ body.fsim-external #look-resize-handle { display: none; }
 #dialogue-npc-name {
 	color: var(--accent);
 	font-weight: bold;
-	font-size: 13px;
+	font-size: 21px;
 	text-transform: uppercase;
-	letter-spacing: 1px;
+	letter-spacing: 2px;
 }
 #dialogue-close {
 	background: none;
@@ -4488,20 +4977,102 @@ body.fsim-external #look-resize-handle { display: none; }
 }
 #dialogue-text {
 	color: var(--text-bright);
-	margin-bottom: 8px;
-	font-size: 13px;
-	line-height: 1.45;
+	margin-bottom: 14px;
+	font-size: 22px;
+	line-height: 1.5;
 	white-space: pre-wrap;
 	overflow-y: auto;
 	flex: 1;
-	min-height: 120px;
+	min-height: 160px;
 }
+/* Shop mode reuses #dialogue-text as its two-pane container — keep that dense. */
+#dialogue-box.shop-mode #dialogue-text { font-size: 13px; }
+/* The speaker still talking. Sits in place of the line while the NPC takes their
+   beat (THINK_MS in dialogue.js) so the panel visibly waits on them. */
+.dialogue-thinking {
+	color: var(--text-dim);
+	letter-spacing: 4px;
+	animation: dlg-think 0.9s ease-in-out infinite;
+}
+@keyframes dlg-think {
+	0%, 100% { opacity: 0.25; }
+	50%      { opacity: 0.8; }
+}
+
+/* Stage direction — what the speaker's body is doing, and what changed in their
+   manner when a line of yours moved reputation. Server-authored (`stage` on the
+   dialogue message); italic and dim so it never reads as speech. */
+#dialogue-stage {
+	display: none;
+	font-style: italic;
+	color: var(--text-dim);
+	font-size: 16px;
+	line-height: 1.4;
+	margin-bottom: 10px;
+	flex-shrink: 0;
+}
+#dialogue-stage.on {
+	display: block;
+}
+
+/* Stakes band — one line saying where the hovered/focused option goes. Holds its
+   height always so the option column never shifts as the pointer moves. */
+#dialogue-hint {
+	min-height: 1.5em;
+	font-size: 14px;
+	line-height: 1.5;
+	color: var(--cyan);
+	opacity: 0.8;
+	margin-bottom: 6px;
+	flex-shrink: 0;
+}
+/* The stakes of an irreversible option are stated in its own colour. */
+#dialogue-hint.danger {
+	color: var(--red);
+	opacity: 1;
+}
+
 #dialogue-options {
 	display: flex;
 	flex-direction: column;
-	gap: 4px;
+	gap: 7px;
 	flex-shrink: 0;
 }
+/* Veiled = built but not yet offered: the options (and the stage line) hold their
+   space while the speaker is still talking, so nothing reflows when they land. */
+#dialogue-options.veiled,
+#dialogue-stage.veiled {
+	opacity: 0;
+	pointer-events: none;
+}
+#dialogue-options,
+#dialogue-stage {
+	transition: opacity 0.22s ease;
+}
+
+/* Shop mode is a dense terminal — the conversation bands don't belong in it. */
+#dialogue-box.shop-mode #dialogue-stage,
+#dialogue-box.shop-mode #dialogue-hint {
+	display: none;
+}
+
+/* Speaker mood, from your standing with the org they belong to (`mood` on the
+   dialogue message). Text-only: it tints and names the plate, nothing else. */
+#dialogue-box[data-mood='hostile'] #dialogue-npc-name { color: var(--red); }
+#dialogue-box[data-mood='cold'] #dialogue-npc-name { color: var(--text-dim); }
+#dialogue-box[data-mood='warm'] #dialogue-npc-name { color: var(--green); }
+#dialogue-box[data-mood='devoted'] #dialogue-npc-name { color: var(--purple); }
+#dialogue-box[data-mood] #dialogue-npc-name::after {
+	font-size: 13px;
+	font-weight: normal;
+	letter-spacing: 1px;
+	opacity: 0.65;
+	margin-left: 10px;
+}
+#dialogue-box[data-mood='hostile'] #dialogue-npc-name::after { content: '· will not forget you'; }
+#dialogue-box[data-mood='cold'] #dialogue-npc-name::after { content: '· does not know you'; }
+#dialogue-box[data-mood='warm'] #dialogue-npc-name::after { content: '· knows your face'; }
+#dialogue-box[data-mood='devoted'] #dialogue-npc-name::after { content: '· one of theirs'; }
 .dialogue-opt {
 	background: var(--bg3);
 	border: 1px solid var(--border);
@@ -4514,15 +5085,46 @@ body.fsim-external #look-resize-handle { display: none; }
 	border-radius: 2px;
 	transition: all 0.1s;
 }
+#dialogue-box:not(.shop-mode) .dialogue-opt {
+	font-size: 18px;
+	padding: 10px 14px;
+}
 .dialogue-opt:hover {
 	border-color: var(--accent);
 	color: var(--accent);
 }
+/* An option you can't walk back — starts violence, gets you charged, burns
+   standing (server tags it `_kind: 'hostile'`). Red edging plus its own stakes
+   line in #dialogue-hint; it must not look like every other choice. */
+.dialogue-opt-hostile {
+	border-color: var(--red);
+	color: var(--red);
+	box-shadow: inset 2px 0 0 var(--red);
+}
+.dialogue-opt-hostile:hover {
+	border-color: var(--red);
+	color: #fff;
+	background: rgba(255, 59, 92, 0.14);
+}
+
 .dialogue-opt-branch {
 	color: var(--accent);
 	margin-right: 4px;
 	font-style: normal;
 }
+/* Destination glyph on an option that opens a shop / takes or hands in a job /
+   ends the conversation. Server tags the option (`_kind`); the icon sits ahead of
+   the label so the column of options reads down its left edge. */
+.dialogue-opt-icon {
+	margin-right: 5px;
+	font-size: 12px;
+	opacity: 0.85;
+}
+#dialogue-box:not(.shop-mode) .dialogue-opt-icon {
+	margin-right: 8px;
+	font-size: 16px;
+}
+
 /* A turn-in option for a quest that's accepted but not yet finished: looks
    dimmed/locked, but is still tappable — it routes to the Tablet quest screen. */
 .dialogue-opt-locked {
@@ -11706,4 +12308,353 @@ input.trade-qty { width: 56px; }
 @media (prefers-reduced-motion: reduce) {
 	.accolade-card, .accolade-card::before, .accolade-card::after { animation-duration: 1ms; }
 	.accolade-title { animation: none; -webkit-text-fill-color: var(--text); }
+}
+
+/* ── WARDROBE PANEL ────────────────────────────────────────────────────────
+   Container furniture flagged `wardrobe` opens here instead of the box panel:
+   saved outfits, a paper doll of drop pads, and the wardrobe's stock. Themed as
+   a lacquered cabinet — warm brass over the usual terminal cyan, so it reads as
+   a piece of furniture rather than another equipment list. */
+#wardrobe-panel {
+	display: none;
+	position: fixed;
+	inset: 0;
+	background: transparent;
+	z-index: 150;
+	align-items: center;
+	justify-content: center;
+}
+#wardrobe-panel.active { display: flex; }
+#wardrobe-box {
+	position: relative;
+	background:
+		linear-gradient(180deg, rgba(60, 40, 24, 0.22), rgba(0, 0, 0, 0) 60%),
+		var(--bg2);
+	border: 1px solid #b98b4a;
+	box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6) inset, 0 18px 50px rgba(0, 0, 0, 0.55);
+	padding: 20px;
+	width: 96%;
+	max-width: 900px;
+	height: 82vh;
+	max-height: 90vh;
+	border-radius: 3px;
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+/* Centre seam of the double doors, standing open. */
+#wardrobe-box::before {
+	content: '';
+	position: absolute;
+	inset: 6px;
+	border: 1px solid rgba(185, 139, 74, 0.22);
+	border-radius: 2px;
+	pointer-events: none;
+}
+#wardrobe-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+#wardrobe-header h2 {
+	color: #e0b978;
+	font-size: 14px;
+	letter-spacing: 3px;
+	text-transform: uppercase;
+	margin: 0;
+}
+#wardrobe-close {
+	background: transparent;
+	border: 1px solid var(--border);
+	color: var(--text-dim);
+	width: 26px;
+	height: 26px;
+	cursor: pointer;
+	border-radius: 2px;
+}
+#wardrobe-close:hover { border-color: #e0b978; color: #e0b978; }
+#wardrobe-notify {
+	font-size: 11px;
+	color: var(--yellow, #c8a000);
+	text-align: center;
+	min-height: 14px;
+}
+#wardrobe-body {
+	display: flex;
+	gap: 14px;
+	flex: 1;
+	min-height: 0;
+	overflow: hidden;
+}
+.wdr-col {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	min-height: 0;
+	min-width: 0;
+}
+#wardrobe-outfits-col { flex: 1.1; }
+#wardrobe-doll-col { flex: 1.2; border-left: 1px solid rgba(185, 139, 74, 0.2); border-right: 1px solid rgba(185, 139, 74, 0.2); padding: 0 12px; }
+#wardrobe-stock-col { flex: 1.1; }
+#wardrobe-outfit-list,
+#wardrobe-hanging-list,
+#wardrobe-carried-list {
+	flex: 1;
+	overflow-y: auto;
+	min-height: 60px;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	padding: 4px;
+	border: 1px dashed transparent;
+	border-radius: 3px;
+}
+.wdr-empty {
+	font-size: 11px;
+	color: var(--text-dim);
+	opacity: 0.7;
+	padding: 6px 4px;
+	font-style: italic;
+}
+
+/* --- Saved outfits --- */
+.wdr-outfit {
+	border: 1px solid var(--border);
+	border-left: 2px solid #b98b4a;
+	border-radius: 2px;
+	padding: 6px 8px;
+	cursor: pointer;
+	background: rgba(0, 0, 0, 0.2);
+}
+.wdr-outfit:hover { border-color: #e0b978; background: rgba(185, 139, 74, 0.08); }
+.wdr-outfit-incomplete { border-left-color: var(--text-dim); }
+.wdr-outfit-head {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 6px;
+}
+.wdr-outfit-name {
+	color: #e0b978;
+	font-size: 12px;
+	letter-spacing: 1px;
+	text-transform: uppercase;
+}
+.wdr-outfit-btns { display: flex; gap: 4px; flex-shrink: 0; }
+.wdr-outfit-pieces {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	margin-top: 4px;
+}
+.wdr-piece {
+	font-size: 10px;
+	color: var(--text-dim);
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	padding: 0 6px;
+}
+/* A piece that is neither on you nor in this wardrobe — the outfit won't
+   assemble fully, and the panel says so before you click wear. */
+.wdr-piece-missing {
+	color: var(--red, #ff5555);
+	border-color: rgba(255, 85, 85, 0.4);
+	text-decoration: line-through;
+}
+
+/* --- Paper doll --- */
+#wardrobe-doll {
+	position: relative;
+	flex: 1;
+	min-height: 0;
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	grid-template-areas:
+		"head  head"
+		"torso hands"
+		"legs  feet"
+		"acc   acc";
+	gap: 8px;
+	align-content: start;
+	padding: 8px 4px;
+	overflow-y: auto;
+}
+/* The mannequin behind the pads: three blocks, deliberately crude — it reads as
+   a tailor's dummy, not a character portrait. */
+.wdr-figure {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	opacity: 0.09;
+	pointer-events: none;
+}
+.wdr-fig-head { width: 34px; height: 34px; border-radius: 50%; background: #e0b978; }
+.wdr-fig-torso { width: 66px; height: 84px; margin-top: 6px; border-radius: 10px 10px 4px 4px; background: #e0b978; }
+.wdr-fig-legs { width: 46px; height: 78px; margin-top: 4px; border-radius: 4px 4px 8px 8px; background: #e0b978; }
+.wdr-pad-head { grid-area: head; }
+.wdr-pad-torso { grid-area: torso; }
+.wdr-pad-hands { grid-area: hands; }
+.wdr-pad-legs { grid-area: legs; }
+.wdr-pad-feet { grid-area: feet; }
+.wdr-pad-accessory { grid-area: acc; }
+.wdr-pad {
+	position: relative;
+	border: 1px dashed var(--border);
+	border-radius: 3px;
+	padding: 5px 6px;
+	min-height: 46px;
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+	background: rgba(0, 0, 0, 0.25);
+}
+.wdr-pad-label {
+	font-size: 9px;
+	letter-spacing: 1.5px;
+	text-transform: uppercase;
+	color: var(--text-dim);
+}
+.wdr-pad-items { display: flex; flex-wrap: wrap; gap: 4px; }
+.wdr-pad-empty { color: var(--text-dim); opacity: 0.5; font-size: 11px; }
+.wdr-worn {
+	font-size: 10px;
+	color: var(--text);
+	background: rgba(185, 139, 74, 0.16);
+	border: 1px solid rgba(185, 139, 74, 0.5);
+	border-radius: 8px;
+	padding: 0 6px;
+	cursor: pointer;
+}
+.wdr-worn:hover { border-color: var(--red, #ff5555); color: var(--red, #ff5555); }
+/* Lit while a garment that fits THIS slot is in flight. */
+.wdr-pad-eligible { border-color: #e0b978; background: rgba(185, 139, 74, 0.1); }
+.wdr-pad.ctr-drag-over { border-style: solid; border-color: var(--green); background: rgba(0, 255, 136, 0.07); }
+
+#wardrobe-doll-actions {
+	display: flex;
+	gap: 6px;
+	flex-shrink: 0;
+}
+#wardrobe-outfit-name {
+	flex: 1;
+	min-width: 0;
+	background: rgba(0, 0, 0, 0.4);
+	border: 1px solid var(--border);
+	color: var(--text);
+	font-family: inherit;
+	font-size: 12px;
+	padding: 4px 6px;
+	border-radius: 2px;
+}
+#wardrobe-outfit-name:focus { outline: none; border-color: #e0b978; }
+
+/* --- Stock lists --- */
+.wdr-garment { border-left: 2px solid rgba(185, 139, 74, 0.55); }
+.wdr-slot-tag {
+	font-size: 9px;
+	letter-spacing: 1px;
+	text-transform: uppercase;
+	color: var(--text-dim);
+}
+#wardrobe-footer {
+	display: flex;
+	justify-content: flex-end;
+	flex-shrink: 0;
+}
+
+/* ── Interface tour (client/game/js/panels/tour.js) ───────────────────────────
+   The one out-of-fiction onboarding surface: offered once to players new to
+   text games, replayable with `tutorial`. A transparent cutout box carries a
+   9999px outer shadow — that shadow IS the dimming, so whatever is spotlighted
+   underneath stays perfectly legible — and the spotlighted region itself gets
+   the same accent-glow grammar as .verb-teach / .point-ripple. */
+#tour-overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 9700; /* above the confirm window (9600) and the Tablet OS (9200) */
+	pointer-events: auto;
+}
+#tour-hole {
+	position: absolute;
+	border-radius: 6px;
+	border: 1px solid var(--accent);
+	box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.72), 0 0 18px 2px var(--accent-dim);
+	transition: left 0.28s ease, top 0.28s ease, width 0.28s ease, height 0.28s ease;
+	pointer-events: none;
+}
+/* The spotlighted region pulses once so the eye lands on it, not just off it. */
+.tour-lit {
+	animation: tour-lit-pulse 1.6s ease-in-out 2;
+}
+@keyframes tour-lit-pulse {
+	0%, 100% { filter: none; }
+	50%      { filter: brightness(1.25) saturate(1.15); }
+}
+
+.tour-card {
+	position: fixed;
+	z-index: 9750;
+	width: 360px;
+	max-width: 92vw;
+	background: var(--bg2);
+	border: 1px solid var(--accent);
+	box-shadow: 0 4px 32px rgba(0, 0, 0, 0.7);
+	font-family: var(--font-mono);
+	padding: 12px 14px 10px;
+	animation: dlg-in 0.18s ease-out;
+}
+/* The opening question is centred like a modal; tour steps are positioned in JS. */
+.tour-offer {
+	top: 28%;
+	left: 50%;
+	transform: translateX(-50%);
+	z-index: 9760;
+}
+.tour-card-step {
+	font-size: 10px;
+	letter-spacing: 1px;
+	color: var(--text-dim);
+	margin-bottom: 4px;
+}
+.tour-card-title {
+	color: var(--accent);
+	font-weight: 700;
+	letter-spacing: 0.5px;
+	margin-bottom: 6px;
+}
+.tour-card-body {
+	color: var(--text);
+	font-size: 13px;
+	line-height: 1.5;
+}
+.tour-card-body b { color: var(--text-bright); }
+.tour-card-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+	margin-top: 12px;
+}
+.tour-btn {
+	font-family: var(--font-mono);
+	font-size: 12px;
+	padding: 5px 12px;
+	cursor: pointer;
+	background: var(--accent);
+	color: var(--bg);
+	border: 1px solid var(--accent);
+}
+.tour-btn:hover { filter: brightness(1.12); }
+.tour-btn-ghost {
+	background: transparent;
+	color: var(--text-dim);
+	border-color: var(--border);
+}
+.tour-btn-ghost:hover { color: var(--text); border-color: var(--accent); }
+.tour-btn-ghost[disabled] { opacity: 0.35; cursor: default; }
+
+@media (max-width: 700px) {
+	.tour-card { width: 300px; font-size: 12px; }
 }

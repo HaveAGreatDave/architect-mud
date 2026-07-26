@@ -27,6 +27,23 @@ export function sendToZone(zoneId, message, excludeId = null) {
   if (broadcastFn && zoneId) broadcastFn(zoneId, message, excludeId);
 }
 
+// ── Teaching a verb (house convention) ───────────────────────────────────────
+// THE STANDARD: the first time any prose teaches a player a verb, the verb itself
+// is highlighted and shimmers once (client `.verb-teach`) and is clickable like a
+// room link. Use this for every first mention of a new verb, everywhere.
+export function teachVerb(verb, action = verb, target = '') {
+  const targetAttr = target ? ` data-target="${target}"` : '';
+  const label = target ? `${verb} ${target}` : verb;
+  return `<span class="action-link verb-teach" data-action="${action}"${targetAttr} title="${label}">${verb}</span>`;
+}
+
+// Draw the eye to something already listed in the room pane: its room link
+// ripples a few times. A cosmetic nudge that says "click up there" — pairs with
+// teachVerb when the thing to click is in the pane, not the prose.
+export function pointAt(playerId, action, target) {
+  sendToPlayer(playerId, { type: 'point_at', action, target });
+}
+
 // Broadcast to a zone while excluding a Set of player ids — e.g. an aircraft's own
 // occupants, who share a stale ground `current_zone` but are up in the sky and must
 // not hear ambience (their own overfly noise, ground reactions) about themselves.

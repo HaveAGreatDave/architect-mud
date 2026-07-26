@@ -1,0 +1,22 @@
+{
+  "description": "Green stalks tied with wire, still smelling of the roof they were cut from. Fragile, perishable, and worth more than the meat it goes on if you get the timing right.",
+  "flags": {},
+  "id": "item_herb_bundle",
+  "name": "herb bundle",
+  "tags": {
+    "description": "Green stalks tied with wire, still smelling of the roof they were cut from. Fragile, perishable, and worth more than the meat it goes on if you get the timing right.",
+    "consumable": true,
+    "restore_hunger": 1,
+    "stackable": true,
+    "food_profile": "aromatic",
+    "food_noun": "herbed",
+    "perishable": true,
+    "spoil_rate": "fast",
+    "status_chance": {
+      "food_poisoning": 0.1
+    }
+  },
+  "type": "consumable",
+  "value": 11,
+  "weight": 40
+}

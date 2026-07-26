@@ -41,9 +41,24 @@ function renderPlayersPanel(data) {
     </div>
     <table>${thead}<tbody>${tableRows(list)}</tbody></table>` : '';
 
-  panel.innerHTML = section('Admins & Staff', 'var(--accent)', admins)
+  const wipeBar = `<div style="padding:16px 16px 0;text-align:right">
+    <button class="action-btn danger" style="font-size:11px;padding:5px 10px" onclick="confirmServerWipe()">☠ Server Wipe</button>
+  </div>`;
+
+  panel.innerHTML = wipeBar
+    + section('Admins & Staff', 'var(--accent)', admins)
     + section('Players', 'var(--text-dim)', players)
     + (!all.length ? '<div style="padding:24px;color:var(--text-dim)">No players found.</div>' : '');
+}
+
+async function confirmServerWipe() {
+  const count = (Array.isArray(allRecords) ? allRecords : []).filter(p => !ADMIN_ROLES.has(p.role)).length;
+  if (!(await dpConfirm(`Server wipe: reincarnate all ${count} non-staff player(s)? Every one is wiped to a brand-new account in The Inbetween — progress, gear, property and history gone.`, { danger: true }))) return;
+  if (!(await dpConfirm('Last chance. This cannot be undone.', { danger: true }))) return;
+  const r = await API('/players/wipe-all', 'POST');
+  if (r.error) { toast(r.error, true); return; }
+  toast(`☠ Server wiped — ${r.wiped} player(s) reincarnated`);
+  loadPanel('players');
 }
 
 async function confirmSmite(id, handle) {

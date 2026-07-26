@@ -1,0 +1,28 @@
+{
+  "ambient_events": [
+    "A tap drips into a rust-streaked basin, three seconds apart, forever.",
+    "The hand dryer kicks on by itself for no one, then gives up."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#c9a884",
+  "color": null,
+  "created_by": null,
+  "description": "A single-stall washroom off the lobby, cracked subway tile and a mirror gone cloudy at the edges. The lock on the stall door is a bent nail wedged in a hole where the real one used to be. Someone's scratched a room number into the paint by the sink, long since crossed out. It smells like old plumbing and Lowry's cheap soap, refilled from a bulk jug behind the bar.",
+  "exits": {
+    "west": "zone_residential_lobby"
+  },
+  "flags": {
+    "intro_lore": "The Embassy's one shared washroom, same age as the lobby carpet and holding up about as well. Guests share it, Lowry restocks the soap when he remembers, and the lock's a formality more than a promise.",
+    "is_interior": true
+  },
+  "grid_x": 1,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_embassy_lobby_bathroom",
+  "map_id": "map_interior_zone_residential_lobby",
+  "marker": null,
+  "name": "Embassy Hotel & Bar — Washroom",
+  "parent_zone": "zone_residential_lobby",
+  "updated_at": "1784600001"
+}

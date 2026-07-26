@@ -1140,6 +1140,8 @@ async function handleDialogue(ws, session, msg) {
 			node: msg.choice,
 			text: appendMessage ? rendered.text + appendMessage : rendered.text,
 			options: rendered.options,
+			stage: rendered.stage,
+			mood: rendered.mood,
 		}),
 	);
 }

@@ -13,6 +13,8 @@ import { ensureTunables } from '../tunables.js';
 import { physicalDescription, soilDescription, randomAppearance } from '../appearance.js';
 import { isMisActive } from '../mis.js';
 import { availableActions } from '../specializedActions.js';
+import { getHelpTopic, listHelpTopics } from '../help.js';
+import '../help-topics.js';
 import { genericFurnitureLinks, furnitureVerbs, verbTarget } from '../furnitureActions.js';
 import { statusLabels } from '../effects.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../sift.js';
@@ -455,10 +457,20 @@ async function cmdExamine(targetStr, player, broadcast) {
       if (fresh) msg += `\n<span class="text-dim">It looks ${fresh.state}.</span>`;
     }
     if (it.custom_data?.cooking) {
+      // Shown whether or not it reads as `done`: a profiled cook stays on the
+      // heat after it's ready, and "perfect, but not for much longer" is the
+      // entire telegraph telling you to go and plate it.
       const cooking = await fireHook('item.checkCooking', { ...it, id: it.inv_id }, player);
-      if (cooking && !cooking.done) msg += `\n<span class="text-dim">It's ${cooking.text}.</span>`;
+      if (cooking) msg += `\n<span class="text-dim">It's ${cooking.text}.</span>`;
     } else if (it.tags && Object.prototype.hasOwnProperty.call(it.tags, 'needs_cooking')) {
       msg += `\n<span class="text-dim">It's ${it.custom_data?.cooked ? 'cooked through' : 'raw — probably not safe to eat like this'}.</span>`;
+    }
+    // How well it was cooked, once plated — otherwise a Masterful steak looks
+    // exactly like a Poor one sitting in your pack. Independent of needs_cooking:
+    // food that's fine raw (a tomato) can still be cooked well or badly.
+    if (it.custom_data?.cook_quality) {
+      const q = it.custom_data.cook_quality;
+      msg += `\n<span class="text-dim">Cooked ${q === 'masterful' ? 'to a masterful turn' : q}.</span>`;
     }
     const acts = itemActionVerbs(it);
     if (acts.length) {
@@ -486,25 +498,29 @@ async function cmdExamine(targetStr, player, broadcast) {
     const furnitureExtra = await fireHook('furniture.describe', f, player);
     if (furnitureExtra) msg += `\n${furnitureExtra}`;
     const interactions = f.flags?.interactions || [];
+    // Structural action links a type-branch renders itself (state-dependent, like
+    // a light's on/off switch), plus the verbs it therefore wants held back from
+    // the generic list. Both are drained into ONE Actions line at the end of the
+    // furniture block — no branch can forget to emit the piece's own affordances.
+    const structural = [];
+    const excludeVerbs = [];
     if (f.object_type === 'light') {
       if (f.light_type === 'streetlight') {
         msg += `\n<span class="light-state ${f.light_on ? 'light-on' : 'light-off'}">Currently ${f.light_on ? 'lit' : 'dark'} — city-grid controlled, no switch out here.</span>`;
       } else {
         msg += `\n<span class="light-state ${f.light_on ? 'light-on' : 'light-off'}">Currently ${f.light_on ? 'on' : 'off'}.</span>`;
-        const acts = [];
         if (interactions.includes('switch')) {
           const n = f.name.toLowerCase();
           const stateDir = f.light_on ? 'off' : 'on';
-          acts.push(`<span class="action-link" data-action="switch" data-target="${stateDir} ${n}">switch ${stateDir}</span>`);
-          acts.push(`<span class="action-link" data-action="turn" data-target="${stateDir} ${n}">turn ${stateDir}</span>`);
+          structural.push(`<span class="action-link" data-action="switch" data-target="${stateDir} ${n}">switch ${stateDir}</span>`);
+          structural.push(`<span class="action-link" data-action="turn" data-target="${stateDir} ${n}">turn ${stateDir}</span>`);
+          excludeVerbs.push('switch', 'flip', 'turn');
         }
-        acts.push(...genericFurnitureLinks(f, ['switch', 'flip', 'turn']));
-        if (acts.length) msg += `\n<span class="text-dim">Actions:</span> ${acts.join('  ')}`;
       }
     } else if (f.object_type === 'container') {
       const n = f.name.toLowerCase();
-      const acts = [`<span class="action-link" data-action="open" data-target="${n}">open</span>`, ...genericFurnitureLinks(f, ['open'])];
-      msg += `\n<span class="text-dim">Actions:</span> ${acts.join('  ')}`;
+      structural.push(`<span class="action-link" data-action="open" data-target="${n}">open</span>`);
+      excludeVerbs.push('open');
     } else if (f.object_type === 'media_deck' || f.flags?.media_deck) {
       const flags = f.flags || {};
       const channelId = flags.channel_id;
@@ -582,11 +598,10 @@ async function cmdExamine(targetStr, player, broadcast) {
         cassetteList = '\n  <span style="color:var(--border)">— empty —</span>';
       }
 
-      const useLink  = `<span class="action-link" data-action="use" data-target="${f.name.toLowerCase()}">use</span>`;
-      const ejectLink = deckActive ? `  <span class="action-link" data-action="eject" data-target="">eject</span>` : '';
-      const deckExtra = genericFurnitureLinks(f, ['use', 'eject']);
-      const deckExtraStr = deckExtra.length ? `  ${deckExtra.join('  ')}` : '';
-      msg += `\n<span style="display:inline-flex;gap:18px;padding:6px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:2px;margin:4px 0">${liveDot}${loadDot}</span>\n${statusLine}${cassetteList}\n<span class="text-dim">Actions:</span> ${useLink}${ejectLink}${deckExtraStr}`;
+      structural.push(`<span class="action-link" data-action="use" data-target="${f.name.toLowerCase()}">use</span>`);
+      if (deckActive) structural.push(`<span class="action-link" data-action="eject" data-target="">eject</span>`);
+      excludeVerbs.push('use', 'eject');
+      msg += `\n<span style="display:inline-flex;gap:18px;padding:6px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:2px;margin:4px 0">${liveDot}${loadDot}</span>\n${statusLine}${cassetteList}`;
     } else if (f.object_type === 'broadcast_camera') {
       const flags = f.flags || {};
       const camId = flags.camera_id;
@@ -613,8 +628,12 @@ async function cmdExamine(targetStr, player, broadcast) {
             : `<span style="color:var(--border)">○ REC</span>`;
           camStatus = `\n<span style="display:inline-flex;gap:18px;padding:6px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:2px;margin:4px 0">${streamDot}${recDot}</span>`;
           if (chLabel) camStatus += `\n<span style="color:var(--text-dim)">→ ${chLabel}</span>`;
-          const camExtra = genericFurnitureLinks(f, ['record', 'stream']);
-          camStatus += `\n<span class="action-link" data-action="record" data-target="${f.name.toLowerCase()}">record</span>  <span class="action-link" data-action="stream" data-target="${f.name.toLowerCase()}">stream</span>${camExtra.length ? `  ${camExtra.join('  ')}` : ''}`;
+          // Only claim record/stream when the camera row actually backs them; a
+          // furniture piece with a dangling camera_id still gets its generic
+          // affordances from the shared Actions line below.
+          structural.push(`<span class="action-link" data-action="record" data-target="${f.name.toLowerCase()}">record</span>`);
+          structural.push(`<span class="action-link" data-action="stream" data-target="${f.name.toLowerCase()}">stream</span>`);
+          excludeVerbs.push('record', 'stream');
         }
       }
       msg += camStatus;
@@ -643,18 +662,17 @@ async function cmdExamine(targetStr, player, broadcast) {
         ? '<span style="color:var(--red)">WRECKED — offline</span>'
         : online ? '<span style="color:var(--green)">Online</span>'
                  : '<span style="color:var(--yellow)">No power</span>';
-      const attackLink = `<span class="action-link" data-action="attack" data-target="${n}">attack</span>`;
-      const repairLink = destroyed ? `  <span class="action-link" data-action="repair" data-target="${n}">repair</span>` : '';
-      const genExtra = genericFurnitureLinks(f, ['attack', 'repair']);
-      const genExtraStr = genExtra.length ? `  ${genExtra.join('  ')}` : '';
-      msg += `\n<span class="text-dim">Status:</span> ${stateLbl} · integrity ${integrityPct}%\n<span class="text-dim">Actions:</span> ${attackLink}${repairLink}${genExtraStr}`;
-    } else {
-      // Generic furniture: every affordance the piece declares, from one source
-      // of truth — flags.interactions (sit/lie/lean → "on <name>") plus the
-      // tag-gated specialized-action registry (read/drink → "<name>").
-      const links = genericFurnitureLinks(f);
-      if (links.length) msg += `\n<span class="text-dim">Actions:</span> ${links.join('  ')}`;
+      structural.push(`<span class="action-link" data-action="attack" data-target="${n}">attack</span>`);
+      if (destroyed) structural.push(`<span class="action-link" data-action="repair" data-target="${n}">repair</span>`);
+      excludeVerbs.push('attack', 'repair');
+      msg += `\n<span class="text-dim">Status:</span> ${stateLbl} · integrity ${integrityPct}%`;
     }
+    // The single Actions render point for every piece of furniture, whatever its
+    // object_type: what the branch drew structurally, then every affordance the
+    // piece declares — flags.interactions (sit/lie/lean → "on <name>") plus the
+    // gated specialized-action registry (read/drink/scrub → "<name>").
+    const acts = [...structural, ...genericFurnitureLinks(f, excludeVerbs)];
+    if (acts.length) msg += `\n<span class="text-dim">Actions:</span> ${acts.join('  ')}`;
     return { type:'examine', message: msg };
   }
   const matchAnyGenerator = /generator/i.test(targetStr);
@@ -861,14 +879,9 @@ const REINCARNATE_WIPE_TABLES = [
 ];
 const REINCARNATE_WIPE_OWNER_TABLES = ['insurance_policies', 'insurance_claims', 'cargo_drops'];
 
-async function cmdReincarnate(args, player) {
-  if (player.role !== 'admin') return { type:'error', message:"You don't have the clearance for that." };
-  const [handle] = args;
-  if (!handle) return { type:'error', message:'Usage: reincarnate <player>' };
-  const { rows } = await query('SELECT id, handle FROM players WHERE LOWER(handle)=$1 LIMIT 1', [handle.toLowerCase()]);
-  if (!rows.length) return { type:'error', message:`No player "${handle}".` };
-  const target = rows[0];
-
+// The wipe itself, factored out so the dev panel's Server Wipe can reuse it
+// (server/api/routes.js). Takes an already-resolved { id, handle } row.
+export async function reincarnatePlayer(target) {
   // Release owned property back to unowned stock.
   await query('UPDATE aircraft SET owner_id=NULL, hangar_id=NULL WHERE owner_id=$1', [target.id]);
   await query('DELETE FROM hangars WHERE owner_id=$1', [target.id]);
@@ -912,8 +925,21 @@ async function cmdReincarnate(args, player) {
     removeLivePlayer(target.id);
   }
 
+  return { wasOnline: !!live };
+}
+
+async function cmdReincarnate(args, player) {
+  if (player.role !== 'admin') return { type:'error', message:"You don't have the clearance for that." };
+  const [handle] = args;
+  if (!handle) return { type:'error', message:'Usage: reincarnate <player>' };
+  const { rows } = await query('SELECT id, handle FROM players WHERE LOWER(handle)=$1 LIMIT 1', [handle.toLowerCase()]);
+  if (!rows.length) return { type:'error', message:`No player "${handle}".` };
+  const target = rows[0];
+
+  const { wasOnline } = await reincarnatePlayer(target);
+
   logActivity('admin_cmd', player.handle, null, `reincarnate ${target.handle}`);
-  return { type:'output', message:`${target.handle} has been reincarnated — wiped to a fresh account, waiting in The Inbetween.${live ? ' (was online — kicked to reconnect clean)' : ''}` };
+  return { type:'output', message:`${target.handle} has been reincarnated — wiped to a fresh account, waiting in The Inbetween.${wasOnline ? ' (was online — kicked to reconnect clean)' : ''}` };
 }
 
 // Admin eviction. Turns a PLAYER out of every personal rental they hold, or an NPC
@@ -1130,6 +1156,7 @@ export const HELP_GROUPS = [
   { cat: 'FORAGING',   text: 'scavenge (junk, anywhere)  |  fish (rod required, at water)  |  mine (pick required, at a deposit)' },
   { cat: 'CONTAINERS', text: 'look in <container>  |  stow <item> in <container>  |  pull <item> from <container>' },
   { cat: 'CRAFTING',   text: 'recipes  |  craft <recipe_id>' },
+  { cat: 'COOKING',    text: 'cook <food|vessel>  |  flip / stir  |  stove <low|mid|high>  |  doneness <food> <target>  |  plate' },
   { cat: 'TRADING',    text: 'shop <npc>  |  buy <item>  |  sell <item>' },
   { cat: 'ECONOMY',    text: 'balance  |  deposit <amt/all>  |  withdraw <amt/all>  (ATM required)  |  steal <player>' },
   { cat: 'PROPERTY',   text: 'rent  |  lock  |  unlock  |  pick  |  upgrade lock  |  sleep' },
@@ -1186,6 +1213,13 @@ async function cmdTargetHelp(targetStr, player) {
 async function cmdHelp(args, player) {
   const target = (args || []).join(' ').trim();
   if (target) {
+    // A registered SYSTEM topic wins, but only on an exact name — otherwise
+    // `help cooking oil` would be shadowed by the `cooking` topic instead of
+    // reaching the bottle in your pack.
+    const topic = getHelpTopic(target);
+    if (topic) {
+      return { type: 'help', message: `<span class="help-header">${topic.name.toUpperCase()}</span>\n${topic.build(player)}` };
+    }
     const specific = await cmdTargetHelp(target, player);
     if (specific) return specific;
     // Nothing in reach matched — fall through to the general command reference.
@@ -1197,6 +1231,10 @@ async function cmdHelp(args, player) {
     msg += `\n<span class="help-category">${g.cat}</span>${pad}${escLt(g.text)}`;
   }
   msg += `\n<span class="help-category">HELP</span>      help &lt;item/furniture&gt;   <span class="text-dim">— what you can do with a specific thing</span>`;
+  const topics = listHelpTopics();
+  if (topics.length) {
+    msg += `\n<span class="help-category">GUIDES</span>    ${topics.map(t => `help ${t.name}`).join('  |  ')}`;
+  }
   if (player?.role === 'admin') {
     msg += `\n<span class="help-category">ADMIN</span>      @admin   <span class="text-dim">— open the admin command reference (@ = admin · / = player · . = bookkeeping)</span>`;
   }

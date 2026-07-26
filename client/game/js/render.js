@@ -107,6 +107,25 @@ export function setAreaPane(html, direction) {
   document.getElementById('area-pane').dispatchEvent(new CustomEvent('contentupdate'));
 }
 
+// Ripple the room-pane link for `action`+`target` (server `pointAt()`), telling
+// the player where to click. The pane may not carry the link yet — a look can
+// still be in flight behind the message that pointed — so retry briefly.
+export function pointAtRoomTarget(action, target, tries = 6) {
+  if (!action || !target) return;
+  if (document.documentElement.getAttribute('data-motion') === 'off') return;
+  const pane = document.getElementById('area-content');
+  const el = pane && [...pane.querySelectorAll(`[data-action="${action}"][data-target]`)]
+    .find((n) => n.dataset.target.toLowerCase() === String(target).toLowerCase());
+  if (!el) {
+    if (tries > 0) setTimeout(() => pointAtRoomTarget(action, target, tries - 1), 400);
+    return;
+  }
+  el.classList.remove('point-ripple');
+  void el.offsetWidth; // restart the animation if it's already been pointed at
+  el.classList.add('point-ripple');
+  setTimeout(() => el.classList.remove('point-ripple'), 3600);
+}
+
 export function scrollOutput() {
   const out = document.getElementById('output');
   out.scrollTop = out.scrollHeight;

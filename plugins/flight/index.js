@@ -1308,7 +1308,13 @@ async function flightTick() {
       // don't advance or run the deck hazards here — we burn fuel authoritatively,
       // run the world consequences off the last reported position, and push context.
       if (isContinuous(live)) {
-        if (!live.row.airborne || live.pending) continue;   // taxi/roll is client-side until wheels-up
+        if (!live.row.airborne || live.pending) {
+          // Taxi/roll is client-side until wheels-up — no fuel burn or world consequences here.
+          // But she IS moving (reconcile re-parks her onto the tile she rolls to), so persist
+          // that on the same cadence as flight; otherwise a shutdown mid-taxi loses the move.
+          if (!live.pending && live.row.engine_on && ++live.persistCtr % 4 === 0) await persist(live);
+          continue;
+        }
         const a = live.row, eff = effStats(live);
         // After touchdown the client keeps the sim open and rolls out on the ground
         // (airborne stays 1 until it shuts down or lifts off again). Skip the airborne

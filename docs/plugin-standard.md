@@ -24,11 +24,16 @@ read at runtime:
   every plugin↔plugin verb collision at boot).
 - `"critical": true` — a load failure aborts boot instead of logging and skipping. Use for plugins
   the game is unplayable without (weapon).
-- `"objectGatedCommands": { "<verb>": { "discoverVia": "<tag>", "exposed": false, "note": "…" } }` —
+- `"objectGatedCommands": { "<verb>": { "discoverVia": "<tag-or-flag>", "exposed": false, "note": "…" } }` —
   verbs that only work near a specific world object. **The regression harness enforces this**
   (layer 1b): the verb must be in `commands[]`, and unless `exposed:false` marks it a logged gap, a
-  specialized action registered under the `discoverVia` tag must surface it on that object's examine.
-  A verb the player can't find is invisible content.
+  specialized action registered under the `discoverVia` **tag or flag** must surface it on that
+  object's examine. A verb the player can't find is invisible content.
+  For a verb that stays an ordinary command-map verb (its handler self-resolves the object), close the
+  loop with a **declaration-only** specialized action — `{ verb, requiredFlag: "<flags key>", handler: null }`.
+  It registers nothing at dispatch; it exists purely so `availableActions()` advertises the verb on
+  every object carrying that flag. `requiredTag` works the same way and is preferred where the object
+  is already tagged.
 
 Optional declarative fields make a plugin's full surface inspectable without reading its code, and
 let READMEs be generated:

@@ -353,6 +353,35 @@
         { waveform: 'noise', noiseMix: 1, delay: 0.04, filter: { type: 'highpass', freq: 2400, q: 1 }, adsr: { a: 0.001, d: 0.06, s: 0, r: 0.03 }, gain: 0.2 },
         { waveform: 'triangle', freq: 160, delay: 0.08, pitchBend: { to: 50, time: 0.3 }, adsr: { a: 0.005, d: 0.24, s: 0.2, r: 0.2 }, gain: 0.15 } ] } },
 
+    // ── Dialogue panel ───────────────────────────────────────────────────────
+    // Conversation furniture, all deliberately under the threshold of "an alert":
+    // these fire on every talk and every option click, so they read as weight and
+    // presence, never as notification. Gains are the lowest in the catalog on
+    // purpose — see DIALOGUE_SFX_GAIN in client/game/js/panels/dialogue.js.
+    //
+    // open — a low body thunk (the conversation taking the floor) under a short
+    // breathy swell. No pitch rise: rising = "menu opened", flat = "someone turned
+    // to face you".
+    { id: 'dialogue-open', name: 'Dialogue — engage', group: 'dialogue', category: 'sfx', priority: 5,
+      config: { duration: 0.3, layers: [
+        { waveform: 'triangle', freq: 120, pitchBend: { to: 84, time: 0.14 }, adsr: { a: 0.004, d: 0.2, s: 0, r: 0.09 }, gain: 0.3 },
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 700, q: 1.2 }, adsr: { a: 0.02, d: 0.12, s: 0, r: 0.07 }, gain: 0.1 } ] } },
+    // line — the pip that lands as the speaker starts talking, timed with the
+    // first characters of the typewriter reveal. One soft mid pip, nothing more.
+    { id: 'dialogue-line', name: 'Dialogue — speaker begins', group: 'dialogue', category: 'sfx', priority: 4,
+      config: { duration: 0.1, layers: [
+        { waveform: 'sine', freq: 660, adsr: { a: 0.003, d: 0.07, s: 0, r: 0.04 }, gain: 0.11 },
+        { waveform: 'sine', freq: 990, delay: 0.015, adsr: { a: 0.003, d: 0.05, s: 0, r: 0.03 }, gain: 0.05 } ] } },
+    // opt — a dry key press. Short enough to spam through a fast conversation.
+    { id: 'dialogue-opt', name: 'Dialogue — choose line', group: 'dialogue', category: 'sfx', priority: 5,
+      config: { duration: 0.08, layers: [
+        { waveform: 'square', freq: 380, pitchBend: { to: 300, time: 0.03 }, filter: { type: 'lowpass', freq: 2200, q: 1 }, adsr: { a: 0.001, d: 0.04, s: 0, r: 0.02 }, gain: 0.16 },
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 3000, q: 1 }, adsr: { a: 0.001, d: 0.02, s: 0, r: 0.015 }, gain: 0.07 } ] } },
+    // close — the open thunk, inverted and shorter: the floor handed back.
+    { id: 'dialogue-close', name: 'Dialogue — disengage', group: 'dialogue', category: 'sfx', priority: 5,
+      config: { duration: 0.22, layers: [
+        { waveform: 'triangle', freq: 150, pitchBend: { to: 62, time: 0.16 }, adsr: { a: 0.003, d: 0.16, s: 0, r: 0.07 }, gain: 0.24 } ] } },
+
     // ── Accolades ────────────────────────────────────────────────────────────
     // "Reach & relax": three glass bells, C5 → G5 → F5.
     //
@@ -411,7 +440,7 @@
         { waveform: 'sine', freq: 4186, delay: 0.900, adsr: { a: 0.004, d: 0.13, s: 0, r: 0.06 }, gain: 0.009 } ] } },
   ];
 
-  const GROUPS = { poker: 'Poker table', hack: 'Circuit Breach (hack)', hololock: 'Hololock Bypass', vault: 'Vault Crack', synth: 'Synth Lab (cook)', flight: 'Flight (cockpit)', fishing: 'Fishing (cast / reel)', accolades: 'Accolades (entry logged)' };
+  const GROUPS = { poker: 'Poker table', hack: 'Circuit Breach (hack)', hololock: 'Hololock Bypass', vault: 'Vault Crack', synth: 'Synth Lab (cook)', flight: 'Flight (cockpit)', fishing: 'Fishing (cast / reel)', dialogue: 'Dialogue (conversation)', accolades: 'Accolades (entry logged)' };
 
   const _builtinById = new Map(BUILTINS.map(d => [d.id, d]));
   let _overrides = new Map(); // id -> { config, priority, enabled, name }

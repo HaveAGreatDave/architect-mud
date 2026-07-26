@@ -169,6 +169,7 @@ Represents one NPC beat: what the NPC says, what options the player can pick, an
   options: [
     {
       text: string,      // player-facing choice label
+      icon: string,      // OPTIONAL author-assigned glyph; blank = engine's derived one
       enabled: boolean,
       conditions: [],    // flag/stat conditions (JSON, checked at runtime)
       actions: [],       // actions that fire when this option is chosen
@@ -183,8 +184,36 @@ Represents one NPC beat: what the NPC says, what options the player can pick, an
 
 **Properties panel:** fully visual form editor:
 - NPC Text — textarea with live preview on the node card
-- Options — card list with text input, enabled toggle, per-option actions picker, conditions JSON
+- Options — card list with text input, icon field, enabled toggle, per-option actions picker, conditions JSON
 - Node Actions — action type picker with dynamic param fields
+
+### Play view (`vine-dialogue-preview.js`)
+
+The writing surface for conversations, opened from the graph header (`🎮 Play view`) or
+from any dialogue node's properties panel. Two panes over the same graph objects:
+
+- **Conversation tree** (left) — the whole conversation flattened depth-first over the
+  option wiring, parent → children, with an edit box on every NPC beat and every player
+  response. A node already shown earlier in the walk appears as a `↩ loops back` leaf
+  (dialogue trees routinely return to `root`), and anything unreachable from the entry
+  node is listed at the bottom under **Unreachable**. Per-response icon picker; `+ response`
+  on a beat; `+ beat` on an unwired response mints the next node and wires the edge.
+- **Play view card** (right) — the single beat as the player sees it. Clicking an option
+  walks the card into that option's target.
+
+Both panes edit the same objects, so a keystroke in one updates the other's field **in
+place** — never by re-render, which would eat the caret.
+
+Opening it on an **empty graph** seeds the entry beat (`root` — the id the engine looks
+for; `addNode()` only mints `nodeN`), so a brand-new NPC's dialogue can be written
+start-to-finish here without touching the canvas. Edits land in the open graph; the
+normal 💾 Save & Close is still what persists them.
+
+The option-glyph rules mirror `dialogueOptionKind()` in `server/engine/dialogue.js`
+(including the `hostile` tag) so the author sees the player's glyph while writing —
+**keep the two rule lists in step.** An author-assigned `icon` overrides the derived
+glyph in the game client, but a hostile option keeps its red styling and stakes line
+regardless: the warning is the colour and the hint, not the glyph.
 
 ### Conversion helpers
 

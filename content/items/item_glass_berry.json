@@ -1,0 +1,22 @@
+{
+  "description": "A handful of translucent berries you can see the seeds through, grown on a wire frame under UV. Sharp, then sweet, then sharp again. They stain everything they touch.",
+  "flags": {},
+  "id": "item_glass_berry",
+  "name": "glassberries",
+  "tags": {
+    "description": "A handful of translucent berries you can see the seeds through, grown on a wire frame under UV. Sharp, then sweet, then sharp again. They stain everything they touch.",
+    "consumable": true,
+    "restore_hunger": 6,
+    "stackable": true,
+    "food_profile": "fruit",
+    "food_noun": "berry",
+    "perishable": true,
+    "spoil_rate": "fast",
+    "status_chance": {
+      "food_poisoning": 0.15
+    }
+  },
+  "type": "consumable",
+  "value": 14,
+  "weight": 70
+}

@@ -13,7 +13,7 @@
       "id": "o_move",
       "taskSeconds": 3,
       "type": "visit",
-      "zone": "zone_district_919_905"
+      "zone": "zone_district_918_904"
     },
     {
       "count": 2,
@@ -25,7 +25,7 @@
       "id": "o_kill",
       "target": "clonejacker",
       "type": "kill",
-      "zone": "zone_district_919_905"
+      "zone": "zone_district_918_904"
     },
     {
       "count": 1,
@@ -37,7 +37,7 @@
       ],
       "spawn": false,
       "type": "retrieve",
-      "zone": "zone_district_919_905"
+      "zone": "zone_district_918_904"
     }
   ],
   "quest_type": "standard",

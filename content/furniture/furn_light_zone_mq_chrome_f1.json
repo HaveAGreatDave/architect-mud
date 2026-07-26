@@ -1,5 +1,5 @@
 {
-  "description": "A fluorescent tube runs the length of the corridor, humming and stuttering at one end.",
+  "description": "The tower's exterior LED band carried through the glass as a single unbroken line of cool light following the corridor's arc. It never flickers, and it dims itself an hour before anyone asks.",
   "flags": {
     "interactions": [
       "switch"
@@ -9,8 +9,8 @@
   "hp_max": null,
   "id": "furn_light_zone_mq_chrome_f1",
   "light_type": "overhead",
-  "lumen_output": 1000,
-  "name": "corridor strip light",
+  "lumen_output": 1500,
+  "name": "corridor LED band",
   "object_type": "light",
   "power_draw_kw": null,
   "price": 40,

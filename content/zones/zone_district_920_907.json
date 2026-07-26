@@ -5,13 +5,13 @@
   "bg_color": "#2f3a26",
   "color": "#8ba36a",
   "created_by": "zone-planner",
-  "description": "The face of Bulk & Bond — a chem-supply depot stacked to the roofline with drums and double-bagged sacks, a yellow hazard chevron ringing the door. Ironside Street runs off to the west.",
+  "description": "The face of Pallets & Pals — a chem-supply depot stacked to the roofline with drums and double-bagged sacks, a yellow hazard chevron ringing the door. Ironside Street runs off to the west.",
   "exits": {
     "east": "zone_chemsupply_interior",
     "west": "zone_district_919_907"
   },
   "flags": {
-    "building_name": "Bulk & Bond Supply",
+    "building_name": "Pallets & Pals",
     "building_type": "chem_supply",
     "district": "wasteland",
     "entrance": "west",
@@ -28,7 +28,7 @@
   "id": "zone_district_920_907",
   "map_id": "map_world",
   "marker": "BB",
-  "name": "Bulk & Bond Supply",
+  "name": "Pallets & Pals",
   "parent_zone": null,
   "updated_at": "1783739474"
 }

@@ -1,0 +1,13 @@
+{
+  "description": "A laminated card, grease-spotted and soft at the corners, with a method printed on it in a tight hand. Somebody thought this was worth writing down.",
+  "flags": {},
+  "id": "item_recipe_card",
+  "name": "recipe card",
+  "tags": {
+    "description": "A laminated card, grease-spotted and soft at the corners, with a method printed on it in a tight hand. Somebody thought this was worth writing down.",
+    "recipe_card": "stew"
+  },
+  "type": "misc",
+  "value": 25,
+  "weight": 10
+}

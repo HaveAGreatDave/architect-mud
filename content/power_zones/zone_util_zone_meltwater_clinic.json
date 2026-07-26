@@ -4,6 +4,6 @@
   "generator_id": "gen_zone_util_zone_meltwater_clinic",
   "id": "zone_util_zone_meltwater_clinic",
   "max_capacity_kw": 1000,
-  "name": "Meltwater Walk-In Clinic — Utility Room",
+  "name": "Co-Pay & Pray — Utility Room",
   "source_type": "junction_box"
 }

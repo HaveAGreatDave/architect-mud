@@ -916,3 +916,160 @@ hosted by Bijou Pace (`npc_am_pace`) and Hal Dorn (`npc_am_dorn`), 27 pools cove
 types, the Basin Beat, the hotplate segment and five run-in conditions. A minimal file needs
 `@type morning`, `@host`, `@cohost`, and the `open` and `signoff` pools; everything else is
 enrichment.
+
+---
+
+# Game Shows (`@type gameshow`)
+
+The line library's **sixth** member, and the only broadcast type a **player** can be inside.
+Where a talk show's variable is the night's guest and a morning show's variable is the world,
+a game show's variable is the **item catalog**: every round is a question about what something
+in the world is actually worth, dealt live from `items.value`. The file supplies the *patter*;
+the game supplies the *questions*. Add an item to the world and it becomes a prize with no
+authoring at all.
+
+Like a talk show it is **acted live** by real `npc_*` cast and presence-gates. What is unique to
+it is the **audience**: anyone standing in the channel's `studio_zone_id` when a round opens is a
+contestant, and the existing studio-camera relay televises their answer to every set in the city.
+Nobody in the studio is **not** a failure mode — the contestants are then three name-only
+strangers, and the episode plays out exactly as well. Participation is always possible, never
+required.
+
+## How it differs from the other library types
+
+| | `news` | `talkshow` | `morning` | `gameshow` |
+|---|---|---|---|---|
+| State source | live news generator | the night's guest persona | the live world | **the live item catalog (`items.value`)** |
+| Repeatable | per refresh bucket | fresh episode per in-game day | fresh episode per in-game day | **fresh lots per in-game day** |
+| Acted live | no — names | yes — cast + roaming guest | yes — two resident hosts | **yes — host + optional sidekick** |
+| Player can take part | no | no | no | **yes — stand in the studio and `guess`** |
+| Airtime | its playlist slot | `@airtime` block | its playlist slot | **`@airtime` block** |
+| Compiler output | `newsScript` | `talkshowScript` | `morningScript` | `gameshowScript` |
+
+## Headers
+
+| Header | Meaning |
+|---|---|
+| `@type gameshow` | selects this type |
+| `@host npc_…` | **required** — the real host NPC, acted on the studio floor |
+| `@sidekick npc_…` | optional — the announcer who reads the prize copy |
+| `@titlecard <graphic_id>` | card shown on the cold open |
+| `@theme <song or sample>` | intro sting; plays over the title card |
+| `@airtime <hour…>` | in-game hours to air; snapped to 3h blocks. Omit means continuous |
+| `@rounds <1–4>` | how many rounds an episode plays. Omit means all four |
+
+**`::contestants … ::endcontestants`** — one name per line. These are **plain strings, not
+`npc_` ids**: they never get bodies, never commute, never spawn. Their guesses are generated from
+the episode seed, so they lose convincingly for free. This is deliberate — three walk-on NPCs a
+day would need three commutes and three renames for nothing a name string doesn't already do.
+
+## Rounds
+
+Four fixed formats, in this order, all answered by the single `guess` verb:
+
+| Round | Format | Player types | Wins by |
+|---|---|---|---|
+| 1 | **Over or under** — two lots, is the second dearer? | `guess higher` / `lower` (also `over`/`under`/`h`/`l`) | first correct answer |
+| 2 | **The right price** — one lot | `guess 340` | closest **without going over**; over is elimination |
+| 3 | **The lot** — three lots, order them | `guess 2 1 3` | the only top scorer; a shared best means nobody |
+| 4 | **The Showcase** — one dear lot | `guess 4800` | within **±20%**, first one in |
+
+Lot selection is **stratified** by value band (cheap under 50, mid 50–500, dear over 500) so an
+episode isn't four consumables, and guarded so each round is answerable: over-or-under rejects
+pairs closer than a 1.35× ratio (otherwise it's a coin flip), and the ordering round rejects
+duplicate prices (otherwise there is no correct order).
+
+## Line pools (`::lines <key>`)
+
+`open`, `announce_host`, `audience_call`, `round_intro.overunder`, `round_intro.price`,
+`round_intro.lot`, `showcase_intro`, `prize_copy`, `prompt`, `stall`, `reveal`,
+`showcase_reveal`, `verdict_read`, `audience`, `applause`, `commercial`, `walkoff`, `no_payout`,
+`signoff`, `ticker`.
+
+`prize_copy`, `prompt` and `reveal` accept a **`.<format>` variant** (`reveal.lot`,
+`prompt.overunder`, `prize_copy.lot`, …) which wins over the generic pool when present. Use these
+where a round shows more than one lot — the generic `reveal` reads a single price, which is wrong
+for a three-item question.
+
+Write prize copy **without an article**: the lot name comes from the catalog and could begin with
+anything, so "A {prize}" produces "A Ooze — cassette tape".
+
+## Tokens
+
+**Baked at assemble time** (deterministic, known when the lots are dealt): `{host}` `{sidekick}`
+`{prize}` `{prize2}` `{prize3}` `{price}` `{price2}` `{price3}` `{prices}` (every lot with its
+price, as shown) `{order}` (the correct cheapest-first order, as prose) `{total}` `{purse}`.
+
+**Resolved at airtime** (they depend on who was in the room): `{guesses}` `{contestant}`
+`{guess}` `{winner}` `{verdict}`.
+
+`{verb}` is special — it appears only in `audience_call` and is replaced with the `teachVerb`
+shimmer for `guess`. **Do not write `{guess}` meaning the verb**: `{guess}` is the outcome token
+and would read back somebody's bid.
+
+Off-round every outcome token still returns prose, never `undefined` — the late-tune seeker walks
+past the round nodes without firing them, so a viewer joining mid-episode can land on a reveal
+line with nothing behind it.
+
+## Assembly order
+
+title card + theme → announcer cold open → `announce_host` → applause → `audience_call` (teaches
+`guess`) → **for each round**: intro → prize copy → `gameshow_round` → prompt → 1–2 stalls →
+`gameshow_reveal` → reveal line → price card → `verdict_read` → crowd beat (commercial before the
+finale) → applause → `signoff` → `ticker`.
+
+`gameshow_round` and `gameshow_reveal` are **instantaneous side-effect nodes**, like `set_flag` —
+they take no on-air time. **The guess window is the host's own patter between them**, so there is
+never dead air waiting on a timer and the window is exactly as long as the show sounds like it is.
+Lengthen it by adding `stall` lines, not by setting a duration.
+
+## Prizes and the cooldown
+
+Rounds 1–3 pay **40₵**; the Showcase pays **250₵** *and grants the actual lot* via the canonical
+`GRANT_ITEM` action. A clean sweep is ~370₵ — deliberately just under the hardest quest in the
+game. Credits are minted (like slots and quest rewards), so the throttle is the **cooldown**:
+`player_flags.gameshow_win_cooldown` holds the epoch-ms of the last paid win and blocks another
+payout for **6 real hours**. It's checked at *payout* time, not guess time — you can play and win
+on air whenever you like, you just don't get paid twice, and the host has a `no_payout` line so it
+reads as network policy rather than a silent no-op. **Losing costs nothing** but dignity.
+
+## Compiler & runtime contract (as built)
+
+- **Compiler** ([bsm-compiler.js](../client/devpanel/js/bsm-compiler.js)): `@type gameshow` gives
+  `gameshowScript = { host, sidekick, contestants, pools, title, theme, airSlots, rounds }`,
+  using the shared `::lines` collector. `@host`/`@sidekick` are added to `npcIds` so the importer
+  spawns and places them; `::contestants` are **not**.
+- **Import** ([broadcast.js](../client/devpanel/js/panels/broadcast.js) `_bcImportSave`): saved
+  with `playback_mode = 'gameshow'`, `loop = 1`, `gameshow_pools` = the `gameshowScript`
+  (`media_broadcasts.gameshow_pools` JSONB). On save, `ensureTalkshowSlot` (named for the talk
+  show but generic — it reads only `airSlots`) **auto-pins a daily slot at each `@airtime`
+  block** and flips the channel to daily mode.
+- **Runner** ([plugins/broadcast/gameshow.js](../plugins/broadcast/gameshow.js), a sibling module
+  of the plugin): a `gameshow` playlist item that is `gameshowAiring` calls
+  `getGameshowGraph(item, normalize)` → `assembleGameshowGraph`, cached per in-game day. The
+  episode is seeded from `${broadcastId}:${bucket}` so every TV deals the same lots.
+  `recalculateNpcSchedules` staffs the cast from `gameshow_pools` (the stored graph is
+  start-only). The graph is stamped `_requireHost`, so an empty studio gives PLEASE STAND BY.
+- **The answer path**: `guess` → `gameshow.js` validates (in a studio, round open, one guess per
+  round, format-parsed) → `sendToZone` echoes it as speech → `server/index.js` emits
+  `zone.broadcast` → the studio relay puts it on air to every TV, deck and tablet on the channel.
+  **No new WS message and no client code** — the relay already existed. The relay needs a
+  **working camera in the studio zone**; without one the channel is in technical difficulties and
+  nothing airs.
+- **Prize pool**: read from the boot-loaded item cache (`getItemCache()`), so question generation
+  costs **zero queries**. Filters: value 5–12000, no `drug`/`chemical`, must have a description,
+  name-deduped, and **sorted by id before shuffling** — cache iteration order isn't stable across
+  restarts, and an unsorted fold would make TVs disagree. `furniture.price` is deliberately NOT
+  used: those rows are per-instance rather than catalog (the same flatscreen appears three times),
+  half are unpriced, and the table is intentionally uncached.
+- **Schema**: `ALTER TABLE media_broadcasts ADD COLUMN IF NOT EXISTS gameshow_pools JSONB;` in
+  `SCHEMA_SQL`. Apply with `npm run db:schema` before the runner loads.
+
+## Worked example
+
+See [data/scripts/the_last_lot.bsm](../data/scripts/the_last_lot.bsm) — **The Last Lot**, hosted by
+Rennie Vosk (`npc_lot_vosk`) with Yolanda on the bids (`npc_lot_operator`), airing from the KSAB-TV
+soundstage. It began as a `scripted` shopping channel selling confiscated municipal surplus and was
+converted in place when the format became a contest. A minimal file needs `@type gameshow`,
+`@host`, a `::contestants` line, and the `prompt`, `reveal` and `verdict_read` pools; everything
+else is enrichment.

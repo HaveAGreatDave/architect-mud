@@ -11,7 +11,7 @@
     "west": "zone_district_922_905"
   },
   "flags": {
-    "building_name": "Basin Cold Store",
+    "building_name": "Absolute Zero Holdings",
     "building_type": "cold_storage",
     "is_building": true,
     "is_interior": true,
@@ -23,7 +23,7 @@
   "id": "zone_dray_coldstore",
   "map_id": "map_interior_zone_dray_coldstore",
   "marker": null,
-  "name": "Basin Cold Store",
+  "name": "Absolute Zero Holdings",
   "parent_zone": "zone_district_922_905",
   "updated_at": "1784100000"
 }

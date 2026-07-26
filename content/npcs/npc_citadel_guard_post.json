@@ -1,0 +1,214 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "e_arch": {
+        "action_type": "EMOTE",
+        "next": "loop",
+        "params": {
+          "message": "taps the console twice and the arch reruns its sweep, unasked."
+        },
+        "type": "action"
+      },
+      "e_tiles": {
+        "action_type": "EMOTE",
+        "next": "loop",
+        "params": {
+          "message": "cycles the four camera tiles without looking at them, the way you'd worry a coin."
+        },
+        "type": "action"
+      },
+      "e_write": {
+        "action_type": "EMOTE",
+        "next": "loop",
+        "params": {
+          "message": "writes a line in a paper log, checks the clock, and writes the time next to it."
+        },
+        "type": "action"
+      },
+      "loop": {
+        "next": "start",
+        "type": "loop"
+      },
+      "pick": {
+        "branch_0": "loop",
+        "branch_1": "e_tiles",
+        "branch_2": "e_write",
+        "branch_3": "e_arch",
+        "branches": [
+          {
+            "weight": 3
+          },
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "wait",
+        "type": "start"
+      },
+      "wait": {
+        "next": "pick",
+        "seconds": 70,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [],
+  "description": "Behind the ballistic glass, a broad young woman in a charcoal uniform shirt with the sleeves rolled to the elbow, forearms like someone who used to do a job that involved lifting. One hand rests on a console showing four camera tiles; the other holds a pen over a paper log, because Citadel does not trust a record that can be deleted from somewhere else. She looks at the outline of you on her screen rather than at you, which after a few seconds becomes considerably more unpleasant than eye contact would have been.",
+  "dialogue_tree": {
+    "arch": {
+      "options": [
+        {
+          "label": "\"That seems excessive.\"",
+          "next": "arch2"
+        },
+        {
+          "label": "\"What if it flags something?\"",
+          "next": "flag"
+        }
+      ],
+      "text": "\"Millimetre wave. It reads through cloth, leather, plating and skin.\" She doesn't look up. \"So what I've got on this screen is your outline, everything you're carrying, and where you've decided to carry it. Including the clever place. Especially the clever place — it's the first thing the software looks for, because everyone thinks of it and everyone thinks they thought of it first.\""
+    },
+    "arch2": {
+      "options": [
+        {
+          "label": "\"Fair.\"",
+          "next": "bye"
+        },
+        {
+          "label": "\"What if it flags something?\"",
+          "next": "flag"
+        }
+      ],
+      "text": "\"It's a bank,\" she says, and turns a page. \"Excessive is the product.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "She goes back to the tiles. The pen stays where it is."
+    },
+    "flag": {
+      "options": [
+        {
+          "label": "\"And if I'm wanted?\"",
+          "next": "wanted"
+        },
+        {
+          "label": "\"Noted.\"",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Then the inner door doesn't consider you and the outer door doesn't open either, and you stand in this box with me until one of us is satisfied.\" She writes something. \"I'm patient and I'm on shift for another six hours. Historically that's been the deciding factor.\""
+    },
+    "paper": {
+      "options": [
+        {
+          "label": "\"Old-fashioned.\"",
+          "next": "paper2"
+        },
+        {
+          "label": "\"What does the arch actually see?\"",
+          "next": "arch"
+        }
+      ],
+      "text": "\"Every entry, by hand, with a time.\" She taps the log without looking at it. \"The camera feed goes out to Precinct 9 on a contract, and a contract is a thing that can be leaned on. This isn't. If somebody wants this gone they have to come in here, past that door, past me, and take it.\""
+    },
+    "paper2": {
+      "options": [
+        {
+          "label": "\"Point taken.\"",
+          "next": "bye"
+        },
+        {
+          "label": "\"And if I'm wanted?\"",
+          "next": "wanted"
+        }
+      ],
+      "text": "\"It's the only part of the system nobody's managed to edit,\" she says. \"Twice a year somebody very polite from head office suggests we digitise it. Twice a year my supervisor says no in writing, on paper, and files it in the log.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "\"What does the arch actually see?\"",
+          "next": "arch"
+        },
+        {
+          "label": "\"What happens if it flags something?\"",
+          "next": "flag"
+        },
+        {
+          "label": "\"Why the paper log?\"",
+          "next": "paper"
+        },
+        {
+          "label": "\"And if I'm wanted?\"",
+          "next": "wanted"
+        },
+        {
+          "label": "\"Nothing. Wrong room.\"",
+          "next": "bye"
+        }
+      ],
+      "text": "She doesn't look up from the screen, where you are a pale outline with a bright inventory laid out inside it. \"Both doors are shut. That's not me being difficult, that's how the room works.\" The pen taps once. \"Talk while you're waiting, if you want. It's a very boring job.\""
+    },
+    "wanted": {
+      "options": [
+        {
+          "label": "\"Purely hypothetical.\"",
+          "next": "wanted2"
+        },
+        {
+          "label": "\"Right.\"",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Then you don't come through here at all, and I don't have to do anything about it.\" She finally looks up, briefly. \"Your file comes up on the tile before your face does. You'll get turned around at the arch and walked back out to the hall, politely, and Emmerich will hold the door for you. He's very good at that. People find it worse than being grabbed.\""
+    },
+    "wanted2": {
+      "options": [
+        {
+          "label": "\"...I'll go and use the machine.\"",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Sure.\" She writes a line in the log. She writes the time next to it. \"So's this.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a charcoal uniform shirt with the sleeves rolled past the elbow",
+      "a duty belt hung with a baton, a jammer and three sealed evidence sleeves",
+      "a compression vest that has clearly stopped something at least once",
+      "a plain black sports bra and briefs"
+    ],
+    "mis_willing": false,
+    "personality": "guard"
+  },
+  "home_activities": [],
+  "home_zone": "zone_citadel_vestibule",
+  "hp": 80,
+  "hp_max": 80,
+  "id": "npc_citadel_guard_post",
+  "name": "Wren Kastelaar",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

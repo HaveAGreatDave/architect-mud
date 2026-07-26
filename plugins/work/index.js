@@ -6,13 +6,17 @@
 //
 // Shape (this is the "spine + shift" first cut; couriers + the parcel/fence
 // theft economy are the planned follow-up — see docs/proposals/steady-work.md):
-//   - NO GATE (2026-07-21). This used to sit behind 500 lifetime XP, which was
-//     backwards twice over: lifetime XP comes only from probabilistic per-use
-//     skill rolls (quests award none — grantXp has no callers), so the whole
-//     early quest chain moved you no closer to it; and it locked the SAFE,
-//     indoor, repeatable earner behind proof you'd survived the dangerous ones.
-//     A shift is now open to anyone who finds a venue. The on-ramp is discovery,
-//     not permission — `work` with no venue underfoot lists every venue going.
+//   - GATE: job-board gigs, not XP (2026-07-25). This first sat behind 500
+//     lifetime XP, which was backwards twice over: lifetime XP comes only from
+//     probabilistic per-use skill rolls (quests award none — grantXp has no
+//     callers), so the whole early quest chain moved you no closer to it; and it
+//     locked the SAFE, indoor, repeatable earner behind proof you'd survived the
+//     dangerous ones. That gate was removed 2026-07-21, and the gate is now the
+//     thing the early game actually pays into: `work_gig_gate` (default 5)
+//     hand-ins off the job board, counted by plugins/jobboard as the
+//     `gigs_completed` player flag. Discovery still costs nothing — `work` with
+//     no venue underfoot lists every venue going, and quotes what you still owe.
+//     Courier runs stay ungated: they're the other on-ramp, not the reward.
 //   - VENUE: a zone opts in with flags.work_venue = { role, wage, employer? } —
 //     content-driven, exactly like scavenging_table_id / fishing_table_id.
 //   - SHIFT: `clock in` at a venue sets posture 'working' and starts a per-player
@@ -45,7 +49,28 @@ const T = {
   shiftSecs:  () => getTunable('work_shift_secs', 420),     // 7-minute shift
   tickSecs:   () => getTunable('work_shift_tick_secs', 20), // min gap between event rolls
   eventChance:() => getTunable('work_event_chance', 0.55),  // per-window fire chance
+  gigGate:    () => getTunable('work_gig_gate', 5),         // job-board gigs owed before a shift
 };
+
+// ── The gig gate ──────────────────────────────────────────────────────────────
+// A shift is employment, and nobody hands a stranger an apron: you earn the
+// audition by working the board first. Counted in job-board hand-ins (the
+// `gigs_completed` player flag the jobboard plugin keeps), NOT in XP — the gate
+// that was here before (500 lifetime XP) measured surviving fights, which the
+// early quest chain never paid into. Read through a dynamic import, the same
+// cross-plugin pattern jobboard uses for tablet; if the jobboard plugin isn't
+// loaded we fail OPEN rather than sealing steady work behind gigs nobody can take.
+async function gigsDone(player) {
+  try {
+    const { gigsCompleted } = await import('../jobboard/index.js');
+    return await gigsCompleted(player);
+  } catch { return null; }
+}
+
+function gigGateMessage(done, need) {
+  return `<span class="msg-system">The manager looks you over and isn't sold. "Shift work's not a first job. Do ${need} runs off the job board, then come see me — you've got ${done}."</span>\n` +
+    `<span class="text-dim">Find a board and type</span> <span class="msg-system">gigs</span><span class="text-dim">.</span>`;
+}
 
 const EVENT_WINDOW_MS = 13000; // response window on a normal event
 const RUSH_WINDOW_MS   = 9000;  // tighter window during the rush
@@ -298,7 +323,7 @@ function resolveEvent(player, verb) {
 
 // ── Commands ──────────────────────────────────────────────────────────────────
 // `work` / `shift` / `shifts` — the discovery + status surface.
-function cmdWork(args, raw, player) {
+async function cmdWork(args, raw, player) {
   if (!player) return { type: 'error', message: 'No character.' };
   if (getPosture(player) === 'working' && player.shiftState) {
     const st = player.shiftState;
@@ -308,6 +333,13 @@ function cmdWork(args, raw, player) {
 
   const here = venueOf(getZone(player.current_zone));
   if (here) {
+    const need = T.gigGate();
+    const done = await gigsDone(player);
+    if (done !== null && done < need) {
+      return { type: 'output', message:
+        `<span class="msg-system">${here.name || 'This place'} is hiring a ${here.role || 'hand'} — but not you, not yet.</span>\n` +
+        gigGateMessage(done, need) };
+    }
     return { type: 'output', message:
       `<span class="msg-system">${here.name || 'This place'} is hiring a ${here.role || 'hand'}.</span>\n` +
       `<span class="text-dim">Wage about ${here.wage || DEFAULT_WAGE}₵ a shift, tips on top for good work. Type \`clock in\` to start. It takes real time and you can be sent home — don\'t start one you can\'t finish.</span>` };
@@ -322,7 +354,7 @@ function cmdWork(args, raw, player) {
 }
 
 // `clock in` / `clock out`
-function cmdClock(args, raw, player, broadcast) {
+async function cmdClock(args, raw, player, broadcast) {
   if (!player) return { type: 'error', message: 'No character.' };
   const sub = String((args && args[0]) || '').toLowerCase();
 
@@ -340,6 +372,11 @@ function cmdClock(args, raw, player, broadcast) {
   const zone = getZone(player.current_zone);
   const venue = venueOf(zone);
   if (!venue) return { type: 'emote', message: 'There\'s no work to clock into here.' };
+
+  // Gate last, so someone standing nowhere near a venue gets the useful refusal.
+  const need = T.gigGate();
+  const done = await gigsDone(player);
+  if (done !== null && done < need) return { type: 'output', message: gigGateMessage(done, need) };
 
   const now = Date.now();
   const shiftMs = T.shiftSecs() * 1000;
@@ -396,6 +433,6 @@ on('player.stop', ({ player, stopped }) => {
 });
 
 // Pure helpers exposed for the regression suite (never used in production).
-export const _test = { statCheck, statValue, tipFor, DINER_EVENTS, VERBS, resolveEvent, endShift, venueOf, allVenues, courier: _courierTest };
+export const _test = { statCheck, statValue, tipFor, DINER_EVENTS, VERBS, resolveEvent, endShift, venueOf, allVenues, gigGateMessage, gigGate: T.gigGate, courier: _courierTest };
 
 console.log('[work] Plugin loaded.');

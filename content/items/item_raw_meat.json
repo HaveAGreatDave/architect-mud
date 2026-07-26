@@ -11,9 +11,11 @@
     "perishable": true,
     "spoil_rate": "fast",
     "needs_cooking": true,
+    "food_profile": "dense_meat",
     "status_chance": {
       "food_poisoning": 0.6
-    }
+    },
+    "food_noun": "meat"
   },
   "type": "consumable",
   "value": 3,

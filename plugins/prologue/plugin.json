@@ -1,10 +1,10 @@
 {
   "name": "prologue",
   "version": "1.0.0",
-  "description": "The pre-world tutorial: new souls spawn in The Inbetween and walk a one-way corridor (chargen at the MORPHEX terminal → first Architect Interface IP + tablet + holocaster at the holosign → an eerie welcome broadcast) before collapsing into the Coldwater clone vat. Move gates hard-gate the three narrative doors; the void rooms are lit by the engine's zones.flags.always_lit property.",
+  "description": "The pre-world tutorial: new souls spawn in The Inbetween and walk a one-way corridor (chargen at the MORPHEX terminal → first Architect Interface IP + tablet + holocaster at the holosign → an eerie welcome broadcast) before collapsing into the Coldwater clone vat. Move gates hard-gate the three narrative doors; the void rooms are lit by the engine's zones.flags.always_lit property. Also carries the one post-vat onboarding beat: after your first kill, Grady points you at his armchair to teach that sitting heals. And the one out-of-fiction beat: on a first login it asks whether the player has ever played a multiplayer text game, and if not the client runs a spotlight tour of the interface (tutorial replays it).",
   "after": ["cosmetic-machine", "interactions"],
-  "commands": [],
+  "commands": ["tutorial"],
   "hooks": [],
   "specializedActions": ["use"],
-  "events": { "consumes": ["appearance.changed", "posture.changed", "zone.entered"], "emits": [] }
+  "events": { "consumes": ["appearance.changed", "posture.changed", "zone.entered", "enemy.killed"], "emits": [] }
 }

@@ -2,40 +2,40 @@
   "banter": [],
   "behaviour_graph": {},
   "chitchat": [
-    "The guest checks the countdown monitor and adjusts a collar that was already fine.",
-    "\"When they call me back out there, you watch — it's going to turn around tonight.\""
+    "Dex reads a line off the page under his breath, winces, and strikes it through hard enough to tear.",
+    "\"It's funnier at four in the morning. Everything's funnier at four in the morning. That's the trap.\""
   ],
-  "description": "Tonight's booked guest, marooned in the booth in stage makeup an inch too orange, one leg jittering under the warm lamp. Handsome in the way of a face you half-recognise from a scandal you can't quite place, radiating the specific desperation of someone who needs this segment to go well more than the audience ever could.",
+  "description": "A staff writer holed up in the booth with a drink he isn't drinking and pages he can't stop bleeding on, one leg jittering under the table. Handsome in the way of a face you half-recognise from a byline you can't quite place, radiating the specific desperation of a man whose name is on a script that goes out in four hours whether it works or not.",
   "dialogue_tree": {
+    "block": {
+      "options": [
+        {
+          "label": "So write it badly and fix it after.",
+          "next": "root"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "He laughs, too quick. \"Blocked? No. It's just loud in here.\" A beat, and the mask slips a half-inch. \"...You ever write something you know is good and watch three people who've never been funny in their lives sand it down to nothing? That's not a block. That's just knowing how it ends.\" He doesn't wait for an answer he'd believe."
+    },
     "bye": {
       "options": [],
-      "text": "\"Watch the couch. You'll see.\" They turn back to the countdown, leg jittering, rehearsing a laugh."
+      "text": "\"Watch the cold open. You'll see.\" He turns back to the page, leg jittering, mouthing a line to see if it lands."
     },
     "career": {
       "options": [
         {
           "label": "Sure it is.",
-          "next": "nervous"
+          "next": "block"
         },
         {
           "label": "Back.",
           "next": "root"
         }
       ],
-      "text": "\"The whole— the arc, you know? The comeback arc.\" They wave a hand at the countdown monitor like it owes them money. \"One good couch segment and the feeds pick it up and suddenly everyone remembers they liked you. That's all it takes. One good night.\" The confidence is doing a lot of work and knows it."
-    },
-    "nervous": {
-      "options": [
-        {
-          "label": "They clap for anyone.",
-          "next": "root"
-        },
-        {
-          "label": "Back.",
-          "next": "root"
-        }
-      ],
-      "text": "They laugh, too quick. \"Nervous? No. It's just warm in here.\" A beat, and the mask slips a half-inch. \"...You think the gallery still claps for people like me? On the light, I mean. When the sign tells them to.\" They don't wait for an answer they'd believe."
+      "text": "\"The whole— the arc, you know? The comeback arc.\" He waves a hand at the countdown monitor like it owes him money. \"One monologue that actually lands, the feeds pick up the clip, and suddenly everyone remembers there's a person writing this thing. That's all it takes. One good page.\" The confidence is doing a lot of work and knows it."
     },
     "root": {
       "options": [
@@ -44,22 +44,22 @@
           "next": "career"
         },
         {
-          "label": "Nervous?",
-          "next": "nervous"
+          "label": "Stuck?",
+          "next": "block"
         },
         {
-          "label": "Good luck out there.",
+          "label": "Good luck with it.",
           "next": "bye"
         }
       ],
-      "text": "The guest brightens the instant you look their way, hand already out. \"You saw the last one? No? Doesn't matter — tonight's the one that turns it around. I can feel it. They only put you in the booth when they're serious about you.\" The leg keeps jittering."
+      "text": "Dex brightens the instant you look his way, hand already out, the other flattening a page. \"You caught last night's? No? Doesn't matter — the one I'm on now is the one that turns it around. I can feel it. They only send you down here to rewrite when they still want it to work.\" The leg keeps jittering."
     }
   },
   "faction": null,
   "flags": {
     "clothing_layers": [
-      "a too-sharp checked jacket with a crew mic clipped to the lapel",
-      "a shirt sweated through under the makeup lamp",
+      "a too-sharp checked jacket, one pocket sagging with grease pencils",
+      "a shirt sweated through and untucked hours ago",
       "pressed trousers, dress socks, and boxers"
     ],
     "personality": "chatty"

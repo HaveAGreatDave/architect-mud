@@ -1,0 +1,18 @@
+{
+  "description": "Two caged work lamps wired in series and hung off the joists at either end of the ring, angled down so the chalk reads and the faces don't. The cage on the near one is bent inward in the exact shape of a slag orb travelling fast.",
+  "flags": {
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_mq_sump_pit",
+  "light_type": "overhead",
+  "lumen_output": 1100,
+  "name": "caged work lamps",
+  "object_type": "light",
+  "power_draw_kw": null,
+  "price": 40,
+  "zone_id": "zone_mq_sump_pit"
+}

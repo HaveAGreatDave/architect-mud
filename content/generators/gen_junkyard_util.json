@@ -1,0 +1,14 @@
+{
+  "id": "gen_junkyard_util",
+  "name": "Salvage Rites — Junction Box",
+  "generator_type": "junction_box",
+  "city_generator_id": "gen_zone_powerplantnew_1782069598190",
+  "zone_id": "zone_util_junkyard",
+  "capacity_kw": 5000,
+  "connection_range": 0,
+  "fuel_burn_rate": 0,
+  "fuel_remaining": 0,
+  "fuel_type": null,
+  "owner_id": null,
+  "flags": {}
+}

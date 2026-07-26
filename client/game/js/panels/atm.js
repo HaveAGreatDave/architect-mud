@@ -137,11 +137,14 @@ function renderHome(data) {
 }
 
 function renderTx(data, mode) {
-  const { player, network } = data;
+  const { player, network, txnCap } = data;
   const isDep = mode === 'deposit';
   const avail = isDep ? `Carried: ${formatC(player.credits)}` : `Banked: ${formatC(player.bank_credits)}`;
   const feeLine = (!isDep && network.fee_rate > 0)
     ? `<div class="atm-scr-fee">Network fee: ${Math.round(network.fee_rate * 100)}% on withdrawal</div>` : '';
+  // State the ceiling up front rather than letting the machine refuse after the fact.
+  const capLine = txnCap != null
+    ? `<div class="atm-scr-fee">Per-transaction limit: ${formatC(txnCap)} — larger sums, see a teller</div>` : '';
   return `
     <div class="atm-scr-top">
       <button class="atm-back" data-nav="home">‹ BACK</button>
@@ -154,6 +157,7 @@ function renderTx(data, mode) {
       <button class="atm-key-btn" data-act="max">MAX</button>
     </div>
     ${feeLine}
+    ${capLine}
     <button class="atm-confirm" data-act="${mode}">CONFIRM ${isDep ? 'DEPOSIT' : 'WITHDRAWAL'}</button>`;
 }
 
@@ -226,9 +230,10 @@ function doAction(act) {
     if (field && amt !== 'all') field.value = '';
   } else if (act === 'max') {
     // Deposit caps at carried cash; withdraw caps at the machine's cash stock and what the bank
-    // balance covers after the fee — a physical ATM has no per-transaction limit (that lives only
-    // on the tablet 'atm app'), so the network withdrawal_limit is not applied here.
-    const { player, network, cashStock } = atmData;
+    // balance covers after the fee. Both are then clamped to the machine's per-transaction
+    // ceiling (server-supplied `txnCap`, null at a teller's counter) — bigger sums have to be
+    // walked into the bank, so MAX must never propose an amount the terminal will refuse.
+    const { player, network, cashStock, txnCap } = atmData;
     let max;
     if (screen === 'deposit') {
       max = player.credits || 0;
@@ -237,6 +242,7 @@ function doAction(act) {
       const maxByFunds = feeRate > 0 ? Math.floor((player.bank_credits || 0) / (1 + feeRate)) : (player.bank_credits || 0);
       max = Math.min(cashStock, maxByFunds);
     }
+    if (txnCap != null) max = Math.min(max, txnCap);
     if (field) field.value = Math.max(0, max);
   } else if (act === 'jack') {
     // JACK → Circuit Breach minigame overlay. There is no server-side skill

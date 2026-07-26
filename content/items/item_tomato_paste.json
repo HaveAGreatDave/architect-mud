@@ -1,0 +1,23 @@
+{
+  "description": "A tube of dark red paste, thick as tar and twice as intense. A thumb of it turns water into something with an opinion.",
+  "flags": {},
+  "id": "item_tomato_paste",
+  "name": "tomato concentrate",
+  "tags": {
+    "description": "A tube of dark red paste, thick as tar and twice as intense. A thumb of it turns water into something with an opinion.",
+    "consumable": true,
+    "restore_hunger": 6,
+    "stackable": true,
+    "food_profile": "liquid",
+    "food_noun": "tomato",
+    "needs_cooking": true,
+    "perishable": true,
+    "spoil_rate": "slow",
+    "status_chance": {
+      "food_poisoning": 0.15
+    }
+  },
+  "type": "consumable",
+  "value": 9,
+  "weight": 200
+}

@@ -203,6 +203,180 @@ export default async function regress({ check, run, getPlayer }) {
     await query('DELETE FROM media_channels WHERE id=$1', [TCH]);
     await query('DELETE FROM media_broadcasts WHERE id=$1', [TBC]);
   }
+  // ── Game shows (live-acted, catalog-sourced, audience-participating) ─────────
+  // A game show deals its questions from the LIVE item catalog and is played out on the
+  // studio floor. The properties that matter: every TV must see the same lots (determinism),
+  // the lots must be answerable (priced, distinct, sanely bounded), a round must score
+  // correctly, resolving must never pay twice, and a viewer who tunes in mid-episode must
+  // never see `undefined` on air.
+  {
+    const gsScript = {
+      host: 'npc_gs_host', sidekick: 'npc_gs_side',
+      contestants: ['Renna Voss', 'Dex-4', 'Marguerite Okonkwo-Bell'],
+      pools: {
+        open: ['This is THE LAST LOT.'],
+        announce_host: ['Here he is — {host}!'],
+        audience_call: ['Anyone on my floor can play — {verb} a number.'],
+        'round_intro.overunder': ['Higher or lower.'],
+        'round_intro.price': ['Closest without going over.'],
+        'round_intro.lot': ['Order them.'],
+        showcase_intro: ['THE SHOWCASE.'],
+        prize_copy: ['Tonight: {prize}.'],
+        prompt: ['What is it worth?'],
+        stall: ['Take your time.'],
+        reveal: ['The floor said {guesses}. The card says {price}.'],
+        'reveal.lot': ['{guesses}. It goes {order}.'],
+        showcase_reveal: ['The lot comes to {price}. Bids were {guesses}.'],
+        verdict_read: ['{verdict} That is {purse} credits.'],
+        audience: ['The audience makes a noise.'],
+        applause: ['Applause.'],
+        commercial: ['Sponsored by ACID COLA.'],
+        signoff: ['That is the last lot.'],
+        ticker: ['Sold as seen. No returns.'],
+      },
+    };
+    const normalize = _test.normalizeGraph;
+    const roundsOf = (g) => Object.values(g.nodes).filter(n => n.type === 'gameshow_round').map(n => n.data);
+    const saysOfG = (g) => Object.values(g.nodes).filter(n => n.type === 'say').map(n => n.data.text);
+
+    const g1 = _test.assembleGameshowGraph(gsScript, 'bc_gs_rx', 'day1', normalize);
+    const g2 = _test.assembleGameshowGraph(gsScript, 'bc_gs_rx', 'day1', normalize);
+    check('gameshow: same day bucket → byte-identical episode',
+      JSON.stringify(g1.nodes) === JSON.stringify(g2.nodes), 'episode diverged across two assembles');
+    const g3 = _test.assembleGameshowGraph(gsScript, 'bc_gs_rx', 'day2', normalize);
+    check('gameshow: a new day bucket deals a different episode',
+      JSON.stringify(g3.nodes) !== JSON.stringify(g1.nodes), 'two days produced the same show');
+    check('gameshow: the episode is presence-gated', g1._requireHost === true, String(g1._requireHost));
+    check('gameshow: the episode reaches a spoken line', saysOfG(g1).length > 0, String(saysOfG(g1).length));
+    check('gameshow: every round is paired with a reveal',
+      roundsOf(g1).length === Object.values(g1.nodes).filter(n => n.type === 'gameshow_reveal').length,
+      `${roundsOf(g1).length} rounds`);
+
+    // Every lot must be answerable: priced inside the sane band, described, and never a drug.
+    const T = _test.gameshowTest;
+    const pool = _test.gameshowPool();
+    check('gameshow: the prize pool is non-empty', pool.length > 0, String(pool.length));
+    check('gameshow: every prize is inside the price band',
+      pool.every(p => p.value >= T.PRIZE_MIN_VALUE && p.value <= T.PRIZE_MAX_VALUE),
+      'a prize fell outside the band');
+    check('gameshow: no drugs or raw chemicals are given away on air',
+      pool.every(p => p.type !== 'drug' && p.type !== 'chemical'), 'contraband on the plinth');
+    check('gameshow: no prize name appears twice',
+      new Set(pool.map(p => p.name.toLowerCase())).size === pool.length, 'duplicate lot names');
+
+    // Round shape per format. The ordering round is the one that can silently become
+    // unanswerable — two lots at the same price have no correct order.
+    for (const r of roundsOf(g1)) {
+      check(`gameshow: ${r.format} round has its lots`, r.prizes.length > 0, JSON.stringify(r.prizes));
+      if (r.format === 'lot') {
+        check('gameshow: the ordering round has three DISTINCTLY priced lots',
+          r.prizes.length === 3 && new Set(r.prizes.map(p => p.value)).size === 3,
+          JSON.stringify(r.prizes.map(p => p.value)));
+      }
+      if (r.format === 'overunder') {
+        const [x, y] = r.prizes.map(p => p.value);
+        check('gameshow: over-or-under is never a coin flip',
+          Math.max(x, y) / Math.min(x, y) >= T.OVERUNDER_MIN_RATIO, `${x} vs ${y}`);
+      }
+      if (r.format === 'showcase') check('gameshow: the showcase grants the actual lot', r.grantsItem === true, String(r.grantsItem));
+    }
+
+    // Airing gate — same convention as sports/talkshow.
+    check('gameshow: no @airtime ⇒ airs continuously', _test.gameshowAiring({}, 3) === true, 'gated with no airSlots');
+    check('gameshow: an out-of-range slot set is dark now', _test.gameshowAiring({ airSlots: [-1] }, 3) === false, 'aired off-slot');
+    check('gameshow: airs in its own slot', _test.gameshowAiring({ airSlots: [3] }, 3) === true, 'missed its slot');
+
+    // Scoring. Entries are insertion-ordered, so a tie goes to whoever answered first.
+    const en = (name, value) => ({ key: name, name, value, label: String(value) });
+    check('gameshow: closest without going over picks the highest under',
+      _test.scorePrice([en('a', 30), en('b', 50), en('c', 45)], 55)?.name === 'b', 'wrong winner');
+    check('gameshow: an over-bid is eliminated',
+      _test.scorePrice([en('a', 60), en('b', 50)], 55)?.name === 'b', 'an over-bid won');
+    check('gameshow: everyone over ⇒ nobody wins',
+      _test.scorePrice([en('a', 60), en('b', 99)], 55) === null, 'somebody won while over');
+    check('gameshow: a price tie goes to whoever bid first',
+      _test.scorePrice([en('a', 50), en('b', 50)], 55)?.name === 'a', 'tie broke the wrong way');
+    check('gameshow: over-or-under, first correct answer takes it',
+      _test.scoreOverUnder([en('a', 'lower'), en('b', 'higher')], 'higher')?.name === 'b', 'wrong direction winner');
+    check('gameshow: over-or-under with nobody right ⇒ nobody wins',
+      _test.scoreOverUnder([en('a', 'lower')], 'higher') === null, 'a wrong answer won');
+    const ORDER = [2, 3, 1];
+    check('gameshow: the exact order wins the lot round',
+      _test.scoreLot([en('a', [2, 3, 1]), en('b', [1, 2, 3])], ORDER)?.name === 'a', 'exact order lost');
+    check('gameshow: a closer order beats a worse one',
+      _test.scoreLot([en('a', [2, 1, 3]), en('b', [1, 3, 2])], ORDER)?.name === 'a', 'worse order won');
+    check('gameshow: a shared best score ⇒ nobody wins the lot round',
+      _test.scoreLot([en('a', [3, 1, 2]), en('b', [1, 2, 3])], ORDER) === null, 'a tie paid out');
+    check('gameshow: the showcase band is inclusive at both edges',
+      _test.scoreShowcase([en('a', 800)], 1000)?.name === 'a' && _test.scoreShowcase([en('b', 1200)], 1000)?.name === 'b',
+      'a boundary bid was rejected');
+    check('gameshow: a bid outside the showcase band loses',
+      _test.scoreShowcase([en('a', 799)], 1000) === null && _test.scoreShowcase([en('b', 1201)], 1000) === null,
+      'an out-of-band bid won');
+
+    // Answer parsing — one verb, four formats.
+    check('gameshow: a plain number parses', _test.parseGuess('price', ['400'])?.value === 400, 'number rejected');
+    check('gameshow: commas and credit signs are tolerated',
+      _test.parseGuess('price', ['4,800'])?.value === 4800 && _test.parseGuess('price', ['₵55'])?.value === 55, 'formatting rejected');
+    check('gameshow: junk and zero are rejected',
+      _test.parseGuess('price', ['banana']) === null && _test.parseGuess('price', ['0']) === null, 'junk accepted');
+    check('gameshow: higher/lower synonyms parse',
+      _test.parseGuess('overunder', ['over'])?.value === 'higher' && _test.parseGuess('overunder', ['l'])?.value === 'lower', 'synonym rejected');
+    check('gameshow: an ordering answer needs three distinct slots',
+      JSON.stringify(_test.parseGuess('lot', ['2', '1', '3'])?.value) === '[2,1,3]'
+      && _test.parseGuess('lot', ['1', '1', '2']) === null
+      && _test.parseGuess('lot', ['1', '2']) === null, 'bad permutation accepted');
+
+    // Round lifecycle with no player in the studio — the show must play out regardless.
+    _test.gameshowOpenRound('ch_gs_rx', {
+      format: 'price', roundIndex: 0, price: 100, purse: 40,
+      prizes: [{ id: 'item_rx', name: 'a thing', value: 100 }],
+      npcGuesses: [{ name: 'Renna Voss', value: 90, label: '90' }, { name: 'Dex-4', value: 400, label: '400' }],
+    }, '__no_such_studio__');
+    const res1 = _test.gameshowResolveRound('ch_gs_rx');
+    check('gameshow: with an empty studio a stranger still wins', res1.winner?.name === 'Renna Voss', JSON.stringify(res1.winner));
+    check('gameshow: an NPC win pays nobody', res1.paid === 0, String(res1.paid));
+    const res2 = _test.gameshowResolveRound('ch_gs_rx');
+    check('gameshow: resolving twice scores once (never double-pays)', res2 === res1, 'a second resolve produced a new result');
+    const tok = _test.gameshowTokens('ch_gs_rx');
+    check('gameshow: the winner token names the winner', tok.winner === 'Renna Voss', tok.winner);
+    check('gameshow: the guesses token lists the floor',
+      tok.guesses.includes('Renna Voss 90') && tok.guesses.includes('Dex-4 400'), tok.guesses);
+
+    // A guess from someone who has since left the studio is forfeit — presence is
+    // re-checked at resolve, not at guess time.
+    _test.gameshowOpenRound('ch_gs_rx2', {
+      format: 'price', price: 100, purse: 40, prizes: [{ id: 'i', name: 'x', value: 100 }], npcGuesses: [],
+    }, '__no_such_studio__');
+    _test.gameshowTest.rounds.get('ch_gs_rx2').guesses.set('p_absent', { name: 'Ghost', value: 99, label: '99' });
+    const res3 = _test.gameshowResolveRound('ch_gs_rx2');
+    check('gameshow: a bidder who left the studio forfeits', res3.winner === null && res3.walkedOff === 1, JSON.stringify(res3.winner));
+
+    // The late-tuner case: _seekGraph walks past the round nodes without firing them, so a
+    // reveal line can air with no round behind it. It must read as prose, never `undefined`.
+    const bare = _test.gameshowTokens('__channel_that_never_aired__');
+    check('gameshow: off-round tokens are all strings',
+      ['guesses', 'contestant', 'guess', 'winner', 'verdict'].every(k => typeof bare[k] === 'string'), JSON.stringify(bare));
+    check('gameshow: off-round tokens never leak undefined',
+      !Object.values(bare).some(v => v === undefined || String(v).includes('undefined')), JSON.stringify(bare));
+    // …and the same must hold through the real airtime substitution path.
+    const subbed = _test.subTokens('The floor said {guesses}. {verdict}', '__channel_that_never_aired__', {}, {});
+    check('gameshow: a reveal line off-round substitutes cleanly',
+      !subbed.includes('undefined') && !subbed.includes('{guesses}'), subbed);
+
+    _test.gameshowTest.rounds.delete('ch_gs_rx');
+    _test.gameshowTest.rounds.delete('ch_gs_rx2');
+    _test.gameshowTest.lastResults.delete('ch_gs_rx');
+    _test.gameshowTest.lastResults.delete('ch_gs_rx2');
+  }
+
+  // The `guess` verb is inert everywhere except a studio with a live round — it must never
+  // do anything in an ordinary room.
+  {
+    const out = await run('guess 400');
+    check('guess is inert outside a studio', /nothing to guess at/i.test(String(out || '')), String(out).slice(0, 120));
+  }
+
   // ── Morning-show assembly (live-acted, world-sourced) ────────────────────────
   // A morning show assembles today's episode from the LIVE world — clock, forecast, news
   // feed, standing alerts — and acts it on the couch. Check that each live channel actually
@@ -578,8 +752,8 @@ export default async function regress({ check, run, getPlayer }) {
   // ── Live-text {token} substitution for scripted broadcasts ──────────────────
   // The Quiet Hour (and any scripted graph) may embed {clock}/{weather}/{viewers}/…
   // which resolve at airtime. Guard the safety properties: no-brace text is untouched,
-  // unknown tokens are left verbatim, known tokens resolve, and the per-airing viewer
-  // count is stable within an in-world hour (so the count card and spoken line agree).
+  // unknown tokens are left verbatim, known tokens resolve, and {viewers} reflects the
+  // real live tune-in count (minus the set the line is addressing), not a fake number.
   {
     const bb = {};
     const st2 = { channelId: 'ch_does_not_exist' };
@@ -590,15 +764,62 @@ export default async function regress({ check, run, getPlayer }) {
     const out = _test.subTokens('It is {clock}. {viewers} awake.', st2.channelId, st2, bb);
     check('subTokens resolves known tokens (no leftover braces)', /^It is .+\. [\d,]+ awake\.$/.test(out), out);
 
-    // Stability within an hour: two reads at the same hour-stamp return the same number.
-    const v1 = _test.airingViewers(bb, 2);
-    const v2 = _test.airingViewers(bb, 2);
-    check('airingViewers is stable within an in-world hour', v1 === v2, `${v1} vs ${v2}`);
-    const v3 = _test.airingViewers(bb, 3);
-    check('airingViewers re-rolls on a new hour-stamp', bb.viewersStamp === 3, `stamp=${bb.viewersStamp}`);
+    // A channel with no one tuned in reports 0 other viewers, never a negative number.
+    check('otherViewers floors at 0 on an empty channel', _test.otherViewers('ch_does_not_exist') === 0,
+      String(_test.otherViewers('ch_does_not_exist')));
 
     check('untilFour counts down to the 04:00 service',
       _test.untilFour(2 * 60 + 47) === '1 hour and 13 minutes', _test.untilFour(2 * 60 + 47));
     check('untilFour wraps past four o’clock', /hour/.test(_test.untilFour(5 * 60)), _test.untilFour(5 * 60));
+  }
+
+  // ── Live realism: cameras, room authority, impaired delivery ────────────────
+  // A camera direction is executed by a physical unit or it doesn't happen; a line
+  // belongs to whoever is standing there to say it; and what the actor is on decides
+  // what actually comes out of their mouth.
+  {
+    // Camera roster → on-air unit names, round-robin so a multi-cam studio cuts.
+    check('cameraLabel reads the crew number out of a builder-made camera id',
+      _test.cameraLabel('cam_ch_7_1782953079593_3_1782953083630', 0) === 'Camera 3',
+      _test.cameraLabel('cam_ch_7_1782953079593_3_1782953083630', 0));
+    check('cameraLabel falls back to roster position for an unnumbered id',
+      _test.cameraLabel('cam_weird', 1) === 'Camera 2', _test.cameraLabel('cam_weird', 1));
+
+    const zid = '__regress_studio__';
+    _test.zoneCameras.set(zid, [{ id: 'a', label: 'Camera 1' }, { id: 'b', label: 'Camera 2' }]);
+    const st = {};
+    const picks = [_test.pickCamera(zid, st), _test.pickCamera(zid, st), _test.pickCamera(zid, st)];
+    check('pickCamera rotates through the zone roster',
+      picks[0].id !== picks[1].id && picks[0].id === picks[2].id,
+      picks.map(p => p && p.id).join(','));
+    check('pickCamera returns null where no working camera is registered',
+      _test.pickCamera('__no_such_zone__', {}) === null, 'a shot was produced with no camera');
+    _test.zoneCameras.delete(zid);
+
+    // Room authority: the stand-by card is for an empty stage, not a short-handed one.
+    const graph = { nodes: {
+      a: { type: 'npc_anchor', data: { npc_id: 'npc_host' } },
+      b: { type: 'npc_anchor', data: { npc_id: 'npc_sidekick' } },
+    } };
+    check('anyCastPresent is false with no studio zone',
+      _test.anyCastPresent(graph, null) === false, 'phantom cast');
+    check('anyCastPresent is false for a zone that does not exist',
+      _test.anyCastPresent(graph, '__no_such_zone__') === false, 'phantom cast');
+
+    // Impaired delivery. A sober actor reads the script exactly as written.
+    const line = 'The Basin wakes to clear skies and a curfew that ended at four.';
+    check('a sober actor delivers the line verbatim',
+      _test.garbleLine(line, 0) === line, _test.garbleLine(line, 0));
+    check('impairment below the floor still delivers verbatim',
+      _test.garbleLine(line, 0.25) === line, _test.garbleLine(line, 0.25));
+    // Past the floor it must ALWAYS visibly degrade — never a silent no-op.
+    let allChanged = true;
+    for (let i = 0; i < 40; i++) if (_test.garbleLine(line, 0.9) === line) allChanged = false;
+    check('a wrecked actor never delivers the line clean', allChanged, 'a garbled take came back verbatim');
+    check('garbleLine tolerates an empty line', _test.garbleLine('', 0.9) === '', 'empty line mangled');
+
+    // Impairment reads the live NPC; an id that isn't anyone is simply sharp.
+    const imp = _test.actorImpairment('__nobody__');
+    check('an unknown actor reads as unimpaired', imp.level === 0 && imp.out === false, JSON.stringify(imp));
   }
 }

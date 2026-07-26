@@ -147,26 +147,22 @@ let _tosMapLabels = false; // Map app: label mode — stamp a two-letter code on
 let _tosVoidZoom = 1.35;
 const VOID_ZMIN = 0.55, VOID_ZMAX = 2.3, VOID_ZSTEP = 0.35;
 
-// ── Void reception ("pan the tablet to find a signal") ─────────────────────────
-// Out in the void the tablet is off the grid. There's one SMALL signal pocket that
-// sits still, then jumps to a new spot every ~9–20s; the closer the tablet's centre
-// sits to it, the better your reception — so on desktop you drag the tablet around
-// hunting for it, and re-hunting each time it moves. Reception drives the bar count,
-// the screen static/flicker, and which apps reach the grid: below the revive
-// threshold the network apps flicker out to a "D/C" badge; find the pocket and they
-// flicker back on. Lose the signal while inside a network app and you're booted home.
-const VOID_OFFLINE_APPS = new Set(['map', 'frontier', 'settings', 'music', 'help']); // work off-grid, always
-const RX_REVIVE = 0.55;  // smoothed reception at/above this → network apps launch / revive
-const RX_KICK   = 0.30;  // in a network app, drop below this → booted back to the home screen (hysteresis vs REVIVE)
-const RX_NOSVC  = 0.14;  // below this → zero bars, "NO SVC"
-const SPOT_SIGMA = 0.13; // sweet-spot radius as a fraction of the smaller viewport axis — small/precise
-let _voidRxTimer = null;   // the reception/flicker loop (runs while the tablet is open)
-let _voidRxSmooth = 0;     // eased reception 0..1 (drives bars + app gating — stable)
-let _voidRxActive = false; // are we currently in the off-grid reception state?
-let _voidSpot = null;      // { x, y } — the single small reception pocket, in screen px
-let _voidSpotMoveAt = 0;   // Date.now() ms when the pocket next jumps to a new spot
-let _voidAppsAlive;        // last known network-app availability (undefined until first paint) — drives flicker on change
-let _voidKickedDrop = false; // latch so a single reception drop kicks you out of an app exactly once
+// ── Void boot + signal: a one-time ritual, not a running mechanic ─────────────
+// Out in the void the tablet can't reach ArchitectOS at all. The FIRST time you
+// bring it up on a given crossing it cold-starts on its own on-board firmware
+// (runVoidFirmwareBoot): a terminal boot that tries the grid handshake, fails it,
+// and comes up in VOIDLINK LOCAL instead. It then sits in a SEARCHING state — the
+// screen's TEXT flickers (never the whole panel) and the header reads "NO SIGNAL ·
+// SEARCHING" — until you physically move the tablet, which locks a weak carrier:
+// one soft brightness swell, "WEAK SIGNAL · OFF GRID", and the flicker is done for
+// the rest of the crossing no matter where you drag it afterwards. No app gating at
+// any point; void theming (.tos-void-mode) rides along while isOnCrossing() holds.
+let _voidTripPrimed = false;    // has the firmware boot already played for the CURRENT crossing?
+let _voidSearching = false;     // in the pre-lock "no signal, searching" state?
+let _voidLocked = false;        // has the weak carrier been locked this crossing? (sticky)
+let _wasOnCrossingWatch = false; // last isOnCrossing() reading, polled independently of the tablet being open
+let _voidIntro = null;          // { cancel() } while the firmware boot is live, else null
+let _voidHunt = null;           // { cancel() } while the drag-to-lock listeners are armed, else null
 // Map app zoom: one unified axis. The −/+ buttons walk the server's zoom ladder
 // (movement.js MAP_ZOOM_HALVES) — each step grows the tile window and, at the far
 // end, becomes the whole-region view — instead of just resizing pixels. This array
@@ -185,6 +181,16 @@ setMapOpener(openTabletToMap);
 onRunStateChange((running) => {
   _overlay?.querySelector('[data-map-run]')?.classList.toggle('active', running);
 });
+// Watch for crossing entry independently of whether the tablet is even open, so a
+// trip started/finished with the tablet closed still primes/unprimes the intro
+// correctly the next time it's opened. Cheap — one cached-state read a second.
+setInterval(() => {
+  const on = isOnCrossing();
+  // Stepped into a fresh crossing — the firmware boot and the signal hunt both
+  // arm again (the lock is per-crossing, not per-session).
+  if (on && !_wasOnCrossingWatch) { _voidTripPrimed = false; _voidLocked = false; _voidSearching = false; }
+  _wasOnCrossingWatch = on;
+}, 1000);
 let _gearLayer = 2; // Gear app: displayed body layer (0 skin / 1 clothes / 2 armor), client-side
 let _gearTab = 'inventory';  // Gear app primary tab: 'inventory' (full paged pack) or 'loadout' (paperdoll)
 let _gearTrayPage = 0;       // Gear app: current page of the loadout carried tray
@@ -303,67 +309,108 @@ function ensureStyles() {
     #tablet-os-overlay .tos-hdr { display:flex; justify-content:space-between; font-size:11px; letter-spacing:1px; color:var(--tos-fg-dim); margin-bottom:8px; text-transform:uppercase; }
     #tablet-os-overlay .tos-hdr b { color:var(--mg-accent); }
     #tablet-os-overlay .tos-hdr-right { display:inline-flex; align-items:center; gap:7px; }
-    /* Cell-signal bars: four ascending accent bars, bottom-aligned. */
+    /* Cell-signal bars: four ascending accent bars, bottom-aligned. On the grid only —
+       off the grid the header shows the void badge below instead. */
     #tablet-os-overlay .tos-signal { display:inline-flex; align-items:center; gap:4px; height:9px; position:relative; }
     #tablet-os-overlay .tos-sig-bars { display:inline-flex; align-items:flex-end; gap:1.5px; height:9px; position:relative; }
     #tablet-os-overlay .tos-signal .tos-sig-bar { width:2.5px; border-radius:1px; background:var(--mg-accent); opacity:.22; transition:opacity .18s linear; }
     #tablet-os-overlay .tos-signal .tos-sig-bar.on { opacity:1; }
-    /* No service (off the grid): bars die to red stubs, a slash strikes through them,
-       and a flickering "NO SVC" label spells it out — no missing it out in the void. */
-    #tablet-os-overlay .tos-signal-none .tos-sig-bar { background:color-mix(in srgb, var(--red) 45%, transparent); opacity:.6; }
-    #tablet-os-overlay .tos-sig-slash { position:absolute; left:-1px; right:-1px; top:50%; height:1.5px; border-radius:1px;
-      background:var(--red); box-shadow:0 0 4px color-mix(in srgb, var(--red) 70%, transparent); transform:rotate(-38deg); }
-    #tablet-os-overlay .tos-sig-label { font-family:var(--font-mono,monospace); font-size:8.5px; font-weight:700; letter-spacing:1px;
-      color:var(--red); text-shadow:0 0 5px color-mix(in srgb, var(--red) 45%, transparent); animation:tos-nosvc-flicker 2.4s steps(1) infinite; }
-    @keyframes tos-nosvc-flicker { 0%,88%,100%{opacity:1} 90%{opacity:.25} 93%{opacity:1} 96%{opacity:.4} }
-    [data-motion="off"] #tablet-os-overlay .tos-sig-label { animation:none; }
 
-    /* ── Void reception: screen static + flicker, dead app tiles, no-signal sheet ──
-       In the void the tablet is off the grid. A single small signal pocket that jumps
-       occasionally sets your reception (voidReceptionRaw, driven by where you've
-       dragged the tablet); the loop (tickReception) paints a static haze whose opacity
-       tracks how weak the signal is, plus rare hard flickers, so you pan around
-       chasing clean bars — and re-chasing each time the pocket moves. */
-    #tablet-os-overlay .tos-rx-static { position:absolute; inset:0; z-index:5; pointer-events:none; opacity:0; mix-blend-mode:screen;
-      background:
-        repeating-linear-gradient(0deg, rgba(255,255,255,.10) 0 1px, transparent 1px 3px),
-        repeating-linear-gradient(90deg, rgba(255,255,255,.05) 0 2px, transparent 2px 5px);
-      animation:tos-rx-roll .45s steps(3) infinite; transition:opacity .12s linear; }
-    @keyframes tos-rx-roll { from{background-position:0 0,0 0} to{background-position:0 6px,4px 0} }
-    [data-motion="off"] #tablet-os-overlay .tos-rx-static { animation:none; }
-    /* Hard flicker: a momentary brightness/contrast crush + jolt on the whole screen. */
-    #tablet-os-overlay .tos-panel.tos-rx-blip .tos-screen { filter:brightness(.32) contrast(1.5); transform:translate(1px,-1px); }
-    [data-motion="off"] #tablet-os-overlay .tos-panel.tos-rx-blip .tos-screen { filter:none; transform:none; }
-    /* Dead app tiles (out of signal): greyed, dimmed, with a red "D/C" (disconnected)
-       badge over the icon. They flicker OUT when the grid drops and flicker back IN
-       when a pocket returns; the resting state settles at .34 opacity / greyscale. */
-    #tablet-os-overlay .tos-tile.tos-tile-dead { opacity:.34; filter:grayscale(.85); transition:opacity .2s ease, filter .2s ease; }
-    #tablet-os-overlay .tos-tile.tos-tile-dead .tos-icon { color:var(--tos-fg-dim); }
-    #tablet-os-overlay .tos-tile-dc { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); z-index:3; pointer-events:none;
-      font-family:var(--font-mono,monospace); font-size:9.5px; font-weight:700; letter-spacing:1px; color:var(--red);
-      padding:1px 4px; border:1px solid var(--red); border-radius:3px; background:color-mix(in srgb, var(--bg,#0c1114) 78%, transparent);
-      text-shadow:0 0 5px color-mix(in srgb, var(--red) 45%, transparent); box-shadow:0 0 6px color-mix(in srgb, var(--red) 30%, transparent);
-      animation:tos-nosvc-flicker 2.4s steps(1) infinite; }
-    [data-motion="off"] #tablet-os-overlay .tos-tile-dc { animation:none; }
-    #tablet-os-overlay .tos-tile-flick-out { animation:tos-tile-flick-out .5s steps(1) 1 both; }
-    #tablet-os-overlay .tos-tile-flick-in  { animation:tos-tile-flick-in  .5s steps(1) 1 both; }
-    @keyframes tos-tile-flick-out { 0%{opacity:1} 15%{opacity:.15} 25%{opacity:.85} 45%{opacity:.1} 60%{opacity:.55} 78%{opacity:.2} 100%{opacity:.34} }
-    @keyframes tos-tile-flick-in  { 0%{opacity:.34} 20%{opacity:.9} 35%{opacity:.25} 55%{opacity:1} 72%{opacity:.4} 100%{opacity:1} }
-    [data-motion="off"] #tablet-os-overlay .tos-tile-flick-out,
-    [data-motion="off"] #tablet-os-overlay .tos-tile-flick-in { animation:none; }
-    #tablet-os-overlay .tos-tile.tos-tile-shake { animation:tos-tile-shake .34s ease; }
-    @keyframes tos-tile-shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-5px)} 40%{transform:translateX(4px)} 60%{transform:translateX(-3px)} 80%{transform:translateX(2px)} }
-    [data-motion="off"] #tablet-os-overlay .tos-tile.tos-tile-shake { animation:none; }
-    /* No-signal sheet (tapping a dead app): a dark static card over the screen. */
-    #tablet-os-overlay .tos-nosig-card { display:flex; flex-direction:column; align-items:center; text-align:center; }
-    #tablet-os-overlay .tos-nosig-glyph { font-size:34px; color:var(--red); letter-spacing:2px; text-shadow:0 0 10px color-mix(in srgb, var(--red) 45%, transparent);
-      animation:tos-nosvc-flicker 1.8s steps(1) infinite; }
-    [data-motion="off"] #tablet-os-overlay .tos-nosig-glyph { animation:none; }
-    #tablet-os-overlay .tos-nosig-title { font-size:15px; font-weight:700; letter-spacing:3px; color:var(--red); margin:6px 0 4px; }
-    #tablet-os-overlay .tos-nosig-body { font-size:12px; line-height:1.55; color:var(--tos-fg-dim); max-width:34ch; }
-    #tablet-os-overlay .tos-nosig-close { margin-top:14px; padding:7px 18px; font-family:var(--font-mono,monospace); font-size:11px; letter-spacing:1px;
-      background:var(--tos-surface-lo); color:var(--tos-fg); border:1px solid var(--tos-border); border-radius:6px; cursor:pointer; }
-    #tablet-os-overlay .tos-nosig-close:hover { border-color:var(--mg-accent); color:var(--mg-accent); }
+    /* ── Void badge: the header's off-grid indicator, header strip only. Two states:
+       SEARCHING (before you've found a position — the badge text flickers along with
+       the rest of the screen text) and, once locked, a steady WEAK SIGNAL · OFF GRID
+       that stays put for the rest of the crossing. No gating either way. */
+    #tablet-os-overlay .tos-void-badge { display:inline-flex; align-items:center; gap:5px; font-family:var(--font-mono,monospace);
+      font-size:9px; font-weight:700; letter-spacing:1.5px; color:var(--mg-accent); text-transform:uppercase; }
+    #tablet-os-overlay .tos-void-badge.searching { color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-void-badge-dot { width:6px; height:6px; border-radius:50%; background:var(--mg-accent);
+      box-shadow:0 0 6px color-mix(in srgb, var(--mg-accent) 70%, transparent); animation:tos-void-badge-pulse 2.6s ease-in-out infinite; }
+    #tablet-os-overlay .tos-void-badge.searching .tos-void-badge-dot { background:var(--tos-fg-dim); box-shadow:none;
+      animation:tos-void-badge-pulse 1s ease-in-out infinite; }
+    @keyframes tos-void-badge-pulse { 0%,100%{opacity:1} 50%{opacity:.45} }
+    [data-motion="off"] #tablet-os-overlay .tos-void-badge-dot { animation:none; }
+
+    /* ── Void firmware boot: the one-shot cold start on the first tablet open of a
+       crossing ───────────────────────────────────────────────────────────────────
+       Out here the tablet can't reach ArchitectOS at all, so it falls back to its own
+       on-board firmware: a slow terminal cold-start that tries the grid handshake,
+       fails it, and boots into VOIDLINK LOCAL instead. Lines type in one at a time
+       (JS-driven, see runVoidFirmwareBoot) — no whole-screen strobing anywhere. */
+    #tablet-os-overlay .tos-void-boot { position:absolute; inset:0; z-index:6; display:flex; flex-direction:column;
+      justify-content:center; gap:2px; padding:16px 18px; background:var(--bg, #0c1114);
+      font-family:var(--font-mono,monospace); font-size:10.5px; letter-spacing:.6px; }
+    #tablet-os-overlay .tos-void-boot-hd { color:var(--mg-accent); font-size:11.5px; letter-spacing:2.5px; font-weight:700;
+      text-shadow:0 0 12px color-mix(in srgb, var(--mg-accent) 55%, transparent); margin-bottom:2px; }
+    #tablet-os-overlay .tos-void-boot-rule { border-top:1px solid color-mix(in srgb, var(--mg-accent) 35%, transparent); margin:2px 0 6px; }
+    #tablet-os-overlay .tos-void-bootline { color:var(--tos-fg-dim); white-space:pre; overflow:hidden; text-overflow:ellipsis;
+      animation:tos-void-linein .22s ease-out; }
+    @keyframes tos-void-linein { from{opacity:0} to{opacity:1} }
+    [data-motion="off"] #tablet-os-overlay .tos-void-bootline { animation:none; }
+    #tablet-os-overlay .tos-void-bootline.ok b { color:var(--mg-accent); }
+    #tablet-os-overlay .tos-void-bootline.fail { color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-void-bootline.fail b { color:#ff5c6b; }
+    #tablet-os-overlay .tos-void-bootline.hero { color:var(--mg-accent); font-weight:700; letter-spacing:2px; margin-top:6px;
+      text-shadow:0 0 10px color-mix(in srgb, var(--mg-accent) 50%, transparent); }
+    #tablet-os-overlay .tos-void-bootcur { display:inline-block; width:.6em; background:var(--mg-accent);
+      animation:tos-void-cursor 1s steps(2) infinite; }
+    @keyframes tos-void-cursor { 0%,49%{opacity:1} 50%,100%{opacity:0} }
+    [data-motion="off"] #tablet-os-overlay .tos-void-bootcur { animation:none; }
+
+    /* Signal lock: a short, soft brightness swell the instant the antenna locks —
+       a settle, not a strobe. */
+    #tablet-os-overlay .tos-panel.tos-void-lock .tos-screen { animation:tos-void-lock-flash .7s ease-out; }
+    @keyframes tos-void-lock-flash { 0%{filter:brightness(1.45)} 100%{filter:brightness(1)} }
+    [data-motion="off"] #tablet-os-overlay .tos-panel.tos-void-lock .tos-screen { animation:none; }
+
+    /* ── Searching for signal: the screen's TEXT flickers (the whole panel never
+       does — no strobing chassis), exactly like a set hunting for a carrier. Ends
+       for good the moment the antenna locks; never comes back this crossing. */
+    #tablet-os-overlay .tos-panel.tos-void-searching .tos-scroll { animation:tos-void-textflicker 2.6s steps(1,end) infinite; }
+    @keyframes tos-void-textflicker {
+      0%,100%{opacity:1} 6%{opacity:.32} 9%{opacity:1} 34%{opacity:1} 36%{opacity:.42} 38%{opacity:1}
+      63%{opacity:1} 65%{opacity:.25} 67%{opacity:.85} 69%{opacity:1} 88%{opacity:1} 90%{opacity:.5} 92%{opacity:1} }
+    [data-motion="off"] #tablet-os-overlay .tos-panel.tos-void-searching .tos-scroll { animation:none; opacity:.85; }
+    #tablet-os-overlay .tos-void-hunt { position:absolute; left:0; right:0; bottom:0; z-index:7; pointer-events:none;
+      padding:5px 0 6px; text-align:center; font-family:var(--font-mono,monospace); font-size:9px; letter-spacing:2px;
+      text-transform:uppercase; color:var(--tos-fg-dim);
+      background:linear-gradient(to top, color-mix(in srgb, var(--bg, #0c1114) 92%, transparent), transparent); }
+    #tablet-os-overlay .tos-panel:not(.tos-void-searching) .tos-void-hunt { display:none; }
+
+    /* ── Void mode: persistent off-grid theming for the rest of the crossing (post-
+       boot). Purely cosmetic — no app gating, no ongoing hunt. A scanline haze, a
+       slow drifting interference band, and an accent-tinted vignette pulse, so every
+       screen still reads as "off the grid" without ever interrupting play. */
+    #tablet-os-overlay .tos-void-static { position:absolute; inset:0; z-index:5; pointer-events:none; opacity:0;
+      mix-blend-mode:screen; transition:opacity .4s ease;
+      background:repeating-linear-gradient(0deg, rgba(255,255,255,.05) 0 1px, transparent 1px 3px); }
+    #tablet-os-overlay .tos-panel.tos-void-mode .tos-void-static { opacity:.16; }
+    /* A single wide, very faint band that drifts down the screen forever — the tell
+       that the picture is being carried by something that barely reaches you. */
+    #tablet-os-overlay .tos-panel.tos-void-mode .tos-void-static::after { content:''; position:absolute; left:0; right:0; height:22%;
+      background:linear-gradient(to bottom, transparent, rgba(255,255,255,.07), transparent);
+      animation:tos-void-band 9s linear infinite; }
+    @keyframes tos-void-band { from{top:-25%} to{top:105%} }
+    [data-motion="off"] #tablet-os-overlay .tos-panel.tos-void-mode .tos-void-static::after { animation:none; opacity:0; }
+    #tablet-os-overlay .tos-panel.tos-void-mode .tos-screen::after { content:''; position:absolute; inset:0; z-index:4; pointer-events:none;
+      box-shadow:inset 0 0 46px color-mix(in srgb, var(--mg-accent) 20%, transparent); animation:tos-void-vignette 5s ease-in-out infinite; }
+    @keyframes tos-void-vignette { 0%,100%{opacity:.55} 50%{opacity:1} }
+    [data-motion="off"] #tablet-os-overlay .tos-panel.tos-void-mode .tos-screen::after { animation:none; opacity:.75; }
+    /* Off-grid the device stops calling itself ARCHITECT OS — the chassis header and
+       the home-screen wordmark both read VOIDLINK (set in JS; this just tints it). */
+    #tablet-os-overlay .tos-panel.tos-void-mode .mg-head { color:var(--mg-accent); }
+
+    /* TV app, off the grid: no station reaches out here, so the set shows dead air
+       instead of a tuner (see renderTv). */
+    #tablet-os-overlay .tos-tv-dead { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;
+      min-height:210px; margin:6px 0; border:1px solid var(--tos-border); border-radius:10px;
+      background:repeating-linear-gradient(0deg, rgba(255,255,255,.045) 0 1px, transparent 1px 3px), #05070a; }
+    #tablet-os-overlay .tos-tv-dead-bars { display:flex; gap:0; width:76%; height:46px; border-radius:3px; overflow:hidden; opacity:.5; }
+    #tablet-os-overlay .tos-tv-dead-bars i { flex:1; }
+    #tablet-os-overlay .tos-tv-dead-t { font-family:var(--font-mono,monospace); font-size:12px; font-weight:700; letter-spacing:4px;
+      color:var(--mg-accent); text-transform:uppercase; animation:tos-void-textflicker 2.6s steps(1,end) infinite; }
+    [data-motion="off"] #tablet-os-overlay .tos-tv-dead-t { animation:none; }
+    #tablet-os-overlay .tos-tv-dead-s { font-family:var(--font-mono,monospace); font-size:9.5px; letter-spacing:2px;
+      color:var(--tos-fg-dim); text-transform:uppercase; }
 
     /* Player summary strip: persistent across every screen. Pseudo-3D raised
        bevel: light-accent gradient + inset highlight/shadow + a soft drop
@@ -570,8 +617,15 @@ function ensureStyles() {
       --tos-fg-dim2: color-mix(in srgb, var(--tos-fg, var(--mg-accent)) 60%, var(--bg2, #12181b)); }
     #tablet-os-overlay .tos-ideo-sticky { position:sticky; top:0; z-index:6; margin:0 -13px; padding:6px 13px 0;
       background:var(--bg, #0c1114); box-shadow:0 7px 11px -7px rgba(0,0,0,0.6); }
-    #tablet-os-overlay .tos-ideo-nav { display:flex; gap:5px; overflow-x:auto; scrollbar-width:none; padding-bottom:9px; margin-bottom:11px; border-bottom:1px solid var(--tos-border); }
-    #tablet-os-overlay .tos-ideo-nav::-webkit-scrollbar { display:none; }
+    /* The order strip overflows past ~5 tabs — give it a visible themed rail so
+       it reads as scrollable instead of needing a middle-mouse drag. */
+    #tablet-os-overlay .tos-ideo-nav { display:flex; gap:5px; overflow-x:auto; overflow-y:hidden; padding-bottom:7px; margin-bottom:11px; border-bottom:1px solid var(--tos-border);
+      scrollbar-width:thin; scrollbar-color:color-mix(in srgb,var(--ic,var(--mg-accent)) 45%,transparent) transparent; }
+    #tablet-os-overlay .tos-ideo-nav::-webkit-scrollbar { height:7px; }
+    #tablet-os-overlay .tos-ideo-nav::-webkit-scrollbar-track { background:rgba(0,0,0,.35); border-radius:4px; }
+    #tablet-os-overlay .tos-ideo-nav::-webkit-scrollbar-thumb { background:color-mix(in srgb,var(--ic,var(--mg-accent)) 40%,transparent); border-radius:4px;
+      box-shadow:0 0 7px color-mix(in srgb,var(--ic,var(--mg-accent)) 25%,transparent); }
+    #tablet-os-overlay .tos-ideo-nav::-webkit-scrollbar-thumb:hover { background:color-mix(in srgb,var(--ic,var(--mg-accent)) 65%,transparent); }
     #tablet-os-overlay .tos-ideo-navsep { flex:0 0 auto; align-self:stretch; width:1px; margin:2px 6px 0; background:linear-gradient(180deg,transparent,var(--tos-border) 30%,var(--tos-border) 70%,transparent); }
     #tablet-os-overlay .tos-ideo-tab { flex:0 0 auto; cursor:pointer; user-select:none; font-size:11px; letter-spacing:1.3px; text-transform:uppercase;
       color:var(--tos-fg-dim); padding:6px 9px; border-radius:6px; white-space:nowrap; border:1px solid var(--tos-border);
@@ -1379,13 +1433,13 @@ function ensureStyles() {
     #tablet-os-overlay .tos-acc-head { display:flex; align-items:flex-end; justify-content:space-between; gap:12px;
       padding-bottom:11px; border-bottom:1px solid var(--border); }
     #tablet-os-overlay .tos-acc-app { font-size:16px; letter-spacing:5px; text-transform:uppercase; color:var(--tos-fg); font-weight:bold; }
-    #tablet-os-overlay .tos-acc-sub { font-size:10.5px; letter-spacing:1.6px; color:var(--tos-fg-dim2); margin-top:3px; }
-    #tablet-os-overlay .tos-acc-count { font-size:10px; letter-spacing:1.4px; color:var(--tos-fg-dim);
+    #tablet-os-overlay .tos-acc-sub { font-size:11px; letter-spacing:1.6px; color:var(--tos-fg-dim); font-weight:bold; margin-top:3px; }
+    #tablet-os-overlay .tos-acc-count { font-size:10.5px; letter-spacing:1.4px; color:var(--tos-fg-dim); font-weight:bold;
       text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
     #tablet-os-overlay .tos-acc-count b { display:block; font-size:23px; color:var(--mg-accent); letter-spacing:1px; }
     #tablet-os-overlay .tos-acc-meter { margin:13px 0 15px; }
     #tablet-os-overlay .tos-acc-meter-lbl { display:flex; justify-content:space-between; align-items:baseline;
-      font-size:10px; letter-spacing:1.8px; text-transform:uppercase; color:var(--tos-fg-dim2); margin-bottom:6px; }
+      font-size:10.5px; letter-spacing:1.8px; text-transform:uppercase; color:var(--tos-fg-dim); font-weight:bold; margin-bottom:6px; }
     #tablet-os-overlay .tos-acc-meter-lbl .v { color:var(--tos-fg-dim); letter-spacing:1px; font-variant-numeric:tabular-nums; }
     #tablet-os-overlay .tos-acc-track { height:11px; position:relative; overflow:hidden; background:var(--tos-surface-lo);
       border:1px solid var(--border); box-shadow:inset 0 1px 3px var(--tos-bevel-lo); }
@@ -1401,14 +1455,14 @@ function ensureStyles() {
       background:var(--mg-accent); opacity:.5; }
     #tablet-os-overlay .tos-acc-row.first::before { opacity:1; box-shadow:0 0 9px var(--mg-accent); }
     #tablet-os-overlay .tos-acc-title { font-size:15px; color:var(--tos-fg); font-weight:bold; letter-spacing:.3px; }
-    #tablet-os-overlay .tos-acc-line { font-size:13.5px; color:var(--tos-fg-dim); margin-top:5px; line-height:1.58; max-width:54ch; }
+    #tablet-os-overlay .tos-acc-line { font-size:14px; color:var(--tos-fg); font-weight:bold; margin-top:5px; line-height:1.6; max-width:54ch; }
     #tablet-os-overlay .tos-acc-foot { display:flex; justify-content:space-between; align-items:baseline; margin-top:9px;
-      font-size:10px; letter-spacing:1.4px; color:var(--tos-fg-dim2); font-variant-numeric:tabular-nums; }
+      font-size:10.5px; letter-spacing:1.4px; color:var(--tos-fg-dim); font-weight:bold; font-variant-numeric:tabular-nums; }
     #tablet-os-overlay .tos-acc-foot .xp { color:var(--mg-accent); }
-    #tablet-os-overlay .tos-acc-empty { padding:26px 8px; text-align:center; font-size:13.5px; color:var(--tos-fg-dim); line-height:1.8; }
-    #tablet-os-overlay .tos-acc-empty span { color:var(--tos-fg-dim2); font-size:12px; }
+    #tablet-os-overlay .tos-acc-empty { padding:26px 8px; text-align:center; font-size:14px; color:var(--tos-fg); font-weight:bold; line-height:1.8; }
+    #tablet-os-overlay .tos-acc-empty span { color:var(--tos-fg-dim); font-size:12.5px; }
     #tablet-os-overlay .tos-acc-endfile { margin-top:13px; padding-top:11px; border-top:1px dashed var(--border);
-      font-size:10px; letter-spacing:1.6px; color:var(--tos-fg-dim2); text-align:center; }
+      font-size:10.5px; letter-spacing:1.6px; color:var(--tos-fg-dim); font-weight:bold; text-align:center; }
 
     /* ── News app — "The Coldwater Sentinel" ────────────────────────────────────
        The feed is dressed as a newsprint sheet. The paper look is done by
@@ -2040,170 +2094,138 @@ function renderSummary(p) {
   </div>`;
 }
 
-// Drop the single reception pocket at a fresh random spot (kept off the extreme
-// edges so it's always reachable) and schedule its next jump. The pocket sits
-// still, then relocates occasionally — so a signal you'd found suddenly craters.
-function relocateSpot() {
-  if (typeof window === 'undefined') return;
-  const W = window.innerWidth, H = window.innerHeight;
-  _voidSpot = { x: W * (0.14 + 0.72 * Math.random()), y: H * (0.16 + 0.68 * Math.random()) };
-  _voidSpotMoveAt = Date.now() + 9000 + Math.random() * 11000; // holds ~9–20s, then jumps
-}
-
-// Raw reception at the tablet's current on-screen position: a single SMALL signal
-// pocket (Gaussian falloff from _voidSpot). Pan the tablet's centre onto the
-// pocket to climb toward 1; it's tight, so it takes real aim.
-function voidReceptionRaw() {
-  const anchor = _overlay?.querySelector('.tos-anchor');
-  if (!anchor || !_voidSpot || typeof window === 'undefined') return 0;
-  const r = anchor.getBoundingClientRect();
-  const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-  const sigma = Math.min(window.innerWidth, window.innerHeight) * SPOT_SIGMA;
-  const d2 = (cx - _voidSpot.x) ** 2 + (cy - _voidSpot.y) ** 2;
-  return Math.max(0, Math.min(1, Math.exp(-d2 / (2 * sigma * sigma))));
-}
-
-// A cell-signal indicator in the header. Full bars on the grid; out in the void
-// it shows live reception — a partial bar count that rises/falls as you hunt for
-// signal, dropping to a flickering "NO SVC" when the pocket drifts away.
-function buildSignal(level, noService) {
-  const filled = noService ? 0 : Math.max(1, Math.round(Math.max(0, Math.min(1, level)) * 4));
-  const bars = [1, 2, 3, 4].map(i =>
-    `<span class="tos-sig-bar${!noService && i <= filled ? ' on' : ''}" style="height:${i * 2 + 1}px"></span>`).join('');
-  return `<span class="tos-signal${noService ? ' tos-signal-none' : ''}" id="tos-signal-live" title="${noService ? 'No Service — off the grid' : 'Signal'}">`
-    + `<span class="tos-sig-bars">${bars}${noService ? '<span class="tos-sig-slash"></span>' : ''}</span>`
-    + `${noService ? '<span class="tos-sig-label">NO SVC</span>' : ''}</span>`;
+// A cell-signal indicator in the header. Full bars on the grid; a steady "VOIDLINK"
+// badge once out on a crossing — see the module banner above, this no longer tracks
+// live hunting state, just whether you're currently off the grid at all.
+function buildSignal() {
+  const bars = [1, 2, 3, 4].map(i => `<span class="tos-sig-bar on" style="height:${i * 2 + 1}px"></span>`).join('');
+  return `<span class="tos-signal" id="tos-signal-live" title="Signal"><span class="tos-sig-bars">${bars}</span></span>`;
 }
 function renderSignal() {
-  if (!isOnCrossing()) return buildSignal(1, false);         // on the grid: full bars
-  if (!_voidRxActive) _voidRxSmooth = voidReceptionRaw();     // seed before the loop's first tick (no 0-bar flash)
-  return buildSignal(_voidRxSmooth, _voidRxSmooth < RX_NOSVC);
-}
-
-// The reception loop: while the tablet is open, once per ~110ms it re-reads
-// reception at the tablet's position and paints the bars, the screen static, the
-// occasional hard flicker, and which app tiles are "dead" (out of signal). Runs
-// only when off-grid; on the grid it clears any leftover void state and idles.
-function startReceptionLoop() {
-  if (_voidRxTimer) return;
-  _voidRxTimer = setInterval(tickReception, 110);
-}
-function stopReceptionLoop() {
-  if (_voidRxTimer) { clearInterval(_voidRxTimer); _voidRxTimer = null; }
-  clearVoidVisuals();
-  _voidRxActive = false;
-}
-function clearVoidVisuals() {
-  if (!_overlay) return;
-  _overlay.querySelector('.tos-panel')?.classList.remove('tos-rx-blip');
-  const stat = _overlay.querySelector('#tos-rx-static'); if (stat) stat.style.opacity = '0';
-  _overlay.querySelectorAll('.tos-tile-dead, .tos-tile-flick-out, .tos-tile-flick-in')
-    .forEach(el => el.classList.remove('tos-tile-dead', 'tos-tile-flick-out', 'tos-tile-flick-in'));
-  _overlay.querySelectorAll('.tos-tile-dc').forEach(el => el.remove());
-  _voidSpot = null; _voidAppsAlive = undefined; _voidKickedDrop = false;
-}
-function tickReception() {
-  if (!_overlay || !_overlay.isConnected) { stopReceptionLoop(); return; }
-  if (!isOnCrossing()) { if (_voidRxActive) { clearVoidVisuals(); _voidRxActive = false; } return; }
-  if (!_voidRxActive) {                                       // just went off-grid
-    _voidRxActive = true;
-    if (!_voidSpot) relocateSpot();
-    _voidRxSmooth = voidReceptionRaw();
+  if (!isOnCrossing()) return buildSignal();
+  if (_voidSearching) {
+    return `<span class="tos-void-badge searching" id="tos-signal-live" title="No signal — move the tablet to search">`
+      + `<span class="tos-void-badge-dot"></span>No signal · searching</span>`;
   }
-  if (Date.now() >= _voidSpotMoveAt) relocateSpot();         // the pocket jumps occasionally
-  const motionOff = document.documentElement.getAttribute('data-motion') === 'off';
-  const raw = voidReceptionRaw();
-  _voidRxSmooth += (raw - _voidRxSmooth) * 0.28;             // ease so bars/gating don't jitter
-  const weak = 1 - _voidRxSmooth;
-
-  // In a network app when the signal craters → boot back to the home screen (once
-  // per drop; re-arms when you recover). Offline apps and the home screen stay put.
-  if (_voidRxSmooth >= RX_REVIVE) _voidKickedDrop = false;
-  else if (!_voidKickedDrop && _voidRxSmooth < RX_KICK && _data && _data.appId
-           && _data.screen !== 'home' && !VOID_OFFLINE_APPS.has(_data.appId)) {
-    _voidKickedDrop = true;
-    _overlay.querySelector('.tos-nosig-sheet')?.remove();   // any open no-signal card goes with it
-    home();                                                 // signal lost mid-app → back to the launcher
-    return;
-  }
-  // Momentary dropout spike — this is the "flickers here and there": more frequent
-  // and deeper the weaker the signal. Suppressed when the user asked for no motion.
-  const spike = (!motionOff && Math.random() < (0.08 + 0.30 * weak)) ? Math.random() * weak : 0;
-
-  const sig = _overlay.querySelector('#tos-signal-live');
-  if (sig) sig.outerHTML = buildSignal(_voidRxSmooth, _voidRxSmooth < RX_NOSVC);
-
-  const stat = _overlay.querySelector('#tos-rx-static');
-  if (stat) stat.style.opacity = (motionOff ? Math.min(0.35, weak * 0.35) : Math.min(0.92, weak * 0.5 + spike * 1.3)).toFixed(2);
-
-  if (!motionOff && Math.random() < (0.04 + 0.10 * weak)) {  // rare hard flicker
-    const panel = _overlay.querySelector('.tos-panel');
-    if (panel) { panel.classList.add('tos-rx-blip'); setTimeout(() => panel.classList.remove('tos-rx-blip'), 60 + Math.random() * 80); }
-  }
-  updateDeadTiles();
+  return `<span class="tos-void-badge" id="tos-signal-live" title="Weak carrier — voidlink, off the grid">`
+    + `<span class="tos-void-badge-dot"></span>Weak signal · off grid</span>`;
 }
-// Drive the home-grid tiles' signal state. Network app tiles flicker out and show
-// a "D/C" (disconnected) badge when the grid drops below the revive threshold, and
-// flicker back on when it returns — the flicker only plays on the transition, so a
-// steady state doesn't strobe. Offline apps never die.
-function updateDeadTiles() {
-  if (!_overlay) return;
-  const alive = _voidRxSmooth >= RX_REVIVE;
-  const changed = alive !== _voidAppsAlive;   // availability just flipped this tick
-  _voidAppsAlive = alive;
-  _overlay.querySelectorAll('.tos-tile[data-nav-app]').forEach(t => {
-    const id = t.getAttribute('data-nav-app');
-    if (VOID_OFFLINE_APPS.has(id)) { setTileDead(t, false, false); return; }
-    setTileDead(t, !alive, changed);
-  });
+
+// Persistent off-grid theming for the rest of a crossing, reapplied on every render
+// (cheap: classList toggles). Purely cosmetic — the CSS (.tos-void-mode) drives the
+// scanline haze, drift band and vignette pulse, and .tos-void-searching drives the
+// text-only flicker before the carrier locks; nothing here gates an app.
+function applyVoidMode() {
+  const on = isOnCrossing();
+  const panel = _overlay?.querySelector('.tos-panel');
+  if (!panel) return;
+  panel.classList.toggle('tos-void-mode', on);
+  panel.classList.toggle('tos-void-searching', on && _voidSearching);
+  // Off the grid the device isn't ArchitectOS any more — it's running its own
+  // firmware, and the chassis header says so.
+  const title = _overlay.querySelector('.mg-head .mg-brand-name');
+  if (title) title.textContent = on ? 'VOIDLINK' : 'ARCHITECT OS';
+  const sub = _overlay.querySelector('.mg-head .mg-subtitle');
+  if (sub) sub.textContent = on ? 'Local Firmware · Off Grid' : 'Tablet Interface';
+  if (on && _voidSearching) armVoidHunt();
 }
-// Put one tile into (or out of) the disconnected state. `animate` plays the
-// flicker only when the state actually changed, so re-renders/steady ticks are quiet.
-function setTileDead(tile, dead, animate) {
-  const already = tile.classList.contains('tos-tile-dead');
-  if (dead) {
-    if (!tile.querySelector('.tos-tile-dc')) {
-      const b = document.createElement('span');
-      b.className = 'tos-tile-dc'; b.textContent = 'D/C';
-      tile.appendChild(b);
+
+// The one-shot void cold start: swaps the normal ARCHITECT OS boot screen for the
+// tablet's own firmware terminal, which fails the grid handshake and falls back to
+// VOIDLINK LOCAL, then hands off to the SEARCHING state. Only ever called once per
+// crossing (see _voidTripPrimed / openTabletPanel).
+const VOID_BOOT_LINES = [
+  { cls: 'hd', text: 'VOIDLINK FIRMWARE 3.1.7-w' },
+  { cls: 'rule' },
+  { text: 'cold start ................. ', tail: 'OK', ok: true },
+  { text: 'antenna array .............. ', tail: 'OK', ok: true },
+  { text: 'uplink architectOS ......... ', tail: 'NO CARRIER', fail: true, wait: 700 },
+  { text: 'retry 1/2 .................. ', tail: 'NO CARRIER', fail: true, wait: 620 },
+  { text: 'retry 2/2 .................. ', tail: 'NO CARRIER', fail: true, wait: 620 },
+  { text: 'grid services .............. ', tail: 'UNREACHABLE', fail: true },
+  { text: 'fallback ................... ', tail: 'VOIDLINK LOCAL', ok: true, wait: 500 },
+  { text: 'mounting cached apps ....... ', tail: 'OK', ok: true },
+  { cls: 'hero', text: '◈ VOIDLINK LOCAL — NO GRID', wait: 900 },
+];
+const VOID_BOOT_STEP_MS = 260;
+function runVoidFirmwareBoot() {
+  const boot = _overlay?.querySelector('#tos-boot');
+  if (!boot) { finishVoidBoot(); return; }
+  boot.outerHTML = `<div class="tos-void-boot" id="tos-boot"></div>`;
+  const host = _overlay.querySelector('#tos-boot');
+  let i = 0, timer = null;
+  const step = () => {
+    if (!host?.isConnected) { cleanup(); return; }
+    if (i >= VOID_BOOT_LINES.length) { cleanup(); finishVoidBoot(); return; }
+    const l = VOID_BOOT_LINES[i++];
+    if (l.cls === 'rule') host.insertAdjacentHTML('beforeend', `<div class="tos-void-boot-rule"></div>`);
+    else if (l.cls === 'hd') host.insertAdjacentHTML('beforeend', `<div class="tos-void-boot-hd">${esc(l.text)}</div>`);
+    else if (l.cls === 'hero') host.insertAdjacentHTML('beforeend', `<div class="tos-void-bootline hero">${esc(l.text)}<span class="tos-void-bootcur"></span></div>`);
+    else {
+      host.insertAdjacentHTML('beforeend',
+        `<div class="tos-void-bootline ${l.fail ? 'fail' : 'ok'}">&gt; ${esc(l.text)}<b>${esc(l.tail)}</b></div>`);
+      window.AudioEngine?.playSfx(l.fail ? VOID_CRACKLE_DEF : VOID_BOOT_TICK_DEF, TABLET_SFX_GAIN);
     }
-    tile.classList.add('tos-tile-dead');
-    if (animate && !already) flickerTile(tile, 'out');
-  } else {
-    tile.querySelector('.tos-tile-dc')?.remove();
-    tile.classList.remove('tos-tile-dead');
-    if (animate && already) flickerTile(tile, 'in');
-  }
+    timer = setTimeout(step, l.wait || VOID_BOOT_STEP_MS);
+  };
+  function cleanup() { clearTimeout(timer); _voidIntro = null; }
+  _voidIntro = { cancel: cleanup };
+  timer = setTimeout(step, 220);
 }
-// Restart the flicker-out / flicker-in animation on a tile (skipped for no-motion).
-function flickerTile(tile, dir) {
-  if (document.documentElement.getAttribute('data-motion') === 'off') return;
-  const cls = dir === 'out' ? 'tos-tile-flick-out' : 'tos-tile-flick-in';
-  tile.classList.remove('tos-tile-flick-out', 'tos-tile-flick-in');
-  void tile.offsetWidth; // reflow so the animation re-triggers
-  tile.classList.add(cls);
-  setTimeout(() => tile.classList.remove(cls), 520);
+
+// Firmware boot done → the OS comes up in the SEARCHING state (unless this crossing
+// already locked a carrier), which renders the real screen with flickering text and
+// arms the drag-to-lock hunt.
+function finishVoidBoot() {
+  if (!_voidLocked) _voidSearching = true;
+  render();
 }
-// Blocked-app feedback: a sheet over the screen explaining the app can't reach the
-// grid, nudging the player to pan for signal. Auto-updating bars aren't needed —
-// the header meter is already live behind it.
-function showNoSignal(appName) {
-  const screen = _overlay?.querySelector('#tos-screen-inner');
-  if (!screen) return;
-  screen.querySelector('.tos-nosig-sheet')?.remove();
-  const sheet = document.createElement('div');
-  sheet.className = 'tos-addsheet tos-nosig-sheet';
-  sheet.innerHTML = `<div class="tos-addsheet-card tos-nosig-card">
-    <div class="tos-nosig-glyph">▚</div>
-    <div class="tos-nosig-title">NO SIGNAL</div>
-    <div class="tos-nosig-body"><b>${esc(appName || 'This app')}</b> can't reach the grid out here in the void.<br>Drag the tablet around to find a pocket of reception, then try again.</div>
-    <button class="tos-nosig-close" data-nosig-close>Dismiss</button>
-  </div>`;
-  screen.appendChild(sheet);
-  sfx(TOS_SELECT_DEF);
-  const close = () => sheet.remove();
-  sheet.addEventListener('click', (e) => { if (e.target === sheet) close(); });
-  sheet.querySelector('[data-nosig-close]')?.addEventListener('click', close);
+
+// "Move the tablet into the right position": while SEARCHING, actually dragging the
+// tablet (not merely grabbing it) is what finds the carrier. One real drag locks it
+// for the rest of the crossing — moving it again afterwards changes nothing.
+const VOID_HUNT_PX = 60; // drag distance that counts as having found the position
+function armVoidHunt() {
+  if (_voidHunt || !_overlay) return;
+  const head = _overlay.querySelector('.mg-head');
+  if (!head) return;
+  let from = null;
+  const pt = e => (e.touches?.[0] || e);
+  const down = (e) => { if (e.target.closest('button')) return; const p = pt(e); from = { x: p.clientX, y: p.clientY }; };
+  const move = (e) => {
+    if (!from) return;
+    const p = pt(e);
+    if (Math.hypot(p.clientX - from.x, p.clientY - from.y) >= VOID_HUNT_PX) lockVoidSignal();
+  };
+  const up = () => { from = null; };
+  head.addEventListener('mousedown', down);
+  head.addEventListener('touchstart', down, { passive: true });
+  document.addEventListener('mousemove', move);
+  document.addEventListener('touchmove', move, { passive: true });
+  document.addEventListener('mouseup', up);
+  document.addEventListener('touchend', up);
+  const cancel = () => {
+    head.removeEventListener('mousedown', down);
+    head.removeEventListener('touchstart', down);
+    document.removeEventListener('mousemove', move);
+    document.removeEventListener('touchmove', move);
+    document.removeEventListener('mouseup', up);
+    document.removeEventListener('touchend', up);
+    _voidHunt = null;
+  };
+  _voidHunt = { cancel };
+}
+
+function lockVoidSignal() {
+  if (_voidLocked) return;
+  _voidLocked = true;
+  _voidSearching = false;
+  _voidHunt?.cancel();
+  const panel = _overlay?.querySelector('.tos-panel');
+  window.AudioEngine?.playSfx(VOID_SIGNAL_FOUND_DEF, TABLET_SFX_GAIN);
+  panel?.classList.add('tos-void-lock');
+  setTimeout(() => panel?.classList.remove('tos-void-lock'), 720);
+  render();
 }
 
 function renderHeader(d) {
@@ -2790,6 +2812,15 @@ function renderTabletSettings() {
     <input type="color" class="tos-color" data-set-poker-color="1" value="${esc(s.pokerFeltColor || '#1a4a1a')}" title="Pick a custom felt colour">
   </div></div>`;
 
+  // Extra Lore — reuse the first-visit lore feature, but show a zone's intro block
+  // every visit instead of only the first. Server-side preference; the pill just
+  // mirrors it into `lorealways on|off` (pushed again at login, see dispatch.js).
+  const loreOn = (s.extraLore || 'off') === 'on';
+  const loreRow = `<div class="tos-set-row"><span class="tos-set-label">Extra Lore<span class="tos-set-val">Show zone lore every visit</span></span><div class="tos-opts">
+    <div class="tos-opt${loreOn ? ' selected' : ''}" data-set-lore="on" title="Lore on every visit">On</div>
+    <div class="tos-opt${!loreOn ? ' selected' : ''}" data-set-lore="off" title="Lore on first visit only">Off</div>
+  </div></div>`;
+
   const soundOn = !!audio.enabled;
   const soundRow = `<div class="tos-set-row"><span class="tos-set-label">Sound</span><div class="tos-opts">
     <div class="tos-opt${soundOn ? ' selected' : ''}" data-set-sound="on" title="Sound On">🔊 On</div>
@@ -2829,6 +2860,7 @@ function renderTabletSettings() {
         <span class="tos-btn-sub" data-contrast-reset="1" style="margin:0 0 0 8px;padding:4px 9px">Reset</span></span></div>` +
       fontRow +
       feltRow +
+      loreRow +
       renderMisSection(),
     Layout: (layoutRows || '') +
       `<div class="tos-set-row"><span class="tos-set-label">Sidebar Order<span class="tos-set-val">Drag order &amp; hidden panels</span></span>
@@ -5006,6 +5038,18 @@ function renderDeadhead(d) {
 let _tvView = null;
 
 function renderTv(d) {
+  // Off the grid there is no broadcast to receive at all — no station, no tuner,
+  // just dead air. Short-circuits before the shared TV view is ever built, so
+  // mountTabletTv finds no .tos-tv-set and never opens a portable tuner out here.
+  if (isOnCrossing()) {
+    const bars = ['#c0c0c0', '#c8c800', '#00c8c8', '#00c800', '#c800c8', '#c80000', '#0000c8', '#101010']
+      .map(c => `<i style="background:${c}"></i>`).join('');
+    return `<div class="tos-tv-dead">
+      <div class="tos-tv-dead-bars">${bars}</div>
+      <div class="tos-tv-dead-t">No signal</div>
+      <div class="tos-tv-dead-s">No broadcast reaches the void</div>
+    </div>`;
+  }
   const channels = Array.isArray(d.channels) ? d.channels : [];
   const chips = channels.length
     ? channels.map(c =>
@@ -5255,14 +5299,6 @@ function wireBody() {
       // over the still-running tablet (its z-index sits above the chassis — see
       // #musicplayer-panel in styles.css), so the tablet stays put behind it.
       if (appId === 'music') { sfx(TOS_SELECT_DEF); openMusicPlayerPanel(); return; }
-      // Off the grid in the void, network apps can't reach a server — they only work
-      // once you've panned the tablet into a strong-enough reception pocket. Offline
-      // apps (map survey, frontier, settings, music, help) always open.
-      if (isOnCrossing() && !VOID_OFFLINE_APPS.has(appId) && _voidRxSmooth < RX_REVIVE) {
-        el.classList.remove('tos-tile-shake'); void el.offsetWidth; el.classList.add('tos-tile-shake');
-        showNoSignal(el.querySelector('.tos-name')?.textContent);
-        return;
-      }
       // Map renders inside the tablet again — the standalone bigmap popup is retired,
       // so the Map app IS the city map (one surface, shared with the minimap
       // double-click, which opens the tablet here too — see openTabletToMap).
@@ -5689,6 +5725,19 @@ function wireTabletSettings() {
       render();
     });
   });
+  // Extra Lore — local pref + a silent push to the server, which owns the actual
+  // per-player flag the lore plugin reads.
+  _overlay.querySelectorAll('[data-set-lore]').forEach(el => {
+    el.addEventListener('click', () => {
+      sfx(TOS_SELECT_DEF);
+      const val = el.getAttribute('data-set-lore');
+      const s = loadSettings();
+      s.extraLore = val;
+      commit(s);
+      sendCmdSilent(`lorealways ${val}`);
+      render();
+    });
+  });
   // Theme locker — easy Linked/Unlinked toggle.
   _overlay.querySelectorAll('[data-set-link]').forEach(el => {
     el.addEventListener('click', () => {
@@ -5993,6 +6042,28 @@ const CRT_POWER_OFF_DEF = {
 };
 const TABLET_SFX_GAIN = 0.55; // soft — a register-blip, not a chime you'd notice repeatedly
 
+// Void-trip boot cues — only ever heard on the first tablet open of a crossing
+// (runVoidFindingSignal / openTabletPanel). VOID_POWER_ON is the "weird different"
+// power-on: heavier noise, a slower/uglier sweep than the normal CRT_POWER_ON.
+const VOID_POWER_ON_DEF = {
+  id: 'tablet_void_power_on', category: 'sfx', priority: 3,
+  config: { waveform: 'sawtooth', freq: 44, duration: 0.6, noiseMix: 0.55, pitchBend: { to: 260, time: 0.5 }, filter: { type: 'lowpass', freq: 1800, q: 1.4 }, adsr: { a: 0.01, d: 0.3, s: 0.3, r: 0.28 } },
+};
+const VOID_CRACKLE_DEF = { // a short noisy burst, timed at random through FINDING SIGNAL
+  id: 'tablet_void_crackle', category: 'sfx', priority: 3,
+  config: { duration: 0.13, noiseMix: 0.85, waveform: 'square', freq: 220, filter: { type: 'bandpass', freq: 1200, q: 1.4 }, adsr: { a: 0.002, d: 0.05, s: 0.05, r: 0.05 }, gain: 0.09 },
+};
+const VOID_BOOT_TICK_DEF = { // a dry click per firmware boot line that didn't fail
+  id: 'tablet_void_boot_tick', category: 'sfx', priority: 2,
+  config: { duration: 0.05, waveform: 'square', freq: 180, noiseMix: 0.3, filter: { type: 'bandpass', freq: 900, q: 1.1 }, adsr: { a: 0.001, d: 0.02, s: 0.02, r: 0.02 }, gain: 0.05 },
+};
+const VOID_SIGNAL_FOUND_DEF = { // the "lock" chime the instant the weak carrier locks
+  id: 'tablet_void_signal_found', category: 'sfx', priority: 4,
+  config: { duration: 0.24, layers: [
+    { waveform: 'sine', freq: 340, pitchBend: { to: 880, time: 0.16 }, filter: { type: 'lowpass', freq: 2600, q: 0.7 }, adsr: { a: 0.005, d: 0.15, s: 0.1, r: 0.09 }, gain: 0.09 },
+  ] },
+};
+
 // Selection/navigation clicks. Tablet screens reused the shared hololock-set/
 // hololock-entry catalog cues (tuned sharp on purpose for that hacking
 // minigame's tension) for every pill click, tab switch, and zone tap — which
@@ -6087,6 +6158,18 @@ export function openTabletPanel(msg) {
   // Consume the one-shot boot-skip flag on every open so it can't leak into a
   // later normal open (it only actually changes anything on a first/fresh open).
   const skip = _skipBoot; _skipBoot = false;
+  // First tablet open of a void crossing gets the FINDING SIGNAL ritual instead of
+  // the normal boot-and-done; every later open this same crossing (or any open
+  // while already on the grid) is a normal open. Consumed unconditionally the
+  // moment we're off-grid — even a skip-open "arrives" and uses up the trip's intro,
+  // so a later full open doesn't suddenly surprise-fire it mid-crossing.
+  const voidIntro = !skip && isOnCrossing() && !_voidTripPrimed;
+  if (isOnCrossing()) {
+    _voidTripPrimed = true;
+    // Off-grid and no carrier locked yet (fresh crossing, or a skip-open that never
+    // played the firmware boot) → the OS comes up SEARCHING until you move it.
+    if (!_voidLocked) _voidSearching = true;
+  }
 
   // Keep the Settings screen's MIS toggle in step with the server (player_update
   // dispatches mis_state_update). Bound once; harmless when Settings isn't shown.
@@ -6112,7 +6195,8 @@ export function openTabletPanel(msg) {
           ${skip ? '' : '<div class="tos-boot" id="tos-boot"><div class="tos-boot-logo">A</div><div class="tos-boot-title">ARCHITECT OS</div><div class="tos-boot-sub">Booting Tablet Interface&hellip;</div></div>'}
         </div>
         ${crtOverlays()}
-        <div class="tos-rx-static" id="tos-rx-static"></div>
+        <div class="tos-void-static"></div>
+        <div class="tos-void-hunt">◈ Searching for signal — move the tablet</div>
       </div></div>
     </div></div>`;
     // onClose runs whenever the overlay is torn down by ANY path (including
@@ -6129,6 +6213,11 @@ export function openTabletPanel(msg) {
     window.AudioEngine?.init?.();
     if (skip) {
       render(); // straight to content, no boot ceremony
+    } else if (voidIntro) {
+      // Weird, harsher power-on this once, then straight into FINDING SIGNAL
+      // instead of the usual boot-and-done — see runVoidFindingSignal.
+      window.AudioEngine?.playSfx(VOID_POWER_ON_DEF);
+      setTimeout(runVoidFirmwareBoot, CRT_ANIM_MS);
     } else {
       window.AudioEngine?.playSfx(CRT_POWER_ON_DEF);
       // CRT expands (0.6s), "ARCHITECT OS" holds for ~1s, then the real screen
@@ -6742,12 +6831,7 @@ function render() {
 
   if (survLive) _pollTimer = setInterval(pollSurveillance, 5000);
 
-  // Void reception hunt: keep the loop alive for the tablet's lifetime (it self-
-  // gates on isOnCrossing each tick, so walking into/out of the void with the
-  // tablet open is handled), and paint the current state now so a freshly rendered
-  // home grid shows dead tiles / partial bars without a 110ms flash of full signal.
-  startReceptionLoop();
-  if (isOnCrossing()) tickReception();
+  applyVoidMode(); // cosmetic off-grid theming, re-applied on every render
 }
 
 export function closeTabletPanel() { shutdownTablet(); }
@@ -6758,7 +6842,8 @@ window.addEventListener('game-disconnect', () => { if (_overlay) close(); });
 
 function close() {
   purgeCompletedQuestLogs(); // finished quests' action logs clear once you close the tablet
-  stopReceptionLoop();
+  if (_voidIntro) { _voidIntro.cancel(); _voidIntro = null; } // torn down mid-firmware-boot — don't let its timers outlive the overlay
+  if (_voidHunt) { _voidHunt.cancel(); } // drag-to-lock listeners are document-level; never leave them behind
   if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
   if (_fakeTimer) { clearInterval(_fakeTimer); _fakeTimer = null; }
   if (_reelTimer) { clearInterval(_reelTimer); _reelTimer = null; _reelPlaying = false; }

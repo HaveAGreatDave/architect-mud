@@ -1,0 +1,22 @@
+{
+  "description": "Dark ragged leaves with a white bleed at the cut stem. Bitter enough to be medicine and treated as such by people who cannot afford medicine.",
+  "flags": {},
+  "id": "item_bitter_leaf",
+  "name": "bitter leaf",
+  "tags": {
+    "description": "Dark ragged leaves with a white bleed at the cut stem. Bitter enough to be medicine and treated as such by people who cannot afford medicine.",
+    "consumable": true,
+    "restore_hunger": 6,
+    "stackable": true,
+    "food_profile": "soft_vegetable",
+    "food_noun": "bitter leaf",
+    "perishable": true,
+    "spoil_rate": "fast",
+    "status_chance": {
+      "food_poisoning": 0.2
+    }
+  },
+  "type": "consumable",
+  "value": 6,
+  "weight": 100
+}

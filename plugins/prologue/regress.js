@@ -11,6 +11,7 @@ export default async function regress({ check }) {
     Z_INBETWEEN, Z_LATTICE, Z_BROADCAST,
     ITEM_HOLOCASTER,
     F_ALIGNED, F_INTERFACED, F_BROADCAST,
+    cmdTutorial, F_TOUR_ASKED, F_TOUR_TAKEN, isSet,
   } = _test;
 
   // The stat gift + holocaster grant write player-scoped rows (FKs to players),
@@ -92,6 +93,19 @@ export default async function regress({ check }) {
   // holocaster with none carried falls through to the builtin.
   const noItem = await useHolocaster(['holocaster'], 'use holocaster', lp);
   check('use holocaster without one falls through', noItem === undefined);
+
+  // ── The interface tour: the answer is remembered, the replay is silent ─────
+  const declined = await cmdTutorial(['no'], 'tutorial no', p);
+  check('tutorial no answers with a hint', declined?.type === 'system');
+  check('tutorial no marks the question asked', await isSet(p, F_TOUR_ASKED));
+  check('tutorial no does not mark the tour taken', !(await isSet(p, F_TOUR_TAKEN)));
+  const accepted = await cmdTutorial(['yes'], 'tutorial yes', p);
+  check('tutorial yes is silent (the client is already touring)', accepted === null);
+  const replay = await cmdTutorial([], 'tutorial', p);
+  check('bare tutorial replays silently', replay === null);
+  const done = await cmdTutorial(['done'], 'tutorial done', p);
+  check('tutorial done closes it out', done?.type === 'system' && (await isSet(p, F_TOUR_TAKEN)));
+  flags.push(F_TOUR_ASKED, F_TOUR_TAKEN);
 
   // ── Cleanup ────────────────────────────────────────────────────────────────
   for (const f of flags) await clearFlag('player', f, p).catch(() => {});

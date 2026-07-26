@@ -1,0 +1,8 @@
+{
+  "id": "map_int_junkyard",
+  "name": "Salvage Rites — Interior",
+  "created_by": null,
+  "entry_zone_id": "zone_junkyard_shack",
+  "parent_zone_id": "zone_district_918_906",
+  "updated_at": "1784600000"
+}

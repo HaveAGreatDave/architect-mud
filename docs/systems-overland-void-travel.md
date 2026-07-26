@@ -291,8 +291,11 @@ row y=896) is Coldwater Basin, plus 16 more down the east and west water margins
 boundary tiles are open water, leaving 253 real land rim tiles.** Whatever is past the far shore belongs
 to boats and the leviathan, not to the void.
 
-**Salvage pays for the walk.** `sift` fires once per room against a three-tier `LOOT` table (spine
-rolls tiers 1–2, detours 2–3):
+**Salvage pays for the walk (rebalanced 2026-07-21).** `loot` fires once per room against a
+three-tier `LOOT` table (spine rolls tiers 1–2, detours 2–3). The first cut was 4/4/3 items with
+`item_scrap_metal` — which vendors buy for **₵0** — on tier 1, so a place that spawns enemy packs and
+eats your corpse frequently paid nothing, and when it paid, it paid the same roadside junk you can
+scavenge free on the spawn tile. Now:
 
 | tier | diff | pool |
 |---|---|---|
@@ -315,6 +318,14 @@ stays registered solely because the muster overlay's buttons send `voidwalk canc
 `voidwalk say <text>` ([`client/game/js/panels/voidwalk-staging.js`](../client/game/js/panels/voidwalk-staging.js));
 bare `voidwalk` returns an in-fiction refusal that points at the rim. The muster is a ready-check:
 **every member of the cohort must `ready`** before the crossing launches.
+
+**The muster screen is "VOIDWALKING" (renamed 2026-07-25).** It used to be titled *The Crossing* and
+badged `ARCHITECT OS`; it now reads as the **VOIDLINK** firmware, matching the tablet out past the rim —
+cold slate, scanline haze, survey brackets at the corners, a chromatic-split wordmark, and a rule
+stamped `NO ROADS · NO RESCUE · NO RECORD` (`.vwstage-*` in `client/game/styles.css`). Stepping off the
+edge also prints a ruled **ENTERING THE VOID** stamp in the message pane (`VOID_ENTRY_BANNER`, sent to
+the leader and every follower) — deliberately ruled rather than boxed so no glyph has to line up with a
+closing edge.
 
 ---
 
@@ -358,18 +369,35 @@ leader's *exact move* to same-zone followers; the void just extends that into th
   a rest site. Shared-seed geometry lets you navigate back, but retreat re-walks rooms and re-rolls
   their encounters hot — separation is a real gamble. Rest sites are the natural rally points.
 
-### The void is a comms dead zone
+### The void, on the Tablet
 
-**BUILT (client-side, `tablet-os.js`):** the Tablet **loses signal in the void**. Grid-dependent apps
-are dead — tapping one raises a **NO SIGNAL** sheet (`showNoSignal`) telling you to drag the tablet
-around and hunt for a roaming pocket of reception; the header meter is live, tiles flicker, and the
-bigmap is replaced by a **Journey Map** (`renderJourneyMap`) that reads out substrate, trail depth
-behind you, and whether the way ahead is fog, a dead end, or a gate in sight. That's the diegetic tell
-that you've left the world behind.
+**BUILT, reworked 2026-07-22, polished 2026-07-25** (`client/game/js/panels/tablet-os.js`): the tablet
+used to gate almost every app behind a live "pan the tablet to find a signal pocket" hunt, with apps
+flickering out to a "D/C" badge and booting you back to the home screen if reception dropped mid-app —
+it read as broken more than atmospheric. It's now a one-shot ritual in two beats, and **no app is ever
+gated**:
 
-**Not built:** the gear-gated fix. The intent is a **radio item** granting a short-range party channel,
-so that without it only co-present (same-node) players hear each other — tying coordination to
-provisioning. Today a split party simply goes dark.
+1. **Void firmware boot** (`runVoidFirmwareBoot`). The first tablet open of a crossing gets the harsher
+   voidwalking power-on into the device's *own* firmware terminal instead of the ArchitectOS logo:
+   `VOIDLINK FIRMWARE 3.1.7-w` cold-starts line by line, fails the ArchitectOS uplink three times
+   (`NO CARRIER`), gives up on grid services and boots into **VOIDLINK LOCAL — NO GRID**. Off-grid the
+   chassis header renames itself `VOIDLINK / Local Firmware · Off Grid` for the whole crossing.
+2. **Searching → weak lock.** The OS comes up in a **SEARCHING** state: the header reads
+   `NO SIGNAL · SEARCHING`, a footer hint says *move the tablet*, and the screen's **text** flickers
+   (`.tos-void-searching` animates `.tos-scroll` opacity — the panel itself never strobes; the old
+   whole-screen brightness crush is gone). Actually dragging the tablet ≥60px finds the position: one
+   soft brightness swell, and the badge locks to `WEAK SIGNAL · OFF GRID` **permanently for that
+   crossing** — moving it again afterwards changes nothing.
+
+Off-grid theming (`.tos-void-mode`: scanline haze, a slow drifting interference band, an accent
+vignette pulse) persists as long as `isOnCrossing()` holds, purely cosmetic. The **TV app shows dead
+air** out here — colour bars + a flickering `NO SIGNAL`, short-circuited in `renderTv` before the
+shared tuner view is built, so no portable tuner is opened in the void. Entering a fresh crossing
+re-arms both the firmware boot and the signal hunt.
+
+Split-party comms across nodes without co-presence, and a gear-gated radio item to bridge that, remain
+**unbuilt design** (not wired to anything today) — see [[project_tablet_chat_app]] for the chat app
+itself, which is one of the apps that now Just Works once the tablet's signal locks.
 
 ### Party seam note
 
@@ -446,7 +474,7 @@ zones, the **generator assigns each room a scavenge table + richness tier determ
 tier a low-scav one walks past. This gives parties a genuine **role split** — navigator (leader),
 water-mule, and **scavenger** (turns a deadly detour into a payday).
 
-**BUILT (ambient scavenging):** the **`sift`** verb reuses
+**BUILT (Slice 5a — ambient scavenging, branch `void-travel`):** the **`loot`** verb reuses
 `effectiveSkill(player,'scavenging')` + the 2d8−2d8 check + `awardSkillUse` (a near-miss still trains
 you). Loot is generated in RAM — a 3-tier table (`LOOT`: staples `diff 4` → salvage `diff 8` → rare
 `diff 12`), drawn from committed items (water/rations up top, wiring/circuits/ore mid, mystery-component/
@@ -454,16 +482,16 @@ glowing-scrap/scrap-pistol rare). A room offers a **richness tier** — spine ro
 `[2,3]`** (the branching finally pays) — and your Scavenging skill decides whether you reach the good
 stuff. **Once per room per crossing.**
 
-**BUILT (corpse-packs + claim-ledger):** `sift` resolves in three tiers — **big score →
+**BUILT (Slice 5b — corpse-packs + claim-ledger):** `loot` now resolves in three tiers — **big score →
 corpse-pack → ambient scavenging**:
 - **Lootable corpse-packs** — the engine's `spawnPlayerCorpse` already strips the dead's gear into a
   `player_corpses` row at the death room; the `player.death` handler **re-homes** those item ids onto the
   shared void trace (`void_traces.pack`) and deletes the orphaned corpse. Another crosser, in their *own*
-  instance, sees the corpse at the same `room_salt` and `sift`s it — granted the gear, and the trace's
+  instance, sees the corpse at the same `room_salt` and `loot`s it — granted the gear, and the trace's
   `claimed` flag flips **globally first-come** (the async race).
 - **Weekly big score** — one telegraphed prize per `(void, window)` at a seeded shared-trunk room ("*The
   hulk of a downed gunship dominates this stretch*"), kept globally scarce by a `bigscore_claim` trace:
-  the **first** crosser to `sift` it takes it; everyone after finds it stripped. Same async-scarcity
+  the **first** crosser to `loot` it takes it; everyone after finds it stripped. Same async-scarcity
   mechanic, same cached `void_traces`.
 Not built: depth-scaling + the rare-loot-is-heavy extraction tension. Carried *credits* are lost on
 void death (not re-homed).

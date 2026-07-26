@@ -881,9 +881,10 @@ export const BUILDING_ICON = {
   shop: '$', store: '$', grocery: '$',
   bar: '🍺', club: '♥', nightclub: '🎶', boutique: '👗', police: '★',
   corporate_office: '💼', hotel: '🏨', power: '⚡',
-  hangar: '✈', studio: '🎬', clinic: '✚', diner: '🍔',
+  hangar: '✈', studio: '🎬', clinic: '✚', diner: '🍔', kitchenware: '🍳', bank: '🏛',
   // The Yards — semi-industrial freight district.
   warehouse: '📦', container_yard: '▤', fuel_yard: '⛽', cold_storage: '❄', fabrication: '⚙', wharf: '⚓', freight_office: '📋', freight_forwarder: '🚚',
+  junkyard: '🔩',
   _default: '▢',
 };
 

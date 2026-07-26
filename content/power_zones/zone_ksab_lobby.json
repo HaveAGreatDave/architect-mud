@@ -4,6 +4,6 @@
   "generator_id": null,
   "id": "zone_ksab_lobby",
   "max_capacity_kw": 200,
-  "name": "KSAB Audience Lobby",
+  "name": "KSAB Story Floor",
   "source_type": "city_grid"
 }

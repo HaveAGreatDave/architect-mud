@@ -306,10 +306,10 @@ function showTraces(actor, c, roomId) {
   const trunk = VOIDS[c.voidKey].trunk;
   const lines = [];
   if (bigScoreOpen(c.voidKey, c.window, salt, trunk))
-    lines.push("The hulk of a downed gunship dominates this stretch — real salvage in it, if it's still here. <b>(sift)</b>");
+    lines.push("The hulk of a downed gunship dominates this stretch — real salvage in it, if it's still here. <b>(loot)</b>");
   for (const t of getTraces(c.voidKey, c.window, salt)) {
     if (t.kind === 'scrawl') lines.push(`Scratched into the ground, four letters: <b>${t.note}</b>`);
-    else if (t.kind === 'corpse') lines.push(`A body half-buried in the dust${t.handle ? ` — what's left of <b>${t.handle}</b>` : ''}${t.note ? `, ${t.note.toLowerCase()}` : ''}.${!t.claimed && packItems(t.pack).length ? ' <b>(sift to strip it)</b>' : ''}`);
+    else if (t.kind === 'corpse') lines.push(`A body half-buried in the dust${t.handle ? ` — what's left of <b>${t.handle}</b>` : ''}${t.note ? `, ${t.note.toLowerCase()}` : ''}.${!t.claimed && packItems(t.pack).length ? ' <b>(loot to strip it)</b>' : ''}`);
   }
   if (lines.length) sendToPlayer(actor.id, { type: 'output', message: lines.join('\n') });
 }
@@ -426,6 +426,18 @@ async function enterMember(m, c, entry, origin) {
   ).catch(() => {});
 }
 
+// The threshold stamp in the message pane — the one line that marks the moment the
+// map ends. Printed to every member the instant they step off the edge.
+// Ruled rather than boxed on purpose: no glyph has to line up with a closing edge,
+// so it can't break in a proportional font or a narrow pane.
+const VOID_ENTRY_BANNER = [
+  '',
+  '────────────────────────────────────────────',
+  '◈  E N T E R I N G   T H E   V O I D',
+  'no roads · no rescue · no record of you here',
+  '────────────────────────────────────────────',
+].join('\n');
+
 async function launchCrossing(leader, gate, broadcast, heading) {
   if (leader._crossing) return { type: 'emote', message: 'You are already out in the waste. The only way through it is through it.' };
   const origin = leader.current_zone;
@@ -444,14 +456,14 @@ async function launchCrossing(leader, gate, broadcast, heading) {
   if (broadcast) broadcast(origin, { type: 'zone_event', message: `${leader.handle}${followers.length ? ' and their party' : ''} walk out past the edge, into the waste.` }, leader.id);
   for (const f of followers) {
     const fdesc = await describeZone(entry, f);
-    sendToPlayer(f.id, { type: 'move', message: `You follow ${leader.handle} out past the edge, into the waste.\n\n${fdesc}`, zone: entry.id, minimap: getMinimapData(entry.id, 8, f) });
+    sendToPlayer(f.id, { type: 'move', message: `${VOID_ENTRY_BANNER}\nYou follow ${leader.handle} out past the edge, into the waste.\n\n${fdesc}`, zone: entry.id, minimap: getMinimapData(entry.id, 8, f) });
   }
   const dests = gate.void.dests.map(d => d.heading).join(' or ');
   const aimLine = aim ? ` You set your heading for ${aim.heading}.` : '';
   const desc = await describeZone(entry, leader);
   return {
     type: 'move',
-    message: `→ You strike out into the waste. The edge of the map falls away behind you and the road is gone — only the going. Somewhere ahead it splits toward ${dests}.${aimLine}\n\n${desc}`,
+    message: `${VOID_ENTRY_BANNER}\nYou strike out into the waste. The edge of the map falls away behind you and the road is gone — only the going. Somewhere ahead it splits toward ${dests}.${aimLine}\n\n${desc}`,
     zone: entry.id,
     minimap: getMinimapData(entry.id, 8, leader),
   };
@@ -519,7 +531,7 @@ async function openStaging(leader, gate, heading, broadcast) {
   stagings.set(staging.id, staging);
   for (const id of members) playerStaging.set(id, staging.id);
   for (const f of followers) sendToPlayer(f.id, await buildStagingPanel(f, staging));
-  if (followers.length && broadcast) broadcast(leader.current_zone, { type: 'zone_event', message: `${leader.handle} musters a party at the edge, weighing the crossing.` }, leader.id);
+  if (followers.length && broadcast) broadcast(leader.current_zone, { type: 'zone_event', message: `${leader.handle} musters a party at the edge, weighing the voidwalk.` }, leader.id);
   return buildStagingPanel(leader, staging);
 }
 function closeStaging(staging) {
@@ -748,7 +760,7 @@ function packItems(pack) {
 
 // The weekly "big score" (Slice 5b): one telegraphed prize per (void, window), at a
 // seeded shared-trunk room, kept globally scarce by a claim trace — first crosser to
-// sift it takes it (the async race). Everyone this window sees the same wreck at the
+// loot it takes it (the async race). Everyone this window sees the same wreck at the
 // same room; whoever gets there first wins.
 const BIGSCORE_POOL = ['item_scrap_pistol', 'item_mystery_component', 'item_glowing_scrap'];
 function bigScoreSalt(voidKey, window, trunk) {
@@ -785,10 +797,12 @@ async function captureCorpsePack(playerId, deathZone) {
   } catch (e) { console.error('[voidwalking] captureCorpsePack:', e.message); return []; }
 }
 
-async function cmdSift(args, raw, player, broadcast) {
+async function cmdLoot(args, raw, player, broadcast) {
   const live = player._crossing;
   const c = live && crossings.get(live.instanceId);
-  if (!c) return { type: 'emote', message: "There's nothing out here worth picking through. (You sift the waste for salvage.)" };
+  // `loot` is the engine's corpse-looting verb. Only bare `loot` mid-crossing is
+  // void salvage; anything else falls through so corpse looting still works.
+  if (!c || args.length) return undefined;
   const roomId = player.current_zone;
   const salt = getZone(roomId)?.flags?.void_salt;
   if (!salt) return { type: 'emote', message: 'Nothing here but dust and wind.' };
@@ -899,7 +913,7 @@ export const commands = {
   voidwalk: cmdVoidwalk,
   ready: cmdReady,
   scrawl: cmdScrawl,
-  sift: cmdSift,
+  loot: cmdLoot,
   frontier: cmdFrontier,
 };
 

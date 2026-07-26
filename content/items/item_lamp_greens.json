@@ -9,7 +9,9 @@
     "restore_hunger": 8,
     "stackable": true,
     "perishable": true,
-    "spoil_rate": "fast"
+    "spoil_rate": "fast",
+    "food_profile": "soft_vegetable",
+    "food_noun": "greens"
   },
   "type": "consumable",
   "value": 4,

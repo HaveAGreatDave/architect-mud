@@ -1,0 +1,15 @@
+{
+  "content": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 640 360\" font-family=\"'Arial Black',sans-serif\">\n  <defs>\n    <linearGradient id=\"sg-dirty\" x1=\"0\" y1=\"0\" x2=\"1\" y2=\"0\">\n      <stop offset=\"0\" stop-color=\"#6b3f2e\"/>\n      <stop offset=\"1\" stop-color=\"#8a1f1f\"/>\n    </linearGradient>\n    <linearGradient id=\"sg-clean\" x1=\"0\" y1=\"0\" x2=\"1\" y2=\"0\">\n      <stop offset=\"0\" stop-color=\"#dff1ff\"/>\n      <stop offset=\"1\" stop-color=\"#ffffff\"/>\n    </linearGradient>\n    <clipPath id=\"sg-wipe\">\n      <rect x=\"0\" y=\"0\" width=\"0\" height=\"360\">\n        <animate attributeName=\"width\" values=\"0;640;640;0\" keyTimes=\"0;0.45;0.8;1\" dur=\"4s\" repeatCount=\"indefinite\"/>\n      </rect>\n    </clipPath>\n    <style>\n      .sg-bolt{animation:sgflash 1s steps(2,end) infinite}\n      @keyframes sgflash{0%,100%{opacity:1}50%{opacity:0.55}}\n    </style>\n  </defs>\n\n  <rect width=\"640\" height=\"360\" fill=\"url(#sg-dirty)\"/>\n  <g fill=\"#3a1a10\" opacity=\"0.5\">\n    <circle cx=\"90\" cy=\"70\" r=\"30\"/><circle cx=\"500\" cy=\"290\" r=\"46\"/><circle cx=\"560\" cy=\"80\" r=\"22\"/>\n    <circle cx=\"150\" cy=\"300\" r=\"18\"/><circle cx=\"380\" cy=\"60\" r=\"16\"/>\n  </g>\n\n  <rect width=\"640\" height=\"360\" fill=\"url(#sg-clean)\" clip-path=\"url(#sg-wipe)\"/>\n  <g clip-path=\"url(#sg-wipe)\" font-family=\"'Arial Black',sans-serif\">\n    <text x=\"320\" y=\"180\" text-anchor=\"middle\" font-size=\"30\" fill=\"#0a5aa8\">SPOTLESS.*</text>\n  </g>\n\n  <!-- the wipe edge -->\n  <rect width=\"4\" height=\"360\" fill=\"#ffe14d\">\n    <animate attributeName=\"x\" values=\"0;640;640;0\" keyTimes=\"0;0.45;0.8;1\" dur=\"4s\" repeatCount=\"indefinite\"/>\n  </rect>\n\n  <g transform=\"translate(320 60)\" text-anchor=\"middle\">\n    <text font-size=\"48\" fill=\"#ffe14d\" stroke=\"#7a4a00\" stroke-width=\"1.5\" class=\"sg-bolt\">SCRUBGOD 9000</text>\n  </g>\n  <text x=\"320\" y=\"340\" text-anchor=\"middle\" font-size=\"13\" fill=\"#ffe6cf\">*Stains not removed. Merely relocated to a molecular level you can't see.</text>\n</svg>",
+  "created_at": "1784700000",
+  "description": "Title card for the ScrubGod 9000 infomercial.",
+  "id": "scrubgod_logo",
+  "name": "ScrubGod 9000 — Logo",
+  "tags": [
+    "broadcast",
+    "title_card",
+    "commercial",
+    "scrubgod"
+  ],
+  "type": "svg",
+  "updated_at": "1784700000"
+}

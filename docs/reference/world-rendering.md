@@ -211,6 +211,21 @@ The switch is **data-driven, not per-field art**: `state.vtolOnlyField(zone)` (i
 the context payload → `v.helipad`. **Any future helipad gets the pad automatically
 by carrying the flag** — there is nothing to author.
 
+### Rooftop pads: a tile that is BOTH a field and a building
+
+A pad on a tower's roof (the Solenne Sky Pad) puts `airfield_id` on the same
+`map_world` tile that carries the building. `kind:'field'` used to mean "bare
+ground": the world pass skipped the tile, `buildingHeightZ` returned 0, the ground
+pass painted runway concrete over the block and `biomeOf` tinted it apron-grey — i.e.
+flagging the pad would have *deleted the tower* from the sky and from the CFIT sweep.
+
+The rule now is **a field tile carrying `bt` keeps its building**: `drawWorldObjects`
+draws the model, `buildingHeightZ` keeps its mass, `drawGroundSurfaces`/`nearField`
+leave the street alone, and `biomeOf` keeps the district biome. The pad itself is the
+departure surface you sit on (`vtolOnlyField` → `v.helipad`), which is exactly right —
+the pad is on the roof, not painted on the block. Any future rooftop pad inherits all
+of this by carrying `airfield_vtol_only` on a building tile.
+
 Note the H is drawn as three foreshortened bars lying ON the pad, not as canvas
 text — same rule as the surface-text renderer: painted markings are never
 billboarded.

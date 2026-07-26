@@ -1,0 +1,17 @@
+{
+  "description": "A twist of hard black corns that were worth more than gold once and are worth a day's wage now. Crack them fresh or do not bother.",
+  "flags": {},
+  "id": "item_black_pepper",
+  "name": "peppercorns",
+  "tags": {
+    "description": "A twist of hard black corns that were worth more than gold once and are worth a day's wage now. Crack them fresh or do not bother.",
+    "consumable": true,
+    "restore_hunger": 0,
+    "stackable": true,
+    "food_profile": "aromatic",
+    "food_noun": "peppered"
+  },
+  "type": "consumable",
+  "value": 14,
+  "weight": 20
+}

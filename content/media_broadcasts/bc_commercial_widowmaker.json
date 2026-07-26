@@ -1,0 +1,223 @@
+{
+  "broadcast_graph": {
+    "_start": "bsm_0",
+    "nodes": {
+      "bsm_0": {
+        "_vine": {
+          "x": 80,
+          "y": 80
+        },
+        "type": "start",
+        "next": "bsm_1"
+      },
+      "bsm_1": {
+        "_vine": {
+          "x": 300,
+          "y": 80
+        },
+        "type": "event",
+        "event_type": "FADE_IN",
+        "next": "bsm_2"
+      },
+      "bsm_2": {
+        "_vine": {
+          "x": 520,
+          "y": 80
+        },
+        "type": "title_card",
+        "graphic_id": "widowmaker_logo",
+        "next": "bsm_3"
+      },
+      "bsm_3": {
+        "_vine": {
+          "x": 740,
+          "y": 80
+        },
+        "type": "music",
+        "song": "widowmaker_jingle",
+        "text": "♪ A twangy dealership guitar riff, four chords, played like it owes someone money. ♪",
+        "next": "bsm_4"
+      },
+      "bsm_4": {
+        "_vine": {
+          "x": 960,
+          "y": 80
+        },
+        "type": "camera_cut",
+        "label": "CAM — 1 — WIDE",
+        "zone_id": "dealership_lot",
+        "next": "bsm_5"
+      },
+      "bsm_5": {
+        "_vine": {
+          "x": 80,
+          "y": 240
+        },
+        "type": "npc_anchor",
+        "npc_id": "npc_narrator",
+        "next": "bsm_6"
+      },
+      "bsm_6": {
+        "_vine": {
+          "x": 300,
+          "y": 240
+        },
+        "type": "say",
+        "style": "narration",
+        "text": "A family of four walks toward a matte-grey armored transport in aggressive slow motion, hair blown by an off-camera fan.",
+        "next": "bsm_7"
+      },
+      "bsm_7": {
+        "_vine": {
+          "x": 520,
+          "y": 240
+        },
+        "type": "say",
+        "style": "raw",
+        "text": "This year, give your family the gift of arriving.",
+        "next": "bsm_8"
+      },
+      "bsm_8": {
+        "_vine": {
+          "x": 740,
+          "y": 240
+        },
+        "type": "camera_cut",
+        "label": "CAM — 2 — CLOSEUP",
+        "zone_id": "blast_gauge",
+        "next": "bsm_9"
+      },
+      "bsm_9": {
+        "_vine": {
+          "x": 960,
+          "y": 240
+        },
+        "type": "say",
+        "style": "raw",
+        "text": "The Widowmaker seats six, stops small-arms fire, and comes standard with an apology plaque for the trade-in.",
+        "next": "bsm_10"
+      },
+      "bsm_10": {
+        "_vine": {
+          "x": 80,
+          "y": 400
+        },
+        "type": "npc_action",
+        "message": "the salesman slaps the hood twice, the universal signal of trust",
+        "next": "bsm_11"
+      },
+      "bsm_11": {
+        "_vine": {
+          "x": 300,
+          "y": 400
+        },
+        "type": "say",
+        "style": "raw",
+        "text": "Rated for whatever the road throws at you. And lately, the road throws a lot.",
+        "next": "bsm_12"
+      },
+      "bsm_12": {
+        "_vine": {
+          "x": 520,
+          "y": 400
+        },
+        "type": "overlay",
+        "overlayType": "text_card",
+        "text": "0% APR* / AMMO INCLUDED FOR FIRST 90 DAYS",
+        "subtext": "*APR REDEFINED AT DEALER'S CONVENIENCE",
+        "graphic_id": "",
+        "next": "bsm_13"
+      },
+      "bsm_13": {
+        "_vine": {
+          "x": 740,
+          "y": 400
+        },
+        "type": "camera_cut",
+        "label": "CAM — 3 — CONTROLLED DETONATION TEST",
+        "zone_id": "proving_ground",
+        "next": "bsm_14"
+      },
+      "bsm_14": {
+        "_vine": {
+          "x": 960,
+          "y": 400
+        },
+        "type": "say",
+        "style": "narration",
+        "text": "The vehicle absorbs a modest controlled explosion; the family inside gives a thumbs-up slightly too quickly.",
+        "next": "bsm_15"
+      },
+      "bsm_15": {
+        "_vine": {
+          "x": 80,
+          "y": 560
+        },
+        "type": "say",
+        "style": "raw",
+        "text": "The Widowmaker. Because \"affordable sedan\" was never going to cut it out here.",
+        "next": "bsm_16"
+      },
+      "bsm_16": {
+        "_vine": {
+          "x": 300,
+          "y": 560
+        },
+        "type": "ticker",
+        "text": "Ironclad Motors is not responsible for the name · \"Widowmaker\" is a legacy trim designation and does not reflect current-year statistical outcomes · Financing subject to a background check that also checks your background's background · Detonation test performed by professionals who were compensated fairly, we are told",
+        "next": "bsm_17"
+      },
+      "bsm_17": {
+        "_vine": {
+          "x": 520,
+          "y": 560
+        },
+        "type": "event",
+        "event_type": "FADE_OUT"
+      }
+    }
+  },
+  "category": "advertisement",
+  "channel_id": null,
+  "created_by": "author",
+  "description": "Car-dealership commercial parody: an armored personnel carrier sold as the wholesome family vehicle of the season, blast rating and all.",
+  "enabled": 1,
+  "fallback_messages": [],
+  "id": "bc_commercial_widowmaker",
+  "loop": 0,
+  "message_interval": 5,
+  "messages": [
+    {
+      "text": "A family of four walks toward a matte-grey armored transport in aggressive slow motion, hair blown by an off-camera fan."
+    },
+    {
+      "text": "This year, give your family the gift of arriving."
+    },
+    {
+      "text": "The Widowmaker seats six, stops small-arms fire, and comes standard with an apology plaque for the trade-in."
+    },
+    {
+      "text": "Rated for whatever the road throws at you. And lately, the road throws a lot."
+    },
+    {
+      "text": "The vehicle absorbs a modest controlled explosion; the family inside gives a thumbs-up slightly too quickly."
+    },
+    {
+      "text": "The Widowmaker. Because \"affordable sedan\" was never going to cut it out here."
+    }
+  ],
+  "morning_pools": null,
+  "name": "Ironclad Motors — \"The Widowmaker\" Family Edition",
+  "news_pools": null,
+  "override_duration": 30,
+  "playback_mode": "scripted",
+  "sports_pools": null,
+  "tags": [
+    "commercial",
+    "widowmaker",
+    "ironclad_motors"
+  ],
+  "talkshow_pools": null,
+  "updated_at": "1784700000",
+  "weather_pools": null
+}

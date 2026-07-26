@@ -1,0 +1,21 @@
+{
+  "description": "A tall lacquered cabinet in dark walnut veneer, brass-cornered, with doors that ease themselves open at your approach and never quite slam. Inside: a lit rail, cedar-scented air held one degree cooler than the room, and a little brass plate reading VALET BY POLARIS. It remembers how you like to be dressed. It will lay out a look on request, and it has opinions about the ones you don't ask for.",
+  "flags": {
+    "container": 120000,
+    "wardrobe": true,
+    "aliases": ["wardrobe", "closet", "valet"],
+    "interactions": [
+      "lean"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_solenne_wardrobe_b",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "Polaris Valet Wardrobe",
+  "object_type": "container",
+  "power_draw_kw": 0.05,
+  "price": 0,
+  "zone_id": "zone_solenne_apt_b"
+}

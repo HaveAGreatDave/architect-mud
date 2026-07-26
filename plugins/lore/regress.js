@@ -55,6 +55,20 @@ export default async function regress({ run, check, getPlayer }) {
   check('lorereset rejects unknown handle', /No player named/.test(r?.message || ''), r?.message);
   player.role = prevRole;
 
+  // ── lorealways (the Settings "Extra Lore" toggle) ──────────────────────────
+  // With the preference on, a seen zone still shows its block on every visit.
+  await setFlag('player', _test.seenKey(zone.id), 'true', player);
+  r = await run('lorealways on');
+  check('lorealways on is silent', !r, JSON.stringify(r));
+  out = await _test.introLore(zone, player);
+  check('extra lore repeats a seen zone', /class="intro-lore"/.test(out || ''), String(out));
+
+  // Turning it off restores first-visit-only behaviour.
+  await run('lorealways off');
+  out = await _test.introLore(zone, player);
+  check('extra lore off restores the seen gate', !out, String(out));
+  await clearFlag('player', _test.seenKey(zone.id), player);
+
   // ── First-visit GPS suggestion (flags.gps_suggest) ──────────────────────────
   // Guards: no throw with missing args, and a no-op for an unknown / flagless zone.
   let threw = false;

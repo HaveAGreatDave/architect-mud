@@ -1,0 +1,18 @@
+{
+  "description": "A fixed camera at the end of the brass row that never sweeps and never blinks. It looks at the stairwell down to the vault, and nothing else, ever.",
+  "flags": {
+    "concealed": false,
+    "device_id": "secdev_citadel_gallery",
+    "security_device": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "secdev_citadel_gallery",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "Citadel security camera",
+  "object_type": "security_device",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_citadel_gallery"
+}

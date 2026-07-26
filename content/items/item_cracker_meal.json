@@ -1,0 +1,21 @@
+{
+  "description": "A sack of coarse pale crumb, ground from whatever crackers went stale. Binds, thickens, coats. The most useful thing in any kitchen nobody thanks.",
+  "flags": {},
+  "id": "item_cracker_meal",
+  "name": "cracker meal",
+  "tags": {
+    "description": "A sack of coarse pale crumb, ground from whatever crackers went stale. Binds, thickens, coats. The most useful thing in any kitchen nobody thanks.",
+    "consumable": true,
+    "restore_hunger": 9,
+    "stackable": true,
+    "food_profile": "batter",
+    "food_noun": "cracker",
+    "needs_cooking": true,
+    "status_chance": {
+      "food_poisoning": 0.1
+    }
+  },
+  "type": "consumable",
+  "value": 4,
+  "weight": 200
+}

@@ -3988,6 +3988,9 @@ function fsimFrame(now) {
     : 0;
   const propTgt = F.engineOn ? 0.20 + 0.80 * clampNum(s.rpm, 0, 1) : windmill;
   F.propSpin = lerpN(F.propSpin || 0, propTgt, Math.min(1, dt * (propTgt > (F.propSpin || 0) ? 2.2 : 1.0)));
+  // The lerp only ever ASYMPTOTES toward zero, so without a deadband the blades creep forever and
+  // the prop never actually parks. Snap the last sliver to a dead stop, and freeze the angle there.
+  if (propTgt <= 0 && F.propSpin < 0.02) F.propSpin = 0;
   F.propPhase = (F.propPhase || 0) + dt * F.propSpin * 34;   // rev rate ∝ spool → frozen at rest
   const propDisc = clampNum((d.rpm - 0.12) / 0.45, 0, 1);    // no disc at idle; fully in by ~57% rpm
 
@@ -4087,12 +4090,15 @@ function fsimFrame(now) {
   // Drug/booze impairment: warp the out-the-window view if the pilot is flying loaded.
   applyFlightDrugFx(root.querySelector('.fsim-view'), document.getElementById('fsim-ws'), dt);
 
-  // Stream state to the server while flying AND during the ground roll-out — the server
-  // needs the fresh onGround flag to suppress overfly noise / airspace rules as we taxi.
+  // Stream state to the server while flying AND during any ground roll — the landing
+  // roll-out (F.rolling) and, just as importantly, the PRE-TAKEOFF taxi: without this the
+  // plane rolls across the apron on screen while the server still has her sat at the gate,
+  // so taxiing never moved her (and other pilots never saw the ground contact).
   // Cadence tightens to ~3 Hz when traffic is close (the dogfight bubble), 1.2s otherwise.
+  const taxiing = s.onGround && F.engineOn;
   const syncEvery = contactNear <= FAST_SYNC_RANGE ? 0.33 : 1.2;
   F.syncAcc += dt; F.audioAcc += dt;
-  if ((F.reportedAirborne || F.rolling) && F.syncAcc >= syncEvery) {
+  if ((F.reportedAirborne || F.rolling || taxiing) && F.syncAcc >= syncEvery) {
     F.syncAcc = 0;
     sendCmdSilent(`flightsync ${F.pos.x.toFixed(2)} ${F.pos.y.toFixed(2)} ${Math.round(s.altitude)} ${Math.round(s.airspeed)} ${Math.round(s.heading)} ${Math.round(thr * 100)} ${Math.round(s.vs)} ${s.onGround ? 1 : 0} ${s.stalled ? 1 : 0} ${Math.round(s.bank || 0)} ${Math.round(s.pitch || 0)}`);
     // NB: mapCenter is NOT advanced here — it stays paired with the map the server sends back

@@ -100,7 +100,7 @@ The number on screen ticks downward as the hour goes on. It does not tick up.
 SHOT_END
 
 NARRATOR:
-One thousand four hundred and twelve people are watching this with you.
+{viewers} people are awake and watching this with you.
 
 WAIT 2
 

@@ -2,68 +2,77 @@
   "banter": [],
   "behaviour_graph": {},
   "chitchat": [
-    "\"Eyes front, applause on the light, and nobody films the monitors.\"",
-    "Priya thumbs her headset and murmurs a cue count under her breath."
+    "\"Blue pages by four. I don't care whose name is on the card.\"",
+    "Priya thumbs her headset and reads a line back to herself, mouthing it flat to see if it survives."
   ],
-  "description": "A brisk woman in a studio blazer the exact violet of the KSAB logo, headset cocked over one ear, a ticket-wand holstered at her hip like she's drawn it in anger before. She sizes up the queue with the flat warmth of someone who has heard every excuse and clapped on cue through all of them.",
+  "description": "A brisk woman in a studio blazer the exact violet of the KSAB logo, headset cocked over one ear, a red grease pencil holstered where a weapon would go on anyone else. She reads the board the way a mechanic reads an engine, and she has cut better lines than yours out of better writers than you without changing her expression.",
   "dialogue_tree": {
-    "backstage": {
+    "bye": {
+      "options": [],
+      "text": "\"Mind the cards.\" She's already back at the board, moving an act break two inches left."
+    },
+    "job": {
       "options": [
         {
-          "label": "Fine — the pass.",
-          "next": "__shop__"
+          "label": "So can I write for you?",
+          "next": "hire"
         },
         {
           "label": "Back.",
           "next": "root"
         }
       ],
-      "text": "\"The Green Room's for guests and crew, and you're neither until somebody books you.\" She says it kindly, the way you'd tell a dog no. \"Pass gets you the gallery. Charm gets you the rest. I can only sell you the pass.\""
+      "text": "\"Script coordinator. Means I lock the pages, I chase the drafts, and when the show goes out wrong at eleven it's my colour on the last version anybody touched.\" She taps the grease pencil against the board. \"Everyone in here thinks they're a writer. Somebody has to be the deadline.\""
     },
-    "bye": {
-      "options": [],
-      "text": "\"Mind the rope.\" She's already counting the next face in line."
+    "hire": {
+      "options": [
+        {
+          "label": "Fair enough.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Bring me pages, not a pitch.\" She doesn't look up. \"The room's full of people who can describe a joke. Down the block at the Deadline there's a booth full of people who can't stop writing them, and half of those are here by morning. Go be one of those.\""
     },
     "root": {
       "options": [
         {
-          "label": "What's taping tonight?",
-          "next": "show"
+          "label": "What's on the board?",
+          "next": "story"
         },
         {
-          "label": "Sell me a pass.",
+          "label": "What do you actually do here?",
+          "next": "job"
+        },
+        {
+          "label": "Anything to eat in here?",
           "next": "__shop__"
-        },
-        {
-          "label": "Can I get backstage?",
-          "next": "backstage"
         },
         {
           "label": "Just looking.",
           "next": "bye"
         }
       ],
-      "text": "\"Here for the taping?\" Priya's eyes flick from your shoes to your face and back, pricing you. \"House opens on the light. You'll want a pass — the wand won't scan a hopeful smile.\""
+      "text": "\"If you're not carrying pages, don't stand in front of the board.\" Priya's eyes flick from your shoes to your face and back, pricing you. \"Script locks at four. There's coffee and there's whatever's left of the cart — that's the whole hospitality budget, so take it seriously.\""
     },
-    "show": {
+    "story": {
       "options": [
         {
-          "label": "Sell me a pass, then.",
-          "next": "__shop__"
+          "label": "Fix the ending, then.",
+          "next": "job"
         },
         {
           "label": "Back.",
           "next": "root"
         }
       ],
-      "text": "\"Same as always — the couch, a guest sweating under the lamp, and a laugh track we've all agreed to become.\" She almost smiles. \"Grab a pass, take the gallery, clap when the sign says clap. It's the closest thing to civic duty we've got left.\""
+      "text": "\"Three acts, two of them work.\" She waves the pencil at the corkboard without turning. \"We've rewritten the cold open four times because someone upstairs decided the audience needs to be told what they're feeling. It's a card that says FIX THE ENDING and it has been that card since the spring.\""
     }
   },
   "faction": null,
   "flags": {
     "clothing_layers": [
       "a sharp KSAB-violet blazer with a laminated ALL-ACCESS lanyard",
-      "a pressed white shirt, top button undone the moment the cameras cut",
+      "a pressed white shirt, cuffs grey with pencil, top button undone",
       "sensible flats and a lace bra and panties"
     ],
     "personality": "vendor"
@@ -79,8 +88,16 @@
   "studio_zone_id": null,
   "vendor_inventory": [
     {
-      "item_id": "item_holo_ticket",
-      "price": 25
+      "item_id": "item_drug_coffee",
+      "price": 4
+    },
+    {
+      "item_id": "item_stim_jolt",
+      "price": 18
+    },
+    {
+      "item_id": "item_newspaper_sentinel",
+      "price": 3
     }
   ],
   "vendor_restock_rate": 1,
@@ -128,7 +145,7 @@
       }
     ]
   },
-  "vendor_shop_name": "KSAB Box Office",
+  "vendor_shop_name": "KSAB Story Floor Cart",
   "vendor_stock_size": 40,
   "wander_zones": [],
   "wanders": 0,

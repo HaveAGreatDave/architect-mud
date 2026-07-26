@@ -1,0 +1,19 @@
+{
+  "description": "A run of stone worktop with no visible hob at all until you set a pan down and a ring of light finds it. It holds a temperature the way a good liar holds a story.",
+  "flags": {
+    "interactions": [
+      "lean"
+    ],
+    "stove_tier": "high"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_solenne_stove_e",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "Solenne induction seam",
+  "object_type": "fixture",
+  "power_draw_kw": 0.3,
+  "price": 0,
+  "zone_id": "zone_solenne_apt_e"
+}

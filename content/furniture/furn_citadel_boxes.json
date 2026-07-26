@@ -1,0 +1,14 @@
+{
+  "description": "Two thousand brass-fronted doors in tiers, numbered and keyed and none of them yours. A handful near the floor have been forced at some point and repaired badly, which is the most honest thing in the building.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_citadel_boxes",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "safe deposit boxes",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_citadel_gallery"
+}

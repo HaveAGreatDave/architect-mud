@@ -1,0 +1,17 @@
+{
+  "description": "A grey steel cabinet of breakers and busbars behind the guard post, feeding the hall, the arch, the gallery and every camera in the building. A sealed hacking port sits under the latch, next to a stern red warning somebody has patiently scratched out.",
+  "flags": {
+    "destructible": true,
+    "generator_id": "gen_citadel_util"
+  },
+  "hp": 1600,
+  "hp_max": 1600,
+  "id": "furn_jbox_citadel",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "citadel junction box",
+  "object_type": "junction_box",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_citadel_vestibule"
+}

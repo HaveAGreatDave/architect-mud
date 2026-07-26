@@ -1,0 +1,297 @@
+{
+  "id": "npc_junkyard_dray",
+  "name": "Ottoline 'Otter' Dray",
+  "npc_type": "vendor",
+  "sex": "female",
+  "hp": 70,
+  "hp_max": 70,
+  "faction": null,
+  "home_zone": "zone_junkyard_shack",
+  "work_zone_id": "zone_junkyard_shack",
+  "studio_zone_id": null,
+  "wanders": 0,
+  "wander_zones": [],
+  "home_activities": [],
+  "banter": [],
+  "description": "A small, wide woman in her sixties built along the general lines of the bales outside, with forearms that end in hands you would not want closing on anything of yours. Grey hair cut short with what were almost certainly the tin snips on the counter. One lens of her glasses is scratched to frost and she has never once been observed looking through it. She weighs everything twice — once on the scales and once by hefting it, and it is the second weight she writes down.",
+  "chitchat": [
+    "\"I buy anything. I said anything. Stop hesitating, you're making it weird.\"",
+    "\"Price is the price. The scales are a formality and we both know it.\"",
+    "\"Everything out there was something else first. So were you.\"",
+    "\"No, I don't want to know where you got it. Third column's for things I find interesting, and you're not.\"",
+    "\"Copper's up. Copper's always up. Copper is the only honest man I know.\""
+  ],
+  "flags": {
+    "personality": "vendor",
+    "clothing_layers": [
+      "a boilersuit worn to the colour of dishwater, sleeves cut off at the shoulder",
+      "a moth-holed jumper the same rust-orange as the yard",
+      "a plain grey bra and long johns"
+    ]
+  },
+  "vendor_shop_name": "Salvage Rites",
+  "vendor_stock_size": 14,
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "sun": [
+      {
+        "from": 6,
+        "to": 20
+      }
+    ],
+    "mon": [
+      {
+        "from": 6,
+        "to": 20
+      }
+    ],
+    "tue": [
+      {
+        "from": 6,
+        "to": 20
+      }
+    ],
+    "wed": [
+      {
+        "from": 6,
+        "to": 20
+      }
+    ],
+    "thu": [
+      {
+        "from": 6,
+        "to": 20
+      }
+    ],
+    "fri": [
+      {
+        "from": 6,
+        "to": 20
+      }
+    ],
+    "sat": [
+      {
+        "from": 6,
+        "to": 20
+      }
+    ]
+  },
+  "vendor_inventory": [
+    {
+      "item_id": "item_salvaged_alternator",
+      "price": 77,
+      "stock": 6
+    },
+    {
+      "item_id": "item_scrap_copper_coil",
+      "price": 56,
+      "stock": 10
+    },
+    {
+      "item_id": "item_bearing_race",
+      "price": 39,
+      "stock": 12
+    },
+    {
+      "item_id": "item_cut_rebar",
+      "price": 25,
+      "stock": 14
+    },
+    {
+      "item_id": "item_scrap_torch",
+      "price": 182,
+      "stock": 2
+    },
+    {
+      "item_id": "item_junk_battery",
+      "price": 105,
+      "stock": 4
+    }
+  ],
+  "dialogue_tree": {
+    "root": {
+      "text": "She looks up, weighs you by eye, and goes back to the ledger. \"If you're selling, put it on the board and I'll tell you what it's worth. If you're buying, it's in the pigeonholes and the prices are on the pigeonholes.\" A pause. \"If you're neither, there's a bar four streets over that'll be much happier to see you.\"",
+      "options": [
+        {
+          "label": "\"What do you buy?\"",
+          "next": "buy"
+        },
+        {
+          "label": "\"What is this place?\"",
+          "next": "what"
+        },
+        {
+          "label": "\"What's the third column for?\"",
+          "next": "ledger"
+        },
+        {
+          "label": "\"Who works the crane?\"",
+          "next": "crane"
+        }
+      ]
+    },
+    "buy": {
+      "text": "\"Anything.\" She says it flatly, the way you'd state a weight. \"Metal, motors, wire, wet cells, the good half of something broken. Bring me a boot full of bolts and I'll pay you for a boot full of bolts.\" She turns a page. \"I've bought a door. I've bought a leg. The leg was mechanical, before you make a face.\"",
+      "options": [
+        {
+          "label": "\"Just say sell, then?\"",
+          "next": "buy2"
+        },
+        {
+          "label": "\"What's the third column for?\"",
+          "next": "ledger"
+        }
+      ]
+    },
+    "buy2": {
+      "text": "\"That's the entire trick, yes.\" Very dry. \"<b>sell</b> whatever it is, and I'll give you a number. You won't like the number. Nobody likes the number. The number is correct.\"",
+      "options": [
+        {
+          "label": "\"Fair enough.\"",
+          "next": "bye"
+        },
+        {
+          "label": "\"Who works the crane?\"",
+          "next": "crane"
+        }
+      ]
+    },
+    "what": {
+      "text": "\"Last honest business on this side of the water,\" she says, without looking up. \"Everything in this basin gets made somewhere, used somewhere, and ends up here. I'm the somewhere at the end.\" She taps the counter. \"Sixty per cent of Coldwater has been through this yard at least once, in one shape or another. Some of it twice.\"",
+      "options": [
+        {
+          "label": "\"Twice?\"",
+          "next": "what2"
+        },
+        {
+          "label": "\"What do you buy?\"",
+          "next": "buy"
+        }
+      ]
+    },
+    "what2": {
+      "text": "\"Comes in as a car. Goes out as a bale. Comes back as a fence.\" She shrugs, and the shrug takes a while. \"Comes back again as whatever was left of the fence. There's a bumper out there in row four that I have bought three separate times off three separate people, and I'll buy it a fourth, and one of us is going to outlast the other.\"",
+      "options": [
+        {
+          "label": "\"Grim.\"",
+          "next": "bye"
+        },
+        {
+          "label": "\"Who works the crane?\"",
+          "next": "crane"
+        }
+      ]
+    },
+    "ledger": {
+      "text": "For the first time she looks up properly, over the frosted lens, with the eye that works. \"Provenance,\" she says. \"Where a thing came from, on the rare occasion that's worth writing down.\" The pen does not move. \"I don't ask. People tell me anyway. People always tell me anyway, and then they stand exactly where you're standing and ask what the third column's for.\"",
+      "options": [
+        {
+          "label": "\"...I'll drop it.\"",
+          "next": "bye"
+        },
+        {
+          "label": "\"Who reads it?\"",
+          "next": "ledger2"
+        }
+      ]
+    },
+    "ledger2": {
+      "text": "\"Me.\" She turns the page back over. \"And, twice, a gentleman from Precinct 9 with a warrant and a very poor understanding of my handwriting.\" The ghost of something crosses her face and leaves. \"He got a name out of it. It was the wrong name. I did not correct him, because I was not asked, and because the right name was a customer.\"",
+      "options": [
+        {
+          "label": "\"Remind me not to sell you anything memorable.\"",
+          "next": "bye"
+        }
+      ]
+    },
+    "crane": {
+      "text": "\"I do.\" She holds up a hand, flexes it once, and you hear something in it click. \"Forty-one years. My father sat in that cab, and his sister before him, and the seat's got a dip in it now that fits all three of us, which tells you something about the family and none of it flattering.\"",
+      "options": [
+        {
+          "label": "\"You still climb up there?\"",
+          "next": "crane2"
+        },
+        {
+          "label": "\"What is this place?\"",
+          "next": "what"
+        }
+      ]
+    },
+    "crane2": {
+      "text": "\"Every day. Twice, if the delivery's awkward.\" She finally sets the pen down. \"There is a moment, when you've got four tonnes of somebody's whole life in the jaws and you're swinging it up onto row six, where the entire yard goes quiet and you can hear the cable working.\" A beat. \"I'll be doing that when I die. Probably in the specific sense.\"",
+      "options": [
+        {
+          "label": "\"...Right. I'll let you get on.\"",
+          "next": "bye"
+        }
+      ]
+    },
+    "bye": {
+      "text": "\"Mm,\" she says, already back in the ledger. \"Gate's open.\"",
+      "options": []
+    }
+  },
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": {
+        "type": "start",
+        "next": "wait"
+      },
+      "wait": {
+        "type": "wait",
+        "seconds": 95,
+        "next": "pick"
+      },
+      "pick": {
+        "type": "random",
+        "branches": [
+          {
+            "weight": 3
+          },
+          {
+            "weight": 2
+          },
+          {
+            "weight": 2
+          },
+          {
+            "weight": 1
+          }
+        ],
+        "branch_0": "loop",
+        "branch_1": "e_ledger",
+        "branch_2": "e_scales",
+        "branch_3": "e_window"
+      },
+      "e_ledger": {
+        "type": "action",
+        "action_type": "EMOTE",
+        "next": "loop",
+        "params": {
+          "message": "licks a thumb, turns a page in the ledger, and writes a number without appearing to look at it."
+        }
+      },
+      "e_scales": {
+        "type": "action",
+        "action_type": "EMOTE",
+        "next": "loop",
+        "params": {
+          "message": "lifts something off the counter, hefts it twice, and writes down the second answer."
+        }
+      },
+      "e_window": {
+        "type": "action",
+        "action_type": "EMOTE",
+        "next": "loop",
+        "params": {
+          "message": "glances out over the rows, counting something only she is keeping track of."
+        }
+      },
+      "loop": {
+        "type": "loop",
+        "next": "start"
+      }
+    }
+  }
+}

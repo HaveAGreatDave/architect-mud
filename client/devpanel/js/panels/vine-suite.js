@@ -31,6 +31,13 @@ function _vsNodeCount(raw) {
   const g = _vsParse(raw);
   return g && g.nodes ? Object.keys(g.nodes).length : 0;
 }
+// dialogue_tree is a FLAT node map (no .nodes wrapper) — counting it with
+// _vsNodeCount always returned 0, so every dialogue badged as empty however
+// many nodes it had.
+function _vsTreeNodeCount(raw) {
+  const t = _vsParse(raw);
+  return t && typeof t === 'object' ? Object.keys(t).length : 0;
+}
 function _vsEsc(s) {
   return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
@@ -44,7 +51,7 @@ function _vsEsc(s) {
 const VINE_KINDS = {
   dialogue: {
     label: 'NPC Dialogue', icon: '💬', color: 'var(--accent2)', source: 'npcs', panel: 'npcs', opener: 'npcOpenVine',
-    badge: (r) => _vsNodeCount(r.dialogue_tree),
+    badge: (r) => _vsTreeNodeCount(r.dialogue_tree),
     noun: 'Dialogue',
     schema: () => VineDialogueSchema,
     listRoute: () => directAPI('/npcs'),

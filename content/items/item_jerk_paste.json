@@ -1,0 +1,22 @@
+{
+  "description": "A screw-top jar of rust-black paste, thick as tar, that smells of allspice and scorched chilli and something green underneath. Two fingers of it will season a bird. Three will season the room.",
+  "flags": {},
+  "id": "item_jerk_paste",
+  "name": "jerk paste",
+  "tags": {
+    "description": "A screw-top jar of rust-black paste, thick as tar, that smells of allspice and scorched chilli and something green underneath. Two fingers of it will season a bird. Three will season the room.",
+    "consumable": true,
+    "restore_hunger": 2,
+    "stackable": true,
+    "food_profile": "aromatic",
+    "food_noun": "jerk",
+    "perishable": true,
+    "spoil_rate": "slow",
+    "status_chance": {
+      "food_poisoning": 0.1
+    }
+  },
+  "type": "consumable",
+  "value": 26,
+  "weight": 220
+}

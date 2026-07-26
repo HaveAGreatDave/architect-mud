@@ -151,6 +151,237 @@ async function deleteAllZoneSpawns(zoneId) {
   await refreshEnemiesSection(zoneId);
 }
 
+// --- Enemies panel: list view + spawn map ------------------------------------
+// The map view answers "where does this thing actually spawn?" — every zone_spawns
+// row in the world, laid over the map grid, grouped by region. Tiles are clickable
+// to add/remove spawns without hunting through the Zones editor.
+let _enemyView = 'list';          // 'list' | 'map'
+let _enemyQuery = '';
+let _spawnMapData = null;         // { spawns, zones, regionNames } — fetched once, cached
+let _spawnMapZone = null;         // zone id whose spawn editor is open
+const _spawnMapCollapsed = new Set();
+
+function enemyViewToggleHtml() {
+  const btn = (v, label) =>
+    `<button class="action-btn${_enemyView === v ? ' success' : ''}" onclick="setEnemyView('${v}')">${label}</button>`;
+  const refresh = _enemyView === 'map'
+    ? `<button class="action-btn" onclick="_spawnMapData=null;renderEnemiesPanel()">↻ Refresh</button>` : '';
+  return `<div style="display:flex;gap:6px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--border)">
+    ${btn('list', 'Enemy List')}${btn('map', 'Spawn Map')}${refresh}
+  </div>`;
+}
+
+function setEnemyView(v) {
+  if (_enemyView === v) return;
+  _enemyView = v;
+  renderEnemiesPanel();
+}
+
+function renderEnemiesPanel(records) {
+  const all = Array.isArray(records) ? records : allRecords;
+  if (_enemyView === 'map') { renderSpawnMap(); return; }
+  const q = _enemyQuery;
+  const shown = q ? all.filter(r => Object.values(r).some(v => String(v).toLowerCase().includes(q))) : all;
+  renderTable(PANELS.enemies.columns, shown, false);
+  document.getElementById('list-panel').insertAdjacentHTML('afterbegin', enemyViewToggleHtml());
+}
+
+function filterEnemies(q) {
+  _enemyQuery = (q || '').toLowerCase();
+  renderEnemiesPanel();
+}
+
+async function renderSpawnMap() {
+  const host = document.getElementById('list-panel');
+  host.innerHTML = enemyViewToggleHtml() + '<div style="padding:24px;color:var(--text-dim)">Loading spawns...</div>';
+  if (!_spawnMapData) {
+    const [spawns, zones, regionData] = await Promise.all([
+      API('/spawns').catch(() => []),
+      API('/zones').catch(() => []),
+      API('/maps/regions').catch(() => null),
+    ]);
+    _spawnMapData = {
+      spawns: Array.isArray(spawns) ? spawns : [],
+      zones: Array.isArray(zones) ? zones : [],
+      regionNames: new Map((regionData?.regions || []).map(r => [r.id, r.name])),
+    };
+  }
+  host.innerHTML = enemyViewToggleHtml() + spawnMapBodyHtml();
+  applyMapScale(host);
+}
+
+// Spawns keyed by zone, honouring the search box (matches enemy name).
+function _spawnsByZone() {
+  const q = _enemyQuery;
+  const byZone = new Map();
+  for (const s of _spawnMapData.spawns) {
+    if (q && !(s.enemy_name || '').toLowerCase().includes(q)) continue;
+    if (!byZone.has(s.zone_id)) byZone.set(s.zone_id, []);
+    byZone.get(s.zone_id).push(s);
+  }
+  return byZone;
+}
+
+function spawnMapBodyHtml() {
+  const { zones, regionNames } = _spawnMapData;
+  const byZone = _spawnsByZone();
+  const zoneById = new Map(zones.map(z => [z.id, z]));
+
+  // Placed tiles group by region + floor; everything else (interiors, stale rows)
+  // falls into a flat list at the bottom.
+  const groups = new Map();   // regionId -> Map(floor -> zones[])
+  const loose = [];
+  for (const z of zones) {
+    if (z.grid_x == null || z.grid_y == null) { if (byZone.has(z.id)) loose.push(z); continue; }
+    const rid = z.flags?.region_id || '__unassigned';
+    if (!groups.has(rid)) groups.set(rid, new Map());
+    const floors = groups.get(rid);
+    const f = z.grid_z ?? 0;
+    if (!floors.has(f)) floors.set(f, []);
+    floors.get(f).push(z);
+  }
+  for (const zoneId of byZone.keys()) {
+    if (!zoneById.has(zoneId)) loose.push({ id: zoneId, name: `${zoneId} (zone missing)` });
+  }
+
+  const sections = [...groups.entries()].map(([rid, floors]) => {
+    const all = [...floors.values()].flat();
+    const count = all.reduce((n, z) => n + (byZone.get(z.id)?.length || 0), 0);
+    const name = rid === '__unassigned' ? 'Unassigned tiles' : (regionNames.get(rid) || rid);
+    return { rid, floors, count, name };
+  }).sort((a, b) => (b.count > 0) - (a.count > 0) || a.name.localeCompare(b.name));
+
+  const total = [...byZone.values()].reduce((n, l) => n + l.length, 0);
+  let html = `<div style="padding:10px 12px;color:var(--text-dim);font-size:11px">
+    ${total} spawn${total === 1 ? '' : 's'} across ${byZone.size} zone${byZone.size === 1 ? '' : 's'}${_enemyQuery ? ` (filtered by "${_enemyQuery}")` : ''} — click a tile to add or remove spawns.
+  </div>`;
+  html += `<div id="spawn-detail">${spawnDetailHtml(zoneById.get(_spawnMapZone) || (_spawnMapZone ? { id: _spawnMapZone, name: _spawnMapZone } : null), byZone)}</div>`;
+
+  for (const sec of sections) {
+    const open = !_spawnMapCollapsed.has(sec.rid) && sec.count > 0;
+    html += `<div style="border-top:1px solid var(--border)">
+      <div style="padding:8px 12px;cursor:pointer;display:flex;gap:8px;align-items:center"
+           onclick='toggleSpawnRegion(${JSON.stringify(sec.rid)})'>
+        <span style="color:var(--text-dim)">${open ? '▾' : '▸'}</span>
+        <b>${sec.name}</b>
+        <span style="color:${sec.count ? 'var(--accent2)' : 'var(--text-dim)'};font-size:11px">${sec.count} spawn${sec.count === 1 ? '' : 's'}</span>
+      </div>`;
+    if (open) {
+      for (const [floor, list] of [...sec.floors.entries()].sort((a, b) => a[0] - b[0])) {
+        const label = sec.floors.size > 1 ? `<div style="padding:2px 12px;font-size:10px;color:var(--text-dim)">Floor ${floor}</div>` : '';
+        html += label + `<div style="padding:0 12px 12px">${wrapMapScale(spawnGridHtml(list, byZone))}</div>`;
+      }
+    }
+    html += '</div>';
+  }
+
+  if (loose.length) {
+    html += `<div style="border-top:1px solid var(--border);padding:8px 12px">
+      <b>Interiors &amp; unplaced rooms</b> <span style="color:var(--text-dim);font-size:11px">${loose.length}</span>
+      ${loose.map(z => {
+        const list = byZone.get(z.id) || [];
+        return `<div class="zone-subitem-row" onclick='spawnTileSelect(${JSON.stringify(z.id)})' style="cursor:pointer">
+          <span>${z.name || z.id} <span style="color:var(--text-dim);font-size:11px">· ${list.map(s => `${s.enemy_name} ×${s.max_count}`).join(', ')}</span></span>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+  return html;
+}
+
+function toggleSpawnRegion(rid) {
+  if (_spawnMapCollapsed.has(rid)) _spawnMapCollapsed.delete(rid); else _spawnMapCollapsed.add(rid);
+  const host = document.getElementById('list-panel');
+  host.innerHTML = enemyViewToggleHtml() + spawnMapBodyHtml();
+  applyMapScale(host);
+}
+
+// Compact map grid for one region floor, tinted by spawn density.
+function spawnGridHtml(zones, byZone) {
+  const xs = zones.map(z => z.grid_x), ys = zones.map(z => z.grid_y);
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const minY = Math.min(...ys), maxY = Math.max(...ys);
+  const byCoord = new Map(zones.map(z => [`${z.grid_x},${z.grid_y}`, z]));
+  let html = `<div style="display:grid;grid-template-columns:repeat(${maxX - minX + 1},110px);grid-auto-rows:76px;gap:2px">`;
+  for (let y = minY; y <= maxY; y++) {
+    for (let x = minX; x <= maxX; x++) {
+      const z = byCoord.get(`${x},${y}`);
+      if (!z) { html += '<div></div>'; continue; }
+      const list = byZone.get(z.id) || [];
+      const heat = list.length === 0 ? '' : list.length === 1 ? ' bm-spawn-1' : list.length <= 3 ? ' bm-spawn-2' : ' bm-spawn-3';
+      const sel = z.id === _spawnMapZone ? ' bm-spawn-sel' : '';
+      const sub = list.length
+        ? `<div style="font-size:9px;opacity:0.9;margin-top:2px">☠ ${list.map(s => `${s.enemy_name}×${s.max_count}`).join(', ')}</div>`
+        : '';
+      const style = heat ? '' : zoneColorStyle(z);
+      html += `<div class="bigmap-tile${heat}${sel}" style="${style}" title="${z.id}"
+        onclick='spawnTileSelect(${JSON.stringify(z.id)})'><div>${zoneIconHtml(z)}${z.name}${sub}</div></div>`;
+    }
+  }
+  return html + '</div>';
+}
+
+function spawnTileSelect(zoneId) {
+  _spawnMapZone = _spawnMapZone === zoneId ? null : zoneId;
+  const host = document.getElementById('list-panel');
+  host.innerHTML = enemyViewToggleHtml() + spawnMapBodyHtml();
+  applyMapScale(host);
+}
+
+function spawnDetailHtml(zone, byZone) {
+  if (!zone) return '';
+  const list = byZone.get(zone.id) || [];
+  const zoneArg = JSON.stringify(zone.id);
+  const options = allRecords.slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+    .map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+  const rows = list.length
+    ? list.map(s => `<div class="zone-subitem-row">
+        <span>${s.enemy_name} <span style="color:var(--text-dim);font-size:11px">· ×${s.max_count} · ${s.respawn_seconds}s · weight ${s.spawn_weight}</span></span>
+        <span class="zone-subitem-actions">
+          <button class="action-btn danger" onclick='spawnMapDelete(${JSON.stringify(s.id)})'>Remove</button>
+        </span>
+      </div>`).join('')
+    : '<div class="zone-subitem-empty">No spawns here.</div>';
+  return `<div class="zone-inline-form" style="margin:0 12px 12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <b>${zone.name || zone.id}</b>
+      <button class="action-btn" onclick='spawnTileSelect(${zoneArg})'>Close</button>
+    </div>
+    ${rows}
+    <div class="field-row" style="gap:8px;align-items:flex-end;margin-top:8px">
+      <div class="field"><label>Enemy</label><select id="sm-enemy">${options || '<option value="">— no enemies defined —</option>'}</select></div>
+      <div class="field"><label>Max</label><input id="sm-max" type="number" value="1" min="1" style="width:60px"></div>
+      <div class="field"><label>Respawn (s)</label><input id="sm-respawn" type="number" value="300" min="1" style="width:80px"></div>
+      <div class="field"><label>Weight</label><input id="sm-weight" type="number" value="100" min="0" max="100" style="width:70px"></div>
+      <button class="action-btn success" onclick='spawnMapAdd(${zoneArg})'>Add Spawn</button>
+    </div>
+  </div>`;
+}
+
+async function spawnMapAdd(zoneId) {
+  const enemy_id = document.getElementById('sm-enemy')?.value;
+  if (!enemy_id) { toast('Pick an enemy', true); return; }
+  const row = await directAPI('/spawns', 'POST', {
+    zone_id: zoneId,
+    enemy_id,
+    max_count: parseInt(document.getElementById('sm-max').value) || 1,
+    respawn_seconds: parseInt(document.getElementById('sm-respawn').value) || 300,
+    spawn_weight: parseInt(document.getElementById('sm-weight').value) || 100,
+  });
+  if (row?.error) { toast(row.error, true); return; }
+  _spawnMapData.spawns.push(row);
+  toast('Spawn added');
+  renderSpawnMap();
+}
+
+async function spawnMapDelete(spawnId) {
+  const result = await directAPI(`/spawns/${encodeURIComponent(spawnId)}`, 'DELETE');
+  if (result?.error) { toast(result.error, true); return; }
+  _spawnMapData.spawns = _spawnMapData.spawns.filter(s => s.id !== spawnId);
+  toast('Spawn removed');
+  renderSpawnMap();
+}
+
 // Furniture
 let _lootItems = [];
 function lootItemOptions(items, selectedId) {

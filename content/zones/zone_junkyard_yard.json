@@ -1,0 +1,33 @@
+{
+  "audio_theme_id": null,
+  "created_by": null,
+  "color": null,
+  "bg_color": "#3d3128",
+  "ambient_theme": "city",
+  "grid_z": 0,
+  "map_id": "map_int_junkyard",
+  "marker": null,
+  "updated_at": "1784600000",
+  "id": "zone_junkyard_yard",
+  "name": "The Rows",
+  "grid_x": -1,
+  "grid_y": 0,
+  "parent_zone": "zone_junkyard_shack",
+  "description": "Bales of crushed car in rows two and three high, stacked with the crane's rough sense of level and gone the deep orange-brown of old iron that has stopped pretending. Between them: aisles wide enough for one person and a wheelbarrow. Everything drips. The ground is a compacted crust of glass, rust flake and forty years of dropped bolts, and it crunches with every step in a way that means you are never anywhere quietly. Overhead the grabber crane hangs open on its cable, jaws apart, waiting. Back <b>east</b> to the shack.",
+  "exits": {
+    "east": "zone_junkyard_shack"
+  },
+  "flags": {
+    "building_name": "Salvage Rites",
+    "is_building": true,
+    "is_interior": true,
+    "scavenging_table_id": "scav_west_wastes"
+  },
+  "ambient_events": [
+    "A sheet of something lets go high up the stack, slides, and stops.",
+    "The crane cable creaks, swings a hand-width, and settles.",
+    "Water finds a path through three cars and arrives at your collar.",
+    "Somewhere in the rows a spring lets go with a noise like a small animal.",
+    "The wind comes through the aisles and plays the whole yard like a bad flute."
+  ]
+}

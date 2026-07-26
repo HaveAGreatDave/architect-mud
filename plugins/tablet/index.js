@@ -35,6 +35,7 @@ import './quests-app.js';
 import './skills-app.js';
 import './bank-app.js';
 import './crafting-app.js';
+import './cookbook-app.js';
 import './vehicles-app.js';
 import './properties-app.js';
 import './calendar-app.js';

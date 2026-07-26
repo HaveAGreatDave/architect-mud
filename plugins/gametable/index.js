@@ -434,7 +434,7 @@ function findAssignedDealer(t) {
 // A scheduled dealer who's currently off the clock. Without this, `call dealer`
 // would haul a sleeping dealer out of bed and his own commute graph (GO_HOME)
 // would immediately start walking him back — he'd abandon the table mid-hand.
-// Dealers with no vendor_schedule (the Neon Vig back room, the covert dealers)
+// Dealers with no vendor_schedule (the Lucky Bastard back room, the covert dealers)
 // are always available and never gated.
 function isOffShift(npc) {
   if (!npc?.vendor_schedule || !Object.keys(npc.vendor_schedule).length) return false;

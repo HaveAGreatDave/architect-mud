@@ -17,6 +17,13 @@ An elevator car zone carries:
 }
 ```
 
+**Gated floors.** A ride is a teleport, so it would otherwise skip every law a walked
+step obeys. `cmdFloor` runs the move-gate chain (`runMoveGates`) against the destination
+before the doors seal, marked `bypassEncumbrance` so the walking laws (pacing cadence,
+carry weight) stay out of it. A blocking gate refuses at the panel — that's how a
+`flags.residents_only` amenity floor (the Solenne sky pad) is private by lift as well as
+by door, with nothing to author here.
+
 `n` is the number shown on the panel and typed by the player (`floor 54`); it is **independent** of the destination zone's `grid_z`. The content is still responsible for wiring real exits (an `up` multi-exit to every floor, each floor's `in` back to the car, and an `out` to the lobby) so NPC pathfinding and the zone-connectivity validator stay happy — this plugin only adds the numbered, teleporting convenience layer on top.
 
 **Ground floor is implicit.** The panel always includes a **Floor 1 — Lobby** stop synthesized from the car's `out` exit, so the content never lists it and every car has a way down. Riding to it runs the same timed board→chime path (and reads as *descending*).

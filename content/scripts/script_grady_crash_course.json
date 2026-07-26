@@ -19,17 +19,32 @@
       },
       "l1": {
         "next": "w1",
-        "text": "Grady bellows after you: \"LOOK before you leap, sprat! Type LOOK, read the tile, THEN pick a direction.\"",
+        "text": "Grady bellows after you: \"That bat does nothing in your bag, sprat — EQUIP it! Then ATTACK whatever's ugliest. Simple as breathing.\"",
         "type": "say"
       },
       "l2": {
         "next": "w2",
-        "text": "Grady cups his hands: \"That bat does nothing in your bag — EQUIP it! When something ugly turns up, ATTACK it. Simple as breathing.\"",
+        "text": "Grady cups his hands: \"Two ways to swing! ATTACK all day long, or POWER for one that actually hurts — but a power swing leaves you wide open and slow to come back. Pick your moment.\"",
         "type": "say"
       },
       "l3": {
+        "next": "w3",
+        "text": "Grady, louder: \"And when it winds up on YOU — DODGE! Costs you a beat, saves you a rib. Nobody out there fights fair, so neither do you.\"",
+        "type": "say"
+      },
+      "l4": {
+        "next": "w4",
+        "text": "Grady, further off: \"It gets dark out there, and the dark's killed more fresh ones than teeth ever did. LIGHT the flashlight BEFORE you need it, not after!\"",
+        "type": "say"
+      },
+      "l5": {
+        "next": "w5",
+        "text": "Grady, distant now: \"And if it's going badly — FLEE. No shame in it. Dead men don't come back and spend.\"",
+        "type": "say"
+      },
+      "l6": {
         "next": "done",
-        "text": "Grady, distant now: \"Green line on your map is the GPS — hit AUTO and let your feet follow it east. Go on! Two credits won’t earn themselves!\"",
+        "text": "Grady, barely audible: \"Green line on your map is the GPS — hit AUTO and let your feet follow it east. Go on! Two credits won’t earn themselves!\"",
         "type": "say"
       },
       "w1": {
@@ -39,6 +54,21 @@
       },
       "w2": {
         "next": "l3",
+        "seconds": 6,
+        "type": "wait"
+      },
+      "w3": {
+        "next": "l4",
+        "seconds": 6,
+        "type": "wait"
+      },
+      "w4": {
+        "next": "l5",
+        "seconds": 6,
+        "type": "wait"
+      },
+      "w5": {
+        "next": "l6",
         "seconds": 6,
         "type": "wait"
       }

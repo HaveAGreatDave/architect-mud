@@ -408,7 +408,7 @@ async function handleAction(player, actionId, params) {
         // won't resolve option-level actions (only node-level ones — which is
         // what TURN_IN is authored as on every quest-giving NPC today). The
         // session self-heals on that first click regardless.
-        sendToPlayer(player.id, { type: 'dialogue', npcId: npc.id, npcName: npc.name, node, text: rendered.text, options: rendered.options });
+        sendToPlayer(player.id, { type: 'dialogue', npcId: npc.id, npcName: npc.name, node, text: rendered.text, options: rendered.options, stage: rendered.stage, mood: rendered.mood });
         return { type: 'tablet_close' };
       }
       // Fall through to the direct grant if the NPC/node has since vanished — a

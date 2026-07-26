@@ -1,0 +1,19 @@
+{
+  "description": "A real orange, pebbled and heavy, with a scar of green at the stem. Grown somewhere with actual weather and shipped a very long way. The peel oil catches you before the first segment does.",
+  "flags": {},
+  "id": "item_orange",
+  "name": "orange",
+  "tags": {
+    "description": "A real orange, pebbled and heavy, with a scar of green at the stem. Grown somewhere with actual weather and shipped a very long way. The peel oil catches you before the first segment does.",
+    "consumable": true,
+    "restore_hunger": 12,
+    "stackable": true,
+    "food_profile": "fruit",
+    "food_noun": "orange",
+    "perishable": true,
+    "spoil_rate": "normal"
+  },
+  "type": "consumable",
+  "value": 22,
+  "weight": 180
+}

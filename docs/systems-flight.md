@@ -42,6 +42,15 @@ Flagged onto fitting zones (the `zones.flags.airfield_id` pattern):
 | **Coldwater Regional** | `af_regional` | `zone_district_925_903` (925,903) | **dealer + charter + rental** · all fuels |
 | The Echelon — Helipad | `echelon_helipad` | `zone_echelon_exterior` (897,898) | charter only · VTOL-only |
 | Buzzard Field | `buzzard_field` | `zone_the_reach_870_1958` (910,986) | charter only · **lawless** · dust strip |
+| **Solenne Sky Pad** | `af_solenne` | `zone_district_914_908` (914,908) | **private** — residents only · avgas/jet · **VTOL-only** |
+
+**Private fields.** `flags.airfield_residents_only: "<building name>"` makes a field the
+building's own: `fieldFor()` returns null for anyone who doesn't hold a unit there, so an
+outsider gets no bay, no `hangar rent`/`store`, no fuel and no services — the field simply
+isn't there for them. The pad ROOM is walled separately by `flags.residents_only`
+(the residency plugin), which also gates the lift. See
+[reference/world-rendering.md](reference/world-rendering.md) for how a rooftop pad renders
+as field *and* building on one tile.
 
 Nine aircraft types (Mayfly · Dragonfly · Mule · Leviathan · Reaper · Carcass ·
 Grasshopper · Locust · **Viper**), three fuel types (avgas/jet/biofuel), four ground AA

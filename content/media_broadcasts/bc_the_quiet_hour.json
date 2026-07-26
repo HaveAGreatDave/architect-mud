@@ -108,10 +108,30 @@
           "x": 880,
           "y": 700
         },
-        "next": "qh_count_gate",
+        "next": "qh_count_check",
         "style": "narration",
         "text": "We can see that from here.",
         "type": "say"
+      },
+      "qh_count_alone": {
+        "_vine": {
+          "x": 180,
+          "y": 800
+        },
+        "next": "qh_vats",
+        "style": "narration",
+        "text": "No one else is watching this with you tonight. Just you, and us. We don't mind. We prefer it, actually.",
+        "type": "say"
+      },
+      "qh_count_check": {
+        "_vine": {
+          "x": 80,
+          "y": 760
+        },
+        "condition_type": "OTHER_VIEWERS_PRESENT",
+        "ifFalse": "qh_count_alone",
+        "ifTrue": "qh_count_gate",
+        "type": "condition"
       },
       "qh_cam1": {
         "_vine": {

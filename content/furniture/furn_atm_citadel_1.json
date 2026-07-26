@@ -1,0 +1,18 @@
+{
+  "description": "A cash terminal set into a marble alcove, its orange fascia the only colour in the hall. The keypad is worn shiny in the shape of the four digits everyone uses.",
+  "flags": {
+    "atm": true,
+    "atm_network": "CitadelFinancial",
+    "interactions": []
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_atm_citadel_1",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "Citadel Financial cash terminal",
+  "object_type": "terminal",
+  "power_draw_kw": 2,
+  "price": 0,
+  "zone_id": "zone_citadel_hall"
+}

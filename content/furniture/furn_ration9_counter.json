@@ -1,0 +1,20 @@
+{
+  "description": "A scarred laminate counter with a register bolted to it, a rack of gum along the front edge, and a scanner window worn cloudy by four decades of groceries dragged across it. A handwritten card taped beside the till reads: ALL ITEMS MUST BE PRESENTED. Dell Fry stands behind it with the patience of a man who has heard every excuse.",
+  "flags": {
+    "checkout": "npc_ration_cook",
+    "aliases": "counter, till, register, checkout",
+    "interactions": [
+      "lean"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_ration9_counter",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "Checkout Counter",
+  "object_type": "furniture",
+  "power_draw_kw": 0.1,
+  "price": 0,
+  "zone_id": "zone_mq_grocery"
+}

@@ -845,6 +845,22 @@ function vineModalOpen(title, schema, graphData, onSave, sibling, tabs) {
     }
   }
 
+  // Optional schema-supplied header button (VineDialogue's play view) — always
+  // reachable from the editor itself, not only once a node is selected.
+  const actEl = document.getElementById('vine-modal-headeraction');
+  if (actEl) {
+    const act = schema && schema.headerButton;
+    if (act) {
+      actEl.style.display = '';
+      actEl.textContent = act.label;
+      actEl.title = act.title || '';
+      actEl.onclick = act.onClick;
+    } else {
+      actEl.style.display = 'none';
+      actEl.onclick = null;
+    }
+  }
+
   if (_vineModalEditor) { _vineModalEditor.destroy(); _vineModalEditor = null; }
   const body = document.getElementById('vine-modal-body');
   body.innerHTML = '';
@@ -855,6 +871,9 @@ function vineModalOpen(title, schema, graphData, onSave, sibling, tabs) {
 }
 
 function vineModalClose() {
+  // The play view sits above this modal and holds a reference to the editor we're
+  // about to destroy — take it down with us.
+  if (typeof vineDialoguePreviewClose === 'function') vineDialoguePreviewClose();
   document.getElementById('vine-modal').style.display = 'none';
   _renderVineTabs(null);
   if (_vineModalEditor) { _vineModalEditor.destroy(); _vineModalEditor = null; }

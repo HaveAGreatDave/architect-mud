@@ -1,0 +1,75 @@
+@broadcast "NextLife™ - Because Dying Is Not An Excuse"
+@category commercial
+@length 30
+@type commercial
+
+::actors
+@actor npc_narrator
+@alias npc_narrator NARRATOR
+::endactors
+
+::scene TITLE
+
+ROOM studio_stage
+
+EVENT FADE_IN
+
+TITLE nextlife_logo
+
+MUSIC nextlife_theme
+♪ A slow funereal organ hymn, played in a suspiciously cheerful major key. ♪
+MUSIC_END
+
+::scene COMMERCIAL
+
+CAM 1 WIDE elderly_actor_set
+
+NPC npc_narrator
+
+SHOT
+Margaret, seventy-four, worked forty years so her family wouldn't have to worry.
+SHOT_END
+
+SHOT
+Then she died anyway.
+SHOT_END
+
+NARRATOR:
+That's where NextLife™ comes in.
+
+CAM 2 CLOSEUP resurrection_pod
+
+SHOT
+The camera pulls back to reveal a gleaming reprint chamber, fogging gently at the seams.
+SHOT_END
+
+NARRATOR:
+For as little as forty credits a week, NextLife™ guarantees a full-body reprint within seventy-two hours of clinical death.
+
+NARRATOR:
+Same face. Similar personality. Legally, the same person.
+
+NARRATOR:
+Ask about our Basic, Premium, and "Please Don't Let Them Know I'm Gone Yet" tiers.
+
+LOWER_THIRD
+STARTING AT 40₵/WEEK
+PREMIUMS CONTINUE AFTER DEATH VIA NEXT-OF-KIN GARNISHMENT
+LOWER_THIRD_END
+
+ACTION npc_narrator cuts to a reprinted Margaret, waving stiffly from a factory floor
+
+NARRATOR:
+I died in a machining accident on a Tuesday. NextLife had me back at that same machine by Friday.
+
+SHOT
+The clock behind her reads a date that does not quite match the one on her paperwork.
+SHOT_END
+
+TICKER
+NextLife™ is a resurrection-adjacent product, not a resurrection guarantee · Reprinted memories accurate to last successful backup, backups not guaranteed to be recent · Original body remains property of the estate until premiums are current · Garnishment continues for three (3) generations or until the debt is resolved, whichever the actuary prefers
+TICKER_END
+
+EVENT FADE_OUT
+
+END

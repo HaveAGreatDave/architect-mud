@@ -1,0 +1,28 @@
+{
+  "door_type": "basic",
+  "exit_dir": "south",
+  "flags": {},
+  "hololock_difficulty": 8,
+  "hp": 1000,
+  "hp_max": 1000,
+  "id": "door_solenne_apt_d",
+  "is_locked": 0,
+  "is_open": 0,
+  "lock_state": "locked",
+  "name": "Residence 34-D hololock",
+  "tags": {
+    "lock:hololock": {
+      "canHack": true,
+      "difficulty": 8,
+      "messages": {
+        "denied": "The hololock reads your signature, finds it wanting, and stays shut.",
+        "hackFail": "The hololock throws your intrusion off with a contemptuous little chirp.",
+        "hackSuccess": "The hololock's handshake buckles and the pale slab whispers open.",
+        "lock": "The hololock seats itself with a soft, expensive click.",
+        "unlock": "The hololock disengages with a soft click."
+      }
+    }
+  },
+  "target_zone": null,
+  "zone_id": "zone_solenne_apt_d"
+}

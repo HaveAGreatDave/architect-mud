@@ -1,0 +1,22 @@
+{
+  "description": "A foil-wrapped block, yellow, engineered to melt at exactly blood temperature so it feels like the real thing on the tongue. It is not the real thing. It is very close.",
+  "flags": {},
+  "id": "item_butter_analog",
+  "name": "butter-analog",
+  "tags": {
+    "description": "A foil-wrapped block, yellow, engineered to melt at exactly blood temperature so it feels like the real thing on the tongue. It is not the real thing. It is very close.",
+    "consumable": true,
+    "restore_hunger": 6,
+    "stackable": true,
+    "food_profile": "fat_or_oil",
+    "food_noun": "buttered",
+    "perishable": true,
+    "spoil_rate": "normal",
+    "status_chance": {
+      "food_poisoning": 0.15
+    }
+  },
+  "type": "consumable",
+  "value": 12,
+  "weight": 250
+}

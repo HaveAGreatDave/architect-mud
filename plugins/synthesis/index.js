@@ -24,6 +24,7 @@ import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { getDrugCache } from '../../server/engine/drugs.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { getTunable } from '../../server/engine/tunables.js';
+import { registerAction } from '../../server/engine/actions.js';
 import { randomUUID } from 'crypto';
 
 const SYNTH_SKILL = 'chemistry';
@@ -800,8 +801,16 @@ export const hooks = {
   'furniture.describe': (f, player) => chemLabHub(f, player),
 };
 
+// `cook` is a shared verb: the cooking plugin owns it and routes to whichever
+// system the room and the argument point at (a chem lab here, a stove there).
+// It reaches this one through the Action registry rather than an import, so
+// neither plugin depends on the other loading — see docs/scripting.md.
+registerAction({
+  type: 'synthesis.cook',
+  handler: ({ actor, params }) => cmdCook(params.recipe ? [params.recipe] : [], null, actor, params.broadcast),
+});
+
 export const commands = {
-  cook: cmdCook,
   synthesize: cmdCook,
   synthresolve: cmdSynthResolve,
   splice: cmdSplice,

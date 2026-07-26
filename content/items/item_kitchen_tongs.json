@@ -1,0 +1,14 @@
+{
+  "description": "Sprung steel tongs with scalloped jaws and a locking ring that no longer locks. They clack twice on their own every time you set them down.",
+  "flags": {},
+  "id": "item_kitchen_tongs",
+  "name": "kitchen tongs",
+  "tags": {
+    "description": "Sprung steel tongs with scalloped jaws and a locking ring that no longer locks. They clack twice on their own every time you set them down.",
+    "can_turn": true,
+    "unique": true
+  },
+  "type": "misc",
+  "value": 16,
+  "weight": 220
+}

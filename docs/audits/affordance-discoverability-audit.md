@@ -9,11 +9,16 @@ manual play by the author never surface the gap. Only a cold player walking up t
 The seed instance: **`scrub`** wipes a wanted star at a `police_terminal` furniture
 ([plugins/surveillance/index.js](../../plugins/surveillance/index.js) `cmdScrub`), but the terminal's flags
 are just `{"police_terminal": true}` and `scrub` is a plain command-map verb — not a tag-gated
-`specializedAction`. Examine's generic-furniture branch
-([server/engine/commands/world.js](../../server/engine/commands/world.js) ~L602-614) builds its "Actions:"
-hints from exactly two sources — the object's `flags.interactions` array and `availableActions(entity)`
-(the tag-gated specialized-action registry) — so it surfaces **nothing** for the terminal. Same for `bribe`
-/ `submit` on the police NPC. The verb works; the player can't find it.
+`specializedAction` — so examine surfaced **nothing** for the terminal. Same for `bribe` / `submit` on the
+police NPC. The verb works; the player can't find it.
+
+**Since fixed for the seed case, and the seam widened:** `availableActions()` now also matches
+`requiredFlag`, and `registerSpecializedAction` accepts `handler: null` for a *declaration-only* entry — so
+a plain flag-gated command can advertise itself without being ported to the dispatch registry (`scrub` is
+wired this way). Examine's furniture block also renders its "Actions:" line from **one** place at the end
+rather than per-`object_type` branch, so a branch can no longer silently drop a piece's affordances (the
+streetlight and dangling-`camera_id` cases did). The audit below still applies — the remaining
+`exposed: false` entries across the plugin manifests are the open worklist.
 
 This is a source-of-truth seam like the others in this suite: "**what a command requires**" (an object with
 flag/tag X) and "**what an object advertises**" (its examine affordances) are two systems with nothing forcing

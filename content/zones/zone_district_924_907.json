@@ -11,7 +11,7 @@
     "south": "zone_district_924_908"
   },
   "flags": {
-    "building_name": "Interchange Stack",
+    "building_name": "Stack Overflow",
     "building_type": "container_yard",
     "district": "yards",
     "entrance": "south",
@@ -27,7 +27,7 @@
   "id": "zone_district_924_907",
   "map_id": "map_world",
   "marker": "CY",
-  "name": "Interchange Stack",
+  "name": "Stack Overflow",
   "parent_zone": null,
   "updated_at": "1783739474"
 }

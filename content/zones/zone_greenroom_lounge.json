@@ -5,13 +5,13 @@
   "bg_color": "#16201a",
   "color": null,
   "created_by": null,
-  "description": "Low light, lower ceilings, and a hush of programmable-tint glass gone the colour of a bruise. A drink-printer glows behind the bar, chrome nozzles poised over a rail of real bottles nobody trusts it to replace. Muted feed-screens throw the studio's colours across leather booths cracked and re-taped, and every ashtray is full. It's swank trying a little too hard, and mostly getting away with it.",
+  "description": "Low light, lower ceilings, and a hush of programmable-tint glass gone the colour of a bruise. A drink-printer glows behind the bar, chrome nozzles poised over a rail of real bottles nobody trusts it to replace. Muted feed-screens throw the studio's colours across leather booths cracked and re-taped, each one holding a writer, a wire-service printout and an argument about a lede. Every ashtray is full. It's swank trying a little too hard, and mostly getting away with it.",
   "exits": {
     "east": "zone_greenroom_booth",
     "north": "zone_district_912_910"
   },
   "flags": {
-    "building_name": "The Green Room",
+    "building_name": "The Deadline",
     "building_type": "bar",
     "is_building": true,
     "is_interior": true,
@@ -23,7 +23,7 @@
   "id": "zone_greenroom_lounge",
   "map_id": "map_int_greenroom",
   "marker": null,
-  "name": "The Green Room",
+  "name": "The Deadline",
   "parent_zone": "zone_district_912_910",
   "updated_at": "1784500000"
 }

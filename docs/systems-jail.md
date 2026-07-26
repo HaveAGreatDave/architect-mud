@@ -1,14 +1,17 @@
 # Jail (as built)
 
-Getting **downed while WANTED** no longer sends you to the cloning vat — the police
-scrape you up. You wake in **Precinct 9's Holding cell**, stripped of your gear, and
-do time. Clean deaths (0 stars) are unaffected: normal corpse + clone-vat respawn.
+Getting **downed while WANTED** no longer prints you at the civic clone facility.
+An open file outranks the civic queue: the resurrection grid intercepts your pattern
+mid-decant and finishes it in **Precinct 9's own custodial clone vat**
+(`furn_precinct_clone_vat`, bolted into the Holding cell). You come up in custody,
+stripped of your gear, and do time. Clean deaths (0 stars) are unaffected: normal
+corpse + civic clone-vat respawn.
 
 Owned by the **jail** plugin (`plugins/jail/`). Everything below is what ships.
 
 ## Flow
 
-1. **Takedown / booking.** `handlePlayerDeath` (engine, `gameLoop.js`) fires the
+1. **Custodial decant / booking.** `handlePlayerDeath` (engine, `gameLoop.js`) fires the
    `player.respawnZone` hook *before* it spawns the lootable corpse. The jail plugin
    reads the player's `wanted` flag; if ≥ 1 star it:
    - Levies a **booking fine** of **₵50 per half-star × the penalty multiplier**
@@ -46,11 +49,11 @@ Owned by the **jail** plugin (`plugins/jail/`). Everything below is what ships.
    **`flags.cell_block`** and read by `inCellBlock()` — adding another room to the
    block is a content change, not a code one, and a room that *forgets* the flag
    fails safe (walking into it reads as an escape). The block's only exit
-   (`up` → Lobby) is a **police-only hololock** (`door_precinct_cell`,
-   `canHack:false`) — no deck can bypass it. It ships **locked** in content and
-   `bookIntoCell` calls `secureCellDoor()` on every booking, so a release (which
-   leaves it open) or an admin poking at it can't leave the next stretch servable
-   by walking out.
+   (`up` → Lobby) is a **detention lock** (`door_precinct_cell`,
+   `lock:detentionlock`, `canHack:false`) — a lock that reads your *record*, not a
+   key (see **The detention lock** below). It ships **locked** in content, stays
+   locked forever, and `bookIntoCell` calls `secureCellDoor()` on every booking so
+   an admin poking at it can't leave the next stretch servable by walking out.
    Your **wanted HUD keeps your stars and visibly decays** over the sentence (the
    minute tick pushes the remaining stars, computed from `release_at`), hitting zero
    right as you're released. This is a cosmetic countdown — your street heat was
@@ -63,15 +66,14 @@ Owned by the **jail** plugin (`plugins/jail/`). Everything below is what ships.
    in whole stars, so without these a prisoner has no way to ask how long they're
    in for — which is most of why walking out looked like the only move.
 3. **Release.** A `setTimeout` fires at the deadline. The officer **on duty for the
-   current in-game hour** walks you out: the plugin names them, **disengages the
-   hololock** (`releaseCellDoor()`), broadcasts a random release line into the cell,
-   zeroes your HUD, TELEPORTs you to the Lobby (`zone_mq_precinct_lobby`), restores
-   your held legal items, and hands them back at the desk. The lock **stays**
-   disengaged until the next booking re-secures it — a served sentence genuinely
-   opens the way out rather than depending on a timer nobody can see. The accepted
-   cost: a cellmate still doing time can walk through the open door, and that's
-   still an `escape()` (gear forfeited, heat back). Offline releases are DB-only
-   and don't touch the door.
+   current in-game hour** walks you out: the plugin names them, broadcasts a random
+   release line into the cell, zeroes your HUD, TELEPORTs you to the Lobby
+   (`zone_mq_precinct_lobby`), restores your held legal items, and hands them back at
+   the desk. **The lock is never disengaged** — deleting your `jail_prisoners` row is
+   what opens it, because the detention lock authorises on record. So a released
+   prisoner walks the door freely while a cellmate still doing time gets nothing (the
+   old "release leaves the door open for everyone" tradeoff is gone). Offline
+   releases are DB-only.
 
 ## Timing
 
@@ -97,6 +99,15 @@ officer in the lobby** and the other two in the **bullpen** (`zone_mq_precinct_b
 via `moveEntity`. Whoever's on shift at release time is the one who walks you out and
 says the line. The pre-existing street cop **Sergeant Vale** (`npc_pd_officer`) is
 unrelated and untouched.
+
+**All three detention officers are full police (2026-07-25).** They already carried
+`flags.police` in content; what changed is that the flag now *means* something
+everywhere — surveillance's `policeSpot` gives every `flags.police` NPC the same
+arrest powers as a hunting unit (spot a wanted suspect in the room → detain at ≤3.5★,
+radio it in above that), on top of the `COP_CATCH` witness roll that lets any officer
+catch a crime in progress. So the desk officer books anyone who walks into the lobby
+wanted, and an escapee who makes the lobby is grabbed on the spot. See
+[systems-surveillance.md](systems-surveillance.md) → *Police make you on sight*.
 
 ## Cell fixtures
 
@@ -148,13 +159,29 @@ Jail isn't only downed-while-wanted: the plugin registers an **`ARREST` action**
 books a *live* suspect at ≤ 3.5★ without a death — `bookIntoCell(..., {teleport:true})`
 teleports them to Holding and clears their heat via `WANTED_CLEAR`.
 
+## The detention lock (2026-07-25)
+
+The cell door's lock type is **`lock:detentionlock`**, registered by the jail plugin
+(`registerLockType`, same seam as hololock/keycard/longwatch). It is permanently
+engaged and unhackable; what varies is whether it recognises *you*. `detentionAuth`
+passes when **both** are true:
+
+- **no wanted stars** — live value via surveillance's `WANTED_STARS` action, falling
+  back to the `wanted` player flag;
+- **no open `jail_prisoners` row** — a sentence still running is its own gate.
+
+So the lock is, in effect, **gated by wanted stars**: a clean visitor walks into and
+out of the holding block freely, a released prisoner walks out the moment their row is
+deleted, and anyone carrying heat — or still doing time — is refused. Both reads happen
+only on an actual attempt to walk that one door, so this costs nothing anywhere else.
+
 ## Jailbreak
 
-**The cell door is police-only (`canHack:false`) and locked while you're serving** —
-hacking it is disabled and the engine door-lock move gate blocks the exit, so there is
-no self-service jailbreak: you leave when the guard walks you out, full stop. (Until
-2026-07-24 the door shipped `lock_state:"unlocked"`, which made the whole lock moot —
-a prisoner walked `up` and the only consequence was the escape penalty below.)
+There is still **no self-service jailbreak**: `canHack:false` means no deck bypass, and
+the engine door-lock move gate blocks a suspect the detention lock refuses. You leave
+when your record closes. (Until 2026-07-24 the door shipped `lock_state:"unlocked"`,
+which made the whole lock moot — a prisoner walked `up` and the only consequence was
+the escape penalty below.)
 The escape machinery still covers any *other* way out of the cell (the door left open
 behind an earlier release, a future tunnel, an admin move): the `zone.entered`
 listener treats arriving anywhere
@@ -195,9 +222,10 @@ cot**. Run once, then restart / `POST /world/reload`.
 ## Files
 
 - `plugins/jail/index.js` — the whole system (fine, booking popup, shift roster, HUD decay,
-  cell-door lock/unlock, the `sentence` readout)
-- `content/doors/door_precinct_cell.json` — the hololock, authored **locked**
+  the `lock:detentionlock` type + `detentionAuth`, the `sentence` readout)
+- `content/doors/door_precinct_cell.json` — the detention lock, authored **locked**
 - `content/furniture/furn_cell_charge_sheet.json` — the readable charge sheet on the bars
+- `content/furniture/furn_precinct_clone_vat.json` — the custodial clone vat in the cell
 - `plugins/jail/regress.js` — contraband classification, clean-death passthrough, confiscate↔restore round-trip
 - `scripts/create-jail-officers.js` — the two new officers + cell fixtures (one-shot)
 - `client/game/js/panels/arrest.js` — the booking-record popup (`arrest_notice`)

@@ -1,0 +1,32 @@
+{
+  "ambient_events": [
+    "A draught moves the hanging rail and the whole wall of pans mutters at each other.",
+    "Something deep in the stack settles with a single flat clang.",
+    "The overhead tube buzzes, dims, and thinks better of it.",
+    "A price tag, string-tied, spins slowly on a lid handle."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#4a4038",
+  "color": null,
+  "description": "Every wall is hung with iron. Pans on a rail by size, lids racked like shields, ladles and tongs bristling out of an old shell casing on the counter. The place smells of cold metal, mineral oil and, faintly and inexplicably, onions. Nothing here is new — it has all been through at least one kitchen and probably one fire — but every piece has been cleaned back to bare metal and hung straight, which in this district counts as devotion.",
+  "exits": {
+    "east": "zone_district_918_907",
+    "north": "zone_kitchenware_util"
+  },
+  "flags": {
+    "building_name": "Tine & Temper",
+    "building_type": "kitchenware",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_919_907"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_kitchenware",
+  "map_id": "map_int_kitchenware",
+  "marker": null,
+  "name": "Tine & Temper",
+  "parent_zone": "zone_district_918_907"
+}

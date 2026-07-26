@@ -1,0 +1,8 @@
+{
+  "difficulty": 5,
+  "id": "citadelvault-0002-4000-8000-000000000000",
+  "item_id": "item_bearer_bond",
+  "max_qty": 3,
+  "table_id": "scav_citadel_vault",
+  "weight": 8
+}

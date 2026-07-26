@@ -1,0 +1,62 @@
+@broadcast "Everlast Augments - A Diamond Is Forever. Now, So Is She."
+@category commercial
+@length 30
+@type commercial
+
+::actors
+@actor npc_narrator
+@alias npc_narrator NARRATOR
+::endactors
+
+::scene TITLE
+
+ROOM candlelit_rooftop
+
+EVENT FADE_IN
+
+TITLE everlast_logo
+
+MUSIC everlast_theme
+♪ Romantic strings, played slightly out of tune, like a knockoff of a jingle nobody licensed properly. ♪
+MUSIC_END
+
+::scene COMMERCIAL
+
+CAM 1 WIDE candlelit_rooftop
+
+NPC npc_narrator
+
+SHOT
+A couple stands silhouetted against the skyline. One of them kneels.
+SHOT_END
+
+NARRATOR:
+A diamond is forever.
+
+CAM 2 CLOSEUP ring_case
+
+NARRATOR:
+Everlast™ is forever, whether she likes it or not.
+
+SHOT
+Matching cybernetic bands sync heartbeat telemetry between partners, continuously, for the rest of both your lives.
+SHOT_END
+
+NARRATOR:
+Know exactly where she is. Know exactly how she's feeling. Always.
+
+LOWER_THIRD
+SHE'LL NEVER TAKE IT OFF
+REMOVAL REQUIRES BOTH CARDIAC SIGNATURES, PRESENT, CONSCIOUS, AND IN AGREEMENT
+LOWER_THIRD_END
+
+NARRATOR:
+My girlfriend says she's never felt more secure. She says this every day, at six AM sharp, whether she's awake or not.
+
+TICKER
+Everlast Augments is not liable for outcomes classified by a court as "romantic" · Pair-lock is permanent absent mutual, conscious, simultaneous consent · Heartbeat telemetry is shared with both partners and, per the Terms of Service neither of you read, with us
+TICKER_END
+
+EVENT FADE_OUT
+
+END
