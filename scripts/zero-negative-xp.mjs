@@ -2,10 +2,11 @@
 //
 // Net XP = (SUM(player_skills.ip) + players.bonus_xp) − statSpent(stats). A stat-cost
 // retune could leave that figure below zero, i.e. a survivor carrying an XP debt they
-// have to grind off before a single point is spendable. XP no longer goes negative:
-// engine/ip.js floors both Net and Total at 0, and this script settles the debt in the
-// data so the floor isn't just papering over a stored deficit — it tops bonus_xp up by
-// exactly the shortfall, leaving those players at 0 and everyone else untouched.
+// have to grind off before a single point is spendable. That debt is REAL and visible —
+// engine/ip.js deliberately applies no floor to Net or Total. This script is therefore an
+// act of forgiveness, not a repair: run it when a retune's debt should be written off
+// rather than ground off. It tops bonus_xp up by exactly the shortfall, leaving those
+// players at 0 and everyone else untouched. Re-running it is a no-op.
 //
 // Run against prod:  node --env-file=.env.prod scripts/zero-negative-xp.mjs
 // Run against local: node scripts/zero-negative-xp.mjs

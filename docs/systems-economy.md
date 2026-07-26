@@ -142,10 +142,12 @@ must be a round number.
 - **Net XP** (the spendable amount shown to players) = `Total XP − statSpent`, where `statSpent` is the
   cumulative curve cost to reach the current stat levels. Raising a stat raises `statSpent`, which
   lowers Net — nothing is decremented, so Total XP is unchanged. If the cost curve is later retuned,
-  Net can rise or fall, but **XP never goes negative**: `getNetXp`/`getTotalXp` floor both figures at 0,
-  so the worst a retune can do is leave a survivor at zero spendable XP, never in debt. The one-shot
-  `scripts/zero-negative-xp.mjs` settles any pre-existing negative balance in the data (tops `bonus_xp`
-  up by the shortfall) so the floor isn't masking a stored deficit.
+  Net can rise or fall, and **both figures are reported raw — XP CAN go negative.** `getNetXp` and
+  `getTotalXp` apply no floor, so a cost-curve retune that outruns a survivor's earnings leaves them
+  in genuine debt: `stats`/`raise` display the negative figure, and every spend gate is a `net < cost`
+  comparison, so they must grind back up past 0 before a single point is spendable again. (The floor
+  that used to hide this was removed deliberately.) The one-shot `scripts/zero-negative-xp.mjs` remains
+  as the tool for *forgiving* a retune — it tops `bonus_xp` up by the shortfall to settle balances at 0.
 - **Stat cost curve:** `statCost(current) = ceil(stat_cost_base × current^stat_cost_exponent)`
   (defaults base 10, exponent 1.5). Raising 0→1 costs 10 XP; 9→10 costs ~310 XP.
 - **Raisable stats:** brawn, reflexes, endurance, brains, cool. `raise <stat>` spends Net XP and

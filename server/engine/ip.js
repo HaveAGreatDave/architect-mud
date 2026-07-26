@@ -154,13 +154,13 @@ export async function getTotalXp(playerId) {
     [playerId]
   );
   if (!rows.length) return 0;
-  return Math.max(0, Number(rows[0].skill_ip) + Number(rows[0].bonus_xp));
+  return Number(rows[0].skill_ip) + Number(rows[0].bonus_xp);
 }
 
-// Net XP = Total XP − statSpent, floored at 0. Returns { total, net }. Net is what
-// the player spends on stats; a retune of the cost curve can push the raw figure
-// below zero, but XP never displays or spends as a debt — the floor is the single
-// source of truth for that, so every caller inherits it.
+// Net XP = Total XP − statSpent. Returns { total, net }. Net is what the player
+// spends on stats. Both figures are reported RAW: a retune of the cost curve can
+// push them below zero, and that debt is shown honestly rather than hidden behind
+// a floor — a survivor in the hole grinds back to 0 before a point is spendable.
 export async function getNetXp(playerId) {
   await ensureTunables();
   const { rows } = await query(
@@ -172,8 +172,8 @@ export async function getNetXp(playerId) {
   );
   if (!rows.length) return { total: 0, net: 0 };
   const p = rows[0];
-  const total = Math.max(0, Number(p.skill_ip) + Number(p.bonus_xp));
-  return { total, net: Math.max(0, total - statSpent(p)) };
+  const total = Number(p.skill_ip) + Number(p.bonus_xp);
+  return { total, net: total - statSpent(p) };
 }
 
 // Grant XP from a non-skill source (quests, etc.). Always an integer.
@@ -211,7 +211,7 @@ export async function raiseStat(playerId, statName) {
   const p = rows[0];
   const current = p[col] || 0;
   const cost = statCost(current);
-  const net = Math.max(0, (Number(p.skill_ip) + Number(p.bonus_xp)) - statSpent(p));
+  const net = (Number(p.skill_ip) + Number(p.bonus_xp)) - statSpent(p);
 
   if (net < cost) {
     return { error: `Not enough XP. Need ${cost} XP to raise ${statName} to ${current + 1} — you have ${Math.floor(net)}.` };
