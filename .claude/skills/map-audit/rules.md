@@ -259,13 +259,16 @@ Fix playbook, in order of how much the data tells you:
 
 ### MARK-1 · Interior room carries a map marker · mechanical · [auto]
 
-`zones.marker` is the ≤2-char glyph a tile draws **on a map** — the dev-panel map badge
-(`map-marker-badge`) and the flight cockpit's minimap strip
-([cockpit.js](../../../client/game/js/panels/cockpit.js), which falls back to `▪`). An
-interior room is never drawn on the world map, so its glyph is dead data: it shows up only
-in the authoring view, where it reads as "this room is a place on the map" and quietly puts
-the building's acronym in two places at once. Every one of the 22 is a pre-convention
-hand-authored interior (the early shop rooms, the Halcyon floors, the Records hall).
+`zones.marker` is the ≤2-char glyph a tile draws **on a map**: the sidebar minimap and
+full-map popup in Labels mode ([minimap.js](../../../client/game/js/panels/minimap.js)), the
+tablet bigmap ([tablet-os.js](../../../client/game/js/panels/tablet-os.js)), the dev-panel
+badge, and the flight cockpit's strip.
+
+An interior room is not a place you navigate the map *by*, **and it inherits
+`flags.building_name` from its parent** for the directory and the exit links. So a marker on
+one puts the building's acronym on a tile that is not the building — which is exactly how
+"The Stacks" came to read `HA`. Every one of the 22 is a pre-convention hand-authored
+interior (the early shop rooms, the Halcyon floors, the Records hall).
 
 The dev panel already agrees: converting a tile into a facade explicitly writes
 `marker=NULL` ([routes.js](../../../server/api/routes.js) `UPDATE zones SET … marker=NULL`).

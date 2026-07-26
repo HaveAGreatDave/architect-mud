@@ -164,7 +164,7 @@ const RULES = [
   // Flag invalidity, not absence.
   { code: 'MARK-1', sev: 'medium', kind: 'mechanical', fix: 'clearMarker',
     title: 'Interior room carries a map marker',
-    why: 'zones.marker is the <=2-char glyph a tile draws on the MAP — the dev-panel map badge and the flight cockpit strip. An interior room is never drawn on the world map, so the glyph is dead data that only shows up in the authoring view, where it reads as "this room is a place on the map" and invites the acronym being kept in two places at once. The world-map underground level (map_world, z<0) is excluded: the sewer network IS drawn on the map, and its box-drawing markers are the authored corridor art. Apartments are excluded too — MARK-3 makes the opposite demand of them.',
+    why: 'zones.marker is the <=2-char glyph a tile draws on the MAP — the sidebar minimap and full-map popup in Labels mode, the tablet bigmap, the dev-panel badge and the cockpit strip. An interior room is not a place on the map you navigate by, and it inherits flags.building_name from its parent, so a marker on it renders the building acronym on a room that is not the building. The world-map underground level (map_world, z<0) is excluded: the sewer network IS drawn on the map, and its box-drawing markers are the authored corridor art. Apartments are excluded too — MARK-3 makes the opposite demand of them.',
     rec: 'Clear the marker (marker: null). The building the room belongs to carries the acronym on its facade — that is the one that renders.' },
   { code: 'MARK-3', sev: 'medium', kind: 'mechanical', fix: 'setMarker',
     title: 'Apartment has no floor designation as its marker',
@@ -172,7 +172,7 @@ const RULES = [
     rec: 'Set the floor designation from the unit name. `want` carries it: the full designation when it fits in 2 glyphs ("Unit 2A" -> "2A"), otherwise the floor alone ("Unit 1001" -> "10", "Halcyon Residence 41-A" -> "41"), so units sharing a floor share a marker.' },
   { code: 'MARK-2', sev: 'medium', kind: 'mechanical', fix: null,
     title: 'Building tile has no 2-character map marker',
-    why: 'A building is the one thing on the map a player navigates BY, and marker is what identifies it at a glance in the dev-panel map and the cockpit minimap strip (which falls back to a generic dot). The convention across the 54 buildings that have one is a 2-letter acronym of the building name — a 1-glyph marker is a leftover terrain glyph (the "#" the planner stamped on grassland) or a decorative emoji, neither of which reads as a building.',
+    why: 'A building is the one thing on the map a player navigates BY, and marker is the label it wears in Labels mode on every map surface. With no marker the renderers fall back to deriving an acronym from the name, which is how the same building read "HA" on the sidebar and "HO" on the tablet. The convention across the 54 buildings that have one is a 2-letter acronym of the building name — a 1-glyph marker is a leftover terrain glyph (the "#" the planner stamped on grassland) or a decorative emoji, neither of which reads as a building.',
     rec: 'Set a 2-character acronym from the building name. `want` carries the derived suggestion — check it against the markers already in use before accepting it.' },
   { code: 'FLAG-3', sev: 'high', kind: 'mechanical', fix: null,
     title: 'flags.district names a district the engine cannot resolve',

@@ -644,11 +644,31 @@ export function renderMinimap(nodes, direction) {
   // building type, or has a building name — broader than building_type alone so labels
   // still land on buildings the type-detector misses.
   const isBuilding = (node) => !!(node.building_type || node.enterable || node.building_name);
+  // The label is the AUTHORED zones.marker when there is one — that column exists to be
+  // the tile's map glyph, and deriving one instead meant the authored value rendered
+  // nowhere while this map and the tablet's derived two different codes from the same
+  // name ("Hall of Records" → "HA" here, "HO" there). Derivation is now only the
+  // fallback for a building that has no marker yet.
+  //
+  // A room INSIDE a building gets no building label at all: it inherits
+  // flags.building_name for the directory and the exit links, so labelling it stamped
+  // the parent's acronym on every interior room ("The Stacks" reading "HA"). Its own
+  // marker still shows if it has one, which is how an apartment shows its floor.
+  const bldLabel = (node) => {
+    const mk = (node.marker || '').trim();
+    if (mk) return mk;
+    if (node.map_id && node.map_id !== 'map_world') return null;
+    return twoLetterAbbrev(node.building_name || node.name);
+  };
   const symFor = (node) => {
     // Labels: hide the building graphic entirely and show a 2-letter acronym filling the
     // tile square (mm-bld-label turns the tile into a solid labelled box).
-    if (overlay === 'labels' && isBuilding(node))
-      return `<span class="map-bld-ov map-bld-label">${twoLetterAbbrev(node.building_name || node.name)}</span>`;
+    if (overlay === 'labels' && isBuilding(node)) {
+      const lbl = bldLabel(node);
+      // No label ⇒ an unmarked interior room. Draw the bare tile, not the building
+      // furniture — falling through would stamp the building-type glyph on it instead.
+      return lbl ? `<span class="map-bld-ov map-bld-label">${escapeHtml(lbl)}</span>` : baseSym(node);
+    }
     const base = baseSym(node);
     if (overlay === 'none' || !node.building_type) return base;
     const glyph = BUILDING_ICON[node.building_type] || BUILDING_ICON._default;

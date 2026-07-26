@@ -3066,9 +3066,20 @@ function _mapHexRgb(hex) {
 function _mapIsBldg(t) {
   return !!(t.building_type || t.building_name);
 }
-// Two-letter code for a building tile: initials of its first two words, else the
-// first two letters of a single-word name. Upper-cased.
+// Two-letter code for a building tile. The AUTHORED zones.marker wins — that column
+// exists to be the tile's map glyph, and deriving one regardless meant the authored
+// value rendered nowhere while this map and the sidebar minimap derived DIFFERENT
+// codes from the same name ("Hall of Records" → "HO" here, "HA" there). Derivation is
+// the fallback for a building with no marker yet.
+//
+// Returns null for an unmarked room INSIDE a building: it inherits flags.building_name
+// for the directory and the exit links, so coding it stamped the parent's acronym on
+// every interior room ("The Stacks" reading "HO"). An interior's own marker still
+// shows — that is how an apartment shows its floor.
 function _mapBldgCode(t) {
+  const mk = String(t.marker || '').trim();
+  if (mk) return mk;
+  if (t.interior) return null;
   const name = String(t.building_name || t.name || '').trim();
   const words = name.split(/[\s/&-]+/).filter(Boolean);
   const code = words.length >= 2 ? words[0][0] + words[1][0] : name.replace(/[^a-z0-9]/gi, '').slice(0, 2);
@@ -3571,7 +3582,8 @@ function renderMap(d) {
     else if (t.curtain) cls.push('tos-curtain');
     else if (t.glacis) cls.push('tos-glacis');
     // Label mode: stamp the building's two-letter code over its tile (hides the icon).
-    const code = _tosMapLabels && _mapIsBldg(t) ? `<span class="mt-code">${esc(_mapBldgCode(t))}</span>` : '';
+    const _bc = _tosMapLabels && _mapIsBldg(t) ? _mapBldgCode(t) : null;
+    const code = _bc ? `<span class="mt-code">${esc(_bc)}</span>` : '';
     grid += `<div class="${cls.join(' ')}" style="${style}" data-map-zone="${esc(t.id)}" title="${esc(t.name)}">${badges}${code || sym}${ent}${exits}</div>`;
   }
   // GPS route line: an accent polyline through route tile centres, laid over the grid
