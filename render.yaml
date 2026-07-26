@@ -27,6 +27,18 @@ services:
             value: production
           - key: RENDER_EXTERNAL_URL
             sync: false # paste your full Render URL e.g. architect-mud.onrender.com
+          # Base URL baked into the verify/reset links the mailer sends. Unset, it
+          # falls back to http://localhost:3000 and every registration email ships
+          # a dead link — silently, because nothing errors. Same host as
+          # RENDER_EXTERNAL_URL (or the custom domain, once there is one).
+          - key: CLIENT_BASE_URL
+            sync: false
+          # Transactional email (Brevo). Unset, registration "verification" is a
+          # no-op that only logs the link server-side — accounts can never verify.
+          - key: BREVO_API_KEY
+            sync: false
+          - key: SMTP_FROM_EMAIL
+            sync: false # the verified Brevo sender address
           # Cutover done (2026-07-08): prod content is read-only over HTTP — git is the
           # only writer of world content to production (deploy-content CI applies
           # content/ on push to main). Ops tools (player admin, weather/power, live
