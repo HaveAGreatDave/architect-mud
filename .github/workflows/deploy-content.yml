@@ -28,6 +28,13 @@
 #   • run this workflow by hand (Actions tab → deploy-content → Run workflow).
 # See the `gate` job for the exact decision.
 #
+# ⚠ `[deploy]` only works on a commit that TOUCHES ONE OF THE `paths:` BELOW.
+# The token is read by the gate job, and the gate only runs if the workflow ran
+# at all — so `git commit --allow-empty -m '… [deploy]'`, or a code-only commit
+# (server/**, plugins/**, client/**, docs/**), starts nothing and the token is
+# never evaluated. It fails SILENTLY: no run appears in the Actions tab. To force
+# a deploy for a code-only change, use the Run workflow button instead.
+#
 # Required repo secrets:
 #   PROD_DATABASE_URL        — Neon connection string. Use the DIRECT (unpooled)
 #                              endpoint, not the -pooler host: the import runs one
