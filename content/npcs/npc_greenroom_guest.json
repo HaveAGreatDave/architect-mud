@@ -2,7 +2,7 @@
   "banter": [],
   "behaviour_graph": {},
   "chitchat": [
-    "Dex reads a line off the page under his breath, winces, and strikes it through hard enough to tear.",
+    "Ivor reads a line off the page under his breath, winces, and strikes it through hard enough to tear.",
     "\"It's funnier at four in the morning. Everything's funnier at four in the morning. That's the trap.\""
   ],
   "description": "A staff writer holed up in the booth with a drink he isn't drinking and pages he can't stop bleeding on, one leg jittering under the table. Handsome in the way of a face you half-recognise from a byline you can't quite place, radiating the specific desperation of a man whose name is on a script that goes out in four hours whether it works or not.",
@@ -52,7 +52,7 @@
           "next": "bye"
         }
       ],
-      "text": "Dex brightens the instant you look his way, hand already out, the other flattening a page. \"You caught last night's? No? Doesn't matter — the one I'm on now is the one that turns it around. I can feel it. They only send you down here to rewrite when they still want it to work.\" The leg keeps jittering."
+      "text": "Ivor brightens the instant you look his way, hand already out, the other flattening a page. \"You caught last night's? No? Doesn't matter — the one I'm on now is the one that turns it around. I can feel it. They only send you down here to rewrite when they still want it to work.\" The leg keeps jittering."
     }
   },
   "faction": null,
@@ -69,7 +69,7 @@
   "hp": 30,
   "hp_max": 30,
   "id": "npc_greenroom_guest",
-  "name": "Dex Marrow",
+  "name": "Ivor Marrow",
   "npc_type": "civilian",
   "sex": "male",
   "studio_zone_id": null,

@@ -2,6 +2,16 @@
 // math and the generic (non-item-specific) stage narration. Plugin-local
 // config, same choice as the preservation system's decay rates.
 
+// BAND_SCALE — how many rungs of the quality ladder one "point" of score buys.
+// The scale went from 5 bands (span 4) to 9 (span 8), so every constant in this
+// file denominated in BANDS doubles with it. Expressed as a factor rather than
+// baked into the numbers so the original hand-tuned values stay readable, and a
+// future change of resolution is one edit instead of seventeen.
+//
+// Declared FIRST because half the constants below multiply by it, and a `const`
+// referenced above its own declaration is a temporal-dead-zone throw at import.
+export const BAND_SCALE = 2;
+
 // Cooking is timed in REAL seconds, not game-minutes — same convention as the
 // combat tick and the minigame windows, and deliberately off the `timeScale`
 // seam (docs/systems-world.md). At the world's 3x clock that means a 2-minute
@@ -14,6 +24,47 @@
 // more punishing.
 export const COOK_SECONDS_PER_KG = 360;  // a 1kg cut takes 6 min on a 1.0x (low) stove
 export const THAW_SECONDS_PER_KG = 180;  // frozen food thaws before the cook clock starts
+
+// PORTIONS — half an onion is an onion cut in half.
+//
+// A portioned ingredient is a fraction of the whole: it weighs proportionally
+// less, so it COOKS proportionally faster, and it feeds you proportionally less.
+// That second half is what stops chopping being a free doubling of your larder —
+// two halves are exactly one onion however you slice them.
+//
+// The first half is the point of the feature: cook time scales with weight, so
+// chopping is how you make a slow ingredient finish alongside a fast one. It's
+// the difference between staging (start it earlier) and prep (make it smaller).
+export const PORTION_NAMES = { 0.5: 'half', 0.25: 'a quarter of', 0.125: 'an eighth of' };
+export const MIN_PORTION = 0.125;      // past this it's mince, and mince is its own item
+export const MAX_CHOP_PIECES = 4;      // one cut into halves, quarters, or eighths
+
+// FOND — the browned residue a good sear leaves in a pan, and the first thing
+// in this system that connects one cook to the next. Everything else is
+// self-contained: a vessel has no memory of what was in it five minutes ago.
+// Fond is that memory, and it is why the order you cook things in starts to
+// matter across vessels and not just within one.
+//
+// It forms when something BROWNS: a meat or a batter, on real heat, cooked at
+// least reasonably well. Boiling a broth leaves nothing behind.
+export const FOND_PROFILES = ['dense_meat', 'preserved', 'batter'];
+export const FOND_MIN_BAND = 'good';       // a burnt sear leaves carbon, not fond
+export const FOND_VESSELS = ['pan', 'tray'];
+export const FOND_BONUS = 0.75 * BAND_SCALE;            // worth more than any seasoning: it is a technique
+export const FOND_RESIDUE_PENALTY = -0.5 * BAND_SCALE;  // what NOT lifting it costs the next cook
+
+// Fond does not keep. Left in the pan it dries to residue, and residue is a
+// penalty until the pan is scoured. Long enough to finish the dish you were
+// making, nowhere near long enough to save it for tomorrow.
+export const FOND_LIFE_MS = 15 * 60 * 1000;
+
+// SMOKING. A smoker is not a slow stove — it's a different process with a
+// different output: meat goes in raw and comes out PRESERVED, which is what
+// makes it worth the wait. Very low and very long, and correspondingly hard to
+// ruin: the window is enormous, so it's the one cook you can start and leave.
+export const SMOKER_SPEED = 0.12;        // ~8x longer than the slowest stove
+export const SMOKER_PEAK_MULT = 2.5;     // and a window to match
+export const SMOKER_PROFILE = 'preserved';
 
 // Appliance speed multipliers — higher is faster.
 export const STOVE_SPEED = { low: 1.0, mid: 1.5, high: 2.5 };
@@ -159,16 +210,16 @@ export const DEFAULT_VESSEL = { d: 0.60, r: 0.50 }; // a vessel that declares ne
 // Quality scoring weights (see quality.js). BASE_OFFSET is what every cook
 // starts down by: the target band is a ceiling, and this is how far below it you
 // begin before heat/vessel/handling/timing/skill claw you back up.
-export const BASE_OFFSET = -2.2;
-export const HEAT_SCORE = { exact: 0.4, oneOff: -0.4, twoOff: -1.0 };
-export const PRECISION_WEIGHT = 0.5;   // max bonus for pulling it mid-peak
-export const VESSEL_WEIGHT = 1.2;      // × (d + r − 1)
-export const SKILL_WEIGHT = 0.6;       // × clamp(margin/20, −1, 1)
-export const TURN_IDEAL_BONUS = 0.5;   // hitting the ideal number of turns
-export const TURN_SPACING_BONUS = 0.3; // …and spacing them evenly
-export const TURN_MISS_PENALTY = 0.6;  // per turn over/under the ideal
-export const FUSS_PENALTY = 0.7;       // per handling act on a turns:0 food
-export const SCORE_FLOOR = -3.0;       // clamp on the summed modifiers
+export const BASE_OFFSET = -2.2 * BAND_SCALE;
+export const HEAT_SCORE = { exact: 0.4 * BAND_SCALE, oneOff: -0.4 * BAND_SCALE, twoOff: -1.0 * BAND_SCALE };
+export const PRECISION_WEIGHT = 0.5 * BAND_SCALE;   // max bonus for pulling it mid-peak
+export const VESSEL_WEIGHT = 1.2 * BAND_SCALE;      // × (d + r − 1)
+export const SKILL_WEIGHT = 0.6 * BAND_SCALE;       // × clamp(margin/20, −1, 1)
+export const TURN_IDEAL_BONUS = 0.5 * BAND_SCALE;   // hitting the ideal number of turns
+export const TURN_SPACING_BONUS = 0.3 * BAND_SCALE; // …and spacing them evenly
+export const TURN_MISS_PENALTY = 0.6 * BAND_SCALE;  // per turn over/under the ideal
+export const FUSS_PENALTY = 0.7 * BAND_SCALE;       // per handling act on a turns:0 food
+export const SCORE_FLOOR = -3.0 * BAND_SCALE;       // clamp on the summed modifiers
 
 // Dishes (see dishes.js). How a dish's band composes from its ingredients':
 // the mean pulled toward the worst ingredient. One mediocre potato dents a
@@ -181,7 +232,7 @@ export const SLOP_CEILING = 'acceptable';
 // The whole mechanical value of having a recipe in your cookbook: a sub-band
 // nudge that tips rounding your way. Deliberately small — knowing a recipe must
 // never be worth more than cooking it well, or the cookbook becomes the game.
-export const KNOWN_RECIPE_BONUS = 0.4;
+export const KNOWN_RECIPE_BONUS = 0.4 * BAND_SCALE;
 
 // Flat IP for writing a new recipe into the cookbook the hard way (by working
 // out the combination yourself). Paper and NPC teaching pay nothing.
@@ -193,9 +244,9 @@ export const DISCOVERY_IP = 8;
 // is an active mistake, and a heavier one than the bonus it replaces, so more is
 // not a safe default. A dish declares its ideal as `seasoning`; DEFAULT_SEASONING
 // applies to any that doesn't.
-export const MODIFIER_BONUS = 0.25;
-export const MODIFIER_BONUS_CAP = 0.6;
-export const OVER_SEASON_PENALTY = 0.45;
+export const MODIFIER_BONUS = 0.25 * BAND_SCALE;
+export const MODIFIER_BONUS_CAP = 0.6 * BAND_SCALE;
+export const OVER_SEASON_PENALTY = 0.45 * BAND_SCALE;
 export const DEFAULT_SEASONING = 1;
 
 // Staging: `cook <vessel>` again after adding something puts the NEW ingredient
@@ -216,7 +267,7 @@ export const STAGING = true;
 // piecewise clock to answer "when is this done", and the whole architecture
 // rests on doneAt being a single stored timestamp (see the no-tick section of
 // the README). Not worth trading that away for it.
-export const HEAT_CURVE_WEIGHT = 0.9;   // max score for following the curve exactly
+export const HEAT_CURVE_WEIGHT = 0.9 * BAND_SCALE;   // max score for following the curve exactly
 
 // Learning a recipe by cooking takes REPETITION, not one lucky plate: you must
 // turn the combination out at DISCOVERY_MIN_BAND or better this many times
@@ -228,7 +279,96 @@ export const DISCOVERY_MIN_BAND = 'good';
 // IP: the per-use roll is the main award (probabilistic, margin-shaped, so
 // grinding the same trivial cook has poor odds by construction). These are the
 // flat bonuses on top for actually excelling.
-export const QUALITY_IP_BONUS = { excellent: 2, masterful: 5 };
+
+// RESTING — the cheap half of carry-over cooking, and the reason not to eat a
+// steak standing over the pan.
+//
+// A plated meal carries the instant it was plated. Everything else is derived
+// from that and `now`, exactly like a cook session: too soon and the juices run
+// out of it, too late and it's gone cold. No tick, no integral, one timestamp.
+export const REST_MIN_MS = 20 * 1000;    // before this it hasn't settled
+export const REST_PEAK_MS = 75 * 1000;   // the sweet spot
+export const REST_COLD_MS = 6 * 60 * 1000; // past this it's a cold plate
+export const REST_BONUS = 0.25;          // +25% restores, eaten at the right moment
+export const REST_COLD_PENALTY = 0.8;    // ...and a cold one gives 80%
+
+// How much of the meal is worth resting. A stew does not care; a cut does.
+export const RESTS_WELL = ['dense_meat', 'preserved', 'batter'];
+
+// IP for the act of cooking a meal.
+//
+// An ordinary meal is worth 1 IP, but only once per ROUTINE_IP_COOLDOWN_MS —
+// otherwise the optimal play is to stand at a stove flipping the cheapest thing
+// you own forever. A masterful meal is worth 3 and ignores the cooldown
+// entirely: you can't grind those, because grinding them is the skill.
+export const ROUTINE_IP = 1;
+export const MASTERFUL_IP = 3;
+export const ROUTINE_IP_COOLDOWN_MS = 10 * 60 * 1000;
+
+// What each band is WORTH to the player, beyond the restore multiplier.
+//
+// Nine rungs of feedback are worthless if only the top one changes what happens
+// to you. Before this, well-fed was masterful-or-nothing and every band below it
+// paid identical IP — so `superb` was three more hunger than `excellent` and
+// literally nothing else. The ladder now pays all the way up.
+//
+//   wellFedMs — faster HP regen for this long (0 = none)
+//   ip        — flat Cooking IP for the plate
+//   cooled    — whether that IP is subject to the routine cooldown
+export const BAND_REWARDS = {
+  poor:        { wellFedMs: 0,                 ip: ROUTINE_IP, cooled: true },
+  grim:        { wellFedMs: 0,                 ip: ROUTINE_IP, cooled: true },
+  acceptable:  { wellFedMs: 0,                 ip: ROUTINE_IP, cooled: true },
+  decent:      { wellFedMs: 0,                 ip: ROUTINE_IP, cooled: true },
+  good:        { wellFedMs: 2 * 60 * 1000,     ip: ROUTINE_IP, cooled: true },
+  'very good': { wellFedMs: 4 * 60 * 1000,     ip: ROUTINE_IP + 1, cooled: true },
+  excellent:   { wellFedMs: 6 * 60 * 1000,     ip: ROUTINE_IP + 1, cooled: false },
+  superb:      { wellFedMs: 8 * 60 * 1000,     ip: ROUTINE_IP + 1, cooled: false },
+  masterful:   { wellFedMs: 12 * 60 * 1000,    ip: MASTERFUL_IP, cooled: false },
+};
+export const rewardFor = band => BAND_REWARDS[band] || BAND_REWARDS.acceptable;
+
+
+// What a plate is worth, given the band and when you last earned routine IP.
+// `lastAt` is an epoch ms (0 = never). Returns { ip, cooled } — `cooled` true
+// means the cooldown swallowed it, so the caller can say so.
+export function cookingIpFor(band, lastAt = 0, now = Date.now()) {
+  const { ip, cooled } = rewardFor(band);
+  // A cook good enough to be worth teaching is worth paying every time. Only
+  // the routine end is rate-limited, because only the routine end is grindable.
+  if (!cooled) return { ip, cooled: false, resets: false };
+  // `lastAt` 0 means NEVER, not "at the epoch" — a first-ever meal must pay.
+  if (lastAt && now - lastAt < ROUTINE_IP_COOLDOWN_MS) return { ip: 0, cooled: true, resets: false };
+  return { ip, cooled: false, resets: true };
+}
+
+// How much a plated meal is worth now, given when it was plated. Pure, derived,
+// and the whole of carry-over cooking: rest it and it's better, forget it and
+// it's a cold plate. Returns 1 for anything that doesn't rest.
+export function restMultiplier(platedAt, restsWell, now = Date.now()) {
+  if (!restsWell || !platedAt) return 1;
+  const age = now - platedAt;
+  if (age < REST_MIN_MS) return 1;                       // hasn't settled yet
+  if (age >= REST_COLD_MS) return REST_COLD_PENALTY;     // stone cold
+  if (age <= REST_PEAK_MS) {
+    // Climbing into the sweet spot.
+    const t = (age - REST_MIN_MS) / (REST_PEAK_MS - REST_MIN_MS);
+    return 1 + REST_BONUS * t;
+  }
+  // Past the peak, sliding toward cold.
+  const t = (age - REST_PEAK_MS) / (REST_COLD_MS - REST_PEAK_MS);
+  return (1 + REST_BONUS) + t * (REST_COLD_PENALTY - (1 + REST_BONUS));
+}
+
+// What examine says about a plate that's sitting there.
+export function restText(platedAt, restsWell, now = Date.now()) {
+  if (!restsWell || !platedAt) return null;
+  const age = now - platedAt;
+  if (age < REST_MIN_MS) return 'still spitting — it hasn\'t settled';
+  if (age <= REST_PEAK_MS) return 'resting, and about as good as it is going to get';
+  if (age < REST_COLD_MS) return 'still warm, but going off the boil';
+  return 'gone cold';
+}
 
 export function stageText(stages, fraction) {
   const f = Math.max(0, Math.min(1, fraction));

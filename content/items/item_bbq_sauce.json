@@ -1,0 +1,22 @@
+{
+  "description": "A squat jar of sauce the colour of old brick, thick enough to stand a spoon in. Apple butter underneath, chipotle somewhere behind it, and a warmth that arrives about four seconds after you think you got away with it.",
+  "flags": {},
+  "id": "item_bbq_sauce",
+  "name": "apple butter burn sauce",
+  "tags": {
+    "description": "A squat jar of sauce the colour of old brick, thick enough to stand a spoon in. Apple butter underneath, chipotle somewhere behind it, and a warmth that arrives about four seconds after you think you got away with it.",
+    "consumable": true,
+    "restore_hunger": 8,
+    "stackable": true,
+    "food_profile": "fruit",
+    "food_noun": "apple butter",
+    "perishable": true,
+    "spoil_rate": "slow",
+    "status_chance": {
+      "food_poisoning": 0.1
+    }
+  },
+  "type": "consumable",
+  "value": 31,
+  "weight": 400
+}

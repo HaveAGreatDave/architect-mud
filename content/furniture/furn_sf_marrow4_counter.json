@@ -1,0 +1,17 @@
+{
+  "description": "A laminate service counter, bolted through the floor and scarred to the chipboard along its front edge. The till cradle is empty and the card reader has been unplugged and left dangling, but the glass display well beneath it is intact and clean.",
+  "flags": {
+    "shop_display": true,
+    "woven": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_sf_marrow4_counter",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "display counter",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 120,
+  "zone_id": "zone_sf_marrow4"
+}

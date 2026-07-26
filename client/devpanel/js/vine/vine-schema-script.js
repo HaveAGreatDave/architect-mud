@@ -122,6 +122,82 @@ const _scriptNodeDefs = {
       ${_field('Seconds', `<input data-vine-field="data.seconds" data-vine-type="number" type="number" min="0" step="0.5" value="${n.data.seconds || 0}" style="${_inputStyle}">`)}
     `,
   },
+  broadcast: {
+    label: 'Broadcast',
+    color: '#227766',
+    defaultData: { text: '', zone: '', excludeActor: false, refresh: false },
+    renderBody: (n) => `<div style="font-size:11px;color:var(--text)">📢 ${_escHtmlS((n.data.text || '').slice(0, 50))}</div>`,
+    getOutPorts: () => [{ key: 'next', label: 'next' }],
+    renderProperties: (n, ed, id) => `
+      ${_helpBox(id,
+        'Sends a line to EVERYONE in the room, not just the triggering player — this is how a script makes a scene instead of a whisper. Defaults to the actor\'s zone; set zone (or use ${zone}) for an actorless event. Tick "refresh" if the room\'s contents changed and clients should re-look.',
+        'The lights die. Somewhere in the dark, a glass hits the floor.'
+      )}
+      ${_field('Text', _textarea('data.text', n.data.text, 3))}
+      ${_field('Zone (blank = actor\'s room)', _textInput('data.zone', n.data.zone, '${zone}'))}
+      ${_field('Exclude the actor', _select('data.excludeActor', ['false', 'true'], String(!!n.data.excludeActor)))}
+      ${_field('Refresh clients', _select('data.refresh', ['false', 'true'], String(!!n.data.refresh)))}
+    `,
+  },
+  spawn: {
+    label: 'Spawn',
+    color: '#993344',
+    defaultData: { kind: 'enemy', id: '', zone: '', container: '', quantity: 1, announce: '' },
+    renderBody: (n) => `<div style="font-size:11px;color:var(--text-dim)">${_escHtmlS(n.data.kind || 'enemy')} × ${n.data.quantity || 1} → ${_escHtmlS(n.data.id || '(none)')}${n.data.container ? ` 📥 ${_escHtmlS(n.data.container)}` : ''}</div>`,
+    getOutPorts: () => [{ key: 'next', label: 'next' }],
+    renderProperties: (n, ed, id) => `
+      ${_helpBox(id,
+        'Puts something in the world: an enemy instance from an enemies template, or an item into a zone. Blank zone means the actor\'s room. Leave "announce" empty for the stock arrival line; type one to override it. An enemy with announce set to the literal word false arrives SILENTLY — for a tail the player has not noticed yet.\n\nDEAD DROP: give an item spawn a container (a furniture id, or a name to match in that zone) and the item goes INSIDE it rather than onto the open floor — really there, really retrievable, but not visible to the next person through the room. If the container cannot be found the drop is skipped, never dumped on the floor.',
+        'kind: item\nid: item_credit_chip\nzone: zone_mq_pigeon_bar\ncontainer: trash bin\n\n→ the chip is in the bin, waiting for whoever knows to look'
+      )}
+      ${_field('Kind', _select('data.kind', ['enemy', 'item'], n.data.kind))}
+      ${_field('Template / Item ID', _textInput('data.id', n.data.id, 'enemy_alley_mugger'))}
+      ${_field('Zone (blank = actor\'s room)', _textInput('data.zone', n.data.zone, '${zone}'))}
+      ${_field('Container (items only — dead drop)', _textInput('data.container', n.data.container, 'trash bin'))}
+      ${_field('Quantity', `<input data-vine-field="data.quantity" data-vine-type="number" type="number" min="1" value="${n.data.quantity || 1}" style="${_inputStyle}">`)}
+      ${_field('Announce (blank = stock line)', _textInput('data.announce', n.data.announce, ''))}
+    `,
+  },
+  random: {
+    label: 'Random',
+    color: '#775599',
+    defaultData: { outcomes: [{ weight: 1 }, { weight: 1 }] },
+    renderBody: (n) => {
+      const outs = n.data.outcomes || [];
+      const total = outs.reduce((s, o) => s + (Number(o.weight ?? 1) || 0), 0) || 1;
+      return `<div style="font-size:11px;color:var(--text-dim)">${outs.map((o, i) =>
+        `#${i + 1} ${Math.round((Number(o.weight ?? 1) || 0) / total * 100)}%`).join(' · ') || '(no outcomes)'}</div>`;
+    },
+    getOutPorts: (n) => (n.data.outcomes || []).map((o, i) =>
+      ({ key: `out${i}`, label: `#${i + 1} (${o.weight ?? 1})` })),
+    renderProperties: (n, ed, id) => `
+      ${_helpBox(id,
+        'Picks ONE outgoing branch at random, weighted. Each outcome gets its own output port — wire them to different branches. Weight is relative, not a percentage: weights 3 and 1 mean 75%/25%. A weight of 0 parks an outcome without deleting it. Edit the count by editing the JSON below; the ports follow.',
+        '[{ "weight": 3 }, { "weight": 1 }]\n\n→ #1 fires 75% of the time, #2 25%'
+      )}
+      ${_field('Outcomes (JSON)', _textarea('data.outcomes', JSON.stringify(n.data.outcomes || [], null, 2), 5, 'json'))}
+    `,
+  },
+  counter: {
+    label: 'Counter',
+    color: '#996633',
+    defaultData: { scope: 'player', flag: '', delta: 1, threshold: '', reset: false },
+    renderBody: (n) => `<div style="font-size:11px;color:var(--text-dim)">${_escHtmlS(n.data.scope || 'player')}.${_escHtmlS(n.data.flag)} ${(Number(n.data.delta ?? 1) >= 0 ? '+' : '')}${n.data.delta ?? 1}${n.data.threshold ? ` → ≥${_escHtmlS(String(n.data.threshold))}` : ''}</div>`,
+    getOutPorts: (n) => (n.data.threshold === '' || n.data.threshold == null)
+      ? [{ key: 'next', label: 'next' }]
+      : [{ key: 'ifTrue', label: 'threshold hit' }, { key: 'ifFalse', label: 'not yet' }],
+    renderProperties: (n, ed, id) => `
+      ${_helpBox(id,
+        'Adds to a numeric flag, then optionally branches on a threshold. Leave threshold blank and it just bumps the number and continues. With a threshold it routes to "threshold hit" once the value reaches it. Tick "reset on hit" to zero the flag at that moment — that is how you build "every 5th time". Delta accepts a ${token}, so it can total a VALUE off the event payload instead of counting occurrences.',
+        'flag: alley_visits\ndelta: 1\nthreshold: 5\nreset: true\n\n→ fires the "threshold hit" branch on every 5th run\n\nflag: lifetime_spend\ndelta: ${event.delta}\n\n→ totals credits.changed instead of counting it'
+      )}
+      ${_field('Scope', _select('data.scope', ['player', 'world'], n.data.scope))}
+      ${_field('Flag Key', _textInput('data.flag', n.data.flag, 'alley_visits'))}
+      ${_field('Delta', `<input data-vine-field="data.delta" data-vine-type="number" type="number" step="1" value="${n.data.delta ?? 1}" style="${_inputStyle}">`)}
+      ${_field('Threshold (blank = no branch)', _textInput('data.threshold', n.data.threshold ?? '', ''))}
+      ${_field('Reset on hit', _select('data.reset', ['false', 'true'], String(!!n.data.reset)))}
+    `,
+  },
   script: {
     label: 'Run Script',
     color: '#664488',
@@ -154,6 +230,9 @@ function _autoLayoutScript(graph) {
     if (node.next) walk(node.next, c);
     if (node.ifTrue) walk(node.ifTrue, c + 1);
     if (node.ifFalse) walk(node.ifFalse, c + 2);
+    // A random node fans out through its outcomes, not through next/ifTrue —
+    // walk those too or every branch lands in the orphan pile.
+    if (Array.isArray(node.outcomes)) node.outcomes.forEach((o, i) => { if (o?.next) walk(o.next, c + 1 + i); });
     row = Math.max(row, Object.keys(pos).filter(k => pos[k].x === c * W + 40).length);
   }
 
@@ -186,6 +265,16 @@ window.VineScriptSchema = {
       if (ifTrue) edges.push({ fromNode: id, fromPort: 'ifTrue', toNode: ifTrue });
       if (ifFalse) edges.push({ fromNode: id, fromPort: 'ifFalse', toNode: ifFalse });
 
+      // A random node's branches live inside its outcomes array, one dynamic
+      // port each. The wiring becomes edges; only the weight stays in data, so
+      // there is exactly one source of truth for where an outcome goes.
+      if (type === 'random' && Array.isArray(fields.outcomes)) {
+        fields.outcomes.forEach((o, i) => {
+          if (o?.next) edges.push({ fromNode: id, fromPort: `out${i}`, toNode: o.next });
+        });
+        fields.outcomes = fields.outcomes.map(o => ({ weight: o?.weight ?? 1 }));
+      }
+
       nodes[id] = { type, x: pos.x, y: pos.y, data: { ...fields } };
     }
 
@@ -203,6 +292,14 @@ window.VineScriptSchema = {
       const nextEdge = edges.find(e => e.fromNode === id && e.fromPort === 'next');
       const trueEdge = edges.find(e => e.fromNode === id && e.fromPort === 'ifTrue');
       const falseEdge = edges.find(e => e.fromNode === id && e.fromPort === 'ifFalse');
+
+      // Fold the random node's per-outcome edges back into its outcomes array.
+      if (node.type === 'random' && Array.isArray(data.outcomes)) {
+        data.outcomes = data.outcomes.map((o, i) => {
+          const e = edges.find(x => x.fromNode === id && x.fromPort === `out${i}`);
+          return { weight: o?.weight ?? 1, ...(e ? { next: e.toNode } : {}) };
+        });
+      }
 
       nodes[id] = {
         type: node.type,

@@ -3,7 +3,7 @@
   "behaviour_graph": {},
   "chitchat": [
     "\"Blue pages by four. I don't care whose name is on the card.\"",
-    "Priya thumbs her headset and reads a line back to herself, mouthing it flat to see if it survives."
+    "Sunny thumbs her headset and reads a line back to herself, mouthing it flat to see if it survives."
   ],
   "description": "A brisk woman in a studio blazer the exact violet of the KSAB logo, headset cocked over one ear, a red grease pencil holstered where a weapon would go on anyone else. She reads the board the way a mechanic reads an engine, and she has cut better lines than yours out of better writers than you without changing her expression.",
   "dialogue_tree": {
@@ -52,7 +52,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"If you're not carrying pages, don't stand in front of the board.\" Priya's eyes flick from your shoes to your face and back, pricing you. \"Script locks at four. There's coffee and there's whatever's left of the cart — that's the whole hospitality budget, so take it seriously.\""
+      "text": "\"If you're not carrying pages, don't stand in front of the board.\" Sunny's eyes flick from your shoes to your face and back, pricing you. \"Script locks at four. There's coffee and there's whatever's left of the cart — that's the whole hospitality budget, so take it seriously.\""
     },
     "story": {
       "options": [
@@ -82,7 +82,7 @@
   "hp": 40,
   "hp_max": 40,
   "id": "npc_ksab_usher",
-  "name": "Priya Vantz",
+  "name": "Sunny Vantz",
   "npc_type": "vendor",
   "sex": "female",
   "studio_zone_id": null,

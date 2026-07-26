@@ -1,0 +1,13 @@
+{
+  "description": "A steel drum on legs with a firebox welded to one side and a chimney to the other, the whole thing tarred black inside by years of smoke. Cold to the touch, hot in the middle, and slow about everything.",
+  "flags": {
+    "smoker": true,
+    "interactions": [
+      "lean"
+    ]
+  },
+  "id": "furn_smoker_drum",
+  "name": "drum smoker",
+  "object_type": "fixture",
+  "zone_id": "zone_kitchenware"
+}

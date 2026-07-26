@@ -93,7 +93,7 @@
           "next": null
         }
       ],
-      "text": "Deacon Pell stops mid-mutter and fixes you with eyes like burnt-out filaments. \"You're not here for a sermon. Nobody is. So what?\""
+      "text": "Deacon Marrick stops mid-mutter and fixes you with eyes like burnt-out filaments. \"You're not here for a sermon. Nobody is. So what?\""
     },
     "walking": {
       "options": [
@@ -114,7 +114,7 @@
   "hp": 20,
   "hp_max": 20,
   "id": "npc_1782945871225",
-  "name": "Deacon Pell",
+  "name": "Deacon Marrick",
   "npc_type": "npc",
   "sex": "male",
   "studio_zone_id": null,

@@ -7,7 +7,6 @@
   "created_by": "zone-planner",
   "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
   "exits": {
-    "east": "zone_district_904_910",
     "north": "zone_district_903_909",
     "south": "zone_district_903_911",
     "west": "zone_district_902_910"
@@ -27,5 +26,5 @@
   "marker": "#",
   "name": "Grasslands",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1784800000"
 }

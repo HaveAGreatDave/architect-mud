@@ -29,7 +29,10 @@ export async function adjustCredits(player, delta, exec = query, reason = null) 
     [delta, player.id]);
   if (res.rowCount === 0) return false;
   player.credits = res.rows[0].credits;
-  if (delta !== 0) emit('credits.changed', { playerId: player.id, delta, reason, after: player.credits });
+  // `actor` carries the live player like every other event, so trigger-bound
+  // scripts can use player-scope flags / `once` / `say` on a money movement.
+  // `playerId` stays for the existing subscribers that only ever wanted the id.
+  if (delta !== 0) emit('credits.changed', { actor: player, playerId: player.id, delta, reason, after: player.credits });
   return true;
 }
 

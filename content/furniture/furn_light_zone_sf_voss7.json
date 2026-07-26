@@ -1,0 +1,18 @@
+{
+  "description": "A caged bulkhead lamp over the door, the kind fitted to stairwells. It lights the whole room because there is not much room to light.",
+  "flags": {
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_sf_voss7",
+  "light_type": "overhead",
+  "lumen_output": 600,
+  "name": "bulkhead lamp",
+  "object_type": "light",
+  "power_draw_kw": 4,
+  "price": 40,
+  "zone_id": "zone_sf_voss7"
+}

@@ -190,7 +190,9 @@ Full per-file detail lives in the audit transcripts; this is the classification 
 
 3. **Registries and buses** — the coupling channels: commands, specialized actions, the Action dispatcher,
    events, hooks, scheduler, SIFT/FATE, the graph runner, provider injection (`registerPlayerCombat`,
-   `registerWeatherField`), broadcast-bridge-style adapters.
+   `registerWeatherField`), broadcast-bridge-style adapters, the script-trigger registry
+   (`engine/script-triggers.js` — binds bus events to authored VINE graphs; see
+   [scripting.md](../scripting.md#script-triggers--event--script-bindings)).
 
 ### Plugins own systems
 

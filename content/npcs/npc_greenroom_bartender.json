@@ -2,7 +2,7 @@
   "banter": [],
   "behaviour_graph": {},
   "chitchat": [
-    "Sable polishes a glass that was already clean, watching the room in the mirror.",
+    "Corva polishes a glass that was already clean, watching the room in the mirror.",
     "\"Printer does the pretty ones. I do the ones that work.\""
   ],
   "description": "A lean, watchful woman working the rail with the economy of someone who's poured for every ego the station ever put a byline on. She lets the drink-printer do the theatre and keeps the real bottles behind her, one hand always near the one that matters. Nothing you say will surprise her, and she'll let you believe otherwise.",
@@ -23,7 +23,7 @@
           "next": "root"
         }
       ],
-      "text": "Sable keeps polishing. The glass doesn't move, and neither does her voice. \"Everyone talks at a rail. It's the mirror — they forget I'm reading it too.\""
+      "text": "Corva keeps polishing. The glass doesn't move, and neither does her voice. \"Everyone talks at a rail. It's the mirror — they forget I'm reading it too.\""
     },
     "guest": {
       "options": [
@@ -74,7 +74,7 @@
           "next": "gossip"
         }
       ],
-      "text": "\"Press or crew?\" Sable doesn't look up from the glass she's polishing. \"Doesn't matter. Everyone drinks the same in here — like the page is still open and the deadline's still moving.\" She sets the glass down. \"What'll it be?\""
+      "text": "\"Press or crew?\" Corva doesn't look up from the glass she's polishing. \"Doesn't matter. Everyone drinks the same in here — like the page is still open and the deadline's still moving.\" She sets the glass down. \"What'll it be?\""
     }
   },
   "faction": null,
@@ -91,7 +91,7 @@
   "hp": 40,
   "hp_max": 40,
   "id": "npc_greenroom_bartender",
-  "name": "Sable",
+  "name": "Corva",
   "npc_type": "vendor",
   "sex": "female",
   "studio_zone_id": null,

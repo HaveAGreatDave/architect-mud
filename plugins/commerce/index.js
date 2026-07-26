@@ -14,7 +14,7 @@ import { getVendorStock, getSellableInventory, buyFromVendor, sellToVendor } fro
 import { buyFurniture } from '../../server/engine/furniture-shop.js';
 import { openShopSession, getNpcForShopper } from '../../server/engine/vendor-session.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
-import { registerAction } from '../../server/engine/actions.js';
+import { registerAction, getRegisteredActions } from '../../server/engine/actions.js';
 import { on, emit } from '../../server/engine/events.js';
 import { vendorGrudgeRemaining, holdVendorGrudge, grudgeRefusal } from '../../server/engine/vendor-grudge.js';
 import { isVendorClosed, vendorClosedLine, openInPhrase, formatChitchat } from '../../server/engine/ai-behaviour.js';
@@ -89,7 +89,17 @@ async function cmdBuy(args, player) {
   if (!itemName) return { type:'error', message:'Buy what?' };
   const npcs = getZoneNpcs(player.current_zone);
   const vendor = resolveVendor(player, npcs);
-  if (!vendor) return { type:'error', message:'No vendor here.' };
+  if (!vendor) {
+    // No vendor NPC — but `buy` means the same thing over a player-owned shop's
+    // display counter, so hand off to whoever claims that seam (the storefront
+    // plugin) before refusing. Registered-by-name so commerce never imports it;
+    // if that plugin isn't loaded the dispatch is unknown and we refuse as before.
+    if (getRegisteredActions().includes('storefront.buy_by_name')) {
+      const r = await dispatchAction({ type:'storefront.buy_by_name', actor: player, params:{ words: args } });
+      if (r && r.message !== 'Unknown action: storefront.buy_by_name') return r;
+    }
+    return { type:'error', message:'No vendor here.' };
+  }
   const stock = await getVendorStock(vendor, player.id);
   const br = siftResolve(itemName, stock);
   if (br.type === 'none') return { type:'error', message:`"${itemName}" isn't available here.` };

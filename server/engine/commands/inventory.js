@@ -584,7 +584,10 @@ function isSlowDrinkItem(tags) {
 // Cooked-quality payoff. The cooking plugin stamps `custom_data.cook_quality`
 // on a plated meal; this is the only place it is spent. Keep the middle band at
 // exactly 1.0 — an ordinary cook must feel like the baseline, not a penalty.
-const COOK_QUALITY_MULT = { poor: 0.5, acceptable: 1.0, good: 1.15, excellent: 1.35, masterful: 1.6 };
+const COOK_QUALITY_MULT = {
+  poor: 0.5, grim: 0.75, acceptable: 1.0, decent: 1.08, good: 1.15,
+  'very good': 1.25, excellent: 1.35, superb: 1.48, masterful: 1.6,
+};
 
 export async function applyItemUse(player, item, broadcast, opts = {}) {
   const t = item.tags || {};
@@ -613,7 +616,16 @@ export async function applyItemUse(player, item, broadcast, opts = {}) {
   // How well it was cooked scales what it gives back. Absent (every item that
   // isn't a plated profiled meal) is 1.0, so nothing that existed before this
   // changes. Applies to the nourishment restores only — not credits, not radiation.
-  const qm = COOK_QUALITY_MULT[cd?.cook_quality] ?? 1;
+  // Portions conserve. Half an onion feeds you half an onion's worth, and a dish
+  // made from halves feeds you proportionally less — otherwise a knife would be
+  // a way to make four dinners out of one.
+  const portion = (Number(cd?.portion) > 0 && Number(cd.portion) < 1) ? Number(cd.portion) : 1;
+  const dishYield = (Number(cd?.yield) > 0 && Number(cd.yield) < 1) ? Number(cd.yield) : 1;
+  // Carry-over: a plated cut eaten straight off the heat hasn't settled, and one
+  // left to go cold has lost something. The cooking plugin owns the curve; this
+  // is only where it's spent.
+  const rest = cd?.rests ? (await fireHook('cooking.restMultiplier', cd, player)) || 1 : 1;
+  const qm = (COOK_QUALITY_MULT[cd?.cook_quality] ?? 1) * portion * dishYield * rest;
   if (cd?.cook_quality) {
     const done = cd.doneness ? `${cd.doneness[0].toUpperCase()}${cd.doneness.slice(1)}, ` : '';
     messages.push(`<span class="text-dim">${done}${done ? cd.cook_quality : `${cd.cook_quality[0].toUpperCase()}${cd.cook_quality.slice(1)}`}, this one.</span>`);
@@ -644,10 +656,15 @@ export async function applyItemUse(player, item, broadcast, opts = {}) {
     player.healOverTime.push({ perTick, ticksRemaining: ticks });
     messages.push(`Bleeding slows. You'll recover ${amount} HP over the next ${Math.round(duration_seconds/60)} minute(s).`);
   }
-  // A masterful meal is well-fed whether or not the raw ingredient ever was.
-  if (t.well_fed || cd?.cook_quality === 'masterful') {
-    player.wellFedUntil = Date.now() + 10 * 60 * 1000;
-    messages.push(`Well-fed: HP regen is faster for a while.`);
+  // Well-fed is GRADED by how well the thing was cooked, not a masterful-only
+  // cliff — otherwise the eight rungs below the top change nothing that happens
+  // to you. The duration table lives with the cooking system; this spends it.
+  const wellFedMs = cd?.cook_quality
+    ? ((await fireHook('cooking.wellFedMs', cd, player)) || 0)
+    : (t.well_fed ? 10 * 60 * 1000 : 0);
+  if (wellFedMs > 0) {
+    player.wellFedUntil = Date.now() + wellFedMs;
+    messages.push(`Well-fed: HP regen is faster for the next ${Math.round(wellFedMs / 60000)} minute(s).`);
   }
   if (t.hydrating) {
     player.hydratedUntil = Date.now() + 10 * 60 * 1000;

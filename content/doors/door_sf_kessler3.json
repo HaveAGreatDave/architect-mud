@@ -1,0 +1,28 @@
+{
+  "door_type": "shutter",
+  "exit_dir": "east",
+  "flags": {},
+  "hololock_difficulty": 5,
+  "hp": 700,
+  "hp_max": 700,
+  "id": "door_sf_kessler3",
+  "is_locked": 0,
+  "is_open": 1,
+  "lock_state": "unlocked",
+  "name": "shutter_sf_kessler3",
+  "tags": {
+    "lock:shopshutter": {
+      "canHack": true,
+      "difficulty": 5,
+      "messages": {
+        "denied": "The shutter's keypad doesn't know you. It doesn't care, either.",
+        "hackFail": "The keypad relocks itself mid-sequence.",
+        "hackSuccess": "The keypad concedes and the shutter jumps in its track.",
+        "lock": "The shutter grinds down and the bolt drops into the floor plate.",
+        "unlock": "The bolt lifts and the shutter rolls up."
+      }
+    }
+  },
+  "target_zone": "zone_district_921_913",
+  "zone_id": "zone_sf_kessler3"
+}

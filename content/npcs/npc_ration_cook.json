@@ -67,7 +67,8 @@
       "a grease-shined apron over a white tee",
       "a limp paper cook's hat"
     ],
-    "personality": "vendor"
+    "personality": "vendor",
+    "food_buyer": true
   },
   "home_activities": [],
   "home_zone": "zone_mq_grocery",
@@ -416,6 +417,64 @@
       "item_id": "item_bonito_flakes",
       "price": 24,
       "stock": 12
+    },
+    {
+      "item_id": "item_mixing_bowl",
+      "price": 26,
+      "stock": 4
+    },
+    {
+      "item_id": "item_pestle",
+      "price": 30,
+      "stock": 3
+    },
+    {
+      "item_id": "item_wood_chips",
+      "price": 12,
+      "stock": 20
+    },
+    {
+      "item_id": "item_sausage",
+      "price": 26,
+      "sourceContainer": "furn_ration9_case_chiller",
+      "restockToQty": 8
+    },
+    {
+      "item_id": "item_minced_beef",
+      "price": 16,
+      "sourceContainer": "furn_ration9_case_freezer",
+      "restockToQty": 10
+    },
+    {
+      "item_id": "item_tinned_tomatoes",
+      "price": 9,
+      "stock": 24
+    },
+    {
+      "item_id": "item_pink_slab",
+      "price": 28,
+      "sourceContainer": "furn_ration9_case_freezer",
+      "restockToQty": 6
+    },
+    {
+      "item_id": "item_bbq_sauce",
+      "price": 38,
+      "stock": 8
+    },
+    {
+      "item_id": "item_bbq_rub",
+      "price": 22,
+      "stock": 12
+    },
+    {
+      "item_id": "item_mustard",
+      "price": 11,
+      "stock": 14
+    },
+    {
+      "item_id": "item_kitchen_knife",
+      "price": 52,
+      "stock": 4
     }
   ],
   "vendor_restock_rate": 1,

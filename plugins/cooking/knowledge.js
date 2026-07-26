@@ -27,14 +27,20 @@ export const UNTRIED = 'untried';
 
 // The cookbook and the in-progress tally, in ONE round trip. Both live in
 // player_flags under their own prefixes, so a single LIKE-pair fetches the lot.
+// When this player last earned routine cooking IP. Same table, so it rides
+// along on the read the plate path already does — no extra round trip.
+export const IP_FLAG = 'cook_ip_at';
+
 export async function cookbookState(playerId) {
   const { rows } = await query(
     `SELECT flag_key, flag_value FROM player_flags
-      WHERE player_id=$1 AND (flag_key LIKE $2 OR flag_key LIKE $3)`,
-    [playerId, `${FLAG_PREFIX}%`, `${PROGRESS_PREFIX}%`]
+      WHERE player_id=$1 AND (flag_key LIKE $2 OR flag_key LIKE $3 OR flag_key = $4)`,
+    [playerId, `${FLAG_PREFIX}%`, `${PROGRESS_PREFIX}%`, IP_FLAG]
   );
   const known = new Map(), progress = new Map();
+  let lastIpAt = 0;
   for (const r of rows) {
+    if (r.flag_key === IP_FLAG) { lastIpAt = Number(r.flag_value) || 0; continue; }
     if (r.flag_key.startsWith(FLAG_PREFIX)) {
       const key = r.flag_key.slice(FLAG_PREFIX.length);
       if (DISHES[key]) known.set(key, r.flag_value);
@@ -43,7 +49,16 @@ export async function cookbookState(playerId) {
       if (DISHES[key]) progress.set(key, Number(r.flag_value) || 0);
     }
   }
-  return { known, progress };
+  return { known, progress, lastIpAt };
+}
+
+export async function markRoutineIp(playerId, at = Date.now()) {
+  await query(
+    `INSERT INTO player_flags (player_id, flag_key, flag_value, updated_at)
+     VALUES ($1, $2, $3, EXTRACT(EPOCH FROM NOW()))
+     ON CONFLICT (player_id, flag_key) DO UPDATE SET flag_value=$3, updated_at=EXTRACT(EPOCH FROM NOW())`,
+    [playerId, IP_FLAG, String(at)]
+  );
 }
 
 // Everything this player knows: key -> best band.

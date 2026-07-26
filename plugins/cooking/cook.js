@@ -13,6 +13,7 @@ import {
   PEAK_LINES, FADING_LINES, lineFor, stagesFor,
 } from './config.js';
 import { PROFILES } from './profiles.js';
+import { portionOf } from './portions.js';
 import { timeline, overStageText } from './quality.js';
 
 const timers = new Map(); // player_inventory id -> [setTimeout handles]
@@ -67,10 +68,12 @@ export function prepareCook(invRow, appliance, env) {
     return { error: `${invRow.name} doesn't need cooking.` };
   }
   const cd = invRow.custom_data || {};
-  if (cd.cooked) return { error: `${invRow.name} is already cooked.` };
+  if (cd.cooked && !cd.finishable) return { error: `${invRow.name} is already cooked.` };
   if (cd.cooking) return { error: `${invRow.name} is already cooking.` };
 
-  const batchWeight = (invRow.weight || 0) * (invRow.quantity || 1);
+  // A portion weighs its fraction of the whole, and cook time follows weight —
+  // which is the entire tactical point of chopping.
+  const batchWeight = (invRow.weight || 0) * (invRow.quantity || 1) * portionOf(invRow);
   if (appliance.capacityG != null && batchWeight > appliance.capacityG) {
     return { error: `${invRow.name} is too much for the ${appliance.name} — it can only handle small amounts.` };
   }
@@ -93,6 +96,10 @@ export function prepareCook(invRow, appliance, env) {
       vessel: appliance.vessel || BARE_VESSEL,
       vesselName: appliance.vesselName || null,
       acts: [],
+      // A smoke is a different process, not a slow cook: it gets an enormous
+      // window (you cannot stand over it for an hour) and it changes what the
+      // food IS when it comes out.
+      ...(appliance.smoking ? { smoking: true } : {}),
     } : {}),
   };
 
@@ -203,10 +210,24 @@ function narrate(playerId, message) {
 
 // End a session and stamp the result. `quality` is null for unprofiled food,
 // which keeps the original binary cooked flag and nothing else. One row update.
-export async function endSession(invId, quality, doneness = null) {
+export async function endSession(invId, quality, doneness = null, smoked = null, stayFinishable = false) {
   const stamp = quality ? { cooked: true, cook_quality: quality } : { cooked: true };
   // What you actually produced, not what you asked for.
   if (doneness) stamp.doneness = doneness;
+  // A smoked cut changes CLASS: it reads as preserved from here on, which is
+  // what lets it walk into every preserved recipe without a new template.
+  // A smoked cut is edible AS IS and can still be finished — over coals, in a
+  // sauce, in a pot. `finishable` is what lets it go back on heat when
+  // everything else that is `cooked` is done being cooked. Cleared by that
+  // finish, so a cut can't be re-cooked round and round for a better band.
+  if (smoked) {
+    stamp.smoked = smoked.profile; stamp.name = smoked.name; stamp.food_noun = smoked.noun;
+    stamp.finishable = true;
+  } else {
+    // A COMPONENT stays finishable after being cooked: browning meatballs is a
+    // step, not the meal. Anything else is done once it's done.
+    stamp.finishable = !!stayFinishable;
+  }
   const { rows } = await query(
     `UPDATE player_inventory
         SET custom_data = (COALESCE(custom_data,'{}'::jsonb) - 'cooking') || $2::jsonb
@@ -268,4 +289,4 @@ async function autoPlate(invId, playerId) {
   }
 })().catch(e => console.error('[cooking] boot restore error:', e.message));
 
-export const _test = { clearTimers, finishCook, autoPlate, freeAppliance };
+export const _test = { prepareCook, clearTimers, finishCook, autoPlate, freeAppliance };

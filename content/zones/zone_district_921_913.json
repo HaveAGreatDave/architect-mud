@@ -1,31 +1,35 @@
 {
   "ambient_events": [],
-  "ambient_theme": "residential",
+  "ambient_theme": "indoors",
   "audio_theme_id": null,
-  "bg_color": "#332e28",
-  "color": "#b89a72",
+  "bg_color": "#3a3550",
+  "color": "#e8e0ff",
   "created_by": "zone-planner",
-  "description": "Home sweet subsidised home: prefab housing the colour of wet cardboard, balconies caged against jumpers and pigeons with equal indifference. A billboard over the roofline promises a better unit uptown. Nobody here has ever seen uptown.",
+  "description": "A corner unit under three floors of flats, the sort of shop a street keeps because walking further is worse. The shutter is down and the notice has been up long enough to go yellow. Somebody has written UNDER NEW MANAGEMENT on it, optimistically, in a different hand.",
   "exits": {
     "east": "zone_district_922_913",
-    "north": "zone_district_921_912",
-    "west": "zone_district_920_913"
+    "west": "zone_sf_kessler3"
   },
   "flags": {
     "district": "residential",
     "planner": "bp_district",
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_consumer_trash",
     "street_life": true,
-    "terrain": "grass"
+    "terrain": "concrete",
+    "building_name": "Unit 3, Kessler Street",
+    "building_type": "shop",
+    "is_building": true,
+    "facade": true,
+    "entrance": "east",
+    "world_exit_zone": "zone_district_922_913"
   },
   "grid_x": 921,
   "grid_y": 913,
   "grid_z": 0,
   "id": "zone_district_921_913",
   "map_id": "map_world",
-  "marker": "▨",
-  "name": "Residential Area",
+  "marker": "K3",
+  "name": "Unit 3, Kessler Street",
   "parent_zone": null,
-  "updated_at": "1784342750"
+  "updated_at": "1784800000"
 }

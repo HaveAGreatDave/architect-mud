@@ -249,6 +249,22 @@ const PANELS = {
     save: saveScript,
     delete: id => API(`/scripts/${id}`, 'DELETE'),
   },
+  'script-triggers': {
+    title: 'Script Triggers',
+    description: 'Bindings that fire a Script when a game event happens — "on entering this zone, run that graph". The engine ships the channel; every binding is content you author here.',
+    idPrefix: 'trigger',
+    fetch: () => API('/script-triggers'),
+    columns: [
+      { key: 'name', label: 'Name' },
+      { key: 'event', label: 'On event' },
+      { key: 'script_id', label: 'Runs' },
+      { key: 'zone_id', label: 'Zone', render: v => v || '—' },
+      { key: 'enabled', label: 'On', render: v => v ? '✓' : '—' },
+    ],
+    editForm: triggerEditForm,
+    save: saveScriptTrigger,
+    delete: id => API(`/script-triggers/${id}`, 'DELETE'),
+  },
   vine: {
     title: 'VINE Suite',
     description: 'Every VINE graph in the game — dialogue, behaviour, scripts, broadcasts, quests — reachable from one hub.',
@@ -373,7 +389,7 @@ const PANELS = {
   },
 };
 
-const VINE_GROUP_PANELS = new Set(['vine', 'scripts', 'quests', 'vine-dialogue', 'vine-ai']);
+const VINE_GROUP_PANELS = new Set(['vine', 'scripts', 'script-triggers', 'quests', 'vine-dialogue', 'vine-ai']);
 function activatePanelNav(name) {
   document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.panel === name));
   const group = document.getElementById('nav-vine-children');

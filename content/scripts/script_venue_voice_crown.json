@@ -1,0 +1,118 @@
+{
+  "description": "Flavour graph for The Crown. Called by script_venue_regular via the trigger's voice param.",
+  "graph": {
+    "nodes": {
+      "f0": {
+        "text": "The halo dims a half-step as you pass under it, which is either scheduled or manners.",
+        "type": "say"
+      },
+      "f1": {
+        "text": "Someone very expensive nods at you and then explains to their companion, at length, that they know you.",
+        "type": "say"
+      },
+      "f2": {
+        "text": "A server does not ask. A server never asks any more.",
+        "type": "say"
+      },
+      "fix": {
+        "outcomes": [
+          {
+            "next": "f0",
+            "weight": 1
+          },
+          {
+            "next": "f1",
+            "weight": 1
+          },
+          {
+            "next": "f2",
+            "weight": 1
+          }
+        ],
+        "type": "random"
+      },
+      "is_fixture": {
+        "condition": {
+          "flag": "bar_crown_fixture",
+          "op": "set",
+          "scope": "player"
+        },
+        "ifFalse": "is_regular",
+        "ifTrue": "fix",
+        "type": "condition"
+      },
+      "is_regular": {
+        "condition": {
+          "flag": "bar_crown_regular",
+          "op": "set",
+          "scope": "player"
+        },
+        "ifFalse": "str",
+        "ifTrue": "reg",
+        "type": "condition"
+      },
+      "r0": {
+        "text": "A server crosses the deck to you first, which up here is a public statement.",
+        "type": "say"
+      },
+      "r1": {
+        "text": "Your name gets used out loud, correctly, in front of other people. That was the point of it.",
+        "type": "say"
+      },
+      "r2": {
+        "text": "A table is found. It was always there. It is now yours.",
+        "type": "say"
+      },
+      "reg": {
+        "outcomes": [
+          {
+            "next": "r0",
+            "weight": 1
+          },
+          {
+            "next": "r1",
+            "weight": 1
+          },
+          {
+            "next": "r2",
+            "weight": 1
+          }
+        ],
+        "type": "random"
+      },
+      "s0": {
+        "text": "The staff arrange themselves so that you are always in someone's peripheral vision and never in anyone's way.",
+        "type": "say"
+      },
+      "s1": {
+        "text": "A server asks if you are meeting somebody. The question is doing a great deal of work.",
+        "type": "say"
+      },
+      "s2": {
+        "text": "Somebody prices your coat, finds the number, and stops thinking about you entirely.",
+        "type": "say"
+      },
+      "str": {
+        "outcomes": [
+          {
+            "next": "s0",
+            "weight": 1
+          },
+          {
+            "next": "s1",
+            "weight": 1
+          },
+          {
+            "next": "s2",
+            "weight": 1
+          }
+        ],
+        "type": "random"
+      }
+    },
+    "start": "is_fixture"
+  },
+  "id": "script_venue_voice_crown",
+  "name": "Venue voice — The Crown",
+  "updated_at": "1785110400"
+}

@@ -1,0 +1,28 @@
+{
+  "name": "storefront",
+  "version": "1.1.0",
+  "description": "Player-owned shops. A zone flagged `is_storefront` is a vacant unit for sale on authored terms (`shop_price`, `shop_term`, `shop_upkeep`); BUYSHOP takes on the mortgage, RENAMESHOP puts your name over the door, STOCK puts an item from your pack on the display at your price, and anyone in the room can BUYWARE (or plain BUY) it whether or not you are online. Takings accrue in the shop's vault — furniture flagged `shop_vault`, crackable through the same VAULT CRACK minigame as a vendor safe — and TILL collects them. Instalments are billed on the game calendar every 7 game-days, drafted till → bank → pocket; clearing the term buys the place outright and drops you to upkeep, missing two in a row loses it and the stock with it. RISK & COUNTERPLAY: SHUTTERS works a real `lock:shopshutter` door so the engine's lock/hack/bash/burglary machinery applies unchanged (the deed holds durable state and re-applies it at boot, like apartments.is_locked); POCKET lifts goods off the display marked `custom_data.shop_unpaid`, settled by BUYWARE or charged as `shoplifting` on the way out — and the proprietor is ALWAYS told, because it is a player's property; HIRE puts a clerk or guard on the payroll (a `storefront_staff` row plus room presence, deliberately NOT an `npcs` row — hiring is a player action and `npcs` is a content-class table) whose wage rides the billing cycle and whose presence forces a witness on a lift or a crack. ECONOMY: a 5-minute footfall tick sells sanely-priced stock to passers-by so a shop earns while its owner is offline, and BUYORDER posts standing offers other players SUPPLY into, funded from the till. Deeds/staff/orders live in player-class tables; listed goods stay as real player_inventory rows under `_shopstock_<zoneId>`, so condition and custom_data survive the counter.",
+  "hooks": ["zone.describeRoom"],
+  "commands": [
+    "deed", "buyshop", "renameshop", "sellshop",
+    "stock", "unstock", "wares", "buyware", "pocket",
+    "till", "tillcrackresolve", "shutters",
+    "hire", "sack", "staff",
+    "buyorder", "buyorders", "supply"
+  ],
+  "specializedActions": ["hack"],
+  "extensionPoints": [
+    "zones.flags.is_storefront",
+    "zones.flags.shop_price",
+    "zones.flags.shop_term",
+    "zones.flags.shop_upkeep",
+    "furniture.flags.shop_vault",
+    "furniture.flags.shop_display",
+    "furniture.flags.hack_difficulty",
+    "doors.tags.lock:shopshutter"
+  ],
+  "emits": ["storefront.bought", "storefront.sale", "storefront.repossessed", "storefront.staffWitnessed", "shoplifting.caught", "hack.success"],
+  "objectGatedCommands": {
+    "tillcrackresolve": { "discoverVia": "shop_vault", "exposed": false, "note": "Silent resolve leg of the VAULT CRACK overlay — fired by the client, never typed." }
+  }
+}

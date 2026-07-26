@@ -1,0 +1,17 @@
+{
+  "chance": 1,
+  "conditions": [],
+  "cooldown_seconds": 0,
+  "description": "Counts purchases made at Voltage into bar_voltage_rounds, for content that wants to know if you drink here or just stand here.",
+  "enabled": 1,
+  "event": "vendor.purchase",
+  "id": "trigger_venue_round_voltage",
+  "name": "Voltage — rounds bought",
+  "once": 0,
+  "params": {
+    "venue": "voltage"
+  },
+  "script_id": "script_venue_round",
+  "updated_at": "1785110400",
+  "zone_id": "zone_voltage_floor"
+}

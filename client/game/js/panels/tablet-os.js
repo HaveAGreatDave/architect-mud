@@ -805,6 +805,26 @@ function ensureStyles() {
     #tablet-os-overlay .tos-opt:active { transform:translateY(1px); box-shadow:inset 0 2px 3px var(--tos-bevel-lo); }
     #tablet-os-overlay .tos-opt.selected { border-color:var(--mg-accent); color:var(--mg-accent); font-weight:bold; box-shadow:0 0 8px color-mix(in srgb, var(--mg-accent) 35%, transparent), inset 0 1px 0 var(--tos-bevel-hi); }
     #tablet-os-overlay .tos-slider { width:160px; max-width:46vw; accent-color:var(--mg-accent); cursor:pointer; }
+    /* About page — a centered colophon: wordmark, byline, then the coffee link.
+       Deliberately airy (no .tos-set-row dividers) so it reads as a title card
+       rather than another list of controls. */
+    #tablet-os-overlay .tos-about { display:flex; flex-direction:column; align-items:center; justify-content:center;
+      gap:14px; text-align:center; padding:26px 14px 22px; }
+    #tablet-os-overlay .tos-about-mark { font-size:26px; letter-spacing:6px; text-transform:uppercase; font-weight:bold;
+      color:var(--mg-accent); text-shadow:0 0 14px color-mix(in srgb, var(--mg-accent) 45%, transparent); }
+    #tablet-os-overlay .tos-about-rule { width:132px; height:1px; background:linear-gradient(90deg, transparent, var(--mg-accent), transparent); opacity:.7; }
+    #tablet-os-overlay .tos-about-by { font-size:11px; letter-spacing:2.5px; text-transform:uppercase; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-about-names { font-size:14px; line-height:1.7; color:var(--tos-fg); }
+    #tablet-os-overlay .tos-about-tag { font-size:11px; color:var(--tos-fg-dim); max-width:280px; line-height:1.6; font-style:italic; }
+    #tablet-os-overlay .tos-about-bmc { display:inline-flex; align-items:center; gap:9px; margin-top:4px; cursor:pointer;
+      padding:9px 16px; border-radius:7px; font-size:12.5px; letter-spacing:.6px; text-decoration:none; color:var(--tos-fg);
+      background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo));
+      border:1px solid color-mix(in srgb, var(--mg-accent) 34%, transparent);
+      box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -2px 2px var(--tos-bevel-lo), 0 2px 6px rgba(0,0,0,.25);
+      transition:filter .12s, box-shadow .12s, transform .05s; }
+    #tablet-os-overlay .tos-about-bmc:hover { filter:brightness(1.15); box-shadow:0 0 12px color-mix(in srgb, var(--mg-accent) 38%, transparent), inset 0 1px 0 var(--tos-bevel-hi); }
+    #tablet-os-overlay .tos-about-bmc:active { transform:translateY(1px); }
+    #tablet-os-overlay .tos-about-bmc .tos-about-cup { font-size:16px; line-height:1; }
     #tablet-os-overlay input.tos-color { width:34px; height:26px; padding:0; border:1px solid color-mix(in srgb, var(--mg-accent) 30%, transparent); border-radius:4px; background:none; cursor:pointer; vertical-align:middle; }
     /* Smaller secondary buttons (Full Theme Editor…, Tablet Theme…) so they sit
        under a section without the full accent-fill weight of a .tos-btn. */
@@ -2870,6 +2890,7 @@ function renderTabletSettings() {
     Sound: soundRow + audioToggleRows + volRows +
       `<div class="tos-set-row"><span class="tos-set-label">Sound Settings<span class="tos-set-val">Toggles &amp; volumes</span></span>
         <span class="tos-btn-sub" data-reset-sound="1" style="margin:0">Reset to Default</span></div>`,
+    About: renderAboutPage(),
   };
   const pageNames = Object.keys(pages);
   if (!pageNames.includes(_tosSetPage)) _tosSetPage = pageNames[0];
@@ -2877,6 +2898,23 @@ function renderTabletSettings() {
     `<div class="tos-set-tab${n === _tosSetPage ? ' sel' : ''}" data-set-page="${esc(n)}">${esc(n)}</div>`).join('');
 
   return `<div class="tos-set-tabs">${tabs}</div><div class="tos-set-page">${pages[_tosSetPage]}</div>`;
+}
+
+// About — the colophon page. Static markup: wordmark, byline, and the same
+// Buy-Me-A-Coffee link the login screen carries (kept in sync by hand; there's
+// only the one URL). Opens in a new tab, so it needs no wiring.
+function renderAboutPage() {
+  return `<div class="tos-about">
+    <div class="tos-about-mark">Architect</div>
+    <div class="tos-about-rule"></div>
+    <div class="tos-about-by">Built by</div>
+    <div class="tos-about-names">David Lacey<br>John Akerson</div>
+    <div class="tos-about-rule"></div>
+    <div class="tos-about-tag">A city that keeps running whether or not you're looking at it.</div>
+    <a class="tos-about-bmc" href="https://buymeacoffee.com/haveagreatdave" target="_blank" rel="noopener noreferrer" title="Buy me a coffee">
+      <span class="tos-about-cup">☕</span><span>Buy me a coffee</span>
+    </a>
+  </div>`;
 }
 
 // Mature Content (MIS) — server-authoritative, so it reads live off state.player

@@ -190,6 +190,17 @@ The NPC/world script graph editor.
 - `saveScript(existing)`.
 - Holds `_scriptGraph`, `SCRIPT_NODE_TYPES`.
 
+### `script-triggers.js`
+The event→script binding editor (Triggers panel). Server side is
+`server/engine/script-triggers.js`; see
+[scripting.md](scripting.md#script-triggers--event--script-bindings).
+
+- `triggerEditForm(rec, isNew)` — **async** (fetches `/scripts` for the script picker).
+- `saveScriptTrigger(existing)`, `triggerActorHint()`.
+- Holds `TRIGGER_EVENT_CATALOG` (grouped datalist of every event emitted anywhere in
+  `server/`+`plugins/` — a discoverability aid, not a whitelist; the field is free text)
+  and `ACTORLESS_EVENTS` (events with no player in the payload, which warn in the form).
+
 ### `maps.js`
 The map overview editor and the shared big-map grid renderer used by both the Maps panel and the Power panel.
 

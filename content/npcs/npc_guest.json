@@ -53,7 +53,7 @@
     }
   },
   "chitchat": [],
-  "description": "Gus \"Two-Livers\" Malkin — a professional poison taster, mostly retired, involuntarily. Tonight's guest on The Tonight Show with John Akerson.",
+  "description": "Ozzie \"Two-Livers\" Malkin — a professional poison taster, mostly retired, involuntarily. Tonight's guest on The Tonight Show with John Akerson.",
   "dialogue_tree": {},
   "faction": null,
   "flags": {
@@ -65,7 +65,7 @@
   "hp": 20,
   "hp_max": 20,
   "id": "npc_guest",
-  "name": "Gus \"Two-Livers\" Malkin",
+  "name": "Ozzie \"Two-Livers\" Malkin",
   "npc_type": "npc",
   "sex": "male",
   "studio_zone_id": null,

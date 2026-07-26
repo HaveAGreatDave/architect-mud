@@ -276,6 +276,381 @@ console.log('— layer 1d: zone tag substrate —');
   check('apiPatchZoneTag 404s on a missing zone (validation passed, no write)', rPatchMissing?.status === 404);
 }
 
+// ── Layer 1e: script trigger registry ────────────────────────────────────────
+// The event→script seam (server/engine/script-triggers.js). Proves the binding
+// end to end at runtime rather than inferring it: a real row, a real script
+// graph, a real emit on the bus, and the flag the graph sets. Also proves the
+// filters actually filter — a disabled trigger and a failing zone filter must
+// NOT run, which is the direction that fails silently.
+console.log('— layer 1e: script trigger registry —');
+{
+  const { loadScriptTriggers, getTriggeredEvents } = await import('../server/engine/script-triggers.js');
+  const { emit } = await import('../server/engine/events.js');
+  const { getFlag, clearFlag } = await import('../server/engine/flags.js');
+  const { query } = await import('../server/models/db.js');
+
+  const EVT = 'regress.trigger.probe';
+  const ids = ['script_regress_trigger', 'trigger_regress_hit', 'trigger_regress_off', 'trigger_regress_zone'];
+  const mkTrigger = (id, over = {}) => query(
+    `INSERT INTO script_triggers (id,name,event,script_id,zone_id,enabled)
+     VALUES ($1,$2,$3,'script_regress_trigger',$4,$5)
+     ON CONFLICT (id) DO UPDATE SET event=EXCLUDED.event, zone_id=EXCLUDED.zone_id, enabled=EXCLUDED.enabled`,
+    [id, id, over.event ?? EVT, over.zone_id ?? null, over.enabled ?? 1]);
+
+  try {
+    await query(`INSERT INTO scripts (id,name,graph) VALUES ('script_regress_trigger','regress trigger probe',$1)
+                 ON CONFLICT (id) DO UPDATE SET graph=EXCLUDED.graph`, [JSON.stringify({
+      start: 'n1',
+      nodes: { n1: { type: 'setflag', scope: 'world', flag: 'regress_trigger_fired', value: 'yes' } },
+    })]);
+    await mkTrigger('trigger_regress_hit');
+    await mkTrigger('trigger_regress_off', { enabled: 0 });
+    await mkTrigger('trigger_regress_zone', { zone_id: 'zone_regress_nowhere' });
+    await clearFlag('world', 'regress_trigger_fired');
+    await loadScriptTriggers();
+
+    check('trigger registry wires the bound event', getTriggeredEvents().includes(EVT), getTriggeredEvents().join(','));
+
+    emit(EVT, {});
+    await new Promise(r => setTimeout(r, 250)); // dispatch is fire-and-forget
+    check('bound event runs its script graph', await getFlag('world', 'regress_trigger_fired') === 'yes');
+
+    // Zone filter: the probe payload carries no zone, so the zone-filtered
+    // trigger must not have fired — assert via a second, isolated round.
+    await clearFlag('world', 'regress_trigger_fired');
+    await query(`UPDATE script_triggers SET enabled=0 WHERE id='trigger_regress_hit'`);
+    await loadScriptTriggers();
+    emit(EVT, {});
+    await new Promise(r => setTimeout(r, 250));
+    check('disabled + zone-filtered triggers do not fire',
+      await getFlag('world', 'regress_trigger_fired') === undefined,
+      String(await getFlag('world', 'regress_trigger_fired')));
+  } finally {
+    await query('DELETE FROM script_triggers WHERE id = ANY($1)', [ids]).catch(() => {});
+    await query(`DELETE FROM scripts WHERE id='script_regress_trigger'`).catch(() => {});
+    await clearFlag('world', 'regress_trigger_fired').catch(() => {});
+    await loadScriptTriggers();
+  }
+}
+
+// ── Layer 1e2: every shipped trigger supplies its script's ${params} ─────────
+// A parameterised graph whose token is NOT supplied writes the literal key
+// `bar_${venue}_visits` — every venue silently collapsing onto one shared
+// counter, with no error anywhere. Static, so it catches the drift at author
+// time instead of after someone plays it.
+console.log('— layer 1e2: trigger params cover script tokens —');
+{
+  const { query } = await import('../server/models/db.js');
+  const [{ rows: trigs }, { rows: scripts }] = await Promise.all([
+    query('SELECT id, script_id, params FROM script_triggers'),
+    query('SELECT id, graph FROM scripts'),
+  ]);
+  const byId = new Map(scripts.map(s => [s.id, s.graph]));
+  const TOKEN = /\$\{([\w.]+)\}/g;
+  // Supplied by the dispatcher, not by the trigger row: `zone`, and anything
+  // reaching into the event payload.
+  const dispatcherSupplied = (tok) => tok === 'zone' || tok === 'event' || tok.startsWith('event.');
+
+  // Tokens used by a graph, following `script` sub-graph nodes. A sub-script id
+  // that is itself a token resolves through the trigger's params.
+  const tokensOf = (scriptId, params, seen = new Set()) => {
+    if (!scriptId || seen.has(scriptId)) return new Set();
+    seen.add(scriptId);
+    const graph = byId.get(scriptId);
+    if (!graph) return new Set([' missing:' + scriptId]);
+    const found = new Set([...JSON.stringify(graph).matchAll(TOKEN)].map(m => m[1]));
+    for (const node of Object.values(graph.nodes || {})) {
+      if (node?.type !== 'script' || !node.scriptId) continue;
+      const sub = String(node.scriptId).replace(TOKEN, (m, k) => params?.[k] ?? m);
+      if (!sub.includes('${')) for (const t of tokensOf(sub, params, seen)) found.add(t);
+    }
+    return found;
+  };
+
+  const problems = [];
+  for (const t of trigs) {
+    const params = t.params || {};
+    for (const tok of tokensOf(t.script_id, params)) {
+      if (tok.startsWith(' missing:')) { problems.push(`${t.id} → ${tok.slice(8)} does not exist`); continue; }
+      if (dispatcherSupplied(tok)) continue;
+      if (params[tok] == null) problems.push(`${t.id} does not supply \${${tok}}`);
+    }
+  }
+  check(`every trigger supplies the tokens its script tree uses (${trigs.length} triggers)`,
+    problems.length === 0, problems.join('; '));
+}
+
+// ── Layer 1f: graph runner — random + counter nodes ──────────────────────────
+// Both are branch nodes, so the failure mode is "took the wrong edge", which is
+// invisible in play. Weights of 1/0 make the random pick deterministic without
+// stubbing Math.random; the counter runs three times to prove the reset wraps.
+console.log('— layer 1f: random + counter nodes —');
+{
+  const { runGraph } = await import('../server/engine/graph.js');
+  const { getFlag, clearFlag } = await import('../server/engine/flags.js');
+  const mark = (flag) => ({ type: 'setflag', scope: 'world', flag, value: 'yes' });
+  const wipe = async (...f) => { for (const k of f) await clearFlag('world', k); };
+
+  try {
+    // random: weight 0 must never be picked, weight 1 always.
+    await wipe('regress_rand_a', 'regress_rand_b');
+    await runGraph({ start: 'r', nodes: {
+      r: { type: 'random', outcomes: [{ weight: 1, next: 'a' }, { weight: 0, next: 'b' }] },
+      a: mark('regress_rand_a'), b: mark('regress_rand_b'),
+    } }, { actor: null, broadcast });
+    check('random takes the weighted outcome and never a weight-0 one',
+      await getFlag('world', 'regress_rand_a') === 'yes' && await getFlag('world', 'regress_rand_b') === undefined);
+
+    // random with nothing pickable falls through to next rather than dead-ending.
+    await wipe('regress_rand_fall');
+    await runGraph({ start: 'r', nodes: {
+      r: { type: 'random', outcomes: [{ weight: 0, next: 'a' }], next: 'f' },
+      a: mark('regress_rand_a'), f: mark('regress_rand_fall'),
+    } }, { actor: null, broadcast });
+    check('random with no pickable outcome falls through to next',
+      await getFlag('world', 'regress_rand_fall') === 'yes');
+
+    // counter: threshold 2 with reset → hits on run 2, then wraps.
+    await wipe('regress_count', 'regress_count_hit', 'regress_count_miss');
+    const counterGraph = { start: 'c', nodes: {
+      c: { type: 'counter', scope: 'world', flag: 'regress_count', delta: 1, threshold: 2, reset: true, ifTrue: 'hit', ifFalse: 'miss' },
+      hit: mark('regress_count_hit'), miss: mark('regress_count_miss'),
+    } };
+    await runGraph(counterGraph, { actor: null, broadcast });
+    const afterOne = await getFlag('world', 'regress_count');
+    check('counter increments and takes ifFalse below the threshold',
+      afterOne === '1' && await getFlag('world', 'regress_count_hit') === undefined, `count=${afterOne}`);
+
+    await runGraph(counterGraph, { actor: null, broadcast });
+    check('counter takes ifTrue on the threshold and resets to 0',
+      await getFlag('world', 'regress_count_hit') === 'yes' && await getFlag('world', 'regress_count') === '0',
+      `count=${await getFlag('world', 'regress_count')}`);
+
+    // Param interpolation: the same authored graph must land on a different flag
+    // per instance, and an unsupplied token must stay verbatim rather than
+    // collapsing two instances onto one key.
+    await wipe('bar_alpha_visits', 'bar_beta_visits', 'bar_${venue}_visits');
+    const parameterised = { start: 'c', nodes: {
+      c: { type: 'counter', scope: 'world', flag: 'bar_${venue}_visits', delta: 1 },
+    } };
+    await runGraph(parameterised, { actor: null, broadcast, params: { venue: 'alpha' } });
+    await runGraph(parameterised, { actor: null, broadcast, params: { venue: 'beta' } });
+    await runGraph(parameterised, { actor: null, broadcast, params: {} });
+    check('params interpolate per run into separate flags',
+      await getFlag('world', 'bar_alpha_visits') === '1' && await getFlag('world', 'bar_beta_visits') === '1');
+    check('an unsupplied ${token} stays verbatim instead of collapsing instances',
+      await getFlag('world', 'bar_${venue}_visits') === '1');
+
+    // Params must reach a `script` sub-graph and survive a condition node.
+    await wipe('bar_gamma_seen', 'regress_interp_branch');
+    await runGraph({ start: 'set', nodes: {
+      set: { type: 'setflag', scope: 'world', flag: 'bar_${venue}_seen', value: 'true', next: 'gate' },
+      gate: { type: 'condition', conditions: [{ flag: 'bar_${venue}_seen', scope: 'world', op: 'set' }], ifTrue: 'ok' },
+      ok: mark('regress_interp_branch'),
+    } }, { actor: null, broadcast, params: { venue: 'gamma' } });
+    check('interpolated flag is readable by an interpolated condition',
+      await getFlag('world', 'bar_gamma_seen') === 'true' && await getFlag('world', 'regress_interp_branch') === 'yes');
+
+    // Payload reads: dotted tokens resolve into the event payload, so a script
+    // can react to WHAT happened. The three cases that matter are a nested
+    // scalar, a numeric accumulation, and the refusal to stringify an object.
+    await wipe('regress_payload_spend', 'regress_payload_deep', 'regress_payload_obj');
+    const payloadCtx = {
+      actor: null, broadcast,
+      params: { event: { delta: -37, item: { name: 'rust whiskey' }, actor: { id: 'p1', handle: 'Dud' } } },
+    };
+    await runGraph({ start: 'a', nodes: {
+      a: { type: 'counter', scope: 'world', flag: 'regress_payload_spend', delta: '${event.delta}', next: 'b' },
+      b: { type: 'setflag', scope: 'world', flag: 'regress_payload_deep', value: '${event.item.name}', next: 'c' },
+      // ${event.actor} is a live object — it must NOT stringify into the value.
+      c: { type: 'setflag', scope: 'world', flag: 'regress_payload_obj', value: '${event.actor}' },
+    } }, payloadCtx);
+    check('counter accumulates a numeric value off the payload',
+      await getFlag('world', 'regress_payload_spend') === '-37',
+      String(await getFlag('world', 'regress_payload_spend')));
+    check('a nested payload scalar interpolates',
+      await getFlag('world', 'regress_payload_deep') === 'rust whiskey',
+      String(await getFlag('world', 'regress_payload_deep')));
+    check('a payload token resolving to an object stays verbatim',
+      await getFlag('world', 'regress_payload_obj') === '${event.actor}',
+      String(await getFlag('world', 'regress_payload_obj')));
+
+    // A missing payload field must be inert, not corrupting: the counter no-ops
+    // rather than writing NaN over a running total.
+    await wipe('regress_payload_nan');
+    await runGraph({ start: 'a', nodes: {
+      a: { type: 'counter', scope: 'world', flag: 'regress_payload_nan', delta: '${event.nope}' },
+    } }, { actor: null, broadcast, params: { event: {} } });
+    check('an unresolved numeric token is a no-op, not NaN',
+      await getFlag('world', 'regress_payload_nan') === '0',
+      String(await getFlag('world', 'regress_payload_nan')));
+
+    // reset arrives as the STRING "false" from the devpanel select — and "false"
+    // is truthy. This asserts the coercion, not the happy path.
+    await wipe('regress_count2');
+    const noReset = { start: 'c', nodes: {
+      c: { type: 'counter', scope: 'world', flag: 'regress_count2', delta: 1, threshold: 1, reset: 'false', ifTrue: 'x' },
+      x: { type: 'say', text: 'hit' },
+    } };
+    await runGraph(noReset, { actor: null, broadcast });
+    check('counter reset="false" (string) does not reset', await getFlag('world', 'regress_count2') === '1');
+  } finally {
+    await wipe('regress_rand_a', 'regress_rand_b', 'regress_rand_fall',
+      'regress_count', 'regress_count_hit', 'regress_count_miss', 'regress_count2',
+      'bar_alpha_visits', 'bar_beta_visits', 'bar_${venue}_visits',
+      'bar_gamma_seen', 'regress_interp_branch',
+      'regress_payload_spend', 'regress_payload_deep', 'regress_payload_obj', 'regress_payload_nan');
+  }
+}
+
+// ── Layer 1h: item / stat conditions + dialogue tokens ───────────────────────
+// evalCondition grew two new shapes. The stat allow-list is the one to pin: the
+// real columns are stat_brawn/stat_brains/stat_cool/stat_senses (NOT intellect or
+// charisma), and an unknown stat must fail closed rather than build bad SQL.
+console.log('— layer 1h: item / stat conditions + dialogue tokens —');
+{
+  const { evalCondition, evalConditions } = await import('../server/engine/flags.js');
+  const { interp } = await import('../server/engine/interp.js');
+  const fake = { id: 'regress_cond_player', stat_brawn: 7, stat_brains: 2 };
+
+  check('stat condition compares with gte by default', await evalCondition({ stat: 'brawn', value: 5 }, fake));
+  check('stat condition fails below the threshold', !(await evalCondition({ stat: 'brains', value: 5 }, fake)));
+  check('stat condition honours an explicit op',
+    await evalCondition({ stat: 'brains', op: 'lt', value: 5 }, fake));
+  check('an unknown stat fails closed (no SQL built from it)',
+    !(await evalCondition({ stat: 'intellect', value: 1 }, fake)));
+  check('a stat condition with no player is false, not true',
+    !(await evalCondition({ stat: 'brawn', value: 1 }, null)));
+
+  // The fake player owns no inventory rows, so `has` is false and `lacks` is true
+  // — which also proves the two ops are not accidentally the same branch.
+  check('item condition: has is false for an empty inventory',
+    !(await evalCondition({ item: 'item_drink_basin_swill' }, fake)));
+  check('item condition: lacks is true for an empty inventory',
+    await evalCondition({ item: 'item_drink_basin_swill', op: 'lacks' }, fake));
+
+  // Mixing shapes in one ANDed list must still work — that's how a real gate reads.
+  check('flag/item/stat conditions AND together',
+    await evalConditions([{ stat: 'brawn', value: 5 }, { item: 'item_nope', op: 'lacks' }], fake));
+
+  // Dialogue shares the interpolator, so one authored tree can serve many speakers.
+  check('dialogue-style tokens resolve npc + player',
+    interp('“Evening, ${player.handle}.” ${npc.name} does not look up.',
+      { npc: { name: 'Vale' }, player: { handle: 'Dud' } })
+      === '“Evening, Dud.” Vale does not look up.');
+}
+
+// ── Layer 1g: broadcast / spawn nodes + durable waits ────────────────────────
+// The three nodes that reach OUT of the graph into the world. Each is asserted
+// on its observable effect (a zone message, a live enemy instance, a parked row),
+// not on "it didn't throw".
+console.log('— layer 1g: broadcast / spawn / durable wait —');
+{
+  const { runGraph, resumeDueWaits } = await import('../server/engine/graph.js');
+  const { query } = await import('../server/models/db.js');
+  // getAllZones() returns projections; spawn asserts on the LIVE zone object
+  // (its `enemies` Set is what spawnEnemySync writes to).
+  const probeZone = [...world.zones.values()].find(z => !z.flags?.is_building && z.enemies);
+
+  const before = sent.length;
+  await runGraph({ start: 'b', nodes: {
+    b: { type: 'broadcast', text: 'The lights die in ${zone}.', zone: '${zone}' },
+  } }, { actor: null, broadcast, params: { zone: probeZone.id } });
+  const zoneMsgs = sent.slice(before).filter(s => s.zoneId === probeZone.id);
+  check('broadcast node reaches the whole room (not one player)',
+    zoneMsgs.length === 1 && /The lights die in/.test(zoneMsgs[0].payload?.message || '')
+      && zoneMsgs[0].toPlayer == null,
+    JSON.stringify(zoneMsgs[0]?.payload)?.slice(0, 90));
+  check('broadcast interpolates ${zone} into its text',
+    zoneMsgs[0]?.payload?.message?.includes(probeZone.id));
+
+  // spawn: an unknown template must be a logged skip, not a thrown graph.
+  const enemyCountBefore = probeZone.enemies.size;
+  await runGraph({ start: 's', nodes: {
+    s: { type: 'spawn', kind: 'enemy', id: 'enemy_does_not_exist_regress', zone: '${zone}' },
+  } }, { actor: null, broadcast, params: { zone: probeZone.id } });
+  check('spawn with a bogus template is skipped, not fatal', probeZone.enemies.size === enemyCountBefore);
+
+  const { rows: anyEnemy } = await query('SELECT id FROM enemies LIMIT 1');
+  if (anyEnemy.length) {
+    await runGraph({ start: 's', nodes: {
+      s: { type: 'spawn', kind: 'enemy', id: anyEnemy[0].id, zone: '${zone}', announce: 'Something arrives.' },
+    } }, { actor: null, broadcast, params: { zone: probeZone.id } });
+    const added = [...probeZone.enemies].filter(id => world.enemies.get(id)?.zoneId === probeZone.id);
+    check('spawn node puts a live enemy instance in the zone',
+      probeZone.enemies.size === enemyCountBefore + 1, `${enemyCountBefore} → ${probeZone.enemies.size}`);
+    // Drop the instance we just made so later layers see an untouched zone.
+    const newest = added[added.length - 1];
+    if (probeZone.enemies.size > enemyCountBefore) { probeZone.enemies.delete(newest); world.enemies.delete(newest); }
+  }
+
+  // Dead drop: an item spawn with a `container` goes INSIDE it, not on the floor.
+  // Asserted on the two things that actually matter — it's in the container's
+  // contents, and it is NOT among the zone's ground rows (a leaked drop is worse
+  // than a missing one). Name resolution is zone-scoped, so a bad name is a skip.
+  {
+    const { rows: box } = await query(
+      `SELECT id, zone_id FROM furniture WHERE object_type='container' LIMIT 1`);
+    if (box.length) {
+      const dropZone = box[0].zone_id;
+      const { rows: anyItem } = await query('SELECT id FROM items LIMIT 1');
+      const drop = { start: 's', nodes: {
+        s: { type: 'spawn', kind: 'item', id: anyItem[0].id, zone: dropZone, container: box[0].id },
+      } };
+      await runGraph(drop, { actor: null, broadcast });
+      const { rows: inBox } = await query(
+        'SELECT id FROM player_inventory WHERE container_id=$1 AND item_id=$2', [box[0].id, anyItem[0].id]);
+      check('dead drop lands inside the container', inBox.length === 1, `rows=${inBox.length}`);
+      const { rows: onFloor } = await query(
+        'SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2', [`_ground_${dropZone}`, anyItem[0].id]);
+      check('dead drop does NOT also land on the zone floor', onFloor.length === 0);
+
+      // An unresolvable container skips the spawn rather than dumping it in the open.
+      await runGraph({ start: 's', nodes: {
+        s: { type: 'spawn', kind: 'item', id: anyItem[0].id, zone: dropZone, container: 'no such container here' },
+      } }, { actor: null, broadcast });
+      const { rows: leaked } = await query(
+        'SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2', [`_ground_${dropZone}`, anyItem[0].id]);
+      check('an unresolvable container skips the drop instead of leaking it to the floor',
+        leaked.length === 0, `floor rows=${leaked.length}`);
+
+      await query('DELETE FROM player_inventory WHERE container_id=$1 AND item_id=$2', [box[0].id, anyItem[0].id]);
+    }
+  }
+
+  // Durable wait: >= 120s parks a row instead of holding a timer, and resumeDueWaits
+  // runs it once due. An actorless row runs immediately; a row owned by an offline
+  // player stays owed rather than firing into nothing.
+  await query(`DELETE FROM script_waits WHERE node_id LIKE 'regress_%'`).catch(() => {});
+  const { clearFlag, getFlag } = await import('../server/engine/flags.js');
+  await clearFlag('world', 'regress_durable_ran');
+  await runGraph({ start: 'w', nodes: {
+    w: { type: 'wait', seconds: 3600, next: 'regress_after' },
+    regress_after: { type: 'setflag', scope: 'world', flag: 'regress_durable_ran', value: 'yes' },
+  } }, { actor: null, broadcast });
+  const { rows: parked } = await query(`SELECT * FROM script_waits WHERE node_id='regress_after'`);
+  check('a long wait parks a row instead of holding a timer', parked.length === 1, `rows=${parked.length}`);
+  check('the parked row is not yet due', await getFlag('world', 'regress_durable_ran') === undefined);
+
+  await query(`UPDATE script_waits SET due_at=$1 WHERE node_id='regress_after'`, [Date.now() - 1000]);
+  await resumeDueWaits(broadcast);
+  check('resumeDueWaits runs a due parked continuation',
+    await getFlag('world', 'regress_durable_ran') === 'yes');
+  const { rows: leftover } = await query(`SELECT id FROM script_waits WHERE node_id='regress_after'`);
+  check('a resumed wait deletes its row', leftover.length === 0);
+
+  // A row owned by a player who is not live must be left alone, not consumed.
+  await query(
+    `INSERT INTO script_waits (id, graph, node_id, player_id, params, due_at)
+     VALUES ('regress_owed', $1, 'regress_owed_node', 'player_who_is_offline', '{}', $2)`,
+    [JSON.stringify({ nodes: { regress_owed_node: { type: 'say', text: 'hi' } } }), Date.now() - 1000]);
+  await resumeDueWaits(broadcast);
+  const { rows: owed } = await query(`SELECT id FROM script_waits WHERE id='regress_owed'`);
+  check('a due wait for an offline player stays owed', owed.length === 1);
+  await query(`DELETE FROM script_waits WHERE id='regress_owed'`);
+  await clearFlag('world', 'regress_durable_ran');
+}
+
 // ── Fake player setup ─────────────────────────────────────────────────────────
 const zones = getAllZones();
 // The fake player's home zone must be door-free. The door regress fixtures anchor

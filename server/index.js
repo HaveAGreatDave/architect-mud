@@ -38,6 +38,7 @@ import { reloadCrimes } from "./engine/crimes.js";
 import { reloadAliases } from "./engine/commands/aliases.js";
 import { loadMutations } from "./engine/mutations.js";
 import { loadBanterLibrary } from "./engine/npc-banter.js";
+import { loadScriptTriggers } from "./engine/script-triggers.js";
 import {
 	handleApiRequest,
 	setBroadcast,
@@ -1303,6 +1304,9 @@ async function boot() {
 	await reloadAliases();
 	await loadMutations();
 	await loadBanterLibrary();
+	// Subscribes one dispatcher per bound event name — must run before any
+	// player is connected, but is order-independent w.r.t. plugin event emitters.
+	await loadScriptTriggers();
 	await loadPlugins();
 	try {
 		await initEnvironment({

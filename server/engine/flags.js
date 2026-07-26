@@ -68,12 +68,66 @@ export async function clearFlag(scope, key, player) {
 
 // --- Conditions ------------------------------------------------------------
 //
-// A Condition is { flag, scope?:'player'|'world', op?, value? }.
-// ops: set (default, flag exists) | unset | eq | neq | gt | lt.
+// Three condition shapes, distinguished by which key is present:
+//   { flag, scope?:'player'|'world', op?, value? }  — persisted flag state
+//   { item: 'item_x', op?:'has'|'lacks', quantity? } — carried inventory
+//   { stat: 'brawn', op?:'gte', value: 5 }           — a player stat column
+// flag ops: set (default) | unset | eq | neq | gt | lt.
+// stat ops: gte (default) | gt | lt | lte | eq | neq.
 // evalConditions ANDs a list (or a single condition); empty/missing => true.
+//
+// Item/stat conditions each cost ONE indexed single-row read. They're for
+// dialogue gates and script branches (cold paths) — never put one in a
+// per-move/per-swing path.
+
+// The stat columns are stat_<name> (docs/architecture.md); the allow-list keeps
+// a condition from interpolating arbitrary SQL into the column position.
+const STAT_COLUMNS = new Set(['brawn', 'reflexes', 'endurance', 'brains', 'cool', 'senses']);
+
+async function evalItemCondition(condition, player) {
+  if (!player) return false;
+  const want = Math.max(1, Number(condition.quantity) || 1);
+  // Equipped counts as carried; containers do too — "do you have one on you".
+  const { rows } = await query(
+    `SELECT COALESCE(SUM(quantity), 0) AS n FROM player_inventory
+     WHERE player_id = $1 AND item_id = $2`,
+    [player.id, condition.item]
+  );
+  const have = Number(rows[0]?.n) || 0;
+  return (condition.op === 'lacks') ? have < want : have >= want;
+}
+
+async function evalStatCondition(condition, player) {
+  if (!player) return false;
+  const name = String(condition.stat || '').toLowerCase();
+  if (!STAT_COLUMNS.has(name)) {
+    console.warn(`[flags] unknown stat condition: ${condition.stat}`);
+    return false;
+  }
+  // Live player objects carry the stat columns already — no round trip when the
+  // condition is evaluated against a connected player, which is the normal case.
+  let current = player[`stat_${name}`];
+  if (current == null) {
+    const { rows } = await query(`SELECT stat_${name} AS v FROM players WHERE id = $1`, [player.id]);
+    current = rows[0]?.v;
+  }
+  const a = Number(current) || 0;
+  const b = Number(condition.value) || 0;
+  switch (condition.op || 'gte') {
+    case 'gt':  return a > b;
+    case 'lt':  return a < b;
+    case 'lte': return a <= b;
+    case 'eq':  return a === b;
+    case 'neq': return a !== b;
+    default:    return a >= b; // gte
+  }
+}
 
 export async function evalCondition(condition, player) {
-  if (!condition || !condition.flag) return true;
+  if (!condition) return true;
+  if (condition.item) return evalItemCondition(condition, player);
+  if (condition.stat) return evalStatCondition(condition, player);
+  if (!condition.flag) return true;
   const scope = condition.scope || 'player';
   const current = await getFlag(scope, condition.flag, player);
   switch (condition.op || 'set') {

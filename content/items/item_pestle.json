@@ -1,0 +1,14 @@
+{
+  "description": "A blunt stone club and the pitted cup it lives in, heavy out of all proportion to its size. Older technology than the building it sits in.",
+  "flags": {},
+  "id": "item_pestle",
+  "name": "pestle and mortar",
+  "tags": {
+    "description": "A blunt stone club and the pitted cup it lives in, heavy out of all proportion to its size. Older technology than the building it sits in.",
+    "can_stir": true,
+    "unique": true
+  },
+  "type": "misc",
+  "value": 22,
+  "weight": 900
+}

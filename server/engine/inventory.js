@@ -91,7 +91,7 @@ const rowHasFluid = row => (row?.custom_data?.fluid_amount || 0) > 0;
 // 'unpaid' joins this list for goods lifted out of a shop's display cooler: an
 // unpaid steak must never merge into a steak you already own and launder itself
 // clean on the way to the door.
-const INSTANCE_KEYS = ['fluid_amount', 'potency', 'effects', 'spliced', 'charges', 'ownerId', 'loose', 'freshness', 'cooking', 'cook_quality', 'unpaid', 'dish', 'food_noun'];
+const INSTANCE_KEYS = ['fluid_amount', 'potency', 'effects', 'spliced', 'charges', 'ownerId', 'loose', 'freshness', 'cooking', 'cook_quality', 'unpaid', 'dish', 'food_noun', 'crafted_quality', 'portion'];
 export const rowIsInstanced = row => {
   const cd = typeof row?.custom_data === 'string' ? (() => { try { return JSON.parse(row.custom_data); } catch { return {}; } })() : (row?.custom_data || {});
   return INSTANCE_KEYS.some(k => { const v = cd[k]; return v != null && v !== false && v !== 0; });
@@ -136,6 +136,24 @@ export async function dropToGround(row, zoneId, qty) {
 // row — used by quest auto-spawn to seed a retrievable objective item into the
 // world so it's there to be found. Bare row (item_id + qty); the look/take path
 // enriches it from `items` like any other ground drop.
+// Spawn a fresh copy of an item INSIDE a container — a furniture container
+// (player_inventory rows whose container_id is the furniture id) or another
+// inventory row acting as a box. This is the dead-drop primitive: the item is
+// really there and really retrievable, but it isn't lying on the floor where
+// the next person through the room sees it.
+// Contents are looked up by container_id alone, so player_id is inert here —
+// but it must not be a real player's, or the row would count against someone's
+// carry weight. Use a synthetic owner, same convention as `_ground_<zone>`.
+// Taking the item out sets player_id to the taker and clears container_id.
+const containerOwner = containerId => `_container_${containerId}`;
+
+export async function spawnInContainer(itemId, containerId, qty = 1) {
+  await query(
+    'INSERT INTO player_inventory (id,player_id,item_id,quantity,is_equipped,container_id) VALUES ($1,$2,$3,$4,0,$5)',
+    [randomUUID(), containerOwner(containerId), itemId, Math.max(1, Number(qty) || 1), containerId]
+  );
+}
+
 export async function spawnOnGround(itemId, zoneId, qty = 1) {
   await query(
     'INSERT INTO player_inventory (id,player_id,item_id,quantity,is_equipped) VALUES ($1,$2,$3,$4,0)',

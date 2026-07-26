@@ -1,0 +1,13 @@
+ARCHITECT OS -- ACCOUNT / VERIFICATION
+
+  CONFIRM ADDRESS
+
+Your registration is on file. Confirm this address and the terminal
+will let you in. The link expires in 24 hours.
+
+  {{verifyUrl}}
+
+Didn't register? Ignore this. Nothing happens without the link.
+
+--
+architect.net

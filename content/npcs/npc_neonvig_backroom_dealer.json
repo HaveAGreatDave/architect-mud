@@ -113,7 +113,7 @@
           "next": "bye"
         }
       ],
-      "text": "Marguerite 'Margo' Sable looks up over glasses she isn't wearing and gives the deck a lazy riffle. \"Come for the quiet game, hon? I run this table the old way — dealt by hand, every card called aloud. Sit down and I'll read you in.\""
+      "text": "Marguerite 'Margo' Duvall looks up over glasses she isn't wearing and gives the deck a lazy riffle. \"Come for the quiet game, hon? I run this table the old way — dealt by hand, every card called aloud. Sit down and I'll read you in.\""
     },
     "rules": {
       "options": [
@@ -143,7 +143,7 @@
   "hp": 30,
   "hp_max": 30,
   "id": "npc_neonvig_backroom_dealer",
-  "name": "Marguerite 'Margo' Sable",
+  "name": "Marguerite 'Margo' Duvall",
   "npc_type": "dealer",
   "sex": "female",
   "studio_zone_id": null,

@@ -104,6 +104,22 @@ export function lintContentTree(baseDir) {
     }
   }
 
+  // NPC names are identity — two NPCs answering to the same name break
+  // targeting, dialogue references, and the player's mental map of the world.
+  // Exact (case-insensitive) collisions are a hard error, forever.
+  {
+    const npcFiles = entries.find(e => e.entry.table === 'npcs')?.files || [];
+    const byName = new Map();
+    for (const f of npcFiles) {
+      const n = String(f.data.name ?? '').trim().toLowerCase();
+      if (!n) continue;
+      (byName.get(n) || byName.set(n, []).get(n)).push(f.name);
+    }
+    for (const [n, files] of byName) {
+      if (files.length > 1) errors.push(`npcs: duplicate NPC name "${n}" in ${files.join(', ')} — every NPC needs a unique name`);
+    }
+  }
+
   // Facade invariants: a `facade`-tagged zone must have an interior map
   // parented on it with a real entry zone, plus a real world_exit_zone — the
   // auto-forward seam's dependencies (tools/zone-planner/lint.mjs checks the

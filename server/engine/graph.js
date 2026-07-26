@@ -15,6 +15,8 @@
  *   setflag   { scope, flag, value, op, next }     → SET_FLAG / CLEAR_FLAG
  *   condition { condition|conditions, ifTrue, ifFalse }
  *   branch    (alias of condition)
+ *   random    { outcomes:[{next,weight}], next }   → weighted pick
+ *   counter   { scope, flag, delta, threshold, reset, ifTrue, ifFalse, next }
  *   wait      { seconds, next }                    → delayed continuation
  *   say       { text, next }                       → line to the actor
  *   script    { scriptId, next }                   → run a sub-script
@@ -27,8 +29,10 @@ import { randomUUID } from 'crypto';
 import { query } from '../models/db.js';
 import { registerAction, dispatchAction } from './actions.js';
 import { emit } from './events.js';
-import { evalConditions } from './flags.js';
-import { getZone, addPlayerToZone, removePlayerFromZone, resolveLanding, world } from './world.js';
+import { evalConditions, getFlag } from './flags.js';
+import { interp, interpDeep } from './interp.js';
+import { getZone, addPlayerToZone, removePlayerFromZone, resolveLanding, world, spawnEnemySync, pickSpawnMessage, getLivePlayer } from './world.js';
+import { spawnOnGround, spawnInContainer } from './inventory.js';
 import { openShopSession } from './vendor-session.js';
 import { getItem } from './items-cache.js';
 
@@ -36,9 +40,18 @@ const MAX_STEPS = 100; // cycle / runaway-graph backstop
 
 // Send one server message to a single actor (player). Falls back to a no-op if
 // no broadcast is wired into the context.
+// A script bound to an actorless event (tick.minute, weather.event) legitimately
+// runs with no actor — a `say` there has nobody to talk to, and must no-op
+// rather than take the whole dispatch down.
 function lineToActor(ctx, message) {
+  if (!ctx.actor) return;
   ctx.broadcast?.(null, { type: 'output', message }, null, ctx.actor.id);
 }
+
+// Parameterised graphs: `${dotted.path}` in any string field resolves from
+// ctx.params before the node runs — trigger params (one graph, many instances)
+// plus `event` (the payload the trigger fired on). See engine/interp.js for the
+// verbatim-on-failure rules, and docs/scripting.md for the token reference.
 
 /**
  * Run a Script graph to completion, starting at graph.start.
@@ -63,13 +76,17 @@ export async function runGraph(graph, ctx) {
 }
 
 // Execute a single node; returns the id of the next node (or null to stop).
+// Every string field is run through interp() against ctx.params first — see the
+// parameterised-graph note above. Node ids (next/ifTrue/…) are NOT interpolated:
+// graph topology is authored, never computed.
 async function runNode(node, ctx) {
+  const P = ctx.params;
   switch (node.type) {
     case 'action': {
       const result = await dispatchAction({
         type: node.action,
         actor: ctx.actor,
-        params: node.params || {},
+        params: interpDeep(node.params || {}, P),
         context: { broadcast: ctx.broadcast },
       });
       if (result?.type === 'error') console.warn(`[graph] action ${node.action} failed: ${result.message}`);
@@ -80,41 +97,221 @@ async function runNode(node, ctx) {
       await dispatchAction({
         type: isClear ? 'CLEAR_FLAG' : 'SET_FLAG',
         actor: ctx.actor,
-        params: { scope: node.scope || 'player', flag: node.flag, value: node.value },
+        params: { scope: node.scope || 'player', flag: interp(node.flag, P), value: interp(node.value, P) },
       });
       return node.next || null;
     }
     case 'condition':
     case 'branch': {
-      const ok = await evalConditions(node.conditions || node.condition, ctx.actor);
+      const ok = await evalConditions(interpDeep(node.conditions || node.condition, P), ctx.actor);
       return (ok ? node.ifTrue : node.ifFalse) || null;
     }
     case 'say': {
-      if (node.text) lineToActor(ctx, node.text);
+      if (node.text) lineToActor(ctx, interp(node.text, P));
+      return node.next || null;
+    }
+    case 'broadcast': {
+      // Everyone in the room sees it — this is how a script makes a SCENE rather
+      // than whispering to one player. Defaults to the actor's zone; `${zone}`
+      // (or an explicit zone field) covers the actorless case.
+      const zoneId = interp(node.zone, P) || ctx.actor?.current_zone || P?.zone || null;
+      const text = interp(node.text, P);
+      if (zoneId && text) {
+        ctx.broadcast?.(zoneId,
+          { type: 'zone_event', message: text, refresh: !!node.refresh },
+          node.excludeActor ? ctx.actor?.id : null);
+      }
+      return node.next || null;
+    }
+    case 'spawn': {
+      // kind: 'enemy' (an instance from an enemies template) | 'item' (onto the
+      // zone floor). A missing template/zone is logged and skipped — a botched
+      // spawn must not strand the rest of the graph.
+      const zoneId = interp(node.zone, P) || ctx.actor?.current_zone || P?.zone || null;
+      const spawnId = interp(node.id, P);
+      const qty = Math.max(1, Number(interp(node.quantity ?? 1, P)) || 1);
+      if (!zoneId || !spawnId) {
+        console.warn(`[graph] spawn node missing ${!zoneId ? 'zone' : 'id'}`);
+        return node.next || null;
+      }
+      if (node.kind === 'item') {
+        // A `container` target makes this a DEAD DROP: the item is really there
+        // and really retrievable, but it isn't lying on the floor for the next
+        // person through the room. Accepts a furniture id or a name to match
+        // within the target zone.
+        const containerRef = interp(node.container, P);
+        if (containerRef) {
+          const containerId = await resolveDropContainer(containerRef, zoneId);
+          if (!containerId) {
+            // Deliberately NOT falling back to the floor — a drop that misses
+            // its container and lands in the open is a leaked drop, which is
+            // worse than a missing one. Loud in the log, invisible in play.
+            console.warn(`[graph] spawn: no container "${containerRef}" in ${zoneId} — drop skipped`);
+            return node.next || null;
+          }
+          await spawnInContainer(spawnId, containerId, qty);
+        } else {
+          await spawnOnGround(spawnId, zoneId, qty);
+        }
+        if (node.announce) {
+          ctx.broadcast?.(zoneId, { type: 'zone_event', message: interp(node.announce, P), refresh: true });
+        }
+      } else {
+        const { rows } = await query('SELECT * FROM enemies WHERE id=$1', [spawnId]);
+        if (!rows.length) { console.warn(`[graph] spawn: no enemy template ${spawnId}`); return node.next || null; }
+        if (!getZone(zoneId)) { console.warn(`[graph] spawn: no zone ${zoneId}`); return node.next || null; }
+        for (let i = 0; i < qty; i++) {
+          const inst = spawnEnemySync(rows[0], zoneId);
+          // Silence is an option — a tail you haven't noticed yet shouldn't announce itself.
+          if (node.announce !== false) {
+            ctx.broadcast?.(zoneId, {
+              type: 'zone_event',
+              message: node.announce ? interp(node.announce, P) : pickSpawnMessage(inst.name),
+              refresh: true,
+            });
+          }
+        }
+      }
       return node.next || null;
     }
     case 'script': {
-      if (node.scriptId) {
-        await runScriptById(node.scriptId, { ...ctx, depth: (ctx.depth || 0) + 1 });
+      // Params inherit into the sub-graph — that's what lets a shared mechanics
+      // script hand off to a per-instance flavour script named by a param.
+      const subId = interp(node.scriptId, P);
+      if (subId) {
+        await runScriptById(subId, { ...ctx, depth: (ctx.depth || 0) + 1 });
       }
       return node.next || null;
     }
+    case 'random': {
+      // Weighted pick between outcomes: [{ next, weight }]. A missing/invalid
+      // weight counts as 1; an outcome with weight 0 is parked, not deleted.
+      // Falls through to node.next when nothing is pickable, so a half-authored
+      // random node degrades to a pass-through instead of ending the script.
+      const outs = (node.outcomes || []).filter(o => o && (Number(o.weight ?? 1) > 0));
+      const total = outs.reduce((s, o) => s + (Number(o.weight ?? 1) || 1), 0);
+      if (!outs.length || total <= 0) return node.next || null;
+      let roll = Math.random() * total;
+      for (const o of outs) {
+        roll -= (Number(o.weight ?? 1) || 1);
+        if (roll <= 0) return o.next || node.next || null;
+      }
+      return outs[outs.length - 1].next || node.next || null;
+    }
+    case 'counter': {
+      // Increment a numeric flag, then optionally branch on a threshold.
+      // Without a threshold it's just "bump this and carry on" (node.next).
+      // reset:true zeroes the flag when the threshold is met, which is what
+      // makes "every Nth time" a single node instead of three.
+      // delta/threshold are interpolated too, so a counter can accumulate a
+      // VALUE off the event rather than just tallying occurrences:
+      //   delta: "${event.delta}" on credits.changed → a lifetime-spend ledger.
+      // A token that fails to resolve stays verbatim, so Number() gives NaN and
+      // the `|| 0` below makes it a no-op rather than a corrupted total.
+      const scope = node.scope || 'player';
+      const delta = Number(interp(node.delta ?? 1, P)) || 0;
+      const flag = interp(node.flag, P);
+      const current = Number(await getFlag(scope, flag, ctx.actor)) || 0;
+      const rawThreshold = interp(node.threshold, P);
+      const threshold = rawThreshold == null || rawThreshold === '' ? null : Number(rawThreshold);
+      const hit = threshold != null && !Number.isNaN(threshold) && (current + delta) >= threshold;
+      // reset arrives as a real boolean from VINE but as the STRING "false" from
+      // a select/raw JSON — and "false" is truthy. Coerce explicitly.
+      const doReset = node.reset === true || node.reset === 1 || node.reset === 'true';
+      const value = (hit && doReset) ? 0 : current + delta;
+      await dispatchAction({
+        type: 'SET_FLAG', actor: ctx.actor,
+        params: { scope, flag, value: String(value) },
+      });
+      if (threshold == null) return node.next || null;
+      return (hit ? node.ifTrue : node.ifFalse) || node.next || null;
+    }
     case 'wait': {
       const next = node.next || null;
-      const secs = Math.max(0, Number(node.seconds) || 0);
-      if (next) {
-        // Fire-and-forget delayed continuation; the script's owning call returns now.
-        setTimeout(() => {
-          runNodeChain(ctx.graph, next, ctx).catch(e =>
-            console.error(`[graph] wait continuation error: ${e.message}`));
-        }, secs * 1000);
+      const secs = Math.max(0, Number(interp(node.seconds, P)) || 0);
+      if (!next) return null;
+      if (secs >= DURABLE_WAIT_S) {
+        // Long waits are PARKED IN THE DB, not held in a timer — a restart would
+        // otherwise silently eat every pending consequence. This is what makes a
+        // three-day debt authorable rather than just a 45-second beat.
+        await parkWait(ctx, next, secs);
+        return null;
       }
+      // Fire-and-forget delayed continuation; the script's owning call returns now.
+      setTimeout(() => {
+        runNodeChain(ctx.graph, next, ctx).catch(e =>
+          console.error(`[graph] wait continuation error: ${e.message}`));
+      }, secs * 1000);
       return null; // stop the synchronous walk; the timer resumes it
     }
     default:
       console.warn(`[graph] unknown node type: ${node.type}`);
       return node.next || null;
   }
+}
+
+/**
+ * Resolve a dead-drop container: an exact furniture id first, otherwise a
+ * name/alias match among the container furniture in that zone (the same shape
+ * `open <name>` uses, so what an author types is what a player can open).
+ * Zone-scoped on the name path — a drop must never land in a "locker" three
+ * districts away because two rooms named their furniture the same thing.
+ */
+async function resolveDropContainer(ref, zoneId) {
+  const { rows: byId } = await query(
+    `SELECT id FROM furniture WHERE id=$1 AND object_type='container' LIMIT 1`, [ref]);
+  if (byId.length) return byId[0].id;
+  const { rows } = await query(
+    `SELECT id FROM furniture
+     WHERE zone_id=$1 AND object_type='container'
+       AND (name ILIKE $2 OR flags->>'aliases' ILIKE $2) LIMIT 1`,
+    [zoneId, `%${ref}%`]
+  );
+  return rows.length ? rows[0].id : null;
+}
+
+// ── Durable waits ───────────────────────────────────────────────────────────
+// A `wait` at or past this many seconds is persisted to script_waits instead of
+// living in a setTimeout, so a deploy or crash doesn't drop it.
+const DURABLE_WAIT_S = 120;
+
+async function parkWait(ctx, nextNodeId, secs) {
+  await query(
+    `INSERT INTO script_waits (id, script_id, graph, node_id, player_id, params, due_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+    [randomUUID(), ctx.scriptId || null, JSON.stringify(ctx.graph || {}), nextNodeId,
+     ctx.actor?.id || null, JSON.stringify(ctx.params || {}), Date.now() + secs * 1000]
+  );
+}
+
+/**
+ * Resume every due parked wait. Scheduled (see server/index.js), so it is
+ * idle-gated by scheduler.js and never runs against an empty world.
+ *
+ * A row whose player is offline is LEFT IN PLACE rather than run or discarded —
+ * the consequence lands the next time they're actually connected to see it. That
+ * makes the table a queue of owed outcomes, not a stopwatch.
+ */
+export async function resumeDueWaits(broadcast) {
+  const { rows } = await query(
+    'SELECT * FROM script_waits WHERE due_at <= $1 ORDER BY due_at LIMIT 50', [Date.now()]);
+  if (!rows.length) return 0;
+  let ran = 0;
+  for (const row of rows) {
+    const actor = row.player_id ? getLivePlayer(row.player_id) : null;
+    if (row.player_id && !actor) continue; // still owed — wait for them to log in
+    await query('DELETE FROM script_waits WHERE id=$1', [row.id]);
+    ran++;
+    try {
+      await runNodeChain(row.graph, row.node_id, {
+        actor, broadcast, graph: row.graph, params: row.params || {},
+        scriptId: row.script_id, depth: 0,
+      });
+    } catch (e) {
+      console.error(`[graph] parked wait ${row.id} failed: ${e.message}`);
+    }
+  }
+  return ran;
 }
 
 // Resume a walk from a given node id (used by `wait`).
@@ -137,7 +334,8 @@ export async function loadScript(scriptId) {
 export async function runScriptById(scriptId, ctx) {
   const graph = await loadScript(scriptId);
   if (!graph) { console.warn(`[graph] script not found: ${scriptId}`); return; }
-  await runGraph(graph, { ...ctx, graph });
+  // scriptId rides the ctx so a parked `wait` can record which asset it came from.
+  await runGraph(graph, { ...ctx, graph, scriptId });
 }
 
 // ---------------------------------------------------------------------------
@@ -253,10 +451,13 @@ registerAction({
 registerAction({
   type: 'EXECUTE_SCRIPT',
   handler: async ({ actor, params, context }) => {
-    const { scriptId, graph } = params;
+    // scriptParams lets a dialogue node reuse a parameterised graph the same way
+    // a trigger row does (params, not scriptParams, is already this action's own
+    // argument bag — hence the distinct key).
+    const { scriptId, graph, scriptParams } = params;
     const g = graph || (scriptId && await loadScript(scriptId));
     if (!g) return { type: 'error', message: 'EXECUTE_SCRIPT: no script found.' };
-    await runGraph(g, { actor, broadcast: context?.broadcast, graph: g, depth: 0 });
+    await runGraph(g, { actor, broadcast: context?.broadcast, graph: g, depth: 0, params: scriptParams || undefined });
     return { type: 'script', scriptId: scriptId || null };
   },
 });

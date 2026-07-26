@@ -53,7 +53,7 @@
           "next": "root"
         }
       ],
-      "text": "Voss finally looks up from the scale, the loupe magnifying one cold eye. \"Delicate. Sure. I've got a thing needs moving quiet, and the usual mules are all in a cell or a ditch.\""
+      "text": "Osric finally looks up from the scale, the loupe magnifying one cold eye. \"Delicate. Sure. I've got a thing needs moving quiet, and the usual mules are all in a cell or a ditch.\""
     },
     "gossip": {
       "actions": [
@@ -67,7 +67,7 @@
           "next": "root"
         }
       ],
-      "text": "Voss taps the scale and leans in."
+      "text": "Osric taps the scale and leans in."
     },
     "root": {
       "options": [
@@ -99,7 +99,7 @@
           "next": "bye"
         }
       ],
-      "text": "Voss doesn't look up from the scale. \"You came all this way, so you've either got salvage or you've got a death wish. Which is it?\""
+      "text": "Osric doesn't look up from the scale. \"You came all this way, so you've either got salvage or you've got a death wish. Which is it?\""
     }
   },
   "faction": null,
@@ -117,7 +117,7 @@
   "hp": 20,
   "hp_max": 20,
   "id": "npc_salvage_broker",
-  "name": "Voss Iyaka",
+  "name": "Osric Iyaka",
   "npc_type": "vendor",
   "sex": "male",
   "studio_zone_id": null,

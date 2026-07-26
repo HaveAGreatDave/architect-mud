@@ -8,7 +8,7 @@
 import {
   BASE_OFFSET, HEAT_SCORE, PRECISION_WEIGHT, VESSEL_WEIGHT, SKILL_WEIGHT,
   TURN_IDEAL_BONUS, TURN_SPACING_BONUS, TURN_MISS_PENALTY, FUSS_PENALTY,
-  SCORE_FLOOR, BARE_VESSEL, HEAT_CURVE_WEIGHT, PEAK_LINES, SLIPPING_LINES, FADING_LINES, lineFor,
+  SCORE_FLOOR, BARE_VESSEL, HEAT_CURVE_WEIGHT, SMOKER_PEAK_MULT, PEAK_LINES, SLIPPING_LINES, FADING_LINES, lineFor,
 } from './config.js';
 import { QUALITY_BANDS, bandIndex, donenessAt } from './profiles.js';
 
@@ -28,7 +28,8 @@ export function timeline(session, profile) {
   // profiled path derives everything from the target so the two can't drift.
   const mult = donenessAt(profile, session.target);
   const doneAt = startedAt + thawMs + cookMs * mult;
-  const peakMs = Math.max(1, cookMs * profile.peakFraction * (0.6 + 0.8 * v.r));
+  const smokeMult = session.smoking ? SMOKER_PEAK_MULT : 1;
+  const peakMs = Math.max(1, cookMs * profile.peakFraction * (0.6 + 0.8 * v.r) * smokeMult);
   const overMs = Math.max(1, cookMs * profile.burnFraction * (0.6 + 0.8 * v.d));
   const peakEnd = doneAt + peakMs;
   return { startedAt, thawMs, cookMs, doneAt, peakMs, overMs, peakEnd, burnAt: peakEnd + overMs, mult };
@@ -102,27 +103,37 @@ function heatScore(session, profile) {
   const spans = heatSpans(session);
   const totalMs = Math.max(1, session.cookMs);
 
-  if (!profile.heatCurve) {
-    // A flat-tolerance food still cares what the burner did — it just wants one
-    // setting the whole way. Score the time-weighted closeness across the log,
-    // so turning the heat down for something else's sake costs (and helps) here
-    // too. A session that never touched the burner has one span and this reduces
-    // exactly to the old single-tier answer.
-    const b = HEAT_ORDER.indexOf(profile.heatTolerance);
-    if (b < 0) return 0;
-    let score = 0;
-    for (const span of spans) {
-      const a = HEAT_ORDER.indexOf(span.tier);
-      if (a < 0) continue;
-      const gap = Math.abs(a - b);
-      const value = gap === 0 ? HEAT_SCORE.exact : gap === 1 ? HEAT_SCORE.oneOff : HEAT_SCORE.twoOff;
-      score += value * ((span.to - span.from) / totalMs);
-    }
-    return score;
+  // A curved profile is scored on how well the burner followed its curve, but
+  // never WORSE than it would have scored as an ordinary flat-tolerance food.
+  // Opting a profile into a curve must be upside for the player who engages
+  // with it, never a punishment for the player who doesn't — without this floor
+  // a new cook who leaves the stove alone eats a −1.00 they had no way to see.
+  if (profile.heatCurve) {
+    const asFlat = flatHeatScore(spans, profile.heatTolerance, totalMs);
+    return Math.max(curveHeatScore(session, profile, spans, totalMs), asFlat);
   }
+  return flatHeatScore(spans, profile.heatTolerance, totalMs);
+}
 
+// Time-weighted closeness of the burner to the one setting this food wants.
+function flatHeatScore(spans, tolerance, totalMs) {
+  const b = HEAT_ORDER.indexOf(tolerance);
+  if (b < 0) return 0;
+  let score = 0;
+  for (const span of spans) {
+    const a = HEAT_ORDER.indexOf(span.tier);
+    if (a < 0) continue;
+    const gap = Math.abs(a - b);
+    const value = gap === 0 ? HEAT_SCORE.exact : gap === 1 ? HEAT_SCORE.oneOff : HEAT_SCORE.twoOff;
+    score += value * ((span.to - span.from) / totalMs);
+  }
+  return score;
+}
+
+// How much of the cook was spent at the setting the curve wanted at that moment.
+function curveHeatScore(session, profile, spans, totalMs) {
   const cookStart = session.startedAt + (session.thawMs || 0);
-  const total = Math.max(1, session.cookMs);
+  const total = totalMs;
   let matched = 0;
   // Sample each span against the curve at a fine resolution — the curve has at
   // most a handful of steps, so this stays cheap and needs no interval algebra.

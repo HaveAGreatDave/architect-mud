@@ -452,6 +452,13 @@ async function cmdExamine(targetStr, player, broadcast) {
     if (it.tags && Object.prototype.hasOwnProperty.call(it.tags, 'fillable')) {
       msg += `\n${describeFill(it.custom_data, it.tags.fillable)}`;
     }
+    // A cooking vessel is more than a bag of things: what's in it is at some
+    // stage, the pan itself may be carrying fond, and the whole lot is on its
+    // way to being some particular dish. All derived, nothing written.
+    if (it.tags && Object.prototype.hasOwnProperty.call(it.tags, 'vessel')) {
+      const vessel = await fireHook('item.describeVessel', { ...it, id: it.inv_id }, player);
+      if (vessel) msg += `\n${vessel}`;
+    }
     if (it.tags && Object.prototype.hasOwnProperty.call(it.tags, 'perishable')) {
       const fresh = await fireHook('item.checkFreshness', { ...it, id: it.inv_id }, player);
       if (fresh) msg += `\n<span class="text-dim">It looks ${fresh.state}.</span>`;

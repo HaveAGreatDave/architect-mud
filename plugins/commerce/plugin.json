@@ -1,7 +1,7 @@
 {
   "name": "commerce",
-  "version": "1.1.0",
-  "description": "Vendor shopping verbs (shop/browse/buy/sell/checkout) and balance display. Vendor services (stock, pricing, trust, restock) stay engine. Also owns shop HOURS as a room rule: a `commerce:shop-hours` move gate locks an interior shop while every vendor who works it is off the clock, and a 30s closing sweep puts anyone still inside back out on the street. And SELF-SERVICE: goods pulled from a `vendor_stock` display cooler carry an unpaid mark (engine stamps it), `checkout` settles it at a `checkout`-flagged counter, and carrying it out of the shop building emits `shoplifting.caught` for surveillance to charge.",
+  "version": "1.2.0",
+  "description": "Vendor shopping verbs (shop/browse/buy/sell/checkout) and balance display. `buy` with no vendor NPC in the room hands off to the `storefront.buy_by_name` action (player-owned shop displays) before refusing. Vendor services (stock, pricing, trust, restock) stay engine. Also owns shop HOURS as a room rule: a `commerce:shop-hours` move gate locks an interior shop while every vendor who works it is off the clock, and a 30s closing sweep puts anyone still inside back out on the street. And SELF-SERVICE: goods pulled from a `vendor_stock` display cooler carry an unpaid mark (engine stamps it), `checkout` settles it at a `checkout`-flagged counter, and carrying it out of the shop building emits `shoplifting.caught` for surveillance to charge.",
   "hooks": [],
   "commands": ["shop", "browse", "buy", "sell", "balance", "checkout"],
   "objectGatedCommands": {

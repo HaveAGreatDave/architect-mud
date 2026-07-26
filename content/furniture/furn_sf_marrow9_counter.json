@@ -1,0 +1,17 @@
+{
+  "description": "A cheap veneered counter with a hinged flap at one end, sagging where the flap hinge pulled through. Somebody has written a phone number on the underside in marker and then scribbled it out.",
+  "flags": {
+    "shop_display": true,
+    "woven": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_sf_marrow9_counter",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "service counter",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 120,
+  "zone_id": "zone_sf_marrow9"
+}

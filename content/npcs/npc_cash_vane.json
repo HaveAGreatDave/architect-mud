@@ -60,7 +60,7 @@
   "hp": 25,
   "hp_max": 25,
   "id": "npc_cash_vane",
-  "name": "Cassius Vane",
+  "name": "Cassius Rell",
   "npc_type": "gambler",
   "sex": "male",
   "studio_zone_id": null,

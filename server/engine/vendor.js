@@ -274,11 +274,27 @@ export async function buyFromVendor(player, npc, itemId, quantity = 1) {
 // discount buy applies, but here friendly rep pays *more* (1+discount) and hostile
 // rep pays less. Floored at 1. Single source of truth for the sell price so the
 // panel preview and the actual sale can't drift.
-export function computeSellUnitPrice(value, statCool, discount = 0, { potency = 1, drugBuyer = false } = {}) {
+// What a plated meal is worth, by the band stamped on it. Same shape as drug
+// potency and the same 0.1–3 ceiling: a botched plate is worth a fraction of the
+// ingredients that went into it, a masterful one is worth cooking for a living.
+// Lives in the engine next to the price maths for the same reason
+// COOK_QUALITY_MULT lives next to the eat path — the plugin decides what band a
+// meal earns, the engine decides what a band is worth.
+export const COOK_QUALITY_PRICE = {
+  poor: 0.4, grim: 0.6, acceptable: 1.0, decent: 1.15, good: 1.4,
+  'very good': 1.7, excellent: 2.1, superb: 2.6, masterful: 3.0,
+};
+
+export function computeSellUnitPrice(value, statCool, discount = 0, { potency = 1, drugBuyer = false, cookQuality = null, foodBuyer = false, portion = 1 } = {}) {
   const coolMult = 1 + (statCool || 0) * 0.05;
-  const rate = drugBuyer ? 0.7 : 0.4;                              // an underworld drug-buyer pays a premium; a legit vendor pays the flat 40%
+  // A specialist pays a premium for what they specialise in; a general vendor
+  // pays the flat 40% for anything.
+  const rate = (drugBuyer || foodBuyer) ? 0.7 : 0.4;
   const pot = Math.min(3, Math.max(0.1, Number(potency) || 1));    // strength scales the payout — a great cook is worth more than a botch
-  return Math.max(1, Math.floor((value || 0) * rate * pot * coolMult * (1 + discount)));
+  const qual = cookQuality ? (COOK_QUALITY_PRICE[cookQuality] ?? 1) : 1;
+  // Half a dish is worth half. Same rule as the nourishment it carries.
+  const part = Math.min(1, Math.max(0.05, Number(portion) || 1));
+  return Math.max(1, Math.floor((value || 0) * rate * pot * qual * part * coolMult * (1 + discount)));
 }
 
 // List the player's sellable items (excludes equipped + quest items), each with the
@@ -294,6 +310,7 @@ export async function getSellableInventory(player, npc) {
   );
   const discount = npc.faction ? await getIdeologyDiscount(player.id, npc.faction) : 0;
   const isDrugBuyer = !!npc.flags?.drug_buyer;
+  const isFoodBuyer = !!npc.flags?.food_buyer;
   return rows
     .filter(r => !r.tags?.quest_item)
     .map(r => {
@@ -306,7 +323,7 @@ export async function getSellableInventory(player, npc) {
         category: vendorCategory(r.tags),
         stats: vendorStatLines(r.tags),
         weight: r.weight,
-        price: computeSellUnitPrice(r.value, r.stat_cool, discount, { potency: Number(cd?.potency) || 1, drugBuyer: isDrugBuyer && !!r.tags?.drug }),
+        price: computeSellUnitPrice(r.value, r.stat_cool, discount, { potency: Number(cd?.potency) || 1, drugBuyer: isDrugBuyer && !!r.tags?.drug, cookQuality: cd?.cook_quality || null, foodBuyer: isFoodBuyer && !!cd?.cook_quality, portion: (Number(cd?.portion) || 1) * (Number(cd?.yield) || 1) }),
       };
     });
 }
@@ -333,7 +350,7 @@ export async function sellToVendor(player, npc, inventoryId, quantity = 1) {
   const sellQty = Math.min(quantity, invItem.quantity);
   const discount = npc.faction ? await getIdeologyDiscount(player.id, npc.faction) : 0;
   const cd = typeof invItem.custom_data === 'string' ? (() => { try { return JSON.parse(invItem.custom_data); } catch { return {}; } })() : (invItem.custom_data || {});
-  const sellPrice = computeSellUnitPrice(invItem.value, invItem.stat_cool, discount, { potency: Number(cd?.potency) || 1, drugBuyer: !!npc.flags?.drug_buyer && !!invItem.tags?.drug }) * sellQty;
+  const sellPrice = computeSellUnitPrice(invItem.value, invItem.stat_cool, discount, { potency: Number(cd?.potency) || 1, drugBuyer: !!npc.flags?.drug_buyer && !!invItem.tags?.drug, cookQuality: cd?.cook_quality || null, foodBuyer: !!npc.flags?.food_buyer && !!cd?.cook_quality, portion: (Number(cd?.portion) || 1) * (Number(cd?.yield) || 1) }) * sellQty;
 
   // Pay out and remove the sold item together, so a crash can't credit the
   // player while leaving the item in their inventory (or vice versa).
