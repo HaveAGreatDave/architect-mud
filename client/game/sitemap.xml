@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  The client is a single-page app: every route below / is rendered by JS after
+  auth, so there is exactly one indexable URL. Add entries here only if a real
+  server-rendered page is ever added (a landing page, changelog, wiki).
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+	<url>
+		<loc>https://www.architectgame.net/</loc>
+		<lastmod>2026-07-26</lastmod>
+		<changefreq>weekly</changefreq>
+		<priority>1.0</priority>
+	</url>
+</urlset>

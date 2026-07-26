@@ -3,7 +3,70 @@
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<title>ARCHITECT</title>
+		<title>ARCHITECT — post-singularity text MUD</title>
+
+		<!-- ── SEO + link previews ───────────────────────────────────────────
+		     Social crawlers (Discord, Slack, X, Facebook, iMessage) never run
+		     JS, so everything a preview shows has to be static in this <head>.
+		     Notes for future edits:
+		       • og:image MUST be an absolute URL — a relative path silently
+		         yields no thumbnail on every platform.
+		       • It must also be a raster PNG/JPG. None of the major crawlers
+		         render SVG, so the assets/zone-icons/*.svg are not candidates.
+		       • These all use the www host on purpose. Render's primary domain
+		         is www.architectgame.net and the bare apex 301s to it, so
+		         pointing og:image at the apex would make every crawler fetch
+		         the card through a redirect. If the primary is ever flipped to
+		         the apex in Render, flip all four URLs below with it (plus
+		         sitemap.xml and the Sitemap line in robots.txt).
+		     Render's free dyno would cold-start too slowly for a crawler to
+		     wait, but server/keepalive.js pings /health every 10min, so the
+		     instance is warm when the preview is fetched. -->
+		<meta
+			name="description"
+			content="A real-time browser MUD set after the machine singularity. The AI won, humanity lost, and nobody noticed. Free, no install — open a tab and try to survive."
+		/>
+		<link rel="canonical" href="https://www.architectgame.net/" />
+		<meta name="theme-color" content="#05050a" />
+		<link rel="icon" href="/favicon.ico" sizes="any" />
+
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="ARCHITECT" />
+		<meta property="og:url" content="https://www.architectgame.net/" />
+		<meta
+			property="og:title"
+			content="ARCHITECT — post-singularity text MUD"
+		/>
+		<meta
+			property="og:description"
+			content="The AI won. You survived. Probably. A real-time text MUD in the HellMOO tradition — survival, full-loot PvP, and a city that runs whether you're online or not."
+		/>
+		<meta
+			property="og:image"
+			content="https://www.architectgame.net/assets/og-image.png"
+		/>
+		<meta property="og:image:type" content="image/png" />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta
+			property="og:image:alt"
+			content="ARCHITECT — the AI won. You survived. Probably."
+		/>
+
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta
+			name="twitter:title"
+			content="ARCHITECT — post-singularity text MUD"
+		/>
+		<meta
+			name="twitter:description"
+			content="The AI won. You survived. Probably. A real-time text MUD in the HellMOO tradition."
+		/>
+		<meta
+			name="twitter:image"
+			content="https://www.architectgame.net/assets/og-image.png"
+		/>
+
 		<link rel="stylesheet" href="styles.css" />
 		<link rel="stylesheet" href="/shared/themes.css" />
 		<script defer src="https://cloud.umami.is/script.js" data-website-id="1d2831a3-7b4b-4dd6-81ac-776ed6375456"></script>

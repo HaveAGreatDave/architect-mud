@@ -1,0 +1,12 @@
+# ARCHITECT — https://www.architectgame.net
+#
+# Served from client/game/ by the static handler in server/index.js.
+# /dev is the dev panel and /api is the ops surface: neither is content, and
+# indexing them just leaks tooling URLs into search results.
+
+User-agent: *
+Allow: /
+Disallow: /dev
+Disallow: /api/
+
+Sitemap: https://www.architectgame.net/sitemap.xml

@@ -141,6 +141,13 @@ const MIME = {
 	".json": "application/json; charset=utf-8",
 	".png": "image/png",
 	".svg": "image/svg+xml",
+	// Unlisted extensions fall through to text/plain below. That was fine while
+	// everything served was HTML/JS/CSS, but favicon.ico and sitemap.xml are
+	// both rejected by some clients when mislabelled — robots.txt only worked
+	// by accident, because text/plain is genuinely its correct type.
+	".ico": "image/x-icon",
+	".txt": "text/plain; charset=utf-8",
+	".xml": "application/xml; charset=utf-8",
 };
 
 const httpServer = createServer(async (req, res) => {

@@ -2,7 +2,7 @@
 
 **Post-singularity browser MUD. The AI won. You survived. Probably.**
 
-[**Play now → architect-mud.onrender.com**](https://architect-mud.onrender.com)
+[**Play now → architectgame.net**](https://www.architectgame.net)
 
 ---
 

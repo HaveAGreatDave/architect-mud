@@ -6,12 +6,24 @@ services:
       buildCommand: npm install
       startCommand: npm start
       healthCheckPath: /health
-      # Skip auto-deploys for pushes that don't change what the server runs.
-      # Content pushes still reach Render: the deploy-content CI workflow calls
-      # RENDER_DEPLOY_HOOK_URL after importing, and deploy hooks bypass this
-      # filter — so the checkout (which serves content/audio_* from disk in
-      # prod) is refreshed exactly when content changes. Every avoided reboot
-      # saves a full world load from Neon (~10MB of egress).
+      # ── ONE deploy trigger, not two (2026-07-26) ──
+      # Render no longer watches the repo. The deploy-content CI workflow is the
+      # single path to prod: it regress-gates, imports content to Neon, then POSTs
+      # RENDER_DEPLOY_HOOK_URL — and deploy hooks fire regardless of this setting.
+      #
+      # Why: Render's own auto-deploy built on every server/plugins/client push —
+      # ~1,078 code-touching commits a month against the Hobby plan's 500 build
+      # minutes — and every build rebooted prod, disconnecting every player. The
+      # CI schedule collapses a burst of commits into one 2-hourly reboot
+      # (~150 builds/month). See the header of deploy-content.yml.
+      #
+      # NOTE: the live service (architect-mud-live) was created by hand, NOT from
+      # this Blueprint, so nothing in this file is applied to it automatically —
+      # auto-deploy is switched off in the dashboard (Settings → Build & Deploy).
+      # Keep the two in sync if the service is ever re-adopted by the Blueprint.
+      autoDeploy: false
+      # Inert while autoDeploy is false. Kept deliberately: if auto-deploy is ever
+      # switched back on, this stops it silently returning to a reboot-per-content-push.
       buildFilter:
           ignoredPaths:
               - content/**
