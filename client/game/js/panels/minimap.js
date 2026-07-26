@@ -644,22 +644,24 @@ export function renderMinimap(nodes, direction) {
   // building type, or has a building name — broader than building_type alone so labels
   // still land on buildings the type-detector misses.
   const isBuilding = (node) => !!(node.building_type || node.enterable || node.building_name);
-  // The label is the AUTHORED zones.marker when there is one — that column exists to be
-  // the tile's map glyph, and deriving one instead meant the authored value rendered
-  // nowhere while this map and the tablet's derived two different codes from the same
-  // name ("Hall of Records" → "HA" here, "HO" there). Derivation is now only the
-  // fallback for a building that has no marker yet.
+  // The label is the AUTHORED zones.marker, and nothing else. That column exists to be
+  // the tile's map glyph; deriving one here instead meant the authored value rendered
+  // nowhere while this map and the tablet derived two DIFFERENT codes from the same
+  // name ("Hall of Records" → "HA" here, "HO" there, authored "HR" on neither).
   //
-  // A room INSIDE a building gets no building label at all: it inherits
-  // flags.building_name for the directory and the exit links, so labelling it stamped
-  // the parent's acronym on every interior room ("The Stacks" reading "HA"). Its own
-  // marker still shows if it has one, which is how an apartment shows its floor.
-  const bldLabel = (node) => {
-    const mk = (node.marker || '').trim();
-    if (mk) return mk;
-    if (node.map_id && node.map_id !== 'map_world') return null;
-    return twoLetterAbbrev(node.building_name || node.name);
-  };
+  // Derivation now happens ONCE, at authoring time — the dev panel stamps a suggested
+  // acronym when it converts a tile into a facade — so it is a value someone can see
+  // and edit. The trade is deliberate: a building authored outside the panel shows no
+  // letters until someone sets one. That gap is visible and audited (MARK-2 asks for
+  // the missing marker, MARK-4 catches two buildings wearing the same one), which beats
+  // a plausible-looking code that differs per screen.
+  //
+  // Interiors fall out of this for free. An unmarked room inside a building inherits
+  // flags.building_name from its parent for the directory and the exit links, so a
+  // derived label stamped the parent's acronym on every room ("The Stacks" reading
+  // "HA"). Its own marker still shows if it has one — that is how an apartment shows
+  // its floor.
+  const bldLabel = (node) => (node.marker || '').trim() || null;
   const symFor = (node) => {
     // Labels: hide the building graphic entirely and show a 2-letter acronym filling the
     // tile square (mm-bld-label turns the tile into a solid labelled box).

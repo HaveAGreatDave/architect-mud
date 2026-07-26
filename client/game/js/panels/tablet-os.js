@@ -3066,24 +3066,20 @@ function _mapHexRgb(hex) {
 function _mapIsBldg(t) {
   return !!(t.building_type || t.building_name);
 }
-// Two-letter code for a building tile. The AUTHORED zones.marker wins — that column
-// exists to be the tile's map glyph, and deriving one regardless meant the authored
-// value rendered nowhere while this map and the sidebar minimap derived DIFFERENT
-// codes from the same name ("Hall of Records" → "HO" here, "HA" there). Derivation is
-// the fallback for a building with no marker yet.
+// The code a building tile wears in Labels mode: the AUTHORED zones.marker, and
+// nothing else. That column exists to be the tile's map glyph; deriving one here meant
+// the authored value rendered nowhere while this map and the sidebar minimap derived
+// two DIFFERENT codes from the same name ("Hall of Records" → "HO" here, "HA" there,
+// authored "HR" on neither).
 //
-// Returns null for an unmarked room INSIDE a building: it inherits flags.building_name
-// for the directory and the exit links, so coding it stamped the parent's acronym on
-// every interior room ("The Stacks" reading "HO"). An interior's own marker still
-// shows — that is how an apartment shows its floor.
+// Derivation now happens ONCE at authoring time (the dev panel stamps a suggested
+// acronym when it converts a tile into a facade), so a building with no marker
+// deliberately draws no letters — a gap the map audit reports (MARK-2/MARK-4) rather
+// than a code that differs per screen. An unmarked room inside a building draws
+// nothing for the same reason it always should have: it inherits flags.building_name
+// from its parent, so a derived code stamped the parent's acronym on every room.
 function _mapBldgCode(t) {
-  const mk = String(t.marker || '').trim();
-  if (mk) return mk;
-  if (t.interior) return null;
-  const name = String(t.building_name || t.name || '').trim();
-  const words = name.split(/[\s/&-]+/).filter(Boolean);
-  const code = words.length >= 2 ? words[0][0] + words[1][0] : name.replace(/[^a-z0-9]/gi, '').slice(0, 2);
-  return code.toUpperCase() || '··';
+  return String(t.marker || '').trim() || null;
 }
 function _mapTileSym(t) {
   if (t.isCurrent) return '<span class="mt-icon">◉</span>';

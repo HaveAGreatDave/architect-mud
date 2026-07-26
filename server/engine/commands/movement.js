@@ -770,7 +770,6 @@ function mapTile(zone, x, y, placed, currentId, at = null) {
     building_name: zone.flags?.building_name || null,
     entrance: buildingEntranceDir(zone), // which edge the door faces — drives the map entrance arrow
     exit_dirs: interiorExitDirs(zone), // interior room's ways out — drives the interior map's exit arrows
-    interior: zone.flags?.is_interior ? true : null, // a room INSIDE a building — it inherits building_name, so the label overlay must not stamp the parent's code on it
     terrain: zoneTerrain(zone), // 'road' | 'water' | 'grass' | null — tileable terrain styling
 
     water: zoneTerrain(zone) === 'water', // open water — the client refuses to route onto it

@@ -171,7 +171,7 @@ const RULES = [
   // Flag invalidity, not absence.
   { code: 'MARK-1', sev: 'medium', kind: 'mechanical', fix: 'clearMarker',
     title: 'Interior room carries a map marker',
-    why: 'zones.marker is the <=2-char glyph a tile draws on the MAP — the sidebar minimap and full-map popup in Labels mode, the tablet bigmap, the dev-panel badge and the cockpit strip. An interior room is not a place on the map you navigate by, and it inherits flags.building_name from its parent, so a marker on it renders the building acronym on a room that is not the building. The world-map underground level (map_world, z<0) is excluded: the sewer network IS drawn on the map, and its box-drawing markers are the authored corridor art. Apartments are excluded too — MARK-3 makes the opposite demand of them.',
+    why: 'zones.marker is the <=2-char glyph a tile draws on the MAP — the sidebar minimap in Labels mode, the tablet bigmap in Labels mode, the flight cockpit ground strip and the dev-panel badge. An interior room is not a place on the map you navigate by, and it inherits flags.building_name from its parent, so a marker on it renders the building acronym on a room that is not the building. The world-map underground level (map_world, z<0) is excluded: the sewer network IS drawn on the map, and its box-drawing markers are the authored corridor art. Apartments are excluded too — MARK-3 makes the opposite demand of them.',
     rec: 'Clear the marker (marker: null). The building the room belongs to carries the acronym on its facade — that is the one that renders.' },
   { code: 'MARK-3', sev: 'medium', kind: 'mechanical', fix: 'setMarker',
     title: 'Apartment has no floor designation as its marker',
@@ -179,7 +179,7 @@ const RULES = [
     rec: 'Set the floor designation from the unit name. `want` carries it: the full designation when it fits in 2 glyphs ("Unit 2A" -> "2A"), otherwise the floor alone ("Unit 1001" -> "10", "Halcyon Residence 41-A" -> "41"), so units sharing a floor share a marker.' },
   { code: 'MARK-2', sev: 'medium', kind: 'mechanical', fix: null,
     title: 'Building tile has no 2-character map marker',
-    why: 'A building is the one thing on the map a player navigates BY, and marker is the label it wears in Labels mode on every map surface. With no marker the renderers fall back to deriving an acronym from the name, which is how the same building read "HA" on the sidebar and "HO" on the tablet. The convention across the 54 buildings that have one is a 2-letter acronym of the building name — a 1-glyph marker is a leftover terrain glyph (the "#" the planner stamped on grassland) or a decorative emoji, neither of which reads as a building.',
+    why: 'A building is the one thing on the map a player navigates BY, and marker is the label it wears in Labels mode on every map surface. Nothing derives one any more — the renderers each derived a DIFFERENT acronym from the same name ("Hall of Records" read "HA" on the sidebar and "HO" on the tablet while the authored "HR" rendered nowhere), so the derivation moved to authoring time and an unmarked building draws no letters at all. The convention across the 54 buildings that have one is a 2-letter acronym of the building name — a 1-glyph marker is a leftover terrain glyph (the "#" the planner stamped on grassland) or a decorative emoji, neither of which reads as a building.',
     rec: 'Set a 2-character acronym from the building name. `want` carries the derived suggestion — check it against the markers already in use before accepting it.' },
   { code: 'TERRAIN-2', sev: 'high', kind: 'mechanical', fix: null,
     title: 'Interior room draws as outdoor ground it never declared',
@@ -187,8 +187,12 @@ const RULES = [
     rec: 'Fix in the engine, not the content: an interior has no ground surface to infer, so zoneTerrain() should return null for one before it reaches the bg_color rule. There is no indoor value to author instead — the terrain enum is all outdoor surfaces (water/road/grass/sand/...) — so repainting the content cannot express "this is a floor", and recolouring the tiles would be fixing the symptom by making the swatch uglier.' },
   { code: 'MARK-4', sev: 'medium', kind: 'mechanical', fix: null,
     title: 'Two buildings wear the same map marker',
-    why: 'The marker IS the building\'s identity on the map now that the renderers stop deriving one — two buildings sharing a code are indistinguishable on the tablet bigmap and the full-map popup, which show both at once. This is only worth checking BECAUSE the derivation is gone: the old fallback gave 61 buildings just 33 distinct codes (fifteen of them read "Th"), so collisions were the norm and unmeasurable.',
+    why: 'The marker IS the building\'s identity on the map now that no renderer derives one — two buildings sharing a code are indistinguishable on the tablet bigmap, which shows both at once. This is only worth checking BECAUSE the derivation is gone: the old fallback gave 61 buildings just 33 distinct codes (fifteen of them read "Th"), so collisions were the norm and unmeasurable.',
     rec: 'Rename the less-established one. The authored set already namespaces deliberately — the Ascendant campus is AV/AS/AR/AC/AG/AW — so pick a code that keeps its neighbours legible rather than the first free pair of letters.' },
+  { code: 'MARK-5', sev: 'medium', kind: 'judgement', fix: null,
+    title: 'Building marker is not derivable from its name',
+    why: 'The marker and the name are the two things that identify a building to a player, and they are authored separately, so nothing keeps them in step. A code that does not read as an acronym of the name is often a good choice — `GN` on the gunshop Ironside Arms says what the shop SELLS, which is more use on a map than `IA` — and just as often a leftover from a rename nobody carried through. The script cannot tell those apart, so it asks. NOT a defect list: the outcome of a MARK-5 review is usually a decision-log entry, not an edit.',
+    rec: 'Keep the thematic code and record the call in map-audit-decisions.json, or rename to `want` (the acronym of the name). Read the `group`: "article kept" is an acronym under a different convention, "namespace prefix" is the deliberate campus grouping MARK-4 tells you to preserve, and only "unrelated" is worth reading building by building.' },
   { code: 'FLAG-3', sev: 'high', kind: 'mechanical', fix: null,
     title: 'flags.district names a district the engine cannot resolve',
     why: 'districtFor() honours an override only if DISTRICTS[value] exists; anything else is silently dropped and the tile falls back to residential (or hazard if lethal). That wrong district then drives ambience lines, the district shown on look, the minimap colour and the regional map.',
@@ -280,17 +284,56 @@ const PLACEHOLDER_NAME = [/\d+\s*,\s*\d+/, /^(water|sand|dirt|rock|grass|ash|mud
 // single emoji marker ("🔧") is length 2 by `.length` and would pass a naive check.
 const markerOf = (z) => (z.marker == null ? '' : String(z.marker).trim());
 const glyphLen = (s) => [...s].length;
+// The significant words of a name. The possessive is stripped BEFORE splitting, or
+// "Halloran's Fix-It" becomes [Halloran, s, Fix, It] and abbreviates to "HS" not "HF".
+const STOP_WORD = /^(the|of|and|at|a|an|&)$/i;
+const sigWords = (name) => String(name || '').replace(/['’]s\b/g, '').replace(/[^A-Za-z0-9\s]/g, ' ')
+  .split(/\s+/).filter((w) => w && !STOP_WORD.test(w));
 // Suggested acronym for MARK-2, mirroring the client's own Avenue-View label
-// (streetAbbrev in minimap.js): initials of the significant words, or the first
-// two letters of a single word. A suggestion only — collisions are a human call.
+// (streetAbbrev in minimap.js) and the dev panel's authoring-time stamp
+// (suggestBuildingMarker in server/api/routes.js): initials of the significant words,
+// or the first two letters of a single word. A suggestion only — collisions are a
+// human call, which is what MARK-4 is for.
 function twoLetterAbbrev(name) {
-  // Strip the possessive before splitting, or "Halloran's Fix-It" becomes the words
-  // [Halloran, s, Fix, It] and suggests "HS" instead of "HF".
-  const words = String(name || '').replace(/['’]s\b/g, '').replace(/[^A-Za-z0-9\s]/g, ' ').split(/\s+/)
-    .filter((w) => w && !/^(the|of|and|at|a|an|&)$/i.test(w));
+  const words = sigWords(name);
   if (!words.length) return null;
   if (words.length === 1) return words[0].slice(0, 2).toUpperCase() || null;
   return words.map((w) => w[0]).join('').slice(0, 2).toUpperCase();
+}
+
+// MARK-5's test: every 2-glyph code that reads as DERIVED FROM the name. Deliberately
+// wider than twoLetterAbbrev()'s single suggestion, because more than one honest
+// acronym exists — any ordered pair of the significant words' initials ("Embassy Hotel
+// & Bar" → EH, EB, HB) and the first two letters of any one of those words ("The
+// Stacks" → ST). Still narrow enough that a thematic code falls outside it, which is
+// the point: `GN` on the gunshop Ironside Arms is a choice, not an acronym.
+function nameDerivedMarkers(name) {
+  const words = sigWords(name);
+  const out = new Set();
+  const ini = words.map((w) => w[0].toUpperCase());
+  for (let i = 0; i < ini.length; i++) for (let j = i + 1; j < ini.length; j++) out.add(ini[i] + ini[j]);
+  for (const w of words) if (w.length >= 2) out.add(w.slice(0, 2).toUpperCase());
+  return out;
+}
+// WHY a marker isn't name-derived — the field MARK-5 groups on, because each class is a
+// different decision rather than a different tile:
+//   'article kept'     the initials taken WITHOUT dropping the article ("The Cherry
+//                      Pit" → TC). Still an acronym; just a different convention.
+//   'namespace prefix' the last glyph is a significant word's initial and the first is
+//                      not — a shared letter grouping a campus, which is the authored
+//                      Ascendant set (AV AS AR AC AG AW) and exactly what MARK-4's
+//                      recommendation tells you to preserve.
+//   'unrelated'        neither. The code encodes something outside the name (the trade,
+//                      usually) and only the author knows whether that was the point.
+function markerDivergence(mk, name) {
+  const up = mk.toUpperCase();
+  const all = String(name || '').replace(/['’]s\b/g, '').replace(/[^A-Za-z0-9\s]/g, ' ')
+    .split(/\s+/).filter(Boolean);
+  if (all.length >= 2 && (all[0][0] + all[1][0]).toUpperCase() === up) return 'article kept';
+  const ini = new Set(sigWords(name).map((w) => w[0].toUpperCase()));
+  const [first, last] = [...up];
+  if (ini.has(last) && !ini.has(first)) return 'namespace prefix';
+  return 'unrelated';
 }
 // MARK-3's suggestion: the floor designation carried in an apartment's own name
 // ("Unit 2A", "Unit 1001", "Halcyon Residence 41-A"). Keep the whole designation
@@ -458,10 +501,17 @@ export function audit({ region = null, bbox = null } = {}) {
     // is missing (BLD-6) is still asked for its acronym.
     if (isFacade || f.is_building) {
       const mk = markerOf(z);
-      const want = twoLetterAbbrev(f.building_name || z.name);
+      const bName = f.building_name || z.name;
+      const want = twoLetterAbbrev(bName);
       if (glyphLen(mk) !== 2)
-        emit('MARK-2', z, `${f.building_name || z.name} — marker=${mk ? `"${mk}"` : '(unset)'}${want ? `, suggest "${want}"` : ''}`,
+        emit('MARK-2', z, `${bName} — marker=${mk ? `"${mk}"` : '(unset)'}${want ? `, suggest "${want}"` : ''}`,
           { group: mk ? `${glyphLen(mk)}-glyph marker` : 'no marker', want });
+      // MARK-5 — the marker is the right SHAPE (MARK-2 already covers the rest) but
+      // does not read as derived from the name. A judgement call, grouped by WHY it
+      // diverges so a whole convention can be accepted in one decision.
+      else if (!nameDerivedMarkers(bName).has(mk.toUpperCase()))
+        emit('MARK-5', z, `"${mk}" on ${bName}${want ? ` — the name gives "${want}"` : ''}`,
+          { group: markerDivergence(mk, bName), want });
     }
 
     if (isFacade) {

@@ -259,10 +259,19 @@ Fix playbook, in order of how much the data tells you:
 
 ### MARK-1 · Interior room carries a map marker · mechanical · [auto]
 
-`zones.marker` is the ≤2-char glyph a tile draws **on a map**: the sidebar minimap and
-full-map popup in Labels mode ([minimap.js](../../../client/game/js/panels/minimap.js)), the
-tablet bigmap ([tablet-os.js](../../../client/game/js/panels/tablet-os.js)), the dev-panel
-badge, and the flight cockpit's strip.
+`zones.marker` is the ≤2-char glyph a tile draws **on a map**. Four readers, and they do
+not agree on what they draw — worth knowing before you reason about any MARK rule:
+
+| reader | draws marker on | mode |
+|---|---|---|
+| sidebar minimap ([minimap.js](../../../client/game/js/panels/minimap.js)) | building tiles only | Labels overlay only |
+| tablet bigmap ([tablet-os.js](../../../client/game/js/panels/tablet-os.js)) | building tiles only | Labels toggle only |
+| flight cockpit ground strip ([cockpit.js](../../../client/game/js/panels/cockpit.js)) | **every** tile (`marker \|\| '▪'`) | always |
+| dev-panel map badge ([maps.js](../../../client/devpanel/js/panels/maps.js)) | **every** tile | always |
+
+So a marker on a non-building tile renders in exactly two places, one of which is the dev
+panel. The full-map popup is **retired** — `#map-grid` survives only as dead CSS; tapping
+the minimap opens the tablet map.
 
 An interior room is not a place you navigate the map *by*, **and it inherits
 `flags.building_name` from its parent** for the directory and the exit links. So a marker on
@@ -323,6 +332,16 @@ Keyed on `facade` **or** `is_building` rather than facade alone, so a building w
 tag is missing (BLD-6) is still asked for its acronym. On today's map the two sets coincide
 at 61 world tiles.
 
+**Nothing derives one at render time any more.** Both player-facing renderers used to fall
+back to their own acronym, and derived *different* ones from the same name — which is how
+"Hall of Records" read `HA` on the sidebar and `HO` on the tablet while its authored `HR`
+appeared on neither. The derivation now happens **once, at authoring time**:
+`suggestBuildingMarker()` in [routes.js](../../../server/api/routes.js) stamps a suggested
+acronym when the dev panel converts a tile into a facade, checked against the codes already
+in use. So a marker is a value someone can see and edit, and a building authored *outside*
+the panel wears no letters until someone sets one — a visible gap this rule reports, rather
+than a plausible-looking code that differs per screen.
+
 The finding carries `want` — an acronym derived the way the client's own Avenue-View label
 does (initials of the significant words, possessives stripped). It is a **suggestion, not a
 fix**, which is why this rule has no auto-fixer: `CC`, `CS`, `DS`, `FO` and `CY` are each
@@ -331,9 +350,9 @@ before it goes in.
 
 ### MARK-4 · Two buildings wear the same map marker · mechanical
 
-The marker **is** the building's identity on the map now that the renderers no longer
-derive one, and the tablet bigmap and full-map popup show many buildings at once. Two
-buildings sharing a code are indistinguishable there.
+The marker **is** the building's identity on the map now that no renderer derives one, and
+the tablet bigmap shows many buildings at once. Two buildings sharing a code are
+indistinguishable there.
 
 This is only worth checking *because* the derivation is gone. The old sidebar fallback gave
 61 buildings **33 distinct codes** — fifteen of them read `Th`, because it took the first
@@ -346,6 +365,35 @@ nothing to measure against.
 set namespaces deliberately (the Ascendant campus is `AV AS AR AC AG AW`), so the first
 free pair of letters is often the wrong answer. Scoped to world building tiles — a terrain
 glyph like `≈` is *supposed* to repeat across the whole bay.
+
+### MARK-5 · Building marker is not derivable from its name · judgement
+
+The marker and the name are the two things that identify a building to a player, and they
+are authored in separate fields with nothing keeping them in step. So a rename can leave the
+old code behind and nothing says so.
+
+**This is a JUDGEMENT rule, and a thematic marker is frequently the better answer.**
+`GN` on the gunshop *Ironside Arms* says what the shop **sells**, which is worth more on a
+map than `IA`. The rule exists so that choice gets *made and recorded*, not so every marker
+becomes initials. The normal outcome of a MARK-5 review is a
+[decision-log](../../../docs/audits/map-audit-decisions.json) entry, not an edit.
+
+Fires only on markers that are already the right shape — an absent or 1-glyph marker is
+[MARK-2](#mark-2)'s business, so the two never both fire on one tile.
+
+**"Derivable" is deliberately wider than the single `want` suggestion,** because more than
+one honest acronym exists: any *ordered pair* of the significant words' initials ("Embassy
+Hotel & Bar" → `EH`, `EB`, `HB`) plus the first two letters of any one of those words ("The
+Stacks" → `ST`). Articles are dropped and possessives stripped, same as `twoLetterAbbrev`.
+
+**Read the `group` before reading the tiles** — it is *why* the marker diverges, and each
+class is one decision rather than one-per-building:
+
+| group | means | today |
+|---|---|---|
+| `namespace prefix` | last glyph is a word's initial, first is not — a shared campus letter | 4 · the Ascendant set (`AV` The Vats, `AS` The Spire, `AC` Chrome Clinic, `AW` The Weave). **This is the grouping MARK-4 tells you to preserve** |
+| `article kept` | the initials taken *without* dropping the article (`TC` The Cherry Pit) | 3 · an acronym under a different convention |
+| `unrelated` | neither — the code encodes something outside the name, usually the trade | 11 · the only class worth reading building by building |
 
 ### NAME-2 · Interior room name repeats the building it is inside · judgement
 
