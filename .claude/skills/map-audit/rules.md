@@ -329,6 +329,24 @@ fix**, which is why this rule has no auto-fixer: `CC`, `CS`, `DS`, `FO` and `CY`
 already on two buildings, so a derived acronym has to be checked against the ones in use
 before it goes in.
 
+### MARK-4 · Two buildings wear the same map marker · mechanical
+
+The marker **is** the building's identity on the map now that the renderers no longer
+derive one, and the tablet bigmap and full-map popup show many buildings at once. Two
+buildings sharing a code are indistinguishable there.
+
+This is only worth checking *because* the derivation is gone. The old sidebar fallback gave
+61 buildings **33 distinct codes** — fifteen of them read `Th`, because it took the first
+two letters without dropping the article — so collisions were the norm and there was
+nothing to measure against.
+
+13 buildings collide today, in 7 groups: `CS`×3, and `AG` `CC` `DS` `CY` `FO` `FB` ×2.
+
+**Rename the less-established one**, and read the neighbours before picking: the authored
+set namespaces deliberately (the Ascendant campus is `AV AS AR AC AG AW`), so the first
+free pair of letters is often the wrong answer. Scoped to world building tiles — a terrain
+glyph like `≈` is *supposed* to repeat across the whole bay.
+
 ### NAME-2 · Interior room name repeats the building it is inside · judgement
 
 "Hall of Records — The Stacks" spends half the room title on something the player

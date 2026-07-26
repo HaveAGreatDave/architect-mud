@@ -174,6 +174,10 @@ const RULES = [
     title: 'Building tile has no 2-character map marker',
     why: 'A building is the one thing on the map a player navigates BY, and marker is the label it wears in Labels mode on every map surface. With no marker the renderers fall back to deriving an acronym from the name, which is how the same building read "HA" on the sidebar and "HO" on the tablet. The convention across the 54 buildings that have one is a 2-letter acronym of the building name — a 1-glyph marker is a leftover terrain glyph (the "#" the planner stamped on grassland) or a decorative emoji, neither of which reads as a building.',
     rec: 'Set a 2-character acronym from the building name. `want` carries the derived suggestion — check it against the markers already in use before accepting it.' },
+  { code: 'MARK-4', sev: 'medium', kind: 'mechanical', fix: null,
+    title: 'Two buildings wear the same map marker',
+    why: 'The marker IS the building\'s identity on the map now that the renderers stop deriving one — two buildings sharing a code are indistinguishable on the tablet bigmap and the full-map popup, which show both at once. This is only worth checking BECAUSE the derivation is gone: the old fallback gave 61 buildings just 33 distinct codes (fifteen of them read "Th"), so collisions were the norm and unmeasurable.',
+    rec: 'Rename the less-established one. The authored set already namespaces deliberately — the Ascendant campus is AV/AS/AR/AC/AG/AW — so pick a code that keeps its neighbours legible rather than the first free pair of letters.' },
   { code: 'FLAG-3', sev: 'high', kind: 'mechanical', fix: null,
     title: 'flags.district names a district the engine cannot resolve',
     why: 'districtFor() honours an override only if DISTRICTS[value] exists; anything else is silently dropped and the tile falls back to residential (or hazard if lethal). That wrong district then drives ambience lines, the district shown on look, the minimap colour and the regional map.',
@@ -614,6 +618,30 @@ export function audit({ region = null, bbox = null } = {}) {
       if (!gates.length && !suppressed('GATE-1', pseudo))
         findings.push({ rule: 'GATE-1', sev: 'critical', zone: 'city_wilds_curtain', name: 'city↔wilds curtain',
           detail: 'no exit anywhere crosses the city↔wilds boundary — the wilds are unreachable on foot', group: 'curtain' });
+    }
+
+    // MARK-4 — a whole-map question like TABLE-1: you cannot see a collision from one
+    // tile. Scoped to world buildings, which are the only tiles whose marker is a
+    // building identity (a terrain glyph like `≈` is SUPPOSED to repeat across the bay).
+    {
+      const byMark = new Map();
+      for (const z of world) {
+        const f = z.flags || {};
+        if (!f.facade && !f.is_building) continue;
+        const mk = markerOf(z);
+        if (!mk) continue;
+        if (!byMark.has(mk)) byMark.set(mk, []);
+        byMark.get(mk).push(z);
+      }
+      for (const [mk, group] of byMark) {
+        if (group.length < 2) continue;
+        // Anchor on every member: which one gets renamed is the human's call, so
+        // reporting them all lets a decision except whichever holds the code.
+        for (const z of group) {
+          const others = group.filter((o) => o !== z).map((o) => o.flags?.building_name || o.name);
+          emit('MARK-4', z, `"${mk}" is also worn by ${others.join(', ')}`, { group: mk, collidesWith: others });
+        }
+      }
     }
 
     // MARK-1 — the inverse of MARK-2, and like MAP-1/NAME-2 it is about INTERIORS,
