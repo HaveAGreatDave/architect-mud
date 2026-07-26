@@ -200,10 +200,46 @@ async function cmdTestAccolade(args, raw, player) {
   };
 }
 
+// @heal — top yourself back up without dying for it. Restores HP to hp_max and
+// refills the four survival meters to full, mirroring the respawn restore in
+// gameLoop.js (minus the parts that only make sense coming out of a vat: no
+// stance/posture reset, no radiation purge, no drug-state teardown). Nothing
+// else is touched, so it's a clean way to un-wound yourself mid-test without
+// wiping the state you were actually testing.
+async function cmdHeal(args, raw, player) {
+  if (!['admin', 'dev'].includes(player.role)) {
+    return { type: 'error', message: 'Unknown command: ".heal".' };
+  }
+
+  player.hp = player.hp_max;
+  player.stamina = player.stamina_max ?? 100;
+  player.sanity = player.sanity_max ?? 100;
+  player.hunger = 100;
+  player.thirst = 100;
+
+  await query(
+    'UPDATE players SET hp=$1, stamina=$2, sanity=$3, hunger=$4, thirst=$5 WHERE id=$6',
+    [player.hp, player.stamina, player.sanity, player.hunger, player.thirst, player.id]
+  );
+  // The write above just checkpointed hp/stamina — don't let the resource
+  // flusher re-send the same row a tick later.
+  player._resDirty = false;
+
+  return {
+    type: 'output',
+    message: '✚ The Architect edits you back to spec. <b>HP, stamina, sanity, hunger and thirst restored to full.</b>',
+    player_update: {
+      hp: player.hp, stamina: player.stamina, sanity: player.sanity,
+      hunger: player.hunger, thirst: player.thirst,
+    },
+  };
+}
+
 export const commands = {
   // NB: register the BARE verb — the dispatcher strips a leading `.`/`/` before
   // matching, so a `.dresscyd` key would never fire.
   dresscyd: cmdDressCyd,
+  heal: cmdHeal,
   lettherebelight: cmdLetThereBeLight,
   makeitrain: cmdMakeItRain,
   testaccolade: cmdTestAccolade,
