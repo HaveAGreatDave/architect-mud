@@ -105,7 +105,7 @@ async function updateDoor(door, changes) {
 // via the door-lock-tag command instead, so both fields stay consistent whichever
 // path was used. A door touches up to two zones (its own and its exit target);
 // sync whichever side is an apartment.
-async function syncApartmentLock(door, lockState) {
+export async function syncApartmentLock(door, lockState) {
   const isLocked = lockState === 'locked' ? 1 : 0;
   const zone = getZone(door.zone_id);
   const farIds = door.target_zone ? [door.target_zone] : exitTargets(zone, door.exit_dir);

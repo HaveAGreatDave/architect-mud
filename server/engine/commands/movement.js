@@ -4,7 +4,7 @@ import { getZone, getMinimapData, getAllZones, getMap, addPlayerToZone, removePl
 import { getZoneVisibility, getWindowsForZone, getEnvironmentState, getZoneTemperature, getZoneSeverity } from '../environment.js';
 import { describeZone, resolveNamedDestination, isInteriorZone } from './describe.js';
 import { exitTargets, allExits, primaryExits } from '../exits.js';
-import { checkLockAuth, getLockTagPublic } from './doors.js';
+import { checkLockAuth, getLockTagPublic, syncApartmentLock } from './doors.js';
 import { lockTypePassesWhileLocked } from '../locks.js';
 import { impairmentOf } from '../impairment.js';
 import { emit } from '../events.js';
@@ -487,6 +487,14 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
     if (doorWasLocked) {
       door.lock_state = 'locked';
       setDoorCache(door.id, door);
+      // Mirror it onto the apartment row. `apartments.is_locked` and
+      // `doors.lock_state` are two records of one fact, and the apartment
+      // description reads the FORMER — so a door that re-locked here without
+      // this call left the room cheerfully announcing "The door is unlocked"
+      // while the hololock had just snapped shut behind you. Every other path
+      // that moves a lock already mirrors it; this one was the hole.
+      syncApartmentLock(door, 'locked').catch(e =>
+        console.error('[movement] apartment lock mirror failed for door', door.id, e.message));
       broadcast(zone.id, { type:'zone_event', message:'The door swings closed and locks.' }, player.id);
       broadcast(targetId, { type:'zone_event', message:'The door swings closed and locks.' }, player.id);
     } else {

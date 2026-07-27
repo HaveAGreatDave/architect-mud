@@ -1,6 +1,14 @@
 {
   "channel_type": "playlist",
-  "commercial_pool": [],
+  "commercial_pool": [
+    "bc_1782872045373",
+    "bc_1782872054777",
+    "bc_commercial_everlast",
+    "bc_commercial_hungryman",
+    "bc_commercial_nextlife",
+    "bc_commercial_scrubgod",
+    "bc_commercial_widowmaker"
+  ],
   "description": "",
   "enabled": 1,
   "id": "ch_7_1782953079593",
