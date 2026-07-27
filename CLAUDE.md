@@ -127,6 +127,16 @@ scoped to this repo's own entrypoints (`server/index.js`, `tests/regress.js`, `s
 never runs in production (`npm start` has no pre-hook). If a sweep can't reach it, wait ~90 s. Player
 stat columns are `stat_brawn`/`stat_reflexes`/… (not `brawn`).
 
+`pretest:regress` also runs **`docs:lint`** ([scripts/docs/lint.mjs](scripts/docs/lint.mjs)), which fails
+when a doc's **status header contradicts its own body** — a header asserting nothing is built
+("Not Yet Built", "Nothing here is implemented", "DESIGN ONLY") sitting above a body full of ✅/`*Built:*`
+markers. This exists because on 2026-07-27 an audit reported five shipped systems as outstanding work,
+every error traced to a stale status line; `systems-weather-extreme.md` was titled "Design — Not Yet Built"
+above a roadmap complete through step 7d. **A compound status is fine and is NOT flagged** — "Phases 0–2
+built; rest design" or "STATUS: BUILT (design intent below)" pass, because mixed status is the normal case
+for a living system. When you finish a system, update the line at the TOP of its doc, not just the roadmap
+at the bottom.
+
 `pretest:regress` also runs **`content:lint`** (and a `precontent:import` hook runs it before any
 `npm run content:import`), so a hand-authored content file carrying a runtime column — an
 `excludeColumns` key like `zones.stains` — fails locally instead of surviving to the CI deploy gate.
