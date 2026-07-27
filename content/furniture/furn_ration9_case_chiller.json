@@ -9,6 +9,24 @@
       "lean"
     ],
     "preserves": "refrigerated",
+    "restock_items": [
+      "item_ration_milk",
+      "item_cream_pot",
+      "item_kefir",
+      "item_orange_pressing",
+      "item_apple_pressing",
+      "item_tomato_juice",
+      "item_horchata",
+      "item_iced_tea_carton",
+      "item_cold_brew_can",
+      "item_arcline_cola",
+      "item_ginger_soda",
+      "item_lemon_soda",
+      "item_tonic_water",
+      "item_soda_water",
+      "item_battery_egg",
+      "item_water_bottle"
+    ],
     "vendor_stock": "npc_ration_cook"
   },
   "hp": null,
