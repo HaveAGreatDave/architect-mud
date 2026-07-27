@@ -17,3 +17,8 @@ db/audio-seed.sql text eol=lf -diff
 # same -diff treatment as audio-seed.sql.
 content/**/*.json text eol=lf
 content/audio_samples/*.json text eol=lf -diff
+
+# Batch files MUST be CRLF. cmd.exe resolves `call :label` by BYTE OFFSET, so an
+# LF-only .bat jumps to the wrong line mid-run — blocks get skipped and re-executed
+# (this bit scripts/oneshots.bat during authoring). Never let autocrlf leave these LF.
+*.bat text eol=crlf
