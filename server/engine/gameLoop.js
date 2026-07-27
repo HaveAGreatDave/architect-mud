@@ -22,6 +22,7 @@ import { carryCapacity } from './commands/inventory.js';
 import { flushDirtyPositions } from './commands/movement.js';
 import { flushAllRelations } from './relations.js';
 import { flushAllWear } from './durability.js';
+import { effectiveStat } from './condition.js';
 import { query, logActivity } from '../models/db.js';
 import { getEnvironmentState, getZoneTemperature, getZoneApparentTemperature, waterTemperature, recordLightningKill, getZoneStormIntensity, getWeatherFieldSnapshot, getZonePrecip } from './environment.js';
 import { tickDrugDecayAll, tickDrugs, tickOnsets, tickWithdrawalAll, clearActiveDrugState } from './drugs.js';
@@ -807,6 +808,49 @@ function hungerRegenMultiplier(hunger) {
   return 0.25;               // running on empty
 }
 
+// The same dial for water, and the more realistic of the two: dehydration costs
+// blood volume, so the heart works harder for less and recovery drops off before
+// hunger's does. Thirst used to feed only a Cool penalty, which was a pun rather
+// than a symptom; this is where being parched should actually be felt.
+//
+// Bands match the ones the player is already warned at, same as everywhere else.
+function thirstRegenMultiplier(thirst) {
+  const t = Number(thirst ?? 100);
+  if (t > 40) return 1.0;
+  if (t > 20) return 0.7;    // dry
+  if (t > 5)  return 0.45;   // very thirsty — the warning band
+  return 0.2;                // wrung out
+}
+
+// Hunger and thirst are multiplicative — starving AND parched should be worse
+// than either alone — but floored together, because `gain` is FLOORED to an
+// integer and 0.25 × 0.2 would round a sitting player's recovery to literally
+// zero. Deprivation should make you slow, never stuck.
+const DEPRIVATION_FLOOR = 0.2;
+function deprivationRegenMultiplier(player) {
+  return Math.max(DEPRIVATION_FLOOR,
+    hungerRegenMultiplier(player.hunger) * thirstRegenMultiplier(player.thirst));
+}
+
+// Endurance is the stat that says how long your body keeps going, so it governs
+// the rate you get it back. It had been doing nothing but setting max HP, which
+// left a whole raisable stat with one static consequence.
+//
+// Deliberately read through effectiveStat, not the raw column: that is what makes
+// dehydration's Endurance penalty land somewhere a player can feel it, and it
+// means anything else that ever drags on Endurance reaches recovery for free.
+//
+// END 5 is baseline (×1.0); 8% per point either side, clamped so a low-Endurance
+// character is slower rather than punished and a high one is quick rather than
+// exempt from resting.
+const ENDURANCE_REGEN_BASELINE = 5;
+const ENDURANCE_REGEN_PER_POINT = 0.08;
+function enduranceRegenMultiplier(player) {
+  const end = effectiveStat(player, 'stat_endurance');
+  return Math.max(0.6, Math.min(1.4,
+    1 + (end - ENDURANCE_REGEN_BASELINE) * ENDURANCE_REGEN_PER_POINT));
+}
+
 // And the other end of the same dial. A GOOD meal doesn't just refill the meter,
 // it leaves you recovering faster than baseline for a while — which is the only
 // thing that makes the whole cooking ladder worth climbing. A microwave dinner
@@ -1253,7 +1297,8 @@ async function restRegenTick() {
       const windedMult = (player._windedUntil ?? 0) > now ? WINDED_REGEN_MULT : 1;
       const gain = Math.max(0, Math.floor(base
         * tempRegenMultiplier(player.body_temp_c ?? 37)
-        * hungerRegenMultiplier(player.hunger)
+        * deprivationRegenMultiplier(player)
+        * enduranceRegenMultiplier(player)
         * wellFedRegenMultiplier(player, now)
         * windedMult * restMult));
       if (gain > 0) stamina = Math.min(staminaMax, stamina + gain);

@@ -63,7 +63,6 @@ The world runs a live environmental simulation around the clock: a 30-minute day
 
 ## What's Next
 
-- Quest editor in the dev panel (quests are authored via API today — no visual editor yet)
 - Zone node graph view
 - Player crews / guilds
 - Sanity effects (hallucinated room text)

@@ -49,7 +49,7 @@ Entries marked **(as built)** describe what actually ships and outrank design in
 
 - [docs/combat.md](docs/combat.md) — to-hit, body parts, typed soak, cooldowns, enemy AI, loot; the authoritative source on combat
 - [docs/systems-survival.md](docs/systems-survival.md) — hunger/thirst, radiation, mutations, drugs, buffs, sleep, status-effect framework
-- [docs/systems-weather-extreme.md](docs/systems-weather-extreme.md) — severity scalar, gear-gated-lethal channels, no indoor safe haven, ⚠ forecast band, named hero events (steps 1–6 + 7a built; acid rain + EMP pending)
+- [docs/systems-weather-extreme.md](docs/systems-weather-extreme.md) — severity scalar, gear-gated-lethal channels, no indoor safe haven, ⚠ forecast band, named hero events — **all built, steps 1–7d, acid rain and the EMP/ion storm included** (as built)
 - [docs/systems-economy.md](docs/systems-economy.md) — credits/banking, vendors, crafting, IP/stat-raising, housing
 - [docs/systems-ideologies.md](docs/systems-ideologies.md) — the reworked factions: 4 orders on a stance axis + path, rep/stance/path actions, the `ideologies`/`rep` command, `org_relations`
 - [docs/systems-corps.md](docs/systems-corps.md) — corp = faction + owner + treasury + members + territory; influence tug-of-war, five power levers (Phases 0–3 built; espionage + NPC corp AI still design; venture half in [proposals/corporate-assets.md](docs/proposals/corporate-assets.md))
@@ -76,7 +76,7 @@ Entries marked **(as built)** describe what actually ships and outrank design in
 - [docs/systems-posture.md](docs/systems-posture.md) — the `player.posture`/`sittingOn` contract, HP regen, stand-up triggers (split engine+plugin)
 - [docs/systems-macros.md](docs/systems-macros.md) — smartbar macros: `;`-chained scripts, `$values`, if/else, macro-calls-macro (client-only localStorage)
 - [docs/systems-codex.md](docs/systems-codex.md) — **the game's backstory as a system**: the 30-second cold open a first login plays *before* the prologue speaks (the prologue holds all arrival prose until the client echoes `introdone`), and the tablet **CODEX** app that holds the full text. CODEX is a shelf of *typed* sections — two lore volumes plus the former standalone Ideology app, now its `orders` section with an unchanged payload. Chapters unlock one player flag at a time; a sealed chapter's prose **never leaves the server**, and `CODEX_UNLOCK` is the intended authoring route (an NPC explains a thing, you get the chapter about it). Not to be confused with the CODEX deploy pipeline (as built)
-- [docs/systems-cards.md](docs/systems-cards.md) — procedural loadout trading cards; store the `{body,item_ids,seed}` spec, not an image (renderer built; mint verb/storage/UI not)
+- [docs/systems-cards.md](docs/systems-cards.md) — procedural loadout trading cards; store the `{body,item_ids,seed}` spec, not an image. **PROTOTYPE — adoption undecided**: the renderer works but nothing loads it, and whether cards ship at all is an open call. Don't plan against it or treat the missing mint/storage/UI as debt
 
 **Before touching any system, read the relevant doc section if there's one applicable to the request.**
 

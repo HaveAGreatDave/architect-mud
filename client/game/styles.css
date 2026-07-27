@@ -2900,6 +2900,19 @@ body.fsim-external #look-resize-handle { display: none; }
 .mm-ent-east, .map-ent-east { right: 0; top: 50%; transform: translateY(-50%); border-top: 4px solid transparent; border-bottom: 4px solid transparent; border-left: 6px solid var(--accent); }
 .mm-ent-west, .map-ent-west { left: 0; top: 50%; transform: translateY(-50%); border-top: 4px solid transparent; border-bottom: 4px solid transparent; border-right: 6px solid var(--accent); }
 
+/* Edge-line door style (Settings → Interior Doors → Edge Lines) — the alternative to
+   the triangles above. Each interior tile gets a hairline down all four sides: green
+   where the room opens through, red where it's wall. Deliberately thin and inset a
+   little from the corners so a block of rooms reads as a floorplan rather than a grid
+   of boxes. Shared by the sidebar minimap (.mm-*) and the full-map popup (.map-*). */
+.mm-edge, .map-edge { position: absolute; z-index: 3; pointer-events: none; border-radius: 1px; }
+.mm-edge.open, .map-edge.open { background: #3fd07a; }
+.mm-edge.shut, .map-edge.shut { background: #d0453f; opacity: 0.55; }
+.mm-edge-north, .map-edge-north { top: 0; left: 20%; right: 20%; height: 2px; }
+.mm-edge-south, .map-edge-south { bottom: 0; left: 20%; right: 20%; height: 2px; }
+.mm-edge-east, .map-edge-east { right: 0; top: 20%; bottom: 20%; width: 2px; }
+.mm-edge-west, .map-edge-west { left: 0; top: 20%; bottom: 20%; width: 2px; }
+
 /* (The None / Icons / Labels segmented slider that used to sit in the retired
    full-screen map header is gone with it — the mode is a Settings pill now, and
    Icons isn't a mode any more. Nothing rendered .map-overlay-slider.) */

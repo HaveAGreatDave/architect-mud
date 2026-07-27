@@ -54,6 +54,18 @@ export function maxHpForEndurance(endurance) {
   return BASE_HP_MAX + 2 * (Number(endurance) || 0);
 }
 
+// Endurance is how much body you have, so it sets the size of the tank as well as
+// how fast it refills (enduranceRegenMultiplier in gameLoop.js). It used to set
+// max HP alone, which left the stat with one static consequence.
+//
+// Kept at 100 for END 0 so no existing character LOSES capacity to this — the
+// scaling is upside only, and the 4-per-point slope is deliberately gentler than
+// HP's, because stamina is spent and recovered constantly while HP is not.
+export const BASE_STAMINA_MAX = 100;
+export function maxStaminaForEndurance(endurance) {
+  return BASE_STAMINA_MAX + 4 * (Number(endurance) || 0);
+}
+
 // Roll for an IP award on a skill check (success OR failure). Chance is highest
 // when the margin is ≈ 0 (barely won *or* barely lost) and falls off as the
 // absolute margin grows — you learn most at the edge of your ability, in either
@@ -223,15 +235,21 @@ export async function raiseStat(playerId, statName) {
 
   const result = { stat: statName, col, from: current, to: current + 1, cost, net_remaining: net - cost };
 
-  // Endurance drives max HP; raising it lifts the cap and heals the +2 delta.
+  // Endurance drives both maxima; raising it lifts each cap and credits the delta
+  // so the point is felt immediately rather than after the next rest. One
+  // statement, because they're the same row.
   if (statName === 'endurance') {
     const newHpMax = maxHpForEndurance(current + 1);
+    const newStamMax = maxStaminaForEndurance(current + 1);
     const { rows: hpRows } = await query(
-      `UPDATE players SET hp_max=$1, hp=LEAST(hp+2,$1) WHERE id=$2 RETURNING hp, hp_max`,
-      [newHpMax, playerId]
+      `UPDATE players SET hp_max=$1, hp=LEAST(hp+2,$1), stamina_max=$2, stamina=LEAST(stamina+4,$2)
+         WHERE id=$3 RETURNING hp, hp_max, stamina, stamina_max`,
+      [newHpMax, newStamMax, playerId]
     );
     result.hp = hpRows[0].hp;
     result.hp_max = hpRows[0].hp_max;
+    result.stamina = hpRows[0].stamina;
+    result.stamina_max = hpRows[0].stamina_max;
   }
 
   return result;

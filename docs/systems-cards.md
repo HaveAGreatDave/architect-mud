@@ -1,10 +1,19 @@
-# Procedural Trading Cards (Renderer Built; Integration Design)
+# Procedural Trading Cards (PROTOTYPE — Adoption Undecided)
 
-> **Status: renderer built 2026-07-13** — [client/game/js/card-render.js](../client/game/js/card-render.js)
-> is a complete, self-contained portrait renderer with a ~30-archetype drawer library covering all
+> **Status: PROTOTYPE, not a committed feature (2026-07-27).** The renderer exists and works;
+> **whether the game ships trading cards at all is an open question that has not been decided.**
+> Nothing downstream should assume this is coming. Do not file the missing mint verb, storage or UI
+> as debt, plan work that depends on cards existing, or count this toward the roadmap — it is a spike
+> that earned its keep by proving the approach is cheap, and it is parked at exactly that.
+>
+> **What exists** (built 2026-07-13): [client/game/js/card-render.js](../client/game/js/card-render.js),
+> a complete, self-contained portrait renderer with a ~30-archetype drawer library covering all
 > equippable slots on **both** Vitruvian silhouettes. It is **not wired into the client** (nothing loads
-> it yet) and there is **no mint verb, storage, or card UI**. This doc is the authoritative spec for what
-> exists and the agreed plan for the integration that doesn't.
+> it), and there is **no mint verb, storage, or card UI** — by choice, pending the adopt/drop call.
+>
+> **If adopted**, the rest of this doc is the authoritative spec and the agreed integration plan.
+> **If dropped**, the renderer is one self-contained file to delete and nothing else unwinds — which
+> was the point of building it this way.
 
 A trading card is a **snapshot of a character** — their body type plus the gear they had equipped at mint
 time — rendered as per-piece vector art on a body silhouette, framed with a tier/rarity treatment and a

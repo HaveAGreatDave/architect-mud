@@ -1,7 +1,16 @@
-# Extreme Weather (Design — Not Yet Built)
+# Extreme Weather (as built)
 
-> **Status: design sketch, 2026-07-01.** Nothing here is implemented. This is the agreed plan for
-> making weather a survival threat. It deliberately adds **no new subsystem** — every piece rides an
+> **Status: BUILT — all of steps 1–7d shipped.** Weather is a live survival threat: the severity
+> scalar, the lethal thermal tail with no indoor safe haven, power scars, the wind stamina gate,
+> ashfall, the ⚠ telegraph band, and the named hero events **including acid rain (7b) and the
+> EMP/ion storm (7c)**, each with the full presentation kit (7d). The per-step notes in the roadmap
+> at the bottom are the authoritative record of what each piece does.
+>
+> *(This header read "Design — Not Yet Built" until 2026-07-27, long after the body had been marked
+> ✅ step by step. It was still saying acid rain and EMP were pending while both were shipped and
+> regress-covered — which is exactly how they got reported as outstanding work.)*
+>
+> Originally a design sketch, 2026-07-01. It deliberately adds **no new subsystem** — every piece rides an
 > existing seam in [environment.js](../server/engine/environment.js), [plugins/weather](../plugins/weather/index.js),
 > [gameLoop.js](../server/engine/gameLoop.js), [effects.js](../server/engine/effects.js), and the
 > power sim. Read [systems-world.md](systems-world.md) (weather field, apparent temp) and
@@ -128,7 +137,7 @@ whose `severity ≥ SEVERE_THRESHOLD (0.45)`, with the tooltip "Severe condition
 **boolean band, not the raw number** — warns without revealing exact timing or intensity. The **actual
 onset** is still the field roll on the 30s/30m tick — warned, not scheduled.
 
-## Named "hero" events *(step 7a built; 7b/7c pending)*
+## Named "hero" events *(built — 7a framework, 7b acid rain, 7c EMP/ion storm, 7d presentation)*
 
 Rare, announced events that ride **on top of** the forecast/field with an **approach→peak→passing**
 lifecycle, forcing a `severity` preset (and, for acid, a precip override) instead of deriving it. Per the

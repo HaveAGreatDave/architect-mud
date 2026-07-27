@@ -140,7 +140,20 @@ let _tosCorpSel = null; // Corp Territory Map: selected zone id (client-side, no
 let _tosCorpPage = 0; // Corp dashboard: current page (Overview/Operatives/Territory/Diplomacy), client-side
 let _tosIdeoPage = 0; // Ideology reader: current page (Overview / per-order / Field), client-side
 let _tosMapSel = null; // Map app: tapped/destination zone id (client-side, drives the GPS route)
-let _tosMapLabels = false; // Map app: label mode — stamp a two-letter code on each building tile (client-side)
+// Map app: label mode — stamp a two-letter code on each building tile instead of
+// its icon. This is NOT its own state: it reads and writes the same `mapOverlay`
+// setting the sidebar minimap runs on, so the two surfaces can never disagree.
+// It used to be a module-local boolean defaulting to false, which is why the Map
+// app opened in icon mode no matter what the saved setting said, and why its
+// Labels chip never reached the minimap.
+const mapLabelsOn = () => {
+  try { return (loadSettings().mapOverlay || 'labels') === 'labels'; } catch { return true; }
+};
+// Map app: interior door style, read from the same shared `mapDoors` setting the
+// sidebar minimap uses (same reason as mapLabelsOn above — one setting, two surfaces).
+const mapDoorsEdges = () => {
+  try { return loadSettings().mapDoors === 'edges'; } catch { return false; }
+};
 // Void survey zoom: the off-grid "journey" map has no server tile-window ladder (it's
 // drawn purely from the minimap nodes), so its −/+ is a client-only scale on the trail.
 // Default sits large per the brief ("show the route big, zoom out from there").
@@ -1512,6 +1525,14 @@ function ensureStyles() {
     #tablet-os-overlay .tos-map-tile .tos-ent-south { bottom:1px; left:50%; transform:translateX(-50%); border-left:4px solid transparent; border-right:4px solid transparent; border-top:5px solid #ffb454; }
     #tablet-os-overlay .tos-map-tile .tos-ent-east { right:1px; top:50%; transform:translateY(-50%); border-top:4px solid transparent; border-bottom:4px solid transparent; border-left:5px solid #ffb454; }
     #tablet-os-overlay .tos-map-tile .tos-ent-west { left:1px; top:50%; transform:translateY(-50%); border-top:4px solid transparent; border-bottom:4px solid transparent; border-right:5px solid #ffb454; }
+    /* Edge-line door style — hairline per side of an interior room: green open, red wall. */
+    #tablet-os-overlay .tos-map-tile .tos-edge { position:absolute; z-index:4; pointer-events:none; border-radius:1px; }
+    #tablet-os-overlay .tos-map-tile .tos-edge.open { background:#3fd07a; }
+    #tablet-os-overlay .tos-map-tile .tos-edge.shut { background:#d0453f; opacity:0.55; }
+    #tablet-os-overlay .tos-map-tile .tos-edge-north { top:0; left:20%; right:20%; height:2px; }
+    #tablet-os-overlay .tos-map-tile .tos-edge-south { bottom:0; left:20%; right:20%; height:2px; }
+    #tablet-os-overlay .tos-map-tile .tos-edge-east { right:0; top:20%; bottom:20%; width:2px; }
+    #tablet-os-overlay .tos-map-tile .tos-edge-west { left:0; top:20%; bottom:20%; width:2px; }
     #tablet-os-overlay .tos-map-link { display:flex; align-items:center; justify-content:center; color:color-mix(in srgb,var(--mg-accent) 40%,transparent); font-size:12px; line-height:1; pointer-events:none; }
     #tablet-os-overlay .tos-map-link.art { color:#c9a24a; font-weight:bold; text-shadow:0 0 6px rgba(201,162,74,.55); }
     #tablet-os-overlay .tos-map-legend { display:flex; flex-wrap:wrap; gap:5px 12px; margin:9px 0 4px; font-size:10px; color:var(--tos-fg-dim); }
@@ -2704,6 +2725,28 @@ const TOS_APP_ICONS = {
   // DEADHEAD = an aircraft in a dashed holding orbit — the crew flying/loitering your base.
   // Monochrome (currentColor) like the rest, so it drops the off-palette ✈ emoji.
   deadhead: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><ellipse class="dim" cx="12" cy="13" rx="10" ry="6.2" fill="currentColor" fill-opacity=".12" stroke="none"/><ellipse cx="12" cy="13" rx="10" ry="6.2" stroke-opacity=".5" stroke-dasharray="2.4 2.6"/><path d="M12 4.6l1.05 5.7 4.9 2.5-4.9.7v2.2l1.7 1.6-2.75-.85-2.75.85 1.7-1.6v-2.2l-4.9-.7 4.9-2.5z" fill="currentColor" stroke="none"/></svg>`,
+  // Vitals = a heart with the trace running through it: the app is meters, and
+  // the meter everything else hangs off is whether you're still beating.
+  health: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M12 20.5S3.5 15 3.5 9.2A4.7 4.7 0 0 1 12 6.4a4.7 4.7 0 0 1 8.5 2.8c0 5.8-8.5 11.3-8.5 11.3z" fill="currentColor" fill-opacity=".18" stroke="none"/><path d="M12 20.5S3.5 15 3.5 9.2A4.7 4.7 0 0 1 12 6.4a4.7 4.7 0 0 1 8.5 2.8c0 5.8-8.5 11.3-8.5 11.3z"/><path d="M4.6 12.4h3l1.6-3.2 2.2 5.4 1.7-3.4 1.2 1.2h4.1"/></svg>`,
+  // Library = shelved spines, deliberately NOT the Codex's open book: the Codex is
+  // one record you read, the Library is a shelf you choose from.
+  library: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M4 5h4v14H4zM9 5h4v14H9z" fill="currentColor" fill-opacity=".2" stroke="none"/><path d="M4 5h4v14H4zM9 5h4v14H9z"/><path d="M14.4 6.3l4 1-2.6 11.4-4-1z"/><path d="M5 8.6h2M10 8.6h2"/><path d="M3 21h18"/></svg>`,
+  // TV = the set, not the screen content: a CRT box with rabbit ears, matching the
+  // broadcast system's own deliberately obsolete hardware.
+  tv: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path d="M8.4 7L5 3M15.6 7L19 3"/><rect x="2.5" y="7" width="19" height="12" rx="1.4"/><path class="dim" d="M4.5 9h11.5v8H4.5z" fill="currentColor" fill-opacity=".24" stroke="none"/><path d="M4.5 9h11.5v8H4.5z"/><path d="M18.6 11v.01M18.6 14.4v.01" stroke-linecap="round" stroke-width="2"/><path d="M7 21h10"/></svg>`,
+  // Cookbook = the pan, which is the part of cooking the app is actually about.
+  cookbook: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M3 11h13v3.5a5.5 5.5 0 0 1-11 0z" fill="currentColor" fill-opacity=".22" stroke="none"/><path d="M3 11h13v3.5a5.5 5.5 0 0 1-11 0z"/><path d="M16 12.4h4.5"/><path d="M7 8.2c0-1.4 1.4-1.4 1.4-2.8S7 2.6 7 2.6M11.5 8.2c0-1.4 1.4-1.4 1.4-2.8s-1.4-2.8-1.4-2.8" stroke-opacity=".55"/></svg>`,
+  // Storefront = the awning and the shutter: a shop seen from the pavement, which
+  // is how a player meets one.
+  storefront: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M2.5 4.5h19L20 10H4z" fill="currentColor" fill-opacity=".24" stroke="none"/><path d="M2.5 4.5h19L20 10H4z"/><path d="M4 10v10.5h16V10"/><path d="M8.5 20.5V14h7v6.5"/><path d="M8.5 4.5L8 10M15.5 4.5l.5 5.5" stroke-opacity=".5"/></svg>`,
+  // Alarm = the twin-bell clock, the one shape that reads as "wakes you up" at 22px.
+  alarm: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><circle class="dim" cx="12" cy="13.5" r="7.5" fill="currentColor" fill-opacity=".16" stroke="none"/><circle cx="12" cy="13.5" r="7.5"/><path d="M12 9.5v4l2.6 1.7"/><path d="M4.6 4.2A4 4 0 0 0 3 7.4M19.4 4.2A4 4 0 0 1 21 7.4"/><path d="M6.2 19.8L4.6 21.6M17.8 19.8l1.6 1.8"/></svg>`,
+  // Accolades = a rosette: award ribbon with a struck centre. Replaces the ▓ block,
+  // which was monochrome but carried no meaning.
+  accolades: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><circle class="dim" cx="12" cy="9" r="6" fill="currentColor" fill-opacity=".2" stroke="none"/><circle cx="12" cy="9" r="6"/><path d="M12 6.2l1.15 2.35 2.6.38-1.88 1.83.44 2.58L12 12.1l-2.31 1.22.44-2.58L8.25 8.9l2.6-.38z" fill="currentColor" stroke="none"/><path d="M8.4 14.3L7 21.5l5-2.4 5 2.4-1.4-7.2"/></svg>`,
+  // BLISS = the heart, kept from the ♡ it replaces, redrawn at the same stroke
+  // weight as every other tile so it stops reading as a text character.
+  bliss: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M12 20.5S3.5 15 3.5 9.2A4.7 4.7 0 0 1 12 6.4a4.7 4.7 0 0 1 8.5 2.8c0 5.8-8.5 11.3-8.5 11.3z" fill="currentColor" fill-opacity=".28" stroke="none"/><path d="M12 20.5S3.5 15 3.5 9.2A4.7 4.7 0 0 1 12 6.4a4.7 4.7 0 0 1 8.5 2.8c0 5.8-8.5 11.3-8.5 11.3z"/><path d="M7.6 9.4a2.6 2.6 0 0 1 2.3-1.7" stroke-opacity=".55"/></svg>`,
 };
 
 // Client-only tablet apps — appended to the server-registered roster. Unlike the
@@ -3124,6 +3167,11 @@ const TOS_OPT_GROUPS = [
   { key: 'mapOverlay', label: 'Map Labels', opts: [
     { v: 'labels', t: 'Lettering — the building’s 2-letter code', g: 'AB', s: 'font-size:11px;letter-spacing:1px' },
     { v: 'none', t: 'Plain tiles — no lettering', g: '▫' } ] },
+  // How an interior room's ways in/out are drawn on both maps. Interiors only — out on
+  // the street every tile is open on all four sides, so edge lines would say nothing.
+  { key: 'mapDoors', label: 'Interior Doors', opts: [
+    { v: 'arrows', t: 'Arrows — amber triangle per doorway', g: '▲' },
+    { v: 'edges', t: 'Edge lines — green open, red wall', g: '▤' } ] },
 ];
 const TOS_AUDIO_TOGGLES = [
   { key: 'music', label: 'Music', on: '🎵', off: '🔇' },
@@ -4385,17 +4433,31 @@ function renderMap(d) {
     }
     const badges = (t.isCurrent ? '<span class="mt-you">◉</span>' : '')
       + (t.id === dest && !t.isCurrent ? '<span class="mt-dest">⚑</span>' : '');
-    // Entrance arrow — small amber triangle on the edge the building's door faces.
-    const ent = ['north', 'south', 'east', 'west'].includes(t.entrance) ? `<span class="tos-ent tos-ent-${t.entrance}"></span>` : '';
-    // Interior exit arrows — same triangle, one per way out of the building (exit_dirs).
-    const exits = Array.isArray(t.exit_dirs) ? t.exit_dirs.map(dr => `<span class="tos-ent tos-ent-${dr}"></span>`).join('') : '';
+    // Doors, in whichever style Settings asks for. Edge Lines: an interior room gets a
+    // hairline on all four sides — green where it opens through, red where it's wall
+    // (server `open_dirs`); a facade out on the street gets the green door edge alone,
+    // no red. Arrows (the default): a small amber triangle on the edge the building's
+    // door faces, plus one per interior way out of the building (exit_dirs).
+    let ent = '', exits = '';
+    if (mapDoorsEdges() && Array.isArray(t.open_dirs)) {
+      exits = ['north', 'south', 'east', 'west'].map(dr =>
+        `<span class="tos-edge tos-edge-${dr} ${t.open_dirs.includes(dr) ? 'open' : 'shut'}"></span>`).join('');
+    } else if (mapDoorsEdges()) {
+      // Out on the street: the door edge goes green and the other three stay bare. The
+      // red "wall" half is a floorplan idea — outside it would just outline everything.
+      ent = ['north', 'south', 'east', 'west'].includes(t.entrance)
+        ? `<span class="tos-edge tos-edge-${t.entrance} open"></span>` : '';
+    } else {
+      ent = ['north', 'south', 'east', 'west'].includes(t.entrance) ? `<span class="tos-ent tos-ent-${t.entrance}"></span>` : '';
+      exits = Array.isArray(t.exit_dirs) ? t.exit_dirs.map(dr => `<span class="tos-ent tos-ent-${dr}"></span>`).join('') : '';
+    }
     // Perimeter wall (mirrors the sidebar minimap): gate tiles get a highlighted
     // opening, other curtain tiles a shimmer-edge, the glacis kill-zone a hazard tint.
     if (t.perimeter_gate) cls.push('tos-gate');
     else if (t.curtain) cls.push('tos-curtain');
     else if (t.glacis) cls.push('tos-glacis');
     // Label mode: stamp the building's two-letter code over its tile (hides the icon).
-    const _bc = _tosMapLabels && _mapIsBldg(t) ? _mapBldgCode(t) : null;
+    const _bc = mapLabelsOn() && _mapIsBldg(t) ? _mapBldgCode(t) : null;
     const code = _bc ? `<span class="mt-code">${esc(_bc)}</span>` : '';
     grid += `<div class="${cls.join(' ')}" style="${style}" data-map-zone="${esc(t.id)}" title="${esc(t.name)}">${badges}${code || sym}${ent}${exits}</div>`;
   }
@@ -4438,7 +4500,7 @@ function renderMapCtl(d) {
     <span class="tos-map-mini${auto}" data-map-autotoggle title="Toggle auto-walk to the plotted route">➤ Auto</span>
     <span class="tos-map-mini" data-map-recenter title="Recenter on you">◎ Center</span>
     <span class="tos-map-mini${noRoute}" data-map-clear title="Clear the plotted GPS route">🧭 Clear</span>
-    <span class="tos-map-mini${_tosMapLabels ? ' active' : ''}" data-map-labels title="Toggle two-letter building labels">🏷 Labels</span>
+    <span class="tos-map-mini${mapLabelsOn() ? ' active' : ''}" data-map-labels title="Toggle two-letter building labels — also switches the sidebar minimap">🏷 Labels</span>
     <span class="tos-map-zoom">
       <button class="tos-mz" data-map-zoom="out" title="Zoom out"${zoutOff}>−</button>
       <button class="tos-mz" data-map-zoom="in" title="Zoom in"${zinOff}>+</button>
@@ -6439,7 +6501,16 @@ function wireMap() {
   _overlay.querySelector('[data-map-run]')?.addEventListener('click', () => sendCmdSilent('run'));
   _overlay.querySelector('[data-map-autotoggle]')?.addEventListener('click', () => { toggleAutoWalk(); rebuildMap(); });
   _overlay.querySelector('[data-map-recenter]')?.addEventListener('click', centerMapOnPlayer);
-  _overlay.querySelector('[data-map-labels]')?.addEventListener('click', () => { _tosMapLabels = !_tosMapLabels; rebuildMap(); });
+  // Writes the shared `mapOverlay` setting rather than a local flag: applySettings
+  // drives window._applyMapOverlay, so the sidebar minimap re-renders in the same
+  // beat and the choice survives a reload.
+  _overlay.querySelector('[data-map-labels]')?.addEventListener('click', () => {
+    const s = loadSettings();
+    s.mapOverlay = mapLabelsOn() ? 'none' : 'labels';
+    saveSettings(s);
+    applySettings(s);
+    rebuildMap();
+  });
   _overlay.querySelectorAll('[data-map-zoom]').forEach((b) => b.addEventListener('click', () => {
     const arg = _mapZoomArg(_data, b.getAttribute('data-map-zoom') === 'in' ? 1 : -1);
     if (arg) nav('map', arg, null);

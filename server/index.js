@@ -28,7 +28,7 @@ import { zoneAudience } from "./engine/delivery.js";
 import { modulePreloadTags } from "./modulegraph.js";
 import { loadPlugins, fireHook } from "./engine/plugins.js";
 import { emit } from "./engine/events.js";
-import { getNetXp, maxHpForEndurance } from "./engine/ip.js";
+import { getNetXp, maxHpForEndurance, maxStaminaForEndurance } from "./engine/ip.js";
 import { dispatchAction } from "./engine/actions.js";
 // Side-effect imports: register the Flag store and graph-engine Actions
 // (SET_FLAG, CLEAR_FLAG, GRANT_ITEM, TELEPORT, EXECUTE_SCRIPT, …) at boot.
@@ -909,15 +909,22 @@ async function finishAuth(ws, session, player) {
 	session.role = player.role;
 	playerSockets.set(player.id, ws);
 
-	// Keep max HP in sync with endurance. Self-heals pre-existing characters
-	// whose stored hp_max predates endurance-scaled HP (no migration script).
+	// Keep max HP and max stamina in sync with endurance. Self-heals pre-existing
+	// characters whose stored maxima predate endurance scaling (no migration
+	// script) — which is also how every character already in the world picks up
+	// endurance-scaled stamina, on their next login.
 	const correctHpMax = maxHpForEndurance(player.stat_endurance);
-	if (player.hp_max !== correctHpMax) {
+	const correctStamMax = maxStaminaForEndurance(player.stat_endurance);
+	if (player.hp_max !== correctHpMax || player.stamina_max !== correctStamMax) {
 		player.hp_max = correctHpMax;
 		player.hp = Math.min(player.hp, correctHpMax);
-		await query("UPDATE players SET hp_max=$1, hp=$2 WHERE id=$3", [
+		player.stamina_max = correctStamMax;
+		player.stamina = Math.min(player.stamina ?? correctStamMax, correctStamMax);
+		await query("UPDATE players SET hp_max=$1, hp=$2, stamina_max=$3, stamina=$4 WHERE id=$5", [
 			player.hp_max,
 			player.hp,
+			player.stamina_max,
+			player.stamina,
 			player.id,
 		]);
 	}

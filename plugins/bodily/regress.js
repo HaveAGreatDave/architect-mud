@@ -144,7 +144,7 @@ export default async function regress({ run, check, getPlayer }) {
   const { effectiveStat, statPenalty, conditionReport } = await import('../../server/engine/condition.js');
   const { skillStatBonus } = await import('../../server/engine/skills.js');
   const WARM = { stat_reflexes: 6, stat_brawn: 6, stat_cool: 6, stat_brains: 6, stat_senses: 6,
-    hunger: 100, thirst: 100, body_temp_c: 37 };
+    stat_endurance: 6, hunger: 100, thirst: 100, body_temp_c: 37 };
 
   check('a warm, fed player acts on their full sheet',
     effectiveStat(WARM, 'stat_reflexes') === 6 && statPenalty(WARM, 'stat_reflexes') === 0);
@@ -153,7 +153,15 @@ export default async function regress({ run, check, getPlayer }) {
     effectiveStat({ ...WARM, body_temp_c: 28 }, 'stat_reflexes')
       < effectiveStat({ ...WARM, body_temp_c: 32 }, 'stat_reflexes'));
   check('hunger costs Brawn', effectiveStat({ ...WARM, hunger: 4 }, 'stat_brawn') < 6);
-  check('thirst costs Cool', effectiveStat({ ...WARM, thirst: 4 }, 'stat_cool') < 6);
+  check('thirst costs Endurance, not Cool',
+    effectiveStat({ ...WARM, thirst: 4 }, 'stat_endurance') < 6
+      && effectiveStat({ ...WARM, thirst: 4 }, 'stat_cool') === 6);
+  check('...and worse thirst costs more',
+    effectiveStat({ ...WARM, thirst: 4 }, 'stat_endurance')
+      < effectiveStat({ ...WARM, thirst: 15 }, 'stat_endurance'));
+  check('...with the cognitive hit held back until it is severe',
+    effectiveStat({ ...WARM, thirst: 15 }, 'stat_brains') === 6
+      && effectiveStat({ ...WARM, thirst: 4 }, 'stat_brains') < 6);
   check('heat costs Brains, not Reflexes', (() => {
     const hot = { ...WARM, body_temp_c: 43 };
     return effectiveStat(hot, 'stat_brains') < 6 && effectiveStat(hot, 'stat_reflexes') === 6;

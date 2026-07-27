@@ -161,9 +161,14 @@ function buildAfflictions(player, drugStatus) {
   }
 
   if (player.covered_in_blood) add('Covered in blood', "Not necessarily yours. People notice.", 'warn');
+  // Only flag what's actually a problem. `clean` and `immaculate` are both good
+  // states — comparing against the band STRING missed immaculate and told a
+  // freshly washed player they needed a wash.
   const hyg = hygieneOf(player);
-  if (hyg.band && hyg.band !== 'clean') {
+  if (hyg.score < 65) {
     add(`Hygiene: ${hyg.band}`, hyg.score <= 25 ? 'You can be smelled from across the room.' : 'You could do with a wash.', 'warn');
+  } else if (hyg.score >= 85) {
+    add(`Hygiene: ${hyg.band}`, 'Washed, laundered, and nothing on you.', 'good');
   }
 
   return out;

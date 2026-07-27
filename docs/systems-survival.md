@@ -22,6 +22,25 @@ At ≤20 the player is warned ("very hungry/thirsty"). At 0:
 - **Dehydration:** −2 HP/min while thirst is 0 (thirst kills faster, matching the decay pacing).
 
 Both can reduce HP to 0 and trigger `handlePlayerDeath`. Restored by consumables (see **Buffs** below)
+
+**What deprivation costs before it kills you** (`condition.js` + `gameLoop.js`):
+
+| Meter | Stat penalty (`statPenalty`) | Stamina recovery (`deprivationRegenMultiplier`) |
+| --- | --- | --- |
+| Hunger ≤20 / ≤5 | Brawn −1 / −2 | ×0.75 / ×0.5 (×0.25 at 0) |
+| Thirst ≤20 / ≤5 | **Endurance** −1 / −2; Brains −1 at ≤5 | ×0.7 / ×0.45 (×0.2 at 0) |
+
+Thirst used to cost **Cool**, which was a pun rather than a symptom. It now costs Endurance —
+the documented headline effect of dehydration — with the cognitive hit held one band later. The two
+multipliers stack but are floored together at `DEPRIVATION_FLOOR = 0.2`, because `gain` is floored to
+an integer and the raw product would round a resting player's recovery to zero.
+
+**Endurance drives both maxima and the refill rate.** `maxHpForEndurance` (base 40, +2/point) and
+`maxStaminaForEndurance` (base 100, +4/point) in [ip.js](../server/engine/ip.js), plus
+`enduranceRegenMultiplier` in gameLoop (END 5 baseline, ±8%/point, clamped 0.6–1.4). The regen
+multiplier reads through `effectiveStat`, which is what makes dehydration's Endurance penalty land
+somewhere the player feels it. Both maxima are reconciled against `stat_endurance` **on login**
+([index.js](../server/index.js)), so existing characters self-heal with no migration script.
 and partially by sleep economics.
 
 ## Radiation

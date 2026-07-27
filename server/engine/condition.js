@@ -48,14 +48,29 @@ const STARVED_BRAWN = [
   [5, 2],    // at or below 5 — no strength left
   [20, 1],   // at or below 20 — very hungry
 ];
-const PARCHED_COOL = [
-  [5, 2],
-  [20, 1],
+
+// Dehydration, ordered the way it actually arrives. Thirst used to cost Cool,
+// which read as a pun rather than a symptom — being parched doesn't make you
+// lose your composure, it makes your body quit on you.
+//
+//   ENDURANCE   the first and largest real cost. Blood volume drops, the heart
+//               works harder for the same output, and everything aerobic gets
+//               shorter. This is the headline effect of being dehydrated.
+//   BRAINS      only once it's severe. Headache, poor concentration, slow
+//               decisions — the documented cognitive cost, and deliberately a
+//               band later than the endurance hit so the two don't land together.
+const PARCHED_ENDURANCE = [
+  [5, 2],    // at or below 5 — wrung out
+  [20, 1],   // at or below 20 — very thirsty
+];
+const PARCHED_BRAINS = [
+  [5, 1],
 ];
 
 // ── Cool and sanity: the loop that can catch you ─────────────────────────────
 //
-// Two directions, deliberately:
+// Cool is now purely a composure stat — the only thing that degrades it is
+// losing your grip, which is what it means. Two directions, deliberately:
 //
 //   COOL → SANITY   a cool head resists the city getting into it. High Cool
 //                   slows sanity loss; it does not stop it, because a character
@@ -164,15 +179,21 @@ export function statPenalty(player, stat) {
       // Exhaustion stacks on top: cold AND up all night is a bad place to fight.
       return bandPenalty(COLD_REFLEX, temp) + bandAbove(FATIGUE_REFLEX, tired);
     case 'stat_brains':
-      return bandPenalty(HOT_BRAINS, temp, true) + bandAbove(FATIGUE_BRAINS, tired);
+      // Overheating, exhaustion, and — only once it's severe — dehydration.
+      return bandPenalty(HOT_BRAINS, temp, true)
+        + bandAbove(FATIGUE_BRAINS, tired)
+        + bandPenalty(PARCHED_BRAINS, thirst);
     case 'stat_brawn':
       return bandPenalty(STARVED_BRAWN, hunger);
+    case 'stat_endurance':
+      // Dehydration's headline cost: you run out of body before you run out of
+      // will. This is the stat thirst should always have been taking.
+      return bandPenalty(PARCHED_ENDURANCE, thirst);
     case 'stat_cool': {
-      // Thirst frays the nerve before it takes the strength, and a mind coming
-      // apart takes your composure with it. Capped at 2 from sanity so the
-      // Cool→sanity→Cool loop degrades you rather than collapsing you.
+      // Composure only. A mind coming apart takes your poise with it, capped at
+      // 2 so the Cool→sanity→Cool loop degrades you rather than collapsing you.
       const sanityPct = player.sanity_max ? (player.sanity / player.sanity_max) * 100 : 100;
-      return bandPenalty(PARCHED_COOL, thirst) + bandPenalty(RATTLED_COOL, sanityPct);
+      return bandPenalty(RATTLED_COOL, sanityPct);
     }
     default:
       return 0;
@@ -198,6 +219,7 @@ export function effectiveStat(player, stat) {
  */
 export function conditionReport(player) {
   const temp = Number(player?.body_temp_c ?? 37);
+  const thirst = Number(player?.thirst ?? 100);
   const out = [];
   const push = (stat, why) => {
     const penalty = statPenalty(player, stat);
@@ -207,9 +229,10 @@ export function conditionReport(player) {
   const tiredWhy = tired >= FATIGUE_RUINED ? 'no sleep' : tired >= FATIGUE_EXHAUSTED ? 'exhausted' : 'tired';
   // Two sources can hit one stat, so name whichever is actually biting.
   push('stat_reflexes', bandPenalty(COLD_REFLEX, temp) ? (temp < 30 ? 'freezing' : 'cold') : tiredWhy);
-  push('stat_brains', bandPenalty(HOT_BRAINS, temp, true) ? 'overheating' : tiredWhy);
+  push('stat_brains', bandPenalty(HOT_BRAINS, temp, true) ? 'overheating'
+    : bandPenalty(PARCHED_BRAINS, thirst) ? 'dehydrated' : tiredWhy);
   push('stat_brawn', 'hunger');
-  const sanityPct = player?.sanity_max ? (player.sanity / player.sanity_max) * 100 : 100;
-  push('stat_cool', bandPenalty(PARCHED_COOL, Number(player?.thirst ?? 100)) ? 'thirst' : 'rattled');
+  push('stat_endurance', thirst <= 5 ? 'dehydrated' : 'thirst');
+  push('stat_cool', 'rattled');
   return out;
 }

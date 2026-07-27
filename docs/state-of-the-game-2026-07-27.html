@@ -1,0 +1,439 @@
+<title>Architect MUD — State of the Game</title>
+<style>
+  :root {
+    --paper: #e4e5e0;
+    --paper-2: #dadbd4;
+    --ink: #191a21;
+    --ink-2: #4c4e52;
+    --ink-3: #75776f;
+    --rule: #b9bbb2;
+    --signal: #c8401b;
+    --olive: #6b7a2c;
+    --steel: #4a6b7a;
+    --grid: rgba(25,26,33,.08);
+    --card: #ecede8;
+
+    --display: "Arial Narrow", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --body: Georgia, "Iowan Old Style", "Times New Roman", serif;
+    --data: ui-monospace, "Cascadia Mono", Consolas, "DejaVu Sans Mono", monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #121318; --paper-2: #17181f; --ink: #dcdde2; --ink-2: #a0a2a9;
+      --ink-3: #74767e; --rule: #2e3038; --signal: #f2662f; --olive: #9fb247;
+      --steel: #6fa3ba; --grid: rgba(220,221,226,.07); --card: #191a21;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #121318; --paper-2: #17181f; --ink: #dcdde2; --ink-2: #a0a2a9;
+    --ink-3: #74767e; --rule: #2e3038; --signal: #f2662f; --olive: #9fb247;
+    --steel: #6fa3ba; --grid: rgba(220,221,226,.07); --card: #191a21;
+  }
+  :root[data-theme="light"] {
+    --paper: #e4e5e0; --paper-2: #dadbd4; --ink: #191a21; --ink-2: #4c4e52;
+    --ink-3: #75776f; --rule: #b9bbb2; --signal: #c8401b; --olive: #6b7a2c;
+    --steel: #4a6b7a; --grid: rgba(25,26,33,.08); --card: #ecede8;
+  }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 17px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+  .sheet { max-width: 940px; margin: 0 auto; padding: 0 24px 96px; }
+  p { max-width: 66ch; }
+
+  /* ---------- masthead ---------- */
+  .masthead {
+    border-bottom: 3px solid var(--ink);
+    padding: 40px 0 14px;
+    margin-bottom: 4px;
+  }
+  .stamp {
+    font-family: var(--data);
+    font-size: 11px;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+    color: var(--signal);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 18px;
+    margin-bottom: 22px;
+  }
+  .stamp span:not(:first-child) { color: var(--ink-3); }
+  h1 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: clamp(44px, 9.5vw, 104px);
+    line-height: .86;
+    letter-spacing: -.02em;
+    text-transform: uppercase;
+    text-wrap: balance;
+    margin: 0 0 18px;
+  }
+  h1 em { font-style: normal; color: var(--signal); }
+  .dek {
+    font-size: 19px;
+    color: var(--ink-2);
+    max-width: 60ch;
+    margin: 0 0 8px;
+  }
+  .byline {
+    font-family: var(--data);
+    font-size: 11px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    border-top: 1px solid var(--rule);
+    padding-top: 10px;
+    margin-top: 22px;
+  }
+
+  /* ---------- haiku ---------- */
+  .haiku {
+    margin: 44px 0;
+    padding: 30px 34px;
+    background: var(--card);
+    border-left: 4px solid var(--signal);
+    display: grid;
+    gap: 20px;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+  }
+  .haiku p {
+    font-family: var(--display);
+    font-size: clamp(21px, 3.4vw, 30px);
+    line-height: 1.34;
+    letter-spacing: .01em;
+    margin: 0;
+    text-transform: uppercase;
+  }
+  .haiku .meter {
+    font-family: var(--data);
+    font-size: 10px;
+    letter-spacing: .18em;
+    color: var(--ink-3);
+    text-align: right;
+    line-height: 2.3;
+  }
+  @media (max-width: 560px) { .haiku { grid-template-columns: 1fr; } .haiku .meter { text-align: left; } }
+
+  /* ---------- sections ---------- */
+  section { margin-top: 64px; }
+  h2 {
+    font-family: var(--display);
+    text-transform: uppercase;
+    font-size: 13px;
+    letter-spacing: .28em;
+    color: var(--ink);
+    border-bottom: 1px solid var(--ink);
+    padding-bottom: 8px;
+    margin: 0 0 26px;
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  h2 .idx { color: var(--signal); font-variant-numeric: tabular-nums; }
+  h3 {
+    font-family: var(--display);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    font-size: 22px;
+    margin: 34px 0 8px;
+  }
+  .aside {
+    font-family: var(--data);
+    font-size: 12.5px;
+    line-height: 1.7;
+    color: var(--ink-2);
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+    padding: 12px 0;
+    margin: 26px 0;
+    max-width: 68ch;
+  }
+  .aside b { color: var(--signal); font-weight: 400; }
+
+  /* ---------- stat strip ---------- */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    margin: 34px 0;
+  }
+  .stat { background: var(--paper); padding: 16px 14px; }
+  .stat .n {
+    font-family: var(--display);
+    font-size: 34px;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -.01em;
+  }
+  .stat .l {
+    font-family: var(--data);
+    font-size: 10px;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin-top: 7px;
+    display: block;
+  }
+
+  /* ---------- charts ---------- */
+  figure { margin: 34px 0; }
+  figcaption {
+    font-family: var(--data);
+    font-size: 11px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin-bottom: 16px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .bars { display: grid; gap: 9px; }
+  .bar { display: grid; grid-template-columns: 148px 1fr 64px; align-items: center; gap: 12px; }
+  .bar .k { font-family: var(--data); font-size: 12px; color: var(--ink-2); }
+  .bar .track { height: 15px; background: var(--grid); position: relative; }
+  .bar .fill { height: 100%; background: var(--signal); }
+  .bar .fill.alt { background: var(--steel); }
+  .bar .fill.olive { background: var(--olive); }
+  .bar .v {
+    font-family: var(--data); font-size: 12px; text-align: right;
+    font-variant-numeric: tabular-nums; color: var(--ink);
+  }
+  @media (max-width: 620px) {
+    .bar { grid-template-columns: 108px 1fr 56px; gap: 8px; }
+    .bar .k, .bar .v { font-size: 11px; }
+  }
+
+  /* dot matrix */
+  .matrix { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 14px; }
+  .matrix i { width: 13px; height: 13px; background: var(--olive); display: block; }
+  .matrix i.off { background: var(--signal); }
+  .legend {
+    font-family: var(--data); font-size: 11px; color: var(--ink-2);
+    display: flex; flex-wrap: wrap; gap: 18px;
+  }
+  .legend b { display: inline-block; width: 10px; height: 10px; vertical-align: -1px; margin-right: 6px; }
+
+  /* table */
+  .tw { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; min-width: 540px; font-family: var(--data); font-size: 13px; }
+  th, td { text-align: left; padding: 9px 12px 9px 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th {
+    font-size: 10px; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--ink-3); border-bottom: 1px solid var(--ink);
+  }
+  td.n { font-variant-numeric: tabular-nums; }
+  .pill {
+    display: inline-block; padding: 1px 7px; font-size: 10.5px;
+    letter-spacing: .1em; text-transform: uppercase; border: 1px solid currentColor;
+  }
+  .pill.ship { color: var(--olive); }
+  .pill.part { color: var(--steel); }
+  .pill.paper { color: var(--signal); }
+
+  ul { max-width: 66ch; padding-left: 20px; }
+  li { margin-bottom: 7px; }
+  li b { font-family: var(--display); text-transform: uppercase; letter-spacing: .04em; font-size: 17px; }
+
+  .colophon {
+    margin-top: 72px; border-top: 3px solid var(--ink); padding-top: 16px;
+    font-family: var(--data); font-size: 11px; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--ink-3);
+    display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+  }
+</style>
+
+<div class="sheet">
+
+  <header class="masthead">
+    <div class="stamp">
+      <span>State of the Game</span>
+      <span>Architect MUD</span>
+      <span>27 July 2026</span>
+      <span>Branch: main · clean</span>
+    </div>
+    <h1>Thirty-Nine Days,<br>Two Hundred<br>Thousand <em>Lines</em></h1>
+    <p class="dek">A post-singularity text MUD with no framework, no ORM, no build step, and — as of this reporting period — one hundred and eight plugins. The state of the game is strong. The state of the game is also 5,822 zone files in a folder.</p>
+    <p class="byline">Compiled from the working tree · 1,877 commits · Contributors: HaveAGreatDave, Akerson</p>
+  </header>
+
+  <div class="haiku">
+    <p>Ship it, says the tree—<br>eleven thousand JSON<br>files agree with you.</p>
+    <div class="meter">5<br>7<br>5</div>
+  </div>
+
+  <section>
+    <h2><span>The State of the Union</span><span class="idx">01</span></h2>
+    <p>My fellow contributors: we stand at a moment of great opportunity, by which I mean a great many things are half-built and nobody has died of it yet. In thirty-nine days this repository went from empty to a functioning city with weather, jail, a casino, two professional sports leagues, an aviation simulator, a hygiene substrate, and a public library stocked exclusively with books whose copyrights expired. That is not a normal thing to have done. It is also not a normal thing to <em>maintain</em>.</p>
+
+    <div class="stats">
+      <div class="stat"><span class="n">1,877</span><span class="l">Commits</span></div>
+      <div class="stat"><span class="n">48/day</span><span class="l">Cadence</span></div>
+      <div class="stat"><span class="n">248k</span><span class="l">Lines of code</span></div>
+      <div class="stat"><span class="n">108</span><span class="l">Plugins</span></div>
+      <div class="stat"><span class="n">126</span><span class="l">DB tables</span></div>
+      <div class="stat"><span class="n">~11.1k</span><span class="l">Content files</span></div>
+      <div class="stat"><span class="n">54</span><span class="l">Design docs</span></div>
+      <div class="stat"><span class="n">17</span><span class="l">TODOs in src</span></div>
+    </div>
+
+    <div class="aside">Seventeen TODOs across 248,000 lines is either exemplary discipline or evidence that the debt lives somewhere a <b>grep</b> can't find it. This report assumes the latter, because it always is.</div>
+  </section>
+
+  <section>
+    <h2><span>Where the mass actually is</span><span class="idx">02</span></h2>
+    <p>The project describes itself as a Node server with a vanilla client. The tape measure disagrees about which of those is the project. The client is the single largest body of code in the repo — windshield, tablet OS, cockpit and aircraft renderers alone account for more than 24,000 lines, which is to say the "text MUD" ships a flight simulator with volumetric clouds.</p>
+
+    <figure>
+      <figcaption>Codebase mass by area · lines of JS / HTML / CSS</figcaption>
+      <div class="bars">
+        <div class="bar"><span class="k">client/</span><span class="track"><span class="fill" style="width:100%"></span></span><span class="v">110,270</span></div>
+        <div class="bar"><span class="k">plugins/</span><span class="track"><span class="fill alt" style="width:78.6%"></span></span><span class="v">86,708</span></div>
+        <div class="bar"><span class="k">server/</span><span class="track"><span class="fill alt" style="width:39.3%"></span></span><span class="v">43,308</span></div>
+        <div class="bar"><span class="k">scripts/</span><span class="track"><span class="fill olive" style="width:5.8%"></span></span><span class="v">6,421</span></div>
+        <div class="bar"><span class="k">tests/</span><span class="track"><span class="fill olive" style="width:1.9%"></span></span><span class="v">2,120</span></div>
+        <div class="bar"><span class="k">docs/ (prose)</span><span class="track"><span class="fill" style="width:22.3%"></span></span><span class="v">24,632</span></div>
+      </div>
+    </figure>
+
+    <p>The good news buried in that chart: <strong>plugins outweigh the server two to one.</strong> The engine-vs-plugin boundary is not an aspiration in a proposal doc, it is the actual shape of the code. Combat, survival, economy, flight, broadcast, crime — all of it sits outside the engine, which means the engine can still be reasoned about by one person on one afternoon. That is the single most valuable structural fact in this report.</p>
+
+    <figure>
+      <figcaption>Ten largest plugins · lines</figcaption>
+      <div class="bars">
+        <div class="bar"><span class="k">broadcast</span><span class="track"><span class="fill" style="width:100%"></span></span><span class="v">11,882</span></div>
+        <div class="bar"><span class="k">flight</span><span class="track"><span class="fill" style="width:69.6%"></span></span><span class="v">8,273</span></div>
+        <div class="bar"><span class="k">cooking</span><span class="track"><span class="fill alt" style="width:53.7%"></span></span><span class="v">6,375</span></div>
+        <div class="bar"><span class="k">tablet</span><span class="track"><span class="fill alt" style="width:45.0%"></span></span><span class="v">5,344</span></div>
+        <div class="bar"><span class="k">consort</span><span class="track"><span class="fill alt" style="width:41.8%"></span></span><span class="v">4,962</span></div>
+        <div class="bar"><span class="k">mis</span><span class="track"><span class="fill alt" style="width:36.9%"></span></span><span class="v">4,390</span></div>
+        <div class="bar"><span class="k">gametable</span><span class="track"><span class="fill alt" style="width:27.8%"></span></span><span class="v">3,308</span></div>
+        <div class="bar"><span class="k">surveillance</span><span class="track"><span class="fill alt" style="width:25.1%"></span></span><span class="v">2,980</span></div>
+        <div class="bar"><span class="k">bodily</span><span class="track"><span class="fill olive" style="width:15.9%"></span></span><span class="v">1,885</span></div>
+        <div class="bar"><span class="k">storefront</span><span class="track"><span class="fill olive" style="width:14.3%"></span></span><span class="v">1,703</span></div>
+      </div>
+    </figure>
+
+    <div class="aside">A single <b>broadcast/index.js</b> is 7,953 lines. It is one file. It contains channels, playlists, VINE scripts, NPC hosts, camera feeds, five live-assembled show modes, and two entire sports leagues. It is load-bearing television and it is one file.</div>
+  </section>
+
+  <section>
+    <h2><span>Where we made strides</span><span class="idx">03</span></h2>
+
+    <h3>Content left the database</h3>
+    <p>The CODEX cutover is the most consequential thing that shipped this period and the least exciting to look at. World content is now one JSON file per entity in git — roughly 11,100 of them — and a push to <code>main</code> is the deploy: schema first, content additively, backed up, regress-gated. Before this, "what is in the world" was a question you answered by querying production. Now it is a question you answer by reading a diff. Every other item on this list is downstream of that.</p>
+
+    <figure>
+      <figcaption>Content inventory · files per entity type (top 12 of 56)</figcaption>
+      <div class="bars">
+        <div class="bar"><span class="k">zones</span><span class="track"><span class="fill" style="width:100%"></span></span><span class="v">5,822</span></div>
+        <div class="bar"><span class="k">power_zones</span><span class="track"><span class="fill" style="width:30.6%"></span></span><span class="v">1,780</span></div>
+        <div class="bar"><span class="k">furniture</span><span class="track"><span class="fill alt" style="width:16.2%"></span></span><span class="v">943</span></div>
+        <div class="bar"><span class="k">items</span><span class="track"><span class="fill alt" style="width:8.5%"></span></span><span class="v">493</span></div>
+        <div class="bar"><span class="k">doors</span><span class="track"><span class="fill alt" style="width:3.4%"></span></span><span class="v">198</span></div>
+        <div class="bar"><span class="k">audio_samples</span><span class="track"><span class="fill alt" style="width:3.3%"></span></span><span class="v">195</span></div>
+        <div class="bar"><span class="k">npcs</span><span class="track"><span class="fill alt" style="width:2.9%"></span></span><span class="v">169</span></div>
+        <div class="bar"><span class="k">zone_spawns</span><span class="track"><span class="fill alt" style="width:2.7%"></span></span><span class="v">155</span></div>
+        <div class="bar"><span class="k">ambient_events</span><span class="track"><span class="fill alt" style="width:2.6%"></span></span><span class="v">154</span></div>
+        <div class="bar"><span class="k">quests</span><span class="track"><span class="fill olive" style="width:1.1%"></span></span><span class="v">63</span></div>
+        <div class="bar"><span class="k">enemies</span><span class="track"><span class="fill olive" style="width:0.7%"></span></span><span class="v">39</span></div>
+        <div class="bar"><span class="k">recipes</span><span class="track"><span class="fill olive" style="width:0.6%"></span></span><span class="v">36</span></div>
+      </div>
+    </figure>
+
+    <h3>The substrate pattern held</h3>
+    <p>Durability, relationships, hygiene, senses, cleaning — five systems shipped this period that all follow the same shape: an engine substrate that is <em>sync and query-free by contract</em>, with plugins contributing on top. <code>getRelation</code>, <code>hygieneOf</code>, and <code>wear</code> never touch the database at call time. That is the discipline that lets a room description gather smells, an NPC recall your face, and a rifle degrade mid-swing without any of it costing a round trip to Neon. It is also why the game will still be responsive at ten concurrent players instead of one.</p>
+
+    <h3>The regression gate is real</h3>
+    <p>90 of 108 plugins ship their own <code>regress.js</code>. The suite boots the world, sweeps every manifest against the live registries, and drives real commands through the dispatcher. This is unusually good coverage for a hobby project of this age, and it is the only reason the deploy pipeline is trustworthy enough to be a <code>git push</code>.</p>
+
+    <figure>
+      <figcaption>Regression coverage · one square per plugin · 90 covered, 18 not</figcaption>
+      <div class="matrix" id="mx" aria-label="90 of 108 plugins have a regress suite"></div>
+      <div class="legend">
+        <span><b style="background:var(--olive)"></b>Has regress.js — 90 (83%)</span>
+        <span><b style="background:var(--signal)"></b>No suite — 18 (17%)</span>
+      </div>
+    </figure>
+
+    <div class="aside">The eighteen without: <b>audio, bulletin, butchering, clothing-wetness, container, debug, emergency, fillable, food, interactions, knock, library, lighting, mutations, scavenging, shove, water, zone-validator.</b> Several of those are trivial. <b>scavenging</b>, <b>food</b>, <b>lighting</b>, <b>library</b> and <b>interactions</b> are not — they are systems players touch constantly, and they are currently defended by vibes.</div>
+
+    <h3>The weather can kill you, by name</h3>
+    <p>Extreme weather is complete through step 7d. Acid rain applies a <code>corroding</code> effect scaled by how much of you a waterproof garment actually covers, eats your gear through the ordinary durability path, and outlasts shelter until you wash. The ion storm blacks out the grid, fries unshielded carried electronics durably — a bench repair, not a new system — and knocks out chrome transiently in memory rather than bricking a paid-for augment. Both carry a full presentation kit: forecast icons, weather FX, audio beds, flight-canopy hazards, news headlines per phase, and radio beats. A hero day is knowable a week out; the hour it lands is not.</p>
+
+    <h3>You can walk between regions</h3>
+    <p>Overland void travel is built, not planned: the <code>voidwalking</code> plugin ships five verbs and hangs off the <code>movement.edge</code> seam, generating transient waste rooms off a region's rim that never touch the database. Reaching The Reach on foot is a survival gauntlet rather than a locked door, which is the whole reason the airfield network has stakes. This report's first edition filed it under design; it has its own regress suite.</p>
+
+    <h3>VINE authors the branching content</h3>
+    <p>Quests, dialogue trees, enemy behaviour trees and broadcast scripts are all authored in one graph editor with a shared Suite front page and a schema per family. The quest schema converts a <code>quests</code> row to a prerequisite DAG and back, so objectives and rewards are drawn rather than typed. This report's first edition claimed there was no visual quest editor; that came from a stale README bullet, which has since been deleted.</p>
+
+    <h3>Documentation that outranks memory</h3>
+    <p>24,632 lines of docs across 54 files, with an explicit convention that <em>(as built)</em> beats design intent. The docs are load-bearing enough that CLAUDE.md tells you to read the relevant one before touching a system. Most projects this age have a README and a lie.</p>
+  </section>
+
+  <section>
+    <h2><span>Where the work remains</span><span class="idx">04</span></h2>
+    <p>Progress reports are a genre in which everything is going well and the challenges ahead are exciting. In that spirit, here are the exciting challenges ahead.</p>
+
+    <div class="tw">
+      <table>
+        <thead>
+          <tr><th>Front</th><th>Status</th><th>What's actually missing</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Regress coverage</td><td><span class="pill part">Partial</span></td><td>18 plugins with no suite; the risky five are scavenging, food, lighting, library, interactions</td></tr>
+          <tr><td>Corps</td><td><span class="pill part">Phases 0–3</span></td><td>Espionage and NPC corp AI still design-only; venture half lives in a proposal</td></tr>
+          <tr><td>Flight</td><td><span class="pill part">Live + legacy</span></td><td>The old banded model and its minigame decks are unreachable dead code still sitting in the tree</td></tr>
+          <tr><td>Swimming</td><td><span class="pill part">Surface only</span></td><td>Boat boarding and underwater content pending</td></tr>
+          <tr><td>Helm</td><td><span class="pill part">Built</span></td><td>Tablet mount pending</td></tr>
+          <tr><td>Wildlands / Curtain</td><td><span class="pill part">Map built</span></td><td>South Gate, glacis, badlands, camp shells and the 63-tile Curtain all shipped as content; the <code>perimeter</code> plugin (move-gate backstop + turret kill-zone) and every faction NPC still pending</td></tr>
+          <tr><td>Prod one-shots</td><td><span class="pill paper">Manual</span></td><td>CI never runs seed-runtime; lights, ATM units, vendor stock and NPC zone_ids need a hand-run after every deploy</td></tr>
+          <tr><td>Working tree</td><td><span class="pill paper">Dirty</span></td><td>~10 entangled projects sitting uncommitted; git stash is a data-loss trap here</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="aside">Not on this table, deliberately: <b>trading cards</b>. The renderer works and nothing loads it, because whether the game ships cards at all is an undecided question rather than an unfinished job. A prototype parked at the point it proved its approach is not debt — it's a spike that did what spikes are for. The whole thing is one self-contained file to delete if the answer is no.</div>
+
+    <h3>The three that actually matter</h3>
+    <ul>
+      <li><b>The manual post-deploy step.</b> A deploy that isn't finished until a human remembers to run a script against production isn't a deploy, it's a ritual. Every other piece of the CODEX pipeline is automated and gated. This one gap will eventually ship a city with the lights off, and it will happen on the day nobody is watching.</li>
+      <li><b>The uncommitted backlog.</b> Ten entangled projects in one dirty tree means no single change can be reverted, reviewed, or bisected. The regression suite is excellent and cannot help you here, because it can only test what you managed to commit.</li>
+      <li><b>Content mass versus content depth.</b> 5,822 zones against 169 NPCs, 63 quests, and 39 enemies. The world is enormous and thinly populated — the map has outrun the reasons to walk it. The next expansion pass probably shouldn't be a map.</li>
+    </ul>
+
+    <div class="aside">Ratio worth staring at: <b>34 zones per NPC</b> · <b>92 zones per quest</b> · <b>149 zones per enemy</b>. A player can walk for a very long time in a very beautiful place and meet nobody.</div>
+  </section>
+
+  <section>
+    <h2><span>In conclusion</span><span class="idx">05</span></h2>
+    <p>The foundations are, genuinely, better than they have any right to be at thirty-nine days old: a clean engine/plugin boundary that the line counts confirm rather than contradict, content in git with a gated deploy, a real regression suite, and a documentation habit that survives contact with the code. The rare failure mode for a project like this is architectural, and that failure did not happen here.</p>
+    <p>What is at risk is narrower and more ordinary. There is more world than there is life in it, more shipped systems than committed ones, and one manual step standing between a push and a working city. None of those are hard problems. They are just the unglamorous ones, and this report notes with regret that they do not get done by being noted in a report.</p>
+    <p>The state of the game is strong. Commit your tree.</p>
+  </section>
+
+  <div class="colophon">
+    <span>Architect MUD · State of the Game</span>
+    <span>Figures from working tree, 27 Jul 2026</span>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var mx = document.getElementById('mx');
+    if (!mx) return;
+    for (var i = 0; i < 108; i++) {
+      var d = document.createElement('i');
+      if (i >= 90) d.className = 'off';
+      mx.appendChild(d);
+    }
+  })();
+</script>

@@ -199,6 +199,20 @@ export function interiorExitDirs(zone) {
   return dirs.length ? dirs : null;
 }
 
+// Every cardinal direction an interior room can actually be left by (any exit, not
+// just the ones leaving the building). Drives the alternative "edge lines" door style
+// on the maps: an open side gets a green edge, a walled side a red one. Deliberately
+// null for exteriors and facades — out on the street nearly every tile is open on all
+// four sides, so the mode would paint the whole map green and say nothing.
+export function interiorOpenDirs(zone) {
+  if (!zone || isEnterableFacade(zone)) return null;
+  if (!(zone.flags?.is_interior || zone.flags?.is_apartment || zone.flags?.is_building)) return null;
+  // An empty array is a real answer here (a room whose only way out is a legacy
+  // in/out exit is walled on all four sides), so this returns [] rather than null —
+  // null means "not an interior tile, don't draw edges at all".
+  return Object.keys(primaryExits(zone)).filter(d => INTERIOR_EXIT_DIRS.has(d));
+}
+
 // Terrain class for the map/minimap surfaces: 'road' | 'water' | 'grass' | null.
 // Drives the client's tileable water/grass fill and the grey-asphalt / yellow-markings
 // road recolour. Grass = parkland, detected by an authored green surface colour (the
@@ -920,6 +934,7 @@ export function getMinimapData(centerZoneId, depth = 8, viewer = null) {
       building_type: buildingTypeOf(zone), // facade tile's type — drives the sidebar/full-map labels/icons overlay
       entrance: buildingEntranceDir(zone), // which edge the door faces — drives the map entrance arrow
       exit_dirs: interiorExitDirs(zone), // interior room's ways out — drives the interior map's exit arrows
+      open_dirs: interiorOpenDirs(zone), // every cardinal side that's open — drives the "edge lines" door style
       terrain: zoneTerrain(zone), // 'road' | 'water' | 'grass' | null — tileable terrain styling
       district: (() => { const d = districtFor(zone); return { key: d.key, name: d.name, color: d.color }; })(),
       artery: Array.isArray(zone.flags?.artery) ? zone.flags.artery : (zone.flags?.artery ? [zone.flags.artery] : null),

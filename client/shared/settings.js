@@ -1,6 +1,6 @@
 const SETTINGS_KEY = 'architect_settings';
 export const DEFAULT_AUDIO_SETTINGS = { enabled: true, music: true, sfx: true, tv: true, welcome: true, masterVolume: 0.40, musicVolume: 0.40, sfxVolume: 0.25, ambientVolume: 0.25, tvVolume: 0.25, muteWhenHidden: true };
-const DEFAULT_SETTINGS = { theme: 'dark', fontSize: '16', density: 'comfortable', sidebarPosition: 'left', motion: 'on', weatherFx: 'on', tempUnit: 'C', contrast: 0, dpadSize: 'small', pokerFelt: 'green', pokerFeltColor: '#1a4a1a', extraLore: 'off', mapOverlay: 'labels', audio: DEFAULT_AUDIO_SETTINGS };
+const DEFAULT_SETTINGS = { theme: 'dark', fontSize: '16', density: 'comfortable', sidebarPosition: 'left', motion: 'on', weatherFx: 'on', tempUnit: 'C', contrast: 0, dpadSize: 'small', pokerFelt: 'green', pokerFeltColor: '#1a4a1a', extraLore: 'off', mapOverlay: 'labels', mapDoors: 'arrows', audio: DEFAULT_AUDIO_SETTINGS };
 
 const DEFAULT_FELT_GREEN = '#1a4a1a';
 
@@ -144,6 +144,13 @@ function _mapOverlayMode(settings) {
   return m === 'none' ? 'none' : 'labels';
 }
 
+// How an interior room's ways in/out are drawn: 'arrows' (the amber triangles that
+// have always been there) or 'edges' (a thin green line on every open side, red on
+// every wall). Interior tiles only — see interiorOpenDirs() server-side.
+function _mapDoorsMode(settings) {
+  return settings.mapDoors === 'edges' ? 'edges' : 'arrows';
+}
+
 export function loadSettings() {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
@@ -153,6 +160,7 @@ export function loadSettings() {
     // Normalise here rather than at each reader, so the Settings pills highlight the
     // mode a retired value now maps to instead of showing nothing selected.
     merged.mapOverlay = _mapOverlayMode(merged);
+    merged.mapDoors = _mapDoorsMode(merged);
     return merged;
   } catch {
     return { ...DEFAULT_SETTINGS, audio: { ...DEFAULT_AUDIO_SETTINGS } };
@@ -346,6 +354,10 @@ export function applySettings(settings) {
   // gate — panels/minimap.js registers it and re-renders in place, so the pill takes
   // effect without a move. Other clients have no minimap and skip it.
   window._applyMapOverlay?.(_mapOverlayMode(settings));
+
+  // Interior door style (arrows | edges) — same hook pattern, drives both the sidebar
+  // minimap and the tablet map app.
+  window._applyMapDoors?.(_mapDoorsMode(settings));
 
   const audio = settings.audio || DEFAULT_AUDIO_SETTINGS;
   window.AudioEngine?.applyVolumeSettings(audio);
