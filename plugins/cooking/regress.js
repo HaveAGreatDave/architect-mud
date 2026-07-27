@@ -6,7 +6,7 @@ import { query } from '../../server/models/db.js';
 import { reloadItem, deleteItemCache } from '../../server/engine/items-cache.js';
 import { insertFurniture, deleteFurniture, getFurnitureById } from '../../server/engine/world.js';
 import { computeDuration, checkCooking, _test as cookTest } from './cook.js';
-import { THAW_STAGES, COOK_STAGES, STOVE_SPEED, COOK_SECONDS_PER_KG, stageText, BARE_VESSEL, PEAK_LINES, SLIPPING_LINES, FADING_LINES, STAGE_LINES, lineFor, stagesFor } from './config.js';
+import { THAW_STAGES, COOK_STAGES, STOVE_SPEED, COOK_SECONDS_PER_KG, MIN_COOK_MS, stageText, BARE_VESSEL, PEAK_LINES, SLIPPING_LINES, FADING_LINES, STAGE_LINES, lineFor, stagesFor } from './config.js';
 import { PROFILES, LEGACY_BAND_INDEX, profileNameFor, profileNeedsPrep, needsPrep, validateProfiles, QUALITY_BANDS, bandIndex, donenessLevels, donenessLevel, donenessAt, achievedDoneness } from './profiles.js';
 import { leavesFond, makeFond, fondState, fondModifier, fondText, fondBelongs } from './fond.js';
 import { prepWindowMult, prepBurnMult, prepCeilingDrop, prepBonus, marinadeStrength, canMarinate, prepText } from './prep.js';
@@ -79,6 +79,19 @@ export default async function regress({ run, check, getPlayer }) {
   const quartered = computeDuration(250, STOVE_SPEED.low, false);
   check('a quarter-weight piece takes MORE than a quarter of the time',
     quartered.cookMs > unfrozen.cookMs * 0.25, { quartered, unfrozen });
+
+  // ── The floor: every quality window is a fraction of cookMs, so a cook nobody
+  // can react inside has no game in it. The worst case was a minced eighth-portion
+  // of glassberries at ~1 SECOND.
+  const tiny = computeDuration(70 * 0.125, STOVE_SPEED.high, false, 0.5 * 0.35);
+  check('a tiny minced portion is floored, not instant', tiny.cookMs === MIN_COOK_MS, tiny);
+  check('...and the floor leaves the tightest profile a playable window',
+    MIN_COOK_MS * 0.25 >= 5000, MIN_COOK_MS);
+  check('the floor never LENGTHENS an ordinary cook',
+    computeDuration(1000, STOVE_SPEED.low, false).cookMs
+      === Math.round(COOK_SECONDS_PER_KG / STOVE_SPEED.low * 1000));
+  // Nothing to cook stays nothing to cook — a 0g row must not become a 20s cook.
+  check('a weightless row is 0, not floored', computeDuration(0, STOVE_SPEED.low, false).cookMs === 0);
 
   check('stage text is monotonic and covers 0..1', stageText(COOK_STAGES, 0) === 'raw, glistening' && stageText(COOK_STAGES, 1) === 'cooked through, a faint char forming', {
     a: stageText(COOK_STAGES, 0), b: stageText(COOK_STAGES, 1),

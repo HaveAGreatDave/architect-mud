@@ -46,6 +46,33 @@ export const THAW_SECONDS_PER_KG = 180;  // frozen food thaws before the cook cl
 // Applies to thawing too, which is the same physics with a worse conductor.
 export const MASS_EXPONENT = 2 / 3;
 
+// MIN_COOK_MS — the floor under the whole timing game.
+//
+// Every window in this system is a FRACTION of cookMs: the peak band, the
+// forgiving stretch, the burn point. That works beautifully at 6 minutes and
+// collapses at 6 seconds — a cook shorter than a player's reaction time isn't a
+// test of attention, it's a coin flip decided by rounding. Before this floor the
+// true minimum was glassberries, minced and cut to an eighth, at ~1 SECOND.
+//
+// The `egg` profile is the evidence this was already biting: its cookRateMult
+// was deliberately inflated away from a realistic value because a 60g egg
+// otherwise had a 1.6-second peak window "no player can act inside". That was
+// the right diagnosis and a local fix for a global problem — this is the global
+// one. (The egg's rate is left alone here; unwinding that hack is a balance
+// change, not a bug fix.)
+//
+// 20s is chosen so the TIGHTEST profile still gets a playable band: batter peaks
+// for 5.0s, egg for 6.0s, and the roomy profiles get 12–14s. Fast food stays
+// fast — it just stops being faster than anyone can watch.
+//
+// Deliberately floors cookMs ONLY, not thaw. Thawing isn't graded, so a 2-second
+// thaw on a berry is fine; it's the quality window that needs room to exist.
+//
+// Consequence, accepted: at or under the floor, stove tier and mincing stop
+// mattering. That is honest — you cannot meaningfully sear a berry faster than
+// you can look at it — but it does mean those levers no-op on the lightest food.
+export const MIN_COOK_MS = 20_000;
+
 // PORTIONS — half an onion is an onion cut in half.
 //
 // A portioned ingredient is a fraction of the whole: it weighs proportionally
