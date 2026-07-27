@@ -307,6 +307,15 @@ override**, which is exactly the shape P5 asks for.
 `{message, loudness}`. It is not the audio field. Per-zone **music** is `audio_theme_id`, a
 different column doing a different job; see §6.1 and §16.3.)*
 
+**`audio_theme_id` is the first concrete use of this mechanism on a game-facing field, and it
+is a good worked example to spec first in step 2.** It is the clean case: the default lives at
+region/district level, the override lives on the tile, the tile stores nothing when it agrees,
+and *nothing is derived at all* — no palette lookup, no adjacency, no computation. It exercises
+the defaults-and-overrides plumbing end to end (authored default → resolved value → Studio
+showing the inherited value greyed out → typing over it writing an override) without any of
+derive's complexity riding along. Get this one right and the presentation cases are the same
+shape with a derivation in the middle.
+
 ### 5.6 What content lives where
 
 | file | holds | authored by |
@@ -409,20 +418,20 @@ residential-lobby rooms, 1 Meridian. So the flag is ~30% wrong in each direction
 loot-table refs, the flight set, the feature anchors (§9.4), `name`, `description`, `exits`
 (re-homed by §8), `map_id`, `grid_*`, `parent_zone`, `ambient_events`.
 
-**WRONG SHAPE — `audio_theme_id`.** A real column with a real FK
-([schema.js:1345](../../server/models/schema.js)), **set on 0 of 5,785 zones**. It is *not*
-dead code — see §16.3, which corrects an earlier reading of this field. The mechanism works;
-it is the **per-tile shape** that is wrong. A column that is NULL 5,785 times to express a
-setting that varies by *area* belongs at region or district level with a per-tile override
-(§5.5), costing ~10 authored values instead of 5,785 nulls. Decision pending (§16.3); the
-field-count consequence is small either way and is noted there rather than in §6.2's total.
+**DEMOTE — `audio_theme_id`. Decided (§16.3).** A real column with a real FK
+([schema.js:1345](../../server/models/schema.js)), **set on 0 of 5,785 zones**. It is *not* dead
+code — the mechanism works ([audio/index.js:187-192, :245](../../plugins/audio/index.js)); it is
+the **per-tile shape** that is wrong. A column NULL 5,785 times to express something that varies
+by *area* moves to a **region/district-level default with a per-tile override** (§5.5), costing
+~10 authored values. It leaves the per-tile surface entirely.
 
 ### 6.2 The number
 
 | | before | after | change |
 |---|---|---|---|
 | authored field-instances | **67,782** | **~35,469** | **−32,313 (−48%)** |
-| authored field *types* (cols + flag keys) | 114 | ~106 | −8 |
+| authored field *types* (cols + flag keys) | 114 | ~105 | −9 |
+| region/district-level fields | 0 | 1 (`audio_theme_id`, ~10 values) | +1 |
 | `content/zones` bytes | 26 MB | ~14 MB (est.) | ~−45% |
 | files touched by a terrain repaint | 1,004 (`9f76f9d3`) | 1 | |
 
@@ -430,6 +439,12 @@ field-count consequence is small either way and is noted there rather than in §
 because the long tail of ~60 rare feature-anchor keys stays deliberately (§9.4). The win is
 **48% of the authored values in the tree disappearing**, and with them the entire class of
 "someone hand-set a value that should have been implied".
+
+**One clarification on `audio_theme_id`, because it is easy to over-credit.** Demoting it to a
+regional default removes a *field type* and a dead box from every tile's editor, but it removes
+**zero instances** from the 67,782 — the column is NULL on all 5,785 tiles, and the count above
+only ever counted non-empty values. The bloat it represented was schema surface and UI surface,
+not stored data. Worth doing, worth not double-counting.
 
 Not counted, and available later if wanted: **214 distinct descriptions across 5,439 tiles**
 means terrain-default prose could retire several thousand more instances. That is a design
@@ -910,7 +925,7 @@ qualifier: the ~5 structured-config keys need a real shape (§9.1 gap 3).
 for a narrower reason than stated.**
 
 It is not intrinsically DB-coupled and it already reaches the files. The map-audit script proves
-reading `content/` is cheap — 5,439 tiles, 38 rules, **1.45 s**, no DB, no server boot
+reading `content/` is cheap — 5,439 tiles, 38 rules, **1.45 s**, no server boot
 ([SKILL.md](../../.claude/skills/map-audit/SKILL.md)) — and
 [content-sync.js](../../server/api/content-sync.js) proves the panel can write them. Access is
 not the problem. content-sync writes a **dump**, so the panel cannot express an
@@ -1077,8 +1092,14 @@ Windows.
    what a human chose. The model made visible, and the best defence against it decaying: if a
    region lights up solid, someone has been overriding defaults by hand.
 3. **The warp layer and trace probe** (§11).
-4. **The map audit running inline.** It reads `content/` in 1.45 s; run it on save and paint the
-   findings onto the map. Defects stop being a report and become a thing you see.
+4. **The map audit running inline — but only half of it, and the split is worth stating.** Once
+   the audit reads the resolved DB (§17.1) it can no longer see the Studio's *unsaved* document,
+   so "run the audit on every keystroke" is not available. What is: the **authored-half rules**
+   (NAME-1, PROSE-1/2, TERRAIN-1, FLAG-3, SCAV-1, TABLE-1/2, NAME-2) test only fields the Studio
+   already holds in memory, so they run live against the working document and paint onto the map
+   as you edit. The **derived-half rules** need the build to have run, so they arrive after an
+   import — the Studio surfaces the last full audit's findings as a second, dated layer. Two
+   latencies, honestly labelled, rather than one that quietly lies about freshness.
 5. **Git-diff preview before save.** The review step moved to the moment of authoring.
 6. **Undo history.** Free once the tool owns an in-memory document; impossible in today's staged-
    PATCH model.
@@ -1103,6 +1124,15 @@ COMMIT
 **Determinism.** A pure function of `(zones, maps, connections, palette)`: no clock, no RNG, no
 environment reads, sorted iteration, no dependence on which rows the upsert touched.
 `TRUNCATE`-then-rebuild makes idempotency trivial and removes the stale-row class.
+
+**Purity is enforced at the build seam, not observed second-hand.** The import hands the derive
+module nothing but parsed content — plain objects — and **no DB handle is in scope**. A `query()`
+added to derive therefore throws at build time, in CI, naming the offending call, rather than
+silently working in dev and producing a value that varies by database. This is the whole
+enforcement mechanism, and it is deliberately the *only* one: an earlier draft argued that
+keeping the map audit DB-free would police derive's purity as a side effect, which is a
+non-sequitur (§17.1). One mechanism per job. Inspecting the seam directly is a stronger check
+than inferring it from an unrelated tool's dependency list.
 
 **These conventions already exist and should simply be codified.** `wildlands-expand.mjs:49-52`
 uses a sin-hash rather than `Math.random` so re-runs are identical, and pins a fixed `updated_at`
@@ -1265,8 +1295,9 @@ Also worth naming, same defect class, **reported not fixed**:
    `item:` principal preserves unchanged. The minting seam is live code that has never fired.
    **Migration input is nothing** — no access lists to seed. Re-run the census immediately
    before step 5 to confirm it is still zero; it is read-only and cheap.
-3. **`audio_theme_id` — the shape, not the wiring.** See §16.3; this is the one substantive
-   question still open.
+3. ~~**`audio_theme_id`**~~ — **RESOLVED: demote to a region/district default with a per-tile
+   override** (§16.3). Spec it first in step 2 as the worked example for defaults-and-overrides
+   (§5.5).
 4. **Interior placement for `in`/`out`-linked rooms.** The build must pick something
    deterministic, and whatever it picks binds every in/out interior in the world.
 5. **Sharding `content/zones/`** (§7.5). 5,785 flat files today; ~58,000 at 10×. The deletion
@@ -1276,7 +1307,7 @@ Also worth naming, same defect class, **reported not fixed**:
 6. **Catalog rename** to `fieldCatalog.js` — honest, but touches every importer; step 4 work.
 7. **Structured-value schemas** — `checkpoint_cfg`, `elevator_floors` and ~3 others.
 
-### 16.3 `audio_theme_id` — the one substantive open question
+### 16.3 `audio_theme_id` — decided: demote to a regional default
 
 **First, three corrections**, because this field has been mischaracterised twice during this
 investigation and the record should be right:
@@ -1300,25 +1331,21 @@ not radio names. Somebody wrote the beds for this and never placed them.
 
 **The reason it reads as bloat is the shape, not the wiring.** It is a per-tile column that is
 NULL 5,785 times to express something that varies by *area*. Under §5.5 it should not be
-per-tile at all. Two choices:
+per-tile at all.
 
-**Option A — demote to a regional/district default with a per-tile override.** `content/map/
-terrain.json`'s sibling — a region or district carries `audio_theme_id`, a tile overrides it
-only where a specific room wants its own bed. Costs **~10 authored values** instead of 5,785
-nulls, makes the six orphan songs placeable in an afternoon, and the Studio gets one field on
-the region inspector rather than a dead box on every tile. Field-count effect on §6.2: the
-column leaves the per-tile surface entirely (−1 type, −0 instances, since it is already 0), and
-~10 instances appear at region level.
+**DECIDED: demote to a region/district-level default with a per-tile override.** A region or
+district carries `audio_theme_id`; a tile overrides it only where a specific room wants its own
+bed. ~10 authored values instead of 5,785 nulls, the six orphan songs become placeable in an
+afternoon, and the Studio gets one field on the region inspector rather than a dead box on every
+tile.
 
-**Option B — drop the column.** Honest if per-zone music is not wanted. Costs the six songs and
-the only mechanism for it; `audio_event_routes` could carry it later, but nothing uses that path
-for music today either. Field-count effect: −1 type.
+The alternative — dropping the column — was rejected: the mechanism is built and working and the
+content exists unplaced. The only thing wrong is that it was modelled at the wrong granularity,
+which is exactly the defect this proposal exists to fix. Deleting a working feature because it
+was shaped badly would be the wrong lesson to take from this exercise.
 
-**Recommendation: A.** The mechanism is built and working, the content exists and is unplaced,
-and the only thing wrong is that it was modelled at the wrong granularity — which is precisely
-the defect this whole proposal exists to fix. Dropping a working feature because it was shaped
-badly would be the wrong lesson. But this is a content-direction call, not an architecture one,
-so it is John's.
+Field-count effect is recorded in §6.2, including the caution not to over-credit it: it removes
+a *type*, not instances.
 
 **Risks:**
 
@@ -1328,8 +1355,11 @@ so it is John's.
   makes cheap.
 - **Migration step 2 produces one enormous diff.** Unavoidable — it is the diff that ends all the
   other enormous diffs. Ship it alone.
-- **A derivation bug ships on 5,439 tiles at once.** Mitigated by the CI gate, and by the
-  audit's resolved mode — **which is now a step-2 deliverable, not a risk to watch** (§17).
+- **A derivation bug ships on 5,439 tiles at once.** Mitigated by the CI gate, by derive's purity
+  being enforced at the build seam (§13), and by the audit reading the resolved DB — **a step-2
+  deliverable, not a risk to watch** (§17.1).
+- **The audit reports green on a stale local DB.** The new failure mode created by that port,
+  and the reason the HEAD-marker refusal in §17.1 is a hard stop rather than a warning.
 - **Two tools is a real cost.** Someone will paint in the Studio and wonder why the dev panel's
   map is stale. Mitigation: read-only geometry, and say so on screen.
 - **Something reads a derived field as law and nobody notices.** This is how `flags.icon` became
@@ -1351,24 +1381,125 @@ access list, the derive module's function list, the column-catalog extension, th
 rename script, the Studio's document model and gestures. **Spike the cross-table cost first
 (§16.1).**
 
-**Also in step 2's scope, and not optional: the map audit gains a resolved mode.** Today it
-reads `content/` and evaluates 38 rules over 5,439 tiles in **1.45 s with no DB and no server
-boot** ([SKILL.md](../../.claude/skills/map-audit/SKILL.md)) — that cheapness is the reason it
-gets run at all, and it must survive. But after this redesign, half the facts the rules test are
-derived and simply absent from `content/`, so an unchanged audit would silently stop seeing
-them: it would still pass while looking at a world that no longer exists on disk.
-
-The requirement is therefore specific: **the audit runs the derive module in-process and audits
-the resolved world.** That is affordable precisely because the derive module is a pure function
-of the content tree (§13) — no DB, no boot, no server. Cost estimate: the derive pass is
-comparable work to the audit's own tree read, so expect **~1.5 s → ~3 s**, still an
-open-a-terminal-and-run-it tool. If the spec ever finds itself proposing a DB connection or a
-world boot to make the audit work, the derive module has stopped being pure and *that* is the
-bug — the audit's cheapness is a canary for the build step's purity, not just a convenience.
+**Also in step 2's scope, and not optional: port the map audit to read the resolved DB.** See
+§17.1 — this replaces an earlier proposal in this document that the audit re-run derive itself,
+which was wrong.
 
 *Gate:* a spec another agent could implement without re-deriving any of this; a working proof
-that a building can be placed end-to-end writing only content files; and an audit prototype that
-evaluates one derived rule (WEZ-1 is the cheapest) against the resolved world in under 5 s.
+that a building can be placed end-to-end writing only content files; and the audit reading
+`zones` + `zone_render` + `zone_edges` from a local DB with its existing rule set green.
+
+### 17.1 The audit reads the DB
+
+After this redesign, half the facts the rules test are derived and **absent from `content/`
+entirely**. An unchanged files-only audit would not merely miss them — it would keep reporting
+green while looking at a world that no longer exists on disk.
+
+**An earlier draft of this document proposed that the audit run the derive pass in-process, and
+argued that keeping the audit DB-free enforced derive's purity. Both halves were wrong.**
+
+The second half first, because it is the cleaner error: *"if the audit needs a DB, derive has
+stopped being pure"* is a non-sequitur. An audit needing a DB says nothing whatever about
+derive's purity — it says only that the audit reads the artifact rather than re-simulating it.
+Two independent concerns were welded together, and the weld was load-bearing in the argument.
+
+The first half is worse. **If the audit runs its own derive pass, it audits its own arithmetic.**
+The moment the audit's derive and the build's derive diverge — a stale import, a different call
+path, one updated without the other — the audit goes green while prod is wrong. That is exactly
+the failure class this entire rebuild exists to eliminate, reintroduced inside the tool built to
+catch it. It is the `HA`/`HO`/`HR` defect one level up.
+
+**And a files-only audit is structurally blind to three things**, none of which re-simulation
+fixes:
+
+1. **Round-trip loss.** It only ever reads the input side, so anything export/import mangles is
+   invisible to it by construction.
+2. **Generated tables, entirely.** `zone_render` and the ~10,633 `zone_edges` rows are not in
+   `content/` at all. **A files-only audit cannot check that generated connections are
+   reciprocal, because it cannot see a single one.** This alone is disqualifying.
+3. **Drift** — the thing CI's prod drift report exists to catch, one level up.
+
+**So the audit reads the DB and audits the world that ships.**
+
+#### What actually changes in the rules
+
+Read from `audit-map.mjs` rather than assumed. The audit loads six tables through one helper,
+`loadDir()` ([:356-361](../../.claude/skills/map-audit/scripts/audit-map.mjs)): `zones`, `maps`,
+`zone_spawns`, `doors`, `scavenging_tables`, `scavenging_table_items`. Each becomes a `SELECT`.
+
+- **No rule keys on the filename.** `__file` is attached at `:360` and used in exactly two
+  places: `writeEntity()` (`:362-365`) and a path printout (`:932`). The pk↔filename agreement
+  check the coordinating brief worried about lives in **`content:lint`**
+  ([lint.mjs:80](../../scripts/content/lint.mjs)), not here. So the rule bodies port unchanged —
+  they already operate on plain row objects.
+- **The authored-half rules are untouched.** NAME-1, PROSE-1, PROSE-2, SCAV-1, TERRAIN-1, PAL-1,
+  NAME-2, TABLE-1/2, FLAG-3 read columns that exist identically in the DB.
+- **The derived-half rules become possible for the first time** — the reciprocity and
+  connection-graph checks that today can only be inferred from two half-facts.
+- **The audit already imports engine modules and already loads `db.js`.** It pulls `DISTRICTS`
+  from `districts.js` (`:37-40`) and `zoneTerrain` from `world.js` (`:45-47`) — and
+  `world.js:1` imports `query` from `models/db.js`, whose `new Pool(...)` runs at module load
+  (`db.js:42`). The pool is lazy, so no connection is made, but **"no DB" was already only "no
+  queries issued"**. The friction delta of this port is smaller than it looks.
+
+#### The fixers split, and that is deliberate
+
+Nine rules carry auto-fixers (BLD-1, BLD-4, WEZ-1/2/3, SPAWN-1, DIR-1, MARK-1, MARK-3), and they
+**write files** — `writeEntity()` serialises through `content:export`'s own `canonicalJson` so a
+fix is byte-identical to what the next export would produce (`:30-35`).
+
+**That must not change.** The audit reads the resolved DB and writes authored `content/` files.
+Writing the DB would be precisely the "authoring against the live database" this whole proposal
+forbids. So the fixer path gains one mapping step — resolved row → authored file — which for
+`zones` is pk → filename and is the *only* place file-tree structure legitimately enters.
+
+Re-examined against the new model, most of these fixers stop existing rather than moving:
+
+| fixer | fate |
+|---|---|
+| `setWez` (WEZ-1/2/3), `setIsBuilding` (BLD-4), `clearMarker` (MARK-1), `setMarker` (MARK-3) | **obsolete** — their fields become derived (§6.1), so the rules are impossible and the fixers have nothing to write |
+| `sealFacade` (BLD-1), `cardinaliseInterior` (DIR-1) | **retarget** — they edit exits, which move to `content/connections/` (§8) |
+| `moveSpawn` (SPAWN-1) | **unchanged** — `zone_spawns` is authored either way |
+
+#### The real cost, and the trap it opens
+
+**The audit stops being runnable cold.** It needs a local DB that has been imported. In practice
+that is near-zero friction — `npm run test:regress` already requires a DB, and `content:import`
+is already the standard loop — but it introduces the *inverse* failure: edit content files,
+forget to import, audit yesterday's rows, get a clean report on work that was never loaded.
+
+**The mechanism to prevent that already exists.** `content:import` records the imported commit in
+the target DB: `server_settings` key `content_pipeline.last_imported_sha`, written at
+[import.mjs:324-326](../../scripts/content/import.mjs) as the final step of the import
+transaction (`MARKER_KEY`, from `lib.mjs`). The deletion pass already reads it (`:240-243`) and
+**skips loudly when it is missing** — the precedent for treating a stale marker as a hard signal
+rather than a warning.
+
+So: **the audit reads that marker, compares it to `git rev-parse HEAD`, and refuses to run when
+they differ** — printing the two shas and `npm run content:import`. Not a warning. A clean report
+on stale rows is worse than no report, because it is trusted. Two accommodations: `--allow-stale`
+for someone deliberately auditing a past state, and the check is skipped when the marker is
+absent *and* the DB is empty (a fresh clone should say "import first", not "sha mismatch").
+
+#### Auditing prod — a capability it has never had
+
+Now that the audit speaks DB, pointing it at prod is nearly free: `db.js` selects SSL by
+**hostname** (`db.js:33-35` — anything not `localhost`/`127.0.0.1`/`::1` gets TLS), which is the
+same mechanism one-shots already use via `node --env-file=.env.prod`. The audit issues six
+`SELECT`s and writes nothing, so read-only is structural, not a promise.
+
+That is a genuine gain: **"what is wrong with the world that is live right now"** is a question
+the audit has never been able to answer. It also catches the one thing neither files nor a local
+DB can — prod drift from manual edits.
+
+Two conditions, both firm. **It needs explicit approval each run**, per the prod-read rule in
+[content-pipeline.md](../content-pipeline.md) — the auto-mode classifier blocks direct
+`PROD_DATABASE_URL` reads unless the user has named prod as a target. And **the fixers must be
+hard-disabled against a remote host**, not merely defaulted off: content reaches prod through git
+only, and a fixer writing files from a prod read would produce a diff nobody authored. Six
+`SELECT`s of six tables is also a real (if small) Neon egress cost — bounded and occasional,
+unlike the per-push drift report that burned 5 GB, but worth running deliberately rather than in
+a loop.
 
 **Step 3 — cut over.** Migration steps 1–8, each its own commit, each green through
 `npm run test:regress`, each leaving the audit no worse. The Studio is built here but not yet
