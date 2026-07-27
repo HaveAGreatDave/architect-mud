@@ -981,8 +981,10 @@ try { _savedOverlay = loadSettings().mapOverlay || 'labels'; } catch {}
 // mode (read by the sidebar minimap) and the active GPS route — tracePath/traceDirs,
 // set by the `gps` command or the tablet map's "Route here", walked by auto-walk, and
 // mirrored onto both the sidebar minimap and the tablet map.
-let _savedDoors = 'arrows';
-try { _savedDoors = loadSettings().mapDoors === 'edges' ? 'edges' : 'arrows'; } catch {}
+// Edges by default — see _mapDoorsMode in shared/settings.js for why the fallback
+// points here rather than at 'arrows'.
+let _savedDoors = 'edges';
+try { _savedDoors = loadSettings().mapDoors === 'arrows' ? 'arrows' : 'edges'; } catch {}
 const mapState = { avenueOverlay: _savedOverlay, doorStyle: _savedDoors, tracePath: null, traceDirs: null };
 
 // Settings hook (window._applyMapOverlay, registered in main.js). Re-renders the
@@ -996,7 +998,7 @@ export function setMapOverlay(mode) {
 
 // Same hook shape for the interior door style (window._applyMapDoors, main.js).
 export function setMapDoors(style) {
-  const next = style === 'edges' ? 'edges' : 'arrows';
+  const next = style === 'arrows' ? 'arrows' : 'edges';
   syncDoorsBtn(next);
   if (next === mapState.doorStyle) return;
   mapState.doorStyle = next;

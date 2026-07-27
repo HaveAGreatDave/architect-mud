@@ -152,7 +152,7 @@ const mapLabelsOn = () => {
 // Map app: interior door style, read from the same shared `mapDoors` setting the
 // sidebar minimap uses (same reason as mapLabelsOn above — one setting, two surfaces).
 const mapDoorsEdges = () => {
-  try { return loadSettings().mapDoors === 'edges'; } catch { return false; }
+  try { return loadSettings().mapDoors !== 'arrows'; } catch { return true; }
 };
 // Void survey zoom: the off-grid "journey" map has no server tile-window ladder (it's
 // drawn purely from the minimap nodes), so its −/+ is a client-only scale on the trail.
@@ -321,7 +321,20 @@ function ensureStyles() {
     /* Header strip: time / location, persistent regardless of screen */
     #tablet-os-overlay .tos-hdr { display:flex; justify-content:space-between; font-size:11px; letter-spacing:1px; color:var(--tos-fg-dim); margin-bottom:8px; text-transform:uppercase; }
     #tablet-os-overlay .tos-hdr b { color:var(--mg-accent); }
-    #tablet-os-overlay .tos-hdr-right { display:inline-flex; align-items:center; gap:7px; }
+    #tablet-os-overlay .tos-hdr-right { display:inline-flex; align-items:center; gap:9px; }
+    #tablet-os-overlay .tos-hdr-left, #tablet-os-overlay .tos-hdr-loc { align-self:center; }
+    /* The clock. Sized well above the rest of the bar so it reads at a glance, and
+       tabular so the minute ticking over doesn't shift the signal bars sideways.
+       It's a button because it opens the Alarm app — styled back down to look like
+       part of the bar rather than a control. */
+    #tablet-os-overlay .tos-hdr-clock {
+      font: inherit; font-size:17px; line-height:1; letter-spacing:.5px;
+      font-variant-numeric:tabular-nums; color:var(--mg-accent);
+      background:none; border:0; padding:0 1px; margin:0; cursor:pointer;
+      transition:opacity .15s linear, text-shadow .15s linear;
+    }
+    #tablet-os-overlay .tos-hdr-clock:hover { text-shadow:0 0 8px var(--mg-accent); }
+    #tablet-os-overlay .tos-hdr-clock:focus-visible { outline:1px solid var(--mg-accent); outline-offset:2px; }
     /* Cell-signal bars: four ascending accent bars, bottom-aligned. On the grid only —
        off the grid the header shows the void badge below instead. */
     #tablet-os-overlay .tos-signal { display:inline-flex; align-items:center; gap:4px; height:9px; position:relative; }
@@ -2689,9 +2702,24 @@ function lockVoidSignal() {
   render();
 }
 
+// Header: date and place on the left, then the CLOCK and the signal bars together
+// on the right — the corner every phone has trained people to look at for the time.
+// The clock is deliberately the largest thing in the bar; it was previously the same
+// 11px as everything else and got lost next to the location string.
+//
+// It also opens the Alarm app, because a clock you can't set an alarm on is just a
+// label. The generic [data-nav-app] handler does the navigation, so this needs no
+// wiring of its own.
 function renderHeader(d) {
-  return `<div class="tos-hdr"><span>${esc(d.time?.date || '')} <b>${esc(d.time?.time || '')}</b></span>`
-    + `<span class="tos-hdr-right"><span>${esc(d.location || '')}</span>${renderSignal()}</span></div>`;
+  const time = esc(d.time?.time || '');
+  return `<div class="tos-hdr">`
+    + `<span class="tos-hdr-left">${esc(d.time?.date || '')}</span>`
+    + `<span class="tos-hdr-right">`
+      + `<span class="tos-hdr-loc">${esc(d.location || '')}</span>`
+      + `<button type="button" class="tos-hdr-clock" data-nav-app="alarm"`
+      + ` title="${time} — set an alarm">${time}</button>`
+      + renderSignal()
+    + `</span></div>`;
 }
 
 /* Theme-aware app icons, keyed by app id. Primary strokes use currentColor (inherits
@@ -3189,9 +3217,12 @@ const TOS_OPT_GROUPS = [
     { v: 'none', t: 'Plain tiles — no lettering', g: '▫' } ] },
   // How an interior room's ways in/out are drawn on both maps. Interiors only — out on
   // the street every tile is open on all four sides, so edge lines would say nothing.
-  { key: 'mapDoors', label: 'Interior Doors', opts: [
-    { v: 'arrows', t: 'Arrows — amber triangle per doorway', g: '▲' },
-    { v: 'edges', t: 'Edge lines — green open, red wall', g: '▤' } ] },
+  // Edges listed FIRST because it's the default and the one that actually draws in
+  // most rooms. The old order put the sparser mode in the leading slot, which is a
+  // small thing that made the better mode look like the alternative.
+  { key: 'mapDoors', label: 'Doors & Exits', opts: [
+    { v: 'edges', t: 'Edge lines — green where you can go, red where it\'s wall', g: '▤' },
+    { v: 'arrows', t: 'Arrows — an amber triangle on each way out', g: '▲' } ] },
 ];
 const TOS_AUDIO_TOGGLES = [
   { key: 'music', label: 'Music', on: '🎵', off: '🔇' },
