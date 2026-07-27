@@ -952,12 +952,15 @@ view becomes **read-only for geometry** and should say so on screen.
 | lost | mitigation | residual |
 |---|---|---|
 | live `reloadZone` / instant preview | Studio POSTs a reload to a running local server after writing (dev-only, one-way) | small |
-| **cross-table wiring on building placement** — `apiBuildBuilding` writes `zones`, `maps`, `furniture`, `generators`, `power_zones`, `npcs` atomically ([routes.js:790+](../../server/api/routes.js)) | run the existing `authorUtilityRoom` / `templateForType` paths as a **CLI against content files** | **the largest unknown — spike it first (§15.1)** |
+| ~~**cross-table wiring on building placement**~~ | **nothing is lost — it was never atomic, and the panel cannot ship a building at all today (§16.1)** | **none; this row is a benefit** |
 | staging/publish review | the git diff *is* the review, and it is better | none |
 
-**Fallback if the spike prices badly:** a content-mode data layer inside the dev-panel map
-editor. Cheaper, keeps `reloadZone` and cross-table wiring — but leaves two writers of the same
-fields, so it does not close fear #1. Recommend against; record it.
+**~~Fallback if the spike prices badly~~ — withdrawn.** The spike came back the other way
+(§16.1): `apiBuildBuilding` has no transaction, half its writes are runtime or derived rather
+than authored, and `POST /maps/build-building` syncs **zero** content files. A content-mode data
+layer inside the dev panel would have been insurance against a cost that does not exist, and it
+would have left two writers of the same fields — the exact thing fear #1 names. Recorded and
+rejected.
 
 ### 10.4 References to other entities
 
@@ -1285,9 +1288,9 @@ Also worth naming, same defect class, **reported not fixed**:
 
 **Decisions for step 2:**
 
-1. **The cross-table cost of leaving the dev panel** (§10.3). `apiBuildBuilding` writes six
-   tables atomically. **Spike this first** — it decides §10.3's fallback and everything depends
-   on it.
+1. ~~**The cross-table cost of leaving the dev panel**~~ — **RESOLVED, and the premise was
+   false** (§16.1). `apiBuildBuilding` does **not** write atomically — it has no transaction, so
+   the cost of leaving is negative. The fallback in §10.3 is withdrawn.
 2. ~~**Live keycards in prod**~~ — **RESOLVED, exposure is zero.** The prod census
    (`scripts/keycard-census.mjs`) returns **0 `keycard_*` items in the catalog, 0 held by any
    player, 0 already orphaned**, across 198 doors / 9 players / 333 inventory rows. One door
@@ -1306,6 +1309,103 @@ Also worth naming, same defect class, **reported not fixed**:
    Deferrable — step 2 of the migration shrinks the tree more than sharding would.
 6. **Catalog rename** to `fieldCatalog.js` — honest, but touches every importer; step 4 work.
 7. **Structured-value schemas** — `checkpoint_cfg`, `elevator_floors` and ~3 others.
+
+### 16.1 The cross-table spike — resolved, and the question was malformed
+
+This was the last blocking unknown and the reason step 2 was told to spike it first. The answer
+is not "the Studio can match the dev panel." It is **the dev panel does not do the thing the
+spike was worried about losing.**
+
+**The premise: "`apiBuildBuilding` writes six tables atomically."** The first half is true, the
+second is false.
+
+**It has no transaction.** [routes.js:790-977](../../server/api/routes.js) issues ~15 bare
+`await query(...)` calls. `db.js` exports a `withTransaction` helper
+([db.js:104](../../server/models/db.js)) and four call sites use it — crafting, vendor,
+inventory — all player-economy paths. `apiBuildBuilding` is not one of them; the only `BEGIN` in
+`routes.js` is at :1509, in a different function. Each write commits on its own. The `try/catch`
+at :832 returns a 400 string; it does not roll anything back. **A failure at step 5 leaves the
+facade, the interior map, the lobby and every template room committed and live** — a half-built
+building with no power, no lights and no way to finish it except doing it again by hand.
+
+The comment at :788 — *"Commits directly (too many cross-table rows for zone staging)"* — reads
+as a design note. It is an admission.
+
+**So the comparison is not atomic-vs-files. It is unguarded-vs-git.** A commit is atomic across
+all ~15 files; CI imports the whole tree or fails the deploy. **Writing files is strictly more
+atomic than what ships today**, and this row of §10.3's cost table inverts: it is a benefit.
+
+**Second: the six tables are not six tables of authored content.** Decomposed:
+
+| written | what it really is | under the new model |
+|---|---|---|
+| `zones` — facade, lobby, rooms, utility room | authored content | files |
+| `zones` — **neighbour `exits` UPDATE** ([:858-864](../../server/api/routes.js)) | geometry | **gone** — derived into `zone_edges` (§8.3) |
+| `maps` | authored content | file |
+| `furniture` — template pieces, room lights, worklight, junction box | authored content | files |
+| `generators` — `gen_<utilId>`, deterministic id | authored content | file |
+| `npcs` — inhabitant | authored content | file |
+| `lighting_states`, `power_zones` load, `recomputePower()` | **runtime, recomputed on boot** | **not authored at all** |
+
+Four content tables, one derived table, and a runtime recompute that already runs at boot. The
+Studio writes files for the four. It never needed to write the other two — the current code only
+does because it is mutating a live world in place.
+
+**Third: `nearestCityPlant(query, gx, gy)`** ([utility-room.mjs](../../tools/lib/utility-room.mjs))
+is the one genuine live-world *read* feeding an authored value. It picks the city plant the new
+junction box hangs off. That becomes either an authored pick in the Studio's inspector or a
+derive-time resolution — a decision for the connection/power spec, not a blocker.
+
+**Fourth, found while spiking and worth fixing regardless: the reload-derive round trip at
+[:866-871](../../server/api/routes.js) is dead ceremony.** It writes the facade, reloads it plus
+every neighbour into the live world, then calls `buildingEntranceDir(getZone(facadeId))` to
+learn the door side. But `buildingEntranceDir` is now a one-line read of `flags.entrance`
+([world.js:176-179](../../server/engine/world.js)) — and the facade flags assembled at :839
+**never set `entrance`**. It is always `null`, so the expression always falls through to
+`OPPOSITE[front.dir]`. The reloads buy nothing.
+
+Two consequences:
+
+- The round trip that made this operation look impossible to do offline **is not doing any
+  deriving**. Removing it is a prerequisite of nothing; it is just wrong today.
+- **Every building created through "New Building" is born failing BLD-9** (facade with no
+  `entrance` flag): no map entrance arrow, and `facadeStreetTile()` back to guessing. All 61
+  facades in `content/` carry `entrance` — the one-shot bake
+  (`scripts/bake-building-entrances.mjs`) plus hand-correction caught every existing one — so
+  this is **latent, not live**. It fires the next time someone builds.
+- **And it would fail DIR-2 as well, because the fallback points the wrong way.** The interior's
+  way out must face the same direction as the door (audit DIR-2: *"interior must leave the way
+  the door faces"*); only the facade's link *into* the interior is the mirror. `backDir` is
+  meant to be the entrance side, but its fallback is `OPPOSITE[front.dir]` and the comment at
+  :890 still describes the pre-fix convention. Measured across `content/`: **61 of 61 buildings
+  have interior-out == entrance, zero use the opposite.** The builder would produce the 62nd as
+  the only violation of a rule that currently holds without exception.
+
+Both are one-line fixes in a function the redesign eventually deletes — `facadeFlags.entrance =
+front.dir`, and drop the fallback's `OPPOSITE`. Worth doing now rather than at cutover, since
+"don't build anything through the panel until the Studio lands" is not a real instruction.
+
+**Fifth: the dev panel already cannot ship a building.** The save-hook
+([content-sync.js](../../server/api/content-sync.js)) resolves each request to **one** entity.
+`POST /maps/build-building` hits `contentTargetFor` with `seg0='maps'`, `segs.length===2` — the
+`POST && segs.length===1` arm misses, the `PUT/DELETE && segs.length===2` arm misses, and it
+**returns null. Zero files are written.** Same for `/maps/move-building`,
+`/maps/generate-region`, `/maps/move-region` and `/maps/link-interior`, and for staged building
+moves, which call `apiUpdateZone` in-process rather than over the `/zones/:id` route the hook
+watches.
+
+Single-entity edits sync. **Compound map operations do not.** So a building built in the panel
+today exists only in the author's local database until somebody runs a full `content:export` —
+which the `codex` skill correctly tells you almost never to run, because it drags the whole
+played-in world back over the tree.
+
+**That is fear #2 in its purest form.** The tool that exists to make building easy produces work
+that the pipeline cannot ship, and the workaround for that is a command that creates a different
+mess. The Studio does not have to *match* this seam. It has to *have* one.
+
+**Verdict: no fallback needed. §10.3's "content-mode data layer inside the dev panel" is
+withdrawn** — it was insurance against a cost that does not exist, and it would have left two
+writers of the same fields, which is the thing this document exists to stop.
 
 ### 16.3 `audio_theme_id` — decided: demote to a regional default
 
@@ -1378,8 +1478,10 @@ principally the prod-keycard check (§16.2) and the `audio_theme_id` call.
 **Step 2 — design the system.** The concrete spec: palette schema, `zone_render` / `zone_edges` /
 render-spec shapes, the connection file format with per-side door state and the typed-principal
 access list, the derive module's function list, the column-catalog extension, the id scheme and
-rename script, the Studio's document model and gestures. **Spike the cross-table cost first
-(§16.1).**
+rename script, the Studio's document model and gestures. ~~Spike the cross-table cost first~~ —
+**done, and it came back inverted (§16.1): nothing is lost by leaving the dev panel, because the
+panel's building placement is neither atomic nor shippable today.** The building-placement CLI
+is now the *proof* the step-2 gate asks for rather than a risk it has to price.
 
 **Also in step 2's scope, and not optional: port the map audit to read the resolved DB.** See
 §17.1 — this replaces an earlier proposal in this document that the audit re-run derive itself,
