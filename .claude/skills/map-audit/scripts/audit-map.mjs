@@ -45,6 +45,12 @@ const { DISTRICTS } = await import(
 const { zoneTerrain } = await import(
   'file://' + path.join(REPO, 'server/engine/world.js').replace(/\\/g, '/')
 );
+// The marker derivation the AUTHORING side uses (scripts/place-building.mjs stamps
+// with these). MARK-2 suggests and MARK-5 tests against the same functions the
+// stamper called, so the grader and the stamper cannot disagree.
+const { twoLetterAbbrev, nameDerivedMarkers, sigWords } = await import(
+  'file://' + path.join(REPO, 'tools/lib/marker.mjs').replace(/\\/g, '/')
+);
 const CONTENT = path.join(REPO, 'content');
 const DECISIONS = path.join(REPO, 'docs/audits/map-audit-decisions.json');
 
@@ -284,37 +290,11 @@ const PLACEHOLDER_NAME = [/\d+\s*,\s*\d+/, /^(water|sand|dirt|rock|grass|ash|mud
 // single emoji marker ("🔧") is length 2 by `.length` and would pass a naive check.
 const markerOf = (z) => (z.marker == null ? '' : String(z.marker).trim());
 const glyphLen = (s) => [...s].length;
-// The significant words of a name. The possessive is stripped BEFORE splitting, or
-// "Halloran's Fix-It" becomes [Halloran, s, Fix, It] and abbreviates to "HS" not "HF".
-const STOP_WORD = /^(the|of|and|at|a|an|&)$/i;
-const sigWords = (name) => String(name || '').replace(/['’]s\b/g, '').replace(/[^A-Za-z0-9\s]/g, ' ')
-  .split(/\s+/).filter((w) => w && !STOP_WORD.test(w));
-// Suggested acronym for MARK-2, mirroring the client's own Avenue-View label
-// (streetAbbrev in minimap.js) and the dev panel's authoring-time stamp
-// (suggestBuildingMarker in server/api/routes.js): initials of the significant words,
-// or the first two letters of a single word. A suggestion only — collisions are a
-// human call, which is what MARK-4 is for.
-function twoLetterAbbrev(name) {
-  const words = sigWords(name);
-  if (!words.length) return null;
-  if (words.length === 1) return words[0].slice(0, 2).toUpperCase() || null;
-  return words.map((w) => w[0]).join('').slice(0, 2).toUpperCase();
-}
-
-// MARK-5's test: every 2-glyph code that reads as DERIVED FROM the name. Deliberately
-// wider than twoLetterAbbrev()'s single suggestion, because more than one honest
-// acronym exists — any ordered pair of the significant words' initials ("Embassy Hotel
-// & Bar" → EH, EB, HB) and the first two letters of any one of those words ("The
-// Stacks" → ST). Still narrow enough that a thematic code falls outside it, which is
-// the point: `GN` on the gunshop Ironside Arms is a choice, not an acronym.
-function nameDerivedMarkers(name) {
-  const words = sigWords(name);
-  const out = new Set();
-  const ini = words.map((w) => w[0].toUpperCase());
-  for (let i = 0; i < ini.length; i++) for (let j = i + 1; j < ini.length; j++) out.add(ini[i] + ini[j]);
-  for (const w of words) if (w.length >= 2) out.add(w.slice(0, 2).toUpperCase());
-  return out;
-}
+// twoLetterAbbrev (MARK-2's suggestion) and nameDerivedMarkers (MARK-5's test) are
+// IMPORTED, not defined here: the placement CLI stamps markers with the same two
+// functions, and a grader that derives differently from the stamper would report
+// findings on content it just produced. Same reason as DISTRICTS and zoneTerrain above.
+// See the import block at the top of this file.
 // WHY a marker isn't name-derived — the field MARK-5 groups on, because each class is a
 // different decision rather than a different tile:
 //   'article kept'     the initials taken WITHOUT dropping the article ("The Cherry

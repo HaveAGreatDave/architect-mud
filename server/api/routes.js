@@ -2,7 +2,7 @@ import { query, logActivity } from '../models/db.js';
 import { syncContentFromRequest, syncZoneDeletion } from './content-sync.js';
 import { reloadZone, getAllZones, world, getAllLivePlayers, getZone, addPlayerToZone, removePlayerFromZone, getMinimapData, reloadGlobalAmbients, spawnEnemySync, setDoorCache, deleteDoorCache, getZoneDoors, reloadSpawn, removeSpawn, isEnterableFacade, resolveLanding, reloadMaps, insertFurniture, updateFurniture, deleteFurniture, deleteFurnitureWhere, refreshZoneFurniture, zoneTerrain } from '../engine/world.js';
 import { authorUtilityRoom } from '../../tools/lib/utility-room.mjs';
-import { templateForType } from '../../tools/lib/building-templates.mjs';
+import { templateForType, BUILD_DIR_OFF } from '../../tools/lib/building-templates.mjs';
 import { describeZone, describeVoidTeleport } from '../engine/commands/index.js';
 import { allExits } from '../engine/exits.js';
 import { detectBathroomSide } from '../engine/commands/doors.js';
@@ -21,17 +21,12 @@ import { sendPasswordResetEmail, sendVerificationEmail } from '../mailer.js';
 import { isEmailVerificationEnabled, setEmailVerificationEnabled } from '../engine/emailVerification.js';
 import { randomAppearance } from '../engine/appearance.js';
 import { DEFAULT_CHITCHAT_LINES, isVendorWorkTime } from '../engine/ai-behaviour.js';
-import { npcTypeForPersonality, listPersonalityMeta, pickClothingForPersonality } from '../engine/npc-personality.js';
+import { npcTypeForPersonality, listPersonalityMeta, pickClothingForPersonality, DEFAULT_VENDOR_SCHEDULE } from '../engine/npc-personality.js';
 import { vendorSafeRow, vendorHasSafe } from '../engine/vendor-safe-furniture.js';
 import { decideSex } from '../engine/npc-sex.js';
 import { loadBanterLibrary } from '../engine/npc-banter.js';
 import { OPPOSITE } from '../engine/directions.js';
 import { DISTRICTS, DISTRICT_PREFIX } from '../engine/districts.js';
-
-const DEFAULT_VENDOR_SCHEDULE = {
-  mon:[{from:10,to:22}], tue:[{from:10,to:22}], wed:[{from:10,to:22}],
-  thu:[{from:10,to:22}], fri:[{from:10,to:22}], sat:[{from:10,to:22}], sun:[{from:10,to:22}],
-};
 
 function formatScheduleBoard(npc) {
   const LABELS = { mon:'Mon', tue:'Tue', wed:'Wed', thu:'Thu', fri:'Fri', sat:'Sat', sun:'Sun' };
@@ -775,10 +770,6 @@ async function apiAddRoom(parentZoneId, body) {
     return { status:201, body:{ id: roomId, message:`${is_building ? 'Building' : 'Room'} "${name}" added ${direction} of ${parent.name}` } };
   } catch(e) { return { status:400, body:{error:e.message} }; }
 }
-
-// Interior-grid offsets for template rooms. Cardinals only — 'down' is reserved for
-// authorUtilityRoom's utility room, 'up' is left free for hand-authored upper floors.
-const BUILD_DIR_OFF = { north: [0, -1, 0], south: [0, 1, 0], east: [1, 0, 0], west: [-1, 0, 0] };
 
 // One-shot building generator (dev panel "New Building"). Converts a ground tile (or
 // fills an empty cell) at (toX,toY,toZ) on map_world into a facade of `building_type`,
