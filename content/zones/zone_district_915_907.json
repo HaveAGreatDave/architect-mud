@@ -9,7 +9,6 @@
   "exits": {
     "east": "zone_district_916_907",
     "north": "zone_district_915_906",
-    "south": "zone_district_915_908",
     "west": "zone_district_914_907"
   },
   "flags": {
@@ -26,5 +25,5 @@
   "marker": "#",
   "name": "Grasslands",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1785200000"
 }

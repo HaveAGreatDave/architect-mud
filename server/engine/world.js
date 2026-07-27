@@ -147,6 +147,9 @@ const BUILDING_TYPE_ICON = {
   warehouse: 'bldg_warehouse', container_yard: 'bldg_container', fuel_yard: 'bldg_fuel', cold_storage: 'bldg_cold',
   fabrication: 'bldg_fab', wharf: 'bldg_wharf', freight_office: 'bldg_freightoffice', freight_forwarder: 'bldg_forwarder',
   junkyard: 'bldg_junkyard', laundromat: 'bldg_laundromat',
+  // Marrow Street — the workaday downtown strip either side of the Sentinel.
+  dept_store: 'bldg_deptstore', hardware: 'bldg_hardware', bathhouse: 'bldg_bathhouse',
+  noodle_bar: 'bldg_noodlebar', outfitter: 'bldg_outfitter', bodega: 'bldg_bodega',
   // The Ascendant Stronghold (docs/proposals/ascendant-stronghold.md) — reuse the nearest existing
   // glyphs so the campus reads on the 2-D map this build; bespoke SVGs are an optional polish pass.
   asc_spire: 'bldg_office', asc_gate: 'bldg_police', asc_clinic: 'bldg_clinic',

@@ -1,0 +1,203 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Mek slides a bowl down the counter without looking, and it stops exactly where it should.",
+    "\"Sit. Eat. Talk after.\"",
+    "The stockpot lid lifts on a shoulder of steam and settles again."
+  ],
+  "description": "A lean, fast cook in a sweat-through vest, working nine bowls at once with a ladle in one hand and a set of tongs in the other and never once looking at either. He does not do conversation during service. Between services he does very little else, and he is extremely good at it.",
+  "dialogue_tree": {
+    "root": {
+      "text": "Mek doesn't stop moving. \"Nine stools, four things on the board, two of those are lies.\" A bowl goes down the counter and stops dead in front of an empty seat. \"Sit anywhere. If you're not eating, stand further back, you're in the steam.\"",
+      "options": [
+        {
+          "label": "What's actually on?",
+          "next": "__shop__"
+        },
+        {
+          "label": "Why nine?",
+          "next": "nine"
+        },
+        {
+          "label": "Eleven years on the same pot?",
+          "next": "pot"
+        },
+        {
+          "label": "Hear anything over that counter?",
+          "next": "gossip"
+        },
+        {
+          "label": "Not hungry.",
+          "next": "bye"
+        }
+      ]
+    },
+    "nine": {
+      "text": "\"Nine stools fit. Ten would fit if I cared less.\" He racks the tongs. \"Nine means everyone gets served before the first bowl goes cold. Ten means someone waits. I've watched what a man's face does when he's the one waiting and everyone else is eating.\" He shrugs. \"Nine.\"",
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ]
+    },
+    "pot": {
+      "text": "\"Never cold. Not once.\" He says it flatly, the way you'd state a fact about a river. \"Topped, skimmed, fed, every day, through the bad winter and the week the grid went. My mother started it. Whatever's in there now, some of it is hers.\" He looks at you for the first time. \"So don't ask for it with the broth left out.\"",
+      "options": [
+        {
+          "label": "Wouldn't dream of it.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ]
+    },
+    "gossip": {
+      "actions": [
+        {
+          "action": "GOSSIP_TELL"
+        }
+      ],
+      "text": "\"Nine men eating shoulder to shoulder and not one of them looking at each other. You would not believe what gets said.\"",
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ]
+    },
+    "bye": {
+      "text": "He is already three bowls into the next order and you have ceased to exist.",
+      "options": []
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a sweat-through cook's vest and a rolled cloth headband",
+      "a scorched apron with a ladle hooked through the strap",
+      "loose kitchen trousers and plain shorts"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_broth_counter",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_broth_cook",
+  "name": "Mek Oyelaran",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_ramen_bowl",
+      "price": 12
+    },
+    {
+      "item_id": "item_ramen_noodles",
+      "price": 6
+    },
+    {
+      "item_id": "item_ersatz_noodle",
+      "price": 4
+    },
+    {
+      "item_id": "item_soup_bowl",
+      "price": 10
+    },
+    {
+      "item_id": "item_bone_broth",
+      "price": 9
+    },
+    {
+      "item_id": "item_bean_sprout",
+      "price": 3
+    },
+    {
+      "item_id": "item_pickled_veg",
+      "price": 5
+    },
+    {
+      "item_id": "item_chili_flake",
+      "price": 3
+    },
+    {
+      "item_id": "item_soup_base",
+      "price": 7
+    },
+    {
+      "item_id": "item_tea_leaves_black",
+      "price": 6
+    },
+    {
+      "item_id": "item_cold_brew_can",
+      "price": 5
+    },
+    {
+      "item_id": "item_iced_tea_carton",
+      "price": 4
+    },
+    {
+      "item_id": "item_paper_cup",
+      "price": 1
+    },
+    {
+      "item_id": "item_food_grill_special",
+      "price": 14
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "mon": [
+      {
+        "from": 10,
+        "to": 27
+      }
+    ],
+    "tue": [
+      {
+        "from": 10,
+        "to": 27
+      }
+    ],
+    "wed": [
+      {
+        "from": 10,
+        "to": 27
+      }
+    ],
+    "thu": [
+      {
+        "from": 10,
+        "to": 27
+      }
+    ],
+    "fri": [
+      {
+        "from": 10,
+        "to": 27
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 27
+      }
+    ],
+    "sun": [
+      {
+        "from": 10,
+        "to": 27
+      }
+    ]
+  },
+  "vendor_shop_name": "Oyelaran's",
+  "vendor_stock_size": 24,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

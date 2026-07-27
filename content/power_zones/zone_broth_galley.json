@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 200,
+  "flags": {},
+  "generator_id": null,
+  "id": "zone_broth_galley",
+  "max_capacity_kw": 200,
+  "name": "Oyelaran's — Galley",
+  "source_type": "city_grid"
+}

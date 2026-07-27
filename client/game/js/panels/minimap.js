@@ -735,20 +735,25 @@ export function renderMinimap(nodes, direction) {
       const node = byId.get(id);
       if (!node) { html += `<span class="mm-c mm-void"></span>`; continue; }
       if (node.is_current) {
-        // Render the tile you're standing on (its terrain fill / authored colour)
-        // UNDER the "you are here" beacon, so the marker reads as a locator on a
-        // visible tile rather than a blank swatch. The beacon (mm-current ::before/
-        // ::after) is a small centred dot+ring, so the tile shows around it.
+        // The tile you're standing on renders like any other tile — terrain fill,
+        // road connector, icon/label glyph, door marks — with the beacon layered
+        // BETWEEN the glyph and the door marks (see .mm-current::before/::after,
+        // z-index 2, against .mm-edge/.mm-entrance at 3). Standing somewhere must
+        // not blank out what's there: the beacon is a small centred dot+ring that
+        // sits over the tile, not a swatch that replaces it.
         const cs = [];
         const cterr = TERRAIN.has(node.terrain) ? node.terrain : null;
-        if (cterr === 'road') cs.push(`background-color:${ROAD_SURFACE}`);
-        else if (cterr === 'dirt_road') cs.push(`background-color:${DIRT_ROAD_SURFACE}`);
-        else if (cterr) cs.push(`background-color:${terrainFill(cterr, node.bg_color)}`);
+        // Colour is set alongside the fill exactly as the ordinary branch below does —
+        // without it the road connector SVG and any overlay glyph (both masked with
+        // currentColor) would inherit the beacon's accent and misread against the fill.
+        if (cterr === 'road') cs.push(`background-color:${ROAD_SURFACE}`, `color:${ROAD_MARKING}`);
+        else if (cterr === 'dirt_road') cs.push(`background-color:${DIRT_ROAD_SURFACE}`, `color:${DIRT_ROAD_MARKING}`);
+        else if (cterr) { const cfill = terrainFill(cterr, node.bg_color); cs.push(`background-color:${cfill}`, `color:${node.color || luminanceTextColor(cfill)}`); }
         else if (node.bg_color) cs.push(`background-color:${node.bg_color}`);
         else if (node.district?.color) { const [dr, dg, db] = hexToRgb(node.district.color); cs.push(`background-color:rgba(${dr},${dg},${db},0.20)`); }
-        const cterrCls = cterr ? ` mm-terr mm-${cterr}` : '';
+        const cterrCls = cterr ? ` mm-terr mm-${cterr} mm-styled` : '';
         const cStyle = cs.length ? ` style="${cs.join(';')}"` : '';
-        html += `<span class="mm-c mm-room mm-current${cterrCls}"${cStyle} title="${titleFor(node)}">${doorMarks(node, 'mm')}</span>`;
+        html += `<span class="mm-c mm-room mm-current${cterrCls}"${cStyle} title="${titleFor(node)}">${symFor(node)}${doorMarks(node, 'mm')}</span>`;
         continue;
       }
       // Foreign tile: only the ones one step across a boundary survive, as a gateway
@@ -894,6 +899,8 @@ export const POI_LEGEND = {
   nightclub: { icon: '🎶', label: 'Nightclub' },
   hotel:   { icon: '🏨', label: 'Hotel' },
   bar:     { icon: '🍺', label: 'Bar' },
+  bathhouse: { icon: '♨', label: 'Bathhouse / baths' },
+  noodle_bar: { icon: '🍜', label: 'Noodle counter' },
   vendor:  { icon: '$', label: 'Vendor / shop' },
   home:    { icon: '⌂', label: 'Apartments / housing' },
   stairs:  { icon: '⇕', label: 'Stairs (up/down)' },

@@ -1,0 +1,14 @@
+{
+  "description": "A radio permanently tuned to whatever is being broadcast rather than whatever anyone wants, on a shelf beside a kettle and one chair.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_kessel_radio",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "back-room radio",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_kessel_back"
+}

@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_towel_rough",
+  "name": "rough towel",
+  "tags": {
+    "description": "A grey bathhouse towel with the nap worn off it, stiff from being boiled more times than woven. It dries you by abrasion as much as absorption, and afterwards you feel not so much clean as sanded.",
+    "stackable": false
+  },
+  "type": "misc",
+  "value": 9,
+  "weight": 300
+}

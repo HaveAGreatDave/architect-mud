@@ -1,0 +1,223 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Tomasz adds a line to the ledger, considers it, and crosses it out again.",
+    "\"On the tab? Fine. Fine. Don't make a thing of it.\"",
+    "The radio in the back room changes to something nobody asked for and nobody turns it off."
+  ],
+  "description": "An old grocer in a cardigan with the elbows gone, who runs a tab for half of Marrow Street and has never once written down what he is actually owed by any of them, on the grounds that the ledger is for the ones who'd be embarrassed to be reminded. He knows what everyone on this street eats, and therefore roughly how they are doing.",
+  "dialogue_tree": {
+    "root": {
+      "text": "The old man looks up from a ledger. \"Ah. Someone I don't know.\" He closes it, unhurried. \"Tinned's on the left, dry's on the right, cold's under the board, and I don't stock anything you'd want a drink out of on a Friday. What do you need?\"",
+      "options": [
+        {
+          "label": "Let's see the shelves.",
+          "next": "__shop__"
+        },
+        {
+          "label": "What's the ledger?",
+          "next": "ledger"
+        },
+        {
+          "label": "You know everyone on this street?",
+          "next": "street"
+        },
+        {
+          "label": "Hear anything, out on the corner?",
+          "next": "gossip"
+        },
+        {
+          "label": "Nothing, thanks.",
+          "next": "bye"
+        }
+      ]
+    },
+    "ledger": {
+      "text": "\"Tab.\" He puts a hand flat on it. \"Half the street's in there and not one of them's been chased for it. If a man's on the tab it's because a week went badly, and a week goes badly for everyone eventually.\" He shrugs. \"They pay when they can. Mostly they do. The ones who don't, I stop writing down, which is not the same as forgetting.\"",
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ]
+    },
+    "street": {
+      "text": "\"I know what they eat.\" He says it like it's the same thing, and it more or less is. \"Fella stops buying the tinned and starts buying the rice, something's happened. Woman starts buying two of everything, something good's happened. You don't have to ask people anything if you're paying attention at the till.\"",
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ]
+    },
+    "gossip": {
+      "actions": [
+        {
+          "action": "GOSSIP_TELL"
+        }
+      ],
+      "text": "\"Corner shop on a corner. Everyone turns here, and everyone says something while they're turning.\"",
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ]
+    },
+    "bye": {
+      "text": "\"Mm.\" The ledger comes back open before you're through the door.",
+      "options": []
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a cardigan gone through at both elbows",
+      "a collared shirt buttoned wrong at the top",
+      "soft trousers and plain shorts"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_kessel_shop",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_kessel_grocer",
+  "name": "Tomasz Kessel",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_ration",
+      "price": 8
+    },
+    {
+      "item_id": "item_ration_apple",
+      "price": 5
+    },
+    {
+      "item_id": "item_ration_cheese",
+      "price": 6
+    },
+    {
+      "item_id": "item_ration_milk",
+      "price": 5
+    },
+    {
+      "item_id": "item_tinned_meat",
+      "price": 9
+    },
+    {
+      "item_id": "item_tinned_tomatoes",
+      "price": 6
+    },
+    {
+      "item_id": "item_grey_rice",
+      "price": 4
+    },
+    {
+      "item_id": "item_salt_ration",
+      "price": 3
+    },
+    {
+      "item_id": "item_powdered_egg",
+      "price": 5
+    },
+    {
+      "item_id": "item_cooking_oil",
+      "price": 8
+    },
+    {
+      "item_id": "item_water_bottle",
+      "price": 4
+    },
+    {
+      "item_id": "item_energy_drink",
+      "price": 7
+    },
+    {
+      "item_id": "item_cream_soda",
+      "price": 5
+    },
+    {
+      "item_id": "item_lemon_soda",
+      "price": 5
+    },
+    {
+      "item_id": "item_cigarettes",
+      "price": 14
+    },
+    {
+      "item_id": "item_battery",
+      "price": 6
+    },
+    {
+      "item_id": "item_soap_block",
+      "price": 5
+    },
+    {
+      "item_id": "item_newspaper_sentinel",
+      "price": 8
+    },
+    {
+      "item_id": "item_bar_jerky",
+      "price": 9
+    },
+    {
+      "item_id": "item_flat_bread",
+      "price": 4
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "mon": [
+      {
+        "from": 5,
+        "to": 26
+      }
+    ],
+    "tue": [
+      {
+        "from": 5,
+        "to": 26
+      }
+    ],
+    "wed": [
+      {
+        "from": 5,
+        "to": 26
+      }
+    ],
+    "thu": [
+      {
+        "from": 5,
+        "to": 26
+      }
+    ],
+    "fri": [
+      {
+        "from": 5,
+        "to": 26
+      }
+    ],
+    "sat": [
+      {
+        "from": 5,
+        "to": 26
+      }
+    ],
+    "sun": [
+      {
+        "from": 5,
+        "to": 26
+      }
+    ]
+  },
+  "vendor_shop_name": "Bodega Vu",
+  "vendor_stock_size": 26,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

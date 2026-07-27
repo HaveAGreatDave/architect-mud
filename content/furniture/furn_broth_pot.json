@@ -1,0 +1,14 @@
+{
+  "description": "A stockpot the size of a bathtub, riveted and blackened, that has not been permitted to go cold in eleven years. The smell coming off it is the reason the street has a queue.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_broth_pot",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the stockpot",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_broth_galley"
+}

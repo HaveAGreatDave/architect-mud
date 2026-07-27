@@ -1,0 +1,14 @@
+{
+  "description": "Hundreds of shallow drawers, each hand-labelled in a script that gave up somewhere around the letter M. Wendel can find any of them blind; nobody else has ever managed it twice.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_bolt_drawers",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "wall of small drawers",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_bolt_shop"
+}

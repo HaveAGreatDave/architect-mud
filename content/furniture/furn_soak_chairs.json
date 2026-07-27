@@ -1,0 +1,18 @@
+{
+  "description": "Two cast-iron barber chairs with cracked leather and a pump that still works, facing a mirror that has been re-silvered so many times it shows you a slightly kinder face.",
+  "flags": {
+    "interactions": [
+      "sit"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_soak_chairs",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "barber chairs",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_soak_front"
+}

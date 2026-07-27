@@ -1,30 +1,33 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
+  "ambient_theme": "urban",
   "audio_theme_id": null,
-  "bg_color": "#2f3a26",
+  "bg_color": "#26251f",
   "color": "#8ba36a",
-  "created_by": "zone-planner",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "created_by": "marrow-infill",
+  "description": "A workwear outfitter on the Ironside corner, its window filled with coveralls on headless forms and a hand-painted board reading LAYERS — DRESSED FOR THE WEATHER YOU'LL GET, NOT THE ONE YOU WANT. Boots hang in pairs from the awning by their laces, swinging when the wind comes down off the water.",
   "exits": {
-    "east": "zone_district_919_910",
     "north": "zone_district_918_909",
-    "south": "zone_district_918_911"
+    "south": "zone_secondskin_floor"
   },
   "flags": {
+    "building_name": "Layers",
+    "building_type": "outfitter",
     "district": "wasteland",
+    "entrance": "north",
+    "facade": true,
+    "is_building": true,
     "planner": "bp_district",
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_west_wastes",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_918_909"
   },
   "grid_x": 918,
   "grid_y": 910,
   "grid_z": 0,
   "id": "zone_district_918_910",
   "map_id": "map_world",
-  "marker": "#",
-  "name": "Grasslands",
+  "marker": "LY",
+  "name": "Layers",
   "parent_zone": null,
-  "updated_at": "1784800000"
+  "updated_at": "1785200000"
 }

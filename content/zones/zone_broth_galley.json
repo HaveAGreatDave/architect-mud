@@ -1,0 +1,28 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#2a2420",
+  "color": null,
+  "created_by": "marrow-infill",
+  "description": "A galley barely wide enough to turn around in, dominated by a stockpot the size of a bathtub that has not been allowed to go cold in eleven years. Bundles of dried something hang from the rail. The heat in here is a physical object you have to move past.",
+  "exits": {
+    "west": "zone_broth_counter"
+  },
+  "flags": {
+    "building_name": "Oyelaran's",
+    "building_type": "noodle_bar",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_917_908"
+  },
+  "grid_x": 1,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_broth_galley",
+  "map_id": "map_int_broth",
+  "marker": null,
+  "name": "Oyelaran's — Galley",
+  "parent_zone": "zone_district_917_908",
+  "updated_at": "1785200000"
+}

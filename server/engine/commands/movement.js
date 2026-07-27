@@ -728,7 +728,7 @@ function buildingsAt(zone) {
 // Uses the clean signals (airfield_name flag, building_type on adjacent buildings)
 // plus vendor NPCs and up/down stairs. Deliberately SPARSE: most tiles return null.
 // Priority is the "what matters most here" order. { icon, poi } | null.
-const POI_ICON = { aa: '⌖', airport: '✈', police: '★', power: '⚡', club: '♥', nightclub: '🎶', bar: '🍺', hotel: '🏨', vendor: '$', home: '⌂', stairs: '⇕' };
+const POI_ICON = { aa: '⌖', airport: '✈', police: '★', power: '⚡', club: '♥', nightclub: '🎶', bar: '🍺', hotel: '🏨', bathhouse: '♨', noodle_bar: '🍜', vendor: '$', home: '⌂', stairs: '⇕' };
 const POWER_RE = /coolant|turbine|reactor|powerplant/i;
 function buildingTypesAt(zone) {
   const types = new Set();
@@ -759,7 +759,13 @@ function mapPoi(zone) {
   // both outrank the generic vendor $ so a bar with a bartender-vendor still reads as a bar.
   if (bt.has('hotel')) return { icon: POI_ICON.hotel, poi: 'hotel' };
   if (bt.has('bar')) return { icon: POI_ICON.bar, poi: 'bar' };
-  if (bt.has('shop') || bt.has('grocery') || bt.has('store') || hasVendorNpc(zone.id)) return { icon: POI_ICON.vendor, poi: 'vendor' };
+  // Marrow Street's two destination-in-their-own-right shops outrank the generic $:
+  // you go to a bathhouse or a noodle counter for the thing, not for the shelf.
+  if (bt.has('bathhouse')) return { icon: POI_ICON.bathhouse, poi: 'bathhouse' };
+  if (bt.has('noodle_bar')) return { icon: POI_ICON.noodle_bar, poi: 'noodle_bar' };
+  if (bt.has('shop') || bt.has('grocery') || bt.has('store') || bt.has('dept_store') ||
+      bt.has('hardware') || bt.has('outfitter') || bt.has('bodega') || hasVendorNpc(zone.id))
+    return { icon: POI_ICON.vendor, poi: 'vendor' };
   // Residential blocks (not hotels — those returned above) get a home marker, ranked
   // below service/vendor POIs so a shop-fronted apartment tile still reads as a shop.
   if (bt.has('apartment')) return { icon: POI_ICON.home, poi: 'home' };

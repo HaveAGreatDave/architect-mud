@@ -1,30 +1,33 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
+  "ambient_theme": "urban",
   "audio_theme_id": null,
-  "bg_color": "#2f3a26",
+  "bg_color": "#2a241d",
   "color": "#8ba36a",
-  "created_by": "zone-planner",
-  "description": "Open grassland quietly reclaiming old ground — seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "created_by": "marrow-infill",
+  "description": "Four floors of discount department store wearing a banner that just says ADEQUATE! in letters tall enough to read from the water. The ground-floor windows are a wall of mannequins in this season's one coat, each posed mid-shrug. A tannoy leaks out under the doors, announcing a sale that has been running since before the lights went out.",
   "exits": {
-    "north": "zone_district_912_907",
     "south": "zone_district_912_909",
-    "west": "zone_district_911_908"
+    "north": "zone_adequate_floor"
   },
   "flags": {
+    "building_name": "Adequate!",
+    "building_type": "dept_store",
     "district": "wasteland",
+    "entrance": "south",
+    "facade": true,
+    "is_building": true,
     "planner": "bp_district",
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_west_wastes",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_912_909"
   },
   "grid_x": 912,
   "grid_y": 908,
   "grid_z": 0,
   "id": "zone_district_912_908",
   "map_id": "map_world",
-  "marker": "#",
-  "name": "Grasslands",
+  "marker": "AD",
+  "name": "Adequate!",
   "parent_zone": null,
-  "updated_at": "1784800000"
+  "updated_at": "1785200000"
 }

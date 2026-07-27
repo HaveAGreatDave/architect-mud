@@ -1,0 +1,14 @@
+{
+  "description": "A brown plastic horn bolted to the ceiling, cycling four bars of music and one cheerful announcement about a department that was closed before you were born.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_adequate_tannoy",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "ceiling tannoy",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_adequate_floor"
+}

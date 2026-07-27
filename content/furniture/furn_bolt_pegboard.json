@@ -1,0 +1,14 @@
+{
+  "description": "Hand tools hung on pegs in strict size order, each with its silhouette painted behind it so a gap accuses you.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_bolt_pegboard",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "tool pegboard",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_bolt_shop"
+}

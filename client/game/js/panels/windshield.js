@@ -2790,6 +2790,12 @@ const WALL_COL = { uptown: [46, 64, 92], civic: [72, 68, 60], citycore: [52, 56,
   // Statue/KSAB media-civic quarter (mid-basin, moderately high-tech: working holo, scuffed).
   ty_ksab: [70, 56, 96], ty_ksab_glass: [86, 78, 116], ty_greenroom: [40, 54, 46], ty_sentinel: [56, 58, 70], ty_jitter: [58, 54, 48],
   ty_ward: [66, 68, 62],
+  // Marrow Street downtown strip — cheap civic materials: painted block, oiled iron,
+  // green bathhouse tile, soot-warmed brick, canvas-grey, and a corner shop's old paint.
+  ty_adequate: [78, 66, 52], ty_bolt: [58, 56, 50], ty_soak: [46, 66, 64],
+  ty_broth: [72, 52, 42], ty_secondskin: [62, 60, 54], ty_kessel: [70, 62, 50],
+  // Ration Nine — a state ration depot: cold concrete, roller shutter, no charm intended.
+  ty_ration: [84, 84, 78],
   // Bespoke named-building shells — a distinct wall tone per silhouette below.
   ty_lux: [58, 52, 78], ty_chrome: [118, 126, 136], ty_meridian: [112, 102, 82], ty_meridian_bronze: [96, 68, 40],
   // Halcyon Towers — dark smoked-teal curtain glass for the futuristic twisting spire.
@@ -2873,6 +2879,14 @@ const BLDG_TYPE_3D = {
   casino:           { a: 'marquee',    h: 0.17 }, // neon-drowned gambling house
   fence:            { a: 'citycore',   h: 0.13 }, // grimy pawnshop
   chem_supply:      { a: 'industrial', h: 0.16 }, // drum-stacked depot
+  // Marrow Street — the workaday downtown strip. Low-rise throughout except the
+  // department store, which is the only thing on the street with four floors.
+  dept_store:       { a: 'citycore',    h: 0.30 }, // Adequate! — the strip's anchor
+  hardware:         { a: 'citycore',    h: 0.13 }, // Nuts to That, stock under the awning
+  bathhouse:        { a: 'citycore',    h: 0.14 }, // Lather & Lye, venting steam
+  noodle_bar:       { a: 'oldcoldwater', h: 0.09 }, // Oyelaran's — one storey, open front
+  outfitter:        { a: 'citycore',    h: 0.13 }, // Layers
+  bodega:           { a: 'oldcoldwater', h: 0.11 }, // Bodega Vu, on the Ironside corner
   // The Ascendant Stronghold (docs/proposals/ascendant-stronghold.md) — heights come from
   // flags.floors on each facade; these are the archetype/fallback if a model fails to load.
   asc_spire:        { a: 'uptown',     h: 0.50 },
@@ -5111,25 +5125,28 @@ const NAMED_MODELS = {
   coldwaterclonefacility:         { type: 'clone',     pal: 'ty_clone' },
   ksabtvstudiostage:              { type: 'ksabstudio', pal: 'ty_ksab', neon: '#b98cff' },
   ksabwriterswing:                { type: 'studiogate', pal: 'ty_ksab', neon: '#b98cff' },
-  thelatedesk:                    { type: 'divebar',   pal: 'ty_greenroom', neon: '#7dff6a' },
+  thegreenroom:                    { type: 'divebar',   pal: 'ty_greenroom', neon: '#7dff6a' },
   solenneresidences:              { type: 'solenne',   pal: 'ty_solenne',   neon: '#ffce78' },
-  coldwatersentinel:              { type: 'office',    pal: 'ty_sentinel',  neon: '#5fd0ff' },
-  meltwaterdiner:                 { type: 'diner',     pal: 'ty_diner',     neon: '#ffcf3e' },
-  jitter:                         { type: 'shop',      pal: 'ty_jitter',    neon: '#5fd0ff' },
-  wardninepermits:                { type: 'office',    pal: 'ty_ward' },
-  meltwaterwalkinclinic:          { type: 'clinic',    pal: 'ty_clinic' },
-  thehockshop:                    { type: 'pawn',      pal: 'ty_pawn',      neon: '#ffcf3e' },
+  coldwatersentinel:              { type: 'sentinel',  pal: 'ty_sentinel',  neon: '#5fd0ff' },   // was a recoloured corporate tower; it's a two-storey storefront newsroom
+  // These two were keyed to names the buildings no longer have — a rename silently
+  // dropped them back to the generic shop/office mesh, because namedModel() misses and
+  // TYPE_MODEL catches. Re-keyed to the live building_name and given real silhouettes.
+  // ('meltwaterdiner' and 'thecage' were dead the same way, but match NO building in
+  // content or the DB, so they were removed rather than re-pointed.)
+  batteryacidcoffeeco:            { type: 'stimcafe',  pal: 'ty_jitter',    neon: '#5fd0ff' },   // was `jitter`
+  officeofpermittedsuffering:     { type: 'permits',   pal: 'ty_ward',      neon: '#9ab08a' },   // was `wardninepermits`
+  copaypray:          { type: 'clinic',    pal: 'ty_clinic' },
+  inhockwetrust:                    { type: 'pawn',      pal: 'ty_pawn',      neon: '#ffcf3e' },
   coldwaterpowerplantturbinehall: { type: 'power',     pal: 'ty_power' },
   coldwaterregionalhangar:        { type: 'hangar',    pal: 'ty_hangar_a', big: true },
   thresholdhelipadhangar:         { type: 'hangar',    pal: 'ty_hangar_b', helipad: true },
   sump:                           { type: 'divebar',   pal: 'ty_bar_a',    neon: '#7dff6a' },
   thedeadpigeon:                  { type: 'divebar',   pal: 'ty_bar_b',    neon: '#5fd0ff', perch: true },
   thecherrypit:                   { type: 'strip',     pal: 'ty_club',     neon: '#ff4a9a' },
-  rationnine:                     { type: 'diner',     pal: 'ty_diner',    neon: '#ffcf3e' },
-  ampersandelectronics:           { type: 'techstall', pal: 'ty_tech',     neon: '#5fd0ff' },
+  rationnine:                     { type: 'rationnine', pal: 'ty_ration',  neon: '#ffb43a' },
+  ohmsweetohm:           { type: 'techstall', pal: 'ty_tech',     neon: '#5fd0ff' },
   deadspaceinteriors:             { type: 'showroom',  pal: 'ty_showroom', neon: '#7dff6a' },
   secondskin:                     { type: 'boutique',  pal: 'ty_boutique', neon: '#ff4a9a' },
-  thecage:                        { type: 'shop',      pal: 'ty_shop_d',   neon: '#ffcf3e' },
   velkspreownedfurnishings:       { type: 'junkshop',  pal: 'ty_junk',     neon: '#ff8a4a' },
   voltage:                        { type: 'nightclub', pal: 'ty_voltage',  neon: '#5cd6ff' },
   aurelia:                        { type: 'atelier',   pal: 'ty_aurelia',  neon: '#b070ff' },
@@ -5140,11 +5157,11 @@ const NAMED_MODELS = {
   // Each of these shared a TYPE_MODEL with a neighbour of the same building_type and
   // was indistinguishable from it in the air. The twin keeps the generic type model;
   // this one gets a silhouette you can name from a mile out.
-  coldlinereeferdepot:            { type: 'reefer',     pal: 'ty_reefer_blk' },
-  interchangestack:               { type: 'interstack', pal: 'ty_stack_dk' },
-  ferrofabricationworks:          { type: 'foundry',    pal: 'ty_foundry' },
-  meltwaterfreightoffice:         { type: 'oldoffice',  pal: 'ty_meltoffice', neon: '#ffb43a' },
-  customsbondedstore7:            { type: 'bonded',     pal: 'ty_wh_metal',   neon: '#6affa8' },
+  chilloutlogistics:            { type: 'reefer',     pal: 'ty_reefer_blk' },
+  stackoverflow:               { type: 'interstack', pal: 'ty_stack_dk' },
+  weldenoughalone:          { type: 'foundry',    pal: 'ty_foundry' },
+  yardsfreightoffice:         { type: 'oldoffice',  pal: 'ty_meltoffice', neon: '#ffb43a' },
+  bondedbothered:            { type: 'bonded',     pal: 'ty_wh_metal',   neon: '#6affa8' },
   // Promoted off the generic `casino` type model so a future casino still has one.
   theneonvig:                     { type: 'neonvig',    pal: 'ty_vig',        neon: '#ff3e8a' },
   buzzardfield:                   { type: 'buzzard',   pal: 'ty_reach_hangar', neon: '#ffb14a' },
@@ -5196,6 +5213,16 @@ const TYPE_MODEL = {
   junkyard:          { type: 'junkyard',          pal: 'ty_junk_shack', neon: '#ffb43a' },
   // The only warm-lit window on Ironside — a wide glazed front and a cold-blue sign.
   laundromat:        { type: 'laundromat',        pal: 'ty_asc_clinic', neon: '#7fe3ff' },
+  // Marrow Street — the workaday downtown strip either side of the Sentinel. Each type
+  // has exactly one building and each gets its OWN silhouette, not a recoloured shop box:
+  // the strip has to read as a high street from the air, which it can't do if four of the
+  // six are the same mesh.
+  dept_store:        { type: 'deptstore',         pal: 'ty_adequate',   neon: '#ff8a2e' },
+  hardware:          { type: 'hardware',          pal: 'ty_bolt',       neon: '#ffcf3e' },
+  bathhouse:         { type: 'bathhouse',         pal: 'ty_soak',       neon: '#7fe3c0' },
+  noodle_bar:        { type: 'noodlebar',         pal: 'ty_broth',      neon: '#ff5a3e' },
+  outfitter:         { type: 'outfitter',         pal: 'ty_secondskin', neon: '#ffb43a' },
+  bodega:            { type: 'bodega',            pal: 'ty_kessel',     neon: '#ffe08a' },
   // The Ascendant Stronghold (docs/proposals/ascendant-stronghold.md).
   asc_spire:  { type: 'asc_spire',  pal: 'ty_asc_spire' },
   asc_gate:   { type: 'asc_gate',   pal: 'ty_asc_gate' },
@@ -6924,6 +6951,169 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
         }
       });
       blinkLight(ctx, cam, dx, dy, h * 2.6, asc, now, seed, alpha, 2);
+      break;
+    }
+    case 'stimcafe': {   // Battery Acid Coffee Co. — a narrow cafe with the roasting drum ON THE ROOF, smoking all day
+      const wallTop = h * 0.96;
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.92, 0, wallTop, pal, seed, night, alpha, true);
+      // The roaster: a riveted drum on its cradle, venting roast smoke. The whole street smells of it.
+      drawFacetDrum(ctx, cam, dx, dy, wallTop, wallTop + h * 0.30, fh * 0.30, fh * 0.26, 10, alpha, pal, true);
+      drawSmoke(ctx, cam, dx, dy, wallTop + h * 0.30, '160,140,120', alpha * 0.5, now, seed + 2);
+      { const [ax, ay] = F(0, fh * 0.98); draw3DBoxAt(ctx, cam, ax, ay, fh * 1.00, wallTop * 0.60, wallTop * 0.68, 'ty_door', seed + 1, night, alpha, false); }   // awning over the pavement tables
+      if (frontVis) marqueeBand(ctx, cam, dx, dy, E, fh * 0.90, wallTop * 0.80, m.neon || '#5fd0ff', night, alpha, 'BATTERY ACID');
+      if (night) { const [wx, wy] = F(0, fh * 0.94); glowPool(ctx, cam, wx, wy, h * 0.24, '255,205,150', 12, alpha * 0.30); }
+      break;
+    }
+    case 'permits': {   // Office of Permitted Suffering — a blank civic slab whose only architectural feature is the queue canopy
+      const body = h * 1.10;
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.10, 0, body, pal, seed, night, alpha, true);
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.16, body * 0.06, body * 0.14, 'ty_door', seed + 1, night, alpha, false);   // a mean plinth band
+      // The queue canopy — a long low shelter running out from the door, because the
+      // waiting is the building's real function. It is longer than the entrance is wide.
+      { const [cx, cy] = F(0, fh * 1.55); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.34, body * 0.28, body * 0.34, 'ty_door', seed + 2, night, alpha, false);
+        for (let i = 0; i < 4; i++) { const [px, py] = F(fh * 0.26 * (i % 2 ? 1 : -1), fh * (0.95 + i * 0.30));
+          draw3DBoxAt(ctx, cam, px, py, fh * 0.04, 0, body * 0.28, 'ty_door', seed + 20 + i, night, alpha, false); } }   // canopy posts
+      if (frontVis) marqueeBand(ctx, cam, dx, dy, E, fh * 1.00, body * 0.62, m.neon || '#9ab08a', night, alpha, 'PERMITS');
+      // One lit window at the top, night or day: somebody up there is still processing forms.
+      { const [wx, wy] = F(fh * 0.55, fh * 1.12); glowPool(ctx, cam, wx, wy, body * 0.86, '210,225,180', 5, alpha * (night ? 0.42 : 0.18)); }
+      break;
+    }
+    case 'rationnine': {   // Ration Nine — a state ration depot: roller shutter, stacked crates, and a stencilled 9 the size of a door
+      const wallTop = h * 0.90;
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.04, 0, wallTop, pal, seed, night, alpha, true);
+      { const [sx, sy] = F(0, fh * 1.06); draw3DBoxAt(ctx, cam, sx, sy, fh * 0.62, 0, wallTop * 0.58, 'ty_door', seed + 1, night, alpha, false); }   // the roller shutter, half down
+      for (let i = 0; i < 3; i++) {   // delivery crates nobody has taken in yet
+        const [bx, by] = F((-0.8 + i * 0.8) * fh * 0.72, fh * 1.22);
+        draw3DBoxAt(ctx, cam, bx, by, fh * 0.20, 0, h * (0.14 + 0.05 * (i & 1)), 'ty_door', seed + 8 + i, night, alpha, true);
+      }
+      // The stencilled 9, painted straight onto the wall as surface text — it leans and
+      // foreshortens with the face, never billboards.
+      if (frontVis) {
+        const nhw = fh * 0.30, z0 = wallTop * 0.62, z1 = wallTop * 0.96;
+        const [lx, ly] = F(-nhw - fh * 0.4, fh * 1.05), [rx, ry] = F(nhw - fh * 0.4, fh * 1.05);
+        const TL = cam.proj(lx, ly, z1), TR = cam.proj(rx, ry, z1), BR = cam.proj(rx, ry, z0), BL = cam.proj(lx, ly, z0);
+        if ([TL, TR, BR, BL].every(p => p.f > 0.12)) {
+          const tex = bakeSignText('9', '#d8d2c0', night ? 1 : 0, false);
+          emitFace(decoDepth(TL.f, TR.f, BR.f, BL.f), () => drawSurfaceText(ctx, TL, TR, BR, BL, tex, false, alpha * 0.9));
+        }
+        marqueeBand(ctx, cam, dx, dy, E, fh * 0.96, wallTop * 0.74, m.neon || '#ffb43a', night, alpha, 'RATION NINE');
+      }
+      if (night) { const [wx, wy] = F(0, fh * 1.02); glowPool(ctx, cam, wx, wy, h * 0.18, '255,200,140', 10, alpha * 0.22); }
+      break;
+    }
+    // ── Marrow Street, the workaday downtown strip ────────────────────────────
+    // Deliberately LOW and cluttered where the rest of the skyline is tall and clean:
+    // these read as a high street from the air because of what's on the pavement and
+    // venting off the roof, not because of height. The Sentinel anchors the row.
+    case 'deptstore': {   // Adequate! — a four-floor discount slab wearing one enormous banner, plant all over the roof
+      const body = h * 1.28;
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.24, 0, body, pal, seed, night, alpha, true);
+      const banZ0 = body * 0.70, banZ1 = body * 0.86;
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.30, banZ0, banZ1, 'ty_door', seed + 1, night, alpha, false);   // the banner, wrapping the whole facade
+      roofClutter(ctx, cam, dx, dy, fh * 1.24, body, 'citycore', seed + 2, night, alpha, now);
+      // "ADEQUATE!" painted the full width of the banner. The zone prose promises letters
+      // tall enough to read from the water, so it's surface text on the banner's real quad
+      // — it leans and foreshortens with the face instead of billboarding at the camera.
+      if (frontVis) {
+        const bhw = fh * 1.14, [blx, bly] = F(-bhw, fh * 1.32), [brx, bry] = F(bhw, fh * 1.32);
+        const TL = cam.proj(blx, bly, banZ1 - body * 0.012), TR = cam.proj(brx, bry, banZ1 - body * 0.012);
+        const BR = cam.proj(brx, bry, banZ0 + body * 0.012), BL = cam.proj(blx, bly, banZ0 + body * 0.012);
+        if ([TL, TR, BR, BL].every(p => p.f > 0.12)) {
+          const tex = bakeSignText('ADEQUATE!', m.neon || '#ff8a2e', night ? 1 : 0, false);
+          emitFace(decoDepth(TL.f, TR.f, BR.f, BL.f), () => drawSurfaceText(ctx, TL, TR, BR, BL, tex, false, alpha));
+        }
+        const [nx, ny] = F(fh * 0.70, fh * 1.02); neonBlade(ctx, cam, nx, ny, body * 0.88, body + h * 0.34, m.neon || '#ff8a2e', night, alpha);
+      }
+      { const [bx, by] = F(fh * 0.90, -fh * 0.60); blinkLight(ctx, cam, bx, by, body + h * 0.03, '255,150,90', now, seed + 9, alpha, 1.8); }   // one roof bulb nobody ever fixed
+      if (night) { const [wx, wy] = F(0, fh * 1.06); glowPool(ctx, cam, wx, wy, h * 0.16, '255,190,120', 16, alpha * 0.30); }   // the mannequin windows
+      break;
+    }
+    case 'hardware': {   // Nuts to That — a low shop under a deep awning with its stock stacked out on the pavement
+      const wallTop = h * 0.86;
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.08, 0, wallTop, pal, seed, night, alpha, true);
+      { const [ax, ay] = F(0, fh * 1.02); draw3DBoxAt(ctx, cam, ax, ay, fh * 1.18, wallTop * 0.66, wallTop * 0.74, 'ty_door', seed + 1, night, alpha, false); }   // the deep awning
+      for (let i = 0; i < 3; i++) {   // rope coils, the rebar barrel, a pallet of grey buckets
+        const [sx, sy] = F((-0.7 + i * 0.7) * fh * 0.80, fh * 1.16);
+        draw3DBoxAt(ctx, cam, sx, sy, fh * 0.22, 0, h * (0.16 + 0.06 * (i & 1)), 'ty_door', seed + 5 + i, night, alpha, true);
+      }
+      roofClutter(ctx, cam, dx, dy, fh * 1.08, wallTop, 'citycore', seed + 4, night, alpha, now);   // vents and a water tank break the flat roof
+      if (frontVis) marqueeBand(ctx, cam, dx, dy, E, fh * 1.02, wallTop * 0.86, m.neon || '#ffcf3e', night, alpha, 'NUTS TO THAT');
+      break;
+    }
+    case 'bathhouse': {   // Lather & Lye — a low tiled bathhouse venting steam off the roof all day. The steam IS the sign.
+      const wallTop = h * 0.92;
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.06, 0, wallTop, pal, seed, night, alpha, true);
+      for (const s of [-1, 1]) {
+        const [vx, vy] = F(s * fh * 0.42, -fh * 0.20);
+        draw3DBoxAt(ctx, cam, vx, vy, fh * 0.16, wallTop, wallTop + h * 0.16, 'ty_door', seed + 2 + s, night, alpha, true);
+        drawSmoke(ctx, cam, vx, vy, wallTop + h * 0.16, '210,225,230', alpha * 0.55, now, seed + s);
+        // Backlight the plume from the vent mouth, so at night the steam is a lit column
+        // off the roof rather than grey smudges — the one thing you can see this place by.
+        glowPool(ctx, cam, vx, vy, wallTop + h * 0.14, '170,240,225', 7, alpha * (night ? 0.34 : 0.12));
+      }
+      { const [px, py] = F(-fh * 0.70, fh * 1.04); draw3DBoxAt(ctx, cam, px, py, fh * 0.07, h * 0.10, h * 0.60, 'ty_marble_col', seed + 7, night, alpha, false); }   // the barber's pole
+      if (frontVis) marqueeBand(ctx, cam, dx, dy, E, fh * 1.00, wallTop * 0.80, m.neon || '#7fe3c0', night, alpha, 'LATHER & LYE');
+      if (night) { const [wx, wy] = F(0, fh * 1.00); glowPool(ctx, cam, wx, wy, h * 0.20, '150,235,215', 12, alpha * 0.26); }
+      break;
+    }
+    case 'noodlebar': {   // Oyelaran's — one storey, front wall folded open, a steam hood dumping the entire advertising budget into the street
+      const wallTop = h * 0.74;
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.90, 0, wallTop, pal, seed, night, alpha, true);
+      { const [ax, ay] = F(0, fh * 0.98); draw3DBoxAt(ctx, cam, ax, ay, fh * 1.02, wallTop * 0.52, wallTop * 0.62, 'ty_door', seed + 1, night, alpha, false); }   // the counter awning over the open front
+      { const [hx, hy] = F(0, -fh * 0.10);
+        draw3DBoxAt(ctx, cam, hx, hy, fh * 0.30, wallTop, wallTop + h * 0.20, 'ty_door', seed + 2, night, alpha, true);
+        drawSmoke(ctx, cam, hx, hy, wallTop + h * 0.20, '225,215,200', alpha * 0.60, now, seed + 3); }   // the steam hood
+      if (frontVis) marqueeBand(ctx, cam, dx, dy, E, fh * 0.86, wallTop * 0.74, m.neon || '#ff5a3e', night, alpha, "OYELARAN'S");
+      // A row of paper lanterns strung the length of the open front — nine stools, nine lamps.
+      for (let i = 0; i < 4; i++) {
+        const [lx, ly] = F((-0.72 + i * 0.48) * fh * 0.86, fh * 1.00);
+        draw3DBoxAt(ctx, cam, lx, ly, fh * 0.045, wallTop * 0.66, wallTop * 0.76, 'ty_door', seed + 12 + i, night, alpha, false);
+        glowPool(ctx, cam, lx, ly, wallTop * 0.70, '255,170,95', 4, alpha * (night ? 0.46 : 0.20));
+      }
+      if (night) {
+        const [lx, ly] = F(fh * 0.55, fh * 1.00); glowPool(ctx, cam, lx, ly, wallTop * 0.80, '255,180,110', 7, alpha * 0.40);    // the paper lantern
+        const [wx, wy] = F(0, fh * 0.96); glowPool(ctx, cam, wx, wy, wallTop * 0.45, '255,196,130', 12, alpha * 0.34);            // nine lit stools
+      }
+      break;
+    }
+    case 'outfitter': {   // Layers — a narrow workwear shopfront with boots strung up under the awning by their laces
+      const wallTop = h * 0.94;
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.94, 0, wallTop, pal, seed, night, alpha, true);
+      { const [ax, ay] = F(0, fh * 0.98); draw3DBoxAt(ctx, cam, ax, ay, fh * 1.04, wallTop * 0.60, wallTop * 0.68, 'ty_door', seed + 1, night, alpha, false); }
+      for (let i = 0; i < 4; i++) {   // the hanging boots
+        const [bx, by] = F((-0.75 + i * 0.50) * fh * 0.90, fh * 1.02);
+        draw3DBoxAt(ctx, cam, bx, by, fh * 0.05, wallTop * 0.44, wallTop * 0.58, 'ty_door', seed + 6 + i, night, alpha, false);
+      }
+      for (const s of [-1, 1]) {   // two headless forms in the window, each in this season's one coat
+        const [mx, my] = F(s * fh * 0.34, fh * 0.86);
+        draw3DBoxAt(ctx, cam, mx, my, fh * 0.09, h * 0.06, h * 0.42, 'ty_marble_col', seed + 14 + s, night, alpha, false);
+      }
+      if (frontVis) marqueeBand(ctx, cam, dx, dy, E, fh * 0.88, wallTop * 0.82, m.neon || '#ffb43a', night, alpha, 'LAYERS');
+      if (night) { const [wx, wy] = F(0, fh * 0.96); glowPool(ctx, cam, wx, wy, h * 0.22, '255,200,140', 11, alpha * 0.24); }
+      break;
+    }
+    case 'bodega': {   // Bodega Vu — a tiny corner shop with awnings on BOTH streets, one warm window and a padlocked cooler outside
+      const wallTop = h * 0.82;
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.90, 0, wallTop, pal, seed, night, alpha, true);
+      { const [ax, ay] = F(0, fh * 0.96); draw3DBoxAt(ctx, cam, ax, ay, fh * 0.98, wallTop * 0.58, wallTop * 0.66, 'ty_door', seed + 1, night, alpha, false); }
+      { const [bx, by] = F(fh * 0.96, 0); draw3DBoxAt(ctx, cam, bx, by, fh * 0.98, wallTop * 0.58, wallTop * 0.66, 'ty_door', seed + 2, night, alpha, false); }   // it turns the corner — that's the whole building
+      { const [cx, cy] = F(-fh * 0.60, fh * 1.00); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.14, 0, h * 0.24, 'ty_door', seed + 3, night, alpha, true); }              // the chained cooler
+      for (let i = 0; i < 2; i++) {   // produce crates out on the pavement, stacked two high
+        const [kx, ky] = F((0.30 + i * 0.34) * fh, fh * 1.06);
+        draw3DBoxAt(ctx, cam, kx, ky, fh * 0.13, 0, h * (0.12 + 0.07 * i), 'ty_door', seed + 16 + i, night, alpha, true);
+      }
+      if (frontVis) marqueeBand(ctx, cam, dx, dy, E, fh * 0.84, wallTop * 0.78, m.neon || '#ffe08a', night, alpha, 'BODEGA VU');
+      if (night) { const [wx, wy] = F(0, fh * 0.94); glowPool(ctx, cam, wx, wy, h * 0.20, '255,215,150', 10, alpha * 0.30); }
+      break;
+    }
+    case 'sentinel': {   // Coldwater Sentinel — a narrow storefront newsroom under a guyed press mast, its window a wall of feed-screens
+      const body = h * 1.02;
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.96, 0, body, pal, seed, night, alpha, true);
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.02, body * 0.74, body * 0.84, 'ty_door', seed + 1, night, alpha, false);   // the stencilled masthead band
+      mast(ctx, cam, dx, dy, body, body + h * 0.62, alpha, now, seed);                                                // how the news actually gets out
+      roofClutter(ctx, cam, dx, dy, fh * 0.96, body, 'citycore', seed + 2, night, alpha, now);
+      if (frontVis) { const [nx, ny] = F(fh * 0.52, fh * 1.00); neonBlade(ctx, cam, nx, ny, body * 0.80, body + h * 0.30, m.neon || '#5fd0ff', night, alpha); }
+      if (night) { const [wx, wy] = F(0, fh * 1.00); glowPool(ctx, cam, wx, wy, h * 0.24, '120,200,255', 13, alpha * 0.34); }   // feed-screens through the glass
       break;
     }
     case 'shop':

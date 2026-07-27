@@ -1,0 +1,14 @@
+{
+  "description": "Four items painted on a board. Two have been crossed out for so long the crossing-out has faded more than the writing.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_broth_board",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "menu board",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_broth_counter"
+}

@@ -1,0 +1,14 @@
+{
+  "description": "Stacked boxes of work boots to the ceiling, each with one boot out on top of the box so you can hold the weight of what you are buying.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_secondskin_bootwall",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "boot wall",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_secondskin_floor"
+}

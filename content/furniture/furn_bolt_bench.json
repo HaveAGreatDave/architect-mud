@@ -1,0 +1,14 @@
+{
+  "description": "A steel bench under a corrugated lean-to, its vice worn to a shine and its top scarred by every angle anyone has ever needed.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_bolt_bench",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "cutting bench",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_bolt_yard"
+}

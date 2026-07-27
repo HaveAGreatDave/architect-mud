@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 200,
+  "flags": {},
+  "generator_id": null,
+  "id": "zone_adequate_upper",
+  "max_capacity_kw": 200,
+  "name": "Adequate! — Housewares",
+  "source_type": "city_grid"
+}

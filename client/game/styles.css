@@ -2463,7 +2463,14 @@ body.fsim-external #look-resize-handle { display: none; }
 }
 /* Player "you are here" beacon — a glowing accent core plus a pulsing locator
    ring. Replaces the old () glyph, which was hard to read at small sizes. Shared
-   by the sidebar/HUD/mobile minimaps, the full map, and the legend swatches. */
+   by the sidebar/HUD/mobile minimaps, the full map, and the legend swatches.
+
+   LAYERING (the beacon must never hide information):
+     terrain fill / road connector / icon / label   z-index auto — the tile's own content
+     the beacon core + ping ring                    z-index 2
+     door, exit and entrance marks, GPS route       z-index 3 (.mm-edge/.mm-entrance/.mm-gps-svg)
+   So the beacon reads on top of the ground and any glyph, but every connector
+   line stays drawn over it — those are the bits you navigate by. */
 .mm-current, .map-current { position: relative; overflow: visible; z-index: 2; }
 .mm-current::before, .map-current::before {
 	content: '';
@@ -2476,7 +2483,7 @@ body.fsim-external #look-resize-handle { display: none; }
 	border-radius: 50%;
 	background: var(--accent);
 	box-shadow: 0 0 0 1.5px var(--bg), 0 0 7px 1px var(--accent);
-	z-index: 1;
+	z-index: 2;
 }
 .mm-current::after, .map-current::after {
 	content: '';
@@ -2489,6 +2496,7 @@ body.fsim-external #look-resize-handle { display: none; }
 	border-radius: 50%;
 	border: 1.5px solid var(--accent);
 	animation: you-ping 1.7s ease-out infinite;
+	z-index: 2;
 }
 @keyframes you-ping {
 	0%   { opacity: 0.7; transform: translate(-50%, -50%) scale(0.75); }
@@ -13475,6 +13483,31 @@ input.trade-qty { width: 56px; }
 	transform: translateX(-50%);
 	z-index: 9760;
 }
+/* THE QUESTION IS THE ONLY THING ON SCREEN.
+   It lands the instant the cold open lets go, and a brand-new player who has
+   never seen a MUD is looking at eleven panels of unexplained interface for the
+   first time in their life. Dimming all of it to near-black leaves exactly one
+   lit object and exactly one decision — and since the arrival prose is now held
+   back until this is answered (plugins/prologue/index.js), there is nothing
+   behind the veil worth reading yet anyway. Comes up over a second and a half so
+   it reads as the lights going down, not as a modal slamming shut. */
+#tour-offer-veil {
+	position: fixed;
+	inset: 0;
+	z-index: 9755;
+	background: rgba(0, 0, 0, 0.86);
+	backdrop-filter: blur(2px);
+	pointer-events: auto;   /* swallows clicks: nothing else is answerable yet */
+	opacity: 0;
+	animation: tour-veil-in 1500ms ease forwards;
+}
+#tour-offer-veil.closing { animation: tour-veil-out 700ms ease forwards; }
+@keyframes tour-veil-in  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes tour-veil-out { from { opacity: 1; } to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+	#tour-offer-veil { animation-duration: 200ms; }
+	#tour-offer-veil.closing { animation-duration: 200ms; }
+}
 .tour-card-step {
 	font-size: 10px;
 	letter-spacing: 1px;
@@ -13538,7 +13571,11 @@ body.intro-cine-open { overflow: hidden; }
 	animation: intro-cine-fadein 900ms ease both;
 	cursor: default;
 }
-#intro-cinematic.closing { animation: intro-cine-fadeout 800ms ease both; }
+/* The natural ending is a long dissolve, because the wordmark is sitting on
+   screen through it and should melt into the game rather than be cut away. A
+   SKIP is the opposite: the player asked for this to stop, so it stops. */
+#intro-cinematic.closing { animation: intro-cine-fadeout 1500ms ease both; }
+#intro-cinematic.closing.fast { animation-duration: 380ms; }
 @keyframes intro-cine-fadein  { from { opacity: 0; } to { opacity: 1; } }
 @keyframes intro-cine-fadeout { from { opacity: 1; } to { opacity: 0; } }
 #intro-cine-cv { position: absolute; inset: 0; width: 100%; height: 100%; }
@@ -13628,7 +13665,129 @@ body.intro-cine-open { overflow: hidden; }
 @media (max-width: 700px) {
 	.intro-cine-skip { font-size: 11px; padding: 6px 11px; }
 }
+
+/* ── The wordmark ───────────────────────────────────────────────────────────
+   The last eight seconds of the cold open. It sits over the city (which keeps
+   running underneath) behind its own radial scrim, so the skyline is still
+   faintly there — the brand is standing in front of the thing it built.
+
+   Every part arrives on its own beat: the scrim, then the A drawing itself on
+   stroke by stroke, then its nodes, then the wordmark's tracking closing from
+   wide to set, then the rule wiping out from the middle, then the welcome, then
+   the small print. Sequenced with delays rather than one fade, because a logo
+   that assembles reads as designed and a logo that fades in reads as an image. */
+.intro-cine-logo {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 0;
+	opacity: 0;
+	pointer-events: none;
+	color: var(--accent, #35e0c8);
+	background: radial-gradient(ellipse at center, rgba(0,0,0,0.86) 0%, rgba(0,0,0,0.80) 46%, rgba(0,0,0,0.92) 100%);
+	transition: opacity 1400ms ease;
+}
+.intro-cine-logo.in { opacity: 1; }
+.intro-cine-mark {
+	width: clamp(64px, 9vw, 104px);
+	height: auto;
+	margin-bottom: clamp(16px, 2.4vw, 26px);
+	filter: drop-shadow(0 0 26px color-mix(in srgb, var(--accent, #35e0c8) 42%, transparent));
+}
+.intro-cine-logo .icm-strokes path {
+	stroke-dasharray: 1;
+	stroke-dashoffset: 1;
+}
+/* transform-box/origin: without these an SVG scale() pivots on the viewBox
+   origin, so the nodes would slide in from the top-left instead of popping. */
+.intro-cine-logo .icm-nodes circle {
+	opacity: 0;
+	transform-box: fill-box;
+	transform-origin: center;
+}
+.intro-cine-logo.in .icm-leg   { animation: icm-draw 1250ms cubic-bezier(.22,.7,.25,1) 320ms both; }
+.intro-cine-logo.in .icm-bar   { animation: icm-draw 620ms cubic-bezier(.22,.7,.25,1) 1250ms both; }
+.intro-cine-logo.in .icm-spine { animation: icm-draw 900ms ease 1500ms both; }
+.intro-cine-logo.in .icm-nodes circle { animation: icm-node 700ms ease both; }
+.intro-cine-logo.in .icm-nodes circle:nth-child(1) { animation-delay: 1500ms; }
+.intro-cine-logo.in .icm-nodes circle:nth-child(2) { animation-delay: 1600ms; }
+.intro-cine-logo.in .icm-nodes circle:nth-child(3) { animation-delay: 1660ms; }
+.intro-cine-logo.in .icm-nodes circle:nth-child(4) { animation-delay: 1760ms; }
+.intro-cine-logo.in .icm-nodes circle:nth-child(5) { animation-delay: 1820ms; }
+.intro-cine-logo.in .icm-nodes circle:nth-child(6) { animation-delay: 1900ms; }
+@keyframes icm-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes icm-node { from { opacity: 0; transform: scale(0.2); } to { opacity: 1; transform: scale(1); } }
+
+.intro-cine-word {
+	font-family: var(--font-mono, 'Courier New', monospace);
+	font-size: clamp(26px, 5.4vw, 62px);
+	font-weight: 400;
+	color: #f2f8f7;
+	letter-spacing: 0.62em;
+	text-indent: 0.62em;    /* balances the trailing letter-space so it stays centred */
+	opacity: 0;
+	text-shadow: 0 0 40px rgba(0,0,0,0.9);
+	line-height: 1.1;
+}
+.intro-cine-logo.in .intro-cine-word { animation: icm-word 1900ms cubic-bezier(.16,.8,.24,1) 1650ms both; }
+@keyframes icm-word {
+	from { opacity: 0; letter-spacing: 0.95em; text-indent: 0.95em; filter: blur(3px); }
+	to   { opacity: 1; letter-spacing: 0.32em; text-indent: 0.32em; filter: blur(0); }
+}
+.intro-cine-rule {
+	width: min(360px, 52vw);
+	height: 1px;
+	margin: clamp(14px, 2vw, 22px) 0 clamp(12px, 1.8vw, 18px);
+	background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent, #35e0c8) 70%, transparent), transparent);
+	transform: scaleX(0);
+}
+.intro-cine-logo.in .intro-cine-rule { animation: icm-rule 1100ms ease 2900ms both; }
+@keyframes icm-rule { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+.intro-cine-welcome {
+	font-family: var(--font-mono, 'Courier New', monospace);
+	font-size: clamp(12px, 1.7vw, 18px);
+	letter-spacing: 0.26em;
+	text-indent: 0.26em;
+	color: rgba(238,244,243,0.86);
+	opacity: 0;
+}
+/* The small print. Uppercase, tiny, and dim — the tone of a thing that has
+   already decided on your behalf and filed the paperwork. */
+.intro-cine-fine {
+	font-family: var(--font-mono, 'Courier New', monospace);
+	font-size: clamp(8.5px, 1vw, 10.5px);
+	letter-spacing: 0.22em;
+	margin-top: clamp(12px, 1.8vw, 18px);
+	color: rgba(200,214,212,0.30);
+	opacity: 0;
+	text-align: center;
+	padding: 0 6vw;
+}
+.intro-cine-logo.in .intro-cine-welcome { animation: icm-rise 1200ms ease 3200ms both; }
+.intro-cine-logo.in .intro-cine-fine    { animation: icm-rise 1400ms ease 4100ms both; }
+@keyframes icm-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+@media (max-width: 700px) {
+	.intro-cine-word { font-size: clamp(22px, 8vw, 34px); }
+}
+
 @media (prefers-reduced-motion: reduce) {
 	#intro-cinematic, #intro-cinematic.closing { animation-duration: 300ms; }
 	.intro-cine-line { transition: opacity 500ms ease; transform: none; }
+	/* The logo still assembles in order — the sequence IS the content — but with
+	   no blur, no scaling and no tracking animation. */
+	.intro-cine-logo.in .icm-leg,
+	.intro-cine-logo.in .icm-bar,
+	.intro-cine-logo.in .icm-spine { animation: none; stroke-dashoffset: 0; }
+	.intro-cine-logo.in .icm-nodes circle { animation: none; opacity: 1; }
+	.intro-cine-logo.in .intro-cine-word {
+		animation: none; opacity: 1; letter-spacing: 0.32em; text-indent: 0.32em;
+	}
+	.intro-cine-logo.in .intro-cine-rule { animation: none; transform: scaleX(1); }
+	.intro-cine-logo.in .intro-cine-welcome,
+	.intro-cine-logo.in .intro-cine-fine { animation: none; opacity: 1; transform: none; }
 }
