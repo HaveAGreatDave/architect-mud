@@ -152,6 +152,13 @@ bundle), so the prose must always still read on its own:
 | `pointAt(id, action, target)` | `point_at` | rings ripple out of the room-pane link, ~3.6s, then gone | "click *that* one, up there" — announcing a target the prose just named |
 | `beaconOn(id, action, target)` / `beaconOff` / `beaconClear(id)` | `beacon` | **sticky** — shimmers until turned off, and is re-stamped after every room re-render (`render.js applyBeacons`) | the object an **onboarding step** is steering you toward, where a player who looked away has nothing left on screen telling them what to do |
 
+**Light ONE thing.** A beacon is a highlight, not a strobe. Two shimmering objects at
+once stop reading as "this one" and start reading as decoration, and the player is back
+to guessing — which is the problem beacons exist to solve. The prologue's rule: the
+attendant shimmers until you talk to him, the terminal doesn't shimmer until his dialogue
+has said what it's for (a `PROLOGUE_BEACON` action on that node), and it goes out the
+moment it's used.
+
 `action`/`target` must match a room-pane link's `data-action`/`data-target` — furniture is
 `examine <name>`, NPCs `talk <name>`, exits `go <dir>`, ground items `take <name>` (see
 `commands/describe.js`). A beacon for a link that isn't in the pane yet retries briefly, then

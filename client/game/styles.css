@@ -13677,8 +13677,92 @@ body.intro-cine-open { overflow: hidden; }
 	color: var(--accent, #35e0c8);
 	text-shadow: 0 0 44px color-mix(in srgb, var(--accent, #35e0c8) 55%, transparent);
 }
+/* The start gate. Nothing about the cold open runs until this is dismissed —
+   it exists so the AudioContext is created on the far side of a real user
+   gesture, which is the only way browsers will let the sequence make a sound.
+   Styled as the quietest thing in the game: black, one accent rule, no motion
+   beyond a slow breath on the button. */
+.intro-cine-gate {
+	position: absolute;
+	inset: 0;
+	z-index: 4;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: #000;
+	cursor: pointer;
+	transition: opacity 500ms ease;
+}
+.intro-cine-gate.gone { opacity: 0; pointer-events: none; }
+.intro-cine-gate-card {
+	text-align: center;
+	padding: 0 24px;
+	max-width: 560px;
+	font-family: var(--font-mono, 'Courier New', monospace);
+	animation: intro-cine-gate-in 900ms ease-out both;
+}
+@keyframes intro-cine-gate-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.intro-cine-gate-eyebrow {
+	font-size: 11px;
+	letter-spacing: 0.62em;
+	text-indent: 0.62em;
+	text-transform: uppercase;
+	color: var(--accent, #35e0c8);
+	opacity: 0.75;
+}
+.intro-cine-gate-title {
+	margin-top: 18px;
+	font-size: clamp(20px, 3.4vw, 34px);
+	letter-spacing: 0.16em;
+	text-indent: 0.16em;
+	color: rgba(235,245,244,0.95);
+}
+.intro-cine-gate-sub {
+	margin-top: 14px;
+	font-size: 13px;
+	line-height: 1.7;
+	letter-spacing: 0.04em;
+	color: rgba(235,245,244,0.42);
+}
+.intro-cine-gate-btn {
+	margin-top: 30px;
+	font-family: inherit;
+	font-size: 13px;
+	letter-spacing: 0.34em;
+	text-indent: 0.34em;
+	text-transform: uppercase;
+	color: var(--accent, #35e0c8);
+	background: color-mix(in srgb, var(--accent, #35e0c8) 8%, transparent);
+	border: 1px solid color-mix(in srgb, var(--accent, #35e0c8) 45%, transparent);
+	border-radius: 4px;
+	padding: 13px 34px;
+	cursor: pointer;
+	transition: color 300ms ease, border-color 300ms ease, background 300ms ease;
+	animation: intro-cine-gate-breathe 3.4s ease-in-out infinite;
+}
+.intro-cine-gate-btn span { opacity: 0.7; margin-left: 2px; }
+.intro-cine-gate-btn:hover {
+	color: #fff;
+	border-color: var(--accent, #35e0c8);
+	background: color-mix(in srgb, var(--accent, #35e0c8) 20%, transparent);
+}
+@keyframes intro-cine-gate-breathe {
+	0%, 100% { box-shadow: 0 0 0 0 transparent; }
+	50%      { box-shadow: 0 0 22px 1px color-mix(in srgb, var(--accent, #35e0c8) 26%, transparent); }
+}
+.intro-cine-gate-fine {
+	margin-top: 22px;
+	font-size: 10px;
+	letter-spacing: 0.22em;
+	text-transform: uppercase;
+	color: rgba(235,245,244,0.24);
+}
+[data-motion="off"] .intro-cine-gate-card,
+[data-motion="off"] .intro-cine-gate-btn { animation: none; }
+
 .intro-cine-skip {
 	position: absolute;
+	z-index: 5;   /* above .intro-cine-gate — skippable from the start gate too */
 	right: clamp(14px, 3vw, 34px);
 	bottom: clamp(14px, 3vw, 30px);
 	font-family: var(--font-mono, 'Courier New', monospace);

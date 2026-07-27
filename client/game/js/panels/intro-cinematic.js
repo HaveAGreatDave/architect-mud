@@ -787,38 +787,88 @@ export function playIntroCinematic(onDone, skyline) {
     <div class="intro-cine-vig"></div>
     <div class="intro-cine-stage"><div class="intro-cine-line" id="intro-cine-line"></div></div>
     ${LOGO_HTML}
+    <div class="intro-cine-gate" id="intro-cine-gate">
+      <div class="intro-cine-gate-card">
+        <div class="intro-cine-gate-eyebrow">Architect</div>
+        <div class="intro-cine-gate-title">Before we begin</div>
+        <div class="intro-cine-gate-sub">This opens with sound. Turn it up, or don't — it plays either way.</div>
+        <button type="button" class="intro-cine-gate-btn" id="intro-cine-begin">Begin <span>›</span></button>
+        <div class="intro-cine-gate-fine">About a minute. You can skip at any point.</div>
+      </div>
+    </div>
     <button type="button" class="intro-cine-skip show" id="intro-cine-skip">Skip <span>›</span></button>`;
   document.body.appendChild(_ov);
   document.body.classList.add('intro-cine-open');
 
   const lineEl = _ov.querySelector('#intro-cine-line');
   const skipEl = _ov.querySelector('#intro-cine-skip');
-  const t0 = performance.now();
-
-  _cleanupCanvas = startCanvas(_ov.querySelector('#intro-cine-cv'), t0, reduced, skyline);
-  _audio = startAudio();
+  const gateEl = _ov.querySelector('#intro-cine-gate');
 
   const later = (ms, fn) => _timers.push(setTimeout(fn, ms));
 
-  for (const b of BEATS) {
-    later(b.t, () => {
-      lineEl.className = `intro-cine-line in ${b.cls || ''}`;
-      lineEl.innerHTML = b.text;   // authored above; no player input reaches this
-    });
-    later(b.t + b.hold, () => { lineEl.className = `intro-cine-line ${b.cls || ''}`; });
+  // ── The start gate ─────────────────────────────────────────────────────────
+  // Nothing runs until the player clicks. This is not politeness — it is the
+  // only way the sound plays at all. Every browser suspends an AudioContext
+  // created without a user gesture, so a cinematic that auto-started came up
+  // silent for most first-time players, which is exactly the one impression you
+  // don't get a second go at. The click is the gesture; the context is created
+  // on the far side of it, already permitted to make noise.
+  //
+  // It auto-starts after AUTO_BEGIN_MS regardless, because a sequence that can
+  // wait forever is a sequence that can strand someone who tabbed away — and
+  // the server's own fallback (INTRO_FALLBACK_MS in plugins/prologue) is sized
+  // to cover this wait plus the full run.
+  const AUTO_BEGIN_MS = 20000;
+  let begun = false;
+  const begin = () => {
+    if (begun) return;
+    begun = true;
+    gateEl.classList.add('gone');
+    setTimeout(() => gateEl.remove(), 520);
+    runSequence();
+  };
+  _ov.querySelector('#intro-cine-begin').addEventListener('click', (e) => { e.stopPropagation(); begin(); });
+  gateEl.addEventListener('click', begin);        // anywhere on the card works
+  _timers.push(setTimeout(begin, AUTO_BEGIN_MS));
+
+  // Everything from here runs on the far side of the gate — the canvas, the
+  // audio context, and every beat timer. t0 is taken here rather than at mount
+  // so the flythrough's clock starts when the sequence does, not when the gate
+  // went up.
+  function runSequence() {
+    const t0 = performance.now();
+
+    _cleanupCanvas = startCanvas(_ov.querySelector('#intro-cine-cv'), t0, reduced, skyline);
+    _audio = startAudio();
+
+    for (const b of BEATS) {
+      later(b.t, () => {
+        lineEl.className = `intro-cine-line in ${b.cls || ''}`;
+        lineEl.innerHTML = b.text;   // authored above; no player input reaches this
+      });
+      later(b.t + b.hold, () => { lineEl.className = `intro-cine-line ${b.cls || ''}`; });
+    }
+
+    // The skip affordance is loud for six seconds, then recedes to a dim corner —
+    // still there, still clickable, no longer competing with the first line.
+    later(6000, () => skipEl.classList.remove('show'));
+    // The mark arrives after the last line has finished leaving, holds, and is
+    // still on screen when the overlay starts its fade — so the logo dissolves
+    // INTO the game rather than being replaced by it.
+    later(LOGO_AT, () => _ov?.querySelector('#intro-cine-logo')?.classList.add('in'));
+    later(RUN_MS - 1600, () => _ov?.classList.add('closing'));
+    later(RUN_MS, () => finish('end'));
   }
 
-  // The skip affordance is loud for six seconds, then recedes to a dim corner —
-  // still there, still clickable, no longer competing with the first line.
-  later(6000, () => skipEl.classList.remove('show'));
-  // The mark arrives after the last line has finished leaving, holds, and is
-  // still on screen when the overlay starts its fade — so the logo dissolves
-  // INTO the game rather than being replaced by it.
-  later(LOGO_AT, () => _ov?.querySelector('#intro-cine-logo')?.classList.add('in'));
-  later(RUN_MS - 1600, () => _ov?.classList.add('closing'));
-  later(RUN_MS, () => finish('end'));
-
-  const onKey = (e) => { if (e.key === 'Escape' || e.key === ' ' || e.key === 'Enter') { e.preventDefault(); finish('skip'); } };
+  // Enter/Space START it while the gate is up (the same gesture the button
+  // wants) and only SKIP once it's running — otherwise the keyboard route to
+  // "begin" would throw the whole sequence away. Escape always skips.
+  const onKey = (e) => {
+    if (e.key === 'Escape') { e.preventDefault(); finish('skip'); return; }
+    if (e.key !== ' ' && e.key !== 'Enter') return;
+    e.preventDefault();
+    if (!begun) begin(); else finish('skip');
+  };
   skipEl.addEventListener('click', (e) => { e.stopPropagation(); finish('skip'); });
   // Clicking the field does NOT skip — a stray click in the first ten seconds
   // would throw away the one thing this whole sequence exists to do. It brings

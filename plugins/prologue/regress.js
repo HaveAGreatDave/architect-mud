@@ -3,6 +3,8 @@ import { query } from '../../server/models/db.js';
 import { getRegisteredMoveGates } from '../../server/engine/movement-gates.js';
 import { clearFlag } from '../../server/engine/flags.js';
 import { getNetXp } from '../../server/engine/ip.js';
+import { availableActions } from '../../server/engine/specializedActions.js';
+import { dispatchAction } from '../../server/engine/actions.js';
 import { _test } from './index.js';
 
 export default async function regress({ check }) {
@@ -69,6 +71,34 @@ export default async function regress({ check }) {
   check('read holosign answers like examine', readIt !== undefined && readIt?.type !== 'error', readIt?.type);
   const readCaster = await readHolosign(['holocaster'], 'read holocaster', { ...p, current_zone: Z_LATTICE });
   check('read holocaster is not swallowed by the holosign', readCaster === undefined);
+  // …but it must NOT advertise itself. `read` is registered ungated precisely so
+  // the reverse lookup can't offer it on the sign's room link as a second door —
+  // examine is the one door, and USE is what you click from there.
+  const signActions = availableActions({ flags: { prologue_holosign: true } });
+  check('read is not advertised on the holosign', !signActions.includes('read'), signActions.join(','));
+  check('use IS advertised on the holosign', signActions.includes('use'), signActions.join(','));
+
+  // ── The attendant's dialogue drives the first two beacons ──────────────────
+  // Authored flat on the nodes, so this is really a check that the content and
+  // the action agree — the failure mode is a silent no-op in front of a new
+  // player, which nothing else would catch.
+  const fakeActor = { id: p.id, _prologueBeacons: [] };
+  const seenSet = () => (fakeActor._prologueBeacons || []).map(b => b.join(' '));
+  const talkNode = await dispatchAction({ type: 'PROLOGUE_BEACON', actor: fakeActor, params: { at: 'none' } });
+  check('PROLOGUE_BEACON none is accepted', talkNode?.type !== 'error', talkNode?.message);
+  check('talking to the attendant leaves nothing lit', seenSet().length === 0, seenSet().join('|'));
+  const descNode = await dispatchAction({ type: 'PROLOGUE_BEACON', actor: fakeActor, params: { at: 'terminal' } });
+  check('PROLOGUE_BEACON terminal is accepted', descNode?.type !== 'error', descNode?.message);
+  check('the describe line lights the terminal, alone', seenSet().length === 1 && seenSet()[0].includes('MORPHEX'), seenSet().join('|'));
+  const bogus = await dispatchAction({ type: 'PROLOGUE_BEACON', actor: fakeActor, params: { at: 'nowhere' } });
+  check('PROLOGUE_BEACON rejects an unknown target', bogus?.type === 'error');
+
+  // The attendant's tree actually carries those actions (content, not code).
+  const att = await query(`SELECT dialogue_tree FROM npcs WHERE id='npc_attendant_inbetween'`);
+  const tree = att.rows[0]?.dialogue_tree || {};
+  const actionAt = (node) => (tree[node]?.actions || []).find(a => a.action === 'PROLOGUE_BEACON')?.at;
+  check('attendant root clears the beacon', actionAt('root') === 'none', actionAt('root'));
+  check('attendant describe lights the terminal', actionAt('describe') === 'terminal', actionAt('describe'));
 
   // ── The gift beat: +1 to every stat (free of XP) + the holocaster ──────────
   const netBefore = await getNetXp(p.id);

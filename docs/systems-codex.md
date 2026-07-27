@@ -20,10 +20,25 @@ end of `client/game/styles.css`.
 `zone_the_inbetween`, and pushes `{ type: 'intro_cinematic' }`. **It schedules
 none of the arrival prose.** The client plays the sequence and echoes the silent
 verb `introdone`, which calls `beginArrival(player)`. A `setTimeout` fallback
-(78 s, longer than the 75 s run) calls the same function if the echo never comes,
-so a stale client bundle degrades to the old behaviour instead of stalling the
+(`INTRO_FALLBACK_MS`, 110 s) calls the same function if the echo never comes, so
+a stale client bundle degrades to the old behaviour instead of stalling the
 prologue. `beginArrival` is claimed synchronously via
 `player._prologueArrivalStarted`, so the echo and the fallback racing is harmless.
+
+**The start gate — the sequence does not auto-play.** The overlay mounts showing
+a single black card with a **Begin** button, and the canvas, the audio context
+and every beat timer are held behind it (`runSequence()` inside
+`playIntroCinematic`). This is not a courtesy: browsers suspend an `AudioContext`
+created without a user gesture, so the auto-starting version came up **silent**
+for most first-time players — the one impression there is no second go at. The
+click is the gesture, and the context is built on the far side of it. Enter/Space
+*begin* while the gate is up and only *skip* once it's running; Escape always
+skips; the Skip button sits above the gate (`z-index: 5`) so the whole thing is
+escapable from the first frame. The gate **auto-begins after 20 s** so a player
+who tabbed away can't be stranded — which is why the server fallback above is
+110 s and not 78: it has to clear the wait *plus* the full run, or the arrival
+prose lands behind the overlay and scrolls past unread. **Those two numbers move
+together.**
 
 **Nothing is said until the interface question is answered.** `beginArrival`
 sends `tour_offer` and, if the question hasn't been answered before, **returns** —

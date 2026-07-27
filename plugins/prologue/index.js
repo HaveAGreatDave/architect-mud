@@ -29,6 +29,7 @@ import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { sendToPlayer, teachVerb, pointAt, beaconOn, beaconOff, beaconClear } from '../../server/engine/messaging.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { maxHpForEndurance, invalidateSkillCache } from '../../server/engine/ip.js';
+import { registerAction } from '../../server/engine/actions.js';
 import { getZone, getMinimapData, getLivePlayer, getAllZones } from '../../server/engine/world.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
 import { cmdExamine } from '../../server/engine/commands/world.js';
@@ -218,12 +219,20 @@ function playSoundscript(player, cues) {
 
 // ── Beacons: whatever the prologue currently wants you to touch, shimmers ─────
 // The prologue's one job is that a brand-new player is never stuck wondering what
-// to do next. Prose scrolls away; a beacon doesn't. At every step exactly the
-// objects that step is steering you toward keep shimmering in the room pane —
-// the attendant, the terminal, the holosign, the chair, the kit on the floor, the
-// exit — and go dark the moment that step is done. The live set is tracked in
-// memory on the player (a UI hint, never persisted) so switching steps can turn
-// the previous step's beacons off without knowing what they were.
+// to do next. Prose scrolls away; a beacon doesn't.
+//
+// ONE THING AT A TIME. A beacon is a highlight, not a strobe: light the single
+// object this step is steering you toward and nothing else, and put it out the
+// moment that step is done. Two shimmering things at once is worse than none —
+// it stops reading as "this one" and starts reading as decoration. So the
+// attendant shimmers until you talk to him and not a second longer; the terminal
+// doesn't shimmer until he's actually told you what it's for (the "How will
+// others see me?" line, via the PROLOGUE_BEACON action on that dialogue node);
+// and it goes dark the instant you've used it.
+//
+// The live set is tracked in memory on the player (a UI hint, never persisted)
+// so switching steps can turn the previous step's beacons off without knowing
+// what they were.
 const B_ATTENDANT = ['talk', 'chrome attendant'];
 const B_TERMINAL  = ['examine', 'MORPHEX 9000 BioSculpt terminal'];
 const B_HOLOSIGN  = ['examine', 'floating holosign'];
@@ -241,6 +250,27 @@ function setBeacons(player, list) {
   player._prologueBeacons = next;
 }
 
+// The dialogue seam. The attendant's tree drives the first two beacons itself:
+// `root` (landed on the moment you talk to him) puts HIS shimmer out, and the
+// "How will others see me?" node lights the terminal — so the terminal starts
+// glowing exactly when the fiction has explained what it's for, not before.
+// Authored flat on the node (`{"action":"PROLOGUE_BEACON","at":"terminal"}`),
+// which is the shape the VINE dialogue editor writes.
+const BEACON_TARGETS = { terminal: [B_TERMINAL], attendant: [B_ATTENDANT], north: [B_NORTH], none: [] };
+registerAction({
+  type: 'PROLOGUE_BEACON',
+  handler: async ({ actor, params }) => {
+    const at = String(params?.at || params?.target || 'none').toLowerCase();
+    const list = BEACON_TARGETS[at];
+    if (!list) return { type: 'error', message: `PROLOGUE_BEACON: unknown target "${at}"` };
+    // Never re-light something the player is already past — a replayed dialogue
+    // shouldn't put the terminal back on for someone who used it an hour ago.
+    if (at === 'terminal' && await isSet(actor, F_ALIGNED)) return { type: 'ok' };
+    setBeacons(actor, list);
+    return { type: 'ok' };
+  },
+});
+
 // ── Move gates: the three narrative doors ────────────────────────────────────
 // Pure checks; a blocked move returns its in-fiction refusal. Non-prologue moves
 // short-circuit before any DB read.
@@ -250,7 +280,7 @@ async function prologueMoveGate({ player, to }) {
   // Each refusal re-lights the beacon for the thing that would unblock it — a
   // player who walked into the wall gets the answer pointed at, not just denied.
   if (to.id === Z_LATTICE && !(await isSet(player, F_ALIGNED))) {
-    setBeacons(player, [B_ATTENDANT, B_TERMINAL]);
+    setBeacons(player, [B_TERMINAL]);
     return { block: true, message: `The way north will not open. The attendant does not move. "First, be certain of your shape," it says. "Use the terminal. Tell it what you are." <span class="hint">(try: ${teachVerb('use', 'use', 'MORPHEX 9000 BioSculpt terminal')} — or click the shimmering terminal)</span>` };
   }
   if (to.id === Z_BROADCAST && !(await isSet(player, F_BROADCAST))) {
@@ -279,11 +309,18 @@ function namesHolosign(t) {
   return !namesHolocaster(t) && (t.includes('holosign') || t.includes('holo') || t.includes('sign'));
 }
 
-// `read holosign` is simply `examine holosign`. A wall of glowing text is a thing
-// you READ, and a first-time player types the verb the fiction hands them — so the
-// object answers to it rather than telling them "Unknown command". Scoped to this
-// one object (the global `read` verb still belongs to bulletins, job boards and
-// the cookbook), which is exactly what the tag-gated registry is for.
+// `read holosign` is simply `examine holosign` — nothing more. A wall of glowing
+// text is a thing you READ, and a first-time player types the verb the fiction
+// hands them, so the object answers to it instead of saying "Unknown command".
+//
+// Registered WITHOUT a requiredTag on purpose. A tag-gated entry would also show
+// up in `availableActions`, which would advertise READ on the holosign's room
+// link as though it were a second, different thing to do — it isn't. Examine is
+// the one door: it prints the sign AND lists the actions on it, and USE is the
+// one you click from there. Ungated entries are invisible to the reverse lookup
+// and still fire, which is exactly what an alias wants. The handler self-gates
+// on zone and name, so the global `read` verb still belongs to bulletins, job
+// boards and the cookbook.
 async function readHolosign(args, raw, player, broadcast) {
   const target = args.join(' ').toLowerCase();
   if (!namesHolosign(target)) return undefined;
@@ -371,10 +408,9 @@ async function useHolocaster(args, raw, player) {
 export const specializedActions = [
   { verb: 'use', requiredTag: 'prologue_holosign',   handler: useHolosign },
   { verb: 'use', requiredTag: 'prologue_holocaster', handler: useHolocaster },
-  // `read holosign` → `examine holosign`. Registering it here also makes READ show
-  // up in the holosign's advertised actions (availableActions reads this registry
-  // in reverse), so the room link offers it without any content change.
-  { verb: 'read', requiredTag: 'prologue_holosign',  handler: readHolosign },
+  // A silent alias for examine — deliberately ungated so it never advertises
+  // itself as an action on the sign (see readHolosign).
+  { verb: 'read', handler: readHolosign },
 ];
 
 // ── Chargen alignment: the attendant "predicts" your answer ───────────────────
@@ -462,7 +498,13 @@ on('player.login', async ({ id }) => {
 // Everything the prologue says on arrival, gated behind the cold open. Split out
 // of the login handler so `introdone` can trigger it, and guarded by an in-memory
 // claim (not a flag) because both callers can arrive within the same tick.
-const INTRO_FALLBACK_MS = 78000;   // longer than the full cinematic (75s) + fade
+// Longer than the client's start gate (it auto-begins at 20s if nobody clicks
+// "Begin") PLUS the full cinematic (75s) and its fade. Sized off the WORST case,
+// not the usual one: if this fires while the sequence is still playing, the
+// arrival prose lands behind the overlay and scrolls past unread — the exact
+// failure the cold-open gating exists to prevent. See the start gate in
+// client/game/js/panels/intro-cinematic.js; the two numbers move together.
+const INTRO_FALLBACK_MS = 110000;
 // If the interface question is never answered — a tab left open on the veil, a
 // client that lost the socket mid-tour — the prose comes anyway rather than the
 // player standing in a silent room forever. Generous, because a first-timer
@@ -508,10 +550,10 @@ function speakArrival(player) {
   setTimeout(() => {
     out(player, `<span class="ambient">Maybe I should ${teachVerb('talk', 'talk', 'chrome attendant')} to it.</span>`);
     pointAt(player.id, 'talk', 'chrome attendant');
-    // …and then it keeps shimmering, along with the terminal it will send you to.
-    // The ripple is the announcement; the beacon is the one that's still there
-    // when a first-timer comes back from reading the help file.
-    setBeacons(player, [B_ATTENDANT, B_TERMINAL]);
+    // …and then HE keeps shimmering, alone, until you talk to him. Not the
+    // terminal: he hasn't mentioned it yet, and a room with two glowing things
+    // in it is a room with no answer in it.
+    setBeacons(player, [B_ATTENDANT]);
   }, 17600);
 }
 
@@ -519,7 +561,7 @@ function speakArrival(player) {
 on('zone.entered', async ({ actor, zone, from }) => {
   if (!actor) return;
   if (zone === Z_LATTICE) {
-    out(actor, `<span class="ambient">The holosign turns to face you. It wants to be read.</span> <span class="hint">(try: ${teachVerb('read', 'read', 'floating holosign')} — or ${teachVerb('examine', 'examine', 'floating holosign')}, they're the same thing here)</span>`);
+    out(actor, `<span class="ambient">The holosign turns to face you. It wants to be read.</span> <span class="hint">(try: ${teachVerb('examine', 'examine', 'floating holosign')} — it'll show you what you can do with it)</span>`);
     if (!(await isSet(actor, F_INTERFACED))) setBeacons(actor, [B_HOLOSIGN]);
     else if (!(await isSet(actor, F_BROADCAST))) setBeacons(actor, []);
     else setBeacons(actor, [B_NORTH]);
@@ -603,10 +645,12 @@ function playBroadcast(player) {
         return `<span class="action-link room-item" data-action="take" data-target="${name}" title="Take ${name}">${label}</span>`;
       }).join(', ');
       out(player, `<span class="ambient">Objects thud onto the invisible floor in front of you, one after another, as if the dark is emptying its pockets:</span> ${mentions}. <span class="hint">(take them or leave them — then go ${teachVerb('north', 'go', 'north')} to the collapse)</span>`);
-      // Every take-link shimmers, and so does the exit. The kit is one-way: walk
-      // north without it and it's gone for good — so the prologue's last act is to
-      // make "there are things on the floor" impossible to miss.
-      setBeacons(player, [...KIT.map(({ name }) => ['take', name]), B_NORTH]);
+      // The pile on the floor shimmers, and NOT the exit alongside it — the exit
+      // is the thing that costs you the kit, so lighting both at once would be
+      // pointing two ways. The kit is one-way: walk north without it and the bat,
+      // the helmet and the ₵100 chip are gone for good. North picks up its own
+      // beacon when you actually leave (zone.entered → Z_COLLAPSE).
+      setBeacons(player, KIT.map(({ name }) => ['take', name]));
       // …and the record of what you just watched. Volume I of the CODEX is handed
       // over whole here rather than earned, because the player has already seen
       // it — the cold open IS that volume, cut to thirty seconds. Everything in
