@@ -3415,8 +3415,11 @@ function renderTabletSettings() {
 
 // About — the colophon page. Static markup: wordmark, byline, and the support
 // link (same URL the login screen carries, kept in sync by hand — there's only
-// the one). The line above the button explains what a donation actually buys,
-// which is the honest version of asking. Opens in a new tab, so no wiring.
+// the one). The line above the button still says exactly what a donation buys —
+// server bills, and the time not spent earning them — because the honest ask is
+// the only one worth making. It just says it in the game's voice and in half the
+// words; a paragraph of earnest explanation was reading like a charity mailer in
+// the middle of a city that would mug you. Opens in a new tab, so no wiring.
 function renderAboutPage() {
   return `<div class="tos-about">
     <div class="tos-about-mark">Architect</div>
@@ -3424,7 +3427,7 @@ function renderAboutPage() {
     <div class="tos-about-by">Built by</div>
     <div class="tos-about-names">David Lacey<br>John Akerson</div>
     <div class="tos-about-rule"></div>
-    <div class="tos-about-tag">Architect runs on servers and databases that cost real money every month. Donations cover those bills — and every one they cover is time we get to spend building the game instead of paying for it.</div>
+    <div class="tos-about-tag">Nothing in this city runs for free — least of all the city. Cover a month's bills and we spend that month building instead of earning it.</div>
     <a class="tos-about-bmc" href="https://buymeacoffee.com/haveagreatdave" target="_blank" rel="noopener noreferrer" title="Support Us">
       <span class="tos-about-cup">☕</span><span>Support Us</span>
     </a>
