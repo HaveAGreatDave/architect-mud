@@ -13,7 +13,7 @@ import { getAllLivePlayers } from '../../server/engine/world.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { recomputeEquipped } from '../../server/engine/commands/inventory.js';
 import { registerAction } from '../../server/engine/actions.js';
-import { devTriggerWeatherEvent } from '../../server/engine/environment.js';
+import { devTriggerWeatherEvent, registerWeatherEventCurrent } from '../../server/engine/environment.js';
 
 const SEASON_BY_MONTH = [
   'winter', 'winter', 'spring', 'spring', 'spring', 'summer',
@@ -449,6 +449,9 @@ function currentEventSnapshot() {
 // Advance the lifecycle by wall-clock and/or auto-roll a new event. Returns
 // { lines, event } — announce lines to broadcast + the current event snapshot.
 // Called by the engine every 30s.
+// Hand the engine a live read of the current event, for the dev panel badge.
+registerWeatherEventCurrent(currentEventSnapshot);
+
 function stepWeatherEvent() {
   const now = Date.now();
   const lines = [];

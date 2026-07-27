@@ -167,6 +167,26 @@ function renderTimeWeatherPanel(data) {
         </div>
       </div>
 
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:20px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:8px">
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim)">Hero Weather Event</div>
+          ${env.heroEventActive?.type
+            ? `<div style="display:flex;align-items:center;gap:10px">
+                <span style="font-size:11px;color:var(--red);border:1px solid var(--red);border-radius:3px;padding:3px 8px">⚠⚠ Running: ${String(env.heroEventActive.type).replace(/_/g," ")} — ${env.heroEventActive.phase}</span>
+              </div>`
+            : `<span style="font-size:11px;color:var(--text-dim)">None running</span>`}
+        </div>
+        <div style="font-size:11px;color:var(--text-dim);margin-bottom:12px;line-height:1.5">
+          Named events ride <em>on top</em> of the forecast with an approach → peak → passing lifecycle,
+          forcing a severity preset instead of deriving one. One at a time. Firing one announces it to
+          every player outdoors, so this is a live-world action, not a preview.
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <button class="action-btn danger" onclick="devTriggerHeroEvent('acid_rain')" title="Caustic downpour — gear-gated lethal, overrides precip to acid">☣ Acid Rain</button>
+          <button class="action-btn danger" onclick="devTriggerHeroEvent('ion_storm')" title="Ion storm — severity 0.9, the sky screams white">⚡ Ion Storm</button>
+        </div>
+      </div>
+
       <div>
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
           <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim)">7-Day Forecast</div>
@@ -685,6 +705,21 @@ async function devMaxStorm() {
   const r = await API('/environment/weather/maxstorm', 'POST', {});
   if (r.error) { toast(r.error, true); return; }
   toast('⛈ Max storm forced — thunderstorm at precipRate 1.0');
+  loadPanel('timeweather');
+}
+
+// Fire a named hero weather event (acid rain / ion storm). The route and the
+// engine path have existed since step 7 — the panel simply never had a control
+// for them, so the only ways to start one were the action registry or blowing up
+// a city plant. Confirmed before firing because this is not a preview: it
+// announces itself to every player outdoors and runs a full
+// approach → peak → passing lifecycle.
+async function devTriggerHeroEvent(type) {
+  const label = type === 'acid_rain' ? 'ACID RAIN' : 'ION STORM';
+  if (!confirm(`Fire ${label} on the live world?\n\nIt announces to every player outdoors and runs its full lifecycle. One hero event at a time.`)) return;
+  const r = await API('/environment/weather/event', 'POST', { type });
+  if (r?.error || r?.ok === false) { toast(r?.error || `Could not start ${label}`, true); return; }
+  toast(`⚠⚠ ${r?.label || label} incoming`);
   loadPanel('timeweather');
 }
 

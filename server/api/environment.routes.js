@@ -49,6 +49,10 @@ export async function handleEnvironmentApi(path, method, body, auth) {
     const snap = env.getEnvironmentState();
     const out = {};
     for (const k of Object.keys(snap)) { if (k !== 'powerMap') out[k] = snap[k]; }
+    // Whether a hero event (acid rain / ion storm) is running right now, so the
+    // dev panel's trigger can report its own result instead of firing into the
+    // dark. One small object or null — nothing like the payload we just removed.
+    out.heroEventActive = env.activeWeatherEvent?.() || null;
     return { status: 200, body: out };
   }
 

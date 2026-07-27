@@ -1817,6 +1817,13 @@ let weatherEventTrigger = null;     // (type) => { ok, line?, label?, error? }
 let weatherRegionRefresh = null;    // async () => void — rebuild the per-region climate boxes
 export function registerWeatherEventStep(fn)     { weatherEventStep = fn; }
 export function registerWeatherEventTrigger(fn)  { weatherEventTrigger = fn; }
+// What is running RIGHT NOW, if anything — { type, phase } | null. Added so the
+// dev panel can show whether a hero event is live instead of guessing: without
+// it the panel could offer a trigger but never report the result, which is the
+// kind of control that makes you press it twice.
+let weatherEventCurrent = null;     // () => { type, phase } | null
+export function registerWeatherEventCurrent(fn)  { weatherEventCurrent = fn; }
+export function activeWeatherEvent() { return weatherEventCurrent ? weatherEventCurrent() : null; }
 export function registerWeatherRegionRefresh(fn) { weatherRegionRefresh = fn; }
 
 // Broadcast weather-event announce lines to every player (sky-wide).
