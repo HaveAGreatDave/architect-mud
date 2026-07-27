@@ -4,7 +4,6 @@ REM  oneshots.bat - run the outstanding one-shot data transformations in order.
 REM
 REM    scripts\oneshots.bat              local DB (DATABASE_URL from .env)
 REM    scripts\oneshots.bat prod         production (needs .env.prod), confirms first
-REM    scripts\oneshots.bat prod --repairs       ALSO run the one-time repairs
 REM    scripts\oneshots.bat prod --forgive-xp    also writes off negative XP debt
 REM    scripts\oneshots.bat prod --dry-run       print what would run, touch nothing
 REM
@@ -15,23 +14,25 @@ REM  (npcs.zone_id, furniture.light_on, npcs.vendor_stock) are excluded from
 REM  content files entirely. Those two gaps are what every script below fills.
 REM  CI never runs any of them. See CLAUDE.md "Running a one-shot against prod".
 REM
-REM  TWO TIERS, AND THE DISTINCTION MATTERS
-REM  Everything here is idempotent in the narrow sense - run it twice, same result.
-REM  But idempotent is NOT the same as safe-to-keep-running, and conflating the two
-REM  is how a convenience script quietly becomes a wrecking ball:
+REM  WHAT BELONGS IN HERE - THE ONE TEST
+REM  Idempotent is NOT the same as safe-to-keep-running, and conflating the two is
+REM  how a convenience script quietly becomes a wrecking ball. Only scripts that
+REM  CONVERGE belong here: run it a year from now on a world that has grown, and it
+REM  still arrives at the right answer.
 REM
-REM    ROUTINE  converges on the right answer no matter how often it runs, and
-REM             stays correct as the world grows. Safe after any deploy. Default.
+REM  A script that CLAMPS state back to a decision made on one particular day does
+REM  NOT belong here, however idempotent it looks. Six of those lived in this file
+REM  until 2026-07-27 - purging spawns by RULE (which would delete any surface spawn
+REM  authored later), forcing an NPC's tile (dragging her back out of a new home),
+REM  setting light_on_intended unconditionally (overriding a player who deliberately
+REM  killed the lights). They had all landed on prod, and the content tree now
+REM  produces their result directly, so they were removed rather than kept "just in
+REM  case". Run a clamp by hand, once, and delete it. Never add one to this list.
 REM
-REM    REPAIRS  CLAMPS state back to a decision made on one particular day. Run it
-REM             once and it fixes the thing; run it a year later and it re-asserts
-REM             a fact the world has moved past - deleting spawns you have since
-REM             authored, dragging an NPC back out of her new home, flipping a
-REM             shop's lights back on after a player deliberately killed them.
-REM             Opt in with --repairs, and DELETE the line once it has run.
-REM
-REM  If you write a one-shot, decide which tier it is before adding it. When in
-REM  doubt it is a REPAIR - that is the tier that fails safe.
+REM  Note how content/seed-runtime passes the test where lights-kitchenware did not:
+REM  it only lights fixtures the power sim has NEVER touched (light_on_intended IS
+REM  NULL), so it cannot overwrite a decision anyone has since made. That care is
+REM  the whole difference.
 REM ============================================================================
 setlocal enabledelayedexpansion
 cd /d "%~dp0.."
@@ -40,13 +41,11 @@ set "TARGET=local"
 set "ENVFLAG="
 set "FORGIVE_XP="
 set "DRYRUN="
-set "REPAIRS="
 
 for %%A in (%*) do (
   if /i "%%~A"=="prod"         set "TARGET=prod"
   if /i "%%~A"=="--forgive-xp" set "FORGIVE_XP=1"
   if /i "%%~A"=="--dry-run"    set "DRYRUN=1"
-  if /i "%%~A"=="--repairs"    set "REPAIRS=1"
 )
 
 REM The splash is drawn by node, not by echo lines here. cmd.exe decodes a batch
@@ -68,7 +67,7 @@ if "%TARGET%"=="prod" if not defined DRYRUN (
   echo.
   echo  ####################################################################
   echo  #  These scripts will MUTATE THE LIVE PRODUCTION DATABASE.         #
-  echo  #  Some of them DELETE rows ^(spawns, playlist entries^).            #
+  echo  #  One of them DELETES rows ^(four shadow playlist entries^).        #
   echo  #  CI backs prod up before each deploy; there is no backup here.   #
   echo  ####################################################################
   echo.
@@ -87,10 +86,8 @@ if defined DRYRUN (
 )
 set "FAILED="
 
-REM ===== ROUTINE - converge on the right answer, safe after any deploy ========
-REM Vendor shelves, ATM units, authored light fixtures. seed-runtime is careful:
-REM it only lights fixtures the power sim has NEVER touched, so it can't override
-REM a switch a player threw. That care is exactly what makes it routine.
+REM Vendor shelves, ATM units, authored light fixtures - the runtime state the
+REM content deploy structurally cannot carry. Needed after almost any deploy.
 call :run "content/seed-runtime.mjs"       "runtime state (vendors, ATMs, lights)"
 
 REM Sets map_id on four zones that imported with NULL. Converges; a zone that
@@ -105,41 +102,6 @@ call :run "fix-playlist-drift.mjs"         "drop prod-only playlist rows shadowi
 REM Runs Dell Fry's sourced-container restock so Ration Nine's chiller is stocked
 REM now rather than at the next 24h tick. Restock is what the game does anyway.
 call :run "seed-ration9-stock.mjs"         "stock Ration Nine's chiller + frozen well"
-
-REM ===== REPAIRS - clamp state to a past decision; --repairs, then delete =====
-if not defined REPAIRS (
-  echo.
-  echo  -- skipped 6 REPAIR scripts ^(pass --repairs to include^)
-  echo     They re-assert decisions from a specific day. Read the tier note at
-  echo     the top of this file before running them on a world that has moved on.
-  goto :after_repairs
-)
-
-REM Mass DELETE of zone_spawns. Matches a content commit that removed the spawn
-REM files; the additive deploy could never delete the prod rows. DANGER: it does
-REM not target ids, it deletes by RULE (everything but the Under and the
-REM clonejackers) - so any surface spawn authored after today dies here too.
-call :run "purge-surface-spawns.mjs"       "de-fang the surface (deleted spawn files)"
-
-REM Rewrites Deadball's day mask 95 -> 85 to free Tue/Thu 18:00. Re-authoring the
-REM schedule later and then running this would silently stomp it back.
-call :run "cluster-puck-schedule.mjs"      "hand Tue/Thu 18:00 to Cluster Puck"
-
-REM npcs.zone_id is runtime, so a content move leaves the body behind. Both of
-REM these FORCE an NPC to a tile - fine today, wrong the moment a story moves her.
-call :run "relocate-fs-dispatcher.mjs"     "un-strand the Franchise Strip dispatcher"
-call :run "rehome-vale-tenement.mjs --apply" "move Sgt Vale out of a player's apartment"
-
-REM Sets light_on AND light_on_intended = 1. Unlike seed-runtime it does NOT check
-REM whether the sim has touched the fixture, so re-running overrides a player who
-REM deliberately switched these off.
-call :run "lights-kitchenware.mjs"         "light Tine and Temper (kitchenware shop)"
-
-REM Overwrites vendor_stock wholesale from the catalogue - re-running wipes
-REM whatever Velk has since sold or restocked and resets her to a full floor.
-call :run "fill-velk-shelf.mjs"            "put Velk's whole showroom floor out"
-
-:after_repairs
 
 REM --- Policy, not repair: opt in explicitly ---------------------------------
 REM Lifts players carrying negative net XP after a stat retune up to exactly 0.
