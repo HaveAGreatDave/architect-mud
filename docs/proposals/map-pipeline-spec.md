@@ -294,6 +294,32 @@ scheme it works for **interiors**, which have coordinates but never had coordina
 
 ## 3. The field catalog
 
+> **BUILT — §11 step 2.** All four additions, the column-scope sibling, and the reconciliation
+> gate. Four things the section below did not anticipate:
+>
+> - **A flat catalog cannot hold two fields with the same name**, and `description` is both an
+>   item tag and a zone column. Column entries are therefore keyed **`zone:<column>`**, which
+>   also makes a future collision impossible by construction and matches the existing `':'`
+>   carve-out in `validateTags`. The scope is still `zone_column` as specified.
+> - **`ambient_events` was missing from §3.1's list of 11.** It is authored per-tile prose, so
+>   it is catalogued too — 13 entries, not 11. Regress now holds the whole zones column list
+>   against the catalog with an explicit exemption list (`id`, `flags`, `exits`, `stains`,
+>   `created_by`, `updated_at`), so a new column fails the suite until somebody picks a side.
+> - **The Tags screen was corrupting exactly what this section adds.** Saving any non-item
+>   entry rewrote its scope to `class`, saving a tag whose shape wasn't in the panel's stale
+>   dropdown silently changed the shape, and `apiPutTagCatalog` deleted the file's doc header —
+>   the place the shape vocabulary is written down. All three fixed here, because otherwise
+>   step 2's work survives until the first person edits a tag through the tool it exists for.
+> - **The reconciliation gate needed a warnings channel.** `lintContentTree` now returns
+>   `{ errors, warnings }`. Two warnings fire today: the 8 catalogued-but-unused flags §3.3
+>   predicted, and — new — **`ambient_theme` values with no ambience pool behind them:
+>   `wasteland` (3,863 tiles), `coast` (261), `urban` (21).** 72% of the world has an ambient
+>   theme that can never fire an ambient line. That is not a bug this step introduced; it is
+>   the first time anything was in a position to notice.
+>
+> Still deferred as specified: the `fieldCatalog.js` rename (§11 step 4), and the Studio
+> generating its editor from this catalog (§10).
+
 **Decision (redesign §9.2, Option 1): one catalog, extended — not a second registry.** Two
 schemas describing one entity is fear #1 in miniature. The rename to `fieldCatalog.js` is honest
 but touches every importer; **defer it to step 4.**
@@ -802,8 +828,10 @@ point of the migration shape (redesign §14) is no flag day.
    function: step 3 moves the call into derive and the plugin reads a column, with no change to
    what resolves. If a second caller appears before then, that argument is dead — fix it by
    doing step 3, not by copying the function.
-2. **The field catalog extensions** (§3). Pure addition, no data migration, immediately useful to
-   the dev panel as well.
+2. ~~**The field catalog extensions** (§3).~~ **BUILT** — see the call-out in §3. Pure addition,
+   no data migration, immediately useful to the dev panel as well. It also turned out to be the
+   step that found the biggest live content defect so far: 4,145 tiles whose `ambient_theme` has
+   no pool behind it.
 3. **`content/map/terrain.json` + `zone_render` + the derive module** for colours, glyph and
    `ambient_theme`. Delete `TERRAIN_FILL`, `TOS_TERRAIN_FILL`, `TERRAIN_TYPES`.
 4. **`deriveMarker`** (§7.4), importing the shipped `twoLetterAbbrev` logic rather than copying

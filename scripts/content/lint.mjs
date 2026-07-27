@@ -13,7 +13,7 @@
 //     enemy that has no file would restore broken on a fresh DB)
 import { contentEntries } from '../../server/models/content-registry.js';
 import { SCHEMA_SQL } from '../../server/models/schema.js';
-import { validateTags } from '../../server/engine/tags.js';
+import { validateTags, validateZoneColumns, TAG_CATALOG as CATALOG, ZONE_COLUMN_PREFIX } from '../../server/engine/tags.js';
 import { readContentTree, fileNameForRow, schemaColumnsOf as columnsOf } from './lib.mjs';
 
 // ── SCHEMA_SQL parsing (content→content FKs), no DB required ─────────────────
@@ -36,16 +36,24 @@ function fksOf(table) {
   for (const m of SCHEMA_SQL.matchAll(new RegExp(`ALTER TABLE ${table}\\s+ADD CONSTRAINT \\w+\\s+FOREIGN KEY \\((\\w+)\\) REFERENCES (\\w+)\\s*\\((\\w+)\\)`, 'g'))) {
     fks.push({ col: m[1], refTable: m[2], refCol: m[3] });
   }
-  return fks;
+  // One entry per column. A deferrable-constraint swap (ADD COLUMN … REFERENCES
+  // followed by DROP CONSTRAINT / ADD CONSTRAINT) declares the same FK twice, and
+  // without this every violation on such a column is reported twice.
+  return [...new Map(fks.map(fk => [fk.col, fk])).values()];
 }
 
+// Returns { errors, warnings }. An error fails the gate; a warning is a fact the
+// author should see and decide about — a catalogued field nothing uses, an
+// ambient theme with no pool behind it. Warnings exist so those stop being
+// invisible without becoming a reason the deploy can't ship.
 export function lintContentTree(baseDir) {
   const errors = [];
+  const warnings = [];
   let tree;
   try {
     tree = readContentTree(baseDir);
   } catch (e) {
-    return [e.message];
+    return { errors: [e.message], warnings };
   }
   const { entries, unknownDirs } = tree;
   for (const d of unknownDirs) errors.push(`content/${d}/ is not a content table (classify it in server/models/content-registry.js or remove the directory)`);
@@ -107,6 +115,77 @@ export function lintContentTree(baseDir) {
         const tv = validateTags(f.data.flags);
         for (const k of tv.unknown) errors.push(`${label}: zone flag "${k}" is not in the tag catalog (client/shared/tagCatalog.js)`);
         for (const s of tv.badShape) errors.push(`${label}: zone flag value shape — ${s}`);
+      }
+      // The other half of a tile: the COLUMNS. Validated by the same shape rules
+      // as the flags, against the `zone:<column>` catalog entries (spec §3.2), so
+      // the whole tile is checked by one mechanism instead of half of it.
+      if (entry.table === 'zones') {
+        for (const s of validateZoneColumns(f.data).badShape) errors.push(`${label}: zone column value shape — ${s}`);
+      }
+    }
+  }
+
+  // ── Reference resolution (shape 'ref') ─────────────────────────────────────
+  // Every `ref` field names a row in another table with no foreign key behind it
+  // — flags live in JSONB, and the zone columns that are refs are TEXT. So a typo
+  // is inert forever and nothing complains. This is the check that pays for the
+  // shape existing (spec §3.1.2).
+  {
+    const refDefs = Object.entries(CATALOG).filter(([, d]) => d?.shape === 'ref' && d.refTable);
+    const flagRefs = refDefs.filter(([k, d]) => d.scope === 'zone' && !k.startsWith(ZONE_COLUMN_PREFIX));
+    // A column that has a real SQL foreign key is already checked above. Its
+    // catalog `refTable` is there to give the editor a picker, not a second
+    // opinion — checking it again would report every violation twice.
+    const sqlFkCols = new Set(fksOf('zones').map(fk => fk.col));
+    const colRefs = refDefs.filter(([k]) => k.startsWith(ZONE_COLUMN_PREFIX))
+      .map(([k, d]) => [k.slice(ZONE_COLUMN_PREFIX.length), d])
+      .filter(([col]) => !sqlFkCols.has(col));
+    const resolves = (table, value) => {
+      const set = pkSets.get(table);
+      if (!set) return true;                       // not a content table — nothing to check against
+      const first = set.values().next().value;
+      return !first || first.has(String(value));
+    };
+    for (const f of entries.find(e => e.entry.table === 'zones')?.files || []) {
+      const label = `zones/${f.name}`;
+      const check = (field, def, value) => {
+        if (value === null || value === undefined || value === '') return;
+        if (!resolves(def.refTable, value)) {
+          errors.push(`${label}: ${field}="${value}" references ${def.refTable} but no such content file exists (dangling reference — silently inert in the game)`);
+        }
+      };
+      for (const [key, def] of flagRefs) check(`flags.${key}`, def, f.data.flags?.[key]);
+      for (const [col, def] of colRefs) check(col, def, f.data[col]);
+    }
+  }
+
+  // ── Catalog reconciliation (spec §3.3) ─────────────────────────────────────
+  // A catalogued field on no tile is a UI option nothing uses — the same rot the
+  // dead-palette-entry rule catches. A warning, not an error: it's a decision to
+  // make (author it or delete it), not a broken build.
+  {
+    const zoneFiles = entries.find(e => e.entry.table === 'zones')?.files || [];
+    const usedFlags = new Set();
+    const usedThemes = new Map();
+    for (const f of zoneFiles) {
+      for (const k of Object.keys(f.data.flags || {})) usedFlags.add(k);
+      const t = f.data.ambient_theme;
+      if (t) usedThemes.set(t, (usedThemes.get(t) || 0) + 1);
+    }
+    if (zoneFiles.length) {
+      const dead = Object.entries(CATALOG)
+        .filter(([k, d]) => d?.scope === 'zone' && !usedFlags.has(k))
+        .map(([k]) => k);
+      if (dead.length) warnings.push(`${dead.length} zone flag(s) catalogued but on no tile: ${dead.join(', ')}`);
+    }
+    // An ambient_theme with no global_ambient_events behind it fires no ambience,
+    // ever. It passes the enum (the value is legal) and passes every other check,
+    // which is exactly why it needed naming.
+    const pools = new Set((entries.find(e => e.entry.table === 'global_ambient_events')?.files || [])
+      .map(f => f.data.theme).filter(Boolean));
+    if (pools.size) {
+      for (const [theme, count] of [...usedThemes].sort((a, b) => b[1] - a[1])) {
+        if (!pools.has(theme)) warnings.push(`ambient_theme "${theme}" is on ${count} tile(s) but has no global_ambient_events pool — those tiles get no ambience unless they carry their own ambient_events`);
       }
     }
   }
@@ -170,18 +249,19 @@ export function lintContentTree(baseDir) {
     }
   }
 
-  return errors;
+  return { errors, warnings };
 }
 
 // CLI entry
 import { fileURLToPath } from 'node:url';
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-  const errors = lintContentTree();
+  const { errors, warnings } = lintContentTree();
+  for (const w of warnings) console.warn(`  ⚠ ${w}`);
   if (errors.length) {
     console.error(`✗ content:lint — ${errors.length} problem(s):`);
     for (const e of errors) console.error(`  ${e}`);
     process.exit(1);
   }
-  console.log('✓ content:lint clean.');
+  console.log(`✓ content:lint clean${warnings.length ? ` (${warnings.length} warning(s))` : ''}.`);
   process.exit(0);
 }

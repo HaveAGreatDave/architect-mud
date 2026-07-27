@@ -2,7 +2,13 @@ function itemTagWidget(name, value) {
   const def = TAG_CATALOG[name];
   switch (def.shape) {
     case 'flag': return '';
-    case 'int': return `<input type="number" class="tag-input" value="${value ?? 0}">`;
+    // 'int' collapsed into 'number' (map-pipeline-spec §3.1.4); still matched so a
+    // catalog that hasn't been re-saved keeps its spinner instead of silently
+    // degrading to a JSON textarea.
+    case 'int': case 'number': return `<input type="number" class="tag-input" value="${value ?? 0}">`;
+    // A reference to a row in another table. Plain text until the Studio's picker
+    // exists — content:lint is what catches a value that doesn't resolve.
+    case 'ref': return `<input type="text" class="tag-input" value="${value ?? ''}" placeholder="id in ${def.refTable ?? 'another table'}">`;
     case 'enum': return `<select class="tag-input">${def.options.map(o=>`<option ${value===o?'selected':''}>${o}</option>`).join('')}</select>`;
     case 'range': { const v = value||{}; return `<div class="field-row"><input type="number" class="tag-input" data-k="min" placeholder="min" value="${v.min??0}"><input type="number" class="tag-input" data-k="max" placeholder="max" value="${v.max??0}"></div>`; }
     case 'hot': { const v = value||{}; return `<div class="field-row"><input type="number" class="tag-input" data-k="amount" placeholder="amount" value="${v.amount??0}"><input type="number" class="tag-input" data-k="duration_seconds" placeholder="duration (s)" value="${v.duration_seconds??0}"></div>`; }
@@ -59,7 +65,7 @@ function addItemTag() {
   const name = document.getElementById('item-add-tag').value;
   if (!name) return;
   const def = TAG_CATALOG[name];
-  const defaults = { flag:true, int:0, enum:def.options?.[0], range:{min:0,max:0}, hot:{amount:0,duration_seconds:0}, statmap:{}, text:'', list:[] };
+  const defaults = { flag:true, int:0, number:0, enum:def.options?.[0], ref:'', range:{min:0,max:0}, hot:{amount:0,duration_seconds:0}, statmap:{}, object:{}, text:'', list:[] };
   document.getElementById('item-tags').insertAdjacentHTML('beforeend', itemTagRow(name, defaults[def.shape]));
   refreshItemTagPicker();
 }
@@ -79,7 +85,8 @@ function readItemTag(rowEl) {
   const inputs = [...rowEl.querySelectorAll('.tag-input')];
   switch (def.shape) {
     case 'flag': return true;
-    case 'int': return +inputs[0].value || 0;
+    case 'int': case 'number': return +inputs[0].value || 0;
+    case 'ref': return inputs[0].value.trim();
     case 'enum': return inputs[0].value;
     case 'range': case 'hot': { const o = {}; inputs.forEach(i => o[i.dataset.k] = +i.value || 0); return o; }
     // Text tags accept raw prose (a use_message, a laced_drug id) — JSON.parsing
@@ -89,7 +96,7 @@ function readItemTag(rowEl) {
       const raw = inputs[0].value;
       try { const p = JSON.parse(raw); return (typeof p === 'object' && p !== null) ? p : raw; } catch { return raw; }
     }
-    default: { try { return JSON.parse(inputs[0].value); } catch { throw new Error(`${def.label}: invalid JSON`); } } // statmap/list/number
+    default: { try { return JSON.parse(inputs[0].value); } catch { throw new Error(`${def.label}: invalid JSON`); } } // statmap/list/object
   }
 }
 

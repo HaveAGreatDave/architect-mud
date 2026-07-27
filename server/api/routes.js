@@ -50,7 +50,7 @@ import { ensureTunables, getTunable, reloadTunables } from '../engine/tunables.j
 import { getNetXp, statSpent, maxHpForEndurance } from '../engine/ip.js';
 import { SKILLS } from '../engine/skills.js';
 import { ownTags } from '../engine/supertags.js';
-import { validateTags } from '../engine/tags.js';
+import { validateTags, validateZoneColumns } from '../engine/tags.js';
 import { getMotd, saveMotd } from '../engine/motd.js';
 import { isMisServerEnabled, setServerMisEnabled } from '../engine/mis.js';
 import { canAccessChannel, sendToChatChannel, getChannelMessagesSince } from '../engine/channels.js';
@@ -637,10 +637,23 @@ function zoneFlagsError(flags) {
   return `Zone flag validation failed — ${parts.join(' | ')}`;
 }
 
+// The other half of the same gate. Zone COLUMNS were validated by nothing, so an
+// ambient_theme nobody has a pool for, or a grid_x that arrived as a string, went
+// straight into the row. Same catalog, same shape rules, same voice as the flags
+// check (spec §3.2). Only the keys present in the body are judged — a PATCH that
+// doesn't mention a column isn't asserting anything about it.
+function zoneColumnsError(body) {
+  const v = validateZoneColumns(body || {});
+  if (v.ok) return null;
+  return `Zone column validation failed — wrong value shape: ${v.badShape.join('; ')}`;
+}
+
 export async function apiCreateZone(body,auth,opts={}) {
   const id = body.id||`zone_${Date.now()}`;
   const flagsErr = zoneFlagsError(body.flags);
   if (flagsErr) return { status:400, body:{ error: flagsErr } };
+  const colsErr = zoneColumnsError(body);
+  if (colsErr) return { status:400, body:{ error: colsErr } };
   try {
     await query(`INSERT INTO zones (id,name,description,exits,ambient_events,ambient_theme,flags,created_by,map_id,grid_x,grid_y,grid_z,marker,color,bg_color,audio_theme_id,parent_zone) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
       [id,body.name||'Unnamed Zone',body.description||'An empty place.',JSON.stringify(body.exits||{}),JSON.stringify(body.ambient_events||[]),body.ambient_theme||'indoors',JSON.stringify(body.flags||{}),auth?.playerId,body.map_id||null,body.grid_x??null,body.grid_y??null,body.grid_z??0,body.marker||null,body.color||null,body.bg_color||null,body.audio_theme_id||null,body.parent_zone||null]);
@@ -659,6 +672,8 @@ export async function apiUpdateZone(id,body) {
     const flagsErr = zoneFlagsError(body.flags);
     if (flagsErr) return { status:400, body:{ error: flagsErr } };
   }
+  const colsErr = zoneColumnsError(body);
+  if (colsErr) return { status:400, body:{ error: colsErr } };
   const sets=[]; const vals=[];
   let i=1;
   const simple=['name','description','map_id','grid_x','grid_y','grid_z','marker','color','bg_color','audio_theme_id','parent_zone'];
@@ -3264,7 +3279,15 @@ async function apiGetTagCatalog() {
 
 async function apiPutTagCatalog(body) {
   if (!body || typeof body !== 'object') return { status:400, body:{ error:'Expected catalog object' } };
-  const src = `(function(global){\n  var TAG_CATALOG = ${JSON.stringify(body, null, 2)};\n  global.TAG_CATALOG = TAG_CATALOG;\n})(typeof window !== 'undefined' ? window : globalThis);\n`;
+  // Keep the file's leading doc block. It is where the shape vocabulary, the
+  // scope semantics and the zone:<column> key convention are written down — a
+  // save from the Tags screen used to delete all of it, so the documentation for
+  // the catalog survived exactly until the first person edited a tag through the
+  // tool the catalog exists to drive.
+  const existing = readFileSync(CATALOG_PATH, 'utf8');
+  const header = (existing.match(/^[\s\S]*?(?=\(function)/) || [''])[0];
+  const footer = (existing.match(/\)\(typeof window[^\n]*\n([\s\S]*)$/) || ['', ''])[1];
+  const src = `${header}(function(global){\n  var TAG_CATALOG = ${JSON.stringify(body, null, 2)};\n  global.TAG_CATALOG = TAG_CATALOG;\n})(typeof window !== 'undefined' ? window : globalThis);\n${footer}`;
   writeFileSync(CATALOG_PATH, src, 'utf8');
   globalThis.TAG_CATALOG = body;
   return { status:200, body:{ ok:true } };

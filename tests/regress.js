@@ -39,7 +39,7 @@ import { getRegisteredMoveGates } from '../server/engine/movement-gates.js';
 import { getRegisteredSpecializedActions } from '../server/engine/specializedActions.js';
 import { registerProtectionProvider, getZoneProtection, getRegisteredProtectionProviders } from '../server/engine/protection.js';
 import { npcHomedInOwnedUnit, authoredRentCost } from '../server/engine/apartments.js';
-import { validateTags } from '../server/engine/tags.js';
+import { validateTags, validateZoneColumns, zoneColumnCatalog, TAG_CATALOG } from '../server/engine/tags.js';
 import { stopAll } from '../server/engine/scheduler.js';
 import { CONTENT_TABLES, EXCLUDED_TABLES, REGISTRY } from '../server/models/content-registry.js';
 import { SCHEMA_SQL } from '../server/models/schema.js';
@@ -258,6 +258,80 @@ console.log('— layer 1d: zone tag substrate —');
   check('apiPatchZoneTag rejects an uncatalogued tag with 400', rPatchBad?.status === 400);
   const rPatchMissing = await apiPatchZoneTag('zone_regress_tag_probe', { name: 'radiation', value: 5 });
   check('apiPatchZoneTag 404s on a missing zone (validation passed, no write)', rPatchMissing?.status === 404);
+
+  // ── The COLUMN half of a tile (spec §3.1–3.2) ──────────────────────────────
+  // The flag bag has been catalogue-validated for a while; the columns were
+  // validated by nothing. These pin the catalog to the schema, because a catalog
+  // that has drifted from the table it describes is worse than no catalog — it
+  // reads as authoritative while an editor generated from it silently omits a
+  // field nobody can then set.
+  const colCat = zoneColumnCatalog();
+  const zoneCols = new Set();
+  {
+    const block = SCHEMA_SQL.match(/CREATE TABLE IF NOT EXISTS zones \(([\s\S]*?)\n  \);/m);
+    for (const line of (block?.[1] || '').split('\n')) {
+      const m = line.match(/^\s{4}"?([a-z_]+)"?\s/);
+      if (m && !['primary', 'foreign', 'unique', 'check', 'constraint'].includes(m[1])) zoneCols.add(m[1]);
+    }
+    for (const m of SCHEMA_SQL.matchAll(/ALTER TABLE zones\s+ADD COLUMN IF NOT EXISTS (\w+)/g)) zoneCols.add(m[1]);
+  }
+  const phantomCols = Object.keys(colCat).filter(c => !zoneCols.has(c));
+  check('every zone_column entry names a real zones column', phantomCols.length === 0, phantomCols.join(', '));
+
+  // Deliberately uncatalogued, with the reason each one is exempt. A new zones
+  // column lands here as a failure until somebody decides which side it's on.
+  const NOT_AUTHORED = new Set(['id', 'flags', 'exits', 'stains', 'created_by', 'updated_at']);
+  const uncatalogued = [...zoneCols].filter(c => !colCat[c] && !NOT_AUTHORED.has(c));
+  check('every authored zones column is in the field catalog', uncatalogued.length === 0,
+    `${uncatalogued.join(', ')} — catalogue it as zone:<column> or add it to NOT_AUTHORED with a reason`);
+
+  // One shape vocabulary. A catalog entry whose shape shapeError() doesn't know
+  // is unvalidated and looks validated, which is the failure mode this whole
+  // section exists to remove.
+  const KNOWN_SHAPES = new Set(['text', 'flag', 'int', 'number', 'enum', 'ref', 'list', 'object', 'range', 'hot', 'statmap']);
+  const oddShapes = [...new Set(Object.values(TAG_CATALOG).map(d => d?.shape))].filter(s => !KNOWN_SHAPES.has(s));
+  check('every catalogued shape is one shapeError understands', oddShapes.length === 0, oddShapes.join(', '));
+  check('int was collapsed into number', !Object.values(TAG_CATALOG).some(d => d?.shape === 'int'));
+
+  // The Tags screen's dropdown is a THIRD copy of the shape vocabulary, and a
+  // shape missing from it is silently rewritten to the first option the moment
+  // anybody edits that tag — which is exactly how `number` and `list` entries
+  // were one careless save away from becoming `text`.
+  {
+    const panel = await readFile(join(__dirname, '..', 'client', 'devpanel', 'js', 'panels', 'tags.js'), 'utf8');
+    const listed = new Set([...(panel.match(/const SHAPES = \[([^\]]*)\]/)?.[1] || '').matchAll(/'([a-z]+)'/g)].map(m => m[1]));
+    const inUse = new Set(Object.values(TAG_CATALOG).map(d => d?.shape).filter(Boolean));
+    const missing = [...inUse].filter(s => !listed.has(s));
+    check('the Tags screen offers every shape the catalog uses', listed.size > 0 && missing.length === 0,
+      missing.length ? `${missing.join(', ')} missing from SHAPES in panels/tags.js` : `${listed.size} shapes`);
+  }
+
+  // A `ref` with no refTable, or one naming a table that doesn't exist, is a
+  // picker that can't populate and a lint check that silently passes everything.
+  const badRefs = Object.entries(TAG_CATALOG)
+    .filter(([, d]) => d?.shape === 'ref')
+    .filter(([, d]) => !d.refTable || !new RegExp(`CREATE TABLE IF NOT EXISTS ${d.refTable} \\(`).test(SCHEMA_SQL))
+    .map(([k, d]) => `${k}→${d.refTable ?? '(none)'}`);
+  check('every ref names a real table', badRefs.length === 0, badRefs.join(', '));
+
+  const colBad = validateZoneColumns({ ambient_theme: 'swamp', grid_x: 'twelve', audio_theme_id: 7, ambient_events: 'a pipe knocks' });
+  check('validateZoneColumns catches enum/number/ref/list violations', colBad.badShape.length === 4, colBad.badShape.join(' | '));
+  check('validateZoneColumns says nothing about absent, null or blank columns',
+    validateZoneColumns({ name: 'Somewhere', audio_theme_id: null, marker: '' }).ok);
+
+  // Every live tile must already pass, or the gate is being introduced on top of
+  // content that violates it — which is how a check gets quietly disabled later.
+  const colErrors = [];
+  for (const z of world.zones.values()) {
+    const v = validateZoneColumns(z);
+    if (!v.ok) colErrors.push(`${z.id}: ${v.badShape.join(', ')}`);
+  }
+  check(`every live zone passes validateZoneColumns (${world.zones.size} zones)`,
+    colErrors.length === 0, colErrors.slice(0, 5).join(' | '));
+
+  const rCol = await apiUpdateZone('zone_regress_tag_probe', { ambient_theme: 'swamp' });
+  check('apiUpdateZone rejects an out-of-catalog ambient_theme with 400',
+    rCol?.status === 400 && /ambient_theme/.test(rCol?.body?.error || ''), JSON.stringify(rCol?.body).slice(0, 120));
 }
 
 // ── Fake player setup ─────────────────────────────────────────────────────────

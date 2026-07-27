@@ -434,7 +434,7 @@ function addZoneTag() {
   const name = document.getElementById('zone-add-tag')?.value;
   if (!name) return;
   const def = TAG_CATALOG[name];
-  const defaults = { flag:true, int:0, enum:def.options?.[0], range:{min:0,max:0}, hot:{amount:0,duration_seconds:0}, statmap:{}, list:[], text:'' };
+  const defaults = { flag:true, int:0, number:0, enum:def.options?.[0], ref:'', range:{min:0,max:0}, hot:{amount:0,duration_seconds:0}, statmap:{}, object:{}, list:[], text:'' };
   document.getElementById('zone-tags').insertAdjacentHTML('beforeend', zoneTagRow(name, defaults[def.shape]));
   refreshZoneTagPicker();
 }

@@ -1,7 +1,15 @@
 function renderTagsPanel(data) {
   const catalog = data?.catalog ?? data;
   const supertags = data?.supertags ?? {};
-  const SHAPES = ['text','flag','int','enum','range','hot','statmap'];
+  // Must stay in step with the shape list documented in client/shared/tagCatalog.js
+  // and validated by shapeError() in server/engine/tags.js. A shape missing here is
+  // silently rewritten to the first option the moment somebody edits that tag.
+  const SHAPES = ['text','flag','number','enum','ref','list','object','range','hot','statmap'];
+  // Scopes this dialog can author. Anything else (zone flags, zone columns) is
+  // shown but not reassignable — the Usable-on checkboxes only describe item and
+  // furniture editors, and letting them answer for a zone tag silently converted
+  // it to an item tag on save.
+  const EDITABLE_SCOPES = new Set(['class','instance']);
   let _catalog = catalog && typeof catalog === 'object' ? { ...catalog } : {};
   let _sortKey = 'key';
   let _sortDir = 1;
@@ -29,6 +37,7 @@ function renderTagsPanel(data) {
   }
 
   function tagDialogForm(r) {
+    const fixedScope = r && !EDITABLE_SCOPES.has(r.scope) ? r.scope : null;
     const isInstance = r?.scope === 'instance';
     const targets = isInstance ? [] : (r ? tagTargets(r) : ['item', 'furniture']);
     const ck = v => v ? ' checked' : '';
@@ -41,6 +50,14 @@ function renderTagsPanel(data) {
         </div>
         <div class="field"></div>
       </div>
+      ${fixedScope ? `
+      <div class="field" style="margin-bottom:8px">
+        <label>Usable on</label>
+        <div style="padding:4px 0;color:var(--text-dim)">
+          <code>${escVal(fixedScope)}</code> — set where the field lives, not here.
+          ${fixedScope === 'zone_column' ? 'A real column of the zones table.' : 'A zone flag (zones.flags).'}
+        </div>
+      </div>` : `
       <div class="field" style="margin-bottom:8px">
         <label>Usable on</label>
         <div style="display:flex;gap:18px;padding:4px 0">
@@ -49,15 +66,20 @@ function renderTagsPanel(data) {
           <label style="display:flex;align-items:center;gap:6px;font-weight:normal;cursor:pointer" title="Per-item runtime state (e.g. broken). Set by game logic, not attached in an editor."><input type="checkbox" id="td-instance"${ck(isInstance)}> Per-instance flag</label>
         </div>
         <div style="font-size:10px;color:var(--text-dim);margin-top:2px">Which editors offer this tag. A tag can apply to both. "Per-instance" tags are item runtime state and aren't offered in any editor.</div>
-      </div>
+      </div>`}
       <div class="field"><label>Help</label><input id="td-help" value="${escVal(r?.help ?? '')}" placeholder="What this tag does..." style="width:100%"></div>`;
   }
 
-  function readDialogFields() {
+  function readDialogFields(existing) {
     const label = document.getElementById('td-label')?.value ?? '';
     const shape = document.getElementById('td-shape')?.value ?? 'flag';
     const group = document.getElementById('td-group')?.value ?? '';
     const help  = document.getElementById('td-help')?.value ?? '';
+    // A zone flag or zone column keeps the scope it already has. The checkboxes
+    // that would otherwise answer for it aren't even rendered.
+    if (existing && !EDITABLE_SCOPES.has(existing.scope)) {
+      return { label, shape, scope: existing.scope, group, help };
+    }
     const isInstance = document.getElementById('td-instance')?.checked;
     if (isInstance) return { label, shape, scope: 'instance', group, help, targets: [] };
     const targets = [];
@@ -122,10 +144,9 @@ function renderTagsPanel(data) {
 
   window.tagSaveRow = async function(i) {
     const key = window._tagRows[i].key;
-    const fields = readDialogFields();
+    const fields = readDialogFields(window._tagCatalog[key]);
     if (!fields) return;
-    const { label, shape, scope, group, help, targets } = fields;
-    window._tagCatalog[key] = { ...(window._tagCatalog[key] || {}), label, shape, scope, group, help, targets };
+    window._tagCatalog[key] = { ...(window._tagCatalog[key] || {}), ...fields };
     const r = await API('/tag-catalog', 'PUT', window._tagCatalog);
     if (r?.error) { toast(r.error, true); return; }
     toast('Tag saved');
@@ -278,7 +299,7 @@ function renderTagsPanel(data) {
     const name = document.getElementById('super-add-member')?.value;
     if (!name) return;
     const def = TAG_CATALOG[name];
-    const defaults = { flag:true, int:0, enum:def.options?.[0], range:{min:0,max:0}, hot:{amount:0,duration_seconds:0}, statmap:{}, text:'' };
+    const defaults = { flag:true, int:0, number:0, enum:def.options?.[0], ref:'', range:{min:0,max:0}, hot:{amount:0,duration_seconds:0}, statmap:{}, object:{}, text:'' };
     document.getElementById('super-members').insertAdjacentHTML('beforeend', superMemberRow(name, defaults[def.shape]));
     document.getElementById('super-member-picker').innerHTML = superMemberPickerHtml();
   };

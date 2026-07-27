@@ -330,7 +330,11 @@ function deriveItemName(id) {
 function tagValueError(def, v) {
   switch (def.shape) {
     case 'flag':    return v === true ? null : 'should be a flag';
-    case 'int':     return Number.isInteger(v) ? null : 'should be an integer';
+    case 'int':
+    case 'number':  return _isNum(v) ? null : 'should be a number';
+    case 'ref':     return (typeof v === 'string' && v) ? null : 'should be an id string';
+    case 'list':    return Array.isArray(v) ? null : 'should be a JSON array';
+    case 'object':  return (v && typeof v === 'object' && !Array.isArray(v)) ? null : 'should be a JSON object';
     case 'text':    return typeof v === 'string' ? null : 'should be text';
     case 'enum':    return (def.options || []).includes(v) ? null : `is not one of ${(def.options || []).join('/')}`;
     case 'range':   return (v && typeof v === 'object' && _isNum(v.min) && _isNum(v.max)) ? null : 'is missing min/max';
