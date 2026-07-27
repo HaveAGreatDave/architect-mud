@@ -431,11 +431,23 @@ Returns the fixture **plus the side you are approaching from**, in one call. The
 dance disappears from nine call sites, and **the 57-orphan bug becomes inexpressible** — one
 fixture per connection means there is no far side to forget.
 
-> **Live bug, independent of this work:** [describe.js:381](../../server/engine/commands/describe.js)
-> and `:766` call `getDoorForExit(zone.id, p.direction)` with no far-side fallback, unlike
-> [movement.js:397](../../server/engine/commands/movement.js). **57 doors read as open exits in
-> `look` and then block on move.** This spec makes it unexpressible, but that is months out —
-> fix it directly, now, in the current model.
+> **FIXED in the current model (`4284c2fc`, `+ the describe pass`) — kept because the design
+> conclusion still holds.** The live bug was real but the diagnosis here was incomplete. Two
+> distinct failures shared one cause:
+>
+> 1. `describe.js` read only the near side, so **58 closed doors — 34 of them locked — read as
+>    open exits in `look`** and stopped you on the step. A hallway of locked apartment doors
+>    described itself as four empty doorways.
+> 2. The `buildings`/`rooms` exit lists consulted doors **not at all**, and a building's front
+>    door is not on the link you traverse anyway — it sits on the facade↔interior seam, one hop
+>    further in, because a facade is never stood on. Three consumers reached through the facade
+>    for it and reached differently (movement correctly, ai-behaviour with a hardcoded
+>    `in`/`out` that missed 52 buildings, the door verbs never).
+>
+> `frontDoorOf` in world.js is now the one implementation; `doorOnLink` in describe.js resolves
+> a link the way movement does. That is `getDoorForEdge`'s value proposition arriving early and
+> by hand — which is the argument FOR §6.3, not against it: three call sites had to be taught
+> the same lesson separately, and one fixture per connection is what stops there being a fourth.
 
 ### 6.4 Two costs, recorded so nobody rediscovers them
 

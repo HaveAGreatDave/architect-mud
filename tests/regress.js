@@ -616,7 +616,8 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   const frontId = 'door_regress_front_' + process.pid;
   const mkZone = (id, name, flags, exits, map) => world.zones.set(id, {
     id, name, flags, exits, map_id: map || null,
-    players: new Set(), npcs: new Set(), enemies: new Set(),
+    description: 'A regress fixture.', ambient_theme: 'indoors', ambient_events: [],
+    players: new Set(), npcs: new Set(), enemies: new Set(), corpses: new Set(), items: new Set(),
   });
   // Seam labelled with CARDINALS — the shape 52 of the 56 facade-anchored doors use.
   mkZone(streetId, 'Regress Street', {}, { east: facadeId });
@@ -639,6 +640,33 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   const openFromStreet = await run('open door east');
   check('`open door` from the street reaches the front door', /locked/i.test(openFromStreet?.message || ''),
     JSON.stringify(openFromStreet)?.slice(0, 120));
+
+  // ...and `look` must SAY so. A door that stops the step and describes itself as an
+  // open way through is the specific lie this pins: the building keeps its name (you
+  // can see which building it is from the street) and gains the door's state.
+  const lookStreet = await run('look');
+  const streetText = (lookStreet?.message || '').replace(/<[^>]*>/g, '');
+  check('`look` shows the front door on a building, keeping its name',
+    /Regress Shop/.test(streetText) && /\(locked\)/.test(streetText),
+    streetText.split('\n').find(l => /Buildings:/.test(l)) || streetText.slice(0, 120));
+
+  // The far-side case for ordinary exits: the door row lives in the NEIGHBOUR and
+  // points back. 58 shipped doors are anchored one-sided like this and used to read
+  // as plain exits from the other room.
+  const farId = 'zone_regress_far_' + process.pid;
+  const farDoorId = 'door_regress_far_' + process.pid;
+  mkZone(farId, 'Regress Far Room', {}, { south: streetId });
+  world.zones.get(streetId).exits = { east: facadeId, north: farId };
+  setDoorCache(farDoorId, {
+    id: farDoorId, zone_id: farId, exit_dir: 'south', target_zone: streetId,
+    name: 'a steel shutter', hp: 100, hp_max: 100, is_open: 0, lock_state: null, tags: {},
+  });
+  const lookFar = (await run('look'))?.message || '';
+  check('`look` shows a door anchored on the FAR side of an ordinary exit',
+    /steel shutter/.test(lookFar), lookFar.replace(/<[^>]*>/g, '').split('\n').find(l => /Exits:/.test(l)) || '');
+  deleteDoorCache(farDoorId);
+  world.zones.delete(farId);
+  world.zones.get(streetId).exits = { east: facadeId };
 
   // Same building wired the LEGACY way ('in'/'out'). Both must resolve, or half the
   // world silently has no front door.

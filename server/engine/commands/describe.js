@@ -6,10 +6,12 @@ import {
 	getZoneCorpses,
 	getZonePlayers,
 	getDoorForExit,
+	frontDoorOf,
 	isEnterableFacade,
 	facadeStreetTile,
 	getZoneFurniture,
 } from "../world.js";
+import { OPPOSITE } from "../directions.js";
 import {
 	getZoneVisibility,
 	getWindowsForZone,
@@ -42,6 +44,34 @@ async function doorLockAttr(door, player) {
 	if (player && (await checkLockAuth(lockTag, door, player))) return ' data-lock="owned"';
 	if (door.lock_state === "locked") return ' data-lock="locked"';
 	return "";
+}
+
+// The door on a link, resolved the way MOVEMENT resolves it — near side, far side, or
+// (when the link leads to a building) the front door on the facade↔interior seam one
+// hop further in. Room descriptions used to check only the near side, so 58 closed
+// doors — 34 of them locked — read as ordinary open exits in `look` and then stopped
+// you on the step. A hallway of locked apartment doors described itself as four empty
+// doorways. If it blocks the move it belongs in the description.
+function doorOnLink(fromId, direction, targetId) {
+	return (
+		getDoorForExit(fromId, direction, targetId) ||
+		(targetId ? getDoorForExit(targetId, OPPOSITE[direction], fromId) : null) ||
+		(targetId ? frontDoorOf(getZone(targetId)) : null)
+	);
+}
+
+// A shut door on a link whose destination is worth naming — a building, or a room in
+// the building you're standing in. Unlike the plain-exit case (which replaces the
+// destination with the door, because you can't read past a door you haven't opened),
+// the name stays: you can see which building it is from the street, you just can't
+// walk in. The suffix is the clickable part that opens it.
+async function doorSuffix(fromId, direction, targetId, player) {
+	const door = doorOnLink(fromId, direction, targetId);
+	if (!door || door.is_open || door.hp <= 0) return "";
+	const lockAttr = await doorLockAttr(door, player);
+	const doorName = door.name || "Door";
+	const state = door.lock_state === "locked" ? "locked" : "closed";
+	return ` <span class="action-link door-link" data-action="open" data-target="door ${direction}"${lockAttr} title="Open ${doorName}">(${state})</span>${describeDoorForcefield(door)}`;
 }
 
 const turretCooldowns = new Map();
@@ -378,7 +408,7 @@ export async function describeZone(zone, player, out = {}) {
 		if (plain.length) {
 			// In pitch dark you can feel for openings but can't read where they lead.
 			const exitLinks = plain.map((p) => {
-				const door = getDoorForExit(zone.id, p.direction);
+				const door = doorOnLink(zone.id, p.direction, p.targetId);
 				if (door && !door.is_open && door.hp > 0) {
 					const dirLabel =
 						p.direction.charAt(0).toUpperCase() +
@@ -763,7 +793,7 @@ export async function describeZone(zone, player, out = {}) {
 	}
 	if (plain.length) {
 		const exitLinks = await Promise.all(plain.map(async (p) => {
-			const door = getDoorForExit(zone.id, p.direction);
+			const door = doorOnLink(zone.id, p.direction, p.targetId);
 			if (door && !door.is_open && door.hp > 0) {
 				const dirLabel =
 					p.direction.charAt(0).toUpperCase() + p.direction.slice(1);
@@ -776,15 +806,17 @@ export async function describeZone(zone, player, out = {}) {
 		desc += `\n<span class="exits-row"><span class="exits-label">Exits:</span> ${exitLinks.join(", ")}</span>`;
 	}
 	if (buildings.length) {
-		const links = buildings.map((b) =>
-			destLink(b.direction, b.name, "building-link"),
-		);
+		const links = await Promise.all(buildings.map(async (b) =>
+			destLink(b.direction, b.name, "building-link") +
+			await doorSuffix(zone.id, b.direction, b.targetId, player),
+		));
 		desc += `\n<span class="buildings-row"><span class="buildings-label">Buildings:</span> ${links.join(", ")}</span>`;
 	}
 	if (rooms.length) {
-		const links = rooms.map((r) =>
-			destLink(r.direction, r.name, "room-nav-link"),
-		);
+		const links = await Promise.all(rooms.map(async (r) =>
+			destLink(r.direction, r.name, "room-nav-link") +
+			await doorSuffix(zone.id, r.direction, r.targetId, player),
+		));
 		desc += `\n<span class="rooms-row"><span class="rooms-label">Rooms:</span> ${links.join(", ")}</span>`;
 	}
 	return desc;
