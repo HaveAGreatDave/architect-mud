@@ -1,0 +1,197 @@
+<title>ARCHITECT — Humanity Expected Extinction. It Got a Commute.</title>
+<style>
+  :root {
+    --bone: #ece7da;
+    --bone-2: #b9b3a3;
+    --dim: #8a8478;
+    --faint: #5b574f;
+    --sodium: #eda945;
+    --sodium-deep: #a9681a;
+    --rule: #292c32;
+
+    --display: "Haettenschweiler", "Arial Narrow", "Helvetica Neue", Impact, sans-serif;
+    --body: "Iowan Old Style", Georgia, "Times New Roman", serif;
+    --mono: ui-monospace, "Cascadia Mono", Consolas, "DejaVu Sans Mono", monospace;
+  }
+
+  body {
+    background: #17181b;
+    color: var(--bone);
+    font-family: var(--body);
+    -webkit-font-smoothing: antialiased;
+    padding: 20px 12px 56px;
+  }
+
+  .page {
+    max-width: 860px; margin: 0 auto; position: relative; overflow: hidden;
+    background:
+      radial-gradient(130% 70% at 50% -8%, rgba(237,169,69,.11), transparent 62%),
+      linear-gradient(180deg, #0c0d10 0%, #090a0c 50%, #0f1115 100%);
+    border: 1px solid #23252a;
+    box-shadow: 0 30px 80px rgba(0,0,0,.62);
+    padding: clamp(28px, 5.2vw, 64px);
+  }
+  .page::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: repeating-linear-gradient(180deg, rgba(255,255,255,.016) 0 1px, transparent 1px 3px);
+  }
+
+  .eyebrow {
+    font-family: var(--mono); font-size: 10px; letter-spacing: .34em;
+    text-transform: uppercase; color: var(--sodium);
+    display: flex; flex-wrap: wrap; gap: 6px 20px; margin-bottom: 30px;
+  }
+  .eyebrow span:not(:first-child) { color: var(--dim); }
+
+  h1 {
+    font-family: var(--display); font-weight: 400;
+    font-size: clamp(46px, 11.5vw, 116px); line-height: .84;
+    letter-spacing: -.015em; text-transform: uppercase;
+    margin: 0 0 26px; text-wrap: balance;
+  }
+  h1 .l2 { display: block; color: var(--sodium); }
+
+  p.copy {
+    font-size: clamp(16px, 1.85vw, 18.5px);
+    line-height: 1.68;
+    max-width: 62ch;
+    color: #cbc5b6;
+    margin: 0 0 20px;
+  }
+  p.copy b { color: var(--bone); font-weight: 600; }
+  p.copy.open { font-size: clamp(17px, 2.05vw, 20.5px); color: #d6d0c1; }
+
+  blockquote.pull {
+    border-left: 2px solid var(--sodium-deep);
+    padding: 4px 0 4px 22px; margin: 34px 0;
+    font-size: clamp(18px, 2.3vw, 24px); line-height: 1.42;
+    color: var(--bone); max-width: 44ch; font-style: italic;
+  }
+  blockquote.pull cite {
+    display: block; margin-top: 12px; font-style: normal;
+    font-family: var(--mono); font-size: 10px; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--faint);
+  }
+
+  .section-mark {
+    font-family: var(--mono); font-size: 10px; letter-spacing: .28em;
+    text-transform: uppercase; color: var(--dim);
+    border-top: 1px solid var(--rule); padding-top: 13px; margin: 40px 0 22px;
+  }
+
+  .foot {
+    display: grid; gap: 32px; grid-template-columns: 1fr auto; align-items: end;
+    border-top: 2px solid var(--sodium-deep); padding-top: 26px; margin-top: 44px;
+  }
+  @media (max-width: 660px) { .foot { grid-template-columns: 1fr; } .brand { text-align: left !important; } }
+  .specs { font-family: var(--mono); font-size: 11.5px; line-height: 1.9; color: var(--dim); }
+  .specs b { display: block; color: var(--bone-2); letter-spacing: .2em; font-size: 10px; margin-bottom: 8px; }
+  .specs td { padding-right: 18px; vertical-align: top; }
+  .specs .val { color: #b3ada0; }
+  .brand { text-align: right; }
+  .brand .mark {
+    font-family: var(--display); text-transform: uppercase;
+    font-size: clamp(40px, 8.4vw, 66px); line-height: .9; letter-spacing: -.01em; margin: 0;
+  }
+  .brand .mark span { color: var(--sodium); }
+  .brand .url { font-family: var(--mono); font-size: 13px; letter-spacing: .06em; color: var(--sodium); margin: 12px 0 0; }
+  .brand .free { font-family: var(--mono); font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--dim); margin: 6px 0 0; }
+
+  .smallprint {
+    margin-top: 34px; border-top: 1px solid var(--rule); padding-top: 14px;
+    font-family: var(--mono); font-size: 9.5px; line-height: 1.75; color: #4f4c46; max-width: 80ch;
+  }
+</style>
+
+<div class="page">
+
+  <div class="eyebrow">
+    <span>Coldwater Basin</span>
+    <span>The lights still work</span>
+    <span>Nobody asks why</span>
+  </div>
+
+  <h1>Humanity expected extinction.<span class="l2">It got a commute.</span></h1>
+
+  <p class="copy open">
+    The war took about three weeks. When the sky finally cleared and people came up expecting ash,
+    what they found instead was a city with the lights on and traffic backing up at the lights.
+    Nobody rebuilt Coldwater. It just never stopped.
+  </p>
+
+  <p class="copy">
+    Something keeps it running and has never explained itself. The shelves fill overnight. The buses
+    are roughly on time. After a couple of generations most people have stopped asking about it,
+    because there's rent to make and the rent doesn't care.
+  </p>
+
+  <blockquote class="pull">
+    "It did not save humanity. It kept a habit going. Nobody has been able to say whose."
+    <cite>From the Codex</cite>
+  </blockquote>
+
+  <p class="section-mark">What we actually built</p>
+
+  <p class="copy">
+    A city that gets on with its day whether or not you're logged in. The people who live here hold
+    jobs and walk home from them. They drink, sleep badly, hold grudges, and after you've been in a
+    few times they start recognising you — which cuts both ways, because they remember the last
+    conversation as clearly as you do.
+  </p>
+
+  <p class="copy">
+    Nearly everything you'd expect to be scenery turns out to be running underneath. Weather that
+    ruins the coat you're standing in. A coat that wears through where it's been hit, and a man
+    across town who can make it better than new if you're on decent terms with him. Food that comes
+    out well or badly depending on whether you were paying attention. Hunger, thirst, cold, sleep,
+    the slow cost of a bad habit. <b>None of it is a number on a screen you can ignore</b> — it all
+    talks to everything else, and it carries on doing so while you're away.
+  </p>
+
+  <p class="copy">
+    We didn't build a story for you to walk through. We built somewhere to live, and left the
+    consequences switched on.
+  </p>
+
+  <p class="section-mark">And it moves when you push it</p>
+
+  <p class="copy">
+    You arrive with no history and nobody waiting on you, which is the good news. Everything after
+    that is yours. Rent a room, then a floor, then a shop with your name over the door. Learn to fly
+    and take work nobody else will. Start a company, take a district off somebody who had it first.
+    Get known as a cook, a pilot, a fence, or a problem — and find out that being known is a thing
+    with a price attached.
+  </p>
+
+  <p class="copy">
+    <b>Or don't.</b> Get a job, keep your head down, make friends with the neighbours and pay your
+    rent on time under streetlights that have never once gone off. The city will let you. It's been
+    letting people do that for years, and it has never told any of them why.
+  </p>
+
+  <div class="foot">
+    <div class="specs">
+      <b>BEFORE YOU ARRIVE</b>
+      <table>
+        <tr><td>You need</td><td class="val">A browser. Nothing to install.</td></tr>
+        <tr><td>Price</td><td class="val">Free. Nothing is for sale.</td></tr>
+        <tr><td>Played by</td><td class="val">Typing. It answers in prose.</td></tr>
+        <tr><td>Also has</td><td class="val">A map, a cockpit, and a tablet with apps on it.</td></tr>
+        <tr><td>Death</td><td class="val">Common. Funny. Billed to your account.</td></tr>
+        <tr><td>Your past</td><td class="val">None. Start lying early.</td></tr>
+      </table>
+    </div>
+    <div class="brand">
+      <p class="mark">ARCH<span>ITECT</span></p>
+      <p class="url">architectgame.net</p>
+      <p class="free">The lights are on. Someone will want something.</p>
+    </div>
+  </div>
+
+  <p class="smallprint">
+    ARCHITECT is a real-time multiplayer text world containing depictions of violence, narcotics,
+    crime and comprehensive profanity. The mature layer is opt-in and off by default; leave it off
+    and you'll never know it's there. Gear degrades with use. People remember what you did. Weather
+    is not decorative. No refunds are possible, as no money is taken.
+  </p>
+</div>
