@@ -13,6 +13,12 @@ call goes in [`map-audit-decisions.json`](../../../docs/audits/map-audit-decisio
 
 **`[auto]`** — has a fixer. Everything else is a hand edit.
 
+**The audit reads the RESOLVED world** — your local database, zones plus the generated
+`zone_render` rows — not the `content/` tree. Rules that ask "what does the map actually
+draw here" (TERRAIN-2, the MARK-* family) read the build's answer instead of re-deriving
+one that could differ from it. It refuses to run when the DB isn't at HEAD; fixers still
+write `content/` files, and are hard-disabled against a remote host. See the skill doc.
+
 ---
 
 ## CRITICAL — the tile graph is broken

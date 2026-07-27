@@ -2,10 +2,25 @@
 /**
  * MAP AUDIT — deterministic tile linter for the Architect MUD overworld.
  *
- * Reads the `content/` tree directly (git is the source of truth; no DB, no
- * server boot, no tokens). Every MECHANICAL rule lives here so the same tile
- * produces the same finding on every run — agents are only ever asked to make
- * the JUDGEMENT calls the script deliberately refuses to guess at.
+ * Reads the RESOLVED world from a local database — zones plus the generated
+ * `zone_render` rows the build produced. It used to read `content/` directly, and
+ * that stopped being honest at map-pipeline step 3: half the facts these rules
+ * test (what a tile is painted, what glyph it draws, what ground the engine
+ * resolves) are now DERIVED and absent from the file tree entirely. A files-only
+ * audit would not merely miss them — it would keep reporting green while looking
+ * at a world that no longer exists on disk (spec §8).
+ *
+ * Reads resolved, writes authored: `--fix` still edits `content/<table>/<pk>.json`,
+ * because a fix belongs in the file somebody authored, not in a table the next
+ * build overwrites. It is hard-disabled against any non-local host.
+ *
+ * The DB must be in step with HEAD. `content:import` records the sha it imported;
+ * a mismatch is a HARD STOP, because a green report from a stale database is worse
+ * than no report. `--allow-stale` is the deliberate override.
+ *
+ * Every MECHANICAL rule lives here so the same tile produces the same finding on
+ * every run — agents are only ever asked to make the JUDGEMENT calls the script
+ * deliberately refuses to guess at.
  *
  * The rule catalog below is the single source of truth for what we check.
  * `.claude/skills/map-audit/rules.md` is its prose mirror — change both together.
@@ -20,31 +35,37 @@
  *   node audit-map.mjs --fix BLD-1            # apply the auto-fix for one rule
  *   node audit-map.mjs --fix BLD-1 --write    # ...and actually write the files
  *   node audit-map.mjs --list-rules
+ *   node audit-map.mjs --allow-stale         # audit a DB that isn't at HEAD
+ *   node audit-map.mjs --prod --yes          # read-only against production
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, '../../../..');
 // Reuse the CODEX pipeline's own serializer so a fix writes a file byte-identical
 // to what `content:export` would produce — otherwise every fix shows up as a
 // whole-file reformat in the diff and fights the next export.
-const { canonicalJson } = await import(
+const { canonicalJson, connectTarget, isLocalUrl } = await import(
   'file://' + path.join(REPO, 'scripts/content/lib.mjs').replace(/\\/g, '/')
+);
+const { contentEntries } = await import(
+  'file://' + path.join(REPO, 'server/models/content-registry.js').replace(/\\/g, '/')
 );
 // Read the district registry itself rather than mirroring its keys here — FLAG-3
 // asks "can the engine resolve this override", so it has to ask the engine.
 const { DISTRICTS } = await import(
   'file://' + path.join(REPO, 'server/engine/districts.js').replace(/\\/g, '/')
 );
-// Same reason as DISTRICTS: TERRAIN-2 asks "what ground does the engine actually
-// draw here", which only the engine can answer. Mirroring zoneTerrain's inference
-// chain here would drift the moment someone adds a fallback to it — and an
-// unnoticed fallback is the entire defect this rule exists to catch.
-const { zoneTerrain } = await import(
-  'file://' + path.join(REPO, 'server/engine/world.js').replace(/\\/g, '/')
-);
+// TERRAIN-2 asks "what ground does the engine actually draw here". It used to
+// import zoneTerrain from server/engine/world.js to avoid mirroring the inference
+// chain — the right instinct, and the argument for this whole port, already
+// written into the tool. Now the answer is simply READ: the build resolved it into
+// zone_render.spec, so there is nothing left to mirror and nothing to import.
+// (world.js pulled in db.js, whose module body constructs a Pool — so the old
+// "no DB" property was only ever "no queries issued".)
 // The marker derivation the AUTHORING side uses (scripts/place-building.mjs stamps
 // with these). MARK-2 suggests and MARK-5 tests against the same functions the
 // stamper called, so the grader and the stamper cannot disagree.
@@ -288,7 +309,13 @@ const PLACEHOLDER_NAME = [/\d+\s*,\s*\d+/, /^(water|sand|dirt|rock|grass|ash|mud
 
 // The marker column is a <=2-char glyph, so count GLYPHS, not UTF-16 units — a
 // single emoji marker ("🔧") is length 2 by `.length` and would pass a naive check.
-const markerOf = (z) => (z.marker == null ? '' : String(z.marker).trim());
+// The glyph the map DRAWS. zone_render.marker is the resolved value (authored
+// override today; step 4 inserts the derived building code under it), so these
+// rules grade what a player sees rather than what a file happens to say.
+const markerOf = (z) => {
+  const m = z.__render ? z.__render.marker : z.marker;
+  return m == null ? '' : String(m).trim();
+};
 const glyphLen = (s) => [...s].length;
 // twoLetterAbbrev (MARK-2's suggestion) and nameDerivedMarkers (MARK-5's test) are
 // IMPORTED, not defined here: the placement CLI stamps markers with the same two
@@ -333,14 +360,98 @@ function floorDesignation(name) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// The AUTHORED tree. Only `--fix` reads this now: a repair belongs in the file a
+// human wrote, not in a generated table the next build overwrites (spec §8.2).
 function loadDir(dir) {
   const p = path.join(CONTENT, dir);
   if (!fs.existsSync(p)) return [];
   return fs.readdirSync(p).filter((f) => f.endsWith('.json'))
     .map((f) => ({ __file: path.join(p, f), ...JSON.parse(fs.readFileSync(path.join(p, f), 'utf8')) }));
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The RESOLVED world. Six SELECTs plus the generated presentation, read-only by
+// construction — the rules are the same rules; only where the rows come from
+// changed (spec §8.1: no rule keys on a filename, so no rule body moved).
+const REGISTRY_BY_TABLE = new Map(contentEntries().map((e) => [e.table, e]));
+
+// A green report from a database that isn't at HEAD is worse than no report: it
+// says the world is fine while describing a world nobody is looking at. So this
+// is a hard stop, not a warning (spec §8.3). A fresh clone with no marker at all
+// gets "import first" rather than a confusing sha mismatch.
+function assertFresh(marker, allowStale) {
+  let head = null;
+  try {
+    head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: REPO, encoding: 'utf8' }).trim();
+  } catch { return; }   // not a git checkout — nothing to be stale against
+  if (!marker) {
+    if (allowStale) return;
+    console.error('✗ This database has never been imported (no content_pipeline.last_imported_sha).');
+    console.error('  Run `npm run content:import` first — the audit reads the world the build produced.');
+    process.exit(1);
+  }
+  if (marker === head || allowStale) return;
+  console.error(`✗ Database is not at HEAD — it was imported from ${marker.slice(0, 10)}, HEAD is ${head.slice(0, 10)}.`);
+  console.error('  Run `npm run content:import`, or pass --allow-stale if you know what you are auditing.');
+  process.exit(1);
+}
+
+async function loadWorld({ prod = false, yes = false, allowStale = false } = {}) {
+  const { client, url, host } = await connectTarget({ prod, yes, purpose: 'AUDIT (read-only)' });
+  try {
+    const marker = (await client.query(
+      `SELECT value FROM server_settings WHERE key='content_pipeline.last_imported_sha'`)).rows[0]?.value ?? null;
+    assertFresh(marker, allowStale);
+    // ORDER BY the pk. Postgres returns rows in whatever order it likes, and two
+    // rules (MAP-1, MARK-4) report a PAIR by naming one member — so row order
+    // would decide which tile the finding is filed under. Sorting keeps the tool's
+    // contract: the same world produces the same findings, in the same order,
+    // every run. The file loader got this free from readdir; the DB does not.
+    const q = async (table) => {
+      const entry = REGISTRY_BY_TABLE.get(table);
+      const order = (entry?.pk || ['id']).map((c) => `"${c}"`).join(', ');
+      const { rows } = await client.query(`SELECT * FROM ${table} ORDER BY ${order}`);
+      return rows;   // deliberately NO __file — see writeEntity
+    };
+    // Sequential, not Promise.all: this is one pg Client, which serializes queries
+    // anyway and deprecation-warns if you pretend otherwise. Seven round trips
+    // against localhost, once per run.
+    const zones = await q('zones');
+    const maps = await q('maps');
+    const spawns = await q('zone_spawns');
+    const doors = await q('doors');
+    const tables = await q('scavenging_tables');
+    const tableItems = await q('scavenging_table_items');
+    const render = (await client.query('SELECT * FROM zone_render')).rows;
+    // Hang the generated presentation off each tile. This is the whole point of
+    // the port: `drawnTerrain(z)` and `markerOf(z)` now answer "what does the map
+    // actually paint" by READING the build's answer, instead of re-deriving one
+    // that could differ from it.
+    const renderById = new Map(render.map((r) => [r.zone_id, r]));
+    for (const z of zones) z.__render = renderById.get(z.id) ?? null;
+    const derived = zones.filter((z) => z.__render).length;
+    if (!derived) {
+      console.error('✗ zone_render is empty — this database has no derived presentation.');
+      console.error('  Run `npm run map:derive` (or `npm run content:import`) first.');
+      process.exit(1);
+    }
+    return { zones, maps, spawns, doors, tables, tableItems, host, url };
+  } finally {
+    await client.end();
+  }
+}
+
+// What the map actually paints on this tile, per the build. Falls back to the
+// authored column only for a tile with no derived row, which after loadWorld's
+// guard means a row created since the last build.
+const drawnTerrain = (z) => z.__render?.spec?.terrain ?? z.flags?.terrain ?? null;
 function writeEntity(e) {
   const { __file, ...rest } = e;
+  // Rows loaded from the DB carry no __file, on purpose. They hold DERIVED values
+  // (a resolved marker, a palette fill) that nobody authored, and writing one into
+  // content/ would commit the build's output as if a human had typed it. Making
+  // that impossible beats remembering not to do it.
+  if (!__file) throw new Error(`writeEntity: ${e.id} has no __file — this is a resolved row, not an authored one. Fixers must operate on loadDir() entities.`);
   fs.writeFileSync(__file, canonicalJson(rest), 'utf8');
 }
 
@@ -376,13 +487,8 @@ function makeSuppressor(log) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-export function audit({ region = null, bbox = null } = {}) {
-  const zones = loadDir('zones');
-  const maps = loadDir('maps');
-  const spawns = loadDir('zone_spawns');
-  const doors = loadDir('doors');
-  const tables = loadDir('scavenging_tables');
-  const tableItems = loadDir('scavenging_table_items');
+export async function audit({ region = null, bbox = null, prod = false, yes = false, allowStale = false } = {}) {
+  const { zones, maps, spawns, doors, tables, tableItems } = await loadWorld({ prod, yes, allowStale });
 
   const byId = new Map(zones.map((z) => [z.id, z]));
   const mapByParent = new Map(maps.filter((m) => m.parent_zone_id).map((m) => [m.parent_zone_id, m]));
@@ -668,7 +774,7 @@ export function audit({ region = null, bbox = null } = {}) {
       const f = z.flags || {};
       if (f.terrain) continue;                              // authored — TERRAIN-1's problem, not this one
       if (!f.is_interior && (!z.map_id || z.map_id === 'map_world')) continue;
-      const drawn = zoneTerrain(z);
+      const drawn = drawnTerrain(z);
       if (!drawn) continue;
       emit('TERRAIN-2', z, `draws as '${drawn}' — no flags.terrain, inferred from bg_color ${z.bg_color || '(none)'}`,
         { group: `${drawn} · ${z.bg_color || '(none)'}`, coarse: z.map_id, drawn });
@@ -880,10 +986,20 @@ const FIXERS = {
   },
 };
 
-function applyFix(code, opts) {
+async function applyFix(code, opts) {
+  // HARD-DISABLED against a remote host — not defaulted off (spec §8.2, §8.5).
+  // A fixer writing content files from a production read produces a diff nobody
+  // authored, in a tree git believes is the source of truth.
+  const target = opts.prod ? process.env.PROD_DATABASE_URL : process.env.DATABASE_URL;
+  if (!isLocalUrl(target || '')) {
+    console.error('✗ --fix is disabled against a remote database.');
+    console.error('  Fixers write content/ files. Writing them from a remote read would commit a diff nobody authored.');
+    console.error('  Audit remotely if you must; fix locally, then deploy.');
+    process.exit(1);
+  }
   const rule = RULE.get(code);
   if (!rule?.fix) { console.error(`Rule ${code} has no auto-fixer — it must be repaired by hand.`); process.exit(1); }
-  const { findings } = audit(opts);
+  const { findings } = await audit(opts);
   let mine = findings.filter((f) => f.rule === code);
   if (!mine.length) { console.log(`No ${code} findings to fix.`); return; }
 
@@ -915,7 +1031,7 @@ function applyFix(code, opts) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-function main() {
+async function main() {
   const argv = process.argv.slice(2);
   const arg = (n) => { const i = argv.indexOf(n); return i >= 0 ? argv[i + 1] : null; };
   const has = (n) => argv.includes(n);
@@ -931,11 +1047,14 @@ function main() {
     bbox: arg('--bbox') ? arg('--bbox').split(',').map(Number) : null,
     write: has('--write'),
     force: has('--force'),
+    prod: has('--prod'),
+    yes: has('--yes'),
+    allowStale: has('--allow-stale'),
   };
 
-  if (has('--fix')) return applyFix(arg('--fix'), opts);
+  if (has('--fix')) return await applyFix(arg('--fix'), opts);
 
-  const { findings, skipped, stats } = audit(opts);
+  const { findings, skipped, stats } = await audit(opts);
   const one = arg('--rule');
 
   if (arg('--json')) {
@@ -988,5 +1107,14 @@ function main() {
   console.log(`\nTOTAL ${findings.length} findings. Drill in with --rule <CODE> (add --groups for judgement rules).`);
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) main();
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+  // A bad target (no DATABASE_URL, a remote one without --prod) is a setup mistake,
+  // not a crash. The guards above print and exit; this catches connectTarget's.
+  try {
+    await main();
+  } catch (e) {
+    console.error(`✗ ${e.message}`);
+    process.exit(1);
+  }
+}
 export { RULES, RULE };

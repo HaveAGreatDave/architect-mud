@@ -645,6 +645,35 @@ cannot draw and nobody chose.
 
 ## 8. The audit reads the resolved DB
 
+> **BUILT — §11 step 5.** `.claude/skills/map-audit/scripts/audit-map.mjs` now loads
+> zones, maps, spawns, doors, the scavenging tables and `zone_render` from a local
+> database. §8.1's prediction held exactly: **no rule body moved.** Only the loader
+> changed, plus two accessors (`drawnTerrain`, `markerOf`) that now READ the build's
+> answer instead of re-deriving one.
+>
+> **Acceptance: the ported audit's JSON output is byte-identical to the files-only
+> audit's** — 1,906 findings, same rules, same zones, same details, same order. Three
+> things that took to get there:
+>
+> - **`ORDER BY` the pk.** Postgres returns rows in whatever order it likes, and two
+>   rules (MAP-1, MARK-4) report a *pair* by naming one member — so row order decided
+>   which tile the finding was filed under. The file loader got determinism free from
+>   `readdir`; the DB does not. Without this the port "passed" on counts and differed
+>   on three findings.
+> - **Resolved rows carry no `__file`, deliberately.** §8.2 says write authored, not
+>   resolved; the enforcement is that `writeEntity` throws on a row with no file
+>   rather than trusting a fixer to have picked the right one. `--fix` still builds
+>   its context from `loadDir()`.
+> - **Four guards, all exercised**: DB not at HEAD, DB never imported, `zone_render`
+>   empty, and `--fix` against a remote host. The staleness guard fired on its first
+>   real outing — HEAD had moved with the step-3 commit.
+>
+> **§8.2's fixer deletions have NOT happened.** `setWez`, `setIsBuilding`,
+> `clearMarker` and `setMarker` are still there because their fields are still
+> authored — `marker` becomes derived in step 4 and `world_exit_zone` in step 6.
+> Deleting them now would remove a working repair for a field a human still owns.
+> §8.4 (the Studio's two latencies) waits on the Studio.
+
 **This is in step 2's scope and is not optional.**
 
 After this redesign, half the facts the rules test are **derived and absent from `content/`
@@ -872,8 +901,10 @@ point of the migration shape (redesign §14) is no flag day.
    moving players at walking pace because pacing keyed off `flags.icon`, not the paint.
 4. **`deriveMarker`** (§7.4), importing the shipped `twoLetterAbbrev` logic rather than copying
    it.
-5. **The audit port** (§8). Do it here, not later — from step 3 onward the files-only audit is
-   reporting on a world that no longer exists.
+5. ~~**The audit port** (§8).~~ **BUILT** — see the call-out in §8. Done immediately after
+   step 3 for the reason given: from step 3 onward the files-only audit was reporting on a
+   world that no longer exists. Output proven byte-identical to the pre-port baseline.
+   (Step 4 was skipped over for now, so `deriveMarker` remains open.)
 6. **`zone_edges` + `content/connections/`** (§1.4, §7.5), with `exits` still authored in
    parallel and a regress assertion that the two agree. Cut over only when they do.
 7. **Locks** (§6) once connections carry stable ids.

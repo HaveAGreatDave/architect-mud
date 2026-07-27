@@ -17,10 +17,34 @@ deliberate choice never gets re-flagged.**
 
 ## The architecture — read this before doing anything
 
-**The mechanical checks are a script, not an agent.** `scripts/audit-map.mjs` reads the
-`content/` tree directly (no DB, no server boot, no tokens) and produces identical
-findings on every run. Do not re-derive them by reading tile JSON yourself — you will be
-slower, more expensive, and less complete.
+**The mechanical checks are a script, not an agent.** `scripts/audit-map.mjs` produces
+identical findings on every run. Do not re-derive them by reading tile JSON yourself —
+you will be slower, more expensive, and less complete.
+
+**It reads the RESOLVED world from your local database, not `content/`.** Half the facts
+these rules test — what a tile is painted, what glyph it draws, what ground the engine
+resolves — are DERIVED now (`zone_render`, built by `content:import`) and are not in the
+file tree at all. A files-only audit wouldn't merely miss them; it would report green
+while describing a world that no longer exists on disk.
+
+**So the DB must be in step with HEAD, and the script enforces it.** It compares
+`content_pipeline.last_imported_sha` against `git rev-parse HEAD` and **refuses to run**
+on a mismatch — a green report from a stale database is worse than no report. If it
+stops you:
+
+```bash
+npm run content:import        # then re-run the audit
+```
+
+`--allow-stale` overrides it deliberately. A fresh clone that has never imported gets
+"import first" rather than a confusing sha mismatch, and an empty `zone_render` gets
+"run `npm run map:derive`".
+
+**Reads resolved, writes authored.** `--fix` still edits `content/<table>/<pk>.json` —
+a repair belongs in the file a human wrote, not in a table the next build overwrites.
+Fixers are **hard-disabled against any non-local host**: writing content files from a
+remote read would commit a diff nobody authored. Auditing production is fine
+(`--prod --yes`, six read-only SELECTs); fixing it from here is not.
 
 **Agents are only for judgement.** Rules marked `judgement` by `--list-rules` are ones
 the script deliberately refuses to guess at — does this tile deserve a loot table, is
@@ -140,6 +164,10 @@ Dry-run first, always — show the file list before writing. Fixers write throug
 CODEX pipeline's own `canonicalJson`, so a fix produces a minimal diff rather than a
 whole-file reformat.
 
+**After writing, re-import before re-auditing.** The audit reads the database; your fix
+changed files. `npm run content:import` is what makes the two agree again — and the
+staleness guard will stop you if you forget.
+
 Rules without a fixer get hand edits to `content/<table>/<id>.json`. Never write to the
 DB and never use the dev API for these — git is the source of truth.
 
@@ -235,11 +263,14 @@ npm run test:regress
 ```
 
 **`content:import` FIRST — this is not optional, and skipping it produces a false green.**
-The audit reads `content/`; **`test:regress` boots the world from the DATABASE.** So a
-regress run over un-imported edits validates the *old* data and passes no matter what you
-just broke. In the 2026-07 run that hid a real defect through two consecutive
-"1591/1591 passed" reports and let it reach a commit — it only surfaced on the first
-regress that followed an import.
+Both the audit and `test:regress` read the DATABASE, so a run over un-imported edits
+validates the *old* data and passes no matter what you just broke. In the 2026-07 run
+that hid a real defect through two consecutive "1591/1591 passed" reports and let it
+reach a commit — it only surfaced on the first regress that followed an import.
+
+The audit now refuses to run at all when the DB isn't at HEAD, which turns that trap
+into an error message. `test:regress` has no such guard, so the ordering below still
+matters.
 
 Note the import's deletion pass is git-diff-driven (`marker..HEAD`), so **if your batch
 deleted any content file, commit before importing** or the row survives locally. That
@@ -254,7 +285,8 @@ the movement pipeline, so regress is not optional here.
 
 ## When the content is right and the map still looks wrong
 
-This audit reads `content/`. It cannot see a defect that lives in the **renderer**, and
+This audit reads the resolved world — content plus what the build derived from it. It
+still cannot see a defect that lives in the **renderer**, and
 there are two of those — the sidebar minimap
 ([minimap.js](../../../client/game/js/panels/minimap.js)) and the tablet map
 ([tablet-os.js](../../../client/game/js/panels/tablet-os.js)) — which lay tiles out by
