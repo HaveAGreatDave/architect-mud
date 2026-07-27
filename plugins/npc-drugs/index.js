@@ -17,8 +17,10 @@
  *   effects.hallucination            → 'paranoid'  (panic + flee)
  *   stimulant signature (reflexes/stamina up) → 'wired'  (jittery, agitated)
  *   everything else (downers, alcohol, benzos, cannabis) → 'sedated'
- *     1 dose  → 'loose'   (glassy, pacified, blurts candid lines)
- *     2+ doses→ 'out'     (collapses; setPosture lying + ai.dosedOut)
+ *     1-4 doses→ 'loose'  (glassy, pacified, blurts candid lines — still upright,
+ *                            still running its own graph)
+ *     5+ doses→ 'out'     (BLACKOUT: setPosture lying + ai.dosedOut). Deliberately
+ *                            far out — drunk and incapacitated are different states.
  *
  * State is runtime-only on the live NPC's AI blackboard (`npc._ai.dose`) — never a
  * DB write (the no-new-npc-columns rule; NPC rows are uncached). A reboot sobers
@@ -28,7 +30,7 @@
  * tickEntityAI; expiry, flee steps and flavour are driven by this plugin's own tick.
  */
 import { query } from '../../server/models/db.js';
-import { world, getZoneNpcs, getZone, getZonePlayers, getNpcsByFlag } from '../../server/engine/world.js';
+import { world, getZoneNpcs, getZone, getZonePlayers, getNpcsByFlag, hasActivePlayers } from '../../server/engine/world.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { getDrugCache } from '../../server/engine/drugs.js';
 import { sendToZone } from '../../server/engine/messaging.js';
@@ -38,9 +40,23 @@ import { neighborZoneIds } from '../../server/engine/exits.js';
 import { resolve as siftResolve } from '../../server/engine/sift.js';
 import { effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { on, emit } from '../../server/engine/events.js';
+import { npcNextShiftInMins } from '../../server/engine/broadcast-bridge.js';
+import { getTimeScale } from '../../server/engine/gametime.js';
+import { getEnvironmentState } from '../../server/engine/environment.js';
 
 // ── Tunables ──────────────────────────────────────────────────────────────────
 const SEDATE_MS     = 90000;   // a downer runs ~90s on an NPC
+// How many sedative doses before an NPC stops functioning entirely. This is the
+// BLACKOUT threshold, not the drunk threshold — everything below it is `loose`:
+// glassy, candid, slower, but upright and still running its own behaviour graph.
+//
+// Was 2, which made "drunk" and "unconscious" almost the same event and meant a
+// couple of drinks put a working NPC on the floor for the rest of their shift.
+// Getting a person to the point of losing motor control takes real, sustained
+// effort, and it should here too: five doses is a determined campaign, not a
+// round. Raising it also widens the interesting middle — the long stretch where
+// someone is impaired and still absolutely insisting they're fine.
+const SEDATE_OUT_DOSES = 5;
 const PARANOID_MS   = 60000;   // a bad trip ~60s
 const WIRED_MS      = 60000;   // a stimulant jag ~60s
 const SPIKE_DC      = 6;       // Deception difficulty for a clean covert spike
@@ -88,7 +104,12 @@ const SOBER = {
 };
 
 // ── The shared core: apply an effect to a live NPC ─────────────────────────────
-function doseNpc(npc, kind, drugName) {
+// `opts` lets a CALLER own the length and chattiness of a dose without changing
+// what any other dose does. The pre-show ritual is the only user: it runs for
+// game-hours rather than the flat 60s a player's hit gives, and has to whisper
+// rather than mutter or it would talk over its own broadcast. Everything else
+// passes nothing and behaves exactly as before.
+function doseNpc(npc, kind, drugName, opts = {}) {
   const ai = npc._ai || (npc._ai = {});
   const d = ai.dose || (ai.dose = { doses: 0 });
   d.kind = kind;                    // last dose wins on kind
@@ -98,10 +119,17 @@ function doseNpc(npc, kind, drugName) {
 
   // Reset the sub-flags each dose; set the ones this kind needs.
   d.loose = d.out = d.flee = d.wired = false;
+  d.mutterChance = opts.mutterChance ?? null;
 
   if (kind === 'sedated') {
-    d.until = now + SEDATE_MS;
-    if (d.doses >= 2) {
+    d.until = now + (opts.durationMs || SEDATE_MS);
+    // `neverOut` is the belt to SEDATE_OUT_DOSES' braces, and it exists because
+    // blacking out sets ai.dosedOut, which makes the engine YIELD THE BEHAVIOUR
+    // GRAPH — including GO_TO_WORK. An NPC whose own habit could floor them would
+    // quietly stop turning up for their job, which is a different character than
+    // the one intended. A habit passes this; a player working someone up to five
+    // doses does not, so deliberately putting an NPC down still works as before.
+    if (d.doses >= SEDATE_OUT_DOSES && !opts.neverOut) {
       d.out = true;
       ai.dosedOut = true;                              // engine yields the graph
       try { setPosture(npc, 'lying'); } catch { /* posture best-effort */ }
@@ -116,7 +144,7 @@ function doseNpc(npc, kind, drugName) {
     ai.dosedOut = true;                                // suppress graph; we drive the flee
     sendToZone(npc.zone_id, { type: 'zone_event', message: LINE.paranoid(npc.name) });
   } else { // wired
-    d.until = now + WIRED_MS;
+    d.until = now + (opts.durationMs || WIRED_MS);
     d.wired = true;
     sendToZone(npc.zone_id, { type: 'zone_event', message: LINE.wired(npc.name) });
   }
@@ -164,8 +192,8 @@ function tick() {
     if (now >= d.until) { sober(npc); continue; }
     if (d.flee) { stepFlee(npc); continue; }
     if (d.out)   { if (Math.random() < 0.3) sendToZone(npc.zone_id, { type: 'zone_event', message: pick(OUT_MUTTER)(npc.name) }); continue; }
-    if (d.loose && Math.random() < 0.4) sendToZone(npc.zone_id, { type: 'zone_event', message: pick(LOOSE_MUTTER)(npc.name) });
-    if (d.wired && Math.random() < 0.4) sendToZone(npc.zone_id, { type: 'zone_event', message: pick(WIRED_MUTTER)(npc.name) });
+    if (d.loose && Math.random() < (d.mutterChance ?? 0.4)) sendToZone(npc.zone_id, { type: 'zone_event', message: pick(LOOSE_MUTTER)(npc.name) });
+    if (d.wired && Math.random() < (d.mutterChance ?? 0.4)) sendToZone(npc.zone_id, { type: 'zone_event', message: pick(WIRED_MUTTER)(npc.name) });
   }
 }
 schedule('4s', () => { try { tick(); } catch (e) { console.error('[npc-drugs] tick error:', e.message); } });
@@ -177,9 +205,25 @@ schedule('4s', () => { try { tick(); } catch (e) { console.error('[npc-drugs] ti
 // and applies the same effect the drug would (a stimulant → wired). The rarity is
 // a long cooldown × a low per-scan roll × "only when watched," so it's a treat you
 // stumble into, not a thing that's always happening.
-const PRESHOW_COOLDOWN  = 30 * 60 * 1000;   // at most once every 30 min
-const PRESHOW_CHANCE    = 0.12;             // per scan, once all conditions are met
-const preshowLast = new Map();              // npcId -> ts of last ritual
+// Timed off the SHOW, not off the observer. He doses about two hours out and is
+// still up when the lights come on — which is the whole point of a pre-show
+// habit, and it only reads as one if the audience can meet him already high.
+//
+// Everything here is in GAME minutes because the broadcast timetable is, and the
+// dose length converts to real ms at the live time scale so the two can't drift
+// apart when the world clock is retuned.
+const PRESHOW_LEAD_MINS   = 120;            // game minutes before curtain
+const PRESHOW_WINDOW_MINS = 25;             // how wide the "about two hours" band is
+const PRESHOW_CHANCE      = 0.10;           // ...per SHOW, rolled once. Not per scan.
+const PRESHOW_HIGH_MINS   = [300, 360];     // 5–6 game hours: covers the lead AND the show
+// A long dose can't chatter at the ordinary rate — 40% per 4s tick for five hours
+// would be a wall of text, and most of it would land on air. One tell every few
+// minutes reads as a man holding it together; anything more reads as a bug.
+const PRESHOW_MUTTER_CHANCE = 0.012;
+// One roll per scheduled show, not per scan: the latch key is the slot the roll
+// was made against, so a 10% chance means one show in ten rather than "10% every
+// forty-five seconds until it happens", which is a certainty wearing a hat.
+const preshowRolled = new Map();            // npcId -> latch key already rolled
 const PRESHOW_LINES = [
   `checks the countdown feed — "...live in ten" — and racks up a neat line of {drug} with the ease of long habit.`,
   `dabs a little {drug} onto his gums, blinks twice as the room sharpens to a razor's edge, and grins at his own reflection.`,
@@ -193,23 +237,99 @@ function kindForNamed(name) {
 }
 
 function preshowScan() {
+  // No longer gated on someone standing in the room — a habit that only happens
+  // when watched isn't a habit. Still gated on the server having ANY players: an
+  // empty world has nobody to ever see the consequence, and the engine's rule is
+  // that scheduled ticks idle out (docs/architecture.md).
+  if (!hasActivePlayers()) return;
   const npcs = getNpcsByFlag('preshow_habit');
+  if (!npcs.length) return;
+  for (const npc of npcs) {
+    if (npc.hp != null && npc.hp <= 0) continue;
+    if (DOSED.has(npc.id)) continue;                                   // already high
+    if (!npc.home_zone || npc.zone_id !== npc.home_zone) continue;     // he does this at home
+
+    // How far out is curtain? null = staffed on nothing with a knowable start.
+    const mins = npcNextShiftInMins(npc.id);
+    if (mins == null || mins <= 0) continue;                           // no show, or already on
+    if (Math.abs(mins - PRESHOW_LEAD_MINS) > PRESHOW_WINDOW_MINS) continue;
+
+    // Latch on the SHOW, so the 10% is per show rather than per scan. The key is
+    // curtain's absolute position on the game clock: as the scan repeats, `now`
+    // rises by exactly what `mins` falls, so their sum is invariant for a given
+    // slot and every scan inside the band derives the same key.
+    //
+    // Quantising the countdown instead — the obvious first attempt — silently
+    // yields two keys as it crosses a bucket edge, which rolls twice and turns a
+    // 10% chance into 19%.
+    const { minutes, dayOfWeek } = getEnvironmentState();
+    const key = `${(dayOfWeek || 0) * 1440 + Math.round(minutes || 0) + mins}`;
+    if (preshowRolled.get(npc.id) === key) continue;
+    preshowRolled.set(npc.id, key);
+    if (Math.random() >= PRESHOW_CHANCE) continue;
+
+    const drugName = (typeof npc.flags.preshow_habit === 'string' && npc.flags.preshow_habit) ? npc.flags.preshow_habit : 'something';
+    // Deliberately broadcast whether or not anyone is standing there. An empty
+    // room costs nothing, and gating on an audience made the ritual something
+    // that only ever happened when watched — which is backwards for a habit.
+    sendToZone(npc.zone_id, { type: 'zone_event', message: `${npc.name} ${pick(PRESHOW_LINES).replace('{drug}', drugName)}` });
+    const gameMins = PRESHOW_HIGH_MINS[0] + Math.random() * (PRESHOW_HIGH_MINS[1] - PRESHOW_HIGH_MINS[0]);
+    doseNpc(npc, kindForNamed(drugName), drugName, {
+      durationMs: (gameMins * 60 * 1000) / Math.max(1, getTimeScale()),
+      mutterChance: PRESHOW_MUTTER_CHANCE,
+    });
+  }
+}
+schedule('45s', () => { try { preshowScan(); } catch (e) { console.error('[npc-drugs] preshow error:', e.message); } });
+
+// ── The standing habit: an NPC who drinks on no schedule but their own ────────
+//
+// The other half of the pre-show ritual. That one is an occasion — twice a week,
+// timed to a curtain. This is a DEPENDENCY: no lead-up, no trigger, just a
+// cadence, and it does not care whether there's a show.
+//
+// `flags.booze_habit` = the drink's name. Any NPC can carry it; it happens to
+// describe a broadcast host who is usually at his desk and usually not sober.
+//
+// Two deliberate differences from preshow:
+//   • No schedule lookup, so it works for NPCs staffed on nothing.
+//   • `neverOut` — see doseNpc. He gets loose, never floored, because an NPC who
+//     collapses stops running their graph and stops turning up for work. "Often
+//     drunk, still on air" is the character; "missing, face down at home" is not.
+const BOOZE_COOLDOWN_MS = 20 * 60 * 1000;   // real ms between drinks
+const BOOZE_CHANCE      = 0.35;             // per scan once the cooldown is clear
+const BOOZE_DRUNK_MINS  = [120, 180];       // 2–3 GAME hours per drink
+const BOOZE_MUTTER_CHANCE = 0.02;           // a slur now and then, not a monologue
+const boozeLast = new Map();                // npcId -> ts of last drink
+const BOOZE_LINES = [
+  `pours a measure of {drug} with the steadiness of a man who has never once considered that it might be a problem.`,
+  `tops up a mug that has not held coffee in some years, and drinks off half of it in one go.`,
+  `cracks the seal on a fresh bottle of {drug}, glances at the door, and pours anyway.`,
+  `drains the last of the {drug}, sets the glass down with exaggerated care, and immediately reaches for more.`,
+];
+
+function boozeScan() {
+  if (!hasActivePlayers()) return;
+  const npcs = getNpcsByFlag('booze_habit');
   if (!npcs.length) return;
   const now = Date.now();
   for (const npc of npcs) {
     if (npc.hp != null && npc.hp <= 0) continue;
-    if (DOSED.has(npc.id)) continue;                                   // already high
-    if (!npc.home_zone || npc.zone_id !== npc.home_zone) continue;     // only in his own place
-    if (now - (preshowLast.get(npc.id) || 0) < PRESHOW_COOLDOWN) continue;
-    if (!getZonePlayers(npc.zone_id).length) continue;                 // nobody there to enjoy it
-    if (Math.random() >= PRESHOW_CHANCE) continue;
-    preshowLast.set(npc.id, now);
-    const drugName = (typeof npc.flags.preshow_habit === 'string' && npc.flags.preshow_habit) ? npc.flags.preshow_habit : 'something';
-    sendToZone(npc.zone_id, { type: 'zone_event', message: `${npc.name} ${pick(PRESHOW_LINES).replace('{drug}', drugName)}` });
-    doseNpc(npc, kindForNamed(drugName), drugName);
+    if (DOSED.has(npc.id)) continue;                                   // still going from the last one
+    if (now - (boozeLast.get(npc.id) || 0) < BOOZE_COOLDOWN_MS) continue;
+    if (Math.random() >= BOOZE_CHANCE) continue;
+    boozeLast.set(npc.id, now);
+    const drinkName = (typeof npc.flags.booze_habit === 'string' && npc.flags.booze_habit) ? npc.flags.booze_habit : 'something';
+    sendToZone(npc.zone_id, { type: 'zone_event', message: `${npc.name} ${pick(BOOZE_LINES).replace('{drug}', drinkName)}` });
+    const gameMins = BOOZE_DRUNK_MINS[0] + Math.random() * (BOOZE_DRUNK_MINS[1] - BOOZE_DRUNK_MINS[0]);
+    doseNpc(npc, 'sedated', drinkName, {
+      durationMs: (gameMins * 60 * 1000) / Math.max(1, getTimeScale()),
+      mutterChance: BOOZE_MUTTER_CHANCE,
+      neverOut: true,
+    });
   }
 }
-schedule('45s', () => { try { preshowScan(); } catch (e) { console.error('[npc-drugs] preshow error:', e.message); } });
+schedule('45s', () => { try { boozeScan(); } catch (e) { console.error('[npc-drugs] booze error:', e.message); } });
 
 // A killed/despawned NPC drops its effect so nothing lingers on a stale row.
 on('npc.killed', ({ npc }) => {

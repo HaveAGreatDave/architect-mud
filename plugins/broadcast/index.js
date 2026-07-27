@@ -8,7 +8,7 @@ import { on, emit } from '../../server/engine/events.js';
 import { registerAction, dispatchAction } from '../../server/engine/actions.js';
 import { registerCommand } from '../../server/engine/plugins.js';
 import { apiDeleteZone } from '../../server/api/routes.js';
-import { registerViewerChecker, registerNpcScheduleChecker, registerNpcStudioZoneLookup, registerZoneWatchedChecker, hasChannelViewers, isNpcScheduledNow, getNpcStudioZone } from '../../server/engine/broadcast-bridge.js';
+import { registerViewerChecker, registerNpcScheduleChecker, registerNpcNextShiftLookup, registerNpcStudioZoneLookup, registerZoneWatchedChecker, hasChannelViewers, isNpcScheduledNow, getNpcStudioZone } from '../../server/engine/broadcast-bridge.js';
 import { registerAICondition, registerAIAction } from '../../server/engine/ai-behaviour.js';
 import { getEnvironmentState, recomputePower, resyncAllLightingStates, fixZonePowerConnections, fixBuildingPowerConnections, markPowerTopologyDirty } from '../../server/engine/environment.js';
 import { getSongDefByName, getSfxDefByName, getAmbientDefByName, getSampleDefByName } from '../audio/index.js';
@@ -3843,6 +3843,44 @@ registerNpcScheduleChecker((npcId) => {
     if (item?.playback_mode !== 'talkshow' && item?.npcStaff?.includes(npcId)) return true;
   }
   return false;
+});
+
+// How long until this NPC is next due on. Game minutes; 0 while already on shift;
+// null when they're staffed on nothing that airs.
+//
+// Only DAILY slots have a knowable start — a loop/mixed channel has no wall-clock
+// timetable to count down to, so a host on one simply reports null and anything
+// scheduling against it (the pre-show ritual in npc-drugs) declines to fire rather
+// than guessing.
+registerNpcNextShiftLookup((npcId) => {
+  const { minutes, dayOfWeek } = getEnvironmentState();
+  const gameSecs = (minutes ?? 0) * 60;
+  const DAY_SECS = 24 * 60 * 60;
+  let soonest = null;
+  for (const state of channelRuntime.values()) {
+    if (state.scheduleMode !== 'daily') continue;
+    for (const item of (state.playlist || [])) {
+      if (!item.npcStaff?.includes(npcId)) continue;
+      // Already inside this slot — on shift now.
+      if (gameSecs >= item.startTime && gameSecs < item.startTime + item.duration) return 0;
+      // Airs today and still ahead of us? Otherwise the next airing is a future
+      // day — walk forward to find which, so a Friday-only show counts down
+      // across the week instead of reporting nothing for six days.
+      let wait = null;
+      if (_slotAirsOn(item, dayOfWeek) && item.startTime > gameSecs) {
+        wait = item.startTime - gameSecs;
+      } else {
+        for (let ahead = 1; ahead <= 7; ahead++) {
+          if (!_slotAirsOn(item, (dayOfWeek + ahead) % 7)) continue;
+          wait = (ahead * DAY_SECS) + item.startTime - gameSecs;
+          break;
+        }
+      }
+      if (wait == null) continue;
+      if (soonest == null || wait < soonest) soonest = wait;
+    }
+  }
+  return soonest == null ? null : Math.round(soonest / 60);
 });
 
 // getNpcStudioZone: find the studio zone for the channel this NPC is staffed on
