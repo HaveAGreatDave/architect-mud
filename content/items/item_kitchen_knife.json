@@ -7,7 +7,8 @@
     "butchering": true,
     "can_chop": true,
     "description": "A wide-bladed kitchen knife ground down narrow by decades of sharpening, the edge a shallow crescent now. It does not care whether what it's parting was ever in a kitchen.",
-    "unique": true
+    "unique": true,
+    "utensil": true
   },
   "type": "misc",
   "value": 40,

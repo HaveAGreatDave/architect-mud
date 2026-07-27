@@ -6,7 +6,8 @@
   "tags": {
     "can_stir": true,
     "description": "Real wood, or a very old imitation of it — stained dark at the bowl and worn flat on one side by somebody who always stirred the same way.",
-    "unique": true
+    "unique": true,
+    "utensil": true
   },
   "type": "misc",
   "value": 8,

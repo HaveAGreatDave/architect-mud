@@ -192,6 +192,8 @@
       help: 'How evenly a vessel spreads heat, 0..1 (a cheap pan ~0.6, a good one ~0.9). Widens the forgiving band between the peak window and burning. Only meaningful alongside `vessel`.' },
     heat_retention: { label: 'Heat Retention', shape: 'number', scope: 'class', group: 'Cooking',
       help: 'How well a vessel holds heat, 0..1 (thin steel ~0.4, heavy cast ~0.8). Widens the peak window itself, so there is more time to plate it right. Only meaningful alongside `vessel`.' },
+    utensil: { label: 'Utensil', shape: 'flag', scope: 'class', group: 'Cooking',
+      help: 'A hand tool for kitchen work — spoon, spatula, tongs, whisk, ladle. Purely a CATEGORY: nothing branches on it, the actual gates are can_stir/can_turn/can_chop. It exists so bulk commands can sweep by category ("drop all utensils", "put all utensils in the drawer") without naming every one. Tag the kitchen tool, not the weapon — a combat knife is not a utensil even though it chops.' },
     can_turn: { label: 'Can Turn Food', shape: 'flag', scope: 'class', group: 'Cooking',
       help: 'Marks this item as a spatula/tongs. Carrying one uncontained is the tool gate for FLIP on cooking food (the fishing_rod/mining_tool pattern).' },
     can_chop: { label: 'Can Chop Food', shape: 'flag', scope: 'class', group: 'Cooking',

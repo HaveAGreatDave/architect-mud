@@ -6,7 +6,8 @@
   "tags": {
     "can_stir": true,
     "description": "A blunt stone club and the pitted cup it lives in, heavy out of all proportion to its size. Older technology than the building it sits in.",
-    "unique": true
+    "unique": true,
+    "utensil": true
   },
   "type": "misc",
   "value": 22,
