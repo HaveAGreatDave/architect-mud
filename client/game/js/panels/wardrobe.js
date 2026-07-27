@@ -22,6 +22,9 @@ let armedItem = null;                // tap-to-place selection — same shape as
 // key holds an array; every other slot holds one piece.
 let doll = {};
 let editingName = '';
+// What the server says is on the player's body right now — the seed for the
+// "Wearing" button. Refreshed with every view, so it can't go stale mid-session.
+let equippedNow = [];
 
 // Pads on the mannequin, in render order. `accessory` is the only multi pad.
 const PADS = [
@@ -75,6 +78,14 @@ function slotOf(item) { return item.tags?.slot || null; }
 function renderWardrobePanel(data) {
   document.getElementById('wardrobe-title').textContent = data.containerName || 'Wardrobe';
   document.getElementById('wardrobe-notify').textContent = data.notify || '';
+
+  equippedNow = data.equipped || [];
+  // Both buttons act on what you're wearing, so neither means anything naked.
+  const bare = equippedNow.length === 0;
+  const wearingBtn = document.getElementById('wardrobe-wearing');
+  const undressBtn = document.getElementById('wardrobe-undress');
+  if (wearingBtn) wearingBtn.disabled = bare;
+  if (undressBtn) undressBtn.disabled = bare;
 
   renderOutfits(data.outfits || []);
   renderStock('wardrobe-hanging-list', wearable(data.containerItems), 'hanging');
@@ -312,6 +323,27 @@ export function initWardrobePanel() {
   };
   document.getElementById('wardrobe-save').addEventListener('click', save);
   nameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') save(); });
+
+  // "Wearing" — load the current look onto the doll. This is the one-click route to
+  // "save what I've got on": seed, type a name, Save. It fills the doll rather than
+  // saving outright so the look stays editable (drop the hat, then name it), and it
+  // reuses the same outfitsetid path as any hand-composed outfit.
+  document.getElementById('wardrobe-wearing').addEventListener('click', () => {
+    doll = {};
+    for (const p of equippedNow) {
+      if (!p.slot) continue;
+      placeOnDoll(p.slot, { itemId: p.itemId, name: p.name });
+    }
+    editingName = '';
+    nameInput.value = '';
+    renderDoll();
+    if (!equippedNow.length) showWardrobeNotify("You're not wearing anything.");
+    else nameInput.focus();
+  });
+
+  document.getElementById('wardrobe-undress').addEventListener('click', () => {
+    sendCmdSilent(`undressid ${activeWardrobeId}`);
+  });
 
   document.addEventListener('dragend', () => { draggedItem = null; highlightPads(null); });
 }

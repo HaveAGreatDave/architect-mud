@@ -13103,10 +13103,68 @@ input.trade-qty { width: 56px; }
 	box-shadow: 0 0 0 1px rgba(185, 139, 74, 0.35);
 }
 
+/* Narration pill — shown when a book is being read aloud with the tablet closed.
+   Deliberately lives here rather than in tablet-os.js's injected style block:
+   that block is scoped to #tablet-os-overlay and goes away with the shell, which
+   is exactly the moment this element needs to be visible. */
+#tos-narrate-pill {
+	position: fixed;
+	left: 50%;
+	bottom: 14px;
+	transform: translateX(-50%);
+	z-index: 9996;
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	max-width: min(92vw, 460px);
+	padding: 7px 10px 7px 14px;
+	background: var(--bg2);
+	border: 1px solid var(--accent);
+	border-radius: 999px;
+	box-shadow: 0 4px 18px rgba(0, 0, 0, 0.55);
+	font-family: var(--font-mono);
+	font-size: 12px;
+	color: var(--text);
+	cursor: pointer;
+}
+#tos-narrate-pill .tnp-title {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+#tos-narrate-pill .tnp-prog {
+	color: var(--text-dim);
+	flex-shrink: 0;
+}
+#tos-narrate-pill .tnp-stop {
+	flex-shrink: 0;
+	background: none;
+	border: 1px solid var(--border);
+	border-radius: 50%;
+	width: 22px;
+	height: 22px;
+	line-height: 1;
+	color: var(--accent);
+	cursor: pointer;
+	font-size: 10px;
+}
+#tos-narrate-pill .tnp-stop:hover {
+	border-color: var(--accent);
+}
+
 #wardrobe-doll-actions {
 	display: flex;
 	gap: 6px;
 	flex-shrink: 0;
+	/* Four controls now (name/Save/Clear/Wearing/Undress) — wrap to a second row on
+	   a narrow panel instead of crushing the name field to nothing. */
+	flex-wrap: wrap;
+}
+/* Undress moves real garments; Clear only wipes the doll. Warm it slightly so the
+   destructive-looking one isn't visually identical to the harmless one. */
+#wardrobe-undress {
+	border-color: var(--orange);
+	color: var(--orange);
 }
 #wardrobe-outfit-name {
 	flex: 1;

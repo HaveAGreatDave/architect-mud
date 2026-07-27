@@ -4081,6 +4081,10 @@ on('zone.broadcast', ({ zoneId, msg }) => {
   if (!zoneCameras.get(zoneId)?.length) return;
   // Never re-air the show's own performance — those lines reach air by the graph.
   if (msg._fromBroadcast) return;
+  // Foot traffic is not television. A busy studio floor generates an arrive/depart
+  // line for every player and every NPC on a schedule, which buries the narration
+  // and the moments that actually matter. The camera stays on what people DO.
+  if (msg._movement) return;
   // Only relay player-visible events (speech, say, zone_event) — not combat or system messages
   if (msg.type !== 'output' && msg.type !== 'zone_event' && msg.type !== 'say') return;
   if (!msg.message) return;

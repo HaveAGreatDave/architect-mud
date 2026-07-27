@@ -69,4 +69,43 @@ export default async function regress({ run, check }) {
   );
   check('an unreachable piece is marked unavailable', described.items[0].available === false);
   check('an outfit with an unreachable piece is not wearable', described.wearable === false);
+
+  // A piece you're WEARING is reachable — the bug this fixes had a just-saved
+  // outfit render every item missing while the player had the clothes on.
+  const onBody = _test.describeOutfit(
+    { name: 'work', item_ids: ['item_worn_jacket'] }, new Set(['item_worn_jacket'])
+  );
+  check('a piece already on your body counts as available', onBody.items[0].available === true);
+  check('an outfit made of what you are wearing is wearable', onBody.wearable === true);
+
+  // `dress` / `undress <wardrobe>` route and degrade politely with no wardrobe in
+  // the room. `undress` is the load-bearing one: the plugin OVERRIDES the engine
+  // builtin, so a regression here silently breaks the plain verb for every player.
+  r = await run('dress');
+  check('dress verb routed', r?.type !== undefined, JSON.stringify(r));
+  check('dress with no wardrobe says so', /no wardrobe here/i.test(r?.message || ''), r?.message);
+
+  r = await run('dress something');
+  check('dress <name> with no wardrobe is refused', r?.type === 'error', r?.message);
+
+  // Untargeted undress must still reach the ENGINE's bulk strip, not the plugin's
+  // wardrobe path — this asserts the delegation, which is the whole risk of the
+  // override. The fake player wears nothing, so the engine's own empty-case answers.
+  r = await run('undress');
+  check('bare undress still delegates to the engine strip',
+    /not wearing anything/i.test(r?.message || ''), JSON.stringify(r));
+
+  // A garbage target is not an error — it falls back to the plain strip rather
+  // than punishing someone who typed `undress quickly`.
+  r = await run('undress nonsensewordhere');
+  check('undress with an unmatched target falls back to the plain strip',
+    /not wearing anything/i.test(r?.message || ''), JSON.stringify(r));
+
+  r = await run('undressid furn_not_a_wardrobe');
+  check('undressid rejects a non-wardrobe id', r?.type === 'container_error', JSON.stringify(r));
+
+  // undressInto is the inverse of an outfit, so it must cover exactly what an
+  // outfit covers — body AND accessories, never the weapon hand.
+  check('undress-into-wardrobe covers accessories like an outfit',
+    _test.OUTFIT_SLOTS.includes('accessory') && !_test.OUTFIT_SLOTS.includes('weapon_hand'));
 }

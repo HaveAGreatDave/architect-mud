@@ -11,6 +11,7 @@
   "created_by": null,
   "description": "The stacks proper: aisle after aisle of shelving that recedes further back than the building's footprint has any right to allow. Deeds, plats, condemnation notices — the paper skeleton of a whole city, filed with a patience that borders on grief. One cabinet near the back stands conspicuously empty, its drawers labelled and waiting, the only unfilled thing in a room that is otherwise a monument to keeping everything. You get the sense it has been waiting a very long time to be filled, and has made its peace with not being.",
   "exits": {
+    "north": "zone_records_library",
     "south": "zone_records_reading"
   },
   "flags": {

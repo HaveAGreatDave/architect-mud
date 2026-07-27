@@ -236,4 +236,6 @@ nothing, silently; wire a reader first.
 | `vendor_schedule_board` | vendor | shop-hours board |
 | `vendor_stock` | commerce | vendor id owning this container's contents — a self-service display case. Goods pulled out are marked `custom_data.unpaid` until `checkout`; carrying them out of the shop is `shoplifting` |
 | `wardrobe` | wardrobe | this container opens the wardrobe/outfits panel (pair with `container`) |
+| `lending_terminal` | library | `scan` here unlocks the tablet's LIBRARY app (`library_unlocked` flag) and prints the one-time intro; examining it teaches the verb ([systems-library.md](systems-library.md)) |
+| `cleaning_tool` | cleaning | a fixed sink/basin — `clean`/`mop` in this room clears the whole floor rather than one patch. Also valid as an **item** tag ([systems-cleaning.md](systems-cleaning.md)) |
 | `water_source` | water plugin | drink/wash here |

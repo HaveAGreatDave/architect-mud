@@ -370,4 +370,118 @@ export default async function regress({ run, check, getPlayer }) {
   const stories = await news.getStories(12);
   const heads = stories.map(s => String(s.headline).trim().toLowerCase());
   check('getStories returns no duplicate headlines', heads.length === new Set(heads).size, JSON.stringify(heads));
+
+  // ── Library app ───────────────────────────────────────────────────────────
+  // The book texts are hundreds of KB, so the shelf must never touch `chapters`
+  // and a page turn must index INTO the jsonb rather than pulling the array.
+  // Both of those are one silent typo away from breaking, and neither shows up
+  // as an exception — the shelf just gets slow, or every page reads blank.
+  const { rows: shelfRows } = await query(
+    `SELECT id, jsonb_array_length(chapters) AS chapters FROM books ORDER BY year`
+  );
+  if (!shelfRows.length) {
+    check('library: books table is populated (run scripts/content/fetch-books.mjs)', false, '0 rows');
+  } else {
+    check('library: every book has chapters', shelfRows.every(b => b.chapters > 0),
+      JSON.stringify(shelfRows));
+
+    // THE CAST. `chapters->$2` binds the index as TEXT, and `jsonb -> text` is a
+    // key lookup, not an array index — it returns NULL for every chapter of every
+    // book, with no error. This asserts the ::int form actually indexes.
+    const probe = shelfRows[0];
+    const { rows: chRows } = await query(
+      `SELECT chapters->($2::int)->>'text' AS text FROM books WHERE id=$1`,
+      [probe.id, 0]
+    );
+    check('library: a chapter reads by integer index (the ::int cast)',
+      !!chRows[0]?.text && chRows[0].text.length > 100, JSON.stringify(chRows[0])?.slice(0, 80));
+
+    // The uncast form is the bug — if this ever starts returning text, Postgres
+    // changed under us and the cast comment needs revisiting.
+    const { rows: badRows } = await query(
+      `SELECT chapters->$2->>'text' AS text FROM books WHERE id=$1`, [probe.id, 0]
+    );
+    check('library: the uncast form is still the trap it was documented as',
+      badRows[0]?.text == null, JSON.stringify(badRows[0])?.slice(0, 80));
+
+    // Out-of-range must be null, not an error — the reader clamps, but a bad
+    // deep link shouldn't 500.
+    const { rows: oob } = await query(
+      `SELECT chapters->($2::int)->>'text' AS text FROM books WHERE id=$1`,
+      [probe.id, 9999]
+    );
+    check('library: an out-of-range chapter is null, not an error', oob[0]?.text == null);
+
+    r = await run('tabletnav library');
+    check('library app routes', r?.type === 'tablet_panel', JSON.stringify(r)?.slice(0, 120));
+  }
+
+  // ── Vitals app ────────────────────────────────────────────────────────────
+  // The fake player has no inventory and no drug history, so this asserts the
+  // three tabs build and the empty cases answer cleanly instead of throwing.
+  {
+    r = await run('vitals');
+    check('vitals verb opens the health app',
+      r?.type === 'tablet_panel' && r?.appId === 'health' && r?.view === 'health', JSON.stringify(r)?.slice(0, 140));
+    check('vitals defaults to the readings tab', r?.tab === 'vitals' && r?.activeTab === 'vitals', r?.tab);
+    check('vitals has no error', !r?.error, r?.error);
+
+    // Every meter must carry a band the client knows how to colour — an unknown
+    // band renders as an invisible bar, which is worse than a wrong number.
+    const BANDS = ['good', 'warn', 'bad', 'crit'];
+    check('vitals meters cover the core five',
+      ['hp', 'sanity', 'hunger', 'thirst', 'radiation'].every(k => r.meters?.some(m => m.key === k)),
+      JSON.stringify(r?.meters?.map(m => m.key)));
+    check('every meter has a renderable band and a 0-100 fill',
+      (r.meters || []).every(m => BANDS.includes(m.band) && m.pct >= 0 && m.pct <= 100),
+      JSON.stringify(r?.meters?.map(m => [m.key, m.band, m.pct])));
+    check('afflictions is a list, empty or otherwise', Array.isArray(r?.afflictions));
+    // The quick strip is contextual: it may only ever offer something the player
+    // is genuinely carrying, and every offer must be usable as-is.
+    check('every quick remedy names a carried item type',
+      Array.isArray(r?.quick) && r.quick.every(q => q.id && q.name && q.label && q.qty > 0),
+      JSON.stringify(r?.quick));
+
+    const vitals = r;
+    r = await run('health apothecary');
+    check('health verb aliases vitals and takes a tab',
+      r?.appId === 'health' && r?.tab === 'apothecary', JSON.stringify(r)?.slice(0, 120));
+    // Don't assert WHICH items: the fake player's pack is whatever earlier plugin
+    // suites left in it. Assert the shape and the invariants instead.
+    check('apothecary builds a remedy list without erroring',
+      Array.isArray(r?.remedies) && !r?.error, JSON.stringify(r?.remedies)?.slice(0, 200));
+    // The quick strip may only ever offer something the apothecary can see —
+    // otherwise a button fires a `use` for an item that isn't there.
+    const shelf = new Set((r.remedies || []).map(x => x.id));
+    check('every quick remedy is an item the apothecary also lists',
+      (vitals.quick || []).every(q => shelf.has(q.id)),
+      `quick=${JSON.stringify(vitals.quick?.map(q => q.id))} shelf=${JSON.stringify([...shelf])}`);
+    // The filter is the point of the screen — a carried weapon is not medicine.
+    check('apothecary rows are all remedies, each with an effect line and a kind',
+      (r.remedies || []).every(x => x.effect && ['medical', 'compound', 'sustenance'].includes(x.kind)),
+      JSON.stringify(r?.remedies?.map(x => [x.id, x.kind])));
+    check('apothecary excludes non-medical carry',
+      !(r.remedies || []).some(x => /knife|pistol|bat\b/i.test(x.name || '')),
+      JSON.stringify(r?.remedies?.map(x => x.name)));
+
+    r = await run('tabletnav health substances');
+    check('substances tab builds', r?.tab === 'substances' && Array.isArray(r?.substances) && !r?.error,
+      JSON.stringify(r)?.slice(0, 120));
+
+    // An unknown tab must fall back to the readings, not blank the screen.
+    r = await run('tabletnav health nonsense');
+    check('an unknown tab falls back to the readings', r?.tab === 'vitals' && !r?.error, r?.tab);
+
+    // Use with no item is a no-op that still returns a screen (a mis-fired button
+    // must not leave the player staring at a dead panel).
+    r = await run('tabletaction health use');
+    check('a use action with no item still returns a screen',
+      r?.type === 'tablet_panel' && r?.view === 'health', JSON.stringify(r)?.slice(0, 120));
+  }
+
+  // ── Storefront app ────────────────────────────────────────────────────────
+  // The fake player owns no shop, so this asserts the empty case answers cleanly
+  // rather than throwing on an undefined deed.
+  r = await run('tabletnav storefront');
+  check('storefront app routes with no shop owned', r?.type === 'tablet_panel', JSON.stringify(r)?.slice(0, 120));
 }

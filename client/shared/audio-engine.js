@@ -1080,6 +1080,11 @@
       AA:{f:[730,1090,2440],t:'V',d:150}, AO:{f:[570,840,2410],t:'V',d:140},
       UH:{f:[440,1020,2240],t:'V',d:100}, UW:{f:[300,870,2240],t:'V',d:140},
       ER:{f:[490,1350,1690],t:'V',d:150}, AH:{f:[640,1190,2390],t:'V',d:90},
+      // NURSE with the r-colour taken out (RP /ɜː/). Same tongue position as ER;
+      // the only meaningful change is F3 up from 1690 to 2350, because a LOW third
+      // formant is what the ear reads as American rhoticity. Slightly longer,
+      // since RP holds this one.
+      ERR:{f:[490,1350,2350],t:'V',d:165},
       EY:{f:[530,1840,2480],to:[270,2290,3010],t:'V',d:170},
       AY:{f:[730,1090,2440],to:[270,2290,3010],t:'V',d:180},
       OY:{f:[570,840,2410], to:[270,2290,3010],t:'V',d:180},
@@ -1117,6 +1122,23 @@
     };
     function dictLook(w){ return DICT[w] ? DICT[w].split(' ') : null; }
 
+    // Per-utterance pronunciation override, consulted BEFORE the built-in dict and
+    // CMUDICT. CMUDICT is 25k words of General American and knows none of
+    // Zamyatin's Russian, Voltaire's French, or De Quincey's Latin — those fall
+    // through to the letter-guesser and come out mangled. A book can therefore
+    // ship its own small lexicon (`books.pronunciation`), which the reader passes
+    // as speak(..., { lex }).
+    //
+    // Module-scoped rather than threaded through every call because the whole
+    // text→phoneme pass is synchronous: speak() sets it, converts, and clears it
+    // before yielding, so two voices can never see each other's lexicon.
+    let _lex = null;
+    function lexLook(w){
+      if (!_lex) return null;
+      const v = _lex[w];
+      return v ? String(v).trim().split(/\s+/) : null;
+    }
+
     // CMUdict subset (25k words, single-char encoded) — decoded lazily on first use.
     let CMU = null;
     function cmuBuild(){
@@ -1144,6 +1166,7 @@
     function pronounceWord(w){
       w = w.toLowerCase().replace(/[^a-z']/g,'');
       if (!w) return [];
+      const x = lexLook(w); if (x) return x;
       const d = dictLook(w); if (d) return d;
       const c = cmuLook(w);  if (c) return c;
       const stemPh = (s)=>{ const dd = dictLook(s) || cmuLook(s); return dd || g2p(s); };
@@ -1291,6 +1314,47 @@
         .replace(/\d+(?:\.\d+)?/g, m => ' '+numToWords(m)+' ');
     }
 
+    // ── Accents ──────────────────────────────────────────────────────────────
+    // The dictionary is General American (CMUDICT), so an accent is a transform
+    // over the phoneme run rather than a second dictionary. Only 'rp' exists, and
+    // it does the three things that actually carry the impression — anything more
+    // needs per-word lexical sets the dictionary doesn't carry.
+    //
+    //  1. NON-RHOTIC. The big one. /R/ is dropped unless a vowel follows it, so
+    //     "father" and "harder" lose their r and "red"/"very" keep theirs.
+    //  2. NURSE without r-colour. ER is rhotic by way of a very low F3 (1690).
+    //     Raising F3 un-colours it into /ɜː/ — hence ERR, a real PH entry rather
+    //     than a remap, because no existing vowel has those formants.
+    //  3. TRAP–BATH. /AE/ backs to /AA/ before the fricatives and nasal clusters
+    //     that trigger the split — bath, path, laugh, dance, chance.
+    const RP_BATH_FOLLOW = new Set(['F','TH','S','N','M','NG']);
+    const VOWELS = new Set(['IY','IH','EH','AE','AA','AO','UH','UW','ER','ERR','AH','EY','AY','OW','OY','AW']);
+
+    function applyAccent(phon, accent){
+      if (accent !== 'rp') return phon;
+      const out = [];
+      for (let i = 0; i < phon.length; i++){
+        const p = phon[i];
+        // Look past word gaps: an /r/ at the end of "far" is still non-prevocalic
+        // even though the next SOUND is a pause. Linking-r across a word boundary
+        // is a refinement this deliberately doesn't attempt.
+        const next = phon[i+1];
+        if (p === 'R'){
+          if (next && VOWELS.has(next)) out.push('R');   // prevocalic /r/ survives
+          continue;                                      // …otherwise it's gone
+        }
+        if (p === 'ER'){ out.push('ERR'); continue; }
+        if (p === 'AE'){
+          // Scan to the next non-gap phone: the trigger consonant may sit across
+          // a syllable break in the run.
+          let j = i+1; while (phon[j] === '_') j++;
+          if (RP_BATH_FOLLOW.has(phon[j])) { out.push('AA'); continue; }
+        }
+        out.push(p);
+      }
+      return out;
+    }
+
     function textToPhonemes(text){
       const seq = [];
       for (const tok of expandNumbers(text).trim().split(/(\s+|[.,!?;:])/)) {
@@ -1345,7 +1409,11 @@
       cancel();
       const V = voiceFromName(opt.seed || text);
       const F0 = V.f0, ringAmt = V.ring, fshift = V.fshift;
-      const phon = textToPhonemes(text);
+      // Set → convert → clear, all synchronously (see lexLook).
+      _lex = opt.lex || null;
+      let phon;
+      try { phon = applyAccent(textToPhonemes(text), opt.accent); }
+      finally { _lex = null; }
       if (!phon.length) return;
       // Fit-to-window: if the line won't finish before the next is expected (opt.budget
       // seconds), speed up — never down — so it lands in time. Capped so it stays legible.

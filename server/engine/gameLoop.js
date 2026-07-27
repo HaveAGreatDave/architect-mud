@@ -11,6 +11,7 @@ import { npcBanterTick } from './npc-banter.js';
 import { restockAllVendors } from './vendor.js';
 import { tickEffects, applyEffect } from './effects.js';
 import { tickSleep, releaseApartment, gameToday, ymd, addGameDays, gameDaysBetween, RENT_PERIOD_DAYS } from './apartments.js';
+import { isDeepCleanDay, isOwnedZone, filthCount } from './zone-filth.js';
 import { fireHook } from './plugins.js';
 import { emit, on } from './events.js';
 import { schedule } from './scheduler.js';
@@ -1365,9 +1366,24 @@ export async function dailyMaintenance() {
   if (itemsRemoved > 0) console.log(`[dailyMaintenance] Removed ${itemsRemoved} ground item(s).`);
 
   // --- Zone stains ---
-  const { rowCount: stainsCleared } = await query(`UPDATE zones SET stains='{}' WHERE stains != '{}'`);
-  for (const zone of world.zones.values()) zone.stains = {};
+  // The city cleans itself nightly; YOUR place doesn't. A zone a player owns keeps
+  // its stains for a full rent cycle so that living somewhere clean means picking up
+  // a mop (plugins/cleaning) — see server/engine/zone-filth.js for the why. Every
+  // STAIN_KEEP_DAYS-th game day the sweep takes everything, as an absentee backstop.
+  const deepClean = isDeepCleanDay(gameToday());
+  const spared = [];
+  for (const [zoneId, zone] of world.zones) {
+    if (!deepClean && isOwnedZone(zoneId)) { if (filthCount(zoneId)) spared.push(zoneId); continue; }
+    zone.stains = {};
+  }
+  // Stains are RAM-authoritative (stainZone writes no DB), so this statement only
+  // keeps the column from carrying stale rows forward; the spared list is excluded
+  // so a reboot can't hand an owner back a floor they already mopped.
+  const { rowCount: stainsCleared } = spared.length
+    ? await query(`UPDATE zones SET stains='{}' WHERE stains != '{}' AND id <> ALL($1::text[])`, [spared])
+    : await query(`UPDATE zones SET stains='{}' WHERE stains != '{}'`);
   if (stainsCleared > 0) console.log(`[dailyMaintenance] Cleared stains from ${stainsCleared} zone(s).`);
+  if (spared.length) console.log(`[dailyMaintenance] Left ${spared.length} owned room(s) dirty — their owners can mop.`);
 
   // --- Vendor stock restock ---
   await restockAllVendors().catch(err =>

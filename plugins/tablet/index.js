@@ -38,6 +38,8 @@ import './crafting-app.js';
 import './cookbook-app.js';
 import './vehicles-app.js';
 import './properties-app.js';
+import './storefront-app.js';
+import './library-app.js';
 import './calendar-app.js';
 import './alarm-app.js';
 import './settings-app.js';
@@ -48,6 +50,7 @@ import './chat-app.js';
 import './news-app.js';
 import './map-app.js';
 import './gear-app.js';
+import './health-app.js';
 import './arcade-app.js';
 import './tv-app.js';
 import './codex-app.js';
@@ -178,6 +181,12 @@ export const commands = {
   // reader are the one part of the tablet a player reaches for mid-thought
   // ("what WAS the Exodus?"), so it gets a verb like `alarm` does.
   codex: async (args, raw, player) => cmdTabletNav(['codex', ...(args || []).slice(0, 1)], raw, player),
+  // `vitals` (alias `health`) opens the medical suite directly. Same reasoning as
+  // `alarm`: when you need it, you need it NOW — bleeding out is a bad time to be
+  // tapping through a home screen. An optional tab argument goes straight there,
+  // so `vitals apothecary` is one keystroke from a stimpak.
+  vitals: async (args, raw, player) => cmdTabletNav(['health', ...(args || []).slice(0, 1)], raw, player),
+  health: async (args, raw, player) => cmdTabletNav(['health', ...(args || []).slice(0, 1)], raw, player),
   tablet: cmdTablet,
   os: cmdTablet,
   tabletnav: cmdTabletNav,

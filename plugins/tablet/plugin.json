@@ -1,7 +1,7 @@
 {
   "name": "tablet",
   "version": "1.0.0",
-  "description": "Architect Tablet OS — unified in-world app shell (Quests, Skills, Bank, Weather, Vehicles, Properties, Settings, Codex, Corporation link-out).",
+  "description": "Architect Tablet OS — unified in-world app shell (Quests, Skills, Bank, Weather, Vehicles, Properties, Vitals, Settings, Codex, Corporation link-out).",
   "hooks": [],
   "commands": [
     "tablet",
@@ -9,7 +9,9 @@
     "tabletnav",
     "tabletaction",
     "alarm",
-    "codex"
+    "codex",
+    "vitals",
+    "health"
   ],
   "actions": {
     "registers": ["CODEX_UNLOCK"]

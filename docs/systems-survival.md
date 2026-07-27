@@ -357,3 +357,31 @@ Live callers: `resourceTick` applies `choking` to unmasked players outdoors duri
 [systems-weather-extreme.md](systems-weather-extreme.md) §4) — it drains stamina (−4/s), then HP
 (−2/s) once winded — plus the plugin effects above. Nothing applies `irradiated`; weapon
 `status_chance` and drug overdose are still unwired.
+
+## Reading it back — the Vitals app
+
+Every meter above is surfaced in one place: the Tablet OS **Vitals** app
+([plugins/tablet/health-app.js](../plugins/tablet/health-app.js)), reached from the tablet home
+screen or the `vitals` / `health` verbs (with an optional tab: `vitals apothecary`).
+
+It owns **no** survival logic and must not grow any — it is a window onto sources that already exist
+(the live player object, `conditionReport`, `statusLabels`, `getDrugStatus`, `hygieneOf`, the
+sanity/intoxication plugins). Three tabs:
+
+- **Vitals** — the meters (HP, sanity, stamina, hunger, thirst, radiation, core temp, fatigue, and
+  intoxication once it's above zero), then *everything currently dragging on you*: active status
+  effects, each stat penalty `conditionReport` is charging and why, live phased drugs with their
+  phase and time remaining, withdrawal (biting, or a countdown to it), blood and hygiene. Above it, a
+  quick-remedy strip that appears **only** for a meter that's actually deficient and **only** when
+  you're carrying the answer.
+- **Apothecary** — the medical/chemical subset of the inventory (anything joined to a `drugs` row, or
+  tagged with one of the `restore_*` / `heal_over_time` / `laced_drug` keys), collapsed one row per
+  item type, each with a derived effect line and a Use button.
+- **Substances** — per-drug tolerance, dependency, time since last dose, and `doses_in_system`
+  against that drug's tolerance-scaled overdose ceiling. This is the screen that makes the relapse
+  law legible before it kills you rather than after.
+
+The one mutating action routes through the engine's own `cmdUse`, so a dose taken from the tablet is
+identical to one typed at the prompt — the `consume` plugin's timed drinking, route of
+administration, tolerance, addiction and lethal overdose all behave exactly as they do at the prompt,
+and the app never learns about the death path because `cmdUse` already owns it.

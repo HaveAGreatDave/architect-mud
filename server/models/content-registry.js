@@ -207,6 +207,14 @@ export const REGISTRY = [
   // ── content: scavenging / security / finance / flight ──
   { table: 'scavenging_tables', class: 'content', pk: ['id'], readTier: 'cold' },       // per scavenge/fish/mine action
   { table: 'mis_fit_lines', class: 'content', pk: ['id'], readTier: 'boot' },           // MIS fit prose — cached in memory at boot (plugins/mis/fit-lines.js), re-read only on a dev-panel write
+  // Public-domain book texts. 'cold' is load-bearing, not descriptive: these rows
+  // are hundreds of KB and MUST NOT join the boot read — a deploy already pulls
+  // ~36MB from Neon and that cap has been hit before. Read one chapter per page turn.
+  { table: 'books', class: 'content', pk: ['id'], readTier: 'cold' },
+  // The gloss layer over those books. Unlike `books` this one IS small enough to
+  // cache — a few hundred one-line rows — so it loads once on first reader page
+  // and is matched in memory thereafter (plugins/tablet/library-app.js).
+  { table: 'glossary', class: 'content', pk: ['id'], readTier: 'boot' },
   { table: 'scavenging_table_items', class: 'content', pk: ['id'], readTier: 'cold' },
   // NPC-police surveillance backbone only; player-planted nets/devices are runtime.
   { table: 'security_networks', class: 'content', pk: ['id'], where: 'is_police = 1', readTier: 'fresh',

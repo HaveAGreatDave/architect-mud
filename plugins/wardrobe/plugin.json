@@ -1,9 +1,9 @@
 {
   "name": "wardrobe",
   "version": "1.0.0",
-  "description": "Wardrobe — saved outfits over a container furniture flagged `wardrobe`. Drag-and-drop paper doll in the client panel; wearing an outfit dresses you from what's hanging inside.",
+  "description": "Wardrobe — saved outfits over a container furniture flagged `wardrobe`. Drag-and-drop paper doll in the client panel; wearing an outfit dresses you from what's hanging inside. Owns `dress`, and overrides the engine's `undress` to accept a wardrobe target (untargeted delegates back to the engine).",
   "hooks": ["container.view", "furniture.describe"],
-  "commands": ["outfit", "outfitsetid", "outfitwearid", "outfitdelid"],
+  "commands": ["outfit", "outfitsetid", "outfitwearid", "outfitdelid", "dress", "undress", "undressid"],
   "specializedActions": ["outfits"],
   "objectGatedCommands": {
     "outfit": {

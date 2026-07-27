@@ -23,6 +23,7 @@ import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { sendToPlayer, teachVerb, pointAt } from '../../server/engine/messaging.js';
 import {
   BODY_SLOTS, recomputeEquipped, cmdEquipById, buildContainerView,
+  cmdUndress, containerCapacity, containerContentsWeight, loadContainerById,
 } from '../../server/engine/commands/inventory.js';
 
 // What an outfit captures. Body slots plus accessories — a look includes the
@@ -61,6 +62,19 @@ async function loadWardrobeById(player, furnId) {
 }
 
 // --- Outfit storage ---------------------------------------------------------
+
+// The look currently on the player's body, in outfit terms. Ordered so the panel
+// renders pads head-to-foot rather than in whatever order the rows came back.
+async function loadEquipped(player) {
+  const { rows } = await query(
+    `SELECT DISTINCT pi.item_id, pi.slot FROM player_inventory pi
+      WHERE pi.player_id=$1 AND pi.is_equipped=1 AND pi.slot = ANY($2)`,
+    [player.id, OUTFIT_SLOTS]
+  );
+  return rows
+    .map(r => ({ itemId: r.item_id, slot: r.slot, name: getItem(r.item_id)?.name || r.item_id }))
+    .sort((a, b) => OUTFIT_SLOTS.indexOf(a.slot) - OUTFIT_SLOTS.indexOf(b.slot));
+}
 
 async function loadOutfits(playerId, furnId) {
   const { rows } = await query(
@@ -174,6 +188,57 @@ async function wearOutfit(player, furnId, name, broadcast) {
   return { ok: true, message: msg };
 }
 
+// --- Undressing into the box ------------------------------------------------
+
+// `undress <wardrobe>` — the true inverse of `dress`: take everything off AND hang
+// it up, in one action. Note this covers OUTFIT_SLOTS (body + accessories), not the
+// engine's body-only BODY_SLOTS, precisely because it pairs with an outfit; the
+// wielded weapon still stays put (see OUTFIT_SLOTS).
+//
+// Capacity is honoured the same way `stow` honours it, but partially: garments that
+// fit get hung, the rest stay shed in your pack rather than failing the whole strip.
+// Clothing is non-stackable, so this needs none of stow's stack-merging.
+async function undressInto(player, wardrobe, broadcast) {
+  const { rows } = await query(
+    `SELECT pi.id, pi.item_id, i.name, i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id
+      WHERE pi.player_id=$1 AND pi.is_equipped=1 AND pi.slot = ANY($2)
+      ORDER BY i.name`,
+    [player.id, OUTFIT_SLOTS]
+  );
+  if (!rows.length) return { ok: false, message: "You're not wearing anything to take off." };
+
+  // Unequip first: whatever doesn't fit is still off your body and in your pack,
+  // which is exactly what a bare `undress` would have left you with.
+  await query(
+    `UPDATE player_inventory SET is_equipped=0, slot=NULL, layer=NULL, equipped_at=NULL
+      WHERE player_id=$1 AND is_equipped=1 AND slot = ANY($2)`,
+    [player.id, OUTFIT_SLOTS]
+  );
+
+  const container = await loadContainerById(wardrobe.id, player);
+  const cap = containerCapacity(container);
+  let used = await containerContentsWeight(wardrobe.id);
+
+  const hung = [], kept = [];
+  for (const r of rows) {
+    const w = r.weight || 0;
+    if (used + w > cap) { kept.push(r.name); continue; }
+    await query('UPDATE player_inventory SET container_id=$1, is_equipped=0, slot=NULL WHERE id=$2', [wardrobe.id, r.id]);
+    used += w;
+    hung.push(r.name);
+  }
+
+  await recomputeEquipped(player);
+  emit('inventory.changed', { actor: player });
+  broadcast?.(player.current_zone, { type: 'zone_event', message: `${player.handle} strips down and hangs up.` }, player.id);
+
+  let msg = hung.length
+    ? `You strip off and hang up ${hung.length} piece${hung.length === 1 ? '' : 's'} — ${hung.join(', ')}.`
+    : `You strip down.`;
+  if (kept.length) msg += ` The ${wardrobe.name} is full, so ${kept.join(', ')} stayed in your pack.`;
+  return { ok: true, message: msg };
+}
+
 // --- Teaching the verb ------------------------------------------------------
 
 // House convention (messaging.js): the first time prose mentions a new verb, the
@@ -216,9 +281,18 @@ async function decorateView({ view, container, player }) {
   const available = new Set();
   for (const r of view.containerItems || []) available.add(r.item_id);
   for (const r of view.invItems || []) available.add(r.item_id);
+  // What you're WEARING counts as reachable too. buildContainerView's invItems is
+  // deliberately is_equipped=0 (it lists the pack), so without this an outfit saved
+  // from your current look renders every piece "missing" the instant you save it —
+  // the card greys out while you are visibly wearing the clothes.
+  const equipped = await loadEquipped(player);
+  for (const r of equipped) available.add(r.itemId);
   const rows = await loadOutfits(player.id, container.id);
   view.type = 'wardrobe_view';
   view.outfits = rows.map(r => describeOutfit(r, available));
+  // Seeds the panel's "Wearing" button, so composing a look from what's on your
+  // back doesn't mean re-dragging pieces the server already knows about.
+  view.equipped = equipped;
   // Opening a wardrobe without ever examining one still counts as the first
   // mention. No ripple here — the thing to click is the panel, not the pane.
   if (await claimTeach(player)) sendToPlayer(player.id, { type: 'output', message: teachLine() });
@@ -336,12 +410,60 @@ async function cmdOutfitDelId(args, raw, player) {
   return viewWith(player, furnId, rowCount ? `Deleted "${name}".` : `No outfit called "${name}".`);
 }
 
+// `dress [name]` — the natural-language front door to `outfit wear`. Bare `dress`
+// with exactly one saved outfit just wears it (the common case in your own bedroom);
+// with several, it lists them rather than guessing which look you meant.
+async function cmdDress(args, raw, player, broadcast) {
+  const name = args.join(' ').trim();
+  const wardrobe = await resolveWardrobe(player, null);
+  if (wardrobe === 'ambiguous') return { type: 'error', message: 'There is more than one wardrobe here — open the one you mean.' };
+  if (!wardrobe) return { type: 'error', message: "There's no wardrobe here to dress from." };
+  if (!name) {
+    const rows = await loadOutfits(player.id, wardrobe.id);
+    if (rows.length === 1) {
+      const res = await wearOutfit(player, wardrobe.id, rows[0].name, broadcast);
+      return { type: res.ok ? 'output' : 'error', message: res.message, refresh: !!res.ok };
+    }
+    return listOutfits(player, wardrobe);
+  }
+  const res = await wearOutfit(player, wardrobe.id, name, broadcast);
+  return { type: res.ok ? 'output' : 'error', message: res.message, refresh: !!res.ok };
+}
+
+// `undress [wardrobe]` — overrides the engine builtin (plugins beat builtins, see
+// docs/plugins.md). With no argument this is the ordinary strip-to-your-pack and is
+// delegated straight back to the engine, so the plain verb is untouched for every
+// player who never stands at a wardrobe.
+async function cmdUndressHere(args, raw, player, broadcast) {
+  const target = args.join(' ').trim();
+  if (!target) return cmdUndress(player, broadcast);
+  const wardrobe = await resolveWardrobe(player, target);
+  if (wardrobe === 'ambiguous') return { type: 'error', message: 'Which wardrobe? Try "undress <name>".' };
+  // Not a wardrobe by that name — fall back to the plain strip rather than erroring
+  // out on someone who typed `undress quickly` or similar.
+  if (!wardrobe) return cmdUndress(player, broadcast);
+  const res = await undressInto(player, wardrobe, broadcast);
+  return { type: res.ok ? 'output' : 'error', message: res.message, refresh: !!res.ok };
+}
+
+// Panel verb: the Undress button inside an open wardrobe, answering with the view.
+async function cmdUndressId(args, raw, player, broadcast) {
+  const furnId = args[0];
+  const wardrobe = furnId && await loadWardrobeById(player, furnId);
+  if (!wardrobe) return { type: 'container_error', message: 'Wardrobe not found.' };
+  const res = await undressInto(player, wardrobe, broadcast);
+  return viewWith(player, furnId, res.message);
+}
+
 export const specializedActions = [
   { verb: 'outfits', requiredTag: 'wardrobe', handler: cmdOutfits },
 ];
 
 export const commands = {
   outfit: cmdOutfit,
+  dress: cmdDress,
+  undress: cmdUndressHere,
+  undressid: cmdUndressId,
   outfitsetid: cmdOutfitSetId,
   outfitwearid: cmdOutfitWearId,
   outfitdelid: cmdOutfitDelId,
@@ -353,6 +475,6 @@ export const hooks = {
 };
 
 // Exposed for the regression harness.
-export const _test = { OUTFIT_SLOTS, resolveWardrobe, describeOutfit, decorateView, saveOutfit, wearOutfit, onFurnitureDescribe, taught, F_TAUGHT };
+export const _test = { OUTFIT_SLOTS, resolveWardrobe, describeOutfit, decorateView, saveOutfit, wearOutfit, onFurnitureDescribe, taught, F_TAUGHT, loadEquipped, undressInto, cmdDress, cmdUndressHere };
 
 console.log('[wardrobe] Plugin loaded.');

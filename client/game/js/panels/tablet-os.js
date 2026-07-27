@@ -548,6 +548,27 @@ function ensureStyles() {
     /* Detail view */
     #tablet-os-overlay .tos-detail-name { font-size:18px; color:var(--tos-fg); margin-bottom:4px; }
     #tablet-os-overlay .tos-detail-desc { font-size:12.5px; color:var(--tos-fg-dim); margin-bottom:11px; line-height:1.5; }
+    /* Long-form reading. Wider leading and a capped measure — a chapter set at the
+       panel's full width is a wall, and nobody finishes a wall. */
+    #tablet-os-overlay .tos-detail-body { font-size:13.5px; line-height:1.72; color:var(--tos-fg); max-width:62ch; margin-bottom:12px; }
+    #tablet-os-overlay .tos-detail-body p { margin:0 0 0.95em; }
+    /* The sentence the voice is on. Background rather than colour, so the
+       highlight survives every theme without fighting the palette. */
+    #tablet-os-overlay .tos-narr-s { transition:background-color .18s ease; border-radius:2px; }
+    #tablet-os-overlay .tos-narr-on { background:color-mix(in srgb, var(--mg-accent) 26%, transparent); box-shadow:0 0 0 2px color-mix(in srgb, var(--mg-accent) 26%, transparent); }
+    /* Glossed word: a dotted underline, not a colour — a chapter with forty
+       highlighted words reads like a ransom note. */
+    #tablet-os-overlay .tos-gloss { font-weight:inherit; border-bottom:1px dotted color-mix(in srgb, var(--mg-accent) 65%, transparent); cursor:help; position:relative; }
+    #tablet-os-overlay .tos-gloss-open::after {
+      content:attr(data-gloss); position:absolute; left:0; top:1.55em; z-index:5;
+      width:max-content; max-width:min(30ch,70vw); padding:6px 9px;
+      background:var(--bg); border:1px solid var(--mg-accent); border-radius:4px;
+      font-size:11.5px; font-weight:400; line-height:1.45; color:var(--tos-fg);
+      box-shadow:0 4px 14px rgba(0,0,0,.5); white-space:normal;
+    }
+    #tablet-os-overlay .tos-narrate { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:0 0 10px; }
+    #tablet-os-overlay .tos-narrate-hint { font-size:11px; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-narrate-min[disabled] { opacity:.4; cursor:default; }
     #tablet-os-overlay .tos-row { display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px solid color-mix(in srgb, var(--mg-accent) 12%, transparent); font-size:13px; }
     #tablet-os-overlay .tos-row span:first-child { color:var(--tos-fg-dim); }
     #tablet-os-overlay .tos-row span:last-child { color:var(--tos-fg); }
@@ -1581,6 +1602,79 @@ function ensureStyles() {
     #tablet-os-overlay .tos-bliss-heldline .save { opacity:.6; }
     #tablet-os-overlay .tos-bliss-warn { font-size:.75em; color:var(--yellow); margin-top:5px; }
 
+    /* ── Vitals app ──────────────────────────────────────────────────────────
+       Bars first, words second. The four bands are the only colour vocabulary
+       in the app; everything (meters, drug load, affliction rails) reuses them,
+       so "red" always means the same thing wherever it appears on the screen. */
+    #tablet-os-overlay .tos-vt-sect { font-size:10.5px; letter-spacing:1.8px; text-transform:uppercase;
+      color:var(--tos-fg-dim); font-weight:bold; margin:14px 0 7px; }
+    #tablet-os-overlay .tos-vt-sect:first-child { margin-top:4px; }
+    #tablet-os-overlay .tos-vt-notice { font-size:12.5px; color:var(--tos-fg); font-weight:bold; line-height:1.5;
+      border:1px solid var(--border); border-left:3px solid var(--mg-accent); padding:9px 11px; margin-bottom:12px;
+      background:var(--tos-surface-lo); white-space:pre-line; }
+    #tablet-os-overlay .tos-vt-meters { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:11px 16px; }
+    #tablet-os-overlay .tos-vt-mlbl { display:flex; justify-content:space-between; align-items:baseline; gap:8px;
+      font-size:10.5px; letter-spacing:1.6px; text-transform:uppercase; color:var(--tos-fg-dim); font-weight:bold; margin-bottom:5px; }
+    #tablet-os-overlay .tos-vt-mlbl .v { letter-spacing:.6px; text-transform:none; font-variant-numeric:tabular-nums;
+      white-space:nowrap; opacity:.9; }
+    #tablet-os-overlay .tos-vt-track { height:10px; position:relative; overflow:hidden; background:var(--tos-surface-lo);
+      border:1px solid var(--border); box-shadow:inset 0 1px 3px var(--tos-bevel-lo); }
+    #tablet-os-overlay .tos-vt-track.sm { height:7px; margin-top:8px; }
+    #tablet-os-overlay .tos-vt-fill { position:absolute; left:0; top:0; bottom:0; transition:width .2s linear; }
+    #tablet-os-overlay .tos-vt-fill.good { background:linear-gradient(180deg,#8fe39a,#4fae63); box-shadow:0 0 9px rgba(79,174,99,.5); }
+    #tablet-os-overlay .tos-vt-fill.warn { background:linear-gradient(180deg,#f4dd8a,#d3a72e); box-shadow:0 0 9px rgba(211,167,46,.45); }
+    #tablet-os-overlay .tos-vt-fill.bad  { background:linear-gradient(180deg,#f0a870,#d16a25); box-shadow:0 0 9px rgba(209,106,37,.45); }
+    #tablet-os-overlay .tos-vt-fill.crit { background:linear-gradient(180deg,#f08c8c,#c0342e); box-shadow:0 0 11px rgba(192,52,46,.6); }
+    #tablet-os-overlay .tos-vt-quickbar { margin-bottom:4px; }
+    #tablet-os-overlay .tos-vt-quickrow { display:flex; flex-wrap:wrap; gap:8px; }
+    #tablet-os-overlay .tos-vt-quick { display:flex; flex-direction:column; align-items:flex-start; gap:3px;
+      padding:8px 13px; cursor:pointer; font:inherit; text-align:left;
+      background:linear-gradient(180deg, var(--tos-surface-hi), var(--tos-surface-lo));
+      border:1px solid var(--border); border-left:3px solid var(--mg-accent); color:var(--tos-fg);
+      box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -2px 4px var(--tos-bevel-lo); }
+    #tablet-os-overlay .tos-vt-quick:hover { border-color:var(--mg-accent); }
+    #tablet-os-overlay .tos-vt-quick .act { font-size:13px; font-weight:bold; letter-spacing:.4px; }
+    #tablet-os-overlay .tos-vt-quick .itm { font-size:10.5px; letter-spacing:1.2px; color:var(--tos-fg-dim); font-weight:bold; }
+    #tablet-os-overlay .tos-vt-affs { display:flex; flex-direction:column; gap:7px; }
+    #tablet-os-overlay .tos-vt-aff { position:relative; padding:8px 11px 8px 14px; border:1px solid var(--border);
+      background:linear-gradient(180deg, var(--tos-surface-hi), var(--tos-surface-lo));
+      box-shadow:inset 0 1px 0 var(--tos-bevel-hi); }
+    #tablet-os-overlay .tos-vt-aff::before { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; background:#d3a72e; }
+    #tablet-os-overlay .tos-vt-aff.good::before { background:#4fae63; }
+    #tablet-os-overlay .tos-vt-aff.bad::before  { background:#c0342e; }
+    #tablet-os-overlay .tos-vt-aff.drug::before { background:#8f6fd0; }
+    #tablet-os-overlay .tos-vt-affname { font-size:13px; color:var(--tos-fg); font-weight:bold; letter-spacing:.3px; }
+    #tablet-os-overlay .tos-vt-affdet { font-size:11.5px; color:var(--tos-fg-dim); font-weight:bold; margin-top:3px; line-height:1.5; }
+    #tablet-os-overlay .tos-vt-clear { padding:26px 8px; text-align:center; font-size:14px; color:var(--tos-fg);
+      font-weight:bold; line-height:1.8; }
+    #tablet-os-overlay .tos-vt-clear span { color:var(--tos-fg-dim); font-size:12.5px; }
+    #tablet-os-overlay .tos-vt-item { display:flex; align-items:center; justify-content:space-between; gap:12px;
+      padding:9px 11px; margin-bottom:7px; border:1px solid var(--border);
+      background:linear-gradient(180deg, var(--tos-surface-hi), var(--tos-surface-lo));
+      box-shadow:inset 0 1px 0 var(--tos-bevel-hi); }
+    #tablet-os-overlay .tos-vt-itemtxt { min-width:0; }
+    #tablet-os-overlay .tos-vt-itemname { font-size:13.5px; color:var(--tos-fg); font-weight:bold; letter-spacing:.3px; }
+    #tablet-os-overlay .tos-vt-itemname .qty { color:var(--tos-fg-dim); margin-left:6px; font-size:11.5px; }
+    #tablet-os-overlay .tos-vt-itemeff { font-size:11.5px; color:var(--tos-fg-dim); font-weight:bold; margin-top:3px; line-height:1.5; }
+    #tablet-os-overlay .tos-vt-flag { display:inline-block; margin-left:7px; padding:1px 6px; font-size:9.5px;
+      letter-spacing:1.2px; text-transform:uppercase; border:1px solid var(--border); color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-vt-flag.bad { color:#e08a84; border-color:#8d3c37; }
+    #tablet-os-overlay .tos-vt-sub { padding:11px 12px; margin-bottom:8px; border:1px solid var(--border);
+      background:linear-gradient(180deg, var(--tos-surface-hi), var(--tos-surface-lo));
+      box-shadow:inset 0 1px 0 var(--tos-bevel-hi); }
+    #tablet-os-overlay .tos-vt-subhead { display:flex; align-items:baseline; justify-content:space-between; gap:10px; }
+    #tablet-os-overlay .tos-vt-subhead .n { font-size:14px; color:var(--tos-fg); font-weight:bold; letter-spacing:.3px; }
+    #tablet-os-overlay .tos-vt-subgrid { display:grid; grid-template-columns:auto 1fr auto 1fr; gap:3px 10px; margin-top:8px;
+      font-size:11px; letter-spacing:1.1px; color:var(--tos-fg-dim); font-weight:bold; }
+    #tablet-os-overlay .tos-vt-subgrid b { color:var(--tos-fg); font-variant-numeric:tabular-nums; letter-spacing:.4px; }
+    #tablet-os-overlay .tos-vt-subload { font-size:10.5px; letter-spacing:1.1px; color:var(--tos-fg-dim);
+      font-weight:bold; margin-top:5px; }
+    #tablet-os-overlay .tos-vt-subwd { font-size:11.5px; color:var(--tos-fg-dim); font-weight:bold; margin-top:7px; }
+    #tablet-os-overlay .tos-vt-subwd.bad { color:#e08a84; }
+    @media (max-width:520px) {
+      #tablet-os-overlay .tos-vt-subgrid { grid-template-columns:auto 1fr; }
+    }
+
     #tablet-os-overlay .tos-acc-head { display:flex; align-items:flex-end; justify-content:space-between; gap:12px;
       padding-bottom:11px; border-bottom:1px solid var(--border); }
     #tablet-os-overlay .tos-acc-app { font-size:16px; letter-spacing:5px; text-transform:uppercase; color:var(--tos-fg); font-weight:bold; }
@@ -2172,7 +2266,175 @@ function applyTabletTheme() {
   _overlay.style.setProperty('--tos-shub', bgLuminance((bg || '').trim()) > 0.6 ? '#0a7d43' : '#39ff9e');
 }
 
+// ── Narration ────────────────────────────────────────────────────────────────
+// Reading a book aloud, using the same formant synth the TV uses
+// (AudioEngine.speak / cancelSpeech, gated on the same TV-voice setting — if you
+// muted the televisions you don't want a novel talking at you either).
+//
+// The synth has NO completion callback: TV drives it by pushing a line whenever
+// one arrives and passing a `budget` so the voice fits the window. A book has no
+// such external clock, so narration has to keep its own — split the chapter into
+// sentences, estimate each one's duration from its word count, and schedule the
+// next off a timer. `budget` is passed too, so the synth compresses rather than
+// overrunning into the following sentence.
+//
+// A chapter can be 25k characters, which is why this never hands the whole text
+// to speak() at once — one sentence per utterance keeps each one legible and
+// makes Stop instant.
+const NARRATE_WPS = 2.6;          // words/sec — matches the synth's natural pace
+let _narrate = null;              // { parts, i, timer, seed, title }
+let _narrateKeepOnClose = false;  // set by Minimize, consumed by close()
+
+// The ONE place a chapter is cut into utterances. The renderer wraps each part in
+// a span carrying its index and the narrator walks the same array, so the
+// highlight can never drift out of step with the voice — two separate splits
+// would desynchronise the moment either regex changed.
+function narrateSplit(text) {
+  return String(text || '')
+    .replace(/\s+/g, ' ')
+    .split(/(?<=[.!?])\s+/)
+    // A Victorian clause-pile can run 400 characters; break those on commas so no
+    // single utterance is a 40-second sprint.
+    .flatMap(s => s.length > 220 ? s.split(/(?<=,)\s+/) : [s])
+    .map(s => s.trim())
+    .filter(s => /[a-z0-9]/i.test(s));
+}
+
+function narrateStop() {
+  if (_narrate?.timer) clearTimeout(_narrate.timer);
+  _narrate = null;
+  try { window.AudioEngine?.cancelSpeech?.(); } catch { /* audio may not be up */ }
+  clearNarrateHighlight();
+  syncNarrateBar();
+  syncNarratePill();
+}
+
+function narrateStart(text, seed, title, lex) {
+  narrateStop();
+  const parts = narrateSplit(text);
+  if (!parts.length) return;
+  // The lexicon is captured HERE rather than read from _data at speak time:
+  // narration deliberately outlives a minimize, by which point _data is null.
+  _narrate = { parts, i: 0, timer: null, seed: seed || 'library', title: title || 'Reading', lex: lex || null };
+  narrateNext();
+  syncNarrateBar();
+}
+
+function clearNarrateHighlight() {
+  _overlay?.querySelectorAll('.tos-narr-on').forEach(el => el.classList.remove('tos-narr-on'));
+}
+
+function narrateNext() {
+  if (!_narrate) return;
+  const { parts, i, seed } = _narrate;
+  if (i >= parts.length) { narrateStop(); return; }
+  const line = parts[i];
+  const words = line.split(/\s+/).length;
+  const budget = Math.max(1.2, words / NARRATE_WPS);
+  // RP for the library. The shelf is Forster, Wells, Swift, London and two
+  // translations into Edwardian English — an American newsreader voice reading
+  // "The Machine Stops" fights the prose. Non-rhotic is the whole trick.
+  try { window.AudioEngine?.speak?.(line, { seed, budget, accent: 'rp', lex: _narrate.lex }); } catch { /* keep reading */ }
+
+  // Follow the voice. Guarded on _overlay because narration deliberately outlives
+  // a minimize — with the tablet closed there is simply nothing to light up.
+  clearNarrateHighlight();
+  const span = _overlay?.querySelector(`.tos-narr-s[data-s="${i}"]`);
+  if (span) {
+    span.classList.add('tos-narr-on');
+    // Keep the spoken line on screen, but only nudge — `center` would yank the
+    // page on every sentence and make it unreadable for anyone following along.
+    try { span.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch { /* older engines */ }
+  }
+
+  _narrate.i = i + 1;
+  syncNarratePill();
+  // A beat of air between sentences, so it reads rather than gabbles.
+  _narrate.timer = setTimeout(narrateNext, budget * 1000 + 220);
+}
+
+// Body prose with every utterance individually addressable, so the narrator can
+// light the sentence it's on. Indices come from narrateSplit — the SAME call the
+// voice walks — so span N is always the text of utterance N.
+//
+// Paragraphs are preserved by splitting on blank lines first and only then
+// numbering sentences continuously across them; numbering per-paragraph would
+// restart the index and break the mapping.
+function renderNarratableBody(body, glossary) {
+  let n = 0;
+  return String(body).split(/\n{2,}/).map(para => {
+    const spans = narrateSplit(para).map(s =>
+      `<span class="tos-narr-s" data-s="${n++}">${glossWords(esc(s), glossary)}</span>`).join(' ');
+    // A paragraph with no speakable sentence (a rule, a row of asterisks) still
+    // has to render, or the page silently loses it.
+    return `<p>${spans || glossWords(esc(para), glossary)}</p>`;
+  }).join('');
+}
+
+// Underline the archaic words this chapter actually contains. Runs AFTER esc(),
+// on already-escaped text, and only ever matches [A-Za-z'-] runs — so it cannot
+// land inside an entity (`&amp;`) or invent a tag. The gloss itself goes in a
+// data- attribute rather than the markup, so nothing user-visible changes length
+// and the narration split above stays character-aligned.
+function glossWords(escaped, glossary) {
+  if (!glossary) return escaped;
+  return escaped.replace(/[A-Za-z][A-Za-z'-]*/g, (w) => {
+    const g = glossary[w.toLowerCase()];
+    if (!g) return w;
+    return `<b class="tos-gloss" data-gloss="${esc(g)}" data-term="${esc(w)}">${w}</b>`;
+  });
+}
+
+function renderNarrateBar() {
+  const on = !!_narrate;
+  return `<div class="tos-narrate">
+    <button class="tos-btn tos-narrate-btn" data-narrate="${on ? 'stop' : 'start'}">${on ? '■ Stop' : '▶ Read Aloud'}</button>
+    <button class="tos-btn tos-narrate-min" data-narrate="min"${on ? '' : ' disabled'}>▾ Minimize</button>
+    <span class="tos-narrate-hint">${on ? 'Narrating…' : 'Uses the TV voice setting'}</span>
+  </div>`;
+}
+
+// Reflect narration state without a re-render — a full redraw would scroll the
+// reader back to the top mid-paragraph and lose the highlight.
+function syncNarrateBar() {
+  const btn = _overlay?.querySelector('.tos-narrate-btn');
+  if (!btn) return;
+  const on = !!_narrate;
+  btn.setAttribute('data-narrate', on ? 'stop' : 'start');
+  btn.textContent = on ? '■ Stop' : '▶ Read Aloud';
+  const min = _overlay.querySelector('.tos-narrate-min');
+  if (min) min.disabled = !on;
+  const hint = _overlay.querySelector('.tos-narrate-hint');
+  if (hint) hint.textContent = on ? 'Narrating…' : 'Uses the TV voice setting';
+}
+
+// ── The minimized pill ───────────────────────────────────────────────────────
+// Narration outliving the tablet needs a visible owner — something that says what
+// is talking and can stop it without reopening the app. Lives outside the overlay
+// entirely, because the overlay is exactly what just went away.
+function syncNarratePill() {
+  let pill = document.getElementById('tos-narrate-pill');
+  const showing = !!_narrate && !_overlay;
+  if (!showing) { pill?.remove(); return; }
+  if (!pill) {
+    pill = document.createElement('div');
+    pill.id = 'tos-narrate-pill';
+    pill.innerHTML = `<span class="tnp-title"></span><span class="tnp-prog"></span>
+      <button class="tnp-stop" title="Stop narration">■</button>`;
+    pill.querySelector('.tnp-stop').addEventListener('click', () => narrateStop());
+    // Tapping the pill itself reopens the tablet where you left off.
+    pill.addEventListener('click', (e) => {
+      if (e.target.closest('.tnp-stop')) return;
+      sendCmdSilent('tablet');
+    });
+    document.body.appendChild(pill);
+  }
+  pill.querySelector('.tnp-title').textContent = `▶ ${_narrate.title}`;
+  pill.querySelector('.tnp-prog').textContent = `${Math.min(_narrate.i, _narrate.parts.length)}/${_narrate.parts.length}`;
+}
+
 function nav(appId, screenLabel, params) {
+  narrateStop();   // turning the page stops the previous page reading
   _backReturn = null; // any explicit navigation invalidates a pending drill-in return
   _tosCorpPage = 0;   // land on the corp Overview page on any server-side navigation
   _tosIdeoPage = 0;   // land on the Orders Overview page on any server-side navigation
@@ -2185,6 +2447,7 @@ function nav(appId, screenLabel, params) {
 }
 
 function act(appId, actionId, params) {
+  narrateStop();   // Next/Back/Contents all leave this page
   sfx(TOS_SELECT_DEF);
   const parts = ['tabletaction', appId, actionId];
   if (params) parts.push(params);
@@ -3670,6 +3933,118 @@ function changeIdeoPage(dir) {
  *     is a dozen strong. That is the answer to "what is 1 XP actually worth",
  *     drawn precisely and left without comment.
  */
+// ── Vitals ────────────────────────────────────────────────────────────────────
+// A cheap medical suite's read-out of the body. Three tabs, all server-built
+// (plugins/tablet/health-app.js): the meters + what's dragging on you, the
+// medical subset of your inventory with one-tap use, and the substance ledger.
+//
+// The colour is the whole interface: a player should be able to open this, see
+// one red bar, and close it again without reading a word. Bands come from the
+// server (good/warn/bad/crit) so the client never decides what "bad" means.
+
+function renderHealthMeter(m) {
+  return `
+    <div class="tos-vt-meter">
+      <div class="tos-vt-mlbl">
+        <span>${esc(m.label)}</span>
+        <span class="v">${esc(String(m.note || ''))}</span>
+      </div>
+      <div class="tos-vt-track"><div class="tos-vt-fill ${esc(m.band)}" style="width:${Math.max(0, Math.min(100, m.pct || 0))}%"></div></div>
+    </div>`;
+}
+
+function renderHealthQuick(d) {
+  if (!d.quick?.length) return '';
+  const btns = d.quick.map(q => `
+    <button class="tos-vt-quick" data-act-id="use" data-act-app="health" data-act-params="${esc(d.tab)} ${esc(q.id)}">
+      <span class="act">${esc(q.label)}</span>
+      <span class="itm">${esc(q.name)}${q.qty > 1 ? ` ×${q.qty}` : ''}</span>
+    </button>`).join('');
+  return `<div class="tos-vt-quickbar"><div class="tos-vt-sect">Immediate</div><div class="tos-vt-quickrow">${btns}</div></div>`;
+}
+
+function renderHealthAfflictions(list) {
+  if (!list?.length) {
+    return `<div class="tos-vt-clear">Nothing is currently wrong with you.<br><span>Enjoy it.</span></div>`;
+  }
+  return list.map(a => `
+    <div class="tos-vt-aff ${esc(a.tone || 'warn')}">
+      <div class="tos-vt-affname">${esc(a.label)}</div>
+      <div class="tos-vt-affdet">${esc(a.detail || '')}</div>
+    </div>`).join('');
+}
+
+function renderHealthApothecary(d) {
+  const items = d.remedies || [];
+  if (!items.length) {
+    return `<div class="tos-vt-clear">You are carrying nothing medicinal.<br><span>The city does not hand it out.</span></div>`;
+  }
+  const SECTIONS = [
+    ['medical', 'Medical'],
+    ['compound', 'Compounds'],
+    ['sustenance', 'Food &amp; water'],
+  ];
+  return SECTIONS.map(([kind, title]) => {
+    const rows = items.filter(i => i.kind === kind).map(i => `
+      <div class="tos-vt-item">
+        <div class="tos-vt-itemtxt">
+          <div class="tos-vt-itemname">${esc(i.name)}${i.qty > 1 ? `<span class="qty">×${i.qty}</span>` : ''}${
+            i.addictive ? `<span class="tos-vt-flag">${esc(i.drugClass || 'habit-forming')}</span>` : ''}</div>
+          <div class="tos-vt-itemeff">${esc(i.effect)}</div>
+        </div>
+        <button class="tos-btn" data-act-id="use" data-act-app="health" data-act-params="apothecary ${esc(i.id)}">Use</button>
+      </div>`).join('');
+    return rows ? `<div class="tos-vt-sect">${title}</div>${rows}` : '';
+  }).join('');
+}
+
+function renderHealthSubstances(d) {
+  const subs = d.substances || [];
+  if (!subs.length) {
+    return `<div class="tos-vt-clear">Your bloodwork is boring.<br><span>No compound has ever been through you.</span></div>`;
+  }
+  return subs.map(s => {
+    const flags = [];
+    if (s.addicted) flags.push('<span class="tos-vt-flag bad">dependent</span>');
+    if (s.substituted) flags.push('<span class="tos-vt-flag">substituted</span>');
+    const wd = s.withdrawalPct > 0
+      ? `<div class="tos-vt-subwd bad">Withdrawal biting at ${s.withdrawalPct}%.</div>`
+      : s.withdrawalIn
+        ? `<div class="tos-vt-subwd">Starts asking in about ${esc(s.withdrawalIn)}.</div>`
+        : '';
+    const loadBand = s.loadPct >= 75 ? 'crit' : s.loadPct >= 50 ? 'bad' : s.loadPct >= 25 ? 'warn' : 'good';
+    return `
+      <div class="tos-vt-sub">
+        <div class="tos-vt-subhead">
+          <span class="n">${esc(s.name)}</span>
+          <span class="f">${flags.join('')}</span>
+        </div>
+        <div class="tos-vt-subgrid">
+          <span>Tolerance</span><b>${s.tolerancePct}%</b>
+          <span>Doses in system</span><b>${s.doses} / ${s.ceiling}</b>
+          <span>Times used</span><b>${s.timesUsed}</b>
+          <span>Last dose</span><b>${esc(s.lastUse || '—')}</b>
+        </div>
+        <div class="tos-vt-track sm"><div class="tos-vt-fill ${loadBand}" style="width:${Math.max(0, Math.min(100, s.loadPct))}%"></div></div>
+        <div class="tos-vt-subload">System load against this compound's overdose ceiling.</div>
+        ${wd}
+      </div>`;
+  }).join('');
+}
+
+function renderHealth(d) {
+  const notice = d.notice ? `<div class="tos-vt-notice">${esc(d.notice)}</div>` : '';
+  if (d.tab === 'apothecary') return `${notice}${renderHealthApothecary(d)}`;
+  if (d.tab === 'substances') return `${notice}${renderHealthSubstances(d)}`;
+  return `
+    ${notice}
+    ${renderHealthQuick(d)}
+    <div class="tos-vt-sect">Readings</div>
+    <div class="tos-vt-meters">${(d.meters || []).map(renderHealthMeter).join('')}</div>
+    <div class="tos-vt-sect">Presenting</div>
+    <div class="tos-vt-affs">${renderHealthAfflictions(d.afflictions)}</div>`;
+}
+
 function renderAccolades(d) {
   const rows = (d.entries || []).map((e, i) => `
     <div class="tos-acc-row${i === (d.entries.length - 1) ? ' first' : ''}">
@@ -5628,6 +6003,11 @@ function renderBody() {
       ${d.section ? renderCodexVolume(d) : renderCodexShelf(d)}
     </div>`;
   }
+  if (d.view === 'health') {
+    return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}${renderTosTabs(d)}
+      ${renderHealth(d)}
+    </div>`;
+  }
   if (d.view === 'accolades') {
     return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}
       ${renderAccolades(d)}
@@ -5699,6 +6079,8 @@ function renderBody() {
       <div class="tos-detail-name">${esc(det.name || '')}</div>
       ${det.desc ? `<div class="tos-detail-desc">${esc(det.desc)}</div>` : ''}
       ${renderObjectives(d.quest?.objectives)}
+      ${d.narratable ? renderNarrateBar() : ''}
+      ${det.body ? `<div class="tos-detail-body">${d.narratable ? renderNarratableBody(det.body, d.glossary) : `<p>${esc(det.body).replace(/\n{2,}/g, '</p><p>').replace(/\n/g, '<br>')}</p>`}</div>` : ''}
       ${renderDetailRows(det.rows)}
       ${renderActions(d.appId, d.actions, params)}
       ${qlog}
@@ -5708,6 +6090,38 @@ function renderBody() {
 }
 
 function wireBody() {
+  // Read Aloud / Stop. The text comes off the payload rather than the DOM so the
+  // synth gets clean prose, not the paragraph markup we just wrapped it in.
+  _overlay.querySelectorAll('[data-narrate]').forEach(el => {
+    el.addEventListener('click', () => {
+      sfx(TOS_SELECT_DEF);
+      const mode = el.getAttribute('data-narrate');
+      if (mode === 'stop') { narrateStop(); return; }
+      if (mode === 'min') {
+        // Close the shell but let the voice run on. The flag is consumed by
+        // close(), which otherwise stops narration like any other teardown.
+        if (_narrate) { _narrateKeepOnClose = true; close(); syncNarratePill(); }
+        return;
+      }
+      const det = _data?.detail || {};
+      // Seed on the BOOK, not the chapter, so a novel keeps one narrator's voice
+      // the whole way through instead of recasting every page.
+      const book = (_data?.breadcrumb && _data.breadcrumb[0]) || _data?.appName || 'library';
+      narrateStart(det.body || '', book, `${book} — ${det.name || ''}`.trim(), _data?.lex);
+    });
+  });
+
+  // Glossed words. Tap-to-reveal rather than hover-only, because the tablet is
+  // used on touch as much as with a mouse and `title=` never fires there.
+  _overlay.querySelectorAll('.tos-gloss').forEach(el => {
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();   // don't let a gloss double as a page tap
+      const open = _overlay.querySelector('.tos-gloss-open');
+      if (open && open !== el) open.classList.remove('tos-gloss-open');
+      el.classList.toggle('tos-gloss-open');
+    });
+  });
+
   // TV channel chips — jump the dial straight to a station. The renderer picks the
   // change up through the `tv_panel` echo, same as the +/- sweep buttons.
   _overlay.querySelectorAll('[data-tv-ch]').forEach(el => {
@@ -7282,6 +7696,11 @@ export function closeTabletPanel() { shutdownTablet(); }
 window.addEventListener('game-disconnect', () => { if (_overlay) close(); });
 
 function close() {
+  // Narration normally dies with the shell — closing the tablet should silence it.
+  // The one exception is an explicit Minimize, which sets this flag precisely so
+  // the book keeps reading while you go and do something else.
+  if (_narrateKeepOnClose) _narrateKeepOnClose = false;
+  else narrateStop();
   purgeCompletedQuestLogs(); // finished quests' action logs clear once you close the tablet
   if (_voidIntro) { _voidIntro.cancel(); _voidIntro = null; } // torn down mid-firmware-boot — don't let its timers outlive the overlay
   if (_voidHunt) { _voidHunt.cancel(); } // drag-to-lock listeners are document-level; never leave them behind

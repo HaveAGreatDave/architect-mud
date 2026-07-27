@@ -54,6 +54,8 @@
       help: 'Eating this can transmit an infection from whoever produced it, on top of its ordinary food-poisoning chance.' },
     soap: { label: 'Soap', shape: 'flag', scope: 'class', group: 'Core',
       help: 'Carried soap. Makes a wash at a sink or in open water count as a FULL clean (resets the hygiene clock rather than just rinsing what is on you).' },
+    cleaning_tool: { label: 'Cleaning Tool', shape: 'flag', scope: 'class', group: 'Core',
+      help: 'A mop, brush, rag or utility sink. CLEAN/MOP with one of these clears every stain on the floor in a single action instead of one patch at a time, and costs less sweat. Works as an item you carry OR as furniture standing in the room.' },
     condom: { label: 'Protection', shape: 'flag', scope: 'class', group: 'Core',
       help: 'Consumed at the start of a penetrative MIS act, dropping infection risk to near zero (never zero). MIS only.' },
 

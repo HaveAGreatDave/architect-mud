@@ -1627,6 +1627,40 @@ export const SCHEMA_SQL = `
     updated_at BIGINT
   );
 
+  -- Full public-domain texts, readable from the tablet's Library app.
+  -- DELIBERATELY NOT BOOT-LOADED: a deploy already cold-reloads the world from
+  -- Neon (~36MB), and these rows are hundreds of KB each. Classified readTier
+  -- 'cold' in content-registry.js and read one chapter at a time on an explicit
+  -- page turn, so the text never rides the boot path or a single WS frame.
+  CREATE TABLE IF NOT EXISTS books (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    author TEXT,
+    year INTEGER,
+    blurb TEXT,                                -- shelf copy, in the game's voice
+    source TEXT,                               -- provenance: which PD edition this is
+    chapters JSONB NOT NULL DEFAULT '[]',      -- [{ title, text }] in reading order
+    -- Per-book pronunciation overrides for the narrator: { word: "AA R P AH" }.
+    -- CMUDICT is General American and knows none of Zamyatin's Russian, Voltaire's
+    -- French, or De Quincey's Latin, so those words come out mangled without this.
+    pronunciation JSONB NOT NULL DEFAULT '{}'
+  );
+
+  -- The books table shipped before pronunciation existed, so CREATE TABLE IF NOT
+  -- EXISTS above is a no-op on any database that already has it. Additive DDL for
+  -- an existing table always needs its own idempotent ALTER (docs/architecture.md).
+  -- NB: no backticks in this string — SCHEMA_SQL is a JS template literal.
+  ALTER TABLE books ADD COLUMN IF NOT EXISTS pronunciation JSONB NOT NULL DEFAULT '{}';
+
+  -- Archaic vocabulary glossed inline in the Library reader. Small enough to sit
+  -- in memory (a few hundred short rows), unlike the book text it annotates.
+  CREATE TABLE IF NOT EXISTS glossary (
+    id TEXT PRIMARY KEY,
+    term TEXT NOT NULL,
+    gloss TEXT NOT NULL,                       -- one short line, plain modern English
+    aliases JSONB NOT NULL DEFAULT '[]'        -- inflections/spellings that map to this term
+  );
+
   CREATE TABLE IF NOT EXISTS scavenging_tables (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,

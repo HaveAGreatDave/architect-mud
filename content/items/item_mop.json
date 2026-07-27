@@ -1,0 +1,14 @@
+{
+  "description": "A grey fibre mop on a scarred alloy handle, the head permanently the colour of the last bad thing it dealt with. The label on the shaft says PROPERTY OF SANITATION, which was true of somebody once.",
+  "flags": {},
+  "id": "item_mop",
+  "name": "fibre mop",
+  "tags": {
+    "cleaning_tool": true,
+    "description": "A grey fibre mop on a scarred alloy handle, the head permanently the colour of the last bad thing it dealt with. The label on the shaft says PROPERTY OF SANITATION, which was true of somebody once.",
+    "misc": true
+  },
+  "type": "misc",
+  "value": 18,
+  "weight": 900
+}

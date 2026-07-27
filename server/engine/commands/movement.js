@@ -477,8 +477,8 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
   // A plugin may replace the arrival line entirely (drama: armed dramatic entrances).
   const customArrive = await fireHook('movement.arriveMessage', { player, fromZone: zone, toZoneId: targetId, direction, arrivalDir, defaultMessage: arriveMsg });
   if (typeof customArrive === 'string' && customArrive.trim()) arriveMsg = customArrive.trim();
-  broadcast(zone.id, { type:'zone_event', message: departMsg, refresh: true }, player.id);
-  broadcast(targetId, { type:'zone_event', message: arriveMsg, refresh: true }, player.id);
+  broadcast(zone.id, { type:'zone_event', message: departMsg, refresh: true, _movement: true }, player.id);
+  broadcast(targetId, { type:'zone_event', message: arriveMsg, refresh: true, _movement: true }, player.id);
 
   // Close (and re-lock if locked) the door behind the player
   if (hadDoor && doorWasClosed) {

@@ -1387,4 +1387,8 @@ export const handlers = {
 };
 
 export { cmdLookInContainer, describeContainer, cmdOpenContainer, cmdUse, cmdGear,
-  cmdInventory, cmdEquipById, cmdUnequipById, cmdDropById, buildContainerView };
+  cmdInventory, cmdEquipById, cmdUnequipById, cmdDropById, buildContainerView,
+  // Exported for the wardrobe plugin: it overrides `undress` to add a container
+  // target and delegates the untargeted case straight back here, so the bulk-strip
+  // behaviour can never drift between the two.
+  cmdUndress, containerCapacity, containerContentsWeight };

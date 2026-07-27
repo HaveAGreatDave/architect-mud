@@ -448,8 +448,8 @@ export function moveEntity(entity, newZoneId, broadcast, query, opts = {}) {
     world.zones.get(oldZoneId)?.enemies.delete(entity.instanceId);
     entity.zoneId = newZoneId;
     world.zones.get(newZoneId)?.enemies.add(entity.instanceId);
-    broadcast(newZoneId, { type: 'zone_event', message: arriveMsg, refresh: true });
-    broadcast(oldZoneId, { type: 'zone_event', message: departMsg, refresh: true });
+    broadcast(newZoneId, { type: 'zone_event', message: arriveMsg, refresh: true, _movement: true });
+    broadcast(oldZoneId, { type: 'zone_event', message: departMsg, refresh: true, _movement: true });
   } else {
     // If a player has this NPC's shop open, close it before the NPC leaves.
     shopperId = getShopperForNpc(entity.id);
@@ -461,8 +461,8 @@ export function moveEntity(entity, newZoneId, broadcast, query, opts = {}) {
     world.zones.get(oldZoneId)?.npcs.delete(entity.id);
     entity.zone_id = newZoneId;
     world.zones.get(newZoneId)?.npcs.add(entity.id);
-    broadcast(newZoneId, { type: 'zone_event', message: arriveMsg, refresh: true });
-    broadcast(oldZoneId, { type: 'zone_event', message: departMsg, refresh: true });
+    broadcast(newZoneId, { type: 'zone_event', message: arriveMsg, refresh: true, _movement: true });
+    broadcast(oldZoneId, { type: 'zone_event', message: departMsg, refresh: true, _movement: true });
   }
 
   // Lock the door when an NPC arrives at their home zone

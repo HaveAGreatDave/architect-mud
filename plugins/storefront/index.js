@@ -69,6 +69,7 @@ import { registerLockType } from '../../server/engine/locks.js';
 import { exitTargets } from '../../server/engine/exits.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { RENT_PERIOD_DAYS, gameToday, addGameDays, gameDaysBetween, ymd, MONTHS } from '../../server/engine/apartments.js';
+import { registerOwnedZoneProvider } from '../../server/engine/zone-filth.js';
 
 // ── Terms ────────────────────────────────────────────────────────────────────
 const DEFAULT_PRICE = 6000;    // asking price when the zone doesn't name one
@@ -119,6 +120,13 @@ async function loadDeeds() {
 loadDeeds();
 
 export function getDeed(zoneId) { return deeds.get(zoneId) || null; }
+
+// A shop with an owner is that player's space, so it keeps its filth for a rent
+// cycle like an apartment does rather than being swept nightly with the street.
+// The engine can't import a plugin, so ownership is contributed, not assumed —
+// sync and query-free, straight off the deed cache above.
+registerOwnedZoneProvider((zoneId) => !!deeds.get(zoneId)?.owner_id);
+
 function setDeed(zoneId, row) { if (row) deeds.set(zoneId, row); else deeds.delete(zoneId); }
 
 // Can this player act as the shop's owner? Deliberately not the apartments
