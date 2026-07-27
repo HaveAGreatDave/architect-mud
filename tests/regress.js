@@ -749,9 +749,13 @@ console.log('— layer 1i: relations substrate —');
   check('...but an uncapped one can', killed && d.hp === 0, `hp=${d.hp} killed=${killed}`);
 
   // Getting hit makes it mutual — this is what turns one punch into a fight
-  // without any brawl state machine.
+  // without any brawl state machine. Swing until one LANDS: npcAttackNpc rolls
+  // to-hit, so asserting after a single swing is a coin flip that passes locally
+  // and fails in the pre-push gate. (It did exactly that.)
   const e = mk('brawler_e', 40), f = mk('brawler_f', 40);
-  e._lastAttack = 0; await npcAttackNpc(e, f, { floorHp: 12 });
+  let landed = false;
+  for (let i = 0; i < 40 && !landed; i++) { e._lastAttack = 0; landed = !!(await npcAttackNpc(e, f, { floorHp: 12 }))?.hit; }
+  check('a swing lands within 40 tries (sanity on the to-hit roll)', landed);
   check('being hit makes the defender fight back', f._combatTargetId === e.id, String(f._combatTargetId));
 
   check('an NPC cannot attack itself', (await npcAttackNpc(e, e, {})) === null);
