@@ -54,7 +54,7 @@ import { handlePanelData, sendPanelCatalog } from "./engine/panels.js";
 import pool, { query, logActivity } from "./models/db.js";
 import { loadMisSettings, isMisServerEnabled } from "./engine/mis.js";
 import { loadEmailVerificationSetting, isEmailVerificationEnabled } from "./engine/emailVerification.js";
-import { mailerConfigProblem } from "./mailer.js";
+import { mailerConfigProblem, mailerSender } from "./mailer.js";
 
 import { initEnvironment, getHUDPayload, getZoneTemperature } from "./engine/environment.js";
 import { getPlayerChannels, getChannelHistory } from "./engine/channels.js";
@@ -1286,6 +1286,11 @@ async function boot() {
 	// say so at boot rather than letting registrations quietly strand.
 	if (isEmailVerificationEnabled() && mailerConfigProblem()) {
 		console.error(`[boot] WARNING: email verification is ON but the mailer is ${mailerConfigProblem()} — new accounts cannot receive verification links.`);
+	} else if (isEmailVerificationEnabled()) {
+		// Print the sender this process actually resolved. Without it, a dashboard
+		// env edit that landed on the wrong service (or never restarted anything)
+		// is indistinguishable from one that took effect.
+		console.log(`[boot] mailer ready — sender ${mailerSender()}`);
 	}
 	await initWorld();
 	// Door lock state isn't persisted (world.doors resets to authored state); re-apply

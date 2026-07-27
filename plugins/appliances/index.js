@@ -45,7 +45,11 @@ export async function togglePluggedByName(player, nameStr, targetState, broadcas
   }
   await updateFurniture(machine.id, { flags: JSON.stringify({ ...machine.flags, plugged_in: targetState }) });
   broadcast?.(player.current_zone, { type: 'zone_event', message: `${player.handle} ${targetState ? 'plugs in' : 'unplugs'} the ${machine.name}.` }, player.id);
-  return { type: 'output', message: `You ${targetState ? 'plug in' : 'unplug'} the ${machine.name} — it draws straight off the building's supply.` };
+  // Only the plug-in side names the building supply — on the way out it's both
+  // contradictory and something the player has no use for.
+  return { type: 'output', message: targetState
+    ? `You plug in the ${machine.name} — it draws straight off the building's supply.`
+    : `You unplug the ${machine.name}.` };
 }
 
 // `unplug <name>` — pull a room appliance off the building's supply. The
