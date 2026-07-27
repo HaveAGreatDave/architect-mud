@@ -351,7 +351,7 @@ async function cmdDrop(targetStr, player, broadcast) {
   const lower = targetStr.trim().toLowerCase();
   // Pool includes equipped gear (no is_equipped filter) so "drop all" can shed it.
   const { rows } = await query(
-    `SELECT pi.*,i.name FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND NOT jsonb_exists(i.tags,'quest_item')`,
+    `SELECT pi.*,i.name,i.type,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND NOT jsonb_exists(i.tags,'quest_item')`,
     [player.id]
   );
   if (!rows.length) return { type:'error', message:`You don't have anything to drop.` };
@@ -371,7 +371,7 @@ async function cmdDrop(targetStr, player, broadcast) {
   // "drop all <filter>" — drop every SIFT match, no prompt.
   if (lower.startsWith('all ')) {
     const filter = targetStr.trim().slice(4).trim();
-    const matches = siftMatchAll(filter, rows);
+    const matches = matchAllFilter(filter, rows);
     if (!matches.length) return { type:'error', message:`You don't have any "${filter}" to drop.` };
     return dropRows(matches, player, broadcast);
   }
@@ -1261,10 +1261,46 @@ async function cmdPullById(idStr, qtyStr, player, broadcast) {
   return pv2;
 }
 
+// "all" / "all <filter>" — the bulk form shared by drop and stow. Returns null
+// when the argument isn't a bulk form at all.
+function parseAllArg(argStr) {
+  const lower = argStr.trim().toLowerCase();
+  if (lower === 'all') return { filter: '' };
+  if (lower.startsWith('all ')) return { filter: argStr.trim().slice(4).trim() };
+  return null;
+}
+
+// SIFT matches on NAME only, which is right for a single target but too narrow
+// for a bulk sweep: "drop all utensils" names a CATEGORY, not an item. Fall back
+// to the item's type or one of its tags (singular or plural) when no name hits,
+// so a player can clear a category without knowing every item in it.
+function matchAllFilter(filter, rows) {
+  const byName = siftMatchAll(filter, rows);
+  if (byName.length) return byName;
+  const f = filter.trim().toLowerCase().replace(/s$/, '');
+  if (!f) return [];
+  const norm = s => String(s || '').toLowerCase().replace(/s$/, '');
+  return rows.filter(r =>
+    norm(r.type) === f || Object.keys(r.tags || {}).some(t => norm(t) === f));
+}
+
+// Carried, unequipped, non-quest rows — the pool a bulk stow draws from.
+// Equipped gear is deliberately excluded: unlike "drop all" (which prompts
+// before stripping you), stowing shouldn't silently undress you.
+async function bulkStowPool(player) {
+  const { rows } = await query(
+    `SELECT pi.*,i.name,i.type,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id
+     WHERE pi.player_id=$1 AND pi.container_id IS NULL AND pi.is_equipped=0 AND NOT jsonb_exists(i.tags,'quest_item')`,
+    [player.id]
+  );
+  return rows;
+}
+
 async function cmdStow(argStr, player) {
   if (!argStr) return { type:'error', message:'Stow what?' };
   const [itemPart, containerPart] = splitOn(argStr, ' in ');
   if (!itemPart) return { type:'error', message:'Stow what?' };
+  const bulk = parseAllArg(itemPart);
 
   // Check for trash bin furniture before normal container resolution.
   if (containerPart) {
@@ -1273,6 +1309,17 @@ async function cmdStow(argStr, player) {
       [player.current_zone, `%${containerPart}%`]
     );
     if (trashRows.length) {
+      if (bulk) {
+        const pool = await bulkStowPool(player);
+        const doomed = bulk.filter ? matchAllFilter(bulk.filter, pool) : pool;
+        if (!doomed.length) {
+          return { type:'error', message: bulk.filter ? `You don't have any "${bulk.filter}".` : `You aren't carrying anything to throw out.` };
+        }
+        const ids = doomed.map(r => r.id);
+        await query('DELETE FROM player_inventory WHERE container_id = ANY($1)', [ids]);
+        await query('DELETE FROM player_inventory WHERE id = ANY($1)', [ids]);
+        return { type:'stow', message:`You throw ${doomed.map(r => r.name).join(', ')} in the ${trashRows[0].name}. Gone.` };
+      }
       const { rows: itemRows } = await query(`SELECT pi.*,i.name FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND i.name ILIKE $2 AND NOT jsonb_exists(i.tags,'quest_item') LIMIT 1`, [player.id, `%${itemPart}%`]);
       if (!itemRows.length) return { type:'error', message:`You don't have "${itemPart}".` };
       await query('DELETE FROM player_inventory WHERE container_id=$1', [itemRows[0].id]);
@@ -1293,9 +1340,30 @@ async function cmdStow(argStr, player) {
   }
   if (!container) return { type:'error', message:`You don't see a container${containerPart?` matching "${containerPart}"`:''} here.` };
 
+  if (bulk) {
+    const pool = await bulkStowPool(player);
+    const matches = (bulk.filter ? matchAllFilter(bulk.filter, pool) : pool)
+      .filter(r => r.id !== container.id);   // never the bag inside itself
+    if (!matches.length) {
+      return { type:'error', message: bulk.filter ? `You don't have any "${bulk.filter}" to stow.` : `You aren't carrying anything to stow.` };
+    }
+    const messages = [];
+    for (const row of matches) {
+      const r = await stowOne(row, container, player);
+      messages.push(r.message);
+    }
+    return { type:'stow', message: messages.join('\n') };
+  }
+
   const { rows } = await query(`SELECT pi.*,i.name,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND i.name ILIKE $2 AND NOT jsonb_exists(i.tags,'quest_item') LIMIT 1`, [player.id, `%${itemPart}%`]);
   if (!rows.length) return { type:'error', message:`You don't have "${itemPart}" to stow.` };
-  const item = rows[0];
+  return stowOne(rows[0], container, player);
+}
+
+// Move one carried row into an open container. Every failure is a per-item
+// message rather than a throw, so a bulk stow can report "the bag filled up"
+// against the item that didn't fit and keep going.
+async function stowOne(item, container, player) {
   if (item.tags?.perishable) await fireHook('item.checkFreshness', item, player);
   if (item.id === container.id) return { type:'error', message:`You can't put ${container.name} inside itself.` };
   if (hasTag(item, 'container')) {
