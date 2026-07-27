@@ -1627,6 +1627,22 @@ export const SCHEMA_SQL = `
     updated_at BIGINT
   );
 
+  -- MIS per-player consent (plugins/mis/consent.js). A row is one DIRECTED grant:
+  -- granter_id permits grantee_id to aim MIS verbs at them. The server setting and
+  -- players.mis_enabled are opt-ins to the SURFACE — both belong to the actor and
+  -- neither is consent from the person on the other end; this table is that third
+  -- gate. Directed, never symmetric: two people acting on each other need two rows.
+  -- Hydrated once at login into a RAM Map and read from memory thereafter (every
+  -- MIS act path is effectively a hot path), so this table is written on the
+  -- explicit consent/revoke verbs only and otherwise never touched at runtime.
+  CREATE TABLE IF NOT EXISTS mis_consents (
+    granter_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+    grantee_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+    granted_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()),
+    PRIMARY KEY (granter_id, grantee_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_mis_consents_grantee ON mis_consents(grantee_id);
+
   -- Full public-domain texts, readable from the tablet's Library app.
   -- DELIBERATELY NOT BOOT-LOADED: a deploy already cold-reloads the world from
   -- Neon (~36MB), and these rows are hundreds of KB each. Classified readTier

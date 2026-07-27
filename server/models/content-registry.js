@@ -269,6 +269,7 @@ export const REGISTRY = [
   { table: 'player_backups', class: 'player' },      // cortical-backup snapshots + prepaid restores (plugins/augments)
   { table: 'player_flags', class: 'player' },
   { table: 'player_npc_relations', class: 'player' }, // relations substrate — who a player has met and how it went; accumulated by play, never authored
+  { table: 'mis_consents', class: 'player' },         // MIS per-player consent grants — one player's decision about another; never authored, never exported
   { table: 'player_quests', class: 'player' },
   { table: 'player_achievements', class: 'player' }, // record plugin — which entries a player has been observed doing
   { table: 'player_outfits', class: 'player' },      // wardrobe plugin — saved looks, per player per wardrobe

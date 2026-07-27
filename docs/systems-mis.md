@@ -5,11 +5,16 @@ descriptions that only exist once you've asked for them. Tone authority is
 [story.md](story.md) — MIS prose is blunt and adult but never leering at the
 player, and it is funny for the same reason the rest of the game is.
 
-**Split:** the engine owns the consent flag and nothing else
-([server/engine/mis.js](../server/engine/mis.js)); every mechanic lives in the
-`mis` plugin ([plugins/mis/README.md](../plugins/mis/README.md)).
+**Split:** the engine owns the opt-in flag and nothing else
+([server/engine/mis.js](../server/engine/mis.js)); every mechanic — including
+per-player consent — lives in the `mis` plugin
+([plugins/mis/README.md](../plugins/mis/README.md)).
 
-## Opting in
+**Three gates, and they are not the same question.** Two of them opt you into
+the *surface* and both belong to the actor; the third is the only one that asks
+the person on the other end. Acting on another **player** needs all three.
+
+## Opting in (gates 1 and 2)
 
 Two switches, ANDed by `isMisActive(player)`:
 
@@ -31,6 +36,53 @@ advertised on any `water_source` furniture.
 `isMisActive` is read well outside the plugin — the **bodily** plugin's targeting,
 appearance rendering, and the **MORPHEX** cosmetic machine all gate on it. That's
 why it's a substrate and not plugin state.
+
+## Consent (gate 3)
+
+Both switches above belong to whoever flipped them, so neither is consent from
+the person being acted on: two players who have each enabled MIS were, before
+this gate, actionable by any stranger in the room with no accept step and
+nothing to say no with. `hasConsent` closes that.
+
+**A one-way grant, given by the person being acted on.** `consent <player>`
+means *"I permit you to aim MIS verbs at me."* It is not a negotiation and not
+a handshake — only you move your own state, and nothing anyone else types can
+move it. Two people acting on each other need two grants.
+
+| Verb | Effect |
+|---|---|
+| `consent <player>` | grant |
+| `revoke <player>` / `revoke all` | withdraw; **stops any act in progress immediately**, not at the next beat |
+| `consent` | who you've let in, and who has let you in |
+| `consent ask <player>` | one line, rate-limited to one per pair per 10 min. A revoke is also a block: a revoked player can never ask again |
+
+Both verbs sit behind `misGate`, so an unopted player typing `consent` gets
+`Unknown command` like every other MIS verb — nobody learns the surface exists
+by going looking for protection from it.
+
+**Storage.** `mis_consents (granter_id, grantee_id, granted_at)`, hydrated once
+per login into a RAM Map by `hydrateConsents()`. **`hasConsent` is sync and
+query-free by contract** — it is called on every act path and on every beat of
+the 8-second loops — the same discipline as
+[`getRelation`](systems-relationships.md). The table is written on the explicit
+verbs only. `revoke` writes through RAM and DB together.
+
+**Where the check lives.** `resolveTargetMis` covers most verbs because they all
+funnel through it. **Three paths resolve with the raw resolver and carry their
+own copy of the check** — `slap` (the MIS-tier body-part slap, not the comedy
+one), `stripPlayer`, and `examine <target>'s <part>`. A new player-targeting
+verb that doesn't go through `resolveTargetMis` must add the check by hand; the
+regress suite asserts each of these individually for exactly that reason.
+
+**One refusal string.** "Target has MIS off" and "target hasn't consented"
+answer *identically* (`refusal()`), because a distinct message would let anyone
+probe who has the surface enabled. The refusal also **never notifies the
+target** — telling someone a stranger just tried turns a refused act into a
+delivery mechanism for the act.
+
+**Consent is re-checked every beat**, not just at the start, so a grant pulled
+mid-scene ends the scene. NPC targets and self-verbs need no grant and are
+untouched (an NPC's willingness is its own separate model, below).
 
 ## Attraction
 
@@ -173,7 +225,7 @@ body is visibly aroused, when you're attracted to them and MIS-active, gives you
 
 ## Verbs
 
-`mis` `touch` `grope` `squeeze` `kiss` `lick` `fondle` `slap` `stroke`
+`mis` `consent` `revoke` `touch` `grope` `squeeze` `kiss` `lick` `fondle` `slap` `stroke`
 `masturbate`/`jerkoff`/`jackoff`/`rubself`/`fingerself` `finger` `suck`
 `fuck`/`sex`/`screw`/`rail`/`bang`/`breed` `blowjob`/`bj` `handjob`/`hj`
 `ejaculate`/`cum`/`come` `wash` `strip`, plus the input matchers `jerk off on …`,
@@ -182,7 +234,8 @@ body is visibly aroused, when you're attracted to them and MIS-active, gives you
 **`strip <target>`** deserves its own note: it bypasses the strippers plugin's
 tip / heat / willing / zone gates entirely. An NPC is bared freely (`_forcedNude`
 and `_clothingPeeled`, honoured by the strippers redress tick). A **player** is
-stripped only if they also have MIS enabled — their opt-in is the consent — and
+stripped only if they have MIS enabled **and have granted the actor consent**
+(this is one of the three raw-resolver paths that carries its own check); then
 everything but their weapon goes into their pack.
 
 ## Testing

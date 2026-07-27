@@ -44,6 +44,10 @@ import { loadFitLines, allFitLines, saveFitLines, fitLine, HOLES,
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { adjustRelation, getRelation, relationAtLeast } from '../../server/engine/relations.js';
 import {
+  hasConsent, hydrateConsents, forgetSession, refusal,
+  grant, revoke, revokeAll, grantedBy, grantedTo, canAsk, markAsked,
+} from './consent.js';
+import {
   exert, COLLAPSE_MSGS, isInfected, infect, npcInfected, takeProtection, transmits,
   refreshSymptoms, symptomDue, strainLine, strainLabel, stiOf, cureSti,
   markReceived, volumeOf, volumeBand, recordAmpouleDose, burnOf, BURN_SYMPTOMS,
@@ -362,7 +366,13 @@ function resolveTargetMis(nameStr, player, verb) {
     return { error: `Multiple people match — be more specific.` };
   }
   const target = r.candidate;
-  if (!isMisActive(target)) return { error: `${target.handle} hasn't enabled MIS.` };
+  // The two gates that matter, answering with ONE string. MIS-enabled is an
+  // opt-in to the surface and belongs to whoever flipped it; consent is the
+  // separate question of whether THIS person permits THIS actor. A distinct
+  // message per case would let anyone probe who has MIS on, so both fail alike.
+  if (!isMisActive(target) || !hasConsent(player.id, target.id)) {
+    return { error: refusal(target.handle) };
+  }
   return { res: { type: 'player', target } };
 }
 
@@ -465,7 +475,11 @@ async function startServiceEvent(player, target, broadcast, opts) {
     const liveTarget = getLivePlayer(targetId);
     // Walking out of the room ends it, same as the NPC path — otherwise a partner
     // who leaves keeps taking arousal ticks (and climaxes) from across the map.
-    if (!liveTarget || !isMisActive(liveTarget) || liveTarget.current_zone !== live.current_zone) {
+    // Consent is re-checked EVERY beat, not just at the start: a grant pulled
+    // mid-scene has to stop the scene, and `revoke` is the one thing here that
+    // must not have to wait for anything.
+    if (!liveTarget || !isMisActive(liveTarget) || liveTarget.current_zone !== live.current_zone
+        || !hasConsent(playerId, targetId)) {
       stopMisEvent(playerId);
       broadcast(null, { type: 'output', message: `${name} isn't available anymore.` }, null, playerId);
       return;
@@ -530,7 +544,9 @@ async function startServiceEvent(player, target, broadcast, opts) {
 
     const actorMsgs = await addHorniness(live, opts.actorGain, broadcast);
     if (actorMsgs.length) broadcast(null, { type: 'resource_tick', messages: actorMsgs, player_update: { horniness: live.horniness, erect: live.erect } }, null, playerId);
-  }, 8000, { action: opts.action, target: name });
+    // targetId rides in the meta so `revoke` can find and stop this event from
+    // the RECEIVER's side — they don't own the interval, the actor does.
+  }, 8000, { action: opts.action, target: name, targetId });
 }
 
 // Shared prologue for the service acts (finger/handjob/suck/eat out): gate,
@@ -864,6 +880,12 @@ async function cmdSlap(args, raw, player, broadcast) {
     return { type:'output', message: formatSelectionPage({ allCandidates: sr.candidates, visibleIndex: 0, pageSize: 5 }) };
   }
   const target = sr.candidate;
+  // This is the MIS-tier slap (a body part named on a consenting partner), NOT
+  // the ordinary comedy slap above — it resolves with the raw resolver, so the
+  // consent gate has to be applied here by hand rather than inherited.
+  if (!isMisActive(target) || !hasConsent(player.id, target.id)) {
+    return { type:'error', message: refusal(target.handle) };
+  }
   const name = target.handle;
 
   const actorMsgs = [
@@ -1356,8 +1378,10 @@ async function cmdFuck(args, raw, player, broadcast) {
     // Walking out of the room ends it, same as the NPC path — otherwise a partner
     // who leaves keeps taking arousal ticks (and climaxes) from across the map.
     if (targetId) {
+      // Consent re-checked every beat — see the service loop for why.
       const stillHere = getLivePlayer(targetId);
-      if (!stillHere || !isMisActive(stillHere) || stillHere.current_zone !== live.current_zone) {
+      if (!stillHere || !isMisActive(stillHere) || stillHere.current_zone !== live.current_zone
+          || !hasConsent(playerId, targetId)) {
         stopMisEvent(playerId);
         broadcast(null, { type: 'output', message: `${name} isn't available anymore.` }, null, playerId);
         return;
@@ -1450,7 +1474,9 @@ async function cmdFuck(args, raw, player, broadcast) {
         }
       }
     }
-  }, 8000, { action: 'fuck', target: name, location });
+    // targetId in the meta — see startServiceEvent. Null for an NPC partner,
+    // which is what keeps `revoke` from ever touching the NPC loops.
+  }, 8000, { action: 'fuck', target: name, location, targetId });
 
   return { type:'output', message: actorMsg };
 }
@@ -1993,7 +2019,11 @@ async function cmdExaminePart(args, raw, player, broadcast) {
     return { type: 'output', message: formatSelectionPage({ allCandidates: r.candidates, visibleIndex: 0, pageSize: 5 }) };
   }
   const target = r.candidate;
-  if (!isMisActive(target)) return { type: 'error', message: `${target.handle} hasn't enabled MIS.` };
+  // Looking closely at someone's body is an act on them, so it takes a grant
+  // like the rest. Raw resolver here too — the check can't be inherited.
+  if (!isMisActive(target) || !hasConsent(player.id, target.id)) {
+    return { type: 'error', message: refusal(target.handle) };
+  }
   if (isAttractedTo(player, target) && broadcast) {
     const am = await addHorniness(player, 3, broadcast);
     if (am.length) broadcast(null, { type: 'resource_tick', messages: am, player_update: { horniness: player.horniness } }, null, player.id);
@@ -2020,7 +2050,12 @@ function stripNpc(player, npc, broadcast) {
 }
 
 async function stripPlayer(player, target, broadcast) {
-  if (!isMisActive(target)) return { type: 'error', message: `${target.handle} isn't in the mood — nothing happens.` };
+  // Taking someone's clothes off is the least deniable act in the plugin, and
+  // it resolves through raw SIFT rather than resolveTargetMis — so the grant is
+  // checked right here. Same string as everywhere else: no probing.
+  if (!isMisActive(target) || !hasConsent(player.id, target.id)) {
+    return { type: 'error', message: refusal(target.handle) };
+  }
   await query(
     `UPDATE player_inventory SET is_equipped=0, slot=NULL, layer=NULL, equipped_at=NULL
       WHERE player_id=$1 AND is_equipped=1 AND slot IS DISTINCT FROM 'weapon_hand'`,
@@ -2055,8 +2090,112 @@ async function cmdStrip(args, raw, player, broadcast) {
   return { type: 'error', message: `There's no "${nameStr}" here to strip.` };
 }
 
+// ── consent / revoke ─────────────────────────────────────────────────────────
+//
+// The third gate's player surface. Both verbs sit behind misGate like every
+// other MIS verb, so someone who never opted in types `consent` and gets
+// `Unknown command` — they don't learn the surface exists by looking for a way
+// to protect themselves from it, because for them it isn't there.
+//
+// Only the person being acted on can move their own state. There is no accept
+// step for the ASKER to exploit: `consent ask` sends one line and nothing else.
+
+// Resolve a player anywhere online by handle — you can revoke someone who has
+// walked out of the room, which is precisely when you most want to.
+function resolveAnyPlayer(nameStr, player) {
+  const others = getAllLivePlayers().filter(p => p.id !== player.id);
+  const r = siftResolve(nameStr, others.map(p => ({ ...p, name: p.handle })));
+  return r.type === 'match' ? r.candidate : null;
+}
+
+async function cmdConsent(args, raw, player, broadcast) {
+  const gate = misGate(player, raw); if (gate) return gate;
+  const sub = (args[0] || '').toLowerCase();
+
+  // Bare `consent` — the ledger, both directions.
+  if (!sub) {
+    const mine = grantedBy(player.id).map(id => getLivePlayer(id)?.handle || id);
+    const theirs = grantedTo(player.id).map(id => getLivePlayer(id)?.handle || id);
+    const lines = [
+      `<span class="text-dim">You have consented to:</span> ${mine.length ? mine.join(', ') : 'nobody'}`,
+      `<span class="text-dim">Consented to you:</span> ${theirs.length ? theirs.join(', ') : 'nobody'}`,
+      `<span class="text-dim">consent &lt;player&gt; · consent ask &lt;player&gt; · revoke &lt;player&gt; · revoke all</span>`,
+    ];
+    return { type: 'output', message: lines.join('\n') };
+  }
+
+  if (sub === 'ask') {
+    const nameStr = args.slice(1).join(' ').trim();
+    if (!nameStr) return { type: 'error', message: `Ask whom? (consent ask <player>)` };
+    const target = resolveAnyPlayer(nameStr, player);
+    if (!target) return { type: 'error', message: `You don't see "${nameStr}" here.` };
+    // One answer for every refusal — cooldown, already-granted, and revoked all
+    // read the same. A distinct "they've blocked you" would tell the asker their
+    // ask landed somewhere, which is the harassment vector we're closing.
+    if (!isMisActive(target) || !canAsk(player.id, target.id)) {
+      return { type: 'output', message: `Asked. Whether they answer is up to them.` };
+    }
+    markAsked(player.id, target.id);
+    sendToPlayer(target.id, { type: 'output',
+      message: `<span class="text-dim">${player.handle} is asking for your consent. Type</span> consent ${player.handle} <span class="text-dim">if you want to — ignoring this is a complete answer.</span>` });
+    return { type: 'output', message: `Asked. Whether they answer is up to them.` };
+  }
+
+  const nameStr = args.join(' ').trim();
+  const target = resolveAnyPlayer(nameStr, player);
+  if (!target) return { type: 'error', message: `You don't see "${nameStr}" here.` };
+  const fresh = await grant(player.id, target.id);
+  if (!fresh) return { type: 'output', message: `${target.handle} already has your consent.` };
+  sendToPlayer(target.id, { type: 'output',
+    message: `<span class="text-dim">${player.handle} has consented to you.</span>` });
+  return { type: 'output',
+    message: `You consent to ${target.handle}. <span class="text-dim">Take it back any time with</span> revoke ${target.handle}<span class="text-dim">.</span>` };
+}
+
+async function cmdRevoke(args, raw, player, broadcast) {
+  const gate = misGate(player, raw); if (gate) return gate;
+  const nameStr = (args || []).join(' ').trim();
+  if (!nameStr) return { type: 'error', message: `Revoke whom? (revoke <player> · revoke all)` };
+
+  // `revoke all` — the panic button. Everything goes, and anything running stops.
+  if (nameStr.toLowerCase() === 'all') {
+    const n = await revokeAll(player.id);
+    stopAnyActOn(player.id);
+    return { type: 'output', message: n
+      ? `Consent withdrawn from everyone (${n}). Anything in progress has stopped.`
+      : `You hadn't consented to anyone.` };
+  }
+
+  const target = resolveAnyPlayer(nameStr, player);
+  if (!target) return { type: 'error', message: `You don't see "${nameStr}" here.` };
+  const had = await revoke(player.id, target.id);
+  stopAnyActOn(player.id, target.id);
+  return { type: 'output', message: had
+    ? `Consent withdrawn from ${target.handle}. Anything in progress has stopped.`
+    : `${target.handle} didn't have your consent.` };
+}
+
+/**
+ * Stop any MIS event being run AT `targetId` (optionally only by `byId`).
+ * The per-beat guard would catch this within 8 seconds on its own; this makes
+ * it immediate, which is the only acceptable latency for withdrawing consent.
+ */
+function stopAnyActOn(targetId, byId = null) {
+  for (const p of getAllLivePlayers()) {
+    if (byId && p.id !== byId) continue;
+    if (p.id === targetId) continue;
+    const meta = getMisEventMeta(p.id);
+    if (meta?.targetId === targetId) {
+      stopMisEvent(p.id);
+      sendToPlayer(p.id, { type: 'output', message: `It stops.` });
+    }
+  }
+}
+
 export const commands = {
   mis:          (args, raw, player, broadcast) => cmdMis(args, player, broadcast),
+  consent:      (args, raw, player, broadcast) => cmdConsent(args, raw, player, broadcast),
+  revoke:       (args, raw, player, broadcast) => cmdRevoke(args, raw, player, broadcast),
   strip:        (args, raw, player, broadcast) => cmdStrip(args, raw, player, broadcast),
   finger:       (args, raw, player, broadcast) => cmdFinger(args, raw, player, broadcast),
   touch:        (args, raw, player, broadcast) => cmdTouch(args, raw, player, broadcast),
@@ -2104,6 +2243,13 @@ on('player.stop', ({ player, stopped }) => {
   const meta = stopMisEvent(player.id);
   stopped.push(meta?.action ? `${meta.action}ing${meta.target ? ` ${meta.target}` : ''}` : 'what you were doing');
 });
+
+// Consent hydration. One query at login pulls both directions of this player's
+// grants into RAM; every check thereafter is sync and query-free (the contract
+// in consent.js). Logout drops only the session-scoped bookkeeping — the grants
+// themselves live in the table and come back at next login.
+on('player.login', ({ id }) => { if (id) hydrateConsents(id).catch(() => {}); });
+on('player.logout', ({ id }) => { if (id) forgetSession(id); });
 
 // The WS-level Maturity Slider toggle (server/index.js) emits this after
 // flipping the player's fields; the plugin owns the consequences.

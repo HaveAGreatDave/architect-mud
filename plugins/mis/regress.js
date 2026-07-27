@@ -10,6 +10,8 @@ import { getRegisteredSpecializedActions } from '../../server/engine/specialized
 import { refractoryFactor, refractoryMs, markClimax, exert, volumeOf, burnOf,
   overflowsToZone, soakSlotsFor, AMPOULE_FLAG, fitOf, sizeOf } from './mis-body.js';
 import { hygieneOf, creatureFilthSmells, WASH_FLAG } from '../../server/engine/hygiene.js';
+import { hasConsent, canAsk, markAsked, refusal, _seedGrant, _dropGrant } from './consent.js';
+import { setLivePlayer, addPlayerToZone, removePlayerFromZone, getLivePlayer } from '../../server/engine/world.js';
 
 export default async function regress({ run, check, getPlayer }) {
   // Threesome pools are well-formed: join lines name the third party, both pools
@@ -55,6 +57,36 @@ export default async function regress({ run, check, getPlayer }) {
   // strip is a MIS verb: hidden from a player who hasn't opted in.
   r = await run('strip somebody');
   check('strip gated when opted out', r?.type === 'error' && /Unknown command/.test(r.message || ''), r?.message);
+
+  // The consent verbs are MIS verbs and hide like the rest — a player who never
+  // opted in must not learn the surface exists by going looking for protection
+  // from it.
+  r = await run('consent');
+  check('consent gated when opted out', r?.type === 'error' && /Unknown command/.test(r.message || ''), r?.message);
+  r = await run('revoke somebody');
+  check('revoke gated when opted out', r?.type === 'error' && /Unknown command/.test(r.message || ''), r?.message);
+
+  // ── Consent, as pure logic ────────────────────────────────────────────────
+  // The direction of the grant is the whole model, so it gets asserted directly
+  // rather than only through the verbs: A consenting to B lets B act on A, and
+  // grants NOTHING in the other direction.
+  {
+    _seedGrant('c_alice', 'c_bob');
+    check('consent: grant is one-way (grantee may act on granter)', hasConsent('c_bob', 'c_alice'));
+    check('consent: grant is one-way (granter may NOT act on grantee)', !hasConsent('c_alice', 'c_bob'));
+    check('consent: strangers have nothing', !hasConsent('c_bob', 'c_carol'));
+    check('consent: self never needs a grant', hasConsent('c_bob', 'c_bob'));
+    _dropGrant('c_alice', 'c_bob');
+    check('consent: revoked grant stops authorising', !hasConsent('c_bob', 'c_alice'));
+
+    // The ask is rate-limited so it can't become a way to needle someone.
+    check('consent ask: first ask allowed', canAsk('c_bob', 'c_alice'));
+    markAsked('c_bob', 'c_alice');
+    check('consent ask: second ask inside the cooldown refused', !canAsk('c_bob', 'c_alice'));
+    _seedGrant('c_dave', 'c_bob');
+    check('consent ask: pointless once you already hold the grant', !canAsk('c_bob', 'c_dave'));
+    _dropGrant('c_dave', 'c_bob');
+  }
 
   // ── Attraction ─────────────────────────────────────────────────────────────
   // 'None' is a real answer and an unset sexuality must not silently read as
@@ -216,6 +248,53 @@ export default async function regress({ run, check, getPlayer }) {
     // (Masturbation self-gates on leg clothing — if the harness player happens to
     // be dressed for it, that refusal is the correct answer and there's no event
     // to stop.)
+    // ── Consent gate, end to end ───────────────────────────────────────────
+    // A second opted-in player in the room, who has granted nothing. Every
+    // player-targeting path must refuse. THREE of these verbs resolve with the
+    // raw resolver instead of resolveTargetMis and carry their own copy of the
+    // check — slap, strip and examine — so each is asserted individually. If a
+    // future refactor drops one of those copies, this is what catches it.
+    const TID = 'p_regress_consent';
+    setLivePlayer(TID, { id: TID, handle: 'Consentless', current_zone: p.current_zone,
+      posture: 'standing', mis_enabled: 1, biological_sex: 'female', sexuality: 'None',
+      horniness: 0, sanity: 100, sanity_max: 100 });
+    addPlayerToZone(TID, p.current_zone);
+    try {
+      const REFUSED = refusal('Consentless');
+      for (const [label, cmd] of [
+        ['resolveTargetMis path (touch)', 'touch Consentless'],
+        ['raw-resolver bypass: slap',     "slap Consentless's ass"],
+        ['raw-resolver bypass: strip',    'strip Consentless'],
+        ['raw-resolver bypass: examine',  "examine Consentless's tits"],
+      ]) {
+        const rr = await run(cmd);
+        check(`consent gate refuses — ${label}`,
+          rr?.type === 'error' && rr.message === REFUSED, `${rr?.type}: ${rr?.message}`);
+      }
+
+      // The refusal must read the same whether they never opted in or simply
+      // haven't consented — otherwise the message is a probe for who has MIS on.
+      const withMis = await run('touch Consentless');
+      setLivePlayer(TID, { ...getLivePlayer(TID), mis_enabled: 0 });
+      const withoutMis = await run('touch Consentless');
+      check('consent gate leaks nothing: same refusal with MIS off as with no grant',
+        withMis?.message === withoutMis?.message, `${withMis?.message} / ${withoutMis?.message}`);
+      setLivePlayer(TID, { ...getLivePlayer(TID), mis_enabled: 1 });
+
+      // With the grant in place the same verb goes through.
+      _seedGrant(TID, p.id);
+      const allowed = await run('touch Consentless');
+      check('consent gate admits once the target has granted',
+        allowed != null && allowed.message !== REFUSED, `${allowed?.type}: ${allowed?.message}`);
+      _dropGrant(TID, p.id);
+      const refusedAgain = await run('touch Consentless');
+      check('consent gate refuses again after revoke',
+        refusedAgain?.type === 'error' && refusedAgain.message === REFUSED, refusedAgain?.message);
+    } finally {
+      removePlayerFromZone(TID, p.current_zone);
+      _dropGrant(TID, p.id);
+    }
+
     const m = await run('masturbate');
     if (/clothing in the way/i.test(m?.message || '')) {
       check('opted in: masturbate refuses through heavy clothing', m?.type === 'error', m?.message);

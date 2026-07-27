@@ -912,7 +912,15 @@ You've unlocked biological realism mode. This system simulates the body honestly
   jerk off on &lt;target&gt;
   ejaculate / cum [on &lt;target&gt;'s &lt;part&gt; / ground / &lt;furniture&gt;]  (requires 50%+ arousal; males only)
 
-<span style="color:var(--text-dim)">WITH OTHERS:</span>
+<span style="color:var(--text-dim)">WITH OTHERS — CONSENT FIRST:</span>
+  Nobody can aim any of the verbs below at you until you say so, and this
+  switch you've just flipped does not say so. It opts you into the system,
+  not into anyone in particular.
+  consent &lt;player&gt;       — let them act on you. One-way: they need their own.
+  revoke &lt;player&gt; / all  — take it back. Instant, stops anything in progress.
+  consent                — who you've let in, and who has let you in
+  consent ask &lt;player&gt;   — ask once. Ignoring it is a complete answer.
+
   touch / squeeze / fondle / lick &lt;target&gt;'s &lt;body part&gt;
   kiss &lt;target&gt;
   slap &lt;target&gt;'s &lt;body part&gt;
