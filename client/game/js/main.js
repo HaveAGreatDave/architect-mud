@@ -22,7 +22,7 @@ import {
 } from "./net.js";
 import { handleServerMsg } from "./dispatch.js";
 import { state } from "./state.js";
-import { initInput } from "./input.js";
+import { initInput, handleClientCommand } from "./input.js";
 import { initTradePanel } from "./panels/trade.js";
 import { initRecipesPanel } from "./panels/recipes.js";
 import { initStatsPanel } from "./panels/stats.js";
@@ -743,6 +743,24 @@ document.getElementById("area-content")?.addEventListener("click", (e) => {
 function handleActionLinkClick(e) {
 	const el = e.target.closest(".action-link");
 	if (!el) return;
+	// Client-side links: answered HERE, never sent to the server. This is the
+	// difference between a clickable "Yes" and a broken one — a y/n prompt like
+	// auto-walk's is consumed by handleClientCommand BEFORE the socket, so a link
+	// that used sendCmd would sail straight past the pending prompt and hand the
+	// server a bare "y" to be confused by.
+	if (el.dataset.clientCmd) {
+		handleClientCommand(el.dataset.clientCmd, {});
+		// The prompt is one-shot: once answered, retire every button in the pair so
+		// a second click can't re-answer a question that is no longer being asked.
+		const group = el.dataset.clientGroup;
+		if (group) {
+			for (const n of document.querySelectorAll(`[data-client-group="${CSS.escape(group)}"]`)) {
+				n.classList.add("prompt-link-spent");
+				delete n.dataset.clientCmd;
+			}
+		}
+		return;
+	}
 	// Verbatim-command links (SIFT picks, RENT prompt, …) bypass the
 	// action+target verb construction below and send the raw text as-is.
 	if (el.dataset.rawCmd) {

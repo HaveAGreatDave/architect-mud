@@ -13593,6 +13593,52 @@ input.trade-qty { width: 56px; }
 	.tour-card { width: 300px; font-size: 12px; }
 }
 
+/* ── Inline yes/no prompts ──────────────────────────────────────────────────
+   A question asked in the LOG that can be clicked as well as typed — the
+   auto-walk offer, the clone-vat advert's "show me the way". Styled as buttons
+   rather than as the usual bare action-link because they are a decision, not a
+   noun: a new player scanning the log needs to see that something is waiting on
+   them. The typed answer always still works; these never replace it.
+
+   `.prompt-link-spent` is what a one-shot prompt looks like after it's been
+   answered — visibly dead, so a second click reads as a no-op rather than as a
+   broken button. */
+.prompt-link {
+	display: inline-block;
+	border: 1px solid var(--accent);
+	border-radius: 3px;
+	padding: 1px 9px;
+	margin: 0 2px;
+	font-weight: 700;
+	line-height: 1.5;
+	text-decoration: none;
+	background: color-mix(in srgb, var(--accent) 14%, transparent);
+	transition: background 0.15s ease, color 0.15s ease;
+}
+.prompt-link:hover {
+	background: var(--accent);
+	color: var(--bg1, #05080a);
+}
+.prompt-link-ghost {
+	border-color: var(--text-dim);
+	color: var(--text-dim);
+	background: transparent;
+	font-weight: 400;
+}
+.prompt-link-ghost:hover {
+	background: var(--text-dim);
+	color: var(--bg1, #05080a);
+}
+.prompt-link.prompt-link-spent,
+.prompt-link.prompt-link-spent:hover {
+	opacity: 0.32;
+	cursor: default;
+	background: transparent;
+	color: var(--text-dim);
+	border-color: var(--text-dim);
+	text-decoration: line-through;
+}
+
 /* ── Intro cinematic ────────────────────────────────────────────────────────
    The cold open (client/game/js/panels/intro-cinematic.js). Full-viewport, above
    everything, and deliberately NOT themed: this plays before the player has a
@@ -13814,11 +13860,82 @@ body.intro-cine-open { overflow: hidden; }
 	transition: opacity 1400ms ease;
 }
 .intro-cine-logo.in { opacity: 1; }
-.intro-cine-mark {
-	width: clamp(64px, 9vw, 104px);
-	height: auto;
+.intro-cine-markwrap {
+	position: relative;
+	width: clamp(84px, 11vw, 132px);
 	margin-bottom: clamp(16px, 2.4vw, 26px);
+	overflow: hidden;          /* clips the scan bar to the mark */
+	line-height: 0;
+}
+.intro-cine-mark {
+	width: 100%;
+	height: auto;
 	filter: drop-shadow(0 0 26px color-mix(in srgb, var(--accent, #35e0c8) 42%, transparent));
+}
+/* The mark never settles completely — a slow breath on the glow, running for as
+   long as it's on screen. A logo that stops moving is a logo that is finished;
+   this one should read as switched ON. */
+.intro-cine-logo.in .intro-cine-mark { animation: icm-breathe 4200ms ease-in-out 2200ms infinite; }
+@keyframes icm-breathe {
+	0%, 100% { filter: drop-shadow(0 0 22px color-mix(in srgb, var(--accent, #35e0c8) 34%, transparent)); }
+	50%      { filter: drop-shadow(0 0 40px color-mix(in srgb, var(--accent, #35e0c8) 62%, transparent)); }
+}
+
+/* Containment frame — first thing in, thin and cold. */
+.intro-cine-logo .icm-frame path { stroke-dasharray: 1; stroke-dashoffset: 1; opacity: 0.55; }
+.intro-cine-logo.in .icm-frame path { animation: icm-draw 700ms cubic-bezier(.2,.8,.2,1) both; }
+.intro-cine-logo.in .icm-frame path:nth-child(1) { animation-delay: 120ms; }
+.intro-cine-logo.in .icm-frame path:nth-child(2) { animation-delay: 190ms; }
+.intro-cine-logo.in .icm-frame path:nth-child(3) { animation-delay: 260ms; }
+.intro-cine-logo.in .icm-frame path:nth-child(4) { animation-delay: 330ms; }
+
+/* Chromatic split. Faint, offset, and pulled back to almost-registered as the
+   mark finishes — the press correcting itself. */
+.intro-cine-logo .icm-ghost { opacity: 0; mix-blend-mode: screen; }
+.intro-cine-logo .icm-ghost path { stroke-dasharray: 1; stroke-dashoffset: 1; }
+.intro-cine-logo.in .icm-ghost path { animation: icm-draw 1250ms cubic-bezier(.22,.7,.25,1) 480ms both; }
+.intro-cine-logo.in .icm-ghost-a { animation: icm-ghost-a 2600ms ease 480ms both; }
+.intro-cine-logo.in .icm-ghost-b { animation: icm-ghost-b 2600ms ease 480ms both; }
+@keyframes icm-ghost-a {
+	0%   { opacity: 0;    transform: translateX(-3.5px); }
+	35%  { opacity: 0.42; transform: translateX(-3.5px); }
+	100% { opacity: 0.16; transform: translateX(-1px); }
+}
+@keyframes icm-ghost-b {
+	0%   { opacity: 0;    transform: translateX(3.5px); }
+	35%  { opacity: 0.42; transform: translateX(3.5px); }
+	100% { opacity: 0.16; transform: translateX(1px); }
+}
+
+/* The scan: read, logged, filed. */
+.icm-scan {
+	position: absolute;
+	left: -10%;
+	width: 120%;
+	height: 26%;
+	top: -30%;
+	opacity: 0;
+	pointer-events: none;
+	background: linear-gradient(180deg,
+		transparent,
+		color-mix(in srgb, var(--accent, #35e0c8) 34%, transparent) 45%,
+		color-mix(in srgb, var(--accent, #35e0c8) 72%, transparent) 52%,
+		transparent);
+}
+.intro-cine-logo.in .icm-scan { animation: icm-scan 1300ms cubic-bezier(.4,0,.5,1) 1750ms both; }
+@keyframes icm-scan {
+	0%   { top: -30%; opacity: 0; }
+	12%  { opacity: 1; }
+	88%  { opacity: 1; }
+	100% { top: 104%; opacity: 0; }
+}
+
+/* One ring out from the middle as the last node lands. */
+.intro-cine-logo .icm-pulse { opacity: 0; transform-box: fill-box; transform-origin: center; }
+.intro-cine-logo.in .icm-pulse { animation: icm-ring 1500ms cubic-bezier(.15,.75,.3,1) 1980ms both; }
+@keyframes icm-ring {
+	0%   { opacity: 0.75; transform: scale(0.12); }
+	100% { opacity: 0;    transform: scale(1.75); }
 }
 .intro-cine-logo .icm-strokes path {
 	stroke-dasharray: 1;
@@ -13855,19 +13972,50 @@ body.intro-cine-open { overflow: hidden; }
 	text-shadow: 0 0 40px rgba(0,0,0,0.9);
 	line-height: 1.1;
 }
+/* Two movements at once: the tracking closes from wide to set (the word being
+   COMPOSED), and a hard-edged wipe uncovers it left to right (the word being
+   PRINTED). Either alone is a fade; together it reads as manufacture. */
 .intro-cine-logo.in .intro-cine-word { animation: icm-word 1900ms cubic-bezier(.16,.8,.24,1) 1650ms both; }
 @keyframes icm-word {
-	from { opacity: 0; letter-spacing: 0.95em; text-indent: 0.95em; filter: blur(3px); }
-	to   { opacity: 1; letter-spacing: 0.32em; text-indent: 0.32em; filter: blur(0); }
+	from { opacity: 0; letter-spacing: 0.95em; text-indent: 0.95em; filter: blur(3px); clip-path: inset(0 100% 0 0); }
+	60%  { opacity: 1; }
+	to   { opacity: 1; letter-spacing: 0.32em; text-indent: 0.32em; filter: blur(0); clip-path: inset(0 0 0 0); }
 }
+/* The trademark. Last thing on screen, smallest thing on screen, and the single
+   most corporate object in the entire cold open. */
+.icm-tm {
+	font-size: 0.26em;
+	letter-spacing: 0;
+	vertical-align: super;
+	margin-left: -0.22em;
+	opacity: 0;
+	color: var(--accent, #35e0c8);
+}
+.intro-cine-logo.in .icm-tm { animation: icm-rise 900ms ease 3450ms both; }
+
+/* The rule fills rather than fading — a bar reaching 100%, which is a progress
+   meter, which is a thing being APPROVED. */
 .intro-cine-rule {
-	width: min(360px, 52vw);
+	position: relative;
+	width: min(380px, 54vw);
 	height: 1px;
 	margin: clamp(14px, 2vw, 22px) 0 clamp(12px, 1.8vw, 18px);
-	background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent, #35e0c8) 70%, transparent), transparent);
-	transform: scaleX(0);
+	background: rgba(200, 214, 212, 0.14);
+	overflow: hidden;
 }
-.intro-cine-logo.in .intro-cine-rule { animation: icm-rule 1100ms ease 2900ms both; }
+.intro-cine-rule i {
+	position: absolute;
+	inset: 0;
+	display: block;
+	transform: scaleX(0);
+	transform-origin: left center;
+	background: linear-gradient(90deg,
+		transparent,
+		color-mix(in srgb, var(--accent, #35e0c8) 85%, transparent) 45%,
+		color-mix(in srgb, var(--accent, #35e0c8) 85%, transparent) 55%,
+		transparent);
+}
+.intro-cine-logo.in .intro-cine-rule i { animation: icm-rule 1200ms cubic-bezier(.3,.8,.3,1) 2900ms both; }
 @keyframes icm-rule { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 
 .intro-cine-welcome {
@@ -13881,6 +14029,7 @@ body.intro-cine-open { overflow: hidden; }
 /* The small print. Uppercase, tiny, and dim — the tone of a thing that has
    already decided on your behalf and filed the paperwork. */
 .intro-cine-fine {
+	position: relative;
 	font-family: var(--font-mono, 'Courier New', monospace);
 	font-size: clamp(8.5px, 1vw, 10.5px);
 	letter-spacing: 0.22em;
@@ -13890,6 +14039,20 @@ body.intro-cine-open { overflow: hidden; }
 	text-align: center;
 	padding: 0 6vw;
 }
+/* The two small-print lines are stacked exactly on top of each other, so the
+   swap is a swap and not a reflow. B is on screen for about a fifth of a second
+   and reads slightly hotter, which is the only tell that it happened at all. */
+.intro-cine-fine .icm-fine-b {
+	position: absolute;
+	left: 0; right: 0; top: 0;
+	padding: 0 6vw;
+	color: color-mix(in srgb, var(--accent, #35e0c8) 62%, #fff);
+	opacity: 0;
+}
+.intro-cine-logo.in .icm-fine-a { animation: icm-fine-a 2600ms steps(1, end) 4300ms both; }
+.intro-cine-logo.in .icm-fine-b { animation: icm-fine-b 2600ms steps(1, end) 4300ms both; }
+@keyframes icm-fine-a { 0%, 43% { opacity: 1; } 44%, 49% { opacity: 0; } 50%, 100% { opacity: 1; } }
+@keyframes icm-fine-b { 0%, 43% { opacity: 0; } 44%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
 .intro-cine-logo.in .intro-cine-welcome { animation: icm-rise 1200ms ease 3200ms both; }
 .intro-cine-logo.in .intro-cine-fine    { animation: icm-rise 1400ms ease 4100ms both; }
 @keyframes icm-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
@@ -13901,16 +14064,26 @@ body.intro-cine-open { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
 	#intro-cinematic, #intro-cinematic.closing { animation-duration: 300ms; }
 	.intro-cine-line { transition: opacity 500ms ease; transform: none; }
-	/* The logo still assembles in order — the sequence IS the content — but with
-	   no blur, no scaling and no tracking animation. */
+	/* The logo arrives whole: no draw-on, no wipe, no scan, no chromatic split,
+	   no glitch. Everything that MOVES is dropped; everything that says something
+	   is kept, including the mask-slip line — it just never comes back (the
+	   honest version is the one left standing, which is arguably better). */
 	.intro-cine-logo.in .icm-leg,
 	.intro-cine-logo.in .icm-bar,
-	.intro-cine-logo.in .icm-spine { animation: none; stroke-dashoffset: 0; }
+	.intro-cine-logo.in .icm-spine,
+	.intro-cine-logo.in .icm-frame path { animation: none; stroke-dashoffset: 0; }
+	.intro-cine-logo.in .intro-cine-mark { animation: none; }
+	.intro-cine-logo.in .icm-ghost { animation: none; opacity: 0; }
+	.intro-cine-logo.in .icm-scan,
+	.intro-cine-logo.in .icm-pulse { animation: none; opacity: 0; }
 	.intro-cine-logo.in .icm-nodes circle { animation: none; opacity: 1; }
 	.intro-cine-logo.in .intro-cine-word {
-		animation: none; opacity: 1; letter-spacing: 0.32em; text-indent: 0.32em;
+		animation: none; opacity: 1; letter-spacing: 0.32em; text-indent: 0.32em; clip-path: none;
 	}
-	.intro-cine-logo.in .intro-cine-rule { animation: none; transform: scaleX(1); }
+	.intro-cine-logo.in .icm-tm { animation: none; opacity: 1; }
+	.intro-cine-logo.in .intro-cine-rule i { animation: none; transform: scaleX(1); }
 	.intro-cine-logo.in .intro-cine-welcome,
 	.intro-cine-logo.in .intro-cine-fine { animation: none; opacity: 1; transform: none; }
+	.intro-cine-logo.in .icm-fine-a { animation: none; opacity: 1; }
+	.intro-cine-logo.in .icm-fine-b { animation: none; opacity: 0; }
 }

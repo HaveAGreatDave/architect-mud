@@ -462,6 +462,7 @@ export const specializedActions = [
   // A silent alias for examine — deliberately ungated so it never advertises
   // itself as an action on the sign (see readHolosign).
   { verb: 'read', handler: readHolosign },
+  { verb: 'read', handler: readTwocellAdvert },
 ];
 
 // ── Chargen alignment: the attendant "predicts" your answer ───────────────────
@@ -550,12 +551,12 @@ on('player.login', async ({ id }) => {
 // of the login handler so `introdone` can trigger it, and guarded by an in-memory
 // claim (not a flag) because both callers can arrive within the same tick.
 // Longer than the client's start gate (it auto-begins at 20s if nobody clicks
-// "Begin") PLUS the full cinematic (75s) and its fade. Sized off the WORST case,
+// "Begin") PLUS the full cinematic (81s) and its fade. Sized off the WORST case,
 // not the usual one: if this fires while the sequence is still playing, the
 // arrival prose lands behind the overlay and scrolls past unread — the exact
 // failure the cold-open gating exists to prevent. See the start gate in
 // client/game/js/panels/intro-cinematic.js; the two numbers move together.
-const INTRO_FALLBACK_MS = 110000;
+const INTRO_FALLBACK_MS = 116000;
 // If the interface question is never answered — a tab left open on the veil, a
 // client that lost the socket mid-tour — the prose comes anyway rather than the
 // player standing in a silent room forever. Generous, because a first-timer
@@ -668,6 +669,55 @@ function firstClothing(actor) {
   setTimeout(() => {
     out(actor, `<span class="clone-vat-message">There is stencilling on the wall opposite, half-scoured by whatever they wash this room down with. You read it twice before it means anything. <b>COLDWATER BASIN — RESIDENT REINSTATEMENT</b>. Under it, in letters twice the size, in the flat voice of a thing that has printed it ten million times: <b>WELCOME BACK</b>.</span>`);
   }, 8400);
+  // ── The advert ──
+  // The LAST beat of the prologue, and the only one that points at somewhere to
+  // go. A player standing in the vat with a bat, a helmet and ₵100 has no idea
+  // that anything in this city wants them — Grady's poster is the first thing
+  // that does, and it is already on this wall (furn_poster_twocell_supply). The
+  // beat just makes sure it's SEEN: an ambient nudge, the `read` verb taught with
+  // the usual shimmer, and a ripple on the poster's own link up in the room pane,
+  // so the nudge exists in both places a new player might be looking.
+  setTimeout(() => {
+    out(actor, `<span class="ambient">Something on the wall by the door is trying very hard to get your attention. It is doing this the way a man with no budget does it: a paper advert, hand-pasted, hung crooked, with a photograph of somebody's face on it roughly four times life size.</span>`);
+    out(actor, `<span class="ambient">Maybe I should ${teachVerb('read', 'read', 'advert')} it.</span>`);
+    pointAt(actor.id, 'read', 'advert');
+  }, 12600);
+}
+
+// ── Reading the advert offers you the way there ──────────────────────────────
+// `read` is registered UNGATED (same trick as readHolosign): it must never
+// advertise itself as a second action on the poster's room link, because
+// `examine` is the one door and this is a quiet alias behind it. Self-gates on
+// zone + target and returns undefined for everything else, so the global `read`
+// still belongs to bulletins and job boards.
+//
+// The offer is deliberately a QUESTION with two buttons rather than a route
+// silently appearing on the map. A new player who has been steered down a
+// one-way corridor for ten minutes should be asked, once, whether they want to
+// be steered again — and be able to say no.
+const Z_TWOCELL_TILE = 'zone_district_920_903';   // the Two-Cell Supply facade
+const namesAdvert = (t) => /\b(advert|advertisement|poster|two.?cell|supply|grady)\b/.test(t);
+
+async function readTwocellAdvert(args, raw, player, broadcast) {
+  const target = args.join(' ').toLowerCase();
+  if (!namesAdvert(target)) return undefined;
+  if (player.current_zone !== Z_CLONEVAT) return undefined;
+
+  const seen = await cmdExamine(target, player, broadcast);
+  // Only offer directions if that actually resolved to something readable —
+  // otherwise "read supply" against a missing poster would answer with an error
+  // AND an offer to walk somewhere, which is nonsense.
+  if (!seen || seen.type === 'error') return seen;
+
+  const dest = getZone(Z_TWOCELL_TILE);
+  if (dest) {
+    setTimeout(() => out(player, `<span class="ambient">The address is at the bottom, under the crates. It's a ten-minute walk, and it is the only invitation you have.</span> ` +
+      // Yes routes AND sets off (the `!go` flag) — the question has already been
+      // asked here, so the gps prompt asking it a second time would be a nag.
+      `<span class="action-link prompt-link" data-raw-cmd="gps ${dest.name} !go" data-label="walk to Two-Cell Supply">Show me the way</span> ` +
+      `<span class="action-link prompt-link prompt-link-ghost" data-client-cmd="echo Suit yourself." data-label="no thanks">Not now</span>`), 400);
+  }
+  return seen;
 }
 
 // The welcome script — timed, styled, and unstoppable: it runs on its own timers,
@@ -833,7 +883,7 @@ export const _test = {
   ITEM_HOLOCASTER,
   F_ALIGNED, F_INTERFACED, F_BROADCAST, F_COLLAPSE, F_PLAYED,
   cmdTutorial, F_TOUR_ASKED, F_TOUR_TAKEN,
-  coldwaterSkyline, coldwaterShore, speakArrival,
+  coldwaterSkyline, coldwaterShore, speakArrival, readTwocellAdvert, Z_CLONEVAT,
 };
 
 console.log('[prologue] Plugin loaded.');

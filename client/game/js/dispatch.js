@@ -293,7 +293,7 @@ const handlers = {
   // `msg.skyline` is Coldwater's real building tiles (see coldwaterSkyline in
   // plugins/prologue/index.js) — the closing flythrough is the actual city. An
   // old server that doesn't send it falls back to a procedural block grid.
-  intro_cinematic: (msg) => { playIntroCinematic(() => sendCmdSilent('introdone'), msg?.skyline); },
+  intro_cinematic: (msg) => { playIntroCinematic(() => sendCmdSilent('introdone'), msg?.skyline, msg?.shore); },
   tour_offer: () => { offerInterfaceTour(); },
   tour_start: () => { startInterfaceTour(); },
   sleep: (msg) => { appendHtml(msg.message, 'system'); },
@@ -651,7 +651,16 @@ const handlers = {
     // flight, where resumeAuto quietly re-routes the walk in progress). In-progress
     // reroutes carry an empty message and promptAutoWalk:false — they just re-arm.
     if (msg.promptAutoWalk && !isAutoWalking()) {
-      appendHtml(`${msg.message} Do you want to auto-walk there now? (y/n)`, 'help');
+      // Clickable, not just typeable. These are data-client-cmd links, answered
+      // inside handleClientCommand and never sent to the server — see the note
+      // in main.js's handleActionLinkClick. The typed y/n route still works and
+      // is still advertised, because the whole point of a MUD is that you can
+      // type it.
+      const group = `autowalk-${Date.now()}`;
+      appendHtml(`${msg.message} Auto-walk there now? `
+        + `<span class="action-link prompt-link" data-client-cmd="y" data-client-group="${group}">Yes</span> `
+        + `<span class="action-link prompt-link prompt-link-ghost" data-client-cmd="n" data-client-group="${group}">No</span> `
+        + `<span class="hint">(or type y / n)</span>`, 'help');
       armAutoWalkPrompt();
       return;
     }

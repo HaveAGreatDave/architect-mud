@@ -79,22 +79,72 @@ whole way — no filled walls — so you see the far side of every tower and eve
 light through every other light. A solid city is a place; a wireframe city is a
 *model* of a place, held by something still deciding.
 
-Then the camera **flies through it**: down out of the sky, levelling to rooftop
-height and running the length of the city and out the far side, weaving and
-banking a couple of degrees. It never stops, which is what lets the wordmark land
-over it without anything having to finish. `proj` clamps `rz` so it can't divide
-by zero, which means geometry *behind* the lens comes back mirrored and smeared
-rather than absent — so `behind()` culls per building, per edge and per light.
-That guard is invisible until the camera moves and mandatory afterwards.
+Then the camera **flies through it**, EAST TO WEST — starting out over the open
+water east of the Basin, coming ashore, descending to about a third of a unit off
+the deck (towers go ten times that high on either side; height is the enemy of
+scale) and running the length of the city and out the far side over ~21 s, with a
+lazy weave and a couple of degrees of bank. It never stops, which is what lets
+the wordmark land over it without anything having to finish.
+
+Two guards that are invisible until the camera moves and mandatory afterwards:
+
+- `proj` clamps `rz` so it can't divide by zero, which means geometry *behind*
+  the lens comes back mirrored and smeared rather than absent. `behind()` culls
+  per building, per edge and per light.
+- **Orientation is two negations, not one.** Scene-forward (+z) is tile −x
+  (west); facing west your right hand points north, and north is tile −y, so
+  scene-right (+x) is tile −y. `T2X`/`T2Z` are the one place this lives. Negating
+  one axis and not the other mirrors the entire city — which looks completely
+  fine, and is wrong, and you would only ever catch it by flying the same street
+  for real.
+
+**The coastline.** `coldwaterShore()` traces where land meets water, and the
+flythrough draws it *before* anything is built on it — the Basin arrives as an
+outline, the way a plan is drawn before a city is, then dims once the towers are
+up because by then it's the horizon and not the subject. Coldwater sits on the
+south shore of a body that also runs east of it, which is why the run opens over
+open water and comes ashore with the coast off to starboard the whole way in.
+
+A shoreline segment is a tile edge shared by a water tile and an *authored* land
+tile (an unauthored neighbour is the void, not a coast). Collinear segments merge
+into runs, cutting ~309 edges to **~157 runs, ~2 KB**: `[x, y, dir, len]` in tile
+CORNER coords, `dir` 0 = the run travels +x. Sending all 945 water tiles instead
+would be silly — the boundary *is* the feature.
 
 **The wordmark** (`LOGO_HTML` + the `.intro-cine-logo` CSS block) is the last
-beat: the A-mark draws itself on stroke by stroke — two legs, a crossbar, a
-spine, a node at every vertex, the same vocabulary the canvas has been speaking —
-then ARCHITECT's tracking closes from wide to set, a rule wipes out, and a
-welcome plus a line of small print arrive. DOM rather than canvas so the type
-stays crisp at any DPI. It is still on screen through the closing dissolve, so
-the logo melts into the game instead of being cut away (`.closing` is 1500 ms;
-`.closing.fast`, used only on a skip, is 380 ms).
+beat, and it is a *brand arriving*, not an image fading in — every part lands on
+its own delay, in this order:
+
+1. **containment brackets** snap in at the four corners: the mark shows up
+   already inside a box that something else drew;
+2. the **A draws itself on** stroke by stroke — two legs, a crossbar, a spine, a
+   node at every vertex, the same vocabulary the canvas has been speaking for a
+   minute — under a faint **chromatic split** (offset magenta/blue copies that
+   pull back toward register as it finishes: a printing misregistration, which is
+   the most expensive-looking accident there is);
+3. a **scan bar** sweeps down over the finished mark — the gesture of a thing
+   being *read* rather than displayed — and one **ring** pulses out as the last
+   node lands;
+4. **ARCHITECT** arrives on two movements at once: the tracking closes from wide
+   to set (composed) while a hard-edged wipe uncovers it left to right (printed).
+   Either alone is a fade; together it reads as manufacture. Then the **™**, last
+   and smallest and doing more work than anything else on screen;
+5. the rule **fills like a progress bar** rather than fading — a meter reaching
+   100 %, which is a thing being approved — then the welcome, then the small
+   print;
+6. and the small print **glitches once**, for about 150 ms, to
+   `YOUR COMPLIANCE IS ALREADY ON FILE` and straight back. The mask slips, you
+   are not sure you saw it. That flicker is the whole difference between a
+   corporate logo and a sinister one.
+
+The mark then **breathes** — a slow glow loop that never stops, because a logo
+that stops moving reads as finished and this one should read as switched on.
+
+DOM rather than canvas so the type stays crisp at any DPI. It is still on screen
+through the closing dissolve, so the logo melts into the game instead of being
+cut away (`.closing` is 1500 ms; `.closing.fast`, used only on a skip, is 380 ms).
+`prefers-reduced-motion` drops every moving part and delivers the logo whole —
+including the mask-slip line, which simply never appears.
 
 **Audio** is procedural Web Audio built in the module and deliberately simple —
 sustained pads over a sub drone, a bed of looped filtered noise as room tone, six

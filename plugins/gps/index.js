@@ -24,7 +24,7 @@ function routeDirs(path) {
 // opts.avoid — a Set of zone ids to route around (auto-walk hit a blocked entrance).
 // opts.resume — this is an in-progress auto-walk reroute, not a fresh manual plot:
 // don't prompt the player and don't spam a "GPS locked" line; just quietly re-arm.
-function plotRoute(player, destZone, { avoid = null, resume = false } = {}) {
+function plotRoute(player, destZone, { avoid = null, resume = false, go = false } = {}) {
   // Open water isn't a place you can stand — you can't route to it, and it's hidden
   // from name resolution below so it never even surfaces as a candidate.
   if (destZone.flags?.water) {
@@ -69,7 +69,11 @@ function plotRoute(player, destZone, { avoid = null, resume = false } = {}) {
     // gps_route without this flag, and in-progress reroutes pass resume) ask the
     // player whether to auto-walk there now. The client appends the y/n question
     // and arms a one-shot prompt.
-    promptAutoWalk: !resume,
+    // `!go` (see cmdGps) skips the question entirely and just starts walking —
+    // for a caller that has ALREADY asked, like the clone-vat advert's "walk me
+    // there" link. Without it that flow asks twice for one decision.
+    promptAutoWalk: !resume && !go,
+    ...(go ? { autostart: true } : {}),
     // A plain `gps` destination is a single, final target: arriving turns auto-walk
     // fully off. Only fresh plots declare this — a reroute (resume) omits it so an
     // in-progress quest walk keeps its "continuing" intent across the re-plot.
@@ -89,7 +93,7 @@ function gridDist(a, b) {
 // or a street that spans a dozen tiles ("Halcyon Boulevard"). Any one of them is as
 // good a destination as another, so route to the NEAREST reachable one instead of
 // popping an unusable N-row picker (or, worse, tie-break-routing to a far tile).
-function routeToNearest(player, candidates) {
+function routeToNearest(player, candidates, opts) {
   const here = getZone(player.current_zone);
   const sorted = candidates
     .filter(z => z.id !== player.current_zone)
@@ -98,11 +102,11 @@ function routeToNearest(player, candidates) {
   // attempts. Try the closest few so an unreachable nearest tile falls through to the
   // next — bounded so a name matching hundreds of tiles never fans out hundreds of BFS.
   for (const z of sorted.slice(0, 8)) {
-    const res = plotRoute(player, z);
+    const res = plotRoute(player, z, opts);
     if (res.type === 'gps_route') return res;
   }
   return sorted.length
-    ? plotRoute(player, sorted[0]) // surface its concrete error (e.g. can't find a path)
+    ? plotRoute(player, sorted[0], opts) // surface its concrete error (e.g. can't find a path)
     : { type: 'error', message: 'No reachable tile of that name.' };
 }
 
@@ -134,7 +138,12 @@ function cmdGps(args, raw, player) {
   const avoidM = query.match(/\s*!avoid\s+(\S+)/);
   if (avoidM) { avoid = new Set(avoidM[1].split(',').filter(Boolean)); query = query.replace(avoidM[0], '').trim(); }
   if (/\s*!resume\b/.test(query)) { resume = true; query = query.replace(/\s*!resume\b/, '').trim(); }
-  const routeOpts = { avoid, resume };
+  // `!go` — plot AND set off, no "auto-walk there now?" question. Same internal
+  // idiom as the two above (never typed by a human); used by a caller that has
+  // already put the question to the player itself.
+  let go = false;
+  if (/\s*!go\b/.test(query)) { go = true; query = query.replace(/\s*!go\b/, '').trim(); }
+  const routeOpts = { avoid, resume, go };
 
   if (!query) return { type: 'error', message: 'GPS to where? Try: gps <part of a location name>' };
 
@@ -170,7 +179,7 @@ function cmdGps(args, raw, player) {
   // street). Route to the nearest rather than SIFT's tie-break pick or a dead picker.
   const q = query.toLowerCase();
   const sameName = landZones.filter(z => String(z.name || '').trim().toLowerCase() === q);
-  if (sameName.length > 1) return routeToNearest(player, sameName);
+  if (sameName.length > 1) return routeToNearest(player, sameName, routeOpts);
 
   const r = siftResolve(query, landZones);
   if (r.type === 'none') return { type: 'error', message: `No location matching "${query.replace(/^["']|["']$/g, '')}".` };

@@ -70,9 +70,9 @@ const BEATS = [
 ];
 // The wordmark. Not a beat — it's a DOM layer (see the `.intro-cine-logo` block
 // below) so the type stays crisp and the A-mark can draw itself on.
-const LOGO_AT = 65600;
+const LOGO_AT = 71500;
 // LOGO_AT + ~5.5s of assembly + a beat to just LOOK at it + the 1.5s dissolve.
-const RUN_MS  = 75000;
+const RUN_MS  = 80900;
 
 // Canvas phase schedule. `from` is ms; the last one runs to the end. Each phase's
 // own progress is measured from its `from` (the old code measured from hardcoded
@@ -200,10 +200,10 @@ function startAudio() {
   pad(246.94, 29000, 37000, 0.07, 'sine'); // B4    ninth, thin and high, just before it breaks
   // Coldwater. Warmer, wider, and deliberately NOT resolved — F major over an A
   // bed is the Basin working perfectly and still being wrong.
-  pad(87.31,  44500, 65200, 0.20);         // F2
-  pad(174.61, 45500, 65200, 0.13);         // F3
-  pad(261.63, 47000, 64800, 0.09);         // C5
-  pad(349.23, 52000, 64800, 0.05, 'sine'); // F5 shimmer
+  pad(87.31,  44500, LOGO_AT - 400, 0.20);         // F2
+  pad(174.61, 45500, LOGO_AT - 400, 0.13);         // F3
+  pad(261.63, 47000, LOGO_AT - 800, 0.09);         // C5
+  pad(349.23, 52000, LOGO_AT - 800, 0.05, 'sine'); // F5 shimmer
   // ── The wordmark ──
   // A MAJOR. The whole record has been in A minor; the logo raises the third.
   // That's a picardy third and it is the single most corporate gesture in music:
@@ -236,6 +236,7 @@ function startAudio() {
     at(g.gain, 0.0001, 39200);
     at(g.gain, 0.0001, 44000);
     at(g.gain, 0.34, 50000);
+    at(g.gain, 0.42, LOGO_AT - 4000);   // rises as we drop into the streets
     at(g.gain, 0.16, LOGO_AT);
     at(g.gain, 0.0001, RUN_MS);
     at(bp.frequency, 900, 36500);
@@ -279,6 +280,7 @@ function startAudio() {
   at(master.gain, 0.0001, 43600);
   at(master.gain, vol * 0.52, 47000);
   at(master.gain, vol * 0.44, 62000);
+  at(master.gain, vol * 0.40, LOGO_AT - 2500);   // the long quiet run through the city
   at(master.gain, vol * 0.62, LOGO_AT + 1600);   // the brand arrives
   at(master.gain, vol * 0.55, RUN_MS - 3000);
   at(master.gain, 0.0001, RUN_MS);
@@ -358,7 +360,7 @@ function parseAccent(css) {
   return ACCENT_FALLBACK;
 }
 
-function startCanvas(cv, t0, reduced, skyline) {
+function startCanvas(cv, t0, reduced, skyline, shore) {
   const ctx = cv.getContext('2d');
   let w = 0, h = 0;
   const dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -430,10 +432,20 @@ function startCanvas(cv, t0, reduced, skyline) {
   //   • the city is rotated 90° into the scene (tile-x becomes DEPTH), because
   //     Coldwater is a wide shallow band and the long axis is the only one you
   //     can actually fly down.
+  //
+  // ORIENTATION. The run goes EAST TO WEST, so scene-forward (+z) is tile −x.
+  // Facing west, your right hand points north, and north is tile −y — so
+  // scene-right (+x) is tile −y. BOTH axes are negated, together; negating one
+  // and not the other silently mirrors the whole city, which looks fine and is
+  // wrong, and you would only ever catch it by flying the same street for real.
   const GY = 0;              // the ground plane; up is -y
   const SPACING = 1.0;       // one world tile → one scene unit
-  const STRETCH = 4.2;       // storey height multiplier — see above
-  const BASE_H = 0.12;       // so a single-storey shop is still a box, not a mark
+  const STRETCH = 6.4;       // storey height multiplier — see above
+  const BASE_H = 0.14;       // so a single-storey shop is still a box, not a mark
+  // Tile → scene, the single place the rotation lives. Used by the buildings and
+  // by the coastline, which must land on exactly the same ground.
+  const T2X = (ty, cy) => -(ty - cy) * SPACING;
+  const T2Z = (tx, cx) => -(tx - cx) * SPACING;
 
   // No manifest (an old server, or a replay before one arrives) → a plausible
   // block grid in the SAME shape, so there is exactly one renderer below.
@@ -446,16 +458,17 @@ function startCanvas(cv, t0, reduced, skyline) {
     return f;
   })();
 
+  // The city's own centre, in tile coords — the origin everything else is
+  // measured from, the coastline included.
+  const CX = rawSkyline.reduce((s, b) => s + b.x, 0) / rawSkyline.length;
+  const CY = rawSkyline.reduce((s, b) => s + b.y, 0) / rawSkyline.length;
+
   const city = (() => {
     const src = rawSkyline.slice(0, 240);
-    let cx = 0, cy = 0;
-    for (const b of src) { cx += b.x; cy += b.y; }
-    cx /= src.length; cy /= src.length;
     const out = src.map((b, i) => {
       const seed = ((b.x + 512) * 73 + (b.y + 512) * 149) % 1000 / 1000;
       const floors = floorsFor(b.t, b.f);
-      // tile-y → lateral, tile-x → depth. See the rotation note above.
-      const sx = (b.y - cy) * SPACING, sz = (b.x - cx) * SPACING;
+      const sx = T2X(b.y, CY), sz = T2Z(b.x, CX);
       return {
         sx, sz, i,
         half: (BUILDING_FOOT + seed * 0.05) * SPACING,
@@ -472,6 +485,19 @@ function startCanvas(cv, t0, reduced, skyline) {
     out.sort((a, b) => b.sz - a.sz);   // far → near, a plain painter's pass
     return out;
   })();
+
+  // ── The coastline ──
+  // `[x, y, dir, len]` runs in tile-CORNER coords (see coldwaterShore in
+  // plugins/prologue/index.js). A corner is half a tile off a tile centre, hence
+  // the -0.5. Held as scene-space endpoints so the per-frame cost is two lookups
+  // and a stroke.
+  const coast = (Array.isArray(shore) ? shore : []).map(([x, y, dir, n]) => {
+    const x2 = dir ? x : x + n, y2 = dir ? y + n : y;
+    return {
+      a: [T2X(y - 0.5, CY), GY, T2Z(x - 0.5, CX)],
+      b: [T2X(y2 - 0.5, CY), GY, T2Z(x2 - 0.5, CX)],
+    };
+  });
 
   const phaseAt = (t) => { let p = PHASES[0].phase; for (const s of PHASES) if (t >= s.from) p = s.phase; return p; };
   // The lattice breathes on the line. Each beat's arrival brightens the links for
@@ -565,14 +591,14 @@ function startCanvas(cv, t0, reduced, skyline) {
   // side of every tower and every light behind every other light. A solid city is
   // a place; a wireframe city is a MODEL of a place, held by something that is
   // still deciding. That reading is the point.
-  const stroke3 = (a, b, al, lw) => {
+  const stroke3 = (a, b, al, lw, tint) => {
     if (al <= 0.012) return;
     // Either end past the lens drops the whole edge rather than clipping it — the
     // only time it matters is a tower sliding out of the frame corner, where two
     // missing edges for half a second cost nothing and a smear costs everything.
     if (behind(a[2]) || behind(b[2])) return;
     const pa = proj(a[0], a[1], a[2]), pb = proj(b[0], b[1], b[2]);
-    ctx.strokeStyle = acc(al);
+    ctx.strokeStyle = tint ? `rgba(${tint},${al})` : acc(al);
     ctx.lineWidth = lw;
     ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y); ctx.stroke();
   };
@@ -594,11 +620,19 @@ function startCanvas(cv, t0, reduced, skyline) {
     // The run. Held back until the city has mostly landed, then eased the whole
     // way through it and out the far side — the camera never stops, which is why
     // the wordmark can land over it without anything having to "finish".
-    const fly = smooth(clamp01((ct - 4800) / 15600));
-    cam.x = reduced ? 0 : Math.sin(ct / 6400) * 1.5;      // a lazy weave down the street
-    cam.z = lerp(-30, 17, fly);
-    cam.y = lerp(-8.4, -0.95, fly);                       // down out of the sky to rooftop height
-    cam.pitch = lerp(0.30, -0.035, fly);                  // and level off, looking slightly up
+    // Twenty-one seconds to cross forty-odd tiles, eased at both ends. Slow
+    // enough to read a skyline off, and it never comes to rest — the run is
+    // still going when the wordmark lands on top of it.
+    const fly = smooth(clamp01((ct - 4600) / 21000));
+    cam.x = reduced ? 0 : Math.sin(ct / 7600) * 1.7;       // a lazy weave down the street
+    // Starts out over open water east of the Basin and flies WEST along the
+    // waterfront (see the ORIENTATION note above; the coast is off to starboard).
+    cam.z = lerp(-34, 18, fly);
+    // Ends LOW — a third of a unit off the deck, with towers going ten times that
+    // high on both sides. Height is the enemy of scale: from up there Coldwater is
+    // a diagram, and from down here it's a canyon.
+    cam.y = lerp(-9.2, -0.34, fly);
+    cam.pitch = lerp(0.32, -0.05, fly);                    // level off, looking slightly up
 
     // Sky: cold above, sodium at street level. The Basin's lights are the only
     // warm colour anywhere in the sequence.
@@ -611,8 +645,25 @@ function startCanvas(cv, t0, reduced, skyline) {
 
     // A bank, applied to the whole frame. Two degrees of roll is the difference
     // between a camera move and a FLIGHT.
-    const bank = reduced ? 0 : Math.sin(ct / 5200) * 0.035 * fly;
+    const bank = reduced ? 0 : Math.sin(ct / 6200) * 0.035 * fly;
     if (bank) { ctx.save(); ctx.translate(w / 2, h / 2); ctx.rotate(bank); ctx.translate(-w / 2, -h / 2); }
+
+    // ── The coast ──
+    // Where land meets water, traced BEFORE anything is built on it: the Basin
+    // arrives as an outline, the way a plan is drawn before a city is. Coldwater
+    // sits on the south shore of a body that also runs east of it, so the run
+    // opens out over open water and comes ashore — the coastline is the first
+    // thing in the frame and stays off to starboard the whole way in.
+    // It dims once the towers are up; by then it's the horizon, not the subject.
+    const shoreA = clamp01(ct / 2800) * (0.60 - 0.26 * clamp01((ct - 6000) / 7000));
+    if (shoreA > 0.02) {
+      for (const s of coast) {
+        const mz = (s.a[2] + s.b[2]) / 2;
+        const hz = haze(proj(0, GY, mz).z);
+        if (hz <= 0.03) continue;
+        stroke3(s.a, s.b, shoreA * hz, 1.35, '150,205,255');
+      }
+    }
 
     for (const b of city) {
       // Each building runs its own little three-act clock off its stagger.
@@ -739,29 +790,64 @@ function startCanvas(cv, t0, reduced, skyline) {
 // DPI and the tracking animation is free.
 const LOGO_HTML = `
   <div class="intro-cine-logo" id="intro-cine-logo" aria-hidden="true">
-    <svg class="intro-cine-mark" viewBox="0 0 120 120" fill="none" aria-hidden="true">
-      <g class="icm-strokes" stroke="currentColor" stroke-width="4.2" stroke-linecap="square" stroke-linejoin="miter">
-        <path class="icm-leg" d="M12 106 L60 14 L108 106" pathLength="1"/>
-        <path class="icm-bar" d="M26.6 78 H93.4" pathLength="1"/>
-        <path class="icm-spine" d="M60 34 V78" stroke-width="1.5" opacity="0.42" pathLength="1"/>
-      </g>
-      <g class="icm-nodes" fill="currentColor">
-        <circle cx="60"   cy="14"  r="3.6"/>
-        <circle cx="12"   cy="106" r="3.6"/>
-        <circle cx="108"  cy="106" r="3.6"/>
-        <circle cx="26.6" cy="78"  r="2.6"/>
-        <circle cx="93.4" cy="78"  r="2.6"/>
-        <circle cx="60"   cy="78"  r="2.2"/>
-      </g>
-    </svg>
-    <div class="intro-cine-word">ARCHITECT</div>
-    <div class="intro-cine-rule"></div>
+    <div class="intro-cine-markwrap">
+      <svg class="intro-cine-mark" viewBox="0 0 120 120" fill="none" aria-hidden="true">
+        <!-- Containment frame. Four corner brackets, snapping in FIRST: the mark
+             arrives already inside a box that something else drew. -->
+        <g class="icm-frame" stroke="currentColor" stroke-width="1.5" fill="none">
+          <path d="M6 24 V6 H24"     pathLength="1"/>
+          <path d="M96 6 H114 V24"   pathLength="1"/>
+          <path d="M114 96 V114 H96" pathLength="1"/>
+          <path d="M24 114 H6 V96"   pathLength="1"/>
+        </g>
+        <!-- Chromatic split: two offset copies under the real strokes, drawing on
+             the same clock. It is a printing misregistration, which is the most
+             expensive-looking accident there is. Kept faint — at full strength it
+             stops being a logo and starts being a 1990s music video. -->
+        <g class="icm-ghost icm-ghost-a" stroke="#ff2e6e" stroke-width="4.2" stroke-linecap="square" fill="none">
+          <path class="icm-leg" d="M12 106 L60 14 L108 106" pathLength="1"/>
+          <path class="icm-bar" d="M26.6 78 H93.4" pathLength="1"/>
+        </g>
+        <g class="icm-ghost icm-ghost-b" stroke="#4ea8ff" stroke-width="4.2" stroke-linecap="square" fill="none">
+          <path class="icm-leg" d="M12 106 L60 14 L108 106" pathLength="1"/>
+          <path class="icm-bar" d="M26.6 78 H93.4" pathLength="1"/>
+        </g>
+        <g class="icm-strokes" stroke="currentColor" stroke-width="4.2" stroke-linecap="square" stroke-linejoin="miter">
+          <path class="icm-leg" d="M12 106 L60 14 L108 106" pathLength="1"/>
+          <path class="icm-bar" d="M26.6 78 H93.4" pathLength="1"/>
+          <path class="icm-spine" d="M60 34 V78" stroke-width="1.5" opacity="0.42" pathLength="1"/>
+        </g>
+        <g class="icm-nodes" fill="currentColor">
+          <circle cx="60"   cy="14"  r="3.6"/>
+          <circle cx="12"   cy="106" r="3.6"/>
+          <circle cx="108"  cy="106" r="3.6"/>
+          <circle cx="26.6" cy="78"  r="2.6"/>
+          <circle cx="93.4" cy="78"  r="2.6"/>
+          <circle cx="60"   cy="78"  r="2.2"/>
+        </g>
+        <!-- One ring, out from the middle, as the last node lands. -->
+        <circle class="icm-pulse" cx="60" cy="64" r="26" stroke="currentColor" stroke-width="1.2" fill="none"/>
+      </svg>
+      <!-- The scan. A bar of light sweeping down over the finished mark — the
+           gesture of a thing being READ rather than displayed. -->
+      <div class="icm-scan"></div>
+    </div>
+    <!-- The ™ is doing more work than anything else on this screen. -->
+    <div class="intro-cine-word"><span class="icm-wordtext">ARCHITECT</span><sup class="icm-tm">™</sup></div>
+    <div class="intro-cine-rule"><i></i></div>
     <!-- Deliberately NOT "Welcome to Coldwater Basin". The cold open never names
          the city at all — it SHOWS it (the flythrough is the real skyline) and
          calls it "one city left". The name is held back until the player climbs
          out of the vat and reads it stencilled on the clone-lab wall. -->
     <div class="intro-cine-welcome">Welcome</div>
-    <div class="intro-cine-fine">A MANAGED ENVIRONMENT · YOUR ARRIVAL WAS ANTICIPATED</div>
+    <!-- The mask slips for one fifth of a second. Two stacked lines, the second
+         swapped in mid-animation and swapped straight back out: the small print
+         briefly says what it means, and you are not sure you saw it. That flicker
+         is the whole difference between a corporate logo and a SINISTER one. -->
+    <div class="intro-cine-fine">
+      <span class="icm-fine-a">A MANAGED ENVIRONMENT · YOUR ARRIVAL WAS ANTICIPATED</span>
+      <span class="icm-fine-b">A MANAGED ENVIRONMENT · YOUR COMPLIANCE IS ALREADY ON FILE</span>
+    </div>
   </div>`;
 
 // ── Shell ────────────────────────────────────────────────────────────────────
@@ -770,7 +856,7 @@ const LOGO_HTML = `
  * Play the cold open. Resolves (via onDone) exactly once — on the last beat or
  * on a skip — so the caller can tell the server to get on with the prologue.
  */
-export function playIntroCinematic(onDone, skyline) {
+export function playIntroCinematic(onDone, skyline, shore) {
   if (_ov) return;                       // already running — never stack two
   _finished = false;
   _done = typeof onDone === 'function' ? onDone : () => {};
@@ -793,7 +879,7 @@ export function playIntroCinematic(onDone, skyline) {
         <div class="intro-cine-gate-title">Before we begin</div>
         <div class="intro-cine-gate-sub">This opens with sound. Turn it up, or don't — it plays either way.</div>
         <button type="button" class="intro-cine-gate-btn" id="intro-cine-begin">Begin <span>›</span></button>
-        <div class="intro-cine-gate-fine">About a minute. You can skip at any point.</div>
+        <div class="intro-cine-gate-fine">About ninety seconds. You can skip at any point.</div>
       </div>
     </div>
     <button type="button" class="intro-cine-skip show" id="intro-cine-skip">Skip <span>›</span></button>`;
@@ -838,7 +924,7 @@ export function playIntroCinematic(onDone, skyline) {
   function runSequence() {
     const t0 = performance.now();
 
-    _cleanupCanvas = startCanvas(_ov.querySelector('#intro-cine-cv'), t0, reduced, skyline);
+    _cleanupCanvas = startCanvas(_ov.querySelector('#intro-cine-cv'), t0, reduced, skyline, shore);
     _audio = startAudio();
 
     for (const b of BEATS) {

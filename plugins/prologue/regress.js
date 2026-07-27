@@ -14,7 +14,7 @@ export default async function regress({ check }) {
     ITEM_HOLOCASTER,
     F_ALIGNED, F_INTERFACED, F_BROADCAST,
     cmdTutorial, F_TOUR_ASKED, F_TOUR_TAKEN, isSet,
-    coldwaterSkyline, coldwaterShore,
+    coldwaterSkyline, coldwaterShore, readTwocellAdvert, Z_CLONEVAT,
   } = _test;
 
   // ── The cold open's skyline manifest ───────────────────────────────────────
@@ -40,6 +40,7 @@ export default async function regress({ check }) {
     r.length === 4 && r.every(Number.isFinite) && (r[2] === 0 || r[2] === 1) && r[3] > 0));
   check('shore is cached (same array identity)', coldwaterShore() === shore);
 
+
   // The stat gift + holocaster grant write player-scoped rows (FKs to players),
   // so this needs a REAL players row — the harness's shared player is in-memory
   // only. Make a throwaway with a known XP budget so the "off the books" check
@@ -60,6 +61,18 @@ export default async function regress({ check }) {
 
   // ── Move gate is wired ─────────────────────────────────────────────────────
   check('prologue move gate registered', getRegisteredMoveGates().includes('prologue'));
+
+  // ── The clone-vat advert ───────────────────────────────────────────────────
+  // `read` is a global verb (bulletins, job boards), so the two things that
+  // matter are that this handler stays out of everyone else's way and that the
+  // destination it offers still exists. The zone NAME is what `gps` resolves
+  // against — rename that tile and the "show me the way" link silently 404s.
+  const advertElsewhere = await readTwocellAdvert(['advert'], 'read advert', { ...p, current_zone: Z_LATTICE });
+  check('read advert is inert outside the clone vat', advertElsewhere === undefined);
+  const advertOther = await readTwocellAdvert(['bulletin'], 'read bulletin', { ...p, current_zone: Z_CLONEVAT });
+  check('read <not the advert> falls through', advertOther === undefined);
+  const twocell = await query(`SELECT name FROM zones WHERE id='zone_district_920_903'`);
+  check('the advert has somewhere to send you', twocell.rows[0]?.name === 'Two-Cell Supply', twocell.rows[0]?.name);
 
   // ── Gate 1: north out of The Inbetween (→ The Lattice) needs alignment ──────
   const g1blocked = await prologueMoveGate({ player: { ...p, current_zone: Z_INBETWEEN }, to: { id: Z_LATTICE } });
