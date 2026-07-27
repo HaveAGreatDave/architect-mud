@@ -44,6 +44,21 @@ export function pointAt(playerId, action, target) {
   sendToPlayer(playerId, { type: 'point_at', action, target });
 }
 
+// The sticky form: the link keeps a slow shimmer until it's cleared, surviving
+// every room re-render. For the one case a ripple can't cover — an onboarding
+// step whose object is the ONLY thing to do next, where a player who looked away
+// for a minute would otherwise have nothing left on screen telling them where to
+// go. Always pair it with a `beaconOff` on the step that completes it.
+export function beaconOn(playerId, action, target) {
+  sendToPlayer(playerId, { type: 'beacon', action, target, on: true });
+}
+export function beaconOff(playerId, action, target) {
+  sendToPlayer(playerId, { type: 'beacon', action, target, on: false });
+}
+export function beaconClear(playerId) {
+  sendToPlayer(playerId, { type: 'beacon', clear: true });
+}
+
 // Broadcast to a zone while excluding a Set of player ids — e.g. an aircraft's own
 // occupants, who share a stale ground `current_zone` but are up in the sky and must
 // not hear ambience (their own overfly noise, ground reactions) about themselves.

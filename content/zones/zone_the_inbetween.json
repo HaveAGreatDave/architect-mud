@@ -24,7 +24,7 @@
   "grid_y": 0,
   "grid_z": 0,
   "id": "zone_the_inbetween",
-  "map_id": null,
+  "map_id": "map_prologue",
   "marker": null,
   "name": "The Inbetween",
   "parent_zone": null,

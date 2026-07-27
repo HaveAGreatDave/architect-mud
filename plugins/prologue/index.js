@@ -26,11 +26,12 @@ import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { on } from '../../server/engine/events.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
-import { sendToPlayer, teachVerb, pointAt } from '../../server/engine/messaging.js';
+import { sendToPlayer, teachVerb, pointAt, beaconOn, beaconOff, beaconClear } from '../../server/engine/messaging.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { maxHpForEndurance, invalidateSkillCache } from '../../server/engine/ip.js';
-import { getZone, getMinimapData, getLivePlayer } from '../../server/engine/world.js';
+import { getZone, getMinimapData, getLivePlayer, getAllZones } from '../../server/engine/world.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
+import { cmdExamine } from '../../server/engine/commands/world.js';
 
 const Z_INBETWEEN = 'zone_the_inbetween';
 const Z_LATTICE   = 'zone_the_lattice';
@@ -112,22 +113,154 @@ async function grantArchitectInterfaceIp(player) {
   return rowCount > 0;
 }
 
+// ── The skyline the cold open flies through ──────────────────────────────────
+//
+// The cinematic's last twenty seconds are a flythrough of COLDWATER — not a
+// procedural stand-in for it, the actual city, the same footprints and floor
+// counts the flight sim extrudes out of a cockpit windshield. Which means the
+// client needs the building tiles, and it needs them before it has any world
+// state at all (this is a player's first login; they haven't even got a body
+// yet, let alone an aircraft, and `mapWindow` only ships to someone in a seat).
+//
+// So the manifest rides along on the `intro_cinematic` push. It's built once
+// from the already-in-memory zone Maps — no query, no tick, no DB read on a
+// login path — and cached forever after, because world geometry doesn't move.
+//
+// Deliberately NOT the flight sim's cell shape: this is four numbers per
+// building, not a 73×73 window of terrain, roads and scatter. ~70 buildings,
+// well under 3 KB on the wire.
+let _skyline = null;
+function coldwaterSkyline() {
+  if (_skyline) return _skyline;
+  const out = [];
+  try {
+    for (const z of getAllZones()) {
+      if (z.map_id !== 'map_world') continue;
+      const bt = z.flags?.building_type;
+      if (!bt) continue;
+      // Coldwater only. The Reach's four buildings sit ~70 tiles south and would
+      // otherwise stretch the flythrough over an ocean of nothing. Region is
+      // `flags.region_id` per docs/reference/land-taxonomy.md; the grid_y bound
+      // is the belt for tiles authored before regions existed.
+      const region = z.flags?.region_id;
+      if (region && region !== 'region_coldwater') continue;
+      if (z.grid_y > 960) continue;
+      out.push({ x: z.grid_x, y: z.grid_y, t: bt, f: Number(z.flags?.floors) || 0 });
+    }
+  } catch (e) {
+    console.error('[prologue] skyline build failed:', e.message);
+  }
+  _skyline = out;
+  return out;
+}
+
+// ── The prologue's sound kit ─────────────────────────────────────────────────
+// Inline synth defs, sent as ordinary `audio_sfx` pushes (same wire shape and the
+// same client generator the clone-vat sequence uses in plugins/audio). They live
+// here rather than in the audio plugin because nothing else in the game will ever
+// play them — the prologue runs exactly once per soul.
+const SFX = {
+  // The lattice answering a hand pushed into it: a rising swell that resolves to a chord.
+  latticeTouch: {
+    id: 'sfx_prologue_lattice', name: 'sfx_prologue_lattice', category: 'sfx', priority: 9,
+    config: { duration: 2.4, layers: [
+      { waveform: 'sine', freq: 55, pitchBend: { to: 110, time: 1.8 }, adsr: { a: 0.25, d: 0.5, s: 0.6, r: 0.9 }, gain: 0.35 },
+      { waveform: 'triangle', freq: 330, adsr: { a: 0.4, d: 0.4, s: 0.5, r: 1.2 }, gain: 0.22 },
+      { noiseMix: 0.7, filter: { type: 'bandpass', freq: 2600, q: 1.4 }, adsr: { a: 0.3, d: 0.7, s: 0.3, r: 1.0 }, gain: 0.14 },
+    ] },
+  },
+  // The gift landing: a clean high chime, the "you have been given something" note.
+  grant: {
+    id: 'sfx_prologue_grant', name: 'sfx_prologue_grant', category: 'sfx', priority: 9,
+    config: { duration: 1.4, layers: [
+      { waveform: 'triangle', freq: 659.25, adsr: { a: 0.002, d: 0.12, s: 0.5, r: 1.1 }, gain: 0.5 },
+      { waveform: 'sine', freq: 987.77, adsr: { a: 0.001, d: 0.09, s: 0.3, r: 1.2 }, gain: 0.28 },
+      { waveform: 'sine', freq: 1318.5, adsr: { a: 0.001, d: 0.06, s: 0.15, r: 1.3 }, gain: 0.12 },
+    ] },
+  },
+  // The X-90's stud going down: a tight mechanical click with a hollow tail.
+  casterClick: {
+    id: 'sfx_prologue_click', name: 'sfx_prologue_click', category: 'sfx', priority: 9,
+    config: { duration: 0.35, layers: [
+      { noiseMix: 1, filter: { type: 'highpass', freq: 2400, q: 1 }, adsr: { a: 0.001, d: 0.03, s: 0, r: 0.04 }, gain: 0.7 },
+      { waveform: 'square', freq: 180, adsr: { a: 0.001, d: 0.05, s: 0, r: 0.18 }, gain: 0.25 },
+    ] },
+  },
+  // The seam splitting: a sub-heavy tear that pitches DOWN as the wedge comes apart.
+  casterSplit: {
+    id: 'sfx_prologue_split', name: 'sfx_prologue_split', category: 'sfx', priority: 10,
+    config: { duration: 1.8, layers: [
+      { waveform: 'sawtooth', freq: 240, pitchBend: { to: 38, time: 1.5 }, filter: { type: 'lowpass', freq: 1600, q: 2 }, adsr: { a: 0.01, d: 0.4, s: 0.5, r: 0.8 }, gain: 0.45 },
+      { noiseMix: 1, filter: { type: 'bandpass', freq: 3200, q: 0.8 }, adsr: { a: 0.005, d: 0.5, s: 0.3, r: 0.9 }, gain: 0.35 },
+      { waveform: 'sine', freq: 33, adsr: { a: 0.02, d: 0.6, s: 0.6, r: 1.0 }, gain: 0.4 },
+    ] },
+  },
+  // Light unspooling northward and knitting into a doorway: a long shimmering rise.
+  doorway: {
+    id: 'sfx_prologue_doorway', name: 'sfx_prologue_doorway', category: 'sfx', priority: 10,
+    config: { duration: 3.2, layers: [
+      { waveform: 'sine', freq: 90, pitchBend: { to: 360, time: 2.6 }, adsr: { a: 0.5, d: 0.6, s: 0.7, r: 1.4 }, gain: 0.3 },
+      { noiseMix: 0.9, filter: { type: 'bandpass', freq: 1400, q: 0.6 }, tremolo: { rate: 9, depth: 0.5 }, adsr: { a: 0.6, d: 0.8, s: 0.5, r: 1.6 }, gain: 0.2 },
+      { waveform: 'triangle', freq: 880, adsr: { a: 1.2, d: 0.5, s: 0.4, r: 1.5 }, gain: 0.16 },
+    ] },
+  },
+};
+
+const playSfx = (player, def, gain = 1) =>
+  sendToPlayer(player.id, { type: 'audio_sfx', def, gain });
+
+// Run a [{ at, def, gain }] cue sheet on the player's own timers. Deliberately a
+// plain setTimeout ladder (same shape as playBroadcast below and the clone-vat
+// sequence): a handful of one-shots per soul, no tick, no scheduler row.
+function playSoundscript(player, cues) {
+  for (const { at, def, gain } of cues) setTimeout(() => playSfx(player, def, gain), at);
+}
+
+// ── Beacons: whatever the prologue currently wants you to touch, shimmers ─────
+// The prologue's one job is that a brand-new player is never stuck wondering what
+// to do next. Prose scrolls away; a beacon doesn't. At every step exactly the
+// objects that step is steering you toward keep shimmering in the room pane —
+// the attendant, the terminal, the holosign, the chair, the kit on the floor, the
+// exit — and go dark the moment that step is done. The live set is tracked in
+// memory on the player (a UI hint, never persisted) so switching steps can turn
+// the previous step's beacons off without knowing what they were.
+const B_ATTENDANT = ['talk', 'chrome attendant'];
+const B_TERMINAL  = ['examine', 'MORPHEX 9000 BioSculpt terminal'];
+const B_HOLOSIGN  = ['examine', 'floating holosign'];
+const B_CHAIR     = ['examine', 'metal chair'];
+const B_NORTH     = ['go', 'north'];
+
+function setBeacons(player, list) {
+  if (!player?.id) return;
+  const next = list || [];
+  const key = ([a, t]) => `${a}|${t}`;
+  const prev = player._prologueBeacons || [];
+  const keep = new Set(next.map(key));
+  for (const b of prev) if (!keep.has(key(b))) beaconOff(player.id, b[0], b[1]);
+  for (const b of next) beaconOn(player.id, b[0], b[1]);
+  player._prologueBeacons = next;
+}
+
 // ── Move gates: the three narrative doors ────────────────────────────────────
 // Pure checks; a blocked move returns its in-fiction refusal. Non-prologue moves
 // short-circuit before any DB read.
 async function prologueMoveGate({ player, to }) {
   if (!to || !PROLOGUE_ZONES.has(to.id)) return undefined;
 
+  // Each refusal re-lights the beacon for the thing that would unblock it — a
+  // player who walked into the wall gets the answer pointed at, not just denied.
   if (to.id === Z_LATTICE && !(await isSet(player, F_ALIGNED))) {
-    return { block: true, message: `The way north will not open. The attendant does not move. "First, be certain of your shape," it says. "Use the terminal. Tell it what you are." (try: use terminal)` };
+    setBeacons(player, [B_ATTENDANT, B_TERMINAL]);
+    return { block: true, message: `The way north will not open. The attendant does not move. "First, be certain of your shape," it says. "Use the terminal. Tell it what you are." <span class="hint">(try: ${teachVerb('use', 'use', 'MORPHEX 9000 BioSculpt terminal')} — or click the shimmering terminal)</span>` };
   }
   if (to.id === Z_BROADCAST && !(await isSet(player, F_BROADCAST))) {
-    return { block: true, message: `There is no door here yet — only lattice, waiting for you to make one. (the X-90 in your inventory is meant to be used: try 'use holocaster')` };
+    return { block: true, message: `There is no door here yet — only lattice, waiting for you to make one. <span class="hint">(the X-90 is in your pack: ${teachVerb('use', 'use', 'X-90 Sequence Holocaster')} — or tap its shimmering USE in the tablet's Gear app)</span>` };
   }
   if (to.id === Z_COLLAPSE && !(await isSet(player, F_COLLAPSE))) {
+    if (!(await isSet(player, F_PLAYED))) setBeacons(player, [B_CHAIR]);
     return { block: true, message: (await isSet(player, F_PLAYED))
       ? `Not yet. The broadcast has not finished with you.`
-      : `You cannot leave. The chair is the only way onward, and it is still waiting. (try: sit)` };
+      : `You cannot leave. The chair is the only way onward, and it is still waiting. <span class="hint">(try: ${teachVerb('sit', 'sit', 'metal chair')})</span>` };
   }
   return undefined;
 }
@@ -137,13 +270,30 @@ registerMoveGate(prologueMoveGate, 'prologue');
 // each prologue zone carries flags.always_lit, honored in getZoneVisibility.)
 
 // ── Specialized `use` handlers (self-gating; return undefined to fall through) ─
+// Match the holosign — including a bare "holo" — but NOT the similarly-named
+// holocaster (its own handler owns those terms, and "holocaster" contains "holo").
+function namesHolocaster(t) {
+  return t.includes('holocaster') || t.includes('caster') || t.includes('x-90') || t.includes('x90') || t.includes('sequence');
+}
+function namesHolosign(t) {
+  return !namesHolocaster(t) && (t.includes('holosign') || t.includes('holo') || t.includes('sign'));
+}
+
+// `read holosign` is simply `examine holosign`. A wall of glowing text is a thing
+// you READ, and a first-time player types the verb the fiction hands them — so the
+// object answers to it rather than telling them "Unknown command". Scoped to this
+// one object (the global `read` verb still belongs to bulletins, job boards and
+// the cookbook), which is exactly what the tag-gated registry is for.
+async function readHolosign(args, raw, player, broadcast) {
+  const target = args.join(' ').toLowerCase();
+  if (!namesHolosign(target)) return undefined;
+  if (player.current_zone !== Z_LATTICE) return undefined;
+  return cmdExamine(target, player, broadcast);
+}
+
 async function useHolosign(args, raw, player) {
   const target = args.join(' ').toLowerCase();
-  // Match the holosign — including a bare "holo" — but NOT the similarly-named
-  // holocaster (its own handler owns those terms, and "holocaster" contains "holo").
-  const holocasterTerm = target.includes('holocaster') || target.includes('caster') || target.includes('x-90') || target.includes('x90') || target.includes('sequence');
-  const holosignTerm = !holocasterTerm && (target.includes('holosign') || target.includes('holo') || target.includes('sign'));
-  if (!holosignTerm) return undefined;
+  if (!namesHolosign(target)) return undefined;
   if (player.current_zone !== Z_LATTICE) return undefined;
 
   if (await isSet(player, F_INTERFACED)) {
@@ -155,9 +305,23 @@ async function useHolosign(args, raw, player) {
   await grantArchitectInterfaceIp(player);
   await grantItem(player, ITEM_HOLOCASTER);
 
+  // The holosign has nothing more to point at; the next object is in your hands.
+  setBeacons(player, []);
+  playSoundscript(player, [{ at: 0, def: SFX.latticeTouch }, { at: 1500, def: SFX.grant, gain: 0.8 }]);
+
   out(player, `<span class="ip-gain">The lattice pours into you and leaves you more than it found you. +1 to every attribute — brawn, reflexes, endurance, brains, cool, senses.</span> <span class="hint">(that's your six STATS — buy more later with XP and RAISE)</span>`);
   out(player, `<span class="ip-gain">+1 IP — Architect Interface</span> <span class="hint">(reaching into the lattice was itself a SKILL; skills climb every time you use them — 100 IP is a level)</span>`);
-  out(player, `Something settles into your inventory: an <span class="action-link" data-action="examine" data-target="X-90 Sequence Holocaster" title="Examine the X-90 Sequence Holocaster"><b>X-90 Sequence Holocaster</b></span>. <span class="hint">(open your inventory with 'i', examine it, then use it to go on)</span>`);
+  // The handoff, made physical: the thing doesn't "appear in your inventory", it
+  // is pushed out of the light INTO YOUR HAND and your fingers close on it. Then
+  // one sentence naming the only thing left to do with it, with the verb itself
+  // shimmering — and it goes on shimmering in the tablet's Gear app, where the
+  // row wears a pulsing USE chip.
+  setTimeout(() => {
+    out(player, `The light in front of you thickens, bunches, and <b>hands you something</b> — pushes it out of itself the way a wave puts a stone on a beach. Your fingers are already closed around it before you decide to close them. A palm-sized wedge of warm ceramic, one seam, one stud: an <span class="action-link" data-action="examine" data-target="X-90 Sequence Holocaster" title="Examine the X-90 Sequence Holocaster"><b>X-90 Sequence Holocaster</b></span>.`);
+  }, 1500);
+  setTimeout(() => {
+    out(player, `<span class="ambient">There is a stud under my thumb, and only one thing to do about it.</span> <span class="hint">(${teachVerb('use', 'use', 'X-90 Sequence Holocaster')} — or open the tablet's GEAR app and tap the shimmering USE)</span>`);
+  }, 3400);
 
   return { type: 'emote', message: `You reach into the holosign and, impossibly, the lattice reaches back. For one bright second you are touching the thoughts of the thing that made you — and it does not leave you as it found you. Every sinew, every nerve, every thought sits a fraction sharper than before.` };
 }
@@ -176,12 +340,41 @@ async function useHolocaster(args, raw, player) {
   await query('DELETE FROM player_inventory WHERE player_id=$1 AND item_id=$2', [player.id, ITEM_HOLOCASTER]);
   await raise(player, F_BROADCAST);
 
-  return { type: 'emote', message: `Your thumb finds the stud as if it always knew where it was. The seam splits. Light unspools out of the wedge and pours northward, knitting itself into a doorway that wasn't there. The X-90 is gone — spent, like it was only ever one key for one lock. <span class="hint">(a way north has opened)</span>` };
+  // The set piece. Everything the client can be asked to do at once: a five-beat
+  // soundscript (click → split → the long knitting rise), the ion-storm weather
+  // overlay lit over the room for the length of it (green wash + lightning arcs
+  // over the pane — the lattice is, briefly, WEATHER), and the prose paced to
+  // land between the cues instead of arriving all in one paragraph. Every one of
+  // these is a cosmetic push the client is free to ignore — WeatherFX off, motion
+  // off, audio off — and the beat still reads on the text alone.
+  playSoundscript(player, [
+    { at: 0,    def: SFX.casterClick },
+    { at: 700,  def: SFX.casterSplit, gain: 0.95 },
+    { at: 2100, def: SFX.doorway },
+    { at: 4200, def: SFX.doorway, gain: 0.4 },
+    { at: 6000, def: SFX.grant,   gain: 0.55 },
+  ]);
+  sendToPlayer(player.id, { type: 'weather_event', eventType: 'ion_storm', phase: 'peak' });
+  setTimeout(() => sendToPlayer(player.id, { type: 'weather_event', eventType: null, phase: null }), 7000);
+
+  setTimeout(() => out(player, `<span class="ambient">The seam splits with a sound like a held breath let go, and the wedge comes apart in your hand into two halves that no longer weigh anything.</span>`), 900);
+  setTimeout(() => out(player, `<span class="ambient">Light unspools out of the gap — not a beam, a THREAD, miles of it, pouring north faster than you can follow and knitting itself into geometry as it goes. The dark goes green at the edges. Somewhere far above your head the air cracks, twice, like a storm that has been waiting a long time to be let indoors.</span>`), 2400);
+  setTimeout(() => out(player, `<span class="ambient">It finishes. There is a doorway where there was no wall to put one in, and it is breathing light, and it is unmistakably an invitation.</span>`), 4600);
+  setTimeout(() => {
+    out(player, `<span class="ambient">The X-90 is gone — spent, both halves gone to dust and the dust gone too. One key. One lock.</span> <span class="hint">(the way ${teachVerb('north', 'go', 'north')} is open)</span>`);
+    setBeacons(player, [B_NORTH]);
+  }, 6100);
+
+  return { type: 'emote', message: `Your thumb finds the stud as if it always knew where it was.` };
 }
 
 export const specializedActions = [
   { verb: 'use', requiredTag: 'prologue_holosign',   handler: useHolosign },
   { verb: 'use', requiredTag: 'prologue_holocaster', handler: useHolocaster },
+  // `read holosign` → `examine holosign`. Registering it here also makes READ show
+  // up in the holosign's advertised actions (availableActions reads this registry
+  // in reverse), so the room link offers it without any content change.
+  { verb: 'read', requiredTag: 'prologue_holosign',  handler: readHolosign },
 ];
 
 // ── Chargen alignment: the attendant "predicts" your answer ───────────────────
@@ -198,7 +391,28 @@ on('appearance.changed', async ({ actor }) => {
   actor._prologueAligning = true;
   if (await isSet(actor, F_ALIGNED)) return;
   await raise(actor, F_ALIGNED);
-  out(actor, `The attendant studies the new shape of you for a long, unhurried moment. "Yes," it says. "This is exactly how I predicted you would answer. You are in alignment." It sounds pleased. The certainty of it crawls up the back of your neck. It adds, almost as an afterthought: "If that shape isn't the whole of you, there is a word for the rest. Type .describe and whatever you write, others will see when they look at you." <span class="hint">(the way north is open)</span>`);
+
+  // The reaction is IMMEDIATE and it MOVES. The terminal releases you (the panel
+  // is a modal — a reaction delivered behind it may as well not have happened),
+  // the attendant steps aside and motions north, and the exit takes up the
+  // shimmer the terminal just put down. No step of the prologue is ever left
+  // without a lit object in the room pane.
+  setTimeout(() => sendToPlayer(actor.id, { type: 'morphex_close' }), 900);
+  playSoundscript(actor, [{ at: 900, def: SFX.grant, gain: 0.6 }]);
+
+  out(actor, `The terminal goes quiet mid-cycle, as though it has been switched off from somewhere else. The attendant is already looking at you — it started before the machine finished.`);
+  setTimeout(() => {
+    out(actor, `"Yes," it says. "This is exactly how I predicted you would answer. You are in alignment." It sounds pleased. The certainty of it crawls up the back of your neck.`);
+  }, 2200);
+  setTimeout(() => {
+    // The motion forward: a body language beat, not a hint line. The hint rides
+    // along behind it because a first-timer still needs the verb spelled out.
+    out(actor, `<span class="ambient">Then it does something it has not done since I got here: it MOVES. One long chrome arm comes up and unfolds northward, and it steps out of my way, and it holds the gesture — patient, absolute, an usher at a door I cannot see. There is nowhere else in this room to be.</span> <span class="hint">(go ${teachVerb('north', 'go', 'north')})</span>`);
+    setBeacons(actor, [B_NORTH]);
+  }, 5000);
+  setTimeout(() => {
+    out(actor, `It adds, almost as an afterthought, without lowering the arm: "If that shape isn't the whole of you, there is a word for the rest. Type <b>.describe</b> and whatever you write, others will see when they look at you."`);
+  }, 8600);
 });
 
 // ── The Broadcast: sitting plays the welcome ──────────────────────────────────
@@ -238,7 +452,7 @@ on('player.login', async ({ id }) => {
   // sequence ends or is skipped, and that verb starts the arrival. Otherwise a
   // player who watches the whole thing comes back to a log full of prose that
   // scrolled past while they were reading a different screen.
-  sendToPlayer(player.id, { type: 'intro_cinematic' });
+  sendToPlayer(player.id, { type: 'intro_cinematic', skyline: coldwaterSkyline() });
   // Safety net for a client that never answers (an old cached bundle, a tab
   // closed and reopened mid-play): the prologue must never be able to stall.
   // beginArrival is idempotent, so the real echo winning this race is fine.
@@ -294,6 +508,10 @@ function speakArrival(player) {
   setTimeout(() => {
     out(player, `<span class="ambient">Maybe I should ${teachVerb('talk', 'talk', 'chrome attendant')} to it.</span>`);
     pointAt(player.id, 'talk', 'chrome attendant');
+    // …and then it keeps shimmering, along with the terminal it will send you to.
+    // The ripple is the announcement; the beacon is the one that's still there
+    // when a first-timer comes back from reading the help file.
+    setBeacons(player, [B_ATTENDANT, B_TERMINAL]);
   }, 17600);
 }
 
@@ -301,10 +519,19 @@ function speakArrival(player) {
 on('zone.entered', async ({ actor, zone, from }) => {
   if (!actor) return;
   if (zone === Z_LATTICE) {
-    out(actor, `<span class="ambient">The holosign turns to face you. It wants to be read.</span> <span class="hint">(try: examine holosign)</span>`);
+    out(actor, `<span class="ambient">The holosign turns to face you. It wants to be read.</span> <span class="hint">(try: ${teachVerb('read', 'read', 'floating holosign')} — or ${teachVerb('examine', 'examine', 'floating holosign')}, they're the same thing here)</span>`);
+    if (!(await isSet(actor, F_INTERFACED))) setBeacons(actor, [B_HOLOSIGN]);
+    else if (!(await isSet(actor, F_BROADCAST))) setBeacons(actor, []);
+    else setBeacons(actor, [B_NORTH]);
   } else if (zone === Z_BROADCAST) {
-    out(actor, `<span class="ambient">The chair is the only thing here, and it is unmistakably for you.</span> <span class="hint">(try: sit)</span>`);
+    out(actor, `<span class="ambient">The chair is the only thing here, and it is unmistakably for you.</span> <span class="hint">(try: ${teachVerb('sit', 'sit', 'metal chair')})</span>`);
+    if (!(await isSet(actor, F_COLLAPSE))) setBeacons(actor, [B_CHAIR]);
+  } else if (zone === Z_COLLAPSE) {
+    setBeacons(actor, [B_NORTH]);
   } else if (zone === Z_CLONEVAT && from === Z_COLLAPSE) {
+    // Out the other side: the prologue stops steering. Everything it lit goes dark.
+    setBeacons(actor, []);
+    beaconClear(actor.id);
     out(actor, `<span class="clone-vat-message">You wake. There is a floor now, cold and real, and a body on it that is yours, and it already aches. The vat behind you hisses shut. The between is gone as if it never was. Somewhere far above, an algorithm notes that its very large number is, once again, correct.</span>`);
     firstClothing(actor);
   }
@@ -327,6 +554,13 @@ function firstClothing(actor) {
     }
     out(actor, `<span class="clone-vat-message">A dressing gantry unfolds on too many arms and plants you upright in the lab. It sheathes you — underwear, pants, a t-shirt, a pair of shoes — with the tenderness of an industrial press. No invoice prints. The first clone, it seems, is free.</span>`);
   }, 5200);
+  // The place-name lands HERE and nowhere earlier: the cold open alludes to
+  // Coldwater as history and the prologue refuses to name it, so the first time
+  // the word attaches to somewhere you're standing is the moment you're standing
+  // in it. A stencil on a wall — the world telling you, not a voice welcoming you.
+  setTimeout(() => {
+    out(actor, `<span class="clone-vat-message">There is stencilling on the wall opposite, half-scoured by whatever they wash this room down with. You read it twice before it means anything. <b>COLDWATER BASIN — RESIDENT REINSTATEMENT</b>. Under it, in letters twice the size, in the flat voice of a thing that has printed it ten million times: <b>WELCOME BACK</b>.</span>`);
+  }, 8400);
 }
 
 // The welcome script — timed, styled, and unstoppable: it runs on its own timers,
@@ -336,7 +570,9 @@ function playBroadcast(player) {
   const lines = [
     `<span class="broadcast-line">A screen blinks into being on the wall that wasn't there. It fills the black with a light the color of an old television.</span>`,
     `<span class="broadcast-line">"HELLO. AND WELCOME." The voice is warm in the way a recording of warmth is warm.</span>`,
-    `<span class="broadcast-line">"You have been spawned into COLDWATER BASIN. The Architect has great plans for its new project. You will not be told what they are. That is not withholding. That is simply how plans this large are kept."</span>`,
+    // Deliberately names neither the destination nor the arrival. The player has
+    // not gone anywhere yet; the Architect simply starts talking about the plan.
+    `<span class="broadcast-line">"The Architect has great plans for its new project. You will not be told what they are. That is not withholding. That is simply how plans this large are kept."</span>`,
     `<span class="broadcast-line">"The world you are entering is violent. Your choices are your own, and they will have consequences, and the consequences will be your own as well. You have free will. We are quite sure of this."</span>`,
     `<span class="broadcast-line">"You may be a combatant. You may be a criminal. You may be a crafter. You may be a businessman. It all fits within the plan. Everything fits within the plan."</span>`,
     `<span class="broadcast-line">"Behave as you would. That is all that is asked of you. Behave exactly as you would."</span>`,
@@ -366,7 +602,11 @@ function playBroadcast(player) {
         const label = qty > 1 ? `${qty}x ${name}` : name;
         return `<span class="action-link room-item" data-action="take" data-target="${name}" title="Take ${name}">${label}</span>`;
       }).join(', ');
-      out(player, `<span class="ambient">Objects thud onto the invisible floor in front of you, one after another, as if the dark is emptying its pockets:</span> ${mentions}. <span class="hint">(take them or leave them — then go north to the collapse)</span>`);
+      out(player, `<span class="ambient">Objects thud onto the invisible floor in front of you, one after another, as if the dark is emptying its pockets:</span> ${mentions}. <span class="hint">(take them or leave them — then go ${teachVerb('north', 'go', 'north')} to the collapse)</span>`);
+      // Every take-link shimmers, and so does the exit. The kit is one-way: walk
+      // north without it and it's gone for good — so the prologue's last act is to
+      // make "there are things on the floor" impossible to miss.
+      setBeacons(player, [...KIT.map(({ name }) => ['take', name]), B_NORTH]);
       // …and the record of what you just watched. Volume I of the CODEX is handed
       // over whole here rather than earned, because the player has already seen
       // it — the cold open IS that volume, cut to thirty seconds. Everything in
@@ -466,7 +706,7 @@ async function cmdIntroDone(args, _raw, player) {
 }
 
 async function cmdIntro(args, _raw, player) {
-  sendToPlayer(player.id, { type: 'intro_cinematic' });
+  sendToPlayer(player.id, { type: 'intro_cinematic', skyline: coldwaterSkyline() });
   return null;
 }
 
@@ -478,12 +718,13 @@ export const commands = {
 
 // Test surface for plugins/prologue/regress.js (never used in production).
 export const _test = {
-  prologueMoveGate, useHolosign, useHolocaster,
+  prologueMoveGate, useHolosign, useHolocaster, readHolosign,
   grantAllStatsPlusOne, isSet, raise,
   Z_INBETWEEN, Z_LATTICE, Z_BROADCAST, Z_COLLAPSE,
   ITEM_HOLOCASTER,
   F_ALIGNED, F_INTERFACED, F_BROADCAST, F_COLLAPSE, F_PLAYED,
   cmdTutorial, F_TOUR_ASKED, F_TOUR_TAKEN,
+  coldwaterSkyline, speakArrival,
 };
 
 console.log('[prologue] Plugin loaded.');

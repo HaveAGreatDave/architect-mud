@@ -52,7 +52,16 @@ export function openMorphexPanel(data) {
     _modal = document.createElement('div');
     _modal.id = 'morphex-modal';
     _modal.classList.add('modal-overlay'); _modal.style.cssText = 'background:rgba(0,0,0,0.78);z-index:500;display:flex;padding:16px;box-sizing:border-box';
-    _modal.addEventListener('click', e => { if (e.target === _modal) _close(); });
+    // Close on backdrop click only when the press STARTED on the backdrop too.
+    // Dragging a selection out of an input releases over the overlay, and the
+    // resulting click retargets to the common ancestor (_modal) — which used to
+    // close the terminal mid-edit.
+    let _downOnBackdrop = false;
+    _modal.addEventListener('mousedown', e => { _downOnBackdrop = e.target === _modal; });
+    _modal.addEventListener('click', e => {
+      if (e.target === _modal && _downOnBackdrop) _close();
+      _downOnBackdrop = false;
+    });
     document.body.appendChild(_modal);
   }
   _modal.style.display = 'flex';

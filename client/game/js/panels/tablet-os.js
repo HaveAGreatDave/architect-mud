@@ -1210,6 +1210,24 @@ function ensureStyles() {
     #tablet-os-overlay .tos-ginv-slot { font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); white-space:nowrap; }
     #tablet-os-overlay .tos-ginv-eq { font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--mg-accent); white-space:nowrap; }
     #tablet-os-overlay .tos-ginv-chev { flex:0 0 auto; font-size:15px; color:var(--tos-fg-dim2); }
+    /* The primary-verb chip: the one thing this item is FOR (Use / Read / Eat / …),
+       shown on the row itself and tappable straight through, so a player never has
+       to guess which verb an object wants. It shimmers on a slow loop — the same
+       "this is the next move" language as the prose's .verb-teach. */
+    #tablet-os-overlay .tos-ginv-verb { flex:0 0 auto; cursor:pointer; font-size:9px; letter-spacing:1.5px; text-transform:uppercase;
+      padding:3px 9px; border-radius:3px; white-space:nowrap; color:var(--mg-accent); position:relative; overflow:hidden;
+      background:color-mix(in srgb, var(--mg-accent) 14%, transparent);
+      border:1px solid color-mix(in srgb, var(--mg-accent) 45%, transparent); }
+    #tablet-os-overlay .tos-ginv-verb:hover { background:color-mix(in srgb, var(--mg-accent) 30%, transparent); }
+    #tablet-os-overlay .tos-ginv-verb::after, #tablet-os-overlay .tos-idp-verb.primary::after {
+      content:''; position:absolute; inset:0; pointer-events:none;
+      background:linear-gradient(105deg, transparent 35%, color-mix(in srgb, var(--mg-accent) 55%, transparent) 50%, transparent 65%);
+      transform:translateX(-120%); animation:tos-verb-shimmer 3.4s ease-in-out infinite; }
+    #tablet-os-overlay .tos-idp-verb.primary { position:relative; overflow:hidden;
+      border-color:color-mix(in srgb, var(--mg-accent) 85%, transparent); }
+    @keyframes tos-verb-shimmer { 0%{transform:translateX(-120%)} 55%,100%{transform:translateX(120%)} }
+    [data-motion="off"] #tablet-os-overlay .tos-ginv-verb::after,
+    [data-motion="off"] #tablet-os-overlay .tos-idp-verb.primary::after { animation:none; opacity:0; }
     /* Collapsible Clothing group header on the Inventory tab. */
     #tablet-os-overlay .tos-ginv-grouphead { display:flex; align-items:center; gap:8px; cursor:pointer; margin-top:8px; padding:7px 10px;
       border-radius:5px; background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo));
@@ -4963,6 +4981,14 @@ function gearWeight(g) {
 // takes when the piece's layer matches the chosen one). Mirrors the engine's LAYERS.
 const GEAR_LAYER_N = { underwear: 1, outerwear: 2, armor: 3 };
 const GEAR_VERB_LABELS = { eat: 'Eat', drink: 'Drink', use: 'Use', open: 'Open', read: 'Read' };
+// The verb an item most wants, in priority order. Equip/unequip/drop are excluded
+// deliberately — the doll and the Drop button already teach those; this is for the
+// verbs a player would otherwise have to guess at (a holocaster is for USING).
+const GEAR_PRIMARY_VERBS = ['use', 'read', 'eat', 'drink', 'smoke', 'open', 'play', 'light'];
+function primaryVerb(it) {
+  const acts = it?.actions || [];
+  return GEAR_PRIMARY_VERBS.find(v => acts.includes(v)) || null;
+}
 const GEAR_TRAY_PAGE = 6;   // loadout carried-tray page size
 const GEAR_INV_PAGE = 8;    // Inventory-tab page size
 const gcap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -5170,8 +5196,12 @@ function renderGearInventory(d) {
     const slot = it.tags?.slot || '';
     const badge = it.is_equipped ? '<span class="tos-ginv-eq">equipped</span>'
       : (slot ? `<span class="tos-ginv-slot">${esc(slot.replace('_', ' '))}</span>` : '');
+    const pv = primaryVerb(it);
+    const verbChip = pv
+      ? `<span class="tos-ginv-verb" data-ginv-verb="${esc(pv)}" title="${esc(GEAR_VERB_LABELS[pv] || gcap(pv))} ${esc(it.name)}">${esc(GEAR_VERB_LABELS[pv] || gcap(pv))}</span>`
+      : '';
     return `<div class="tos-ginv-row" data-ginv="${it.id}">
-      <span class="tos-ginv-name">${esc(it.name)}${qty}</span>${badge}
+      <span class="tos-ginv-name">${esc(it.name)}${qty}</span>${badge}${verbChip}
       <span class="tos-ginv-chev">›</span></div>`;
   };
   const list = main.length
@@ -5218,11 +5248,12 @@ function showGearItemDetail(it) {
   }
 
   const verbs = [];
+  const pv = primaryVerb(it);
   if (t.slot && !it.is_equipped) verbs.push({ label: 'Equip', kind: 'equip' });
   if (t.slot && it.is_equipped) verbs.push({ label: 'Unequip', kind: 'unequip' });
   for (const v of (it.actions || [])) {
     if (['drop', 'equip', 'unequip', 'wear', 'wield'].includes(v)) continue;
-    verbs.push({ label: GEAR_VERB_LABELS[v] || gcap(v), kind: 'verb', verb: v });
+    verbs.push({ label: GEAR_VERB_LABELS[v] || gcap(v), kind: 'verb', verb: v, primary: v === pv });
   }
   verbs.push({ label: 'Drop', kind: 'drop' });
 
@@ -5233,7 +5264,7 @@ function showGearItemDetail(it) {
       <button class="tos-idp-x" title="Close">✕</button></div>
     ${t.description ? `<div class="tos-idp-desc">${esc(t.description)}</div>` : ''}
     <div class="tos-idp-stats">${rows.map(([k, v]) => `<div class="tos-idp-stat"><span>${esc(k)}</span><span>${esc(v)}</span></div>`).join('')}</div>
-    <div class="tos-idp-verbs">${verbs.map((v, i) => `<button class="tos-idp-verb${v.kind === 'drop' ? ' danger' : ''}" data-vi="${i}">${esc(v.label)}</button>`).join('')}</div>
+    <div class="tos-idp-verbs">${verbs.map((v, i) => `<button class="tos-idp-verb${v.kind === 'drop' ? ' danger' : ''}${v.primary ? ' primary' : ''}" data-vi="${i}">${esc(v.label)}</button>`).join('')}</div>
   </div>`;
   el.addEventListener('click', (e) => { if (e.target === el) closeGearItemDetail(); });
   el.querySelector('.tos-idp-x').addEventListener('click', closeGearItemDetail);
@@ -5428,11 +5459,15 @@ function wireGear() {
     });
   });
 
-  // Inventory-tab rows → item-detail sheet.
+  // Inventory-tab rows → item-detail sheet. The shimmering verb chip on the row
+  // short-circuits that: one tap fires the verb, no sheet, no guessing.
   _overlay.querySelectorAll('[data-ginv]').forEach(el => {
-    el.addEventListener('click', () => {
+    el.addEventListener('click', (e) => {
       const it = gearTrayItem(el.getAttribute('data-ginv'));
-      if (it) showGearItemDetail(it);
+      if (!it) return;
+      const chip = e.target.closest?.('[data-ginv-verb]');
+      if (chip) { e.stopPropagation(); hideGearTip(); gearVerb(chip.getAttribute('data-ginv-verb'), it.name); return; }
+      showGearItemDetail(it);
     });
   });
 

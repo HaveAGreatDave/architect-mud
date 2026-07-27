@@ -1691,3 +1691,7 @@ export const handlers = {
 // Lighting controls are owned by the lighting plugin (registered as specialized
 // actions); exported here so that plugin can delegate to the engine logic.
 export { cmdSwitch, cmdTurn };
+
+// Exported for plugins that want to alias a verb onto examine for one object
+// (the prologue's `read holosign`) rather than re-describing it themselves.
+export { cmdExamine };

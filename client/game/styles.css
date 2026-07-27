@@ -686,6 +686,45 @@ body.fsim-external #look-resize-handle { display: none; }
 	100% { opacity: 0;   transform: scale(1.55); box-shadow: 0 0 12px 6px transparent; }
 }
 
+/* The sticky counterpart to .point-ripple: the object the tutorial is currently
+   steering you toward keeps a slow shimmer until the server says it's done with
+   it. .point-ripple fires once and is gone; a beacon has to survive every room
+   re-render (render.js reapplies it), because "what do I do next" is a question
+   a lost player asks minutes after the prose scrolled away. */
+.point-beacon {
+	position: relative;
+	font-weight: 700;
+	background: linear-gradient(100deg,
+		var(--accent) 0%, var(--accent) 38%,
+		var(--text-bright) 50%,
+		var(--accent) 62%, var(--accent) 100%);
+	background-size: 300% 100%;
+	-webkit-background-clip: text;
+	background-clip: text;
+	-webkit-text-fill-color: transparent;
+	animation: point-beacon-sweep 2.8s ease-in-out infinite;
+}
+.point-beacon::after {
+	content: "";
+	position: absolute;
+	inset: -2px -4px;
+	border-radius: 6px;
+	pointer-events: none;
+	border: 1px solid var(--accent-dim);
+	animation: point-beacon-halo 2.8s ease-in-out infinite;
+}
+@keyframes point-beacon-sweep {
+	0%, 100% { background-position: 150% 0; text-shadow: 0 0 6px var(--accent-dim); }
+	50%      { background-position: -50% 0; text-shadow: 0 0 13px var(--accent); }
+}
+@keyframes point-beacon-halo {
+	0%, 100% { opacity: 0.15; box-shadow: 0 0 0 0 transparent; }
+	50%      { opacity: 0.75; box-shadow: 0 0 10px 1px var(--accent-dim); }
+}
+/* Motion off: keep the emphasis, drop the movement. */
+[data-motion="off"] .point-beacon { animation: none; -webkit-text-fill-color: var(--accent); }
+[data-motion="off"] .point-beacon::after { animation: none; opacity: 0.6; }
+
 /* Hero-poster mural reveal (posters plugin): hanging all seven sheets in one
    room spells a word the prose describes as "gleaming" — so it gleams on
    screen — the letters catch light, burn, get swept twice, and settle. Same

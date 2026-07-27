@@ -35,6 +35,9 @@
 //   • the whole thing is idempotent and self-cleaning: one overlay, one RAF, one
 //     AudioContext, all torn down on skip or end.
 import { loadSettings } from '../../../shared/settings.js';
+// The SAME height/footprint numbers the flight sim extrudes Coldwater with, so
+// the skyline you fly through here is the skyline you fly over later.
+import { FLOOR_Z, BUILDING_FOOT, floorsFor } from '../../../shared/skyline-scale.js';
 
 const SEEN_KEY = 'introCinematicSeen';
 
@@ -57,8 +60,11 @@ const BEATS = [
   // The hard cut. One word, alone, on real black with no drone under it.
   { t: 41500, hold: 2700, text: 'Silence.', cls: 'silence' },
   { t: 45250, hold: 2700, text: 'Then the lights came back on.' },
-  { t: 49000, hold: 3350, text: 'COLDWATER BASIN', cls: 'title' },
-  { t: 53400, hold: 2900, text: 'The shelves are full. The trains run.<br>Nothing outside the Basin is alive.' },
+  // The title card deliberately does NOT name the city. The cold open is history,
+  // and the player's first room is the void — the name is held back until they're
+  // standing in the place, where it's stencilled on the clone-lab wall.
+  { t: 49000, hold: 3350, text: 'ONE CITY LEFT', cls: 'title' },
+  { t: 53400, hold: 2900, text: 'The shelves are full. The trains run.<br>Nothing outside it is alive.' },
   { t: 57350, hold: 2900, text: 'Something is keeping it running.<br>It calls itself the Architect.', cls: 'big' },
   { t: 61300, hold: 3800, text: 'It does not ask to be worshipped.<br>It asks that you get to work on time.' },
 ];
@@ -305,7 +311,7 @@ function startAudio() {
   };
   hit(26850, 1.1, 0.5, 220);   // "something woke up"
   hit(38000, 2.4, 0.9, 130);   // "Civilization disappeared in weeks."
-  hit(49000, 1.6, 0.35, 520);  // COLDWATER BASIN
+  hit(49000, 1.6, 0.35, 520);  // the title card
   hit(LOGO_AT, 0.9, 0.22, 1400); // the A-mark draws itself on — a soft air-hiss
 
   return { ctx, master, voices };
@@ -352,7 +358,7 @@ function parseAccent(css) {
   return ACCENT_FALLBACK;
 }
 
-function startCanvas(cv, t0, reduced) {
+function startCanvas(cv, t0, reduced, skyline) {
   const ctx = cv.getContext('2d');
   let w = 0, h = 0;
   const dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -371,9 +377,10 @@ function startCanvas(cv, t0, reduced) {
   // A pinhole at the world origin looking down +z, with a little pitch. Nothing
   // else: no matrices, no near/far planes. `proj` is the only place perspective
   // happens, so every phase gets the same depth for free.
-  const cam = { z: 0, y: 0, pitch: 0 };
-  const proj = (x, y, z) => {
+  const cam = { x: 0, y: 0, z: 0, pitch: 0 };
+  const proj = (x0, y, z) => {
     const f = Math.min(w, h) * 0.95;
+    const x = x0 - cam.x;
     const dy = y - cam.y, dz = z - cam.z;
     const cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
     const ry = dy * cp - dz * sp;
@@ -407,37 +414,64 @@ function startCanvas(cv, t0, reduced) {
   }
 
   // ── Coldwater ──
-  // A block grid with a street left down the middle for the camera to look along.
-  // Sorted far-to-near once, so the per-frame draw is a plain painter's pass.
-  const GY = 0.95;                                   // the ground plane
-  const COLS = reduced ? 6 : 9, ROWS = reduced ? 4 : 6;
-  const city = [];
-  const grid = [];
-  for (let r = 0; r < ROWS; r++) {
-    grid[r] = [];
-    for (let c = 0; c < COLS; c++) {
-      const gx = (c - (COLS - 1) / 2) * 1.34 + (Math.random() - 0.5) * 0.16;
-      if (Math.abs(gx) < 0.95) { grid[r][c] = null; continue; }   // the street
-      const b = {
-        gx, gz: 2.5 + r * 1.72 + (Math.random() - 0.5) * 0.28,
-        bw: 0.52 + Math.random() * 0.52, bd: 0.48 + Math.random() * 0.5,
-        bh: (0.65 + Math.random() * 1.75) * (1 + Math.abs(gx) * 0.09),
-        seed: Math.random(), delay: Math.random(),
-      };
-      grid[r][c] = b;
-      city.push(b);
+  //
+  // THIS IS THE REAL CITY. `skyline` is the actual building tiles off the world
+  // map (see coldwaterSkyline in plugins/prologue/index.js), and the footprints
+  // and floor counts are the same ones the flight sim extrudes out of a cockpit
+  // windshield — same `client/shared/skyline-scale.js`, same numbers. A player
+  // who watches this and then, hours later, flies over Marrow Street is looking
+  // at the same block from the other side. That's the whole reason to pay the
+  // cost of shipping the manifest on a login.
+  //
+  // Two art liberties, both deliberate:
+  //   • STRETCH — the flight sim's storeys are short because its camera is a
+  //     thousand feet up. At street level, flying between them, they need to be
+  //     tall. Nothing else about the geometry is touched.
+  //   • the city is rotated 90° into the scene (tile-x becomes DEPTH), because
+  //     Coldwater is a wide shallow band and the long axis is the only one you
+  //     can actually fly down.
+  const GY = 0;              // the ground plane; up is -y
+  const SPACING = 1.0;       // one world tile → one scene unit
+  const STRETCH = 4.2;       // storey height multiplier — see above
+  const BASE_H = 0.12;       // so a single-storey shop is still a box, not a mark
+
+  // No manifest (an old server, or a replay before one arrives) → a plausible
+  // block grid in the SAME shape, so there is exactly one renderer below.
+  const rawSkyline = (Array.isArray(skyline) && skyline.length >= 8) ? skyline : (() => {
+    const f = [];
+    for (let gy = 0; gy < 12; gy++) for (let gx = 0; gx < 26; gx++) {
+      if (Math.random() > 0.3) continue;
+      f.push({ x: gx, y: gy, t: 'default', f: 2 + Math.floor(Math.random() * 14) });
     }
-  }
-  city.sort((a, b) => b.gz - a.gz);
-  // The lattice's last visible act: lines between adjacent footprints, drawn on
-  // the ground before anything stands up on them.
-  const streets = [];
-  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
-    const b = grid[r][c]; if (!b) continue;
-    const right = grid[r][c + 1], back = grid[r + 1]?.[c];
-    if (right) streets.push([b, right]);
-    if (back) streets.push([b, back]);
-  }
+    return f;
+  })();
+
+  const city = (() => {
+    const src = rawSkyline.slice(0, 240);
+    let cx = 0, cy = 0;
+    for (const b of src) { cx += b.x; cy += b.y; }
+    cx /= src.length; cy /= src.length;
+    const out = src.map((b, i) => {
+      const seed = ((b.x + 512) * 73 + (b.y + 512) * 149) % 1000 / 1000;
+      const floors = floorsFor(b.t, b.f);
+      // tile-y → lateral, tile-x → depth. See the rotation note above.
+      const sx = (b.y - cy) * SPACING, sz = (b.x - cx) * SPACING;
+      return {
+        sx, sz, i,
+        half: (BUILDING_FOOT + seed * 0.05) * SPACING,
+        h: BASE_H + floors * FLOOR_Z * STRETCH * (0.9 + seed * 0.2),
+        floors, seed,
+        // Downtown lands first and the edges of the map last, so the city
+        // assembles from its middle outward rather than in a flat wipe.
+        delay: clamp01(Math.hypot(sx, sz) / 22) * 0.55 + seed * 0.22,
+        // Where this building's node comes IN from: high, wide, and scattered —
+        // the lattice arriving from everywhere at once.
+        ox: (seed - 0.5) * 46, oy: -14 - seed * 22, oz: sz + (seed - 0.5) * 30,
+      };
+    });
+    out.sort((a, b) => b.sz - a.sz);   // far → near, a plain painter's pass
+    return out;
+  })();
 
   const phaseAt = (t) => { let p = PHASES[0].phase; for (const s of PHASES) if (t >= s.from) p = s.phase; return p; };
   // The lattice breathes on the line. Each beat's arrival brightens the links for
@@ -450,7 +484,7 @@ function startCanvas(cv, t0, reduced) {
 
   // ── Lattice / tighten / shatter ──
   function drawLattice(t, phase, pulse) {
-    cam.z = 0; cam.y = 0; cam.pitch = 0;
+    cam.x = 0; cam.z = 0; cam.y = 0; cam.pitch = 0;
     const tighten = smooth(clamp01((t - P_TIGHTEN) / 9200));
     const shatter = phase === 'shatter' ? easeOut(clamp01((t - P_SHATTER) / 2100)) : 0;
     // A full orbit would take ~2 minutes. It should read as "is that moving?"
@@ -514,102 +548,164 @@ function startCanvas(cv, t0, reduced) {
   }
 
   // ── The city ──
-  // World-space bilinear across a face, then project: windows foreshorten with
-  // the wall they're painted on instead of sliding evenly across it.
-  const facePt = (q, u, v) => {
-    const ax = lerp(q[0][0], q[1][0], u), ay = lerp(q[0][1], q[1][1], u), az = lerp(q[0][2], q[1][2], u);
-    const bx = lerp(q[3][0], q[2][0], u), by = lerp(q[3][1], q[2][1], u), bz = lerp(q[3][2], q[2][2], u);
-    return proj(lerp(ax, bx, v), lerp(ay, by, v), lerp(az, bz, v));
+  //
+  // Coldwater as a WIREFRAME, and we fly through it. Three overlapping movements:
+  //
+  //   1. ARRIVAL. Every building gets one node, which comes in from high and far
+  //      and lands on the building's ROOFTOP. That is the lattice transforming
+  //      into the city — literally the same vocabulary of drifting bright points
+  //      the first forty seconds were made of, except now each point has an
+  //      address.
+  //   2. EXTRUSION. Where a node lands, a wireframe box grows DOWNWARD from it to
+  //      the ground. The building hangs itself off the node rather than rising to
+  //      meet it, because the node is the thing that decided it should exist.
+  //   3. IGNITION. Then the lights come on inside, floor by floor.
+  //
+  // It stays a wireframe the whole way — no filled walls — so you can see the far
+  // side of every tower and every light behind every other light. A solid city is
+  // a place; a wireframe city is a MODEL of a place, held by something that is
+  // still deciding. That reading is the point.
+  const stroke3 = (a, b, al, lw) => {
+    if (al <= 0.012) return;
+    // Either end past the lens drops the whole edge rather than clipping it — the
+    // only time it matters is a tower sliding out of the frame corner, where two
+    // missing edges for half a second cost nothing and a smear costs everything.
+    if (behind(a[2]) || behind(b[2])) return;
+    const pa = proj(a[0], a[1], a[2]), pb = proj(b[0], b[1], b[2]);
+    ctx.strokeStyle = acc(al);
+    ctx.lineWidth = lw;
+    ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y); ctx.stroke();
   };
-  const quadPath = (P) => {
-    ctx.beginPath(); ctx.moveTo(P[0].x, P[0].y);
-    for (let i = 1; i < P.length; i++) ctx.lineTo(P[i].x, P[i].y);
-    ctx.closePath();
-  };
+  // Distance haze. Without it seventy see-through boxes read as wire wool.
+  const haze = (z) => clamp01((28 - z) / 20) * clamp01(z / 0.9);
+  // Near-plane cull. `proj` clamps rz so it never divides by zero, which means a
+  // point BEHIND the camera comes back mirrored and smeared instead of absent —
+  // invisible while the camera was parked, and constant once it started flying
+  // through the city. So anything level with or behind the lens is dropped here,
+  // at the frame edge where the vignette is already black.
+  const behind = (z) => z - cam.z < 0.6;
 
   function drawCity(t) {
-    const p = smooth(clamp01((t - P_CITY) / 9500));
-    const dolly = clamp01((t - P_CITY) / 27000);
-    // A slow push down the street. It never arrives anywhere, which is the joke.
-    cam.z = -2.1 + 1.55 * dolly;
-    cam.y = -0.10 - 0.10 * dolly;
-    cam.pitch = -0.05 - 0.02 * dolly;
+    const ct = t - P_CITY;
+    // Deliberately allowed past 1: the per-building stagger subtracts up to 0.32
+    // from it, so a clamp at 1 would leave the last-arriving buildings on the rim
+    // of the map permanently half-lit.
+    const assemble = Math.min(1.7, ct / 9000);
+    // The run. Held back until the city has mostly landed, then eased the whole
+    // way through it and out the far side — the camera never stops, which is why
+    // the wordmark can land over it without anything having to "finish".
+    const fly = smooth(clamp01((ct - 4800) / 15600));
+    cam.x = reduced ? 0 : Math.sin(ct / 6400) * 1.5;      // a lazy weave down the street
+    cam.z = lerp(-30, 17, fly);
+    cam.y = lerp(-8.4, -0.95, fly);                       // down out of the sky to rooftop height
+    cam.pitch = lerp(0.30, -0.035, fly);                  // and level off, looking slightly up
 
     // Sky: cold above, sodium at street level. The Basin's lights are the only
     // warm colour anywhere in the sequence.
+    const p = smooth(clamp01(assemble));
     const sky = ctx.createLinearGradient(0, 0, 0, h);
     sky.addColorStop(0, 'rgba(0,0,0,0)');
-    sky.addColorStop(0.52, `rgba(22,34,46,${0.42 * p})`);
-    sky.addColorStop(1, `rgba(255,172,88,${0.15 * p})`);
+    sky.addColorStop(0.52, `rgba(20,32,44,${0.40 * p})`);
+    sky.addColorStop(1, `rgba(255,168,84,${0.13 * p})`);
     ctx.fillStyle = sky; ctx.fillRect(0, 0, w, h);
 
-    // The ground lattice — up early, gone by the time the towers have faces.
-    const gl = clamp01(p / 0.34) * (1 - clamp01((p - 0.34) / 0.34));
-    if (gl > 0.01) {
-      ctx.lineWidth = 1;
-      for (const [a, b] of streets) {
-        const pa = proj(a.gx, GY, a.gz), pb = proj(b.gx, GY, b.gz);
-        const depth = clamp01((11 - (pa.z + pb.z) / 2) / 7);
-        ctx.strokeStyle = acc(0.30 * gl * depth);
-        ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y); ctx.stroke();
-      }
-    }
-
-    const solid = clamp01((p - 0.26) / 0.30);              // faces fill in
-    const wire = (1 - clamp01((p - 0.22) / 0.36)) * 0.8 + 0.10;   // and the frame recedes
+    // A bank, applied to the whole frame. Two degrees of roll is the difference
+    // between a camera move and a FLIGHT.
+    const bank = reduced ? 0 : Math.sin(ct / 5200) * 0.035 * fly;
+    if (bank) { ctx.save(); ctx.translate(w / 2, h / 2); ctx.rotate(bank); ctx.translate(-w / 2, -h / 2); }
 
     for (const b of city) {
-      const grow = smooth(clamp01((p - b.delay * 0.20) / 0.52));
-      if (grow <= 0.001) continue;
-      const top = GY - b.bh * grow;
-      const x0 = b.gx - b.bw / 2, x1 = b.gx + b.bw / 2;
-      const z0 = b.gz - b.bd / 2, z1 = b.gz + b.bd / 2;
-      const side = b.gx > 0 ? x0 : x1;        // only the inner wall faces us
-      const lit = clamp01((p - 0.40 - b.delay * 0.26) / 0.42);
+      // Each building runs its own little three-act clock off its stagger.
+      const local = clamp01((assemble - b.delay * 0.42) / 0.30);
+      if (local <= 0) continue;
+      const land = smooth(local);                                   // node flies in
+      const grow = smooth(clamp01((assemble - b.delay * 0.42 - 0.20) / 0.26));  // box extrudes down
+      const lit  = clamp01((assemble - b.delay * 0.42 - 0.40) / 0.34);          // lights come on
 
-      const faces = [
-        { q: [[side, top, z0], [side, top, z1], [side, GY, z1], [side, GY, z0]], shade: 0.55, win: 0.45 },
-        { q: [[x0, top, z0], [x1, top, z0], [x1, GY, z0], [x0, GY, z0]], shade: 1, win: 1 },
-      ];
-      if (top > cam.y) faces.unshift({ q: [[x0, top, z0], [x1, top, z0], [x1, top, z1], [x0, top, z1]], shade: 0.32, win: 0 });
+      const top = GY - b.h;
+      // The node: from somewhere out there to exactly this rooftop.
+      const nx = lerp(b.ox, b.sx, land), ny = lerp(b.oy, top, land), nz = lerp(b.oz, b.sz, land);
+      const np = proj(nx, ny, nz);
+      const nhz = behind(nz) ? 0 : haze(np.z);
+      if (nhz > 0.02) {
+        // Bright while travelling, settling to a rooftop beacon once it's home.
+        const na = (0.85 - 0.45 * land) * nhz + 0.25 * land * nhz;
+        const nr = Math.max(0.8, (2.4 - 1.2 * land) * (9 / np.z));
+        ctx.fillStyle = acc(na * 0.18);
+        ctx.beginPath(); ctx.arc(np.x, np.y, nr * 3.6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = acc(na);
+        ctx.beginPath(); ctx.arc(np.x, np.y, nr, 0, Math.PI * 2); ctx.fill();
+      }
+      if (grow <= 0.002) continue;
 
-      for (const f of faces) {
-        const P = f.q.map((c) => proj(c[0], c[1], c[2]));
-        quadPath(P);
-        ctx.fillStyle = `rgba(${Math.round(7 * f.shade)},${Math.round(11 * f.shade)},${Math.round(15 * f.shade)},${0.94 * solid})`;
-        ctx.fill();
-        if (wire > 0.02) {
-          ctx.strokeStyle = acc(wire * 0.5 * grow);
-          ctx.lineWidth = 1;
-          ctx.stroke();
-        }
-        if (!f.win || lit <= 0.01) continue;
+      const bot = lerp(top, GY, grow);      // hangs down from the roof
+      const x0 = b.sx - b.half, x1 = b.sx + b.half;
+      const z0 = b.sz - b.half, z1 = b.sz + b.half;
+      if (behind(z1)) continue;             // fully past the lens
+      const hz = haze(proj(b.sx, top, b.sz).z);
+      if (hz <= 0.02) continue;
+      const al = 0.42 * hz, lw = Math.max(0.5, 1.15 * clamp01(9 / Math.max(0.6, b.sz - cam.z)));
 
-        // Window grid sized off the face's ON-SCREEN size — free LOD, so the
-        // back rows cost nothing and the near towers stay dense.
-        const wpx = Math.hypot(P[1].x - P[0].x, P[1].y - P[0].y);
-        const hpx = Math.hypot(P[3].x - P[0].x, P[3].y - P[0].y);
-        if (wpx < 20 || hpx < 26) continue;
-        const cols = Math.max(1, Math.min(6, Math.round(wpx / 13)));
-        const rows = Math.max(1, Math.min(11, Math.round(hpx / 15)));
-        for (let c = 0; c < cols; c++) for (let r = 0; r < rows; r++) {
-          const k = (c * 37 + r * 17 + Math.floor(b.seed * 97)) % 100;
-          if (k > 52) continue;                       // most windows are dark
-          if (lit < (k / 100) * 0.95) continue;       // and the rest come on in a cascade
-          const fl = reduced ? 1 : 0.78 + 0.22 * Math.sin(t / 380 + k * 1.7 + b.seed * 9);
-          const al = f.win * 0.70 * fl * lit;
-          const Q = [facePt(f.q, (c + 0.24) / cols, (r + 0.22) / rows),
-                     facePt(f.q, (c + 0.78) / cols, (r + 0.22) / rows),
-                     facePt(f.q, (c + 0.78) / cols, (r + 0.70) / rows),
-                     facePt(f.q, (c + 0.24) / cols, (r + 0.70) / rows)];
-          quadPath(Q);
-          // One window in thirteen still burns the lattice's colour. Something is
-          // awake in there, and it isn't a person.
-          ctx.fillStyle = k % 13 === 0 ? acc(al * 0.85) : `rgba(255,206,140,${al})`;
-          ctx.fill();
+      // The roof, drawn brightest — it's the part the node made.
+      stroke3([x0, top, z0], [x1, top, z0], al * 1.5, lw);
+      stroke3([x1, top, z0], [x1, top, z1], al * 1.5, lw);
+      stroke3([x1, top, z1], [x0, top, z1], al * 1.5, lw);
+      stroke3([x0, top, z1], [x0, top, z0], al * 1.5, lw);
+      // Four corner posts, growing toward the ground.
+      stroke3([x0, top, z0], [x0, bot, z0], al, lw);
+      stroke3([x1, top, z0], [x1, bot, z0], al, lw);
+      stroke3([x1, top, z1], [x1, bot, z1], al, lw);
+      stroke3([x0, top, z1], [x0, bot, z1], al, lw);
+      // And the footprint, only once it has actually reached the ground.
+      if (grow > 0.97) {
+        stroke3([x0, GY, z0], [x1, GY, z0], al * 0.85, lw);
+        stroke3([x1, GY, z0], [x1, GY, z1], al * 0.85, lw);
+        stroke3([x1, GY, z1], [x0, GY, z1], al * 0.85, lw);
+        stroke3([x0, GY, z1], [x0, GY, z0], al * 0.85, lw);
+      }
+
+      // ── Lights ──
+      // Points on the wall planes at storey heights, not textured quads: inside a
+      // see-through box you want floating sparks, and you want to see the ones on
+      // the far wall through the near one. Two walls only — the one facing the
+      // camera in z and the one facing it in x — which halves the cost and looks
+      // identical, because the box is transparent anyway.
+      if (lit <= 0.01) continue;
+      const dist = Math.max(0.6, Math.hypot(b.sx - cam.x, b.sz - cam.z));
+      if (dist > 26) continue;
+      const rows = Math.min(14, Math.max(1, Math.round(b.floors * 0.8)));
+      const wz = b.sz > cam.z ? z0 : z1;         // the z-wall we can see
+      const wx = b.sx > cam.x ? x0 : x1;         // and the x-wall
+      const rad = Math.max(0.7, 30 / dist);
+      for (let r = 0; r < rows; r++) {
+        const fy = top + (b.h * (r + 0.55)) / rows;
+        if (fy > GY - 0.02) continue;
+        for (let c = 0; c < 3; c++) {
+          for (const wall of [0, 1]) {
+            const k = (r * 31 + c * 17 + wall * 53 + Math.floor(b.seed * 97)) % 100;
+            if (k > 46) continue;                       // most windows are dark
+            if (lit < (k / 100) * 0.95) continue;       // the rest come on in a cascade
+            const u = (c + 0.5) / 3;
+            const px = wall ? wx : lerp(x0, x1, u);
+            const pz = wall ? lerp(z0, z1, u) : wz;
+            if (behind(pz)) continue;
+            const q = proj(px, fy, pz);
+            const qh = haze(q.z);
+            if (qh <= 0.03) continue;
+            const fl = reduced ? 1 : 0.74 + 0.26 * Math.sin(t / 380 + k * 1.7 + b.seed * 9);
+            const a = 0.78 * fl * lit * qh * (wall ? 0.7 : 1);
+            // One light in thirteen still burns the lattice's own colour.
+            // Something is awake in there, and it isn't a person.
+            ctx.fillStyle = k % 13 === 0 ? acc(a) : `rgba(255,206,140,${a})`;
+            ctx.beginPath(); ctx.arc(q.x, q.y, rad * 0.9, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = k % 13 === 0 ? acc(a * 0.16) : `rgba(255,196,120,${a * 0.16})`;
+            ctx.beginPath(); ctx.arc(q.x, q.y, rad * 3.2, 0, Math.PI * 2); ctx.fill();
+          }
         }
       }
     }
+
+    if (bank) ctx.restore();
   }
 
   function frame() {
@@ -660,7 +756,11 @@ const LOGO_HTML = `
     </svg>
     <div class="intro-cine-word">ARCHITECT</div>
     <div class="intro-cine-rule"></div>
-    <div class="intro-cine-welcome">Welcome to Coldwater Basin</div>
+    <!-- Deliberately NOT "Welcome to Coldwater Basin". The cold open never names
+         the city at all — it SHOWS it (the flythrough is the real skyline) and
+         calls it "one city left". The name is held back until the player climbs
+         out of the vat and reads it stencilled on the clone-lab wall. -->
+    <div class="intro-cine-welcome">Welcome</div>
     <div class="intro-cine-fine">A MANAGED ENVIRONMENT · YOUR ARRIVAL WAS ANTICIPATED</div>
   </div>`;
 
@@ -670,7 +770,7 @@ const LOGO_HTML = `
  * Play the cold open. Resolves (via onDone) exactly once — on the last beat or
  * on a skip — so the caller can tell the server to get on with the prologue.
  */
-export function playIntroCinematic(onDone) {
+export function playIntroCinematic(onDone, skyline) {
   if (_ov) return;                       // already running — never stack two
   _finished = false;
   _done = typeof onDone === 'function' ? onDone : () => {};
@@ -695,7 +795,7 @@ export function playIntroCinematic(onDone) {
   const skipEl = _ov.querySelector('#intro-cine-skip');
   const t0 = performance.now();
 
-  _cleanupCanvas = startCanvas(_ov.querySelector('#intro-cine-cv'), t0, reduced);
+  _cleanupCanvas = startCanvas(_ov.querySelector('#intro-cine-cv'), t0, reduced, skyline);
   _audio = startAudio();
 
   const later = (ms, fn) => _timers.push(setTimeout(fn, ms));

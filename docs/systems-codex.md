@@ -44,14 +44,33 @@ no libraries, no matrices) run through five phases against **one** node field �
 `lattice` (a drifting volume, linked by 3D proximity) → `tighten` (the same nodes
 pulled onto a regular cubic lattice; the reach shrinks past the cube diagonal so
 the cloud becomes wireframe cubes on its own) → `shatter` (blown outward under
-torn scanlines) → `void` (nothing, drawn as nothing) → `city`, where the lattice
-returns snapped to a ground plane and **extruded into Coldwater** — ground lines
-between footprints first, then wireframe boxes rising, then faces, then windows
-lighting in a cascade (one in thirteen burns the lattice's own colour). The
-camera dollies down a street left open in the block grid. The nodes are never
-replaced, only rearranged, and the city is made of the lattice, because that is
-the story the text is telling. Link brightness pulses on each BEAT's arrival, so
-the animation runs on the story's clock rather than its own.
+torn scanlines) → `void` (nothing, drawn as nothing) → `city`. The nodes are
+never replaced, only rearranged, because that is the story the text is telling.
+Link brightness pulses on each BEAT's arrival, so the animation runs on the
+story's clock rather than its own.
+
+**The flythrough is the real Coldwater.** The `city` phase is not a procedural
+skyline — it is the actual building tiles off `map_world`, with the same
+footprints and floor counts the flight sim extrudes out of a cockpit windshield
+(both read `client/shared/skyline-scale.js`; see § "Where the skyline comes
+from" below). Three overlapping movements: every building gets **one node**,
+which flies in from high and far and lands on that building's **rooftop** — the
+lattice becoming the city, one point at a time, each point now with an address;
+where a node lands a **wireframe box grows downward** from it to the ground (the
+building hangs off the node rather than rising to meet it, because the node is
+what decided it should exist); then the **lights come on** inside, floor by floor
+(one light in thirteen burns the lattice's own colour). It stays a wireframe the
+whole way — no filled walls — so you see the far side of every tower and every
+light through every other light. A solid city is a place; a wireframe city is a
+*model* of a place, held by something still deciding.
+
+Then the camera **flies through it**: down out of the sky, levelling to rooftop
+height and running the length of the city and out the far side, weaving and
+banking a couple of degrees. It never stops, which is what lets the wordmark land
+over it without anything having to finish. `proj` clamps `rz` so it can't divide
+by zero, which means geometry *behind* the lens comes back mirrored and smeared
+rather than absent — so `behind()` culls per building, per edge and per light.
+That guard is invisible until the camera moves and mandatory afterwards.
 
 **The wordmark** (`LOGO_HTML` + the `.intro-cine-logo` CSS block) is the last
 beat: the A-mark draws itself on stroke by stroke — two legs, a crossbar, a
@@ -78,7 +97,36 @@ stray click in the first ten seconds would throw away the whole point.
 `prefers-reduced-motion` (and the app's `[data-motion="off"]`) drops the canvas
 to static frames and keeps the text.
 
-**Replay** is the `intro` verb, any time, anywhere.
+**Where the skyline comes from.** `coldwaterSkyline()` in
+`plugins/prologue/index.js` builds a manifest of `{ x, y, t, f }` — tile coords,
+`flags.building_type`, `flags.floors` — from the **already-in-memory** zone Maps
+(`getAllZones()`), filtered to `map_id === 'map_world'`, `flags.building_type`
+set, and `flags.region_id === 'region_coldwater'` (with a `grid_y > 960` belt for
+tiles authored before regions). **69 buildings, ~2.7 KB**, built once and cached
+forever, because world geometry doesn't move. It rides along on the
+`intro_cinematic` push, because the flight sim's `mapWindow` only ships to
+someone already in a seat and this is a player's *first login* — they haven't got
+a body yet. No query, no tick, no DB read on the login path.
+
+The client falls back to a procedural block grid **in the same shape** when the
+manifest is absent (an old server), so there is exactly one renderer. That
+fallback is also why `plugins/prologue/regress.js` asserts the manifest is
+non-empty and actually Coldwater: a content edit that emptied it would silently
+degrade to the stand-in and nobody would ever notice.
+
+Heights and footprints come from `client/shared/skyline-scale.js` —
+`TYPE_FLOORS`, `FLOOR_Z`, `BUILDING_FOOT`, `floorsFor()`. These **used to live
+inside windshield.js**; they moved because a first-login path must not import the
+~8000-line flight renderer to find out how many storeys a hotel has, and because
+the two views of the same city must not drift. windshield.js imports them and
+re-exports `BUILDING_FOOT` (cockpit.js's collision sweep imports it from there).
+The cold open applies exactly two art liberties on top, both local to
+intro-cinematic.js: a `STRETCH` on storey height (the flight sim's storeys are
+short because its camera is a thousand feet up; at street level they need to be
+tall) and a 90° rotation of the city into the scene, because Coldwater is a wide
+shallow band (35 tiles × 13) and the long axis is the only one you can fly down.
+
+**Replay** is the `intro` verb, any time, anywhere — it re-sends the manifest too.
 
 Timing lives in one place: `BEATS` (each `{ t, hold, text }`), the `P_*`
 constants that `PHASES` is built from, `LOGO_AT`, and `RUN_MS` as the total. Each

@@ -142,6 +142,23 @@ Four more families sit alongside these in the same `msg.type` chain (`server/ind
 
 **Broadcasting:** `broadcast(zoneId, message, excludePlayerId, targetPlayerId, excludePlayerId2, excludeSet)` in `index.js` is the single send function (`server/index.js:99-106`). Pass a `zoneId` to send to everyone in that zone; pass a `targetPlayerId` to send to one player; pass neither to send to all connected players. Engine modules receive `broadcast` as a passed-in function or via `setBroadcast()` (`engine/messaging.js:12`) — nothing imports it directly from `index.js`.
 
+**Pointing a player at a thing (`engine/messaging.js`).** Three escalating levels, all
+cosmetic — every one of them is a hint the client is free to ignore (motion off, an old
+bundle), so the prose must always still read on its own:
+
+| Call | Wire | Lifetime | Use it for |
+|---|---|---|---|
+| `teachVerb(verb, action, target)` | inline `<span class="verb-teach">` in your own message | shimmers 3× then settles | the **first mention of a verb**, anywhere. The house convention |
+| `pointAt(id, action, target)` | `point_at` | rings ripple out of the room-pane link, ~3.6s, then gone | "click *that* one, up there" — announcing a target the prose just named |
+| `beaconOn(id, action, target)` / `beaconOff` / `beaconClear(id)` | `beacon` | **sticky** — shimmers until turned off, and is re-stamped after every room re-render (`render.js applyBeacons`) | the object an **onboarding step** is steering you toward, where a player who looked away has nothing left on screen telling them what to do |
+
+`action`/`target` must match a room-pane link's `data-action`/`data-target` — furniture is
+`examine <name>`, NPCs `talk <name>`, exits `go <dir>`, ground items `take <name>` (see
+`commands/describe.js`). A beacon for a link that isn't in the pane yet retries briefly, then
+gives up quietly. **Always pair a `beaconOn` with the `beaconOff` on the step that completes
+it** — the prologue (`plugins/prologue/index.js`) does this through one `setBeacons(player, […])`
+helper that diffs against the previous step, which is the pattern to copy.
+
 ---
 
 ## Serving the Client (assets + socket)

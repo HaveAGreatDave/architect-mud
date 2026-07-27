@@ -7,12 +7,27 @@ import { _test } from './index.js';
 
 export default async function regress({ check }) {
   const {
-    prologueMoveGate, useHolosign, useHolocaster,
+    prologueMoveGate, useHolosign, useHolocaster, readHolosign,
     Z_INBETWEEN, Z_LATTICE, Z_BROADCAST,
     ITEM_HOLOCASTER,
     F_ALIGNED, F_INTERFACED, F_BROADCAST,
     cmdTutorial, F_TOUR_ASKED, F_TOUR_TAKEN, isSet,
+    coldwaterSkyline,
   } = _test;
+
+  // ── The cold open's skyline manifest ───────────────────────────────────────
+  // The closing flythrough renders the REAL city, so this is the one thing in
+  // the cinematic that can break from a content edit rather than a code one:
+  // rename a building_type, move a tile out of region_coldwater, and the cold
+  // open quietly loses a tower. Assert the shape and that it's actually
+  // Coldwater — a manifest that silently comes back empty would fall through to
+  // the client's procedural stand-in and nobody would ever notice.
+  const sky = coldwaterSkyline();
+  check('skyline manifest is a non-empty array', Array.isArray(sky) && sky.length > 20, `n=${sky?.length}`);
+  check('skyline entries are {x,y,t,f}', sky.every(b =>
+    Number.isFinite(b.x) && Number.isFinite(b.y) && typeof b.t === 'string' && Number.isFinite(b.f)));
+  check('skyline is Coldwater, not The Reach', sky.every(b => b.y <= 960));
+  check('skyline is cached (same array identity)', coldwaterSkyline() === sky);
 
   // The stat gift + holocaster grant write player-scoped rows (FKs to players),
   // so this needs a REAL players row — the harness's shared player is in-memory
@@ -42,6 +57,18 @@ export default async function regress({ check }) {
   // ── The holosign self-gates outside the lattice ────────────────────────────
   const wrongZone = await useHolosign(['holosign'], 'use holosign', { ...p, current_zone: Z_INBETWEEN });
   check('use holosign is inert outside the lattice', wrongZone === undefined);
+
+  // ── `read holosign` is an alias for examining it ───────────────────────────
+  // Scoped to the lattice and to the holosign: the global `read` verb still
+  // belongs to bulletins and job boards, so both of those must fall through.
+  const readWrongZone = await readHolosign(['holosign'], 'read holosign', { ...p, current_zone: Z_INBETWEEN });
+  check('read holosign is inert outside the lattice', readWrongZone === undefined);
+  const readOther = await readHolosign(['board'], 'read board', { ...p, current_zone: Z_LATTICE });
+  check('read <not the holosign> falls through', readOther === undefined);
+  const readIt = await readHolosign(['holosign'], 'read holosign', { ...p, current_zone: Z_LATTICE });
+  check('read holosign answers like examine', readIt !== undefined && readIt?.type !== 'error', readIt?.type);
+  const readCaster = await readHolosign(['holocaster'], 'read holocaster', { ...p, current_zone: Z_LATTICE });
+  check('read holocaster is not swallowed by the holosign', readCaster === undefined);
 
   // ── The gift beat: +1 to every stat (free of XP) + the holocaster ──────────
   const netBefore = await getNetXp(p.id);

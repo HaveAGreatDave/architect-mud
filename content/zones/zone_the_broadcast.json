@@ -23,7 +23,7 @@
   "grid_y": 3,
   "grid_z": 0,
   "id": "zone_the_broadcast",
-  "map_id": null,
+  "map_id": "map_prologue",
   "marker": null,
   "name": "The Broadcast",
   "parent_zone": null,

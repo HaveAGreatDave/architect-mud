@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { appendMsg, appendHtml, appendPre, updateVitals, parseZoneInfo, showDevPanelButton, setAreaPane, showSkyBanner, pointAtRoomTarget } from './render.js';
+import { appendMsg, appendHtml, appendPre, updateVitals, parseZoneInfo, showDevPanelButton, setAreaPane, showSkyBanner, pointAtRoomTarget, setRoomBeacon, clearRoomBeacons } from './render.js';
 import { sendCmd, sendCmdSilent, closeConnection, attemptAutoReauth, showVerifyScreen } from './net.js';
 import { renderMinimap, setGpsRoute, setRunState, startAutoWalk, resumeAutoWalkIfArmed, setAutoWalkPersist, isAutoWalking, isManualAutoWalkInProgress, cancelAutoWalk, autoWalkBlocked, resolveAutoWalkPicker, armAutoWalkPrompt } from './panels/minimap.js';
 import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility, signalPowerOut, isFxIndoors } from './panels/environment.js';
@@ -14,7 +14,7 @@ import { openContainerPanel, refreshContainerPanel, getActiveContainerId, showCo
 import { openWardrobePanel, refreshWardrobePanel, getActiveWardrobeId, showWardrobeNotify } from './panels/wardrobe.js';
 import { openLootPanel, closeLootPanel } from './panels/loot.js';
 import { openLightViewDialog } from './panels/lightview.js';
-import { openMorphexPanel } from './panels/morphex.js';
+import { openMorphexPanel, closeMorphexPanel } from './panels/morphex.js';
 import { updateForecast } from './panels/forecast.js';
 import { openAtmPanel, closeAtmPanel, updateAtmPanel, playAtmDrainSfx } from './panels/atm.js';
 import { openInsurancePanel, updateInsurancePanel } from './panels/insurance.js';
@@ -282,12 +282,18 @@ const handlers = {
   ambient: (msg) => { appendHtml(msg.message, 'ambient'); },
   // Cosmetic nudge: ripple a room-pane link so the player sees where to click.
   point_at: (msg) => { pointAtRoomTarget(msg.action, msg.target); },
+  // Sticky version of the above: the object the tutorial is steering you toward
+  // shimmers until the server says it's done with it (messaging.js beaconOn/Off).
+  beacon: (msg) => { if (msg.clear) clearRoomBeacons(); else setRoomBeacon(msg.action, msg.target, !!msg.on); },
   // Onboarding (prologue plugin): ask a first-time player whether they've played
   // a text game before, and — if not — walk them round the interface.
   // The cold open, before anything else the prologue has to say. The server is
   // deliberately holding the arrival prose and the tour offer until we echo back
   // `introdone` — on the last beat OR on a skip, whichever comes first.
-  intro_cinematic: () => { playIntroCinematic(() => sendCmdSilent('introdone')); },
+  // `msg.skyline` is Coldwater's real building tiles (see coldwaterSkyline in
+  // plugins/prologue/index.js) — the closing flythrough is the actual city. An
+  // old server that doesn't send it falls back to a procedural block grid.
+  intro_cinematic: (msg) => { playIntroCinematic(() => sendCmdSilent('introdone'), msg?.skyline); },
   tour_offer: () => { offerInterfaceTour(); },
   tour_start: () => { startInterfaceTour(); },
   sleep: (msg) => { appendHtml(msg.message, 'system'); },
@@ -705,6 +711,10 @@ const handlers = {
   motd: (msg) => { receiveMOTD(msg); },
   lightview: (msg) => { openLightViewDialog(msg); refreshZoneVisibility(); },
   morphex_panel: (msg) => { openMorphexPanel(msg.data); },
+  // Server-side dismissal — the prologue's chargen terminal releases you the
+  // moment the attendant accepts your shape, so its reaction isn't delivered to
+  // the back of a modal the player is still standing in front of.
+  morphex_close: () => { closeMorphexPanel(); },
   atm_panel: (msg) => { openAtmPanel(msg); },
   insurance_panel: (msg) => { openInsurancePanel(msg); },
   insurance_action: (msg) => {

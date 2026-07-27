@@ -36,6 +36,7 @@
 import { isWeatherFxEnabled } from './weather-fx.js';
 import { aircraftFaces, wingtipStation, liveryPalette, faceBaseRgb, shadeRgb, hex2rgb, drawRotorFX, drawCockpitProp, glassSheen, drawNoseArt, deflectSurface, hingeVisorFace, jazzTex, jazzUV, overlayJazz, drawCanopyGlass, JAZZ_ROLE, OCCLUDE_ROLE, VIPER_SCALE } from './aircraft3d.js';
 import { playThunderSample } from './engine-audio.js';
+import { FLOOR_Z, BUILDING_FOOT, floorsFor } from '../../../shared/skyline-scale.js';
 
 const _scenes = new Map();      // id → persistent scene state (scroll, clouds, stars, particles)
 let _obsHgt = 0;                // current view altitude fraction — drawers show more of a roof/top as it climbs
@@ -2917,17 +2918,10 @@ function bldgStyle(cell) {
 // dense ~50-year-future city reads wrong, so a corner shop is small-mixed-use, a soundstage
 // a tall clear-span volume, a bar/club a couple of storeys. Raises BOTH the rendered mass and
 // the CFIT collision ceiling (both key off floorsOf), so the taller look stays hittable.
-const TYPE_FLOORS = {
-  corporate_office: 22, hotel: 6, apartment: 8, residential: 4, shop: 3, diner: 2,
-  bar: 2, club: 3, studio: 4, police: 4, clinic: 4, power: 5, hangar: 1, civic: 6,
-  gun_shop: 2, casino: 3, fence: 2, chem_supply: 3, default: 4,
-};
-const FLOOR_Z = 0.028;   // world-z per storey — vertically stretched (taller storeys) so buildings stand up off the deck instead of reading flat; not more floors, just taller ones
-function floorsOf(cell) {
-  const f = cell && cell.flr;
-  if (f > 0) return f;
-  return (cell && TYPE_FLOORS[cell.bt]) || TYPE_FLOORS.default;
-}
+// TYPE_FLOORS / FLOOR_Z now live in client/shared/skyline-scale.js — the cold
+// open's closing flythrough renders the same skyline as a wireframe and cannot
+// import this file to get them. Same numbers, one home.
+function floorsOf(cell) { return floorsFor(cell && cell.bt, cell && cell.flr); }
 // Deterministic building height for a cell: floors × per-storey, with a small stable
 // jitter off the seed so same-type neighbours aren't a dead-flat skyline.
 function floorHeight(cell, seed) {
@@ -2938,7 +2932,10 @@ function floorHeight(cell, seed) {
 // is the SAME value the CFIT collision sweep reads (cockpit.js imports it) so a plane hits a
 // tower's mass exactly where its base is drawn, not a tiny box at the tile centre. Scaled by
 // the bldgFoot tuning knob at both the draw and the collision sites so they never drift.
-export const BUILDING_FOOT = 0.38;   // ~0.38–0.44 half-width → a real setback (sidewalk) from the tile edge, so a building doesn't touch its neighbour or spill onto the road on the next tile (was 0.42 → filled ~96% of the tile with no gap). Live-tunable via the dev-panel "Bldg width" slider (RENDER_TUNE.bldgFoot).
+// Defined in client/shared/skyline-scale.js and re-exported here, because
+// cockpit.js's collision sweep imports it from this module. Live-tunable via the
+// dev-panel "Bldg width" slider (RENDER_TUNE.bldgFoot).
+export { BUILDING_FOOT };
 
 // Deterministic building height (render world-z units) for a tile — the SAME value
 // drawWorldObjects paints (line ~1419), exposed so the flight sim can collision-check the

@@ -5,6 +5,6 @@
   "after": ["cosmetic-machine", "interactions", "tablet"],
   "commands": ["tutorial", "intro", "introdone"],
   "hooks": [],
-  "specializedActions": ["use"],
+  "specializedActions": ["use", "read"],
   "events": { "consumes": ["appearance.changed", "posture.changed", "zone.entered", "enemy.killed"], "emits": [] }
 }

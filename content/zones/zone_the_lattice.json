@@ -24,7 +24,7 @@
   "grid_y": 2,
   "grid_z": 0,
   "id": "zone_the_lattice",
-  "map_id": null,
+  "map_id": "map_prologue",
   "marker": null,
   "name": "The Lattice",
   "parent_zone": null,

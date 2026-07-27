@@ -188,6 +188,22 @@ Rules for anyone adding to a building model:
   paints immediately, so those paths are unaffected. Painter's order still can't resolve genuinely
   interpenetrating geometry, but buildings here don't interpenetrate.
 
+## Building mass is shared with the cold open
+
+`TYPE_FLOORS`, `FLOOR_Z`, `BUILDING_FOOT` and `floorsFor()` live in
+[`client/shared/skyline-scale.js`](../../client/shared/skyline-scale.js), **not**
+in windshield.js. They moved there because the cold open's closing flythrough
+([systems-codex.md](../systems-codex.md)) renders the same Coldwater skyline as a
+wireframe, and a first-login path must not import the ~8000-line flight renderer
+to find out how many storeys a hotel has.
+
+So there are now **two renderers of the same city**, and changing a floor count
+in that file moves both — plus the CFIT collision ceiling, since `buildingHeightZ`
+keys off the same `floorsOf`. windshield.js imports them and re-exports
+`BUILDING_FOOT` (cockpit.js's collision sweep imports it from windshield.js, and
+that stays true). The cold open's own `STRETCH` and its 90° rotation of the city
+are local art choices in intro-cinematic.js and do not belong here.
+
 ## The three "tower" renderers (do not confuse them)
 
 | # | Renderer | File | When it draws | Is it the airport tower? |
