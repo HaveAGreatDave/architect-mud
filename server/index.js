@@ -54,6 +54,7 @@ import { handlePanelData, sendPanelCatalog } from "./engine/panels.js";
 import pool, { query, logActivity } from "./models/db.js";
 import { loadMisSettings, isMisServerEnabled } from "./engine/mis.js";
 import { loadEmailVerificationSetting, isEmailVerificationEnabled } from "./engine/emailVerification.js";
+import { mailerConfigProblem } from "./mailer.js";
 
 import { initEnvironment, getHUDPayload, getZoneTemperature } from "./engine/environment.js";
 import { getPlayerChannels, getChannelHistory } from "./engine/channels.js";
@@ -1281,6 +1282,11 @@ async function boot() {
 	setMessagingBroadcast(broadcast);
 	await loadMisSettings();
 	await loadEmailVerificationSetting();
+	// A verification gate with no working mailer locks every new account out, so
+	// say so at boot rather than letting registrations quietly strand.
+	if (isEmailVerificationEnabled() && mailerConfigProblem()) {
+		console.error(`[boot] WARNING: email verification is ON but the mailer is ${mailerConfigProblem()} — new accounts cannot receive verification links.`);
+	}
 	await initWorld();
 	// Door lock state isn't persisted (world.doors resets to authored state); re-apply
 	// each locked apartment's durable lock onto its door(s) in RAM.

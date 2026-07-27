@@ -19,7 +19,7 @@ import { readFileSync, writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { CORE_SEAM_FILES, coreIntensityTier, gitAuthorKey } from '../engine/dev-history.js';
 import vm from 'vm';
-import { sendPasswordResetEmail, sendVerificationEmail } from '../mailer.js';
+import { sendPasswordResetEmail, sendVerificationEmail, isMailerConfigured, mailerConfigProblem } from '../mailer.js';
 import { isEmailVerificationEnabled, setEmailVerificationEnabled } from '../engine/emailVerification.js';
 import { randomAppearance } from '../engine/appearance.js';
 import { DEFAULT_CHITCHAT_LINES, isVendorWorkTime } from '../engine/ai-behaviour.js';
@@ -240,7 +240,7 @@ async function dispatchApiRequest(url, method, body, headers) {
   }
   if (path==='/email-verification/status' && method==='GET') {
     if (!auth || !['dev','admin','builder','designer'].includes(auth.role)) return { status:403, body:{error:'Dev access required'} };
-    return { status:200, body:{ enabled: isEmailVerificationEnabled() } };
+    return { status:200, body:{ enabled: isEmailVerificationEnabled(), mailerConfigured: isMailerConfigured(), mailerProblem: mailerConfigProblem() } };
   }
   if (path==='/email-verification/toggle' && method==='POST') {
     if (!auth || !['dev','admin','builder','designer'].includes(auth.role)) return { status:403, body:{error:'Dev access required'} };
@@ -514,8 +514,16 @@ async function apiRegister(body) {
         [id, verifyToken, Date.now() + 24 * 60 * 60 * 1000]
       );
       const verifyUrl = `${clientBaseUrl()}/game?verify_token=${verifyToken}`;
-      sendVerificationEmail(email.toLowerCase().trim(), verifyUrl).catch(e => console.error('[register] verification email failed:', e.message));
-      return {status:201,body:{needsVerification:true}};
+      // Awaited on purpose: fire-and-forget meant a dead mailer still told the
+      // player "check your email", stranding an account that can never log in.
+      // The token stays valid either way, so a later resend recovers it.
+      try {
+        await sendVerificationEmail(email.toLowerCase().trim(), verifyUrl);
+        return {status:201,body:{needsVerification:true}};
+      } catch (e) {
+        console.error('[register] verification email failed:', e.message);
+        return {status:201,body:{needsVerification:true,emailError:`Account created, but the verification email could not be sent: ${e.message}`}};
+      }
     }
     await query('UPDATE players SET email_verified=TRUE WHERE id=$1', [id]);
     return {status:201,body:{token:makeToken(id,'player'),playerId:id,handle,role:'player'}};
@@ -555,15 +563,28 @@ async function apiVerifyEmail(body) {
 async function apiResendVerification(body) {
   const { email } = body||{};
   if (!email) return { status:400, body:{ error:'email required' } };
-  const { rows } = await query('SELECT id, email, email_verified FROM players WHERE email=$1', [email.toLowerCase().trim()]);
+  // players.email is NOT unique — one person's several characters share an
+  // address. Picking rows[0] meant an older *verified* character answered for a
+  // brand-new unverified one, which is where the bogus "already verified" came
+  // from. Sort unverified first so the resend targets the account that needs it,
+  // and only report "already verified" when every account on the address is.
+  const { rows } = await query(
+    'SELECT id, email, email_verified FROM players WHERE email=$1 ORDER BY email_verified ASC, id ASC',
+    [email.toLowerCase().trim()]
+  );
   if (!rows.length) return { status:200, body:{ sent:true } }; // don't reveal if account exists
   const p = rows[0];
-  if (p.email_verified) return { status:400, body:{ error:'This account is already verified.' } };
+  if (p.email_verified) return { status:400, body:{ error:'This account is already verified. You can log in.' } };
   await query('UPDATE email_verification_tokens SET used=TRUE WHERE player_id=$1 AND used=FALSE', [p.id]);
   const token = randomBytes(32).toString('hex');
   await query('INSERT INTO email_verification_tokens (player_id, token, expires_at) VALUES ($1,$2,$3)', [p.id, token, Date.now() + 24 * 60 * 60 * 1000]);
   const verifyUrl = `${clientBaseUrl()}/game?verify_token=${token}`;
-  sendVerificationEmail(p.email, verifyUrl).catch(e => console.error('[resend-verification] email failed:', e.message));
+  try {
+    await sendVerificationEmail(p.email, verifyUrl);
+  } catch (e) {
+    console.error('[resend-verification] email failed:', e.message);
+    return { status:502, body:{ error:e.message } };
+  }
   return { status:200, body:{ sent:true } };
 }
 
@@ -578,13 +599,21 @@ async function apiEmailHint(username) {
 }
 
 async function apiForgotPassword(body) {
-  const { email } = body||{};
-  console.log('[forgot-password] request for email:', email);
-  if (!email) return { status:400, body:{ error:'email required' } };
-  const { rows } = await query('SELECT id FROM players WHERE email=$1', [email.toLowerCase().trim()]);
+  const { email, username } = body||{};
+  console.log('[forgot-password] request for', username ? `username: ${username}` : `email: ${email}`);
+  // Prefer the username: it's unique, whereas several characters can share one
+  // email address, and an email-only lookup resets an arbitrary one of them.
+  // The address we mail is then read off that row, never taken from the client.
+  const { rows } = username
+    ? await query('SELECT id, email FROM players WHERE username=$1', [username.toLowerCase().trim()])
+    : email
+      ? await query('SELECT id, email FROM players WHERE email=$1 ORDER BY id ASC', [email.toLowerCase().trim()])
+      : { rows: [] };
+  if (!username && !email) return { status:400, body:{ error:'username or email required' } };
   console.log('[forgot-password] db lookup rows:', rows.length);
-  if (!rows.length) return { status:404, body:{ error:'No account found with that email address.' } };
+  if (!rows.length || !rows[0].email) return { status:404, body:{ error:'No account found with that email address.' } };
   const playerId = rows[0].id;
+  const toEmail = rows[0].email.toLowerCase().trim();
   await query('UPDATE password_reset_tokens SET used=TRUE WHERE player_id=$1 AND used=FALSE', [playerId]);
   const token = randomBytes(32).toString('hex');
   const expiresAt = Date.now() + 60 * 60 * 1000;
@@ -593,11 +622,12 @@ async function apiForgotPassword(body) {
     [playerId, token, expiresAt]
   );
   const resetUrl = `${clientBaseUrl()}/game?reset_token=${token}`;
-  sendPasswordResetEmail(email.toLowerCase().trim(), resetUrl).then(() => {
-    console.log('[forgot-password] email sent OK to:', email.toLowerCase().trim());
-  }).catch(e => {
-    console.error('[forgot-password] email send failed:', e.message, JSON.stringify(e.response || e.responseCode || ''));
-  });
+  try {
+    await sendPasswordResetEmail(toEmail, resetUrl);
+  } catch (e) {
+    // Don't claim we sent it when we didn't (the mailer already logged detail).
+    return { status:502, body:{ error:e.message } };
+  }
   return { status:200, body:{ message:'Reset link sent. Check your email.' } };
 }
 

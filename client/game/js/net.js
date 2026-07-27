@@ -206,7 +206,9 @@ export function doAuth() {
         return;
       }
       if (data.needsVerification) {
-        showVerifyScreen(email, 'Account created. Check your email for a verification link before logging in.');
+        showVerifyScreen(email, data.emailError
+          ? `${data.emailError} Try "Resend" below once mail is working.`
+          : 'Account created. Check your email for a verification link before logging in.');
         return;
       }
       _connection.send({ type: 'auth', username, password });
@@ -262,6 +264,9 @@ export async function doResendVerification() {
 
 export async function doForgotPassword() {
   const email = state.send_password;
+  // Send the username too — it's unique, so the server can pick the right
+  // account when several characters share one email address.
+  const username = document.getElementById('forgot-username').value.trim();
   const msgEl = document.getElementById('forgot-message');
   const btn   = document.getElementById('forgot-submit');
   if (!email) { msgEl.textContent = 'That email address is not associated with that username.'; msgEl.style.color = 'var(--red)'; return; }
@@ -271,7 +276,7 @@ export async function doForgotPassword() {
     const data = await fetch('/api/auth/forgot-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({ email, username }),
     }).then(r => r.json());
     if (data.error) {
       msgEl.textContent = data.error;
