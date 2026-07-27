@@ -51,6 +51,15 @@ export async function getEquippedWeapon(player) {
 //   opts.orderBy   string             raw ORDER BY clause — LITERAL only, never user input
 //   opts.all       bool (default false) return every match instead of just the first
 //   opts.includeFried bool (default false) include EMP-fried instances
+//   opts.fromNearby bool (default false) on a MISS, also search furniture in the
+//                   player's zone flagged `dish_cabinet` (a rack, a cupboard, a
+//                   bar back-shelf). Opt-in, and deliberately narrow: it exists
+//                   so a kitchen you own can hold its own pots instead of you
+//                   carrying a stock pot around a gunfight. Costs ONE extra
+//                   round trip and only when the ordinary lookup found nothing,
+//                   so no hot path pays for it. A row found this way carries
+//                   `fromNearby: <furniture name>` and is used IN PLACE — never
+//                   moved into the pack — so nothing silently accumulates.
 //
 // Fried rows are excluded BY DEFAULT and on purpose. `custom_data.fried` is only
 // ever set on an `electronic` item an EMP pulse cooked, and this is the one
@@ -64,7 +73,8 @@ export async function getEquippedWeapon(player) {
 // null), or an array with `all`.
 export async function resolveInventoryItem(player, opts = {}) {
   const playerId = typeof player === 'object' ? player.id : player;
-  const { tag, name, topLevel = true, equipped, orderBy, all = false, includeFried = false } = opts;
+  const { tag, name, topLevel = true, equipped, orderBy, all = false, includeFried = false,
+          fromNearby = false } = opts;
   const where = ['pi.player_id = $1'];
   const params = [playerId];
   if (topLevel) where.push('pi.container_id IS NULL');
@@ -84,7 +94,41 @@ export async function resolveInventoryItem(player, opts = {}) {
        FROM player_inventory pi JOIN items i ON i.id = pi.item_id
       WHERE ${where.join(' AND ')}${orderBy ? `\n      ORDER BY ${orderBy}` : ''}${all ? '' : '\n      LIMIT 1'}`;
   const { rows } = await query(sql, params);
-  return all ? rows : (rows[0] || null);
+  if (rows.length || !fromNearby) return all ? rows : (rows[0] || null);
+
+  // MISS, and the caller opted into the cabinet. Furniture containers already
+  // store their contents as ordinary player_inventory rows keyed by
+  // container_id, so this is the same SELECT with a different owner clause —
+  // no new storage, no new machinery, and `loadContainerById` already treats
+  // furniture flags as tags so everything downstream behaves identically.
+  const zoneId = typeof player === 'object' ? player.current_zone : null;
+  if (!zoneId) return all ? [] : null;
+  const nearWhere = [
+    `pi.container_id IN (SELECT id FROM furniture
+                          WHERE zone_id = $1 AND object_type = 'container'
+                            AND jsonb_exists(flags, 'dish_cabinet'))`,
+  ];
+  const nearParams = [zoneId];
+  if (equipped === true) nearWhere.push('pi.is_equipped = 1');
+  else if (equipped === false) nearWhere.push('pi.is_equipped = 0');
+  if (tag) {
+    const tags = Array.isArray(tag) ? tag : [tag];
+    const ors = tags.map(t => { nearParams.push(t); return `jsonb_exists(i.tags, $${nearParams.length})`; });
+    nearWhere.push(`(${ors.join(' OR ')})`);
+  }
+  if (name) { nearParams.push(`%${name}%`); nearWhere.push(`i.name ILIKE $${nearParams.length}`); }
+  if (!includeFried) nearWhere.push(`COALESCE(pi.custom_data->>'fried', 'false') <> 'true'`);
+  const nearSql =
+    `SELECT pi.id AS inv_id, pi.item_id, pi.quantity, pi.condition,
+            pi.is_equipped, pi.layer, pi.slot, pi.custom_data,
+            i.name, i.description, i.weight, i.tags, i.flags,
+            f.name AS from_nearby
+       FROM player_inventory pi
+       JOIN items i ON i.id = pi.item_id
+       JOIN furniture f ON f.id = pi.container_id
+      WHERE ${nearWhere.join(' AND ')}${orderBy ? `\n      ORDER BY ${orderBy}` : ''}${all ? '' : '\n      LIMIT 1'}`;
+  const near = await query(nearSql, nearParams);
+  return all ? near.rows : (near.rows[0] || null);
 }
 
 /**

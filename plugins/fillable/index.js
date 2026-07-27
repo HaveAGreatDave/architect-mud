@@ -30,10 +30,25 @@ async function resolveContainer(player, name) {
   return resolveInventoryItem(player, { tag: 'fillable', name });
 }
 
+/**
+ * THE VESSEL INVARIANT. Drinkware (mugs, glasses, shakers) is `fillable` too —
+ * a mug you can fill at a sink is the same mug you brew into — so a vessel
+ * holding a finished drink reaches these handlers as well. It must not: this
+ * plugin knows only about plain fluid volume and would treat a negroni as an
+ * empty cup, or pour water into one.
+ *
+ * The drinks plugin registers `drink` FIRST (specialized actions fire in
+ * registration order, which is alphabetical, and `drinks` < `fillable`), so in
+ * practice it already claims these. This is the belt to that braces: it does not
+ * depend on load order, and a folder rename can't quietly break it.
+ */
+const holdsDrink = c => !!c?.custom_data?.drink;
+
 async function fill(args, raw, player) {
   const name = args.join(' ').replace(/\s+from\s+.*$/i, '').trim();
   const c = await resolveContainer(player, name);
   if (!c) return undefined; // fall through
+  if (holdsDrink(c)) return { type:'error', message:`The ${c.name} already has a drink in it. Finish it or tip it out first.` };
 
   // A zone can carry either kind of tap. A fuel pump dispenses 'fuel', a sink /
   // fountain dispenses 'water' — the fluid a fill produces is the source's, not
@@ -97,6 +112,7 @@ async function drink(args, raw, player) {
   const name = args.join(' ').replace(/^(from|at)\s+/i, '').trim();
   const c = await resolveContainer(player, name);
   if (!c) return undefined; // fall through (e.g. to water-source furniture)
+  if (holdsDrink(c)) return undefined;  // a poured drink is the drinks plugin's cup
 
   const amount = c.custom_data?.fluid_amount || 0;
   if (amount <= 0) return { type:'error', message:`The ${c.name} is empty.` };
@@ -146,6 +162,7 @@ async function drink(args, raw, player) {
 async function empty(args, raw, player) {
   const c = await resolveContainer(player, args.join(' ').trim());
   if (!c) return undefined; // fall through
+  if (holdsDrink(c)) return undefined;  // tipping a poured drink out is drinks' business
 
   if ((c.custom_data?.fluid_amount || 0) <= 0)
     return { type:'error', message:`The ${c.name} is already empty.` };

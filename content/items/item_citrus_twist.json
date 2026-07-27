@@ -1,0 +1,16 @@
+{
+  "description": "A curl of peel, oils still in it. Does far more than it looks like it does, and looks like it does nothing.",
+  "flags": {},
+  "id": "item_citrus_twist",
+  "name": "citrus twist",
+  "tags": {
+    "description": "A curl of peel, oils still in it. Does far more than it looks like it does, and looks like it does nothing.",
+    "drink_noun": "citrus",
+    "drink_profile": "garnish",
+    "pour_units": 6,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 2,
+  "weight": 30
+}

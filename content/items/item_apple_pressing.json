@@ -1,0 +1,20 @@
+{
+  "description": "Cloudy and brown and much better than it looks. Tastes like the inside of a cellar, in the good way.",
+  "flags": {},
+  "id": "item_apple_pressing",
+  "name": "apple pressing",
+  "tags": {
+    "consumable": true,
+    "description": "Cloudy and brown and much better than it looks. Tastes like the inside of a cellar, in the good way.",
+    "drink_noun": "apple",
+    "drink_profile": "juice",
+    "hydrating": true,
+    "pour_units": 4,
+    "restore_sanity": 5,
+    "restore_thirst": 40,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 7,
+  "weight": 420
+}

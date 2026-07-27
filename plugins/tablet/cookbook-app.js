@@ -14,10 +14,10 @@
 // of a known recipe's ingredient classes you currently carry, because that's
 // planning rather than spoiling.
 import { query } from '../../server/models/db.js';
-import { DISHES } from '../cooking/dishes.js';
+import { DISHES, ingredientLine, methodLines, estimateCookMs } from '../cooking/dishes.js';
 import { PROFILES } from '../cooking/profiles.js';
 import { cookbookState, UNTRIED } from '../cooking/knowledge.js';
-import { DISCOVERY_ATTEMPTS } from '../cooking/config.js';
+import { DISCOVERY_ATTEMPTS, COOK_SECONDS_PER_KG } from '../cooking/config.js';
 import { registerTabletApp } from './registry.js';
 
 const BAND_ICON = {
@@ -114,23 +114,41 @@ async function recipeDetail(player, key, band) {
   const d = DISHES[key];
   const have = await carriedProfiles(player.id);
 
-  const rows = [
-    { label: 'Vessel', value: d.vessel || 'any' },
-    { label: 'Difficulty', value: `${d.difficulty}` },
-    { label: 'Ceiling', value: d.ceiling },
-    { label: 'Your best', value: band === UNTRIED ? 'never cooked it' : band },
-  ];
-
+  // REAL MEASURES, not bare counts. Every number here is derived from the same
+  // data the pan runs on — grams from each profile's unitWeight, the estimate
+  // from its cook rate, the method from its turns/heat/doneness — so the card
+  // can never promise something the cook won't do. Bare counts ("2 needed") were
+  // technically true and useless: nobody has ever weighed out "2 dense meat".
+  const rows = [];
   for (const [profile, need] of Object.entries(d.needs)) {
-    const line = needLine(profile, need);
     const [min] = range(need);
     const n = have[profile] || 0;
-    rows.push({ label: line.label, value: `${line.value} needed · carrying ${n} ${n >= min ? '✓' : '✗'}` });
+    // The weight, then whatever the dish has to say about what that class is
+    // FOR — "800g–1.2kg of liquid" alone is three ingredients hiding in one
+    // number, and the note is where a named dish explains itself.
+    const weight = ingredientLine(profile, need, d).replace(/ of [^—]*/, ' ');
+    rows.push({
+      label: (PROFILES[profile]?.label || profile).replace(/\b\w/g, c => c.toUpperCase()),
+      value: `${weight.trim()} · carrying ${n} ${n >= min ? '✓' : '✗'}`,
+    });
   }
   for (const profile of d.optional || []) {
     const label = (PROFILES[profile]?.label || profile).replace(/\b\w/g, c => c.toUpperCase());
     rows.push({ label, value: `optional · carrying ${have[profile] || 0}` });
   }
+
+  rows.push({ label: '—', value: '' });
+  methodLines(d).forEach((l, i) => rows.push({ label: i === 0 ? 'Method' : '', value: l }));
+
+  const ms = estimateCookMs(d, COOK_SECONDS_PER_KG);
+  if (ms > 0) {
+    const mins = ms / 60000;
+    rows.push({ label: 'Roughly', value: mins < 1 ? `${Math.round(ms / 1000)}s` : `${Math.round(mins * 2) / 2} min on an ordinary stove` });
+  }
+  rows.push({ label: 'Cook it in', value: d.vessel ? `a ${d.vessel}` : 'anything, or straight on the heat' });
+  rows.push({ label: 'Difficulty', value: `${d.difficulty}/10` });
+  rows.push({ label: 'Ceiling', value: d.ceiling });
+  rows.push({ label: 'Your best', value: band === UNTRIED ? 'never cooked it' : band });
 
   return {
     view: 'detail',

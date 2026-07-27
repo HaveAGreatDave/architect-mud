@@ -1,0 +1,17 @@
+{
+  "description": "Red, rough, and honest about it. Improves considerably around the second glass, which tells you something.",
+  "flags": {},
+  "id": "item_table_wine",
+  "name": "bottle of table wine",
+  "tags": {
+    "abv": 12,
+    "description": "Red, rough, and honest about it. Improves considerably around the second glass, which tells you something.",
+    "drink_noun": "wine",
+    "drink_profile": "wine",
+    "pour_units": 8,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 14,
+  "weight": 1000
+}

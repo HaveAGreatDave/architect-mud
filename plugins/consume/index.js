@@ -22,7 +22,7 @@
  * slow consume is blocked; death/logout clears the timers. All state is the
  * in-memory `player._consume`, cleared on death/logout like other runtime fields.
  */
-import { registerAction } from '../../server/engine/actions.js';
+import { registerAction, dispatchAction } from '../../server/engine/actions.js';
 import { getDrugCache } from '../../server/engine/drugs.js';
 import { finishConsume, finishConsumeItem } from '../../server/engine/commands/inventory.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
@@ -44,7 +44,10 @@ const sys = (s) => `<span class="msg-system">${s}</span>`;
 
 // --- category config ---------------------------------------------------------
 // `seconds` = whole act; `steps` = intermediate lines dribbled evenly across it.
-const CONFIG = {
+// Exported so the drinks suite can assert its own line pool exists and isn't
+// bottle-shaped — the pool is the only thing standing between a mug of tea and
+// "you crack the cap off with a hiss".
+export const CONFIG = {
   drink: {
     seconds: 12,
     steps: 2,
@@ -67,6 +70,34 @@ const CONFIG = {
       'You finish the {name} in one last swallow and wipe your mouth.',
     ],
     interrupt: 'You lower the {name} mid-swig, the drink left unfinished.',
+    examineSelf: 'You are nursing a drink.',
+    examineOther: 'They are nursing a drink.',
+  },
+  // A drink you POURED, in a vessel you own and keep. Its own pool because the
+  // `drink` lines above are bottle-shaped — "you crack the cap off with a hiss"
+  // is a visible bug over a mug of tea — and because a vessel is nursed rather
+  // than downed: the finish line sets the cup down, it doesn't bin an empty.
+  vessel: {
+    seconds: 12,
+    steps: 2,
+    zoneStart: ['{who} takes a drink.', '{who} raises a glass and drinks.'],
+    start: [
+      'You wrap a hand around the {name} and take the first sip.',
+      'You raise the {name} and drink.',
+      'You take a mouthful of the {name}.',
+    ],
+    mid: [
+      'You drink again, slower this time.',
+      'Another mouthful.',
+      'You turn the {name} in your hand and take another pull.',
+      'You drink, and let it sit a second before swallowing.',
+    ],
+    finish: [
+      'You finish the mouthful and lower the {name}.',
+      'You swallow the last of it and set the {name} down.',
+      'You drain that measure and rest the {name} against your knee.',
+    ],
+    interrupt: 'You lower the {name}, the mouthful unfinished.',
     examineSelf: 'You are nursing a drink.',
     examineOther: 'They are nursing a drink.',
   },
@@ -201,10 +232,19 @@ async function finish(player, broadcast) {
   player._consume = null;   // finish is the last timer; the mids already fired
   // The last swallow lands the drug and pours out whatever thirst the earlier
   // sips didn't cover — with skipThirstRestore so the dose doesn't add it again.
-  const drink = c.category === 'drink';
+  // A VESSEL is a drink for thirst purposes but must never reach
+  // finishConsumeItem, which deletes the row — the whole point of a vessel is
+  // that you keep it. It routes to the drinks plugin instead, which decrements
+  // one serving and leaves the cup (dirty) in your hands.
+  const vessel = c.kind === 'vessel';
+  const drink = vessel || c.category === 'drink';
   const finishThirst = drink ? Math.max(0, c.thirstTotal - c.thirstApplied) : 0;
   const finishNote = finishThirst ? creditThirst(player, finishThirst) : '';
-  const finisher = c.kind === 'item' ? finishConsumeItem : finishConsume;
+  const finisher = vessel
+    ? (p, id, bc, opts) => dispatchAction({
+        type: 'drinks.finishServing', actor: p, params: { invId: id, ...opts }, context: { broadcast: bc },
+      })
+    : c.kind === 'item' ? finishConsumeItem : finishConsume;
   const result = await finisher(player, c.itemRowId, broadcast, {
     takeLine: sys(fill(c.finishLine, c.name) + finishNote),
     suppressComeupMessage: !drink,
@@ -235,15 +275,21 @@ registerAction({
     // Two shapes reach here: a drug-item drink/smoke/joint (kind 'drug', category
     // read off the drug row), or a laced *alcoholic* consumable (kind 'item' — a
     // cocktail whose thirst lives on the item, not a drug). Both drink over time.
-    const kind = params.itemKind === 'item' ? 'item' : 'drug';
+    // THREE shapes reach here now: a drug-item drink/smoke/joint (kind 'drug',
+    // category read off the drug row), a laced *alcoholic* consumable (kind
+    // 'item' — a cocktail whose thirst lives on the item), and a VESSEL (kind
+    // 'vessel' — a mug or glass holding a serving of something you poured,
+    // which is nursed and then kept rather than drained and binned).
+    const kind = params.itemKind === 'item' ? 'item'
+               : params.itemKind === 'vessel' ? 'vessel' : 'drug';
     const drug = getDrugCache()[item.drug_id];
-    const category = kind === 'item' ? 'drink' : categoryOf(drug);
+    const category = kind === 'vessel' ? 'vessel' : kind === 'item' ? 'drink' : categoryOf(drug);
     if (!category) return { passthrough: true };   // not a slow-consume drug → cmdUse handles it instantly
     if (player._consume) return { type: 'error', message: "You're still working on that. Finish it first." };
 
     const cfg = CONFIG[category];
     const raw = params.cd?.name || item.name || 'it';
-    const name = category === 'drink' ? raw.toLowerCase() : raw;
+    const name = (category === 'drink' || category === 'vessel') ? raw.toLowerCase() : raw;
 
     const startLine = fill(pick(cfg.start), name);
     const midLines = sample(cfg.mid, cfg.steps).map(m => fill(m, name));
@@ -253,7 +299,10 @@ registerAction({
     // start + each mid + the finish — so you gain a slice per sip instead of the
     // whole lot on the last swallow. Non-drinks (smoke/joint) carry no thirst.
     // Drug-drinks read it off the drug; laced cocktails off the item's restore.
-    const thirstTotal = category !== 'drink' ? 0
+    // A vessel's thirst was worked out by the drinks plugin (band, temperature,
+    // servings) and passed in — this plugin doesn't second-guess it.
+    const thirstTotal = kind === 'vessel' ? Math.max(0, Number(params.thirst) || 0)
+      : category !== 'drink' ? 0
       : kind === 'item' ? (Math.max(0, Number(item.tags?.restore_thirst) || 0)) : thirstOf(drug);
     const thirstSteps = cfg.steps + 2;   // start, the mids, finish
     const thirstPer = Math.round(thirstTotal / thirstSteps);

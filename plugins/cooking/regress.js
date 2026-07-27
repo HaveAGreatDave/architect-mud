@@ -17,6 +17,7 @@ import { DISCOVERY_ATTEMPTS, cookingIpFor, ROUTINE_IP, MASTERFUL_IP, ROUTINE_IP_
 import {
   DISHES, UNKNOWN_DISH, validateDishes, signature, matchScore, matchDish,
   dishName, composeBand, nounFor, VESSEL_KINDS, seasoningIdeal, seasoningBonus, unitsOf, GENERIC_SANDWICH, ALSO,
+  keyNounFor, ingredientLine, methodLines,
 } from './dishes.js';
 import { FLAG_PREFIX, PROGRESS_PREFIX, UNTRIED, learnRecipe, knownRecipes, cookbookState, recordAttempt, improveRecipe, beatsRecorded, knownBonus } from './knowledge.js';
 import { evaluate, endStateAt, timeline, heatSpans, finishAt } from './quality.js';
@@ -102,15 +103,15 @@ export default async function regress({ run, check, getPlayer }) {
     const full = new Set(['item_penne', 'item_gin', 'item_tomato_paste', 'item_synth_cream']);
     check('penne alla gin exists as a pan dish', t?.vessel === 'pan', t?.vessel);
     check('...and matches penne + gin + two liquids',
-      matchScore({ starchy_vegetable: 1, liquid: 3 }, t, full) > 0);
+      matchScore({ dry_starch: 1, liquid: 3 }, t, full) > 0);
     check('...but never without the gin',
-      matchScore({ starchy_vegetable: 1, liquid: 2 }, t,
+      matchScore({ dry_starch: 1, liquid: 2 }, t,
         new Set(['item_penne', 'item_tomato_paste', 'item_synth_cream'])) === -1);
     check('...nor without the penne',
       matchScore({ liquid: 3 }, t,
         new Set(['item_gin', 'item_tomato_paste', 'item_synth_cream'])) === -1);
     check('...nor on gin alone with nothing to carry it',
-      matchScore({ starchy_vegetable: 1, liquid: 1 }, t, full) === -1);
+      matchScore({ dry_starch: 1, liquid: 1 }, t, full) === -1);
   }
 
   check('stage text is monotonic and covers 0..1', stageText(COOK_STAGES, 0) === 'raw, glistening' && stageText(COOK_STAGES, 1) === 'cooked through, a faint char forming', {
@@ -1508,16 +1509,82 @@ export default async function regress({ run, check, getPlayer }) {
     const noPaste = named(['item_battery_chicken', 'item_black_pepper'], 'tray', ['dense_meat', 'aromatic']);
     check('the same thing WITHOUT the key item falls back to the generic dish', noPaste?.key === 'baked_whole', noPaste?.key);
 
-    const ram = named(['item_ramen_noodles', 'item_bone_broth'], 'pot', ['starchy_vegetable', 'liquid']);
+    const ram = named(['item_ramen_noodles', 'item_bone_broth'], 'pot', ['dry_starch', 'liquid']);
     check('ramen noodles in stock is ramen', ram?.key === 'ramen', ram?.key);
-    const rice = named(['item_grey_rice', 'item_bone_broth'], 'pot', ['starchy_vegetable', 'liquid']);
+    // Pasta is not a root vegetable. `dry_starch` exists because penne, rice,
+    // noodles and pulses were all riding `starchy_vegetable`, whose `needsPrep`
+    // means "arrives whole, cut it down first" — so the game was asking players
+    // to chop dry pasta with a knife, and the recipe card printed "250g of
+    // starchy vegetable, cut down" for what is plainly a box of penne.
+    // A card must say "penne", not "dry starch". The class name is what makes
+    // the catalog extensible and it is not what a person calls dinner — so a
+    // keyed dish lends its key item's noun to the class, but ONLY where that
+    // class is unambiguously the key item. penne_alla_gin keys on gin, whose
+    // profile is `liquid`, and the recipe wants 2–3 liquids (tomato, gin,
+    // cream): naming that class "gin" produced "800g–1.2kg of gin", which is
+    // not a recipe, it is a warning.
+    {
+      const info = id => ({ item_penne: { name: 'box of penne', tags: { food_profile: 'dry_starch', food_noun: 'penne' } },
+                            item_gin:   { name: 'bottle of gin', tags: { food_profile: 'liquid', food_noun: 'gin' } } })[id];
+      const t = DISHES.penne_alla_gin;
+      check('card: a single-unit key class is named after its key item',
+        keyNounFor(t, 'dry_starch', info) === 'penne', keyNounFor(t, 'dry_starch', info));
+      check('card: a COMPOSITE class keeps its class name',
+        keyNounFor(t, 'liquid', info) === null, keyNounFor(t, 'liquid', info));
+      check('card: an explicit `nouns` override wins over the auto rule',
+        keyNounFor(DISHES.ramen, 'dry_starch', info) === 'ramen noodles',
+        keyNounFor(DISHES.ramen, 'dry_starch', info));
+      check('card: an unkeyed dish never borrows a noun',
+        keyNounFor(DISHES.stew, 'dense_meat', info) === null);
+    }
+
+    // PLATING IS REWARDED, NEVER REQUIRED. `plate` is the verb that ENDS a
+    // cook, so gating it behind an object would strand a player with no
+    // dishware over a burning pan. These pin the promise: no plate is a zero,
+    // never a refusal, and a platter only pays on a dish big enough to arrange.
+    {
+      const { platingBonus, PLATE_BONUS, PLATTER_BONUS } = (await import('./index.js'))._plating;
+      const none = await platingBonus({ id: '__nobody__', current_zone: null }, 4);
+      check('plating: owning no dishware is a zero, not a refusal',
+        none && none.bonus === 0, JSON.stringify(none));
+      // The fallback CHARACTERISES rather than instructs: a paper plate says
+      // something about the cook, where "you should get a plate" would just be
+      // the game nagging about a thing they don't own. The distinction is the
+      // whole reason the line is allowed to exist at all, so it's pinned.
+      check('plating: the fallback says paper plate', /paper plate/i.test(none.note || ''), none.note);
+      check('plating: the fallback never tells the player to go and buy one',
+        !/should|buy|need a|get a plate|invest/i.test(none.note || ''), none.note);
+      check('plating: the improvised line is flagged as such', none.improvised === true);
+      check('plating: a platter beats a plate', PLATTER_BONUS > PLATE_BONUS);
+      check('plating: a plate is a nudge, not a tier', PLATE_BONUS < 2 * BAND_SCALE);
+    }
+
+    check('dry starch is never prepped with a knife', !PROFILES.dry_starch.needsPrep);
+    check('dry starch is inedible raw, unlike a root', PROFILES.dry_starch.targets.raw === 'poor');
+    check('dry starch is ruined by stirring, not improved', PROFILES.dry_starch.turns === 0);
+    check('a portion of dry starch is a portion, not a sack', PROFILES.dry_starch.unitWeight <= 150);
+
+    // Hand-written steps replace the derived method entirely — no profile can
+    // express "off the heat BEFORE the gin goes in", and that is the recipe.
+    check('card: authored steps beat the derived method',
+      methodLines(DISHES.penne_alla_gin).some(l => /off the heat/i.test(l)),
+      methodLines(DISHES.penne_alla_gin)[0]);
+    check('card: an unauthored dish still derives a method',
+      methodLines(DISHES.stew).length > 0 && !DISHES.stew.steps);
+    // A note explains what a class is FOR; without it "800g–1.2kg of liquid" is
+    // three ingredients hiding inside one number.
+    check('card: a note rides along with the weight',
+      /tomato/.test(ingredientLine('liquid', DISHES.penne_alla_gin.needs.liquid, DISHES.penne_alla_gin)),
+      ingredientLine('liquid', DISHES.penne_alla_gin.needs.liquid, DISHES.penne_alla_gin));
+
+    const rice = named(['item_grey_rice', 'item_bone_broth'], 'pot', ['dry_starch', 'liquid']);
     check('rice in the same stock is not ramen', rice?.key !== 'ramen', rice?.key);
 
     // The tie that forced KEY_DISH_FLOOR: a keyed dish must beat a generic one
     // no matter how the counts fall, not merely when it happens to score higher.
     const loaded = named(
       ['item_ramen_noodles', 'item_bone_broth', 'item_offcut', 'item_offcut'], 'pot',
-      ['starchy_vegetable', 'liquid', 'dense_meat', 'dense_meat']);
+      ['dry_starch', 'liquid', 'dense_meat', 'dense_meat']);
     check('a keyed dish outranks a generic one even when the generic scores higher on classes',
       loaded?.key === 'ramen', loaded?.key);
 

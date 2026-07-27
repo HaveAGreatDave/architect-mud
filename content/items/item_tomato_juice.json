@@ -1,0 +1,20 @@
+{
+  "description": "Thick, salted, and either exactly what you wanted or an act of aggression. There is no middle position.",
+  "flags": {},
+  "id": "item_tomato_juice",
+  "name": "tomato juice",
+  "tags": {
+    "consumable": true,
+    "description": "Thick, salted, and either exactly what you wanted or an act of aggression. There is no middle position.",
+    "drink_noun": "tomato",
+    "drink_profile": "juice",
+    "hydrating": true,
+    "pour_units": 4,
+    "restore_sanity": 3,
+    "restore_thirst": 32,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 6,
+  "weight": 450
+}

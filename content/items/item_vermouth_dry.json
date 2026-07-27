@@ -1,0 +1,17 @@
+{
+  "description": "Pale, herbal and austere. Used in quantities so small that a bottle outlives most friendships.",
+  "flags": {},
+  "id": "item_vermouth_dry",
+  "name": "dry vermouth",
+  "tags": {
+    "abv": 18,
+    "description": "Pale, herbal and austere. Used in quantities so small that a bottle outlives most friendships.",
+    "drink_noun": "vermouth",
+    "drink_profile": "fortified",
+    "pour_units": 12,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 20,
+  "weight": 850
+}

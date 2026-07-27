@@ -1,0 +1,20 @@
+{
+  "description": "Salt, sugar and a citrus flavour applied by somebody working from a description. Puts you back on your feet fast.",
+  "flags": {},
+  "id": "item_electrolyte_sachet",
+  "name": "electrolyte sachet",
+  "tags": {
+    "consumable": true,
+    "description": "Salt, sugar and a citrus flavour applied by somebody working from a description. Puts you back on your feet fast.",
+    "drink_noun": "electrolyte",
+    "drink_profile": "mixer",
+    "hydrating": true,
+    "pour_units": 3,
+    "restore_sanity": 2,
+    "restore_thirst": 55,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 5,
+  "weight": 40
+}

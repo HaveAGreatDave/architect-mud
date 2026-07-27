@@ -1,0 +1,20 @@
+{
+  "description": "Black coffee, brewed cold over a day and canned by someone who thinks that is worth telling you about. It is, marginally.",
+  "flags": {},
+  "id": "item_cold_brew_can",
+  "name": "can of cold brew",
+  "tags": {
+    "consumable": true,
+    "description": "Black coffee, brewed cold over a day and canned by someone who thinks that is worth telling you about. It is, marginally.",
+    "drink_noun": "coffee",
+    "drink_profile": "coffee_base",
+    "hydrating": true,
+    "pour_units": 3,
+    "restore_sanity": 6,
+    "restore_thirst": 38,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 9,
+  "weight": 380
+}

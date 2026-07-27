@@ -67,7 +67,8 @@ export async function handle(kind, args, player) {
     return { type: 'error', message: `It's shut, and it's going round. You'd have to stop it.` };
   }
 
-  const tool = await resolveInventoryItem(player, { tag: spec.tag, topLevel: true });
+  // A spatula in the rack on the wall is a spatula you can reach.
+  const tool = await resolveInventoryItem(player, { tag: spec.tag, topLevel: true, fromNearby: true });
   if (!tool) return { type: 'error', message: `You need ${spec.tool} — and a free hand to hold it.` };
 
   const now = Date.now();

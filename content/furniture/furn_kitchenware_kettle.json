@@ -1,0 +1,17 @@
+{
+  "description": "Sat on the end of the display range with a hand-lettered card beside it reading TRY ME. People do. Nobody buys it.",
+  "flags": {
+    "brew_tier": "kettle",
+    "aliases": "kettle,demonstration kettle"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_kitchenware_kettle",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "demonstration kettle",
+  "object_type": "fixture",
+  "power_draw_kw": 2,
+  "price": 0,
+  "zone_id": "zone_kitchenware"
+}

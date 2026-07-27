@@ -1,0 +1,18 @@
+{
+  "description": "Lit from within, because of course it is. The pans in it have been used exactly enough to look used.",
+  "flags": {
+    "dish_cabinet": true,
+    "container": 80000,
+    "aliases": "cabinet,cupboard,glass cabinet"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_penthouse_cabinet",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "glass-front cabinet",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_penthouse"
+}

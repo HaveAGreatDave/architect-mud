@@ -1,0 +1,16 @@
+{
+  "description": "Two steel cones that seize together when cold and part with a crack. The noise it makes is half of what people are paying for.",
+  "flags": {},
+  "id": "item_steel_shaker",
+  "name": "steel shaker",
+  "tags": {
+    "description": "Two steel cones that seize together when cold and part with a crack. The noise it makes is half of what people are paying for.",
+    "drinkware": true,
+    "drinkware_kind": "shaker",
+    "fillable": 3,
+    "unique": true
+  },
+  "type": "misc",
+  "value": 22,
+  "weight": 480
+}

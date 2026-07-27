@@ -1,0 +1,18 @@
+{
+  "description": "Straight sides, wide base, heavy for its size. Does nothing brilliantly and everything well.",
+  "flags": {},
+  "id": "item_saute_pan",
+  "name": "sauté pan",
+  "tags": {
+    "container": 2400,
+    "description": "Straight sides, wide base, heavy for its size. Does nothing brilliantly and everything well.",
+    "heat_distribution": 0.75,
+    "heat_retention": 0.5,
+    "unique": true,
+    "vessel": true,
+    "vessel_kind": "pan"
+  },
+  "type": "misc",
+  "value": 22,
+  "weight": 1300
+}

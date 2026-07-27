@@ -1,0 +1,16 @@
+{
+  "description": "Dull grey metal with a dent that fits a thumb perfectly. Sweats when it is full and rings when it is empty.",
+  "flags": {},
+  "id": "item_pewter_tankard",
+  "name": "pewter tankard",
+  "tags": {
+    "description": "Dull grey metal with a dent that fits a thumb perfectly. Sweats when it is full and rings when it is empty.",
+    "drinkware": true,
+    "drinkware_kind": "tankard",
+    "fillable": 4,
+    "unique": true
+  },
+  "type": "misc",
+  "value": 15,
+  "weight": 700
+}

@@ -4,11 +4,17 @@
   "id": "item_synth_champagne",
   "name": "synth champagne",
   "tags": {
+    "abv": 11,
     "consumable": true,
     "description": "Bottle-fermented in a bioreactor last Tuesday. Bubbles like the real thing and lies like the rest of this place.",
+    "drink_noun": "champagne",
+    "drink_profile": "wine",
     "food_noun": "wine",
     "food_profile": "liquid",
     "hydrating": true,
+    "laced_drug": "drug_alcohol",
+    "laced_potency": 0.9,
+    "pour_units": 12,
     "restore_sanity": 10,
     "restore_thirst": 40
   },

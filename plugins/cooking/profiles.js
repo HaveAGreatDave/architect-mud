@@ -13,34 +13,12 @@
 // poor no matter how carefully you didn't cook it. The target is a ceiling — the
 // process (heat, vessel, turning, timing, skill) decides how close you get to it.
 
-// The quality scale, finest-to-coarsest reading left to right.
-//
-// This was five bands and is now nine. The five ORIGINAL names are kept and sit
-// at exactly TWICE their old index — poor 0→0, acceptable 1→2, good 2→4,
-// excellent 3→6, masterful 4→8 — so every band already stamped on a plated meal,
-// written into a cookbook, or named as a profile's `targets` ceiling still means
-// precisely what it meant. Nothing needed migrating; the scale just got a
-// halfway house between each pair of rungs.
-//
-// Because the span doubled (4 → 8), every scoring constant expressed in BANDS
-// doubles with it — see BAND_SCALE in config.js. That keeps the difficulty curve
-// identical and makes this a change to RESOLUTION, not to balance.
-export const QUALITY_BANDS = [
-  'poor',        // 0
-  'grim',        // 1  ← new
-  'acceptable',  // 2   the baseline: exactly 1.0x restores
-  'decent',      // 3  ← new
-  'good',        // 4
-  'very good',   // 5  ← new
-  'excellent',   // 6
-  'superb',      // 7  ← new
-  'masterful',   // 8
-];
-
-// What the scale used to be, and where each rung landed. Asserted by regress:
-// if a future edit moves one of these, every stamped meal in the database
-// silently changes meaning.
-export const LEGACY_BAND_INDEX = { poor: 0, acceptable: 2, good: 4, excellent: 6, masterful: 8 };
+// The quality scale now lives in the engine — cooking is no longer its only
+// reader (drinks composes into it, and applyItemUse spends it), so it moved to
+// server/engine/quality-bands.js and is re-exported here unchanged. Every
+// existing `import { QUALITY_BANDS } from './profiles.js'` keeps working.
+export { QUALITY_BANDS, LEGACY_BAND_INDEX, bandIndex } from '../../server/engine/quality-bands.js';
+import { QUALITY_BANDS, bandIndex } from '../../server/engine/quality-bands.js';
 
 export const PROFILES = {
   // A thick cut of meat: slow, forgiving to turn once, punishing past the window.
@@ -84,6 +62,38 @@ export const PROFILES = {
     heatTolerance: 'low',
     difficulty: 4,
     targets: { raw: 'poor', peak: 'excellent', over: 'good', burnt: 'poor' },
+  },
+  // Pasta, rice, noodles, dried pulses. Its own class, and it had to become one:
+  // all of it was riding `starchy_vegetable`, which declares `needsPrep` — the
+  // "arrives whole, cut it down first" rule that is right for a potato and
+  // absurd for a box of penne. The game was asking you to chop dry pasta with a
+  // knife, and the recipe card was printing "250g of starchy vegetable, cut
+  // down" for what is plainly a portion of penne.
+  //
+  // The shape of the numbers is what separates it from a root: it is INEDIBLE
+  // raw (a potato raw is merely poor; dry pasta is not food), it needs a lot of
+  // liquid and time rather than heat, it is very hard to burn while there is
+  // still water around it, and it is ruined by stirring — which is the one
+  // handling mistake everyone makes with rice.
+  dry_starch: {
+    unitWeight: 125,   // a portion, not a sack — you cook 125g of pasta per head
+    label: 'dry starch',
+    needsPrep: false,  // you do not chop pasta. This is the whole point.
+    cookRateMult: 1.1,
+    peakFraction: 0.25,      // the window between al dente and paste is narrow
+    burnFraction: 1.6,       // ...but it will not actually burn while it's wet
+    turns: 0,                // stirring rice is how you get wallpaper paste
+    heatTolerance: 'mid',
+    doneness: {
+      default: 'al dente',
+      levels: [
+        { name: 'chalky', at: 0.7, risk: 0.05 },
+        { name: 'al dente', at: 1.00 },
+        { name: 'soft', at: 1.3 },
+      ],
+    },
+    difficulty: 4,
+    targets: { raw: 'poor', peak: 'excellent', over: 'acceptable', burnt: 'poor' },
   },
   // Fine raw, fine cooked, ruined by handling. Fast.
   soft_vegetable: {
@@ -324,10 +334,7 @@ export function achievedDoneness(profile, fraction) {
     Math.abs(l.at - fraction) < Math.abs(best.at - fraction) ? l : best, levels[0]).name;
 }
 
-export const bandIndex = band => {
-  const i = QUALITY_BANDS.indexOf(band);
-  return i < 0 ? 0 : i;
-};
+// (bandIndex is re-exported from server/engine/quality-bands.js at the top.)
 
 // Sanity gate over the catalog, asserted by regress. This is the validation
 // layer the AI-generated catalog will lean on later — cheap to add now, and it

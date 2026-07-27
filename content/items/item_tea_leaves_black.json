@@ -1,0 +1,16 @@
+{
+  "description": "Rolled, dried and startlingly cheap for something shipped this far. Two minutes is tea; five is punishment.",
+  "flags": {},
+  "id": "item_tea_leaves_black",
+  "name": "black tea leaves",
+  "tags": {
+    "description": "Rolled, dried and startlingly cheap for something shipped this far. Two minutes is tea; five is punishment.",
+    "drink_noun": "black tea",
+    "drink_profile": "tea_base",
+    "pour_units": 14,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 8,
+  "weight": 250
+}

@@ -6,8 +6,9 @@
   "tags": {
     "consumable": true,
     "description": "A scoop of hard little beans, dull and dusty, that rattle in the bag. Useless in under an hour and transformative after three.",
+    "food_also": "starchy_vegetable",
     "food_noun": "pulse",
-    "food_profile": "starchy_vegetable",
+    "food_profile": "dry_starch",
     "needs_cooking": true,
     "restore_hunger": 19,
     "stackable": true,

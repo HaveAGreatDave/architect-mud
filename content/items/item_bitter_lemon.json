@@ -1,0 +1,20 @@
+{
+  "description": "Sour and quinine-bitter. Drinks like something that is good for you, which it isn't, particularly.",
+  "flags": {},
+  "id": "item_bitter_lemon",
+  "name": "bitter lemon",
+  "tags": {
+    "consumable": true,
+    "description": "Sour and quinine-bitter. Drinks like something that is good for you, which it isn't, particularly.",
+    "drink_noun": "bitter lemon",
+    "drink_profile": "mixer",
+    "hydrating": true,
+    "pour_units": 3,
+    "restore_sanity": 4,
+    "restore_thirst": 40,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 6,
+  "weight": 380
+}

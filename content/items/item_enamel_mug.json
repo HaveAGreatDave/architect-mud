@@ -1,0 +1,16 @@
+{
+  "description": "White enamel over steel, chipped down to black at the rim. It has outlived at least two owners and has no opinion about it.",
+  "flags": {},
+  "id": "item_enamel_mug",
+  "name": "enamel mug",
+  "tags": {
+    "description": "White enamel over steel, chipped down to black at the rim. It has outlived at least two owners and has no opinion about it.",
+    "drinkware": true,
+    "drinkware_kind": "mug",
+    "fillable": 3,
+    "unique": true
+  },
+  "type": "misc",
+  "value": 9,
+  "weight": 320
+}

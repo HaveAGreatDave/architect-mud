@@ -20,21 +20,23 @@ import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { tagValue, hasTag } from '../../server/engine/tags.js';
 import { skillCheck, awardSkillUse, effectiveSkill } from '../../server/engine/skills.js';
 import { grantSkillIp } from '../../server/engine/ip.js';
+import { getItem } from '../../server/engine/items-cache.js';
 import { isPluggedIn } from '../appliances/index.js';
 import {
   STOVE_SPEED, PORTABLE_OVEN_SPEED, PORTABLE_OVEN_CAPACITY_G,
   BARE_VESSEL, DEFAULT_VESSEL, cookingIpFor, SMOKER_SPEED, SMOKER_PROFILE, SKILL_WEIGHT, FOND_PROFILES, MAX_CHOP_PIECES, BUTTER_BONUS, BUTTER_PORTION, MICROWAVE_SPEED,
+  COOK_SECONDS_PER_KG, BAND_SCALE,
 } from './config.js';
 import { prepareCook, commitCooks, cookEnvironment, checkCooking, endSession, freeAppliance, sessionProfile, rescheduleNarration, cooksOnAppliances, forgetCook } from './cook.js';
-import { PROFILES, bandIndex, profileNameFor, isModifier, needsPrep, donenessLevels, defaultDoneness, achievedDoneness } from './profiles.js';
+import { QUALITY_BANDS, PROFILES, bandIndex, profileNameFor, isModifier, needsPrep, donenessLevels, defaultDoneness, achievedDoneness } from './profiles.js';
 import { evaluate } from './quality.js';
 import { handle as handleInteraction } from './interact.js';
 import './help.js';
 import { leavesFond, makeFond, fondState, fondModifier, fondText } from './fond.js';
 import { portionOf, canChop, portionName, yieldOf } from './portions.js';
 import { timeline, finishAt, endStateAt } from './quality.js';
-import { DISHES, signature, matchDish, dishName, composeBand, seasoningBonus, seasoningIdeal, nounFor, UNKNOWN_DISH, GENERIC_SANDWICH } from './dishes.js';
-import { cookbookState, learnRecipe, improveRecipe, recordAttempt, beatsRecorded, knownBonus, markRoutineIp } from './knowledge.js';
+import { DISHES, signature, matchDish, dishName, composeBand, seasoningBonus, seasoningIdeal, nounFor, UNKNOWN_DISH, GENERIC_SANDWICH, describeDish } from './dishes.js';
+import { UNTRIED, cookbookState, learnRecipe, improveRecipe, recordAttempt, beatsRecorded, knownBonus, markRoutineIp } from './knowledge.js';
 import { rewardFor, restMultiplier, restText, RESTS_WELL, REST_PEAK_MS, REST_COLD_MS, REST_MIN_MS, TASTE_TIERS, TASTE_BITE } from './config.js';
 import { tasteNotes, flavourLines } from './taste.js';
 import { canMarinate, prepText } from './prep.js';
@@ -52,7 +54,7 @@ import { DISCOVERY_IP, DISCOVERY_ATTEMPTS, MODIFIER_BONUS, MODIFIER_BONUS_CAP, O
 // Any blade will do. `can_chop` is the kitchen-specific tag; `butchering` is
 // what every knife in the game already carries, so all three existing blades
 // work without a content edit.
-const chopTool = player => resolveInventoryItem(player, { tag: ['can_chop', 'butchering'], topLevel: true });
+const chopTool = player => resolveInventoryItem(player, { tag: ['can_chop', 'butchering'], topLevel: true, fromNearby: true });
 
 // ── Sound ────────────────────────────────────────────────────────────────────
 //
@@ -198,7 +200,7 @@ async function cmdCook(args, raw, player, broadcast) {
   }
 
   // Carrying something by that name that can actually be cooked → it's food.
-  const carried = await resolveInventoryItem(player, { name: nameStr, tag: ['needs_cooking', 'vessel'], topLevel: true });
+  const carried = await resolveInventoryItem(player, { name: nameStr, tag: ['needs_cooking', 'vessel'], topLevel: true, fromNearby: true });
   if (!carried && hasSynthesis()) return toDrugs(player, nameStr, broadcast);
   return cookFood(nameStr, player, broadcast);
 }
@@ -229,7 +231,7 @@ async function cookFood(nameStr, player, broadcast, wantAppliance = null) {
 
   // `cook <vessel>` puts the pan and everything in it on the heat; `cook <food>`
   // puts the food straight on the stove, which works but cooks worse.
-  const vessel = await resolveInventoryItem(player, { tag: 'vessel', name: nameStr, topLevel: true });
+  const vessel = await resolveInventoryItem(player, { tag: 'vessel', name: nameStr, topLevel: true, fromNearby: true });
   let foods;
   if (vessel) {
     // Anything profiled counts as an ingredient, whether or not it strictly
@@ -396,7 +398,13 @@ async function cookFood(nameStr, player, broadcast, wantAppliance = null) {
   const dial = appliance.microwave
     ? `\n<span class="text-dim">The dial is set to ${Math.round(appliance.runMs / 1000)} seconds. It starts turning.</span>`
     : '';
-  return { type: 'output', message: messages.join('\n') + dial };
+  // Say it when the pan came off the rack rather than out of your pack. The
+  // vessel is used IN PLACE and never moves into inventory, so without this line
+  // a pot would appear to cook itself out of nowhere.
+  const pulled = vessel?.from_nearby
+    ? `<span class="text-dim">You take the ${vessel.name} down from the ${vessel.from_nearby}.</span>\n`
+    : '';
+  return { type: 'output', message: pulled + messages.join('\n') + dial };
 }
 
 // Take it off the heat. This is where quality is decided — lazily, from the
@@ -408,7 +416,7 @@ async function cmdPlate(args, raw, player) {
 
   // `plate <vessel>` resolves everything in it into one dish; `plate <food>`
   // keeps the original single-item behaviour below.
-  const vessel = await resolveInventoryItem(player, { tag: 'vessel', name: nameStr, topLevel: true });
+  const vessel = await resolveInventoryItem(player, { tag: 'vessel', name: nameStr, topLevel: true, fromNearby: true });
   if (vessel) return plateVessel(vessel, player);
 
   const food = await resolveInventoryItem(player, { name: nameStr, topLevel: false });
@@ -429,7 +437,10 @@ async function cmdPlate(args, raw, player) {
 
   const check = await skillCheck(player, 'cooking', profile.difficulty);
   const now = Date.now();
-  const result = evaluate(session, profile, now, check.margin);
+  // A lone cut plates onto a plate too. One component, so a platter never pays
+  // here — a single steak on a serving platter is not presentation.
+  const plating = await platingBonus(player, 1);
+  const result = evaluate(session, profile, now, check.margin + plating.bonus);
   const done = plateDoneness(session, profile, now);
 
   // A smoke transforms what it produces; an ordinary cook just grades it.
@@ -468,7 +479,11 @@ async function cmdPlate(args, raw, player) {
   const verdict = result.endState === 'burnt'
     ? `You scrape ${food.name} off the heat. Burnt.`
     : `You plate ${food.name}${done ? `, ${done}` : ''}. It's ${label}.${missed}`;
-  return { type: 'output', message: verdict };
+  // Burnt is burnt. Nothing about a nice plate rescues it, and saying otherwise
+  // over a ruined pan would read as the game taking the piss.
+  const flourish = (plating.note && result.endState !== 'burnt')
+    ? `\n<span class="text-dim">${plating.note}</span>` : '';
+  return { type: 'output', message: verdict + flourish };
 }
 
 // The doneness a cook actually produced — how far through the cook it was pulled,
@@ -520,7 +535,7 @@ async function plateVessel(vessel, player) {
     // requiring a tool to build a sandwich would be the kind of realism that
     // makes a game worse.
     if (isBowl) {
-      const masher = await resolveInventoryItem(player, { tag: 'can_stir', topLevel: true });
+      const masher = await resolveInventoryItem(player, { tag: 'can_stir', topLevel: true, fromNearby: true });
       if (!masher) return { type: 'error', message: `You need something to mash with — a pestle, a spoon, anything.` };
     }
     // Cold work never sees heat, so its prep check lands here instead of at `cook`.
@@ -611,7 +626,15 @@ async function plateVessel(vessel, player) {
     .reduce((lo, q) => (lo === null || bandIndex(q) < bandIndex(lo) ? q : lo), null);
   const capped = craftedCap && bandIndex(craftedCap) < bandIndex(template.ceiling)
     ? { ...template, ceiling: craftedCap } : template;
-  const band = composeBand(bands, capped, (key ? knownBonus(known, key) : 0) + seasoning + handWork + fondBonus + butterBonus);
+  // PLATING. Rewarded, never required — the same trade the colander makes for
+  // draining and soap makes for a rinse. `plate` has never needed a plate and
+  // still doesn't: you can always take food off the heat with your hands, and
+  // gating the one verb that ENDS a cook behind an object you might not own
+  // would be a way to strand somebody with a burning pan. Owning real dishware
+  // just makes the same dish read better, which is what plating is.
+  const plating = await platingBonus(player, inVessel.length);
+  const band = composeBand(bands, capped,
+    (key ? knownBonus(known, key) : 0) + seasoning + handWork + fondBonus + butterBonus + plating.bonus);
   const name = dishName(template, inVessel, profileNameFor, tagValue);
 
   if (cooking.length) await freeAppliance(cooking[0].custom_data.cooking);
@@ -681,6 +704,9 @@ async function plateVessel(vessel, player) {
     : key
       ? `You plate it up: ${name}. It's ${label}.`
       : `You plate whatever this is. ${label}, and that's being generous.`);
+  // Say it when real dishware earned something. Silence when you have none —
+  // nobody needs a nag about the plates they don't own.
+  if (plating.note) lines.push(`<span class="text-dim">${plating.note}</span>`);
 
   // Collection path 1 — discovery by REPETITION. One good plate proves nothing;
   // turning the same combination out well DISCOVERY_ATTEMPTS times is what
@@ -974,7 +1000,7 @@ async function cmdTaste(args, raw, player) {
 
   // A vessel tastes as the DISH it's becoming — seasoning is a property of the
   // whole pan, not of any one thing in it.
-  const vessel = await resolveInventoryItem(player, { tag: 'vessel', name: nameStr, topLevel: true });
+  const vessel = await resolveInventoryItem(player, { tag: 'vessel', name: nameStr, topLevel: true, fromNearby: true });
   if (vessel) {
     const contents = await vesselContents(vessel.inv_id);
     const real = contents.filter(r => profileNameFor(r));
@@ -1075,7 +1101,7 @@ async function cmdMince(args, raw, player) {
 // seasoning: a sauce built on a sear is a different sauce.
 async function cmdDeglaze(args, raw, player) {
   const nameStr = args.join(' ').trim();
-  const vessel = await resolveInventoryItem(player, { tag: 'vessel', name: nameStr || undefined, topLevel: true });
+  const vessel = await resolveInventoryItem(player, { tag: 'vessel', name: nameStr || undefined, topLevel: true, fromNearby: true });
   if (!vessel) return { type: 'error', message: nameStr ? `You don't have "${nameStr}".` : `Deglaze what?` };
 
   const fond = vessel.custom_data?.fond;
@@ -1109,7 +1135,7 @@ async function cmdDeglaze(args, raw, player) {
 // penalty until it's cleaned off. Somebody has to do the washing up.
 async function cmdScour(args, raw, player) {
   const nameStr = args.join(' ').trim();
-  const vessel = await resolveInventoryItem(player, { tag: 'vessel', name: nameStr || undefined, topLevel: true });
+  const vessel = await resolveInventoryItem(player, { tag: 'vessel', name: nameStr || undefined, topLevel: true, fromNearby: true });
   if (!vessel) return { type: 'error', message: nameStr ? `You don't have "${nameStr}".` : `Scour what?` };
   if (!vessel.custom_data?.fond) return { type: 'error', message: `The ${vessel.name} is already clean enough.` };
 
@@ -1269,8 +1295,179 @@ registerAction({
   },
 });
 
+// ── plating ──────────────────────────────────────────────────────────────────
+//
+// What a real plate is worth. Nothing about `plate` requires one — it is the
+// verb that ends a cook, and gating that behind an object would leave a player
+// with no dishware standing over a burning pan with no way to stop. So this is
+// a bonus and only ever a bonus.
+//
+// A PLATTER pays more, but only for a dish with enough in it to be worth
+// arranging: putting one fried egg on a serving platter is not presentation,
+// it's a joke, so a big plate on a small dish quietly falls back to plate money.
+const PLATE_BONUS = 0.35 * BAND_SCALE;
+const PLATTER_BONUS = 0.6 * BAND_SCALE;
+const PLATTER_MIN_COMPONENTS = 3;
+
+// The fallback is not nothing — it's a paper plate off a stack somebody left in
+// the drawer. Owning no crockery is a fact about the character, and saying so is
+// characterisation; the line the player would resent is the one that TELLS THEM
+// TO GO BUY A PLATE, so none of these do. There's no `item_paper_plate` and
+// there deliberately isn't one: making the fallback consumable would make plates
+// required by the back door, which is the exact thing we're avoiding.
+//
+// Rotated so it doesn't read as a system message on the tenth meal.
+const IMPROVISED_PLATING = [
+  `Off a paper plate, because that is what there is.`,
+  `Onto a paper plate that goes soft under it almost immediately.`,
+  `A paper plate, doubled up, because one was never going to hold.`,
+  `Straight onto a paper plate. It bows in the middle and you eat faster than you meant to.`,
+  `A paper plate from a stack somebody else bought. There are four left.`,
+];
+
+async function platingBonus(player, componentCount = 1) {
+  const improvised = () => ({
+    bonus: 0,
+    note: IMPROVISED_PLATING[Math.floor(Math.random() * IMPROVISED_PLATING.length)],
+    improvised: true,
+  });
+
+  const dish = await resolveInventoryItem(player, {
+    tag: 'dishware', topLevel: true, fromNearby: true, all: true,
+  });
+  const kinds = new Set((dish || []).map(r => r.tags?.dishware_kind).filter(Boolean));
+  const names = new Map((dish || []).map(r => [r.tags?.dishware_kind, r.name]));
+  if (!kinds.has('plate')) return improvised();
+
+  const platter = (dish || []).find(r => /platter/i.test(r.name || ''));
+  if (platter && componentCount >= PLATTER_MIN_COMPONENTS) {
+    return { bonus: PLATTER_BONUS, note: `Laid out properly on the ${platter.name}.` };
+  }
+  return { bonus: PLATE_BONUS, note: `Served on a ${names.get('plate') || 'plate'} like a person.` };
+}
+
+export const _plating = { platingBonus, PLATE_BONUS, PLATTER_BONUS, PLATTER_MIN_COMPONENTS };
+
+// ── drain ────────────────────────────────────────────────────────────────────
+//
+// The verb the penne recipe was already telling you to use. Draining is the one
+// act in cooking that is about taking something OUT rather than putting it in,
+// and it only exists because `dry_starch` does: pasta and rice are the only
+// things in the game cooked IN water that then have to leave it.
+//
+// Two things happen. The starch comes off the heat wherever it is in its window
+// — which is the whole point, because "drain it short of done and finish it in
+// the sauce" is a real technique and this is how you perform it. And a strainer
+// makes it clean; without one you do it with the pan lid and lose some.
+//
+// The colander is REWARDED, NOT REQUIRED — the same trade the mop makes in
+// cleaning and soap makes in rinsing. Needing a specific object to perform an
+// obvious act is how a system stops being usable.
+const DRAIN_PENALTY = 1;   // bands lost doing it with the lid and your nerve
+
+async function cmdDrain(args, raw, player) {
+  const nameStr = args.join(' ').trim();
+  if (!nameStr) return { type: 'error', message: `Drain what?` };
+
+  const vessel = await resolveInventoryItem(player, { tag: 'vessel', name: nameStr, topLevel: true, fromNearby: true });
+  const rows = vessel
+    ? await vesselContents(vessel.inv_id)
+    : [await resolveInventoryItem(player, { name: nameStr, topLevel: false })].filter(Boolean);
+  if (!rows.length) return { type: 'error', message: vessel ? `There's nothing in the ${vessel.name}.` : `You don't have "${nameStr}".` };
+
+  // Only wet starch is drainable. Draining a steak is not a thing, and saying so
+  // plainly teaches the profile better than a generic refusal would.
+  const wet = rows.filter(r => profileNameFor(r) === 'dry_starch' && r.custom_data?.cooking);
+  if (!wet.length) {
+    return { type: 'error', message: `There's nothing in there that needs draining. It's pasta and rice that come out of their water.` };
+  }
+
+  const strainer = await resolveInventoryItem(player, { tag: 'dishware', topLevel: true, fromNearby: true });
+  const clean = !!strainer && (strainer.tags?.dishware_kind === 'strainer');
+
+  const out = [];
+  for (const row of wet) {
+    const session = row.custom_data.cooking;
+    const profile = sessionProfile(session);
+    const check = await skillCheck(player, 'cooking', profile?.difficulty ?? 4);
+    const now = Date.now();
+    const result = evaluate(session, profile, now, check.margin);
+    const done = plateDoneness(session, profile, now);
+
+    // Drained starch stays FINISHABLE: it is not a finished dish, it is a
+    // component on its way into a sauce. That's the same `stayFinishable` seam
+    // a browned component already uses, so `plate` still resolves the meal.
+    let band = result.band;
+    if (!clean) {
+      const i = Math.max(0, bandIndex(band) - DRAIN_PENALTY);
+      band = QUALITY_BANDS[i];
+    }
+    await freeAppliance(session);
+    await endSession(row.inv_id, band, done, null, true, { drained: true });
+    out.push(`${row.name} — ${band}${done ? `, ${done}` : ''}`);
+  }
+
+  const how = clean
+    ? `You tip the ${vessel?.name || 'pan'} into the ${strainer.name} and the water goes.`
+    : `You drain it with the lid and your nerve. Some of it goes down the drain with the water.`;
+  return { type: 'output', message: [
+    how,
+    ...out.map(l => `  ${l}`),
+    `<span class="text-dim">Still finishable — get it into the sauce before it sits.</span>`,
+  ].join('\n') };
+}
+
+// ── cookbook ─────────────────────────────────────────────────────────────────
+//
+// `cookbook` lists what you've worked out; `cookbook <dish>` prints the card.
+// The card is rendered from the SAME template the matcher and the clock use —
+// weights from each profile's unitWeight, timing from its cook rate, method
+// from its turns/heat/doneness — so it can never drift from what actually
+// happens in the pan.
+//
+// A dish you have NOT discovered still shows its name and blurb (you know a
+// stew exists) but not its measures. Working those out is the game.
+async function cmdCookbook(args, raw, player) {
+  const q = args.join(' ').trim().toLowerCase();
+  const { known } = await cookbookState(player.id);
+
+  if (!q) {
+    const rows = Object.entries(DISHES).map(([key, t]) => {
+      const band = known.get(key);
+      return band && band !== UNTRIED
+        ? `  · ${t.noun} <span class="text-dim">— best: ${band}</span>`
+        : known.has(key) ? `  · ${t.noun}` : `  <span class="text-dim">· ${t.noun} — untried</span>`;
+    });
+    return { type: 'output', message: [
+      `<span class="text-accent">COOKBOOK</span> <span class="text-dim">(${known.size}/${Object.keys(DISHES).length} worked out)</span>`,
+      '',
+      ...rows,
+      '',
+      `<span class="text-dim">cookbook &lt;dish&gt; for weights, method and timing.</span>`,
+    ].join('\n') };
+  }
+
+  const hit = Object.entries(DISHES).find(([k, t]) => k === q || t.noun.toLowerCase() === q)
+           || Object.entries(DISHES).find(([k, t]) => t.noun.toLowerCase().includes(q) || k.includes(q));
+  if (!hit) return { type: 'error', message: `You've never heard of a "${q}".` };
+  const [key, template] = hit;
+  if (!known.has(key)) {
+    return { type: 'output', message: [
+      `<span class="text-accent">${template.noun.toUpperCase()}</span>`,
+      `<span class="text-dim">${template.blurb}</span>`,
+      '',
+      `<span class="text-dim">You know it exists. You don't know how to make it — nobody has shown you and you haven't worked it out. Cook something like it a few times and it'll come.</span>`,
+    ].join('\n') };
+  }
+    // The item-name lookup lets the card name its key bottles rather than
+  // printing raw ids at anybody.
+  return { type: 'output', message: describeDish(key, template, COOK_SECONDS_PER_KG, id => getItem(id)) };
+}
+
 export const commands = {
   cook: cmdCook,
+  cookbook: cmdCookbook,
+  drain: cmdDrain,
   // Naming the appliance as the VERB. Skips the SIFT prompt entirely, which is
   // what you want when you already know you're reheating something.
   microwave: async (args, raw, player, broadcast) => {

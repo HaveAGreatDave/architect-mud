@@ -1,0 +1,20 @@
+{
+  "description": "Faintly bitter, faintly glowing under the wrong light. Nobody has satisfactorily explained the glow.",
+  "flags": {},
+  "id": "item_tonic_water",
+  "name": "tonic water",
+  "tags": {
+    "consumable": true,
+    "description": "Faintly bitter, faintly glowing under the wrong light. Nobody has satisfactorily explained the glow.",
+    "drink_noun": "tonic",
+    "drink_profile": "mixer",
+    "hydrating": true,
+    "pour_units": 3,
+    "restore_sanity": 3,
+    "restore_thirst": 38,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 5,
+  "weight": 380
+}

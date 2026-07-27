@@ -1,0 +1,17 @@
+{
+  "description": "Heavy base, short walls. Built for one big piece of ice and no argument.",
+  "flags": {},
+  "id": "item_tumbler",
+  "name": "tumbler",
+  "tags": {
+    "description": "Heavy base, short walls. Built for one big piece of ice and no argument.",
+    "drinkware": true,
+    "drinkware_kind": "tumbler",
+    "fillable": 2,
+    "fragile": true,
+    "unique": true
+  },
+  "type": "misc",
+  "value": 8,
+  "weight": 340
+}

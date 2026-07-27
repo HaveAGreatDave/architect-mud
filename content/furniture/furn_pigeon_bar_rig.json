@@ -1,0 +1,17 @@
+{
+  "description": "A squat chrome machine bolted to the back bar, hissing gently to itself between orders. The drip tray has not been emptied since anyone can remember.",
+  "flags": {
+    "brew_tier": "barista",
+    "aliases": "rig,espresso,coffee machine"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_pigeon_bar_rig",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "espresso rig",
+  "object_type": "fixture",
+  "power_draw_kw": 1.8,
+  "price": 0,
+  "zone_id": "zone_mq_pigeon_bar"
+}

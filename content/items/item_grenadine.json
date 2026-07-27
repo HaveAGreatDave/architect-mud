@@ -1,0 +1,16 @@
+{
+  "description": "Sweet, red, and does more for the look of a drink than the taste. Nobody has asked what fruit is involved in a long time.",
+  "flags": {},
+  "id": "item_grenadine",
+  "name": "grenadine",
+  "tags": {
+    "description": "Sweet, red, and does more for the look of a drink than the taste. Nobody has asked what fruit is involved in a long time.",
+    "drink_noun": "grenadine",
+    "drink_profile": "syrup",
+    "pour_units": 10,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 7,
+  "weight": 500
+}

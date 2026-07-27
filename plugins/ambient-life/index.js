@@ -33,6 +33,7 @@ import { sendToZone, getBroadcast } from '../../server/engine/messaging.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { foodLoad } from '../../server/engine/bodily.js';
 import { commands as stripperCommands } from '../strippers/index.js';
+import { homeLifeTick } from './home-life.js';
 
 // ── Tunables ──────────────────────────────────────────────────────────────────
 const START_CHANCE     = 0.5;             // per eligible zone, per tick
@@ -207,7 +208,9 @@ function routineTick() {
   }
 }
 
-schedule('30s', routineTick);
+// Home life rides the same tick, so it inherits the same idle gating: no
+// players anywhere means no candidates and no work for either half.
+schedule('30s', () => { routineTick(); homeLifeTick(); });
 
 // ── Interactive verbs ─────────────────────────────────────────────────────────
 // `order` resolves the food-cart opportunity in the room. `tip` is shared with the

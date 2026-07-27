@@ -1,0 +1,17 @@
+{
+  "description": "A slab of black glass and machined aluminium that grinds, tamps, brews and steams without ever being asked twice. It has a screen. The screen has a personality setting.",
+  "flags": {
+    "brew_tier": "machine",
+    "aliases": "coffee machine,bean-to-cup,machine"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_penthouse_coffee",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "Solenne bean-to-cup",
+  "object_type": "fixture",
+  "power_draw_kw": 2.6,
+  "price": 0,
+  "zone_id": "zone_solenne_penthouse"
+}

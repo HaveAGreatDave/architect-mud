@@ -1,0 +1,17 @@
+{
+  "description": "Plain, clear, and wide-mouthed. Holds enough for a table, or for one person having a long think.",
+  "flags": {},
+  "id": "item_glass_carafe",
+  "name": "glass carafe",
+  "tags": {
+    "description": "Plain, clear, and wide-mouthed. Holds enough for a table, or for one person having a long think.",
+    "drinkware": true,
+    "drinkware_kind": "carafe",
+    "fillable": 6,
+    "fragile": true,
+    "unique": true
+  },
+  "type": "misc",
+  "value": 14,
+  "weight": 800
+}

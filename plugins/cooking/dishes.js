@@ -16,7 +16,7 @@
 // failure mode that teaches the system, and it means the catalog never has to
 // enumerate the bad combinations.
 
-import { PROFILES, QUALITY_BANDS, bandIndex, instanceNoun } from './profiles.js';
+import { PROFILES, QUALITY_BANDS, bandIndex, instanceNoun, HANDLING_VERB } from './profiles.js';
 import { portionOf } from './portions.js';
 import { WORST_PULL, SLOP_CEILING, KNOWN_RECIPE_BONUS, MODIFIER_BONUS, MODIFIER_BONUS_CAP, OVER_SEASON_PENALTY, DEFAULT_SEASONING } from './config.js';
 
@@ -552,22 +552,50 @@ export const DISHES = {
   penne_alla_gin: {
     noun: 'penne alla gin', vessel: 'pan',
     keyItems: ['item_penne', 'item_gin'],
-    needs: { starchy_vegetable: 1, liquid: [2, 4] },
+    // Tightened from [2,4]: four liquid units is 1.6kg of sauce for one pan of
+    // pasta, which the recipe card exposed as plainly silly the moment it
+    // started printing real weights.
+    needs: { dry_starch: 1, liquid: [2, 3] },
     optional: ['dairy', 'aromatic', 'fat_or_oil', 'soft_vegetable', 'preserved'],
     nameSlots: [],
     nameFormat: 'penne alla gin',
     seasoning: 2,
+    // What each `liquid` is actually FOR. Class matching is what makes the
+    // catalog extensible, but "800g–1.6kg of liquid" is not a recipe anybody can
+    // follow — these notes are how a named dish gets to explain itself.
+    notes: {
+      dry_starch: 'a portion a head, no more',
+      liquid: 'tomato for the body, a slug of gin, cream to finish',
+    },
+    steps: [
+      'Salt the water heavily and get the penne in. Do not stir it about.',
+      'Tomato into hot fat and cook it down hard, until it darkens and stops being a sauce made of water.',
+      'Off the heat — genuinely off it — in with the gin. It will hiss and try to catch. That is why it is off the heat.',
+      'Back on low. Cream in last, and only once the alcohol has gone.',
+      'Drain the penne short of done and finish it in the pan, so the sauce catches in the ridges.',
+    ],
     ceiling: 'masterful', difficulty: 9,
     blurb: 'Tomato cooked down hard, a slug of gin off the heat, cream in last. The alcohol goes, the juniper stays, and the sauce clings to the ridges the way it is supposed to.',
   },
   ramen: {
     noun: 'ramen', vessel: 'pot',
     keyItems: ['item_ramen_noodles'],
-    needs: { liquid: [1, 2], starchy_vegetable: [1, 2] },
+    needs: { liquid: [1, 2], dry_starch: [1, 2] },
     optional: ['dense_meat', 'egg', 'soft_vegetable', 'preserved', 'aromatic', 'fat_or_oil'],
     nameSlots: ['dense_meat'],
     nameFormat: '{0} ramen',
     seasoning: 2,
+    nouns: { dry_starch: 'ramen noodles' },
+    notes: {
+      liquid: 'stock, and it is the whole dish, so make it properly',
+      dry_starch: 'in last, and barely cooked',
+    },
+    steps: [
+      'Get the stock hot and hold it at a whisper. Boiling it is how you get cloudy, bitter stock.',
+      'Everything that needs cooking goes in the stock, not the bowl.',
+      'Noodles in for three minutes. Three. They keep cooking in the bowl.',
+      'Arrange the toppings on top rather than stirring them through. It matters, and you know it matters.',
+    ],
     ceiling: 'masterful', difficulty: 8,
     blurb: 'Stock held at a whisper, noodles in for three minutes, everything else arranged on top like it matters. It does.',
   },
@@ -925,6 +953,194 @@ export function seasoningBonus(template, count) {
   return Math.min(MODIFIER_BONUS_CAP, under * MODIFIER_BONUS) - over * OVER_SEASON_PENALTY;
 }
 
+// ---------------------------------------------------------------------------
+// How a recipe READS
+// ---------------------------------------------------------------------------
+//
+// The catalog is stored as CLASSES — `dense_meat: [1,2], liquid: 1` — because
+// that is what makes it extensible: tag a new ingredient and every dish its
+// profile fits accepts it. But nobody wants to read a recipe that way.
+//
+// Everything needed to print a real one is already here and has been all along:
+// a profile's `unitWeight` is the grams that count as one, `cookRateMult` and
+// COOK_SECONDS_PER_KG are the clock, `turns` is the handling, `needsPrep` is the
+// knife work, `heatTolerance` is the setting, and `doneness` is the target. So
+// this is presentation over the same data the cook actually runs on — not a
+// second copy of the recipe that can drift away from the first.
+
+const G = n => (n >= 1000 ? `${(n / 1000).toFixed(n % 1000 ? 1 : 0)}kg` : `${Math.round(n)}g`);
+const MINS = ms => {
+  const m = ms / 60000;
+  if (m < 1) return `${Math.round(ms / 1000)}s`;
+  if (m < 10) return `${Math.round(m * 2) / 2} min`;
+  return `${Math.round(m)} min`;
+};
+
+// "500g–1kg of dense meat, cut down" — real weights, from the profile's own
+// unitWeight, which is the exact number the matcher counts against.
+export function ingredientLine(profileName, need, template = null, itemInfo = null) {
+  const p = PROFILES[profileName];
+  const label = p?.label || profileName;
+  const [lo, hi] = range(need);
+  if (p?.modifier) {
+    return lo === hi
+      ? `${lo} of ${label} — to season`
+      : `${lo}–${hi} of ${label} — to season`;
+  }
+  const unit = p?.unitWeight || 0;
+  const grams = unit ? (lo === hi ? G(lo * unit) : `${G(lo * unit)}–${G(hi * unit)}`) : (lo === hi ? `${lo}` : `${lo}–${hi}`);
+  const prep = p?.needsPrep ? ', cut down' : '';
+  // SAY PENNE, NOT "DRY STARCH".
+  //
+  // A keyed dish already names the exact ingredient that class stands for —
+  // penne_alla_gin declares item_penne — so when a key item's own profile is the
+  // one being printed, use ITS noun instead of the class label. "125g of penne"
+  // rather than "125g of dry starch", automatically, with no per-dish authoring:
+  // the template said which bottle it means, so the card can simply read it.
+  //
+  // Class matching is untouched — this is the display layer looking up a noun
+  // the template already committed to. Dishes with no key item for that class
+  // keep the class label, which is correct: a stew's meat really is any meat.
+  const keyNoun = keyNounFor(template, profileName, itemInfo);
+  const shown = keyNoun || label;
+
+  // A named dish may also say what its classes are FOR. Class matching is what
+  // makes the catalog extensible, but "800g–1.2kg of liquid" is not a recipe
+  // anyone can follow — that's three ingredients in one number, and the note is
+  // where the author says which three.
+  const note = template?.notes?.[profileName];
+  return `${grams} of ${shown}${prep}${note ? ` — ${note}` : ''}`;
+}
+
+// The noun a template's key item lends to the class it belongs to, if any.
+// `itemInfo(id)` returns the item row (or anything carrying name + tags); absent,
+// this answers null and everything falls back to the class label.
+export function keyNounFor(template, profileName, itemInfo) {
+  if (!template?.keyItems?.length || typeof itemInfo !== 'function') return null;
+  // ONLY when the key item IS the whole of that class. penne_alla_gin keys on
+  // gin, whose profile is `liquid` — but the recipe wants 2–3 liquids, of which
+  // the gin is one alongside tomato and cream. Naming the whole class after one
+  // of them produced "800g–1.2kg of gin", which is not a recipe, it's a warning.
+  // A class the dish wants exactly ONE of is unambiguously the key item; any
+  // more and it's a composite and keeps its class name.
+  // An explicit override always wins. Ramen wants 1–2 dry_starch and both of
+  // them are noodles, so the auto-rule below is too shy for it — but the author
+  // knows, and `nouns` is where they say so.
+  const declared = template.nouns?.[profileName];
+  if (typeof declared === 'string' && declared.trim()) return declared.trim().toLowerCase();
+
+  const [lo, hi] = range(template.needs?.[profileName] ?? 0);
+  if (lo !== 1 || hi !== 1) return null;
+  for (const id of template.keyItems) {
+    const row = itemInfo(id);
+    const tags = row?.tags || {};
+    if (tags.food_profile !== profileName) continue;
+    const noun = tags.food_noun || row?.name;
+    if (noun) return String(noun).toLowerCase();
+  }
+  return null;
+}
+
+// Roughly how long the longest thing in this dish takes on an ordinary stove,
+// at the required minimum. An estimate and labelled as one — the real clock
+// depends on the vessel, the heat setting and how much you actually put in.
+export function estimateCookMs(template, secondsPerKg = 360) {
+  let worst = 0;
+  for (const [profileName, need] of Object.entries(template.needs || {})) {
+    const p = PROFILES[profileName];
+    if (!p || p.modifier) continue;
+    const grams = (p.unitWeight || 250) * range(need)[0];
+    const ms = (grams / 1000) * secondsPerKg * (p.cookRateMult || 1) * 1000;
+    if (ms > worst) worst = ms;
+  }
+  return worst;
+}
+
+// The method, derived rather than authored — the handling the profiles already
+// declare, read back as instructions.
+export function methodLines(template) {
+  // A named dish can carry its own steps, and where it does they WIN. The
+  // derived method below reads a profile's turns/heat/doneness back as generic
+  // instructions, which is right for the 40-odd class-matched templates and
+  // useless for a dish with actual technique in it: no profile can express
+  // "off the heat before the gin goes in", and that is the entire recipe.
+  if (Array.isArray(template.steps) && template.steps.length) return [...template.steps];
+
+  const out = [];
+  const profiles = Object.keys(template.needs || {})
+    .map(n => [n, PROFILES[n]]).filter(([, p]) => p && !p.modifier);
+  if (!profiles.length) return [`Assemble it. Nothing here wants heat.`];
+
+  if (template.vessel === 'bowl') return [`Work it together in the bowl. No heat — everything here is better raw.`];
+  if (template.vessel === 'bread') return [`Build it on the bread. Heat is optional and changes what it is.`];
+
+  const anyPrep = profiles.some(([, p]) => p.needsPrep);
+  if (anyPrep) out.push(`Cut everything down first — you'll want a knife.`);
+
+  // Heat: a profile with a heatCurve is telling you to change the setting.
+  const curved = profiles.find(([, p]) => p.heatCurve?.length > 1);
+  if (curved) {
+    const [, p] = curved;
+    const first = p.heatCurve[0], rest = p.heatCurve[p.heatCurve.length - 1];
+    out.push(`Start it ${first.tier}, then drop to ${rest.tier} and leave it there.`);
+  } else {
+    const tiers = [...new Set(profiles.map(([, p]) => p.heatTolerance))];
+    out.push(`Keep it ${tiers.length === 1 ? tiers[0] : tiers.join('/')} the whole way.`);
+  }
+
+  const turns = Math.max(...profiles.map(([, p]) => p.turns || 0));
+  if (turns === 0) out.push(`Don't fuss it. Turning this makes it worse.`);
+  else {
+    const verb = profiles.some(([n]) => HANDLING_VERB[n] === 'stir') ? 'Stir' : 'Turn';
+    out.push(`${verb} it ${turns === 1 ? 'once' : `${turns} times`}, no more.`);
+  }
+
+  // Doneness is a choice you make over direct heat. Nobody asks how you'd like
+  // your stew — it went in a pot and it's done when it's done — so the line only
+  // appears where the choice is actually meaningful.
+  const done = ['pot'].includes(template.vessel) ? null : profiles.find(([, p]) => p.doneness);
+  if (done) {
+    const [, p] = done;
+    out.push(`Choose your doneness: ${p.doneness.levels.map(l => l.name).join(', ')}. Default is ${p.doneness.default}.`);
+  }
+  return out;
+}
+
+/**
+ * A full, readable recipe card. `secondsPerKg` is injected rather than imported
+ * so this stays free of config coupling and regress can assert the arithmetic.
+ */
+export function describeDish(key, template, secondsPerKg = 360, itemInfo = null) {
+  const t = template || DISHES[key];
+  if (!t) return null;
+  const lines = [];
+  lines.push(`<span class="text-accent">${t.noun.toUpperCase()}</span>`);
+  lines.push(`<span class="text-dim">${t.blurb}</span>`);
+  lines.push('');
+  for (const [profileName, need] of Object.entries(t.needs || {})) {
+    lines.push(`  · ${ingredientLine(profileName, need, t, itemInfo)}`);
+  }
+  const opt = (t.optional || []).map(n => PROFILES[n]?.label || n);
+  if (opt.length) lines.push(`  <span class="text-dim">optional: ${opt.join(', ')}</span>`);
+  lines.push('');
+  lines.push(`<span class="text-dim">Method:</span>`);
+  for (const l of methodLines(t)) lines.push(`  ${l}`);
+  lines.push('');
+  const ms = estimateCookMs(t, secondsPerKg);
+  if (ms > 0) lines.push(`<span class="text-dim">Roughly:</span> ${MINS(ms)} <span class="text-dim">on an ordinary stove — the pan and the heat move it either way.</span>`);
+  lines.push(`<span class="text-dim">Cook it in:</span> ${t.vessel ? `a ${t.vessel}` : 'anything, or straight on the heat'}`);
+  // NAME the key items. Being coy about them is right on the LIST (working out
+  // what a dish is made of is the cooking game) but wrong on a card for a
+  // recipe you have already earned — at that point "the right ingredient" is
+  // just withholding, and a real cookbook names the bottle.
+  if (t.keyItems?.length) {
+    const named = t.keyItems.map(id => (itemInfo?.(id)?.name || id.replace(/^item_/, '').replace(/_/g, ' ')));
+    lines.push(`<span class="text-dim">Will not work without:</span> ${named.join(' and ')} — no substitutions, that is what makes it this dish`);
+  }
+  lines.push(`<span class="text-dim">Difficulty:</span> ${t.difficulty}/10 · <span class="text-dim">best possible:</span> ${bestPossibleBand(t, KNOWN_RECIPE_BONUS) || '—'}`);
+  return lines.join('\n');
+}
+
 export function bestPossibleBand(template, bonus = 0) {
   const bands = [];
   let mods = 0;
@@ -970,6 +1186,22 @@ export function validateDishes(dishes = DISHES, bonus = KNOWN_RECIPE_BONUS) {
     for (const profile of t.optional || []) {
       if (!PROFILES[profile]) errors.push(`${at('optional')} lists unknown profile "${profile}"`);
       if (needs[profile]) errors.push(`${at('optional')} lists "${profile}", which is already required`);
+    }
+
+    // `notes` explains what a CLASS is for in this particular dish; `steps`
+    // replaces the derived method wholesale. Both are presentation, but a note
+    // about an ingredient the dish doesn't use would print advice for something
+    // that isn't in the recipe — which is exactly the kind of leftover an edit
+    // produces and nobody notices.
+    for (const profile of Object.keys(t.notes || {})) {
+      if (!PROFILES[profile]) errors.push(`${at('notes')} names unknown profile "${profile}"`);
+      else if (!needs[profile] && !(t.optional || []).includes(profile)) {
+        errors.push(`${at('notes')} explains "${profile}", which this dish neither needs nor allows`);
+      }
+    }
+    if (t.steps !== undefined) {
+      if (!Array.isArray(t.steps) || !t.steps.length) errors.push(`${at('steps')} must be a non-empty array when present`);
+      else if (t.steps.some(s => typeof s !== 'string' || !s.trim())) errors.push(`${at('steps')} contains an empty step`);
     }
 
     if (t.keyItems !== undefined) {

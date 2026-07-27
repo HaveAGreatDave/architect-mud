@@ -269,6 +269,15 @@ export const STAGE_LINES = {
     { max: 0.70, text: 'softening, and giving off a floury smell' },
     { max: 1.00, text: 'tender near the edge, firm at the centre' },
   ],
+  // Dry starch does not brown. It swells, clouds the water, and softens from
+  // the outside in — a completely different set of tells from a root, which is
+  // half the reason it stopped being one.
+  dry_starch: [
+    { max: 0.20, text: 'hard as gravel, sitting where it was dropped' },
+    { max: 0.45, text: 'loosening and starting to move about on its own' },
+    { max: 0.70, text: 'swelling, and the water going cloudy around it' },
+    { max: 1.00, text: 'soft outside with a thread of chalk still at the centre' },
+  ],
   soft_vegetable: [
     { max: 0.20, text: 'crisp and raw' },
     { max: 0.45, text: 'wilting at the edges' },
@@ -320,6 +329,7 @@ export const PEAK_LINES = {
   dense_meat: 'dark and tight at the edges, the fat running clear',
   liquid: 'settled into a slow, clouded simmer',
   starchy_vegetable: 'soft enough to take a knife without argument',
+  dry_starch: 'yielding but with a thread of resistance at the core',
   soft_vegetable: 'slumped and glossy',
   batter: 'set around the rim and no longer bubbling in the middle',
   egg: 'just turned from wet to matt',
@@ -337,6 +347,7 @@ export const SLIPPING_LINES = {
   dense_meat: 'still dark and glossy, though the edges have begun to draw in',
   liquid: 'thickening, and the simmer has gone quiet at the rim',
   starchy_vegetable: 'soft all the way through, the skin starting to split',
+  dry_starch: 'soft right through now, and starting to swell past itself',
   soft_vegetable: 'glossy still, but a shade duller than it was',
   batter: 'gold underneath and darkening where it meets the pan',
   egg: 'matt through, and just starting to firm at the rim',
@@ -352,6 +363,7 @@ export const FADING_LINES = {
   dense_meat: 'tightening up, and the smell has gone from rich to sharp',
   liquid: 'reduced past thick, and starting to catch on the bottom',
   starchy_vegetable: 'going floury at the edges and losing its shape',
+  dry_starch: 'bloated and slack, sticking to itself in clumps',
   soft_vegetable: 'gone from glossy to grey',
   batter: 'gone from gold to brown, and still going',
   egg: 'gone rubbery, and beginning to weep',

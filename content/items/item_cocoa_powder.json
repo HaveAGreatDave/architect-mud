@@ -1,0 +1,16 @@
+{
+  "description": "Dark, bitter, and totally unwilling to dissolve in anything that is not already hot.",
+  "flags": {},
+  "id": "item_cocoa_powder",
+  "name": "cocoa powder",
+  "tags": {
+    "description": "Dark, bitter, and totally unwilling to dissolve in anything that is not already hot.",
+    "drink_noun": "cocoa",
+    "drink_profile": "cocoa_base",
+    "pour_units": 12,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 9,
+  "weight": 300
+}

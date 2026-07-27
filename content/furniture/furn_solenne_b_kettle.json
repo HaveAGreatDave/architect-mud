@@ -1,0 +1,17 @@
+{
+  "description": "Brushed steel, one button, and a boil so quiet you have to look at it to know it is working.",
+  "flags": {
+    "brew_tier": "kettle",
+    "aliases": "kettle"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_solenne_b_kettle",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "counter kettle",
+  "object_type": "fixture",
+  "power_draw_kw": 2.2,
+  "price": 0,
+  "zone_id": "zone_solenne_apt_b"
+}

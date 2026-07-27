@@ -1,0 +1,20 @@
+{
+  "description": "Hot enough at the back of the throat to make your eyes water. Settles a stomach that has stopped negotiating.",
+  "flags": {},
+  "id": "item_ginger_soda",
+  "name": "ginger soda",
+  "tags": {
+    "consumable": true,
+    "description": "Hot enough at the back of the throat to make your eyes water. Settles a stomach that has stopped negotiating.",
+    "drink_noun": "ginger",
+    "drink_profile": "mixer",
+    "hydrating": true,
+    "pour_units": 3,
+    "restore_sanity": 5,
+    "restore_thirst": 38,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 5,
+  "weight": 380
+}

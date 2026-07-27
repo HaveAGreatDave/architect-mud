@@ -1,6 +1,8 @@
 // ambient-life regression suite — run by tests/regress.js (never loaded in production).
 import { _test } from './index.js';
 
+import { _internals as _home } from './home-life.js';
+
 export default async function regress({ run, check }) {
   // ── Verb routing ──
   // With no busker opportunity here, `tip` delegates to the strippers plugin (the
@@ -32,4 +34,22 @@ export default async function regress({ run, check }) {
   check('opp: expired pruned', !_test.liveOpportunity('zone_opp_exp', 'tip'), null);
   _test.opportunities.delete('zone_opp_live');
   _test.opportunities.delete('zone_opp_exp');
+
+  // ── Home life: NPC domestic routines ──
+  // The scene pools are the whole feature, so they get pinned: every beat must
+  // name the NPC (an unattributed line reads as the room talking to itself), and
+  // every {thing} must resolve off the live catalogues rather than a hardcoded
+  // list — that's what makes a new recipe show up in NPC life for free.
+  {
+    const { MEAL, DRINK, TIDY, pickMeal, pickDrink } = _home;
+    const pools = [...MEAL, ...DRINK, ...TIDY];
+    check('home: every scene has at least two beats', pools.every(s => s.length >= 2), `${pools.length} scenes`);
+    check('home: every beat names the NPC', pools.every(s => s.every(l => l.includes('{npc}'))));
+    check('home: no beat leaves a {thing} the pools cannot fill',
+      [...MEAL, ...DRINK].every(s => s.filter(l => l.includes('{thing}')).length >= 1));
+    check('home: TIDY needs no {thing}', TIDY.every(s => s.every(l => !l.includes('{thing}'))));
+    check('home: a meal noun comes off the dish catalogue', typeof pickMeal() === 'string' && pickMeal().length > 0);
+    check('home: a morning drink is a hot one', typeof pickDrink('morning') === 'string' && pickDrink('morning').length > 0);
+    check('home: an evening drink still resolves', typeof pickDrink('night') === 'string' && pickDrink('night').length > 0);
+  }
 }

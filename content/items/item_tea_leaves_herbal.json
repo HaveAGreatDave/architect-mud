@@ -1,0 +1,17 @@
+{
+  "description": "Flowers and stalks that smell like a room somebody was calm in once.",
+  "flags": {},
+  "id": "item_tea_leaves_herbal",
+  "name": "herbal tea leaves",
+  "tags": {
+    "description": "Flowers and stalks that smell like a room somebody was calm in once.",
+    "drink_noun": "herbal tea",
+    "drink_profile": "tea_base",
+    "pour_units": 14,
+    "restore_sanity": 3,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 9,
+  "weight": 250
+}

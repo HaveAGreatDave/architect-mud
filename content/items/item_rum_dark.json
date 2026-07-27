@@ -1,0 +1,17 @@
+{
+  "description": "Thick, sweet, and the colour of a bad decision made slowly.",
+  "flags": {},
+  "id": "item_rum_dark",
+  "name": "bottle of dark rum",
+  "tags": {
+    "abv": 40,
+    "description": "Thick, sweet, and the colour of a bad decision made slowly.",
+    "drink_noun": "rum",
+    "drink_profile": "base_spirit",
+    "pour_units": 14,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 30,
+  "weight": 950
+}
