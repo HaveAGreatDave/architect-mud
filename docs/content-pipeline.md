@@ -29,6 +29,26 @@ noise; a fresh restore that unlocks every vault is data loss. Regress layer 1a
 fails the build if any table is unclassified or any declared column doesn't
 exist — the "forgot to add scavenging tables to the backup" bug class is dead.
 
+**omitWhenNull is the opposite case: authored, but absent by default.** Some
+columns are *overrides* — a tile writes one only when it disagrees with what it
+would otherwise inherit (`regions.defaults` → `resolveDefault`, see
+[scripts/content/derive.mjs](../scripts/content/derive.mjs) and the
+[map pipeline spec §1.3](proposals/map-pipeline-spec.md)). Null on such a column
+is not a fact, it's the absence of one, and writing it down anyway is how
+`zones.audio_theme_id` came to say "nobody had an opinion" in 5,785 separate
+files. For a column on this list:
+
+- **export** omits the key when the value is null,
+- **lint** rejects a present-but-null key, so a tool that starts writing them
+  again fails immediately instead of silently refilling the tree,
+- **import** writes an explicit NULL when the key is absent — deleting an
+  override has to *clear* the column, or the old value survives in every database
+  that ever imported it and only a freshly-built one matches the files.
+
+That last point is the difference from every other absent key, where "not in the
+file" means "don't touch". Regress layer 1a checks the same way it checks
+excludeColumns, plus that no column is on both lists.
+
 ## Daily loop
 
 ```

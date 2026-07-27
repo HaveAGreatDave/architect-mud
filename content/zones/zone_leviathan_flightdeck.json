@@ -5,7 +5,6 @@
     "A trim wheel spins itself a half-turn and stops, and the airframe settles into the new attitude."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#0a1512",
   "color": "#bff0e4",
   "created_by": "leviathan_base",

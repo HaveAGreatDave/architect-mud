@@ -5,7 +5,6 @@
     "A coolant line ticks as it expands, then settles."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#0c0a08",
   "color": "#ffcf9a",
   "created_by": "echelon",

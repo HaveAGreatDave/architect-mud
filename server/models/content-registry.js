@@ -26,6 +26,19 @@
 //                                  honest tradeoff. (Proven by regress: excluding
 //                                  doors.lock_state shipped every authored lock
 //                                  disengaged on a fresh import.)
+//                 omitWhenNull   — ABSENT-BY-DEFAULT OVERRIDE columns. The column is
+//                                  authored, but only when a tile is overriding what
+//                                  it would otherwise inherit (resolveDefault, see
+//                                  scripts/content/derive.mjs). A null value is not a
+//                                  fact worth writing down 5,785 times, so export
+//                                  omits the key entirely and lint rejects a
+//                                  present-but-null one. Distinct from excludeColumns:
+//                                  those are runtime state the pipeline must not
+//                                  touch; these ARE authored, they just default.
+//                                  Import writes an explicit NULL when the key is
+//                                  absent — removing an override has to clear it, or
+//                                  a deleted override would linger in every DB that
+//                                  ever saw it.
 //                 readTier       — where the table's rows live at RUNTIME (the read
 //                                  side; see docs/architecture.md → Read Tiers).
 //                                  Required on every content entry; regress layer 1a
@@ -82,6 +95,12 @@ export const REGISTRY = [
     // stains: blood/vomit — accumulates in RAM (world.zones); the DB column is only
     // ever bulk-cleared by the daily maintenance tick (gameLoop.js), never written rich.
     excludeColumns: ['stains'],
+    // audio_theme_id: the tile's OVERRIDE of the song its region supplies
+    // (regions.defaults, spec §1.3). Null on 5,785 of 5,788 tiles before this
+    // seam existed, which is 5,785 files each recording that nobody had an
+    // opinion. The remaining override columns — marker, color, bg_color,
+    // ambient_theme — join this list as their defaults land (spec §11 steps 3-4).
+    omitWhenNull: ['audio_theme_id'],
     runtimeInserts: 'environment.js power/junction rooms; broadcast studio builder (dev-gated)',
     note: 'exits/tags are authored content but runtime systems may also wire them (power rooms, studios) — a known, drift-report-visible seam' },
   { table: 'maps', class: 'content', pk: ['id'], readTier: 'boot',

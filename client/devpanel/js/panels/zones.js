@@ -19,10 +19,15 @@ async function ensureDistrictData() {
 // panel's region dropdown. Mirrors the Maps tab's region switcher. _regionMeta:
 // region_id -> name; cached module-wide, re-render once it arrives.
 let _regionMeta = null;
+// region_id -> regions.defaults: the region rung of resolveDefault. The zone form
+// reads it so a blank override field can say what the tile inherits instead of
+// reading as silence (see the Audio Theme select below).
+let _regionDefaults = {};
 async function ensureRegionData() {
   if (_regionMeta) return;
   const d = await API('/maps/regions').catch(() => null);
   _regionMeta = Object.fromEntries((d?.regions || []).map(r => [r.id, r.name]));
+  _regionDefaults = Object.fromEntries((d?.regions || []).map(r => [r.id, r.defaults || {}]));
 }
 // Which region the Zones accordion is scoped to: null = all regions, a region_id,
 // or '__none__' for zones carrying no region_id (legacy / hand-authored).
@@ -466,6 +471,7 @@ let zoneEditCurrentZoneId = null;
 let zoneEditExitsState = {};
 
 async function zoneEditForm(rec, isNew) {
+  await ensureRegionData();   // the Audio Theme select names what a blank field inherits
   const exits = rec.exits || {};
   const ambients = Array.isArray(rec.ambient_events) ? rec.ambient_events : [];
   const flags = rec.flags || {};
@@ -940,7 +946,16 @@ async function zoneEditForm(rec, isNew) {
     </div>
     <div class="field"><label>Audio Theme <span style="color:var(--text-dim);font-weight:400">(procedural music that plays while a player is in this zone — see the Audio panel)</span></label>
       <select id="f-audio_theme_id">
-        <option value="">— None —</option>
+        <option value="">${(() => {
+          // Blank means "no override", not "no music" — the region's default plays.
+          // Naming it here is the whole defaults-and-overrides UX: you can see what
+          // you'd be typing over before you type over it.
+          const inherited = _regionDefaults[flags.region_id]?.audio_theme_id;
+          if (!inherited) return '— None —';
+          const song = (Array.isArray(audioSongs) ? audioSongs : []).find(s => s.id === inherited);
+          const regionName = _regionMeta?.[flags.region_id] || 'region';
+          return `— Inherit from ${regionName}: ${song?.name || inherited} —`;
+        })()}</option>
         ${(Array.isArray(audioSongs) ? audioSongs : []).map(s => `<option value="${s.id}" ${rec.audio_theme_id===s.id?'selected':''}>${s.name}</option>`).join('')}
       </select>
     </div>

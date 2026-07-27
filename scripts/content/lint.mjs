@@ -61,6 +61,7 @@ export function lintContentTree(baseDir) {
   for (const { entry, files } of entries) {
     const cols = columnsOf(entry.table);
     const excluded = new Set(entry.excludeColumns || []);
+    const omitWhenNull = new Set(entry.omitWhenNull || []);
     const fks = fksOf(entry.table).filter(fk => contentTables.has(fk.refTable) && !excluded.has(fk.col));
     for (const f of files) {
       const label = `${entry.table}/${f.name}`;
@@ -74,6 +75,12 @@ export function lintContentTree(baseDir) {
       }
       for (const k of Object.keys(f.data)) {
         if (excluded.has(k)) errors.push(`${label}: runtime column "${k}" must not be in content files (registry excludeColumns)`);
+        // An absent-by-default override written out as null is a tool still
+        // treating "no opinion" as a fact worth recording. Caught here rather
+        // than tolerated, because tolerating it is how 5,785 of them accumulated.
+        if (f.data[k] === null && omitWhenNull.has(k)) {
+          errors.push(`${label}: "${k}" is null — omit the key instead (registry omitWhenNull: it defaults through regions.defaults, see scripts/content/derive.mjs)`);
+        }
       }
       try {
         const expected = fileNameForRow(entry, f.data);
@@ -123,6 +130,46 @@ export function lintContentTree(baseDir) {
       if (!wez || !zoneIds.has(wez)) errors.push(`${label}: facade needs a valid world_exit_zone (got "${wez ?? ''}")`);
     }
   }
+  // regions.defaults holds the region-level rung of resolveDefault (spec §1.3),
+  // and its keys are ZONE columns — so a default inherits whatever FK that column
+  // has. Postgres cannot enforce a reference living inside a JSONB value, which
+  // means without this check one typo in one file silently mutes 4,837 tiles and
+  // nothing anywhere reports it.
+  {
+    const zoneCols = columnsOf('zones');
+    const zoneFks = new Map(fksOf('zones').map(fk => [fk.col, fk]));
+    const overridable = new Set(contentEntries().find(e => e.table === 'zones')?.omitWhenNull || []);
+    for (const f of entries.find(e => e.entry.table === 'regions')?.files || []) {
+      const d = f.data.defaults;
+      if (d === null || d === undefined) continue;
+      if (typeof d !== 'object' || Array.isArray(d)) {
+        errors.push(`regions/${f.name}: "defaults" must be an object keyed by zone column`);
+        continue;
+      }
+      for (const [k, v] of Object.entries(d)) {
+        const label = `regions/${f.name}: defaults."${k}"`;
+        if (zoneCols.size && !zoneCols.has(k)) {
+          errors.push(`${label} is not a column of zones — a region can only default something a tile could have overridden`);
+          continue;
+        }
+        if (!overridable.has(k)) {
+          errors.push(`${label} is not an absent-by-default column of zones (registry omitWhenNull) — every tile carries a value, so this default can never fire`);
+          continue;
+        }
+        if (v === null) {
+          errors.push(`${label} is null — omit the key; a default of "nothing" is the absence of a default`);
+          continue;
+        }
+        const fk = zoneFks.get(k);
+        if (!fk || !contentTables.has(fk.refTable)) continue;
+        const refSet = pkSets.get(fk.refTable)?.get(fk.refCol);
+        if (refSet && !refSet.has(String(v))) {
+          errors.push(`${label}="${v}" references ${fk.refTable}.${fk.refCol} but no such content file exists (dangling default — the whole region would resolve to something that isn't there)`);
+        }
+      }
+    }
+  }
+
   return errors;
 }
 

@@ -2,6 +2,9 @@
   "base_terrain": null,
   "climate_bias": null,
   "created_by": "backfill",
+  "defaults": {
+    "audio_theme_id": "song_neon_rain"
+  },
   "grid_z": 0,
   "id": "region_coldwater",
   "name": "Coldwater",

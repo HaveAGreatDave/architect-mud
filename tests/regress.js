@@ -23,7 +23,7 @@ import { readdir, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
-import { initWorld, setLivePlayer, removeLivePlayer, addPlayerToZone, removePlayerFromZone, getAllZones, getLivePlayer, world, setDoorCache, deleteDoorCache, getDoorForExit, frontDoorOf, getApartment, insertFurniture, deleteFurniture, getZone, registerTransientZone, removeTransientZone, isTransientZone } from '../server/engine/world.js';
+import { initWorld, setLivePlayer, removeLivePlayer, addPlayerToZone, removePlayerFromZone, getAllZones, getLivePlayer, world, setDoorCache, deleteDoorCache, getDoorForExit, frontDoorOf, getApartment, insertFurniture, deleteFurniture, getZone, registerTransientZone, removeTransientZone, isTransientZone, regionForZone } from '../server/engine/world.js';
 import { moveEntity } from '../server/engine/ai-behaviour.js';
 import { exitTargets, allExits, neighborZoneIds, addExit, removeExit } from '../server/engine/exits.js';
 import { cmdMove, dragFollowers } from '../server/engine/commands/movement.js';
@@ -45,6 +45,7 @@ import { CONTENT_TABLES, EXCLUDED_TABLES, REGISTRY } from '../server/models/cont
 import { SCHEMA_SQL } from '../server/models/schema.js';
 import { handleApiRequest, apiUpdateZone, apiPatchZoneTag } from '../server/api/routes.js';
 import { query } from '../server/models/db.js';
+import { resolveDefault } from '../scripts/content/derive.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PLUGINS_DIR = join(__dirname, '../plugins');
@@ -135,8 +136,15 @@ console.log('— layer 1a: content-registry coverage —');
     if (!e.pk || !e.pk.length) colErrors.push(`${e.table}: content entry has no pk`);
     for (const c of e.pk || []) if (!cols.has(c)) colErrors.push(`${e.table}: pk column "${c}" not in SCHEMA_SQL`);
     for (const c of e.excludeColumns || []) if (!cols.has(c)) colErrors.push(`${e.table}: excludeColumns "${c}" not in SCHEMA_SQL`);
+    // omitWhenNull columns are AUTHORED (just absent by default), so naming one
+    // that's also excluded means the pipeline both writes and refuses to write it.
+    for (const c of e.omitWhenNull || []) {
+      if (!cols.has(c)) colErrors.push(`${e.table}: omitWhenNull "${c}" not in SCHEMA_SQL`);
+      if ((e.excludeColumns || []).includes(c)) colErrors.push(`${e.table}: "${c}" is both omitWhenNull and excludeColumns`);
+      if ((e.pk || []).includes(c)) colErrors.push(`${e.table}: pk column "${c}" cannot be omitWhenNull`);
+    }
   }
-  check('registry pk/excludeColumns name real columns', colErrors.length === 0, colErrors.join('; '));
+  check('registry pk/excludeColumns/omitWhenNull name real columns', colErrors.length === 0, colErrors.join('; '));
 
   // Every content table must declare its read tier — where its rows live at
   // runtime (docs/architecture.md → Read Tiers). Adding a content table without
@@ -682,6 +690,54 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   deleteDoorCache(frontId);
   world.maps.delete(mapId);
   world.zones.delete(streetId); world.zones.delete(facadeId); world.zones.delete(entryId);
+}
+
+// LAW: defaults-and-overrides resolves most-specific-first, and the AUTHORED world
+// actually uses it. resolveDefault is the primitive every later derivation calls
+// (map-pipeline-spec §7.3), so its precedence order is pinned here rather than
+// discovered later from a tile that plays the wrong song. The live half — that a
+// Coldwater tile with no override still gets the region's theme — is what turns
+// 5,785 nulls into 2 authored values; if the region rung ever stops firing, the
+// world goes silent and nothing else would notice.
+{
+  const palette = { default: 'concrete', terrains: { concrete: { audio_theme_id: 'song_from_palette' } } };
+  const region = { id: 'region_regress', defaults: { audio_theme_id: 'song_from_region' } };
+  const bare = { id: 'z', flags: {} };
+
+  check('resolveDefault: tile override wins over region',
+    resolveDefault('audio_theme_id', { ...bare, audio_theme_id: 'song_own' }, region, palette) === 'song_own');
+  check('resolveDefault: region beats the palette',
+    resolveDefault('audio_theme_id', bare, region, palette) === 'song_from_region');
+  check('resolveDefault: palette catches a tile with no region',
+    resolveDefault('audio_theme_id', bare, null, palette) === 'song_from_palette');
+  check('resolveDefault: falls through to the global default',
+    resolveDefault('ambient_theme', bare, null, null) === 'indoors');
+  // A null anywhere on the chain means "no opinion", never "stop here" — the one
+  // thing the mechanism deliberately cannot express (see derive.mjs).
+  check('resolveDefault: a null override does not shadow the region',
+    resolveDefault('audio_theme_id', { ...bare, audio_theme_id: null }, region, null) === 'song_from_region');
+  check('resolveDefault: unknown key with nothing to say resolves null',
+    resolveDefault('marker', bare, null, null) === null);
+  check('resolveDefault is pure — no DB, no clock, no RNG',
+    resolveDefault('audio_theme_id', bare, region, palette) === resolveDefault('audio_theme_id', bare, region, palette));
+
+  // The authored world, as loaded. Not a fixture: these are the real region rows.
+  const themed = getAllZones().filter(z => z.flags?.region_id && !z.audio_theme_id);
+  const withTheme = themed.filter(z => resolveDefault('audio_theme_id', z, regionForZone(z)));
+  check('region defaults reach the tiles that inherit them',
+    themed.length > 0 && withTheme.length === themed.length,
+    `${withTheme.length}/${themed.length} region tiles resolve a theme`);
+  check('a tile outside every region resolves no theme',
+    getAllZones().filter(z => !z.flags?.region_id)
+      .every(z => resolveDefault('audio_theme_id', z, regionForZone(z)) === null));
+  // Every authored default must name a song that EXISTS. content:lint checks this
+  // against the file tree; this checks the database the world actually booted from,
+  // because a JSONB value has no foreign key to break loudly.
+  const wanted = [...world.regions.values()].map(r => r.defaults?.audio_theme_id).filter(Boolean);
+  const known = new Set((await query('SELECT id FROM audio_songs')).rows.map(r => r.id));
+  const badDefaults = wanted.filter(id => !known.has(id));
+  check('every region default names a real song', wanted.length > 0 && badDefaults.length === 0,
+    badDefaults.length ? badDefaults.join(', ') : `${wanted.length} authored`);
 }
 
 // LAW: no NPC may be homed in a PLAYER-OWNED apartment (the "someone's in Akerson's

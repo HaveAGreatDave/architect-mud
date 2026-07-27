@@ -31,12 +31,21 @@ labelling layer on top of the grid. See [systems-world.md](../systems-world.md).
 ### Region — the spatial "place" (renamed 2026-07-19 from *district*)
 A **region** is a named rectangle of the `map_world` grid — the big world-map places a pilot would
 navigate toward: **Coldwater**, **The Reach**. SSOT is the **`regions` table**
-(`id/name/base_terrain/grid_z`); member tiles point back with **`flags.region_id`**. Bounds are
+(`id/name/base_terrain/grid_z/defaults`); member tiles point back with **`flags.region_id`**. Bounds are
 derived from member tiles at read time, never stored (so moving a region can't desync them). Authored
 in the dev-panel **World Editor** ("New Region", "Region Maps", drag-to-move), published through
 staging (`region_create` / `region_move`). Loaded into RAM at boot (`world.regions`, `getRegion` /
 `getAllRegions`, refreshed on `reloadMaps`) so runtime readers resolve a region name without a DB hit.
 The flight target guide waypoints regions — see [systems-flight.md](../systems-flight.md).
+
+**A region also says what its tiles sound like by default.** `regions.defaults` is a JSONB bag
+keyed by *zone column* — the region rung of `resolveDefault`
+([scripts/content/derive.mjs](../../scripts/content/derive.mjs), spec §1.3), resolved
+**tile override → region default → palette → global**. Today it holds one key, `audio_theme_id`:
+two authored values covering 5,237 tiles, replacing a column that was null on every one of them.
+A tile overrides by setting the column; blank means inherit, and the dev panel's Audio Theme
+select names what blank would give you. Most-specific wins, so a region default deliberately
+outranks anything terrain-derived — refining below a region means refining the region.
 
 > **Region > district** in scale: a region contains districts. (Regions were called "spatial
 > districts" before 2026-07-19; the rename exists purely to end that collision.)

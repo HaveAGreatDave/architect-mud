@@ -6,7 +6,6 @@
     "A charger indicator blinks green, red, green, deciding nothing."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#2f9aa8",
   "color": null,
   "created_by": null,

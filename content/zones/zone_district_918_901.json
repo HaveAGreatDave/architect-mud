@@ -5,7 +5,6 @@
     "A coolant line ticks as it cools somewhere under the gun deck."
   ],
   "ambient_theme": "city",
-  "audio_theme_id": null,
   "bg_color": "#3a3a32",
   "color": "#d8d2b0",
   "created_by": "zone-planner",

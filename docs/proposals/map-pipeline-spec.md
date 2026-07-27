@@ -117,6 +117,34 @@ are how a UI grows options nothing uses, same rule as §3.3).
 
 ### 1.3 `content/regions/<id>.json` — gains `defaults`
 
+> **BUILT — §11 step 1.** [`scripts/content/derive.mjs`](../../scripts/content/derive.mjs)
+> (`resolveDefault`), `regions.defaults` in SCHEMA_SQL, both region files authored, and
+> `audio_theme_id` deleted from 5,785 zone files. Three things the section below did not
+> anticipate, all of them load-bearing:
+>
+> - **"Absent by default" needed a pipeline seam, not just a convention.** The registry gained
+>   `omitWhenNull` (zones: `audio_theme_id`): export omits a null key, lint rejects a
+>   present-but-null one, and — the part that is easy to miss — **import writes an explicit NULL
+>   when the key is absent.** Everywhere else in the pipeline a missing key means "don't touch";
+>   for an override column it has to mean "no override", or deleting one from a file leaves the
+>   old value alive in every database that already imported it. Documented in
+>   [content-pipeline.md](../content-pipeline.md).
+> - **A JSONB reference has no foreign key.** `defaults.audio_theme_id` names an `audio_songs`
+>   row that Postgres will never check, so one typo silently mutes 4,837 tiles. `content:lint`
+>   now validates every `defaults` key as a zones column, requires it to be `omitWhenNull` (a
+>   default on a column every tile already fills can never fire), and runs the value through the
+>   zones FK for that column. Six negative cases proven to fire.
+> - **Turning the default on lit up a consumer path that had never run.** No tile had a theme
+>   before, so `zone.entered` never had music to *stop* — walking out of Coldwater would have
+>   carried the city's song into the wastes forever. The audio plugin now tracks what the zone
+>   theme started, per player, so leaving silences it without touching the radio (broadcast owns
+>   the same music slot). Login starts it too, for the same reason the weather bed already did.
+>
+> **The one thing the mechanism cannot express**, recorded so it isn't rediscovered: with a
+> nullable column there is no "explicitly nothing, do not inherit" — absent and none are the same
+> bytes. A tile inside a region cannot opt into silence. That needs a sentinel and a deliberate
+> decision, not a special case at a call site.
+
 Add one JSONB column, `regions.defaults`:
 
 ```sql
@@ -756,11 +784,24 @@ up after it.
 Each step is shippable on its own and leaves the tree green. **Do not batch them** — the whole
 point of the migration shape (redesign §14) is no flag day.
 
-1. **`resolveDefault` + `regions.defaults` + `audio_theme_id`.** The smallest end-to-end slice of
+1. ~~**`resolveDefault` + `regions.defaults` + `audio_theme_id`.**~~ **BUILT** — see the call-out
+   in §1.3 for what it cost that this list didn't predict. The smallest end-to-end slice of
    the defaults-and-overrides mechanism, with **nothing derived in the middle** — authored
-   default → resolved value → Studio shows the inherited value greyed → typing writes an
-   override. Two authored values replace 5,785 nulls. Get this right and every presentation case
-   is the same shape with a derivation inserted.
+   default → resolved value → the editor shows the inherited value in the blank slot → typing
+   writes an override. Two authored values replace 5,785 nulls. Get this right and every
+   presentation case is the same shape with a derivation inserted.
+
+   The "Studio shows it greyed" half landed in the **dev panel's** zone form instead, since the
+   Studio doesn't exist yet: the Audio Theme select's blank option reads *"— Inherit from
+   Coldwater: neon_rain —"*. Cheap, and it removes the one thing that would otherwise make this
+   step user-hostile — a blank field that used to mean silence and now means something else.
+
+   `resolveDefault` currently runs at its **call site** (the audio plugin), not at build time,
+   because `zone_render` doesn't exist until step 3. That is the one place this repo tolerates
+   runtime resolution, and it is tolerable precisely because there is exactly one shared
+   function: step 3 moves the call into derive and the plugin reads a column, with no change to
+   what resolves. If a second caller appears before then, that argument is dead — fix it by
+   doing step 3, not by copying the function.
 2. **The field catalog extensions** (§3). Pure addition, no data migration, immediately useful to
    the dev panel as well.
 3. **`content/map/terrain.json` + `zone_render` + the derive module** for colours, glyph and

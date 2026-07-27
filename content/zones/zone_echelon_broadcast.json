@@ -5,7 +5,6 @@
     "Somewhere a cooling fan spins up, spins down, and the room is silent again."
   ],
   "ambient_theme": "indoors",
-  "audio_theme_id": null,
   "bg_color": "#100a14",
   "color": "#e6c8ff",
   "created_by": "echelon",

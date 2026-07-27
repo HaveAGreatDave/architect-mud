@@ -292,9 +292,17 @@ try {
     // ── Upsert pass ───────────────────────────────────────────────────────────
     for (const { entry, files } of entries) {
       const types = await columnTypes(client, entry.table);
+      // Absent-by-default override columns (registry omitWhenNull) are the one
+      // case where a missing key is a STATEMENT — "no override" — rather than
+      // "don't touch this". Force them into every upsert so removing an override
+      // from a file actually clears the column; otherwise the old value would
+      // survive in every database that ever imported it, and only a freshly
+      // built one would match the files.
+      const forcedNull = (entry.omitWhenNull || []).filter(c => types.has(c));
       let ins = 0, upd = 0;
       for (const f of files) {
         const cols = Object.keys(f.data).filter(c => types.has(c));
+        for (const c of forcedNull) if (!cols.includes(c)) cols.push(c);
         const unknown = Object.keys(f.data).filter(c => !types.has(c));
         if (unknown.length) throw new Error(`${entry.table}/${f.name}: unknown column(s) ${unknown.join(', ')} — stale file or missing schema change.`);
         const nonPk = cols.filter(c => !entry.pk.includes(c));

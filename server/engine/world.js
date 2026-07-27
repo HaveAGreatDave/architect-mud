@@ -97,6 +97,16 @@ async function loadRegions() {
 export function getRegion(id) { return world.regions.get(id) || null; }
 export function getAllRegions() { return [...world.regions.values()]; }
 
+// The region a tile belongs to, for resolveDefault's region rung. Membership is
+// flags.region_id (docs/reference/land-taxonomy.md) — outdoor tiles carry it,
+// interiors generally don't, and a tile without one simply falls through to the
+// global default. Two Map lookups, no query: safe on any path a zone object
+// already reached.
+export function regionForZone(zone) {
+  const id = zone?.flags?.region_id;
+  return id ? world.regions.get(id) || null : null;
+}
+
 // Maps are loaded at boot; the dev-panel routes that create interior maps
 // (add-room, link-interior) call this so a new building becomes enterable
 // without a reboot. Region create/move publishes route through here too, so the

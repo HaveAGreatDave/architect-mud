@@ -107,6 +107,12 @@ export const SCHEMA_SQL = `
   -- { temp: <°C offset>, dryness: <0..1 precip/cloud multiplier> }. NULL = baseline.
   ALTER TABLE regions ADD COLUMN IF NOT EXISTS climate_bias JSONB;
 
+  -- The region-level slot of the defaults-and-overrides mechanism
+  -- (docs/proposals/map-pipeline-spec.md §1.3): { "<column>": <value> } read by
+  -- resolveDefault() when a member tile leaves that column null. One key today,
+  -- audio_theme_id — two authored values standing in for 5,785 nulls.
+  ALTER TABLE regions ADD COLUMN IF NOT EXISTS defaults JSONB DEFAULT '{}';
+
   -- Grid coordinates + map membership for every zone. Additive: exits stay
   -- the source of truth for traversability (adjacency never implies a
   -- connection); these only position zones on a map for display/editing.

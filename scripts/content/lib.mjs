@@ -114,10 +114,16 @@ export function canonicalJson(obj) {
 // strings (deterministic, UTC); everything else is already JSON-able.
 export function rowToFileObject(entry, row) {
   const excluded = new Set(entry.excludeColumns || []);
+  // Absent-by-default override columns: a null means "no override", and a file
+  // that spells that out is 5,785 copies of a non-statement. Omit the key; the
+  // importer writes an explicit NULL for anything on this list that's missing,
+  // so absence still clears a removed override.
+  const omitWhenNull = new Set(entry.omitWhenNull || []);
   const schemaCols = schemaColumnsOf(entry.table);
   const out = {};
   for (const [col, v] of Object.entries(row)) {
     if (excluded.has(col)) continue;
+    if (v === null && omitWhenNull.has(col)) continue;
     // Drop columns SCHEMA_SQL doesn't declare (legacy leftovers on a Frankenstein
     // local DB): prod never has them and lint rejects them. Fail open if the table
     // isn't found in the schema parse, rather than emptying the file.

@@ -3,7 +3,8 @@ import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { query } from '../../server/models/db.js';
-import { getZone, getZonePlayers, getLivePlayer, getZoneFurniture } from '../../server/engine/world.js';
+import { getZone, getZonePlayers, getLivePlayer, getZoneFurniture, regionForZone } from '../../server/engine/world.js';
+import { resolveDefault } from '../../scripts/content/derive.mjs';
 import { neighborZoneIds } from '../../server/engine/exits.js';
 import { sendToZone, sendToPlayer, getBroadcast } from '../../server/engine/messaging.js';
 import { on, emit } from '../../server/engine/events.js';
@@ -172,12 +173,37 @@ on('player.login', ({ id }) => {
   triggerEventRoute('player.login', null, id);
   // zone.entered only fires on movement, so a freshly-connected player would
   // hear no weather bed until their first step. Start it now, at connect.
-  reconcilePlayerWeatherAmbient(id, getLivePlayer(id)?.current_zone);
+  const zoneId = getLivePlayer(id)?.current_zone;
+  reconcilePlayerWeatherAmbient(id, zoneId);
+  // Same reasoning, now that a tile can actually have a theme to be silent about:
+  // log in standing in Coldwater and the city should already be playing.
+  const song = songs.get(zoneThemeSongId(getZone(zoneId)));
+  if (song) {
+    themePlaying.set(id, song.id);
+    sendToPlayer(id, { type: 'audio_music', def: resolveSongInstruments(song) });
+  }
 });
 
 on('player.logout', ({ id }) => {
+  themePlaying.delete(id);
   triggerEventRoute('player.logout', null, id);
 });
+
+// A tile's theme is its own audio_theme_id if it overrode one, otherwise its
+// region's default (regions.defaults — docs/proposals/map-pipeline-spec.md §1.3).
+// Two Map lookups and a nullish chain; no query, no derivation. When zone_render
+// lands (spec §11 step 3) this becomes a column read and resolveDefault moves to
+// build time — the resolution ORDER is already the shared one, so nothing about
+// what plays changes when it does.
+export function zoneThemeSongId(zone) {
+  return resolveDefault('audio_theme_id', zone, regionForZone(zone));
+}
+
+// What the zone theme last started for a player, so leaving a themed place can
+// stop it. Only tracks music THIS handler began: the radio and the broadcast
+// plugin also own the music slot, and silencing someone's radio because they
+// stepped off a themed tile would be a worse bug than the one being fixed.
+const themePlaying = new Map(); // playerId -> songId
 
 on('zone.entered', ({ actor, zone: zoneId }) => {
   reconcilePlayerWeatherAmbient(actor?.id, zoneId);
@@ -185,9 +211,21 @@ on('zone.entered', ({ actor, zone: zoneId }) => {
   if (triggerEventRoute(`zone.entered.${zoneId}`, zoneId, actor?.id)) return;
   if (triggerEventRoute('zone.entered', zoneId, actor?.id)) return;
   const zone = getZone(zoneId);
-  if (!zone?.audio_theme_id) return;
-  const song = songs.get(zone.audio_theme_id);
-  if (!song) return;
+  const song = songs.get(zoneThemeSongId(zone));
+  const pid = actor?.id;
+  if (!song) {
+    // Nothing to play here. Before region defaults existed no tile had a theme,
+    // so this branch never had anything to undo; now walking out of Coldwater
+    // into the unregioned wastes has to actually end the city's music.
+    if (pid && themePlaying.has(pid)) {
+      themePlaying.delete(pid);
+      sendToPlayer(pid, { type: 'audio_stop', scope: 'music' });
+    }
+    return;
+  }
+  if (pid) themePlaying.set(pid, song.id);
+  // The client ignores a repeat of what's already playing (restartIfSame: false),
+  // so re-sending on every step inside one theme costs a message, not a restart.
   sendToZone(zoneId, { type: 'audio_music', def: resolveSongInstruments(song) });
   emit('audio.music.changed', { zoneId, songId: song.id });
 });
@@ -242,9 +280,9 @@ on('player.death', ({ player }) => {
   // right one. The reconcile helpers stop every non-desired loop themselves.
   if (!player?.id || !player.current_zone) return;
   const zoneId = player.current_zone;
-  const song = getZone(zoneId)?.audio_theme_id ? songs.get(getZone(zoneId).audio_theme_id) : null;
-  if (song) sendToPlayer(player.id, { type: 'audio_music', def: resolveSongInstruments(song) });
-  else sendToPlayer(player.id, { type: 'audio_stop', scope: 'music' });
+  const song = songs.get(zoneThemeSongId(getZone(zoneId)));
+  if (song) { themePlaying.set(player.id, song.id); sendToPlayer(player.id, { type: 'audio_music', def: resolveSongInstruments(song) }); }
+  else { themePlaying.delete(player.id); sendToPlayer(player.id, { type: 'audio_stop', scope: 'music' }); }
   reconcilePlayerWeatherAmbient(player.id, zoneId);
   reconcileIndustrialAmbient(player.id, zoneId).catch(() => {});
 });
