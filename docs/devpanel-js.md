@@ -391,3 +391,16 @@ Ghost Mode — an in-panel floating dialog that opens a dedicated WebSocket tagg
 - `document.addEventListener('DOMContentLoaded', ...)` — wires up the settings panel controls (theme select, font size buttons, density buttons).
 - The password-field `keydown` listener (Enter → `devLogin()`).
 - The auto-auth IIFE — checks `sessionStorage` for a token passed from the game client and skips the login screen if valid.
+- **The ops-mode block** — sets `window.OPS_MODE` when the page was served at `/admin`, then prunes the nav to entries carrying `data-ops="1"` (and drops sections left empty), adds `body.ops-mode`, and relabels the header.
+
+### Ops mode (`/admin`) — one file, two views
+
+`server/index.js` serves the *same* `client/devpanel/index.html` at `/dev` and `/admin`, and — when `CONTENT_READONLY` is set (production) — 302s the **bare** `/dev` path to `/admin`. Assets stay under `/dev/js/*` and are never redirected, which is what lets both views share one file and never drift.
+
+Ops mode is a **UI affordance, not a security boundary**: the boundary is `contentReadonlyBlocks()` in `server/api/routes.js`, which already default-denies every content write on prod. Ops mode just stops the panel offering buttons that would 403. Three places must agree when a panel changes side:
+
+- `data-ops="1"` on the nav entry in `index.html`
+- the `OPS_PANELS` set in `js/core/panels.js` (`showPanel()` bounces anything else to Dashboard, so a bookmark can't get in)
+- the server's `OPS_ROUTES` / `ENV_OPS_ROUTES` allowlists — the actual authority
+
+Panels that mix ops and content read `window.OPS_MODE` directly: `panels/bank.js` hides ATM *networks*, terminal creation, and unit delete (all content writes) while keeping fill/repair/rename/settings (`/atm/units`, allowlisted).

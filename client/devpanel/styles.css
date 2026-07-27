@@ -716,3 +716,12 @@
 	width: 100%; height: 70px; display: block; background: var(--bg3);
 	border: 1px solid var(--border); border-radius: 4px; margin-top: 10px;
 }
+
+/* ── Ops mode (/admin) ──────────────────────────────────────────────────────
+   The production view of this same panel: world content is server-side
+   read-only there (CONTENT_READONLY), so the authoring affordances are hidden.
+   These need !important because the buttons are shown by JS setting an inline
+   display. See js/bootstrap.js for how the class gets applied. */
+body.ops-mode #publish-all-btn,
+body.ops-mode #reject-all-btn,
+body.ops-mode #new-btn { display: none !important; }

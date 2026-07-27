@@ -334,8 +334,24 @@ const httpServer = createServer(async (req, res) => {
 		return;
 	}
 
+	// Worldbuilding is a local-only activity: content ships to prod through the
+	// CODEX git pipeline, and CONTENT_READONLY default-denies every content write
+	// on the server. So on prod the full builder panel is nothing but a wall of
+	// 403 traps — send the bare /dev navigation to the ops-only /admin view
+	// instead. Bare path ONLY: redirecting the whole /dev prefix would 302 every
+	// /dev/js/*.js asset and break the panel that /admin itself is built from.
+	if (process.env.CONTENT_READONLY && (url === "/dev" || url === "/dev/")) {
+		res.writeHead(302, { Location: "/admin" });
+		res.end();
+		return;
+	}
+
 	let filePath;
-	if (url.startsWith("/dev")) {
+	if (url === "/admin" || url === "/admin/") {
+		// Same app, same file — the client reads location.pathname and prunes
+		// itself to the ops panels. One HTML file means the two views can't drift.
+		filePath = join(__dirname, "../client/devpanel", "index.html");
+	} else if (url.startsWith("/dev")) {
 		filePath = join(
 			__dirname,
 			"../client/devpanel",

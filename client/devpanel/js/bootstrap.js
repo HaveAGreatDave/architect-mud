@@ -1,5 +1,35 @@
 document.getElementById('dev-password').addEventListener('keydown', e => { if(e.key==='Enter') devLogin(); });
 
+// ── Ops mode ────────────────────────────────────────────────────────────────
+// The panel is served at two URLs from ONE file. /dev is the full builder (local
+// worldbuilding); /admin is the ops view for production, where world content is
+// read-only (the server's CONTENT_READONLY gate) and only player/live-world
+// management makes sense. Prod 302s bare /dev → /admin, so the game's Dev button
+// needs no environment awareness of its own.
+window.OPS_MODE = location.pathname.replace(/\/+$/, '') === '/admin';
+if (window.OPS_MODE) {
+  document.body.classList.add('ops-mode');
+  document.title = 'Architect — Admin';
+  const logoTag = document.querySelector('#header .logo span');
+  if (logoTag) logoTag.textContent = '// ADMIN';
+  const nav = document.getElementById('nav');
+  nav.querySelectorAll('.nav-item:not([data-ops]), .nav-children').forEach(n => n.remove());
+  // Section headers whose whole group just went away would otherwise be orphans.
+  nav.querySelectorAll('.nav-section').forEach(s => {
+    let sib = s.nextElementSibling;
+    while (sib && !sib.classList.contains('nav-section')) {
+      if (sib.classList.contains('nav-item')) return;
+      sib = sib.nextElementSibling;
+    }
+    s.remove();
+  });
+  // "World" survives (Crime/Flight/Power/Bank are live-world ops), but nothing
+  // under it edits world content any more, so the label would mislead.
+  nav.querySelectorAll('.nav-section').forEach(s => {
+    if (s.textContent.trim() === 'World') s.textContent = 'Live World';
+  });
+}
+
 // Auto-auth if a Bearer token was passed via sessionStorage (e.g. from the game client).
 // Token format: base64("playerId:role:timestamp") — decode to get role without a round-trip.
 (() => {

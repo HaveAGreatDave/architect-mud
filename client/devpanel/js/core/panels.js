@@ -398,6 +398,14 @@ const PANELS = {
 };
 
 const VINE_GROUP_PANELS = new Set(['vine', 'scripts', 'script-triggers', 'quests', 'vine-dialogue', 'vine-ai']);
+
+// Panels whose routes are on the server's production allowlist. In ops mode
+// (/admin — see bootstrap.js) the content-editing nav is pruned, but a stale
+// bookmark or a console call could still ask for one; bounce those to Dashboard
+// so you never land in an editor whose every save would 403. Keep this in sync
+// with the data-ops attributes in index.html.
+const OPS_PANELS = new Set(['dashboard', 'devlog', 'worldstate', 'timeweather', 'players',
+                            'games', 'gossip', 'validator', 'power', 'emergency', 'bank', 'flight']);
 function activatePanelNav(name) {
   document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.panel === name));
   const group = document.getElementById('nav-vine-children');
@@ -405,6 +413,7 @@ function activatePanelNav(name) {
 }
 
 async function showPanel(name) {
+  if (window.OPS_MODE && !OPS_PANELS.has(name)) name = 'dashboard';
   currentPanel = name;
   sortState = { key: null, dir: 1 };
   activatePanelNav(name);
