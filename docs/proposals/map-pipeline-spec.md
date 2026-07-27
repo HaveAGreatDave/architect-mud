@@ -672,6 +672,30 @@ than silently accepting a dead string.
 
 ### 10.2 Building placement writes only files
 
+> **BUILT — `scripts/place-building.mjs` (`5b0da2fc`).** The proof is done and the section
+> below is the reasoning that produced it, kept because the next reader needs the argument,
+> not just the file. What changed against this section's expectations:
+>
+> - The `query`-shaped sink is real: [`tools/lib/content-store.mjs`](../../tools/lib/content-store.mjs)
+>   knows a **closed** statement set and **throws, naming the SQL**, on anything else, so a
+>   blueprint whose SQL is edited fails at author time instead of writing a wrong file.
+>   `authorUtilityRoom` runs against it unmodified.
+> - **The audit graded the output and found four defects, all now fixed at the source:**
+>   BLD-1 (a converted ground tile keeps exits to every walkable neighbour — now replaced,
+>   and inbound links from non-entrance tiles are sealed), DIR-1 (the facade→interior link
+>   must be the cardinal opposite the entrance, not `in`), MARK-2 (nothing derives a marker
+>   any more, so the placer must stamp one), DOOR-1 (a front door, on the facade pointing
+>   inward — 52 of the 56 facade-anchored doors in `content/` are that shape).
+> - **`nearestCityPlant` needed no decision after all.** It reads `generators` +
+>   `zones`, both content tables, so it resolves against the file tree like everything
+>   else. The open item below is withdrawn.
+> - **`installRegionPlant` is the one thing that genuinely cannot move.** It repoints
+>   existing buildings across a region — an operation on a running world, not an authored
+>   fact. It stays in the dev panel and the CLI prints a pointer to it.
+> - Determinism cost one engine fix: `pickClothingForPersonality` used `Math.random()`, so
+>   every re-run produced a different outfit. It now takes an optional seed; live NPC
+>   creation passes none and keeps the variety.
+
 This is the step-2 **proof**, and the spike (redesign §16.1) turned it from a risk into a
 straightforward port:
 
@@ -690,17 +714,28 @@ So the port is: run the existing `templateForType` / `authorUtilityRoom` bluepri
 emits files. `authorUtilityRoom` already takes `query` as its first parameter, so it is one
 substitution away from writing through a different sink.
 
-**One genuine open item:** `nearestCityPlant(query, gx, gy)` is a live-world *read* feeding an
-authored value (which city plant the new junction box hangs off). Make it either an authored pick
-in the Studio's inspector or a derive-time resolution. Decide it when you build §10.2, not before.
+~~**One genuine open item:** `nearestCityPlant(query, gx, gy)`~~ — **withdrawn.** It reads
+`generators` + `zones`, both content tables, so the file sink answers it exactly as a database
+would. Nothing about it is a live-world read.
 
-**Two bugs in the current builder were fixed in `2b6d0680`** while spiking: it never authored
-`flags.entrance` (born failing BLD-9) and its `backDir` fallback pointed opposite the door
-against 61-of-61 shipped buildings (DIR-2). A third remains open and is **not** fixed: the
-builder gives *every* standable neighbour a reciprocal exit into the facade
-([routes.js:860-868](../../server/api/routes.js)), which is BLD-1 — walk-through-wall — by
-construction. The audit's BLD-1 fixer cleans it up after the fact. Decide whether to fix the
-builder or let the Studio's connection model make it unexpressible.
+**The dev-panel builder's defect list, and where each one landed.** Two were fixed in
+`2b6d0680` while spiking: it never authored `flags.entrance` (born failing BLD-9) and its
+`backDir` fallback pointed opposite the door against 61-of-61 shipped buildings (DIR-2). Three
+more surfaced when the audit graded the CLI's output, and all three are in the route too:
+
+| | the route | the CLI |
+|---|---|---|
+| BLD-1 | gives *every* standable neighbour a reciprocal exit in ([routes.js:860-868](../../server/api/routes.js)) — walk-through-wall by construction | replaces the facade's exits with the entrance street + interior link, and seals inbound links from every other tile |
+| DIR-1 | writes `in` for the facade→interior link, which draws no way-out arrow | writes the cardinal opposite the entrance |
+| MARK-2 | sets `marker=NULL`, and nothing derives one since `36f1b8f3`, so the building draws no letters | stamps the derived acronym, avoiding codes already worn |
+
+**The route is not being fixed.** It is the thing this pipeline replaces (§10), and patching a
+writer that ships nothing — `POST /maps/build-building` syncs zero content files — buys a
+correctness the world never sees. The answer to "fix the builder or make it unexpressible"
+(recorded here as an open decision) is **unexpressible**: the CLI's placement model has no way
+to say "this building has five doors", and when the Studio takes over the panel's Maps tab the
+route goes with it. Until then the route stays as-is and the audit's BLD-1 fixer keeps cleaning
+up after it.
 
 ---
 
