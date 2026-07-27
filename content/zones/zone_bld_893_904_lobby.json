@@ -1,0 +1,22 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "Shelving crowds a narrow floor, stacked with whatever moves. A service counter guards the till at the back.",
+  "exits": {
+    "down": "zone_util_zone_bld_893_904_lobby",
+    "east": "zone_district_893_904",
+    "north": "zone_bld_893_904_back"
+  },
+  "flags": {
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_893_904"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_bld_893_904_lobby",
+  "map_id": "map_int_bld_893_904",
+  "name": "Shop Floor",
+  "parent_zone": "zone_district_893_904"
+}
