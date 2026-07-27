@@ -4,6 +4,30 @@ import { appendMsg } from '../render.js';
 import { state } from '../state.js';
 import { loadSettings, saveSettings, applySettings } from '/shared/settings.js';
 
+// Shared map state that outlives the retired full-screen popup: the overlay label
+// mode (read by the sidebar minimap), the door render style, and the active GPS
+// route — tracePath/traceDirs, set by the `gps` command or the tablet map's
+// "Route here", walked by auto-walk, and mirrored onto both the sidebar minimap
+// and the tablet map.
+//
+// DECLARED HERE, AT THE TOP, AND IT HAS TO BE. This module wires its buttons
+// during evaluation (`wireMinimap()` runs immediately when the DOM is already
+// parsed), and that wiring reads `mapState.doorStyle` to seed the doors glyph.
+// While this was declared at the BOTTOM of the file it sat in the temporal dead
+// zone at that moment, so the whole module threw
+//   ReferenceError: Cannot access 'mapState' before initialization
+// and, because one dead module takes the client's boot chain with it, the game
+// rendered its shell and then never connected. It only reproduced when the
+// script ran after DOMContentLoaded — a warm cache — which is why it passed
+// local testing and broke on a live load. `const` before use, not after.
+let _savedOverlay = 'labels';
+try { _savedOverlay = loadSettings().mapOverlay || 'labels'; } catch {}
+// Edges by default — see _mapDoorsMode in shared/settings.js for why the fallback
+// points here rather than at 'arrows'.
+let _savedDoors = 'edges';
+try { _savedDoors = loadSettings().mapDoors === 'arrows' ? 'arrows' : 'edges'; } catch {}
+const mapState = { avenueOverlay: _savedOverlay, doorStyle: _savedDoors, tracePath: null, traceDirs: null };
+
 // Avenue View for the sidebar/HUD/mobile minimaps: a rendering toggle (not a
 // server round-trip) that strips room symbols down to "does a named artery run
 // through here" — || north/south, = east/west, + at a crossing. Persisted, and
@@ -975,17 +999,8 @@ function doorMarks(node, pfx) {
 // whatever a browser happened to have. Seeding from settings here covers the first
 // paint; applySettings pushes later changes in through setMapOverlay().
 const MAP_OVERLAY_MODES = new Set(['none', 'labels']);
-let _savedOverlay = 'labels';
-try { _savedOverlay = loadSettings().mapOverlay || 'labels'; } catch {}
-// Shared map state that outlives the retired full-screen popup: the overlay label
-// mode (read by the sidebar minimap) and the active GPS route — tracePath/traceDirs,
-// set by the `gps` command or the tablet map's "Route here", walked by auto-walk, and
-// mirrored onto both the sidebar minimap and the tablet map.
-// Edges by default — see _mapDoorsMode in shared/settings.js for why the fallback
-// points here rather than at 'arrows'.
-let _savedDoors = 'edges';
-try { _savedDoors = loadSettings().mapDoors === 'arrows' ? 'arrows' : 'edges'; } catch {}
-const mapState = { avenueOverlay: _savedOverlay, doorStyle: _savedDoors, tracePath: null, traceDirs: null };
+// (mapState is declared near the top of this module — it has to be, because the
+// wiring that runs during module evaluation reads it. See the comment there.)
 
 // Settings hook (window._applyMapOverlay, registered in main.js). Re-renders the
 // cached node payload so the change lands immediately instead of on the next move.
