@@ -398,7 +398,7 @@
           "y": 4400
         },
         "next": "bsm_136",
-        "npc_id": "npc_nguyen",
+        "npc_id": "npc_captain_nguyen",
         "type": "npc_anchor"
       },
       "bsm_136": {
@@ -626,7 +626,7 @@
           "y": 5040
         },
         "next": "bsm_158",
-        "npc_id": "npc_nguyen",
+        "npc_id": "npc_captain_nguyen",
         "type": "npc_anchor"
       },
       "bsm_158": {
@@ -1124,7 +1124,7 @@
           "y": 6480
         },
         "next": "bsm_204",
-        "npc_id": "npc_nguyen",
+        "npc_id": "npc_captain_nguyen",
         "type": "npc_anchor"
       },
       "bsm_204": {
@@ -1209,7 +1209,7 @@
         },
         "next": "bsm_212",
         "style": "raw",
-        "text": "YOU CAN'T JUST CREDIT Captain Nguyen AS THE Captain Nguyen! I'M THE Captain Nguyen!",
+        "text": "YOU CAN'T JUST CREDIT YOURSELF AS BIG GUY! I PRODUCE THIS SHOW! I AM THE CAPTAIN!",
         "type": "say"
       },
       "bsm_212": {
@@ -1218,7 +1218,7 @@
           "y": 6800
         },
         "next": "bsm_213",
-        "npc_id": "npc_nguyen",
+        "npc_id": "npc_captain_nguyen",
         "type": "npc_anchor"
       },
       "bsm_213": {
@@ -1246,7 +1246,7 @@
         },
         "next": "bsm_216",
         "style": "raw",
-        "text": "Real mature, man. Real mature. Your buddy Nguyen couldn't captain a rowboat — whipping out his root on live television, what the fuck was that?! She was right to leave you, man.",
+        "text": "Real mature, man. Real mature. She was right to leave you, man.",
         "type": "say"
       },
       "bsm_216": {
@@ -1407,7 +1407,7 @@
         },
         "next": "bsm_33",
         "style": "narration",
-        "text": "The Captain Nguyen delivers this in a frantic whisper from somewhere just off-camera. It is not a quiet whisper.",
+        "text": "Captain Nguyen delivers this in a frantic whisper from somewhere just off-camera. It is not a quiet whisper.",
         "type": "say"
       },
       "bsm_33": {
@@ -1561,7 +1561,7 @@
         },
         "next": "bsm_48",
         "style": "narration",
-        "text": "The camera drifts wide to catch the far corner of the basement. Perched on a barstool, just at the edge of the visible set, is an old Vietnamese man. He is holding a small brown paper bag. He has been there the entire time.",
+        "text": "The camera drifts wide to catch the far corner of the basement. Perched on a barstool, just at the edge of the visible set, is Captain Nguyen. He is holding a small brown paper bag. He has been there the entire time.",
         "type": "say"
       },
       "bsm_48": {
@@ -1580,7 +1580,7 @@
         },
         "next": "bsm_50",
         "style": "raw",
-        "text": "Who the hell is that?!",
+        "text": "Neil. Neil. That's ME. I've been sat here the whole goddamn show.",
         "type": "say"
       },
       "bsm_5": {
@@ -1713,7 +1713,7 @@
         },
         "next": "bsm_62",
         "style": "narration",
-        "text": "The Captain Nguyen shouts this at a volume that could be heard in the laundromat upstairs.",
+        "text": "Captain Nguyen shouts this at a volume that could be heard in the laundromat upstairs.",
         "type": "say"
       },
       "bsm_62": {
@@ -2168,7 +2168,7 @@
       "text": "What the fuck are you talking about and get to the point!"
     },
     {
-      "text": "The Captain Nguyen delivers this in a frantic whisper from somewhere just off-camera. It is not a quiet whisper."
+      "text": "Captain Nguyen delivers this in a frantic whisper from somewhere just off-camera. It is not a quiet whisper."
     },
     {
       "text": "Anyways I went back into the place for some vittles a week later, no 2 dollar off coupons, but the same bottle of syrup was now 2 dollars cheaper now that there were no coupons. Those greedy pricks they must think that we are SAPS!"
@@ -2189,10 +2189,10 @@
       "text": "And now a word from our sponsor:"
     },
     {
-      "text": "The camera drifts wide to catch the far corner of the basement. Perched on a barstool, just at the edge of the visible set, is an old Vietnamese man. He is holding a small brown paper bag. He has been there the entire time."
+      "text": "The camera drifts wide to catch the far corner of the basement. Perched on a barstool, just at the edge of the visible set, is Captain Nguyen. He is holding a small brown paper bag. He has been there the entire time."
     },
     {
-      "text": "Who the hell is that?!"
+      "text": "Neil. Neil. That's ME. I've been sat here the whole goddamn show."
     },
     {
       "text": "Thats fuckin, nguyen, man, hey nguyen say hi."
@@ -2207,7 +2207,7 @@
       "text": "NEIL WE HAVE TO THANK THE SPONSORS SAY AND NOW A WORD FROM OUR SPONSORS!"
     },
     {
-      "text": "The Captain Nguyen shouts this at a volume that could be heard in the laundromat upstairs."
+      "text": "Captain Nguyen shouts this at a volume that could be heard in the laundromat upstairs."
     },
     {
       "text": "And now a word from our sponsors."
@@ -2438,10 +2438,10 @@
       "text": "Oh fuck off!"
     },
     {
-      "text": "YOU CAN'T JUST CREDIT Captain Nguyen AS THE Captain Nguyen! I'M THE Captain Nguyen!"
+      "text": "YOU CAN'T JUST CREDIT YOURSELF AS BIG GUY! I PRODUCE THIS SHOW! I AM THE CAPTAIN!"
     },
     {
-      "text": "Real mature, man. Real mature. Your buddy Nguyen couldn't captain a rowboat — whipping out his root on live television, what the fuck was that?! She was right to leave you, man."
+      "text": "Real mature, man. Real mature. She was right to leave you, man."
     },
     {
       "text": "... fair observation..."

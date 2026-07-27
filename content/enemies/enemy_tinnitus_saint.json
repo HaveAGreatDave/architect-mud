@@ -282,7 +282,7 @@
   ],
   "butcher_difficulty": 6,
   "butcher_table": [],
-  "death_message": "The Choirmaster crumples, speaker-cones going silent one by one. The hymn finally stops.",
+  "death_message": "The Tinnitus Saint crumples, speaker-cones going silent one by one. The hymn finally stops.",
   "description": "A tall, robed thing wound in frayed speaker-wire, its face a cluster of dead speaker cones that twitch toward any sound. It conducts an orchestra only it can hear.",
   "dodge": 3,
   "faction": "choir",
@@ -294,7 +294,7 @@
   },
   "hit": 4,
   "hp_max": 140,
-  "id": "enemy_choirmaster_demo",
+  "id": "enemy_tinnitus_saint",
   "loot_table": [
     {
       "item": "item_scrap",
@@ -305,7 +305,7 @@
       "weight": 100
     }
   ],
-  "name": "The Choirmaster",
+  "name": "The Tinnitus Saint",
   "weapon": [
     {
       "max": 9,

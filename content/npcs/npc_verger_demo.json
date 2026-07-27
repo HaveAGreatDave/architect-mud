@@ -76,7 +76,7 @@
         "next": "loop",
         "params": {
           "cooldown_s": 0,
-          "message": "You stand in the nave of the Choirmaster. Mind your tongue, pilgrim."
+          "message": "You stand in the nave of the Tinnitus Saint. Mind your tongue, pilgrim."
         },
         "type": "action"
       },
@@ -218,7 +218,7 @@
         "next": "loop",
         "params": {
           "cooldown_s": 7,
-          "message": "Sing, intruder! The Choirmaster loves a struggling voice!"
+          "message": "Sing, intruder! The Tinnitus Saint loves a struggling voice!"
         },
         "type": "action"
       }

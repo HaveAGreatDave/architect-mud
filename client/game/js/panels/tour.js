@@ -81,6 +81,11 @@ export function hasSeenTour() {
 // the fiction — and it only ever appears once.
 export function offerInterfaceTour() {
   if (document.getElementById('tour-offer')) return;
+  // Everything but the question goes dark until they've chosen. See the
+  // #tour-offer-veil block in styles.css for why.
+  const veil = document.createElement('div');
+  veil.id = 'tour-offer-veil';
+  document.body.appendChild(veil);
   const box = document.createElement('div');
   box.id = 'tour-offer';
   box.className = 'tour-card tour-offer';
@@ -96,8 +101,16 @@ export function offerInterfaceTour() {
     b.addEventListener('click', () => {
       const answer = b.dataset.tourAnswer;
       box.remove();
+      // Taking the tour hands the dimming straight over to the tour's own
+      // overlay, so don't lift the veil first — that would flash the whole
+      // interface up for a quarter second and then dim it again.
+      if (answer === 'no') { veil.remove(); }
+      else { veil.classList.add('closing'); setTimeout(() => veil.remove(), 700); }
       localStorage.setItem(SEEN_KEY, '1');
-      // Bookkeeping only — silent, so the log stays in-fiction.
+      // Bookkeeping only — silent, so the log stays in-fiction. This is also the
+      // signal the server waits on before it starts speaking (see the prologue
+      // plugin's `tutorial` verb): a "no tour" answer releases the arrival prose
+      // immediately, a "yes" releases it when the walkthrough ends.
       sendCmdSilent(`tutorial ${answer === 'no' ? 'yes' : 'no'}`); // "no experience" ⇒ yes, tour me
       if (answer === 'no') setTimeout(startInterfaceTour, 250);
     });
@@ -198,7 +211,7 @@ function placeCard(r) {
   _card.style.top = `${Math.max(gap, Math.min(globalThis.innerHeight - h - gap, y))}px`;
 }
 
-function endTour(finished = false) {
+function endTour() {
   globalThis.removeEventListener('resize', _onResize);
   globalThis.removeEventListener('keydown', onKey);
   document.querySelectorAll('.tour-lit').forEach((n) => n.classList.remove('tour-lit'));
@@ -232,5 +245,9 @@ function endTour(finished = false) {
     }
     setTimeout(() => ov.remove(), 500);
   }
-  if (finished) sendCmdSilent('tutorial done');
+  // Always signalled, finished or skipped. This used to fire only on a clean
+  // finish, which was harmless when it was mere bookkeeping — but the server now
+  // holds the arrival prose until it hears this, so a player who hits Skip or
+  // Esc on step 2 would otherwise be left standing in a silent room forever.
+  sendCmdSilent('tutorial done');
 }

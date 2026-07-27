@@ -1,6 +1,6 @@
 # The Cold Open & the CODEX (as built)
 
-Two halves of one thing: the thirty seconds of backstory a new player is shown
+Two halves of one thing: the ~75 seconds of backstory a new player is shown
 before they can do anything, and the tablet app that holds the rest of it for
 whenever they want more.
 
@@ -19,25 +19,57 @@ end of `client/game/styles.css`.
 (`plugins/prologue/index.js`) fires exactly once, on a first login into
 `zone_the_inbetween`, and pushes `{ type: 'intro_cinematic' }`. **It schedules
 none of the arrival prose.** The client plays the sequence and echoes the silent
-verb `introdone`, which calls `beginArrival(player)` — the tour offer plus the
-"I don't know how I got here" beats. A `setTimeout` fallback (62 s, longer than
-the ~48 s run) calls the same function if the echo never comes, so a stale client
-bundle degrades to the old behaviour instead of stalling the prologue.
-`beginArrival` is claimed synchronously via `player._prologueArrivalStarted`, so
-the echo and the fallback racing is harmless.
+verb `introdone`, which calls `beginArrival(player)`. A `setTimeout` fallback
+(78 s, longer than the 75 s run) calls the same function if the echo never comes,
+so a stale client bundle degrades to the old behaviour instead of stalling the
+prologue. `beginArrival` is claimed synchronously via
+`player._prologueArrivalStarted`, so the echo and the fallback racing is harmless.
 
-**What.** A black field, a canvas, and one line of serif text at a time. The
-canvas runs five phases against **one** node field — `lattice` (drifting, loosely
-linked) → `tighten` (the same nodes pulled onto a grid) → `shatter` (flung apart
-under torn scanlines) → `void` (nothing, drawn as nothing) → `city` (Coldwater's
-skyline, windows lighting in a slow cascade). The nodes are never replaced, only
-rearranged, because that is the story the text is telling.
+**Nothing is said until the interface question is answered.** `beginArrival`
+sends `tour_offer` and, if the question hasn't been answered before, **returns** —
+the arrival prose lives in `speakArrival()`, which the prologue's `tutorial` verb
+calls on `no` (skip the tour) or `done` (walkthrough over, however it ended). The
+client dims the entire interface behind the question (`#tour-offer-veil`), so a
+first-timer has exactly one lit object and one decision. `tour.js` now signals
+`tutorial done` on a **skipped** tour as well as a finished one — that echo is
+load-bearing, not bookkeeping, and without it a player who hits Esc on step 2 is
+left in a silent room. Two belts on the braces: `speakArrival` claims itself with
+`player._prologueArrivalSpoken` and refuses to speak outside The Inbetween (so a
+veteran replaying `tutorial` isn't told they don't know how they got here), and a
+480 s fallback releases the prose if the question is never answered at all.
 
-**Audio** is procedural Web Audio built in the module: two detuned saws plus a
-sine a fifth up, through a lowpass that opens as the escalation builds, with
-three noise hits. It reads `loadSettings()` and does not start at all when audio
-or music is off, and it ramps to zero rather than stopping (no click on skip).
-The gain is scheduled to **actual silence** across the `Silence.` beat.
+**What.** A black field, a canvas, one line of mono text at a time, and a DOM
+wordmark at the end. The canvas is **one 3D scene** (a single pinhole `proj()`;
+no libraries, no matrices) run through five phases against **one** node field —
+`lattice` (a drifting volume, linked by 3D proximity) → `tighten` (the same nodes
+pulled onto a regular cubic lattice; the reach shrinks past the cube diagonal so
+the cloud becomes wireframe cubes on its own) → `shatter` (blown outward under
+torn scanlines) → `void` (nothing, drawn as nothing) → `city`, where the lattice
+returns snapped to a ground plane and **extruded into Coldwater** — ground lines
+between footprints first, then wireframe boxes rising, then faces, then windows
+lighting in a cascade (one in thirteen burns the lattice's own colour). The
+camera dollies down a street left open in the block grid. The nodes are never
+replaced, only rearranged, and the city is made of the lattice, because that is
+the story the text is telling. Link brightness pulses on each BEAT's arrival, so
+the animation runs on the story's clock rather than its own.
+
+**The wordmark** (`LOGO_HTML` + the `.intro-cine-logo` CSS block) is the last
+beat: the A-mark draws itself on stroke by stroke — two legs, a crossbar, a
+spine, a node at every vertex, the same vocabulary the canvas has been speaking —
+then ARCHITECT's tracking closes from wide to set, a rule wipes out, and a
+welcome plus a line of small print arrive. DOM rather than canvas so the type
+stays crisp at any DPI. It is still on screen through the closing dissolve, so
+the logo melts into the game instead of being cut away (`.closing` is 1500 ms;
+`.closing.fast`, used only on a skip, is 380 ms).
+
+**Audio** is procedural Web Audio built in the module and deliberately simple —
+sustained pads over a sub drone, a bed of looped filtered noise as room tone, six
+bell tones in seventy seconds, three noise hits on the cuts. The chord
+accumulates in A minor and **resolves to A major under the wordmark** (a picardy
+third: forty seconds of dread, resolved on cue, because the brand is arriving).
+It reads `loadSettings()` and does not start at all when audio or music is off,
+and it ramps to zero rather than stopping (no click on skip). The gain is
+scheduled to **actual silence** across the `Silence.` beat.
 
 **Skip** is loud for six seconds, then recedes to a dim button that stays
 clickable forever. `Esc` / `Space` / `Enter` also end it. Clicking the field
@@ -48,9 +80,12 @@ to static frames and keeps the text.
 
 **Replay** is the `intro` verb, any time, anywhere.
 
-Timing lives in one place: `BEATS` (each `{ t, hold, text }`) and `PHASES`
-(`{ from, phase }`), with `RUN_MS` as the total. Editing the script means editing
-that array and nothing else.
+Timing lives in one place: `BEATS` (each `{ t, hold, text }`), the `P_*`
+constants that `PHASES` is built from, `LOGO_AT`, and `RUN_MS` as the total. Each
+phase measures its own progress from its `P_*` constant — an earlier version
+measured from hardcoded offsets that had drifted out of sync with `PHASES`, which
+is why the tighten never completed. Editing the script means editing those and
+nothing else.
 
 ---
 

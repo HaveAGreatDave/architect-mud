@@ -248,16 +248,42 @@ on('player.login', async ({ id }) => {
 // Everything the prologue says on arrival, gated behind the cold open. Split out
 // of the login handler so `introdone` can trigger it, and guarded by an in-memory
 // claim (not a flag) because both callers can arrive within the same tick.
-const INTRO_FALLBACK_MS = 62000;   // longer than the full cinematic (~48s) + fade
+const INTRO_FALLBACK_MS = 78000;   // longer than the full cinematic (75s) + fade
+// If the interface question is never answered — a tab left open on the veil, a
+// client that lost the socket mid-tour — the prose comes anyway rather than the
+// player standing in a silent room forever. Generous, because a first-timer
+// reading every tour card genuinely can take minutes.
+const TOUR_FALLBACK_MS = 480000;
 async function beginArrival(player) {
   if (player._prologueArrivalStarted) return;
   player._prologueArrivalStarted = true;
-  // Before any fiction: the interface question. Client-side from here — the
-  // server only records the answer (see the `tutorial` verb below) so a player
-  // isn't asked again on a second device.
+  // Before any fiction: the interface question, and NOTHING ELSE. The prose used
+  // to start 900ms behind the offer, which meant a new player answering it — or
+  // walking the tour — came back to a log they'd already scrolled past. The
+  // client dims the whole interface around the question (tour.js), and speaks
+  // only once it's answered: `tutorial no` releases it immediately, `tutorial
+  // done` releases it at the end of the walkthrough. Client-side from here — the
+  // server only records the answer so a player isn't asked again on a second
+  // device.
   if (!(await isSet(player, F_TOUR_ASKED))) {
-    setTimeout(() => sendToPlayer(player.id, { type: 'tour_offer' }), 500);
+    // 1200ms, not 500: the cinematic's own closing dissolve is still running.
+    // The question should arrive as the logo finishes leaving, not over it.
+    setTimeout(() => sendToPlayer(player.id, { type: 'tour_offer' }), 1200);
+    setTimeout(() => { const p = getLivePlayer(player.id) || player; speakArrival(p); }, TOUR_FALLBACK_MS);
+    return;
   }
+  speakArrival(player);
+}
+
+// The arrival prose itself. Split out of beginArrival so the tour can gate it,
+// and claimed in memory (not a flag) because several callers race for it: the
+// tour answer, the tour's end, and both fallbacks.
+function speakArrival(player) {
+  // Zone-guarded: `tutorial` is replayable forever, and a veteran replaying it in
+  // Coldwater must not be told they don't know how they got here.
+  if (!player || player.current_zone !== Z_INBETWEEN) return;
+  if (player._prologueArrivalSpoken) return;
+  player._prologueArrivalSpoken = true;
   setTimeout(() => out(player, `<span class="ambient">I don't know how I got here. That's the first thing — not <i>where</i> I am, but <i>how</i>. I reach back for the moment before this one and my hand closes on nothing at all. There was something. There must have been something. A name, a room, a life with a Tuesday in it. It's gone the way a dream goes, and I can't even find the shape of the hole it left.</span>`), 1400);
   setTimeout(() => {
     out(player, `<span class="ambient">Then I notice I'm not alone.</span>`);
@@ -405,17 +431,22 @@ const F_TOUR_TAKEN = 'tour_taken';   // they finished (or started) the walkthrou
 async function cmdTutorial(args, _raw, player) {
   const arg = (args[0] || '').toLowerCase();
 
+  // Each of these is also the release valve on the held-back arrival prose (see
+  // beginArrival): no tour → speak now, tour → speak when it ends. speakArrival
+  // claims itself, so a replayed tutorial long after the fact is a no-op.
   if (arg === 'no') { // "yes, I've played text games" → never ask again
     await raise(player, F_TOUR_ASKED);
+    speakArrival(player);
     return { type: 'system', message: `<span class="hint">Noted — no tour. Type <b>tutorial</b> any time if you want the interface walkthrough.</span>` };
   }
   if (arg === 'yes') { // they asked to be shown around
     await raise(player, F_TOUR_ASKED);
-    return null; // the client is already running the tour; nothing to say
+    return null; // the client is already running the tour; nothing to say — and the prose waits for `done`
   }
   if (arg === 'done') {
     await raise(player, F_TOUR_ASKED);
     await raise(player, F_TOUR_TAKEN);
+    speakArrival(player);
     return { type: 'system', message: `<span class="hint">That's the interface. Everything else you learn by doing. (<b>help</b> lists the commands; <b>tutorial</b> replays this.)</span>` };
   }
 

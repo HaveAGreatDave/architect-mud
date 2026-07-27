@@ -162,6 +162,7 @@ let _enemyQuery = '';
 let _spawnMapData = null;         // { spawns, zones, regions, mapParents } — fetched once, cached
 let _spawnMapZone = null;         // facade/tile zone id whose spawn editor is open
 let _spawnMapRegion = null;       // selected region id ('__unassigned' for tiles with no region)
+let _spawnMapZ = null;            // selected floor (grid_z); null = pick the busiest one
 
 function enemyViewToggleHtml() {
   const btn = (v, label) =>
@@ -263,9 +264,15 @@ function _spawnMapIndex() {
   return { byTile, orphans, zoneById };
 }
 
-const _spawnRegionOf = z => z.flags?.region_id || '__unassigned';
+// The Under carries no region_id (it's a district, not a region) but it's a whole
+// map's worth of danger, so it gets its own bucket instead of drowning in the
+// unassigned pile beside stray basin tiles.
+const _spawnRegionOf = z =>
+  z.flags?.region_id || (z.flags?.district === 'sewer' ? '__under' : '__unassigned');
 const _spawnRegionName = rid =>
-  rid === '__unassigned' ? 'Unassigned tiles' : (_spawnMapData.regions.get(rid) || rid);
+  rid === '__under' ? 'The Under (sewers)'
+  : rid === '__unassigned' ? 'Unassigned tiles'
+  : (_spawnMapData.regions.get(rid) || rid);
 
 // --- Threat ------------------------------------------------------------------
 // Rough power score for one enemy definition — HP + average swing + accuracy.
@@ -335,15 +342,41 @@ function spawnMapBodyHtml() {
   const options = regions.map(r =>
     `<option value="${r.rid}"${r.rid === _spawnMapRegion ? ' selected' : ''}>${r.name} — ${r.spawns} spawn${r.spawns === 1 ? '' : 's'}</option>`).join('');
 
+  // Floors are separate *places*, not storeys of one thing — the Under sits at
+  // z=-1 under the same x/y as the streets above it — so one floor draws at a
+  // time and the rest are a click away.
+  const floors = [...new Set(sel.tiles.map(z => z.grid_z ?? 0))].sort((a, b) => b - a);
+  const floorSpawns = z => sel.tiles.filter(t => (t.grid_z ?? 0) === z)
+    .reduce((n, t) => n + (byTile.get(t.id) || []).reduce((m, e) => m + e.spawns.length, 0), 0);
+  if (!floors.includes(_spawnMapZ)) {
+    // Default to the busiest floor so a region whose only danger is underground
+    // doesn't open on an empty street plan.
+    _spawnMapZ = floors.slice().sort((a, b) => floorSpawns(b) - floorSpawns(a) || b - a)[0] ?? 0;
+  }
+  const onFloor = sel.tiles.filter(z => (z.grid_z ?? 0) === _spawnMapZ);
+  const here = floorSpawns(_spawnMapZ);
+
+  const floorNav = floors.length > 1 ? `<div class="field" style="flex:0 0 auto"><label>Floor</label>
+    <div style="display:flex;align-items:center;gap:4px">
+      <button class="action-btn" onclick="spawnMapStepZ(-1)"${_spawnMapZ === floors[floors.length - 1] ? ' disabled' : ''}>▾</button>
+      <span style="min-width:52px;text-align:center;font-size:12px">z = ${_spawnMapZ}</span>
+      <button class="action-btn" onclick="spawnMapStepZ(1)"${_spawnMapZ === floors[0] ? ' disabled' : ''}>▴</button>
+      <span style="font-size:10px;color:var(--text-dim)">${floors.map(z =>
+        `<a href="#" onclick="spawnMapSetZ(${z});return false" style="color:${z === _spawnMapZ ? 'var(--text)' : 'var(--text-dim)'};text-decoration:none;padding:0 3px">${z}${floorSpawns(z) ? '•' : ''}</a>`).join('')}</span>
+    </div></div>` : '';
+
   let html = `<div style="display:flex;gap:10px;align-items:flex-end;padding:10px 12px">
     <div class="field" style="flex:0 0 260px"><label>Region</label>
       <select id="spawn-map-region" onchange="spawnMapSetRegion(this.value)">${options}</select></div>
+    ${floorNav}
     <div style="color:var(--text-dim);font-size:11px;padding-bottom:6px">
-      ${sel.spawns} spawn${sel.spawns === 1 ? '' : 's'} here${_enemyQuery ? ` (filtered by "${_enemyQuery}")` : ''} — click a tile to add or remove spawns. Interior rooms fold onto their building's facade.
+      ${here} spawn${here === 1 ? '' : 's'} on this floor${floors.length > 1 ? ` of ${sel.spawns} in the region` : ''}${_enemyQuery ? ` (filtered by "${_enemyQuery}")` : ''} — click a tile to add or remove spawns. Interior rooms fold onto their building's facade.
     </div>
   </div>`;
 
-  html += `<div style="padding:0 12px 12px">${spawnRegionMapHtml(sel.tiles, byTile)}</div>`;
+  html += onFloor.length
+    ? `<div style="padding:0 12px 12px">${spawnRegionMapHtml(onFloor, byTile)}</div>`
+    : `<div style="padding:24px;color:var(--text-dim)">No placed tiles on floor z=${_spawnMapZ}.</div>`;
   html += spawnHeatLegendHtml();
   html += `<div id="spawn-detail">${spawnDetailHtml(zoneById.get(_spawnMapZone) || null, byTile)}</div>`;
 
@@ -361,11 +394,28 @@ function spawnMapBodyHtml() {
 function spawnMapSetRegion(rid) {
   _spawnMapRegion = rid;
   _spawnMapZone = null;
+  _spawnMapZ = null;      // re-pick the busiest floor of the new region
   _spawnMapDraw();
 }
 
-// The whole region on one plan: all floors flattened onto x/y (a tower's upper
-// storeys share the footprint anyway), terrain tone underneath, red on top.
+function spawnMapSetZ(z) {
+  _spawnMapZ = z;
+  _spawnMapZone = null;
+  _spawnMapDraw();
+}
+
+// Step to the next floor that actually has tiles, so ▾/▴ never lands on a gap.
+function spawnMapStepZ(delta) {
+  const tiles = (_spawnMapData?.zones || []).filter(z =>
+    z.grid_x != null && z.grid_y != null && _spawnRegionOf(z) === _spawnMapRegion);
+  const floors = [...new Set(tiles.map(z => z.grid_z ?? 0))].sort((a, b) => a - b);
+  const next = delta > 0 ? floors.find(z => z > _spawnMapZ)
+                         : floors.slice().reverse().find(z => z < _spawnMapZ);
+  if (next != null) spawnMapSetZ(next);
+}
+
+// One floor of the region on one plan: terrain tone underneath, red on top.
+// Tiles arrive pre-filtered to the selected grid_z.
 function spawnRegionMapHtml(tiles, byTile) {
   const xs = tiles.map(z => z.grid_x), ys = tiles.map(z => z.grid_y);
   const minX = Math.min(...xs), maxX = Math.max(...xs);
@@ -373,7 +423,8 @@ function spawnRegionMapHtml(tiles, byTile) {
   const cols = maxX - minX + 1, rows = maxY - minY + 1;
   const cell = Math.max(4, Math.min(18, Math.floor(880 / cols)));
 
-  // Ground floor wins the terrain tone; threat sums across every floor of the stack.
+  // Normally one zone per coord on a floor; if two overlap, the lower one draws
+  // and the threat still sums across both.
   const byCoord = new Map();
   for (const z of tiles) {
     const key = `${z.grid_x},${z.grid_y}`;

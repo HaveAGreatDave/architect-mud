@@ -1,12 +1,12 @@
-// One-shot content: "The Choirmaster" (enemy) + "The Verger" (NPC) — a paired
+// One-shot content: "The Tinnitus Saint" (enemy) + "The Verger" (NPC) — a paired
 // VINE showcase. The Verger is a living shrine-attendant NPC whose graph turns it
-// from liturgy to alarm-bell: provoke it and it SUMMONS the Choirmaster (and any
+// from liturgy to alarm-bell: provoke it and it SUMMONS the Tinnitus Saint (and any
 // nearby wildlife) down on you via CALL_BACKUP — cross-entity orchestration with
 // zero engine code.
 //   Run once:  node scripts/add-demo-boss.js [verger_zone_id]
 //     • no arg  → upserts both; set the Verger's zone in the dev panel afterward.
 //     • with arg→ also places the Verger in that (real) zone.
-//   Then:      spawn enemy_choirmaster_demo into the same zone (dev panel →
+//   Then:      spawn enemy_tinnitus_saint into the same zone (dev panel →
 //              Enemies → Spawn, or admin .spawn) and restart / hit /world/reload
 //              so the templates + graphs are cached.
 //
@@ -28,7 +28,7 @@
 //     last stand instead of fleeing again.
 import { query } from '../server/models/db.js';
 
-const ID = 'enemy_choirmaster_demo';
+const ID = 'enemy_tinnitus_saint';
 
 // ── The behaviour graph ─────────────────────────────────────────────────────────
 // Built-in DB format: node.next / .ifTrue / .ifFalse / .branch_N are the edges;
@@ -118,7 +118,7 @@ const GRAPH = {
 // ── The enemy ────────────────────────────────────────────────────────────────────
 const BOSS = {
   id: ID,
-  name: 'The Choirmaster',
+  name: 'The Tinnitus Saint',
   description: 'A tall, robed thing wound in frayed speaker-wire, its face a cluster of dead speaker cones that twitch toward any sound. It conducts an orchestra only it can hear.',
   hp_max: 140,                       // roomy enough that all three phases are felt
   hit: 4,
@@ -134,7 +134,7 @@ const BOSS = {
   butcher_difficulty: 6,
   behavior: 'aggressive',            // REQUIRED: auto-acquires a target so HAS_TARGET fires
   faction: 'choir',
-  death_message: 'The Choirmaster crumples, speaker-cones going silent one by one. The hymn finally stops.',
+  death_message: 'The Tinnitus Saint crumples, speaker-cones going silent one by one. The hymn finally stops.',
   flags: {
     battle_cries: [
       '$enemy tilts its cone-cluster toward $player, listening.',
@@ -170,7 +170,7 @@ console.log(`OK  upserted ${BOSS.id} (${Object.keys(GRAPH.nodes).length}-node be
 //     and, on a rising RANDOM_CHANCE, ACQUIRE_TARGETs the intruder itself.
 //   • Provoked (its own target OR a target handed to it by the boss's CALL_BACKUP)
 //     → raises the alarm ONCE (flag: summoned) and CALL_BACKUP — which sets the
-//     Choirmaster's (and any nearby enemy's) targetId to the player. The acolyte
+//     Tinnitus Saint's (and any nearby enemy's) targetId to the player. The acolyte
 //     summons its god. Then it keeps re-rallying + jeering.
 //   • Take real damage (HP < 40%) → renounces the faith ONCE (flag: apostate) and
 //     FLEES. The zealot breaks.
@@ -204,7 +204,7 @@ const VERGER_GRAPH = {
     greet_mark:   { type: 'action', action_type: 'SET_FLAG', params: { scope: 'self', flag: 'greeted', value: '1' },
                     next: 'greet_say' },
     greet_say:    { type: 'action', action_type: 'SAY',
-                    params: { message: 'You stand in the nave of the Choirmaster. Mind your tongue, pilgrim.', cooldown_s: 0 },
+                    params: { message: 'You stand in the nave of the Tinnitus Saint. Mind your tongue, pilgrim.', cooldown_s: 0 },
                     next: 'loop' },
     escalate:     { type: 'condition', condition_type: 'RANDOM_CHANCE', params: { chance: 0.25 },
                     ifTrue: 'provoke_self', ifFalse: 'wary_watch' },
@@ -231,7 +231,7 @@ const VERGER_GRAPH = {
     zealot_call:  { type: 'action', action_type: 'CALL_BACKUP', params: { radius: 4, faction_only: false },
                     next: 'loop' },   // 30s internal cooldown; re-rallies stragglers
     zealot_say:   { type: 'action', action_type: 'SAY',
-                    params: { message: 'Sing, intruder! The Choirmaster loves a struggling voice!', cooldown_s: 7 },
+                    params: { message: 'Sing, intruder! The Tinnitus Saint loves a struggling voice!', cooldown_s: 7 },
                     next: 'loop' },
 
     // ── Faith breaks under real damage: renounce ONCE, then flee ──
