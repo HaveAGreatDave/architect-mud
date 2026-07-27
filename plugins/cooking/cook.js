@@ -9,7 +9,7 @@ import { getLivePlayer, updateFurniture, getFurnitureById } from '../../server/e
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { resolveEnvironment } from '../preservation/decay.js';
 import {
-  COOK_SECONDS_PER_KG, THAW_SECONDS_PER_KG, THAW_STAGES, COOK_STAGES, stageText, BARE_VESSEL,
+  COOK_SECONDS_PER_KG, THAW_SECONDS_PER_KG, MASS_EXPONENT, THAW_STAGES, COOK_STAGES, stageText, BARE_VESSEL,
   PEAK_LINES, FADING_LINES, lineFor, stagesFor, MINCE_RATE, MICROWAVE_THAW_SPEED,
 } from './config.js';
 import { PROFILES } from './profiles.js';
@@ -91,11 +91,15 @@ function effectiveTier(env) {
 
 export function computeDuration(weightGrams, speedMult, isFrozen, rateMult = 1, thawSpeed = null) {
   const kg = Math.max(0, Number(weightGrams) || 0) / 1000;
-  const cookMs = Math.round((kg * COOK_SECONDS_PER_KG * rateMult / speedMult) * 1000);
+  // Heat has to reach the middle, so the clock follows thickness² ∝ m^(2/3), not
+  // mass. See MASS_EXPONENT in config.js — 1kg is the fixed point, so the tuned
+  // per-kg constants above still mean exactly what they say for a 1kg cut.
+  const thermalMass = Math.pow(kg, MASS_EXPONENT);
+  const cookMs = Math.round((thermalMass * COOK_SECONDS_PER_KG * rateMult / speedMult) * 1000);
   // Thawing normally rides the same burner speed. A microwave overrides it —
   // defrosting is the single thing it is unambiguously best at, and the gap
   // between it and a hob has to be felt, not implied.
-  const thawMs = isFrozen ? Math.round((kg * THAW_SECONDS_PER_KG / (thawSpeed || speedMult)) * 1000) : 0;
+  const thawMs = isFrozen ? Math.round((thermalMass * THAW_SECONDS_PER_KG / (thawSpeed || speedMult)) * 1000) : 0;
   return { thawMs, cookMs, totalMs: thawMs + cookMs };
 }
 

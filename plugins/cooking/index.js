@@ -775,10 +775,11 @@ async function cmdCure(args, raw, player, broadcast) {
 // `chop <food> [into N]` — cut one ingredient into N portions.
 //
 // Portions conserve: four quarters weigh what the whole weighed and feed you
-// what the whole fed you. What you gain is TIME — cook duration scales with
-// weight, so a quartered potato finishes in a quarter of the time. Chopping is
-// how you make a slow ingredient land alongside a fast one, which is the other
-// half of staging and the reason to carry a knife past the prep gate.
+// what the whole fed you. What you gain is TIME — cook duration scales as
+// m^(2/3), so a quartered potato finishes in about 40% of the time (not 25%:
+// heat still has to reach the middle of what's left). Chopping is how you make a
+// slow ingredient land alongside a fast one, which is the other half of staging
+// and the reason to carry a knife past the prep gate.
 async function cmdChop(args, raw, player) {
   const argStr = args.join(' ').trim();
   if (!argStr) return { type: 'error', message: `Chop what? Try "chop potato" or "chop potato into 4".` };

@@ -241,7 +241,7 @@ you always press before cooking.
 | `tenderise <meat>` | cooks faster, much more forgiving window | one rung off the ceiling |
 | `mince <meat>` | ~a third of the cook time | **two** rungs off the ceiling, forever |
 | `marinate <meat> in <thing>` | the largest single pre-heat gain | real time, and the marinade item |
-| `chop <food> [into N]` | proportionally faster cook | nothing — but it feeds you proportionally less |
+| `chop <food> [into N]` | faster cook — m^(2/3), so a quarter-piece is ~40% of the clock, not 25% | nothing — but it feeds you proportionally less |
 
 Prep flags live on the ingredient's `custom_data` and are copied into the cook
 session at `cook`, so the timeline is scored against what you actually did to it.

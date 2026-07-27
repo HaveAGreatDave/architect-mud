@@ -25,16 +25,42 @@ export const BAND_SCALE = 2;
 export const COOK_SECONDS_PER_KG = 360;  // a 1kg cut takes 6 min on a 1.0x (low) stove
 export const THAW_SECONDS_PER_KG = 180;  // frozen food thaws before the cook clock starts
 
+// MASS_EXPONENT — why a joint isn't ten times a steak.
+//
+// Cooking is heat diffusing inward, so the clock is set by how far the middle is
+// from the surface, not by how much there is. Characteristic thickness goes as
+// m^(1/3) and diffusion time as thickness², which lands on **t ∝ m^(2/3)**. It's
+// the reason a 5kg roast is a couple of hours rather than half a day, and the
+// reason a thin cutlet is quick out of all proportion to how little it weighs.
+//
+// Calibrated so 1kg is the fixed point: at exactly 1kg this changes nothing, and
+// every constant above keeps the value it was hand-tuned to. Below 1kg food takes
+// LONGER than the old linear law said, above it SHORTER.
+//
+//   0.25kg   linear 0.25×  →  now 0.40×    (a small piece is not that fast)
+//   0.5kg    linear 0.50×  →  now 0.63×
+//   1kg      linear 1.00×  →  now 1.00×    ← unchanged, the calibration point
+//   2kg      linear 2.00×  →  now 1.59×
+//   5kg      linear 5.00×  →  now 2.92×    (a big roast is ~3x a steak, not 5x)
+//
+// Applies to thawing too, which is the same physics with a worse conductor.
+export const MASS_EXPONENT = 2 / 3;
+
 // PORTIONS — half an onion is an onion cut in half.
 //
 // A portioned ingredient is a fraction of the whole: it weighs proportionally
-// less, so it COOKS proportionally faster, and it feeds you proportionally less.
-// That second half is what stops chopping being a free doubling of your larder —
-// two halves are exactly one onion however you slice them.
+// less, so it cooks FASTER, and it feeds you proportionally less. That second
+// half is what stops chopping being a free doubling of your larder — two halves
+// are exactly one onion however you slice them.
 //
-// The first half is the point of the feature: cook time scales with weight, so
-// chopping is how you make a slow ingredient finish alongside a fast one. It's
-// the difference between staging (start it earlier) and prep (make it smaller).
+// Faster, but NOT proportionally faster: cook time goes as m^(2/3) (MASS_EXPONENT
+// above), so halving an ingredient buys ~0.63x the clock, not 0.5x. That is the
+// honest physics and it deliberately weakens chopping as a speed lever — halving
+// a thing does not halve how long heat takes to reach its middle. Chopping is
+// still how you make a slow ingredient finish alongside a fast one; it just isn't
+// a free way to make anything arbitrarily quick. If you want a real collapse in
+// cook time, MINCE it — destroying the structure is what actually does that, and
+// it charges you a ceiling drop for the privilege.
 export const PORTION_NAMES = { 0.5: 'half', 0.25: 'a quarter of', 0.125: 'an eighth of' };
 export const MIN_PORTION = 0.125;      // past this it's mince, and mince is its own item
 export const MAX_CHOP_PIECES = 4;      // one cut into halves, quarters, or eighths

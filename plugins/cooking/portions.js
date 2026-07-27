@@ -5,10 +5,11 @@
 // into four gives you four quarters, which weigh what the onion weighed and feed
 // you what the onion fed you. Nothing is created by holding a knife.
 //
-// What chopping DOES buy you is time: cook duration scales with weight, so a
-// quartered potato finishes in a quarter of the time and can be made to land
-// alongside something fast. That's the tactical use, and it's why the knife is
-// worth carrying beyond the prep gate.
+// What chopping DOES buy you is time: cook duration scales as m^(2/3), so a
+// quartered potato finishes in about 40% of the time — faster, but not the flat
+// quarter a linear law would give, because heat still has to cross what's left.
+// That's the tactical use, and it's why the knife is worth carrying beyond the
+// prep gate.
 import { PORTION_NAMES, MIN_PORTION } from './config.js';
 
 // The fraction of a whole ingredient this row represents. Unportioned rows are

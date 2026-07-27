@@ -6,7 +6,7 @@ import { query } from '../../server/models/db.js';
 import { reloadItem, deleteItemCache } from '../../server/engine/items-cache.js';
 import { insertFurniture, deleteFurniture, getFurnitureById } from '../../server/engine/world.js';
 import { computeDuration, checkCooking, _test as cookTest } from './cook.js';
-import { THAW_STAGES, COOK_STAGES, STOVE_SPEED, stageText, BARE_VESSEL, PEAK_LINES, SLIPPING_LINES, FADING_LINES, STAGE_LINES, lineFor, stagesFor } from './config.js';
+import { THAW_STAGES, COOK_STAGES, STOVE_SPEED, COOK_SECONDS_PER_KG, stageText, BARE_VESSEL, PEAK_LINES, SLIPPING_LINES, FADING_LINES, STAGE_LINES, lineFor, stagesFor } from './config.js';
 import { PROFILES, LEGACY_BAND_INDEX, profileNameFor, profileNeedsPrep, needsPrep, validateProfiles, QUALITY_BANDS, bandIndex, donenessLevels, donenessLevel, donenessAt, achievedDoneness } from './profiles.js';
 import { leavesFond, makeFond, fondState, fondModifier, fondText, fondBelongs } from './fond.js';
 import { prepWindowMult, prepBurnMult, prepCeilingDrop, prepBonus, marinadeStrength, canMarinate, prepText } from './prep.js';
@@ -62,8 +62,23 @@ export default async function regress({ run, check, getPlayer }) {
   const faster = computeDuration(1000, STOVE_SPEED.high, false);
   check('a higher-tier stove cooks the same food faster', faster.cookMs < unfrozen.cookMs, { faster, unfrozen });
 
+  // Cook time follows m^(2/3), not mass — heat has to reach the middle, so the
+  // clock is set by thickness. Double the weight is ~1.59x the time, and a 1kg
+  // cut is the calibration point where the per-kg constants mean what they say.
   const heavier = computeDuration(2000, STOVE_SPEED.low, false);
-  check('double the weight takes roughly double the time', Math.abs(heavier.cookMs - unfrozen.cookMs * 2) < 5, { heavier, unfrozen });
+  check('double the weight takes MORE time, but less than double',
+    heavier.cookMs > unfrozen.cookMs && heavier.cookMs < unfrozen.cookMs * 2,
+    { heavier, unfrozen });
+  check('...specifically the 2^(2/3) the diffusion law gives',
+    Math.abs(heavier.cookMs - unfrozen.cookMs * Math.pow(2, 2 / 3)) < 5, { heavier, unfrozen });
+  check('1kg is the fixed point — the per-kg constant is unchanged there',
+    unfrozen.cookMs === Math.round(COOK_SECONDS_PER_KG / STOVE_SPEED.low * 1000), unfrozen);
+  // The counterintuitive half, and the reason this is worth modelling: a small
+  // piece is slower than its weight suggests, so chopping is a weaker lever than
+  // mincing. Quarter the mass, and you still pay ~40% of the clock.
+  const quartered = computeDuration(250, STOVE_SPEED.low, false);
+  check('a quarter-weight piece takes MORE than a quarter of the time',
+    quartered.cookMs > unfrozen.cookMs * 0.25, { quartered, unfrozen });
 
   check('stage text is monotonic and covers 0..1', stageText(COOK_STAGES, 0) === 'raw, glistening' && stageText(COOK_STAGES, 1) === 'cooked through, a faint char forming', {
     a: stageText(COOK_STAGES, 0), b: stageText(COOK_STAGES, 1),
@@ -1036,12 +1051,16 @@ export default async function regress({ run, check, getPlayer }) {
     check('a dish of whole ingredients yields full', yieldOf([whole, whole]) === 1);
     check('mixing whole and half lands between', yieldOf([whole, half]) === 0.75);
 
-    // And the payoff: a portion cooks faster, in proportion.
+    // And the payoff: a portion cooks faster — by m^(2/3), not in proportion.
+    // A quarter-weight piece is ~40% of the clock, because heat still has to
+    // cross what's left of it. Chopping is a real lever, just not a linear one.
     const wholeCook = computeDuration(400 * portionOf(whole), STOVE_SPEED.low, false, 1).cookMs;
     const quarterCook = computeDuration(400 * portionOf(quarter), STOVE_SPEED.low, false, 1).cookMs;
-    check('a quartered ingredient cooks in a quarter of the time',
-      Math.abs(quarterCook - wholeCook / 4) < 5, { wholeCook, quarterCook });
-    check('...which is the whole tactical point of the knife', quarterCook < wholeCook);
+    check('a quartered ingredient cooks in ~40% of the time (m^2/3, not m)',
+      Math.abs(quarterCook - wholeCook * Math.pow(0.25, 2 / 3)) < 5, { wholeCook, quarterCook });
+    check('...which is MORE than a linear quarter would suggest',
+      quarterCook > wholeCook / 4, { wholeCook, quarterCook });
+    check('...but still the tactical point of the knife', quarterCook < wholeCook);
 
     // Recipes count PORTIONS, not rows. Every count in the catalog was authored
     // as "how many of this ingredient", so a whole one still contributes exactly
