@@ -155,6 +155,57 @@ function coldwaterSkyline() {
   return out;
 }
 
+// ── The coastline ────────────────────────────────────────────────────────────
+// The cold open traces where land meets water before a single building lands on
+// it — the Basin drawn as an outline first, the way a plan is drawn before a
+// city is. Sending all 945 water tiles would be silly; sending the BOUNDARY is
+// the whole feature and a tenth of the bytes.
+//
+// A shoreline segment is a tile EDGE shared by a water tile and an authored land
+// tile (an unauthored neighbour is the void, not a coast, so it contributes
+// nothing). Collinear segments are then merged into runs, which cuts ~309 edges
+// down to ~157 runs — about 2 KB. Runs are `[x, y, dir, len]` in tile-CORNER
+// coords, `dir` 0 = the run travels +x, 1 = +y.
+let _shore = null;
+function coldwaterShore() {
+  if (_shore) return _shore;
+  const runs = [];
+  try {
+    const terrain = new Map();
+    for (const z of getAllZones()) {
+      if (z.map_id !== 'map_world') continue;
+      terrain.set(`${z.grid_x},${z.grid_y}`, z.flags?.terrain || '');
+    }
+    const isWater = (x, y) => terrain.get(`${x},${y}`) === 'water';
+    const isLand = (x, y) => { const t = terrain.get(`${x},${y}`); return t !== undefined && t !== 'water'; };
+    // Two edge sets, keyed by the corner the edge starts at, so a shared edge is
+    // recorded once no matter which side we walked in from.
+    const horiz = new Set(), vert = new Set();
+    for (const key of terrain.keys()) {
+      const [x, y] = key.split(',').map(Number);
+      if (!isWater(x, y)) continue;
+      if (isLand(x, y - 1)) horiz.add(`${x},${y}`);
+      if (isLand(x, y + 1)) horiz.add(`${x},${y + 1}`);
+      if (isLand(x - 1, y)) vert.add(`${x},${y}`);
+      if (isLand(x + 1, y)) vert.add(`${x + 1},${y}`);
+    }
+    for (const [set, dir] of [[horiz, 0], [vert, 1]]) {
+      const used = new Set();
+      for (const key of [...set].sort()) {
+        if (used.has(key)) continue;
+        const [x, y] = key.split(',').map(Number);
+        let n = 0, k = key;
+        while (set.has(k) && !used.has(k)) { used.add(k); n++; k = dir ? `${x},${y + n}` : `${x + n},${y}`; }
+        runs.push([x, y, dir, n]);
+      }
+    }
+  } catch (e) {
+    console.error('[prologue] shore build failed:', e.message);
+  }
+  _shore = runs;
+  return runs;
+}
+
 // ── The prologue's sound kit ─────────────────────────────────────────────────
 // Inline synth defs, sent as ordinary `audio_sfx` pushes (same wire shape and the
 // same client generator the clone-vat sequence uses in plugins/audio). They live
@@ -488,7 +539,7 @@ on('player.login', async ({ id }) => {
   // sequence ends or is skipped, and that verb starts the arrival. Otherwise a
   // player who watches the whole thing comes back to a log full of prose that
   // scrolled past while they were reading a different screen.
-  sendToPlayer(player.id, { type: 'intro_cinematic', skyline: coldwaterSkyline() });
+  sendToPlayer(player.id, { type: 'intro_cinematic', skyline: coldwaterSkyline(), shore: coldwaterShore() });
   // Safety net for a client that never answers (an old cached bundle, a tab
   // closed and reopened mid-play): the prologue must never be able to stall.
   // beginArrival is idempotent, so the real echo winning this race is fine.
@@ -584,15 +635,29 @@ on('zone.entered', async ({ actor, zone, from }) => {
 // very first clone is on the house, so no cloning bill prints. Timings mirror the
 // respawn sequence so the two feel like the same machine.
 function firstClothing(actor) {
+  // The one thing the copy MUST keep in step with the original: the naked window.
+  // A first clone is bare from the moment it hits the floor until the gantry
+  // dresses it, and the surveillance scan runs on its own tick — so without this
+  // a brand-new player, whose first five seconds of the game are being dressed by
+  // a machine against their will, got booked for indecent exposure for it. Cleared
+  // only once the equips have LANDED, plus a grace window (see gameLoop.js).
+  actor._vatDressing = true;
   setTimeout(() => {
     out(actor, `<span class="clone-vat-message">Your new body reports in, one seam at a time. Nerve endings find their sockets and announce themselves — cold, ache, the dumb weight of your own hands. Muscle remembers what muscle is for. You are, unmistakably, meat again.</span>`);
   }, 2600);
   setTimeout(async () => {
+    let grace = 4000;
     try {
-      const { equipStarterOutfit } = await import('../../server/engine/gameLoop.js');
-      equipStarterOutfit(actor.id, actor.biological_sex || 'male');
+      const { equipStarterOutfit, VAT_DRESS_GRACE_MS } = await import('../../server/engine/gameLoop.js');
+      grace = VAT_DRESS_GRACE_MS ?? grace;
+      await equipStarterOutfit(actor.id, actor.biological_sex || 'male');
     } catch (e) {
       console.error('[prologue] starter outfit failed:', e.message);
+    } finally {
+      // Always released, even if the equips threw — a stuck `_vatDressing` would
+      // make a player permanently immune to the charge, which is a worse bug than
+      // the one this fixes.
+      setTimeout(() => { actor._vatDressing = false; }, grace);
     }
     out(actor, `<span class="clone-vat-message">A dressing gantry unfolds on too many arms and plants you upright in the lab. It sheathes you — underwear, pants, a t-shirt, a pair of shoes — with the tenderness of an industrial press. No invoice prints. The first clone, it seems, is free.</span>`);
   }, 5200);
@@ -750,7 +815,7 @@ async function cmdIntroDone(args, _raw, player) {
 }
 
 async function cmdIntro(args, _raw, player) {
-  sendToPlayer(player.id, { type: 'intro_cinematic', skyline: coldwaterSkyline() });
+  sendToPlayer(player.id, { type: 'intro_cinematic', skyline: coldwaterSkyline(), shore: coldwaterShore() });
   return null;
 }
 
@@ -768,7 +833,7 @@ export const _test = {
   ITEM_HOLOCASTER,
   F_ALIGNED, F_INTERFACED, F_BROADCAST, F_COLLAPSE, F_PLAYED,
   cmdTutorial, F_TOUR_ASKED, F_TOUR_TAKEN,
-  coldwaterSkyline, speakArrival,
+  coldwaterSkyline, coldwaterShore, speakArrival,
 };
 
 console.log('[prologue] Plugin loaded.');

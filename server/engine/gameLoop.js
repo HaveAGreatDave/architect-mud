@@ -507,6 +507,12 @@ export async function spawnPlayerCorpse(victim, zoneId) {
 
 // Re-equip the default starter outfit (underwear layer 1 + basics layer 2) after death,
 // skipping anything already equipped. Shared by both death paths.
+//
+// Returns a promise that settles when every insert has landed. Callers that clear
+// an "I'm being dressed, don't book me for indecent exposure" window MUST await
+// it: the inserts are fire-and-forget, so dropping the window the instant this
+// returns leaves a gap in which the surveillance scan reads the player as still
+// naked and starts an offence against a body the game is dressing itself.
 export function equipStarterOutfit(victimId, sex) {
   const underwear = sex === 'male'
     ? [['item_underwear_male', 'legs']]
@@ -516,9 +522,15 @@ export function equipStarterOutfit(victimId, sex) {
            SELECT $1,$2,i.id,1,1.0,1,$3,$4 FROM items i WHERE i.id=$5
            AND NOT EXISTS (SELECT 1 FROM player_inventory WHERE player_id=$2 AND item_id=$5 AND is_equipped=1)`,
       [randomUUID(), victimId, slot, layer, itemId]).catch(() => {});
-  for (const [itemId, slot] of underwear) equip(itemId, slot, 1);
-  for (const [itemId, slot] of [['item_basic_shirt','torso'],['item_basic_pants','legs'],['item_basic_shoes','feet']]) equip(itemId, slot, 2);
+  const pending = underwear.map(([itemId, slot]) => equip(itemId, slot, 1));
+  for (const [itemId, slot] of [['item_basic_shirt','torso'],['item_basic_pants','legs'],['item_basic_shoes','feet']]) pending.push(equip(itemId, slot, 2));
+  return Promise.all(pending);
 }
+
+// How long after the gantry finishes before the witness system is allowed to look
+// at you again. The inserts have landed by then; this is slack for a scan tick
+// that sampled you mid-dress and would otherwise resolve against a stale read.
+export const VAT_DRESS_GRACE_MS = 4000;
 
 // The clone-vat emergence sequence for a normal respawn, played on timers after
 // the initial death/consciousness message: the body assimilates, then a dressing
@@ -537,8 +549,12 @@ function scheduleVatEmergence(player) {
   }, VAT_ASSIMILATE_MS);
 
   setTimeout(async () => {
-    equipStarterOutfit(player.id, player.biological_sex || 'male');
-    player._vatDressing = false;   // clothed now — witness system may resume
+    // Await the inserts, THEN hold the window open a moment longer — see
+    // VAT_DRESS_GRACE_MS. Dropping it the instant the call returned was a race:
+    // the equips are fire-and-forget, so a scan tick landing in between charged
+    // a fresh clone for indecent exposure while the gantry was still dressing it.
+    await equipStarterOutfit(player.id, player.biological_sex || 'male');
+    setTimeout(() => { player._vatDressing = false; }, VAT_DRESS_GRACE_MS);
     // Cloning is free for everyone — the vat still dresses you and prints the invoice,
     // it just stamps the total COMPLIMENTARY and never touches the balance.
     const balance = player.credits ?? 0;

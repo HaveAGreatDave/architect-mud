@@ -14,7 +14,7 @@ export default async function regress({ check }) {
     ITEM_HOLOCASTER,
     F_ALIGNED, F_INTERFACED, F_BROADCAST,
     cmdTutorial, F_TOUR_ASKED, F_TOUR_TAKEN, isSet,
-    coldwaterSkyline,
+    coldwaterSkyline, coldwaterShore,
   } = _test;
 
   // ── The cold open's skyline manifest ───────────────────────────────────────
@@ -30,6 +30,15 @@ export default async function regress({ check }) {
     Number.isFinite(b.x) && Number.isFinite(b.y) && typeof b.t === 'string' && Number.isFinite(b.f)));
   check('skyline is Coldwater, not The Reach', sky.every(b => b.y <= 960));
   check('skyline is cached (same array identity)', coldwaterSkyline() === sky);
+
+  // The coastline the flythrough traces. Same failure mode as the skyline: a
+  // terrain repaint that stopped water meeting land would empty this and the
+  // cold open would just quietly lose its shore.
+  const shore = coldwaterShore();
+  check('shore manifest is a non-empty array', Array.isArray(shore) && shore.length > 20, `n=${shore?.length}`);
+  check('shore runs are [x,y,dir,len]', shore.every(r =>
+    r.length === 4 && r.every(Number.isFinite) && (r[2] === 0 || r[2] === 1) && r[3] > 0));
+  check('shore is cached (same array identity)', coldwaterShore() === shore);
 
   // The stat gift + holocaster grant write player-scoped rows (FKs to players),
   // so this needs a REAL players row — the harness's shared player is in-memory
@@ -150,6 +159,20 @@ export default async function regress({ check }) {
   // holocaster with none carried falls through to the builtin.
   const noItem = await useHolocaster(['holocaster'], 'use holocaster', lp);
   check('use holocaster without one falls through', noItem === undefined);
+
+  // ── The vat's naked window ─────────────────────────────────────────────────
+  // A first clone is bare from the moment it hits the floor until the gantry
+  // dresses it, and the surveillance scan runs on its own tick — so both
+  // emergence paths hold `_vatDressing` across that gap. The contract the fix
+  // rests on is that equipStarterOutfit is AWAITABLE (its inserts are otherwise
+  // fire-and-forget, and clearing the window on return reopens the race) and
+  // that there's a grace period after it. Assert both: a future refactor that
+  // drops the return value would silently reintroduce booking a brand-new
+  // player for indecent exposure while a machine dresses them.
+  const gl = await import('../../server/engine/gameLoop.js');
+  check('equipStarterOutfit is awaitable', typeof gl.equipStarterOutfit(p.id, 'male')?.then === 'function');
+  check('a dress grace window exists', Number(gl.VAT_DRESS_GRACE_MS) > 0, gl.VAT_DRESS_GRACE_MS);
+  await query('DELETE FROM player_inventory WHERE player_id=$1', [p.id]).catch(() => {});
 
   // ── The interface tour: the answer is remembered, the replay is silent ─────
   const declined = await cmdTutorial(['no'], 'tutorial no', p);
