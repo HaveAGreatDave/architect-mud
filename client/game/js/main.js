@@ -41,6 +41,7 @@ import { mountCustomPanels } from "./panels/custom/manager.js";
 import { initCustomPanelButton } from "./panels/custom/builder.js";
 import { refreshTempDisplay } from "./panels/environment.js";
 import { initWeatherFx, setWeatherFxEnabled } from "./panels/weather-fx.js";
+import { setMapOverlay } from "./panels/minimap.js";
 import { initAtmPanel } from "./panels/atm.js";
 import { initInsurancePanel } from "./panels/insurance.js";
 import { initWantedHud } from "./panels/wanted.js";
@@ -81,6 +82,9 @@ function applyMobileScale() {
 // applySettings() so its initial enable/disable is honoured, then start it.
 initWeatherFx();
 window._applyWeatherFx = setWeatherFxEnabled;
+// Minimap tile-overlay mode (Settings → Layout → Map Labels). Same deal: hook
+// registered before the first applySettings() so the saved mode is honoured.
+window._applyMapOverlay = setMapOverlay;
 
 applySettings(settings);
 // Mobile vs. desktop layout is auto-detected per device at launch — there is no

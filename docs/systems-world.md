@@ -255,7 +255,7 @@ Each map/minimap node carries four additive rendering fields, all derived server
   which the zone-planner stamps at export — a continuous dashed street network with real
   T-junctions. Runways use `runway_ns`/`runway_ew`.
 - **`building_type`** (`buildingTypeOf`) — the facade tile's type, `null` for streets/water/interiors.
-  Drives the **labels/icons overlay** and the flight-sim 3-D shape.
+  Drives the rooftop footprint lookup and the flight-sim 3-D shape.
 - **`entrance`** (`buildingEntranceDir`) — which edge (`north`/`south`/`east`/`west`) the door faces,
   reverse-derived from the *real* exit graph (the street tile whose exit leads INTO the facade), **not**
   from the `flags.world_exit_zone` planner hint. Cached, invalidated on any exit mutation. Drives the
@@ -273,8 +273,11 @@ Each map/minimap node carries four additive rendering fields, all derived server
 
 The client (game sidebar minimap, full-map popup, tablet bigmap in
 [minimap.js](../client/game/js/panels/minimap.js) / [tablet-os.js](../client/game/js/panels/tablet-os.js))
-shares a **None / Labels / Icons overlay** setting: all modes draw the SVG tile base; *labels* adds a
-2-letter building acronym; *icons* draws the full building-type glyph. The you-are-here marker is
+shares a **Labels / None overlay** setting (Tablet OS → Settings → Layout → *Map Labels*, stored as
+`mapOverlay` in the shared settings object): both modes draw the SVG tile base; *labels* adds the
+authored 2-letter building acronym (`zones.marker`) on top. A third *icons* mode, which stamped a
+building-type emoji over the rooftop footprint, was removed — it fought the tile art and said less
+than the acronym. The you-are-here marker is
 transparent so the current tile shows through. The full-map popup uses fixed square tiles that fill its
 374px window; the regional view scales tiles to fit the whole district with no panning.
 

@@ -84,10 +84,11 @@ Notes:
   Barlow's gig remain follow-ups.
 - **Map icons (bespoke).** Each `building_type` gets a 24×24 stroke SVG in
   `client/game/assets/zone-icons/bldg_*.svg` (warehouse/container/fuel/cold/fab/wharf/freightoffice/
-  forwarder), registered in `BUILDING_TYPE_ICON` (`server/engine/world.js`) + a minimap overlay glyph in
-  `BUILDING_ICON` (`client/game/js/panels/minimap.js`). `marker` is dead for the map (kept as harmless
-  legacy). **Rule going forward: author a building's map icon in the same build as the building**, like
-  its flight 3D model.
+  forwarder), registered in `BUILDING_TYPE_ICON` (`server/engine/world.js`). **Rule going forward:
+  author a building's map icon in the same build as the building**, like its flight 3D model.
+  *(Superseded detail: this shipped with a second glyph in `BUILDING_ICON`
+  (`client/game/js/panels/minimap.js`) for the map's "icons" overlay mode, and treated `marker` as
+  dead legacy. That mode and that table are gone — `marker` is now what the map's lettering draws.)*
 - **Watts stays at the Coldwater Power Plant** (924,911, one block south) — adjacent, thematically the
   Yards' grid/repair mechanic. Not relocated.
 

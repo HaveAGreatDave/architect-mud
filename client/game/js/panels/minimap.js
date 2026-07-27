@@ -2,6 +2,7 @@
 import { sendCmd, sendCmdSilent } from '../net.js';
 import { appendMsg } from '../render.js';
 import { state } from '../state.js';
+import { loadSettings } from '/shared/settings.js';
 
 // Avenue View for the sidebar/HUD/mobile minimaps: a rendering toggle (not a
 // server round-trip) that strips room symbols down to "does a named artery run
@@ -630,13 +631,12 @@ export function renderMinimap(nodes, direction) {
   }
 
   // A named zone-icon SVG (icon_svg → assets/zone-icons/<name>.svg) is the tile's
-  // footprint, drawn as a CSS mask so it takes the tile's text colour. Mirrors the
-  // full map: the SVG footprint is the base layer in every overlay mode, and the
-  // shared overlay setting (mapState.avenueOverlay) paints a 2-letter acronym or a
-  // building-type glyph over building tiles on top.
+  // footprint, drawn as a CSS mask so it takes the tile's text colour. It's the base
+  // layer in both overlay modes; the shared overlay setting (mapState.avenueOverlay)
+  // paints the authored 2-letter acronym over building tiles on top.
   const iconSvg = (name) => /^[a-z0-9_-]+$/i.test(name || '')
     ? `<span class="mm-icon" style="--zi:url(/assets/zone-icons/${name}.svg)"></span>` : '';
-  const overlay = mapState.avenueOverlay || 'icons'; // none | labels | icons
+  const overlay = mapState.avenueOverlay || 'labels'; // none | labels
   const baseSym = (node) => iconSvg(node.icon_svg) || (node.enterable
     ? '▣ ' // pass-through building tile: a door you enter, not a room you stand in
     : (node.sanctuary ? '◆ ' : '')); // bare tile — no marker glyph (#, ⸪., …)
@@ -667,14 +667,11 @@ export function renderMinimap(nodes, direction) {
     // tile square (mm-bld-label turns the tile into a solid labelled box).
     if (overlay === 'labels' && isBuilding(node)) {
       const lbl = bldLabel(node);
-      // No label ⇒ an unmarked interior room. Draw the bare tile, not the building
-      // furniture — falling through would stamp the building-type glyph on it instead.
+      // No label ⇒ an unmarked interior room, or a building nobody has authored a
+      // marker for. Draw the bare tile.
       return lbl ? `<span class="map-bld-ov map-bld-label">${escapeHtml(lbl)}</span>` : baseSym(node);
     }
-    const base = baseSym(node);
-    if (overlay === 'none' || !node.building_type) return base;
-    const glyph = BUILDING_ICON[node.building_type] || BUILDING_ICON._default;
-    return base + `<span class="map-bld-ov map-bld-icon">${glyph}</span>`;
+    return baseSym(node);
   };
   // Hover tooltip: zone name, its district, street name(s), plus any building(s).
   const titleFor = (node) => {
@@ -871,22 +868,11 @@ export const POI_LEGEND = {
   stairs:  { icon: '⇕', label: 'Stairs (up/down)' },
 };
 
-// Building-type → overlay glyph for the map's "icons" mode. One entry per
-// building_type the content pipeline emits (server BUILDING_TYPE_ICON in world.js);
-// synonyms collapse the way the rooftop-SVG table does (store/grocery → shop). Keep
-// this in sync when a new building_type is added so it reads on the map, not just
-// from the air. Unlisted types fall back to _default.
-export const BUILDING_ICON = {
-  residential: '⌂', apartment: '🏢',
-  shop: '$', store: '$', grocery: '$',
-  bar: '🍺', club: '♥', nightclub: '🎶', boutique: '👗', police: '★',
-  corporate_office: '💼', hotel: '🏨', power: '⚡',
-  hangar: '✈', studio: '🎬', clinic: '✚', diner: '🍔', kitchenware: '🍳', bank: '🏛',
-  // The Yards — semi-industrial freight district.
-  warehouse: '📦', container_yard: '▤', fuel_yard: '⛽', cold_storage: '❄', fabrication: '⚙', wharf: '⚓', freight_office: '📋', freight_forwarder: '🚚',
-  junkyard: '🔩',
-  _default: '▢',
-};
+// (The building-type emoji overlay — BUILDING_ICON, the map's third "icons" mode —
+// is gone. A glyph stamped on top of the rooftop footprint fought the tile art it
+// sat on and said less than the authored `marker` acronym does. The map now has two
+// modes: plain tiles, or lettering. The server-side BUILDING_TYPE_ICON in world.js
+// is a different thing and still live — that's the rooftop SVG footprint itself.)
 
 // Tileable terrain styling (server `terrain` field). Roads recolour to grey asphalt
 // with yellow lane markings; water/grass render as a seamless coloured expanse with a
@@ -948,16 +934,29 @@ function exitMarks(dirs, pfx) {
   return Array.isArray(dirs) ? dirs.map(d => entranceMark(d, pfx)).join('') : '';
 }
 
-// The tile-label overlay mode (none | labels | icons) is persisted so it survives
-// reloads; the sidebar minimap reads this one saved value.
-const MAP_OVERLAY_KEY = 'map_overlay';
-let _savedOverlay = 'none';
-try { _savedOverlay = localStorage.getItem(MAP_OVERLAY_KEY) || 'icons'; } catch {}
+// The tile-label overlay mode (none | labels) lives in the shared settings store as
+// `mapOverlay` — Tablet OS → Settings → Layout → "Map Labels". It used to be its own
+// `map_overlay` localStorage key written by the full-screen map popup's cycle button;
+// when that popup was retired the key went read-only, so the mode was frozen at
+// whatever a browser happened to have. Seeding from settings here covers the first
+// paint; applySettings pushes later changes in through setMapOverlay().
+const MAP_OVERLAY_MODES = new Set(['none', 'labels']);
+let _savedOverlay = 'labels';
+try { _savedOverlay = loadSettings().mapOverlay || 'labels'; } catch {}
 // Shared map state that outlives the retired full-screen popup: the overlay label
 // mode (read by the sidebar minimap) and the active GPS route — tracePath/traceDirs,
 // set by the `gps` command or the tablet map's "Route here", walked by auto-walk, and
 // mirrored onto both the sidebar minimap and the tablet map.
 const mapState = { avenueOverlay: _savedOverlay, tracePath: null, traceDirs: null };
+
+// Settings hook (window._applyMapOverlay, registered in main.js). Re-renders the
+// cached node payload so the change lands immediately instead of on the next move.
+export function setMapOverlay(mode) {
+  const next = MAP_OVERLAY_MODES.has(mode) ? mode : 'labels';
+  if (next === mapState.avenueOverlay) return;
+  mapState.avenueOverlay = next;
+  if (_lastMinimapNodes) renderMinimap(_lastMinimapNodes);
+}
 
 function twoLetterAbbrev(name) {
   return ((name || '').replace(/[^A-Za-z0-9]/g, '').slice(0, 2) || '??');
