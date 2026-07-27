@@ -1,6 +1,6 @@
 import { query, logActivity } from '../models/db.js';
 import { syncContentFromRequest, syncZoneDeletion } from './content-sync.js';
-import { reloadZone, getAllZones, world, getAllLivePlayers, getZone, addPlayerToZone, removePlayerFromZone, getMinimapData, reloadGlobalAmbients, spawnEnemySync, setDoorCache, deleteDoorCache, getZoneDoors, reloadSpawn, removeSpawn, isEnterableFacade, buildingEntranceDir, resolveLanding, reloadMaps, insertFurniture, updateFurniture, deleteFurniture, deleteFurnitureWhere, refreshZoneFurniture, zoneTerrain } from '../engine/world.js';
+import { reloadZone, getAllZones, world, getAllLivePlayers, getZone, addPlayerToZone, removePlayerFromZone, getMinimapData, reloadGlobalAmbients, spawnEnemySync, setDoorCache, deleteDoorCache, getZoneDoors, reloadSpawn, removeSpawn, isEnterableFacade, resolveLanding, reloadMaps, insertFurniture, updateFurniture, deleteFurniture, deleteFurnitureWhere, refreshZoneFurniture, zoneTerrain } from '../engine/world.js';
 import { authorUtilityRoom } from '../../tools/lib/utility-room.mjs';
 import { templateForType } from '../../tools/lib/building-templates.mjs';
 import { describeZone, describeVoidTeleport } from '../engine/commands/index.js';
@@ -824,10 +824,14 @@ async function apiBuildBuilding(body, auth) {
   const lobbyId = `zone_bld_${slug}_lobby`;
   const regionId = target?.flags?.region_id || neighbours.map(x => x.n.flags?.region_id).find(Boolean) || null;
 
-  // The lobby's out-exit + template-room directions are allocated AFTER the facade is
-  // wired, off the real door the engine derives (buildingEntranceDir) — so the interior
-  // leaves toward its map entrance arrow (the regress geometry invariant), not a guess.
-  let backDir, rooms, roomIdFor;
+  // The door side is AUTHORED, not derived: flags.entrance is the SSOT (world.js's
+  // buildingEntranceDir is a straight read of it), so the builder must write it rather
+  // than write the facade and ask the engine back. The fronting street's direction IS
+  // the door side, and the interior leaves the SAME way the door faces — the regress
+  // geometry invariant, and how all 61 existing buildings are wired.
+  const entranceDir = front.dir;
+  const backDir = entranceDir;
+  let rooms, roomIdFor;
 
   try {
     // 1) Facade FIRST — convert the ground tile (keeping its street exits) or create it
@@ -836,7 +840,7 @@ async function apiBuildBuilding(body, auth) {
     const keepFlags = target ? { ...(target.flags || {}) } : {};
     delete keepFlags.terrain; delete keepFlags.runway; delete keepFlags.pier; delete keepFlags.water;
     if (/^(runway_|road_)/.test(keepFlags.icon || '')) delete keepFlags.icon;
-    const facadeFlags = { ...keepFlags, is_building: true, facade: true, building_name: buildingName, building_type: bt, world_exit_zone: front.n.id };
+    const facadeFlags = { ...keepFlags, is_building: true, facade: true, building_name: buildingName, building_type: bt, entrance: entranceDir, world_exit_zone: front.n.id };
     if (regionId) facadeFlags.region_id = regionId;
     if (isHangar) facadeFlags.hangar_interior_zone = lobbyId;
     const facadeExits = target ? { ...(target.exits || {}) } : {};
@@ -863,12 +867,8 @@ async function apiBuildBuilding(body, auth) {
       }
     }
 
-    // Facade + neighbours live now → derive the real door side (buildingEntranceDir reads
-    // the street→facade exit graph). The lobby leaves toward THAT, and template rooms take
-    // the remaining free cardinals. Fallback to OPPOSITE[front.dir] if no door resolves.
-    await reloadZone(facadeId);
-    for (const { n } of neighbours) await reloadZone(n.id);
-    backDir = buildingEntranceDir(getZone(facadeId)) || OPPOSITE[front.dir];
+    // The lobby leaves toward the door (backDir), and template rooms take the remaining
+    // free cardinals. No reload/read-back needed — we authored the door side above.
     const usedDirs = new Set([backDir]);
     rooms = [];
     for (const r of (tmpl.rooms || [])) {
@@ -887,7 +887,7 @@ async function apiBuildBuilding(body, auth) {
     );
 
     // 3) Lobby (entry room) + any template rooms, wired reciprocally. parent_zone=facade
-    //    (now exists). Lobby's exit back out = the compass dir opposite the fronting street.
+    //    (now exists). Lobby's exit back out faces the SAME way as the door (backDir).
     const lobbyFlags = { is_building: true, is_interior: true, world_exit_zone: facadeId };
     if (isHangar) { lobbyFlags.hangar_interior = true; lobbyFlags.hangar_ramp = facadeId; }
     const lobbyExits = { [backDir]: facadeId };
