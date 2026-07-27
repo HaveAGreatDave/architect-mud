@@ -1475,7 +1475,8 @@ a *type*, not instances.
 **Step 1 — investigate and plan.** This document. *Gate:* John resolves §16's open questions,
 principally the prod-keycard check (§16.2) and the `audio_theme_id` call.
 
-**Step 2 — design the system.** The concrete spec: palette schema, `zone_render` / `zone_edges` /
+**Step 2 — design the system.** → **[map-pipeline-spec.md](map-pipeline-spec.md)** (in progress).
+This document is the *why*; that one is the *what*. The concrete spec: palette schema, `zone_render` / `zone_edges` /
 render-spec shapes, the connection file format with per-side door state and the typed-principal
 access list, the derive module's function list, the column-catalog extension, the id scheme and
 rename script, the Studio's document model and gestures. ~~Spike the cross-table cost first~~ —
