@@ -8,7 +8,6 @@
   "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
   "exits": {
     "east": "zone_district_918_911",
-    "north": "zone_district_917_910",
     "south": "zone_district_917_912",
     "west": "zone_district_916_911"
   },
@@ -26,5 +25,5 @@
   "marker": "#",
   "name": "Grasslands",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1784800000"
 }

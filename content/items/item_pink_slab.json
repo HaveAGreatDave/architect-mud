@@ -1,0 +1,23 @@
+{
+  "description": "An inch and a half thick, pale as a scar, with a fat cap on one side you could set your watch by. Nobody at the counter will tell you what it came off and you have learned not to ask.",
+  "flags": {},
+  "id": "item_pink_slab",
+  "name": "slab of pink meat",
+  "tags": {
+    "description": "An inch and a half thick, pale as a scar, with a fat cap on one side you could set your watch by. Nobody at the counter will tell you what it came off and you have learned not to ask.",
+    "consumable": true,
+    "restore_hunger": 26,
+    "stackable": true,
+    "food_profile": "dense_meat",
+    "food_noun": "pork",
+    "needs_cooking": true,
+    "perishable": true,
+    "spoil_rate": "fast",
+    "status_chance": {
+      "food_poisoning": 0.45
+    }
+  },
+  "type": "consumable",
+  "value": 21,
+  "weight": 700
+}

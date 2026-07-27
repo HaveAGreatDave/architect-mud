@@ -203,7 +203,7 @@
   "hp": 45,
   "hp_max": 45,
   "id": "npc_citadel_supervisor",
-  "name": "Ottoline Verrick",
+  "name": "Cordelia Verrick",
   "npc_type": "npc",
   "sex": "female",
   "studio_zone_id": null,

@@ -1,0 +1,23 @@
+{
+  "description": "A tray of them, rolled about an inch and a half across and packed tight enough to hold together. Raw, and going nowhere until they meet a hot pan.",
+  "flags": {},
+  "id": "item_meatballs",
+  "name": "meatballs",
+  "tags": {
+    "description": "A tray of them, rolled about an inch and a half across and packed tight enough to hold together. Raw, and going nowhere until they meet a hot pan.",
+    "consumable": true,
+    "restore_hunger": 22,
+    "stackable": true,
+    "food_profile": "dense_meat",
+    "food_noun": "meatball",
+    "needs_cooking": true,
+    "perishable": true,
+    "spoil_rate": "fast",
+    "status_chance": {
+      "food_poisoning": 0.5
+    }
+  },
+  "type": "consumable",
+  "value": 24,
+  "weight": 340
+}

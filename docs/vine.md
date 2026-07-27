@@ -235,9 +235,19 @@ The `_vine: { x, y }` key is embedded in each tree node to preserve layout posit
 | `action` | Blue | `next` | Run a single action (from VineActionTypes) |
 | `setflag` | Amber | `next` | Set or clear a player/world flag |
 | `condition` | Red | `ifTrue`, `ifFalse` | Branch on a flag condition |
+| `broadcast` | Teal | `next` | Line to the **whole room**, not just the actor |
+| `spawn` | Crimson | `next` | Put an enemy instance or a ground item into a zone |
+| `random` | Violet | `out0…outN` (**dynamic**) | Weighted pick of one branch |
+| `counter` | Bronze | `next`, or `ifTrue`/`ifFalse` (**dynamic**) | Bump a numeric flag, optionally branch on a threshold |
 | `say` | Green | `next` | Output text to the player |
 | `wait` | Steel | `next` | Pause execution N seconds |
 | `script` | Purple | `next` | Run another script by ID |
+
+`random` and `counter` are the two node types whose **out ports depend on their own data** —
+`getOutPorts(n)` reads `n.data`. Adding an outcome to a `random` node grows its port list; typing a
+threshold into a `counter` swaps its single `next` port for `ifTrue`/`ifFalse`. A `random` node's
+branch targets live in edges (`out<i>` → `outcomes[i].next`), never in `data` — the converters fold
+them in and out so there is exactly one source of truth for where an outcome goes.
 
 ### Conversion helpers
 

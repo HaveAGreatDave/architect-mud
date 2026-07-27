@@ -8,6 +8,7 @@ import { reincarnatePlayer } from '../engine/commands/world.js';
 import { allExits } from '../engine/exits.js';
 import { detectBathroomSide } from '../engine/commands/doors.js';
 import { loadRecipes } from '../engine/crafting.js';
+import { loadScriptTriggers } from '../engine/script-triggers.js';
 import { loadDrugs } from '../engine/drugs.js';
 import { getCrimeList, reloadCrimes, CRIME_DEFAULTS } from '../engine/crimes.js';
 import { getAliasList, reloadAliases, ALIAS_DEFAULTS } from '../engine/commands/aliases.js';
@@ -28,6 +29,11 @@ import { decideSex } from '../engine/npc-sex.js';
 import { loadBanterLibrary } from '../engine/npc-banter.js';
 import { OPPOSITE } from '../engine/directions.js';
 import { DISTRICTS, DISTRICT_PREFIX } from '../engine/districts.js';
+
+// Base URL for links we mail out (verification, password reset). CLIENT_BASE_URL
+// wins where it's set; otherwise prod gets the live domain and dev gets localhost.
+const clientBaseUrl = () => process.env.CLIENT_BASE_URL
+  || (process.env.NODE_ENV === 'production' ? 'https://architect.net' : 'http://localhost:3000');
 
 const DEFAULT_VENDOR_SCHEDULE = {
   mon:[{from:10,to:22}], tue:[{from:10,to:22}], wed:[{from:10,to:22}],
@@ -353,6 +359,10 @@ async function dispatchApiRequest(url, method, body, headers) {
   if (path.startsWith('/scavenging-tables/') && method==='GET') return requireDev(auth, ()=>apiGetScavengingTable(path.split('/')[2]));
   if (path.startsWith('/scavenging-tables/') && method==='PUT') return requireDev(auth, ()=>apiUpdateScavengingTable(path.split('/')[2],body));
   if (path.startsWith('/scavenging-tables/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteScavengingTable(path.split('/')[2]));
+  if (path==='/script-triggers' && method==='GET') return requireDev(auth, apiGetScriptTriggers);
+  if (path==='/script-triggers' && method==='POST') return requireDev(auth, ()=>apiCreateScriptTrigger(body));
+  if (path.startsWith('/script-triggers/') && method==='PUT') return requireDev(auth, ()=>apiUpdateScriptTrigger(path.split('/')[2],body));
+  if (path.startsWith('/script-triggers/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteScriptTrigger(path.split('/')[2]));
   if (path==='/scripts' && method==='GET') return requireDev(auth, apiGetScripts);
   if (path==='/scripts' && method==='POST') return requireDev(auth, ()=>apiCreateScript(body));
   if (path.startsWith('/scripts/') && method==='PUT') return requireDev(auth, ()=>apiUpdateScript(path.split('/')[2],body));
@@ -503,7 +513,7 @@ async function apiRegister(body) {
         'INSERT INTO email_verification_tokens (player_id, token, expires_at) VALUES ($1,$2,$3)',
         [id, verifyToken, Date.now() + 24 * 60 * 60 * 1000]
       );
-      const verifyUrl = `${process.env.CLIENT_BASE_URL || 'http://localhost:3000'}/game?verify_token=${verifyToken}`;
+      const verifyUrl = `${clientBaseUrl()}/game?verify_token=${verifyToken}`;
       sendVerificationEmail(email.toLowerCase().trim(), verifyUrl).catch(e => console.error('[register] verification email failed:', e.message));
       return {status:201,body:{needsVerification:true}};
     }
@@ -552,7 +562,7 @@ async function apiResendVerification(body) {
   await query('UPDATE email_verification_tokens SET used=TRUE WHERE player_id=$1 AND used=FALSE', [p.id]);
   const token = randomBytes(32).toString('hex');
   await query('INSERT INTO email_verification_tokens (player_id, token, expires_at) VALUES ($1,$2,$3)', [p.id, token, Date.now() + 24 * 60 * 60 * 1000]);
-  const verifyUrl = `${process.env.CLIENT_BASE_URL || 'http://localhost:3000'}/game?verify_token=${token}`;
+  const verifyUrl = `${clientBaseUrl()}/game?verify_token=${token}`;
   sendVerificationEmail(p.email, verifyUrl).catch(e => console.error('[resend-verification] email failed:', e.message));
   return { status:200, body:{ sent:true } };
 }
@@ -582,7 +592,7 @@ async function apiForgotPassword(body) {
     'INSERT INTO password_reset_tokens (player_id, token, expires_at, used) VALUES ($1,$2,$3,FALSE)',
     [playerId, token, expiresAt]
   );
-  const resetUrl = `${process.env.CLIENT_BASE_URL || 'http://localhost:3000'}/game?reset_token=${token}`;
+  const resetUrl = `${clientBaseUrl()}/game?reset_token=${token}`;
   sendPasswordResetEmail(email.toLowerCase().trim(), resetUrl).then(() => {
     console.log('[forgot-password] email sent OK to:', email.toLowerCase().trim());
   }).catch(e => {
@@ -3067,6 +3077,54 @@ async function apiUpdateScript(id,body) {
 async function apiDeleteScript(id) {
   try {
     await query('DELETE FROM scripts WHERE id=$1',[id]);
+    return {status:200,body:{message:'Deleted'}};
+  } catch(e) { return {status:400,body:{error:e.message}}; }
+}
+
+// --- Script triggers (event → script bindings; server/engine/script-triggers.js) ---
+// Every write reloads the in-memory registry, which is the only thing the
+// dispatcher reads — a row edited here is live without a restart.
+const TRIGGER_COLS = ['name','description','event','script_id','zone_id','conditions','params','cooldown_seconds','chance','once','enabled'];
+function triggerValues(body) {
+  return [
+    body.name||'Untitled Trigger', body.description||'',
+    body.event||'', body.script_id||'', body.zone_id||null,
+    JSON.stringify(body.conditions||[]),
+    JSON.stringify(body.params||{}),
+    Number(body.cooldown_seconds)||0,
+    body.chance==null?1:Number(body.chance),
+    body.once?1:0,
+    body.enabled===0?0:1,
+  ];
+}
+async function apiGetScriptTriggers() {
+  const {rows}=await query('SELECT * FROM script_triggers ORDER BY event, name');
+  return {status:200,body:rows};
+}
+async function apiCreateScriptTrigger(body) {
+  const id=body.id||`trigger_${Date.now()}`;
+  if(!body.event||!body.script_id) return {status:400,body:{error:'event and script_id are required'}};
+  try {
+    await query(`INSERT INTO script_triggers (id,${TRIGGER_COLS.join(',')},updated_at)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,EXTRACT(EPOCH FROM NOW()))`,
+      [id,...triggerValues(body)]);
+    await loadScriptTriggers();
+    return {status:201,body:{id}};
+  } catch(e) { return {status:400,body:{error:e.message}}; }
+}
+async function apiUpdateScriptTrigger(id,body) {
+  try {
+    await query(`UPDATE script_triggers SET ${TRIGGER_COLS.map((c,i)=>`${c}=$${i+1}`).join(',')},
+                 updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$${TRIGGER_COLS.length+1}`,
+      [...triggerValues(body),id]);
+    await loadScriptTriggers();
+    return {status:200,body:{id}};
+  } catch(e) { return {status:400,body:{error:e.message}}; }
+}
+async function apiDeleteScriptTrigger(id) {
+  try {
+    await query('DELETE FROM script_triggers WHERE id=$1',[id]);
+    await loadScriptTriggers();
     return {status:200,body:{message:'Deleted'}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }

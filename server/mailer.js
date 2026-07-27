@@ -1,4 +1,22 @@
 import { BrevoClient } from '@getbrevo/brevo';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+
+const TEMPLATE_DIR = join(dirname(fileURLToPath(import.meta.url)), 'emails');
+const templateCache = new Map();
+
+// Templates live as plain .html/.txt files in server/emails/ so the copy is
+// editable (and previewable in a browser) without touching this file.
+// Placeholders are {{name}}; values are substituted verbatim.
+function render(name, vars) {
+  let body = templateCache.get(name);
+  if (body === undefined) {
+    body = readFileSync(join(TEMPLATE_DIR, name), 'utf8');
+    templateCache.set(name, body);
+  }
+  return body.replace(/\{\{(\w+)\}\}/g, (m, key) => (key in vars ? vars[key] : m));
+}
 
 export async function sendVerificationEmail(toEmail, verifyUrl) {
   if (!process.env.BREVO_API_KEY) {
@@ -10,8 +28,8 @@ export async function sendVerificationEmail(toEmail, verifyUrl) {
     sender: { name: 'ARCHITECT', email: process.env.SMTP_FROM_EMAIL },
     to: [{ email: toEmail }],
     subject: 'ARCHITECT — Verify your email',
-    textContent: `Verify your ARCHITECT account (link expires in 24 hours):\n${verifyUrl}\n\nIf you didn't register, ignore this email.`,
-    htmlContent: `<p>Welcome to ARCHITECT.</p><p><a href="${verifyUrl}">Verify your email address</a> (expires in 24 hours)</p><p>If you didn't register, ignore this email.</p>`,
+    textContent: render('verify.txt', { verifyUrl }),
+    htmlContent: render('verify.html', { verifyUrl }),
   });
 }
 
@@ -25,7 +43,7 @@ export async function sendPasswordResetEmail(toEmail, resetUrl) {
     sender: { name: 'ARCHITECT', email: process.env.SMTP_FROM_EMAIL },
     to: [{ email: toEmail }],
     subject: 'ARCHITECT — Password Reset',
-    textContent: `Reset link (expires in 1 hour):\n${resetUrl}\n\nIf you didn't request this, ignore this email.`,
-    htmlContent: `<p>You requested a password reset for your ARCHITECT account.</p><p><a href="${resetUrl}">Reset your password</a> (expires in 1 hour)</p><p>If you didn't request this, ignore this email.</p>`,
+    textContent: render('password-reset.txt', { resetUrl }),
+    htmlContent: render('password-reset.html', { resetUrl }),
   });
 }

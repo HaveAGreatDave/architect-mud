@@ -5,7 +5,7 @@
     "sips coffee and watches the street.",
     "\"Stay clean and we stay friendly.\""
   ],
-  "description": "Sergeant Vale leans against the kiosk, coffee in one hand, the other never far from the sidearm. Their eyes do the arithmetic on everyone who walks past.",
+  "description": "Sergeant Ordway leans against the kiosk, coffee in one hand, the other never far from the sidearm. Their eyes do the arithmetic on everyone who walks past.",
   "dialogue_tree": {
     "bribe": {
       "options": [
@@ -62,7 +62,7 @@
   "hp": 30,
   "hp_max": 30,
   "id": "npc_pd_officer",
-  "name": "Sergeant Vale",
+  "name": "Sergeant Ordway",
   "npc_type": "npc",
   "sex": "female",
   "studio_zone_id": null,

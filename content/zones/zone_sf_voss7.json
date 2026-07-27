@@ -1,0 +1,37 @@
+{
+  "ambient_events": [
+    "Traffic noise off Voss rises, crests, and falls away again.",
+    "The security grille outside ticks as the metal moves.",
+    "Something small goes across the floor behind the counter and stops when you look.",
+    "A draught comes through the broken pane and turns over a leaf of old receipt paper."
+  ],
+  "ambient_theme": "indoors",
+  "audio_theme_id": null,
+  "bg_color": "#2b2b33",
+  "color": null,
+  "created_by": null,
+  "description": "One room, and not a large one. A shelf-height counter takes up a third of it, a wall safe takes up a corner, and what is left would hold four people who liked each other. The previous tenant cut keys and sold lighters, and the machine mounts are still on the counter — four bright rectangles where the paint never faded. It is small, cheap, and on a street everybody has to walk down to get anywhere else.",
+  "exits": {
+    "north": "zone_district_904_910"
+  },
+  "flags": {
+    "building_name": "Unit 7, Voss Avenue",
+    "building_type": "shop",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_904_910",
+    "is_storefront": true,
+    "shop_price": 4500,
+    "shop_term": 8,
+    "shop_upkeep": 32
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_sf_voss7",
+  "map_id": "map_int_sf_voss7",
+  "marker": null,
+  "name": "Unit 7, Voss Avenue",
+  "parent_zone": "zone_district_904_910",
+  "updated_at": "1784800000"
+}

@@ -3,7 +3,7 @@
   "behaviour_graph": {},
   "chitchat": [
     "\"Pass in hand before the light goes, or you're watching it at home like everyone else.\"",
-    "Marla slides the window open a hand's width, decides against it, and slides it shut again."
+    "Dovie slides the window open a hand's width, decides against it, and slides it shut again."
   ],
   "description": "A heavy-set woman filling a box-office window cut into the soundstage wall, lit from below by the till so she looks permanently unimpressed. A hand-lettered card is taped to her glass: HOUSE OPENS ON THE LIGHT. She has been selling seats to this show since before the second letter of the sign went bad, and she counts change without looking.",
   "dialogue_tree": {
@@ -43,7 +43,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Here for the taping?\" Marla doesn't move anything but her eyes. \"Twenty-five gets you a pass and a place to stand. It doesn't get you a seat, a drink, or an opinion about the show.\""
+      "text": "\"Here for the taping?\" Dovie doesn't move anything but her eyes. \"Twenty-five gets you a pass and a place to stand. It doesn't get you a seat, a drink, or an opinion about the show.\""
     },
     "show": {
       "options": [
@@ -73,7 +73,7 @@
   "hp": 40,
   "hp_max": 40,
   "id": "npc_ksab_boxoffice",
-  "name": "Marla Deeb",
+  "name": "Dovie Deeb",
   "npc_type": "vendor",
   "sex": "female",
   "studio_zone_id": null,

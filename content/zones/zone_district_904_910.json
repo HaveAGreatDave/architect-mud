@@ -1,30 +1,34 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
+  "ambient_theme": "indoors",
   "audio_theme_id": null,
-  "bg_color": "#2f3a26",
-  "color": "#8ba36a",
+  "bg_color": "#3a3550",
+  "color": "#e8e0ff",
   "created_by": "zone-planner",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "description": "A kiosk-sized unit set into the parade at the quiet end of Voss, barely wider than its own door and set back behind a strip of dead planting. The security grille is intact and the glass behind it is not. The notice says LET AS SEEN, which is the landlord being honest for once.",
   "exits": {
     "north": "zone_district_904_909",
-    "south": "zone_district_904_911",
-    "west": "zone_district_903_910"
+    "south": "zone_sf_voss7"
   },
   "flags": {
     "district": "wasteland",
     "planner": "bp_district",
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_west_wastes",
-    "terrain": "grass"
+    "terrain": "concrete",
+    "building_name": "Unit 7, Voss Avenue",
+    "building_type": "shop",
+    "is_building": true,
+    "facade": true,
+    "entrance": "north",
+    "world_exit_zone": "zone_district_904_909"
   },
   "grid_x": 904,
   "grid_y": 910,
   "grid_z": 0,
   "id": "zone_district_904_910",
   "map_id": "map_world",
-  "marker": "#",
-  "name": "Grasslands",
+  "marker": "V7",
+  "name": "Unit 7, Voss Avenue",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1784800000"
 }

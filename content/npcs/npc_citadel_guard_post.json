@@ -199,7 +199,7 @@
   "hp": 80,
   "hp_max": 80,
   "id": "npc_citadel_guard_post",
-  "name": "Wren Kastelaar",
+  "name": "Rosalin Kastelaar",
   "npc_type": "npc",
   "sex": "female",
   "studio_zone_id": null,

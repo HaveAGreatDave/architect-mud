@@ -13,6 +13,7 @@ import { tickSleep, releaseApartment, gameToday, ymd, addGameDays, gameDaysBetwe
 import { fireHook } from './plugins.js';
 import { emit, on } from './events.js';
 import { schedule } from './scheduler.js';
+import { resumeDueWaits } from './graph.js';
 import { hasExit, neighborZoneIds } from './exits.js';
 import { setPosture, forceStand } from './posture.js';
 import { carryCapacity } from './commands/inventory.js';
@@ -56,6 +57,9 @@ export function startGameLoop(broadcast) {
   schedule('1m', flushDirtyPositions); // checkpoint moved players' current_zone/stamina in one batched write
 
   schedule('30s', () => npcBanterTick({ broadcast: broadcastFn }));
+  // Parked long `wait` continuations (script_waits). Idle-gated by the scheduler,
+  // so an empty world costs nothing; a row whose player is offline stays owed.
+  schedule('1m', () => resumeDueWaits(broadcastFn));
   // Once-per-GAME-day housekeeping + rent collection. Driven by the environment's
   // day-rollover event (not the real '24h'/'1m' cadences) so both track the
   // game-speed knob — at 3× they run every 8 real hours, in lockstep with the

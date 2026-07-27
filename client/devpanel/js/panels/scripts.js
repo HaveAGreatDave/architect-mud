@@ -1,6 +1,6 @@
 let _scriptGraph = { start: '', nodes: {} };
 
-const SCRIPT_NODE_TYPES = ['action', 'setflag', 'condition', 'say', 'wait', 'script'];
+const SCRIPT_NODE_TYPES = ['action', 'setflag', 'condition', 'random', 'counter', 'say', 'broadcast', 'spawn', 'wait', 'script'];
 
 function scriptEditForm(rec, isNew) {
   const g = (rec.graph && typeof rec.graph === 'object') ? rec.graph : JSON.parse(rec.graph || '{}');
@@ -79,8 +79,35 @@ function renderScriptNode(id, node) {
       <textarea data-k="condition" onchange="setNodeJSON('${id}','condition',this.value)" rows="2" placeholder='{"flag":"met_bob","op":"set"}' style="width:100%;margin-bottom:4px">${JSON.stringify(node.condition||{})}</textarea>
       <label style="font-size:11px">if true →</label><select data-k="ifTrue" ${set} style="margin-bottom:4px">${nodeIdOptions(node.ifTrue)}</select>
       <label style="font-size:11px">if false →</label><select data-k="ifFalse" ${set} style="margin-bottom:4px">${nodeIdOptions(node.ifFalse)}</select>`;
+  } else if (node.type === 'random') {
+    // Outcomes carry their own `next`, so there is no node-id dropdown here —
+    // the visual editor is the comfortable way to wire this one.
+    body = `
+      <textarea data-k="outcomes" onchange="setNodeJSON('${id}','outcomes',this.value)" rows="3" placeholder='[{"weight":3,"next":"n2"},{"weight":1,"next":"n3"}]' style="width:100%;margin-bottom:4px">${JSON.stringify(node.outcomes||[])}</textarea>
+      <div style="font-size:11px;color:var(--text-dim);margin-bottom:4px">Weights are relative, not percentages. Weight 0 parks an outcome.</div>`;
+  } else if (node.type === 'counter') {
+    body = `
+      <select data-k="scope" ${set} style="margin-bottom:4px"><option value="player" ${node.scope!=='world'?'selected':''}>player</option><option value="world" ${node.scope==='world'?'selected':''}>world</option></select>
+      <input data-k="flag" ${set} value="${node.flag||''}" placeholder="flag key e.g. alley_visits" style="margin-bottom:4px">
+      <input data-k="delta" ${set} type="number" step="1" value="${node.delta??1}" placeholder="delta" style="margin-bottom:4px">
+      <input data-k="threshold" ${set} value="${node.threshold??''}" placeholder="threshold (blank = no branch)" style="margin-bottom:4px">
+      <select data-k="reset" ${set} style="margin-bottom:4px"><option value="false" ${!node.reset||node.reset==='false'?'selected':''}>keep counting</option><option value="true" ${node.reset===true||node.reset==='true'?'selected':''}>reset on hit</option></select>
+      ${node.threshold ? `<label style="font-size:11px">threshold hit →</label><select data-k="ifTrue" ${set} style="margin-bottom:4px">${nodeIdOptions(node.ifTrue)}</select>
+      <label style="font-size:11px">not yet →</label><select data-k="ifFalse" ${set} style="margin-bottom:4px">${nodeIdOptions(node.ifFalse)}</select>` : ''}`;
   } else if (node.type === 'say') {
     body = `<textarea data-k="text" ${set} rows="2" placeholder="line shown to the player" style="width:100%;margin-bottom:4px">${node.text||''}</textarea>`;
+  } else if (node.type === 'broadcast') {
+    body = `
+      <textarea data-k="text" ${set} rows="2" placeholder="line the whole room sees" style="width:100%;margin-bottom:4px">${node.text||''}</textarea>
+      <input data-k="zone" ${set} value="${node.zone||''}" placeholder="zone (blank = actor's room)" style="margin-bottom:4px">`;
+  } else if (node.type === 'spawn') {
+    body = `
+      <select data-k="kind" ${set} style="margin-bottom:4px"><option value="enemy" ${node.kind!=='item'?'selected':''}>enemy</option><option value="item" ${node.kind==='item'?'selected':''}>item</option></select>
+      <input data-k="id" ${set} value="${node.id||''}" placeholder="enemy template or item id" style="margin-bottom:4px">
+      <input data-k="zone" ${set} value="${node.zone||''}" placeholder="zone (blank = actor's room)" style="margin-bottom:4px">
+      <input data-k="container" ${set} value="${node.container||''}" placeholder="container id or name — dead drop (items only)" style="margin-bottom:4px">
+      <input data-k="quantity" ${set} type="number" min="1" value="${node.quantity??1}" placeholder="quantity" style="margin-bottom:4px">
+      <input data-k="announce" ${set} value="${node.announce??''}" placeholder="announce (blank = stock line)" style="margin-bottom:4px">`;
   } else if (node.type === 'wait') {
     body = `<input data-k="seconds" ${set} type="number" value="${node.seconds||0}" placeholder="seconds" style="margin-bottom:4px">`;
   } else if (node.type === 'script') {

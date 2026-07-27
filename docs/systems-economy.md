@@ -193,3 +193,98 @@ The sync is **bidirectional**, so the two never drift regardless of which comman
 > block entry; an apartment with no physical door still only gates `sleep`.)
 
 `sleep` mechanics are covered in [systems-survival.md](systems-survival.md).
+
+## Player-owned shops (storefronts)
+
+The [storefront plugin](../plugins/storefront/README.md); commands `deed` / `buyshop` /
+`renameshop` / `stock` / `unstock` / `wares` / `buyware` / `till` / `sellshop`. A zone is a
+claimable retail unit when `flags.is_storefront` is set.
+
+**Source of truth — the same split as apartments, for the same reason:**
+
+- **Authored config = content, on the zone.** `flags.shop_price` (total asking price,
+  default 6000), `flags.shop_term` (instalments to clear it, default 8) and
+  `flags.shop_upkeep` (per-cycle charge once paid off, default 40), read via
+  `authoredTerms(zone)`. They ship in the zone file and return identically after any
+  restart or rebuild.
+- **The deed = player data, in the `storefronts` table** (`class: 'player'` in the content
+  registry — never exported). Owner, shop name, payments made, missed count, due date and
+  the till balance live only in the DB where the player plays. Exporting a deed would do to
+  shops exactly what it once did to apartments: stamp phantom ownership over every DB, and
+  make a deleted file a real player losing their shop.
+
+**Listed stock is not a table of its own.** `stock` re-owns the player's *existing*
+`player_inventory` row to the synthetic handle `_shopstock_<zoneId>` (the same convention as
+`_ground_<zone>` / `_container_<id>`) and stamps `custom_data.list_price`. The buyer receives
+that row, so condition, freshness, cook quality and potency all survive the counter — and
+because nothing else in the game addresses that owner id, the display can be bought from but
+never looted, `take`n or stack-merged.
+
+- **`buyshop`:** pays the first instalment (`ceil(price / term)`) and transfers the deed.
+- **`renameshop`:** the sign is written to the **deed**, never to `zones.name` — a zone is
+  content, and writing a player's shop name into one would drift git against prod on the
+  next export. The room description reads the name off the deed instead.
+- **Billing** recurs every `RENT_PERIOD_DAYS` (7) **game** days on the game calendar, charged
+  on the same `environment.dayRollover` event as apartment rent, so it scales with the
+  game-speed knob. Payment is drafted **till → bank → pocket**: a shop that trades pays for
+  itself.
+- **Payoff:** clearing the term sets `paid_off` and the unit is owned outright — only
+  `shop_upkeep` is charged from then on. That residual is deliberate: it means an abandoned
+  shop eventually lapses instead of squatting a prime tile forever.
+- **Default:** one short payment is a warning; **two consecutive misses repossess** the unit
+  *and seize the stock on the shelf*. `sellshop` (a voluntary surrender) returns both the
+  stock and the till but refunds nothing already paid in — that gap is the whole difference
+  between walking away and defaulting.
+- **The vault:** furniture flagged `shop_vault` holds the till and runs the same VAULT CRACK
+  contract as a [vendor safe](../plugins/vendor-safe/index.js) — arm → client minigame →
+  `tillcrackresolve`, with the amount re-read server-side under `SELECT … FOR UPDATE` so the
+  payout can't be spoofed and two crackers can't both drain it. Arming pings the proprietor
+  wherever they are.
+
+`buy` (commerce's verb) means the same thing over a player's counter as over a vendor's, so
+when commerce finds no vendor NPC in the room it re-dispatches to the `storefront.buy_by_name`
+Action before refusing. Commerce never imports the plugin — the seam is a registered Action
+name, and if storefront isn't loaded the dispatch is simply unknown and `buy` refuses as it
+always did.
+
+**Not built:** a hired clerk NPC (the stock model was chosen so a vendor NPC can later be
+pointed at the same `_shopstock_<zoneId>` rows without a rewrite), corp-owned shops, and
+buying stock *from* players over your own counter.
+
+### Shop risk & counterplay
+
+- **Shutters.** The front shutter is a real `doors` row on the interior↔facade link tagged
+  `lock:shopshutter`, registered through the engine's `registerLockType` seam — so lock,
+  unlock, the hack minigame, bashing and the burglary alarm all reach it unchanged. The plugin
+  supplies only the auth rule (the proprietor) and durability: door state is runtime-only, so
+  the deed carries `shutters_closed` and re-applies it at boot, exactly as
+  `reconcileApartmentDoorLocks` does for `apartments.is_locked`. A vacant unit always ships
+  with the shutter open — an unowned shop must never be sealed, the same law as an unrented
+  apartment's door. A shut shop also takes no passing trade.
+- **Shoplifting.** `pocket <item>` lifts stock off the display, marking the row
+  `custom_data.shop_unpaid`. `buyware` settles it; carrying the mark out of the shop raises the
+  `shoplifting` charge under the ordinary witness law. The one departure from an NPC shop:
+  because this is a *player's* property, the proprietor is always notified — on the lift and
+  again at the door — whether or not anyone could prove it.
+- **Staff.** `hire clerk|guard` writes a `storefront_staff` row, **not an `npcs` row**. That's
+  the content/player boundary: hiring is a player action and `npcs`/`npc_residences` are
+  content-class tables, so a hired NPC would land in the git content tree on the next export
+  (the regress suite asserts the `npcs` count is unchanged by a hire). Staff are presence in
+  the room prose plus *odds* — a lift or a crack in front of them emits
+  `storefront.staffWitnessed`, which surveillance charges as a **forced witness**, the same
+  dedicated-event convention `vendor.safeHackWitnessed` and `burglary.reported` use. Wages ride
+  the billing cycle from the same pot; if the shop can't cover everything, the staff walk
+  *before* the lender forecloses.
+- **Cameras** need no integration — `plant` (surveillance) works in any zone, and the vault
+  crack's `hack.success` is already charged when a live camera sees it. `deed` simply reports
+  whether the unit is covered, because otherwise nobody would discover it.
+
+### Shop income while offline
+
+- **Passing trade.** A 5-minute footfall tick sells to NPCs walking past, so a stocked shop
+  earns with its owner logged off. Priced honestly: nothing above `FOOTFALL_MAX_MARKUP` (1.8×)
+  the item's base `value` ever sells, so a shelf of absurd markups gathers dust as it should.
+- **Buy orders.** `buyorder <item> for <price>` posts a standing offer that anyone can
+  `supply` into. **The till is the wallet** — an order the till can't cover simply doesn't
+  fill, which is the honest failure mode and needs no escrow. Supplied goods land on the shelf
+  unpriced.

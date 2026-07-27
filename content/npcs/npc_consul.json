@@ -191,7 +191,7 @@
           "next": "bye"
         }
       ],
-      "text": "Consul Reyes turns to you with a smile of flawless, weaponised courtesy. \"You have the look of someone who resolves things off the record. As it happens, I have a thing that requires resolving. Off the record.\""
+      "text": "Consul Alcaraz turns to you with a smile of flawless, weaponised courtesy. \"You have the look of someone who resolves things off the record. As it happens, I have a thing that requires resolving. Off the record.\""
     }
   },
   "faction": null,
@@ -208,7 +208,7 @@
   "hp": 18,
   "hp_max": 18,
   "id": "npc_consul",
-  "name": "Consul Reyes",
+  "name": "Consul Alcaraz",
   "npc_type": "npc",
   "sex": "female",
   "studio_zone_id": null,

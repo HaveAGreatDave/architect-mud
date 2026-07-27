@@ -17,11 +17,15 @@
 // enumerate the bad combinations.
 
 import { PROFILES, QUALITY_BANDS, bandIndex, instanceNoun } from './profiles.js';
+import { portionOf } from './portions.js';
 import { WORST_PULL, SLOP_CEILING, KNOWN_RECIPE_BONUS, MODIFIER_BONUS, MODIFIER_BONUS_CAP, OVER_SEASON_PENALTY, DEFAULT_SEASONING } from './config.js';
 
 // Vessel kinds, read from the vessel's `tags.vessel_kind`. A vessel that
 // declares none is 'any' and can host any template that doesn't demand one.
-export const VESSEL_KINDS = ['pan', 'pot', 'tray'];
+// A BOWL is the odd one out: you work in it rather than cook in it. Dips are
+// mashed, mixed and seasoned, never heated — which is why every bowl dish sits
+// on ingredients that are excellent RAW and why the bowl holds no heat at all.
+export const VESSEL_KINDS = ['pan', 'pot', 'tray', 'bowl'];
 
 // A template's `needs` maps a profile name to a count: either an exact number
 // or a [min, max] range. `optional` lists profiles that may be present without
@@ -280,7 +284,9 @@ export const DISHES = {
     needs: { preserved: [1, 2], fruit: [1, 2], fat_or_oil: 1 },
     optional: ['aromatic'],
     nameSlots: ['preserved', 'fruit'],
-    ceiling: 'masterful', difficulty: 7,
+    // Salt and sweet, both capped at excellent on their own — the pair composes
+    // to superb and no further. The finer scale can finally say that exactly.
+    ceiling: 'superb', difficulty: 7,
     blurb: 'Salt against sweet, cooked down until they stop being two things.',
   },
 
@@ -297,7 +303,7 @@ export const DISHES = {
     needs: { fruit: [1, 3], liquid: 1, aromatic: [1, 2] },
     optional: [],
     nameSlots: ['fruit'],
-    ceiling: 'masterful', difficulty: 8,
+    ceiling: 'superb', difficulty: 8,
     blurb: 'Bitter peel, long heat, and a set you either hit or you do not.',
   },
   egg_drop: {
@@ -346,7 +352,7 @@ export const DISHES = {
     needs: { batter: 1, fruit: [2, 3], fat_or_oil: 1 },
     optional: ['aromatic'],
     nameSlots: ['fruit'],
-    ceiling: 'masterful', difficulty: 6,
+    ceiling: 'superb', difficulty: 6,
     blurb: 'Rubbed topping over collapsing fruit. Nobody has ever left any.',
   },
   quiche: {
@@ -389,6 +395,81 @@ export const DISHES = {
     ceiling: 'masterful', difficulty: 7,
     blurb: 'Meat cooked under fruit until the fruit gives up and becomes sauce.',
   },
+  // A sauce built on what a sear left behind. Almost nothing in it — liquid and
+  // seasoning — which is the point: without the fond it is hot brown water, and
+  // that's what the `deglaze` bonus is paying for.
+  pan_sauce: {
+    noun: 'pan sauce', vessel: 'pan',
+    needs: { liquid: [1, 2], aromatic: [1, 3] },
+    optional: ['fat_or_oil', 'soft_vegetable'],
+    nameSlots: [],
+    nameFormat: 'pan sauce',
+    seasoning: 2,
+    ceiling: 'excellent', difficulty: 6,
+    blurb: 'Wine or stock into a hot pan, and everything the meat left behind comes up with it.',
+  },
+
+  // ── Intermediates: dishes whose output is an INGREDIENT ───────────────────
+  // A template with `output` doesn't produce a meal — it produces a component
+  // you then cook. That's the difference between a recipe with two steps and a
+  // recipe with two recipes, and it's what lets a real dish like meatballs in
+  // sauce exist: mix and roll, brown, then simmer for hours.
+  //
+  // How well you made the intermediate becomes the CEILING of whatever it ends
+  // up in. Sloppy meatballs cap the sauce they go into, however well you simmer.
+  meatballs: {
+    noun: 'meatballs', vessel: 'bowl',
+    needs: { dense_meat: [1, 2], egg: [1, 2], batter: 1 },
+    optional: ['aromatic', 'fat_or_oil', 'soft_vegetable'],
+    nameSlots: [],
+    nameFormat: 'meatballs',
+    output: { item: 'item_meatballs' },
+    seasoning: 3,
+    ceiling: 'masterful', difficulty: 7,
+    blurb: 'Meat, egg and crumb worked together by hand and rolled out. Not dinner yet.',
+  },
+
+  // ── Bowl: dips. Nothing here goes on the heat ─────────────────────────────
+  // These are the only dishes made from ingredients at their RAW target, which
+  // is why they lean on soft vegetables and fruit (both `raw: excellent`) and
+  // why fat and aromatics carry so much of the result. Mashed, not cooked.
+  mash_dip: {
+    noun: 'dip', vessel: 'bowl',
+    needs: { soft_vegetable: [2, 3], fat_or_oil: 1 },
+    optional: ['aromatic', 'liquid'],
+    nameSlots: ['soft_vegetable'],
+    seasoning: 2,
+    ceiling: 'excellent', difficulty: 4,
+    blurb: 'Mashed to a rough paste with a stone, loosened with oil, and eaten with anything flat.',
+  },
+  pulse_dip: {
+    noun: 'paste', vessel: 'bowl',
+    needs: { starchy_vegetable: [1, 2], fat_or_oil: 1, aromatic: [1, 3] },
+    optional: ['liquid'],
+    nameSlots: ['starchy_vegetable'],
+    seasoning: 3,
+    ceiling: 'excellent', difficulty: 5,
+    blurb: 'Ground smooth, slackened with oil, and seasoned well past where you would stop.',
+  },
+  salsa: {
+    noun: 'salsa', vessel: 'bowl',
+    needs: { soft_vegetable: [1, 2], fruit: [1, 2], aromatic: [1, 3] },
+    optional: ['fat_or_oil', 'liquid'],
+    nameSlots: ['fruit', 'soft_vegetable'],
+    seasoning: 2,
+    ceiling: 'excellent', difficulty: 5,
+    blurb: 'Chopped fine, salted, and left ten minutes to become one thing instead of four.',
+  },
+  cream_dip: {
+    noun: 'dip', vessel: 'bowl',
+    needs: { liquid: 1, aromatic: [2, 3] },
+    optional: ['soft_vegetable', 'fat_or_oil'],
+    nameSlots: ['aromatic'],
+    seasoning: 3,
+    ceiling: 'good', difficulty: 3,
+    blurb: 'Something thick, something sharp, and a great deal more seasoning than seems wise.',
+  },
+
   // ── Named dishes ──────────────────────────────────────────────────────────
   // The only three templates that name an ingredient. Everything else in this
   // catalog is class-matched and always will be; these exist because a real
@@ -417,6 +498,31 @@ export const DISHES = {
     seasoning: 3,
     ceiling: 'masterful', difficulty: 7,
     blurb: 'Cabbage and batter bound with egg, pressed flat, turned once, and finished in a lattice of sauce.',
+  },
+  // Smoked first, then finished hot and fast over coals — the one dish that
+  // spans two appliances. The sauce is the key: apple butter is `fruit`, so it
+  // caramelises and chars the way the recipe wants rather than just seasoning.
+  smoked_chop: {
+    noun: 'chop', vessel: 'pan',
+    keyItems: ['item_bbq_sauce'],
+    needs: { preserved: [1, 2], fruit: [1, 2] },
+    optional: ['aromatic', 'fat_or_oil'],
+    nameSlots: ['preserved'],
+    nameFormat: 'smoked {0} chop',
+    seasoning: 3,
+    ceiling: 'masterful', difficulty: 8,
+    blurb: 'Hours in the smoke, then minutes over coals with the sauce going black at the edges.',
+  },
+  meatball_sugo: {
+    noun: 'sugo', vessel: 'pot',
+    keyItems: ['item_meatballs'],
+    needs: { liquid: [1, 3], dense_meat: [1, 2] },
+    optional: ['soft_vegetable', 'aromatic', 'fat_or_oil', 'starchy_vegetable'],
+    nameSlots: [],
+    nameFormat: 'meatballs in sauce',
+    seasoning: 3,
+    ceiling: 'masterful', difficulty: 9,
+    blurb: 'Browned first, then hours on the lowest heat you have, stirred whenever you remember.',
   },
   ramen: {
     noun: 'ramen', vessel: 'pot',
@@ -459,12 +565,20 @@ export const UNKNOWN_DISH = {
 // profile is missing or unknown are counted under `null` and will fail every
 // template — an unprofiled ingredient in a vessel means slop, which is the
 // honest answer until somebody tags it.
+// Counted in PORTIONS, not rows: a whole onion is 1, half an onion is 0.5, and
+// two halves are exactly one onion again. Every count in the catalog was already
+// authored as "how many of this ingredient", so nothing needed rewriting — a
+// recipe asking for 1 soft vegetable still means one, it just now also means
+// two halves of one, and no longer means half of one.
+//
+// Every portion is a dyadic fraction (½, ¼, ⅛), so these sums are exact in
+// floating point and two halves really do make 1.0, not 0.9999999.
 export function signature(rows, profileNameOf) {
   const sig = {};
   for (const r of rows) {
     const name = profileNameOf(r);
     const key = name && PROFILES[name] ? name : 'unprofiled';
-    sig[key] = (sig[key] || 0) + 1;
+    sig[key] = (sig[key] || 0) + portionOf(r);
   }
   return sig;
 }
@@ -503,7 +617,15 @@ export function matchScore(sig, template, itemIds = new Set()) {
   for (const profile of Object.keys(sig)) {
     if (!allowed.has(profile)) return -1;
   }
-  return required;
+  // Fractional tiebreak on difficulty: when two templates are equally specific —
+  // which happens when a pot holds the key ingredients of two different named
+  // dishes — the more demanding one wins. Always under 1, so it can never
+  // overturn a genuine specificity difference, which is always a whole number.
+  // Divided by 1000, not 100: specificity is now fractional (portions), and the
+  // smallest real difference is one eighth. The tiebreak has to stay well under
+  // that or it could overturn a genuine difference rather than just breaking a
+  // tie between two dishes that are equally specific.
+  return required + Math.min(999, template.difficulty || 0) / 1000;
 }
 
 // The best template for a vessel's contents, or null for slop. `vesselKind` is

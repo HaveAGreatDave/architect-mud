@@ -9,8 +9,7 @@
   "exits": {
     "east": "zone_district_919_910",
     "north": "zone_district_918_909",
-    "south": "zone_district_918_911",
-    "west": "zone_district_917_910"
+    "south": "zone_district_918_911"
   },
   "flags": {
     "district": "wasteland",
@@ -27,5 +26,5 @@
   "marker": "#",
   "name": "Grasslands",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1784800000"
 }

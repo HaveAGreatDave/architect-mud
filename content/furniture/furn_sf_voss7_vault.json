@@ -1,0 +1,17 @@
+{
+  "description": "A small safe let into the corner of the wall at chest height, its door skimmed over with the same paint as the plaster in an attempt at concealment that fooled nobody, including whoever painted it.",
+  "flags": {
+    "shop_vault": true,
+    "hack_difficulty": 5
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_sf_voss7_vault",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "wall safe",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 600,
+  "zone_id": "zone_sf_voss7"
+}

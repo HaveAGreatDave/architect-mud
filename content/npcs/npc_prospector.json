@@ -141,7 +141,7 @@
           "next": "bye"
         }
       ],
-      "text": "The prospector barely looks up from his rake. \"Claim's mine, if that's what you're wondering. Whole mesa's mine. Found the seam, didn't I. You want a piece, you dig your own — plenty of mesa, plenty of...\" he coughs, \"...plenty of time.\" He straightens, briefly and genuinely proud. \"Pike. Elias Pike. Remember it — you'll be reading it soon enough.\""
+      "text": "The prospector barely looks up from his rake. \"Claim's mine, if that's what you're wondering. Whole mesa's mine. Found the seam, didn't I. You want a piece, you dig your own — plenty of mesa, plenty of...\" he coughs, \"...plenty of time.\" He straightens, briefly and genuinely proud. \"Corran. Elias Corran. Remember it — you'll be reading it soon enough.\""
     }
   },
   "faction": null,
@@ -158,7 +158,7 @@
   "hp": 16,
   "hp_max": 16,
   "id": "npc_prospector",
-  "name": "Elias Pike",
+  "name": "Elias Corran",
   "npc_type": "npc",
   "sex": "male",
   "studio_zone_id": null,

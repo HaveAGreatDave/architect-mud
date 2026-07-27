@@ -1,0 +1,118 @@
+{
+  "description": "Flavour graph for Sump. Called by script_venue_regular via the trigger's voice param.",
+  "graph": {
+    "nodes": {
+      "f0": {
+        "text": "The room adjusts around you the way a room adjusts around furniture it has stopped noticing.",
+        "type": "say"
+      },
+      "f1": {
+        "text": "An argument pauses so both parties can ask you to settle it. Neither will accept your answer.",
+        "type": "say"
+      },
+      "f2": {
+        "text": "The bartender puts a glass down and taps the bar twice. You have no idea what it means. You know exactly what it means.",
+        "type": "say"
+      },
+      "fix": {
+        "outcomes": [
+          {
+            "next": "f0",
+            "weight": 1
+          },
+          {
+            "next": "f1",
+            "weight": 1
+          },
+          {
+            "next": "f2",
+            "weight": 1
+          }
+        ],
+        "type": "random"
+      },
+      "is_fixture": {
+        "condition": {
+          "flag": "bar_sump_fixture",
+          "op": "set",
+          "scope": "player"
+        },
+        "ifFalse": "is_regular",
+        "ifTrue": "fix",
+        "type": "condition"
+      },
+      "is_regular": {
+        "condition": {
+          "flag": "bar_sump_regular",
+          "op": "set",
+          "scope": "player"
+        },
+        "ifFalse": "str",
+        "ifTrue": "reg",
+        "type": "condition"
+      },
+      "r0": {
+        "text": "The bartender pours without asking and does not watch the glass, which is the closest thing to trust available here.",
+        "type": "say"
+      },
+      "r1": {
+        "text": "Two people move apart at the bar. The gap they leave is exactly one person wide.",
+        "type": "say"
+      },
+      "r2": {
+        "text": "Somebody says your name without turning around, purely to confirm they still can.",
+        "type": "say"
+      },
+      "reg": {
+        "outcomes": [
+          {
+            "next": "r0",
+            "weight": 1
+          },
+          {
+            "next": "r1",
+            "weight": 1
+          },
+          {
+            "next": "r2",
+            "weight": 1
+          }
+        ],
+        "type": "random"
+      },
+      "s0": {
+        "text": "Conversation does not stop when you walk in. It just gets quieter and more specific.",
+        "type": "say"
+      },
+      "s1": {
+        "text": "A man at the end of the bar looks at your shoes for a long time and comes to a conclusion about you.",
+        "type": "say"
+      },
+      "s2": {
+        "text": "Nobody offers you a seat. There are eleven free seats.",
+        "type": "say"
+      },
+      "str": {
+        "outcomes": [
+          {
+            "next": "s0",
+            "weight": 1
+          },
+          {
+            "next": "s1",
+            "weight": 1
+          },
+          {
+            "next": "s2",
+            "weight": 1
+          }
+        ],
+        "type": "random"
+      }
+    },
+    "start": "is_fixture"
+  },
+  "id": "script_venue_voice_sump",
+  "name": "Venue voice — Sump",
+  "updated_at": "1785110400"
+}

@@ -1,0 +1,15 @@
+{
+  "chance": 1,
+  "conditions": [],
+  "cooldown_seconds": 0,
+  "description": "One row, total world coverage: every room that exists — including rooms built next year — starts counting how many times it has killed each player, plus a per-cause tally. No zone filter and no per-room authoring, because the flag key is built from the payload.",
+  "enabled": 1,
+  "event": "player.death",
+  "id": "trigger_death_room_memory",
+  "name": "Every room remembers how it killed you",
+  "once": 0,
+  "params": {},
+  "script_id": "script_death_room_memory",
+  "updated_at": "1785110400",
+  "zone_id": null
+}

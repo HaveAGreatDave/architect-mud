@@ -1,30 +1,34 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
+  "ambient_theme": "indoors",
   "audio_theme_id": null,
-  "bg_color": "#2f3a26",
-  "color": "#8ba36a",
+  "bg_color": "#3a3550",
+  "color": "#e8e0ff",
   "created_by": "zone-planner",
-  "description": "Open grassland quietly reclaiming old ground — seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "description": "A shuttered unit at the pawn end of the street, its roller door tagged twice over and the letting notice cable-tied to the handle rather than trusted to adhesive. Two doors down, the fence trade keeps its own hours. The rent reflects the company.",
   "exits": {
-    "east": "zone_district_918_910",
     "north": "zone_district_917_909",
-    "south": "zone_district_917_911"
+    "south": "zone_sf_marrow9"
   },
   "flags": {
     "district": "wasteland",
     "planner": "bp_district",
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_west_wastes",
-    "terrain": "grass"
+    "terrain": "concrete",
+    "building_name": "Unit 9, Marrow Street",
+    "building_type": "shop",
+    "is_building": true,
+    "facade": true,
+    "entrance": "north",
+    "world_exit_zone": "zone_district_917_909"
   },
   "grid_x": 917,
   "grid_y": 910,
   "grid_z": 0,
   "id": "zone_district_917_910",
   "map_id": "map_world",
-  "marker": "#",
-  "name": "Grasslands",
+  "marker": "M9",
+  "name": "Unit 9, Marrow Street",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1784800000"
 }

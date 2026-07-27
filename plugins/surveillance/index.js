@@ -1740,6 +1740,15 @@ on('burglary.reported', ({ player, zoneId }) => {
 on('vendor.safeHackWitnessed', ({ player, zoneId }) => {
   if (player?.id) raiseCrime(player, 'hacking', zoneId || player.current_zone, player.handle, true);
 });
+// Hired shop staff (plugins/storefront) who see you lift stock or work the vault
+// are the same guaranteed witness a present vendor is — that deterrent IS what the
+// wage buys. `crime` names which charge; anything unrecognised falls back to theft
+// rather than silently charging nothing.
+on('storefront.staffWitnessed', ({ player, zoneId, crime }) => {
+  if (!player?.id) return;
+  const key = ['shoplifting', 'hacking', 'burglary'].includes(crime) ? crime : 'theft';
+  raiseCrime(player, key, zoneId || player.current_zone, player.handle, true);
+});
 on('player.death', ({ killer }) => {
   if (killer?.id && killer?.handle) raiseCrime(killer, 'murder', killer.current_zone, killer.handle);
 });

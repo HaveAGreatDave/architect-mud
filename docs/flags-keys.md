@@ -98,6 +98,10 @@ nothing, silently; wire a reader first.
 | `gps_suggest` | lore plugin | destination zone id; first entry to this tile plots a one-off GPS route there (pre-quest nudge) |
 | `gps_suggest_label` | lore plugin | optional hint text for the `gps_suggest` route line |
 | `is_apartment` | housing | rentable apartment zone |
+| `is_storefront` | storefront | vacant retail unit a player can buy (`buyshop`). Terms are `shop_price`/`shop_term`/`shop_upkeep`; the deed itself is player data in the `storefronts` table, never content |
+| `shop_price` | storefront | **authored** total asking price for an `is_storefront` unit; the instalment is price ÷ `shop_term`. Omit for the 6000₵ default |
+| `shop_term` | storefront | **authored** number of 7-game-day instalments that clear the mortgage. Omit for the 8-cycle default |
+| `shop_upkeep` | storefront | **authored** per-cycle charge once the mortgage clears, so an abandoned shop still lapses. Omit for the 40₵ default |
 | `rent_cost` | housing | **authored** weekly rent for this apartment unit (needs `is_apartment`); read by `authoredRentCost` in `apartments.js`. Omit for the 100₵ default. Tenancy itself is player data in the `apartments` table, never content |
 | `is_building` | power/world | groups interior zones into one building (junction-box scope) |
 | `is_interior` | environment | indoors (weather/temperature/lighting model) |
@@ -146,6 +150,7 @@ nothing, silently; wire a reader first.
 | `covert` | vendor/drugwar | covert dealer (passphrase-gated) |
 | `deal_from` / `deal_to` | drugwar | dealing hours window |
 | `drug_buyer` | drugwar | buys drugs from players |
+| `food_buyer` | cooking | pays the specialist rate (70% vs 40%) for plated meals, and the quality band scales the payout — a masterful plate is worth ~7.5x a poor one |
 | `essential` | — | **no reader.** Nothing checks it; unkillability is `no_attack` (`combat.js:705`). Setting `essential` protects nobody |
 | `faction_guard` | — | **no reader.** There is no `factions` plugin (reworked into ideologies) and no code consumes this key, though ~5 content NPCs still carry it |
 | `gift_trade` | trade | accepts gifts |
@@ -215,6 +220,9 @@ nothing, silently; wire a reader first.
 | `fuel_source` | fillable | a fuel point in this zone that `fill` draws from |
 | `woven` | describe (engine) | fold this furniture into the room prose instead of listing it separately |
 | `vendor_npc_id` | vendor | vendor NPC whose shop this furniture belongs to |
+| `shop_unpaid` | storefront | *(player_inventory custom_data)* the shop zone this row was lifted from and not yet paid for; `buyware` clears it, carrying it out of the shop is `shoplifting` |
+| `shop_display` | storefront | marks the display counter in a player-owned shop. Prose/affordance anchor only — listings are zone-scoped, not stored in this piece |
+| `shop_vault` | storefront | holds a player-owned shop's till; `hack`able via VAULT CRACK (`hack_difficulty`, default 6) |
 | `vendor_safe` | vendor-safe | crackable vendor safe |
 | `vendor_schedule_board` | vendor | shop-hours board |
 | `vendor_stock` | commerce | vendor id owning this container's contents — a self-service display case. Goods pulled out are marked `custom_data.unpaid` until `checkout`; carrying them out of the shop is `shoplifting` |

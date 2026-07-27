@@ -91,7 +91,7 @@
   "hp": 40,
   "hp_max": 40,
   "id": "npc_clinic_medic",
-  "name": "Sister Wren Adler",
+  "name": "Sister Ida Adler",
   "npc_type": "vendor",
   "sex": "female",
   "studio_zone_id": null,

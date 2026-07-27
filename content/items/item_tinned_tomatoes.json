@@ -1,0 +1,20 @@
+{
+  "description": "A dented tin of tomatoes in their own juice, peeled and roughly broken. Better than anything fresh you can get in this city for nine months of the year.",
+  "flags": {},
+  "id": "item_tinned_tomatoes",
+  "name": "tin of tomatoes",
+  "tags": {
+    "description": "A dented tin of tomatoes in their own juice, peeled and roughly broken. Better than anything fresh you can get in this city for nine months of the year.",
+    "consumable": true,
+    "restore_hunger": 9,
+    "stackable": true,
+    "food_profile": "liquid",
+    "food_noun": "tomato",
+    "status_chance": {
+      "food_poisoning": 0.15
+    }
+  },
+  "type": "consumable",
+  "value": 7,
+  "weight": 400
+}

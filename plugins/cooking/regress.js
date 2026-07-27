@@ -7,8 +7,11 @@ import { reloadItem, deleteItemCache } from '../../server/engine/items-cache.js'
 import { insertFurniture, deleteFurniture, getFurnitureById } from '../../server/engine/world.js';
 import { computeDuration, checkCooking, _test as cookTest } from './cook.js';
 import { THAW_STAGES, COOK_STAGES, STOVE_SPEED, stageText, BARE_VESSEL, PEAK_LINES, SLIPPING_LINES, FADING_LINES, STAGE_LINES, lineFor, stagesFor } from './config.js';
-import { PROFILES, validateProfiles, QUALITY_BANDS, bandIndex, donenessLevels, donenessLevel, donenessAt, achievedDoneness } from './profiles.js';
-import { DISCOVERY_ATTEMPTS } from './config.js';
+import { PROFILES, LEGACY_BAND_INDEX, profileNameFor, profileNeedsPrep, needsPrep, validateProfiles, QUALITY_BANDS, bandIndex, donenessLevels, donenessLevel, donenessAt, achievedDoneness } from './profiles.js';
+import { leavesFond, makeFond, fondState, fondModifier, fondText } from './fond.js';
+import { portionOf, isWhole, canChop, portionName, yieldOf } from './portions.js';
+import { FOND_BONUS, FOND_RESIDUE_PENALTY, FOND_LIFE_MS, MODIFIER_BONUS_CAP, MIN_PORTION, BAND_SCALE, BASE_OFFSET, FOND_MIN_BAND, DISCOVERY_MIN_BAND, SLOP_CEILING, BAND_REWARDS, rewardFor, restMultiplier, restText, RESTS_WELL, REST_MIN_MS, REST_PEAK_MS, REST_COLD_MS, REST_COLD_PENALTY } from './config.js';
+import { DISCOVERY_ATTEMPTS, cookingIpFor, ROUTINE_IP, MASTERFUL_IP, ROUTINE_IP_COOLDOWN_MS } from './config.js';
 import {
   DISHES, UNKNOWN_DISH, validateDishes, signature, matchScore, matchDish,
   dishName, composeBand, nounFor, VESSEL_KINDS, seasoningIdeal, seasoningBonus,
@@ -16,6 +19,7 @@ import {
 import { FLAG_PREFIX, PROGRESS_PREFIX, UNTRIED, learnRecipe, knownRecipes, cookbookState, recordAttempt, improveRecipe, beatsRecorded, knownBonus } from './knowledge.js';
 import { evaluate, endStateAt, timeline, heatSpans } from './quality.js';
 import { rowIsInstanced } from '../../server/engine/inventory.js';
+import { computeSellUnitPrice, COOK_QUALITY_PRICE } from '../../server/engine/vendor.js';
 import { getAlias } from '../../server/engine/commands/aliases.js';
 import { _test as cookTest2 } from './index.js';
 
@@ -40,6 +44,7 @@ export default async function regress({ run, check, getPlayer }) {
   const TOM = 'item_cooking_regress_tomato';
   const PAN = 'item_cooking_regress_pan';
   const TURNER = 'item_cooking_regress_spatula';
+  const KNIFE = 'item_cooking_regress_knife';
   const STOVE = 'furn_cooking_regress_stove';
   const STOVE_POWERED = 'furn_cooking_regress_stove_powered';
   const LAB = 'furn_cooking_regress_lab';
@@ -248,6 +253,7 @@ export default async function regress({ run, check, getPlayer }) {
       [TOM, 'test tomato', { consumable: true, food_profile: 'soft_vegetable', restore_hunger: 8, stackable: true }, 150],
       [PAN, 'test pan', { container: 2000, vessel: true, heat_distribution: 0.7, heat_retention: 0.45, unique: true }, 1000],
       [TURNER, 'test spatula', { can_turn: true, unique: true }, 150],
+      [KNIFE, 'test knife', { can_chop: true, unique: true }, 200],
     ]) {
       await query(
         `INSERT INTO items (id,name,description,type,value,weight,tags) VALUES ($1,$2,$2,'misc',1,$4,$3)
@@ -255,10 +261,17 @@ export default async function regress({ run, check, getPlayer }) {
       await reloadItem(id);
     }
 
-    const panId = randomUUID(), steakId = randomUUID(), turnerId = randomUUID();
+    const panId = randomUUID(), steakId = randomUUID(), turnerId = randomUUID(), knifeId = randomUUID();
     await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,$3,1,1.0)`, [panId, player.id, PAN]);
     await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,$3,1,1.0)`, [turnerId, player.id, TURNER]);
+
     await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,container_id) VALUES ($1,$2,$3,1,1.0,$4)`, [steakId, player.id, STEAK, panId]);
+
+    // Combining whole ingredients needs a blade. Prove the gate bites BEFORE
+    // handing one over, so the fixture can't quietly hide a broken check.
+    const noKnife = await run('cook test pan');
+    check('combining whole ingredients bare-handed is refused', noKnife?.type === 'error' && /knife/.test(noKnife.message), JSON.stringify(noKnife));
+    await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,$3,1,1.0)`, [knifeId, player.id, KNIFE]);
 
     // Heating the vessel heats what's in it.
     r = await run('cook test pan');
@@ -514,6 +527,324 @@ export default async function regress({ run, check, getPlayer }) {
     await query('DELETE FROM items WHERE id=$1', [FAT]).catch(() => {});
     deleteItemCache(FAT);
 
+    // ── Cooking IP: 1 routine (on a cooldown), 3 for masterful (never) ───────
+    check('an ordinary meal is worth 1 IP', cookingIpFor('good', 0, 1000).ip === ROUTINE_IP, cookingIpFor('good', 0, 1000));
+    check('a masterful meal is worth 3', cookingIpFor('masterful', 0, 1000).ip === MASTERFUL_IP);
+    const justEarned = 1_000_000;
+    check('a second routine meal inside the cooldown pays nothing',
+      cookingIpFor('good', justEarned, justEarned + 1000).ip === 0, cookingIpFor('good', justEarned, justEarned + 1000));
+    check('...and says so, rather than silently paying zero', cookingIpFor('good', justEarned, justEarned + 1000).cooled === true);
+    check('masterful ignores the cooldown entirely — you cannot grind those',
+      cookingIpFor('masterful', justEarned, justEarned + 1000).ip === MASTERFUL_IP);
+    check('the cooldown expires', cookingIpFor('good', justEarned, justEarned + ROUTINE_IP_COOLDOWN_MS + 1).ip === ROUTINE_IP);
+    check('only a routine award resets the cooldown clock',
+      cookingIpFor('good', 0, 1000).resets === true && cookingIpFor('masterful', 0, 1000).resets === false);
+
+    // ── Smoking: meat in, PRESERVED out ──────────────────────────────────────
+    check('a smoked cut reads as preserved, whatever it started as',
+      profileNameFor({ tags: { food_profile: 'dense_meat' }, custom_data: { smoked: 'preserved' } }) === 'preserved');
+    check('an unsmoked cut is unaffected',
+      profileNameFor({ tags: { food_profile: 'dense_meat' }, custom_data: {} }) === 'dense_meat');
+    check('a nonsense smoked value is ignored rather than trusted',
+      profileNameFor({ tags: { food_profile: 'dense_meat' }, custom_data: { smoked: 'nope' } }) === 'dense_meat');
+    const smokeSession = { startedAt: 0, thawMs: 0, cookMs: 60000, profile: 'preserved', vessel: BARE_VESSEL, smoking: true };
+    const plainSession = { startedAt: 0, thawMs: 0, cookMs: 60000, profile: 'preserved', vessel: BARE_VESSEL };
+    check('a smoke gets a far wider window than the same time on a stove',
+      timeline(smokeSession, PROFILES.preserved).peakMs > timeline(plainSession, PROFILES.preserved).peakMs * 2,
+      { smoked: timeline(smokeSession, PROFILES.preserved).peakMs, plain: timeline(plainSession, PROFILES.preserved).peakMs });
+    check('smoked meat slots into preserved recipes with no new template', (() => {
+      const rows = [
+        { id: 'x', name: 'smoked beef', tags: { food_profile: 'dense_meat' }, custom_data: { smoked: 'preserved', food_noun: 'smoked beef' } },
+        { id: 'item_bone_broth', name: 'bone broth', tags: { food_profile: 'liquid' }, custom_data: {} },
+      ];
+      return matchDish(signature(rows, profileNameFor), 'pot', new Set(['item_bone_broth']))?.key === 'brined_pot';
+    })());
+
+    // ── Price: the band is worth money, the same way drug potency is ─────────
+    const px = (band, opts = {}) => computeSellUnitPrice(40, 0, 0, { cookQuality: band, ...opts });
+    check('every band has a price multiplier', QUALITY_BANDS.every(b => COOK_QUALITY_PRICE[b]),
+      QUALITY_BANDS.filter(b => !COOK_QUALITY_PRICE[b]));
+    check('price rises with every rung, without exception', (() => {
+      let last = -1;
+      for (const b of QUALITY_BANDS) { const p = px(b); if (p <= last) return false; last = p; }
+      return true;
+    })(), QUALITY_BANDS.map(b => `${b}:${px(b)}`));
+    check('a botched plate is worth less than an ordinary one', px('poor') < px('acceptable'));
+    check('a masterful plate is worth many times a botched one', px('masterful') / px('poor') >= 5,
+      { masterful: px('masterful'), poor: px('poor'), ratio: (px('masterful') / px('poor')).toFixed(1) });
+    check('a food buyer pays a real premium, like a drug buyer does',
+      px('masterful', { foodBuyer: true }) > px('masterful') * 1.5);
+    check('half a dish sells for about half', Math.abs(px('masterful', { portion: 0.5 }) - px('masterful') / 2) <= 1);
+    check('an item with no band prices exactly as it always did',
+      computeSellUnitPrice(40, 0, 0, {}) === computeSellUnitPrice(40, 0, 0, { cookQuality: null }));
+    check('an unknown band does not zero out the price', px('nonsense') === computeSellUnitPrice(40, 0, 0, {}));
+    check('the quality multiplier respects the same ceiling drug potency does',
+      Math.max(...Object.values(COOK_QUALITY_PRICE)) <= 3);
+
+    // ── What the bands are WORTH ─────────────────────────────────────────────
+    // Nine rungs of feedback are pointless if only the top one changes anything.
+    check('every band has a reward entry', QUALITY_BANDS.every(b => BAND_REWARDS[b]),
+      QUALITY_BANDS.filter(b => !BAND_REWARDS[b]));
+    check('rewards never go backwards up the ladder', (() => {
+      let lastFed = -1, lastIp = -1;
+      for (const b of QUALITY_BANDS) {
+        const r = rewardFor(b);
+        if (r.wellFedMs < lastFed || r.ip < lastIp) return false;
+        lastFed = r.wellFedMs; lastIp = r.ip;
+      }
+      return true;
+    })(), QUALITY_BANDS.map(b => `${b}:${rewardFor(b).wellFedMs / 60000}m/${rewardFor(b).ip}ip`));
+    check('well-fed is no longer masterful-or-nothing', rewardFor('good').wellFedMs > 0 && rewardFor('excellent').wellFedMs > 0);
+    check('...but masterful still has the longest', rewardFor('masterful').wellFedMs > rewardFor('superb').wellFedMs);
+    check('the bottom four bands earn no buff at all', ['poor', 'grim', 'acceptable', 'decent'].every(b => rewardFor('' + b).wellFedMs === 0));
+    check('an unknown band falls back to the baseline rather than crashing', rewardFor('nonsense').ip === rewardFor('acceptable').ip);
+    check('excellent and up escape the IP cooldown', !rewardFor('excellent').cooled && !rewardFor('masterful').cooled);
+    check('routine cooking is still rate-limited', rewardFor('acceptable').cooled && rewardFor('good').cooled);
+
+    // ── Resting: carry-over cooking from ONE timestamp ───────────────────────
+    const T = 1_000_000;
+    check('food that does not rest is unaffected', restMultiplier(T, false, T + 60_000) === 1);
+    check('eaten straight off the heat, no bonus', restMultiplier(T, true, T + 1000) === 1);
+    check('rested into the window, a real bonus', restMultiplier(T, true, T + REST_PEAK_MS) > 1.2, restMultiplier(T, true, T + REST_PEAK_MS));
+    check('the bonus climbs toward the peak',
+      restMultiplier(T, true, T + REST_PEAK_MS) > restMultiplier(T, true, T + REST_MIN_MS + 1000));
+    check('left too long it goes cold and costs you', restMultiplier(T, true, T + REST_COLD_MS + 1) < 1, restMultiplier(T, true, T + REST_COLD_MS + 1));
+    check('the curve is continuous — no cliff at the cold edge',
+      Math.abs(restMultiplier(T, true, T + REST_COLD_MS - 1) - REST_COLD_PENALTY) < 0.02);
+    check('examine describes each phase differently', new Set([
+      restText(T, true, T + 1000), restText(T, true, T + REST_PEAK_MS),
+      restText(T, true, T + REST_COLD_MS - 60_000), restText(T, true, T + REST_COLD_MS + 1),
+    ]).size === 4);
+    check('a stew has nothing to rest', restText(T, false, T + 60_000) === null);
+    check('only things that brown are worth resting',
+      RESTS_WELL.every(p => PROFILES[p]) && !RESTS_WELL.includes('liquid'), RESTS_WELL);
+
+    // ── The quality scale: nine bands, and the old five still mean what they did
+    check('the scale has nine rungs', QUALITY_BANDS.length === 9, QUALITY_BANDS);
+    check('every band name is unique', new Set(QUALITY_BANDS).size === QUALITY_BANDS.length);
+    for (const [name, expected] of Object.entries(LEGACY_BAND_INDEX)) {
+      check(`"${name}" still sits where it did (index ${expected})`, bandIndex(name) === expected, bandIndex(name));
+    }
+    check('the five original bands are exactly TWICE their old index — no meal in the database changed meaning',
+      Object.entries(LEGACY_BAND_INDEX).every(([n, i]) => bandIndex(n) === i) &&
+      [0, 1, 2, 3, 4].every((old, k) => Object.values(LEGACY_BAND_INDEX)[k] === old * 2));
+    check('acceptable is still the 1.0x baseline, in the middle of the scale',
+      bandIndex('acceptable') * 2 === QUALITY_BANDS.length - 1 - 4, bandIndex('acceptable'));
+
+    // Doubling the span without doubling the scoring would have made every dish
+    // dramatically easier — a cook would start only 4.4 rungs below a ceiling
+    // that is now 8 high instead of 4. BAND_SCALE is what keeps the curve.
+    check('the scoring constants scaled with the span', BASE_OFFSET === -2.2 * BAND_SCALE, { BASE_OFFSET, BAND_SCALE });
+    check('a score of X now lands at exactly twice the rung it used to', (() => {
+      // raw_new = ceiling*2 + BASE*2 + mods*2 = 2 * raw_old, for any modifiers.
+      for (const mods of [-3, -1.4, -0.11, 0, 0.48, 1.08, 2.6]) {
+        const rawOld = 4 + (-2.2) + mods;
+        const rawNew = 8 + BASE_OFFSET + mods * BAND_SCALE;
+        if (Math.abs(rawNew - rawOld * 2) > 1e-9) return false;
+      }
+      return true;
+    })());
+
+    // Names used as thresholds elsewhere must still resolve, or those gates
+    // silently become "index 0" and stop meaning anything.
+    for (const name of [FOND_MIN_BAND, DISCOVERY_MIN_BAND, SLOP_CEILING]) {
+      check(`threshold band "${name}" is still a real band`, QUALITY_BANDS.includes(name), name);
+    }
+    check('every profile ceiling is still a real band',
+      Object.values(PROFILES).every(p => Object.values(p.targets).every(b => QUALITY_BANDS.includes(b))));
+    check('every dish ceiling is still a real band',
+      Object.values(DISHES).every(d => QUALITY_BANDS.includes(d.ceiling)),
+      Object.entries(DISHES).filter(([, d]) => !QUALITY_BANDS.includes(d.ceiling)).map(([k]) => k));
+
+    // ── Portions: half an onion is an onion cut in half ──────────────────────
+    const whole = { name: 'onion', custom_data: {} };
+    const half = { name: 'onion', custom_data: { portion: 0.5 } };
+    const quarter = { name: 'onion', custom_data: { portion: 0.25 } };
+    check('an unportioned item is whole', portionOf(whole) === 1 && isWhole(whole));
+    check('a half reads as a half', portionOf(half) === 0.5 && !isWhole(half));
+    check('a nonsense portion falls back to whole rather than corrupting the maths',
+      portionOf({ custom_data: { portion: 0 } }) === 1 && portionOf({ custom_data: { portion: 'x' } }) === 1);
+
+    check('a whole thing can be cut', canChop(whole, 4));
+    check('a half can be cut again', canChop(half, 2));
+    check('but not past the floor', !canChop(quarter, 4), MIN_PORTION);
+
+    check('a half is named as one', portionName(half, 'onion') === 'half an onion', portionName(half, 'onion'));
+    check('a quarter too', portionName(quarter, 'potato') === 'a quarter of a potato', portionName(quarter, 'potato'));
+    check('a whole one keeps its plain name', portionName(whole, 'onion') === 'onion');
+
+    // THE invariant: portions conserve. Cutting creates nothing.
+    check('four quarters yield exactly what one whole yields',
+      yieldOf([quarter, quarter, quarter, quarter]) === 0.25 && yieldOf([whole]) === 1,
+      { quarters: yieldOf([quarter, quarter, quarter, quarter]), whole: yieldOf([whole]) });
+    check('a dish of halves yields half', yieldOf([half, half]) === 0.5);
+    check('a dish of whole ingredients yields full', yieldOf([whole, whole]) === 1);
+    check('mixing whole and half lands between', yieldOf([whole, half]) === 0.75);
+
+    // And the payoff: a portion cooks faster, in proportion.
+    const wholeCook = computeDuration(400 * portionOf(whole), STOVE_SPEED.low, false, 1).cookMs;
+    const quarterCook = computeDuration(400 * portionOf(quarter), STOVE_SPEED.low, false, 1).cookMs;
+    check('a quartered ingredient cooks in a quarter of the time',
+      Math.abs(quarterCook - wholeCook / 4) < 5, { wholeCook, quarterCook });
+    check('...which is the whole tactical point of the knife', quarterCook < wholeCook);
+
+    // Recipes count PORTIONS, not rows. Every count in the catalog was authored
+    // as "how many of this ingredient", so a whole one still contributes exactly
+    // 1 and no template needed rewriting — but half of one now contributes half.
+    const pRow = (prof, portion) => ({ tags: { food_profile: prof }, custom_data: portion ? { portion } : {} });
+    const pSig = rows => signature(rows, profileNameFor);
+    check('a whole ingredient contributes exactly 1, as it always did',
+      pSig([pRow('soft_vegetable')]).soft_vegetable === 1);
+    check('half contributes exactly half', pSig([pRow('soft_vegetable', 0.5)]).soft_vegetable === 0.5);
+    check('two halves are exactly one — no floating-point drift',
+      pSig([pRow('soft_vegetable', 0.5), pRow('soft_vegetable', 0.5)]).soft_vegetable === 1);
+    check('four quarters likewise',
+      pSig([...Array(4)].map(() => pRow('soft_vegetable', 0.25))).soft_vegetable === 1);
+    check('an eighth is the smallest piece and still exact',
+      pSig([...Array(8)].map(() => pRow('soft_vegetable', 0.125))).soft_vegetable === 1);
+
+    const soupWhole = matchDish(pSig([pRow('liquid'), pRow('soft_vegetable')]), 'pot', new Set());
+    const soupHalf = matchDish(pSig([pRow('liquid'), pRow('soft_vegetable', 0.5)]), 'pot', new Set());
+    const soupTwoHalves = matchDish(pSig([pRow('liquid'), pRow('soft_vegetable', 0.5), pRow('soft_vegetable', 0.5)]), 'pot', new Set());
+    check('a whole vegetable fills a one-vegetable recipe', soupWhole?.key === 'soup', soupWhole?.key);
+    check('HALF of one no longer does — that hole is closed', soupHalf === null, soupHalf?.key);
+    check('but two halves do, because two halves are one', soupTwoHalves?.key === 'soup', soupTwoHalves?.key);
+
+    check('the difficulty tiebreak stays far below the smallest real difference',
+      Math.max(...Object.values(DISHES).map(t => (t.difficulty || 0) / 1000)) < MIN_PORTION,
+      { tiebreak: Math.max(...Object.values(DISHES).map(t => (t.difficulty || 0) / 1000)), MIN_PORTION });
+
+    // ── Fond: the one thing a vessel remembers between cooks ─────────────────
+    const seared = { vesselKind: 'pan', profiles: ['dense_meat', 'fat_or_oil'], band: 'excellent', hadLiquid: false };
+    check('a good sear in a pan leaves fond', leavesFond(seared));
+    check('a ruined sear leaves carbon, not fond', !leavesFond({ ...seared, band: 'poor' }));
+    check('boiling a broth leaves nothing behind', !leavesFond({ ...seared, hadLiquid: true }));
+    check('a pot leaves nothing behind either', !leavesFond({ ...seared, vesselKind: 'pot' }));
+    check('a bowl certainly does not', !leavesFond({ ...seared, vesselKind: 'bowl' }));
+    check('vegetables alone leave nothing', !leavesFond({ ...seared, profiles: ['soft_vegetable'] }));
+
+    const fresh = makeFond('dense_meat', 'excellent', 1_000_000);
+    check('fresh fond reads as fresh', fondState(fresh, 1_000_000 + 1000) === 'fresh');
+    check('left too long it dries to residue', fondState(fresh, 1_000_000 + FOND_LIFE_MS + 1) === 'residue');
+    check('no fond at all is neither', fondState(null) === 'none');
+
+    check('fond sitting unlifted is worth nothing', fondModifier(fresh, { deglazed: false, now: 1_000_001 }) === 0);
+    check('LIFTING it is worth a real bonus', fondModifier(fresh, { deglazed: true, now: 1_000_001 }) === FOND_BONUS);
+    check('dried residue is an active penalty on the next cook',
+      fondModifier(fresh, { deglazed: true, now: 1_000_000 + FOND_LIFE_MS + 1 }) === FOND_RESIDUE_PENALTY);
+    check('a clean pan is neutral', fondModifier(null) === 0);
+    check('deglazing beats every seasoning you could add instead',
+      FOND_BONUS > MODIFIER_BONUS_CAP, { FOND_BONUS, MODIFIER_BONUS_CAP });
+    check('examine describes the pan differently fresh vs dried',
+      fondText(fresh, 1_000_001) !== fondText(fresh, 1_000_000 + FOND_LIFE_MS + 1) && !!fondText(fresh, 1_000_001));
+    check('a clean pan says nothing about its bottom', fondText(null) === null);
+
+    const sauce = matchDish(signature([
+      { tags: { food_profile: 'liquid' } }, { tags: { food_profile: 'aromatic' } },
+    ], profileNameFor), 'pan', new Set());
+    check('liquid and seasoning in a pan is a pan sauce', sauce?.key === 'pan_sauce', sauce?.key);
+
+    // ── Prep: whole ingredients need a knife ─────────────────────────────────
+    const prepProfiles = Object.keys(PROFILES).filter(profileNeedsPrep);
+    check('the profiles that arrive whole need prep', prepProfiles.length >= 4, prepProfiles);
+    check('a cut of meat needs cutting down', profileNeedsPrep('dense_meat'));
+    check('a root needs cutting down', profileNeedsPrep('starchy_vegetable'));
+    check('liquids, batter and preserved cuts do not',
+      !profileNeedsPrep('liquid') && !profileNeedsPrep('batter') && !profileNeedsPrep('preserved'),
+      ['liquid', 'batter', 'preserved'].filter(profileNeedsPrep));
+    check('seasoning never needs a knife — it is already dust or oil',
+      Object.keys(PROFILES).filter(p => PROFILES[p].modifier).every(p => !profileNeedsPrep(p)));
+    check('needsPrep reads off the item, not just the profile name',
+      needsPrep({ tags: { food_profile: 'soft_vegetable' } }) && !needsPrep({ tags: { food_profile: 'liquid' } }));
+
+    // Backfill sanity: how much of the catalog this actually touches.
+    const touched = Object.entries(DISHES).filter(([, t]) => Object.keys(t.needs).some(profileNeedsPrep));
+    check(`prep applies to most of the catalog (${touched.length}/${Object.keys(DISHES).length} dishes)`,
+      touched.length >= Object.keys(DISHES).length / 2, touched.length);
+    const noPrep = Object.entries(DISHES).filter(([, t]) => !Object.keys(t.needs).some(profileNeedsPrep)).map(([k]) => k);
+    check('...but some dishes genuinely need no knife at all', noPrep.length >= 1, noPrep);
+
+    // ── Intermediates: a dish whose output is an INGREDIENT ──────────────────
+    const inters = Object.entries(DISHES).filter(([, t]) => t.output);
+    check('there is at least one intermediate recipe', inters.length >= 1, inters.map(([k]) => k));
+    check('an intermediate names a real item id', inters.every(([, t]) => /^item_/.test(t.output.item)), inters.map(([, t]) => t.output.item));
+    const mbRows = [
+      { id: 'item_sausage', name: 'sausage', tags: { food_profile: 'dense_meat' }, custom_data: {} },
+      { id: 'item_battery_egg', name: 'egg', tags: { food_profile: 'egg' }, custom_data: {} },
+      { id: 'item_cracker_meal', name: 'crumb', tags: { food_profile: 'batter' }, custom_data: {} },
+    ];
+    const mb = matchDish(signature(mbRows, profileNameFor), 'bowl', new Set(mbRows.map(r => r.id)));
+    check('meat + egg + crumb in a bowl makes meatballs', mb?.key === 'meatballs', mb?.key);
+    check('...and its output is an ingredient, not a meal', mb?.template.output?.item === 'item_meatballs');
+
+    const sugoRows = [
+      { id: 'item_meatballs', name: 'meatballs', tags: { food_profile: 'dense_meat' }, custom_data: {} },
+      { id: 'item_tinned_tomatoes', name: 'tomatoes', tags: { food_profile: 'liquid' }, custom_data: {} },
+    ];
+    const sugo = matchDish(signature(sugoRows, profileNameFor), 'pot', new Set(sugoRows.map(r => r.id)));
+    check('meatballs simmered in tomato is its own dish', sugo?.key === 'meatball_sugo', sugo?.key);
+    check('the same pot with ordinary mince is NOT that dish',
+      matchDish(signature(sugoRows, profileNameFor), 'pot', new Set(['item_tinned_tomatoes']))?.key !== 'meatball_sugo');
+
+    // Two named dishes can both fit one pot; the tiebreak must not be catalog order.
+    const bothKeys = new Set(['item_meatballs', 'item_ramen_noodles']);
+    const bothRows = [
+      { tags: { food_profile: 'dense_meat' } }, { tags: { food_profile: 'starchy_vegetable' } }, { tags: { food_profile: 'liquid' } },
+    ];
+    const contested = matchDish(signature(bothRows, profileNameFor), 'pot', bothKeys);
+    check('two named dishes in one pot resolve to the harder one, deterministically',
+      contested?.key === 'meatball_sugo', { got: contested?.key, sugo: DISHES.meatball_sugo.difficulty, ramen: DISHES.ramen.difficulty });
+    check('the difficulty tiebreak can never overturn real specificity',
+      Math.max(...Object.values(DISHES).map(t => (t.difficulty || 0) / 100)) < 1);
+
+    // ── Two-appliance cooking: smoke, then finish over coals ─────────────────
+    // A smoked cut is edible as it stands AND can still go back on heat. Every
+    // other cooked thing is done; `finishable` is the single exception, and it
+    // must be cleared by the finish or a cut could be re-cooked for a free band.
+    const smokedCut = { name: 'smoked pork', tags: { food_profile: 'dense_meat' },
+      custom_data: { smoked: 'preserved', food_noun: 'pork', cooked: true, finishable: true } };
+    check('a cured cut reads as preserved', profileNameFor(smokedCut) === 'preserved');
+    check('a cured cut can go back on the heat',
+      !cookTest.prepareCook({ ...smokedCut, weight: 700, quantity: 1 }, { profileName: 'preserved', speed: 1, id: 'x', name: 'grill' }, { tier: 'ambient', delivering: true, ambientTier: 'ambient' }).error);
+    check('a browned COMPONENT stays finishable — browning is a step, not the meal',
+      !cookTest.prepareCook({ name: 'meatballs', tags: { food_profile: 'dense_meat' }, custom_data: { cooked: true, finishable: true, crafted_quality: 'good' }, weight: 340, quantity: 1 },
+        { profileName: 'dense_meat', speed: 1, id: 'x', name: 'pot' }, { tier: 'ambient', delivering: true, ambientTier: 'ambient' }).error);
+    check('an ordinary cooked meal cannot',
+      /already cooked/.test(cookTest.prepareCook({ name: 'stew', tags: { food_profile: 'liquid' }, custom_data: { cooked: true }, weight: 500, quantity: 1 },
+        { profileName: 'liquid', speed: 1, id: 'x', name: 'stove' }, { tier: 'ambient', delivering: true, ambientTier: 'ambient' }).error || ''));
+
+    const chopRows = [
+      { id: 'item_pink_slab', name: 'smoked pork', tags: { food_profile: 'dense_meat' }, custom_data: { smoked: 'preserved', food_noun: 'pork' } },
+      { id: 'item_bbq_sauce', name: 'sauce', tags: { food_profile: 'fruit' }, custom_data: {} },
+    ];
+    const chop = matchDish(signature(chopRows, profileNameFor), 'pan', new Set(chopRows.map(r => r.id)));
+    check('smoked meat finished with the sauce is its own dish', chop?.key === 'smoked_chop', chop?.key);
+    check('...and it names the cut it came from',
+      dishName(chop.template, chopRows, profileNameFor) === 'smoked pork chop', dishName(chop.template, chopRows, profileNameFor));
+    check('the same cut WITHOUT the sauce is not that dish',
+      matchDish(signature(chopRows, profileNameFor), 'pan', new Set(['item_pink_slab']))?.key !== 'smoked_chop');
+    check('an unsmoked slab cannot be a smoked chop, whatever sauce you put on it', (() => {
+      const raw = [{ id: 'item_pink_slab', tags: { food_profile: 'dense_meat' }, custom_data: {} }, chopRows[1]];
+      return matchDish(signature(raw, profileNameFor), 'pan', new Set(raw.map(r => r.id)))?.key !== 'smoked_chop';
+    })());
+
+    // ── Dips: worked in a bowl, never heated ─────────────────────────────────
+    check('bowl is a vessel kind', VESSEL_KINDS.includes('bowl'));
+    const bowlDishes = Object.entries(DISHES).filter(([, t]) => t.vessel === 'bowl');
+    check('there are dip recipes', bowlDishes.length >= 3, bowlDishes.map(([k]) => k));
+    check('at least one dip is buildable entirely from ingredients that are good RAW',
+      bowlDishes.some(([, t]) => Object.keys(t.needs).every(p => PROFILES[p].modifier || bandIndex(PROFILES[p].targets.raw) >= bandIndex('good'))),
+      bowlDishes.map(([k]) => k));
+    const dipRows = [
+      { id: 'item_tomato', name: 'tomato', tags: { food_profile: 'soft_vegetable', food_noun: 'tomato' }, custom_data: {} },
+      { id: 'item_onion', name: 'onion', tags: { food_profile: 'soft_vegetable', food_noun: 'onion' }, custom_data: {} },
+      { id: 'item_cooking_oil', name: 'oil', tags: { food_profile: 'fat_or_oil' }, custom_data: {} },
+    ];
+    const dipHit = matchDish(signature(dipRows, profileNameFor), 'bowl', new Set(dipRows.map(r => r.id)));
+    check('two soft vegetables and oil in a bowl is a dip', dipHit?.key === 'mash_dip', dipHit?.key);
+    check('the same things in a pan are a different dish entirely',
+      matchDish(signature(dipRows, profileNameFor), 'pan', new Set())?.key !== dipHit?.key);
+
     // ── Doneness targets ─────────────────────────────────────────────────────
     check('dense meat offers a choice of doneness', (donenessLevels(PROFILES.dense_meat) || []).length >= 3, donenessLevels(PROFILES.dense_meat)?.map(l => l.name));
     check('a potato does not — it is cooked or it is not', donenessLevels(PROFILES.starchy_vegetable) === null);
@@ -767,7 +1098,7 @@ export default async function regress({ run, check, getPlayer }) {
     await query('DELETE FROM player_flags WHERE player_id=$1 AND flag_key LIKE $2', [player.id, `${FLAG_PREFIX}%`]);
 
   } finally {
-    const temps = [RAW, OVEN, STEAK, TOM, PAN, TURNER];
+    const temps = [RAW, OVEN, STEAK, TOM, PAN, TURNER, KNIFE];
     await query('DELETE FROM player_inventory WHERE item_id = ANY($1)', [temps]).catch(() => {});
     await query('DELETE FROM items WHERE id = ANY($1)', [temps]).catch(() => {});
     for (const id of temps) deleteItemCache(id);

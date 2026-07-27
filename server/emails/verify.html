@@ -1,0 +1,96 @@
+<!doctype html>
+<html>
+  <!-- Grove theme (client/shared/themes.css [data-theme="grove"]) rendered as the
+       tablet OS chassis: bevelled surfaces, mono type, status bar, home bar.
+       Colours are hard-coded hex because mail clients support neither CSS custom
+       properties nor color-mix(); the values below are the computed Grove ones. -->
+  <body style="margin:0;padding:0;background:#1f2420;">
+    <!-- preheader: shown in the inbox preview line, hidden in the body -->
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;">Confirm your address to activate your ARCHITECT account. Link expires in 24 hours.</div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#1f2420;padding:28px 12px;">
+      <tr>
+        <td align="center">
+
+          <!-- tablet chassis -->
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:460px;background:#272e28;border:1px solid #45503f;border-radius:20px;">
+            <tr>
+              <td style="padding:10px 14px 12px 14px;">
+
+                <!-- status bar -->
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td style="font-family:'Courier New',Consolas,monospace;font-size:10px;letter-spacing:2px;color:#768861;text-transform:uppercase;">
+                      ARCHITECT&nbsp;OS
+                    </td>
+                    <td align="right" style="font-family:'Courier New',Consolas,monospace;font-size:10px;letter-spacing:2px;color:#768861;">
+                      ▮▮▮ &nbsp; 88%
+                    </td>
+                  </tr>
+                </table>
+
+                <!-- app surface -->
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:10px;background:#363f33;border:1px solid #45503f;border-radius:12px;">
+                  <tr>
+                    <td style="padding:20px 22px 8px 22px;font-family:'Courier New',Consolas,monospace;font-size:10px;letter-spacing:2px;color:#5a684b;text-transform:uppercase;">
+                      ▸ Account / Verification
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:0 22px 14px 22px;font-family:'Courier New',Consolas,monospace;font-size:19px;letter-spacing:2px;color:#eef0e2;">
+                      Confirm address
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:0 22px;font-family:'Courier New',Consolas,monospace;font-size:13px;line-height:1.7;color:#d3c6aa;">
+                      Your registration is on file. Confirm this address and the terminal will let you in.
+                    </td>
+                  </tr>
+
+                  <!-- tile-style action button -->
+                  <tr>
+                    <td style="padding:20px 22px 6px 22px;">
+                      <table role="presentation" cellpadding="0" cellspacing="0">
+                        <tr>
+                          <td style="background:#3e4838;border:1px solid #a7c080;border-radius:9px;">
+                            <a href="{{verifyUrl}}" style="display:inline-block;padding:13px 30px;font-family:'Courier New',Consolas,monospace;font-size:12px;letter-spacing:3px;text-transform:uppercase;color:#a7c080;text-decoration:none;">
+                              Verify&nbsp;&nbsp;▸
+                            </a>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <td style="padding:14px 22px 20px 22px;font-family:'Courier New',Consolas,monospace;font-size:11px;line-height:1.7;color:#768861;">
+                      <div style="border-top:1px solid #45503f;padding-top:12px;">
+                        Expires in 24 hours. If the button is dead, paste this:
+                        <div style="margin-top:8px;word-break:break-all;"><a href="{{verifyUrl}}" style="color:#a7c080;">{{verifyUrl}}</a></div>
+                        <div style="margin-top:12px;color:#5a684b;">Didn't register? Ignore this. Nothing happens without the link.</div>
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+
+                <!-- home bar -->
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td align="center" style="padding:12px 0 4px 0;">
+                      <div style="width:96px;height:4px;background:#45503f;border-radius:2px;line-height:4px;font-size:0;">&nbsp;</div>
+                    </td>
+                  </tr>
+                </table>
+
+              </td>
+            </tr>
+          </table>
+
+          <div style="max-width:460px;margin-top:14px;font-family:'Courier New',Consolas,monospace;font-size:10px;letter-spacing:1px;color:#5a684b;">
+            architect.net
+          </div>
+
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

@@ -61,7 +61,7 @@
   "hp": 40,
   "hp_max": 40,
   "id": "npc_asc_registrar",
-  "name": "The Registrar",
+  "name": "The Vat Registrar",
   "npc_type": "civilian",
   "sex": "female",
   "studio_zone_id": null,

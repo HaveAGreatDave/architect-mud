@@ -11,6 +11,18 @@ import { dispatchAction } from './actions.js';
 import { evalConditions, getFlag } from './flags.js';
 import { query } from '../models/db.js';
 import { getTier } from './ideologies.js';
+import { interp } from './interp.js';
+
+// Token bag for a dialogue render. Deliberately small and stable — the speaker,
+// the listener, and where they're standing. Objects are referenced, not copied;
+// only scalar leaves ever resolve (see engine/interp.js).
+function dialogueTokens(npc, player) {
+  return {
+    npc: npc || {},
+    player: player || {},
+    zone: npc?.zone_id || player?.current_zone || '',
+  };
+}
 
 // A "report back"/turn-in option can be authored either as an action on the
 // option itself (fires immediately on click) or as an action on the node it
@@ -208,6 +220,15 @@ export async function renderDialogueNode(npc, nodeKey, player, context) {
   let text = baseText + appendMessage;
   const questName = context?.quest_name || resolvedQuestName;
   if (questName) text = text.replace(/\{quest\}/g, questName);
+
+  // `${dotted.path}` tokens (the same syntax Script graphs use — engine/interp.js)
+  // let ONE authored tree serve many speakers: `${npc.name}`, `${player.handle}`,
+  // `${zone}`. Distinct from the legacy `{quest}` brace above, which stays as-is.
+  // Option labels get the same treatment, or a parameterised tree would render a
+  // greeting with tokens and answers without them.
+  const tokens = dialogueTokens(npc, player);
+  text = interp(text, tokens);
+  for (const o of options) if (o?.label) o.label = interp(o.label, tokens);
 
   // Mood is read on arrival and whenever a line just moved rep — the two moments
   // it can have changed. Arrival also carries the posture stage direction, unless

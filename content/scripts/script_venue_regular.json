@@ -1,0 +1,71 @@
+{
+  "description": "Tracks how well a venue knows you and hands off to its voice script. Params: venue (flag-key slug), drink (item id for the house round), voice (script id for the flavour graph). One row per bar in script_triggers; never clone this graph.",
+  "graph": {
+    "nodes": {
+      "bump": {
+        "delta": 1,
+        "flag": "bar_${venue}_visits",
+        "ifFalse": "check_regular",
+        "ifTrue": "fixture",
+        "scope": "player",
+        "threshold": 20,
+        "type": "counter"
+      },
+      "check_regular": {
+        "delta": 0,
+        "flag": "bar_${venue}_visits",
+        "ifFalse": "voice",
+        "ifTrue": "regular",
+        "scope": "player",
+        "threshold": 5,
+        "type": "counter"
+      },
+      "fixture": {
+        "flag": "bar_${venue}_fixture",
+        "next": "tab",
+        "scope": "player",
+        "type": "setflag",
+        "value": "true"
+      },
+      "gift": {
+        "action": "GRANT_ITEM",
+        "next": "voice",
+        "params": {
+          "item_id": "${drink}",
+          "quantity": 1
+        },
+        "type": "action"
+      },
+      "house": {
+        "next": "gift",
+        "text": "A glass lands in front of you that you did not order and are not going to be charged for.",
+        "type": "say"
+      },
+      "regular": {
+        "flag": "bar_${venue}_regular",
+        "next": "voice",
+        "scope": "player",
+        "type": "setflag",
+        "value": "true"
+      },
+      "tab": {
+        "delta": 1,
+        "flag": "bar_${venue}_tab",
+        "ifFalse": "voice",
+        "ifTrue": "house",
+        "reset": true,
+        "scope": "player",
+        "threshold": 4,
+        "type": "counter"
+      },
+      "voice": {
+        "scriptId": "${voice}",
+        "type": "script"
+      }
+    },
+    "start": "bump"
+  },
+  "id": "script_venue_regular",
+  "name": "Venue — Regular (shared mechanics)",
+  "updated_at": "1785110400"
+}

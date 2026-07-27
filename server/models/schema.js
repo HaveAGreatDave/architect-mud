@@ -18,6 +18,9 @@ import { query } from './db.js';
 // AND edit SCHEMA_SQL here to match — the export will then stay in sync
 // automatically.
 
+// WARNING: this is a TEMPLATE LITERAL. NEVER use backticks anywhere inside it,
+// not even in a SQL comment — a stray one terminates the string and the whole
+// server stops parsing. Quote identifiers with single quotes instead.
 export const SCHEMA_SQL = `
   CREATE TABLE IF NOT EXISTS players (
     id TEXT PRIMARY KEY,
@@ -228,9 +231,9 @@ export const SCHEMA_SQL = `
   -- opted-in street zones (flags.street_life) feel lived-in — kids playing,
   -- delivery drones, buskers, traffic, dogs, etc. Each row is gated by day-phase,
   -- ambient_theme, weather, and/or an explicit zone allowlist, and holds an ordered
-  -- \`lines\` array (one entry = a one-shot; several = a paced vignette). loudness>0
+  -- \'lines\' array (one entry = a one-shot; several = a paced vignette). loudness>0
   -- makes an audible routine bleed to neighbouring rooms via sound propagation;
-  -- \`interactive\` ('tip'|'order') arms a short-lived clickable opportunity.
+  -- \'interactive\' ('tip'|'order') arms a short-lived clickable opportunity.
   CREATE TABLE IF NOT EXISTS ambient_routines (
     id TEXT PRIMARY KEY,
     category TEXT NOT NULL,
@@ -473,6 +476,60 @@ export const SCHEMA_SQL = `
   ALTER TABLE apartments ADD COLUMN IF NOT EXISTS forcefield_active INTEGER DEFAULT 0;
   ALTER TABLE doors ADD COLUMN IF NOT EXISTS forcefield_locked INTEGER DEFAULT 0;
   ALTER TABLE players ADD COLUMN IF NOT EXISTS home_zone TEXT DEFAULT NULL;
+
+  -- Player-owned shops (plugins/storefront). PLAYER data, never content — same law
+  -- as 'apartments': the authored side (asking price, term, upkeep, the vacancy
+  -- itself) lives on the zone as flags.is_storefront/shop_price/shop_term/
+  -- shop_upkeep, and this table is a pure deed-and-mortgage ledger that must not
+  -- round-trip through git. Listed stock is NOT here: it stays as real
+  -- player_inventory rows owned by the synthetic handle '_shopstock_<zoneId>', so
+  -- an item's condition/custom_data survives being put on the shelf.
+  CREATE TABLE IF NOT EXISTS storefronts (
+    zone_id TEXT PRIMARY KEY REFERENCES zones(id),
+    owner_id TEXT,
+    owner_handle TEXT,
+    shop_name TEXT,
+    purchased_at BIGINT,
+    price INTEGER NOT NULL DEFAULT 0,          -- total agreed purchase price
+    weekly_payment INTEGER NOT NULL DEFAULT 0, -- instalment per billing cycle
+    payments_made INTEGER NOT NULL DEFAULT 0,
+    payments_total INTEGER NOT NULL DEFAULT 0, -- term length in cycles
+    upkeep INTEGER NOT NULL DEFAULT 0,         -- charged per cycle AFTER payoff
+    paid_off INTEGER NOT NULL DEFAULT 0,
+    missed INTEGER NOT NULL DEFAULT 0,         -- consecutive missed payments
+    due_date DATE,                             -- GAME calendar, like apartments.rent_due_date
+    till_credits INTEGER NOT NULL DEFAULT 0    -- takings sitting in the shop vault
+  );
+  CREATE INDEX IF NOT EXISTS idx_storefronts_owner ON storefronts(owner_id);
+  -- Durable shutter state. Door lock_state is runtime-only (world.doors resets to
+  -- authored state on reboot), so — exactly like apartments.is_locked — the deed
+  -- holds the truth and the plugin re-applies it to the physical door at boot.
+  ALTER TABLE storefronts ADD COLUMN IF NOT EXISTS shutters_closed INTEGER NOT NULL DEFAULT 0;
+
+  -- Hired shop staff (plugins/storefront). One row per role per shop; PLAYER data
+  -- for the same reason the deed is. 'npc_id' points at a real NPC standing in the
+  -- shop, spawned on hire and despawned on fire.
+  CREATE TABLE IF NOT EXISTS storefront_staff (
+    zone_id TEXT NOT NULL REFERENCES zones(id),
+    role TEXT NOT NULL,                        -- 'clerk' | 'guard'
+    npc_id TEXT,
+    name TEXT,
+    wage INTEGER NOT NULL DEFAULT 0,           -- charged per billing cycle, from the till
+    hired_at BIGINT,
+    PRIMARY KEY (zone_id, role)
+  );
+
+  -- Standing buy orders: what a shop pays for, so people can sell INTO it while
+  -- the owner is offline. Funded from the till.
+  CREATE TABLE IF NOT EXISTS storefront_orders (
+    id TEXT PRIMARY KEY,
+    zone_id TEXT NOT NULL REFERENCES zones(id),
+    item_id TEXT NOT NULL,
+    price INTEGER NOT NULL,                    -- paid per unit, out of the till
+    wanted INTEGER NOT NULL DEFAULT 1,         -- units still sought
+    created_at BIGINT
+  );
+  CREATE INDEX IF NOT EXISTS idx_storefront_orders_zone ON storefront_orders(zone_id);
 
   -- NPC home occupancy — a SEPARATE tracker from the player apartments ledger.
   -- One row per apartment unit an NPC calls home; the housing rent flow treats a
@@ -884,6 +941,55 @@ export const SCHEMA_SQL = `
     graph JSONB NOT NULL DEFAULT '{}',
     updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
   );
+
+  -- Event → Script bindings (server/engine/script-triggers.js). One row means
+  -- "when this bus event fires and these filters pass, run that script graph".
+  -- Authored content: the engine ships the channel, never a binding.
+  --   event             — an events.js name (zone.entered, item.equipped, …)
+  --   zone_id           — optional zone filter; NULL = anywhere
+  --   conditions        — flag-condition array, ANDed (see engine/flags.js)
+  --   cooldown_seconds  — per-player (per-world if no actor) re-fire floor
+  --   chance            — 0..1 roll, checked before conditions
+  --   once              — 1 = fire at most once per player (player-flag guard)
+  --   params            — bag interpolated into the graph's \${tokens}; this is
+  --                       what lets one authored graph serve many instances
+  --                       (one "venue regular" script, one row per bar)
+  CREATE TABLE IF NOT EXISTS script_triggers (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT DEFAULT '',
+    event TEXT NOT NULL,
+    script_id TEXT NOT NULL,
+    zone_id TEXT,
+    conditions JSONB NOT NULL DEFAULT '[]',
+    params JSONB NOT NULL DEFAULT '{}',
+    cooldown_seconds INTEGER NOT NULL DEFAULT 0,
+    chance REAL NOT NULL DEFAULT 1,
+    once INTEGER NOT NULL DEFAULT 0,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
+  );
+  ALTER TABLE script_triggers ADD COLUMN IF NOT EXISTS params JSONB NOT NULL DEFAULT '{}';
+
+  -- Pending long wait-node continuations (server/engine/graph.js). A short wait is
+  -- a bare setTimeout; anything at or past GRAPH_DURABLE_WAIT_S is parked here so
+  -- a restart doesn't eat it, which is what makes a multi-day consequence
+  -- authorable. RUNTIME state — accumulated at play time, never authored, never
+  -- shipped. Rows are deleted the moment they run.
+  --   player_id NULL = an actorless wait (world-scope work); runs when due.
+  --   Otherwise the row waits for that player to be online, so a consequence
+  --   lands where they can see it instead of firing into an empty socket.
+  CREATE TABLE IF NOT EXISTS script_waits (
+    id TEXT PRIMARY KEY,
+    script_id TEXT,
+    graph JSONB NOT NULL,
+    node_id TEXT NOT NULL,
+    player_id TEXT,
+    params JSONB NOT NULL DEFAULT '{}',
+    due_at BIGINT NOT NULL,
+    created_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
+  );
+  CREATE INDEX IF NOT EXISTS idx_script_waits_due ON script_waits (due_at);
 
   -- ── Quests (Phase 5: quest plugin) ─────────────────────────────────────────
   -- A Quest is a goal whose objectives advance by the quest plugin subscribing to

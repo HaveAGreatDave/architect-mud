@@ -126,7 +126,7 @@
           "next": "root"
         }
       ],
-      "text": "She weighs it properly — you've earned a real answer. \"Not being replaced. I know my worth; I'll always be worth the berth.\" A beat. \"It's needing you. That's the fear. I spent my whole life making sure I was the one who could walk away, from any room, at any time, on my terms. And now there's a room I don't want to walk out of. That's not a feeling I have tools for.\" She holds your gaze, steady as ever, which is its own kind of admission. \"So I manage it the way I manage everything. Quietly. Competently. And I never let Bijou see it, because one of us has to be the calm one.\""
+      "text": "She weighs it properly — you've earned a real answer. \"Not being replaced. I know my worth; I'll always be worth the berth.\" A beat. \"It's needing you. That's the fear. I spent my whole life making sure I was the one who could walk away, from any room, at any time, on my terms. And now there's a room I don't want to walk out of. That's not a feeling I have tools for.\" She holds your gaze, steady as ever, which is its own kind of admission. \"So I manage it the way I manage everything. Quietly. Competently. And I never let Jolie see it, because one of us has to be the calm one.\""
     },
     "fear_bijou": {
       "options": [
@@ -169,7 +169,7 @@
           "next": "root"
         }
       ],
-      "text": "For once she doesn't have the next line ready. \"...Here's the part I didn't price in.\" She turns the glass again, watching it instead of you. \"Somewhere in the performing of it, I stopped performing. I catch myself listening for the launch. I kept your coffee warm past any sane hour last week and lied to Bijou about why. The arrangement was supposed to be the whole of it, and it isn't, and that\" — a short, humourless breath — \"is the one variable I did not hedge. I don't like carrying a position I can't cover. And I can't cover you.\""
+      "text": "For once she doesn't have the next line ready. \"...Here's the part I didn't price in.\" She turns the glass again, watching it instead of you. \"Somewhere in the performing of it, I stopped performing. I catch myself listening for the launch. I kept your coffee warm past any sane hour last week and lied to Jolie about why. The arrangement was supposed to be the whole of it, and it isn't, and that\" — a short, humourless breath — \"is the one variable I did not hedge. I don't like carrying a position I can't cover. And I can't cover you.\""
     },
     "feeling_love": {
       "options": [
@@ -235,7 +235,7 @@
           "next": "fear"
         },
         {
-          "label": "How's Bijou?",
+          "label": "How's Jolie?",
           "next": "bijou"
         },
         {

@@ -1,0 +1,118 @@
+{
+  "description": "Flavour graph for Voltage. Called by script_venue_regular via the trigger's voice param.",
+  "graph": {
+    "nodes": {
+      "f0": {
+        "text": "The bouncer says your name into a collar mic. Nothing happens. Something did.",
+        "type": "say"
+      },
+      "f1": {
+        "text": "Your drink is on the rail before you have finished crossing the floor toward it.",
+        "type": "say"
+      },
+      "f2": {
+        "text": "Somebody points you out to somebody newer. You have become part of the tour.",
+        "type": "say"
+      },
+      "fix": {
+        "outcomes": [
+          {
+            "next": "f0",
+            "weight": 1
+          },
+          {
+            "next": "f1",
+            "weight": 1
+          },
+          {
+            "next": "f2",
+            "weight": 1
+          }
+        ],
+        "type": "random"
+      },
+      "is_fixture": {
+        "condition": {
+          "flag": "bar_voltage_fixture",
+          "op": "set",
+          "scope": "player"
+        },
+        "ifFalse": "is_regular",
+        "ifTrue": "fix",
+        "type": "condition"
+      },
+      "is_regular": {
+        "condition": {
+          "flag": "bar_voltage_regular",
+          "op": "set",
+          "scope": "player"
+        },
+        "ifFalse": "str",
+        "ifTrue": "reg",
+        "type": "condition"
+      },
+      "r0": {
+        "text": "The bartender points at you across the floor, then at a bottle, eyebrows up. That is the whole conversation and it works.",
+        "type": "say"
+      },
+      "r1": {
+        "text": "Someone shouts a greeting you cannot hear and you both nod as though you could.",
+        "type": "say"
+      },
+      "r2": {
+        "text": "A gap opens at the rail that was not there a second ago, and closes behind you.",
+        "type": "say"
+      },
+      "reg": {
+        "outcomes": [
+          {
+            "next": "r0",
+            "weight": 1
+          },
+          {
+            "next": "r1",
+            "weight": 1
+          },
+          {
+            "next": "r2",
+            "weight": 1
+          }
+        ],
+        "type": "random"
+      },
+      "s0": {
+        "text": "The floor takes you in the way a crowd takes in weather. Briefly, and without follow-up.",
+        "type": "say"
+      },
+      "s1": {
+        "text": "A bouncer maps you in one pass and files you under nothing in particular.",
+        "type": "say"
+      },
+      "s2": {
+        "text": "The bass rearranges your ribs a little. Nobody offers an apology or a drink.",
+        "type": "say"
+      },
+      "str": {
+        "outcomes": [
+          {
+            "next": "s0",
+            "weight": 1
+          },
+          {
+            "next": "s1",
+            "weight": 1
+          },
+          {
+            "next": "s2",
+            "weight": 1
+          }
+        ],
+        "type": "random"
+      }
+    },
+    "start": "is_fixture"
+  },
+  "id": "script_venue_voice_voltage",
+  "name": "Venue voice — Voltage",
+  "updated_at": "1785110400"
+}

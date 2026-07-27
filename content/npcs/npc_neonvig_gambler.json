@@ -27,7 +27,7 @@
     "\"You a caller? Sit down. I like callers.\"",
     "watches the poker felt the way a stray watches a butcher's door"
   ],
-  "description": "A wiry man in a sweat-ringed shirt and a lucky jacket that has clearly run out of luck. His eyes track every chip in the room and every hand at the felt. He's been here since it opened, or possibly since it was built — nobody's sure he ever leaves. They call him Ledger, because he remembers exactly what everyone owes.",
+  "description": "A wiry man in a sweat-ringed shirt and a lucky jacket that has clearly run out of luck. His eyes track every chip in the room and every hand at the felt. He's been here since it opened, or possibly since it was built — nobody's sure he ever leaves. They call him Tally, because he remembers exactly what everyone owes.",
   "dialogue_tree": {
     "bye": {
       "options": [],
@@ -90,7 +90,7 @@
   "hp": 25,
   "hp_max": 25,
   "id": "npc_neonvig_gambler",
-  "name": "Ledger",
+  "name": "Tally",
   "npc_type": "gambler",
   "sex": "male",
   "studio_zone_id": null,

@@ -1,0 +1,19 @@
+{
+  "chance": 1,
+  "conditions": [],
+  "cooldown_seconds": 900,
+  "description": "Visit-tier tracking for The Crown. 15-minute cooldown so pacing in and out of the door cannot farm the house round.",
+  "enabled": 1,
+  "event": "zone.entered",
+  "id": "trigger_venue_visit_crown",
+  "name": "The Crown — remembers you",
+  "once": 0,
+  "params": {
+    "drink": "item_drink_crown_champagne",
+    "venue": "crown",
+    "voice": "script_venue_voice_crown"
+  },
+  "script_id": "script_venue_regular",
+  "updated_at": "1785110400",
+  "zone_id": "zone_mq_chrome_roof"
+}

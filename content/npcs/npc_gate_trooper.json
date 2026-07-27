@@ -6,7 +6,7 @@
     "\"You're braver than me, going out there. Or dumber. Coin toss.\"",
     "scans the killing ground through a cracked monocular, sees nothing, looks disappointed about it."
   ],
-  "description": "Young, wiry, and visibly wishing she'd drawn any other post. Trooper Quill keeps one hand near her sidearm and the other wrapped around a thermos of something that stopped being coffee hours ago. Her grey fatigues are a size too big and standard-issue bored.",
+  "description": "Young, wiry, and visibly wishing she'd drawn any other post. Trooper Nadre keeps one hand near her sidearm and the other wrapped around a thermos of something that stopped being coffee hours ago. Her grey fatigues are a size too big and standard-issue bored.",
   "dialogue_tree": {
     "bye": {
       "options": [],
@@ -28,7 +28,7 @@
           "next": "post"
         }
       ],
-      "text": "Quill straightens up like she's been caught slacking, which she has. \"Sergeant does the talking. I just make sure nothing walks IN off that ground.\""
+      "text": "Nadre straightens up like she's been caught slacking, which she has. \"Sergeant does the talking. I just make sure nothing walks IN off that ground.\""
     }
   },
   "faction": null,
@@ -45,7 +45,7 @@
   "hp": 80,
   "hp_max": 80,
   "id": "npc_gate_trooper",
-  "name": "Trooper Quill",
+  "name": "Trooper Nadre",
   "npc_type": "npc",
   "sex": "female",
   "studio_zone_id": null,

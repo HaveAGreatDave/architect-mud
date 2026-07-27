@@ -6,7 +6,7 @@
     "checks the turret feed on his slate, grunts, and goes back to watching the road.",
     "\"Curtain held another night. Small mercies.\""
   ],
-  "description": "A slab of a man gone grey at the temples and greyer in the uniform, Sergeant Kessler has manned this gate long enough to stop counting the ones who walked south. A worn service carbine rides one shoulder; a battered data-slate rides the other. He watches the killing ground the way other men watch a pot about to boil over.",
+  "description": "A slab of a man gone grey at the temples and greyer in the uniform, Sergeant Boedeker has manned this gate long enough to stop counting the ones who walked south. A worn service carbine rides one shoulder; a battered data-slate rides the other. He watches the killing ground the way other men watch a pot about to boil over.",
   "dialogue_tree": {
     "back_q": {
       "options": [
@@ -19,7 +19,7 @@
     },
     "bye": {
       "options": [],
-      "text": "Kessler grunts and turns back to the road. \"Try not to make paperwork of yourself.\""
+      "text": "Boedeker grunts and turns back to the road. \"Try not to make paperwork of yourself.\""
     },
     "root": {
       "options": [
@@ -32,7 +32,7 @@
           "next": "back_q"
         }
       ],
-      "text": "Kessler looks you up and down, unhurried. \"Gate's open, citizen. Always has been. The question is whether you're walking back through it.\""
+      "text": "Boedeker looks you up and down, unhurried. \"Gate's open, citizen. Always has been. The question is whether you're walking back through it.\""
     },
     "what": {
       "options": [
@@ -58,7 +58,7 @@
   "hp": 110,
   "hp_max": 110,
   "id": "npc_gate_sergeant",
-  "name": "Sergeant Kessler",
+  "name": "Sergeant Boedeker",
   "npc_type": "npc",
   "sex": "male",
   "studio_zone_id": null,

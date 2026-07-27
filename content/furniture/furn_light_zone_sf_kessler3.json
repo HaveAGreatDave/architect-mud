@@ -1,0 +1,18 @@
+{
+  "description": "A pair of strip lights end to end down the middle of the ceiling, one of them buzzing at a pitch you stop hearing after a minute and then cannot stop hearing.",
+  "flags": {
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_sf_kessler3",
+  "light_type": "overhead",
+  "lumen_output": 750,
+  "name": "ceiling strip",
+  "object_type": "light",
+  "power_draw_kw": 4,
+  "price": 40,
+  "zone_id": "zone_sf_kessler3"
+}

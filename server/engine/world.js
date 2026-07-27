@@ -1044,7 +1044,7 @@ const SPAWN_MESSAGES = [
   n => `A ${n} peels away from the wall.`,
 ];
 
-function pickSpawnMessage(name) {
+export function pickSpawnMessage(name) {
   return SPAWN_MESSAGES[Math.floor(Math.random() * SPAWN_MESSAGES.length)](name);
 }
 

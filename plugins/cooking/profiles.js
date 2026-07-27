@@ -13,12 +13,40 @@
 // poor no matter how carefully you didn't cook it. The target is a ceiling — the
 // process (heat, vessel, turning, timing, skill) decides how close you get to it.
 
-export const QUALITY_BANDS = ['poor', 'acceptable', 'good', 'excellent', 'masterful'];
+// The quality scale, finest-to-coarsest reading left to right.
+//
+// This was five bands and is now nine. The five ORIGINAL names are kept and sit
+// at exactly TWICE their old index — poor 0→0, acceptable 1→2, good 2→4,
+// excellent 3→6, masterful 4→8 — so every band already stamped on a plated meal,
+// written into a cookbook, or named as a profile's `targets` ceiling still means
+// precisely what it meant. Nothing needed migrating; the scale just got a
+// halfway house between each pair of rungs.
+//
+// Because the span doubled (4 → 8), every scoring constant expressed in BANDS
+// doubles with it — see BAND_SCALE in config.js. That keeps the difficulty curve
+// identical and makes this a change to RESOLUTION, not to balance.
+export const QUALITY_BANDS = [
+  'poor',        // 0
+  'grim',        // 1  ← new
+  'acceptable',  // 2   the baseline: exactly 1.0x restores
+  'decent',      // 3  ← new
+  'good',        // 4
+  'very good',   // 5  ← new
+  'excellent',   // 6
+  'superb',      // 7  ← new
+  'masterful',   // 8
+];
+
+// What the scale used to be, and where each rung landed. Asserted by regress:
+// if a future edit moves one of these, every stamped meal in the database
+// silently changes meaning.
+export const LEGACY_BAND_INDEX = { poor: 0, acceptable: 2, good: 4, excellent: 6, masterful: 8 };
 
 export const PROFILES = {
   // A thick cut of meat: slow, forgiving to turn once, punishing past the window.
   dense_meat: {
     label: 'dense meat',
+    needsPrep: true,   // arrives whole — has to be cut down before it goes in
     cookRateMult: 1.0,       // scales COOK_SECONDS_PER_KG
     peakFraction: 0.35,      // peak window length, as a fraction of cookMs
     burnFraction: 0.9,       // how long past peak before it's burnt
@@ -46,6 +74,7 @@ export const PROFILES = {
   // Bad raw, good for a long time once cooked. Slow, and hard to actually ruin.
   starchy_vegetable: {
     label: 'starchy vegetable',
+    needsPrep: true,   // arrives whole — has to be cut down before it goes in
     cookRateMult: 1.4,
     peakFraction: 0.6,
     burnFraction: 1.2,
@@ -57,6 +86,7 @@ export const PROFILES = {
   // Fine raw, fine cooked, ruined by handling. Fast.
   soft_vegetable: {
     label: 'soft vegetable',
+    needsPrep: true,   // arrives whole — has to be cut down before it goes in
     cookRateMult: 0.6,
     peakFraction: 0.3,
     burnFraction: 0.5,
@@ -83,6 +113,7 @@ export const PROFILES = {
   // also how it goes from caramel to carbon while you're looking elsewhere.
   fruit: {
     label: 'fruit',
+    needsPrep: true,   // arrives whole — has to be cut down before it goes in
     cookRateMult: 0.5,
     peakFraction: 0.35,
     burnFraction: 0.4,
@@ -178,6 +209,13 @@ export const HANDLING_VERB = { liquid: 'stir' };
 // opposite of the intent. So they never take a cook session of their own, are
 // never scored or burnt, and contribute a flat seasoning bonus to the finished
 // dish instead. You do not plate the garlic separately.
+// Profiles that arrive WHOLE — a cut, a root, a bulb, a fruit. Combining them
+// into a dish means cutting them down first, which is what the knife is for.
+// Declared on the profile rather than per-recipe so every dish that uses one is
+// covered the moment it is written, and none can be forgotten.
+export const profileNeedsPrep = name => !!PROFILES[name]?.needsPrep;
+export const needsPrep = invRow => profileNeedsPrep(profileNameFor(invRow));
+
 export const isModifierProfile = name => !!PROFILES[name]?.modifier;
 export const isModifier = invRow => isModifierProfile(profileNameFor(invRow));
 
@@ -190,6 +228,11 @@ export const instanceNoun = invRow => {
 };
 
 export function profileNameFor(invRow) {
+  // A smoked cut IS preserved, whatever it started as — that's the whole point
+  // of smoking it, and it's why smoked meat slots into every preserved recipe
+  // without a single new dish template.
+  const smoked = invRow?.custom_data?.smoked;
+  if (smoked && PROFILES[smoked]) return smoked;
   const bag = invRow?.tags || invRow?.flags || {};
   const name = bag.food_profile;
   return typeof name === 'string' && PROFILES[name] ? name : null;

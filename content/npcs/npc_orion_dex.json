@@ -212,7 +212,7 @@
           "next": "bye"
         }
       ],
-      "text": "Orion Dex doesn't look up from the cards he's riffle-shuffling. \"You're either here to play or you're in the way. Which is it?\""
+      "text": "Orion Thale doesn't look up from the cards he's riffle-shuffling. \"You're either here to play or you're in the way. Which is it?\""
     },
     "rules": {
       "options": [
@@ -241,7 +241,7 @@
   "hp": 25,
   "hp_max": 25,
   "id": "npc_orion_dex",
-  "name": "Orion Dex",
+  "name": "Orion Thale",
   "npc_type": "dealer",
   "sex": "male",
   "studio_zone_id": null,

@@ -1,0 +1,13 @@
+{
+  "description": "A slotted steel grate over a bed of coals, standing waist-high on three legs. The bars are seasoned black and permanently warm. It does one thing, at one temperature, extremely well.",
+  "flags": {
+    "stove_tier": "high",
+    "interactions": [
+      "lean"
+    ]
+  },
+  "id": "furn_charcoal_grill",
+  "name": "charcoal grill",
+  "object_type": "fixture",
+  "zone_id": "zone_kitchenware"
+}

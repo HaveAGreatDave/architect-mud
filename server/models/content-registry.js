@@ -158,6 +158,15 @@ export const REGISTRY = [
   // the zone as `flags.rent_cost` (content, read via authoredRentCost); lock_difficulty
   // was vestigial (rent resets it to BASE) and building_name is derived from the zone. */
   { table: 'apartments', class: 'player' },
+  // Player-owned shops (plugins/storefront) — the deed + mortgage ledger, same law
+  // as apartments: exporting it would stamp phantom/ownerless deeds over prod and a
+  // deleted file would wipe a real player's shop. The authored side (which units are
+  // for sale, and at what price/term) is zone flags, which DO ship as content.
+  { table: 'storefronts', class: 'player' },
+  // Hired staff and standing buy orders hang off a player's deed and are just as
+  // much player data — an exported clerk would be a phantom employee on every DB.
+  { table: 'storefront_staff', class: 'player' },
+  { table: 'storefront_orders', class: 'player' },
   // Which apartment units NPCs live in — authored alongside npc.home_zone. Placed
   // after npcs + zones (both FK'd). Kept in sync by the NPC create/edit/auto-house
   // endpoints and the reconcile script.
@@ -178,6 +187,7 @@ export const REGISTRY = [
 
   // ── content: scripting / quests / factions ──
   { table: 'scripts', class: 'content', pk: ['id'], readTier: 'cold' },              // one row per graph run
+  { table: 'script_triggers', class: 'content', pk: ['id'], readTier: 'boot' },      // loadScriptTriggers
   { table: 'npc_banter_threads', class: 'content', pk: ['id'], readTier: 'boot' },   // loadBanterLibrary
   { table: 'ambient_routines', class: 'content', pk: ['id'], readTier: 'boot' },     // ambient-life plugin cache
   { table: 'quests', class: 'content', pk: ['id'], readTier: 'ttl', // plugins/quests 30s definition cache
@@ -259,6 +269,7 @@ export const REGISTRY = [
   { table: 'email_verification_tokens', class: 'player' },
 
   // ── runtime: world state regenerated / accumulated at play time ──
+  { table: 'script_waits', class: 'runtime' }, // parked long `wait` continuations; deleted on resume
   { table: 'world_events', class: 'runtime' },
   { table: 'void_traces', class: 'runtime' },      // voidwalking — scrawls/corpses left in the void, purged as windows rotate
   { table: 'world_clock', class: 'runtime' },

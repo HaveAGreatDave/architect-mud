@@ -1,30 +1,34 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
+  "ambient_theme": "indoors",
   "audio_theme_id": null,
-  "bg_color": "#2f3a26",
-  "color": "#8ba36a",
+  "bg_color": "#3a3550",
+  "color": "#e8e0ff",
   "created_by": "zone-planner",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "description": "A narrow shopfront wedged between the studio blocks, its window whitewashed from the inside and a letting notice taped to the glass at a hopeful angle. The old fascia has been unbolted, leaving four bright screw-holes and a ghost of the name that used to be there. Whoever takes it gets the best-looked-at forty feet of pavement on Marrow Street.",
   "exits": {
-    "north": "zone_district_913_907",
     "south": "zone_district_913_909",
-    "west": "zone_district_912_908"
+    "north": "zone_sf_marrow4"
   },
   "flags": {
     "district": "wasteland",
     "planner": "bp_district",
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_west_wastes",
-    "terrain": "grass"
+    "terrain": "concrete",
+    "building_name": "Unit 4, Marrow Street",
+    "building_type": "shop",
+    "is_building": true,
+    "facade": true,
+    "entrance": "south",
+    "world_exit_zone": "zone_district_913_909"
   },
   "grid_x": 913,
   "grid_y": 908,
   "grid_z": 0,
   "id": "zone_district_913_908",
   "map_id": "map_world",
-  "marker": "#",
-  "name": "Grasslands",
+  "marker": "M4",
+  "name": "Unit 4, Marrow Street",
   "parent_zone": null,
-  "updated_at": "1783739474"
+  "updated_at": "1784800000"
 }

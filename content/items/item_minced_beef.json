@@ -1,0 +1,23 @@
+{
+  "description": "A tray of coarse mince, dark red gone brown at the edges where the air got to it. Cheaper than the cut it came off and better for some things.",
+  "flags": {},
+  "id": "item_minced_beef",
+  "name": "minced beef",
+  "tags": {
+    "description": "A tray of coarse mince, dark red gone brown at the edges where the air got to it. Cheaper than the cut it came off and better for some things.",
+    "consumable": true,
+    "restore_hunger": 18,
+    "stackable": true,
+    "food_profile": "dense_meat",
+    "food_noun": "beef",
+    "needs_cooking": true,
+    "perishable": true,
+    "spoil_rate": "fast",
+    "status_chance": {
+      "food_poisoning": 0.45
+    }
+  },
+  "type": "consumable",
+  "value": 12,
+  "weight": 300
+}

@@ -1,0 +1,19 @@
+{
+  "chance": 1,
+  "conditions": [],
+  "cooldown_seconds": 900,
+  "description": "Visit-tier tracking for The Dead Pigeon. 15-minute cooldown so pacing in and out of the door cannot farm the house round.",
+  "enabled": 1,
+  "event": "zone.entered",
+  "id": "trigger_venue_visit_pigeon",
+  "name": "The Dead Pigeon — remembers you",
+  "once": 0,
+  "params": {
+    "drink": "item_drink_basin_swill",
+    "venue": "pigeon",
+    "voice": "script_venue_voice_pigeon"
+  },
+  "script_id": "script_venue_regular",
+  "updated_at": "1785110400",
+  "zone_id": "zone_mq_pigeon_bar"
+}

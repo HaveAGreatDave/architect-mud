@@ -26,7 +26,7 @@
     "\"Doc's good. Doc's the only good thing on this row.\"",
     "\"You think this is bad, you shoulda seen the other guy.\""
   ],
-  "description": "A hunched patient on the bench cradling a wrapped hand, waiting his turn with the patience of the truly broke. The intake slip curled in his good hand reads PELL, B. — third visit this month, same hand.",
+  "description": "A hunched patient on the bench cradling a wrapped hand, waiting his turn with the patience of the truly broke. The intake slip curled in his good hand reads HASK, B. — third visit this month, same hand.",
   "dialogue_tree": {
     "bye": {
       "options": [],
@@ -39,7 +39,7 @@
           "next": "bye"
         }
       ],
-      "text": "He nods at the curtain. \"Take a number. She's worth the wait.\" He adjusts the wrapped hand and winces at it. \"Pell. Bo. And I'm ahead of you, so don't get clever.\""
+      "text": "He nods at the curtain. \"Take a number. She's worth the wait.\" He adjusts the wrapped hand and winces at it. \"Hask. Bo. And I'm ahead of you, so don't get clever.\""
     }
   },
   "faction": null,
@@ -56,7 +56,7 @@
   "hp": 40,
   "hp_max": 40,
   "id": "npc_clinic_patient",
-  "name": "Bo Pell",
+  "name": "Bo Hask",
   "npc_type": "civilian",
   "sex": "male",
   "studio_zone_id": null,

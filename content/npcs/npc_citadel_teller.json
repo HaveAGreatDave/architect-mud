@@ -289,7 +289,7 @@
   "hp": 40,
   "hp_max": 40,
   "id": "npc_citadel_teller",
-  "name": "Robo Teller",
+  "name": "Citadel Cashbot",
   "npc_type": "npc",
   "sex": "female",
   "studio_zone_id": null,
