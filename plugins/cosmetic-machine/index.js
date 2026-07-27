@@ -24,7 +24,7 @@
  */
 import { query } from '../../server/models/db.js';
 import { randomAppearance } from '../../server/engine/appearance.js';
-import { isMisActive } from '../../server/engine/mis.js';
+import { isMisActive, SEXUALITIES } from '../../server/engine/mis.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { registerAction } from '../../server/engine/actions.js';
 import { emit } from '../../server/engine/events.js';
@@ -38,6 +38,10 @@ const BREAST_MAP   = { flat:0, small:1, medium:2, large:3, 'very large':4 };
 const TESTICLE_SIZES = ['small','average','large','very large'];
 const MALE_ASS_SIZES   = ['flat','small','average','round','large'];
 const FEMALE_ASS_SIZES = ['flat','small','average','round','large','enormous'];
+
+// 0.25in and 15in in centimetres — the authored bounds of the species.
+export const MIN_PENIS_CM = 0.6;
+export const MAX_PENIS_CM = 38.1;
 
 const MACHINE_NAMES = ['morphex', 'biosculpt', 'makeover', 'morphex 9000'];
 
@@ -220,8 +224,12 @@ async function cmdMorphex(args, raw, player) {
   if (sub === 'penis') {
     if (!isMisActive(player)) return buildPanelData(player, `That option isn't available.`);
     if (player.biological_sex !== 'male') return buildPanelData(player, 'Not applicable.');
-    const targetCm = parseInt(rest[0]);
-    if (isNaN(targetCm) || targetCm < 5 || targetCm > 30) return buildPanelData(player, 'Enter a target length in cm (5–30).');
+    // Range is 0.25in (micropenis) up to 15in, stored in cm to one decimal.
+    // parseFloat, not parseInt — the bottom of the range is under a centimetre.
+    const targetCm = Math.round(parseFloat(rest[0]) * 10) / 10;
+    if (isNaN(targetCm) || targetCm < MIN_PENIS_CM || targetCm > MAX_PENIS_CM) {
+      return buildPanelData(player, `Enter a target length in cm (${MIN_PENIS_CM}–${MAX_PENIS_CM} — that's 0.25in to 15in).`);
+    }
     const appData = player.appearance_data || {};
     const delta = Math.abs(targetCm - (appData.penis_length_cm || 12));
     const totalCost = player._morphexChargen ? 0 : Math.max(5, delta * 5);
@@ -285,7 +293,6 @@ async function cmdMorphex(args, raw, player) {
   // sexuality — MIS only
   if (sub === 'sexuality') {
     if (!isMisActive(player)) return buildPanelData(player, `That option isn't available.`);
-    const SEXUALITIES = ['Male', 'Female', 'Male and Female'];
     const val = rest.join(' ');
     const match = SEXUALITIES.find(s => s.toLowerCase() === val.toLowerCase());
     if (!match) return buildPanelData(player, `Valid options: ${SEXUALITIES.join(', ')}`);

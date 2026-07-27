@@ -1,13 +1,13 @@
 {
+  "description": "A steel ring packed with ball bearings, cleaned of grit and re-greased with something that smells worse than the grit did. Spins beautifully. Weighs more than it looks.",
   "flags": {},
   "id": "item_bearing_race",
   "name": "bearing race",
-  "description": "A steel ring packed with ball bearings, cleaned of grit and re-greased with something that smells worse than the grit did. Spins beautifully. Weighs more than it looks.",
-  "type": "misc",
-  "value": 28,
-  "weight": 900,
   "tags": {
     "description": "A steel ring packed with ball bearings, cleaned of grit and re-greased with something that smells worse than the grit did. Spins beautifully. Weighs more than it looks.",
     "misc": true
-  }
+  },
+  "type": "misc",
+  "value": 28,
+  "weight": 900
 }

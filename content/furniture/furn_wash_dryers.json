@@ -1,0 +1,21 @@
+{
+  "description": "Four dryers facing the washers, drums turning even when nobody has paid, because the door catch on the end one has never worked and the warmth is the point.",
+  "flags": {
+    "interactions": [
+      "launder"
+    ],
+    "wash_cycle_ms": 14000,
+    "wash_price": 4,
+    "washing_machine": true
+  },
+  "hp": 60,
+  "hp_max": 60,
+  "id": "furn_wash_dryers",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "facing row of dryers",
+  "object_type": "fixture",
+  "power_draw_kw": 3.1,
+  "price": 180,
+  "zone_id": "zone_the_wash"
+}

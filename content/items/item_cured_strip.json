@@ -4,12 +4,12 @@
   "id": "item_cured_strip",
   "name": "cured strip",
   "tags": {
-    "description": "A dark strip of muscle, salt-crusted and hard as a belt. Hung somewhere dry for a season. Chew it long enough and it gives up something like flavour.",
     "consumable": true,
+    "description": "A dark strip of muscle, salt-crusted and hard as a belt. Hung somewhere dry for a season. Chew it long enough and it gives up something like flavour.",
+    "food_noun": "cured meat",
+    "food_profile": "preserved",
     "restore_hunger": 16,
     "stackable": true,
-    "food_profile": "preserved",
-    "food_noun": "cured meat",
     "status_chance": {
       "food_poisoning": 0.1
     }

@@ -1,15 +1,15 @@
 {
   "description": "An open-fronted chiller case running the length of aisle three, its cold spilling out over the floor in a slow invisible tide. Strip lights under the shelf lip make the produce look better than it is. A curled sign taped to the glass reads PLEASE PAY AT COUNTER — the tape has outlived the ink.",
   "flags": {
-    "container": 60000,
-    "preserves": "refrigerated",
-    "appliance_grade": "commercial",
-    "vendor_stock": "npc_ration_cook",
-    "backstock": "furn_ration9_fridge",
     "aliases": "chiller case, chiller, cooler, produce case",
+    "appliance_grade": "commercial",
+    "backstock": "furn_ration9_fridge",
+    "container": 60000,
     "interactions": [
       "lean"
-    ]
+    ],
+    "preserves": "refrigerated",
+    "vendor_stock": "npc_ration_cook"
   },
   "hp": null,
   "hp_max": null,

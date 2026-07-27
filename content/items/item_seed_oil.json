@@ -4,14 +4,14 @@
   "id": "item_seed_oil",
   "name": "seed oil",
   "tags": {
-    "description": "A green-tinged bottle of cold-pressed something, cloudy at the bottom. Burns lower than the industrial stuff and tastes of the field it came out of.",
     "consumable": true,
-    "restore_hunger": 5,
-    "stackable": true,
-    "food_profile": "fat_or_oil",
+    "description": "A green-tinged bottle of cold-pressed something, cloudy at the bottom. Burns lower than the industrial stuff and tastes of the field it came out of.",
     "food_noun": "fried",
+    "food_profile": "fat_or_oil",
     "perishable": true,
+    "restore_hunger": 5,
     "spoil_rate": "slow",
+    "stackable": true,
     "status_chance": {
       "food_poisoning": 0.1
     }

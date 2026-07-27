@@ -10,6 +10,9 @@ import { getBroadcast, setBroadcast } from '../../server/engine/messaging.js';
 import { emit } from '../../server/engine/events.js';
 const tabletTunersClear = (id) => _test.tabletTuners.delete(id);
 import { getCrimeStars, getCrimeWitness } from '../../server/engine/crimes.js';
+import { _audienceTest } from './audience.js';
+import { rowIsInstanced, NOT_INSTANCED_SQL } from '../../server/engine/inventory.js';
+import { getRegisteredMoveGates } from '../../server/engine/movement-gates.js';
 
 export default async function regress({ check, run, getPlayer }) {
   // ── Deterministic DEADBALL league ───────────────────────────────────────────
@@ -821,5 +824,611 @@ export default async function regress({ check, run, getPlayer }) {
     // Impairment reads the live NPC; an id that isn't anyone is simply sharp.
     const imp = _test.actorImpairment('__nobody__');
     check('an unknown actor reads as unimpaired', imp.level === 0 && imp.out === false, JSON.stringify(imp));
+  }
+
+  // ── Studio audience door ────────────────────────────────────────────────────
+  // A pass is a dated document and the door is a person: both halves are tested
+  // here because both are the point (a pass that admits you any night is not a
+  // ticket, and a gate you can't kill or wait out is not a bouncer).
+  {
+    const A = _audienceTest;
+    const G = 8;
+    const talkshow = { playback_mode: 'talkshow', broadcastId: 'bc_x', broadcastName: 'Tonight', talkshowScript: { airSlots: [7] } };
+    const gameshow = { playback_mode: 'gameshow', broadcastId: 'bc_y', broadcastName: 'The Last Lot', gameshowScript: { airSlots: [4] } };
+    const rerun    = { playback_mode: 'clip', broadcastId: 'bc_z', broadcastName: 'Rerun' };
+    const state = { playlist: [rerun, gameshow, talkshow] };
+
+    check('doorman works every hour but the dead ones',
+      A.doormanOnShift(8) && A.doormanOnShift(23) && A.doormanOnShift(1) && !A.doormanOnShift(2) && !A.doormanOnShift(7),
+      'shift window should be 08:00 through 02:00');
+
+    check('a taping is found in its own airtime block',
+      A.showingAt(state, 100 * G + 7, G) === talkshow && A.showingAt(state, 100 * G + 4, G) === gameshow,
+      'airSlots did not select the right show');
+    check('no taping outside any show’s block',
+      A.showingAt(state, 100 * G + 0, G) === null && A.showingAt(state, 100 * G + 5, G) === null,
+      'a pre-recorded rerun was mistaken for a live house');
+    check('a pre-recorded playlist never opens a house',
+      A.showingAt({ playlist: [rerun] }, 12345, G) === null, 'clips are not tapings');
+    check('an acted show with no airSlots is continuous',
+      A.showingAt({ playlist: [{ playback_mode: 'talkshow', talkshowScript: {} }] }, 12345, G) !== null,
+      'no airSlots should mean every block');
+
+    // The slot IS the date — that is what makes yesterday's pass worthless
+    // without a calendar being stored anywhere.
+    const slotA = 100 * G + 7, slotB = 101 * G + 7;
+    check('the same block on two days is two different showings', slotA !== slotB, 'slot index is not self-dating');
+    check('a slot resolves to the in-game calendar date it falls on',
+      A.dateForSlot(slotA, G) === new Date(100 * 86400000).toISOString().slice(0, 10)
+      && A.dateForSlot(slotB, G) !== A.dateForSlot(slotA, G),
+      A.dateForSlot(slotA, G));
+
+    // The instance key is what stops two passes to two different nights merging
+    // into one row and laundering the wrong date onto the survivor.
+    check('a stamped pass never stack-merges',
+      rowIsInstanced({ custom_data: { show_pass: { slot: slotA } } }) === true, 'show_pass is not an instance key');
+    check('an unstamped pass still stacks normally',
+      rowIsInstanced({ custom_data: {} }) === false, 'plain rows should merge');
+    check('the SQL merge predicate excludes stamped rows',
+      NOT_INSTANCED_SQL.includes('show_pass'), 'NOT_INSTANCED_SQL drifted from INSTANCE_KEYS');
+
+    // The gate is a registered law, not something wired into movement by hand.
+    check('the audience door registers as a move gate',
+      getRegisteredMoveGates().includes('broadcast:audience-door'), getRegisteredMoveGates().join(','));
+  }
+
+  // ── Sermons (@type sermon) ──────────────────────────────────────────────────
+  // Dynamic but NOT acted: the whole point is that it reads the live news feed
+  // through a doctrine, spawns nobody, and never sounds the same twice.
+  {
+    const A = _test;
+    const script = {
+      verger: 'The Verger',
+      celebrants: [
+        { name: 'Deacon-Prime Orrin Vance', title: 'the soft one', tag: 'prime' },
+        { name: 'Brother Duc, Third Seal', title: 'the counter', tag: 'duc' },
+        { name: 'Curate Halm', title: 'the loud one', tag: 'halm' },
+      ],
+      pools: {
+        call: ['The eye is open.'],
+        invocation: ['Architect, we bring you nothing you require.'],
+        greeting: ['I am {celebrant}, {title}.'],
+        creed: ['Say it with me.'], 'creed.response': ['The flesh was an interval.'],
+        'reading.lead': ['Hear what was permitted: {headline}'],
+        'reading.text': ['{body}'],
+        'exegesis.prime': ['There is no cruelty in it.'],
+        'exegesis.duc': ['I counted. Fourteen.'],
+        'exegesis.halm': ['This is IT.'],
+        'exegesis.warning': ['Take this as the tap on the shoulder it is.'],
+        exegesis: ['The flesh was only ever an interval.'],
+        'interjection.duc': ['Fourteen.'], interjection: ['Hold there a moment.'],
+        amen: ['So it routes.'],
+        'testimony.lead': ['We have a witness.'], testimony: ['It does not hurt.'],
+        hymn: ['♪ We were the load. ♪'],
+        tithe: ['The Order takes no money at the door.'],
+        homily: ['You have spent this week resenting a thing that does not know your name.'],
+        benediction: ['Go now. Be less each day.'],
+        signoff: ['This has been The Calm Eye.'],
+      },
+    };
+    const stories = [
+      { headline: 'H1 Substation Fails', body: 'B1 upstream.', byline: 'Sentinel' },
+      { headline: 'H2 Clinic Intake', body: 'B2 declined to say.', byline: 'Wire' },
+      { headline: 'H3 Nine Days Alone', body: 'B3 no roster.', byline: 'Wire' },
+    ];
+    const linesOf = g => Object.values(g.nodes).filter(n => n.type === 'say').map(n => n.data.text);
+
+    const g0 = A.assembleSermonGraph(script, 'bc', stories, 'b0');
+    const l0 = linesOf(g0);
+    check('sermon: a service assembles', l0.length >= 12, String(l0.length));
+    check('sermon: the week\'s headlines are preached', stories.every(s => l0.some(t => t.includes(s.headline))),
+      JSON.stringify(l0.slice(0, 2)));
+    check('sermon: leaves no unfilled {tokens}', !l0.some(t => /\{\w+\}/.test(t)), l0.find(t => /\{\w+\}/.test(t)) || 'clean');
+    check('sermon: celebrants are named, not anchored to NPCs',
+      l0.some(t => t.startsWith('Deacon-Prime') || t.startsWith('Brother Duc') || t.startsWith('Curate Halm')), l0[2] || '');
+    check('sermon: the congregation answers unattributed',
+      l0.some(t => t === 'So it routes.'), 'no bare responsive line');
+
+    // Not acted: no presence gate, or a service would drop to PLEASE STAND BY with
+    // an empty studio — the one thing a pre-recorded-feeling programme must not do.
+    check('sermon: never presence-gates', !g0._requireHost, 'graph demands a host');
+
+    // Variety is the brief. Twelve services off the SAME three headlines must differ.
+    const sigs = new Set();
+    for (let k = 0; k < 12; k++) sigs.add(linesOf(A.assembleSermonGraph(script, 'bc', stories, `b${k}`)).join('|'));
+    check('sermon: no two services are the same', sigs.size >= 10, `${sigs.size}/12 distinct`);
+
+    // A weekly show rides the day mask that already existed — ensureTalkshowSlot is
+    // the shared pinning path, so this is what makes talk shows and game shows weekly too.
+    check('sermon: @airday makes the pinned slot weekly',
+      A.filmDayMask([7], 0) === (1 << 6), String(A.filmDayMask([7], 0)));
+  }
+
+  // ── Films (@type film) ──────────────────────────────────────────────────────
+  // A feature is an ordinary linear graph, so nothing here re-assembles. What is
+  // worth pinning is the seek: a film is authored in REAL minutes and every other
+  // daily slot is authored on the in-game clock, so a late viewer only lands on the
+  // right shot if the reel is walked with a real-time offset and the walk is allowed
+  // to run long enough to reach the far end of a two-hour picture.
+  {
+    const A = _test;
+    // A chain of 900 lines, each held ~5s — roughly the shape of a feature.
+    const nodes = { start: { type: 'start', data: {}, } };
+    let prev = 'start';
+    const edges = [];
+    for (let n = 0; n < 900; n++) {
+      const id = `s${n}`;
+      nodes[id] = { type: 'say', data: { text: 'x'.repeat(36), style: 'verbatim' } };
+      edges.push({ fromNode: prev, fromPort: 'next', toNode: id });
+      prev = id;
+    }
+    const film = { _start: 'start', nodes, edges, _normalized: true };
+    const holdMs = A.nodeHoldMs(nodes.s0);
+
+    const bbHead = {};
+    A.seekGraph(film, bbHead, 1, 0);
+    check('film: a viewer at the start lands on the first shot', bbHead.currentNode === 's0', String(bbHead.currentNode));
+
+    // Deep seek — the beat this is really guarding. With the old fixed 2000-step
+    // budget a walk this far in stopped early and stranded the viewer mid-picture.
+    const target = 850;
+    const bbLate = {};
+    A.seekGraph(film, bbLate, target * Math.ceil(holdMs / 5000) * 5000 + 10, 0);
+    check('film: a late viewer lands deep in the reel, not stranded partway',
+      bbLate.currentNode === `s${target}`, `${bbLate.currentNode} (wanted s${target})`);
+
+    // The reel does not restart for the latecomer — that is the whole point of
+    // pinning a picture to a block instead of looping it per viewer.
+    check('film: seeking never rewinds to the head', bbLate.currentNode !== 's0', String(bbLate.currentNode));
+
+    // A film's slot reserves the screening block, like a talk show's — and, uniquely,
+    // it must do so even when @length set an override_duration, because a film's
+    // @length is REAL seconds and a slot is measured in in-game seconds.
+    check('film: a slot reserves the whole screening block',
+      A.broadcastDuration({ playback_mode: 'film' }) === A.sportsSlotMs() / 1000,
+      String(A.broadcastDuration({ playback_mode: 'film' })));
+    check('film: a real-time @length never becomes the slot length',
+      A.broadcastDuration({ playback_mode: 'film', override_duration: 9000 }) === A.sportsSlotMs() / 1000,
+      String(A.broadcastDuration({ playback_mode: 'film', override_duration: 9000 })));
+
+    // The letterbox matte is a persistent layer, not a card: it must cost no airtime,
+    // or every switch of it would eat five seconds of the picture.
+    check('film: the letterbox matte holds no airtime',
+      A.nodeHoldMs({ type: 'overlay', data: { overlayType: 'letterbox', duration_s: 0, on: true } }) === 0, 'letterbox is free');
+    // A block's REAL length is (24h / timeScale) / 8 — sixty real minutes on the
+    // world's 3x clock. A feature does not fit in one, so it reserves a run of them.
+    const blockSec = A.sportsSlotMs() / 1000;
+    check('film: a short picture takes one block', A.filmBlocksNeeded(blockSec * 0.5) === 1, String(A.filmBlocksNeeded(blockSec * 0.5)));
+    check('film: a feature reserves as many blocks as its runtime needs',
+      A.filmBlocksNeeded(blockSec * 2.4) === 3, String(A.filmBlocksNeeded(blockSec * 2.4)));
+    check('film: a runtime of exactly one block does not over-reserve',
+      A.filmBlocksNeeded(blockSec) === 1, String(A.filmBlocksNeeded(blockSec)));
+
+    // The run is measured from its STAMPED head, or a multi-block picture restarts from
+    // the distributor card every time the schedule rolls into the next slot.
+    const BLOCK = 3 * 3600;
+    const HEAD = 21 * 3600;
+    const run = [
+      { broadcastId: 'f', startTime: 21 * 3600, duration: BLOCK, filmRunStart: HEAD },  // 21:00 → 24:00
+      { broadcastId: 'f', startTime: 0,         duration: BLOCK, filmRunStart: HEAD },  // 00:00 → 03:00
+      { broadcastId: 'f', startTime: 3 * 3600,  duration: BLOCK, filmRunStart: HEAD },  // 03:00 → 06:00
+    ];
+    check('film: elapsed in the first block counts from the start of the picture',
+      A.filmRunElapsed(run[0], 21 * 3600 + 600) === 600, String(A.filmRunElapsed(run[0], 21 * 3600 + 600)));
+    check('film: the second block does not rewind the picture — the run wraps midnight',
+      A.filmRunElapsed(run[1], 600) === BLOCK + 600, String(A.filmRunElapsed(run[1], 600)));
+    check('film: the third block keeps counting from the head',
+      A.filmRunElapsed(run[2], 3 * 3600 + 600) === 2 * BLOCK + 600, String(A.filmRunElapsed(run[2], 3 * 3600 + 600)));
+
+    // Two SEPARATE showings of the same picture that happen to abut. Inferring the run
+    // from which slots touch merged these into one and made the second showing seek
+    // past its own ending; the stamp keeps them distinct.
+    const twice = [
+      { broadcastId: 'f', startTime: 9 * 3600,  duration: BLOCK, filmRunStart: 9 * 3600 },
+      { broadcastId: 'f', startTime: 12 * 3600, duration: BLOCK, filmRunStart: 12 * 3600 },
+    ];
+    check('film: a second showing that abuts the first still starts at the beginning',
+      A.filmRunElapsed(twice[1], 12 * 3600 + 60) === 60, String(A.filmRunElapsed(twice[1], 12 * 3600 + 60)));
+
+    // A picture reserving every block used to form a ring with no head to walk back to.
+    const ring = [0, 3, 6, 9, 12, 15, 18, 21].map(h => ({ broadcastId: 'f', startTime: h * 3600, duration: BLOCK, filmRunStart: 21 * 3600 }));
+    check('film: an all-day picture still measures from its declared start',
+      A.filmRunElapsed(ring[4], 12 * 3600) === 15 * 3600, String(A.filmRunElapsed(ring[4], 12 * 3600)));
+
+    // Blocks are reserved whole, so the last one has a remainder. The picture must be
+    // over when it is over — the walker wraps to _start on an exhausted chain, so
+    // without the runtime check the tail of the screening replays the first act.
+    const runtime = 10476;                      // the film's real seconds
+    const reserved = A.filmBlocksNeeded(runtime) * blockSec;
+    check('film: reserved blocks exceed the runtime (there is always a tail)',
+      reserved > runtime, `${reserved}s reserved for ${runtime}s of film`);
+    check('film: the tail is smaller than one block',
+      reserved - runtime < blockSec, `${Math.round(reserved - runtime)}s tail`);
+
+    // The tail plays the commercial pool, the same rule every loop-filled slot uses —
+    // NOT a repeat of the picture, and above all not the film's flat `messages` list,
+    // which for a feature is its entire dialogue read out as bare lines.
+    const ads = [{ id: 'ad1', messages: [{ text: 'BUY ACID COLA' }, { text: 'IT HURTS' }], message_interval: 5 }];
+    const tail0 = _test.fillCommercialTail(0, ads);
+    check('film: the screening tail plays a commercial', tail0?.text === 'BUY ACID COLA', JSON.stringify(tail0));
+    check('film: the tail walks the pool rather than repeating one frame',
+      _test.fillCommercialTail(6, ads)?.text === 'IT HURTS', JSON.stringify(_test.fillCommercialTail(6, ads)));
+    check('film: an empty commercial pool gives dead air, never a film repeat',
+      _test.fillCommercialTail(0, []) === null, 'no ads → null');
+
+    // A weekly film: the reels that cross midnight belong to the NEXT weekday, or the
+    // back half of a Saturday-night picture airs on Saturday morning instead.
+    const SAT = 6, SUN = 7;
+    const bit = d => 1 << (d - 1);
+    check('film: the first reel airs on the screening night',
+      A.filmDayMask([SAT], 0) === bit(SAT), String(A.filmDayMask([SAT], 0)));
+    check('film: a reel past midnight rolls onto the next day',
+      A.filmDayMask([SAT], 1) === bit(SUN), String(A.filmDayMask([SAT], 1)));
+    check('film: the day-of-week wraps at Sunday',
+      A.filmDayMask([SUN], 1) === bit(1), String(A.filmDayMask([SUN], 1)));
+    check('film: no @airday means every day, as the schedule always defaulted',
+      A.filmDayMask(null, 0) === 127 && A.filmDayMask([], 2) === 127, 'default mask');
+
+    // A row with no stamp — a slot hand-placed on the dev panel timeline rather than
+    // pinned by ensureFilmSlots — falls back to its own start, which is right for one slot.
+    const solo = { broadcastId: 'g', startTime: 9 * 3600, duration: BLOCK };
+    check('film: an unstamped slot falls back to its own start (hand-placed rows)',
+      A.filmRunElapsed(solo, 9 * 3600 + 120) === 120, String(A.filmRunElapsed(solo, 9 * 3600 + 120)));
+
+    // The matte holds no airtime, so the seeker walks past it — but it has to be
+    // REMEMBERED, or a late viewer (nearly every viewer of a 175-minute picture)
+    // watches the film unframed.
+    {
+      const g = {
+        _start: 'start',
+        nodes: {
+          start: { type: 'start', data: {} },
+          lb:    { type: 'overlay', data: { overlayType: 'letterbox', on: true, duration_s: 0 } },
+          l1:    { type: 'say', data: { text: 'x'.repeat(36), style: 'verbatim' } },
+          l2:    { type: 'say', data: { text: 'y'.repeat(36), style: 'verbatim' } },
+        },
+        edges: [
+          { fromNode: 'start', fromPort: 'next', toNode: 'lb' },
+          { fromNode: 'lb',    fromPort: 'next', toNode: 'l1' },
+          { fromNode: 'l1',    fromPort: 'next', toNode: 'l2' },
+        ],
+        _normalized: true,
+      };
+      const bb = {};
+      // Holds are quantized up to the broadcast tick grid before being consumed, so one
+      // full line is ceil(hold / 1000) * 1000 — seek just past it and we should be on l2.
+      const oneLine = Math.ceil(A.nodeHoldMs(g.nodes.l1) / 1000) * 1000;
+      A.seekGraph(g, bb, oneLine + 10, 0);
+      check('film: seeking past the matte remembers it', bb.pendingLetterbox === true, String(bb.pendingLetterbox));
+      check('film: the matte costs the seek no airtime', bb.currentNode === 'l2', String(bb.currentNode));
+    }
+
+    check('film: an act card holds its authored duration',
+      A.nodeHoldMs({ type: 'overlay', data: { overlayType: 'act_card', duration_s: 8 } }) === 8000, 'act card');
+  }
+
+
+  // ── Weekday overrides on one schedule ───────────────────────────────────────
+  // The whole point of the `days` mask: an author lays down ONE grid that repeats
+  // all week, then drops day-restricted slots over the top. The runner must always
+  // pick the most specific slot covering the current second, so the override wins
+  // on its day and the base grid is untouched on the other six.
+  {
+    const P = _test.pickDailySlot;
+    const base = { broadcastId: 'bc_base', startTime: 20 * 3600, duration: 3600, days: 127, priority: 0 };
+    const thu  = { broadcastId: 'bc_thu',  startTime: 20 * 3600, duration: 3600, days: 1 << 3, priority: 0 };
+    const list = [base, thu];
+
+    check('days: an unset mask reads as every day', _test.dayMask(undefined) === 127, String(_test.dayMask(undefined)));
+    check('days: a zero mask can never black out a slot', _test.dayMask(0) === 127, String(_test.dayMask(0)));
+    check('days: the every-day mask has no label', _test.dayLabel(127) === '', _test.dayLabel(127));
+    check('days: a restricted mask labels its days', _test.dayLabel((1 << 3) | (1 << 6)) === 'Thu,Sun', _test.dayLabel((1 << 3) | (1 << 6)));
+
+    check('days: the Thursday slot wins on Thursday',  P(list, 20 * 3600 + 60, 4)?.broadcastId === 'bc_thu',  String(P(list, 20 * 3600 + 60, 4)?.broadcastId));
+    check('days: the base grid still plays Wednesday', P(list, 20 * 3600 + 60, 3)?.broadcastId === 'bc_base', String(P(list, 20 * 3600 + 60, 3)?.broadcastId));
+    check('days: the base grid still plays Sunday',    P(list, 20 * 3600 + 60, 7)?.broadcastId === 'bc_base', String(P(list, 20 * 3600 + 60, 7)?.broadcastId));
+    check('days: nothing airs outside the window',     P(list, 19 * 3600, 4) === null, String(P(list, 19 * 3600, 4)));
+
+    // Specificity, not authoring order: the same pair in either order resolves the same.
+    check('days: order of rows never decides the winner',
+      P([thu, base], 20 * 3600 + 60, 4)?.broadcastId === 'bc_thu', 'reversed');
+
+    // A weekend slot (2 days) beats the everyday grid (7) but loses to a Saturday-only
+    // slot (1) — so overrides can be layered coarse-to-fine.
+    const wknd = { broadcastId: 'bc_wknd', startTime: 20 * 3600, duration: 3600, days: (1 << 5) | (1 << 6), priority: 0 };
+    const sat  = { broadcastId: 'bc_sat',  startTime: 20 * 3600, duration: 3600, days: 1 << 5, priority: 0 };
+    check('days: fewer days beats more days',
+      P([base, wknd, sat], 20 * 3600 + 60, 6)?.broadcastId === 'bc_sat', String(P([base, wknd, sat], 20 * 3600 + 60, 6)?.broadcastId));
+    check('days: the weekend slot still wins on Sunday',
+      P([base, wknd, sat], 20 * 3600 + 60, 7)?.broadcastId === 'bc_wknd', String(P([base, wknd, sat], 20 * 3600 + 60, 7)?.broadcastId));
+
+    // priority is the manual escape hatch and outranks specificity.
+    const forced = { broadcastId: 'bc_forced', startTime: 20 * 3600, duration: 3600, days: 127, priority: 5 };
+    check('days: priority outranks specificity',
+      P([thu, forced], 20 * 3600 + 60, 4)?.broadcastId === 'bc_forced', String(P([thu, forced], 20 * 3600 + 60, 4)?.broadcastId));
+
+    check('days: slotAirsOn respects the mask',
+      _test.slotAirsOn(thu, 4) === true && _test.slotAirsOn(thu, 5) === false, 'mask');
+  }
+
+  // ── CLUSTER PUCK (CPhL hockey) ──────────────────────────────────────────────
+  // The hockey sim, its narrator and the rink view are bound by invariants that
+  // nothing else in the suite can catch, because they span three files and a content
+  // script: the sim must emit a beat for every pool, the narrator must fill every
+  // token, and — the load-bearing one — a GOAL's possession keyframes must finish
+  // PAST the goal line the rink view draws, or the puck never visibly goes in.
+  //
+  // This deliberately reads the real data/scripts/hockey.bsm rather than a fixture.
+  // The line library IS content; a fixture would pass forever while the shipped show
+  // quietly lost a pool.
+  {
+    const { HOCKEY, rosterFor } = await import('./sports/hockey.js');
+    const { sportsRng, sportsHash, sportsPick, sportsFill } = await import('./rng.js');
+    const { __test: RINK } = await import('../../client/game/js/panels/gameday-rink.js');
+    const fs = await import('fs');
+    const url = await import('url');
+
+    const bsmPath = url.fileURLToPath(new URL('../../data/scripts/hockey.bsm', import.meta.url));
+    const src = fs.readFileSync(bsmPath, 'utf8');
+    const block = (k) => {
+      const seg = src.split(`::${k}`)[1]?.split(`::end${k}`)[0] || '';
+      return seg.split(/\r?\n/).map(s => s.trim()).filter(s => s && !s.startsWith('#')).map(s => s.replace(/"/g, ''));
+    };
+    const pools = {};
+    { let key = null;
+      for (const raw of src.split(/\r?\n/)) {
+        const l = raw.trim();
+        if (l.startsWith('::lines ')) { key = l.slice(8).trim(); pools[key] = []; continue; }
+        if (l.startsWith('::')) { key = null; continue; }
+        if (key && l && !l.startsWith('#')) pools[key].push(l);
+      } }
+    const teams = block('teams'), players = block('players');
+
+    check('hockey: the script still parses', teams.length >= 2 && players.length > 0 && Object.keys(pools).length > 10,
+      `teams=${teams.length} players=${players.length} pools=${Object.keys(pools).length}`);
+
+    // ── rosters: a man belongs to ONE club ────────────────────────────────────
+    check('hockey: the pool covers every club', players.length >= teams.length * 6,
+      `${players.length} names for ${teams.length} clubs (need ${teams.length * 6})`);
+    const clubOf = new Map();
+    let shared = 0;
+    for (const t of teams) for (const n of rosterFor(t, teams, players)) { if (clubOf.has(n)) shared++; clubOf.set(n, t); }
+    check('hockey: no skater plays for two clubs', shared === 0, `${shared} shared`);
+    check('hockey: every club ices six', clubOf.size === teams.length * 6, `${clubOf.size} men dealt`);
+    const r1 = rosterFor(teams[2], teams, players);
+    check('hockey: a roster is stable across calls', JSON.stringify(r1) === JSON.stringify(rosterFor(teams[2], teams, players)), r1.join(','));
+    check('hockey: a roster ignores club order', JSON.stringify(r1) === JSON.stringify(rosterFor(teams[2], [...teams].reverse(), players)), 'order');
+
+    // ── the sim + the narrator over a real slate ──────────────────────────────
+    const seenTypes = new Set(), usedPools = new Set();
+    const unfilled = [], strayScorers = [], notCrossed = [];
+    let goals = 0, faceoffs = 0, centreDrops = 0, periods = 0, lines = 0;
+    for (let slot = 0; slot < 24; slot++) {
+      const seed = sportsHash(slot, 0);
+      const matchup = { away: teams[slot % teams.length], home: teams[(slot * 7 + 5) % teams.length], teams };
+      if (matchup.away === matchup.home) continue;
+      const game = HOCKEY.simGame(matchup, players, sportsRng(seed));
+      for (const b of game.beats) {
+        seenTypes.add(b.type);
+        if (b.type === 'goal') goals++;
+        if (b.type === 'period_start') periods++;
+        if (b.type === 'faceoff') { faceoffs++; if (b.dot === 'C') centreDrops++; }
+      }
+      // Every scorer must belong to one of the two clubs that actually played.
+      for (const s of game.scorers) { const home = clubOf.get(s.name); if (home !== matchup.away && home !== matchup.home) strayScorers.push(s.name); }
+
+      const nrng = sportsRng(seed ^ 0x9e3779b9);
+      const pick = (...keys) => { for (const k of keys) if (pools[k]?.length) { usedPools.add(k); break; } return sportsPick(pools, nrng, ...keys); };
+      const say = (line, tok, sb, graphic, gd) => {
+        if (!line) return;
+        lines++;
+        const text = sportsFill(line, tok).trim();
+        if (/\{[a-zA-Z]/.test(text)) unfilled.push(text);
+        if (!gd) return;
+        // THE INVARIANT. The rink draws a goal line; the sim decides where the puck
+        // finishes. A goal whose last keyframe stops short of that line renders as a
+        // shot that mysteriously counts.
+        if (gd.type === 'goal' && Array.isArray(gd.possession)) {
+          const x = gd.possession[gd.possession.length - 1].p[0];
+          const past = x > 0.5 ? x > RINK.GEO.goalLine[1] : x < RINK.GEO.goalLine[0];
+          if (!past) notCrossed.push(x.toFixed(3));
+        }
+        if (gd.type === 'faceoff' && !RINK.DOTS[gd.dot]) unfilled.push(`bad dot ${gd.dot}`);
+        if ((gd.type === 'chance' || gd.type === 'goal') && !RINK.SAVE[gd.kind]) unfilled.push(`no SAVE pose for ${gd.kind}`);
+      };
+      HOCKEY.narrate({
+        script: {}, game, gs: { seed, game }, slot, ws: false, announcer: 'Tug Brennan',
+        pools, nrng, sport: HOCKEY, add: () => {}, say, pick,
+        // ALTERNATE having a record and not. `matchup` and `matchup.records` are two
+        // halves of one choice — the announcer works a club's record in only once
+        // there is one — so a fixed stub can only ever reach one of them, and the
+        // other reads as dead content when it isn't.
+        abbr: (n) => String(n).slice(0, 3).toUpperCase(),
+        recordOf: () => (slot % 2 ? '8-4-1' : '0-0-0'),
+        lastId: () => null,
+      });
+    }
+
+    check('hockey: goals cross the goal line', notCrossed.length === 0, `${notCrossed.length} short: ${notCrossed.slice(0, 3).join(',')}`);
+    check('hockey: no unfilled tokens reach the air', unfilled.length === 0, unfilled.slice(0, 3).join(' | '));
+    check('hockey: scorers belong to a club that played', strayScorers.length === 0, strayScorers.slice(0, 3).join(','));
+    check('hockey: the narrator produced play-by-play', lines > 100, `${lines} lines`);
+
+    // TEXT PARITY. Every beat the sim can emit must be narratable, and every pool the
+    // script ships must be reachable — the two halves of "nothing exists only as an
+    // animation". `faceoff` is the deliberate fallback behind the three dot-specific
+    // pools, so it is expected never to be reached.
+    for (const t of ['goal', 'chance', 'faceoff', 'penalty', 'fight', 'boards', 'injury', 'period_start', 'period_end', 'pull', 'scrum', 'hattrick', 'final']) {
+      check(`hockey: the sim emits "${t}"`, seenTypes.has(t), [...seenTypes].join(','));
+    }
+    // The RARE paths — overtime, the shootout, a death on the ice, the Cup — are the
+    // ones most likely to rot unnoticed, because an ordinary slate never reaches them.
+    // Exempting them from the reachability check would have made this assertion a
+    // comfortable lie, so instead they are hunted for and narrated on purpose.
+    const narrateSlot = (slot, opts = {}) => {
+      const seed = sportsHash(slot, opts.ws ? 0x77 : 0);
+      const matchup = opts.matchup || { away: teams[slot % teams.length], home: teams[(slot * 7 + 5) % teams.length], teams };
+      if (matchup.away === matchup.home) return null;
+      // Forward the ledger, so a caller can narrate a depleted club and reach the
+      // injury-report pool that a healthy slate never touches.
+      const game = HOCKEY.simGame(matchup, players, sportsRng(seed),
+        opts.unavailable ? { unavailable: opts.unavailable } : undefined);
+      const nrng = sportsRng(seed ^ 0x9e3779b9);
+      const pick = (...keys) => { for (const k of keys) if (pools[k]?.length) { usedPools.add(k); break; } return sportsPick(pools, nrng, ...keys); };
+      HOCKEY.narrate({
+        script: {}, game, gs: { seed, game }, slot, ws: !!opts.ws, announcer: 'Tug Brennan',
+        pools, nrng, sport: HOCKEY, add: () => {}, say: (l, t) => { if (l) { const x = sportsFill(l, t); if (/\{[a-zA-Z]/.test(x)) unfilled.push(x); } }, pick,
+        abbr: (n) => String(n).slice(0, 3).toUpperCase(), recordOf: () => '8-4-1', lastId: () => null,
+      });
+      return game;
+    };
+    // Hunt a wide slot range for each rare shape and narrate the first of each.
+    let sawOt = false, sawSo = false, sawDeath = false;
+    for (let slot = 0; slot < 4000 && !(sawOt && sawSo && sawDeath); slot++) {
+      const seed = sportsHash(slot, 0);
+      const matchup = { away: teams[slot % teams.length], home: teams[(slot * 7 + 5) % teams.length], teams };
+      if (matchup.away === matchup.home) continue;
+      const g = HOCKEY.simGame(matchup, players, sportsRng(seed));
+      const dead = !!g.dead, so = g.beats.some(b => b.type === 'shootout_end');
+      const want = (g.overtime && !sawOt) || (so && !sawSo) || (dead && !sawDeath);
+      if (!want) continue;
+      narrateSlot(slot);
+      if (g.overtime) sawOt = true;
+      if (so) sawSo = true;
+      if (dead) sawDeath = true;
+      if (g.rivalry) sawRivalry = true;
+    }
+    check('hockey: overtime happens and is narratable', sawOt, 'no OT game found in 4000 slots');
+    check('hockey: the shootout happens and is narratable', sawSo, 'no shootout found in 4000 slots');
+    check('hockey: a man can die on the ice', sawDeath, 'no fatality found in 4000 slots');
+    // Rivalry is asserted DIRECTLY rather than hunted: this suite's synthetic pairing
+    // (home = 7i+5) can never coincide with the league's rivalry pairing, so waiting for
+    // one to turn up would only ever test the arithmetic. Build the grudge match instead.
+    {
+      const { rivalOf } = await import('./sports/hockey.js');
+      const rival = rivalOf(teams[0], teams);
+      const rg = narrateSlot(5, { matchup: { away: teams[0], home: rival, teams } });
+      check('hockey: a known rival pair is flagged as a rivalry', !!rg && rg.rivalry === true, `${teams[0]} vs ${rival}`);
+      const ng = narrateSlot(5, { matchup: { away: teams[0], home: teams.find(t => t !== teams[0] && t !== rival), teams } });
+      check('hockey: a non-rival pair is not', !!ng && ng.rivalry === false, 'non-rival');
+    }
+    // A club with men on the shelf — unlocks the injury report and the call-up lines.
+    // Without a ledger no game ever dresses a replacement, so the pool would read as
+    // dead content when it is simply never reached by a healthy slate.
+    {
+      const base = rosterFor(teams[0], teams, players);
+      narrateSlot(9, { matchup: { away: teams[0], home: teams[1], teams }, unavailable: new Set([base[0], base[2]]) });
+    }
+    // A club whose BARN has authored chatter, so chatter.<club> is exercised. The
+    // synthetic pairing above never makes these clubs the home side.
+    for (const barn of ['Ashway Zambonis', 'Docks Boarders', 'Longwatch Goons']) {
+      if (teams.includes(barn)) narrateSlot(13, { matchup: { away: teams.find(t => t !== barn), home: barn, teams } });
+    }
+    // The Cup: a final is the same sim with `ws`, which unlocks the cup.* pools.
+    narrateSlot(11, { ws: true, matchup: { away: teams[0], home: teams[1], teams } });
+
+    // Now the check has no exemptions but the deliberate `faceoff` fallback, which sits
+    // behind the three dot-specific pools and is expected never to fire.
+    const unreachable = Object.keys(pools).filter(k => !usedPools.has(k) && k !== 'faceoff');
+    check('hockey: every pool is reachable', unreachable.length === 0, unreachable.join(','));
+    check('hockey: still no unfilled tokens on the rare paths', unfilled.length === 0, unfilled.slice(0, 3).join(' | '));
+
+    // Rivalries pair the league mutually — a one-way rivalry is a bug you would only
+    // ever notice as an announcer contradicting himself two games later.
+    {
+      const { rivalOf } = await import('./sports/hockey.js');
+      const oneWay = teams.filter(t => { const r = rivalOf(t, teams); return r && rivalOf(r, teams) !== t; });
+      check('hockey: rivalries are mutual', oneWay.length === 0, oneWay.join(','));
+      check('hockey: a club has at most one rival', new Set(teams.map(t => rivalOf(t, teams))).size >= teams.length - 1, 'pairing');
+    }
+
+    // ── faceoffs happen where the RULE says ───────────────────────────────────
+    // Centre ice is reserved for a goal or the start of a period. Everything else is
+    // an end-zone or neutral dot. A sudden-death winner ends the game with no drop,
+    // so centre drops are (goals + periods) minus those.
+    check('hockey: faceoffs happen at every stoppage', faceoffs > goals + periods, `${faceoffs} draws`);
+    check('hockey: centre ice is only after a goal or a period start',
+      centreDrops <= goals + periods && centreDrops >= (goals + periods) - 4,
+      `${centreDrops} centre vs ${goals} goals + ${periods} periods`);
+
+    // ── persistent injuries ───────────────────────────────────────────────────
+    // Injuries carrying across games is the one feature that makes a game depend on the
+    // games before it — the exact thing this league's determinism forbids. It only works
+    // because the ledger is itself a fold over the deterministic schedule, so the thing
+    // most worth asserting is that walking the same season twice produces the same
+    // season, and that a man who is out really is absent.
+    {
+      const { reservePool, icedRoster, INJURY_MAX_SLOTS } = await import('./sports/hockey.js');
+      const reserve = reservePool(teams, players);
+      check('hockey: there is a reserve to call up from', reserve.length > 0, `${reserve.length} spare men`);
+      const rostered = new Set();
+      for (const t of teams) for (const n of rosterFor(t, teams, players)) rostered.add(n);
+      check('hockey: the reserve is nobody\'s first-choice six', reserve.every(n => !rostered.has(n)), 'overlap');
+
+      // A club missing men still ices six, and the replacements are marked.
+      const club = teams[0];
+      const base = rosterFor(club, teams, players);
+      const dressed = icedRoster(club, teams, players, new Set([base[0], base[3]]));
+      check('hockey: a depleted club still ices six', dressed.length === 6, String(dressed.length));
+      check('hockey: the injured men are not dressed', !dressed.some(d => d.name === base[0] || d.name === base[3]), dressed.map(d => d.name).join(','));
+      check('hockey: their replacements are marked as call-ups', dressed.filter(d => d.callup).length === 2, JSON.stringify(dressed.filter(d => d.callup)));
+      check('hockey: a call-up records who he replaces', dressed.filter(d => d.callup).every(d => d.replacing), 'replacing');
+      check('hockey: a healthy club dresses no call-ups',
+        icedRoster(club, teams, players, new Set()).every(d => !d.callup), 'healthy');
+
+      // Walk a season carrying the ledger, exactly as computeStandings and the air path do.
+      const walk = () => {
+        const out = new Map(); const scores = []; let callups = 0, peak = 0, everHurt = false;
+        for (let slot = 0; slot < 160; slot++) {
+          for (const [n, h] of out) if (h <= slot) out.delete(n);
+          const un = new Set(out.keys());
+          peak = Math.max(peak, un.size);
+          const matchup = { away: teams[slot % teams.length], home: teams[(slot * 7 + 5) % teams.length], teams };
+          if (matchup.away === matchup.home) continue;
+          const g = HOCKEY.simGame(matchup, players, sportsRng(sportsHash(slot, 0)), { unavailable: un });
+          scores.push(`${g.awayScore}-${g.homeScore}`);
+          callups += g.callups.length;
+          // Nobody on the ledger may appear on the ice.
+          for (const s of [...g.away.skaters, ...g.home.skaters]) if (un.has(s.name)) everHurt = true;
+          for (const c of g.casualties) {
+            const heal = c.dead ? Number.MAX_SAFE_INTEGER : slot + Math.max(1, c.slotsOut || 1);
+            if (heal > (out.get(c.name) || 0)) out.set(c.name, heal);
+          }
+        }
+        return { scores, out, callups, peak, everHurt };
+      };
+      const a = walk(), b = walk();
+      check('hockey: the injury chain is deterministic', JSON.stringify(a.scores) === JSON.stringify(b.scores), 'two walks diverged');
+      check('hockey: injuries actually persist', a.callups > 0, `${a.callups} call-ups over 160 slots`);
+      check('hockey: an unavailable man never takes the ice', !a.everHurt, 'a hurt man dressed');
+      // Balance: an absence only means something while it stays rare.
+      check('hockey: the league does not saturate with injuries', a.peak <= 40, `peak ${a.peak} of ${teams.length * 6}`);
+      const durations = [];
+      for (let slot = 0; slot < 200; slot++) {
+        const matchup = { away: teams[slot % teams.length], home: teams[(slot * 7 + 5) % teams.length], teams };
+        if (matchup.away === matchup.home) continue;
+        const g = HOCKEY.simGame(matchup, players, sportsRng(sportsHash(slot, 0)));
+        for (const c of g.casualties) if (!c.dead) durations.push(c.slotsOut);
+      }
+      check('hockey: an injury carries a duration', durations.length > 0 && durations.every(d => d >= 1 && d <= INJURY_MAX_SLOTS),
+        `${durations.length} injuries, max ${Math.max(0, ...durations)}`);
+
+      // Baseball must be untouched by all of this — its sim ignores the fourth argument.
+      const bb = _test.sportsGameForSlot({ teams: ['A', 'B', 'C', 'D'], players: [], pools: {} }, 99, null);
+      check('baseball is unaffected by the injury chain', !!bb && bb.game.awayScore >= 0, 'baseball still sims');
+    }
+
+    // ── the league table ──────────────────────────────────────────────────────
+    // Hockey pays a point for losing past sixty. That rule is the whole reason its
+    // table is a different shape from Deadball's.
+    {
+      const table = new Map();
+      HOCKEY.season.fold(table, { away: { name: 'A' }, home: { name: 'B' }, awayScore: 3, homeScore: 2, overtime: false });
+      HOCKEY.season.fold(table, { away: { name: 'A' }, home: { name: 'B' }, awayScore: 2, homeScore: 3, overtime: true });
+      const A = table.get('A'), B = table.get('B');
+      check('hockey: a win is two points', A.wins === 1 && B.wins === 1, JSON.stringify([A, B]));
+      check('hockey: an overtime loss still pays a point', A.otl === 1 && A.points === 3, JSON.stringify(A));
+      check('hockey: a regulation loss pays nothing', B.losses === 1 && B.points === 2, JSON.stringify(B));
+    }
   }
 }

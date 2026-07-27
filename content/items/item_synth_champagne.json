@@ -6,6 +6,8 @@
   "tags": {
     "consumable": true,
     "description": "Bottle-fermented in a bioreactor last Tuesday. Bubbles like the real thing and lies like the rest of this place.",
+    "food_noun": "wine",
+    "food_profile": "liquid",
     "hydrating": true,
     "restore_sanity": 10,
     "restore_thirst": 40

@@ -98,7 +98,13 @@ window.addEventListener("resize", applyMobileScale);
 // if it fails the built-in defaults from /shared/sfx-catalog.js stand.
 fetch("/api/audio/interface-sfx")
 	.then((r) => (r.ok ? r.json() : []))
-	.then((rows) => window.SFXCatalog?.applyOverrides(Array.isArray(rows) ? rows : []))
+	.then((rows) => {
+		const list = Array.isArray(rows) ? rows : [];
+		window.SFXCatalog?.applyOverrides(list);
+		// The procedural tables ride the same override rows under reserved ids,
+		// so tuning a material in the dev panel reaches the live generators.
+		window.ProceduralSFX?.applyOverrides(list);
+	})
 	.catch(() => {});
 
 // Mobile area-pane: always starts collapsed. The resize-handle bar is always

@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 import { join, dirname } from 'path';
 import { query } from '../../server/models/db.js';
 import { getLivePlayer, getAllLivePlayers, getZone, getMinimapData, insertFurniture, updateFurnitureWhere } from '../../server/engine/world.js';
-import { autoResolvePower, recalcZoneLoad, syncZoneLighting, getZonePowerStatus } from '../../server/engine/environment.js';
+import { autoResolvePower, recalcZoneLoad, syncZoneLighting, getZonePowerStatus, devTriggerWeatherEvent } from '../../server/engine/environment.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
 
 const OUTFIT_FILE = join(dirname(fileURLToPath(import.meta.url)), 'cyd-outfit.json');
@@ -235,6 +235,21 @@ async function cmdHeal(args, raw, player) {
   };
 }
 
+// Force a named hero weather event right now — the GM lever for running one
+// live, and the only way to test the whole kit (teeth, FX, audio, news, flight)
+// without waiting for a scheduled day. The engine returns the option list on a
+// bad type, so there's no verb-side list to drift out of date.
+async function cmdWeatherEvent(args, raw, player) {
+  if (!['admin', 'dev'].includes(player.role)) {
+    return { type: 'error', message: 'Unknown command: ".weatherevent".' };
+  }
+  const type = (args?.[0] || '').trim().toLowerCase();
+  if (!type) return { type: 'error', message: 'Usage: <span class="text-dim">weatherevent &lt;type&gt;</span> — e.g. <span class="text-dim">weatherevent ion_storm</span>.' };
+  const res = devTriggerWeatherEvent(type);
+  if (!res?.ok) return { type: 'error', message: res?.error || 'Could not start that event.' };
+  return { type: 'output', message: `<span class="msg-system">Forced weather event: ${res.label}. It begins to approach.</span>` };
+}
+
 export const commands = {
   // NB: register the BARE verb — the dispatcher strips a leading `.`/`/` before
   // matching, so a `.dresscyd` key would never fire.
@@ -243,4 +258,5 @@ export const commands = {
   lettherebelight: cmdLetThereBeLight,
   makeitrain: cmdMakeItRain,
   testaccolade: cmdTestAccolade,
+  weatherevent: cmdWeatherEvent,
 };

@@ -60,6 +60,15 @@ function check(name, cond, detail = '') {
   console.log(`${cond ? '  ✓' : '  ✗ FAIL'} ${name}${cond ? '' : ` — ${detail}`}`);
 }
 
+// Per-player tables, shared by the fake-player teardown and the end-of-run
+// orphan sweep. Declared up here because both run before any later const would
+// initialise (temporal dead zone).
+const PER_PLAYER_TABLES = [
+  'player_flags', 'player_inventory', 'player_skills', 'player_quests',
+  'player_achievements', 'player_deaths', 'player_npc_relations', 'player_mutations',
+  'player_drug_state', 'player_corpses', 'jail_prisoners',
+];
+
 const sent = [];
 const broadcast = (zoneId, payload, exclude, toPlayer) => { sent.push({ zoneId, payload, toPlayer }); };
 
@@ -89,6 +98,53 @@ console.log('— layer 1: manifest contracts —');
     }
   }
   check(`manifest contracts hold for ${getLoadedPlugins().length} plugins`, drift.length === 0, drift.join('; '));
+
+  // ── Scheduler discipline ───────────────────────────────────────────────────
+  // A recurring world tick must be registered through engine/scheduler.js, never
+  // a raw setInterval. The scheduler idle-gates on hasActivePlayers() BY DEFAULT
+  // (a clock-driven tick that awaits query() on an empty world holds a pool
+  // connection open and stops Neon's compute suspending — the server then bills
+  // 24/7 for nobody), decorrelates cadence phase so ticks don't convoy, and
+  // spreads same-cadence subscribers ~200 ms apart so they can't take every pool
+  // slot while a player's move waits on pool.connect().
+  //
+  // That rule lived only in a comment at the top of scheduler.js, and drifted:
+  // thirteen plugin ticks were raw setIntervals, six of them re-implementing the
+  // idle guard by hand and seven with no guard at all. Documented-but-unchecked
+  // is how it drifted, so it is checked here.
+  //
+  // The exemption is narrow and deliberate: a timer tied to the lifetime of ONE
+  // object (a player's trip, a card table's shuffle loop) is not a world tick —
+  // it's created and cleared with that object, and idle-gating it would be
+  // meaningless. Those keep raw setInterval and are listed below by file.
+  {
+    const SESSION_TIMER_FILES = new Set([
+      'mis/mis-system.js',      // per-player event interval, cleared by stopMisEvent
+      'trip/index.js',          // per-player phantom sync, cleared when the trip ends
+      'gametable/game-table.js',// per-table shuffle SFX, cleared with the table
+    ]);
+    const offenders = [];
+    const walk = async (dir, rel = '') => {
+      for (const e of await readdir(dir, { withFileTypes: true })) {
+        const r = rel ? `${rel}/${e.name}` : e.name;
+        if (e.isDirectory()) { await walk(join(dir, e.name), r); continue; }
+        if (!e.name.endsWith('.js') || e.name === 'regress.js') continue;
+        if (SESSION_TIMER_FILES.has(r)) continue;
+        // Strip comments before matching — plugins legitimately DISCUSS
+        // setInterval in the comment explaining why they use the scheduler, and
+        // flagging that would train people to delete the explanation.
+        const src = (await readFile(join(dir, e.name), 'utf8'))
+          .replace(/\/\*[\s\S]*?\*\//g, '')
+          .replace(/(^|[^:])\/\/.*$/gm, '$1');
+        if (/\bsetInterval\s*\(/.test(src)) offenders.push(r);
+      }
+    };
+    await walk(PLUGINS_DIR);
+    check('plugins schedule ticks via scheduler.js, not raw setInterval',
+      offenders.length === 0,
+      `${offenders.join(', ')} — use schedule('<cadence>', fn) so the tick is idle-gated and phase-spread; ` +
+      `if it is a per-object session timer, add it to SESSION_TIMER_FILES in tests/regress.js with a reason`);
+  }
 
   // Help guides name verbs. A guide that names a verb nobody registers is worse
   // than no guide — it teaches a player something that does not work. Engine
@@ -540,6 +596,187 @@ console.log('— layer 1h: item / stat conditions + dialogue tokens —');
       === '“Evening, Dud.” Vale does not look up.');
 }
 
+// ── Layer 1i: relations substrate (player↔NPC) ───────────────────────────
+// The substrate every social read is about to depend on. Three things are pinned:
+// the tier ladder (hostility outranks familiarity), the ZERO-query read contract,
+// and the fallback rule — an unauthored NPC must render EXACTLY as it does today.
+console.log('— layer 1i: relations substrate —');
+{
+  const { getRelation, adjustRelation, touchRelation, relationTier, relationAtLeast, hydrateRelations }
+    = await import('../server/engine/relations.js');
+  const { evalCondition } = await import('../server/engine/flags.js');
+  const { dispatchAction } = await import('../server/engine/actions.js');
+
+  const rp = { id: 'regress_rel_player' };
+  await hydrateRelations(rp);
+
+  // Never met = stranger, and reading an unknown NPC must not throw or allocate.
+  check('an unmet NPC reads as stranger', relationTier(getRelation(rp, 'npc_nobody')) === 'stranger');
+  check('an unmet NPC has zero familiarity', getRelation(rp, 'npc_nobody').familiarity === 0);
+
+  // Familiarity alone climbs the neutral ladder.
+  adjustRelation(rp, 'npc_probe', { familiarity: 4 });
+  check('familiarity alone reaches known', relationTier(getRelation(rp, 'npc_probe')) === 'known');
+  adjustRelation(rp, 'npc_probe', { familiarity: 6, warmth: 40 });
+  check('familiarity + warmth reaches familiar', relationTier(getRelation(rp, 'npc_probe')) === 'familiar');
+
+  // Hostility OUTRANKS familiarity — someone who knows you well and hates you is
+  // not 'close', and relationAtLeast must agree with the ladder, not the numbers.
+  adjustRelation(rp, 'npc_probe', { warmth: -120 });
+  check('hostility outranks familiarity', relationTier(getRelation(rp, 'npc_probe')) === 'hostile');
+  check('a hostile NPC is not atLeast known', !relationAtLeast(getRelation(rp, 'npc_probe'), 'known'));
+
+  // Bounds hold under an absurd push in either direction.
+  adjustRelation(rp, 'npc_probe', { familiarity: 9999, warmth: 9999 });
+  const bounded = getRelation(rp, 'npc_probe');
+  check('familiarity is capped', bounded.familiarity === 100, String(bounded.familiarity));
+  check('warmth is capped', bounded.warmth === 100, String(bounded.warmth));
+
+  // Contact is rate-limited: showing up repeatedly builds a relationship, spamming
+  // `talk` in one sitting does not.
+  const t1 = touchRelation(rp, 'npc_cooldown');
+  const t2 = touchRelation(rp, 'npc_cooldown');
+  check('first contact counts', t1 === true);
+  check('immediate second contact is rate-limited', t2 === false);
+  check('contact is per-NPC', touchRelation(rp, 'npc_cooldown2') === true);
+
+  // The condition shape, registered from the substrate rather than built into flags.js.
+  const ctx = { npc: { id: 'npc_probe' } };
+  check('relation condition defaults to the speaking npc',
+    await evalCondition({ relation: 'known' }, rp, ctx));
+  check('relation condition honours an explicit npc',
+    !(await evalCondition({ relation: 'known', npc: 'npc_nobody' }, rp, ctx)));
+  check('relation condition op: below',
+    await evalCondition({ relation: 'known', npc: 'npc_nobody', op: 'below' }, rp, ctx));
+  check('an unknown tier fails closed',
+    !(await evalCondition({ relation: 'besties' }, rp, ctx)));
+  check('a relation condition with no player is false, not true',
+    !(await evalCondition({ relation: 'known' }, null, ctx)));
+
+  // RELATION_ADJUST is the authored (VINE) path, flat params, npc from context.
+  await dispatchAction({ type: 'RELATION_ADJUST', actor: rp, params: { warmth: 5 }, context: ctx });
+  check('RELATION_ADJUST moves the relationship through the action path',
+    getRelation(rp, 'npc_probe').warmth === 100 || getRelation(rp, 'npc_probe').warmth > 0);
+  const noNpc = await dispatchAction({ type: 'RELATION_ADJUST', actor: rp, params: { warmth: 5 }, context: {} });
+  check('RELATION_ADJUST with no npc errors instead of guessing', noNpc?.type === 'error');
+
+  // ── THE FALLBACK CONTRACT ──
+  // An NPC with no relationship authoring must render byte-identically for a
+  // stranger and for a close friend. This is what lets the substrate ship across
+  // 167 existing NPCs without touching one of their trees.
+  const { renderDialogueNode } = await import('../server/engine/dialogue.js');
+  const plain = { id: 'npc_regress_plain', name: 'Plain Speaker',
+    dialogue_tree: { root: { text: 'The usual line.', options: [] } } };
+  const asStranger = await renderDialogueNode(plain, 'root', rp, { npc: plain });
+  adjustRelation(rp, 'npc_regress_plain', { familiarity: 60, warmth: 90 });
+  const asFriend = await renderDialogueNode(plain, 'root', rp, { npc: plain });
+  check('an unauthored NPC falls back to its normal text',
+    asStranger.text === 'The usual line.' && asFriend.text === 'The usual line.',
+    `${asStranger.text} / ${asFriend.text}`);
+
+  // An authored tier is used when the player is at it — and a MISSING tier walks
+  // toward neutral rather than falling straight through to the default.
+  const warm = { id: 'npc_regress_warm', name: 'Warm Speaker',
+    dialogue_tree: { root: { text: 'State your business.',
+      text_by_relation: { known: 'You again. Sit.' }, options: [] } } };
+  const cold = await renderDialogueNode(warm, 'root', { id: 'regress_rel_stranger', _relations: new Map() }, { npc: warm });
+  check('a stranger gets the ordinary line', cold.text === 'State your business.', cold.text);
+  adjustRelation(rp, 'npc_regress_warm', { familiarity: 5 });
+  const known = await renderDialogueNode(warm, 'root', rp, { npc: warm });
+  check('a known player gets the authored line', known.text === 'You again. Sit.', known.text);
+  adjustRelation(rp, 'npc_regress_warm', { familiarity: 60, warmth: 95 });
+  const close = await renderDialogueNode(warm, 'root', rp, { npc: warm });
+  check('a missing higher tier walks down to the nearest authored one',
+    close.text === 'You again. Sit.', close.text);
+
+  // A hostile player must NEVER inherit a line written for a friend.
+  adjustRelation(rp, 'npc_regress_warm', { warmth: -400 });
+  const hostile = await renderDialogueNode(warm, 'root', rp, { npc: warm });
+  check('a hostile player never inherits the warm line',
+    hostile.text === 'State your business.', hostile.text);
+}
+
+// ── Layer 1j: standing decay + relationship help ─────────────────────────
+// Two rules with teeth: standing is MAINTAINED (it slides back to a resting
+// point in both directions), and knowing someone is WORTH something at the till.
+console.log('— layer 1j: standing decay + relationship help —');
+{
+  const { decayRep, restingRep, getTier } = await import('../server/engine/ideologies.js');
+  const { relationHelp, adjustRelation } = await import('../server/engine/relations.js');
+  const { treatmentQuote } = await import('../plugins/clinic/index.js');
+
+  const now = Date.now();
+  const daysAgo = (d) => Math.floor((now - d * 86400000) / 1000);
+
+  // Positive standing is not banked — stop showing up and it drains.
+  check('positive rep decays toward neutral', decayRep(800, daysAgo(30), 0, now) < 500,
+    String(Math.round(decayRep(800, daysAgo(30), 0, now))));
+  check('one half-life halves the distance to resting',
+    Math.abs(decayRep(800, daysAgo(30), 0, now) - 400) < 1,
+    String(decayRep(800, daysAgo(30), 0, now)));
+
+  // ...and a grudge is not a life sentence. This is the direction that matters:
+  // a bad early decision must not permanently close off a quarter of the game.
+  check('negative rep climbs back toward neutral', decayRep(-800, daysAgo(30), 0, now) > -500,
+    String(Math.round(decayRep(-800, daysAgo(30), 0, now))));
+  check('rep does not stay hostile forever',
+    getTier(decayRep(-900, daysAgo(180), 0, now)).id !== 'hostile',
+    getTier(decayRep(-900, daysAgo(180), 0, now)).id);
+
+  // No drift on a fresh stamp, and none at all for a row that was never stamped.
+  check('same-day rep does not drift', decayRep(500, daysAgo(0), 0, now) === 500);
+  check('an unstamped row is left alone', decayRep(500, 0, 0, now) === 500);
+  check('decay never crosses the resting point', decayRep(10, daysAgo(3650), 0, now) >= 0);
+
+  // The exception: a MAJOR ideological difference floors the recovery. Both
+  // halves are required — opposite stance AND a different path.
+  const order = { stance: 'redeem', path: 'machine' };
+  check('an opposed player rests below neutral',
+    restingRep(order, { stance: -80, path: 'human' }) < 0,
+    String(restingRep(order, { stance: -80, path: 'human' })));
+  check('a like-minded player rests at neutral',
+    restingRep(order, { stance: 80, path: 'machine' }) === 0);
+  check('opposite stance ALONE is not a major difference',
+    restingRep(order, { stance: -80, path: 'machine' }) === 0);
+  check('a different path ALONE is not a major difference',
+    restingRep(order, { stance: 80, path: 'human' }) === 0);
+  check('a lukewarm opponent is not a major difference',
+    restingRep(order, { stance: -10, path: 'human' }) === 0);
+  check('no player position rests at neutral', restingRep(order, null) === 0);
+  check('an opposed player never fully recovers',
+    decayRep(-900, daysAgo(3650), restingRep(order, { stance: -80, path: 'human' }), now) < -100);
+
+  // ── Knowing someone is worth something ──
+  const hp = { id: 'regress_help_player', hp: 50, hp_max: 100, statuses: [] };
+  check('a stranger gets no help', relationHelp(hp, 'npc_help') === 0);
+  const strangerQuote = treatmentQuote(hp, { rate: 2, minimum: 10 }, 'npc_help').cost;
+
+  adjustRelation(hp, 'npc_help', { familiarity: 10, warmth: 40 });
+  check('a familiar face gets a discount', relationHelp(hp, 'npc_help') > 0);
+  const familiarQuote = treatmentQuote(hp, { rate: 2, minimum: 10 }, 'npc_help').cost;
+  check('the clinic charges a regular less', familiarQuote < strangerQuote,
+    `${strangerQuote} -> ${familiarQuote}`);
+
+  adjustRelation(hp, 'npc_help', { familiarity: 30, warmth: 60 });
+  const closeQuote = treatmentQuote(hp, { rate: 2, minimum: 10 }, 'npc_help');
+  check('a close friend is patched for nothing', closeQuote.cost === 0 && closeQuote.free === true,
+    JSON.stringify(closeQuote));
+
+  // Being disliked has to cost something, or warmth is a ratchet with no downside.
+  const grudge = { id: 'regress_grudge_player', hp: 50, hp_max: 100, statuses: [] };
+  adjustRelation(grudge, 'npc_help', { warmth: -70 });
+  check('a hostile NPC marks you up', relationHelp(grudge, 'npc_help') < 0);
+  check('the clinic charges an enemy more',
+    treatmentQuote(grudge, { rate: 2, minimum: 10 }, 'npc_help').cost > strangerQuote,
+    String(treatmentQuote(grudge, { rate: 2, minimum: 10 }, 'npc_help').cost));
+
+  // An unpriced NPC (no id passed) must quote exactly as before — the same
+  // fallback contract the dialogue text variants have.
+  check('a quote with no npc is unchanged by relationships',
+    treatmentQuote(hp, { rate: 2, minimum: 10 }).cost === strangerQuote,
+    `${treatmentQuote(hp, { rate: 2, minimum: 10 }).cost} vs ${strangerQuote}`);
+}
+
 // ── Layer 1g: broadcast / spawn nodes + durable waits ────────────────────────
 // The three nodes that reach OUT of the graph into the world. Each is asserted
 // on its observable effect (a zone message, a live enemy instance, a parked row),
@@ -736,6 +973,255 @@ check('stand resets posture', getPlayer().posture === 'standing', `posture=${get
 
 r = await run('stop');
 check('bare stop → nothing to stop', /aren't doing anything/.test(r?.message || ''), r?.message);
+
+// ── Zone message delivery (engine/delivery.js) ─────────────────────────────────
+// The single most load-bearing decision in the server: does this room line reach
+// this player? It used to live inside broadcast() in index.js with no coverage
+// at all — a wiring mistake wouldn't throw, the room would just go quiet. It is
+// now a testable function, so these are the rules, asserted.
+{
+  const { zoneAudience, receivesZoneMessage } = await import('../server/engine/delivery.js');
+  const { setLivePlayer, removeLivePlayer, getZone, addPlayerToZone, removePlayerFromZone } =
+    await import('../server/engine/world.js');
+
+  const me = getPlayer();
+  const zid = me.current_zone;
+  const zone = getZone(zid);
+
+  // A second occupant, so "everyone in the room" means more than one person.
+  const MATE = '__regress_roommate';
+  setLivePlayer(MATE, { id: MATE, handle: 'Roommate', posture: 'standing', current_zone: zid });
+  addPlayerToZone(MATE, zid);
+  try {
+    let aud = zoneAudience(zid);
+    check('delivery: both occupants hear the room', aud.includes(me.id) && aud.includes(MATE), aud);
+
+    // The catastrophic case this whole block exists for.
+    check('delivery: a room with occupants is never silent', aud.length >= 2, aud.length);
+
+    // Exclusions — the speaker doesn't hear their own line echoed back.
+    aud = zoneAudience(zid, { exclude: [me.id] });
+    check('delivery: exclude drops that player only', !aud.includes(me.id) && aud.includes(MATE), aud);
+    aud = zoneAudience(zid, { exclude: [me.id, MATE] });
+    check('delivery: both exclude slots work', aud.length === 0, aud);
+    aud = zoneAudience(zid, { excludeSet: new Set([MATE]) });
+    check('delivery: excludeSet drops its members', !aud.includes(MATE) && aud.includes(me.id), aud);
+
+    // The three predicate rules.
+    const mate = (await import('../server/engine/world.js')).getLivePlayer(MATE);
+    mate.sleeping = true;
+    check('delivery: a sleeping player does not perceive the room',
+      !zoneAudience(zid).includes(MATE));
+    mate.sleeping = false;
+
+    mate.posture = 'flying';
+    check('delivery: an airborne player does not get ground ambience',
+      !zoneAudience(zid).includes(MATE));
+    mate.posture = 'standing';
+
+    mate.current_zone = 'somewhere_else';
+    check('delivery: current_zone wins over a stale occupant set',
+      !zoneAudience(zid).includes(MATE));
+    mate.current_zone = zid;
+    check('delivery: and they come back when it agrees again', zoneAudience(zid).includes(MATE));
+
+    // Unknown zone must be empty, not a throw.
+    check('delivery: an unknown zone has no audience',
+      zoneAudience('__regress_no_such_zone').length === 0);
+
+    check('delivery: the predicate rejects a null player', receivesZoneMessage(null, zid) === false);
+  } finally {
+    removePlayerFromZone(MATE, zid);
+    removeLivePlayer(MATE);
+  }
+}
+
+// ── Zone membership (what zone broadcasts are delivered by) ────────────────────
+// broadcast() no longer scans every connected client to find a room's occupants;
+// it walks `zone.players`. That makes room chatter O(occupants) instead of
+// O(players), but it also means a player missing from that set stops hearing
+// their room with NO error — so the invariant "current_zone implies membership"
+// is now load-bearing, and reconcileZoneMembership() is the safety net.
+{
+  const { reconcileZoneMembership, getZone, world: w } = await import('../server/engine/world.js');
+  const p = getPlayer();
+  const zid = p.current_zone;
+  const zone = getZone(zid);
+
+  check('zone membership: a live player is in their own zone\'s player set',
+    !!zone && zone.players.has(p.id), `zone=${zid}`);
+
+  // Simulate the exact bug the sweep exists for: a path that sets current_zone
+  // without addPlayerToZone(). Before the sweep runs, that player is deaf.
+  zone.players.delete(p.id);
+  check('zone membership: drift is detectable (player absent from the set)',
+    !zone.players.has(p.id));
+  const repaired = reconcileZoneMembership({ quiet: true });
+  check('zone membership: the sweep repairs drift', repaired >= 1 && zone.players.has(p.id),
+    `repaired=${repaired}`);
+  check('zone membership: a clean world needs no repair',
+    reconcileZoneMembership({ quiet: true }) === 0);
+
+  // A player aboard an aircraft is deliberately absent from the ground zone —
+  // the sweep must not "repair" them back into a room they left the ground from.
+  const priorPosture = p.posture;
+  zone.players.delete(p.id);
+  p.posture = 'flying';
+  check('zone membership: an airborne player is NOT dragged back into the ground zone',
+    reconcileZoneMembership({ quiet: true }) === 0 && !zone.players.has(p.id));
+  p.posture = priorPosture;
+  reconcileZoneMembership({ quiet: true });
+  check('zone membership: restored once they are back on the ground', zone.players.has(p.id));
+
+  // A player whose zone isn't a real DB room (transient void tiles) must not
+  // throw or be counted as drift.
+  const priorZone = p.current_zone;
+  p.current_zone = '__regress_nonexistent_zone';
+  check('zone membership: an unknown zone is skipped, not an error',
+    reconcileZoneMembership({ quiet: true }) === 0);
+  p.current_zone = priorZone;
+}
+
+// ── Work-gate substrate ────────────────────────────────────────────────────────
+// Ticks that poll a table for outstanding work skip the round trip when the
+// table is known-empty. The dangerous failure is a gate that says "nothing to
+// do" forever because one writer forgot to call noteWork() — so the properties
+// asserted here are the ones that make that a delay instead of a permanent
+// stall: it re-probes on a timer regardless, and it fails OPEN.
+{
+  const { createWorkGate } = await import('../server/engine/worklist.js');
+
+  let pending = 0, probes = 0;
+  const gate = createWorkGate({
+    name: '__regress_gate',
+    probe: async () => { probes += 1; return pending; },
+    reconcileMs: 50,
+  });
+
+  check('work gate: empty table → the tick is skipped', (await gate.shouldRun()) === false);
+  const probesAfterFirst = probes;
+  check('work gate: a skip costs no further probe', (await gate.shouldRun()) === false && probes === probesAfterFirst,
+    `probes=${probes}`);
+
+  pending = 1;
+  gate.noteWork();
+  check('work gate: noteWork() re-probes and lets the tick run', (await gate.shouldRun()) === true);
+
+  pending = 0;
+  gate.noteDrained(0);
+  check('work gate: draining closes it again', (await gate.shouldRun()) === false);
+
+  // The safety net: a writer that never called noteWork() must still surface.
+  pending = 1;
+  check('work gate: still shut before the reconcile window elapses', (await gate.shouldRun()) === false);
+  await new Promise(r => setTimeout(r, 60));
+  check('work gate: re-probes on its own after reconcileMs, so a missed noteWork is a DELAY not a stall',
+    (await gate.shouldRun()) === true);
+
+  // A probe that throws must never be read as "nothing to do".
+  const failing = createWorkGate({
+    name: '__regress_gate_fail',
+    probe: async () => { throw new Error('db down'); },
+  });
+  check('work gate: a failed probe fails OPEN (runs the tick)', (await failing.shouldRun()) === true);
+}
+
+// ── Activity-tick substrate ────────────────────────────────────────────────────
+// Six plugins used to run the identical posture sweep on their own 1s timer.
+// They now register here instead, so the contract this seam guarantees — fires
+// while the posture holds, cleans up exactly once when it doesn't — is the thing
+// keeping fishing/mining/work honest. Registered under a private posture so it
+// cannot collide with a real activity.
+{
+  const { registerActivity, runActivityTick } = await import('../server/engine/activity-tick.js');
+  const seen = { ticks: 0, abandons: 0, sawState: null };
+  registerActivity({
+    posture: '__regress_activity',
+    stateKey: '__regressActivityState',
+    onTick: (player, st) => { seen.ticks += 1; seen.sawState = st; },
+    onAbandon: (player) => { seen.abandons += 1; delete player.__regressActivityState; },
+  });
+
+  const p = getPlayer();
+  const priorPosture = p.posture;
+
+  // Posture set but no state → nothing fires. (A player who just stood up from
+  // an activity must not get a phantom tick.)
+  p.posture = '__regress_activity';
+  await runActivityTick();
+  check('activity tick: posture without state does not fire', seen.ticks === 0, `ticks=${seen.ticks}`);
+
+  // Posture + state → onTick, with the state object handed through.
+  p.__regressActivityState = { marker: 'live' };
+  await runActivityTick();
+  check('activity tick: fires while the posture holds', seen.ticks === 1, `ticks=${seen.ticks}`);
+  check('activity tick: passes the plugin its own state object', seen.sawState?.marker === 'live', seen.sawState);
+
+  // Posture cleared out from under it → onAbandon, exactly once, and the state
+  // is gone so a second sweep is silent. This is the leak the old per-plugin
+  // copies each had to get right independently.
+  p.posture = 'standing';
+  await runActivityTick();
+  check('activity tick: abandon fires when the posture is lost', seen.abandons === 1, `abandons=${seen.abandons}`);
+  await runActivityTick();
+  check('activity tick: abandon does not repeat', seen.abandons === 1, `abandons=${seen.abandons}`);
+  check('activity tick: no stray ticks after abandon', seen.ticks === 1, `ticks=${seen.ticks}`);
+
+  p.posture = priorPosture;
+
+  // Two players on the SAME activity must never have their onTick overlap. The
+  // per-zone loot tables read stock, compute a lazy replenish in JS, and write
+  // absolute quantities back — two interleaved catch-ups would both apply the
+  // same replenish and duplicate stock. Different activities SHOULD overlap
+  // (that is what six independent timers used to do), so both are asserted.
+  // Needs two live players, and regress drives a single fake one — so stand up a
+  // second throwaway live session rather than skipping the check. A test that
+  // quietly does not run is worse than no test.
+  const { setLivePlayer, removeLivePlayer, getAllLivePlayers } = await import('../server/engine/world.js');
+  const GHOST_ID = '__regress_activity_ghost';
+  setLivePlayer(GHOST_ID, { id: GHOST_ID, handle: 'RegressGhost', posture: 'standing' });
+  try {
+    const live = getAllLivePlayers();
+    let inFlightSame = 0, overlapSame = false, overlapCross = false;
+    let inFlightA = false, inFlightB = false;
+    const yieldTwice = () => new Promise(res => setTimeout(res, 0));
+    registerActivity({
+      posture: '__regress_serial', stateKey: '__regressSerialState',
+      onTick: async () => {
+        inFlightSame += 1; inFlightA = true;
+        if (inFlightSame > 1) overlapSame = true;
+        await yieldTwice();
+        if (inFlightB) overlapCross = true;
+        inFlightSame -= 1; inFlightA = false;
+      },
+    });
+    registerActivity({
+      posture: '__regress_parallel', stateKey: '__regressParallelState',
+      onTick: async () => {
+        inFlightB = true;
+        await yieldTwice();
+        if (inFlightA) overlapCross = true;
+        inFlightB = false;
+      },
+    });
+    const [p1, p2] = live;
+    const saved = [p1.posture, p2.posture];
+    p1.posture = '__regress_serial'; p1.__regressSerialState = {};
+    p2.posture = '__regress_serial'; p2.__regressSerialState = {};
+    await runActivityTick();
+    check('activity tick: same activity never runs two players concurrently', !overlapSame);
+
+    p2.posture = '__regress_parallel';
+    delete p2.__regressSerialState; p2.__regressParallelState = {};
+    await runActivityTick();
+    check('activity tick: different activities still overlap', overlapCross);
+
+    delete p1.__regressSerialState; delete p2.__regressParallelState;
+    p1.posture = saved[0]; p2.posture = saved[1];
+  } finally {
+    removeLivePlayer(GHOST_ID);
+  }
+}
 
 // Drug onset (effects.onset_seconds): deferred instant hits land via tickOnsets.
 // Zero deltas keep applyEffects side-effect-free (no stat write, no DB) so this
@@ -1491,7 +1977,55 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
     await query('DELETE FROM items WHERE id=$1', [ITEM]).catch(() => {});
     deleteItemCache(ITEM);
     await deleteFurniture(FURN).catch(() => {});
+    await purgeFakePlayer(PID);
     await query('DELETE FROM players WHERE id=$1', [PID]).catch(() => {});
+  }
+}
+
+// The suite's fake player id is `test_regress_<pid>` — a NEW identity every run.
+// Deleting only the `players` row left every child row behind, and there is no FK
+// cascade, so they orphaned permanently: a dev DB measured **34,839 orphaned
+// `player_flags` rows across 4,121 dead player ids** against a `players` table
+// holding 7. That is not just untidy — it makes local performance profiling
+// unrepresentative, because measurements land on a hot table that is 99.8% test
+// residue. (CI and prod were never affected: CI regress runs against a throwaway
+// localhost DB, see .github/workflows/deploy-content.yml.)
+//
+// So sweep the children too. Deliberately data-driven rather than a hand-written
+// list of DELETEs: a future per-player table added without a thought for teardown
+// would silently resume the leak, and this at least fails loudly on a typo'd
+// table instead of quietly skipping it.
+// Delete every per-player row whose owner no longer exists in `players`. See the
+// call site at the end of the run for why this is safe rather than heuristic.
+async function sweepOrphanedPlayerRows() {
+  let total = 0;
+  const hit = [];
+  for (const t of PER_PLAYER_TABLES) {
+    try {
+      const { rowCount } = await query(
+        `DELETE FROM ${t} f WHERE NOT EXISTS (SELECT 1 FROM players p WHERE p.id = f.player_id)`
+      );
+      if (rowCount) { total += rowCount; hit.push(`${t} ${rowCount}`); }
+    } catch (err) {
+      if (!/does not exist/i.test(err.message)) console.error(`  ! orphan sweep: ${t} — ${err.message}`);
+    }
+  }
+  if (total) console.log(`  · swept ${total.toLocaleString()} orphaned per-player row(s): ${hit.join(', ')}`);
+  return total;
+}
+
+async function purgeFakePlayer(playerId) {
+  // Same table list as the end-of-run sweep, read at call time — this runs before
+  // that `const` initialises (temporal dead zone), and a teardown that throws is a
+  // teardown that doesn't tear down.
+  for (const t of PER_PLAYER_TABLES) {
+    // A table that doesn't exist yet (schema not applied) is not an error here —
+    // but anything else is worth seeing rather than swallowing.
+    await query(`DELETE FROM ${t} WHERE player_id=$1`, [playerId]).catch(err => {
+      if (!/does not exist/i.test(err.message)) {
+        console.error(`  ! teardown: ${t} purge failed — ${err.message}`);
+      }
+    });
   }
 }
 
@@ -1553,6 +2087,21 @@ for (const d of dirs) {
 // ── Cleanup ───────────────────────────────────────────────────────────────────
 removePlayerFromZone(P.id, getPlayer().current_zone);
 removeLivePlayer(P.id);
+
+// Sweep orphaned per-player rows.
+//
+// The engine suite tears down its own fake player, but the plugin suites mint
+// their own (`rt_burglar_test_regress_*`, `prologue_regress_*`, gametable's, …)
+// and most don't clean the child tables. Chasing each suite individually is a
+// game of whack-a-mole that the next new suite restarts, so sweep by the only
+// property that actually matters: **a row whose player_id has no `players` row
+// can never be read again** — every read in the codebase is keyed by the id of a
+// live or loading player. They are unreachable by construction, so deleting them
+// is safe in a way that a heuristic on id shape would not be.
+//
+// Left this to the very end so a mid-suite crash can't wipe a fixture a later
+// suite still needs. Local-only in practice: CI runs against a throwaway DB.
+await sweepOrphanedPlayerRows();
 stopAll();
 
 const failed = results.filter(x => !x.pass);

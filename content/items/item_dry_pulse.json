@@ -4,13 +4,13 @@
   "id": "item_dry_pulse",
   "name": "dried pulses",
   "tags": {
-    "description": "A scoop of hard little beans, dull and dusty, that rattle in the bag. Useless in under an hour and transformative after three.",
     "consumable": true,
+    "description": "A scoop of hard little beans, dull and dusty, that rattle in the bag. Useless in under an hour and transformative after three.",
+    "food_noun": "pulse",
+    "food_profile": "starchy_vegetable",
+    "needs_cooking": true,
     "restore_hunger": 19,
     "stackable": true,
-    "food_profile": "starchy_vegetable",
-    "food_noun": "pulse",
-    "needs_cooking": true,
     "status_chance": {
       "food_poisoning": 0.3
     }

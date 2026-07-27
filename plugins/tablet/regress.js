@@ -9,6 +9,24 @@ import { _test as news } from './news-generator.js';
 import { _test as calendar } from './calendar-app.js';
 
 export default async function regress({ run, check, getPlayer }) {
+  // ── Alarm: a clock on GAME time, set anywhere, before you sleep ─────────────
+  {
+    const { parseTime, minutesUntil, hhmm } = await import('../../server/engine/clock.js');
+    check('alarm accepts the ways people actually type a time',
+      parseTime('07:30') === 450 && parseTime('7:30') === 450
+        && parseTime('0730') === 450 && parseTime('730') === 450);
+    check('...and rejects what is not one',
+      parseTime('') === null && parseTime('25:00') === null
+        && parseTime('07:99') === null && parseTime('half seven') === null);
+    check('midnight is a time', parseTime('00:00') === 0 && hhmm(0) === '00:00');
+    check('the clock reads back what was set', hhmm(450) === '07:30' && hhmm(1439) === '23:59');
+    // An alarm always looks FORWARD — a time already gone means tomorrow.
+    check('a time later today rings today', minutesUntil(400, 450) === 50);
+    check('a time already passed rings tomorrow', minutesUntil(500, 450) === 1390);
+    check('setting it for right now means a full day, not instantly',
+      minutesUntil(450, 450) === 1440);
+  }
+
   let r = await run('tablet');
   check('tablet verb opens home screen', r?.type === 'tablet_panel' && r?.screen === 'home', JSON.stringify(r));
   check('home screen carries player summary', !!r?.player && typeof r.player.credits === 'number', JSON.stringify(r?.player));
@@ -72,12 +90,27 @@ export default async function regress({ run, check, getPlayer }) {
   check('corp map sub-screen signals corp_map view', r?.view === 'corp_map' && Array.isArray(r?.tiles), JSON.stringify(r)?.slice(0, 200));
   check('corp map sub-screen has no error', !r?.error, r?.error);
 
-  // Ideology app: read-only reshape of the ideologies/rep command data. Renders
-  // natively (view: 'ideology'); all pages ride in one payload the client pages
-  // through. The fake player has no rep, so every order sits at the base tier.
-  r = await run('tabletnav ideology');
-  check('ideology app is registered on the home screen', (await run('tablet'))?.apps?.some(a => a.id === 'ideology'), 'ideology app missing from roster');
-  check('ideology app signals ideology view', r?.type === 'tablet_panel' && r?.appId === 'ideology' && r?.view === 'ideology', JSON.stringify(r)?.slice(0, 160));
+  // Codex app: the reference shelf. Its root lists the registered sections; each
+  // section is its own screen, and the Orders section is the former standalone
+  // Ideology app, payload-identical (see plugins/tablet/codex/section-orders.js).
+  r = await run('tabletnav codex');
+  check('codex app is registered on the home screen', (await run('tablet'))?.apps?.some(a => a.id === 'codex'), 'codex app missing from roster');
+  check('codex root signals the codex view with no section', r?.type === 'tablet_panel' && r?.appId === 'codex' && r?.view === 'codex' && !r?.section, JSON.stringify(r)?.slice(0, 160));
+  check('codex shelf carries its sections', Array.isArray(r?.sections) && ['quiet', 'basin', 'orders'].every(id => r.sections.some(s => s.id === id)), JSON.stringify(r?.sections)?.slice(0, 200));
+
+  // Volume I is granted whole by the prologue, so a fake player who never ran it
+  // sees the chapters sealed — and a sealed chapter must ship NO body.
+  r = await run('tabletnav codex quiet');
+  check('codex volume routes to a chapters section', r?.view === 'codex' && r?.section === 'quiet' && r?.sectionKind === 'chapters', JSON.stringify(r)?.slice(0, 160));
+  check('codex volume carries chapters with progress', Array.isArray(r?.chapters) && r.chapters.length > 0 && r?.progress && typeof r.progress.total === 'number', `chapters=${r?.chapters?.length}`);
+  const sealed = (r?.chapters || []).filter(c => !c.unlocked);
+  check('sealed chapters never ship their prose', sealed.every(c => c.body == null), JSON.stringify(sealed[0])?.slice(0, 160));
+  check('sealed chapters carry a hint instead', sealed.every(c => !c.hint || typeof c.hint === 'string'), 'hint should be a string when present');
+
+  // The Orders section — the alignment reader, unchanged by the move. The fake
+  // player has no rep, so every order sits at the base tier.
+  r = await run('tabletnav codex orders');
+  check('codex orders section signals kind orders', r?.view === 'codex' && r?.section === 'orders' && r?.sectionKind === 'orders', JSON.stringify(r)?.slice(0, 160));
   // Count-agnostic: the four canon orders must be present and live (not tagged
   // expansion). Expansion orders may or may not be imported locally, so assert
   // presence of the canon set rather than an exact length.
@@ -86,6 +119,52 @@ export default async function regress({ run, check, getPlayer }) {
   check('ideology payload carries the tier ladder', Array.isArray(r?.tiers) && r.tiers.length === 6, `tiers=${r?.tiers?.length}`);
   check('ideology overview carries stance + paths', r?.overview && typeof r.overview.stance === 'number' && !!r.overview.paths, JSON.stringify(r?.overview));
   check('ideology orders carry standing + profile + expansion fields', r?.orders?.every(o => o.id && o.color && typeof o.rep === 'number' && 'stance' in o && 'path' in o && 'expansion' in o && Array.isArray(o.opposed)), JSON.stringify(r?.orders?.[0])?.slice(0, 200));
+
+  // The `codex` verb is the same door as the app tile.
+  r = await run('codex');
+  check('codex verb opens the shelf', r?.type === 'tablet_panel' && r?.appId === 'codex' && r?.view === 'codex', JSON.stringify(r)?.slice(0, 160));
+
+  // ── Every sealed chapter must be reachable ─────────────────────────────────
+  // The one failure mode that would never surface in play: a chapter that ships
+  // with a hint and no way in. A locked chapter counts as reachable if it has an
+  // in-code trigger (codex-app.js) OR a CODEX_UNLOCK authored on some NPC's
+  // dialogue. Scanning the LIVE npcs (not the content files) also proves the
+  // authoring actually imported.
+  {
+    const { CHAPTERS } = await import('./codex/chapters.js');
+    const CODE_TRIGGERED = new Set(['inheritance', 'wants', 'answers', 'chrome', 'flesh', 'mind']);
+    const authored = new Set();
+    for (const npc of world.npcs.values()) {
+      const tree = npc.dialogue_tree;
+      if (!tree || typeof tree !== 'object') continue;
+      for (const node of Object.values(tree)) {
+        const all = [...(node?.actions || []), ...(node?.options || []).flatMap(o => o.actions || [])];
+        for (const a of all) if (a?.action === 'CODEX_UNLOCK' && a.chapter) authored.add(a.chapter);
+      }
+    }
+    const locked = CHAPTERS.filter(c => c.locked);
+    const orphans = locked.filter(c => !authored.has(c.id) && !CODE_TRIGGERED.has(c.id));
+    check('every sealed chapter has a way in', orphans.length === 0, `unreachable: ${orphans.map(c => c.id).join(', ')}`);
+    check('every sealed chapter has an NPC who explains it', locked.every(c => authored.has(c.id)),
+      `no dialogue unlock for: ${locked.filter(c => !authored.has(c.id)).map(c => c.id).join(', ')}`);
+    // And nobody is authoring an unlock for a chapter that doesn't exist — a typo
+    // in a dialogue tree would otherwise be a silently dead conversation branch.
+    const known = new Set(CHAPTERS.map(c => c.id));
+    check('no dialogue unlocks a chapter that does not exist', [...authored].every(id => known.has(id)),
+      `unknown chapter ids in dialogue: ${[...authored].filter(id => !known.has(id)).join(', ')}`);
+  }
+
+  // CODEX_UNLOCK itself: the authoring seam VINE calls. The fake player's flag
+  // writes are no-ops against the DB, so assert the action's own contract —
+  // a real chapter is accepted, a typo is refused rather than silently ignored.
+  {
+    const { dispatchAction } = await import('../../server/engine/actions.js');
+    const p = getPlayer();
+    const ok = await dispatchAction({ type: 'CODEX_UNLOCK', actor: p, params: { chapter: 'chrome', quiet: true } });
+    check('CODEX_UNLOCK accepts a real chapter', ok?.type === 'codex' && ok.chapter === 'chrome', JSON.stringify(ok));
+    const bad = await dispatchAction({ type: 'CODEX_UNLOCK', actor: p, params: { chapter: 'not_a_chapter' } });
+    check('CODEX_UNLOCK refuses an unknown chapter', bad?.type === 'error', JSON.stringify(bad));
+  }
 
   // Map app: the tablet-native city map. Reuses buildMapPayload, so the root
   // resolves to a map view with a tiles array + mode; the unified zoom ladder

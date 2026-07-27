@@ -4,14 +4,14 @@
   "id": "item_bonito_flakes",
   "name": "bonito flakes",
   "tags": {
-    "description": "A paper bag of shavings so thin they are translucent, cut from a block of fish dried harder than wood. Thrown onto anything hot they lift and curl and move, which is either charming or unsettling depending on the day.",
     "consumable": true,
-    "restore_hunger": 3,
-    "stackable": true,
-    "food_profile": "aromatic",
+    "description": "A paper bag of shavings so thin they are translucent, cut from a block of fish dried harder than wood. Thrown onto anything hot they lift and curl and move, which is either charming or unsettling depending on the day.",
     "food_noun": "bonito",
+    "food_profile": "aromatic",
     "perishable": true,
+    "restore_hunger": 3,
     "spoil_rate": "slow",
+    "stackable": true,
     "status_chance": {
       "food_poisoning": 0.1
     }

@@ -605,6 +605,88 @@ function ensureStyles() {
     #tablet-os-overlay .tos-color-hex { font-family:'Courier New',monospace; font-size:13px; letter-spacing:1px; color:var(--tos-fg); }
     #tablet-os-overlay .tos-color-hint { flex:1 1 100%; font-size:11px; color:var(--tos-fg-dim2); }
 
+    /* ── Codex ───────────────────────────────────────────────────────────────
+       A reading surface, so it deliberately breaks the tablet's instrument look:
+       a measured column, generous leading, a serif face for prose only. The
+       chrome around it (shelf, contents, locks) stays in the tablet's own
+       monospace/caps idiom so the app still reads as part of the device. */
+    #tablet-os-overlay .tos-cx-root { --cx-serif: Georgia,'Times New Roman',serif; animation:tos-fade .28s ease; }
+    #tablet-os-overlay .tos-cx-hero { text-align:center; padding:16px 0 20px; border-bottom:1px solid var(--tos-border); margin-bottom:16px; }
+    #tablet-os-overlay .tos-cx-hero-eyebrow { font-size:10px; letter-spacing:3px; text-transform:uppercase; color:var(--tos-fg-dim2); }
+    #tablet-os-overlay .tos-cx-hero-title { font-size:31px; letter-spacing:12px; margin:7px 0 5px; color:var(--tos-fg); text-indent:12px;
+      text-shadow:0 0 22px color-mix(in srgb,var(--mg-accent) 40%,transparent); }
+    #tablet-os-overlay .tos-cx-hero-title.small { font-size:20px; letter-spacing:5px; text-indent:5px; }
+    #tablet-os-overlay .tos-cx-hero-sub { font-family:var(--cx-serif); font-style:italic; font-size:13px; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-cx-shelf { display:flex; flex-direction:column; gap:9px; }
+    #tablet-os-overlay .tos-cx-shelf-row { display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 13px; border-radius:7px;
+      border:1px solid var(--tos-border); background:linear-gradient(165deg,var(--tos-surface-hi),var(--tos-surface-lo));
+      box-shadow:inset 0 1px 0 var(--tos-bevel-hi),inset 0 -2px 3px var(--tos-bevel-lo); transition:border-color .16s,transform .16s; }
+    #tablet-os-overlay .tos-cx-shelf-row:hover { border-color:color-mix(in srgb,var(--mg-accent) 55%,transparent); transform:translateX(2px); }
+    #tablet-os-overlay .tos-cx-glyph { font-size:21px; color:var(--mg-accent); text-shadow:0 0 12px color-mix(in srgb,var(--mg-accent) 55%,transparent); }
+    #tablet-os-overlay .tos-cx-shelf-txt { flex:1; min-width:0; display:flex; flex-direction:column; gap:3px; }
+    #tablet-os-overlay .tos-cx-shelf-title { font-size:14px; letter-spacing:1.6px; text-transform:uppercase; color:var(--tos-fg); }
+    #tablet-os-overlay .tos-cx-shelf-sub { font-family:var(--cx-serif); font-size:12.5px; font-style:italic; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-cx-shelf-meta { font-size:10.5px; letter-spacing:1.4px; text-transform:uppercase; color:var(--tos-fg-dim2); white-space:nowrap; }
+    #tablet-os-overlay .tos-cx-shelf-meta b { color:var(--mg-accent); margin-left:8px; font-size:14px; }
+    #tablet-os-overlay .tos-cx-prog { display:block; height:2px; margin-top:4px; background:var(--tos-surface-lo); border-radius:2px; overflow:hidden; max-width:190px; }
+    #tablet-os-overlay .tos-cx-prog.wide { max-width:none; flex:1; height:3px; }
+    #tablet-os-overlay .tos-cx-prog i { display:block; height:100%; background:var(--mg-accent); box-shadow:0 0 8px var(--mg-accent); }
+    #tablet-os-overlay .tos-cx-foot { font-family:var(--cx-serif); font-style:italic; font-size:12px; color:var(--tos-fg-dim2); text-align:center; margin:18px 0 4px; }
+    /* Volume contents */
+    #tablet-os-overlay .tos-cx-volhead { padding-bottom:13px; border-bottom:1px solid var(--tos-border); margin-bottom:13px; text-align:center; }
+    #tablet-os-overlay .tos-cx-note { font-family:var(--cx-serif); font-style:italic; font-size:12px; color:var(--tos-fg-dim2); max-width:44ch; margin:0 auto; }
+    #tablet-os-overlay .tos-cx-progline { display:flex; align-items:center; gap:9px; margin-top:11px; font-size:10.5px; letter-spacing:1.4px;
+      text-transform:uppercase; color:var(--tos-fg-dim2); }
+    #tablet-os-overlay .tos-cx-progline b { color:var(--mg-accent); }
+    #tablet-os-overlay .tos-cx-index { display:flex; flex-direction:column; }
+    #tablet-os-overlay .tos-cx-entry { display:flex; align-items:flex-start; gap:13px; padding:13px 4px; border-bottom:1px solid var(--tos-border); cursor:pointer; }
+    #tablet-os-overlay .tos-cx-entry:hover:not(.locked) .tos-cx-etitle { color:var(--mg-accent); }
+    #tablet-os-overlay .tos-cx-entry.locked { cursor:default; opacity:.72; }
+    #tablet-os-overlay .tos-cx-n { font-family:var(--cx-serif); font-size:16px; color:var(--tos-fg-dim2); min-width:30px; text-align:right; padding-top:1px; }
+    #tablet-os-overlay .tos-cx-etxt { flex:1; min-width:0; display:flex; flex-direction:column; gap:5px; }
+    #tablet-os-overlay .tos-cx-etitle { font-size:14px; letter-spacing:1.2px; color:var(--tos-fg); transition:color .16s; }
+    #tablet-os-overlay .tos-cx-elede { font-family:var(--cx-serif); font-size:12.5px; font-style:italic; color:var(--tos-fg-dim); line-height:1.45; }
+    /* A sealed entry shows its shape and nothing else — bars, not text. The body
+       never leaves the server for a locked chapter, so this is honest, not a mask. */
+    #tablet-os-overlay .tos-cx-redact { display:flex; flex-direction:column; gap:4px; margin:1px 0 2px; }
+    #tablet-os-overlay .tos-cx-redact i { display:block; height:7px; border-radius:2px; background:repeating-linear-gradient(90deg,
+      color-mix(in srgb,var(--tos-fg) 22%,transparent) 0 9px, transparent 9px 13px); }
+    #tablet-os-overlay .tos-cx-hint { font-family:var(--cx-serif); font-size:12px; font-style:italic; color:color-mix(in srgb,var(--mg-accent) 70%,var(--tos-fg-dim2)); }
+    #tablet-os-overlay .tos-cx-lock { font-size:9.5px; letter-spacing:2px; text-transform:uppercase; color:var(--tos-fg-dim2);
+      border:1px solid var(--tos-border); border-radius:3px; padding:3px 6px; white-space:nowrap; }
+    #tablet-os-overlay .tos-cx-open { font-size:10px; letter-spacing:1.6px; text-transform:uppercase; color:var(--mg-accent); white-space:nowrap; padding-top:2px; }
+    /* The read */
+    #tablet-os-overlay .tos-cx-readbar { margin-bottom:9px; }
+    #tablet-os-overlay .tos-cx-back { cursor:pointer; font-size:10.5px; letter-spacing:1.6px; text-transform:uppercase; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-cx-back:hover { color:var(--mg-accent); }
+    #tablet-os-overlay .tos-cx-read { max-width:60ch; margin:0 auto; padding:6px 2px 4px; }
+    #tablet-os-overlay .tos-cx-num { font-family:var(--cx-serif); font-size:13px; letter-spacing:5px; color:var(--mg-accent); text-align:center; }
+    #tablet-os-overlay .tos-cx-eyebrow { font-size:9.5px; letter-spacing:3px; text-transform:uppercase; color:var(--tos-fg-dim2); text-align:center; margin-top:7px; }
+    #tablet-os-overlay .tos-cx-title { font-family:var(--cx-serif); font-size:27px; font-weight:400; line-height:1.15; text-align:center;
+      margin:9px 0 11px; color:var(--tos-fg); }
+    #tablet-os-overlay .tos-cx-lede { font-family:var(--cx-serif); font-style:italic; font-size:14px; line-height:1.6; text-align:center;
+      color:var(--tos-fg-dim); margin:0 auto; max-width:46ch; }
+    #tablet-os-overlay .tos-cx-rule { text-align:center; letter-spacing:9px; font-size:8px; color:var(--tos-fg-dim2); margin:19px 0; }
+    #tablet-os-overlay .tos-cx-rule.top { margin:17px 0 15px; }
+    #tablet-os-overlay .tos-cx-p { font-family:var(--cx-serif); font-size:15px; line-height:1.72; color:var(--tos-fg); margin:0 0 15px; }
+    #tablet-os-overlay .tos-cx-drop { float:left; font-size:44px; line-height:.86; padding:3px 9px 0 0; color:var(--mg-accent);
+      text-shadow:0 0 18px color-mix(in srgb,var(--mg-accent) 45%,transparent); }
+    #tablet-os-overlay .tos-cx-pull { font-family:var(--cx-serif); font-size:17px; font-style:italic; line-height:1.5; text-align:center;
+      color:var(--mg-accent); margin:22px 0; padding:14px 12px; border-top:1px solid color-mix(in srgb,var(--mg-accent) 30%,transparent);
+      border-bottom:1px solid color-mix(in srgb,var(--mg-accent) 30%,transparent);
+      text-shadow:0 0 20px color-mix(in srgb,var(--mg-accent) 30%,transparent); }
+    #tablet-os-overlay .tos-cx-end { text-align:center; font-size:13px; color:var(--tos-fg-dim2); margin:6px 0 2px; }
+    #tablet-os-overlay .tos-cx-nav { display:flex; justify-content:space-between; gap:10px; margin-top:15px; padding-top:13px; border-top:1px solid var(--tos-border); }
+    #tablet-os-overlay .tos-cx-step { cursor:pointer; font-size:10.5px; letter-spacing:1.4px; text-transform:uppercase; color:var(--tos-fg-dim);
+      max-width:46%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    #tablet-os-overlay .tos-cx-step:hover { color:var(--mg-accent); }
+    #tablet-os-overlay .tos-cx-step.off { opacity:.35; cursor:default; }
+    @media (max-width:560px) {
+      #tablet-os-overlay .tos-cx-hero-title { font-size:25px; letter-spacing:8px; }
+      #tablet-os-overlay .tos-cx-title { font-size:22px; }
+      #tablet-os-overlay .tos-cx-p { font-size:14.5px; }
+    }
+
     /* ── Ideology reader ─────────────────────────────────────────────────────
        Paged: a tab strip + one page at a time (Overview / per-order / Field).
        Beveled panels + glow, per-order identity colour carried in --ic. */
@@ -805,7 +887,7 @@ function ensureStyles() {
     #tablet-os-overlay .tos-opt:active { transform:translateY(1px); box-shadow:inset 0 2px 3px var(--tos-bevel-lo); }
     #tablet-os-overlay .tos-opt.selected { border-color:var(--mg-accent); color:var(--mg-accent); font-weight:bold; box-shadow:0 0 8px color-mix(in srgb, var(--mg-accent) 35%, transparent), inset 0 1px 0 var(--tos-bevel-hi); }
     #tablet-os-overlay .tos-slider { width:160px; max-width:46vw; accent-color:var(--mg-accent); cursor:pointer; }
-    /* About page — a centered colophon: wordmark, byline, then the coffee link.
+    /* About page — a centered colophon: wordmark, byline, then the support link.
        Deliberately airy (no .tos-set-row dividers) so it reads as a title card
        rather than another list of controls. */
     #tablet-os-overlay .tos-about { display:flex; flex-direction:column; align-items:center; justify-content:center;
@@ -815,7 +897,10 @@ function ensureStyles() {
     #tablet-os-overlay .tos-about-rule { width:132px; height:1px; background:linear-gradient(90deg, transparent, var(--mg-accent), transparent); opacity:.7; }
     #tablet-os-overlay .tos-about-by { font-size:11px; letter-spacing:2.5px; text-transform:uppercase; color:var(--tos-fg-dim); }
     #tablet-os-overlay .tos-about-names { font-size:14px; line-height:1.7; color:var(--tos-fg); }
-    #tablet-os-overlay .tos-about-tag { font-size:11px; color:var(--tos-fg-dim); max-width:280px; line-height:1.6; font-style:italic; }
+    /* Was a one-line italic tagline (a quote about the city); it now carries the
+       support ask, which is body copy rather than a quotation — so no italic,
+       and a little more width to breathe over two or three lines. */
+    #tablet-os-overlay .tos-about-tag { font-size:11px; color:var(--tos-fg-dim); max-width:300px; line-height:1.65; }
     #tablet-os-overlay .tos-about-bmc { display:inline-flex; align-items:center; gap:9px; margin-top:4px; cursor:pointer;
       padding:9px 16px; border-radius:7px; font-size:12.5px; letter-spacing:.6px; text-decoration:none; color:var(--tos-fg);
       background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo));
@@ -1450,6 +1535,52 @@ function ensureStyles() {
        every theme without a palette of its own. Entry copy is 13.5px roman, NOT
        italic: Courier has no true italic and the browser's synthetic oblique
        smears badly at small sizes, which is what made the first pass unreadable. */
+    /* B.L.I.S.S. — deliberately cold and catalogue-like. Monochrome like the rest
+       of the tablet; the only warmth in the whole app is the ♡ on its tile. */
+    #tablet-os-overlay .tos-bliss-head { display:flex; align-items:flex-end; justify-content:space-between;
+      gap:12px; padding-bottom:8px; border-bottom:1px solid var(--tos-line); margin-bottom:10px; }
+    #tablet-os-overlay .tos-bliss-app { font-size:1.35em; letter-spacing:.18em; font-weight:700; }
+    #tablet-os-overlay .tos-bliss-expand { font-size:.72em; opacity:.55; letter-spacing:.04em; margin-top:2px; }
+    #tablet-os-overlay .tos-bliss-sub { font-size:.8em; opacity:.75; white-space:nowrap; }
+    #tablet-os-overlay .tos-bliss-strap { font-size:.72em; opacity:.5; font-style:italic; margin-bottom:10px; }
+    #tablet-os-overlay .tos-bliss-notice { font-size:.8em; padding:7px 9px; margin-bottom:10px;
+      border:1px solid var(--tos-line); background:rgba(255,255,255,.04); }
+    #tablet-os-overlay .tos-bliss-grid { display:flex; flex-direction:column; gap:9px; }
+    #tablet-os-overlay .tos-bliss-card { border:1px solid var(--tos-line); padding:9px 11px; cursor:pointer; }
+    #tablet-os-overlay .tos-bliss-card:hover { background:rgba(255,255,255,.05); }
+    #tablet-os-overlay .tos-bliss-who + .tos-bliss-who { margin-top:8px; padding-top:8px;
+      border-top:1px dashed var(--tos-line); }
+    #tablet-os-overlay .tos-bliss-name { font-weight:700; letter-spacing:.05em; }
+    #tablet-os-overlay .tos-bliss-name .sex { opacity:.5; font-weight:400; margin-left:3px; }
+    #tablet-os-overlay .tos-bliss-name .dim,
+    #tablet-os-overlay .tos-bliss-card .dim,
+    #tablet-os-overlay .tos-actions .dim { opacity:.5; font-weight:400; font-size:.85em; }
+    #tablet-os-overlay .tos-bliss-says { font-size:.82em; opacity:.85; font-style:italic; margin-top:2px; }
+    #tablet-os-overlay .tos-bliss-phys { font-size:.74em; opacity:.55; margin-top:3px; }
+    #tablet-os-overlay .tos-bliss-note { font-size:.72em; opacity:.55; margin-top:4px; }
+    #tablet-os-overlay .tos-bliss-rate { text-align:right; margin-top:6px; font-size:.85em; }
+    #tablet-os-overlay .tos-bliss-pairtag { font-size:.68em; letter-spacing:.14em; text-transform:uppercase;
+      opacity:.75; margin-bottom:5px; }
+    #tablet-os-overlay .tos-bliss-pairbox { border:1px solid var(--tos-line); padding:9px 11px; margin-bottom:10px;
+      font-size:.82em; background:rgba(255,255,255,.03); }
+    #tablet-os-overlay .tos-bliss-detailwho { border:1px solid var(--tos-line); padding:9px 11px; }
+    #tablet-os-overlay .tos-bliss-spec { width:100%; border-collapse:collapse; margin-top:7px; font-size:.74em; }
+    #tablet-os-overlay .tos-bliss-spec th { text-align:left; opacity:.5; font-weight:400; width:5.5em;
+      vertical-align:top; padding:2px 8px 2px 0; }
+    #tablet-os-overlay .tos-bliss-spec td { padding:2px 0; opacity:.85; }
+    #tablet-os-overlay .tos-bliss-proj { width:100%; border-collapse:collapse; font-size:.76em; margin-top:6px; }
+    #tablet-os-overlay .tos-bliss-proj th { text-align:left; opacity:.5; font-weight:400; padding:3px 0;
+      border-bottom:1px solid var(--tos-line); }
+    #tablet-os-overlay .tos-bliss-proj td { padding:3px 0; opacity:.85; }
+    #tablet-os-overlay .tos-bliss-secthead { font-size:.7em; letter-spacing:.16em; text-transform:uppercase;
+      opacity:.6; margin:14px 0 4px; }
+    #tablet-os-overlay .tos-bliss-blocked { font-size:.8em; opacity:.7; padding:10px; border:1px dashed var(--tos-line); }
+    #tablet-os-overlay .tos-bliss-held { border:1px solid var(--tos-line); padding:9px 11px; }
+    #tablet-os-overlay .tos-bliss-heldline { display:flex; justify-content:space-between; gap:10px;
+      font-size:.8em; opacity:.85; margin-top:3px; }
+    #tablet-os-overlay .tos-bliss-heldline .save { opacity:.6; }
+    #tablet-os-overlay .tos-bliss-warn { font-size:.75em; color:var(--yellow); margin-top:5px; }
+
     #tablet-os-overlay .tos-acc-head { display:flex; align-items:flex-end; justify-content:space-between; gap:12px;
       padding-bottom:11px; border-bottom:1px solid var(--border); }
     #tablet-os-overlay .tos-acc-app { font-size:16px; letter-spacing:5px; text-transform:uppercase; color:var(--tos-fg); font-weight:bold; }
@@ -1568,6 +1699,11 @@ function ensureStyles() {
       border-bottom:1px solid color-mix(in srgb, var(--mg-accent) 9%, transparent); }
     #tablet-os-overlay .tos-wx-day:last-child { border-bottom:none; }
     #tablet-os-overlay .tos-wx-day:first-child { color:var(--mg-accent); }
+    /* Scheduled hero event (acid rain, ion storm) — outranks the first-child
+       accent, because the day that kills you matters more than today. */
+    #tablet-os-overlay .tos-wx-day.tos-wx-hero,
+    #tablet-os-overlay .tos-wx-day.tos-wx-hero:first-child { color:var(--red, #e05252); font-weight:600;
+      background:color-mix(in srgb, var(--red, #e05252) 8%, transparent); }
     #tablet-os-overlay .tos-wx-dow { color:var(--tos-fg-dim); }
     #tablet-os-overlay .tos-wx-dico { text-align:center; }
     #tablet-os-overlay .tos-wx-dcond { text-transform:capitalize; color:var(--tos-fg-dim); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -2039,7 +2175,8 @@ function applyTabletTheme() {
 function nav(appId, screenLabel, params) {
   _backReturn = null; // any explicit navigation invalidates a pending drill-in return
   _tosCorpPage = 0;   // land on the corp Overview page on any server-side navigation
-  _tosIdeoPage = 0;   // land on the Ideology Overview page on any server-side navigation
+  _tosIdeoPage = 0;   // land on the Orders Overview page on any server-side navigation
+  _tosCodexCh = null; // …and on a volume's contents, not whatever was last read
   sfx(TOS_SELECT_DEF);
   const parts = ['tabletnav', appId];
   if (screenLabel != null) parts.push(screenToken(screenLabel));
@@ -2273,8 +2410,15 @@ const TOS_APP_ICONS = {
   // News = "The Coldwater Sentinel" newsprint sheet: a folded broadsheet with a
   // masthead band and columns, monochrome like the rest so it drops the 📰 emoji.
   news: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M4 4h16v16l-2-1.2-2 1.2-2-1.2-2 1.2-2-1.2-2 1.2-2-1.2z" fill="currentColor" fill-opacity=".2" stroke="none"/><path d="M4 4h16v16l-2-1.2-2 1.2-2-1.2-2 1.2-2-1.2-2 1.2-2-1.2z"/><path d="M7 7h10"/><path d="M7 10.5h4.5v4H7z"/><path d="M13.5 10.5H17M13.5 13H17M7 16.5h10"/></svg>`,
+  // Codex = an open record: two leaves off a centre spine, ruled text on the
+  // left, and on the right the crosshair-and-marker of the Orders compass — the
+  // two halves of the app in one mark (the world, and where you stand in it).
+  // Monochrome, same stroke weight and .dim fill convention as the rest.
+  codex: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M12 6.2C10.2 4.6 7.6 4 3.5 4.4v14C7.6 18 10.2 18.6 12 20.2c1.8-1.6 4.4-2.2 8.5-1.8v-14C16.4 4 13.8 4.6 12 6.2z" fill="currentColor" fill-opacity=".16" stroke="none"/><path d="M12 6.2C10.2 4.6 7.6 4 3.5 4.4v14C7.6 18 10.2 18.6 12 20.2c1.8-1.6 4.4-2.2 8.5-1.8v-14C16.4 4 13.8 4.6 12 6.2z"/><path d="M12 6.2v14"/><path d="M6 8.4h3.5M6 11.2h3.5M6 14h2.4" stroke-opacity=".75"/><circle cx="16.4" cy="11.4" r="3.1" stroke-opacity=".8"/><path d="M16.4 8.3v6.2M13.3 11.4h6.2" stroke-opacity=".45"/><circle cx="17.7" cy="10.1" r="1.15" fill="currentColor" stroke="none"/></svg>`,
   // Ideology = an alignment compass: crosshair axes + a plotted marker, the same
   // "where you stand" motif the app's charts use. Monochrome like the rest.
+  // (Kept: the Ideology reader now lives as the Codex's Orders section, but this
+  // mark still fronts it in any surface that keys off the old id.)
   ideology: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><circle class="dim" cx="12" cy="12" r="9" fill="currentColor" fill-opacity=".14" stroke="none"/><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18" stroke-opacity=".55"/><circle cx="15" cy="9" r="2.4" fill="currentColor" stroke="none"/></svg>`,
   // Not an SVG glyph — the circled-"A" ARCHITECT logo (same mark as the tablet's
   // own boot screen, .tos-boot-logo), so the tile reads as the game itself.
@@ -2523,7 +2667,9 @@ function wireDragScroll(scroll) {
   const THRESH = 6;      // px of movement before a press becomes a gesture (below = a tap)
   const SWIPE_MIN = 45;  // px of horizontal travel to commit a page change
   let start = null;      // { x, y, top, dragging, axis, dx }
-  const ideoActive = () => _data?.view === 'ideology'; // horizontal swipe pages the reader
+  // Horizontal swipe pages the alignment reader — now reached as the Codex's
+  // Orders section, so the test is the section kind, not the view name.
+  const ideoActive = () => _data?.view === 'codex' && _data?.sectionKind === 'orders';
 
   const isInteractive = (el) =>
     el.closest('input, textarea, select, button, [contenteditable], .tos-tile, .tos-color, input[type=range]');
@@ -2905,9 +3051,10 @@ function renderTabletSettings() {
   return `<div class="tos-set-tabs">${tabs}</div><div class="tos-set-page">${pages[_tosSetPage]}</div>`;
 }
 
-// About — the colophon page. Static markup: wordmark, byline, and the same
-// Buy-Me-A-Coffee link the login screen carries (kept in sync by hand; there's
-// only the one URL). Opens in a new tab, so it needs no wiring.
+// About — the colophon page. Static markup: wordmark, byline, and the support
+// link (same URL the login screen carries, kept in sync by hand — there's only
+// the one). The line above the button explains what a donation actually buys,
+// which is the honest version of asking. Opens in a new tab, so no wiring.
 function renderAboutPage() {
   return `<div class="tos-about">
     <div class="tos-about-mark">Architect</div>
@@ -2915,9 +3062,9 @@ function renderAboutPage() {
     <div class="tos-about-by">Built by</div>
     <div class="tos-about-names">David Lacey<br>John Akerson</div>
     <div class="tos-about-rule"></div>
-    <div class="tos-about-tag">A city that keeps running whether or not you're looking at it.</div>
-    <a class="tos-about-bmc" href="https://buymeacoffee.com/haveagreatdave" target="_blank" rel="noopener noreferrer" title="Buy me a coffee">
-      <span class="tos-about-cup">☕</span><span>Buy me a coffee</span>
+    <div class="tos-about-tag">Architect runs on servers and databases that cost real money every month. Donations cover those bills — and every one they cover is time we get to spend building the game instead of paying for it.</div>
+    <a class="tos-about-bmc" href="https://buymeacoffee.com/haveagreatdave" target="_blank" rel="noopener noreferrer" title="Support Us">
+      <span class="tos-about-cup">☕</span><span>Support Us</span>
     </a>
   </div>`;
 }
@@ -3165,7 +3312,112 @@ function _mapTileSym(t) {
   return ''; // bare tile — no marker glyph (#, ⸪., …)
 }
 
-// ── Ideology app (native view: 'ideology') ────────────────────────────────
+// ── Codex app (native view: 'codex') ─────────────────────────────────────────
+// A shelf of sections. Two kinds render here — 'chapters' (a lore volume: an
+// index of entries, then one entry read full-bleed) — while kind 'orders' falls
+// through to the alignment reader below, which is the same instrument it always
+// was, just reached through the Codex now.
+//
+// Reading state is client-side (_tosCodexCh), like the ideology paging: the whole
+// volume rides in one payload, so opening a chapter is not a round trip.
+let _tosCodexCh = null;   // chapter id currently being read, or null for the index
+
+function renderCodexShelf(d) {
+  const tiles = (d.sections || []).map(s => {
+    const prog = s.progress
+      ? `<span class="tos-cx-prog"><i style="width:${s.progress.total ? Math.round(s.progress.have / s.progress.total * 100) : 0}%"></i></span>`
+      : '';
+    return `<div class="tos-cx-shelf-row" data-codex-section="${esc(s.id)}">
+      <span class="tos-cx-glyph">${esc(s.glyph || '◆')}</span>
+      <span class="tos-cx-shelf-txt">
+        <span class="tos-cx-shelf-title">${esc(s.title)}</span>
+        <span class="tos-cx-shelf-sub">${esc(s.subtitle || '')}</span>
+        ${prog}
+      </span>
+      <span class="tos-cx-shelf-meta">${esc(s.line || '')}<b>›</b></span>
+    </div>`;
+  }).join('');
+  return `<div class="tos-cx-root">
+    <div class="tos-cx-hero">
+      <div class="tos-cx-hero-eyebrow">Architect Public Record</div>
+      <div class="tos-cx-hero-title">CODEX</div>
+      <div class="tos-cx-hero-sub">What the world is. What you are becoming in it.</div>
+    </div>
+    <div class="tos-cx-shelf">${tiles}</div>
+    <p class="tos-cx-foot">Entries accrue as you learn them. The record is not complete, and has never claimed to be.</p>
+  </div>`;
+}
+
+// One chapter's prose. `body` is the authored array: strings are paragraphs,
+// { pull } is a pull quote, { break: true } is a rule. A locked chapter never
+// ships a body at all (see codex/section-chapters.js), so this can't leak one.
+function renderCodexBody(body) {
+  return (body || []).map((p, i) => {
+    if (typeof p === 'string') {
+      // Drop cap on the opening paragraph only — the reader's one flourish.
+      if (i === 0) return `<p class="tos-cx-p"><span class="tos-cx-drop">${esc(p.charAt(0))}</span>${esc(p.slice(1))}</p>`;
+      return `<p class="tos-cx-p">${esc(p)}</p>`;
+    }
+    if (p?.pull) return `<blockquote class="tos-cx-pull">${esc(p.pull)}</blockquote>`;
+    if (p?.break) return `<div class="tos-cx-rule" aria-hidden="true">◆ ◆ ◆</div>`;
+    return '';
+  }).join('');
+}
+
+function renderCodexVolume(d) {
+  const chapters = d.chapters || [];
+  const reading = _tosCodexCh ? chapters.find(c => c.id === _tosCodexCh && c.unlocked) : null;
+
+  if (reading) {
+    const idx = chapters.indexOf(reading);
+    const prev = chapters.slice(0, idx).reverse().find(c => c.unlocked);
+    const next = chapters.slice(idx + 1).find(c => c.unlocked);
+    const step = (c, label, dir) => c
+      ? `<span class="tos-cx-step" data-codex-ch="${esc(c.id)}">${dir < 0 ? '‹ ' : ''}${esc(label)}${dir > 0 ? ' ›' : ''}</span>`
+      : `<span class="tos-cx-step off">${dir < 0 ? '‹ ' : ''}${esc(label)}${dir > 0 ? ' ›' : ''}</span>`;
+    return `<div class="tos-cx-root">
+      <div class="tos-cx-readbar"><span class="tos-cx-back" data-codex-ch="">‹ ${esc(d.sectionTitle || 'Contents')}</span></div>
+      <article class="tos-cx-read">
+        <div class="tos-cx-num">${esc(reading.n || '')}</div>
+        <div class="tos-cx-eyebrow">${esc(reading.eyebrow || '')}</div>
+        <h1 class="tos-cx-title">${esc(reading.title)}</h1>
+        <p class="tos-cx-lede">${esc(reading.lede || '')}</p>
+        <div class="tos-cx-rule top" aria-hidden="true">◆ ◆ ◆</div>
+        ${renderCodexBody(reading.body)}
+        <div class="tos-cx-end" aria-hidden="true">◈</div>
+      </article>
+      <div class="tos-cx-nav">${step(prev, prev ? prev.title : 'Beginning', -1)}${step(next, next ? next.title : 'End of record', 1)}</div>
+    </div>`;
+  }
+
+  const rows = chapters.map(c => c.unlocked
+    ? `<div class="tos-cx-entry" data-codex-ch="${esc(c.id)}">
+         <span class="tos-cx-n">${esc(c.n || '')}</span>
+         <span class="tos-cx-etxt"><span class="tos-cx-etitle">${esc(c.title)}</span><span class="tos-cx-elede">${esc(c.lede || '')}</span></span>
+         <span class="tos-cx-open">read ›</span>
+       </div>`
+    : `<div class="tos-cx-entry locked">
+         <span class="tos-cx-n">${esc(c.n || '')}</span>
+         <span class="tos-cx-etxt">
+           <span class="tos-cx-etitle">${esc(c.title)}</span>
+           <span class="tos-cx-redact" aria-hidden="true"><i style="width:94%"></i><i style="width:71%"></i><i style="width:86%"></i></span>
+           <span class="tos-cx-hint">${esc(c.hint || 'Not yet recovered.')}</span>
+         </span>
+         <span class="tos-cx-lock">sealed</span>
+       </div>`).join('');
+
+  const p = d.progress || { have: 0, total: chapters.length };
+  return `<div class="tos-cx-root">
+    <div class="tos-cx-volhead">
+      <div class="tos-cx-hero-title small">${esc(d.sectionTitle || '')}</div>
+      <div class="tos-cx-note">${esc(d.note || '')}</div>
+      <div class="tos-cx-progline"><span class="tos-cx-prog wide"><i style="width:${p.total ? Math.round(p.have / p.total * 100) : 0}%"></i></span><b>${p.have}/${p.total}</b> recovered</div>
+    </div>
+    <div class="tos-cx-index">${rows}</div>
+  </div>`;
+}
+
+// ── Ideology reader (Codex section 'orders') ──────────────────────────────
 // Paged reader: Overview (radial 4-path field + ranked standing), one deep-dive
 // page per order (lore/creed/path/standing ladder/relations/agents), and the
 // Field (two-axis compass). All data rides in one payload; pages switch
@@ -3397,7 +3649,7 @@ function renderIdeoFieldPage(d, accent) {
 // Step the reader one page (−1 prev / +1 next), clamped. Shared by the tab
 // strip, the horizontal swipe/drag, and the trackpad horizontal wheel.
 function changeIdeoPage(dir) {
-  if (!_data || _data.view !== 'ideology') return;
+  if (!_data || _data.view !== 'codex' || _data.sectionKind !== 'orders') return;
   const count = (_data.orders?.length || 0) + 2; // Overview + orders + Field
   const next = Math.min(count - 1, Math.max(0, _tosIdeoPage + dir));
   if (next === _tosIdeoPage) return;
@@ -3446,6 +3698,121 @@ function renderAccolades(d) {
     <div class="tos-acc-rows">${rows || empty}</div>
     ${rows ? `<div class="tos-acc-endfile">&#9642; End of file &#9642; Further entries at our discretion</div>` : ''}
   `;
+}
+
+// ── B.L.I.S.S. ────────────────────────────────────────────────────────────────
+// Bonded Live-In Intimacy Subscription Service. The app is MIS-gated server-side
+// (the tile doesn't exist without MIS on), so these renderers never run for a
+// player who hasn't opted in. Three screens: the rotating catalogue, one
+// placement in full, and whatever you currently keep.
+//
+// The voice throughout is the Syndicate's — procedural, clinical, entirely
+// untroubled by what it's selling. That contrast IS the joke; don't warm it up.
+
+function blissChrome(sub) {
+  return `<div class="tos-bliss-head">
+    <div>
+      <div class="tos-bliss-app">B.L.I.S.S.</div>
+      <div class="tos-bliss-expand">Bonded Live-In Intimacy Subscription Service</div>
+    </div>
+    <div class="tos-bliss-sub">${esc(sub || '')}</div>
+  </div>`;
+}
+
+function renderBlissListings(d) {
+  const cards = (d.listings || []).map(l => {
+    const pairTag = l.pairing
+      ? `<div class="tos-bliss-pairtag">${esc(l.pairing.label)} &middot; non-severable</div>` : '';
+    const who = (l.members || []).map(m => `
+      <div class="tos-bliss-who">
+        <div class="tos-bliss-name">${esc(m.name)} <span class="sex">${m.sex === 'male' ? '♂' : '♀'}</span></div>
+        <div class="tos-bliss-says">${esc(m.says)}</div>
+        <div class="tos-bliss-phys">${esc(m.summary)}</div>
+      </div>`).join('');
+    return `<div class="tos-bliss-card" data-act-id="open" data-act-app="bliss" data-act-params="${esc(l.id)}">
+      ${pairTag}${who}
+      <div class="tos-bliss-rate"><b>${l.rate}c</b> / day</div>
+    </div>`;
+  }).join('');
+
+  const rr = d.reroll || {};
+  const rerollBtn = rr.ready
+    ? `<button class="tos-btn" data-act-id="reroll" data-act-app="bliss" data-act-params="">↻ Refresh the register</button>`
+    : `<button class="tos-btn disabled" disabled>↻ Refreshes in ${esc(rr.remainingLabel || '')}</button>`;
+
+  return `
+    ${blissChrome(`${(d.listings || []).length} placements available`)}
+    <div class="tos-bliss-strap">${esc(d.smallprint || '')}</div>
+    <div class="tos-bliss-grid">${cards}</div>
+    <div class="tos-actions">
+      ${rerollBtn}
+      <button class="tos-btn" data-act-id="arrangement" data-act-app="bliss" data-act-params="">Your arrangement${d.heldCount ? ` (${d.heldCount})` : ''}</button>
+    </div>`;
+}
+
+function renderBlissDetail(d) {
+  const l = d.listing || {};
+  const who = (l.members || []).map(m => `
+    <div class="tos-bliss-detailwho">
+      <div class="tos-bliss-name">${esc(m.name)} <span class="sex">${m.sex === 'male' ? '♂' : '♀'}</span></div>
+      <div class="tos-bliss-says">${esc(m.says)}</div>
+      <div class="tos-bliss-note">${esc(m.note)}</div>
+      <table class="tos-bliss-spec">${(m.physical || []).map(([k, v]) =>
+        `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}</table>
+    </div>`).join('');
+
+  const pair = l.pairing ? `<div class="tos-bliss-pairbox">
+      <div class="tos-bliss-pairtag">${esc(l.pairing.label)}</div>
+      <div>${esc(l.pairing.blurb)}</div>
+      <div class="tos-bliss-note">${esc(l.pairing.note)}</div>
+    </div>` : '';
+
+  const proj = `<table class="tos-bliss-proj"><tr><th>Tenure</th><th>Rate</th><th></th></tr>
+    ${(l.projection || []).map(p =>
+      `<tr><td>${p.days} days</td><td><b>${p.rate}c</b></td><td>${esc(p.label)}</td></tr>`).join('')}</table>`;
+
+  // Where to put them. No private address on file → no placement.
+  const places = d.blocked
+    ? `<div class="tos-bliss-blocked">${esc(d.blocked)}</div>`
+    : `<div class="tos-actions">${(d.spaces || []).map(s =>
+        `<button class="tos-btn" data-act-id="place" data-act-app="bliss" data-act-params="${esc(l.id)}|${esc(s.id)}"
+           data-act-confirm="Place at ${esc(s.name)}? The first day's retainer of ${l.rate}c is drawn immediately.">
+           ${esc(s.name)} <span class="dim">${esc(s.label)}</span></button>`).join('')}</div>`;
+
+  return `
+    ${blissChrome(`${l.rate}c / day`)}
+    ${pair}
+    <div class="tos-bliss-grid detail">${who}</div>
+    <div class="tos-bliss-secthead">Retainer &amp; tenure</div>
+    <div class="tos-bliss-note">The rate falls the longer a placement stays. Loyalty is cheaper than novelty.</div>
+    ${proj}
+    <div class="tos-bliss-secthead">Deliver to</div>
+    ${places}
+    <div class="tos-actions"><button class="tos-btn" data-act-id="listings" data-act-app="bliss" data-act-params="">← Back to the register</button></div>`;
+}
+
+function renderBlissArrangement(d) {
+  if (d.empty) {
+    return `${blissChrome('No active placement')}
+      <div class="tos-bliss-blocked">You keep nobody. The Syndicate notes this without judgement and with some disappointment.</div>
+      <div class="tos-actions"><button class="tos-btn" data-act-id="listings" data-act-app="bliss" data-act-params="">Browse the register</button></div>`;
+  }
+  const rows = (d.entries || []).map(e => `
+    <div class="tos-bliss-held">
+      <div class="tos-bliss-name">${esc(e.names.join(' &amp; '))}${e.pairing ? ` <span class="dim">${esc(e.pairing)}</span>` : ''}</div>
+      <div class="tos-bliss-heldline">
+        <span>${e.daysKept} day${e.daysKept === 1 ? '' : 's'} &middot; ${esc(e.tier.label)}</span>
+        <span><b>${e.todayRate}c</b>/day${e.saving ? ` <span class="save">(−${e.saving}c)</span>` : ''}</span>
+      </div>
+      <div class="tos-bliss-note">${esc(e.tier.note)}</div>
+      ${e.missed ? `<div class="tos-bliss-warn">${e.missed} missed payment — one more and the placement is collected.</div>` : ''}
+      <div class="tos-actions"><button class="tos-btn" data-act-id="release" data-act-app="bliss" data-act-params="${esc(e.id)}"
+        data-act-confirm="Release ${esc(e.names.join(' and '))}? ${e.names.length > 1 ? 'A matched pair goes together. ' : ''}This cannot be undone.">Release</button></div>
+    </div>`).join('');
+
+  return `${blissChrome(`${d.dailyTotal}c / day total`)}
+    <div class="tos-bliss-grid held">${rows}</div>
+    <div class="tos-actions"><button class="tos-btn" data-act-id="listings" data-act-app="bliss" data-act-params="">Browse the register</button></div>`;
 }
 
 // Entry timestamps are epoch seconds from the DB; the file wants a date, not a clock.
@@ -4908,10 +5275,12 @@ function renderWeatherWidget(sec) {
     <div class="tos-wx-toggle">7-day ${open ? '▾' : '▸'}</div>
   </div>`;
   if (!open) return now;
-  const days = (sec.days || []).map(f => `<div class="tos-wx-day">
+  // A hero-event day is flagged so it can't be skimmed past — this widget is
+  // where most players will actually see the week's warning.
+  const days = (sec.days || []).map(f => `<div class="tos-wx-day${f.heroEvent ? ' tos-wx-hero' : ''}">
     <span class="tos-wx-dow">${esc(dayLabel(f))}</span>
     <span class="tos-wx-dico">${esc(f.icon || '')}</span>
-    <span class="tos-wx-dcond">${esc(f.weatherType || '')}</span>
+    <span class="tos-wx-dcond">${esc(f.weatherType || '')}${f.heroEvent ? ' ⚠⚠' : ''}</span>
     <span class="tos-wx-dtemp">${f.tempC}°C</span>
     <span class="tos-wx-dwind">${f.windKph}kph</span>
     <span class="tos-wx-dhum">${f.humidityPct}%</span>
@@ -5248,15 +5617,29 @@ function renderBody() {
       ${renderSurveillance(d)}
     </div>`;
   }
-  if (d.view === 'ideology') {
+  if (d.view === 'codex') {
     const crumb = renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName]);
-    return `<div class="tos-body">${hdr}${summary}
-      ${renderIdeology(d, crumb)}
+    // The Orders section keeps its own sticky tab strip (it carries the crumb
+    // itself); every other surface takes the ordinary breadcrumb above the body.
+    if (d.sectionKind === 'orders') {
+      return `<div class="tos-body">${hdr}${summary}${renderIdeology(d, crumb)}</div>`;
+    }
+    return `<div class="tos-body">${hdr}${summary}${crumb}
+      ${d.section ? renderCodexVolume(d) : renderCodexShelf(d)}
     </div>`;
   }
   if (d.view === 'accolades') {
     return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}
       ${renderAccolades(d)}
+    </div>`;
+  }
+  if (d.view === 'bliss_listings' || d.view === 'bliss_detail' || d.view === 'bliss_arrangement') {
+    const body = d.view === 'bliss_detail' ? renderBlissDetail(d)
+               : d.view === 'bliss_arrangement' ? renderBlissArrangement(d)
+               : renderBlissListings(d);
+    return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}
+      ${d.notice ? `<div class="tos-bliss-notice">${esc(d.notice)}</div>` : ''}
+      ${body}
     </div>`;
   }
   if (d.view === 'reel') {
@@ -5417,6 +5800,21 @@ function wireBody() {
       _tosCorpPage = parseInt(el.getAttribute('data-corp-page'), 10) || 0;
       sfx(TOS_SELECT_DEF);
       render();
+    });
+  });
+  // Codex — opening a section is a nav (each volume is its own payload); opening
+  // a chapter is not (the whole volume already arrived), so it's a local switch.
+  _overlay.querySelectorAll('[data-codex-section]').forEach(el => {
+    el.addEventListener('click', () => nav(_data.appId, el.getAttribute('data-codex-section')));
+  });
+  _overlay.querySelectorAll('[data-codex-ch]').forEach(el => {
+    el.addEventListener('click', () => {
+      _tosCodexCh = el.getAttribute('data-codex-ch') || null;
+      sfx(TOS_SELECT_DEF);
+      render();
+      // A chapter is a page of prose: start it at the top, not wherever the
+      // contents list happened to be scrolled to.
+      _overlay.querySelector('.tos-body')?.scrollTo?.({ top: 0 });
     });
   });
   // Ideology reader paging — client-side (all pages ride in one payload): tab

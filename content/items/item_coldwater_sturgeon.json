@@ -6,12 +6,12 @@
   "tags": {
     "consumable": true,
     "description": "An armoured relic ridged in bone plates, older than the singularity that ruined this bay. The deep water keeps only a few. The meat is good — but it's the roe the right buyer pays stupid money for.",
+    "food_noun": "sturgeon",
+    "food_profile": "dense_meat",
+    "needs_cooking": true,
     "restore_hunger": 30,
     "stackable": true,
-    "well_fed": true,
-    "food_profile": "dense_meat",
-    "food_noun": "sturgeon",
-    "needs_cooking": true
+    "well_fed": true
   },
   "type": "consumable",
   "value": 75,

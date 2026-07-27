@@ -26,6 +26,7 @@ function build() {
 
     cat('THE BASICS', [
       `  cook <food>              ${dim('put it on a stove in the room')}`,
+      `  cook <food> in <device>  ${dim('when the room has more than one — a range and a microwave cook differently')}`,
       `  plate <food>             ${dim('take it off — this is when quality is decided')}`,
       `  examine <food>           ${dim('how it looks right now. Free, and the only clock you get')}`,
       dim('  Leave it on the heat and it burns. Walking away is a choice with a result.'),
@@ -53,12 +54,56 @@ function build() {
       dim('  With several things in the pan, cook for the WEAKEST one, not the best one.'),
     ].join('\n')),
 
+    cat('THE MICROWAVE', [
+      dim('  Its own appliance, not a fast hob. It heats water, so it browns NOTHING — no crust,'),
+      dim('  no sear, nothing left in the pan. There is a hard ceiling on anything that comes out'),
+      dim('  of one, and no skill, prep or seasoning lifts it.'),
+      dim('  In exchange it is the fastest thing in the kitchen, unbeatable at defrosting, and'),
+      dim('  almost impossible to ruin food in. You also cannot flip or stir — the door is shut.'),
+      dim('  Right for leftovers, thawing, and being in a hurry. Wrong for anything else.'),
+    ].join('\n')),
+
     cat('DONENESS', [
       `  doneness <food> <target> ${dim('say how you want it, any time before your window opens')}`,
       dim(`  ${meatLevels.join(' · ')}`),
       dim(`  Only some foods offer a choice (${withDoneness.map(label).join(', ')}). The rest are done or they aren't.`),
       dim('  The rare end tastes no better and carries a real chance of making you ill.'),
       dim('  What gets recorded is what you MADE, not what you asked for.'),
+    ].join('\n')),
+
+    cat('PREP — BEFORE THE HEAT', [
+      `  chop <food> [into N]     ${dim('cut it smaller: cooks proportionally faster, feeds you proportionally less')}`,
+      `  mince <meat>             ${dim('a third of the cook time, two rungs off the top — forever')}`,
+      `  score <meat>             ${dim('wider window, but it dries out faster once you pass it')}`,
+      `  tenderise <meat>         ${dim('faster and far more forgiving, at one rung off the top')}`,
+      `  marinate <meat> in <x>   ${dim('the biggest gain before heat. Costs the marinade, and real time')}`,
+      `  butter <bread>           ${dim('counts as the fat AND improves it')}`,
+      dim('  Every one of these is a TRADE. None is a button you always press, and none of them'),
+      dim('  survives the cook — prep is spent by the meal it was done for.'),
+    ].join('\n')),
+
+    cat('TASTING', [
+      `  taste <food|vessel>      ${dim('the only reading that is not visual')}`,
+      dim('  Everything else is something you can SEE. Tasting reaches seasoning, and whether the'),
+      dim('  thing is any good. What it TELLS you scales with your Cooking skill — a novice learns'),
+      dim('  one vague thing, an expert learns what is wrong and by how much.'),
+      dim('  Every taste is a mouthful you do not get back. Ten of them costs you a meal.'),
+    ].join('\n')),
+
+    cat('THE PAN REMEMBERS', [
+      `  deglaze <vessel>         ${dim('lift what a sear left behind — worth more than any seasoning')}`,
+      `  scour <vessel>           ${dim('clean off residue you left too long')}`,
+      dim('  A good sear leaves fond in a pan. Lift it into the next dish and it pays; leave it and'),
+      dim('  it scorches; leave it long enough and it dries on, and a dirty pan is worse than a'),
+      dim('  clean one until you scour it. Liquid lifts some of it whether you meant it to or not.'),
+    ].join('\n')),
+
+    cat('SANDWICHES', [
+      `  add <food> in <bread>    ${dim('bread is a vessel — you build in it')}`,
+      `  plate <bread>            ${dim('makes the sandwich, and eats the bread')}`,
+      `  cut <dish> [into N]      ${dim('halve a finished meal, cooked or not')}`,
+      dim('  Bread never makes a mess. Anything sensible between two slices is a real sandwich,'),
+      dim('  named after what went in it, with no recipe needed and none learned by making it.'),
     ].join('\n')),
 
     cat('STAGING', [

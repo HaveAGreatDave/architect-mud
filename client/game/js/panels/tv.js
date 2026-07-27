@@ -14,6 +14,8 @@
 import { sendCmdSilent, sendRaw } from '../net.js';
 import { renderMarkup } from '../markup.js';
 import { createGamedayView } from './gameday.js';
+import { createRinkView } from './gameday-rink.js';
+import { cphlMark, cphlLockup } from './cphl-brand.js';
 
 // Render an NPC say line in screenplay style: the speaker's name (in the TV
 // accent color) on its own line, their speech directly beneath it — no gap.
@@ -106,6 +108,7 @@ export function createTvView(root, opts = {}) {
   let _standingsTimer = null;
   let _fxTimer = null;
   let _gamedayView = null;
+  let _gamedaySport = null;   // which sport the mounted sub-screen renders
   let _gamedayOpen = false;
   let _lastGameday = null;
   let _scheduleOpen = false;
@@ -196,7 +199,7 @@ export function createTvView(root, opts = {}) {
     }
 
     const _channelChanged = (data.channelId || null) !== _tvActiveChannelId;
-    if (_channelChanged) { _clearScorebug(); _clearStandings(); _clearSportsFx(); _clearGameday(); _clearStandingsPanel(); }
+    if (_channelChanged) { _clearScorebug(); _clearStandings(); _clearSportsFx(); _clearGameday(); _clearStandingsPanel(); _clearFilmLayers(); }
     _tvActiveChannelId = data.channelId || null;
     // Keep the TV guide open across a channel change, but refresh it for the new station.
     if (_channelChanged && _scheduleOpen) _requestSchedule();
@@ -415,6 +418,7 @@ export function createTvView(root, opts = {}) {
     _clearGameday();
     _clearSchedule();
     _clearStandingsPanel();
+    _clearFilmLayers();
     const win = el('window');
     if (win) {
       win.classList.remove('tv-shutting-off');
@@ -465,6 +469,11 @@ export function createTvView(root, opts = {}) {
     if (overlay && overlay.overlayType === 'scorebug') { _applyScorebug(overlay); return; }
     if (overlay && overlay.overlayType === 'gameday') { _handleGameday(overlay); return; }
     if (overlay && overlay.overlayType === 'standings') { _applyStandingsBug(overlay); return; }
+    // Film layers. Letterbox is persistent — a matte the picture switches on and off,
+    // never a timed card — and the fade is a one-shot transition that paints over
+    // everything, so neither may go through the transient overlay container.
+    if (overlay && overlay.overlayType === 'letterbox') { _applyLetterbox(!!overlay.on); return; }
+    if (overlay && overlay.overlayType === 'fade') { _applyFade(overlay.fade || 'out', overlay.duration || 3); return; }
     // Sports "jumbotron" FX. While the Gameday sub-screen is open, render it Gameday-
     // native (a compact card over the field) instead of taking over the whole screen.
     if (overlay && overlay.overlayType === 'sportsfx') {
@@ -488,6 +497,23 @@ export function createTvView(root, opts = {}) {
       node.innerHTML =
         `<div class="tv-overlay-lt-name">${_esc(overlay.text)}</div>` +
         (overlay.subtext ? `<div class="tv-overlay-lt-sub">${_esc(overlay.subtext)}</div>` : '');
+    } else if (overlay.overlayType === 'act_card') {
+      // Chapter/pre-roll card — the distributor plate, the certificate, the act break.
+      _clearTvMessages();
+      node = document.createElement('div');
+      node.className = 'tv-overlay-act-card';
+      node.innerHTML =
+        `<div class="tv-act-title">${_esc(overlay.text)}</div>` +
+        (overlay.subtext ? `<div class="tv-act-sub">${_esc(overlay.subtext)}</div>` : '');
+    } else if (overlay.overlayType === 'intermission') {
+      // The reel change. Holds the house card for its full duration, so somebody who
+      // tunes in during one sees an intermission, exactly as they would have.
+      _clearTvMessages();
+      node = document.createElement('div');
+      node.className = 'tv-overlay-intermission';
+      node.innerHTML =
+        `<div class="tv-intermission-title">${_esc(overlay.text || 'INTERMISSION')}</div>` +
+        `<div class="tv-intermission-sub">The picture will continue.</div>`;
     } else if (overlay.overlayType === 'alert_flash') {
       node = document.createElement('div');
       node.className = 'tv-overlay-alert';
@@ -502,6 +528,30 @@ export function createTvView(root, opts = {}) {
         _overlayTimer = setTimeout(_clearOverlay, overlay.duration * 1000);
       }
     }
+  }
+
+  // ── film layers ───────────────────────────────────────────────────────────
+  // The matte a picture frames itself with. Persistent by design: it is switched on
+  // at the head of the feature and off before the credit crawl, and survives every
+  // transient card in between. Also carries the grain — a film on a Basin set is a
+  // recording of a recording, and it should not look like the news.
+  function _applyLetterbox(on) {
+    const host = el('letterbox');
+    if (!host) return;
+    host.classList.toggle('tv-letterbox-on', !!on);
+    const win = el('window');
+    if (win) win.classList.toggle('tv-filmic', !!on);
+  }
+
+  // One-shot optical transition. `out` dips to black and holds there; `in` starts
+  // black and lifts. Both are pure CSS — nothing is queued, so a late tuner who lands
+  // mid-fade simply sees the shot that follows it.
+  function _applyFade(dir, seconds) {
+    const host = el('fade');
+    if (!host) return;
+    const ms = Math.max(0.2, Number(seconds) || 3) * 1000;
+    host.style.transitionDuration = `${ms}ms`;
+    host.classList.toggle('tv-fade-black', dir !== 'in');
   }
 
   function _clearOverlay() {
@@ -533,6 +583,21 @@ export function createTvView(root, opts = {}) {
         `<rect class="tv-sb-base ${b1 ? 'on' : ''}" x="20" y="12" width="10" height="10" transform="rotate(45 25 17)"/>` +
         `</svg>`;
     }
+    // Hockey's equivalent of the diamond: live strength. Only rendered while it's
+    // actually true — the server omits `strength` at even strength, so the chip
+    // appears exactly for the seconds a man is in the box or a net is empty.
+    let strength = '';
+    if (sb.strength) {
+      const label = { pp: 'PP', sh: 'SH', en: 'EN' }[sb.strength] || String(sb.strength).toUpperCase();
+      strength = `<div class="tv-sb-strength ${_esc(sb.strength)}">${_esc(label)}</div>`;
+    }
+    // Shots on goal — hockey's second scoreboard. A 1-0 game reads completely
+    // differently at 9 shots than at 40, and this is where a viewer looks for it.
+    let sog = '';
+    if (sb.shotsAway != null || sb.shotsHome != null) {
+      sog = `<div class="tv-sb-sog" aria-label="shots on goal">` +
+        `<i>SOG</i><span>${sb.shotsAway | 0}</span><span>${sb.shotsHome | 0}</span></div>`;
+    }
     let outs = '';
     if (sb.outs != null) {
       const o = Math.max(0, Math.min(3, sb.outs | 0));
@@ -540,17 +605,28 @@ export function createTvView(root, opts = {}) {
         [0, 1, 2].map(i => `<span class="tv-sb-out ${i < o ? 'on' : ''}"></span>`).join('') + `</div>`;
     }
 
+    // A branded sport puts its mark on the persistent bug — the small always-on
+    // identifier that tells a viewer joining mid-period what they've tuned into.
+    const brand = sb.sport === 'hockey' ? `<div class="tv-sb-brand">${cphlMark('15px')}</div>` : '';
+    // A rivalry stays flagged all night, not just at the face-off — someone joining in
+    // the second period should be able to see why the penalty count looks like that.
+    const rivalChip = sb.rivalry ? `<div class="tv-sb-rival" title="Rivalry night">RIVALRY</div>` : '';
     host.innerHTML =
+      brand +
       `<div class="tv-sb-scores">` +
         `<div class="tv-sb-row ${aLead ? 'lead' : ''}"><span class="tv-sb-team">${away}</span><span class="tv-sb-num">${aScore}</span></div>` +
         `<div class="tv-sb-row ${hLead ? 'lead' : ''}"><span class="tv-sb-team">${home}</span><span class="tv-sb-num">${hScore}</span></div>` +
       `</div>` +
-      `<div class="tv-sb-state">${diamond}<div class="tv-sb-status">${_esc(sb.status || '')}</div>${outs}</div>`;
+      `<div class="tv-sb-state">${diamond}${strength}${rivalChip}<div class="tv-sb-status">${_esc(sb.status || '')}</div>${outs}${sog}</div>`;
     host.classList.add('on');
     // A score-bug means a game is on air — that's when the standings button is worth
     // offering. Same reveal pattern as the Gameday toggle.
     el('standings-btn')?.classList.add('avail');
   }
+
+  // A matte and a dip-to-black belong to the picture that raised them — a channel
+  // change or a power-off must not leave the next station framed in black bars.
+  function _clearFilmLayers() { _applyLetterbox(false); _applyFade('in', 0.2); }
 
   function _clearScorebug() {
     const host = el('scorebug');
@@ -563,14 +639,25 @@ export function createTvView(root, opts = {}) {
   // it open (it covers the play-by-play), but we always cache the latest so opening
   // mid-game lands on the current play. The view is placement-agnostic (gameday.js),
   // which is what lets the tablet mount the identical sub-screen.
+  // One sub-screen per sport, chosen by the payload's own `sport` and nothing else —
+  // the two views share an interface precisely so this is the only line that knows
+  // there's more than one. Switching sports (a hockey game following a ballgame on
+  // the same channel) tears the old view down rather than feeding it a payload it
+  // can't read.
+  function _gamedayViewFor(gd, hostEl) {
+    const want = gd && gd.sport === 'hockey' ? 'hockey' : 'baseball';
+    if (_gamedayView && _gamedaySport === want) return _gamedayView;
+    _gamedayView?.clear();
+    _gamedaySport = want;
+    _gamedayView = want === 'hockey' ? createRinkView(hostEl) : createGamedayView(hostEl);
+    return _gamedayView;
+  }
+
   function _handleGameday(gd) {
     _lastGameday = gd;
     const btn = el('gameday-btn');
     if (btn) btn.classList.add('avail');
-    if (_gamedayOpen) {
-      if (!_gamedayView) _gamedayView = createGamedayView(el('gameday'));
-      _gamedayView.apply(gd);
-    }
+    if (_gamedayOpen) _gamedayViewFor(gd, el('gameday')).apply(gd);
   }
 
   function _toggleGameday() {
@@ -581,9 +668,9 @@ export function createTvView(root, opts = {}) {
     host.classList.toggle('on', _gamedayOpen);
     btn?.classList.toggle('on', _gamedayOpen);
     if (_gamedayOpen) {
-      if (!_gamedayView) _gamedayView = createGamedayView(host);
-      if (_lastGameday) _gamedayView.apply(_lastGameday);
-      else _gamedayView.showIdle();   // opened before an at-bat arrived — never blank
+      const view = _gamedayViewFor(_lastGameday, host);
+      if (_lastGameday) view.apply(_lastGameday);
+      else view.showIdle();   // opened before a play arrived — never blank
     }
   }
 
@@ -593,6 +680,7 @@ export function createTvView(root, opts = {}) {
     _gamedayOpen = false;
     _lastGameday = null;
     _gamedayView?.clear();
+    _gamedayView = null; _gamedaySport = null;   // next sport mounts its own view
     el('gameday')?.classList.remove('on');
     el('gameday-btn')?.classList.remove('on', 'avail');
   }
@@ -743,16 +831,25 @@ export function createTvView(root, opts = {}) {
     if (!host) return;
     const rows = Array.isArray(sb.rows) ? sb.rows : [];
     if (!rows.length) return;
+    // Hockey's last column is POINTS, not a differential — a table that ranks on points
+    // but prints goal-difference beside it looks mis-sorted, because the eye reads the
+    // last number as the reason for the order. The record carries the OT losses for the
+    // same reason: they're where the points came from.
+    const hockey = sb.sport === 'hockey';
     const body = rows.map((r, i) => {
-      const rd = (r.rd > 0 ? '+' : '') + (Number.isFinite(r.rd) ? r.rd : 0);
+      const tail = hockey
+        ? String(r.points ?? 0)
+        : (r.rd > 0 ? '+' : '') + (Number.isFinite(r.rd) ? r.rd : 0);
+      const rec = hockey ? `${r.wins}-${r.losses}-${r.otl || 0}` : `${r.wins}-${r.losses}`;
       return `<div class="tv-st-row">` +
         `<span class="tv-st-rank">${i + 1}</span>` +
         `<span class="tv-st-team">${_esc(r.team)}</span>` +
-        `<span class="tv-st-rec">${r.wins}-${r.losses}</span>` +
-        `<span class="tv-st-rd">${rd}</span>` +
+        `<span class="tv-st-rec">${rec}</span>` +
+        `<span class="tv-st-rd">${tail}</span>` +
       `</div>`;
     }).join('');
-    host.innerHTML = `<div class="tv-st-title">${_esc(sb.title || 'STANDINGS')}</div>${body}`;
+    host.innerHTML =
+      `<div class="tv-st-title">${hockey ? cphlMark('14px') : ''}${_esc(sb.title || 'STANDINGS')}</div>${body}`;
     host.classList.add('on');
     // Reserve the bug's top-right corner in the text layer so the play-by-play wraps
     // around it instead of running underneath. Measure after layout, then flow the
@@ -853,9 +950,75 @@ export function createTvView(root, opts = {}) {
         `</div>`;
     } else if (fx.kind === 'matchup') {
       const rec = (r) => r && r !== '0-0' ? `<span class="rec">${_esc(r)}</span>` : '';
+      // A branded show puts its lockup on the card; Deadball keeps the plain label it
+      // has always had, so this stays additive rather than a restyle of the ballgame.
       inner =
-        `<div class="tv-fx-matchup">` +
-          `<div class="tv-fx-mu-label">Tonight on DEADBALL</div>` +
+        `<div class="tv-fx-matchup${fx.brand === 'cphl' ? ' cphl' : ''}">` +
+          (fx.brand === 'cphl'
+            ? cphlLockup('Tonight in the CPhL', '34px')
+            : `<div class="tv-fx-mu-label">Tonight on ${_esc(fx.show || 'DEADBALL')}</div>`) +
+          `<div class="tv-fx-mu-teams">` +
+            `<div class="tv-fx-mu-team away"><span class="nm">${_esc(fx.away)}</span>${rec(fx.awayRecord)}</div>` +
+            `<div class="tv-fx-mu-vs">vs</div>` +
+            `<div class="tv-fx-mu-team home"><span class="nm">${_esc(fx.home)}</span>${rec(fx.homeRecord)}</div>` +
+          `</div>` +
+        `</div>`;
+    // ── CPhL. Same contract as the baseball cards: markup only, animated by CSS,
+    // auto-dismissed on fx.duration. The goal card leans on the strength the sim
+    // already decided, so a shorthander announces itself without a special case.
+    } else if (fx.kind === 'hockeygoal') {
+      const tag = { pp: 'POWER PLAY', sh: 'SHORTHANDED', en: 'EMPTY NET' }[fx.strength] || '';
+      const sub = [fx.shooter, fx.assist ? `assist ${fx.assist}` : '', fx.team].filter(Boolean).join(' · ');
+      inner =
+        `<div class="tv-fx-goal">` +
+          `<div class="tv-fx-goal-lamp"></div>` +
+          `<div class="tv-fx-brand">${cphlMark('26px')}</div>` +
+          `<div class="tv-fx-goal-title${fx.hattrick ? ' hat' : ''}">${fx.hattrick ? 'HAT TRICK' : 'GOAL'}</div>` +
+          (tag ? `<div class="tv-fx-goal-tag">${tag}</div>` : '') +
+          (sub ? `<div class="tv-fx-goal-sub">${_esc(sub)}</div>` : '') +
+          `<div class="tv-fx-goal-score">${_esc(fx.away)} ${fx.awayScore} — ${fx.homeScore} ${_esc(fx.home)}</div>` +
+        `</div>`;
+    } else if (fx.kind === 'hockeyfight') {
+      inner =
+        `<div class="tv-fx-fight">` +
+          `<div class="tv-fx-brand">${cphlMark('26px')}</div>` +
+          `<div class="tv-fx-fight-title">GLOVES OFF</div>` +
+          `<div class="tv-fx-fight-names"><span class="win">${_esc(fx.winner)}</span><span class="vs">def.</span><span class="lose">${_esc(fx.loser)}</span></div>` +
+          `<div class="tv-fx-fight-sub">Five for the loser · ${_esc(fx.team)} on the power play</div>` +
+        `</div>`;
+    } else if (fx.kind === 'hockeydeath') {
+      // Sudden death, literally. Deliberately the quietest card on the channel —
+      // no rays, no bounce; the league does not celebrate this, it just continues.
+      inner =
+        `<div class="tv-fx-death">` +
+          `<div class="tv-fx-death-rule"></div>` +
+          `<div class="tv-fx-death-title">SUDDEN DEATH</div>` +
+          `<div class="tv-fx-death-name">${_esc(fx.player)}</div>` +
+          (fx.winner ? `<div class="tv-fx-death-sub">${_esc(fx.winner)} advance</div>` : '') +
+        `</div>`;
+    } else if (fx.kind === 'hockeyrivalry') {
+      // A grudge match gets its own pre-game card. Red where the ordinary matchup card
+      // is cold blue, because the one thing a viewer needs to know is that tonight is
+      // not an ordinary night — and the sim has genuinely made it a nastier game.
+      const rec = (r) => r && r !== '0-0' && r !== '0-0-0' ? `<span class="rec">${_esc(r)}</span>` : '';
+      inner =
+        `<div class="tv-fx-matchup cphl rival">` +
+          `<div class="tv-fx-brand">${cphlMark('26px')}</div>` +
+          `<div class="tv-fx-rival-banner">RIVALRY NIGHT</div>` +
+          `<div class="tv-fx-mu-teams">` +
+            `<div class="tv-fx-mu-team away"><span class="nm">${_esc(fx.away)}</span>${rec(fx.awayRecord)}</div>` +
+            `<div class="tv-fx-mu-vs">vs</div>` +
+            `<div class="tv-fx-mu-team home"><span class="nm">${_esc(fx.home)}</span>${rec(fx.homeRecord)}</div>` +
+          `</div>` +
+          `<div class="tv-fx-rival-sub">No trophy. No records. They will bleed for it anyway.</div>` +
+        `</div>`;
+    } else if (fx.kind === 'hockeycup') {
+      const rec = (r) => r && r !== '0-0' ? `<span class="rec">${_esc(r)}</span>` : '';
+      inner =
+        `<div class="tv-fx-ws tv-fx-cup">` +
+          `<div class="tv-fx-brand big">${cphlMark('40px')}</div>` +
+          `<div class="tv-fx-ws-banner">COLDWATER CUP</div>` +
+          `<div class="tv-fx-ws-sub">One Game. One Trophy. No Records.</div>` +
           `<div class="tv-fx-mu-teams">` +
             `<div class="tv-fx-mu-team away"><span class="nm">${_esc(fx.away)}</span>${rec(fx.awayRecord)}</div>` +
             `<div class="tv-fx-mu-vs">vs</div>` +
@@ -886,7 +1049,7 @@ export function createTvView(root, opts = {}) {
           `<div class="tv-fx-champ-rays"></div>` +
           `<div class="tv-fx-champ-trophy">🏆</div>` +
           `<div class="tv-fx-champ-team">${_esc(fx.winner)}</div>` +
-          `<div class="tv-fx-champ-label">World Series Champions</div>` +
+          `<div class="tv-fx-champ-label">${_esc(fx.label || 'World Series Champions')}</div>` +
           `<div class="tv-fx-champ-score">${_esc(fx.winner)} ${fx.winScore} — ${fx.loseScore} ${_esc(fx.loser)}</div>` +
         `</div>`;
     } else return;

@@ -2,6 +2,40 @@
   "description": "Per-room and per-cause death tallies for every player, from one trigger row. Uses ${event.deathZone} rather than ${zone} on purpose: player.death fires AFTER the respawn move, so the dispatcher's ${zone} is the vat, not the grave. The line only lands from the third death in the same room onward, after a beat long enough to clear the respawn narration.",
   "graph": {
     "nodes": {
+      "beat": {
+        "next": "line",
+        "seconds": 9,
+        "type": "wait"
+      },
+      "l1": {
+        "text": "You know that ceiling. You have studied it from that exact angle before.",
+        "type": "say"
+      },
+      "l2": {
+        "text": "Third time in that room, at least. It is starting to feel less like bad luck and more like a subscription.",
+        "type": "say"
+      },
+      "l3": {
+        "text": "Somewhere a ledger notes the repeat address and does not editorialise.",
+        "type": "say"
+      },
+      "line": {
+        "outcomes": [
+          {
+            "next": "l1",
+            "weight": 1
+          },
+          {
+            "next": "l2",
+            "weight": 1
+          },
+          {
+            "next": "l3",
+            "weight": 1
+          }
+        ],
+        "type": "random"
+      },
       "tally_cause": {
         "delta": 1,
         "flag": "died_to_${event.cause}",
@@ -16,31 +50,6 @@
         "scope": "player",
         "threshold": 3,
         "type": "counter"
-      },
-      "beat": {
-        "next": "line",
-        "seconds": 9,
-        "type": "wait"
-      },
-      "line": {
-        "outcomes": [
-          { "next": "l1", "weight": 1 },
-          { "next": "l2", "weight": 1 },
-          { "next": "l3", "weight": 1 }
-        ],
-        "type": "random"
-      },
-      "l1": {
-        "text": "You know that ceiling. You have studied it from that exact angle before.",
-        "type": "say"
-      },
-      "l2": {
-        "text": "Third time in that room, at least. It is starting to feel less like bad luck and more like a subscription.",
-        "type": "say"
-      },
-      "l3": {
-        "text": "Somewhere a ledger notes the repeat address and does not editorialise.",
-        "type": "say"
       }
     },
     "start": "tally_cause"

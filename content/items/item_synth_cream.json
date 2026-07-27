@@ -4,15 +4,16 @@
   "id": "item_synth_cream",
   "name": "synth cream",
   "tags": {
-    "description": "Thick, white, and stable at any temperature you can produce in a domestic kitchen, which should tell you something. Rich in the way a photograph of a meal is rich.",
     "consumable": true,
-    "restore_hunger": 14,
-    "stackable": true,
-    "food_profile": "liquid",
+    "description": "Thick, white, and stable at any temperature you can produce in a domestic kitchen, which should tell you something. Rich in the way a photograph of a meal is rich.",
+    "food_also": "dairy",
     "food_noun": "cream",
+    "food_profile": "liquid",
     "needs_cooking": true,
     "perishable": true,
+    "restore_hunger": 14,
     "spoil_rate": "normal",
+    "stackable": true,
     "status_chance": {
       "food_poisoning": 0.25
     }

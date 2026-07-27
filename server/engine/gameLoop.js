@@ -1,4 +1,5 @@
-import { world, tickSpawns, getRandomAmbient, getWeatherAmbient, getLivePlayer, getInterruptLoudness, registerInterrupt, createCorpse, removeCorpse, tryBattleCry, setApartmentCache, hasActivePlayers, resolveLanding, getZone } from './world.js';
+import { world, tickSpawns, getRandomAmbient, getWeatherAmbient, getLivePlayer, getInterruptLoudness, registerInterrupt, createCorpse, removeCorpse, tryBattleCry, setApartmentCache, hasActivePlayers, resolveLanding, getZone, reconcileZoneMembership } from './world.js';
+import { wakeFromDream } from './dreamscape.js';
 import { getZoneRadiation } from './zone-tags.js';
 import { randomUUID } from 'crypto';
 import { propagateSound } from './sounds.js';
@@ -18,8 +19,10 @@ import { hasExit, neighborZoneIds } from './exits.js';
 import { setPosture, forceStand } from './posture.js';
 import { carryCapacity } from './commands/inventory.js';
 import { flushDirtyPositions } from './commands/movement.js';
+import { flushAllRelations } from './relations.js';
+import { flushAllWear } from './durability.js';
 import { query, logActivity } from '../models/db.js';
-import { getEnvironmentState, getZoneTemperature, getZoneApparentTemperature, waterTemperature, recordLightningKill, getZoneStormIntensity, getWeatherFieldSnapshot } from './environment.js';
+import { getEnvironmentState, getZoneTemperature, getZoneApparentTemperature, waterTemperature, recordLightningKill, getZoneStormIntensity, getWeatherFieldSnapshot, getZonePrecip } from './environment.js';
 import { tickDrugDecayAll, tickDrugs, tickOnsets, tickWithdrawalAll, clearActiveDrugState } from './drugs.js';
 import { getTimeScale } from './gametime.js';
 
@@ -32,6 +35,10 @@ const STAND_STAMINA_REGEN = 1;    // stamina per tick when idle & standing (slow
 const SIT_STAMINA_REGEN = 6;      // stamina per tick when sitting (faster rest)
 const SIT_REGEN_HP = 3;           // HP per tick while sitting, once stamina is full
 const WINDED_REGEN_MULT = 0.5;    // stamina regen while winded (ran the tank dry, movement.js) — halved
+// A well-fed player recovers stamina appreciably faster. This is what the whole
+// cooking quality ladder finally BUYS — see rewardFor() in the cooking plugin,
+// where a masterful meal is worth several times a poor one in duration.
+const WELL_FED_REGEN_MULT = 1.5;
 
 // Cloning-vat emergence beats (ms after respawn), played only on the normal vat
 // path: consciousness arrives immediately, the body reports in, then a dressing
@@ -55,8 +62,14 @@ export function startGameLoop(broadcast) {
   schedule('15s', restRegenTick);
   schedule('1m', npcWanderTick);
   schedule('1m', flushDirtyPositions); // checkpoint moved players' current_zone/stamina in one batched write
+  schedule('1m', flushAllRelations);   // coalesced upsert of who's met whom (engine/relations.js); logout flushes again
+  schedule('1m', flushAllWear);        // coalesced gear-condition write (engine/durability.js) — wear accrues in memory on the swing path
 
   schedule('30s', () => npcBanterTick({ broadcast: broadcastFn }));
+  // Zone broadcasts are delivered by walking zone.players, so a player missing
+  // from that set silently stops hearing their room. Pure in-memory sweep, no
+  // DB — it bounds any such drift to 30s and names the culprit in the log.
+  schedule('30s', () => reconcileZoneMembership());
   // Parked long `wait` continuations (script_waits). Idle-gated by the scheduler,
   // so an empty world costs nothing; a row whose player is offline stays owed.
   schedule('1m', () => resumeDueWaits(broadcastFn));
@@ -376,6 +389,11 @@ async function minuteTickFn() {
   await fireHook('tick.minute', { broadcast: broadcastFn });
   emit('tick.minute', { broadcast: broadcastFn });
 
+  // Radiation moves in memory for everyone first; the DB write is collected and
+  // flushed as ONE statement below. Same reasoning as the drug batch further down —
+  // an awaited UPDATE per player inside this loop is N sequential round trips to a
+  // remote Postgres every single minute.
+  const radDirty = [];
   for (const [playerId, player] of world.players) {
     // On irradiated ground (a hot tile, or mid-void-crossing), the exposure slowly
     // trickles up — a gentle +1 every 10 minutes — and the normal wash-out is
@@ -384,19 +402,30 @@ async function minuteTickFn() {
     if (irradiatedGround(player)) {
       if (minuteTick % 10 === 0 && (player.radiation || 0) < 100) {
         player.radiation = Math.min(100, (player.radiation || 0) + 1);
-        await query('UPDATE players SET radiation=$1 WHERE id=$2', [player.radiation, playerId]);
+        radDirty.push([playerId, player.radiation]);
         broadcastFn(null, { type:'player_update', radiation: player.radiation }, null, playerId);
       }
     } else if ((player.radiation || 0) > 0) {
       const hydrated = player.hydratedUntil && Date.now() < player.hydratedUntil;
       const decay = hydrated ? 2 : 1;
       player.radiation = Math.max(0, player.radiation - decay);
-      await query('UPDATE players SET radiation=$1 WHERE id=$2', [player.radiation, playerId]);
+      radDirty.push([playerId, player.radiation]);
       if (player.radiation % 10 === 0 && player.radiation > 0) {
         broadcastFn(null, { type:'player_update', radiation: player.radiation }, null, playerId);
       }
     }
     if (player.hydratedUntil && Date.now() >= player.hydratedUntil) player.hydratedUntil = null;
+  }
+  if (radDirty.length) {
+    // Both columns are cast explicitly — in a bare VALUES list Postgres has no
+    // context to infer a parameter's type from and errors out otherwise.
+    const values = radDirty.map((_, i) => `($${i * 2 + 1}::text, $${i * 2 + 2}::int)`).join(',');
+    await query(
+      `UPDATE players p SET radiation = v.rad
+         FROM (VALUES ${values}) AS v(id, rad)
+        WHERE p.id = v.id`,
+      radDirty.flat()
+    );
   }
 
   // Drugs run ONCE for the whole player set, not once per player. Postgres is
@@ -561,6 +590,7 @@ export async function handlePlayerDeath(player, killer, cause = null) {
   player.body_temp_c = 37.0;
   player.clothing_contamination = {};
   player._dangerousTempTicks = 0;
+  wakeFromDream(player);
   player.sleeping = null;
   setPosture(player, 'standing');
   // A stance is a choice you make for a fight; the fight is over and so is the
@@ -762,6 +792,28 @@ const RESOURCE_NOWRITE_TRIPWIRE_TICKS = 6;
 
 // Returns a multiplier (0.0–1.0) for stamina regen based on body temperature.
 // Comfortable range (36–38°C) = full regen; further from it = reduced regen.
+// An empty stomach is an empty tank. Hunger throttles the recovery of the one
+// resource every physical action in the game spends, which is what finally makes
+// eating a decision rather than a chore you do to silence a message.
+//
+// Deliberately multiplicative with temperature: cold AND starving is genuinely
+// dire, because it should be.
+function hungerRegenMultiplier(hunger) {
+  const h = Number(hunger ?? 100);
+  if (h > 40) return 1.0;
+  if (h > 20) return 0.75;   // getting hollow
+  if (h > 5)  return 0.5;    // very hungry — the warning band
+  return 0.25;               // running on empty
+}
+
+// And the other end of the same dial. A GOOD meal doesn't just refill the meter,
+// it leaves you recovering faster than baseline for a while — which is the only
+// thing that makes the whole cooking ladder worth climbing. A microwave dinner
+// fills you up; a masterful one makes the next hour easier.
+function wellFedRegenMultiplier(player, now) {
+  return (player.wellFedUntil ?? 0) > now ? WELL_FED_REGEN_MULT : 1;
+}
+
 function tempRegenMultiplier(tempC) {
   if (tempC >= 36 && tempC <= 38) return 1.0;
   if (tempC >= 34 && tempC < 36) return 0.8;  // slightly cold
@@ -898,6 +950,15 @@ async function resourceTick() {
   // batched write after the loop instead of a per-player round trip inside it. A
   // player who dies mid-loop is dropped (their respawn write already persisted them).
   const dirtyResources = new Set();
+  // Weather is a GLOBAL state, identical for every player this tick — but it was
+  // being re-derived inside the loop below, once per player, to read a single
+  // string. getEnvironmentState() spreads getHUDPayload() + getForecast() +
+  // getPowerMap(), and getPowerMap() allocates one object per power-model zone,
+  // so a 50-player world was rebuilding a thousands-of-zones map fifty times a
+  // minute for one field. Resolve it once.
+  let worldWeather = null;
+  try { worldWeather = getEnvironmentState(); } catch { worldWeather = null; }
+  const isAshfall = worldWeather?.weatherType === 'ash';
   for (const [playerId, player] of world.players) {
     if (player.sleeping) {
       const result = await tickSleep(player, broadcastFn);
@@ -1059,9 +1120,16 @@ async function resourceTick() {
     // HP). Re-applied each minute at 65-tick duration so it lapses ~5s after the
     // player masks up or gets indoors. Ash is a global weather state, not localized.
     const isIndoor = !!(zone?.flags?.is_interior || zone?.flags?.is_apartment || zone?.flags?.is_building);
-    if (!isIndoor && !player.sealed) {
-      let wx; try { wx = getEnvironmentState(); } catch { wx = null; }
-      if (wx?.weatherType === 'ash') applyEffect(player, 'choking', 65);
+    if (!isIndoor && !player.sealed && isAshfall) applyEffect(player, 'choking', 65);
+
+    // --- Acid rain hazard ---
+    // Unlike ash this is LOCAL: only tiles actually under the acid downpour bite
+    // (getZonePrecip reports precipType 'acid' at the acid_rain event's peak).
+    // Protection is coverage-based, so anything short of a full rainsuit still
+    // hurts — see recomputeInsulation's player.acidCover.
+    if (!isIndoor && (player.acidCover || 0) < 1) {
+      let precip; try { precip = getZonePrecip(player.current_zone); } catch { precip = null; }
+      if (precip?.precipType === 'acid') applyEffect(player, 'corroding', 65);
     }
 
     // --- Stamina drain ---
@@ -1182,7 +1250,11 @@ async function restRegenTick() {
       const base = sitting ? SIT_STAMINA_REGEN : STAND_STAMINA_REGEN;
       // Winded (ran the tank dry) throttles recovery until the penalty window lapses.
       const windedMult = (player._windedUntil ?? 0) > now ? WINDED_REGEN_MULT : 1;
-      const gain = Math.max(0, Math.floor(base * tempRegenMultiplier(player.body_temp_c ?? 37) * windedMult * restMult));
+      const gain = Math.max(0, Math.floor(base
+        * tempRegenMultiplier(player.body_temp_c ?? 37)
+        * hungerRegenMultiplier(player.hunger)
+        * wellFedRegenMultiplier(player, now)
+        * windedMult * restMult));
       if (gain > 0) stamina = Math.min(staminaMax, stamina + gain);
     }
 
@@ -1317,6 +1389,19 @@ async function rentCollectionTick() {
     `SELECT * FROM apartments WHERE owner_id IS NOT NULL AND owner_type = 'player'`
   );
 
+  // One read for every landlord's tenant instead of one per apartment. The money
+  // writes below are deliberately left per-player and untouched — batching a
+  // credit deduction is not where I want to be clever.
+  //
+  // The cached row is UPDATED IN PLACE after each deduction, because a player who
+  // owns two units must see the balance the first unit already took. Pre-fetching
+  // without that would let them pay two rents out of one balance.
+  const ownerIds = [...new Set(apts.map(a => a.owner_id).filter(Boolean))];
+  const { rows: ownerRows } = ownerIds.length
+    ? await query('SELECT id,credits,bank_credits,handle FROM players WHERE id = ANY($1)', [ownerIds])
+    : { rows: [] };
+  const ownersById = new Map(ownerRows.map(r => [r.id, r]));
+
   for (const apt of apts) {
     let due = ymd(apt.rent_due_date);
     // Lazily anchor pre-existing rentals (rented before rent_due_date existed):
@@ -1336,14 +1421,13 @@ async function rentCollectionTick() {
     // Zone name for the message — zones live in the world Map, no query needed.
     const zoneName = world.zones.get(apt.zone_id)?.name ?? apt.zone_id;
 
-    // Check if player has enough credits
-    const { rows: playerRows } = await query('SELECT id,credits,bank_credits,handle FROM players WHERE id=$1', [apt.owner_id]);
-    if (!playerRows.length) {
+    // Check if player has enough credits (pre-fetched above, kept current below)
+    const p = ownersById.get(apt.owner_id);
+    if (!p) {
       // Player deleted — release the apartment
       await releaseApartment(apt, apt.zone_id);
       continue;
     }
-    const p = playerRows[0];
     const carried = p.credits || 0;
     const banked = p.bank_credits || 0;
 
@@ -1361,6 +1445,9 @@ async function rentCollectionTick() {
     const fromBank = Math.min(banked, cost);
     const fromCarried = cost - fromBank;
     await query('UPDATE players SET bank_credits=bank_credits-$1, credits=credits-$2 WHERE id=$3', [fromBank, fromCarried, p.id]);
+    // Keep the pre-fetched row honest for this player's OTHER units this cycle.
+    p.bank_credits = banked - fromBank;
+    p.credits = carried - fromCarried;
 
     // Advance the due date by whole cycles until it's back in the future. Normally
     // one cycle; the loop covers a dev date-jump that skipped several so the tenant

@@ -1,0 +1,201 @@
+{
+  "broadcast_graph": {
+    "_start": "bsm_0",
+    "nodes": {
+      "bsm_0": {
+        "_vine": {
+          "x": 80,
+          "y": 80
+        },
+        "type": "start"
+      }
+    }
+  },
+  "category": "shopping",
+  "channel_id": "ch_7_1782953079593",
+  "created_by": null,
+  "description": "",
+  "enabled": 1,
+  "fallback_messages": [],
+  "film_meta": null,
+  "gameshow_pools": {
+    "airSlots": [
+      4
+    ],
+    "contestants": [
+      "Renna Voss",
+      "Dex-4",
+      "Marguerite Okonkwo-Bell",
+      "A Man Who Would Not Give His Name",
+      "Tollier",
+      "Bex from Meltwater Row",
+      "The Widow Ansty"
+    ],
+    "host": "npc_lot_vosk",
+    "pools": {
+      "announce_host": [
+        "Ladies and gentlemen, the man who can price your grandmother — {host}!",
+        "He has sold everything in this building including, on one occasion, this building — {host}!",
+        "Here he is. He is always here. {host}!"
+      ],
+      "applause": [
+        "Applause — the real kind, brief and startled.",
+        "The floor manager waves both arms and the applause arrives on cue.",
+        "Applause, and the plinth begins to turn.",
+        "Sustained applause. The APPLAUSE sign was not lit. Nobody has mentioned this."
+      ],
+      "audience": [
+        "The audience makes a noise that could be either thing.",
+        "Somebody in the third row says the number out loud, too late, to nobody.",
+        "A low groan rolls across the floor and dies near the phone bank.",
+        "Laughter, brief, slightly ashamed of itself.",
+        "Someone whistles. Someone else tells them not to.",
+        "The audience inhales as one and holds it.",
+        "A single person claps. They stop.",
+        "Nervous laughter from the direction of the plinth."
+      ],
+      "audience_call": [
+        "If you're standing on my floor, you're playing. Type {verb}, then a number, and say it like you mean it.",
+        "Anyone in this studio can bid — {verb} and a figure. You don't sign anything. That's what makes it fun and that's what makes it legal.",
+        "You there. Yes, you, breathing on my cyclorama. {verb} a number. Out loud. On television.",
+        "The rules are: I show you a thing, you {verb} what it costs, and we all find out something about you."
+      ],
+      "commercial": [
+        "THE LAST LOT is brought to you by Coldwater Municipal Storage. Your things, kept, until they are ours.",
+        "This programme is sponsored by ACID COLA. Thirteen flavours. One of them is cola.",
+        "Brought to you by the Basin Estates Office. If you have been contacted about a relative, you have not been contacted about a relative."
+      ],
+      "no_payout": [
+        "Network policy, friend — one purse a day. You keep the glory. We keep the glory's cash value.",
+        "You've had your purse today. The win stands, the money doesn't. Take it up with Legal, who are also me."
+      ],
+      "open": [
+        "From the soundstage where the lights are on because nobody could find the switch — this is THE LAST LOT.",
+        "Everything must go. Most of it already has. Some of it twice.",
+        "This programme is recorded in front of a live audience, and we do mean live, and we do check.",
+        "Two hours a day, the Basin puts its belongings on a plinth and we all decide what a life was worth."
+      ],
+      "prize_copy": [
+        "Tonight's lot: {prize}. Sold as seen. Provenance available on request and then declined.",
+        "On the plinth — {prize}. One owner. We think.",
+        "Up next: {prize}. Municipal surplus. Post-forfeiture. Cannot be reclaimed by prior holders or their estates.",
+        "{prize}. It was somebody's. Now it's inventory.",
+        "{prize}, up on the plinth, turning slowly under the good lights so you can't see the repair."
+      ],
+      "prize_copy.lot": [
+        "Three lots tonight: {prize}, {prize2}, and {prize3}. All from the same address. We're not saying which.",
+        "Number one, {prize}. Number two, {prize2}. Number three, {prize3}.",
+        "Tonight's three: {prize}, {prize2}, {prize3}. Sold as seen, sold as a set, sold regardless."
+      ],
+      "prize_copy.overunder": [
+        "First, {prize}. Then, against it — {prize2}.",
+        "Lot one: {prize}. Lot two: {prize2}. Both sold as seen, both previously loved, allegedly.",
+        "On the left, {prize}. On the right, {prize2}. Neither of them asked for this."
+      ],
+      "prompt": [
+        "So. What's it worth? Name a figure.",
+        "Bids, please. Anyone on my floor. Anyone at all.",
+        "Don't think. Thinking is how you lose this. What's the price?",
+        "Go on then. Price it."
+      ],
+      "prompt.lot": [
+        "Order them. Three numbers, cheapest first.",
+        "Rank them for me. Three numbers, in order, cheapest to dearest.",
+        "Give me the order. One, two, three — in whatever sequence you think is right."
+      ],
+      "prompt.overunder": [
+        "Higher, or lower? Say one.",
+        "Second lot against the first — higher or lower? That's all I need.",
+        "Up or down. One word. Say it."
+      ],
+      "reveal": [
+        "Bids are in — {guesses}. And the actual retail price of {prize}… {price} credits.",
+        "Let's have it. {guesses}. The card says {price}.",
+        "The floor said {guesses}. The card says {price} credits. The card does not negotiate.",
+        "{guesses}. And it's {price}."
+      ],
+      "reveal.lot": [
+        "The floor said {guesses}. Cheapest first, it goes: {order}.",
+        "Bids: {guesses}. And the true order — {order}.",
+        "Here's how it actually falls: {order}. You said {guesses}.",
+        "{guesses}. Wrong, most of you. It's {order}."
+      ],
+      "reveal.overunder": [
+        "{guesses}. And it's {prices}. So there's your answer.",
+        "The floor said {guesses}. {prices}. Do the arithmetic you should have done a minute ago.",
+        "Bids in: {guesses}. The card reads {prices}."
+      ],
+      "round_intro.lot": [
+        "Three lots. Put them in order, cheapest first. Say three numbers. This is where the confident ones die.",
+        "Round three — THE LOT. Three items, one order, cheapest to dearest. Two of you will get this backwards.",
+        "Three things. Rank them. I have watched people rank a corpse's boots above a working kidney."
+      ],
+      "round_intro.overunder": [
+        "First round. Two lots. You tell me whether the second one costs MORE than the first. Higher, or lower.",
+        "We start easy. Two items. Is the second dearer than the first? That's the whole question.",
+        "Round one. A pair of lots and a fifty-fifty. Nobody has ever made this look harder than you're about to."
+      ],
+      "round_intro.price": [
+        "Now the real thing. One lot, one price, and you get as close as you can WITHOUT going over. Over is out.",
+        "Round two. Name the price. Go over by a single credit and you're not close, you're wrong.",
+        "Here's the game the network built this stage for. Closest to the price without exceeding it."
+      ],
+      "showcase_intro": [
+        "And now the money. This is THE SHOWCASE, and the man who ordered it is not in a position to collect it.",
+        "Our final lot. Get within a fifth of the price either way and you take it home. The actual object. Today.",
+        "The Showcase. Big lot, big purse, and the estate has stopped returning our calls."
+      ],
+      "showcase_reveal": [
+        "The Showcase bids: {guesses}. And {prize} — the whole thing, one owner — comes to {price} credits.",
+        "{guesses}, against {price} credits of {prize}. Let's find out who's going home with a story.",
+        "Sealed card, Yolanda. Thank you. The lot comes to {price} credits. The bids were {guesses}."
+      ],
+      "signoff": [
+        "That's the last lot. Somebody's got to sell it, or it just sits there reminding everybody. Might as well be you. Might as well be warm.",
+        "Two hours a day, this is what the Basin leaves behind. We'll be here tomorrow. So will most of it.",
+        "From all of us on the floor: no returns, no provenance, no questions that help. Goodnight."
+      ],
+      "stall": [
+        "Take your time. The previous owner did not have this luxury.",
+        "I can hear you doing arithmetic and I want you to know it will not help.",
+        "Yolanda has the sealed card. Yolanda will not blink. I have tried.",
+        "Somebody bid. The lights cost money and the lights are the only thing here that does, reliably.",
+        "Look at the stitching. Everybody looks at the damage. Look at the STITCHING.",
+        "Still time. Barely. Not really."
+      ],
+      "ticker": [
+        "THE LAST LOT · All lots sold as seen · No returns, no exchanges, no provenance provided or implied · Municipal surplus is sold post-forfeiture and cannot be reclaimed by prior holders or their estates · Restored persons may not claim property forfeited by a previous body · Contestant winnings are capped by network policy at one purse per person per day · Studio guests appear on air by standing in the studio and are deemed to have consented by breathing · Items marked HAUNTED are sold under the same terms as items that are not · The management does not know what is in the pallets"
+      ],
+      "verdict_read": [
+        "{verdict} That's {purse} credits and a handshake I will not be providing.",
+        "{verdict} Take the money. Take it before somebody upstairs reads the paperwork.",
+        "{verdict} And that is the business we are in.",
+        "{verdict} Yolanda, mark the ledger. Mark it in pencil.",
+        "{verdict} The Basin thanks you for your service to price discovery."
+      ],
+      "walkoff": [
+        "Our contestant has left the building mid-lot. That happens. The lot stays.",
+        "Gone. Walked off my floor with a bid in the air. I respect it and I'm keeping the money."
+      ]
+    },
+    "rounds": 4,
+    "sidekick": "npc_lot_operator",
+    "theme": "last_lot_theme",
+    "title": "the_last_lot_logo"
+  },
+  "id": "bc_the_last_lot",
+  "loop": 0,
+  "message_interval": 5,
+  "messages": [],
+  "morning_pools": null,
+  "name": "The Last Lot",
+  "news_pools": null,
+  "override_duration": 240,
+  "playback_mode": "gameshow",
+  "sermon_pools": null,
+  "sports_pools": null,
+  "tags": [],
+  "talkshow_pools": null,
+  "updated_at": "1784700000",
+  "weather_pools": null
+}

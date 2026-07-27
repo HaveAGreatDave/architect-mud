@@ -4,14 +4,14 @@
   "id": "item_kelp_frond",
   "name": "kelp frond",
   "tags": {
-    "description": "A rubbery green-black ribbon, still wet, smelling of low tide. Grows faster than anyone can harvest it. Cooks down to almost nothing and tastes of the sea doing it.",
     "consumable": true,
-    "restore_hunger": 7,
-    "stackable": true,
-    "food_profile": "soft_vegetable",
+    "description": "A rubbery green-black ribbon, still wet, smelling of low tide. Grows faster than anyone can harvest it. Cooks down to almost nothing and tastes of the sea doing it.",
     "food_noun": "kelp",
+    "food_profile": "soft_vegetable",
     "perishable": true,
+    "restore_hunger": 7,
     "spoil_rate": "fast",
+    "stackable": true,
     "status_chance": {
       "food_poisoning": 0.3
     }

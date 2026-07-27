@@ -17,6 +17,7 @@ import { isOnCooldown, setCooldown, getCooldownRemaining } from '../combat.js';
 import { hasTag, tagValue } from '../tags.js';
 import { recomputePower } from '../environment.js';
 import { updateFurniture } from '../world.js';
+import { emit } from '../events.js';
 
 // Tunable per object_type. Playtest and adjust freely — HP lives on the row,
 // soak/gate live here.
@@ -99,6 +100,12 @@ async function destroyDevice(f, player, broadcast, damage) {
 
   // Recompute power now so dependent zones go dark immediately (not next tick).
   await recomputePower().catch(() => {});
+
+  // Announced so systems that care what a wrecked plant MEANS can react without
+  // this file knowing about them — the weather plugin turns a downed city plant
+  // into an ion storm, which is what makes blowing the turbine hall a thing a
+  // player might do deliberately rather than vandalism with a power bill.
+  emit('generator.destroyed', { generatorId: genId, generatorType: f.object_type, furniture: f, by: player });
 
   return { type: 'combat', message:
     `You smash the ${f.name} apart! (${damage} damage) It sparks, dies, and the power drops.` };

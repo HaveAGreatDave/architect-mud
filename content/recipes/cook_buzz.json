@@ -5,7 +5,6 @@
     "quantity": 1
   },
   "category": "synthesis",
-  "craft_time": 3,
   "description": "Cook Buzz from crude Buzz + industrial solvent.",
   "id": "cook_buzz",
   "ingredients": [

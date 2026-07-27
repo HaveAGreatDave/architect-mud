@@ -2,6 +2,7 @@
 // Exports commands; manages table lifecycle, dealer NPC chitchat, and persistence tick.
 
 import { query } from '../../server/models/db.js';
+import { schedule } from '../../server/engine/scheduler.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { getLivePlayer, setLivePlayer, getZone, world, hasActivePlayers } from '../../server/engine/world.js';
 import { GameTable, activeTables, MAX_SEATS } from './game-table.js';
@@ -704,8 +705,8 @@ let ticking = false;
 async function tableTick() {
   // Idle-gate: a game table needs seated players; on an empty world there's
   // nothing to advance, and maybePersist()'s UPDATE would otherwise keep Neon's
-  // compute awake. This tick is a raw 1s setInterval (hot-path pacing), so it
-  // carries the gate the scheduler would apply automatically.
+  // compute awake. Registered on the scheduler's '1s' cadence, which applies this
+  // gate by default — the explicit check is kept as a guard for any direct call.
   if (!hasActivePlayers()) return;
   if (ticking) return;
   ticking = true;
@@ -741,7 +742,7 @@ async function tableTick() {
   }
 }
 
-setInterval(() => tableTick().catch(e => console.error('[gametable] tick:', e.message)), 1000);
+schedule('1s', () => tableTick().catch(e => console.error('[gametable] tick:', e.message)));
 
 console.log('[gametable] Plugin loaded.');
 

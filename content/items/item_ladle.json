@@ -4,8 +4,8 @@
   "id": "item_ladle",
   "name": "ladle",
   "tags": {
-    "description": "A deep-bowled steel ladle, the handle bent to a working angle by somebody with stronger opinions about soup than you have.",
     "can_stir": true,
+    "description": "A deep-bowled steel ladle, the handle bent to a working angle by somebody with stronger opinions about soup than you have.",
     "unique": true
   },
   "type": "misc",

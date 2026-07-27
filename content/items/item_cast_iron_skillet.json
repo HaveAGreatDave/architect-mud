@@ -4,12 +4,12 @@
   "id": "item_cast_iron_skillet",
   "name": "cast-iron skillet",
   "tags": {
-    "description": "Black iron, thick as a manhole cover, with a pour lip worn smooth on one side by somebody's forty years of tipping fat off. It holds heat like a grudge. Dropping it would take a toe off.",
     "container": 2500,
-    "vessel": true,
+    "description": "Black iron, thick as a manhole cover, with a pour lip worn smooth on one side by somebody's forty years of tipping fat off. It holds heat like a grudge. Dropping it would take a toe off.",
     "heat_distribution": 0.85,
     "heat_retention": 0.9,
     "unique": true,
+    "vessel": true,
     "vessel_kind": "pan"
   },
   "type": "misc",

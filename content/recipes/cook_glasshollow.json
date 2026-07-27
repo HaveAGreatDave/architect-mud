@@ -5,7 +5,6 @@
     "quantity": 1
   },
   "category": "synthesis",
-  "craft_time": 3,
   "description": "Cook Glasshollow from crude Glasshollow + industrial solvent.",
   "id": "cook_glasshollow",
   "ingredients": [

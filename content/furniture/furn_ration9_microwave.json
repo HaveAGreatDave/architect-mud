@@ -1,0 +1,16 @@
+{
+  "description": "A scuffed beige box bolted to the end of the counter, its cracked turntable grinding round a half-second behind the motor. The interior light died some time ago, so whatever is in there goes around in the dark. Somebody has scratched out the original numbers and written HOT and VERY HOT above two of the buttons.",
+  "flags": {
+    "microwave": true
+  },
+  "hp": 30,
+  "hp_max": 30,
+  "id": "furn_ration9_microwave",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "counter microwave",
+  "object_type": "fixture",
+  "power_draw_kw": 1.2,
+  "price": 40,
+  "zone_id": "zone_mq_grocery"
+}

@@ -125,6 +125,25 @@ export const ENTRIES = [
     test: (p) => p?.playerId || null,
   },
   {
+    key: 'so_fresh_and_so_clean',
+    title: 'So Fresh and So Clean',
+    // The engine fires hygiene.immaculate only when a cleaning path has left you
+    // washed AND laundered AND carrying nothing — which on Ironside takes actual
+    // effort and about twelve credits.
+    line: 'Washed, laundered, and briefly indistinguishable from someone with prospects.',
+    on: 'hygiene.immaculate',
+    test: (p) => p?.actor?.id || null,
+  },
+  {
+    key: 'unfit_for_indoor_use',
+    title: 'Unfit for Indoor Use',
+    // The bottom band: filthy AND unlaundered AND wearing something that happened
+    // to you. Reaching it takes genuine neglect, which is the joke.
+    line: 'Whatever is on you now has been on you long enough to be considered a tenant.',
+    on: 'hygiene.filthy',
+    test: (p) => p?.actor?.id || null,
+  },
+  {
     key: 'meta',
     title: 'Meta',
     line: 'Noticed ten times now. Hardly a personality.',

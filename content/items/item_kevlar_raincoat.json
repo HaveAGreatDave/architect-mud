@@ -1,0 +1,21 @@
+{
+  "description": "A long rubberized slicker with kevlar panels quilted into the lining. Sheds the rain, slows the knife.",
+  "flags": {},
+  "id": "item_kevlar_raincoat",
+  "name": "kevlar raincoat",
+  "tags": {
+    "armor_soak": {
+      "edged": 3,
+      "kinetic": 2
+    },
+    "bulkiness": 2,
+    "description": "A long rubberized slicker, hem stiff with grime, kevlar panels quilted into the lining where the seams bulge. Somebody's idea of dressing for both kinds of weather. Sheds the rain, slows the knife, and cooks you alive if the sun ever comes out.",
+    "insulation": 4,
+    "layer": "outerwear",
+    "slot": "torso",
+    "waterproof": true
+  },
+  "type": "clothing",
+  "value": 165,
+  "weight": 2100
+}

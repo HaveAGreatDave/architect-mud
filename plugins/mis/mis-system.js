@@ -7,6 +7,11 @@
  */
 import { query } from '../../server/models/db.js';
 import { isMisActive } from '../../server/engine/mis.js';
+import { stainZone } from '../../server/engine/bodily.js';
+// Body mechanics live next door (mis-body.js): this module owns the meter and the
+// prose, that one owns what the meter does to a body.
+import { refractoryFactor, refractoryMs, markClimax, soakClothing, REFRACTORY_MSGS,
+  volumeOf, markClimaxVolume, soakSlotsFor, overflowsToZone, erectionForced } from './mis-body.js';
 
 // Ongoing event intervals (masturbation, fucking, etc.) keyed by player ID
 const MIS_EVENTS = new Map();   // playerId → intervalId
@@ -44,11 +49,26 @@ export function getMisEventMeta(playerId) {
 export async function addHorniness(player, amount, broadcast) {
   if (!isMisActive(player)) return [];
   const prev = player.horniness || 0;
+
+  // A body that just finished doesn't rebuild at full rate. The ramp is smooth
+  // rather than a refusal — you can keep going, it just isn't going anywhere yet.
+  const early = [];
+  const factor = refractoryFactor(player);
+  if (factor < 1) {
+    amount = Math.floor(amount * factor);
+    // Once per refractory period, not once per beat. markClimax clears the flag.
+    if (!player._misRefractoryTold) {
+      player._misRefractoryTold = true;
+      early.push(...pick(REFRACTORY_MSGS));
+    }
+  }
+  if (amount <= 0) return early;
+
   player.horniness = Math.min(120, prev + amount);
   player.horniness_last_increased = Date.now(); // track for decay delay
   await query('UPDATE players SET horniness=$1 WHERE id=$2', [player.horniness, player.id]);
 
-  const messages = [];
+  const messages = [...early];
 
   // Escalating heat as horniness climbs past 50 — only the highest newly-crossed
   // tier fires, so a big single jump (an active event's +18/+20) doesn't spam
@@ -62,7 +82,9 @@ export async function addHorniness(player, amount, broadcast) {
   // Update erection for males
   if (player.biological_sex === 'male') {
     const wasErect = player.erect === 1;
-    const nowErect = player.horniness >= 40;
+    // A drug flagged `forced_erection` beats the meter outright — it does not go
+    // down until the drug does, which is exactly as comfortable as it sounds.
+    const nowErect = erectionForced(player) || player.horniness >= 40;
     if (nowErect !== wasErect) {
       player.erect = nowErect ? 1 : 0;
       await query('UPDATE players SET erect=$1 WHERE id=$2', [player.erect, player.id]);
@@ -90,15 +112,26 @@ export async function triggerClimax(player, broadcast, location = null) {
   player.sanity = Math.min(player.sanity_max || 100, (player.sanity || 50) + 10);
   player.horniness_last_increased = null;
 
+  // Volume BEFORE the stamp — it measures time since the last one.
+  const volume = volumeOf(player);
+  markClimax(player);
+  markClimaxVolume(player);
+  delete player._misRefractoryTold;
+
   if (!player.appearance_data) player.appearance_data = {};
   if (player.biological_sex === 'male') {
-    // Penis always gets residue; add the target location too if on/in someone
+    // Penis always gets residue; add the target location too if on/in someone.
     const ejacLoc = location ? ['penis', location] : ['torso', 'hands', 'penis'];
-    player.appearance_data.ejaculate_state = { locations: ejacLoc };
+    // A big one goes further than it was aimed. This is the whole reason volume
+    // exists: it decides how much of the mess is somebody else's problem.
+    if (volume >= 0.6 && !ejacLoc.includes('torso')) ejacLoc.push('torso');
+    if (volume >= 0.85 && !ejacLoc.includes('hands')) ejacLoc.push('hands');
+    // `at` is what makes fluid a thing that ages: it dries on examine, it soaks
+    // into clothing, and the room can smell it until it doesn't.
+    player.appearance_data.ejaculate_state = { locations: ejacLoc, at: Date.now(), volume };
   } else {
-    // Female passive climax — fluid on legs, not depositable on others
-    const ejacLoc = ['legs'];
-    player.appearance_data.ejaculate_state = { locations: ejacLoc };
+    const ejacLoc = volume >= 0.6 ? ['legs', 'feet'] : ['legs'];
+    player.appearance_data.ejaculate_state = { locations: ejacLoc, at: Date.now(), volume };
   }
 
   await query(
@@ -106,25 +139,95 @@ export async function triggerClimax(player, broadcast, location = null) {
     [player.horniness, player.erect, player.sanity, JSON.stringify(player.appearance_data), player.id]
   );
 
+  // Anything that landed on a clothed slot soaked in rather than sitting on skin.
+  // `legsCovered` in index.js already decided the floor-vs-trousers question for
+  // the ejaculate verb; this covers every other climax path.
+  const wanted = soakSlotsFor(volume);
+  const soaked = await soakClothing(player, wanted);
+  // What the clothes couldn't take runs out onto the floor, where it becomes a
+  // zone stain the room can still smell after everyone involved has left.
+  if (overflowsToZone(volume) && soaked.length < wanted.length) {
+    stainZone(player.current_zone, 'ejaculate');
+  }
+
   return pick(CLIMAX_MESSAGES);
 }
 
 // Climax directly onto the ground (masturbation events)
 export async function triggerGroundClimax(player) {
+  const volume = volumeOf(player);
   player.horniness = 0;
   player.erect = 0;
   player.sanity = Math.min(player.sanity_max || 100, (player.sanity || 50) + 10);
   player.horniness_last_increased = null;
+  markClimax(player);
+  markClimaxVolume(player);
+  delete player._misRefractoryTold;
 
   await query(
     'UPDATE players SET horniness=$1, erect=$2, sanity=$3 WHERE id=$4',
     [player.horniness, player.erect, player.sanity, player.id]
   );
 
-  return pick(GROUND_CLIMAX_MESSAGES);
+  // It went on the floor: that's a stain, and stains are how the world finds out.
+  stainZone(player.current_zone, 'ejaculate');
+
+  return pick(GROUND_CLIMAX_MESSAGES).map(m => volume >= 0.85 ? `${m} <span class="text-dim">There is a lot of it.</span>` : m);
 }
 
 function pick(arr) { return Array.isArray(arr[0]) ? arr[Math.floor(Math.random() * arr.length)] : [arr[Math.floor(Math.random() * arr.length)]]; }
+
+/**
+ * The extra sentence a big finish earns, chosen by WHERE it went. Returns '' for
+ * anything under the heavy band, so an ordinary climax reads exactly as it always
+ * did and only a real one gets the second line.
+ *
+ * `part` is the ejacPart the event loops already compute (throat/pussy/ass/body).
+ */
+export function overflowLine(part, volume, vars = {}) {
+  if (volume < 0.6) return '';
+  const pool = EJACULATE_ZONE_MSGS.overflow[part] || EJACULATE_ZONE_MSGS.overflow.body;
+  const line = pool[Math.floor(Math.random() * pool.length)];
+  return ' ' + line.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? k);
+}
+
+/**
+ * What the receiver privately feels, banded by volume and by part. This is the
+ * half the room never sees, and it's the reason volume is worth tracking at all:
+ * being finished inside is a different experience depending on how much there is.
+ */
+const RECEIVED_INSIDE = {
+  pussy: {
+    heavy: [`You feel it happen — hot, and far more of it than you were braced for. It keeps coming.`,
+            `He empties into you in pulses you can actually count, and you feel every one.`],
+    normal: [`You feel him finish inside you, warm and sudden.`],
+  },
+  ass: {
+    heavy: [`It floods into you, more than you can hold, and you feel exactly how much is going to come back out.`,
+            `The heat of it spreads through you in waves. There is a great deal of it.`],
+    normal: [`You feel him finish inside you.`],
+  },
+  throat: {
+    heavy: [`It hits the back of your throat in volume and you have a decision to make, fast.`,
+            `More than a mouthful. Considerably more.`],
+    normal: [`You feel him finish in your mouth, hot and sudden.`],
+  },
+  mouth: {
+    heavy: [`It fills your mouth faster than you can deal with it.`],
+    normal: [`He finishes across your tongue.`],
+  },
+  body: {
+    heavy: [`It lands on you in far more quantity than you expected, and it is going to need washing off.`],
+    normal: [`You feel it land warm across your skin.`],
+  },
+};
+
+export function receivedLine(part, volume) {
+  const set = RECEIVED_INSIDE[part] || RECEIVED_INSIDE.body;
+  const band = volume >= 0.6 ? 'heavy' : 'normal';
+  const pool = set[band] || set.normal;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
 
 // Wash ejaculate off a player
 export async function washEjaculate(player) {
@@ -586,6 +689,21 @@ export const EJACULATE_ZONE_MSGS = {
     `{name} shudders, spilling across {target}'s tongue.`,
     `{name} pumps the last of it into {target}'s mouth.`,
   ],
+  // Volume-banded overflow lines, appended to the room broadcast when a finish
+  // is too big for wherever it went. Keyed by the part it went into, because
+  // "there is more of it than there is room for it" reads differently depending
+  // on where you are standing.
+  overflow: {
+    pussy:  [`It runs back out of {target} and down their thigh before {name} has even pulled away.`,
+             `There is too much of it; the excess spills out of {target} and onto the floor.`],
+    ass:    [`{target} can't hold it. Most of it runs straight back out of them.`,
+             `It leaks out of {target} the moment {name} withdraws, and keeps leaking.`],
+    mouth:  [`{target} can't swallow fast enough — it spills past their lips and down their chin.`,
+             `More than {target} bargained for. They choke, cough, and wear the rest of it.`],
+    throat: [`{target} gags on the volume of it and loses half down their own front.`,
+             `It's too much for {target}'s throat; the overflow goes down their chin.`],
+    body:   [`There is far more of it than {target} expected, and it goes everywhere.`],
+  },
   furniture: [
     `{name} finishes against the {target}, leaving it marked.`,
     `{name} comes onto the {target}.`,

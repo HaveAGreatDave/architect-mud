@@ -25,7 +25,10 @@ import { WORST_PULL, SLOP_CEILING, KNOWN_RECIPE_BONUS, MODIFIER_BONUS, MODIFIER_
 // A BOWL is the odd one out: you work in it rather than cook in it. Dips are
 // mashed, mixed and seasoned, never heated — which is why every bowl dish sits
 // on ingredients that are excellent RAW and why the bowl holds no heat at all.
-export const VESSEL_KINDS = ['pan', 'pot', 'tray', 'bowl'];
+// `bread` is a vessel the same way a bowl is: a thing you assemble in. It's the
+// only EDIBLE one — the bread goes into the dish it made, which is what a
+// sandwich is — and that's declared per-item as `tags.edible_vessel`.
+export const VESSEL_KINDS = ['pan', 'pot', 'tray', 'bowl', 'bread'];
 
 // A template's `needs` maps a profile name to a count: either an exact number
 // or a [min, max] range. `optional` lists profiles that may be present without
@@ -162,6 +165,20 @@ export const DISHES = {
     nameSlots: ['starchy_vegetable'],
     ceiling: 'excellent', difficulty: 6,
     blurb: 'Root, fat, and seasoning cooked down until it shines.',
+  },
+  // Bread, cheese, fat, one turn. The simplest real dish in the book and the
+  // one most people can actually cook — which is the point of it being here:
+  // every other pan dish assumes you own meat.
+  toastie: {
+    noun: 'toastie', vessel: 'pan',
+    needs: { bread: [1, 2], dairy: 1, fat_or_oil: 1 },
+    optional: ['aromatic', 'preserved'],
+    nameSlots: ['dairy'],
+    seasoning: 1,
+    // Not masterful, and deliberately. A toastie done perfectly is a very good
+    // toastie; the ceiling is where the catalog says what a dish IS.
+    ceiling: 'excellent', difficulty: 4,
+    blurb: 'Bread, cheese, a hot pan and one turn. Hard to better, easy to ruin.',
   },
   stack: {
     noun: 'stack', vessel: 'pan',
@@ -404,6 +421,9 @@ export const DISHES = {
     optional: ['fat_or_oil', 'soft_vegetable'],
     nameSlots: [],
     nameFormat: 'pan sauce',
+    // What it's built on, which is deliberately NOT what's in it. Any savoury
+    // sear belongs in a pan sauce; a fruit fond still tastes wrong in one.
+    fondFrom: ['dense_meat', 'preserved', 'batter'],
     seasoning: 2,
     ceiling: 'excellent', difficulty: 6,
     blurb: 'Wine or stock into a hot pan, and everything the meat left behind comes up with it.',
@@ -536,6 +556,32 @@ export const DISHES = {
     blurb: 'Stock held at a whisper, noodles in for three minutes, everything else arranged on top like it matters. It does.',
   },
 
+  // ── Bread: assembled, not cooked ──────────────────────────────────────────
+  // These are the sandwiches worth having a NAME for. Everything else bread can
+  // do falls to GENERIC_SANDWICH and is named off its contents — which is the
+  // design, not a gap. Add one here only when the combination is a real dish in
+  // its own right, because every entry added is one fewer thing a player can
+  // invent for themselves.
+  cheese_sandwich: {
+    noun: 'cheese sandwich', vessel: 'bread',
+    needs: { bread: [1, 2], dairy: [1, 2] },
+    optional: ['aromatic', 'soft_vegetable', 'fat_or_oil'],
+    nameSlots: ['dairy'],
+    nameFormat: '{0} sandwich',
+    seasoning: 1,
+    ceiling: 'excellent', difficulty: 3,
+    blurb: 'Cheese, bread, and nothing clever. Perfect about one time in five.',
+  },
+  club: {
+    noun: 'club', vessel: 'bread',
+    needs: { bread: [1, 2], dense_meat: [1, 2], soft_vegetable: [1, 2], preserved: 1 },
+    optional: ['dairy', 'egg', 'aromatic', 'fat_or_oil'],
+    nameSlots: ['dense_meat'],
+    nameFormat: '{0} club',
+    seasoning: 2,
+    ceiling: 'masterful', difficulty: 7,
+    blurb: 'Stacked past the point of structural sense and held together on faith.',
+  },
   preserved_loaf: {
     noun: 'terrine', vessel: 'tray',
     needs: { batter: [1, 2], preserved: [1, 2] },
@@ -544,6 +590,36 @@ export const DISHES = {
     ceiling: 'excellent', difficulty: 5,
     blurb: 'Salt meat pressed into dough and baked into something sliceable.',
   },
+};
+
+// A sandwich that isn't any particular sandwich — which is most of them.
+//
+// Every other unmatched combination in this catalog falls to UNKNOWN_DISH and is
+// capped at slop, because "meat, jam and three onions in a pot" genuinely is a
+// mess. Bread does not work that way. Put anything sensible between two slices
+// and you have made a real thing, and it should be called what it is: a rat meat
+// and onion sandwich, with no recipe existing for it and none created by making
+// it. That's the whole point — the sandwich is the one open-ended dish, so it is
+// the one template that names itself from whatever went in.
+//
+// It has NO key, which is what keeps it out of the cookbook: `plate` only
+// records a discovery when the match came back with one. Named sandwiches are
+// ordinary DISHES entries with `vessel: 'bread'` and they outrank this by the
+// normal specificity rule, so a recipe always wins where one exists.
+export const GENERIC_SANDWICH = {
+  noun: 'sandwich',
+  vessel: 'bread',
+  needs: {},
+  optional: [],
+  // Two nouns max, which `dishName` already enforces — "rat meat and onion
+  // sandwich" reads; "rat meat and onion and cheese and pickle sandwich" does not.
+  nameSlots: ['dense_meat', 'preserved', 'dairy', 'egg', 'soft_vegetable', 'fruit', 'starchy_vegetable'],
+  seasoning: 1,
+  // Below the named sandwiches and well above slop. A good sandwich is a good
+  // thing; it is not the best thing you will eat this year.
+  ceiling: 'very good',
+  difficulty: 3,
+  blurb: 'Bread, and whatever was to hand. The oldest idea in food.',
 };
 
 export const UNKNOWN_DISH = {
@@ -573,17 +649,104 @@ export const UNKNOWN_DISH = {
 //
 // Every portion is a dyadic fraction (½, ¼, ⅛), so these sums are exact in
 // floating point and two halves really do make 1.0, not 0.9999999.
+// ...and counted by MASS, not by how many things you happened to put in.
+//
+// Each profile declares a `unitWeight`: the grams that count as "one" of it in a
+// recipe. A 700g slab of pork is nearly three units of meat; a 200g sausage is
+// four-fifths of one. Recipes keep their plain integer counts — "one liquid" is
+// still one liquid — they just now mean "about 400g of liquid" rather than "one
+// object that happens to be liquid".
+//
+// Portions ride on top: half a 120g onion is 60g, so half a unit. Two halves are
+// exactly one onion again, and the arithmetic stays exact because every portion
+// is a dyadic fraction.
+//
+// A row without a weight (a synthetic test row, a malformed item) falls back to
+// counting as one, so nothing can silently vanish from a signature.
+// A STACK is not one ingredient. Three sausages in one inventory row weigh
+// three sausages and cook for three sausages' worth of time (`prepareCook`
+// already multiplies by quantity), so the recipe has to see three of them too —
+// otherwise the same row means one thing to the clock and another to the
+// matcher, and a pot of five potatoes matches a one-potato recipe while taking
+// five times as long.
+const stackOf = row => {
+  const q = Number(row?.quantity);
+  return Number.isFinite(q) && q > 0 ? q : 1;
+};
+
+export function unitsOf(row, profileName) {
+  const profile = PROFILES[profileName];
+  // MODIFIERS are dosed, not weighed. A jar of mustard is forty uses of mustard,
+  // and weighing it would make one jar count as four units of seasoning — which
+  // would both blow every aromatic range in the catalog and read as catastrophic
+  // over-seasoning. You use a spoonful, so it counts as one thing.
+  if (profile?.modifier) return portionOf(row) * stackOf(row);
+  const unit = profile?.unitWeight;
+  const grams = Number(row?.weight);
+  if (!unit || !Number.isFinite(grams) || grams <= 0) return portionOf(row) * stackOf(row);
+  return (grams * portionOf(row) * stackOf(row)) / unit;
+}
+
+// SECONDARY IDENTITIES — what a thing also counts as, without being it.
+//
+// An ingredient's profile has to stay singular, because it drives a CLOCK: milk
+// has one cook timeline, one set of stage prose, one set of targets, and it
+// behaves like a liquid in a pan whatever else it is. But "what is this made of"
+// and "what does this satisfy in a recipe" are different questions, and only the
+// first one needs a single answer. Milk is a liquid AND a dairy; butter on bread
+// is fat that is not a separate ingredient.
+//
+// So a secondary identity rides in its own channel: it can SATISFY a `needs`
+// entry, but it never counts toward the allowed-profile check. That asymmetry is
+// the whole design — an "also" can only ever help a match, never break one.
+// Without it, tagging milk as dairy would silently stop it matching `mash` and
+// `porridge`, which allow liquid and have no opinion about dairy.
+//
+// A Symbol key so it can never collide with a profile name and never appears in
+// the Object.keys sweep that the allowed check walks.
+export const ALSO = Symbol('also');
+
+// A secondary contributes the SAME unit count as the primary, not a recount
+// against its own unitWeight — a 400g carton is one liquid, so it's one dairy.
+// Recounting would make it 4.4 dairy on cheese's 90g unit and blow every range.
 export function signature(rows, profileNameOf) {
   const sig = {};
+  const also = {};
+  const add = (map, key, n) => { map[key] = (map[key] || 0) + n; };
   for (const r of rows) {
     const name = profileNameOf(r);
     const key = name && PROFILES[name] ? name : 'unprofiled';
-    sig[key] = (sig[key] || 0) + portionOf(r);
+    const units = name && PROFILES[name] ? unitsOf(r, name) : portionOf(r) * stackOf(r);
+    add(sig, key, units);
+
+    // Declared on the item: `tags.food_also`. Milk is the case this exists for.
+    const second = (r?.tags || {}).food_also;
+    if (second && PROFILES[second] && second !== key) add(also, second, units);
+
+    // BUTTERED bread carries its own fat. Without this, buttering a slice and
+    // putting it in a pan would fail to match a toastie for want of a fat that
+    // is visibly right there on the bread — and the player would have to drop a
+    // second pat of butter in the pan to satisfy a recipe they'd already met.
+    if (r?.custom_data?.buttered) add(also, 'fat_or_oil', 1);
   }
+  sig[ALSO] = also;
   return sig;
 }
 
 const range = need => (Array.isArray(need) ? need : [need, need]);
+
+// Every count in this catalog was authored as "how many of this ingredient",
+// back when one ingredient was one unit. Now that a unit is a MASS, almost
+// nothing weighs exactly one — a 400g steak is 1.6 units, a rat haunch is 0.8.
+// So an authored count means "about this much", not "precisely this much", and
+// matching uses a tolerance band around it. Without this, `dense_meat: 1` could
+// only be satisfied by an ingredient that happened to weigh exactly 250g.
+export const UNIT_TOLERANCE_LOW = 0.6;
+export const UNIT_TOLERANCE_HIGH = 1.8;
+const matchRange = need => {
+  const [lo, hi] = range(need);
+  return [lo * UNIT_TOLERANCE_LOW, hi * UNIT_TOLERANCE_HIGH];
+};
 
 // A named dish outranks EVERY class-matched one, unconditionally. This is a
 // floor rather than a per-key weight because a weight only wins when the counts
@@ -606,13 +769,19 @@ export function matchScore(sig, template, itemIds = new Set()) {
   if (template.keyItems?.length) {
     for (const id of template.keyItems) if (!itemIds.has(id)) return -1;
   }
+  const also = sig[ALSO] || {};
   let required = template.keyItems?.length ? KEY_DISH_FLOOR + template.keyItems.length : 0;
   for (const [profile, need] of Object.entries(template.needs)) {
-    const [min, max] = range(need);
-    const have = sig[profile] || 0;
-    if (have < min || have > max) return -1;
+    const [min, max] = matchRange(need);
+    // A secondary identity can SATISFY a requirement — milk is the dairy in a
+    // dish that asks for one.
+    const have = (sig[profile] || 0) + (also[profile] || 0);
+    if (have < min - 1e-9 || have > max + 1e-9) return -1;
     required += have;
   }
+  // ...but it is deliberately NOT part of this check. Only what a thing actually
+  // IS can disqualify it, or milk would stop matching every liquid recipe that
+  // has no opinion about dairy. Object.keys skips the Symbol by construction.
   const allowed = new Set([...Object.keys(template.needs), ...(template.optional || [])]);
   for (const profile of Object.keys(sig)) {
     if (!allowed.has(profile)) return -1;

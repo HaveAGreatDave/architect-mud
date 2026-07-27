@@ -4,14 +4,14 @@
   "id": "item_hydro_pepper",
   "name": "hydroponic pepper",
   "tags": {
-    "description": "Glossy, unnaturally symmetrical, red as a warning light. Nutrient-fed in a rack under sodium glare. It snaps when you bite it and the taste arrives a second late.",
     "consumable": true,
-    "restore_hunger": 9,
-    "stackable": true,
-    "food_profile": "soft_vegetable",
+    "description": "Glossy, unnaturally symmetrical, red as a warning light. Nutrient-fed in a rack under sodium glare. It snaps when you bite it and the taste arrives a second late.",
     "food_noun": "pepper",
+    "food_profile": "soft_vegetable",
     "perishable": true,
+    "restore_hunger": 9,
     "spoil_rate": "normal",
+    "stackable": true,
     "status_chance": {
       "food_poisoning": 0.2
     }

@@ -308,10 +308,26 @@ const airportCfg = (theme) => AIRPORT[theme] || AIRPORT.default;
 // line); fog/ash/storm thicken the air so distant ground genuinely dissolves. This is the
 // CEILING on the per-pixel haze weight in drawMode7Floor — hz (the live slider) still sets
 // how fast it climbs toward this cap.
+// The two hero events ride this table as pseudo weather types: acid sits between
+// storm and ash (a thick chemical murk you can still just about see through), an
+// ion storm dirties the air with charged dust. Everything downstream that keys
+// off `wx` — haze, glare, aurora — then treats them as first-class weather with
+// no extra plumbing.
 const WX_HAZE = {
   clear: 0.12, cloudy: 0.22, rain: 0.3, snow: 0.34, storm: 0.42, ash: 0.55, fog: 0.75,
+  acid_rain: 0.5, ion_storm: 0.38,
 };
 const hazeCeil = (wx) => WX_HAZE[wx] ?? 0.15;
+
+// Full-canopy colour cast for a hero event. Alpha scales with phase, so the
+// approach is a tint and the peak is a wall.
+const WX_EVENT_CAST = {
+  acid_rain: [150, 200, 40],
+  ion_storm: [90, 255, 150],
+};
+// What each hero event physically does to the canopy — reuses the existing rain
+// and storm on-glass behaviour rather than authoring new drop art.
+const WX_EVENT_AS = { acid_rain: 'rain', ion_storm: 'storm' };
 
 // ── Biome ground tint (the near/mid ground colour when flying over a district) ──
 // Not the flat map colours — the material the ground reads as from the air: arid
@@ -473,7 +489,10 @@ export function paintWindshield(id, view) {
   const vw = yawOff ? { ...v, heading: (v.heading || 0) + yawOff } : v;
   const W = cw, H = ch, speed = clamp(v.speed || 0, 0, 1), height = clamp(v.height || 0, 0, 1);
   const phase = v.phase || 'cruise';
-  const wx = (v.weather || 'clear').toLowerCase();
+  // A hero event OUTRANKS the ordinary weather type for everything visual: when
+  // the sky is doing something with a name, that's what you're flying through.
+  const wxEvent = v.event?.type && WX_EVENT_CAST[v.event.type] ? v.event : null;
+  const wx = wxEvent ? wxEvent.type : (v.weather || 'clear').toLowerCase();
   const sky = skyAt(v.hour == null ? 12 : v.hour);
   // Chase distance is size-relative: the camera sits `chaseBack` tiles behind a reference
   // (prop-class) craft, but pulls IN for physically smaller airframes (the Mayfly ultralight
@@ -1098,8 +1117,21 @@ export function paintWindshield(id, view) {
   vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.5)');
   ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
 
+  // Hero-event colour cast over the whole scene — drawn after the vignette so it
+  // grades the world AND the canopy, the way flying inside a chemical cloud
+  // actually looks, and before the on-glass layer so the drops still read on top.
+  if (wxEvent) {
+    const [r, g, b] = WX_EVENT_CAST[wxEvent.type];
+    const m = wxEvent.phase === 'peak' ? 1 : 0.5;
+    ctx.fillStyle = `rgba(${r},${g},${b},${0.07 + 0.09 * m})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+
   // On-glass weather (drops that cling to the canopy, lightning), bug splats + frost + a WX badge.
-  if (!ext) drawGlass(ctx, W, H, wx, st, dt, speed, framed);
+  // The on-glass layer still wants to know what's physically hitting the canopy:
+  // acid rain is rain (beads, streaks, a glass that stays clean of bugs), an ion
+  // storm is a storm (the lightning branch). The badge below keeps the real name.
+  if (!ext) drawGlass(ctx, W, H, WX_EVENT_AS[wx] || wx, st, dt, speed, framed);
   if (!v.windowClass && !ext) drawCanopy(ctx, W, H);   // DA62-style curved windscreen header (forward view)
   if (!v.windowClass && !ext) drawCowl(ctx, W, H, v.cls);   // nose cowl / glareshield along the bottom — hides the bare near-ground band without lifting the camera
   if (!v.windowClass) drawWxBadge(ctx, W, wx, v.wind);
@@ -1561,7 +1593,11 @@ function drawGlass(ctx, W, H, wx, st, dt, speed, framed = false) {
   }
 }
 
-const WX_LABEL = { rain: '☔ RAIN', storm: '⛈ STORM', snow: '❄ SNOW', ash: '⛆ ASHFALL', dust: '⛆ DUST', fog: '🌫 FOG', cloudy: '☁ OVERCAST', clear: '☀ CLEAR' };
+const WX_LABEL = { rain: '☔ RAIN', storm: '⛈ STORM', snow: '❄ SNOW', ash: '⛆ ASHFALL', dust: '⛆ DUST', fog: '🌫 FOG', cloudy: '☁ OVERCAST', clear: '☀ CLEAR',
+  acid_rain: '☣ ACID RAIN', ion_storm: '⚡ ION STORM' };
+// Hero events read in the same alarm colour as a storm — the badge is the pilot's
+// one-glance answer to "what am I actually flying through".
+const WX_ALARM = new Set(['storm', 'acid_rain', 'ion_storm']);
 function drawWxBadge(ctx, W, wx, wind) {
   const label = WX_LABEL[wx] || (wx ? wx.toUpperCase() : 'CLEAR');
   const txt = wind ? `${label}  ${Math.round(wind)}kt` : label;
@@ -1569,7 +1605,7 @@ function drawWxBadge(ctx, W, wx, wind) {
   const w = ctx.measureText(txt).width + 14, x = W - w - 8, y = 8, h = 17;
   ctx.fillStyle = 'rgba(6,12,18,0.6)'; ctx.strokeStyle = 'rgba(143,208,255,0.35)'; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, w, h, 4) : ctx.rect(x, y, w, h); ctx.fill(); ctx.stroke();
-  ctx.fillStyle = wx === 'storm' ? '#ffcf3e' : '#a9d4ec'; ctx.textAlign = 'left';
+  ctx.fillStyle = WX_ALARM.has(wx) ? '#ffcf3e' : '#a9d4ec'; ctx.textAlign = 'left';
   ctx.fillText(txt, x + 7, y + h / 2 + 0.5); ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
 }
 
@@ -5158,6 +5194,8 @@ const TYPE_MODEL = {
   freight_forwarder: { type: 'freight_forwarder', pal: 'ty_fwd_metal' },
   // The scrapyard on the wasteland edge — crushed-car bales, a grabber crane, a shack.
   junkyard:          { type: 'junkyard',          pal: 'ty_junk_shack', neon: '#ffb43a' },
+  // The only warm-lit window on Ironside — a wide glazed front and a cold-blue sign.
+  laundromat:        { type: 'laundromat',        pal: 'ty_asc_clinic', neon: '#7fe3ff' },
   // The Ascendant Stronghold (docs/proposals/ascendant-stronghold.md).
   asc_spire:  { type: 'asc_spire',  pal: 'ty_asc_spire' },
   asc_gate:   { type: 'asc_gate',   pal: 'ty_asc_gate' },
@@ -6513,6 +6551,15 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       { const [ax, ay] = F(0, fh * 0.95); draw3DBoxAt(ctx, cam, ax, ay, fh * 1.06, wallTop * 0.42, wallTop * 0.64, 'ty_door', seed + 1, night, alpha, false); }   // counter awning faces the street
       neonBlade(ctx, cam, dx, dy, wallTop + archH, wallTop + archH + h * 0.42, m.neon || '#ffcf3e', night, alpha);      // rooftop neon sign
       if (night) { const [wx, wy] = F(0, fh * 0.92); glowPool(ctx, cam, wx, wy, wallTop * 0.5, '255,200,120', 13, alpha * 0.26); }   // warm window band
+      break;
+    }
+    case 'laundromat': {   // The Wash: a low flat-roofed shopfront that is mostly window — the one place on Ironside you can see all the way into from the street
+      const hw = fh * 1.1, wallTop = h * 0.56;
+      draw3DBoxAt(ctx, cam, dx, dy, hw, 0, wallTop, pal, seed, night, alpha, true);                                       // single-storey box
+      { const [gx, gy] = F(0, fh * 0.96); draw3DBoxAt(ctx, cam, gx, gy, fh * 0.96, 0, wallTop * 0.82, 'ty_marble_col', seed + 1, night, alpha, false); }  // the big glazed front
+      neonBlade(ctx, cam, dx, dy, wallTop, wallTop + h * 0.3, m.neon || '#7fe3ff', night, alpha);                          // cold-blue WASH sign
+      // Lit all night, deliberately: this is the building that says somebody is still open.
+      if (night) { const [wx, wy] = F(0, fh * 0.9); glowPool(ctx, cam, wx, wy, wallTop * 0.6, '210,235,255', 18, alpha * 0.34); }
       break;
     }
     case 'armory': {   // Ironside Arms: a squat riveted blockhouse — heavy overhanging parapet, vault door, slit-window glow

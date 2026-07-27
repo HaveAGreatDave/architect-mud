@@ -53,7 +53,7 @@
     }
   },
   "chitchat": [],
-  "description": "Ozzie \"Two-Livers\" Malkin — a professional poison taster, mostly retired, involuntarily. Tonight's guest on The Tonight Show with John Akerson.",
+  "description": "Ophelia Crane — spokeswoman for a vending machine that has killed forty people. Tonight's guest on The Tonight Show with John Akerson.",
   "dialogue_tree": {},
   "faction": null,
   "flags": {
@@ -65,7 +65,7 @@
   "hp": 20,
   "hp_max": 20,
   "id": "npc_guest",
-  "name": "Ozzie \"Two-Livers\" Malkin",
+  "name": "Ophelia Crane",
   "npc_type": "npc",
   "sex": "male",
   "studio_zone_id": null,

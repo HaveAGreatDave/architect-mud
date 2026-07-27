@@ -184,6 +184,14 @@ const PANELS = {
     save: saveRecipe,
     delete: id => API(`/recipes/${id}`, 'DELETE'),
   },
+  'mis-fit': {
+    title: 'MIS Fit Lines',
+    description: 'Authored prose for the fit model — what the room and both parties read when a size lands in each band. Blank pools fall back to the ordinary act text.',
+    idPrefix: 'misfit',
+    noEdit: true,
+    fetch: misFitFetch,
+    columns: [],
+  },
   scavenging: {
     title: 'Scavenging Tables',
     description: 'Reusable loot templates for the scavenge action. Attach one to a zone from the zone editor (Scavenging section); per-zone stock is tracked automatically.',

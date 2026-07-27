@@ -8,6 +8,7 @@
       "npc_guest"
     ]
   },
+  "days": 127,
   "duration_override": 10800,
   "id": "c38c65e4-805e-44be-a9a0-50569d9764e6",
   "priority": 0,

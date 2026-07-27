@@ -42,7 +42,7 @@ import { describeZone } from '../../server/engine/commands/describe.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { on } from '../../server/engine/events.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
-import { getFlag, setFlag } from '../../server/engine/flags.js';
+import { getFlag, setFlag, setFlags, clearFlagsIn } from '../../server/engine/flags.js';
 import { OPPOSITE } from '../../server/engine/directions.js';
 import { effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { query } from '../../server/models/db.js';
@@ -395,10 +395,12 @@ function teardownInstance(c) {
   crossings.delete(c.id);
 }
 async function clearCrossingFlags(player) {
-  // One DELETE for all five crossing_* flags — folds five serial round trips into
-  // one (player_flags has no RAM cache, so this is equivalent to five clearFlags).
-  await query('DELETE FROM player_flags WHERE player_id=$1 AND flag_key = ANY($2)',
-    [player.id, ['crossing_void', 'crossing_window', 'crossing_room', 'crossing_origin', 'crossing_instance']]).catch(() => {});
+  // One DELETE for all five crossing_* flags rather than five serial clearFlags.
+  // Goes through the flag store's multi-key funnel so a live player's cached Map
+  // is invalidated with it — a raw DELETE here would leave them reading as
+  // mid-crossing forever.
+  await clearFlagsIn(player, ['crossing_void', 'crossing_window', 'crossing_room', 'crossing_origin', 'crossing_instance'])
+    .catch(() => {});
 }
 
 // ── Entry (shared by the verb and the walk-off-map hook) ──────────────────────
@@ -409,21 +411,16 @@ async function enterMember(m, c, entry, origin) {
   m._crossing = { instanceId: c.id, seen: new Set([entry.id]) };
   c.members.add(m.id);
   await query('UPDATE players SET current_zone=$1 WHERE id=$2', [entry.id, m.id]).catch(() => {});
-  // One upsert for all five crossing_* flags — folds five serial setFlags into one
-  // round trip (mirror of clearCrossingFlags; player_flags has no RAM cache).
-  const flags = [
+  // One upsert for all five crossing_* flags rather than five serial setFlags
+  // (mirror of clearCrossingFlags). Goes through the flag store's multi-key
+  // funnel so the live player's cached Map moves with the write.
+  await setFlags(m, [
     ['crossing_void', c.voidKey],
     ['crossing_window', c.window],
     ['crossing_origin', origin],
     ['crossing_instance', c.id],
     ['crossing_room', entry.id],
-  ];
-  const vals = flags.map((_, i) => `($1, $${i + 2}, $${i + 7}, EXTRACT(EPOCH FROM NOW()))`).join(', ');
-  await query(
-    `INSERT INTO player_flags (player_id, flag_key, flag_value, updated_at) VALUES ${vals}
-     ON CONFLICT (player_id, flag_key) DO UPDATE SET flag_value=EXCLUDED.flag_value, updated_at=EXCLUDED.updated_at`,
-    [m.id, ...flags.map(f => f[0]), ...flags.map(f => (f[1] == null ? 'true' : String(f[1])))]
-  ).catch(() => {});
+  ]).catch(() => {});
 }
 
 // The threshold stamp in the message pane — the one line that marks the moment the

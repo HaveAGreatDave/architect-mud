@@ -5,7 +5,6 @@
     "quantity": 1
   },
   "category": "tech",
-  "craft_time": 3,
   "description": "Assemble a Recon Drone from salvaged parts.",
   "id": "recipe_spec_drone",
   "ingredients": [

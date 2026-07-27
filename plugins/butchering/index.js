@@ -13,9 +13,9 @@
 
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
-import { getLivePlayer, getAllLivePlayers, getCorpse, getZoneCorpses, removeCorpse } from '../../server/engine/world.js';
+import { getLivePlayer, getCorpse, getZoneCorpses, removeCorpse } from '../../server/engine/world.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
-import { schedule } from '../../server/engine/scheduler.js';
+import { registerActivity } from '../../server/engine/activity-tick.js';
 import { skillCheck, awardSkillUse } from '../../server/engine/skills.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { isStackable } from '../../server/engine/tags.js';
@@ -195,27 +195,15 @@ async function resolveButcher(player) {
 
 // ── Butchering tick: completes the 5s action, or cleans up if interrupted
 // (force-stood by movement/combat) — mirrors the scavenging plugin's tick.
-let butcherTicking = false;
-async function butcherTick() {
-	if (butcherTicking) return;
-	butcherTicking = true;
-	try {
-		const nowMs = Date.now();
-		for (const player of getAllLivePlayers()) {
-			const st = player.butcherState;
-			if (player.posture === "butchering") {
-				if (!st) continue;
-				if (nowMs >= st.completeAt) await resolveButcher(player);
-			} else if (st) {
-				clearButcher(player, "You stop butchering.");
-			}
-		}
-	} finally {
-		butcherTicking = false;
-	}
-}
+registerActivity({
+	posture: "butchering",
+	stateKey: "butcherState",
+	onTick: async (player, st, nowMs) => {
+		if (nowMs >= st.completeAt) await resolveButcher(player);
+	},
+	onAbandon: (player) => clearButcher(player, "You stop butchering."),
+});
 
-schedule('1s', () => butcherTick().catch((e) => console.error("[butchering] tick error:", e.message)));
 
 // The unified STOP command halts butchering like any other repeating action.
 on("player.stop", ({ player, stopped }) => {

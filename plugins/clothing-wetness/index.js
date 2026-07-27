@@ -26,7 +26,13 @@ import { query } from '../../server/models/db.js';
 import { hasTag } from '../../server/engine/tags.js';
 import { getZoneTemperature, getZonePrecip, getWindKph, getHumidityPct } from '../../server/engine/environment.js';
 import { getAllLivePlayers, getZone } from '../../server/engine/world.js';
-import { resolveInventoryItem } from '../../server/engine/inventory.js';
+import { resolveInventoryForPlayers, patchInventoryCustomData } from '../../server/engine/inventory.js';
+import { wear, announceWear } from '../../server/engine/durability.js';
+
+// Wear points per minute at full-rate acid, before the precipRate scale. Sits
+// between `hard_use` (2) and `mishap` (8): a hero event should visibly cost you
+// gear over its ~5-minute peak without shredding a good coat in one downpour.
+const ACID_WEAR_POINTS = 4;
 
 function rainWettingRate(precipRate) {
   return precipRate * precipRate * 30;
@@ -70,9 +76,21 @@ const DRY_MSG = "You're completely dry.";
 
 export const hooks = {
   'tick.minute': async ({ broadcast }) => {
-    for (const player of getAllLivePlayers()) {
+    // ONE read and ONE write for the whole world, not one of each per player.
+    // This hook is awaited by the minute tick, so the old shape (a joined SELECT
+    // per player, then an UPDATE per changed garment) put ~6-8 serial round trips
+    // per player in front of radiation and drug decay — at 50 players that is
+    // several hundred sequential waits inside a 60-second tick, holding a pool
+    // slot while player commands queue behind it.
+    const awake = getAllLivePlayers().filter(p => !p.sleeping);
+    if (!awake.length) return;
+    const equippedByPlayer = await resolveInventoryForPlayers(
+      awake.map(p => p.id), { equipped: true, topLevel: false });
+    // [invId, {wetness}] pairs, flushed together after the loop.
+    const wetnessPatches = [];
+
+    for (const player of awake) {
       const playerId = player.id;
-      if (player.sleeping) continue;
 
       const zone = getZone(player.current_zone);
       const isIndoors = zone?.flags?.is_interior ?? false;
@@ -87,8 +105,22 @@ export const hooks = {
       const humidMult = isIndoors ? 1 : humidityMultiplier(getHumidityPct());
       const dryRate = baseDryRate * dryMultiplier(zoneTemp) * windMult * humidMult;
 
-      const rows = await resolveInventoryItem(playerId, { equipped: true, topLevel: false, all: true });
+      const rows = equippedByPlayer.get(playerId) || [];
       const wettable = rows.filter(r => hasTag(r, 'gets_wet'));
+
+      // ── Acid corrosion ────────────────────────────────────────────────────
+      // Acid eats EVERYTHING you're wearing, not just the things that get wet,
+      // and a waterproof piece sheds it. This is the one sanctioned exception to
+      // durability rule 1 ("wear accrues on use, never on the clock"): it is not
+      // the clock, it's the player choosing to stand in a hero event — gear in a
+      // wardrobe, or on a body under shelter, is untouched. `wear` is sync by
+      // contract, so this adds no round trips.
+      if (precipType === 'acid' && precipRate > 0 && !isIndoors) {
+        for (const item of rows) {
+          if (hasTag(item, 'waterproof')) continue;
+          announceWear(player, item, wear(player, item, ACID_WEAR_POINTS * precipRate, 'acid rain'));
+        }
+      }
 
       // Submersion (swimming, player._submerged from the swimming plugin) soaks you
       // completely — skin and every wettable garment — overriding the precipitation
@@ -97,11 +129,7 @@ export const hooks = {
       // (equipped garments drip-dry gradually; bare skin dries at once).
       if (player._submerged) {
         for (const item of wettable) {
-          if ((item.custom_data?.wetness ?? 0) < 100) {
-            await query(
-              `UPDATE player_inventory SET custom_data = COALESCE(custom_data, '{}'::jsonb) || $1::jsonb WHERE id = $2`,
-              [JSON.stringify({ wetness: 100 }), item.inv_id]);
-          }
+          if ((item.custom_data?.wetness ?? 0) < 100) wetnessPatches.push([item.inv_id, { wetness: 100 }]);
         }
         const prevWetness = player.wetness ?? 0;
         player.wetness = 100;
@@ -131,12 +159,7 @@ export const hooks = {
         next = Math.max(0, Math.min(100, next));
         totalWetness += next;
 
-        if (Math.round(next) !== Math.round(prev)) {
-          await query(
-            `UPDATE player_inventory SET custom_data = COALESCE(custom_data, '{}'::jsonb) || $1::jsonb WHERE id = $2`,
-            [JSON.stringify({ wetness: Math.round(next) }), item.inv_id]
-          );
-        }
+        if (Math.round(next) !== Math.round(prev)) wetnessPatches.push([item.inv_id, { wetness: Math.round(next) }]);
       }
 
       const prevWetness = player.wetness ?? 0;
@@ -163,5 +186,8 @@ export const hooks = {
         broadcast(null, { type: 'resource_tick', messages, player_update: { wetness: Math.round(newWetness) } }, null, playerId);
       }
     }
+
+    // One write for every garment that changed, anywhere in the world.
+    if (wetnessPatches.length) await patchInventoryCustomData(wetnessPatches);
   },
 };

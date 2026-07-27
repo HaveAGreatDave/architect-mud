@@ -14,6 +14,7 @@
  * the engine — it's shared with the enemy-combat tick.
  */
 import { randomUUID } from 'crypto';
+import { wakeFromDream } from '../../server/engine/dreamscape.js';
 import { query, logActivity } from '../../server/models/db.js';
 import { getZoneEnemies, getZonePlayers, getZoneNpcs, getLivePlayer, getZone, createCorpse } from '../../server/engine/world.js';
 import { setFlag } from '../../server/engine/flags.js';
@@ -254,6 +255,7 @@ export async function cmdAttack(targetStr, player, broadcast) {
 		targetPlayer.pvpTargetId = player.id;
 		if (targetPlayer.sleeping) {
 			// Wake the sleeping player so they can fight back.
+			wakeFromDream(targetPlayer);
 			targetPlayer.sleeping = null;
 			broadcast(null, { type: 'output', message: `${player.handle} attacks you, jolting you awake!` }, null, targetPlayer.id);
 		} else {
@@ -299,7 +301,8 @@ export async function offlineSleepSwing(attacker, targetId, broadcast) {
 		attacker.offlinePvpTargetId = null;
 		attacker.pvpTargetId = liveTarget.id;
 		liveTarget.pvpTargetId = attacker.id;
-		if (liveTarget.sleeping) liveTarget.sleeping = null;
+		if (liveTarget.sleeping) wakeFromDream(liveTarget);
+		liveTarget.sleeping = null;
 		broadcast(null, { type: 'output', message: `${attacker.handle} attacks you, jolting you awake!` }, null, liveTarget.id);
 		broadcast(attacker.current_zone, { type: 'zone_event', message: `${attacker.handle} engages ${liveTarget.handle} in combat!` }, attacker.id, null, liveTarget.id);
 		broadcast(null, { type: 'combat', message: `${liveTarget.handle} woke up — combat begins!` }, null, attacker.id);

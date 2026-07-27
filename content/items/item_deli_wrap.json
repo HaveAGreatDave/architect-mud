@@ -6,11 +6,11 @@
   "tags": {
     "consumable": true,
     "description": "A shrink-wrapped sandwich from the register cooler, curling at the corners. The label promises TURKEY-STYLE. It does not promise turkey.",
-    "restore_hunger": 20,
-    "well_fed": true,
-    "stackable": true,
     "perishable": true,
-    "spoil_rate": "normal"
+    "restore_hunger": 20,
+    "spoil_rate": "normal",
+    "stackable": true,
+    "well_fed": true
   },
   "type": "consumable",
   "value": 12,

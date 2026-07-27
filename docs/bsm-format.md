@@ -35,7 +35,7 @@ Appear at the top, one per line, in any order. Recognized keys:
 | `@category general` | `meta.category` | defaults to `"general"` |
 | `@host npc_host_id` | `meta.host` | |
 | `@length 120` | `meta.length` | parsed as float (seconds) |
-| `@type live` | `meta.type` | lowercased; known values: `live`, `scripted`, `weather`, `sports`, `news`, `talkshow`, `morning`; defaults to `"live"`. Everything but `live`/`scripted` switches the file to the line-library format — see [Weather](#weather-broadcasts-type-weather), [Sports](#sports-broadcasts-type-sports), [News](#news-broadcasts-type-news), [Talk-Show](#talk-show-broadcasts-type-talkshow), and [Morning Shows](#morning-shows-type-morning). |
+| `@type live` | `meta.type` | lowercased; known values: `live`, `scripted`, `film`, `weather`, `sports`, `news`, `talkshow`, `morning`, `gameshow`, `sermon`; defaults to `"live"`. `live`/`scripted`/`film` are **linear** (this document's main body); everything else switches the file to the line-library format — see [Weather](#weather-broadcasts-type-weather), [Sports](#sports-broadcasts-type-sports), [News](#news-broadcasts-type-news), [Talk-Show](#talk-show-broadcasts-type-talkshow), [Morning Shows](#morning-shows-type-morning) and [Game Shows](#game-shows-type-gameshow). `film` is linear like `scripted` but with its own cast model and pre-roll — see [Films](#films-type-film). |
 
 Any other `@key value` line is silently ignored at the top level (only `@actor`/`@alias` are meaningful elsewhere — see below).
 
@@ -486,7 +486,7 @@ A **sports** `.bsm` is the [weather](#weather-broadcasts-type-weather) format's 
 
 The authored `.bsm` holds the *voice* (the announcer's tone, the team/player flavour) and the *event language* (how a home run, a strikeout, a walk-off is called). The runner owns the *game* (who plays, what happens, what the score is). The author never hardcodes "team A wins 5–3" — they write home-run lines and the sim decides when to use them.
 
-Baseball is the first (and currently only) implemented sport; `@sport` is the extension point for future sports, which may divide the game into **periods** rather than innings.
+Two sports are implemented: **`baseball`** (DEADBALL, innings) and **`hockey`** (CLUSTER PUCK, periods). `@sport` is the ONLY thing that selects a simulation — nothing else in the pipeline branches on it. Each sport is a module under [plugins/broadcast/sports/](../plugins/broadcast/sports/); a module that exports `narrate` is handed the middle of the broadcast and writes its own play-by-play, which is how hockey narrates a running clock and live strength instead of innings and bases. See [systems-broadcast.md](systems-broadcast.md#sports--two-codes-one-pipeline).
 
 ## How it differs from `live` / `scripted`
 
@@ -507,7 +507,7 @@ All the standard headers (`@broadcast`, `@channel`, `@category`, `@length`) work
 | Directive | Effect |
 |---|---|
 | `@type sports` | Switches the file to the sports line-library format. |
-| `@sport baseball` | Which simulation to run. Only `baseball` is implemented; the discriminator for future sports. |
+| `@sport baseball` | Which simulation to run: `baseball` or `hockey`. This is the only sport discriminator in the pipeline. |
 | `@announcer "Chip Vega"` | The play-by-play voice — a display **name**, surrounding quotes stripped. Available in lines as `{announcer}`. Not an NPC. |
 | `@airtime 19` | Optional. Feature only the game(s) covering these **in-game hours** (0–23, comma/space-separated) each day — one full game, snapped to the grid, at a fixed time of day; the channel is dark otherwise. Omit for **continuous** back-to-back games all day. The league itself always plays a full slate on the in-game clock (one game every 3 in-game hours → 8/in-game-day, ~1/team/day) and the standings advance regardless of what's aired; `@airtime` only picks which of those games this channel *shows*. `19` → the 18:00–21:00 game. |
 
@@ -614,6 +614,16 @@ The client renderer (`_applyScorebug` in [tv.js](../client/game/js/panels/tv.js)
 ## Worked example
 
 See [data/scripts/baseball.bsm](../data/scripts/baseball.bsm) for the full library. A minimal viable file needs `@type sports`, `@sport baseball`, `@announcer`, a `::teams` pool (2+), a `::players` pool, and at least the `intro`, `half.top`, `half.bottom`, `atbat.out`, `hr`, `rbi`, `score.update`, `final`, and `outro` pools. Everything else is enrichment.
+
+### Hockey (`@sport hockey`)
+
+See [data/scripts/hockey.bsm](../data/scripts/hockey.bsm). The event language is different because the game is: the beat is a **scoring chance**, not an at-bat, and the pools are keyed to what the sim emits — `section.start`/`section.end` (periods), `shot.save|glove|pad|blocked|wide|post|breakaway`, `goal` + `goal.pp|sh|en`, `hattrick`, `penalty`/`penalty.major`, `powerplay.start`/`powerplay.kill`, `penalty.fight`/`fight.result`, `boards`, `scrum`, `injury`, `death`, `pull`, `ot.intro`, `shootout.*`, the three faceoff pools and the `intermission.*` set.
+
+Three rules a hockey library must respect:
+
+- **TEXT PARITY.** Every beat the sim emits has a pool, including the casualties and the pulled goalie. Nothing may exist only as an animation on the rink sub-screen — a player reading the text gets the whole game. Regress asserts both directions: every beat type is narratable and every pool is reachable.
+- **The three faceoff pools are not interchangeable.** `faceoff.center` means somebody just scored or a period just started; `faceoff.zone` means the puck died in that end; `faceoff.neutral` is everything else. The sim picks the dot by the RULE, so the pool is a fact about the game, not a flavour choice. (`faceoff` remains as a fallback and is expected never to fire.)
+- **`::players` needs `clubs x 6` names minimum.** Skaters are dealt into permanent club rosters, so a short pool starts sharing men between clubs.
 
 ---
 
@@ -1073,3 +1083,308 @@ soundstage. It began as a `scripted` shopping channel selling confiscated munici
 converted in place when the format became a contest. A minimal file needs `@type gameshow`,
 `@host`, a `::contestants` line, and the `prompt`, `reveal` and `verdict_read` pools; everything
 else is enrichment.
+
+---
+
+# Films (`@type film`)
+
+A **film** is the format's only other **linear** member. Where the six library types
+(`weather`/`sports`/`news`/`talkshow`/`morning`/`gameshow`) hand the runner pools and let it
+assemble a fresh episode, a feature is authored shot by shot and does not re-roll — it compiles to
+exactly the same `broadcastGraph` chain a `@type scripted` broadcast does. What `film` adds is
+everything a two-and-a-half-hour picture needs that a five-minute scripted segment never did: a
+cast who are **not** studio staff, screenplay-shaped authoring, structural cards, and a **fixed
+screening time** that a viewer can be late for.
+
+## How it differs from `scripted`
+
+| | `scripted` | `film` |
+|---|---|---|
+| Body | ordered directives → linked chain | the same chain |
+| `SPEAKER:` lines | `npc_anchor` + `say` (`raw`) — the speaker is an NPC | pre-rendered `say` (`verbatim`) — the speaker is a **display name** from `::cast` |
+| Spawns NPCs | on a live channel, yes | **never** — `npcIds` is empty by construction |
+| Bare prose lines | unclassified (`_debug.unknownDirectives`) | **narration** — a screenplay action line |
+| Airtime | wherever it's placed on the playlist | pins itself to an `@airtime` block on import |
+| Late tuner | joins mid-segment | **joins the reel already running** (real-time seek) |
+| Compiler output | `broadcastGraph` | `broadcastGraph` + `filmScript` |
+
+**A film is a recording, not a stage.** Its characters were photographed years ago; there is
+nobody in a studio performing them tonight. So a film never adds an id to `npcIds`, the importer
+never spawns or moves an NPC for it, the graph never sets `_requireHost`, and it never
+presence-gates — it plays on any channel with no studio zone and no cast on the floor. This is
+why `SPEAKER:` compiles differently here: the line is rendered `Name says, "…"` at compile time
+and emitted with `style: 'verbatim'`, which the walker airs exactly as written (never re-wrapped
+by an anchor) while still leaking to bystanders in the room as `[TV]` speech.
+
+## Headers
+
+Standard headers (`@broadcast`, `@channel`, `@category`, `@length`) plus:
+
+| Directive | Effect |
+|---|---|
+| `@type film` | selects this type |
+| `@presents "Meridian Reclamation Pictures"` | distributor card, auto-spliced in front of the picture |
+| `@rating "CERTIFIED — UNSUITABLE FOR CORPORATE VIEWING"` | certification card, same |
+| `@director "Auggie Prine"` | the "A film by" card, same |
+| `@titlecard <graphic_id>` | main title, shown via `TITLE`; pair with a `::asset` block |
+| `@theme <song>` | rides the title card, as everywhere else |
+| `@airtime <hour…>` | **the screening start.** Snapped to in-game 3-hour blocks and auto-pinned on import by `ensureFilmSlots`, which flips the channel to daily mode and reserves **as many consecutive blocks as `@length` needs** (wrapping past midnight). Omit means a single all-day slot |
+| `@airday <day...>` | **which weekday(s) it screens.** Names or 1-7 (Mon=1), comma or space separated, repeatable. Written to each row's 7-bit `days` mask. Omit and it screens every day, which for a feature is usually wrong |
+| `@length <seconds>` | the picture's **real** runtime; stored as `override_duration` |
+
+`@presents` / `@rating` / `@director` are spliced between `start` and the first authored node
+after the body pass, so they play in front of the feature without the author hand-writing three
+overlays. Omit them and there is no pre-roll.
+
+## The `::cast` block
+
+```
+::cast
+DEACON | Deacon Vox | the voice
+AUGGIE | Auggie Prine | the director
+::endcast
+```
+
+`LABEL | Display Name | role` — the role blurb is optional and is carried in `filmScript.cast`
+for the record, not spoken. `LABEL` is what `SPEAKER:` lines use, matched case-insensitively.
+A speaker with no `::cast` row still works: the ALL-CAPS screenplay label is lowercased and
+Title-Cased for the display name, so a one-line walk-on needs no declaration. **These are names, never `npc_` ids** — putting an
+`npc_…` id here would just produce a character called "Npc Something".
+
+## Structural directives
+
+Authored for films, but they compile to ordinary `overlay` nodes and are legal in any linear
+script — the walker, the late-tune seeker and the TV panel already carry them.
+
+| Directive | Node | Notes |
+|---|---|---|
+| `ACT 2 — The Boom` | `overlay` `act_card` (8 s) | everything after the em-dash is the subtitle |
+| `SLUG THE BASIN \| 2079 — SUMMER` | `overlay` `lower_third` (6 s) | place before the pipe, time after; extra fields join with an em-dash |
+| `INTERMISSION [sec]` | `overlay` `intermission` (60 s default) | the reel change. A viewer who tunes in during one **sees an intermission** — it is real airtime, not a marker |
+| `LETTERBOX on` / `off` | `overlay` `letterbox` (**0 s**) | a **persistent** matte, not a card. Costs no airtime, stays up until switched off, and also puts the picture in filmic grade (`.tv-filmic`) |
+| `FADE out [sec]` / `FADE in [sec]` | `overlay` `fade` | one-shot optical transition; `out` dips to black and holds, `in` lifts |
+
+Everything else in the linear vocabulary — `SHOT`, `MUSIC`, `TITLE`, `CAM`, `TICKER`, `CREDITS`,
+bare durations, `WAIT` — behaves exactly as documented above.
+
+**Bare prose is narration.** In a film, a line that matches no directive and has no active NPC
+compiles to a `say` node with `style: 'narration'` rather than being logged as an unknown
+directive. Screenplay action lines are the bulk of a feature, and wrapping every "He crosses the
+lot" in `SHOT`/`SHOT_END` would be all scaffolding and no script. The cost is that a typo becomes
+a spoken line instead of a compiler warning — check `_debug.nodeTypes` if a film's `say` count
+looks higher than the dialogue you wrote.
+
+## A feature is longer than a block
+
+A block is 3 in-game hours, but its **real** length is `(24 h ÷ timeScale) ÷ 8`. On the world's
+default 3× clock that is **sixty real minutes** — so a two-hour picture pinned to a single block is
+cut off at the slot edge, an hour in, every night.
+
+`ensureFilmSlots` therefore reserves a **run** of consecutive blocks sized from `@length`
+(`filmBlocksNeeded`), laid end to end from `@airtime` and wrapping past midnight if the picture
+runs that long. `@airtime 21` means *starts at 21:00*, not *is over by midnight*.
+
+The run then has to be treated as one screening. Each block is its own playlist row, and every
+other broadcast type genuinely wants **per-slot** elapsed — so films get `filmRunElapsed`, which
+reads a `film_run_start` stamp that `ensureFilmSlots` writes into every row of a showing. Without it a three-block
+feature restarts from the distributor card every time the schedule rolls into the next hour.
+
+**A weekly film is an exception row, not a mode.** The playlist already carries a 7-bit `days`
+mask per row, and `_pickDailySlot` resolves ties by SPECIFICITY — fewest days set wins. So a
+Saturday-only film row simply outranks the everyday row underneath it; nothing else on the channel
+has to be edited, gapped or duplicated. A run crossing midnight shifts weekday per reel
+(`filmDayMask`), so a Saturday-night feature's small-hours blocks are **Sunday** rows.
+
+Blocks are reserved WHOLE, so the last one always has a remainder — 174 minutes of picture
+sits in 180 minutes of schedule. The runner therefore checks the run-elapsed against the
+real runtime (`filmRuntime`, from `@length`) and stops airing once the reel is finished. The
+leftover tail plays the channel’s **commercial pool** via `_fillCommercialTail` — the same rule
+`_loopFillOrNull` applies to any looping graph slot — cut off cleanly when the schedule moves on,
+and the graph blackboard is parked so tomorrow’s screening seeks from the top. A finished film must
+never fall through to the generic paths: the walker would wrap to `_start` and put the distributor
+card back up, and the flat-message path would read the picture’s entire dialogue list out as bare
+lines. Without that the walker’s wrap-to-`_start` behaviour would
+put the distributor card and the first act back up in the last few minutes of the screening.
+
+## Joining the reel already running
+
+This is the reason a film wants an `@airtime` run rather than a playlist slot. The picture runs
+on a wall clock: the walker's late-tune seeker (`_seekGraph`) walks the chain forward by however
+much of the screening has already elapsed, so two players who switch a set on at different
+moments see the **same shot**, and a player who is twenty minutes late has missed twenty minutes.
+
+One conversion makes this work. Every other daily slot is authored on the **in-game** clock, so
+the elapsed seconds the scheduler hands the walker are in-game seconds. A feature is authored in
+**real** minutes — a 150-minute runtime is 150 minutes of somebody's evening — so the film branch
+in `getCurrentMessage` divides the elapsed time back down by the world's `timeScale` before
+seeking. Get this wrong and a viewer ten minutes late finds the reel at the credits.
+
+Two things the runner has to carry explicitly rather than infer:
+
+- **The run head is stamped**, not derived from which slots touch. Inference merged two separate
+  one-block showings that happened to abut (`@airtime 9 12`) into a single run, so the second
+  showing seeked past its own ending; and an all-day picture formed a ring with no head at all.
+- **The letterbox matte is remembered across a seek.** It holds no airtime, so the seeker walks
+  straight past it — and for a feature nearly every viewer is a late one. `_seekGraph` records
+  the state it passed (`bb.pendingLetterbox`) and the walker raises it on the first tick.
+
+The seek's step budget also scales with the graph (`max(2000, nodes × 2)`); the old fixed cap
+would strand a latecomer partway through a feature-length chain.
+
+## Compiler & runtime contract (as built)
+
+- **Compiler** ([bsm-compiler.js](../client/devpanel/js/bsm-compiler.js)): `@type film` and the
+  `::cast` block are **pre-scanned** before the body pass (a film's speaker lines compile
+  differently, and `@type` may legally sit anywhere in the header). Output is the standard
+  envelope plus:
+  ```js
+  filmScript: {
+    presents, rating, director,          // pre-roll card copy
+    cast: [{ label, name, role }],       // DISPLAY NAMES — never reaches npcIds
+    title, theme,                        // @titlecard / @theme
+    airSlots: [7],                       // @airtime → 3h block indices, or null
+    runtime: 9000,                       // @length, seconds
+  }
+  ```
+- **Import** ([broadcast.js](../client/devpanel/js/panels/broadcast.js) `_bcImportSave`): saved
+  with `playback_mode = 'film'`, `loop = 1`, `override_duration = @length`, an **empty** `messages`
+  list (a film's flat message list is its whole script over again — 874 lines and 82 KB for a
+  feature — and nothing reads it), `film_meta` = the
+  `filmScript` (`media_broadcasts.film_meta` JSONB). A film is **not** in `spawnsNpcs`, so no
+  studio NPC is created or moved. It does get a **cassette** in the production room, like every
+  other non-live import — a film is a recording, and a recording has a physical copy.
+- **Slot pinning**: the broadcast POST/PUT route calls `ensureFilmSlots` for
+  `playback_mode === 'film'` — a sibling of `ensureTalkshowSlot` that pins a **run** of blocks
+  sized from the runtime rather than a talk show's single block.
+- **Runner** ([plugins/broadcast/index.js](../plugins/broadcast/index.js)): a `film` playlist item
+  in the daily path ticks its stored `broadcastGraph` through the ordinary walker with the
+  real-time-converted seek described above. `broadcastDuration` reserves the whole screening block
+  (measuring the chain would give the picture's real runtime, which is not the same thing as slot
+  seconds). Nothing else in the walker is film-specific.
+- **Client** ([tv.js](../client/game/js/panels/tv.js)): `act_card` and `intermission` render as
+  full-screen cards; `letterbox` and `fade` are **persistent/overlay layers** handled before the
+  transient overlay container (`#tv-letterbox`, `#tv-fade`) and cleared on channel change and
+  power-off, so a picture's matte never frames the next station.
+- **Schema**: `ALTER TABLE media_broadcasts ADD COLUMN IF NOT EXISTS film_meta JSONB;` in
+  `SCHEMA_SQL`. Apply with `npm run db:schema` before the runner loads.
+
+## Worked example
+
+See [data/scripts/the_open_signal.bsm](../data/scripts/the_open_signal.bsm) — **The Open Signal**,
+a ~175-minute period picture about the eight years after the Handoff when the Basin's transmitters
+stayed up, nobody owned them, and what went out on them was pornography. ~970 nodes, four acts, an
+intermission at the midpoint, and a 21:00 screening on KSAB-TV that runs across three blocks.
+**Adult in subject** — it depicts the trade and what it cost the people in it, and is scheduled
+accordingly. A minimal film needs `@type film`, a `::cast` block, and a body;
+`@airtime` is what turns it from a thing on a playlist into a thing people are late for.
+
+---
+
+# Sermons (`@type sermon`)
+
+The [news](#news-broadcasts-type-news) type's Sunday cousin, and the library format's
+**dynamic-but-not-acted** member. It reads the *same* live feed a news bulletin does — the
+generator behind the tablet's News app — but takes each headline as **revelation** rather than
+reporting it. The Machine did not comment on the week; the week *is* the comment, and the
+celebrants argue about what it meant.
+
+Like `news` and unlike `talkshow`, the cast are **display names**: nothing is added to `npcIds`,
+importing a service never spawns a studio NPC, and the assembled graph never sets `_requireHost`,
+so it never presence-gates. It airs whether or not anybody is standing in a studio.
+
+## How it differs from `news`
+
+| | `news` | `sermon` |
+|---|---|---|
+| State source | live news generator | the same live news generator |
+| The stories are… | reported | **interpreted as scripture** |
+| Cast | anchors + field reporters | **celebrants** with signature derangements + a verger |
+| Structure | bulletin (lead, field segment, rundown, kicker) | **order of service** (call, invocation, creed, readings, testimony, hymn, tithe, homily, benediction) |
+| Re-rolls | per 5-minute refresh bucket | **per in-game day** — a 15-minute liturgy re-rolling mid-service would cut itself off |
+| Compiler output | `newsScript` | `sermonScript` |
+
+## Headers
+
+Standard headers plus:
+
+| Directive | Effect |
+|---|---|
+| `@type sermon` | selects this type |
+| `@verger "The Verger"` | the unseen voice that opens and closes the service — a name, not an NPC |
+| `@titlecard <graphic_id>` | shown before the service; pair with an `::asset` block |
+| `@theme <song>` | rides the title card, as everywhere else |
+| `@airtime <hour>` | the block it occupies, snapped to in-game 3-hour blocks |
+| `@airday <day…>` | **which weekday(s) it airs.** Names or 1-7 (Mon=1). This is what makes it a Sunday programme rather than a daily one |
+
+## `::celebrants` block
+
+```
+::celebrants
+Deacon-Prime Orrin Vance | who has given the most and speaks the softest | prime
+Brother Duc, Third Seal  | who counts everything and finds it insufficient | duc
+::endcelebrants
+```
+
+`Name | Title | tag` — title and tag optional. The **tag** is the important field: it names that
+celebrant's signature pools (`exegesis.<tag>`, `interjection.<tag>`), which is what stops five
+preachers from all sounding like one preacher.
+
+## Line pools (`::lines <key>`)
+
+**Gathering:** `call` (verger) · `invocation` · `greeting` · `creed` + `creed.response` (the
+response is spoken **unattributed** — it's the congregation)
+**Per reading (top 3 stories):** `reading.lead` · `reading.text` · `exegesis` · `interjection` ·
+`amen` (also unattributed)
+**Closing:** `testimony.lead` + `testimony` · `hymn` · `tithe` · `homily` · `benediction` ·
+`signoff`
+
+`exegesis` and `interjection` accept **two** kinds of variant, and they're tried in this order:
+
+1. `exegesis.<celebrant-tag>` — that preacher's own obsession
+2. `exegesis.<lens>` — how *this* reading should be taken
+3. `exegesis` — the generic fallback
+
+The **lens** is drawn at random per reading from `blessing` · `warning` · `omen` · `rebuke` ·
+`miracle`. That's the trick that makes the format hold up: the same headline is a benediction one
+week and an indictment the next, without a line being rewritten.
+
+## Where the variety comes from
+
+Three independent axes, rolled per service — a format that varies only by line pool reads as one
+madman with a thesaurus:
+
+1. **Who preaches** each reading rotates through the roster, and each has their own tag pools.
+2. **The lens** per reading (five of them).
+3. **Which optional beats happen at all** — interjection (~55%), a second exegesis (~40%),
+   testimony (~70%), hymn (~60%), the creed (~75%).
+
+Twelve services assembled from an identical three headlines come out **12/12 distinct**, sharing
+roughly 4 lines in 27. That ratio is regression-tested.
+
+## Tokens
+
+`{verger}` `{celebrant}` `{title}` `{celebrant2}` `{headline}` `{body}` `{byline}` `{scene}`
+`{lens}`. Anything left over is filled at **airtime** by the shared scripted-token pass, so a
+service can also say `{weekday}`, `{season}`, `{weather}`, `{tempc}`, `{viewers}` — see
+[Live-text tokens](#live-text-tokens-for-scripted-broadcasts).
+
+## Compiler & runtime contract (as built)
+
+- **Compiler**: `@type sermon` gives
+  `sermonScript = { celebrants, verger, pools, title, theme, airSlots, airDays }`. Celebrants are
+  names — nothing reaches `npcIds`.
+- **Import**: `playback_mode = 'sermon'`, `loop = 1`, `sermon_pools` = the `sermonScript`
+  (`media_broadcasts.sermon_pools` JSONB). Pins through `ensureTalkshowSlot` — the shared block
+  pinner, which now also writes the **day mask** from `airDays`, so talk shows and game shows can
+  be weekly by the same route.
+- **Runner**: `getSermonGraph` fetches via `dispatchAction('news.getStories')` (falling back to the
+  same built-in stories the news type uses) and caches per in-game day; `assembleSermonGraph`
+  emits the `say`-node chain. No `_requireHost`.
+- **Schema**: `ALTER TABLE media_broadcasts ADD COLUMN IF NOT EXISTS sermon_pools JSONB;`
+
+## Worked example
+
+See [data/scripts/the_calm_eye.bsm](../data/scripts/the_calm_eye.bsm) — **The Calm Eye**, the
+Ascendant Sunday service: five celebrants, 32 pools, 138 lines, an animated chrome-eye title card,
+airing Sundays only at 12:00 on KSAB-7. A minimal file needs `@type sermon`, one `::celebrants`
+row, and the `reading.lead` / `exegesis` / `benediction` pools; everything else is enrichment.

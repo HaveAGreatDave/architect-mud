@@ -5,7 +5,6 @@
     "quantity": 1
   },
   "category": "armor",
-  "craft_time": 3,
   "description": "Layer metal sheeting over salvaged clothing. Crude but it absorbs hits.",
   "id": "recipe_scrap_armor",
   "ingredients": [

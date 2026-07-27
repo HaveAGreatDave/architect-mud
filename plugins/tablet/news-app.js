@@ -26,8 +26,11 @@ async function weatherSection() {
   const days = (getForecast() || []).map(f => ({
     day: f.forecastDay,
     date: f.date,
-    icon: f.icon || '',
-    weatherType: f.weatherType,
+    // A scheduled hero event replaces the ordinary icon and label — the widget
+    // has to name the thing, not bury it under "rain".
+    icon: f.heroEventIcon || f.icon || '',
+    weatherType: f.heroEventLabel || f.weatherType,
+    heroEvent: f.heroEvent || null,
     tempC: f.tempC,
     windKph: f.windKph,
     humidityPct: f.humidityPct,

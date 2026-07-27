@@ -1,0 +1,16 @@
+{
+  "actor_lines": [
+    "You slide into {target} and find [ROOM TO SPARE]. There is [LITTLE RESISTANCE] at all.",
+    "You are [SIZE WORD] enough for most, and not for this. You barely [VERB] the sides."
+  ],
+  "band": "cavernous",
+  "hole": "pussy",
+  "id": "pussy:cavernous",
+  "target_lines": [
+    "{actor} enters you and you feel [ALMOST NOTHING]. You would have to [ACTION] to feel anything."
+  ],
+  "updated_at": "1785158642",
+  "zone_lines": [
+    "{actor} and {target} get going, though {target} looks [REACTION WORD]."
+  ]
+}

@@ -5,7 +5,6 @@
     "quantity": 1
   },
   "category": "synthesis",
-  "craft_time": 3,
   "description": "Cook The Threshold from crude The Threshold + industrial solvent.",
   "id": "cook_threshold",
   "ingredients": [

@@ -1,4 +1,5 @@
 import { query } from '../../server/models/db.js';
+import { schedule } from '../../server/engine/scheduler.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { on } from '../../server/engine/events.js';
 import { getAmbientDefByName } from '../audio/index.js';
@@ -379,7 +380,7 @@ function standDownArbiters() {
 }
 
 // Poll every 2 s: handle stand-down despawns and admin-protection target clearing.
-setInterval(() => {
+schedule('2s', () => {
   if (!arbitersActive) return;
 
   for (const instanceId of [...spawnedArbiters]) {
@@ -417,7 +418,7 @@ setInterval(() => {
     arbitersActive = false;
     arbitersStandingDown = false;
   }
-}, 2000);
+});
 
 // ── Zone movement / login: syncing existing ESP logic ────────────────────────
 

@@ -1,0 +1,18 @@
+{
+  "description": "A bench along the back wall, the cushion re-covered by hand in a fabric that did not match anything even when it was new. Warm from the dryers. It has held a great many people who had nowhere else to be.",
+  "flags": {
+    "interactions": [
+      "sit"
+    ]
+  },
+  "hp": 30,
+  "hp_max": 30,
+  "id": "furn_wash_bench",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "long cushioned bench",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 40,
+  "zone_id": "zone_the_wash"
+}

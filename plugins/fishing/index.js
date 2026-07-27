@@ -29,13 +29,14 @@
 
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
-import { getZone, getAllZones, getAllLivePlayers, getLivePlayer, spawnEnemySync, zoneTerrain } from '../../server/engine/world.js';
-import { schedule } from '../../server/engine/scheduler.js';
+import { getZone, getAllZones, getLivePlayer, spawnEnemySync, zoneTerrain } from '../../server/engine/world.js';
+import { registerActivity } from '../../server/engine/activity-tick.js';
 import { effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { on } from '../../server/engine/events.js';
 import { setPosture, forceStand } from '../../server/engine/posture.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
+import { repairItem, conditionBand, destroyItem } from '../../server/engine/durability.js';
 
 const ATTEMPT_MS = 4200;    // per-cast cadence — a touch slower than scavenging; fishing is patient
 const MAX_SWING = 14;       // best possible 2d8-2d8 roll — reachability ceiling
@@ -115,12 +116,12 @@ async function maybeSnapRod(playerId) {
   if (Math.random() >= ROD_SNAP_CHANCE) return '';
   const rod = await resolveInventoryItem(playerId, { tag: 'fishing_rod' });
   if (!rod) return '';
-  const newCond = Math.max(0, (rod.condition ?? 1) - ROD_SNAP_DAMAGE);
-  if (newCond <= 0) {
-    await query('DELETE FROM player_inventory WHERE id=$1', [rod.inv_id]);
+  // Through the durability substrate — one funnel (server/engine/durability.js).
+  await repairItem(rod, -ROD_SNAP_DAMAGE);
+  if (conditionBand(rod.condition).id === 'broken') {
+    await destroyItem(rod);
     return ' Your rod snaps clean in half and the pieces spin off into the water.';
   }
-  await query('UPDATE player_inventory SET condition=$1 WHERE id=$2', [newCond, rod.inv_id]);
   return ' Your rod groans and takes a worrying bend — that nearly cost you it.';
 }
 
@@ -391,39 +392,29 @@ async function runAttempt(player, st, nowMs) {
 
 // ── Tick ──────────────────────────────────────────────────────────────────────
 
-let ticking = false;
-async function fishTick() {
-  if (ticking) return;
-  ticking = true;
-  try {
-    const nowMs = Date.now();
-    for (const player of getAllLivePlayers()) {
-      const st = player.fishState;
-      if (player.posture === 'fishing') {
-        if (!st) continue;
-        // A bite is armed and waiting on the overlay — hold the loop. If the
-        // player abandoned the overlay, time it out (the fish gets away).
-        if (st.pending) {
-          if (nowMs - st.pending.armedAt > PENDING_TTL_MS) {
-            out(player.id, 'You wait too long — the line goes slack. Whatever it was, it\'s gone.');
-            advanceState(player.id, { pending: null, lastAttempt: nowMs });
-          }
-          continue;
-        }
-        if (nowMs - st.lastAttempt < ATTEMPT_MS) continue;
-        await runAttempt(player, st, nowMs);
-      } else if (st) {
-        const cur = getLivePlayer(player.id);
-        if (cur) delete cur.fishState;
-        out(player.id, 'You stop fishing.');
+registerActivity({
+  posture: 'fishing',
+  stateKey: 'fishState',
+  onTick: async (player, st, nowMs) => {
+    // A bite is armed and waiting on the overlay — hold the loop. If the
+    // player abandoned the overlay, time it out (the fish gets away).
+    if (st.pending) {
+      if (nowMs - st.pending.armedAt > PENDING_TTL_MS) {
+        out(player.id, 'You wait too long — the line goes slack. Whatever it was, it\'s gone.');
+        advanceState(player.id, { pending: null, lastAttempt: nowMs });
       }
+      return;
     }
-  } finally {
-    ticking = false;
-  }
-}
+    if (nowMs - st.lastAttempt < ATTEMPT_MS) return;
+    await runAttempt(player, st, nowMs);
+  },
+  onAbandon: (player) => {
+    const cur = getLivePlayer(player.id);
+    if (cur) delete cur.fishState;
+    out(player.id, 'You stop fishing.');
+  },
+});
 
-schedule('1s', () => fishTick().catch(e => console.error('[fishing] tick error:', e.message)));
 
 on('player.stop', ({ player, stopped }) => {
   if (player.posture !== 'fishing') return;

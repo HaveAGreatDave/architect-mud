@@ -2,23 +2,17 @@
 // No global tick: freshness is checked lazily via the `item.checkFreshness`
 // hook, fired by the engine from examine, stow, pull, and eat/use (see
 // server/engine/commands/{world,inventory}.js). See decay.js for the math.
-import { registerStatusEffect } from '../../server/engine/effects.js';
 import { ensureFreshnessCurrent } from './decay.js';
 
-// Registered here (not in effects.js) per that module's own extension pattern —
-// spoiled food applies this instead of its normal restores (inventory.js).
-registerStatusEffect({
-  name: 'food_poisoning',
-  label: 'Food Poisoning',
-  onTick(player) {
-    player.hp = Math.max(0, player.hp - 3);
-    if (Math.random() < 0.3) {
-      player.stamina = Math.max(0, (player.stamina ?? 0) - 5);
-      return 'Your stomach churns. (-3 HP, -5 STA)';
-    }
-    return 'Your stomach churns. (-3 HP)';
-  },
-});
+// `food_poisoning` used to be registered HERE, back when spoiled food was the
+// only thing that caused it. It is now applied by four separate paths — spoiled
+// food, raw food, meat eaten deliberately rare, and a botched cook — so it has
+// moved to the engine's core effect set alongside bleeding and choking
+// (server/engine/effects.js).
+//
+// This matters more than it looks: registerStatusEffect OVERWRITES by name, and
+// plugins load after the engine, so a copy left here would silently shadow the
+// engine one with no warning anywhere.
 
 export const hooks = { 'item.checkFreshness': ensureFreshnessCurrent };
 

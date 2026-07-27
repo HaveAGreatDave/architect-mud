@@ -393,6 +393,10 @@ export const SCHEMA_SQL = `
     tier TEXT DEFAULT 'unknown',
     PRIMARY KEY (player_id, ideology_id)
   );
+  -- Standing is maintained, not banked: reputation slides back toward its
+  -- resting point over time (server/engine/ideologies.js). This stamp is what
+  -- makes that decay LAZY — computed from elapsed time on read, no sweep tick.
+  ALTER TABLE player_ideology_rep ADD COLUMN IF NOT EXISTS updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW());
 
   CREATE TABLE IF NOT EXISTS loot_tables (
     id TEXT PRIMARY KEY,
@@ -531,6 +535,34 @@ export const SCHEMA_SQL = `
   );
   CREATE INDEX IF NOT EXISTS idx_storefront_orders_zone ON storefront_orders(zone_id);
 
+  -- Kept companions on retainer (plugins/consort — the B.L.I.S.S. app). PLAYER data
+  -- for exactly the same reason the shop deed is: the arrangement belongs to one
+  -- player and must never round-trip through git. The consort herself is NOT an
+  -- npcs row — she's spawned into world.npcs from this ledger at boot and on
+  -- order, and despawned on release, so she can never export as world content.
+  -- Everything authored about her lives in the plugin's archetype registry; this
+  -- table holds only which one, in whose name, at what rate, for how long.
+  CREATE TABLE IF NOT EXISTS player_consorts (
+    id TEXT PRIMARY KEY,
+    owner_id TEXT NOT NULL,
+    owner_handle TEXT NOT NULL,                -- the devoted_to handle on the live NPC
+    name TEXT NOT NULL,
+    archetype TEXT NOT NULL,                   -- sub-personality key (archetypes.js)
+    body TEXT NOT NULL,                        -- build key (appearance.js BUILDS)
+    sex TEXT NOT NULL DEFAULT 'female',        -- 'female' | 'male' — consorts come in both
+    seed TEXT,                                 -- appearance seed (regenerates the whole look)
+    pairing_id TEXT,                           -- non-null = one half of an inseparable pair
+    home_zone TEXT,                            -- the private space she was placed in
+    daily_rate INTEGER NOT NULL DEFAULT 0,     -- base rate before the loyalty discount
+    days_kept INTEGER NOT NULL DEFAULT 0,      -- tenure, drives the loyalty discount
+    missed INTEGER NOT NULL DEFAULT 0,         -- consecutive unpaid days
+    hired_at BIGINT,
+    last_seen_at BIGINT,                       -- ms the keeper was last in the room with her
+    next_due DATE                              -- GAME calendar, like apartments.rent_due_date
+  );
+  CREATE INDEX IF NOT EXISTS idx_player_consorts_owner ON player_consorts(owner_id);
+  CREATE INDEX IF NOT EXISTS idx_player_consorts_pairing ON player_consorts(pairing_id);
+
   -- NPC home occupancy — a SEPARATE tracker from the player apartments ledger.
   -- One row per apartment unit an NPC calls home; the housing rent flow treats a
   -- unit listed here as occupied (un-rentable) without ever writing to apartments.
@@ -553,8 +585,13 @@ export const SCHEMA_SQL = `
     ingredients JSONB DEFAULT '[]',
     base_output JSONB NOT NULL,
     skill_id TEXT NOT NULL,
-    base_difficulty INTEGER DEFAULT 3,
-    craft_time INTEGER DEFAULT 3
+    base_difficulty INTEGER DEFAULT 3
+    -- No craft_time column. A craft's duration is DERIVED from difficulty,
+    -- skill gate and ingredient bulk (craftSeconds() in engine/crafting.js).
+    -- The column was here for years, unread, with 35 of 36 rows still on its
+    -- default of 3 — the standing proof that a per-recipe number with no
+    -- mechanical effect never gets authored. Existing databases keep the dead
+    -- column until server/models/temp/drop-craft-time.js is run against them.
   );
 
   CREATE TABLE IF NOT EXISTS drugs (
@@ -775,6 +812,12 @@ export const SCHEMA_SQL = `
   ALTER TABLE players ADD COLUMN IF NOT EXISTS erect INTEGER DEFAULT 0;
   ALTER TABLE players ADD COLUMN IF NOT EXISTS digestive_load REAL DEFAULT 0;
   ALTER TABLE players ADD COLUMN IF NOT EXISTS hydration_load REAL DEFAULT 0;
+  -- Fatigue is DERIVED from this, not stored: how long since you last properly
+  -- slept. One column, written only when you sleep, rather than a meter the
+  -- resource tick has to persist every minute for every player. It also survives
+  -- logout for free — time spent logged off still counts as time awake, unless
+  -- you had the sense to log off in a bed.
+  ALTER TABLE players ADD COLUMN IF NOT EXISTS last_slept_at BIGINT;
   ALTER TABLE players ADD COLUMN IF NOT EXISTS appearance_data JSONB DEFAULT '{}';
   ALTER TABLE players ADD COLUMN IF NOT EXISTS clothing_contamination JSONB DEFAULT '{}';
   ALTER TABLE players ADD COLUMN IF NOT EXISTS sexuality TEXT DEFAULT 'Male';
@@ -891,6 +934,36 @@ export const SCHEMA_SQL = `
     flag_value TEXT NOT NULL DEFAULT 'true',
     updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
   );
+
+  -- ── Player↔NPC relationships (server/engine/relations.js) ─────────────────
+  -- One row per (player, NPC) the player has actually MET — rows are created on
+  -- first contact, never pre-seeded, so the row count is bounded by who you've
+  -- talked to (tens), not by the NPC roster. That bound is what makes the whole
+  -- set safe to hydrate into memory at login and answer every later read from
+  -- the live player object with zero queries (docs/architecture.md read tiers).
+  --
+  -- "familiarity" is how well they know you (0..100, only ever grows through
+  -- contact); "warmth" is how they feel about you (-100..100, signed). Both are
+  -- REAL because decay is fractional and rounding it to int would let a slow
+  -- decay never actually land. Decay is computed LAZILY from "last_seen_at" at
+  -- hydrate time — there is deliberately no sweep tick, so an offline player
+  -- costs nothing and comes back to a cast that has correctly cooled.
+  --
+  -- FK to players CASCADE, same as player_achievements: a write for a
+  -- non-existent player is a hard failure rather than an orphan row, which is
+  -- what keeps the regress harness's fake player from accumulating junk.
+  -- npc_id is deliberately NOT an FK — content is re-imported and NPC rows come
+  -- and go; a stale relation to a deleted NPC is harmless and simply never read.
+  CREATE TABLE IF NOT EXISTS player_npc_relations (
+    player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+    npc_id TEXT NOT NULL,
+    familiarity REAL NOT NULL DEFAULT 0,
+    warmth REAL NOT NULL DEFAULT 0,
+    met_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()),
+    last_seen_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()),
+    PRIMARY KEY (player_id, npc_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_pnr_player ON player_npc_relations(player_id);
 
   -- ── Accolades (plugins/accolades) ─────────────────────────────────────────
   -- One row per (player, entry) the moment an entry is first observed. The
@@ -1279,8 +1352,22 @@ export const SCHEMA_SQL = `
   ALTER TABLE media_broadcasts ADD COLUMN IF NOT EXISTS morning_pools JSONB;
   -- Game shows (playback_mode='gameshow') store a line library + real cast + contestant names here: { host, sidekick, contestants:[…], pools:{key:[…]}, title, theme, airSlots, rounds }. A fresh episode is assembled each in-game day from the LIVE item catalog — contestants guess what things are worth — and ACTED on the studio floor by the host (+ optional sidekick). Any player standing in the studio can play; with none, the contestants are name-only strangers.
   ALTER TABLE media_broadcasts ADD COLUMN IF NOT EXISTS gameshow_pools JSONB;
+  -- Films (playback_mode='film') are the one non-library addition: the picture itself is an ordinary linear broadcast_graph, and this column holds only what a chain can't carry — { presents, rating, director, cast:[{label,name,role}], title, theme, airSlots, runtime }. The cast are DISPLAY NAMES, never npc_ ids: a film is a recording, so it spawns no studio NPCs and never presence-gates. airSlots pins the screening to a fixed in-game block, which is also what makes a late viewer join the reel already running.
+  ALTER TABLE media_broadcasts ADD COLUMN IF NOT EXISTS film_meta JSONB;
+  -- Sermons (playback_mode='sermon') store a line library + the celebrant roster here: { celebrants:[{name,title,tag}], verger, pools:{key:[…]}, title, theme, airSlots, airDays }. A fresh service is assembled each in-game day from the LIVE news feed and preached through the celebrants — dynamic, but NOT acted: the celebrants are display NAMES, so no studio NPC is ever spawned and it never presence-gates.
+  ALTER TABLE media_broadcasts ADD COLUMN IF NOT EXISTS sermon_pools JSONB;
   ALTER TABLE media_channels ADD COLUMN IF NOT EXISTS commercial_pool JSONB DEFAULT '[]';
   ALTER TABLE media_channel_playlist ADD COLUMN IF NOT EXISTS slot_type TEXT DEFAULT 'broadcast';
+
+  -- Which days of the week this slot airs on: a 7-bit mask, bit 0 = Monday …
+  -- bit 6 = Sunday (matching world_clock.day_of_week, 1=Mon..7=Sun). 127 = every
+  -- day, which is the default and the shape every pre-existing slot keeps — so a
+  -- channel authored once still plays the same grid seven days a week.
+  -- A slot restricted to fewer days OVERRIDES an everyday slot it overlaps: the
+  -- runner picks the most specific slot covering the current time (fewest days
+  -- set), so "Thursday at 20:00 it's the fight instead" is one extra row, not a
+  -- second schedule. See _pickDailySlot() in plugins/broadcast/index.js.
+  ALTER TABLE media_channel_playlist ADD COLUMN IF NOT EXISTS days SMALLINT NOT NULL DEFAULT 127;
 
   -- media_broadcasts.channel_id ↔ media_channels.idle_broadcast_id form a FK cycle.
   -- Immediate checking makes them un-restorable (no insert order satisfies both), so
@@ -1526,6 +1613,20 @@ export const SCHEMA_SQL = `
   -- shared across many zones without them sharing a stock pool.
   -- messages: nullable JSONB { "player": [...], "broadcast": [...] } — empty/absent
   -- keys fall back to the plugin's built-in default pools.
+  -- MIS fit lines — authored prose for each (hole, band) pair of the fit model
+  -- (plugins/mis/mis-body.js fitOf). Content, not code: the engine computes the
+  -- band, this decides what the room reads. An absent row falls back to the
+  -- ordinary act text, so the model works with this table empty.
+  CREATE TABLE IF NOT EXISTS mis_fit_lines (
+    id TEXT PRIMARY KEY,
+    hole TEXT NOT NULL,
+    band TEXT NOT NULL,
+    actor_lines JSONB DEFAULT '[]',
+    target_lines JSONB DEFAULT '[]',
+    zone_lines JSONB DEFAULT '[]',
+    updated_at BIGINT
+  );
+
   CREATE TABLE IF NOT EXISTS scavenging_tables (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -1804,6 +1905,12 @@ export const SCHEMA_SQL = `
   ALTER TABLE sports_season ADD COLUMN IF NOT EXISTS start_date TEXT;
   ALTER TABLE sports_season ADD COLUMN IF NOT EXISTS start_slot BIGINT;
   ALTER TABLE sports_season ADD COLUMN IF NOT EXISTS ws_slot BIGINT;
+  -- A season belongs to ONE sport. Deadball's seasons predate the column, so the
+  -- default backfills them correctly and the key widens to (sport, season_no) —
+  -- Cluster Puck then numbers its own seasons from 1 without colliding.
+  ALTER TABLE sports_season ADD COLUMN IF NOT EXISTS sport TEXT NOT NULL DEFAULT 'baseball';
+  ALTER TABLE sports_season DROP CONSTRAINT IF EXISTS sports_season_pkey;
+  ALTER TABLE sports_season ADD CONSTRAINT sports_season_pkey PRIMARY KEY (sport, season_no);
 
   -- Staging for aired games so they book into the standings at END of their airing
   -- window (resolve_at), not at air-start. The game_id primary key makes booking

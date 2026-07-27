@@ -48,7 +48,6 @@ import { on } from '../../server/engine/events.js';
 import { sendToPlayer, getBroadcast } from '../../server/engine/messaging.js';
 import { getLivePlayer, getZone } from '../../server/engine/world.js';
 import { cmdMove } from '../../server/engine/commands/movement.js';
-import { query } from '../../server/models/db.js';
 
 const WALK_COOLDOWN_MS   = 900;   // spam throttle; normal reading pace never hits it
 const RUN_COOLDOWN_MS    = 700;   // player.running cadence — must stay under the client's
@@ -153,7 +152,13 @@ on('zone.entered', async ({ actor: player, opts }) => {
     messages.push('Your lungs are burning — you drop back to a walk, chest heaving.');
   }
   sendToPlayer(player.id, { type: 'resource_tick', messages, player_update: { stamina: player.stamina } });
-  await query('UPDATE players SET stamina=$1 WHERE id=$2', [player.stamina, player.id]).catch(() => {});
+  // Stamina is CHECKPOINT-tier, not write-through (see cmdMove in
+  // engine/commands/movement.js): live value is authoritative in RAM, and
+  // flushDirtyPositions already persists `stamina` alongside `current_zone` in
+  // one batched UPDATE for every dirty player. Writing it here too was both a
+  // round trip on the hottest path in the game AND redundant with that flush —
+  // marking dirty is all this needs to do.
+  player._posDirty = true;
 });
 
 // --- The sprint toggle ---

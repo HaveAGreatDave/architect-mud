@@ -19,11 +19,11 @@
     "building_type": "shop",
     "is_building": true,
     "is_interior": true,
-    "world_exit_zone": "zone_district_921_913",
     "is_storefront": true,
     "shop_price": 3200,
     "shop_term": 8,
-    "shop_upkeep": 24
+    "shop_upkeep": 24,
+    "world_exit_zone": "zone_district_921_913"
   },
   "grid_x": 0,
   "grid_y": 0,

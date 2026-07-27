@@ -28,6 +28,14 @@ export async function checkMutationTrigger(player) {
   if (player.chromed) return null;
   if ((player.radiation || 0) < 40) return null;
 
+  // Roll BEFORE the read, not after. This is a 5% event checked once a minute for
+  // every irradiated player, and the query below tells us nothing unless the roll
+  // lands — so asking the database first meant 19 out of every 20 round trips
+  // existed purely to be discarded. The outcomes are identical either way: a
+  // player with no eligible mutations returns null regardless of the roll, and
+  // the roll is independent of what the query returns.
+  if (Math.random() > 0.05) return null;
+
   const { rows } = await query('SELECT mutation_id FROM player_mutations WHERE player_id=$1', [player.id]);
   const existingIds = rows.map(r => r.mutation_id);
 
@@ -35,7 +43,6 @@ export async function checkMutationTrigger(player) {
     player.radiation >= m.radiation_threshold && !existingIds.includes(m.id)
   );
   if (!eligible.length) return null;
-  if (Math.random() > 0.05) return null;
 
   const mutation = eligible[Math.floor(Math.random() * eligible.length)];
   await grantMutation(player, mutation);

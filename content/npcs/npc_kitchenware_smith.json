@@ -147,7 +147,26 @@
   ],
   "vendor_restock_rate": 1,
   "vendor_schedule": {
+    "fri": [
+      {
+        "from": 7,
+        "to": 19
+      }
+    ],
     "mon": [
+      {
+        "from": 7,
+        "to": 19
+      }
+    ],
+    "sat": [
+      {
+        "from": 8,
+        "to": 14
+      }
+    ],
+    "sun": [],
+    "thu": [
       {
         "from": 7,
         "to": 19
@@ -164,25 +183,11 @@
         "from": 7,
         "to": 19
       }
-    ],
-    "thu": [
-      {
-        "from": 7,
-        "to": 19
-      }
-    ],
-    "fri": [
-      {
-        "from": 7,
-        "to": 19
-      }
-    ],
-    "sat": [
-      {
-        "from": 8,
-        "to": 14
-      }
-    ],
-    "sun": []
-  }
+    ]
+  },
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
 }

@@ -39,6 +39,7 @@ import './cookbook-app.js';
 import './vehicles-app.js';
 import './properties-app.js';
 import './calendar-app.js';
+import './alarm-app.js';
 import './settings-app.js';
 import './help-app.js';
 import './corp-app.js';
@@ -49,7 +50,7 @@ import './map-app.js';
 import './gear-app.js';
 import './arcade-app.js';
 import './tv-app.js';
-import './ideology-app.js';
+import './codex-app.js';
 import './party-app.js';
 import './frontier-app.js';
 import './accolades-app.js';
@@ -156,6 +157,27 @@ async function cmdTabletAction(args, raw, player, broadcast) {
 }
 
 export const commands = {
+  // `alarm` opens the Alarm app directly, and `alarm 0730` sets it in one go —
+  // the tablet is a device you carry, so the verb is just a shortcut into the
+  // same screen the icon opens. Typing it beats three taps when you're about to
+  // lie down.
+  alarm: async (args, raw, player) => {
+    const arg = (args || []).join(' ').trim();
+    if (!arg) return cmdTabletNav(['alarm'], raw, player);
+    const { parseTime, setAlarm, clearAlarm, hhmm } = await import('./alarm-app.js');
+    if (/^(off|clear|none|cancel)$/i.test(arg)) {
+      await clearAlarm(player);
+      return { type: 'output', message: 'Alarm cleared. You will sleep until your body is done.' };
+    }
+    const mins = parseTime(arg);
+    if (mins == null) return { type: 'error', message: 'That is not a time. Try "alarm 07:30", "alarm 730", or "alarm off".' };
+    await setAlarm(player, mins);
+    return { type: 'output', message: `Alarm set for ${hhmm(mins)}.` };
+  },
+  // `codex` opens the reference shelf directly — the lore volumes and the orders
+  // reader are the one part of the tablet a player reaches for mid-thought
+  // ("what WAS the Exodus?"), so it gets a verb like `alarm` does.
+  codex: async (args, raw, player) => cmdTabletNav(['codex', ...(args || []).slice(0, 1)], raw, player),
   tablet: cmdTablet,
   os: cmdTablet,
   tabletnav: cmdTabletNav,

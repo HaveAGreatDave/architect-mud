@@ -15,11 +15,12 @@ import { exitTargets, neighborZoneIds } from '../../server/engine/exits.js';
 import { moveEntity } from '../../server/engine/ai-behaviour.js';
 import { findPath } from '../../server/engine/pathfinding.js';
 import { skillCheck, awardSkillUse, effectiveSkill } from '../../server/engine/skills.js';
+import { hackDifficulty, breachMargin } from '../../server/engine/hack-gear.js';
 import { visibleIntoxication } from '../../server/engine/drugs.js';
 import { getPowerMap, getZoneVisibility, LIGHT_LADDER } from '../../server/engine/environment.js';
 import { sendToPlayer, sendToZone, getBroadcast } from '../../server/engine/messaging.js';
 import { on, emit } from '../../server/engine/events.js';
-import { getFlag, setFlag } from '../../server/engine/flags.js';
+import { getFlag, setFlag, updateFlagById } from '../../server/engine/flags.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { getTunable } from '../../server/engine/tunables.js';
 import { reloadItem, deleteItemCache } from '../../server/engine/items-cache.js';
@@ -133,6 +134,7 @@ async function cmdPlant(args, raw, player) {
     [id, player.id, kind, player.current_zone, direction, tier, concealment,
      batteryMax, wired, hackDiff, nowSec]
   );
+  invalidateDeviceCache();
 
   await insertFurniture({
     id, zone_id: player.current_zone, name: gear.name,
@@ -171,6 +173,7 @@ async function cmdRetrieve(args, raw, player) {
 
   const itemId = furn.flags?.security_item_id;
   await query('DELETE FROM security_devices WHERE id=$1', [furn.id]);
+  invalidateDeviceCache();
   await deleteFurniture(furn.id);
   cameraBuffers.delete(furn.id);   // drop any in-memory rolling buffer for the pulled device
 
@@ -274,13 +277,42 @@ const CAM_KINDS = new Set(['sticky_cam', 'drone']);
 // Jammers/spoofers create per-zone interference. Cheap 4s cache so we don't
 // re-query for every tile/feed lookup within a tick.
 let _fxCache = { ts: 0, jammed: new Set(), spoofed: new Set() };
+// ── The device snapshot ───────────────────────────────────────────────────────
+//
+// security_devices is small (tens of rows) and read constantly: the 5s tick used
+// to fire one SELECT for recording cams, one for motion sensors, one for
+// interference zones, and then one MORE per occupied zone to ask "is a camera
+// watching here?" — measured at ~97 round trips per 75 s on an idle server with
+// a single player standing still, 45% of all its database traffic.
+//
+// So read the whole table once and answer all four questions from that. The 4 s
+// freshness window is the one getInterferenceZones already ran on, so this adds
+// no staleness class the file didn't already accept — it just stops paying for
+// the same rows six times a tick.
+//
+// Deliberately a short TTL rather than a write-through cache: every runtime
+// writer lives in this file, but regress and the offline scripts write the table
+// directly, and a TTL self-heals where a write-through cache would silently
+// serve stale rows forever.
+let _devCache = { ts: 0, rows: [] };
+async function allDevices(force = false) {
+  const now = Date.now();
+  if (!force && now - _devCache.ts < 4000) return _devCache.rows;
+  const { rows } = await query('SELECT * FROM security_devices').catch(() => ({ rows: null }));
+  // A failed read must not be cached as "no devices" — that would silently
+  // switch surveillance off for 4 s. Keep the last good snapshot instead.
+  if (rows) _devCache = { ts: now, rows };
+  return _devCache.rows;
+}
+// Called by anything in this file that changes the table and needs its own next
+// read to see the change (placing a camera, then immediately looking at it).
+function invalidateDeviceCache() { _devCache = { ts: 0, rows: _devCache.rows }; }
+
 async function getInterferenceZones() {
   const now = Date.now();
   if (now - _fxCache.ts < 4000) return _fxCache;
-  const { rows } = await query(
-    `SELECT DISTINCT zone_id, device_kind FROM security_devices
-      WHERE device_kind IN ('jammer','spoofer','relay') AND is_powered=1 AND is_damaged=0`
-  );
+  const rows = (await allDevices()).filter(d =>
+    ['jammer', 'spoofer', 'relay'].includes(d.device_kind) && d.is_powered === 1 && d.is_damaged === 0);
   const jammed = new Set(), spoofed = new Set(), relayed = new Set();
   for (const r of rows) {
     if (r.device_kind === 'jammer') jammed.add(r.zone_id);
@@ -315,10 +347,7 @@ function getAlerts(ownerId) {
 // Poll motion sensors each tick: alert when a player or enemy newly enters a
 // watched zone. (No engine movement event exists, so occupancy diffing it is.)
 async function pollSensors() {
-  const { rows } = await query(
-    `SELECT d.id, d.owner_id, d.zone_id, d.device_kind, d.battery, d.battery_max, d.wired, d.is_damaged
-       FROM security_devices d WHERE d.device_kind = 'motion_sensor'`
-  );
+  const rows = (await allDevices()).filter(d => d.device_kind === 'motion_sensor');
   const zoneName = id => getZone(id)?.name || id;
   for (const d of rows) {
     if (!devicePowered(d)) { sensorMemory.delete(d.id); continue; }
@@ -653,11 +682,8 @@ function stripTags(s) { return String(s || '').replace(/<[^>]*>/g, '').replace(/
 // keep every live buffer's rolling limit in step with the devpanel tunable.
 // Cameras no longer snapshot the room on a timer — they log real zone activity
 // (speech, arrivals, exits, emotes, actions) as it happens, via zone.broadcast.
-async function refreshRecordingCams() {
-  const { rows } = await query(
-    `SELECT id, device_kind, zone_id, owner_id, battery, battery_max, wired, is_damaged, status_flags
-       FROM security_devices WHERE is_recording = 1`
-  );
+async function refreshRecordingCams(force = false) {
+  const rows = (await allDevices(force)).filter(d => d.is_recording === 1);
   const fx = await getInterferenceZones();
   const map = new Map();
   const limit = currentBufferLimit();
@@ -705,7 +731,7 @@ on('zone.broadcast', ({ zoneId, msg }) => captureZoneLine(zoneId, msg));
 
 // Regress-only seams (nothing else calls these in production): drive a cam-index
 // refresh + a synthetic zone line, and read a device's rolling buffer.
-export async function __refreshRecordingCams() { return refreshRecordingCams(); }
+export async function __refreshRecordingCams() { return refreshRecordingCams(true); }
 export function __captureZoneLine(zoneId, msg) { return captureZoneLine(zoneId, msg); }
 export function __cameraFrames(deviceId) { return (cameraBuffers.get(deviceId)?.frames || []).slice(); }
 export function __cameraFull(deviceId) { return !!cameraBuffers.get(deviceId)?.full; }
@@ -746,6 +772,7 @@ async function cmdRecord(args, raw, player) {
   // keeps players off org devices today; this is defence in depth.
   if (next && dev.is_police) return { type: 'error', message: 'Recording capability unavailable on this network.' };
   await query('UPDATE security_devices SET is_recording=$1 WHERE id=$2', [next, dev.id]);
+  invalidateDeviceCache();
   return { type: 'output', message: next
     ? `<span class="text-red">●REC</span> ${dev.name} is now recording.`
     : `Recording stopped on ${dev.name}.` };
@@ -944,6 +971,7 @@ async function cmdSmash(args, raw, player) {
   if (!dev) return { type: 'error', message: `There's no "${nameHint}" here to smash. Try "sweep" first.` };
   tamperPing(dev.owner_id, player.id, dev.name, dev.zone_name || dev.zone_id, 'was destroyed.');
   await query('DELETE FROM security_devices WHERE id=$1', [dev.id]);
+  invalidateDeviceCache();
   await deleteFurniture(dev.id);
   cameraBuffers.delete(dev.id);    // drop any in-memory rolling buffer for the smashed device
   if (dev.is_police) {
@@ -980,7 +1008,8 @@ async function cmdHijack(args, raw, player) {
   }
   const skill = await effectiveSkill(player, 'hacking');
   pendingHijack.set(player.id, { deviceId: dev.id, ts: Date.now() });
-  return { type: 'circuit_hack', deviceId: dev.id, deviceName: dev.name, skill, difficulty: dev.hack_difficulty ?? 5 };
+  return { type: 'circuit_hack', deviceId: dev.id, deviceName: dev.name, skill,
+    difficulty: await hackDifficulty(player.id, dev.hack_difficulty) };
 }
 
 // hijackresolve <deviceId> <1|0> — silent; the Circuit Breach overlay fires this.
@@ -992,7 +1021,7 @@ async function cmdHijackResolve(args, raw, player) {
   if (!pending || pending.deviceId !== deviceId || Date.now() - pending.ts > 180000) return { type: 'noop' };
 
   const { rows } = await query(
-    `SELECT d.owner_id, d.zone_id, f.name, z.name AS zone_name, n.is_police FROM security_devices d
+    `SELECT d.owner_id, d.zone_id, d.hack_difficulty, f.name, z.name AS zone_name, n.is_police FROM security_devices d
        JOIN furniture f ON f.id = d.id LEFT JOIN zones z ON z.id = d.zone_id
        LEFT JOIN security_networks n ON n.id = d.network_id WHERE d.id = $1`,
     [deviceId]
@@ -1008,7 +1037,8 @@ async function cmdHijackResolve(args, raw, player) {
         WHERE id = $2`,
       [player.id, deviceId]
     );
-    await awardSkillUse(player.id, 'hacking', 2);
+    invalidateDeviceCache();
+    await awardSkillUse(player.id, 'hacking', await breachMargin(player, dev.hack_difficulty));
     tamperPing(dev.owner_id, player.id, dev.name, dev.zone_name || dev.zone_id, 'was HIJACKED — you no longer control it.');
     // Breaching any live device is hacking (charged via the crimes registry if
     // witnessed); a PD unit also puts patrols on you regardless.
@@ -1048,6 +1078,7 @@ async function cmdPilot(args, raw, player) {
 
   const chk = await skillCheck(player, 'drone_ops', 3);
   await query('UPDATE security_devices SET zone_id=$1 WHERE id=$2', [target, drone.id]);
+  invalidateDeviceCache();
   await updateFurniture(drone.id, { zone_id: target });
 
   const originName = zone?.name || drone.zone_id;
@@ -1077,10 +1108,23 @@ async function getPoliceCamZones() {
   return _policeCache.zones;
 }
 
+// The PD network id is fixed content — one row that never changes at runtime —
+// but it was re-read on every evidence clip, which is once per witnessed crime
+// per tick. Resolve it once and hold it.
+let _policeNetId;
+async function policeNetworkId() {
+  if (_policeNetId !== undefined) return _policeNetId;
+  const { rows } = await query(`SELECT id FROM security_networks WHERE is_police=1 LIMIT 1`)
+    .catch(() => ({ rows: [] }));
+  // Only latch a real answer. If the row isn't there yet (fresh DB mid-seed),
+  // stay unresolved and look again next time rather than caching "no PD" forever.
+  if (rows[0]?.id) _policeNetId = rows[0].id;
+  return rows[0]?.id || null;
+}
+
 async function logPoliceEvidence(zoneId, tags, suspect) {
   const zoneName = getZone(zoneId)?.name || zoneId;
-  const { rows } = await query(`SELECT id FROM security_networks WHERE is_police=1 LIMIT 1`);
-  const net = rows[0]?.id || null;
+  const net = await policeNetworkId();
   const frame = { t: clock(), ts: Date.now(), text: `${suspect || 'Unknown'} — ${tags.join('/')} witnessed in ${zoneName}.` };
   await query(
     `INSERT INTO security_clips (id, device_id, zone_id, owner_id, frames, captured_at, crime_tags)
@@ -1491,11 +1535,9 @@ const CRIME_DEBOUNCE_MS = 12000;
 // player-owned — any lens counts for the red-flash callout.)
 async function cameraLiveInZone(zoneId) {
   if (!zoneId) return false;
-  const { rows } = await query(
-    `SELECT zone_id, battery, wired, is_damaged FROM security_devices
-      WHERE zone_id=$1 AND device_kind IN ('sticky_cam','drone') AND is_damaged=0`,
-    [zoneId]
-  ).catch(() => ({ rows: [] }));
+  // Was one SELECT per occupied zone per tick; now a filter over the snapshot.
+  const rows = (await allDevices()).filter(d =>
+    d.zone_id === zoneId && CAM_KINDS.has(d.device_kind) && d.is_damaged === 0);
   if (!rows.length) return false;
   const fx = await getInterferenceZones();
   if (fx.jammed.has(zoneId)) return false;
@@ -1756,6 +1798,12 @@ on('player.death', ({ killer }) => {
 on('bodily.publicRelief', ({ player, zoneId }) => {
   if (player?.id) raiseCrime(player, 'indecent_exposure', zoneId || player.current_zone, player.handle);
 });
+// A MIS act outside a private room (mis plugin) — the same charge. The mis plugin
+// decides what counts as private; everything after that is the ordinary witness
+// roll, so a lawless zone and an empty street still cost you nothing.
+on('mis.publicAct', ({ player, zoneId }) => {
+  if (player?.id) raiseCrime(player, 'indecent_exposure', zoneId || player.current_zone, player.handle);
+});
 // Bulk drug-making chemical buys are a quiet tell — SPECTER-PD data-mines the
 // vendor ledgers. NOT a witnessed crime (the reagents are dual-use, sold openly),
 // just invisible heat that stacks as you stockpile and bleeds off if you don't.
@@ -1854,30 +1902,68 @@ on('atm.jackResolved', ({ player }) => { if (player?.id) endActiveCrime(player.i
 on('atm.drained', ({ player }) => { if (player?.id) endActiveCrime(player.id, 'hacking'); });
 
 // Which of these player ids are naked — nothing equipped on torso AND legs?
-async function nakedAmong(playerIds) {
-  if (!playerIds.length) return new Set();
-  const { rows } = await query(
-    `SELECT DISTINCT pi.player_id FROM player_inventory pi JOIN items i ON i.id = pi.item_id
-      WHERE pi.player_id = ANY($1) AND pi.is_equipped = 1 AND (i.tags->>'slot') IN ('torso','legs')`,
-    [playerIds]
-  ).catch(() => ({ rows: [] }));
-  const covered = new Set(rows.map(r => r.player_id));
-  return new Set(playerIds.filter(id => !covered.has(id)));
+// Both crime scans want a different fact about the same inventory rows of the
+// same players in the same tick, so ask once. Two DISTINCT scans over
+// player_inventory every 5 s was ~30 round trips per 75 s on an idle server —
+// the same table walked twice for no reason.
+// Per-player, because the answer only changes when that player's inventory does
+// — and a player standing under a camera doing nothing was being re-scanned
+// every 5 s forever. `inventory.changed` drops their entry so a real change is
+// picked up on the very next sweep; the TTL is the backstop, because only some
+// of the many player_inventory writers emit that event and a purely
+// event-driven cache would go stale silently and permanently.
+const carriedCache = new Map();   // playerId -> { covered, raw, ts }
+const CARRIED_TTL_MS = 60_000;
+on('inventory.changed', ({ actor }) => { if (actor?.id) carriedCache.delete(actor.id); });
+// Bounded like the plugin's other per-player maps — a logout drops the entry so
+// this can't grow for the lifetime of the process.
+on('player.logout', ({ id }) => carriedCache.delete(id));
+
+async function scanCarried(playerIds) {
+  const empty = { naked: new Set(), raw: new Set() };
+  if (!playerIds.length) return empty;
+
+  const now = Date.now();
+  const stale = playerIds.filter(id => {
+    const e = carriedCache.get(id);
+    return !e || now - e.ts > CARRIED_TTL_MS;
+  });
+
+  if (stale.length) {
+    const { rows } = await query(
+      `SELECT pi.player_id,
+              BOOL_OR(pi.is_equipped = 1 AND (i.tags->>'slot') IN ('torso','legs')) AS covered,
+              BOOL_OR(pi.container_id IS NULL AND jsonb_exists(i.tags, 'raw_drug')) AS raw
+         FROM player_inventory pi JOIN items i ON i.id = pi.item_id
+        WHERE pi.player_id = ANY($1)
+        GROUP BY pi.player_id`,
+      [stale]
+    ).catch(() => ({ rows: null }));
+    if (!rows) return empty;   // failed read → judge nobody this tick
+    const byId = new Map(rows.map(r => [r.player_id, r]));
+    // A player with NO inventory rows at all has no group in the result — that
+    // is the naked-and-carrying-nothing case, and it must still be cached or
+    // they'd be re-queried every sweep.
+    for (const id of stale) {
+      const r = byId.get(id);
+      carriedCache.set(id, { covered: !!r?.covered, raw: !!r?.raw, ts: now });
+    }
+  }
+
+  const naked = new Set(), raw = new Set();
+  for (const id of playerIds) {
+    const e = carriedCache.get(id);
+    if (!e) continue;
+    if (!e.covered) naked.add(id);
+    if (e.raw) raw.add(id);
+  }
+  return { naked, raw };
 }
 
 // Players carrying any raw drug material (precursors / feedstock / seeds — tags.raw_drug)
 // out in the open. Raw stashed inside a container (container_id set) is hidden from a
 // street camera or a cop's eyeball — a bag beats a glance. The Scald→city checkpoint
 // scanner (smuggle plugin) is not so easily fooled: it sees bagged raw too.
-async function rawAmong(playerIds) {
-  if (!playerIds.length) return new Set();
-  const { rows } = await query(
-    `SELECT DISTINCT pi.player_id FROM player_inventory pi JOIN items i ON i.id = pi.item_id
-      WHERE pi.player_id = ANY($1) AND pi.container_id IS NULL AND jsonb_exists(i.tags, 'raw_drug')`,
-    [playerIds]
-  ).catch(() => ({ rows: [] }));
-  return new Set(rows.map(r => r.player_id));
-}
 
 // Each tick: refresh the naked-in-view offences, then roll a witness catch on
 // every active offence, the camera odds ramping with how long it's been running.
@@ -1897,7 +1983,8 @@ async function scanActiveCrimes() {
     if (!cop && !await cameraLiveInZone(zoneId)) continue;
     for (const p of ps) candidates.push({ id: p.id, zone: zoneId });
   }
-  const naked = await nakedAmong(candidates.map(c => c.id));
+  const carried = await scanCarried(candidates.map(c => c.id));
+  const naked = carried.naked;
   const nakedNow = new Set();
   for (const c of candidates) {
     if (!naked.has(c.id)) continue;
@@ -1910,7 +1997,7 @@ async function scanActiveCrimes() {
   }
 
   // 1b. Manufacturing: players carrying raw drug material where a witness could see them.
-  const rawSet = await rawAmong(candidates.map(c => c.id));
+  const rawSet = carried.raw;
   const rawNow = new Set();
   for (const c of candidates) {
     if (!rawSet.has(c.id)) continue;
@@ -1966,7 +2053,7 @@ async function clearWanted(playerId, reason) {
     sendWantedHud(playerId, 0);
     if (reason) sendToPlayer(playerId, { type: 'system', message: `<span class="text-dim">Wanted level cleared — ${reason}.</span>` });
   } else {
-    await query(`UPDATE player_flags SET flag_value='0' WHERE player_id=$1 AND flag_key='wanted'`, [playerId]).catch(() => {});
+    await updateFlagById(playerId, 'wanted', 0).catch(() => {});
   }
 }
 
@@ -2224,12 +2311,19 @@ async function batteryTick() {
   const { rows } = await query(
     'SELECT id, device_kind, wired, battery, is_powered, is_damaged, zone_id FROM security_devices'
   );
+  // The diff-gates below decide WHETHER a device is written exactly as before;
+  // the writes are collected and flushed as at most two statements instead of one
+  // awaited round trip per device. A draining battery trips its gate every tick by
+  // definition, so this is one guaranteed write per battery device per 5 minutes —
+  // it scales with how many players have deployed cameras, not with anything bounded.
+  const wPowered = [];  // [id, is_powered]        — wired devices
+  const wBattery = [];  // [id, battery, is_powered] — battery devices
   for (const d of rows) {
     if (d.wired) {
       // Wired devices track their zone's power, which rarely flips — only write
       // is_powered when it actually changed, not every 5-minute tick.
       const powered = isZonePowered(d.zone_id) && !d.is_damaged ? 1 : 0;
-      if (powered !== d.is_powered) await query('UPDATE security_devices SET is_powered=$1 WHERE id=$2', [powered, d.id]);
+      if (powered !== d.is_powered) wPowered.push([d.id, powered]);
     } else {
       const drain = DRAIN[d.device_kind] ?? 1;
       const battery = Math.max(0, (d.battery || 0) - drain);
@@ -2237,9 +2331,31 @@ async function batteryTick() {
       // A fully-drained device holds at battery=0/is_powered=0 — skip the write
       // once nothing moves; only persist while battery is actually draining.
       if (battery !== d.battery || powered !== d.is_powered)
-        await query('UPDATE security_devices SET battery=$1, is_powered=$2 WHERE id=$3', [battery, powered, d.id]);
+        wBattery.push([d.id, battery, powered]);
     }
   }
+  // The two shapes stay separate on purpose: the wired branch must NOT touch
+  // battery. Columns are cast explicitly — a bare VALUES list gives Postgres
+  // nothing to infer parameter types from.
+  if (wPowered.length) {
+    const vals = wPowered.map((_, i) => `($${i*2+1}::text, $${i*2+2}::int)`).join(',');
+    await query(
+      `UPDATE security_devices d SET is_powered = v.powered
+         FROM (VALUES ${vals}) AS v(id, powered)
+        WHERE d.id = v.id`,
+      wPowered.flat()
+    );
+  }
+  if (wBattery.length) {
+    const vals = wBattery.map((_, i) => `($${i*3+1}::text, $${i*3+2}::int, $${i*3+3}::int)`).join(',');
+    await query(
+      `UPDATE security_devices d SET battery = v.battery, is_powered = v.powered
+         FROM (VALUES ${vals}) AS v(id, battery, powered)
+        WHERE d.id = v.id`,
+      wBattery.flat()
+    );
+  }
+  if (wPowered.length || wBattery.length) invalidateDeviceCache();
 }
 
 schedule('5m', () => batteryTick().catch(e => console.error('[surveillance] battery tick error:', e.message)));
@@ -2250,6 +2366,7 @@ schedule('5m', () => batteryTick().catch(e => console.error('[surveillance] batt
 // destruction, not a `retrieve`.
 async function destroyDevice(id) {
   await query('DELETE FROM security_devices WHERE id=$1', [id]);
+  invalidateDeviceCache();
   await deleteFurniture(id);
   cameraBuffers.delete(id);
 }
@@ -2617,7 +2734,7 @@ export const routeHandler = async (path, method, body, auth) => {
       await setFlag('player', 'heat', 0, p);
       sendHeatHud(playerId, 0);
     } else {
-      await query(`UPDATE player_flags SET flag_value='0' WHERE player_id=$1 AND flag_key='heat'`, [playerId]).catch(() => {});
+      await updateFlagById(playerId, 'heat', 0).catch(() => {});
     }
     return { status: 200, body: { ok: true } };
   }

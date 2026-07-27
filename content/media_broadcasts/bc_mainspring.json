@@ -4812,6 +4812,48 @@
   "description": "THE MAINSPRING — a KSAB Saturday Picture. In the vertical city of Vantage, the Master’s son goes down to the machine that eats the day, falls for the prophet of the drowned floor, and learns — through a false double, a flood, and a fall — that a city with a head and hands and nothing between them is only a tomb that has learned to hum. A silent-era machine-city fable, scored for the Embassy deck.",
   "enabled": 1,
   "fallback_messages": [],
+  "film_meta": {
+    "airSlots": null,
+    "cast": [
+      {
+        "label": "ELI",
+        "name": "Eli",
+        "role": "the boy who grew a heart the hard way"
+      },
+      {
+        "label": "MIRA",
+        "name": "Mira",
+        "role": "the voice in the water"
+      },
+      {
+        "label": "GROT",
+        "name": "Grot",
+        "role": "slow, unlovely, right all along"
+      },
+      {
+        "label": "THE MASTER",
+        "name": "The Master",
+        "role": "who touched the ground of his own city, once"
+      },
+      {
+        "label": "KOSS",
+        "name": "Koss",
+        "role": "the maker, unthanked, unmade"
+      },
+      {
+        "label": "THE DOUBLE",
+        "name": "The Double",
+        "role": "a face that never meant it"
+      }
+    ],
+    "director": "Otto Vandermeer",
+    "presents": "KSAB Saturday Picture",
+    "rating": "GENERAL — SILENT, SCORED FOR THE EMBASSY DECK",
+    "runtime": 4964,
+    "theme": "",
+    "title": "mainspring_title"
+  },
+  "gameshow_pools": null,
   "id": "bc_mainspring",
   "loop": 1,
   "message_interval": 7,
@@ -4820,7 +4862,8 @@
   "name": "The Mainspring",
   "news_pools": null,
   "override_duration": 4964,
-  "playback_mode": "scripted",
+  "playback_mode": "film",
+  "sermon_pools": null,
   "sports_pools": null,
   "tags": [
     "movie",

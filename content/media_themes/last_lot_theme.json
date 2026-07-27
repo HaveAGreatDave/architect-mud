@@ -1,0 +1,17 @@
+{
+  "accent_color": "#f0b429",
+  "bg_color": "#0a0705",
+  "border_color": "#6d5525",
+  "created_at": "1784700000",
+  "description": "",
+  "flags": {},
+  "header_color": "#ffdf8a",
+  "id": "last_lot_theme",
+  "live_color": "#e0483a",
+  "name": "The Last Lot Theme",
+  "preset": "slate",
+  "scanlines": 1,
+  "text_color": "#e8d6ab",
+  "ticker_color": "#c79a3c",
+  "updated_at": "1784700000"
+}

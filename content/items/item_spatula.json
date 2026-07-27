@@ -4,8 +4,8 @@
   "id": "item_spatula",
   "name": "spatula",
   "tags": {
-    "description": "A thin steel blade on a scorched plastic grip, the edge bevelled from years of scraping. It does exactly one thing and does not pretend otherwise.",
     "can_turn": true,
+    "description": "A thin steel blade on a scorched plastic grip, the edge bevelled from years of scraping. It does exactly one thing and does not pretend otherwise.",
     "unique": true
   },
   "type": "misc",

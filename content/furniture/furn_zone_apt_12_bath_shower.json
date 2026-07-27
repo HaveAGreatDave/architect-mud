@@ -1,0 +1,14 @@
+{
+  "description": "A rusted head over a cracked tile drain, curtain hanging off half its rings. The hot side is theoretical. Get in, get it over with.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_zone_apt_12_bath_shower",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "shower",
+  "object_type": "shower",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_apt_12_bath"
+}

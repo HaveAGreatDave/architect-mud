@@ -167,6 +167,11 @@ export const REGISTRY = [
   // much player data — an exported clerk would be a phantom employee on every DB.
   { table: 'storefront_staff', class: 'player' },
   { table: 'storefront_orders', class: 'player' },
+  // Kept companions on retainer (plugins/consort). Player data for the same reason
+  // the deed is — and note the consort NPC herself has no `npcs` row at all: she's
+  // spawned into world.npcs from this ledger, so the roster can never leak into a
+  // content export the way a hired shop clerk would if it were an npcs row.
+  { table: 'player_consorts', class: 'player' },
   // Which apartment units NPCs live in — authored alongside npc.home_zone. Placed
   // after npcs + zones (both FK'd). Kept in sync by the NPC create/edit/auto-house
   // endpoints and the reconcile script.
@@ -201,6 +206,7 @@ export const REGISTRY = [
 
   // ── content: scavenging / security / finance / flight ──
   { table: 'scavenging_tables', class: 'content', pk: ['id'], readTier: 'cold' },       // per scavenge/fish/mine action
+  { table: 'mis_fit_lines', class: 'content', pk: ['id'], readTier: 'boot' },           // MIS fit prose — cached in memory at boot (plugins/mis/fit-lines.js), re-read only on a dev-panel write
   { table: 'scavenging_table_items', class: 'content', pk: ['id'], readTier: 'cold' },
   // NPC-police surveillance backbone only; player-planted nets/devices are runtime.
   { table: 'security_networks', class: 'content', pk: ['id'], where: 'is_police = 1', readTier: 'fresh',
@@ -254,6 +260,7 @@ export const REGISTRY = [
   { table: 'player_augments', class: 'player' },     // installed cybernetics (plugins/augments)
   { table: 'player_backups', class: 'player' },      // cortical-backup snapshots + prepaid restores (plugins/augments)
   { table: 'player_flags', class: 'player' },
+  { table: 'player_npc_relations', class: 'player' }, // relations substrate — who a player has met and how it went; accumulated by play, never authored
   { table: 'player_quests', class: 'player' },
   { table: 'player_achievements', class: 'player' }, // record plugin — which entries a player has been observed doing
   { table: 'player_outfits', class: 'player' },      // wardrobe plugin — saved looks, per player per wardrobe

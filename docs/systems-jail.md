@@ -201,6 +201,25 @@ releases immediately (deadline already passed while the server was down) or
 reschedules the remaining time. Offline players are relocated DB-only; the timer
 still returns their items.
 
+### The roster sweep, and why an empty jail is quiet (2026-07-27)
+
+The 1-minute sweep does two jobs: push each prisoner's HUD star countdown, and re-seed the
+in-memory `imprisoned` roster from truth. An **empty** jail has no countdown to push, so all that
+remains is the re-seed — and re-reading an empty table every minute forever is a round trip that
+keeps Neon's compute from suspending.
+
+So the sweep now **skips the query entirely** when `rosterReady && imprisoned.size === 0`, but
+never for longer than `EMPTY_ROSTER_RESEED_MS` (5 min). That window is the safety net: it bounds how
+long a prisoner booked by the one writer *outside* this plugin (`reincarnatePlayer`) can go
+unnoticed. The cost of being wrong is a HUD countdown that starts late — **never** a missed release,
+because releases are scheduled by `scheduleRelease` at booking and at boot, not by this sweep.
+
+A failed read is treated as "unknown", not "empty" — mistaking a dropped connection for an empty
+jail would freeze every prisoner's HUD until the next successful read.
+
+This is the same shape as the generic work gate in [`server/engine/worklist.js`](server.md), just
+expressed with the roster the plugin already maintained.
+
 ## Tables
 
 Both are runtime tables (schema exported, rows not) in `SCHEMA_SQL` — apply with

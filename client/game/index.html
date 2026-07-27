@@ -5,6 +5,15 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<title>ARCHITECT — post-singularity text MUD</title>
 
+		<!-- The server replaces this marker at boot with a <link rel="modulepreload">
+		     for every module in main.js's STATIC import graph (server/modulegraph.js).
+		     Without it the browser discovers 93 modules a level at a time, each wave
+		     costing a round trip — measured at ~1.6s of production load. Do not
+		     hand-write hints here; the generated list cannot go stale, a hand-written
+		     one silently would. Deleting the marker just turns the optimisation off. -->
+		<!--MODULEPRELOAD-->
+		<!-- ─────────────────────────────────────────────────────────────── -->
+
 		<!-- ── SEO + link previews ───────────────────────────────────────────
 		     Social crawlers (Discord, Slack, X, Facebook, iMessage) never run
 		     JS, so everything a preview shows has to be static in this <head>.
@@ -1680,6 +1689,10 @@
 				<div id="tv-standings-panel" data-tv="standings-panel"></div>
 				<div id="tv-gameday" data-tv="gameday"></div>
 				<div id="tv-scorebug" data-tv="scorebug"></div>
+				<!-- Film layers: the letterbox matte is persistent (switched on/off by the
+				     picture), the fade is a one-shot optical transition over everything. -->
+				<div id="tv-letterbox" data-tv="letterbox"></div>
+				<div id="tv-fade" data-tv="fade"></div>
 				<div id="tv-standings" data-tv="standings"></div>
 				<div id="tv-fx" data-tv="fx" class="tv-fx-host"></div>
 			</div>
@@ -1933,7 +1946,12 @@
 
 		<script src="/shared/audio-engine.js"></script>
 		<script src="/shared/formant-cmudict.js"></script>
+		<!-- hockey-sfx.js is a BANK: it must load BEFORE sfx-catalog.js, which folds its
+		     presets into the editable catalog. Loading it after would leave the CPhL
+		     sounds playable but invisible to the dev panel. -->
+		<script src="/shared/hockey-sfx.js"></script>
 		<script src="/shared/sfx-catalog.js"></script>
+		<script src="/shared/procedural-sfx.js"></script>
 		<script src="/shared/mod-parser.js"></script>
 		<script type="module" src="js/main.js"></script>
 
@@ -1942,7 +1960,7 @@
 			href="https://buymeacoffee.com/haveagreatdave"
 			target="_blank"
 			rel="noopener noreferrer"
-			title="Buy me a coffee"
+			title="Support Us — donations cover our server and database costs"
 			style="
 				position: fixed;
 				bottom: 16px;

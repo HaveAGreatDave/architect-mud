@@ -9,6 +9,7 @@
   "created_by": null,
   "description": "Number 2C. Someone painted this one, once — a hopeful yellow now gone the colour of a smoker's teeth, peeling in long tongues off the plaster. A kitchenette with two working burners, a fold-down table, and a bathtub in the main room because the plumbing never reached the back. The window looks onto a brick wall an arm's length away.",
   "exits": {
+    "in": "zone_apt_7_bath",
     "west": "zone_embassy_floor2"
   },
   "flags": {

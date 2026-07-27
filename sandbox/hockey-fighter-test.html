@@ -1,0 +1,2613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>CPhL fight view — figure art test</title>
+<!--
+  THROWAWAY PROTOTYPE. Can procedural fighter figures look good, or do they read
+  as cheap clip art? Nothing here imports from the game and nothing here ships.
+
+  BUILT AGAINST THE BLADES OF STEEL REFERENCES:
+  • Colour-blocked with dark outlines — jersey / pants / socks / black skates as
+    separate blocks. That separation is why they read as hockey players.
+  • Gear is BULKY: shoulder pads, elbow pads, fat pants. That's the silhouette.
+  • Heads are in PROFILE (nose + chin), not featureless circles.
+  • Wide splayed stance, knees bent, both men leaning in — the two bodies form an
+    A-frame with their heads at the apex. That arch is the signature composition.
+  • Health is dots: ●●●● POWER ●●● — five hits a side.
+  • Crowd is two layers; glass has diagonal shine streaks.
+
+  ARCHITECTURE NOTE (this is the real prototype value): the arena is rendered ONCE
+  into a static layer, and only the two figures + HUD repaint per frame. That's the
+  same static/dynamic split gameday-hockey.js will need, and it's what makes a
+  60fps rAF loop affordable — reparsing 76KB of SVG every frame would not be.
+-->
+<style>
+  :root { --line:#1d2a24; --dim:#6f8a7c; --hot:#58e3a8; --amber:#e8b34a; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; background:radial-gradient(ellipse at 50% 8%, #14181a, #06080a 70%);
+    color:#cfe0d6; font-family:'Segoe UI',Helvetica,Arial,sans-serif; }
+  .wrap { max-width:1200px; margin:0 auto; padding:26px 22px 90px; }
+  h1 { font-size:15px; letter-spacing:4px; font-weight:600; color:var(--hot); margin:0 0 6px; }
+  .sub { font-size:12px; color:var(--dim); margin:0 0 20px; line-height:1.7; max-width:880px; }
+  .sub b { color:#9fc4b1; }
+  h2 { font-size:11px; letter-spacing:3px; color:var(--dim); font-weight:600;
+    margin:34px 0 8px; padding-bottom:6px; border-bottom:1px solid var(--line); }
+  h2 .tag { color:var(--amber); letter-spacing:2px; }
+  .note { font-size:11px; color:#5d7a68; margin:0 0 12px; line-height:1.7; max-width:880px; }
+  .note b { color:#86a894; }
+  .ctl { display:flex; gap:15px; align-items:center; flex-wrap:wrap; background:#0d1211;
+    border:1px solid var(--line); border-radius:6px; padding:11px 16px; margin-bottom:6px;
+    position:sticky; top:0; z-index:20; }
+  .ctl label { font-size:10px; letter-spacing:2px; color:var(--dim); display:flex; gap:7px; align-items:center; }
+  .ctl input[type=range] { width:104px; accent-color:var(--hot); }
+  .ctl input[type=number] { width:74px; background:#060908; color:var(--hot); border:1px solid var(--line); padding:4px 6px; font-family:monospace; }
+  .ctl button { background:#14211c; color:var(--hot); border:1px solid #2b453a; border-radius:3px;
+    padding:6px 13px; font-size:10px; letter-spacing:2px; cursor:pointer; font-family:inherit; }
+  .ctl button:hover { background:#1c2f27; }
+  .ctl button.on { background:var(--hot); color:#06110c; border-color:var(--hot); }
+  .ctl .val { font-family:monospace; color:var(--hot); min-width:30px; font-size:11px; }
+  .stage { position:relative; background:#04070a; border:1px solid var(--line); border-radius:5px; overflow:hidden; }
+  .stage svg { display:block; width:100%; height:auto; }
+  .crt::before { content:''; position:absolute; inset:0; z-index:6; pointer-events:none;
+    background:repeating-linear-gradient(rgba(0,0,0,0) 0 2px, rgba(0,0,0,.24) 2px 3px); }
+  .crt::after { content:''; position:absolute; inset:0; z-index:6; pointer-events:none;
+    background:radial-gradient(ellipse at 50% 50%, transparent 58%, rgba(0,0,0,.45)); }
+  .cap { position:absolute; left:0; right:0; bottom:0; z-index:7; text-align:center;
+    font-size:9px; letter-spacing:3px; color:var(--dim); padding:6px 0;
+    background:linear-gradient(transparent, rgba(0,0,0,.9) 60%); }
+  .row { display:flex; gap:12px; flex-wrap:wrap; }
+  .row > .stage { flex:1 1 0; min-width:150px; }
+  .verdict { margin-top:34px; padding:16px 18px; border:1px solid var(--line);
+    border-left:3px solid var(--amber); border-radius:4px; background:#0b100e;
+    font-size:12px; line-height:1.8; color:#a8bfb2; }
+  .verdict b { color:var(--amber); } .verdict code { color:var(--hot); font-size:11px; }
+  .verdict ul { margin:8px 0 0; padding-left:18px; } .verdict li { margin-bottom:5px; }
+  #fps { font-family:monospace; font-size:10px; color:var(--dim); }
+</style>
+</head>
+<body>
+<!-- The REAL engine and the REAL soundset, not a prototype-only synth. Both are
+     dual-mode globals, so a plain <script> tag works straight off the filesystem. -->
+<script src="../client/shared/audio-engine.js"></script>
+<script src="../client/shared/hockey-sfx.js"></script>
+<div class="wrap">
+
+  <h1>CPhL &mdash; FIGHT VIEW / FIGURE ART TEST</h1>
+  <p class="sub">
+    Onlookers removed. Figures rebuilt with hockey gear proper &mdash; shoulder pads, elbow pads,
+    fat pants with a side stripe, banded socks, boot-and-blade skates, heads in profile.
+    And it now <b>actually animates</b>: a 60fps rAF loop tweening between keyframe poses with
+    per-beat easing, screen shake, hit-stop and follow-through &mdash; not a slideshow.
+  </p>
+
+  <div class="ctl">
+    <label>SEED <input type="number" id="seed" value="1701"></label>
+    <label>BUILD <input type="range" id="build" min="0" max="100" value="50"><span class="val" id="buildV">50</span></label>
+    <label>BULK <input type="range" id="weight" min="8" max="20" value="13"><span class="val" id="weightV">13</span></label>
+    <button id="roll">RANDOM SEED</button>
+    <button id="anim">▶ PLAY FIGHT</button>
+    <button id="loop" class="on">LOOP</button>
+    <button id="snd" class="on">🔊 SOUND</button>
+    <button id="cup">🏆 CUP MODE</button>
+    <button id="sd">☠ SUDDEN DEATH</button>
+    <button id="px">◧ RETRO PALETTE</button>
+    <button id="crt" class="on">CRT</button>
+    <span id="fps"></span>
+  </div>
+
+  <h2>THE SOUNDSET <span class="tag">(FM · client/shared/hockey-sfx.js)</span></h2>
+  <p class="note">
+    Built on the engine that's already here &mdash; these are <b>data</b> in the same layer schema
+    <code>sfx-catalog.js</code> uses, so they drop into that catalog and become dev-panel editable.
+    The engine needed exactly one new thing: a <b>modulation-index envelope</b>. Click anything to
+    audition; every press varies slightly, on purpose.
+  </p>
+  <div class="row" id="board" style="gap:6px"></div>
+
+  <h2>NHL &rsquo;96 MODE <span class="tag">(vertical &middot; following camera &middot; high-angle)</span></h2>
+  <p class="note">
+    Same sim, second renderer. The point isn't the orientation &mdash; it's that the camera
+    <b>only shows about a third of the ice</b>, so you get six big players instead of twelve tiny
+    ones. High angle also means figures just <b>rotate</b>, which dissolves the facing problem the
+    side-on view has to fake with squash. Try <b>◧ RETRO PALETTE</b> with this one.
+  </p>
+  <div class="stage crt" id="stageV96"></div>
+
+  <h2>THE RINK <span class="tag">(side-on &mdash; moving puck &middot; steered skaters &middot; beacon)</span></h2>
+  <p class="note">
+    3/4 perspective, the way the arcade games did it &mdash; which also means the side-on figure
+    renderer gets reused at small scale instead of needing separate top-down art. The puck follows
+    a <b>Catmull-Rom spline</b> through eight sparse keyframes (the ~600 bytes the server would
+    actually send); everyone else is <b>improvised by steering</b> toward role anchors relative to
+    the puck. Press PLAY. It scores every ~7s.
+  </p>
+  <div class="stage crt" id="stageRink"></div>
+
+  <h2>THE FIGHT <span class="tag">(side-on &mdash; the authentic hockey framing)</span></h2>
+  <p class="note">
+    Press <b>▶ PLAY FIGHT</b>. Watch for: the wind-up easing in slowly then the punch snapping out
+    in ~110ms, the hit-stop freeze on contact, the screen shake, the head snapping back with
+    overshoot and settling. It ends with the loser in the box and a <b>power play</b> &mdash;
+    the fight moving the scoreboard.
+  </p>
+  <div class="stage crt" id="stageSide"></div>
+
+  <h2>C &mdash; VARIATION: TWELVE SEEDS</h2>
+  <p class="note">If these read as one guy in twelve jerseys, procedural figures are wrong regardless of how any single pose looks.</p>
+  <div class="row" id="rowVar" style="gap:7px"></div>
+
+  <h2>D &mdash; THE CHEAP FALLBACK</h2>
+  <p class="note">Cartoon scuffle cloud. ~20 lines, always shippable. The bar the figures have to clear.</p>
+  <div class="stage crt" id="stageCloud"></div>
+
+  <div class="verdict">
+    <b>How to judge.</b>
+    <ul>
+      <li>Play it before anything else. Static poses flatter; motion is where cheap art dies.</li>
+      <li>Does it read as a broadcast cutting to a fight, at a glance, with no explanation?</li>
+      <li>In <b>C</b>, are those twelve <em>different people</em>?</li>
+      <li>Is it honestly better than <b>D</b>? If not, D wins &mdash; it was always a good answer.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+// ═══ util ═════════════════════════════════════════════════════════════════════
+function rngFrom(seed) {
+  let s = (seed >>> 0) || 1;
+  return () => { s = (s + 0x6d2b79f5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+const F = (n) => (Math.round(n * 10) / 10);
+const esc = (s) => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const OL = '#080b0e';
+// Shade a hex colour. Every block gets a darker underside — cheap, and it's the
+// difference between "flat vector" and "solid object".
+function shade(hex, k) {
+  const n = parseInt(hex.slice(1), 16);
+  const c = [(n >> 16) & 255, (n >> 8) & 255, n & 255]
+    .map(v => Math.max(0, Math.min(255, Math.round(k < 1 ? v * k : v + (255 - v) * (k - 1)))));
+  return `#${c.map(v => v.toString(16).padStart(2, '0')).join('')}`;
+}
+
+// ═══ palettes ═════════════════════════════════════════════════════════════════
+const SKIN = ['#e8b98f','#c98d5e','#8a5a38','#f0cfa8'];
+const TEAMS = {
+  CIV:{ name:'CIVIC CENTER WARDENS', abbr:'CIV', jersey:'#2f6fd0', alt:'#eef3f8', trim:'#0f2a52',
+        pants:'#171d28', socks:'#2f6fd0', stripe:'#eef3f8', glove:'#22539e', helmet:'#2f6fd0', ui:'#4aa3e8' },
+  SLG:{ name:'SLAGLANDS SLASHERS',   abbr:'SLG', jersey:'#cf3833', alt:'#e8a13c', trim:'#4a1210',
+        pants:'#1f1613', socks:'#cf3833', stripe:'#e8a13c', glove:'#a02724', helmet:'#e8a13c', ui:'#e85a5a' },
+};
+
+// ═══ identity ═════════════════════════════════════════════════════════════════
+const SURNAMES = ['FERRO','TVARDOVSKY','HALSTROM','DESCHAMPS','KOLAR','BERGQVIST',
+  'RENNIE','OZAWA','MULLANE','PRIETO','VASKO','NYQUIST'];
+// Appearance is seeded on WHO YOU ARE, not on the game. Hash the surname and the
+// club, and Ferro has the same skin tone, hair, build, helmet and number in every
+// game, all season, on every client — with zero storage, the same way the rest of
+// the league works. Seeding this on the slot (which the first pass effectively did)
+// would have given him a different face every night.
+function identitySeed(name, teamAbbr) {
+  let h = 2166136261 >>> 0;
+  for (const ch of `${teamAbbr}|${name}`) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+  return h >>> 0;
+}
+function fighterFrom(seed, buildBias, team) {
+  const tm = team || TEAMS.CIV;
+  // pick WHO this is from the caller's seed, then derive the LOOK from that identity
+  const name = SURNAMES[(rngFrom(seed)() * SURNAMES.length) | 0];
+  const r = rngFrom(identitySeed(name, tm.abbr));
+  const heft = Math.max(.05, Math.min(1, r() * .7 + .15 + ((buildBias - 50) / 50) * .45));
+  return { heft, name, team: tm,
+    tall: .92 + r() * .2, limb: .88 + r() * .22,
+    shoulder: .92 + heft * .34 + r() * .1,
+    headR: 12.6 + r() * 2.6 + heft * 2.2,
+    stance: .9 + r() * .26,
+    helmet: r() > .5, hair: r() > .35,
+    hairCol: ['#3a2a1e','#171717','#7a5a30','#c9b48a','#7a3a24'][(r() * 5) | 0],
+    beard: r() > .6,
+    skin: SKIN[(r() * SKIN.length) | 0],
+    num: 1 + Math.floor(r() * 98),
+    // NOTE: no `name` here — it's set above from the caller's seed and must not be
+    // re-derived, or the identity→appearance mapping breaks (and it silently did).
+    lean: (r() - .5) * 5,
+    // ── character ────────────────────────────────────────────────────────────
+    // Appended at the END on purpose: every draw above keeps the value it already
+    // had, so nobody's face changes just because we gave the league more variety.
+    // These are the things that show at 47px — how a man is BUILT and how he
+    // CARRIES himself, not what's printed on him.
+    hunch:  .1 + r() * .9,        // upright vs folded over the stick
+    stance: 0.85 + r() * .4,      // narrow, or skates planted wide
+    visor:  r() > .55,            // half-shield vs full cage
+    sockHi: r() > .4,             // socks pulled up over the knee, or slouched
+    bigMitts: r() > .6,           // some guys wear enormous gloves
+    armLen: .9 + r() * .22 };
+}
+
+// ═══ poses ════════════════════════════════════════════════════════════════════
+// Facing +x. Wide splayed stance, knees bent, torso leaning IN — both fighters
+// mirror to form the A-frame the references make out of two men holding each other up.
+const POSE = {
+  ready:  { hip:[0,-74],  chest:[5,-104],  neck:[8,-119],  head:[11,-134],
+            shL:[15,-117], shR:[-7,-117], elL:[35,-112], haL:[53,-109],
+            elR:[-15,-105], haR:[-2,-125],
+            knL:[21,-36], ftL:[36,0], knR:[-21,-36], ftR:[-38,0] },
+  brace:  { hip:[-2,-72], chest:[0,-102],  neck:[1,-116],  head:[2,-130],
+            shL:[13,-115], shR:[-11,-114], elL:[31,-108], haL:[47,-112],
+            elR:[-20,-104], haR:[-6,-122],
+            knL:[19,-35], ftL:[34,0], knR:[-23,-35], ftR:[-40,0] },
+  windup: { hip:[-5,-74], chest:[-3,-104], neck:[-1,-119], head:[3,-135],
+            shL:[11,-117], shR:[-15,-115], elL:[33,-113], haL:[51,-110],
+            elR:[-36,-127], haR:[-49,-151],
+            knL:[18,-36], ftL:[33,0], knR:[-25,-36], ftR:[-44,0] },
+  land:   { hip:[9,-72],  chest:[14,-102], neck:[17,-117], head:[21,-132],
+            shL:[23,-115], shR:[5,-117], elL:[37,-107], haL:[53,-105],
+            elR:[32,-125], haR:[66,-131],
+            knL:[29,-34], ftL:[46,0], knR:[-11,-38], ftR:[-31,-1] },
+  follow: { hip:[6,-73],  chest:[10,-103], neck:[12,-118], head:[15,-133],
+            shL:[20,-116], shR:[2,-117], elL:[36,-109], haL:[52,-107],
+            elR:[24,-118], haR:[50,-118],
+            knL:[26,-35], ftL:[42,0], knR:[-14,-37], ftR:[-34,0] },
+  snap:   { hip:[-4,-72], chest:[-11,-101], neck:[-16,-115], head:[-26,-127],
+            shL:[-2,-113], shR:[-21,-113], elL:[16,-104], haL:[32,-98],
+            elR:[-38,-102], haR:[-46,-84],
+            knL:[10,-35], ftL:[26,0], knR:[-24,-34], ftR:[-40,0] },
+  reel:   { hip:[-10,-70], chest:[-19,-99], neck:[-24,-113], head:[-33,-125],
+            shL:[-9,-111], shR:[-28,-111], elL:[8,-96], haL:[18,-78],
+            elR:[-44,-98], haR:[-54,-78],
+            knL:[2,-33], ftL:[14,0], knR:[-28,-31], ftR:[-42,0] },
+  down:   { hip:[-16,-42], chest:[-28,-62], neck:[-34,-73], head:[-46,-82],
+            shL:[-20,-70], shR:[-38,-69], elL:[-6,-52], haL:[6,-36],
+            elR:[-54,-56], haR:[-66,-38],
+            knL:[-4,-20], ftL:[14,-2], knR:[-32,-16], ftR:[-46,-2] },
+  // Skating. Two frames alternated by stride phase — glide (both feet under you,
+  // stick out front) and push (trailing leg extended, body low and forward).
+  glide:  { hip:[2,-72],  chest:[10,-100], neck:[14,-114], head:[19,-128],
+            shL:[20,-112], shR:[2,-113], elL:[38,-104], haL:[54,-96],
+            elR:[20,-104], haR:[42,-92],
+            knL:[16,-34], ftL:[28,0], knR:[-10,-36], ftR:[-22,0] },
+  stride: { hip:[0,-70],  chest:[9,-98],   neck:[13,-112], head:[18,-126],
+            shL:[19,-110], shR:[0,-111], elL:[36,-100], haL:[52,-90],
+            elR:[14,-104], haR:[36,-96],
+            knL:[22,-30], ftL:[40,-2], knR:[-26,-30], ftR:[-46,-6] },
+};
+const JOINTS = Object.keys(POSE.ready);
+
+function shape(pose, f) {
+  const o = {};
+  for (const k of JOINTS) {
+    const p = pose[k];
+    const limbish = /^(el|ha|kn|ft)/.test(k), wide = /^sh/.test(k);
+    o[k] = [ p[0] * (limbish ? f.limb : 1) * (wide ? f.shoulder : 1) * f.stance + (p[1] / -140) * f.lean,
+             p[1] * f.tall ];
+  }
+  // Proportion pass. First render read as tunics on stilts: torso too long, head
+  // too small, neck too long. Raise the hip (shorter torso, longer legs) and drop
+  // the head toward the collar. A geared hockey player is roughly 6.5 heads tall
+  // with a torso barely longer than it is wide.
+  o.hip[1] *= 1.10;
+  o.head[1] *= 0.965;
+  o.neck[1] *= 0.98;
+  // Carry the lean down through the stance so the legs aren't vertical under a
+  // tilted body — the whole figure should be braced against the other man.
+  const drive = (o.chest[0] - o.hip[0]) * 0.55;
+  o.knL[0] += drive; o.knR[0] += drive * 0.6;
+  o.ftL[0] += drive * 1.15; o.ftR[0] += drive * 0.45;
+  return o;
+}
+// Tween two shaped poses. This is what turns a slideshow into animation.
+function blend(a, b, t) {
+  const o = {};
+  for (const k of JOINTS) o[k] = [a[k][0] + (b[k][0] - a[k][0]) * t, a[k][1] + (b[k][1] - a[k][1]) * t];
+  return o;
+}
+const P = (p) => `${F(p[0])},${F(p[1])}`;
+const lerp = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+const ang = (a, b) => Math.atan2(b[1] - a[1], b[0] - a[0]) * 180 / Math.PI;
+
+// ═══ ragdoll ══════════════════════════════════════════════════════════════════
+// When the knockout lands, the loser stops being keyframed and becomes physics.
+// Verlet integration over the same joint set, distance constraints for bones,
+// slack cross-braces so it isn't spaghetti, and a very low friction floor —
+// because this is ice, and a body that goes down here SLIDES. Every knockdown is
+// different, which matters a lot for something a broadcast replays all season.
+const BONES = [
+  // real bones — rigid
+  ['head','neck',1], ['neck','chest',1], ['chest','hip',1],
+  ['neck','shL',1], ['neck','shR',1],
+  ['shL','elL',1], ['elL','haL',1], ['shR','elR',1], ['elR','haR',1],
+  ['hip','knL',1], ['knL','ftL',1], ['hip','knR',1], ['knR','ftR',1],
+  // braces — hold a body shape without locking the joints solid
+  ['shL','hip',.5], ['shR','hip',.5], ['shL','shR',.6], ['head','chest',.35],
+  ['chest','shL',.6], ['chest','shR',.6], ['knL','knR',.18],
+  ['hip','ftL',.14], ['hip','ftR',.14], ['shL','elR',.1], ['shR','elL',.1],
+];
+// Heavier core, whippier extremities. The head being light is what makes it snap.
+const INVM = { hip:.55, chest:.7, neck:.9, head:1.5, shL:.8, shR:.8,
+  elL:1.15, elR:1.15, haL:1.35, haR:1.35, knL:1, knR:1, ftL:.85, ftR:.85 };
+
+function ragInit(j, prev, impulse, seed) {
+  const r = rngFrom(seed), pts = {};
+  for (const k of JOINTS) {
+    const v = prev ? [(j[k][0] - prev[k][0]), (j[k][1] - prev[k][1])] : [0, 0];
+    // inherit the animation's own velocity, then add the punch
+    const kick = (INVM[k] || 1) * (0.6 + r() * 0.8);
+    pts[k] = { x: j[k][0], y: j[k][1],
+      px: j[k][0] - (v[0] * .6 + impulse[0] * kick),
+      py: j[k][1] - (v[1] * .6 + impulse[1] * kick) };
+  }
+  // head takes the shot: extra whip, away and up
+  pts.head.px -= impulse[0] * 1.3; pts.head.py -= impulse[1] * 1.1;
+  const bones = BONES.map(([a, b, s]) => [a, b, Math.hypot(j[a][0] - j[b][0], j[a][1] - j[b][1]), s]);
+  return { pts, bones, t: 0, rest: 0 };
+}
+// ~700 units/s². A figure is 140 units ≈ 1.8m, so true gravity would be ~755;
+// slightly under is floatier and reads better on a launch.
+// RAG_WALL is the end boards in local units — just inside the frame edge, so a
+// launched body is always still on camera when it lands.
+const GRAV = 700, ICE_FRICTION = 0.992, DAMP = 0.994, BOUNCE = 0.22, RAG_WALL = 285;
+function ragStep(R, dt) {
+  R.t += dt;
+  for (const k of JOINTS) {
+    const p = R.pts[k], vx = (p.x - p.px) * DAMP, vy = (p.y - p.py) * DAMP;
+    p.px = p.x; p.py = p.y;
+    p.x += vx; p.y += vy + GRAV * dt * dt;
+  }
+  for (let it = 0; it < 7; it++) {
+    for (const [a, b, len, stiff] of R.bones) {
+      const pa = R.pts[a], pb = R.pts[b];
+      let dx = pb.x - pa.x, dy = pb.y - pa.y;
+      const d = Math.hypot(dx, dy) || 0.0001;
+      const diff = ((d - len) / d) * stiff * 0.5;
+      const ia = INVM[a] || 1, ib = INVM[b] || 1, tot = ia + ib;
+      pa.x += dx * diff * (ia / tot) * 2; pa.y += dy * diff * (ia / tot) * 2;
+      pb.x -= dx * diff * (ib / tot) * 2; pb.y -= dy * diff * (ib / tot) * 2;
+    }
+    // the ice. y=0 is the surface; friction is deliberately almost nothing.
+    for (const k of JOINTS) {
+      const p = R.pts[k];
+      if (p.y > 0) {
+        p.y = 0;
+        const vy = p.y - p.py; if (vy > 0) p.py = p.y + vy * BOUNCE;
+        // Progressive friction: near-frictionless at speed so a launched body
+        // really travels, but it grabs once he's slow, so he comes to rest
+        // instead of buzzing against the boards forever.
+        const vx = p.x - p.px;
+        p.px = p.x - vx * (Math.abs(vx) > 1.2 ? ICE_FRICTION : 0.86);
+      }
+      // End boards. Without this a crit launches him clean out of the building —
+      // measured 13.6 body-heights before this existed. Hitting the boards and
+      // crumpling is the better picture anyway.
+      if (p.x < -RAG_WALL) { const v = p.x - p.px; p.x = -RAG_WALL; p.px = p.x - v * -0.35; R.wall = (R.wall || 0) + 1; }
+      if (p.x > RAG_WALL)  { const v = p.x - p.px; p.x = RAG_WALL;  p.px = p.x - v * -0.35; R.wall = (R.wall || 0) + 1; }
+    }
+  }
+  // settle: once it's basically stopped moving, freeze so it doesn't shimmer
+  let e = 0; for (const k of JOINTS) { const p = R.pts[k]; e += Math.abs(p.x - p.px) + Math.abs(p.y - p.py); }
+  if (e < 0.5) R.rest += dt; else R.rest = 0;
+  return R;
+}
+const ragJoints = (R) => { const o = {}; for (const k of JOINTS) o[k] = [R.pts[k].x, R.pts[k].y]; return o; };
+
+// ═══ blood ════════════════════════════════════════════════════════════════════
+// Slapstick, not gore — the tone doc is explicit that violence here is cartoonish.
+// Arcs of fat droplets, then they hit the ice and STAY. The stains accumulating
+// over a fight is the detail that sells it; a single burst reads as a sprite.
+const BLOOD = ['#b81f28', '#8e1620', '#d8323b'];
+let drops = [], stains = [], spurts = [];
+function bloodBurst(x, y, n, power, seed) {
+  const r = rngFrom(seed);
+  for (let i = 0; i < n; i++) {
+    const a = -Math.PI * (0.15 + r() * 0.7), sp = (60 + r() * 260) * power;
+    drops.push({ x, y, vx: Math.cos(a) * sp * (r() > .35 ? 1 : -.5), vy: Math.sin(a) * sp,
+      r: 1.6 + r() * (2.4 + power), c: BLOOD[(r() * 3) | 0] });
+  }
+}
+// A brief arterial arc for a crit — pure Blood Bowl.
+function bloodSpurt(x, y, dir, seed) { spurts.push({ x, y, dir, t: 0, seed }); }
+function bloodStep(dt, floorY) {
+  for (const d of drops) { d.vy += 1500 * dt; d.x += d.vx * dt; d.y += d.vy * dt; }
+  const landed = drops.filter(d => d.y >= floorY);
+  for (const d of landed) {
+    const r = rngFrom((d.x * 131 + d.y * 17) | 0);
+    stains.push({ x: d.x, y: floorY + r() * 5, rx: d.r * (1.6 + r() * 1.9), ry: d.r * (.5 + r() * .45),
+      rot: r() * 180, c: d.c, a: .5 + r() * .35 });
+  }
+  if (landed.length) drops = drops.filter(d => d.y < floorY);
+  if (drops.length > 260) drops = drops.slice(-260);
+  if (stains.length > 320) stains = stains.slice(-320);
+  for (const s of spurts) s.t += dt;
+  spurts = spurts.filter(s => s.t < 0.55);
+}
+function bloodSvg() {
+  let o = '';
+  for (const s of stains) o += `<ellipse cx="${F(s.x)}" cy="${F(s.y)}" rx="${F(s.rx)}" ry="${F(s.ry)}" fill="${s.c}" opacity="${F(s.a)}" transform="rotate(${F(s.rot)} ${F(s.x)} ${F(s.y)})"/>`;
+  for (const d of drops) o += `<ellipse cx="${F(d.x)}" cy="${F(d.y)}" rx="${F(d.r * .8)}" ry="${F(d.r * 1.5)}" fill="${d.c}" transform="rotate(${F(Math.atan2(d.vy, d.vx) * 57.3 - 90)} ${F(d.x)} ${F(d.y)})"/>`;
+  for (const s of spurts) {
+    const r = rngFrom(s.seed), k = 1 - s.t / 0.55;
+    let d = `M${F(s.x)},${F(s.y)}`;
+    for (let i = 1; i <= 5; i++) { const t = i / 5;
+      d += ` L${F(s.x + s.dir * t * 150 * (0.7 + r() * .5))},${F(s.y - Math.sin(t * Math.PI) * 60 * (0.6 + r() * .6) + t * 30)}`; }
+    o += `<path d="${d}" fill="none" stroke="${BLOOD[0]}" stroke-width="${F(9 * k)}" stroke-linecap="round" opacity="${F(k * .85)}"/>`;
+  }
+  return o;
+}
+
+// ═══ the figure ═══════════════════════════════════════════════════════════════
+// Every part: dark outline, base colour, then a lighter top face. Hockey gear is
+// bulky and that bulk IS the silhouette — pads, fat pants, big gloves.
+function tube(pts, w, col, ow) {
+  const d = `M${pts.map(P).join(' L')}`;
+  const b = `fill="none" stroke-linecap="round" stroke-linejoin="round"`;
+  return `<path d="${d}" ${b} stroke="${OL}" stroke-width="${F(w + ow)}"/>` +
+    `<path d="${d}" ${b} stroke="${shade(col, .74)}" stroke-width="${F(w)}"/>` +
+    `<path d="${d}" ${b} stroke="${col}" stroke-width="${F(w * .66)}" transform="translate(0,${F(-w * .13)})"/>`;
+}
+function pad(p, r, col, ow) {
+  return `<circle cx="${F(p[0])}" cy="${F(p[1])}" r="${F(r + ow / 2)}" fill="${OL}"/>` +
+    `<circle cx="${F(p[0])}" cy="${F(p[1])}" r="${F(r)}" fill="${shade(col, .78)}"/>` +
+    `<circle cx="${F(p[0])}" cy="${F(p[1] - r * .18)}" r="${F(r * .7)}" fill="${col}"/>`;
+}
+// Hockey gloves are big and BOXY with a flared cuff — not spheres. Thumb sticks
+// out sideways, which is what stops it reading as a mitten.
+function glove(wrist, elbow, r, col, ow, lod) {
+  const a = ang(elbow, wrist);
+  const w2 = r * 1.15, h2 = r * .95;
+  if (lod) return `<g transform="translate(${F(wrist[0])},${F(wrist[1])}) rotate(${F(a)})">` +
+    `<rect x="${F(-w2 * .5 - ow / 2)}" y="${F(-h2 - ow / 2)}" width="${F(w2 * 2 + ow)}" height="${F(h2 * 2 + ow)}" rx="${F(r * .5)}" fill="${OL}"/>` +
+    `<rect x="${F(-w2 * .5)}" y="${F(-h2)}" width="${F(w2 * 2)}" height="${F(h2 * 2)}" rx="${F(r * .45)}" fill="${col}"/></g>`;
+  return `<g transform="translate(${F(wrist[0])},${F(wrist[1])}) rotate(${F(a)})">` +
+    `<rect x="${F(-w2 * .5 - ow / 2)}" y="${F(-h2 - ow / 2)}" width="${F(w2 * 2 + ow)}" height="${F(h2 * 2 + ow)}" rx="${F(r * .5)}" fill="${OL}"/>` +
+    `<rect x="${F(-w2 * .5)}" y="${F(-h2)}" width="${F(w2 * 2)}" height="${F(h2 * 2)}" rx="${F(r * .45)}" fill="${shade(col, .76)}"/>` +
+    `<rect x="${F(-w2 * .5)}" y="${F(-h2)}" width="${F(w2 * 2)}" height="${F(h2 * 1.1)}" rx="${F(r * .42)}" fill="${col}"/>` +
+    // knuckle rolls
+    `<path d="M${F(w2 * .35)},${F(-h2 * .8)} L${F(w2 * .35)},${F(h2 * .8)} M${F(w2 * .95)},${F(-h2 * .75)} L${F(w2 * .95)},${F(h2 * .75)}" stroke="${shade(col, .55)}" stroke-width="${F(ow * .55)}" stroke-linecap="round"/>` +
+    // thumb
+    `<rect x="${F(w2 * .35)}" y="${F(h2 * .5)}" width="${F(w2 * .95)}" height="${F(h2 * .8)}" rx="${F(r * .3)}" fill="${shade(col, .66)}" stroke="${OL}" stroke-width="${F(ow * .6)}"/>` +
+    // cuff
+    `<rect x="${F(-w2 * .62)}" y="${F(-h2 * 1.08)}" width="${F(w2 * .5)}" height="${F(h2 * 2.16)}" rx="${F(r * .22)}" fill="${shade(col, .6)}" stroke="${OL}" stroke-width="${F(ow * .7)}"/>` +
+  `</g>`;
+}
+// Boot + blade + two holder posts. The blade is the single clearest "hockey" tell.
+function skate(p, w, ow, dir, lod) {
+  const L = w * 2.15, h = w * .82;
+  if (lod) return `<g transform="translate(${F(p[0])},${F(p[1])})${dir < 0 ? ' scale(-1,1)' : ''}">` +
+    `<rect x="${F(-L * .4)}" y="${F(-h)}" width="${F(L)}" height="${F(h * 1.9)}" rx="${F(w * .3)}" fill="#1c2026"/>` +
+    `<rect x="${F(-L * .3)}" y="${F(h * 1.28)}" width="${F(L * .92)}" height="${F(w * .2)}" rx="${F(w * .1)}" fill="#cfd8e0"/></g>`;
+  return `<g transform="translate(${F(p[0])},${F(p[1])})${dir < 0 ? ' scale(-1,1)' : ''}">` +
+    `<path d="M${F(-L * .42)},${F(-h)} q${F(-L * .12)},${F(h * .55)} ${F(-L * .04)},${F(h)} L${F(L * .58)},${F(h)} q${F(L * .1)},${F(-h * .2)} ${F(L * .02)},${F(-h * .62)} L${F(L * .2)},${F(-h)} Z" fill="${OL}" stroke="${OL}" stroke-width="${F(ow)}" stroke-linejoin="round"/>` +
+    `<path d="M${F(-L * .38)},${F(-h * .85)} q${F(-L * .1)},${F(h * .5)} ${F(-L * .03)},${F(h * .85)} L${F(L * .54)},${F(h * .85)} q${F(L * .08)},${F(-h * .18)} ${F(L * .01)},${F(-h * .55)} L${F(L * .17)},${F(-h * .85)} Z" fill="#23272d"/>` +
+    // toe cap + two lace runs
+    `<path d="M${F(L * .3)},${F(-h * .5)} q${F(L * .3)},${F(h * .5)} ${F(L * .2)},${F(h * 1.32)}" fill="none" stroke="#31363d" stroke-width="${F(w * .16)}"/>` +
+    `<path d="M${F(-L * .3)},${F(-h * .5)} L${F(L * .1)},${F(-h * .5)} M${F(-L * .26)},${F(-h * .16)} L${F(L * .08)},${F(-h * .16)}" stroke="#6d757e" stroke-width="${F(w * .11)}" stroke-linecap="round"/>` +
+    `<rect x="${F(-L * .3)}" y="${F(h * 1.28)}" width="${F(L * .92)}" height="${F(w * .17)}" rx="${F(w * .08)}" fill="#cfd8e0" stroke="${OL}" stroke-width="1.1"/>` +
+    `<path d="M${F(-L * .16)},${F(h * .85)} L${F(-L * .16)},${F(h * 1.3)} M${F(L * .42)},${F(h * .85)} L${F(L * .42)},${F(h * 1.3)}" stroke="#8d959d" stroke-width="${F(w * .16)}"/>` +
+  `</g>`;
+}
+// Head in profile — nose and chin. This one detail does more than anything else
+// to stop a circle reading as a circle.
+function head(j, f, w, ow, faceDir, hurt, facing) {
+  const r = f.headR * f.tall, c = j.head, t = f.team;
+  const d = faceDir;
+  // Facing away from or toward camera: no profile. A nose wedge on a head that's
+  // pointed up-ice is the single thing that makes a 3/4 rink read as paper cutouts.
+  if (facing === 'back' || facing === 'front') {
+    const skull = `<circle cx="0" cy="0" r="${F(r)}" fill="${OL}"/><circle cx="0" cy="0" r="${F(r * .93)}" fill="${f.skin}"/>`;
+    let g = `<g transform="translate(${F(c[0])},${F(c[1])})">` +
+      `<path d="M${F(-r * .3)},${F(r * .5)} L${F(r * .3)},${F(r * .5)} L${F(r * .26)},${F(r * .95)} L${F(-r * .26)},${F(r * .95)} Z" fill="${OL}"/>` +
+      `<path d="M${F(-r * .24)},${F(r * .46)} L${F(r * .24)},${F(r * .46)} L${F(r * .2)},${F(r * .9)} L${F(-r * .2)},${F(r * .9)} Z" fill="${shade(f.skin, .78)}"/>` + skull;
+    if (f.helmet) {
+      g += `<path d="M${F(-r - ow / 3)},${F(r * .16)} a${F(r + ow / 3)},${F(r * 1.16)} 0 0 1 ${F((r + ow / 3) * 2)},0 Z" fill="${OL}"/>` +
+        `<path d="M${F(-r * .96)},${F(r * .14)} a${F(r * .96)},${F(r * 1.08)} 0 0 1 ${F(r * 1.92)},0 Z" fill="${t.helmet}"/>`;
+      if (facing === 'front') g += `<rect x="${F(-r * .78)}" y="${F(-r * .12)}" width="${F(r * 1.56)}" height="${F(r * .3)}" rx="${F(r * .1)}" fill="${shade(t.helmet, .5)}"/>`;
+    } else if (f.hair) {
+      g += `<path d="M${F(-r * .98)},${F(r * .2)} a${F(r * .98)},${F(r * .98)} 0 0 1 ${F(r * 1.96)},0 Z" fill="${f.hairCol}"/>`;
+    }
+    if (facing === 'front') {
+      g += `<circle cx="${F(-r * .32)}" cy="${F(-r * .04)}" r="${F(r * .1)}" fill="#1a1a1a"/>` +
+        `<circle cx="${F(r * .32)}" cy="${F(-r * .04)}" r="${F(r * .1)}" fill="#1a1a1a"/>`;
+      if (f.beard) g += `<path d="M${F(-r * .5)},${F(r * .2)} q${F(r * .5)},${F(r * .55)} ${F(r)},0 Z" fill="${shade(f.hairCol, .9)}"/>`;
+    }
+    if (hurt > .35) g += `<path d="M${F(-r * .5)},${F(-r * .34)} L${F(r * .3)},${F(-r * .42)}" stroke="${BLOOD[0]}" stroke-width="${F(r * .16)}" stroke-linecap="round"/>`;
+    return g + `</g>`;
+  }
+  let out = `<g transform="translate(${F(c[0])},${F(c[1])})${d < 0 ? ' scale(-1,1)' : ''}">`;
+  // Neck — short. The first pass left a long dark column under the chin.
+  out += `<path d="M${F(-r * .34)},${F(r * .5)} L${F(r * .26)},${F(r * .5)} L${F(r * .2)},${F(r * .95)} L${F(-r * .3)},${F(r * .95)} Z" fill="${OL}"/>` +
+    `<path d="M${F(-r * .26)},${F(r * .46)} L${F(r * .2)},${F(r * .46)} L${F(r * .15)},${F(r * .9)} L${F(-r * .22)},${F(r * .9)} Z" fill="${shade(f.skin, .78)}"/>`;
+  // skull + nose wedge + chin, as one outlined blob
+  const face = `M0,${F(-r)} a${F(r)},${F(r)} 0 0 0 ${F(-r * .02)},${F(r * 2)} ` +
+    `L${F(r * .5)},${F(r * .96)} L${F(r * .78)},${F(r * .42)} L${F(r * 1.3)},${F(r * .1)} ` +
+    `L${F(r * .82)},${F(-r * .16)} a${F(r)},${F(r)} 0 0 0 ${F(-r * .82)},${F(-r * .84)} Z`;
+  out += `<path d="${face}" fill="${OL}" stroke="${OL}" stroke-width="${F(ow)}" stroke-linejoin="round"/>` +
+    `<path d="${face}" fill="${f.skin}" transform="scale(.93)"/>`;
+  if (f.beard) out += `<path d="M${F(r * .1)},${F(r * .34)} L${F(r * .8)},${F(r * .3)} L${F(r * .46)},${F(r * .92)} Z" fill="${shade(f.hairCol, .9)}"/>`;
+  out += `<circle cx="${F(r * .52)}" cy="${F(-r * .12)}" r="${F(r * .1)}" fill="#1a1a1a"/>`;
+  // The face keeps score. Cut brow first, then it runs down the jaw, then the
+  // eye swells shut — you can read how the fight is going without the POWER dots.
+  if (hurt > 0.15) out += `<path d="M${F(r * .18)},${F(-r * .46)} L${F(r * .66)},${F(-r * .34)}" stroke="${BLOOD[0]}" stroke-width="${F(r * .16)}" stroke-linecap="round"/>`;
+  if (hurt > 0.35) out += `<path d="M${F(r * .5)},${F(-r * .3)} q${F(r * .16)},${F(r * .5)} ${F(-r * .04)},${F(r * .9)}" fill="none" stroke="${BLOOD[0]}" stroke-width="${F(r * .13)}" stroke-linecap="round"/>`;
+  if (hurt > 0.55) out += `<ellipse cx="${F(r * .52)}" cy="${F(-r * .12)}" rx="${F(r * .22)}" ry="${F(r * .13)}" fill="${shade(BLOOD[1], .8)}" opacity=".8"/>`;
+  if (hurt > 0.75) out += `<path d="M${F(r * .1)},${F(r * .42)} q${F(r * .3)},${F(r * .22)} ${F(r * .62)},${F(r * .3)}" fill="none" stroke="${BLOOD[0]}" stroke-width="${F(r * .2)}" stroke-linecap="round"/>`;
+  if (f.helmet) {
+    out += `<path d="M${F(-r * 1.06)},${F(r * .12)} a${F(r * 1.06)},${F(r * 1.16)} 0 0 1 ${F(r * 2.02)},${F(-r * .1)} L${F(r * .9)},${F(r * .2)} Z" fill="${OL}"/>` +
+      `<path d="M${F(-r * .98)},${F(r * .1)} a${F(r * .98)},${F(r * 1.08)} 0 0 1 ${F(r * 1.88)},${F(-r * .1)} L${F(r * .84)},${F(r * .16)} Z" fill="${t.helmet}"/>` +
+      `<path d="M${F(-r * .9)},${F(-r * .2)} a${F(r * .9)},${F(r)} 0 0 1 ${F(r * .8)},${F(-r * .6)}" fill="none" stroke="${shade(t.helmet, 1.35)}" stroke-width="${F(r * .16)}" stroke-linecap="round"/>` +
+      pad([-r * .34, r * .18], r * .22, t.helmet, ow);   // earflap — was reading as a giant ear
+  } else if (f.hair) {
+    out += `<path d="M${F(-r * 1.02)},${F(r * .18)} a${F(r * 1.02)},${F(r * 1.02)} 0 0 1 ${F(r * 1.9)},${F(-r * .22)} L${F(r * .7)},${F(-r * .1)} q${F(-r * .7)},${F(-r * .5)} ${F(-r * 1.5)},${F(r * .3)} Z" fill="${OL}"/>` +
+      `<path d="M${F(-r * .95)},${F(r * .14)} a${F(r * .95)},${F(r * .95)} 0 0 1 ${F(r * 1.76)},${F(-r * .2)} L${F(r * .66)},${F(-r * .06)} q${F(-r * .66)},${F(-r * .46)} ${F(-r * 1.4)},${F(r * .26)} Z" fill="${f.hairCol}"/>`;
+  }
+  return out + `</g>`;
+}
+
+// Depth. The far side of the body is a different distance from camera, so it must
+// be SMALLER, DIMMER, compressed toward centre, and standing HIGHER up the frame —
+// the far skate sits further up the ice, not on the same ground line as the near one.
+const DEPTH = { sx: .88, sy: .95, rise: 10, dx: 5, w: .86, dim: .70 };
+const farPt = (p, f) => [p[0] * DEPTH.sx + DEPTH.dx, p[1] * DEPTH.sy - DEPTH.rise * f.tall];
+// Ground contact shadow. One per skate, sized and placed per depth — this is what
+// actually establishes that there IS a ground plane and the two feet aren't on it equally.
+const contact = (p, w, o) => `<ellipse cx="${F(p[0])}" cy="${F(p[1] + w * .95)}" rx="${F(w * 1.7)}" ry="${F(w * .34)}" fill="#41607a" opacity="${o}"/>`;
+
+// `lod` = draw the cheap version. The rink shows 12 figures at 0.3–0.6 scale where
+// lace lines and knuckle rolls are sub-pixel, and re-serialising them every frame
+// cost 109KB of SVG for the browser to reparse at 60fps. Detail you cannot see is
+// the most expensive kind.
+// A hockey player without a stick is not a hockey player. Shaft runs from the
+// lower hand down to a blade flat on the ice; `to` aims the blade at a point in
+// LOCAL coords, which is how the puck carrier's blade actually stays on the puck.
+function stick(hand, w, to, taped) {
+  const tip = to || [hand[0] + w * 4.4, -w * 0.15];
+  const dx = tip[0] - hand[0], dy = tip[1] - hand[1];
+  const d = Math.hypot(dx, dy) || 1e-4;
+  const bl = w * 1.5, bx = dx / d, by = dy / d;
+  const heelX = tip[0] - bx * bl * .35, heelY = tip[1] - by * bl * .35;
+  const toeX = tip[0] + bx * bl * .65, toeY = tip[1] + by * bl * .65;
+  return `<path d="M${F(hand[0])},${F(hand[1])} L${F(heelX)},${F(heelY)}" stroke="${OL}" stroke-width="${F(w * .52)}" stroke-linecap="round"/>` +
+    `<path d="M${F(hand[0])},${F(hand[1])} L${F(heelX)},${F(heelY)}" stroke="#c8a06a" stroke-width="${F(w * .3)}" stroke-linecap="round"/>` +
+    (taped ? `<path d="M${F(hand[0] + dx * .12)},${F(hand[1] + dy * .12)} L${F(hand[0] + dx * .26)},${F(hand[1] + dy * .26)}" stroke="#1a1a1a" stroke-width="${F(w * .34)}"/>` : '') +
+    `<path d="M${F(heelX)},${F(heelY)} L${F(toeX)},${F(toeY)}" stroke="${OL}" stroke-width="${F(w * .78)}" stroke-linecap="round"/>` +
+    `<path d="M${F(heelX)},${F(heelY)} L${F(toeX)},${F(toeY)}" stroke="#2a2a2a" stroke-width="${F(w * .52)}" stroke-linecap="round"/>`;
+}
+
+function figure(j, f, w, faceDir, mir, hurt, lod, facing, stickTo) {
+  hurt = lod ? 0 : (hurt || 0);
+  const t = f.team, ow = Math.max(2.8, w * .3);
+  const hw = 12 * (f.shoulder || 1);
+  // Far-side palette: everything knocked back so it reads as distance, not as a
+  // different jersey. Atmospheric perspective, cheap version.
+  const tf = {}; for (const k of ['jersey','alt','pants','socks','stripe','glove','helmet','trim']) tf[k] = shade(t[k], DEPTH.dim);
+
+  // L side is FAR (grip arm + lead leg), R side is NEAR (punching arm + rear leg).
+  // Putting the punch on the near side means it crosses in front of the body,
+  // which is what makes it land visually.
+  const fj = {}; for (const k of ['shL','elL','haL','knL','ftL']) fj[k] = farPt(j[k], f);
+  const fhip = farPt(j.hip, f);
+
+  // Shoulder pads, properly wide. First pass read as a tunic because the torso was
+  // taller than it was broad; geared shoulders are the widest thing on a player.
+  const padL = [j.shL[0] * 1.9 + w * .5, j.shL[1] - w * .55], padR = [j.shR[0] * 1.9 - w * .5, j.shR[1] - w * .55];
+  const torso = `M${P(padR)} L${P(padL)} L${F(j.hip[0] + hw)},${F(j.hip[1])} L${F(j.hip[0] - hw)},${F(j.hip[1])} Z`;
+
+  const leg = (hip, kn, ft, pal, k, sw) => {
+    const thigh = lerp(hip, kn, .78), thighW = w * 1.78 * k, sockW = w * .82 * k;
+    if (lod) return tube([hip, thigh], thighW, pal.pants, ow) + tube([kn, ft], sockW, pal.socks, ow) + skate(ft, sw, ow, faceDir, 1);
+    return tube([hip, thigh], thighW, pal.pants, ow) +
+      `<path d="M${P(lerp(hip, thigh, .25))} L${P(lerp(hip, thigh, .8))}" stroke="${pal.jersey}" stroke-width="${F(thighW * .22)}" stroke-linecap="round" opacity=".85"/>` +
+      tube([kn, ft], sockW, pal.socks, ow) +
+      `<path d="M${P(lerp(kn, ft, .3))} L${P(lerp(kn, ft, .42))}" stroke="${pal.stripe}" stroke-width="${F(sockW)}" stroke-linecap="butt"/>` +
+      `<path d="M${P(lerp(kn, ft, .54))} L${P(lerp(kn, ft, .64))}" stroke="${pal.stripe}" stroke-width="${F(sockW)}" stroke-linecap="butt"/>` +
+      pad(kn, w * .48 * k, pal.pants, ow) +
+      skate(ft, sw, ow, faceDir);
+  };
+  const arm = (sh, el, ha, pal, k) => {
+    const upperW = w * 1.18 * k, foreW = w * .95 * k;
+    if (lod) return tube([sh, el], upperW, pal.jersey, ow) + tube([el, ha], foreW, pal.jersey, ow) + glove(ha, el, w * .92 * k, pal.glove, ow, 1);
+    return tube([sh, el], upperW, pal.jersey, ow) +
+      pad(el, w * .66 * k, pal.jersey, ow) +
+      tube([el, ha], foreW, pal.jersey, ow) +
+      `<path d="M${P(lerp(el, ha, .74))} L${P(lerp(el, ha, .86))}" stroke="${pal.alt}" stroke-width="${F(foreW)}" stroke-linecap="butt"/>` +
+      glove(ha, el, w * .92 * k, pal.glove, ow);
+  };
+
+  // Stacking, back to front. Legs go UNDER the torso so the pelvis reads as part
+  // of the body mass rather than the thighs being pasted on top of it.
+  return `<g>` +
+    contact(fj.ftL, w * .92 * DEPTH.w, '.14') + contact(j.ftR, w * .92, '.22') +
+    arm(fj.shL, fj.elL, fj.haL, tf, DEPTH.w) +                    // 1 · far arm, behind everything
+    leg(fhip, fj.knL, fj.ftL, tf, DEPTH.w, w * .92 * DEPTH.w) +   // 2 · far leg
+    leg(j.hip, j.knR, j.ftR, t, 1, w * .92) +                     // 3 · near leg
+    `<path d="${torso}" fill="${OL}" stroke="${OL}" stroke-width="${F(ow * 2.1)}" stroke-linejoin="round"/>` +
+    `<path d="${torso}" fill="${shade(t.jersey, .76)}" stroke="${shade(t.jersey, .76)}" stroke-width="${F(ow * .6)}" stroke-linejoin="round"/>` +
+    `<path d="M${P(padR)} L${P(padL)} L${F(padL[0] * .8)},${F(padL[1] + w * 1.05)} L${F(padR[0] * .8)},${F(padR[1] + w * 1.05)} Z" fill="${t.alt}"/>` +
+    (lod ? '' : `<path d="M${F(j.hip[0] - hw)},${F(j.hip[1] - w * .34)} L${F(j.hip[0] + hw)},${F(j.hip[1] - w * .34)}" stroke="${t.alt}" stroke-width="${F(w * .3)}"/>`) +
+    // Counter-mirror the number. The whole figure is inside a scale(-1,1) for the
+    // right-hand fighter, which was rendering "48" backwards.
+    (lod ? '' : (() => {
+      const tx = j.hip[0] * .5 - faceDir * w * .3, ty = (j.neck[1] + j.hip[1]) / 2 + w * .55;
+      const txt = `<text x="${F(tx)}" y="${F(ty)}" text-anchor="middle" font-family="Impact,'Arial Black',monospace" font-size="${F(w * 1.7)}" fill="${t.alt}" opacity=".92">${f.num}</text>`;
+      return mir < 0 ? `<g transform="translate(${F(tx * 2)},0) scale(-1,1)">${txt}</g>` : txt;
+    })()) +
+    // blood on the sweater, worsening with the beating
+    (hurt > .35 ? `<path d="M${F(j.chest[0] * .4)},${F(j.chest[1] + w * .3)} q${F(w * .5)},${F(w * .9)} ${F(w * .1)},${F(w * 1.9)}" fill="none" stroke="${BLOOD[1]}" stroke-width="${F(w * .3)}" stroke-linecap="round" opacity=".85"/>` : '') +
+    (hurt > .7 ? `<ellipse cx="${F(j.chest[0] * .8)}" cy="${F(j.chest[1] + w * 1.6)}" rx="${F(w * .8)}" ry="${F(w * 1.1)}" fill="${BLOOD[1]}" opacity=".7"/>` : '') +
+    head(j, f, w, ow, faceDir, hurt, facing) +                    // 5 · head over the collar
+    arm(j.shR, j.elR, j.haR, t, 1) +                              // 6 · near arm, in front of all
+    (stickTo === false ? '' : stick(j.haR, w, stickTo || null, true)) +
+  `</g>`;
+}
+
+// ═══ arena (static layer — rendered once) ═════════════════════════════════════
+const _cache = new Map();
+function arena(W, H, glassTop, glassH, boardY, boardH, seed) {
+  const key = [W,H,glassTop,glassH,boardY,boardH,seed].join(':');
+  const hit = _cache.get(key); if (hit) return hit;
+  const r = rngFrom(seed);
+  const HUE = ['#c2413a','#3f6ec4','#c9a13c','#4aa564','#8a4bb5','#c2653a','#3f9fb5','#b53f70','#d8d8d8'];
+  const glassBot = glassTop + glassH;
+  let o = `<rect x="0" y="0" width="${W}" height="${F(glassBot)}" fill="#0a0f14"/>`;
+  for (let ry = 0; ry < 3; ry++) {                       // colourful fans above the glass
+    const y = 12 + ry * 15, sc = 1 - ry * .12;
+    for (let x = 6; x < W; x += 21 + r() * 7) {
+      const c = HUE[(r() * HUE.length) | 0], op = F(.55 + r() * .4);
+      o += `<circle cx="${F(x)}" cy="${F(y)}" r="${F(4.4 * sc)}" fill="${c}" opacity="${op}"/>` +
+        `<path d="M${F(x - 6.4 * sc)},${F(y + 13 * sc)} a${F(6.4 * sc)},${F(7.4 * sc)} 0 0 1 ${F(12.8 * sc)},0 Z" fill="${c}" opacity="${op}"/>`;
+    }
+  }
+  for (let ry = 0; ry < 3; ry++) {                       // grey ghosts behind the glass
+    const y = glassTop + 12 + ry * 17;
+    for (let x = 10; x < W; x += 25 + r() * 8) {
+      const g = 92 + ((r() * 46) | 0), c = `rgb(${g},${g + 6},${g + 10})`, op = F(.3 + r() * .22);
+      o += `<circle cx="${F(x)}" cy="${F(y)}" r="5" fill="${c}" opacity="${op}"/>` +
+        `<path d="M${F(x - 7)},${F(y + 15)} a7,8 0 0 1 14,0 Z" fill="${c}" opacity="${op}"/>`;
+      if (r() > .55) o += `<path d="M${F(x - 6)},${F(y + 6)} L${F(x - 11)},${F(y - 7)} M${F(x + 6)},${F(y + 6)} L${F(x + 11)},${F(y - 7)}" stroke="${c}" stroke-width="3" stroke-linecap="round" opacity="${op}"/>`;
+    }
+  }
+  const panels = 6, pw = W / panels;                     // glass + diagonal shine
+  o += `<rect x="0" y="${F(glassTop)}" width="${W}" height="${F(glassH)}" fill="#9fc4d8" opacity=".07"/>`;
+  for (let i = 0; i < panels; i++) {
+    const x0 = i * pw;
+    o += `<path d="M${F(x0 + pw * .14)},${F(glassBot - 4)} L${F(x0 + pw * .52)},${F(glassTop + 4)} L${F(x0 + pw * .64)},${F(glassTop + 4)} L${F(x0 + pw * .26)},${F(glassBot - 4)} Z" fill="#eaf6ff" opacity=".13"/>` +
+      `<path d="M${F(x0 + pw * .4)},${F(glassBot - 4)} L${F(x0 + pw * .78)},${F(glassTop + 4)} L${F(x0 + pw * .84)},${F(glassTop + 4)} L${F(x0 + pw * .46)},${F(glassBot - 4)} Z" fill="#eaf6ff" opacity=".09"/>` +
+      `<rect x="${F(x0 - 1.6)}" y="${F(glassTop)}" width="3.2" height="${F(glassH)}" fill="#0c1116"/>`;
+  }
+  o += `<rect x="0" y="${F(glassTop)}" width="${W}" height="2.5" fill="#0c1116"/>` +
+    `<rect x="0" y="${F(boardY)}" width="${W}" height="6" fill="#c8382f"/>` +
+    `<rect x="0" y="${F(boardY + 6)}" width="${W}" height="${F(boardH - 6)}" fill="#dfe7ec"/>` +
+    `<rect x="0" y="${F(boardY + 6)}" width="${W}" height="2" fill="#aab6be"/>` +
+    `<rect x="0" y="${F(boardY + boardH - 4)}" width="${W}" height="4" fill="#c8382f"/>` +
+    `<rect x="0" y="${F(boardY + boardH)}" width="${W}" height="${F(H - boardY - boardH)}" fill="url(#ice)"/>` +
+    `<path d="M0,${F(boardY + boardH + 46)} Q${F(W * .18)},${F(boardY + boardH + 12)} ${F(W * .42)},${F(boardY + boardH + 8)}" fill="none" stroke="#c23a3a" stroke-width="2.5" opacity=".45"/>`;
+  _cache.set(key, o);
+  return o;
+}
+const DEFS = `<defs>` +
+  `<filter id="glow" x="-70%" y="-70%" width="240%" height="240%"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>` +
+  `<linearGradient id="ice" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c6d6e0"/><stop offset="1" stop-color="#f0f5f9"/></linearGradient>` +
+  // Reflections: blurred and faded downward. A crisp full-opacity flip reads as a
+  // rendering bug; the fade is what makes the ice look wet rather than mirrored.
+  `<filter id="reflBlur" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="1.5"/></filter>` +
+  // Ice wear gets a soft pass while everything else stays razor sharp — and that
+  // CONTRAST is the point, not a compromise. Scuffs and fluid genuinely are soft
+  // edged; hard-edged blobs read as pixel litter sitting on top of the rink rather
+  // than marks in it. Applied to the wear layer only, never to players.
+  `<filter id="iceSoft" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="1.15"/></filter>` +
+  `<linearGradient id="reflG" x1="0" y1="0" x2="0" y2="1">` +
+    `<stop offset="0" stop-color="#fff" stop-opacity=".85"/><stop offset="0.55" stop-color="#fff" stop-opacity=".22"/>` +
+    `<stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>` +
+  `<mask id="reflFade"><rect x="0" y="0" width="1200" height="520" fill="url(#reflG)"/></mask>` +
+  `<linearGradient id="boardShade" x1="0" y1="0" x2="0" y2="1">` +
+    `<stop offset="0" stop-color="#000" stop-opacity=".32"/><stop offset="0.45" stop-color="#000" stop-opacity="0"/>` +
+    `<stop offset="1" stop-color="#000" stop-opacity=".28"/></linearGradient>` +
+  // ── RETRO LOOK — colour only, NO spatial downsample ─────────────────────────
+  // The feFlood/feTile/feMorphology pixelate is gone. Even with the ordering fixed
+  // it read as mush, and the reason is structural: point-sampling one pixel per
+  // cell throws away the sub-pixel information that IS the silhouette at 47px. On
+  // artwork this small you cannot downsample without destroying the drawing.
+  //
+  // What actually gives the retro read without the damage is the PALETTE. Crushing
+  // each channel to 6 discrete steps flattens the gradients into hard colour bands
+  // — the console look — while every edge stays perfectly crisp, because nothing
+  // spatial happens at all. Keeps the four-band limb shading readable too.
+  `<filter id="pixelate" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">` +
+    `<feComponentTransfer>` +
+      `<feFuncR type="discrete" tableValues="0 .2 .4 .6 .8 1"/>` +
+      `<feFuncG type="discrete" tableValues="0 .2 .4 .6 .8 1"/>` +
+      `<feFuncB type="discrete" tableValues="0 .2 .4 .6 .8 1"/>` +
+    `</feComponentTransfer>` +
+  `</filter></defs>`;
+
+// ═══ HUD ══════════════════════════════════════════════════════════════════════
+function powerBar(W, hitsA, hitsB, clock, strength) {
+  const dot = (x, on, col) => `<circle cx="${F(x)}" cy="20" r="5.4" fill="${on ? col : '#26313a'}" stroke="${OL}" stroke-width="1.4"/>`;
+  let o = `<rect x="0" y="0" width="${W}" height="40" fill="#05090c" opacity=".95"/>` +
+    `<line x1="0" y1="40" x2="${W}" y2="40" stroke="#58e3a8" stroke-width="1" opacity=".28"/>`;
+  for (let i = 0; i < 5; i++) o += dot(W / 2 - 92 - i * 17, i < hitsA, TEAMS.CIV.ui);
+  for (let i = 0; i < 5; i++) o += dot(W / 2 + 92 + i * 17, i < hitsB, TEAMS.SLG.ui);
+  return o + `<text x="${F(W / 2)}" y="17" text-anchor="middle" font-family="monospace" font-size="15" font-weight="700" fill="#c8382f" letter-spacing="5">POWER</text>` +
+    `<text x="${F(W / 2)}" y="32" text-anchor="middle" font-family="monospace" font-size="9" fill="${strength ? '#e8b34a' : '#6f8a7c'}" letter-spacing="2">${esc(strength || clock)}</text>` +
+    `<text x="14" y="25" font-family="monospace" font-size="12" font-weight="700" fill="${TEAMS.CIV.ui}">CIV</text>` +
+    `<text x="${F(W - 14)}" y="25" text-anchor="end" font-family="monospace" font-size="12" font-weight="700" fill="${TEAMS.SLG.ui}">SLG</text>` +
+    `<rect x="14" y="48" width="42" height="15" rx="2" fill="#c0392b"/>` +
+    `<text x="35" y="59" text-anchor="middle" font-family="monospace" font-size="9" font-weight="700" fill="#fff" letter-spacing="2">LIVE</text>`;
+}
+function callout(W, H, text) {
+  return `<rect x="0" y="${F(H - 44)}" width="${W}" height="30" fill="#05090c" opacity=".84"/>` +
+    `<text x="14" y="${F(H - 25)}" font-family="monospace" font-size="9" fill="#e8b34a" letter-spacing="2">◆ TUG BRENNAN</text>` +
+    `<text x="${F(W / 2)}" y="${F(H - 24)}" text-anchor="middle" font-size="12.5" fill="#dfeae2" font-style="italic">${esc(text)}</text>`;
+}
+// Replay chrome: letterbox bars, the blinking bug, and a scrub bar. Deliberately
+// crude — this is a 1990s cartridge pretending it has a tape machine.
+function replayHud(W, H, ms) {
+  const p = Math.max(0, Math.min(1, (ms - REPLAY.from) / (REPLAY.to - REPLAY.from)));
+  const blink = (Math.floor(ms / 260) % 2) === 0;
+  return `<rect x="0" y="0" width="${W}" height="46" fill="#000"/>` +
+    `<rect x="0" y="${H - 46}" width="${W}" height="46" fill="#000"/>` +
+    `<g opacity="${blink ? 1 : .35}"><circle cx="30" cy="68" r="7" fill="#c0392b"/></g>` +
+    `<text x="46" y="73" font-family="monospace" font-size="15" font-weight="700" fill="#fff" letter-spacing="4">INSTANT REPLAY</text>` +
+    `<text x="${W - 16}" y="73" text-anchor="end" font-family="monospace" font-size="12" fill="#e8b34a" letter-spacing="3">${Math.round(REPLAY.speed * 100)}% SPEED</text>` +
+    `<rect x="46" y="${H - 60}" width="${F(W - 92)}" height="4" rx="2" fill="#ffffff" opacity=".22"/>` +
+    `<rect x="46" y="${H - 60}" width="${F((W - 92) * p)}" height="4" rx="2" fill="#e8b34a"/>` +
+    `<text x="${F(W / 2)}" y="${H - 22}" text-anchor="middle" font-size="12.5" fill="#dfeae2" font-style="italic">Let's have another look at that. Not for the squeamish.</text>`;
+}
+function ppBanner(W, H, team, t) {
+  const T = TEAMS[team], o = Math.min(1, t * 3);
+  return `<g opacity="${F(o)}"><rect x="${F(W / 2 - 190)}" y="${F(H / 2 - 40)}" width="380" height="66" rx="4" fill="#05090c" opacity=".94" stroke="${T.ui}" stroke-width="2"/>` +
+    `<text x="${F(W / 2)}" y="${F(H / 2 - 14)}" text-anchor="middle" font-family="monospace" font-size="22" font-weight="700" fill="${T.ui}" letter-spacing="4">POWER PLAY</text>` +
+    `<text x="${F(W / 2)}" y="${F(H / 2 + 12)}" text-anchor="middle" font-family="monospace" font-size="12" fill="#dfeae2" letter-spacing="3">${T.name} · 5:00</text></g>`;
+}
+
+// ═══ the fight timeline ═══════════════════════════════════════════════════════
+// Per-beat easing is what makes it read: the wind-up drags, the punch snaps out in
+// ~110ms, contact freezes (hit-stop), then the recoil settles with overshoot.
+const EASE = {
+  lin:  t => t,
+  in:   t => t * t * t,
+  out:  t => 1 - Math.pow(1 - t, 3),
+  snap: t => 1 - Math.pow(1 - t, 6),
+  over: t => { const c = 1.9; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); },
+  hold: () => 1,
+};
+// Longer now — a fight with a shape: feeling each other out, two clean exchanges,
+// a miss that costs him, then the finish. `s` fires soundset cues on beat entry.
+const BEATS = [
+  { a:'ready',  b:'ready',  d:900, e:'out',  s:['hk-crowd-bed','hk-whistle-short'],
+    line:"Gloves are off at the hash marks and the whole building is on its feet." },
+  { a:'brace',  b:'ready',  d:700, e:'out',  s:['hk-grapple','hk-gloves-drop'],
+    line:"Jerseys bunched, circling — neither one wants to throw first." },
+  { a:'ready',  b:'brace',  d:620, e:'out',  s:['hk-skate-scrape'],
+    line:"Ferro's got the right hand free…" },
+
+  { a:'windup', b:'brace',  d:540, e:'in',   line:"Ferro's got the right hand free…" },
+  { a:'land',   b:'brace',  d:110, e:'snap', blur:1, line:"Ferro's got the right hand free…" },
+  { a:'land',   b:'snap',   d:140, e:'hold', shake:16, flash:1, hitB:1, s:['hk-punch','hk-crowd-gasp'],
+    line:"LANDS IT. Tvardovsky's helmet is somewhere near the blue line." },
+  { a:'follow', b:'reel',   d:540, e:'over', line:"LANDS IT. Tvardovsky's helmet is somewhere near the blue line." },
+  { a:'ready',  b:'brace',  d:680, e:'out',  s:['hk-skate-scrape'],
+    line:"Tvardovsky shakes it off. He is emphatically not done." },
+
+  { a:'brace',  b:'windup', d:500, e:'in',   line:"And here he comes back…" },
+  { a:'brace',  b:'land',   d:110, e:'snap', blur:-1, line:"And here he comes back…" },
+  { a:'snap',   b:'land',   d:140, e:'hold', shake:16, flash:-1, hitA:1, s:['hk-punch','hk-crowd-gasp'],
+    line:"OH! Right back at him — that one had the whole rink behind it." },
+  { a:'reel',   b:'follow', d:520, e:'over', line:"OH! Right back at him — that one had the whole rink behind it." },
+
+  { a:'ready',  b:'ready',  d:760, e:'out',  s:['hk-grapple','hk-crowd-cheer'],
+    line:"Jersey's over his head now, and the linesmen are still just watching." },
+  // the miss — he overcommits, and it's what loses him the fight
+  { a:'windup', b:'brace',  d:420, e:'in',   line:"Tvardovsky loads up for a big one…" },
+  { a:'land',   b:'ready',  d:110, e:'snap', blur:-1, s:['hk-punch-miss'],
+    line:"Tvardovsky loads up for a big one…" },
+  { a:'follow', b:'ready',  d:420, e:'out',  s:['hk-crowd-groan'],
+    line:"…and MISSES. Nothing but cold air, and now he's off balance." },
+
+  { a:'windup', b:'reel',   d:380, e:'in',   s:['hk-skate-stop'],
+    line:"Ferro doesn't need a second invitation." },
+  { a:'land',   b:'reel',   d:100, e:'snap', blur:1, line:"Ferro doesn't need a second invitation." },
+  { a:'land',   b:'snap',   d:150, e:'hold', shake:20, flash:1, hitB:2, s:['hk-punch-big'],
+    line:"THAT'S THE ONE." },
+  { a:'follow', b:'reel',   d:420, e:'over', line:"THAT'S THE ONE." },
+
+  { a:'windup', b:'reel',   d:460, e:'in',   line:"He's got him lined up…" },
+  { a:'land',   b:'reel',   d:100, e:'snap', blur:1, line:"He's got him lined up…" },
+  // CRITICAL — he's out of POWER, so this one doesn't drop him, it launches him.
+  { a:'land',   b:'snap',   d:260, e:'hold', shake:26, flash:1, hitB:2, crit:true, s:['hk-knockout'],
+    line:"OH THAT IS CRIMINAL." },
+  { a:'follow', b:'down',   d:900, e:'out',  s:['hk-fall'],
+    line:"TVARDOVSKY IS AIRBORNE. He lands somewhere near the far blue line." },
+  { a:'ready',  b:'down',   d:900, e:'out',  s:['hk-whistle','hk-crowd-roar'],
+    line:"Linesmen finally remember they have jobs." },
+  { a:'ready',  b:'down',   d:1900, e:'out', pp:'CIV', strength:'CIV POWER PLAY · 4:59',
+    line:"Five for Tvardovsky — and the Wardens get the man advantage out of it." },
+];
+const TOTAL = BEATS.reduce((s, b) => s + b.d, 0);
+const BEAT_AT = (() => { const o = []; let a = 0; for (const b of BEATS) { o.push(a); a += b.d; } return o; })();
+
+// ═══ instant replay ═══════════════════════════════════════════════════════════
+// Arcade sports games cut to a replay after every goal. We get it for FREE, and
+// for the same reason the whole league works: the play is already DATA and the
+// sim is deterministic. Nothing is recorded and no frame buffer exists — we just
+// rewind the clock, reset the physics with the SAME seed, and run it again
+// slower with a tighter camera. The ragdoll reproduces exactly because ragInit
+// is seeded and ragStep is fixed-step.
+const REPLAY = (() => {
+  const k = BEATS.findIndex(b => b.crit);
+  if (k < 0) return null;
+  const from = Math.max(0, k - 2), to = Math.min(BEATS.length - 1, k + 1);
+  return { from: BEAT_AT[from], to: BEAT_AT[to] + BEATS[to].d, speed: 0.32, zoom: 1.85, beat: k };
+})();
+
+// ═══ scene ════════════════════════════════════════════════════════════════════
+const W = 1140, H = 430, GLASS_T = 40, GLASS_H = 96, BOARD_Y = 136, BOARD_H = 30, FLOOR = 350, S = 1.66;
+let A, B, shellSeed = null;
+
+function buildShell() {
+  // The fight gets the SAME pixelate filter as the rink. Two different camera
+  // angles are fine — arcade sports games always cut between them — but they have
+  // to share a surface treatment or they read as two different games bolted
+  // together. Same palette depth, same block size, same crisp edges.
+  document.getElementById('stageSide').innerHTML =
+    `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet"` +
+      ` shape-rendering="geometricPrecision">${DEFS}` +
+      `<g${state.pixel ? ' filter="url(#pixelate)"' : ''}>` +
+        `<g id="bg">${arena(W, H, GLASS_T, GLASS_H, BOARD_Y, BOARD_H, state.seed)}</g>` +
+        `<g id="actors"></g><g id="fx"></g></g><g id="hud"></g>` +
+    `</svg><div class="cap">SIDE-ON · COLOUR-BLOCKED · TWEENED</div>`;
+  shellSeed = state.seed;
+}
+
+// Resolve the timeline at time `ms` into a frame, then paint ONLY the dynamic
+// layers. The static arena is never touched — that's what keeps this at 60fps.
+function paint(ms) {
+  let acc = 0, i = 0;
+  for (; i < BEATS.length; i++) { if (ms < acc + BEATS[i].d) break; acc += BEATS[i].d; }
+  if (i >= BEATS.length) i = BEATS.length - 1;
+  const bt = BEATS[i], prev = BEATS[i - 1] || BEATS[0];
+
+  const t = Math.max(0, Math.min(1, (ms - acc) / bt.d));
+  const te = (EASE[bt.e] || EASE.lin)(t);
+
+  // running hit tally — needed BEFORE the beat-entry hook so a crit can be detected
+  let hitsA = 0, hitsB = 0, pp = null, strength = null;
+  for (let k = 0; k <= i; k++) { hitsA += BEATS[k].hitA || 0; hitsB += BEATS[k].hitB || 0;
+    if (BEATS[k].pp) { pp = BEATS[k].pp; strength = BEATS[k].strength; } }
+
+  // ── beat entry: cues, blood, and the handoff from keyframes to physics ────
+  if (i !== lastBeat) {
+    const live = state.playing;
+    // In replay only the impact speaks — a full cue stack replayed at 0.3× reads
+    // as a mess, and arcade replays were always near-silent under the banner.
+    if (live && state.sound && bt.s && (!state.replay || bt.flash)) for (const id of bt.s) window.HockeySfx?.play(id);
+    if (live && bt.flash) {
+      const dir = bt.flash, ix = W / 2 + dir * 74, iy = FLOOR - 216;
+      // CRITICAL. A hit that lands on someone already out of POWER doesn't just
+      // hurt them, it launches them. Blood Bowl, not NHL.
+      const victim = dir > 0 ? hitsB : hitsA;
+      const crit = !!bt.crit || victim >= 5;
+      bloodBurst(ix, iy, crit ? 48 : 11, crit ? 2.2 : 1, (ms * 31) | 0);
+      if (crit) {
+        bloodSpurt(ix, iy, -dir, (ms * 7) | 0);
+        if (state.sound) window.HockeySfx?.play('hk-punch-big');
+      }
+      if (crit || bt.ko) {
+        const side = dir > 0 ? 'B' : 'A';
+        const cur = dir > 0 ? lastJb : lastJa, was = dir > 0 ? prevJb : prevJa;
+        const power = crit ? 6.2 : 3.2;
+        if (cur) rag[side] = ragInit(cur, was, [-power, -power * .6], (ms * 977) | 0);
+        critShake = crit ? 30 : 14;
+      }
+    }
+    lastBeat = i;
+  }
+
+  // Ragdolled fighters are driven by physics, not the timeline.
+  const ja = rag.A ? ragJoints(rag.A) : blend(shape(POSE[prev.a], A), shape(POSE[bt.a], A), te);
+  const jb = rag.B ? ragJoints(rag.B) : blend(shape(POSE[prev.b], B), shape(POSE[bt.b], B), te);
+  prevJa = lastJa; prevJb = lastJb; lastJa = ja; lastJb = jb;
+
+  // screen shake decays across the beat; a crit adds its own decaying kick
+  const sh = (bt.shake ? bt.shake * (1 - t) : 0) + critShake;
+  const r = rngFrom(((ms * 7919) | 0) >>> 0);
+  const sx = sh ? (r() - .5) * sh * 2 : 0, sy = sh ? (r() - .5) * sh : 0;
+
+  // speed-lines trailing the incoming glove on the snap beat
+  let fx = '';
+  if (bt.blur) {
+    const dir = bt.blur, j = dir > 0 ? ja : jb;
+    const gx = W / 2 + dir * 58 + j.haR[0] * S * dir, gy = FLOOR + j.haR[1] * S;
+    for (let k = 1; k <= 4; k++) fx += `<path d="M${F(gx - dir * k * 26)},${F(gy - k * 2)} L${F(gx - dir * (k * 26 - 16))},${F(gy - k * 2)}" stroke="#fff" stroke-width="${F(4 - k * .6)}" stroke-linecap="round" opacity="${F(.5 - k * .1)}"/>`;
+  }
+  if (bt.flash) {
+    const dir = bt.flash, ix = W / 2 + dir * 74, iy = FLOOR - 216, k = 1 - t;
+    fx += `<g filter="url(#glow)" opacity="${F(.35 + k * .5)}"><circle cx="${F(ix)}" cy="${F(iy)}" r="${F(20 + (1 - k) * 26)}" fill="#fff" opacity=".5"/>` +
+      Array.from({ length: 8 }, (_, n) => { const an = (n / 8) * Math.PI * 2 + .3, r0 = 22 + (1 - k) * 14, r1 = r0 + 30 + (n % 3) * 12;
+        return `<line x1="${F(ix + Math.cos(an) * r0)}" y1="${F(iy + Math.sin(an) * r0)}" x2="${F(ix + Math.cos(an) * r1)}" y2="${F(iy + Math.sin(an) * r1)}" stroke="#ffe9a8" stroke-width="4" stroke-linecap="round"/>`;
+      }).join('') + `</g>`;
+  }
+
+  // Blood lives under the figures so stains read as ON the ice, not painted over
+  // the players. Squash on the struck fighter for a single frame of impact.
+  const sqA = (bt.flash === -1 && bt.e === 'hold') ? 1 - .07 * (1 - t) : 1;
+  const sqB = (bt.flash === 1 && bt.e === 'hold') ? 1 - .07 * (1 - t) : 1;
+  // Replay camera: push in on the impact so the second look is a different shot,
+  // not the same wide frame slowed down.
+  const cam = state.replay
+    ? (() => { const z = REPLAY.zoom, cx = W / 2 + 40, cy = FLOOR - 150;
+        return `translate(${F(cx - cx * z)},${F(cy - cy * z)}) scale(${F(z)})`; })()
+    : '';
+  document.getElementById('actors').innerHTML =
+    `<g transform="${cam}"><g transform="translate(${F(sx)},${F(sy)})">` +
+      `<ellipse cx="${F(W / 2)}" cy="${F(FLOOR + 4)}" rx="200" ry="14" fill="#7f9fb4" opacity=".22"/>` +
+      bloodSvg() +
+      `<g transform="translate(${F(W / 2 - 48)},${FLOOR}) scale(${F(S / sqA)},${F(S * sqA)})">${figure(ja, A, state.weight, 1, 1, hitsA / 5)}</g>` +
+      `<g transform="translate(${F(W / 2 + 48)},${FLOOR}) scale(${F(-S / sqB)},${F(S * sqB)})">${figure(jb, B, state.weight, 1, -1, hitsB / 5)}</g>` +
+    `</g></g>`;
+  document.getElementById('fx').innerHTML = fx;
+  document.getElementById('hud').innerHTML = state.replay
+    ? replayHud(W, H, ms)
+    : powerBar(W, hitsA, hitsB, 'P2 · 11:24', strength) +
+      (pp ? ppBanner(W, H, pp, t) : '') + callout(W, H, bt.line);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// THE RINK — moving puck, moving players, goal horn, beacon
+// ═══════════════════════════════════════════════════════════════════════════════
+// 3/4 perspective, the way the arcade hockey games actually did it: NOT top-down.
+// That choice matters twice — it's the authentic look, and it lets the side-on
+// colour-blocked figure renderer be reused at small scale instead of needing a
+// second set of top-down art.
+//
+// Ice space is (x,y) with x 0→1 goal-to-goal and y 0→1 far boards→near boards.
+// Projection narrows the far end and scales players by depth, which is the whole
+// trick; everything downstream just works in ice space and never thinks about it.
+const RK = { W: 1140, H: 470, top: 196, depth: 232, wideNear: 1.0, wideFar: 0.60 };
+function ip(x, y) {
+  const k = RK.wideFar + (RK.wideNear - RK.wideFar) * y;
+  return [RK.W / 2 + (x - .5) * (RK.W - 90) * k, RK.top + y * RK.depth, .30 + .30 * y];
+}
+const IPS = (x, y) => { const p = ip(x, y); return `${F(p[0])},${F(p[1])}`; };
+
+function rinkStatic() {
+  const key = `rink:${state.seed}`; const hit = _cache.get(key); if (hit) return hit;
+  const band = (y0, y1, col, op) =>
+    `<path d="M${IPS(0,y0)} L${IPS(1,y0)} L${IPS(1,y1)} L${IPS(0,y1)} Z" fill="${col}" opacity="${op}"/>`;
+  const line = (x, col, w) => `<path d="M${IPS(x,0)} L${IPS(x,1)}" stroke="${col}" stroke-width="${w}" opacity=".85"/>`;
+  const circle = (x, y, r) => { const p = ip(x, y), k = p[2] / .6;
+    return `<ellipse cx="${F(p[0])}" cy="${F(p[1])}" rx="${F(r * 150 * k)}" ry="${F(r * 52 * k)}" fill="none" stroke="#c23a3a" stroke-width="2" opacity=".6"/>` +
+      `<circle cx="${F(p[0])}" cy="${F(p[1])}" r="${F(4 * k)}" fill="#c23a3a" opacity=".7"/>`; };
+  let o = arena(RK.W, RK.H, 40, 108, 148, 30, state.seed ^ 77);
+  // ice
+  o += `<path d="M${IPS(0,0)} L${IPS(1,0)} L${IPS(1,1)} L${IPS(0,1)} Z" fill="url(#ice)"/>`;
+  o += band(0, .06, '#b9cede', .35) + band(.94, 1, '#ffffff', .25);
+  o += line(.5, '#c23a3a', 3.5) + line(.32, '#2f6fd0', 3) + line(.68, '#2f6fd0', 3);
+  o += line(.06, '#c23a3a', 2) + line(.94, '#c23a3a', 2);           // goal lines
+  o += circle(.5, .5, .9);
+  for (const [cx, cy] of [[.18,.24],[.18,.76],[.82,.24],[.82,.76]]) o += circle(cx, cy, .6);
+  // creases + nets
+  for (const gx of [.06, .94]) {
+    const d = gx < .5 ? 1 : -1, p = ip(gx, .5), k = p[2] / .6;
+    o += `<path d="M${F(p[0])},${F(p[1] - 34 * k)} q${F(52 * d * k)},${F(34 * k)} 0,${F(68 * k)} Z" fill="#7fb6e8" opacity=".3" stroke="#2f6fd0" stroke-width="1.6"/>`;
+    o += `<path d="M${F(p[0])},${F(p[1] - 30 * k)} L${F(p[0] - 26 * d * k)},${F(p[1] - 24 * k)} L${F(p[0] - 26 * d * k)},${F(p[1] + 24 * k)} L${F(p[0])},${F(p[1] + 30 * k)} Z" fill="#e9eef2" opacity=".22" stroke="#c23a3a" stroke-width="2.4"/>`;
+  }
+  _cache.set(key, o); return o;
+}
+
+// ═══ THE GAME ═════════════════════════════════════════════════════════════════
+// A state machine, not a looping animation: FACEOFF → RUSH → SHOT → (save / post /
+// block / wide / GOAL) → rebound or whistle → faceoff. Every possession is
+// generated from a seeded roll, so outcomes vary — which is the difference between
+// a demo reel and something you'd leave on. This is also a dry run for the shape
+// `sports/hockey.js` will take.
+const OUTCOMES = [
+  { k: 'save', w: 32 }, { k: 'glove', w: 8 }, { k: 'pad', w: 8 }, { k: 'block', w: 12 },
+  { k: 'wide', w: 13 }, { k: 'post', w: 5 }, { k: 'goal', w: 17 },
+];
+const OUT_TOTAL = OUTCOMES.reduce((s, o) => s + o.w, 0);
+function rollOutcome(r) { let x = r() * OUT_TOTAL; for (const o of OUTCOMES) { x -= o.w; if (x <= 0) return o.k; } return 'save'; }
+
+const G = {
+  phase: 'opening', openT: 0, pt: 0, clock: 20 * 60, period: 1, score: [0, 0],
+  side: 0, seq: null, u: 0, danger: 0, outcome: null, shooter: '',
+  cam: { x: 0, z: 1 }, crowdAt: 0, msg: null, msgT: 0, seed: 991,
+};
+const CLOCK_RATE = 26;                 // in-game seconds per real second (demo pacing)
+const EASE_OUT = (t) => 1 - Math.pow(1 - t, 3);
+
+// An empty net is a much softer target — that's the whole gamble of pulling him.
+function emptyNetBoost(side) {
+  return (G.pulled != null && G.pulled !== side) ? 3.2 : 1;
+}
+function genPossession(r, side) {
+  const dir = side === 0 ? 1 : -1;
+  const startX = side === 0 ? .22 : .78, netX = side === 0 ? .955 : .045;
+  const nodes = [{ t: 0, p: [startX, .28 + r() * .44] }];
+  const n = 2 + Math.floor(r() * 3);
+  for (let i = 1; i <= n; i++) {
+    const f = i / (n + 1);
+    nodes.push({ t: f * .8, p: [startX + (netX - startX) * f * (.72 + r() * .5), .16 + r() * .68] });
+  }
+  let outcome = rollOutcome(r);
+  // shooting at an unguarded cage
+  if (emptyNetBoost(side) > 1 && outcome !== 'goal' && outcome !== 'wide' && r() < .55) outcome = 'goal';
+  nodes.push({ t: .88, p: [netX - dir * (.07 + r() * .05), .36 + r() * .28] });
+  const endY = outcome === 'wide' ? (r() < .5 ? .2 : .8) : .42 + r() * .16;
+  nodes.push({ t: 1, p: [outcome === 'block' ? netX - dir * .14 : netX, endY] });
+  return { nodes, outcome, dur: 3000 + r() * 2400, side };
+}
+function seqPuckAt(seq, u) {
+  const N = seq.nodes, n = N.length;
+  let i = 0; while (i < n - 2 && N[i + 1].t < u) i++;
+  const a = N[Math.max(0, i - 1)], b = N[i], c = N[Math.min(n - 1, i + 1)], d = N[Math.min(n - 1, i + 2)];
+  const span = Math.max(1e-4, c.t - b.t), s = cl((u - b.t) / span, 0, 1), s2 = s * s, s3 = s2 * s;
+  const cr = (p0, p1, p2, p3) => .5 * ((2 * p1) + (-p0 + p2) * s + (2 * p0 - 5 * p1 + 4 * p2 - p3) * s2 + (-p0 + 3 * p1 - 3 * p2 + p3) * s3);
+  return [cr(a.p[0], b.p[0], c.p[0], d.p[0]), cr(a.p[1], b.p[1], c.p[1], d.p[1])];
+}
+const sfx = (id, g) => { if (state.sound && state.rinkSound) window.HockeySfx?.play(id, null, g); };
+function say(text, secs) { G.msg = text; G.msgT = secs || 2.4; }
+
+// ── board advertising ────────────────────────────────────────────────────────
+// Real in-universe brands, pulled from content/items and the org list, not
+// invented filler. IRONCHILL sponsoring an ice rink is the joke writing itself.
+// The last few are new but built in the same register so they can carry
+// commercials on the broadcast channels later.
+// PRIMARY: the eight advertisers that already run commercials on the broadcast
+// channels (data/scripts/*.bsm, @category commercial). Same sponsors on the boards
+// as in the ad breaks is what makes a world feel like one place — and two of them
+// sell resurrection, which in a league where players die is free comedy.
+const ADS = [
+  { t: 'VITAL ENCORE', s: 'DEATH IS JUST INTERMISSION', c: '#d84a8a' },
+  { t: 'NEXTLIFE', s: 'DYING IS NOT AN EXCUSE', c: '#4ac2b8' },
+  { t: 'ACID COLA', s: 'REALITY HURTS', c: '#8ad84a' },
+  { t: 'IRONCLAD MOTORS', s: 'THE WIDOWMAKER FAMILY EDITION', c: '#c8382f' },
+  { t: 'EVERLAST AUGMENTS', s: 'NOW, SO IS SHE', c: '#c9a13c' },
+  { t: 'SLEEPRIGHT', s: 'WAKE BETTER.', c: '#6f8fd0' },
+  { t: 'SCRUBGOD 9000', s: "BUT WAIT, THERE'S MORE", c: '#e8843c' },
+  { t: "HUNGRY MAN'S", s: 'JUST MEATS', c: '#b8452f' },
+  // SECONDARY: product brands lifted from content/items — no commercials yet, so
+  // these are the natural candidates when we write more.
+  { t: 'IRONCHILL', s: 'COMMERCIAL REFRIGERATION', c: '#3fa9d8' },
+  { t: 'RUST WHISKEY', s: 'DRINK IT ANYWAY', c: '#c07a2a' },
+  { t: 'SOYLENT', s: 'A MEAL. TECHNICALLY.', c: '#6aa564' },
+  { t: 'PHANTEX', s: 'TELEVISION', c: '#8a6fd0' },
+  { t: 'THE NEON VIG', s: 'THE HOUSE IS FINE', c: '#e85aa0' },
+  { t: 'STATIC FIZZ', s: 'TASTE THE SIGNAL', c: '#e8b34a' },
+  { t: 'COLDWATER SENTINEL', s: 'STILL PRINTING', c: '#b9c4cc' },
+];
+// Real dasher-board advertising, not captions. The rules actual rink boards follow:
+// panels BUTT together with no gaps and no margins, the brand colour is the panel
+// BACKGROUND with the wordmark knocked out of it, widths vary because sponsors buy
+// different sizes, and roughly a third run reversed (light panel, dark type) for
+// contrast down the strip. Then it all gets scuffed, because this is Coldwater.
+function boardAds(W, y, h, seed) {
+  const key = `ads:${W}:${y}:${h}:${seed}`; const hit = _cache.get(key); if (hit) return hit;
+  const r = rngFrom(seed);
+  const pool = [...ADS].sort(() => r() - .5);
+  // buy widths first, then normalise so the strip fills the boards exactly
+  const buys = []; let total = 0;
+  while (total < W * 1.4 && buys.length < 9) { const w = 120 + Math.floor(r() * 150); buys.push(w); total += w; }
+  const k = W / buys.reduce((s, v) => s + v, 0);
+  let o = '', x = 0;
+  buys.forEach((bw, i) => {
+    const pw = bw * k, a = pool[i % pool.length];
+    const reversed = r() < .34;
+    const bg = reversed ? '#e6ebef' : a.c;
+    const ink = reversed ? shade(a.c, .55) : '#ffffff';
+    o += `<rect x="${F(x)}" y="${F(y)}" width="${F(pw + .6)}" height="${F(h)}" fill="${bg}"/>`;
+    // a plain geometric mark — sponsors have logos, and it breaks up a wall of type
+    let tx = x + pw / 2;
+    if (pw > 150 && r() < .6) {
+      const cx = x + 15, cy = y + h / 2, m = (r() * 3) | 0;
+      o += m === 0 ? `<circle cx="${F(cx)}" cy="${F(cy)}" r="7" fill="none" stroke="${ink}" stroke-width="2.6"/>`
+        : m === 1 ? `<rect x="${F(cx - 6)}" y="${F(cy - 6)}" width="12" height="12" fill="${ink}" transform="rotate(45 ${F(cx)} ${F(cy)})"/>`
+        : `<path d="M${F(cx - 7)},${F(cy + 6)} L${F(cx)},${F(cy - 7)} L${F(cx + 7)},${F(cy + 6)} Z" fill="${ink}"/>`;
+      tx += 8;
+    }
+    const fit = Math.min(15, (pw - 30) / (a.t.length * .56));
+    o += `<text x="${F(tx)}" y="${F(y + h * (a.s && fit > 10 ? .5 : .62))}" text-anchor="middle" font-family="Impact,'Arial Black',sans-serif" font-size="${F(fit)}" fill="${ink}" letter-spacing="0.5">${a.t}</text>`;
+    if (a.s && fit > 10) o += `<text x="${F(tx)}" y="${F(y + h * .82)}" text-anchor="middle" font-family="monospace" font-size="${F(Math.min(7.5, fit * .52))}" fill="${ink}" opacity=".8" letter-spacing="1.1">${a.s}</text>`;
+    // seam between panels
+    o += `<rect x="${F(x + pw - .8)}" y="${F(y)}" width="1.6" height="${F(h)}" fill="#0b1015" opacity=".55"/>`;
+    x += pw;
+  });
+  // puck marks and scuffing along the strip
+  for (let i = 0; i < 26; i++) {
+    const px = r() * W, py = y + h * (.25 + r() * .7);
+    o += `<ellipse cx="${F(px)}" cy="${F(py)}" rx="${F(3 + r() * 7)}" ry="${F(1.4 + r() * 2.4)}" fill="#0b1015" opacity="${F(.10 + r() * .22)}" transform="rotate(${F(r() * 30 - 15)} ${F(px)} ${F(py)})"/>`;
+  }
+  o += `<rect x="0" y="${F(y)}" width="${W}" height="${F(h)}" fill="url(#boardShade)"/>`;
+  _cache.set(key, o); return o;
+}
+
+// ═══ CUP MODE ═════════════════════════════════════════════════════════════════
+// The Coldwater Cup final must not look like a Tuesday in November. Everything
+// here is additive — same rink, same sim, same figures — so it costs one flag on
+// the broadcast and nothing in the engine. Gold replaces the accent colour, the
+// crest is painted at centre ice, the crowd pops flashbulbs, spotlights sweep,
+// and the goal beacon turns gold.
+const GOLD = '#e8c15a', GOLD_D = '#8a6a1e';
+function cupCrest() {
+  const p = ip(.5, .5), k = p[2] / .6;
+  const R = 128 * k;
+  return `<g opacity=".5"><ellipse cx="${F(p[0])}" cy="${F(p[1])}" rx="${F(R)}" ry="${F(R * .35)}" fill="none" stroke="${GOLD}" stroke-width="${F(3 * k)}"/>` +
+    `<ellipse cx="${F(p[0])}" cy="${F(p[1])}" rx="${F(R * .82)}" ry="${F(R * .29)}" fill="${GOLD}" opacity=".1"/>` +
+    // the Cup itself, painted flat on the ice and squashed by the perspective
+    `<g transform="translate(${F(p[0])},${F(p[1])}) scale(1,.35)">` +
+      `<path d="M${F(-26 * k)},${F(-40 * k)} q${F(26 * k)},${F(46 * k)} 0,${F(58 * k)} q${F(-26 * k)},${F(-12 * k)} 0,${F(-58 * k)} Z" fill="none" stroke="${GOLD}" stroke-width="${F(4 * k)}"/>` +
+      `<rect x="${F(-30 * k)}" y="${F(-46 * k)}" width="${F(60 * k)}" height="${F(9 * k)}" rx="${F(3 * k)}" fill="${GOLD}"/>` +
+      `<rect x="${F(-20 * k)}" y="${F(18 * k)}" width="${F(40 * k)}" height="${F(10 * k)}" rx="${F(3 * k)}" fill="${GOLD}"/>` +
+    `</g>` +
+    `<text x="${F(p[0])}" y="${F(p[1] + R * .26)}" text-anchor="middle" font-family="monospace" font-size="${F(13 * k)}" fill="${GOLD}" letter-spacing="${F(4 * k)}">COLDWATER CUP</text></g>`;
+}
+// Flashbulbs. Random white pops scattered through the stands — the cheapest,
+// most instantly legible "this is the big one" signal there is.
+let bulbs = [];
+function stepBulbs(dt) {
+  if (Math.random() < dt * 26 && bulbs.length < 40)
+    bulbs.push({ x: Math.random() * RK.W, y: 46 + Math.random() * 100, life: 0 });
+  for (const b of bulbs) b.life += dt;
+  bulbs = bulbs.filter(b => b.life < 0.32);
+}
+function cupOverlay() {
+  let o = '';
+  for (const b of bulbs) {
+    const k = 1 - b.life / 0.32;
+    o += `<circle cx="${F(b.x)}" cy="${F(b.y)}" r="${F(2 + k * 7)}" fill="#ffffff" opacity="${F(k * .9)}"/>`;
+  }
+  // sweeping spotlights
+  const t = rinkT / 1000;
+  for (let i = 0; i < 3; i++) {
+    const a = Math.sin(t * .55 + i * 2.1), x = RK.W / 2 + a * RK.W * .38;
+    o += `<path d="M${F(x)},40 L${F(x - 90)},${RK.H} L${F(x + 90)},${RK.H} Z" fill="${GOLD}" opacity=".05"/>`;
+  }
+  // gold banner
+  o += `<rect x="0" y="0" width="${RK.W}" height="30" fill="#0a0805" opacity=".92"/>` +
+    `<rect x="0" y="30" width="${RK.W}" height="1.6" fill="${GOLD}"/>` +
+    `<text x="${F(RK.W / 2)}" y="21" text-anchor="middle" font-family="monospace" font-size="14" font-weight="700" fill="${GOLD}" letter-spacing="7">COLDWATER CUP · GAME 7</text>` +
+    `<text x="14" y="21" font-family="monospace" font-size="11" fill="${GOLD_D}" letter-spacing="2">CPhL</text>` +
+    `<text x="${F(RK.W - 14)}" y="21" text-anchor="end" font-family="monospace" font-size="11" fill="${GOLD_D}" letter-spacing="2">WINNER TAKES IT</text>`;
+  return o;
+}
+// Confetti, only once the Cup is won.
+let confetti = [];
+function stepConfetti(dt, on) {
+  if (on && confetti.length < 220) for (let i = 0; i < 5; i++)
+    confetti.push({ x: Math.random() * RK.W, y: -10, vx: (Math.random() - .5) * 40,
+      vy: 40 + Math.random() * 90, r: 2 + Math.random() * 4, s: Math.random() * 360,
+      c: [GOLD, '#fff6d8', '#c8a23a', '#ffffff'][(Math.random() * 4) | 0] });
+  for (const c of confetti) { c.x += c.vx * dt; c.y += c.vy * dt; c.s += dt * 220; c.vx += Math.sin(c.y * .05) * 8 * dt; }
+  confetti = confetti.filter(c => c.y < RK.H + 20);
+  if (!on && confetti.length && !document.hidden) { /* let existing fall out */ }
+}
+const confettiSvg = () => confetti.map(c =>
+  `<rect x="${F(c.x)}" y="${F(c.y)}" width="${F(c.r)}" height="${F(c.r * 2)}" fill="${c.c}" opacity=".9" transform="rotate(${F(c.s)} ${F(c.x)} ${F(c.y)})"/>`).join('');
+
+// ── the goalie ───────────────────────────────────────────────────────────────
+// Bespoke renderer, not a reskinned skater. He gets stared at on every shot, and
+// a goalie in skater gear is instantly wrong: the silhouette is the point — cage
+// mask, slab chest, ENORMOUS leg pads, a trapper on one side, a rectangular
+// blocker on the other, and a paddle stick with a blade twice a skater's.
+// Drawn facing the play (+x local), poses selected by what the shot did.
+// Every value is a NUMBER, which is the whole design: poses interpolate, so the
+// goalie flows between them the way an NHL '96 netminder does instead of snapping
+// between sprites. The controller below eases `cur` toward a target each frame.
+const G_POSE = {
+  ready:     { crouch: .86, padSplay: .10, gloveY: -.62,  gloveX: .62, blockY: -.55, blockX: .58, stickAng: 52 },
+  track:     { crouch: .74, padSplay: .16, gloveY: -.66,  gloveX: .70, blockY: -.58, blockX: .64, stickAng: 60 },
+  butterfly: { crouch: .50, padSplay: 1.0, gloveY: -.52,  gloveX: .70, blockY: -.44, blockX: .64, stickAng: 84 },
+  glove:     { crouch: .92, padSplay: .18, gloveY: -1.25, gloveX: .92, blockY: -.52, blockX: .55, stickAng: 44 },
+  pad:       { crouch: .56, padSplay: .80, gloveY: -.58,  gloveX: .58, blockY: -.50, blockX: .60, stickAng: 88 },
+  blocker:   { crouch: .78, padSplay: .22, gloveY: -.50,  gloveX: .48, blockY: -1.05, blockX: .95, stickAng: 34 },
+  poke:      { crouch: .66, padSplay: .35, gloveY: -.60,  gloveX: .55, blockY: -.62, blockX: .92, stickAng: 18 },
+  sprawl:    { crouch: .34, padSplay: 1.25, gloveY: -.28, gloveX: 1.05, blockY: -.22, blockX: 1.1, stickAng: 100 },
+  // The two showpieces. A pad stack is both legs thrown flat to one side — the
+  // most theatrical save in hockey and the reason people watch goalies at all.
+  padstack:  { crouch: .30, padSplay: 1.55, gloveY: -.75, gloveX: 1.15, blockY: -.18, blockX: .5, stickAng: 104 },
+  // A robbery: glove hand snapped up and across, everything else abandoned.
+  robbery:   { crouch: .95, padSplay: .12, gloveY: -1.55, gloveX: 1.12, blockY: -.42, blockX: .46, stickAng: 40 },
+};
+const G_KEYS = Object.keys(G_POSE.ready);
+// Two goalies, each with an interpolated current pose, a target, and a hold timer.
+const goalieState = [0, 1].map(() => ({ cur: { ...G_POSE.ready }, target: 'ready', hold: 0, lean: 0, x: .5, depth: .03 }));
+function stepGoalies(dt, puck, phase, outcome, side) {
+  goalieState.forEach((g, n) => {
+    const underFire = (side === 0 ? n === 1 : n === 0);
+    if (g.hold > 0) g.hold -= dt;
+    else if (phase === 'resolve' && underFire) {
+      // A glove save is usually a glove save — but one in four is a ROBBERY, and a
+      // pad save is sometimes a full stack. Same outcome to the sim, wildly
+      // different to watch, which is exactly where variety is worth having.
+      const showy = Math.random();
+      g.target = outcome === 'glove' ? (showy < .28 ? 'robbery' : 'glove')
+        : outcome === 'pad' ? (showy < .3 ? 'padstack' : 'pad')
+        : outcome === 'save' ? (showy < .45 ? 'butterfly' : 'blocker')
+        : outcome === 'post' ? 'butterfly'
+        : outcome === 'block' ? 'poke'
+        : outcome === 'goal' ? 'sprawl' : 'ready';
+      g.hold = outcome === 'goal' ? 1.6 : (g.target === 'robbery' || g.target === 'padstack' ? 1.05 : .75);
+      // the flash is what makes a big save land — a white pop at the glove
+      if (g.target === 'robbery' || g.target === 'padstack') { g.flash = 1; sfx('hk-crowd-gasp', .85); }
+    } else if (phase === 'rush' && underFire && G.u > .62) g.target = 'track';
+    else g.target = 'ready';
+    // ease every parameter — this is what makes it flow rather than pop
+    const tgt = G_POSE[g.target], k = Math.min(1, dt * (g.target === 'ready' ? 6 : 17));
+    for (const key of G_KEYS) g.cur[key] += (tgt[key] - g.cur[key]) * k;
+    if (g.flash > 0) g.flash = Math.max(0, g.flash - dt * 2.6);
+    // Lateral tracking. The rink's y axis is the FULL 85ft width of the ice, so the
+    // old .3–.7 range had him sliding ~34 feet side to side — the crease is about
+    // eight. He stays in his paint: a narrow band, tracking gently.
+    const wantLean = cl((puck[1] - .5) * 30, -14, 14) * (n ? -1 : 1);
+    g.lean += (wantLean - g.lean) * Math.min(1, dt * 5);
+    g.x += (cl(.5 + (puck[1] - .5) * .17, .452, .548) - g.x) * Math.min(1, dt * 4.5);
+    // Depth: challenge the shooter when the puck is out, retreat into the crease as
+    // it closes. `depth` is how far off the goal line he is, in ice-space units.
+    const mine = n === 0 ? 0 : 1;
+    const dist = Math.abs(puck[0] - (mine ? .94 : .06));
+    const wantDepth = cl(.012 + dist * .085, .012, .052);
+    g.depth += ((g.hold > 0 ? .014 : wantDepth) - g.depth) * Math.min(1, dt * 3);
+  });
+}
+function goalieFigure(f, w, p, lean) {
+  const t = f.team, ow = Math.max(2.6, w * .28);
+  const H = 96 * p.crouch;                       // hip height off the ice
+  const padTop = -H * .95, padLen = H * 1.02, padW = w * 1.95;
+  const splay = p.padSplay;
+  const blk = (x, rot, ww, hh, col) =>
+    `<g transform="translate(${F(x)},${F(padTop + padLen * .5)}) rotate(${F(rot)})">` +
+      `<rect x="${F(-ww / 2 - ow / 2)}" y="${F(-hh / 2 - ow / 2)}" width="${F(ww + ow)}" height="${F(hh + ow)}" rx="${F(w * .35)}" fill="${OL}"/>` +
+      `<rect x="${F(-ww / 2)}" y="${F(-hh / 2)}" width="${F(ww)}" height="${F(hh)}" rx="${F(w * .3)}" fill="${col}"/>` +
+      `<path d="M${F(-ww / 2)},${F(-hh * .18)} L${F(ww / 2)},${F(-hh * .18)} M${F(-ww / 2)},${F(hh * .18)} L${F(ww / 2)},${F(hh * .18)}" stroke="${shade(col, .72)}" stroke-width="${F(w * .22)}"/>` +
+    `</g>`;
+  let o = `<g transform="rotate(${F(lean || 0)})">`;
+  // leg pads — the defining shape. splay rotates them flat for the butterfly.
+  o += blk(-w * 1.05, -splay * 62, padW, padLen, t.alt);
+  o += blk(w * 1.15, splay * 62, padW, padLen, t.alt);
+  // torso slab
+  const chestTop = padTop - H * .62;
+  o += `<path d="M${F(-w * 2.0)},${F(chestTop)} L${F(w * 2.0)},${F(chestTop)} L${F(w * 1.5)},${F(padTop + w * .3)} L${F(-w * 1.5)},${F(padTop + w * .3)} Z" fill="${OL}" stroke="${OL}" stroke-width="${F(ow * 1.6)}" stroke-linejoin="round"/>`;
+  o += `<path d="M${F(-w * 1.9)},${F(chestTop + 1)} L${F(w * 1.9)},${F(chestTop + 1)} L${F(w * 1.42)},${F(padTop + w * .2)} L${F(-w * 1.42)},${F(padTop + w * .2)} Z" fill="${t.jersey}"/>`;
+  o += `<rect x="${F(-w * 1.6)}" y="${F(chestTop + w * .5)}" width="${F(w * 3.2)}" height="${F(w * .5)}" fill="${t.alt}" opacity=".85"/>`;
+  // trapper (catching glove) and blocker
+  const gx = w * 2.6 * p.gloveX, gy = chestTop + H * p.gloveY * .5;
+  o += `<circle cx="${F(-gx * .55)}" cy="${F(gy)}" r="${F(w * 1.15 + ow / 2)}" fill="${OL}"/>` +
+    `<circle cx="${F(-gx * .55)}" cy="${F(gy)}" r="${F(w * 1.15)}" fill="${t.glove}"/>` +
+    `<path d="M${F(-gx * .55 - w * .8)},${F(gy - w * .5)} a${F(w * .8)},${F(w * .8)} 0 0 1 ${F(w * 1.6)},0" fill="none" stroke="${shade(t.glove, 1.4)}" stroke-width="${F(w * .3)}"/>`;
+  const bx = w * 2.6 * p.blockX, by = chestTop + H * p.blockY * .5;
+  o += blk(bx, 0, w * 1.5, w * 1.9, t.glove);
+  // paddle stick — wide shaft, oversized blade, blade flat on the ice
+  const sx0 = bx, sy0 = by + w * .8, a = p.stickAng * Math.PI / 180;
+  const sx1 = sx0 - Math.cos(a) * w * 4.6, sy1 = sy0 + Math.sin(a) * w * 4.6;
+  o += `<path d="M${F(sx0)},${F(sy0)} L${F(sx1)},${F(sy1)}" stroke="${OL}" stroke-width="${F(w * .95)}" stroke-linecap="round"/>` +
+    `<path d="M${F(sx0)},${F(sy0)} L${F(sx1)},${F(sy1)}" stroke="#c8a06a" stroke-width="${F(w * .62)}" stroke-linecap="round"/>` +
+    `<path d="M${F(sx1 - w * 1.1)},${F(sy1)} L${F(sx1 + w * 2.2)},${F(sy1)}" stroke="${OL}" stroke-width="${F(w * 1.05)}" stroke-linecap="round"/>` +
+    `<path d="M${F(sx1 - w * 1.1)},${F(sy1)} L${F(sx1 + w * 2.2)},${F(sy1)}" stroke="#2a2a2a" stroke-width="${F(w * .72)}" stroke-linecap="round"/>`;
+  // mask + cage
+  const hr = w * 1.18, hy = chestTop - hr * .82;
+  o += `<circle cx="0" cy="${F(hy)}" r="${F(hr + ow / 2)}" fill="${OL}"/>` +
+    `<circle cx="0" cy="${F(hy)}" r="${F(hr)}" fill="${t.helmet}"/>` +
+    `<path d="M${F(hr * .12)},${F(hy - hr * .55)} a${F(hr * .95)},${F(hr * .95)} 0 0 1 0,${F(hr * 1.3)} Z" fill="#12161a"/>` +
+    `<path d="M${F(hr * .2)},${F(hy - hr * .3)} L${F(hr * .95)},${F(hy - hr * .16)} M${F(hr * .2)},${F(hy + hr * .04)} L${F(hr * .98)},${F(hy + hr * .06)} M${F(hr * .2)},${F(hy + hr * .36)} L${F(hr * .88)},${F(hy + hr * .3)}` +
+      `" stroke="#8d959d" stroke-width="${F(w * .13)}"/>`;
+  // skates under the pads
+  o += skate([-w * 1.05, 0], w * .8, ow, 1, 1) + skate([w * 1.15, 0], w * .8, ow, 1, 1);
+  return o + `</g>`;
+}
+
+// ── roles, anchors, skaters ──────────────────────────────────────────────────
+const ROLES = ['LW', 'C', 'RW', 'D1', 'D2'];
+const OFF = { LW: [-.07, -.20], C: [.03, .02], RW: [-.07, .21], D1: [-.26, -.12], D2: [-.26, .13] };
+const DEF = { LW: [.10, -.16], C: [.05, .01], RW: [.10, .17], D1: [-.05, -.09], D2: [-.05, .10] };
+const cl = (v, a, b) => Math.max(a, Math.min(b, v));
+const FACEOFF_DOTS = [[.5, .5], [.18, .24], [.18, .76], [.82, .24], [.82, .76]];
+function anchorFor(role, puck, attacking) {
+  const o = attacking ? OFF[role] : DEF[role], d = attacking ? 1 : -1;
+  return [cl(puck[0] + o[0] * d, .08, .92), cl(puck[1] + o[1], .10, .90)];
+}
+function mkSkaters() {
+  const o = [];
+  for (const side of [0, 1]) for (const role of ROLES)
+    o.push({ side, role, x: .5 + (side ? .18 : -.18), y: .3 + Math.random() * .4,
+      vx: 0, vy: 0, phase: Math.random() * 6, lean: 0, accel: 0, spd: 0, stun: 0 });
+  return o;
+}
+let skaters = mkSkaters(), puckTrail = [], rinkT = 0, goalFired = false, beaconT = 0, spray = [];
+// Blood on the ice, in ICE SPACE so both renderers can draw the same stains. It
+// never gets cleaned up mid-game, which is the point.
+let iceBlood = [];
+// Skate cuts scored into the ice. Ice space, so either renderer can draw them.
+let iceCuts = [];
+// ── ZAMBONI ──────────────────────────────────────────────────────────────────
+// Drives the ice at every intermission and ERASES the wear behind it — cuts,
+// blood, all of it. This is the payoff for accumulating that stuff in the first
+// place: you spend twenty minutes scoring up the sheet and then watch it get
+// taken away, which makes the next period's wear mean something again.
+let zam = null;   // resurfacer; null when it is not on the ice
+function zamStart() { zam = { t: 0, lane: 0, x: .08, y: .12, dir: 1 }; }
+function zamStep(dt) {
+  if (!zam) return;
+  zam.t += dt;
+  zam.x += dir0(zam) * dt * .42;
+  // Lane spacing has to be NARROWER than the blade or you leave strips behind —
+  // first pass stepped .16 with an effective .034 reach and left the sheet 60%
+  // dirty, which just looks like the machine didn't work.
+  if (zam.x > .95 || zam.x < .05) {
+    zam.lane++; zam.y += .085; zam.x = cl(zam.x, .05, .95); zam.dir *= -1;
+  }
+  const R = .075;
+  const scrub = (o) => Math.hypot(o.x - zam.x, (o.y - zam.y) * 1.15) > R;
+  iceCuts = iceCuts.filter(scrub);
+  iceBlood = iceBlood.filter(scrub);
+  if (zam.y > .92) zam = null;                      // finished the sheet
+}
+const dir0 = (z) => z.dir;
+
+// GIBS — detached limbs, in ice space, with their own tumble. They slide on ice
+// like everything else here and then just stay where they stopped.
+let gibs = [];
+function spawnGib(s, kind, dirX, dirY) {
+  gibs.push({ x: s.x, y: s.y, vx: dirX * (.18 + Math.random() * .3), vy: dirY * (.10 + Math.random() * .18),
+    spin: (Math.random() - .5) * 900, rot: Math.random() * 360, kind, side: s.side, rest: 0 });
+}
+function stepGibs(dt) {
+  for (const g of gibs) {
+    if (g.rest > 1.4) continue;
+    g.x += g.vx * dt; g.y += g.vy * dt; g.rot += g.spin * dt;
+    const fr = Math.hypot(g.vx, g.vy) > .05 ? .988 : .86;   // ice: fast slides, slow grabs
+    g.vx *= fr; g.vy *= fr; g.spin *= .96;
+    g.x = cl(g.x, .06, .94); g.y = cl(g.y, .08, .92);
+    if (Math.hypot(g.vx, g.vy) < .012) g.rest += dt;
+    // they leave a smear behind them while they're still moving
+    if (Math.hypot(g.vx, g.vy) > .06 && Math.random() < .3 && iceBlood.length < 300)
+      iceBlood.push({ x: g.x, y: g.y, r: 1 + Math.random() * 1.8, c: BLOOD[(Math.random() * 3) | 0], a: .4 + Math.random() * .3 });
+  }
+  if (gibs.length > 14) gibs = gibs.slice(-14);
+}
+
+// ── skating physics ──────────────────────────────────────────────────────────
+// Momentum, capped acceleration and a hard turn-RATE limit, so they carve arcs
+// instead of tracking straight lines. Lean comes off lateral acceleration.
+const MAXV = 0.62, ACCEL = 2.2, TURN_RATE = 3.2, LOOKAHEAD = 0.06;
+function stepSkater(s, puckNow, puckSoon, dt, collapsing, freeze) {
+  if (s.stun > 0) { s.stun -= dt; s.x = cl(s.x + s.vx * dt, .06, .94); s.y = cl(s.y + s.vy * dt, .08, .92);
+    s.vx *= .93; s.vy *= .93; s.spd = Math.hypot(s.vx, s.vy); return; }
+  const attacking = s.side === G.side;
+  const target = collapsing ? puckNow : puckSoon;
+  let a;
+  if (freeze) {                                    // faceoff — ease onto the dot, never snap
+    const idx = ROLES.indexOf(s.role);
+    a = [cl(puckNow[0] + (attacking ? -.09 : .09) * (1 + idx * .5), .1, .9), cl(puckNow[1] + (idx - 2) * .13, .12, .88)];
+  } else if (collapsing) {
+    a = [cl(puckNow[0] - (attacking ? .12 : .3), .1, .9), cl(.5 + (ROLES.indexOf(s.role) - 2) * .13, .1, .9)];
+  } else a = anchorFor(s.role, target, attacking);
+
+  let dx = a[0] - s.x, dy = a[1] - s.y;
+  const d = Math.hypot(dx, dy) || 1e-4;
+  const want = Math.min(MAXV * (freeze ? .45 : 1), d * 3.2);
+  let ax = dx / d * want - s.vx, ay = dy / d * want - s.vy;
+  const am = Math.hypot(ax, ay) || 1e-4, cap = ACCEL * dt;
+  if (am > cap) { ax = ax / am * cap; ay = ay / am * cap; }
+  let nvx = s.vx + ax, nvy = s.vy + ay;
+  const sp0 = Math.hypot(s.vx, s.vy), sp1 = Math.hypot(nvx, nvy);
+  if (sp0 > 0.03 && sp1 > 1e-4) {
+    const cur = Math.atan2(s.vy, s.vx), nxt = Math.atan2(nvy, nvx);
+    let dA = ((nxt - cur + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+    const maxA = TURN_RATE * dt;
+    if (Math.abs(dA) > maxA) { const h = cur + Math.sign(dA) * maxA; nvx = Math.cos(h) * sp1; nvy = Math.sin(h) * sp1; }
+  }
+  const cross = (nvx - s.vx) * (-s.vy) + (nvy - s.vy) * s.vx;
+  s.lean += (cl(cross * 1500, -16, 16) - s.lean) * .2;
+  s.accel = Math.hypot(nvx - s.vx, nvy - s.vy) / Math.max(dt, 1e-4);
+  s.vx = nvx; s.vy = nvy;
+  s.x = cl(s.x + s.vx * dt, .06, .94); s.y = cl(s.y + s.vy * dt, .08, .92);
+  s.spd = Math.hypot(s.vx, s.vy);
+  s.phase += s.spd * dt * 26 + dt * .8;
+  // ── ICE ────────────────────────────────────────────────────────────────────
+  // 1. HARD STOP → a SHEET of snow thrown opposite the way he was going. The test
+  //    is DECELERATION specifically — acceleration pointing against his own
+  //    velocity — not just "turning". That distinction is why a stop looks nothing
+  //    like a crossover, and it's free: we already have both vectors.
+  const decel = -(s.vx * ax + s.vy * ay) / Math.max(1e-4, s.spd);
+  if (decel > .010 && s.spd > .11 && spray.length < 160) {
+    const back = Math.atan2(-s.vy, -s.vx);
+    for (let i = 0; i < 4; i++) {
+      const a2 = back + (Math.random() - .5) * 1.5, mag = (.10 + Math.random() * .30) * (1 + decel * 16);
+      spray.push({ x: s.x, y: s.y, vx: Math.cos(a2) * mag, vy: Math.sin(a2) * mag * .5,
+        life: 0, big: 1.5 + Math.random() * 1.9 });
+    }
+  } else if (s.accel > 1.5 && spray.length < 160 && Math.random() < .5) {
+    spray.push({ x: s.x, y: s.y, vx: -s.vx * .35 + (Math.random() - .5) * .12, vy: -s.vy * .35 + (Math.random() - .5) * .06, life: 0, big: 1 });
+  }
+  // 2. SKATE CUTS that STAY. Every blade scores the ice, and over a period the
+  //    surface fills with traffic — the cheapest way to make a rink look played-on
+  //    instead of freshly resurfaced.
+  if (s.spd > .1 && Math.random() < .3) {
+    const n2 = Math.hypot(s.vx, s.vy) || 1e-4;
+    iceCuts.push({ x: s.x, y: s.y, dx: s.vx / n2 * .013, dy: s.vy / n2 * .013, a: .16 + Math.random() * .16 });
+    // FADE rather than hard-cap. At a flat 520 limit the oldest mark vanished the
+    // instant a new one appeared, so the ice looked randomly speckled instead of
+    // progressively worked. Fading means traffic builds up and thins out.
+    if (iceCuts.length > 460) { for (const c of iceCuts) c.a *= .992; iceCuts = iceCuts.filter(c => c.a > .035); }
+  }
+}
+// ── SCRUM ────────────────────────────────────────────────────────────────────
+// When the puck is dead — a whistle, a rebound, anything not a clean rush — the
+// nearest bodies from both sides converge on it and shove. Not a fight: a scrum.
+// It's the most common thing in hockey and the rink looked oddly polite without
+// it, because everybody was always either skating or waiting.
+function stepScrum(dt, puck, live) {
+  if (G.phase !== 'resolve' && G.phase !== 'faceoff') return;
+  const near = live
+    .map(s => ({ s, d: Math.hypot(s.x - puck[0], (s.y - puck[1]) * .6) }))
+    .filter(o => o.d < .13).sort((a, b) => a.d - b.d).slice(0, 4);
+  if (near.length < 2) return;
+  for (const { s } of near) {
+    if (s.stun > 0) continue;
+    for (const { s: o } of near) {
+      if (o === s || o.side === s.side) continue;
+      const dx = s.x - o.x, dy = (s.y - o.y) * .6, d = Math.hypot(dx, dy) || 1e-4;
+      if (d > .07) continue;
+      const push = (.07 - d) * 5.2 * dt;            // jostling, not launching
+      s.vx += dx / d * push; s.vy += dy / d * push * .6;
+      s.phase += dt * 6;                            // feet churning in place
+      if (Math.random() < dt * 1.2 && spray.length < 150)
+        spray.push({ x: s.x, y: s.y, vx: (Math.random() - .5) * .14, vy: (Math.random() - .5) * .08, life: 0, big: .9 });
+    }
+  }
+  if (near.length >= 3 && Math.random() < dt * .5) sfx('hk-grapple', .55);
+}
+
+function stepSpray(dt) {
+  for (const p of spray) { p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= .93; p.vy *= .93; p.life += dt; }
+  spray = spray.filter(p => p.life < .42);
+}
+// ── body checks ──────────────────────────────────────────────────────────────
+// Skaters used to pass straight through each other, which is the least hockey
+// thing imaginable. Opposing players now collide; a hard closing speed staggers
+// the lighter man and fires the check cue.
+function stepChecks(dt) {
+  const live = onIce();
+  for (let i = 0; i < live.length; i++) for (let j = i + 1; j < live.length; j++) {
+    const a = live[i], b = live[j];
+    if (a.side === b.side) continue;
+    const dx = b.x - a.x, dy = (b.y - a.y) * 1.9;      // ice is wider than deep on screen
+    const d = Math.hypot(dx, dy);
+    if (d > .052 || d < 1e-5) continue;
+    const nx = dx / d, ny = dy / d, push = (.052 - d) * .5;
+    a.x -= nx * push; a.y -= ny * push * .5; b.x += nx * push; b.y += ny * push * .5;
+    const closing = (a.vx - b.vx) * nx + (a.vy - b.vy) * ny;
+    if (closing > .42 && a.stun <= 0 && b.stun <= 0) {
+      const victim = Math.random() < .5 ? a : b, hitter = victim === a ? b : a;
+      victim.stun = .5 + Math.random() * .35;
+      victim.vx = hitter.vx * 1.25; victim.vy = hitter.vy * 1.25;
+      // INTO THE BOARDS. A hit with nowhere to go is a completely different event
+      // from one in open ice — he has nothing to give, so it's louder, he stays
+      // down longer, and the glass takes it. Checked purely by where he ends up.
+      const onBoards = victim.y < .155 || victim.y > .845 || victim.x < .13 || victim.x > .87;
+      if (onBoards) {
+        victim.stun += .45; victim.boards = .5;
+        sfx('hk-glass'); sfx('hk-crowd-roar', .55);
+        say('RIDDEN INTO THE BOARDS', 2.2);
+        for (let k = 0; k < 10; k++) spray.push({ x: victim.x, y: victim.y,
+          vx: (Math.random() - .5) * .34, vy: (Math.random() - .5) * .2, life: 0, big: 1.2 + Math.random() });
+      }
+      sfx('hk-check'); if (Math.random() < .4) sfx('hk-crowd-gasp', .5);
+      for (let k = 0; k < 6; k++) spray.push({ x: victim.x, y: victim.y,
+        vx: (Math.random() - .5) * .3, vy: (Math.random() - .5) * .16, life: 0 });
+      // He wears it. Damage accumulates on the player and stains the ice where it
+      // happened — same escalation as the fight view, just read from above.
+      victim.dmg = Math.min(1, (victim.dmg || 0) + .3 + Math.random() * .25);
+      for (let k = 0; k < 5 + Math.random() * 7; k++) iceBlood.push({
+        x: victim.x + (Math.random() - .5) * .035, y: victim.y + (Math.random() - .5) * .02,
+        r: .9 + Math.random() * 2.4, c: BLOOD[(Math.random() * 3) | 0], a: .45 + Math.random() * .4 });
+      // INJURIES SWING GAMES. A bad hit ends that player's night — he leaves the
+      // ice and is NOT replaced until the next game, so his team finishes the game
+      // a man down. That's why injuries matter more here than penalties: a penalty
+      // costs you two minutes, a broken femur costs you the third period.
+      if (!G.sudden && Math.random() < .06) {
+        victim.out = true; victim.stun = 0;
+        const f = victim.side === 0 ? fA_() : fB_();
+        sfx('hk-fall'); sfx('hk-crowd-groan', .9);
+        say(`${f.name} DOESN'T GET UP — OUT FOR THE GAME`, 4);
+      }
+      // In sudden death a check can be fatal, and that ends the game exactly the
+      // way a goal does. Causal on purpose: the hit kills him — it isn't a timer.
+      // Grace period so overtime gets to breathe — a fatality three seconds after
+      // the drop is a punchline, not a finish.
+      if (G.sudden && !G.dead && (G.otT || 0) > 5 && Math.random() < .13) {
+        G.dead = victim; victim.stun = 999; victim.vx *= 2.2; victim.vy *= 2.2;
+        // A fatal check takes something with it. The limb detaches, tumbles off
+        // across the ice trailing a smear, and the man skates on without it.
+        const which = Math.random() < .5 ? 1 : 2;
+        victim.lost = (victim.lost || 0) | which;
+        const nx = (victim.x - hitter.x), ny = (victim.y - hitter.y), nd = Math.hypot(nx, ny) || 1;
+        spawnGib(victim, 'arm', nx / nd, ny / nd);
+        if (Math.random() < .35) { victim.lost |= (which === 1 ? 2 : 1); spawnGib(victim, 'arm', -nx / nd, ny / nd); }
+        for (let k = 0; k < 26; k++) iceBlood.push({ x: victim.x + (Math.random() - .5) * .05,
+          y: victim.y + (Math.random() - .5) * .03, r: 1 + Math.random() * 3,
+          c: BLOOD[(Math.random() * 3) | 0], a: .5 + Math.random() * .45 });
+        G.score[hitter.side]++;
+        goalFired = true; beaconT = 0;
+        sfx('hk-knockout'); sfx('hk-goal-horn'); sfx('hk-crowd-roar');
+        const f = victim.side === 0 ? fighterFrom(state.seed ^ 0x2a, 50, TEAMS.CIV) : fighterFrom(state.seed ^ 0x5b, 50, TEAMS.SLG);
+        say(`${f.name} IS DEAD — ${victim.side === 0 ? 'SLASHERS' : 'WARDENS'} WIN`, 7);
+        G.phase = 'resolve'; G.outcome = 'goal'; G.resolved = true; G.pt = 0;
+      }
+    }
+  }
+}
+
+// ── the tick ─────────────────────────────────────────────────────────────────
+function rinkStep(dt) {
+  rinkT += dt * 1000;
+  G.pt += dt;
+  if (G.sudden) G.otT = (G.otT || 0) + dt;
+  for (const s of skaters) if (s.boards > 0) s.boards -= dt;
+  if (G.msgT > 0) G.msgT -= dt;
+
+  const running = G.phase === 'rush';
+  if (running) G.clock = Math.max(0, G.clock - dt * CLOCK_RATE);
+
+  let puck = G.seq ? seqPuckAt(G.seq, G.u) : [.5, .5];
+  const r = rngFrom((G.seed = (G.seed * 1664525 + 1013904223) >>> 0));
+
+  switch (G.phase) {
+    case 'faceoff': {
+      const dot = FACEOFF_DOTS[G.faceDot || 0];
+      puck = dot;
+      if (G.pt > 1.5) {
+        sfx('hk-whistle-short'); sfx('hk-puck-tick');
+        G.side = r() < .5 ? 0 : 1;
+        G.seq = genPossession(r, G.side); G.u = 0; G.phase = 'rush'; G.pt = 0;
+      }
+      break;
+    }
+    case 'rush': {
+      G.u += (dt * 1000) / G.seq.dur;
+      if (G.u >= .86 && !G.shotFired) { G.shotFired = true; sfx(r() < .5 ? 'hk-puck-slap' : 'hk-stick-hit'); }
+      if (G.u >= 1) {
+        G.u = 1; G.outcome = G.seq.outcome; G.phase = 'resolve'; G.pt = 0; G.shotFired = false;
+        G.resolved = false;
+      }
+      break;
+    }
+    case 'resolve': {
+      // Fire the outcome ONCE on entry. A `G.pt < 0.01` guard silently never
+      // matched, because pt is advanced at the top of the tick before this runs —
+      // which is why the scoreboard sat at 0-0 with no save or goal cues at all.
+      if (!G.resolved) {
+        G.resolved = true;
+        const o = G.outcome;
+        if (o === 'goal') {
+          G.score[G.side]++; goalFired = true; beaconT = 0;
+          sfx('hk-net'); sfx('hk-goal-horn'); sfx('hk-crowd-roar');
+          say('GOAL — ' + (G.side === 0 ? 'WARDENS' : 'SLASHERS'), 3.4);
+        } else if (o === 'post') { sfx('hk-post'); sfx('hk-crowd-gasp'); say('OFF THE IRON', 2.2); }
+        else if (o === 'glove') { sfx('hk-glove-save'); sfx('hk-crowd-groan', .6); say('GLOVE SAVE', 2); }
+        else if (o === 'pad' || o === 'save') { sfx('hk-pad-save'); sfx('hk-crowd-groan', .5); say('SAVE', 1.8); }
+        else if (o === 'block') { sfx('hk-check', .7); say('BLOCKED', 1.6); }
+        else { sfx('hk-glass'); say('WIDE', 1.6); }
+      }
+      const hold = G.outcome === 'goal' ? 4.2 : 1.5;
+      if (G.pt > hold) {
+        goalFired = false;
+        const whistle = G.outcome === 'goal' || r() < .45;
+        if (whistle) { if (G.outcome !== 'goal') sfx('hk-whistle'); G.phase = 'faceoff'; G.pt = 0;
+          G.faceDot = G.outcome === 'goal' ? 0 : 1 + Math.floor(r() * 4); }
+        else { G.side = 1 - G.side; G.seq = genPossession(r, G.side); G.u = 0; G.phase = 'rush'; G.pt = 0; }
+      }
+      break;
+    }
+  }
+  if (goalFired) beaconT += dt;
+
+  // period roll-over
+  if (G.clock <= 0 && G.phase !== 'intermission') {
+    G.phase = 'intermission'; G.pt = 0; sfx('hk-period-horn'); say(`END OF PERIOD ${G.period}`, 3.4);
+    zamStart();                                     // resurface between periods
+  }
+  if (zam) zamStep(dt);
+  // Hold the intermission until the Zamboni has actually finished the sheet.
+  if (G.phase === 'intermission' && zam) G.pt = Math.min(G.pt, 3.3);
+  if (G.phase === 'intermission' && G.pt > 3.4) {
+    G.period++; G.clock = 20 * 60; G.pt = 0; G.faceDot = 0;
+    // THREE periods, then overtime only if it's level. Anything else is FINAL.
+    // SUDDEN DEATH: ends on the first goal OR the first fatality, whichever lands
+    // first — the only overtime format where both teams can lose.
+    if (G.period === 4) {
+      if (G.score[0] === G.score[1]) { G.sudden = true; G.clock = 5 * 60; }
+      else {
+        G.phase = 'final'; G.pt = 0; sfx('hk-period-horn'); sfx('hk-crowd-roar');
+        say(`FINAL — ${G.score[0] > G.score[1] ? 'WARDENS' : 'SLASHERS'} ${Math.max(...G.score)}–${Math.min(...G.score)}`, 6);
+      }
+    }
+    if (G.phase !== 'final') { G.phase = 'opening'; G.openT = 0; G.openBlast = false; }
+  }
+  // ── OPENING FACEOFF ────────────────────────────────────────────────────────
+  // Every period gets announced and dropped properly: a blast from the ref, the
+  // card, a second blast, then the puck. Four seconds, and it's the whole
+  // difference between a period STARTING and the clock just quietly ticking again.
+  if (G.phase === 'opening') {
+    const was = G.openT || 0; G.openT = was + dt;
+    if (was === 0) {
+      sfx('hk-whistle-short'); sfx('hk-crowd-cheer', .7);
+      say(G.sudden ? 'SUDDEN DEATH — NEXT GOAL OR NEXT BODY' : `${ORD[Math.min(4, G.period)]} PERIOD`, 3.6);
+    }
+    if (G.openT > 1.15 && !G.openBlast) { G.openBlast = true; sfx('hk-whistle-short', .85); }
+    if (G.openT > 2.5) { G.phase = 'faceoff'; G.pt = 0; G.openBlast = false; G.openT = 0; }
+  }
+  // Hold the final card, then roll a fresh game.
+  if (G.phase === 'final' && G.pt > 6) {
+    G.period = 1; G.score = [0, 0]; G.clock = 20 * 60; G.sudden = false; G.dead = null;
+    G.pulled = null; skaters = mkSkaters(); resetPhysics();
+    G.phase = 'opening'; G.openT = 0; G.openBlast = false; G.pt = 0;
+  }
+  // (the fatality itself is rolled inside stepChecks — the hit causes it)
+
+  // PULLED GOALIE. Down by one or two inside the last 90 seconds, the trailing
+  // side yanks its netminder for an extra attacker. Everything it needs already
+  // exists — the empty net just becomes a much softer target, and the risk is that
+  // the other team can now score into it from anywhere.
+  const trailing = G.score[0] === G.score[1] ? -1 : (G.score[0] < G.score[1] ? 0 : 1);
+  const wantPull = trailing >= 0 && G.clock < 90 && G.clock > 0 &&
+    Math.abs(G.score[0] - G.score[1]) <= 2 && G.period >= 3 && !G.sudden;
+  if (wantPull && G.pulled !== trailing) {
+    G.pulled = trailing;
+    sfx('hk-crowd-gasp', .8); say(`${trailing === 0 ? 'WARDENS' : 'SLASHERS'} PULL THE GOALIE — 6 ON 5`, 4);
+  } else if (!wantPull && G.pulled != null) G.pulled = null;
+
+  // DANGER — one scalar driving crowd volume AND camera zoom. It's what makes the
+  // building feel like it's watching the same game you are.
+  const attNet = G.side === 0 ? .955 : .045;
+  const prox = 1 - cl(Math.abs(puck[0] - attNet) / .45, 0, 1);
+  const want = G.phase === 'rush' ? prox * (0.35 + G.u * 0.65) : (goalFired ? 1 : .15);
+  G.danger += (want - G.danger) * Math.min(1, dt * 3.4);
+
+  // Reactive crowd: re-fire the bed at a cadence and gain that ride danger.
+  G.crowdAt -= dt;
+  if (G.crowdAt <= 0) {
+    G.crowdAt = 3.4 - G.danger * 1.4;
+    sfx('hk-crowd-bed', .45 + G.danger * 1.5);
+    if (G.danger > .72 && Math.random() < .5) sfx('hk-crowd-gasp', .5 + G.danger * .5);
+  }
+
+  // camera: follow the puck laterally, push in with danger. Both eased — nothing snaps.
+  const pScreen = ip(puck[0], puck[1])[0];
+  const wantX = -(pScreen - RK.W / 2) * .34, wantZ = 1 + G.danger * .16;
+  G.cam.x += (wantX - G.cam.x) * Math.min(1, dt * 2.4);
+  G.cam.z += (wantZ - G.cam.z) * Math.min(1, dt * 2.0);
+
+  const prevU = Math.max(0, G.u - (dt * 1000) / (G.seq?.dur || 4000));
+  if (G.seq && G.phase === 'rush') for (let k = 1; k <= 3; k++) puckTrail.push(seqPuckAt(G.seq, prevU + (G.u - prevU) * (k / 3)));
+  else puckTrail.push(puck);
+  while (puckTrail.length > 40) puckTrail.shift();
+
+  const soon = G.seq && G.phase === 'rush' ? seqPuckAt(G.seq, Math.min(1, G.u + LOOKAHEAD)) : puck;
+  const freeze = G.phase === 'faceoff' || G.phase === 'intermission' || G.phase === 'opening' || G.phase === 'final';
+  for (const s of onIce()) stepSkater(s, puck, soon, dt, goalFired, freeze);
+  stepGoalies(dt, puck, G.phase, G.outcome, G.side);
+  stepChecks(dt);
+  stepScrum(dt, puck, onIce());
+  stepSpray(dt);
+  stepGibs(dt);
+  if (iceBlood.length > 260) iceBlood = iceBlood.slice(-260);
+  if (state.cup) { stepBulbs(dt); stepConfetti(dt, goalFired); } else { bulbs = []; confetti = []; }
+  G.puck = puck;
+  return puck;
+}
+
+// ── paint ────────────────────────────────────────────────────────────────────
+const clockStr = () => `${Math.floor(G.clock / 60)}:${String(Math.floor(G.clock % 60)).padStart(2, '0')}`;
+const ORD = ['', '1ST', '2ND', '3RD', 'OT'];
+
+function paintRink() {
+  const host = document.getElementById('rinkDyn'); if (!host) return;
+  const puck = G.puck || [.5, .5];
+  const [fA, fB] = rinkFighters();
+
+  // Who has it? The nearest attacking skater. His blade gets aimed AT the puck,
+  // in his own local coords — that's what turns "a disc moving near some players"
+  // into someone actually carrying, passing and shooting it.
+  let carrier = null, best = 9;
+  if (G.phase === 'rush') for (const s of onIce(G.side)) {
+    const d = Math.hypot(s.x - puck[0], (s.y - puck[1]) * .6);
+    if (d < best) { best = d; carrier = s; }
+  }
+  const pScreenX = ip(puck[0], puck[1])[0], pScreenY = ip(puck[0], puck[1])[1];
+
+  const bodies = onIce().sort((a, b) => a.y - b.y).map(s => {
+    const [sx, sy, sc] = ip(s.x, s.y);
+    const f = s.side === 0 ? fA : fB;
+    const pushing = s.accel > .55 || s.spd < .12;
+    const pose = s.stun > 0 ? POSE.reel : ((pushing && Math.sin(s.phase) > -.25) ? POSE.stride : POSE.glide);
+    const face = s.vx >= 0 ? 1 : -1;
+    const turn = cl(s.vy / (MAXV * .75), -1, 1), at = Math.abs(turn);
+    const squash = .34 + .66 * (1 - at);
+    const facing = at > .45 ? (turn > 0 ? 'front' : 'back') : 'side';
+    const ff = { ...f, shoulder: f.shoulder * (1 + .85 * at) };
+    // blade target, converted from screen space into this skater's local frame
+    let stickTo = null;
+    if (s === carrier && best < .16) {
+      const sxScale = sc * face * squash || 1e-4;
+      stickTo = [cl((pScreenX - sx) / sxScale, -70, 70), cl((pScreenY - sy) / (sc || 1e-4), -40, 14)];
+    }
+    const body = figure(shape(pose, ff), ff, 13, 1, face, 0, 1, facing, stickTo);
+    // REFLECTION. Not a mirror — a reflection: squashed to 42%, blurred, faded out
+    // by a gradient mask, and SKEWED on a slow per-skater wobble so the ice reads
+    // as a disturbed surface. An exact flip looks like a rendering bug.
+    // Only the near half get one: far reflections are a few pixels tall and were
+    // doubling the frame payload for nothing.
+    const wob = Math.sin(rinkT * .0016 + s.x * 11) * 5.5;
+    const refl = s.y < .38 ? '' :
+      `<g transform="translate(${F(sx)},${F(sy)}) skewX(${F(wob)}) scale(${F(sc * face * squash)},${F(-sc * .42)})">${body}</g>`;
+    const main = `<g transform="translate(${F(sx)},${F(sy)}) rotate(${F(s.lean * face)}) scale(${F(sc * face * squash)},${F(sc)})" opacity="${F(.75 + .25 * s.y)}">${body}</g>`;
+    return { refl, main };
+  });
+
+  // Goal line is at .06/.94; the goalie stands out in front of it by `depth`, never
+  // behind it. Sits in the crease instead of somewhere out near the faceoff dots.
+  const goalies = [0, 1].map((n) => {
+    const g = goalieState[n];
+    const gx = n === 0 ? .06 + g.depth : .94 - g.depth;
+    const [sx, sy, sc] = ip(gx, g.x);
+    const f = n === 0 ? fA : fB;
+    return `<g transform="translate(${F(sx)},${F(sy)}) scale(${F(sc * 1.12 * (n ? -1 : 1))},${F(sc * 1.12)})">` +
+      goalieFigure(f, 13, g.cur, g.lean * (n ? -1 : 1)) + `</g>`;
+  }).join('');
+
+  let sprayFx = '';
+  for (const p of spray) { const q = ip(p.x, p.y), k = 1 - p.life / .42;
+    sprayFx += `<circle cx="${F(q[0])}" cy="${F(q[1])}" r="${F((1 + k * 2.4) * (p.big || 1))}" fill="#eaf6ff" opacity="${F(k * .62)}"/>`; }
+
+  let tail = '';
+  for (let i = 1; i < puckTrail.length; i++) {
+    const a = ip(puckTrail[i - 1][0], puckTrail[i - 1][1]), b = ip(puckTrail[i][0], puckTrail[i][1]);
+    const k = i / puckTrail.length;
+    tail += `<line x1="${F(a[0])}" y1="${F(a[1])}" x2="${F(b[0])}" y2="${F(b[1])}" stroke="#8ff0ff" stroke-width="${F(1 + k * 5)}" stroke-linecap="round" opacity="${F(k * .55)}"/>`;
+  }
+  const prevP = puckTrail.length > 3 ? puckTrail[puckTrail.length - 4] : puck;
+  const hx = puck[0] - prevP[0], hy = puck[1] - prevP[1], travel = Math.hypot(hx, hy) || 1e-4;
+  const wob = Math.sin(rinkT * .055) * .0022 * Math.min(1, travel * 60);
+  const pp = ip(puck[0] - hy / travel * wob, puck[1] + hx / travel * wob);
+  const pk = pp[2] / .5, spin = (rinkT * .5) % 360;
+  const puckSvg = `<g filter="url(#glow)">${tail}` +
+    `<ellipse cx="${F(pp[0])}" cy="${F(pp[1])}" rx="${F(7 * pk)}" ry="${F(4 * pk)}" fill="#dff8ff" opacity=".5"/>` +
+    `<g transform="translate(${F(pp[0])},${F(pp[1])}) rotate(${F(spin)})"><ellipse rx="${F(4.6 * pk)}" ry="${F(2.6 * pk)}" fill="#0b0e12"/>` +
+    `<line x1="${F(-3.4 * pk)}" y1="0" x2="${F(3.4 * pk)}" y2="0" stroke="#4a5a66" stroke-width="${F(.9 * pk)}"/></g></g>`;
+
+  let goalFx = '';
+  if (goalFired) {
+    const bp = ip(G.side === 0 ? .99 : .01, .5), spinB = beaconT * 4.2;
+    const lampX = bp[0], lampY = RK.top - 26, bc = state.cup ? GOLD : '#ff3b3b';
+    let cones = '';
+    for (let i = 0; i < 2; i++) { const a = spinB + i * Math.PI, ca = Math.cos(a); if (ca <= 0) continue;
+      cones += `<path d="M${F(lampX)},${F(lampY)} L${F(lampX + Math.cos(a - .3) * 300)},${F(lampY + 150)} L${F(lampX + Math.cos(a + .3) * 300)},${F(lampY + 150)} Z" fill="${bc}" opacity="${F(.3 * ca)}"/>`; }
+    const pulse = .5 + .5 * Math.sin(beaconT * 9);
+    goalFx = `<g filter="url(#glow)">${cones}<circle cx="${F(lampX)}" cy="${F(lampY)}" r="${F(11 + pulse * 5)}" fill="${bc}"/>` +
+      `<circle cx="${F(lampX)}" cy="${F(lampY)}" r="5" fill="#fff6e2"/></g>` +
+      `<rect x="0" y="0" width="${RK.W}" height="${RK.H}" fill="${bc}" opacity="${F(Math.max(0, .3 - beaconT * .5))}"/>`;
+  }
+
+  document.getElementById('rinkCam').setAttribute('transform',
+    `translate(${F(RK.W / 2 + G.cam.x)},${F(RK.H / 2)}) scale(${F(G.cam.z)}) translate(${F(-RK.W / 2)},${F(-RK.H / 2)})`);
+
+  host.innerHTML =
+    (state.cup ? cupCrest() : '') +
+    `<g opacity=".26" mask="url(#reflFade)" filter="url(#reflBlur)">${bodies.map(b => b.refl).join('')}</g>` +
+    sprayFx + bodies.map(b => b.main).join('') + goalies + puckSvg + goalFx +
+    (state.cup ? confettiSvg() : '');
+
+  // HUD lives OUTSIDE the camera group so the furniture never pans.
+  const hud = document.getElementById('rinkHud'); if (!hud) return;
+  const big = goalFired ? (state.cup ? 'CUP WINNER' : 'GOAL')
+    : (G.phase === 'intermission' ? `END OF PERIOD ${G.period}`
+    : G.phase === 'final' ? 'FINAL'
+    : (G.phase === 'opening' && G.openT < 2.2) ? (G.sudden ? 'SUDDEN DEATH' : `${ORD[Math.min(4, G.period)]} PERIOD`)
+    : null);
+  hud.innerHTML =
+    (state.cup ? cupOverlay() : '') +
+    scoreboard() +
+    (G.msg && G.msgT > 0 && !big ? lowerThird(G.msg, Math.min(1, G.msgT * 2)) : '') +
+    (big ? `<g opacity="${F(Math.min(1, (goalFired ? beaconT : G.pt) * 4))}">` +
+      `<text x="${F(RK.W / 2)}" y="${F(RK.H / 2 + 6)}" text-anchor="middle" font-family="Impact,'Arial Black',sans-serif" font-size="${state.cup ? 84 : 74}" fill="${state.cup ? GOLD : '#fff'}" stroke="${OL}" stroke-width="6" paint-order="stroke" letter-spacing="8">${big}</text></g>` : '');
+}
+
+// Broadcast furniture: score, clock, period. Table stakes, and it was missing.
+function scoreboard() {
+  const y = state.cup ? 36 : 6, w = 300, x = RK.W / 2 - w / 2;
+  const nA = onIce(0).length, nB = onIce(1).length;
+  // Skaters on the ice, always visible. Injuries are the only thing that changes
+  // it, so a "5 v 4" IS the story of the game — legible at a glance.
+  const strength = `<g><rect x="${F(x - 74)}" y="${y + 5}" width="66" height="24" rx="3" fill="#05090c" opacity=".9" stroke="${nA === nB ? '#2a3d36' : '#e8b34a'}"/>` +
+    `<text x="${F(x - 41)}" y="${y + 21}" text-anchor="middle" font-family="monospace" font-size="13" font-weight="700" fill="${nA === nB ? '#8fa89a' : '#e8b34a'}">${nA} v ${nB}</text></g>`;
+  // SUDDEN DEATH is a persistent state, not a passing caption — it stays on screen
+  // and pulses for as long as one hit can end the game.
+  const sd = G.sudden ? (() => {
+    const p = .55 + .45 * Math.sin(rinkT * .006);
+    return `<g><rect x="${F(x + w + 8)}" y="${y + 5}" width="150" height="24" rx="3" fill="#2a0709" stroke="#c0392b" stroke-width="1.6" opacity="${F(p)}"/>` +
+      `<text x="${F(x + w + 83)}" y="${y + 21}" text-anchor="middle" font-family="monospace" font-size="11" font-weight="700" fill="#ff6b6b" letter-spacing="2" opacity="${F(p)}">☠ SUDDEN DEATH</text></g>` +
+      `<rect x="0" y="0" width="${RK.W}" height="${RK.H}" fill="none" stroke="#c0392b" stroke-width="${F(3 + p * 3)}" opacity="${F(p * .5)}"/>`;
+  })() : '';
+  return strength + sd + `<g><rect x="${F(x)}" y="${y}" width="${w}" height="34" rx="3" fill="#05090c" opacity=".94" stroke="${G.sudden ? '#c0392b' : '#2a3d36'}"/>` +
+    `<rect x="${F(x)}" y="${y}" width="6" height="34" fill="${TEAMS.CIV.ui}"/>` +
+    `<rect x="${F(x + w - 6)}" y="${y}" width="6" height="34" fill="${TEAMS.SLG.ui}"/>` +
+    `<text x="${F(x + 24)}" y="${y + 23}" font-family="monospace" font-size="13" font-weight="700" fill="${TEAMS.CIV.ui}">CIV</text>` +
+    `<text x="${F(x + 72)}" y="${y + 24}" font-family="Impact,sans-serif" font-size="21" fill="#fff">${G.score[0]}</text>` +
+    `<text x="${F(x + w / 2)}" y="${y + 15}" text-anchor="middle" font-family="monospace" font-size="12" fill="#e8b34a" letter-spacing="2">${clockStr()}</text>` +
+    `<text x="${F(x + w / 2)}" y="${y + 28}" text-anchor="middle" font-family="monospace" font-size="9" fill="#6f8a7c" letter-spacing="3">${ORD[Math.min(4, G.period)]}</text>` +
+    `<text x="${F(x + w - 72)}" y="${y + 24}" text-anchor="end" font-family="Impact,sans-serif" font-size="21" fill="#fff">${G.score[1]}</text>` +
+    `<text x="${F(x + w - 24)}" y="${y + 23}" text-anchor="end" font-family="monospace" font-size="13" font-weight="700" fill="${TEAMS.SLG.ui}">SLG</text></g>`;
+}
+function lowerThird(text, a) {
+  return `<g opacity="${F(a)}"><rect x="30" y="${RK.H - 56}" width="${F(18 + text.length * 10)}" height="26" rx="2" fill="#05090c" opacity=".9"/>` +
+    `<rect x="30" y="${RK.H - 56}" width="4" height="26" fill="#e8b34a"/>` +
+    `<text x="44" y="${RK.H - 38}" font-family="monospace" font-size="13" fill="#dfeae2" letter-spacing="2">${esc(text)}</text></g>`;
+}
+const rinkFighters = () => [fighterFrom(state.seed ^ 0x2a, 50, TEAMS.CIV), fighterFrom(state.seed ^ 0x5b, 50, TEAMS.SLG)];
+const fA_ = () => rinkFighters()[0], fB_ = () => rinkFighters()[1];
+// Skaters still on the ice. Injured and dead players are filtered out of steering,
+// collisions AND rendering, so the short-handed side really is short-handed.
+const onIce = (side) => skaters.filter(s => !s.out && (side === undefined || s.side === side));
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// NHL '96 MODE — vertical rink, following camera, high-angle players
+// ═══════════════════════════════════════════════════════════════════════════════
+// Same sim, second renderer. Three things make it read as '96 rather than as the
+// side-on view rotated:
+//
+//  1. IT DOESN'T SHOW THE WHOLE RINK. The camera tracks the puck down the ice and
+//     shows about a third of it. That is the entire reason '96 looks good — six
+//     big players instead of twelve tiny ones. Orientation is just what enables it.
+//  2. HIGH ANGLE, so players ROTATE FREELY. A top-down figure is drawn pointing
+//     one way and turned with a transform, which completely dissolves the facing
+//     problem that the side-on renderer needs squash-and-swap hacks to fake.
+//  3. Perspective compresses toward the far boards — same trick, different axis.
+//
+// The sim is untouched: it works in ice space (along, across) and never knew which
+// way the camera was pointing.
+// halfW is the ice width at the NEAR boards. It was 470 in a 1140 frame, which is
+// why two thirds of the screen was black — the rink now fills the display and the
+// leftover wedges at the far end are stands, not void.
+const V = { W: 1140, H: 560, top: 8, depth: 470, halfW: 1076, near: .46, window: .34 };
+let vCam = .5, vCamV = 0, vCamT = .5;
+// ZOOM. The window is how much of the ice is in shot, so shrinking it IS zooming
+// in. Driven off the same `danger` scalar the crowd uses, so the camera tightens
+// on a scoring chance and breathes back out in the neutral zone — one number,
+// already computed, doing a second job.
+const VZ = { tight: .23, wide: .40 };
+let vWin = .34;
+// (across 0..1, along 0..1) → screen. `along` is resolved against the camera window.
+function vp(across, along) {
+  let v = (along - (vCam - vWin / 2)) / vWin;              // 0 = far, 1 = near
+  const k = V.near + (1 - V.near) * Math.max(-0.4, Math.min(1.4, v));
+  return [V.W / 2 + (across - .5) * V.halfW * 2 * k * .5,
+          V.top + Math.pow(Math.max(0, Math.min(1, v)), .92) * V.depth,
+          k, v];
+}
+const VPS = (a, b) => { const p = vp(a, b); return `${F(p[0])},${F(p[1])}`; };
+
+// Stands. Fills the whole frame and gets covered by the ice — so wherever the rink
+// doesn't reach (the wedges either side of the far end, and beyond the end boards)
+// you're looking at a crowd instead of black. Memoised; it never changes.
+let _vStands = null;
+function vStands() {
+  if (_vStands) return _vStands;
+  const r = rngFrom(state.seed ^ 0x5a11);
+  const HUE = ['#c2413a', '#3f6ec4', '#c9a13c', '#4aa564', '#8a4bb5', '#c2653a', '#3f9fb5', '#b8b8b8'];
+  let o = `<rect x="0" y="0" width="${V.W}" height="${V.H}" fill="#0b1016"/>`;
+  // rows get denser and dimmer as they climb away from the ice
+  for (let row = 0; row < 16; row++) {
+    const y = 2 + row * 15, sc = .55 + row * .045, dim = .16 + row * .035;
+    for (let x = -10; x < V.W + 10; x += 13 + r() * 9) {
+      const c = HUE[(r() * HUE.length) | 0];
+      o += `<circle cx="${F(x)}" cy="${F(y)}" r="${F(3 * sc)}" fill="${c}" opacity="${F(dim)}"/>` +
+        `<path d="M${F(x - 4.4 * sc)},${F(y + 9 * sc)} a${F(4.4 * sc)},${F(5 * sc)} 0 0 1 ${F(8.8 * sc)},0 Z" fill="${c}" opacity="${F(dim)}"/>`;
+    }
+  }
+  return (_vStands = o);
+}
+
+// The ice, redrawn per frame because the camera moves through it. Cheap: ~30 shapes.
+function vIce() {
+  const lo = vCam - vWin / 2, hi = vCam + vWin / 2;
+  const band = (y0, y1, fill) => `<path d="M${VPS(0,y0)} L${VPS(1,y0)} L${VPS(1,y1)} L${VPS(0,y1)} Z" fill="${fill}"/>`;
+  const across = (y, col, w) => (y < lo - .05 || y > hi + .05) ? '' :
+    `<path d="M${VPS(0,y)} L${VPS(1,y)}" stroke="${col}" stroke-width="${F(w * vp(.5,y)[2])}" opacity=".85"/>`;
+  const circle = (cx, cy, r) => {
+    if (cy < lo - .12 || cy > hi + .12) return '';
+    const p = vp(cx, cy), k = p[2];
+    return `<ellipse cx="${F(p[0])}" cy="${F(p[1])}" rx="${F(r * 165 * k)}" ry="${F(r * 78 * k)}" fill="none" stroke="#c23a3a" stroke-width="${F(2.4 * k)}" opacity=".6"/>` +
+      `<circle cx="${F(p[0])}" cy="${F(p[1])}" r="${F(4.5 * k)}" fill="#c23a3a" opacity=".75"/>`;
+  };
+  // Ice only exists between the end boards — clamped, so when the camera reaches an
+  // end you see the boards and the crowd behind them instead of ice running off.
+  const iceLo = Math.max(-0.002, lo - .1), iceHi = Math.min(1.002, hi + .1);
+  let o = band(iceLo, iceHi, 'url(#vice)');
+  // side boards: a dasher strip down each long edge, with a red cap
+  for (const side of [0, 1]) {
+    const d = side ? 1 : -1;
+    o += `<path d="M${VPS(side, iceLo)} L${VPS(side, iceHi)} L${F(vp(side, iceHi)[0] + d * 26 * vp(side, iceHi)[2])},${F(vp(side, iceHi)[1])} L${F(vp(side, iceLo)[0] + d * 26 * vp(side, iceLo)[2])},${F(vp(side, iceLo)[1])} Z" fill="#c3ccd4"/>` +
+      `<path d="M${VPS(side, iceLo)} L${VPS(side, iceHi)}" stroke="#c8382f" stroke-width="3" opacity=".9"/>`;
+  }
+  // end boards, only when an end is actually in shot
+  for (const [endY, dir] of [[0, -1], [1, 1]]) {
+    if (endY < lo - .12 || endY > hi + .12) continue;
+    const p0 = vp(0, endY), p1 = vp(1, endY), k = vp(.5, endY)[2];
+    o += `<path d="M${F(p0[0])},${F(p0[1])} L${F(p1[0])},${F(p1[1])} L${F(p1[0])},${F(p1[1] + dir * 30 * k)} L${F(p0[0])},${F(p0[1] + dir * 30 * k)} Z" fill="#c3ccd4"/>` +
+      `<path d="M${F(p0[0])},${F(p0[1])} L${F(p1[0])},${F(p1[1])}" stroke="#c8382f" stroke-width="${F(3.4 * k)}"/>`;
+  }
+  o += across(.5, '#c23a3a', 4) + across(.32, '#2f6fd0', 3.4) + across(.68, '#2f6fd0', 3.4);
+  o += across(.06, '#c23a3a', 2.4) + across(.94, '#c23a3a', 2.4);
+  o += circle(.5, .5, .92);
+  for (const [cx, cy] of [[.24,.18],[.76,.18],[.24,.82],[.76,.82]]) o += circle(cx, cy, .6);
+  // creases + nets, drawn 3/4 from behind so the cage has depth like '96
+  for (const gy of [.06, .94]) {
+    if (gy < lo - .14 || gy > hi + .14) continue;
+    const d = gy < .5 ? -1 : 1, p = vp(.5, gy), k = p[2];
+    o += `<path d="M${F(p[0] - 62 * k)},${F(p[1])} q${F(62 * k)},${F(-d * 54 * k)} ${F(124 * k)},0 Z" fill="#7fb6e8" opacity=".32" stroke="#2f6fd0" stroke-width="${F(1.8 * k)}"/>`;
+    const nw = 52 * k, nh = 30 * k, ny = p[1] + d * 6 * k;
+    o += `<path d="M${F(p[0] - nw)},${F(ny)} L${F(p[0] - nw * .82)},${F(ny + d * nh)} L${F(p[0] + nw * .82)},${F(ny + d * nh)} L${F(p[0] + nw)},${F(ny)} Z" fill="#e9eef2" opacity=".3" stroke="#c8382f" stroke-width="${F(2.6 * k)}" stroke-linejoin="round"/>` +
+      `<path d="M${F(p[0] - nw)},${F(ny)} L${F(p[0] + nw)},${F(ny)}" stroke="#c8382f" stroke-width="${F(3.4 * k)}"/>` +
+      Array.from({ length: 5 }, (_, i) => { const x = p[0] - nw + (i + 1) * (nw * 2 / 6);
+        return `<path d="M${F(x)},${F(ny)} L${F(x)},${F(ny + d * nh)}" stroke="#b9c4cc" stroke-width="${F(.9 * k)}" opacity=".7"/>`; }).join('');
+  }
+  return o;
+}
+
+// ── articulated 3/4 skater ───────────────────────────────────────────────────
+// The animation is PARAMETRIC, not pose-swapped: joint positions are computed
+// straight from the stride phase, so the skating cycle is continuous instead of
+// two frames alternating. That's what '96 actually reads as — a real gait, with
+// the push leg driving out and back while the recovery leg lifts and swings
+// through under the body, arms counter-swinging, and the torso bobbing on each
+// push. All in units of w so it scales with perspective.
+// PROPORTIONS, corrected against reference. The first pass came out as squat
+// gorillas: torso longer than the legs, shoulders nearly as wide as the man was
+// tall, arms flung out past them. Real '96 sprites are TALL and NARROW —
+// roughly head 26% / torso 35% / LEGS 39% of total height, and the arms stay
+// tucked close enough that the body is one clean vertical mass.
+function skaterJoints(phase, pushing, turn) {
+  const amp = pushing ? 1 : .42;
+  const legOf = (ph, side) => {
+    const ext = Math.sin(ph) * amp;              // +1 driving out/back, -1 gathered
+    const rec = Math.max(0, -Math.cos(ph)) * amp; // recovery lift
+    return {
+      hip:  [side * .20, .18],
+      knee: [side * (.27 + ext * .22), .86 - rec * .17],
+      foot: [side * (.33 + ext * .54), 1.56 - rec * .36],
+      rec,
+    };
+  };
+  // Arms hang CLOSE. Out at ±1.16 they read as gorilla arms; the reference keeps
+  // them barely wider than the shoulders, which is also what makes the stick the
+  // thing your eye follows instead of the elbows.
+  const armOf = (ph, side) => {
+    const sw = Math.sin(ph) * amp * .5;
+    return {
+      sh:   [side * .50, -.66],
+      elb:  [side * (.58 + sw * .12), -.20 - sw * .10],
+      hand: [side * (.60 + sw * .22), .26 - sw * .18],
+    };
+  };
+  const bob = Math.abs(Math.sin(phase)) * .07 * amp;
+  return {
+    L: legOf(phase, -1), R: legOf(phase + Math.PI, 1),
+    aL: armOf(phase + Math.PI, -1), aR: armOf(phase, 1),
+    bob, lean: turn * .10,
+  };
+}
+
+// TAPERED limb. A round-capped stroke reads as a tube no matter how many stripes
+// you put on it, and at 40px tall silhouette is basically all you get — so limbs
+// are quads that change width along their length: pants flare at the hip, socks
+// narrow to the ankle, sleeves taper to the cuff. Heavy dark outline, flat fill,
+// one lit face on the upper side. Three shapes, and it reads at any size.
+// FORM. Four bands across the width instead of two: dark underside, base, lit
+// face, and a thin rim on the very top edge. That's a cylinder — the underside is
+// what was missing, because a shape with a highlight but no shadow still reads
+// flat. `lightX` shifts which side the light falls on so a player skating left
+// isn't lit the same as one skating right.
+function taper(a, b, wa, wb, col, ow, lightX) {
+  const dx = b[0] - a[0], dy = b[1] - a[1], d = Math.hypot(dx, dy) || 1e-4;
+  const nx = -dy / d, ny = dx / d;
+  const L = lightX === undefined ? 1 : (lightX >= 0 ? 1 : -1);
+  const band = (f0, f1) =>
+    `M${F(a[0] + nx * wa * f0)},${F(a[1] + ny * wa * f0)} L${F(b[0] + nx * wb * f0)},${F(b[1] + ny * wb * f0)} ` +
+    `L${F(b[0] + nx * wb * f1)},${F(b[1] + ny * wb * f1)} L${F(a[0] + nx * wa * f1)},${F(a[1] + ny * wa * f1)} Z`;
+  const quad = (ea, eb) => `M${F(a[0] + nx * ea)},${F(a[1] + ny * ea)} L${F(b[0] + nx * eb)},${F(b[1] + ny * eb)} ` +
+    `L${F(b[0] - nx * eb)},${F(b[1] - ny * eb)} L${F(a[0] - nx * ea)},${F(a[1] - ny * ea)} Z`;
+  return `<path d="${quad(wa + ow, wb + ow)}" fill="${OL}"/>` +
+    `<path d="${quad(wa, wb)}" fill="${shade(col, .58)}"/>` +                 // underside
+    `<path d="${band(-.15 * L, .72 * L)}" fill="${shade(col, .86)}"/>` +      // base
+    `<path d="${band(.34 * L, .94 * L)}" fill="${col}"/>` +                   // lit face
+    `<path d="${band(.82 * L, 1 * L)}" fill="${shade(col, 1.28)}" opacity=".85"/>`;  // rim
+}
+// Where a limb meets the body, light doesn't reach. A small dark blob at the joint
+// is cheap ambient occlusion and it's most of what stops parts looking pasted on.
+const contactAO = (p, r) => `<ellipse cx="${F(p[0])}" cy="${F(p[1])}" rx="${F(r)}" ry="${F(r * .8)}" fill="${OL}" opacity=".38"/>`;
+// A capped stump where a limb used to be. Deliberately simple — at this size it's
+// a dark socket and a wet edge, and anything more detailed just reads as mud.
+const stumpAt = (p, w, ow) =>
+  `<circle cx="${F(p[0])}" cy="${F(p[1])}" r="${F(w * .19 + ow * .5)}" fill="${OL}"/>` +
+  `<circle cx="${F(p[0])}" cy="${F(p[1])}" r="${F(w * .16)}" fill="${BLOOD[1]}"/>` +
+  `<circle cx="${F(p[0])}" cy="${F(p[1] - w * .03)}" r="${F(w * .09)}" fill="${BLOOD[2]}"/>`;
+// Curved boot + blade as ONE silhouette. Laces and holder posts were ~1px at render
+// size — categorically invisible, before OR after pixelation — so they're gone.
+function bootSvg(p, w, ow, dir) {
+  const s = dir < 0 ? -1 : 1;
+  return `<path d="M${F(p[0] - w * .34 * s)},${F(p[1] - w * .26)} q${F(-w * .16 * s)},${F(w * .3)} ${F(w * .02 * s)},${F(w * .48)} ` +
+      `L${F(p[0] + w * .38 * s)},${F(p[1] + w * .22)} q${F(w * .14 * s)},${F(-w * .22)} ${F(-w * .04 * s)},${F(-w * .44)} Z" fill="${OL}" stroke="${OL}" stroke-width="${F(ow)}" stroke-linejoin="round"/>` +
+    `<path d="M${F(p[0] - w * .28 * s)},${F(p[1] - w * .2)} q${F(-w * .13 * s)},${F(w * .26)} ${F(w * .02 * s)},${F(w * .4)} ` +
+      `L${F(p[0] + w * .32 * s)},${F(p[1] + w * .16)} q${F(w * .11 * s)},${F(-w * .18)} ${F(-w * .03 * s)},${F(-w * .36)} Z" fill="#262b31"/>` +
+    `<rect x="${F(p[0] - w * .34)}" y="${F(p[1] + w * .3)}" width="${F(w * .7)}" height="${F(w * .11)}" rx="${F(w * .05)}" fill="#cfd8e0" stroke="${OL}" stroke-width="${F(ow * .5)}"/>`;
+}
+
+// The 3/4 skater, in detail. '96 looks down the ice at ~45°, so this is a STANDING
+// figure seen from behind-and-above — head above the shoulders on screen, back of
+// the sweater toward you, skates on the ice. Because it's 3/4 it stays upright and
+// only tilts with heading; a full 360° spin is a plan-view move and instantly
+// breaks the angle. Direction is carried by tilt + mirror + back/front swap.
+function figureTop(f, w, heading, phase, pushing, isGoalie, hurt) {
+  const t = f.team, ow = Math.max(1.6, w * .22);
+  const away = Math.cos(heading) >= -.25;
+  const lateral = Math.sin(heading);
+  const mirror = lateral < 0 ? -1 : 1;
+  const tilt = cl(lateral * 20, -20, 20);
+  const squash = .66 + .34 * Math.abs(Math.cos(heading));
+  hurt = hurt || 0;
+
+  if (isGoalie) {
+    const sw = w * 1.2;
+    return `<g transform="rotate(${F(tilt * .4)}) scale(${F(mirror)},1)">` +
+      // pads
+      `<rect x="${F(-sw * 1.5)}" y="${F(w * .1)}" width="${F(w * .68)}" height="${F(w * 1.5)}" rx="${F(w * .16)}" fill="${OL}"/>` +
+      `<rect x="${F(-sw * 1.44)}" y="${F(w * .16)}" width="${F(w * .56)}" height="${F(w * 1.38)}" rx="${F(w * .13)}" fill="${t.alt}"/>` +
+      `<rect x="${F(sw * .82)}" y="${F(w * .1)}" width="${F(w * .68)}" height="${F(w * 1.5)}" rx="${F(w * .16)}" fill="${OL}"/>` +
+      `<rect x="${F(sw * .88)}" y="${F(w * .16)}" width="${F(w * .56)}" height="${F(w * 1.38)}" rx="${F(w * .13)}" fill="${t.alt}"/>` +
+      // chest
+      `<rect x="${F(-sw)}" y="${F(-w * .5)}" width="${F(sw * 2)}" height="${F(w * 1.5)}" rx="${F(w * .3)}" fill="${OL}"/>` +
+      `<rect x="${F(-sw * .9)}" y="${F(-w * .4)}" width="${F(sw * 1.8)}" height="${F(w * 1.3)}" rx="${F(w * .25)}" fill="${t.jersey}"/>` +
+      `<rect x="${F(-sw * .9)}" y="${F(-w * .4)}" width="${F(sw * 1.8)}" height="${F(w * .34)}" rx="${F(w * .14)}" fill="${t.alt}"/>` +
+      // trapper + blocker
+      `<circle cx="${F(-sw * 1.62)}" cy="${F(-w * .1)}" r="${F(w * .5)}" fill="${OL}"/>` +
+      `<circle cx="${F(-sw * 1.62)}" cy="${F(-w * .1)}" r="${F(w * .4)}" fill="${t.glove}"/>` +
+      `<rect x="${F(sw * 1.16)}" y="${F(-w * .5)}" width="${F(w * .5)}" height="${F(w * .82)}" rx="${F(w * .1)}" fill="${OL}"/>` +
+      `<rect x="${F(sw * 1.22)}" y="${F(-w * .44)}" width="${F(w * .38)}" height="${F(w * .7)}" rx="${F(w * .08)}" fill="${t.glove}"/>` +
+      // mask
+      `<circle cx="0" cy="${F(-w * 1.14)}" r="${F(w * .62 + ow * .4)}" fill="${OL}"/>` +
+      `<circle cx="0" cy="${F(-w * 1.14)}" r="${F(w * .62)}" fill="${t.helmet}"/>` +
+      (away ? `<path d="M${F(-w * .44)},${F(-w * 1.32)} a${F(w * .44)},${F(w * .38)} 0 0 1 ${F(w * .88)},0 Z" fill="${shade(t.helmet, 1.3)}" opacity=".8"/>`
+            : `<path d="M${F(-w * .4)},${F(-w * 1.3)} L${F(w * .4)},${F(-w * 1.3)} M${F(-w * .44)},${F(-w * 1.12)} L${F(w * .44)},${F(-w * 1.12)} M${F(-w * .38)},${F(-w * .94)} L${F(w * .38)},${F(-w * .94)}" stroke="#8d959d" stroke-width="${F(w * .1)}"/>`) +
+    `</g>`;
+  }
+
+  const J = skaterJoints(phase, pushing, lateral);
+  const by = -J.bob * w;                       // torso bob rides the push
+  // CHARACTER. Build and posture come from the player's identity hash, so a heavy
+  // guy is visibly heavy and a hunched guy is visibly hunched — at 47px that's the
+  // only individuality that survives, and it's worth more than any printed detail.
+  const bulk = .82 + f.heft * .5;              // heft widens pants, sleeves, torso
+  const hunch = f.hunch ?? .5;                 // folded over the stick, or upright
+  const stW = f.stance ?? 1;                   // how wide the skates are planted
+  const armL = f.armLen ?? 1;
+  const fwd = hunch * w * .16;                 // hunch pushes the shoulders forward
+  const P = (p, s) => [p[0] * w * (/* legs splay with stance */ 1) * (s === 'leg' ? stW : 1),
+                       p[1] * w + (s === 'leg' ? 0 : by)];
+  const lightX = mirror;                       // light falls from the skater's lit side
+
+  // ── legs: flared pant → tapered sock → boot. Silhouette, not stripes. ──────
+  const legSvg = (L) => {
+    const hip = P(L.hip, 'leg'), knee = P(L.knee, 'leg'), foot = P(L.foot, 'leg');
+    // Hockey pants are the widest thing on the lower body and they FLARE at the
+    // thigh — that flare is the single most recognisable part of the leg shape,
+    // and it's where a heavy player reads as heavy.
+    const sockTop = f.sockHi ? .0 : .18;      // pulled up over the knee, or slouched
+    const kneeAdj = [knee[0] + (foot[0] - knee[0]) * sockTop, knee[1] + (foot[1] - knee[1]) * sockTop];
+    return taper(hip, knee, w * .30 * bulk, w * .20 * bulk, t.pants, ow, lightX) +
+      contactAO(knee, w * .13 * bulk) +
+      taper(kneeAdj, foot, w * .17 * bulk, w * .11, t.socks, ow, lightX) +
+      // one CHUNKY band, not three thin ones — a thin band is sub-pixel and just
+      // muddies the sock colour, which is a team read
+      `<path d="M${F(kneeAdj[0] + (foot[0] - kneeAdj[0]) * .34)},${F(kneeAdj[1] + (foot[1] - kneeAdj[1]) * .34)} ` +
+        `L${F(kneeAdj[0] + (foot[0] - kneeAdj[0]) * .58)},${F(kneeAdj[1] + (foot[1] - kneeAdj[1]) * .58)}" ` +
+        `stroke="${t.stripe}" stroke-width="${F(w * .30 * bulk)}" stroke-linecap="butt"/>` +
+      bootSvg(foot, w * .78, ow, mirror);
+  };
+  // far leg first so the near one overlaps correctly
+  const legs = (J.L.rec > J.R.rec ? legSvg(J.R) + legSvg(J.L) : legSvg(J.L) + legSvg(J.R));
+
+  // ── torso: one chunky wedge. Shoulder PADS are drawn as part of the outline
+  // rather than bolted on, so the whole upper body is a single strong shape. ──
+  // Narrow. Shoulders at ~0.62w instead of 1.06w — the torso is a slim vertical
+  // mass, not a slab, and that alone kills most of the gorilla read.
+  const sw = w * .62 * bulk, top = -w * 1.0 + by + fwd * .5, bot = w * .22 + by;
+  // SILHOUETTE. A hockey player from behind is a wedge: shoulder pads sit PROUD of
+  // the body as two hard caps, the torso pulls in hard at the waist, then the
+  // jersey flares back out over the pants. That pinch-and-flare is the shape —
+  // a plain trapezoid reads as a traffic cone.
+  const waistY = top + (bot - top) * .58, waistW = sw * .60;
+  const torsoPath =
+    `M${F(-sw)},${F(top + w * .30)} ` +
+    `Q${F(-sw * 1.06)},${F(top - w * .04)} ${F(-sw * .70)},${F(top - w * .02)} ` +   // left pad cap
+    `L${F(sw * .70)},${F(top - w * .02)} ` +
+    `Q${F(sw * 1.06)},${F(top - w * .04)} ${F(sw)},${F(top + w * .30)} ` +           // right pad cap
+    `L${F(waistW)},${F(waistY)} ` +                                                  // pinch
+    `L${F(sw * .80)},${F(bot)} L${F(-sw * .80)},${F(bot)} ` +                        // flare over the pants
+    `L${F(-waistW)},${F(waistY)} Z`;
+  const torso =
+    `<path d="${torsoPath}" fill="${OL}" stroke="${OL}" stroke-width="${F(ow * 1.7)}" stroke-linejoin="round"/>` +
+    `<path d="${torsoPath}" fill="${shade(t.jersey, .76)}" transform="scale(.94)"/>` +
+    // lit upper face
+    `<path d="M${F(-sw * .9)},${F(top + w * .06)} L${F(sw * .9)},${F(top + w * .06)} L${F(sw * .8)},${F(top + w * .58)} L${F(-sw * .8)},${F(top + w * .58)} Z" fill="${t.jersey}"/>` +
+    // yoke — a big flat colour block across the shoulders, the strongest team read
+    `<path d="M${F(-sw * .9)},${F(top + w * .04)} L${F(sw * .9)},${F(top + w * .04)} L${F(sw * .82)},${F(top + w * .36)} L${F(-sw * .82)},${F(top + w * .36)} Z" fill="${t.alt}"/>` +
+    // The number is PRINTED ON HIM, not floating near him. Three things sell that:
+    // it's squashed vertically (you're looking down at a back that leans away), it's
+    // skewed with the body's tilt, and it sits between the yoke and the hem where a
+    // real number goes. Without the squash it reads as a sticker on the screen.
+    (away ? `<g transform="translate(0,${F(top + w * .74)}) skewX(${F(-tilt * .45)}) scale(1,${F(.62 + hunch * .1)})">` +
+      `<text x="0" y="0" text-anchor="middle" font-family="Impact,'Arial Black',sans-serif" font-size="${F(w * .78)}" fill="${t.alt}" stroke="${OL}" stroke-width="${F(ow * .55)}" paint-order="stroke">${f.num}</text></g>` : '');
+
+  // ── arms: tapered sleeve to a blocky glove. Elbow pad and glove seam were both
+  // sub-pixel; the glove itself is the only part big enough to matter. ─────────
+  // DEPTH. A player carries his arms and stick AHEAD of him, so which way he's
+  // skating decides both where they sit and whether you can see them:
+  //   · skating AWAY  → arms reach up-screen, and his own back HIDES them
+  //   · skating TOWARD → arms reach down-screen, between him and the camera
+  // Getting this wrong is the single loudest tell that a 3/4 sprite is really a
+  // flat one, because the arms just float on top regardless of direction.
+  const reach = away ? -w * .30 : w * .26;
+  const armSvg = (A) => {
+    const sh = P(A.sh), elb0 = P(A.elb), hand0 = P(A.hand);
+    const elb = [sh[0] + (elb0[0] - sh[0]) * armL, sh[1] + (elb0[1] - sh[1]) * armL + reach * .55];
+    const hand = [elb[0] + (hand0[0] - elb0[0]) * armL, elb[1] + (hand0[1] - elb0[1]) * armL + reach];
+    const g = w * (f.bigMitts ? .19 : .15);
+    return contactAO(sh, w * .14 * bulk) +
+      taper(sh, elb, w * .20 * bulk, w * .15 * bulk, t.jersey, ow, lightX) +
+      taper(elb, hand, w * .15 * bulk, w * .12, t.jersey, ow, lightX) +
+      `<rect x="${F(hand[0] - g)}" y="${F(hand[1] - g * .88)}" width="${F(g * 2)}" height="${F(g * 1.76)}" rx="${F(g * .38)}" fill="${OL}"/>` +
+      `<rect x="${F(hand[0] - g * .78)}" y="${F(hand[1] - g * .66)}" width="${F(g * 1.56)}" height="${F(g * 1.32)}" rx="${F(g * .3)}" fill="${shade(t.glove, .78)}"/>` +
+      `<rect x="${F(hand[0] - g * .78)}" y="${F(hand[1] - g * .66)}" width="${F(g * 1.56)}" height="${F(g * .66)}" rx="${F(g * .28)}" fill="${t.glove}"/>`;
+  };
+
+  // ── stick: tapered shaft, knob tape, taped blade ───────────────────────────
+  const hL = [P(J.aL.hand)[0], P(J.aL.hand)[1] + reach], hR = [P(J.aR.hand)[0], P(J.aR.hand)[1] + reach];
+  // The stick goes where he's going — up-ice when skating away, and toward the
+  // camera (shorter, foreshortened) when skating at you.
+  const tip = away ? [hL[0] - w * 1.6, hL[1] - w * 1.75] : [hL[0] - w * 1.15, hL[1] + w * 1.0];
+  const stick =
+    `<path d="M${F(hR[0])},${F(hR[1])} L${F(tip[0])},${F(tip[1])}" stroke="${OL}" stroke-width="${F(w * .2)}" stroke-linecap="round"/>` +
+    `<path d="M${F(hR[0])},${F(hR[1])} L${F(tip[0])},${F(tip[1])}" stroke="#c8a06a" stroke-width="${F(w * .13)}" stroke-linecap="round"/>` +
+    `<path d="M${F(hR[0])},${F(hR[1])} L${F(hR[0] + (tip[0] - hR[0]) * .16)},${F(hR[1] + (tip[1] - hR[1]) * .16)}" stroke="#1a1a1a" stroke-width="${F(w * .15)}"/>` +
+    `<path d="M${F(tip[0])},${F(tip[1])} L${F(tip[0] + w * .62)},${F(tip[1] - w * .3)}" stroke="${OL}" stroke-width="${F(w * .3)}" stroke-linecap="round"/>` +
+    `<path d="M${F(tip[0])},${F(tip[1])} L${F(tip[0] + w * .62)},${F(tip[1] - w * .3)}" stroke="#2a2a2a" stroke-width="${F(w * .2)}" stroke-linecap="round"/>`;
+
+  // ── helmet / face ──────────────────────────────────────────────────────────
+  // Head sits forward as well as up when he's folded over the stick.
+  // Head sits clearly ON TOP of the shoulders and is bigger relative to the now
+  // narrower body — reference heads are ~a quarter of total height.
+  const hr = w * .46 * (.94 + f.heft * .12), hy = -w * 1.46 + by + fwd;
+  const shell = f.helmet ? t.helmet : f.hairCol;
+  let head = contactAO([0, hy + hr * .8], hr * .7) +
+    `<circle cx="0" cy="${F(hy)}" r="${F(hr + ow * .45)}" fill="${OL}"/>` +
+    `<circle cx="0" cy="${F(hy)}" r="${F(hr)}" fill="${shade(shell, .7)}"/>` +
+    // lit dome + rim, same four-band logic as the limbs
+    `<path d="M${F(-hr * .88)},${F(hy + hr * .1)} a${F(hr * .88)},${F(hr * .9)} 0 0 1 ${F(hr * 1.76)},0 Z" fill="${shell}"/>` +
+    `<path d="M${F(-hr * .7)},${F(hy - hr * .26)} a${F(hr * .7)},${F(hr * .6)} 0 0 1 ${F(hr * 1.4)},0 Z" fill="${shade(shell, 1.3)}" opacity=".9"/>`;
+  if (f.helmet) head += `<circle cx="${F(-hr * .8)}" cy="${F(hy + hr * .28)}" r="${F(hr * .26)}" fill="${shade(shell, .68)}" stroke="${OL}" stroke-width="${F(ow * .4)}"/>` +
+    `<circle cx="${F(hr * .8)}" cy="${F(hy + hr * .28)}" r="${F(hr * .26)}" fill="${shade(shell, .68)}" stroke="${OL}" stroke-width="${F(ow * .4)}"/>` +
+    // visor catches the light; a cage doesn't. One shape, two very different guys.
+    (f.visor && !away ? `<path d="M${F(-hr * .72)},${F(hy + hr * .1)} a${F(hr * .72)},${F(hr * .5)} 0 0 0 ${F(hr * 1.44)},0 Z" fill="#bfe4ff" opacity=".5" stroke="${OL}" stroke-width="${F(ow * .4)}"/>` : '');
+  if (!away) {
+    head += `<ellipse cx="0" cy="${F(hy + hr * .34)}" rx="${F(hr * .66)}" ry="${F(hr * .5)}" fill="${f.skin}"/>` +
+      `<circle cx="${F(-hr * .28)}" cy="${F(hy + hr * .26)}" r="${F(hr * .11)}" fill="#1a1a1a"/>` +
+      `<circle cx="${F(hr * .28)}" cy="${F(hy + hr * .26)}" r="${F(hr * .11)}" fill="#1a1a1a"/>` +
+      (f.beard ? `<path d="M${F(-hr * .42)},${F(hy + hr * .5)} q${F(hr * .42)},${F(hr * .42)} ${F(hr * .84)},0 Z" fill="${shade(f.hairCol, .9)}"/>` : '');
+  }
+
+  // ── gore ───────────────────────────────────────────────────────────────────
+  // Same escalation as the fight view, read from above: blood on the helmet, then
+  // down the sweater, then a soaked front. A hurt man should be visible from the
+  // cheap seats.
+  let blood = '';
+  if (hurt > .2) blood += `<path d="M${F(-hr * .5)},${F(hy - hr * .1)} L${F(hr * .3)},${F(hy + hr * .1)}" stroke="${BLOOD[0]}" stroke-width="${F(w * .1)}" stroke-linecap="round"/>`;
+  if (hurt > .45) blood += `<path d="M${F(hr * .2)},${F(hy + hr * .5)} q${F(w * .12)},${F(w * .4)} ${F(-w * .04)},${F(w * .8)}" fill="none" stroke="${BLOOD[0]}" stroke-width="${F(w * .1)}" stroke-linecap="round"/>`;
+  if (hurt > .7) blood += `<ellipse cx="${F(w * .18)}" cy="${F(top + w * .8)}" rx="${F(w * .3)}" ry="${F(w * .42)}" fill="${BLOOD[1]}" opacity=".8"/>`;
+
+  // DISMEMBERMENT. A limb listed in f.lost simply isn't drawn, and the stump gets
+  // capped in blood. The detached piece is spawned as a gib elsewhere, so the man
+  // and the part are the same drawing code — nothing is faked twice.
+  const lost = f.lost || 0;
+  const limbL = (lost & 1) ? stumpAt(P(J.aL.sh), w, ow) : armSvg(J.aL);
+  const limbR = (lost & 2) ? stumpAt(P(J.aR.sh), w, ow) : armSvg(J.aR);
+  // Z-ORDER by facing. Skating away, his back is between you and his arms, so they
+  // go UNDER the torso; skating toward you, they're in front of his chest and go
+  // OVER it. Same shapes, opposite stacking — and it's most of the 3/4 illusion.
+  const arms = limbL + limbR;
+  return `<g transform="rotate(${F(tilt)}) scale(${F(mirror * squash)},1)">` +
+    legs + stick +
+    (away ? arms + torso : torso + arms) +
+    head + blood + `</g>`;
+}
+
+// The blue hatched wake behind a moving skater — the most distinctive mark in the
+// whole '96 frame, and it costs four lines.
+function vSpray(s, px, py, k, heading) {
+  if (s.spd < .07) return '';
+  let o = '';
+  for (let i = 1; i <= 3; i++) {
+    const back = i * 11 * k, sp = 5 * k;
+    const bx = px - Math.sin(heading) * -back, by = py + Math.cos(heading) * -back * .55;
+    o += `<path d="M${F(bx - sp)},${F(by)} L${F(bx + sp)},${F(by)}" stroke="#5aa0e8" stroke-width="${F(2.2 * k)}" opacity="${F(.5 - i * .12)}" stroke-linecap="round"/>`;
+  }
+  return o;
+}
+
+// Crowd strip under the near boards. Memoised — it never changes and rebuilding a
+// few hundred dots every frame would be pure waste.
+let _vCrowd = null;
+function vCrowdBand(y) {
+  if (_vCrowd) return _vCrowd;
+  const r = rngFrom(state.seed ^ 21);
+  const HUE = ['#c2413a', '#3f6ec4', '#c9a13c', '#4aa564', '#8a4bb5', '#c2653a', '#d8d8d8'];
+  let o = '';
+  for (let row = 0; row < 2; row++) for (let x = 6; x < V.W; x += 15 + r() * 7) {
+    const c = HUE[(r() * HUE.length) | 0], yy = y + 9 + row * 15, op = F(.35 + r() * .4);
+    o += `<circle cx="${F(x)}" cy="${F(yy)}" r="${F(3.4)}" fill="${c}" opacity="${op}"/>` +
+      `<path d="M${F(x - 5)},${F(yy + 10)} a5,6 0 0 1 10,0 Z" fill="${c}" opacity="${op}"/>`;
+  }
+  return (_vCrowd = o);
+}
+
+function vPaint() {
+  const host = document.getElementById('v96Dyn'); if (!host) return;
+  const puck = G.puck || [.5, .5];
+  const [fA, fB] = rinkFighters();
+  // Camera. Three fixes over the old `vCam += (t - vCam) * .06`:
+  //  · frame-rate INDEPENDENT (that constant made it faster on a faster machine)
+  //  · LOOK-AHEAD — leads the puck by its own velocity, so a breakout doesn't leave
+  //    the play hanging off the top of frame while the camera catches up
+  //  · a damped SPRING rather than a raw lerp, so it eases in and out instead of
+  //    snapping and then crawling
+  const dtc = 1 / 60;
+  const lead = (G.seq && G.phase === 'rush') ? (G.seq.side === 0 ? .085 : -.085) : 0;
+  // Ease the TARGET as well as the camera. Without this, a turnover flips `lead`
+  // by .17 in a single frame and the spring lurches to chase it — measured a 3.7%
+  // jump per frame, which reads as a whip-pan every time possession changes.
+  // Zoom eased on its own curve — slower than the pan, because a camera that
+  // snaps its focal length is far more noticeable than one that snaps position.
+  const wantWin = VZ.wide - (VZ.wide - VZ.tight) * cl(G.danger * 1.15, 0, 1);
+  vWin += (wantWin - vWin) * (1 - Math.exp(-dtc * 2.2));
+  vCamT += (cl(puck[0] + lead, vWin / 2, 1 - vWin / 2) - vCamT) * (1 - Math.exp(-dtc * 5));
+  vCam = cl(vCam, vWin / 2, 1 - vWin / 2);        // keep the ends from sliding into view
+  vCamV += (vCamT - vCam) * 26 * dtc;
+  vCamV *= Math.pow(0.0022, dtc);
+  vCamV = cl(vCamV, -0.42, 0.42);        // hard ceiling on pan speed
+  vCam += vCamV * dtc;
+
+  // whoever's nearest the puck on the attacking side carries it
+  let carrier = null, best = 9;
+  if (G.phase === 'rush') for (const s of onIce(G.side)) {
+    const d = Math.hypot(s.x - puck[0], (s.y - puck[1]) * .6);
+    if (d < best) { best = d; carrier = s; }
+  }
+  const parts = [];
+  for (const s of onIce()) {
+    const [sx, sy, k, v] = vp(s.y, s.x);            // sim y = across, sim x = along
+    if (v < -.25 || v > 1.25) continue;
+    const f = s.side === 0 ? fA : fB;
+    const heading = Math.atan2(s.vx, s.vy);          // along = screen-vertical
+    const pushing = s.accel > .55 || s.spd < .12;
+    const hurt = cl((s.dmg || 0), 0, 1);
+    parts.push({ v, svg:
+      `<g transform="translate(${F(sx)},${F(sy)})">` +
+        `<ellipse cx="0" cy="${F(5 * k)}" rx="${F(15 * k)}" ry="${F(5 * k)}" fill="#41607a" opacity=".28"/>` +
+        vSpray(s, 0, 0, k, heading) +
+        `<g transform="scale(${F(k * 1.55)})">${figureTop({ ...f, lost: s.lost || 0 }, 13, heading, s.phase, pushing, false, hurt)}</g>` +
+        // Floating tag only on the puck carrier. It's a HUD marker, not part of the
+        // player, and one on every skater buries the jersey numbers we just fixed.
+        (s === carrier ? `<text y="${F(-46 * k)}" text-anchor="middle" font-family="monospace" font-size="${F(11 * k)}" font-weight="700" fill="#8fd0ff" stroke="${OL}" stroke-width="${F(2.4 * k)}" paint-order="stroke">${f.num}${s.role[0]}</text>` : '') +
+      `</g>` });
+  }
+  for (const n of [0, 1]) {
+    if (G.pulled === n) continue;                 // he's on the bench — empty net
+    const g = goalieState[n];
+    const gy = n === 0 ? .06 + g.depth : .94 - g.depth;
+    const [sx, sy, k, v] = vp(g.x, gy);
+    if (v < -.25 || v > 1.25) continue;
+    const f = n === 0 ? fA : fB;
+    const flash = g.flash > 0
+      ? `<g filter="url(#glow)" opacity="${F(g.flash)}"><circle cx="0" cy="${F(-16 * k)}" r="${F(20 * k)}" fill="#fff" opacity=".5"/>` +
+        Array.from({ length: 7 }, (_, q) => { const an = q / 7 * Math.PI * 2;
+          return `<line x1="${F(Math.cos(an) * 16 * k)}" y1="${F(-16 * k + Math.sin(an) * 16 * k)}" x2="${F(Math.cos(an) * 34 * k)}" y2="${F(-16 * k + Math.sin(an) * 34 * k)}" stroke="#ffe9a8" stroke-width="${F(3 * k)}" stroke-linecap="round"/>`; }).join('') + `</g>`
+      : '';
+    parts.push({ v, svg: `<g transform="translate(${F(sx)},${F(sy)})">` +
+      `<g transform="scale(${F(k * 1.7)})">${figureTop(f, 13, n === 0 ? Math.PI : 0, 0, false, true)}</g>${flash}</g>` });
+  }
+  parts.sort((a, b) => a.v - b.v);                   // far first
+
+  const pp = vp(puck[1], puck[0]);
+  const pk = pp[2];
+  const puckSvg = `<g filter="url(#glow)">` +
+    `<ellipse cx="${F(pp[0])}" cy="${F(pp[1])}" rx="${F(6.5 * pk)}" ry="${F(4.6 * pk)}" fill="#dff8ff" opacity=".45"/>` +
+    `<ellipse cx="${F(pp[0])}" cy="${F(pp[1])}" rx="${F(4.4 * pk)}" ry="${F(3.1 * pk)}" fill="#0b0e12"/></g>`;
+
+  // Skate cuts and blood both live ON the ice, under everybody.
+  let cutSvg = '';
+  for (const c of iceCuts) {
+    const a = vp(c.y, c.x), b = vp(c.y + c.dy, c.x + c.dx);
+    if (a[3] < -.15 || a[3] > 1.15) continue;
+    // longer and thinner than before — a blade leaves a LINE, and a short fat one
+    // just reads as a dash of noise
+    cutSvg += `<path d="M${F(a[0])},${F(a[1])} L${F(b[0])},${F(b[1])}" stroke="#8fb0cc" stroke-width="${F(1.15 * a[2])}" opacity="${F(c.a * .85)}" stroke-linecap="round"/>`;
+  }
+  let goreSvg = '';
+  for (const b of iceBlood) {
+    const p = vp(b.y, b.x);
+    if (p[3] < -.2 || p[3] > 1.2) continue;
+    // a drop on ice spreads and feathers — irregular, and softened by the filter
+    goreSvg += `<ellipse cx="${F(p[0])}" cy="${F(p[1])}" rx="${F(b.r * 2.4 * p[2])}" ry="${F(b.r * 1.05 * p[2])}" fill="${b.c}" opacity="${F(b.a * .82)}"/>`;
+  }
+  // Gibs draw on the ice with the players, not under with the stains — they're
+  // objects lying there, not marks.
+  let gibSvg = '';
+  for (const g of gibs) {
+    const p = vp(g.y, g.x);
+    if (p[3] < -.2 || p[3] > 1.2) continue;
+    const tm = g.side === 0 ? fA.team : fB.team, s2 = p[2] * 1.55 * 13;
+    gibSvg += `<g transform="translate(${F(p[0])},${F(p[1])}) rotate(${F(g.rot)}) scale(${F(p[2] * 1.55)})">` +
+      `<ellipse cx="0" cy="${F(.06 * 13)}" rx="${F(.26 * 13)}" ry="${F(.10 * 13)}" fill="#41607a" opacity=".3"/>` +
+      taper([-.32 * 13, 0], [.30 * 13, 0], .16 * 13, .12 * 13, tm.jersey, 2.4, 1) +
+      `<circle cx="${F(-.34 * 13)}" cy="0" r="${F(.14 * 13)}" fill="${BLOOD[1]}" stroke="${OL}" stroke-width="2"/>` +
+      `<rect x="${F(.24 * 13)}" y="${F(-.14 * 13)}" width="${F(.3 * 13)}" height="${F(.28 * 13)}" rx="${F(.08 * 13)}" fill="${tm.glove}" stroke="${OL}" stroke-width="2"/>` +
+    `</g>`;
+  }
+  // The Zamboni. Deliberately unglamorous — a slab with a cab, leaving a strip of
+  // perfect wet ice behind it. It's funnier the more mundane it looks.
+  let zamSvg = '';
+  if (zam) {
+    const p = vp(zam.y, zam.x), k = p[2] * 1.9;
+    zamSvg = `<g transform="translate(${F(p[0])},${F(p[1])}) scale(${F(k * (zam.dir < 0 ? -1 : 1))},${F(k)})">` +
+      `<ellipse cx="0" cy="${F(9)}" rx="26" ry="7" fill="#41607a" opacity=".3"/>` +
+      `<rect x="-24" y="-6" width="48" height="16" rx="3" fill="${OL}"/>` +
+      `<rect x="-22" y="-4" width="44" height="12" rx="2" fill="#c8552f"/>` +
+      `<rect x="-22" y="-4" width="44" height="5" rx="2" fill="#e0703f"/>` +
+      `<rect x="-2" y="-18" width="20" height="14" rx="2" fill="${OL}"/>` +
+      `<rect x="0" y="-16" width="16" height="10" rx="1.5" fill="#2b3a46"/>` +
+      `<rect x="-30" y="2" width="10" height="7" rx="1.5" fill="#8d959d" stroke="${OL}" stroke-width="1.5"/>` +
+      `<circle cx="-14" cy="10" r="4" fill="#1b1f24"/><circle cx="14" cy="10" r="4" fill="#1b1f24"/>` +
+    `</g>`;
+  }
+  host.innerHTML = vIce() +
+    `<g filter="url(#iceSoft)">${cutSvg}${goreSvg}</g>` +
+    zamSvg + gibSvg + parts.map(p => p.svg).join('') + puckSvg;
+
+  // bottom furniture: boards, crowd, and the '96 scoreboard sitting on the dasher
+  const hud = document.getElementById('v96Hud'); if (!hud) return;
+  const bY = V.H - 74;
+  const nA = onIce(0).length, nB = onIce(1).length;
+  hud.innerHTML =
+    `<rect x="0" y="${bY}" width="${V.W}" height="6" fill="#c8382f"/>` +
+    `<rect x="0" y="${bY + 6}" width="${V.W}" height="30" fill="#c3ccd4"/>` +
+    Array.from({ length: 22 }, (_, i) => `<rect x="${F(i * V.W / 22)}" y="${bY + 6}" width="2" height="30" fill="#8d979f"/>`).join('') +
+    `<rect x="0" y="${bY + 36}" width="${V.W}" height="38" fill="#0a0f14"/>` +
+    vCrowdBand(bY + 36) +
+    `<g><rect x="18" y="${bY + 42}" width="188" height="26" rx="2" fill="#0d1319" stroke="#6a747c"/>` +
+      `<text x="30" y="${bY + 61}" font-family="monospace" font-size="16" font-weight="700" fill="#e6ecf2" letter-spacing="2">${ORD[Math.min(4, G.period)]}  ${clockStr()}</text></g>` +
+    `<g><rect x="${V.W - 226}" y="${bY + 42}" width="208" height="26" rx="2" fill="#0d1319" stroke="#6a747c"/>` +
+      `<text x="${V.W - 214}" y="${bY + 61}" font-family="monospace" font-size="15" font-weight="700" fill="${TEAMS.CIV.ui}">CIV ${G.score[0]}</text>` +
+      `<text x="${V.W - 30}" y="${bY + 61}" text-anchor="end" font-family="monospace" font-size="15" font-weight="700" fill="${TEAMS.SLG.ui}">${G.score[1]} SLG</text></g>` +
+    (nA !== nB ? `<text x="${F(V.W / 2)}" y="${bY + 61}" text-anchor="middle" font-family="monospace" font-size="13" font-weight="700" fill="#e8b34a">${nA} v ${nB}</text>` : '') +
+    (G.sudden ? `<text x="${F(V.W / 2)}" y="${bY + 30}" text-anchor="middle" font-family="monospace" font-size="12" font-weight="700" fill="#ff6b6b" letter-spacing="3">☠ SUDDEN DEATH</text>` : '') +
+    callBox() +
+    (G.phase === 'opening' ? introCard(fA, fB) : '');
+}
+
+// ── THE CALL ─────────────────────────────────────────────────────────────────
+// Tug's line lives in a boxed dialog low on the frame, ABOVE the boards so it
+// never covers the ice or the scoreboard. Pure black on white with a hard drop
+// shadow: at this size a soft or tinted caption disappears into whatever is
+// behind it, and high contrast is the only thing that survives a busy rink.
+function callBox() {
+  if (!G.msg || G.msgT <= 0) return '';
+  const fade = Math.min(1, G.msgT * 2.2);
+  const txt = String(G.msg);
+  const wid = Math.min(V.W - 80, 150 + txt.length * 10.2), h = 34;
+  const x = (V.W - wid) / 2, y = V.H - 128;
+  return `<g opacity="${F(fade)}">` +
+    `<rect x="${F(x + 5)}" y="${F(y + 5)}" width="${F(wid)}" height="${h}" fill="#000" opacity=".55"/>` +
+    `<rect x="${F(x)}" y="${F(y)}" width="${F(wid)}" height="${h}" fill="#f2f5f8" stroke="#05090c" stroke-width="2.5"/>` +
+    `<rect x="${F(x)}" y="${F(y)}" width="7" height="${h}" fill="#05090c"/>` +
+    `<text x="${F(x + 18)}" y="${F(y + 14)}" font-family="monospace" font-size="8.5" fill="#5a646c" letter-spacing="2.5">TUG BRENNAN</text>` +
+    `<text x="${F(x + 18)}" y="${F(y + 27)}" font-family="monospace" font-size="13" font-weight="700" fill="#05090c" letter-spacing="1">${esc(txt)}</text>` +
+  `</g>`;
+}
+
+// Starting-lineup card on the opening faceoff. Slides in from the left, holds, and
+// slides out — a real broadcast never just pops a graphic on and off.
+function introCard(fA, fB) {
+  const t = G.openT || 0, life = 2.5;
+  const inP = Math.min(1, t / .35), outP = Math.min(1, Math.max(0, (life - t) / .35));
+  const slide = (1 - Math.min(inP, outP)) * -260;
+  const y = 78, wid = 330;
+  const row = (f, tm, i) =>
+    `<g transform="translate(0,${F(i * 26)})">` +
+      `<rect x="0" y="${F(y + 34)}" width="${wid}" height="24" fill="#05090c" opacity=".9"/>` +
+      `<rect x="0" y="${F(y + 34)}" width="5" height="24" fill="${tm.ui}"/>` +
+      `<text x="16" y="${F(y + 51)}" font-family="monospace" font-size="12" font-weight="700" fill="${tm.ui}">${tm.abbr}</text>` +
+      `<text x="58" y="${F(y + 51)}" font-family="monospace" font-size="12" fill="#dfeae2">#${f.num}  ${f.name}</text>` +
+    `</g>`;
+  return `<g transform="translate(${F(28 + slide)},0)" opacity="${F(Math.min(inP, outP))}">` +
+    `<rect x="0" y="${y}" width="${wid}" height="30" fill="#0d1319" stroke="#e8b34a" stroke-width="1.6"/>` +
+    `<text x="14" y="${F(y + 21)}" font-family="monospace" font-size="13" font-weight="700" fill="#e8b34a" letter-spacing="3">STARTING LINEUP</text>` +
+    row(fA, TEAMS.CIV, 0) + row(fB, TEAMS.SLG, 1) +
+  `</g>`;
+}
+
+function buildV96() {
+  const el = document.getElementById('stageV96'); if (!el) return;
+  el.innerHTML = `<svg viewBox="0 0 ${V.W} ${V.H}" preserveAspectRatio="xMidYMid meet"` +
+    ` shape-rendering="geometricPrecision">${DEFS}` +
+    `<defs><linearGradient id="vice" x1="0" y1="0" x2="0" y2="1">` +
+      `<stop offset="0" stop-color="#b9c6e0"/><stop offset="1" stop-color="#e9eef8"/></linearGradient></defs>` +
+    // Stands live in the STATIC layer. They never change, and re-serialising a few
+    // hundred crowd dots every frame was costing 150KB/frame for nothing.
+    `<rect width="${V.W}" height="${V.H}" fill="#070b10"/>` + vStands() +
+    `<g id="v96Dyn"${state.pixel ? ' filter="url(#pixelate)"' : ''}></g><g id="v96Hud"></g></svg>` +
+    `<div class="cap">NHL '96 MODE · VERTICAL · FOLLOWING CAMERA · HIGH-ANGLE</div>`;
+}
+
+function buildRink() {
+  const el = document.getElementById('stageRink'); if (!el) return;
+  // rinkCam wraps the ice + actors so the camera pans and pushes in on both.
+  // The HUD sits OUTSIDE it so the scoreboard never slides around with the play.
+  // geometricPrecision, always. Nothing is downsampled any more, so every edge
+  // should be as sharp as the renderer can make it.
+  el.innerHTML = `<svg viewBox="0 0 ${RK.W} ${RK.H}" preserveAspectRatio="xMidYMid meet"` +
+    ` shape-rendering="geometricPrecision">${DEFS}` +
+    `<g id="rinkCam"${state.pixel ? ' filter="url(#pixelate)"' : ''}>` +
+      `<g>${rinkStatic()}${boardAds(RK.W, 152, 26, state.seed ^ 404)}</g><g id="rinkDyn"></g></g>` +
+    `<g id="rinkHud"></g></svg>` +
+    `<div class="cap">3/4 RINK · LIVE STATE MACHINE · CAMERA + REACTIVE CROWD</div>`;
+}
+
+// ═══ variation + fallback ═════════════════════════════════════════════════════
+function renderVar() {
+  let o = '';
+  for (let i = 0; i < 12; i++) {
+    const s = (state.seed + i * 104729) >>> 0;
+    const f = fighterFrom(s, state.build, i % 2 ? TEAMS.SLG : TEAMS.CIV);
+    o += `<div class="stage crt" style="min-width:86px;flex:0 0 86px">` +
+      `<svg viewBox="-84 -178 168 198" preserveAspectRatio="xMidYMid meet">${DEFS}` +
+        `<rect x="-84" y="-178" width="168" height="198" fill="#e2ebf1"/>` +
+        `<ellipse cx="0" cy="2" rx="38" ry="6" fill="#7f9fb4" opacity=".25"/>` +
+        figure(shape(POSE.ready, f), f, state.weight, 1) +
+      `</svg><div class="cap">${f.name.slice(0, 6)} ${f.num}</div></div>`;
+  }
+  document.getElementById('rowVar').innerHTML = o;
+}
+function renderCloud() {
+  const cy = FLOOR - 70, cx = W / 2, r = rngFrom(state.seed);
+  let puff = '', bits = '', stars = '';
+  for (let i = 0; i < 14; i++) { const an = (i / 14) * Math.PI * 2 + r() * .45, rad = 58 + r() * 34;
+    puff += `<circle cx="${F(cx + Math.cos(an) * rad)}" cy="${F(cy + Math.sin(an) * rad * .68)}" r="${F(28 + r() * 18)}" fill="#f4f8fa" stroke="${OL}" stroke-width="2" opacity=".82"/>`; }
+  for (let i = 0; i < 5; i++) { const an = (i / 5) * Math.PI * 2 + .6, rad = 84 + r() * 24;
+    const x = cx + Math.cos(an) * rad, y = cy + Math.sin(an) * rad * .7, c = i % 2 ? TEAMS.CIV.jersey : TEAMS.SLG.jersey;
+    bits += `<line x1="${F(cx + Math.cos(an) * 36)}" y1="${F(cy + Math.sin(an) * 26)}" x2="${F(x)}" y2="${F(y)}" stroke="${OL}" stroke-width="14" stroke-linecap="round"/>` +
+      `<line x1="${F(cx + Math.cos(an) * 36)}" y1="${F(cy + Math.sin(an) * 26)}" x2="${F(x)}" y2="${F(y)}" stroke="${c}" stroke-width="10" stroke-linecap="round"/>` +
+      `<circle cx="${F(x)}" cy="${F(y)}" r="9.5" fill="${OL}"/><circle cx="${F(x)}" cy="${F(y)}" r="7.5" fill="${c}"/>`; }
+  for (let i = 0; i < 4; i++) { const x = cx + (r() - .5) * 210, y = cy - 86 - r() * 36;
+    stars += `<path d="M${F(x)},${F(y - 11)} L${F(x + 3.4)},${F(y - 3.4)} L${F(x + 11)},${F(y)} L${F(x + 3.4)},${F(y + 3.4)} L${F(x)},${F(y + 11)} L${F(x - 3.4)},${F(y + 3.4)} L${F(x - 11)},${F(y)} L${F(x - 3.4)},${F(y - 3.4)} Z" fill="#e8b34a" stroke="${OL}" stroke-width="1.5"/>`; }
+  document.getElementById('stageCloud').innerHTML =
+    `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${DEFS}` +
+      arena(W, H, GLASS_T, GLASS_H, BOARD_Y, BOARD_H, state.seed ^ 3) +
+      `<ellipse cx="${cx}" cy="${FLOOR}" rx="170" ry="14" fill="#7f9fb4" opacity=".22"/>` +
+      puff + bits + stars + powerBar(W, 1, 3, 'P2 · 11:24', null) +
+      callout(W, H, "Gloves off — and the linesmen are giving it a count of five before they pretend to care.") +
+    `</svg><div class="cap">D · CARTOON SCUFFLE CLOUD (the cheap answer)</div>`;
+}
+
+// ═══ state + loop ═════════════════════════════════════════════════════════════
+const state = { seed: 1701, build: 50, weight: 13, playing: false, loop: true, sound: true, t: 3200,
+  replay: false, replayed: false, resumeAt: 0, rinkSound: true, cup: false, pixel: false };
+let lastBeat = -1;
+let rag = { A: null, B: null };            // active ragdolls
+let lastJa = null, lastJb = null, prevJa = null, prevJb = null;  // for launch velocity
+let critShake = 0;
+// Resetting physics is what makes the replay reproduce exactly: ragInit is seeded
+// off the beat time, so re-running the same window regenerates the same knockdown.
+function resetPhysics() { rag = { A: null, B: null }; drops = []; stains = []; spurts = []; critShake = 0; iceBlood = []; iceCuts = []; gibs = []; zam = null; for (const s of skaters) s.lost = 0; for (const s of skaters) s.dmg = 0; }
+// The AudioContext can only start from a user gesture, so this runs off the click.
+function armAudio() {
+  const AE = window.AudioEngine; if (!AE) return;
+  AE.init();
+  AE.applyVolumeSettings({ enabled: true, sfx: true, tv: true, masterVolume: 0.55, sfxVolume: 0.9, tvVolume: 0.8, ambientVolume: 0.75, muteWhenHidden: false });
+}
+function rebuild() {
+  A = fighterFrom(state.seed, state.build, TEAMS.CIV);
+  B = fighterFrom(state.seed ^ 0x9e3779b9, 100 - state.build, TEAMS.SLG);
+  if (shellSeed !== state.seed) { buildShell(); buildRink(); buildV96(); }
+  paint(state.t); paintRink(); vPaint(); renderVar(); renderCloud();
+}
+
+let raf = null, last = 0, frames = 0, fpsT = 0;
+function tick(now) {
+  if (!state.playing) return;
+  const dt = last ? Math.min(64, now - last) : 16; last = now;
+  state.t += dt * (state.replay ? REPLAY.speed : 1);
+
+  // Cut to the replay the first time we clear the knockout, then hand back to
+  // live at the same point so the fight continues where it left off.
+  if (REPLAY && !state.replay && !state.replayed && state.t >= REPLAY.to) {
+    state.replay = true; state.replayed = true;
+    state.resumeAt = state.t;
+    state.t = REPLAY.from; lastBeat = -1; resetPhysics();
+  } else if (state.replay && state.t >= REPLAY.to) {
+    state.replay = false;
+    state.t = state.resumeAt; lastBeat = -1;
+  }
+
+  if (state.t >= TOTAL) {
+    if (state.loop) { state.t = 0; lastBeat = -1; state.replay = false; state.replayed = false; resetPhysics(); }
+    else { stop(); state.t = TOTAL - 1; }
+  }
+  // Physics runs on fixed substeps so a dropped frame can't blow the solver up.
+  const sub = Math.min(4, Math.max(1, Math.round(dt / 16)));
+  for (let n = 0; n < sub; n++) {
+    const h = (dt / 1000) / sub;
+    if (rag.A && rag.A.rest < 1.2) ragStep(rag.A, h);
+    if (rag.B && rag.B.rest < 1.2) ragStep(rag.B, h);
+    bloodStep(h, FLOOR + 2);
+  }
+  critShake *= 0.86;
+  rinkStep(dt / 1000); paintRink(); vPaint();
+  paint(state.t);
+  frames++; if (now - fpsT > 500) { document.getElementById('fps').textContent = `${Math.round(frames * 1000 / (now - fpsT))} fps`; frames = 0; fpsT = now; }
+  raf = requestAnimationFrame(tick);
+}
+function play() { if (state.playing) return; armAudio(); state.playing = true; last = 0; fpsT = performance.now(); frames = 0;
+  if (state.t >= TOTAL - 1) state.t = 0;
+  lastBeat = -1; resetPhysics(); state.replay = false; state.replayed = false;
+  document.getElementById('anim').textContent = '■ STOP'; raf = requestAnimationFrame(tick); }
+function stop() { state.playing = false; if (raf) cancelAnimationFrame(raf); raf = null;
+  document.getElementById('anim').textContent = '▶ PLAY FIGHT'; document.getElementById('fps').textContent = ''; }
+
+const $ = (id) => document.getElementById(id);
+$('seed').addEventListener('input', e => { state.seed = (parseInt(e.target.value, 10) || 1) >>> 0; rebuild(); });
+$('px').addEventListener('click', e => { state.pixel = e.target.classList.toggle('on'); buildShell(); buildRink(); buildV96(); paint(state.t); paintRink(); vPaint(); });
+$('build').addEventListener('input', e => { state.build = +e.target.value; $('buildV').textContent = e.target.value; rebuild(); });
+$('weight').addEventListener('input', e => { state.weight = +e.target.value; $('weightV').textContent = e.target.value; rebuild(); });
+$('roll').addEventListener('click', () => { state.seed = (Math.random() * 1e6) | 0; $('seed').value = state.seed; rebuild(); });
+$('anim').addEventListener('click', () => state.playing ? stop() : play());
+$('loop').addEventListener('click', e => { state.loop = e.target.classList.toggle('on'); });
+$('snd').addEventListener('click', e => { state.sound = e.target.classList.toggle('on'); if (state.sound) armAudio(); });
+$('cup').addEventListener('click', e => { state.cup = e.target.classList.toggle('on'); bulbs = []; confetti = []; paintRink(); });
+// Reaching a tied 4th period honestly takes ~7 minutes of watching, so this drops
+// you straight into overtime to see the mechanic.
+$('sd').addEventListener('click', () => {
+  const lo = Math.min(G.score[0], G.score[1]);
+  G.score = [lo, lo]; G.period = 4; G.clock = 5 * 60;
+  G.sudden = true; G.otT = 0; G.dead = null; G.phase = 'faceoff'; G.pt = 0; G.faceDot = 0;
+  for (const s of skaters) s.stun = 0;
+  armAudio(); sfx('hk-crowd-roar', .8); say('SUDDEN DEATH', 4);
+});
+
+// Soundboard — every cue in the bank, so the whole hockey soundset can be judged
+// and tuned, not just the handful the fight timeline happens to fire.
+(function board() {
+  const host = $('board'), H = window.HockeySfx;
+  if (!host || !H) { if (host) host.innerHTML = '<span class="note">hockey-sfx.js not loaded</span>'; return; }
+  host.innerHTML = H.BUILTINS.map(d =>
+    `<button data-id="${d.id}" style="flex:0 0 auto">${d.name.replace(/^(Hockey|Fight|Crowd) — /, '')}</button>`).join('');
+  host.addEventListener('click', e => {
+    const id = e.target?.dataset?.id; if (!id) return;
+    armAudio(); H.play(id);
+  });
+})();
+$('crt').addEventListener('click', e => { const on = e.target.classList.toggle('on');
+  document.querySelectorAll('.stage').forEach(s => s.classList.toggle('crt', on)); });
+
+rebuild();
+</script>
+</body>
+</html>

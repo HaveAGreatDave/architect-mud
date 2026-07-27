@@ -14,6 +14,7 @@ import { doorGuardsOnlyUnownedApartment } from '../apartments.js';
 import { gameMsToReal } from '../gametime.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage, getSelectionState } from '../sift.js';
 import { registerAction } from '../actions.js';
+import { hasHackDeck, hackDifficulty, damageHackDeck, breachMargin } from '../hack-gear.js';
 
 const DIRECTIONS = ['north','south','east','west','up','down','in','out'];
 const OPPOSITE = { north:'south', south:'north', east:'west', west:'east', up:'down', down:'up', in:'out', out:'in' };
@@ -322,16 +323,10 @@ const HACK_PENDING_TTL_MS = 180 * 1000;
 const hackLockout = new Map();  // playerId -> lockout-until ts
 const pendingHack = new Map();  // playerId -> { doorId, expires }
 
-// Any item tagged `hack_device` (see tagCatalog.js) is a valid deck — the gate
-// is the capability tag, not a specific item id.
-async function hasHackDevice(playerId) {
-  const { rows } = await query(
-    `SELECT 1 FROM player_inventory pi JOIN items i ON i.id = pi.item_id
-     WHERE pi.player_id=$1 AND pi.container_id IS NULL AND jsonb_exists(i.tags,'hack_device') LIMIT 1`,
-    [playerId]
-  );
-  return rows.length > 0;
-}
+// The gate is the capability tag (`hack_device`), not a specific item id, and
+// WHICH deck answers decides how hard the lock reads and what a failure costs —
+// see server/engine/hack-gear.js.
+const hasHackDevice = hasHackDeck;
 
 // The zone the door protects — whichever side is an apartment. Used for the
 // forcefield gate (a sleeping owner's quantum shield makes the lock unhackable).
@@ -434,7 +429,7 @@ async function hackDoor(door, player, broadcast) {
     doorId: door.id,
     deviceName: door.name || 'hololock',
     skill: await effectiveSkill(player, 'hacking'),
-    difficulty: lockTag.difficulty ?? 5,
+    difficulty: await hackDifficulty(player.id, lockTag.difficulty),
     resolveCmd: 'hackresolve',
   };
 }
@@ -474,11 +469,12 @@ async function cmdHackResolve(args, raw, player, broadcast) {
     // to real ms via the game-speed knob. (The pending-hack TTL above stays real:
     // it's the player's live minigame-completion window, not a world duration.)
     hackLockout.set(player.id, Date.now() + gameMsToReal(HACK_LOCKOUT_MS));
-    return { type:'error', message:"The hololock's key sequence resets mid-spoof. Your deck is flagged — five-minute lockout." };
+    const deckMsg = await damageHackDeck(player.id);
+    return { type:'error', message:`The hololock's key sequence resets mid-spoof. Your deck is flagged — five-minute lockout.${deckMsg}` };
   }
 
   await updateDoor(door, { lock_state: 'unlocked' });
-  await awardSkillUse(player.id, 'hacking', 2);
+  await awardSkillUse(player.id, 'hacking', await breachMargin(player, lockTag.difficulty));
   broadcast(player.current_zone, { type:'zone_event', message:'The hololock chirps and disengages.', refresh: true }, player.id);
 
   // Attribute the break-in to whoever actually owns the place (from the table,

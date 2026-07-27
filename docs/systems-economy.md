@@ -112,9 +112,38 @@ credits, failure broadcasts a public "caught red-handed" event. Uses `adjustCred
 - **Skill gate:** each recipe's `skill_req` (skill → min rank) is checked against the player's skill
   levels (`floor(player_skills.ip / 100)`) before crafting.
 - **Station gate:** `requires_station` recipes need a matching station (`stationQuality !== 'none'`).
+- **Time gate:** a craft is **not instant**. `craft` validates up front (`checkCraftReady`), then puts you
+  in `posture === 'crafting'` with a `player.craftState = { recipeId, name, completeAt }`; the engine's
+  [activity-tick substrate](server.md) resolves it when the clock runs out. Posture being the authoritative
+  flag means every force-stand interruption — moving, attacking, being attacked, dying, `stop` — aborts the
+  craft for free. **Nothing is consumed until it completes**, so an interrupted craft costs only time.
 - **Resolution:** a `skillCheck` against `base_difficulty`, plus a station bonus (refined +2, pristine +4).
   Crits (rare) yield double output. Catastrophic failure (`margin < −4`) consumes ingredients for nothing;
-  ordinary failure leaves materials intact.
+  ordinary failure leaves materials intact. The resolve re-runs the full validation, so parts dropped or
+  sold during the wait fail the craft rather than being conjured out of nothing.
+
+### How long a craft takes
+
+**Derived, never authored** — `craftSeconds()` in [crafting.js](../server/engine/crafting.js):
+
+```
+seconds = 3 + base_difficulty × 1.5 + maxSkillReq × 1.0 + bulk × 0.5
+```
+
+where `bulk` is ingredient units beyond one each. The current table lands in a **6–23 s** band: a Field
+Bandage is near-instant, an Architect Signal Decoder pins you in place long enough to be worth ambushing.
+
+There was a `recipes.craft_time` column for this, and it is gone. Nothing ever read it, and **35 of its 36
+rows still carried the default of 3** — the standing proof that a per-recipe number with no mechanical
+effect never gets tuned. Deriving instead means every existing and future recipe gets a sensible duration
+with zero authoring. Note it is deliberately **not** derived from the output item's `value` the way
+durability derives its condition capacity: value tracks what a thing sells for, not what it takes to make
+(difficulty↔value correlate at r=0.04 across the table). If a recipe ever genuinely needs to defy the
+formula, add a **nullable** override column then — not a defaulted one.
+
+Only the `craft` path is timed. The ~23 chemistry recipes that produce drugs are claimed by the
+[synthesis plugin's](../plugins/synthesis/index.js) `cook`, which already has its own minigame as the
+time-and-skill gate; double-gating them would be a worse experience, not a harder one.
 
 Both `recipes` (the availability list) and `craft` (the actual gate) derive skill rank the same way —
 `floor(player_skills.ip / 100)` — so the list and what you can build always agree. (Previously

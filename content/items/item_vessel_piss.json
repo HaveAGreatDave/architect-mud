@@ -1,0 +1,25 @@
+{
+  "description": "Warm, faintly clouded, and exactly the colour of a bad decision. It sloshes when you move, which somehow makes it worse.",
+  "flags": {},
+  "id": "item_vessel_piss",
+  "name": "measure of piss",
+  "tags": {
+    "bodily_filth": true,
+    "consumable": true,
+    "description": "Warm, faintly clouded, and exactly the colour of a bad decision. It sloshes when you move, which somehow makes it worse.",
+    "food_noun": "piss",
+    "food_profile": "liquid",
+    "needs_cooking": true,
+    "perishable": true,
+    "restore_hunger": 0,
+    "restore_thirst": 2,
+    "spoil_rate": "fast",
+    "stackable": true,
+    "status_chance": {
+      "food_poisoning": 0.45
+    }
+  },
+  "type": "consumable",
+  "value": 0,
+  "weight": 80
+}

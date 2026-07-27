@@ -8,6 +8,12 @@
  */
 import { createHash } from 'node:crypto';
 import { query } from '../../server/models/db.js';
+import { on } from '../../server/engine/events.js';
+import { getAllLivePlayers } from '../../server/engine/world.js';
+import { sendToPlayer } from '../../server/engine/messaging.js';
+import { recomputeEquipped } from '../../server/engine/commands/inventory.js';
+import { registerAction } from '../../server/engine/actions.js';
+import { devTriggerWeatherEvent } from '../../server/engine/environment.js';
 
 const SEASON_BY_MONTH = [
   'winter', 'winter', 'spring', 'spring', 'spring', 'summer',
@@ -209,6 +215,9 @@ async function loadForecast(setWeatherState, climateProfile) {
       humidityPct: r.humidity_pct,
       precipChance,
       severity: severityForForecast0(r.weather_type, r.temp_c, r.wind_kph),
+      // Derived, never stored — which is why it survives the forecast being
+      // regenerated, rescheduled, or overridden from the dev panel.
+      ...heroFieldsFor(date),
     };
   });
   setWeatherState(forecast[0].weatherType, forecast[0].tempC, forecast);
@@ -258,6 +267,7 @@ function severityForForecast0(weatherType, tempC, windKph) {
 const field = {
   systems: [],        // moving cells (below)
   baseCloud: 0,       // ambient cloudiness floor from weatherType
+  date: null,         // the game date the field was seeded for (drives hero-event scheduling)
   baseSeverity: 0,    // day-level extreme-weather severity floor from forecast[0]
   bounds: null,       // { minX, maxX, minY, maxY } of map_world, cached
   wind: null,         // { angle, kph } — the prevailing wind that drifts every cell
@@ -326,9 +336,24 @@ function regionBiasAt(gx, gy) {
 // rain, a precip override) instead of deriving it. Owned here (the field owner);
 // the engine drives the lifecycle by calling stepWeatherEvent() on its 30s tick
 // and broadcasting the returned announce lines. See docs/systems-weather-extreme.md.
+//
+// Every entry MUST carry a `present` block. A hero event is not just a severity
+// preset — it is the thing the whole world talks about while it happens, and the
+// surfaces that talk about it (forecast icon, weather FX overlay, soundscape bed,
+// weatherman pools, tablet news) all read this one block rather than each keeping
+// their own `if (type === 'ion_storm')`. Adding a third hero event should be a
+// matter of filling this in, not of hunting through eight files.
+//
+//   icon      forecast/tablet glyph for a day carrying this event
+//   fx        weather-FX overlay key (client/game/js/panels/weather-fx.js)
+//   audio     ambience id / route suffix (plugins/audio WEATHER_EVENT_*)
+//   pool      `.bsm` pool suffix — sky.<pool> / warn.<pool> / weather.<pool>
+//   sky       the pseudo weather-type the flight windshield renders it as
+//   severe    the one-word severity the news and the weatherman lean on
 const NAMED_EVENTS = {
   ion_storm: {
     label: 'ion storm', severity: 0.9,
+    present: { icon: '⚡', fx: 'ion_storm', audio: 'ion', pool: 'ion', sky: 'ion_storm', severe: 'catastrophic' },
     phases: {
       approach: { secs: 90,  line: 'A sick green glow crawls up the horizon and the air begins to hum with static.' },
       peak:     { secs: 240, line: 'The ion storm breaks overhead — the sky screams white and every hair stands on end.' },
@@ -337,6 +362,7 @@ const NAMED_EVENTS = {
   },
   acid_rain: {
     label: 'acid rain', severity: 0.6, precipOverride: 'acid',
+    present: { icon: '☣', fx: 'acid_rain', audio: 'acid', pool: 'acid', sky: 'acid_rain', severe: 'lethal' },
     phases: {
       approach: { secs: 90,  line: 'The rain thickens and takes on a yellow, chemical reek. Something is wrong with it.' },
       peak:     { secs: 300, line: 'The downpour turns caustic — acid rain, hissing where it lands.' },
@@ -345,9 +371,50 @@ const NAMED_EVENTS = {
   },
 };
 const PHASE_ORDER = ['approach', 'peak', 'passing'];
-const AUTO_EVENT_CHANCE_PER_30S = 0.00012;   // ~1 auto-event per 2–3 game-days
+// An unscheduled event can still ambush you, but it's now the rare case — the
+// ordinary path is a scheduled day (below), which the forecast has been warning
+// about for a week.
+const AUTO_EVENT_CHANCE_PER_30S = 0.00002;
+
+// ── Scheduled hero days ─────────────────────────────────────────────────────
+//
+// Derived from the date, exactly like everything else in this file: no table, no
+// state, no chaining. That is what lets the SEVEN-DAY FORECAST know a hero event
+// is coming — a scheduled day is knowable a week out, which is the whole point
+// of giving these events teeth. You get to prepare, or you get to find out.
+//
+// What stays hidden is WHEN in the day it lands: the roll below is per-30s
+// against a rate that makes arrival near-certain across a game day, so the band
+// is a warning, never a timetable.
+const HERO_EVENT_DAY_CHANCE = 0.12;              // ~1 hero day in 8
+const SCHEDULED_EVENT_CHANCE_PER_30S = 0.004;    // ~1-in-250 per tick on its day
+
+export function heroEventForDate(dateStr) {
+  if (!dateStr) return null;
+  const rand = mulberry32(seedFromString(`heroevent:${dateStr}`));
+  if (rand() >= HERO_EVENT_DAY_CHANCE) return null;
+  const types = Object.keys(NAMED_EVENTS);
+  return types[Math.floor(rand() * types.length)];
+}
+
+// Presentation block for a type, or null. The one accessor every surface uses.
+export function heroEventPresentation(type) {
+  const def = NAMED_EVENTS[type];
+  return def ? { type, label: def.label, ...def.present } : null;
+}
+
+// The three fields a forecast row carries for a hero day. Attached HERE rather
+// than looked up in the engine's WEATHER_ICON table, because the plugin owns
+// what a hero event looks like and the engine must not import the plugin.
+function heroFieldsFor(dateStr) {
+  const type = heroEventForDate(dateStr);
+  if (!type) return { heroEvent: null, heroEventIcon: null, heroEventLabel: null };
+  const p = heroEventPresentation(type);
+  return { heroEvent: type, heroEventIcon: p.icon, heroEventLabel: p.label };
+}
 
 let activeEvent = null;   // { type, phase, phaseEndsAtMs } | null
+let scheduledFiredFor = null;   // date string whose scheduled event already ran
 
 // Phase-ramped severity: half in approach/passing, full at peak.
 function eventSeverity() {
@@ -386,7 +453,16 @@ function stepWeatherEvent() {
   const now = Date.now();
   const lines = [];
   if (!activeEvent) {
-    if (Math.random() < AUTO_EVENT_CHANCE_PER_30S) {
+    // Today's scheduled hero event, if this is one of its days and it hasn't
+    // already been and gone. The forecast has shown this coming all week; only
+    // the hour of arrival was ever a secret.
+    const today = field.date;
+    const scheduled = today && scheduledFiredFor !== today ? heroEventForDate(today) : null;
+    if (scheduled && Math.random() < SCHEDULED_EVENT_CHANCE_PER_30S) {
+      scheduledFiredFor = today;
+      const line = startWeatherEvent(scheduled);
+      if (line) lines.push(line);
+    } else if (Math.random() < AUTO_EVENT_CHANCE_PER_30S) {
       const types = Object.keys(NAMED_EVENTS);
       const line = startWeatherEvent(types[Math.floor(Math.random() * types.length)]);
       if (line) lines.push(line);
@@ -489,6 +565,7 @@ function seedField(date, forecast0, bounds) {
   const precipChance = forecast0?.precipChance ?? 0.05;
   const windKph      = forecast0?.windKph ?? null;
   const { systems, baseCloud, wind } = systemsForForecast(weatherType, precipChance, tempC, windKph, bounds, rand);
+  field.date         = toDateString(date);   // the day whose hero event is due
   field.systems      = systems;
   field.baseCloud    = baseCloud;
   field.baseSeverity = severityForForecast0(weatherType, tempC, windKph);
@@ -574,6 +651,108 @@ async function reseedFromForecast0(forecast0) {
   seedField(forecast0.date, forecast0, bounds);
 }
 
+// ── EMP consequences ────────────────────────────────────────────────────────
+//
+// The blackout itself is the engine's (forceGridBlackout). What a pulse does to
+// things PEOPLE are carrying is content-shaped, so it lives out here.
+//
+// Two different lifetimes, deliberately:
+//   • Gear is fried DURABLY (`custom_data.fried`) and stays dead until someone
+//     repairs it — losing your tablet to a storm you were warned about is the
+//     teeth, and the fix is an existing bench repair, not a new system.
+//   • Chrome is knocked out TRANSIENTLY, in memory only. Permanently bricking an
+//     augment the player paid surgery for is a different, much crueller game, and
+//     a minutes-long transient has no business in the DB (see the persistence
+//     tiers in docs/architecture.md).
+const AUG_BLACKOUT_MS_PER_MIN = 60_000;
+
+async function fryCarriedElectronics(playerIds) {
+  if (!playerIds.length) return new Map();
+  // One round trip for every live player's carried gear. `container_id` rides
+  // along so a device tucked inside a faraday sleeve can be spared.
+  const { rows } = await query(
+    `SELECT pi.id, pi.player_id, pi.container_id, pi.item_id, pi.custom_data, i.name, i.tags
+       FROM player_inventory pi JOIN items i ON i.id = pi.item_id
+      WHERE pi.player_id = ANY($1::text[])`,
+    [playerIds]
+  );
+  const byId = new Map(rows.map(r => [r.id, r]));
+  const isShielded = r => !!r?.tags?.shielded;
+  const victims = rows.filter(r => {
+    if (!r.tags?.electronic || isShielded(r)) return false;
+    if (r.custom_data?.fried) return false;                 // already dead
+    return !isShielded(byId.get(r.container_id));           // in a faraday bag = spared
+  });
+  if (!victims.length) return new Map();
+  await query(
+    `UPDATE player_inventory SET custom_data = COALESCE(custom_data, '{}'::jsonb) || '{"fried":true}'::jsonb
+      WHERE id = ANY($1::text[])`,
+    [victims.map(v => v.id)]
+  );
+  const namesByPlayer = new Map();
+  for (const v of victims) {
+    if (!namesByPlayer.has(v.player_id)) namesByPlayer.set(v.player_id, []);
+    namesByPlayer.get(v.player_id).push(v.name);
+  }
+  return namesByPlayer;
+}
+
+on('weather.empPulse', async ({ minutes }) => {
+  const players = getAllLivePlayers();
+  if (!players.length) return;
+  let fried;
+  try { fried = await fryCarriedElectronics(players.map(p => p.id)); }
+  catch (e) { console.error(`[weather] EMP fry failed: ${e.message}`); return; }
+
+  const until = Date.now() + (minutes || 1) * AUG_BLACKOUT_MS_PER_MIN;
+  for (const player of players) {
+    const lines = [];
+    if (player.chromed) {
+      player._augFriedUntil = until;
+      // Soak is cached on the live player, so the window only bites if we
+      // recompute at both ends of it. Twice per hero event, on a deliberate-
+      // action tier path — not a tick.
+      recomputeEquipped(player).catch(() => {});
+      setTimeout(() => {
+        if (player._augFriedUntil !== until) return;   // a later pulse owns it now
+        player._augFriedUntil = 0;
+        recomputeEquipped(player).catch(() => {});
+        sendToPlayer(player.id, { type: 'output', message: `<span class="msg-system">Your chrome comes back up with a lurch, rebooting somewhere behind your eyes.</span>` });
+      }, until - Date.now()).unref?.();
+      lines.push(`<span class="msg-system">Your chrome stutters and drops out. Whatever it was doing for you, it isn't doing it now.</span>`);
+    }
+    const names = fried.get(player.id);
+    if (names?.length) {
+      const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+      lines.push(`<span class="msg-system">Something in your pockets pops. ${list} — dead. Cooked right through.</span>`);
+    }
+    for (const message of lines) sendToPlayer(player.id, { type: 'output', message });
+  }
+});
+
+// The sky isn't the only thing that can cause one of these. A VINE quest step,
+// a corp sabotage script, or a reactor someone shouldn't have touched can all
+// reach for a hero event through the ordinary action registry.
+//
+//   { type: 'WEATHER_EVENT', event: 'ion_storm' }
+registerAction({
+  type: 'WEATHER_EVENT',
+  handler: ({ params }) => {
+    const type = String(params?.event || params?.value || '').trim();
+    if (!NAMED_EVENTS[type]) return { ok: false, error: `Unknown weather event "${type}".` };
+    return devTriggerWeatherEvent(type);
+  },
+});
+
+// A city plant coming apart takes the grid's regulation with it, and the sky
+// notices. Blowing the turbine hall is now a way to CAUSE an ion storm, which
+// makes the destructible-power path something a player might do on purpose.
+on('generator.destroyed', ({ generatorType }) => {
+  if (generatorType !== 'generator') return;   // a plant, not a junction box
+  if (activeEvent) return;                     // one hero event at a time
+  devTriggerWeatherEvent('ion_storm');
+});
+
 export const hooks = {
   'environment.init': async ({ setWeatherState, climateProfile, registerWeatherField, registerWeatherFieldSnapshot, registerWeatherFieldAdvance, registerWeatherEventStep, registerWeatherEventTrigger, registerWeatherRegionRefresh }) => {
     const forecast = await loadForecast(setWeatherState, climateProfile);
@@ -596,7 +775,7 @@ export const hooks = {
     const nextForecast = [
       ...shifted,
       { date: newDate, weatherType: generated.weatherType, tempC: generated.tempC, windKph: generated.windKph, humidityPct: generated.humidityPct, precipChance: generated.precipChance },
-    ].map((f, i) => ({ ...f, forecastDay: i, severity: severityForForecast0(f.weatherType, f.tempC, f.windKph) }));
+    ].map((f, i) => ({ ...f, forecastDay: i, severity: severityForForecast0(f.weatherType, f.tempC, f.windKph), ...heroFieldsFor(f.date) }));
 
     await query('DELETE FROM weather_forecast');
     for (const f of nextForecast) {

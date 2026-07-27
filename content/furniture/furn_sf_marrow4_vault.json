@@ -1,8 +1,8 @@
 {
   "description": "A squat safe sunk flush into the concrete behind the counter, its door standing open on an empty shelf. The dial turns smoothly. Whoever took the fittings did not bother with it, which tells you something about how hard it is to move and nothing about how hard it is to open.",
   "flags": {
-    "shop_vault": true,
-    "hack_difficulty": 6
+    "hack_difficulty": 6,
+    "shop_vault": true
   },
   "hp": null,
   "hp_max": null,

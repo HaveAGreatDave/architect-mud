@@ -41,7 +41,7 @@
   let ctx = null;
   let masterGain, musicGain, sfxGain, ambientGain, tvGain;
   let _noiseBuffer = null;
-  let _settings = { enabled: true, music: true, sfx: true, tv: true, masterVolume: 0.60, musicVolume: 0.7, sfxVolume: 0.9, ambientVolume: 0.3, tvVolume: 0.6, muteWhenHidden: true };
+  let _settings = { enabled: true, music: true, sfx: true, tv: true, masterVolume: 0.40, musicVolume: 0.7, sfxVolume: 0.9, ambientVolume: 0.3, tvVolume: 0.6, muteWhenHidden: true };
   let _hiddenDucked = false;
   let echoNodes = null; // global master-bus echo send (weed) — { wet, delay, fb }
 
@@ -179,19 +179,36 @@
     return stealIdx;
   }
 
+  // Slots get recycled, so a slot INDEX is not a stable identity. Every occupant
+  // gets a token, and anything that later releases a slot must prove it still owns
+  // it. Without this, a cue's own "I'm finished" timer — scheduled when it started,
+  // and still pending after the cue was stolen — frees whoever inherited the slot.
+  // That untracked sound keeps playing while the manager hands the slot out again,
+  // so the next cue layers on top of it and you hear the same sound twice.
+  let _voiceToken = 0;
+
   function occupyVoice(idx, priority, stopFn) {
-    voices[idx] = { priority, startedAt: ctx.currentTime, stop: stopFn };
+    const token = ++_voiceToken;
+    voices[idx] = { priority, startedAt: ctx.currentTime, stop: stopFn, token };
+    return token;
   }
 
-  function freeVoice(idx) {
-    if (voices[idx]) voices[idx] = null;
+  // Pass the token from occupyVoice. Omitting it keeps the old unconditional
+  // behaviour, which is only safe when the caller genuinely cannot have been stolen.
+  function freeVoice(idx, token) {
+    const v = voices[idx];
+    if (!v) return;
+    if (token != null && v.token !== token) return;   // slot was recycled — not ours to free
+    voices[idx] = null;
   }
 
   // ── Layer graph builder (shared by instruments, SFX, ambience) ───────────
   // layer: { waveform, freq, detune, noiseMix, filter:{type,freq,q,to,time},
   //          adsr:{a,d,s,r}, vibrato:{rate,depth}, tremolo:{rate,depth},
-  //          pitchBend:{to,time}, gain }
-  // filter.to/.time sweep the cutoff exactly like pitchBend sweeps the pitch.
+  //          pitchBend:{to,time}, fm:{rate,depth,depthTo,rateTo,time}, gain }
+  // filter.to/.time sweep the cutoff exactly like pitchBend sweeps the pitch,
+  // and fm.depthTo/.rateTo sweep the modulation index / modulator pitch the same
+  // way — one {to, time} contract for every travelling parameter.
 
   function buildLayer(layer, destination, time, holdSeconds) {
     const nodes = [];
@@ -222,11 +239,27 @@
       }
       // Audio-rate FM: modulator oscillator feeds tone.frequency (in Hz).
       // depth is the frequency deviation in Hz; index = depth / carrier_freq.
+      //
+      // depthTo/time sweep the modulation index across the note, using the SAME
+      // {to, time} exponential-approach contract as pitchBend and filter above,
+      // so there is one mental model for "this parameter travels". This is the
+      // single most expressive FM control: a high index collapsing to a low one
+      // is what turns a tone into a struck/metallic/impact sound rather than a
+      // steady buzz. rateTo does the same for the modulator's own pitch, which
+      // is what makes a collision read as inharmonic rather than musical.
+      // Both are optional — omitted leaves a static index, exactly the previous
+      // behaviour, so every cue already shipped is unaffected.
       if (layer.fm?.rate) {
         const mod = ctx.createOscillator();
-        mod.frequency.value = layer.fm.rate;
+        mod.frequency.setValueAtTime(layer.fm.rate, time);
+        if (layer.fm.rateTo) {
+          mod.frequency.setTargetAtTime(layer.fm.rateTo, time, Math.max(0.005, (layer.fm.time || 0.2) / 3));
+        }
         const modGain = ctx.createGain();
-        modGain.gain.value = layer.fm.depth ?? 100;
+        modGain.gain.setValueAtTime(layer.fm.depth ?? 100, time);
+        if (layer.fm.depthTo != null) {
+          modGain.gain.setTargetAtTime(layer.fm.depthTo, time, Math.max(0.005, (layer.fm.time || 0.2) / 3));
+        }
         mod.connect(modGain).connect(tone.frequency);
         mod.start(time);
         nodes.push(mod);
@@ -492,9 +525,9 @@
       gainNode.gain.cancelScheduledValues(c.currentTime);
       gainNode.gain.setTargetAtTime(0, c.currentTime, 0.02);
     };
-    occupyVoice(idx, def.priority ?? 5, stopFn);
+    const voiceToken = occupyVoice(idx, def.priority ?? 5, stopFn);
     const msUntilFree = Math.max(100, (endAt - c.currentTime + 0.1) * 1000);
-    setTimeout(() => freeVoice(idx), msUntilFree);
+    setTimeout(() => freeVoice(idx, voiceToken), msUntilFree);
 
     // Voice handle: per-channel monophony (a new note cuts the one still ringing with
     // a short fade, avoiding the click of a hard stop) plus the params and running
@@ -541,8 +574,13 @@
       destination = g;
     }
     const sound = buildSound(def.config, destination, time, duration);
-    occupyVoice(idx, priority, () => sound.release(c.currentTime));
-    setTimeout(() => freeVoice(idx), (duration + (def.config.adsr?.r ?? 0.15) + 0.1) * 1000);
+    const voiceToken = occupyVoice(idx, priority, () => sound.release(c.currentTime));
+    // Hold the slot for the longest layer's own release, not a flat default — the
+    // per-layer adsr is where the release actually lives, so a long crowd swell was
+    // freeing its slot roughly a second before it stopped being audible.
+    const tail = Math.max(def.config.adsr?.r ?? 0,
+      ...(def.config.layers || []).map(l => (l.delay ?? 0) + (l.adsr?.r ?? 0)), 0.15);
+    setTimeout(() => freeVoice(idx, voiceToken), (duration + tail + 0.1) * 1000);
   }
 
   // ── Ambience / arbitrary loops ─────────────────────────────────────────────
@@ -630,16 +668,20 @@
     const sparkleCancels = Array.isArray(def.config?.sparkle) && def.config.sparkle.length
       ? _startSparkles(def.config.sparkle, def.category)
       : null;
-    activeLoops.set(id, { voiceIdx: idx, release: sound.release, gainNode: sound.gainNode, baseGain, sparkleCancels });
-    occupyVoice(idx, priority, () => { sound.release(c.currentTime); if (sparkleCancels) sparkleCancels.forEach(fn => fn()); activeLoops.delete(id); });
+    const entry = { voiceIdx: idx, release: sound.release, gainNode: sound.gainNode, baseGain, sparkleCancels };
+    activeLoops.set(id, entry);
+    entry.voiceToken = occupyVoice(idx, priority, () => { sound.release(c.currentTime); if (sparkleCancels) sparkleCancels.forEach(fn => fn()); activeLoops.delete(id); });
   }
 
   function stopLoop(id) {
     const loop = activeLoops.get(id);
     if (!loop) return;
     if (loop.sparkleCancels) loop.sparkleCancels.forEach(fn => fn());
-    voices[loop.voiceIdx]?.stop(false);
-    freeVoice(loop.voiceIdx);
+    // Only touch the slot if this loop still owns it. A stolen loop's index now
+    // belongs to someone else, and stopping that would cut an unrelated sound dead.
+    const v = voices[loop.voiceIdx];
+    if (v && v.token === loop.voiceToken) { v.stop(false); freeVoice(loop.voiceIdx, loop.voiceToken); }
+    else loop.release?.(ctx ? ctx.currentTime : 0);
     activeLoops.delete(id);
   }
 
@@ -827,9 +869,9 @@
         if (idx === -1) return;
         const sound = buildSound(config, channelGains[chIdx], time, stepSeconds * 0.9);
         channelVoice[chIdx] = { cut: (t) => sound.release(t), srcNode: null };
-        occupyVoice(idx, priority, () => sound.release(c.currentTime));
+        const voiceToken = occupyVoice(idx, priority, () => sound.release(c.currentTime));
         const ms = Math.max(0, (time - c.currentTime) * 1000) + (stepSeconds * 1000) + 200;
-        setTimeout(() => freeVoice(idx), ms);
+        setTimeout(() => freeVoice(idx, voiceToken), ms);
       });
       if (def.onStep) {
         const delay = Math.max(0, (time - c.currentTime) * 1000);

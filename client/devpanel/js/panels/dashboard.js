@@ -44,6 +44,7 @@ function renderDashboard(data) {
         ${card('🛡', 'Admins Online', admins.length, admins.length ? admins.map(p=>p.handle).join(', ') : 'None', "showPanel('players')")}
         ${card('🕐', 'Server Time', timeStr, `${dateStr} · ${season} · ${weatherStr}`, "showPanel('timeweather')")}
         ${card('👾', 'Live Enemies', data.live_enemies ?? '—', `${(data.zones||[]).length} zones active`, "showPanel('enemies')")}
+        ${card('🚀', 'Next Deploy Window', '<span id="dep-clock">--:--:--</span>', '<span id="dep-sub">every 2h · click for Actions</span>', "window.open('https://github.com/HaveAGreatDave/architect-mud/actions/workflows/deploy-content.yml','_blank')")}
       </div>
 
       <div style="font-size:13px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">7-Day Forecast</div>
@@ -140,6 +141,39 @@ function renderDashboard(data) {
   _initActivityLog();
   _initPlayerCountChart();
   _initCheckinBanner();
+  _initDeployClock();
+}
+
+// ── Next deploy window countdown ─────────────────────────────────────────────
+// CI debounces deploys onto `cron: '0 */2 * * *'` (see .github/workflows/
+// deploy-content.yml) — a push only runs the regress gate. This is a pure
+// client-side clock: no request, no server state. It can't know whether the
+// upcoming run will actually ship (a scheduled run skips when HEAD's sha is
+// already live), so it reads as "earliest possible start", not a promise.
+
+function _initDeployClock() {
+  if (!document.getElementById('dep-clock')) return;
+  clearInterval(window._depTimer);   // panel re-renders; never stack intervals
+
+  const pad = n => String(n).padStart(2, '0');
+  const tick = () => {
+    const clock = document.getElementById('dep-clock');
+    if (!clock) { clearInterval(window._depTimer); return; }  // panel switched away
+    const now  = new Date();
+    const next = new Date(now);
+    next.setUTCMinutes(0, 0, 0);
+    next.setUTCHours(next.getUTCHours() + (next.getUTCHours() % 2 === 0 ? 2 : 1));
+
+    const ms = Math.max(0, next - now);
+    clock.textContent = `${pad(Math.floor(ms / 3600000))}:${pad(Math.floor(ms % 3600000 / 60000))}:${pad(Math.floor(ms % 60000 / 1000))}`;
+    clock.style.color = ms < 600000 ? 'var(--yellow)' : '';
+
+    const sub = document.getElementById('dep-sub');
+    if (sub) sub.textContent = `${pad(next.getUTCHours())}:00 UTC · ${next.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} local`;
+  };
+
+  tick();
+  window._depTimer = setInterval(tick, 1000);
 }
 
 // ── "Since you last checked in" banner ────────────────────────────────────────

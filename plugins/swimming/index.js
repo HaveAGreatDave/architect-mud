@@ -31,6 +31,7 @@ import { sendToPlayer } from '../../server/engine/messaging.js';
 import { on } from '../../server/engine/events.js';
 import { getItem } from '../../server/engine/items-cache.js';
 import { registerStatusEffect, applyEffect } from '../../server/engine/effects.js';
+import { markWashed } from '../../server/engine/hygiene.js';
 
 // ── Tuning ───────────────────────────────────────────────────────────────────
 // Stroke cost runs a WIDE linear band (18→4 over effective skill 0..14) so the
@@ -115,6 +116,36 @@ function drainStamina(player, cost, messages = []) {
   query('UPDATE players SET stamina=$1 WHERE id=$2', [player.stamina, player.id]).catch(() => {});
 }
 
+// Open water as a bath. Clears what a shower clears — blood, contamination,
+// dried fluid — and resets the body clock, but NOT the laundry clock: rinsing
+// clothes on your back isn't washing them. Returns true if anything came off.
+async function rinseOff(player) {
+  let cleaned = false;
+
+  if (player.covered_in_blood) {
+    player.covered_in_blood = 0;
+    await query('UPDATE players SET covered_in_blood=0 WHERE id=$1', [player.id]).catch(() => {});
+    cleaned = true;
+  }
+  if (Object.keys(player.clothing_contamination || {}).length) {
+    player.clothing_contamination = {};
+    await query(`UPDATE players SET clothing_contamination='{}'::jsonb WHERE id=$1`, [player.id]).catch(() => {});
+    cleaned = true;
+  }
+  const ad = player.appearance_data || {};
+  if (ad.ejaculate_state || ad.soiled_state) {
+    ad.ejaculate_state = null;
+    ad.soiled_state = null;
+    player.appearance_data = ad;
+    await query('UPDATE players SET appearance_data=$1 WHERE id=$2', [JSON.stringify(ad), player.id]).catch(() => {});
+    cleaned = true;
+  }
+  if ((player._sweat || 0) > 0) cleaned = true;
+
+  await markWashed(player);
+  return cleaned;
+}
+
 // ── Per-move cost + submersion state (fires after a committed move) ───────────
 on('zone.entered', async ({ actor: player, from, opts }) => {
   if (!player || opts?.bypassEncumbrance) return;   // system/teleport move — no swim toll
@@ -123,7 +154,18 @@ on('zone.entered', async ({ actor: player, from, opts }) => {
   if (!isSwimZone(toZone)) {                          // stepped onto dry land
     if (player._submerged) {
       player._submerged = false; player._breath = null; player._hasBoat = false;
-      sendToPlayer(player.id, { type: 'output', message: sys('You haul yourself out of the water, dripping and heavy.') });
+      // Going fully under is a wash, and a free one — the poor man's shower.
+      // Not in water that's worse than you are: a sewer outfall or a chem-slick
+      // pool leaves you dirtier, so those only cost you the swim.
+      const water = getZone(from);
+      const foul = !!(water?.flags?.toxic || water?.flags?.polluted || water?.flags?.sewage);
+      const rinsed = foul ? false : await rinseOff(player);
+      sendToPlayer(player.id, { type: 'output', message: sys(
+        foul
+          ? 'You haul yourself out, dripping and heavy, wearing a film of whatever that water was carrying.'
+          : rinsed
+            ? 'You haul yourself out, dripping and heavy — and noticeably cleaner than you went in.'
+            : 'You haul yourself out of the water, dripping and heavy.') });
     }
     return;
   }

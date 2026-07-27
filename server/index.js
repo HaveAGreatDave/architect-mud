@@ -1,5 +1,6 @@
 import { createServer } from "http";
 import { readFileSync, existsSync, statSync } from "fs";
+import { brotliCompressSync, gzipSync, constants } from "zlib";
 import { join, extname, dirname } from "path";
 import { fileURLToPath } from "url";
 import { WebSocketServer } from "ws";
@@ -23,6 +24,8 @@ import {
 	recomputeEquipped,
 } from "./engine/commands/index.js";
 import { startGameLoop } from "./engine/gameLoop.js";
+import { zoneAudience } from "./engine/delivery.js";
+import { modulePreloadTags } from "./modulegraph.js";
 import { loadPlugins, fireHook } from "./engine/plugins.js";
 import { emit } from "./engine/events.js";
 import { getNetXp, maxHpForEndurance } from "./engine/ip.js";
@@ -61,7 +64,10 @@ import { getPlayerChannels, getChannelHistory } from "./engine/channels.js";
 import { getMotd } from "./engine/motd.js";
 import { openShopSession, closeShopSession } from "./engine/vendor-session.js";
 import { getSoundReach } from "./engine/sounds.js";
-import { getFlag } from "./engine/flags.js";
+import { getFlag, hydratePlayerFlags, evictPlayerFlags } from "./engine/flags.js";
+import { hydrateRelations, flushRelations } from "./engine/relations.js";
+import { hydrateIdeologyProfile } from "./engine/ideologies.js";
+import { DOMINANT_FLAG, SECOND_FLAG } from "./engine/senses.js";
 import { DEFAULT_STANCE } from "./engine/stance.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -69,6 +75,10 @@ const PORT = process.env.PORT || 3000;
 
 const clients = new Map(); // ws -> session
 const playerSockets = new Map(); // playerId -> ws
+// Ghost sessions watch a zone without standing in it, so they never appear in
+// zone.players. Kept as their own small set so the zone broadcast fast path can
+// serve them without falling back to scanning every connected client.
+const ghostSockets = new Set();
 const reconnectTokens = new Map(); // token -> { playerId, expires }
 const ghostTokens = new Map(); // token -> { playerId, zoneId, expires }
 
@@ -112,25 +122,43 @@ function broadcast(
 		if (ws?.readyState === 1) ws.send(payload);
 		return;
 	}
-	for (const [ws, session] of clients) {
-		if (ws.readyState !== 1) continue;
-		if (excludePlayerId && session.playerId === excludePlayerId) continue;
-		if (excludePlayerId2 && session.playerId === excludePlayerId2) continue;
-		if (excludeSet && excludeSet.has(session.playerId)) continue;
-		if (session.isGhost) {
-			// Ghost only receives broadcasts for its watched zone; skip global ones
-			if (!zoneId || session.ghostZoneId !== zoneId) continue;
-		} else if (zoneId) {
-			const p = getLivePlayer(session.playerId);
-			if (!p || p.current_zone !== zoneId) continue;
-			// Asleep players don't perceive the room around them — no actions, speech, or ambience.
-			if (p.sleeping) continue;
-			// Aboard an airborne aircraft the player is up in the sky, not in the stale ground
-			// zone they took off from — ground ambience (overfly noise, banter, vendors, weather)
-			// must not leak into the cockpit. Their own game messages arrive targeted.
-			if (p.posture === 'flying') continue;
-		}
+
+	// Shared recipient filter — identical predicates whichever way we got here, so
+	// the zone fast path below can never diverge from the global scan.
+	const deliver = (ws, session) => {
+		if (!ws || ws.readyState !== 1) return;
+		if (excludePlayerId && session.playerId === excludePlayerId) return;
+		if (excludePlayerId2 && session.playerId === excludePlayerId2) return;
+		if (excludeSet && excludeSet.has(session.playerId)) return;
 		ws.send(payload);
+	};
+
+	if (zoneId) {
+		// ── Zone fast path ────────────────────────────────────────────────────
+		// WHO receives this lives in engine/delivery.js so it can be tested; this
+		// keeps only the part that needs sockets. See that file for why delivery
+		// walks zone.players rather than scanning every connected client, and why
+		// there is deliberately no parallel zoneId->socket index.
+		for (const pid of zoneAudience(zoneId, {
+			exclude: [excludePlayerId, excludePlayerId2],
+			excludeSet,
+		})) {
+			const ws = playerSockets.get(pid);
+			if (ws) deliver(ws, clients.get(ws) || { playerId: pid });
+		}
+		// Ghosts watch a zone without standing in it, so they are not in
+		// zone.players. There are only ever a handful (a dev tool), tracked in
+		// their own set so this stays proportional to ghosts, not to players.
+		for (const ws of ghostSockets) {
+			const session = clients.get(ws);
+			if (session?.ghostZoneId === zoneId) deliver(ws, session);
+		}
+	} else {
+		// Global message: everyone except ghosts, who only ever watch one zone.
+		for (const [ws, session] of clients) {
+			if (session.isGhost) continue;
+			deliver(ws, session);
+		}
 	}
 	// Notify studio camera relay (broadcast plugin listens to this)
 	if (zoneId && !targetPlayerId) emit('zone.broadcast', { zoneId, msg: message });
@@ -151,6 +179,104 @@ const MIME = {
 	".txt": "text/plain; charset=utf-8",
 	".xml": "application/xml; charset=utf-8",
 };
+
+// ── Static asset cache + compression ──────────────────────────────────────────
+//
+// Two problems this solves, both on the path that also serves every WebSocket
+// message:
+//
+//  1. Nothing was compressed. A cold load pulls ~5 MB of client JS/CSS/HTML off
+//     this server raw. Text compresses 4-6x, and zlib ships with Node, so this
+//     costs no dependency and changes no behaviour — only the bytes on the wire.
+//  2. Every request did a synchronous readFileSync + statSync. Sync disk I/O
+//     blocks the event loop, and that is the SAME loop delivering combat messages
+//     and room descriptions to everyone already playing. ~82 assets per cold
+//     load meant ~82 micro-stalls for the whole world every time someone
+//     refreshed.
+//
+// So: read + compress once, keep the buffers in memory, key on mtime so an
+// edited file is picked up without a restart (node --watch restarts anyway, but
+// the devpanel and a bare `npm start` do not). Compression is CPU work we do
+// exactly once per file version, not per request.
+//
+// Only text types are compressed — .png/.ico are already compressed formats and
+// running deflate over them burns CPU to make them marginally bigger.
+const COMPRESSIBLE = new Set([".html", ".js", ".css", ".json", ".svg", ".txt", ".xml"]);
+// Below ~1 KB the framing overhead and the CPU round trip cost more than the
+// handful of bytes saved.
+const COMPRESS_MIN_BYTES = 1024;
+
+// filePath -> { mtime, raw, br, gzip, type }
+const assetCache = new Map();
+
+// See server/modulegraph.js for why these hints exist and why they are generated
+// rather than written by hand. Computed lazily on first use and memoised for the
+// process — the import graph is source, and source doesn't change under a running
+// server (a dev restart re-walks it; `node --watch` restarts on every edit).
+const MODULEPRELOAD_MARKER = "<!--MODULEPRELOAD-->";
+let _preloadBlock = null;
+function modulePreloadBlock() {
+	if (_preloadBlock !== null) return _preloadBlock;
+	const gameRoot = join(__dirname, "../client/game");
+	try {
+		_preloadBlock = modulePreloadTags(join(gameRoot, "js/main.js"), gameRoot);
+		const n = (_preloadBlock.match(/rel="modulepreload"/g) || []).length;
+		console.log(`  ⇢ ${n} modulepreload hint(s) generated for the game client`);
+	} catch (err) {
+		// A broken graph walk must never take the page down — worst case we serve
+		// the shell without hints and the browser discovers modules the slow way.
+		console.error(`[modulepreload] graph walk failed, serving without hints: ${err.message}`);
+		_preloadBlock = "";
+	}
+	return _preloadBlock;
+}
+
+function getAsset(filePath) {
+	const mtimeMs = statSync(filePath).mtimeMs;
+	const hit = assetCache.get(filePath);
+	if (hit && hit.mtimeMs === mtimeMs) return hit;
+
+	const ext = extname(filePath);
+	let raw = readFileSync(filePath);
+
+	// Inject the modulepreload hints into the game shell. Done here, inside the
+	// cache fill, so the graph is walked once per mtime rather than per request —
+	// and so the compressed buffers below are built from the final bytes.
+	if (ext === ".html" && raw.includes(MODULEPRELOAD_MARKER)) {
+		raw = Buffer.from(
+			raw.toString("utf8").replace(MODULEPRELOAD_MARKER, modulePreloadBlock()),
+			"utf8",
+		);
+	}
+
+	const entry = {
+		mtimeMs,
+		lastMod: new Date(mtimeMs).toUTCString(),
+		type: MIME[ext] || "text/plain",
+		raw,
+		br: null,
+		gzip: null,
+	};
+	if (COMPRESSIBLE.has(ext) && raw.length >= COMPRESS_MIN_BYTES) {
+		// Quality 5 (not the default 11): 11 is for build-time asset pipelines and
+		// can take seconds on a large file, which would stall the loop we are
+		// trying to protect. 5 lands within a few percent of 11 on JS for a
+		// fraction of the time, and it only ever runs once per file version.
+		try {
+			entry.br = brotliCompressSync(raw, {
+				params: {
+					[constants.BROTLI_PARAM_QUALITY]: 5,
+					[constants.BROTLI_PARAM_SIZE_HINT]: raw.length,
+				},
+			});
+		} catch { /* fall through to gzip */ }
+		try {
+			entry.gzip = gzipSync(raw, { level: 6 });
+		} catch { /* fall through to raw */ }
+	}
+	assetCache.set(filePath, entry);
+	return entry;
+}
 
 const httpServer = createServer(async (req, res) => {
 	const url = req.url || "/";
@@ -251,26 +377,69 @@ const httpServer = createServer(async (req, res) => {
 		// round trip per file on every load, which dominated load time. A deploy is
 		// at most max-age seconds stale for an already-open page.
 		const ext = extname(filePath);
-		const lastMod = statSync(filePath).mtime.toUTCString();
-		if (req.headers["if-modified-since"] === lastMod) {
+		const asset = getAsset(filePath);
+		if (req.headers["if-modified-since"] === asset.lastMod) {
 			res.writeHead(304);
 			res.end();
 			return;
 		}
-		const data = readFileSync(filePath);
+		// Pick the best encoding the client actually advertised. Vary tells any
+		// cache between us and the player that the body depends on this header —
+		// without it, a shared proxy could hand a brotli body to a client that
+		// never asked for one.
+		const accepts = String(req.headers["accept-encoding"] || "");
+		let body = asset.raw;
+		let encoding = null;
+		if (asset.br && /\bbr\b/.test(accepts)) { body = asset.br; encoding = "br"; }
+		else if (asset.gzip && /\bgzip\b/.test(accepts)) { body = asset.gzip; encoding = "gzip"; }
+
 		res.writeHead(200, {
-			"Content-Type": MIME[ext] || "text/plain",
+			"Content-Type": asset.type,
 			"Cache-Control": ext === ".html" ? "no-cache" : "public, max-age=60",
-			"Last-Modified": lastMod,
+			"Last-Modified": asset.lastMod,
+			"Content-Length": body.length,
+			// Vary goes on anything we *could* have compressed, not just what we
+			// did — otherwise a shared cache that stored the raw copy would keep
+			// serving it, and a proxy that stored a compressed copy could hand it
+			// to a client that never advertised support.
+			...(COMPRESSIBLE.has(ext) ? { "Vary": "Accept-Encoding" } : {}),
+			...(encoding ? { "Content-Encoding": encoding } : {}),
 		});
-		res.end(data);
+		res.end(body);
 	} catch {
 		res.writeHead(404);
 		res.end("Not found");
 	}
 });
 
-const wss = new WebSocketServer({ server: httpServer });
+// Compress the socket. Measured on a real room payload: a `look` is ~34 KB, of
+// which ~33 KB is the minimap node array — highly repetitive JSON that gzips
+// 17.9x and brotlis 24x. Static assets were already compressed; the socket that
+// carries every room description and every step was still going out raw.
+//
+// Configured rather than `perMessageDeflate: true`, because ws's own docs warn
+// that the defaults fragment memory badly under load:
+//   threshold        — frames under this skip deflate entirely. Most traffic is
+//                      small status/vitals ticks where framing overhead would
+//                      cost more than it saves; the big room payloads clear it.
+//   memLevel 7       — below zlib's default 8; materially less memory per
+//                      connection for a few percent of ratio.
+//   concurrencyLimit — caps simultaneous zlib jobs so a burst of moves can't
+//                      pile compression work onto the event loop the game runs on.
+//   clientNoContextTakeover — do not hold a per-connection compression context
+//                      open for inbound frames; clients send tiny commands, so
+//                      the context buys nothing and costs memory per player.
+const wss = new WebSocketServer({
+	server: httpServer,
+	perMessageDeflate: {
+		threshold: 1024,
+		concurrencyLimit: 10,
+		clientNoContextTakeover: true,
+		serverNoContextTakeover: false,   // keep server-side context: consecutive
+		                                  // minimaps share ~90% of their bytes
+		zlibDeflateOptions: { level: 6, memLevel: 7 },
+	},
+});
 
 // Message types that count as deliberate player input for idle tracking —
 // things a player typed or clicked, not the client keeping itself alive.
@@ -430,6 +599,13 @@ wss.on("connection", (ws) => {
 					).catch(() => {});
 				}
 				closeShopSession(session.playerId);
+				// Last chance to persist whatever the session changed about who
+				// knows this player — the live object (and its Map) is discarded
+				// by removeLivePlayer a few lines down.
+				if (player) await flushRelations(player).catch(() => {});
+				// Flags are write-through (no dirty set to flush) — just drop the
+				// cache so the module registry stops pinning a dead player object.
+				evictPlayerFlags(session.playerId);
 				emit('player.logout', { id: session.playerId, handle: session.handle });
 				logActivity('disconnect', session.handle);
 				broadcast(null, { type: 'online_change' });
@@ -438,6 +614,7 @@ wss.on("connection", (ws) => {
 			}
 		}
 		clients.delete(ws);
+		ghostSockets.delete(ws);
 	});
 
 	ws.send(
@@ -504,6 +681,7 @@ async function handleGhostAuth(ws, session, msg) {
 		return;
 	}
 	session.isGhost = true;
+	ghostSockets.add(ws);
 	session.ghostZoneId = entry.zoneId;
 	session.playerId = entry.playerId;
 	session.handle = rows[0].handle;
@@ -751,6 +929,10 @@ async function finishAuth(ws, session, player) {
 		origin_fragment: player.origin_fragment || '',
 		archetype: player.archetype || null,
 		visibly_mutated: player.visibly_mutated || 0,
+		// Fatigue is derived from this, so it must ride the live object. A player
+		// who has never slept reads as fresh rather than as eight hours awake —
+		// nobody should log in for the first time already wrecked.
+		last_slept_at: Number(player.last_slept_at) || Date.now(),
 		covered_in_blood: player.covered_in_blood || 0,
 		current_zone: player.current_zone || "zone_start",
 		anchor_zone: player.anchor_zone || "zone_start",
@@ -808,6 +990,33 @@ async function finishAuth(ws, session, player) {
 	// LIVE object on every to-hit roll — getFlag is a DB round trip and can never
 	// live in that hot path. Login is the one place it's fetched.
 	livePlayer.combat_stance = (await getFlag('player', 'combat_stance', livePlayer)) || DEFAULT_STANCE;
+	// Sense attunement, for exactly the same reason: `smell` is a spammable verb
+	// and acuity is read on every use, so the flags are hydrated once here and
+	// answered from the live object thereafter (docs/architecture.md read tiers).
+	livePlayer._senseDominant = (await getFlag('player', DOMINANT_FLAG, livePlayer)) || null;
+	livePlayer._senseSecond   = (await getFlag('player', SECOND_FLAG, livePlayer)) || null;
+	// Who this player has met, and how it went. ONE indexed query here is the
+	// entire DB cost of the relationship system for the whole session — every
+	// later read (dialogue gates, greetings, vendor manner) is answered from the
+	// Map this builds. See the read-tier note at the top of engine/relations.js.
+	//
+	// On a RECONNECT there may still be a live object from the old session whose
+	// Map holds unflushed conversations. Flush it BEFORE reading, or the fresh
+	// hydrate races it and the last few minutes of knowing someone are lost.
+	const priorSession = getLivePlayer(player.id);
+	if (priorSession) await flushRelations(priorSession).catch(() => {});
+	// Independent reads — one round trip's latency, not two.
+	// The ideology profile (stance + strongest path) is hydrated for the same
+	// reason: reputation decay consults it on every vendor price lookup, and five
+	// flag round trips there would be indefensible.
+	// player_flags joins the same batch: it's the mandated home for per-player
+	// scalar state, so it's read constantly at runtime (~70 call sites) and was
+	// costing a round trip every time. One query here, Map lookups thereafter.
+	await Promise.all([
+		hydrateRelations(livePlayer),
+		hydrateIdeologyProfile(livePlayer),
+		hydratePlayerFlags(livePlayer),
+	]);
 	// Seed the resource diff-gate stamp (Phase 6) from the freshly-loaded row so
 	// the first resourceTick after login doesn't write values that never changed.
 	livePlayer._lastSavedResources = {
@@ -832,7 +1041,10 @@ async function finishAuth(ws, session, player) {
 	addPlayerToZone(player.id, livePlayer.current_zone);
 	const diedOffline = player.died_offline;
 	await query(
-		"UPDATE players SET last_seen=EXTRACT(EPOCH FROM NOW()), offline_sleeping=FALSE, died_offline=FALSE WHERE id=$1",
+		// Logging off asleep in a bed is a legitimate way to spend the night: you
+		// wake rested rather than having to sit and watch the clock. That is the
+		// escape valve that keeps fatigue from becoming a chore.
+		"UPDATE players SET last_seen=EXTRACT(EPOCH FROM NOW()), last_slept_at=CASE WHEN offline_sleeping THEN EXTRACT(EPOCH FROM NOW())*1000 ELSE last_slept_at END, offline_sleeping=FALSE, died_offline=FALSE WHERE id=$1",
 		[player.id],
 	);
 

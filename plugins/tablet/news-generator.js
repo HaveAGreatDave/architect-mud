@@ -308,8 +308,42 @@ on('sports.worldseries', ({ teams, when, airHour }) => {
   record(`DEADBALL WORLD SERIES SET: ${teams[0]} vs ${teams[1]} — First Pitch ${whenTxt}, ${time}; City Grinds to a Halt`);
 });
 
+// Hero weather gets a headline per PHASE, not one per event. The approach line
+// is a warning you can still act on; the peak line is the paper admitting it's
+// happening. The Sentinel being flippant about something lethal is the joke —
+// but the danger has to be legible underneath it, or the warning does no work.
+const WX_EVENT_HEADLINES = {
+  acid_rain: {
+    approach: [
+      'ACID FRONT INBOUND: Do Not Go Out In It. The Sentinel Cannot Stress This Enough',
+      'Chemical Rain Warning Issued; Weather Desk Advises "A Coat, And We Mean A Real One"',
+      'Yellow Sky Over the Basin — Sealed Rainwear Sells Out Citywide in Under an Hour',
+    ],
+    peak: [
+      'IT IS RAINING ACID. Casualty Wards Report Queues Around the Block',
+      'Caustic Downpour Strips Paint, Coats, and Several People Who Owned Neither',
+      'Acid Rain at Peak: Get Under Something Or Be Dissolved, Say Authorities Unhelpfully',
+    ],
+  },
+  ion_storm: {
+    approach: [
+      'ION STORM APPROACHING: Grid Operators Brace, Advise Everyone Else to Do the Same',
+      'Static Warning Citywide — Anything With a Circuit In It Is Now a Liability',
+      'Charged Front Closing on Coldwater; Chrome Owners Advised to Sit Down Somewhere Soft',
+    ],
+    peak: [
+      'CITY GOES DARK: Ion Pulse Takes the Grid, the Screens, and Most of the Chrome With It',
+      'Blackout Total. This Bulletin Was Filed on Something With a Wind-Up Handle',
+      'Ion Storm at Peak — Fried Devices Pile Up Outside Repair Benches Across the District',
+    ],
+  },
+};
+
 on('weather.event', ({ type, phase }) => {
   if (!type || phase === 'passing') return;
+  const pool = WX_EVENT_HEADLINES[type]?.[phase];
+  if (pool) { record(pickOne(pool)); return; }
+  // Any hero event added later still gets a headline, just a generic one.
   const t = String(type).replace(/_/g, ' ');
   record(pickOne([
     `${t} Bearing Down on the City; Authorities Recommend "Praying, Mostly"`,

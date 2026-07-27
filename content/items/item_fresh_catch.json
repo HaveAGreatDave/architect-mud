@@ -6,14 +6,14 @@
   "tags": {
     "consumable": true,
     "description": "A dull-scaled bottom feeder, thick through the shoulder and still cold. Carp will live in water nothing else will, which is exactly why there's still carp. Best not to ask what it fed on.",
-    "restore_hunger": 16,
-    "stackable": true,
-    "well_fed": true,
-    "perishable": true,
-    "spoil_rate": "fast",
-    "needs_cooking": true,
+    "food_noun": "fish",
     "food_profile": "dense_meat",
-    "food_noun": "fish"
+    "needs_cooking": true,
+    "perishable": true,
+    "restore_hunger": 16,
+    "spoil_rate": "fast",
+    "stackable": true,
+    "well_fed": true
   },
   "type": "consumable",
   "value": 7,

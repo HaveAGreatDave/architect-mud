@@ -1,0 +1,2768 @@
+@broadcast "The Open Signal"
+@channel 7
+@category movie
+@type film
+@length 10476
+@airtime 21
+@airday saturday
+@presents "Meridian Reclamation Pictures"
+@rating "ADULT — UNLICENSED — UNSUITABLE FOR CORPORATE VIEWING"
+@director "Auggie Prine"
+@titlecard open_signal_logo
+
+# THE OPEN SIGNAL — a feature-length film for KSAB-TV, channel 7, the 21:00 block.
+#
+# In-universe: a 2.5-hour period picture about the eight years after The Handoff when
+# the transmitters stayed up and nobody owned them, and what went out on them — for
+# free, all night, to a Basin with nothing else on — was pornography. It is about a
+# nineteen-year-old dishwasher who was dealt exactly one card, the director who
+# believed a filthy picture could still hold an audience for ninety minutes, the family
+# they built in a rented house, and the licensing authority that came back and made
+# every one of them a criminal in an afternoon.
+#
+# ADULT. The subject is the adult-broadcast trade and the film says so plainly — the
+# work, the money, the shoots, and what the trade costs the people in it. It depicts;
+# it does not perform. Scheduled at 21:00 for that reason.
+#
+# The film is a RECORDING. Its cast are display names in ::cast, never npc_ ids —
+# nothing here spawns a studio NPC and nothing presence-gates. See docs/bsm-format.md.
+
+::cast
+DEACON | Deacon Vox | the one card
+DENNY | Denny Faust | the dishwasher, before
+AUGGIE | Auggie Prine | the director
+SABLE | Marguerite Sable | the leading lady, and the mother of the house
+KESTREL | Kestrel | never takes the headset off
+REED | Reed Halloran | the best friend
+BUCK | Buck Ozarow | wants an honest shop
+WILBY | Wilby Crane | the sound man
+VAL | Val Crane | his wife
+SCOTTY | Scotty Kell | the boom
+COLONEL | The Colonel | the money
+TODD | Todd Vane | the problem
+GONDOLLI | Fisk Gondolli | the man from the Coast
+RASHAD | Rashad Ghazi | the house on the hill
+MAURICE | Maurice Tam | the roadhouse, and the man who tried
+JOANIE | Joanie Faust | mother
+CLERK | the licensing clerk | Reclamation Authority
+BOY | the boy with the flares |
+::endcast
+
+::asset open_signal_logo
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" font-family="'Segoe UI',Helvetica,Arial,sans-serif">
+  <defs>
+    <linearGradient id="os_sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a1a12"/>
+      <stop offset="0.42" stop-color="#12100f"/>
+      <stop offset="1" stop-color="#07070a"/>
+    </linearGradient>
+
+    <linearGradient id="os_dusk" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#c4622a" stop-opacity="0.55"/>
+      <stop offset="0.5" stop-color="#8a3f22" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#8a3f22" stop-opacity="0"/>
+    </linearGradient>
+
+    <radialGradient id="os_vig" cx="0.5" cy="0.5" r="0.75">
+      <stop offset="0.4" stop-color="#000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0.9"/>
+    </radialGradient>
+
+    <linearGradient id="os_type" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f6e4c2"/>
+      <stop offset="0.55" stop-color="#e3c793"/>
+      <stop offset="1" stop-color="#b48f5c"/>
+    </linearGradient>
+
+    <!-- Emulsion grain. Coarser than the station card: this is a copy of a copy. -->
+    <filter id="os_grain" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.7" numOctaves="4" seed="3" result="n">
+        <animate attributeName="seed" values="3;19;41;8;3" dur="0.7s" repeatCount="indefinite"/>
+      </feTurbulence>
+      <feColorMatrix in="n" type="saturate" values="0"/>
+      <feComponentTransfer><feFuncA type="linear" slope="0.42" intercept="-0.14"/></feComponentTransfer>
+    </filter>
+
+    <filter id="os_beacon" x="-300%" y="-300%" width="700%" height="700%">
+      <feGaussianBlur stdDeviation="4"/>
+    </filter>
+
+    <filter id="os_soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="2.4" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+
+    <pattern id="os_scan" width="3" height="3" patternUnits="userSpaceOnUse">
+      <rect width="3" height="1" fill="#000" opacity="0.22"/>
+    </pattern>
+
+    <clipPath id="os_frame"><rect x="0" y="0" width="640" height="360"/></clipPath>
+  </defs>
+
+  <g clip-path="url(#os_frame)">
+    <rect width="640" height="360" fill="url(#os_sky)"/>
+    <rect y="150" width="640" height="210" fill="url(#os_dusk)"/>
+
+    <!-- The Basin at night: a low, mostly dark skyline with a few windows that still draw. -->
+    <g fill="#0a0a0d">
+      <path d="M0 286h44v-26h30v26h26v-42h34v42h40v-18h28v18h52v-34h30v34h58v-22h26v22h40v-30h32v30h44v-16h26v16h60v-24h30v24h40v98H0z"/>
+    </g>
+    <g fill="#ffca7a" opacity="0.5">
+      <rect x="52" y="268" width="3" height="4"/><rect x="118" y="252" width="3" height="4"/>
+      <rect x="212" y="276" width="3" height="4"/><rect x="286" y="244" width="3" height="4"/>
+      <rect x="398" y="256" width="3" height="4"/><rect x="470" y="240" width="3" height="4"/>
+      <rect x="556" y="262" width="3" height="4">
+        <animate attributeName="opacity" values="1;1;0.15;1" dur="6s" repeatCount="indefinite"/>
+      </rect>
+    </g>
+
+    <!-- The mast on the ridge. Everything in this picture happened underneath it. -->
+    <g stroke="#0c0c10" fill="none" stroke-width="2.4">
+      <path d="M556 262 L544 118 M556 262 L568 118 M544 118 L568 118"/>
+      <path d="M547 236h18 M549 210h14 M550.5 184h11 M552 158h8 M553 132h6" stroke-width="1.4"/>
+      <path d="M544 118 L568 118 L562 96 L550 96 Z" stroke-width="1.8"/>
+      <path d="M528 258 L544 190 M584 258 L568 190" stroke-width="1"/>
+    </g>
+
+    <!-- Beacon: the light that has been blinking without instruction for eleven years. -->
+    <circle cx="556" cy="92" r="9" fill="#e2503a" filter="url(#os_beacon)" opacity="0.55">
+      <animate attributeName="opacity" values="0.12;0.72;0.12" dur="2.8s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="556" cy="92" r="2.6" fill="#ff8a6a">
+      <animate attributeName="opacity" values="0.35;1;0.35" dur="2.8s" repeatCount="indefinite"/>
+    </circle>
+
+    <!-- Signal going out over a Basin that never licensed it. -->
+    <g fill="none" stroke="#e2503a" stroke-width="1.1" opacity="0">
+      <path d="M556 92 m -30 0 a 30 30 0 0 1 60 0" opacity="0.5">
+        <animate attributeName="opacity" values="0;0.5;0" dur="2.8s" repeatCount="indefinite"/>
+      </path>
+    </g>
+    <g fill="none" stroke="#e2503a" stroke-width="0.9">
+      <path d="M556 92 m -52 0 a 52 52 0 0 1 104 0" opacity="0">
+        <animate attributeName="opacity" values="0;0.32;0" dur="2.8s" begin="0.35s" repeatCount="indefinite"/>
+      </path>
+      <path d="M556 92 m -76 0 a 76 76 0 0 1 152 0" opacity="0">
+        <animate attributeName="opacity" values="0;0.18;0" dur="2.8s" begin="0.7s" repeatCount="indefinite"/>
+      </path>
+    </g>
+
+    <!-- Title -->
+    <g text-anchor="middle" filter="url(#os_soft)">
+      <text x="300" y="168" fill="url(#os_type)" font-size="47" font-weight="700" letter-spacing="9.5">THE OPEN SIGNAL</text>
+    </g>
+    <g text-anchor="middle">
+      <path d="M118 186h364" stroke="#8a6b3f" stroke-width="0.8" opacity="0.65"/>
+      <text x="300" y="206" fill="#c2a373" font-size="10.5" font-weight="600" letter-spacing="6.4">EIGHT YEARS NOBODY OWNED THE AIR</text>
+      <text x="300" y="330" fill="#6d5c43" font-size="8.5" letter-spacing="4.2">A MERIDIAN RECLAMATION PICTURE</text>
+    </g>
+
+    <!-- Grade, grain, scanlines, matte -->
+    <rect width="640" height="360" fill="url(#os_vig)"/>
+    <rect width="640" height="360" filter="url(#os_grain)" opacity="0.16"/>
+    <rect width="640" height="360" fill="url(#os_scan)"/>
+    <rect width="640" height="40" fill="#000"/>
+    <rect y="320" width="640" height="40" fill="#000"/>
+    <rect width="640" height="360" fill="#000" opacity="0">
+      <animate attributeName="opacity" values="0;0.07;0;0.03;0" dur="4.1s" repeatCount="indefinite"/>
+    </rect>
+  </g>
+</svg>
+::endasset
+
+LETTERBOX on
+
+TITLE open_signal_logo
+
+SHOT
+A held shot on a transmitter mast at dusk, red light blinking, nobody underneath it. It has been blinking without instruction for eleven years. Nobody has ever gone up to ask it why.
+SHOT_END
+
+NARRATOR:
+There is a period the Basin does not put in its histories, because the people who lived it are still alive and still embarrassed.
+
+NARRATOR:
+For eight years after the Handoff, the towers stayed up and nobody owned them. No licence. No authority. No signal police. Just a mast, a generator, and whoever climbed up there first.
+
+NARRATOR:
+And what went up those masts, night after night, to every set still working in the Basin, was filth. Everybody watched it. Nobody has ever admitted to it. That is the period, and those are the people, and this is what it cost them.
+
+NARRATOR:
+Everybody in this picture is a real person. The names have been changed to protect them from their families, and the families from the tape.
+
+FADE out 3
+
+ACT 1 — The Open Signal
+SLUG THE MERIDIAN ROADHOUSE, EAST BASIN | 2079 — SUMMER
+
+The Meridian is a roadhouse built into the shell of a truck depot. Two hundred people, one working ceiling fan, and a stage the size of a card table.
+
+Behind the bar, MAURICE TAM runs the room the way a man runs a boiler he does not fully understand.
+
+Out back, in the wash pit, a nineteen-year-old named DENNY FAUST scrapes plates for nine credits an hour.
+
+At the end of the bar, in a coat too good for the room, a big man is watching the kitchen door. This is AUGGIE PRINE.
+
+AUGGIE:
+Maurice. The boy carrying the crates.
+
+MAURICE:
+That’s Denny. He does the plates. Don’t.
+
+AUGGIE:
+Don’t what?
+
+MAURICE:
+Whatever it is you do. I know what you do. Everybody knows what you do.
+
+AUGGIE:
+Then you know I do it politely.
+
+MAURICE:
+You do it politely and they never come back to the plates. That’s two dishwashers you’ve had off me.
+
+Auggie Prine turns on his stool so that he is facing the room, which is what he does instead of arguing.
+
+AUGGIE:
+Maurice, why does a nineteen-year-old dishwasher get talked about in a bar he isn’t drinking in?
+
+MAURICE:
+He doesn’t.
+
+AUGGIE:
+He does. I have been in this room four times and I have heard about that boy from three different women who do not know each other, and one of them was crying laughing, and one of them was not laughing at all.
+
+MAURICE:
+It’s a small district.
+
+AUGGIE:
+It is a small district and I am a patient man and I would like you to say the thing out loud so that we can both stop performing.
+
+Maurice Tam wipes a glass that is already clean, which is what a man does when he has decided to say it.
+
+MAURICE:
+He’s built wrong. That’s the polite version and it’s the only version you’re getting from me.
+
+AUGGIE:
+Built wrong.
+
+MAURICE:
+Auggie, the boy is nineteen years old and he is the most talked-about thing in East Basin and he does not know it yet, and I would like it very much if that lasted another year.
+
+AUGGIE:
+It will not last another year. It was never going to last another year. That is not me, that is arithmetic.
+
+Auggie finishes his drink and does not order another, which in this bar is a kind of announcement.
+
+AUGGIE:
+Two dishwashers, you said. Where are they now?
+
+MAURICE:
+One of them has a house.
+
+AUGGIE:
+And the other?
+
+MAURICE:
+The other one has a house too, Auggie. That’s what makes it a hard conversation to win.
+
+WAIT 4
+
+SLUG THE MERIDIAN — THE LOT OUT BACK | LATER
+
+The lot behind the roadhouse. A generator, a stack of crates, one working floodlight, and a truck with a camera rig bolted where a passenger seat should be.
+
+DENNY:
+Maurice says you’re a director.
+
+AUGGIE:
+Maurice says a lot of things and about a third of them are true, which is a very good average out here.
+
+DENNY:
+You do the tapes. The adult ones.
+
+AUGGIE:
+I do the adult ones.
+
+DENNY:
+My mother says the tapes are why the world ended.
+
+AUGGIE:
+Your mother is being generous. The world ended for reasons far above my budget.
+
+Auggie leans against the truck. He does not come any closer, which he has learned to do on purpose.
+
+AUGGIE:
+Denny, I’m going to be direct, because the polite version of this conversation takes forty minutes and insults us both. I have heard about you.
+
+DENNY:
+Heard what.
+
+AUGGIE:
+I think you know what. I think you have known since you were about fifteen and I think nobody has ever said it to your face in daylight, and I would like to be the first, because after me it will be everybody.
+
+Denny Faust stands in a floodlit lot behind a roadhouse holding a crate he has forgotten he is holding.
+
+DENNY:
+People talk.
+
+AUGGIE:
+People talk about a lot of things. They do not usually agree.
+
+DENNY:
+What do you want.
+
+AUGGIE:
+I want to look at you. That’s all it is tonight. You put the crate down, you show me, I say yes or no, and either way you have a job in the morning and nobody in that bar ever hears about it from me.
+
+DENNY:
+And if you say yes?
+
+AUGGIE:
+Then in one year you are the most famous man in the Basin and your mother stops speaking to you. I have watched that happen four times and I am not going to pretend it doesn’t.
+
+There is a long moment in a floodlit lot. Somewhere inside the roadhouse a glass breaks and a room cheers about it.
+
+Denny Faust puts the crate down.
+
+The film does not show us. The film shows us Auggie Prine’s face, in a lot, in bad light, and Auggie Prine has been looking at people professionally for eleven years and his face does something it has not done in all of them.
+
+AUGGIE:
+Well.
+
+DENNY:
+Yeah.
+
+AUGGIE:
+No. I mean — well. Son, do you have any idea?
+
+DENNY:
+I’ve got some idea.
+
+AUGGIE:
+You have no idea. You have an idea the size of East Basin. I am telling you about the size of the world.
+
+Denny picks his crate back up, because he does not know what else to do with his hands.
+
+DENNY:
+What is it you’d actually want me to do?
+
+AUGGIE:
+Work. Hit a mark. Do it eleven times when it stops being interesting on the second. Do it with lights on you and eight people watching who are all thinking about lunch.
+
+DENNY:
+And people watch that.
+
+AUGGIE:
+People watch anything. That is the tragedy and the business model. What I want is for them to watch it to the END.
+
+AUGGIE:
+Anybody can hold an audience for four minutes. Any idiot with a fire can do four minutes. I want to hold them for ninety.
+
+DENNY:
+Why ninety?
+
+AUGGIE:
+Because at ninety minutes they’ve given you their evening. And a person who gives you their evening in this world has given you the only thing they still own.
+
+Denny looks at the rig. He touches the lens housing the way people touch things they have only seen on a shelf.
+
+DENNY:
+My shift ends at four.
+
+AUGGIE:
+Quit at four.
+
+DENNY:
+It’s a job.
+
+AUGGIE:
+It is a sink. I have been where you are standing. There is a sink in every life and the trick is noticing which one is yours.
+
+FADE out 2
+
+SLUG THE FAUST HOUSE, DRAY LANE | THAT NIGHT
+
+A prefab unit with a dead lawn and a working porch light, which in this district makes it a mansion.
+
+JOANIE FAUST has been waiting up in the dark, which is how you know it is not going to go well.
+
+JOANIE:
+Where were you.
+
+DENNY:
+Working. You know where I was.
+
+JOANIE:
+You were not working, because Maurice called here at eleven to ask where you were, so unless you were working somewhere ELSE.
+
+DENNY:
+I was talking to a man about a job.
+
+JOANIE:
+A man.
+
+DENNY:
+A director.
+
+JOANIE:
+A director. Say the rest of it, Denny. Say the part you’re trimming off the end.
+
+DENNY:
+He does the adult tapes.
+
+JOANIE:
+He does the adult tapes. And he came to a roadhouse to talk to a dishwasher.
+
+DENNY:
+It’s a job that pays in hard credits.
+
+JOANIE:
+Do you think I’m stupid? Do you think I have lived in this house with you for nineteen years and I am STUPID?
+
+DENNY:
+Mum —
+
+JOANIE:
+I do the washing, Denny. I have done the washing since you were four years old. There is not one thing about you I have not known for years and had the decency to say nothing about.
+
+The kitchen is very small and there is nowhere in it to stand that is far enough away.
+
+DENNY:
+Then say it.
+
+JOANIE:
+No.
+
+DENNY:
+Say it, because everybody else in East Basin is saying it, and my own mother won’t, and I’m starting to think that’s the whole problem.
+
+JOANIE:
+You have got ONE thing. One. An accident. A thing that happened to you in the womb that you did not earn and cannot lose.
+
+DENNY:
+It’s something.
+
+JOANIE:
+It is nothing! It is a fact about your body! It is not a skill, it is not a trade, it is not a CHARACTER — you are a boy who washes plates and got dealt one card and you are about to sell it to a man in a coat.
+
+DENNY:
+He said I could be somebody.
+
+JOANIE:
+He said you could be LOOKED AT. Those are different words and he chose the one he chose because he has done this before.
+
+DENNY:
+At least he came to the house. At least somebody came.
+
+JOANIE:
+You’re nothing. Do you hear me? Under the one thing, you are nothing, and the world is going to find that out for you and it will not be gentle about the lesson.
+
+The porch light hums. It is the only sound in the house for four seconds.
+
+DENNY:
+Then I’ll find out.
+
+Denny takes a coat off the hook. He does not slam anything, which is somehow worse.
+
+He walks. The porch light stays on behind him for a long time, because she does not turn it off, because turning it off would be admitting he is not coming back.
+
+FADE out 3
+
+SLUG THE PRINE HOUSE, ABOVE THE BASIN | THREE DAYS LATER
+
+Auggie Prine does not own a studio. Auggie Prine owns a HOUSE, which is different, and which is the entire point of Auggie Prine.
+
+The pool is drained and full of cable. The lounge is a set. The kitchen is a green room. Sixteen people live here who are not related to each other and would all say they are.
+
+At the centre of it, on a lounger, holding court over a room she has never once needed to raise her voice in, is MARGUERITE SABLE.
+
+SABLE:
+You’re the boy from the roadhouse.
+
+DENNY:
+I’m Denny.
+
+SABLE:
+Not for long, sweetheart. Come sit down before you fall down. Have you eaten anything that wasn’t out of a machine this week?
+
+DENNY:
+I had soup.
+
+SABLE:
+That’s a no. Kestrel, get him a plate.
+
+KESTREL rolls in from the kitchen. She is seventeen and she has a broadcast headset clamped over her ears that she does not take off, has not taken off, and will not take off in this entire picture.
+
+KESTREL:
+He can get his own plate. Is this the one Auggie’s been going on about?
+
+SABLE:
+This is the one.
+
+KESTREL:
+He’s been saying "wait till you see it" for three days like a man with a boat.
+
+REED HALLORAN comes down the stairs with the specific confidence of a man who has never once been the smartest person in a room and has never once noticed.
+
+REED:
+Is this him? This is him. Hey. Reed Halloran. I’m the other one.
+
+DENNY:
+The other what?
+
+REED:
+The other guy in the scene. There’s always two guys. One of them’s the one they came for and one of them’s the one who makes the first one look taller. I’m very good at it.
+
+SABLE:
+Reed’s being modest. Reed can hit a mark in the dark and cry on the count of four.
+
+REED:
+I can. Watch. One. Two. Three.
+
+Reed cries. It is instantaneous and completely convincing and he stops just as fast.
+
+REED:
+Four. See? Every time. It’s a gift and it has cost me two marriages.
+
+WILBY CRANE is in the corner with a sound cart, headphones on, adjusting something that does not need adjusting. He does not look up.
+
+WILBY:
+Tell him to stand on the tape.
+
+AUGGIE:
+Denny, stand on the tape.
+
+Denny stands on a strip of tape on the floor. It is the first mark he has ever hit. He will hit thousands.
+
+AUGGIE:
+Everybody. Come here a minute.
+
+SABLE:
+Auggie, the boy just walked in.
+
+AUGGIE:
+Marguerite, in this house we do not do the thing where everybody finds out one at a time in a corridor over four weeks. We do it once, we do it in daylight, and then it is over and he is a colleague.
+
+He turns to Denny, and the enormous kindness of Auggie Prine is that he asks.
+
+AUGGIE:
+Is that alright with you?
+
+DENNY:
+Yeah. Yeah, okay.
+
+Sixteen people in a lounge in a rented house look at a nineteen-year-old dishwasher, and the film gives us their faces and not him.
+
+Reed Halloran laughs out loud, once, and then apologises, and then laughs again.
+
+Marguerite Sable does not laugh. She looks at him for a long moment with something close to pity, because she is thirty-four and she knows exactly what a room full of that face costs.
+
+Kestrel takes one hand off her plate and pushes her headset back a quarter inch, which for Kestrel is a standing ovation.
+
+Wilby Crane says nothing at all, because Wilby Crane is a sound man and this is not his department.
+
+REED:
+Okay. Okay! Right. Okay. So — I’m the other one. I want that on the record. I’ve made my peace with it in the last four seconds.
+
+SABLE:
+Sit down, Reed.
+
+AUGGIE:
+Thank you, everybody. That’s the whole ceremony. We shoot Thursday.
+
+The room goes back to being a room. Somebody puts something on. It takes about forty seconds and then it is genuinely, completely over, which is the single most decent thing that happens to Denny Faust in this entire picture.
+
+SABLE:
+He can’t work under Denny Faust. It sounds like a boy who mows lawns.
+
+AUGGIE:
+He’s not going to work under Denny Faust.
+
+SABLE:
+Then what.
+
+AUGGIE:
+Something with a stop in it. Something the ear catches. Two syllables and a hard letter.
+
+Denny is standing on his mark in a stranger’s living room in a house above a dead city, being renamed by people who have known him for eleven minutes, and he does not stop it.
+
+DENNY:
+Vox.
+
+AUGGIE:
+What?
+
+DENNY:
+Vox. My mother had a hymn book. It was in the hymn book.
+
+SABLE:
+Vox. That’s good. That’s not bad at all. Vox what, though. You need a front half.
+
+REED:
+Something churchy. He’s got that face. He’s got a face like a boy who’s about to confess to something.
+
+KESTREL:
+Deacon.
+
+Everyone turns and looks at the seventeen-year-old in the headset, who has not looked up from her plate.
+
+KESTREL:
+Deacon Vox. It sounds like a man on a poster. Can I go now.
+
+AUGGIE:
+Nobody move. Say it out loud, all of you. I want to hear it in a room.
+
+SABLE:
+Deacon Vox.
+
+REED:
+Deacon Vox!
+
+WILBY:
+Deacon Vox.
+
+And there it is, in a rented house, in front of sixteen people, said aloud four times until it stopped being a joke and started being a name.
+
+DEACON:
+Deacon Vox.
+
+FADE out 2
+
+SLUG THE PRINE HOUSE — THE LOUNGE SET | THURSDAY
+
+The first shoot. Three lamps, one camera, a bedsheet on a frame, and more concentration in the room than most governments manage in a year.
+
+This is the part nobody outside this house understands. It is a workplace. There are marks on the floor and a schedule on the wall and a man with a clipboard worrying about the lamps.
+
+AUGGIE:
+Quiet. Wilby, speed.
+
+WILBY:
+Speed.
+
+AUGGIE:
+Scotty, boom’s in frame, come up two inches. Two. Two, Scotty.
+
+SCOTTY KELL, nineteen, adores everyone in this room in a way that is going to cost him, and comes up two inches.
+
+SCOTTY:
+Sorry. Sorry, Auggie.
+
+AUGGIE:
+Don’t be sorry, be two inches higher. Marguerite, you’re on the couch. Deacon, you come in on the line.
+
+SABLE:
+What’s my read?
+
+AUGGIE:
+Tired. Not sad. Tired is more expensive than sad.
+
+SABLE:
+Tired I can do without acting.
+
+Marguerite Sable takes her robe off and hands it to a woman whose entire job is to hold it, and sits down on a couch, and is at work.
+
+SABLE:
+Sweetheart. Look at me a second.
+
+DEACON:
+Yeah.
+
+SABLE:
+First one. Everybody’s first one is bad and nobody remembers it. Look at my face, not the lens, not Auggie, not the boom. My face is the whole job.
+
+DEACON:
+Okay.
+
+SABLE:
+And if it doesn’t happen, it doesn’t happen. It happens to everybody, it happened to Reed twice last month —
+
+REED:
+It was ONCE, Marguerite, and there was a wasp in the room.
+
+SABLE:
+— and we go again after lunch and nobody says a word about it. Nobody in this house has ever said a word about it.
+
+AUGGIE:
+And ACTION.
+
+Deacon Vox walks into frame in a stranger’s living room and says the first line he will ever say on tape.
+
+DEACON:
+You left the light on for me.
+
+SABLE:
+I always leave the light on.
+
+DEACON:
+The grid’s out three nights a week. That light costs you something.
+
+SABLE:
+Everything costs me something. The light I don’t mind.
+
+And then they do the rest of it, and the film stays where it has been the whole scene, which is at the back of the room with the crew.
+
+We watch Auggie Prine watch his monitor. We watch the clipboard man stop worrying about the lamps. We watch Scotty Kell’s arms shake holding the pole and not drop it.
+
+We watch Wilby Crane, on the cart, take his headphones off — which Wilby Crane does not do — and look at the monitor like a man checking a number he has already checked.
+
+Nobody in the room says anything for a long time after Auggie says cut. That is not a compliment. That is a room full of professionals doing arithmetic.
+
+AUGGIE:
+Cut. Print. Wilby, tell me.
+
+WILBY:
+I want to go outside for a minute.
+
+AUGGIE:
+Take your minute.
+
+Wilby Crane goes outside and stands in a drained swimming pool full of cable and does not do anything in particular, because there is nothing in his trade to do about what he has just watched.
+
+REED:
+That was one take. That was ONE TAKE, Auggie.
+
+AUGGIE:
+I know what it was.
+
+REED:
+I’ve never done one take. I did nineteen takes of a man opening a door.
+
+AUGGIE:
+You were bad at opening the door, Reed.
+
+REED:
+I was! I was terrible at it! It’s a hard door!
+
+Marguerite Sable puts the robe back on and lights something and does not say anything at all, and later she will tell Auggie that in eleven years she has never once been nervous on a couch and she was nervous on that couch.
+
+KESTREL:
+It’s going to be huge.
+
+AUGGIE:
+It’s going to be huge.
+
+KESTREL:
+No, I mean it’s going to be HUGE. I’m on the feed all night. There’s nothing out there. There is nothing out there but weather and lists.
+
+FADE out 2
+
+SLUG THE BASIN | THE FOLLOWING MONTH
+
+A montage, which is a lie a film tells to skip the boring parts of getting rich.
+
+A rented room in the Rust District. A woman at two in the morning, alone, with a set on. She has not moved in forty minutes.
+
+A bar in Coldwater where the whole room turns to face the box, and a man who is losing at cards asks for quiet, and the barman does not change the channel even though there are women present, because the women asked him not to.
+
+A checkpoint on the East Road where two militia stop arguing about a bribe because the guard-hut set is on and something is happening on it.
+
+NARRATOR:
+The tape went out on an unlicensed mast on a Tuesday. By Friday it had been recopied four hundred times by people with no equipment and worse ethics.
+
+NARRATOR:
+Nobody paid Auggie Prine for a single copy. That was not how it worked. It worked like weather.
+
+NARRATOR:
+What Auggie Prine got instead was the next one, financed by everyone in the Basin who wanted to be near it.
+
+SLUG THE PRINE HOUSE — THE POOL | LATER
+
+The Colonel has arrived. THE COLONEL is a soft man in a good coat who has never raised his voice because he has never had to.
+
+COLONEL:
+Auggie. I have watched your tape eleven times.
+
+AUGGIE:
+And?
+
+COLONEL:
+And I have not watched anything eleven times since the Handoff. I have not watched anything TWICE.
+
+AUGGIE:
+What are you offering, Colonel.
+
+COLONEL:
+Six thousand a picture. Tape stock. Two more lamps.
+
+AUGGIE:
+Ten. And I keep the negative.
+
+COLONEL:
+Nobody keeps the negative, Auggie, there is no law that says you keep the negative.
+
+AUGGIE:
+There is no law that says anything, which is why the man holding the negative is the man who owns it. Ten.
+
+COLONEL:
+Eight. And I want him in every one.
+
+AUGGIE:
+He’s in every one anyway. That wasn’t a concession, that was you describing the weather to me and calling it a deal.
+
+The Colonel laughs. It is not a warm sound. Nothing about the Colonel is warm, and everybody in this picture will spend two years politely not noticing.
+
+COLONEL:
+I like you, Auggie. You’re the only man in the Basin still pretending this is a craft.
+
+AUGGIE:
+It IS a craft.
+
+COLONEL:
+It’s a hole in the world and everybody’s pouring themselves into it. But you make it look like a craft, and I’ll pay for the look.
+
+WAIT 3
+
+SLUG THE PRINE HOUSE — DEACON’S ROOM | THAT NIGHT
+
+Deacon Vox has a room now. In it are a bed, a full-length mirror, and eleven hundred credits in a shoebox, which is more money than his mother has ever held at one time.
+
+He stands in front of the mirror for a while. He is not vain about it yet. That comes later, and it comes fast, and it is the beginning of everything that goes wrong.
+
+Right now he is nineteen and he is looking at himself the way you look at a lottery ticket you have not cashed.
+
+DEACON:
+Okay.
+
+DEACON:
+Okay. Okay.
+
+Kestrel is in the doorway, headset on, watching him look at himself the way you watch a dog dream.
+
+KESTREL:
+You do that every night.
+
+DEACON:
+I’ve been here eight days.
+
+KESTREL:
+You’ve done it eight times. I’m very observant, it’s my whole personality, I don’t have any others.
+
+DEACON:
+What are you listening to? You’re always listening to something.
+
+KESTREL:
+Everything. All of it. Every channel that’s still up, all night, all at once.
+
+DEACON:
+Why?
+
+KESTREL:
+Because if I take it off it’s quiet, and when it’s quiet I can hear the house, and when I can hear the house I remember I live here on purpose.
+
+DEACON:
+Can I ask you something?
+
+KESTREL:
+You’re going to ask if it’s always this easy.
+
+DEACON:
+Is it?
+
+KESTREL:
+It’s this easy for about three years. Ask Marguerite what year four is like. Actually don’t, she’ll tell you, and then you’ll have to know it.
+
+She rolls off down the hall. Deacon Vox looks at himself in the mirror for a long moment, and then says his own name out loud to see whether it fits yet.
+
+DEACON:
+Deacon Vox.
+
+FADE out 3
+
+SLUG THE PRINE HOUSE — THE KITCHEN | 2080 — SPRING
+
+A year in. The house is fuller, louder, and better fed. There are now two cameras, which in this business is an empire.
+
+BUCK OZAROW is at the table with a catalogue, a calculator, and the doomed patience of a man building a plan out of a world that does not take plans.
+
+BUCK:
+Eleven thousand four hundred. That’s the number.
+
+REED:
+That’s the number for what?
+
+BUCK:
+For the shop. Buck’s Audio. Two rooms on the Coldwater strip, a bench, a soldering station, and every speaker in the Basin that still works comes through my door.
+
+REED:
+Nobody fixes speakers, Buck.
+
+BUCK:
+Everybody NEEDS speakers fixed. Nobody fixes them. Do you understand that those are two halves of the same sentence and the sentence is money?
+
+SABLE:
+Buck, honey, that’s the smartest thing anyone’s said in this house in eleven months.
+
+BUCK:
+Thank you.
+
+SABLE:
+It’ll never happen.
+
+BUCK:
+Why won’t it happen?
+
+SABLE:
+Because nobody lends to us. Look at me. Look at what I do. I have eleven thousand credits in a coffee tin because no bank in the Basin will hold it.
+
+BUCK:
+The Meridian Mutual takes anybody. It says so on the sign. It says "we take anybody."
+
+SABLE:
+It means anybody with a job they can say out loud.
+
+WAIT 3
+
+SLUG MERIDIAN MUTUAL — LOAN DESK | THE NEXT WEEK
+
+Buck Ozarow, in his best coat, sitting very straight, across from a clerk with a form and a policy and no particular malice.
+
+CLERK:
+Occupation.
+
+BUCK:
+Broadcast.
+
+CLERK:
+Broadcast what.
+
+BUCK:
+Broadcast performance.
+
+CLERK:
+Mister Ozarow, the form has a box and the box has a word in it. I am going to have to ask you to say the word.
+
+BUCK:
+Adult. Adult broadcast. I’m on the tapes.
+
+The clerk stops writing. She does not sneer. It is much worse than a sneer. She simply stops writing, and puts the cap back on the pen, which is a decision.
+
+CLERK:
+I see.
+
+BUCK:
+It’s legal. There isn’t a law about it. There isn’t a law about anything.
+
+CLERK:
+It is not a question of legality, Mister Ozarow. It is a question of character. The lending policy requires character.
+
+BUCK:
+I have character. I have eleven thousand credits of character. I have never missed a payment on anything in my life because I have never been ALLOWED to owe anything.
+
+CLERK:
+The policy is the policy. I’m sorry.
+
+BUCK:
+No you’re not. You’re not sorry, you’re relieved. There’s a difference and I can hear it, I work in sound.
+
+He takes his coat off the back of the chair with enormous dignity and leaves, which is the only thing left to take.
+
+FADE out 2
+
+SLUG THE PRINE HOUSE — THE POOL DECK | SUMMER
+
+Auggie Prine holds court in a drained pool. This is where he does his thinking, because it is the only place in the house with no cable in it.
+
+AUGGIE:
+I want to do something and everyone is going to tell me it’s a mistake.
+
+WILBY:
+It’s a mistake.
+
+AUGGIE:
+You haven’t heard it.
+
+WILBY:
+I’ve worked for you for nine years, Auggie. It’s a mistake and I’ll do it.
+
+AUGGIE:
+I want to make one that’s ninety minutes. One story. Same people the whole way through. A beginning that you have to sit through to understand the end.
+
+REED:
+Who sits still for ninety minutes?
+
+AUGGIE:
+Everybody used to! Everybody in the world used to! They used to leave the HOUSE to do it, Reed, they used to pay money and sit in the dark with strangers for two hours and nobody thought that was strange!
+
+REED:
+And then the world ended.
+
+AUGGIE:
+And then the world ended and we all decided people are only good for four minutes at a time. I don’t accept it. I have never accepted it.
+
+SABLE:
+Auggie. Sweetheart. Tell them the real reason.
+
+AUGGIE:
+That is the real reason.
+
+SABLE:
+Tell them the other real reason.
+
+Auggie Prine is quiet for a moment. In the drained pool his voice does that thing that voices do in a drained pool.
+
+AUGGIE:
+Because everybody in the Basin already knows what we sell and everybody in the Basin already gets it for free, and the ONLY thing left to be good at is the ninety minutes around it.
+
+AUGGIE:
+And because in forty years there will be nothing left from now. Nothing. Everything we make gets recopied into mud and everything before us is in a corp vault.
+
+AUGGIE:
+And if there is going to be exactly one thing left that says people were here and they were trying, I would like it to be ninety minutes long and I would like it to be GOOD.
+
+Nobody says anything for a while. Kestrel takes her headset off. It is the only time in this picture that she does.
+
+KESTREL:
+What’s it called?
+
+AUGGIE:
+The Open Signal.
+
+FADE out 2
+
+SLUG THE BASIN | 2081
+
+A montage of the good years, which is the part everybody remembers and nobody was paying attention during.
+
+A new mast on the ridge, paid for in cash, wired by four people who did not know what they were doing and did it anyway.
+
+Deacon Vox on a poster on a wall in the Yards, and a queue of people waiting outside a bar to watch a broadcast on a screen the size of a door.
+
+Marguerite Sable teaching Kestrel how to hit a mark. Kestrel hitting the mark. Kestrel hitting the mark better than Marguerite Sable.
+
+Buck Ozarow in a shirt he bought for himself, carrying a speaker cabinet up the stairs of a house that is not his, whistling.
+
+Scotty Kell learning to keep the boom out of frame, mostly, on the eighth try, to genuine applause.
+
+Reed Halloran crying on the count of four, in a wide shot, in the rain, for the fourteenth time, without complaint, because it is the job.
+
+And Deacon Vox in the middle of it, at twenty-one, with money in a shoebox and a family who chose him and a body that has not failed him once.
+
+NARRATOR:
+For about three years, in a rented house above a dead city, a group of people who had been thrown away by everything made the best work of their lives.
+
+NARRATOR:
+It is important to say that out loud, because of what happens next, and because everyone who tells this story afterwards leaves this part out.
+
+WAIT 4
+
+SLUG THE BASIN BROADCAST AWARDS, COLDWATER CIVIC HALL | 2081 — AUTUMN
+
+An awards night thrown by an industry that legally does not exist, in a hall with a hole in the roof, with trophies made from transmitter parts.
+
+It is, without any irony at all, the happiest night of everybody’s life.
+
+AUGGIE:
+Best Tape. Best Direction. Best Performance, Male. Three.
+
+WILBY:
+Four. They gave one to Scotty.
+
+AUGGIE:
+They gave one to SCOTTY?
+
+WILBY:
+Best Boom. They invented it tonight. He’s crying in the corridor.
+
+SCOTTY:
+I’m not crying.
+
+WILBY:
+He’s crying in the corridor.
+
+Marguerite Sable comes off the stage holding a trophy welded out of a broken antenna, and she is not entirely present.
+
+SABLE:
+Auggie. Auggie, I have to tell you something and you have to not make a thing of it.
+
+AUGGIE:
+Tell me.
+
+SABLE:
+I filed for the boy again. My son. The hearing’s in the spring.
+
+AUGGIE:
+Marguerite, that’s wonderful.
+
+SABLE:
+It’s not wonderful, it’s the fourth time. They ask what I do. Every time they ask what I do and every time I say it and every time I watch them write it down.
+
+AUGGIE:
+So say something else.
+
+SABLE:
+I’m not ashamed of it.
+
+AUGGIE:
+I didn’t say be ashamed of it. I said SAY something else. There is a difference between shame and strategy and one of them gets you your son back.
+
+SABLE:
+Auggie, they have watched the tapes. That is the part nobody says. Somebody in that building has sat down and watched me work in order to decide whether I am fit, and then gone home to his family.
+
+AUGGIE:
+Marguerite.
+
+SABLE:
+He’s eleven. He lives in an arcology creche in a building I am not allowed into. He has a number. My son has a NUMBER, Auggie.
+
+She stops. She puts the trophy down on a table and does not pick it up again, and later somebody else will take it home by accident.
+
+Across the room, Deacon Vox is accepting Best Performance, and he has prepared nothing, and it does not matter.
+
+DEACON:
+I don’t — okay. Two years ago I washed plates at the Meridian and a man came out to the lot and told me I had something.
+
+DEACON:
+And everybody in this room has been told their whole life that what they’ve got is the wrong thing to have. That it’s a joke, or it’s dirty, or it’s an accident.
+
+DEACON:
+It’s not an accident. It’s the only card I got dealt and I have worked it like a trade for two years, and there is not one person out there who can do what we do in this room.
+
+The room comes apart. Two hundred people who have all been told they are nothing, in a hall with a hole in the roof, at the exact top of their lives.
+
+Auggie Prine watches from the back with his hands in his pockets, and he is not smiling, because he is a director and he has seen the shape of this scene before and he knows what act it comes in.
+
+FADE out 3
+
+ACT 2 — New Year
+
+SLUG THE PRINE HOUSE | NEW YEAR’S EVE, 2081
+
+Every light in the house is on. There are ninety people here and the host knows about forty of them.
+
+In the kitchen, a man nobody invited is telling everybody about a business opportunity. This is TODD VANE.
+
+TODD:
+It’s not a scam, that’s the thing, everybody hears the structure and says scam, and I say, name me one thing that isn’t.
+
+REED:
+The structure IS the scam, Todd.
+
+TODD:
+The structure is a STRUCTURE, Reed. You put money in the top, and it comes out the bottom, and it comes out of the bottom SOMEWHERE.
+
+REED:
+Where?
+
+TODD:
+Not our problem! That’s the beauty!
+
+DEACON:
+Who is this guy?
+
+REED:
+That’s Todd. Todd Vane. He came with someone. He always came with someone.
+
+DEACON:
+He’s got a gun in his coat.
+
+REED:
+Yeah. Yeah, he does. Everybody’s decided not to bring that up tonight.
+
+Out by the pool, WILBY CRANE stands alone with a drink he is not drinking, listening to the house.
+
+Because everybody in this picture knows what Wilby’s wife does at parties, and everybody in this picture has decided, for nine years, that it is not their business.
+
+Inside, in the front room, in front of eleven people, VAL CRANE is on the floor with a man nobody knows, and she is not being quiet about it.
+
+VAL:
+Wilby! Wilby, come and look at this!
+
+WILBY:
+Val.
+
+VAL:
+Come and LOOK, Wilby, come and stand right there where you always stand!
+
+WILBY:
+Val, there’s people here.
+
+VAL:
+There’s ALWAYS people here! That’s the arrangement! That was the arrangement you agreed to because you never once said no to anything in your life!
+
+WILBY:
+I’d like you to come upstairs now.
+
+VAL:
+Say it louder, sweetheart. The sound man can’t get his levels.
+
+The eleven people in the front room look at the floor, at the ceiling, at their drinks. Nobody helps. Nobody has ever helped.
+
+Wilby Crane goes out to the pool and stands in the dark and does not do anything, which is the thing he has done for nine years and which is the reason for everything that follows.
+
+SABLE:
+Wilby. Honey. Come inside.
+
+WILBY:
+It’s a nice night.
+
+SABLE:
+It’s freezing.
+
+WILBY:
+It’s a nice night, Marguerite.
+
+SABLE:
+Wilby, do you want me to say something to her? I’ll say something to her, I don’t care.
+
+WILBY:
+Don’t say anything to her. She’s not doing anything I didn’t let her do.
+
+SABLE:
+That’s not the same as fine.
+
+WILBY:
+No. No, it isn’t.
+
+He looks at his watch. There are nine minutes left in the year.
+
+WAIT 3
+
+SLUG THE PRINE HOUSE — THE DRIVE | 11:40
+
+Scotty Kell has bought a truck. It is a terrible truck. He has spent four months of boom-operator money on it and he has washed it twice today.
+
+SCOTTY:
+Deacon. Deacon, come and look. Come outside a minute.
+
+DEACON:
+It’s freezing.
+
+SCOTTY:
+One minute. Come on.
+
+They stand in the drive in front of a truck the colour of a bruise.
+
+SCOTTY:
+What do you think?
+
+DEACON:
+It’s a truck, Scotty.
+
+SCOTTY:
+It’s a nineteen-forty haul body on a rebuilt frame and the heater works. The HEATER works, Deacon.
+
+DEACON:
+It’s great. Honestly. It’s great.
+
+SCOTTY:
+I got it for you to see it.
+
+DEACON:
+What?
+
+SCOTTY:
+I got it — I mean, I got it, for me, obviously, but I was thinking the whole time about you seeing it. Is that stupid? That’s stupid.
+
+DEACON:
+That’s not stupid.
+
+SCOTTY:
+Because you’re the only one in the house who says thank you to me. Do you know that? Four years, and you’re the only one who says thank you when I get the pole up.
+
+DEACON:
+Scotty —
+
+SCOTTY:
+Can I kiss you?
+
+The drive is very cold and very quiet and the party is happening on the other side of a wall.
+
+DEACON:
+Scotty.
+
+SCOTTY:
+Can I? Just — can I?
+
+DEACON:
+No.
+
+SCOTTY:
+Okay.
+
+DEACON:
+It’s not — Scotty, it isn’t —
+
+SCOTTY:
+No, no, it’s okay. It’s okay. It’s okay. I’m going to go back in.
+
+DEACON:
+Scotty.
+
+SCOTTY:
+I’m going to go back in and it’s completely okay.
+
+He goes back in. Deacon Vox stands in a drive next to a terrible truck and does not follow him.
+
+Scotty Kell sits in the truck instead, alone, with the heater on, and says the single worst sentence anybody says in this picture, quietly, to a windscreen.
+
+SCOTTY:
+I’m an idiot. I’m such an idiot. I’m such an idiot.
+
+He is still saying it when the counting starts inside.
+
+WAIT 2
+
+SLUG THE PRINE HOUSE — THE BACK STAIRS | 11:56
+
+Deacon Vox and Kestrel, sitting on the stairs, above the noise, passing a bottle they are both too young for.
+
+KESTREL:
+Do you ever think about what you’d be doing.
+
+DEACON:
+If what?
+
+KESTREL:
+If none of this. If the man never came into the roadhouse.
+
+DEACON:
+I’d be at the Meridian. I’d be head of the wash pit by now. That’s a real job, that’s a promotion.
+
+KESTREL:
+Would you be happy?
+
+DEACON:
+I’d be alright. I’d be the same as everybody.
+
+KESTREL:
+That’s the worst thing you’ve ever said.
+
+DEACON:
+What would you be doing?
+
+KESTREL:
+I’d be somewhere with a set on, listening to somebody else be you.
+
+She says it flatly, without self-pity, the way seventeen-year-olds say the truest thing they will ever say and then never mention it again.
+
+DEACON:
+Kestrel.
+
+KESTREL:
+Don’t.
+
+DEACON:
+I wasn’t going to say anything.
+
+KESTREL:
+Everybody in this house is about to be very rich and none of you are going to be alright and I’ve been saying it for a year and it’s boring now so I stopped.
+
+WAIT 2
+
+SLUG THE PRINE HOUSE — THE FRONT ROOM | 11:58
+
+Out by the pool, WILBY CRANE stands alone with a drink he is not drinking, listening to the house.
+
+Because everybody in this picture knows what Wilby’s wife does at parties, and everybody in this picture has decided, for nine years, that it is not their business.
+
+Inside, in the front room, on the floor, in front of eleven people who are all pretending to look at something else, VAL CRANE is with a man nobody knows. She is not being quiet about it. She has never once been quiet about it.
+
+VAL:
+Wilby! Wilby, come and look at this!
+
+WILBY:
+Val.
+
+VAL:
+Come and LOOK, Wilby, come and stand right there where you always stand!
+
+WILBY:
+Val, there’s people here.
+
+VAL:
+There’s ALWAYS people here! That’s the arrangement! That was the arrangement you agreed to because you have never once said no to anything in your life!
+
+WILBY:
+I’d like you to come upstairs now.
+
+VAL:
+Say it louder, sweetheart, the sound man can’t get his levels.
+
+The eleven people in the front room look at the floor, at the ceiling, at their drinks. Nobody helps. Nobody has ever helped.
+
+A woman by the door says, quietly, to nobody, that somebody should do something, and then finishes her drink instead, and that is the closest anybody comes.
+
+Wilby Crane comes back inside from the pool. He is very calm. He has the particular calm of a man who has stopped having a decision to make.
+
+He walks past Auggie. He walks past Reed, who says something to him that he does not hear.
+
+He goes up the stairs.
+
+REED:
+Wilby! Hey — Wilby, they’re counting!
+
+The house begins to count.
+
+SCOTTY:
+Ten! Nine!
+
+REED:
+Eight! Seven!
+
+SABLE:
+Six! Five!
+
+KESTREL:
+Four.
+
+The gunshot is not loud. That is the thing nobody who tells this story afterwards can ever get across. In a house with ninety people and a sound system, it is not loud at all.
+
+The second one is not loud either.
+
+For four full seconds, the party keeps counting, because a party has momentum and the news has not arrived yet.
+
+DEACON:
+Three.
+
+TODD:
+Two!
+
+Then the third one, from upstairs, and that one everybody hears, because the house has gone quiet enough to hear it.
+
+FADE out 4
+
+SLUG THE PRINE HOUSE — THE LANDING | MIDNIGHT
+
+Ninety people leave a house in under three minutes without speaking. It is the fastest and quietest anybody in the Basin has ever moved.
+
+At the top of the stairs, Auggie Prine stands in a doorway with his hand on the frame, not going in.
+
+AUGGIE:
+Don’t come up here.
+
+SABLE:
+Auggie —
+
+AUGGIE:
+Marguerite, do not come up here. I am asking you as your friend and I am telling you as the man who owns this house.
+
+SABLE:
+Is she —
+
+AUGGIE:
+Both of them. And him. All three.
+
+Downstairs, one radio in the kitchen is still playing something bright, because nobody has thought to turn it off, and it plays for another eleven minutes.
+
+Deacon Vox stands in the hall in a good coat, twenty-one years old, at the exact top of his life, with his ears ringing.
+
+DEACON:
+Auggie. What do we do.
+
+AUGGIE:
+We shoot on Tuesday.
+
+DEACON:
+Auggie.
+
+AUGGIE:
+We shoot on Tuesday, Deacon. That is what we do. If we do not shoot on Tuesday then this is the last thing that ever happened to any of us and I will not have that be true.
+
+The camera holds on the landing. Nobody moves. The bright music keeps playing downstairs.
+
+FADE out 5
+
+SLUG A ROADHOUSE ON THE COAST ROAD | JANUARY, 2082
+
+Two weeks later. Auggie Prine meets a man called FISK GONDOLLI, who has come up from the Coast with a case, and who is smiling.
+
+GONDOLLI:
+Auggie. My condolences. Genuinely. Terrible thing.
+
+AUGGIE:
+Thank you.
+
+GONDOLLI:
+Terrible, terrible thing. Now. Let me show you what’s going to happen to your business.
+
+AUGGIE:
+That’s a hell of a segue, Fisk.
+
+GONDOLLI:
+I’m a busy man and you’re a grieving one, so let’s save each other the middle part.
+
+He opens the case. Inside is a feed rig — small, ugly, cheap, and it does not use tape.
+
+GONDOLLI:
+No stock. No developing. No lab. It writes straight to a chip and the chip copies itself, forever, for nothing.
+
+AUGGIE:
+It looks like garbage.
+
+GONDOLLI:
+It IS garbage. Look at it. The picture is soft, the colour’s a lie, and it’ll never look like your tape. Not in a hundred years.
+
+AUGGIE:
+Then why am I sitting here?
+
+GONDOLLI:
+Because it costs eleven credits a broadcast and yours costs nine hundred, and because nobody out there can tell the difference, and Auggie — this is the part I need you to actually hear — nobody out there WANTS to.
+
+AUGGIE:
+People know the difference.
+
+GONDOLLI:
+People know the difference between a good meal and a bad one and they still eat what’s in front of them.
+
+AUGGIE:
+My work looks like something.
+
+GONDOLLI:
+Your work looks BEAUTIFUL and it takes you four months and it costs a fortune and in two years you will be the last man in the Basin still doing it and they will call you an artist, which is what they call a man they have stopped paying.
+
+AUGGIE:
+And what would you have me do instead?
+
+GONDOLLI:
+Ten a month. Twenty a month. Forty minutes each, shot in a day, no story, no lighting, no rehearsal. Just the kid and a room.
+
+AUGGIE:
+That’s not a picture.
+
+GONDOLLI:
+No. But it’s a business, and the difference between us, Auggie, is that I have never once needed it to be a picture.
+
+Auggie Prine looks at the ugly little rig on the table for a long time.
+
+AUGGIE:
+Get it off my table.
+
+GONDOLLI:
+Sure.
+
+He closes the case. He is still smiling. He was always going to be smiling, because he was never asking.
+
+GONDOLLI:
+I’ll leave the number, Auggie. Everybody calls the number eventually. The Colonel already did.
+
+AUGGIE:
+The Colonel did what?
+
+GONDOLLI:
+Ah. He hasn’t told you.
+
+FADE out 3
+
+INTERMISSION 45
+
+ACT 3 — The Reclamation
+
+SLUG COLDWATER — THE LICENSING NOTICE | 2082 — SPRING
+
+The corps did not raid the Basin. Nobody kicked a door. What happened was a notice, printed on good paper, nailed to the door of the civic hall.
+
+NARRATOR:
+By order of the Reclamation Authority, the broadcast spectrum of the Coldwater Basin is hereby reassigned to licensed operators.
+
+NARRATOR:
+Unlicensed transmission is a Class Two infraction. Licences are available. The fee is forty thousand credits per mast per year, payable in advance, and the character requirements are attached.
+
+NARRATOR:
+It took the Reclamation Authority one afternoon and one clerk to end eight years, and neither the afternoon nor the clerk has ever been named in a history.
+
+SLUG THE PRINE HOUSE — THE LOUNGE | THAT WEEK
+
+The house, in daylight, with the lamps off. It looks smaller with the lamps off. Everything does.
+
+AUGGIE:
+Forty thousand.
+
+COLONEL:
+Per mast. Per year.
+
+AUGGIE:
+We don’t have forty thousand.
+
+COLONEL:
+We have forty thousand.
+
+AUGGIE:
+Then pay it.
+
+COLONEL:
+Auggie, the character requirements are attached. Do you understand what that phrase is doing at the bottom of that page?
+
+AUGGIE:
+Say it plainly.
+
+COLONEL:
+They will not licence a man who makes what you make. Not for forty thousand and not for four hundred. The fee is not the wall. The fee is the door in the wall, and we are not the ones it’s for.
+
+AUGGIE:
+So we don’t licence.
+
+COLONEL:
+So we don’t licence, and every mast in the Basin gets an inspector, and the inspectors are already hired, and I have met two of them.
+
+AUGGIE:
+Then what are you telling me, Colonel? Say the actual sentence.
+
+COLONEL:
+I’m telling you Fisk Gondolli has a licence, on the Coast, in a bonded warehouse, with forty feed rigs and nothing on them.
+
+AUGGIE:
+No.
+
+COLONEL:
+And he has asked for you. Not me. You. He wants the Prine name on a licensed feed and he will pay for the privilege.
+
+AUGGIE:
+I said no.
+
+COLONEL:
+Auggie. I have eleven people living in your house.
+
+AUGGIE:
+They’re not living in my house, they’re living in my WORK, there’s a difference and it is the only difference I have left.
+
+FADE out 2
+
+SLUG THE PRINE HOUSE — DEACON’S ROOM | LATER
+
+Deacon Vox, twenty-two, in a room with a mirror and considerably more than a shoebox in it.
+
+On the dresser is a small pharmacy. It has been growing for eleven months and nobody in the house has said a word about it, because everybody in the house has one.
+
+TODD:
+That’s not the good stuff. Who sold you that?
+
+DEACON:
+A guy.
+
+TODD:
+A guy. That’s cut with something that makes your teeth ring. I can hear it from here.
+
+DEACON:
+It works fine.
+
+TODD:
+It works fine, sure, and in six months you can’t work at all. Splice does that. Everybody knows splice does that.
+
+DEACON:
+It doesn’t do that.
+
+TODD:
+It absolutely does that, that’s the entire personality of splice. It takes the thing you’re best at and it charges rent on it, and in your case, brother, the rent is going to be very specific and very public.
+
+DEACON:
+Then why are you here, Todd.
+
+TODD:
+Because I know a guy with the clean stuff and I like being around people who are winning. I’m very honest about that, it’s my best feature.
+
+Todd leaves. Deacon Vox stands in front of the mirror for a while afterwards, and what he is doing is not vanity, and it is not quite fear yet either.
+
+It is a man checking that a thing is still where he left it, which is a habit he did not have last year.
+
+WAIT 2
+
+SLUG THE PRINE HOUSE — THE POOL DECK | SUMMER, 2082
+
+Auggie Prine took the licence. It happens off-screen, in a corridor, in an afternoon, the way every real decision in this picture happens.
+
+AUGGIE:
+We’re shooting on feed.
+
+WILBY IS NOT HERE ANY MORE. The man on the sound cart now is a contractor from the Coast who does not know anybody’s name and does not intend to learn them.
+
+REED:
+We’re shooting on what?
+
+AUGGIE:
+On feed. Gondolli’s rigs. Ten a month.
+
+REED:
+Ten a MONTH? Auggie, we did four pictures last year and one of them took five months.
+
+AUGGIE:
+And one of them won three awards and none of them are legal any more. Ten a month, forty minutes, one day each.
+
+SABLE:
+What’s the story?
+
+AUGGIE:
+There isn’t a story. That’s not what we’re making now.
+
+SABLE:
+Then what are we making, Auggie?
+
+AUGGIE:
+Product.
+
+He says the word and then he goes inside, because he does not want to be in a drained swimming pool when it lands on anybody.
+
+SLUG THE PRINE HOUSE — THE LOUNGE SET | THAT AFTERNOON
+
+The first feed shoot. It takes eleven minutes to light, because you do not light for feed, you just point it.
+
+The picture on the monitor is soft and grey and slightly wrong, like a memory of a room rather than a room.
+
+DEACON:
+It looks like garbage.
+
+AUGGIE:
+Stand on your mark.
+
+DEACON:
+Auggie, look at the monitor, it looks like GARBAGE.
+
+AUGGIE:
+I have looked at the monitor. I looked at it for six hours yesterday. Stand on your mark, Deacon.
+
+DEACON:
+What’s my read?
+
+AUGGIE:
+There is no read. Say the words and look at the lens.
+
+DEACON:
+There’s always a read. You always give me a read. You gave me a read for a man opening a DOOR.
+
+AUGGIE:
+Say the words and look at the lens.
+
+He says the words. He looks at the lens. And then the scene has to go on, and it does not.
+
+There is a silence on a set that a set does not usually have. Eight people finding somewhere else to look, all at once, in a very small room.
+
+SABLE:
+It’s alright.
+
+DEACON:
+Don’t.
+
+SABLE:
+Sweetheart, it happens to everybody, it happened to Reed —
+
+DEACON:
+Don’t do the speech. Don’t do the speech at me, I’ve HEARD you do the speech, you did it to me on the couch when I was nineteen.
+
+SABLE:
+Then you know it’s true.
+
+DEACON:
+It’s true when it’s somebody else.
+
+AUGGIE:
+We’ll go again after lunch.
+
+DEACON:
+We’ll go again NOW.
+
+AUGGIE:
+Deacon.
+
+DEACON:
+It’s the room. It’s that thing, that RIG, it’s eleven credits of garbage and I can feel it looking at me. Put the tape camera up.
+
+AUGGIE:
+The tape camera is in a crate. It has been in a crate for four months.
+
+DEACON:
+Then get it out of the crate!
+
+AUGGIE:
+It is in a crate because a lamp for it costs more than a day of this and there is no lab in the Basin left to develop it. Deacon, it is not the camera.
+
+DEACON:
+Say what it is, then. Go on. You’re the director. Direct.
+
+Nobody says anything, because everybody in the room knows, and because the one thing this house has always done for its people is not say it out loud.
+
+Deacon Vox picks his robe up off the floor and walks off a set in a house he has lived in for four years, and the contractor from the Coast, who does not know anybody’s name, asks whether they are breaking for lunch.
+
+FADE out 2
+
+SLUG COLDWATER STRIP — A RATION COUNTER | AUTUMN, 2082
+
+Buck Ozarow, in his good coat, buying nothing, standing at a counter with a credit chip in his hand and eleven thousand four hundred credits of savings in a bag under his arm.
+
+He has been carrying the bag for three weeks because no bank will hold it.
+
+BUCK:
+Just the one, thanks.
+
+Behind him, the door opens. Two men come in fast and one of them is already shouting, which is how you know they have never done this before.
+
+The next nine seconds happen the way nine seconds actually happen, which is badly, and with no music, and with everybody making the wrong choice.
+
+The counter man had a gun under the till. Nobody knew that. He did not know it either, really, until he was reaching for it.
+
+There are three shots. There are three people on the floor. Buck Ozarow is not one of them, and he does not entirely understand why not.
+
+He stands in a ration shop in a good coat for a very long moment, in the quiet after, holding a bag with eleven thousand four hundred credits in it.
+
+On the floor by the door is another bag. It is not his bag. It belongs to a man who is not going to need it.
+
+Buck Ozarow picks up the second bag. He does not run. He walks out the door and up the strip and around the corner and he does not look back once.
+
+WAIT 3
+
+SLUG BUCK’S AUDIO, COLDWATER STRIP | THREE MONTHS LATER
+
+A shop. Two rooms, a bench, a soldering station. A hand-painted sign that says BUCK’S AUDIO and underneath, in smaller letters, WE FIX WHAT’S LEFT.
+
+BUCK:
+Speakers. It was always going to be speakers.
+
+He is alone. He is opening. He is happier than anybody else in this picture will ever be again, and the film does not tell you what he did to get here, and the film does not need to.
+
+FADE out 2
+
+SLUG THE PRINE HOUSE — THE KITCHEN | WINTER, 2082
+
+Three in the morning. Deacon Vox has been awake for two days and has an idea, which is the worst combination available to a human being.
+
+DEACON:
+It’s a character. It’s a whole character. Auggie, listen to me.
+
+AUGGIE:
+It’s three in the morning.
+
+DEACON:
+Deacon Vox, Signal Detective. He walks into a town, right, and the town’s got a mast, and there’s something wrong with what’s coming off the mast —
+
+AUGGIE:
+Deacon.
+
+DEACON:
+— and he FIXES it, but the fixing is like, it’s a metaphor, because the thing wrong with the signal is the thing wrong with the TOWN —
+
+AUGGIE:
+Deacon, sit down.
+
+DEACON:
+I’ve got eleven of them. Eleven episodes. I wrote them.
+
+AUGGIE:
+You wrote eleven episodes.
+
+DEACON:
+In two days. It just came out. Auggie, it just came out of me, that’s how you know it’s real.
+
+AUGGIE:
+That is how you know you have been awake for two days.
+
+DEACON:
+Don’t do that. Don’t do the voice.
+
+AUGGIE:
+What voice?
+
+DEACON:
+The voice you do when you’ve already decided and you’re being kind about it. I’ve watched you do it to Scotty for four years.
+
+Auggie Prine sits down at the table at three in the morning and reads eleven pages of a signal detective, and he does not laugh, which is the most generous thing he has ever done.
+
+AUGGIE:
+It isn’t good, Deacon.
+
+DEACON:
+You read four pages.
+
+AUGGIE:
+I read enough. It isn’t good, and I am telling you that because there are eleven other people in this house who will tell you it is.
+
+DEACON:
+The Colonel liked it.
+
+AUGGIE:
+You showed the COLONEL?
+
+DEACON:
+He said it was fresh.
+
+AUGGIE:
+The Colonel would say a fire was fresh if he thought you’d pay to be near it. Deacon, listen to me —
+
+DEACON:
+No, you listen. For four years I stand on the mark and you tell me the read and I do the read and everybody says how wonderful, Auggie Prine, what an eye.
+
+AUGGIE:
+That is the job. That is what the job IS.
+
+DEACON:
+It’s ME. It’s the one thing I’ve got and it is attached to ME, and you have been dining out on finding it for four years like you grew it yourself.
+
+AUGGIE:
+I found a nineteen-year-old in a lot and I gave him a trade and a house and a name.
+
+DEACON:
+You gave me a name because Denny Faust wouldn’t sell.
+
+The kitchen is extremely quiet. In the doorway, Kestrel and Reed have stopped moving.
+
+AUGGIE:
+Get out of my house.
+
+DEACON:
+Auggie —
+
+AUGGIE:
+You are twenty-two years old and you are in my kitchen at three in the morning explaining my own trade to me. Get out of my house.
+
+DEACON:
+Fine.
+
+AUGGIE:
+And take your detective.
+
+Deacon Vox walks out of the Prine house at three in the morning with eleven pages under his arm. Nobody follows him, because everybody in the house is holding their own bag and their own reason.
+
+FADE out 3
+
+SLUG THE COLONEL’S APARTMENT, COLDWATER TOWER | 2083
+
+The Reclamation Authority does not raid the Basin for broadcasting. It raids the Colonel for what is on his private drives, and it does not print what that is, and neither does this film.
+
+AUGGIE:
+They took him at four in the morning.
+
+SABLE:
+Took him for what?
+
+AUGGIE:
+They didn’t say. They will not say. There is a form and on the form there is a code and the code is not in the public schedule.
+
+SABLE:
+Auggie.
+
+AUGGIE:
+I know.
+
+SABLE:
+Auggie, we ate at his table. Kestrel ate at his table.
+
+AUGGIE:
+I know what we did.
+
+SABLE:
+For four years we all said, he’s a cold man, he’s a soft man, don’t be alone with him, isn’t he funny about the archives —
+
+AUGGIE:
+I KNOW, Marguerite.
+
+SABLE:
+— and every single one of us knew that sentence was doing work and not one of us finished it.
+
+Auggie Prine sits down on a step in a corridor in a building he does not own and puts his head in his hands, which he has not done once in this picture.
+
+AUGGIE:
+He paid for everything. Every lamp. Every foot of stock. The mast.
+
+SABLE:
+Yes.
+
+AUGGIE:
+The awards night. He paid for the hall.
+
+SABLE:
+Yes, Auggie.
+
+AUGGIE:
+So what does that make it? The work. What does that make all of it, if that’s where the money was from?
+
+SABLE:
+It makes it the work. It’s still the work. You don’t get to hand it back because you found out where the money slept.
+
+AUGGIE:
+That is the most useful thing anybody has ever said to me and I am going to hate it for the rest of my life.
+
+FADE out 2
+
+SLUG A RENTED ROOM, THE YARDS | 2083
+
+Deacon Vox, alone, financing himself, making the signal detective.
+
+The rig is his. The room is rented by the week. Todd Vane is holding the light, badly, and is high, and is the only crew.
+
+There is no sex in Deacon Vox, Signal Detective. That is the entire point of it, and it is the reason he loves it, and it is the reason nobody is going to watch it.
+
+DEACON:
+Is it in focus?
+
+TODD:
+It’s got a focus ring, so, technically, yes, at some point it is in focus.
+
+DEACON:
+Todd, is it in focus NOW.
+
+TODD:
+Say the line, man, we’re burning chip.
+
+DEACON:
+You can’t burn chip. That’s the whole point of chip. That’s the only good thing about chip.
+
+TODD:
+Then say the line for free.
+
+Deacon Vox stands in a rented room in a coat he bought for the part and delivers a monologue he wrote in a two-day hole, to nobody, on eleven credits of equipment.
+
+DEACON:
+Some men fix towers. I fix what comes down them.
+
+He stops. He knows exactly how bad that is. There is a beat where the entire film waits to see whether he will admit it.
+
+DEACON:
+Go again.
+
+TODD:
+It was great.
+
+DEACON:
+Go again, Todd.
+
+He says it eleven more times. It does not get better. Nobody in the room is qualified to tell him, and one of them is holding the light upside down.
+
+WAIT 2
+
+SLUG A FEED BUYER’S OFFICE, THE COAST ROAD | LATER
+
+The buyer watches four minutes of Deacon Vox, Signal Detective, and then stops it, which is three and a half minutes longer than he needed.
+
+GONDOLLI:
+Who paid for this?
+
+DEACON:
+I did.
+
+GONDOLLI:
+How much?
+
+DEACON:
+Nine thousand.
+
+GONDOLLI:
+Kid, I’ll give you four hundred.
+
+DEACON:
+It cost nine thousand.
+
+GONDOLLI:
+And I’ll give you four hundred, and I’m only giving you four hundred because your name is on it, and I want you to understand something.
+
+DEACON:
+Don’t.
+
+GONDOLLI:
+There is a man in a room right now in the Rust District with your tape on, and he is not waiting for the detective to solve anything.
+
+DEACON:
+It’s got a story.
+
+GONDOLLI:
+Everything’s got a story. Auggie Prine had a story and Auggie Prine is shooting forty minutes a day in a house he’s about to lose.
+
+DEACON:
+He’s what?
+
+GONDOLLI:
+Ah. You people never talk to each other, do you. It’s remarkable. You lived in the same house for four years.
+
+Gondolli puts the chip down on the desk and slides it back across, which is worse than keeping it.
+
+GONDOLLI:
+Four hundred, and one more thing, and then I have a delivery at four.
+
+DEACON:
+What.
+
+GONDOLLI:
+Come and work for me. Ten a month, forty minutes each, and you will be paid more than anybody in this Basin has ever been paid for anything.
+
+DEACON:
+Doing what I was doing.
+
+GONDOLLI:
+Doing the ONE thing, kid. It was always the one thing. Nobody has ever bought anything else off you and nobody ever will, and if you were smart that would be the best news you ever got.
+
+FADE out 2
+
+SLUG A CORP TOWN CAR, COLDWATER RIM | 2083 — WINTER
+
+Kestrel, nineteen now, headset on, in the back of a car that is far too clean, with a man in a corp coat who has been very polite for eleven minutes.
+
+He wanted the tape of her. Everyone wants the tape of her. She has heard this speech four hundred times and she is bored of it, and boredom is the last armour she has.
+
+CORP MAN is not in the cast list, because the film refuses to give him a name.
+
+KESTREL:
+I don’t do private.
+
+He takes hold of her headset and pulls it off her head.
+
+It is the first time in this entire picture that Kestrel is not wearing it, and the sound of the film changes — the score drops out and there is nothing under the scene at all.
+
+KESTREL:
+Give it back.
+
+He says something. The film does not let us hear it. We are outside the car now, in the rain, watching through glass, from a long way off.
+
+Kestrel gets out of the car three minutes later, alone, on the rim road, six miles from anywhere, holding the headset in two pieces.
+
+She puts them on anyway. They do not work. She keeps them on.
+
+She walks six miles in the rain wearing a broken headset because the alternative is hearing the walk.
+
+FADE out 4
+
+SLUG THE PRINE HOUSE — THE LOUNGE | LATER
+
+Marguerite Sable, on the couch, with a letter from the Reclamation Family Authority, which she has read enough times to have stopped reading it.
+
+SABLE:
+Denied.
+
+AUGGIE:
+Marguerite.
+
+SABLE:
+Fourth time. Same words, same paper, same clerk. "Occupational character."
+
+AUGGIE:
+There’s an appeal.
+
+SABLE:
+There’s an appeal in eighteen months and he’ll be thirteen and he’ll have been in that building for six years, and Auggie, at some point the appeal is the cruel part.
+
+AUGGIE:
+Don’t say that.
+
+SABLE:
+He won’t know me. That’s the actual outcome. Not that they keep him. That he doesn’t know me when they don’t.
+
+She is very calm. She has taken enough of something to be very calm, and it is the worst she has ever looked in this picture.
+
+SABLE:
+Do you know what I do now? I watch the creche feed. They put it out on channel nine, all day, forty children in a yard, and it’s twelve pixels wide.
+
+SABLE:
+And I sit here and I try to work out which one of the twelve-pixel children is my son, and some days I pick one and I stay with him for the whole afternoon.
+
+AUGGIE:
+Marguerite.
+
+SABLE:
+And I know it isn’t him. I know that. I’m not gone, Auggie, I know exactly what I’m doing.
+
+WAIT 3
+
+SLUG COLDWATER STRIP — A SERVICE ALLEY | 2084 — SPRING
+
+There is a way of making money on the Coldwater strip that does not involve a camera, and everybody who has ever been on a tape knows about it, and nobody talks about it.
+
+A man in a parked hauler has recognised him. That is the whole transaction. He does not want a stranger, he wants the man off the tape, and he has the credits in his hand.
+
+MAN IS NOT IN THE CAST LIST. This film has decided he does not get a name.
+
+DEACON:
+Eleven.
+
+The man says a number that is not eleven.
+
+DEACON:
+Then find somebody else.
+
+The man says something else. The film does not let us hear it. We are outside the cab now, at the far end of the alley, watching the shape of it through a wet windscreen.
+
+Afterwards the man does not pay him. The man explains, at some length, that he does not have to, and he is right, because there is nobody to tell him otherwise, and that is the entire settlement of the world these people live in.
+
+DEACON:
+You’re going to pay me.
+
+The man laughs. Deacon Vox says a great many things to a windscreen, and some of them are about who he is, and saying who he is out loud on the Coldwater strip at three in the morning turns out to be the mistake.
+
+There are three of them waiting at the end of the alley by the time he gets out. It takes about a minute.
+
+They do not take his money, because he does not have any. They take his coat and his boots, and they break two of his ribs, and one of them keeps saying the name — the stage name, over and over, delighted, like a man who has found a celebrity in a bin.
+
+And the last thing they do, before they go, is tell him exactly what he is, at length, in detail, using the same word his mother would not say in the kitchen five years ago.
+
+Deacon Vox lies in a service alley off the Coldwater strip at three in the morning, in the wet, without a coat, with two ribs gone.
+
+He gets up on the fourth try. He does not cry. He walks east, because east is where the house is, and he does not go there either.
+
+FADE out 4
+
+SLUG THE PRINE HOUSE — THE POOL DECK | SPRING, 2084
+
+Auggie Prine, alone in a drained pool, with an inspection notice in his hand and no crew in the house.
+
+AUGGIE:
+Nine years I had a sound man. Nine years. And I have not once, in two years, asked anybody where Wilby is buried.
+
+There is no one there to answer. This is the only line in the picture Auggie Prine says to an empty room.
+
+FADE out 3
+
+SLUG THE GHAZI HOUSE, ABOVE THE BASIN | 2084 — SUMMER
+
+Rock bottom in this picture is a house on a hill with a swimming pool that has water in it, which is the joke, and nobody in the scene gets it.
+
+RASHAD GHAZI receives guests in a robe. Behind him, on a couch, a BOY of about fourteen is lighting signal flares, indoors, one at a time, for no reason anybody will explain.
+
+The flares go off every forty seconds. Every single person in this scene flinches every single time and nobody mentions it.
+
+TODD:
+Rashad. Rashad! This is the guy I told you about.
+
+RASHAD:
+You told me about a lot of guys, Todd.
+
+TODD:
+This is the guy. This is DEACON VOX, Rashad, off the tapes, in your house.
+
+RASHAD:
+Deacon Vox. In my house. Sit down, sit down, do you want anything? I have everything. That is not a boast, it is a logistics problem.
+
+DEACON:
+I’m fine.
+
+RASHAD:
+Nobody in this room is fine. Sit down.
+
+A flare goes off. Everybody flinches.
+
+DEACON:
+Does he have to do that?
+
+RASHAD:
+He likes it. He’s been doing it for six weeks. I have stopped asking, because when I ask, he does it more.
+
+The deal, as Todd Vane has explained it in the car, is very simple, which is how you know it is not a deal.
+
+Todd has a bag. In the bag is baking powder, in eleven small bricks, wrapped exactly the way the real thing is wrapped.
+
+Todd has explained that Rashad Ghazi does not test. Todd has explained that they will be out the door in four minutes with sixteen thousand credits.
+
+Todd has explained all of this while extremely high, in a car, to a man who has not worked in eleven months and has nothing left to sell, and that man said yes.
+
+RASHAD:
+So. Show me.
+
+TODD:
+Show him, Deacon.
+
+DEACON:
+Todd’s got it.
+
+TODD:
+I’ve got it! Here it is. Eleven. Count them.
+
+Rashad Ghazi does not count them. He picks one up. He turns it over. He looks at the wrapping, which is perfect, because Todd Vane is genuinely good at exactly one thing.
+
+A flare goes off. Everybody flinches.
+
+RASHAD:
+It’s good work.
+
+TODD:
+It’s great work.
+
+RASHAD:
+The wrapping is good work. I said the wrapping.
+
+The song on the broken machine starts again from the beginning, because it has been starting again from the beginning all night.
+
+DEACON:
+Todd. Todd, let’s go.
+
+TODD:
+We’re in the middle of something.
+
+DEACON:
+Todd, we’re going.
+
+RASHAD:
+You should listen to your friend, Todd. Your friend is famous and has no nerve at all, and only one of those is worth anything in this room.
+
+TODD:
+Sixteen. That was the number.
+
+RASHAD:
+The number was sixteen for merchandise. You have brought me a very well-wrapped kitchen.
+
+Nobody moves. The boy on the couch lights another flare and this time nobody flinches, which is how you know the scene has changed.
+
+DEACON:
+I’m going to stand up now.
+
+RASHAD:
+Stand up.
+
+DEACON:
+I’m going to stand up and walk to that door and I am not taking anything with me.
+
+RASHAD:
+I know.
+
+DEACON:
+And nobody has to —
+
+TODD:
+Get down!
+
+Todd Vane, who has never in his life understood a single moment he was inside of, pulls the gun out of his coat.
+
+The next eleven seconds are the loudest in the picture and there is no music under any of them, because the machine in the corner is still playing the same song and the film does not cut it.
+
+Deacon Vox goes out through a door and across a lawn and over a wall in a robe-and-flare-lit dark, and he does not stop for six miles.
+
+Behind him, in a house on a hill, the song starts again from the beginning.
+
+FADE out 5
+
+ACT 4 — Home
+
+SLUG THE FAUST HOUSE, DRAY LANE | 2084 — AUTUMN
+
+A prefab unit with a dead lawn. The porch light is on. It has been on for five years, which is either a fault in the fixture or the other thing.
+
+Denny Faust stands at the end of the path for a long time before he goes up it.
+
+JOANIE:
+It’s open.
+
+DENNY:
+How did you know it was me?
+
+JOANIE:
+Because it’s been you standing out there for twenty minutes and I could hear you deciding.
+
+He comes in. The house is exactly the same, which is the cruellest thing a house can do.
+
+JOANIE:
+You’re thin.
+
+DENNY:
+I’m alright.
+
+JOANIE:
+You’re thin and you’re walking like your ribs are wrong. Sit down. There’s soup.
+
+DENNY:
+Mum —
+
+JOANIE:
+Sit down first. Whatever it is, it’ll still be true after the soup.
+
+He sits down. He eats soup at his mother’s table at twenty-four years old with a hole in his life the size of five years.
+
+DENNY:
+I was going to say a lot of things on the way here.
+
+JOANIE:
+I know.
+
+DENNY:
+I had about four speeches.
+
+JOANIE:
+I had eleven. I’ve had five years and no company.
+
+DENNY:
+You said I was nothing.
+
+JOANIE:
+I did.
+
+DENNY:
+You said the world would find it out and it wouldn’t be gentle.
+
+JOANIE:
+And it wasn’t, and I have thought about that sentence every day since, and I want you to know that being right about it is the worst thing that has ever happened to me.
+
+DENNY:
+I don’t want to fight about it.
+
+JOANIE:
+Denny, I’m not fighting. I said a true thing in a cruel way because I was frightened, and I have paid for the cruel part every night for five years, and I would like to be done paying now if that’s allowed.
+
+He does not say anything. He eats the soup. She lets him.
+
+JOANIE:
+Are you working?
+
+DENNY:
+No.
+
+JOANIE:
+Can you?
+
+The kitchen is very small and there is nowhere in it to stand that is far enough away, and this time it is her turn to have nowhere to stand.
+
+DENNY:
+I don’t know.
+
+JOANIE:
+Right.
+
+DENNY:
+That’s the — that’s the whole thing, Mum, that’s the whole answer to everything you’re about to ask me. I don’t know.
+
+JOANIE:
+Then that’s the answer, isn’t it.
+
+DENNY:
+What is?
+
+JOANIE:
+You’ve spent five years being a thing that happened to you. You might have to find out what you are when it isn’t working, and I would rather you did that in a house with soup in it.
+
+DENNY:
+You watched them, didn’t you.
+
+JOANIE:
+Denny.
+
+DENNY:
+You watched them.
+
+JOANIE:
+I watched one. In the first year. I sat in this room with the light off and I watched about four minutes of it and then I turned it off and I was sick, and I have never told one person in this district that it was my son.
+
+JOANIE:
+And that is the second thing I have to be sorry for, and it is much bigger than the first, and I am not going to explain it any better than that.
+
+WAIT 3
+
+SLUG BUCK’S AUDIO, COLDWATER STRIP | THAT WINTER
+
+The shop is doing well. Buck Ozarow has a second bench, an apprentice, and a wall of speakers in various stages of resurrection.
+
+Deacon comes in. There is a long moment where neither of them does the thing that people do.
+
+BUCK:
+Look at you.
+
+DEACON:
+Look at YOU. There’s a sign. There’s an actual sign with your name on it.
+
+BUCK:
+I painted it myself. It’s crooked. I look at it every morning and it’s crooked and I love it.
+
+DEACON:
+How did you get the money, Buck?
+
+Buck Ozarow does not answer for four seconds, and in those four seconds this entire picture tells you everything and says none of it.
+
+BUCK:
+I got lucky.
+
+DEACON:
+Right.
+
+BUCK:
+I got lucky, Deacon, and I have been paying for the luck ever since, and I fix speakers for eleven hours a day and I sleep about four, and I would not give it back.
+
+DEACON:
+Have you seen anybody?
+
+BUCK:
+Scotty’s driving a haul truck on the East Road. He’s alright. He’s got a girl who doesn’t know about any of it.
+
+DEACON:
+Reed?
+
+BUCK:
+Reed’s doing security at the Meridian. He stands at a door and cries on the count of four if somebody’s rude to him. He says it defuses things.
+
+DEACON:
+And Auggie?
+
+BUCK:
+Auggie’s still in the house.
+
+DEACON:
+He kept the house?
+
+BUCK:
+He kept the house. He hasn’t shot anything in a year, the mast is gone, the Colonel’s in a corp holding facility for something they won’t print, and Auggie Prine is still in the house.
+
+DEACON:
+Doing what?
+
+BUCK:
+Sitting in a drained swimming pool, mostly. Waiting for somebody to come up the drive.
+
+FADE out 2
+
+SLUG THE PRINE HOUSE | 2085 — SPRING
+
+The house from the outside. The lamps are off. There is grass growing through the crack in the pool deck, which the film holds on for a full four seconds because that is the entire second half of this movie in one image.
+
+Deacon Vox comes up the drive.
+
+Marguerite Sable is on the step. She is thinner. She is present. She has been clean for four months and she looks like somebody who is counting them.
+
+SABLE:
+Well.
+
+DEACON:
+Marguerite.
+
+SABLE:
+Come here.
+
+She holds on to him for a very long time. Neither of them says anything about anything.
+
+SABLE:
+He’s round the back.
+
+DEACON:
+Is he going to throw me out?
+
+SABLE:
+Probably. He throws everybody out. He threw ME out in October and I came back in November and neither of us has mentioned it.
+
+DEACON:
+Marguerite. Your son.
+
+SABLE:
+Twelve visits a year. Supervised. I got it in February.
+
+DEACON:
+That’s —
+
+SABLE:
+It’s twelve. It’s an hour each. It’s the best thing that has ever happened to me and I would like you to not say anything else about it, because I will come apart and I have got a schedule.
+
+WAIT 2
+
+SLUG THE PRINE HOUSE — THE DRAINED POOL | CONTINUOUS
+
+Auggie Prine, in a deck chair, in a swimming pool with no water in it, with nothing to direct.
+
+He does not get up. He does not turn around. He has heard the footsteps and he knows the walk, because he has been looking at people professionally for fifteen years.
+
+AUGGIE:
+You’re late.
+
+DEACON:
+Auggie.
+
+AUGGIE:
+Two years late.
+
+DEACON:
+I know.
+
+AUGGIE:
+Sit down. There’s a chair. It’s a terrible chair, everything here is terrible now, sit in it.
+
+Deacon Vox sits down in a drained swimming pool next to the man who came out to a roadhouse lot for him.
+
+AUGGIE:
+Are you working?
+
+DEACON:
+No.
+
+AUGGIE:
+Can you?
+
+DEACON:
+Auggie, I’m not going to —
+
+AUGGIE:
+I am not asking as a man with a camera. I have not had a camera in eleven months. I am asking because you walked up my drive and you have not looked at me once.
+
+A long pause in a concrete hole above a dead city.
+
+DEACON:
+Sometimes.
+
+AUGGIE:
+Sometimes is a career. Sometimes is most people’s whole career.
+
+DEACON:
+It isn’t mine. Mine was the one that always worked.
+
+AUGGIE:
+Yes. And that is the worst thing that ever happened to you, and I gave it to you, and I have had two years in this pool to think about that.
+
+DEACON:
+Don’t.
+
+AUGGIE:
+I found a boy in a lot and I told him the thing about him that everybody had been whispering, and I said it kindly, and I meant it kindly, and I have watched what saying it kindly did.
+
+DEACON:
+I said yes.
+
+AUGGIE:
+You were nineteen and you were holding a crate.
+
+DEACON:
+I said YES, Auggie. I have said yes every single day since. You do not get to take that off me as well. It’s the only thing in the whole five years I actually did.
+
+Auggie Prine looks at him for a long moment, and then does something he has not done in the entire picture, which is agree.
+
+AUGGIE:
+Alright.
+
+DEACON:
+Alright?
+
+AUGGIE:
+Alright. You said yes. It’s yours. All of it, the whole five years, the good and the rest — it’s yours and you did it.
+
+They sit in the pool. Somewhere in the house a door goes and Kestrel comes out onto the deck with a broken headset around her neck that she has never replaced.
+
+KESTREL:
+Hi.
+
+DEACON:
+Hi.
+
+KESTREL:
+You look terrible.
+
+DEACON:
+You too.
+
+KESTREL:
+Yeah.
+
+She sits down on the edge of the pool with her feet over the side, and that is all, and it is enough, because these people have never once been able to say the thing.
+
+AUGGIE:
+I want to shoot something.
+
+DEACON:
+There’s no licence, Auggie. There’s no mast.
+
+AUGGIE:
+There is a mast on the ridge that nobody has climbed in fourteen months and there is an inspector in Coldwater who is paid to inspect the Basin, and I have met him, and he is one man with a truck.
+
+KESTREL:
+That’s not a plan, that’s a grievance with a map.
+
+AUGGIE:
+It is ninety minutes, is what it is. One story. Same people the whole way through.
+
+DEACON:
+Auggie. I can’t promise you I can do it.
+
+AUGGIE:
+I did not ask you to promise me anything. I asked you to stand on a mark in a house you know. That is all I have ever asked anybody in fifteen years.
+
+DEACON:
+And if it doesn’t happen?
+
+AUGGIE:
+Then it doesn’t happen, and we go again after lunch, and nobody in this house says a word about it. Nobody in this house has ever said a word about it.
+
+Deacon Vox puts his head back against a concrete wall in a drained swimming pool and laughs, once, badly, because his ribs are still wrong.
+
+FADE out 3
+
+SLUG THE PRINE HOUSE — THE LOUNGE SET | LATER
+
+The lamps go on one at a time. Three of them. It takes a while, because two are broken and Buck Ozarow has to be called.
+
+Reed Halloran arrives in a security uniform he does not change out of, and hits his mark, and is home.
+
+Scotty Kell comes off a haul route with a boom pole in the cab of a truck that does not belong to him, and nobody asks.
+
+Marguerite Sable puts a light where a light should be. Kestrel stands where a camera should be and finds she can see the whole room from there.
+
+AUGGIE:
+Quiet, please.
+
+The house goes quiet, the way it used to, the way rooms do when they have agreed to take something seriously.
+
+AUGGIE:
+Speed.
+
+There is no sound man. Auggie Prine says "speed" to nobody, because that is the word, and the word is the job, and the job is what is left.
+
+AUGGIE:
+And ACTION.
+
+LETTERBOX off
+
+FADE in 3
+
+SLUG THE PRINE HOUSE — DEACON’S ROOM | MOMENTS BEFORE
+
+The very last shot of the picture is not the set. The picture cuts backwards, three minutes, to a man alone in a room with a mirror.
+
+Deacon Vox, twenty-five, in the room he lived in at nineteen, in front of the same full-length mirror, on the night it matters.
+
+He is not warming up. There is nothing to warm up. He is doing the thing he has done in front of this mirror ten thousand times and has not been able to do for a year.
+
+He opens his robe.
+
+The film, which has spent two and a half hours pointing the camera at everybody else’s face — at Auggie in the lot, at the crew at the back of the room, at eleven people looking at the ceiling — finally, in its last thirty seconds, looks.
+
+And there it is. The one card. The accident in the womb. The reason for the house, the name, the money, the awards, the mother, the alley, all of it.
+
+It is not a punchline and the film does not play it as one. It is just true, the way it has always been true, and it has cost him everything he had.
+
+Deacon Vox looks at himself in the mirror for a long moment.
+
+DEACON:
+Alright.
+
+DEACON:
+Alright. Okay. There you are.
+
+He closes the robe. He puts his hands on the dresser and breathes for a second like a man about to lift something.
+
+And then he says the name — the one Kestrel gave him at a kitchen table when he was nineteen and everybody said it out loud until it stuck.
+
+DEACON:
+I’m Deacon Vox.
+
+He goes downstairs, where three lamps are on and a man with no sound crew is saying "speed" to nobody, because that is the word, and the word is the job, and the job is what is left.
+
+CUT TO BLACK.
+
+FADE out 4
+
+CREDITS 90
+THE OPEN SIGNAL
+
+DIRECTED BY
+Auggie Prine
+
+DEACON VOX
+Denny Faust
+
+MARGUERITE SABLE
+herself
+
+KESTREL
+herself
+
+REED HALLORAN
+himself
+
+BUCK OZAROW
+himself
+
+SCOTTY KELL
+himself
+
+SOUND
+Wilby Crane
+In memoriam
+
+THE PRODUCERS WISH TO STATE
+that the Reclamation Authority
+declined to licence this transmission,
+and that it went out anyway,
+from a mast on the ridge,
+at nine o’clock,
+on a Tuesday.
+
+END_CREDITS
+
+TICKER
+KSAB-TV airs THE OPEN SIGNAL nightly at 21:00. The Reclamation Authority has been notified. The Reclamation Authority has not replied.
+TICKER_END
+
+END

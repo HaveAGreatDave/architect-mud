@@ -2,11 +2,52 @@
   "name": "bodily",
   "version": "1.0.0",
   "description": "Bowel/bladder pressure simulation (1m tick), involuntary release, pee/poop/flush verbs, timed relief routines onto any target (toilet/ground/furniture/lying creature; poop drops legwear + squats 20-40s, pee 10s w/ male-stand/female-sit; farts (pressure-scaled) + plops + surface-varied pee-stream sound cues via bodily.sfx; NPCs yell when peed on and bystanders recoil at public elimination, which also emits bodily.publicRelief → indecent-exposure charge; toilets foul until flushed), toilet/sink use panels, and a `shower` verb (gated on a shower fixture) that fully cleans you — clothing/skin stains, dried fluid, and blood — leaving a brief cosmetic 'refreshed' badge. Stains + digestion loads stay engine (server/engine/bodily.js substrate).",
-  "hooks": ["furniture.describe"],
-  "events": { "emits": ["bodily.sfx", "bodily.publicRelief"], "consumes": ["player.logout"] },
-  "commands": ["pee", "urinate", "piss", "poop", "defecate", "shit", "flush", "shower"],
+  "hooks": [
+    "furniture.describe",
+    "zone.smells"
+  ],
+  "events": {
+    "emits": [
+      "bodily.sfx",
+      "bodily.publicRelief"
+    ],
+    "consumes": [
+      "player.logout"
+    ]
+  },
+  "commands": [
+    "fart",
+    "pee",
+    "urinate",
+    "piss",
+    "poop",
+    "defecate",
+    "shit",
+    "flush",
+    "shower",
+    "soap",
+    "scrub"
+  ],
   "objectGatedCommands": {
-    "flush": { "discoverVia": "none", "exposed": false, "note": "KNOWN GAP: requires a toilet in the zone (object_type='toilet' or flags.toilet); errors otherwise. Surfaced as an action-link inside the 'use toilet' panel, not on examine. (The `use toilet`/`use sink` panels are a tagless specializedAction that examine can't surface either — toilet/sink are not in examine's hardcoded object_type branches — but `use` is not a command so it cannot be logged here.)" },
-    "shower": { "discoverVia": "none", "exposed": false, "note": "Requires a shower in the zone (object_type='shower' / flags.shower / name ~ 'shower'); errors otherwise. Surfaced as an action-link inside the 'use shower' panel. Strips clothing_contamination + soiled_state + ejaculate_state + covered_in_blood (a superset of MIS `wash`, which leaves the bodily stains) and applies the cosmetic 'refreshed' effect." }
+    "flush": {
+      "discoverVia": "none",
+      "exposed": false,
+      "note": "KNOWN GAP: requires a toilet in the zone (object_type='toilet' or flags.toilet); errors otherwise. Surfaced as an action-link inside the 'use toilet' panel, not on examine. (The `use toilet`/`use sink` panels are a tagless specializedAction that examine can't surface either — toilet/sink are not in examine's hardcoded object_type branches — but `use` is not a command so it cannot be logged here.)"
+    },
+    "shower": {
+      "discoverVia": "none",
+      "exposed": false,
+      "note": "Requires a shower in the zone (object_type='shower' / flags.shower / name ~ 'shower'); errors otherwise. Surfaced as an action-link inside the 'use shower' panel. Strips clothing_contamination + soiled_state + ejaculate_state + covered_in_blood (a superset of MIS `wash`, which leaves the bodily stains) and applies the cosmetic 'refreshed' effect."
+    },
+    "soap": {
+      "discoverVia": "water_source",
+      "exposed": true,
+      "note": "Declaration-only specializedAction on water_source furniture — a sink/shower advertises SOAP. The verb self-resolves the target and needs a carried item tagged soap."
+    },
+    "scrub": {
+      "discoverVia": "water_source",
+      "exposed": false,
+      "note": "Alias of soap; the sink surfaces the primary verb."
+    }
   }
 }

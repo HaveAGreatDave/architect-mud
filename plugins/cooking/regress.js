@@ -8,17 +8,20 @@ import { insertFurniture, deleteFurniture, getFurnitureById } from '../../server
 import { computeDuration, checkCooking, _test as cookTest } from './cook.js';
 import { THAW_STAGES, COOK_STAGES, STOVE_SPEED, stageText, BARE_VESSEL, PEAK_LINES, SLIPPING_LINES, FADING_LINES, STAGE_LINES, lineFor, stagesFor } from './config.js';
 import { PROFILES, LEGACY_BAND_INDEX, profileNameFor, profileNeedsPrep, needsPrep, validateProfiles, QUALITY_BANDS, bandIndex, donenessLevels, donenessLevel, donenessAt, achievedDoneness } from './profiles.js';
-import { leavesFond, makeFond, fondState, fondModifier, fondText } from './fond.js';
+import { leavesFond, makeFond, fondState, fondModifier, fondText, fondBelongs } from './fond.js';
+import { prepWindowMult, prepBurnMult, prepCeilingDrop, prepBonus, marinadeStrength, canMarinate, prepText } from './prep.js';
+import { tasteNotes, tasteTier, flavourLines } from './taste.js';
 import { portionOf, isWhole, canChop, portionName, yieldOf } from './portions.js';
-import { FOND_BONUS, FOND_RESIDUE_PENALTY, FOND_LIFE_MS, MODIFIER_BONUS_CAP, MIN_PORTION, BAND_SCALE, BASE_OFFSET, FOND_MIN_BAND, DISCOVERY_MIN_BAND, SLOP_CEILING, BAND_REWARDS, rewardFor, restMultiplier, restText, RESTS_WELL, REST_MIN_MS, REST_PEAK_MS, REST_COLD_MS, REST_COLD_PENALTY } from './config.js';
+import { FOND_BONUS, FOND_RESIDUE_PENALTY, FOND_NEGLECT_PENALTY, FOND_LIFE_MS, MODIFIER_BONUS_CAP, MIN_PORTION, MINCE_RATE, MARINATE_MIN_MS, MARINATE_FULL_MS, MARINATE_PROFILES, TASTE_TIERS, MINCE_CEILING_DROP, BAND_SCALE, BASE_OFFSET, FOND_MIN_BAND, DISCOVERY_MIN_BAND, SLOP_CEILING, BAND_REWARDS, rewardFor, restMultiplier, restText, RESTS_WELL, REST_MIN_MS, REST_PEAK_MS, REST_COLD_MS, REST_COLD_PENALTY } from './config.js';
 import { DISCOVERY_ATTEMPTS, cookingIpFor, ROUTINE_IP, MASTERFUL_IP, ROUTINE_IP_COOLDOWN_MS } from './config.js';
 import {
   DISHES, UNKNOWN_DISH, validateDishes, signature, matchScore, matchDish,
-  dishName, composeBand, nounFor, VESSEL_KINDS, seasoningIdeal, seasoningBonus,
+  dishName, composeBand, nounFor, VESSEL_KINDS, seasoningIdeal, seasoningBonus, unitsOf, GENERIC_SANDWICH, ALSO,
 } from './dishes.js';
 import { FLAG_PREFIX, PROGRESS_PREFIX, UNTRIED, learnRecipe, knownRecipes, cookbookState, recordAttempt, improveRecipe, beatsRecorded, knownBonus } from './knowledge.js';
-import { evaluate, endStateAt, timeline, heatSpans } from './quality.js';
+import { evaluate, endStateAt, timeline, heatSpans, finishAt } from './quality.js';
 import { rowIsInstanced } from '../../server/engine/inventory.js';
+import { applyEffect, tickEffects, getRegisteredStatusEffects } from '../../server/engine/effects.js';
 import { computeSellUnitPrice, COOK_QUALITY_PRICE } from '../../server/engine/vendor.js';
 import { getAlias } from '../../server/engine/commands/aliases.js';
 import { _test as cookTest2 } from './index.js';
@@ -75,6 +78,37 @@ export default async function regress({ run, check, getPlayer }) {
   const doneState = checkCooking(doneCook);
   check('past doneAt, examine reads as done', doneState?.done === true, doneState);
   check('an item with no cooking session returns null', checkCooking({ custom_data: {} }) === null);
+
+  // `finishAt` is the ONLY sanctioned way to ask when a cook ends, and it has to
+  // keep answering for sessions written before the field was renamed — there are
+  // real ones sitting in player_inventory mid-cook across any deploy.
+  check('finishAt reads the plain stamp for unprofiled food',
+    finishAt({ plainDoneAt: 4242 }) === 4242);
+  check('a session stamped before the rename still finishes',
+    finishAt({ doneAt: 4242 }) === 4242);
+  check('the new field wins where both are present',
+    finishAt({ plainDoneAt: 1, doneAt: 999 }) === 1);
+
+  // A doneness target moves the finish line, and examine has to read off the
+  // SAME clock the quality ladder does. Rare lands at 0.75 of the cook: at 0.80
+  // the food is in its window, and examine saying "still browning" there is the
+  // telegraph lying to the player about a steak they are about to lose.
+  const doneSess = t => ({
+    custom_data: { cooking: {
+      startedAt: now - 8000, thawMs: 0, cookMs: 10000, doneAt: now + 2000,
+      profile: 'dense_meat', heatTier: 'high', vessel: BARE_VESSEL, acts: [], target: t,
+    } },
+  });
+  check('a rare cut is DONE at 80% of the cook, and examine says so',
+    checkCooking(doneSess('rare'))?.done === true, checkCooking(doneSess('rare')));
+  check('...while a well-done one is still cooking at the same instant',
+    checkCooking(doneSess('well done'))?.done === false, checkCooking(doneSess('well done')));
+  check('examine and the quality ladder agree on the end state',
+    (checkCooking(doneSess('rare'))?.done === true)
+      === (endStateAt(doneSess('rare').custom_data.cooking, PROFILES.dense_meat) !== 'raw'));
+  check('for profiled food finishAt IS the timeline, not the stamp',
+    finishAt(doneSess('rare').custom_data.cooking, PROFILES.dense_meat)
+      === timeline(doneSess('rare').custom_data.cooking, PROFILES.dense_meat).doneAt);
 
   // ── Profiles + quality (pure) ─────────────────────────────────────────────
   const v = validateProfiles();
@@ -283,7 +317,9 @@ export default async function regress({ run, check, getPlayer }) {
 
     // The stove is held until it's plated or burns off, not merely until done.
     let heldStove = await getFurnitureById(STOVE);
-    check('a profiled cook holds the stove past doneAt', heldStove.flags.busy_until > live.doneAt, { busy: heldStove.flags.busy_until, doneAt: live.doneAt });
+    check('a profiled cook holds the stove past the finish line',
+      heldStove.flags.busy_until > finishAt(live, PROFILES[live.profile]),
+      { busy: heldStove.flags.busy_until, finish: finishAt(live, PROFILES[live.profile]) });
 
     // Handling: right verb, wrong verb, and the tool gate.
     r = await run('stir test steak');
@@ -656,6 +692,325 @@ export default async function regress({ run, check, getPlayer }) {
       Object.values(DISHES).every(d => QUALITY_BANDS.includes(d.ceiling)),
       Object.entries(DISHES).filter(([, d]) => !QUALITY_BANDS.includes(d.ceiling)).map(([k]) => k));
 
+    // ── Food poisoning actually does something now ───────────────────────────
+    // It was applied by four paths and REGISTERED BY NONE — for its whole life
+    // it sat in player.statuses counting down and doing nothing at all.
+    check('food poisoning is a registered effect', getRegisteredStatusEffects().includes('food_poisoning'));
+
+    const sick = () => {
+      const p = { hp: 100, hp_max: 100, stamina: 100, stamina_max: 100, statuses: [], handle: 'T', current_zone: Z };
+      applyEffect(p, 'food_poisoning', 60);
+      return p;
+    };
+    const runTicks = (p, n) => { const out = []; for (let i = 0; i < n; i++) out.push(...tickEffects(p)); return out; };
+
+    const p1 = sick();
+    runTicks(p1, 8);
+    check('it guts your stamina fast — you are going nowhere', p1.stamina <= 10, p1.stamina);
+    check('...but barely touches your HP', 100 - p1.hp <= 10, 100 - p1.hp);
+
+    const p2 = sick();
+    runTicks(p2, 200);
+    check('HP loss is capped across the whole illness', 100 - p2.hp <= 30, 100 - p2.hp);
+    check('it can never be the thing that kills you', p2.hp >= 1, p2.hp);
+    check('stamina stays on the floor throughout', p2.stamina === 0);
+
+    const msgs = runTicks(sick(), 40);
+    check('there are episodes, not just a status line',
+      msgs.some(m => /sick|toilet|guts give out|holding it|comes up|double over/i.test(m)), msgs.slice(0, 3));
+    check('both ends are represented', (() => {
+      const all = runTicks(sick(), 80).join(' ');
+      return /toilet|guts give out|holding it/i.test(all) && /comes up|double over|inside out/i.test(all);
+    })());
+
+    // A fresh bout gets its own budget, or a second poisoning would be free.
+    const p3 = sick();
+    runTicks(p3, 200);
+    const afterFirst = p3.hp;
+    applyEffect(p3, 'food_poisoning', 60);
+    runTicks(p3, 40);
+    check('a second bout can hurt you again — the cap is per illness', p3.hp < afterFirst, { afterFirst, now: p3.hp });
+
+    // ── Volume: recipes count MASS, not how many things you put in ───────────
+    const vRow = (prof, grams, portion) => ({ weight: grams, tags: { food_profile: prof }, custom_data: portion ? { portion } : {} });
+    check('every profile declares what one unit weighs', Object.values(PROFILES).every(p => p.unitWeight > 0),
+      Object.entries(PROFILES).filter(([, p]) => !p.unitWeight).map(([k]) => k));
+    check('an item of exactly unit weight counts as one',
+      unitsOf(vRow('dense_meat', PROFILES.dense_meat.unitWeight), 'dense_meat') === 1);
+    check('a big cut counts as more than one', unitsOf(vRow('dense_meat', 700), 'dense_meat') > 2.5);
+    check('a small one counts as less', unitsOf(vRow('dense_meat', 200), 'dense_meat') < 1);
+    check('portions still halve it', unitsOf(vRow('soft_vegetable', 120, 0.5), 'soft_vegetable') === 0.5);
+    check('a weightless row falls back to counting as one rather than vanishing',
+      unitsOf({ tags: { food_profile: 'liquid' }, custom_data: {} }, 'liquid') === 1);
+    // Modifiers are dosed, not weighed — a jar of mustard is forty uses of mustard.
+    check('a heavy condiment still counts as ONE seasoning',
+      unitsOf(vRow('aromatic', 250), 'aromatic') === 1 && unitsOf(vRow('fat_or_oil', 600), 'fat_or_oil') === 1);
+    check('...which is what stops one jar reading as catastrophic over-seasoning',
+      signature([vRow('aromatic', 250), vRow('aromatic', 20)], r => r.tags.food_profile).aromatic === 2);
+
+    // ── Prep: score, tenderise, marinate ─────────────────────────────────────
+    const prepSess = extra => ({ startedAt: 0, thawMs: 0, cookMs: 60000, profile: 'dense_meat',
+      heatTier: 'low', vessel: BARE_VESSEL, acts: [{ at: 30000 }], ...extra });
+    check('scoring widens the window', prepWindowMult({ scored: true }) > 1);
+    check('tenderising widens it too', prepWindowMult({ tenderised: true }) > 1);
+    check('an unprepped cut gets no slack', prepWindowMult({}) === 1);
+    check('tenderising costs one rung; mince costs two',
+      prepCeilingDrop({ tenderised: true }) < prepCeilingDrop({ minced: true }) && prepCeilingDrop({ tenderised: true }) > 0,
+      { tenderised: prepCeilingDrop({ tenderised: true }), minced: prepCeilingDrop({ minced: true }) });
+    check('mince already destroyed what tenderising would — the costs do not stack',
+      prepCeilingDrop({ minced: true, tenderised: true }) === prepCeilingDrop({ minced: true }));
+    check('scoring pays a flat bonus', prepBonus({ scored: true }) > 0);
+    check('a marinade under the minimum soak has done nothing',
+      marinadeStrength({ custom_data: { marinated_at: 1_000_000 } }, 1_000_000 + 1000) === 0);
+    check('a full soak is worth the most', marinadeStrength({ custom_data: { marinated_at: 1 } }, 1 + MARINATE_FULL_MS) === 1);
+    check('...and it climbs in between',
+      marinadeStrength({ custom_data: { marinated_at: 1 } }, 1 + (MARINATE_MIN_MS + MARINATE_FULL_MS) / 2) > 0);
+    check('time is the whole cost of a marinade — no soak, no gain',
+      prepBonus(prepSess({ marinated_at: Date.now() }), Date.now()) === 0);
+    check('only meat and cured cuts are worth marinating',
+      canMarinate('dense_meat') && !canMarinate('batter'), MARINATE_PROFILES);
+    // The marinade is frozen when the heat comes on. Without this, a token soak
+    // followed by a long cook would collect the full bonus for free.
+    check('a frozen marinade strength is what scores, not the wall clock',
+      prepBonus(prepSess({ marinade: 1 }), Date.now() + MARINATE_FULL_MS * 10)
+        === prepBonus(prepSess({ marinade: 1 }), 0));
+    check('a token soak stays a token soak however long the cook runs',
+      prepBonus(prepSess({ marinade: 0 }), Date.now() + MARINATE_FULL_MS * 10) === 0);
+    check('a half-strength marinade pays half',
+      Math.abs(prepBonus(prepSess({ marinade: 0.5 }), 0) * 2 - prepBonus(prepSess({ marinade: 1 }), 0)) < 1e-9);
+    // Scoring is a wider window bought with a shorter grace after it.
+    // The live-cook registry: `smell` is a spammable verb, so "what's on the
+    // heat in this room" must be answerable without a query. A stale entry here
+    // is worse than a slow one — it would report a pot that was plated long ago.
+    const { cooksOnAppliances, forgetCook } = await import('./cook.js');
+    check('an appliance with nothing on it reports nothing',
+      cooksOnAppliances(['no-such-stove']).length === 0);
+    check('the registry answers without touching the database',
+      Array.isArray(cooksOnAppliances([])) && cooksOnAppliances([]).length === 0);
+    check('forgetting a cook that was never live is a safe no-op', (() => {
+      forgetCook('no-such-inv-row');
+      return true;
+    })());
+
+    // ── Procedural audio ──────────────────────────────────────────────────────
+    // Cooking emits SEMANTICS and owns no acoustics; the audio plugin turns an
+    // action + material + intensity into layers. The contract worth protecting
+    // is that every action×material pair yields a playable def, because a silent
+    // verb fails in a way nobody notices until a player asks why.
+    await import('../../client/shared/procedural-sfx.js');   // dual-mode: attaches to globalThis
+    const { buildCookingCue, ...sfxTest } = globalThis.ProceduralSFX;
+    const ACTIONS = ['chop', 'impact', 'scrape', 'stir', 'pour', 'sizzle', 'boil'];
+    const MATS = Object.keys(sfxTest.MATERIALS);
+    let badCue = null;
+    for (const action of ACTIONS) {
+      for (const m of MATS) {
+        const d = buildCookingCue({ action, material: m, intensity: 0.6 });
+        if (!d?.config?.layers?.length) { badCue = `${action}/${m}`; break; }
+        if (d.config.duration <= 0) { badCue = `${action}/${m} duration`; break; }
+        if (d.config.layers.some(l => l.gain > 1 || l.gain <= 0)) { badCue = `${action}/${m} gain`; break; }
+      }
+      if (badCue) break;
+    }
+    check('every action × material produces a playable cue', !badCue, badCue);
+    check('an unknown action stays silent rather than throwing',
+      buildCookingCue({ action: 'nonsense' }) === null);
+    check('an unknown material falls back instead of throwing',
+      !!buildCookingCue({ action: 'chop', material: 'no_such_material' })?.config?.layers?.length);
+
+    // The point of a procedural generator: the same call twice is not the same
+    // sound. Without variation it reads as one sample on repeat.
+    const a = buildCookingCue({ action: 'chop', material: 'hard_food', intensity: 0.6 });
+    const b = buildCookingCue({ action: 'chop', material: 'hard_food', intensity: 0.6 });
+    check('repeats vary rather than replaying identically',
+      JSON.stringify(a.config.layers[0]) !== JSON.stringify(b.config.layers[0]));
+
+    // SEEDING is what lets the server send ~100 bytes instead of a serialised
+    // burst field. The client rebuilds from the seed, so the two MUST agree
+    // exactly — if this drifts, players hear something the server never meant.
+    const seeded = s => buildCookingCue({ action: 'sizzle', material: 'wet_meat', heat: 0.9, seed: s });
+    check('the same seed rebuilds the identical cue',
+      JSON.stringify(seeded(12345)) === JSON.stringify(seeded(12345)));
+    check('a different seed gives a different cue',
+      JSON.stringify(seeded(12345)) !== JSON.stringify(seeded(999)));
+    check('seeding does not leave the generator armed for the next caller', (() => {
+      seeded(42);
+      const x = buildCookingCue({ action: 'chop', material: 'hard_food' });
+      const y = buildCookingCue({ action: 'chop', material: 'hard_food' });
+      return JSON.stringify(x) !== JSON.stringify(y);
+    })());
+    // The whole point of the refactor, asserted: parameters are tiny where the
+    // rendered layers are not.
+    check('the wire payload is a fraction of the rendered cue', (() => {
+      const params = JSON.stringify({ action: 'sizzle', material: 'wet_meat', heat: 0.9, seed: 4242 }).length;
+      const rendered = JSON.stringify(seeded(4242)).length;
+      return params * 10 < rendered;
+    })());
+
+    // Material must actually change the sound, or the whole design is theatre.
+    const wet = buildCookingCue({ action: 'chop', material: 'wet_meat', intensity: 0.6 });
+    const dry = buildCookingCue({ action: 'chop', material: 'bread', intensity: 0.6 });
+    check('a wet material adds a squelch layer a dry one does not have',
+      wet.config.layers.length > dry.config.layers.length,
+      { wet: wet.config.layers.length, dry: dry.config.layers.length });
+    check('heat drives sizzle density', (() => {
+      const cool = buildCookingCue({ action: 'sizzle', material: 'wet_meat', heat: 0.1 });
+      const hot  = buildCookingCue({ action: 'sizzle', material: 'wet_meat', heat: 1 });
+      return hot.config.layers.length > cool.config.layers.length;
+    })());
+    // States are the sparse alternative to authoring 425 acoustic values across
+    // 85 items. Frozen is the one that earns its place, and it's already tracked.
+    const room = buildCookingCue({ action: 'chop', material: 'wet_meat', intensity: 0.6 });
+    const iced = buildCookingCue({ action: 'chop', material: 'wet_meat', intensity: 0.6, state: 'frozen' });
+    check('frozen meat loses the wet squelch a thawed cut has',
+      iced.config.layers.length < room.config.layers.length,
+      { thawed: room.config.layers.length, frozen: iced.config.layers.length });
+    check('...and goes under the knife brighter, like wood', (() => {
+      const blade = d => d.config.layers.find(l => l.waveform === 'square')?.freq || 0;
+      return blade(iced) > blade(room);
+    })());
+    check('an unknown state is ignored rather than throwing',
+      !!buildCookingCue({ action: 'chop', material: 'wet_meat', state: 'no_such_state' })?.config?.layers?.length);
+    check('every declared state is a function the generator can apply',
+      Object.values(sfxTest.STATES).every(f => typeof f === 'function'));
+
+    check('burst fields stay bounded however hot it gets',
+      buildCookingCue({ action: 'sizzle', material: 'fat', heat: 1, duration: 60 })
+        .config.layers.length <= 45);
+
+    // ── The microwave: fast, forgiving, and incapable of a good meal ──────────
+    const { MICROWAVE_CEILING, MICROWAVE_SPEED, MICROWAVE_THAW_SPEED, STOVE_SPEED } = await import('./config.js');
+    const mw = (extra = {}) => ({ startedAt: 0, thawMs: 0, cookMs: 60000, profile: 'dense_meat',
+      heatTier: 'high', vessel: { d: 0.7, r: 0.7 }, acts: [], microwave: true, ...extra });
+    const hob = (extra = {}) => ({ ...mw(extra), microwave: undefined });
+
+    check('a microwave is faster than the best stove', MICROWAVE_SPEED > STOVE_SPEED.high);
+    check('...and thaws faster still — the one job it is genuinely best at',
+      MICROWAVE_THAW_SPEED > MICROWAVE_SPEED);
+    check('frozen food thaws far quicker in one than on a hob', (() => {
+      const onHob = computeDuration(1000, STOVE_SPEED.high, true, 1);
+      const inMw  = computeDuration(1000, MICROWAVE_SPEED, true, 1, MICROWAVE_THAW_SPEED);
+      return inMw.thawMs < onHob.thawMs;
+    })());
+
+    // The trade: a hard ceiling nothing can lift.
+    const mwPeak = evaluate(mw(), PROFILES.dense_meat, timeline(mw(), PROFILES.dense_meat).doneAt + 1, 60);
+    const hobPeak = evaluate(hob(), PROFILES.dense_meat, timeline(hob(), PROFILES.dense_meat).doneAt + 1, 60);
+    check('a perfectly-timed microwave meal is capped below a hob one',
+      bandIndex(mwPeak.band) < bandIndex(hobPeak.band), { mw: mwPeak.band, hob: hobPeak.band });
+    check('...and never beats its ceiling however good the cook',
+      bandIndex(mwPeak.band) <= bandIndex(MICROWAVE_CEILING), mwPeak.band);
+    check('no amount of prep buys it back', (() => {
+      const best = evaluate(mw({ scored: true, marinade: 1 }), PROFILES.dense_meat,
+        timeline(mw(), PROFILES.dense_meat).doneAt + 1, 100);
+      return bandIndex(best.band) <= bandIndex(MICROWAVE_CEILING);
+    })());
+
+    // ...bought with forgiveness. It is very hard to ruin anything in one.
+    check('a microwave gives an enormous window',
+      timeline(mw(), PROFILES.dense_meat).peakMs > timeline(hob(), PROFILES.dense_meat).peakMs);
+    check('...and barely burns at all',
+      timeline(mw(), PROFILES.dense_meat).burnAt > timeline(hob(), PROFILES.dense_meat).burnAt);
+    check('it browns nothing, so it can never leave fond',
+      !leavesFond({ vesselKind: 'pan', profiles: ['dense_meat'], band: 'masterful', microwave: true }));
+
+    // It sounds like a microwave, not a pan: a hum with one knock per turn of
+    // the plate. Not a loop — three revolutions reads as "running" without
+    // pretending to run for the whole cook.
+    const mwCue = buildCookingCue({ action: 'microwave', intensity: 0.6, flow: 3, seed: 5 });
+    check('a microwave has its own sound', !!mwCue?.config?.layers?.length);
+    // The beep is the one cue that must NOT vary much — it's a machine
+    // announcing itself, not a physical event.
+    const beep = buildCookingCue({ action: 'microwave', state: 'done', seed: 5 });
+    check('it beeps three times when the timer runs out',
+      beep.config.layers.length === 3, beep.config.layers.length);
+    check('the beeps are one flat identical tone',
+      new Set(beep.config.layers.map(l => l.freq)).size === 1);
+    check('the beep is not the running sound', beep.id !== mwCue.id);
+    check('...built from one knock per revolution',
+      mwCue.config.layers.filter(l => l.waveform === 'triangle').length === 3);
+    check('...and more revolutions runs longer',
+      buildCookingCue({ action: 'microwave', flow: 6, seed: 5 }).config.duration
+        > buildCookingCue({ action: 'microwave', flow: 2, seed: 5 }).config.duration);
+
+    check('scoring widens the peak window', prepWindowMult({ scored: true }) > 1);
+    check('...and shortens the grace after it — no prep verb is free',
+      prepBurnMult({ scored: true }) < 1, prepBurnMult({ scored: true }));
+    check('an unscored cut burns on the normal clock', prepBurnMult({}) === 1);
+    // A stack has to mean the same thing to the matcher as it does to the clock.
+    const oneSpud = { weight: 200, quantity: 1, tags: { food_profile: 'starchy_vegetable' }, custom_data: {} };
+    check('three of a thing in one row counts as three',
+      Math.abs(unitsOf({ ...oneSpud, quantity: 3 }, 'starchy_vegetable') - unitsOf(oneSpud, 'starchy_vegetable') * 3) < 1e-9);
+    check('a row with no quantity still counts as one',
+      unitsOf({ ...oneSpud, quantity: undefined }, 'starchy_vegetable') === unitsOf(oneSpud, 'starchy_vegetable'));
+    check('stacking and portioning compose',
+      Math.abs(unitsOf({ ...oneSpud, quantity: 4, custom_data: { portion: 0.25 } }, 'starchy_vegetable')
+        - unitsOf(oneSpud, 'starchy_vegetable')) < 1e-9);
+    check('prep state is readable before the heat', !!prepText({ marinated_at: 1 }, 1 + MARINATE_FULL_MS));
+    check('an unprepped ingredient says nothing', prepText({}) === null);
+
+    // ── Tasting: what you learn scales with skill ────────────────────────────
+    const tSess = prepSess({});
+    const notesAt = skill => tasteNotes({ session: tSess, profile: PROFILES.dense_meat, skill, now: 1 });
+    check('a novice learns one thing', notesAt(0).length === 1, notesAt(0));
+    check('an expert learns more than a novice', notesAt(9).length > notesAt(0).length, { novice: notesAt(0).length, expert: notesAt(9).length });
+    check('the tiers are ordered', tasteTier(0) === 'novice' && tasteTier(TASTE_TIERS.competent) === 'competent' && tasteTier(TASTE_TIERS.expert) === 'expert');
+    check('a novice is told something vague, an expert something specific',
+      notesAt(0)[0] !== tasteNotes({ session: tSess, profile: PROFILES.dense_meat, skill: 9, now: 1 })[0]);
+    check('seasoning is only commented on when there is a dish to judge',
+      tasteNotes({ template: DISHES.roast, modifierCount: 0, skill: 9 }).length > 0 &&
+      tasteNotes({ skill: 9 }).length === 0);
+
+    // ── Eating: nine bands you can actually feel ─────────────────────────────
+    check('every band has its own line in the mouth',
+      new Set(QUALITY_BANDS.map(b => flavourLines({ cook_quality: b })[0])).size === QUALITY_BANDS.length);
+    check('doneness adds a second line', flavourLines({ cook_quality: 'good', doneness: 'rare' }).length === 2);
+    check('a cold plate says so', flavourLines({ cook_quality: 'good' }, 'cold').some(l => /cold/i.test(l)));
+    check('a rested one says so too', flavourLines({ cook_quality: 'good' }, 'rested').some(l => /sat exactly/i.test(l)));
+    check('mince admits what it is', flavourLines({ cook_quality: 'good', minced: true }).some(l => /texture/i.test(l)));
+    check('an uncooked thing has nothing to say', flavourLines({}).length === 0);
+
+    // ── Fond remembers what made it ──────────────────────────────────────────
+    const meatFond = makeFond('dense_meat', 'excellent', 1_000_000);
+    check('fond from meat belongs in a meat dish', fondBelongs(meatFond, DISHES.stew));
+    check('...and does not belong in a fruit one', !fondBelongs(makeFond('preserved', 'good', 1), DISHES.compote));
+    check('lifting fond that belongs pays',
+      fondModifier(meatFond, { deglazed: true, template: DISHES.stew, now: 1_000_001 }) > 0);
+    check('lifting fond that does NOT belong costs — fruit tasting of fish is worse than plain fruit',
+      fondModifier(makeFond('dense_meat', 'excellent', 1_000_000), { deglazed: true, template: DISHES.compote, now: 1_000_001 }) < 0);
+    check('with no dish to judge against, fond is assumed to belong', fondBelongs(meatFond, null));
+
+    // ── Mincing: the opposite trade to chopping ──────────────────────────────
+    const minceSess = (minced) => ({
+      startedAt: 0, thawMs: 0, cookMs: 60000, profile: 'dense_meat',
+      heatTier: 'low', vessel: BARE_VESSEL, acts: [{ at: 30000 }], minced,
+    });
+    const wholeRate = computeDuration(400, STOVE_SPEED.low, false, PROFILES.dense_meat.cookRateMult).cookMs;
+    const minceRate = computeDuration(400, STOVE_SPEED.low, false, PROFILES.dense_meat.cookRateMult * MINCE_RATE).cookMs;
+    check('mince cooks far faster than the cut it came from', minceRate < wholeRate / 2, { wholeRate, minceRate });
+    check('...but weighs the same, so it feeds you the same', MINCE_RATE < 1 && true);
+
+    const ms = minceSess(true), ws = minceSess(false);
+    const at = s => timeline(s, PROFILES.dense_meat).doneAt + timeline(s, PROFILES.dense_meat).peakMs / 2;
+    const mBand = evaluate(ms, PROFILES.dense_meat, at(ms), 20);
+    const wBand = evaluate(ws, PROFILES.dense_meat, at(ws), 20);
+    check('mince can never reach what the whole cut could', bandIndex(mBand.band) < bandIndex(wBand.band), { mince: mBand.band, whole: wBand.band });
+    check('the drop is exactly the configured one', bandIndex(wBand.ceiling) - bandIndex(mBand.ceiling) === MINCE_CEILING_DROP,
+      { whole: mBand.ceiling, minced: wBand.ceiling });
+    check('mince is still food, never floored to poor', bandIndex(mBand.ceiling) >= 1, mBand.ceiling);
+
+    check('a doneness target on mince is ignored — there is no rare middle',
+      timeline({ ...minceSess(true), target: 'blue' }, PROFILES.dense_meat).doneAt ===
+      timeline({ ...minceSess(true), target: 'well done' }, PROFILES.dense_meat).doneAt);
+    check('...while a whole cut still honours it',
+      timeline({ ...minceSess(false), target: 'blue' }, PROFILES.dense_meat).doneAt !==
+      timeline({ ...minceSess(false), target: 'well done' }, PROFILES.dense_meat).doneAt);
+
+    check('mince needs no knife — it IS the prep',
+      !needsPrep({ tags: { food_profile: 'dense_meat' }, custom_data: { minced: true } }) &&
+      needsPrep({ tags: { food_profile: 'dense_meat' }, custom_data: {} }));
+    check('minced meat is instanced, so it never merges back into whole cuts',
+      rowIsInstanced({ custom_data: { minced: true } }) === true);
+
     // ── Portions: half an onion is an onion cut in half ──────────────────────
     const whole = { name: 'onion', custom_data: {} };
     const half = { name: 'onion', custom_data: { portion: 0.5 } };
@@ -728,7 +1083,27 @@ export default async function regress({ run, check, getPlayer }) {
     check('left too long it dries to residue', fondState(fresh, 1_000_000 + FOND_LIFE_MS + 1) === 'residue');
     check('no fond at all is neither', fondState(null) === 'none');
 
-    check('fond sitting unlifted is worth nothing', fondModifier(fresh, { deglazed: false, now: 1_000_001 }) === 0);
+    // Fresh fond is never neutral: dry it scorches, wet it lifts on its own.
+    check('cooking dry on top of fresh fond scorches it',
+      fondModifier(fresh, { deglazed: false, now: 1_000_001 }) === FOND_NEGLECT_PENALTY);
+    check('scorching costs less than dried-on residue',
+      FOND_NEGLECT_PENALTY > FOND_RESIDUE_PENALTY, { FOND_NEGLECT_PENALTY, FOND_RESIDUE_PENALTY });
+    check('liquid lifts fond whether or not you meant it to',
+      fondModifier(fresh, { deglazed: false, hadLiquid: true, now: 1_000_001 }) > 0);
+    check('...but scraping it yourself is always worth more',
+      fondModifier(fresh, { deglazed: true, now: 1_000_001 })
+        > fondModifier(fresh, { deglazed: false, hadLiquid: true, now: 1_000_001 }));
+    // The dish that exists FOR fond must not be the one dish that rejects it.
+    check('a meat sear belongs in a pan sauce, which contains no meat',
+      fondBelongs(makeFond('dense_meat', 'excellent', 1), DISHES.pan_sauce));
+    check('...and lifting it there pays rather than penalises',
+      fondModifier(makeFond('dense_meat', 'excellent', 1_000_000),
+        { deglazed: true, template: DISHES.pan_sauce, now: 1_000_001 }) > 0);
+    check('a fruit fond is still wrong in a pan sauce',
+      !fondBelongs(makeFond('fruit', 'excellent', 1), DISHES.pan_sauce));
+    check('a mismatched fond lifts into the dish passively too, and still ruins it',
+      fondModifier(makeFond('dense_meat', 'excellent', 1_000_000),
+        { deglazed: false, hadLiquid: true, template: DISHES.compote, now: 1_000_001 }) < 0);
     check('LIFTING it is worth a real bonus', fondModifier(fresh, { deglazed: true, now: 1_000_001 }) === FOND_BONUS);
     check('dried residue is an active penalty on the next cook',
       fondModifier(fresh, { deglazed: true, now: 1_000_000 + FOND_LIFE_MS + 1 }) === FOND_RESIDUE_PENALTY);
@@ -976,6 +1351,91 @@ export default async function regress({ run, check, getPlayer }) {
     const curryRows = [...stewRows, ing('onion', 'soft_vegetable', 'onion'), ing('chilli', 'aromatic'), ing('salt', 'aromatic')];
     const curry = matchDish(signature(curryRows, P), 'pot');
     check('a meat-and-spice pot resolves to the more specific meat curry', curry?.key === 'meat_curry', curry?.key);
+
+    // ── The toastie: bread, cheese, fat, one turn ────────────────────────────
+    const toastieRows = [ing('flatbread', 'bread', 'bread'), ing('vat cheese', 'dairy', 'vat cheese'), ing('butter', 'fat_or_oil')];
+    const toastie = matchDish(signature(toastieRows, P), 'pan');
+    check('bread + cheese + fat in a pan is a toastie', toastie?.key === 'toastie', toastie?.key);
+    check('...and it is named off the cheese that went in it',
+      /vat cheese/.test(dishName(DISHES.toastie, toastieRows, P)), dishName(DISHES.toastie, toastieRows, P));
+    // Bread and fat alone used to fall through to a root-vegetable glaze; the
+    // cheese is what makes it a toastie, so removing it must NOT still match.
+    check('without the cheese it is not a toastie',
+      matchDish(signature([toastieRows[0], toastieRows[2]], P), 'pan')?.key !== 'toastie');
+    check('cheese is fine raw but best melted',
+      bandIndex(PROFILES.dairy.targets.raw) >= bandIndex('good')
+        && bandIndex(PROFILES.dairy.targets.peak) > bandIndex(PROFILES.dairy.targets.raw));
+    check('cheese splits fast once it is past — the shortest grace of any real profile',
+      PROFILES.dairy.burnFraction < PROFILES.dense_meat.burnFraction
+        && PROFILES.dairy.burnFraction < PROFILES.batter.burnFraction);
+    check('melting cheese is something you let happen, not something you poke',
+      PROFILES.dairy.turns === 0);
+
+    // ── Sandwiches: the one open-ended dish ──────────────────────────────────
+    // Bread never makes slop. Anything sensible between two slices is a real
+    // sandwich named off what went in it, with no recipe existing for it.
+    const breadRow = ing('flatbread', 'bread', 'bread');
+    const sandwich = rows => matchDish(signature(rows, P), 'bread');
+    const ratRows = [breadRow, ing('rat haunch', 'dense_meat', 'rat meat'), ing('onion', 'soft_vegetable', 'onion')];
+    check('a combination with no recipe still matches no named dish', sandwich(ratRows) === null, sandwich(ratRows)?.key);
+    check('...and is named off its contents rather than called a mess',
+      dishName(GENERIC_SANDWICH, ratRows, P) === 'rat meat and onion sandwich', dishName(GENERIC_SANDWICH, ratRows, P));
+    check('the generic sandwich carries NO key, so making one teaches nothing',
+      !Object.entries(DISHES).some(([, t]) => t === GENERIC_SANDWICH));
+    check('a sandwich is never slop — it beats the unknown-dish ceiling',
+      bandIndex(GENERIC_SANDWICH.ceiling) > bandIndex(UNKNOWN_DISH.ceiling));
+
+    // A recipe, where one exists, overrides the generic name.
+    const cheeseRows = [breadRow, ing('vat cheese', 'dairy', 'vat cheese')];
+    const cheeseHit = sandwich(cheeseRows);
+    check('bread + cheese IS a named recipe and overrides the generic', cheeseHit?.key === 'cheese_sandwich', cheeseHit?.key);
+    check('...and the recipe name wins over "<contents> sandwich"',
+      dishName(cheeseHit.template, cheeseRows, P) === 'vat cheese sandwich', dishName(cheeseHit.template, cheeseRows, P));
+    const clubRows = [breadRow, ing('rat haunch', 'dense_meat', 'rat meat'), ing('onion', 'soft_vegetable'), ing('cured strip', 'preserved')];
+    check('meat, veg and a cured strip on bread is a club', sandwich(clubRows)?.key === 'club', sandwich(clubRows)?.key);
+
+    // Bread is its own profile now, and the reason is the raw target.
+    check('bread arrives baked, so it is GOOD raw — a cold sandwich is not punished for it',
+      bandIndex(PROFILES.bread.targets.raw) >= bandIndex('good'));
+    check('bread is no longer a root vegetable',
+      !matchDish(signature([breadRow, ing('broth', 'liquid'), ing('meat', 'dense_meat')], P), 'pot'));
+
+    // Butter: an ingredient you apply rather than add.
+    // Butter rides the same secondary channel milk does — it satisfies a fat
+    // requirement without being a separate ingredient in the pan.
+    check('buttered bread carries its own fat',
+      (signature([{ ...breadRow, custom_data: { buttered: true } }], P)[ALSO]?.fat_or_oil || 0) === 1);
+    check('...so buttered bread and cheese in a pan is a toastie without a second pat of butter',
+      matchDish(signature([{ ...breadRow, custom_data: { buttered: true } }, ing('vat cheese', 'dairy')], P), 'pan')?.key === 'toastie');
+    check('butter pays a bonus on top of counting as the fat', prepBonus({ buttered: true }) > 0);
+
+    // ── Secondary identities: liquid AND dairy, not liquid OR dairy ──────────
+    const milk = { name: 'milk', weight: 400, quantity: 1, tags: { food_profile: 'liquid', food_also: 'dairy' } };
+    const milkSig = signature([milk], P);
+    check('milk is a liquid in its own right', (milkSig.liquid || 0) === 1, milkSig.liquid);
+    check('...and counts as a dairy too', (milkSig[ALSO]?.dairy || 0) === 1, milkSig[ALSO]);
+    check('a secondary is counted at the PRIMARY unit, not recounted on its own weight',
+      milkSig[ALSO].dairy === milkSig.liquid);
+    check('the secondary never appears as a real profile in the signature',
+      !Object.keys(milkSig).includes('dairy'), Object.keys(milkSig));
+
+    // The asymmetry that makes this safe: an "also" can help a match, never break one.
+    const porridgeRows = [ing('grain', 'starchy_vegetable'), milk];
+    check('milk still matches a recipe that wants liquid and has never heard of dairy',
+      matchDish(signature(porridgeRows, P), 'pot')?.key === 'porridge',
+      matchDish(signature(porridgeRows, P), 'pot')?.key);
+    // A `needs: { dairy }` is satisfied by something that merely counts as dairy.
+    const MILKY = { noun: 'test', vessel: null, needs: { dairy: 1 }, optional: ['liquid'], nameSlots: [] };
+    check('a dairy requirement is satisfied by something that only counts as dairy',
+      matchScore(signature([milk], P), MILKY) >= 0, matchScore(signature([milk], P), MILKY));
+    // ...but milk is still a LIQUID, and bread does not take liquids. Pouring
+    // milk on bread is not a cheese sandwich, and the allowed check says so.
+    check('being "also dairy" does not make milk a sandwich filling',
+      matchDish(signature([breadRow, milk], P), 'bread') === null,
+      matchDish(signature([breadRow, milk], P), 'bread')?.key);
+    check('adding a secondary can never disqualify what already matched',
+      matchScore(signature([ing('grain', 'starchy_vegetable'), milk], P), DISHES.porridge)
+        === matchScore(signature([ing('grain', 'starchy_vegetable'), ing('broth', 'liquid')], P), DISHES.porridge));
 
     // ── Named dishes: the only templates that name an ingredient ─────────────
     const keyed = Object.entries(DISHES).filter(([, t]) => t.keyItems?.length);

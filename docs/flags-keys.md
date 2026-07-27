@@ -28,6 +28,7 @@ nothing, silently; wire a reader first.
 | `airfield_residents_only` | flight | a PRIVATE field: set to a building name, only that building's residents resolve a field here at all (`fieldFor` → null for everyone else — no bay, no hangar rent/store, no fuel). Solenne Sky Pad |
 | `residents_only` | residency | interior tile only enterable by a player holding a unit in the named building — walked in OR ridden to by lift (the lift runs the gate chain too) |
 | `residents_only_deny` | residency | optional refusal line for `residents_only`, in the building's voice |
+| `private_billet_owner` | consort | handle of the player who **holds** this zone as a private space. Makes a bespoke room (a yacht boudoir, a safehouse) a legal B.L.I.S.S. delivery address without the consort plugin having to know what a yacht is — apartments you control and premises you own already qualify without this |
 | `yacht` / `echelon` | yacht | marks an Echelon zone (the yacht) |
 | `echelon_bridge` | yacht | the bridge — every `helm`/`sail`/`stop`/`dock` verb gates on this flag |
 | `echelon_suite` | yacht/consort | Cyd's private quarters — owner-gated behind the suite hatch; hosts the MIS-gated dancers |
@@ -131,7 +132,7 @@ nothing, silently; wire a reader first.
 | `utility_room` | power | building utility room (junction box lives here) |
 | `water` | movement | water zone (needs a `boat`-tagged item) |
 | `world_exit_zone` | movement | exterior seam zone for this building |
-| `work_venue` | work | Steady Work shift venue: `{ role, wage, employer?, name?, pool? }`. XP-gated players `clock in` here. `pool` selects the event set (`'diner'` default, `'bar'` = Brawn/Cool-leaning); venues: Meltwater Diner, Voltage |
+| `work_venue` | work | Steady Work shift venue: `{ role, wage, employer?, name?, pool?, boss?, employer_npc?, clock_in_line? }`. `pool` selects the event set (`'diner'` default, `'bar'` = Brawn/Cool-leaning, `'bench'` = Brains-leaning repair-shop work). `boss` names who pays you (defaults 'Gus'); `employer_npc` is an NPC id — finishing a shift raises your standing with them, which discounts what they charge you ([systems-durability.md](systems-durability.md)); `clock_in_line` overrides the zone-event line ( substitutes). Venues: Meltwater Diner, Voltage, Brownout Municipal Turbine Hall (Watts's bench) |
 | `work_fence_blacklist` (player) | work | Set `'true'` when a player burns a hot courier run (cracked the parcel). Hides the fence's hot-job dialogue option (`OFFER_COURIER_HOT`) from then on |
 
 ## npcs.flags
@@ -140,13 +141,19 @@ nothing, silently; wire a reader first.
 |---|---|---|
 | `aa_engineer` | aa-sites | bunker engineer who repairs a strafed AA battery; value = the owning `aa_sites.id` |
 | `bank_teller` | atm | a bank counter clerk — `deposit`/`withdraw <amount> from <them>` bypasses the terminal entirely (no cap, no fee, no power gate). Presence alone does NOT lift the cap; they must be addressed |
+| `audience_door` | broadcast | studio doorman — while alive, present on the tile outside a channel's `studio_zone_id`, and on shift (08:00–02:00), the way in needs a `custom_data.show_pass` stamped for the showing airing right now. Kill him, wait him out, or catch him off shift and the door is just a door (see [systems-broadcast.md](systems-broadcast.md#studio-audience-door)) |
 | `battle_cries` | combat | lines shouted in combat |
+| `repairman` | wear | bench repair — standing in this NPC's zone turns `repair <item>` from a capped field patch into full restoration, priced off item value and discounted by your standing with them ([systems-durability.md](systems-durability.md)) |
 | `bouncer` | strippers | bouncer NPC — enforces club ejection |
 | `bouncer_eject_zone` | strippers | where this bouncer throws you (optional; falls back to a derived zone) |
 | `charter_pilot` | flight | offers charter flights |
 | `clothing_layers` | npc-clothing | descriptive outfit model (see npc-clothing.md) |
-| `consort` | consort | an Echelon kept companion — hidden in the boudoir until the keeper `beckon`s them |
+| `consort` | consort | a kept companion — stays in their billet until the keeper `beckon`s them |
 | `devoted_to` | consort | handle of the keeper this consort is devoted to |
+| `consort_archetype` | consort | **which of the 12 sub-personalities they are** (`strategist`, `romantic`, `feral`, `devout`, `brat`, `ghost`, `wit`, `scholar`, `ice`, `starlet`, `soldier`, `stray`). Every spoken line resolves off this — never off the NPC's name |
+| `consort_sex` | consort | `female` \| `male` — drives pronoun resolution in every rendered line |
+| `consort_pairing` | consort | shared key marking two consorts as an inseparable **pairing** (placed and released together; the only consorts that run two-hander scenes). An authored PAIRINGS key, or a uuid for a B.L.I.S.S. placement |
+| `consort_ledger` | consort | set on B.L.I.S.S. placements — marks a live-only consort spawned from `player_consorts` rather than an authored NPC |
 | `covert` | vendor/drugwar | covert dealer (passphrase-gated) |
 | `deal_from` / `deal_to` | drugwar | dealing hours window |
 | `drug_buyer` | drugwar | buys drugs from players |
@@ -163,6 +170,7 @@ nothing, silently; wire a reader first.
 | `no_banter` | npc-banter/gossip | opt this NPC out of ambient banter (dev panel exposes it as a "joins ambient banter" checkbox) |
 | `passphrases` | vendor | covert-dealer passphrases |
 | `personality` | npc-personality | personality archetype (drives outfit/banter) |
+| `purchase_remarks` | commerce | `{ "<item_id>": "line" }` — what this vendor says as you pocket that specific item, in their own voice. For the one thing in their crates that needs explaining (Grady points a fresh deck buyer at his practice rig). Fires **once per player per item**; author `{ "text": "…", "repeat": true }` for every-purchase. Costs nothing unless the item bought has a remark authored |
 | `poker_bankroll` / `poker_persona` / `poker_player` | gametable | NPC poker player config |
 | `police` | jail/surveillance | police unit (arrest powers) |
 | `preshow_habit` | npc-drugs | drug name this NPC rarely self-doses on at home when watched (e.g. Akerson's "Neural Overclock" pre-show ritual) |
@@ -199,7 +207,8 @@ nothing, silently; wire a reader first.
 | `device_id` | surveillance | security_devices row this furniture mirrors |
 | `game_table_id` | gametable | game_tables row (poker) |
 | `generator_id` | power | generators row this furniture mirrors. Auto-built junction boxes use a **deterministic** id `gen_<zoneId>` (converges on re-run; see `installGenerator` in environment.js); city plants and player units (`pgen_<uuid>`) do not. |
-| `hack_difficulty` | hacking | difficulty to hack this object |
+| `hack_difficulty` | hacking | difficulty to hack this object. The deck's own `tags.hack_penalty` is added on top at arm time (`server/engine/hack-gear.js`) — a junk deck reads every target harder |
+| `hack_rig` | hackrig | practice lock rig: a legal, low-difficulty `hack` target with nothing behind it. No credits, no crime, no shock, and a failure still burns deck condition. Scores on the shared skill-vs-difficulty margin like every other hack target, so it teaches a beginner brilliantly and a professional nothing — the rig retires itself around Hacking 3–4. Defaults to `hack_difficulty` 2 |
 | `interactions` | engine (tags.js) | verb list surfaced as tags (`['switch','sit']`) |
 | `is_light` / `light_type` | environment | legacy light markers (see furniture columns) |
 | `job_board` | jobboard | job board |

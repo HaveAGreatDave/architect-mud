@@ -11,6 +11,15 @@
       "options": [],
       "text": "\"Mind the cards.\" She's already back at the board, moving an act break two inches left."
     },
+    "hire": {
+      "options": [
+        {
+          "label": "Fair enough.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Bring me pages, not a pitch.\" She doesn't look up. \"The room's full of people who can describe a joke. Down the block at the Deadline there's a booth full of people who can't stop writing them, and half of those are here by morning. Go be one of those.\""
+    },
     "job": {
       "options": [
         {
@@ -23,15 +32,6 @@
         }
       ],
       "text": "\"Script coordinator. Means I lock the pages, I chase the drafts, and when the show goes out wrong at eleven it's my colour on the last version anybody touched.\" She taps the grease pencil against the board. \"Everyone in here thinks they're a writer. Somebody has to be the deadline.\""
-    },
-    "hire": {
-      "options": [
-        {
-          "label": "Fair enough.",
-          "next": "root"
-        }
-      ],
-      "text": "\"Bring me pages, not a pitch.\" She doesn't look up. \"The room's full of people who can describe a joke. Down the block at the Deadline there's a booth full of people who can't stop writing them, and half of those are here by morning. Go be one of those.\""
     },
     "root": {
       "options": [

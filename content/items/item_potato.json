@@ -4,14 +4,14 @@
   "id": "item_potato",
   "name": "potato",
   "tags": {
-    "description": "A knuckly grey tuber with a couple of eyes going. Vat-grown, three generations off anything that ever saw soil. Raw it's a chalky insult; cooked it's most of a meal.",
     "consumable": true,
-    "restore_hunger": 18,
-    "stackable": true,
-    "perishable": true,
-    "spoil_rate": "slow",
-    "needs_cooking": true,
+    "description": "A knuckly grey tuber with a couple of eyes going. Vat-grown, three generations off anything that ever saw soil. Raw it's a chalky insult; cooked it's most of a meal.",
     "food_profile": "starchy_vegetable",
+    "needs_cooking": true,
+    "perishable": true,
+    "restore_hunger": 18,
+    "spoil_rate": "slow",
+    "stackable": true,
     "status_chance": {
       "food_poisoning": 0.3
     }

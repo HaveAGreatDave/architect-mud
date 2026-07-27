@@ -1,0 +1,22 @@
+{
+  "description": "A pale orange block with a rind of wax that nobody has ever successfully removed in one piece. Grown in a tank on the eastern edge, from cultures nobody has audited in decades. It smells like a memory of a farm. It melts, which is the only thing anyone actually asks of it.",
+  "flags": {},
+  "id": "item_vat_cheese",
+  "name": "vat cheese",
+  "tags": {
+    "consumable": true,
+    "description": "A pale orange block with a rind of wax that nobody has ever successfully removed in one piece. Grown in a tank on the eastern edge, from cultures nobody has audited in decades. It smells like a memory of a farm. It melts, which is the only thing anyone actually asks of it.",
+    "food_noun": "vat cheese",
+    "food_profile": "dairy",
+    "perishable": true,
+    "restore_hunger": 14,
+    "spoil_rate": "slow",
+    "stackable": true,
+    "status_chance": {
+      "food_poisoning": 0.05
+    }
+  },
+  "type": "consumable",
+  "value": 11,
+  "weight": 90
+}

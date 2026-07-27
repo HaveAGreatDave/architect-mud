@@ -1,8 +1,8 @@
 {
   "description": "A small safe let into the corner of the wall at chest height, its door skimmed over with the same paint as the plaster in an attempt at concealment that fooled nobody, including whoever painted it.",
   "flags": {
-    "shop_vault": true,
-    "hack_difficulty": 5
+    "hack_difficulty": 5,
+    "shop_vault": true
   },
   "hp": null,
   "hp_max": null,

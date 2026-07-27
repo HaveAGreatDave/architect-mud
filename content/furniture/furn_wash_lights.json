@@ -1,0 +1,18 @@
+{
+  "description": "Long tubes under a milky diffuser, running the length of the ceiling. They are the reason the window reads as a lit rectangle from halfway up Ironside, and they do not get switched off.",
+  "flags": {
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_wash_lights",
+  "light_type": "overhead",
+  "lumen_output": 2600,
+  "name": "strip lighting",
+  "object_type": "light",
+  "power_draw_kw": 24,
+  "price": 60,
+  "zone_id": "zone_the_wash"
+}

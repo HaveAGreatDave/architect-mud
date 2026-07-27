@@ -1,12 +1,16 @@
 {
   "description": "A tall lacquered cabinet in dark walnut veneer, brass-cornered, with doors that ease themselves open at your approach and never quite slam. Inside: a lit rail, cedar-scented air held one degree cooler than the room, and a little brass plate reading VALET BY POLARIS. It remembers how you like to be dressed. It will lay out a look on request, and it has opinions about the ones you don't ask for.",
   "flags": {
+    "aliases": [
+      "wardrobe",
+      "closet",
+      "valet"
+    ],
     "container": 120000,
-    "wardrobe": true,
-    "aliases": ["wardrobe", "closet", "valet"],
     "interactions": [
       "lean"
-    ]
+    ],
+    "wardrobe": true
   },
   "hp": null,
   "hp_max": null,

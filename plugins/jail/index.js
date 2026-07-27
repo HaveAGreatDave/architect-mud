@@ -85,6 +85,30 @@ const RELEASE_LINES = [
 const timers = new Map();       // playerId -> release setTimeout handle
 const releasing = new Set();    // playerIds mid-release (suppress escape detection)
 
+// ── Prisoner roster: a NEGATIVE cache for the escape check ───────────────────
+// The escape detector runs on zone.entered — i.e. on every step every player
+// takes — and used to ask Postgres "is this player doing time?" every single
+// time, to hear "no" for essentially everyone forever. That's a remote round
+// trip on the hottest path in the game (docs/architecture.md → Read Tiers).
+//
+// Deliberately a NEGATIVE cache, not a source of truth: absence from the Set is
+// trusted (skip the query), presence only means "maybe — go ask". That asymmetry
+// is what makes it safe despite jail_prisoners having a writer OUTSIDE this
+// plugin (reincarnatePlayer's REINCARNATE_WIPE_TABLES sweep). A missed DELETE
+// leaves a stale positive, which costs one query and then self-corrects; only a
+// missed INSERT could cause a wrong answer, and the sole INSERT is in booking
+// below. The 1-minute sweep re-seeds the whole Set anyway, bounding any drift.
+const imprisoned = new Set();
+let rosterReady = false;        // until boot seeds it, fall back to querying
+
+function markImprisoned(playerId) { imprisoned.add(playerId); }
+function markFreed(playerId) { imprisoned.delete(playerId); }
+function reseedRoster(rows) {
+  imprisoned.clear();
+  for (const r of rows) imprisoned.add(r.player_id);
+  rosterReady = true;
+}
+
 // ── Confiscation ─────────────────────────────────────────────────────────────
 // An item is contraband if it's a weapon, a drug, or a hacking deck. Quest items
 // are never taken (they'd soft-lock a quest — same carve-out spawnPlayerCorpse makes).
@@ -283,6 +307,7 @@ async function bookIntoCell(player, { teleport = false } = {}) {
        stars=$5, held_items=$6, held_credits=$7, fine=$8, charge=$9, created_at=NOW()`,
     [player.id, CELL_ZONE, RELEASE_ZONE, String(ms), stars, JSON.stringify(held), heldCredits, fine, charge]
   );
+  markImprisoned(player.id);   // the one INSERT — the roster's only hard requirement
   scheduleRelease(player.id, ms);
   // Engage the detention lock behind the new prisoner. The door ships locked in
   // content and re-locks here on every booking, so an admin poking at it can't
@@ -459,6 +484,7 @@ async function release(playerId) {
   releasing.add(playerId);
   try {
     await query('DELETE FROM jail_prisoners WHERE player_id = $1', [playerId]);
+    markFreed(playerId);
     await restoreHeld(playerId, rec.held_items);
 
     // Return the cash the desk was holding, minus the booking fine. A fine larger
@@ -568,6 +594,7 @@ async function escape(player) {
   if (!rec) return;
   clearTimer(player.id);
   await query('DELETE FROM jail_prisoners WHERE player_id = $1', [player.id]);
+  markFreed(player.id);
   // Skipped processing — the legal gear the desk was holding gets bagged into
   // evidence too. Nothing comes back.
   await lockUp(Array.isArray(rec.held_items) ? rec.held_items : [], player.handle);
@@ -589,8 +616,13 @@ function inCellBlock(zoneId) {
 
 on('zone.entered', async ({ actor, zone }) => {
   if (!actor?.id || releasing.has(actor.id) || inCellBlock(zone)) return;
+  // The free exit for ~every step ever taken: nobody who isn't on the roster is
+  // escaping, so there is nothing to ask the database. Until the roster is
+  // seeded at boot we fail safe by querying, exactly as before.
+  if (rosterReady && !imprisoned.has(actor.id)) return;
   const { rows } = await query('SELECT 1 FROM jail_prisoners WHERE player_id = $1', [actor.id]);
-  if (rows.length) await escape(actor).catch(e => console.error('[jail] escape error:', e.message));
+  if (!rows.length) { markFreed(actor.id); return; }   // stale positive — self-correct
+  await escape(actor).catch(e => console.error('[jail] escape error:', e.message));
 });
 
 // ── The detention lock: a door that reads your file, not your keys ───────────
@@ -666,9 +698,29 @@ on('zone.entered', async ({ actor, zone }) => {
 // still left to serve (ceil of the remaining time), so it visibly declines and
 // hits zero right as the officer walks you out. Purely a HUD countdown — your
 // actual street heat was cleared on arrest.
+// How long an empty jail may go without re-reading the table. The sweep exists
+// to push each prisoner's HUD countdown and to re-seed the roster from truth; an
+// empty roster has no countdown to push, so all that's left is the re-seed, and
+// that only needs to be often enough to notice a prisoner booked by the one
+// writer outside this plugin. Five minutes of a cosmetic HUD lag is a fair trade
+// for not asking an empty table the same question every minute forever.
+const EMPTY_ROSTER_RESEED_MS = 5 * 60_000;
+let lastRosterRead = 0;
+
 schedule('1m', async () => {
   syncShift();
-  const { rows } = await query('SELECT player_id, release_at, stars FROM jail_prisoners').catch(() => ({ rows: [] }));
+  // Nobody is inside and the roster is trustworthy — skip the round trip, but
+  // never for longer than the re-seed window (an outside INSERT must surface).
+  if (rosterReady && imprisoned.size === 0 && Date.now() - lastRosterRead < EMPTY_ROSTER_RESEED_MS) return;
+  const { rows } = await query('SELECT player_id, release_at, stars FROM jail_prisoners').catch(() => ({ rows: null }));
+  if (!rows) return;   // a failed read must not be mistaken for an empty jail
+  lastRosterRead = Date.now();
+  // Free re-seed: this sweep already reads the whole table, so the roster is
+  // rebuilt from truth — every minute while anyone is inside, and every
+  // EMPTY_ROSTER_RESEED_MS while the jail is empty. That's what bounds drift
+  // from the one writer outside this plugin (reincarnatePlayer) — and a stale
+  // entry only ever costs a query, never a false escape.
+  reseedRoster(rows);
   const now = Date.now();
   for (const r of rows) {
     if (!getLivePlayer(r.player_id)) continue;
@@ -688,7 +740,9 @@ schedule('1h', () => purgeEvidence());
 // ── Boot: reschedule / catch up on any prisoners across a restart ────────────
 (async () => {
   const { rows } = await query('SELECT player_id, release_at FROM jail_prisoners').catch(() => ({ rows: null }));
-  if (!rows) return;   // table not migrated yet — jailing will surface it
+  if (!rows) return;   // table not migrated yet — jailing will surface it (roster stays unready → we keep querying)
+  lastRosterRead = Date.now();   // the sweep's re-seed clock starts from this read
+  reseedRoster(rows);  // seed BEFORE the release loop below, which prunes as it goes
   for (const r of rows) {
     const ms = new Date(r.release_at).getTime() - Date.now();
     if (ms <= 0) await release(r.player_id).catch(e => console.error('[jail] boot release error:', e.message));

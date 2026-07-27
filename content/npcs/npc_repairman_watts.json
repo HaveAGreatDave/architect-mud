@@ -193,6 +193,11 @@
       "actions": [
         {
           "action": "GRANT_ITEM",
+          "item_id": "item_gun_oil_kit",
+          "quantity": 1
+        },
+        {
+          "action": "GRANT_ITEM",
           "item_id": "item_field_welder",
           "quantity": 1
         },
@@ -222,7 +227,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Every tradesman starts with somebody handing him his first kit. Mine was a dead man's. This one's on me.\" He digs through a crate and presses the gear into your hands — a field welding torch, a fat roll of duct tape, a snarl of copper wire to practise your splices on. \"The torch lets you REPAIR the wrecked stuff — go find something dead and bring it back to life. Tape and wire you'll burn through in a week; come see me when you do, I'll sell you better.\" He holds your eye a beat. \"Don't make me regret it. Go keep something running.\""
+      "text": "\"Every tradesman starts with somebody handing him his first kit. Mine was a dead man's. This one's on me.\" He digs through a crate and presses the gear into your hands — a field welding torch, a tin of oil and a rag gone black, a fat roll of duct tape, a snarl of copper wire to practise your splices on. \"Torch REPAIRs the wrecked machinery. Oil and rag REPAIRs what you carry — your coat, your piece, whatever you've been wearing out. Anything you can't bring back yourself, bring to me and I'll do it properly.\" He holds your eye a beat. \"Don't make me regret it. Go keep something running.\""
     },
     "root": {
       "options": [
@@ -275,7 +280,8 @@
       "a sweat-grey undershirt and boxers"
     ],
     "mis_willing": false,
-    "personality": "vendor"
+    "personality": "vendor",
+    "repairman": true
   },
   "home_activities": [],
   "home_zone": "zone_yards_tenement_u5_2",
@@ -326,6 +332,18 @@
     {
       "item_id": "item_jerry_can",
       "price": 35
+    },
+    {
+      "item_id": "item_smoked_lenses",
+      "price": 60
+    },
+    {
+      "item_id": "item_ear_defenders",
+      "price": 60
+    },
+    {
+      "item_id": "item_gun_oil_kit",
+      "price": 20
     }
   ],
   "vendor_restock_rate": 1,

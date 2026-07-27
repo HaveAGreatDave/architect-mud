@@ -1,14 +1,16 @@
 {
   "description": "The upper-right drop-freezer box built into the Polaris Executive — smaller, colder, and a lot less forgiving about what you leave in it too long. A thin rime of frost clings to the seal no matter how new the unit is.",
   "flags": {
-    "container": 20000,
-    "preserves": "frozen",
+    "aliases": [
+      "fridge"
+    ],
     "appliance_grade": "consumer",
-    "aliases": ["fridge"],
-    "paired_container": "furn_solenne_fridge_b",
+    "container": 20000,
     "interactions": [
       "lean"
-    ]
+    ],
+    "paired_container": "furn_solenne_fridge_b",
+    "preserves": "frozen"
   },
   "hp": null,
   "hp_max": null,

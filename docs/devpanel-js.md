@@ -276,7 +276,8 @@ The 24-hour daily broadcast schedule editor — a zoomable horizontal timeline f
 - **Panel render**: `renderSchedulePanel()`, `_schedRenderSidebar()`, `_schedRenderContent()`, `_schedChBody()`, `_schedBuildTimeline()`.
 - **Timeline math**: `_schedScale()`, `_schedW()`, `_schedToX()`, `_schedToSec()`, `_schedClamp()`, `_schedZoom()`, `_schedZoomLabel()`, `_schedFmtTime()`, `_schedUpdateNowLine()`.
 - **Channels/items**: `_schedToggleNewCh()`, `_schedCreateChannel()`, `_schedLoadItems()`, `_schedSaveChMeta()`, `_schedMarkDirty()`, `_schedUpdateSaveBtn()`.
-- State globals: `_schedChannels`, `_schedBroadcasts`, `_schedNpcs`.
+- **Day scope** (the weekday-override editor — see [systems-broadcast.md](systems-broadcast.md#weekday-overrides--one-schedule-not-two-modes)): `_schedBuildDayBar()`, `_schedScopeHint()`, `_schedSetDay()`, `_schedOverrideGhost()`, `_schedDayChips()`, `_schedToggleDay()`, `_schedSetAllDays()`, and the mask helpers `_schedDayMask()`/`_schedDayBit()`/`_schedDayLabel()`/`_schedInScope()`/`_schedIsGhost()`/`_schedScopeMask()`. `_schedDay` = 0 (base grid) or 1–7 (that weekday's exceptions); it filters what the timeline draws and stamps `days` on anything created. Slot markup lives in `_schedItemHtml()`/`_schedGhostHtml()`, shared by the full build and the partial re-render.
+- State globals: `_schedChannels`, `_schedBroadcasts`, `_schedNpcs`, `_schedDay`.
 
 ### `broadcast-themes.js`
 The Broadcast Themes panel — create/edit CSS-variable overrides for the TV panel, with live preview and color pickers. Colors can be derived from a UI theme (`_broadcastColorsFromTheme`).

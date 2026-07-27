@@ -7,6 +7,8 @@ import { getEnvironmentState } from '../../server/engine/environment.js';
 import { getRegisteredMoveGates } from '../../server/engine/movement-gates.js';
 import { rowIsInstanced, NOT_INSTANCED_SQL } from '../../server/engine/inventory.js';
 import { getCrimeStars } from '../../server/engine/crimes.js';
+import { world } from '../../server/engine/world.js';
+import { getItem } from '../../server/engine/items-cache.js';
 
 const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
@@ -70,4 +72,26 @@ export default async function regress({ run, check, getPlayer }) {
   check('unpaid is an instance key (SQL)', NOT_INSTANCED_SQL.includes("'unpaid'"), NOT_INSTANCED_SQL);
 
   check('shoplifting is a chargeable crime', getCrimeStars('shoplifting') > 0, String(getCrimeStars('shoplifting')));
+
+  // ── Vendor purchase remarks ────────────────────────────────────────────────
+  // The wiring is generic, so what can actually break is the AUTHORING: a remark
+  // keyed to an item the vendor doesn't stock (or that doesn't exist) is silently
+  // dead content — the listener just never fires and nobody finds out. Sweep
+  // every vendor in the world rather than naming one, so this holds for whatever
+  // gets authored next.
+  let remarkCount = 0;
+  for (const npc of world.npcs.values()) {
+    const remarks = npc.flags?.purchase_remarks;
+    if (!remarks || typeof remarks !== 'object') continue;
+    const stocked = new Set((npc.vendor_inventory || []).map(r => r.item_id));
+    for (const [itemId, remark] of Object.entries(remarks)) {
+      remarkCount++;
+      check(`purchase remark on ${npc.id} targets a real item (${itemId})`, !!getItem(itemId));
+      check(`purchase remark on ${npc.id} targets an item they SELL (${itemId})`, stocked.has(itemId),
+        `stocks: ${[...stocked].join(',') || 'nothing'}`);
+      const text = typeof remark === 'string' ? remark : remark?.text;
+      check(`purchase remark on ${npc.id} has text (${itemId})`, !!text && text.length > 10);
+    }
+  }
+  check('at least one vendor purchase remark is authored', remarkCount > 0, String(remarkCount));
 }

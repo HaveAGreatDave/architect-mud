@@ -4,13 +4,13 @@
   "id": "item_grey_rice",
   "name": "grey rice",
   "tags": {
-    "description": "A scoop of short grain the colour of dishwater. Grows in trays under lamps, three crops a year, no flavour any of them. It swells, it fills you, it asks nothing.",
     "consumable": true,
+    "description": "A scoop of short grain the colour of dishwater. Grows in trays under lamps, three crops a year, no flavour any of them. It swells, it fills you, it asks nothing.",
+    "food_noun": "rice",
+    "food_profile": "starchy_vegetable",
+    "needs_cooking": true,
     "restore_hunger": 14,
     "stackable": true,
-    "food_profile": "starchy_vegetable",
-    "food_noun": "rice",
-    "needs_cooking": true,
     "status_chance": {
       "food_poisoning": 0.2
     }

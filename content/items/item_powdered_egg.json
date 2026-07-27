@@ -4,13 +4,13 @@
   "id": "item_powdered_egg",
   "name": "powdered egg",
   "tags": {
-    "description": "A foil sachet of fine yellow dust with a shelf life measured in decades. Reconstitutes into something egg-shaped and egg-adjacent. Nobody has ever asked for seconds.",
     "consumable": true,
+    "description": "A foil sachet of fine yellow dust with a shelf life measured in decades. Reconstitutes into something egg-shaped and egg-adjacent. Nobody has ever asked for seconds.",
+    "food_noun": "egg",
+    "food_profile": "egg",
+    "needs_cooking": true,
     "restore_hunger": 7,
     "stackable": true,
-    "food_profile": "egg",
-    "food_noun": "egg",
-    "needs_cooking": true,
     "status_chance": {
       "food_poisoning": 0.1
     }

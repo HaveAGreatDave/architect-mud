@@ -10,8 +10,38 @@
 import { dispatchAction } from './actions.js';
 import { evalConditions, getFlag } from './flags.js';
 import { query } from '../models/db.js';
-import { getTier } from './ideologies.js';
+import { getTier, getReputation } from './ideologies.js';
 import { interp } from './interp.js';
+import { getRelation, relationTier, touchRelation, RELATION_TIERS } from './relations.js';
+
+// ── Relationship-aware node text (fallback by construction) ──────────────────
+//
+// A node MAY author `text_by_relation: { known: "...", close: [...] }`. Nothing
+// is required: an unauthored node, an unauthored tier, or a player this NPC has
+// never met all land on the node's ordinary `text`. This is the property that
+// lets the substrate ship across 167 NPCs without touching a single existing
+// tree — every one of them keeps behaving exactly as it does today until
+// someone writes a warmer line for it.
+//
+// When a tier IS missing, we don't fall straight to default: we walk TOWARD
+// NEUTRAL and take the first authored line on the way. An NPC with only a
+// `close` line still reads as authored at `familiar`; one with only a `wary`
+// line still reads as authored at `hostile`. Walking toward neutral (rather
+// than simply down the ladder) is what stops a beloved regular ever picking up
+// the line written for someone the NPC despises.
+function relationVariant(node, npc, player) {
+  const byRel = node?.text_by_relation;
+  if (!byRel || !npc?.id || !player) return null;
+  const tier = relationTier(getRelation(player, npc.id));
+  const neutral = RELATION_TIERS.indexOf('stranger');
+  let i = RELATION_TIERS.indexOf(tier);
+  const step = i > neutral ? -1 : 1;
+  for (; i !== neutral; i += step) {
+    const line = byRel[RELATION_TIERS[i]];
+    if (line) return line;
+  }
+  return byRel.stranger || null;
+}
 
 // Token bag for a dialogue render. Deliberately small and stable — the speaker,
 // the listener, and where they're standing. Objects are referenced, not copied;
@@ -89,13 +119,15 @@ const OPT_KIND_HINT = {
 //                              quest (`_turninQuestId`) so they see what's left.
 //   • unset / turned_in /
 //     abandoned               → hidden entirely (never accepted, or already done).
-export async function filterDialogueOptions(options, tree, player) {
+export async function filterDialogueOptions(options, tree, player, context) {
   // Options gate independently, so evaluate them concurrently instead of
   // serially chaining each option's condition/flag round trips — a node with
   // several gated options used to cost ~2 sequential queries per option.
   // Order is preserved: map, then drop the nulls.
   const gated = await Promise.all((options || []).map(async (opt) => {
-    if (player && !(await evalConditions(opt.conditions || opt.condition, player))) return null;
+    // `context` carries the speaker, so a `{ relation: 'known' }` gate can default
+    // to "this NPC" instead of every author having to name the npc id.
+    if (player && !(await evalConditions(opt.conditions || opt.condition, player, context))) return null;
     const kind = dialogueOptionKind(opt, tree);
     const tagged = kind ? { ...opt, _kind: kind, _hint: OPT_KIND_HINT[kind] } : opt;
     const questId = turnInQuestId(opt, tree);
@@ -128,12 +160,12 @@ const MOOD_BY_TIER = {
 
 async function speakerMood(npc, player) {
   if (!npc?.faction || !player?.id) return null;
-  const { rows } = await query(
-    'SELECT reputation FROM player_ideology_rep WHERE player_id = $1 AND ideology_id = $2',
-    [player.id, npc.faction]
-  );
-  if (!rows.length) return null;
-  return MOOD_BY_TIER[getTier(rows[0].reputation || 0).id] || 'neutral';
+  // getReputation, not a raw SELECT: standing decays toward its resting point,
+  // and a reader that skips that is a split source — an NPC still holding you at
+  // arm's length over standing the ideology app already shows as recovered.
+  const rep = await getReputation(player.id, npc.faction, { nullIfUnknown: true });
+  if (rep === null) return null;   // no history with this order — no tint, as before
+  return MOOD_BY_TIER[getTier(rep).id] || 'neutral';
 }
 
 // How they're sitting/standing when you open on them. Posture is live runtime
@@ -197,7 +229,7 @@ export async function renderDialogueNode(npc, nodeKey, player, context) {
     }
   }
 
-  const options = await filterDialogueOptions(node.options, tree, player);
+  const options = await filterDialogueOptions(node.options, tree, player, context);
   // Vendors get an implicit "Browse your wares." entry so any shopkeeper is
   // shoppable even if their dialogue never authored a shop option. Injected in
   // the SHARED renderer (not just the `talk` entry point) so the option set is
@@ -216,7 +248,10 @@ export async function renderDialogueNode(npc, nodeKey, player, context) {
   // turning in (context.quest_name, set by Tablet OS) so the NPC can name the job.
   // A node may carry an ARRAY of interchangeable lines (e.g. an NPC's varied sign-offs);
   // pick one at random each render so repeated visits don't read from a fixed script.
-  const baseText = Array.isArray(node.text) ? node.text[Math.floor(Math.random() * node.text.length)] : node.text;
+  // A warmth-specific line if one is authored for (roughly) this relationship,
+  // otherwise the node's ordinary text — see relationVariant above.
+  const chosen = relationVariant(node, npc, player) ?? node.text;
+  const baseText = Array.isArray(chosen) ? chosen[Math.floor(Math.random() * chosen.length)] : chosen;
   let text = baseText + appendMessage;
   const questName = context?.quest_name || resolvedQuestName;
   if (questName) text = text.replace(/\{quest\}/g, questName);
@@ -234,6 +269,12 @@ export async function renderDialogueNode(npc, nodeKey, player, context) {
   // it can have changed. Arrival also carries the posture stage direction, unless
   // a rep swing already claimed the slot (one stage line at a time).
   const atRoot = nodeKey === 'root';
+  // Talking to someone is how you come to know them. Deliberately AFTER the text
+  // is chosen, so the conversation that introduces you still reads as a first
+  // meeting — you become familiar by having talked, not while talking. Rate-
+  // limited per (player, NPC) inside the substrate, so re-entering root a dozen
+  // times in one conversation counts once. Synchronous, memory-only, no query.
+  if (atRoot && player && npc?.id) touchRelation(player, npc.id, { reason: 'dialogue' });
   const mood = (atRoot || repMoved) ? await speakerMood(npc, player) : null;
   if (atRoot && !stage) stage = ARRIVAL_STAGE[npc.posture] || '';
 

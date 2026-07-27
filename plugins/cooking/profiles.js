@@ -45,6 +45,7 @@ export const LEGACY_BAND_INDEX = { poor: 0, acceptable: 2, good: 4, excellent: 6
 export const PROFILES = {
   // A thick cut of meat: slow, forgiving to turn once, punishing past the window.
   dense_meat: {
+    unitWeight: 250,   // grams that count as one of this in a recipe
     label: 'dense meat',
     needsPrep: true,   // arrives whole — has to be cut down before it goes in
     cookRateMult: 1.0,       // scales COOK_SECONDS_PER_KG
@@ -73,6 +74,7 @@ export const PROFILES = {
   },
   // Bad raw, good for a long time once cooked. Slow, and hard to actually ruin.
   starchy_vegetable: {
+    unitWeight: 250,   // grams that count as one of this in a recipe
     label: 'starchy vegetable',
     needsPrep: true,   // arrives whole — has to be cut down before it goes in
     cookRateMult: 1.4,
@@ -85,6 +87,7 @@ export const PROFILES = {
   },
   // Fine raw, fine cooked, ruined by handling. Fast.
   soft_vegetable: {
+    unitWeight: 120,   // grams that count as one of this in a recipe
     label: 'soft vegetable',
     needsPrep: true,   // arrives whole — has to be cut down before it goes in
     cookRateMult: 0.6,
@@ -97,6 +100,7 @@ export const PROFILES = {
   },
   // Wants stirring, wants low heat, very hard to burn but easy to scorch.
   liquid: {
+    unitWeight: 400,   // grams that count as one of this in a recipe
     label: 'liquid',
     cookRateMult: 1.2,
     peakFraction: 0.7,
@@ -112,6 +116,7 @@ export const PROFILES = {
   // Sweet, excellent as it is, and it caramelises fast in a hot pan — which is
   // also how it goes from caramel to carbon while you're looking elsewhere.
   fruit: {
+    unitWeight: 160,   // grams that count as one of this in a recipe
     label: 'fruit',
     needsPrep: true,   // arrives whole — has to be cut down before it goes in
     cookRateMult: 0.5,
@@ -125,6 +130,7 @@ export const PROFILES = {
   // The fussiest thing in the kitchen: fast, low, and a window measured in
   // seconds. Nothing else rewards attention this steeply or punishes it faster.
   egg: {
+    unitWeight: 80,   // grams that count as one of this in a recipe
     label: 'egg',
     // An egg is light, so a realistically fast rate multiplier gave a 60g egg a
     // 1.6-SECOND peak window on the most forgiving kit in the game — a window no
@@ -150,6 +156,7 @@ export const PROFILES = {
   // Cured, salted, tinned. Already survived worse than your cooking — fine as
   // it is, better warmed, and very hard to actually ruin.
   preserved: {
+    unitWeight: 300,   // grams that count as one of this in a recipe
     label: 'preserved',
     cookRateMult: 0.7,
     peakFraction: 0.7,
@@ -162,6 +169,7 @@ export const PROFILES = {
   // Fat is a modifier, not a meal. Almost no cook time of its own, wants a hot
   // pan, and its whole job is to be in the vessel while something else cooks.
   fat_or_oil: {
+    unitWeight: 300,   // grams that count as one of this in a recipe
     label: 'fat',
     cookRateMult: 0.3,
     peakFraction: 0.5,
@@ -175,6 +183,7 @@ export const PROFILES = {
   // Herbs and spice. Tiny, fast, and the first thing in the pan to scorch — the
   // reason a dish that wanted seasoning can still be ruined by seasoning it.
   aromatic: {
+    unitWeight: 60,   // grams that count as one of this in a recipe
     label: 'aromatic',
     cookRateMult: 0.25,
     peakFraction: 0.3,
@@ -185,8 +194,46 @@ export const PROFILES = {
     modifier: true,
     targets: { raw: 'good', peak: 'excellent', over: 'acceptable', burnt: 'poor' },
   },
+  // Bread. Its own class, and it had to become one the moment sandwiches
+  // existed: bread was riding `starchy_vegetable`, whose raw target is `poor`,
+  // because a raw potato IS poor — which would have made every cold sandwich in
+  // the game bad on the strength of its bread. Bread is the opposite case. It
+  // arrives already baked, so it is GOOD raw, better toasted, and past that it's
+  // just burnt toast. It also stops turning up in stews, which is its own small
+  // mercy.
+  bread: {
+    unitWeight: 180,   // grams that count as one of this in a recipe
+    label: 'bread',
+    cookRateMult: 0.35,      // toasts fast
+    peakFraction: 0.3,
+    burnFraction: 0.4,
+    turns: 1,
+    heatTolerance: 'mid',
+    difficulty: 3,
+    targets: { raw: 'good', peak: 'excellent', over: 'acceptable', burnt: 'poor' },
+  },
+  // Cheese, and what cheese does. The only profile whose whole character is a
+  // CHANGE OF STATE rather than a degree of cooking: it is fine raw, it becomes
+  // something else entirely when it melts, and shortly after that it splits into
+  // oil and rubber and cannot be brought back. Hence the shape of the numbers —
+  // a good raw target (nobody ruins cheese by not cooking it), the highest peak
+  // in the catalog outside meat and egg, and the shortest burn window of any
+  // non-modifier profile. Low heat, and don't poke it: melting is something you
+  // let happen, not something you do.
+  dairy: {
+    unitWeight: 90,    // grams that count as one of this in a recipe
+    label: 'dairy',
+    cookRateMult: 0.5,
+    peakFraction: 0.4,       // a generous melt...
+    burnFraction: 0.3,       // ...and it splits fast once it's gone past
+    turns: 0,                // stirring melting cheese is how you get a stringy mess
+    heatTolerance: 'low',
+    difficulty: 5,
+    targets: { raw: 'good', peak: 'masterful', over: 'acceptable', burnt: 'poor' },
+  },
   // Fast, one turn, a narrow window either side of it.
   batter: {
+    unitWeight: 250,   // grams that count as one of this in a recipe
     label: 'batter',
     cookRateMult: 0.4,
     peakFraction: 0.25,
@@ -214,7 +261,11 @@ export const HANDLING_VERB = { liquid: 'stir' };
 // Declared on the profile rather than per-recipe so every dish that uses one is
 // covered the moment it is written, and none can be forgotten.
 export const profileNeedsPrep = name => !!PROFILES[name]?.needsPrep;
-export const needsPrep = invRow => profileNeedsPrep(profileNameFor(invRow));
+
+// Already cut down to nothing — mince needs no further prep, whatever its
+// profile normally demands. It IS the prep.
+export const isMinced = invRow => !!invRow?.custom_data?.minced;
+export const needsPrep = invRow => !isMinced(invRow) && profileNeedsPrep(profileNameFor(invRow));
 
 export const isModifierProfile = name => !!PROFILES[name]?.modifier;
 export const isModifier = invRow => isModifierProfile(profileNameFor(invRow));

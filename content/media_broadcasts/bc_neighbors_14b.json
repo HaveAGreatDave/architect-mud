@@ -1,0 +1,872 @@
+{
+  "broadcast_graph": {
+    "_start": "bsm_0",
+    "nodes": {
+      "bsm_0": {
+        "_vine": {
+          "x": 80,
+          "y": 80
+        },
+        "next": "bsm_1",
+        "type": "start"
+      },
+      "bsm_1": {
+        "_vine": {
+          "x": 300,
+          "y": 80
+        },
+        "event_type": "FADE_IN",
+        "next": "bsm_2",
+        "type": "event"
+      },
+      "bsm_10": {
+        "_vine": {
+          "x": 80,
+          "y": 400
+        },
+        "event_type": "APPLAUSE",
+        "next": "bsm_11",
+        "type": "event"
+      },
+      "bsm_11": {
+        "_vine": {
+          "x": 300,
+          "y": 400
+        },
+        "next": "bsm_12",
+        "npc_id": "npc_frank",
+        "type": "npc_anchor"
+      },
+      "bsm_12": {
+        "_vine": {
+          "x": 520,
+          "y": 400
+        },
+        "next": "bsm_13",
+        "style": "raw",
+        "text": "Donna!",
+        "type": "say"
+      },
+      "bsm_13": {
+        "_vine": {
+          "x": 740,
+          "y": 400
+        },
+        "next": "bsm_14",
+        "npc_id": "npc_donna",
+        "type": "npc_anchor"
+      },
+      "bsm_14": {
+        "_vine": {
+          "x": 960,
+          "y": 400
+        },
+        "next": "bsm_15",
+        "style": "raw",
+        "text": "What?",
+        "type": "say"
+      },
+      "bsm_15": {
+        "_vine": {
+          "x": 80,
+          "y": 560
+        },
+        "next": "bsm_16",
+        "npc_id": "npc_frank",
+        "type": "npc_anchor"
+      },
+      "bsm_16": {
+        "_vine": {
+          "x": 300,
+          "y": 560
+        },
+        "next": "bsm_17",
+        "style": "raw",
+        "text": "The pipe's making that noise again.",
+        "type": "say"
+      },
+      "bsm_17": {
+        "_vine": {
+          "x": 520,
+          "y": 560
+        },
+        "next": "bsm_18",
+        "npc_id": "npc_donna",
+        "type": "npc_anchor"
+      },
+      "bsm_18": {
+        "_vine": {
+          "x": 740,
+          "y": 560
+        },
+        "next": "bsm_19",
+        "style": "raw",
+        "text": "Which one?",
+        "type": "say"
+      },
+      "bsm_19": {
+        "_vine": {
+          "x": 960,
+          "y": 560
+        },
+        "next": "bsm_20",
+        "npc_id": "npc_frank",
+        "type": "npc_anchor"
+      },
+      "bsm_2": {
+        "_vine": {
+          "x": 520,
+          "y": 80
+        },
+        "graphic_id": "neighbors_14b_logo",
+        "next": "bsm_3",
+        "type": "title_card"
+      },
+      "bsm_20": {
+        "_vine": {
+          "x": 80,
+          "y": 720
+        },
+        "next": "bsm_21",
+        "style": "raw",
+        "text": "The loud one.",
+        "type": "say"
+      },
+      "bsm_21": {
+        "_vine": {
+          "x": 300,
+          "y": 720
+        },
+        "next": "bsm_22",
+        "npc_id": "npc_donna",
+        "type": "npc_anchor"
+      },
+      "bsm_22": {
+        "_vine": {
+          "x": 520,
+          "y": 720
+        },
+        "next": "bsm_23",
+        "style": "raw",
+        "text": "Frank...",
+        "type": "say"
+      },
+      "bsm_23": {
+        "_vine": {
+          "x": 740,
+          "y": 720
+        },
+        "next": "bsm_24",
+        "style": "raw",
+        "text": "They're all loud.",
+        "type": "say"
+      },
+      "bsm_24": {
+        "_vine": {
+          "x": 960,
+          "y": 720
+        },
+        "event_type": "LAUGHTER",
+        "next": "bsm_25",
+        "type": "event"
+      },
+      "bsm_25": {
+        "_vine": {
+          "x": 80,
+          "y": 880
+        },
+        "label": "CAM — 2 — TRACK frank",
+        "next": "bsm_26",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+      "bsm_26": {
+        "_vine": {
+          "x": 300,
+          "y": 880
+        },
+        "next": "bsm_27",
+        "style": "narration",
+        "text": "The camera follows Frank into the tiny kitchen where six different pipes rattle through the walls.",
+        "type": "say"
+      },
+      "bsm_27": {
+        "_vine": {
+          "x": 520,
+          "y": 880
+        },
+        "next": "bsm_28",
+        "npc_id": "npc_frank",
+        "type": "npc_anchor"
+      },
+      "bsm_28": {
+        "_vine": {
+          "x": 740,
+          "y": 880
+        },
+        "next": "bsm_29",
+        "style": "raw",
+        "text": "I called maintenance.",
+        "type": "say"
+      },
+      "bsm_29": {
+        "_vine": {
+          "x": 960,
+          "y": 880
+        },
+        "next": "bsm_30",
+        "npc_id": "npc_donna",
+        "type": "npc_anchor"
+      },
+      "bsm_3": {
+        "_vine": {
+          "x": 740,
+          "y": 80
+        },
+        "next": "bsm_4",
+        "song": "neighbors_theme",
+        "text": "♪ The Neighbors from 14B theme begins playing. ♪",
+        "type": "music"
+      },
+      "bsm_30": {
+        "_vine": {
+          "x": 80,
+          "y": 1040
+        },
+        "next": "bsm_31",
+        "style": "raw",
+        "text": "Good.",
+        "type": "say"
+      },
+      "bsm_31": {
+        "_vine": {
+          "x": 300,
+          "y": 1040
+        },
+        "next": "bsm_32",
+        "npc_id": "npc_frank",
+        "type": "npc_anchor"
+      },
+      "bsm_32": {
+        "_vine": {
+          "x": 520,
+          "y": 1040
+        },
+        "next": "bsm_33",
+        "style": "raw",
+        "text": "They put me on hold.",
+        "type": "say"
+      },
+      "bsm_33": {
+        "_vine": {
+          "x": 740,
+          "y": 1040
+        },
+        "next": "bsm_34",
+        "npc_id": "npc_donna",
+        "type": "npc_anchor"
+      },
+      "bsm_34": {
+        "_vine": {
+          "x": 960,
+          "y": 1040
+        },
+        "next": "bsm_35",
+        "style": "raw",
+        "text": "How long?",
+        "type": "say"
+      },
+      "bsm_35": {
+        "_vine": {
+          "x": 80,
+          "y": 1200
+        },
+        "next": "bsm_36",
+        "npc_id": "npc_frank",
+        "type": "npc_anchor"
+      },
+      "bsm_36": {
+        "_vine": {
+          "x": 300,
+          "y": 1200
+        },
+        "next": "bsm_37",
+        "style": "raw",
+        "text": "Yesterday.",
+        "type": "say"
+      },
+      "bsm_37": {
+        "_vine": {
+          "x": 520,
+          "y": 1200
+        },
+        "event_type": "LAUGHTER",
+        "next": "bsm_38",
+        "type": "event"
+      },
+      "bsm_38": {
+        "_vine": {
+          "x": 740,
+          "y": 1200
+        },
+        "next": "bsm_39",
+        "npc_id": "npc_maintenance_bot",
+        "type": "npc_anchor"
+      },
+      "bsm_39": {
+        "_vine": {
+          "x": 960,
+          "y": 1200
+        },
+        "message": "enters the frame.",
+        "next": "bsm_40",
+        "type": "npc_action"
+      },
+      "bsm_4": {
+        "_vine": {
+          "x": 960,
+          "y": 80
+        },
+        "next": "bsm_5",
+        "text": "CITY TRANSIT ANNOUNCES MINOR DELAYS DUE TO AUTOMATED TANK COLLISION • BUY ACID COLA™ • APARTMENT LOTTERY RESULTS AVAILABLE AFTER MIDNIGHT •",
+        "type": "ticker"
+      },
+      "bsm_40": {
+        "_vine": {
+          "x": 80,
+          "y": 1360
+        },
+        "label": "CAM — 3 — MEDIUM maintenance_bot",
+        "next": "bsm_41",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+      "bsm_41": {
+        "_vine": {
+          "x": 300,
+          "y": 1360
+        },
+        "next": "bsm_42",
+        "style": "narration",
+        "text": "A battered maintenance robot rolls into the apartment, trailing sparks and carrying a wrench larger than one of its arms.",
+        "type": "say"
+      },
+      "bsm_42": {
+        "_vine": {
+          "x": 520,
+          "y": 1360
+        },
+        "next": "bsm_43",
+        "style": "raw",
+        "text": "Maintenance request acknowledged.",
+        "type": "say"
+      },
+      "bsm_43": {
+        "_vine": {
+          "x": 740,
+          "y": 1360
+        },
+        "next": "bsm_44",
+        "style": "raw",
+        "text": "Estimated repair time...",
+        "type": "say"
+      },
+      "bsm_44": {
+        "_vine": {
+          "x": 960,
+          "y": 1360
+        },
+        "next": "bsm_45",
+        "style": "raw",
+        "text": "Three to five business months.",
+        "type": "say"
+      },
+      "bsm_45": {
+        "_vine": {
+          "x": 80,
+          "y": 1520
+        },
+        "event_type": "LAUGHTER",
+        "next": "bsm_46",
+        "type": "event"
+      },
+      "bsm_46": {
+        "_vine": {
+          "x": 300,
+          "y": 1520
+        },
+        "next": "bsm_47",
+        "npc_id": "npc_frank",
+        "type": "npc_anchor"
+      },
+      "bsm_47": {
+        "_vine": {
+          "x": 520,
+          "y": 1520
+        },
+        "next": "bsm_48",
+        "style": "raw",
+        "text": "Can you at least stop the leak?",
+        "type": "say"
+      },
+      "bsm_48": {
+        "_vine": {
+          "x": 740,
+          "y": 1520
+        },
+        "next": "bsm_49",
+        "npc_id": "npc_maintenance_bot",
+        "type": "npc_anchor"
+      },
+      "bsm_49": {
+        "_vine": {
+          "x": 960,
+          "y": 1520
+        },
+        "next": "bsm_50",
+        "style": "raw",
+        "text": "Leak subscription expired.",
+        "type": "say"
+      },
+      "bsm_5": {
+        "_vine": {
+          "x": 80,
+          "y": 240
+        },
+        "event_type": "DISSOLVE",
+        "next": "bsm_6",
+        "type": "event"
+      },
+      "bsm_50": {
+        "_vine": {
+          "x": 80,
+          "y": 1680
+        },
+        "event_type": "APPLAUSE",
+        "next": "bsm_51",
+        "type": "event"
+      },
+      "bsm_51": {
+        "_vine": {
+          "x": 300,
+          "y": 1680
+        },
+        "event_type": "LAUGHTER",
+        "next": "bsm_52",
+        "type": "event"
+      },
+      "bsm_52": {
+        "_vine": {
+          "x": 520,
+          "y": 1680
+        },
+        "label": "CAM — 4 — CLOSEUP maintenance_bot",
+        "next": "bsm_53",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+      "bsm_53": {
+        "_vine": {
+          "x": 740,
+          "y": 1680
+        },
+        "message": "tightens a single valve.",
+        "next": "bsm_54",
+        "type": "npc_action"
+      },
+      "bsm_54": {
+        "_vine": {
+          "x": 960,
+          "y": 1680
+        },
+        "next": "bsm_55",
+        "style": "narration",
+        "text": "The robot tightens a single valve.\r\n\r\nEvery pipe in the apartment immediately becomes twice as loud.",
+        "type": "say"
+      },
+      "bsm_55": {
+        "_vine": {
+          "x": 80,
+          "y": 1840
+        },
+        "next": "bsm_56",
+        "npc_id": "npc_frank",
+        "type": "npc_anchor"
+      },
+      "bsm_56": {
+        "_vine": {
+          "x": 300,
+          "y": 1840
+        },
+        "next": "bsm_57",
+        "style": "raw",
+        "text": "...",
+        "type": "say"
+      },
+      "bsm_57": {
+        "_vine": {
+          "x": 520,
+          "y": 1840
+        },
+        "next": "bsm_58",
+        "npc_id": "npc_donna",
+        "type": "npc_anchor"
+      },
+      "bsm_58": {
+        "_vine": {
+          "x": 740,
+          "y": 1840
+        },
+        "next": "bsm_59",
+        "style": "raw",
+        "text": "Well...",
+        "type": "say"
+      },
+      "bsm_59": {
+        "_vine": {
+          "x": 960,
+          "y": 1840
+        },
+        "next": "bsm_60",
+        "style": "raw",
+        "text": "It's louder.",
+        "type": "say"
+      },
+      "bsm_6": {
+        "_vine": {
+          "x": 300,
+          "y": 240
+        },
+        "label": "CAM — 1 — WIDE",
+        "next": "bsm_7",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+      "bsm_60": {
+        "_vine": {
+          "x": 80,
+          "y": 2000
+        },
+        "next": "bsm_61",
+        "npc_id": "npc_maintenance_bot",
+        "type": "npc_anchor"
+      },
+      "bsm_61": {
+        "_vine": {
+          "x": 300,
+          "y": 2000
+        },
+        "next": "bsm_62",
+        "style": "raw",
+        "text": "Repair successful.",
+        "type": "say"
+      },
+      "bsm_62": {
+        "_vine": {
+          "x": 520,
+          "y": 2000
+        },
+        "event_type": "LAUGHTER",
+        "next": "bsm_63",
+        "type": "event"
+      },
+      "bsm_63": {
+        "_vine": {
+          "x": 740,
+          "y": 2000
+        },
+        "label": "CAM — 1 — WIDE",
+        "next": "bsm_64",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+      "bsm_64": {
+        "_vine": {
+          "x": 960,
+          "y": 2000
+        },
+        "next": "bsm_65",
+        "style": "narration",
+        "text": "The couple sits on the couch, shouting over the deafening roar of vibrating plumbing.\r\n\r\nWater suddenly begins pouring from a ceiling light fixture into Frank's coffee.",
+        "type": "say"
+      },
+      "bsm_65": {
+        "_vine": {
+          "x": 80,
+          "y": 2160
+        },
+        "next": "bsm_66",
+        "npc_id": "npc_frank",
+        "type": "npc_anchor"
+      },
+      "bsm_66": {
+        "_vine": {
+          "x": 300,
+          "y": 2160
+        },
+        "next": "bsm_67",
+        "style": "raw",
+        "text": "Think it'll stop?",
+        "type": "say"
+      },
+      "bsm_67": {
+        "_vine": {
+          "x": 520,
+          "y": 2160
+        },
+        "next": "bsm_68",
+        "npc_id": "npc_donna",
+        "type": "npc_anchor"
+      },
+      "bsm_68": {
+        "_vine": {
+          "x": 740,
+          "y": 2160
+        },
+        "next": "bsm_69",
+        "style": "raw",
+        "text": "Eventually.",
+        "type": "say"
+      },
+      "bsm_69": {
+        "_vine": {
+          "x": 960,
+          "y": 2160
+        },
+        "next": "bsm_70",
+        "npc_id": "npc_frank",
+        "type": "npc_anchor"
+      },
+      "bsm_7": {
+        "_vine": {
+          "x": 520,
+          "y": 240
+        },
+        "next": "bsm_8",
+        "style": "narration",
+        "text": "The broadcast opens on a cramped apartment living room. The furniture is mismatched, a ceiling pipe drips steadily into a saucepan, and an ancient television hums softly in the corner.",
+        "type": "say"
+      },
+      "bsm_70": {
+        "_vine": {
+          "x": 80,
+          "y": 2320
+        },
+        "next": "bsm_71",
+        "style": "raw",
+        "text": "When?",
+        "type": "say"
+      },
+      "bsm_71": {
+        "_vine": {
+          "x": 300,
+          "y": 2320
+        },
+        "next": "bsm_72",
+        "npc_id": "npc_donna",
+        "type": "npc_anchor"
+      },
+      "bsm_72": {
+        "_vine": {
+          "x": 520,
+          "y": 2320
+        },
+        "next": "bsm_73",
+        "style": "raw",
+        "text": "When the ceiling falls down.",
+        "type": "say"
+      },
+      "bsm_73": {
+        "_vine": {
+          "x": 740,
+          "y": 2320
+        },
+        "event_type": "LAUGHTER",
+        "next": "bsm_74",
+        "type": "event"
+      },
+      "bsm_74": {
+        "_vine": {
+          "x": 960,
+          "y": 2320
+        },
+        "next": "bsm_75",
+        "npc_id": "npc_frank",
+        "type": "npc_anchor"
+      },
+      "bsm_75": {
+        "_vine": {
+          "x": 80,
+          "y": 2480
+        },
+        "message": "watches as the ceiling light flickers violently.",
+        "next": "bsm_76",
+        "type": "npc_action"
+      },
+      "bsm_76": {
+        "_vine": {
+          "x": 300,
+          "y": 2480
+        },
+        "message": "stares as a ceiling tile drops into his lap.",
+        "next": "bsm_77",
+        "type": "npc_action"
+      },
+      "bsm_77": {
+        "_vine": {
+          "x": 520,
+          "y": 2480
+        },
+        "next": "bsm_78",
+        "style": "raw",
+        "text": "...",
+        "type": "say"
+      },
+      "bsm_78": {
+        "_vine": {
+          "x": 740,
+          "y": 2480
+        },
+        "next": "bsm_79",
+        "style": "raw",
+        "text": "Called it.",
+        "type": "say"
+      },
+      "bsm_79": {
+        "_vine": {
+          "x": 960,
+          "y": 2480
+        },
+        "event_type": "APPLAUSE",
+        "next": "bsm_80",
+        "type": "event"
+      },
+      "bsm_8": {
+        "_vine": {
+          "x": 740,
+          "y": 240
+        },
+        "next": "bsm_9",
+        "npc_id": "npc_frank",
+        "type": "npc_anchor"
+      },
+      "bsm_80": {
+        "_vine": {
+          "x": 80,
+          "y": 2640
+        },
+        "event_type": "LAUGHTER",
+        "next": "bsm_81",
+        "type": "event"
+      },
+      "bsm_81": {
+        "_vine": {
+          "x": 300,
+          "y": 2640
+        },
+        "label": "CAM — 2 — WIDE",
+        "next": "bsm_82",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+      "bsm_82": {
+        "_vine": {
+          "x": 520,
+          "y": 2640
+        },
+        "next": "bsm_83",
+        "style": "narration",
+        "text": "The camera slowly pulls back from Apartment 14B as the familiar theme plays over the closing credits. The sounds of rattling pipes continue long after the apartment disappears from view.",
+        "type": "say"
+      },
+      "bsm_83": {
+        "_vine": {
+          "x": 740,
+          "y": 2640
+        },
+        "next": "bsm_84",
+        "song": "neighbors_theme",
+        "text": "♪ The Neighbors from 14B theme begins playing. ♪",
+        "type": "music"
+      },
+      "bsm_84": {
+        "_vine": {
+          "x": 960,
+          "y": 2640
+        },
+        "event_type": "FADE_OUT",
+        "type": "event"
+      },
+      "bsm_9": {
+        "_vine": {
+          "x": 960,
+          "y": 240
+        },
+        "next": "bsm_10",
+        "npc_id": "npc_donna",
+        "type": "npc_anchor"
+      }
+    }
+  },
+  "category": "comedy",
+  "channel_id": "ch_7_1782953079593",
+  "created_by": "author",
+  "description": "",
+  "enabled": 1,
+  "fallback_messages": [],
+  "film_meta": null,
+  "gameshow_pools": null,
+  "id": "bc_neighbors_14b",
+  "loop": 1,
+  "message_interval": 5,
+  "messages": [
+    "CITY TRANSIT ANNOUNCES MINOR DELAYS DUE TO AUTOMATED TANK COLLISION • BUY ACID COLA™ • APARTMENT LOTTERY RESULTS AVAILABLE AFTER MIDNIGHT •",
+    "The broadcast opens on a cramped apartment living room. The furniture is mismatched, a ceiling pipe drips steadily into a saucepan, and an ancient television hums softly in the corner.",
+    "Donna!",
+    "What?",
+    "The pipe's making that noise again.",
+    "Which one?",
+    "The loud one.",
+    "Frank...",
+    "They're all loud.",
+    "The camera follows Frank into the tiny kitchen where six different pipes rattle through the walls.",
+    "I called maintenance.",
+    "Good.",
+    "They put me on hold.",
+    "How long?",
+    "Yesterday.",
+    "A battered maintenance robot rolls into the apartment, trailing sparks and carrying a wrench larger than one of its arms.",
+    "Maintenance request acknowledged.",
+    "Estimated repair time...",
+    "Three to five business months.",
+    "Can you at least stop the leak?",
+    "Leak subscription expired.",
+    "The robot tightens a single valve.\r\n\r\nEvery pipe in the apartment immediately becomes twice as loud.",
+    "...",
+    "Well...",
+    "It's louder.",
+    "Repair successful.",
+    "The couple sits on the couch, shouting over the deafening roar of vibrating plumbing.\r\n\r\nWater suddenly begins pouring from a ceiling light fixture into Frank's coffee.",
+    "Think it'll stop?",
+    "Eventually.",
+    "When?",
+    "When the ceiling falls down.",
+    "...",
+    "Called it.",
+    "The camera slowly pulls back from Apartment 14B as the familiar theme plays over the closing credits. The sounds of rattling pipes continue long after the apartment disappears from view."
+  ],
+  "morning_pools": null,
+  "name": "Neighbors from 14B - Episode 12: The Loud Pipe",
+  "news_pools": null,
+  "override_duration": 180,
+  "playback_mode": "scripted",
+  "sermon_pools": null,
+  "sports_pools": null,
+  "tags": [
+    "comedy",
+    "episodic"
+  ],
+  "talkshow_pools": null,
+  "updated_at": "1783960000",
+  "weather_pools": null
+}

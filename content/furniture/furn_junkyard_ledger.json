@@ -1,14 +1,14 @@
 {
+  "description": "A hardback book the size of a paving slab, open near the back. Left column: what came in. Middle column: what was paid. Right column, narrower, filled in less often and in a different pen: where it came from, when the answer was interesting. That column is the actual business, and everybody who reads this far works that out at the same moment.",
+  "flags": {},
   "hp": null,
   "hp_max": null,
+  "id": "furn_junkyard_ledger",
   "light_type": null,
   "lumen_output": null,
-  "power_draw_kw": null,
-  "price": 0,
-  "flags": {},
-  "id": "furn_junkyard_ledger",
-  "zone_id": "zone_junkyard_shack",
   "name": "the ledger",
   "object_type": "decoration",
-  "description": "A hardback book the size of a paving slab, open near the back. Left column: what came in. Middle column: what was paid. Right column, narrower, filled in less often and in a different pen: where it came from, when the answer was interesting. That column is the actual business, and everybody who reads this far works that out at the same moment."
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_junkyard_shack"
 }

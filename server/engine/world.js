@@ -146,7 +146,7 @@ const BUILDING_TYPE_ICON = {
   // The Yards — semi-industrial freight district (docs/proposals/yards.md).
   warehouse: 'bldg_warehouse', container_yard: 'bldg_container', fuel_yard: 'bldg_fuel', cold_storage: 'bldg_cold',
   fabrication: 'bldg_fab', wharf: 'bldg_wharf', freight_office: 'bldg_freightoffice', freight_forwarder: 'bldg_forwarder',
-  junkyard: 'bldg_junkyard',
+  junkyard: 'bldg_junkyard', laundromat: 'bldg_laundromat',
   // The Ascendant Stronghold (docs/proposals/ascendant-stronghold.md) — reuse the nearest existing
   // glyphs so the campus reads on the 2-D map this build; bespoke SVGs are an optional polish pass.
   asc_spire: 'bldg_office', asc_gate: 'bldg_police', asc_clinic: 'bldg_clinic',
@@ -902,7 +902,7 @@ export function getMinimapData(centerZoneId, depth = 8, viewer = null) {
       const t = world.zones.get(target);
       if (t?.flags?.is_building) buildings.push(t.flags.building_name || t.name);
     }
-    nodes.push({
+    const node = {
       id: zone.id,
       name: zone.name,
       buildings,
@@ -932,7 +932,17 @@ export function getMinimapData(centerZoneId, depth = 8, viewer = null) {
       is_current: zone.id === centerZoneId,
       reachable: visited.has(zone.id),
       player_count: zone.players.size,
-    });
+    };
+    // Drop the nulls before it goes on the wire. Most of the flags above are
+    // `x ? true : null` — a road tile carries nine explicit `null`s and their key
+    // names, re-serialized for every node, on every step. Absent and null read
+    // identically to every consumer (all of them test truthiness; verified across
+    // minimap.js, tablet-os.js and dispatch.js — none use `in`, `hasOwnProperty`
+    // or `=== null`), so omitting them changes nothing but the byte count.
+    // Booleans that are meaningfully `false` (is_current, reachable, sanctuary,
+    // enterable) are kept — only null is dropped.
+    for (const k of Object.keys(node)) if (node[k] === null) delete node[k];
+    nodes.push(node);
   }
   return nodes;
 }
@@ -990,6 +1000,45 @@ export function getZonePlayers(zoneId) {
   const z = world.zones.get(zoneId);
   if (!z) return [];
   return [...z.players].map(id => world.players.get(id)).filter(Boolean);
+}
+
+/**
+ * Repair any drift between `player.current_zone` and the `zone.players` sets.
+ *
+ * Zone broadcasts are delivered by walking `zone.players` (see broadcast() in
+ * server/index.js) rather than scanning every connected client, which is what
+ * turns room chatter from O(players) per message into O(occupants). That trade
+ * is only safe if the set is right — and a player who is missing from it stops
+ * hearing their room with **no error and no obvious symptom**.
+ *
+ * Every path in the engine pairs `current_zone = X` with `addPlayerToZone`, and
+ * the plugins that mutate the set directly (flight, charter) keep it consistent
+ * too. But there are ~90 assignment sites across plugins, and "we checked them
+ * all once" is not a guarantee that survives the next feature.
+ *
+ * So this sweep exists: it treats `current_zone` as the truth, fixes the sets,
+ * and — importantly — LOGS what it fixed. Drift becomes a bounded blip with a
+ * name attached, instead of a player quietly going deaf forever. Returns the
+ * number of repairs so a caller (or a test) can assert on it.
+ */
+export function reconcileZoneMembership({ quiet = false } = {}) {
+  let repaired = 0;
+  for (const [pid, p] of world.players) {
+    const zid = p?.current_zone;
+    if (!zid) continue;
+    const zone = world.zones.get(zid);
+    if (!zone) continue;                 // transient/void zone — not a DB room
+    if (zone.players.has(pid)) continue;
+    // A player aboard an airborne aircraft is deliberately absent from the
+    // ground zone's set (flight removes them on take-off) — not drift.
+    if (p.posture === 'flying') continue;
+    zone.players.add(pid);
+    repaired++;
+    if (!quiet) {
+      console.warn(`[world] zone membership drift repaired: ${p.handle || pid} was in ${zid} but missing from its player set — some path set current_zone without addPlayerToZone()`);
+    }
+  }
+  return repaired;
 }
 
 export function addPlayerToZone(pid, zid) { world.zones.get(zid)?.players.add(pid); }

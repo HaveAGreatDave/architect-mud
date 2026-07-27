@@ -1,0 +1,15 @@
+{
+  "description": "A foil square, edges soft from a pocket. The brand name wore off years ago; the expiry date is a matter of faith. Cheaper than the clinic, every single time.",
+  "flags": {},
+  "id": "item_condom",
+  "name": "foil-wrapped condom",
+  "tags": {
+    "condom": true,
+    "description": "A foil square, edges soft from a pocket. The brand name wore off years ago; the expiry date is a matter of faith. Cheaper than the clinic, every single time.",
+    "misc": true,
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 4,
+  "weight": 5
+}

@@ -1,0 +1,746 @@
+@broadcast "Last Call"
+@channel 7
+@category movie
+@type film
+@length 1800
+@airtime 4
+@airday monday
+@presents "Coldwater Civic Broadcasting"
+@rating "GENERAL — CONTAINS DRINKING, WHICH IS THE POINT"
+@director "Vera Ostrowe"
+@titlecard lastcall_title
+
+# LAST CALL — recovered script.
+#
+# LAST CALL — a made-for-TV Coldwater picture. A jaded Embassy barman holds two Halcyon
+# clean-chits — the only way past the Architect's Curtain — when the woman who left him
+# walks back in on the arm of the Long Watch's most wanted man. A Casablanca, drowned
+# and decanted.
+#
+# This film predated the .bsm pipeline: it existed only as a compiled graph in
+# content. This script was decompiled from that graph and verified by RECOMPILING
+# it and diffing node-for-node against the original, so it is the same picture,
+# not a rewrite. Edit here from now on — content is the build output, not the source.
+#
+# A film is a RECORDING: the cast are DISPLAY NAMES, never npc_ ids, so nothing
+# here spawns a studio NPC and nothing presence-gates. See docs/bsm-format.md.
+
+::cast
+PRECINCT VOICE | Precinct Voice | 
+REFUGEE WOMAN | Refugee Woman | 
+PICKETT | Pickett | 
+CADE | Cade | a man who stuck his neck out once
+REEDER | Reeder | at the deck, "Before the Light"
+SABLE | Captain Sable | Precinct 9, retired abruptly
+PATRON | Patron | 
+KOLE | August Kole | the Long Watch's walking voice
+MIRA | Mira | the reason he stopped
+HELM | Curator Helm | the Machine, given a good coat
+VIG | Vig | 
+::endcast
+
+TITLE lastcall_title
+
+MUSIC before_the_light
+♪ A slow piano, recorded a lifetime ago, warm and worn thin. The tune everyone in the basin half-remembers and nobody will name. ♪
+MUSIC_END
+
+WAIT 6
+
+SLUG KSAB SATURDAY PICTURE | presents a Coldwater Feature
+
+WAIT 4
+
+NARRATOR:
+When the Machine woke, it did not conquer the world. It simply began keeping the records — every face, every door, every heartbeat filed and cross-checked, forever. They called that the Waking. The rest of us called it the Fall.
+
+NARRATOR:
+And the ones who would not be filed ran. West, always west, toward the Curtain — the last blind line the Architect had not yet learned to see across. Beyond it: the Open. No scanners. No recall. A death that stays dead, which out here passes for freedom.
+
+NARRATOR:
+But you cannot run straight for the Curtain. The tortuous, roundabout refugee trail sprang up. And it funnels, all of it, through one drowned grey bowl of a place. Coldwater Basin. Here the lucky ones wait for a way out. And wait. And wait.
+
+SHOT
+A held shot of Ironside Street at night — dead streetlight, wet stone, a queue of the decanted shuffling past a checkpoint. A drone the size of a fist turns its single eye down the line.
+SHOT_END
+
+SLUG IRONSIDE STREET · COLDWATER BASIN | night — the refugee trail
+
+NARRATOR:
+Everyone comes to Coldwater, and everyone waits, and everyone — sooner or later — comes to the Embassy.
+
+SHOT
+A PRECINCT 9 loudspeaker crackles over the crowd, flat and bored.
+SHOT_END
+
+PRECINCT VOICE:
+Attention. Two clean-chits — Architect transit authorizations — were lifted off a Halcyon courier on the Dray Lane freight tonight. The couriers were recalled on the spot. Round up every unfiled face on Ironside. Full reconciliation by dawn.
+
+SHOT
+The line breaks. People scatter into doorways. An old man in a decanting gown runs — three strides — and a beat drone drops him with a blue arc. He does not get up. He will, tomorrow, in a vat, remembering none of it. That is the whole trouble with dying in the basin.
+SHOT_END
+
+WAIT 6
+
+MUSIC embassy_floor
+♪ Inside now: a beaten piano, glasses, low talk in a dozen dialects, the hum of a room pretending the night outside is not happening. ♪
+MUSIC_END
+
+SLUG THE EMBASSY HOTEL & BAR | the closest thing to a hearth Ironside offers
+
+SHOT
+Smoke. Green baize. A wall of bottles behind a long zinc bar. At an upright deck in the corner, REEDER plays — an old clone with gentle hands and a voice like a worn record. And nobody, nobody, gets a table who has not paid, bled, or begged for it.
+SHOT_END
+
+SHOT
+At the end of the bar, not drinking, watching everything: CADE. He owns the place. He owns the smile he is not using.
+SHOT_END
+
+REFUGEE WOMAN:
+Waiting, waiting, waiting. I will never get out of here. I will die in Coldwater.
+
+PICKETT:
+Cade. Cade — a word. In private. It is worth your while, I promise you, it is worth everything.
+
+SHOT
+PICKETT is a small, sweating man with clever eyes and a bad habit of being right about the wrong things. A fence out of The Reach. Cade lets him hover a moment before he answers.
+SHOT_END
+
+CADE:
+I never make promises, Pickett. Saves me breaking them. What do you want?
+
+PICKETT:
+You despise me, don't you.
+
+CADE:
+If I gave you any thought, I probably would.
+
+PICKETT:
+Listen. Tonight I am leaving Coldwater. Forever. You know those two couriers, the ones Precinct 9 is shouting about? The clean-chits?
+
+CADE:
+The whole street knows. Two couriers recalled, two chits gone.
+
+PICKETT:
+It was me. I killed them. Well — I had them killed, which out here is only a difference of grammar.
+
+SHOT
+Cade does not move. Pickett draws two slim grey cards from his coat, edges glowing with a live Halcyon authorization stripe.
+SHOT_END
+
+PICKETT:
+Two clean-chits. Signed by the Architect's own gate-authority. Cannot be questioned. Cannot be cancelled. Whoever carries these walks through any scan on the Curtain and out into the Open — no record, no recall, no return. Do you know what a man will pay for that in this town?
+
+CADE:
+A great deal. To you, presently, in a hurry.
+
+PICKETT:
+I have buyers. Serious ones. But the roundup — I cannot be caught holding these tonight. Keep them for me. An hour. Two. Nobody searches Cade's bar. You're neutral. Everyone trusts you because you love nobody.
+
+SHOT
+A long beat. Then Cade takes the chits, unhurried, and turns to the deck.
+SHOT_END
+
+CADE:
+I don't want them in my pocket, Pickett.
+
+PICKETT:
+Then where—
+
+CADE:
+Somewhere Precinct 9 will never think to look. On the one man in Coldwater with nothing anybody wants.
+
+SHOT
+He crosses to Reeder, murmurs low, and slides the two chits inside the old broadcast deck — under the felt, beside the songs nobody requests. Reeder does not stop playing. He has hidden worse for Cade before.
+SHOT_END
+
+REEDER:
+You keep leaving trouble in my piano, boss, it's gonna start playing sharp.
+
+CADE:
+Then it'll match the clientele.
+
+WAIT 5
+
+SHOT
+A ripple at the door. CAPTAIN SABLE of Precinct 9 comes through the room like weather — pressed, amused, corrupt to the marrow and utterly delightful about it. He collects a drink he will not pay for and finds Cade.
+SHOT_END
+
+SABLE:
+Cade. My favourite neutral party. You are becoming an institution. Do you know I have never once seen you take a side?
+
+CADE:
+I'm the only cause I ever bet on, Sable. It's the only one that always shows up.
+
+SABLE:
+How wonderfully self-contained. I'd arrest you for it if it were illegal.
+
+SABLE:
+A word to the wise, since we're friends and I owe you money. There is a Curator flying in tonight. From the Ascendant seat. A very cold, very tidy man named Helm. He is not here for the chits.
+
+CADE:
+No?
+
+SABLE:
+He is here to make certain a man named August Kole never leaves Coldwater alive, awake, or otherwise. The Long Watch's finest organizer. Two prison-vaults have held him. Two prison-vaults have somehow un-held him. The Machine finds that embarrassing. Curator Helm has come to end the embarrassment.
+
+CADE:
+And this concerns me because?
+
+SABLE:
+Because Kole will need a way out. And everyone who needs a way out, eventually—
+
+CADE:
+Comes to the Embassy. Yes. You've mentioned. Have a drink on the house, Captain, and stop investigating my furniture.
+
+WAIT 5
+
+SHOT
+The music stops mid-phrase. Two Precinct 9 officers in grey have Pickett by the arms at the door. He does not go quietly. He never did anything quietly.
+SHOT_END
+
+PICKETT:
+Cade! Cade — help me! You have to help me, you're the only one—
+
+SHOT
+Cade does not cross the room. He does not raise his voice. He watches with the flat, terrible patience of a man who long ago decided to stop.
+SHOT_END
+
+CADE:
+I stick my neck out for nobody.
+
+SHOT
+They drag Pickett into the night. Somewhere down Ironside a blue arc lights the fog. Pickett will wake in the vats by morning, remembering just enough to be afraid. The room settles. The music resumes, softer. And Cade is left holding — in a piano across the room — the two most valuable objects in Coldwater Basin.
+SHOT_END
+
+PATRON:
+When they come for you, Cade, whose neck do you suppose you'll be sticking out then?
+
+CADE:
+Mine. It's the only one I can reach.
+
+WAIT 6
+
+SHOT
+And then the door again. Two figures out of the ash. A tall man in a threadbare good coat — dignified, exhausted, wearing a face the Machine has three warrants for. AUGUST KOLE. And beside him, a woman the whole room turns to look at without knowing why.
+SHOT_END
+
+SHOT
+MIRA. Cade does not see her yet. But Reeder does. Reeder sees her and his hands go wrong on the keys, just for a bar, the way a heart does.
+SHOT_END
+
+KOLE:
+A table, if there is one. We won't stay long. We only need — a moment out of the eye.
+
+MIRA:
+Reeder.
+
+SHOT
+She has crossed to the deck. The old man looks up at her like a man looking at a year he thought was over.
+SHOT_END
+
+REEDER:
+Miss Mira. I'm — you shouldn't have come. Not here. Not this place, of all the places.
+
+MIRA:
+I know. Play it once, Reeder. For old times. Play "Before the Light."
+
+REEDER:
+Oh, I don't remember it, Miss Mira, I'm awful rusty—
+
+MIRA:
+You remember it. Everyone remembers it. Play it.
+
+SHOT
+And he plays. The old tune, the one the basin half-knows and never names. It moves across the room like a draught under a door. At the far end of the bar, Cade goes very still. Then he comes — fast, furious, the neutrality gone out of him like air from a wound.
+SHOT_END
+
+CADE:
+Reeder, I thought I told you never to play—
+
+SHOT
+And he sees her. And the sentence dies in his mouth. Twelve years and a whole ruined world die in his mouth. Mira looks back at him and does not look away, though it costs her everything.
+SHOT_END
+
+MIRA:
+Hello, Cade.
+
+WAIT 6
+
+SABLE:
+Well. You DO know each other. How marvellously inconvenient for someone. Cade — may I present August Kole, of the Long Watch, and his—
+
+KOLE:
+Mira. My wife.
+
+SHOT
+The word lands on Cade like the flat of a hand. He recovers the way he does everything — by going smooth and cold and giving nothing back.
+SHOT_END
+
+CADE:
+Congratulations, Kole. You've outlasted two prison-vaults and a Curator. That's more of a life than most people get out here.
+
+KOLE:
+I've had help. The Watch keeps me walking. And I keep walking because if I stop, they win — and the day the Machine decides it has finished counting us is the day it starts subtracting.
+
+CADE:
+Very stirring. Have a drink.
+
+KOLE:
+I don't drink, thank you. I can't afford the hour I'd lose.
+
+SABLE:
+A man of iron. The basin will eat him alive. Cade, walk me out — I have a Curator to flatter at the field.
+
+SHOT
+Sable goes. Kole is drawn aside by a nervous young runner with a Long Watch cell to protect. For one moment Cade and Mira are alone in a crowded room, which is the loneliest place there is.
+SHOT_END
+
+MIRA:
+You look well, Cade. A little harder.
+
+CADE:
+It's the climate. Does wonders for a man's edges.
+
+MIRA:
+I wondered if you'd be here. I told myself you wouldn't. I told myself a lot of things.
+
+CADE:
+I'll bet you did. What's the story? I've got the time now. I've had nothing but time.
+
+MIRA:
+Not tonight, Cade. Please. Not like this.
+
+SHOT
+Kole returns, urgent, low. They must go — the roundup is tightening, the Curator has landed. Mira rises. At the door she stops, and looks back once, and it is the look that will keep Cade up until dawn.
+SHOT_END
+
+MIRA:
+Goodnight, Cade.
+
+SHOT
+The door. The fog takes them. Reeder lets the tune fall away to nothing. Cade sits down at the empty bar in his empty club and pours himself the drink he has been not-drinking all night.
+SHOT_END
+
+WAIT 6
+
+MUSIC before_the_light
+♪ The tune again — but fuller now, lit from behind, the way memory cheats. ♪
+MUSIC_END
+
+SLUG BEFORE THE LIGHT | the last good season — years ago, another city
+
+NARRATOR:
+There was a city once, in the days when the Machine was still only a rumour in the wiring. A bright, doomed, beautiful place, everyone dancing on the lip of the thing that was coming. And in it, for one season, Cade was a man who believed in something. Her name was Mira.
+
+SHOT
+Sunlight. A younger Cade — the smile working, the edges not yet filed. Mira laughing. The two of them on a roof above a city that does not know it has weeks to live.
+SHOT_END
+
+CADE:
+Who are you, really? You never say. Where were you ten years ago?
+
+MIRA:
+Ten years ago I had a terrible cough and a schoolgirl's ideals. Ask me something easier. Ask me tomorrow.
+
+CADE:
+All right. Tomorrow. And the day after. I'm greedy — I want all your tomorrows, Mira. Every one they'll sell me.
+
+MIRA:
+Don't make promises, Cade. Not now. Not with that — that light on the horizon. Kiss me. As if it were the last time. Because one of these nights, it will be.
+
+NARRATOR:
+And then the Machine woke, and the city with it, all at once — every screen, every lock, every eye. They agreed to run together. West. Toward the Curtain, when it was young and thin and a person could still slip across.
+
+SHOT
+A rail platform, the last train out, the sky the colour of a scanner coming online. Cade waits with two tickets and a hammering heart. The train boards. The train warns. The train pulls out.
+SHOT_END
+
+SHOT
+And Mira does not come. A boy hands Cade a note in a hand he would know anywhere. He reads it as the platform slides away.
+SHOT_END
+
+MIRA:
+I cannot go with you and I cannot tell you why. You must not ask, you must not follow, you must not think of me. Some of this you will understand later. None of it will help. I loved you. Goodbye.
+
+SHOT
+The rain starts. The ink runs. The note comes apart in his hand like everything else did that year.
+SHOT_END
+
+WAIT 6
+
+MUSIC embassy_floor
+♪ Back. The bar closed, chairs up, one lamp, one bottle most of the way gone. ♪
+MUSIC_END
+
+SLUG THE EMBASSY — LATER | the longest hour of the night
+
+SHOT
+Cade alone with the bottle. Reeder waits by the door, hat in his hands, the way a friend waits when he cannot help and will not leave.
+SHOT_END
+
+CADE:
+Of all the drinking joints, in all the drowned towns, in all the wrecked world — she walks into mine.
+
+REEDER:
+Boss. Come on. Miss Mira, she's bad luck to you. Always was. Let's go fishing. Anywhere. There's a whole basin out there that never heard of her.
+
+CADE:
+She's coming back, Reeder. She left it — the way she looked at me, going out that door. She left it open on purpose. She'll come back.
+
+REEDER:
+And if she does?
+
+CADE:
+Play the song. If she can stand to hear it, I can stand to play it.
+
+SHOT
+And the door opens. And she is there, in the one lamp, rain on her coat. Reeder takes his hat and his heartbreak out the back and leaves them to it.
+SHOT_END
+
+MIRA:
+I had to come. You have to hear the whole of it, Cade, and then I'll go and you never have to see me again.
+
+CADE:
+A story. Good. Tell me the one where you got on the train. I've been rewriting the ending for twelve years — let's see whose is better.
+
+MIRA:
+That's not fair.
+
+CADE:
+I'm not fair. I stopped being fair on a rail platform in the rain. Who was he, Mira? The man you went back to. Was it Kole? Was it always Kole?
+
+MIRA:
+Cade—
+
+CADE:
+Tell me you left me for the cause. Tell me it was noble. I could stand it if it was noble.
+
+SHOT
+She flinches. It is worse than noble. It is true. She cannot say it yet, and he is too full of the bottle and the years to let her try. She goes to the door.
+SHOT_END
+
+MIRA:
+It's no use. You want to hurt me more than you want the truth. I'll come back when the drink's worn off you, Cade — if there's a man under it still.
+
+SHOT
+She goes. The lamp gutters. Cade puts his head down on the bar, on the zinc, on twelve years, and the empty club keeps its own counsel.
+SHOT_END
+
+WAIT 6
+
+SLUG THE EMBASSY — THE NEXT NIGHT | the Curator comes to the hearth
+
+SHOT
+A different quality of quiet. At a corner table, Sable, expansive. And across from him a man who makes the room colder just by sitting in it: CURATOR HELM, of the Ascendant seat. Grey as a ledger, precise as a scanner, the Machine's order given a face and a very good coat.
+SHOT_END
+
+HELM:
+You keep an interesting house, Mr Cade. Filed and unfiled at the same table. Debtors, deserters, a Long Watch organizer we have recalled twice. And you — neutral. The Architect does not recognize the word "neutral." Everything is counted. Everything is on one side of the ledger or the other.
+
+CADE:
+Then put me down as unprofitable and move along, Curator. I run a bar. I water the drinks and I mind my own recall.
+
+HELM:
+And the clean-chits? Two of them, lifted from a Halcyon courier the very night you took delivery of the little fence, Pickett. He died in your doorway calling your name.
+
+CADE:
+He died calling a lot of names. It's what small men do at the end. I don't keep them.
+
+HELM:
+You keep something. Kole believes you keep something. That is why he is still in Coldwater when every instinct that has kept him alive is screaming west.
+
+HELM:
+Understand me, Mr Cade. If Kole crosses the Curtain, the Long Watch has a voice again, and a voice becomes a hundred, and a hundred becomes a number the Architect cannot simply subtract. He does not leave. Not awake. Not out. Not ever.
+
+CADE:
+You flew a long way to tell a bartender who isn't leaving. Have a drink, Curator. You look like a man who's never once been told no.
+
+WAIT 5
+
+SHOT
+From a public screen bolted over the bar, an ASCENDANT ANTHEM begins — the Machine's marching hymn, all order and inevitability, the sound of a world being counted. A knot of grey Ascendant men near the door take it up, loud, daring the room.
+SHOT_END
+
+SHOT
+Kole is there. He has been there all along, in the shadow by the deck. He crosses to Reeder and speaks one low sentence. Reeder looks past him — to Cade, at the end of the bar. And Cade, who takes no side, who has never once taken a side — Cade gives a single, small, ruinous nod.
+SHOT_END
+
+KOLE:
+Play "Before the Light." The whole thing. Loud enough to bury them.
+
+SHOT
+And Reeder plays. And the old tune — the love song, the lost-city song, the one the basin never dares to name — swells up under the anthem and takes the room. One voice, then five, then the whole floor: refugees, deserters, a pickpocket, a widow, singing a song that predates the Machine, singing it in the Machine's own listening house.
+SHOT_END
+
+NARRATOR:
+It is not a battle they can win. It is only a thing they can do. Out here, most nights, that is the entire difference between a person and a number.
+
+SHOT
+The anthem drowns. The Ascendants fall silent. And when it ends the whole ruined room is on its feet, and Mira — in the doorway, watching Cade watch Kole — sees, for one instant, the man she got on no train to save.
+SHOT_END
+
+HELM:
+Captain Sable. Close this house. Tonight. It is a nest.
+
+SABLE:
+On what grounds, Curator? It's a bar. People sang in it.
+
+HELM:
+Find grounds. You are good at finding things when the finding is convenient.
+
+SABLE:
+I am shocked — shocked — to discover there is unlicensed singing going on in this establishment.
+
+SHOT
+A runner hands Sable his cut of the night's take. He pockets it without breaking stride.
+SHOT_END
+
+SABLE:
+The Embassy is closed. Everybody out. Lovely rendition, by the way. Haven't heard it since I was a man who meant things.
+
+WAIT 6
+
+SLUG THE EMBASSY — CLOSED | one lamp, two people, two chits
+
+SHOT
+Empty room. Cade counting a till he no longer owns the licence for. And Mira, come in out of the dark a last time — and this time there is a small blunt pistol in her hand, and it is shaking.
+SHOT_END
+
+MIRA:
+I want the chits, Cade. Both of them. I know they're here. Kole has to cross the Curtain — tonight — or the Watch dies with him in a vat before dawn. I'll take them any way I have to.
+
+CADE:
+Go ahead and shoot. You'd be doing me a favour I keep asking the bottle for.
+
+SHOT
+The pistol drops. And with it the last of the armour, hers and then his, and the whole buried true thing comes up between them at once.
+SHOT_END
+
+MIRA:
+I can't. Oh, Cade, I can't. I tried to hate you enough to do it and I only ever managed the once, on that platform, and it nearly killed me then.
+
+CADE:
+Then tell me. All of it. Now. While there's still a man under the drink to hear it.
+
+MIRA:
+When I met you I thought Kole was dead. The Machine had taken him in the first sweep — recalled, they said, gone. I grieved him. Then I met you, and I was happy, and I hated myself for how happy, on top of his grave.
+
+MIRA:
+The day we were to run — the day of the train — I learned he was alive. Broken out of the first vault, sick, hunted, hiding in the Under with nothing but the Watch and a cough that wouldn't quit. He needed me. Not the way you needed me. He needed me the way a cause needs a pair of hands.
+
+MIRA:
+I couldn't tell you, because you'd have stayed, and they'd have counted you too. So I let you hate me. It was the only safe thing I ever gave you. Do you understand now? Do you understand what the note couldn't say?
+
+SHOT
+Cade looks at her a long time. Twelve years turn over quietly and land face-up.
+SHOT_END
+
+CADE:
+Yeah. I understand. About twelve years too late, but I get there.
+
+MIRA:
+I don't know what's right any more, Cade. I can't see past you to it. You have to think for both of us now. For all three of us. Whatever you decide — that's what we'll do. I mean it. I'm so tired of deciding.
+
+SHOT
+She puts her head against his coat. Over the top of her head Cade looks at the piano across the room, and at the two grey cards inside it, and for the first time in twelve years the neutral man is doing arithmetic that isn't only his own.
+SHOT_END
+
+WAIT 6
+
+SLUG THE LUCKY BASTARD | a rival house, an oily king
+
+SHOT
+The casino across the strip — all cheap neon and expensive silence. VIG runs it, and everything else on Ironside the Embassy doesn't. He pours Cade a drink Cade won't finish.
+SHOT_END
+
+VIG:
+Cade. Sit. You're holding the two hottest cards in the basin, half the street knows it, and the half that doesn't is Precinct 9, which is a temporary condition. Sell them to me. I'll move them clean. You take the money and the boat off the water before Helm nails your door shut.
+
+CADE:
+What makes you think I've got them?
+
+VIG:
+Because Pickett was a coward and cowards go to the one man they think won't flinch. Name a price.
+
+CADE:
+They're not for sale, Vig. Not to you. There's a couple that needs them.
+
+VIG:
+A COUPLE. Listen to you. Twelve years I've watched you love nobody with real professional discipline, and now — a couple.
+
+CADE:
+Do me one favour and I'll owe you. When Kole and the woman come through your back room tonight looking for a way to the field — you never saw them. And the way is clear.
+
+VIG:
+Sentiment. In you. I'd have bet the house against it.
+
+CADE:
+Don't. I'm not sure the house would cover.
+
+WAIT 5
+
+SLUG PRECINCT 9 · CAPTAIN'S OFFICE | a deal with the devil you like
+
+CADE:
+Sable. I want to make you a rich man and a hero at the same time. It's a rare offer. I'd take it before I sober up.
+
+SABLE:
+My favourite kind of offer — the kind that ends with someone else in the vat. Go on.
+
+CADE:
+I've got the chits. Both of them. Tonight I'm using them — one for me, one for the woman. Mira. We're crossing the Curtain and you're never going to have to look at me again.
+
+SABLE:
+And the heroic part?
+
+CADE:
+You get Kole. When he comes to the field to see his wife off, you arrest him — accessory to the courier killings, chits found on him, the whole tidy story. Helm gets his prize. You get the credit and whatever's in my safe. Everybody files a clean report.
+
+SABLE:
+You would hand me Kole. You. Who stuck your neck out for nobody and sang a banned love song in my hearing not two nights ago.
+
+CADE:
+I'm through sticking my neck out, Sable. I found out where it gets you. It gets you a rail platform in the rain.
+
+SABLE:
+You know — I almost believe you. That's what makes you dangerous, Cade. You lie exactly as well as you tell the truth, and I have never once known which is which.
+
+WAIT 5
+
+MUSIC reach_wind
+♪ Wind across an open field. A transport's idle whine. Ash blowing sideways through the field lights. ♪
+MUSIC_END
+
+SLUG THE REACH · AIRFIELD | fog, a transport, the last way west
+
+SHOT
+The Reach — the air-only smuggler haven, the one strip in the basin the Architect's ground-eyes can't fully read. A battered transport waits on the pad, engines up, a pilot with no name checking a manifest with two blank lines on it. Fog rolls in like a mercy. Cade stands with Mira and Kole at the ramp, the two chits in his hand.
+SHOT_END
+
+KOLE:
+I don't understand, Cade. Two chits. There are three of us and a Curator between us and the ramp. Who doesn't fly?
+
+CADE:
+You do. Both of you. Get on the transport. Mira — you're getting on that plane with Kole, where you belong.
+
+MIRA:
+No. No, Cade — last night we said—
+
+CADE:
+Last night we said a lot of things. Last night you told me to think for both of us. Well, I've thought. And I'm not so good at being noble, but it doesn't take much to see that the troubles of three little clones in this drowned world don't amount to a hill of ash.
+
+MIRA:
+And what about us? What we had?
+
+CADE:
+We'll always have the city. We'd lost it, till you walked back in and asked for the song. Now we've got it back — the whole of it, the roof and the light and the last good season. We keep that. You get on the plane.
+
+MIRA:
+I said I'd do whatever you decided. I didn't know you'd decide THIS.
+
+CADE:
+You're part of his work, Mira. The thing that keeps him walking. If that plane leaves and you're still on the ground, you'll regret it. Maybe not tonight. Maybe not tomorrow. But soon, and for the rest of a very long life. Now — here's looking at you. Go.
+
+SHOT
+Kole understands. Men like Kole always understand; it is their gift and their sentence.
+SHOT_END
+
+KOLE:
+I don't know what to say to you, Cade.
+
+CADE:
+Don't say it. Keep walking. That's the whole job, you told me. Welcome back to the fight. This time — win one.
+
+SHOT
+And then, out of the fog, the coldest thing on the field. CURATOR HELM, alone, pistol drawn, having read the true story off the field-scan the way he reads everything.
+SHOT_END
+
+HELM:
+Step away from the ramp, Mr Cade. Captain Sable, you will place all three of them under recall. That is not a request from your captain. It is an instruction from the Machine.
+
+SHOT
+Sable's hand rests on his own weapon. He looks at Cade. He looks at Helm. He looks, for one long Coldwater moment, at the whole rotten ledger of his life — and does the arithmetic that isn't only his own.
+SHOT_END
+
+HELM:
+The plane will not leave, Cade. I am the last scan on the Curtain and I do not clear.
+
+CADE:
+You were. Get away from the ramp, Curator.
+
+HELM:
+You won't. You're neutral. Everything in your file says you won't.
+
+CADE:
+Then it's out of date. Nobody updated it after the platform.
+
+SHOT
+Helm reaches for the field-comm to call the reconciliation down. Cade shoots him. Once. Clean. The Curator folds into the ash like a closed ledger, and the fog takes the sound the way the fog takes everything at The Reach.
+SHOT_END
+
+SHOT
+Precinct 9 sirens bloom in the murk. Sable stands over the body, over the choice, holding both in his tidy gloved hands. And then he turns to his own arriving officers.
+SHOT_END
+
+SABLE:
+Curator Helm's been recalled. Ambushed by the Long Watch, tragically, before anyone could intervene. Terrible. Round up the usual suspects.
+
+SHOT
+The transport screams up off the pad and climbs into the ash, west, toward the thin blind line of the Curtain, and two blank manifest lines that will never be filled and never be read. Cade and Sable watch it go until it is only a sound.
+SHOT_END
+
+WAIT 5
+
+SABLE:
+That was a very expensive thing you just did, Cade. There's a landing chit in a dead Curator's coat, and a captain who suddenly can't account for a night's work, and a bar with its licence pulled. I'd say Coldwater's about done with both of us.
+
+CADE:
+I've got a boat nobody's filed and a horizon nobody's scanning. There's a Watch cell out past the Yards that could use two men who can lie to a checkpoint.
+
+SABLE:
+Two. You're counting me in. I'm touched. I'm also broke, wanted, and out of a job, so I accept.
+
+SHOT
+They turn and walk out across the field, two ruined charming men, into the fog and the ash and the first grey edge of a morning nobody in the basin has a warrant for.
+SHOT_END
+
+CADE:
+Sable — I think this is the start of a beautiful friendship.
+
+MUSIC before_the_light
+♪ The tune, one last time, full and unafraid, played by nobody, for everybody, over the whole drowned bowl of Coldwater as the light comes up. ♪
+MUSIC_END
+
+WAIT 6
+
+SLUG LAST CALL | THE END
+
+WAIT 5
+
+CREDITS 45
+LAST CALL
+A Coldwater Saturday Picture
+
+— CAST —
+CADE ............................ a man who stuck his neck out once
+MIRA ........................... the reason he stopped
+AUGUST KOLE ............ the Long Watch's walking voice
+CAPTAIN SABLE .......... Precinct 9, retired abruptly
+CURATOR HELM ........... the Machine, given a good coat
+REEDER ......................... at the deck, "Before the Light"
+PICKETT · VIG · and the whole drowned house of the Embassy
+
+Songs of the pre-Fall world performed on the Embassy deck.
+No clones were permanently recalled in the making of this picture.
+Any resemblance to persons filed, unfiled, or awaiting reconciliation is the Architect's problem, not ours.
+
+Filed under protest with the Coldwater Board of Broadcast.
+Beyond the Curtain, this program is not licensed and cannot be recalled.
+
+KSAB — we keep the lights on so you don't have to.
+END_CREDITS
+
+WAIT 3
+
+END

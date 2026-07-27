@@ -1,4 +1,5 @@
 import { handlers as moveHandlers } from './movement.js';
+import { wakeFromDream } from '../dreamscape.js';
 import { handlers as combatHandlers } from './combat.js';
 import { handlers as invHandlers } from './inventory.js';
 import { handlers as socialHandlers } from './social.js';
@@ -165,6 +166,7 @@ export async function handleCommand(input, player, broadcast) {
   // `cmd` is already alias-resolved above, so `rest` has become `sleep` here.
   if (player.sleeping && cmd !== 'sleep') {
     const wasHome = player.sleeping.reason === 'home';
+    wakeFromDream(player);
     player.sleeping = null;
     setPosture(player, 'standing');
     const WAKE_MESSAGES = [

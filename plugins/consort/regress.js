@@ -1,20 +1,26 @@
 // consort plugin regression suite — run by tests/regress.js (never in production).
-// The plugin has no player commands; its surface is the ambient tick's helpers and
-// the npc.talk hook. We exercise those directly against fake NPCs/players.
+// Covers the archetype registry, the pronoun renderer, pairing resolution, the
+// seeded roster/pricing, and the live surface (talk hook, beckon/dismiss/pour, tick).
 import { _test } from './index.js';
+import { ARCHETYPES, PAIRINGS, renderLine, pronounsFor, soloSafe, needsOther } from './archetypes.js';
+import { generateAppearance, appearanceCard, describeAppearance, BUILDS, rngFor } from './appearance.js';
+import * as roster from './roster.js';
 
 export default async function regress({ check }) {
-  const roxy = {
-    id: 'regress_consort_roxy', name: 'Roxy', zone_id: 'zone_nowhere',
-    flags: { consort: true, devoted_to: 'Cyd', clothing_layers: ['a robe', 'a slip', 'a bra and panties'] },
-  };
+  const mk = (over = {}) => ({
+    id: 'regress_consort_a', name: 'Roxy', zone_id: 'zone_nowhere',
+    flags: {
+      consort: true, devoted_to: 'Cyd', consort_archetype: 'strategist', consort_sex: 'female',
+      clothing_layers: ['a robe', 'a slip', 'a bra and panties'],
+    },
+    ...over,
+  });
+  const roxy = mk();
 
-  // Consort identity.
+  // ── Identity + undress maths (unchanged contract) ──────────────────────────
   check('isConsort: flagged NPC is a consort', _test.isConsort(roxy) === true);
   check('isConsort: dead consort is not', _test.isConsort({ ...roxy, _dead: true }) === false);
   check('isConsort: plain NPC is not', _test.isConsort({ id: 'x', flags: {} }) === false);
-
-  // Arousal → peeled layers: none at rest, all at max, monotonic in between.
   check('peel: nothing off at zero arousal', _test.peeledForArousal(roxy, 0) === 0);
   check('peel: everything off at max arousal', _test.peeledForArousal(roxy, _test.MAX_AROUSAL) === 3);
   let mono = true, prev = -1;
@@ -25,265 +31,516 @@ export default async function regress({ check }) {
   }
   check('peel: layers come off monotonically with arousal', mono);
 
-  // Talk hook: warm to the keeper, shy to a stranger, ignores non-consorts.
-  const toKeeper = await _test.onTalk({ player: { handle: 'Cyd' }, npc: roxy });
-  check('talk: keeper gets a warm reply', !!toKeeper && /I|you|me/i.test(toKeeper.message || ''), toKeeper?.message?.slice(0, 80));
+  // ── Archetype registry ─────────────────────────────────────────────────────
+  const KEYS = Object.keys(ARCHETYPES);
+  check('archetypes: the registry carries a real spread of personalities', KEYS.length >= 10, `${KEYS.length}`);
+  const POOLS = ['devotedTame', 'devotedHot', 'arousedTame', 'arousedHot', 'shy', 'worried',
+    'missShort', 'missLong', 'talkKeeper', 'talkShy', 'selfDescribes'];
+  let poolBad = null;
+  for (const k of KEYS) {
+    const A = ARCHETYPES[k];
+    for (const p of POOLS) {
+      if (!Array.isArray(A[p]) || !A[p].length || !A[p].every(l => typeof l === 'string' && l.trim())) { poolBad = `${k}.${p}`; break; }
+    }
+    if (poolBad) break;
+    for (const p of ['pourTame', 'pourHot']) {
+      if (!Array.isArray(A[p]) || !A[p].length
+        || !A[p].every(fn => typeof fn === 'function' && /a test cocktail/.test(String(fn('a test cocktail') || '')))) { poolBad = `${k}.${p}`; break; }
+    }
+    if (poolBad) break;
+    for (const e of ['arriveWardrobe', 'arriveDeck', 'departWardrobe', 'departDeck']) {
+      if (!Array.isArray(A.entrances?.[e]) || !A.entrances[e].length) { poolBad = `${k}.entrances.${e}`; break; }
+    }
+    if (poolBad) break;
+  }
+  check('archetypes: every archetype carries every pool, all non-empty', poolBad === null, poolBad || '');
 
-  const toStranger = await _test.onTalk({ player: { handle: 'RandomGuest' }, npc: roxy });
-  check('talk: stranger gets a shy reply', !!toStranger && /guest|tour|aboard|rather|Sorry|didn't say|one word/i.test(toStranger.message || ''), toStranger?.message?.slice(0, 80));
+  // Every archetype must have a tier (drives pricing) and a self-description.
+  check('archetypes: every archetype is priced and self-describing',
+    KEYS.every(k => Number.isFinite(ARCHETYPES[k].tier) && ARCHETYPES[k].selfDescribes.length && ARCHETYPES[k].label));
 
-  const notConsort = await _test.onTalk({ player: { handle: 'Cyd' }, npc: { id: 'y', flags: {} } });
-  check('talk: falls through for a non-consort', notConsort === undefined);
+  // ── Pronoun rendering ──────────────────────────────────────────────────────
+  check('pronouns: female resolves to she/her', pronounsFor('female').they === 'she' && pronounsFor('female').them === 'her');
+  check('pronouns: male resolves to he/him', pronounsFor('male').they === 'he' && pronounsFor('male').them === 'him');
+  const tokenLine = '§ catches {themself} at it and {goes} back to what {they} {was} doing, and §other notices.';
+  const rf = renderLine(tokenLine, mk(), { other: 'Vesper' });
+  const rm = renderLine(tokenLine, mk({ flags: { ...roxy.flags, consort_sex: 'male' } }), { other: 'Vesper' });
+  check('render: female line resolves fully', /herself/.test(rf) && /she was/.test(rf) && rf.includes('Roxy') && rf.includes('Vesper'), rf);
+  check('render: male line resolves fully', /himself/.test(rm) && /he was/.test(rm), rm);
 
-  // Talk opens a real conversation for the keeper when the consort carries a
-  // dialogue_tree (renders the root through the shared engine renderer); without a
-  // tree it falls back to a warm one-liner (exercised above).
-  const roxyWithTree = { ...roxy, dialogue_tree: {
-    root: { text: 'There he is.', options: [{ label: 'Hi.', next: 'bye' }] },
-    bye:  { text: 'Go on.', options: [] },
-  } };
-  const convo = await _test.onTalk({ player: { handle: 'Cyd' }, npc: roxyWithTree });
-  check('talk: keeper with a dialogue_tree opens a conversation', convo?.type === 'dialogue' && convo.node === 'root' && Array.isArray(convo.options), convo?.type);
-  // A stranger never opens the tree, even when one exists.
-  const strangerConvo = await _test.onTalk({ player: { handle: 'RandomGuest' }, npc: roxyWithTree });
-  check('talk: stranger never opens the tree', strangerConvo?.type !== 'dialogue' && !!strangerConvo?.message, strangerConvo?.type);
-
-  // Per-name VOICE registry: Roxy and Bijou resolve to their own registers, anyone
-  // else to the neutral default, and every register carries the full set of pools.
-  check('voice: Roxy resolves to her own register', _test.voiceOf({ name: 'Roxy' }) === _test.VOICE.roxy);
-  check('voice: Bijou resolves to her own register', _test.voiceOf({ name: 'Bijou' }) === _test.VOICE.bijou);
-  check('voice: an unknown consort falls back to default', _test.voiceOf({ name: 'Someone Else' }) === _test.VOICE.default);
-  const VOICE_KEYS = ['devotedTame', 'devotedHot', 'arousedTame', 'arousedHot', 'shy', 'worried'];
-  let voiceBad = null;
-  for (const [vname, v] of Object.entries(_test.VOICE)) {
-    for (const key of VOICE_KEYS) {
-      if (!Array.isArray(v[key]) || v[key].length === 0 || !v[key].every(l => typeof l === 'string' && l.trim())) {
-        voiceBad = `${vname}.${key}`; break;
+  // No pool anywhere may leave an unresolved {token} for either sex — this is the
+  // check that catches a typo'd pronoun/verb token in newly-written prose.
+  const leftovers = new Set();
+  const walk = (v) => {
+    if (typeof v === 'function') { walk(v('a drink')); return; }
+    if (typeof v === 'string') {
+      for (const sex of ['female', 'male']) {
+        const out = renderLine(v, { name: 'X', flags: { consort_sex: sex } }, { other: 'Y' });
+        for (const t of out.match(/\{\w+\}/g) || []) leftovers.add(t);
       }
+      return;
     }
-    if (voiceBad) break;
-  }
-  check('voice: every register carries every pool, all non-empty', voiceBad === null, voiceBad || '');
+    if (Array.isArray(v)) v.forEach(walk);
+    else if (v && typeof v === 'object') Object.values(v).forEach(walk);
+  };
+  walk(ARCHETYPES);
+  check('render: no archetype line leaves an unresolved token', leftovers.size === 0, [...leftovers].join(' '));
 
-  // Two-hander threads are well-formed 'R'/'B' pairs (both voices, balanced quotes).
-  for (const [poolName, pool] of [['private', _test.PAIR_PRIVATE], ['with-keeper', _test.PAIR_WITH_KEEPER]]) {
-    check(`banter: ${poolName} pool has threads`, Array.isArray(pool) && pool.length > 0, `${pool?.length}`);
-    let bad = null;
-    for (const thread of pool) {
-      const whos = thread.map(t => t[0]);
-      const twoSpeakers = whos.includes('R') && whos.includes('B');
-      const validWhos = whos.every(w => w === 'R' || w === 'B');
-      const linesOk = thread.every(([, line]) => typeof line === 'string' && line.trim().length > 0
-        && (line.match(/"/g) || []).length % 2 === 0);
-      if (!(thread.length >= 2 && twoSpeakers && validWhos && linesOk)) { bad = thread; break; }
-    }
-    check(`banter: ${poolName} threads are well-formed two-handers`, bad === null, bad ? JSON.stringify(bad).slice(0, 120) : '');
-  }
+  // §other lines must be filtered out when a consort is alone.
+  const withOther = ['plain line', 'talks to §other about it'];
+  check('render: soloSafe drops two-hander lines', soloSafe(withOther).length === 1 && needsOther(withOther[1]));
+  check('say: solo consort never emits an §other line',
+    !String(_test.say(roxy, withOther) || '').includes('§other'));
+  check('say: with a companion the §other slot is filled',
+    !String(_test.say(roxy, ['aims it at §other'], { name: 'Vesper' })).includes('§other'));
 
-  // Fellatio threads (their signature act) are well-formed [who, tame, hot] turns:
-  // solo threads use only 'A', duo threads use 'A' and 'B', both variants non-empty
-  // with balanced quotes and a name-template slot.
-  for (const [poolName, pool, roles] of [
-    ['solo', _test.FELLATIO_SOLO, new Set(['A'])],
-    ['duo',  _test.FELLATIO_DUO,  new Set(['A', 'B'])],
-  ]) {
-    check(`fellatio: ${poolName} pool has threads`, Array.isArray(pool) && pool.length > 0, `${pool?.length}`);
-    let bad = null;
-    for (const thread of pool) {
-      const ok = Array.isArray(thread) && thread.length >= 2 && thread.every(t =>
-        Array.isArray(t) && t.length === 3 && roles.has(t[0])
-        && typeof t[1] === 'string' && t[1].includes('§') && (t[1].match(/"/g) || []).length % 2 === 0
-        && typeof t[2] === 'string' && t[2].includes('§') && (t[2].match(/"/g) || []).length % 2 === 0);
-      const usesBoth = poolName === 'duo' ? thread.some(t => t[0] === 'A') && thread.some(t => t[0] === 'B') : true;
-      if (!(ok && usesBoth)) { bad = thread; break; }
-    }
-    check(`fellatio: ${poolName} threads are well-formed`, bad === null, bad ? JSON.stringify(bad).slice(0, 120) : '');
-  }
+  // ── Voice resolves by ARCHETYPE, never by name ─────────────────────────────
+  check('voice: resolves off flags.consort_archetype', _test.voiceOf(roxy) === ARCHETYPES.strategist);
+  check('voice: a renamed consort keeps her voice',
+    _test.voiceOf(mk({ name: 'Someone Else Entirely' })) === ARCHETYPES.strategist);
+  check('voice: an unknown archetype key falls back rather than throwing',
+    !!_test.voiceOf(mk({ flags: { ...roxy.flags, consort_archetype: 'nonsense' } })));
 
-  // The wider repertoire (ride/handjob) is well-formed like the fellatio threads,
-  // and the KEEPER_ACTS registry points at real, non-empty pools with a gain.
-  for (const [poolName, pool, roles] of [
-    ['ride-solo',    _test.RIDE_SOLO,    new Set(['A'])],
-    ['ride-duo',     _test.RIDE_DUO,     new Set(['A', 'B'])],
-    ['handjob-solo', _test.HANDJOB_SOLO, new Set(['A'])],
-  ]) {
-    let bad = null;
-    for (const thread of pool || []) {
-      const ok = Array.isArray(thread) && thread.length >= 2 && thread.every(t =>
-        Array.isArray(t) && t.length === 3 && roles.has(t[0])
-        && typeof t[1] === 'string' && t[1].includes('§') && (t[1].match(/"/g) || []).length % 2 === 0
-        && typeof t[2] === 'string' && t[2].includes('§') && (t[2].match(/"/g) || []).length % 2 === 0);
-      if (!ok) { bad = thread; break; }
-    }
-    check(`acts: ${poolName} threads are well-formed`, Array.isArray(pool) && pool.length > 0 && bad === null, bad ? JSON.stringify(bad).slice(0, 120) : '');
-  }
-  let actsBad2 = null;
-  for (const [key, act] of Object.entries(_test.KEEPER_ACTS)) {
-    if (!Array.isArray(act.solo) || !act.solo.length || typeof act.gain !== 'number') { actsBad2 = key; break; }
-  }
-  check('acts: KEEPER_ACTS registry is well-formed', actsBad2 === null, actsBad2 || '');
-
-  // Naked-solo narration: [tame, hot] pairs, both templating the name slot.
-  check('naked-solo: pool is well-formed [tame,hot] pairs',
-    Array.isArray(_test.NAKED_SOLO) && _test.NAKED_SOLO.length > 0
-    && _test.NAKED_SOLO.every(p => Array.isArray(p) && p.length === 2 && p.every(s => typeof s === 'string' && s.includes('§'))),
-    `${_test.NAKED_SOLO?.length}`);
-
-  // Direct-command matcher: matches "roxy suck me" but NEVER the second word of the
-  // other multi-word verbs (so it can't shadow "eat out …" / "jerk off on …"), and
-  // the handler falls through (undefined) when the speaker owns no consort here.
-  check('direct: matches a name+act', _test.CONSORT_DIRECT_RE.test('roxy suck me'));
-  check('direct: matches name+pour', _test.CONSORT_DIRECT_RE.test('bijou pour me a whiskey'));
-  check('direct: does NOT shadow "eat out"', _test.CONSORT_DIRECT_RE.test('eat out roxy') === false);
-  check('direct: does NOT shadow "jerk off on"', _test.CONSORT_DIRECT_RE.test('jerk off on roxy') === false);
-  const directMiss = await _test.cmdConsortDirect([], 'roxy suck me', { handle: '__nobody__', current_zone: 'zone_nowhere' });
-  check('direct: falls through when speaker owns no consort here', directMiss === undefined, `${directMiss}`);
-
-  // Beckon / dismiss are keeper-only: nobody's consorts answer to a stranger.
-  check('consortsOf: bogus handle owns no consorts', _test.consortsOf('__nobody__').length === 0);
-
-  const stranger = { handle: '__nobody__', id: 'regress_stranger', current_zone: 'zone_nowhere' };
-  const beckonDenied = await _test.cmdBeckon([], 'beckon', stranger);
-  check('beckon: stranger is refused', beckonDenied?.type === 'error' && /answers to you/i.test(beckonDenied.message || ''), beckonDenied?.message);
-  const dismissDenied = await _test.cmdDismiss([], 'dismiss', stranger);
-  check('dismiss: stranger is refused', dismissDenied?.type === 'error' && /answers to you/i.test(dismissDenied.message || ''), dismissDenied?.message);
-
-  // Pour is keeper-gated: a stranger with no consort present is refused, and there's
-  // no bar to pour from out in the void.
-  const pourDenied = await _test.cmdPour([], 'pour', stranger);
-  check('pour: stranger with no consort is refused', pourDenied?.type === 'error' && /pour for you|answers to/i.test(pourDenied.message || ''), pourDenied?.message);
-  check('pour: barIn finds no bar in an empty zone', _test.barIn('zone_nowhere') === null);
-
-  // Every voice carries pour pools, and each line renders the drink phrase it's given.
-  let pourBad = null;
-  for (const [vname, v] of Object.entries(_test.VOICE)) {
-    for (const key of ['pourTame', 'pourHot']) {
-      const pool = v[key];
-      if (!Array.isArray(pool) || pool.length === 0
-        || !pool.every(fn => typeof fn === 'function' && /a test cocktail/.test(String(fn('a test cocktail') || '')))) {
-        pourBad = `${vname}.${key}`; break;
-      }
-    }
-    if (pourBad) break;
-  }
-  check('pour: every register carries pour pools that render the drink', pourBad === null, pourBad || '');
-
-  // retreatConsorts leaves an already-tucked-away consort untouched (home==here).
-  const tucked = { name: 'Fake', home_zone: 'zone_boudoir_x', zone_id: 'zone_boudoir_x', flags: { consort: true } };
-  check('retreat: no-op when already home', _test.retreatConsorts([tucked]).length === 0);
-
-  // Area profiles: the deck she's on is read off zone flags (nothing hardcoded).
-  check('area: sundeck flag → sundeck profile', _test.areaProfile({ flags: { echelon_sundeck: true } }) === 'sundeck');
-  check('area: view flag → view profile', _test.areaProfile({ flags: { echelon_view: true } }) === 'view');
-  check('area: helipad flag → helipad profile', _test.areaProfile({ flags: { echelon_helipad: true } }) === 'helipad');
-  check('area: unflagged aboard zone → cabin profile', _test.areaProfile({ flags: {} }) === 'cabin');
-  check('area: suite/boudoir are intimate zones', _test.isIntimateZone({ flags: { echelon_suite: true } }) === true);
-  check('area: the sun deck is NOT an intimate zone', _test.isIntimateZone({ flags: { echelon_sundeck: true } }) === false);
-
-  // Every activity in every profile is well-formed (a name-templating start line and
-  // at least one idle beat), and all four profiles carry a variety.
-  let actsBad = null, thinProfile = null;
-  for (const [prof, list] of Object.entries(_test.AREA_ACTIVITIES)) {
-    if (!Array.isArray(list) || list.length < 3) thinProfile = prof;
-    for (const a of list) {
-      const startOk = a.start && typeof a.start.t === 'function' && a.start.t('Roxy').includes('Roxy');
-      const idleOk = Array.isArray(a.idle) && a.idle.length > 0 && a.idle.every(l => typeof l.t === 'function');
-      if (!(a.key && startOk && idleOk)) { actsBad = `${prof}/${a.key}`; break; }
-    }
-    if (actsBad) break;
-  }
-  check('area: every activity is well-formed', actsBad === null, actsBad || '');
-  check('area: sundeck/view/helipad/cabin all have variety', thinProfile === null, thinProfile || '');
-
-  // runAreaActivity starts an activity for a consort on the sun deck without throwing,
-  // and stamps the hold timer so she stays in it a while.
-  const deckGirl = { id: 'regress_deck_roxy', name: 'Roxy', zone_id: 'zone_deck_x',
-    flags: { consort: true, devoted_to: 'Cyd' } };
-  let deckThrew = false;
-  try { _test.runAreaActivity(deckGirl, { flags: { echelon_sundeck: true } }, 'zone_deck_x', 1_000_000, false, false); }
-  catch { deckThrew = true; }
-  check('area: runAreaActivity picks an activity without throwing', deckThrew === false && !!deckGirl._activity);
-  check('area: the activity holds for a good while', (deckGirl._activityUntil || 0) - 1_000_000 >= _test.ACT_MIN_MS || (deckGirl._activityUntil || 0) > 1_000_000);
-  check('area: onFurniture is set to a name or null (never undefined)', deckGirl.onFurniture === null || typeof deckGirl.onFurniture === 'string');
-
-  // Every sun-deck activity that occupies furniture points at a real furniture name.
-  const OCCUPIABLE = new Set(['jacuzzi', 'sun loungers']);
-  let badOccupy = null;
-  for (const a of _test.AREA_ACTIVITIES.sundeck) {
-    if (a.occupies && !OCCUPIABLE.has(a.occupies)) { badOccupy = `${a.key}→${a.occupies}`; break; }
-  }
-  check('area: sundeck occupies-targets are real furniture names', badOccupy === null, badOccupy || '');
-
-  // Deck banter pools are well-formed two-handers (both voices, balanced quotes).
-  let bantBad = null;
-  for (const [prof, pool] of Object.entries(_test.AREA_BANTER)) {
-    for (const thread of pool) {
-      const whos = thread.map(t => t[0]);
-      const ok = thread.length >= 2 && whos.includes('R') && whos.includes('B')
-        && whos.every(w => w === 'R' || w === 'B')
-        && thread.every(([, line]) => typeof line === 'string' && line.trim() && (line.match(/"/g) || []).length % 2 === 0);
-      if (!ok) { bantBad = `${prof}: ${JSON.stringify(thread).slice(0, 100)}`; break; }
-    }
-    if (bantBad) break;
-  }
-  check('area: deck banter threads are well-formed two-handers', bantBad === null, bantBad || '');
-
-  // Name-varied entrances: Roxy and Bijou each draw from their own pool (never the
-  // shared default), the line carries her name, and § is always resolved.
-  check('entrance: Roxy resolves to her own pool', _test.ENTRANCES.roxy && _test.ENTRANCES.bijou && _test.ENTRANCES.roxy !== _test.ENTRANCES.bijou);
+  // ── Entrances ──────────────────────────────────────────────────────────────
   let entBad = null;
-  for (const [name, npc] of [['roxy', { name: 'Roxy' }], ['bijou', { name: 'Bijou' }], ['other', { name: 'Nobody' }]]) {
-    for (const kind of ['arrive', 'depart']) {
-      for (const via of [true, false]) {
-        const l = _test.pickEntrance(npc, kind, via);
-        if (typeof l !== 'string' || !l.trim() || l.includes('§') || !l.includes(npc.name)) { entBad = `${name}/${kind}/${via}`; break; }
+  for (const k of KEYS) {
+    for (const sex of ['female', 'male']) {
+      const npc = mk({ name: 'Testy', flags: { ...roxy.flags, consort_archetype: k, consort_sex: sex } });
+      for (const kind of ['arrive', 'depart']) {
+        for (const via of [true, false]) {
+          const l = _test.pickEntrance(npc, kind, via);
+          if (typeof l !== 'string' || !l.trim() || l.includes('§') || /\{\w+\}/.test(l) || !l.includes('Testy')) {
+            entBad = `${k}/${sex}/${kind}/${via}: ${l}`; break;
+          }
+        }
+        if (entBad) break;
       }
       if (entBad) break;
     }
     if (entBad) break;
   }
-  check('entrance: every entrance line renders with her name, no leftover §', entBad === null, entBad || '');
+  check('entrance: every archetype renders arrivals/departures for both sexes', entBad === null, entBad || '');
 
-  // The interactive "settle it" beat. Setup + every reaction are well-formed
-  // two-handers; the classifier maps a spoken reply to the right reaction.
-  check('settle: setup is a well-formed two-hander', Array.isArray(_test.SETTLE_SETUP)
-    && _test.SETTLE_SETUP.length >= 2
-    && _test.SETTLE_SETUP.some(t => t[0] === 'R') && _test.SETTLE_SETUP.some(t => t[0] === 'B')
-    && _test.SETTLE_SETUP.every(([w, l]) => (w === 'R' || w === 'B') && typeof l === 'string' && l.trim()));
-  let reactBad = null;
-  for (const [key, thread] of Object.entries(_test.SETTLE_REACT)) {
-    const whos = thread.map(t => t[0]);
-    const ok = thread.length >= 1 && whos.every(w => w === 'R' || w === 'B')
-      && thread.every(([, l]) => typeof l === 'string' && l.trim() && (l.match(/"/g) || []).length % 2 === 0);
-    if (!ok) { reactBad = key; break; }
+  // ── Pairings ───────────────────────────────────────────────────────────────
+  check('pairings: registry is well-formed',
+    Object.values(PAIRINGS).every(p => p.members?.length === 2
+      && p.members.every(k => ARCHETYPES[k]) && Number.isFinite(p.tier) && p.label));
+
+  const pairA = mk({ id: 'p_a', zone_id: 'zone_pair', flags: { ...roxy.flags, consort_pairing: 'strategist_romantic' } });
+  const pairB = mk({ id: 'p_b', name: 'Jolie', zone_id: 'zone_pair', flags: { ...roxy.flags, consort_archetype: 'romantic', consort_pairing: 'strategist_romantic' } });
+  const resolved = _test.pairIn([pairA, pairB], 'zone_pair');
+  check('pair: two consorts sharing a pairing resolve to an ordered A/B', !!resolved && resolved[0] === pairA && resolved[1] === pairB);
+  check('pair: order follows the PAIRINGS registry, not spawn order',
+    (() => { const r = _test.pairIn([pairB, pairA], 'zone_pair'); return r && r[0] === pairA && r[1] === pairB; })());
+  check('pair: a lone consort is not a pair', _test.pairIn([pairA], 'zone_pair') === null);
+  check('pair: two UNRELATED consorts are not a pair',
+    _test.pairIn([mk({ id: 'u1', zone_id: 'z' }), mk({ id: 'u2', zone_id: 'z', flags: { ...roxy.flags, consort_archetype: 'ghost' } })], 'z') === null);
+
+  // ── Two-hander threads ─────────────────────────────────────────────────────
+  for (const [poolName, pool] of [['private', _test.PAIR_PRIVATE], ['with-keeper', _test.PAIR_WITH_KEEPER]]) {
+    check(`banter: ${poolName} pool has threads`, Array.isArray(pool) && pool.length > 0, `${pool?.length}`);
+    let bad = null;
+    for (const thread of pool) {
+      const whos = thread.map(t => t[0]);
+      const ok = thread.length >= 2 && whos.includes('A') && whos.includes('B')
+        && whos.every(w => w === 'A' || w === 'B')
+        && thread.every(([, l]) => typeof l === 'string' && l.trim() && (l.match(/"/g) || []).length % 2 === 0);
+      if (!ok) { bad = thread; break; }
+    }
+    check(`banter: ${poolName} threads are well-formed A/B two-handers`, bad === null, bad ? JSON.stringify(bad).slice(0, 120) : '');
   }
-  check('settle: every reaction pool is a well-formed two-hander', reactBad === null, reactBad || '');
-  check('settle: naming Roxy → roxy reaction', _test.classifySettle('Roxy, obviously') === 'roxy');
-  check('settle: naming Bijou → bijou reaction', _test.classifySettle('it has to be bijou') === 'bijou');
-  check('settle: naming both → both reaction', _test.classifySettle('both of you, always') === 'both');
-  check('settle: "roxy and bijou" → both reaction', _test.classifySettle('roxy and bijou') === 'both');
-  check('settle: "I can\'t choose" → both reaction', _test.classifySettle("I can't choose") === 'both');
-  check('settle: an unrelated reply → dodge', _test.classifySettle('the weather is nice') === 'dodge');
-  // onPlayerSay clears a pending question and never throws with the consorts absent.
-  _test.pendingSettle.set('regress_keeper', { zoneId: 'zone_nowhere', roxyId: 'x', bijouId: 'y', timer: null });
-  let sayThrew = false;
-  try { _test.onPlayerSay({ player: { id: 'regress_keeper', current_zone: 'zone_nowhere' }, text: 'roxy' }); }
-  catch { sayThrew = true; }
-  check('settle: onPlayerSay resolves without throwing and clears the pending question', sayThrew === false && !_test.pendingSettle.has('regress_keeper'));
-  check('settle: onPlayerSay is a no-op with no pending question', _test.onPlayerSay({ player: { id: 'nobody' }, text: 'hi' }) === undefined);
 
-  // Furniture-describe hook: a line for a consort parked on the piece, nothing otherwise.
-  const jac = { zone_id: 'zone_deck_x', name: 'jacuzzi' };
-  check('furn: no describe line when nobody is parked', _test.onFurnitureDescribe(jac, null) === undefined);
-  _test.arousal.delete('regress_deck_roxy');
-  _test.lastSpoke.delete('regress_deck_roxy');
+  // ── Settle: classified against the names actually present ──────────────────
+  check('settle: naming the first consort → a', _test.classifySettle('Roxy, obviously', 'Roxy', 'Jolie') === 'a');
+  check('settle: naming the second → b', _test.classifySettle('it has to be jolie', 'Roxy', 'Jolie') === 'b');
+  check('settle: naming both → both', _test.classifySettle('both of you, always', 'Roxy', 'Jolie') === 'both');
+  check('settle: "can\'t choose" → both', _test.classifySettle("I can't choose", 'Roxy', 'Jolie') === 'both');
+  check('settle: an unrelated reply → dodge', _test.classifySettle('the weather is nice', 'Roxy', 'Jolie') === 'dodge');
+  // The bug this replaced: hardcoded names meant a renamed consort was unnameable.
+  check('settle: works for arbitrary generated names', _test.classifySettle('Thaddeus', 'Thaddeus', 'Ondine') === 'a');
+  check('settle: a name that is a regex metacharacter does not throw',
+    _test.classifySettle('hello', 'A(', 'B[') === 'dodge');
+  check('settle: every reaction pool is a well-formed two-hander',
+    Object.values(_test.SETTLE_REACT).every(th => th.length >= 1
+      && th.every(([w, l]) => (w === 'A' || w === 'B') && typeof l === 'string' && l.trim())));
 
-  // The tick must survive a sweep of the live world without throwing.
+  // ── Co-presence: non-paired consorts noticing each other ───────────────────
+  // Two consorts kept by the same person who were never written for each other.
+  // They get a basic register instead of the two-hander threads, and it's keyed by
+  // BOTH sexes — speaker first — so the reaction differs in each direction.
+  const CP = _test.CO_PRESENCE;
+  check('co-presence: all four sex combinations exist',
+    ['ff', 'fm', 'mf', 'mm'].every(k => Array.isArray(CP[k]) && CP[k].length >= 4),
+    Object.keys(CP).map(k => `${k}:${CP[k].length}`).join(' '));
+  let cpBad = null;
+  for (const [k, pool] of Object.entries(CP)) {
+    for (const entry of pool) {
+      if (!Array.isArray(entry) || entry.length !== 2
+        || !entry.every(l => typeof l === 'string' && l.includes('§') && (l.match(/"/g) || []).length % 2 === 0)) {
+        cpBad = `${k}: ${JSON.stringify(entry).slice(0, 90)}`; break;
+      }
+    }
+    if (cpBad) break;
+  }
+  check('co-presence: every entry is a [tame, hot] pair templating the name', cpBad === null, cpBad || '');
+  // Every line must name the OTHER consort — that's the whole point of the beat.
+  check('co-presence: every line references the other consort',
+    Object.values(CP).every(pool => pool.every(e => e.every(l => l.includes('§other')))));
+  // These lines are about the two CONSORTS. The keeper is a player and can be any
+  // sex, so no co-presence line may assume one — the pools that talk ABOUT the
+  // keeper elsewhere are a separate, deliberate matter.
+  const keeperGendered = [];
+  for (const [k, pool] of Object.entries(CP)) {
+    for (const e of pool) {
+      for (const l of e) {
+        // Consort pronouns are fine (they resolve from the pool's own sex key);
+        // what we're hunting is a pronoun standing in for the keeper.
+        if (/\b(to|for|about|than|with) (him|her)\b(?!'s)/i.test(l)) keeperGendered.push(`${k}: ${l.slice(0, 70)}`);
+      }
+    }
+  }
+  check('co-presence: no line assumes the keeper\'s sex', keeperGendered.length === 0, keeperGendered.join(' | '));
+
+  const cpF = mk({ flags: { ...roxy.flags, consort_sex: 'female' } });
+  const cpM = mk({ id: 'cp_m', name: 'Soren', flags: { ...roxy.flags, consort_sex: 'male' } });
+  check('co-presence: woman→woman resolves ff', _test.coPresenceFor(cpF, cpF) === CP.ff);
+  check('co-presence: woman→man resolves fm', _test.coPresenceFor(cpF, cpM) === CP.fm);
+  check('co-presence: man→woman resolves mf', _test.coPresenceFor(cpM, cpF) === CP.mf);
+  check('co-presence: man→man resolves mm', _test.coPresenceFor(cpM, cpM) === CP.mm);
+  // "Both ways" means the two directions are genuinely different writing, not a mirror.
+  check('co-presence: fm and mf are distinct pools', CP.fm !== CP.mf
+    && JSON.stringify(CP.fm) !== JSON.stringify(CP.mf));
+
+  // Paired vs. not — a pairing gets the threads, everyone else gets this register.
+  const pA = mk({ id: 'cp_pa', flags: { ...roxy.flags, consort_pairing: 'strategist_romantic' } });
+  const pB = mk({ id: 'cp_pb', flags: { ...roxy.flags, consort_archetype: 'romantic', consort_pairing: 'strategist_romantic' } });
+  check('co-presence: two consorts sharing a pairing ARE paired', _test.arePaired(pA, pB) === true);
+  check('co-presence: two unpaired consorts are not', _test.arePaired(cpF, cpM) === false);
+  check('co-presence: a pairing key of null never pairs anyone',
+    _test.arePaired(mk({ flags: { ...roxy.flags, consort_pairing: null } }),
+                    mk({ id: 'z', flags: { ...roxy.flags, consort_pairing: null } })) === false);
+  check('co-presence: consorts in DIFFERENT pairings are not paired',
+    _test.arePaired(pA, mk({ id: 'cp_pc', flags: { ...roxy.flags, consort_pairing: 'wit_ice' } })) === false);
+
+  // Lines render clean for every combination — no leftover slot either side.
+  let cpRenderBad = null;
+  for (const [self, other] of [[cpF, cpM], [cpM, cpF], [cpF, cpF], [cpM, cpM]]) {
+    for (const entry of _test.coPresenceFor(self, other)) {
+      for (const l of entry) {
+        const out = renderLine(l, self, { other: 'Ondine' });
+        if (out.includes('§') || /\{\w+\}/.test(out) || !out.includes('Ondine')) { cpRenderBad = out; break; }
+      }
+      if (cpRenderBad) break;
+    }
+    if (cpRenderBad) break;
+  }
+  check('co-presence: every line renders with both names and no leftover slots', cpRenderBad === null, cpRenderBad || '');
+
+  // ── Keeper acts, per consort sex ───────────────────────────────────────────
+  // Every act carries a female AND a male thread set — `ride` in particular can't
+  // be a pronoun swap, so the two sets are written separately and chosen off
+  // flags.consort_sex. A male consort must never fall back to the female prose.
+  const threadOk = (thread, roles) => Array.isArray(thread) && thread.length >= 2
+    && thread.every(t => Array.isArray(t) && t.length === 3 && roles.has(t[0])
+      && typeof t[1] === 'string' && t[1].includes('§') && (t[1].match(/"/g) || []).length % 2 === 0
+      && typeof t[2] === 'string' && t[2].includes('§') && (t[2].match(/"/g) || []).length % 2 === 0);
+
+  // The act registry is a FULL MATRIX: [keeper sex][consort sex]. A keeper is a
+  // player and players are male or female — the old `maleOnly` flag meant every
+  // female player who kept a consort got no signature acts whatsoever.
+  let actBad = null;
+  for (const [key, act] of Object.entries(_test.KEEPER_ACTS)) {
+    if (!Number.isFinite(act.gain)) { actBad = `${key}.gain`; break; }
+    if ('maleOnly' in act) { actBad = `${key}: maleOnly flag survived`; break; }
+    for (const ks of ['male', 'female']) {
+      for (const cs of ['female', 'male']) {
+        const solo = act.solo?.[ks]?.[cs];
+        if (!Array.isArray(solo) || !solo.length || !solo.every(t => threadOk(t, new Set(['A'])))) { actBad = `${key}.solo.${ks}.${cs}`; break; }
+        if (act.duo) {
+          const duo = act.duo[ks]?.[cs];
+          if (!Array.isArray(duo) || !duo.length
+            || !duo.every(t => threadOk(t, new Set(['A', 'B'])) && t.some(x => x[0] === 'A') && t.some(x => x[0] === 'B'))) { actBad = `${key}.duo.${ks}.${cs}`; break; }
+        }
+      }
+      if (actBad) break;
+    }
+    if (actBad) break;
+  }
+  check('acts: every act covers all four keeper-sex × consort-sex combinations', actBad === null, actBad || '');
+
+  const she = mk({ flags: { ...roxy.flags, consort_sex: 'female' } });
+  const he = mk({ id: 'regress_he', name: 'Cassian', flags: { ...roxy.flags, consort_sex: 'male' } });
+  const kM = { id: 'kM', handle: 'Cyd', current_zone: 'zone_nowhere', biological_sex: 'male', mis_enabled: 0 };
+  const kF = { id: 'kF', handle: 'Vera', current_zone: 'zone_nowhere', biological_sex: 'female', mis_enabled: 0 };
+
+  check('acts: sexOf reads the consort flag', _test.sexOf(he) === 'male' && _test.sexOf(she) === 'female');
+  check('acts: keeperSexOf reads the player', _test.keeperSexOf(kF) === 'female' && _test.keeperSexOf(kM) === 'male');
+  check('acts: an unset keeper sex reads as male (pre-existing keepers unchanged)',
+    _test.keeperSexOf({}) === 'male' && _test.keeperSexOf(null) === 'male');
+
+  // Male keeper — the original threads, unchanged.
+  check('acts: male keeper + female consort → the original threads',
+    _test.actSoloFor(_test.KEEPER_ACTS.ride, she, kM) === _test.RIDE_SOLO);
+  check('acts: male keeper + male consort → the male threads',
+    _test.actSoloFor(_test.KEEPER_ACTS.ride, he, kM) === _test.RIDE_SOLO_M);
+  // Female keeper — the other half of the matrix, which used to not exist at all.
+  check('acts: FEMALE keeper + female consort resolves its own threads',
+    _test.actSoloFor(_test.KEEPER_ACTS.oral, she, kF) === _test.ORAL_F_SOLO_F);
+  check('acts: FEMALE keeper + male consort resolves its own threads',
+    _test.actSoloFor(_test.KEEPER_ACTS.oral, he, kF) === _test.ORAL_F_SOLO_M);
+  check('acts: a female keeper never falls through to the male-keeper prose',
+    _test.actSoloFor(_test.KEEPER_ACTS.oral, she, kF) !== _test.FELLATIO_SOLO
+    && _test.actSoloFor(_test.KEEPER_ACTS.ride, he, kF) !== _test.RIDE_SOLO_M);
+  // The regression this whole change exists to prevent.
+  check('acts: EVERY act resolves a scene for a female keeper, both consort sexes',
+    Object.values(_test.KEEPER_ACTS).every(a =>
+      _test.actSoloFor(a, she, kF)?.length && _test.actSoloFor(a, he, kF)?.length));
+  check('acts: every act resolves a scene for a male keeper too',
+    Object.values(_test.KEEPER_ACTS).every(a =>
+      _test.actSoloFor(a, she, kM)?.length && _test.actSoloFor(a, he, kM)?.length));
+
+  // Prose actually differs across the matrix — copy-paste would pass identity checks.
+  check('acts: the male-consort ride prose is genuinely different writing',
+    JSON.stringify(_test.RIDE_SOLO_M) !== JSON.stringify(_test.RIDE_SOLO));
+  check('acts: the female-keeper oral prose is genuinely different writing',
+    JSON.stringify(_test.ORAL_F_SOLO_F) !== JSON.stringify(_test.FELLATIO_SOLO));
+  check('acts: no male-consort thread describes a female body',
+    !/\b(her|she|breasts|hers|herself)\b/i.test(JSON.stringify([
+      _test.FELLATIO_SOLO_M, _test.FELLATIO_DUO_M, _test.RIDE_SOLO_M, _test.RIDE_DUO_M,
+      _test.HANDJOB_SOLO_M, _test.ORAL_F_SOLO_M, _test.RIDE_F_SOLO_M, _test.HAND_F_SOLO_M])));
+
+  // Duo threads describe both bodies, so a mixed-sex pair degrades to solo.
+  check('acts: a same-sex pair resolves a duo set',
+    !!_test.actDuoFor(_test.KEEPER_ACTS.oral, she, mk({ id: 'x', flags: { ...she.flags } }), kM));
+  check('acts: a same-sex pair resolves a duo set for a FEMALE keeper too',
+    !!_test.actDuoFor(_test.KEEPER_ACTS.oral, she, mk({ id: 'x', flags: { ...she.flags } }), kF));
+  check('acts: a MIXED-sex pair falls back to solo rather than mismatched prose',
+    _test.actDuoFor(_test.KEEPER_ACTS.oral, she, he, kM) === null);
+  check('acts: an act with no duo set never resolves one',
+    _test.actDuoFor(_test.KEEPER_ACTS.hand, she, she, kM) === null);
+
+  // Verbs map onto ROLE keys, not anatomy, so the same request works either way.
+  check('acts: verbs map onto role keys that exist',
+    Object.values(_test.DIRECT_ACT).every(k => !!_test.KEEPER_ACTS[k]),
+    [...new Set(Object.values(_test.DIRECT_ACT))].join(','));
+  check('acts: oral is reachable by several spellings',
+    _test.DIRECT_ACT.suck === 'oral' && _test.DIRECT_ACT.lick === 'oral' && _test.DIRECT_ACT.eat === 'oral');
+  check('acts: the direct matcher accepts the new verbs', _test.CONSORT_DIRECT_RE.test('vesper lick me'));
+  check('acts: bare "eat" still belongs to the food verb',
+    _test.CONSORT_DIRECT_RE.test('eat a ration') === false);
+
+  // Commanded acts resolve for every keeper/consort combination without throwing.
+  let cmdBad = null;
+  for (const [kname, k] of [['male keeper', kM], ['female keeper', kF]]) {
+    for (const [cname, c] of [['female consort', he], ['male consort', she]]) {
+      for (const actKey of Object.keys(_test.KEEPER_ACTS)) {
+        let r;
+        try { r = _test.startCommandedAct(c, k, actKey); } catch (e) { cmdBad = `${kname}/${cname}/${actKey}: threw ${e.message}`; break; }
+        if (!r || typeof r.message !== 'string') { cmdBad = `${kname}/${cname}/${actKey}: no reply`; break; }
+        if (/not going to work the way you're picturing/.test(r.message)) { cmdBad = `${kname}/${cname}/${actKey}: refused`; break; }
+      }
+      if (cmdBad) break;
+    }
+    if (cmdBad) break;
+  }
+  check('acts: every act is commandable by a female keeper as well as a male one', cmdBad === null, cmdBad || '');
+
+  // ── Consort ⇄ consort ──────────────────────────────────────────────────────
+  // Two warmed-up consorts turn to each other. Three pools cover all four sex
+  // combinations (mixed is shared, with the cast reordered so 'A' is always the
+  // woman), and it fires for paired and unpaired consorts alike.
+  let mutBad = null;
+  for (const [name, pool] of [['ff', _test.MUTUAL_FF], ['mm', _test.MUTUAL_MM], ['mixed', _test.MUTUAL_MIXED]]) {
+    if (!Array.isArray(pool) || !pool.length) { mutBad = `${name}: empty`; break; }
+    for (const thread of pool) {
+      const whos = thread.map(t => t[0]);
+      const ok = thread.length >= 3 && whos.includes('A') && whos.includes('B')
+        && whos.every(w => w === 'A' || w === 'B')
+        && thread.every(t => t.length === 3
+          && typeof t[1] === 'string' && t[1].includes('§') && (t[1].match(/"/g) || []).length % 2 === 0
+          && typeof t[2] === 'string' && t[2].includes('§') && (t[2].match(/"/g) || []).length % 2 === 0);
+      if (!ok) { mutBad = `${name}: ${JSON.stringify(thread).slice(0, 100)}`; break; }
+    }
+    if (mutBad) break;
+  }
+  check('mutual: every pool is well-formed [who, tame, hot] two-handers', mutBad === null, mutBad || '');
+  check('mutual: every thread names the other consort somewhere',
+    [_test.MUTUAL_FF, _test.MUTUAL_MM, _test.MUTUAL_MIXED].every(p =>
+      p.every(th => th.some(t => t[1].includes('§other') || t[2].includes('§other')))));
+
+  const mf1 = mk({ id: 'mut_f1', name: 'Odile', flags: { ...roxy.flags, consort_sex: 'female' } });
+  const mf2 = mk({ id: 'mut_f2', name: 'Ilse', flags: { ...roxy.flags, consort_sex: 'female' } });
+  const mm1 = mk({ id: 'mut_m1', name: 'Soren', flags: { ...roxy.flags, consort_sex: 'male' } });
+  const mm2 = mk({ id: 'mut_m2', name: 'Rafe', flags: { ...roxy.flags, consort_sex: 'male' } });
+
+  check('mutual: two women resolve the ff pool', _test.mutualFor(mf1, mf2).pool === _test.MUTUAL_FF);
+  check('mutual: two men resolve the mm pool', _test.mutualFor(mm1, mm2).pool === _test.MUTUAL_MM);
+  check('mutual: a mixed couple resolves the mixed pool', _test.mutualFor(mf1, mm1).pool === _test.MUTUAL_MIXED);
+  // The mixed thread is written with the woman as 'A' — the cast must be reordered
+  // to match no matter which way round the two were found in the room.
+  check('mutual: mixed cast puts the woman in the A slot',
+    _test.mutualFor(mf1, mm1).A === mf1 && _test.mutualFor(mf1, mm1).B === mm1);
+  check('mutual: mixed cast reorders when the man is found first',
+    _test.mutualFor(mm1, mf1).A === mf1 && _test.mutualFor(mm1, mf1).B === mm1);
+  check('mutual: same-sex casts keep their given order',
+    _test.mutualFor(mf1, mf2).A === mf1 && _test.mutualFor(mf1, mf2).B === mf2);
+  check('mutual: every sex combination resolves a non-empty pool',
+    [[mf1, mf2], [mm1, mm2], [mf1, mm1], [mm1, mf1]].every(([x, y]) => _test.mutualFor(x, y).pool.length > 0));
+  check('mutual: the threshold sits below the keeper-act threshold',
+    _test.MUTUAL_AT < _test.FELLATIO_AT, `${_test.MUTUAL_AT} vs ${_test.FELLATIO_AT}`);
+
+  // ── Absence ────────────────────────────────────────────────────────────────
+  const away = mk();
+  check('absence: nothing owed when the keeper never left', _test.absenceTierFor(away, { id: 'k' }, Date.now()) === null);
+  away._pendingAbsence = 3 * 3_600_000;
+  check('absence: a few hours away earns the short greeting', _test.absenceTierFor(away, { id: 'k' }, Date.now()) === 'missShort');
+  check('absence: the greeting is consumed, not repeated', _test.absenceTierFor(away, { id: 'k' }, Date.now()) === null);
+  away._pendingAbsence = 40 * 3_600_000;
+  check('absence: days away earns the long greeting', _test.absenceTierFor(away, { id: 'k' }, Date.now()) === 'missLong');
+
+  // ── Appearance ─────────────────────────────────────────────────────────────
+  const look = generateAppearance('seed-1');
+  check('appearance: generation is deterministic',
+    JSON.stringify(look) === JSON.stringify(generateAppearance('seed-1')));
+  check('appearance: a different seed is a different person',
+    JSON.stringify(look) !== JSON.stringify(generateAppearance('seed-2')));
+  check('appearance: sex can be forced', generateAppearance('s', { sex: 'male' }).sex === 'male'
+    && generateAppearance('s', { sex: 'female' }).sex === 'female');
+  check('appearance: layers come from the build and are peelable',
+    Array.isArray(look.layers) && look.layers.length >= 2);
+  check('appearance: both sexes have a real spread of builds',
+    Object.keys(BUILDS.female).length >= 6 && Object.keys(BUILDS.male).length >= 6);
+  check('appearance: the card itemises every characteristic', appearanceCard(look).length >= 11, `${appearanceCard(look).length}`);
+  const desc = describeAppearance('Vesper', look);
+  check('appearance: the description is prose naming the consort', desc.startsWith('Vesper') && desc.length > 80);
+  // Sweep a lot of seeds for a malformed description (empty pool entry, stray undefined).
+  let descBad = null;
+  for (let i = 0; i < 250; i++) {
+    const a = generateAppearance(`sweep-${i}`);
+    const d = describeAppearance('X', a);
+    if (/undefined|null|\s,|,,/.test(d) || !a.layers.length) { descBad = `sweep-${i}: ${d}`; break; }
+  }
+  check('appearance: 250 seeded people all describe cleanly', descBad === null, descBad || '');
+
+  // ── Roster + pricing ───────────────────────────────────────────────────────
+  const r1 = roster.generateRoster('p:0');
+  check('roster: generates a full catalogue', r1.length === roster.ROSTER_SIZE);
+  check('roster: is deterministic for a seed', JSON.stringify(r1) === JSON.stringify(roster.generateRoster('p:0')));
+  check('roster: a new generation is a new catalogue', JSON.stringify(r1) !== JSON.stringify(roster.generateRoster('p:1')));
+  check('roster: every listing is priced above zero', r1.every(l => l.rate > 0));
+  check('roster: names are unique within a catalogue', (() => {
+    const names = r1.flatMap(l => l.members.map(m => m.name));
+    return new Set(names).size === names.length;
+  })());
+  check('roster: pairings carry exactly two members', r1.filter(l => l.kind === 'pairing').every(l => l.members.length === 2));
+  check('roster: singles carry exactly one', r1.filter(l => l.kind === 'single').every(l => l.members.length === 1));
+  // Over many generations we should see both sexes and a pairing turn up.
+  const many = Array.from({ length: 40 }, (_, i) => roster.generateRoster(`sweep:${i}`)).flat();
+  const sexes = new Set(many.flatMap(l => l.members.map(m => m.appearance.sex)));
+  check('roster: both sexes appear in the catalogue', sexes.has('male') && sexes.has('female'), [...sexes].join(','));
+  check('roster: rare pairings do appear', many.some(l => l.kind === 'pairing'));
+  check('roster: pairings stay rare', many.filter(l => l.kind === 'pairing').length < many.length * 0.4);
+  const archSeen = new Set(many.flatMap(l => l.members.map(m => m.archetypeKey)));
+  check('roster: every archetype is reachable', archSeen.size === KEYS.length, `${archSeen.size}/${KEYS.length}`);
+
+  // The card never leaks the internal archetype key to the player.
+  const card = roster.listingCard(r1[0]);
+  check('card: shows a self-description, not the archetype key',
+    card.members.every(m => m.says && !KEYS.includes(m.says)));
+  check('card: carries the full physical breakdown', card.members.every(m => m.physical.length >= 11));
+  check('card: projects the loyalty curve', card.projection.length === 4 && card.projection.every(p => p.rate > 0));
+
+  // Loyalty discount: monotonically cheaper, floored, never free.
+  const rates = [0, 7, 21, 45, 90, 400].map(d => roster.effectiveRate(2000, d));
+  check('loyalty: the rate never increases with tenure', rates.every((v, i) => i === 0 || v <= rates[i - 1]), rates.join('>'));
+  check('loyalty: a long tenure is materially cheaper', rates[4] < rates[0] * 0.8, `${rates[4]} vs ${rates[0]}`);
+  check('loyalty: the discount is floored, not unbounded', rates[5] >= 2000 * roster._test.LOYALTY_FLOOR - 5, `${rates[5]}`);
+  check('loyalty: tenure labels escalate', roster.loyaltyTier(0).label !== roster.loyaltyTier(90).label);
+
+  // Reroll cooldown.
+  const now = Date.now();
+  check('reroll: a fresh account may roll', roster.rerollState(0, now).ready === true);
+  check('reroll: rolling starts a cooldown', roster.rerollState(now, now).ready === false);
+  check('reroll: the cooldown expires', roster.rerollState(now - roster.REROLL_COOLDOWN_MS - 1, now).ready === true);
+  check('reroll: a pending cooldown reports time remaining',
+    /\dm/.test(roster.rerollState(now - 60_000, now).remainingLabel));
+
+  // ── Talk hook ──────────────────────────────────────────────────────────────
+  const toKeeper = await _test.onTalk({ player: { handle: 'Cyd' }, npc: roxy });
+  check('talk: keeper gets a warm reply', !!toKeeper?.message, toKeeper?.message?.slice(0, 70));
+  const toStranger = await _test.onTalk({ player: { handle: 'RandomGuest' }, npc: roxy });
+  check('talk: stranger gets a deflection', !!toStranger?.message, toStranger?.message?.slice(0, 70));
+  check('talk: keeper and stranger get different registers', toKeeper?.message !== toStranger?.message);
+  check('talk: falls through for a non-consort',
+    (await _test.onTalk({ player: { handle: 'Cyd' }, npc: { id: 'y', flags: {} } })) === undefined);
+  const withTree = mk({ dialogue_tree: {
+    root: { text: 'There you are.', options: [{ label: 'Hi.', next: 'bye' }] },
+    bye: { text: 'Go on.', options: [] },
+  } });
+  const convo = await _test.onTalk({ player: { handle: 'Cyd' }, npc: withTree });
+  check('talk: keeper with a dialogue_tree opens a conversation',
+    convo?.type === 'dialogue' && convo.node === 'root', convo?.type);
+  check('talk: a stranger never opens the tree',
+    (await _test.onTalk({ player: { handle: 'RandomGuest' }, npc: withTree }))?.type !== 'dialogue');
+
+  // ── Keeper-only commands ───────────────────────────────────────────────────
+  check('consortsOf: bogus handle owns no consorts', _test.consortsOf('__nobody__').length === 0);
+  const stranger = { handle: '__nobody__', id: 'regress_stranger', current_zone: 'zone_nowhere' };
+  const beckonDenied = await _test.cmdBeckon([], 'beckon', stranger);
+  check('beckon: stranger is refused', beckonDenied?.type === 'error' && /answers to you/i.test(beckonDenied.message || ''), beckonDenied?.message);
+  const dismissDenied = await _test.cmdDismiss([], 'dismiss', stranger);
+  check('dismiss: stranger is refused', dismissDenied?.type === 'error' && /answers to you/i.test(dismissDenied.message || ''), dismissDenied?.message);
+  const pourDenied = await _test.cmdPour([], 'pour', stranger);
+  check('pour: stranger with no consort is refused', pourDenied?.type === 'error', pourDenied?.message);
+  check('pour: barIn finds no bar in an empty zone', _test.barIn('zone_nowhere') === null);
+
+  // Direct-address matcher still can't shadow the other multi-word verbs.
+  check('direct: matches a name+act', _test.CONSORT_DIRECT_RE.test('vesper suck me'));
+  check('direct: does NOT shadow "eat out"', _test.CONSORT_DIRECT_RE.test('eat out vesper') === false);
+  check('direct: does NOT shadow "jerk off on"', _test.CONSORT_DIRECT_RE.test('jerk off on vesper') === false);
+  check('direct: falls through when the speaker owns no consort here',
+    (await _test.cmdConsortDirect([], 'vesper suck me', { handle: '__nobody__', current_zone: 'zone_nowhere' })) === undefined);
+
+  // retreatConsorts leaves an already-tucked-away consort untouched.
+  check('retreat: no-op when already home',
+    _test.retreatConsorts([{ name: 'Fake', home_zone: 'zone_b', zone_id: 'zone_b', flags: { consort: true } }]).length === 0);
+
+  // ── Area life ──────────────────────────────────────────────────────────────
+  check('area: sundeck flag → sundeck profile', _test.areaProfile({ flags: { echelon_sundeck: true } }) === 'sundeck');
+  check('area: unflagged zone → cabin profile', _test.areaProfile({ flags: {} }) === 'cabin');
+  check('area: suite/boudoir are intimate zones', _test.isIntimateZone({ flags: { echelon_suite: true } }) === true);
+  check('area: the sun deck is NOT intimate', _test.isIntimateZone({ flags: { echelon_sundeck: true } }) === false);
+  let actsBad = null;
+  for (const [prof, list] of Object.entries(_test.AREA_ACTIVITIES)) {
+    if (!Array.isArray(list) || list.length < 3) { actsBad = `${prof}: thin`; break; }
+    for (const a of list) {
+      if (!(a.key && typeof a.start?.t === 'function' && a.start.t('X').includes('X')
+        && Array.isArray(a.idle) && a.idle.length && a.idle.every(l => typeof l.t === 'function'))) {
+        actsBad = `${prof}/${a.key}`; break;
+      }
+    }
+    if (actsBad) break;
+  }
+  check('area: every activity is well-formed and every profile has variety', actsBad === null, actsBad || '');
+
+  const deckGirl = mk({ id: 'regress_deck', name: 'Vesper', zone_id: 'zone_deck_x' });
+  let deckThrew = false;
+  try { _test.runAreaActivity(deckGirl, { flags: { echelon_sundeck: true } }, 'zone_deck_x', 1_000_000, false, false); }
+  catch { deckThrew = true; }
+  check('area: runAreaActivity picks an activity without throwing', deckThrew === false && !!deckGirl._activity);
+  check('area: onFurniture is a name or null, never undefined',
+    deckGirl.onFurniture === null || typeof deckGirl.onFurniture === 'string');
+
+  // ── Furniture describe + tick ──────────────────────────────────────────────
+  check('furn: no describe line when nobody is parked',
+    _test.onFurnitureDescribe({ zone_id: 'zone_deck_x', name: 'jacuzzi' }, null) === undefined);
   let threw = false;
   try { _test.consortTick(); } catch { threw = true; }
-  check('tick: sweeps the world without throwing', threw === false);
+  check('tick: sweeps the live world without throwing', threw === false);
 
   // Housekeeping — don't leave regress ids in the shared in-memory maps.
-  _test.arousal.delete('regress_consort_roxy');
-  _test.lastSpoke.delete('regress_consort_roxy');
+  for (const id of ['regress_consort_a', 'regress_deck', 'p_a', 'p_b']) {
+    _test.arousal.delete(id); _test.lastSpoke.delete(id); _test.moodCap.delete(id);
+  }
+  _test.pendingSettle.delete('regress_keeper');
 }

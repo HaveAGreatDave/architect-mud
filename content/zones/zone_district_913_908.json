@@ -7,19 +7,19 @@
   "created_by": "zone-planner",
   "description": "A narrow shopfront wedged between the studio blocks, its window whitewashed from the inside and a letting notice taped to the glass at a hopeful angle. The old fascia has been unbolted, leaving four bright screw-holes and a ghost of the name that used to be there. Whoever takes it gets the best-looked-at forty feet of pavement on Marrow Street.",
   "exits": {
-    "south": "zone_district_913_909",
-    "north": "zone_sf_marrow4"
+    "north": "zone_sf_marrow4",
+    "south": "zone_district_913_909"
   },
   "flags": {
+    "building_name": "Unit 4, Marrow Street",
+    "building_type": "shop",
     "district": "wasteland",
+    "entrance": "south",
+    "facade": true,
+    "is_building": true,
     "planner": "bp_district",
     "region_id": "region_coldwater",
     "terrain": "concrete",
-    "building_name": "Unit 4, Marrow Street",
-    "building_type": "shop",
-    "is_building": true,
-    "facade": true,
-    "entrance": "south",
     "world_exit_zone": "zone_district_913_909"
   },
   "grid_x": 913,

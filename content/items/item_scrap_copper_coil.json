@@ -1,13 +1,13 @@
 {
+  "description": "Stripped wire wound into a rough loop the size of a dinner plate, insulation burned off somewhere out of sight of anyone who would object. It gleams where it has been handled and goes green where it has not.",
   "flags": {},
   "id": "item_scrap_copper_coil",
   "name": "coil of scrap copper",
-  "description": "Stripped wire wound into a rough loop the size of a dinner plate, insulation burned off somewhere out of sight of anyone who would object. It gleams where it has been handled and goes green where it has not.",
-  "type": "misc",
-  "value": 40,
-  "weight": 1800,
   "tags": {
     "description": "Stripped wire wound into a rough loop the size of a dinner plate, insulation burned off somewhere out of sight of anyone who would object. It gleams where it has been handled and goes green where it has not.",
     "misc": true
-  }
+  },
+  "type": "misc",
+  "value": 40,
+  "weight": 1800
 }

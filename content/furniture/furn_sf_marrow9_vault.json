@@ -1,8 +1,8 @@
 {
   "description": "A scarred strongbox chained to a steel upright bolted through the back wall. The welds are somebody else's work, added after the fact and added badly, but the chain is new and the dial is not.",
   "flags": {
-    "shop_vault": true,
-    "hack_difficulty": 5
+    "hack_difficulty": 5,
+    "shop_vault": true
   },
   "hp": null,
   "hp_max": null,

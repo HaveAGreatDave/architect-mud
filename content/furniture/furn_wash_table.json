@@ -1,0 +1,14 @@
+{
+  "description": "A folding table worn pale and smooth at the edges. Somebody has left a single sock on it. Judging by the dust, some time ago.",
+  "flags": {},
+  "hp": 20,
+  "hp_max": 20,
+  "id": "furn_wash_table",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "folding table",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 15,
+  "zone_id": "zone_the_wash"
+}

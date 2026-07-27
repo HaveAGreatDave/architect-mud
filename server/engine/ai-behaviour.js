@@ -12,6 +12,7 @@ import { getShopperForNpc, closeShopSession, didBuyThisSession } from './vendor-
 import { getNpcChitchat } from './npc-personality.js';
 import { OPPOSITE as OPPOSITE_DIR } from './directions.js';
 import { setPosture } from './posture.js';
+import { npcWashAtHome } from './hygiene.js';
 
 // Breaking contact to flee is a competence check, not a given. An entity's flee
 // skill (`flags.flee_skill`, else its combat `dodge`, else 1) is rolled against a
@@ -1706,6 +1707,11 @@ export async function tickEntityAI(entity, ctx) {
   // Passive home life — any NPC in their home zone does random activities when players are watching.
   // Skipped while homeSleeping (the NPC is visibly asleep; AT_HOME_LIFE owns that state).
   if (!isEnemy(entity) && !ai.homeSleeping && entity.home_zone && entityZone(entity) === entity.home_zone) {
+    // Being home means washing. Without this an NPC's grime clock starts the
+    // first time anything asks and climbs forever, so given enough uptime every
+    // NPC in the world ends up reeking. In memory only — NPC hygiene is never
+    // persisted, so this is a field reset, not a write.
+    npcWashAtHome(entity);
     const now = Date.now();
     if ((now - (ai.lastHomeSay || 0)) > 30000) {
       const playersHere = getZonePlayers(entityZone(entity));

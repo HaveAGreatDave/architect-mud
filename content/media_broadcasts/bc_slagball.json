@@ -4812,6 +4812,78 @@
   "description": "SLAGBALL — a Sub-Channel 2½ Saturday comedy. The Sump, a beloved dive with a pit in the back and forty thousand credits of debt, enters the Coldwater Slagball Open against MAXIM VIGO’s corporate juggernaut APEX PRIME. A washed-up coach, a pirate, a fainting boy, a silent giant, a lethal waitress, a doomed romantic, and a lawyer who forgot which side she was on — one bracket, one sudden-dark overtime, one clause nobody read. A true underdog story, thrown in the dark.",
   "enabled": 1,
   "fallback_messages": [],
+  "film_meta": {
+    "airSlots": null,
+    "cast": [
+      {
+        "label": "DUTCH",
+        "name": "Dutch",
+        "role": "never won a thing until it counted"
+      },
+      {
+        "label": "LOTTIE",
+        "name": "Lottie",
+        "role": "minded the beam"
+      },
+      {
+        "label": "VESS",
+        "name": "Vess",
+        "role": "read clause nine"
+      },
+      {
+        "label": "MAXIM VIGO",
+        "name": "Maxim Vigo",
+        "role": "pre-lost"
+      },
+      {
+        "label": "GILES",
+        "name": "Giles",
+        "role": "the universe is a slag; he is the pit"
+      },
+      {
+        "label": "PIP",
+        "name": "Pip",
+        "role": "won a tournament asleep"
+      },
+      {
+        "label": "MERV",
+        "name": "Merv",
+        "role": "\"Yeah.\""
+      },
+      {
+        "label": "BARNACLE BASH",
+        "name": "Barnacle Bash",
+        "role": "found the water within"
+      },
+      {
+        "label": "COACH RUSK",
+        "name": "Coach Rusk",
+        "role": "got out of the fern"
+      },
+      {
+        "label": "BLURT",
+        "name": "Blurt",
+        "role": ""
+      },
+      {
+        "label": "CASS",
+        "name": "Cass",
+        "role": ""
+      },
+      {
+        "label": "THE REF",
+        "name": "The Ref",
+        "role": ""
+      }
+    ],
+    "director": "Rikki Doonan",
+    "presents": "Sub-Channel 2½",
+    "rating": "ADULT — LANGUAGE, AND A GREAT DEAL OF IT",
+    "runtime": 5948,
+    "theme": "",
+    "title": "slagball_title"
+  },
+  "gameshow_pools": null,
   "id": "bc_slagball",
   "loop": 1,
   "message_interval": 7,
@@ -4820,7 +4892,8 @@
   "name": "Slagball",
   "news_pools": null,
   "override_duration": 5948,
-  "playback_mode": "scripted",
+  "playback_mode": "film",
+  "sermon_pools": null,
   "sports_pools": null,
   "tags": [
     "movie",

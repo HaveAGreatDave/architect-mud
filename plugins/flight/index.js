@@ -545,7 +545,7 @@ async function crewTick() {
     try { await crewStep(live); } catch (e) { console.error('[flight] crew step error:', e.message); }
   }
 }
-setInterval(() => crewTick().catch(e => console.error('[flight] crew tick error:', e.message)), 2500);
+schedule('2.5s', () => crewTick().catch(e => console.error('[flight] crew tick error:', e.message)));
 
 // ── Engine / throttle ─────────────────────────────────────────────────────────
 export function requirePilot(player) {
@@ -603,7 +603,7 @@ async function runupTick() {
     pushHud(live);
   }
 }
-setInterval(() => runupTick().catch(e => console.error('[flight] runup error:', e.message)), 1000);
+schedule('1s', () => runupTick().catch(e => console.error('[flight] runup error:', e.message)));
 
 async function cmdShutdown(args, raw, player, broadcast) {
   const { live, err } = requirePilot(player); if (err) return err;
@@ -1373,7 +1373,7 @@ async function flightTick() {
     }
   } finally { ticking = false; }
 }
-setInterval(() => flightTick().catch(e => console.error('[flight] tick error:', e.message)), TICK_MS);
+schedule('3s', () => flightTick().catch(e => console.error('[flight] tick error:', e.message)));   // TICK_MS
 
 // ── Delete one aircraft instance for good ─────────────────────────────────────
 // The shared teardown used by the dev-panel DELETE route AND the wreck-maintenance

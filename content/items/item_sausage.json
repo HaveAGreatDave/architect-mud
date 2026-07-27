@@ -4,15 +4,15 @@
   "id": "item_sausage",
   "name": "sausage",
   "tags": {
-    "description": "A coil of coarse-ground pork in a casing, flecked white with fat and green with fennel. Made by someone who still calls it a craft and charges accordingly.",
     "consumable": true,
-    "restore_hunger": 19,
-    "stackable": true,
-    "food_profile": "dense_meat",
+    "description": "A coil of coarse-ground pork in a casing, flecked white with fat and green with fennel. Made by someone who still calls it a craft and charges accordingly.",
     "food_noun": "sausage",
+    "food_profile": "dense_meat",
     "needs_cooking": true,
     "perishable": true,
+    "restore_hunger": 19,
     "spoil_rate": "fast",
+    "stackable": true,
     "status_chance": {
       "food_poisoning": 0.4
     }

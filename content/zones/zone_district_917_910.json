@@ -11,15 +11,15 @@
     "south": "zone_sf_marrow9"
   },
   "flags": {
+    "building_name": "Unit 9, Marrow Street",
+    "building_type": "shop",
     "district": "wasteland",
+    "entrance": "north",
+    "facade": true,
+    "is_building": true,
     "planner": "bp_district",
     "region_id": "region_coldwater",
     "terrain": "concrete",
-    "building_name": "Unit 9, Marrow Street",
-    "building_type": "shop",
-    "is_building": true,
-    "facade": true,
-    "entrance": "north",
     "world_exit_zone": "zone_district_917_909"
   },
   "grid_x": 917,

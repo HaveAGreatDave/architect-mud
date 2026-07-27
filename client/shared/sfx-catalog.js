@@ -438,9 +438,22 @@
         { waveform: 'sine', freq: 2794, delay: 0.300, adsr: { a: 0.004, d: 0.16, s: 0, r: 0.08 }, gain: 0.013 },
         { waveform: 'sine', freq: 3520, delay: 0.600, adsr: { a: 0.004, d: 0.15, s: 0, r: 0.07 }, gain: 0.011 },
         { waveform: 'sine', freq: 4186, delay: 0.900, adsr: { a: 0.004, d: 0.13, s: 0, r: 0.06 }, gain: 0.009 } ] } },
+
+    // ── Banks ────────────────────────────────────────────────────────────────
+    // A BANK is a separate file that authors a themed set of presets in exactly this
+    // shape and attaches it to the global. Folding them in here (rather than pasting
+    // them into this list) is what makes them dev-panel editable and DB-overridable
+    // via `interface_sfx` without this file growing another few hundred lines every
+    // time a system gets a soundset.
+    //
+    // LOAD-ORDER CONTRACT: a bank's <script> must come BEFORE this one in both
+    // client/game/index.html and client/devpanel/index.html. If it doesn't, the bank
+    // still plays (its own `play()` is self-contained) but the dev panel can't see it
+    // — a silent, confusing failure, so the tag order is commented at both sites.
+    ...(global.HockeySfx?.BUILTINS || []),
   ];
 
-  const GROUPS = { poker: 'Poker table', hack: 'Circuit Breach (hack)', hololock: 'Hololock Bypass', vault: 'Vault Crack', synth: 'Synth Lab (cook)', flight: 'Flight (cockpit)', fishing: 'Fishing (cast / reel)', dialogue: 'Dialogue (conversation)', accolades: 'Accolades (entry logged)' };
+  const GROUPS = { poker: 'Poker table', hack: 'Circuit Breach (hack)', hololock: 'Hololock Bypass', vault: 'Vault Crack', synth: 'Synth Lab (cook)', flight: 'Flight (cockpit)', fishing: 'Fishing (cast / reel)', dialogue: 'Dialogue (conversation)', accolades: 'Accolades (entry logged)', procedural: 'Procedural material/action tables', hockey: 'Hockey (Cluster Puck broadcast)' };
 
   const _builtinById = new Map(BUILTINS.map(d => [d.id, d]));
   let _overrides = new Map(); // id -> { config, priority, enabled, name }

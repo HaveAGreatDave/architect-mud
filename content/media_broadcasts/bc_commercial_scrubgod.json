@@ -7,153 +7,153 @@
           "x": 80,
           "y": 80
         },
-        "type": "start",
-        "next": "bsm_1"
+        "next": "bsm_1",
+        "type": "start"
       },
       "bsm_1": {
         "_vine": {
           "x": 300,
           "y": 80
         },
-        "type": "event",
         "event_type": "FADE_IN",
-        "next": "bsm_2"
-      },
-      "bsm_2": {
-        "_vine": {
-          "x": 520,
-          "y": 80
-        },
-        "type": "title_card",
-        "graphic_id": "scrubgod_logo",
-        "next": "bsm_3"
-      },
-      "bsm_3": {
-        "_vine": {
-          "x": 740,
-          "y": 80
-        },
-        "type": "music",
-        "song": "scrubgod_stinger",
-        "text": "♪ An upbeat, slightly too-loud synth sting, the kind that plays under people yelling about savings. ♪",
-        "next": "bsm_4"
-      },
-      "bsm_4": {
-        "_vine": {
-          "x": 960,
-          "y": 80
-        },
-        "type": "camera_cut",
-        "label": "CAM — 1 — WIDE",
-        "zone_id": "kitchen_disaster",
-        "next": "bsm_5"
-      },
-      "bsm_5": {
-        "_vine": {
-          "x": 80,
-          "y": 240
-        },
-        "type": "npc_anchor",
-        "npc_id": "npc_host",
-        "next": "bsm_6"
-      },
-      "bsm_6": {
-        "_vine": {
-          "x": 300,
-          "y": 240
-        },
-        "type": "say",
-        "style": "raw",
-        "text": "Are YOU tired of scrubbing?!",
-        "next": "bsm_7"
-      },
-      "bsm_7": {
-        "_vine": {
-          "x": 520,
-          "y": 240
-        },
-        "type": "npc_action",
-        "message": "holds up a rag stained with something best left undescribed",
-        "next": "bsm_8"
-      },
-      "bsm_8": {
-        "_vine": {
-          "x": 740,
-          "y": 240
-        },
-        "type": "say",
-        "style": "raw",
-        "text": "Introducing ScrubGod 9000!",
-        "next": "bsm_9"
-      },
-      "bsm_9": {
-        "_vine": {
-          "x": 960,
-          "y": 240
-        },
-        "type": "camera_cut",
-        "label": "CAM — 2 — CLOSEUP",
-        "zone_id": "demo_surface",
-        "next": "bsm_10"
+        "next": "bsm_2",
+        "type": "event"
       },
       "bsm_10": {
         "_vine": {
           "x": 80,
           "y": 400
         },
-        "type": "say",
+        "next": "bsm_11",
         "style": "narration",
         "text": "One wipe drags a clean streak across the counter, the dirty half and the spotless half glaringly, impossibly different.",
-        "next": "bsm_11"
+        "type": "say"
       },
       "bsm_11": {
         "_vine": {
           "x": 300,
           "y": 400
         },
-        "type": "say",
+        "next": "bsm_12",
         "style": "raw",
         "text": "One pass removes blood, rust, and most forms of regret.",
-        "next": "bsm_12"
+        "type": "say"
       },
       "bsm_12": {
         "_vine": {
           "x": 520,
           "y": 400
         },
-        "type": "overlay",
-        "overlayType": "text_card",
-        "text": "BUT WAIT — THERE'S MORE",
-        "subtext": "CALL NOW AND WE'LL DOUBLE YOUR ORDER FOR THE SAME EXPOSURE RISK",
         "graphic_id": "",
-        "next": "bsm_13"
+        "next": "bsm_13",
+        "overlayType": "text_card",
+        "subtext": "CALL NOW AND WE'LL DOUBLE YOUR ORDER FOR THE SAME EXPOSURE RISK",
+        "text": "BUT WAIT — THERE'S MORE",
+        "type": "overlay"
       },
       "bsm_13": {
         "_vine": {
           "x": 740,
           "y": 400
         },
-        "type": "say",
+        "next": "bsm_14",
         "style": "raw",
         "text": "ScrubGod 9000. Because someone has to clean it up, and it's not going to be them.",
-        "next": "bsm_14"
+        "type": "say"
       },
       "bsm_14": {
         "_vine": {
           "x": 960,
           "y": 400
         },
-        "type": "ticker",
+        "next": "bsm_15",
         "text": "Stains are not removed, only relocated to a molecular level you can no longer see · Radiation reduction is cosmetic only and has not been evaluated by anyone qualified to evaluate it · Do not use ScrubGod 9000 near open flame, standing water, or your own reflection · Second bottle ships in 6-8 lifetimes",
-        "next": "bsm_15"
+        "type": "ticker"
       },
       "bsm_15": {
         "_vine": {
           "x": 80,
           "y": 560
         },
-        "type": "event",
-        "event_type": "FADE_OUT"
+        "event_type": "FADE_OUT",
+        "type": "event"
+      },
+      "bsm_2": {
+        "_vine": {
+          "x": 520,
+          "y": 80
+        },
+        "graphic_id": "scrubgod_logo",
+        "next": "bsm_3",
+        "type": "title_card"
+      },
+      "bsm_3": {
+        "_vine": {
+          "x": 740,
+          "y": 80
+        },
+        "next": "bsm_4",
+        "song": "scrubgod_stinger",
+        "text": "♪ An upbeat, slightly too-loud synth sting, the kind that plays under people yelling about savings. ♪",
+        "type": "music"
+      },
+      "bsm_4": {
+        "_vine": {
+          "x": 960,
+          "y": 80
+        },
+        "label": "CAM — 1 — WIDE",
+        "next": "bsm_5",
+        "type": "camera_cut",
+        "zone_id": "kitchen_disaster"
+      },
+      "bsm_5": {
+        "_vine": {
+          "x": 80,
+          "y": 240
+        },
+        "next": "bsm_6",
+        "npc_id": "npc_host",
+        "type": "npc_anchor"
+      },
+      "bsm_6": {
+        "_vine": {
+          "x": 300,
+          "y": 240
+        },
+        "next": "bsm_7",
+        "style": "raw",
+        "text": "Are YOU tired of scrubbing?!",
+        "type": "say"
+      },
+      "bsm_7": {
+        "_vine": {
+          "x": 520,
+          "y": 240
+        },
+        "message": "holds up a rag stained with something best left undescribed",
+        "next": "bsm_8",
+        "type": "npc_action"
+      },
+      "bsm_8": {
+        "_vine": {
+          "x": 740,
+          "y": 240
+        },
+        "next": "bsm_9",
+        "style": "raw",
+        "text": "Introducing ScrubGod 9000!",
+        "type": "say"
+      },
+      "bsm_9": {
+        "_vine": {
+          "x": 960,
+          "y": 240
+        },
+        "label": "CAM — 2 — CLOSEUP",
+        "next": "bsm_10",
+        "type": "camera_cut",
+        "zone_id": "demo_surface"
       }
     }
   },
@@ -163,6 +163,8 @@
   "description": "As-seen-on-TV infomercial parody for a miracle cleaning product that handles blood, rust, and most forms of regret — cosmetically, at least.",
   "enabled": 1,
   "fallback_messages": [],
+  "film_meta": null,
+  "gameshow_pools": null,
   "id": "bc_commercial_scrubgod",
   "loop": 0,
   "message_interval": 5,
@@ -188,6 +190,7 @@
   "news_pools": null,
   "override_duration": 30,
   "playback_mode": "scripted",
+  "sermon_pools": null,
   "sports_pools": null,
   "tags": [
     "commercial",

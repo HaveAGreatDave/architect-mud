@@ -7,154 +7,154 @@
           "x": 80,
           "y": 80
         },
-        "type": "start",
-        "next": "bsm_1"
+        "next": "bsm_1",
+        "type": "start"
       },
       "bsm_1": {
         "_vine": {
           "x": 300,
           "y": 80
         },
-        "type": "event",
         "event_type": "FADE_IN",
-        "next": "bsm_2"
-      },
-      "bsm_2": {
-        "_vine": {
-          "x": 520,
-          "y": 80
-        },
-        "type": "title_card",
-        "graphic_id": "everlast_logo",
-        "next": "bsm_3"
-      },
-      "bsm_3": {
-        "_vine": {
-          "x": 740,
-          "y": 80
-        },
-        "type": "music",
-        "song": "everlast_theme",
-        "text": "♪ Romantic strings, played slightly out of tune, like a knockoff of a jingle nobody licensed properly. ♪",
-        "next": "bsm_4"
-      },
-      "bsm_4": {
-        "_vine": {
-          "x": 960,
-          "y": 80
-        },
-        "type": "camera_cut",
-        "label": "CAM — 1 — WIDE",
-        "zone_id": "candlelit_rooftop",
-        "next": "bsm_5"
-      },
-      "bsm_5": {
-        "_vine": {
-          "x": 80,
-          "y": 240
-        },
-        "type": "npc_anchor",
-        "npc_id": "npc_narrator",
-        "next": "bsm_6"
-      },
-      "bsm_6": {
-        "_vine": {
-          "x": 300,
-          "y": 240
-        },
-        "type": "say",
-        "style": "narration",
-        "text": "A couple stands silhouetted against the skyline. One of them kneels.",
-        "next": "bsm_7"
-      },
-      "bsm_7": {
-        "_vine": {
-          "x": 520,
-          "y": 240
-        },
-        "type": "say",
-        "style": "raw",
-        "text": "A diamond is forever.",
-        "next": "bsm_8"
-      },
-      "bsm_8": {
-        "_vine": {
-          "x": 740,
-          "y": 240
-        },
-        "type": "camera_cut",
-        "label": "CAM — 2 — CLOSEUP",
-        "zone_id": "ring_case",
-        "next": "bsm_9"
-      },
-      "bsm_9": {
-        "_vine": {
-          "x": 960,
-          "y": 240
-        },
-        "type": "say",
-        "style": "raw",
-        "text": "Everlast™ is forever, whether she likes it or not.",
-        "next": "bsm_10"
+        "next": "bsm_2",
+        "type": "event"
       },
       "bsm_10": {
         "_vine": {
           "x": 80,
           "y": 400
         },
-        "type": "say",
+        "next": "bsm_11",
         "style": "narration",
         "text": "Matching cybernetic bands sync heartbeat telemetry between partners, continuously, for the rest of both your lives.",
-        "next": "bsm_11"
+        "type": "say"
       },
       "bsm_11": {
         "_vine": {
           "x": 300,
           "y": 400
         },
-        "type": "say",
+        "next": "bsm_12",
         "style": "raw",
         "text": "Know exactly where she is. Know exactly how she's feeling. Always.",
-        "next": "bsm_12"
+        "type": "say"
       },
       "bsm_12": {
         "_vine": {
           "x": 520,
           "y": 400
         },
-        "type": "overlay",
-        "overlayType": "text_card",
-        "text": "SHE'LL NEVER TAKE IT OFF",
-        "subtext": "REMOVAL REQUIRES BOTH CARDIAC SIGNATURES, PRESENT, CONSCIOUS, AND IN AGREEMENT",
         "graphic_id": "",
-        "next": "bsm_13"
+        "next": "bsm_13",
+        "overlayType": "text_card",
+        "subtext": "REMOVAL REQUIRES BOTH CARDIAC SIGNATURES, PRESENT, CONSCIOUS, AND IN AGREEMENT",
+        "text": "SHE'LL NEVER TAKE IT OFF",
+        "type": "overlay"
       },
       "bsm_13": {
         "_vine": {
           "x": 740,
           "y": 400
         },
-        "type": "say",
+        "next": "bsm_14",
         "style": "raw",
         "text": "My girlfriend says she's never felt more secure. She says this every day, at six AM sharp, whether she's awake or not.",
-        "next": "bsm_14"
+        "type": "say"
       },
       "bsm_14": {
         "_vine": {
           "x": 960,
           "y": 400
         },
-        "type": "ticker",
+        "next": "bsm_15",
         "text": "Everlast Augments is not liable for outcomes classified by a court as \"romantic\" · Pair-lock is permanent absent mutual, conscious, simultaneous consent · Heartbeat telemetry is shared with both partners and, per the Terms of Service neither of you read, with us",
-        "next": "bsm_15"
+        "type": "ticker"
       },
       "bsm_15": {
         "_vine": {
           "x": 80,
           "y": 560
         },
-        "type": "event",
-        "event_type": "FADE_OUT"
+        "event_type": "FADE_OUT",
+        "type": "event"
+      },
+      "bsm_2": {
+        "_vine": {
+          "x": 520,
+          "y": 80
+        },
+        "graphic_id": "everlast_logo",
+        "next": "bsm_3",
+        "type": "title_card"
+      },
+      "bsm_3": {
+        "_vine": {
+          "x": 740,
+          "y": 80
+        },
+        "next": "bsm_4",
+        "song": "everlast_theme",
+        "text": "♪ Romantic strings, played slightly out of tune, like a knockoff of a jingle nobody licensed properly. ♪",
+        "type": "music"
+      },
+      "bsm_4": {
+        "_vine": {
+          "x": 960,
+          "y": 80
+        },
+        "label": "CAM — 1 — WIDE",
+        "next": "bsm_5",
+        "type": "camera_cut",
+        "zone_id": "candlelit_rooftop"
+      },
+      "bsm_5": {
+        "_vine": {
+          "x": 80,
+          "y": 240
+        },
+        "next": "bsm_6",
+        "npc_id": "npc_narrator",
+        "type": "npc_anchor"
+      },
+      "bsm_6": {
+        "_vine": {
+          "x": 300,
+          "y": 240
+        },
+        "next": "bsm_7",
+        "style": "narration",
+        "text": "A couple stands silhouetted against the skyline. One of them kneels.",
+        "type": "say"
+      },
+      "bsm_7": {
+        "_vine": {
+          "x": 520,
+          "y": 240
+        },
+        "next": "bsm_8",
+        "style": "raw",
+        "text": "A diamond is forever.",
+        "type": "say"
+      },
+      "bsm_8": {
+        "_vine": {
+          "x": 740,
+          "y": 240
+        },
+        "label": "CAM — 2 — CLOSEUP",
+        "next": "bsm_9",
+        "type": "camera_cut",
+        "zone_id": "ring_case"
+      },
+      "bsm_9": {
+        "_vine": {
+          "x": 960,
+          "y": 240
+        },
+        "next": "bsm_10",
+        "style": "raw",
+        "text": "Everlast™ is forever, whether she likes it or not.",
+        "type": "say"
       }
     }
   },
@@ -164,6 +164,8 @@
   "description": "Jewelry-commercial parody: a romantic proposal ad for a cybernetic pair-locked implant that syncs two partners' vitals permanently.",
   "enabled": 1,
   "fallback_messages": [],
+  "film_meta": null,
+  "gameshow_pools": null,
   "id": "bc_commercial_everlast",
   "loop": 0,
   "message_interval": 5,
@@ -192,6 +194,7 @@
   "news_pools": null,
   "override_duration": 30,
   "playback_mode": "scripted",
+  "sermon_pools": null,
   "sports_pools": null,
   "tags": [
     "commercial",

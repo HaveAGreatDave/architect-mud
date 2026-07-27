@@ -4,14 +4,14 @@
   "id": "item_pale_cabbage",
   "name": "pale cabbage",
   "tags": {
-    "description": "A dense head of leaves so light green they look bleached. Keeps for weeks, feeds a table, and has never once been the best thing on a plate.",
     "consumable": true,
-    "restore_hunger": 12,
-    "stackable": true,
-    "food_profile": "soft_vegetable",
+    "description": "A dense head of leaves so light green they look bleached. Keeps for weeks, feeds a table, and has never once been the best thing on a plate.",
     "food_noun": "cabbage",
+    "food_profile": "soft_vegetable",
     "perishable": true,
+    "restore_hunger": 12,
     "spoil_rate": "slow",
+    "stackable": true,
     "status_chance": {
       "food_poisoning": 0.2
     }

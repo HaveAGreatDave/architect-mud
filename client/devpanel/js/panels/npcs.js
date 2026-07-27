@@ -132,7 +132,7 @@ function renderNpcsPanel(data) {
   const lateLabel = lateCount ? `Send to Work (${lateCount} late)` : 'Send to Work';
   const unhousedCount = records.filter(r => !r.home_zone || r.home_zone === 'zone_residential_lobby' || !r.home_is_apartment).length;
   const houseLabel = unhousedCount ? `🏠 House Unhoused (${unhousedCount})` : '🏠 House Unhoused';
-  const toolbar = `<div style="padding:6px 12px;border-bottom:1px solid var(--border);background:var(--bg2);display:flex;align-items:center;gap:8px">
+  const toolbar = `<div class="panel-sticky-head" style="padding:6px 12px;border-bottom:1px solid var(--border);background:var(--bg2);display:flex;align-items:center;gap:8px">
     <button class="action-btn" style="font-size:11px;padding:3px 10px" onclick="npcSendToWork(this)"
       title="Teleport all scheduled-now NPCs who aren't at their work zone yet">${lateLabel}</button>
     ${lateCount ? `<span style="font-size:11px;color:var(--text-dim)">${lateCount} NPC${lateCount !== 1 ? 's' : ''} scheduled but not at work</span>` : '<span style="font-size:11px;color:var(--text-dim)">All scheduled NPCs at work</span>'}

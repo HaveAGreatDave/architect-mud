@@ -30,7 +30,11 @@ import { hasActivePlayers } from './world.js';
 
 const CADENCE_MS = {
   '1s':   1_000,
+  '2s':   2_000,
+  '2.5s': 2_500,
+  '3s':   3_000,
   '4s':   4_000,
+  '8s':   8_000,
   '5s':   5_000,
   '6s':   6_000,
   '10s':  10_000,
@@ -64,15 +68,24 @@ export function schedule(cadence, callback, opts = {}) {
   if (!cadences.has(cadence)) {
     const entry = { timer: null, callbacks: [] };
     const fire = () => {
+      // Spread same-cadence subscribers apart: a dozen '1m' ticks all checking
+      // out DB connections in the same instant could hold every pool slot while
+      // a player command waited on pool.connect().
+      //
+      // The gap is capped so the spread always fits INSIDE the period. A flat
+      // 200 ms was fine at '1m', but '1s' grew to 10 subscribers — 10 x 200 ms
+      // is a 2 s spread on a 1 s period, so the tail of the list was scheduled
+      // to run after the next tick had already fired. Those late callbacks
+      // stacked against their own reentrancy guards and silently ran at half
+      // rate. Dividing by (n + 1) keeps the last subscriber strictly within the
+      // period no matter how many subscribe.
+      const gap = Math.min(200, Math.floor(ms / (entry.callbacks.length + 1)));
       entry.callbacks.forEach((cb, i) => {
-        // Spread same-cadence subscribers ~200 ms apart: a dozen '1m' ticks all
-        // checking out DB connections in the same instant could hold every pool
-        // slot while a player command waited on pool.connect().
         setTimeout(() => {
           Promise.resolve(cb()).catch(err =>
             console.error(`Scheduler [${cadence}] callback error: ${err.message}`)
           );
-        }, i * 200);
+        }, i * gap);
       });
     };
     // Random phase per cadence: every cadence used to start at boot, so their

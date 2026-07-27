@@ -1,0 +1,24 @@
+{
+  "description": "A cloudy measure of it, going tacky at the edges where it met the air. It is, technically, protein. Almost nobody makes it past that sentence.",
+  "flags": {},
+  "id": "item_vessel_seed",
+  "name": "measure of spent seed",
+  "tags": {
+    "bodily_filth": true,
+    "consumable": true,
+    "description": "A cloudy measure of it, going tacky at the edges where it met the air. It is, technically, protein. Almost nobody makes it past that sentence.",
+    "food_noun": "seed",
+    "food_profile": "liquid",
+    "needs_cooking": true,
+    "perishable": true,
+    "restore_hunger": 2,
+    "spoil_rate": "fast",
+    "stackable": true,
+    "status_chance": {
+      "food_poisoning": 0.25
+    }
+  },
+  "type": "consumable",
+  "value": 0,
+  "weight": 80
+}

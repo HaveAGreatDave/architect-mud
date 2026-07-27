@@ -113,26 +113,6 @@
         "text": "We can see that from here.",
         "type": "say"
       },
-      "qh_count_alone": {
-        "_vine": {
-          "x": 180,
-          "y": 800
-        },
-        "next": "qh_vats",
-        "style": "narration",
-        "text": "No one else is watching this with you tonight. Just you, and us. We don't mind. We prefer it, actually.",
-        "type": "say"
-      },
-      "qh_count_check": {
-        "_vine": {
-          "x": 80,
-          "y": 760
-        },
-        "condition_type": "OTHER_VIEWERS_PRESENT",
-        "ifFalse": "qh_count_alone",
-        "ifTrue": "qh_count_gate",
-        "type": "condition"
-      },
       "qh_cam1": {
         "_vine": {
           "x": 480,
@@ -219,6 +199,16 @@
         "text": "{viewers} people are awake and watching this with you.",
         "type": "say"
       },
+      "qh_count_alone": {
+        "_vine": {
+          "x": 180,
+          "y": 800
+        },
+        "next": "qh_vats",
+        "style": "narration",
+        "text": "No one else is watching this with you tonight. Just you, and us. We don't mind. We prefer it, actually.",
+        "type": "say"
+      },
       "qh_count_b1": {
         "_vine": {
           "x": 480,
@@ -258,6 +248,16 @@
         "style": "narration",
         "text": "They upset some of you last time. You counted yourselves in them.",
         "type": "say"
+      },
+      "qh_count_check": {
+        "_vine": {
+          "x": 80,
+          "y": 760
+        },
+        "condition_type": "OTHER_VIEWERS_PRESENT",
+        "ifFalse": "qh_count_alone",
+        "ifTrue": "qh_count_gate",
+        "type": "condition"
       },
       "qh_count_gate": {
         "_vine": {
@@ -877,6 +877,8 @@
   "description": "",
   "enabled": 1,
   "fallback_messages": [],
+  "film_meta": null,
+  "gameshow_pools": null,
   "id": "bc_the_quiet_hour",
   "loop": 0,
   "message_interval": 5,
@@ -959,6 +961,7 @@
   "news_pools": null,
   "override_duration": 300,
   "playback_mode": "scripted",
+  "sermon_pools": null,
   "sports_pools": null,
   "tags": [],
   "talkshow_pools": null,

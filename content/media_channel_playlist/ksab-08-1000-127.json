@@ -1,0 +1,11 @@
+{
+  "broadcast_id": "bc_1783061127685",
+  "channel_id": "ch_7_1782953079593",
+  "conditions": [],
+  "days": 127,
+  "duration_override": 7200,
+  "id": "ksab-08-1000-127",
+  "priority": 0,
+  "slot_type": "broadcast",
+  "start_time": 36000
+}

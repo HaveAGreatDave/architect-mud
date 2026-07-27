@@ -4,14 +4,14 @@
   "id": "item_bruise_plum",
   "name": "bruised plum",
   "tags": {
-    "description": "Soft on one side and going, the skin split where it took a knock. Two days past its best and twice as sweet for it. Eat it over a sink.",
     "consumable": true,
-    "restore_hunger": 8,
-    "stackable": true,
-    "food_profile": "fruit",
+    "description": "Soft on one side and going, the skin split where it took a knock. Two days past its best and twice as sweet for it. Eat it over a sink.",
     "food_noun": "plum",
+    "food_profile": "fruit",
     "perishable": true,
+    "restore_hunger": 8,
     "spoil_rate": "fast",
+    "stackable": true,
     "status_chance": {
       "food_poisoning": 0.25
     }

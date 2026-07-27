@@ -1,0 +1,15 @@
+{
+  "description": "A grey block of rendered soap, unwrapped, with somebody's thumbprint set into one corner. It smells faintly of nothing at all, which around here counts as luxury.",
+  "flags": {},
+  "id": "item_soap_block",
+  "name": "block of grey soap",
+  "tags": {
+    "description": "A grey block of rendered soap, unwrapped, with somebody's thumbprint set into one corner. It smells faintly of nothing at all, which around here counts as luxury.",
+    "misc": true,
+    "soap": true,
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 3,
+  "weight": 40
+}

@@ -4,12 +4,12 @@
   "id": "item_salt_fish",
   "name": "salt fish",
   "tags": {
-    "description": "A flattened fillet gone stiff and grey-white under its salt jacket. Smells like a harbour. Soak it, or it will take the roof of your mouth off.",
     "consumable": true,
+    "description": "A flattened fillet gone stiff and grey-white under its salt jacket. Smells like a harbour. Soak it, or it will take the roof of your mouth off.",
+    "food_noun": "salt fish",
+    "food_profile": "preserved",
     "restore_hunger": 18,
     "stackable": true,
-    "food_profile": "preserved",
-    "food_noun": "salt fish",
     "status_chance": {
       "food_poisoning": 0.2
     }

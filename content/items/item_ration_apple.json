@@ -4,14 +4,14 @@
   "id": "item_ration_apple",
   "name": "ration apple",
   "tags": {
-    "description": "Uniform, waxed, and stamped near the stem with a lot code. Engineered to survive a supply chain rather than to be eaten, and it shows — but it is sweet, and it is fruit.",
     "consumable": true,
-    "restore_hunger": 10,
-    "stackable": true,
-    "food_profile": "fruit",
+    "description": "Uniform, waxed, and stamped near the stem with a lot code. Engineered to survive a supply chain rather than to be eaten, and it shows — but it is sweet, and it is fruit.",
     "food_noun": "apple",
+    "food_profile": "fruit",
     "perishable": true,
+    "restore_hunger": 10,
     "spoil_rate": "slow",
+    "stackable": true,
     "status_chance": {
       "food_poisoning": 0.1
     }

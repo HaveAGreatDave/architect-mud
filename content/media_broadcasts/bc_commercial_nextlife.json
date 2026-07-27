@@ -7,193 +7,193 @@
           "x": 80,
           "y": 80
         },
-        "type": "start",
-        "next": "bsm_1"
+        "next": "bsm_1",
+        "type": "start"
       },
       "bsm_1": {
         "_vine": {
           "x": 300,
           "y": 80
         },
-        "type": "event",
         "event_type": "FADE_IN",
-        "next": "bsm_2"
-      },
-      "bsm_2": {
-        "_vine": {
-          "x": 520,
-          "y": 80
-        },
-        "type": "title_card",
-        "graphic_id": "nextlife_logo",
-        "next": "bsm_3"
-      },
-      "bsm_3": {
-        "_vine": {
-          "x": 740,
-          "y": 80
-        },
-        "type": "music",
-        "song": "nextlife_theme",
-        "text": "♪ A slow funereal organ hymn, played in a suspiciously cheerful major key. ♪",
-        "next": "bsm_4"
-      },
-      "bsm_4": {
-        "_vine": {
-          "x": 960,
-          "y": 80
-        },
-        "type": "camera_cut",
-        "label": "CAM — 1 — WIDE",
-        "zone_id": "elderly_actor_set",
-        "next": "bsm_5"
-      },
-      "bsm_5": {
-        "_vine": {
-          "x": 80,
-          "y": 240
-        },
-        "type": "npc_anchor",
-        "npc_id": "npc_narrator",
-        "next": "bsm_6"
-      },
-      "bsm_6": {
-        "_vine": {
-          "x": 300,
-          "y": 240
-        },
-        "type": "say",
-        "style": "narration",
-        "text": "Margaret, seventy-four, worked forty years so her family wouldn't have to worry.",
-        "next": "bsm_7"
-      },
-      "bsm_7": {
-        "_vine": {
-          "x": 520,
-          "y": 240
-        },
-        "type": "say",
-        "style": "narration",
-        "text": "Then she died anyway.",
-        "next": "bsm_8"
-      },
-      "bsm_8": {
-        "_vine": {
-          "x": 740,
-          "y": 240
-        },
-        "type": "say",
-        "style": "raw",
-        "text": "That's where NextLife™ comes in.",
-        "next": "bsm_9"
-      },
-      "bsm_9": {
-        "_vine": {
-          "x": 960,
-          "y": 240
-        },
-        "type": "camera_cut",
-        "label": "CAM — 2 — CLOSEUP",
-        "zone_id": "resurrection_pod",
-        "next": "bsm_10"
+        "next": "bsm_2",
+        "type": "event"
       },
       "bsm_10": {
         "_vine": {
           "x": 80,
           "y": 400
         },
-        "type": "say",
+        "next": "bsm_11",
         "style": "narration",
         "text": "The camera pulls back to reveal a gleaming reprint chamber, fogging gently at the seams.",
-        "next": "bsm_11"
+        "type": "say"
       },
       "bsm_11": {
         "_vine": {
           "x": 300,
           "y": 400
         },
-        "type": "say",
+        "next": "bsm_12",
         "style": "raw",
         "text": "For as little as forty credits a week, NextLife™ guarantees a full-body reprint within seventy-two hours of clinical death.",
-        "next": "bsm_12"
+        "type": "say"
       },
       "bsm_12": {
         "_vine": {
           "x": 520,
           "y": 400
         },
-        "type": "say",
+        "next": "bsm_13",
         "style": "raw",
         "text": "Same face. Similar personality. Legally, the same person.",
-        "next": "bsm_13"
+        "type": "say"
       },
       "bsm_13": {
         "_vine": {
           "x": 740,
           "y": 400
         },
-        "type": "say",
+        "next": "bsm_14",
         "style": "raw",
         "text": "Ask about our Basic, Premium, and \"Please Don't Let Them Know I'm Gone Yet\" tiers.",
-        "next": "bsm_14"
+        "type": "say"
       },
       "bsm_14": {
         "_vine": {
           "x": 960,
           "y": 400
         },
-        "type": "overlay",
-        "overlayType": "text_card",
-        "text": "STARTING AT 40₵/WEEK",
-        "subtext": "PREMIUMS CONTINUE AFTER DEATH VIA NEXT-OF-KIN GARNISHMENT",
         "graphic_id": "",
-        "next": "bsm_15"
+        "next": "bsm_15",
+        "overlayType": "text_card",
+        "subtext": "PREMIUMS CONTINUE AFTER DEATH VIA NEXT-OF-KIN GARNISHMENT",
+        "text": "STARTING AT 40₵/WEEK",
+        "type": "overlay"
       },
       "bsm_15": {
         "_vine": {
           "x": 80,
           "y": 560
         },
-        "type": "npc_action",
         "message": "cuts to a reprinted Margaret, waving stiffly from a factory floor",
-        "next": "bsm_16"
+        "next": "bsm_16",
+        "type": "npc_action"
       },
       "bsm_16": {
         "_vine": {
           "x": 300,
           "y": 560
         },
-        "type": "say",
+        "next": "bsm_17",
         "style": "raw",
         "text": "I died in a machining accident on a Tuesday. NextLife had me back at that same machine by Friday.",
-        "next": "bsm_17"
+        "type": "say"
       },
       "bsm_17": {
         "_vine": {
           "x": 520,
           "y": 560
         },
-        "type": "say",
+        "next": "bsm_18",
         "style": "narration",
         "text": "The clock behind her reads a date that does not quite match the one on her paperwork.",
-        "next": "bsm_18"
+        "type": "say"
       },
       "bsm_18": {
         "_vine": {
           "x": 740,
           "y": 560
         },
-        "type": "ticker",
+        "next": "bsm_19",
         "text": "NextLife™ is a resurrection-adjacent product, not a resurrection guarantee · Reprinted memories accurate to last successful backup, backups not guaranteed to be recent · Original body remains property of the estate until premiums are current · Garnishment continues for three (3) generations or until the debt is resolved, whichever the actuary prefers",
-        "next": "bsm_19"
+        "type": "ticker"
       },
       "bsm_19": {
         "_vine": {
           "x": 960,
           "y": 560
         },
-        "type": "event",
-        "event_type": "FADE_OUT"
+        "event_type": "FADE_OUT",
+        "type": "event"
+      },
+      "bsm_2": {
+        "_vine": {
+          "x": 520,
+          "y": 80
+        },
+        "graphic_id": "nextlife_logo",
+        "next": "bsm_3",
+        "type": "title_card"
+      },
+      "bsm_3": {
+        "_vine": {
+          "x": 740,
+          "y": 80
+        },
+        "next": "bsm_4",
+        "song": "nextlife_theme",
+        "text": "♪ A slow funereal organ hymn, played in a suspiciously cheerful major key. ♪",
+        "type": "music"
+      },
+      "bsm_4": {
+        "_vine": {
+          "x": 960,
+          "y": 80
+        },
+        "label": "CAM — 1 — WIDE",
+        "next": "bsm_5",
+        "type": "camera_cut",
+        "zone_id": "elderly_actor_set"
+      },
+      "bsm_5": {
+        "_vine": {
+          "x": 80,
+          "y": 240
+        },
+        "next": "bsm_6",
+        "npc_id": "npc_narrator",
+        "type": "npc_anchor"
+      },
+      "bsm_6": {
+        "_vine": {
+          "x": 300,
+          "y": 240
+        },
+        "next": "bsm_7",
+        "style": "narration",
+        "text": "Margaret, seventy-four, worked forty years so her family wouldn't have to worry.",
+        "type": "say"
+      },
+      "bsm_7": {
+        "_vine": {
+          "x": 520,
+          "y": 240
+        },
+        "next": "bsm_8",
+        "style": "narration",
+        "text": "Then she died anyway.",
+        "type": "say"
+      },
+      "bsm_8": {
+        "_vine": {
+          "x": 740,
+          "y": 240
+        },
+        "next": "bsm_9",
+        "style": "raw",
+        "text": "That's where NextLife™ comes in.",
+        "type": "say"
+      },
+      "bsm_9": {
+        "_vine": {
+          "x": 960,
+          "y": 240
+        },
+        "label": "CAM — 2 — CLOSEUP",
+        "next": "bsm_10",
+        "type": "camera_cut",
+        "zone_id": "resurrection_pod"
       }
     }
   },
@@ -203,6 +203,8 @@
   "description": "Life-insurance parody: a resurrection assurance plan that guarantees a cheap reprint body and a lifetime — technically posthumous-lifetime — of continued premiums.",
   "enabled": 1,
   "fallback_messages": [],
+  "film_meta": null,
+  "gameshow_pools": null,
   "id": "bc_commercial_nextlife",
   "loop": 0,
   "message_interval": 5,
@@ -240,6 +242,7 @@
   "news_pools": null,
   "override_duration": 30,
   "playback_mode": "scripted",
+  "sermon_pools": null,
   "sports_pools": null,
   "tags": [
     "commercial",

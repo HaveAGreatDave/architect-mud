@@ -1,0 +1,15 @@
+{
+  "actor_lines": [
+    "{actor} is [TOO LONG] for {target}'s mouth — [DEPTH DESCRIPTION], and they [GAG VERB]."
+  ],
+  "band": "tight",
+  "hole": "mouth",
+  "id": "mouth:tight",
+  "target_lines": [
+    "{actor} is [SIZE ADJECTIVE] for you. It [SENSATION VERB]s as they push, and you [REACTION]."
+  ],
+  "updated_at": "1785158642",
+  "zone_lines": [
+    "{target} [PAIN/PLEASURE VERB]s sharply as {actor} forces the last of it in."
+  ]
+}

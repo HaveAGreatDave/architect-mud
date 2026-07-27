@@ -10,8 +10,11 @@
 // Storage is one player_flag per known dish — `cookbook:<key>` holding the best
 // band that player has ever achieved on it. No new players column, no new table
 // (docs/architecture.md). 22 dishes is the ceiling on rows per player.
-import { query } from '../../server/models/db.js';
 import { registerAction } from '../../server/engine/actions.js';
+import {
+  getFlagsMulti, getFlagById, setFlagById, updateFlagById,
+  insertFlagIfAbsentById, clearFlagsIn,
+} from '../../server/engine/flags.js';
 import { DISHES } from './dishes.js';
 import { QUALITY_BANDS, bandIndex } from './profiles.js';
 import { KNOWN_RECIPE_BONUS, DISCOVERY_ATTEMPTS, DISCOVERY_MIN_BAND } from './config.js';
@@ -32,33 +35,30 @@ export const UNTRIED = 'untried';
 export const IP_FLAG = 'cook_ip_at';
 
 export async function cookbookState(playerId) {
-  const { rows } = await query(
-    `SELECT flag_key, flag_value FROM player_flags
-      WHERE player_id=$1 AND (flag_key LIKE $2 OR flag_key LIKE $3 OR flag_key = $4)`,
-    [playerId, `${FLAG_PREFIX}%`, `${PROGRESS_PREFIX}%`, IP_FLAG]
-  );
+  // Two prefixes + one exact key, still in ONE round trip — and none at all for a
+  // player whose flags are hydrated. Goes through the flag store so the cookbook
+  // can never read stale (see the write-funnel contract in engine/flags.js).
+  const found = await getFlagsMulti(playerId, {
+    prefixes: [FLAG_PREFIX, PROGRESS_PREFIX],
+    keys: [IP_FLAG],
+  });
   const known = new Map(), progress = new Map();
   let lastIpAt = 0;
-  for (const r of rows) {
-    if (r.flag_key === IP_FLAG) { lastIpAt = Number(r.flag_value) || 0; continue; }
-    if (r.flag_key.startsWith(FLAG_PREFIX)) {
-      const key = r.flag_key.slice(FLAG_PREFIX.length);
-      if (DISHES[key]) known.set(key, r.flag_value);
+  for (const [flagKey, flagValue] of found) {
+    if (flagKey === IP_FLAG) { lastIpAt = Number(flagValue) || 0; continue; }
+    if (flagKey.startsWith(FLAG_PREFIX)) {
+      const key = flagKey.slice(FLAG_PREFIX.length);
+      if (DISHES[key]) known.set(key, flagValue);
     } else {
-      const key = r.flag_key.slice(PROGRESS_PREFIX.length);
-      if (DISHES[key]) progress.set(key, Number(r.flag_value) || 0);
+      const key = flagKey.slice(PROGRESS_PREFIX.length);
+      if (DISHES[key]) progress.set(key, Number(flagValue) || 0);
     }
   }
   return { known, progress, lastIpAt };
 }
 
 export async function markRoutineIp(playerId, at = Date.now()) {
-  await query(
-    `INSERT INTO player_flags (player_id, flag_key, flag_value, updated_at)
-     VALUES ($1, $2, $3, EXTRACT(EPOCH FROM NOW()))
-     ON CONFLICT (player_id, flag_key) DO UPDATE SET flag_value=$3, updated_at=EXTRACT(EPOCH FROM NOW())`,
-    [playerId, IP_FLAG, String(at)]
-  );
+  await setFlagById(playerId, IP_FLAG, String(at));
 }
 
 // Everything this player knows: key -> best band.
@@ -80,22 +80,12 @@ export async function recordAttempt(playerId, key, band, soFar = 0) {
     return { learned: true, counted: true, count };
   }
 
-  await query(
-    `INSERT INTO player_flags (player_id, flag_key, flag_value, updated_at)
-     VALUES ($1, $2, $3, EXTRACT(EPOCH FROM NOW()))
-     ON CONFLICT (player_id, flag_key) DO UPDATE
-       SET flag_value=$3, updated_at=EXTRACT(EPOCH FROM NOW())`,
-    [playerId, PROGRESS_PREFIX + key, String(count)]
-  );
+  await setFlagById(playerId, PROGRESS_PREFIX + key, String(count));
   return { learned: false, counted: true, count };
 }
 
 export async function knowsRecipe(playerId, key) {
-  const { rows } = await query(
-    `SELECT 1 FROM player_flags WHERE player_id=$1 AND flag_key=$2`,
-    [playerId, FLAG_PREFIX + key]
-  );
-  return rows.length > 0;
+  return (await getFlagById(playerId, FLAG_PREFIX + key)) !== undefined;
 }
 
 // Write a dish into the cookbook, keeping the best band ever achieved. Returns
@@ -108,30 +98,22 @@ export async function learnRecipe(playerId, key, band = null) {
   if (!DISHES[key]) return { learned: false, band: null };
   const value = band && QUALITY_BANDS.includes(band) ? band : UNTRIED;
 
-  const [{ rows }] = await Promise.all([
-    query(
-      `INSERT INTO player_flags (player_id, flag_key, flag_value, updated_at)
-       VALUES ($1, $2, $3, EXTRACT(EPOCH FROM NOW()))
-       ON CONFLICT (player_id, flag_key) DO NOTHING
-       RETURNING flag_value`,
-      [playerId, FLAG_PREFIX + key, value]
-    ),
+  const [learned] = await Promise.all([
+    insertFlagIfAbsentById(playerId, FLAG_PREFIX + key, value),
     // However you came by it — repetition, a card, an NPC — the half-finished
     // tally has done its job and shouldn't linger.
-    query('DELETE FROM player_flags WHERE player_id=$1 AND flag_key=$2', [playerId, PROGRESS_PREFIX + key]),
+    clearFlagsIn(playerId, [PROGRESS_PREFIX + key]),
   ]);
-  return { learned: rows.length > 0, band: value };
+  return { learned, band: value };
 }
 
 // Raise the recorded band on a recipe already in the book. The caller decides
 // whether this is an improvement — it already holds the map it loaded, so this
 // costs a write and never a read.
 export async function improveRecipe(playerId, key, band) {
-  await query(
-    `UPDATE player_flags SET flag_value=$3, updated_at=EXTRACT(EPOCH FROM NOW())
-      WHERE player_id=$1 AND flag_key=$2`,
-    [playerId, FLAG_PREFIX + key, band]
-  );
+  // UPDATE-only by design: raising the band on a recipe already in the book must
+  // never mint a row for one that isn't.
+  await updateFlagById(playerId, FLAG_PREFIX + key, band);
 }
 
 // Is `band` better than what's on record for this recipe? `untried` loses to

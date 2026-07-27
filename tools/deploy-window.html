@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Architect — Next Deploy Window</title>
+<style>
+  :root {
+    --bg:#0b0f0d; --fg:#c8ffe0; --dim:#5c7f6d; --hot:#ffb347; --line:#1c2a22;
+  }
+  @media (prefers-color-scheme: light) {
+    :root { --bg:#f4f7f5; --fg:#12291d; --dim:#5c7f6d; --hot:#a85a00; --line:#d5e0d9; }
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+    background:var(--bg); color:var(--fg);
+    font-family:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace;
+    padding:24px;
+  }
+  main { width:100%; max-width:560px; }
+  h1 { font-size:.8rem; letter-spacing:.22em; text-transform:uppercase; color:var(--dim); margin:0 0 18px; font-weight:400; }
+  #clock { font-size:clamp(2.6rem,14vw,4.6rem); line-height:1; letter-spacing:.02em; margin:0; font-variant-numeric:tabular-nums; }
+  #clock.soon { color:var(--hot); }
+  #target { margin:14px 0 26px; color:var(--dim); font-size:.9rem; }
+  table { width:100%; border-collapse:collapse; font-size:.82rem; }
+  td { padding:7px 0; border-top:1px solid var(--line); vertical-align:top; }
+  td:first-child { color:var(--dim); width:11ch; padding-right:14px; }
+  footer { margin-top:22px; color:var(--dim); font-size:.75rem; line-height:1.55; }
+  code { background:rgba(128,128,128,.16); padding:1px 5px; border-radius:3px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Next deploy window</h1>
+  <p id="clock">--:--:--</p>
+  <p id="target"></p>
+  <table>
+    <tr><td>Cadence</td><td>every 2 h, on the even UTC hour (<code>0 */2 * * *</code>)</td></tr>
+    <tr><td>Now (UTC)</td><td id="utcnow"></td></tr>
+    <tr><td>Now (local)</td><td id="localnow"></td></tr>
+    <tr><td>Upcoming</td><td id="upcoming"></td></tr>
+  </table>
+  <footer>
+    A push only runs the regress gate — the deploy is batched onto this window.
+    Force it now with <code>[deploy]</code> in the commit message, or Actions →
+    deploy-content → Run workflow. A scheduled run <em>skips</em> if HEAD's sha is
+    already the live deployment. GitHub's scheduler routinely lags the cron time by
+    several minutes under load, so treat this as the earliest possible start.
+  </footer>
+</main>
+<script>
+const pad = n => String(n).padStart(2,'0');
+
+function nextWindow(now) {
+  const d = new Date(now);
+  d.setUTCMinutes(0,0,0);
+  d.setUTCHours(d.getUTCHours() + (d.getUTCHours() % 2 === 0 ? 2 : 1));
+  return d;
+}
+
+function fmtLocal(d) {
+  return d.toLocaleString([], { weekday:'short', hour:'2-digit', minute:'2-digit' });
+}
+
+function tick() {
+  const now = new Date();
+  const next = nextWindow(now);
+  let ms = next - now;
+  if (ms < 0) ms = 0;
+
+  const h = Math.floor(ms / 3600000);
+  const m = Math.floor(ms % 3600000 / 60000);
+  const s = Math.floor(ms % 60000 / 1000);
+
+  const clock = document.getElementById('clock');
+  clock.textContent = `${pad(h)}:${pad(m)}:${pad(s)}`;
+  clock.classList.toggle('soon', ms < 10 * 60000);
+
+  document.getElementById('target').textContent =
+    `${pad(next.getUTCHours())}:00 UTC — ${fmtLocal(next)} your time`;
+  document.getElementById('utcnow').textContent =
+    `${now.toISOString().slice(0,10)} ${pad(now.getUTCHours())}:${pad(now.getUTCMinutes())}:${pad(now.getUTCSeconds())}`;
+  document.getElementById('localnow').textContent = now.toLocaleTimeString();
+
+  const soon = [];
+  for (let i = 0, d = next; i < 4; i++, d = nextWindow(d)) {
+    soon.push(`${pad(d.getUTCHours())}:00Z (${d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})})`);
+  }
+  document.getElementById('upcoming').textContent = soon.join(' · ');
+
+  document.title = `${pad(h)}:${pad(m)} → deploy`;
+}
+
+tick();
+setInterval(tick, 1000);
+</script>
+</body>
+</html>

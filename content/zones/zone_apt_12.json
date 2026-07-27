@@ -9,7 +9,8 @@
   "created_by": null,
   "description": "Number 3D, last door on the top floor. Half the light fixtures are gone, wires capped and hanging, but a portable lamp does the job. A wide bed under the window, a wardrobe with a mirror gone black at the edges, and a strange, welcome quiet — you're as far from the bar as the building gets. The kind of room you disappear into.",
   "exits": {
-    "east": "zone_embassy_floor3"
+    "east": "zone_embassy_floor3",
+    "in": "zone_apt_12_bath"
   },
   "flags": {
     "is_apartment": true

@@ -98,11 +98,16 @@ export async function recomputeArmor(player, rows = null) {
   player.soak = bySlot;
 }
 
+// The slots acid rain can actually land on. Hands are omitted deliberately —
+// gloves are common enough that including them would make full cover trivial.
+const ACID_SLOTS = ['head', 'torso', 'legs', 'feet'];
+
 export async function recomputeInsulation(player, rows = null) {
   if (!rows) ({ rows } = await query(`SELECT i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.is_equipped=1`, [player.id]));
   let total = 0;
   let sealed = false;
   const covered = new Set();
+  const shed = new Set();
   for (const r of rows) {
     total += tagValue(r, 'insulation', 0) || 0;
     if (hasTag(r, 'sealed')) sealed = true;   // respirator/mask — blocks ash choking
@@ -111,11 +116,21 @@ export async function recomputeInsulation(player, rows = null) {
     // A `covers` garment (e.g. a jumpsuit) counts its extra slots as clothed too.
     const covers = tagValue(r, 'covers');
     if (Array.isArray(covers)) for (const c of covers) covered.add(c);
+    // Acid protection is COVERAGE-based, not any-one-item like `sealed`: a
+    // waterproof garment only shields the skin it actually sits over.
+    if (hasTag(r, 'waterproof')) {
+      if (slot) shed.add(slot);
+      if (Array.isArray(covers)) for (const c of covers) shed.add(c);
+    }
   }
   player.insulation = total;
   // Whether any equipped item seals the airway (gas mask / respirator). Read by the
   // ashfall breathing hazard in gameLoop's resourceTick. See systems-weather-extreme.md.
   player.sealed = sealed;
+  // Fraction of the exposed body shielded from falling acid (0..1). Full cover is
+  // immunity; anything less scales the burn. Read by the acid-rain hazard in
+  // gameLoop's resourceTick. See systems-weather-extreme.md.
+  player.acidCover = ACID_SLOTS.reduce((n, s) => n + (shed.has(s) ? 1 : 0), 0) / ACID_SLOTS.length;
   // Bare core skin sheds heat fast, so nakedness makes the cold genuinely bite.
   // Torso dominates (the body defends the core hardest); legs are secondary.
   // Applied only to the cooling side of the body-temp tick (see gameLoop.js) —
@@ -126,10 +141,42 @@ export async function recomputeInsulation(player, rows = null) {
 // Armor and insulation derive from the same equipped-rows set and are always
 // needed together — one fetch feeding both, instead of the identical query
 // issued back-to-back at every equip/unequip/undress/login.
+// Gear that DULLS a sense, cached on the live player the same way armor and
+// insulation are. `smell` is a spammable verb and acuity is read on every use,
+// so this can never be a query in that path — it's recomputed here, on the one
+// funnel every equip/unequip already goes through.
+//
+// The trade is the entire point. A respirator can't be worn to be safe for free:
+// it raises the strength something needs to blow your nose out, and it lowers
+// what you can perceive by exactly the same amount. Protection and perception
+// are the same dial turned opposite ways.
+export function recomputeSenseDamp(player, rows) {
+  const damp = {};
+  for (const r of rows) {
+    const map = r?.tags?.sense_damp;
+    if (!map || typeof map !== 'object') continue;
+    for (const [sense, v] of Object.entries(map)) {
+      const n = Number(v);
+      if (Number.isFinite(n) && n) damp[sense] = (damp[sense] || 0) + n;
+    }
+  }
+  player._senseDamp = Object.keys(damp).length ? damp : null;
+}
+
 export async function recomputeEquipped(player) {
-  const { rows } = await query(`SELECT i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.is_equipped=1`, [player.id]);
+  // `pi.id`/`pi.slot`/`pi.condition` ride along on a query that already runs, so
+  // combat can wear the struck piece from memory instead of looking it up per
+  // hit (server/engine/durability.js — wear is on the hot path and cannot query).
+  const { rows } = await query(
+    `SELECT i.tags, i.value, i.name, pi.id AS inv_id, pi.slot, pi.condition, pi.item_id
+       FROM player_inventory pi JOIN items i ON i.id=pi.item_id
+      WHERE pi.player_id=$1 AND pi.is_equipped=1`, [player.id]);
+  // Slot -> the worn row occupying it. Rebuilt on every equip/unequip, which is
+  // the only way the set can change, so it can never go stale behind our back.
+  player._wornRows = new Map(rows.filter(r => r.slot).map(r => [r.slot, r]));
   await recomputeArmor(player, rows);
   await recomputeInsulation(player, rows);
+  recomputeSenseDamp(player, rows);
 }
 
 async function cmdInventory(player) {
@@ -194,6 +241,7 @@ async function cmdGear(player) {
   const effects = {
     insulation: player.insulation || 0,
     sealed: !!player.sealed,
+    acidCover: player.acidCover || 0,
     exposurePenalty: player.exposurePenalty || 0,
     stat_bonus: {},
   };
@@ -627,8 +675,14 @@ export async function applyItemUse(player, item, broadcast, opts = {}) {
   const rest = cd?.rests ? (await fireHook('cooking.restMultiplier', cd, player)) || 1 : 1;
   const qm = (COOK_QUALITY_MULT[cd?.cook_quality] ?? 1) * portion * dishYield * rest;
   if (cd?.cook_quality) {
-    const done = cd.doneness ? `${cd.doneness[0].toUpperCase()}${cd.doneness.slice(1)}, ` : '';
-    messages.push(`<span class="text-dim">${done}${done ? cd.cook_quality : `${cd.cook_quality[0].toUpperCase()}${cd.cook_quality.slice(1)}`}, this one.</span>`);
+    // Nine quality bands are only worth having if a player can FEEL the
+    // difference between two of them. The cooking plugin turns what's stamped on
+    // the plate into what it's like in the mouth.
+    const flavour = (await fireHook('cooking.flavour', cd, player)) || [];
+    for (const line of flavour) messages.push(`<span class="text-dim">${line}</span>`);
+    if (!flavour.length) {
+      messages.push(`<span class="text-dim">${cd.cook_quality[0].toUpperCase()}${cd.cook_quality.slice(1)}, this one.</span>`);
+    }
   }
   const hp = Math.round((t.restore_hp || 0) * qm);
   const hunger = Math.round((t.restore_hunger || 0) * qm);

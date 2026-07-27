@@ -7,6 +7,7 @@
       "npc_am_dorn"
     ]
   },
+  "days": 127,
   "duration_override": 7200,
   "id": "1fe33845-2fba-4430-b70b-8fec0b043053",
   "priority": 0,

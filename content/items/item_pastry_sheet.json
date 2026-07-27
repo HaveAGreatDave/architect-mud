@@ -4,15 +4,15 @@
   "id": "item_pastry_sheet",
   "name": "pastry sheet",
   "tags": {
-    "description": "A cold folded slab of laminated dough, greasy to the touch through its wrap. Handle it warm and it dies. Handle it right and it comes out in leaves.",
     "consumable": true,
-    "restore_hunger": 14,
-    "stackable": true,
-    "food_profile": "batter",
+    "description": "A cold folded slab of laminated dough, greasy to the touch through its wrap. Handle it warm and it dies. Handle it right and it comes out in leaves.",
     "food_noun": "pastry",
+    "food_profile": "batter",
     "needs_cooking": true,
     "perishable": true,
+    "restore_hunger": 14,
     "spoil_rate": "normal",
+    "stackable": true,
     "status_chance": {
       "food_poisoning": 0.3
     }

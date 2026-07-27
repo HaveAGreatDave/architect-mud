@@ -14,7 +14,9 @@ import {
 	getZoneVisibility,
 	getWindowsForZone,
 	getWeatherDescription,
+	shiftVisibility,
 } from "../environment.js";
+import { acuitySync } from "../senses.js";
 import { getCustodianOutcastResponse } from "../mutations.js";
 import { allExits } from "../exits.js";
 import { districtFor } from "../districts.js";
@@ -365,6 +367,19 @@ export async function describeZone(zone, player, out = {}) {
 		vis.category = perceived.category;
 		vis.visibility = perceived.visibility;
 	}
+	// SIGHT ACUITY, applied after the light-source hook rather than inside it —
+	// `fireHook` keeps only the last handler's answer, so a keen-eyed player
+	// holding a flashlight would otherwise get one or the other. Applied here it
+	// is a relative shift on whatever the light already achieved, so the two
+	// compose: the torch raises the room, the eye raises it one further.
+	//
+	// Read synchronously on purpose. This is the every-move path.
+	const sight = acuitySync(player, "sight");
+	if (sight) {
+		const shifted = shiftVisibility(vis, Math.round(sight));
+		vis.category = shifted.category;
+		vis.visibility = shifted.visibility;
+	}
 	out.vis = vis;
 	if (vis.category === "pitch_dark") {
 		const windows = getWindowsForZone(zone.id);
@@ -611,6 +626,10 @@ export async function describeZone(zone, player, out = {}) {
 				n > 1
 					? `There are dried white stains on the floor. Several of them.`
 					: `There's a dried white stain on the floor.`,
+			vomit: (n) =>
+				n > 1
+					? `Somebody has been very sick in here, more than once. The smell gets into your throat.`
+					: `There's a splash of sick against the wall and across the floor.`,
 		};
 		for (const [type, count] of stainEntries) {
 			const fn = ZONE_STAIN_DESCS[type];

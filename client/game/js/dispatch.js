@@ -31,6 +31,7 @@ import { openPirateConsole, closePirateConsole } from './panels/piratedeck.js';
 import { openFishing, armFishFight } from './panels/fishing.js';
 import { abortMacros } from './panels/smartbar-macros.js';
 import { offerInterfaceTour, startInterfaceTour } from './panels/tour.js';
+import { playIntroCinematic } from './panels/intro-cinematic.js';
 import { updateCockpit, closeCockpit, cabinAudio, openTakeoff, openGlideslope, openTargeting, openFlightSim, flightSimContext, flightSimContacts, flightSimAASites, flightSimAirHit, flightSimKill, flightSimAaTracer, flightSimAirThreat, flightSimFireworks, flightSimLightning, isFlightSimActive, isCockpitHudActive } from './panels/cockpit.js';
 import { openHelm, closeHelm, isHelmActive, helmSetSky, helmSetWorld, helmSetContacts, helmEndTransit, helmBeginTransit } from './panels/helm-mode.js';
 import { setYachtAmbience, yachtUnderway, yachtSettled } from './panels/yacht-ambience.js';
@@ -283,6 +284,10 @@ const handlers = {
   point_at: (msg) => { pointAtRoomTarget(msg.action, msg.target); },
   // Onboarding (prologue plugin): ask a first-time player whether they've played
   // a text game before, and — if not — walk them round the interface.
+  // The cold open, before anything else the prologue has to say. The server is
+  // deliberately holding the arrival prose and the tour offer until we echo back
+  // `introdone` — on the last beat OR on a skip, whichever comes first.
+  intro_cinematic: () => { playIntroCinematic(() => sendCmdSilent('introdone')); },
   tour_offer: () => { offerInterfaceTour(); },
   tour_start: () => { startInterfaceTour(); },
   sleep: (msg) => { appendHtml(msg.message, 'system'); },
@@ -323,7 +328,11 @@ const handlers = {
   accolade_unlocked: (msg) => { showAccoladeUnlock(msg); },
   emote: (msg) => {
     const el = appendHtml(msg.message, 'zone-event');
+    // `butcherMs` also closes the loot panel (you're carving the corpse it was
+    // showing); `progressMs` is the generic countdown any timed activity can
+    // ask for — crafting uses it, and combat already sends it on its own type.
     if (msg.butcherMs) { closeLootPanel(); attachInlineProgress(el, msg.butcherMs); }
+    else if (msg.progressMs && el) attachInlineProgress(el, msg.progressMs);
   },
   say: (msg) => { appendMsg(msg.message, 'say'); },
 
@@ -912,6 +921,13 @@ const handlers = {
 
   audio_music: (msg) => { window.AudioEngine?.playMusic(msg.def, { restartIfSame: false }); },
   audio_sfx: (msg) => { console.log('[audio] sfx received', msg.def?.id, msg.def?.name, 'gain', msg.gain ?? 1); window.AudioEngine?.playSfx(msg.def, (msg.gain ?? 1) * GAME_SFX_GAIN); },
+  // Procedural cue: the server sent PARAMETERS and a seed, not layers. We build
+  // the sound here from the shared generator — same seed, same field, ~100 bytes
+  // on the wire instead of the several KB a serialised burst field costs.
+  audio_sfx_proc: (msg) => {
+    const def = window.ProceduralSFX?.buildCookingCue(msg.params || {});
+    if (def) window.AudioEngine?.playSfx(def, (msg.gain ?? 1) * GAME_SFX_GAIN);
+  },
   audio_sample: (msg) => { console.log('[audio] sample received', msg.def?.id, msg.def?.name); window.AudioEngine?.playSample(msg.def); },
   audio_ambience: (msg) => { window.AudioEngine?.loopSound(msg.def); },
   audio_loop_gain: (msg) => { window.AudioEngine?.setLoopGain(msg.id, msg.gain, msg.ramp ?? 0.4); },

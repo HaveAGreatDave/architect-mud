@@ -7,6 +7,7 @@ import { fireHook } from './plugins.js';
 import { getZoneProtection } from './protection.js';
 import { query } from '../models/db.js';
 import { getEquippedWeapon } from './inventory.js';
+import { wear, WEAR_EVENTS, conditionPenalty, announceWear } from './durability.js';
 import { BASE_ATTACK_MS, hitBonus, defenseBonus, swingInterval, consumeDodge, swingVerb, missLine } from './stance.js';
 
 // A power attack (`pow`) multiplies the rolled damage after crit and before the
@@ -323,9 +324,46 @@ function resolveSoak(soakMap, damageType) {
 
 // Total soak for a player on the struck part: typed armor_soak on that slot.
 function playerPartSoak(player, part, damageType) {
-  const entry = player.soak?.[PART_TO_SLOT[part]];
+  const slot = PART_TO_SLOT[part];
+  const entry = player.soak?.[slot];
   if (!entry) return 0;
-  return resolveSoak(entry.soak, damageType);
+  // Condition is what makes wearing out MATTER: battered armour soaks less and
+  // broken armour soaks nothing. Read from the worn row the live player already
+  // caches — zero queries, same hot path as the wear accrual above.
+  const worn = player._wornRows?.get(slot);
+  const scale = worn ? conditionPenalty({ ...worn, _wearPending: player._wearPending?.get(worn.inv_id) }) : 1;
+  return Math.floor(resolveSoak(entry.soak, damageType) * scale);
+}
+
+// ── Wear (server/engine/durability.js) ───────────────────────────────────────
+//
+// Both helpers are SYNCHRONOUS and query-free by contract: they read rows the
+// live player already caches (`_wornRows` from recomputeEquipped, `_equippedWeapon`
+// from getEquippedWeapon) and accrue into an in-memory map the game loop flushes.
+// A band change is announced ONCE, here, rather than every swing.
+// (announceWear now lives in durability.js — acid rain announces the same way.)
+
+// The armour that actually absorbed the blow — not every worn piece. Getting hit
+// in the leg does nothing to your helmet.
+function wearStruckArmor(player, part) {
+  const row = player?._wornRows?.get(PART_TO_SLOT[part]);
+  if (!row) return;
+  announceWear(player, row, wear(player, row, WEAR_EVENTS.taken, 'combat:taken'));
+}
+
+// The weapon that landed the blow. Fists have no row, so unarmed costs nothing.
+// A battered weapon hits softer; a broken one is no better than your fists.
+// Same cached row the wear accrual uses — no query.
+function weaponScale(player) {
+  const row = player?._equippedWeapon?.row;
+  if (!row) return 1;
+  return conditionPenalty({ ...row, _wearPending: player._wearPending?.get(row.inv_id) });
+}
+
+function wearHeldWeapon(player) {
+  const row = player?._equippedWeapon?.row;
+  if (!row) return;
+  announceWear(player, row, wear(player, row, WEAR_EVENTS.swing, 'combat:swing'));
 }
 
 // Per-part hit weights from a monster's body_parts (array of {part,weight,soak}).
@@ -403,6 +441,7 @@ export async function playerAttackEnemy(player, enemyInstanceId, weaponStats) {
     };
   }
 
+  wearHeldWeapon(player);   // the swing landed — the weapon that landed it wears
   const critThreshold = getTunable('crit_threshold', 8);
   const critMultiplier = getTunable('crit_multiplier', 1.5);
   const critical = margin >= critThreshold;
@@ -411,6 +450,7 @@ export async function playerAttackEnemy(player, enemyInstanceId, weaponStats) {
   const damage_max = weaponStats?.damage_max || 5;
   const damageType = weaponStats?.damage_type || 'kinetic';
   let damage = randInt(damage_min, damage_max);
+  damage = Math.max(1, Math.round(damage * weaponScale(player)));
   if (critical) damage = Math.floor(damage * critMultiplier);
   if (power) damage = Math.floor(damage * POW_DAMAGE_MULT);
 
@@ -506,6 +546,7 @@ export async function enemyAttackPlayer(enemy, player) {
     amt = Math.floor(amt * headMult);
     total += Math.max(0, amt - playerPartSoak(player, part, c.type));
   }
+  wearStruckArmor(player, part);
   const damage = Math.max(1, total);
   const partLabel = PART_LABELS[part] || part;
   // player.hp is still pre-damage here; gameLoop decrements it after this
@@ -602,6 +643,7 @@ export async function applyStrikeToPlayer(player, { min, max, damageType = 'kine
   let damage = randInt(min, max);
   if (part === 'head') damage = Math.floor(damage * getTunable('head_damage_multiplier', 1.5));
   damage = Math.max(1, damage - playerPartSoak(player, part, damageType));
+  wearStruckArmor(player, part);
   const before = player.hp ?? player.hp_max ?? 100;
   player.hp = Math.max(0, before - damage);
   player._resDirty = true; // coalesced into the 1s flushDirtyResources write
@@ -664,16 +706,20 @@ export async function pvpSwing(attacker, defender) {
     };
   }
 
+  wearHeldWeapon(player);   // the swing landed — the weapon that landed it wears
   const critical = margin >= getTunable('crit_threshold', 8);
   const part = rollBodyPart();
   const partLabel = PART_LABELS[part] || part;
   const headMult = part === 'head' ? getTunable('head_damage_multiplier', 1.5) : 1;
 
   let damage = randInt(damage_min, damage_max);
+  damage = Math.max(1, Math.round(damage * weaponScale(attacker)));
   if (critical) damage = Math.floor(damage * getTunable('crit_multiplier', 1.5));
   if (power) damage = Math.floor(damage * POW_DAMAGE_MULT);
   damage = Math.floor(damage * headMult);
   damage = Math.max(1, damage - playerPartSoak(defender, part, damageType));
+  wearStruckArmor(defender, part);
+  wearHeldWeapon(attacker);
 
   const defHpBefore = defender.hp ?? defender.hp_max ?? 100;
   defender.hp = Math.max(0, defHpBefore - damage);

@@ -163,17 +163,22 @@ function _vsFrontHtml() {
         </div>
       </div>`;
   }).join('');
+  // Family cards + the master filter stay pinned to the top of the panel — the
+  // "All graphs" list below them is long, and you shouldn't have to scroll back
+  // up to hop into another family.
   return `
-    <div style="padding:10px 2px 14px">
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px">
-        ${cards}
+    <div style="padding:0 2px 14px">
+      <div class="panel-sticky-head" style="padding:10px 0 8px;background:var(--bg)">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px">
+          ${cards}
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;margin:14px 0 4px;flex-wrap:wrap">
+          <span style="font-size:12px;font-weight:bold;letter-spacing:1px;color:var(--text-dim);text-transform:uppercase">All graphs</span>
+          <input id="vine-master-search" placeholder="Filter every graph…" oninput="vsRenderMasterList()"
+            style="flex:1;min-width:200px;background:var(--bg2);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:5px 9px;border-radius:3px">
+        </div>
       </div>
-      <div style="display:flex;align-items:center;gap:10px;margin:20px 0 10px;flex-wrap:wrap">
-        <span style="font-size:12px;font-weight:bold;letter-spacing:1px;color:var(--text-dim);text-transform:uppercase">All graphs</span>
-        <input id="vine-master-search" placeholder="Filter every graph…" oninput="vsRenderMasterList()"
-          style="flex:1;min-width:200px;background:var(--bg2);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:5px 9px;border-radius:3px">
-      </div>
-      <div id="vine-master-body"></div>
+      <div id="vine-master-body" style="margin-top:10px"></div>
     </div>`;
 }
 
@@ -222,8 +227,8 @@ function vsRenderMasterList() {
 function _vsExistingHtml() {
   const fam = VINE_FAMILIES[_vsActiveFamily];
   return `
-    <div style="padding:6px 2px 14px">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+    <div style="padding:0 2px 14px">
+      <div class="panel-sticky-head" style="display:flex;align-items:center;gap:10px;padding:6px 0 10px;background:var(--bg);flex-wrap:wrap">
         <button class="action-btn" onclick="vsBackToFront()">← Back</button>
         <span style="font-size:13px;font-weight:bold;color:${fam.color};letter-spacing:1px">${fam.icon} ${fam.label}</span>
         <input id="vine-index-search" placeholder="Filter…" oninput="vsRenderExisting()"

@@ -130,7 +130,9 @@
     "\"Big scores get you killed. A working flashlight gets you home.\"",
     "\"Prices are honest. Out here that counts as a miracle.\"",
     "\"Buy a bandage now or buy a coffin later. I don’t sell coffins.\"",
-    "\"Got rods in, and worms to go on ’em. Docks are lousy with fish — and fish don’t shoot back.\""
+    "\"Got rods in, and worms to go on ’em. Docks are lousy with fish — and fish don’t shoot back.\"",
+    "\"That rig on the wall's a dead lock and a dartboard scoreboard. Practise on it all you like. Costs you nothing but whatever your deck's got left in it.\"",
+    "\"I stock the cheap decks, and I'll tell you straight: they're bad. Two, three bad nights and it's slag. That's the price of learning on something that isn't an ATM.\""
   ],
   "description": "A broad, unhurried man in a patched vendor’s apron, planted behind a counter of scavenged crates in the cramped front room of his shop. Flashlights and coils of spare cells hang off every nail within reach. He watches the door the way a fisherman watches a net — patient, and already pricing whoever walks through it.",
   "dialogue_tree": {
@@ -485,7 +487,10 @@
       "a padded work jacket gone shiny at the elbows",
       "a faded thermal shirt and boxers"
     ],
-    "personality": "vendor"
+    "personality": "vendor",
+    "purchase_remarks": {
+      "item_pry_deck": "slides the deck across the crates and does not quite let go of it. \"Now. I'm legally obliged to tell you that's for authorised diagnostic work only.\" He lets go. \"And there's a rig on that wall behind you that isn't attached to anything, isn't owned by anybody, and doesn't call the police. Purely decorative. Terrible waste, really — a man could learn a lot off a thing like that and nobody the wiser.\" He goes back to sorting cells. \"Anyway. Don't go near the cash machines till you're good. They bite.\""
+    }
   },
   "home_activities": [],
   "home_zone": "zone_twocell_interior",
@@ -526,6 +531,11 @@
       "item_id": "item_padded_jacket",
       "price": 60,
       "stock": 6
+    },
+    {
+      "item_id": "item_kevlar_raincoat",
+      "price": 180,
+      "stock": 3
     },
     {
       "item_id": "item_bump_cap",
@@ -616,6 +626,35 @@
       "item_id": "item_mining_pick",
       "price": 55,
       "stock": 4
+    },
+    {
+      "item_id": "item_foam_earplugs",
+      "price": 9,
+      "stock": 30
+    },
+    {
+      "item_id": "item_nose_plugs",
+      "price": 11,
+      "stock": 30
+    },
+    {
+      "item_id": "item_ear_defenders",
+      "price": 55,
+      "stock": 6
+    },
+    {
+      "item_id": "item_respirator_mask",
+      "price": 70,
+      "stock": 5
+    },
+    {
+      "item_id": "item_gun_oil_kit",
+      "price": 30
+    },
+    {
+      "item_id": "item_pry_deck",
+      "price": 95,
+      "stock": 3
     }
   ],
   "vendor_restock_rate": 1,

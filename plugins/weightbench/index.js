@@ -26,8 +26,8 @@
 // more. No refund, no soft cap — your XP is the ceiling.
 
 import { query } from '../../server/models/db.js';
-import { getAllLivePlayers, getLivePlayer } from '../../server/engine/world.js';
-import { schedule } from '../../server/engine/scheduler.js';
+import { getLivePlayer } from '../../server/engine/world.js';
+import { registerActivity } from '../../server/engine/activity-tick.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { on } from '../../server/engine/events.js';
 import { getPosture, setPosture, forceStand } from '../../server/engine/posture.js';
@@ -124,31 +124,21 @@ async function runSet(player, st, nowMs) {
 
 // ── Tick ───────────────────────────────────────────────────────────────────────
 
-let ticking = false;
-async function workoutTick() {
-  if (ticking) return;
-  ticking = true;
-  try {
-    const nowMs = Date.now();
-    for (const player of getAllLivePlayers()) {
-      const st = player.workoutState;
-      if (getPosture(player) === 'working_out') {
-        if (!st) continue;
-        if (nowMs - st.lastSet < (STATIONS[st.station] || STATIONS.lift).setMs) continue;
-        await runSet(player, st, nowMs);
-      } else if (st) {
-        // Posture was cleared out from under us (moved / attacked / stood). Clean up.
-        const cur = getLivePlayer(player.id);
-        if (cur) delete cur.workoutState;
-        out(player.id, 'You break off your workout.');
-      }
-    }
-  } finally {
-    ticking = false;
-  }
-}
+registerActivity({
+  posture: 'working_out',
+  stateKey: 'workoutState',
+  onTick: async (player, st, nowMs) => {
+    if (nowMs - st.lastSet < (STATIONS[st.station] || STATIONS.lift).setMs) return;
+    await runSet(player, st, nowMs);
+  },
+  // Posture was cleared out from under us (moved / attacked / stood). Clean up.
+  onAbandon: (player) => {
+    const cur = getLivePlayer(player.id);
+    if (cur) delete cur.workoutState;
+    out(player.id, 'You break off your workout.');
+  },
+});
 
-schedule('1s', () => workoutTick().catch(e => console.error('[weightbench] tick error:', e.message)));
 
 // The unified STOP command halts the workout like any other repeating action.
 on('player.stop', ({ player, stopped }) => {

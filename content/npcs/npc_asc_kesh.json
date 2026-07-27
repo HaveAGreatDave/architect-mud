@@ -24,6 +24,34 @@
       "options": [],
       "text": "\"Come back when you're ready to upgrade.\" She's already prepping the chair for someone else."
     },
+    "codex_designs": {
+      "actions": [
+        {
+          "action": "CODEX_UNLOCK",
+          "chapter": "chrome"
+        }
+      ],
+      "options": [
+        {
+          "label": "What aren’t you telling me?",
+          "next": "codex_drift"
+        },
+        {
+          "label": "Fair enough.",
+          "next": "root"
+        }
+      ],
+      "text": "The ocular stops whirring. It is the first time she has been entirely still.\n\n\"Honest answer? I don't know, and neither does anyone who tells you they do.\" She turns a chromed hand over, considering it. \"The units arrive with documentation nobody wrote. They calibrate to a nervous system in under a minute. That used to take a research team ten years and a great deal of screaming — I know, I read the papers, back when there were papers.\" A shrug that costs her something. \"I fit them. They work. They work better than the arm. I have decided that is enough, and I have decided it on purpose, which is different from not noticing.\""
+    },
+    "codex_drift": {
+      "options": [
+        {
+          "label": "(say nothing)",
+          "next": "root"
+        }
+      ],
+      "text": "\"The drift.\" She says it flatly, a diagnosis. \"Ask anyone deep in the chrome. There's a point where a replaced hand stops being a thing you move and becomes a thing that moves. Fractionally early. Fractionally right.\" The ocular whirs back to life. \"Nothing on the readouts. Latency, we call it. Latency.\"\n\nShe preps the chair for the next patient. \"It fits perfectly. That's the part nobody forgives.\""
+    },
     "how": {
       "options": [
         {
@@ -38,6 +66,10 @@
         {
           "label": "How does this work?",
           "next": "how"
+        },
+        {
+          "label": "Where do the designs come from?",
+          "next": "codex_designs"
         },
         {
           "label": "Just browsing.",

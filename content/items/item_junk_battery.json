@@ -1,13 +1,13 @@
 {
+  "description": "A bank of cells cable-tied into a brick and wrapped in three kinds of tape. It holds a charge. It also gets warm, and the man who sold it to you was very clear that those two facts are related and that he doesn't want to discuss it further.",
   "flags": {},
   "id": "item_junk_battery",
   "name": "salvaged cell block",
-  "description": "A bank of cells cable-tied into a brick and wrapped in three kinds of tape. It holds a charge. It also gets warm, and the man who sold it to you was very clear that those two facts are related and that he doesn't want to discuss it further.",
-  "type": "misc",
-  "value": 75,
-  "weight": 4100,
   "tags": {
     "description": "A bank of cells cable-tied into a brick and wrapped in three kinds of tape. It holds a charge. It also gets warm, and the man who sold it to you was very clear that those two facts are related and that he doesn't want to discuss it further.",
     "misc": true
-  }
+  },
+  "type": "misc",
+  "value": 75,
+  "weight": 4100
 }

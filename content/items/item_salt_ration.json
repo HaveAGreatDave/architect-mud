@@ -4,12 +4,12 @@
   "id": "item_salt_ration",
   "name": "salt packet",
   "tags": {
-    "description": "A ration-issue sachet of coarse grey salt, printed with a serial and a daily allowance nobody observes. The oldest technology in the kitchen and still the one that decides everything.",
     "consumable": true,
-    "restore_hunger": 0,
-    "stackable": true,
+    "description": "A ration-issue sachet of coarse grey salt, printed with a serial and a daily allowance nobody observes. The oldest technology in the kitchen and still the one that decides everything.",
+    "food_noun": "salted",
     "food_profile": "aromatic",
-    "food_noun": "salted"
+    "restore_hunger": 0,
+    "stackable": true
   },
   "type": "consumable",
   "value": 2,

@@ -176,9 +176,28 @@ Represents one NPC beat: what the NPC says, what options the player can pick, an
       // 'next' is NOT stored here — it's a VINE edge
     }
   ],
-  actions: []            // actions that fire when this node is entered
+  actions: [],           // actions that fire when this node is entered
+  text_by_relation: {}   // OPTIONAL warmth-specific variants — see below
 }
 ```
+
+**`text_by_relation`** keys node text by relationship tier (`stranger` `known` `familiar` `close`
+`wary` `hostile` — see [systems-relationships.md](systems-relationships.md)). Each value is a string
+or an array of interchangeable lines, exactly like `text`.
+
+```js
+text: "State your business.",
+text_by_relation: { known: "You again. Sit.", close: ["Door's always open for you."] }
+```
+
+**Nothing is required and everything falls back.** An unauthored node, an unauthored tier, or a
+player this NPC has never met all land on the node's ordinary `text` — which is why the substrate
+shipped across every existing NPC without editing one tree. A missing tier walks *toward neutral*
+and takes the first authored line on the way, so a `close`-only NPC still reads as authored at
+`familiar`, and a hostile player never inherits the line written for a friend.
+
+**Gating an option on a relationship** needs no editor change — the conditions field is raw JSON:
+`[{ "relation": "known" }]`. `npc` defaults to whoever is speaking.
 
 **Out ports:** one port per option (`opt_0`, `opt_1`, …). If there are no options, a single `fallthrough` port is shown.
 

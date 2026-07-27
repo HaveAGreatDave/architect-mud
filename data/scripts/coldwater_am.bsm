@@ -143,6 +143,20 @@ This one has teeth. Wind {wind}, feels like {feels}. >> If you have somewhere wi
 Severe conditions today, Coldwater. >> Severe means the city stops pretending it can protect you. Act accordingly.
 ::endlines
 
+# Hero-event mornings. The forecast has been carrying these for a week, so the
+# couch isn't breaking news — it's the last reminder before it lands.
+::lines weather.acid
+It's an acid day, Hal. >> Then it's a stay-in day. I mean it. It goes through a coat like the coat isn't there.
+The Service has the acid warning up. >> If you own sealed rainwear, today is what you bought it for. If you don't, today is what you should have.
+Caustic rain by this afternoon. >> And to everyone about to tell me they'll "risk it" — the wards fill up every single time.
+::endlines
+
+::lines weather.ion
+Ion storm's due today. >> Grid goes down, screens go down, and anything in your pocket with a chip in it goes down with them.
+Pulse warning, Coldwater. >> Leave the good deck at home. Whatever you're carrying, assume you're carrying it into a fire.
+They're calling for a full ion event. >> If you're chromed, be sitting down when it hits. That's not a joke, that's the whole advice.
+::endlines
+
 ::lines weather.ahead
 Looking ahead — tomorrow it's {tomorrow}, around {tomorrowTemp}. >> Something to build towards.
 Week's running a high of {hi} and a low of {lo}. >> The low is the one that counts.

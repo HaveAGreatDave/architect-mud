@@ -39,6 +39,61 @@ export const PORTION_NAMES = { 0.5: 'half', 0.25: 'a quarter of', 0.125: 'an eig
 export const MIN_PORTION = 0.125;      // past this it's mince, and mince is its own item
 export const MAX_CHOP_PIECES = 4;      // one cut into halves, quarters, or eighths
 
+// MINCING — the opposite trade to chopping.
+//
+// Chopping buys speed by making a thing smaller, so it also feeds you less.
+// Mincing buys speed by destroying the STRUCTURE: it cooks in a third of the
+// time and still feeds you everything it did, but it can never be as good.
+// There is no crust on mince, no rare middle, nothing to rest — so its ceiling
+// drops a full band and its doneness choice goes away entirely.
+//
+// That makes mince the practical answer rather than the optimal one, which is
+// exactly what it is in a real kitchen.
+export const MINCE_RATE = 0.35;        // cooks in about a third the time
+export const MINCE_CEILING_DROP = 2;   // ...but two rungs off the top, always
+
+// PREP — what you do to an ingredient BEFORE it meets heat.
+//
+// Each one is a trade, never a flat bonus. The rule the whole system runs on is
+// that a technique buys you something and costs you something else, so the
+// question is always "is this the right thing to do to this, today" rather than
+// "have I remembered to press all the buttons".
+//
+//   score      — cut the fat cap. Renders better and takes seasoning deeper, but
+//                the cuts let moisture out: a wider window, a lower ceiling if
+//                you then overcook it.
+//   marinate   — time in something acid or oily. Real, large quality gain, but
+//                it takes REAL TIME and the meat is doing nothing while it sits.
+//   tenderise  — beat it flat. Cooks much faster and forgives a bad cook, at the
+//                cost of the top band — the same shape as mince, less extreme.
+export const SCORE_WINDOW_BONUS = 1.35;   // widens the peak window
+export const SCORE_SEASON_BONUS = 0.3 * BAND_SCALE;
+// ...and the price. Cutting the fat open is also the way OUT for the moisture,
+// so once you're past the peak a scored cut dries and chars markedly faster than
+// an untouched one. Scoring is a wider window followed by a shorter grace — not
+// free upside, which is the house rule for every prep verb.
+export const SCORE_DRYNESS = 0.6;         // over/burn window, as a fraction
+// Butter on the bread. Counts as the dish's fat (see `signature`) AND pays this
+// on top — it is the whole difference between toasted bread and a toastie.
+export const BUTTER_BONUS = 0.35 * BAND_SCALE;
+export const BUTTER_PORTION = 0.25;       // how much of a block one spread takes
+export const MARINATE_MIN_MS = 3 * 60 * 1000;   // under this it has done nothing
+export const MARINATE_FULL_MS = 12 * 60 * 1000; // full value at this soak
+export const MARINATE_BONUS = 0.8 * BAND_SCALE;
+export const MARINATE_PROFILES = ['dense_meat', 'preserved'];
+export const TENDERISE_RATE = 0.6;        // cooks noticeably faster
+export const TENDERISE_CEILING_DROP = 1;  // one rung, where mince costs two
+export const TENDERISE_FORGIVENESS = 1.5; // and a wider window to land in
+
+// TASTING — the one channel that reaches what looking cannot.
+//
+// What a mouthful TELLS you scales with Cooking skill. That's the point: until
+// now the skill only ever changed the outcome, never what the player knew. A
+// novice tastes "it needs something"; an expert tastes what, and how much.
+export const TASTE_TIERS = { competent: 3, expert: 6 };
+export const TASTE_BITE = 0.03;   // each taste costs a little of the finished dish
+export const HEAT_ORDER_TEXT = { low: 'too gently', mid: 'at a middling heat', high: 'too hard' };
+
 // FOND — the browned residue a good sear leaves in a pan, and the first thing
 // in this system that connects one cook to the next. Everything else is
 // self-contained: a vessel has no memory of what was in it five minutes ago.
@@ -53,6 +108,25 @@ export const FOND_VESSELS = ['pan', 'tray'];
 export const FOND_BONUS = 0.75 * BAND_SCALE;            // worth more than any seasoning: it is a technique
 export const FOND_RESIDUE_PENALTY = -0.5 * BAND_SCALE;  // what NOT lifting it costs the next cook
 
+// Fond REMEMBERS what made it. Lifting the bottom of a pan you seared fish in
+// into a fruit dish does not give you a better fruit dish — it gives you fruit
+// that tastes of fish. The bonus is only a bonus when the origin belongs in what
+// you are making now; when it doesn't, the same scrape works against you.
+export const FOND_MISMATCH_PENALTY = -0.4 * BAND_SCALE;
+
+// Fresh fond is never NEUTRAL. Left dry under a second cook it keeps cooking,
+// and what was brown and sweet goes black and bitter — a smaller version of the
+// residue penalty, because you're only scorching it now rather than having
+// baked it on hours ago.
+export const FOND_NEGLECT_PENALTY = -0.25 * BAND_SCALE;
+
+// Liquid in the pan lifts fond whether or not anybody meant it to — that's all
+// deglazing physically is. So a sauce made over an unlifted pan still collects
+// some of it. Not all: you didn't scrape, so some of it stays welded to the
+// bottom. This is what keeps `deglaze` worth typing without making the passive
+// case a punishment for cooking a stew.
+export const FOND_PASSIVE_FRACTION = 0.5;
+
 // Fond does not keep. Left in the pan it dries to residue, and residue is a
 // penalty until the pan is scoured. Long enough to finish the dish you were
 // making, nowhere near long enough to save it for tomorrow.
@@ -62,6 +136,31 @@ export const FOND_LIFE_MS = 15 * 60 * 1000;
 // different output: meat goes in raw and comes out PRESERVED, which is what
 // makes it worth the wait. Very low and very long, and correspondingly hard to
 // ruin: the window is enormous, so it's the one cook you can start and leave.
+// MICROWAVE — the anti-stove.
+//
+// Not a faster hob. A microwave is defined by what it CANNOT do: it agitates
+// water, so it heats things through without ever browning them. No crust, no
+// sear, no fond, no Maillard anything. That single physical fact is the whole
+// design:
+//
+//   • fastest thing in the kitchen, and unmatched at thawing — this is the one
+//     job it is genuinely the right tool for
+//   • a hard CEILING no skill can lift. A microwave meal is warm, not good, and
+//     no amount of Cooking skill changes that
+//   • an enormous window — it is very hard to burn anything, so it forgives
+//     completely at the low end of the ladder it has trapped you on
+//   • no handling. The door is shut and it is going round; you cannot flip or
+//     stir what you cannot reach
+//
+// So it is the correct answer for leftovers, thawing and being in a hurry, and
+// the wrong answer for anything you wanted to be proud of. That trade is the
+// point — it must never be the optimal way to cook.
+export const MICROWAVE_SPEED = 3.2;      // faster than any stove tier
+export const MICROWAVE_THAW_SPEED = 6.0; // and far and away the best defroster
+export const MICROWAVE_CEILING = 'decent';   // hard cap: warm, never good
+export const MICROWAVE_PEAK_MULT = 2.2;      // an enormous, forgiving window
+export const MICROWAVE_BURN_MULT = 2.5;      // and it barely burns at all
+
 export const SMOKER_SPEED = 0.12;        // ~8x longer than the slowest stove
 export const SMOKER_PEAK_MULT = 2.5;     // and a window to match
 export const SMOKER_PROFILE = 'preserved';
@@ -147,6 +246,20 @@ export const STAGE_LINES = {
     { max: 0.70, text: 'plumping as it takes the heat' },
     { max: 1.00, text: 'warmed through and gone glossy' },
   ],
+  bread: [
+    { max: 0.20, text: 'pale and soft' },
+    { max: 0.45, text: 'drying out, the surface going tight' },
+    { max: 0.70, text: 'taking colour in patches' },
+    { max: 1.00, text: 'gold across the face and crisp at the corners' },
+  ],
+  // Cheese is the one ingredient whose whole story is a change of state, so the
+  // stages track the slump rather than any colour.
+  dairy: [
+    { max: 0.20, text: 'cold and firm, sweating slightly where it meets the heat' },
+    { max: 0.45, text: 'going soft at the corners and losing its edges' },
+    { max: 0.70, text: 'slumping, with the first bright bead of fat on top' },
+    { max: 1.00, text: 'flowing, and pulling into threads when it moves' },
+  ],
 };
 
 // The window opens.
@@ -159,6 +272,8 @@ export const PEAK_LINES = {
   egg: 'just turned from wet to matt',
   fruit: 'collapsing a little, catching gold where it touches the metal',
   preserved: 'softened, and letting go of some of its salt',
+  bread: 'gold right across and crisp at the edge',
+  dairy: 'fully melted and moving as one thing when the pan tilts',
   _: 'holding steady',
 };
 
@@ -174,6 +289,8 @@ export const SLIPPING_LINES = {
   egg: 'matt through, and just starting to firm at the rim',
   fruit: 'holding its shape, but only just, and the pan is browning',
   preserved: 'soft right through and gone a deeper brown',
+  bread: 'gold going on brown, and hard when you press it',
+  dairy: 'still molten, though a thin slick of oil has come up at the edge',
   _: 'about as good as it is going to get',
 };
 
@@ -187,6 +304,8 @@ export const FADING_LINES = {
   egg: 'gone rubbery, and beginning to weep',
   fruit: 'giving off sugar that has turned from sweet to acrid',
   preserved: 'gone leathery and dark at the edges',
+  bread: 'black at the corners, and the kitchen smells of it',
+  dairy: 'split — oil pooling on top, and something rubbery under it',
   _: 'past whatever it was',
 };
 

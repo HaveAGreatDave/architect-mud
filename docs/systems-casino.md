@@ -90,6 +90,18 @@ Same Hold'em engine (rules/betting/bots in
   refuse outright — that override is gone.)* Friendly stakes: `smallBlind 5`/`bigBlind 10`,
   `buyIn 100`, `turnTimerSecs 45` (more time to act by ear).
 
+### Table state persistence (2026-07-27)
+
+`maybePersist()` fires every 10s per table for as long as the server is up. It used to write
+unconditionally — and an **empty table's serialized state is byte-identical forever**, so three
+idle tables were ~18 pointless `UPDATE game_tables` a minute in a world where nobody was playing
+cards, each one keeping Neon's compute from suspending.
+
+`_persist()` now compares against what it last wrote (`_persistedJson` / `_persistedPhase`) and
+skips the round trip when nothing changed. This is safe by inspection: the row already holds
+exactly what the write would have set, so a restart reloads identical state. Measured 24 → 3 writes
+per 75s, the 3 being each table's first real persist after boot.
+
 ### Required seed (runtime rows, one-shot per environment)
 
 `game_tables` rows are runtime-classified and **not** carried by `content:import`.

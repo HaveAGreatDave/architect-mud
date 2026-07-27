@@ -109,6 +109,8 @@ export function setBroadcast(fn) { broadcastFn = fn; }
 let storeGhostTokenFn = null;
 export function setGhostTokenStore(fn) { storeGhostTokenFn = fn; }
 
+let lastCountPurge = 0;
+
 // Record active player count every minute for the dashboard graph.
 // Deduplicate by email so multi-account users only count once.
 schedule('1m', async () => {
@@ -123,7 +125,13 @@ schedule('1m', async () => {
   }
   await query(`INSERT INTO player_count_log (count) VALUES ($1)`, [count]);
   // Retain ~1 year so the dashboard's 30-day / All-Time ranges have data to show.
-  await query(`DELETE FROM player_count_log WHERE recorded_at < NOW() - INTERVAL '1 year'`);
+  // The purge used to run on every sample, doubling this tick's round trips to
+  // delete nothing 99.9% of the time — a row only becomes eligible once a year.
+  // Once an hour is far more often than the retention window can be crossed.
+  if (Date.now() - lastCountPurge > 60 * 60_000) {
+    lastCountPurge = Date.now();
+    await query(`DELETE FROM player_count_log WHERE recorded_at < NOW() - INTERVAL '1 year'`);
+  }
 });
 
 function verifyToken(headers) {
@@ -1910,8 +1918,9 @@ async function apiGetNpcs() {
 // playlist item's conditions.npc_staff during that item's game-time window (see the
 // broadcast plugin's isNpcScheduledNow). This surfaces that same source, read-only,
 // for the NPC editor's Work Schedule grid — the vendor_schedule column is never used
-// for these NPCs, so it stays untouched. Broadcasts loop daily, so the same hour
-// blocks apply to every weekday.
+// for these NPCs, so it stays untouched. The grid has no weekday axis, so a slot
+// restricted to some days (media_channel_playlist.days) still lights its hour block
+// here — read it as "can be on shift at this hour", not "every week at this hour".
 async function apiGetNpcBroadcastSchedule(id) {
   const { rows } = await query(`
     SELECT p.start_time, p.duration_override, p.conditions,

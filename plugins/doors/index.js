@@ -16,6 +16,7 @@ import { exitTargets } from '../../server/engine/exits.js';
 import { playerControlsApt } from '../../server/engine/apartments.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { sendToZone } from '../../server/engine/messaging.js';
+import { getReputation } from '../../server/engine/ideologies.js';
 
 registerLockType('hololock', {
   tagType: 'lock:hololock',
@@ -79,11 +80,10 @@ registerLockType('longwatch', {
     },
   },
   authFn: async (lockTag, door, player) => {
-    const { rows } = await query(
-      "SELECT reputation FROM player_ideology_rep WHERE player_id=$1 AND ideology_id='ideology_long_watch' LIMIT 1",
-      [player.id]
-    );
-    return (rows[0]?.reputation ?? 0) >= LW_TRUSTED_REP;
+    // getReputation, not a raw SELECT — standing decays, and this gate has to
+    // read the same number the ideology app shows or the door and the sheet
+    // disagree (see systems-ideologies.md).
+    return (await getReputation(player.id, 'ideology_long_watch')) >= LW_TRUSTED_REP;
   },
 });
 

@@ -4,14 +4,14 @@
   "id": "item_lemon_analog",
   "name": "lemon-analog",
   "tags": {
-    "description": "Bright yellow, slightly too symmetrical, and sour enough to make your jaw ache. Not a lemon by descent, but it does everything a lemon is asked to do.",
     "consumable": true,
-    "restore_hunger": 4,
-    "stackable": true,
-    "food_profile": "fruit",
+    "description": "Bright yellow, slightly too symmetrical, and sour enough to make your jaw ache. Not a lemon by descent, but it does everything a lemon is asked to do.",
     "food_noun": "lemon",
+    "food_profile": "fruit",
     "perishable": true,
+    "restore_hunger": 4,
     "spoil_rate": "normal",
+    "stackable": true,
     "status_chance": {
       "food_poisoning": 0.1
     }

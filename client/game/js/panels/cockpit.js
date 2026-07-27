@@ -366,6 +366,7 @@ function paintWindow(id, a, s) {
   paintWindshield(id, {
     pitch: a.pitch, bank: a.roll, height: a.height ?? 0, speed: speedFrac,
     hour: s.sky?.hour, weather: s.sky?.weather, wind: s.sky?.wind, heading: a.hdg,
+    event: s.sky?.event,   // named hero event — outranks `weather` for the canopy grade
     wxField: s.sky?.field, acX: a.fx, acY: a.fy,   // spatial weather cells + our world position
     // Both scenes' data are passed unconditionally (falling back to the last real values
     // once the server's own payload has moved on) — `worldBlend` above decides how much
@@ -3750,6 +3751,7 @@ function fsimFrame(now) {
     gear: F.gearRetract ? (F.gearUp ? 'up' : 'down') : 'fixed',
     hardpoints: F.hardpoints, armed: F.armed, weapon: F.weapon, msl: F.msl,
     gunRounds: F.gunRounds, gunCap: F.gunCap,
+    avionicsOut: !!F.avionicsOut,   // EMP — the whole panel is dark
   });
 
   // Full yoke: roll with aileron + a 3-D pull toward/away with elevator (capped so it
@@ -4436,6 +4438,21 @@ function paintGauges(cv, g) {
     else annunTiles(ctx, koR, H * 0.14, innerR, H * 0.86, tiles);
   }
   if (g.night) nightGlow(ctx, W, H);
+  // EMP: the dials are drawn and then buried. Painting them first and covering
+  // them is deliberate — a faint ghost of the needles behind dead glass reads as
+  // hardware that has lost power, where an empty canvas would just look broken.
+  if (g.avionicsOut) {
+    ctx.fillStyle = 'rgba(4,7,10,0.93)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#ff5a5b';
+    ctx.font = 'bold 11px monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('AVIONICS OUT', W / 2, H / 2 - 7);
+    ctx.fillStyle = 'rgba(255,90,91,0.55)';
+    ctx.font = '9px monospace';
+    ctx.fillText('FLY THE AIRCRAFT', W / 2, H / 2 + 8);
+    ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
+  }
   ctx.restore();
 }
 
@@ -4550,6 +4567,7 @@ export function flightSimContext(msg) {
   if (msg.occupants) { F.occupants = msg.occupants; if (msg.seats) F.seats = msg.seats; renderSeats(F); }   // cabin readout keeps pace with boarding
   if ('cargo' in msg) F.cargoKg = msg.cargo;   // current hold weight (drives the J jettison bind)
   if (msg.sky) F.sky = msg.sky;
+  if ('avionicsOut' in msg) F.avionicsOut = !!msg.avionicsOut;   // EMP pulse — the panel is dead until the boards reboot
   if ('biomeBelow' in msg) F.biomeBelow = msg.biomeBelow;
   if ('surface' in msg) { F.surface = msg.surface; const tEl = document.getElementById('fsim-tile'); if (tEl) tEl.textContent = (msg.surface || '—').toUpperCase(); }
   if (typeof msg.hull === 'number') F.hull = msg.hull;   // authoritative hull for the cockpit readout

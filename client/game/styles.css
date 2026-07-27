@@ -1352,6 +1352,19 @@ body.fsim-external #look-resize-handle { display: none; }
 	color: var(--warning, #e8a13a);
 	cursor: help;
 }
+/* A named hero event (ion storm, acid rain) outranks the ordinary amber band —
+   red, and it keeps its colour on the icon too, so the week's killer day is the
+   first thing the eye lands on in the list. */
+.forecast-day-row.fd-hero .fd-weather,
+.forecast-day-row.fd-hero .fd-icon {
+	color: var(--red, #e05252);
+	font-weight: 600;
+}
+.forecast-day-row .fd-hero-warn {
+	color: var(--red, #e05252);
+	cursor: help;
+	letter-spacing: -1px;
+}
 /* Sky-wide named weather-event announcements (ion storm, acid rain). */
 .weather-event {
 	color: var(--warning, #e8a13a);
@@ -4758,6 +4771,20 @@ body.fsim-external #look-resize-handle { display: none; }
 	pointer-events: auto;
 	transform: none;
 }
+/* On a touch device there is no hover to reveal it with — and HTML5 drag fires
+   no events on touch either, so hiding this button behind :hover left the
+   container, corpse and wardrobe panels with NO way to move an item at all.
+   Keyed off pointer capability rather than width: a narrow desktop window
+   still has a cursor and keeps the fade. */
+@media (hover: none), (pointer: coarse) {
+	.ctr-item-card .ctr-action-btn {
+		opacity: 1;
+		pointer-events: auto;
+		transform: none;
+	}
+	/* Nothing is being dragged on touch, so drop the grab affordance. */
+	.ctr-item-card { cursor: pointer; }
+}
 
 /* Quantity split dialog */
 /* Shared backdrop for JS-created modals — invariant layout only. Each overlay keeps its
@@ -4837,24 +4864,37 @@ body.fsim-external #look-resize-handle { display: none; }
 .qty-dialog-ok:hover { border-color: var(--cyan, #0ff); color: var(--cyan, #0ff); }
 .qty-dialog-cancel:hover { border-color: var(--red, #f44); color: var(--red, #f44); }
 
-@media (max-width: 600px) {
-	#container-body {
+/* Container + corpse on a phone — the two columns become one scroll. The
+   breakpoint is the client's own 720px (it was 600px here, which left the
+   601–720px band showing a desktop two-column split inside a 720px box), and
+   the loot panel rides along: it is the same two-column body under a
+   different id. Drag/drop is dead on touch, but every card carries its own
+   stow/take/loot button, so the panel stays fully operable. */
+@media (max-width: 720px) {
+	#container-body,
+	#loot-body {
 		flex-direction: column;
 		overflow-y: auto;
 	}
-	#container-inv-col {
+	#container-inv-col,
+	#loot-inv-col {
 		border-right: none;
 		padding-right: 0;
 		border-bottom: 1px solid var(--border);
 		padding-bottom: 12px;
 		margin-bottom: 4px;
 	}
-	#container-contents-col {
+	#container-contents-col,
+	#loot-contents-col {
 		padding-left: 0;
 	}
-	#container-divider {
+	#container-divider,
+	#loot-divider {
 		display: none;
 	}
+	/* Thumb-sized action buttons — on touch these are the ONLY way to move an
+	   item, so they get a real target rather than the desktop's 9px chip. */
+	.ctr-action-btn { padding: 7px 12px; font-size: 10px; }
 }
 
 #map-close {
@@ -5412,6 +5452,57 @@ body.fsim-external #look-resize-handle { display: none; }
 .shop-sellall:hover { background: var(--accent-dim); color: var(--text-bright); }
 .shop-sellall:active { transform: translateY(1px) scale(0.99); }
 .shop2 .noafford { color: var(--red); }
+
+/* ── Shop on a phone — the two panes become two decks ─────────────────────
+   The fixed 300px examine card would leave the list a sliver on a handset, so
+   below the client's mobile breakpoint the grid stacks: the list takes the
+   space that's left and the card sits under it as a shelf. The card's height
+   is bounded by capping the description rather than the card itself — a
+   percentage max-height on an `auto` grid row resolves cyclically. Tap
+   targets on the row, the stepper and the execute button all grow to thumb
+   size at the same time. */
+@media (max-width: 720px) {
+	#dialogue-box.shop-mode {
+		width: 96vw;
+		max-width: 96vw;
+		height: 88vh;
+		max-height: 88vh;
+	}
+	/* Buy/Sell keeps the first line; sort + credits share the second. */
+	.shop-bar { flex-wrap: wrap; gap: 6px 12px; }
+	.shop-bar-right { flex: 1 0 100%; justify-content: space-between; gap: 10px; }
+	.shop-sort { letter-spacing: 0.06em; gap: 4px; }
+	.shop-sort > span { display: none; }
+	.shop-sort button { padding: 4px 8px; }
+	.shop-result { min-height: 1.7em; padding-top: 4px; }
+
+	.shop-2pane {
+		grid-template-columns: 1fr;
+		grid-template-rows: minmax(80px, 1fr) auto;
+		margin-top: 6px;
+	}
+	.shop-list {
+		border-right: none;
+		border-bottom: 1px dashed var(--accent-dim);
+		padding-right: 0;
+		padding-bottom: 4px;
+	}
+	.shop-card { padding-left: 0; padding-top: 8px; }
+	.shop-card-inner { padding: 10px 12px; }
+	.shop-card-inner hr { margin: 8px 0; }
+	.shop-card-desc { max-height: 5.5em; flex: 0 1 auto; }
+	.shop-card-empty { padding: 12px; }
+
+	/* Thumb-sized controls. */
+	/* A 420px floor against a 78vh ceiling overflows a phone held sideways. */
+	#dialogue-box { min-height: 0; padding: 16px 14px; }
+	.shop-row { padding: 11px 8px; }
+	.shop-qty button { width: 38px; height: 38px; }
+	.shop-qty span { min-width: 40px; }
+	.shop-max { height: 38px; }
+	.shop-exec { padding: 13px 18px; }
+	.shop-sellall { padding: 13px 10px; }
+}
 
 /* Auth screen */
 #auth-screen {
@@ -6967,7 +7058,11 @@ body.fsim-external #look-resize-handle { display: none; }
    render as genuinely different machines. */
 #atm-box {
 	--atm-accent: #00ff88;
+	/* A fixed 340px chassis reads right on anything from a 360px handset up,
+	   but overflows a 320px screen — clamp it rather than reflow it, since the
+	   whole point of the panel is that it looks like a physical machine. */
 	width: 340px;
+	max-width: 94vw;
 	background: linear-gradient(180deg, #2a2f33 0%, #1c2023 7%, #14181b 12%, #0d1013 100%);
 	border: 1px solid #05070a;
 	border-radius: 20px;
@@ -9385,6 +9480,236 @@ body.fsim-external #look-resize-handle { display: none; }
 	to   { opacity: 1; transform: translateX(0); }
 }
 
+/* ── CPhL brand furniture ──────────────────────────────────────────────────────
+   The mark and lockup from cphl-brand.js, styled once. Every surface that shows
+   Cluster Puck — the corner bug, the full-screen graphics, the rink header, the
+   idle screen — draws the same element at a different size, which is the only
+   reason they read as one channel. */
+.cphl-mark { display: block; flex: 0 0 auto; overflow: visible; }
+.cphl-mark-disc { fill: #070d14; stroke: #4fd2ff; stroke-width: 3.5; }
+.cphl-mark-inner { fill: none; stroke: rgba(79, 210, 255, 0.35); stroke-width: 1.6; }
+.cphl-mark-slash { stroke: #e0342c; stroke-width: 8; stroke-linecap: round; }
+.cphl-mark-cp { fill: #eaf6ff; font-family: var(--font-mono); font-size: 26px; font-weight: 900; letter-spacing: 0.5px; }
+/* On gold surfaces (the Cup, a champion card) the mark goes gold with it rather
+   than sitting on the card as a foreign blue object. */
+.tv-fx-champ .cphl-mark-disc, .tv-fx-cup .cphl-mark-disc { stroke: #ffd24a; }
+.tv-fx-champ .cphl-mark-cp, .tv-fx-cup .cphl-mark-cp { fill: #fff3cf; }
+
+.cphl-lockup { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+.cphl-lockup-word {
+	font-family: var(--font-mono); font-weight: 900; font-size: clamp(18px, 4.4vw, 34px);
+	letter-spacing: 4px; color: #eaf6ff; line-height: 1; text-shadow: 0 0 16px rgba(79, 210, 255, 0.45);
+}
+.cphl-lockup-word i { font-style: normal; color: #ff6b5e; margin-left: 6px; }
+.cphl-lockup-sub { font-family: var(--font-mono); font-size: 10px; letter-spacing: 5px; text-transform: uppercase; color: #8fbcd8; }
+
+.cphl-bug { display: flex; align-items: center; gap: 5px; font-family: var(--font-mono); font-size: 10px; letter-spacing: 2px; color: rgba(159, 228, 255, 0.75); }
+
+/* Mark placement on the full-screen graphics — top-centre, above the headline. */
+.tv-fx-brand { position: relative; margin-bottom: 2px; opacity: 0; animation: gdr-brand-in 0.45s ease-out 0.12s forwards; }
+.tv-fx-brand.big { margin-bottom: 6px; }
+@keyframes gdr-brand-in { from { opacity: 0; transform: translateY(-8px) scale(0.8); } to { opacity: 0.95; transform: none; } }
+.tv-fx-matchup.cphl .tv-fx-mu-teams { margin-top: 4px; }
+/* The score-bug mark: quiet, left of the scores, never louder than the numbers. */
+.tv-sb-brand { display: flex; align-items: center; padding: 0 7px; opacity: 0.8; border-right: 1px solid rgba(255, 255, 255, 0.08); }
+
+/* ── Gameday · Rink (CPhL) ─────────────────────────────────────────────────────
+   The hockey sub-screen. Deliberately a COLD sheet against Deadball's warm green
+   field: the two sports share the panel and the set, so the palette is the fastest
+   way for a viewer to know which one they're looking at before reading a word. */
+.gdr-wrap { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 6px; padding: 6px; min-height: 0; }
+.gdr-head {
+	flex: 0 0 auto; display: flex; align-items: center; gap: 10px; padding: 4px 10px;
+	background: rgba(0, 0, 0, 0.45); border: 1px solid rgba(120, 200, 240, 0.28); border-radius: 3px;
+	font-family: var(--font-mono); font-size: 11px; color: rgba(210, 232, 246, 0.85);
+}
+.gdr-head-badge { display: flex; align-items: center; gap: 5px; font-weight: 900; letter-spacing: 3px; color: #7fd4ff; text-shadow: 0 0 10px rgba(79, 210, 255, 0.6); }
+.gdr-head-badge i { font-style: normal; }
+.gdr-head-score { flex: 1 1 auto; letter-spacing: 1px; }
+.gdr-head-score b { color: #fff; font-variant-numeric: tabular-nums; font-size: 14px; }
+.gdr-head-clock { font-variant-numeric: tabular-nums; letter-spacing: 1px; color: #9fe4ff; }
+.gdr-head-str { font-weight: 900; letter-spacing: 1px; padding: 0 4px; border-radius: 2px; background: rgba(79,210,255,0.16); color: #9fe4ff; border: 1px solid rgba(79,210,255,0.45); }
+.gdr-head-str.sh { background: rgba(255,190,60,0.16); color: #ffd27a; border-color: rgba(255,190,60,0.45); }
+.gdr-head-str.en { background: rgba(255,60,70,0.18); color: #ff9aa2; border-color: rgba(255,60,70,0.5); }
+
+/* The sheet. 2:1-ish so the zones keep their real proportions. */
+.gdr-rink {
+	position: relative; flex: 1 1 auto; min-height: 0; align-self: center;
+	width: 100%; aspect-ratio: 100 / 52; max-height: 100%;
+	border-radius: 7px; overflow: hidden;
+	box-shadow: inset 0 0 34px rgba(0, 10, 20, 0.55), 0 0 18px rgba(0, 0, 0, 0.5);
+}
+.gdr-ice { position: absolute; inset: 0; width: 100%; height: 100%; }
+.gdr-ice-bed { fill: #e8f2fa; }
+/* The two attacking zones sit a shade colder than the neutral zone — real sheets
+   read this way under arena light and it makes the blue lines legible at a glance. */
+.gdr-zone-att { fill: rgba(150, 195, 225, 0.13); }
+.gdr-crease { fill: rgba(90, 170, 225, 0.30); stroke: #2f7fd0; stroke-width: 0.4; vector-effect: non-scaling-stroke; }
+.gdr-boards { fill: none; stroke: rgba(30, 60, 85, 0.75); stroke-width: 1.4; vector-effect: non-scaling-stroke; }
+.gdr-line { vector-effect: non-scaling-stroke; }
+.gdr-line.blue { stroke: #2f6fd0; stroke-width: 2.6; }
+.gdr-line.red { stroke: #d02f3f; stroke-width: 2.6; }
+.gdr-line.goal { stroke: #d02f3f; stroke-width: 1.1; }
+.gdr-line.blue.lit { stroke: #7fd4ff; filter: drop-shadow(0 0 4px #4fd2ff); transition: stroke 0.12s; }
+/* The moment of crossing. The goal line itself flares — the puck's position is the
+   fact, and this is the fact being READ, which is what a video review is. */
+.gdr-line.goal.crossed { stroke: #ff3b4a; stroke-width: 2.4; filter: drop-shadow(0 0 6px #ff3b4a); }
+
+.gdr-dot-spot { fill: #d02f3f; }
+.gdr-dot-ring { fill: none; stroke: #d02f3f; stroke-width: 0.9; vector-effect: non-scaling-stroke; opacity: 0.75; }
+.gdr-dot.neutral .gdr-dot-spot { fill: #2f6fd0; }
+.gdr-dot.live .gdr-dot-ring { stroke: #ff3b4a; stroke-width: 1.8; animation: gdr-dot-live 0.6s ease-out 3; }
+.gdr-dot.live .gdr-dot-spot { fill: #ff3b4a; }
+@keyframes gdr-dot-live { 0% { opacity: 1; } 60% { opacity: 0.35; } 100% { opacity: 1; } }
+
+/* ── the cage ────────────────────────────────────────────────────────────────
+   Frame, mesh, posts, lamp. The mesh is its own group so a goal can deform it. */
+.gdr-net-frame { fill: none; stroke: #b8281f; stroke-width: 1.6; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.gdr-net-post-cap { fill: #e03a2c; }
+.gdr-net-mesh line { stroke: rgba(255, 255, 255, 0.85); stroke-width: 0.5; vector-effect: non-scaling-stroke; }
+.gdr-net-mesh { transform-box: fill-box; transform-origin: center; transition: transform 0.18s ease-out; }
+/* The bulge: the mesh takes the puck, stretches away from the line, and settles.
+   Every other cue on a goal is decoration; this one is the puck's actual arrival. */
+.gdr-net-mesh.bulge { animation: gdr-bulge 0.72s cubic-bezier(.2, 1.6, .3, 1); }
+@keyframes gdr-bulge {
+	0%   { transform: scale(1, 1); }
+	18%  { transform: scale(1.55, 1.28); }
+	46%  { transform: scale(0.94, 1.06); }
+	72%  { transform: scale(1.12, 1.01); }
+	100% { transform: scale(1, 1); }
+}
+.gdr-net.rang .gdr-net-frame { stroke: #ffd24a; animation: gdr-clang 0.5s ease-out 2; }
+@keyframes gdr-clang { 0%, 100% { stroke-width: 1.6; } 50% { stroke-width: 3.4; } }
+.gdr-net-lamp circle { fill: rgba(120, 30, 30, 0.5); }
+.gdr-net.scored .gdr-net-lamp circle { fill: #ff2b3a; filter: drop-shadow(0 0 5px #ff2b3a); animation: gdr-lamp 0.5s steps(1) 5; }
+@keyframes gdr-lamp { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0.35; } }
+
+/* ── tokens ──────────────────────────────────────────────────────────────────── */
+.gdr-fx, .gdr-skaters { position: absolute; inset: 0; pointer-events: none; }
+.gdr-skater, .gdr-puck, .gdr-goalie { position: absolute; transform: translate(-50%, -50%); }
+.gdr-skater {
+	width: 2.6%; aspect-ratio: 1; border-radius: 50%;
+	background: radial-gradient(circle at 35% 30%, #fff, #b9d6ea 60%, #6f9dbd);
+	border: 1px solid rgba(10, 30, 50, 0.7);
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+.gdr-skater.att { background: radial-gradient(circle at 35% 30%, #ffe9a8, #e8a83c 60%, #a86f18); }
+.gdr-skater.def { background: radial-gradient(circle at 35% 30%, #cfe6ff, #5f9ed6 60%, #2c5f92); }
+/* A club with its own colours wears them — the trim ring is what keeps two clubs
+   with similar primaries still telling apart at this size. */
+.gdr-skater.clubbed {
+	background: radial-gradient(circle at 35% 30%, var(--gdr-trim), var(--gdr-jersey) 62%, var(--gdr-jersey));
+	border-color: var(--gdr-jersey);
+	box-shadow: 0 0 0 1px var(--gdr-trim), 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+.gdr-skater.shooting { animation: gdr-wind 0.4s ease-out; }
+@keyframes gdr-wind { 0% { transform: translate(-50%,-50%) scale(1); } 45% { transform: translate(-50%,-50%) scale(1.42); } 100% { transform: translate(-50%,-50%) scale(1); } }
+.gdr-skater.fighting { box-shadow: 0 0 8px rgba(255, 70, 70, 0.8); }
+.gdr-skater.swing { animation: gdr-swing 0.12s ease-out; }
+@keyframes gdr-swing { 50% { transform: translate(-50%,-50%) scale(1.3) rotate(12deg); } }
+.gdr-skater.hit { animation: gdr-hit 0.15s ease-out; }
+@keyframes gdr-hit { 50% { transform: translate(-42%,-56%) scale(0.86); } }
+
+.gdr-puck {
+	width: 1.5%; aspect-ratio: 1; border-radius: 50%;
+	background: radial-gradient(circle at 36% 30%, #4a4a4a, #050505 70%);
+	box-shadow: 0 0 0 1px rgba(0,0,0,0.6), 0 1px 4px rgba(0, 0, 0, 0.7);
+	z-index: 4;
+}
+.gdr-puck.caught { opacity: 0; transition: opacity 0.1s; }
+
+/* ── the goalie ──────────────────────────────────────────────────────────────
+   Placed by his centre; the right-hand net's man is mirrored so both face the play.
+   Each pose moves ONE limb — that's what makes the save types distinguishable. */
+.gdr-goalie { width: 7.5%; aspect-ratio: 40 / 48; z-index: 3; }
+.gdr-goalie.right { transform: translate(-50%, -50%) scaleX(-1); }
+.gdr-g-svg { width: 100%; height: 100%; overflow: visible; }
+.gdr-g-body > * { transition: transform 0.16s cubic-bezier(.2, 1.4, .3, 1); transform-box: fill-box; transform-origin: center; }
+.gdr-g-chest { fill: #2b3d52; stroke: #16222f; stroke-width: 0.6; }
+.gdr-g-pad rect { fill: #f2f5f8; stroke: #2b3d52; stroke-width: 0.7; }
+.gdr-g-pad-strap { stroke: #b9c6d2; stroke-width: 0.6; }
+.gdr-g-blocker rect { fill: #e8edf2; stroke: #2b3d52; stroke-width: 0.7; }
+.gdr-g-glove path { fill: #e8edf2; stroke: #2b3d52; stroke-width: 0.7; }
+.gdr-g-glove-web { fill: none; stroke: #9fb0c0; stroke-width: 0.5; }
+.gdr-g-stick path { fill: none; stroke: #d8a24a; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.gdr-g-head ellipse { fill: #f2f5f8; stroke: #16222f; stroke-width: 0.7; }
+.gdr-g-cage { fill: none; stroke: #55697d; stroke-width: 0.5; }
+
+/* Ready: a live crouch, always slightly moving. A still goalie is a dead sprite. */
+.pose-ready .gdr-g-body { animation: gdr-g-breathe 1.9s ease-in-out infinite; }
+@keyframes gdr-g-breathe { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(0.965); } }
+/* Tracking: square to the puck, weight shifted, no limb committed yet. */
+.pose-track .gdr-g-body { transform: scaleY(0.97); }
+/* Butterfly: both pads splay outward and the body drops. The default save. */
+.pose-chest .gdr-g-pad.left { transform: rotate(-52deg) translate(-2px, 4px); }
+.pose-chest .gdr-g-pad.right { transform: rotate(52deg) translate(2px, 4px); }
+.pose-chest .gdr-g-body { transform: scaleY(0.9); }
+/* Glove: the trapper alone snaps up and shut. Nothing else moves — that's the tell. */
+.pose-glove .gdr-g-glove { transform: translate(-2.5px, -7px) rotate(-26deg) scale(1.22); }
+.pose-glove .gdr-g-pad.left { transform: rotate(-30deg) translate(-1px, 3px); }
+/* Pad: one leg kicks out hard, the other stays under him. */
+.pose-pad .gdr-g-pad.right { transform: rotate(84deg) translate(6px, 3px); }
+.pose-pad .gdr-g-body { transform: scaleY(0.92) rotate(-4deg); }
+/* Poke check: the stick extends at the puck carrier — the breakaway answer. */
+.pose-poke .gdr-g-stick { transform: translate(-9px, 6px) rotate(-34deg); }
+.pose-poke .gdr-g-body { transform: translateY(2px) scaleY(0.94); }
+/* Iron. He was beaten — he committed and the puck went past him — and the post is
+   the only reason it isn't a goal. So he's caught mid-sprawl but not all the way
+   down: the difference between this and `beaten` is half an inch, which is exactly
+   what the announcer says. */
+.pose-beat .gdr-g-body { transform: rotate(-13deg) translate(-1px, 2px) scaleY(0.9); }
+.pose-beat .gdr-g-pad.left { transform: rotate(-46deg) translate(-2px, 4px); }
+.pose-beat .gdr-g-glove { transform: translate(-2px, 2px) rotate(14deg); }
+/* Beat: sprawled the wrong way, everything committed, nothing where the puck went. */
+.pose-beaten .gdr-g-body { transform: rotate(-24deg) translate(-3px, 4px) scaleY(0.86); }
+.pose-beaten .gdr-g-pad.left { transform: rotate(-70deg) translate(-4px, 6px); }
+.pose-beaten .gdr-g-glove { transform: translate(-4px, 5px) rotate(30deg); }
+
+/* ── transient effects ───────────────────────────────────────────────────────── */
+.gdr-trail, .gdr-spray, .gdr-block, .gdr-hit, .gdr-whistle { position: absolute; transform: translate(-50%, -50%); pointer-events: none; }
+.gdr-trail { width: 0.9%; aspect-ratio: 1; border-radius: 50%; background: rgba(40, 60, 80, 0.5); animation: gdr-fade 0.42s ease-out forwards; }
+@keyframes gdr-fade { to { opacity: 0; transform: translate(-50%, -50%) scale(0.4); } }
+.gdr-spray { width: 6%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle, rgba(255,255,255,0.9), transparent 70%); animation: gdr-spray 0.7s ease-out forwards; }
+@keyframes gdr-spray { to { opacity: 0; transform: translate(-50%, -50%) scale(2.2); } }
+.gdr-block { width: 4%; aspect-ratio: 1; border-radius: 50%; border: 2px solid rgba(40, 70, 100, 0.9); animation: gdr-ring 0.6s ease-out forwards; }
+@keyframes gdr-ring { to { opacity: 0; transform: translate(-50%, -50%) scale(2.6); } }
+.gdr-hit { width: 5%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle, rgba(255,70,70,0.85), transparent 68%); animation: gdr-spray 0.3s ease-out forwards; }
+.gdr-whistle { width: 3.4%; aspect-ratio: 1; border-radius: 50%; background: #ffd24a; box-shadow: 0 0 10px rgba(255,210,74,0.9); animation: gdr-fade 0.9s ease-out forwards; }
+
+.gdr-strip {
+	flex: 0 0 auto; display: flex; align-items: baseline; gap: 10px; padding: 3px 10px;
+	background: rgba(0, 0, 0, 0.42); border: 1px solid rgba(120, 200, 240, 0.2); border-radius: 3px;
+	font-family: var(--font-mono); font-size: 11px;
+}
+.gdr-strip-desc { font-weight: 900; letter-spacing: 2px; color: #9fe4ff; text-transform: uppercase; }
+.gdr-strip-names { flex: 1 1 auto; color: rgba(210, 232, 246, 0.62); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.gdr-cap { flex: 0 0 auto; min-height: 30px; padding: 4px 10px; background: rgba(0,0,0,0.5); border-left: 2px solid #4fd2ff; border-radius: 2px; }
+.gdr-cap-text { font-size: 12.5px; line-height: 1.45; color: var(--tv-text, #dceaf4); }
+.gdr-cap-text.in { animation: gd-cap-in 0.3s ease-out; }
+
+.gdr-jumbo {
+	position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%);
+	padding: 12px 26px; text-align: center; opacity: 0; pointer-events: none; z-index: 8;
+	background: rgba(0, 8, 16, 0.86); border: 1px solid rgba(120, 200, 240, 0.5); border-radius: 4px;
+	font-family: var(--font-mono);
+}
+.gdr-jumbo.in { opacity: 1; animation: gd-jumbo-in 0.45s cubic-bezier(0.2,1.3,0.4,1); }
+.gdr-jumbo-brand { display: flex; justify-content: center; margin-bottom: 6px; opacity: 0.9; }
+.gdr-jumbo-title { font-size: 26px; font-weight: 900; letter-spacing: 4px; color: #7fd4ff; text-shadow: 0 0 14px currentColor; line-height: 1.1; }
+.gdr-jumbo-sub { font-size: 10px; letter-spacing: 2.5px; text-transform: uppercase; color: rgba(210,232,246,0.75); margin-top: 4px; }
+.gdr-jumbo.hot { border-color: #ffd23e; box-shadow: 0 0 26px rgba(255,210,62,0.5); }
+.gdr-jumbo.hot .gdr-jumbo-title { color: #ffd23e; }
+.gdr-jumbo.out { border-color: #ff4a5b; box-shadow: 0 0 22px rgba(255,74,91,0.45); }
+.gdr-jumbo.out .gdr-jumbo-title { color: #ff5a6b; }
+.gdr-jumbo.dead { border-color: rgba(200,215,230,0.5); box-shadow: none; }
+.gdr-jumbo.dead .gdr-jumbo-title { color: #dfe9f2; text-shadow: none; letter-spacing: 7px; }
+.gdr-jumbo.final .gdr-jumbo-title { color: #fff; }
+
+.gdr-idle { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
+.gdr-idle .cphl-mark { animation: gd-idle-pulse 2.4s ease-in-out infinite; }
+.gdr-idle-sub { font-family: var(--font-mono); font-size: 11px; letter-spacing: 3px; color: rgba(210,232,246,0.45); }
+
 /* ── Sports graphics (full-screen FX) ──────────────────────────────────────────
    Home-run trajectory call-out, final-score card, extra-innings hype. They take
    over the screen area (below header, above footer) for a few seconds, above the
@@ -9605,6 +9930,161 @@ body.fsim-external #look-resize-handle { display: none; }
 	100% { transform: scale(1) rotate(0); }
 }
 
+/* ── CPhL hockey cards ────────────────────────────────────────────────────────
+   Deadball's palette is the channel's header colour; hockey's is rink white on a
+   cold blue, so the two sports read as different broadcasts on the same set even
+   when the same TV is tuned to both in a night. */
+.tv-fx-goal {
+	position: absolute; inset: 0; display: flex; flex-direction: column;
+	align-items: center; justify-content: center; gap: 5px; overflow: hidden;
+	background: radial-gradient(ellipse at center, rgba(0, 22, 44, 0.5), rgba(0, 0, 0, 0.86));
+	opacity: 0; animation: tv-fx-hold 3.6s ease-out forwards;
+}
+/* The goal lamp: the light behind the net, which in this league is the only part
+   of the building that has never once failed. */
+.tv-fx-goal-lamp {
+	position: absolute; left: 50%; top: 46%; width: 180%; aspect-ratio: 1;
+	transform: translate(-50%, -50%);
+	background: radial-gradient(circle, rgba(255, 40, 60, 0.55) 0%, rgba(255, 40, 60, 0.12) 34%, transparent 62%);
+	animation: tv-goal-lamp 0.62s ease-out 3 both;
+}
+.tv-fx-goal-title {
+	position: relative; font-family: var(--font-mono); font-weight: 900;
+	font-size: clamp(30px, 9vw, 68px); letter-spacing: 8px; color: #fff;
+	text-shadow: 0 0 24px #4fd2ff, 0 3px 0 rgba(0, 0, 0, 0.55);
+	animation: tv-final-pop 0.45s cubic-bezier(.2, 1.5, .3, 1) 0.06s both;
+}
+.tv-fx-goal-title.hat { color: #ffe066; text-shadow: 0 0 24px #ffb300, 0 3px 0 rgba(0, 0, 0, 0.55); }
+.tv-fx-goal-tag {
+	position: relative; font-family: var(--font-mono); font-size: 12px; letter-spacing: 5px;
+	text-transform: uppercase; color: #4fd2ff;
+}
+.tv-fx-goal-sub { position: relative; font-family: var(--font-mono); font-size: 13px; letter-spacing: 2px; color: #fff; }
+.tv-fx-goal-score { position: relative; font-family: var(--font-mono); font-size: 13px; letter-spacing: 2px; color: rgba(200, 226, 240, 0.8); font-variant-numeric: tabular-nums; }
+@keyframes tv-goal-lamp {
+	0%   { opacity: 0; }
+	22%  { opacity: 1; }
+	100% { opacity: 0; }
+}
+
+.tv-fx-fight {
+	position: absolute; inset: 0; display: flex; flex-direction: column;
+	align-items: center; justify-content: center; gap: 6px;
+	background: radial-gradient(ellipse at center, rgba(30, 0, 0, 0.5), rgba(0, 0, 0, 0.86));
+	opacity: 0; animation: tv-fx-hold 3.4s ease-out forwards;
+}
+.tv-fx-fight-title {
+	font-family: var(--font-mono); font-weight: 900; font-size: clamp(24px, 7vw, 52px);
+	letter-spacing: 5px; color: #fff; text-shadow: 0 0 18px #ff4b4b;
+	animation: tv-dp-pop 0.45s cubic-bezier(.2, 1.5, .3, 1) 0.1s both;
+}
+.tv-fx-fight-names { display: flex; align-items: baseline; gap: 12px; font-family: var(--font-mono); }
+.tv-fx-fight-names .win { font-weight: 900; font-size: clamp(16px, 4vw, 28px); color: #fff; }
+.tv-fx-fight-names .lose { font-size: clamp(14px, 3.4vw, 24px); color: rgba(230, 200, 200, 0.6); text-decoration: line-through; }
+.tv-fx-fight-names .vs { font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: #ff6b6b; }
+.tv-fx-fight-sub { font-family: var(--font-mono); font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: rgba(230, 200, 200, 0.65); }
+
+/* Sudden death. No rays, no bounce, no colour — a card that refuses to celebrate. */
+.tv-fx-death {
+	position: absolute; inset: 0; display: flex; flex-direction: column;
+	align-items: center; justify-content: center; gap: 8px;
+	background: rgba(0, 0, 0, 0.9);
+	opacity: 0; animation: tv-fx-hold 4.6s linear forwards;
+}
+.tv-fx-death-rule { width: min(60%, 320px); height: 1px; background: rgba(220, 230, 240, 0.35); }
+.tv-fx-death-title {
+	font-family: var(--font-mono); font-size: clamp(14px, 3.4vw, 22px); letter-spacing: 9px;
+	text-transform: uppercase; color: rgba(220, 232, 244, 0.75);
+}
+.tv-fx-death-name { font-family: var(--font-mono); font-weight: 900; font-size: clamp(22px, 6vw, 44px); color: #fff; letter-spacing: 2px; }
+.tv-fx-death-sub { font-family: var(--font-mono); font-size: 11px; letter-spacing: 4px; text-transform: uppercase; color: rgba(200, 216, 230, 0.5); }
+
+/* The Cup pre-game reuses the World Series card's geometry, cold instead of gold. */
+.tv-fx-cup { background: radial-gradient(ellipse at center, rgba(0, 20, 40, 0.55), rgba(0, 0, 0, 0.85)); }
+.tv-fx-cup .tv-fx-ws-banner { color: #cfe9ff; text-shadow: 0 0 22px #4fd2ff, 0 3px 0 rgba(0, 0, 0, 0.5); }
+.tv-fx-cup .tv-fx-ws-sub { color: #8fd0ee; }
+.tv-fx-cup .tv-fx-mu-team .nm { text-shadow: 0 0 12px #4fd2ff; }
+.tv-fx-cup .tv-fx-mu-team .rec { color: #8fd0ee; }
+
+/* ── Rivalry night ────────────────────────────────────────────────────────────
+   Red where the CPhL's palette is cold blue, everywhere it appears: the pre-game
+   card, the persistent bug, the rink header. The point is that a viewer can tell
+   at any moment in the night, not just at the opening face-off. */
+.tv-fx-matchup.rival { background: radial-gradient(ellipse at center, rgba(40, 0, 4, 0.6), rgba(0, 0, 0, 0.88)); }
+.tv-fx-rival-banner {
+	font-family: var(--font-mono); font-weight: 900; font-size: clamp(20px, 5.5vw, 40px);
+	letter-spacing: 7px; color: #ff5a4a; text-shadow: 0 0 20px rgba(255, 60, 50, 0.75), 0 3px 0 rgba(0, 0, 0, 0.5);
+	transform: scale(0.9); animation: tv-final-pop 0.5s cubic-bezier(.2, 1.4, .3, 1) 0.1s forwards;
+}
+.tv-fx-rival-sub { font-family: var(--font-mono); font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: rgba(255, 170, 160, 0.8); }
+.tv-fx-matchup.rival .tv-fx-mu-team .nm { text-shadow: 0 0 12px rgba(255, 70, 60, 0.8); }
+.tv-fx-matchup.rival .cphl-mark-disc { stroke: #ff5a4a; }
+.tv-sb-rival {
+	font-family: var(--font-mono); font-size: 8px; font-weight: 900; letter-spacing: 1px;
+	padding: 1px 4px; border-radius: 2px; line-height: 1.4;
+	background: rgba(255, 60, 50, 0.18); color: #ff9a90; border: 1px solid rgba(255, 60, 50, 0.5);
+	animation: gdr-rival-pulse 2.6s ease-in-out infinite;
+}
+.gdr-head-rival {
+	font-weight: 900; letter-spacing: 1px; padding: 0 4px; border-radius: 2px;
+	background: rgba(255, 60, 50, 0.18); color: #ff9a90; border: 1px solid rgba(255, 60, 50, 0.5);
+	animation: gdr-rival-pulse 2.6s ease-in-out infinite;
+}
+@keyframes gdr-rival-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+
+/* Shots on goal, stacked away-over-home to match the score rows beside it. */
+.tv-sb-sog {
+	display: flex; flex-direction: column; align-items: center; line-height: 1.15;
+	font-family: var(--font-mono); font-size: 9px; font-variant-numeric: tabular-nums;
+	padding-left: 6px; margin-left: 2px; border-left: 1px solid rgba(255, 255, 255, 0.08);
+	color: rgba(210, 232, 246, 0.85);
+}
+.tv-sb-sog i { font-style: normal; font-size: 7px; letter-spacing: 1px; color: rgba(159, 228, 255, 0.6); }
+
+/* ── Rink intermission board ──────────────────────────────────────────────── */
+.gdri { flex: 1 1 auto; display: flex; gap: 8px; min-height: 0; }
+.gdri-main {
+	flex: 1 1 auto; display: flex; flex-direction: column; gap: 5px; min-width: 0;
+	padding: 10px 12px; background: rgba(0, 10, 20, 0.5);
+	border: 1px solid rgba(120, 200, 240, 0.22); border-radius: 4px; font-family: var(--font-mono);
+}
+.gdri-title { font-size: 15px; font-weight: 900; letter-spacing: 4px; color: #9fe4ff; }
+.gdri-sub { font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: rgba(210, 232, 246, 0.45); }
+.gdri-goals { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; min-height: 0; }
+.gdri-goal { display: flex; gap: 8px; align-items: baseline; font-size: 11.5px; color: #dceaf4; }
+.gdri-goal .t { color: #9fe4ff; font-variant-numeric: tabular-nums; min-width: 42px; }
+.gdri-goal .n { font-weight: 900; }
+.gdri-goal .a { color: rgba(210, 232, 246, 0.55); }
+.gdri-goal .c { margin-left: auto; color: rgba(210, 232, 246, 0.7); }
+.gdri-goal .s { color: #ffd27a; font-size: 9px; letter-spacing: 1px; }
+.gdri-none { font-size: 11.5px; color: rgba(210, 232, 246, 0.5); font-style: italic; }
+.gdri-cas { font-size: 10.5px; color: #ff9aa2; }
+.gdri-stats { display: flex; flex-wrap: wrap; gap: 12px; margin-top: auto; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.07); font-size: 10.5px; color: #dceaf4; font-variant-numeric: tabular-nums; }
+.gdri-stats i { font-style: normal; font-size: 8px; letter-spacing: 1.5px; color: rgba(159, 228, 255, 0.6); margin-right: 3px; }
+.gdri-next { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: rgba(210, 232, 246, 0.4); }
+
+.gdri-stand {
+	flex: 0 0 auto; width: 168px; display: flex; flex-direction: column; gap: 1px;
+	padding: 8px; background: rgba(0, 10, 20, 0.5);
+	border: 1px solid rgba(120, 200, 240, 0.22); border-radius: 4px; font-family: var(--font-mono);
+}
+.gdri-stand-head { font-size: 8px; letter-spacing: 2px; color: rgba(159, 228, 255, 0.6); margin-bottom: 3px; }
+.gdri-stand-row { display: flex; gap: 5px; align-items: baseline; font-size: 10px; color: rgba(210, 232, 246, 0.72); }
+.gdri-stand-row .r { width: 12px; color: rgba(210, 232, 246, 0.35); }
+.gdri-stand-row .t { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gdri-stand-row .p { font-variant-numeric: tabular-nums; color: #9fe4ff; }
+.gdri-stand-row.me { color: #fff; }
+.gdri-stand-row.me .t { font-weight: 900; }
+
+/* Score-bug strength chip — hockey's answer to the diamond. */
+.tv-sb-strength {
+	font-family: var(--font-mono); font-size: 9px; font-weight: 900; letter-spacing: 1px;
+	padding: 1px 4px; border-radius: 2px; line-height: 1.4;
+	background: rgba(79, 210, 255, 0.16); color: #9fe4ff; border: 1px solid rgba(79, 210, 255, 0.45);
+}
+.tv-sb-strength.sh { background: rgba(255, 190, 60, 0.16); color: #ffd27a; border-color: rgba(255, 190, 60, 0.45); }
+.tv-sb-strength.en { background: rgba(255, 60, 70, 0.18); color: #ff9aa2; border-color: rgba(255, 60, 70, 0.5); }
+
 /* Lower-third nameplate */
 .tv-overlay-text-card {
 	text-align: center;
@@ -9620,6 +10100,97 @@ body.fsim-external #look-resize-handle { display: none; }
 	max-width: 80%;
 	animation: tv-lt-slide-in 0.3s ease-out;
 }
+
+/* ── Film layers (@type film) ─────────────────────────────────────────────────
+   A picture is not a bulletin. The act card is the only full-screen card that gets
+   to be quiet — no border, no station colour, just the plate on black. */
+.tv-overlay-act-card {
+	text-align: center;
+	background: #000;
+	color: #e8e2d4;
+	padding: 34px 44px;
+	max-width: 82%;
+	animation: tv-film-card-in 1.1s ease-out;
+}
+.tv-act-title {
+	font-size: 17px;
+	font-weight: 600;
+	letter-spacing: 0.42em;
+	text-transform: uppercase;
+	text-indent: 0.42em; /* balance the trailing letter-space */
+}
+.tv-act-sub {
+	margin-top: 12px;
+	font-size: 12px;
+	letter-spacing: 0.22em;
+	text-transform: uppercase;
+	opacity: 0.6;
+}
+.tv-overlay-intermission {
+	text-align: center;
+	background: #0b0906;
+	color: #d8c9a2;
+	border: 1px solid rgba(216, 201, 162, 0.35);
+	padding: 40px 56px;
+	max-width: 82%;
+}
+.tv-intermission-title {
+	font-size: 22px;
+	font-weight: 700;
+	letter-spacing: 0.34em;
+	text-indent: 0.34em;
+}
+.tv-intermission-sub {
+	margin-top: 14px;
+	font-size: 11px;
+	letter-spacing: 0.18em;
+	opacity: 0.65;
+}
+@keyframes tv-film-card-in {
+	0%   { opacity: 0; }
+	35%  { opacity: 1; }
+	100% { opacity: 1; }
+}
+
+/* The matte. Persistent while the feature runs — switched on/off by the picture,
+   never on a timer. pointer-events:none so the bars never eat a click on the set. */
+#tv-letterbox {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	opacity: 0;
+	transition: opacity 700ms ease;
+	z-index: 6;
+}
+#tv-letterbox.tv-letterbox-on { opacity: 1; }
+#tv-letterbox::before,
+#tv-letterbox::after {
+	content: '';
+	position: absolute;
+	left: 0; right: 0;
+	height: 11%;
+	background: #000;
+}
+#tv-letterbox::before { top: 0; box-shadow: 0 1px 0 rgba(0,0,0,0.9); }
+#tv-letterbox::after  { bottom: 0; box-shadow: 0 -1px 0 rgba(0,0,0,0.9); }
+
+/* Grain + a warmer, softer image while a film is framed: a Basin broadcast of a
+   pre-Collapse feature is a copy of a copy, and it should not look like the news. */
+.tv-filmic #tv-content {
+	filter: sepia(0.16) contrast(1.06) saturate(0.88);
+}
+
+/* One-shot optical transition. Duration is set inline by the picture. */
+#tv-fade {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	background: #000;
+	opacity: 0;
+	transition: opacity 3000ms ease;
+	z-index: 7;
+}
+#tv-fade.tv-fade-black { opacity: 1; }
 
 .tv-overlay-lower-third {
 	position: absolute;
@@ -12276,6 +12847,11 @@ input.trade-qty { width: 56px; }
 .accolade-foot .accolade-xp { color: var(--accent); font-variant-numeric: tabular-nums; }
 .accolade-foot .accolade-dismiss { color: var(--text-dim); opacity: 0; transition: opacity 140ms ease; }
 .accolade-card:hover .accolade-dismiss { opacity: 1; }
+/* No hover on touch — the card still times itself out, but the dismiss would
+   be permanently invisible, so show it outright. */
+@media (hover: none), (pointer: coarse) {
+	.accolade-foot .accolade-dismiss { opacity: 1; }
+}
 
 /* Life bar — also the hover-pause tell. Duration comes from --accolade-hold, set
    on the card by accolades-banner.js from its own HOLD_MS, so the bar and the timer
@@ -12513,9 +13089,19 @@ input.trade-qty { width: 56px; }
 	cursor: pointer;
 }
 .wdr-worn:hover { border-color: var(--red, #ff5555); color: var(--red, #ff5555); }
-/* Lit while a garment that fits THIS slot is in flight. */
+/* Lit while a garment that fits THIS slot is in flight — dragged, or armed by
+   a tap on touch, where there is no drag to be in flight at all. */
 .wdr-pad-eligible { border-color: #e0b978; background: rgba(185, 139, 74, 0.1); }
 .wdr-pad.ctr-drag-over { border-style: solid; border-color: var(--green); background: rgba(0, 255, 136, 0.07); }
+/* An eligible pad is tappable, so say so and give the tap somewhere to land. */
+.wdr-pad-eligible { cursor: pointer; }
+.wdr-pad-eligible:active { border-style: solid; border-color: var(--green); background: rgba(0, 255, 136, 0.07); }
+/* The armed garment — picked up, waiting on a pad. */
+.wdr-garment.wdr-armed {
+	border-color: #e0b978;
+	background: rgba(185, 139, 74, 0.14);
+	box-shadow: 0 0 0 1px rgba(185, 139, 74, 0.35);
+}
 
 #wardrobe-doll-actions {
 	display: flex;
@@ -12547,6 +13133,47 @@ input.trade-qty { width: 56px; }
 	display: flex;
 	justify-content: flex-end;
 	flex-shrink: 0;
+}
+
+/* ── Wardrobe on a phone — three columns become one scroll ────────────────
+   Three side-by-side columns leave about 110px each on a handset, and the
+   doll then splits ITS column into two again. Below the breakpoint the body
+   scrolls vertically instead, doll first (that's the work surface), then the
+   clothes it draws from, with the saved looks last. The lists stop being
+   flex:1 — in a scrolling column that would collapse them — and take a
+   bounded height of their own. */
+@media (max-width: 720px) {
+	#wardrobe-box { width: 96vw; height: 88vh; max-height: 90vh; padding: 14px; }
+	#wardrobe-body {
+		flex-direction: column;
+		overflow-y: auto;
+		gap: 10px;
+	}
+	.wdr-col { flex: 0 0 auto; }
+	#wardrobe-doll-col {
+		order: 1;
+		border-left: none;
+		border-right: none;
+		border-bottom: 1px solid rgba(185, 139, 74, 0.2);
+		padding: 0 0 10px;
+	}
+	#wardrobe-stock-col { order: 2; }
+	#wardrobe-outfits-col {
+		order: 3;
+		border-top: 1px solid rgba(185, 139, 74, 0.2);
+		padding-top: 10px;
+	}
+	#wardrobe-doll { flex: 0 0 auto; overflow: visible; }
+	#wardrobe-outfit-list,
+	#wardrobe-hanging-list,
+	#wardrobe-carried-list {
+		flex: 0 0 auto;
+		max-height: 34vh;
+	}
+	/* Thumb-sized: the pads are drop targets AND tap targets now. */
+	.wdr-pad { min-height: 54px; padding: 6px 8px; }
+	.wdr-worn { font-size: 11px; padding: 2px 8px; }
+	#wardrobe-outfit-name { padding: 8px 6px; }
 }
 
 /* ── Interface tour (client/game/js/panels/tour.js) ───────────────────────────
@@ -12641,4 +13268,105 @@ input.trade-qty { width: 56px; }
 
 @media (max-width: 700px) {
 	.tour-card { width: 300px; font-size: 12px; }
+}
+
+/* ── Intro cinematic ────────────────────────────────────────────────────────
+   The cold open (client/game/js/panels/intro-cinematic.js). Full-viewport, above
+   everything, and deliberately NOT themed: this plays before the player has a
+   world, so it uses black and the accent only. The canvas carries the motion;
+   these rules carry the typography and the two fades. */
+body.intro-cine-open { overflow: hidden; }
+#intro-cinematic {
+	position: fixed;
+	inset: 0;
+	z-index: 100000;
+	background: #000;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	animation: intro-cine-fadein 900ms ease both;
+	cursor: default;
+}
+#intro-cinematic.closing { animation: intro-cine-fadeout 800ms ease both; }
+@keyframes intro-cine-fadein  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes intro-cine-fadeout { from { opacity: 1; } to { opacity: 0; } }
+#intro-cine-cv { position: absolute; inset: 0; width: 100%; height: 100%; }
+/* Vignette: keeps the canvas off the text and hides the frame edges. */
+.intro-cine-vig {
+	position: absolute;
+	inset: 0;
+	background:
+		radial-gradient(ellipse at center, rgba(0,0,0,0) 28%, rgba(0,0,0,0.72) 78%, rgba(0,0,0,0.94) 100%);
+	pointer-events: none;
+}
+.intro-cine-stage {
+	position: relative;
+	width: min(760px, 88vw);
+	min-height: 5.6em;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	text-align: center;
+	pointer-events: none;
+}
+.intro-cine-line {
+	font-family: Georgia, 'Times New Roman', serif;
+	font-size: clamp(19px, 2.9vw, 30px);
+	line-height: 1.55;
+	letter-spacing: 0.4px;
+	color: #eef4f3;
+	text-shadow: 0 0 30px rgba(0,0,0,0.95), 0 2px 18px rgba(0,0,0,0.9);
+	opacity: 0;
+	transform: translateY(7px);
+	transition: opacity 900ms ease, transform 1400ms ease;
+}
+.intro-cine-line.in { opacity: 1; transform: translateY(0); }
+.intro-cine-line.big { font-size: clamp(22px, 3.5vw, 37px); }
+/* "Silence." — the one beat with no drone under it, so it gets no glow either. */
+.intro-cine-line.silence {
+	font-size: clamp(26px, 4.6vw, 48px);
+	letter-spacing: 0.22em;
+	color: #8a9a98;
+	transition: opacity 1500ms ease;
+}
+/* The card title. Monospace + wide tracking: the only line that is the game
+   talking rather than the record. */
+.intro-cine-line.title {
+	font-family: var(--font-mono, 'Courier New', monospace);
+	font-size: clamp(24px, 4.6vw, 50px);
+	letter-spacing: 0.34em;
+	text-indent: 0.34em;
+	color: var(--accent, #35e0c8);
+	text-shadow: 0 0 44px color-mix(in srgb, var(--accent, #35e0c8) 55%, transparent);
+}
+.intro-cine-skip {
+	position: absolute;
+	right: clamp(14px, 3vw, 34px);
+	bottom: clamp(14px, 3vw, 30px);
+	font-family: var(--font-mono, 'Courier New', monospace);
+	font-size: 12px;
+	letter-spacing: 2.4px;
+	text-transform: uppercase;
+	color: rgba(235,245,244,0.34);
+	background: transparent;
+	border: 1px solid rgba(235,245,244,0.16);
+	border-radius: 4px;
+	padding: 7px 14px;
+	cursor: pointer;
+	transition: color 500ms ease, border-color 500ms ease, background 500ms ease, opacity 500ms ease;
+}
+.intro-cine-skip span { opacity: 0.7; margin-left: 3px; }
+.intro-cine-skip:hover { color: #fff; border-color: rgba(235,245,244,0.55); }
+/* Loud for the first six seconds, then it recedes without ever leaving. */
+.intro-cine-skip.show {
+	color: #fff;
+	border-color: rgba(235,245,244,0.7);
+	background: rgba(255,255,255,0.06);
+}
+@media (max-width: 700px) {
+	.intro-cine-skip { font-size: 11px; padding: 6px 11px; }
+}
+@media (prefers-reduced-motion: reduce) {
+	#intro-cinematic, #intro-cinematic.closing { animation-duration: 300ms; }
+	.intro-cine-line { transition: opacity 500ms ease; transform: none; }
 }

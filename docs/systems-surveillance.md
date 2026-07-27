@@ -478,3 +478,41 @@ became self-contained, and "clipping" was re-pointed at reels rather than physic
   log fills a progress bar before "SPECTER INSTALLED". The old carried **spy-deck** (`item_spy_deck` →
   `hub`/standalone `#shub-panel`) still works but is superseded by the tablet app; retiring it is a
   vendor-side follow-up.
+
+## Runtime cost — how the ticks read the device table (2026-07-27)
+
+Surveillance was, by measurement, **45% of all database traffic on an idle server** (97 of 215
+round trips per 75s with one player standing still). Not because it does anything wrong, but
+because the 5-second tick asked the same small table the same questions repeatedly: one SELECT for
+recording cams, one for motion sensors, one for interference zones, then **one more per occupied
+zone** for "is a camera watching here?". The table holds tens of rows, and at the time **zero** of
+them were recording and **zero** were motion sensors — it was paying full freight to be told
+nothing, six times a tick.
+
+**`allDevices()`** now reads the whole `security_devices` table **once per tick** and every one of
+those questions is answered from that snapshot — `refreshRecordingCams`, `pollSensors`,
+`getInterferenceZones` and `cameraLiveInZone` are all filters over it. The TTL is 4s, which is the
+window `getInterferenceZones` already ran on, so this introduced **no new staleness class**.
+
+It is deliberately a **short TTL, not a write-through cache**. Every runtime writer lives in
+`plugins/surveillance/index.js` and calls `invalidateDeviceCache()`, so a camera you plant is
+visible immediately — but regress and the offline scripts write the table directly, and a TTL
+self-heals where a write-through cache would serve stale rows forever. A failed read keeps the last
+good snapshot rather than caching "no devices", which would silently switch surveillance off.
+
+Two related changes in the same pass:
+
+- **`scanCarried()`** replaced the separate `nakedAmong`/`rawAmong` scans. They asked two different
+  questions about the same inventory rows of the same players in the same tick; it is now one
+  `GROUP BY` with two `BOOL_OR` aggregates. It also **caches per player** — the answer only changes
+  when that player's inventory does — dropped on `inventory.changed` (so a real change lands on the
+  next sweep) with a 60s TTL backstop, because only some of the many `player_inventory` writers emit
+  that event. Pruned on `player.logout`, like the plugin's other per-player maps. Measured 15 → 2
+  round trips per 75s.
+- **The PD network id** is fixed content read once and latched, instead of re-read per evidence
+  clip. It only latches a *real* answer, so a fresh DB mid-seed doesn't cache "no PD" permanently.
+
+**Left alone deliberately:** the broadcast plugin keeps its own live `security_devices` read. The
+comment there explains why — no funnel to hang invalidation off, and a stale answer would make a
+talkshow guest materialise on camera. That is a correct refusal of silent staleness, not an
+oversight.

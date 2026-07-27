@@ -8,7 +8,8 @@ const BREAST_SIZES  = ['flat','small','medium','large','very large'];
 const TESTICLE_SIZES= ['small','average','large','very large'];
 const MALE_ASS_SIZES  = ['flat','small','average','round','large'];
 const FEMALE_ASS_SIZES= ['flat','small','average','round','large','enormous'];
-const SEXUALITIES   = ['Male', 'Female', 'Male and Female'];
+// Mirrors SEXUALITIES in server/engine/mis.js — keep the two in step.
+const SEXUALITIES   = ['Male', 'Female', 'Male and Female', 'None'];
 
 function heightDesc(cm) {
   if (cm < 158) return 'short';
@@ -126,7 +127,7 @@ function _render(d) {
     sheet += _sectionHeader('Biological');
     sheet += _statRow('Sexuality', sexuality);
     if (sex === 'male') {
-      sheet += _statRow('Penis',     `${app.penis_length_cm || 13}cm`);
+      sheet += _statRow('Penis',     `${app.penis_length_cm || 13}cm (${(((app.penis_length_cm || 13) / 2.54)).toFixed(2)}\")`);
       sheet += _statRow('Testicles', app.testicle_size || 'average');
       sheet += _statRow('Ass',       app.ass_size || 'average');
       sheet += _statRow('State',     d.erect ? 'erect' : 'flaccid', true);
@@ -173,7 +174,7 @@ function _render(d) {
     mods += _modRow('Sexuality', _sel('mx-sexuality', SEXUALITIES, sexuality));
     if (sex === 'male') {
       mods += _sectionHeader('Biological — 5₵/cm');
-      mods += _modRow('Length (cm)', _numInput('mx-penis', app.penis_length_cm || 13, 7, 21));
+      mods += _modRow('Length (cm)', _numInput('mx-penis', app.penis_length_cm || 13, 0.6, 38.1, 0.1));
       mods += _modRow('Testicles',   _sel('mx-testicle', TESTICLE_SIZES, app.testicle_size || 'average'));
       mods += _modRow('Ass Size',    _sel('mx-ass', MALE_ASS_SIZES, app.ass_size || 'average'));
     } else {
@@ -264,7 +265,7 @@ function _render(d) {
       if (newSexuality && newSexuality !== (d.sexuality || 'Male')) cmds.push(`morphex sexuality ${newSexuality}`);
 
       if (d.biological_sex === 'male') {
-        const newPenis = parseInt(document.getElementById('mx-penis')?.value);
+        const newPenis = Math.round(parseFloat(document.getElementById('mx-penis')?.value) * 10) / 10;
         if (!isNaN(newPenis) && newPenis !== (app.penis_length_cm || 13)) cmds.push(`morphex penis ${newPenis}`);
         const newTesticle = document.getElementById('mx-testicle')?.value;
         if (newTesticle && newTesticle !== (app.testicle_size || 'average')) cmds.push(`morphex testicle ${newTesticle}`);

@@ -33,9 +33,11 @@ has: `cook` it, wait, it's cooked. Binary. Nothing below applies to it.
 **Profiled food** (`tags.food_profile`) opts into depth:
 
 ```
+score steak           (optional prep — see below; every one of them is a trade)
 stow steak in pan     (existing container verb — no cooking code involved)
 cook pan              (the pan and everything in it goes on the stove)
 flip steak            (needs a tags.can_turn tool carried uncontained)
+taste steak           (what it tells you scales with Cooking skill)
 plate steak           (ends it, decides quality, awards Cooking IP)
 eat steak             (restores scale by the band)
 ```
@@ -60,6 +62,38 @@ There is no `combine` verb and no recipe-selection step. The vessel **is** the
 combining interface — it already held several items and already went on the heat
 as a unit. All that changed is that `plate <vessel>` now resolves the whole thing
 into one dish instead of handing back its contents individually.
+
+### An ingredient can be two things — `food_also`
+
+Milk is a liquid *and* a dairy. The profile itself has to stay singular, because
+it drives a **clock**: one timeline, one set of stage prose, one set of targets,
+and milk behaves like a liquid in a pan whatever else it is. But "what is this
+made of" and "what does this satisfy in a recipe" are different questions, and
+only the first needs one answer.
+
+So `tags.food_also` declares a **secondary identity** that rides in its own
+channel (a `Symbol` key on the signature, invisible to `Object.keys`):
+
+| | drives the cook clock | can satisfy `needs` | can fail the allowed check |
+|---|---|---|---|
+| `food_profile` | ✅ | ✅ | ✅ |
+| `food_also` | ❌ | ✅ | ❌ |
+
+**That asymmetry is the whole design.** A secondary can only ever *help* a match,
+never break one — so tagging milk as dairy cannot stop it matching `mash` or
+`porridge`, which take a liquid and have no opinion about dairy. Without it, the
+tag would silently break every existing recipe milk appears in.
+
+It cuts the other way too: milk is still a liquid, and bread doesn't take
+liquids, so pouring milk on bread is not a cheese sandwich. Being *also* dairy
+doesn't stop it being *actually* a liquid.
+
+A secondary contributes the same unit count as the primary — a 400g carton is one
+liquid, so it's one dairy. Recounting it against cheese's 90g unit would make it
+4.4 dairy and blow every range in the catalog.
+
+`buttered` rides the same channel: buttered bread satisfies a fat requirement
+without a separate pat of butter being an ingredient in the pan.
 
 ### Matching is on profiles, never on item ids
 
@@ -86,6 +120,63 @@ template's ceiling. One mediocre potato dents a stew; it doesn't sink it.
 
 All 44 dishes share **one** content item (`item_cooked_dish`) — the bespoke name
 rides on `custom_data.name`, which the inventory renderer already prefers.
+
+## Sandwiches: the one open-ended dish
+
+Bread is a **vessel**, the same way a bowl is — a thing you assemble in. Two
+things make it different from every other vessel:
+
+**It's edible** (`tags.edible_vessel`). A sandwich is not fillings served in a
+bread container; it *is* the bread. So the bread is scored as an ingredient,
+lends its noun to the name, and is consumed by `plate`. Every other vessel is
+equipment and survives the meal.
+
+**It never makes slop.** Every other unmatched combination falls to
+`UNKNOWN_DISH` capped at `acceptable`, because meat and jam in a pot really is a
+mess. Put anything sensible between two slices, though, and you have made a real
+thing — so an unmatched bread vessel falls to `GENERIC_SANDWICH`, which names
+itself from its contents:
+
+```
+stow rat haunch in flatbread
+stow onion in flatbread
+plate flatbread            →  "rat meat and onion sandwich"
+```
+
+No recipe for that exists, and making it **creates none** — the generic template
+carries no `key`, and `plate` only records a discovery when the match came back
+with one. That's the point: the sandwich is the one dish the player invents
+rather than discovers. Named sandwiches (`cheese_sandwich`, `club`) are ordinary
+`DISHES` entries with `vessel: 'bread'` and beat the generic on the normal
+specificity rule, so a recipe always wins where one exists.
+
+Bread can also go **on the heat** — `cook flatbread` toasts the bread *and* its
+fillings, because an edible vessel joins its own cook as an ingredient. Cold, its
+ingredients are scored at their raw targets like a bowl's.
+
+### `bread` is its own profile
+
+It used to be tagged `starchy_vegetable`, whose raw target is `poor` — correct for
+a potato, disastrous for a sandwich, since every cold sandwich would have been
+dragged down by its own bread. Bread arrives baked: `raw: 'good'`, better toasted,
+and past that it's burnt toast. It also stops turning up in stews.
+
+### `butter <bread>`
+
+The one prep that's also an ingredient. Buttered food **counts as the dish's fat**
+in the signature and pays a small flat bonus on top, so buttered bread plus cheese
+in a pan is a toastie with no second pat of butter going in — which is how anyone
+actually makes one. Takes a quarter of the block per spread; only the last quarter
+takes the item.
+
+### `cut`
+
+`cut` is `chop` — nobody chops a sandwich in half — and it works on **finished
+dishes** as well as raw ingredients. A plated dish carries no `food_profile` (all
+48 share one item id), so it's recognised by its `cook_quality`/`dish` stamp
+instead. The portion arithmetic is identical, so two halves of a sandwich feed you
+exactly one sandwich. Cutting a raw ingredient changes how it cooks; cutting a
+finished dish just shares it, and the message says so.
 
 ## Modifiers
 
@@ -138,6 +229,104 @@ following the recipe can never read as over-seasoning. Under-seasoning is a
 missed bonus (bland); over-seasoning is an active penalty, and a heavier one
 than the bonus it replaces, so "add everything" is never the safe play.
 
+## Prep: what you do before it meets heat
+
+`score`, `tenderise`, `marinate`, `chop`, `mince`. Every one of them is a
+**trade** — that's the house rule, and it's what stops any of them being a button
+you always press before cooking.
+
+| Verb | Buys | Costs |
+|---|---|---|
+| `score <meat>` | seasoning bonus + a wider peak window | dries out faster once you're past it |
+| `tenderise <meat>` | cooks faster, much more forgiving window | one rung off the ceiling |
+| `mince <meat>` | ~a third of the cook time | **two** rungs off the ceiling, forever |
+| `marinate <meat> in <thing>` | the largest single pre-heat gain | real time, and the marinade item |
+| `chop <food> [into N]` | proportionally faster cook | nothing — but it feeds you proportionally less |
+
+Prep flags live on the ingredient's `custom_data` and are copied into the cook
+session at `cook`, so the timeline is scored against what you actually did to it.
+`examine` reports prep state through the **`cooking.prepText`** hook — a marinade
+is a timer the player is meant to read, the same way `restText` makes resting
+readable.
+
+Prep is **spent** by the cook it was done for: `endSession` strips the flags off
+the finished item, so a `finishable` component can't collect the same marinade
+again on its second trip through a pan.
+
+**The marinade clock stops when the pan starts.** Strength is frozen into the
+session at `cook` as `marinade` (0..1), never recomputed at `plate`. Otherwise a
+three-minute soak followed by a long slow roast would collect the full bonus and
+the time cost would be decorative.
+
+### Portions conserve
+
+Chopping is the one prep that touches *quantity*, and its whole invariant is that
+it doesn't create anything. Four quarters weigh what the whole weighed and feed
+you what the whole fed you — `custom_data.portion` carries the fraction, cook
+time scales by it, and `yieldOf()` shrinks the finished dish to match. Half an
+onion still *satisfies* "one soft vegetable" (recipe quantities are coarse), but
+the meal that comes out is smaller. Without that, chopping would be a way to make
+four dinners out of one.
+
+Two things the split deliberately does **not** do: it doesn't drop the stack (a
+row of five potatoes halved is ten halves, and each new row keeps the original
+`quantity`), and it doesn't copy prep — a knife does not multiply a marinade.
+`minced` is the exception and survives the cut, because that's what the thing
+*is* rather than something done to it.
+
+## Fond
+
+The only place in the system where one cook can see another. A good sear in a
+`pan` or `tray` leaves `custom_data.fond` — `{ from, band, at }` — on the vessel,
+and the next thing cooked in it is judged partly on what you do about that.
+
+Fresh fond has three outcomes, and **none of them is neutral**:
+
+| What you do | Worth |
+|---|---|
+| `deglaze <vessel>` — scrape it up | full `FOND_BONUS` (beats any seasoning; it's a technique) |
+| cook something with liquid in it, unscraped | half of it — liquid lifts fond whether you meant it to or not |
+| cook something dry, unscraped | `FOND_NEGLECT_PENALTY` — it sits on the heat and scorches |
+
+Fond also **remembers what made it**. A pan you seared fish in lifts into a fruit
+dish and gives you fruit that tastes of fish, so the sign flips to
+`FOND_MISMATCH_PENALTY` — and it flips on the passive path too, because the
+liquid doesn't care about your intentions either.
+
+Left `FOND_LIFE_MS` it dries to **residue**, which is an active penalty on the
+next cook until you `scour` the pan. That's the interesting middle state: a pan
+you browned in and then ignored is *worse than a clean pan*.
+
+Everything above is derived from the blob and `now`. `plate` writes the vessel's
+fond state exactly once, in a single statement that both clears what was there
+and records what replaces it.
+
+## Taste
+
+`taste <food|vessel>` is the one reading that isn't visual. Every other readout
+in the system is something you can SEE — the colour of a crust, a simmer gone
+quiet. Tasting reaches what looking can't: seasoning, and whether the thing is
+any good.
+
+**What you learn scales with Cooking skill**, which is the point. Cooking skill
+had, until this, only ever changed the *outcome*; this is the first place it
+changes what you *know*.
+
+| Tier | Gets | Reads like |
+|---|---|---|
+| novice | 1 vague note | "It needs something. You are not sure what." |
+| competent | 2 real notes | "It is flat. It wants seasoning." |
+| expert | up to 4, with numbers and heat | "It is under-seasoned by about 2 things." |
+
+A taste is a mouthful you don't get back: it stamps `tasted` on a row, and
+`plate` deducts `TASTE_BITE` per bite from the dish yield. Tasting a **vessel**
+is one spoonful however many things are in the pan — the bite is recorded against
+a single row, because summing it across every ingredient would charge a five-item
+stew five times for one taste.
+
+Tasting a *finished* plate isn't a reading at all — it's eating a bit of it, and
+returns `flavourLines()`, the same prose the eat path uses.
+
 ## The cookbook
 
 Knowing a recipe **never gates cooking it**. Any combination always cooks; the
@@ -172,31 +361,54 @@ discovery into data entry.
 
 | File | Holds |
 |---|---|
-| `index.js` | the `cook` router, `plate` (single + vessel), `read` on recipe cards |
+| `index.js` | the `cook` router, `plate` (single + vessel), the prep verbs, `read` on recipe cards |
 | `interact.js` | `flip` / `stir` — one function, two verbs |
 | `cook.js` | sessions, timers, boot catch-up, burn-off |
 | `quality.js` | **pure** timeline + scoring. No DB, no clock of its own |
 | `profiles.js` | the ingredient-class catalog + `validateProfiles()` |
 | `dishes.js` | the dish catalog, signature matcher, naming, `validateDishes()` |
+| `prep.js` | **pure** — what score/tenderise/marinate are worth, and the readout |
+| `portions.js` | **pure** — the fraction arithmetic that keeps chopping honest |
+| `fond.js` | **pure** — what a sear leaves behind and what lifting it is worth |
+| `taste.js` | **pure** — skill-scaled tasting notes, and eating-it prose |
 | `knowledge.js` | the cookbook: what's known, how it's learned, `TEACH_RECIPE` |
 | `config.js` | every balance number in the system |
+
+`prep.js`, `portions.js`, `fond.js`, `taste.js` and `quality.js` are all pure
+reads over a row and `now` — no DB, no clock of their own. That's deliberate and
+worth preserving: it's what lets `examine` be free and the regress suite test the
+whole quality ladder without a database.
 
 ## No tick, no polling
 
 A session is a timestamp blob on the food's own `player_inventory.custom_data.cooking`:
 
 ```js
-{ applianceId, startedAt, thawMs, cookMs, doneAt,     // plain
-  profile, heatTier, vessel: {d,r}, acts: [] }        // profiled only
+{ applianceId, startedAt, thawMs, cookMs, plainDoneAt,   // plain
+  profile, heatTier, heats: [], vessel: {d,r}, acts: [], // profiled only
+  minced, scored, tenderised, marinade }                 // prep, copied in at `cook`
 ```
+
+**Ask `finishAt(session, profile)` when a cook ends — never read the stamp.**
+`plainDoneAt` is the finish line with no doneness target applied, and the moment
+a player types `doneness rare` it stops being the answer (rare lands at 0.75 of
+the cook, well done at 1.35). The stored field is named `plainDoneAt` rather than
+`doneAt` precisely so that reaching past the accessor reads as wrong: three
+separate call sites independently grabbed the old `doneAt`, and each one produced
+a different bug — examine describing a rare steak as still browning, stage
+narration running past the window, and an auto-burn armed against a finish line
+that had moved. `finishAt` still honours a legacy `doneAt`, because sessions
+written before the rename are mid-cook in `player_inventory` across any deploy.
 
 Everything else — the peak window, the burn point, the current stage, the final
 band — is *derived* from those numbers and `now`, at the moment somebody asks.
 Examining a cooking steak writes nothing. Twenty examines and one examine produce
 the same answer (there's a regress case asserting exactly that).
 
-DB writes per cook: **one** on `cook`, **one** per `flip`/`stir`, **one** on
-`plate`. That's the whole budget.
+DB writes per cook: **one** on `cook`, **one** per `flip`/`stir`, **two** on
+`plate` (the dish, then the pan's fond state). Each prep verb and each `taste` is
+one more, and they're all player-initiated — nothing here writes on a tick or on
+examine. That's the whole budget.
 
 A bounded set of `setTimeout`s narrate the stage beats and fire the burn-off;
 they're pure narration and are rebuilt from `startedAt` by the boot-catchup IIFE

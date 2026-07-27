@@ -1,0 +1,14 @@
+{
+  "description": "A hand-pasted advert, hung slightly crooked and lower than the corporate ones, on paper thin enough to show the wall through it. Most of it is Grady — photographed from below at an angle no one has ever looked at him from, arms folded across the vendor's apron, jaw set, gazing off toward some horizon located roughly above the vending machine. He has been airbrushed to a shine and lit like a man announcing a war. Behind him, rendered heroically, are three crates and a coil of spare cells.\n\nTWO-CELL SUPPLY, it says. OPPORTUNITIES AVAILABLE.\n\nBelow that, in a font doing a great deal of heavy lifting: \"FRESH OUT OF THE VAT? NO CREDITS? NO PROSPECTS? NO ONE?\" — and then, warmly — \"GOOD. That's my favourite kind of customer.\" A bulleted list follows. HONEST PRICES. HONEST WORK. EQUIPMENT FOR EVERY CAREER PATH, INCLUDING THE ONES YOU WOULDN'T PUT ON A FORM. TRAINING FACILITIES ON PREMISES.\n\nThe smallest line, tucked under the crates where the eye almost skips it, reads: \"Two-Cell Supply is not liable for what you learn here, or what you do with it afterwards.\"\n\nSomeone has written NOT A JOB CENTRE across one corner in marker. Someone else has crossed that out and written IT ABSOLUTELY IS in the same marker.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_poster_twocell_supply",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "an advert for Two-Cell Supply",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_start"
+}

@@ -4,15 +4,15 @@
   "id": "item_battery_chicken",
   "name": "chicken quarter",
   "tags": {
-    "description": "A leg and thigh still joined, skin on, pale as candle wax. Grown in a rack under lamps and never once stood up. The skin crisps like it remembers being an animal.",
     "consumable": true,
-    "restore_hunger": 20,
-    "stackable": true,
-    "food_profile": "dense_meat",
+    "description": "A leg and thigh still joined, skin on, pale as candle wax. Grown in a rack under lamps and never once stood up. The skin crisps like it remembers being an animal.",
     "food_noun": "chicken",
+    "food_profile": "dense_meat",
     "needs_cooking": true,
     "perishable": true,
+    "restore_hunger": 20,
     "spoil_rate": "fast",
+    "stackable": true,
     "status_chance": {
       "food_poisoning": 0.4
     }

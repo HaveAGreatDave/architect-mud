@@ -1214,7 +1214,10 @@ function writeGeneratorRemaining(genRow, remainingKw) {
   genRow.remaining_kw = remainingKw;
 }
 
-async function simulatePowerNetwork(query, { weatherType, reason = 'unknown' } = {}) {
+async function simulatePowerNetwork(query, { weatherType, reason = 'unknown', silentBlackout = false } = {}) {
+  // An EMP blacks out every zone at once; one "the lights cut out" line per zone
+  // would bury the event's own sky-wide announce, so the caller can mute them.
+  const lightOpts = silentBlackout ? { silent: true } : undefined;
   powerSimCounts.set(reason, (powerSimCounts.get(reason) || 0) + 1);
   await refreshTopologyIfDirty(query);
   const allGenerators = [...generatorRows.values()];
@@ -1235,12 +1238,21 @@ async function simulatePowerNetwork(query, { weatherType, reason = 'unknown' } =
   // flags), so a downed building doesn't snap back the instant the weather eases.
   const updatedStatus = new Map();
   const genLightByZone = new Map(); // zoneId → any portable gen wants its work light on
+  // Writes are collected and flushed as a fixed number of batched statements after
+  // the loop rather than awaited per generator. The diff-gates below decide WHETHER
+  // a row is written exactly as before; this only changes how many round trips that
+  // costs. It matters under storm load: every junction_box faults independently, so
+  // the naive form was one sequential round trip per faulted box (~100) on the
+  // 5-minute storm cadence.
+  const wOffline = [];        // id           — destroyed units, status only
+  const wStatusFuel = [];     // [id, status, fuel]
+  const wStatusFuelFlags = []; // [id, status, fuel, flagsJson]
   for (const gen of allGenerators) {
     // A destroyed unit (its physical furniture was smashed apart) stays dark
     // regardless of type — this is what cuts power to everything downstream.
     if (gen.flags?.destroyed) {
       updatedStatus.set(gen.id, { ...gen, status: 'offline' });
-      if (gen.status !== 'offline') await query(`UPDATE generators SET status=$1 WHERE id=$2`, ['offline', gen.id]);
+      if (gen.status !== 'offline') wOffline.push(gen.id);
       gen.status = 'offline'; // keep the RAM row in step — nothing re-SELECTs it
       continue;
     }
@@ -1262,7 +1274,10 @@ async function simulatePowerNetwork(query, { weatherType, reason = 'unknown' } =
     const recoverAfter = flags.recover_after ? new Date(flags.recover_after).getTime() : 0;
     if (recoverAfter && now < recoverAfter) {
       inRecovery = true;
-      if (gen.generator_type === 'junction_box') status = 'offline';  // still knocked out
+      // Junction boxes fault in ordinary storms; an EMP pulse knocks the CITY
+      // PLANTS down too (forceGridBlackout), which is why this holds anything
+      // that isn't a player's own portable unit.
+      if (gen.generator_type !== 'player') status = 'offline';        // still knocked out
       anyRecovering = true;
     } else if (recoverAfter) {
       const { recover_after, ...rest } = flags;                       // window elapsed — clear the scar
@@ -1303,10 +1318,10 @@ async function simulatePowerNetwork(query, { weatherType, reason = 'unknown' } =
     const stateChanged = gen.status !== status || Number(gen.fuel_remaining) !== Number(fuelRemaining);
     if (flagsChanged) {
       if (stateChanged || JSON.stringify(gen.flags ?? {}) !== JSON.stringify(flags ?? {})) {
-        await query(`UPDATE generators SET status=$1, fuel_remaining=$2, flags=$3 WHERE id=$4`, [status, fuelRemaining, JSON.stringify(flags), gen.id]);
+        wStatusFuelFlags.push([gen.id, status, fuelRemaining, JSON.stringify(flags)]);
       }
     } else if (stateChanged) {
-      await query(`UPDATE generators SET status=$1, fuel_remaining=$2 WHERE id=$3`, [status, fuelRemaining, gen.id]);
+      wStatusFuel.push([gen.id, status, fuelRemaining]);
     }
     // The RAM row is the only basis the next cycle's diff-gate compares against
     // (nothing re-SELECTs generators any more), so it must carry the new values
@@ -1314,6 +1329,33 @@ async function simulatePowerNetwork(query, { weatherType, reason = 'unknown' } =
     gen.status = status;
     gen.fuel_remaining = fuelRemaining;
     gen.flags = flags;
+  }
+  // Flush the collected generator writes — at most three statements regardless of
+  // how many units changed. The two shapes stay separate on purpose: the
+  // status+fuel form must NOT touch flags — its diff-gate never established that
+  // flags moved, so folding it in would widen what that branch claims to persist.
+  // Columns are cast explicitly — a bare VALUES list gives Postgres nothing to
+  // infer parameter types from.
+  if (wOffline.length) {
+    await query(`UPDATE generators SET status='offline' WHERE id = ANY($1)`, [wOffline]);
+  }
+  if (wStatusFuel.length) {
+    const vals = wStatusFuel.map((_, i) => `($${i*3+1}::text, $${i*3+2}::text, $${i*3+3}::real)`).join(',');
+    await query(
+      `UPDATE generators g SET status = v.status, fuel_remaining = v.fuel
+         FROM (VALUES ${vals}) AS v(id, status, fuel)
+        WHERE g.id = v.id`,
+      wStatusFuel.flat()
+    );
+  }
+  if (wStatusFuelFlags.length) {
+    const vals = wStatusFuelFlags.map((_, i) => `($${i*4+1}::text, $${i*4+2}::text, $${i*4+3}::numeric, $${i*4+4}::jsonb)`).join(',');
+    await query(
+      `UPDATE generators g SET status = v.status, fuel_remaining = v.fuel, flags = v.flags
+         FROM (VALUES ${vals}) AS v(id, status, fuel, flags)
+        WHERE g.id = v.id`,
+      wStatusFuelFlags.flat()
+    );
   }
   stormFaultActive = anyRecovering;
 
@@ -1381,7 +1423,7 @@ async function simulatePowerNetwork(query, { weatherType, reason = 'unknown' } =
         const cap = z.max_capacity_kw ?? 1000;
         const prev_z = z.status; // capture before writeZonePower mutates the row
         writeZonePower(z, 'offline', 0, cap);
-        await applyPowerLightEffects(z.id, prev_z, 'offline', 0, cap);
+        await applyPowerLightEffects(z.id, prev_z, 'offline', 0, cap, lightOpts);
       }
       for (const jb of connectedJBs) {
         jbAlloc.set(jb.id, 0);
@@ -1423,7 +1465,7 @@ async function simulatePowerNetwork(query, { weatherType, reason = 'unknown' } =
           : 'powered';
         const prev_zone = zone.status; // capture before writeZonePower mutates the row
         writeZonePower(zone, status, alloc, ceiling);
-        await applyPowerLightEffects(zone.id, prev_zone, status, alloc, ceiling);
+        await applyPowerLightEffects(zone.id, prev_zone, status, alloc, ceiling, lightOpts);
       } else {
         jbAlloc.set(c.id, alloc);
         writeGeneratorRemaining(genById.get(c.id), alloc);
@@ -1467,7 +1509,7 @@ async function simulatePowerNetwork(query, { weatherType, reason = 'unknown' } =
         const cap = z.max_capacity_kw ?? 1000;
         const prev_z = z.status; // capture before writeZonePower mutates the row
         writeZonePower(z, 'offline', 0, cap);
-        await applyPowerLightEffects(z.id, prev_z, 'offline', 0, cap);
+        await applyPowerLightEffects(z.id, prev_z, 'offline', 0, cap, lightOpts);
       }
       if (jbSt) writeGeneratorRemaining(gen, 0);
       continue;
@@ -1491,7 +1533,7 @@ async function simulatePowerNetwork(query, { weatherType, reason = 'unknown' } =
         : 'powered';
       const prev_zone = zone.status; // capture before writeZonePower mutates the row
       writeZonePower(zone, status, alloc, ceiling);
-      await applyPowerLightEffects(zone.id, prev_zone, status, alloc, ceiling);
+      await applyPowerLightEffects(zone.id, prev_zone, status, alloc, ceiling, lightOpts);
     }
     writeGeneratorRemaining(gen, Math.max(0, pool));
   }
@@ -1501,7 +1543,7 @@ async function simulatePowerNetwork(query, { weatherType, reason = 'unknown' } =
     const cap = z.max_capacity_kw ?? 1000;
     const prev_z = z.status; // capture before writeZonePower mutates the row
     writeZonePower(z, 'offline', 0, cap);
-    await applyPowerLightEffects(z.id, prev_z, 'offline', 0, cap);
+    await applyPowerLightEffects(z.id, prev_z, 'offline', 0, cap, lightOpts);
   }
 
   reconcileDevicePower();
@@ -1634,6 +1676,20 @@ const CATEGORY_MIN_VIS = { pitch_dark: 0, murk: 0.05, dark: 0.10, gloomy: 0.26, 
 
 // Return a copy of `vis` raised to at least `floorCategory`. If it's already that
 // bright or brighter (or either category is unknown), returns `vis` unchanged.
+// Move `vis` up or down the ladder by whole steps. Used by sight acuity: a keen
+// eye reads a gloomy room as dim, a dark one as gloomy; smoked lenses do the
+// reverse. Unlike floorVisibility this is RELATIVE, so it composes with whatever
+// a light source already did rather than overriding it — a keen-eyed player with
+// a flashlight gets both.
+export function shiftVisibility(vis, steps) {
+  const cur = LIGHT_LADDER.indexOf(vis?.category);
+  if (cur < 0 || !steps) return vis;
+  const tgt = Math.max(0, Math.min(LIGHT_LADDER.length - 1, cur + steps));
+  if (tgt === cur) return vis;
+  const category = LIGHT_LADDER[tgt];
+  return { ...vis, category, visibility: CATEGORY_MIN_VIS[category] };
+}
+
 export function floorVisibility(vis, floorCategory) {
   const cur = LIGHT_LADDER.indexOf(vis.category);
   const tgt = LIGHT_LADDER.indexOf(floorCategory);
@@ -1781,6 +1837,35 @@ function syncWeatherEventSignal(event) {
   lastWeatherEventKey = key;
   if (deps.broadcast) deps.broadcast({ type: 'weather_event', eventType: event?.type ?? null, phase: event?.phase ?? null });
   emit('weather.event', { type: event?.type ?? null, phase: event?.phase ?? null });
+  // The EMP pulse. This is the only change-detected event seam in the file, so
+  // it's the one place a "fires exactly once, at the peak" effect can live.
+  if (event?.type === 'ion_storm' && event.phase === 'peak') firePulse();
+}
+
+// The moment the sky takes the city's power out. Kept separate from the signal
+// above so the ordering is explicit: black the grid out FIRST, then say so, then
+// let subscribers (fried gear, augments, aircraft avionics) react to the same beat.
+async function firePulse() {
+  const minutes = EMP_BLACKOUT_MIN;
+  try { await forceGridBlackout({ minutes, reason: 'emp' }); }
+  catch (e) { console.error(`[weather] EMP blackout failed: ${e.message}`); }
+  announceWeatherEvent([
+    'Every light in the city dies at once. Screens, streetlamps, the hum behind the walls — all of it, gone between one breath and the next.',
+  ]);
+  emit('weather.empPulse', { minutes });
+}
+// How long the grid stays down after a pulse, before generators start coming
+// back (jittered per unit inside forceGridBlackout, so recovery is ragged).
+const EMP_BLACKOUT_MIN = 6;
+
+// The live named event as { type, phase } | null, for anything that needs to
+// render or reason about it outside the change-detected broadcast — the flight
+// sim's canopy and hazard roll, the tablet's weather widget. Reads the last
+// signalled state rather than asking the plugin, so it's free.
+export function getWeatherEvent() {
+  if (lastWeatherEventKey === 'none') return null;
+  const [type, phase] = lastWeatherEventKey.split(':');
+  return { type, phase };
 }
 
 // Dev tool: force a named weather event immediately (sibling to devMaxStorm).
@@ -2142,8 +2227,28 @@ export function getGameDateTime() {
   return { date: state.date, time: formatHHMM(state.minutes) };
 }
 
+// The whole-world snapshot. Most callers want one clock or weather field off it —
+// the NPC/enemy AI asks for `minutes`, `hour`, `dayOfWeek` or `timePhase` on a
+// per-entity basis, every second — but building it eagerly also rebuilt the
+// forecast AND allocated one object per power-model zone, thousands of them, for
+// a caller that wanted an integer.
+//
+// So `forecast` and `powerMap` are lazy: computed on first access, memoised per
+// snapshot. They stay ENUMERABLE, so anything that spreads or JSON-stringifies
+// the whole state (the HUD sync payload, the dev panel) is completely unaffected
+// and still gets both fields. Callers that never touch them now pay nothing.
 export function getEnvironmentState() {
-  return { ...getHUDPayload(), minutes: state.minutes, hour: Math.floor(state.minutes / 60), timeScale: state.timeScale, ambientLight: state.ambientLight, forecast: getForecast(), powerMap: getPowerMap(), precipRate: state.precipRate, currentPrecip: state.currentPrecip, lightningKills: state.lightningKills };
+  const snap = { ...getHUDPayload(), minutes: state.minutes, hour: Math.floor(state.minutes / 60), timeScale: state.timeScale, ambientLight: state.ambientLight, precipRate: state.precipRate, currentPrecip: state.currentPrecip, lightningKills: state.lightningKills };
+  let forecast, powerMap;
+  Object.defineProperty(snap, 'forecast', {
+    enumerable: true, configurable: true,
+    get() { return forecast !== undefined ? forecast : (forecast = getForecast()); },
+  });
+  Object.defineProperty(snap, 'powerMap', {
+    enumerable: true, configurable: true,
+    get() { return powerMap !== undefined ? powerMap : (powerMap = getPowerMap()); },
+  });
+  return snap;
 }
 
 // Records a player killed by storm lightning (not smite). Appends
@@ -3150,6 +3255,45 @@ export async function recomputePower() {
   await simulatePowerNetwork(query, { weatherType: state.weatherType, reason: 'generator_change' });
   loadZonePowerAndLighting();
   return getPowerMap();
+}
+
+// EMP: knock the WHOLE grid down at once.
+//
+// It cannot write generators.status — Phase 1 of simulatePowerNetwork forcibly
+// resets every non-player generator to 'online' each cycle, so a raw status
+// write would be undone within 30 seconds. The durable lever is the same
+// `flags.recover_after` window ordinary storm faults already use; this just
+// applies it to every city plant and junction box at once, jittered per unit so
+// the city comes back raggedly rather than snapping on like a light switch.
+//
+// Player generators are deliberately untouched: an unplugged portable genset in
+// a back room is exactly the sort of preparation that should pay off here.
+export async function forceGridBlackout({ minutes = 6, jitterMinutes = 6, reason = 'emp' } = {}) {
+  const { query } = deps;
+  const now = Date.now();
+  const writes = [];
+  for (const gen of generatorRows.values()) {
+    if (gen.generator_type === 'player') continue;
+    const ms = (minutes + Math.random() * jitterMinutes) * 60_000;
+    const flags = { ...(gen.flags || {}), recover_after: new Date(now + ms).toISOString() };
+    gen.flags = flags;
+    gen.status = 'offline';
+    writes.push([gen.id, JSON.stringify(flags)]);
+  }
+  if (!writes.length) return { ok: false, generators: 0 };
+  // One round trip for the lot — an EMP touches every generator in the world,
+  // so the per-row form would be ~100 sequential round trips to remote Postgres.
+  await query(
+    `UPDATE generators SET status='offline', flags = d.flags::jsonb
+       FROM (SELECT * FROM unnest($1::text[], $2::text[]) AS t(id, flags)) d
+      WHERE generators.id = d.id`,
+    [writes.map(w => w[0]), writes.map(w => w[1])]
+  );
+  // The per-zone "the lights cut out" lines are suppressed: the ion storm's own
+  // sky-wide announce is the beat, and one line per zone would bury it.
+  await simulatePowerNetwork(query, { weatherType: state.weatherType, reason, silentBlackout: true });
+  loadZonePowerAndLighting();
+  return { ok: true, generators: writes.length };
 }
 
 // Ghost-mode sabotage: force a zone fully offline right now. Zeroes its supply

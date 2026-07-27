@@ -8,31 +8,59 @@
 import {
   BASE_OFFSET, HEAT_SCORE, PRECISION_WEIGHT, VESSEL_WEIGHT, SKILL_WEIGHT,
   TURN_IDEAL_BONUS, TURN_SPACING_BONUS, TURN_MISS_PENALTY, FUSS_PENALTY,
-  SCORE_FLOOR, BARE_VESSEL, HEAT_CURVE_WEIGHT, SMOKER_PEAK_MULT, PEAK_LINES, SLIPPING_LINES, FADING_LINES, lineFor,
+  SCORE_FLOOR, BARE_VESSEL, HEAT_CURVE_WEIGHT, SMOKER_PEAK_MULT, MINCE_CEILING_DROP, PEAK_LINES, SLIPPING_LINES, FADING_LINES, lineFor,
+  MICROWAVE_CEILING, MICROWAVE_PEAK_MULT, MICROWAVE_BURN_MULT,
 } from './config.js';
 import { QUALITY_BANDS, bandIndex, donenessAt } from './profiles.js';
+import { prepCeilingDrop, prepWindowMult, prepBurnMult, prepBonus } from './prep.js';
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const HEAT_ORDER = ['low', 'mid', 'high'];
 
 // The four windows of a profiled cook, all derived from what the session stored.
-// doneAt keeps the meaning it has always had: the moment cooking completes, which
-// is also the moment the peak window opens.
+// The `doneAt` this RETURNS is the real one — where the doneness target puts the
+// finish line — and is not the same number as the session's stored
+// `plainDoneAt`. Everything downstream reads this one, or `finishAt()` below.
 export function timeline(session, profile) {
   const { startedAt, thawMs = 0, cookMs } = session;
   const v = session.vessel || BARE_VESSEL;
   // DONENESS moves the goalposts: the window opens where the chosen target sits,
   // as a multiple of the cook time. A profile without doneness returns 1 and
-  // this is exactly the old behaviour. `session.doneAt` stays as the stored
+  // this is exactly the old behaviour. `session.plainDoneAt` stays as the stored
   // default-completion stamp for the unprofiled path and boot catch-up; the
   // profiled path derives everything from the target so the two can't drift.
-  const mult = donenessAt(profile, session.target);
+  // Mince has no rare middle to aim for — it's cooked through or it isn't — so
+  // a doneness target on it is meaningless and is ignored rather than honoured.
+  const mult = session.minced ? 1 : donenessAt(profile, session.target);
   const doneAt = startedAt + thawMs + cookMs * mult;
   const smokeMult = session.smoking ? SMOKER_PEAK_MULT : 1;
-  const peakMs = Math.max(1, cookMs * profile.peakFraction * (0.6 + 0.8 * v.r) * smokeMult);
-  const overMs = Math.max(1, cookMs * profile.burnFraction * (0.6 + 0.8 * v.d));
+  const microMult = session.microwave ? MICROWAVE_PEAK_MULT : 1;
+  const peakMs = Math.max(1, cookMs * profile.peakFraction * (0.6 + 0.8 * v.r) * smokeMult * microMult * prepWindowMult(session));
+  // The grace between "past its best" and "burnt". Scoring buys peak window and
+  // pays for it HERE — the cuts that let heat in let moisture out.
+  const overMs = Math.max(1, cookMs * profile.burnFraction * (0.6 + 0.8 * v.d) * prepBurnMult(session)
+    * (session.microwave ? MICROWAVE_BURN_MULT : 1));
   const peakEnd = doneAt + peakMs;
   return { startedAt, thawMs, cookMs, doneAt, peakMs, overMs, peakEnd, burnAt: peakEnd + overMs, mult };
+}
+
+// THE ONE WAY TO ASK when a cook finishes. Profiled food finishes where its
+// doneness target puts it; unprofiled food finishes at the plain stamp it was
+// given at `cook`, because it has no target and no window to move.
+//
+// This exists because the stored stamp and the derived one disagree the moment a
+// player types `doneness`, and three separate call sites independently reached
+// for the stored one — making examine describe a rare steak as still browning,
+// leaving the stage narration running past the window, and arming the burn-off
+// against a finish line that had moved. Go through here and it cannot happen
+// again; the stored field is deliberately named `plainDoneAt` so that reaching
+// past this function reads as obviously wrong.
+//
+// `doneAt` is still accepted as a fallback: sessions written before the rename
+// are sitting in `player_inventory` right now, mid-cook.
+export function finishAt(session, profile = null) {
+  if (profile) return timeline(session, profile).doneAt;
+  return session.plainDoneAt ?? session.doneAt;
 }
 
 export function endStateAt(session, profile, now = Date.now()) {
@@ -169,7 +197,17 @@ function vesselScore(session) {
 // stays pure and testable — pass 0 for a neutral read (examine).
 export function evaluate(session, profile, now = Date.now(), skillMargin = 0) {
   const endState = endStateAt(session, profile, now);
-  const ceiling = bandIndex(profile.targets[endState]);
+  // Mince cooks fast and pays for it here: no crust, no texture, nothing to
+  // rest — a full band off whatever it could otherwise have reached. Floored at
+  // 1 so it can still be food, just never the best food.
+  const base = bandIndex(profile.targets[endState]);
+  const drop = prepCeilingDrop(session);
+  let ceiling = drop ? Math.max(1, base - drop) : base;
+  // A microwave agitates water; it does not brown, crust or sear. So the cap
+  // lands on the CEILING rather than the score — no skill, no prep, no vessel
+  // and no seasoning can buy a good meal back out of one. That hard limit is
+  // the entire price of it being the fastest thing in the kitchen.
+  if (session.microwave) ceiling = Math.min(ceiling, bandIndex(MICROWAVE_CEILING));
 
   const parts = {
     turn: turnScore(session, profile),
@@ -177,6 +215,7 @@ export function evaluate(session, profile, now = Date.now(), skillMargin = 0) {
     precision: precisionScore(session, profile, now),
     vessel: vesselScore(session),
     skill: SKILL_WEIGHT * clamp(skillMargin / 20, -1, 1),
+    prep: prepBonus(session, now),
   };
   const modifiers = clamp(Object.values(parts).reduce((a, b) => a + b, 0), SCORE_FLOOR, Math.abs(BASE_OFFSET) + 1);
   const raw = ceiling + BASE_OFFSET + modifiers;

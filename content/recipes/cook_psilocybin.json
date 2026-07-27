@@ -5,7 +5,6 @@
     "quantity": 1
   },
   "category": "synthesis",
-  "craft_time": 3,
   "description": "Cook Psilocybin from crude Psilocybin + industrial solvent.",
   "id": "cook_psilocybin",
   "ingredients": [

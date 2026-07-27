@@ -1,10 +1,10 @@
 {
   "description": "A boxy four-burner range in municipal grey, EMBER 300 stamped on a control panel that's outlived three kitchens' worth of grease. Even heat, even temper, exactly as advertised on the sticker nobody's peeled off.",
   "flags": {
-    "stove_tier": "mid",
     "interactions": [
       "lean"
-    ]
+    ],
+    "stove_tier": "mid"
   },
   "hp": null,
   "hp_max": null,

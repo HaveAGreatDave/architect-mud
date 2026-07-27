@@ -33,7 +33,7 @@ name TEXT
 description TEXT
 category TEXT             — general | news | advertisement | entertainment | emergency | …
 tags JSONB                — []
-playback_mode TEXT        — scripted | dynamic_news | live_camera | recorded | weather | sports | news | talkshow | morning
+playback_mode TEXT        — scripted | film | sermon | dynamic_news | live_camera | recorded | weather | sports | news | talkshow | morning | gameshow
                             (getCurrentMessage branches on weather/sports/news/talkshow/morning,
                             each assembling a fresh graph from its *_pools column — see
                             Live-Assembled Shows below; anything else plays its stored
@@ -80,10 +80,46 @@ channel_id TEXT FK
 broadcast_id TEXT FK
 start_time INTEGER        — seconds from loop/day start
 duration_override REAL    — overrides computed duration for this slot only
-priority INTEGER          — higher wins when slots overlap (default 0)
+priority INTEGER          — manual tiebreak; higher wins when slots overlap (default 0)
 conditions JSONB          — gate object, e.g. { npc_staff: [npcId,…] } (default [])
 slot_type TEXT            — 'broadcast' | 'commercial' | … (default 'broadcast')
+days SMALLINT             — weekday mask, bit 0 = Mon … bit 6 = Sun (default 127 = every
+                            day). See Weekday Overrides below
 ```
+
+### Weekday Overrides — one schedule, not two modes
+
+A daily channel has **one** running order, authored once, that repeats every day.
+`days` is what lets a single day differ from it without a second schedule existing.
+
+- A slot with `days = 127` (the default, and what every pre-existing row carries) plays
+  all seven days. That is the **base grid**.
+- A slot with a narrower mask is an **override**. Where two slots both cover the current
+  second, the runner picks the **most specific** one — fewest days set. So a Thursday-only
+  slot at 20:00 replaces the base grid's 20:00 slot on Thursday, and the other six days
+  keep playing the base grid untouched. No gap has to be cut, and nothing is duplicated.
+- Overrides layer coarse-to-fine: a weekend slot (2 days) beats the base grid but loses
+  to a Saturday-only slot (1 day).
+- `priority` is the manual escape hatch and outranks specificity. Equal on both, the later
+  `start_time` wins.
+- A `0` or missing mask reads as every day, never as "airs on no day" — a bad write can't
+  silently black out a channel.
+
+Every daily-schedule read goes through **`_pickDailySlot()`** in `plugins/broadcast/index.js`
+— the runner (`getCurrentMessage`), the NPC shift checker (`registerNpcScheduleChecker`),
+the dev panel's "what's on now" (`nowBroadcastingFor`) and the viewer's TV guide
+(`sendTvSchedule`). Add a new consumer through it, never with a fresh `.find()`, or the
+four will disagree about which slot won.
+
+The viewer's TV guide lists **today's** running order: slots that don't air today are absent,
+and a base slot replaced by an override is shown only as its replacement.
+
+**Authoring** (dev panel → Schedule tab): the day bar above the timeline picks the scope.
+*Every day* edits the base grid; a weekday tab edits that day's exceptions on their own lane,
+above a ghosted read-only copy of the base grid — click a ghost to lift it onto that day as an
+editable override. Clear and Auto-schedule are scoped to the tab you're on, so wiping
+Thursday's exceptions never touches the other six days. A slot's mask is also editable
+directly from its popover (the M T W T F S S chips + ALL).
 
 ### `media_cameras`
 
@@ -303,10 +339,193 @@ There is **no show-type registry** — a type is a `playback_mode` string branch
 
 - **`weather`** reads the live 7-day forecast; **`sports`** simulates a fresh game; **`news`** pulls from the news generator, which assembles **live → wire → tabloid**: live event-sourced stories, then date-seeded canonical-lore "wire" stories (the Long Watch framed as terrorists, the Ascendants as establishment, the Architect as "the Machine"; fixed outlet bylines like Coldwater Sentinel / Basin Civic Wire), padded with tabloid filler. Their announcers/anchors are **name strings** — no NPC is spawned.
 - **Title-card / theme sync**: when a `news`/`talkshow`/`morning` script declares both `@titlecard` and `@theme`, the assembler folds the theme onto the `title_card` node (`{ type: 'title_card', theme }`) instead of emitting a separate `music` node after it. The intro song then starts as the card appears and the card holds for the theme's length, so the first anchor/cold-open line doesn't step on the intro. With a theme but no title card, it still plays as a standalone `music` node.
-- **`sports`** is keyed to an absolute airing time-window so a re-simmed same-slot game produces the same `gameId`. While a game airs, the plugin **emits a `sports.game` event every 60s** with payload `{ channelId, gameId, away, home, awayScore, homeScore, winner, endsAtMs }` — consumed by the **sportsbet**, **sportsleague**, and **gossip** plugins (they read `winner`; there is no `result` field). Score-bug and standings overlays ride `tv_overlay`; the World Series takeover pulls standings back through the `sportsleague.getStandings`/`getSeason` actions.
+- **`sports`** is keyed to an absolute airing time-window so a re-simmed same-slot game produces the same `gameId`. While a game airs, the plugin **emits a `sports.game` event every 60s** with payload `{ channelId, gameId, sport, away, home, awayScore, homeScore, winner, endsAtMs }` — consumed by the **sportsbet**, **sportsleague**, and **gossip** plugins (they read `winner`; there is no `result` field). Score-bug and standings overlays ride `tv_overlay`; a postseason takeover pulls standings back through the `sportsleague.getStandings`/`getSeason` actions. **Each channel simulates its own game** and the `gameId` is keyed to the broadcast as well as the slot — with two sports sharing a channel, one result broadcast to every channel would settle a hockey wager against a ballgame's score. See [Sports — two codes, one pipeline](#sports--two-codes-one-pipeline).
 - **`morning`** is the talk show's daytime cousin — also **acted live**, by two resident host NPCs on the studio couch, but its variable is the WORLD rather than a guest: every segment reads something live (the clock, the forecast, `news.getStories`, the `martial_law`/`nuclear_event` flags, the power map), and the ticker is assembled from those facts rather than authored. Every pool is a `host >> cohost` exchange pair, so the couch's back-and-forth survives the shuffle. Airtime is just its daily playlist slot — no separate gate. See [Morning Shows](bsm-format.md#morning-shows-type-morning).
 - **`gameshow`** is the only broadcast type a **player can be inside**. Its variable is the ITEM CATALOG: each round is a question about what something is worth, dealt from `items.value` via the boot-loaded item cache (so question generation costs **zero queries**, and every item added later becomes a prize with no authoring). Four rounds — over-or-under, closest-without-going-over, order-three-lots, and a ±20% Showcase — all answered by the single `guess` verb. **Anyone standing in the channel's `studio_zone_id` when a round opens is a contestant**, and the existing studio relay televises their spoken answer citywide; with nobody there the contestants are name-only strings and the show plays out identically. Round control is a pair of *instantaneous* side-effect nodes (`gameshow_round` / `gameshow_reveal`) — **the guess window is the host's patter between them**, not a timer — and the outcome reaches air through the `{winner}`/`{verdict}`/`{guesses}` tokens rather than by graph branching (the `FLAG_SET` broadcast condition is a stub that always returns `false`). Wins pay credits gated by a 6-hour `player_flags.gameshow_win_cooldown`; the Showcase also grants the actual lot. Lives in the sibling module [plugins/broadcast/gameshow.js](../plugins/broadcast/gameshow.js). See [Game Shows](bsm-format.md#game-shows-type-gameshow).
+- **`sermon`** is the news type’s Sunday cousin: the SAME live news feed, read as scripture instead of reported. Dynamic but **not acted** — celebrants are display names, so nothing spawns and it never presence-gates. Variety comes from three axes rolled per service (which celebrant reads, a random interpretive LENS per reading, and which optional beats happen at all), which is why twelve services off identical headlines come out twelve distinct. Re-rolls per in-game DAY, not per news bucket — a 15-minute liturgy re-rolling mid-service would cut itself off. Weekly via `@airday`, which rides the playlist’s existing 7-bit day mask. See [Sermons](bsm-format.md#sermons-type-sermon).
+- **`film`** is the exception to this whole section: it is **linear**, not assembled. A feature stores an ordinary baked `broadcast_graph` like a `scripted` broadcast, and `film_meta` holds only what a chain cannot — pre-roll card copy, the display-name cast, and the `airSlots` screening block. It spawns no NPCs and never presence-gates (a film is a *recording*, so its `SPEAKER:` lines compile to pre-rendered `verbatim` says with no anchor). The one thing it needs from the runner is a **real-time seek**: daily slots elapse on the in-game clock but a picture is authored in real minutes, so the film branch divides `segElapsed` by `timeScale` before seeking — which is what lets a late viewer join the reel already running instead of restarting it. See [Films](bsm-format.md#films-type-film).
 - **`talkshow`** is the odd one out: it's **acted live by real cast NPCs**. A resident host + sidekick commute in on schedule, and ONE reusable guest NPC is renamed to a new persona each in-game day, appears in a random unobserved zone, walks across the map to the studio, performs, and vanishes backstage afterward (engine AI actions `TALKSHOW_APPEAR`/`TALKSHOW_HIDE`, plus `talkshowHeartbeat` for the nightly rename). The assembled graph sets `_requireHost`, so it presence-gates on any channel — no cast on-stage ⇒ camera-idle → technical difficulties. See [Talk-Show Broadcasts](bsm-format.md#talk-show-broadcasts-type-talkshow).
+
+---
+
+## Sports — two codes, one pipeline
+
+Two shows share the `sports` pipeline: **DEADBALL** (baseball, `bc_1783289744953`) and
+**CLUSTER PUCK** (CPhL hockey, `bc_cluster_puck`). Both live on KSAB-TV at 18:00 —
+Deadball Mon/Wed/Fri/Sun, Cluster Puck **Tue + Thu**, The Open Signal Saturday. A
+script declares its code with `@sport`, and **that is the only thing that selects a
+sport module**; nothing else in the pipeline may branch on it.
+
+### The sport registry
+
+`SPORTS = { baseball, hockey }` in [plugins/broadcast/index.js](../plugins/broadcast/index.js),
+each entry a module under [plugins/broadcast/sports/](../plugins/broadcast/sports/). A
+module is **pure and seeded**: `simGame(matchup, players, rand)` with the same three
+arguments returns the same game forever, on every server and every TV, writing nothing.
+`matchup.teams` carries the whole club list, because a sport whose rosters belong to the
+league can't derive them from two names.
+
+| Export | What it is |
+| --- | --- |
+| `simGame` | the sim; returns `{ away, home, awayScore, homeScore, beats, … }` |
+| `playDesc(beat)` | neutral factual label for the play card (distinct from the announcer's line) |
+| `synthDetail(seed, kind, side)` | cosmetic keyframes for the sub-screen (pitches / possession) |
+| `season` | how a game folds into a league table — see below |
+| `narrate(ctx)` | **optional.** Its presence is what hands this sport the middle of the broadcast |
+| `defaultNames`, `section`, `ordinal` | naming/labelling |
+
+### The `narrate` seam
+
+`assembleSportsGraph()` keeps everything sport-agnostic — the node chain, `say`/`pick`,
+the recap reel, the pacing, the graph — and hands the middle to `sportMod.narrate(ctx)`
+when the module exports one. **Baseball has no `narrate`**, so its body (halves, bases,
+RBI, extra innings) runs untouched on the original path; the diff that added the seam is
+the seam and nothing else. A third sport touches `index.js` nowhere but the registry.
+
+`ctx` supplies `{ script, game, gs, slot, ws, announcer, pools, nrng, sport, add, say,
+pick, abbr, recordOf, standings, lastId }`. `recordOf` is **bound to that sport's table**
+so a narrator cannot read the other league's records.
+
+### Hockey specifics (as built)
+
+- **The atomic beat is a scoring chance**, not an at-bat: ~34/game at ~10–11% conversion,
+  landing on **~6.4 goals on ~64 shots**.
+- **Violence has consequences.** An injured man is *not replaced* — his side finishes
+  short. A fight loser serves five and the **winner's** team gets the power play.
+- **Sudden death is literal**: overtime ends on the first goal *or* the first fatality,
+  then a shootout. **Never a tie.**
+- **Faceoffs are real beats at the nine real dots.** Centre ice **only** after a goal or
+  to start a period; the offending team's end after a penalty; the defending end after a
+  frozen puck or an injury; neutral zone after a fight or scrum. The dot alone tells a
+  reader what just happened, which is why it is simulated rather than sprinkled.
+- **A man belongs to one club.** `rosterFor(team, teams, players)` deals each club a
+  stable, disjoint six by sorting the league and shuffling the pool with a fixed seed —
+  a pure function of the *league*, not the game, stored nowhere. The pool must hold at
+  least `clubs × 6` names (regress asserts it); below that it degrades to sharing men.
+- **Clubs differ.** `clubProfile(name)` derives shooting / goaltending / discipline /
+  violence + a colour pair from the club NAME, then **nudges by keyword** — a club called
+  the Goons cannot come out as the league's gentlest side because its name hashed low.
+  Measured over 480 games: the most-penalised club takes ~341 to the least's ~121, with
+  goals/game holding at ~6.4.
+- **Every club has exactly one rival**, `rivalOf(team, teams)`, derived from the league
+  (sort → seeded shuffle → pair adjacent) so nothing is authored and a new club arrives
+  with a rival. A rivalry is **not a caption**: fights and boards run ×1.7 and penalties
+  ×1.45, which measures out at **7.9 penalties and 2.1 fights** a night against 6.4 and
+  1.4 normally. It's highlighted everywhere it's true — its own intro/matchup pools, a
+  red `hockeyrivalry` pre-game card, and a persistent chip on both the score bug and the
+  rink header, so someone joining in the second period can see why the penalty count
+  looks like that.
+- **Barn colour.** Booth chatter looks for `chatter.<first word of the home club>` and
+  falls back to the general `chatter` pool — authoring a building is optional, and a club
+  with nothing written behaves exactly as before. Ashway, Docks and Longwatch have one.
+- **Every barn's horn is its own.** The goal horn is seeded from a hash of the scoring
+  club's name (`hornSeed` on the payload) through the soundset's existing `variant()`,
+  so no per-club audio is authored and a barn sounds like itself forever.
+- **Injuries persist, and that is the hard part.** A man carried off is gone for
+  **2–16 slots**; a death is permanent. This makes game N depend on the games before it
+  — the one thing this league's determinism forbids — so nothing is stored: the schedule
+  is deterministic, therefore **the injury ledger is also a pure function of the slot**.
+  `ledgerAt()` folds the season's games forward in order carrying who is hurt and until
+  when, memoised and *advanced* (a normal slot roll costs one extra sim, a cold start
+  rebuilds the window). **`computeStandings` walks the identical chain**, so the table
+  and the broadcast can never disagree about who was playing. A depleted club **calls up**
+  from the reserve — the slack between the player pool and `clubs × 6`, which is why the
+  pool should run comfortably past the minimum — and a club can never ice fewer than six;
+  with the reserve exhausted the injured man plays hurt. Tuned to hold the league at
+  **~13% unavailable** (peak 21 of 96, reserve never dry): at the first pass, 40% of the
+  league was hurt at once, which makes "their best man is out" meaningless. Deaths reset
+  with the season when the chain re-anchors — which is exactly right for a league whose
+  own lore says there are no records and no office to keep them.
+- **Intermissions.** Between periods the broadcast reads the period back: scoring
+  summary, shot clock, penalties, casualties. Every number is counted from beats already
+  aired, so an intermission can't disagree with the game. **No intermission in overtime.**
+
+### Leagues (`sportsleague`)
+
+One season **per sport**. `sports_season` carries a `sport` column with a
+`(sport, season_no)` key, so both leagues number their own seasons from 1. Standings stay
+a **zero-write computed fold** over the deterministic schedule, but *what* a game folds
+into belongs to the sport module (`SEASON` in `sports/<name>.js`):
+
+| | Deadball | Cluster Puck |
+| --- | --- | --- |
+| Table | W · L · PCT · RDIF | W · L · **OTL** · **PTS** · GD |
+| Points | — | 2 for a win, **1 for losing past sixty** |
+| Extras | — | scoring race + season casualty/death count |
+| Final | World Series (`worldseries`) | **Coldwater Cup** (`cup`) |
+
+A postseason takeover applies **only to its own sport** (`overrideFor(script)`) —
+handing the World Series' finalists to the hockey sim would put two ballclubs on the ice.
+
+### The rink sub-screen
+
+[client/game/js/panels/gameday-rink.js](../client/game/js/panels/gameday-rink.js) is the
+hockey analogue of the Deadball diamond, with the identical
+`{ apply, clear, setCaption, showIdle, showCard }` interface — which is the only reason
+tv.js can pick a view by `gd.sport` and change nothing else. Both TV surfaces (CRT and
+tablet) get it, since both drive the same `createTvView`.
+
+Two facts fell out of the sim and the whole view is built on them: the possession
+keyframes are already in rink coordinates, and **a goal's final keyframe (x≈0.955) is
+past the goal line the view draws (0.925)** — so the puck visibly crosses, *then* reaches
+the mesh at 0.975, which bulges. Regress asserts every simulated goal crosses. The goalie
+is an articulated SVG (mask, chest, blocker, trapper, two pads, stick) with a pose per
+save type, because every save in the sim is a *different* save.
+
+Branding lives in [cphl-brand.js](../client/game/js/panels/cphl-brand.js) — one mark,
+drawn by the score bug, the full-screen graphics, the rink header and the idle screen.
+
+### Sound banks
+
+`sfx-catalog.js` folds in **banks**: a separate file authoring a themed preset set in the
+catalog's own shape (`client/shared/hockey-sfx.js`, 29 CPhL presets under group `hockey`).
+Folding them in is what makes them dev-panel editable and `interface_sfx`-overridable.
+**Load-order contract: a bank's `<script>` must come BEFORE `sfx-catalog.js`** in both
+`client/game/index.html` and `client/devpanel/index.html` — otherwise the bank still
+plays but the dev panel can't see it.
+
+### Rebuilding the show from its script
+
+`data/scripts/hockey.bsm` is the source of the show. `node scripts/content/build-cluster-puck.mjs`
+recompiles it into the broadcast, graphic and playlist rows under `content/`, so the file
+in git and the shipped row can't drift. The one thing it can't do — handing Deadball's two
+nights back — is `scripts/cluster-puck-schedule.mjs`, an idempotent one-shot per database.
+
+---
+
+## Studio Audience Door
+
+A channel with a `studio_zone_id` is a room players can walk into, and while one of the
+**acted** modes (`talkshow` / `gameshow` / `morning`) is airing, that room is a set with a
+house in it. [plugins/broadcast/audience.js](../plugins/broadcast/audience.js) ticketizes it.
+
+**The gate is a person, not a law.** It's a `registerMoveGate` (`broadcast:audience-door`)
+that only bites when an NPC carrying `flags.audience_door` is standing on the tile *outside*
+the studio, alive, and on shift (**08:00–02:00**). Dead, absent, or off-shift ⇒ no check at
+all. That's the designed out, not a hole. It also only fires on the way in from outside
+(`from.map_id !== to.map_id`), so moving between the studio's own interior rooms is free.
+
+**A pass is a dated document.** The playlist has no day-of-week, so the date rides on the
+ticket instead of the schedule. The box office stamps `player_inventory.custom_data.show_pass`
+= `{ channel, broadcast, name, slot, date, time }`, where `slot` is the **absolute** airtime
+index (in-game day × `SPORTS_GAMES_PER_DAY` + block) and is therefore self-dating. The doorman
+admits you iff `show_pass.slot === sportsSlotIndex()`. Yesterday's pass is a souvenir, and he
+says so. The pass is **not consumed** — step out and the same one walks you back in until the
+showing ends.
+
+**Off air there is no house.** With nothing acted airing, the doorman turns everyone away and
+the box office sells for the **next** taping rather than the current one.
+
+Selling is the engine seam `registerPurchaseStamp(itemId, fn)` in
+[server/engine/vendor.js](../server/engine/vendor.js) — a per-purchase sibling of the static
+`flags.prefill`. The stamper runs before credits move (so a refusal is free), returns a
+`custom_data` bag or a string to refuse the sale with, and may carry a `_line` for the receipt.
+A stamped unit **never** merges into an existing stack; `show_pass` is registered in
+`INSTANCE_KEYS` + `NOT_INSTANCED_SQL` so pickUp/give/drop honour that too — two passes to two
+different nights must never collapse into one row carrying the wrong date.
+
+As built at KSAB-TV: **Orsino Tull** (`npc_ksab_doorman`) on the facade `zone_district_913_911`,
+**Dovie Deeb** (`npc_ksab_boxoffice`) selling `item_holo_ticket` at 25₵ from the same tile.
 
 ---
 

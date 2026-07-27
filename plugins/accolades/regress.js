@@ -20,6 +20,8 @@ const KNOWN_EMITTERS = new Set([
   'credits.changed',   // server/engine/economy.js
   'enemy.killed',      // plugins/weapon
   'flight.crashed',    // plugins/flight/state.js
+  'hygiene.immaculate',// server/engine/hygiene.js (checkImmaculate, after any wash/laundry)
+  'hygiene.filthy',    // server/engine/hygiene.js (checkFilthy, on bodily's 1m tick)
   'accolade.unlocked', // this plugin
   'accolade.opened',   // this plugin
 ]);

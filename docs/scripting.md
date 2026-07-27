@@ -59,6 +59,7 @@ Registered across `actions.js`, `graph.js` and `flags.js`:
 | `EXECUTE_SCRIPT` | graph.js | Run a script graph by ID or inline graph object |
 | `END_CONVERSATION` | graph.js | Send `dialogue_end` to client |
 | `GOTO_NODE` | graph.js | Return a goto_node result; `handleDialogue` redirects navigation |
+| `RELATION_ADJUST` | relations.js | Move how the speaking NPC feels about the player (`warmth`/`familiarity`); returns no dialogue line by design |
 | `SET_FLAG` | flags.js | Persist a flag to `player_flags` or `world_flags` |
 | `CLEAR_FLAG` | flags.js | Delete a flag from the relevant table |
 
@@ -121,13 +122,29 @@ await setFlag('world', 'server_event_active', 'true');
 
 A condition object gates dialogue options and script branches:
 
-There are **three** condition shapes, distinguished by which key is present:
+There are **three built-in** condition shapes, distinguished by which key is present:
 
 ```js
 { flag: 'quest_started', scope: 'player', op: 'set' }   // persisted flag state
 { item: 'item_crowbar', op: 'has', quantity: 1 }        // carried inventory
 { stat: 'brawn', op: 'gte', value: 5 }                  // a player stat
 ```
+
+…plus any shape a substrate has **registered**. `registerConditionShape(key, fn)` lets a substrate own
+its own gate instead of being imported into flags.js (which would be a cycle — a substrate that
+registers an Action already depends on actions.js, which reaches flags.js). `getRegisteredConditionShapes()`
+lists them. A registered evaluator may be sync or async, and one that **throws fails closed** — the
+same direction an unknown stat fails.
+
+Registered today:
+
+```js
+{ relation: 'known', npc: 'npc_x', op: 'atLeast' }      // player↔NPC relationship
+```
+
+`npc` defaults to whoever is speaking. **Costs zero round trips** — relations are hydrated onto the
+live player at login ([systems-relationships.md](systems-relationships.md)), which is why this shape
+is safe in places the `item`/`stat` shapes are not.
 
 `flag` ops: `set` (flag exists, default), `unset`, `eq`, `neq`, `gt`, `lt`.
 `item` ops: `has` (default, counts equipped + containers), `lacks`.

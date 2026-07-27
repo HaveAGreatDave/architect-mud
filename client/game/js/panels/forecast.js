@@ -59,11 +59,17 @@ function renderForecastDays(forecast) {
   if (!el) return;
   el.innerHTML = (forecast || []).map((f, i) => {
     const severe = (f.severity ?? 0) >= SEVERE_THRESHOLD;
+    // A hero day outranks an ordinary severe day and has to LOOK it: its own
+    // icon, its own row class, and a named warning instead of the vague band.
+    // This is the week of notice the acid/EMP teeth are balanced against.
+    const hero = f.heroEvent ? { icon: f.heroEventIcon || '⚠', label: f.heroEventLabel || f.heroEvent.replace(/_/g, ' ') } : null;
     return `
-    <div class="forecast-day-row ${i === 0 ? 'fd-today' : ''} ${severe ? 'fd-severe' : ''}">
+    <div class="forecast-day-row ${i === 0 ? 'fd-today' : ''} ${severe ? 'fd-severe' : ''} ${hero ? 'fd-hero' : ''}">
       <span class="fd-label">${i === 0 ? 'Today' : (f.date || '').slice(5) || `+${i}`}</span>
-      <span class="fd-icon">${f.icon || ''}</span>
-      <span class="fd-weather">${(f.weatherType || '').replace('_', ' ')}${severe ? ' <span class="fd-warn" title="Severe conditions likely — gear up before heading out">⚠</span>' : ''}</span>
+      <span class="fd-icon">${hero ? hero.icon : (f.icon || '')}</span>
+      <span class="fd-weather">${hero ? hero.label : (f.weatherType || '').replace('_', ' ')}${hero
+        ? ` <span class="fd-hero-warn" title="${hero.label} forecast for this day — this one kills people who go out unprepared">⚠⚠</span>`
+        : (severe ? ' <span class="fd-warn" title="Severe conditions likely — gear up before heading out">⚠</span>' : '')}</span>
       ${f.humidityPct != null ? `<span class="fd-humid" title="Humidity">\u{1F4A7} ${f.humidityPct}%</span>` : ''}
       ${f.windKph != null ? `<span class="fd-wind" title="${windLabel(f.windKph)}">\u{1F4A8} ${f.windKph}</span>` : ''}
       <span class="fd-temp">${formatTemp(f.tempC)}</span>

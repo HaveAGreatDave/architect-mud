@@ -11,30 +11,42 @@
 // minigames) — `heat` avoids that collision entirely.
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
+import { emit } from '../../server/engine/events.js';
 import { getZoneFurniture } from '../../server/engine/world.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
 import { registerAction, dispatchAction, getRegisteredActions } from '../../server/engine/actions.js';
 import { getZonePowerStatus } from '../../server/engine/environment.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { tagValue, hasTag } from '../../server/engine/tags.js';
-import { skillCheck, awardSkillUse } from '../../server/engine/skills.js';
+import { skillCheck, awardSkillUse, effectiveSkill } from '../../server/engine/skills.js';
 import { grantSkillIp } from '../../server/engine/ip.js';
 import { isPluggedIn } from '../appliances/index.js';
 import {
   STOVE_SPEED, PORTABLE_OVEN_SPEED, PORTABLE_OVEN_CAPACITY_G,
-  BARE_VESSEL, DEFAULT_VESSEL, cookingIpFor, SMOKER_SPEED, SMOKER_PROFILE, SKILL_WEIGHT, FOND_PROFILES, MAX_CHOP_PIECES,
+  BARE_VESSEL, DEFAULT_VESSEL, cookingIpFor, SMOKER_SPEED, SMOKER_PROFILE, SKILL_WEIGHT, FOND_PROFILES, MAX_CHOP_PIECES, BUTTER_BONUS, BUTTER_PORTION, MICROWAVE_SPEED,
 } from './config.js';
-import { prepareCook, commitCooks, cookEnvironment, checkCooking, endSession, freeAppliance, sessionProfile } from './cook.js';
+import { prepareCook, commitCooks, cookEnvironment, checkCooking, endSession, freeAppliance, sessionProfile, rescheduleNarration, cooksOnAppliances, forgetCook } from './cook.js';
 import { PROFILES, bandIndex, profileNameFor, isModifier, needsPrep, donenessLevels, defaultDoneness, achievedDoneness } from './profiles.js';
 import { evaluate } from './quality.js';
 import { handle as handleInteraction } from './interact.js';
 import './help.js';
 import { leavesFond, makeFond, fondState, fondModifier, fondText } from './fond.js';
 import { portionOf, canChop, portionName, yieldOf } from './portions.js';
-import { timeline } from './quality.js';
-import { signature, matchDish, dishName, composeBand, seasoningBonus, seasoningIdeal, nounFor, UNKNOWN_DISH } from './dishes.js';
+import { timeline, finishAt, endStateAt } from './quality.js';
+import { DISHES, signature, matchDish, dishName, composeBand, seasoningBonus, seasoningIdeal, nounFor, UNKNOWN_DISH, GENERIC_SANDWICH } from './dishes.js';
 import { cookbookState, learnRecipe, improveRecipe, recordAttempt, beatsRecorded, knownBonus, markRoutineIp } from './knowledge.js';
-import { rewardFor, restMultiplier, restText, RESTS_WELL } from './config.js';
+import { rewardFor, restMultiplier, restText, RESTS_WELL, REST_PEAK_MS, REST_COLD_MS, REST_MIN_MS, TASTE_TIERS, TASTE_BITE } from './config.js';
+import { tasteNotes, flavourLines } from './taste.js';
+import { canMarinate, prepText } from './prep.js';
+
+// Which phase of resting a plate is in, for the flavour line on eating.
+const restPhase = cd => {
+  if (!cd?.rests || !cd?.plated_at) return null;
+  const age = Date.now() - cd.plated_at;
+  if (age >= REST_COLD_MS) return 'cold';
+  if (age >= REST_MIN_MS && age <= REST_PEAK_MS) return 'rested';
+  return null;
+};
 import { DISCOVERY_IP, DISCOVERY_ATTEMPTS, MODIFIER_BONUS, MODIFIER_BONUS_CAP, OVER_SEASON_PENALTY, DEFAULT_SEASONING, STAGING } from './config.js';
 
 // Any blade will do. `can_chop` is the kitchen-specific tag; `butchering` is
@@ -42,12 +54,63 @@ import { DISCOVERY_IP, DISCOVERY_ATTEMPTS, MODIFIER_BONUS, MODIFIER_BONUS_CAP, O
 // work without a content edit.
 const chopTool = player => resolveInventoryItem(player, { tag: ['can_chop', 'butchering'], topLevel: true });
 
+// ── Sound ────────────────────────────────────────────────────────────────────
+//
+// Cooking emits SEMANTIC audio events and never a sound. It says "a chop landed
+// on something wet at this intensity"; the audio plugin owns every acoustic
+// decision from there. That separation is the point — the same vocabulary can be
+// emitted by smithing or repair later and get sound for free, and this plugin
+// never grows a table of per-food noises.
+//
+// The one thing cooking DOES own is the translation from its own profile
+// catalog to the shared material vocabulary, because the profiles are its own.
+const SFX_MATERIAL = {
+  dense_meat: 'wet_meat',
+  starchy_vegetable: 'hard_food',
+  soft_vegetable: 'soft_food',
+  fruit: 'soft_food',
+  egg: 'soft_food',
+  preserved: 'hard_food',
+  liquid: 'liquid',
+  fat_or_oil: 'fat',
+  aromatic: 'soft_food',
+  batter: 'dough',
+  bread: 'bread',
+  dairy: 'dairy',
+};
+// An item may override its class with `tags.material` — the SPARSE escape hatch.
+// Authoring acoustic properties onto all 85 food items would be 425 hand-tuned
+// numbers to express differences nobody can hear (a carrot and a potato chop
+// identically at any resolution a game client reproduces). The class is right
+// almost always; the override exists for the handful of genuine outliers — a
+// bone in a haunch, a husk, a shell — and costs nothing when absent.
+const sfxMaterial = row => tagValue(row, 'sound_material', null) || SFX_MATERIAL[profileNameFor(row)] || 'soft_food';
+
+// Frozen is the one STATE worth knowing about, and the game already tracks it:
+// `prepareCook` reads the same thermal environment to decide thaw time. A cut
+// straight out of a freezer goes under the knife like wood, and that is a
+// difference a player would actually hear.
+async function sfxState(row, player) {
+  if (row?.custom_data?.cooked) return 'cooked';
+  const env = await cookEnvironment({ ...row, id: row.inv_id ?? row.id }, player).catch(() => null);
+  if (!env) return null;
+  return (env.delivering ? env.tier : env.ambientTier) === 'frozen' ? 'frozen' : null;
+}
+
+const cookSfx = (player, params) =>
+  emit('cooking.sfx', { zoneId: player?.current_zone, playerId: player?.id, ...params });
+
 const nounOf = row => nounFor(row, tagValue);
 
 const DISH_ITEM = 'item_cooked_dish';
 
 function stovesInZone(zoneId) {
   return getZoneFurniture(zoneId).filter(f => f.flags?.stove_tier);
+}
+// A microwave is its own appliance, not a stove tier — it has no heat setting to
+// ride and produces a fundamentally different result (see MICROWAVE_* in config).
+function microwavesInZone(zoneId) {
+  return getZoneFurniture(zoneId).filter(f => f.flags?.microwave);
 }
 function labsInZone(zoneId) {
   return getZoneFurniture(zoneId).filter(f => f.flags?.crafting_station);
@@ -140,7 +203,30 @@ async function cmdCook(args, raw, player, broadcast) {
   return cookFood(nameStr, player, broadcast);
 }
 
-async function cookFood(nameStr, player, broadcast) {
+// Every heat source in the room, and what each one is. Used to let a player SAY
+// which one they meant — a kitchen with a range and a microwave in it should not
+// silently pick for you, because the two produce genuinely different meals.
+function cookAppliances(zoneId) {
+  return [
+    ...stovesInZone(zoneId).map(f => ({ ...f, _kind: 'stove' })),
+    ...microwavesInZone(zoneId).map(f => ({ ...f, _kind: 'microwave' })),
+  ];
+}
+
+async function cookFood(nameStr, player, broadcast, wantAppliance = null) {
+  // "cook X in|on <appliance>" — the player naming the device.
+  //
+  // Resolved against the appliances FIRST and only accepted if it actually
+  // matches one, because `in` is already the vessel idiom ("stow steak in pan")
+  // and "cook pan" has to keep meaning the pan. If the tail isn't an appliance,
+  // the whole string stays the food name and nothing changes.
+  const split = nameStr.match(/^(.*?)\s+(?:in|on)\s+(?:the\s+)?(.+)$/i);
+  if (split && !wantAppliance) {
+    const here = cookAppliances(player.current_zone);
+    const hit = here.length ? siftResolve(split[2].trim(), here) : null;
+    if (hit?.type === 'match') return cookFood(split[1].trim(), player, broadcast, hit.candidate);
+  }
+
   // `cook <vessel>` puts the pan and everything in it on the heat; `cook <food>`
   // puts the food straight on the stove, which works but cooks worse.
   const vessel = await resolveInventoryItem(player, { tag: 'vessel', name: nameStr, topLevel: true });
@@ -152,6 +238,12 @@ async function cookFood(nameStr, player, broadcast) {
     // so they can't burn away to nothing while the main is still cooking.
     foods = (await vesselContents(vessel.inv_id))
       .filter(r => (hasTag(r, 'needs_cooking') || profileNameFor(r)) && !isModifier(r));
+    // An EDIBLE vessel goes on the heat as an ingredient of its own dish — you
+    // toast the bread, not just what's on it. Every other vessel is equipment
+    // and stays out of the scoring.
+    if (hasTag(vessel, 'edible_vessel') && profileNameFor(vessel)) {
+      foods.push({ ...vessel, container_id: null });
+    }
     if (!foods.length) return { type: 'error', message: `There's nothing in the ${vessel.name} worth heating.` };
 
     // PREP. Combining whole things — a cut, a root, a bulb, a fruit — means
@@ -168,9 +260,61 @@ async function cookFood(nameStr, player, broadcast) {
   }
 
   const stoves = stovesInZone(player.current_zone);
+  const microwaves = microwavesInZone(player.current_zone);
   let appliance = null;
 
-  if (stoves.length) {
+  // TWO KINDS OF HEAT IN ONE ROOM is an ambiguous target, and the game already
+  // has one answer for those: SIFT. Same prompt, same numbered list, same replay
+  // through an Action that every other ambiguous pick in the game uses — rather
+  // than silently choosing and mentioning the other one in a hint nobody reads.
+  //
+  // Only when the KINDS differ. Two stoves is not a question worth asking; a
+  // range and a microwave produce genuinely different meals, so it is.
+  if (!wantAppliance && stoves.length && microwaves.length) {
+    // The engine's selection dispatch forwards only the chosen CANDIDATE, so the
+    // food rides on the candidates themselves rather than needing a new seam.
+    const options = cookAppliances(player.current_zone).map(f => ({ ...f, _food: nameStr }));
+    createSelectionState(player.id, options, {
+      dispatchType: 'cooking.appliance_choice', dispatchParam: 'target',
+    });
+    return {
+      type: 'output',
+      message: `Cook it on which?\n${formatSelectionPage({ allCandidates: options, visibleIndex: 0, pageSize: 5 })}`,
+    };
+  }
+
+  // The player named one. Honour it — including choosing the microwave in a
+  // kitchen that has a perfectly good range, which is a legitimate thing to want
+  // when you are reheating something and do not care.
+  if (wantAppliance) {
+    const f = wantAppliance;
+    if (f.flags?.busy_until && f.flags.busy_until > Date.now() && f.id !== (vessel && stoves.find(s => s.flags?.vessel_id === vessel.inv_id)?.id)) {
+      return { type: 'error', message: `The ${f.name} is already in use.` };
+    }
+    if (f.power_draw_kw != null) {
+      const powered = ['powered', 'overloaded'].includes(getZonePowerStatus(player.current_zone));
+      if (!powered || !isPluggedIn(f)) {
+        return { type: 'error', message: `The ${f.name} is dead. No power reaching it.` };
+      }
+    }
+    appliance = f._kind === 'microwave'
+      ? { id: f.id, name: f.name, heatTier: 'high', speed: MICROWAVE_SPEED, furnitureRow: f, microwave: true, runMs: f._runMs || null }
+      : { id: f.id, name: f.name, heatTier: f.flags.stove_tier,
+          speed: STOVE_SPEED[f.flags.stove_tier] || STOVE_SPEED.low, furnitureRow: f };
+  } else if (!stoves.length && microwaves.length) {
+    const oven = microwaves.find(f => !f.flags?.busy_until || f.flags.busy_until <= Date.now());
+    if (!oven) return { type: 'error', message: `The ${microwaves[0].name} is already running.` };
+    if (oven.power_draw_kw != null) {
+      const powered = ['powered', 'overloaded'].includes(getZonePowerStatus(player.current_zone));
+      if (!powered || !isPluggedIn(oven)) {
+        return { type: 'error', message: `The ${oven.name} is dead. No power reaching it.` };
+      }
+    }
+    appliance = {
+      id: oven.id, name: oven.name, heatTier: 'high', speed: MICROWAVE_SPEED,
+      furnitureRow: oven, microwave: true,
+    };
+  } else if (stoves.length) {
     const stove = findFreeStove(stoves, vessel?.inv_id || null);
     if (!stove) return { type: 'error', message: `Every stove here is already in use.` };
     if (stove.power_draw_kw != null) {
@@ -216,10 +360,43 @@ async function cookFood(nameStr, player, broadcast) {
     messages.push(r.message);
   }
   if (!prepared.length) return { type: 'error', message: messages.join('\n') };
+
+  // A microwave with no time set runs exactly as long as the food needs, so the
+  // default is the correct answer — the dial is an option for the impatient
+  // rather than a trap for someone who hasn't learned it yet.
+  if (appliance.microwave && !appliance.runMs) {
+    appliance.runMs = Math.max(...prepared.map(p => p.totalMs), 1000);
+    for (const p of prepared) p.session.stopAt = p.session.startedAt + appliance.runMs;
+  }
   await commitCooks(prepared, appliance);
 
+  // Food meeting heat. A liquid goes on to boil; everything else spits. The
+  // heat parameter is the burner tier, so a hotplate and a range sound different
+  // without anyone authoring two cues.
+  const loudest = prepared.map(p => p.session).find(Boolean);
+  if (loudest) {
+    if (appliance.microwave) {
+      // A microwave doesn't sizzle — it hums and goes round. Three revolutions
+      // reads as "it's running" without pretending to loop for the whole cook.
+      cookSfx(player, { action: 'microwave', intensity: 0.6, flow: 3 });
+    } else {
+      const wet = loudest.profile === 'liquid';
+      const tier = { low: 0.35, mid: 0.6, high: 0.9 }[appliance.heatTier] ?? 0.5;
+      cookSfx(player, {
+        action: wet ? 'boil' : 'sizzle',
+        material: SFX_MATERIAL[loudest.profile] || 'wet_meat',
+        heat: tier,
+      });
+    }
+  }
+
   broadcast?.(player.current_zone, { type: 'zone_event', message: `${player.handle} starts cooking something.` }, player.id);
-  return { type: 'output', message: messages.join('\n') };
+  // The dial is the microwave's only readout, and the number you set is the
+  // whole decision — so say it back.
+  const dial = appliance.microwave
+    ? `\n<span class="text-dim">The dial is set to ${Math.round(appliance.runMs / 1000)} seconds. It starts turning.</span>`
+    : '';
+  return { type: 'output', message: messages.join('\n') + dial };
 }
 
 // Take it off the heat. This is where quality is decided — lazily, from the
@@ -244,7 +421,7 @@ async function cmdPlate(args, raw, player) {
   // Unprofiled food has no window and no bands — pulling it early just means it
   // isn't cooked yet, which the eat path already handles on its own.
   if (!profile) {
-    if (Date.now() < session.doneAt) return { type: 'error', message: `${food.name} isn't done yet.` };
+    if (Date.now() < finishAt(session)) return { type: 'error', message: `${food.name} isn't done yet.` };
     await freeAppliance(session);
     await endSession(food.inv_id, null);
     return { type: 'output', message: `You take ${food.name} off the heat.` };
@@ -264,8 +441,15 @@ async function cmdPlate(args, raw, player) {
   // can go on to be the thing it was made for.
   const isComponent = !!food.custom_data?.crafted_quality;
 
+  // Every taste was a mouthful, on a lone cut exactly as much as on a pot. The
+  // vessel path has always charged for it; without this the bite is free the
+  // moment you're cooking one thing, which is most of the time.
+  const bites = Number(food.custom_data?.tasted) || 0;
+  const tasteYield = bites ? Math.max(0.4, 1 - bites * TASTE_BITE) : 1;
+
   await freeAppliance(session);
-  if (!(await endSession(food.inv_id, result.band, done, smoked, isComponent))) {
+  if (!(await endSession(food.inv_id, result.band, done, smoked, isComponent,
+    tasteYield !== 1 ? { yield: tasteYield } : {}))) {
     return { type: 'error', message: `${food.name} is no longer on the heat.` };
   }
 
@@ -310,19 +494,36 @@ async function plateVessel(vessel, player) {
   ]);
   const kind = tagValue(vessel, 'vessel_kind', null);
   const isBowl = kind === 'bowl';
+  const isBread = kind === 'bread';
+  // COLD WORK: a vessel whose contents are assembled rather than heated. A bowl
+  // is mashed, bread is stacked; neither ever takes a cook session, so their
+  // ingredients are scored at their RAW target instead of off a timeline. That's
+  // why the dips lean on things that are excellent raw — and why a sandwich made
+  // of good ingredients is a good sandwich without a stove in the room.
+  const coldWork = isBowl || isBread;
   const cooking = contents.filter(r => r.custom_data?.cooking);
 
-  // A BOWL is worked, not cooked. Its ingredients never take a session, so they
-  // are scored at their RAW target instead of off a timeline — which is why the
-  // dips lean on things that are excellent raw, and why a mashing tool is the
-  // gate rather than heat.
-  const rawWorked = isBowl ? contents.filter(r => profileNameFor(r) && !isModifier(r)) : [];
-  if (!cooking.length && !isBowl) return { type: 'error', message: `Nothing in the ${vessel.name} is on the heat.` };
-  if (isBowl) {
-    if (!rawWorked.length) return { type: 'error', message: `There's nothing in the ${vessel.name} to work with.` };
-    const masher = await resolveInventoryItem(player, { tag: 'can_stir', topLevel: true });
-    if (!masher) return { type: 'error', message: `You need something to mash with — a pestle, a spoon, anything.` };
-    // A bowl never sees heat, so its prep check lands here instead of at `cook`.
+  // Bread, unlike a bowl, CAN go on the heat — a toasted sandwich is a real
+  // thing. So anything already carrying a session is excluded here or it would
+  // be scored twice: once off its timeline and once at its raw target.
+  const rawWorked = coldWork
+    ? contents.filter(r => profileNameFor(r) && !isModifier(r) && !r.custom_data?.cooking)
+    : [];
+  if (!cooking.length && !coldWork) return { type: 'error', message: `Nothing in the ${vessel.name} is on the heat.` };
+  if (coldWork) {
+    if (!rawWorked.length) {
+      return { type: 'error', message: isBread
+        ? `There's nothing on the ${vessel.name}. Bread on its own is just bread.`
+        : `There's nothing in the ${vessel.name} to work with.` };
+    }
+    // A bowl needs something to mash WITH. Bread needs nothing but hands —
+    // requiring a tool to build a sandwich would be the kind of realism that
+    // makes a game worse.
+    if (isBowl) {
+      const masher = await resolveInventoryItem(player, { tag: 'can_stir', topLevel: true });
+      if (!masher) return { type: 'error', message: `You need something to mash with — a pestle, a spoon, anything.` };
+    }
+    // Cold work never sees heat, so its prep check lands here instead of at `cook`.
     const toChop = rawWorked.filter(needsPrep);
     if (toChop.length && !(await chopTool(player))) {
       return { type: 'error', message: `${toChop[0].name} needs chopping first, and you have no knife.` };
@@ -334,12 +535,28 @@ async function plateVessel(vessel, player) {
   // genuinely requires fat) and are still consumed.
   const modifiers = contents.filter(r => isModifier(r));
 
+  // An EDIBLE VESSEL is part of what it makes. Bread is the only one: a sandwich
+  // is not "fillings served in a bread container", it IS the bread, and the
+  // bread has to be scored, named off, and eaten with the rest. Every other
+  // vessel is equipment and survives the meal.
+  const edibleVessel = hasTag(vessel, 'edible_vessel') && profileNameFor(vessel)
+    ? { ...vessel, custom_data: vessel.custom_data || {} }
+    : null;
+  // Toasted, it's scored off its own timeline like any other cooked ingredient;
+  // cold, it's scored at its raw target — which for bread is `good`, because
+  // bread arrives baked.
+  if (edibleVessel) (edibleVessel.custom_data.cooking ? cooking : rawWorked).push(edibleVessel);
+
   const inVessel = [...cooking, ...rawWorked, ...modifiers];
   const sig = signature(inVessel, profileNameFor);
   // Named dishes anchor on a specific item id (ramen noodles, jerk paste), so
   // the matcher needs to know what's actually in the pot, not just its classes.
   const hit = matchDish(sig, kind, new Set(inVessel.map(r => r.item_id)));
-  const template = hit?.template || UNKNOWN_DISH;
+  // Bread never makes slop. Anything sensible between two slices is a real
+  // sandwich named off its contents, so an unmatched bread vessel falls to the
+  // generic template rather than to UNKNOWN_DISH — and because that template has
+  // no key, making one teaches the cookbook nothing.
+  const template = hit?.template || (isBread ? GENERIC_SANDWICH : UNKNOWN_DISH);
   const key = hit?.key || null;
 
   // One skill check for the dish, not one per ingredient — you cooked a meal,
@@ -368,13 +585,25 @@ async function plateVessel(vessel, player) {
   }
 
   // Seasoning: bonus up to the dish ideal, penalty for every one past it.
-  const dishYield = yieldOf([...cooking, ...rawWorked]);
+  // Every taste was a mouthful. It comes off what is left.
+  const tastes = inVessel.reduce((a, r) => a + (Number(r.custom_data?.tasted) || 0), 0);
+  const dishYield = Math.max(0.4, yieldOf([...cooking, ...rawWorked]) - tastes * TASTE_BITE);
   // Seasoning counts in portions as well: half a bulb of garlic is half a bulb.
   const seasoning = seasoningBonus(template, modifiers.reduce((a, r) => a + portionOf(r), 0));
-  // With no timeline to score against, a bowl leans on the cook's hands instead.
-  const handWork = isBowl ? SKILL_WEIGHT * Math.max(-1, Math.min(1, check.margin / 20)) : 0;
-  // What the pan itself brings: a lifted sear pays, dried-on residue costs.
-  const fondBonus = fondModifier(vessel.custom_data?.fond, { deglazed: !!vessel.custom_data?.deglazed });
+  // With no timeline to score against, cold work leans on the cook's hands.
+  const handWork = coldWork ? SKILL_WEIGHT * Math.max(-1, Math.min(1, check.margin / 20)) : 0;
+  // Butter pays through the session for anything that went on the heat. A cold
+  // sandwich has no session, so it collects here instead — buttered bread is
+  // better bread whether or not a pan was ever involved. Only rows WITHOUT a
+  // session count, so nothing is paid twice.
+  const butterBonus = inVessel.some(r => r.custom_data?.buttered && !r.custom_data?.cooking) ? BUTTER_BONUS : 0;
+  // What the pan itself brings. Liquid in the pan lifts fond on its own, so the
+  // same fact drives both what this dish collects and whether the pan keeps
+  // anything afterwards — worked out once, here.
+  const hadLiquid = inVessel.some(r => profileNameFor(r) === 'liquid');
+  const fondBonus = fondModifier(vessel.custom_data?.fond, {
+    deglazed: !!vessel.custom_data?.deglazed, hadLiquid, template,
+  });
   // A component made badly caps what it can become, however well you cook it.
   const craftedCap = inVessel
     .map(r => r.custom_data?.crafted_quality)
@@ -382,10 +611,15 @@ async function plateVessel(vessel, player) {
     .reduce((lo, q) => (lo === null || bandIndex(q) < bandIndex(lo) ? q : lo), null);
   const capped = craftedCap && bandIndex(craftedCap) < bandIndex(template.ceiling)
     ? { ...template, ceiling: craftedCap } : template;
-  const band = composeBand(bands, capped, (key ? knownBonus(known, key) : 0) + seasoning + handWork + fondBonus);
+  const band = composeBand(bands, capped, (key ? knownBonus(known, key) : 0) + seasoning + handWork + fondBonus + butterBonus);
   const name = dishName(template, inVessel, profileNameFor, tagValue);
 
   if (cooking.length) await freeAppliance(cooking[0].custom_data.cooking);
+  // These rows are about to be DELETED rather than have their sessions ended,
+  // so nothing else will ever clean up after them. Without this their narration
+  // timers fire into a void and they linger in the live-cook registry, which
+  // would leave `smell` reporting a pot that was plated ten minutes ago.
+  for (const row of inVessel) forgetCook(row.inv_id);
 
   // Consume the ingredients and hand back one dish in a single statement. The
   // bespoke name rides on custom_data.name, which the inventory renderer
@@ -423,16 +657,22 @@ async function plateVessel(vessel, player) {
   // clears what was there and records what replaces it.
   const searedProfile = inVessel.map(profileNameFor).find(p => FOND_PROFILES.includes(p));
   const newFond = leavesFond({
-    vesselKind: kind, profiles: inVessel.map(profileNameFor), band,
-    hadLiquid: inVessel.some(r => profileNameFor(r) === 'liquid'),
+    vesselKind: kind, profiles: inVessel.map(profileNameFor), band, hadLiquid,
+    microwave: cooking.some(r => r.custom_data?.cooking?.microwave),
   }) ? makeFond(searedProfile, band, now) : null;
 
-  await query(
-    newFond
-      ? `UPDATE player_inventory SET custom_data = (COALESCE(custom_data,'{}'::jsonb) - 'deglazed') || jsonb_build_object('fond', $2::jsonb) WHERE id=$1`
-      : `UPDATE player_inventory SET custom_data = (COALESCE(custom_data,'{}'::jsonb) - 'fond' - 'deglazed') WHERE id=$1`,
-    newFond ? [vessel.inv_id, JSON.stringify(newFond)] : [vessel.inv_id]
-  );
+  // An edible vessel was just eaten by its own dish — there's no pan left to
+  // record anything against.
+  if (!edibleVessel) {
+    await query(
+      newFond
+        ? `UPDATE player_inventory SET custom_data = (COALESCE(custom_data,'{}'::jsonb) - 'deglazed') || jsonb_build_object('fond', $2::jsonb) WHERE id=$1`
+        : `UPDATE player_inventory SET custom_data = (COALESCE(custom_data,'{}'::jsonb) - 'fond' - 'deglazed') WHERE id=$1`,
+      newFond ? [vessel.inv_id, JSON.stringify(newFond)] : [vessel.inv_id]
+    );
+  }
+
+  cookSfx(player, { action: 'impact', surface: 'ceramic', intensity: 0.4 });
 
   const lines = [];
   const label = band[0].toUpperCase() + band.slice(1);
@@ -479,6 +719,11 @@ async function readRecipeCard(args, raw, player) {
   const card = await resolveInventoryItem(player, { tag: 'recipe_card', name: nameStr || undefined, topLevel: true });
   if (!card) return undefined; // not ours — fall through to the other read handlers
   const key = String(tagValue(card, 'recipe_card', '') || '').trim();
+  // A card whose tag names no real dish is a content bug, and "you already know
+  // this one" is the worst possible way to report it — it reads as working.
+  if (!key || !DISHES[key]) {
+    return { type: 'output', message: `The ${card.name} is water-damaged past reading. Whatever it taught, it doesn't any more.` };
+  }
   const { learned } = await learnRecipe(player.id, key);
   return {
     type: 'output',
@@ -549,7 +794,11 @@ async function cmdChop(args, raw, player) {
 
   const food = await resolveInventoryItem(player, { name: nameStr, topLevel: false });
   if (!food) return { type: 'error', message: `You don't have "${nameStr}".` };
-  if (!profileNameFor(food)) return { type: 'error', message: `${food.name} isn't food.` };
+  // A FINISHED DISH can be cut too — that's what halving a sandwich is, and it's
+  // the reason `cut` exists as a word. A plated dish has no `food_profile` (it's
+  // one item id for the whole catalog), so it's recognised by its stamp instead.
+  const isDish = !!food.custom_data?.cook_quality || !!food.custom_data?.dish;
+  if (!profileNameFor(food) && !isDish) return { type: 'error', message: `${food.name} isn't food.` };
   if (food.custom_data?.cooking) return { type: 'error', message: `Not while it's on the heat.` };
   if (!canChop(food, pieces)) {
     return { type: 'error', message: `${food.name} is already about as small as it usefully goes.` };
@@ -563,17 +812,259 @@ async function cmdChop(args, raw, player) {
 
   // One row becomes `pieces` rows, each carrying its fraction. The original is
   // consumed by the split, so nothing is created and nothing is lost.
-  const stamp = i => JSON.stringify({ ...(food.custom_data || {}), portion: each, name: pieceName });
+  //
+  // Two things the split must NOT do. It must not drop the stack: a row of five
+  // potatoes cut in half is ten halves, so each new row keeps the original
+  // `quantity` and the mass balances. And it must not copy PREP — a knife
+  // doesn't multiply a marinade. Everything you paid time or a second item for
+  // comes off the pieces; `minced` stays, because that's what the thing IS.
+  const { scored, tenderised, marinated_at, tasted, ...keep } = food.custom_data || {};
+  const stamp = JSON.stringify({ ...keep, portion: each, name: pieceName });
   await query(
-    `WITH cut AS (DELETE FROM player_inventory WHERE id = $1 RETURNING player_id, item_id, condition, container_id)
+    `WITH cut AS (DELETE FROM player_inventory WHERE id = $1 RETURNING player_id, item_id, quantity, condition, container_id)
      INSERT INTO player_inventory (id, player_id, item_id, quantity, condition, container_id, custom_data)
-     SELECT unnest($2::text[]), player_id, item_id, 1, condition, container_id, $3::jsonb FROM cut`,
-    [food.inv_id, Array.from({ length: pieces }, () => randomUUID()), stamp()]
+     SELECT unnest($2::text[]), player_id, item_id, quantity, condition, container_id, $3::jsonb FROM cut`,
+    [food.inv_id, Array.from({ length: pieces }, () => randomUUID()), stamp]
+  );
+  const lostPrep = scored || tenderised || marinated_at;
+  // A blade landing on a board. More pieces means a faster, harder worked cut —
+  // and something frozen solid goes under the knife like wood.
+  cookSfx(player, {
+    action: 'chop', material: sfxMaterial(food),
+    state: await sfxState(food, player), intensity: 0.4 + 0.1 * pieces,
+  });
+
+  return {
+    type: 'output',
+    // A raw ingredient is cut to change how it COOKS; a finished dish is cut to
+    // share it or to save half for later. Same arithmetic, entirely different
+    // reason, so it shouldn't be told the halves will cook faster.
+    message: isDish
+      ? `You cut ${baseName} into ${pieces}. ${pieces} × ${pieceName} — the same meal, in more hands.`
+      : `You cut ${baseName} into ${pieces}. ${pieces} × ${pieceName}, and each one will cook in a fraction of the time.`
+        + (lostPrep ? ` The work you'd already done to it doesn't survive the knife.` : ''),
+  };
+}
+
+// Shared preamble for every prep verb: a knife in hand, a real ingredient, and
+// nothing already on the heat.
+async function prepTarget(nameStr, player, { profile = null, needsBlade = true } = {}) {
+  if (!nameStr) return { error: 'What?' };
+  if (needsBlade && !(await chopTool(player))) return { error: 'You need a knife for that.' };
+  const food = await resolveInventoryItem(player, { name: nameStr, topLevel: false });
+  if (!food) return { error: `You don't have "${nameStr}".` };
+  const p = profileNameFor(food);
+  if (!p) return { error: `${food.name} isn't food.` };
+  if (profile && p !== profile) return { error: `That isn't something you do to ${food.name}.` };
+  if (food.custom_data?.cooking) return { error: `Not while it's on the heat.` };
+  if (food.custom_data?.cooked) return { error: `Too late for that — it's already cooked.` };
+  return { food, profile: p };
+}
+
+const stampPrep = (invId, patch) => query(
+  `UPDATE player_inventory SET custom_data = COALESCE(custom_data,'{}'::jsonb) || $2::jsonb WHERE id=$1`,
+  [invId, JSON.stringify(patch)]
+);
+
+// `score <meat>` — cut the fat cap in a diamond. The heat gets in, the seasoning
+// gets in, and so does the way out for the moisture: a wider window, but it
+// dries faster once you're past it.
+async function cmdScore(args, raw, player) {
+  const t = await prepTarget(args.join(' ').trim(), player, { profile: 'dense_meat' });
+  if (t.error) return { type: 'error', message: t.error };
+  if (t.food.custom_data?.scored) return { type: 'error', message: `${t.food.name} is already scored.` };
+  if (t.food.custom_data?.minced) return { type: 'error', message: `There's nothing left of it to score.` };
+  await stampPrep(t.food.inv_id ?? t.food.id, { scored: true });
+  cookSfx(player, { action: 'chop', material: sfxMaterial(t.food), intensity: 0.3 });
+  return { type: 'output', message: `You score ${t.food.name} across the fat in a diamond, a quarter inch deep. It will take seasoning now, and heat.` };
+}
+
+// `tenderise <meat>` — beat it flat. Mince's gentler cousin: faster and far
+// more forgiving, at the cost of one rung off the top.
+async function cmdTenderise(args, raw, player) {
+  const t = await prepTarget(args.join(' ').trim(), player, { profile: 'dense_meat', needsBlade: false });
+  if (t.error) return { type: 'error', message: t.error };
+  if (t.food.custom_data?.tenderised) return { type: 'error', message: `${t.food.name} has taken all the beating it needs.` };
+  if (t.food.custom_data?.minced) return { type: 'error', message: `It's mince. There's nothing left to tenderise.` };
+  await stampPrep(t.food.inv_id ?? t.food.id, { tenderised: true });
+  cookSfx(player, { action: 'impact', surface: 'wood', intensity: 0.8 });
+  return { type: 'output', message: `You beat ${t.food.name} out flat and even. It'll cook fast and forgive you a lot — but it'll never be a great piece of meat again.` };
+}
+
+// `marinate <meat> in <something>` — the one prep that costs TIME rather than
+// quality. Left long enough it's the largest single gain available before heat.
+async function cmdMarinate(args, raw, player) {
+  const argStr = args.join(' ').trim();
+  const m = argStr.match(/^(.*?)\s+in\s+(.+)$/i);
+  if (!m) return { type: 'error', message: 'Marinate what, in what? (marinate <meat> in <something>)' };
+
+  const t = await prepTarget(m[1].trim(), player, { needsBlade: false });
+  if (t.error) return { type: 'error', message: t.error };
+  if (!canMarinate(t.profile)) return { type: 'error', message: `Marinating ${t.food.name} would do nothing for it.` };
+  if (t.food.custom_data?.marinated_at) return { type: 'error', message: `${t.food.name} is already in a marinade.` };
+
+  const bath = await resolveInventoryItem(player, { name: m[2].trim(), topLevel: false });
+  if (!bath) return { type: 'error', message: `You don't have "${m[2].trim()}".` };
+  const bathProfile = profileNameFor(bath);
+  if (!['liquid', 'aromatic', 'fat_or_oil', 'fruit'].includes(bathProfile)) {
+    return { type: 'error', message: `${bath.name} isn't going to marinate anything.` };
+  }
+
+  // The marinade is used up. That's the cost you pay up front; the rest is time.
+  await query('DELETE FROM player_inventory WHERE id=$1', [bath.inv_id ?? bath.id]);
+  await stampPrep(t.food.inv_id ?? t.food.id, { marinated_at: Date.now() });
+  return {
+    type: 'output',
+    message: `You put ${t.food.name} in the ${bath.name} and leave it. It wants hours, and it will be worth every one of them.`,
+  };
+}
+
+// `butter <bread>` — the one prep that is also an ingredient.
+//
+// Buttering counts as the dish's fat (see `signature`), so buttered bread in a
+// pan is a toastie without a separate pat of butter going in — which is how
+// anyone actually makes one. It also pays a small flat bonus: butter on the
+// outside is the entire difference between toasted bread and a good toastie.
+async function cmdButter(args, raw, player) {
+  const argStr = args.join(' ').trim();
+  if (!argStr) return { type: 'error', message: `Butter what? Try "butter flatbread".` };
+
+  const target = await resolveInventoryItem(player, { name: argStr, topLevel: false });
+  if (!target) return { type: 'error', message: `You don't have "${argStr}".` };
+  if (!profileNameFor(target)) return { type: 'error', message: `${target.name} isn't food.` };
+  if (target.custom_data?.cooking) return { type: 'error', message: `Not while it's on the heat.` };
+  if (target.custom_data?.cooked) return { type: 'error', message: `Too late — butter goes on before the heat, not after.` };
+  if (target.custom_data?.buttered) return { type: 'error', message: `${target.name} is buttered enough.` };
+
+  const butter = await resolveInventoryItem(player, { tag: 'spreadable', topLevel: false });
+  if (!butter) return { type: 'error', message: `You've nothing to spread. You want butter, or something pretending to be.` };
+
+  // A block of butter does a lot of slices. Spreading takes a portion, and only
+  // the last of it takes the item — the same conserving arithmetic as `chop`,
+  // because a knife shouldn't create butter either.
+  const left = portionOf(butter) - BUTTER_PORTION;
+  await (left > 1e-9
+    ? query(
+        `UPDATE player_inventory SET custom_data = COALESCE(custom_data,'{}'::jsonb) || jsonb_build_object('portion', $2::numeric) WHERE id=$1`,
+        [butter.inv_id ?? butter.id, left])
+    : query('DELETE FROM player_inventory WHERE id=$1', [butter.inv_id ?? butter.id]));
+  await stampPrep(target.inv_id ?? target.id, { buttered: true });
+  // A knife dragged across bread — soft, brief, nothing metallic under it.
+  cookSfx(player, { action: 'scrape', surface: 'wood', intensity: 0.3, personal: true });
+
+  return {
+    type: 'output',
+    message: `You spread ${butter.name} across ${target.name}, right to the edges.`
+      + (left > 1e-9 ? '' : ` That was the last of it.`),
+  };
+}
+
+// `taste <food|vessel>` — the one reading that isn't visual.
+//
+// Everything else in this system is something you can SEE. Tasting reaches what
+// looking can't: seasoning, and whether the thing is actually any good. What it
+// TELLS you scales with Cooking skill — a novice learns one vague thing, an
+// expert learns what's wrong and by how much. That's the first place the skill
+// buys information rather than outcome.
+async function cmdTaste(args, raw, player) {
+  const nameStr = args.join(' ').trim();
+  if (!nameStr) return { type: 'error', message: 'Taste what?' };
+  const skill = await effectiveSkill(player, 'cooking');
+
+  // A vessel tastes as the DISH it's becoming — seasoning is a property of the
+  // whole pan, not of any one thing in it.
+  const vessel = await resolveInventoryItem(player, { tag: 'vessel', name: nameStr, topLevel: true });
+  if (vessel) {
+    const contents = await vesselContents(vessel.inv_id);
+    const real = contents.filter(r => profileNameFor(r));
+    if (!real.length) return { type: 'error', message: `There's nothing in the ${vessel.name} to taste.` };
+    const modifiers = contents.filter(r => isModifier(r));
+    const hit = matchDish(signature(real, profileNameFor), tagValue(vessel, 'vessel_kind', null), new Set(contents.map(r => r.item_id)));
+    const cooking = contents.find(r => r.custom_data?.cooking);
+    const notes = tasteNotes({
+      session: cooking?.custom_data?.cooking,
+      profile: cooking ? sessionProfile(cooking.custom_data.cooking) : null,
+      template: hit?.template || null,
+      modifierCount: hit ? modifiers.reduce((a, r) => a + portionOf(r), 0) : null,
+      skill,
+    });
+    // A spoonful out of the pan is ONE mouthful, however many things are in it.
+    // The bite is recorded against a single row — plating sums `tasted` across
+    // the whole vessel, so stamping every ingredient would charge a five-item
+    // stew five times for one taste.
+    await noteTaste([cooking || real[0]]);
+    return { type: 'output', message: `You taste from the ${vessel.name}.\n${notes.map(n => `  ${n}`).join('\n')}` };
+  }
+
+  const food = await resolveInventoryItem(player, { name: nameStr, topLevel: false });
+  if (!food) return { type: 'error', message: `You don't have "${nameStr}".` };
+  const session = food.custom_data?.cooking;
+  if (!session) {
+    // Not cooking — if it's a finished plate, tasting is just eating a bit of it.
+    const lines = flavourLines(food.custom_data || {}, restPhase(food.custom_data));
+    if (!lines.length) return { type: 'error', message: `${food.name} isn't cooking, and there's nothing to learn from it.` };
+    await noteTaste([food]);
+    return { type: 'output', message: `You take a little of ${food.custom_data?.name || food.name}.\n  ${lines[0]}` };
+  }
+  const notes = tasteNotes({ session, profile: sessionProfile(session), skill });
+  await noteTaste([food]);
+  return { type: 'output', message: `You taste ${food.name}.\n${notes.map(n => `  ${n}`).join('\n')}` };
+}
+
+// Every taste is a mouthful you don't get back. Recorded on the row so the
+// finished dish yields a little less — never enough to matter once, always
+// enough that tasting ten times costs you a meal.
+async function noteTaste(rows) {
+  const ids = rows.map(r => r.inv_id ?? r.id).filter(Boolean);
+  if (!ids.length) return;
+  await query(
+    `UPDATE player_inventory
+        SET custom_data = COALESCE(custom_data,'{}'::jsonb)
+            || jsonb_build_object('tasted', COALESCE((custom_data->>'tasted')::numeric, 0) + 1)
+      WHERE id = ANY($1)`,
+    [ids]
+  );
+}
+
+// `mince <meat>` — work it down to nothing with the knife.
+//
+// The opposite trade to `chop`. Chopping makes a thing smaller, so it cooks
+// faster AND feeds you less. Mincing destroys the structure instead: same mass,
+// same nourishment, a third of the cook time — and a hard ceiling, because
+// there is no crust on mince and no rare middle to aim for.
+//
+// It's also the answer to "I butchered a dog three streets back and the meat is
+// a whole haunch": mince keeps its origin, so what you get is dog mince and
+// what you cook is a dog stew.
+async function cmdMince(args, raw, player) {
+  const nameStr = args.join(' ').trim();
+  if (!nameStr) return { type: 'error', message: `Mince what?` };
+  if (!(await chopTool(player))) return { type: 'error', message: `You need a knife for that.` };
+
+  const food = await resolveInventoryItem(player, { name: nameStr, topLevel: false });
+  if (!food) return { type: 'error', message: `You don't have "${nameStr}".` };
+  if (profileNameFor(food) !== 'dense_meat') {
+    return { type: 'error', message: `Mincing is for meat. ${food.name} would just be a mess.` };
+  }
+  if (food.custom_data?.minced) return { type: 'error', message: `${food.name} is already mince.` };
+  if (food.custom_data?.cooking) return { type: 'error', message: `Not while it's on the heat.` };
+  if (food.custom_data?.cooked) return { type: 'error', message: `You mince it before you cook it, not after.` };
+
+  // Keeps its origin: butchered meat stays what it came off, so a dish made
+  // from it still names the creature.
+  const base = nounOf(food);
+  const minceName = `${base} mince`;
+
+  await query(
+    `UPDATE player_inventory
+        SET custom_data = COALESCE(custom_data,'{}'::jsonb) || jsonb_build_object('minced', true, 'name', $2::text, 'food_noun', $3::text)
+      WHERE id=$1`,
+    [food.inv_id ?? food.id, minceName, base]
   );
 
   return {
     type: 'output',
-    message: `You cut ${baseName} into ${pieces}. ${pieces} × ${pieceName}, and each one will cook in a fraction of the time.`,
+    message: `You work ${food.custom_data?.name || food.name} down under the blade until it's ${minceName}. It'll cook in no time, and it'll never be a steak.`,
   };
 }
 
@@ -600,6 +1091,13 @@ async function cmdDeglaze(args, raw, player) {
     `UPDATE player_inventory SET custom_data = COALESCE(custom_data,'{}'::jsonb) || '{"deglazed":true}'::jsonb WHERE id=$1`,
     [vessel.inv_id]
   );
+  // The one place several generators genuinely layer: liquid hitting hot metal
+  // is a pour, an immediate flare of sizzle and a scrape — not a bespoke
+  // "deglaze" sound. Composition instead of a new asset is the whole idea.
+  cookSfx(player, { action: 'pour', material: 'liquid', flow: 0.7 });
+  cookSfx(player, { action: 'sizzle', material: 'liquid', heat: 0.95 });
+  cookSfx(player, { action: 'scrape', surface: 'metal', intensity: 0.6 });
+
   return {
     type: 'output',
     message: `You pour the ${wet.name} into the ${vessel.name} and scrape. The brown comes up off the bottom and goes into the sauce.`,
@@ -618,6 +1116,7 @@ async function cmdScour(args, raw, player) {
     `UPDATE player_inventory SET custom_data = (custom_data - 'fond' - 'deglazed') WHERE id=$1`,
     [vessel.inv_id]
   );
+  cookSfx(player, { action: 'scrape', surface: 'metal', intensity: 0.75 });
   return { type: 'output', message: `You scour the ${vessel.name} back to bare metal. It takes a while.` };
 }
 
@@ -663,6 +1162,10 @@ async function cmdDoneness(args, raw, player) {
       WHERE id=$1 AND jsonb_exists(custom_data,'cooking')`,
     [foodRow.inv_id ?? foodRow.id, JSON.stringify(pick)]
   );
+  // The finish line just moved, so every timer hung off it is stale — including
+  // the burn-off. Without this, asking for `well done` leaves an auto-burn armed
+  // against the old target, and it fires while the steak is still in its window.
+  rescheduleNarration(foodRow.inv_id ?? foodRow.id, player.id, { ...session, target: pick }, foodRow.name);
   return { type: 'output', message: `You'll take ${foodRow.name} ${pick}.` };
 }
 
@@ -754,11 +1257,50 @@ registerAction({
     : { type: 'error', message: 'Cook what?' },
 });
 
+// Where the range-or-microwave pick lands. The food rode in on the candidate,
+// so this just re-enters the cook with the appliance the player chose.
+registerAction({
+  type: 'cooking.appliance_choice',
+  handler: ({ actor, params, context }) => {
+    const f = params.target;
+    if (!f?._kind) return { type: 'error', message: 'Cook what?' };
+    return cookFood(f._food || '', actor, context?.broadcast, f);
+  },
+});
+
 export const commands = {
   cook: cmdCook,
+  // Naming the appliance as the VERB. Skips the SIFT prompt entirely, which is
+  // what you want when you already know you're reheating something.
+  microwave: async (args, raw, player, broadcast) => {
+    const mws = microwavesInZone(player.current_zone);
+    if (!mws.length) return { type: 'error', message: `There's no microwave here.` };
+
+    // "microwave <food> [seconds]" — you SET THE TIME, like a real one. That's
+    // the whole skill of the appliance: you commit up front and the machine
+    // stops when the dial says so, so guessing short leaves it cold and
+    // guessing long leaves it rubber. Omit it and it runs to a sensible default.
+    const argStr = args.join(' ').trim();
+    if (!argStr) return { type: 'error', message: `Microwave what, and for how long? ("microwave stew 40")` };
+    const m = argStr.match(/^(.*?)s+(d+)s*(?:s|sec|secs|seconds)?$/i);
+    const food = (m ? m[1] : argStr).trim();
+    const secs = m ? Math.min(600, Math.max(1, Number(m[2]))) : null;
+
+    return cookFood(food, player, broadcast,
+      { ...mws[0], _kind: 'microwave', _runMs: secs ? secs * 1000 : null });
+  },
   plate: cmdPlate,
   kitchenkit: cmdKitchenKit,
+  taste: cmdTaste,
+  score: cmdScore,
+  tenderise: cmdTenderise,
+  tenderize: cmdTenderise,
+  marinate: cmdMarinate,
   chop: cmdChop,
+  // `cut` is the same act. Nobody "chops" a sandwich in half.
+  cut: cmdChop,
+  butter: cmdButter,
+  mince: cmdMince,
   cure: cmdCure,
   deglaze: cmdDeglaze,
   scour: cmdScour,
@@ -782,7 +1324,9 @@ async function describeVessel(vesselRow, player) {
   }
   const idle = contents.filter(r => !r.custom_data?.cooking && profileNameFor(r));
   for (const row of idle) {
-    lines.push(`  ${row.name} — ${isModifier(row) ? 'seasoning, not on the heat' : 'in, but not cooking yet'}`);
+    const prep = prepText(row.custom_data || {});
+    const state = isModifier(row) ? 'seasoning, not on the heat' : 'in, but not cooking yet';
+    lines.push(`  ${row.name} — ${state}${prep ? `, ${prep}` : ''}`);
   }
 
   const fondLine = fondText(vesselRow.custom_data?.fond);
@@ -802,6 +1346,78 @@ async function describeVessel(vesselRow, player) {
   }
 
   return lines.length ? lines.join('\n') : null;
+}
+
+// Everything on the heat in this room, whoever put it there.
+//
+// Served entirely from `cooksOnAppliances` — the in-memory registry cook.js
+// keeps of every live session. `smell` has no cooldown, so this path must not
+// touch the DB: the query this replaced scanned all of player_inventory on a
+// jsonb predicate with no index behind it, once per sniff, over a remote
+// connection. Now it costs a Map walk.
+async function kitchenSmells(zone, player) {
+  const stoves = stovesInZone(zone.id).filter(f => f.flags?.busy_until);
+  if (!stoves.length) return [];
+
+  const rows = cooksOnAppliances(stoves.map(f => f.id))
+    .map(c => ({ custom_data: { cooking: c.session }, name: c.name }));
+  if (!rows.length) return [];
+
+  // Skill decides PRECISION, never whether you notice at all. Anyone can smell
+  // burning; a good cook can smell which thing is burning and roughly how far
+  // gone it is. That's the same rule taste follows.
+  const skill = await effectiveSkill(player, 'cooking').catch(() => 0);
+  const expert = skill >= TASTE_TIERS.expert;
+  const competent = skill >= TASTE_TIERS.competent;
+
+  const out = [];
+  const now = Date.now();
+  for (const r of rows) {
+    const session = r.custom_data?.cooking;
+    const profile = sessionProfile(session);
+    if (!profile) continue;
+    const state = endStateAt(session, profile, now);
+    const what = competent ? r.name : 'something';
+
+    if (state === 'burnt') {
+      out.push({ text: `${what} burning — acrid, and past any hope`, strength: 10, source: 'burning' });
+    } else if (state === 'over') {
+      out.push({ text: expert ? `${what} catching, a hard edge coming off it` : `something cooking a shade too long`, strength: 7 });
+    } else if (state === 'peak') {
+      out.push({ text: competent ? `${what}, and it smells exactly right` : `something cooking, and it smells good`, strength: 5 });
+    } else if (competent) {
+      out.push({ text: `${what} on the heat, still early`, strength: 3 });
+    }
+  }
+  return out;
+}
+
+// What a kitchen sounds like from here — including through a wall, which is the
+// whole point of hearing. A cook you can't see and can't smell is still a cook
+// you can hear, and "something is spitting fat next door" is the kind of thing
+// that tells you a room is occupied before you open the door.
+function kitchenSounds(zone) {
+  const stoves = stovesInZone(zone.id).filter(f => f.flags?.busy_until);
+  if (!stoves.length) return [];
+  const live = cooksOnAppliances(stoves.map(f => f.id));
+  if (!live.length) return [];
+
+  const now = Date.now();
+  const out = [];
+  for (const c of live) {
+    const profile = sessionProfile(c.session);
+    if (!profile) continue;
+    const state = endStateAt(c.session, profile, now);
+    // A liquid mutters; everything else spits. Past its peak, anything on a
+    // burner starts making the noise that means "come back".
+    const wet = c.session.profile === 'liquid';
+    if (state === 'burnt' || state === 'over') {
+      out.push({ text: wet ? `something boiling hard and angry` : `fat spitting, and nobody turning it`, strength: 7, source: 'fire' });
+    } else {
+      out.push({ text: wet ? `a pot ticking over somewhere` : `the steady sizzle of something cooking`, strength: 5 });
+    }
+  }
+  return out;
 }
 
 export const specializedActions = [
@@ -828,7 +1444,23 @@ export const hooks = {
   // retuned without touching engine code.
   'cooking.restMultiplier': (cd) => restMultiplier(cd?.plated_at, cd?.rests),
   'cooking.wellFedMs': (cd) => rewardFor(cd?.cook_quality).wellFedMs,
+  'cooking.restText': (cd) => restText(cd?.plated_at, cd?.rests),
+  'cooking.flavour': (cd) => flavourLines(cd, restPhase(cd)),
   'cooking.donenessRisk': (cd) => donenessRisk(cd),
+  // What the ROOM smells of. This is the one cooking readout that works on food
+  // you neither hold nor own: examine needs you to name a thing, taste needs it
+  // in your hand, and neither reaches the pan somebody else left on the far
+  // burner. Deliberately vague — it never reports a band or a seasoning level,
+  // because those are what the senses that cost you something are for. What it
+  // does tell you, always, is that something is burning.
+  'zone.smells': (zone, player) => kitchenSmells(zone, player),
+  // A kitchen is loud. This is the cheapest possible contributor — the registry
+  // is already in memory for the smell path, and a pan that's past its peak is
+  // audibly different from one that hasn't started.
+  'zone.sounds': (zone) => kitchenSounds(zone),
+  // Prep state on an ingredient that hasn't hit the heat yet — the read side of
+  // score/tenderise/marinate.
+  'cooking.prepText': (cd) => prepText(cd),
 };
 
 // Exposed for the regression harness.

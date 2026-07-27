@@ -33,12 +33,18 @@ function renderTimeWeatherPanel(data) {
   const SEVERE_THRESHOLD = 0.45;
   const forecastGrid = forecast.slice(0,7).map((f,i) => {
     const severe = (f.severity ?? 0) >= SEVERE_THRESHOLD;
+    // Mirrors the player-facing forecast panel: a scheduled hero event (acid
+    // rain, ion storm) is red and named, an ordinary severe day stays amber.
+    // Derived from the date, so scheduling a severe day here can't fake one.
+    const hero = f.heroEvent ? { icon: f.heroEventIcon || '⚠', label: f.heroEventLabel || String(f.heroEvent).replace(/_/g,' ') } : null;
+    const edge = hero ? 'var(--red)' : severe ? 'var(--yellow)' : 'var(--border)';
     return `
-    <div title="${(f.weatherType||'?')}${f.tempC!=null?' · '+f.tempC+'°C':''}${f.windKph!=null?' · '+f.windKph+' km/h '+windLabel(f.windKph):''}${f.humidityPct!=null?' · '+f.humidityPct+'% humidity':''}${severe?' · ⚠ severe (severity '+f.severity.toFixed(2)+')':''}" style="background:var(--bg3);border:1px solid ${severe?'var(--yellow)':'var(--border)'};border-radius:4px;padding:8px 4px;text-align:center;position:relative">
-      ${severe?`<div style="position:absolute;top:4px;right:6px;font-size:11px" title="Severe conditions">⚠</div>`:''}
+    <div title="${(f.weatherType||'?')}${f.tempC!=null?' · '+f.tempC+'°C':''}${f.windKph!=null?' · '+f.windKph+' km/h '+windLabel(f.windKph):''}${f.humidityPct!=null?' · '+f.humidityPct+'% humidity':''}${severe?' · ⚠ severe (severity '+f.severity.toFixed(2)+')':''}${hero?' · ⚠⚠ HERO EVENT: '+hero.label:''}" style="background:var(--bg3);border:1px solid ${edge};border-radius:4px;padding:8px 4px;text-align:center;position:relative">
+      ${hero?`<div style="position:absolute;top:4px;right:6px;font-size:11px;color:var(--red)" title="Hero event: ${hero.label}">⚠⚠</div>`
+        :severe?`<div style="position:absolute;top:4px;right:6px;font-size:11px" title="Severe conditions">⚠</div>`:''}
       <div style="font-size:9px;font-weight:600;color:var(--text-dim);letter-spacing:.5px">${i===0?'TODAY':'DAY '+(i+1)}</div>
-      <div style="font-size:22px;line-height:1.2;margin:2px 0">${f.icon||'?'}</div>
-      <div style="font-size:10px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${f.weatherType||'?'}</div>
+      <div style="font-size:22px;line-height:1.2;margin:2px 0">${hero?hero.icon:(f.icon||'?')}</div>
+      <div style="font-size:10px;color:${hero?'var(--red)':'var(--text)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${hero?hero.label:(f.weatherType||'?')}</div>
       ${f.tempC!=null?`<div style="font-size:12px;color:var(--text-bright);font-weight:600;margin-top:2px">${f.tempC}°</div>`:''}
       <div style="font-size:9px;color:var(--text-dim);margin-top:2px;white-space:nowrap">${f.windKph!=null?'💨'+f.windKph:''}${f.windKph!=null&&f.humidityPct!=null?' · ':''}${f.humidityPct!=null?'💧'+f.humidityPct+'%':''}</div>
     </div>`;

@@ -24,7 +24,7 @@ import { sendToPlayer } from '../../server/engine/messaging.js';
 import { getAllLivePlayers, getZone, getMinimapData } from '../../server/engine/world.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
 import { LIGHT_LADDER, floorVisibility } from '../../server/engine/environment.js';
-import { resolveInventoryItem } from '../../server/engine/inventory.js';
+import { resolveInventoryItem, resolveInventoryForPlayers, patchInventoryCustomData } from '../../server/engine/inventory.js';
 
 const BATTERY_MAX = 120;     // units of charge = minutes of light on a fresh cell
 const LIT_FLOOR = 'bright';  // perceived light level a lit flashlight guarantees
@@ -128,13 +128,19 @@ export const hooks = {
 // Drain lit flashlights a unit per minute for online players; kill the beam and
 // warn the holder when the cell runs out.
 schedule('1m', async () => {
-  for (const player of getAllLivePlayers()) {
-    const { rows } = await query(
-      `SELECT pi.id, pi.custom_data, i.name, i.flags
-         FROM player_inventory pi JOIN items i ON i.id = pi.item_id
-        WHERE pi.player_id=$1 AND jsonb_exists(i.tags,'flashlight')
-          AND COALESCE((pi.custom_data->>'lit')::boolean, false) = true`,
-      [player.id]);
+  // One tagged read for every player at once, rather than asking the database
+  // per player, every minute, whether they happen to be holding a torch — which
+  // for most of the world is a remote round trip to be told "no".
+  const players = getAllLivePlayers();
+  if (!players.length) return;
+  const byPlayer = await resolveInventoryForPlayers(players.map(p => p.id), { tag: 'flashlight' });
+  if (!byPlayer.size) return;
+  // [invId, patch] pairs — one write at the end instead of one per lit light.
+  const patches = [];
+
+  for (const player of players) {
+    const rows = (byPlayer.get(player.id) || [])
+      .filter(r => r.custom_data?.lit === true || String(r.custom_data?.lit) === 'true');
     for (const f of rows) {
       // Accumulate fractional drain so a frugal light (rate < 1) only spends a
       // whole battery unit every few minutes; `battery` itself stays an integer.
@@ -143,15 +149,13 @@ schedule('1m', async () => {
       const drainacc = acc - spent;
       const battery = (f.custom_data?.battery ?? 0) - spent;
       if (battery <= 0) {
-        await query(
-          `UPDATE player_inventory SET custom_data = COALESCE(custom_data,'{}'::jsonb) || '{"lit":false,"battery":0,"drainacc":0}'::jsonb WHERE id=$1`,
-          [f.id]);
+        patches.push([f.inv_id, { lit: false, battery: 0, drainacc: 0 }]);
         sendToPlayer(player.id, { type: 'output', message: `<span class="ambient">Your ${f.name} flickers, browns out, and dies. Darkness closes back in.</span>` });
       } else {
-        await query(
-          `UPDATE player_inventory SET custom_data = COALESCE(custom_data,'{}'::jsonb) || $1::jsonb WHERE id=$2`,
-          [JSON.stringify({ battery, drainacc }), f.id]);
+        patches.push([f.inv_id, { battery, drainacc }]);
       }
     }
   }
+
+  if (patches.length) await patchInventoryCustomData(patches);
 });

@@ -1,0 +1,15 @@
+{
+  "actor_lines": [
+    "There is [NO WAY] this is happening. {size}cm against {capacity}cm and [OUTCOME]."
+  ],
+  "band": "impossible",
+  "hole": "ass",
+  "id": "ass:impossible",
+  "target_lines": [
+    "{actor} is [FAR TOO MUCH]. It simply [VERB]s not going to happen."
+  ],
+  "updated_at": "1785158642",
+  "zone_lines": [
+    "{actor} tries, and [FAILURE DESCRIPTION]."
+  ]
+}

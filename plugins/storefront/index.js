@@ -63,6 +63,7 @@ import { registerAction } from '../../server/engine/actions.js';
 import { on, emit } from '../../server/engine/events.js';
 import { fireHook } from '../../server/engine/plugins.js';
 import { effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
+import { hackDifficulty, breachMargin } from '../../server/engine/hack-gear.js';
 import { getBroadcast, sendToPlayer } from '../../server/engine/messaging.js';
 import { registerLockType } from '../../server/engine/locks.js';
 import { exitTargets } from '../../server/engine/exits.js';
@@ -642,7 +643,7 @@ async function cmdHackVault(args, raw, player, broadcast) {
     safeId: vault.id,
     deviceName: vault.name,
     skill: await effectiveSkill(player, 'hacking'),
-    difficulty: vault.flags?.hack_difficulty ?? 6,
+    difficulty: await hackDifficulty(player.id, vault.flags?.hack_difficulty, 6),
     resolveCmd: 'tillcrackresolve',
   };
 }
@@ -682,7 +683,7 @@ async function cmdTillCrackResolve(args, raw, player) {
   if (stolen <= 0) return { type: 'output', message: `The ${vault.name} swings open on an empty shelf. Someone beat you to it.` };
 
   await adjustCredits(player, stolen, undefined, 'storefront:vaultloot');
-  await awardSkillUse(player.id, 'hacking', 2);
+  await awardSkillUse(player.id, 'hacking', await breachMargin(player, vault.flags?.hack_difficulty, 6));
   emit('hack.success', { player, zoneId: player.current_zone });
   if (getLivePlayer(deed.owner_id)) sendToPlayer(deed.owner_id, { type: 'output', message:
     `<span style="color:var(--red)">₵ ROBBED — your vault at ${shopDisplayName(zone, deed)} has been emptied. ${stolen}c gone.</span>` });

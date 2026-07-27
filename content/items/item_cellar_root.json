@@ -4,15 +4,15 @@
   "id": "item_cellar_root",
   "name": "cellar root",
   "tags": {
-    "description": "A fist of pale root with the dirt still on it, hairy at one end. Whoever grew this did it underground and did not ask permission. Sweet once heat gets into it.",
     "consumable": true,
-    "restore_hunger": 20,
-    "stackable": true,
-    "food_profile": "starchy_vegetable",
+    "description": "A fist of pale root with the dirt still on it, hairy at one end. Whoever grew this did it underground and did not ask permission. Sweet once heat gets into it.",
     "food_noun": "root",
+    "food_profile": "starchy_vegetable",
     "needs_cooking": true,
     "perishable": true,
+    "restore_hunger": 20,
     "spoil_rate": "slow",
+    "stackable": true,
     "status_chance": {
       "food_poisoning": 0.3
     }

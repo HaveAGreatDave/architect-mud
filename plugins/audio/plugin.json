@@ -2,10 +2,28 @@
   "name": "audio",
   "version": "1.0.0",
   "description": "Procedural SNES-style audio: music, SFX, ambience. Entirely separate from the text-based Sound system.",
-  "commands": [".createsound", ".playsound"],
+  "commands": [
+    ".createsound",
+    ".playsound"
+  ],
   "routePrefix": "/audio",
   "events": {
-    "emits": ["audio.music.changed", "audio.sfx.triggered"],
-    "consumes": ["zone.entered", "enemy.killed", "enemy.attacked", "player.death", "item.taken", "item.dropped", "device.tuned", "bodily.sfx", "flight.strafeIncoming", "flight.aaFired"]
+    "emits": [
+      "audio.music.changed",
+      "audio.sfx.triggered"
+    ],
+    "consumes": [
+      "zone.entered",
+      "enemy.killed",
+      "enemy.attacked",
+      "player.death",
+      "item.taken",
+      "item.dropped",
+      "device.tuned",
+      "bodily.sfx",
+      "flight.strafeIncoming",
+      "flight.aaFired",
+      "cooking.sfx"
+    ]
   }
 }

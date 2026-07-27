@@ -1,10 +1,10 @@
 {
   "description": "A two-ring demonstration range bolted to the end of the counter, kept scrupulously clean and lit off a spur from the batten light. A card wired to the guard rail reads TRY BEFORE YOU BUY — ONE ITEM — I AM WATCHING.",
   "flags": {
-    "stove_tier": "mid",
     "interactions": [
       "lean"
-    ]
+    ],
+    "stove_tier": "mid"
   },
   "hp": null,
   "hp_max": null,

@@ -6,16 +6,16 @@
   "tags": {
     "consumable": true,
     "description": "Something used to own this. Cook before eating.",
-    "restore_hunger": 15,
-    "stackable": true,
-    "perishable": true,
-    "spoil_rate": "fast",
-    "needs_cooking": true,
+    "food_noun": "meat",
     "food_profile": "dense_meat",
+    "needs_cooking": true,
+    "perishable": true,
+    "restore_hunger": 15,
+    "spoil_rate": "fast",
+    "stackable": true,
     "status_chance": {
       "food_poisoning": 0.6
-    },
-    "food_noun": "meat"
+    }
   },
   "type": "consumable",
   "value": 3,

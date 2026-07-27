@@ -4,12 +4,12 @@
   "id": "item_chili_flake",
   "name": "chilli flakes",
   "tags": {
-    "description": "A twist of paper holding a spoonful of red flake, seeds and all. Grown on a balcony somewhere by someone who cared. Burns clean, and burns black if you look away.",
     "consumable": true,
+    "description": "A twist of paper holding a spoonful of red flake, seeds and all. Grown on a balcony somewhere by someone who cared. Burns clean, and burns black if you look away.",
+    "food_noun": "spiced",
+    "food_profile": "aromatic",
     "restore_hunger": 0,
     "stackable": true,
-    "food_profile": "aromatic",
-    "food_noun": "spiced",
     "status_chance": {
       "food_poisoning": 0.1
     }

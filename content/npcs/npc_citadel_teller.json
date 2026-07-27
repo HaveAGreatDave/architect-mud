@@ -96,32 +96,6 @@
       ],
       "text": "\"I am authorised to receive complaints,\" it says, warmly. \"I am not authorised to act on them, forward them, record them, or acknowledge in writing that they were made. But I will listen to the whole thing, and I will not interrupt, and I am told that helps.\""
     },
-    "large": {
-      "options": [
-        {
-          "label": "\"Why can't the machine just do it?\"",
-          "next": "large2"
-        },
-        {
-          "label": "\"Good to know.\"",
-          "next": "bye"
-        }
-      ],
-      "text": "\"Then you have come to the correct window, and you have come to it on foot, which is the entire idea.\" The faceplate warms a shade. \"Ask me directly — <b>withdraw 9000 from teller</b>, or the figure of your choosing — and I will move it in one motion, without a ceiling and without a fee. Ask the machine and the machine will say no, because the machine is a drawer.\" A pause. \"I will also look at you for the duration. Customers rarely notice that this is the price.\""
-    },
-    "large2": {
-      "options": [
-        {
-          "label": "\"Fair enough.\"",
-          "next": "bye"
-        },
-        {
-          "label": "\"What's behind the steel door?\"",
-          "next": "vault"
-        }
-      ],
-      "text": "\"Because a terminal is a drum of notes in a wall,\" it says, with the patience of something that has said this eleven thousand times. \"It holds what it holds and it counts at the speed it counts. Past twenty-five hundred it simply stops, and it stops without apology, because it is not sorry.\" The amber holds. \"Also — and I say this warmly — a machine cannot testify. I can.\""
-    },
     "complaint2": {
       "options": [
         {
@@ -186,6 +160,32 @@
         }
       ],
       "text": "\"Citadel retains a private detail. They are not police and they are not obliged to behave like police.\" The voice does not change at all, which is somehow the worst part. \"The gentleman on the floor has stood in that spot for eleven years and has needed to move on four occasions. I mention the figure because customers find it reassuring, and because it is also, if you think about it for a moment, a threat.\""
+    },
+    "large": {
+      "options": [
+        {
+          "label": "\"Why can't the machine just do it?\"",
+          "next": "large2"
+        },
+        {
+          "label": "\"Good to know.\"",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Then you have come to the correct window, and you have come to it on foot, which is the entire idea.\" The faceplate warms a shade. \"Ask me directly — <b>withdraw 9000 from teller</b>, or the figure of your choosing — and I will move it in one motion, without a ceiling and without a fee. Ask the machine and the machine will say no, because the machine is a drawer.\" A pause. \"I will also look at you for the duration. Customers rarely notice that this is the price.\""
+    },
+    "large2": {
+      "options": [
+        {
+          "label": "\"Fair enough.\"",
+          "next": "bye"
+        },
+        {
+          "label": "\"What's behind the steel door?\"",
+          "next": "vault"
+        }
+      ],
+      "text": "\"Because a terminal is a drum of notes in a wall,\" it says, with the patience of something that has said this eleven thousand times. \"It holds what it holds and it counts at the speed it counts. Past twenty-five hundred it simply stops, and it stops without apology, because it is not sorry.\" The amber holds. \"Also — and I say this warmly — a machine cannot testify. I can.\""
     },
     "root": {
       "options": [

@@ -232,6 +232,26 @@ on('player.login', async ({ id }) => {
   if (!player || player.current_zone !== Z_INBETWEEN) return;
   if (await isSet(player, F_ARRIVED)) return;
   await raise(player, F_ARRIVED);
+
+  // The cold open runs FIRST and alone (client/game/js/panels/intro-cinematic.js).
+  // Nothing below is scheduled here: the client echoes `introdone` when the
+  // sequence ends or is skipped, and that verb starts the arrival. Otherwise a
+  // player who watches the whole thing comes back to a log full of prose that
+  // scrolled past while they were reading a different screen.
+  sendToPlayer(player.id, { type: 'intro_cinematic' });
+  // Safety net for a client that never answers (an old cached bundle, a tab
+  // closed and reopened mid-play): the prologue must never be able to stall.
+  // beginArrival is idempotent, so the real echo winning this race is fine.
+  setTimeout(() => { const p = getLivePlayer(id); if (p) beginArrival(p); }, INTRO_FALLBACK_MS);
+});
+
+// Everything the prologue says on arrival, gated behind the cold open. Split out
+// of the login handler so `introdone` can trigger it, and guarded by an in-memory
+// claim (not a flag) because both callers can arrive within the same tick.
+const INTRO_FALLBACK_MS = 62000;   // longer than the full cinematic (~48s) + fade
+async function beginArrival(player) {
+  if (player._prologueArrivalStarted) return;
+  player._prologueArrivalStarted = true;
   // Before any fiction: the interface question. Client-side from here — the
   // server only records the answer (see the `tutorial` verb below) so a player
   // isn't asked again on a second device.
@@ -249,7 +269,7 @@ on('player.login', async ({ id }) => {
     out(player, `<span class="ambient">Maybe I should ${teachVerb('talk', 'talk', 'chrome attendant')} to it.</span>`);
     pointAt(player.id, 'talk', 'chrome attendant');
   }, 17600);
-});
+}
 
 // ── Room telegraphs + the wake-up beat ────────────────────────────────────────
 on('zone.entered', async ({ actor, zone, from }) => {
@@ -321,6 +341,18 @@ function playBroadcast(player) {
         return `<span class="action-link room-item" data-action="take" data-target="${name}" title="Take ${name}">${label}</span>`;
       }).join(', ');
       out(player, `<span class="ambient">Objects thud onto the invisible floor in front of you, one after another, as if the dark is emptying its pockets:</span> ${mentions}. <span class="hint">(take them or leave them — then go north to the collapse)</span>`);
+      // …and the record of what you just watched. Volume I of the CODEX is handed
+      // over whole here rather than earned, because the player has already seen
+      // it — the cold open IS that volume, cut to thirty seconds. Everything in
+      // Volume II is still sealed, and is learned out there. (Deliberately after
+      // the kit line: gear first, reading second.)
+      try {
+        const { grantVolume } = await import('../tablet/codex-app.js');
+        await grantVolume(player, 'quiet');
+        out(player, `<span class="ambient">Something else arrives with no sound at all — a document, already open on your tablet, as though it had been waiting for someone to hand it to.</span> <span class="hint">(read it any time with <b>codex</b> — the rest of the record you'll have to go and find)</span>`);
+      } catch (e) {
+        console.error('[prologue] codex grant failed:', e.message);
+      }
       const zone = getZone(Z_BROADCAST);
       if (zone) sendToPlayer(player.id, { type: 'look', message: await describeZone(zone, player), zone: zone.id, minimap: getMinimapData(zone.id, 8, player) });
     } catch (e) {
@@ -393,8 +425,24 @@ async function cmdTutorial(args, _raw, player) {
   return null;
 }
 
+// ── The cold open's two verbs ────────────────────────────────────────────────
+// `introdone` is the client's echo, not something a player types (it's silent and
+// harmless if they do). `intro` replays the sequence on demand — the same reason
+// `tutorial` exists: a first impression you can't get back is a bad deal.
+async function cmdIntroDone(args, _raw, player) {
+  if (player?.current_zone === Z_INBETWEEN) await beginArrival(player);
+  return null;
+}
+
+async function cmdIntro(args, _raw, player) {
+  sendToPlayer(player.id, { type: 'intro_cinematic' });
+  return null;
+}
+
 export const commands = {
   tutorial: cmdTutorial,
+  introdone: cmdIntroDone,
+  intro: cmdIntro,
 };
 
 // Test surface for plugins/prologue/regress.js (never used in production).

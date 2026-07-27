@@ -1711,7 +1711,7 @@ async function _bcDepFinish() {
   if (_bcDepCompiled) await _bcImportSave(_bcDepCompiled);
 }
 
-async function _bcImportSave({ meta, broadcastGraph, weatherScript, sportsScript, newsScript, talkshowScript, morningScript, gameshowScript, messages, assets, cameras, actorIds, npcIds }) {
+async function _bcImportSave({ meta, broadcastGraph, filmScript, sermonScript, weatherScript, sportsScript, newsScript, talkshowScript, morningScript, gameshowScript, messages, assets, cameras, actorIds, npcIds }) {
   // Apply zone ID remaps to camera_cut nodes (BSM ID → real interior zone ID)
   for (const node of Object.values(broadcastGraph?.nodes || {})) {
     if (node.type === 'camera_cut') {
@@ -1761,12 +1761,26 @@ async function _bcImportSave({ meta, broadcastGraph, weatherScript, sportsScript
   // questions are dealt from the live item catalog. Staffs the studio and gates on an
   // @airtime slot like a talk show; uniquely, any PLAYER standing in the studio can play.
   const isGameshow = meta.type === 'gameshow';
-  const isPool     = isWeather || isSports || isNews || isTalkshow || isMorning || isGameshow;
+  // @type film → NOT a line library. A feature is a fixed linear chain, exactly like a
+  // scripted broadcast; the two things that differ are that it pins itself to an
+  // @airtime block (so the picture screens at a fixed hour and a late viewer joins the
+  // reel already running) and that its cast are display names, never studio NPCs — so
+  // it is deliberately absent from `spawnsNpcs` below.
+  const isFilm     = meta.type === 'film';
+  // @type sermon → the news type's Sunday cousin: dynamic (assembled per in-game day
+  // from the live news feed) but NOT acted, so like news it spawns no studio NPC. It
+  // pins to an @airtime block like a talk show, and @airday makes that weekly.
+  const isSermon   = meta.type === 'sermon';
+  const isPool     = isWeather || isSports || isNews || isTalkshow || isMorning || isGameshow || isSermon;
   const body = {
-    name: meta.name, category: meta.category || (isWeather ? 'weather' : isSports ? 'sport' : isNews ? 'news' : isTalkshow ? 'late_night' : isMorning ? 'morning' : isGameshow ? 'gameshow' : 'general'),
-    playback_mode: isWeather ? 'weather' : isSports ? 'sports' : isNews ? 'news' : isTalkshow ? 'talkshow' : isMorning ? 'morning' : isGameshow ? 'gameshow' : 'scripted', message_interval: 5,
-    override_duration: meta.length || null, loop: isPool ? 1 : 0, enabled: 1,
-    messages: messages.map(t => ({ text: t })),
+    name: meta.name, category: meta.category || (isWeather ? 'weather' : isSports ? 'sport' : isNews ? 'news' : isTalkshow ? 'late_night' : isMorning ? 'morning' : isGameshow ? 'gameshow' : isSermon ? 'worship' : isFilm ? 'film' : 'general'),
+    playback_mode: isWeather ? 'weather' : isSports ? 'sports' : isNews ? 'news' : isTalkshow ? 'talkshow' : isMorning ? 'morning' : isGameshow ? 'gameshow' : isSermon ? 'sermon' : isFilm ? 'film' : 'scripted', message_interval: 5,
+    override_duration: meta.length || null, loop: (isPool || isFilm) ? 1 : 0, enabled: 1,
+    // A film's flat `messages` list is its entire script over again — 874 lines and 82 KB
+    // for a feature — and nothing ever reads it: the runner plays the graph and, when the
+    // reel ends, the commercial pool. Storing it would double the row and put the whole
+    // screenplay in git twice on the next content export.
+    messages: isFilm ? [] : messages.map(t => ({ text: t })),
     broadcast_graph: broadcastGraph,
     weather_pools: isWeather ? (weatherScript || { pools: {}, host: meta.host }) : null,
     sports_pools: isSports ? (sportsScript || { sport: meta.sport || 'baseball', announcer: meta.announcer, teams: [], players: [], pools: {}, airSlots: null }) : null,
@@ -1774,6 +1788,8 @@ async function _bcImportSave({ meta, broadcastGraph, weatherScript, sportsScript
     talkshow_pools: isTalkshow ? (talkshowScript || { host: meta.host, sidekick: meta.sidekick, guestNpc: meta.guestNpc, guests: [], pools: {}, title: meta.titlecard || '', theme: meta.theme || '', airSlots: null }) : null,
     morning_pools: isMorning ? (morningScript || { host: meta.host, cohost: meta.cohost, pools: {}, title: meta.titlecard || '', theme: meta.theme || '' }) : null,
     gameshow_pools: isGameshow ? (gameshowScript || { host: meta.host, sidekick: meta.sidekick, contestants: [], pools: {}, title: meta.titlecard || '', theme: meta.theme || '', airSlots: null, rounds: null }) : null,
+    sermon_pools: isSermon ? (sermonScript || { celebrants: [], verger: meta.verger || '', pools: {}, title: meta.titlecard || '', theme: meta.theme || '', airSlots: null, airDays: null }) : null,
+    film_meta: isFilm ? (filmScript || { presents: '', rating: '', director: '', cast: [], title: meta.titlecard || '', theme: meta.theme || '', airSlots: null, runtime: meta.length || null }) : null,
     channel_id: channelId,
   };
   try {

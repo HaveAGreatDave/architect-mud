@@ -1,0 +1,17 @@
+{
+  "description": "A kettle on a shelf beside a jar of teabags. The lid of the jar reads TAKE ONE, LEAVE ONE in marker gone brown with age. The jar is, against all odds, about half full.",
+  "flags": {
+    "restore_thirst": 35,
+    "water_source": true
+  },
+  "hp": 10,
+  "hp_max": 10,
+  "id": "furn_wash_kettle",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "kettle and tea jar",
+  "object_type": "fixture",
+  "power_draw_kw": 1.8,
+  "price": 20,
+  "zone_id": "zone_the_wash"
+}

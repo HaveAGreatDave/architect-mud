@@ -1,0 +1,15 @@
+{
+  "actor_lines": [
+    "{actor} is [TOO LONG] for {target}'s mouth — [DEPTH DESCRIPTION], and they [GAG VERB]."
+  ],
+  "band": "impossible",
+  "hole": "mouth",
+  "id": "mouth:impossible",
+  "target_lines": [
+    "{actor} is [FAR TOO MUCH]. It simply [VERB]s not going to happen."
+  ],
+  "updated_at": "1785158642",
+  "zone_lines": [
+    "{actor} tries, and [FAILURE DESCRIPTION]."
+  ]
+}

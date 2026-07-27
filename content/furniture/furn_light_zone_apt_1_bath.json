@@ -1,0 +1,17 @@
+{
+  "description": "A bare bulb behind a yellowed plastic dome, screwed straight into the ceiling. It buzzes.",
+  "flags": {
+    "is_light": true,
+    "light_type": "overhead"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_apt_1_bath",
+  "light_type": "overhead",
+  "lumen_output": 450,
+  "name": "bare overhead bulb",
+  "object_type": "light",
+  "power_draw_kw": 0.06,
+  "price": 0,
+  "zone_id": "zone_apt_1_bath"
+}

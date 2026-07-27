@@ -4,15 +4,15 @@
   "id": "item_rat_haunch",
   "name": "rat haunch",
   "tags": {
-    "description": "A hind leg off something big enough to argue with a dog. Dark, lean meat with a gamey edge. Everyone says they would never. Everyone has.",
     "consumable": true,
-    "restore_hunger": 14,
-    "stackable": true,
-    "food_profile": "dense_meat",
+    "description": "A hind leg off something big enough to argue with a dog. Dark, lean meat with a gamey edge. Everyone says they would never. Everyone has.",
     "food_noun": "rat",
+    "food_profile": "dense_meat",
     "needs_cooking": true,
     "perishable": true,
+    "restore_hunger": 14,
     "spoil_rate": "fast",
+    "stackable": true,
     "status_chance": {
       "food_poisoning": 0.55
     }

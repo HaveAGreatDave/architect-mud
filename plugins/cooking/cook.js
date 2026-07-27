@@ -1,6 +1,6 @@
 // Cooking sessions — timestamp-based like preservation/jail, not a tick.
 // A session lives on the food's own player_inventory.custom_data.cooking
-// ({ applianceId, startedAt, thawMs, cookMs, doneAt }); a small, bounded set of
+// ({ applianceId, startedAt, thawMs, cookMs, plainDoneAt }); a small, bounded set of
 // setTimeouts narrate stage transitions and finish the cook, rescheduled from
 // the stored timestamps on boot (same pattern as jail's scheduleRelease).
 import { query } from '../../server/models/db.js';
@@ -10,27 +10,92 @@ import { sendToPlayer } from '../../server/engine/messaging.js';
 import { resolveEnvironment } from '../preservation/decay.js';
 import {
   COOK_SECONDS_PER_KG, THAW_SECONDS_PER_KG, THAW_STAGES, COOK_STAGES, stageText, BARE_VESSEL,
-  PEAK_LINES, FADING_LINES, lineFor, stagesFor,
+  PEAK_LINES, FADING_LINES, lineFor, stagesFor, MINCE_RATE, MICROWAVE_THAW_SPEED,
 } from './config.js';
 import { PROFILES } from './profiles.js';
 import { portionOf } from './portions.js';
-import { timeline, overStageText } from './quality.js';
+import { prepRateMult, marinadeStrength } from './prep.js';
+import { timeline, overStageText, finishAt, evaluate } from './quality.js';
+import { markNoisy, clearNoisyKey } from '../../server/engine/sounds.js';
+import { emit } from '../../server/engine/events.js';
 
 const timers = new Map(); // player_inventory id -> [setTimeout handles]
+
+// Every cook currently on a burner, in RAM. This exists so that "what is cooking
+// in this room" can be answered WITHOUT a query.
+//
+// It replaced a `jsonb_exists(custom_data,'cooking')` lookup that ran on every
+// `smell` — a verb with no cooldown — against a column with no index supporting
+// it, which is a sequential scan of the whole player_inventory table per sniff
+// over a remote connection. That is exactly the hot-path query the read tiers in
+// docs/architecture.md forbid.
+//
+// Safe to cache because the write funnel is narrow and fully enumerated: a
+// session is created in `commitCooks` and destroyed in `endSession` or
+// `forgetCook`, and nothing else writes `custom_data.cooking`. Boot catch-up
+// repopulates it from the DB, so a restart mid-cook loses nothing.
+const liveCooks = new Map(); // player_inventory id -> { applianceId, playerId, name, session, zoneId }
+const cooksByAppliance = new Map(); // applianceId -> Set(invId), so a lookup is O(1) not O(all cooks)
 
 function clearTimers(invId) {
   const t = timers.get(invId);
   if (t) { t.forEach(clearTimeout); timers.delete(invId); }
 }
 
+// Drop a cook from the runtime entirely — timers and registry. `endSession` is
+// the normal route; this is for the paths that delete the row outright instead
+// of ending its session (a vessel being plated consumes its contents), which
+// previously left both the timers and this registry holding the dead.
+export function forgetCook(invId) {
+  clearTimers(invId);
+  const c = liveCooks.get(invId);
+  if (c) {
+    const set = cooksByAppliance.get(String(c.applianceId));
+    if (set) { set.delete(invId); if (!set.size) cooksByAppliance.delete(String(c.applianceId)); }
+  }
+  clearNoisyKey(invId);
+  liveCooks.delete(invId);
+}
+
+// Register a live cook in every index at once, so the three can't drift.
+function rememberCook(invId, entry) {
+  // Derived, not passed: getFurnitureById is an in-memory Map lookup, and doing
+  // it here means the boot restore indexes exactly like a fresh cook does. A
+  // portable oven has no furniture row — that cook is simply never marked noisy,
+  // which is right, because a carried oven isn't a fixture in the room.
+  entry.zoneId = entry.zoneId || getFurnitureById(entry.applianceId)?.zone_id || null;
+  liveCooks.set(invId, entry);
+  const key = String(entry.applianceId);
+  let set = cooksByAppliance.get(key);
+  if (!set) cooksByAppliance.set(key, set = new Set());
+  set.add(invId);
+  // A hot stove is a source of ongoing noise — this is what lets `listen` skip
+  // silent zones entirely instead of interrogating each one.
+  if (entry.zoneId) markNoisy(entry.zoneId, invId);
+}
+
+// What's on these burners right now. Pure in-memory read — no DB, no await.
+export function cooksOnAppliances(applianceIds) {
+  const out = [];
+  for (const id of applianceIds) {
+    const set = cooksByAppliance.get(String(id));
+    if (!set) continue;
+    for (const invId of set) { const c = liveCooks.get(invId); if (c) out.push(c); }
+  }
+  return out;
+}
+
 function effectiveTier(env) {
   return env.delivering ? env.tier : env.ambientTier;
 }
 
-export function computeDuration(weightGrams, speedMult, isFrozen, rateMult = 1) {
+export function computeDuration(weightGrams, speedMult, isFrozen, rateMult = 1, thawSpeed = null) {
   const kg = Math.max(0, Number(weightGrams) || 0) / 1000;
   const cookMs = Math.round((kg * COOK_SECONDS_PER_KG * rateMult / speedMult) * 1000);
-  const thawMs = isFrozen ? Math.round((kg * THAW_SECONDS_PER_KG / speedMult) * 1000) : 0;
+  // Thawing normally rides the same burner speed. A microwave overrides it —
+  // defrosting is the single thing it is unambiguously best at, and the gap
+  // between it and a hob has to be felt, not implied.
+  const thawMs = isFrozen ? Math.round((kg * THAW_SECONDS_PER_KG / (thawSpeed || speedMult)) * 1000) : 0;
   return { thawMs, cookMs, totalMs: thawMs + cookMs };
 }
 
@@ -81,10 +146,18 @@ export function prepareCook(invRow, appliance, env) {
   const isFrozen = effectiveTier(env) === 'frozen';
   const profileName = appliance.profileName || null;
   const profile = profileName ? PROFILES[profileName] : null;
-  const { thawMs, cookMs, totalMs } = computeDuration(batchWeight, appliance.speed, isFrozen, profile?.cookRateMult ?? 1);
+  // Mince has no structure left to cook through, so it cooks in a third of the
+  // time. It pays for that at the ceiling, not the clock (see quality.js).
+  const minced = !!cd.minced;
+  const rate = (profile?.cookRateMult ?? 1) * prepRateMult(cd);
+  const { thawMs, cookMs, totalMs } = computeDuration(batchWeight, appliance.speed, isFrozen, rate,
+    appliance.microwave ? MICROWAVE_THAW_SPEED : null);
   const nowMs = Date.now();
   const session = {
-    applianceId: appliance.id, startedAt: nowMs, thawMs, cookMs, doneAt: nowMs + totalMs,
+    // PLAIN: the finish line with no doneness target applied. For unprofiled
+    // food that's the whole story; for profiled food it's a default that
+    // `doneness` overrides, so never read it directly — call `finishAt()`.
+    applianceId: appliance.id, startedAt: nowMs, thawMs, cookMs, plainDoneAt: nowMs + totalMs,
     // Profiled cooks carry the extra context quality evaluation needs. An
     // unprofiled food stores none of it and keeps the original binary behaviour.
     ...(profile ? {
@@ -100,13 +173,27 @@ export function prepareCook(invRow, appliance, env) {
       // window (you cannot stand over it for an hour) and it changes what the
       // food IS when it comes out.
       ...(appliance.smoking ? { smoking: true } : {}),
+      // Recorded on the session so the quality ladder and the handling verbs both
+      // know what this was cooked in, long after the appliance is out of scope.
+      ...(appliance.microwave ? { microwave: true } : {}),
+      ...(appliance.microwave && appliance.runMs ? { stopAt: nowMs + appliance.runMs } : {}),
+      ...(minced ? { minced: true } : {}),
+      ...(cd.scored ? { scored: true } : {}),
+      ...(cd.tenderised ? { tenderised: true } : {}),
+      ...(cd.buttered ? { buttered: true } : {}),
+      // The marinade stops working the moment the pan does. Its strength is
+      // frozen HERE, at the soak it had earned when the heat came on — not
+      // recomputed at plating, or a three-minute soak followed by a long slow
+      // cook would collect the full bonus and the whole time cost would be a
+      // formality.
+      ...(cd.marinated_at ? { marinade: marinadeStrength(invRow, nowMs) } : {}),
     } : {}),
   };
 
   invRow.custom_data = { ...cd, cooking: session };
 
   // How long this item alone would hold the stove. The batch takes the longest.
-  const holdUntil = profile ? timeline(session, profile).burnAt : session.doneAt;
+  const holdUntil = profile ? timeline(session, profile).burnAt : finishAt(session);
 
   const frozenNote = isFrozen ? ` — it's frozen solid, this will take a while` : '';
   const via = appliance.vesselName ? ` in the ${appliance.vesselName}` : '';
@@ -143,7 +230,13 @@ export async function commitCooks(prepared, appliance) {
     });
   }
 
-  for (const p of prepared) scheduleNarration(p.invId, p.playerId, p.session, p.name);
+  // The stove's own zone — a portable oven has no furniture row, in which case
+  // the cook is silent to the room and simply isn't indexed as noisy.
+  const zoneId = appliance.furnitureRow?.zone_id || null;
+  for (const p of prepared) {
+    rememberCook(p.invId, { applianceId: p.session.applianceId, playerId: p.playerId, name: p.name, session: p.session, zoneId });
+    scheduleNarration(p.invId, p.playerId, p.session, p.name);
+  }
   return prepared.length;
 }
 
@@ -153,19 +246,26 @@ export async function commitCooks(prepared, appliance) {
 export function checkCooking(invRow) {
   const session = invRow.custom_data?.cooking;
   if (!session) return null;
-  const { startedAt, thawMs, cookMs, doneAt } = session;
+  const { startedAt, thawMs, cookMs } = session;
   const now = Date.now();
   const profile = sessionProfile(session);
-  if (profile && now >= doneAt) {
-    const tl = timeline(session, profile);
+  // A DONENESS TARGET moves the finish line — `rare` lands at 0.75 of the cook,
+  // `well done` at 1.35 — so this has to be the same clock the quality ladder
+  // uses or examine lies in both directions.
+  const tl = profile ? timeline(session, profile) : null;
+  const finish = finishAt(session, profile);
+  if (profile && now >= finish) {
     return { done: true, burnt: now >= tl.burnAt, text: overStageText(session, profile, now) };
   }
-  if (now >= doneAt) return { done: true, text: 'cooked through' };
+  if (now >= finish) return { done: true, text: 'cooked through' };
   const elapsed = now - startedAt;
   if (elapsed < thawMs) return { done: false, text: stageText(THAW_STAGES, thawMs > 0 ? elapsed / thawMs : 1) };
   const cookElapsed = elapsed - thawMs;
-  // Per-profile stage prose: a broth ticks and rolls, a cut sizzles and browns.
-  return { done: false, text: stageText(stagesFor(session.profile), cookMs > 0 ? cookElapsed / cookMs : 1) };
+  // The stage prose spans the cook the player actually asked for, so the last
+  // stage lands at the moment the window opens rather than at some fixed point
+  // before or after it. Per-profile: a broth ticks and rolls, a cut browns.
+  const cookSpan = cookMs * (tl?.mult ?? 1);
+  return { done: false, text: stageText(stagesFor(session.profile), cookSpan > 0 ? cookElapsed / cookSpan : 1) };
 }
 
 // Every line NAMES the food. With staging a pot can hold three things on three
@@ -173,35 +273,75 @@ export function checkCooking(invRow) {
 // know which of them it means.
 function scheduleNarration(invId, playerId, session, foodName = 'something') {
   clearTimers(invId);
-  const { startedAt, thawMs, cookMs, doneAt } = session;
+  const { startedAt, thawMs, cookMs } = session;
   const profile = sessionProfile(session);
+  // Same rule as `checkCooking`: the stage beats have to span the cook that was
+  // actually asked for, or a rare steak gets told it's "browning nicely" a full
+  // minute after it was warned the window had opened.
+  const tl = profile ? timeline(session, profile) : null;
+  const cookSpan = cookMs * (tl?.mult ?? 1);
   const beats = [];
   if (thawMs > 0) for (const s of THAW_STAGES) beats.push({ at: startedAt + thawMs * s.max, text: s.text });
-  for (const s of stagesFor(session.profile)) beats.push({ at: startedAt + thawMs + cookMs * s.max, text: s.text });
+  for (const s of stagesFor(session.profile)) beats.push({ at: startedAt + thawMs + cookSpan * s.max, text: s.text });
 
   const now = Date.now();
   const handles = [];
   for (const b of beats) {
     const delay = b.at - now;
     if (delay <= 0) continue; // already past this beat — examine shows it live
+    if (tl && b.at >= tl.doneAt) continue; // the window has opened; the peak line owns it now
     handles.push(setTimeout(() => {
       const player = getLivePlayer(playerId);
       if (player) sendToPlayer(playerId, { type: 'output', message: `The ${foodName} is ${b.text}.` });
     }, delay));
   }
 
-  if (profile) {
+  if (profile && session.microwave && session.stopAt) {
+    // A microwave owns its own ending. One timer, not three: it stops when the
+    // dial says so and there is no window to miss and nothing to burn.
+    handles.push(setTimeout(() => finishMicrowave(invId, playerId).catch(e => console.error('[cooking] microwave error:', e.message)),
+      Math.max(0, session.stopAt - now)));
+  } else if (profile) {
     // Profiled food doesn't finish itself — it opens a window, warns you when
     // the window is closing, and burns if you never come back for it. Three
     // timers, all reconstructible from startedAt, none of them a tick.
-    const tl = timeline(session, profile);
     handles.push(setTimeout(() => narrate(playerId, `The ${foodName} is ${lineFor(PEAK_LINES, session.profile)}.`), Math.max(0, tl.doneAt - now)));
     handles.push(setTimeout(() => narrate(playerId, `The ${foodName} is ${lineFor(FADING_LINES, session.profile)}.`), Math.max(0, tl.peakEnd - now)));
     handles.push(setTimeout(() => autoPlate(invId, playerId).catch(e => console.error('[cooking] burn error:', e.message)), Math.max(0, tl.burnAt - now)));
   } else {
-    handles.push(setTimeout(() => finishCook(invId, playerId).catch(e => console.error('[cooking] finish error:', e.message)), Math.max(0, doneAt - now)));
+    handles.push(setTimeout(() => finishCook(invId, playerId).catch(e => console.error('[cooking] finish error:', e.message)), Math.max(0, finishAt(session) - now)));
   }
   timers.set(invId, handles);
+}
+
+// Rebuild a live session's timers after something moved its clock. `doneness`
+// is the only thing that can: asking for `well done` pushes the finish line out
+// to 1.35× the cook, and the burn timer scheduled against the OLD target would
+// otherwise fire in the middle of the new peak window and auto-burn a steak
+// that was doing nothing wrong.
+export function rescheduleNarration(invId, playerId, session, foodName) {
+  scheduleNarration(invId, playerId, session, foodName);
+}
+
+// A microwave reaching the end of its timer. It stops — no burning on past the
+// window like a hob, because the magnetron is off. Whatever quality the food had
+// reached at that instant is the quality you get, which is what makes setting
+// the time the actual skill.
+async function finishMicrowave(invId, playerId) {
+  const { rows } = await query(
+    `SELECT pi.id, pi.custom_data, i.name FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.id=$1`,
+    [invId]
+  );
+  const row = rows[0];
+  if (!row?.custom_data?.cooking) return;
+  const session = row.custom_data.cooking;
+  const profile = sessionProfile(session);
+  await freeAppliance(session);
+  const band = profile ? evaluate(session, profile, Date.now(), 0).band : null;
+  if (!(await endSession(invId, band))) return;
+  const zoneId = liveCooks.get(invId)?.zoneId;
+  emit('cooking.sfx', { zoneId, playerId, action: 'microwave', state: 'done' });
+  narrate(playerId, `The ${row.name} is done. The microwave beeps three times and stops.`);
 }
 
 function narrate(playerId, message) {
@@ -210,8 +350,8 @@ function narrate(playerId, message) {
 
 // End a session and stamp the result. `quality` is null for unprofiled food,
 // which keeps the original binary cooked flag and nothing else. One row update.
-export async function endSession(invId, quality, doneness = null, smoked = null, stayFinishable = false) {
-  const stamp = quality ? { cooked: true, cook_quality: quality } : { cooked: true };
+export async function endSession(invId, quality, doneness = null, smoked = null, stayFinishable = false, extra = {}) {
+  const stamp = quality ? { cooked: true, cook_quality: quality, ...extra } : { cooked: true, ...extra };
   // What you actually produced, not what you asked for.
   if (doneness) stamp.doneness = doneness;
   // A smoked cut changes CLASS: it reads as preserved from here on, which is
@@ -228,14 +368,20 @@ export async function endSession(invId, quality, doneness = null, smoked = null,
     // step, not the meal. Anything else is done once it's done.
     stamp.finishable = !!stayFinishable;
   }
+  // Prep is SPENT by the cook it was done for. It has already been read into the
+  // session and scored, so leaving the flags on the finished item would let a
+  // `finishable` component (a browned meatball, a smoked cut) collect the same
+  // marinade a second time on its way through the next pan — and would have
+  // `examine` still describing a plated steak as sitting in a marinade.
   const { rows } = await query(
     `UPDATE player_inventory
-        SET custom_data = (COALESCE(custom_data,'{}'::jsonb) - 'cooking') || $2::jsonb
+        SET custom_data = (COALESCE(custom_data,'{}'::jsonb)
+              - 'cooking' - 'scored' - 'tenderised' - 'marinated_at' - 'tasted') || $2::jsonb
       WHERE id=$1 AND jsonb_exists(custom_data,'cooking')
       RETURNING id`,
     [invId, JSON.stringify(stamp)]
   );
-  clearTimers(invId);
+  forgetCook(invId);
   return rows.length > 0;
 }
 
@@ -281,11 +427,24 @@ async function autoPlate(invId, playerId) {
     const profile = sessionProfile(session);
     // A profiled cook survives a restart mid-window; only a fully burnt one is
     // resolved on the spot. Everything else re-derives from startedAt.
+    // Anything still live goes back in the registry as well as back on a timer —
+    // otherwise a restart would leave a pot visibly on the heat that `smell`
+    // could no longer find.
+    const restore = () => {
+      rememberCook(r.id, { applianceId: session.applianceId, playerId: r.player_id, name: r.name, session });
+      scheduleNarration(r.id, r.player_id, session, r.name);
+    };
     if (profile) {
-      if (Date.now() >= timeline(session, profile).burnAt) await autoPlate(r.id, r.player_id).catch(() => {});
-      else scheduleNarration(r.id, r.player_id, session, r.name);
-    } else if (Date.now() >= session.doneAt) await finishCook(r.id, r.player_id).catch(() => {});
-    else scheduleNarration(r.id, r.player_id, session, r.name);
+      // A microwave whose timer elapsed during the restart just finishes — it
+      // stopped when the dial said so, whether or not the server was up.
+      if (session.microwave && session.stopAt) {
+        if (Date.now() >= session.stopAt) await finishMicrowave(r.id, r.player_id).catch(() => {});
+        else restore();
+      }
+      else if (Date.now() >= timeline(session, profile).burnAt) await autoPlate(r.id, r.player_id).catch(() => {});
+      else restore();
+    } else if (Date.now() >= finishAt(session)) await finishCook(r.id, r.player_id).catch(() => {});
+    else restore();
   }
 })().catch(e => console.error('[cooking] boot restore error:', e.message));
 

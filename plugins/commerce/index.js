@@ -22,6 +22,7 @@ import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { dispatchAction } from '../../server/engine/actions.js';
 import { getBroadcast, sendToPlayer } from '../../server/engine/messaging.js';
+import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
 
 // Resolve which vendor a bare buy/sell targets: the one the player is actively
@@ -152,6 +153,43 @@ on('hololock.breached', ({ player, ownerId }) => {
   // row's owner_type was never changed from the 'player' default.
   const npc = world.npcs.get(ownerId);
   if (npc?.vendor_inventory?.length) holdVendorGrudge(player, ownerId).catch(() => {});
+});
+
+// ── "You'll be wanting to know what to do with that" ─────────────────────────
+//
+// A vendor who says nothing when you buy the one item in their crates that needs
+// explaining is a missed teaching moment. `flags.purchase_remarks` on an NPC maps
+// item id → a line they deliver as you pocket it, in their own voice:
+//
+//   "purchase_remarks": {
+//     "item_pry_deck": "\"That thing'll get you into trouble. Rig's on the wall.\""
+//   }
+//
+// Same shape as the existing `inner_circle_line` seam (vendor.js): content-driven,
+// no vendor or item hardcoded here. Fires ONCE per player per item by default —
+// a sly aside lands the first time and is noise the fourth. Author
+// `{ text, repeat: true }` for a line that should land every purchase.
+//
+// Read tier: one flag read per purchase, and only when the NPC actually authored
+// a remark for the item bought — buying anything else costs nothing. Purchases
+// are a deliberate player action, not a hot path.
+on('vendor.purchase', async ({ player, npcId, itemId }) => {
+  if (!player?.id || !npcId || !itemId) return;
+  const npc = world.npcs.get(npcId);
+  const remark = npc?.flags?.purchase_remarks?.[itemId];
+  if (!remark) return;
+
+  const text = typeof remark === 'string' ? remark : remark?.text;
+  if (!text) return;
+
+  if (!(typeof remark === 'object' && remark.repeat)) {
+    const key = `remark_${npcId}_${itemId}`;
+    if (await getFlag('player', key, player)) return;
+    await setFlag('player', key, 'true', player);
+  }
+
+  sendToPlayer(player.id, { type: 'output',
+    message: `\n<span class="msg-system">${npc.name} ${text}</span>` });
 });
 
 // ── Shop hours: a closed shop is a locked shop ───────────────────────────────

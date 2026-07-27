@@ -5,7 +5,6 @@
     "quantity": 1
   },
   "category": "synthesis",
-  "craft_time": 3,
   "description": "Cook Slow from crude Slow + industrial solvent.",
   "id": "cook_slow",
   "ingredients": [

@@ -1,0 +1,18 @@
+{
+  "description": "A twist of orange foam per ear, compressed between the fingers and pushed in before it swells back. Disposable, and everybody reuses them anyway. Cheaper than defenders and about half as good, which is the point.",
+  "flags": {},
+  "id": "item_foam_earplugs",
+  "name": "foam earplugs",
+  "tags": {
+    "description": "A twist of orange foam per ear, compressed between the fingers and pushed in before it swells back. Disposable, and everybody reuses them anyway. Cheaper than defenders and about half as good, which is the point.",
+    "misc": true,
+    "sense_damp": {
+      "hearing": -1
+    },
+    "slot": "accessory",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 6,
+  "weight": 15
+}

@@ -9,6 +9,7 @@
   "created_by": null,
   "description": "A narrow unit, mostly bed and shelving. Whoever lived here last was tidy, methodical, and is conspicuously not here anymore.",
   "exits": {
+    "in": "zone_apt_3_bath",
     "west": "zone_embassy_floor_2nd"
   },
   "flags": {

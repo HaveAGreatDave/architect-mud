@@ -1,10 +1,10 @@
 {
   "description": "A single blackened burner bolted to a scrap-metal stand, the dial worn down to bare metal at HIGH. No timer, no display, no apologies. You light it, you watch it, you don't walk away.",
   "flags": {
-    "stove_tier": "low",
     "interactions": [
       "lean"
-    ]
+    ],
+    "stove_tier": "low"
   },
   "hp": null,
   "hp_max": null,

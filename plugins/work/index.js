@@ -35,13 +35,14 @@
 // posture-tick activities do.
 
 import { getTunable } from '../../server/engine/tunables.js';
-import { schedule } from '../../server/engine/scheduler.js';
-import { getZone, world, getAllLivePlayers, getLivePlayer } from '../../server/engine/world.js';
+import { registerActivity } from '../../server/engine/activity-tick.js';
+import { getZone, world, getLivePlayer } from '../../server/engine/world.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { setPosture, forceStand } from '../../server/engine/posture.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { on } from '../../server/engine/events.js';
 import { setFlag } from '../../server/engine/flags.js';
+import { adjustRelation } from '../../server/engine/relations.js';
 import { courierVerb, deliver, crack, registerCourierAction, _courierTest } from './courier.js';
 
 // ── Tunables (defaults; adjustable via the tunables table without a redeploy) ──
@@ -137,12 +138,43 @@ const BAR_EVENTS = [
     botched: 'It goes off. Glass, a table, a scream — and the whole floor\'s energy curdles for the rest of the night.' },
 ];
 
+// A third venue shape: a REPAIR BENCH. Reuses the same five response verbs (no
+// new global verbs — the point of the shared set) but leans BRAINS, because the
+// work is diagnosis and steady hands rather than floor speed or nerve. Selected
+// per venue by flags.work_venue.pool = 'bench'.
+//
+// The fiction is the loop closing: you wear your own gear out fighting, you pay
+// a bench to put it right, and when you're short you stand at that bench and fix
+// somebody else's. See docs/systems-durability.md.
+const BENCH_EVENTS = [
+  { id: 'ticket', verb: 'serve', stat: 'brains', difficulty: 6,
+    prompt: 'A finished piece is sitting on the done-shelf and its owner is at the counter. <b>serve</b> it back before they start poking the other tickets.',
+    nailed: 'You hand it over, point out the mend, and let them feel the seam. They leave believing it will hold, which it will.',
+    botched: 'You hand back the wrong ticket, twice. They take theirs eventually, and take a long look at the workmanship on the way out.' },
+  { id: 'quote', verb: 'bill', stat: 'cool', difficulty: 6,
+    prompt: 'The quote on a wrecked jacket is more than the jacket cost new. <b>bill</b> it straight — no flinching.',
+    nailed: 'You tell them what it costs and why, and you do not blink. They pay it, because you clearly were not guessing.',
+    botched: 'You hedge, discount yourself mid-sentence, and end up doing half of it for nothing to save the argument.' },
+  { id: 'flare', verb: 'douse', stat: 'reflexes', difficulty: 6,
+    prompt: '<span class="text-red">Solvent rag, open torch, and the bench is going up.</span> <b>douse</b> it.',
+    nailed: 'Blanket, weight, done — out before it found the thinners. The shop smells wrong for an hour and nothing else.',
+    botched: 'It gets into the tray before you smother it. Two jobs on that bench are now somebody\'s bad news.' },
+  { id: 'sentimental', verb: 'soothe', stat: 'cool', difficulty: 5,
+    prompt: 'Someone has brought in a coat that cannot be saved, and it was their mother\'s. <b>soothe</b> them.',
+    nailed: 'You do not lie to them. You tell them what you can do, do that, and let them keep the buttons. They go quiet, and grateful.',
+    botched: 'You lead with the price and the verdict. They take the coat back off the bench and go somewhere with a softer front counter.' },
+  { id: 'hot_goods', verb: 'bounce', stat: 'brawn|cool', difficulty: 7,
+    prompt: 'The rig on your bench has a serial that has been ground off, and the man who brought it in is watching you notice. <b>bounce</b> it.',
+    nailed: 'You slide it back across the counter and tell him you are full this week. He reads your face, takes it, and goes.',
+    botched: 'You make it awkward. He leaves loud, and the shop wears the story for a while.' },
+];
+
 // Named event pools a venue can select via flags.work_venue.pool.
-const POOLS = { diner: DINER_EVENTS, bar: BAR_EVENTS };
+const POOLS = { diner: DINER_EVENTS, bar: BAR_EVENTS, bench: BENCH_EVENTS };
 
 // Every verb any pool uses — so off-shift no-op wrappers cover them all. Kept as
 // a union so adding a pool never silently drops a verb from the set.
-const VERBS = new Set([...DINER_EVENTS, ...BAR_EVENTS].map(e => e.verb));
+const VERBS = new Set([...DINER_EVENTS, ...BAR_EVENTS, ...BENCH_EVENTS].map(e => e.verb));
 
 // ── Dice / checks ─────────────────────────────────────────────────────────────
 function roll2d8() { return Math.floor(Math.random() * 8) + 1 + Math.floor(Math.random() * 8) + 1; }
@@ -224,6 +256,8 @@ function endShift(player, reason) {
   player.shiftState = null; // clear first so the posture.changed handler no-ops
   if (getPosture(player) === 'working') forceStand(player, 'work.end');
 
+  // Whose shop this is. Defaults to Gus so the diner copy is untouched.
+  const boss = st.venue?.boss || 'Gus';
   const worked = clamp((Date.now() - st.startedAt) / (T.shiftSecs() * 1000), 0, 1);
   const sat = Math.round(st.satisfaction);
   const wage = wageOf(st);
@@ -231,10 +265,10 @@ function endShift(player, reason) {
 
   if (reason === 'completed') {
     pay = wage; tips = tipFor(sat);
-    headline = 'Shift over. Gus racks the spatula and thumbs your pay across the counter.';
+    headline = `Shift over. ${boss} counts your pay out onto the counter without being asked twice.`;
   } else if (reason === 'sent_home') {
     pay = Math.round(wage * worked * 0.5); tips = 0;
-    headline = '<span class="text-red">"Go home."</span> Gus doesn\'t look up. "You\'re costing me more than you\'re making. Half for the hours, no tips. Try again when you\'ve got the legs for it."';
+    headline = `<span class="text-red">"Go home."</span> ${boss} doesn't look up. "You're costing me more than you're making. Half for the hours, no tips. Try again when you've got the legs for it."`;
   } else { // clocked_out, or walked off (moved/interrupted)
     pay = Math.round(wage * worked * 0.85); tips = tipFor(sat);
     headline = reason === 'clocked_out'
@@ -255,44 +289,45 @@ function endShift(player, reason) {
   // being thrown off the floor or wandering away mid-shift aren't holding a job.
   if (reason === 'completed' || reason === 'clocked_out') {
     setFlag('player', 'work_shift_done', 'true', player).catch(() => {});
+    // Standing at a man's bench all day is how he comes to know you — and what
+    // he charges YOU to fix your own gear falls as he does (relationHelp, read by
+    // plugins/wear). A shift is worth more than the wage it pays.
+    if (st.venue?.employer_npc) {
+      adjustRelation(player, st.venue.employer_npc, {
+        familiarity: 4, warmth: reason === 'completed' ? 3 : 1, reason: 'work:shift',
+      });
+    }
   }
 }
 
 function getPosture(player) { return player.posture || 'standing'; }
 
 // ── The tick — one loop for every clocked-in player (mirrors fishing) ──────────
-let ticking = false;
-async function workTick() {
-  if (ticking) return;
-  ticking = true;
-  try {
-    const now = Date.now();
-    for (const player of getAllLivePlayers()) {
-      const st = player.shiftState;
-      if (getPosture(player) !== 'working') {
-        if (st) { const cur = getLivePlayer(player.id); if (cur) cur.shiftState = null; }
-        continue;
-      }
-      if (!st) continue;
-      // Safety: if the player somehow left the venue zone while 'working', end it.
-      if (player.current_zone !== st.zoneId) { endShift(player, 'walked'); continue; }
-      if (now >= st.endsAt) { endShift(player, 'completed'); continue; }
+registerActivity({
+  posture: 'working',
+  stateKey: 'shiftState',
+  onTick: (player, st, now) => {
+    // Safety: if the player somehow left the venue zone while 'working', end it.
+    if (player.current_zone !== st.zoneId) { endShift(player, 'walked'); return; }
+    if (now >= st.endsAt) { endShift(player, 'completed'); return; }
 
-      if (st.pending) {
-        if (now >= st.pending.expiresAt) ignoreEvent(player, st);
-        continue;
-      }
-      if (st.queue.length) { fireNext(player, st); continue; }
-      if (now - st.lastRoll < T.tickSecs() * 1000) continue;
-      st.lastRoll = now;
-      if (!st.rushDone && now >= st.rushAt) { enqueueRush(st); fireNext(player, st); }
-      else if (Math.random() < T.eventChance()) { enqueueEvent(st); fireNext(player, st); }
+    if (st.pending) {
+      if (now >= st.pending.expiresAt) ignoreEvent(player, st);
+      return;
     }
-  } finally {
-    ticking = false;
-  }
-}
-schedule('1s', () => workTick().catch(e => console.error('[work] tick error:', e.message)));
+    if (st.queue.length) { fireNext(player, st); return; }
+    if (now - st.lastRoll < T.tickSecs() * 1000) return;
+    st.lastRoll = now;
+    if (!st.rushDone && now >= st.rushAt) { enqueueRush(st); fireNext(player, st); }
+    else if (Math.random() < T.eventChance()) { enqueueEvent(st); fireNext(player, st); }
+  },
+  // Shift state is cleared silently — endShift() already narrated whatever
+  // ended it, and a bare posture change (death, jail) is not a "you stop" event.
+  onAbandon: (player) => {
+    const cur = getLivePlayer(player.id);
+    if (cur) cur.shiftState = null;
+  },
+});
 
 // ── Event response (the shift verbs) ──────────────────────────────────────────
 // serve / bill / douse / soothe / bounce all route here. They only mean anything
@@ -388,7 +423,10 @@ async function cmdClock(args, raw, player, broadcast) {
     lastRoll: now, rushDone: false,
     rushAt: now + shiftMs * (0.45 + Math.random() * 0.1), // one rush, mid-shift
   };
-  (broadcast || sendToZone)(player.current_zone, { type: 'zone_event', message: `${player.handle} ties on an apron and clocks in behind the counter.` }, player.id);
+  const inLine = venue.clock_in_line
+    ? String(venue.clock_in_line).replace(/\$HANDLE/g, player.handle)
+    : `${player.handle} ties on an apron and clocks in behind the counter.`;
+  (broadcast || sendToZone)(player.current_zone, { type: 'zone_event', message: inLine }, player.id);
   return { type: 'output', message:
     `<span class="msg-system">You clock in as ${venue.role || 'a hand'}. ${Math.round(T.shiftSecs() / 60)} minutes on the floor.</span>\n` +
     `<span class="text-dim">Handle what comes at you — <b>serve</b>, <b>bill</b>, <b>douse</b>, <b>soothe</b>, <b>bounce</b> — before the moment passes. Keep the tables happy and the tips follow. Let it slide and you get cut.</span>` };

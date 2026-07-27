@@ -30,7 +30,23 @@ import { markSessionPurchase } from './vendor-session.js';
 import { vendorBuyReaction } from './vendor-reactions.js';
 import { isVendorClosed, vendorClosedLine } from './ai-behaviour.js';
 import { getItem } from './items-cache.js';
-import { syncNpc, updateNpc } from './world.js';
+import { syncNpc, updateNpc, getLivePlayer } from './world.js';
+import { relationHelp } from './relations.js';
+
+// Per-purchase instance stamps. `flags.prefill` on an item template covers STATIC
+// per-instance state (a jerry can sold full), but some goods are only meaningful
+// as a dated document — a ticket is for one showing, not for tickets in general.
+// A plugin registers a stamper for its item id; it runs inside the sale and
+// returns either a custom_data bag to seed onto the fresh row, or a string, which
+// refuses the sale with that string as the vendor's line. A stamped unit NEVER
+// merges into an existing stack (two tickets to different showings are not two of
+// the same thing) — the stamp key must also be listed in inventory.js INSTANCE_KEYS
+// so pickUp/give/drop honour that too.
+const purchaseStamps = new Map();   // item_id -> async (player, npc, item) => object | string
+export function registerPurchaseStamp(itemId, fn) {
+  if (typeof fn !== 'function') throw new Error('registerPurchaseStamp: fn required');
+  purchaseStamps.set(itemId, fn);
+}
 
 // Trust-gated vendors (e.g. the covert shadow dealer). When an NPC's flags carry
 // a `trust_flag`, its shelf is not the random `vendor_stock` shelf but the full
@@ -41,6 +57,27 @@ async function readTrust(npc, playerId) {
   const flagKey = npc.flags?.trust_flag;
   if (!flagKey) return null;
   return Number(await getFlag('player', flagKey, { id: playerId })) || 0;
+}
+
+// How well this vendor treats you, as one number the four pricing sites share
+// (shelf listing, buy, sell listing, sell). Two independent channels:
+//
+//   • IDEOLOGY — where you stand with the org they belong to. Institutional.
+//   • RELATIONSHIP — how they feel about YOU personally (engine/relations.js).
+//     Zero round trips: read from the live player's hydrated Map.
+//
+// Additive, then clamped. They stack because they're genuinely different things
+// — being an Ascendant in good standing AND her regular should beat either
+// alone — but the clamp stops the combination from ever making goods free or
+// the markup punitive.
+const DISCOUNT_MAX = 0.4;
+const MARKUP_MAX = -0.35;
+export async function vendorDiscount(playerId, npc) {
+  const ideological = npc.faction ? await getIdeologyDiscount(playerId, npc.faction) : 0;
+  // A player who isn't online has no hydrated relations; personal standing then
+  // contributes nothing rather than erroring. Institutional standing still applies.
+  const personal = relationHelp(getLivePlayer(playerId), npc.id);
+  return Math.max(MARKUP_MAX, Math.min(DISCOUNT_MAX, ideological + personal));
 }
 
 // ─── Examine metadata (shared by Buy stock + Sell inventory) ──────────────────
@@ -104,7 +141,7 @@ export async function getVendorStock(npc, playerId) {
     : [...activeStock, ...sourced.filter(e => !activeStock.some(a => a.item_id === e.item_id))];
   if (!shelf.length) return [];
 
-  const discount = npc.faction ? await getIdeologyDiscount(playerId, npc.faction) : 0;
+  const discount = await vendorDiscount(playerId, npc);
 
   // Price lookup from catalogue
   const priceMap = {};
@@ -180,7 +217,19 @@ export async function buyFromVendor(player, npc, itemId, quantity = 1) {
     }
   }
 
-  const discount = npc.faction ? await getIdeologyDiscount(player.id, npc.faction) : 0;
+  // Run any per-purchase stamper before we touch credits, so a refusal ("nothing
+  // tapes tonight") costs the player nothing.
+  let stamp = null;
+  let stampLine = '';   // optional flavour the stamper wants shown on the receipt
+  const stamper = purchaseStamps.get(itemId);
+  if (stamper) {
+    stamp = await stamper(player, npc, item).catch(() => null);
+    if (typeof stamp === 'string') return { success: false, message: stamp };
+    if (stamp && typeof stamp !== 'object') stamp = null;
+    if (stamp?._line) { stampLine = `\n<span class="msg-system">${stamp._line}</span>`; delete stamp._line; }
+  }
+
+  const discount = await vendorDiscount(player.id, npc);
   const basePrice = catalogueEntry?.price ?? item.value;
   const price = Math.max(1, Math.round(basePrice * (1 - discount))) * quantity;
 
@@ -207,17 +256,18 @@ export async function buyFromVendor(player, npc, itemId, quantity = 1) {
         'SELECT id, quantity FROM player_inventory WHERE player_id = $1 AND item_id = $2 AND is_equipped = 0',
         [player.id, itemId]
       );
-      if (existing.length && isStackable(item)) {
+      if (existing.length && isStackable(item) && !stamp) {
         await q('UPDATE player_inventory SET quantity = quantity + $1 WHERE id = $2', [quantity, existing[0].id]);
       } else {
         // Templates may ship a `flags.prefill` bag (e.g. a jerry can sold full of
         // fuel) — seed it into the fresh instance's custom_data so the unit arrives
         // in that state. Non-stacking items (fillable containers are `unique`) get
-        // their own row, so this can't smear across a stack.
+        // their own row, so this can't smear across a stack. A per-purchase stamp
+        // (a ticket's showing) layers on top and forces its own row regardless.
         const prefill = item.flags?.prefill;
         await q(
           'INSERT INTO player_inventory (id, player_id, item_id, quantity, condition, custom_data) VALUES ($1, $2, $3, $4, 1.0, $5)',
-          [randomUUID(), player.id, itemId, quantity, JSON.stringify(prefill || {})]
+          [randomUUID(), player.id, itemId, quantity, JSON.stringify({ ...(prefill || {}), ...(stamp || {}) })]
         );
       }
     }
@@ -262,7 +312,7 @@ export async function buyFromVendor(player, npc, itemId, quantity = 1) {
 
   return {
     success: true,
-    message: `You buy ${quantity}x ${item.name} for ${price} credits. (${player.credits} remaining)\n${vendorBuyReaction(npc, 'success')}${trustLine}`,
+    message: `You buy ${quantity}x ${item.name} for ${price} credits. (${player.credits} remaining)\n${vendorBuyReaction(npc, 'success')}${stampLine}${trustLine}`,
     credits_remaining: player.credits,
   };
 }
@@ -308,7 +358,7 @@ export async function getSellableInventory(player, npc) {
      WHERE pi.player_id = $1 AND pi.is_equipped = 0`,
     [player.id]
   );
-  const discount = npc.faction ? await getIdeologyDiscount(player.id, npc.faction) : 0;
+  const discount = await vendorDiscount(player.id, npc);
   const isDrugBuyer = !!npc.flags?.drug_buyer;
   const isFoodBuyer = !!npc.flags?.food_buyer;
   return rows
@@ -348,7 +398,7 @@ export async function sellToVendor(player, npc, inventoryId, quantity = 1) {
   if (invItem.is_equipped) return { success: false, message: 'Unequip it first.' };
 
   const sellQty = Math.min(quantity, invItem.quantity);
-  const discount = npc.faction ? await getIdeologyDiscount(player.id, npc.faction) : 0;
+  const discount = await vendorDiscount(player.id, npc);
   const cd = typeof invItem.custom_data === 'string' ? (() => { try { return JSON.parse(invItem.custom_data); } catch { return {}; } })() : (invItem.custom_data || {});
   const sellPrice = computeSellUnitPrice(invItem.value, invItem.stat_cool, discount, { potency: Number(cd?.potency) || 1, drugBuyer: !!npc.flags?.drug_buyer && !!invItem.tags?.drug, cookQuality: cd?.cook_quality || null, foodBuyer: !!npc.flags?.food_buyer && !!cd?.cook_quality, portion: (Number(cd?.portion) || 1) * (Number(cd?.yield) || 1) }) * sellQty;
 

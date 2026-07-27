@@ -4,14 +4,15 @@
   "id": "item_okonomi_sauce",
   "name": "okonomi sauce",
   "tags": {
-    "description": "A squeeze bottle of something dark, sweet and thick enough to hold a line where you drew it. Fruit, soy, and a long list nobody reads. Goes on in a lattice, and the lattice is the point.",
     "consumable": true,
-    "restore_hunger": 4,
-    "stackable": true,
-    "food_profile": "aromatic",
+    "description": "A squeeze bottle of something dark, sweet and thick enough to hold a line where you drew it. Fruit, soy, and a long list nobody reads. Goes on in a lattice, and the lattice is the point.",
+    "food_also": "liquid",
     "food_noun": "okonomi",
+    "food_profile": "aromatic",
     "perishable": true,
+    "restore_hunger": 4,
     "spoil_rate": "slow",
+    "stackable": true,
     "status_chance": {
       "food_poisoning": 0.1
     }

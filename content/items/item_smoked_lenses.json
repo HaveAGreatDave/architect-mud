@@ -1,0 +1,17 @@
+{
+  "description": "Flat smoked glass in a wrapped steel frame, dark enough that people assume you are looking somewhere else. Welders wore these before the Collapse and welders wear them still. Nothing gets through them suddenly.",
+  "flags": {},
+  "id": "item_smoked_lenses",
+  "name": "smoked lenses",
+  "tags": {
+    "description": "Flat smoked glass in a wrapped steel frame, dark enough that people assume you are looking somewhere else. Welders wore these before the Collapse and welders wear them still. Nothing gets through them suddenly.",
+    "misc": true,
+    "sense_damp": {
+      "sight": -2
+    },
+    "slot": "accessory"
+  },
+  "type": "misc",
+  "value": 45,
+  "weight": 90
+}

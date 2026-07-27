@@ -4,6 +4,49 @@ import { allExits } from './exits.js';
 // Minimum intensity for a sound to be heard at a given distance.
 const HEAR_THRESHOLD = 0.5;
 
+// ── Noisy-zone index ─────────────────────────────────────────────────────────
+//
+// `listen` reaches up to a dozen zones, and asking every one of them "what do
+// you sound like" means a `gatherHook` fan-out across every plugin per zone —
+// paid in full even when the entire neighbourhood is silent, which it usually
+// is. This index inverts that: a source of ONGOING noise registers its zone, and
+// the verb only interrogates zones that are actually in the set.
+//
+// So a listen in a quiet street costs zero hook calls, and a listen next to a
+// kitchen costs one. It is the same trick as cooking's live-cook registry — RAM
+// is the source of truth for runtime state, and the write funnel is narrow
+// enough to keep honest.
+//
+// Refcounted by an opaque key (an inventory row id, a furniture id) so two cooks
+// on two stoves in one room don't cancel each other when the first one finishes.
+const noisy = new Map(); // zoneId -> Set(key)
+
+export function markNoisy(zoneId, key) {
+  if (!zoneId || key == null) return;
+  let keys = noisy.get(zoneId);
+  if (!keys) noisy.set(zoneId, keys = new Set());
+  keys.add(String(key));
+}
+
+export function clearNoisy(zoneId, key) {
+  const keys = noisy.get(zoneId);
+  if (!keys) return;
+  keys.delete(String(key));
+  if (!keys.size) noisy.delete(zoneId);
+}
+
+// Sources sometimes lose track of where they were (a vessel carried to another
+// room mid-cook). Cheap enough to sweep by key when that happens.
+export function clearNoisyKey(key) {
+  const k = String(key);
+  for (const [zoneId, keys] of noisy) {
+    if (keys.delete(k) && !keys.size) noisy.delete(zoneId);
+  }
+}
+
+export const isNoisy = zoneId => noisy.has(zoneId);
+export const noisyZoneCount = () => noisy.size;
+
 // A closed, intact door on an edge muffles sound crossing it. Modeled as extra
 // distance: inverse-square attenuation both shortens the reach and drops more
 // words, so a closed door makes the room beyond you sound faint and clipped. A

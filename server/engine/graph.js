@@ -27,6 +27,7 @@
  */
 import { randomUUID } from 'crypto';
 import { query } from '../models/db.js';
+import { createWorkGate } from './worklist.js';
 import { registerAction, dispatchAction } from './actions.js';
 import { emit } from './events.js';
 import { evalConditions, getFlag } from './flags.js';
@@ -275,6 +276,15 @@ async function resolveDropContainer(ref, zoneId) {
 // living in a setTimeout, so a deploy or crash doesn't drop it.
 const DURABLE_WAIT_S = 120;
 
+// Parked waits are almost always absent, and resumeDueWaits polls for them on a
+// schedule — so the gate lets that tick skip the round trip entirely while the
+// table is empty. See engine/worklist.js for why the counter is only ever an
+// optimisation and the periodic re-probe is what keeps it correct.
+const waitsGate = createWorkGate({
+  name: 'script_waits',
+  probe: async () => (await query('SELECT COUNT(*)::int AS n FROM script_waits')).rows[0].n,
+});
+
 async function parkWait(ctx, nextNodeId, secs) {
   await query(
     `INSERT INTO script_waits (id, script_id, graph, node_id, player_id, params, due_at)
@@ -282,6 +292,7 @@ async function parkWait(ctx, nextNodeId, secs) {
     [randomUUID(), ctx.scriptId || null, JSON.stringify(ctx.graph || {}), nextNodeId,
      ctx.actor?.id || null, JSON.stringify(ctx.params || {}), Date.now() + secs * 1000]
   );
+  waitsGate.noteWork();
 }
 
 /**
@@ -293,6 +304,7 @@ async function parkWait(ctx, nextNodeId, secs) {
  * makes the table a queue of owed outcomes, not a stopwatch.
  */
 export async function resumeDueWaits(broadcast) {
+  if (!await waitsGate.shouldRun()) return 0;
   const { rows } = await query(
     'SELECT * FROM script_waits WHERE due_at <= $1 ORDER BY due_at LIMIT 50', [Date.now()]);
   if (!rows.length) return 0;

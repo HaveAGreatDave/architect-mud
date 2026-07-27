@@ -32,6 +32,7 @@
  * black-market branch — so street dealing is the on-ramp to drug manufacture.
  */
 import { randomUUID } from 'crypto';
+import { createWorkGate } from '../../server/engine/worklist.js';
 import { query, withTransaction } from '../../server/models/db.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { schedule } from '../../server/engine/scheduler.js';
@@ -76,6 +77,7 @@ async function placeOrder(player, itemId, qty, vendorId) {
          VALUES ($1,$2,$3,$4,$5,$6,$7,'pending',$8)`,
         [randomUUID(), player.id, item.id, item.name, qty, DROP_ZONE, Date.now() + DELIVERY_MS, vendorId || null]);
     });
+    ordersGate.noteWork();   // a shipment is in flight — wake the delivery tick
   } catch (e) {
     player.credits = before; // tx rolled back — undo the in-memory debit adjustCredits applied
     if (e.message === 'broke') return { ok: false, reason: 'broke', cost };
@@ -105,7 +107,17 @@ registerAction({
 // ── delivery tick ─────────────────────────────────────────────────────────────
 // Land any due MULE drops: spawn a cipher-locked crate on the ground at the drop
 // zone and ping the buyer if online. Restart-safe — the order row carries deliver_at.
+// Pending MULE orders are rare and the delivery tick fires every minute forever.
+// The gate keeps that tick off the wire while nothing is in flight; the periodic
+// re-probe in worklist.js is what makes a missed noteWork() a delay, not a
+// permanently undelivered shipment.
+const ordersGate = createWorkGate({
+  name: 'smuggle_orders',
+  probe: async () => (await query(`SELECT COUNT(*)::int AS n FROM smuggle_orders WHERE status='pending'`)).rows[0].n,
+});
+
 schedule('1m', async () => {
+  if (!await ordersGate.shouldRun()) return;
   const { rows } = await query(
     `SELECT id, player_id, item_id, item_name, qty, drop_zone, vendor_id FROM smuggle_orders
       WHERE status='pending' AND deliver_at <= $1`,

@@ -2231,6 +2231,73 @@
   "description": "LAST CALL — a made-for-TV Coldwater picture. A jaded Embassy barman holds two Halcyon clean-chits — the only way past the Architect's Curtain — when the woman who left him walks back in on the arm of the Long Watch's most wanted man. A Casablanca, drowned and decanted.",
   "enabled": 1,
   "fallback_messages": [],
+  "film_meta": {
+    "airSlots": null,
+    "cast": [
+      {
+        "label": "PRECINCT VOICE",
+        "name": "Precinct Voice",
+        "role": ""
+      },
+      {
+        "label": "REFUGEE WOMAN",
+        "name": "Refugee Woman",
+        "role": ""
+      },
+      {
+        "label": "PICKETT",
+        "name": "Pickett",
+        "role": ""
+      },
+      {
+        "label": "CADE",
+        "name": "Cade",
+        "role": "a man who stuck his neck out once"
+      },
+      {
+        "label": "REEDER",
+        "name": "Reeder",
+        "role": "at the deck, \"Before the Light\""
+      },
+      {
+        "label": "SABLE",
+        "name": "Captain Sable",
+        "role": "Precinct 9, retired abruptly"
+      },
+      {
+        "label": "PATRON",
+        "name": "Patron",
+        "role": ""
+      },
+      {
+        "label": "KOLE",
+        "name": "August Kole",
+        "role": "the Long Watch's walking voice"
+      },
+      {
+        "label": "MIRA",
+        "name": "Mira",
+        "role": "the reason he stopped"
+      },
+      {
+        "label": "HELM",
+        "name": "Curator Helm",
+        "role": "the Machine, given a good coat"
+      },
+      {
+        "label": "VIG",
+        "name": "Vig",
+        "role": ""
+      }
+    ],
+    "director": "Vera Ostrowe",
+    "presents": "Coldwater Civic Broadcasting",
+    "rating": "GENERAL — CONTAINS DRINKING, WHICH IS THE POINT",
+    "runtime": 1800,
+    "theme": "",
+    "title": "lastcall_title"
+  },
+  "gameshow_pools": null,
   "id": "bc_last_call",
   "loop": 1,
   "message_interval": 7,
@@ -2239,7 +2306,8 @@
   "name": "Last Call",
   "news_pools": null,
   "override_duration": 1800,
-  "playback_mode": "scripted",
+  "playback_mode": "film",
+  "sermon_pools": null,
   "sports_pools": null,
   "tags": [
     "movie",

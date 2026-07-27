@@ -1,9 +1,9 @@
 {
-  "id": "zone_util_junkyard",
-  "name": "Salvage Rites — Utility",
-  "generator_id": "gen_junkyard_util",
-  "source_type": "junction_box",
   "capacity_kw": 1000,
+  "flags": {},
+  "generator_id": "gen_junkyard_util",
+  "id": "zone_util_junkyard",
   "max_capacity_kw": 1000,
-  "flags": {}
+  "name": "Salvage Rites — Utility",
+  "source_type": "junction_box"
 }

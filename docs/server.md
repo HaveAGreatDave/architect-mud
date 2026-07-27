@@ -70,6 +70,52 @@ Any engine file that needs world state imports directly from `world.js`. There i
 
 Only `tick()` is a raw `setInterval`, and it carries its own `hasActivePlayers` guard because it does not inherit the scheduler's. Everything else registers through `scheduler.js` and is idle-gated automatically (`gameLoop.js:46-70`).
 
+**Same-cadence stagger.** `scheduler.js` spreads subscribers sharing a cadence so a convoy of ticks can't check out every pool connection in the same instant. The gap is `min(200 ms, period / (subscribers + 1))` — **the cap matters**: a flat 200 ms was fine at `'1m'`, but `'1s'` grew to ten subscribers, and 10 × 200 ms is a 2-second spread on a 1-second period. The tail of that list was being scheduled to fire *after* the next tick had already started, so it silently ran at half rate against its own reentrancy guard. Dividing by `(n + 1)` keeps the last subscriber strictly inside the period however many subscribe.
+
+### Posture-driven activities (`activity-tick.js`)
+
+A plugin whose mechanic is "hold a posture and something happens every so often" must **not** register its own `schedule('1s', …)`. It registers with the activity substrate instead:
+
+```js
+import { registerActivity } from '../../server/engine/activity-tick.js';
+
+registerActivity({
+  posture:   'mining',      // the posture that means "doing this"
+  stateKey:  'mineState',   // per-player state field on the live player object
+  onTick:    async (player, st, nowMs) => { … },  // while the posture holds
+  onAbandon: (player, st) => { … },               // posture lost → clean up + narrate
+});
+```
+
+One 1-second sweep of `getAllLivePlayers()` serves every registered activity, replacing the six identical timers that scavenging, mining, fishing, butchering, weightbench and work each ran (crafting registered here too, rather than growing a seventh). `onTick` owns its own pacing (its `ATTEMPT_MS` / countdown check) — the substrate deliberately imposes no shared cadence, because the activities genuinely differ. Reentrancy is guarded **per activity**, and activities dispatch concurrently, so a slow resolution in one can't stall the others. Within a single activity, players are processed **in order**, one await at a time — the per-zone loot tables read stock, compute a lazy replenish in JS and write absolute quantities back, so two players working one zone concurrently would both apply the same replenish and duplicate the stock.
+
+`onAbandon` fires when a player still has state but no longer holds the posture (moved, stood, was hit, died). It runs synchronously and is expected to clear the state key, so it fires exactly once.
+
+### Ticks that poll for work (`worklist.js`)
+
+A tick that asks the database "is there anything due?" on a loop is the quietest way to keep a server busy doing nothing. Measured on an idle world, `script_waits`, `jail_prisoners` and `smuggle_orders` were each being polled on a schedule while holding **zero rows between them** — every poll a remote round trip, and round trips on a quiet server are exactly what stops Neon's compute suspending.
+
+Gate those ticks instead:
+
+```js
+import { createWorkGate } from './worklist.js';
+
+const gate = createWorkGate({
+  name: 'script_waits',
+  probe: async () => (await query('SELECT COUNT(*)::int AS n FROM script_waits')).rows[0].n,
+});
+
+// in the tick
+if (!await gate.shouldRun()) return;
+
+// wherever a row is written
+gate.noteWork();
+```
+
+**The counter is an optimisation; the probe is the correctness.** The naive version of this — a counter incremented by writers — fails silently and permanently the moment one writer isn't wired: jail sentences never end, parked scripts never resume, and nothing errors. So the gate never trusts the counter indefinitely. Even believing the count is zero it re-probes on `reconcileMs` (default 5 min), which turns a missed `noteWork()` into a bounded **delay** rather than a stall, while still skipping the vast majority of polls. A probe that throws **fails open** and runs the tick.
+
+`noteWork()` is cheap and forgiving — it just marks the gate dirty, so callers never maintain a running total and double-calling is harmless. `noteDrained(n)` is the optional fast path when a tick knows it emptied the queue.
+
 `dailyMaintenance` and `rentCollectionTick` run on the **game** calendar rather than a real interval — both subscribe to the `environment.dayRollover` event, so they track the game-speed knob.
 
 The environment system (`environment.js`) registers on the same scheduler: a **1-minute** clock driver, a **5-minute** brownout check (only while a zone is overloaded or a storm is faulting the grid), and a **30-second** flicker + weather-field advection pass. Its 30-minute and 24-hour ticks are *not* real cadences — the 1-minute driver fires them on **game**-minute boundaries, so date, day-phase and streetlights stay in lockstep with a sped-up day (`environment.js:422-430,841-871`).
@@ -95,6 +141,50 @@ Four more families sit alongside these in the same `msg.type` chain (`server/ind
 `handleCommand()` in `engine/commands/index.js` is the main dispatcher — see [commands.md](commands.md) for the full dispatch pipeline. Plugin-registered commands are checked via `fireCommand()` ahead of the engine builtins.
 
 **Broadcasting:** `broadcast(zoneId, message, excludePlayerId, targetPlayerId, excludePlayerId2, excludeSet)` in `index.js` is the single send function (`server/index.js:99-106`). Pass a `zoneId` to send to everyone in that zone; pass a `targetPlayerId` to send to one player; pass neither to send to all connected players. Engine modules receive `broadcast` as a passed-in function or via `setBroadcast()` (`engine/messaging.js:12`) — nothing imports it directly from `index.js`.
+
+---
+
+## Serving the Client (assets + socket)
+
+There is no build step, so `server/index.js` is also the static file server and the only thing
+standing between `client/` and the browser. Both halves of that are compressed and cached
+deliberately — this is a Render free-plan box whose event loop also carries every WebSocket
+message, so a blocking read or an uncompressed megabyte is paid for by everyone already playing.
+
+**Static assets** (`server/index.js`, the `assetCache` block). Files are read **once**, compressed
+once, and held in memory keyed by mtime:
+
+- **Brotli (quality 5) with a gzip fallback**, negotiated off `Accept-Encoding`. Quality 5, not 11
+  — 11 is for build-time pipelines and can block the loop for seconds; 5 lands within a few percent
+  for a fraction of the cost, and only runs once per file version.
+- **Only text types**, and only files ≥ 1 KB. Running deflate over a `.png`/`.ico` burns CPU to make
+  it marginally bigger.
+- **`Vary: Accept-Encoding` on anything compressible**, not just what was actually compressed —
+  otherwise a shared cache can hand a brotli body to a client that never asked for one.
+- **mtime-keyed**, so an edited file is picked up without a restart, and `304` revalidation still
+  works off `Last-Modified`.
+
+Measured: the `client/game` + `client/shared` tree is **4.93 MB raw → 1.32 MB brotli (3.7×)**. The
+previous code did a synchronous `readFileSync` + `statSync` **per request** — ~82 blocking syscalls
+per cold load, each a micro-stall for every connected player.
+
+**The WebSocket** (`new WebSocketServer(...)` in `server/index.js`). `perMessageDeflate` is enabled
+and **configured**, not set to bare `true` — `ws`'s own docs warn its defaults fragment memory under
+load. A `threshold` of 1 KB lets small status/vitals ticks skip deflate; `memLevel: 7` and a
+`concurrencyLimit` keep per-connection memory and zlib work bounded; `clientNoContextTakeover` is on
+because clients only ever send tiny commands, so an inbound context costs memory and buys nothing.
+Server-side context takeover stays **on** deliberately: consecutive minimaps share ~90% of their
+bytes.
+
+Why it matters: a `look` payload measures **34 KB, of which ~97% is the minimap node array** — the
+most repetitive JSON in the system. It compresses **17.9× with gzip, 24.3× with brotli**. Idle
+socket chatter, by contrast, is noise (~18 KB/min at 20 players), so the win is entirely in
+room/movement payloads.
+
+> **Still outstanding:** the minimap is *over-fetched* — every move sends a depth-8 BFS while the
+> sidebar renders a 9×9 window. Before trimming it, note the same payload also feeds the
+> reachability dimming **and** the void-crossing journey view (`movement.js`, `crossingInnerHtml`),
+> so depth cannot simply be lowered.
 
 ---
 

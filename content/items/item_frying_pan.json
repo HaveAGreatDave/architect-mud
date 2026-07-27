@@ -4,12 +4,12 @@
   "id": "item_frying_pan",
   "name": "frying pan",
   "tags": {
-    "description": "Pressed steel with a scorched halo in the middle and a handle wrapped in fraying tape. Heats fast, heats unevenly, and has outlived at least two owners.",
     "container": 2000,
-    "vessel": true,
+    "description": "Pressed steel with a scorched halo in the middle and a handle wrapped in fraying tape. Heats fast, heats unevenly, and has outlived at least two owners.",
     "heat_distribution": 0.7,
     "heat_retention": 0.45,
     "unique": true,
+    "vessel": true,
     "vessel_kind": "pan"
   },
   "type": "misc",

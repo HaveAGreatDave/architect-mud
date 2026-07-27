@@ -7,163 +7,163 @@
           "x": 80,
           "y": 80
         },
-        "type": "start",
-        "next": "bsm_1"
+        "next": "bsm_1",
+        "type": "start"
       },
       "bsm_1": {
         "_vine": {
           "x": 300,
           "y": 80
         },
-        "type": "event",
         "event_type": "FADE_IN",
-        "next": "bsm_2"
-      },
-      "bsm_2": {
-        "_vine": {
-          "x": 520,
-          "y": 80
-        },
-        "type": "title_card",
-        "graphic_id": "hungry_man_just_meats_logo",
-        "next": "bsm_3"
-      },
-      "bsm_3": {
-        "_vine": {
-          "x": 740,
-          "y": 80
-        },
-        "type": "music",
-        "song": "just_meats_jingle",
-        "text": "♪ A jingle built entirely from grunts and one bass note, repeated with total confidence. ♪",
-        "next": "bsm_4"
-      },
-      "bsm_4": {
-        "_vine": {
-          "x": 960,
-          "y": 80
-        },
-        "type": "camera_cut",
-        "label": "CAM — 1 — WIDE",
-        "zone_id": "gym_parking_lot",
-        "next": "bsm_5"
-      },
-      "bsm_5": {
-        "_vine": {
-          "x": 80,
-          "y": 240
-        },
-        "type": "npc_anchor",
-        "npc_id": "npc_narrator",
-        "next": "bsm_6"
-      },
-      "bsm_6": {
-        "_vine": {
-          "x": 300,
-          "y": 240
-        },
-        "type": "say",
-        "style": "narration",
-        "text": "A man in a tactical vest opens a family-size tub of an unidentified meat product from his truck bed.",
-        "next": "bsm_7"
-      },
-      "bsm_7": {
-        "_vine": {
-          "x": 520,
-          "y": 240
-        },
-        "type": "say",
-        "style": "raw",
-        "text": "She left. The alimony hurts. But you know what never leaves?",
-        "next": "bsm_8"
-      },
-      "bsm_8": {
-        "_vine": {
-          "x": 740,
-          "y": 240
-        },
-        "type": "say",
-        "style": "raw",
-        "text": "Protein.",
-        "next": "bsm_9"
-      },
-      "bsm_9": {
-        "_vine": {
-          "x": 960,
-          "y": 240
-        },
-        "type": "npc_action",
-        "message": "flexes at the tub of meats, unprompted",
-        "next": "bsm_10"
+        "next": "bsm_2",
+        "type": "event"
       },
       "bsm_10": {
         "_vine": {
           "x": 80,
           "y": 400
         },
-        "type": "say",
+        "next": "bsm_11",
         "style": "raw",
         "text": "Hungry Man's Just Meats. No sauces. No vegetables. No accountability.",
-        "next": "bsm_11"
+        "type": "say"
       },
       "bsm_11": {
         "_vine": {
           "x": 300,
           "y": 400
         },
-        "type": "camera_cut",
         "label": "CAM — 2 — CLOSEUP",
-        "zone_id": "product_tub",
-        "next": "bsm_12"
+        "next": "bsm_12",
+        "type": "camera_cut",
+        "zone_id": "product_tub"
       },
       "bsm_12": {
         "_vine": {
           "x": 520,
           "y": 400
         },
-        "type": "say",
+        "next": "bsm_13",
         "style": "raw",
         "text": "Just the meats, king.",
-        "next": "bsm_13"
+        "type": "say"
       },
       "bsm_13": {
         "_vine": {
           "x": 740,
           "y": 400
         },
-        "type": "overlay",
-        "overlayType": "text_card",
-        "text": "NOW WITH 12% MORE MEAT-ADJACENT MATERIAL",
-        "subtext": "SHE CAN'T CONTROL YOU ANYMORE, KING",
         "graphic_id": "",
-        "next": "bsm_14"
+        "next": "bsm_14",
+        "overlayType": "text_card",
+        "subtext": "SHE CAN'T CONTROL YOU ANYMORE, KING",
+        "text": "NOW WITH 12% MORE MEAT-ADJACENT MATERIAL",
+        "type": "overlay"
       },
       "bsm_14": {
         "_vine": {
           "x": 960,
           "y": 400
         },
-        "type": "say",
+        "next": "bsm_15",
         "style": "raw",
         "text": "I ate nothing but Just Meats for a month and now my landlord is afraid of me.",
-        "next": "bsm_15"
+        "type": "say"
       },
       "bsm_15": {
         "_vine": {
           "x": 80,
           "y": 560
         },
-        "type": "ticker",
+        "next": "bsm_16",
         "text": "\"Meat\" legally redefined for labeling purposes only · Sourcing information available upon request from a lawyer, not from us · No refunds, no substitutions, no judgment (some judgment) · Alimony not included but we're working on it",
-        "next": "bsm_16"
+        "type": "ticker"
       },
       "bsm_16": {
         "_vine": {
           "x": 300,
           "y": 560
         },
-        "type": "event",
-        "event_type": "FADE_OUT"
+        "event_type": "FADE_OUT",
+        "type": "event"
+      },
+      "bsm_2": {
+        "_vine": {
+          "x": 520,
+          "y": 80
+        },
+        "graphic_id": "hungry_man_just_meats_logo",
+        "next": "bsm_3",
+        "type": "title_card"
+      },
+      "bsm_3": {
+        "_vine": {
+          "x": 740,
+          "y": 80
+        },
+        "next": "bsm_4",
+        "song": "just_meats_jingle",
+        "text": "♪ A jingle built entirely from grunts and one bass note, repeated with total confidence. ♪",
+        "type": "music"
+      },
+      "bsm_4": {
+        "_vine": {
+          "x": 960,
+          "y": 80
+        },
+        "label": "CAM — 1 — WIDE",
+        "next": "bsm_5",
+        "type": "camera_cut",
+        "zone_id": "gym_parking_lot"
+      },
+      "bsm_5": {
+        "_vine": {
+          "x": 80,
+          "y": 240
+        },
+        "next": "bsm_6",
+        "npc_id": "npc_narrator",
+        "type": "npc_anchor"
+      },
+      "bsm_6": {
+        "_vine": {
+          "x": 300,
+          "y": 240
+        },
+        "next": "bsm_7",
+        "style": "narration",
+        "text": "A man in a tactical vest opens a family-size tub of an unidentified meat product from his truck bed.",
+        "type": "say"
+      },
+      "bsm_7": {
+        "_vine": {
+          "x": 520,
+          "y": 240
+        },
+        "next": "bsm_8",
+        "style": "raw",
+        "text": "She left. The alimony hurts. But you know what never leaves?",
+        "type": "say"
+      },
+      "bsm_8": {
+        "_vine": {
+          "x": 740,
+          "y": 240
+        },
+        "next": "bsm_9",
+        "style": "raw",
+        "text": "Protein.",
+        "type": "say"
+      },
+      "bsm_9": {
+        "_vine": {
+          "x": 960,
+          "y": 240
+        },
+        "message": "flexes at the tub of meats, unprompted",
+        "next": "bsm_10",
+        "type": "npc_action"
       }
     }
   },
@@ -173,6 +173,8 @@
   "description": "Fast-food jingle-ad parody for the existing Hungry Man's Just Meats brand: red-pill energy, zero vegetables, protein as personality.",
   "enabled": 1,
   "fallback_messages": [],
+  "film_meta": null,
+  "gameshow_pools": null,
   "id": "bc_commercial_hungryman",
   "loop": 0,
   "message_interval": 5,
@@ -201,6 +203,7 @@
   "news_pools": null,
   "override_duration": 30,
   "playback_mode": "scripted",
+  "sermon_pools": null,
   "sports_pools": null,
   "tags": [
     "commercial",

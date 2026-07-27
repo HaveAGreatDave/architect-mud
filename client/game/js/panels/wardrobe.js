@@ -7,9 +7,17 @@ import { sendCmdSilent } from '../net.js';
 // Native HTML5 drag/drop, matching panels/container.js — this is an ordinary
 // fixed overlay, not the transformed tablet CRT (which is why tablet-os.js has
 // to hand-roll pointer dragging and this doesn't).
+//
+// HTML5 drag fires no events on touch, so composing a look would be impossible
+// on a phone with drag alone (the hang/take buttons only move a garment in and
+// out of the box — they don't dress the doll). So every garment also ARMS on a
+// tap: tap the card, the pads it can land on light up, tap one to place it.
+// Same code path as the drop handler, and harmless on desktop where drag still
+// works as before.
 
 let activeWardrobeId = null;
 let draggedItem = null;              // { itemId, name, slot }
+let armedItem = null;                // tap-to-place selection — same shape as draggedItem
 // The look being composed: slot -> { itemId, name }. Accessories stack, so that
 // key holds an array; every other slot holds one piece.
 let doll = {};
@@ -29,6 +37,7 @@ export function openWardrobePanel(data) {
   activeWardrobeId = data.containerId;
   doll = {};
   editingName = '';
+  armedItem = null;
   renderWardrobePanel(data);
   document.getElementById('wardrobe-panel').classList.add('active');
 }
@@ -44,6 +53,7 @@ export function closeWardrobePanel() {
   document.getElementById('wardrobe-panel').classList.remove('active');
   activeWardrobeId = null;
   doll = {};
+  armedItem = null;
   if (cid) sendCmdSilent(`closecontainer ${cid}`);
 }
 
@@ -157,6 +167,16 @@ function renderStock(listId, items, source) {
       highlightPads(draggedItem.slot);
     };
     card.ondragend = () => { card.classList.remove('dragging'); highlightPads(null); };
+
+    // Tap to arm (tap again to disarm) — the touch route onto the doll.
+    card.onclick = () => {
+      armedItem = armedItem?.id === item.id
+        ? null
+        : { id: item.id, itemId: item.item_id, name: item.name, slot: slotOf(item) };
+      syncArmed();
+    };
+    if (armedItem?.id === item.id) card.classList.add('wdr-armed');
+    card.setAttribute('data-item', item.id);
     list.appendChild(card);
   }
 }
@@ -166,6 +186,27 @@ function renderStock(listId, items, source) {
 function highlightPads(slot) {
   for (const pad of document.querySelectorAll('.wdr-pad')) {
     pad.classList.toggle('wdr-pad-eligible', !!slot && pad.getAttribute('data-slot') === slot);
+  }
+}
+
+// Reflect the armed garment without a full re-render: mark its card and light
+// the pads it fits. Called on every arm/disarm and after the doll redraws.
+function syncArmed() {
+  for (const card of document.querySelectorAll('.wdr-garment')) {
+    card.classList.toggle('wdr-armed', card.getAttribute('data-item') === String(armedItem?.id));
+  }
+  highlightPads(armedItem?.slot || null);
+  updateDollLabel();
+}
+
+// The one place a garment lands on the doll — shared by the drop handler and
+// the tap handler so the two routes can never drift apart.
+function placeOnDoll(slot, piece) {
+  if (slot === 'accessory') {
+    const acc = (doll.accessory ||= []);
+    if (!acc.some(p => p.itemId === piece.itemId) && acc.length < 3) acc.push(piece);
+  } else {
+    doll[slot] = piece;   // one piece per slot — a drop replaces what's there
   }
 }
 
@@ -184,7 +225,8 @@ function renderDoll() {
     pad.innerHTML = `<span class="wdr-pad-label">${label}</span><span class="wdr-pad-items">${worn || '<span class="wdr-pad-empty">—</span>'}</span>`;
 
     for (const el of pad.querySelectorAll('.wdr-worn')) {
-      el.onclick = () => {
+      el.onclick = (e) => {
+        e.stopPropagation();   // don't let a remove double as a place on the pad below
         const idx = Number(el.getAttribute('data-idx'));
         if (slot === 'accessory') doll.accessory.splice(idx, 1);
         else delete doll[slot];
@@ -203,23 +245,34 @@ function renderDoll() {
       e.preventDefault();
       pad.classList.remove('ctr-drag-over');
       if (!draggedItem || draggedItem.slot !== slot) return;
-      const piece = { itemId: draggedItem.itemId, name: draggedItem.name };
-      if (slot === 'accessory') {
-        const acc = (doll.accessory ||= []);
-        if (!acc.some(p => p.itemId === piece.itemId) && acc.length < 3) acc.push(piece);
-      } else {
-        doll[slot] = piece;   // one piece per slot — a drop replaces what's there
-      }
+      placeOnDoll(slot, { itemId: draggedItem.itemId, name: draggedItem.name });
       draggedItem = null;
       renderDoll();
     });
 
+    // Tap route: an armed garment lands on any pad that matches its slot.
+    pad.onclick = () => {
+      if (!armedItem || armedItem.slot !== slot) return;
+      placeOnDoll(slot, { itemId: armedItem.itemId, name: armedItem.name });
+      armedItem = null;
+      renderDoll();
+    };
+
     stage.appendChild(pad);
   }
 
+  syncArmed();
+}
+
+// The doll's caption doubles as the instruction — it tells you what to do next,
+// which differs once a garment is armed.
+function updateDollLabel() {
   const count = dollItemIds().length;
+  const hint = armedItem
+    ? `Place "${armedItem.name}" — tap its pad`
+    : (count ? 'New Outfit' : 'Drag or tap a garment, then its pad');
   document.getElementById('wardrobe-doll-label').textContent =
-    editingName ? `Editing "${editingName}"` : (count ? 'New Outfit' : 'Drag clothes onto the doll');
+    editingName && !armedItem ? `Editing "${editingName}"` : hint;
 }
 
 function dollItemIds() {

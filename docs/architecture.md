@@ -422,9 +422,31 @@ Rules of thumb when building features:
   to "query fresh" by accident.
 - **Never query inside a loop.** Batch with `WHERE id = ANY($1)` or a `GROUP BY` aggregate
   (vendor shelves, container weights, media-deck playlists were all per-row loops once).
+  **This includes looping over players.** A per-minute tick that calls a single-player helper for
+  each live player is the same bug wearing a hat: it costs one remote round trip per player per
+  tick whether or not that player owns anything relevant. Two engine helpers exist so you never
+  have to hand-roll it — [`resolveInventoryForPlayers(ids, opts)`](../server/engine/inventory.js)
+  (the batched twin of `resolveInventoryItem`, returns `Map<playerId, rows[]>`) and
+  [`patchInventoryCustomData([[invId, patch], …])`](../server/engine/inventory.js) (one multi-row
+  `VALUES` UPDATE, the write-side twin). Measured: `clothing-wetness` and `flashlight` between them
+  were ~6 round trips per player per minute — **and `clothing-wetness` sits inside the awaited
+  `tick.minute` hook**, so at 50 players those serial waits stall radiation and drug decay behind
+  them while holding a pool slot.
 - **Independent reads issue together** (`Promise.all` — describeZone's 4-way batch, dialogue
   option gating); **same-row writes coalesce into one UPDATE** (cmdMove's
   current_zone/radiation/stamina).
+- **Resolve a shared value once per tick, not once per player.** Weather, the world clock and the
+  power map are identical for everyone in a given tick, so deriving them inside a per-player loop
+  multiplies their cost by the player count for no gain. `resourceTick` called
+  `getEnvironmentState()` *per player* to read one string — and that function spreads
+  `getHUDPayload()` + `getForecast()` + `getPowerMap()`, the last of which allocates an object per
+  power-model zone. A 50-player world rebuilt a thousands-of-zones map fifty times a minute for one
+  field. Hoist it above the loop.
+- **A write that changes nothing is still a round trip.** Compare against what you last wrote and
+  skip (the card tables' `_persistedJson`, `logActivity`'s probabilistic prune). But keep the
+  comparison to state *you* own — coalescing against a shared read cache promotes that cache into a
+  write authority, which is why player-flag writes are deliberately **not** coalesced (see the note
+  in `server/engine/flags.js`).
 - **Distinguish "polls the DB" from "runs periodically" before event-driving a tick.** A tick
   whose trigger is the *game clock* (media decks aligning to the current playlist slot) can't be
   event-driven — no edit event fires when time rolls into the next slot. The fix there is to make
@@ -451,6 +473,52 @@ Rules of thumb when building features:
 - **Every `query()` costs a pool slot for its full round trip** — fire-and-forget event
   subscribers contend with player commands even though nothing awaits them. Cheap queries in
   event handlers still count against the hot path.
+
+---
+
+## Measuring Runtime Cost (before optimising anything)
+
+Every claim in the tiers above is measurable in a couple of minutes with a throwaway script in the
+repo root. Write it, run it, **delete it** — do not commit profilers. Two recipes cover almost
+everything:
+
+**DB round trips.** Patch the driver *before* anything imports the pool, so every query — including
+transaction bodies — is counted exactly once:
+
+```js
+import pg from 'pg';
+const orig = pg.Client.prototype.query;
+pg.Client.prototype.query = function (...a) {
+  const t = typeof a[0] === 'string' ? a[0] : a[0]?.text || '?';
+  if (counting && !/^SET search_path/.test(t)) { total++; bySql.set(t, (bySql.get(t) || 0) + 1); }
+  return orig.apply(this, a);
+};
+// then: await initWorld(); loadItems/Drugs/Recipes/MisSettings; loadPlugins(); initEnvironment();
+// place synthetic live players via setLivePlayer(); startGameLoop(fn); sample for 60-75s.
+```
+
+**Outbound socket bytes.** Pass your own function to `startGameLoop()` **and**
+`messaging.setBroadcast()`, and sum `Buffer.byteLength(JSON.stringify(payload))` bucketed by
+`payload.type`. For per-command payloads, call `handleCommand(input, player, broadcast)` directly
+and measure the returned object — that is what `index.js` sends.
+
+Three rules learned the hard way doing this:
+
+- **Sample at 1, 5 and 20 synthetic players, and compare the *slope*.** Batching work changes the
+  gradient, not the intercept; a single-player measurement cannot confirm it. Idle DB traffic
+  measured 45 → 112 → 163 round trips/min at 1/5/20 players — i.e. ~6 per player per minute, which
+  is the number that matters, not the total.
+- **Check the profiler actually exercised the thing.** An early run reported "0 queries per
+  command" — the commands were throwing, because `handleCommand(input, player, broadcast)` takes
+  the input *first* and the calls had the arguments swapped. Assert on real output before trusting
+  a zero.
+- **Know what your synthetic players don't have.** Ones cloned from a template own no inventory, so
+  any code path gated on carrying something never runs and its cost never shows up.
+
+Beware `pg_stat_user_tables` seq-scan counts as a signal: `furniture` (886 rows) showed 291k
+sequential scans, which looks alarming and is simply the planner being right — on tables that
+small a seq scan beats the index that already exists. `EXPLAIN (ANALYZE, BUFFERS)` before adding
+any index.
 
 ---
 

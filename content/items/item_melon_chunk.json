@@ -4,14 +4,14 @@
   "id": "item_melon_chunk",
   "name": "melon chunk",
   "tags": {
-    "description": "A wedge of pale orange flesh, cold and dripping, cut from something that took up a whole crate. Mostly water and entirely worth it.",
     "consumable": true,
-    "restore_hunger": 14,
-    "stackable": true,
-    "food_profile": "fruit",
+    "description": "A wedge of pale orange flesh, cold and dripping, cut from something that took up a whole crate. Mostly water and entirely worth it.",
     "food_noun": "melon",
+    "food_profile": "fruit",
     "perishable": true,
+    "restore_hunger": 14,
     "spoil_rate": "fast",
+    "stackable": true,
     "status_chance": {
       "food_poisoning": 0.2
     }

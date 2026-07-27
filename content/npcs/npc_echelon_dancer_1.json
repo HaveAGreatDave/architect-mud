@@ -258,6 +258,9 @@
       "a matching lace bra and panties"
     ],
     "consort": true,
+    "consort_archetype": "strategist",
+    "consort_pairing": "strategist_romantic",
+    "consort_sex": "female",
     "devoted_to": "Cyd",
     "mis_requires_zone_flag": "mis_ok",
     "mis_willing": true,

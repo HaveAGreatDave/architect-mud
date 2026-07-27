@@ -24,6 +24,7 @@
 // later slices; this slice is "boardable and secure."
 
 import { query } from '../../server/models/db.js';
+import { schedule } from '../../server/engine/scheduler.js';
 import { getZone, getLivePlayer, world, addExitOverride, removeExitOverride, registerMinimapNodeFilter, getMinimapData } from '../../server/engine/world.js';
 import { sendToPlayer, getBroadcast } from '../../server/engine/messaging.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
@@ -491,7 +492,7 @@ function pushHelmLive() {
     if (sky) sendToPlayer(pid, { type: 'helm_sky', sky });
   }
 }
-setInterval(pushHelmLive, 15_000);
+schedule('15s', pushHelmLive);
 
 // Planes over the Basin: stream airborne craft near the Echelon to every open helm so the chase
 // view paints them (charter + player aircraft), refreshed briskly since they move. Only while
@@ -502,7 +503,7 @@ function pushHelmContacts() {
   const contacts = flightStateMod?.aircraftNearCoord?.(ext.grid_x, ext.grid_y) || [];
   for (const pid of helmViewers) sendToPlayer(pid, { type: 'helm_contacts', contacts });
 }
-setInterval(pushHelmContacts, 2000);
+schedule('2s', pushHelmContacts);
 
 // Walking off the bridge closes the helm at once (you can only steer from the bridge) — don't wait
 // for the 15s prune. The client `helm_close` hands the pane back to the room view.

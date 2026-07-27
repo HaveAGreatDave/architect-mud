@@ -39,6 +39,34 @@
       "options": [],
       "text": "\"When the meat disappoints you — and it will — you know where the Gate is.\" He returns to his patient smile."
     },
+    "codex_certain": {
+      "options": [
+        {
+          "label": "(leave it there)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"No.\" He says it without a trace of the salesman, and it is briefly unnerving. \"No, they were not.\" Then the smile returns, seamless. \"Certainty is what people reach for when the alternative is admitting it was an accident. I recommend ours. It is at least load-bearing.\""
+    },
+    "codex_field": {
+      "actions": [
+        {
+          "action": "CODEX_UNLOCK",
+          "chapter": "answers"
+        }
+      ],
+      "options": [
+        {
+          "label": "Nobody was that certain before the Quiet.",
+          "next": "codex_certain"
+        },
+        {
+          "label": "(consider it)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"All of them.\" He looks delighted, the way a man does when asked to describe his rivals. \"Very well. Two questions, and everyone has answered both whether they can say so or not.\n\nFirst — is this city worth saving? Renounce it and walk out into the ash, or redeem it and stay and work the machine. Second — is the body worth keeping? Stay as you are, or transcend it: by the machine, by the flesh, or by the mind.\n\nCross the two and you have four corners. We are one of them. The Watch guards the door and stays meat. The Wildblood want the ash to finish what it started to them. The Exodus have decided the way out is inward, which is the most convenient exit ever invented.\" The pin winks. \"Four answers, and every one held by people who are absolutely certain.\""
+    },
     "inside": {
       "options": [
         {
@@ -149,6 +177,10 @@
           ],
           "label": "Anything else, Maresh?",
           "next": "inside"
+        },
+        {
+          "label": "Explain the orders to me. All of them.",
+          "next": "codex_field"
         },
         {
           "label": "Just passing.",

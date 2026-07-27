@@ -4,15 +4,15 @@
   "id": "item_gull_egg",
   "name": "gull egg",
   "tags": {
-    "description": "Speckled brown and bigger than it looks, taken off a ledge by someone who had to climb for it. Richer than anything from a rack, and worth the fall it nearly cost.",
     "consumable": true,
-    "restore_hunger": 13,
-    "stackable": true,
-    "food_profile": "egg",
+    "description": "Speckled brown and bigger than it looks, taken off a ledge by someone who had to climb for it. Richer than anything from a rack, and worth the fall it nearly cost.",
     "food_noun": "gull egg",
+    "food_profile": "egg",
     "needs_cooking": true,
     "perishable": true,
+    "restore_hunger": 13,
     "spoil_rate": "fast",
+    "stackable": true,
     "status_chance": {
       "food_poisoning": 0.45
     }

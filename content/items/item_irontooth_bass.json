@@ -6,12 +6,12 @@
   "tags": {
     "consumable": true,
     "description": "A heavy, slab-sided bass with a jaw of blunt iron-grey teeth it grew to crack shellfish — and knuckles. Good eating out of the mid water, if you can land the weight.",
+    "food_noun": "bass",
+    "food_profile": "dense_meat",
+    "needs_cooking": true,
     "restore_hunger": 22,
     "stackable": true,
-    "well_fed": true,
-    "food_profile": "dense_meat",
-    "food_noun": "bass",
-    "needs_cooking": true
+    "well_fed": true
   },
   "type": "consumable",
   "value": 18,

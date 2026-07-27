@@ -26,7 +26,7 @@
  */
 import { on } from '../../server/engine/events.js';
 import { getZone, resolveLanding } from '../../server/engine/world.js';
-import { getFlag, setFlag, clearFlag } from '../../server/engine/flags.js';
+import { getFlag, setFlag, clearFlag, clearFlagsByPrefix } from '../../server/engine/flags.js';
 import { findPath } from '../../server/engine/pathfinding.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { query } from '../../server/models/db.js';
@@ -141,10 +141,7 @@ async function cmdLoreReset(argStr, player) {
     targetId = rows[0].id;
     label = rows[0].handle;
   }
-  const { rowCount } = await query(
-    "DELETE FROM player_flags WHERE player_id=$1 AND flag_key LIKE 'lore_seen:%'",
-    [targetId]
-  );
+  const rowCount = await clearFlagsByPrefix(targetId, 'lore_seen:');
   const tail = label === 'you' ? ' Re-look or re-enter a lore zone to see it again.' : '';
   return {
     type: 'system',

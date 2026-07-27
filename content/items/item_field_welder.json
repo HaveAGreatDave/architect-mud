@@ -5,7 +5,8 @@
   "name": "field welding torch",
   "tags": {
     "demolition": true,
-    "description": "A dented handheld oxy-fuel torch with a piezo striker and a half-spent gas bottle gaffer-taped to the grip. It won't cut a bank vault, but it'll weld a busbar, throw a seized breaker, and coax a dead junction box back to life. Hold one and you can REPAIR wrecked machinery."
+    "description": "A dented handheld oxy-fuel torch with a piezo striker and a half-spent gas bottle gaffer-taped to the grip. It won't cut a bank vault, but it'll weld a busbar, throw a seized breaker, and coax a dead junction box back to life. Hold one and you can REPAIR wrecked machinery.",
+    "repair_kit": true
   },
   "type": "misc",
   "value": 45,

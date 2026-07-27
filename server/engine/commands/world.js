@@ -1,5 +1,6 @@
 import { query, logActivity } from '../../models/db.js';
-import { getZone, getZoneEnemies, getZoneNpcs, getZonePlayers, getDoorForExit, getZoneDoors, spawnEnemySync, world, getApartment, updateFurniture } from '../world.js';
+import { setFlags, evictPlayerFlags } from '../flags.js';
+import { getZone, getZoneEnemies, getZoneNpcs, getZonePlayers, getDoorForExit, getZoneDoors, spawnEnemySync, world, getApartment, updateFurniture, getZoneFurniture } from '../world.js';
 import { getLockTagPublic } from './doors.js';
 import { isApartmentZone, getBuildingName, releaseApartment, findNearestVacantApartment, rehomeNpc, clearNpcResidence } from '../apartments.js';
 import { sendToPlayer } from '../messaging.js';
@@ -8,6 +9,8 @@ import { getPlayerSkills, SKILLS } from '../skills.js';
 import { describeZone } from './describe.js';
 import { getMinimapData, addPlayerToZone, removePlayerFromZone, removeLivePlayer, resolveLanding } from '../world.js';
 import { allExits, exitTargets } from '../exits.js';
+import { getSoundReach, isNoisy } from '../sounds.js';
+import { conditionLine } from '../durability.js';
 import { statCost, raiseStat, RAISABLE_STATS, getNetXp, maxHpForEndurance } from '../ip.js';
 import { ensureTunables } from '../tunables.js';
 import { physicalDescription, soilDescription, randomAppearance } from '../appearance.js';
@@ -15,11 +18,16 @@ import { isMisActive } from '../mis.js';
 import { availableActions } from '../specializedActions.js';
 import { getHelpTopic, listHelpTopics } from '../help.js';
 import '../help-topics.js';
+import '../help-senses.js';
 import { genericFurnitureLinks, furnitureVerbs, verbTarget } from '../furnitureActions.js';
-import { statusLabels } from '../effects.js';
+import { statusLabels, applyEffect } from '../effects.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../sift.js';
 import { carryCapacity, formatWeight } from './inventory.js';
-import { fireHook } from '../plugins.js';
+import { fireHook, gatherHook } from '../plugins.js';
+import { zoneAir } from '../bodily.js';
+import { conditionReport } from '../condition.js';
+import { acuityFor, perceptionBand, perceive, acuityNote, wouldOverload, EXTREME, OVERLOAD_STATUS, overloadText, SENSES, DOMINANT_FLAG, SECOND_FLAG } from '../senses.js';
+import { creatureFilthSmells, bodyOdourSelf } from '../hygiene.js';
 
 // Naked body descriptions shown when every clothing layer is peeled. Split by sex
 // and gated by the viewer's MIS opt-in: MIS-off gets a plain "they're naked" line,
@@ -115,6 +123,12 @@ export async function cmdStats(player) {
   if (player.wellFedUntil && Date.now() < player.wellFedUntil) statusFlags.push('Well-Fed');
   if (player.hydratedUntil && Date.now() < player.hydratedUntil) statusFlags.push('Hydrated');
   if (p.covered_in_blood) statusFlags.push('Covered in blood');
+  // Condition penalties are invisible otherwise: a player whose sheet says REF 6
+  // and who is rolling at 4 deserves to be told which part of being cold, hungry
+  // or parched is doing it to them.
+  for (const c of conditionReport(player)) {
+    statusFlags.push(`${STAT_ABBR[c.stat] || c.stat} −${c.penalty} (${c.why})`);
+  }
   statusFlags.push(...statusLabels(player));
 
   return {
@@ -463,6 +477,11 @@ async function cmdExamine(targetStr, player, broadcast) {
       const fresh = await fireHook('item.checkFreshness', { ...it, id: it.inv_id }, player);
       if (fresh) msg += `\n<span class="text-dim">It looks ${fresh.state}.</span>`;
     }
+    // How worn it is, and what's been done to it before. Derived, no query, and
+    // deliberately SILENT for a pristine never-mended thing — the overwhelming
+    // majority of items read exactly as they did before durability existed.
+    const condLine = conditionLine({ ...it, id: it.inv_id });
+    if (condLine) msg += `\n${condLine}`;
     if (it.custom_data?.cooking) {
       // Shown whether or not it reads as `done`: a profiled cook stays on the
       // heat after it's ready, and "perfect, but not for much longer" is the
@@ -472,12 +491,24 @@ async function cmdExamine(targetStr, player, broadcast) {
     } else if (it.tags && Object.prototype.hasOwnProperty.call(it.tags, 'needs_cooking')) {
       msg += `\n<span class="text-dim">It's ${it.custom_data?.cooked ? 'cooked through' : 'raw — probably not safe to eat like this'}.</span>`;
     }
+    // What's been done to it before the heat: scored, beaten out, sitting in a
+    // marinade. A marinade is a timer the player is meant to read, so it has to
+    // surface somewhere the same way resting does.
+    if (!it.custom_data?.cooking && !it.custom_data?.cooked) {
+      const prep = await fireHook('cooking.prepText', it.custom_data, player);
+      if (prep) msg += `\n<span class="text-dim">It's ${prep}.</span>`;
+    }
     // How well it was cooked, once plated — otherwise a Masterful steak looks
     // exactly like a Poor one sitting in your pack. Independent of needs_cooking:
     // food that's fine raw (a tomato) can still be cooked well or badly.
     if (it.custom_data?.cook_quality) {
       const q = it.custom_data.cook_quality;
       msg += `\n<span class="text-dim">Cooked ${q === 'masterful' ? 'to a masterful turn' : q}.</span>`;
+      // A plated cut carries on changing after it leaves the pan. Resting is
+      // worth a quarter of the meal, and this is the only way to know when it's
+      // there — without it the timer exists but nobody can read it.
+      const rest = await fireHook('cooking.restText', it.custom_data, player);
+      if (rest) msg += `\n<span class="text-dim">It's ${rest}.</span>`;
     }
     const acts = itemActionVerbs(it);
     if (acts.length) {
@@ -896,6 +927,11 @@ export async function reincarnatePlayer(target) {
 
   // Wipe every other per-player table — progress AND history.
   for (const t of REINCARNATE_WIPE_TABLES) await query(`DELETE FROM ${t} WHERE player_id=$1`, [target.id]).catch(() => {});
+  // That sweep DELETEs player_flags wholesale — the one shape the flag funnel
+  // deliberately has no API for — so any cached Map for this player is now a lie.
+  // Unconditional: a no-op for an offline target, and the online one is kicked
+  // below and re-hydrates from the (now empty) table on reconnect.
+  evictPlayerFlags(target.id);
   for (const t of REINCARNATE_WIPE_OWNER_TABLES) await query(`DELETE FROM ${t} WHERE owner_id=$1`, [target.id]).catch(() => {});
 
   // Reset the players row itself to exactly what a fresh registration produces
@@ -1288,7 +1324,351 @@ async function cmdRaise(args, player) {
 }
 
 
+// `smell` — the room-level sense.
+//
+// Deliberately NOT a second `examine`. Looking needs you to name a thing;
+// tasting needs you to be holding it. Smell is the only channel that reaches the
+// whole room at once and works on things that aren't yours — someone else's pan
+// burning, a floor somebody pissed on, whatever is hanging in the air. That's
+// its entire niche, and it's why it's vague on purpose: it never reports a
+// quality band or a seasoning level, because those belong to the senses that
+// cost you something to use.
+//
+// The engine owns the SENSE and the two substrates it reads (stains, air taint).
+// Everything else that has a smell contributes through `zone.smells`, which is a
+// gather hook precisely because a kitchen can stink of three things at once.
+// `source` is what a sense verb quotes back when this is the thing that
+// overwhelmed you — see `overloadText`. A contribution without one still works
+// and falls through to the generic line.
+const STAIN_SMELLS = {
+  feces:  { text: 'the flat, sweet reek of shit', strength: 9, source: 'feces' },
+  urine:  { text: 'the sharp ammoniac bite of piss', strength: 8, source: 'urine' },
+  vomit:  { text: 'sour vomit, going stale', strength: 8, source: 'vomit' },
+  blood:  { text: 'the wet penny smell of blood', strength: 6, source: 'blood' },
+  grease: { text: 'old grease, gone tacky', strength: 4, source: 'burning' },
+  // MIS and butchering both stain floors that nothing could smell until now.
+  ejaculate: { text: 'the flat bleach note of somebody\'s good time', strength: 5, source: 'sex', misOnly: true },
+  chem:   { text: 'spilled solvent, still evaporating', strength: 6, source: 'chem' },
+  fish:   { text: 'fish guts, warming', strength: 6, source: 'fish' },
+};
+
+const AIR_SMELLS = {
+  fart:  { source: 'feces', lines: ['a fart, recent and unclaimed', 'somebody has farted, and not subtly', 'a wall of flatulence that has not finished with the room'] },
+  smoke: { source: 'burning', lines: ['smoke', 'smoke, thick enough to taste', 'enough smoke to sting'] },
+};
+
+// BODIES. The reason a sharpened sense is worth having rather than merely
+// atmospheric: a creature is a smell source, and smell does not care whether you
+// can see it. In an unlit room, behind a door, or when something is keeping out
+// of sight, this is the channel that still reports it — which is exactly the
+// question `look` cannot answer.
+//
+// Baseline gets the overwhelming stuff only: someone who has soiled themselves,
+// a crowd, the sheer animal reek of something big and unwashed. Acuity is what
+// turns "somebody has been in here" into "three people, one of them bleeding".
+function creatureSmells(zone, player, acuity) {
+  const out = [];
+  const others = getZonePlayers(zone.id).filter(p => p.id !== player.id);
+  const npcs = getZoneNpcs(zone.id) || [];
+  const enemies = getZoneEnemies(zone.id) || [];
+
+  // Anyone in a state they cannot hide. Strong enough that a normal nose gets it.
+  for (const c of [...others, ...npcs]) {
+    const ap = c.appearance_data || {};
+    if (ap.soiled_state) {
+      out.push({ text: `somebody here has had an accident and is standing in it`, strength: 9, source: 'feces' });
+      break;
+    }
+  }
+  for (const c of [...others, ...npcs]) {
+    if (c.covered_in_blood || (c.hp != null && c.hp_max && c.hp / c.hp_max < 0.35)) {
+      out.push({ text: acuity >= 2 ? `blood, fresh, and it is coming off somebody standing here` : `blood somewhere close`, strength: 6, source: 'blood' });
+      break;
+    }
+  }
+
+  // Everything ELSE that's on a body — filth worked into clothing, sweat, and
+  // plain unwashedness. The hygiene substrate owns the table; this just asks.
+  // Deduped across the room, so a crowd of filthy people is one report, loudest
+  // wins (`perceive` would otherwise spend the whole band on identical lines).
+  out.push(...creatureFilthSmells([...others, ...npcs], player, acuity));
+
+  // Bodies as bodies. The count only resolves for a sense sharp enough to pick
+  // individuals out of a crowd — otherwise it's just "people".
+  const bodies = others.length + npcs.length;
+  if (bodies > 0) {
+    out.push({
+      text: acuity >= 1 && bodies > 1
+        ? `${bodies} people, close enough to tell apart`
+        : bodies > 3 ? `a press of unwashed bodies` : `somebody else is in here`,
+      // A crowd is obvious; one quiet person is not, and that's the gap acuity fills.
+      strength: bodies > 3 ? 6 : 3,
+      source: 'bodies',
+    });
+  }
+
+  // THE DEAD. The one thing in the game that reaches the top of the scale, and
+  // the reason there's no acuity gate on overload: a room with bodies piled in
+  // it takes an ordinary nose apart, never mind a sharpened one. One is grim;
+  // four is an event you don't walk into twice.
+  const dead = zone.corpses?.size || 0;
+  if (dead) {
+    out.push({
+      text: dead >= 4 ? `the dead, and a great many of them` : dead > 1 ? `the sweet thick smell of bodies going off` : `something dead in here`,
+      // A pile of bodies sits ABOVE the ordinary-person threshold, not level
+      // with it — so it takes everyone, and shrugging it off needs a real seal
+      // rather than a token one.
+      strength: dead >= 4 ? EXTREME + 2 : dead > 1 ? 9 : 7,
+      source: 'corpses',
+    });
+  }
+
+  // Something that isn't a person. This is the tactical payoff — it fires in the
+  // dark, and it fires before whatever it is has decided to be seen.
+  if (enemies.length) {
+    out.push({
+      text: acuity >= 2 && enemies.length === 1
+        ? `something that is not a person, and it is close — ${enemies[0].name}`
+        : enemies.length > 2 ? `rank animal musk, several of them, and this is their room` : `something rank and alive that is not a person`,
+      strength: 4 + Math.min(3, enemies.length),
+    });
+  }
+  return out;
+}
+
+async function cmdSmell(args, raw, player) {
+  const zone = getZone(player.current_zone);
+  if (!zone) return { type: 'error', message: `You can't smell anything here.` };
+
+  const acuity = await acuityFor(player, 'smell');
+  const band = perceptionBand(acuity);
+  const found = creatureSmells(zone, player, acuity);
+
+  // Stains on the floor. More of them is worse, and it says so.
+  for (const [type, count] of Object.entries(zone.stains || {})) {
+    const s = STAIN_SMELLS[type];
+    if (!s || !count) continue;
+    // A MIS-shaped smell is withheld from anyone who hasn't opted in — it would
+    // otherwise be the tell that the whole surface exists.
+    if (s.misOnly && !isMisActive(player)) continue;
+    found.push({
+      text: count > 2 ? `${s.text} — more than one incident's worth` : s.text,
+      strength: s.strength + Math.min(2, count - 1),
+      source: s.source,
+    });
+  }
+
+  // Whatever's hanging in the air, fading as it goes.
+  for (const { type, n, age } of zoneAir(player.current_zone)) {
+    const air = AIR_SMELLS[type];
+    if (!air) continue;
+    found.push({
+      text: age > 0.6 ? `${air.lines[0]}, mostly faded now` : air.lines[Math.min(n, air.lines.length) - 1],
+      strength: 7 + n - Math.round(age * 3),
+      source: air.source,
+    });
+  }
+
+  // Everything else in the game that has an opinion about how the room smells.
+  const contributed = await gatherHook('zone.smells', zone, player);
+  for (const c of contributed) {
+    if (typeof c === 'string') found.push({ text: c, strength: 5 });
+    else if (c?.text) found.push({ text: c.text, strength: Number(c.strength) || 5, source: c.source || null });
+  }
+
+  // ACUITY decides the floor and the cap — not whether contributors ran. Every
+  // faint thing above was generated either way; a normal nose simply throws it
+  // away. That's what makes a sharpened sense deepen content that already
+  // exists instead of needing its own.
+  const top = perceive(found, band);
+  const note = acuityNote(acuity, 'sense of smell');
+
+  if (!top.length) {
+    return { type: 'output', message: acuity < 0
+      ? `You breathe in and get almost nothing. Something is wrong with your nose.`
+      : `You breathe in. Nothing worth reporting — which around here counts as good news.` };
+  }
+
+  const lines = top.map(s => `  ${s.text[0].toUpperCase()}${s.text.slice(1)}.`);
+  if (note) lines.push(`  <span class="text-dim">${note}</span>`);
+
+  // The cost. A sharp nose can't look away from something foul, and saturating
+  // it leaves you perceiving LESS than an ordinary person for a while. This is
+  // the counter to the build, and it fires on the way in — you don't get the
+  // information and then decide whether to pay.
+  // ...and it names what did it. A keen nose is the character who knows the
+  // difference between a corpse and a blocked drain, so the moment their sense
+  // fails is the worst possible moment to go vague about the cause.
+  if (wouldOverload(acuity, top[0]?.strength)) {
+    applyEffect(player, OVERLOAD_STATUS, 20);
+    lines.push(`  <span style="color:var(--red)">${overloadText('smell', top[0]?.source)}</span>`);
+  }
+
+  // And the one contributor the room pass deliberately skipped: you. Always last,
+  // always reported regardless of acuity — you don't need a good nose to know.
+  const own = bodyOdourSelf(player);
+  if (own) lines.push(`  <span class="text-dim">${own}</span>`);
+
+  return { type: 'output', message: `You breathe in.\n${lines.join('\n')}` };
+}
+
+// `listen` — the sense that reaches through walls.
+//
+// Smell answers "what is in this room that I can't see". Hearing answers the
+// question neither smell nor sight can: WHAT IS HAPPENING SOMEWHERE ELSE. That's
+// its whole reason to exist as a separate verb, and it's why acuity buys RANGE
+// here rather than only sensitivity — a sharp ear hears the fight one room over
+// and knows which way to run.
+//
+// The propagation is not reinvented: `getSoundReach` already walks zone exits
+// with inverse-square falloff and door muffling, and has been doing it for
+// overflying aircraft since before this existed. A closed door genuinely
+// deadens what you hear through it.
+const LISTEN_BASE_LOUDNESS = 3;   // ~1 room out for an ordinary ear
+
+// Hard cap on how many zones a single `listen` will interrogate.
+//
+// `getSoundReach` is honest about distance, and in an open district at high
+// acuity it legitimately returns 42 zones. Multiply that by a `gatherHook` fan
+// out to every plugin and you have built a fan-out with no ceiling on an
+// uncooldowned verb — which is precisely the shape of the query-per-sniff bug
+// this system already had once.
+//
+// So: nearest N only. Beyond that the sounds are too faint to have survived the
+// perception floor anyway, so the cap costs nothing real.
+//
+// THE CONTRACT FOR `zone.sounds` CONTRIBUTORS: in-memory only. No queries, no
+// awaits on IO. You are being called up to LISTEN_MAX_ZONES times per verb, and
+// the cooking contributor is the model — it reads a Map the plugin already keeps
+// for its own purposes. Same rule as `zone.smells`.
+const LISTEN_MAX_ZONES = 12;
+
+// Which way a heard zone lies, so a sound is actionable rather than ambient.
+function bearingTo(zone, targetId) {
+  for (const { dir, target } of allExits(zone)) if (target === targetId) return dir;
+  return null;
+}
+
+export async function cmdListen(args, raw, player) {
+  const zone = getZone(player.current_zone);
+  if (!zone) return { type: 'error', message: `You can't hear anything here.` };
+
+  const acuity = await acuityFor(player, 'hearing');
+  const band = perceptionBand(acuity);
+  // Each point of acuity is worth real distance, not just sensitivity.
+  const reach = getSoundReach(player.current_zone, LISTEN_BASE_LOUDNESS + acuity * 2);
+
+  // Nearest first, then capped — so the cap drops the faintest, most distant
+  // rooms rather than whichever ones the traversal happened to visit last.
+  const audible = [...reach.entries()].sort((a, b) => a[1] - b[1]).slice(0, LISTEN_MAX_ZONES);
+
+  const found = [];
+  for (const [zoneId, dist] of audible) {
+    const there = getZone(zoneId);
+    if (!there) continue;
+    const here = zoneId === player.current_zone;
+
+    // Bodies make noise. In your own room that's barely worth saying; through a
+    // wall it is the single most useful thing you can learn.
+    const bodies = getZonePlayers(zoneId).filter(p => p.id !== player.id).length + (getZoneNpcs(zoneId) || []).length;
+    const beasts = (getZoneEnemies(zoneId) || []).length;
+    if (bodies) found.push({ zoneId, dist, strength: (bodies > 3 ? 7 : 4) - dist,
+      text: bodies > 3 ? `a lot of people moving about` : bodies > 1 ? `people talking, more than one` : `somebody moving quietly` });
+    if (beasts) found.push({ zoneId, dist, strength: 6 - dist, source: 'beast',
+      text: beasts > 2 ? `several things moving that do not move like people` : `something moving wrong — too heavy, too low` });
+
+    // THE CHEAP QUERY. Bodies are already in memory, so those are free above —
+    // but asking every plugin what a zone sounds like is a fan-out, and paying
+    // it for a dozen zones when eleven of them are empty rooms is the waste.
+    // Sources of ongoing noise register their zone (sounds.js), so this is an
+    // O(1) Map hit that skips the hook entirely for anywhere silent. A listen in
+    // a quiet street now costs zero hook calls; next to a kitchen it costs one.
+    if (!isNoisy(zoneId)) continue;
+
+    const contributed = await gatherHook('zone.sounds', there, player, { distance: dist, here });
+    for (const c of contributed) {
+      if (typeof c === 'string') found.push({ zoneId, dist, text: c, strength: 5 - dist });
+      else if (c?.text) found.push({ zoneId, dist, text: c.text, strength: (Number(c.strength) || 5) - dist, source: c.source || null });
+    }
+  }
+
+  const top = perceive(found, band);
+  const note = acuityNote(acuity, 'hearing');
+
+  if (!top.length) {
+    return { type: 'output', message: acuity < 0
+      ? `You listen, and the world arrives muffled and far away. Nothing useful in it.`
+      : `You listen. Nothing but the sound of the place itself.` };
+  }
+
+  const lines = top.map(s => {
+    if (s.zoneId === player.current_zone) return `  ${s.text[0].toUpperCase()}${s.text.slice(1)}.`;
+    const dir = bearingTo(zone, s.zoneId);
+    // Only a sharp ear resolves a direction; everyone else knows it's not here.
+    const where = dir && acuity >= 1 ? ` — ${dir} of here` : s.dist > 1 ? ` — somewhere further off` : ` — through the wall`;
+    return `  ${s.text[0].toUpperCase()}${s.text.slice(1)}${where}.`;
+  });
+  if (note) lines.push(`  <span class="text-dim">${note}</span>`);
+
+  if (wouldOverload(acuity, top[0]?.strength)) {
+    applyEffect(player, OVERLOAD_STATUS, 20);
+    lines.push(`  <span style="color:var(--red)">${overloadText('hearing', top[0]?.source)}</span>`);
+  }
+  return { type: 'output', message: `You stop, and listen.\n${lines.join('\n')}` };
+}
+
+// `attune <sense>` — which sense is yours.
+//
+// The stat makes you sharp; this decides what you are sharp AT. Free the first
+// time, because a player crossing the threshold shouldn't have to know the
+// system exists to benefit from it. Changing it afterwards is surgery, and needs
+// a clinic — the choice is meant to be an identity, not a loadout.
+function atClinic(player) {
+  const zone = getZone(player.current_zone);
+  if (zone?.flags?.clinic || zone?.flags?.surgery) return true;
+  // Name-matched as well as flagged, the same way `isToilet` works — content
+  // routinely ships a clinic without anyone remembering to tag it.
+  return getZoneFurniture(player.current_zone)
+    .some(f => f.flags?.clinic || f.flags?.surgery || /\b(surgery|operating table|autodoc|medbay)\b/i.test(f.name || ''));
+}
+
+async function cmdAttune(args, raw, player) {
+  const want = (args[0] || '').toLowerCase();
+  const stat = Number(player.stat_senses) || 0;
+  const current = player._senseDominant || null;
+
+  if (!want) {
+    return { type: 'output', message: current
+      ? `Your ${current} is the sense you live through${player._senseSecond ? `, with your ${player._senseSecond} a distant second` : ''}. (attune <${SENSES.join('|')}>)`
+      : `Nothing about you is sharper than anything else. (attune <${SENSES.join('|')}>)` };
+  }
+  if (!SENSES.includes(want)) {
+    return { type: 'error', message: `That isn't a sense. Try: ${SENSES.join(', ')}.` };
+  }
+  if (stat < 3) {
+    return { type: 'error', message: `You're an ordinary animal with ordinary equipment. Raise your senses and come back.` };
+  }
+  if (want === current) return { type: 'error', message: `That's already the one.` };
+  if (current && !atClinic(player)) {
+    return { type: 'error', message: `You can't rewire what your own head pays attention to by deciding to. That's a clinic job.` };
+  }
+
+  // Second is whatever the dominant WAS — you don't lose the old one entirely,
+  // it just stops being the one you live through.
+  const second = current || null;
+  player._senseDominant = want;
+  player._senseSecond = second;
+  await setFlags(player, [[DOMINANT_FLAG, want], [SECOND_FLAG, second || '']]);
+  return { type: 'output', message: current
+    ? `It takes a while, and it is not pleasant. When it clears, your ${want} is the loud one and your ${second} has stepped back.`
+    : `You stop trying to notice everything, and start noticing one thing. Your ${want} comes forward.` };
+}
+
 export const handlers = {
+  smell:    (args, raw, player) => cmdSmell(args, raw, player),
+  listen:   (args, raw, player) => cmdListen(args, raw, player),
+  attune:   (args, raw, player) => cmdAttune(args, raw, player),
+  sniff:    (args, raw, player) => cmdSmell(args, raw, player),
   examine:  (args, raw, player, broadcast) => cmdExamine(args.join(' '), player, broadcast),
   stats:    (args, raw, player) => cmdStats(player),
   skills:   (args, raw, player) => cmdSkills(player),

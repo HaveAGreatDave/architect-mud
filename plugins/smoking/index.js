@@ -26,6 +26,7 @@
  */
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
+import { schedule } from '../../server/engine/scheduler.js';
 import { cmdUse } from '../../server/engine/commands/inventory.js';
 import { getAllLivePlayers, getZonePlayers, getZoneNpcs } from '../../server/engine/world.js';
 import { resolve as siftResolve } from '../../server/engine/sift.js';
@@ -274,7 +275,7 @@ function coughTick() {
   }
 }
 
-setInterval(() => { try { coughTick(); } catch (e) { console.error('[smoking] tick error:', e.message); } }, COUGH_TICK_MS);
+schedule('8s', () => { try { coughTick(); } catch (e) { console.error('[smoking] tick error:', e.message); } });   // COUGH_TICK_MS
 
 // Exposed for the regression suite.
 export const _test = { coughChance: (since) => since < RECENT_SMOKE_MS ? RECENT_COUGH_CHANCE : (since < SMOKER_WINDOW_MS ? CHRONIC_COUGH_CHANCE : 0), DEFAULT_SUPPRESS_SECONDS };

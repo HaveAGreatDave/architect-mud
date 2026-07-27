@@ -9,13 +9,17 @@
 // vessel between them.
 import {
   FOND_PROFILES, FOND_MIN_BAND, FOND_VESSELS, FOND_BONUS,
-  FOND_RESIDUE_PENALTY, FOND_LIFE_MS,
+  FOND_RESIDUE_PENALTY, FOND_LIFE_MS, FOND_MISMATCH_PENALTY,
+  FOND_NEGLECT_PENALTY, FOND_PASSIVE_FRACTION,
 } from './config.js';
 import { bandIndex } from './profiles.js';
 
 // Does this cook leave anything in the pan? A cut browned in a dry-ish pan
 // does; a broth boiled in a pot does not, and neither does a ruined sear.
-export function leavesFond({ vesselKind, profiles = [], band, hadLiquid = false }) {
+export function leavesFond({ vesselKind, profiles = [], band, hadLiquid = false, microwave = false }) {
+  // A microwave never browns anything, so there is nothing left in the pan. Same
+  // physical fact as its quality ceiling, expressed on the other side.
+  if (microwave) return false;
   if (!FOND_VESSELS.includes(vesselKind)) return false;
   if (hadLiquid) return false;                       // already lifted, or never formed
   if (bandIndex(band) < bandIndex(FOND_MIN_BAND)) return false;
@@ -34,9 +38,37 @@ export function fondState(fond, now = Date.now()) {
 
 // What the vessel's current state is worth to a dish being made in it now.
 // Lifting fresh fond pays; cooking on top of dried residue costs.
-export function fondModifier(fond, { deglazed = false, now = Date.now() } = {}) {
+// Does what made this fond belong in what's being made now? A pan that seared
+// meat lifts beautifully into anything savoury; the same pan lifts into a fruit
+// dish and you can taste the last thing that was in it.
+// A template may declare `fondFrom` when what it's BUILT ON isn't something it
+// contains. A pan sauce is liquid and seasoning and nothing else — that's the
+// whole idea of it — so the meat fond it exists to lift appears in neither its
+// `needs` nor its `optional`, and inferring from those alone would penalise the
+// one combination the dish was written for. Everything else infers, because for
+// an ordinary dish "belongs in this" really does mean "is an ingredient of it".
+export function fondBelongs(fond, template) {
+  if (!fond?.from || !template) return true;   // nothing to clash with
+  if (template.fondFrom) return template.fondFrom.includes(fond.from);
+  const allowed = new Set([...Object.keys(template.needs || {}), ...(template.optional || [])]);
+  return allowed.has(fond.from);
+}
+
+// Three ways a fresh pan can go, and none of them is "nothing happened":
+//   scraped        — the technique, paid in full
+//   liquid, unscraped — it lifts anyway, partially; you just didn't help
+//   dry, unscraped    — it sits on the heat and scorches
+// Whichever applies, the sign flips if what made the fond doesn't belong in
+// what's being made now: a pan that seared fish makes the fruit taste of fish,
+// and it does that just as readily on its own as it does off a spoon.
+export function fondModifier(fond, { deglazed = false, hadLiquid = false, template = null, now = Date.now() } = {}) {
   const state = fondState(fond, now);
-  if (state === 'fresh') return deglazed ? FOND_BONUS : 0;
+  if (state === 'fresh') {
+    const value = fondBelongs(fond, template) ? FOND_BONUS : FOND_MISMATCH_PENALTY;
+    if (deglazed) return value;
+    if (hadLiquid) return value * FOND_PASSIVE_FRACTION;
+    return FOND_NEGLECT_PENALTY;
+  }
   if (state === 'residue') return FOND_RESIDUE_PENALTY;
   return 0;
 }

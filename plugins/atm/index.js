@@ -5,34 +5,14 @@ import { transferCredits } from '../../server/engine/economy.js';
 import { awardSkillUse, effectiveSkill } from '../../server/engine/skills.js';
 import { getPowerMap } from '../../server/engine/environment.js';
 import { emit } from '../../server/engine/events.js';
+import { getReputation } from '../../server/engine/ideologies.js';
 import { gameMsToReal } from '../../server/engine/gametime.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { resolve as siftResolve } from '../../server/engine/sift.js';
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-// Jacking a terminal requires physically carrying this item — no skill roll
-// gates the attempt anymore, just possession of the tool.
-// Any item tagged `hack_device` (see tagCatalog.js) is a valid deck — the gate
-// is the capability tag, not a specific item id.
-async function hasHackDevice(playerId) {
-  return !!(await resolveInventoryItem(playerId, { tag: 'hack_device' }));
-}
-
-// A failed breach fries the deck a little — five failures and it's slag.
-// Marked `unique` on the item so multiple decks don't share one condition.
-const HACK_DEVICE_DAMAGE_PER_FAIL = 0.2;
-async function damageHackDevice(playerId) {
-  const dev = await resolveInventoryItem(playerId, { tag: 'hack_device' });
-  if (!dev) return '';
-  const newCond = Math.max(0, (dev.condition ?? 1) - HACK_DEVICE_DAMAGE_PER_FAIL);
-  if (newCond <= 0) {
-    await query('DELETE FROM player_inventory WHERE id=$1', [dev.inv_id]);
-    return ' Your hack deck fries, sparks, and crumbles to slag in your hands.';
-  }
-  await query('UPDATE player_inventory SET condition=$1 WHERE id=$2', [newCond, dev.inv_id]);
-  return ` Your hack deck takes damage (${Math.round(newCond * 100)}% integrity).`;
-}
+// Jacking a terminal requires physically carrying a deck — no skill roll gates
+// the attempt, just possession of the tool. Which deck now matters: see
+// server/engine/hack-gear.js for the penalty/fragility contract.
+import { hasHackDeck, hackDifficulty, damageHackDeck, breachMargin } from '../../server/engine/hack-gear.js';
 
 // Tablet OS Bank app: a minimal deposit ledger (bank_transactions). Written
 // from every successful deposit, whichever path it came through (ATM's own
@@ -154,11 +134,10 @@ function isZonePowered(zoneId) {
 
 async function checkFactionAccess(player, atm) {
   if (!atm.faction_id || atm.min_faction_rep == null || atm.min_faction_rep <= -200) return true;
-  const { rows } = await query(
-    'SELECT reputation FROM player_ideology_rep WHERE player_id=$1 AND ideology_id=$2',
-    [player.id, atm.faction_id]
-  );
-  return (rows[0]?.reputation ?? 0) >= atm.min_faction_rep;
+  // getReputation, not a raw SELECT — standing decays toward its resting point,
+  // and a gate reading the stored checkpoint would lock you out over a grudge
+  // the rest of the game has already let go of.
+  return (await getReputation(player.id, atm.faction_id)) >= atm.min_faction_rep;
 }
 
 async function buildAtmPanel(atm, player, powered) {
@@ -182,9 +161,11 @@ async function buildAtmPanel(atm, player, powered) {
     cashMax: atm.cash_max ?? 5000,
     powered,
     isBroken: !!atm.is_broken,
-    hackDifficulty: atm.hack_difficulty ?? 5,
+    // Shown on the terminal readout, so it must be the number the minigame will
+    // actually run — deck penalty included.
+    hackDifficulty: await hackDifficulty(player.id, atm.hack_difficulty),
     hackingSkill: await effectiveSkill(player, 'hacking'),
-    hasHackDevice: await hasHackDevice(player.id),
+    hasHackDevice: await hasHackDeck(player.id),
     maintenanceUnlocked: hasMaintenanceAccess(atm.id, player.id),
     player: { credits: player.credits || 0, bank_credits: player.bank_credits || 0 },
   };
@@ -390,7 +371,7 @@ async function cmdJack(args, raw, player) {
   if (atm.is_broken) return { type: 'error', message: 'This terminal is already dead.' };
   if (!isZonePowered(player.current_zone)) return { type: 'error', message: "The ATM is powered down — nothing to jack." };
   if (!atm.cash_stock || atm.cash_stock <= 0) return { type: 'error', message: "Cash reserves empty. Not worth the risk." };
-  if (!(await hasHackDevice(player.id))) return { type: 'error', message: "You need a hacking device to breach this terminal." };
+  if (!(await hasHackDeck(player.id))) return { type: 'error', message: "You need a hacking device to breach this terminal." };
 
   const lockedUntil = jackLockout.get(player.id) || 0;
   if (Date.now() < lockedUntil) {
@@ -408,7 +389,7 @@ async function cmdJack(args, raw, player) {
     deviceId: atm.id,
     deviceName: atm.name,
     skill: await effectiveSkill(player, 'hacking'),
-    difficulty: atm.hack_difficulty ?? 5,
+    difficulty: await hackDifficulty(player.id, atm.hack_difficulty),
     resolveCmd: 'jackresolve',
   };
 }
@@ -427,7 +408,7 @@ async function cmdJackResolve(args, raw, player, broadcast) {
   if (!atm || atm.zone_id !== player.current_zone) return { type: 'noop' };
   if (atm.is_broken) return { type: 'error', message: 'This terminal is already dead.' };
   if (!isZonePowered(player.current_zone)) return { type: 'error', message: 'The ATM is powered down.' };
-  if (!(await hasHackDevice(player.id))) return { type: 'error', message: 'You need a hacking device to breach this terminal.' };
+  if (!(await hasHackDeck(player.id))) return { type: 'error', message: 'You need a hacking device to breach this terminal.' };
 
   // The jacked-in session is over (win or lose) — stop the ongoing-crime roll
   // that started at `jack`.
@@ -435,7 +416,7 @@ async function cmdJackResolve(args, raw, player, broadcast) {
 
   if (!win) {
     jackLockout.set(player.id, Date.now() + 5 * 60 * 1000);
-    const deviceMsg = await damageHackDevice(player.id);
+    const deviceMsg = await damageHackDeck(player.id);
 
     const shockDmg = JACK_SHOCK_MIN + Math.floor(Math.random() * JACK_SHOCK_RANGE);
     const hp = Math.max(0, (player.hp || 0) - shockDmg);
@@ -460,7 +441,7 @@ async function cmdJackResolve(args, raw, player, broadcast) {
     };
   }
 
-  await awardSkillUse(player.id, 'hacking', 2);
+  await awardSkillUse(player.id, 'hacking', await breachMargin(player, atm.hack_difficulty));
   grantMaintenanceAccess(atm.id, player.id);
   // The hacking crime is no longer charged on success — it's now rolled over the
   // whole jacked-in session that began at `jack` (see the atm.jacked handler in

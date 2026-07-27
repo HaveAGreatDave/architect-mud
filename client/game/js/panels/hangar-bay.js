@@ -389,9 +389,28 @@ function drawSV(canvas, hue) {
 // the picker closes.
 // It stays open until you explicitly dismiss it (the ✕ / Done in its own header) —
 // picking a colour never closes it, so you can nudge the swatch as much as you like.
-let cpState = null; // { field, pop, btn, hue, sat, val }
+//
+// The popover is mounted on <body> as position:fixed, NOT inside the swatch's <label>.
+// Two reasons, both of which used to eat the drag: (1) <button> is a labelable element,
+// so any click landing inside a popover nested in the label got forwarded to the swatch
+// and re-toggled the picker shut; (2) nested in the controls card it was clipped by the
+// card's own overflow. Mounted on <body> it can't be clipped and there is no label to
+// forward to — plus every pointerdown inside it is preventDefault()ed, so no synthetic
+// click or text-selection is generated at all. Theme tokens live on #hb-root, so they're
+// copied onto the detached popover when it opens.
+const CP_VARS = ['--hb-atm-accent', '--hb-surf', '--hb-surf-lo', '--hb-surf-mid', '--hb-bevel-hi',
+  '--hb-bevel-lo', '--tos-fg', '--tos-fg-dim', '--tos-fg-dim2', '--bg', '--bg2', '--border', '--text', '--text-dim'];
+// Quick-pick chips inside the picker — the paint shop's stock rattle-can rack.
+const CP_QUICK = ['#e8e8e8', '#b9c2c8', '#7d858c', '#2b3036', '#0d0f12', '#8e1f1f', '#d4531f', '#e0a52a',
+  '#3f7a2e', '#1f6f8e', '#22304f', '#5b2f7a', '#c05a8e', '#c9a227', '#d8cdb4', '#4a3b2a'];
+let cpState = null; // { field, pop, btn, hue, sat, val, reposition }
 function cleanupPopover() {
   if (!cpState) return;
+  if (cpState.reposition) {
+    window.removeEventListener('resize', cpState.reposition);
+    window.removeEventListener('scroll', cpState.reposition, true);
+  }
+  if (cpState.onKey) window.removeEventListener('keydown', cpState.onKey, true);
   cpState.pop.remove();
   cpState = null;
 }
@@ -399,7 +418,9 @@ function closeColorPopover() { if (cpState) { cleanupPopover(); render(); } }
 function setPickerColor(field, hex) {
   B.work[field] = hex;
   if (cpState) {
-    cpState.btn.style.background = hex;
+    const chip = cpState.btn.querySelector('i'), lbl = cpState.btn.querySelector('em');
+    if (chip) chip.style.background = hex;
+    if (lbl) lbl.textContent = hex.toUpperCase();
     const hi = cpState.pop.querySelector('.hb-cp-hex-input');
     if (hi && document.activeElement !== hi) hi.value = hex;
   }
@@ -413,71 +434,104 @@ function openColorPopover(field, btn) {
   pop.className = 'hb-cp-pop';
   pop.innerHTML = `
     <div class="hb-cp-head"><span class="hb-cp-title">${esc(field)}</span><button type="button" class="hb-cp-close" title="Close">✕</button></div>
-    <div class="hb-cp-svwrap"><canvas class="hb-cp-sv" width="160" height="100"></canvas><div class="hb-cp-svcursor"></div></div>
+    <div class="hb-cp-svwrap"><canvas class="hb-cp-sv" width="320" height="200"></canvas><div class="hb-cp-svcursor"></div></div>
     <div class="hb-cp-hue"><div class="hb-cp-huecursor"></div></div>
-    <input type="text" class="hb-cp-hex-input" maxlength="7" value="${B.work[field]}">
-    <button type="button" class="hb-cp-done">Done</button>`;
-  btn.parentElement.style.position = 'relative';
-  btn.parentElement.appendChild(pop);
-  cpState = { field, pop, btn, hue: h, sat: s, val: v };
+    <div class="hb-cp-quick">${CP_QUICK.map(q => `<button type="button" class="hb-cp-q" data-q="${q}" style="background:${q}" title="${q}"></button>`).join('')}</div>
+    <div class="hb-cp-foot"><input type="text" class="hb-cp-hex-input" maxlength="7" value="${B.work[field]}"><button type="button" class="hb-cp-done">Done</button></div>`;
+  // Carry the bench's theme tokens onto the detached popover (it lives on <body>, outside
+  // #hb-root, where those custom properties aren't inherited).
+  const rootEl = document.getElementById('hb-root');
+  if (rootEl) { const cs = getComputedStyle(rootEl); CP_VARS.forEach(k => pop.style.setProperty(k, cs.getPropertyValue(k))); }
+  document.body.appendChild(pop);
+
+  // Anchor under the swatch, flipping above / clamping horizontally so it always
+  // lands fully on screen whatever corner of the pane the swatch sits in.
+  const reposition = () => {
+    const r = btn.getBoundingClientRect();
+    const w = pop.offsetWidth, hgt = pop.offsetHeight;
+    let left = r.right - w, top = r.bottom + 8;
+    if (top + hgt > window.innerHeight - 8) top = Math.max(8, r.top - hgt - 8);
+    pop.style.left = Math.max(8, Math.min(left, window.innerWidth - w - 8)) + 'px';
+    pop.style.top = top + 'px';
+  };
+  cpState = { field, pop, btn, hue: h, sat: s, val: v, reposition };
+  reposition();
+  window.addEventListener('resize', reposition);
+  window.addEventListener('scroll', reposition, true);
+  // Esc is the third way out, alongside ✕ and Done — capture so it never reaches the
+  // game's own key handling while a picker is up.
+  const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); closeColorPopover(); } };
+  cpState.onKey = onKey;
+  window.addEventListener('keydown', onKey, true);
 
   const svCanvas = pop.querySelector('.hb-cp-sv'), svCursor = pop.querySelector('.hb-cp-svcursor');
+  const svWrap = pop.querySelector('.hb-cp-svwrap');
   const hueBar = pop.querySelector('.hb-cp-hue'), hueCursor = pop.querySelector('.hb-cp-huecursor');
   const hexInput = pop.querySelector('.hb-cp-hex-input');
+  // Cursor placement is measured off the live boxes, never hard-coded pixel sizes —
+  // the SV square and hue strip are both fluid (width:100% of the popover).
   const placeCursors = () => {
-    svCursor.style.left = `${cpState.sat * 160}px`;
-    svCursor.style.top = `${(1 - cpState.val) * 100}px`;
-    hueCursor.style.left = `${(cpState.hue / 360) * 160}px`;
+    const sv = svWrap.getBoundingClientRect(), hb = hueBar.getBoundingClientRect();
+    svCursor.style.left = `${cpState.sat * sv.width}px`;
+    svCursor.style.top = `${(1 - cpState.val) * sv.height}px`;
+    svCursor.style.background = hsv2hex(cpState.hue, cpState.sat, cpState.val);
+    hueCursor.style.left = `${(cpState.hue / 360) * hb.width}px`;
   };
   drawSV(svCanvas, cpState.hue);
   placeCursors();
   const updateFromHsv = () => { setPickerColor(field, hsv2hex(cpState.hue, cpState.sat, cpState.val)); placeCursors(); };
 
-  svCanvas.addEventListener('pointerdown', (e) => {
-    svCanvas.setPointerCapture(e.pointerId);
-    const move = (ev) => {
-      const r = svCanvas.getBoundingClientRect();
-      cpState.sat = clamp01((ev.clientX - r.left) / r.width);
-      cpState.val = clamp01(1 - (ev.clientY - r.top) / r.height);
-      updateFromHsv();
-    };
-    move(e);
-    svCanvas.addEventListener('pointermove', move);
-    svCanvas.addEventListener('pointerup', () => svCanvas.removeEventListener('pointermove', move), { once: true });
+  // One shared drag rig for both the SV square and the hue strip. Pointer capture keeps
+  // the gesture alive when the pointer leaves the element, and preventDefault on the
+  // initial press stops the browser starting a text selection or synthesising a click.
+  const dragArea = (el, onAt) => {
+    el.addEventListener('pointerdown', (e) => {
+      e.preventDefault(); e.stopPropagation();
+      el.setPointerCapture(e.pointerId);
+      const move = (ev) => { const r = el.getBoundingClientRect(); onAt(ev, r); };
+      move(e);
+      const end = () => { el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', end); el.removeEventListener('pointercancel', end); };
+      el.addEventListener('pointermove', move);
+      el.addEventListener('pointerup', end);
+      el.addEventListener('pointercancel', end);
+    });
+  };
+  dragArea(svCanvas, (ev, r) => {
+    cpState.sat = clamp01((ev.clientX - r.left) / r.width);
+    cpState.val = clamp01(1 - (ev.clientY - r.top) / r.height);
+    updateFromHsv();
   });
-  hueBar.addEventListener('pointerdown', (e) => {
-    hueBar.setPointerCapture(e.pointerId);
-    const move = (ev) => {
-      const r = hueBar.getBoundingClientRect();
-      cpState.hue = clamp01((ev.clientX - r.left) / r.width) * 360;
-      drawSV(svCanvas, cpState.hue);
-      updateFromHsv();
-    };
-    move(e);
-    hueBar.addEventListener('pointermove', move);
-    hueBar.addEventListener('pointerup', () => hueBar.removeEventListener('pointermove', move), { once: true });
+  dragArea(hueBar, (ev, r) => {
+    cpState.hue = clamp01((ev.clientX - r.left) / r.width) * 360;
+    drawSV(svCanvas, cpState.hue);
+    updateFromHsv();
   });
-  hexInput.addEventListener('change', () => {
-    const v2 = hexInput.value.trim();
+  const applyHex = (v2) => {
     if (!/^#[0-9a-fA-F]{6}$/.test(v2)) return;
     const hsv = hex2hsv(v2);
     cpState.hue = hsv.h; cpState.sat = hsv.s; cpState.val = hsv.v;
     drawSV(svCanvas, cpState.hue);
     setPickerColor(field, v2);
     placeCursors();
-  });
-  // The popover lives inside the swatch's <label> (swatchRow), so a click on any
-  // non-interactive part of it (the SV square, the hue strip) would bubble up and the
-  // label would forward a synthetic click to its control — the swatch button — which
-  // re-runs openColorPopover in "reopening" mode and closes the picker. Swallow the
-  // bubble here so pressing/dragging the colour area never dismisses it.
+  };
+  hexInput.addEventListener('change', () => applyHex(hexInput.value.trim()));
+  pop.querySelectorAll('[data-q]').forEach(q => q.addEventListener('click', (e) => {
+    e.preventDefault(); e.stopPropagation(); applyHex(q.getAttribute('data-q'));
+  }));
+  // Belt and braces: nothing that happens inside the popover ever reaches the page —
+  // no bubbled click can re-trigger the swatch, and no press starts a selection drag.
+  pop.addEventListener('pointerdown', (e) => { if (e.target === pop || e.target.classList.contains('hb-cp-head') || e.target.classList.contains('hb-cp-title')) e.preventDefault(); e.stopPropagation(); });
   pop.addEventListener('click', (e) => e.stopPropagation());
   pop.querySelector('.hb-cp-close').addEventListener('click', closeColorPopover);
   pop.querySelector('.hb-cp-done').addEventListener('click', closeColorPopover);
 }
 
 function swatchRow(label, field) {
-  return `<label class="hb-ctl"><span>${label}</span><button type="button" class="hb-cp-swatch" data-cp="${field}" style="background:${B.work[field]}"></button></label>`;
+  // A plain <div>, deliberately NOT a <label>: a <button> is a labelable element, so
+  // wrapping the swatch in a label made every click inside it get forwarded back to the
+  // swatch a second time, which toggled the picker shut the instant you pressed a colour.
+  return `<div class="hb-ctl hb-ctl-sw"><span>${label}</span>
+    <button type="button" class="hb-cp-swatch" data-cp="${field}"><i style="background:${B.work[field]}"></i><em>${esc((B.work[field] || '').toUpperCase())}</em></button></div>`;
 }
 function selectRow(label, field, opts) {
   return `<label class="hb-ctl"><span>${label}</span><select data-sel-field="${field}">${
@@ -525,14 +579,31 @@ function paintTabHtml(c, cat, dirty) {
   return subtabs + panel;
 }
 
+// Hull — the airframe's condition read as a shop docket: a big lit gauge with the
+// mechanic's verdict under it, then whatever work is actually on offer.
 function hullTabHtml(c) {
-  return c.rental
-    ? `<div class="hb-note">Maintenance is bundled into your rental — <button class="hb-btn" data-act="repair">Square her away (free)</button></div>`
-    : c.hullPct >= 98 ? `<div class="hb-note">Hull's in fine shape.</div>`
+  const pct = Math.max(0, Math.min(100, c.hullPct));
+  const col = pct < 25 ? '#ff6b6b' : pct < 55 ? '#ffb26b' : pct < 90 ? 'var(--yellow)' : 'var(--hb-atm-accent)';
+  const verdict = pct >= 98 ? 'Factory-tight. Nothing on the docket.'
+    : pct >= 80 ? 'Cosmetic scuffing and a few popped rivets. Flies fine.'
+    : pct >= 55 ? 'Working cracks in the skin. She rattles above cruise.'
+    : pct >= 25 ? 'Structural. Something is going to let go.'
+    : 'Held together by paint and optimism.';
+  const gauge = `<div class="hb-hull-gauge">
+      <div class="hb-hull-num" style="color:${col}">${pct}<small>%</small></div>
+      <div class="hb-hull-track"><i style="width:${pct}%;background:${col};color:${col}"></i>
+        <u style="left:25%"></u><u style="left:55%"></u><u style="left:90%"></u></div>
+      <div class="hb-hull-verdict">${verdict}</div>
+    </div>`;
+  const acts = c.rental
+    ? `<div class="hb-note">Maintenance is bundled into your rental.</div>
+       <div class="hb-repair-row"><button class="hb-btn hb-accent" data-act="repair">Square her away (free)</button></div>`
+    : pct >= 98 ? `<div class="hb-note">No work to book.</div>`
     : `<div class="hb-repair-row">
         <button class="hb-btn" data-act="repair">DIY repair · ~${c.diyCost}c</button>
         <button class="hb-btn hb-accent" data-act="repair-pro">Shop repair · ${c.shopCost}c (guaranteed)</button>
       </div>`;
+  return gauge + acts;
 }
 
 // ── Tuning: continuous dials + a live performance graph ───────────────────────
@@ -708,10 +779,21 @@ function startKnobDrag(e) {
   cv.addEventListener('pointercancel', up, { once: true });
 }
 
+// Weight & balance — the cabin fit-out, read as a loading sheet: three stat tiles for
+// what she's carrying now (with the hold's fill as a bar), then the three fits.
 function weightTabHtml(c) {
-  const opt = (lbl, seats, cmd) => `<button class="hb-btn${seats === c.seatsNow ? ' hb-accent' : ''}" data-loadout="${cmd}">${lbl} (${seats} seat${seats > 1 ? 's' : ''})</button>`;
+  const opt = (lbl, seats, cmd) => `<button class="hb-btn${seats === c.seatsNow ? ' hb-accent' : ''}" data-loadout="${cmd}">${lbl} · ${seats} seat${seats > 1 ? 's' : ''}</button>`;
+  const cap = c.cargoCapNow || 0, loaded = c.cargoLoaded || 0;
+  const fill = cap ? Math.max(0, Math.min(100, Math.round(loaded / cap * 100))) : 0;
   return `<div class="hb-loadout">
-    <div class="hb-dim">Budget ${c.loadoutBudget}kg — now: ${c.seatsNow} seats + ${c.cargoCapNow}kg hold${c.cargoLoaded ? ` (${c.cargoLoaded}kg loaded)` : ''}</div>
+    <div class="hb-wb-tiles">
+      <div class="hb-wb-tile"><i>Budget</i><b>${c.loadoutBudget}<small>kg</small></b></div>
+      <div class="hb-wb-tile"><i>Seats</i><b>${c.seatsNow}</b></div>
+      <div class="hb-wb-tile"><i>Hold</i><b>${cap}<small>kg</small></b>
+        <span class="hb-hullbar"><em style="width:${fill}%;background:var(--hb-atm-accent);color:var(--hb-atm-accent)"></em></span>
+        <u>${loaded}kg loaded</u></div>
+    </div>
+    <div class="hb-section">CABIN FIT</div>
     <div class="hb-loadout-row">${opt('Passenger', c.maxSeats, 'passenger')}${opt('Combi', c.seats, 'combi')}${opt('Freight', 1, 'freight')}</div>
   </div>`;
 }
@@ -731,25 +813,28 @@ function benchScreen() {
   const canTune = !c.wreck && !c.rental;
 
   const tabs = [
-    { id: 'paint', label: 'Paint' },
-    { id: 'hull', label: 'Hull' },
-    ...(canTune ? [{ id: 'tuning', label: 'Tuning' }, { id: 'kits', label: 'Kits' }] : []),
-    ...(c.configurable ? [{ id: 'weight', label: 'W&B' }] : []),
+    { id: 'paint', label: 'Paint', ico: '🎨' },
+    { id: 'hull', label: 'Hull', ico: '🔧' },
+    ...(canTune ? [{ id: 'tuning', label: 'Tuning', ico: '🎛' }, { id: 'kits', label: 'Kits', ico: '⚙' }] : []),
+    ...(c.configurable ? [{ id: 'weight', label: 'W&B', ico: '⚖' }] : []),
   ];
   if (!tabs.some(t => t.id === B.benchTab)) B.benchTab = tabs[0].id;
 
   const navBar = `<div class="hb-bench-tabs">${tabs.map(t =>
-    `<button class="hb-tab${t.id === B.benchTab ? ' hb-tab-active' : ''}" data-bench-tab="${t.id}">${esc(t.label)}</button>`).join('')}</div>`;
+    `<button class="hb-tab${t.id === B.benchTab ? ' hb-tab-active' : ''}" data-bench-tab="${t.id}"><span class="hb-tab-ico">${t.ico}</span>${esc(t.label)}</button>`).join('')}</div>`;
 
   // Persistent identity strip — name + class/tail on the left, live condition + wallet
   // on the right; a status pill flags a wreck or a rental so the whole screen is framed
-  // by what you're working on. Hull goes amber under 40% as an at-a-glance warning.
+  // by what you're working on. Hull is a lit meter as well as a number: it bleeds from
+  // accent through amber to red as the airframe goes, readable at a glance mid-work.
   const statusPill = c.wreck ? '<b class="hb-bench-pill hb-bench-pill-wreck">Wreck</b>'
     : c.rental ? '<b class="hb-bench-pill hb-bench-pill-rent">Rental</b>' : '';
+  const hullCol = c.hullPct < 25 ? '#ff6b6b' : c.hullPct < 55 ? '#ffb26b' : 'var(--hb-atm-accent)';
   const summary = `<div class="hb-bench-summary">
     <div class="hb-bench-id"><b>${esc(c.name)}</b>${statusPill}<span>${esc(c.class)}${c.tail ? ` · ${esc(c.tail)}` : ''}</span></div>
     <div class="hb-bench-vitals">
-      <span class="hb-bench-vital"><i>Hull</i><b class="${c.hullPct < 40 ? 'hb-bench-warn' : ''}">${c.hullPct}%</b></span>
+      <span class="hb-bench-vital hb-bench-vital-hull"><i>Hull</i><b style="color:${hullCol}">${c.hullPct}%</b>
+        <span class="hb-hullbar"><em style="width:${Math.max(0, Math.min(100, c.hullPct))}%;background:${hullCol};color:${hullCol}"></em></span></span>
       <span class="hb-bench-vital"><i>Balance</i><b>₵${B.data.credits ?? 0}</b></span>
     </div>
   </div>`;
@@ -765,6 +850,7 @@ function benchScreen() {
   const stage = B.benchTab === 'tuning'
     ? `<canvas id="hb-perf-radar" width="220" height="200"></canvas>`
     : bayCanvas('hb-bench-hero', c.wreck ? 'wreck' : c.class, B.work, null, 240, 'data-hb-src="work" data-hb-zoom="1.5" data-hb-flat="1"' + (c.class === 'heli' && c.hardpoints > 0 ? ' data-hb-armed="1"' : ''));
+  const stageCap = B.benchTab === 'tuning' ? 'PERFORMANCE ENVELOPE' : 'BAY 1 · LIVE PREVIEW';
 
   return `
     <div class="hb-bench">
@@ -773,9 +859,15 @@ function benchScreen() {
         ${navBar}
       </div>
       <div class="hb-bench-main">
-        <div class="hb-bench-stage">${stage}</div>
+        <div class="hb-bench-stage">
+          <div class="hb-stage-frame"><span class="hb-stage-grid"></span>${stage}<span class="hb-stage-glow"></span></div>
+          <div class="hb-stage-cap">${stageCap}</div>
+        </div>
         <div class="hb-bench-panels">
-          <div class="hb-bench-tabbody"><div class="hb-bench-card">${body}</div></div>
+          <div class="hb-bench-card">
+            <div class="hb-card-head"><span class="hb-card-dot"></span>${esc((tabs.find(t => t.id === B.benchTab) || tabs[0]).label).toUpperCase()}</div>
+            <div class="hb-bench-tabbody hb-thin" data-tabkey="${B.benchTab}">${body}</div>
+          </div>
         </div>
       </div>
     </div>
@@ -814,15 +906,9 @@ function render() {
   startSpin();
   // The tuning radar/knobs/bars aren't part of startSpin's canvas set — draw them
   // once here after the DOM is built; knob drags repaint them on the fly.
-  if (B.screen === 'bench') {
-    // Pin the sticky stage just below the (variable-height) summary+nav top bar, so
-    // the plane/scope stays visible under it as the controls scroll — measured rather
-    // than hard-coded because the summary can wrap on a narrow pane.
-    const top = document.querySelector('#hb-root .hb-bench-top');
-    const stage = document.querySelector('#hb-root .hb-bench-stage');
-    if (top && stage) stage.style.top = (top.offsetHeight + 10) + 'px';
-    if (B.benchTab === 'tuning') paintTuning();
-  }
+  // The bench no longer scrolls as a page (the tab body is the only scroll region, and
+  // only as a last resort), so the stage needs no sticky offset measuring any more.
+  if (B.screen === 'bench' && B.benchTab === 'tuning') paintTuning();
 }
 
 function wire() {
@@ -1403,20 +1489,24 @@ function ensureStyles() {
      background (a light theme reads light) and shares the tablet's --tos-* surface
      recipe, NOT the dealer's dark CRT tube. Layout: a sticky top bar (identity summary
      + segmented nav) over a two-column body — a sticky 3D/scope stage beside a single
-     controls card. .hb-bench is the scroll region (.hb-body is overflow:hidden), so
-     tall tab content stays reachable instead of being clipped off the bottom. */
-  #hb-root .hb-bench { display:flex; flex-direction:column; gap:10px;
-    flex:1 1 auto; min-height:0; overflow-y:auto;
-    scrollbar-width:thin; scrollbar-color:var(--border) var(--bg2); }
-  #hb-root .hb-bench::-webkit-scrollbar { width:6px; }
-  #hb-root .hb-bench::-webkit-scrollbar-track { background:var(--bg2); }
-  #hb-root .hb-bench::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
-  /* Top bar — summary + nav pinned together; a frosted slab so the controls scroll
-     cleanly under it (the same "glass over content" cue the head/toolbar give). */
-  #hb-root .hb-bench-top { position:sticky; top:0; z-index:6; display:flex; flex-direction:column; gap:8px;
-    padding-bottom:9px; margin-bottom:-1px;
-    background:color-mix(in srgb, var(--bg2) 90%, transparent);
-    -webkit-backdrop-filter:blur(9px) saturate(1.1); backdrop-filter:blur(9px) saturate(1.1);
+     controls card.
+     SCROLLING IS A LAST RESORT: the bench itself never scrolls — it's a fixed-height
+     flex column that fills the pane. Sections are tabs (and paint has sub-tabs), so a
+     tab's controls are meant to fit outright. Only .hb-bench-tabbody can scroll, and it
+     wears the in-theme .hb-thin bar when it has to. */
+  #hb-root .hb-bench { display:flex; flex-direction:column; gap:10px; flex:1 1 auto; min-height:0; overflow:hidden; }
+  /* The one in-theme scrollbar recipe, used anywhere a last-resort scroll survives:
+     an accent-lit thumb in a recessed track, never the OS default slab. */
+  #hb-root .hb-thin { scrollbar-width:thin; scrollbar-color:color-mix(in srgb, var(--hb-atm-accent) 55%, var(--border)) transparent; }
+  #hb-root .hb-thin::-webkit-scrollbar { width:7px; height:7px; }
+  #hb-root .hb-thin::-webkit-scrollbar-track { background:var(--hb-surf-lo); border-radius:4px; box-shadow:inset 0 0 3px var(--hb-bevel-lo); }
+  #hb-root .hb-thin::-webkit-scrollbar-thumb { border-radius:4px;
+    background:linear-gradient(180deg, color-mix(in srgb, var(--hb-atm-accent) 70%, var(--bg2)), color-mix(in srgb, var(--hb-atm-accent) 35%, var(--bg2)));
+    box-shadow:inset 0 1px 0 var(--hb-bevel-hi); }
+  #hb-root .hb-thin::-webkit-scrollbar-thumb:hover { background:var(--hb-atm-accent); }
+  /* Top bar — summary + nav together as one frosted chrome slab. */
+  #hb-root .hb-bench-top { flex:0 0 auto; z-index:6; display:flex; flex-direction:column; gap:8px;
+    padding-bottom:9px;
     border-bottom:1px solid color-mix(in srgb, var(--hb-atm-accent) 18%, transparent); }
   /* Persistent craft-identity strip (tablet .tos-summary recipe). */
   #hb-root .hb-bench-summary { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;
@@ -1436,26 +1526,73 @@ function ensureStyles() {
   #hb-root .hb-bench-vital i { font-size:8px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); font-style:normal; }
   #hb-root .hb-bench-vital b { font-size:13px; font-weight:bold; color:var(--tos-fg); }
   #hb-root .hb-bench-warn { color:#ffb26b !important; }
-  /* Segmented nav — a joined pill bar; the active tab lifts out of the recessed track. */
+  /* Hull condition as a lit meter under its number — the colour is set inline so it
+     bleeds accent → amber → red with the airframe. */
+  #hb-root .hb-bench-vital-hull { align-items:stretch; min-width:96px; }
+  #hb-root .hb-bench-vital-hull i, #hb-root .hb-bench-vital-hull b { text-align:right; }
+  #hb-root .hb-hullbar { display:block; height:4px; margin-top:3px; border-radius:3px; background:var(--hb-surf);
+    box-shadow:inset 0 1px 2px var(--hb-bevel-lo), inset 0 0 0 1px var(--border); overflow:hidden; }
+  #hb-root .hb-hullbar em { display:block; height:100%; border-radius:3px; box-shadow:0 0 7px currentColor; transition:width .25s ease-out; }
+  /* Segmented nav — a joined pill bar; the active tab lifts out of the recessed track
+     and lights a hairline bar along its bottom edge (the "you are here" cue). */
   #hb-root .hb-bench-tabs { display:flex; gap:4px; flex-wrap:wrap; padding:4px; border-radius:9px;
     background:var(--hb-surf-lo); border:1px solid var(--border); box-shadow:inset 0 1px 3px var(--hb-bevel-lo); }
-  #hb-root .hb-tab { flex:1 1 auto; text-align:center; font-family:inherit; font-size:11px; font-weight:bold; letter-spacing:1px; cursor:pointer;
-    color:var(--tos-fg-dim); background:transparent; border:1px solid transparent; border-radius:6px; padding:7px 12px;
+  #hb-root .hb-tab { position:relative; flex:1 1 auto; display:flex; align-items:center; justify-content:center; gap:6px;
+    font-family:inherit; font-size:11px; font-weight:bold; letter-spacing:1px; cursor:pointer;
+    color:var(--tos-fg-dim); background:transparent; border:1px solid transparent; border-radius:6px; padding:7px 12px; overflow:hidden;
     transition:filter .12s, box-shadow .12s, color .12s, background .12s; }
+  #hb-root .hb-tab-ico { font-size:12px; line-height:1; opacity:0.7; transition:opacity .12s, filter .12s; }
   #hb-root .hb-tab:hover { color:var(--tos-fg); background:color-mix(in srgb, var(--hb-atm-accent) 10%, transparent); }
+  #hb-root .hb-tab:hover .hb-tab-ico { opacity:1; }
   #hb-root .hb-tab-active { color:var(--tos-fg); background:linear-gradient(165deg, var(--hb-surf), var(--hb-surf-lo));
     border-color:color-mix(in srgb, var(--hb-atm-accent) 40%, transparent);
     box-shadow:inset 0 1px 0 var(--hb-bevel-hi), inset 0 -2px 3px var(--hb-bevel-lo), 0 1px 3px rgba(0,0,0,0.2); }
-  /* Two-column body — sticky stage (top set by JS to clear the top bar) + controls card. */
-  #hb-root .hb-bench-main { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-start; }
-  #hb-root .hb-bench-stage { flex:0 0 auto; position:sticky; top:96px; z-index:4; align-self:flex-start; }
-  #hb-root .hb-bench-stage canvas { display:block; margin:0 auto; }
-  #hb-root .hb-bench-panels { flex:1 1 260px; min-width:230px; position:relative; z-index:4; }
+  #hb-root .hb-tab-active .hb-tab-ico { opacity:1; filter:drop-shadow(0 0 5px color-mix(in srgb, var(--hb-atm-accent) 70%, transparent)); }
+  #hb-root .hb-tab-active::after { content:''; position:absolute; left:14%; right:14%; bottom:0; height:2px; border-radius:2px;
+    background:var(--hb-atm-accent); box-shadow:0 0 8px var(--hb-atm-accent); animation:hbTabSlide .22s ease-out; }
+  @keyframes hbTabSlide { from { left:48%; right:48%; opacity:0; } to { left:14%; right:14%; opacity:1; } }
+  /* Two-column body — the stage beside the controls card, both filling the pane height
+     so nothing has to scroll to be reached. */
+  #hb-root .hb-bench-main { display:flex; gap:12px; align-items:stretch; flex:1 1 auto; min-height:0; }
+  #hb-root .hb-bench-stage { flex:0 0 auto; display:flex; flex-direction:column; gap:6px; min-height:0; }
+  /* The plane sits in a real bay: a recessed viewport with corner brackets, a faint
+     deck grid behind it and a pool of accent light under the gear. */
+  #hb-root .hb-stage-frame { position:relative; display:flex; align-items:center; justify-content:center; padding:6px; border-radius:12px; overflow:hidden;
+    background:radial-gradient(120% 110% at 50% 35%, color-mix(in srgb, var(--hb-atm-accent) 14%, var(--bg)), color-mix(in srgb, var(--hb-atm-accent) 5%, var(--bg)));
+    border:1px solid color-mix(in srgb, var(--hb-atm-accent) 26%, transparent);
+    box-shadow:inset 0 2px 12px rgba(0,0,0,0.4), inset 0 1px 0 var(--hb-bevel-hi); }
+  #hb-root .hb-stage-grid { position:absolute; inset:0; pointer-events:none; opacity:0.5;
+    background-image:linear-gradient(color-mix(in srgb, var(--hb-atm-accent) 13%, transparent) 1px, transparent 1px),
+      linear-gradient(90deg, color-mix(in srgb, var(--hb-atm-accent) 13%, transparent) 1px, transparent 1px);
+    background-size:22px 22px; -webkit-mask-image:radial-gradient(70% 70% at 50% 55%, #000, transparent); mask-image:radial-gradient(70% 70% at 50% 55%, #000, transparent); }
+  #hb-root .hb-stage-glow { position:absolute; left:50%; bottom:8%; width:62%; height:16px; transform:translateX(-50%); pointer-events:none;
+    border-radius:50%; background:radial-gradient(50% 50% at 50% 50%, color-mix(in srgb, var(--hb-atm-accent) 45%, transparent), transparent 72%);
+    filter:blur(3px); animation:hbBayPulse 4.5s ease-in-out infinite; }
+  @keyframes hbBayPulse { 0%,100% { opacity:0.55; } 50% { opacity:0.95; } }
+  /* Corner brackets — machined bay markings on the viewport. */
+  #hb-root .hb-stage-frame::before, #hb-root .hb-stage-frame::after { content:''; position:absolute; width:16px; height:16px; pointer-events:none;
+    border-color:color-mix(in srgb, var(--hb-atm-accent) 60%, transparent); }
+  #hb-root .hb-stage-frame::before { top:5px; left:5px; border-top:2px solid; border-left:2px solid; border-top-left-radius:5px; }
+  #hb-root .hb-stage-frame::after { bottom:5px; right:5px; border-bottom:2px solid; border-right:2px solid; border-bottom-right-radius:5px; }
+  #hb-root .hb-stage-cap { text-align:center; font-size:8px; letter-spacing:2.5px; text-transform:uppercase; color:var(--tos-fg-dim2); }
+  #hb-root .hb-bench-stage canvas { display:block; margin:0 auto; position:relative; z-index:1; }
+  #hb-root .hb-bench-panels { flex:1 1 260px; min-width:230px; min-height:0; display:flex; position:relative; z-index:4; }
   #hb-root #hb-perf-radar { display:block; margin:0 auto; }
-  /* Controls card (tablet .tos-card recipe) — one raised surface per section. */
-  #hb-root .hb-bench-card { padding:12px; border-radius:10px;
+  /* Controls card (tablet .tos-card recipe) — one raised surface per section, filling
+     the column so the tab body has a real box to live in rather than growing the page. */
+  #hb-root .hb-bench-card { flex:1 1 auto; min-height:0; display:flex; flex-direction:column; padding:10px 12px 12px; border-radius:10px;
     border:1px solid color-mix(in srgb, var(--hb-atm-accent) 22%, transparent); background:var(--hb-surf-lo);
     box-shadow:inset 0 1px 0 var(--hb-bevel-hi), 0 2px 8px rgba(0,0,0,0.18); }
+  /* Section header inside the card — a lit pip + the tab's name over a hairline. */
+  #hb-root .hb-card-head { display:flex; align-items:center; gap:7px; flex:0 0 auto; margin-bottom:9px; padding-bottom:6px;
+    font-size:9px; font-weight:bold; letter-spacing:3px; color:var(--tos-fg-dim);
+    border-bottom:1px solid color-mix(in srgb, var(--hb-atm-accent) 22%, transparent); }
+  #hb-root .hb-card-dot { width:6px; height:6px; border-radius:50%; background:var(--hb-atm-accent);
+    box-shadow:0 0 8px var(--hb-atm-accent); animation:hbBayPulse 3s ease-in-out infinite; }
+  /* The single last-resort scroll region — and it fades in on every tab change. */
+  #hb-root .hb-bench-tabbody { flex:1 1 auto; min-height:0; overflow-y:auto; overflow-x:hidden; padding-right:3px;
+    animation:hbTabFade .18s ease-out; }
+  @keyframes hbTabFade { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
   #hb-root .hb-bench-card .hb-note, #hb-root .hb-bench-card .hb-dim { color:var(--text-dim); }
   #hb-root .hb-bench-tabbody { color:var(--text); }
   #hb-root .hb-bench-tabbody .hb-ctl, #hb-root .hb-bench-tabbody .hb-tune-row { color:var(--text); }
@@ -1468,6 +1605,26 @@ function ensureStyles() {
   #hb-root .hb-subtab:hover { color:var(--tos-fg); background:color-mix(in srgb, var(--hb-atm-accent) 10%, transparent); }
   #hb-root .hb-subtab-active { color:var(--tos-fg); background:linear-gradient(165deg, var(--hb-surf), var(--hb-surf-lo));
     border-color:color-mix(in srgb, var(--hb-atm-accent) 35%, transparent); box-shadow:inset 0 1px 0 var(--hb-bevel-hi), 0 1px 2px rgba(0,0,0,0.18); }
+  /* If a tab body ever does have to scroll, its two anchors don't go with it: the paint
+     sub-nav stays pinned to the top and the Apply/Revert row to the bottom, so the
+     controls you need are always on screen without hunting for them. */
+  #hb-root .hb-bench-tabbody .hb-subtabs { position:sticky; top:0; z-index:3; }
+  #hb-root .hb-bench-tabbody .hb-apply-row { position:sticky; bottom:0; z-index:3; margin-top:10px; padding-top:9px;
+    background:linear-gradient(to top, var(--hb-surf-lo) 72%, transparent);
+    border-top:1px solid color-mix(in srgb, var(--hb-atm-accent) 18%, transparent); }
+  /* Hull docket — a big lit condition gauge over the mechanic's verdict. The ticks on
+     the track mark the thresholds where the verdict (and the colour) changes. */
+  #hb-root .hb-hull-gauge { padding:12px 14px 13px; border-radius:11px; margin-bottom:11px; text-align:center;
+    background:var(--hb-surf-lo); border:1px solid var(--border);
+    box-shadow:inset 0 2px 9px var(--hb-bevel-lo), inset 0 1px 0 rgba(255,255,255,0.06); }
+  #hb-root .hb-hull-num { font-size:34px; font-weight:bold; letter-spacing:1px; line-height:1;
+    text-shadow:0 0 16px currentColor; }
+  #hb-root .hb-hull-num small { font-size:14px; opacity:0.6; margin-left:2px; }
+  #hb-root .hb-hull-track { position:relative; height:10px; margin:11px 0 9px; border-radius:6px; background:var(--hb-surf);
+    box-shadow:inset 0 1px 3px var(--hb-bevel-lo), inset 0 0 0 1px var(--border); overflow:hidden; }
+  #hb-root .hb-hull-track i { position:absolute; left:0; top:0; bottom:0; border-radius:6px; box-shadow:0 0 10px currentColor; transition:width .3s ease-out; }
+  #hb-root .hb-hull-track u { position:absolute; top:0; bottom:0; width:1px; background:color-mix(in srgb, var(--text) 40%, transparent); z-index:2; }
+  #hb-root .hb-hull-verdict { font-size:10.5px; line-height:1.45; color:var(--text-dim); font-style:italic; }
   #hb-root .hb-repair-row { display:flex; gap:8px; flex-wrap:wrap; }
   /* Tuning — rotary dials + a delta-bar readout, side by side (not stacked) so the
      whole tab fits one screen with no scrolling. The two clusters read as paired
@@ -1525,6 +1682,15 @@ function ensureStyles() {
   #hb-root .hb-kit-detail-act { margin-top:10px; padding-top:9px; border-top:1px solid var(--border); }
   #hb-root .hb-kit-tag { font-size:8px; letter-spacing:1px; color:var(--green); border:1px solid color-mix(in srgb, var(--green) 45%, transparent); border-radius:3px; padding:2px 6px; }
   #hb-root .hb-kit-blurb { font-size:10.5px; color:var(--text-dim); margin-top:4px; line-height:1.4; }
+  /* W&B loading sheet — three read-out tiles over the cabin-fit keys. */
+  #hb-root .hb-wb-tiles { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+  #hb-root .hb-wb-tile { padding:8px 10px 9px; border-radius:10px; background:var(--hb-surf-lo); border:1px solid var(--border);
+    box-shadow:inset 0 2px 7px var(--hb-bevel-lo), inset 0 1px 0 rgba(255,255,255,0.06); }
+  #hb-root .hb-wb-tile i { display:block; font-style:normal; font-size:8px; letter-spacing:1.5px; text-transform:uppercase; color:var(--tos-fg-dim2); }
+  #hb-root .hb-wb-tile b { display:block; font-size:18px; font-weight:bold; color:var(--text-bright); line-height:1.2;
+    text-shadow:0 0 9px color-mix(in srgb, var(--hb-atm-accent) 40%, transparent); }
+  #hb-root .hb-wb-tile b small { font-size:10px; opacity:0.6; margin-left:1px; }
+  #hb-root .hb-wb-tile u { display:block; text-decoration:none; font-size:8.5px; color:var(--text-dim); margin-top:3px; }
   #hb-root .hb-loadout-row { display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; }
   #hb-root .hb-presets { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:7px; }
   #hb-root .hb-preset { display:flex; align-items:center; gap:6px; font-size:10px; letter-spacing:1px; color:var(--tos-fg); cursor:pointer;
@@ -1535,43 +1701,64 @@ function ensureStyles() {
   #hb-root .hb-ctls { display:grid; grid-template-columns:1fr 1fr; gap:8px 12px; }
   #hb-root .hb-ctl { display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:11px; color:var(--tos-fg-dim); letter-spacing:1px; }
   #hb-root .hb-ctl input[type=color] { width:44px; height:26px; padding:0; border:1px solid color-mix(in srgb, var(--hb-atm-accent) 40%, transparent); border-radius:5px; background:none; cursor:pointer; }
-  #hb-root .hb-cp-swatch { width:44px; height:26px; padding:0; border:1px solid color-mix(in srgb, var(--hb-atm-accent) 45%, transparent); border-radius:6px; cursor:pointer;
-    box-shadow:inset 0 1px 0 var(--hb-bevel-hi), 0 1px 3px rgba(0,0,0,0.25); }
-  #hb-root .hb-cp-swatch:hover { border-color:var(--hb-atm-accent); box-shadow:inset 0 1px 0 var(--hb-bevel-hi), 0 0 10px color-mix(in srgb, var(--hb-atm-accent) 35%, transparent); }
-  /* Colour picker popover — the tablet surface recipe (raised card + bevels), a titled
-     header with a ✕, and a Done key, so it reads as a real panel and only closes when
-     you dismiss it (never on select). */
-  #hb-root .hb-cp-pop { position:absolute; z-index:50; top:calc(100% + 6px); right:0; padding:11px; width:172px; border-radius:10px;
+  /* The swatch chip: a lacquered paint sample beside its hex code. */
+  #hb-root .hb-cp-swatch { display:inline-flex; align-items:center; gap:7px; padding:3px 8px 3px 4px; cursor:pointer; font-family:inherit;
+    border:1px solid color-mix(in srgb, var(--hb-atm-accent) 40%, transparent); border-radius:7px;
     background:linear-gradient(165deg, var(--hb-surf), var(--hb-surf-lo));
-    border:1px solid color-mix(in srgb, var(--hb-atm-accent) 34%, transparent);
-    box-shadow:inset 0 1px 0 var(--hb-bevel-hi), inset 0 -2px 3px var(--hb-bevel-lo), 0 12px 30px rgba(0,0,0,0.45); }
-  #hb-root .hb-cp-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:9px; }
-  #hb-root .hb-cp-title { font-size:9px; letter-spacing:2px; text-transform:uppercase; color:var(--tos-fg-dim); }
-  #hb-root .hb-cp-close { width:22px; height:22px; padding:0; line-height:1; font-family:inherit; font-size:12px; cursor:pointer;
+    box-shadow:inset 0 1px 0 var(--hb-bevel-hi), 0 1px 3px rgba(0,0,0,0.25); transition:filter .12s, border-color .12s, box-shadow .12s; }
+  #hb-root .hb-cp-swatch i { width:26px; height:20px; border-radius:4px; box-shadow:inset 0 1px 0 rgba(255,255,255,0.35), inset 0 0 0 1px rgba(0,0,0,0.35); }
+  #hb-root .hb-cp-swatch em { font-style:normal; font-size:9px; letter-spacing:0.8px; color:var(--tos-fg-dim); }
+  #hb-root .hb-cp-swatch:hover { filter:brightness(1.08); border-color:var(--hb-atm-accent);
+    box-shadow:inset 0 1px 0 var(--hb-bevel-hi), 0 0 11px color-mix(in srgb, var(--hb-atm-accent) 35%, transparent); }
+  #hb-root .hb-cp-swatch:hover em { color:var(--tos-fg); }
+  /* Colour picker popover — mounted on <body> (see openColorPopover), so these rules are
+     deliberately NOT scoped under #hb-root; the theme tokens are copied onto the element
+     itself when it opens. The tablet surface recipe (raised card + bevels), a titled
+     header with a ✕, and a Done key, so it reads as a real panel and only closes when
+     you dismiss it (never on select, never on drag). */
+  .hb-cp-pop { position:fixed; z-index:100000; padding:12px; width:264px; border-radius:12px;
+    font-family:inherit; animation:hbCpIn .14s ease-out;
+    background:linear-gradient(165deg, var(--hb-surf), var(--hb-surf-lo));
+    border:1px solid color-mix(in srgb, var(--hb-atm-accent) 40%, transparent);
+    box-shadow:inset 0 1px 0 var(--hb-bevel-hi), inset 0 -2px 3px var(--hb-bevel-lo), 0 16px 40px rgba(0,0,0,0.55),
+      0 0 22px color-mix(in srgb, var(--hb-atm-accent) 18%, transparent); }
+  @keyframes hbCpIn { from { opacity:0; transform:translateY(-6px) scale(0.97); } to { opacity:1; transform:none; } }
+  .hb-cp-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:9px; }
+  .hb-cp-title { font-size:9px; letter-spacing:2px; text-transform:uppercase; color:var(--tos-fg-dim); }
+  .hb-cp-close { width:22px; height:22px; padding:0; line-height:1; font-family:inherit; font-size:12px; cursor:pointer;
     color:var(--tos-fg-dim); background:linear-gradient(165deg, var(--hb-surf), var(--hb-surf-lo));
     border:1px solid color-mix(in srgb, var(--hb-atm-accent) 30%, transparent); border-radius:6px;
     box-shadow:inset 0 1px 0 var(--hb-bevel-hi); transition:filter .12s, color .12s; }
-  #hb-root .hb-cp-close:hover { filter:brightness(1.15); color:var(--tos-fg); border-color:var(--hb-atm-accent); }
-  #hb-root .hb-cp-close:active { transform:translateY(1px); box-shadow:inset 0 1px 3px var(--hb-bevel-lo); }
-  #hb-root .hb-cp-done { margin-top:10px; width:100%; padding:8px; font-family:inherit; font-size:11px; font-weight:bold; letter-spacing:1px; text-transform:uppercase; cursor:pointer;
-    color:var(--tos-fg); border:1px solid var(--hb-atm-accent); border-radius:6px;
+  .hb-cp-close:hover { filter:brightness(1.15); color:var(--tos-fg); border-color:var(--hb-atm-accent); }
+  .hb-cp-close:active { transform:translateY(1px); box-shadow:inset 0 1px 3px var(--hb-bevel-lo); }
+  .hb-cp-foot { display:flex; gap:8px; margin-top:10px; }
+  .hb-cp-done { flex:1 1 auto; padding:8px; font-family:inherit; font-size:11px; font-weight:bold; letter-spacing:1px; text-transform:uppercase; cursor:pointer;
+    color:var(--tos-fg); border:1px solid var(--hb-atm-accent); border-radius:7px;
     background:linear-gradient(165deg, color-mix(in srgb, var(--hb-atm-accent) 32%, var(--bg2)), color-mix(in srgb, var(--hb-atm-accent) 15%, var(--bg2)));
     box-shadow:inset 0 1px 0 var(--hb-bevel-hi), inset 0 -2px 4px var(--hb-bevel-lo), 0 2px 5px rgba(0,0,0,0.28), 0 0 12px color-mix(in srgb, var(--hb-atm-accent) 30%, transparent);
     transition:filter .12s, box-shadow .12s, transform .05s; }
-  #hb-root .hb-cp-done:hover { filter:brightness(1.12); box-shadow:inset 0 1px 0 var(--hb-bevel-hi), inset 0 -2px 4px var(--hb-bevel-lo), 0 3px 8px rgba(0,0,0,0.3), 0 0 14px color-mix(in srgb, var(--hb-atm-accent) 40%, transparent); }
-  #hb-root .hb-cp-done:active { transform:translateY(1px); box-shadow:inset 0 2px 6px var(--hb-bevel-lo); }
-  #hb-root .hb-cp-svwrap { position:relative; width:100%; height:100px; }
-  #hb-root .hb-cp-sv { display:block; width:100%; height:100px; border-radius:6px; cursor:crosshair; touch-action:none;
-    box-shadow:inset 0 0 0 1px rgba(0,0,0,0.25); }
-  #hb-root .hb-cp-svcursor { position:absolute; top:0; left:0; width:12px; height:12px; margin:-6px 0 0 -6px; border-radius:50%; border:2px solid #fff; box-shadow:0 0 3px rgba(0,0,0,0.9); pointer-events:none; }
-  #hb-root .hb-cp-hue { position:relative; width:100%; height:14px; margin-top:10px; border-radius:5px; cursor:pointer; touch-action:none;
-    box-shadow:inset 0 0 0 1px rgba(0,0,0,0.2);
+  .hb-cp-done:hover { filter:brightness(1.12); box-shadow:inset 0 1px 0 var(--hb-bevel-hi), inset 0 -2px 4px var(--hb-bevel-lo), 0 3px 8px rgba(0,0,0,0.3), 0 0 14px color-mix(in srgb, var(--hb-atm-accent) 40%, transparent); }
+  .hb-cp-done:active { transform:translateY(1px); box-shadow:inset 0 2px 6px var(--hb-bevel-lo); }
+  .hb-cp-svwrap { position:relative; width:100%; height:132px; }
+  .hb-cp-sv { display:block; width:100%; height:132px; border-radius:7px; cursor:crosshair; touch-action:none;
+    box-shadow:inset 0 0 0 1px rgba(0,0,0,0.3); }
+  .hb-cp-svcursor { position:absolute; top:0; left:0; width:14px; height:14px; margin:-7px 0 0 -7px; border-radius:50%;
+    border:2px solid #fff; box-shadow:0 0 4px rgba(0,0,0,0.9), 0 0 0 1px rgba(0,0,0,0.5); pointer-events:none; }
+  .hb-cp-hue { position:relative; width:100%; height:15px; margin-top:11px; border-radius:6px; cursor:pointer; touch-action:none;
+    box-shadow:inset 0 0 0 1px rgba(0,0,0,0.25);
     background:linear-gradient(to right,#ff0000,#ffff00,#00ff00,#00ffff,#0000ff,#ff00ff,#ff0000); }
-  #hb-root .hb-cp-huecursor { position:absolute; top:-2px; left:0; width:6px; height:18px; margin-left:-3px; border-radius:2px; background:#fff; box-shadow:0 0 3px rgba(0,0,0,0.9); pointer-events:none; }
-  #hb-root .hb-cp-hex-input { margin-top:10px; width:100%; box-sizing:border-box; padding:6px 8px; font-family:inherit; text-align:center; letter-spacing:1px;
+  .hb-cp-huecursor { position:absolute; top:-3px; left:0; width:7px; height:21px; margin-left:-3.5px; border-radius:3px; background:#fff;
+    box-shadow:0 0 4px rgba(0,0,0,0.9), 0 0 0 1px rgba(0,0,0,0.4); pointer-events:none; }
+  /* Rattle-can rack — one-tap stock colours, and the drag rig is untouched by them. */
+  .hb-cp-quick { display:grid; grid-template-columns:repeat(8,1fr); gap:4px; margin-top:11px; padding:6px; border-radius:8px;
+    background:var(--hb-surf-lo); box-shadow:inset 0 1px 3px var(--hb-bevel-lo), inset 0 0 0 1px var(--border); }
+  .hb-cp-q { height:16px; padding:0; border-radius:4px; cursor:pointer; border:1px solid rgba(0,0,0,0.35);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,0.3); transition:transform .1s, box-shadow .1s; }
+  .hb-cp-q:hover { transform:scale(1.18); box-shadow:0 0 8px color-mix(in srgb, var(--hb-atm-accent) 60%, transparent); }
+  .hb-cp-hex-input { flex:0 0 92px; box-sizing:border-box; padding:6px 8px; font-family:inherit; font-size:11px; text-align:center; letter-spacing:1px;
     color:var(--tos-fg); background:color-mix(in srgb, var(--hb-atm-accent) 8%, var(--bg2));
-    border:1px solid color-mix(in srgb, var(--hb-atm-accent) 30%, transparent); border-radius:6px; outline:none; }
-  #hb-root .hb-cp-hex-input:focus { border-color:var(--hb-atm-accent); box-shadow:0 0 0 2px color-mix(in srgb, var(--hb-atm-accent) 22%, transparent); }
+    border:1px solid color-mix(in srgb, var(--hb-atm-accent) 30%, transparent); border-radius:7px; outline:none; }
+  .hb-cp-hex-input:focus { border-color:var(--hb-atm-accent); box-shadow:0 0 0 2px color-mix(in srgb, var(--hb-atm-accent) 22%, transparent); }
   #hb-root .hb-ctl select { flex:1; max-width:130px; padding:5px 6px; font-family:inherit; cursor:pointer;
     color:var(--tos-fg); background:color-mix(in srgb, var(--hb-atm-accent) 8%, var(--bg2));
     border:1px solid color-mix(in srgb, var(--hb-atm-accent) 30%, transparent); border-radius:6px; }
@@ -1585,7 +1772,21 @@ function ensureStyles() {
   #hb-root .hb-scheme-save { display:flex; gap:8px; }
   #hb-root .hb-scheme-save input { flex:0 0 120px; color:var(--tos-fg); background:color-mix(in srgb, var(--hb-atm-accent) 8%, var(--bg2)); border:1px solid color-mix(in srgb, var(--hb-atm-accent) 30%, transparent); border-radius:6px; padding:6px 8px; font-family:inherit; outline:none; }
   #hb-root .hb-scheme-save input:focus { border-color:var(--hb-atm-accent); box-shadow:0 0 0 2px color-mix(in srgb, var(--hb-atm-accent) 22%, transparent); }
-  @media (max-width:620px) { #hb-root .hb-ctls { grid-template-columns:1fr; } #hb-root .hb-bench-main { flex-direction:column; align-items:stretch; } #hb-root .hb-bench-stage { position:static; } #hb-root .hb-tune-grid { grid-template-columns:1fr; } }
+  /* Narrow pane: the two bench columns stack. The stage shrinks to a strip and the
+     bench itself becomes the (in-theme) scroll region, since a phone-width column
+     genuinely can't hold both — scrolling stays the last resort, not the default. */
+  @media (max-width:620px) {
+    #hb-root .hb-ctls { grid-template-columns:1fr; }
+    #hb-root .hb-bench { overflow-y:auto; scrollbar-width:thin; scrollbar-color:color-mix(in srgb, var(--hb-atm-accent) 55%, var(--border)) transparent; }
+    #hb-root .hb-bench::-webkit-scrollbar { width:7px; }
+    #hb-root .hb-bench::-webkit-scrollbar-track { background:var(--hb-surf-lo); border-radius:4px; }
+    #hb-root .hb-bench::-webkit-scrollbar-thumb { background:linear-gradient(180deg, color-mix(in srgb, var(--hb-atm-accent) 70%, var(--bg2)), color-mix(in srgb, var(--hb-atm-accent) 35%, var(--bg2))); border-radius:4px; }
+    #hb-root .hb-bench-main { flex-direction:column; align-items:stretch; min-height:auto; }
+    #hb-root .hb-bench-stage { flex:0 0 auto; }
+    #hb-root .hb-bench-tabbody { overflow:visible; }
+    #hb-root .hb-tune-grid { grid-template-columns:1fr; }
+    .hb-cp-pop { width:min(264px, calc(100vw - 24px)); }
+  }
   `;
   document.head.appendChild(st);
 }

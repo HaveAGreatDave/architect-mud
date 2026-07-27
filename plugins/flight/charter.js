@@ -21,6 +21,7 @@
 
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
+import { schedule } from '../../server/engine/scheduler.js';
 import { getZoneNpcs, getAllZones, getNpcsByFlag, moveNpcToZone } from '../../server/engine/world.js';
 import { regionalTiles } from '../../server/engine/commands/movement.js';
 import { getEnvironmentState } from '../../server/engine/environment.js';
@@ -582,7 +583,7 @@ async function charterTick() {
     }
   } finally { ticking = false; }
 }
-setInterval(() => charterTick().catch(e => console.error('[flight/charter] tick error:', e.message)), CHARTER_TICK_MS);
+schedule('2.5s', () => charterTick().catch(e => console.error('[flight/charter] tick error:', e.message)));   // CHARTER_TICK_MS
 
 // Wheels touch down — grounds the aircraft and lands the passenger's location, then
 // starts a braking roll-out (LANDING_ROLL_MS) before the "arrived" narration, mirroring

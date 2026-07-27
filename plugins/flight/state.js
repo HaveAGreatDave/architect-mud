@@ -18,7 +18,7 @@ import { handlePlayerDeath } from '../../server/engine/gameLoop.js';
 import { emit } from '../../server/engine/events.js';
 import { applyCrashCollateral, isSeverelyImpaired } from './collateral.js';
 import { isResidentOf } from '../../server/engine/apartments.js';
-import { getEnvironmentState, getWeatherFieldSnapshot } from '../../server/engine/environment.js';
+import { getEnvironmentState, getWeatherFieldSnapshot, getWeatherEvent } from '../../server/engine/environment.js';
 
 export const TICK_MS = 3000;
 // Overall traversal pace — a single knob that slows the flight down without
@@ -862,6 +862,9 @@ export function gaugePayload(live) {
     // airfield_vtol_only renders correctly without extra art data.
     ground: a.airborne ? null : { theme: groundTheme(parkedZone), field: parkedZone?.flags?.airfield_name || parkedZone?.name || null, helipad: vtolOnlyField(parkedZone) },
     sky: skyState(),
+    // Avionics dead (EMP hazard). The client blanks the gauges off this rather
+    // than deriving it — the server owns whether your instruments work.
+    avionicsOut: live.hazard?.type === 'EMP',
   };
 }
 
@@ -873,6 +876,10 @@ export function skyState() {
     const env = getEnvironmentState();
     return {
       hour: env.hour, weather: env.currentWeatherType || env.weatherType || 'clear', wind: env.windKph || 0,
+      // The live hero event, so the canopy can render an ion storm or an acid
+      // downpour as itself rather than as whatever ordinary weather is underneath
+      // it. Sent as { type, phase } — the client scales its effect by phase.
+      event: getWeatherEvent(),
       // Spatial weather: the day's moving cloud/precip/storm cells over map_world, so the flight
       // sim can render the REAL clouds/rain out the canopy at their true bearings and advect them
       // itself between packets. `tick` is the field's advect interval (s) — `vx/vy` are per that

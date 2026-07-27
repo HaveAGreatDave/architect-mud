@@ -19,6 +19,27 @@ document.addEventListener('input', e => {
   if (e.target.id === 'f-name') _autoFillIdFromName();
 });
 
+// --- Sticky panel headers ---------------------------------------------------
+// Any panel can pin its top controls by wrapping them in `.panel-sticky-head`.
+// Table headers are sticky too, so they need to park *below* that block rather
+// than under it — this measures the head and publishes its height as
+// --sticky-head-h on #list-panel, which the `th` rule reads. A MutationObserver
+// keeps it right across the innerHTML rebuilds every panel does.
+function syncStickyHeads() {
+  const panel = document.getElementById('list-panel');
+  if (!panel) return;
+  const head = panel.querySelector(':scope > .panel-sticky-head, :scope > * > .panel-sticky-head');
+  panel.style.setProperty('--sticky-head-h', head ? `${head.offsetHeight}px` : '0px');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const panel = document.getElementById('list-panel');
+  if (!panel) return;
+  new MutationObserver(() => syncStickyHeads()).observe(panel, { childList: true, subtree: true });
+  window.addEventListener('resize', syncStickyHeads);
+  syncStickyHeads();
+});
+
 function renderTable(columns, records, noEdit = false) {
   const panel = document.getElementById('list-panel');
   if (!records.length) { panel.innerHTML = '<div style="padding:24px;color:var(--text-dim)">No records found.</div>'; return; }

@@ -6,6 +6,8 @@
   "tags": {
     "consumable": true,
     "description": "Vintage crown champagne, still faintly effervescent after all these years. Each bubble is a small, expensive apology for the state of the world.",
+    "food_noun": "wine",
+    "food_profile": "liquid",
     "hydrating": true,
     "laced_drug": "drug_alcohol",
     "laced_potency": 1.1,

@@ -1,18 +1,12 @@
 {
-  "audio_theme_id": null,
-  "created_by": null,
-  "color": null,
-  "bg_color": "#332b22",
+  "ambient_events": [
+    "The cabinet hums, drops a note, and picks it back up."
+  ],
   "ambient_theme": "indoors",
-  "grid_z": 0,
-  "map_id": "map_int_junkyard",
-  "marker": null,
-  "updated_at": "1784600000",
-  "id": "zone_util_junkyard",
-  "name": "Utility Nook",
-  "grid_x": 0,
-  "grid_y": -1,
-  "parent_zone": "zone_junkyard_shack",
+  "audio_theme_id": null,
+  "bg_color": "#332b22",
+  "color": null,
+  "created_by": null,
   "description": "A lean-to off the back of the shack, barely deep enough to turn around in. A junction cabinet is bolted to the one solid wall, its breaker faces furred with corrosion, and a bundle of tapped cable leaves through a hole somebody made with a hammer and then apologised for with expanding foam. A sealed hacking port sits below the latch. It smells of hot dust and, faintly, of ozone.",
   "exits": {
     "south": "zone_junkyard_shack"
@@ -20,7 +14,13 @@
   "flags": {
     "is_interior": true
   },
-  "ambient_events": [
-    "The cabinet hums, drops a note, and picks it back up."
-  ]
+  "grid_x": 0,
+  "grid_y": -1,
+  "grid_z": 0,
+  "id": "zone_util_junkyard",
+  "map_id": "map_int_junkyard",
+  "marker": null,
+  "name": "Utility Nook",
+  "parent_zone": "zone_junkyard_shack",
+  "updated_at": "1784600000"
 }
