@@ -8,11 +8,33 @@
 // re-resolve which option a player clicked from the previous node) — both now
 // call the same filterDialogueOptions().
 import { dispatchAction } from './actions.js';
-import { evalConditions, getFlag } from './flags.js';
+import { evalConditions, getFlag, registerConditionShape } from './flags.js';
+import { isNpcScheduledNow } from './broadcast-bridge.js';
 import { query } from '../models/db.js';
 import { getTier, getReputation } from './ideologies.js';
 import { interp } from './interp.js';
 import { getRelation, relationTier, touchRelation, RELATION_TIERS } from './relations.js';
+
+// ── `{ on_air: true|false }` — don't talk to a man who is live ───────────────
+//
+// A working NPC is a scheduled one: `isNpcScheduledNow` is the same sync bridge
+// predicate the AT_WORK behaviour node holds on, so a dialogue gated this way can
+// never disagree with what the NPC is actually doing.
+//
+// Dialogue does NOT interrupt a behaviour graph — AT_WORK keeps returning RUNNING
+// whether or not someone is talking — so this is not a mechanical safeguard. It's
+// a fiction one: it lets an author write a performer who will not hold a
+// conversation about pasta thirty seconds before air, without hand-maintaining a
+// second copy of his schedule.
+//
+// Sync and query-free, like the bridge under it. Defaults FALSE for any NPC with
+// no schedule at all, so `{ on_air: false }` on an ordinary NPC is simply true and
+// the gate costs unscheduled speakers nothing.
+registerConditionShape('on_air', (condition, _player, context) => {
+  const npcId = context?.npc?.id;
+  const live = npcId ? !!isNpcScheduledNow(npcId) : false;
+  return condition.on_air ? live : !live;
+});
 
 // ── Relationship-aware node text (fallback by construction) ──────────────────
 //

@@ -93,6 +93,26 @@ export default async function regress({ run, check, getPlayer }) {
   // Nothing to cook stays nothing to cook — a 0g row must not become a 20s cook.
   check('a weightless row is 0, not floored', computeDuration(0, STOVE_SPEED.low, false).cookMs === 0);
 
+  // ── penne alla gin: a named dish anchored on BOTH its key items ────────────
+  // The anchor is the whole point — penne and tomato in a pan is pasta in sauce,
+  // and without the penne it's just sauce. Neither half alone may claim the name.
+  {
+    const { DISHES, matchScore } = await import('./dishes.js');
+    const t = DISHES.penne_alla_gin;
+    const full = new Set(['item_penne', 'item_gin', 'item_tomato_paste', 'item_synth_cream']);
+    check('penne alla gin exists as a pan dish', t?.vessel === 'pan', t?.vessel);
+    check('...and matches penne + gin + two liquids',
+      matchScore({ starchy_vegetable: 1, liquid: 3 }, t, full) > 0);
+    check('...but never without the gin',
+      matchScore({ starchy_vegetable: 1, liquid: 2 }, t,
+        new Set(['item_penne', 'item_tomato_paste', 'item_synth_cream'])) === -1);
+    check('...nor without the penne',
+      matchScore({ liquid: 3 }, t,
+        new Set(['item_gin', 'item_tomato_paste', 'item_synth_cream'])) === -1);
+    check('...nor on gin alone with nothing to carry it',
+      matchScore({ starchy_vegetable: 1, liquid: 1 }, t, full) === -1);
+  }
+
   check('stage text is monotonic and covers 0..1', stageText(COOK_STAGES, 0) === 'raw, glistening' && stageText(COOK_STAGES, 1) === 'cooked through, a faint char forming', {
     a: stageText(COOK_STAGES, 0), b: stageText(COOK_STAGES, 1),
   });
@@ -1470,8 +1490,14 @@ export default async function regress({ run, check, getPlayer }) {
         === matchScore(signature([ing('grain', 'starchy_vegetable'), ing('broth', 'liquid')], P), DISHES.porridge));
 
     // ── Named dishes: the only templates that name an ingredient ─────────────
+    // A BUDGET, not a limit that happens to be true. Every named dish is one
+    // combination a player can no longer invent for themselves, so the cap is
+    // meant to be argued with before it's raised. Raised 5 -> 6 on 2026-07-27
+    // for penne_alla_gin, which earns its anchor: the gin IS the dish's name,
+    // and without the key items it would resolve to generic pasta in sauce.
+    // 6 of ~47 templates is still a small minority. Think hard before 7.
     const keyed = Object.entries(DISHES).filter(([, t]) => t.keyItems?.length);
-    check('named dishes are a small minority of the catalog', keyed.length > 0 && keyed.length <= 5, keyed.map(([k]) => k));
+    check('named dishes are a small minority of the catalog', keyed.length > 0 && keyed.length <= 6, keyed.map(([k]) => k));
 
     const named = (ids, kind, profiles) => {
       const rows = ids.map((id, i) => ({ id, name: id, tags: { food_profile: profiles[i] } }));

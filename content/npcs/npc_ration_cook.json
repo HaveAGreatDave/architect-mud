@@ -516,6 +516,16 @@
       "item_id": "item_kitchen_knife",
       "price": 52,
       "stock": 4
+    },
+    {
+      "item_id": "item_penne",
+      "price": 9,
+      "stock": 24
+    },
+    {
+      "item_id": "item_gin",
+      "price": 78,
+      "stock": 6
     }
   ],
   "vendor_restock_rate": 1,

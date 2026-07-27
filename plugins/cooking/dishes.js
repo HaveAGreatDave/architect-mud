@@ -544,6 +544,22 @@ export const DISHES = {
     ceiling: 'masterful', difficulty: 9,
     blurb: 'Browned first, then hours on the lowest heat you have, stirred whenever you remember.',
   },
+  // Penne alla gin — the vodka sauce with the wrong bottle in it, which is what
+  // you make when the right bottle costs a week's rent. Anchored on BOTH key
+  // items: penne and tomato in a pan is just pasta in sauce, and the gin is the
+  // entire point of the name. The juniper is why this isn't penne alla vodka —
+  // vodka adds nothing but heat and alcohol, gin brings a whole hedge with it.
+  penne_alla_gin: {
+    noun: 'penne alla gin', vessel: 'pan',
+    keyItems: ['item_penne', 'item_gin'],
+    needs: { starchy_vegetable: 1, liquid: [2, 4] },
+    optional: ['dairy', 'aromatic', 'fat_or_oil', 'soft_vegetable', 'preserved'],
+    nameSlots: [],
+    nameFormat: 'penne alla gin',
+    seasoning: 2,
+    ceiling: 'masterful', difficulty: 9,
+    blurb: 'Tomato cooked down hard, a slug of gin off the heat, cream in last. The alcohol goes, the juniper stays, and the sauce clings to the ridges the way it is supposed to.',
+  },
   ramen: {
     noun: 'ramen', vessel: 'pot',
     keyItems: ['item_ramen_noodles'],

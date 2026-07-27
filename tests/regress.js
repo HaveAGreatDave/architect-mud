@@ -63,12 +63,12 @@ function check(name, cond, detail = '') {
 // Per-player tables, shared by the fake-player teardown and the end-of-run
 // orphan sweep. Declared up here because both run before any later const would
 // initialise (temporal dead zone).
-const PER_PLAYER_TABLES = [
-  'player_flags', 'player_inventory', 'player_skills', 'player_quests',
-  'player_achievements', 'player_deaths', 'player_npc_relations', 'player_mutations',
-  'player_drug_state', 'player_corpses', 'jail_prisoners',
-];
-
+const PER_PLAYER_TABLES = [
+  'player_flags', 'player_inventory', 'player_skills', 'player_quests',
+  'player_achievements', 'player_deaths', 'player_npc_relations', 'player_mutations',
+  'player_drug_state', 'player_corpses', 'jail_prisoners',
+];
+
 const sent = [];
 const broadcast = (zoneId, payload, exclude, toPlayer) => { sent.push({ zoneId, payload, toPlayer }); };
 
@@ -694,6 +694,37 @@ console.log('— layer 1i: relations substrate —');
   const hostile = await renderDialogueNode(warm, 'root', rp, { npc: warm });
   check('a hostile player never inherits the warm line',
     hostile.text === 'State your business.', hostile.text);
+
+  // ── `{ on_air: … }` — a performer mid-broadcast doesn't hold a conversation.
+  // Dialogue never interrupts a behaviour graph (AT_WORK keeps returning RUNNING
+  // regardless), so this gate is fiction rather than a mechanical lock — but it
+  // has to track the SAME predicate the graph holds on, or an author ends up
+  // hand-maintaining a second copy of the schedule.
+  const { filterDialogueOptions } = await import('../server/engine/dialogue.js');
+  const { registerNpcScheduleChecker } = await import('../server/engine/broadcast-bridge.js');
+  const host = { id: 'npc_regress_host' };
+  const opts = [
+    { label: 'off', next: 'n_off', conditions: [{ on_air: false }] },
+    { label: 'on', next: 'n_on', conditions: [{ on_air: true }] },
+    { label: 'always', next: 'n_any' },
+  ];
+  const prevChecker = null;
+  registerNpcScheduleChecker(() => true);
+  const live = await filterDialogueOptions(opts, {}, rp, { npc: host });
+  check('on air: the off-air branch is hidden',
+    live.length === 2 && live.some(o => o.next === 'n_on') && !live.some(o => o.next === 'n_off'),
+    live.map(o => o.next).join(','));
+  registerNpcScheduleChecker(() => false);
+  const off = await filterDialogueOptions(opts, {}, rp, { npc: host });
+  check('off air: the on-air branch is hidden',
+    off.length === 2 && off.some(o => o.next === 'n_off') && !off.some(o => o.next === 'n_on'),
+    off.map(o => o.next).join(','));
+  // The gate must cost an ordinary NPC nothing: no schedule = never on air, so
+  // `{ on_air: false }` stays true for every non-performer in the world.
+  const plainNpc = await filterDialogueOptions(opts, {}, rp, { npc: { id: 'npc_regress_nobody' } });
+  check('an unscheduled NPC reads as off air, not hidden',
+    plainNpc.some(o => o.next === 'n_off'), plainNpc.map(o => o.next).join(','));
+  registerNpcScheduleChecker(prevChecker || (() => false));
 }
 
 // ── Layer 1j: standing decay + relationship help ─────────────────────────

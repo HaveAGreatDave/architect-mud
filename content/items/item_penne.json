@@ -1,0 +1,18 @@
+{
+  "description": "A half-kilo box of ridged tubes, machine-cut and dried hard as bone. The box promises \"DURUM-CLASS WHEAT ANALOGUE\" in a typeface that was reassuring sixty years ago. It cooks up honest enough, which is more than the box does.",
+  "flags": {},
+  "id": "item_penne",
+  "name": "box of penne",
+  "tags": {
+    "consumable": true,
+    "description": "A half-kilo box of ridged tubes, machine-cut and dried hard as bone. The box promises \"DURUM-CLASS WHEAT ANALOGUE\" in a typeface that was reassuring sixty years ago. It cooks up honest enough, which is more than the box does.",
+    "food_noun": "penne",
+    "food_profile": "starchy_vegetable",
+    "needs_cooking": true,
+    "restore_hunger": 20,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 7,
+  "weight": 250
+}
