@@ -23,7 +23,7 @@ import { readdir, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
-import { initWorld, setLivePlayer, removeLivePlayer, addPlayerToZone, removePlayerFromZone, getAllZones, getLivePlayer, world, setDoorCache, deleteDoorCache, getDoorForExit, frontDoorOf, getApartment, insertFurniture, deleteFurniture, getZone, registerTransientZone, removeTransientZone, isTransientZone, regionForZone } from '../server/engine/world.js';
+import { initWorld, setLivePlayer, removeLivePlayer, addPlayerToZone, removePlayerFromZone, getAllZones, getLivePlayer, world, setDoorCache, deleteDoorCache, getDoorForExit, frontDoorOf, getApartment, insertFurniture, deleteFurniture, getZone, registerTransientZone, removeTransientZone, isTransientZone, regionForZone, renderOf, specOf } from '../server/engine/world.js';
 import { moveEntity } from '../server/engine/ai-behaviour.js';
 import { exitTargets, allExits, neighborZoneIds, addExit, removeExit } from '../server/engine/exits.js';
 import { cmdMove, dragFollowers } from '../server/engine/commands/movement.js';
@@ -45,7 +45,7 @@ import { CONTENT_TABLES, EXCLUDED_TABLES, REGISTRY } from '../server/models/cont
 import { SCHEMA_SQL } from '../server/models/schema.js';
 import { handleApiRequest, apiUpdateZone, apiPatchZoneTag } from '../server/api/routes.js';
 import { query } from '../server/models/db.js';
-import { resolveDefault } from '../scripts/content/derive.mjs';
+import { resolveDefault, deriveWorld } from '../scripts/content/derive.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PLUGINS_DIR = join(__dirname, '../plugins');
@@ -774,9 +774,12 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
 // 5,785 nulls into 2 authored values; if the region rung ever stops firing, the
 // world goes silent and nothing else would notice.
 {
-  const palette = { default: 'concrete', terrains: { concrete: { audio_theme_id: 'song_from_palette' } } };
+  const palette = { terrains: { concrete: { audio_theme_id: 'song_from_palette' } } };
   const region = { id: 'region_regress', defaults: { audio_theme_id: 'song_from_region' } };
-  const bare = { id: 'z', flags: {} };
+  // The palette rung is reached through the tile's TERRAIN. There is deliberately
+  // no palette-wide default terrain — an unpainted tile has no ground surface, and
+  // inventing one would have painted 530 interiors concrete grey.
+  const bare = { id: 'z', flags: { terrain: 'concrete' } };
 
   check('resolveDefault: tile override wins over region',
     resolveDefault('audio_theme_id', { ...bare, audio_theme_id: 'song_own' }, region, palette) === 'song_own');
@@ -812,6 +815,90 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   const badDefaults = wanted.filter(id => !known.has(id));
   check('every region default names a real song', wanted.length > 0 && badDefaults.length === 0,
     badDefaults.length ? badDefaults.join(', ') : `${wanted.length} authored`);
+}
+
+// LAW: presentation is DERIVED AT BUILD TIME, and there is exactly one derivation.
+// Every renderer reads zone_render.spec; none of them owns a palette. These pin the
+// three claims that makes: the table is complete, the function is pure, and the
+// function is deterministic — because a derived value that varies by machine is
+// worse than one computed at runtime, not better.
+{
+  const palettePath = join(__dirname, '..', 'content', 'map', 'terrain.json');
+  const palette = existsSync(palettePath) ? JSON.parse(await readFile(palettePath, 'utf8')) : null;
+  check('the terrain palette exists and has entries', !!palette && Object.keys(palette.terrains || {}).length > 0);
+
+  // Purity is enforced by the seam, not by inspection (spec §7.1) — but the seam
+  // only holds while derive imports nothing. An import here is the one edit that
+  // would let a query() into the build without anybody noticing.
+  const deriveSrc = await readFile(join(__dirname, '..', 'scripts', 'content', 'derive.mjs'), 'utf8');
+  const imports = [...deriveSrc.matchAll(/^\s*import\s.+$/gm)].map(m => m[0].trim());
+  check('derive.mjs imports nothing — no DB handle, no fs, no clock can reach it',
+    imports.length === 0, imports.join(' | '));
+
+  const zonesForDerive = getAllZones().map(z => ({
+    id: z.id, marker: z.marker, color: z.color, bg_color: z.bg_color,
+    ambient_theme: z.ambient_theme, audio_theme_id: z.audio_theme_id, flags: z.flags,
+  }));
+  const regionsForDerive = [...world.regions.values()];
+  const ser = (w) => JSON.stringify([...w.render.entries()]);
+  const a = deriveWorld({ zones: zonesForDerive, regions: regionsForDerive, palette });
+  const b = deriveWorld({ zones: zonesForDerive, regions: regionsForDerive, palette });
+  check('deriveWorld is deterministic — same input, byte-identical output', ser(a) === ser(b));
+  // Shuffled input must not change the output: derive is whole-map and sorted, so
+  // it can't depend on which rows an upsert happened to touch first (§7.2).
+  const shuffled = [...zonesForDerive].reverse();
+  check('deriveWorld does not depend on input order',
+    ser(deriveWorld({ zones: shuffled, regions: regionsForDerive, palette })) === ser(a));
+
+  // Completeness. A tile with no derived row renders with no fill at all, and the
+  // renderers have no fallback any more — that is the point, so this must hold.
+  const missing = getAllZones().filter(z => !renderOf(z.id));
+  check(`every zone has a zone_render row (${world.render.size} rows)`, missing.length === 0,
+    missing.slice(0, 3).map(z => z.id).join(', ') + (missing.length ? ' — run npm run map:derive' : ''));
+  const noSpec = getAllZones().filter(z => !specOf(z.id));
+  check('every zone_render row carries a spec', noSpec.length === 0, noSpec.slice(0, 3).map(z => z.id).join(', '));
+
+  // Every painted terrain must resolve in the palette, or the tile paints nothing.
+  const unknownTerrain = [...new Set(getAllZones().map(z => z.flags?.terrain).filter(Boolean))]
+    .filter(t => !palette?.terrains?.[t]);
+  check('every painted terrain resolves in the palette', unknownTerrain.length === 0, unknownTerrain.join(', '));
+
+  // A painted tile's fill comes from the palette, not from its authored bg_color —
+  // except where the palette says otherwise. Both halves, on real tiles.
+  const paintedNoOverride = getAllZones().find(z => z.flags?.terrain === 'redrock');
+  if (paintedNoOverride) {
+    check('a painted tile takes the palette fill, not its authored room colour',
+      specOf(paintedNoOverride.id).fill === palette.terrains.redrock.fill,
+      `${specOf(paintedNoOverride.id).fill} vs authored ${paintedNoOverride.bg_color}`);
+  }
+  const authoredWins = getAllZones().find(z => z.flags?.terrain === 'water' && z.bg_color);
+  if (authoredWins) {
+    check('authored_bg_wins terrain keeps the tile\'s own colour',
+      specOf(authoredWins.id).fill === authoredWins.bg_color);
+  }
+
+  // THE PACING BUG (spec §1.2). Pacing keyed off flags.icon matching /^road_/, so a
+  // tile painted `road` with no authored icon moved you at walking pace. The painted
+  // fact and the mechanical fact are the same fact now.
+  const paintedRoadNoIcon = getAllZones().find(z =>
+    z.flags?.terrain === 'road' && !/^(road_|runway_)/.test(z.flags?.icon || '') && !z.flags?.artery);
+  if (paintedRoadNoIcon) {
+    check('a painted road with no authored icon carries the road speed-up',
+      specOf(paintedRoadNoIcon.id).speed_mult === 2,
+      `${paintedRoadNoIcon.id} → ${specOf(paintedRoadNoIcon.id).speed_mult}`);
+  }
+  check('a non-road terrain carries no speed-up',
+    specOf(getAllZones().find(z => z.flags?.terrain === 'redrock')?.id)?.speed_mult === 1);
+
+  // The step-1 loan, repaid: the resolved audio theme now lives in the table, and it
+  // must agree with what resolveDefault would have said at the call site.
+  const themed = getAllZones().filter(z => z.flags?.region_id).slice(0, 200);
+  const themeMismatch = themed.filter(z =>
+    renderOf(z.id).audio_theme_id !== resolveDefault('audio_theme_id', z, regionForZone(z)));
+  check('the derived audio theme agrees with resolveDefault', themeMismatch.length === 0,
+    themeMismatch.slice(0, 3).map(z => z.id).join(', '));
+  check('zone_render.ambient_theme is always present',
+    getAllZones().every(z => !!renderOf(z.id).ambient_theme));
 }
 
 // LAW: no NPC may be homed in a PLAYER-OWNED apartment (the "someone's in Akerson's

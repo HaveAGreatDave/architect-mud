@@ -1,7 +1,9 @@
 import { query, logActivity } from '../models/db.js';
 import { syncContentFromRequest, syncZoneDeletion } from './content-sync.js';
-import { reloadZone, getAllZones, world, getAllLivePlayers, getZone, addPlayerToZone, removePlayerFromZone, getMinimapData, reloadGlobalAmbients, spawnEnemySync, setDoorCache, deleteDoorCache, getZoneDoors, reloadSpawn, removeSpawn, isEnterableFacade, resolveLanding, reloadMaps, insertFurniture, updateFurniture, deleteFurniture, deleteFurnitureWhere, refreshZoneFurniture, zoneTerrain } from '../engine/world.js';
+import { reloadZone, getAllZones, world, getAllLivePlayers, getZone, addPlayerToZone, removePlayerFromZone, getMinimapData, reloadGlobalAmbients, spawnEnemySync, setDoorCache, deleteDoorCache, getZoneDoors, reloadSpawn, removeSpawn, isEnterableFacade, resolveLanding, reloadMaps, insertFurniture, updateFurniture, deleteFurniture, deleteFurnitureWhere, refreshZoneFurniture, zoneTerrain, loadZoneRender, getAllRegions } from '../engine/world.js';
 import { authorUtilityRoom } from '../../tools/lib/utility-room.mjs';
+import { readPalette } from '../../scripts/content/lib.mjs';
+import { writeDerived } from '../../scripts/content/derive-write.mjs';
 import { templateForType, BUILD_DIR_OFF } from '../../tools/lib/building-templates.mjs';
 import { describeZone, describeVoidTeleport } from '../engine/commands/index.js';
 import { allExits } from '../engine/exits.js';
@@ -276,6 +278,8 @@ async function dispatchApiRequest(url, method, body, headers) {
   if (path==='/maps/generate-region' && method==='POST') return requireDev(auth, ()=>apiGenerateRegion(body, auth));
   if (path==='/maps/move-region' && method==='POST') return requireDev(auth, ()=>apiMoveRegion(body));
   if (path==='/maps/regions' && method==='GET') return requireDev(auth, apiGetSpatialRegions);
+  if (path==='/map/palette' && method==='GET') return requireDev(auth, apiGetTerrainPalette);
+  if (path==='/map/derive' && method==='POST') return requireDev(auth, apiDeriveMap);
   if (path==='/maps/flight-snapshot' && method==='POST') return requireDev(auth, ()=>apiFlightSnapshot());
   if (path.startsWith('/maps/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteMap(path.split('/')[2]));
   if (path.startsWith('/maps/') && method==='GET') return requireDev(auth, ()=>apiGetMap(path.split('/')[2]));
@@ -1010,9 +1014,14 @@ async function apiDeleteMap(id) {
 async function apiGetMap(id) {
   const { rows: mapRows } = await query('SELECT * FROM maps WHERE id=$1', [id]);
   if (!mapRows.length) return { status:404, body:{error:'Not found'} };
+  // r.spec is the GENERATED presentation. The editor paints from it for the same
+  // reason the game does: an editor that computes its own fills is how the map an
+  // author paints stops being the map a player sees.
   const { rows: zones } = await query(
-    `SELECT id, name, grid_x, grid_y, grid_z, marker, color, bg_color, exits, flags, map_id
-     FROM zones WHERE map_id=$1`, [id]
+    `SELECT z.id, z.name, z.grid_x, z.grid_y, z.grid_z, z.marker, z.color, z.bg_color,
+            z.exits, z.flags, z.map_id, r.spec
+     FROM zones z LEFT JOIN zone_render r ON r.zone_id = z.id
+     WHERE z.map_id=$1`, [id]
   );
   // Interior maps that hang off any of this map's zones, so the editor can
   // offer a "dive in" affordance per building tile.
@@ -1293,6 +1302,35 @@ const REGION_MAX_TILES = 400; // one publish = this many zone INSERTs; keep the 
 // at the same coords after this one is moved away.
 function regionSlug(id) {
   return String(id).replace(/^region_/, '').replace(/[^a-z0-9]+/gi, '_').toLowerCase() || 'region';
+}
+
+// The terrain palette, straight off disk. The editor needs the labels and fills to
+// draw its brush swatches; everything a TILE looks like still comes from spec.
+async function apiGetTerrainPalette() {
+  return { status: 200, body: readPalette() || { version: 0, terrains: {} } };
+}
+
+// Rebuild zone_render from the live world. The derive pass normally runs inside
+// content:import, which is a deploy — but the terrain painter changes what a tile
+// looks like RIGHT NOW, and a painter whose paint doesn't appear until the next
+// deploy is a painter nobody will use. Whole-map, because derive is whole-map by
+// design (spec §7.2); it reads the zones already in RAM, so this costs no queries
+// beyond the writes. Same module the build calls — there is one derive, not two.
+//
+// Deliberately NOT in OPS_ROUTES, so CONTENT_READONLY blocks it on production.
+// Prod's generated tables are built by CI on every deploy; the escape hatch for a
+// one-shot that rewrote tiles directly is `npm run map:derive --prod --yes`, which
+// is a decision somebody makes at a terminal rather than a button in a panel.
+async function apiDeriveMap() {
+  const zones = [...world.zones.values()].map(z => ({
+    id: z.id, marker: z.marker, color: z.color, bg_color: z.bg_color,
+    ambient_theme: z.ambient_theme, audio_theme_id: z.audio_theme_id, flags: z.flags,
+  }));
+  const { rows } = await writeDerived({ query }, {
+    zones, regions: getAllRegions(), palette: readPalette(),
+  });
+  await loadZoneRender();
+  return { status: 200, body: { ok: true, rows } };
 }
 
 async function apiGetSpatialRegions() {

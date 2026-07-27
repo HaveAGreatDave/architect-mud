@@ -277,6 +277,11 @@ export const REGISTRY = [
   { table: 'email_verification_tokens', class: 'player' },
 
   // ── runtime: world state regenerated / accumulated at play time ──
+  // GENERATED presentation. Runtime by classification, not by care: content:export
+  // never emits a runtime table, so a derived marker can never end up in a content
+  // file pretending somebody authored it. TRUNCATEd and rebuilt by the derive pass
+  // of content:import (map-pipeline-spec §2.1, §9).
+  { table: 'zone_render', class: 'runtime' },
   { table: 'world_events', class: 'runtime' },
   { table: 'void_traces', class: 'runtime' },      // voidwalking — scrawls/corpses left in the void, purged as windows rotate
   { table: 'world_clock', class: 'runtime' },

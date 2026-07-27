@@ -14,7 +14,7 @@
 import { contentEntries } from '../../server/models/content-registry.js';
 import { SCHEMA_SQL } from '../../server/models/schema.js';
 import { validateTags, validateZoneColumns, TAG_CATALOG as CATALOG, ZONE_COLUMN_PREFIX } from '../../server/engine/tags.js';
-import { readContentTree, fileNameForRow, schemaColumnsOf as columnsOf } from './lib.mjs';
+import { readContentTree, fileNameForRow, schemaColumnsOf as columnsOf, readPalette } from './lib.mjs';
 
 // ── SCHEMA_SQL parsing (content→content FKs), no DB required ─────────────────
 // Column parsing lives in lib.mjs (schemaColumnsOf) so the export writer and this
@@ -246,6 +246,33 @@ export function lintContentTree(baseDir) {
           errors.push(`${label}="${v}" references ${fk.refTable}.${fk.refCol} but no such content file exists (dangling default — the whole region would resolve to something that isn't there)`);
         }
       }
+    }
+  }
+
+  // ── The terrain palette (spec §1.2) ────────────────────────────────────────
+  // The only place a terrain's look is written down, so a value on a tile with no
+  // entry behind it paints nothing and says nothing. Same two rules as every other
+  // reconciliation in this file: unresolvable is an error, unused is a warning.
+  {
+    let palette = null;
+    try { palette = readPalette(baseDir); } catch (e) { errors.push(e.message); }
+    const zoneFiles = entries.find(e => e.entry.table === 'zones')?.files || [];
+    if (palette && zoneFiles.length) {
+      const known = new Set(Object.keys(palette.terrains || {}));
+      const painted = new Map();
+      for (const f of zoneFiles) {
+        const t = f.data.flags?.terrain;
+        if (t) painted.set(t, (painted.get(t) || 0) + 1);
+      }
+      for (const [t, n] of painted) {
+        if (!known.has(t)) errors.push(`content/map/terrain.json: no entry for terrain "${t}", painted on ${n} tile(s) — those tiles resolve to no fill at all`);
+      }
+      const unused = [...known].filter(t => !painted.has(t));
+      if (unused.length) warnings.push(`${unused.length} palette entry(ies) on no tile: ${unused.join(', ')}`);
+      // A palette entry that can't paint anything is worse than an unused one: the
+      // brush exists, you can click it, and the tile comes out with no fill.
+      const noFill = [...known].filter(t => !palette.terrains[t]?.fill);
+      if (noFill.length) errors.push(`content/map/terrain.json: entry(ies) with no fill: ${noFill.join(', ')}`);
     }
   }
 

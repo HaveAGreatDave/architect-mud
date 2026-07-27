@@ -3,7 +3,7 @@ import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { query } from '../../server/models/db.js';
-import { getZone, getZonePlayers, getLivePlayer, getZoneFurniture, regionForZone } from '../../server/engine/world.js';
+import { getZone, getZonePlayers, getLivePlayer, getZoneFurniture, regionForZone, renderOf, specOf } from '../../server/engine/world.js';
 import { resolveDefault } from '../../scripts/content/derive.mjs';
 import { neighborZoneIds } from '../../server/engine/exits.js';
 import { sendToZone, sendToPlayer, getBroadcast } from '../../server/engine/messaging.js';
@@ -189,14 +189,17 @@ on('player.logout', ({ id }) => {
   triggerEventRoute('player.logout', null, id);
 });
 
-// A tile's theme is its own audio_theme_id if it overrode one, otherwise its
-// region's default (regions.defaults — docs/proposals/map-pipeline-spec.md §1.3).
-// Two Map lookups and a nullish chain; no query, no derivation. When zone_render
-// lands (spec §11 step 3) this becomes a column read and resolveDefault moves to
-// build time — the resolution ORDER is already the shared one, so nothing about
-// what plays changes when it does.
+// A tile's theme, RESOLVED AT BUILD TIME. Step 1 of the map pipeline called
+// resolveDefault here, at the call site, because zone_render didn't exist yet;
+// step 3 built the table and this is the loan being repaid. The resolution order
+// is unchanged — same function, run by the build instead of by the request — so
+// nothing about what plays changed when it moved.
+//
+// The fallback is for a transient zone (a void-crossing room), which is synthetic
+// and has no derived row by construction.
 export function zoneThemeSongId(zone) {
-  return resolveDefault('audio_theme_id', zone, regionForZone(zone));
+  const derived = specOf(zone?.id) ? renderOf(zone.id)?.audio_theme_id : undefined;
+  return derived !== undefined ? derived : resolveDefault('audio_theme_id', zone, regionForZone(zone));
 }
 
 // What the zone theme last started for a player, so leaving a themed place can

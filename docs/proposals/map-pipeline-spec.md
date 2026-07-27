@@ -83,6 +83,39 @@ old model.
 
 ### 1.2 `content/map/terrain.json` — the palette
 
+> **BUILT — §11 step 3**, together with §2.1 and the §7 derive module. Four things
+> this section didn't anticipate:
+>
+> - **There were four disagreements, not three tables.** `TERRAIN_TYPES`,
+>   `TERRAIN_FILL` and `TOS_TERRAIN_FILL` differed on exactly one value — redrock,
+>   `#9e4a30` in the editor against `#6f3524` in the game, so on **2,996 tiles the
+>   map an author painted was not the map a player saw**. The fourth was
+>   `luminanceTextColor`: the dev panel's returns a binary `#111111`/`#eeeeee`, the
+>   game's a continuous grey. It moved into derive as `contrastText`, which makes
+>   `spec.text` FINAL — a renderer no longer picks a colour under any circumstance.
+> - **`default` had to go.** "Terrain assumed when `flags.terrain` is absent" would
+>   have painted 530 interiors and building footprints concrete grey. Unpainted
+>   resolves to **null**, and null means *no ground surface*, not *unknown*.
+> - **`zoneTerrain` moved into derive rather than being re-specified.** The world
+>   has legacy inferences (`flags.water`, `flags.pier`, road icons, a green authored
+>   surface reading as parkland) that a fresh `flags.terrain`-only rule would have
+>   silently dropped. world.js now delegates; proven identical on all 5,788 tiles.
+> - **`authored_bg_wins` is a new palette key** and an honest one. Only water and
+>   grass ever honoured a tile's own `bg_color`; everywhere else that column is the
+>   room's colour identity — 2,923 redrock tiles carry a dark interior brown that
+>   would have blacked out most of the map. The exception is now written down once
+>   instead of branched on in three renderers.
+>
+> **Verified without a browser**, which is the only reason a blind repaint of 5,788
+> tiles was shippable: a transcription of the shipped minimap (including the old
+> server-side `zoneTerrain`) was run against the derived spec for every tile —
+> **0 fill differences, 0 text differences, 0 terrain-class differences.**
+>
+> Not built here: `flight_biome` in the palette (nothing reads it yet — a dead
+> palette key is the rot §3.3 warns about) and a palette `ambient_theme` default
+> (it would have enshrined `wasteland`, the value with no ambience pool that step 2
+> surfaced). `content/map/index.json` (§2.4) is also still pending.
+
 One entry per terrain. **The only place a terrain's look is written down.** `TERRAIN_FILL`,
 `TOS_TERRAIN_FILL` and `TERRAIN_TYPES` are deleted (redesign §5.2).
 
@@ -832,8 +865,11 @@ point of the migration shape (redesign §14) is no flag day.
    no data migration, immediately useful to the dev panel as well. It also turned out to be the
    step that found the biggest live content defect so far: 4,145 tiles whose `ambient_theme` has
    no pool behind it.
-3. **`content/map/terrain.json` + `zone_render` + the derive module** for colours, glyph and
-   `ambient_theme`. Delete `TERRAIN_FILL`, `TOS_TERRAIN_FILL`, `TERRAIN_TYPES`.
+3. ~~**`content/map/terrain.json` + `zone_render` + the derive module**~~ **BUILT** — see the
+   call-out in §1.2. All three tables deleted. It also repaid step 1's loan: `resolveDefault`
+   now runs in the build and the audio plugin reads the resolved column, so there is no runtime
+   resolution left. And it fixed the pacing bug §1.2 named — 55 of 158 painted road tiles were
+   moving players at walking pace because pacing keyed off `flags.icon`, not the paint.
 4. **`deriveMarker`** (§7.4), importing the shipped `twoLetterAbbrev` logic rather than copying
    it.
 5. **The audit port** (§8). Do it here, not later — from step 3 onward the files-only audit is

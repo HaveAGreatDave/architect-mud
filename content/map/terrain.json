@@ -1,0 +1,181 @@
+{
+  "_comment": [
+    "The terrain palette — the ONLY place a terrain's look is written down.",
+    "Replaces three tables that had drifted apart: TERRAIN_TYPES (dev panel),",
+    "TERRAIN_FILL (minimap) and TOS_TERRAIN_FILL (tablet). They disagreed on",
+    "exactly one value — redrock, #9e4a30 in the dev panel against #6f3524 in the",
+    "game — so for 2,996 tiles the map an author painted was not the map a player",
+    "saw. The game's value is canonical here: players are the audience.",
+    "",
+    "Nothing reads this file at runtime. content:import feeds it to deriveWorld,",
+    "which resolves every tile into zone_render.spec; renderers read only that.",
+    "See docs/proposals/map-pipeline-spec.md §1.2 and §7.",
+    "",
+    "fill              map/minimap background for the tile",
+    "text              glyph colour, when the terrain dictates one (road markings).",
+    "                  null lets the renderer pick by luminance, as it does today.",
+    "glyph             marker fallback. null = blank tile, which is what painted",
+    "                  ground looks like now: a seamless expanse, marker dropped.",
+    "minimap_class     CSS class suffix the game client applies (terr-<class>)",
+    "auto_tile         adjacency-aware art (the road connector SVGs)",
+    "speed_mult        movement pacing. THE fix for a live bug: pacing keyed off",
+    "                  flags.icon matching /^road_/, so 55 of 158 painted road",
+    "                  tiles carried no speed-up at all.",
+    "authored_bg_wins  a tile's own bg_color beats this fill. LEGACY, and only",
+    "                  true where it already was: water and grass predate the",
+    "                  terrain painter and their authored colours ARE the intended",
+    "                  look. Everywhere else the authored bg_color is the room's",
+    "                  colour identity, not a map fill — 2,923 redrock tiles carry",
+    "                  #2a1c16, a dark interior brown that would black out the map",
+    "                  if it were treated as an override. Retiring this means",
+    "                  deciding what those water/grass tiles should look like, not",
+    "                  deleting a line."
+  ],
+  "_no_default": [
+    "There is deliberately no palette-wide default terrain. The spec floated one",
+    "('terrain assumed when flags.terrain is absent'), but 530 tiles have no ground",
+    "surface because they ARE not ground — interiors, building footprints — and a",
+    "default would have painted every one of them concrete grey. Unpainted resolves",
+    "to null, and null means 'no terrain', not 'terrain unknown'."
+  ],
+  "version": 1,
+  "terrains": {
+    "road": {
+      "label": "Road",
+      "fill": "#4c5157",
+      "text": "#f2c53d",
+      "glyph": null,
+      "minimap_class": "road",
+      "auto_tile": true,
+      "speed_mult": 2
+    },
+    "dirt_road": {
+      "label": "Dirt Road",
+      "fill": "#7d6236",
+      "text": "#c9a86a",
+      "glyph": null,
+      "minimap_class": "dirt_road",
+      "auto_tile": true,
+      "speed_mult": 2
+    },
+    "asphalt": {
+      "label": "Asphalt",
+      "fill": "#45484d",
+      "text": null,
+      "glyph": null,
+      "minimap_class": "asphalt",
+      "auto_tile": false,
+      "speed_mult": 1
+    },
+    "concrete": {
+      "label": "Concrete",
+      "fill": "#8a8d91",
+      "text": null,
+      "glyph": null,
+      "minimap_class": "concrete",
+      "auto_tile": false,
+      "speed_mult": 1
+    },
+    "grass": {
+      "label": "Grass",
+      "fill": "#5a9e57",
+      "text": null,
+      "glyph": null,
+      "minimap_class": "grass",
+      "auto_tile": false,
+      "speed_mult": 1,
+      "authored_bg_wins": true
+    },
+    "park": {
+      "label": "Park",
+      "fill": "#46a24e",
+      "text": null,
+      "glyph": null,
+      "minimap_class": "park",
+      "auto_tile": false,
+      "speed_mult": 1
+    },
+    "dirt": {
+      "label": "Dirt",
+      "fill": "#6b5138",
+      "text": null,
+      "glyph": null,
+      "minimap_class": "dirt",
+      "auto_tile": false,
+      "speed_mult": 1
+    },
+    "sand": {
+      "label": "Sand",
+      "fill": "#c2b280",
+      "text": null,
+      "glyph": null,
+      "minimap_class": "sand",
+      "auto_tile": false,
+      "speed_mult": 1
+    },
+    "gravel": {
+      "label": "Gravel",
+      "fill": "#7d7a73",
+      "text": null,
+      "glyph": null,
+      "minimap_class": "gravel",
+      "auto_tile": false,
+      "speed_mult": 1
+    },
+    "dock": {
+      "label": "Dock",
+      "fill": "#6e5636",
+      "text": null,
+      "glyph": null,
+      "minimap_class": "dock",
+      "auto_tile": false,
+      "speed_mult": 1
+    },
+    "water": {
+      "label": "Water",
+      "fill": "#3f7fb0",
+      "text": null,
+      "glyph": null,
+      "minimap_class": "water",
+      "auto_tile": false,
+      "speed_mult": 1,
+      "authored_bg_wins": true
+    },
+    "scrub": {
+      "label": "Scrubland",
+      "fill": "#6f7248",
+      "text": null,
+      "glyph": null,
+      "minimap_class": "scrub",
+      "auto_tile": false,
+      "speed_mult": 1
+    },
+    "redrock": {
+      "label": "Red Rock",
+      "fill": "#6f3524",
+      "text": null,
+      "glyph": null,
+      "minimap_class": "redrock",
+      "auto_tile": false,
+      "speed_mult": 1
+    },
+    "ash": {
+      "label": "Ash",
+      "fill": "#4f4b47",
+      "text": null,
+      "glyph": null,
+      "minimap_class": "ash",
+      "auto_tile": false,
+      "speed_mult": 1
+    },
+    "marsh": {
+      "label": "Marsh",
+      "fill": "#4d5a30",
+      "text": null,
+      "glyph": null,
+      "minimap_class": "marsh",
+      "auto_tile": false,
+      "speed_mult": 1
+    }
+  }
+}

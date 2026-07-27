@@ -232,11 +232,27 @@ export function isRuntimeResidueId(table, id) {
 // ── File-tree reading (import / lint side) ───────────────────────────────────
 // Reads content/<table>/*.json for every registry table, in registry (FK-safe)
 // order. Throws on unparseable JSON or directories that aren't content tables.
+// Content directories that are NOT one-file-per-row tables. `map/` holds the
+// terrain palette (and, later, the coordinate atlas): authored, committed, git-
+// owned like everything else here, but read whole rather than upserted, so the
+// unknown-directory guard has to know about it by name.
+export const NON_TABLE_DIRS = new Set(['map']);
+
+export function readPalette(baseDir = CONTENT_DIR) {
+  const path = join(baseDir, 'map', 'terrain.json');
+  if (!existsSync(path)) return null;
+  try {
+    return JSON.parse(readFileSync(path, 'utf8'));
+  } catch (e) {
+    throw new Error(`content/map/terrain.json: invalid JSON — ${e.message}`);
+  }
+}
+
 export function readContentTree(baseDir = CONTENT_DIR) {
   if (!existsSync(baseDir)) return { entries: [], unknownDirs: [] };
   const byTable = new Map(contentEntries().map(e => [e.table, e]));
   const unknownDirs = readdirSync(baseDir, { withFileTypes: true })
-    .filter(d => d.isDirectory() && !byTable.has(d.name))
+    .filter(d => d.isDirectory() && !byTable.has(d.name) && !NON_TABLE_DIRS.has(d.name))
     .map(d => d.name);
   const entries = [];
   for (const entry of contentEntries()) {

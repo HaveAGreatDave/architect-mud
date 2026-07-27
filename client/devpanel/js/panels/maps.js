@@ -1023,23 +1023,22 @@ function paintPanelHtml() {
 // Mirrors the colour painter: brush / fill / pick / rectangle-select, drag-safe
 // single-tag PATCH so strokes stage into the Changes panel. Road tiles auto-tile their
 // connector piece from adjacent road tiles, previewed live in the grid.
-const TERRAIN_TYPES = [
-  { key: 'road',     label: 'Road',     fill: '#4c5157' },
-  { key: 'dirt_road',label: 'Dirt Road',fill: '#7d6236' },
-  { key: 'asphalt',  label: 'Asphalt',  fill: '#45484d' },
-  { key: 'concrete', label: 'Concrete', fill: '#8a8d91' },
-  { key: 'grass',    label: 'Grass',    fill: '#5a9e57' },
-  { key: 'park',     label: 'Park',     fill: '#46a24e' },
-  { key: 'dirt',     label: 'Dirt',     fill: '#6b5138' },
-  { key: 'sand',     label: 'Sand',     fill: '#c2b280' },
-  { key: 'gravel',   label: 'Gravel',   fill: '#7d7a73' },
-  { key: 'dock',     label: 'Dock',     fill: '#6e5636' },
-  { key: 'water',    label: 'Water',    fill: '#3f7fb0' },
-  { key: 'scrub',    label: 'Scrubland',fill: '#6f7248' },
-  { key: 'redrock',  label: 'Red Rock', fill: '#9e4a30' },
-  { key: 'ash',      label: 'Ash',      fill: '#4f4b47' },
-  { key: 'marsh',    label: 'Marsh',    fill: '#4d5a30' },
-];
+// The brush palette, loaded from content/map/terrain.json via /map/palette. It was
+// a hardcoded table here, a second one in the game minimap and a third in the
+// tablet — and they had drifted: this one painted redrock #9e4a30 while the game
+// drew #6f3524, so on 2,996 tiles the map an author painted was not the map a
+// player saw. One file now, fetched once. (Populated by ensureTerrainPalette();
+// empty until then, which only means the swatch row renders late.)
+let TERRAIN_TYPES = [];
+let _terrainPalette = null;
+async function ensureTerrainPalette() {
+  if (_terrainPalette) return _terrainPalette;
+  const p = await API('/map/palette').catch(() => null);
+  _terrainPalette = p && p.terrains ? p : { terrains: {} };
+  TERRAIN_TYPES = Object.entries(_terrainPalette.terrains).map(([key, t]) => ({ key, label: t.label || key, fill: t.fill }));
+  rebuildTerrainFillIndex();
+  return _terrainPalette;
+}
 // Runway pseudo-surfaces. A runway isn't a flags.terrain value — it's a directional
 // centreline strip written as flags.runway ('ns'|'ew') + flags.icon (runway_ns/_ew)
 // plus the canonical yellow-marking / asphalt / bar-marker presentation, exactly how
@@ -1051,10 +1050,16 @@ const RUNWAY_KEYS = {
 };
 const RUNWAY_COLOR = '#f5d400', RUNWAY_BG = '#2b2b2b';
 const isRunwayKey = k => !!RUNWAY_KEYS[k];
-const TERRAIN_FILL_BY_KEY = Object.fromEntries([
-  ...TERRAIN_TYPES.map(t => [t.key, t.fill]),
-  ...Object.keys(RUNWAY_KEYS).map(k => [k, RUNWAY_COLOR]),
-]);
+// Brush-preview fills only — what a swatch looks like and what a tile turns into
+// the instant you paint it, before the derive pass has run. The AUTHORITY for what
+// a tile looks like is its spec (zone_render), which the editor reads directly.
+let TERRAIN_FILL_BY_KEY = Object.fromEntries(Object.keys(RUNWAY_KEYS).map(k => [k, RUNWAY_COLOR]));
+function rebuildTerrainFillIndex() {
+  TERRAIN_FILL_BY_KEY = Object.fromEntries([
+    ...TERRAIN_TYPES.map(t => [t.key, t.fill]),
+    ...Object.keys(RUNWAY_KEYS).map(k => [k, RUNWAY_COLOR]),
+  ]);
+}
 // The surface key a tile currently carries (runway pseudo-key wins over flags.terrain),
 // so paint guards can no-op when a tile is already the brushed surface.
 function _tileSurfaceKey(z) {
@@ -1164,7 +1169,22 @@ function _terrainTileVisual(z, byCoord) {
 // flags (apiGetMap returns the whole jsonb) with the terrain change applied, so we send
 // those verbatim: no server read-merge-write, and no other flags are dropped. The staging
 // queue coalesces repeated edits to the same zone into one pending change.
+// A paint changes what a tile LOOKS like, and what a tile looks like now comes
+// from zone_render — which only a derive pass writes. Without this the painter
+// would stage a change nobody could see until the next deploy, which is a painter
+// nobody would use. Debounced, because a drag stroke is dozens of saves and derive
+// is whole-map by design (spec §7.2).
+let _deriveTimer = null;
+function _scheduleDerive() {
+  clearTimeout(_deriveTimer);
+  _deriveTimer = setTimeout(async () => {
+    await API('/map/derive', 'POST', {}).catch(() => null);
+    if (typeof renderMapOverview === 'function') renderMapOverview();
+  }, 500);
+}
+
 async function _saveTerrain(zoneId) {
+  _scheduleDerive();
   if (mapTerrainPending.has(zoneId)) return;
   mapTerrainPending.add(zoneId);
   try {
@@ -1745,6 +1765,7 @@ function newBuildingPanelHtml() {
 }
 
 async function renderMapsPanel(data) {
+  await ensureTerrainPalette();   // brush swatches come from content/map/terrain.json
   mapsList = Array.isArray(data) ? data : [];
   const panel = document.getElementById('list-panel');
   if (!mapsList.length) { panel.innerHTML = '<div style="padding:24px;color:var(--text-dim)">No maps yet. Run <code>npm run db:seed</code> to create map_world.</div>'; return; }

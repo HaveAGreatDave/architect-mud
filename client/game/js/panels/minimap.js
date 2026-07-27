@@ -400,14 +400,11 @@ function wireMinimap() { wireMinimapAvenueToggle(); wireMinimapAutoToggle(); wir
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wireMinimap);
 else wireMinimap();
 
-function luminanceTextColor(hex) {
-  const h = hex.replace('#', '');
-  if (h.length !== 6) return null;
-  const r = parseInt(h.slice(0,2),16), g = parseInt(h.slice(2,4),16), b = parseInt(h.slice(4,6),16);
-  const lum = (0.299*r + 0.587*g + 0.114*b) / 255;
-  const t = Math.round((1 - lum) * 255);
-  return `rgb(${t},${t},${t})`;
-}
+// luminanceTextColor lived here. It moved to scripts/content/derive.mjs as
+// contrastText() and now runs at build time, so spec.text is already final — the
+// renderer never picks a colour. (There were two of these, and they disagreed:
+// the dev panel's returned a binary #111111/#eeeeee against this one's continuous
+// grey, so the same tile was lettered differently in the editor and the game.)
 
 // Slide the minimap in the direction of travel so a move reads as movement
 // rather than a hard swap. Offset is one cell; the new frame starts shifted
@@ -712,11 +709,8 @@ export function renderMinimap(nodes, direction) {
         // visible tile rather than a blank swatch. The beacon (mm-current ::before/
         // ::after) is a small centred dot+ring, so the tile shows around it.
         const cs = [];
-        const cterr = TERRAIN.has(node.terrain) ? node.terrain : null;
-        if (cterr === 'road') cs.push(`background-color:${ROAD_SURFACE}`);
-        else if (cterr === 'dirt_road') cs.push(`background-color:${DIRT_ROAD_SURFACE}`);
-        else if (cterr) cs.push(`background-color:${terrainFill(cterr, node.bg_color)}`);
-        else if (node.bg_color) cs.push(`background-color:${node.bg_color}`);
+        const cterr = terrainOf(node);
+        if (node.spec?.fill) cs.push(`background-color:${node.spec.fill}`);
         else if (node.district?.color) { const [dr, dg, db] = hexToRgb(node.district.color); cs.push(`background-color:rgba(${dr},${dg},${db},0.20)`); }
         const cterrCls = cterr ? ` mm-terr mm-${cterr}` : '';
         const cStyle = cs.length ? ` style="${cs.join(';')}"` : '';
@@ -739,37 +733,35 @@ export function renderMinimap(nodes, direction) {
       }
       // Authored bg wins; otherwise a faint district tint so the sidebar reads as
       // coloured neighborhood regions, not a uniform code-grid.
+      // Everything a tile looks like comes from spec — resolved at BUILD time by
+      // scripts/content/derive.mjs, never recomputed here. The district tint is the
+      // one thing left: it is a per-viewer overlay, not a property of the tile.
       const styles = [];
-      if (node.bg_color) styles.push(`background:${node.bg_color}`);
+      const fill = node.spec?.fill || null;
+      if (fill) styles.push(`background:${fill}`);
       else if (node.district?.color) { const [dr, dg, db] = hexToRgb(node.district.color); styles.push(`background:rgba(${dr},${dg},${db},0.20)`); }
-      const textColor = node.color || (node.bg_color ? luminanceTextColor(node.bg_color) : null);
-      if (textColor) styles.push(`color:${textColor}`);
-      let styled = (node.bg_color || node.color) ? ' mm-styled' : '';
+      if (node.spec?.text) styles.push(`color:${node.spec.text}`);
+      let styled = (fill || node.spec?.text) ? ' mm-styled' : '';
       // Terrain override (road / water / grass): seamless tileable fill. Roads become
       // grey asphalt with yellow markings (the road SVG mask inherits `color`); water
       // and grass drop their marker text for a clean coloured expanse + a connecting
       // texture supplied by the .mm-<terrain> class. `background-color` (long-hand) is
       // used so the class's texture background-image survives.
       let content = symFor(node);
-      const terr = TERRAIN.has(node.terrain) ? node.terrain : null;
-      if (terr === 'road' || terr === 'dirt_road') {
-        // dirt_road reuses road's auto-tiled connector SVG (node.icon_svg → symFor), just
-        // recoloured to a packed-dirt track so it still reads as a lane, not a bare patch.
-        styles.length = 0;
-        styles.push(`background-color:${terr === 'dirt_road' ? DIRT_ROAD_SURFACE : ROAD_SURFACE}`,
-          `color:${terr === 'dirt_road' ? DIRT_ROAD_MARKING : ROAD_MARKING}`);
-        styled = ' mm-styled';
-      } else if (terr) {
-        styles.length = 0;
-        const fill = terrainFill(terr, node.bg_color);
+      const terr = terrainOf(node);
+      if (terr) {
         // Terrain paints the GROUND. Whatever stands on that ground is a separate
         // layer and survives the fill: an authored flags.icon SVG (a statue, a
         // helipad, an AA nest), the ▣ door marker, a building's overlay glyph or
         // label. Painting the statue's square `park` must not delete the statue —
         // symFor() already emits nothing for a bare tile, so there is no stray
-        // marker text here to blank, only meaning. Colour is always set so the
-        // icon mask and any overlay read against the fill.
-        styles.push(`background-color:${fill}`, `color:${node.color || luminanceTextColor(fill)}`);
+        // marker text here to blank, only meaning. `background-color` (long-hand)
+        // is used so the .mm-<terrain> class's texture image survives.
+        // Roads and dirt roads need no branch any more: their yellow/tan markings
+        // are just the palette's `text` for that terrain (auto_tile says the
+        // connector SVG in node.icon_svg is doing the drawing).
+        styles.length = 0;
+        styles.push(`background-color:${node.spec.fill}`, `color:${node.spec.text}`);
         styled = ' mm-styled';
       }
       const terrCls = terr ? ` mm-terr mm-${terr}` : '';
@@ -894,20 +886,19 @@ const TERRAIN = new Set(['road', 'dirt_road', 'water', 'grass', 'park', 'asphalt
 // (Every painted surface keeps whatever stands on it — see the terrain branch in the
 // cell loop. There is no longer a glyph-keeping subset: blanking icons and building
 // overlays on painted ground was the bug that hid the Fisherman Statue.)
-const ROAD_SURFACE = '#4c5157';   // grey asphalt
-const ROAD_MARKING = '#f2c53d';   // yellow lane markings (the road SVG mask takes `color`)
-const DIRT_ROAD_SURFACE = '#7d6236';   // packed-dirt track — same connector art, no paint
-const DIRT_ROAD_MARKING = '#c9a86a';   // pale tan (a graded dirt lane, not painted asphalt)
-// Canonical per-type surface colour. water/grass keep authored bg_color priority (legacy,
-// seamless); the newer painted types (asphalt…dock) use their fill so the terrain drives the look.
-const TERRAIN_FILL = {
-  water: '#3f7fb0', grass: '#5a9e57', park: '#46a24e', asphalt: '#45484d', concrete: '#8a8d91',
-  dirt: '#6b5138', sand: '#c2b280', gravel: '#7d7a73', dock: '#6e5636', dirt_road: DIRT_ROAD_SURFACE,
-  scrub: '#6f7248', redrock: '#6f3524', ash: '#4f4b47', marsh: '#4d5a30',
-};
-// water/grass prefer an authored bg_color; every other terrain uses its canonical fill.
-function terrainFill(terr, bg) {
-  return (terr === 'water' || terr === 'grass') ? (bg || TERRAIN_FILL[terr]) : TERRAIN_FILL[terr];
+// TERRAIN_FILL is gone. Every colour on this map now arrives already resolved in
+// node.spec, built by scripts/content/derive.mjs from content/map/terrain.json.
+// There used to be three copies of this table — here, the tablet, and the dev
+// panel — and they had drifted: redrock was #6f3524 in the game and #9e4a30 in
+// the editor, so for 2,996 tiles the map an author painted was not the map a
+// player saw. One palette, resolved once, at build time.
+
+// The terrain CLASS for styling hooks (.mm-<terrain> textures) — a name, not a
+// colour. spec.minimap_class is what derive resolved; the payload's node.terrain
+// stays as the fallback for a transient zone, which has no derived row.
+function terrainOf(node) {
+  const t = node?.spec?.minimap_class || node?.terrain || null;
+  return t && TERRAIN.has(t) ? t : null;
 }
 
 // Cosmetic open water — Coldwater Bay. The overworld (`map_world`) has empty grid

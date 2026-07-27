@@ -21,7 +21,16 @@ working. Don't reintroduce it. See [reference/land-taxonomy.md](reference/land-t
 
 ## `flags.terrain` — the SSOT
 
-Canonical values (palette `TERRAIN_TYPES`, [maps.js:1026](../client/devpanel/js/panels/maps.js)):
+Canonical values live in **[content/map/terrain.json](../content/map/terrain.json)** — the one place a
+terrain's look is written down, and the input to the build's derive pass. There used to be three
+hardcoded copies (`TERRAIN_TYPES` in the dev panel, `TERRAIN_FILL` in the minimap, `TOS_TERRAIN_FILL`
+in the tablet) and they had drifted: redrock was `#9e4a30` in the editor and `#6f3524` in the game, so
+on 2,996 tiles the map an author painted was not the map a player saw. All three are deleted.
+
+**Nothing reads the palette at runtime.** `content:import` feeds it to `deriveWorld`
+([scripts/content/derive.mjs](../scripts/content/derive.mjs)), which resolves every tile into a
+`zone_render` row; every renderer paints from `spec` and computes nothing. Fills below are the file's
+current values — the file is authoritative, this table is a convenience.
 
 | key | label | fill |
 |---|---|---|
@@ -37,7 +46,7 @@ Canonical values (palette `TERRAIN_TYPES`, [maps.js:1026](../client/devpanel/js/
 | `dock` | Dock | `#6e5636` wooden decking |
 | `water` | Water | `#3f7fb0` |
 | `scrub` | Scrubland | `#6f7248` dry brush tufts (wildlands) |
-| `redrock` | Red Rock | `#9e4a30` rust mesa facets (wildlands) |
+| `redrock` | Red Rock | `#6f3524` rust mesa facets (wildlands) |
 | `ash` | Ash | `#4f4b47` burnt-grey flecks (wildlands) |
 | `marsh` | Marsh | `#4d5a30` toxic murky ripples (wildlands) |
 
@@ -170,15 +179,20 @@ for the per-tile installer and Auto-Resolve.
 
 ## Runtime consumption
 
-- **2D minimap** ([minimap.js](../client/game/js/panels/minimap.js)) — `TERRAIN`
-  set + `terrainFill()` (water/grass prefer authored `bg_color`; others use the
-  canonical fill). Textured types get `.mm-<terrain>`/`.map-<terrain>` classes;
-  CSS textures (water/grass/dock plank) live in
+- **2D minimap** ([minimap.js](../client/game/js/panels/minimap.js)) — paints
+  `node.spec.fill` / `node.spec.text` and nothing else. Textured types still get
+  `.mm-<terrain>`/`.map-<terrain>` classes from `spec.minimap_class`; the CSS
+  textures (water/grass/dock plank) live in
   [styles.css](../client/game/styles.css) (`.mm-dock` ~`:2816`).
-- **Tablet map** ([tablet-os.js](../client/game/js/panels/tablet-os.js)) —
-  `TOS_TERRAIN_FILL` (`:3517`) + `terr-<type>` tile classes.
-- **Pacing** — `minimap.js` uses `terrain === 'road'` (or a non-empty `artery`)
-  to pick the run-vs-walk step animation timing. Not passability.
+  The `authored_bg_wins` palette flag is what keeps water and grass preferring a
+  tile's own `bg_color` — a legacy exception, now written down once instead of
+  branched on in three renderers.
+- **Tablet map** ([tablet-os.js](../client/game/js/panels/tablet-os.js)) — same
+  `spec` + `terr-<type>` tile classes.
+- **Pacing** — reads `spec.speed_mult`. This used to key off `flags.icon` matching
+  `/^road_/`, so a tile *painted* `road` with no authored icon moved you at walking
+  pace — 55 of the world's 158 road tiles. Runways and arteries keep their own
+  clause in [pacing](../plugins/pacing/index.js): neither is a terrain. Not passability.
 - **Flight** — `flags.terrain` **does** drive the aerial ground tint.
   `districtBiome()` ([biomes.js:55](../plugins/flight/biomes.js)) checks
   `TERRAIN_BIOME[flags.terrain]` **first**, before any id-prefix/danger inference — so an authored

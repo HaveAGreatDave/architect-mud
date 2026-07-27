@@ -36,8 +36,9 @@ import { contentEntries } from '../../server/models/content-registry.js';
 import {
   connectTarget, readContentTree, columnTypes, paramFor,
   rowToFileObject, canonicalJson, schemaColumnsOf, CONTENT_DIR, REPO_ROOT, MARKER_KEY,
-  isRuntimeResidueId,
+  isRuntimeResidueId, readPalette,
 } from './lib.mjs';
+import { writeDerived } from './derive-write.mjs';
 
 const args = new Set(process.argv.slice(2));
 const prod = args.has('--prod');
@@ -326,6 +327,24 @@ try {
       }
       totalIns += ins; totalUpd += upd;
       if (ins || upd) console.log(`  ${entry.table.padEnd(26)} +${ins} inserted, ~${upd} updated (${files.length} files)`);
+    }
+
+    // ── Derive pass (spec §9) ─────────────────────────────────────────────────
+    // Reads the zones and regions this transaction just committed, plus the
+    // palette, and rebuilds the generated tables. Writes ONLY generated tables —
+    // never `zones` — so the drift report and the git-diff deletion pass need no
+    // changes at all. Runs on every push at zero Neon egress, because CI does the
+    // whole lint → import → regress cycle against a throwaway local Postgres.
+    {
+      const palette = readPalette();
+      const [zoneRows, regionRows] = await Promise.all([
+        client.query('SELECT id, marker, color, bg_color, ambient_theme, audio_theme_id, flags FROM zones'),
+        client.query('SELECT id, defaults FROM regions'),
+      ]);
+      const { rows: derived } = await writeDerived(client, {
+        zones: zoneRows.rows, regions: regionRows.rows, palette,
+      });
+      console.log(`  ${'zone_render (derived)'.padEnd(26)} ${derived} rows${palette ? '' : '  ⚠ no content/map/terrain.json — palette rung empty'}`);
     }
 
     // ── Advance the marker ────────────────────────────────────────────────────

@@ -29,6 +29,13 @@ noise; a fresh restore that unlocks every vault is data loss. Regress layer 1a
 fails the build if any table is unclassified or any declared column doesn't
 exist — the "forgot to add scavenging tables to the backup" bug class is dead.
 
+**`content/map/` is authored content that isn't a table.** One file, read whole
+rather than upserted per row: `terrain.json`, the terrain palette. It is git-owned
+like everything else under `content/`, and `NON_TABLE_DIRS` in
+[lib.mjs](../scripts/content/lib.mjs) is what stops the unknown-directory guard
+rejecting it. Nothing reads it at runtime — the build resolves it into
+`zone_render` and renderers read only that.
+
 **omitWhenNull is the opposite case: authored, but absent by default.** Some
 columns are *overrides* — a tile writes one only when it disagrees with what it
 would otherwise inherit (`regions.defaults` → `resolveDefault`, see
@@ -65,7 +72,17 @@ any time:        npm run content:status   # "do files match my DB?"
 - `content:import` — files → DB. Applies SCHEMA_SQL first, then one
   transaction: registry-order upserts (`ON CONFLICT (pk) DO UPDATE`, no-op when
   identical), then the deletion pass (below). Never drops the DB; player rows
-  are untouched. On a **local** target it then runs `content:seed-runtime`.
+  are untouched. On a **local** target it then runs `content:seed-runtime`. It
+  finishes with a **derive pass**: it reads the zones and regions the transaction
+  just committed plus [content/map/terrain.json](../content/map/terrain.json), and
+  rebuilds `zone_render` — the generated presentation every renderer paints from
+  (map-pipeline-spec §9). The pass writes only generated tables, never `zones`, so
+  the drift report and the git-diff deletion pass need no changes at all.
+- `map:derive` — the derive pass on its own, against a live database. A normal
+  deploy never needs it; it exists for the case the deploy can't cover, a one-shot
+  script that rewrites tiles directly and leaves the generated tables describing
+  the world as it was. Run it after one, or the map draws yesterday. (The dev
+  panel's terrain painter calls the same pass over `POST /map/derive`.)
 - `content:seed-runtime` — initialises runtime-managed state that `excludeColumns`
   keeps out of files and that therefore starts at its table default on a fresh DB
   (most visibly `npcs.vendor_stock`: every shop empty until the first in-game daily

@@ -107,6 +107,24 @@ export const SCHEMA_SQL = `
   -- { temp: <°C offset>, dryness: <0..1 precip/cloud multiplier> }. NULL = baseline.
   ALTER TABLE regions ADD COLUMN IF NOT EXISTS climate_bias JSONB;
 
+  -- GENERATED presentation, one row per zone. TRUNCATEd and rebuilt by the derive
+  -- pass of content:import (docs/proposals/map-pipeline-spec.md §2.1) — never
+  -- authored, never exported, classed runtime so it structurally cannot enter
+  -- content/. Renderers read ONLY these values; a renderer that falls back to
+  -- zones.marker is drawing a marker nobody authored.
+  CREATE TABLE IF NOT EXISTS zone_render (
+    zone_id        TEXT PRIMARY KEY REFERENCES zones(id) ON DELETE CASCADE,
+    marker         TEXT,
+    color          TEXT,
+    bg_color       TEXT,
+    icon           TEXT,
+    ambient_theme  TEXT,
+    audio_theme_id TEXT,
+    minimap_class  TEXT,
+    glyph          TEXT,
+    spec           JSONB NOT NULL DEFAULT '{}'
+  );
+
   -- The region-level slot of the defaults-and-overrides mechanism
   -- (docs/proposals/map-pipeline-spec.md §1.3): { "<column>": <value> } read by
   -- resolveDefault() when a member tile leaves that column null. One key today,

@@ -7,6 +7,7 @@ import { isSanctuary, getZoneRadiation } from './zone-tags.js';
 import { hasTag } from './tags.js';
 import { registerProtectionProvider } from './protection.js';
 import { zoneDanger, enemyThreat, bucketThreat } from './danger.js';
+import { resolveTerrain, resolveDefault } from '../../scripts/content/derive.mjs';
 
 // In-memory world state — same as before, DB is source of truth
 const world = {
@@ -27,6 +28,7 @@ const world = {
   furniture: new Map(),  // id -> furniture row (write funnel below keeps it in sync; DB stays SoT)
   regions: new Map(),    // regionId -> regions row (spatial world-map places; member zones carry flags.region_id)
   transientZones: new Set(), // ids of synthetic (non-DB) zones injected at runtime — see registerTransientZone
+  render: new Map(),     // zoneId -> zone_render row (GENERATED presentation; see below)
 };
 
 // Last-resort home for an NPC whose current AND home zones were both deleted
@@ -73,6 +75,7 @@ export async function initWorld() {
   await loadOrgVentures();
   await loadMaps();
   await loadRegions();
+  await loadZoneRender();
   await loadPlayerCorpses();
   console.log(`✓ World loaded: ${world.zones.size} zones, ${world.npcs.size} NPCs, ${world.apartments.size} apartments, ${world.doors.size} doors, ${world.orgs.size} orgs`);
 }
@@ -94,6 +97,28 @@ async function loadRegions() {
   world.regions.clear();
   for (const row of rows) world.regions.set(row.id, row);
 }
+// ── Generated presentation (zone_render) ────────────────────────────────────
+// Built by content:import's derive pass, never authored. Cached in RAM because
+// every minimap frame and every map payload reads it — a per-tile query would be
+// the worst kind of hot path. It only changes when a build runs, and the two
+// things that run a build (content:import, POST /map/derive) both refresh this.
+async function loadZoneRender() {
+  const { rows } = await query('SELECT * FROM zone_render').catch(() => ({ rows: [] }));
+  world.render.clear();
+  for (const row of rows) world.render.set(row.zone_id, row);
+  if (!rows.length) {
+    console.warn('[world] zone_render is empty — run `npm run map:derive`. Tiles will render with no fill.');
+  }
+}
+export { loadZoneRender };
+
+// The generated presentation for a tile. Renderers read THIS and nothing else:
+// falling back to zones.marker here is how a map ends up drawing a marker nobody
+// authored (commit 36f1b8f3). Returns null for a transient/synthetic zone, which
+// has no row by construction.
+export function renderOf(zoneId) { return world.render.get(zoneId) || null; }
+export function specOf(zoneId) { return world.render.get(zoneId)?.spec || null; }
+
 export function getRegion(id) { return world.regions.get(id) || null; }
 export function getAllRegions() { return [...world.regions.values()]; }
 
@@ -111,7 +136,7 @@ export function regionForZone(zone) {
 // (add-room, link-interior) call this so a new building becomes enterable
 // without a reboot. Region create/move publishes route through here too, so the
 // region cache refreshes in lockstep.
-export async function reloadMaps() { await loadMaps(); await loadRegions(); }
+export async function reloadMaps() { await loadMaps(); await loadRegions(); await loadZoneRender(); }
 
 // The interior map whose parent tile is this zone (i.e. this zone is a
 // building facade). Linear scan — the maps table is tiny.
@@ -244,29 +269,12 @@ export function interiorExitDirs(zone) {
 // road recolour. Grass = parkland, detected by an authored green surface colour (the
 // way parks are painted). Buildings and ordinary street tiles return null.
 export function zoneTerrain(zone) {
-  if (!zone) return null;
-  // Authored terrain wins — the paint tool writes flags.terrain and it is the SSOT.
-  // The inference below stays as the fallback for tiles that were never painted.
-  if (zone.flags?.terrain) return zone.flags.terrain;
-  // DEPRECATED fallback. `flags.water` was a second, parallel way of marking water:
-  // the Coldwater Basin carried it with terrain unset, while the wildlands hydrology
-  // (two seas + a river) carried terrain:'water' with no flag — two markers that
-  // shared zero tiles and disagreed everywhere they were consulted. The 256 basin
-  // tiles were migrated to flags.terrain on 2026-07-21 and NOTHING carries this flag
-  // any more; the line stays only so hand-authored legacy content still reads right.
-  // Mark water with flags.terrain = 'water'. See reference/land-taxonomy.md.
-  if (zone.flags?.water) return 'water';
-  if (zone.flags?.pier) return 'dock';   // a jetty/pier reads as wooden decking, not bare ground
-  if (/^(road_|runway_)/.test(zone.flags?.icon || '')) return 'road';
-  if (buildingIconSvg(zone)) return null; // a building footprint, not terrain
-  const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(zone.bg_color || '');
-  if (m) {
-    const r = parseInt(m[1], 16), g = parseInt(m[2], 16), b = parseInt(m[3], 16);
-    // Green-dominant surface = parkland/grass. Catches both the bright plaza greens and
-    // the dark muted grasslands (bg #2f3a26). `g - b >= 15` keeps teal/cyan docks out.
-    if (g > r && g - b >= 15 && g >= 45) return 'grass';
-  }
-  return null;
+  // Moved to scripts/content/derive.mjs so the BUILD resolves terrain exactly the
+  // way the engine always has — there is one rule, and the generated zone_render
+  // rows and any runtime caller cannot disagree about what a tile is standing on.
+  // The legacy inferences (flags.water, flags.pier, road icons, a green authored
+  // surface = parkland) moved with it, comments and all.
+  return resolveTerrain(zone);
 }
 
 // The road-connector SVG for a road tile, auto-tiled from which orthogonal neighbors are
@@ -955,6 +963,10 @@ export function getMinimapData(centerZoneId, depth = 8, viewer = null) {
       exits: primaryExits(zone),
       map_id: zone.map_id || null,
       grid_x: zone.grid_x, grid_y: zone.grid_y, grid_z: zone.grid_z,
+      // spec is the GENERATED presentation (zone_render.spec) and the only thing a
+      // renderer should colour a tile from. marker/color/bg_color stay in the
+      // payload for the tooltip and for a transient zone, which has no derived row.
+      spec: specOf(zone.id),
       marker: zone.marker || null, color: zone.color || null, bg_color: zone.bg_color || null,
       icon_svg: tileIconSvg(zone, roadAt), // named SVG in client/game/assets/zone-icons/ (authored icon / rooftop, or an auto-tiled road connector)
       building_type: buildingTypeOf(zone), // facade tile's type — drives the sidebar/full-map labels/icons overlay
@@ -987,7 +999,7 @@ export function getAllZones() {
     sanctuary: isSanctuary(z), radiation: getZoneRadiation(z), danger: zoneDanger(z),
     exits: z.exits, ambient_events: z.ambient_events, ambient_theme: z.ambient_theme, flags: z.flags,
     map_id: z.map_id, grid_x: z.grid_x, grid_y: z.grid_y, grid_z: z.grid_z,
-    marker: z.marker, color: z.color, bg_color: z.bg_color,
+    marker: z.marker, color: z.color, bg_color: z.bg_color, spec: specOf(z.id),
     player_count: z.players.size, enemy_count: z.enemies.size,
   }));
 }

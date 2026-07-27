@@ -3520,12 +3520,9 @@ function renderMap(d) {
   for (const t of tiles) { cell[rowOf(t)][colOf(t)] = t; tById.set(t.id, t); }
 
   let grid = `<div class="tos-map-grid" style="--tos-tile:${tosZoomPx(d)}px;grid-template-columns:repeat(${gCols},var(--tos-tile));grid-template-rows:repeat(${gRows},var(--tos-tile))">`;
-  // Canonical terrain fills (mirror minimap.js TERRAIN_FILL). 'road' is handled separately.
-  const TOS_TERRAIN_FILL = {
-    water: '#3f7fb0', grass: '#5a9e57', park: '#46a24e', asphalt: '#45484d', concrete: '#8a8d91',
-    dirt: '#6b5138', sand: '#c2b280', gravel: '#7d7a73', dock: '#6e5636', dirt_road: '#7d6236',
-    scrub: '#6f7248', redrock: '#6f3524', ash: '#4f4b47', marsh: '#4d5a30',
-  };
+  // TOS_TERRAIN_FILL is gone — it was a hand-kept copy of minimap.js's copy of the
+  // dev panel's table, and the three had already drifted. Colours now arrive fully
+  // resolved in t.spec (scripts/content/derive.mjs, content/map/terrain.json).
   for (let r = 0; r < gRows; r++) for (let c = 0; c < gCols; c++) {
     const t = cell[r][c];
     const pos = `grid-column:${c + 1};grid-row:${r + 1}`;
@@ -3545,21 +3542,18 @@ function renderMap(d) {
     // Tileable terrain (mirrors the sidebar/full-map minimap): roads → grey asphalt +
     // yellow markings; every other ground type → a seamless coloured expanse (marker
     // dropped). water/grass keep authored bg priority; newer types use their canonical fill.
-    const terrain = (t.terrain === 'road' || TOS_TERRAIN_FILL[t.terrain]) ? t.terrain : null;
+    const terrain = t.spec?.minimap_class || null;
     let sym = _mapTileSym(t);
     let style = pos + ';';
-    if (terrain === 'road') { style += 'background-color:#4c5157;color:#f2c53d;'; cls.push('terr', 'terr-road'); }
-    // dirt_road: same auto-tiled connector, recoloured to a packed-dirt track (keep the symbol).
-    else if (terrain === 'dirt_road') { style += 'background-color:#7d6236;color:#c9a86a;'; cls.push('terr', 'terr-dirt_road'); }
-    else if (terrain) {
-      const fill = (terrain === 'water' || terrain === 'grass') ? (t.bg_color || TOS_TERRAIN_FILL[terrain]) : TOS_TERRAIN_FILL[terrain];
-      style += `background-color:${fill};`;
+    if (terrain) {
+      style += `background-color:${t.spec.fill};color:${t.spec.text};`;
       cls.push('terr', 'terr-' + terrain);
       // Terrain paints the GROUND, so an authored zone-icon SVG standing on it (a
       // statue, a helipad, an AA nest) survives the fill — only the POI glyph, which
       // is a landmark hint for the adjacent street rather than this tile's own
-      // footprint, drops for a clean expanse.
-      if (!t.isCurrent && !t.svg) sym = '';
+      // footprint, drops for a clean expanse. Roads and dirt roads keep theirs —
+      // their auto-tiled connector IS the symbol, which is what spec.auto_tile says.
+      if (!t.spec.auto_tile && !t.isCurrent && !t.svg) sym = '';
     }
     // Regional view tints each non-terrain tile by land-use function, like the popup.
     else if (mode === 'regional' && FUNC_LEGEND[t.func]) {
