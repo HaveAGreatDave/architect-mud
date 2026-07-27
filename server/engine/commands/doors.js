@@ -1,5 +1,5 @@
 import { query } from '../../models/db.js';
-import { getDoorForExit, getDoorById, getZoneDoors, setDoorCache, getZone, world, getApartment, setApartmentCache } from '../world.js';
+import { getDoorForExit, getDoorById, getZoneDoors, setDoorCache, getZone, frontDoorOf, world, getApartment, setApartmentCache } from '../world.js';
 import { resolveLockAuth, getLockType, getAllLockTypes } from '../locks.js';
 import { propagateSound } from '../sounds.js';
 import { isOnCooldown, setCooldown, getCooldownRemaining } from '../combat.js';
@@ -41,6 +41,16 @@ function doorQuery(args) {
 // direction it lies in from the player and a "<dir> door" display name. Local
 // doors are anchored on this side; far-side doors are anchored in the neighbour
 // and reached by moving `dir`. Local wins on id collision (stable pick order).
+//
+// The third case is a building's FRONT door. It is not on the link the player is
+// about to traverse: a facade is never stood on, so stepping toward it forwards you
+// through the facade↔interior seam in one move, and the door lives on that seam — one
+// hop further in than the near/far scan reaches. Movement has always looked through
+// the facade for it (resolveFacadeTransit); until now these verbs did not, so
+// `open door` from the street returned null for every one of the 61 buildings and a
+// front door could only be worked from inside. Nobody hit it because all 57 shipped
+// facade doors are closed-but-unlocked — the moment a shop locks at night it would
+// have been a door you can neither open nor hack from the street.
 function doorCandidates(player) {
   const zone = getZone(player.current_zone);
   const cands = getZoneDoors(player.current_zone).map(d => ({ door: d, dir: d.exit_dir }));
@@ -48,6 +58,8 @@ function doorCandidates(player) {
   for (const { dir: exitDir, target: targetId } of allExits(zone)) {
     const d = getDoorForExit(targetId, OPPOSITE[exitDir], zone?.id);
     if (d && !seen.has(d.id)) { seen.add(d.id); cands.push({ door: d, dir: exitDir }); }
+    const front = frontDoorOf(getZone(targetId));
+    if (front && !seen.has(front.id)) { seen.add(front.id); cands.push({ door: front, dir: exitDir }); }
   }
   return cands.map(c => ({ ...c, name: `${c.dir} door` }));
 }

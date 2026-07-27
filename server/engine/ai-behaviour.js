@@ -1,4 +1,4 @@
-import { world, getLivePlayer, getDoorForExit, setDoorCache, getZone, getZonePlayers, getPlayerMembership, isEnterableFacade, getMapByParentZone, resolveLanding, updateNpc } from './world.js';
+import { world, getLivePlayer, getDoorForExit, setDoorCache, getZone, getZonePlayers, getPlayerMembership, isEnterableFacade, frontDoorOf, getMapByParentZone, resolveLanding, updateNpc } from './world.js';
 import { isSanctuary } from './zone-tags.js';
 import { zoneDanger, DANGER_RANK } from './danger.js';
 import { allExits, neighborZoneIds, exitTargets } from './exits.js';
@@ -334,8 +334,11 @@ export function moveEntity(entity, newZoneId, broadcast, query, opts = {}) {
     const fromInside = getZone(oldZoneId)?.map_id === interior.id;
     const finalId = fromInside ? facadeZone.flags?.world_exit_zone : interior.entry_zone_id;
     if (finalId && finalId !== oldZoneId && getZone(finalId)) {
-      const fd = getDoorForExit(facadeZone.id, 'in', interior.entry_zone_id)
-              || getDoorForExit(interior.entry_zone_id, 'out', facadeZone.id) || null;
+      // Was a hardcoded 'in'/'out' lookup, which only ever matched legacy buildings —
+      // the 52 whose facade↔interior seam is labelled with a cardinal had NO front door
+      // as far as this check was concerned, so a locked shop never stopped an NPC or a
+      // chasing enemy. frontDoorOf reads the actual exit direction.
+      const fd = frontDoorOf(facadeZone);
       if (fd && fd.hp > 0 && fd.lock_state === 'locked') {
         const ownsFrontDoor = !isEnemy(entity) &&
           [entity.home_zone, entity.work_zone_id].some(z => z && (z === oldZoneId || z === finalId || z === facadeZone.id));

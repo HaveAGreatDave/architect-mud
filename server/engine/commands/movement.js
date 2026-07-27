@@ -1,6 +1,6 @@
 import { query } from '../../models/db.js';
 import { formatBattleCry } from '../combat.js';
-import { getZone, getMinimapData, getAllZones, getMap, addPlayerToZone, removePlayerFromZone, getDoorForExit, setDoorCache, getAllLivePlayers, getLivePlayer, getZoneEnemies, getZoneNpcs, tryBattleCry, isEnterableFacade, getMapByParentZone, buildingIconSvg, buildingTypeOf, zoneTerrain, tileIconSvg, buildingEntranceDir, interiorExitDirs, facadeStreetTile, applyMinimapVisibility } from '../world.js';
+import { getZone, getMinimapData, getAllZones, getMap, addPlayerToZone, removePlayerFromZone, getDoorForExit, setDoorCache, getAllLivePlayers, getLivePlayer, getZoneEnemies, getZoneNpcs, tryBattleCry, isEnterableFacade, frontDoorOf, getMapByParentZone, buildingIconSvg, buildingTypeOf, zoneTerrain, tileIconSvg, buildingEntranceDir, interiorExitDirs, facadeStreetTile, applyMinimapVisibility } from '../world.js';
 import { getZoneVisibility, getWindowsForZone, getEnvironmentState, getZoneTemperature, getZoneSeverity } from '../environment.js';
 import { describeZone, resolveNamedDestination, isInteriorZone } from './describe.js';
 import { exitTargets, allExits, primaryExits } from '../exits.js';
@@ -319,21 +319,14 @@ function resolveFacadeTransit(from, to) {
     if (!street) return null;
     return { finalId: streetId, finalZone: street, frontDoor: null };
   }
-  // Entering: anywhere else → facade → interior entry zone. The front door
-  // lives on the facade↔interior link, so surface it for the gate chain (the
-  // street→facade hop has no door of its own). Find it by the ACTUAL exit
-  // direction rather than assuming 'in'/'out': buildings reworked to cardinal
-  // entrances label that link e.g. 'west'/'east', while legacy ones still use
-  // 'in'/'out' — both resolve here.
+  // Entering: anywhere else → facade → interior entry zone. The front door lives on
+  // the facade↔interior link, so surface it for the gate chain (the street→facade hop
+  // has no door of its own). frontDoorOf owns that lookup — the door verbs reach
+  // through the facade with the same call, so what you can walk through is what you
+  // can also open.
   const entryId = interior.entry_zone_id;
   const entryZone = getZone(entryId);
-  const toInteriorDir = allExits(to).find((e) => e.target === entryId)?.dir;
-  const toFacadeDir = entryZone ? allExits(entryZone).find((e) => e.target === to.id)?.dir : null;
-  const frontDoor =
-    (toInteriorDir && getDoorForExit(to.id, toInteriorDir, entryId)) ||
-    (toFacadeDir && getDoorForExit(entryId, toFacadeDir, to.id)) ||
-    null;
-  return { finalId: entryId, finalZone: entryZone, frontDoor };
+  return { finalId: entryId, finalZone: entryZone, frontDoor: frontDoorOf(to) };
 }
 
 export async function cmdMove(direction, player, broadcast, opts = {}) {

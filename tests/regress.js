@@ -23,7 +23,7 @@ import { readdir, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
-import { initWorld, setLivePlayer, removeLivePlayer, addPlayerToZone, removePlayerFromZone, getAllZones, getLivePlayer, world, setDoorCache, deleteDoorCache, getDoorForExit, getApartment, insertFurniture, deleteFurniture, getZone, registerTransientZone, removeTransientZone, isTransientZone } from '../server/engine/world.js';
+import { initWorld, setLivePlayer, removeLivePlayer, addPlayerToZone, removePlayerFromZone, getAllZones, getLivePlayer, world, setDoorCache, deleteDoorCache, getDoorForExit, frontDoorOf, getApartment, insertFurniture, deleteFurniture, getZone, registerTransientZone, removeTransientZone, isTransientZone } from '../server/engine/world.js';
 import { moveEntity } from '../server/engine/ai-behaviour.js';
 import { exitTargets, allExits, neighborZoneIds, addExit, removeExit } from '../server/engine/exits.js';
 import { cmdMove, dragFollowers } from '../server/engine/commands/movement.js';
@@ -597,6 +597,63 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   deleteDoorCache(doorId);
   world.zones.delete(hallId);
   world.zones.delete(homeId);
+}
+
+// LAW: a building's front door is the SAME door however you reach it. It sits on the
+// facade↔interior seam, which is one hop further in than a near/far-side lookup gets
+// from the street — a facade is never stood on. Three consumers reached through the
+// facade for it and reached differently: movement handled cardinal AND legacy seams,
+// ai-behaviour matched only legacy 'in'/'out' (so a locked shop never stopped an NPC
+// at any of the 52 cardinal-seam buildings), and the door verbs never looked at all
+// (`open door` from the street returned null for every building). frontDoorOf is the
+// one implementation they now share; these assertions pin BOTH seam labels, because
+// the legacy-only version passed the 'in'/'out' half of this test.
+{
+  const streetId = 'zone_regress_street_' + process.pid;
+  const facadeId = 'zone_regress_facade_' + process.pid;
+  const entryId = 'zone_regress_entry_' + process.pid;
+  const mapId = 'map_regress_int_' + process.pid;
+  const frontId = 'door_regress_front_' + process.pid;
+  const mkZone = (id, name, flags, exits, map) => world.zones.set(id, {
+    id, name, flags, exits, map_id: map || null,
+    players: new Set(), npcs: new Set(), enemies: new Set(),
+  });
+  // Seam labelled with CARDINALS — the shape 52 of the 56 facade-anchored doors use.
+  mkZone(streetId, 'Regress Street', {}, { east: facadeId });
+  mkZone(facadeId, 'Regress Shop', { facade: true, is_building: true, entrance: 'west' }, { west: streetId, east: entryId });
+  mkZone(entryId, 'Regress Shop Floor', { is_interior: true, is_building: true }, { west: facadeId }, mapId);
+  world.maps.set(mapId, { id: mapId, parent_zone_id: facadeId, entry_zone_id: entryId });
+  setDoorCache(frontId, {
+    id: frontId, zone_id: facadeId, exit_dir: 'east', target_zone: entryId,
+    hp: 100, hp_max: 100, is_open: 0, lock_state: 'locked', tags: {},
+  });
+
+  check('frontDoorOf resolves a CARDINAL facade seam', frontDoorOf(getZone(facadeId))?.id === frontId,
+    String(frontDoorOf(getZone(facadeId))?.id));
+
+  // The door verbs must reach it from the STREET. A locked door short-circuits before
+  // any DB write, so this proves resolution without touching the doors table.
+  const saved = getPlayer().current_zone;
+  getPlayer().current_zone = streetId;
+  addPlayerToZone(P.id, streetId);
+  const openFromStreet = await run('open door east');
+  check('`open door` from the street reaches the front door', /locked/i.test(openFromStreet?.message || ''),
+    JSON.stringify(openFromStreet)?.slice(0, 120));
+
+  // Same building wired the LEGACY way ('in'/'out'). Both must resolve, or half the
+  // world silently has no front door.
+  world.zones.get(facadeId).exits = { west: streetId, in: entryId };
+  world.zones.get(entryId).exits = { out: facadeId };
+  setDoorCache(frontId, { ...getDoorForExit(facadeId, 'east', entryId) || {}, id: frontId, zone_id: facadeId, exit_dir: 'in', target_zone: entryId, hp: 100, hp_max: 100, is_open: 0, lock_state: 'locked', tags: {} });
+  check('frontDoorOf resolves a LEGACY in/out facade seam', frontDoorOf(getZone(facadeId))?.id === frontId,
+    String(frontDoorOf(getZone(facadeId))?.id));
+
+  removePlayerFromZone(P.id, streetId);
+  getPlayer().current_zone = saved;
+  addPlayerToZone(P.id, saved);
+  deleteDoorCache(frontId);
+  world.maps.delete(mapId);
+  world.zones.delete(streetId); world.zones.delete(facadeId); world.zones.delete(entryId);
 }
 
 // LAW: no NPC may be homed in a PLAYER-OWNED apartment (the "someone's in Akerson's

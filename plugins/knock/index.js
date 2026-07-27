@@ -1,4 +1,4 @@
-import { getZone } from '../../server/engine/world.js';
+import { getZone, isEnterableFacade, getMapByParentZone } from '../../server/engine/world.js';
 import { sendToZone } from '../../server/engine/messaging.js';
 import { exitTargets } from '../../server/engine/exits.js';
 
@@ -75,14 +75,26 @@ async function cmdKnock(args, raw, player, broadcast) {
   const zone = getZone(player.current_zone);
   if (!zone) return { type: 'error', message: 'Your zone is missing.' };
 
-  const targetId = exitTargets(zone, direction)[0];
+  let targetId = exitTargets(zone, direction)[0];
   if (!targetId) {
     const cardinal = ['north', 'south', 'east', 'west'].includes(direction);
     return { type: 'error', message: cardinal ? `There's no door to the ${direction}.` : `There's no door ${direction}.` };
   }
 
-  const targetZone = getZone(targetId);
+  let targetZone = getZone(targetId);
   if (!targetZone) return { type: 'error', message: 'That exit leads nowhere.' };
+
+  // Knocking on a building means knocking on the people INSIDE it. A facade is never
+  // stood on — stepping toward it forwards you through to the interior entry in one
+  // move — so the tile in that direction is the building's outward face, not a room.
+  // Without this hop every knock at a shop door answered "open air on the other side"
+  // (a facade's ambient_theme is 'outdoors'), and the knock reached nobody. Same root
+  // cause as the door verbs: reach through the facade to the seam behind it.
+  if (isEnterableFacade(targetZone)) {
+    const entryId = getMapByParentZone(targetZone.id)?.entry_zone_id;
+    const entry = entryId ? getZone(entryId) : null;
+    if (entry) { targetId = entryId; targetZone = entry; }
+  }
 
   // Block outdoor targets.
   if ((targetZone.ambient_theme || 'indoors') !== 'indoors') {

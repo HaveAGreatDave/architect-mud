@@ -178,6 +178,38 @@ export function buildingEntranceDir(zone) {
   return zone.flags?.entrance || null;
 }
 
+// The front door of an enterable facade: the doors row on the facade↔interior seam,
+// whichever side it is anchored on. Null when the building has no door.
+//
+// This exists because a building's front door is NOT on the link a player standing
+// outside is about to traverse. A facade is never stood on — stepping onto it forwards
+// you through the seam in one move (resolveFacadeTransit) — so from the street the door
+// is one hop further in than any near/far-side lookup reaches. Every consumer that
+// wants "the front door of that building over there" has to reach through the facade,
+// and each one that reimplemented that reached differently:
+//
+//   • movement.js got it right (cardinal entrances AND legacy in/out),
+//   • ai-behaviour.js only ever looked for 'in'/'out', so it missed the 52 buildings
+//     whose seam is labelled with a cardinal,
+//   • the door verbs (open/close/lock/unlock/hack/knock/attack) never looked at all,
+//     which is why `open door` from the street returns null for every building.
+//
+// One implementation, so the door a player can walk through is the door they can also
+// operate. Direction is read from the actual exits rather than assumed: buildings
+// reworked to cardinal entrances label the seam e.g. 'west'/'east', legacy ones 'in'.
+export function frontDoorOf(facade) {
+  if (!isEnterableFacade(facade)) return null;
+  const interior = getMapByParentZone(facade.id);
+  const entryId = interior?.entry_zone_id;
+  const entry = entryId ? world.zones.get(entryId) : null;
+  if (!entry) return null;
+  const toInteriorDir = allExits(facade).find((e) => e.target === entryId)?.dir;
+  const toFacadeDir = allExits(entry).find((e) => e.target === facade.id)?.dir;
+  return (toInteriorDir && getDoorForExit(facade.id, toInteriorDir, entryId))
+    || (toFacadeDir && getDoorForExit(entryId, toFacadeDir, facade.id))
+    || null;
+}
+
 // Cardinal directions from an interior room that lead OUT of the building — an exit to
 // a zone on a different map (the facade / exterior). The interior-side mirror of
 // buildingEntranceDir: drives the interior map's exit arrows the way that one drives
