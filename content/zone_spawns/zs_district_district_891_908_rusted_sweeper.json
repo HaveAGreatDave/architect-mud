@@ -1,8 +1,0 @@
-{
-  "enemy_id": "enemy_rusted_sweeper",
-  "id": "zs_district_district_891_908_rusted_sweeper",
-  "max_count": 1,
-  "respawn_seconds": 240,
-  "spawn_weight": 20,
-  "zone_id": "zone_district_891_908"
-}
