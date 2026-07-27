@@ -2836,11 +2836,6 @@ body.fsim-external #look-resize-handle { display: none; }
 	letter-spacing: calc(var(--mm-room) * -0.03);
 	-webkit-text-stroke: calc(var(--mm-room) * 0.035) #000;
 }
-.map-bld-icon {
-	font-size: 10px;
-	line-height: 1;
-	filter: drop-shadow(0 0 1px #000) drop-shadow(0 0 1px #000);
-}
 
 /* ── Tileable terrain (server `terrain` field: road / water / grass) ──────────
    Shared by the sidebar minimap (.mm-*) and the full-map popup (.map-*). The fill
@@ -2892,19 +2887,9 @@ body.fsim-external #look-resize-handle { display: none; }
 .mm-ent-east, .map-ent-east { right: 0; top: 50%; transform: translateY(-50%); border-top: 4px solid transparent; border-bottom: 4px solid transparent; border-left: 6px solid var(--accent); }
 .mm-ent-west, .map-ent-west { left: 0; top: 50%; transform: translateY(-50%); border-top: 4px solid transparent; border-bottom: 4px solid transparent; border-right: 6px solid var(--accent); }
 
-/* Overlay slider: None / Icons / Labels — a segmented control with a sliding
-   highlight, sitting in the map header next to the Avenue View toggle. */
-.map-overlay-slider { display: inline-flex; position: relative; border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent);
-  border-radius: 12px; overflow: hidden; margin-left: 6px; vertical-align: middle;
-  background: linear-gradient(165deg, var(--map-surface-lo), color-mix(in srgb, var(--bg2) 60%, #000 40%));
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5); }
-.map-overlay-slider .mo-seg { width: 46px; text-align: center; background: transparent; border: none;
-  color: var(--text-dim); font: inherit; font-size: 11px; padding: 3px 0; cursor: pointer; position: relative; z-index: 1; }
-.map-overlay-slider .mo-seg.active { color: var(--bg, #0a0f12); }
-.map-overlay-slider::before { content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 46px;
-  background: var(--cyan); border-radius: 11px; transition: left .15s ease; z-index: 0; }
-.map-overlay-slider[data-ov="icons"]::before  { left: 46px; }
-.map-overlay-slider[data-ov="labels"]::before { left: 92px; }
+/* (The None / Icons / Labels segmented slider that used to sit in the retired
+   full-screen map header is gone with it — the mode is a Settings pill now, and
+   Icons isn't a mode any more. Nothing rendered .map-overlay-slider.) */
 
 /* Mobile: the header packs the title, level tabs, GPS/territory icons and the
    overlay slider into one row, and the body's viewport is a fixed 374px — wider
@@ -2916,7 +2901,6 @@ body.fsim-external #look-resize-handle { display: none; }
   #map-header { flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
   #map-header h2 { flex: 1 1 100%; margin-bottom: 2px; }
   #map-tabs { justify-content: flex-start; flex: 1 1 auto; }
-  .map-overlay-slider { margin-left: 0; }
   #map-body { flex-direction: column; align-items: center; gap: 14px; }
   #map-viewport, #map-grid { --map-room: 28px; }
   #map-legend { width: 100%; }

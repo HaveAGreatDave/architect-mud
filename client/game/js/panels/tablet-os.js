@@ -2710,6 +2710,11 @@ const TOS_OPT_GROUPS = [
     { v: 'small', t: 'Small', g: 'S' }, { v: 'medium', t: 'Medium', g: 'M' }, { v: 'large', t: 'Large', g: 'L' } ] },
   { key: 'tempUnit', label: 'Temp Units', opts: [
     { v: 'C', t: 'Celsius', g: 'C°' }, { v: 'F', t: 'Fahrenheit', g: 'F°' } ] },
+  // Sidebar minimap tile overlay — panels/minimap.js reads this via the
+  // window._applyMapOverlay hook in applySettings and re-renders in place.
+  { key: 'mapOverlay', label: 'Map Labels', opts: [
+    { v: 'labels', t: 'Lettering — the building’s 2-letter code', g: 'AB', s: 'font-size:11px;letter-spacing:1px' },
+    { v: 'none', t: 'Plain tiles — no lettering', g: '▫' } ] },
 ];
 const TOS_AUDIO_TOGGLES = [
   { key: 'music', label: 'Music', on: '🎵', off: '🔇' },

@@ -146,7 +146,8 @@ Lumens are **summed per zone**, so a room lit by several fixtures adds them up �
 - [ ] Run the world validator after creation
 
 **Building (a `map_world` zone with `flags.building_type`) — author BOTH representations in the same build, never backfill:**
-- [ ] **Map icon** — a `client/game/assets/zone-icons/bldg_<type>.svg` (24×24, `fill="none" stroke="currentColor"`), registered in `BUILDING_TYPE_ICON` (`server/engine/world.js`) **and** a glyph in `BUILDING_ICON` (`client/game/js/panels/minimap.js`). Both lookups are **`facade`-gated**, so the building must be a real enterable facade (tag `facade` + an interior zone + a `content/maps/map_int_*.json` record) — a non-facade "solid frontage" renders blank on the map. `marker` is NOT read by the map; don't rely on it.
+- [ ] **Map icon** — a `client/game/assets/zone-icons/bldg_<type>.svg` (24×24, `fill="none" stroke="currentColor"`), registered in `BUILDING_TYPE_ICON` (`server/engine/world.js`). The lookup is **`facade`-gated**, so the building must be a real enterable facade (tag `facade` + an interior zone + a `content/maps/map_int_*.json` record) — a non-facade "solid frontage" renders blank on the map.
+- [ ] **`marker`** — the authored 2-letter code. It IS read by the map: it's what the *Map Labels* overlay draws (the default mode), and nothing derives one for you, so a building without a marker shows a bare tile. Keep it unique — the map audit flags collisions.
 - [ ] **Flight 3D model** — a `drawTypeModel` case + `ty_*` palette + `TYPE_MODEL` entry in `client/game/js/panels/windshield.js`, keyed off the same `building_type` (see `docs/reference/world-rendering.md`).
 - [ ] Facades are **non-standable revolving doors** (`resolveFacadeTransit`) — put vendors/NPCs and any `claimable_asset`/stand-on-tile mechanic **inside the interior**, not on the facade tile.
 
