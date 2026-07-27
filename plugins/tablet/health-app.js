@@ -314,6 +314,12 @@ async function buildScreen(player, screenId, params, notice = null) {
     afflictions: buildAfflictions(player, status),
     quick: buildQuick(player, remedies),
     body: body.some(p => p.severity > 0) ? body : null,
+    // Which silhouette sits behind the injury schematic. Same field, read the
+    // same way, as the Gear doll and the wardrobe doll — one character should
+    // be one shape everywhere the game draws them, and three screens quietly
+    // disagreeing about your body is the kind of thing nobody reports and
+    // everybody notices.
+    sex: player.biological_sex === 'female' ? 'female' : 'male',
   };
 }
 

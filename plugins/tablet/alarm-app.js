@@ -58,12 +58,20 @@ async function buildScreen(player) {
   }];
   if (alarm != null) actions.push({ id: 'clear', label: '✕ Clear alarm' });
 
+  // Its own view rather than the generic `detail`, because setting a time
+  // through a text prompt ("07:30, 730 and 0730 all work") was a parser standing
+  // in for a control. The client draws a real clock face and two rolling digit
+  // reels; this still owns the state and the arithmetic, and still answers the
+  // same `set` action — a client that fell back to the old prompt would work.
   return {
-    view: 'detail',
+    view: 'alarm',
     title: 'Alarm',
-    // The big digital readout. Deliberately the first thing on the screen —
-    // it is a clock before it is an alarm.
-    hero: hhmm(now),
+    nowMins: now,
+    nowLabel: hhmm(now),
+    alarmMins: alarm,
+    alarmLabel: alarm == null ? null : hhmm(alarm),
+    untilMins: until,
+    untilLabel: alarm == null ? null : `${until} game min · about ${prettyWait(until)} real`,
     subtitle: alarm == null
       ? 'No alarm set. You will sleep until your body is done.'
       : `Alarm set for ${hhmm(alarm)}.`,

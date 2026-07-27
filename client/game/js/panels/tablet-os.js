@@ -1684,6 +1684,65 @@ function ensureStyles() {
     #tablet-os-overlay .tos-vt-doll { display:flex; align-items:center; gap:16px; padding:6px 4px 10px;
       border:1px solid var(--border); background:var(--tos-surface-lo); margin-bottom:10px; }
     #tablet-os-overlay .tos-vt-dollsvg { width:104px; height:auto; flex:0 0 auto; overflow:visible; }
+    /* The scan ghost: the same two alpha masks the Gear and wardrobe dolls use,
+       so one character is one body across all three screens. Sits behind the
+       schematic at low opacity and never takes a pointer event, so every part
+       stays clickable exactly as before. */
+    /* ── Alarm ──
+       Everything here is drawn from tokens the OS already defines — --tos-fg,
+       --tos-surface-hi, --mg-accent, --border — so the clock changes colour with
+       the tablet theme instead of pinning its own. The only bespoke thing is the
+       shape: a readout, two reels, and a selection band across them. */
+    #tablet-os-overlay .tos-alarm { padding:4px 6px 12px; }
+    #tablet-os-overlay .tos-al-face { text-align:center; padding:6px 0 10px; }
+    #tablet-os-overlay .tos-al-now { font-family:var(--font-mono,monospace); font-size:44px; line-height:1;
+      letter-spacing:3px; color:var(--tos-fg); text-shadow:0 0 18px color-mix(in srgb, var(--mg-accent) 55%, transparent); }
+    #tablet-os-overlay .tos-al-nowlab { font-size:9px; letter-spacing:2px; text-transform:uppercase;
+      color:var(--tos-fg-dim,var(--text-dim)); margin-top:3px; }
+
+    /* The setter. Fixed height with the band pinned across the middle — the reels
+       scroll UNDER it, which is the whole illusion. */
+    #tablet-os-overlay .tos-al-setter { position:relative; display:flex; align-items:stretch; justify-content:center;
+      gap:4px; height:132px; margin:2px 0 8px;
+      background:linear-gradient(180deg, rgba(0,0,0,0.34), rgba(0,0,0,0.08) 30%, rgba(0,0,0,0.08) 70%, rgba(0,0,0,0.34));
+      border:1px solid var(--border); border-radius:8px; overflow:hidden; }
+    #tablet-os-overlay .tos-al-band { position:absolute; left:6px; right:6px; top:50%; height:38px;
+      transform:translateY(-50%); border-top:1px solid color-mix(in srgb, var(--mg-accent) 60%, transparent);
+      border-bottom:1px solid color-mix(in srgb, var(--mg-accent) 60%, transparent);
+      background:color-mix(in srgb, var(--mg-accent) 10%, transparent); pointer-events:none; z-index:2; }
+    #tablet-os-overlay .tos-al-reel { flex:0 0 78px; overflow-y:auto; scroll-snap-type:y mandatory;
+      scrollbar-width:none; -ms-overflow-style:none; }
+    #tablet-os-overlay .tos-al-reel::-webkit-scrollbar { display:none; }
+    #tablet-os-overlay .tos-al-pad { height:47px; }
+    #tablet-os-overlay .tos-al-cell { height:38px; line-height:38px; text-align:center; scroll-snap-align:center;
+      font-family:var(--font-mono,monospace); font-size:26px; letter-spacing:2px;
+      color:var(--tos-fg-dim,var(--text-dim)); opacity:0.45; cursor:pointer; user-select:none;
+      transition:opacity 0.12s ease, color 0.12s ease, text-shadow 0.12s ease; }
+    #tablet-os-overlay .tos-al-cell:hover { opacity:0.8; }
+    #tablet-os-overlay .tos-al-cell.sel { opacity:1; color:var(--tos-fg);
+      text-shadow:0 0 14px color-mix(in srgb, var(--mg-accent) 60%, transparent); }
+    #tablet-os-overlay .tos-al-cell:focus { outline:none; }
+    #tablet-os-overlay .tos-al-colon { align-self:center; font-family:var(--font-mono,monospace); font-size:26px;
+      color:var(--tos-fg); opacity:0.7; z-index:3; }
+
+    #tablet-os-overlay .tos-al-preview { text-align:center; font-size:12px; color:var(--tos-fg-dim,var(--text-dim)); }
+    #tablet-os-overlay .tos-al-preview b { font-family:var(--font-mono,monospace); font-size:15px; color:var(--tos-fg); }
+    #tablet-os-overlay .tos-al-btns { display:flex; gap:8px; justify-content:center; margin:10px 0 6px; }
+    #tablet-os-overlay .tos-al-status { text-align:center; font-size:11px; color:var(--tos-fg); opacity:0.85; }
+    #tablet-os-overlay .tos-al-status-off { opacity:0.55; }
+    #tablet-os-overlay .tos-al-note { margin-top:8px; text-align:center; font-size:10px; line-height:1.5;
+      color:var(--tos-fg-dim,var(--text-dim)); opacity:0.6; }
+    @media (prefers-reduced-motion: reduce) {
+      #tablet-os-overlay .tos-al-cell { transition:none; }
+    }
+    #tablet-os-overlay .tos-vt-dollstage { position:relative; flex:0 0 auto; width:104px; }
+    #tablet-os-overlay .tos-vt-dollstage .tos-vt-dollsvg { position:relative; z-index:1; width:100%; display:block; }
+    #tablet-os-overlay .tos-vt-dollsil { position:absolute; inset:0; opacity:0.16; pointer-events:none;
+      background:var(--tos-fg);
+      -webkit-mask:url('/assets/paperdoll-mask.png') center / contain no-repeat;
+      mask:url('/assets/paperdoll-mask.png') center / contain no-repeat; }
+    #tablet-os-overlay .tos-vt-sil-female .tos-vt-dollsil {
+      -webkit-mask-image:url('/assets/femsil-mask.png'); mask-image:url('/assets/femsil-mask.png'); }
     #tablet-os-overlay .tos-vt-doll-part { cursor:pointer; }
     #tablet-os-overlay .tos-vt-doll-part > * { fill:var(--tos-surface-hi); stroke:var(--border); stroke-width:1.2;
       transition:fill .18s linear, filter .18s linear; }
@@ -3427,7 +3486,7 @@ function renderAboutPage() {
     <div class="tos-about-by">Built by</div>
     <div class="tos-about-names">David Lacey<br>John Akerson</div>
     <div class="tos-about-rule"></div>
-    <div class="tos-about-tag">Nothing in this city runs for free — least of all the city. Cover a month's bills and we spend that month building instead of earning it.</div>
+    <div class="tos-about-tag">We build this because we want to. The servers just insist on being paid. Chip in if you feel like it — thanks either way.</div>
     <a class="tos-about-bmc" href="https://buymeacoffee.com/haveagreatdave" target="_blank" rel="noopener noreferrer" title="Support Us">
       <span class="tos-about-cup">☕</span><span>Support Us</span>
     </a>
@@ -4065,18 +4124,113 @@ function renderHealthMeter(m) {
 //
 // Sides are drawn from the VIEWER's perspective — your left arm is on the left —
 // because this is a HUD, not an anatomical chart.
-const DOLL_SHAPES = {
-  head:      '<circle cx="60" cy="21" r="15"/>',
-  torso:     '<rect x="42" y="39" width="36" height="59" rx="9"/>',
-  left_arm:  '<rect x="25" y="41" width="13" height="53" rx="6.5"/>',
-  right_arm: '<rect x="82" y="41" width="13" height="53" rx="6.5"/>',
-  left_leg:  '<rect x="43" y="101" width="15" height="59" rx="7"/>',
-  right_leg: '<rect x="62" y="101" width="15" height="59" rx="7"/>',
-  feet:      '<rect x="39" y="163" width="19" height="9" rx="4"/><rect x="62" y="163" width="19" height="9" rx="4"/>',
+// Injury hotspots, drawn IN THE SILHOUETTE'S OWN COORDINATE SPACE — one set per
+// body, each viewBox matching its mask's pixel dimensions exactly (male
+// 242×540, female 500×708). That is what makes the registration exact rather
+// than approximate: the mask is `contain`-fitted into a box of its own aspect,
+// so an SVG unit here IS a mask pixel, and a rect over the left arm is over the
+// left arm on both figures.
+//
+// The old single 120×178 set was a compromise between two very differently
+// proportioned bodies and therefore fitted neither — noticeably so on the male
+// figure, which is far narrower relative to its height (0.45 vs 0.71).
+const DOLL_GEOM = {
+  male: {
+    viewBox: '0 0 242 540',
+    shapes: {
+      head:      '<circle cx="121" cy="40" r="26"/>',
+      torso:     '<rect x="74" y="76" width="94" height="212" rx="24"/>',
+      left_arm:  '<rect x="36" y="84" width="32" height="208" rx="16"/>',
+      right_arm: '<rect x="174" y="84" width="32" height="208" rx="16"/>',
+      left_leg:  '<rect x="83" y="288" width="37" height="214" rx="17"/>',
+      right_leg: '<rect x="122" y="288" width="37" height="214" rx="17"/>',
+      feet:      '<rect x="78" y="500" width="42" height="28" rx="12"/><rect x="122" y="500" width="42" height="28" rx="12"/>',
+    },
+  },
+  female: {
+    viewBox: '0 0 500 708',
+    shapes: {
+      head:      '<circle cx="250" cy="62" r="45"/>',
+      torso:     '<rect x="184" y="116" width="132" height="248" rx="36"/>',
+      left_arm:  '<rect x="118" y="128" width="54" height="238" rx="26"/>',
+      right_arm: '<rect x="328" y="128" width="54" height="238" rx="26"/>',
+      left_leg:  '<rect x="190" y="364" width="58" height="278" rx="27"/>',
+      right_leg: '<rect x="252" y="364" width="58" height="278" rx="27"/>',
+      feet:      '<rect x="176" y="634" width="66" height="36" rx="15"/><rect x="258" y="634" width="66" height="36" rx="15"/>',
+    },
+  },
 };
+
+// ── Alarm ────────────────────────────────────────────────────────────────────
+// A digital clock you set by rolling digits, the way a phone does — replacing a
+// text prompt that asked you to type "0730" and parsed three formats to be kind
+// about it. Parsing input is not the same as offering a control.
+//
+// Two scroll-snap reels (hours, minutes) over the OS's own palette: the readout
+// borrows the seven-segment cast the rest of the tablet uses for live numbers,
+// and the selection band is the same accent that marks selection everywhere
+// else. No new colours, no new type — the theming is entirely inherited.
+//
+// The reels are plain overflow-scroll with `scroll-snap-type: y mandatory`, so
+// touch flick, trackpad, wheel and keyboard all work for free and there is no
+// pointer-drag maths to get wrong on mobile.
+let _alarmPick = null;   // { h, m } while the player is choosing
+
+function alarmReel(kind, values, selected) {
+  const cells = values.map(v => {
+    const label = String(v).padStart(2, '0');
+    return `<div class="tos-al-cell${v === selected ? ' sel' : ''}" data-al-${kind}="${v}" role="option"
+      aria-selected="${v === selected}" tabindex="0">${label}</div>`;
+  }).join('');
+  return `<div class="tos-al-reel" data-al-reel="${kind}" role="listbox" aria-label="${kind}">
+    <div class="tos-al-pad"></div>${cells}<div class="tos-al-pad"></div>
+  </div>`;
+}
+
+function renderAlarm(d) {
+  const set = d.alarmMins != null;
+  const pick = _alarmPick || (set
+    ? { h: Math.floor(d.alarmMins / 60), m: d.alarmMins % 60 }
+    // Default to an hour ahead of the game clock rather than to midnight: a
+    // fresh alarm should open somewhere you might plausibly want it.
+    : { h: (Math.floor(d.nowMins / 60) + 1) % 24, m: 0 });
+
+  const hours = Array.from({ length: 24 }, (_, i) => i);
+  const mins = Array.from({ length: 12 }, (_, i) => i * 5);   // 5-min steps: a nap is not a stopwatch
+  const pad = n => String(n).padStart(2, '0');
+
+  return `
+    <div class="tos-alarm">
+      <div class="tos-al-face">
+        <div class="tos-al-now">${esc(d.nowLabel)}</div>
+        <div class="tos-al-nowlab">Local time</div>
+      </div>
+
+      <div class="tos-al-setter">
+        <div class="tos-al-band" aria-hidden="true"></div>
+        ${alarmReel('h', hours, pick.h)}
+        <div class="tos-al-colon">:</div>
+        ${alarmReel('m', mins, pick.m)}
+      </div>
+
+      <div class="tos-al-preview">Alarm at <b>${pad(pick.h)}:${pad(pick.m)}</b></div>
+
+      <div class="tos-al-btns">
+        <button class="tos-btn tos-al-set" data-al-commit="1">${set ? 'Change alarm' : 'Set alarm'}</button>
+        ${set ? `<button class="tos-btn tos-al-clear" data-al-clear="1">Clear</button>` : ''}
+      </div>
+
+      ${set ? `<div class="tos-al-status">Ringing in ${esc(d.untilLabel || '')}</div>`
+            : `<div class="tos-al-status tos-al-status-off">${esc(d.subtitle || '')}</div>`}
+
+      <div class="tos-al-note">${esc(d.body || '').split('\n').join(' ')}</div>
+    </div>`;
+}
 
 function renderHealthDoll(d) {
   if (!d.body?.length) return '';
+  const geom = DOLL_GEOM[d.sex === 'female' ? 'female' : 'male'];
+  const DOLL_SHAPES = geom.shapes;
   const parts = d.body.map(p => `
     <g class="tos-vt-doll-part ${esc(p.band)}${p.severity > 0 ? ' hurt' : ''}"
        data-doll-part="${esc(p.part)}"
@@ -4088,10 +4242,19 @@ function renderHealthDoll(d) {
     </g>`).join('');
 
   const worst = d.body.filter(p => p.severity > 0).sort((a, b) => b.severity - a.severity)[0];
+  // The silhouette sits BEHIND the schematic rather than replacing it. The
+  // boxes-and-circles are load-bearing here in a way the wardrobe's dummy never
+  // was — each one is a click target and carries its own injury colour — so
+  // this adds the body without costing the diagram. On a medical suite a scan
+  // ghost under a schematic is exactly the right register anyway.
+  const sil = (d.sex === 'female' || d.sex === 'male') ? d.sex : 'male';
   return `
     <div class="tos-vt-sect">Body</div>
     <div class="tos-vt-doll">
-      <svg viewBox="0 0 120 178" class="tos-vt-dollsvg" aria-label="Body diagram">${parts}</svg>
+      <div class="tos-vt-dollstage tos-vt-sil-${sil}">
+        <div class="tos-vt-dollsil" aria-hidden="true"></div>
+        <svg viewBox="${geom.viewBox}" class="tos-vt-dollsvg" aria-label="Body diagram">${parts}</svg>
+      </div>
       <div class="tos-vt-dolldet" data-doll-detail-slot>${esc(worst?.detail || '')}</div>
     </div>`;
 }
@@ -6164,6 +6327,11 @@ function renderBody() {
       ${d.section ? renderCodexVolume(d) : renderCodexShelf(d)}
     </div>`;
   }
+  if (d.view === 'alarm') {
+    return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}
+      ${renderAlarm(d)}
+    </div>`;
+  }
   if (d.view === 'health') {
     return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}${renderTosTabs(d)}
       ${renderHealth(d)}
@@ -6286,6 +6454,84 @@ function wireBody() {
   // Paper-doll parts. Tap-to-reveal for the same reason the glosses above are:
   // `title=` never fires on touch, and this tablet is used with a thumb as often
   // as a mouse. Purely local — no round trip, the detail is already on the payload.
+
+  // ── Alarm reels ──
+  // Tap a digit or flick the reel; the centre band is the selection. Scroll is
+  // debounced into a snap read so a flick lands on whatever it settles over,
+  // which is what makes it feel like a phone rather than a listbox.
+  const alarmReels = _overlay.querySelectorAll('[data-al-reel]');
+  if (alarmReels.length) {
+    const pickFrom = (el) => ({
+      h: Number(_overlay.querySelector('[data-al-reel="h"] .tos-al-cell.sel')?.getAttribute('data-al-h') ?? 0),
+      m: Number(_overlay.querySelector('[data-al-reel="m"] .tos-al-cell.sel')?.getAttribute('data-al-m') ?? 0),
+    });
+    const syncPreview = () => {
+      const p = pickFrom();
+      _alarmPick = p;
+      const out = _overlay.querySelector('.tos-al-preview b');
+      if (out) out.textContent = `${String(p.h).padStart(2, '0')}:${String(p.m).padStart(2, '0')}`;
+    };
+    const select = (cell, reel) => {
+      reel.querySelectorAll('.tos-al-cell.sel').forEach(o => { o.classList.remove('sel'); o.setAttribute('aria-selected', 'false'); });
+      cell.classList.add('sel');
+      cell.setAttribute('aria-selected', 'true');
+      cell.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      sfx(TOS_SELECT_DEF);
+      syncPreview();
+    };
+    for (const reel of alarmReels) {
+      // Centre the current selection on first paint, so the reel opens showing
+      // the value it holds instead of scrolled to midnight.
+      const cur = reel.querySelector('.tos-al-cell.sel');
+      if (cur) cur.scrollIntoView({ block: 'center', behavior: 'instant' });
+
+      reel.addEventListener('click', (e) => {
+        const cell = e.target.closest('.tos-al-cell');
+        if (cell) select(cell, reel);
+      });
+      reel.addEventListener('keydown', (e) => {
+        const cell = e.target.closest('.tos-al-cell');
+        if (!cell) return;
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(cell, reel); }
+        if (e.key === 'ArrowDown' && cell.nextElementSibling?.classList.contains('tos-al-cell')) {
+          e.preventDefault(); cell.nextElementSibling.focus(); select(cell.nextElementSibling, reel);
+        }
+        if (e.key === 'ArrowUp' && cell.previousElementSibling?.classList.contains('tos-al-cell')) {
+          e.preventDefault(); cell.previousElementSibling.focus(); select(cell.previousElementSibling, reel);
+        }
+      });
+      // Free-scroll: whatever ends up under the band wins.
+      let t = null;
+      reel.addEventListener('scroll', () => {
+        clearTimeout(t);
+        t = setTimeout(() => {
+          const box = reel.getBoundingClientRect();
+          const midY = box.top + box.height / 2;
+          let best = null, bestD = Infinity;
+          for (const c of reel.querySelectorAll('.tos-al-cell')) {
+            const r = c.getBoundingClientRect();
+            const d2 = Math.abs((r.top + r.height / 2) - midY);
+            if (d2 < bestD) { bestD = d2; best = c; }
+          }
+          if (best && !best.classList.contains('sel')) {
+            reel.querySelectorAll('.tos-al-cell.sel').forEach(o => { o.classList.remove('sel'); o.setAttribute('aria-selected', 'false'); });
+            best.classList.add('sel');
+            best.setAttribute('aria-selected', 'true');
+            syncPreview();
+          }
+        }, 90);
+      }, { passive: true });
+    }
+    const commit = _overlay.querySelector('[data-al-commit]');
+    if (commit) commit.addEventListener('click', () => {
+      const p = pickFrom();
+      _alarmPick = null;   // the server's answer becomes the truth again
+      act('alarm', 'set', `${String(p.h).padStart(2, '0')}${String(p.m).padStart(2, '0')}`);
+    });
+    const clear = _overlay.querySelector('[data-al-clear]');
+    if (clear) clear.addEventListener('click', () => { _alarmPick = null; act('alarm', 'clear'); });
+  }
+
   _overlay.querySelectorAll('[data-doll-part]').forEach(el => {
     const show = () => {
       sfx(TOS_SELECT_DEF);

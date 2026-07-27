@@ -1508,11 +1508,12 @@
 					<button id="wardrobe-close" aria-label="Close">✕</button>
 				</div>
 				<div id="wardrobe-notify"></div>
+				<!-- Two columns, deliberately: the FIGURE and the RAILS. Outfits used to
+				     be a third column of equal weight, which read as three lists and
+				     buried the one thing the panel is actually about. They now sit
+				     under the doll, because a saved outfit IS a state of the doll —
+				     clicking one loads it onto the figure, so it belongs to it. -->
 				<div id="wardrobe-body">
-					<div class="wdr-col" id="wardrobe-outfits-col">
-						<div class="container-section-label">Saved Outfits</div>
-						<div id="wardrobe-outfit-list"></div>
-					</div>
 					<div class="wdr-col" id="wardrobe-doll-col">
 						<div class="container-section-label" id="wardrobe-doll-label">Drag clothes onto the doll</div>
 						<div id="wardrobe-doll"></div>
@@ -1523,12 +1524,14 @@
 							<button id="wardrobe-wearing" class="loot-btn" title="Load what you're wearing onto the doll">Wearing</button>
 							<button id="wardrobe-undress" class="loot-btn" title="Take everything off and hang it in this wardrobe">Undress</button>
 						</div>
+						<div class="container-section-label wdr-outfits-head">Saved Outfits</div>
+						<div id="wardrobe-outfit-list"></div>
 					</div>
 					<div class="wdr-col" id="wardrobe-stock-col">
-						<div class="container-section-label">Hanging</div>
-						<div id="wardrobe-hanging-list"></div>
-						<div class="container-section-label">Carried</div>
-						<div id="wardrobe-carried-list"></div>
+						<div class="ctr-shelf-head wdr-rail-head"><span>Hanging</span><span class="wdr-rail-note">in the wardrobe</span></div>
+						<div id="wardrobe-hanging-list" class="wdr-rail"></div>
+						<div class="ctr-shelf-head wdr-rail-head"><span>Carried</span><span class="wdr-rail-note">on you</span></div>
+						<div id="wardrobe-carried-list" class="wdr-rail"></div>
 					</div>
 				</div>
 				<div id="wardrobe-footer">

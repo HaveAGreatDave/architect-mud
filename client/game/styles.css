@@ -8513,64 +8513,131 @@ body.fsim-external #look-resize-handle { display: none; }
    skins below re-shape that chassis. Placed after the themes so the chassis
    overrides (background-image, box-shadow) win on selector-specificity ties. */
 #tv-window[data-skin="flatscreen"] {
-	/* High-gloss piano-black set seated in a machined-chrome trim ring — flat
-	   glass, no CRT scanlines/vignette. The layered box-shadow builds the metal
-	   ring: a bright top-lit edge grading down to a shadowed underside so the
-	   chrome reads as a real bevel catching light from above, then the whole set
-	   floats on a deep contact shadow. */
-	border: 2px solid #23262b;
-	border-radius: 12px;
+	/* A modern bezel-less OLED panel: the set is almost all glass. The old look
+	   was a mirror-chrome trim ring (a 2000s plasma); this is the current idiom —
+	   a hairline graphite frame a few pixels wide, a deep contact shadow that does
+	   the "expensive object in a room" work instead of specular metal, and a
+	   theme-tinted bias light behind the panel. Everything reads darker and
+	   quieter so the picture is the only bright thing on screen. */
+	border: 1px solid #0b0c0e;
+	border-radius: 16px;
 	outline: none;
 	box-shadow:
-		/* machined-chrome trim — directional so the top edge is lit, base shadowed */
-		0 1px 0 3px #f4f7fa,
-		0 0 0 4px #ccd3da,
-		0 0 0 6px #8b9199,
-		0 2px 0 6px #565b62,
-		0 0 0 9px #2a2d32,
-		0 0 0 12px #0c0d0f,
-		/* theme-colored ambient bias-light — a soft backlit halo that picks up the
-		   channel's accent, like the glow behind a premium set */
-		0 0 52px 1px color-mix(in srgb, var(--tv-header-color) 24%, transparent),
-		/* the set floating in the room */
-		0 28px 72px -14px rgba(0, 0, 0, 0.88),
-		0 10px 26px rgba(0, 0, 0, 0.6),
-		/* glass seated into the bezel — bright hairline lip + inner shade */
-		inset 0 0 0 1px rgba(255, 255, 255, 0.07),
-		inset 0 2px 20px rgba(0, 0, 0, 0.72),
-		inset 0 0 75px rgba(0, 0, 0, 0.5);
+		/* hairline frame: one lit edge, one dark rail, then the graphite body */
+		0 0 0 1px rgba(180, 195, 210, 0.14),
+		0 0 0 4px #17191d,
+		0 0 0 5px #0a0b0d,
+		/* theme-colored bias light washing the wall behind the set */
+		0 10px 64px 4px color-mix(in srgb, var(--tv-header-color) 18%, transparent),
+		/* contact shadow — the set standing off the wall */
+		0 34px 84px -18px rgba(0, 0, 0, 0.9),
+		0 12px 30px -8px rgba(0, 0, 0, 0.65),
+		/* glass seated into the frame */
+		inset 0 0 0 1px rgba(255, 255, 255, 0.045),
+		inset 0 1px 14px rgba(0, 0, 0, 0.6),
+		inset 0 0 90px rgba(0, 0, 0, 0.42);
 	background-image:
-		linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 10%),
-		radial-gradient(ellipse at 50% 42%, transparent 60%, rgba(0, 0, 0, 0.55) 100%);
+		linear-gradient(180deg, rgba(255, 255, 255, 0.028), transparent 8%),
+		radial-gradient(ellipse at 50% 40%, transparent 66%, rgba(0, 0, 0, 0.45) 100%);
 }
-/* Chrome bezel catches a cool specular highlight along the top rails */
+/* Header/footer are glass rails, not metal: near-black translucency, a hairline
+   top light, and a separator that carries a whisper of the channel accent rather
+   than the full themed border. */
 #tv-window[data-skin="flatscreen"] #tv-header {
-	background: linear-gradient(180deg, rgba(226, 235, 244, 0.15), rgba(255, 255, 255, 0.02) 42%, rgba(0, 0, 0, 0.4));
-	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.13);
+	background: linear-gradient(180deg, rgba(16, 20, 24, 0.82), rgba(8, 10, 13, 0.72));
+	border-bottom-color: color-mix(in srgb, var(--tv-header-color) 22%, rgba(255, 255, 255, 0.06));
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+	backdrop-filter: blur(6px);
+	padding: 9px 16px;
 }
 #tv-window[data-skin="flatscreen"] #tv-footer {
-	background: linear-gradient(0deg, rgba(226, 235, 244, 0.07), rgba(0, 0, 0, 0.5));
-	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.09);
+	background: linear-gradient(0deg, rgba(10, 13, 16, 0.86), rgba(8, 10, 13, 0.66));
+	border-top-color: color-mix(in srgb, var(--tv-header-color) 18%, rgba(255, 255, 255, 0.05));
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+	backdrop-filter: blur(6px);
 }
-/* Ceiling-light strip — a soft reflected light bar across the top of the glass,
-   the hallmark of a glossy flatscreen. Kept short and low-opacity so it reads as
-   a reflection without hurting the readability of the top text lines. */
+/* Typography: the station block gets the wide-tracked confidence of a modern
+   channel ident; the secondary bits step down in weight rather than shouting. */
+#tv-window[data-skin="flatscreen"] #tv-station-name {
+	font-size: 11.5px;
+	letter-spacing: 3.2px;
+	text-shadow: 0 0 14px color-mix(in srgb, var(--tv-header-color) 55%, transparent);
+}
+#tv-window[data-skin="flatscreen"] #tv-channel-num {
+	font-size: 10px;
+	letter-spacing: 1.4px;
+	padding: 2px 6px;
+	border-radius: 5px;
+	color: color-mix(in srgb, var(--tv-header-color) 78%, #ffffff);
+	background: color-mix(in srgb, var(--tv-header-color) 12%, transparent);
+	font-variant-numeric: tabular-nums;
+}
+#tv-window[data-skin="flatscreen"] #tv-program-name {
+	font-style: normal;
+	letter-spacing: 0.4px;
+	opacity: 0.85;
+}
+/* LIVE reads as a pill, the way every modern broadcast UI marks it */
+#tv-window[data-skin="flatscreen"] #tv-live-badge {
+	padding: 2.5px 8px;
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--tv-live-color) 16%, transparent);
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tv-live-color) 40%, transparent);
+	letter-spacing: 1.6px;
+}
+/* Chassis buttons become soft-square glass chips instead of ringed portholes —
+   flat fill, hairline edge, and the accent carried by fill rather than a halo. */
+#tv-window[data-skin="flatscreen"] #tv-close-btn,
+#tv-window[data-skin="flatscreen"] #tv-read-btn,
+#tv-window[data-skin="flatscreen"] #tv-schedule-btn,
+#tv-window[data-skin="flatscreen"] #tv-gameday-btn,
+#tv-window[data-skin="flatscreen"] #tv-standings-btn {
+	border: none;
+	border-radius: 8px;
+	width: 26px;
+	height: 26px;
+	background: rgba(255, 255, 255, 0.055);
+	box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+	color: rgba(226, 240, 236, 0.55);
+}
+#tv-window[data-skin="flatscreen"] #tv-read-btn:hover,
+#tv-window[data-skin="flatscreen"] #tv-schedule-btn:hover,
+#tv-window[data-skin="flatscreen"] #tv-gameday-btn:hover,
+#tv-window[data-skin="flatscreen"] #tv-standings-btn:hover {
+	background: rgba(255, 255, 255, 0.1);
+	color: #fff;
+}
+#tv-window[data-skin="flatscreen"] #tv-read-btn.on,
+#tv-window[data-skin="flatscreen"] #tv-schedule-btn.on,
+#tv-window[data-skin="flatscreen"] #tv-gameday-btn.on,
+#tv-window[data-skin="flatscreen"] #tv-standings-btn.on {
+	background: color-mix(in srgb, var(--tv-header-color) 22%, transparent);
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tv-header-color) 55%, transparent);
+	color: #fff;
+}
+#tv-window[data-skin="flatscreen"] #tv-close-btn:hover {
+	background: rgba(210, 40, 20, 0.28);
+	box-shadow: inset 0 0 0 1px rgba(255, 90, 60, 0.5);
+	color: #fff;
+}
+/* Ceiling-light strip — a soft reflected light bar across the top of the glass.
+   Halved in strength from the gloss-era version: a modern matte-coated panel
+   diffuses room light rather than mirroring it. */
 #tv-window[data-skin="flatscreen"]::before {
 	content: "";
 	position: absolute;
 	top: 45px;
-	left: 3px;
-	right: 3px;
-	height: 78px;
+	left: 2px;
+	right: 2px;
+	height: 92px;
 	pointer-events: none;
 	z-index: 41;
-	border-radius: 3px 3px 50% 50% / 3px 3px 34px 34px;
-	background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.025) 45%, transparent 100%);
+	border-radius: 2px 2px 50% 50% / 2px 2px 46px 46px;
+	background: linear-gradient(180deg, rgba(255, 255, 255, 0.042) 0%, rgba(255, 255, 255, 0.014) 50%, transparent 100%);
 	mix-blend-mode: screen;
 }
-/* Glass reflection — layered specular over the screen glass, not just the bezel
-   shell. A crisp diagonal light streak slowly drifts across the surface (living
-   glass), over a soft top-left ambient glare. Screen-blended so it only ever
+/* Glass reflection — a wide, soft sheen that drifts across the panel rather than
+   the hard mirror streak the gloss set had. Screen-blended so it only ever
    brightens; the corner darkening lives on the window background above. Scoped to
    the screen area (clear of the ~45px header and 72px footer) so text stays
    legible. pointer-events:none; z-index sits above content/static but below the
@@ -8580,19 +8647,19 @@ body.fsim-external #look-resize-handle { display: none; }
 	position: absolute;
 	top: 45px;
 	bottom: 72px;
-	left: 3px;
-	right: 3px;
+	left: 2px;
+	right: 2px;
 	pointer-events: none;
 	z-index: 40;
-	border-radius: 3px;
+	border-radius: 2px;
 	background:
-		linear-gradient(118deg, transparent 32%, rgba(255, 255, 255, 0.06) 45%, rgba(255, 255, 255, 0.16) 50%, rgba(255, 255, 255, 0.05) 55%, transparent 68%),
-		radial-gradient(120% 85% at 12% 0%, rgba(205, 224, 238, 0.11), transparent 55%);
+		linear-gradient(118deg, transparent 26%, rgba(255, 255, 255, 0.028) 42%, rgba(255, 255, 255, 0.075) 50%, rgba(255, 255, 255, 0.025) 58%, transparent 74%),
+		radial-gradient(130% 90% at 10% -6%, rgba(198, 219, 236, 0.065), transparent 58%);
 	background-size: 300% 100%, 100% 100%;
 	background-position: -40% 0, 0 0;
 	background-repeat: no-repeat;
 	mix-blend-mode: screen;
-	animation: tv-glass-drift 15s ease-in-out infinite alternate;
+	animation: tv-glass-drift 22s ease-in-out infinite alternate;
 }
 @keyframes tv-glass-drift {
 	from { background-position: -40% 0, 0 0; }
@@ -13035,54 +13102,84 @@ input.trade-qty { width: 56px; }
 	text-decoration: line-through;
 }
 
-/* --- Paper doll --- */
+/* --- Paper doll ---
+   Was a 2×4 CSS grid of pads with three grey blocks behind it at 9% opacity
+   standing in for a body. It read as a form, not a person. Now it is the REAL
+   silhouette — the same two alpha masks the tablet's Gear doll uses — with the
+   slot pads anchored to where those things actually sit ON that body.
+
+   The stage takes the silhouette's own aspect ratio (set per sex below), which
+   is what lets the percentage anchors be exact: the masked figure fills the box
+   edge to edge, so "top: 8%" is the head on both bodies rather than an average
+   of the two that fits neither. */
 #wardrobe-doll {
 	position: relative;
-	flex: 1;
+	flex: 1 1 auto;
 	min-height: 0;
-	display: grid;
-	grid-template-columns: 1fr 1fr;
-	grid-template-areas:
-		"head  head"
-		"torso hands"
-		"legs  feet"
-		"acc   acc";
-	gap: 8px;
-	align-content: start;
-	padding: 8px 4px;
-	overflow-y: auto;
+	max-height: 46vh;
+	margin: 4px auto 2px;
+	padding: 0;
+	overflow: visible;
 }
-/* The mannequin behind the pads: three blocks, deliberately crude — it reads as
-   a tailor's dummy, not a character portrait. */
+#wardrobe-doll.wdr-doll-male   { aspect-ratio: 242 / 540; }
+#wardrobe-doll.wdr-doll-female { aspect-ratio: 500 / 708; }
+
+/* The body. One image, tinted by CSS, so it serves every character — and it is
+   a mask rather than an <img> so the brass palette carries onto it instead of
+   sitting next to it. */
 .wdr-figure {
 	position: absolute;
 	inset: 0;
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	justify-content: center;
-	opacity: 0.09;
+	background: linear-gradient(180deg, #e8c88e 0%, #b98b4a 60%, #8a6532 100%);
+	opacity: 0.55;
+	filter: drop-shadow(0 0 10px rgba(224, 185, 120, 0.35));
 	pointer-events: none;
+	-webkit-mask: url('/assets/paperdoll-mask.png') center / contain no-repeat;
+	mask: url('/assets/paperdoll-mask.png') center / contain no-repeat;
 }
-.wdr-fig-head { width: 34px; height: 34px; border-radius: 50%; background: #e0b978; }
-.wdr-fig-torso { width: 66px; height: 84px; margin-top: 6px; border-radius: 10px 10px 4px 4px; background: #e0b978; }
-.wdr-fig-legs { width: 46px; height: 78px; margin-top: 4px; border-radius: 4px 4px 8px 8px; background: #e0b978; }
-.wdr-pad-head { grid-area: head; }
-.wdr-pad-torso { grid-area: torso; }
-.wdr-pad-hands { grid-area: hands; }
-.wdr-pad-legs { grid-area: legs; }
-.wdr-pad-feet { grid-area: feet; }
-.wdr-pad-accessory { grid-area: acc; }
+.wdr-doll-female .wdr-figure {
+	-webkit-mask-image: url('/assets/femsil-mask.png');
+	mask-image: url('/assets/femsil-mask.png');
+}
+
+/* Pads sit ON the body. Head/torso/legs/feet run down the centre line; hands go
+   out to the left where a hand is, accessories to the right so they never fight
+   the figure for the same space. */
+.wdr-pad-head      { left: 50%; top: 2%;  transform: translateX(-50%); }
+.wdr-pad-torso     { left: 50%; top: 27%; transform: translateX(-50%); }
+.wdr-pad-legs      { left: 50%; top: 58%; transform: translateX(-50%); }
+.wdr-pad-feet      { left: 50%; top: 88%; transform: translateX(-50%); }
+.wdr-pad-hands     { left: -18%; top: 44%; }
+.wdr-pad-accessory { right: -20%; top: 12%; }
+.wdr-pad-head, .wdr-pad-torso, .wdr-pad-legs, .wdr-pad-feet,
+.wdr-pad-hands, .wdr-pad-accessory { position: absolute; width: 40%; min-width: 92px; }
+/* Pads float over the figure now, so they need to be legible against a body
+   rather than against panel background — hence the blur and the real backdrop.
+   Empty pads sit back at low opacity so an undressed doll reads as a SILHOUETTE
+   with room on it, not as six loud empty boxes stapled to a person. */
 .wdr-pad {
-	position: relative;
-	border: 1px dashed var(--border);
-	border-radius: 3px;
-	padding: 5px 6px;
-	min-height: 46px;
+	border: 1px dashed rgba(185, 139, 74, 0.45);
+	border-radius: 4px;
+	padding: 4px 6px;
+	min-height: 34px;
 	display: flex;
 	flex-direction: column;
-	gap: 3px;
-	background: rgba(0, 0, 0, 0.25);
+	gap: 2px;
+	background: rgba(10, 8, 6, 0.72);
+	backdrop-filter: blur(2px);
+	-webkit-backdrop-filter: blur(2px);
+	opacity: 0.55;
+	transition: opacity 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+	z-index: 2;
+}
+.wdr-pad:hover { opacity: 1; }
+/* A pad holding something is a statement about the outfit, so it comes forward
+   and stays there. */
+.wdr-pad:has(.wdr-worn) {
+	opacity: 1;
+	border-style: solid;
+	border-color: rgba(224, 185, 120, 0.75);
+	box-shadow: 0 2px 10px rgba(0, 0, 0, 0.55);
 }
 .wdr-pad-label {
 	font-size: 9px;
@@ -13200,6 +13297,71 @@ input.trade-qty { width: 56px; }
 	text-transform: uppercase;
 	color: var(--text-dim);
 }
+/* --- The rails ---
+   The stock column borrows the fridge's structural language (an inset interior
+   with a lit lip above each shelf) but not its temperature: a wardrobe is warm
+   brass and timber where the chiller is cold steel, so the two read as the same
+   KIND of object without reading as the same object. The lip is a hanging rail
+   here rather than a shelf edge, which is the one detail that sells it. */
+#wardrobe-stock-col {
+	background:
+		linear-gradient(180deg, rgba(0, 0, 0, 0.34), rgba(0, 0, 0, 0.14)),
+		repeating-linear-gradient(90deg, rgba(120, 84, 40, 0.05) 0 6px, transparent 6px 13px);
+	border-radius: 4px;
+	box-shadow: inset 0 2px 14px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(185, 139, 74, 0.14);
+	padding: 6px 8px 8px;
+}
+.wdr-rail-head {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	margin: 6px 0 0;
+}
+.wdr-rail-note {
+	font-size: 9px;
+	letter-spacing: 1px;
+	text-transform: uppercase;
+	color: var(--text-dim);
+	opacity: 0.7;
+}
+/* The rail itself: a lit metal bar the garments hang from. */
+.wdr-rail {
+	position: relative;
+	padding-top: 9px;
+}
+.wdr-rail::before {
+	content: '';
+	position: absolute;
+	left: 2px;
+	right: 2px;
+	top: 2px;
+	height: 2px;
+	border-radius: 2px;
+	background: linear-gradient(90deg, rgba(185, 139, 74, 0.15), rgba(232, 200, 142, 0.75), rgba(185, 139, 74, 0.15));
+	box-shadow: 0 1px 5px rgba(224, 185, 120, 0.28);
+}
+/* Each garment gets a hook onto that rail — a two-pixel detail doing the entire
+   job of explaining why the list is a rail and not another inventory box. */
+.wdr-rail .wdr-garment { position: relative; margin-top: 7px; }
+.wdr-rail .wdr-garment::before {
+	content: '';
+	position: absolute;
+	left: 13px;
+	top: -7px;
+	width: 7px;
+	height: 7px;
+	border: 1.5px solid rgba(200, 158, 96, 0.8);
+	border-bottom: none;
+	border-radius: 4px 4px 0 0;
+	pointer-events: none;
+}
+.wdr-rail .wdr-empty { margin-top: 8px; }
+.wdr-outfits-head { margin-top: 6px; }
+
+@media (prefers-reduced-motion: reduce) {
+	.wdr-pad { transition: none; }
+}
+
 #wardrobe-footer {
 	display: flex;
 	justify-content: flex-end;
@@ -13267,6 +13429,24 @@ input.trade-qty { width: 56px; }
 	transition: left 0.28s ease, top 0.28s ease, width 0.28s ease, height 0.28s ease;
 	pointer-events: none;
 }
+/* End of tour: the lights come up.
+   The hole closes and the overlay flattens to a plain dim, so nothing brightens
+   from the middle outward, and the two main panes then fade up in sequence
+   underneath it (see endTour). */
+#tour-overlay.tour-lights-up #tour-hole { opacity: 0; transition: opacity 0.35s ease; }
+#tour-overlay.tour-lights-up { transition: opacity 0.45s ease; opacity: 0; }
+/* A pane waiting for its turn. Dimmed, but never all the way out — a black
+   rectangle reads as broken, where a dim one reads as not-yet. */
+.tour-dimmed {
+	filter: brightness(0.18) saturate(0.5);
+	transition: filter 1.4s cubic-bezier(0.33, 0.9, 0.3, 1);
+}
+.tour-dimmed.tour-lit-up { filter: brightness(1) saturate(1); }
+@media (prefers-reduced-motion: reduce) {
+	.tour-dimmed { transition: none; filter: none; }
+	#tour-overlay.tour-lights-up { transition: none; }
+}
+
 /* The spotlighted region pulses once so the eye lands on it, not just off it. */
 .tour-lit {
 	animation: tour-lit-pulse 1.6s ease-in-out 2;
@@ -13380,16 +13560,27 @@ body.intro-cine-open { overflow: hidden; }
 	text-align: center;
 	pointer-events: none;
 }
+/* Was Georgia — a book serif, and the only place in the game that used one. The
+   cold open is the first thing a new player ever sees, so it should be speaking
+   in ARCHITECT's voice from the first frame, not in a typeface it never uses
+   again. Mono with open tracking reads as the record being played back, which is
+   what these lines are.
+
+   The fade is also slower and symmetric now: a line breathes IN over 1.2s and
+   OUT over the same, and the schedule leaves a real gap between beats so it can
+   finish leaving before the next one arrives. Previously the gap was ~100ms
+   against a 900ms fade, so lines crossed over each other and it read as a cut
+   rather than a dissolve. */
 .intro-cine-line {
-	font-family: Georgia, 'Times New Roman', serif;
-	font-size: clamp(19px, 2.9vw, 30px);
-	line-height: 1.55;
-	letter-spacing: 0.4px;
+	font-family: var(--font-mono, 'Courier New', monospace);
+	font-size: clamp(17px, 2.6vw, 27px);
+	line-height: 1.7;
+	letter-spacing: 1.1px;
 	color: #eef4f3;
 	text-shadow: 0 0 30px rgba(0,0,0,0.95), 0 2px 18px rgba(0,0,0,0.9);
 	opacity: 0;
 	transform: translateY(7px);
-	transition: opacity 900ms ease, transform 1400ms ease;
+	transition: opacity 1200ms ease, transform 1600ms ease;
 }
 .intro-cine-line.in { opacity: 1; transform: translateY(0); }
 .intro-cine-line.big { font-size: clamp(22px, 3.5vw, 37px); }

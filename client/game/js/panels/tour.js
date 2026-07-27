@@ -202,7 +202,35 @@ function endTour(finished = false) {
   globalThis.removeEventListener('resize', _onResize);
   globalThis.removeEventListener('keydown', onKey);
   document.querySelectorAll('.tour-lit').forEach((n) => n.classList.remove('tour-lit'));
-  _ov?.remove(); _card?.remove();
+  const ov = _ov;
+  _card?.remove();
   _ov = null; _card = null; _onResize = null;
+
+  // THE LIGHTS COME UP, TOP TO BOTTOM.
+  //
+  // The overlay used to just vanish, which dumped the whole interface on a new
+  // player in one frame — every pane arriving at once, nothing telling them
+  // where to look first. Now the two main panes brighten in sequence over about
+  // two seconds, the room pane leading the log by a beat, so the eye lands on
+  // the room description (the thing that tells you where you are) before the
+  // scrollback underneath it.
+  //
+  // Done by fading each pane UP from dimmed rather than fading the overlay out,
+  // because the overlay carries the spotlight hole — fading that would brighten
+  // the hole's edges first, which is exactly backwards.
+  if (ov) {
+    ov.classList.add('tour-lights-up');       // kills the hole, dims flat
+    for (const [i, sel] of ['#area-pane', '#output'].entries()) {
+      const pane = document.querySelector(sel);
+      if (!pane) continue;
+      pane.classList.add('tour-dimmed');
+      // 0ms for the room, 550ms for the log — the stagger IS the instruction.
+      setTimeout(() => {
+        pane.classList.add('tour-lit-up');
+        setTimeout(() => pane.classList.remove('tour-dimmed', 'tour-lit-up'), 1700);
+      }, 60 + i * 550);
+    }
+    setTimeout(() => ov.remove(), 500);
+  }
   if (finished) sendCmdSilent('tutorial done');
 }

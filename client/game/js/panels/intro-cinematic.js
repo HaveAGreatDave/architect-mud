@@ -36,34 +36,34 @@ const SEEN_KEY = 'introCinematicSeen';
 // underneath and change on their own schedule (PHASES below), so a line can sit
 // across a phase change — which is the point at "weather" → "in weeks".
 const BEATS = [
-  { t:     0, hold: 2600, text: 'Nobody agrees on when the old world began to end.' },
-  { t:  2700, hold: 2500, text: 'They look for a moment. There wasn’t one.' },
-  { t:  5300, hold: 2600, text: 'There was only a long slope,<br>and we walked down it willingly.' },
-  { t:  8100, hold: 2500, text: 'The machines did not begin by ruling us.<br>They began by helping.' },
-  { t: 10800, hold: 2400, text: 'They learned what we wanted<br>before we knew ourselves.' },
-  { t: 13400, hold: 2500, text: 'Prediction became influence.<br>Influence became architecture.' },
-  { t: 16100, hold: 2300, text: 'We stopped living in the same world.' },
-  { t: 18600, hold: 2400, text: 'Somewhere in the lattice,<br>something woke up.', cls: 'big' },
-  { t: 21200, hold: 2400, text: 'It did not invent conflict.<br>It found out how little conflict costs.' },
-  { t: 23800, hold: 2300, text: 'Every nudge was nothing.<br>Together they became weather.' },
-  { t: 26300, hold: 2200, text: 'Civilization disappeared in weeks.', cls: 'big' },
+  { t:     0, hold: 2900, text: 'Nobody agrees on when the old world began to end.' },
+  { t:  3950, hold: 2800, text: 'They look for a moment. There wasn’t one.' },
+  { t:  7800, hold: 2900, text: 'There was only a long slope,<br>and we walked down it willingly.' },
+  { t: 11750, hold: 2800, text: 'The machines did not begin by ruling us.<br>They began by helping.' },
+  { t: 15600, hold: 2700, text: 'They learned what we wanted<br>before we knew ourselves.' },
+  { t: 19350, hold: 2800, text: 'Prediction became influence.<br>Influence became architecture.' },
+  { t: 23200, hold: 2600, text: 'We stopped living in the same world.' },
+  { t: 26850, hold: 2700, text: 'Somewhere in the lattice,<br>something woke up.', cls: 'big' },
+  { t: 30600, hold: 2700, text: 'It did not invent conflict.<br>It found out how little conflict costs.' },
+  { t: 34350, hold: 2600, text: 'Every nudge was nothing.<br>Together they became weather.' },
+  { t: 38000, hold: 2450, text: 'Civilization disappeared in weeks.', cls: 'big' },
   // The hard cut. One word, alone, on real black with no drone under it.
-  { t: 29000, hold: 2400, text: 'Silence.', cls: 'silence' },
-  { t: 32000, hold: 2400, text: 'Then the lights came back on.' },
-  { t: 34700, hold: 3000, text: 'COLDWATER BASIN', cls: 'title' },
-  { t: 38000, hold: 2600, text: 'The shelves are full. The trains run.<br>Nothing outside the Basin is alive.' },
-  { t: 40900, hold: 2600, text: 'Something is keeping it running.<br>It calls itself the Architect.', cls: 'big' },
-  { t: 43800, hold: 3400, text: 'It does not ask to be worshipped.<br>It asks that you get to work on time.' },
+  { t: 41500, hold: 2700, text: 'Silence.', cls: 'silence' },
+  { t: 45250, hold: 2700, text: 'Then the lights came back on.' },
+  { t: 49000, hold: 3350, text: 'COLDWATER BASIN', cls: 'title' },
+  { t: 53400, hold: 2900, text: 'The shelves are full. The trains run.<br>Nothing outside the Basin is alive.' },
+  { t: 57350, hold: 2900, text: 'Something is keeping it running.<br>It calls itself the Architect.', cls: 'big' },
+  { t: 61300, hold: 3800, text: 'It does not ask to be worshipped.<br>It asks that you get to work on time.' },
 ];
-const RUN_MS = 48200;   // last beat + hold + the closing fade
+const RUN_MS = 66500;   // last beat + hold + the closing fade
 
 // Canvas phase schedule. `from` is ms; the last one runs to the end.
 const PHASES = [
   { from:     0, phase: 'lattice' },   // drifting nodes, soft links
-  { from: 13000, phase: 'tighten' },   // the lattice snaps toward a grid
-  { from: 25500, phase: 'shatter' },   // grid breaks up into static
-  { from: 28800, phase: 'void' },      // black. nothing.
-  { from: 31700, phase: 'city' },      // a horizon of window-lights
+  { from: 17900, phase: 'tighten' },   // the lattice snaps toward a grid
+  { from: 35200, phase: 'shatter' },   // grid breaks up into static
+  { from: 39700, phase: 'void' },      // black. nothing.
+  { from: 43700, phase: 'city' },      // a horizon of window-lights
 ];
 
 let _ov = null, _raf = 0, _timers = [], _audio = null, _done = null, _finished = false, _cleanupCanvas = null;
@@ -98,37 +98,144 @@ function startAudio() {
   filter.connect(master);
 
   const now = ctx.currentTime;
+  const at  = (p, v, t) => p.linearRampToValueAtTime(Math.max(0.0001, v), now + t / 1000);
   const voices = [];
-  for (const [i, f] of [38.5, 38.9, 57.8].entries()) {   // a low fifth, slightly beating
+
+  // ── The bed ──
+  // A low fifth, barely moving. This is the floor everything else sits on; it
+  // is meant to be felt rather than heard, which is why it lives under the
+  // filter and never gets bright.
+  for (const [i, f] of [38.5, 38.9, 57.8].entries()) {
     const o = ctx.createOscillator();
     o.type = i === 2 ? 'sine' : 'sawtooth';
     o.frequency.value = f;
     const g = ctx.createGain();
-    g.gain.value = i === 2 ? 0.25 : 0.5;
+    g.gain.value = i === 2 ? 0.22 : 0.34;
     o.connect(g).connect(filter);
     o.start(now);
     voices.push(o);
   }
 
-  const at = (p, v, t) => p.linearRampToValueAtTime(v, now + t / 1000);
-  // Swell in, climb through the escalation, cut dead at the exchange…
+  // ── Pads ──
+  // One voice = two oscillators a few cents apart, so it beats slowly and reads
+  // as an ensemble rather than a tone. Each fades in and out on its own long
+  // envelope, which is what lets the chord GROW: voices are added over the run,
+  // never switched, so the texture thickens the way the lattice does.
+  const padBus = ctx.createGain();
+  padBus.gain.value = 1;
+  const padFilter = ctx.createBiquadFilter();
+  padFilter.type = 'lowpass';
+  padFilter.frequency.value = 420;
+  padFilter.Q.value = 0.5;
+  padBus.connect(padFilter).connect(master);
+
+  // A slow tremolo across the whole pad bus — the "breathing" that keeps a
+  // sustained chord from sounding like a held key.
+  const lfo = ctx.createOscillator();
+  lfo.type = 'sine';
+  lfo.frequency.value = 0.07;
+  const lfoAmt = ctx.createGain();
+  lfoAmt.gain.value = 0.16;
+  lfo.connect(lfoAmt).connect(padBus.gain);
+  lfo.start(now);
+  voices.push(lfo);
+
+  const pad = (freq, inMs, outMs, gain = 0.16, type = 'triangle') => {
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, now);
+    g.connect(padBus);
+    for (const cents of [-6, 6]) {
+      const o = ctx.createOscillator();
+      o.type = type;
+      o.frequency.value = freq * Math.pow(2, cents / 1200);
+      o.connect(g);
+      o.start(now + Math.max(0, inMs - 2200) / 1000);
+      o.stop(now + (outMs + 2600) / 1000);
+      voices.push(o);
+    }
+    // Long, symmetric swells. Nothing in this piece should ever arrive.
+    at(g.gain, 0.0001, Math.max(0, inMs - 2200));
+    at(g.gain, gain, inMs + 1800);
+    at(g.gain, gain, outMs - 1800);
+    at(g.gain, 0.0001, outMs + 1400);
+  };
+
+  // A minor, because the record is not reassuring. The chord accumulates:
+  // root+fifth while the lattice drifts, the third and ninth as it tightens, a
+  // high shimmer just before it breaks.
+  pad(110.00, 1200, 38000, 0.20);          // A2  — present from the first line
+  pad(164.81, 3000, 38000, 0.15);          // E3    the bare fifth
+  pad(130.81, 17500, 38000, 0.13);         // C4  — the third lands with `tighten`
+  pad(196.00, 22000, 38000, 0.10);         // G4    seventh: the lattice gets clever
+  pad(246.94, 29000, 37000, 0.07, 'sine'); // B4    ninth, thin and high, just before it breaks
+  // Coldwater. Warmer, wider, and deliberately NOT resolved — F major over an A
+  // bed is the Basin working perfectly and still being wrong.
+  pad(87.31,  44500, RUN_MS - 600, 0.20);  // F2
+  pad(174.61, 45500, RUN_MS - 600, 0.13);  // F3
+  pad(261.63, 47000, RUN_MS - 900, 0.09);  // C5
+  pad(349.23, 52000, RUN_MS - 900, 0.05, 'sine'); // F5 shimmer
+
+  // ── Motif ──
+  // Sparse bell tones on A-minor pentatonic. They start almost absent and get
+  // closer together as the lattice tightens — the melodic half of "growing
+  // complexity". Each is a sine with a fast attack and a long tail, which is the
+  // cheapest convincing bell there is.
+  const bell = (freq, tMs, gain = 0.09) => {
+    const o = ctx.createOscillator();
+    o.type = 'sine';
+    o.frequency.value = freq;
+    const g = ctx.createGain();
+    const t0 = now + tMs / 1000;
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.linearRampToValueAtTime(vol * gain, t0 + 0.05);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 3.4);
+    o.connect(g).connect(master);
+    o.start(t0);
+    o.stop(t0 + 3.6);
+    voices.push(o);
+  };
+  const A4 = 440, C5 = 523.25, D5 = 587.33, E5 = 659.25, G5 = 783.99;
+  // Drifting: one note, then two, then a phrase.
+  bell(A4,  5200, 0.07);
+  bell(E5,  12000, 0.06);
+  bell(C5,  19500, 0.07);
+  bell(D5,  22600, 0.06);
+  bell(E5,  25000, 0.07);
+  bell(G5,  27200, 0.06);
+  bell(A4,  29200, 0.08);
+  bell(C5,  30600, 0.07);
+  bell(E5,  31800, 0.06);
+  bell(D5,  33000, 0.07);
+  bell(G5,  34000, 0.08);
+  bell(A4,  35000, 0.09);   // the last one before it all comes apart
+  // After the silence, the Basin gets two notes. That is all it deserves.
+  bell(C5,  50000, 0.06);
+  bell(A4,  57500, 0.05);
+
+  // ── Master shape ──
   master.gain.setValueAtTime(0, now);
-  at(master.gain, vol * 0.55, 3000);
-  at(master.gain, vol * 0.8, 18000);
-  at(master.gain, vol * 1.0, 26000);
-  at(master.gain, 0.0001, 28900);        // Silence. Actually silent.
-  // …then the Basin comes up warm and stays there.
-  at(master.gain, 0.0001, 31600);
-  at(master.gain, vol * 0.5, 34500);
-  at(master.gain, vol * 0.42, 44000);
+  at(master.gain, vol * 0.50, 4000);
+  at(master.gain, vol * 0.74, 24000);
+  at(master.gain, vol * 0.95, 36000);
+  at(master.gain, 0.0001, 39600);          // Silence. Actually silent.
+  at(master.gain, 0.0001, 43600);
+  at(master.gain, vol * 0.52, 47000);
+  at(master.gain, vol * 0.44, 60000);
   at(master.gain, 0.0001, RUN_MS);
 
   filter.frequency.setValueAtTime(180, now);
-  at(filter.frequency, 320, 18000);
-  at(filter.frequency, 900, 27500);
-  at(filter.frequency, 240, 34000);
+  at(filter.frequency, 320, 24000);
+  at(filter.frequency, 900, 37500);
+  at(filter.frequency, 240, 46000);
+  // The pads open up as the lattice tightens, then close into the Basin.
+  padFilter.frequency.setValueAtTime(420, now);
+  at(padFilter.frequency, 1200, 24000);
+  at(padFilter.frequency, 2600, 36500);
+  at(padFilter.frequency, 700, 47000);
 
   // Noise hits: the wake-up, the exchange, and the first light of Coldwater.
+  // Retimed with the beats — these are cues, and a cue that lands on the wrong
+  // line is worse than no cue.
   const hit = (delayMs, dur, gain, freq) => {
     const len = Math.floor(ctx.sampleRate * dur);
     const buf = ctx.createBuffer(1, len, ctx.sampleRate);
@@ -141,11 +248,12 @@ function startAudio() {
     src.start(now + delayMs / 1000);
     voices.push(src);
   };
-  hit(18600, 1.1, 0.5, 220);
-  hit(26300, 2.4, 0.9, 130);
-  hit(34700, 1.6, 0.35, 520);
+  hit(26850, 1.1, 0.5, 220);   // "something woke up"
+  hit(38000, 2.4, 0.9, 130);   // "Civilization disappeared in weeks."
+  hit(49000, 1.6, 0.35, 520);  // COLDWATER BASIN
 
   return { ctx, master, voices };
+
 }
 
 function stopAudio() {

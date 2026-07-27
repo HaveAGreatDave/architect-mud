@@ -289,6 +289,11 @@ async function decorateView({ view, container, player }) {
   for (const r of equipped) available.add(r.itemId);
   const rows = await loadOutfits(player.id, container.id);
   view.type = 'wardrobe_view';
+  // Which silhouette the panel draws. Same call the tablet's Gear app makes
+  // (plugins/tablet/gear-app.js) off the same field, so a character is the same
+  // shape in both places — the wardrobe doll and the gear doll are one body seen
+  // twice, and they would look like two different people if this disagreed.
+  view.sex = player.biological_sex === 'female' ? 'female' : 'male';
   view.outfits = rows.map(r => describeOutfit(r, available));
   // Seeds the panel's "Wearing" button, so composing a look from what's on your
   // back doesn't mean re-dragging pieces the server already knows about.

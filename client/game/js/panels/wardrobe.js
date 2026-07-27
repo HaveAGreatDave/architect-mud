@@ -25,6 +25,10 @@ let editingName = '';
 // What the server says is on the player's body right now — the seed for the
 // "Wearing" button. Refreshed with every view, so it can't go stale mid-session.
 let equippedNow = [];
+// Which silhouette to draw. The server sends it with every view (see the
+// wardrobe plugin's decorateView); 'male' is the fallback only because one of
+// the two images has to be, never because it is a default about anybody.
+let dollSex = 'male';
 
 // Pads on the mannequin, in render order. `accessory` is the only multi pad.
 const PADS = [
@@ -80,6 +84,7 @@ function renderWardrobePanel(data) {
   document.getElementById('wardrobe-notify').textContent = data.notify || '';
 
   equippedNow = data.equipped || [];
+  if (data.sex === 'female' || data.sex === 'male') dollSex = data.sex;
   // Both buttons act on what you're wearing, so neither means anything naked.
   const bare = equippedNow.length === 0;
   const wearingBtn = document.getElementById('wardrobe-wearing');
@@ -223,7 +228,13 @@ function placeOnDoll(slot, piece) {
 
 function renderDoll() {
   const stage = document.getElementById('wardrobe-doll');
-  stage.innerHTML = '<div class="wdr-figure" aria-hidden="true"><span class="wdr-fig-head"></span><span class="wdr-fig-torso"></span><span class="wdr-fig-legs"></span></div>';
+  // The REAL silhouette, not the three grey boxes that used to stand in for one.
+  // Same alpha-mask technique and the same two source images as the tablet's Gear
+  // doll (/assets/paperdoll-mask.png, /assets/femsil-mask.png), so a character is
+  // the same body in both screens rather than a mannequin here and a person
+  // there. The mask is tinted by CSS, which is why one image serves every skin.
+  stage.className = `wdr-doll-${dollSex}`;
+  stage.innerHTML = '<div class="wdr-figure" aria-hidden="true"></div>';
 
   for (const { slot, label } of PADS) {
     const pad = document.createElement('div');
