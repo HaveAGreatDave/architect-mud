@@ -336,6 +336,10 @@ function tagValueError(def, v) {
     case 'range':   return (v && typeof v === 'object' && _isNum(v.min) && _isNum(v.max)) ? null : 'is missing min/max';
     case 'hot':     return (v && typeof v === 'object' && _isNum(v.amount) && _isNum(v.duration_seconds)) ? null : 'is missing amount/duration';
     case 'statmap': return (v && typeof v === 'object' && !Array.isArray(v) && Object.values(v).every(_isNum)) ? null : 'has non-numeric values';
+    // Free-form config object (treat_injury and anything like it). The shape of
+    // the keys belongs to whichever plugin reads it, so all we can check here is
+    // that it IS an object — a bare string or number is always a mistake.
+    case 'json':    return (v && typeof v === 'object' && !Array.isArray(v)) ? null : 'should be a JSON object';
     default:        return null;
   }
 }

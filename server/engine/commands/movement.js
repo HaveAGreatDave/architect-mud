@@ -6,6 +6,7 @@ import { describeZone, resolveNamedDestination, isInteriorZone } from './describ
 import { exitTargets, allExits, primaryExits } from '../exits.js';
 import { checkLockAuth, getLockTagPublic } from './doors.js';
 import { lockTypePassesWhileLocked } from '../locks.js';
+import { impairmentOf } from '../impairment.js';
 import { emit } from '../events.js';
 import { fireHook } from '../plugins.js';
 import { closeShopSession } from '../vendor-session.js';
@@ -540,6 +541,17 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
   // (shove, .gohome, follow-drag) pass bypassEncumbrance and never charge it. If
   // you can't afford the toll you walk the step for free — the gate that drops a
   // runner back to a jog when the tank hits empty.
+  // Walking hurt costs you. Charged on the same terms as the run toll — system
+  // relocations are exempt — and deliberately NEVER blocks the step: a player who
+  // cannot move is a player with nothing to do but wait, which is the one failure
+  // state this whole system is built to avoid.
+  const moveExtra = opts.bypassEncumbrance ? 0 : impairmentOf(player).moveStaminaExtra;
+  if (moveExtra > 0) {
+    player.stamina = Math.max(0, (player.stamina ?? (player.stamina_max ?? 100)) - moveExtra);
+    pendingWrite.stamina = player.stamina;
+    broadcast(null, { type:'resource_tick', messages:[], player_update:{ stamina: player.stamina } }, null, player.id);
+  }
+
   if (player.running && !opts.bypassEncumbrance) {
     const before = player.stamina ?? (player.stamina_max ?? 100);
     if (before >= RUN_STEP_STAMINA) {

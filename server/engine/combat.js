@@ -8,6 +8,7 @@ import { getZoneProtection } from './protection.js';
 import { query } from '../models/db.js';
 import { getEquippedWeapon } from './inventory.js';
 import { wear, WEAR_EVENTS, conditionPenalty, announceWear } from './durability.js';
+import { fireDamageToPlayer, dominantDamageType } from './damage-events.js';
 import { BASE_ATTACK_MS, hitBonus, defenseBonus, swingInterval, consumeDodge, swingVerb, missLine } from './stance.js';
 
 // A power attack (`pow`) multiplies the rolled damage after crit and before the
@@ -540,14 +541,22 @@ export async function enemyAttackPlayer(enemy, player) {
   const headMult = part === 'head' ? getTunable('head_damage_multiplier', 1.5) : 1;
   // TODO(phase5): head crit-to-stun once a turn-skip mechanic exists.
   let total = 0;
+  // Post-soak contribution per component, so the damage-events seam can name the
+  // type that actually did the work rather than whichever was listed first.
+  const contributions = [];
   for (const c of components) {
     let amt = randInt(c.min, c.max);
     if (critical) amt = Math.floor(amt * critMultiplier);
     amt = Math.floor(amt * headMult);
-    total += Math.max(0, amt - playerPartSoak(player, part, c.type));
+    const landed = Math.max(0, amt - playerPartSoak(player, part, c.type));
+    contributions.push({ type: c.type, amount: landed });
+    total += landed;
   }
   wearStruckArmor(player, part);
   const damage = Math.max(1, total);
+  fireDamageToPlayer(player, {
+    part, damage, type: dominantDamageType(contributions), critical, source: 'enemy',
+  });
   const partLabel = PART_LABELS[part] || part;
   // player.hp is still pre-damage here; gameLoop decrements it after this
   // returns, so the bar reflects the same value the client receives as `hp`.
@@ -644,6 +653,7 @@ export async function applyStrikeToPlayer(player, { min, max, damageType = 'kine
   if (part === 'head') damage = Math.floor(damage * getTunable('head_damage_multiplier', 1.5));
   damage = Math.max(1, damage - playerPartSoak(player, part, damageType));
   wearStruckArmor(player, part);
+  fireDamageToPlayer(player, { part, damage, type: damageType, critical: false, source: 'strike' });
   const before = player.hp ?? player.hp_max ?? 100;
   player.hp = Math.max(0, before - damage);
   player._resDirty = true; // coalesced into the 1s flushDirtyResources write
@@ -719,6 +729,7 @@ export async function pvpSwing(attacker, defender) {
   damage = Math.floor(damage * headMult);
   damage = Math.max(1, damage - playerPartSoak(defender, part, damageType));
   wearStruckArmor(defender, part);
+  fireDamageToPlayer(defender, { part, damage, type: damageType, critical, source: 'pvp' });
   wearHeldWeapon(attacker);
 
   const defHpBefore = defender.hp ?? defender.hp_max ?? 100;
@@ -942,6 +953,75 @@ export async function npcAttackPlayer(npc, player) {
     message: critical
       ? `<span class="crit-tag-in">CRITICAL!</span> ${npc.name} hits your <span class="hit-part">${partLabel}</span> for <span class="dmg-taken">${damage}</span> <span class="dmg-type">${damageTypes}</span>!${dodged ? DODGE_BROKEN : ''}${selfHpTag(player.hp - damage, player.hp_max)}`
       : `${npc.name} hits your <span class="hit-part">${partLabel}</span> for <span class="dmg-taken">${damage}</span> <span class="dmg-type">${damageTypes}</span>.${dodged ? DODGE_BROKEN : ''}${selfHpTag(player.hp - damage, player.hp_max)}`,
+  };
+}
+
+// NPC swings at another NPC. The missing corner of the matrix: enemy→player,
+// enemy→npc, enemy→enemy and npc→player all existed; two NPCs could never fight
+// each other, so a bar brawl had to be faked with flavour text and direct HP.
+//
+// Deliberately built from `npcAttackPlayer`'s numbers (flags.hit, flags.weapon,
+// the same crit threshold and body-part roll) rather than a new formula, so a
+// given NPC hits exactly as hard whoever they swing at. The defender side is
+// modelled on `enemyAttackNpc`: NPCs have `flags.dodge` and no typed soak, so
+// there is no armour lookup to do.
+//
+// LETHAL BY DEFAULT, like every other swing in this file. Callers that want a
+// scuffle rather than a killing pass `{ floorHp }` — damage then stops at that
+// floor and `killed` can never come back true. That keeps "two drunks scrapping"
+// and "an NPC murdering another NPC" as the same code path with one honest knob,
+// instead of two systems that drift.
+export async function npcAttackNpc(attacker, defender, { floorHp = 0 } = {}) {
+  if (!attacker || !defender || attacker._dead || defender._dead) return null;
+  if (attacker.id === defender.id) return null;
+  if (getZoneProtection(defender.zone_id)) return null;   // forcefield stops this too
+  const now = Date.now();
+  await ensureTunables();
+  const attackInterval = getTunable('enemy_attack_interval_ms', 4000);
+  if (now - (attacker._lastAttack || 0) < attackInterval) return null;
+  attacker._lastAttack = now;
+
+  const margin = ((attacker.flags?.hit ?? 1) - (defender.flags?.dodge ?? 1))
+    + rollSwing() + await darknessHitPenalty(defender.zone_id);
+  if (margin < 0) {
+    return { hit: false, killed: false, npcId: defender.id,
+      message: `${attacker.name} swings at ${defender.name} and misses.` };
+  }
+
+  const critical = margin >= getTunable('crit_threshold', 8);
+  const weaponArr = Array.isArray(attacker.flags?.weapon) && attacker.flags.weapon.length
+    ? attacker.flags.weapon
+    : [{ type: 'kinetic', min: 1, max: 3 }];
+  const damageTypes = [...new Set(weaponArr.map(c => c.type))].join('/');
+  const part = rollBodyPart();
+  const headMult = part === 'head' ? getTunable('head_damage_multiplier', 1.5) : 1;
+  let total = 0;
+  for (const c of weaponArr) {
+    let amt = randInt(Number(c.min) || 1, Number(c.max) || 3);
+    if (critical) amt = Math.floor(amt * getTunable('crit_multiplier', 1.5));
+    total += Math.floor(amt * headMult);
+  }
+  const startHp = defender.hp ?? defender.hp_max ?? 20;
+  // Floor first, THEN damage — so a capped swing can bruise but never finish.
+  const damage = Math.max(1, Math.min(total, Math.max(0, startHp - floorHp)));
+  defender.hp = Math.max(floorHp, startHp - damage);
+  // Hitting someone makes it mutual: the defender turns on their attacker, which
+  // is what turns one thrown punch into a fight without any brawl state machine.
+  if (!defender._combatTargetId) defender._combatTargetId = attacker.id;
+
+  const killed = defender.hp <= 0;
+  if (killed) {
+    defender._dead = true;
+    defender._respawnAt = Date.now() + 60000;
+    const zone = world.zones.get(defender.zone_id);
+    if (zone) zone.npcs.delete(defender.id);
+  }
+  const partLabel = PART_LABELS[part] || part;
+  return {
+    hit: true, damage, critical, killed, npcId: defender.id,
+    message: critical
+      ? `<span class="crit-tag">CRITICAL HIT</span> ${attacker.name} hits ${defender.name}'s <span class="hit-part">${partLabel}</span> for <span class="dmg-dealt">${damage}</span> <span class="dmg-type">${damageTypes}</span>!${killed ? ' They go down.' : ''}`
+      : `${attacker.name} hits ${defender.name}'s <span class="hit-part">${partLabel}</span> for <span class="dmg-dealt">${damage}</span> <span class="dmg-type">${damageTypes}</span>.${killed ? ' They go down.' : ''}`,
   };
 }
 

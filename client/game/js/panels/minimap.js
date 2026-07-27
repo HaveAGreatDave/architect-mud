@@ -2,7 +2,7 @@
 import { sendCmd, sendCmdSilent } from '../net.js';
 import { appendMsg } from '../render.js';
 import { state } from '../state.js';
-import { loadSettings } from '/shared/settings.js';
+import { loadSettings, saveSettings, applySettings } from '/shared/settings.js';
 
 // Avenue View for the sidebar/HUD/mobile minimaps: a rendering toggle (not a
 // server round-trip) that strips room symbols down to "does a named artery run
@@ -379,6 +379,13 @@ function wireMinimapAutoToggle() {
   // Run toggle: let the server flip player.running (it echoes run_state back).
   const rbtn = runBtn();
   if (rbtn && !rbtn._wired) { rbtn._wired = true; rbtn.addEventListener('click', () => sendCmd('run')); }
+  // Door style: pure client rendering, no server round trip.
+  const dbtn = doorsBtn();
+  if (dbtn && !dbtn._wired) {
+    dbtn._wired = true;
+    dbtn.addEventListener('click', toggleMapDoors);
+    syncDoorsBtn(mapState.doorStyle);   // seed the glyph from the persisted setting
+  }
 }
 // Double-clicking any minimap (sidebar / HUD / mobile) opens the full-screen map.
 // Delegated on document so it works no matter when the grids are created.
@@ -990,9 +997,35 @@ export function setMapOverlay(mode) {
 // Same hook shape for the interior door style (window._applyMapDoors, main.js).
 export function setMapDoors(style) {
   const next = style === 'edges' ? 'edges' : 'arrows';
+  syncDoorsBtn(next);
   if (next === mapState.doorStyle) return;
   mapState.doorStyle = next;
   if (_lastMinimapNodes) renderMinimap(_lastMinimapNodes);
+}
+
+// The sidebar door-style button. The glyph shows the mode you're IN rather than the
+// one you'd switch to — a control that displays its own state reads faster than one
+// that displays its action, and this button has no room for a label.
+function doorsBtn() { return document.getElementById('mm-doors-toggle'); }
+function syncDoorsBtn(style) {
+  const btn = doorsBtn();
+  if (!btn) return;
+  const edges = style === 'edges';
+  btn.textContent = edges ? '▤' : '▲';
+  btn.classList.toggle('active', edges);
+  btn.title = edges
+    ? 'Doors: edge lines — green where there is a way through, red where there is wall. Click for arrows.'
+    : 'Doors: arrows — amber triangles on the door edge. Click for edge lines.';
+}
+
+// Flip the shared `mapDoors` setting. Persisting through saveSettings/applySettings
+// (rather than poking mapState directly) is what makes the tablet Map app's own
+// chip light up in step — one setting, two surfaces, no second source of truth.
+export function toggleMapDoors() {
+  const s = loadSettings();
+  s.mapDoors = s.mapDoors === 'edges' ? 'arrows' : 'edges';
+  saveSettings(s);
+  applySettings(s);
 }
 
 function twoLetterAbbrev(name) {

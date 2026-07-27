@@ -1666,6 +1666,26 @@ function ensureStyles() {
     #tablet-os-overlay .tos-vt-aff.drug::before { background:#8f6fd0; }
     #tablet-os-overlay .tos-vt-affname { font-size:13px; color:var(--tos-fg); font-weight:bold; letter-spacing:.3px; }
     #tablet-os-overlay .tos-vt-affdet { font-size:11.5px; color:var(--tos-fg-dim); font-weight:bold; margin-top:3px; line-height:1.5; }
+    /* Paper doll. The figure is deliberately crude — it is a diagnostic readout
+       on a cheap medical suite, not an anatomy plate. Colour carries everything. */
+    #tablet-os-overlay .tos-vt-doll { display:flex; align-items:center; gap:16px; padding:6px 4px 10px;
+      border:1px solid var(--border); background:var(--tos-surface-lo); margin-bottom:10px; }
+    #tablet-os-overlay .tos-vt-dollsvg { width:104px; height:auto; flex:0 0 auto; overflow:visible; }
+    #tablet-os-overlay .tos-vt-doll-part { cursor:pointer; }
+    #tablet-os-overlay .tos-vt-doll-part > * { fill:var(--tos-surface-hi); stroke:var(--border); stroke-width:1.2;
+      transition:fill .18s linear, filter .18s linear; }
+    #tablet-os-overlay .tos-vt-doll-part.warn > * { fill:#d3a72e; stroke:#f4dd8a; }
+    #tablet-os-overlay .tos-vt-doll-part.bad  > * { fill:#d16a25; stroke:#f0a870; }
+    #tablet-os-overlay .tos-vt-doll-part.crit > * { fill:#c0342e; stroke:#f08c8c;
+      filter:drop-shadow(0 0 5px rgba(192,52,46,.75)); }
+    /* Only a Maimed part pulses. If everything moves, nothing reads as urgent. */
+    #tablet-os-overlay .tos-vt-doll-part.crit { animation:tos-doll-pulse 1.9s ease-in-out infinite; }
+    @keyframes tos-doll-pulse { 0%,100% { opacity:1; } 50% { opacity:.62; } }
+    #tablet-os-overlay .tos-vt-doll-part.sel > * { stroke:var(--tos-fg); stroke-width:2.2; }
+    #tablet-os-overlay .tos-vt-doll-part:focus { outline:none; }
+    #tablet-os-overlay .tos-vt-doll-part:focus > * { stroke:var(--tos-fg); stroke-width:2.2; }
+    #tablet-os-overlay .tos-vt-dolldet { flex:1 1 auto; min-width:0; font-size:12px; font-weight:bold;
+      line-height:1.6; color:var(--tos-fg-dim); }
     #tablet-os-overlay .tos-vt-clear { padding:26px 8px; text-align:center; font-size:14px; color:var(--tos-fg);
       font-weight:bold; line-height:1.8; }
     #tablet-os-overlay .tos-vt-clear span { color:var(--tos-fg-dim); font-size:12.5px; }
@@ -4001,6 +4021,47 @@ function renderHealthMeter(m) {
     </div>`;
 }
 
+// ── The paper doll ───────────────────────────────────────────────────────────
+//
+// Injuries are the first data in this game that is genuinely SPATIAL, and a list
+// of seven wounds is worse than a picture of a body in every way. Bands come off
+// the server like every other colour here, so this decides nothing — it only
+// draws. Absent `d.body` (nothing wrong, or the injury plugin disabled) it
+// renders nothing at all and Vitals is exactly the screen it always was.
+//
+// Sides are drawn from the VIEWER's perspective — your left arm is on the left —
+// because this is a HUD, not an anatomical chart.
+const DOLL_SHAPES = {
+  head:      '<circle cx="60" cy="21" r="15"/>',
+  torso:     '<rect x="42" y="39" width="36" height="59" rx="9"/>',
+  left_arm:  '<rect x="25" y="41" width="13" height="53" rx="6.5"/>',
+  right_arm: '<rect x="82" y="41" width="13" height="53" rx="6.5"/>',
+  left_leg:  '<rect x="43" y="101" width="15" height="59" rx="7"/>',
+  right_leg: '<rect x="62" y="101" width="15" height="59" rx="7"/>',
+  feet:      '<rect x="39" y="163" width="19" height="9" rx="4"/><rect x="62" y="163" width="19" height="9" rx="4"/>',
+};
+
+function renderHealthDoll(d) {
+  if (!d.body?.length) return '';
+  const parts = d.body.map(p => `
+    <g class="tos-vt-doll-part ${esc(p.band)}${p.severity > 0 ? ' hurt' : ''}"
+       data-doll-part="${esc(p.part)}"
+       data-doll-detail="${esc(p.detail || `${p.partLabel}: no injury.`)}"
+       role="button" tabindex="0"
+       aria-label="${esc(p.partLabel)}${p.name ? `: ${esc(p.name)}` : ''}"
+       title="${esc(p.detail || `${p.partLabel} — fine.`)}">
+      ${DOLL_SHAPES[p.part] || ''}
+    </g>`).join('');
+
+  const worst = d.body.filter(p => p.severity > 0).sort((a, b) => b.severity - a.severity)[0];
+  return `
+    <div class="tos-vt-sect">Body</div>
+    <div class="tos-vt-doll">
+      <svg viewBox="0 0 120 178" class="tos-vt-dollsvg" aria-label="Body diagram">${parts}</svg>
+      <div class="tos-vt-dolldet" data-doll-detail-slot>${esc(worst?.detail || '')}</div>
+    </div>`;
+}
+
 function renderHealthQuick(d) {
   if (!d.quick?.length) return '';
   const btns = d.quick.map(q => `
@@ -4087,6 +4148,7 @@ function renderHealth(d) {
   return `
     ${notice}
     ${renderHealthQuick(d)}
+    ${renderHealthDoll(d)}
     <div class="tos-vt-sect">Readings</div>
     <div class="tos-vt-meters">${(d.meters || []).map(renderHealthMeter).join('')}</div>
     <div class="tos-vt-sect">Presenting</div>
@@ -4501,6 +4563,9 @@ function renderMapCtl(d) {
     <span class="tos-map-mini" data-map-recenter title="Recenter on you">◎ Center</span>
     <span class="tos-map-mini${noRoute}" data-map-clear title="Clear the plotted GPS route">🧭 Clear</span>
     <span class="tos-map-mini${mapLabelsOn() ? ' active' : ''}" data-map-labels title="Toggle two-letter building labels — also switches the sidebar minimap">🏷 Labels</span>
+    <span class="tos-map-mini${mapDoorsEdges() ? ' active' : ''}" data-map-doors title="${mapDoorsEdges()
+      ? 'Doors: edge lines — green where there is a way through, red where there is wall. Click for arrows.'
+      : 'Doors: arrows — amber triangles on the door edge. Click for edge lines.'} Also switches the sidebar minimap.">${mapDoorsEdges() ? '▤ Lines' : '▲ Arrows'}</span>
     <span class="tos-map-zoom">
       <button class="tos-mz" data-map-zoom="out" title="Zoom out"${zoutOff}>−</button>
       <button class="tos-mz" data-map-zoom="in" title="Zoom in"${zinOff}>+</button>
@@ -6184,6 +6249,23 @@ function wireBody() {
     });
   });
 
+  // Paper-doll parts. Tap-to-reveal for the same reason the glosses above are:
+  // `title=` never fires on touch, and this tablet is used with a thumb as often
+  // as a mouse. Purely local — no round trip, the detail is already on the payload.
+  _overlay.querySelectorAll('[data-doll-part]').forEach(el => {
+    const show = () => {
+      sfx(TOS_SELECT_DEF);
+      _overlay.querySelectorAll('.tos-vt-doll-part.sel').forEach(o => o.classList.remove('sel'));
+      el.classList.add('sel');
+      const slot = _overlay.querySelector('[data-doll-detail-slot]');
+      if (slot) slot.textContent = el.getAttribute('data-doll-detail') || '';
+    };
+    el.addEventListener('click', show);
+    el.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); show(); }
+    });
+  });
+
   // TV channel chips — jump the dial straight to a station. The renderer picks the
   // change up through the `tv_panel` echo, same as the +/- sweep buttons.
   _overlay.querySelectorAll('[data-tv-ch]').forEach(el => {
@@ -6507,6 +6589,15 @@ function wireMap() {
   _overlay.querySelector('[data-map-labels]')?.addEventListener('click', () => {
     const s = loadSettings();
     s.mapOverlay = mapLabelsOn() ? 'none' : 'labels';
+    saveSettings(s);
+    applySettings(s);
+    rebuildMap();
+  });
+  // Door style. Persists through the shared setting, so the sidebar minimap's own
+  // button re-glyphs itself via applySettings → _applyMapDoors → setMapDoors.
+  _overlay.querySelector('[data-map-doors]')?.addEventListener('click', () => {
+    const s = loadSettings();
+    s.mapDoors = mapDoorsEdges() ? 'arrows' : 'edges';
     saveSettings(s);
     applySettings(s);
     rebuildMap();

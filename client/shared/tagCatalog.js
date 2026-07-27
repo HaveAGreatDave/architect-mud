@@ -191,6 +191,8 @@
       help: 'Gradual heal { amount, duration_seconds }, ticks once/min, stacks if re-used.' },
     well_fed: { label: 'Well-Fed', shape: 'flag', scope: 'class', group: 'Consumable',
       help: 'Grants the Well-Fed buff (faster HP regen) for 10 minutes.' },
+    treat_injury: { label: 'Treat Injury', shape: 'json', scope: 'class', group: 'Consumable',
+      help: 'Field medicine for wounds (plugins/injury). { steps, floor, types?, all?, chance? } — steps = severity rungs shed; floor 1 = cannot clear a wound outright (only a clinic can); types narrows it to one damage type (a splint sets fractures, does nothing for burns); all treats every eligible wound at once; chance <1 makes improvised gear fail sometimes.' },
     hydrating: { label: 'Hydrating', shape: 'flag', scope: 'class', group: 'Consumable',
       help: 'Grants the Hydrated buff (faster radiation decay) for 10 minutes.' },
     laced_drug: { label: 'Laced Drug', shape: 'text', scope: 'class', group: 'Consumable',

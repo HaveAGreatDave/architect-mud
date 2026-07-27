@@ -727,6 +727,38 @@ console.log('— layer 1i: relations substrate —');
   registerNpcScheduleChecker(prevChecker || (() => false));
 }
 
+// ── Layer 1i2: NPC-vs-NPC combat ──────────────────────────────────────────
+// The missing corner of the matrix (enemy→player, enemy→npc, enemy→enemy and
+// npc→player all pre-existed). The one thing that MUST hold: `floorHp` is what
+// separates a bar scrap from a killing, and a capped swing must never finish
+// someone — otherwise a drunken brawl quietly leaves bodies in every bar.
+{
+  const { npcAttackNpc } = await import('../server/engine/combat.js');
+  const mk = (id, hp) => ({
+    id, name: id, hp, hp_max: 40, zone_id: 'zone_regress_brawl',
+    flags: { hit: 3, dodge: 1, weapon: [{ type: 'kinetic', min: 3, max: 7 }] },
+  });
+
+  const a = mk('brawler_a', 40), b = mk('brawler_b', 14);
+  for (let i = 0; i < 40; i++) { a._lastAttack = 0; await npcAttackNpc(a, b, { floorHp: 12 }); }
+  check('a capped brawl never kills', b.hp >= 12 && !b._dead, `hp=${b.hp} dead=${!!b._dead}`);
+
+  const c = mk('brawler_c', 40), d = mk('brawler_d', 14);
+  let killed = false;
+  for (let i = 0; i < 40 && !killed; i++) { c._lastAttack = 0; killed = !!(await npcAttackNpc(c, d, {}))?.killed; }
+  check('...but an uncapped one can', killed && d.hp === 0, `hp=${d.hp} killed=${killed}`);
+
+  // Getting hit makes it mutual — this is what turns one punch into a fight
+  // without any brawl state machine.
+  const e = mk('brawler_e', 40), f = mk('brawler_f', 40);
+  e._lastAttack = 0; await npcAttackNpc(e, f, { floorHp: 12 });
+  check('being hit makes the defender fight back', f._combatTargetId === e.id, String(f._combatTargetId));
+
+  check('an NPC cannot attack itself', (await npcAttackNpc(e, e, {})) === null);
+  const dead = mk('brawler_dead', 0); dead._dead = true;
+  check('a dead NPC is not a target', (await npcAttackNpc(e, dead, {})) === null);
+}
+
 // ── Layer 1j: standing decay + relationship help ─────────────────────────
 // Two rules with teeth: standing is MAINTAINED (it slides back to a resting
 // point in both directions), and knowing someone is WORTH something at the till.

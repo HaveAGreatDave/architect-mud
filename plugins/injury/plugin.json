@@ -1,0 +1,16 @@
+{
+  "name": "injury",
+  "version": "0.5.0",
+  "description": "Injuries — one wound per body part, three severities, named by the damage type that caused them. Wounds appear, penalise, heal on their own, and can be treated with field medicine or cleared outright by a clinic.",
+  "hooks": ["tick.minute", "player.appearanceNotes", "item.consumed"],
+  "commands": ["injuries"],
+  "events": { "emits": [], "consumes": [] },
+  "dataSchema": ["player_flags.injuries"],
+  "extensionPoints": [
+    "severityOf(player, part) — sync, query-free severity read",
+    "bodyReport(player) — all seven parts with bands, for the Vitals paper doll",
+    "injuryReport(player) — injured parts only",
+    "clearInjuries(player, opts) — the surgical tier; used by plugins/clinic",
+    "tags.treat_injury on any consumable — { steps, floor, types?, all?, chance? }"
+  ]
+}

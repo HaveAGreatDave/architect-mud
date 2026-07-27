@@ -127,7 +127,11 @@ export async function cmdStats(player) {
   // and who is rolling at 4 deserves to be told which part of being cold, hungry
   // or parched is doing it to them.
   for (const c of conditionReport(player)) {
-    statusFlags.push(`${STAT_ABBR[c.stat] || c.stat} −${c.penalty} (${c.why})`);
+    // A non-stat impairment (a refused run, slowed recovery) carries a label
+    // instead of a stat, and has no number to show.
+    statusFlags.push(c.stat
+      ? `${STAT_ABBR[c.stat] || c.stat} −${c.penalty} (${c.why})`
+      : `${c.label} (${c.why})`);
   }
   statusFlags.push(...statusLabels(player));
 

@@ -25,6 +25,7 @@
  *      the warning text is the tutorial for the mechanic.
  */
 import { effectStatBonus } from './effects.js';
+import { impairmentStatPenalty, impairmentOf } from './impairment.js';
 
 // Cold hands don't do what you tell them. The bands mirror `tempRegenMultiplier`
 // in gameLoop.js exactly, so the message that says you're cold is the same
@@ -171,32 +172,35 @@ export function statPenalty(player, stat) {
   const hunger = Number(player.hunger ?? 100);
   const thirst = Number(player.thirst ?? 100);
   const tired = fatigueOf(player);
+  // Anything else currently diminishing this body — injuries first. Registered
+  // through impairment.js so a new source needs no edit here.
+  const extra = impairmentStatPenalty(player, stat);
 
   switch (stat) {
     case 'stat_reflexes':
       // Cold is the classic one: numb fingers, slow hands. This is what makes a
       // winter night genuinely dangerous rather than merely atmospheric.
       // Exhaustion stacks on top: cold AND up all night is a bad place to fight.
-      return bandPenalty(COLD_REFLEX, temp) + bandAbove(FATIGUE_REFLEX, tired);
+      return bandPenalty(COLD_REFLEX, temp) + bandAbove(FATIGUE_REFLEX, tired) + extra;
     case 'stat_brains':
       // Overheating, exhaustion, and — only once it's severe — dehydration.
       return bandPenalty(HOT_BRAINS, temp, true)
         + bandAbove(FATIGUE_BRAINS, tired)
-        + bandPenalty(PARCHED_BRAINS, thirst);
+        + bandPenalty(PARCHED_BRAINS, thirst) + extra;
     case 'stat_brawn':
-      return bandPenalty(STARVED_BRAWN, hunger);
+      return bandPenalty(STARVED_BRAWN, hunger) + extra;
     case 'stat_endurance':
       // Dehydration's headline cost: you run out of body before you run out of
       // will. This is the stat thirst should always have been taking.
-      return bandPenalty(PARCHED_ENDURANCE, thirst);
+      return bandPenalty(PARCHED_ENDURANCE, thirst) + extra;
     case 'stat_cool': {
       // Composure only. A mind coming apart takes your poise with it, capped at
       // 2 so the Cool→sanity→Cool loop degrades you rather than collapsing you.
       const sanityPct = player.sanity_max ? (player.sanity / player.sanity_max) * 100 : 100;
-      return bandPenalty(RATTLED_COOL, sanityPct);
+      return bandPenalty(RATTLED_COOL, sanityPct) + extra;
     }
     default:
-      return 0;
+      return extra;
   }
 }
 
@@ -234,5 +238,8 @@ export function conditionReport(player) {
   push('stat_brawn', 'hunger');
   push('stat_endurance', thirst <= 5 ? 'dehydrated' : 'thirst');
   push('stat_cool', 'rattled');
+  // Impairment reasons that aren't stat penalties at all — a refused run, slowed
+  // recovery — have nowhere else to surface, so they ride the same rail.
+  for (const n of impairmentOf(player).notes) out.push({ stat: null, penalty: 0, why: n.detail, label: n.label });
   return out;
 }

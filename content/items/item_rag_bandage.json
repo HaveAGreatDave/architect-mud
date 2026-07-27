@@ -7,7 +7,12 @@
     "consumable": true,
     "description": "A wad of boiled rag and packing tape. Cheaper than gauze, works about as well as you would fear.",
     "restore_hp": 8,
-    "stackable": true
+    "stackable": true,
+    "treat_injury": {
+      "steps": 1,
+      "floor": 1,
+      "chance": 0.6
+    }
   },
   "type": "consumable",
   "value": 5,

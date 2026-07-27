@@ -724,6 +724,11 @@ export async function applyItemUse(player, item, broadcast, opts = {}) {
     player.hydratedUntil = Date.now() + 10 * 60 * 1000;
     messages.push(`Hydrated: radiation clears faster for a while.`);
   }
+  // Anything else a consumable does that the engine has no business knowing
+  // about. Injuries are the first user (a splint sets a fracture); the handler
+  // reads whatever tag it owns off `t` and returns a line to show, or nothing.
+  const consumedNote = await fireHook('item.consumed', player, t);
+  if (consumedNote) messages.push(consumedNote);
   }
 
   if (sick) {

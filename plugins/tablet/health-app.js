@@ -24,6 +24,7 @@ import { getDrugStatus, visibleIntoxication } from '../../server/engine/drugs.js
 import { hygieneOf } from '../../server/engine/hygiene.js';
 import { bandFor as sanityBandFor } from '../sanity/index.js';
 import { intoxBand } from '../intoxication/index.js';
+import { bodyReport } from '../injury/index.js';
 
 const TABS = [
   { id: 'vitals', label: 'Vitals' },
@@ -137,6 +138,9 @@ function buildAfflictions(player, drugStatus) {
 
   // Anything the body's condition is taking off the stats you act with.
   for (const c of conditionReport(player)) {
+    // Non-stat impairments (a refused run, slowed recovery) carry a label and no
+    // number — rendering them as "null −0" is how the first draft of this read.
+    if (!c.stat) { add(c.label, c.why, 'bad'); continue; }
     add(`${STAT_LABEL[c.stat] || c.stat} −${c.penalty}`, `Cause: ${c.why}.`, 'bad');
   }
 
@@ -299,11 +303,17 @@ async function buildScreen(player, screenId, params, notice = null) {
 
   // VITALS
   const [remedies, status] = await Promise.all([carriedRemedies(player.id), getDrugStatus(player)]);
+  // The paper doll. All seven parts every time, injured or not, so the client
+  // renders a whole body rather than a scatter of marks — and `band` comes from
+  // the server like every other colour on this screen. Omitted entirely when
+  // nothing is wrong, so an uninjured player gets the screen they had before.
+  const body = bodyReport(player);
   return {
     ...base,
     meters: buildMeters(player),
     afflictions: buildAfflictions(player, status),
     quick: buildQuick(player, remedies),
+    body: body.some(p => p.severity > 0) ? body : null,
   };
 }
 

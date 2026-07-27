@@ -86,6 +86,7 @@ const LINE = {
   out:      (n) => `${n}'s knees fold — they slump bonelessly to the floor and don't get up.`,
   paranoid: (n) => `${n}'s pupils blow wide; they flinch at nothing and start scanning the room like the walls just moved.`,
   wired:    (n) => `${n}'s jaw starts working overtime, one heel jackhammering the floor, eyes too bright.`,
+  belligerent: (n) => `${n}'s eyes go flat and mean. Whatever they were before the drink, this is what was underneath it.`,
 };
 const LOOSE_MUTTER = [
   (n) => `${n} mumbles something they'd never say sober, then loses the thread.`,
@@ -93,6 +94,44 @@ const LOOSE_MUTTER = [
   (n) => `${n} giggles at nothing and lets half a secret slip before trailing off.`,
 ];
 const OUT_MUTTER  = [(n) => `${n} sprawls where they fell, breathing slow and heavy.`];
+
+// ── The mean drunk ────────────────────────────────────────────────────────────
+//
+// Derived from personality, not a flag: who turns nasty on a skinful is a fact
+// about the person, and the cast already declares who it is. Nothing to author —
+// tag an NPC `thug` and they were always going to be like this.
+//
+// Deliberately a MINORITY of the roster. Vendors, doctors, preachers and clerks
+// stay maudlin, because a world where every drunk swings is a world with no bars
+// in it. The list is people whose job or life already runs on the threat of
+// violence, plus the ones with nothing left to lose.
+const MEAN_DRUNK_PERSONALITIES = new Set([
+  'thug', 'mercenary', 'lowlife', 'guard', 'labourer', 'gambler', 'dealer', 'vagrant',
+]);
+const isMeanDrunk = (npc) => MEAN_DRUNK_PERSONALITIES.has(String(npc?.flags?.personality || ''));
+
+const BELLIGERENT_MUTTER = [
+  (n) => `${n} squares up to nobody in particular and mutters a challenge at the room.`,
+  (n) => `${n} looks you up and down like they're pricing a fight.`,
+  (n) => `${n} knocks something off a surface and dares anyone to mention it.`,
+  (n) => `${n} says "say that again" to a room in which nobody has said anything.`,
+];
+const SCUFFLE_LINES = [
+  (a, b) => `${a} shoves ${b} hard in the chest and calls them something unrepeatable.`,
+  (a, b) => `${a} swings a wild, drunken haymaker at ${b} and mostly connects.`,
+  (a, b) => `${a} gets a fistful of ${b}'s collar before anyone can step between them.`,
+  (a, b) => `${a} headbutts ${b} with more enthusiasm than accuracy.`,
+];
+const SCUFFLE_END = [
+  (a, b) => `${a} and ${b} are dragged apart, both insisting they're fine.`,
+  (a, b) => `${a} loses interest in ${b} halfway through a sentence and wanders off.`,
+];
+// Per 4s tick, once belligerent. Low on purpose: the state is mostly TALK, and a
+// fight should feel like an escalation you watched coming, not a dice roll that
+// happens the second someone gets a drink in them.
+const BELLIGERENT_PICK_FIGHT = 0.012;
+const BRAWL_MS = 24000;             // a scrap runs ~24s, then gets broken up
+const SCUFFLE_FLOOR_HP = 12;        // never scuffle an NPC below this, or toward death
 const WIRED_MUTTER = [
   (n) => `${n} grinds their teeth and mutters too fast to follow.`,
   (n) => `${n} paces a tight, twitchy circle, can't seem to stop moving.`,
@@ -118,7 +157,7 @@ function doseNpc(npc, kind, drugName, opts = {}) {
   const now = Date.now();
 
   // Reset the sub-flags each dose; set the ones this kind needs.
-  d.loose = d.out = d.flee = d.wired = false;
+  d.loose = d.out = d.flee = d.wired = d.belligerent = false;
   d.mutterChance = opts.mutterChance ?? null;
 
   if (kind === 'sedated') {
@@ -134,6 +173,13 @@ function doseNpc(npc, kind, drugName, opts = {}) {
       ai.dosedOut = true;                              // engine yields the graph
       try { setPosture(npc, 'lying'); } catch { /* posture best-effort */ }
       sendToZone(npc.zone_id, { type: 'zone_event', message: LINE.out(npc.name) });
+    } else if (isMeanDrunk(npc)) {
+      // Same dose, different person. A mean drunk is still `loose` for everything
+      // that reads that flag (candid, impaired) — belligerence rides ON TOP rather
+      // than replacing it, so nothing downstream has to learn a new state.
+      d.loose = true;
+      d.belligerent = true;
+      sendToZone(npc.zone_id, { type: 'zone_event', message: LINE.belligerent(npc.name) });
     } else {
       d.loose = true;
       sendToZone(npc.zone_id, { type: 'zone_event', message: LINE.loose(npc.name) });
@@ -180,6 +226,55 @@ function stepFlee(npc) {
   moveEntity(npc, pick(neighbors), fleeBroadcast, query);
 }
 
+// ── Picking a fight ───────────────────────────────────────────────────────────
+//
+// Two very different mechanisms, deliberately, because the two targets are not
+// comparable.
+//
+// AGAINST A PLAYER — hand off to the real combat engine. Setting `_combatTargetId`
+// is the entire hook: gameLoop's NPC-retaliation pass already picks that up every
+// tick and runs npcAttackPlayer, with real to-hit, real armour, real damage and
+// real death. The player can fight back, flee, or call it in. Nothing new is
+// needed and nothing about combat is reimplemented here.
+//
+// AGAINST ANOTHER NPC — a self-contained scuffle, NOT the combat engine. There is
+// no npcAttackNpc (only enemyAttackNpc, which takes a spawned enemy instance), and
+// inventing full NPC-vs-NPC combat for a bar fight would be a large, load-bearing
+// engine change for a piece of flavour. Two NPCs neither side controls do not need
+// to-hit rolls; they need to look like a fight and leave a mark. So this trades a
+// few blows, takes a little HP, and stops well clear of killing anyone.
+function scuffleTargets(npc) {
+  const here = getZoneNpcs(npc.zone_id) || [];
+  return here.filter(n => n && n.id !== npc.id && !n._dead
+    && (n.hp == null || n.hp > SCUFFLE_FLOOR_HP)
+    && !n._ai?.dosedOut                     // don't beat on someone already out cold
+    && n.posture !== 'lying');
+}
+
+function pickAFight(npc) {
+  // NPCs first: a drunk squares up to whoever is nearest, and starting on another
+  // NPC keeps the escalation in the fiction rather than immediately on the player.
+  const npcs = scuffleTargets(npc);
+  if (npcs.length) {
+    const foe = pick(npcs);
+    sendToZone(npc.zone_id, { type: 'zone_event', message: pick(SCUFFLE_LINES)(npc.name, foe.name) });
+    // Hand off to the real engine. `_brawlFloorHp` caps it: a drunken scrap
+    // bruises and humiliates but must not put a body on the floor of a bar every
+    // time someone has a skinful. Remove the floor and this is a killing.
+    npc._brawlFloorHp = SCUFFLE_FLOOR_HP;
+    npc._combatTargetId = foe.id;
+    return true;
+  }
+  // Nobody else to swing at — turn on a player, through the real combat seam.
+  const players = getZonePlayers(npc.zone_id) || [];
+  const victim = players.find(p => p && !p.dead);
+  if (!victim) return false;
+  sendToZone(npc.zone_id, { type: 'zone_event',
+    message: `${npc.name} decides, with the terrible clarity of the very drunk, that ${victim.handle} is the problem.` });
+  npc._combatTargetId = victim.id;          // gameLoop takes it from here
+  return true;
+}
+
 // ── Driver tick: flavour, flee, expiry (self-gates when nobody's dosed) ────────
 function tick() {
   if (!DOSED.size) return;
@@ -192,6 +287,25 @@ function tick() {
     if (now >= d.until) { sober(npc); continue; }
     if (d.flee) { stepFlee(npc); continue; }
     if (d.out)   { if (Math.random() < 0.3) sendToZone(npc.zone_id, { type: 'zone_event', message: pick(OUT_MUTTER)(npc.name) }); continue; }
+    if (d.belligerent) {
+      // A brawl the engine is now running: let it go a few exchanges, then break
+      // it up. Without this the two of them trade blows until one hits the floor
+      // cap and they stand there swinging at each other forever.
+      if (npc._combatTargetId && world.npcs.get(npc._combatTargetId)) {
+        npc._brawlUntil = npc._brawlUntil || (now + BRAWL_MS);
+        if (now >= npc._brawlUntil) {
+          const foe = world.npcs.get(npc._combatTargetId);
+          npc._combatTargetId = null; npc._brawlFloorHp = null; npc._brawlUntil = null;
+          if (foe) { foe._combatTargetId = null; foe._brawlFloorHp = null; foe._brawlUntil = null; }
+          if (foe) sendToZone(npc.zone_id, { type: 'zone_event', message: pick(SCUFFLE_END)(npc.name, foe.name) });
+        }
+      } else if (!npc._combatTargetId && Math.random() < BELLIGERENT_PICK_FIGHT) {
+        pickAFight(npc);
+      } else if (Math.random() < (d.mutterChance ?? 0.4)) {
+        sendToZone(npc.zone_id, { type: 'zone_event', message: pick(BELLIGERENT_MUTTER)(npc.name) });
+      }
+      continue;
+    }
     if (d.loose && Math.random() < (d.mutterChance ?? 0.4)) sendToZone(npc.zone_id, { type: 'zone_event', message: pick(LOOSE_MUTTER)(npc.name) });
     if (d.wired && Math.random() < (d.mutterChance ?? 0.4)) sendToZone(npc.zone_id, { type: 'zone_event', message: pick(WIRED_MUTTER)(npc.name) });
   }

@@ -1,16 +1,20 @@
 {
-  "description": "Real medical supplies. Increasingly rare, increasingly suspicious about why someone is selling them.",
+  "description": "A soft green pouch of gauze, sutures and a one-shot analgesic. Field grade. It will get you walking, not right.",
   "flags": {},
   "id": "item_medkit",
-  "name": "trauma kit",
+  "name": "medkit",
   "tags": {
     "consumable": true,
-    "description": "Real medical supplies. Increasingly rare, increasingly suspicious about why someone is selling them.",
+    "description": "A soft green pouch of gauze, sutures and a one-shot analgesic. Field grade. It will get you walking, not right.",
     "heal_over_time": {
       "amount": 50,
       "duration_seconds": 300
     },
-    "stackable": true
+    "stackable": true,
+    "treat_injury": {
+      "steps": 1,
+      "floor": 1
+    }
   },
   "type": "consumable",
   "value": 55,

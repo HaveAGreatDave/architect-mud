@@ -3,6 +3,7 @@ import { findPath } from '../../server/engine/pathfinding.js';
 import { allExits } from '../../server/engine/exits.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
 import { registerAction } from '../../server/engine/actions.js';
+import { impairmentOf } from '../../server/engine/impairment.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 
 // The exact direction to step at each hop: dirs[k] is the exit direction from
@@ -210,6 +211,13 @@ registerAction({
 // Run button and paces GPS auto-walk off it. Bare `run` toggles; `run on|off` and
 // the `walk` alias set it explicitly.
 function setRunning(player, running) {
+  // Something can refuse the run outright — a ruined leg is the first thing that
+  // does. Asked through the impairment substrate so this never learns why.
+  const blocked = running ? impairmentOf(player).runBlocked : null;
+  if (blocked) {
+    player.running = false;
+    return { type: 'run_state', running: false, message: blocked };
+  }
   player.running = running;
   return {
     type: 'run_state',

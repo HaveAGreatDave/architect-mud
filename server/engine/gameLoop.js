@@ -3,13 +3,14 @@ import { wakeFromDream } from './dreamscape.js';
 import { getZoneRadiation } from './zone-tags.js';
 import { randomUUID } from 'crypto';
 import { propagateSound } from './sounds.js';
-import { enemyAttackPlayer, enemyAttackNpc, npcAttackPlayer, isOnCooldown, clearCooldown, pvpSwing, formatBattleCry, getPlayerCombat, flushDirtyResources } from './combat.js';
+import { enemyAttackPlayer, enemyAttackNpc, npcAttackNpc, npcAttackPlayer, isOnCooldown, clearCooldown, pvpSwing, formatBattleCry, getPlayerCombat, flushDirtyResources } from './combat.js';
 import { setStance, DEFAULT_STANCE } from './stance.js';
 import { setFlag } from './flags.js';
 import { tickEntityAI, moveEntity, ensureBehaviourGraph } from './ai-behaviour.js';
 import { npcBanterTick } from './npc-banter.js';
 import { restockAllVendors } from './vendor.js';
 import { tickEffects, applyEffect } from './effects.js';
+import { impairmentOf } from './impairment.js';
 import { tickSleep, releaseApartment, gameToday, ymd, addGameDays, gameDaysBetween, RENT_PERIOD_DAYS } from './apartments.js';
 import { isDeepCleanDay, isOwnedZone, filthCount } from './zone-filth.js';
 import { fireHook } from './plugins.js';
@@ -322,9 +323,30 @@ async function tick() {
     }
   }
 
-  // NPC retaliation against players
+  // NPC retaliation against players — and, since NPCs can now target each other,
+  // against other NPCs. `_combatTargetId` no longer implies "a player": resolve it
+  // as an NPC first and hand those off to npcAttackNpc, so a brawl between two
+  // NPCs runs on the same to-hit, crit and body-part rules as everything else
+  // rather than on a bespoke flavour path.
   for (const [npcId, npc] of world.npcs) {
     if (!npc._combatTargetId || npc._dead) continue;
+    const npcFoe = world.npcs.get(npc._combatTargetId);
+    if (npcFoe) {
+      if (npcFoe._dead || npcFoe.zone_id !== npc.zone_id) { npc._combatTargetId = null; continue; }
+      // The scrap is capped unless someone meant it: `_brawlFloorHp` is set by
+      // whoever started the fight (npc-drugs sets it for a drunken scuffle) and
+      // left unset for anything that should be able to finish the job.
+      const floorHp = npc._brawlFloorHp ?? 0;
+      npcAttackNpc(npc, npcFoe, { floorHp }).then(result => {
+        if (!result) return;
+        broadcastFn(npc.zone_id, { type: 'zone_event', message: result.message });
+        if (result.killed) {
+          npc._combatTargetId = null;
+          emit('npc.killed', { npc: npcFoe, killer: npc });
+        }
+      }).catch(() => {});
+      continue;
+    }
     const target = getLivePlayer(npc._combatTargetId);
     if (!target || target.current_zone !== npc.zone_id) {
       npc._combatTargetId = null;
@@ -1300,6 +1322,9 @@ async function restRegenTick() {
         * deprivationRegenMultiplier(player)
         * enduranceRegenMultiplier(player)
         * wellFedRegenMultiplier(player, now)
+        // A wounded torso is the one that shows up here: a body busy mending
+        // itself has less left over to give back as stamina.
+        * impairmentOf(player).staminaRegenMult
         * windedMult * restMult));
       if (gain > 0) stamina = Math.min(staminaMax, stamina + gain);
     }

@@ -284,6 +284,7 @@ not hooks: `zone.entered` is emitted on the event bus at `commands/movement.js:4
 | `speech.transform` | `commands/social.js:73` | `{ player, text }` | Yes — replaces the spoken text |
 | `player.say` | `commands/social.js:79` | `{ player, text, zoneId, broadcast }` | No |
 | `player.appearanceNotes` | `commands/world.js:312` | `{ target, viewer, isSelf }` | Yes |
+| `item.consumed` | `commands/inventory.js` (consumable path) | `(player, tags)` | Yes — a line appended to the use output |
 | `player.appearanceMisNotes` | `commands/world.js:351,386` | `{ target, viewer, isSelf, broadcast, naked, … }` | Yes |
 | `furniture.describe` | `commands/world.js:476` | `(furniture, player)` | Yes |
 | `forcefield.gate` | `apartments.js:144` | `{ player, zoneId }` | Yes — a non-empty return blocks the forcefield |
