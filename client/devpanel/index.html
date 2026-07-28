@@ -68,7 +68,7 @@
     <div class="nav-item active" data-ops="1" data-panel="dashboard" onclick="showPanel('dashboard')" style="border-left-color:var(--accent);color:var(--accent)">⬡ Dashboard</div>
     <div class="nav-item" data-ops="1" data-panel="devlog" onclick="showPanel('devlog')">📓 Dev Log</div>
     <div class="nav-section">World</div>
-    <div class="nav-item" data-panel="zones" onclick="showPanel('zones')">🗺 Zones</div>
+    <div class="nav-item" data-ops="1" data-ops-ro="1" data-panel="zones" onclick="showPanel('zones')">🗺 Zones</div>
     <div class="nav-item" data-panel="world" onclick="showPanel('world')">🌐 World Map</div>
     <div class="nav-item" data-panel="maps" onclick="showPanel('maps')">🧭 Region Maps</div>
     <div class="nav-item" data-ops="1" data-panel="emergency" onclick="showPanel('emergency')">⚖ Crime</div>
@@ -76,8 +76,8 @@
     <div class="nav-item" data-ops="1" data-panel="power" onclick="showPanel('power')">⚡ Power</div>
     <div class="nav-item" data-ops="1" data-panel="bank" onclick="showPanel('bank')">₵ Bank</div>
     <div class="nav-item" data-panel="enemies" onclick="showPanel('enemies')">👾 Enemies</div>
-    <div class="nav-item" data-panel="items" onclick="showPanel('items')">🗡 Items</div>
-    <div class="nav-item" data-panel="npcs" onclick="showPanel('npcs')">🧑 NPCs</div>
+    <div class="nav-item" data-ops="1" data-ops-ro="1" data-panel="items" onclick="showPanel('items')">🗡 Items</div>
+    <div class="nav-item" data-ops="1" data-ops-ro="1" data-panel="npcs" onclick="showPanel('npcs')">🧑 NPCs</div>
     <div class="nav-item" data-panel="furniture" onclick="showPanel('furniture')">🪑 Furniture</div>
     <div class="nav-item" data-panel="recipes" onclick="showPanel('recipes')">⚗ Recipes</div>
     <div class="nav-item" data-panel="scavenging" onclick="showPanel('scavenging')">🔦 Scavenging</div>
@@ -124,6 +124,10 @@
         <input type="text" id="search-input" placeholder="Search..." style="background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:5px 10px;outline:none;border-radius:2px;width:200px;" oninput="filterTable()">
       </div>
     </div>
+
+    <!-- Ops-mode read-only notice (see OPS_READONLY_PANELS in js/core/panels.js).
+         Empty and hidden on /dev and on every editable panel. -->
+    <div id="ops-ro-banner" style="display:none"></div>
 
     <div id="panel-area">
       <div id="list-panel"></div>

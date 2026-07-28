@@ -404,11 +404,21 @@ const VINE_GROUP_PANELS = new Set(['vine', 'scripts', 'script-triggers', 'quests
 // bookmark or a console call could still ask for one; bounce those to Dashboard
 // so you never land in an editor whose every save would 403. Keep this in sync
 // with the data-ops attributes in index.html.
-// 'broadcasts' is here as a READ-ONLY panel (data-ops-ro in index.html): it's worth
-// seeing what's on air on prod, but every write it can make is refused in api.js.
 const OPS_PANELS = new Set(['dashboard', 'devlog', 'worldstate', 'timeweather', 'players',
                             'games', 'gossip', 'validator', 'power', 'emergency', 'bank', 'flight',
-                            'broadcasts']);
+                            'broadcasts', 'zones', 'npcs', 'items']);
+
+// Content panels kept on /admin to LOOK at (data-ops-ro in index.html). They answer
+// the questions a live bug actually raises — why can't they leave this room, where
+// is that NPC, what does this item really do — without a DB shell. Every write they
+// can make is refused in api.js and by CONTENT_READONLY server-side; here we just
+// stop offering the buttons and say why once, at the top.
+const OPS_READONLY_PANELS = new Set(['broadcasts', 'zones', 'npcs', 'items']);
+const OPS_READONLY_BANNER =
+  '<b>READ-ONLY — production.</b> This is world content: it\'s edited on your <b>local</b> dev panel and '
+  + 'reaches prod through the CODEX deploy (a push to <code>main</code>). Nothing changed here would save — '
+  + 'and if it did, the next deploy would revert it. Live-world actions (spawning an enemy, restocking a '
+  + 'vendor) still work.';
 function activatePanelNav(name) {
   document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.panel === name));
   const group = document.getElementById('nav-vine-children');
@@ -431,7 +441,15 @@ async function loadPanel(name) {
   if (!p) return;
   document.getElementById('panel-title').textContent = p.title;
   document.getElementById('panel-description').textContent = p.description || '';
-  document.getElementById('new-btn').style.display = p.noEdit || name === 'worldstate' || name === 'players' ? 'none' : '';
+  // Read-only ops panel: banner up, Save/Delete/New hidden (body class → styles.css).
+  const readOnly = !!window.OPS_MODE && OPS_READONLY_PANELS.has(name);
+  document.body.classList.toggle('ops-ro-panel', readOnly);
+  const banner = document.getElementById('ops-ro-banner');
+  if (banner) {
+    banner.innerHTML = readOnly ? OPS_READONLY_BANNER : '';
+    banner.style.display = readOnly ? '' : 'none';
+  }
+  document.getElementById('new-btn').style.display = readOnly || p.noEdit || name === 'worldstate' || name === 'players' ? 'none' : '';
 
   let data;
   try {

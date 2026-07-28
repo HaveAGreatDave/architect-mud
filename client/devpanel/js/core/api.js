@@ -18,10 +18,20 @@ function getEntityType(path) {
 // Those panels are kept in the /admin nav and their writes are refused HERE, with
 // a sentence that says where to make the edit, rather than letting the button fire
 // and come back as a bare 403.
-const OPS_READONLY_PREFIXES = ['/broadcast'];
+const OPS_READONLY_PREFIXES = ['/broadcast', '/zones', '/npcs', '/items'];
+// …except the live-ops actions that live INSIDE those panels and are allowlisted
+// server-side (OPS_ROUTES in server/api/routes.js). Spawning a live enemy or
+// restocking a vendor is runtime state, not authored content — it's the reason
+// some of these panels are worth having on prod at all. Keep in step with the
+// server list; this is the UI half of the same rule.
+const OPS_READONLY_EXCEPTIONS = [
+  /^\/zones\/[^/]+\/live-enemies$/,
+  /^\/npcs\/[^/]+\/(restock|place-safe)$/,
+];
 function opsReadonlyBlocks(path, method) {
   if (!window.OPS_MODE) return false;
   if (method === 'GET' || method === 'HEAD') return false;
+  if (OPS_READONLY_EXCEPTIONS.some(re => re.test(path))) return false;
   return OPS_READONLY_PREFIXES.some(p => path === p || path.startsWith(p + '/'));
 }
 const OPS_READONLY_ERROR = 'Read-only on production. World content is edited locally and ships through the CODEX deploy (push to main) — nothing saved here would survive the next deploy anyway.';

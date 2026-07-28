@@ -407,11 +407,18 @@ Panels that mix ops and content read `window.OPS_MODE` directly: `panels/bank.js
 
 #### Read-only panels (`data-ops-ro`)
 
-A content panel can be kept on `/admin` purely to **look at** — worth seeing on prod even though nothing in it can be saved. **Broadcasts** is the first: which channel owns which studio, what's scheduled, what's on air.
+A content panel can be kept on `/admin` purely to **look at** — worth seeing on prod even though nothing in it can be saved, because it answers the questions a live bug actually raises. Four so far: **Zones** (why can't they get out of this room), **NPCs** (where is she, what's her schedule), **Items** (what does this really do), **Broadcasts** (which channel owns which studio, what's on air).
 
-- `data-ops="1" data-ops-ro="1"` on the nav entry — `data-ops` keeps it through the prune, `data-ops-ro` makes bootstrap suffix the label with `·ro` and a tooltip.
-- It joins `OPS_PANELS` in `js/core/panels.js` like any other survivor.
-- Its writes are refused **client-side** by `opsReadonlyBlocks()` in `js/core/api.js` (an `OPS_READONLY_PREFIXES` path list, checked by both `API` and `directAPI`), so a save returns a sentence explaining that content is edited locally and ships via CODEX — not a bare 403.
-- The panel itself renders a banner saying the same thing once, at the top (`.bc-ro-notice`).
+Adding one is four lines in four places:
+
+- `data-ops="1" data-ops-ro="1"` on the nav entry in `index.html` — `data-ops` keeps it through the prune, `data-ops-ro` makes bootstrap suffix the label with `·ro` and a tooltip.
+- add it to **both** `OPS_PANELS` and `OPS_READONLY_PANELS` in `js/core/panels.js`.
+- add its route prefix to `OPS_READONLY_PREFIXES` in `js/core/api.js`.
+
+What that buys:
+
+- Writes are refused **client-side** by `opsReadonlyBlocks()` (checked by both `API` and `directAPI`), so a save returns a sentence explaining that content is edited locally and ships via CODEX — not a bare 403. Watch for a panel that writes to a *different* prefix than its own; that path needs listing too.
+- `OPS_READONLY_EXCEPTIONS` carves the live-ops actions back out — spawning a live enemy (`/zones/:id/live-enemies`), restocking a vendor (`/npcs/:id/restock`). These are runtime state, allowlisted server-side in `OPS_ROUTES`, and are part of why these panels are worth having on prod. Keep the two lists in step.
+- `loadPanel()` raises the shared `#ops-ro-banner` (one wording for every read-only panel, so they can't drift), hides **+ New**, and sets `body.ops-ro-panel`, which hides every `.js-save-btn` / `.js-delete-btn` in `styles.css`.
 
 Still not a security boundary — `contentReadonlyBlocks()` on the server remains the authority. This only changes what the panel *offers* and what it *says* when you try.

@@ -59,7 +59,13 @@ no libraries, no matrices) run through five phases against **one** node field �
 `lattice` (a drifting volume, linked by 3D proximity) → `tighten` (the same nodes
 pulled onto a regular cubic lattice; the reach shrinks past the cube diagonal so
 the cloud becomes wireframe cubes on its own) → `shatter` (blown outward under
-torn scanlines) → `void` (nothing, drawn as nothing) → `city`. The nodes are
+torn scanlines **in the accent colour, not white** — the network tearing itself
+apart should be made of the same light as everything before it, with a few
+near-white lines left in as blown highlights so it still reads as static) →
+`void` (nothing, drawn as nothing, and entered on a **CRT power-off** cue: dying
+flyback whine, the noise bed collapsing through a slamming bandpass, a cabinet
+thump — three synthesized voices wired straight to `destination` so they survive
+the master fade that makes the silence silent) → `city`. The nodes are
 never replaced, only rearranged, because that is the story the text is telling.
 Link brightness pulses on each BEAT's arrival, so the animation runs on the
 story's clock rather than its own.
@@ -68,10 +74,15 @@ story's clock rather than its own.
 skyline — it is the actual building tiles off `map_world`, with the same
 footprints and floor counts the flight sim extrudes out of a cockpit windshield
 (both read `client/shared/skyline-scale.js`; see § "Where the skyline comes
-from" below). Three overlapping movements: every building gets **one node**,
-which flies in from high and far and lands on that building's **rooftop** — the
-lattice becoming the city, one point at a time, each point now with an address;
-where a node lands a **wireframe box grows downward** from it to the ground (the
+from" below). Three overlapping movements. First **the lattice returns** — the
+same node field, snapping back into the same cubic frame, parked at eye height a
+few units ahead of the camera's opening station out over the water — and every
+building gets **one node that departs from a seat in that frame** and lands on
+that building's **rooftop**. The handoff is shown rather than implied: for about
+two seconds the frame and the city it is becoming are both on screen, and the
+points streaming between them are the same points. (There are more buildings than
+nodes, so seats are shared; a seat serving four towers reads as one point
+splitting.) Where a node lands a **wireframe box grows downward** from it to the ground (the
 building hangs off the node rather than rising to meet it, because the node is
 what decided it should exist); then the **lights come on** inside, floor by floor
 (one light in thirteen burns the lattice's own colour). It stays a wireframe the
@@ -80,11 +91,20 @@ light through every other light. A solid city is a place; a wireframe city is a
 *model* of a place, held by something still deciding.
 
 Then the camera **flies through it**, EAST TO WEST — starting out over the open
-water east of the Basin, coming ashore, descending to about a third of a unit off
-the deck (towers go ten times that high on either side; height is the enemy of
-scale) and running the length of the city and out the far side over ~21 s, with a
-lazy weave and a couple of degrees of bank. It never stops, which is what lets
-the wordmark land over it without anything having to finish.
+water east of the Basin, coming ashore, and running the length of the city and
+out the far side over ~21 s, with a lazy weave and a couple of degrees of bank.
+It never stops, which is what lets the wordmark land over it without anything
+having to finish.
+
+**The vertical axis is decided once, before a frame is drawn.** `CRUISE_Y` is the
+tallest roof on the whole run plus `CRUISE_CLEAR`, the approach starts 5.4 units
+above that, and `cam.y` is a single eased lerp between the two — nothing else
+touches it. An earlier pass clamped the lens to the roofline **per frame** with a
+bucketed lookahead: it rode over a tower, dropped into the gap behind it, climbed
+for the next. Even damped, that is a camera reacting to geography, and every tower
+entering the corridor is a bump. Trading the canyon-diving read for a move that
+never argues with itself is deliberate. **Don't reintroduce a per-frame height
+correction** — if the run needs to be lower, lower `CRUISE_CLEAR`.
 
 Two guards that are invisible until the camera moves and mandatory afterwards:
 

@@ -219,9 +219,8 @@ let _keepNewsScroll = false; // one-shot: preserve scroll when the News weather 
 let _newsWeatherOpen = false; // News app: is the weather widget's 7-day forecast expanded?
 let _newsStories = [];  // News app: the current headline feed, so a tapped headline can open its full story
 let _newsWin = null;    // News app: the open "browser window" story popup element, if any
-let _backReturn = null; // { appId, screen }: the list/board a detail was drilled into from, so Back
-                        // returns there (e.g. Quests → Job Board → posting → Back = Job Board) instead
-                        // of the app root. Set on item-open; cleared by any other explicit nav/home.
+// (A drill-in's "return here" used to be tracked separately; the nav history below
+//  covers it — see the Back stack.)
 
 function ensureStyles() {
   if (document.getElementById('tablet-os-styles')) return;
@@ -2664,9 +2663,26 @@ function syncNarratePill() {
 // Entries are the nav ARGUMENTS (appId/screen/params), not the rendered payload,
 // because those are the only thing that can be replayed to the server verbatim.
 // `null` is a legal entry and means the home screen.
+//
+// Some screens are reached by an ACTION rather than a nav (a Job Board posting, a
+// bliss listing, a reel) — those can't be replayed as `tabletnav`, so they aren't
+// stack entries. Instead we count how many action-screens deep we've gone since the
+// last real nav (_actDepth, incremented in render() when an action actually changed
+// the screen) and Back returns to that nav rather than popping past it. Without this
+// an action-reached screen popped a level it never occupied — from an app root, Home.
 const NAV_STACK_MAX = 24;   // a back stack, not an audit log
 let _navStack = [];
 let _navHere = null;        // the nav that produced the current screen (null = home)
+let _navSig = null;         // signature of the screen currently rendered
+let _lastWasAct = false;    // the pending round trip was an action, not a nav
+let _actDepth = 0;          // action-driven screen changes since the last nav
+
+// Identity of a rendered screen, used only to notice that an action moved us.
+function screenSig(d) {
+  if (!d) return null;
+  return [d.appId || '', d.view || '', (d.breadcrumb || []).join('>'),
+          d.focusId || d.quest?.id || d.detail?.id || ''].join('|');
+}
 
 const navSame = (a, b) =>
   (a === null || b === null) ? a === b
@@ -2676,7 +2692,7 @@ const navSame = (a, b) =>
 function navTo(entry) {
   if (!entry) { home(); return; }
   narrateStop();
-  _backReturn = null;
+  _lastWasAct = false; _actDepth = 0;
   _tosCorpPage = 0; _tosIdeoPage = 0; _tosCodexCh = null;
   sfx(TOS_SELECT_DEF);
   _navHere = entry;
@@ -2688,6 +2704,9 @@ function navTo(entry) {
 
 // One level up. Falls back to Home when there's nothing left to pop.
 function navBack() {
+  // Standing on an action-reached screen: step back onto the nav that led here
+  // (collapsing any chain of actions), without consuming a stack entry.
+  if (_actDepth > 0) { _actDepth = 0; navTo(_navHere); return; }
   if (!_navStack.length) { home(); return; }
   navTo(_navStack.pop());
 }
@@ -2702,8 +2721,8 @@ function nav(appId, screenLabel, params) {
     if (_navStack.length > NAV_STACK_MAX) _navStack.shift();
   }
   _navHere = next;
-  _backReturn = null; // any explicit navigation invalidates a pending drill-in return
-  _tosCorpPage = 0;   // land on the corp Overview page on any server-side navigation
+  _lastWasAct = false; _actDepth = 0; // a real nav is the new floor for action depth
+  _tosCorpPage = 0;  // land on the corp Overview page on any server-side navigation
   _tosIdeoPage = 0;   // land on the Orders Overview page on any server-side navigation
   _tosCodexCh = null; // …and on a volume's contents, not whatever was last read
   sfx(TOS_SELECT_DEF);
@@ -2715,6 +2734,8 @@ function nav(appId, screenLabel, params) {
 
 function act(appId, actionId, params) {
   narrateStop();   // Next/Back/Contents all leave this page
+  // If this action turns out to change the screen, render() counts it as a level.
+  _lastWasAct = true;
   sfx(TOS_SELECT_DEF);
   const parts = ['tabletaction', appId, actionId];
   if (params) parts.push(params);
@@ -2722,8 +2743,8 @@ function act(appId, actionId, params) {
 }
 
 function home() {
-  _backReturn = null;
-  _navStack = [];      // home is the floor — nothing above it to go back to
+  _lastWasAct = false; _actDepth = 0;
+  _navStack = [];    // home is the floor — nothing above it to go back to
   _navHere = null;
   sfx(TOS_ENTRY_DEF);
   sendCmdSilent('tablet');
@@ -6939,20 +6960,10 @@ function wireBody() {
     openAddAppsSheet();
   });
   _overlay.querySelectorAll('[data-back]').forEach(el => {
-    el.addEventListener('click', () => {
-      const appId = el.getAttribute('data-back');
-      // Drilled into a detail/reel by an ACTION rather than a nav (Job Board,
-      // Microreels) — those never went through nav(), so they're not on the back
-      // stack and this is the only thing that knows where they came from.
-      if (_backReturn && (_data?.view === 'detail' || _data?.view === 'reel') && _backReturn.appId === appId) {
-        nav(appId, _backReturn.screen, null);
-        return;
-      }
-      // Otherwise: exactly one level up the history, whatever that was. This is
-      // what stops a third-level screen throwing you back to the app root (or,
-      // from the root, to Home) instead of to the screen you actually came from.
-      navBack();
-    });
+    // Exactly one level up the history, whatever that was. This is what stops a
+    // third-level screen throwing you back to the app root (or, from the root, to
+    // Home) instead of to the screen you actually came from.
+    el.addEventListener('click', () => navBack());
   });
   _overlay.querySelectorAll('[data-open-cat]').forEach(el => {
     el.addEventListener('click', () => nav(_data.appId, el.getAttribute('data-open-cat'), null));
@@ -6978,12 +6989,10 @@ function wireBody() {
       const id = el.getAttribute('data-open-item');
       const currentScreen = (_data.breadcrumb && _data.breadcrumb.length) ? _data.breadcrumb[_data.breadcrumb.length - 1] : null;
       const appId = _data.appId;
+      // nav() records the list/board we drilled in from, so Back returns THERE and
+      // not to the app root — the detail's own breadcrumb is rebuilt from the quest's
+      // category and no longer reflects a Job Board / Pilot Contracts origin.
       nav(appId, currentScreen, id);
-      // Remember the list/board we drilled in from so Back returns here rather than
-      // the app root — the detail's own breadcrumb is rebuilt from the quest's
-      // category and no longer reflects a Job Board / Pilot Contracts origin. (nav()
-      // above just cleared _backReturn, so this set sticks for the detail render.)
-      if (currentScreen) _backReturn = { appId, screen: currentScreen };
     });
   });
   _overlay.querySelectorAll('[data-page-nav]').forEach(el => {
@@ -8432,6 +8441,13 @@ function render() {
   if (_fakeTimer) { clearInterval(_fakeTimer); _fakeTimer = null; } // fakeplay remounts its own ticker
   if (_reelTimer) { clearInterval(_reelTimer); _reelTimer = null; _reelPlaying = false; } // leaving/re-rendering stops reel playback
 
+  // An action that actually landed us on a different screen counts as a level for
+  // Back (see the Back stack). One that just toggled something in place does not.
+  const sig = screenSig(_data);
+  if (_lastWasAct && sig !== _navSig) _actDepth++;
+  _lastWasAct = false;
+  _navSig = sig;
+
   const survLive = _data.view === 'surveillance' && !!_data.live;
   const isChat = _data.view === 'chat';
   // A live surveillance poll refreshes in place — keep the operator's scroll spot
@@ -8519,6 +8535,7 @@ function close() {
   // into screens the player has since left.
   _navStack = [];
   _navHere = null;
+  _navSig = null; _lastWasAct = false; _actDepth = 0;
   document.querySelectorAll('.tos-tile-drag').forEach(el => el.remove()); // stray lift clone, if torn down mid-drag
   if (_close) { _close(); _close = null; }
   _overlay = null;

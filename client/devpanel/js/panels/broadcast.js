@@ -69,20 +69,11 @@ function renderBroadcastSuite(data) {
   _bcSuiteData = data || {};
   // Render the tab bar + content area into list-panel
   const panel = document.getElementById('list-panel');
-  // On /admin (production) this whole suite is a window, not a workbench: content
-  // ships from git, so say that once at the top rather than letting each save come
-  // back as a refusal. The writes themselves are blocked in api.js.
-  const roNotice = window.OPS_MODE ? `
-      <div class="bc-ro-notice">
-        <b>READ-ONLY — production.</b> Channels, schedules, themes, graphics and scripts are
-        world content: they're edited on your <b>local</b> dev panel and reach prod through the
-        CODEX deploy (a push to <code>main</code>). Nothing changed here would save — and if it
-        did, the next deploy would revert it. Live ops (tuning a set, the emergency broadcast)
-        stay on their own panels.
-      </div>` : '';
+  // On /admin this suite is a window, not a workbench — but the read-only notice is
+  // the shared #ops-ro-banner raised by loadPanel(), not a bespoke one here, so all
+  // the read-only panels say the same thing. Writes are blocked in api.js.
   panel.innerHTML = `
     <div class="bc-suite">
-      ${roNotice}
       <div class="bc-tabs" id="bc-suite-tabs">
         ${BC_SUITE_TABS.map(t => `
           <button class="bc-tab${_bcSuiteTab === t.id ? ' bc-tab-active' : ''}"
