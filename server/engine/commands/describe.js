@@ -534,7 +534,9 @@ export async function describeZone(zone, player, out = {}) {
 	if (gate.line) {
 		desc += `\n<span class="light-level ${gate.line[0]}">${gate.line[1]}</span>`;
 	}
-	const roomDesc = await fireHook("zone.describeRoom", zone);
+	// (zone, player) — the viewer is passed so a hook can render a per-player
+	// panel (the elevator car's floor readout depends on who's riding it).
+	const roomDesc = await fireHook("zone.describeRoom", zone, player);
 	if (roomDesc) desc += `\n${roomDesc}`;
 	// Truncate description based on light level — less light, fewer details.
 	const sentences = zone.description.match(/[^.!?]+[.!?]+(\s|$)/g) || [

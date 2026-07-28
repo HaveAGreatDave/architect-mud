@@ -1,7 +1,7 @@
 {
   "name": "elevator",
   "version": "1.0.0",
-  "description": "Elevator car — a room flagged flags.elevator whose flags.elevator_floors maps display floor numbers to destination zones on their own z-levels. `floor <n>` rides the car to that floor; a describeRoom panel shows the numbered floor buttons. Display numbers (e.g. 50+) are decoupled from the actual grid_z, so a tower can read as floor 50 without needing 50 z-levels.",
+  "description": "Elevator car — a room flagged flags.elevator whose flags.elevator_floors maps display floor numbers to destination zones on their own z-levels. `floor <n>` rides the car to that floor and the rider STAYS IN THE CAR with the doors open; `out` is what steps them onto that floor. A describeRoom panel shows the numbered floor buttons plus the open-doors exit-link (which is what lights `out` on the client d-pad). Display numbers (e.g. 50+) are decoupled from the actual grid_z, so a tower can read as floor 50 without needing 50 z-levels.",
   "hooks": ["zone.describeRoom"],
   "commands": ["floor"],
   "events": {

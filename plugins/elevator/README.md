@@ -32,23 +32,25 @@ by door, with nothing to author here.
 
 ## Player verbs
 
-- `floor <n>` — while standing in the car, rides to floor `n`'s zone. The ride is **timed** (`travelMs()` scales with distance from the ground floor — a hop to the gym is quick, the penthouse is a haul, clamped 1.6–5s) with the counter ticking by mid-ride, and lands with an **arrival chime** (an actual bing-bong SFX to the rider, `SFX_ELEVATOR_CHIME`, plus the flavour line). Bare `floor` reprints the directory. Refuses cleanly when you're not in an elevator or the number isn't on the panel.
+- `out` in a car — steps you onto the floor the car is **parked on** (not the authored `out` exit), using the real car→floor exit when one is wired so doors/gates/broadcasts behave like any walked step. Parked at the lobby (or before any ride) it falls through to the ordinary `out` exit.
+- `floor <n>` — while standing in the car, sends the car to floor `n`. **You stay in the car**: when it settles the doors stand open on that floor and `out` is what puts you on it. The ride is **timed** (`travelMs()` scales with distance from the ground floor — a hop to the gym is quick, the penthouse is a haul, clamped 1.6–5s) with the counter ticking by mid-ride, and lands with an **arrival chime** (an actual bing-bong SFX to the rider, `SFX_ELEVATOR_CHIME`, plus the flavour line). Bare `floor` reprints the directory. Refuses cleanly when you're not in an elevator or the number isn't on the panel.
 - **Bare number** — typing just `44` in a car is the same as `floor 44` ("enter the number only"). Outside a car a stray number is left alone (stays "unknown command").
 - `up` / `down` in a car — do **not** ride the raw exit; they reprint the panel and point you at the number entry, so the timed ride is the only way between floors. Outside a car they're normal movement.
-- **`1` / `floor 1`** — rides down to the ground-floor lobby (the implicit default stop).
+- **`1` / `floor 1`** — sends the car down to the ground-floor lobby (the implicit default stop); `out` there is the ordinary lobby exit.
 
 ## Hooks consumed
 
-- `zone.describeRoom` — renders the clickable floor directory into an elevator car's room description, so LOOK always shows the buttons (each `[NN]` is an `action-link` sending `floor <n>`).
+- `zone.describeRoom` — called `(zone, player)`; renders the clickable floor directory into an elevator car's room description, so LOOK always shows the buttons (each `[NN]` is an `action-link` sending `floor <n>`). While the car is parked on a floor **for that player** it also renders the doors-open line carrying a real `.action-link.exit-link[data-target="out"]` — that link is what lights the `out` button on the client d-pad (`render.js` derives d-pad availability from exit links in the room text), which a `hide_exits` car would otherwise never have.
 
 ## Input matchers registered
 
 - `/^\d+$/` — bare-number floor entry (car-only; falls through otherwise).
 - `/^(up|down)$/i` — the in-car raw-direction redirect (car-only; falls through to movement otherwise).
+- `/^(out|exit)$/i` — step out onto the parked floor (car-only, and only while parked somewhere other than the car's own zone; falls through to normal movement otherwise, which is what makes `out` at the lobby ordinary).
 
 ## Events emitted
 
-- `zone.entered` — on a successful ride, so movement-reactive systems (ambience, weather, quests) treat the arrival like any other move.
+- `zone.entered` — when you step `out` onto a floor (via `cmdMove`, or emitted directly on the teleport fallback), so movement-reactive systems (ambience, weather, quests) treat it like any other move. The ride itself moves nobody and emits nothing.
 
 ## Data schema
 

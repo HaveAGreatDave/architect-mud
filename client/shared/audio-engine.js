@@ -1392,8 +1392,8 @@
       };
     }
 
-    // Rough total duration (s) of a phoneme run at a given speed — used to decide
-    // how much to compress a line so it fits before the next broadcast tick.
+    // Rough total duration (s) of a phoneme run at a given speed — used to shape
+    // the phrase-length prosody below (declination over the line).
     function estimateDuration(phon, speed){
       let t = 0.08;
       for (const code of phon) {
@@ -1420,14 +1420,13 @@
       try { phon = applyAccent(textToPhonemes(text), opt.accent); }
       finally { _lex = null; }
       if (!phon.length) return;
-      // Fit-to-window: if the line won't finish before the next is expected (opt.budget
-      // seconds), speed up — never down — so it lands in time. Capped so it stays legible.
-      let speed = V.speed;
-      if (opt.budget > 0.5) {
-        const target = opt.budget * 0.9;                 // leave a little headroom
-        const natural = estimateDuration(phon, speed);
-        if (natural > target) speed *= Math.min(natural / target, 2.0);
-      }
+      // Every line reads at the narrator's own pace, however long it is. There used
+      // to be a fit-to-window compression here (speed up so a long line landed before
+      // the next one), but a voice that gabbles the long lines and strolls the short
+      // ones reads as broken rather than busy — and the airtime hold is already scaled
+      // to the text (broadcast's nodeHoldMs), so the window is the thing that should
+      // stretch, not the speech. opt.budget is still accepted and deliberately unused.
+      const speed = V.speed;
       const out = busFor('tv');
 
       const master = c.createGain(); master.gain.value = 0.9;

@@ -164,8 +164,9 @@ export function createTvView(root, opts = {}) {
     const gap = (now - _lastSpeakAt) / 1000;
     if (_lastSpeakAt && gap > 1 && gap < 30) _speakWindow = _speakWindow * 0.5 + gap * 0.5;
     _lastSpeakAt = now;
-    // Prefer the server's per-line window (the text-scaled hold), sized so the voice
-    // reads at its natural pace without compressing. Fall back to the measured gap.
+    // The server's per-line window (the text-scaled hold), falling back to the
+    // measured gap. Passed for information only — the voice always reads at its own
+    // pace now and never compresses to fit (see AudioEngine.speak).
     const budget = windowSec > 0.5 ? windowSec : _speakWindow;
     window.AudioEngine?.speak(speech, { seed, budget });
   }

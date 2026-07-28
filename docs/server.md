@@ -298,7 +298,7 @@ not hooks: `zone.entered` is emitted on the event bus at `commands/movement.js:4
 | `player.death` | `gameLoop.js:614` | `(player, killer)` | No |
 | `player.respawnZone` | `gameLoop.js:523` | `(player, killer)` | Yes — overrides the respawn zone |
 | `zone.describeAmbient` | `gameLoop.js:632` ambientTick | `(zone)` | Yes — broadcast as ambient text |
-| `zone.describeRoom` | `commands/describe.js:522` | `(zone)` | Yes — appended to room description |
+| `zone.describeRoom` | `commands/describe.js:537` | `(zone, player)` | Yes — appended to room description |
 | `zone.introLore` | `commands/describe.js:568` | `(zone, player)` | Yes |
 | `zone.furniturePanel` | `commands/describe.js:487` | `(zone, furniture, player)` | Yes |
 | `visibility.perceive` | `commands/describe.js:363`, `combat.js:25`, `environment.routes.js:82` | `(perceiver, vis, zone?)` | Yes — the perceiver's effective light |

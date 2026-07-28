@@ -4642,13 +4642,15 @@ function nodeHoldMs(node) {
       // say / ticker / camera_cut, … — scale the on-screen hold to how long the voice
       // needs to read the line, so the read-aloud never has to speed up and nothing is
       // cut off. ~110 ms/char (calibrated to the formant synth, which averages ~94 ms/char
-      // — the margin covers slower per-narrator voices), capped at 20 s of speech, plus a
+      // — the margin covers slower per-narrator voices), capped at 30 s of speech, plus a
       // 1 s buffer before the next line. A small floor keeps very short lines readable.
+      // The cap is the ONLY thing that can now clip a read (the voice no longer
+      // compresses to fit — see AudioEngine.speak), so it's set past any sane line.
       // Sports lines pass an explicit holdMs and keep it.
       if (d.holdMs != null) return d.holdMs;
       const text = typeof d.text === 'string' ? d.text : '';
       if (!text) return 8000;                          // e.g. runtime camera snapshot — sane default
-      const voiceMs = Math.min(text.length * 110, 20000);
+      const voiceMs = Math.min(text.length * 110, 30000);
       return Math.max(2500, voiceMs + 1000);
     }
   }
