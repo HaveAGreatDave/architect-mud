@@ -394,6 +394,19 @@ async function dispatchApiRequest(url, method, body, headers) {
   if (path==='/mutations' && method==='POST') return requireDev(auth, ()=>apiCreateMutation(body));
   if (path.startsWith('/mutations/') && method==='PUT') return requireDev(auth, ()=>apiUpdateMutation(path.split('/')[2],body));
   if (path.startsWith('/mutations/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteMutation(path.split('/')[2]));
+  if (path==='/dream-templates' && method==='GET') return requireDev(auth, apiGetDreamTemplates);
+  if (path==='/dream-templates' && method==='POST') return requireDev(auth, ()=>apiCreateDreamTemplate(body));
+  if (path.startsWith('/dream-templates/') && method==='PUT') return requireDev(auth, ()=>apiUpdateDreamTemplate(decodeURIComponent(path.split('/')[2]),body));
+  if (path.startsWith('/dream-templates/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteDreamTemplate(decodeURIComponent(path.split('/')[2])));
+  if (path==='/dream-presences' && method==='GET') return requireDev(auth, apiGetDreamPresences);
+  if (path==='/dream-presences' && method==='POST') return requireDev(auth, ()=>apiCreateDreamPresence(body));
+  if (path.startsWith('/dream-presences/') && method==='PUT') return requireDev(auth, ()=>apiUpdateDreamPresence(decodeURIComponent(path.split('/')[2]),body));
+  if (path.startsWith('/dream-presences/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteDreamPresence(decodeURIComponent(path.split('/')[2])));
+  if (path==='/drug-transforms' && method==='GET') return requireDev(auth, apiGetDrugTransforms);
+  if (path==='/drug-transforms' && method==='POST') return requireDev(auth, ()=>apiCreateDrugTransform(body));
+  if (path.startsWith('/drug-transforms/') && method==='PUT') return requireDev(auth, ()=>apiUpdateDrugTransform(decodeURIComponent(path.split('/')[2]),body));
+  if (path.startsWith('/drug-transforms/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteDrugTransform(decodeURIComponent(path.split('/')[2])));
+  if (path==='/dream-preview' && method==='POST') return requireDev(auth, ()=>apiPreviewDream(body));
   if (path==='/windows' && method==='GET') return requireDev(auth, ()=>apiGetWindows(url));
   if (path==='/windows' && method==='POST') return requireDev(auth, ()=>apiCreateWindow(body));
   if (path.startsWith('/windows/') && method==='PUT') return requireDev(auth, ()=>apiUpdateWindow(path.split('/')[2],body));
@@ -2893,6 +2906,130 @@ export async function apiUpdateMutation(id,body) {
 async function apiDeleteMutation(id) {
   try { await query('DELETE FROM mutations WHERE id=$1',[id]); await loadMutations(); return {status:200,body:{message:'Deleted'}}; }
   catch(e) { return {status:400,body:{error:e.message}}; }
+}
+
+// ── Dream / hallucination authoring ─────────────────────────────────────────
+//
+// Three tables behind one editor, because a dream room and a hallucination room
+// are the same kind of thing. `cause` ('dream'|'drug') plus `drug_id` is what
+// keeps the pools from bleeding into each other — see docs/systems-dreams.md.
+//
+// No cache to invalidate: all three are readTier COLD, queried once per instance
+// when an experience actually fires, so a save takes effect on the next dream
+// with no reload step.
+const asJson = (v, fallback) => JSON.stringify(v ?? fallback);
+// A dream is never scoped to a drug, and a drug row with no id is the DEFAULT
+// SET rather than an error. Normalising here means the editor cannot author a
+// row the fallback chain would silently never select.
+const normCause = (b) => (b.cause === 'drug' ? 'drug' : 'dream');
+const normDrug = (b) => (normCause(b) === 'drug' ? (b.drug_id || null) : null);
+
+async function apiGetDreamTemplates() {
+  const { rows } = await query('SELECT * FROM dream_templates ORDER BY cause, drug_id NULLS FIRST, name');
+  return { status: 200, body: rows };
+}
+async function apiCreateDreamTemplate(body) {
+  const id = body.id || `dt_${Date.now()}`;
+  try {
+    await query(
+      `INSERT INTO dream_templates (id,name,description,cause,drug_id,objects,ambient) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [id, body.name, body.description || '', normCause(body), normDrug(body), asJson(body.objects, []), asJson(body.ambient, [])]);
+    return { status: 201, body: { id } };
+  } catch (e) { return { status: 400, body: { error: e.message } }; }
+}
+async function apiUpdateDreamTemplate(id, body) {
+  try {
+    await query(
+      `UPDATE dream_templates SET name=$1,description=$2,cause=$3,drug_id=$4,objects=$5,ambient=$6 WHERE id=$7`,
+      [body.name, body.description || '', normCause(body), normDrug(body), asJson(body.objects, []), asJson(body.ambient, []), id]);
+    return { status: 200, body: { id } };
+  } catch (e) { return { status: 400, body: { error: e.message } }; }
+}
+async function apiDeleteDreamTemplate(id) {
+  try { await query('DELETE FROM dream_templates WHERE id=$1', [id]); return { status: 200, body: { message: 'Deleted' } }; }
+  catch (e) { return { status: 400, body: { error: e.message } }; }
+}
+
+async function apiGetDreamPresences() {
+  const { rows } = await query('SELECT * FROM dream_presences ORDER BY cause, drug_id NULLS FIRST, name');
+  return { status: 200, body: rows };
+}
+async function apiCreateDreamPresence(body) {
+  const id = body.id || `dp_${Date.now()}`;
+  try {
+    await query(
+      `INSERT INTO dream_presences (id,name,cause,drug_id,arrivals,departures,looks) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [id, body.name, normCause(body), normDrug(body), asJson(body.arrivals, []), asJson(body.departures, []), asJson(body.looks, [])]);
+    return { status: 201, body: { id } };
+  } catch (e) { return { status: 400, body: { error: e.message } }; }
+}
+async function apiUpdateDreamPresence(id, body) {
+  try {
+    await query(
+      `UPDATE dream_presences SET name=$1,cause=$2,drug_id=$3,arrivals=$4,departures=$5,looks=$6 WHERE id=$7`,
+      [body.name, normCause(body), normDrug(body), asJson(body.arrivals, []), asJson(body.departures, []), asJson(body.looks, []), id]);
+    return { status: 200, body: { id } };
+  } catch (e) { return { status: 400, body: { error: e.message } }; }
+}
+async function apiDeleteDreamPresence(id) {
+  try { await query('DELETE FROM dream_presences WHERE id=$1', [id]); return { status: 200, body: { message: 'Deleted' } }; }
+  catch (e) { return { status: 400, body: { error: e.message } }; }
+}
+
+async function apiGetDrugTransforms() {
+  const { rows } = await query('SELECT * FROM drug_transforms ORDER BY drug_id NULLS FIRST, name');
+  return { status: 200, body: rows };
+}
+async function apiCreateDrugTransform(body) {
+  const id = body.id || `dx_${Date.now()}`;
+  try {
+    await query(
+      `INSERT INTO drug_transforms (id,drug_id,matches,name,description,looks,says) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [id, body.drug_id || null, body.matches || null, body.name, body.description || '', asJson(body.looks, []), asJson(body.says, [])]);
+    return { status: 201, body: { id } };
+  } catch (e) { return { status: 400, body: { error: e.message } }; }
+}
+async function apiUpdateDrugTransform(id, body) {
+  try {
+    await query(
+      `UPDATE drug_transforms SET drug_id=$1,matches=$2,name=$3,description=$4,looks=$5,says=$6 WHERE id=$7`,
+      [body.drug_id || null, body.matches || null, body.name, body.description || '', asJson(body.looks, []), asJson(body.says, []), id]);
+    return { status: 200, body: { id } };
+  } catch (e) { return { status: 400, body: { error: e.message } }; }
+}
+async function apiDeleteDrugTransform(id) {
+  try { await query('DELETE FROM drug_transforms WHERE id=$1', [id]); return { status: 200, body: { message: 'Deleted' } }; }
+  catch (e) { return { status: 400, body: { error: e.message } }; }
+}
+
+/**
+ * Roll a throwaway instance from the live templates and return what it built.
+ *
+ * Exists because non-reciprocating exits and per-instance object looks are
+ * impossible to eyeball from a form — the only way to know whether a pool reads
+ * well is to generate one and look at it. Dissolved immediately; it is never
+ * entered by anybody.
+ */
+async function apiPreviewDream(body) {
+  const { buildDreamscape, dissolveDreamscape } = await import('../engine/dreamscape.js');
+  const { world } = await import('../engine/world.js');
+  const pid = `preview_${Date.now()}`;
+  try {
+    const entry = await buildDreamscape(pid, {
+      size: Math.min(6, Math.max(1, +body.size || 3)),
+      cause: body.cause === 'drug' ? 'drug' : 'dream',
+      drugId: body.drug_id || null,
+    });
+    if (!entry) return { status: 200, body: { empty: true, reason: 'No templates match that cause/drug — a real experience would degrade instead.' } };
+    const rooms = [...world.zones.values()]
+      .filter(z => typeof z.id === 'string' && z.id.includes(pid))
+      .map(z => ({ id: z.id, name: z.name, description: z.description, exits: z.exits, objects: z.dreamObjects, ambient: z.ambient_events }));
+    return { status: 200, body: { entry, rooms } };
+  } catch (e) {
+    return { status: 400, body: { error: e.message } };
+  } finally {
+    dissolveDreamscape(pid);
+  }
 }
 
 async function apiGetApartments() {
