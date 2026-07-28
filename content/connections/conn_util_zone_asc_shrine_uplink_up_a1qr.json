@@ -1,0 +1,9 @@
+{
+  "a": "zone_util_zone_asc_shrine_uplink",
+  "b": "zone_asc_shrine_uplink",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_util_zone_asc_shrine_uplink_up_a1qr",
+  "lockable": false,
+  "one_way": true
+}

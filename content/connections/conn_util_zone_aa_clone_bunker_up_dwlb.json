@@ -1,0 +1,9 @@
+{
+  "a": "zone_util_zone_aa_clone_bunker",
+  "b": "zone_aa_clone_bunker",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_util_zone_aa_clone_bunker_up_dwlb",
+  "lockable": false,
+  "one_way": true
+}

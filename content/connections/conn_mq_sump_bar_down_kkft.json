@@ -1,0 +1,9 @@
+{
+  "a": "zone_mq_sump_bar",
+  "b": "zone_mq_sump_cellar",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_mq_sump_bar_down_kkft",
+  "lockable": false,
+  "one_way": false
+}

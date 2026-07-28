@@ -1,0 +1,9 @@
+{
+  "a": "zone_asc_shrine_nave",
+  "b": "zone_district_892_907",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_asc_shrine_nave_south_dpdk",
+  "lockable": false,
+  "one_way": false
+}

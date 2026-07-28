@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_924_907",
+  "b": "zone_yard_container",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_district_924_907_north_uuse",
+  "lockable": true,
+  "one_way": false
+}

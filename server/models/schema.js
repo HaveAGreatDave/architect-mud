@@ -131,6 +131,59 @@ export const SCHEMA_SQL = `
   -- audio_theme_id — two authored values standing in for 5,785 nulls.
   ALTER TABLE regions ADD COLUMN IF NOT EXISTS defaults JSONB DEFAULT '{}';
 
+  -- AUTHORED connections (spec §1.4). A row exists only where geometry cannot say
+  -- what is true: a link the grid does not imply (a stairwell, a facade's front
+  -- door, a warp), a link that runs one way, or a WALL — two tiles that touch and
+  -- are deliberately not connected. Contiguous walkable ground authors nothing.
+  --
+  -- dir is authoritative, not adjacency: a connection may join non-adjacent tiles
+  -- or tiles on different maps, which is what makes warping legible.
+  --
+  -- id is MINTED once and never re-derived. The connection_locks row of §6 is
+  -- keyed by it, so re-deriving an id from its endpoints would make a lock's grant
+  -- evaporate the moment a tile is renamed.
+  CREATE TABLE IF NOT EXISTS connections (
+    id         TEXT PRIMARY KEY,
+    a          TEXT NOT NULL REFERENCES zones(id) ON DELETE CASCADE,
+    b          TEXT NOT NULL REFERENCES zones(id) ON DELETE CASCADE,
+    dir        TEXT NOT NULL,            -- direction FROM a TO b
+    one_way    BOOLEAN NOT NULL DEFAULT FALSE,
+    blocked    BOOLEAN NOT NULL DEFAULT FALSE,  -- adjacent, deliberately impassable
+    name       TEXT,                     -- optional, for prose and audit output
+    lockable   BOOLEAN NOT NULL DEFAULT FALSE,  -- a lock MAY be installed here (§6)
+    door       JSONB                     -- optional fixture spec
+    -- Deliberately no updated_at/created_by: nothing reads them, and a minted
+    -- file has no honest timestamp to carry. A column that exists only to churn
+    -- the export diff is the cost this pipeline was built to stop paying.
+  );
+  CREATE INDEX IF NOT EXISTS idx_connections_a ON connections(a);
+  CREATE INDEX IF NOT EXISTS idx_connections_b ON connections(b);
+
+  -- GENERATED connectivity (spec §2.2): the whole traversal graph, both
+  -- directions, projected from grid geometry plus the connections above.
+  -- TRUNCATEd and rebuilt by the same derive pass as zone_render, classed runtime
+  -- so it structurally cannot enter content/.
+  --
+  -- The PK is (from_zone, direction, to_zone), NOT the spec's (from_zone,
+  -- direction): zones.exits already lets one direction hold an ARRAY of targets,
+  -- and two tiles use it — the Halcyon and Solenne elevators, whose "up" serves
+  -- five and four floors respectively, disambiguated at runtime by destination
+  -- name. A two-part key would silently drop four of those nine floors, and this
+  -- table has to be a drop-in for exits or it is not a replacement at all.
+  --
+  -- to_zone deliberately carries NO foreign key: TRUNCATE + rebuild in one
+  -- transaction must not depend on insert order, and from_zone's cascade already
+  -- keeps the table free of rows about deleted tiles.
+  CREATE TABLE IF NOT EXISTS zone_edges (
+    from_zone     TEXT NOT NULL REFERENCES zones(id) ON DELETE CASCADE,
+    direction     TEXT NOT NULL,
+    to_zone       TEXT NOT NULL,
+    connection_id TEXT,           -- the authored file, when one exists; NULL for pure geometry
+    kind          TEXT NOT NULL,  -- 'grid' | 'portal' | 'authored'
+    PRIMARY KEY (from_zone, direction, to_zone)
+  );
+  CREATE INDEX IF NOT EXISTS idx_zone_edges_to ON zone_edges(to_zone);
+
   -- Grid coordinates + map membership for every zone. Additive: exits stay
   -- the source of truth for traversability (adjacency never implies a
   -- connection); these only position zones on a map for display/editing.

@@ -1,0 +1,9 @@
+{
+  "a": "zone_asc_weave_line",
+  "b": "zone_district_893_907",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_asc_weave_line_east_7hgs",
+  "lockable": true,
+  "one_way": false
+}

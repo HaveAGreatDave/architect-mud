@@ -36,6 +36,15 @@ like everything else under `content/`, and `NON_TABLE_DIRS` in
 rejecting it. Nothing reads it at runtime — the build resolves it into
 `zone_render` and renderers read only that.
 
+**`content/connections/` says what geometry cannot.** A tile's neighbours come from
+its grid coordinates, so contiguous walkable ground authors nothing at all. A file
+exists only where that breaks down: a link the grid does not imply (a stairwell, a
+facade's front door, a warp between maps), a link that runs one way, or a **wall** —
+two tiles that touch and are deliberately not connected (`blocked: true`). 283 files
+stand in for 21,203 edges. `content:lint` projects the whole graph and holds it to
+`zones.exits` edge for edge, so an exit added on one side only, or a wall nobody
+declared, fails before it ships. See the [map pipeline spec §1.4/§7.5](proposals/map-pipeline-spec.md).
+
 **omitWhenNull is the opposite case: authored, but absent by default.** Some
 columns are *overrides* — a tile writes one only when it disagrees with what it
 would otherwise inherit (`regions.defaults` → `resolveDefault`, see
@@ -73,11 +82,12 @@ any time:        npm run content:status   # "do files match my DB?"
   transaction: registry-order upserts (`ON CONFLICT (pk) DO UPDATE`, no-op when
   identical), then the deletion pass (below). Never drops the DB; player rows
   are untouched. On a **local** target it then runs `content:seed-runtime`. It
-  finishes with a **derive pass**: it reads the zones and regions the transaction
-  just committed plus [content/map/terrain.json](../content/map/terrain.json), and
-  rebuilds `zone_render` — the generated presentation every renderer paints from
-  (map-pipeline-spec §9). The pass writes only generated tables, never `zones`, so
-  the drift report and the git-diff deletion pass need no changes at all.
+  finishes with a **derive pass**: it reads the zones, regions and connections the
+  transaction just committed plus [content/map/terrain.json](../content/map/terrain.json),
+  and rebuilds `zone_render` — the generated presentation every renderer paints
+  from — and `zone_edges`, the whole traversal graph (map-pipeline-spec §9). The
+  pass writes only generated tables, never `zones`, so the drift report and the
+  git-diff deletion pass need no changes at all.
 - `map:derive` — the derive pass on its own, against a live database. A normal
   deploy never needs it; it exists for the case the deploy can't cover, a one-shot
   script that rewrites tiles directly and leaves the generated tables describing

@@ -1,0 +1,9 @@
+{
+  "a": "zone_echelon_suite_bath",
+  "b": "zone_echelon_suite",
+  "blocked": false,
+  "dir": "out",
+  "id": "conn_echelon_suite_bath_out_vfsq",
+  "lockable": true,
+  "one_way": false
+}

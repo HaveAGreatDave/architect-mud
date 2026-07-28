@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_896_898",
+  "b": "zone_echelon_exterior",
+  "blocked": true,
+  "dir": "east",
+  "id": "conn_district_896_898_east_eslu",
+  "lockable": false,
+  "one_way": false
+}

@@ -36,6 +36,15 @@ specific exit even when several share a direction.
 
 ### The exits substrate
 
+> **`zones.exits` is still the source of truth the engine boots from.** As of the map
+> pipeline's step 6 there is a second, generated representation — `zone_edges`, the whole
+> traversal graph projected at build time from grid geometry plus `content/connections/`
+> ([spec §2.2/§7.5](proposals/map-pipeline-spec.md)). Nothing at runtime reads it yet;
+> `content:lint` and regress hold it to `exits` on all 21,203 edges so that it *can* be
+> read later. **Do not add a reader** — when the cutover happens (spec §5) the merge
+> happens once, at boot, the same way `zone_exit_overrides` already merges, and the
+> accessors below do not change shape.
+
 A zone's `exits` is a direction-keyed map whose value is **either a zone-id string (the common single
 exit) or an array of zone-ids when a direction holds two or more exits** (e.g. two `north` exits to
 different zones). Storage stays backward compatible — single exits are bare strings and a direction only

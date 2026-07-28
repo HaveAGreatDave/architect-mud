@@ -1,0 +1,9 @@
+{
+  "a": "zone_embassy_floor2",
+  "b": "zone_embassy_floor_2nd",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_embassy_floor2_down_gds5",
+  "lockable": false,
+  "one_way": false
+}

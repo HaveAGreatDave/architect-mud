@@ -1,0 +1,9 @@
+{
+  "a": "zone_util_zone_aa_wastes_bunker",
+  "b": "zone_aa_wastes_bunker",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_util_zone_aa_wastes_bunker_up_29w6",
+  "lockable": false,
+  "one_way": true
+}

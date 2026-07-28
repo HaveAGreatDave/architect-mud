@@ -112,6 +112,16 @@ export const REGISTRY = [
   // flags.region_id; bounds derived from members, not stored. Dev-panel-read
   // only — no runtime hot-path reader. Distinct from engine/districts.js land-use.
   { table: 'regions', class: 'content', pk: ['id'], readTier: 'cold' },
+  // Authored connections (spec §1.4) — the things grid geometry cannot say: a link
+  // the grid does not imply, a link that runs one way, a WALL between two tiles
+  // that touch. Contiguous walkable ground authors nothing, which is why 21,203
+  // traversable edges need 271 files. After `zones`, because a/b reference it.
+  //
+  // name/door are omitWhenNull; the three booleans deliberately are NOT — a file
+  // states all three explicitly, so flipping one back to false is an UPDATE the
+  // import actually applies rather than a key it simply stops sending.
+  { table: 'connections', class: 'content', pk: ['id'], readTier: 'boot',
+    omitWhenNull: ['name', 'door'] },
   { table: 'items', class: 'content', pk: ['id'], readTier: 'boot', // items-cache.js write-through Map
     runtimeInserts: 'doors.js keycard cutting (keycard_<door>); surveillance evidence datachips (item_datachip_<clip>, reaped on submission/retention); broadcast recorded cassettes (item_cassette_<slug>)' },
   { table: 'enemies', class: 'content', pk: ['id'], readTier: 'boot' },      // via world.spawnTimers join
@@ -285,6 +295,7 @@ export const REGISTRY = [
   // file pretending somebody authored it. TRUNCATEd and rebuilt by the derive pass
   // of content:import (map-pipeline-spec §2.1, §9).
   { table: 'zone_render', class: 'runtime' },
+  { table: 'zone_edges', class: 'runtime' },      // generated traversal graph — grid geometry + connections (spec §2.2)
   { table: 'world_events', class: 'runtime' },
   { table: 'void_traces', class: 'runtime' },      // voidwalking — scrawls/corpses left in the void, purged as windows rotate
   { table: 'world_clock', class: 'runtime' },

@@ -1,0 +1,9 @@
+{
+  "a": "zone_util_zone_asc_clinic_consult",
+  "b": "zone_asc_clinic_consult",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_util_zone_asc_clinic_consult_up_nooy",
+  "lockable": false,
+  "one_way": true
+}

@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_897_899",
+  "b": "zone_echelon_exterior",
+  "blocked": true,
+  "dir": "north",
+  "id": "conn_district_897_899_north_pkex",
+  "lockable": false,
+  "one_way": false
+}

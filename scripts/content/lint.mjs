@@ -15,7 +15,7 @@ import { contentEntries } from '../../server/models/content-registry.js';
 import { SCHEMA_SQL } from '../../server/models/schema.js';
 import { validateTags, validateZoneColumns, TAG_CATALOG as CATALOG, ZONE_COLUMN_PREFIX } from '../../server/engine/tags.js';
 import { readContentTree, fileNameForRow, schemaColumnsOf as columnsOf, readPalette } from './lib.mjs';
-import { assignBuildingMarkers } from './derive.mjs';
+import { assignBuildingMarkers, projectEdges, OPPOSITE } from './derive.mjs';
 
 // ── SCHEMA_SQL parsing (content→content FKs), no DB required ─────────────────
 // Column parsing lives in lib.mjs (schemaColumnsOf) so the export writer and this
@@ -293,6 +293,71 @@ export function lintContentTree(baseDir) {
       for (const c of collisions) {
         warnings.push(`zones/${c.id}: map code "${c.marker}" is already authored on ${c.with} — two buildings wearing one code are indistinguishable on the map (audit MARK-4)`);
       }
+    }
+  }
+
+  // ── Connections and the projected graph (spec §1.4, §7.5) ──────────────────
+  // The gate that makes §11 step 6's "cut over only when they agree" a check
+  // rather than a hope: project the whole traversal graph from geometry plus the
+  // connection files and hold it to zones.exits, edge for edge. Until `exits`
+  // leaves content (§5) the two are redundant, and redundancy nobody checks is
+  // just two sources of truth waiting to disagree.
+  {
+    const zoneFiles = entries.find(e => e.entry.table === 'zones')?.files || [];
+    const connFiles = entries.find(e => e.entry.table === 'connections')?.files || [];
+    const connections = connFiles.map(f => f.data);
+    const zoneIds = new Set(zoneFiles.map(f => f.data.id));
+
+    for (const f of connFiles) {
+      const c = f.data;
+      const label = `connections/${f.name}`;
+      if (!OPPOSITE[c.dir]) {
+        // A direction with no reverse can still be authored, but only one-way: the
+        // build has nothing to project back along.
+        if (!c.dir) errors.push(`${label}: no "dir"`);
+        else if (!c.one_way) errors.push(`${label}: dir "${c.dir}" has no opposite — a two-way connection needs a direction the build can reverse`);
+      }
+      if (c.a === c.b) errors.push(`${label}: connects ${c.a} to itself`);
+      if (c.blocked && c.one_way) errors.push(`${label}: blocked and one_way — a wall has no direction; drop one_way`);
+      if (c.blocked && (c.lockable || c.door)) errors.push(`${label}: blocked but carries a lock/door — there is no opening here to fit one to`);
+      // a/b resolution is covered by the FK sweep above; this catches the case
+      // where the schema FK is missing so the sweep has nothing to follow.
+      for (const end of ['a', 'b']) {
+        if (c[end] && zoneIds.size && !zoneIds.has(c[end])) errors.push(`${label}: ${end}="${c[end]}" is not a zone`);
+      }
+    }
+
+    if (zoneFiles.length) {
+      const zones = zoneFiles.map(f => f.data);
+      const { edges, undeclaredOneWays, unusedBlocks } = projectEdges(zones, connections);
+
+      // The undeclared one-way (§7.5): a step that projects one way and does not
+      // come back, with no file saying so. A warp the map cannot draw and nobody
+      // chose. Declaring it (one_way: true) is how you say you meant it.
+      for (const e of undeclaredOneWays.slice(0, 20)) {
+        errors.push(`undeclared one-way: ${e.from_zone} —${e.direction}→ ${e.to_zone} projects but the return does not; author a connection with "one_way": true if that is deliberate`);
+      }
+      if (undeclaredOneWays.length > 20) errors.push(`…and ${undeclaredOneWays.length - 20} more undeclared one-way(s)`);
+
+      // A wall that walls nothing: the tiles moved apart, or a rule now covers the
+      // pair. Harmless, but it is a file whose reason has been edited away.
+      for (const id of unusedBlocks) warnings.push(`connections/${id}.json: blocked, but geometry projects nothing between those tiles — the wall is redundant`);
+
+      // The agreement gate.
+      const authored = new Set();
+      for (const z of zones) {
+        for (const [dir, v] of Object.entries(z.exits || {})) {
+          for (const t of (Array.isArray(v) ? v : [v])) if (t) authored.add(`${z.id}|${dir}|${t}`);
+        }
+      }
+      const projected = new Set(edges.map(e => `${e.from_zone}|${e.direction}|${e.to_zone}`));
+      const show = (k) => { const [a, d, b] = k.split('|'); return `${a} —${d}→ ${b}`; };
+      const gaps = [...authored].filter(k => !projected.has(k)).sort();
+      const walls = [...projected].filter(k => !authored.has(k)).sort();
+      for (const k of gaps.slice(0, 10)) errors.push(`zone_edges would lose an exit: ${show(k)} is authored in zones.exits but nothing projects it — author a connection file`);
+      if (gaps.length > 10) errors.push(`…and ${gaps.length - 10} more exit(s) the projection cannot reach`);
+      for (const k of walls.slice(0, 10)) errors.push(`zone_edges would invent an exit: ${show(k)} projects from geometry but zones.exits does not have it — author a connection file with "blocked": true`);
+      if (walls.length > 10) errors.push(`…and ${walls.length - 10} more exit(s) the projection would invent`);
     }
   }
 

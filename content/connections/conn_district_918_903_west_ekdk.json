@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_918_903",
+  "b": "zone_start",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_district_918_903_west_ekdk",
+  "lockable": true,
+  "one_way": false
+}

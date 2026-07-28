@@ -1,0 +1,9 @@
+{
+  "a": "zone_util_zone_yard_bonded",
+  "b": "zone_yard_bonded",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_util_zone_yard_bonded_up_r3b4",
+  "lockable": false,
+  "one_way": true
+}

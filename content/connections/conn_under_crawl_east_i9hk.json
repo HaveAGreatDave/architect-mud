@@ -1,0 +1,9 @@
+{
+  "a": "zone_under_crawl",
+  "b": "zone_under_flooded",
+  "blocked": true,
+  "dir": "east",
+  "id": "conn_under_crawl_east_i9hk",
+  "lockable": false,
+  "one_way": false
+}

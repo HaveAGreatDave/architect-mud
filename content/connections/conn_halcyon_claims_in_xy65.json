@@ -1,0 +1,9 @@
+{
+  "a": "zone_halcyon_claims",
+  "b": "zone_halcyon_elevator",
+  "blocked": false,
+  "dir": "in",
+  "id": "conn_halcyon_claims_in_xy65",
+  "lockable": false,
+  "one_way": true
+}

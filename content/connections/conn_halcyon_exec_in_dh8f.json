@@ -1,0 +1,9 @@
+{
+  "a": "zone_halcyon_exec",
+  "b": "zone_halcyon_elevator",
+  "blocked": false,
+  "dir": "in",
+  "id": "conn_halcyon_exec_in_dh8f",
+  "lockable": false,
+  "one_way": true
+}

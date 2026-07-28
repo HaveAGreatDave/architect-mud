@@ -1,0 +1,9 @@
+{
+  "a": "zone_dray_freightoffice",
+  "b": "zone_util_zone_dray_freightoffice",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_dray_freightoffice_down_5a0e",
+  "lockable": false,
+  "one_way": false
+}

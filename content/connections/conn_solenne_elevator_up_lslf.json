@@ -1,0 +1,9 @@
+{
+  "a": "zone_solenne_elevator",
+  "b": "zone_solenne_skydeck",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_solenne_elevator_up_lslf",
+  "lockable": false,
+  "one_way": true
+}

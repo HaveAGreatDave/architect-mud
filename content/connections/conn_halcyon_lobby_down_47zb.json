@@ -1,0 +1,9 @@
+{
+  "a": "zone_halcyon_lobby",
+  "b": "zone_util_zone_halcyon_lobby",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_halcyon_lobby_down_47zb",
+  "lockable": false,
+  "one_way": false
+}

@@ -1,0 +1,9 @@
+{
+  "a": "zone_under_alcove",
+  "b": "zone_under_warren",
+  "blocked": true,
+  "dir": "east",
+  "id": "conn_under_alcove_east_lflb",
+  "lockable": false,
+  "one_way": false
+}

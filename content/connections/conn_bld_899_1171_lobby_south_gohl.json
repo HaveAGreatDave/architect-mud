@@ -1,0 +1,9 @@
+{
+  "a": "zone_bld_899_1171_lobby",
+  "b": "zone_the_reach_872_1954",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_bld_899_1171_lobby_south_gohl",
+  "lockable": true,
+  "one_way": false
+}

@@ -1,0 +1,9 @@
+{
+  "a": "zone_bld_893_904_lobby",
+  "b": "zone_util_zone_bld_893_904_lobby",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_bld_893_904_lobby_down_zclp",
+  "lockable": false,
+  "one_way": false
+}

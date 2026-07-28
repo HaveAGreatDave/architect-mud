@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_895_906",
+  "b": "zone_halcyon_lobby",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_district_895_906_east_lsp7",
+  "lockable": true,
+  "one_way": false
+}

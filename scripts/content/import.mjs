@@ -337,14 +337,19 @@ try {
     // whole lint → import → regress cycle against a throwaway local Postgres.
     {
       const palette = readPalette();
-      const [zoneRows, regionRows] = await Promise.all([
-        client.query('SELECT id, marker, color, bg_color, ambient_theme, audio_theme_id, flags FROM zones'),
-        client.query('SELECT id, defaults FROM regions'),
-      ]);
-      const { rows: derived } = await writeDerived(client, {
-        zones: zoneRows.rows, regions: regionRows.rows, palette,
+      // Sequential, not Promise.all: this is ONE client inside a transaction, so
+      // pg queues concurrent queries on it anyway (and deprecates doing so). The
+      // "parallelise independent reads" rule in architecture.md is about the pool.
+      const zoneRows = await client.query(`SELECT id, name, marker, color, bg_color, ambient_theme,
+                                                  audio_theme_id, flags, map_id, grid_x, grid_y, grid_z, exits
+                                           FROM zones`);
+      const regionRows = await client.query('SELECT id, defaults FROM regions');
+      const connRows = await client.query('SELECT id, a, b, dir, one_way, blocked FROM connections');
+      const { rows: derived, edges } = await writeDerived(client, {
+        zones: zoneRows.rows, regions: regionRows.rows, connections: connRows.rows, palette,
       });
       console.log(`  ${'zone_render (derived)'.padEnd(26)} ${derived} rows${palette ? '' : '  ⚠ no content/map/terrain.json — palette rung empty'}`);
+      console.log(`  ${'zone_edges (derived)'.padEnd(26)} ${edges} rows (${connRows.rows.length} connections)`);
     }
 
     // ── Advance the marker ────────────────────────────────────────────────────

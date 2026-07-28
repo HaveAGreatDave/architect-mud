@@ -45,7 +45,7 @@ import { CONTENT_TABLES, EXCLUDED_TABLES, REGISTRY } from '../server/models/cont
 import { SCHEMA_SQL } from '../server/models/schema.js';
 import { handleApiRequest, apiUpdateZone, apiPatchZoneTag } from '../server/api/routes.js';
 import { query } from '../server/models/db.js';
-import { resolveDefault, deriveWorld, deriveMarker, assignBuildingMarkers } from '../scripts/content/derive.mjs';
+import { resolveDefault, deriveWorld, deriveMarker, assignBuildingMarkers, projectEdges, edgesToExits, OPPOSITE } from '../scripts/content/derive.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PLUGINS_DIR = join(__dirname, '../plugins');
@@ -944,6 +944,106 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   });
   check(`every tile draws the marker it shipped with (${world.zones.size} zones)`,
     markerDrift.length === 0, markerDrift.slice(0, 3).map(z => `${z.id}: ${z.marker} → ${renderOf(z.id).marker}`).join(' | '));
+}
+
+// LAW: connectivity is PROJECTED — grid geometry plus the things geometry cannot
+// say (spec §7.5). `zones.exits` is still what the engine boots from, so the whole
+// value of this step is the LAST check in this block: the projected graph and the
+// authored exits must agree edge for edge. The moment they don't, `exits` cannot
+// leave content, and the two would be two sources of truth instead of one.
+{
+  const connDir = join(__dirname, '..', 'content', 'connections');
+  const connections = existsSync(connDir)
+    ? await Promise.all((await readdir(connDir)).filter(f => f.endsWith('.json'))
+        .map(async f => JSON.parse(await readFile(join(connDir, f), 'utf8'))))
+    : [];
+  check(`content/connections/ is populated (${connections.length} files)`, connections.length > 0);
+
+  // Every connection file must be shaped so the build can act on it. A dangling
+  // end is silently skipped by projectEdges, which is exactly why lint errors on
+  // it — but the file's own fields have to hold up here too.
+  const zoneIds = new Set(getAllZones().map(z => z.id));
+  const badEnd = connections.filter(c => !zoneIds.has(c.a) || !zoneIds.has(c.b));
+  check('every connection joins two real zones', badEnd.length === 0,
+    badEnd.slice(0, 3).map(c => c.id).join(', '));
+  const badDir = connections.filter(c => !c.dir || (!OPPOSITE[c.dir] && !c.one_way));
+  check('every two-way connection uses a direction the build can reverse', badDir.length === 0,
+    badDir.slice(0, 3).map(c => `${c.id}:${c.dir}`).join(', '));
+  const dupIds = connections.length - new Set(connections.map(c => c.id)).size;
+  check('connection ids are unique — a lock is keyed by one (§6)', dupIds === 0);
+
+  const zonesForEdges = getAllZones().map(z => ({
+    id: z.id, map_id: z.map_id, grid_x: z.grid_x, grid_y: z.grid_y, grid_z: z.grid_z, flags: z.flags,
+  }));
+  const { edges, undeclaredOneWays, unusedBlocks } = projectEdges(zonesForEdges, connections);
+  const serE = (e) => JSON.stringify(e);
+  check('projectEdges is deterministic', serE(edges) === serE(projectEdges(zonesForEdges, connections).edges));
+  check('projectEdges does not depend on input order',
+    serE(edges) === serE(projectEdges([...zonesForEdges].reverse(), [...connections].reverse()).edges));
+
+  // The undeclared one-way (§7.5): a step that goes and does not come back with
+  // nothing saying so. A warp the map cannot draw and nobody chose.
+  check('no undeclared one-way edges', undeclaredOneWays.length === 0,
+    undeclaredOneWays.slice(0, 3).map(e => `${e.from_zone} -${e.direction}-> ${e.to_zone}`).join(' | '));
+  check('no connection blocks something geometry never projected', unusedBlocks.length === 0,
+    unusedBlocks.slice(0, 3).join(', '));
+
+  // …and the detector has teeth. A connection that REDIRECTS a direction is the
+  // realistic way to strand a neighbour: A's north now goes to C, but B's south
+  // still comes back to A, so the pair is passable one way and nobody said so.
+  {
+    const at = (id, x, y) => ({ id, map_id: 'map_probe', grid_x: x, grid_y: y, grid_z: 0, flags: {} });
+    const probe = [at('zp_a', 0, 0), at('zp_b', 0, -1), at('zp_c', 5, 5)];
+    const clean = projectEdges(probe, []);
+    check('projectEdges: two adjacent tiles project both ways', clean.edges.length === 2
+      && clean.undeclaredOneWays.length === 0);
+    const redirected = projectEdges(probe, [{ id: 'conn_probe', a: 'zp_a', b: 'zp_c', dir: 'north', one_way: true }]);
+    check('projectEdges: a redirect that strands the neighbour is reported',
+      redirected.undeclaredOneWays.length === 1
+      && redirected.undeclaredOneWays[0].from_zone === 'zp_b');
+    const walled = projectEdges(probe, [{ id: 'conn_probe', a: 'zp_a', b: 'zp_b', dir: 'north', blocked: true }]);
+    check('projectEdges: a wall removes both directions', walled.edges.length === 0);
+    const orphanWall = projectEdges(probe, [{ id: 'conn_probe', a: 'zp_a', b: 'zp_c', dir: 'north', blocked: true }]);
+    check('projectEdges: a wall between tiles that never touched is reported',
+      orphanWall.unusedBlocks.length === 1);
+  }
+
+  // The grid must still be doing the work. If a refactor quietly broke the
+  // geometry pass, connection files would silently become the whole graph and
+  // every one of the checks above would still pass on a much smaller world.
+  const kinds = edges.reduce((m, e) => { m[e.kind] = (m[e.kind] || 0) + 1; return m; }, {});
+  check(`geometry projects the bulk of the graph (${kinds.grid} grid, ${kinds.authored || 0} authored, ${kinds.portal || 0} portal)`,
+    kinds.grid > (edges.length * 0.9));
+
+  // ── The agreement gate (§11 step 6) ────────────────────────────────────────
+  // "Cut over only when they agree." This is the check that earns the cutover.
+  const authoredEdges = new Set();
+  for (const z of getAllZones()) {
+    for (const [dir, v] of Object.entries(z.exits || {})) {
+      for (const t of (Array.isArray(v) ? v : [v])) if (t) authoredEdges.add(`${z.id}|${dir}|${t}`);
+    }
+  }
+  const projectedEdges = new Set(edges.map(e => `${e.from_zone}|${e.direction}|${e.to_zone}`));
+  const gaps = [...authoredEdges].filter(k => !projectedEdges.has(k));
+  const invented = [...projectedEdges].filter(k => !authoredEdges.has(k));
+  check(`the projected graph loses no authored exit (${authoredEdges.size} edges)`, gaps.length === 0,
+    gaps.slice(0, 3).join(' | '));
+  check('the projected graph invents no exit', invented.length === 0, invented.slice(0, 3).join(' | '));
+
+  // Shape, not just membership: exits lets one direction hold an ARRAY (two
+  // elevators do), and a graph that flattens those to one target loses nine
+  // floors while still passing a set comparison.
+  const view = edgesToExits(edges);
+  const norm = (o) => JSON.stringify(Object.keys(o || {}).sort()
+    .map(k => [k, [].concat(o[k]).filter(Boolean).slice().sort()]));
+  const shapeDrift = getAllZones().filter(z => norm(z.exits) !== norm(view.get(z.id)));
+  check('zone_edges presents the same exits object the engine boots from', shapeDrift.length === 0,
+    shapeDrift.slice(0, 3).map(z => z.id).join(', '));
+
+  // And the table the build actually wrote — not just what derive would say now.
+  const written = await query('SELECT count(*)::int AS n FROM zone_edges');
+  check(`zone_edges is built (${written.rows[0].n} rows)`, written.rows[0].n === edges.length,
+    `table ${written.rows[0].n} vs derived ${edges.length} — run npm run map:derive`);
 }
 
 // LAW: no NPC may be homed in a PLAYER-OWNED apartment (the "someone's in Akerson's

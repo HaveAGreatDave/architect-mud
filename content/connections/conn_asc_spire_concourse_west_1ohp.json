@@ -1,0 +1,9 @@
+{
+  "a": "zone_asc_spire_concourse",
+  "b": "zone_district_892_906",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_asc_spire_concourse_west_1ohp",
+  "lockable": true,
+  "one_way": false
+}

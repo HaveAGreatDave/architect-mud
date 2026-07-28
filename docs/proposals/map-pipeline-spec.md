@@ -203,6 +203,35 @@ handful of per-tile overrides.** That is the entire argument of §5.5 in one fie
 
 ### 1.4 `content/connections/<id>.json` — the authored connection
 
+> **BUILT — §11 step 6.** 283 files, minted by
+> [`scripts/content/mint-connections.mjs`](../../scripts/content/mint-connections.mjs) from the
+> gap between geometry and `zones.exits`, and the projection now reproduces all
+> **21,203** authored edges exactly.
+>
+> **This section needed a third kind of file, and finding it is the result.** The
+> prediction was "65 one-ways and 173 doors". The one-ways landed on the nose — 65 —
+> but the world also needs **57 WALLS**: pairs of tiles that touch and are
+> deliberately not connected. `blocked: true` is the new field, and it is the only
+> honest way to say what 80 tenement flats, 14 sewer chambers, the Echelon's four
+> flanks and 12 interior rooms have in common: adjacency that means nothing.
+>
+> A wall is a statement, so it gets a file. Terrain is not: the same terrain pair is
+> walkable in thousands of places and walled in a handful (56 of the walls are
+> redrock↔grass, 28 are sand↔sand), so a passability rule keyed on the palette would
+> have been a rule that is wrong about the world it describes. See §7.5.
+>
+> Final shape: **226 links** (65 of them one-way) **+ 57 walls = 283 files** standing
+> in for 21,203 edges. `lockable` was minted `true` wherever a `doors` row already
+> sits on the seam — 126 of them — so §6 lands on real data rather than a field
+> nobody set.
+>
+> **The known seam, until the Studio (§11 step 8) closes it:** nothing writes a
+> connection file yet. Wiring an exit in the dev panel that geometry cannot reach —
+> a stairwell, a cross-map link, a facade seam — or deleting one between two adjacent
+> tiles, makes `content:lint` fail at push time. That is the gate doing its job and
+> the message names the file to author, but it is friction a dev-panel exit builder
+> should be absorbing. Gameplay is unaffected either way: nothing reads `zone_edges`.
+
 **A file exists only when there is something to say.** Contiguous walkable ground produces no
 file and no diff (redesign §8.6). Today's ~10,633 connections would produce **~238 files** —
 65 one-ways and 173 doors.
@@ -214,6 +243,7 @@ file and no diff (redesign §8.6). Today's ~10,633 connections would produce **~
   "b": "zone_voltage_vip_x7q4",
   "dir": "north",                          // direction FROM a TO b
   "one_way": false,                        // true ⇒ no b→a edge is projected
+  "blocked": false,                        // true ⇒ these tiles TOUCH and do not connect
   "name": "the VIP door",                  // optional, for prose and audit output
   "lockable": true,                        // a lock MAY be installed here. §6.
   "door": {                                // optional fixture
@@ -282,10 +312,21 @@ CREATE TABLE IF NOT EXISTS zone_edges (
   to_zone       TEXT NOT NULL,
   connection_id TEXT,           -- the authored file, when one exists; NULL for pure geometry
   kind          TEXT NOT NULL,  -- 'grid' | 'portal' | 'authored'
-  PRIMARY KEY (from_zone, direction)
+  PRIMARY KEY (from_zone, direction, to_zone)   -- see the note below
 );
 CREATE INDEX IF NOT EXISTS idx_zone_edges_to ON zone_edges(to_zone);
 ```
+
+> **BUILT — §11 step 6**, with **`to_zone` added to the primary key.** The two-part key
+> assumed one direction leads exactly one place. `zones.exits` has allowed a direction to
+> hold an *array* since `exits.js` was written, and two tiles use it: the Halcyon and
+> Solenne elevators, whose `up` serves five and four floors, disambiguated at runtime by
+> destination name. A two-part key silently drops four of those nine floors — and a table
+> that loses data `exits` can hold is not a drop-in for `exits`, it is a downgrade.
+>
+> Built shape: **21,203 rows — 20,816 `grid`, 237 `authored`, 150 `portal`.**
+> `to_zone` deliberately carries no foreign key, so a `TRUNCATE` + rebuild inside one
+> transaction never depends on insert order.
 
 `(from_zone, direction)` is the primary key because one direction leads exactly one place —
 which is what makes the table a drop-in for the `exits` object. `kind` distinguishes a projected
@@ -431,6 +472,15 @@ redesign §7.6 and is **step-3 work**. Do not start it as part of this spec.
 ---
 
 ## 5. `exits` leaves content
+
+> **NOT DONE, and deliberately so.** §11 step 6 built `zone_edges` and proved it
+> reproduces `exits` exactly, which is the precondition for this section — not this
+> section. Today the table is written by every build and read by nothing but the
+> agreement gate. That is the migration shape working: the cheap half (build it,
+> prove it) ships on its own and leaves the tree green, and the expensive half
+> (delete `exits` from 5,788 files, merge `zone_edges` at boot, retarget 32 writers)
+> is a separate decision made against a projection that has already been correct for
+> a while.
 
 **32 sites write `exits`** (`SET exits=` / `exits = $`) plus 19 `addExit`/`removeExit`/
 `addExitOverride` calls. Most die with the dev-panel map editor and `tools/zone-planner/`. The
@@ -666,6 +716,41 @@ is the same interaction with nothing derived in the middle — which is why it i
 build first.
 
 ### 7.5 `projectEdges`
+
+> **BUILT — §11 step 6.** The projection reproduces `zones.exits` exactly: 21,203 edges,
+> 0 lost, 0 invented, and the exits-shaped view is identical field for field on all
+> 5,788 tiles. `content:lint` and regress both hold it there, which is what makes
+> §11's "cut over only when they agree" a check instead of a hope.
+>
+> **"The terrain and flags say the step is walkable" is wrong about this world, and
+> that was the whole finding.** Terrain says nothing: 56 walls are redrock↔grass, 28
+> are sand↔sand, and the identical pair is walkable in thousands of other places.
+> These are hand-drawn, so they are files. What *is* a rule turned out to be two
+> things, and they account for 548 of the 660 walls between them:
+>
+> | rule | kills | why it is a rule and not a file |
+> |---|---|---|
+> | a facade opens at `flags.entrance` and nowhere else | 280 | the door is authored precisely so paint cannot move it (`2b6d0680`) |
+> | no edge crosses the city↔wilds curtain | 268 | code-enforced already — the editor refuses it, `seal-wilds-boundary.mjs` strips it |
+>
+> The other 112 are the 57 walls of §1.4. Two rules that were *considered and
+> rejected on measurement*, recorded so nobody re-proposes them:
+>
+> - **Vertical projection.** Emitting `up`/`down` between stacked `grid_z` looks free
+>   and costs **214 more files**: 306 apartment floors gain a hole in the ceiling and
+>   every bunker opens into the utility room below it. You cannot walk up through a
+>   floor, and the grid has no opinion about stairs. **Vertical stays authored** — 103
+>   `up` and 59 `down` links are connection files.
+> - **Excluding interiors wholesale** (as the audit's LINK-1 does, on the grounds that
+>   underground and interior topology is authored). Correct as an audit exclusion,
+>   wrong as a generator: it trades 652 inventions for 916 gaps, **650 files instead
+>   of 283**. Interiors are on a grid and the grid mostly tells the truth about them.
+>
+> The undeclared-one-way check is live and green. It turns out to be nearly
+> unreachable from geometry — grid edges are symmetric by construction — and to fire
+> on exactly the realistic authoring mistake: a connection that *redirects* a
+> direction, leaving the old neighbour still pointing back. Regress pins that case
+> synthetically, since shipped content has none.
 
 ```
 for each zone, for each grid-adjacent walkable neighbour on the same map:
@@ -949,8 +1034,14 @@ point of the migration shape (redesign §14) is no flag day.
    step 3 for the reason given: from step 3 onward the files-only audit was reporting on a
    world that no longer exists. Output proven byte-identical to the pre-port baseline.
    (Step 4 was skipped over for now, so `deriveMarker` remains open.)
-6. **`zone_edges` + `content/connections/`** (§1.4, §7.5), with `exits` still authored in
-   parallel and a regress assertion that the two agree. Cut over only when they do.
+6. ~~**`zone_edges` + `content/connections/`** (§1.4, §7.5)~~ **BUILT** — see the call-outs in
+   §1.4, §2.2 and §7.5. `exits` is still authored and still what the engine boots from; what
+   this step bought is the *right* to delete it, held open by `content:lint` and regress
+   asserting the two agree on all 21,203 edges. It cost a field the spec didn't have
+   (`blocked`), a wider primary key than the spec wrote, and 283 files against a predicted
+   238. **§5 — deleting `exits` from 5,788 files and merging `zone_edges` at boot — is
+   deliberately NOT part of this step**, and should not be until something other than a test
+   reads the table.
 7. **Locks** (§6) once connections carry stable ids.
 8. **The Studio**, incrementally, against whatever of the above has landed.
 9. **The id rename** (§4, redesign §7.6) — last, alone, and rehearsed against a prod snapshot on
@@ -974,3 +1065,9 @@ the next audit rule that *cannot* be written is understood as a win:
   authors it too.
 - **A derived value drifting from what ships** — the audit reads the resolved world, and derive
   cannot reach a database to make it vary.
+- **A one-sided exit** — a link is one file naming both ends, so "A says north to B and B never
+  says south to A" is not a state the format can hold. The 65 places that genuinely go one way
+  have to say `one_way` out loud, and a redirect that strands a neighbour fails lint.
+- **A wall nobody decided on** — 660 adjacencies were impassable and the reason lived nowhere.
+  548 are now two rules and 112 are 57 files; a wall added by accident fails the agreement gate,
+  and a wall that stops walling anything says so.

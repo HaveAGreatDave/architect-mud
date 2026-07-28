@@ -20,14 +20,19 @@ const { client, host } = await connectTarget({
 try {
   const palette = readPalette();
   if (!palette) console.warn('⚠ no content/map/terrain.json — every tile will derive with an empty palette.');
-  const [zones, regions] = await Promise.all([
-    client.query('SELECT id, marker, color, bg_color, ambient_theme, audio_theme_id, flags FROM zones'),
-    client.query('SELECT id, defaults FROM regions'),
-  ]);
+  // Sequential: one client, and pg queues concurrent queries on it regardless.
+  const zones = await client.query(`SELECT id, name, marker, color, bg_color, ambient_theme,
+                                           audio_theme_id, flags, map_id, grid_x, grid_y, grid_z, exits
+                                    FROM zones`);
+  const regions = await client.query('SELECT id, defaults FROM regions');
+  const connections = await client.query('SELECT id, a, b, dir, one_way, blocked FROM connections');
   await client.query('BEGIN');
-  const { rows } = await writeDerived(client, { zones: zones.rows, regions: regions.rows, palette });
+  const { rows, edges } = await writeDerived(client, {
+    zones: zones.rows, regions: regions.rows, connections: connections.rows, palette,
+  });
   await client.query('COMMIT');
-  console.log(`✓ zone_render rebuilt on ${host}: ${rows} rows from ${zones.rowCount} zones.`);
+  console.log(`✓ rebuilt on ${host}: zone_render ${rows} rows, zone_edges ${edges} rows`
+    + ` (${zones.rowCount} zones, ${connections.rowCount} connections).`);
 } catch (e) {
   await client.query('ROLLBACK').catch(() => {});
   console.error(`✗ map:derive failed — ${e.message}`);

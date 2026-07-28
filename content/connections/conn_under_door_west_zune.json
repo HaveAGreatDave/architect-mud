@@ -1,0 +1,9 @@
+{
+  "a": "zone_under_door",
+  "b": "zone_under_warren",
+  "blocked": true,
+  "dir": "west",
+  "id": "conn_under_door_west_zune",
+  "lockable": false,
+  "one_way": false
+}

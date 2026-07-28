@@ -1323,14 +1323,19 @@ async function apiGetTerrainPalette() {
 // is a decision somebody makes at a terminal rather than a button in a panel.
 async function apiDeriveMap() {
   const zones = [...world.zones.values()].map(z => ({
-    id: z.id, marker: z.marker, color: z.color, bg_color: z.bg_color,
+    id: z.id, name: z.name, marker: z.marker, color: z.color, bg_color: z.bg_color,
     ambient_theme: z.ambient_theme, audio_theme_id: z.audio_theme_id, flags: z.flags,
+    // Geometry, for projectEdges (§7.5). The painter moves nothing, but derive is
+    // whole-map and rebuilds both generated tables in one pass — handing it a
+    // world with no coordinates would rebuild zone_edges as an empty graph.
+    map_id: z.map_id, grid_x: z.grid_x, grid_y: z.grid_y, grid_z: z.grid_z,
   }));
-  const { rows } = await writeDerived({ query }, {
-    zones, regions: getAllRegions(), palette: readPalette(),
+  const connections = (await query('SELECT id, a, b, dir, one_way, blocked FROM connections')).rows;
+  const { rows, edges } = await writeDerived({ query }, {
+    zones, regions: getAllRegions(), connections, palette: readPalette(),
   });
   await loadZoneRender();
-  return { status: 200, body: { ok: true, rows } };
+  return { status: 200, body: { ok: true, rows, edges } };
 }
 
 async function apiGetSpatialRegions() {

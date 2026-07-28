@@ -1,0 +1,9 @@
+{
+  "a": "zone_chemsupply_interior",
+  "b": "zone_district_920_907",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_chemsupply_interior_west_ijbk",
+  "lockable": true,
+  "one_way": false
+}

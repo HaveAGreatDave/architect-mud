@@ -1,0 +1,9 @@
+{
+  "a": "zone_the_inbetween",
+  "b": "zone_the_lattice",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_the_inbetween_north_38k9",
+  "lockable": false,
+  "one_way": true
+}

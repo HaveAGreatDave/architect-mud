@@ -1,0 +1,9 @@
+{
+  "a": "zone_asc_clinic_consult",
+  "b": "zone_asc_clinic_theatre",
+  "blocked": false,
+  "dir": "in",
+  "id": "conn_asc_clinic_consult_in_reeq",
+  "lockable": false,
+  "one_way": false
+}

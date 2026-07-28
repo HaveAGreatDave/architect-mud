@@ -11,9 +11,7 @@
 // this first"). `deriveWorld` is the whole-map pass the build runs, producing the
 // `zone_render` rows renderers read INSTEAD of computing anything themselves.
 //
-// Not here yet: `projectEdges` (§7.5, step 6), `deriveMarker`'s four cases (§7.4,
-// step 4), and `content/map/index.json` (§2.4). `edges` comes back empty and
-// callers must not read it as "no edges exist".
+// Not here yet: `content/map/index.json` (§2.4).
 
 // ── The bottom rung ──────────────────────────────────────────────────────────
 // What a key means when nobody — tile, region or palette — has said anything.
@@ -293,6 +291,192 @@ export function assignBuildingMarkers(zones) {
   return { markers, collisions };
 }
 
+// ── projectEdges — the traversal graph (§7.5) ────────────────────────────────
+//
+// Geometry says where tiles TOUCH. It does not say where a player can WALK, and
+// this world is emphatic about the difference: 21,203 authored exits against
+// 21,478 cardinal adjacencies. The gap is not noise — it is 660 directed walls,
+// and the whole design of this function is the search for which of them are a
+// RULE and which are a DECISION.
+//
+// Measured over the shipped world, three rules and 271 files reproduce every one
+// of the 21,203 edges exactly:
+//
+//   grid            21,478 raw cardinal adjacencies on the same map
+//   − facade rule      280  a facade opens at flags.entrance and nowhere else
+//   − wilds curtain    268  the city↔wilds boundary, a code-enforced invariant
+//   = 20,930 projected, of which 114 are wrong and 387 are missing
+//   + 271 connection files (214 links geometry cannot say, 57 walls it cannot
+//     un-say) → exact agreement with zones.exits
+//
+// Two things this refuses to do, both measured rather than assumed:
+//
+//   VERTICAL IS NOT PROJECTED. Stacking grid_z and emitting up/down looks free
+//   and costs 214 more files: 306 apartment floors would gain a hole in the
+//   ceiling, and every bunker would open into the utility room beneath it. You
+//   cannot walk up through a floor, and the grid has no opinion about stairs.
+//
+//   TERRAIN IS NOT CONSULTED. §7.5 supposes the palette decides walkability, but
+//   the same terrain pair is passable in thousands of places and walled in a
+//   handful: 56 of the walls are redrock↔grass, 28 are sand↔sand. Those are hand
+//   drawn, so they are files. A terrain-based passability rule would have been a
+//   rule that is wrong about the world it describes.
+
+// The four directions a grid step can take. (x, y) only — see the vertical note.
+export const CARDINAL = Object.freeze({ north: [0, -1], east: [1, 0], south: [0, 1], west: [-1, 0] });
+
+// The reverse of every direction the world uses, including the ones no geometry
+// implies. A direction absent here has no reverse and can only ever be one-way.
+export const OPPOSITE = Object.freeze({
+  north: 'south', south: 'north', east: 'west', west: 'east',
+  up: 'down', down: 'up', in: 'out', out: 'in',
+  northeast: 'southwest', southwest: 'northeast',
+  northwest: 'southeast', southeast: 'northwest',
+});
+
+const byIdAsc = (a, b) => (String(a.id) < String(b.id) ? -1 : String(a.id) > String(b.id) ? 1 : 0);
+const cellKey = (z) => `${z.map_id}|${z.grid_x},${z.grid_y},${z.grid_z ?? 0}`;
+
+/**
+ * A facade is a building's street face. It is a wall on three sides and a door on
+ * one, and WHICH one is authored (`flags.entrance`) precisely so terrain paint
+ * cannot relocate it — the lesson of 2b6d0680. Without this the 62 facades open
+ * on every side they touch: 280 doors nobody cut.
+ */
+const facadeBlocks = (z, dir) => !!z?.flags?.facade && z.flags.entrance !== dir;
+
+/**
+ * The city↔wilds curtain. Not an oversight and not terrain: the map editor
+ * refuses to wire across it, routes.js will not re-open it, and
+ * seal-wilds-boundary.mjs strips any crossing that appears. It is pierced in
+ * exactly one place — The South Gate — which is a connection file, and the audit's
+ * GATE-1 guards. A code-enforced invariant belongs in the projection, not in 268
+ * identical files saying "still sealed".
+ */
+const crossesCurtain = (a, b) => (a?.flags?.district === 'wilds') !== (b?.flags?.district === 'wilds');
+
+/**
+ * Project the traversal graph.
+ *
+ * @param {Array} zones        every zone row / content file
+ * @param {Array} connections  parsed content/connections/*.json
+ * @returns {{ edges: Array, undeclaredOneWays: Array, unusedBlocks: Array }}
+ *   edges — { from_zone, direction, to_zone, connection_id, kind } rows for
+ *   zone_edges, id-sorted. `kind` is 'grid' (geometry), 'authored' (a file, same
+ *   map) or 'portal' (a file joining two maps).
+ */
+export function projectEdges(zones = [], connections = []) {
+  const sorted = [...zones].sort(byIdAsc);
+  const byId = new Map(sorted.map(z => [z.id, z]));
+
+  // Position index. A cell can legitimately hold more than one zone (6 do), so
+  // this is a list and every occupant is a candidate neighbour.
+  const byCell = new Map();
+  for (const z of sorted) {
+    if (z.map_id == null || z.grid_x == null || z.grid_y == null) continue;
+    const k = cellKey(z);
+    if (!byCell.has(k)) byCell.set(k, []);
+    byCell.get(k).push(z);
+  }
+
+  const grid = new Map();   // `from|dir|to` → row
+  for (const z of sorted) {
+    if (!byCell.has(cellKey(z))) continue;
+    for (const [dir, [dx, dy]] of Object.entries(CARDINAL)) {
+      if (facadeBlocks(z, dir)) continue;
+      const neighbours = byCell.get(`${z.map_id}|${z.grid_x + dx},${z.grid_y + dy},${z.grid_z ?? 0}`) || [];
+      for (const n of neighbours) {
+        if (facadeBlocks(n, OPPOSITE[dir])) continue;
+        if (crossesCurtain(z, n)) continue;
+        grid.set(`${z.id}|${dir}|${n.id}`, {
+          from_zone: z.id, direction: dir, to_zone: n.id, connection_id: null, kind: 'grid',
+        });
+      }
+    }
+  }
+
+  // Authored files, applied over the projection. A connection CLAIMS its
+  // (from, direction): any grid edge on that key steps aside, so authoring a link
+  // is how you redirect a step as well as how you add one. Two connections on the
+  // same (from, direction) coexist — that is the elevator whose `up` serves five
+  // floors, and dropping four of them is the failure the 3-part key exists to
+  // prevent.
+  const authored = [];
+  const claimed = new Set();
+  const blocked = new Set();
+  const unusedBlocks = [];
+  for (const c of [...connections].sort(byIdAsc)) {
+    const a = byId.get(c.a), b = byId.get(c.b);
+    if (!a || !b) continue;                      // lint reports the dangling end
+    if (c.blocked) {
+      for (const k of [`${c.a}|${c.dir}|${c.b}`, `${c.b}|${OPPOSITE[c.dir]}|${c.a}`]) {
+        if (!grid.has(k)) continue;
+        blocked.add(k);
+      }
+      // A wall that walls nothing is a file whose reason has been edited away —
+      // the tiles moved apart, or a rule now covers it. Reported, not silent.
+      if (!blocked.has(`${c.a}|${c.dir}|${c.b}`)) unusedBlocks.push(c.id);
+      continue;
+    }
+    const kind = a.map_id === b.map_id ? 'authored' : 'portal';
+    authored.push({ from_zone: c.a, direction: c.dir, to_zone: c.b, connection_id: c.id, kind });
+    claimed.add(`${c.a}|${c.dir}`);
+    if (!c.one_way && OPPOSITE[c.dir]) {
+      authored.push({ from_zone: c.b, direction: OPPOSITE[c.dir], to_zone: c.a, connection_id: c.id, kind });
+      claimed.add(`${c.b}|${OPPOSITE[c.dir]}`);
+    }
+  }
+
+  const edges = [];
+  for (const [k, row] of grid) {
+    if (blocked.has(k)) continue;
+    if (claimed.has(`${row.from_zone}|${row.direction}`)) continue;
+    edges.push(row);
+  }
+  edges.push(...authored);
+  edges.sort((x, y) => x.from_zone.localeCompare(y.from_zone)
+    || x.direction.localeCompare(y.direction)
+    || x.to_zone.localeCompare(y.to_zone));
+
+  // The undeclared one-way (§7.5): a step that projects one way with nothing
+  // saying so. A warp the map cannot draw and nobody chose. A file that says
+  // `one_way` is a choice and does not appear here.
+  const present = new Set(edges.map(e => `${e.from_zone}|${e.direction}|${e.to_zone}`));
+  const declaredOneWay = new Set();
+  for (const c of connections) {
+    if (c.one_way && !c.blocked) declaredOneWay.add(`${c.a}|${c.dir}|${c.b}`);
+  }
+  const undeclaredOneWays = [];
+  for (const e of edges) {
+    const back = OPPOSITE[e.direction];
+    if (!back) continue;
+    if (present.has(`${e.to_zone}|${back}|${e.from_zone}`)) continue;
+    if (declaredOneWay.has(`${e.from_zone}|${e.direction}|${e.to_zone}`)) continue;
+    undeclaredOneWays.push(e);
+  }
+  return { edges, undeclaredOneWays, unusedBlocks };
+}
+
+/**
+ * The exits-shaped view of a projected graph — the same `{ dir: id | [id, …] }`
+ * object `zones.exits` holds, so the two can be compared field for field. This is
+ * what makes §11 step 6's "cut over only when they agree" a check rather than a
+ * hope, and after the cutover it is how zone_edges presents itself to a runtime
+ * that still thinks in exits.
+ */
+export function edgesToExits(edges = []) {
+  const out = new Map();
+  for (const e of edges) {
+    if (!out.has(e.from_zone)) out.set(e.from_zone, {});
+    const bag = out.get(e.from_zone);
+    const cur = bag[e.direction];
+    if (cur === undefined) bag[e.direction] = e.to_zone;
+    else if (Array.isArray(cur)) cur.push(e.to_zone);
+    else bag[e.direction] = [cur, e.to_zone];
+  }
+  return out;
+}
+
 /**
  * The render spec (§2.3) — the ONLY channel between derive and any renderer.
  * Every renderer reads these values; none of them looks up a palette, and none
@@ -325,10 +509,11 @@ export function buildRenderSpec(zone, palette, resolved) {
  * @param {object} input
  * @param {Array}  input.zones     every zone row / content file
  * @param {Array}  [input.regions] region rows, for the region rung of resolveDefault
+ * @param {Array}  [input.connections] parsed content/connections/*.json (§1.4)
  * @param {object} [input.palette] parsed content/map/terrain.json
  * @returns {{ render: Map<string, object>, edges: Array, index: object|null }}
  */
-export function deriveWorld({ zones = [], regions = [], palette = null } = {}) {
+export function deriveWorld({ zones = [], regions = [], connections = [], palette = null } = {}) {
   const regionById = new Map(regions.map(r => [r.id, r]));
   const render = new Map();
   // Whole-map first: a building's code has to be unique across every building, so
@@ -360,7 +545,11 @@ export function deriveWorld({ zones = [], regions = [], palette = null } = {}) {
     });
   }
 
-  // edges: §7.5, step 6. Empty is NOT "this world has no edges" — `exits` is
-  // still the source of truth until that step lands.
-  return { render, edges: [], index: null, markerCollisions: collisions };
+  // The traversal graph. Built and written, but NOT yet read: `zones.exits` is
+  // still the source of truth the engine boots from, and the two are held to
+  // exact agreement by regress (§11 step 6). Deleting `exits` is §5 and its own
+  // step — this one only earns the right to.
+  const { edges, undeclaredOneWays, unusedBlocks } = projectEdges(zones, connections);
+
+  return { render, edges, index: null, markerCollisions: collisions, undeclaredOneWays, unusedBlocks };
 }

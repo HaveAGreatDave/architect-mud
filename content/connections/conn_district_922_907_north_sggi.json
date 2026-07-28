@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_922_907",
+  "b": "zone_yard_bonded",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_district_922_907_north_sggi",
+  "lockable": true,
+  "one_way": false
+}

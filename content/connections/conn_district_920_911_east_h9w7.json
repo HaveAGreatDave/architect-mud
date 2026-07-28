@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_920_911",
+  "b": "zone_velk_shop",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_district_920_911_east_h9w7",
+  "lockable": true,
+  "one_way": false
+}

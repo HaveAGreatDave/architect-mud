@@ -1,0 +1,9 @@
+{
+  "a": "zone_solenne_lobby",
+  "b": "zone_util_zone_solenne_lobby",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_solenne_lobby_down_3jwf",
+  "lockable": false,
+  "one_way": false
+}

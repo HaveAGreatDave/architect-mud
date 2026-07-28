@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_921_914",
+  "b": "zone_mq_sump_bar",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_district_921_914_north_ghsz",
+  "lockable": true,
+  "one_way": false
+}

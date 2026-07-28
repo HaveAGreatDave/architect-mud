@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_925_909",
+  "b": "zone_yard_fab",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_district_925_909_south_qomh",
+  "lockable": true,
+  "one_way": false
+}
