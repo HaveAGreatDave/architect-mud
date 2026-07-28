@@ -15,6 +15,8 @@ import {
 	removeLivePlayer,
 	getZone,
 	getMinimapData,
+	persistableZone,
+	isTransientZone,
 	world,
 } from "./engine/world.js";
 import {
@@ -50,6 +52,7 @@ import {
 } from "./api/routes.js";
 import { cmdGhostLook, cmdGhostMove, cmdGhostHaunt, cmdGhostPowerDrain, makeGhostBroadcast } from "./engine/commands/ghost.js";
 import { activateForcefield, deactivateForcefield, reconcileApartmentDoorLocks, reconcileNpcHomesVsOwnership } from "./engine/apartments.js";
+import { wakeFromDream } from "./engine/dreamscape.js";
 import { startKeepalive } from "./keepalive.js";
 import { startUsageLog } from "./usage-log.js";
 import { setBroadcast as setMessagingBroadcast } from "./engine/messaging.js";
@@ -584,6 +587,13 @@ wss.on("connection", (ws) => {
 			const player = getLivePlayer(session.playerId);
 			if (isActiveSocket) {
 				if (player) {
+					// Disconnecting is a wake path, and it was the one nobody counted.
+					// Without this the dreamscape is never dissolved (leaking its rooms
+					// for the life of the process) and current_zone stays a dream id —
+					// so a reconnect BEFORE a restart put the player back inside the
+					// dream, awake, with the sleeping state gone. Idempotent, and a
+					// no-op for anyone who wasn't dreaming.
+					wakeFromDream(player);
 					removePlayerFromZone(session.playerId, player.current_zone);
 					broadcast(
 						player.current_zone,
@@ -604,7 +614,10 @@ wss.on("connection", (ws) => {
 					clearActiveDrugBuffs(player);
 					await query(
 						"UPDATE players SET last_seen=EXTRACT(EPOCH FROM NOW()), current_zone=$1, hp=$2, stamina=$3, offline_sleeping=TRUE WHERE id=$4",
-						[player.current_zone, player.hp, player.stamina, session.playerId],
+						// persistableZone, not current_zone — dropping mid-dream or
+						// mid-void-crossing would otherwise checkpoint a RAM-only zone id
+						// into the row and strand the player somewhere that stops existing.
+						[persistableZone(player), player.hp, player.stamina, session.playerId],
 					).catch(() => {});
 					player._posDirty = false; // authoritative clean-exit checkpoint for position (see cmdMove)
 					player._resDirty = false; // ...and for hp/stamina (see flushDirtyResources) — closes the combat-log window on a graceful logout
@@ -1133,60 +1146,60 @@ async function finishAuth(ws, session, player) {
 
 	const bodyTempLoginMsg = loginBodyTempMessage(livePlayer.body_temp_c);
 	let zone = getZone(livePlayer.current_zone);
-	// Dreamzone rescue: a trip is in-memory only, so a player caught mid-trip by
-	// a server restart would otherwise wake inside an isolated hallucination zone.
-	// Bounce them back to their anchor.
-	if (zone?.flags?.is_dreamzone) {
+	// ── Login rescue: you must not wake up somewhere you can't be ──────────────
+	//
+	// Three ways the stored zone is not a place to log in to, all with the same
+	// remedy, so they're one branch rather than the flag-shaped special case this
+	// used to be:
+	//
+	//   1. An authored drug dreamzone (`flags.is_dreamzone`). Trips are in-memory,
+	//      so a restart mid-trip would otherwise wake you inside the hallucination.
+	//   2. A TRANSIENT id — a dreamscape room or a void crossing. `persistableZone`
+	//      stops these being written now, but rows already corrupted by the old
+	//      disconnect checkpoint are still out there, and this repairs them on the
+	//      next login. It is also what will catch instanced drug trips, which have
+	//      no DB row at all and so would silently fall through to the branch below.
+	//   3. A zone that no longer resolves — deleted while they were offline.
+	//
+	// All three go to the ANCHOR, not `zone_start`. The old deleted-zone fallback
+	// dumped players at world start even when they had a perfectly good anchor;
+	// zone_start is now only the last resort when the anchor is gone too.
+	// A zone that simply vanished gets the void-teleport narration on arrival; being
+	// pulled out of a dream or a crossing does not, because you didn't travel — you
+	// just stopped being somewhere that wasn't real.
+	const zoneWasDeleted = !zone;
+	const zoneIsUninhabitable =
+		!zone || zone.flags?.is_dreamzone || isTransientZone(livePlayer.current_zone);
+	if (zoneIsUninhabitable) {
 		const anchor = livePlayer.anchor_zone || "zone_start";
+		const rescued = getZone(anchor) ? anchor : "zone_start";
 		removePlayerFromZone(player.id, livePlayer.current_zone);
-		livePlayer.current_zone = anchor;
-		addPlayerToZone(player.id, anchor);
-		await query("UPDATE players SET current_zone=$1 WHERE id=$2", [anchor, player.id]);
-		zone = getZone(anchor);
+		livePlayer.current_zone = rescued;
+		addPlayerToZone(player.id, rescued);
+		await query("UPDATE players SET current_zone=$1 WHERE id=$2", [rescued, player.id]);
+		zone = getZone(rescued);
 	}
 	if (zone) {
 		ws.send(
 			JSON.stringify({
 				type: "look",
-				message: await describeZone(zone, livePlayer),
+				message: (zoneWasDeleted ? describeVoidTeleport() : "") + await describeZone(zone, livePlayer),
 				zone: zone.id,
 				minimap: getMinimapData(zone.id, 8, livePlayer),
 			}),
 		);
+		if (zoneWasDeleted) {
+			broadcast(zone.id, { type: "zone_event", message: `${player.handle} flickers into existence out of nowhere.` }, player.id);
+		}
 		if (bodyTempLoginMsg) ws.send(JSON.stringify({ type: 'system', message: bodyTempLoginMsg }));
 		if (diedOffline) ws.send(JSON.stringify({ type: 'player_death', message: `\n<span class="death-message">☠ You were murdered in your sleep. You wake up somewhere else, someone else's problem.</span>\n<span class="clone-vat-message">A vending-machine-shaped cloning vat hums, dispenses a fresh you, and prints a receipt nobody asked for. Everything you knew, you still know. Everything that hurt, doesn't anymore.</span>` }));
 	} else {
-		// Their stored zone was deleted while they were offline — the live
-		// rescue in routes.js only catches players connected at deletion time,
-		// so this is the equivalent safety net for everyone else.
-		livePlayer.current_zone = "zone_start";
-		addPlayerToZone(player.id, "zone_start");
-		await query("UPDATE players SET current_zone=$1 WHERE id=$2", [
-			"zone_start",
-			player.id,
-		]);
-		const startZone = getZone("zone_start");
-		if (startZone) {
-			ws.send(
-				JSON.stringify({
-					type: "move",
-					message:
-						describeVoidTeleport() +
-						(await describeZone(startZone, livePlayer)),
-					zone: "zone_start",
-					minimap: getMinimapData("zone_start", 8, livePlayer),
-				}),
-			);
-			broadcast(
-				"zone_start",
-				{
-					type: "zone_event",
-					message: `${player.handle} flickers into existence out of nowhere.`,
-				},
-				player.id,
-			);
-			if (bodyTempLoginMsg) ws.send(JSON.stringify({ type: 'system', message: bodyTempLoginMsg }));
-		}
+		// Unreachable in a healthy world: the rescue above already fell back to the
+		// anchor and then to zone_start, so getting here means `zone_start` itself
+		// doesn't resolve — a broken or half-imported world, not a player problem.
+		// Say so out loud rather than dropping them into silence with no room.
+		console.error(`[login] no habitable zone for ${player.handle}: stored=${livePlayer.current_zone}, anchor=${livePlayer.anchor_zone}, and zone_start is missing`);
+		ws.send(JSON.stringify({ type: 'system', message: 'The world is still loading. Try again in a moment.' }));
 	}
 	emit('player.login', { id: player.id, handle: player.handle, role: player.role });
 }
@@ -1267,6 +1280,13 @@ async function handleGameCommand(ws, session, msg) {
 		return;
 	}
 	const result = await handleCommand(msg.command, player, broadcast);
+	// SLEEP STATE RIDES EVERY REPLY. There are six ways sleep can end (waking,
+	// `wake`, any command, the loop, two flavours of being attacked in your bed)
+	// and no single funnel that clears `player.sleeping`. Rather than teach all
+	// six to notify the client — the exact mistake that left wakeFromDream
+	// uncalled on half of them — the truth is stamped on whatever we were already
+	// about to send. One site, and it cannot drift out of sync with the server.
+	ws.send(JSON.stringify({ type: 'sleep_state', sleeping: !!player.sleeping, dreaming: !!player.sleeping?.inDream }));
 	if (result) {
 		ws.send(JSON.stringify(result));
 		if (result.player_update)

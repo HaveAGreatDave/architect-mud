@@ -1,6 +1,6 @@
 import { query } from '../../models/db.js';
 import { formatBattleCry } from '../combat.js';
-import { getZone, getMinimapData, getAllZones, getMap, addPlayerToZone, removePlayerFromZone, getDoorForExit, setDoorCache, getAllLivePlayers, getLivePlayer, getZoneEnemies, getZoneNpcs, tryBattleCry, isEnterableFacade, getMapByParentZone, buildingIconSvg, buildingTypeOf, zoneTerrain, tileIconSvg, buildingEntranceDir, interiorExitDirs, interiorOpenDirs, facadeStreetTile, applyMinimapVisibility } from '../world.js';
+import { getZone, getMinimapData, getAllZones, getMap, addPlayerToZone, removePlayerFromZone, getDoorForExit, setDoorCache, getAllLivePlayers, getLivePlayer, getZoneEnemies, getZoneNpcs, tryBattleCry, isEnterableFacade, getMapByParentZone, buildingIconSvg, buildingTypeOf, zoneTerrain, tileIconSvg, buildingEntranceDir, interiorExitDirs, interiorOpenDirs, facadeStreetTile, applyMinimapVisibility, persistableZone } from '../world.js';
 import { getZoneVisibility, getWindowsForZone, getEnvironmentState, getZoneTemperature, getZoneSeverity } from '../environment.js';
 import { describeZone, resolveNamedDestination, isInteriorZone } from './describe.js';
 import { exitTargets, allExits, primaryExits } from '../exits.js';
@@ -441,7 +441,10 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
   player.current_zone = targetId;
   emit('zone.entered', { actor: player, zone: targetId, from: oldZoneId, opts });
   player.combatTargetId = null;
-  const interrupted = forceStand(player, 'moved');
+  // Walking in a dream is the MIND moving; the body is still lying in a bed
+  // somewhere and must stay lying, or the first step in a dreamscape would stand
+  // the sleeper up and broadcast it to a room they aren't awake in.
+  const interrupted = player.sleeping?.inDream ? null : forceStand(player, 'moved');
   if (interrupted === 'sitting') {
     broadcast(null, { type: 'emote', message: 'You stand up.' }, null, player.id);
     broadcast(oldZoneId, { type: 'zone_event', message: `${player.handle} stands up.` }, player.id);
@@ -661,7 +664,10 @@ export async function flushDirtyPositions() {
   dirty.forEach((p, i) => {
     const b = i * 3;
     rows.push(`($${b + 1}::text, $${b + 2}::text, $${b + 3}::int)`);
-    params.push(p.id, p.current_zone, Math.round(p.stamina ?? p.stamina_max ?? 100));
+    // persistableZone, not current_zone: a dreamer walking between dream rooms
+    // marks _posDirty like any other move, and this batch would otherwise write
+    // a RAM-only zone id into the durable row.
+    params.push(p.id, persistableZone(p), Math.round(p.stamina ?? p.stamina_max ?? 100));
   });
   try {
     await query(

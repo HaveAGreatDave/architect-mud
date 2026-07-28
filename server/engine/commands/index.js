@@ -17,6 +17,30 @@ import { getAlias } from './aliases.js';
 export { describeZone, describeVoidTeleport } from './describe.js';
 export { recomputeArmor, recomputeInsulation, recomputeEquipped, EQUIP_SLOTS } from './inventory.js';
 
+// The only verbs that work from inside a dreamscape. Deliberately tiny: walking
+// and looking touch nothing that has to outlive the room, and dream rooms are
+// deleted the moment you wake. Anything that writes the world from in here —
+// dropping, stowing, building, trading — would file its result against a zone id
+// that is about to stop existing. See the gate in handleCommand.
+export const DREAM_VERBS = new Set([
+  'north', 'south', 'east', 'west', 'up', 'down', 'in', 'out',
+  'northeast', 'northwest', 'southeast', 'southwest',
+  'move', 'look', 'examine', 'wake',
+  // Talking in a dream is safe (nothing it writes outlives the room) and is the
+  // most dream-like thing there is — an empty room, and you answering it.
+  'talk', 'say',
+]);
+
+// A dream refuses you the way dreams do — not with an error, with the thing
+// simply not being there.
+const DREAM_REFUSALS = [
+  'You go to do it and find you have no hands for it. The thought slides off.',
+  'You mean to. You are quite sure you mean to. Nothing happens, and it does not seem strange.',
+  'Whatever you reach for is not here, and was not, and you knew that.',
+  'The intention arrives without a body attached to it. Nothing moves.',
+  'You try. Somewhere very far away, your real arm twitches under a blanket.',
+];
+
 const builtins = new Map([
   ...Object.entries(moveHandlers),
   ...Object.entries(combatHandlers),
@@ -74,6 +98,11 @@ async function cmdStopAll(args, raw, player, broadcast) {
 
 builtins.set('stop', cmdStopAll);
 builtins.set('disengage', cmdStopAll);
+
+// `wake` is intercepted by the sleep gate in handleCommand whenever it would do
+// something; this registration is what stops it reading as an unknown verb when
+// you're already awake, and what puts it in the help/command list at all.
+builtins.set('wake', () => ({ type: 'output', message: "You're already awake. As far as you can tell." }));
 
 // Final fallback once every plugin's `hack` target (vendor safes, hackable
 // door locks, …) has had a chance to claim the verb and passed.
@@ -163,8 +192,39 @@ export async function handleCommand(input, player, broadcast) {
   // to start. The quests plugin uses this to interrupt an in-progress timed tile task.
   emit('player.command', { player, cmd });
 
+  // ── Inside a dreamscape, your own commands do NOT wake you ─────────────────
+  //
+  // The sleep gate below wakes you on ANY command, which made the walkable dream
+  // unwalkable: the entry message says "You can move. Look around", and the first
+  // command accepting that invitation ended the dream. So a dreamer gets a small
+  // allowlist that passes straight through, and only `wake` ends it deliberately.
+  //
+  // It is an ALLOWLIST, not "everything but wake", and that is load-bearing. Dream
+  // rooms are transient: `drop` in one files the item under `_ground_<dream zone>`
+  // and the room is deleted seconds later, orphaning it in the DB forever. The same
+  // goes for anything else that writes the world from inside a room that is about
+  // to stop existing. Walking and looking are safe because they touch nothing that
+  // outlives the dream.
+  //
+  // Everything ELSE still wakes you, exactly as before — an alarm, an attack, the
+  // game loop, being killed. This changes only what YOUR OWN typing does.
+  if (player.sleeping?.inDream) {
+    if (cmd === 'wake') {
+      wakeFromDream(player);
+      player.sleeping = null;
+      setPosture(player, 'standing');
+      broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} stirs and opens their eyes.` }, player.id);
+      broadcast(null, { type: 'force_look' }, null, player.id);
+      return { type: 'output', message: 'You surface. The room reassembles itself around you, and this time it stays put.' };
+    }
+    if (!DREAM_VERBS.has(cmd)) {
+      return { type: 'error', message: DREAM_REFUSALS[Math.floor(Math.random() * DREAM_REFUSALS.length)] };
+    }
+    // Falls through to the normal pipeline — still asleep, still dreaming.
+  }
+
   // `cmd` is already alias-resolved above, so `rest` has become `sleep` here.
-  if (player.sleeping && cmd !== 'sleep') {
+  else if (player.sleeping && cmd !== 'sleep') {
     const wasHome = player.sleeping.reason === 'home';
     wakeFromDream(player);
     player.sleeping = null;

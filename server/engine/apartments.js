@@ -18,7 +18,7 @@ import { applyEffect } from "./effects.js";
 import { getFlag } from "./flags.js";
 import { rollDream } from "./dreams.js";
 import { buildDreamscape, wakeFromDream } from "./dreamscape.js";
-import { addPlayerToZone, removePlayerFromZone } from "./world.js";
+import { addPlayerToZone } from "./world.js";
 
 // ── Rent runs on the GAME calendar ──────────────────────────────────────────
 // Rent is billed every RENT_PERIOD_DAYS *game* days, so it scales with the
@@ -888,7 +888,7 @@ export async function cmdSleep(player, broadcastFn, opts = {}) {
 
 	return {
 		type: "sleep",
-		message: `${selfMsg}\n\nYou'll rest gradually while you're out — send any command to wake up early.${extra}`,
+		message: `${selfMsg}\n\nYou'll rest gradually while you're out — hit <strong>wake up</strong> when you've had enough.${extra}`,
 	};
 }
 
@@ -969,13 +969,20 @@ export async function tickSleep(player, broadcastFn) {
 				tether: { zone: getZone(player.sleeping.bodyZone)?.name },
 			});
 			player.sleeping.inDream = true;
-			removePlayerFromZone(player.id, player.current_zone);
+			// THE BODY STAYS PUT. The mind's zone moves; the sleeper does NOT leave
+			// the room's occupant set, so `look` still shows them lying there and a
+			// burglar or a killer can still find them in their bed — which is what
+			// `bodyZone` always promised and what removing them from the set quietly
+			// broke. Nothing leaks the other way: `receivesZoneMessage` rejects them
+			// on BOTH counts (current_zone is the dream, and they're asleep), so the
+			// dreamer hears none of the room they're lying in.
 			player.current_zone = entry;
 			addPlayerToZone(player.id, entry);
 			broadcastFn(null, {
 				type: 'output',
 				message: `<span style="color:var(--cyan)">The room you were in stops being the room you are in.</span>\n<span class="text-dim">You can move. You are fairly sure you are asleep. (Look around. You will wake when you wake.)</span>`,
 			}, null, player.id);
+			broadcastFn(null, { type: 'sleep_state', sleeping: true, dreaming: true }, null, player.id);
 			broadcastFn(null, { type: 'force_look' }, null, player.id);
 		}
 	}

@@ -773,6 +773,17 @@ async function cmdExamine(targetStr, player, broadcast) {
       const app = await describePlayerAppearance(c, false, player, broadcast);
       const stealLink  = `<span class="action-link" data-action="steal" data-target="${c.handle}" title="Steal from ${c.handle}">steal</span>`;
       const attackLink = `<span class="action-link" data-action="attack" data-target="${c.handle}" title="Attack ${c.handle}">attack</span>`;
+      // An ONLINE sleeper. The offline-sleeper branch further down already says
+      // this and offers the loot, but a live sleeping body fell through to here
+      // and read as an ordinary person standing about. Same shape as the NPC
+      // branch above. `loot` opens their real inventory — cmdLootCorpse resolves
+      // live players and gates on `.sleeping` — so the action has to be offered
+      // or the only way to find it is to guess the verb.
+      if (c.sleeping) {
+        const where = c.sittingOn ? `the ${c.sittingOn}` : 'the floor';
+        const lootLink = `<span class="action-link" data-action="loot" data-target="${c.handle}" title="Loot ${c.handle}">loot</span>`;
+        return { type:'examine', message: app + `\n<span class="text-dim">(${c.handle} is asleep on ${where}.)</span>\n<span class="text-dim">Actions:</span> ${lootLink}  ${stealLink}  ${attackLink}` };
+      }
       return { type:'examine', message: app + `\n<span class="text-dim">Actions:</span> ${stealLink}  ${attackLink}` };
     }
   }

@@ -827,6 +827,32 @@ export function removeTransientZone(id) {
 
 export function isTransientZone(id) { return world.transientZones.has(id); }
 
+/**
+ * The zone id it is SAFE to write to `players.current_zone`.
+ *
+ * A transient zone (a void crossing room, a dreamscape room) exists only in this
+ * process's RAM and has no `zones` row. Persisting one strands the player in a
+ * room that cannot exist after a restart — and the disconnect checkpoint in
+ * server/index.js does exactly that today for anyone who drops mid-crossing or
+ * mid-dream, because it writes `player.current_zone` unconditionally.
+ *
+ * Rather than ask ~90 assignment sites to remember the rule, every writer of the
+ * COLUMN goes through here: a transient id falls back to the sleeper's real body
+ * zone, then the anchor, then the start zone. RAM position is unaffected — the
+ * player stays exactly where they are for the rest of the session; this only
+ * decides what the durable row says if the session ends there.
+ *
+ * A system that genuinely needs to restore a transient location across a relog
+ * must stash it itself (voidwalking's `crossing_room` player flag is the model).
+ */
+export function persistableZone(player) {
+  const zid = player?.current_zone;
+  if (zid && !isTransientZone(zid)) return zid;
+  const body = player?.sleeping?.bodyZone;
+  if (body && !isTransientZone(body)) return body;
+  return player?.anchor_zone || 'zone_start';
+}
+
 // Build a small graph snapshot for the minimap: current zone + everything
 // reachable within `depth` hops, with enough info to render an ASCII grid.
 // Per-viewer minimap node filters. A plugin registers fn(zone, viewer) → boolean;

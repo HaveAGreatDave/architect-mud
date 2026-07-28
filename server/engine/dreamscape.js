@@ -180,6 +180,9 @@ export function wakeFromDream(player) {
   if (home && isDreamZone(player.current_zone)) {
     removePlayerFromZone(player.id, player.current_zone);
     player.current_zone = home;
+    // The body never left, so this is normally a no-op on a Set that already has
+    // them. Kept because it costs nothing and makes this correct even if some
+    // other path (death respawn sweeps every zone) evicted them mid-dream.
     addPlayerToZone(player.id, home);
   }
   player.sleeping.inDream = false;

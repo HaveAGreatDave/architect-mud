@@ -277,7 +277,12 @@ export default async function regress({ run, check, getPlayer }) {
   check('...with somewhere to go', Object.keys(world.zones.get(entry).exits || {}).length > 0);
   check('...and things to poke at', dreamObjectsAt(entry).length > 0);
   check('dream rooms are flagged as dreams', world.zones.get(entry).flags?.dream === true);
-  check('...and you cannot be fought in one', world.zones.get(entry).flags?.no_combat === true);
+  // NOT "you cannot be fought in one" — nothing in the combat path reads no_combat.
+  // What actually prevents a fight is that the rooms are private, so no attacker can
+  // be in one. The flag is reserved for the day that stops being true; asserting it
+  // as enforcement would be a false assurance. See docs/systems-dreams.md.
+  check('dream rooms carry the (currently unenforced) no_combat marker',
+    world.zones.get(entry).flags?.no_combat === true);
 
   // The leak that matters: a dreamscape left registered costs zones for the life
   // of the process, every single sleep.
@@ -299,6 +304,72 @@ export default async function regress({ run, check, getPlayer }) {
     wakeFromDream(dreamer) === true && dreamer.current_zone === p.current_zone);
   check('...and takes the dream with it',
     ![...world.zones.keys()].some(z => z.includes('regress-yank')));
+
+  // THE BODY STAYS IN THE ROOM. Walking off into a dream must not delete the
+  // sleeper from the room's occupant set — that is what `look` reads and what a
+  // burglar or a killer resolves a target from, so an evicted body is untouchable
+  // in its own bed. And nothing may leak the other way: the room they're lying in
+  // must stay inaudible to them.
+  const { receivesZoneMessage } = await import('../../server/engine/delivery.js');
+  const bodyRoom = world.zones.get(p.current_zone);
+  const sleeper = { id: 'regress-body', current_zone: p.current_zone, sleeping: { inDream: false, bodyZone: p.current_zone } };
+  bodyRoom.players.add(sleeper.id);
+  sleeper.current_zone = buildDreamscape('regress-body', { size: 2 });
+  sleeper.sleeping.inDream = true;
+  check('the sleeping body stays in the room it lay down in',
+    bodyRoom.players.has(sleeper.id));
+  check('...but the dreamer hears nothing of that room',
+    receivesZoneMessage(sleeper, p.current_zone) === false);
+  wakeFromDream(sleeper);
+  check('...and waking leaves them there exactly once',
+    sleeper.current_zone === p.current_zone && bodyRoom.players.has(sleeper.id));
+  bodyRoom.players.delete(sleeper.id);
+
+  // KILLED INSTANTLY MID-DREAM. handlePlayerDeath captures `deathZone` from
+  // current_zone, so it has to wake you BEFORE it reads it — otherwise the corpse
+  // spawns in a dream room that dissolves a line later, taking the body's whole
+  // inventory with it and leaving the killer nothing to loot.
+  const killed = { id: 'regress-deathdream', current_zone: p.current_zone, sleeping: { inDream: false, bodyZone: p.current_zone } };
+  killed.current_zone = buildDreamscape('regress-deathdream', { size: 2 });
+  killed.sleeping.inDream = true;
+  wakeFromDream(killed);   // the call handlePlayerDeath makes before reading current_zone
+  check('a player killed mid-dream dies in their bed, not in the dream',
+    killed.current_zone === p.current_zone && !isDreamZone(killed.current_zone));
+  check('...and the dream is gone with them',
+    ![...world.zones.keys()].some(z => z.includes('regress-deathdream')));
+
+  // The order is the whole fix, so assert it at the source rather than trusting
+  // the comment: the wake must appear before deathZone is captured.
+  // ── Transient zones must never reach the durable row ────────────────────────
+  // A dream/void room is RAM-only. Persisting one used to strand the player in a
+  // zone with no `zones` row on the disconnect checkpoint.
+  const { persistableZone, isTransientZone: isTZ } = await import('../../server/engine/world.js');
+  const stranded = { id: 'regress-persist', anchor_zone: p.current_zone, sleeping: { inDream: true, bodyZone: p.current_zone } };
+  stranded.current_zone = buildDreamscape('regress-persist', { size: 1 });
+  check('a dream room really is a transient zone', isTZ(stranded.current_zone));
+  check('...and never gets written to players.current_zone',
+    persistableZone(stranded) === p.current_zone, persistableZone(stranded));
+  check('an ordinary zone persists as itself',
+    persistableZone({ current_zone: p.current_zone }) === p.current_zone);
+  check('...and a transient zone with no body falls back to the anchor',
+    persistableZone({ current_zone: stranded.current_zone, anchor_zone: 'zone_start' }) === 'zone_start');
+  dissolveDreamscape('regress-persist');
+
+  // ── What your own commands do from inside a dream ───────────────────────────
+  const { DREAM_VERBS: DV } = await import('../../server/engine/commands/index.js');
+  check('a dreamer can walk and look', DV.has('north') && DV.has('look') && DV.has('examine'));
+  check('...and talk and say', DV.has('talk') && DV.has('say'));
+  check('...and wake deliberately', DV.has('wake'));
+  // The allowlist is the safety property: anything that writes the world from a
+  // room about to be deleted orphans what it wrote. `drop` is the archetype.
+  check('but NOT drop — a dream room is deleted and would orphan the item', !DV.has('drop'));
+  check('...nor stow/take', !DV.has('stow') && !DV.has('take'));
+  check('...nor the tablet', !DV.has('tablet'));
+
+  const { readFile } = await import('fs/promises');
+  const loopSrc = await readFile(new URL('../../server/engine/gameLoop.js', import.meta.url), 'utf8');
+  check('handlePlayerDeath wakes from the dream before it captures deathZone',
+    loopSrc.indexOf('wakeFromDream(player)') < loopSrc.indexOf('const deathZone = player.current_zone'));
 
   // ── Smell: the room-level sense ─────────────────────────────────────────────
   const { stainZone, taintAir, zoneAir, TAINT_MS } = await import('../../server/engine/bodily.js');
