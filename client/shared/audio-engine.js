@@ -1379,11 +1379,16 @@
       return {
         f0:     high ? 120+r()*55 : 82+r()*38,
         fshift: high ? 1.02+r()*0.16 : 0.9+r()*0.12,
-        speed:  1.12+r()*0.22,   // ~10% quicker cadence — snappier without losing legibility
+        speed:  1.24+r()*0.24,   // brisker again — reads as speech, not dictation
         ring:   r()<0.25 ? 0.10+r()*0.22 : r()*0.06,
         wave:   pick(['sawtooth','sawtooth','square','square']),
         jitter: 0.004+r()*0.016,
         breath: r()*0.05,
+        // Per-voice prosody, so two narrators don't rise and fall identically.
+        // Intonation is most of what separates "a person talking" from "a machine
+        // reading" — a flat F0 is the single most robotic thing a formant synth does.
+        lilt:   0.05+r()*0.05,   // how far F0 moves on a stressed vowel
+        decl:   0.10+r()*0.05,   // phrase-final declination (pitch falls as breath goes)
       };
     }
 
@@ -1430,16 +1435,46 @@
       const lfo = c.createOscillator(); lfo.frequency.value = 50;
       const lfoDepth = c.createGain(); lfoDepth.gain.value = ringAmt;
       lfo.connect(lfoDepth).connect(ringGain.gain);
-      master.connect(ringGain).connect(out);
+
+      // ── Output shaping ──────────────────────────────────────────────────────
+      // Two cheap stages that do most of the "clearer" work, both borrowed from
+      // how real speech chains are built:
+      //
+      // PRESENCE — a high shelf around 2.6kHz. Consonant energy lives up there, and
+      // a bandpass-formant voice under-produces it, which is exactly why the old
+      // voice was easy to hear and hard to *understand*. Lifting the shelf sharpens
+      // articulation without touching the vowels that carry the character.
+      //
+      // GLOTTAL ROLL-OFF — a real glottal source falls about 12dB/octave; a raw
+      // saw/square doesn't, so the top end reads as buzz sitting on top of the
+      // voice rather than as part of it. A gentle lowpass tames that.
+      const presence = c.createBiquadFilter();
+      presence.type = 'highshelf'; presence.frequency.value = 2600; presence.gain.value = 5.5;
+      // Keeps a loud vowel from swamping the consonant that follows it — the voice
+      // sits at one level instead of lunging, which reads as microphone technique.
+      const comp = c.createDynamicsCompressor();
+      comp.threshold.value = -22; comp.knee.value = 12; comp.ratio.value = 3;
+      comp.attack.value = 0.004; comp.release.value = 0.12;
+      master.connect(ringGain).connect(presence).connect(comp).connect(out);
 
       const glot = c.createOscillator(); glot.type = V.wave; glot.frequency.value = F0;
+      const tilt = c.createBiquadFilter();
+      tilt.type = 'lowpass'; tilt.frequency.value = 3400; tilt.Q.value = 0.5;
       const jit = c.createOscillator(); jit.type = 'triangle'; jit.frequency.value = 9;
       const jitG = c.createGain(); jitG.gain.value = F0 * V.jitter; jit.connect(jitG).connect(glot.frequency);
       const voiced = c.createGain(); voiced.gain.value = 0;
-      const forms = [0,1,2].map(k => {
-        const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 500; bp.Q.value = [10,13,16][k];
-        const g = c.createGain(); g.gain.value = [1,0.7,0.4][k];
-        glot.connect(bp).connect(g).connect(voiced);
+      glot.connect(tilt);
+      // FOUR formants, not three. F4 is fixed high energy that the ear reads as
+      // "a mouth", and its absence is a large part of why three-formant synths
+      // sound like a kazoo. Q comes down across the board too: the old 10/13/16
+      // rang like a filter sweep, and lower Q gives broader, more natural vowels.
+      const F_Q = [7, 9, 11, 13];
+      const F_G = [1, 0.72, 0.42, 0.16];
+      const forms = [0,1,2,3].map(k => {
+        const bp = c.createBiquadFilter(); bp.type = 'bandpass';
+        bp.frequency.value = k === 3 ? 3600 : 500; bp.Q.value = F_Q[k];
+        const g = c.createGain(); g.gain.value = F_G[k];
+        tilt.connect(bp).connect(g).connect(voiced);
         return bp;
       });
       voiced.connect(master);
@@ -1450,15 +1485,43 @@
       nz.connect(nbp).connect(noiseG).connect(master);
 
       const t0 = c.currentTime + 0.05; let t = t0;
-      const setF = (when, arr) => forms.forEach((bp, k) => bp.frequency.setTargetAtTime(arr[k]*fshift, when, 0.008));
+      // F4 is a fixed resonance of the vocal tract, not a vowel target — the phoneme
+      // table only carries three. Set once; the others glide per phoneme.
+      forms[3].frequency.setValueAtTime(3600 * fshift, t0);
+      // Coarticulation: formants GLIDE between targets rather than snapping. The old
+      // 8ms constant was effectively a jump, which is heard as a stutter between
+      // sounds. 22ms is about how fast a real tongue moves.
+      const setF = (when, arr) => {
+        for (let k = 0; k < 3; k++) forms[k].frequency.setTargetAtTime(arr[k]*fshift, when, 0.022);
+      };
+
+      // ── Prosody ─────────────────────────────────────────────────────────────
+      // Two movements, both cheap and both worth more than any filter change:
+      //   • DECLINATION — pitch drifts down across the phrase as breath runs out.
+      //   • LILT — each vowel gets a small rise-then-fall. Flat vowels are the
+      //     tell-tale of a synth; even a few percent of movement reads as human.
+      // Vowel index (not phoneme index) drives the alternation so the contour
+      // follows syllables rather than consonant clusters.
+      const totalDur = estimateDuration(phon, speed) || 1;
+      let vowelN = 0;
+      const pitchAt = (when, frac, stressed) => {
+        const fall = 1 - V.decl * frac;                       // declination
+        const lift = stressed ? 1 + V.lilt : 1 - V.lilt * 0.45;
+        glot.frequency.setTargetAtTime(F0 * fall * lift, when, 0.05);
+      };
 
       for (const code of phon) {
         const p = PH[code]; if (!p) continue;
         const dur = Math.max(0.03, (p.d/1000)/speed);
         if (p.t==='V' || p.t==='N' || p.t==='L') {
           setF(t, p.f);
-          voiced.gain.setTargetAtTime(p.t==='V'?0.9:0.6, t, 0.008);
+          voiced.gain.setTargetAtTime(p.t==='V'?0.9:0.6, t, 0.012);
           noiseG.gain.setTargetAtTime(V.breath, t, 0.01);
+          if (p.t === 'V') {
+            // Alternating stress is a crude stand-in for real lexical stress, but
+            // any variation beats none — and it never lands on a consonant.
+            pitchAt(t, (t - t0) / totalDur, (vowelN++ % 2) === 0);
+          }
           if (p.to) setF(t+dur*0.5, p.to);
           t += dur;
         } else if (p.t==='F' || p.t==='H') {
@@ -1482,11 +1545,17 @@
       const end = t + 0.08;
       voiced.gain.setTargetAtTime(0, end, 0.02);
       noiseG.gain.setTargetAtTime(0, end, 0.02);
-      glot.frequency.setValueAtTime(F0, t0);
-      glot.frequency.linearRampToValueAtTime(F0*0.92, end);
+      // The terminal fall. Set as a target from wherever the lilt left the pitch —
+      // the old code re-anchored F0 at t0 and ramped, which erased every contour
+      // scheduled above it.
+      glot.frequency.setTargetAtTime(F0 * (1 - V.decl) * 0.94, Math.max(t0, end - 0.18), 0.06);
       glot.start(t0); nz.start(t0); lfo.start(t0); jit.start(t0);
       glot.stop(end+0.1); nz.stop(end+0.1); lfo.stop(end+0.1); jit.stop(end+0.1);
       live = [glot, nz, lfo, jit];
+      // The REAL length of what was just scheduled. Callers used to guess from word
+      // count and wait that long regardless, so a line that finished early left dead
+      // air; handing back the truth lets them follow the voice instead of a timer.
+      return { duration: end - t0 };
     }
 
     return { speak, cancel };

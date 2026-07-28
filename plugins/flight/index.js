@@ -5,8 +5,8 @@
 //
 // The aircraft is a first-class object that owns its occupant set (no cabin zone;
 // the cockpit HUD is synthesized). The sky is a computed overlay over map_world
-// coords. Flight is a `flying` posture tick loop; takeoff/landing are interactive
-// server-authoritative minigames. See state.js for the shared substrate.
+// coords. Flight is a `flying` posture tick loop; takeoff/landing are flown from the
+// continuous cockpit, not commanded. See state.js for the shared substrate.
 
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
@@ -682,60 +682,18 @@ function groundStop(live) {
     + `Nothing is going up in this — sit it out somewhere with a roof.`;
 }
 
-// ── Takeoff / land (minigames) ────────────────────────────────────────────────
-async function cmdTakeoff(args, raw, player, broadcast) {
-  const { live, err } = requirePilot(player); if (err) return err;
-  if (isContinuous(live)) return { type: 'emote', message: 'No command needed — <b>throttle up</b> in the cockpit and ease back on the yoke as she comes alive to fly her off.' };
-  if (live.row.airborne) return { type: 'emote', message: "You're already flying." };
-  if (!live.row.engine_on) return { type: 'emote', message: 'Spin the engine up first — `startup`.' };
-  const zone = getZone(live.row.parked_zone_id);
-  if (!zone?.flags?.airfield_id) return { type: 'emote', message: 'You can only take off from an airfield.' };
-  const closed = groundStop(live);
-  if (closed) return { type: 'emote', message: closed };
-  if (live.row.fuel < effStats(live).fuelCap * FUEL_RESERVE_FRAC)
-    return { type: 'emote', message: 'Not enough fuel to safely take off. Refuel first.' };
-  if (effStats(live).overweight)
-    return { type: 'emote', message: `Overloaded — ${effStats(live).cargo}kg is over max takeoff weight. She won't fly. Shed cargo.` };
-
-  // Throttle is now set during the takeoff run itself (the departure deck), not
-  // as a precondition — you fly it off the runway.
-
-  const token = randomUUID();
-  live.pending = { kind: 'takeoff', token };
-  const isVtol = live.type.takeoff_mode === 'vtol';
-  sendToPlayer(player.id, {
-    type: 'flight_takeoff', token, vtol: isVtol,
-    skill: await effectiveSkill(player, 'piloting'), difficulty: takeoffDifficulty(live), deviceName: live.type.name,
-    airport: groundTheme(zone), helipad: vtolOnlyField(zone),
-  });
-  broadcast(live.row.parked_zone_id, { type: 'zone_event', message: `The ${live.type.name} runs up its engine and ${isVtol ? 'lifts on its rotors' : 'begins its takeoff roll'}.` }, player.id);
-  return { type: 'emote', message: isVtol
-    ? '<span class="text-cyan">Pulling pitch — hold it steady and lift off.</span>'
-    : '<span class="text-cyan">Rolling for takeoff — hold it straight and rotate.</span>' };
+// ── Takeoff / land ────────────────────────────────────────────────────────────
+// Both are flown, not commanded — the continuous cockpit owns the roll, the rotate,
+// the glideslope and the flare. These verbs survive only to tell a pilot who typed
+// them where the controls actually are.
+async function cmdTakeoff(args, raw, player) {
+  const { err } = requirePilot(player); if (err) return err;
+  return { type: 'emote', message: 'No command needed — <b>throttle up</b> in the cockpit and ease back on the yoke as she comes alive to fly her off.' };
 }
 
-async function cmdLand(args, raw, player, broadcast) {
-  const { live, err } = requirePilot(player); if (err) return err;
-  if (isContinuous(live)) return { type: 'emote', message: 'No command needed — line her up on a runway and fly her down; brake to a stop and cut the <b>ENGINE</b> to taxi in and park.' };
-  if (!live.row.airborne) return { type: 'emote', message: "You're already on the ground." };
-  if (live.row.altitude_band !== 'low') return { type: 'emote', message: 'Descend to LOW over a field before you land — `dive`.' };
-  const below = surfaceAt(live.row.grid_x, live.row.grid_y);
-  const isVtol = live.type.takeoff_mode === 'vtol';
-  // VTOL can set down on any cleared (built) cell; others need an airfield.
-  const field = below?.flags?.airfield_id ? below : (isVtol && below ? below : null);
-  if (!field) return { type: 'emote', message: isVtol ? 'Nothing below you but open air — find ground to set down on.' : 'There\'s no airfield below you. Find one before you set down.' };
-
-  const emergency = live.row.fuel <= 0 || !!live.hazard;
-  const token = randomUUID();
-  live.pending = { kind: 'land', token, fieldZoneId: field.id, emergency };
-  sendToPlayer(player.id, {
-    type: 'flight_land', token, emergency, vtol: isVtol,
-    skill: await effectiveSkill(player, 'piloting'), difficulty: landDifficulty(live, emergency), deviceName: field.name,
-    airport: groundTheme(field), helipad: vtolOnlyField(field),
-  });
-  return { type: 'emote', message: emergency
-    ? '<span class="text-red">DEAD STICK — you get one pass. Fly the glideslope down.</span>'
-    : '<span class="text-cyan">On approach. Fly the glideslope down and flare.</span>' };
+async function cmdLand(args, raw, player) {
+  const { err } = requirePilot(player); if (err) return err;
+  return { type: 'emote', message: 'No command needed — line her up on a runway and fly her down; brake to a stop and cut the <b>ENGINE</b> to taxi in and park.' };
 }
 
 // The hangar-bay panel names its craft by real id (`refuel <id>`); a typed command
@@ -758,61 +716,6 @@ async function cmdRefuel(args, raw, player, broadcast) {
   const live = liveAircraft.get(player.aircraftId);
   if (live && isContinuous(live)) pushContext(live);
   return res;
-}
-
-// ── Resolvers ─────────────────────────────────────────────────────────────────
-async function cmdTakeoffResolve(args, raw, player) {
-  const token = args[0], won = args[1] === '1';
-  const live = player.aircraftId ? liveAircraft.get(player.aircraftId) : null;
-  if (!live || player.seat !== 'pilot' || live.pending?.kind !== 'takeoff' || live.pending.token !== token) return { type: 'noop' };
-  live.pending = null;
-  if (live.row.airborne) return { type: 'noop' };
-  if (!won) {
-    live.row.engine_temp = Math.min(160, live.row.engine_temp + 12);
-    out(player.id, '<span class="text-red">You run out of strip and haul back to a stop, engine screaming. Aborted.</span>');
-    pushHud(live); return { type: 'noop' };
-  }
-  live.row.airborne = 1; live.row.altitude_band = 'low'; live.row.parked_zone_id = null; live.starving = false;
-  live.lastSync = Date.now();   // fresh unattended-recovery clock at wheels-up
-  live.runup = false;
-  if (live.row.throttle < 50) live.row.throttle = 70;   // climb-out power (the deck flew it off; keep it flying)
-  initFloat(live);
-  // Rolled before the engines settled? They'll run hot and rough for a while, and
-  // may fail outright (hazards.rollHazards reads coldStart).
-  live.coldStart = enginesAllStable(live) ? 0 : 8;
-  if (live.coldStart) toOccupants(live, '<span class="text-amber">You firewall it with the temps still swinging — the engine note is rough. This was a gamble.</span>');
-  for (const pid of live.occupants) {
-    const p = getLivePlayer(pid); if (!p) continue;
-    getZone(p.current_zone)?.players.delete(pid);
-    setPosture(p, 'flying');
-  }
-  await persist(live); pushHud(live);
-  await awardSkillUse(player.id, 'piloting', Math.max(0, (await effectiveSkill(player, 'piloting')) - takeoffDifficulty(live)));
-  out(player.id, '<span class="text-green">Wheels up. You claw into the sky and the ground drops away below you.</span>');
-  return { type: 'noop' };
-}
-
-async function cmdLandResolve(args, raw, player, broadcast) {
-  const token = args[0], won = args[1] === '1';
-  const live = player.aircraftId ? liveAircraft.get(player.aircraftId) : null;
-  if (!live || player.seat !== 'pilot' || live.pending?.kind !== 'land' || live.pending.token !== token) return { type: 'noop' };
-  const { fieldZoneId, emergency } = live.pending;
-  live.pending = null;
-  if (!live.row.airborne) return { type: 'noop' };
-  if (won) {
-    await parkAt(live, fieldZoneId);
-    out(player.id, '<span class="text-green">You grease it on. Wheels down, throttle back — you\'re on the ground.</span>');
-    await awardSkillUse(player.id, 'piloting', Math.max(0, (await effectiveSkill(player, 'piloting')) - landDifficulty(live, emergency)));
-    await checkContractDelivery(player, live, fieldZoneId);
-    await checkCargoDropDelivery(player, live, fieldZoneId);
-    return { type: 'noop' };
-  }
-  live.row.damage = Math.min(1, live.row.damage + (emergency ? 0.5 : 0.35));
-  if (live.row.damage >= 1) { await crash(live, 'crash'); return { type: 'noop' }; }
-  await parkAt(live, fieldZoneId);
-  out(player.id, '<span class="text-red">You slam it down hard — something in the airframe screams and gives. But you\'re down.</span>');
-  broadcast(fieldZoneId, { type: 'zone_event', message: `The ${live.type.name} thumps down onto the field hard enough to bounce.`, refresh: true }, player.id);
-  return { type: 'noop' };
 }
 
 // ── Continuous flight (client-sim + server-reconcile) ─────────────────────────
@@ -1308,11 +1211,11 @@ async function flightTick() {
       // don't advance or run the deck hazards here — we burn fuel authoritatively,
       // run the world consequences off the last reported position, and push context.
       if (isContinuous(live)) {
-        if (!live.row.airborne || live.pending) {
+        if (!live.row.airborne) {
           // Taxi/roll is client-side until wheels-up — no fuel burn or world consequences here.
           // But she IS moving (reconcile re-parks her onto the tile she rolls to), so persist
           // that on the same cadence as flight; otherwise a shutdown mid-taxi loses the move.
-          if (!live.pending && live.row.engine_on && ++live.persistCtr % 4 === 0) await persist(live);
+          if (live.row.engine_on && ++live.persistCtr % 4 === 0) await persist(live);
           continue;
         }
         const a = live.row, eff = effStats(live);
@@ -1916,7 +1819,6 @@ export const commands = {
   startup: cmdStartup, shutdown: cmdShutdown, throttle: cmdThrottle,
   heading: cmdHeading, climb: cmdClimb, dive: cmdDive,
   takeoff: cmdTakeoff, land: cmdLand, refuel: cmdRefuel,
-  takeoffresolve: cmdTakeoffResolve, landresolve: cmdLandResolve,
   flightsync: cmdFlightSync, flightevent: cmdFlightEvent, airhome: cmdAirHome,
   checkride: cmdCheckride,
   ...hazardCommands, ...acquisitionCommands, ...combatCommands, ...contractCommands, ...hangarCommands, ...charterCommands,

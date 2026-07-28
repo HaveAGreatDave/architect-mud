@@ -10,7 +10,8 @@ import { getRegisteredSpecializedActions } from '../../server/engine/specialized
 import { refractoryFactor, refractoryMs, markClimax, exert, volumeOf, burnOf,
   overflowsToZone, soakSlotsFor, AMPOULE_FLAG, fitOf, sizeOf } from './mis-body.js';
 import { hygieneOf, creatureFilthSmells, WASH_FLAG } from '../../server/engine/hygiene.js';
-import { hasConsent, canAsk, markAsked, refusal, _seedGrant, _dropGrant } from './consent.js';
+import { hasConsent, canAsk, markAsked, refusal, _seedGrant, _dropGrant,
+  isOpenAll, revoke, revokeAll, _resetConsents, _seedOpenAll } from './consent.js';
 import { setLivePlayer, addPlayerToZone, removePlayerFromZone, getLivePlayer } from '../../server/engine/world.js';
 
 export default async function regress({ run, check, getPlayer }) {
@@ -86,6 +87,45 @@ export default async function regress({ run, check, getPlayer }) {
     _seedGrant('c_dave', 'c_bob');
     check('consent ask: pointless once you already hold the grant', !canAsk('c_bob', 'c_dave'));
     _dropGrant('c_dave', 'c_bob');
+  }
+
+  // ── The open door (`consent all`) ──────────────────────────────────────────
+  // The widest thing a player can say, so the assertions are about what it must
+  // NOT do: it must not act on anyone else's behalf, and it must never outrank a
+  // specific refusal. `revoke` shutting the door is load-bearing rather than
+  // cosmetic — the per-pair block is session-only RAM, so an open door left open
+  // would silently re-admit a revoked player after a restart.
+  {
+    _resetConsents();
+    check('open door: closed by default', !isOpenAll('c_erin'));
+    check('open door: a stranger has nothing before it opens', !hasConsent('c_frank', 'c_erin'));
+
+    _seedOpenAll('c_erin');
+    check('open door: isOpenAll reports it', isOpenAll('c_erin'));
+    check('open door: any actor is authorised', hasConsent('c_frank', 'c_erin'));
+    check('open door: and another', hasConsent('c_gil', 'c_erin'));
+    // The door is one player's own state and grants nothing outward.
+    check('open door: does NOT let the opener act on others', !hasConsent('c_erin', 'c_frank'));
+    check('open door: does not leak to anyone else', !hasConsent('c_erin', 'c_gil'));
+
+    // A named refusal beats the general yes, and takes the door with it.
+    // Named `rv` rather than reusing the outer `r` — shadowing it in this block
+    // would put the outer binding in the TDZ for anything above this line.
+    const rv = await revoke('c_erin', 'c_frank');
+    check('open door: revoke reports it shut the door', rv.wasOpen === true, JSON.stringify(rv));
+    check('open door: the revoked player is refused', !hasConsent('c_frank', 'c_erin'));
+    check('open door: and the door is shut for everyone', !hasConsent('c_gil', 'c_erin'));
+    check('open door: isOpenAll agrees', !isOpenAll('c_erin'));
+
+    // Named grants are a separate ledger and survive the door closing.
+    _resetConsents();
+    _seedGrant('c_erin', 'c_gil');
+    _seedOpenAll('c_erin');
+    const ra = await revokeAll('c_erin');
+    check('open door: revoke all reports the door', ra.wasOpen === true, JSON.stringify(ra));
+    check('open door: revoke all took the named grant too', ra.n === 1, String(ra.n));
+    check('open door: nothing authorised afterwards', !hasConsent('c_gil', 'c_erin'));
+    _resetConsents();
   }
 
   // ── Attraction ─────────────────────────────────────────────────────────────

@@ -112,10 +112,6 @@ craft (index.js:688). A botched landing does hull damage; enough damage → cras
 crash kills everyone aboard (`handlePlayerDeath`) and turns the craft into a wreck at
 the surface cell. Landing grade → piloting IP (`LANDING_IP`, ≥5 min airborne).
 
-> **Legacy, unreachable:** the interactive `flight_takeoff` / `flight_land` /
-> `takeoffresolve` / `landresolve` minigame decks (server + client) still exist but no
-> shipped airframe can reach them, because all nine are continuous. Don't build against
-> them; see [proposals/flight-unified-model.md](proposals/flight-unified-model.md).
 
 ## Player-facing surface
 
@@ -237,7 +233,7 @@ renting. The legacy `charter_vtol_only` flag is folded into `airfield_vtol_only`
 buffeting is the *in-air* half; this is the other half — past 0.7 severity the
 departure field simply doesn't launch. It's checked on the `engineon` flight event
 (the panel ENGINE switch) — deliberately *not* the wheels-up event, since refusing
-mid-takeoff-roll would be worse than useless — and in the legacy `cmdTakeoff`
+mid-takeoff-roll would be worse than useless — and in the retired banded `cmdTakeoff`
 preconditions. An airborne craft has no
 `parked_zone_id`, so it can never be caught by it; only departures are blocked.
 

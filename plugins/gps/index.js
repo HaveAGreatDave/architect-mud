@@ -2,7 +2,7 @@ import { getAllZones, getZone, resolveLanding } from '../../server/engine/world.
 import { findPath } from '../../server/engine/pathfinding.js';
 import { allExits } from '../../server/engine/exits.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
-import { registerAction } from '../../server/engine/actions.js';
+import { registerAction, dispatchAction } from '../../server/engine/actions.js';
 import { impairmentOf } from '../../server/engine/impairment.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 
@@ -170,6 +170,55 @@ function cmdGps(args, raw, player) {
   // avoid/resume opts through here.
   const direct = resolveDirect(query, player);
   if (direct) return plotRoute(player, direct, routeOpts);
+
+  // Option A½ — YOUR QUEST'S ACTUAL TILE.
+  //
+  // Coldwater's street names repeat by design: 19 tiles are called "Kessler
+  // Street", 366 are "Grasslands". So a quest objective's `desc` is not a routable
+  // name, and the generic resolution below routes to the NEAREST tile of that name
+  // — which is almost never the objective's. The player arrives somewhere that
+  // looks right, the quest doesn't move, and nothing explains why.
+  //
+  // So before name matching, ask the quests plugin what this player is actually
+  // being sent to and check the typed string against those. An objective's zone id
+  // is unambiguous, which the name never is. Async, hence the promise return —
+  // this is a typed command, not a hot path.
+  return resolveViaObjective(query, player, routeOpts);
+}
+
+// Does the typed string plausibly mean this objective? Matched against BOTH the
+// objective's own desc (what the quest log showed the player) and the target
+// tile's real name, since those can differ — and when they do, the desc is what
+// the player read and will type.
+function objectiveMatches(query, obj, zone) {
+  const q = query.toLowerCase().trim();
+  const fields = [obj.desc, zone?.name].filter(Boolean).map(s => String(s).toLowerCase());
+  return fields.some(f => f === q || f.includes(q) || q.includes(f));
+}
+
+async function resolveViaObjective(query, player, routeOpts) {
+  let objectives = [];
+  try {
+    const res = await dispatchAction({ type: 'QUEST_OBJECTIVE_ZONES', actor: player });
+    objectives = Array.isArray(res?.zones) ? res.zones : [];
+  } catch { objectives = []; }   // quests plugin absent or erroring — fall through to names
+
+  for (const obj of objectives) {
+    const zone = getZone(obj.zone);
+    if (!zone || zone.id === player.current_zone) continue;
+    if (!objectiveMatches(query, obj, zone)) continue;
+    const res = plotRoute(player, zone, routeOpts);
+    if (res.type !== 'gps_route') continue;   // unreachable — let name matching try
+    // Say WHICH stop this is. The tile's real name is often nothing like the desc
+    // the quest printed, and silently routing somewhere differently-named reads as
+    // the GPS having misheard.
+    if (res.message) res.message = `${res.message.replace(/\.$/, '')} — ${obj.questName}: ${obj.desc || zone.name}.`;
+    return res;
+  }
+  return resolveByName(query, player, routeOpts);
+}
+
+function resolveByName(query, player, routeOpts) {
 
   // Water tiles are invisible to GPS — they can't be a destination (Coldwater Basin and
   // its ilk would otherwise clutter every name match), so drop them before resolving.

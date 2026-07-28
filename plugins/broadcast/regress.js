@@ -2,6 +2,7 @@
 // production). Verifies the plugin's VINE nodes landed in the AI runner's
 // registry (they were moved out of the engine's ai-behaviour.js switch), and
 // that an off-shift studio actor walks out of the studio building.
+import { readFileSync, readdirSync } from 'fs';
 import { getRegisteredAINodes, tickEntityAI, initBlackboard } from '../../server/engine/ai-behaviour.js';
 import { world } from '../../server/engine/world.js';
 import { query } from '../../server/models/db.js';
@@ -1429,6 +1430,112 @@ export default async function regress({ check, run, getPlayer }) {
       check('hockey: a win is two points', A.wins === 1 && B.wins === 1, JSON.stringify([A, B]));
       check('hockey: an overtime loss still pays a point', A.otl === 1 && A.points === 3, JSON.stringify(A));
       check('hockey: a regulation loss pays nothing', B.losses === 1 && B.points === 2, JSON.stringify(B));
+    }
+  }
+
+  // ── DEADBALL hitting race ───────────────────────────────────────────────────
+  // The batting leaders are folded out of the at-bat beats the sim already emits,
+  // so the numbers can never disagree with the games that aired. The assertions
+  // are mostly about SCORING RULES, because an average computed the naive way is
+  // wrong in a way people notice: a walk and a sacrifice fly are plate appearances
+  // but NOT at-bats, and counting them drags every average in the league down.
+  {
+    const { SEASON: BB } = await import('./sports/baseball.js');
+    const ab = (batter, kind, rbi = 0) => ({ type: 'atbat', batter, battingName: 'Rats', kind, rbi });
+
+    const acc = {};
+    BB.foldExtras(acc, { beats: [
+      ab('Cole', 'single'), ab('Cole', 'walk'), ab('Cole', 'sacfly', 1),
+      ab('Cole', 'strikeout'), ab('Cole', 'homerun', 2), ab('Cole', 'doubleplay'),
+    ] });
+    const cole = acc.bats.get('Cole');
+    check('deadball: every plate appearance counts as a PA', cole.pa === 6, String(cole.pa));
+    check('deadball: a walk is not an at-bat', cole.ab === 4, `ab=${cole.ab} (walk+sacfly must be excluded from 6)`);
+    check('deadball: hits count only real hits', cole.hits === 2, String(cole.hits));
+    check('deadball: home runs counted', cole.hr === 1, String(cole.hr));
+    check('deadball: RBI accumulate across outs too', cole.rbi === 3, String(cole.rbi));
+    // The bug this guards: 2-for-6 (.333) instead of 2-for-4 (.500).
+    const sum = BB.summariseExtras(acc);
+    check('deadball: average is hits/AB, not hits/PA',
+      Math.abs(sum.batters[0].avg - 0.5) < 1e-9, String(sum.batters[0].avg));
+
+    // A double play and a productive out are outs the BATTER is charged with —
+    // they are at-bats, unlike the sacrifice. Getting this backwards inflates
+    // averages instead of deflating them.
+    const acc2 = {};
+    BB.foldExtras(acc2, { beats: [ab('Dunn', 'productout'), ab('Dunn', 'single')] });
+    check('deadball: a productive out is still an at-bat', acc2.bats.get('Dunn').ab === 2, String(acc2.bats.get('Dunn').ab));
+
+    // Folding the same games twice must give the same race — the standings are a
+    // recomputed fold, so any order- or state-dependence here shows up as leaders
+    // that change every time someone types `standings`.
+    const { simGame } = await import('./sports/baseball.js');
+    const { sportsRng } = await import('./rng.js');
+    const run = () => {
+      const a = {};
+      for (let s = 0; s < 40; s++) {
+        a.__ = 0;
+        BB.foldExtras(a, simGame({ away: 'Rats', home: 'Kings' }, null, sportsRng(s * 2654435761)));
+      }
+      return BB.summariseExtras(a);
+    };
+    const r1 = run(), r2 = run();
+    check('deadball: the hitting race is deterministic',
+      JSON.stringify(r1.batters) === JSON.stringify(r2.batters),
+      `${r1.batters[0]?.name} vs ${r2.batters[0]?.name}`);
+    check('deadball: the race has qualified leaders', r1.batters.length > 0 && r1.batters[0].ab > 0, JSON.stringify(r1.batters[0] || null));
+    check('deadball: averages land in a believable band',
+      r1.batters.every(b => b.avg > 0.1 && b.avg < 0.6), JSON.stringify(r1.batters.map(b => b.avg.toFixed(3))));
+    // An empty season must not throw or invent anyone.
+    const none = BB.summariseExtras({});
+    check('deadball: an unplayed season has an empty race',
+      none.batters.length === 0 && none.homers.length === 0, JSON.stringify(none));
+  }
+
+  // ── .bsm compilation ────────────────────────────────────────────────────────
+  // Replaces the hand-run `_newsbsm_test.cjs` scratch harness that used to sit in
+  // the repo root and printed a parse to the console for a human to eyeball. The
+  // thing actually worth guarding is `unknownDirectives`: compileBsm SILENTLY DROPS
+  // a directive it doesn't recognise, so a typo in a .bsm (or a directive removed
+  // from the compiler) costs you a chunk of a show with no error anywhere. That
+  // failure is invisible until someone tunes in, which is exactly what a regress
+  // suite is for.
+  //
+  // The compiler is a browser-global script (`client/devpanel/js/bsm-compiler.js`
+  // — "Functions land in global scope"), not a module, so it's evaluated in a
+  // function scope and the declaration is handed back out.
+  {
+    const src = readFileSync(new URL('../../client/devpanel/js/bsm-compiler.js', import.meta.url), 'utf8');
+    const compileBsm = new Function(`${src}\n;return compileBsm;`)();
+    check('bsm: the compiler evaluates and exports compileBsm', typeof compileBsm === 'function', typeof compileBsm);
+
+    const dir = new URL('../../data/scripts/', import.meta.url);
+    const files = readdirSync(dir).filter(f => f.endsWith('.bsm')).sort();
+    check('bsm: there are scripts to compile', files.length > 0, String(files.length));
+
+    // EVERY shipped script, not just the one the old harness happened to name.
+    const unknown = [], broke = [];
+    for (const f of files) {
+      try {
+        const c = compileBsm(readFileSync(new URL(f, dir), 'utf8'));
+        const u = c?._debug?.unknownDirectives || [];
+        if (u.length) unknown.push(`${f}: ${u.join(', ')}`);
+      } catch (e) { broke.push(`${f}: ${e.message}`); }
+    }
+    check('bsm: every shipped script compiles', broke.length === 0, broke.join(' | '));
+    check('bsm: no script uses a directive the compiler drops', unknown.length === 0, unknown.join(' | '));
+
+    // The news shape specifically — the roles a news bulletin can't assemble
+    // without. These were the fields the old harness printed.
+    const news = compileBsm(readFileSync(new URL('raptor_news.bsm', dir), 'utf8'));
+    check('bsm: raptor_news is type news', news.meta.type === 'news', news.meta.type);
+    check('bsm: news carries its anchors', news.newsScript.anchors.length === 2, JSON.stringify(news.newsScript.anchors));
+    check('bsm: news carries its reporters', news.newsScript.reporters.length === 2, JSON.stringify(news.newsScript.reporters));
+    check('bsm: news carries its announcer', !!news.newsScript.announcer, String(news.newsScript.announcer));
+    check('bsm: the title asset is declared', news.assets.some(a => a.id === news.newsScript.title), JSON.stringify(news.assets.map(a => a.id)));
+    // A news script assembles out of pools; an empty pool set is a silently dead show.
+    for (const pool of ['open', 'story.lead', 'handoff.reporter', 'signoff']) {
+      check(`bsm: news pool '${pool}' has lines`, (news.newsScript.pools[pool] || []).length > 0, pool);
     }
   }
 }

@@ -38,6 +38,7 @@ import './crafting-app.js';
 import './cookbook-app.js';
 import './bar-app.js';
 import './vehicles-app.js';
+import './sports-app.js';
 import './properties-app.js';
 import './storefront-app.js';
 import './library-app.js';

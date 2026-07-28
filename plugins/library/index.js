@@ -73,7 +73,7 @@ async function onFurnitureDescribe(furniture, player) {
   if (!furniture?.flags?.lending_terminal) return undefined;
   if (await getFlag('player', UNLOCK_FLAG, player)) return undefined;
   pointAt(player.id, 'examine', furniture.name);
-  return `<span class="ambient">There is a tablet-shaped slot in the top, worn bright. ${teachVerb('scan', 'scan')} it and the shelves come with you.</span>`;
+  return `<span class="ambient">There is a tablet-shaped slot in the top, worn bright. ${teachVerb('scan', 'scan')} it and the terminal installs the <b>LIBRARY</b> app on your tablet — every book on these shelves, yours to read anywhere.</span>`;
 }
 
 export const specializedActions = [

@@ -1720,6 +1720,19 @@ function ensureStyles() {
 
     /* The setter. Fixed height with the band pinned across the middle — the reels
        scroll UNDER it, which is the whole illusion. */
+    /* Police Blotter — newsprint incident column. Warrants read hotter than
+       incidents because one is a live problem and the other is a closed one. */
+    #tablet-os-overlay .tos-blotter { display:flex; flex-direction:column; gap:0; }
+    #tablet-os-overlay .tos-blot-row { display:flex; align-items:baseline; gap:7px;
+      padding:5px 2px; border-bottom:1px dotted var(--border); font-size:12px; line-height:1.45; }
+    #tablet-os-overlay .tos-blot-row:last-child { border-bottom:none; }
+    #tablet-os-overlay .tos-blot-body { flex:1; }
+    #tablet-os-overlay .tos-blot-mark { color:var(--tos-fg-dim,var(--text-dim)); opacity:.7; }
+    #tablet-os-overlay .tos-blot-when { font-size:10px; color:var(--tos-fg-dim,var(--text-dim)); opacity:.75; flex:0 0 auto; }
+    #tablet-os-overlay .tos-blot-row.warrant { background:rgba(255,59,92,0.06); }
+    #tablet-os-overlay .tos-blot-stars { color:var(--red,#ff3b5c); letter-spacing:1px; flex:0 0 auto; }
+    #tablet-os-overlay .tos-blot-quiet { padding:12px 4px; font-style:italic;
+      color:var(--tos-fg-dim,var(--text-dim)); }
     #tablet-os-overlay .tos-al-setter { position:relative; display:flex; align-items:stretch; justify-content:center;
       gap:4px; height:132px; margin:2px 0 8px;
       background:linear-gradient(180deg, rgba(0,0,0,0.34), rgba(0,0,0,0.08) 30%, rgba(0,0,0,0.08) 70%, rgba(0,0,0,0.34));
@@ -1729,8 +1742,17 @@ function ensureStyles() {
       border-bottom:1px solid color-mix(in srgb, var(--mg-accent) 60%, transparent);
       background:color-mix(in srgb, var(--mg-accent) 10%, transparent); pointer-events:none; z-index:2; }
     #tablet-os-overlay .tos-al-reel { flex:0 0 78px; overflow-y:auto; scroll-snap-type:y mandatory;
-      scrollbar-width:none; -ms-overflow-style:none; }
+      scrollbar-width:none; -ms-overflow-style:none; cursor:grab;
+      /* A mouse drag scrubs the reel (see the pointer handlers) — tell the browser
+         not to also start a text selection or a native pan from the same gesture. */
+      touch-action:pan-y; }
     #tablet-os-overlay .tos-al-reel::-webkit-scrollbar { display:none; }
+    /* While a drag is live the snap has to come OFF, or every scrollTop we write is
+       yanked back to the nearest cell and the band judders instead of tracking the
+       hand. It goes back on at pointerup, which is what lands the reel on a value. */
+    #tablet-os-overlay .tos-al-reel.dragging { scroll-snap-type:none; cursor:grabbing;
+      scroll-behavior:auto; }
+    #tablet-os-overlay .tos-al-reel.dragging .tos-al-cell { cursor:grabbing; transition:none; }
     #tablet-os-overlay .tos-al-pad { height:47px; }
     #tablet-os-overlay .tos-al-cell { height:38px; line-height:38px; text-align:center; scroll-snap-align:center;
       font-family:var(--font-mono,monospace); font-size:26px; letter-spacing:2px;
@@ -2440,13 +2462,20 @@ function narrateStop() {
   syncNarratePill();
 }
 
-function narrateStart(text, seed, title, lex) {
+// `onEnd` — an optional callback returning `{ text, title }` for whatever comes
+// after this chapter, or nothing to stop. It is captured on the narration state
+// for the same reason the lexicon is: narration outlives a minimize, and by then
+// _data is null, so anything read at speak time would be gone.
+function narrateStart(text, seed, title, lex, onEnd) {
   narrateStop();
-  const parts = narrateSplit(text);
+  // `text` may be a pre-split array of utterances. A caller that has already
+  // NUMBERED its spans must hand over that exact array — see codexNarrationParts
+  // for why re-splitting a rejoined string can silently shift every index.
+  const parts = Array.isArray(text) ? text.slice() : narrateSplit(text);
   if (!parts.length) return;
   // The lexicon is captured HERE rather than read from _data at speak time:
   // narration deliberately outlives a minimize, by which point _data is null.
-  _narrate = { parts, i: 0, timer: null, seed: seed || 'library', title: title || 'Reading', lex: lex || null };
+  _narrate = { parts, i: 0, timer: null, seed: seed || 'library', title: title || 'Reading', lex: lex || null, onEnd: onEnd || null };
   narrateNext();
   syncNarrateBar();
 }
@@ -2458,14 +2487,43 @@ function clearNarrateHighlight() {
 function narrateNext() {
   if (!_narrate) return;
   const { parts, i, seed } = _narrate;
-  if (i >= parts.length) { narrateStop(); return; }
+  if (i >= parts.length) {
+    // End of the chapter. If the reader supplied a way on, take it rather than
+    // going silent — being made to walk back to the tablet and press play every
+    // few minutes is the thing that stops anyone finishing a book. Deliberately
+    // asked for LAZILY (a callback, not a precomputed next) so it sees the state
+    // as it is now, and can decline by returning nothing at the end of a volume.
+    const advance = _narrate.onEnd;
+    if (advance) {
+      const nextUp = advance();
+      if (nextUp?.text) {
+        // A beat longer than the between-sentence pause: a chapter break should
+        // be audible as a break.
+        const { text, title } = nextUp;
+        _narrate.timer = setTimeout(() => {
+          if (!_narrate) return;                  // stopped during the gap
+          narrateStart(text, _narrate.seed, title || _narrate.title, _narrate.lex, advance);
+        }, 1000);
+        return;
+      }
+    }
+    narrateStop();
+    return;
+  }
   const line = parts[i];
   const words = line.split(/\s+/).length;
-  const budget = Math.max(1.2, words / NARRATE_WPS);
+  const budget = Math.max(1.0, words / NARRATE_WPS);
   // RP for the library. The shelf is Forster, Wells, Swift, London and two
   // translations into Edwardian English — an American newsreader voice reading
   // "The Machine Stops" fights the prose. Non-rhotic is the whole trick.
-  try { window.AudioEngine?.speak?.(line, { seed, budget, accent: 'rp', lex: _narrate.lex }); } catch { /* keep reading */ }
+  // speak() reports what it actually scheduled. Pacing off that instead of the
+  // word-count estimate removes the dead air a generous guess used to leave
+  // between sentences — the reason the old delivery dragged.
+  let spoken = 0;
+  try {
+    const r = window.AudioEngine?.speak?.(line, { seed, budget, accent: 'rp', lex: _narrate.lex });
+    spoken = Number(r?.duration) || 0;
+  } catch { /* keep reading */ }
 
   // Follow the voice. Guarded on _overlay because narration deliberately outlives
   // a minimize — with the tablet closed there is simply nothing to light up.
@@ -2480,8 +2538,11 @@ function narrateNext() {
 
   _narrate.i = i + 1;
   syncNarratePill();
-  // A beat of air between sentences, so it reads rather than gabbles.
-  _narrate.timer = setTimeout(narrateNext, budget * 1000 + 220);
+  // A beat of air between sentences, so it reads rather than gabbles. Measured
+  // from the real length where we have it (muted voice → 0 → fall back to the
+  // estimate, so a silent read still turns the page).
+  const NARRATE_GAP_MS = 200;
+  _narrate.timer = setTimeout(narrateNext, (spoken || budget) * 1000 + NARRATE_GAP_MS);
 }
 
 // Body prose with every utterance individually addressable, so the narrator can
@@ -2564,8 +2625,53 @@ function syncNarratePill() {
   pill.querySelector('.tnp-prog').textContent = `${Math.min(_narrate.i, _narrate.parts.length)}/${_narrate.parts.length}`;
 }
 
+// ── Back stack ───────────────────────────────────────────────────────────────
+// Back used to be computed from the breadcrumb, which could only ever answer
+// "app root or Home" — so three levels into an app it skipped the level you came
+// from. This is a real history instead: every nav() records the screen you were
+// ON before it moved you, and Back pops one entry. Home clears it.
+//
+// Entries are the nav ARGUMENTS (appId/screen/params), not the rendered payload,
+// because those are the only thing that can be replayed to the server verbatim.
+// `null` is a legal entry and means the home screen.
+const NAV_STACK_MAX = 24;   // a back stack, not an audit log
+let _navStack = [];
+let _navHere = null;        // the nav that produced the current screen (null = home)
+
+const navSame = (a, b) =>
+  (a === null || b === null) ? a === b
+    : a.appId === b.appId && a.screen === b.screen && a.params === b.params;
+
+// Replay a recorded entry WITHOUT pushing it back onto the stack.
+function navTo(entry) {
+  if (!entry) { home(); return; }
+  narrateStop();
+  _backReturn = null;
+  _tosCorpPage = 0; _tosIdeoPage = 0; _tosCodexCh = null;
+  sfx(TOS_SELECT_DEF);
+  _navHere = entry;
+  const parts = ['tabletnav', entry.appId];
+  if (entry.screen != null) parts.push(screenToken(entry.screen));
+  if (entry.params) parts.push(entry.params);
+  sendCmdSilent(parts.join(' '));
+}
+
+// One level up. Falls back to Home when there's nothing left to pop.
+function navBack() {
+  if (!_navStack.length) { home(); return; }
+  navTo(_navStack.pop());
+}
+
 function nav(appId, screenLabel, params) {
   narrateStop();   // turning the page stops the previous page reading
+  // Remember where we were, unless it's where we're already going (re-navving the
+  // same screen — the surveillance poller does this every 5s — must not stack up).
+  const next = { appId, screen: screenLabel ?? null, params: params ?? null };
+  if (!navSame(_navHere, next)) {
+    _navStack.push(_navHere);
+    if (_navStack.length > NAV_STACK_MAX) _navStack.shift();
+  }
+  _navHere = next;
   _backReturn = null; // any explicit navigation invalidates a pending drill-in return
   _tosCorpPage = 0;   // land on the corp Overview page on any server-side navigation
   _tosIdeoPage = 0;   // land on the Orders Overview page on any server-side navigation
@@ -2587,6 +2693,8 @@ function act(appId, actionId, params) {
 
 function home() {
   _backReturn = null;
+  _navStack = [];      // home is the floor — nothing above it to go back to
+  _navHere = null;
   sfx(TOS_ENTRY_DEF);
   sendCmdSilent('tablet');
 }
@@ -2823,6 +2931,13 @@ const TOS_APP_ICONS = {
   // left, and on the right the crosshair-and-marker of the Orders compass — the
   // two halves of the app in one mark (the world, and where you stand in it).
   // Monochrome, same stroke weight and .dim fill convention as the rest.
+  // Mixology (app id is still 'bar'). Without this the tile fell through to the
+  // app's own `icon: '🥃'` — a colour emoji, which cannot take `currentColor` and
+  // so ignored the theme entirely while every other tile re-skinned around it.
+  bar: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M5.6 6.6h12.8L12 13.9z" fill="currentColor" fill-opacity=".16" stroke="none"/><path d="M4.2 5.4h15.6L12 14.4z"/><path d="M12 14.4v5"/><path d="M8.3 19.8h7.4"/><path d="M15.6 3.1l-2.2 4.4" stroke-opacity=".55"/><circle cx="13.4" cy="7.5" r="1.15" fill="currentColor" stroke="none"/></svg>`,
+  // Sports. A trophy would read as "achievements"; a pennant on a staff is
+  // unambiguously a league table, and it holds its shape at tile size.
+  sports: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M7 4.4h12.2l-3.4 3.5 3.4 3.5H7z" fill="currentColor" fill-opacity=".16" stroke="none"/><path d="M7 4.4h12.2l-3.4 3.5 3.4 3.5H7z"/><path d="M7 2.8v18.4"/><path d="M4.6 21.2h4.8"/><path d="M10.4 7.9h4.2" stroke-opacity=".5"/></svg>`,
   codex: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M12 6.2C10.2 4.6 7.6 4 3.5 4.4v14C7.6 18 10.2 18.6 12 20.2c1.8-1.6 4.4-2.2 8.5-1.8v-14C16.4 4 13.8 4.6 12 6.2z" fill="currentColor" fill-opacity=".16" stroke="none"/><path d="M12 6.2C10.2 4.6 7.6 4 3.5 4.4v14C7.6 18 10.2 18.6 12 20.2c1.8-1.6 4.4-2.2 8.5-1.8v-14C16.4 4 13.8 4.6 12 6.2z"/><path d="M12 6.2v14"/><path d="M6 8.4h3.5M6 11.2h3.5M6 14h2.4" stroke-opacity=".75"/><circle cx="16.4" cy="11.4" r="3.1" stroke-opacity=".8"/><path d="M16.4 8.3v6.2M13.3 11.4h6.2" stroke-opacity=".45"/><circle cx="17.7" cy="10.1" r="1.15" fill="currentColor" stroke="none"/></svg>`,
   // Ideology = an alignment compass: crosshair axes + a plotted marker, the same
   // "where you stand" motif the app's charts use. Monochrome like the rest.
@@ -3102,8 +3217,12 @@ function wireDragScroll(scroll) {
   // Orders section, so the test is the section kind, not the view name.
   const ideoActive = () => _data?.view === 'codex' && _data?.sectionKind === 'orders';
 
+  // `.tos-al-reel` is here because the alarm reels run their OWN grab-and-pull
+  // (see the alarm wiring). Without this the same press would scrub the reel and
+  // pan the screen behind it at once, and the time you let go on wouldn't be the
+  // time you dragged to.
   const isInteractive = (el) =>
-    el.closest('input, textarea, select, button, [contenteditable], .tos-tile, .tos-color, input[type=range]');
+    el.closest('input, textarea, select, button, [contenteditable], .tos-tile, .tos-color, input[type=range], .tos-al-reel');
 
   const onMove = (e) => {
     if (!start) return;
@@ -3793,17 +3912,84 @@ function renderCodexShelf(d) {
 // One chapter's prose. `body` is the authored array: strings are paragraphs,
 // { pull } is a pull quote, { break: true } is a rule. A locked chapter never
 // ships a body at all (see codex/section-chapters.js), so this can't leak one.
-function renderCodexBody(body) {
+// The chapter's speakable prose as UTTERANCES, in reading order — paragraphs and
+// pull quotes, never the rules.
+//
+// It returns the split array rather than a joined string on purpose. Joining and
+// re-splitting is not lossless: a block that doesn't end in sentence punctuation
+// (a pull quote, a fragment) would fuse with the first sentence of the next block
+// on the re-split, while the renderer — which splits block by block — would keep
+// them apart. One extra span, every index after it off by one, and the highlight
+// silently follows the wrong line for the rest of the chapter. Splitting once, in
+// the order the renderer walks, makes that impossible.
+function codexNarrationParts(body) {
+  return (body || [])
+    .map(p => (typeof p === 'string' ? p : (p?.pull || '')))
+    .filter(Boolean)
+    .flatMap(s => narrateSplit(s));
+}
+
+function renderCodexBody(body, narratable) {
+  // When narration is available the prose is rendered sentence-addressably, so
+  // the voice can light the line it's on — the same treatment the Library gets.
+  // The running index must span the WHOLE chapter (not restart per paragraph),
+  // and must count exactly the blocks codexNarrationParts contributes, in order.
+  let n = 0;
+  const speak = (s) => narratable
+    ? narrateSplit(s).map(t => `<span class="tos-narr-s" data-s="${n++}">${esc(t)}</span>`).join(' ')
+    : esc(s);
   return (body || []).map((p, i) => {
     if (typeof p === 'string') {
-      // Drop cap on the opening paragraph only — the reader's one flourish.
-      if (i === 0) return `<p class="tos-cx-p"><span class="tos-cx-drop">${esc(p.charAt(0))}</span>${esc(p.slice(1))}</p>`;
-      return `<p class="tos-cx-p">${esc(p)}</p>`;
+      // Drop cap on the opening paragraph only — the reader's one flourish. The
+      // cap is peeled off the raw string BEFORE the sentence split so the split
+      // still sees whole sentences and the indices stay aligned with the voice.
+      if (i === 0 && !narratable) return `<p class="tos-cx-p"><span class="tos-cx-drop">${esc(p.charAt(0))}</span>${esc(p.slice(1))}</p>`;
+      return `<p class="tos-cx-p">${speak(p)}</p>`;
     }
-    if (p?.pull) return `<blockquote class="tos-cx-pull">${esc(p.pull)}</blockquote>`;
+    if (p?.pull) return `<blockquote class="tos-cx-pull">${speak(p.pull)}</blockquote>`;
     if (p?.break) return `<div class="tos-cx-rule" aria-hidden="true">◆ ◆ ◆</div>`;
     return '';
   }).join('');
+}
+
+// Read a Codex chapter aloud, and keep going into the next UNLOCKED one.
+//
+// Sealed chapters ship no body at all (the server never sends one), so they are
+// skipped rather than read as silence — and when the volume runs out the narrator
+// simply stops. The whole volume already rides in one payload, which is why this
+// can walk it without a round trip.
+//
+// The on-screen chapter is NOT turned as the voice moves on: `_tosCodexCh` is
+// left alone deliberately, because auto-advance exists precisely for when you are
+// not looking at the tablet. The pill title says which chapter is being read.
+function narrateCodexFrom(chapterId) {
+  const chapters = _data?.chapters || [];
+  const startAt = chapters.findIndex(c => c.id === chapterId && c.unlocked);
+  if (startAt < 0) return;
+  const volume = _data?.sectionTitle || _data?.appName || 'CODEX';
+  const titleOf = (c) => `${volume} — ${c.title || ''}`.trim();
+
+  let cursor = startAt;
+  // Lazy: re-read the payload each time, so a chapter unlocked mid-read counts.
+  const advance = () => {
+    const list = _data?.chapters || chapters;
+    for (let k = cursor + 1; k < list.length; k++) {
+      const c = list[k];
+      if (!c?.unlocked) continue;                  // sealed prose was never sent
+      const parts = codexNarrationParts(c.body);
+      if (!parts.length) continue;                 // nothing speakable — skip, don't stall
+      cursor = k;
+      return { text: parts, title: titleOf(c) };
+    }
+    return null;                                   // end of the record
+  };
+
+  const first = chapters[startAt];
+  const parts = codexNarrationParts(first.body);
+  if (!parts.length) return;
+  // Seed on the VOLUME so one narrator reads the whole record, exactly as the
+  // Library seeds on the book rather than the chapter.
+  narrateStart(parts, volume, titleOf(first), _data?.lex, advance);
 }
 
 function renderCodexVolume(d) {
@@ -3825,9 +4011,10 @@ function renderCodexVolume(d) {
         <h1 class="tos-cx-title">${esc(reading.title)}</h1>
         <p class="tos-cx-lede">${esc(reading.lede || '')}</p>
         <div class="tos-cx-rule top" aria-hidden="true">◆ ◆ ◆</div>
-        ${renderCodexBody(reading.body)}
+        ${renderCodexBody(reading.body, true)}
         <div class="tos-cx-end" aria-hidden="true">◈</div>
       </article>
+      ${renderNarrateBar()}
       <div class="tos-cx-nav">${step(prev, prev ? prev.title : 'Beginning', -1)}${step(next, next ? next.title : 'End of record', 1)}</div>
     </div>`;
   }
@@ -4190,8 +4377,14 @@ const DOLL_GEOM = {
 // else. No new colours, no new type — the theming is entirely inherited.
 //
 // The reels are plain overflow-scroll with `scroll-snap-type: y mandatory`, so
-// touch flick, trackpad, wheel and keyboard all work for free and there is no
-// pointer-drag maths to get wrong on mobile.
+// touch flick, trackpad, wheel and keyboard all work for free.
+//
+// A MOUSE, though, gets none of that: you can't drag a scroll container with a
+// pointer, so on desktop the reel could only be clicked or wheeled, and grabbing
+// a band and pulling it — the obvious thing to try — did nothing. So the pointer
+// drag is added by hand, and ONLY for mouse/pen: touch already has native
+// momentum and taking it over would be strictly worse. See the handlers in the
+// wiring pass for why the snap has to be switched off mid-drag.
 let _alarmPick = null;   // { h, m } while the player is choosing
 
 function alarmReel(kind, values, selected) {
@@ -5983,8 +6176,36 @@ function newsWidget(sec) {
     case 'weather': return renderWeatherWidget(sec);
     case 'headlines': return renderHeadlinesWidget(sec.stories);
     case 'standings': return renderStandingsWidget(sec.teams);
+    case 'blotter': return renderBlotterWidget(sec);
     default: return '<div class="tos-empty" style="padding:12px 4px">This section is unavailable.</div>';
   }
+}
+
+// The Police Blotter. Two kinds of line, deliberately styled apart: a WARRANT is
+// live and about someone who is still out there, an INCIDENT already happened.
+// Stars are drawn rather than counted, because "★★★" reads at a glance and
+// "3 stars" has to be parsed.
+function renderBlotterWidget(sec) {
+  if (sec.quiet && !(sec.entries || []).length) {
+    return `<div class="tos-blotter"><div class="tos-blot-quiet">${esc(sec.quiet)}</div></div>`;
+  }
+  const rows = (sec.entries || []).map(e => {
+    if (e.kind === 'warrant') {
+      const stars = '★'.repeat(Math.max(1, Math.min(5, e.stars || 1)));
+      return `<div class="tos-blot-row warrant">
+        <span class="tos-blot-stars" title="${esc(String(e.stars || 0))} star">${stars}</span>
+        <span class="tos-blot-body"><b>${esc(e.who)}</b> — wanted for ${esc(e.what)}</span>
+      </div>`;
+    }
+    const where = e.where ? ` at ${esc(e.where)}` : '';
+    const when = e.when ? `<span class="tos-blot-when">${esc(e.when)}</span>` : '';
+    return `<div class="tos-blot-row">
+      <span class="tos-blot-mark" aria-hidden="true">†</span>
+      <span class="tos-blot-body"><b>${esc(e.who)}</b> — ${esc(e.what)}${where}</span>
+      ${when}
+    </div>`;
+  }).join('');
+  return `<div class="tos-blotter">${rows}</div>`;
 }
 
 // Weather widget — today's conditions as a tappable card; tapping expands the
@@ -6467,11 +6688,25 @@ function wireBody() {
         if (_narrate) { _narrateKeepOnClose = true; close(); syncNarratePill(); }
         return;
       }
+      // CODEX renders its own reader (view 'codex'), so its prose lives on the
+      // chapter rather than on `detail`. Same narrator, same bar, same minimize.
+      if (_data?.view === 'codex') { narrateCodexFrom(_tosCodexCh); return; }
       const det = _data?.detail || {};
       // Seed on the BOOK, not the chapter, so a novel keeps one narrator's voice
       // the whole way through instead of recasting every page.
       const book = (_data?.breadcrumb && _data.breadcrumb[0]) || _data?.appName || 'library';
-      narrateStart(det.body || '', book, `${book} — ${det.name || ''}`.trim(), _data?.lex);
+      // Auto-advance through the book: at the end of a chapter, read the next.
+      // Resolved lazily off the live payload, so a chapter that hasn't loaded (or
+      // the last one) simply stops.
+      const chaptersOf = () => (_data?.detail?.chapters || _data?.chapters || null);
+      const advance = () => {
+        const list = chaptersOf();
+        if (!Array.isArray(list)) return null;
+        const at = list.findIndex(c => (c.id ?? c) === (_data?.detail?.id));
+        const nxt = at >= 0 ? list[at + 1] : null;
+        return nxt?.body ? { text: nxt.body, title: `${book} — ${nxt.name || nxt.title || ''}`.trim() } : null;
+      };
+      narrateStart(det.body || '', book, `${book} — ${det.name || ''}`.trim(), _data?.lex, advance);
     });
   });
 
@@ -6521,9 +6756,54 @@ function wireBody() {
       if (cur) cur.scrollIntoView({ block: 'center', behavior: 'instant' });
 
       reel.addEventListener('click', (e) => {
+        // A drag ends in a click on whatever cell the pointer came to rest over.
+        // Honouring it would yank the reel to that cell and undo the drag, so the
+        // first click after a real drag is swallowed.
+        if (reel._alDragged) { reel._alDragged = false; return; }
         const cell = e.target.closest('.tos-al-cell');
         if (cell) select(cell, reel);
       });
+
+      // ── Grab and pull the band ──
+      // Mouse/pen only (touch already scrolls natively, with better momentum than
+      // anything reimplemented here). The snap comes off for the duration, because
+      // with `scroll-snap-type: y mandatory` live every scrollTop we write is
+      // immediately re-snapped and the reel fights the hand instead of following
+      // it. Releasing puts snap back and throws the reel a little further along its
+      // last velocity — the browser's own snap catches it and lands it on a value,
+      // so there's no easing curve of ours to get wrong.
+      let dragY = 0, dragTop = 0, lastY = 0, lastT = 0, vel = 0, dragging = false;
+      reel.addEventListener('pointerdown', (e) => {
+        if (e.pointerType === 'touch' || e.button !== 0) return;
+        dragging = true; reel._alDragged = false;
+        dragY = lastY = e.clientY; dragTop = reel.scrollTop;
+        lastT = e.timeStamp; vel = 0;
+        reel.classList.add('dragging');
+        reel.setPointerCapture(e.pointerId);
+        e.preventDefault();          // no text selection dragged out of the cells
+      });
+      reel.addEventListener('pointermove', (e) => {
+        if (!dragging) return;
+        const dy = e.clientY - dragY;
+        // 3px of slop, so a click with a shaky hand is still a click.
+        if (!reel._alDragged && Math.abs(dy) > 3) reel._alDragged = true;
+        reel.scrollTop = dragTop - dy;
+        const dt = e.timeStamp - lastT;
+        if (dt > 0) vel = (e.clientY - lastY) / dt;   // px per ms, sign = drag direction
+        lastY = e.clientY; lastT = e.timeStamp;
+      });
+      const endDrag = (e) => {
+        if (!dragging) return;
+        dragging = false;
+        reel.classList.remove('dragging');
+        if (reel.hasPointerCapture?.(e.pointerId)) reel.releasePointerCapture(e.pointerId);
+        // A stale velocity from a drag that stopped and held shouldn't fling.
+        const idle = e.timeStamp - lastT > 90;
+        const throw_ = (idle || !reel._alDragged) ? 0 : Math.max(-220, Math.min(220, -vel * 110));
+        reel.scrollTo({ top: reel.scrollTop + throw_, behavior: 'smooth' });
+      };
+      reel.addEventListener('pointerup', endDrag);
+      reel.addEventListener('pointercancel', endDrag);
       reel.addEventListener('keydown', (e) => {
         const cell = e.target.closest('.tos-al-cell');
         if (!cell) return;
@@ -6615,16 +6895,17 @@ function wireBody() {
   _overlay.querySelectorAll('[data-back]').forEach(el => {
     el.addEventListener('click', () => {
       const appId = el.getAttribute('data-back');
-      const crumb = _data?.breadcrumb || [];
-      // Drilled into a detail/reel from a specific list (e.g. Job Board, Microreels)
-      // -> return to that list screen, not the app root.
+      // Drilled into a detail/reel by an ACTION rather than a nav (Job Board,
+      // Microreels) — those never went through nav(), so they're not on the back
+      // stack and this is the only thing that knows where they came from.
       if (_backReturn && (_data?.view === 'detail' || _data?.view === 'reel') && _backReturn.appId === appId) {
         nav(appId, _backReturn.screen, null);
+        return;
       }
-      // More than one crumb level deep -> go up one level (root of this app).
-      // At the root already (or on home) -> go all the way back to Home.
-      else if (appId && crumb.length > 1) nav(appId, null, null);
-      else home();
+      // Otherwise: exactly one level up the history, whatever that was. This is
+      // what stops a third-level screen throwing you back to the app root (or,
+      // from the root, to Home) instead of to the screen you actually came from.
+      navBack();
     });
   });
   _overlay.querySelectorAll('[data-open-cat]').forEach(el => {
@@ -8187,6 +8468,11 @@ function close() {
   if (_chatUnsub) { _chatUnsub(); _chatUnsub = null; }
   unmountTabletTv();
   _wasSurvLive = false;
+  // The back stack dies with the shell. A tablet reopened later starts at Home,
+  // so a stale history from the last session must not make Back walk backwards
+  // into screens the player has since left.
+  _navStack = [];
+  _navHere = null;
   document.querySelectorAll('.tos-tile-drag').forEach(el => el.remove()); // stray lift clone, if torn down mid-drag
   if (_close) { _close(); _close = null; }
   _overlay = null;

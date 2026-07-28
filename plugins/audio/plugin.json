@@ -23,7 +23,8 @@
       "bodily.sfx",
       "flight.strafeIncoming",
       "flight.aaFired",
-      "cooking.sfx"
+      "cooking.sfx",
+      "player.respawn"
     ]
   }
 }

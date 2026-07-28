@@ -8,8 +8,14 @@
 // a stew IS the cooking game. Drinks are not that game: a negroni is public
 // knowledge, printed on the back of every bottle in the world, and pretending a
 // bartender has to reverse-engineer one would be tedious rather than mysterious.
-// So the whole list is browsable and the SKILL is in pouring it well — the band
+// So nothing here is ever LOCKED and the SKILL is in pouring it well — the band
 // you hit, not whether you knew it existed.
+//
+// It is, however, FILTERED. The default list is what you can actually pour right
+// now, because a wall of forty drinks you can't make is a worse answer to "what
+// can I do with this" than a short list of three. One tap shows the whole
+// catalogue, with the missing ingredients spelled out — so the filter is a
+// convenience, never a gate, and the paragraph above still holds.
 import { query } from '../../server/models/db.js';
 import { DRINKS, measureLine, methodOf, bestPossibleBand } from '../drinks/recipes.js';
 import { DRINK_PROFILES } from '../drinks/profiles.js';
@@ -42,39 +48,74 @@ function canMake(template, have) {
   return true;
 }
 
+// The list is reached with no params; a drink id opens its card. SHOW_ALL is a
+// sentinel id rather than a second screen because a list row's id arrives as the
+// screen's PARAMS (the tablet's nav keeps the current screen and swaps params) —
+// so a row is the only control an app-defined list actually has.
+const SHOW_ALL = '*all';
+
+// What's missing, in the player's words rather than the schema's — this is the
+// whole reason showing an unmakeable drink is worth anything.
+function missingLabels(t, have) {
+  return Object.keys(t.needs || {})
+    .filter(p => !(have[p] > 0))
+    .map(p => (DRINK_PROFILES[p]?.label || p));
+}
+
 async function buildScreen(player, screenId, params) {
   const id = (params || '').trim();
   const have = await carriedProfiles(player.id);
 
-  if (id) {
+  if (id && id !== SHOW_ALL) {
     if (!DRINKS[id]) return { view: 'error', message: "Never heard of it." };
     return drinkDetail(id, have);
   }
 
-  const items = Object.entries(DRINKS)
-    .map(([key, t]) => {
-      const ready = canMake(t, have);
-      const bits = [t.vessels ? t.vessels[0] : 'anything'];
-      if (t.hot) bits.push('needs heat');
-      if (t.shaken) bits.push('shaken');
-      return {
-        id: key,
-        label: titleFor(key),
-        sub: `${bits.join(' · ')} · difficulty ${t.difficulty}/10`,
-        badge: ready ? 'ready' : 'missing',
-        _sort: ready ? 0 : 1,
-      };
-    })
-    .sort((a, b) => a._sort - b._sort || a.label.localeCompare(b.label));
+  const showAll = id === SHOW_ALL;
 
-  const ready = items.filter(i => i._sort === 0).length;
-  items.push({
-    id: '', label: `${ready} you could pour right now`,
-    sub: ready ? `Everything else is a shopping trip.` : `You are not carrying the makings of anything. That is its own kind of clarity.`,
-    badge: 'missing',
+  const all = Object.entries(DRINKS).map(([key, t]) => {
+    const ready = canMake(t, have);
+    const bits = [t.vessels ? t.vessels[0] : 'anything'];
+    if (t.hot) bits.push('needs heat');
+    if (t.shaken) bits.push('shaken');
+    let sub = `${bits.join(' · ')} · difficulty ${t.difficulty}/10`;
+    if (!ready) {
+      // Name the gap. "missing" alone tells you nothing you can act on.
+      const gaps = missingLabels(t, have);
+      sub = gaps.length ? `need ${gaps.join(', ')}` : sub;
+    }
+    return {
+      id: key,
+      label: titleFor(key),
+      sub,
+      badge: ready ? 'ready' : 'missing',
+      _ready: ready,
+    };
   });
 
-  return { view: 'list', breadcrumb: ['Bar'], items };
+  const readyCount = all.filter(i => i._ready).length;
+  const shown = (showAll ? all : all.filter(i => i._ready))
+    .sort((a, b) => (a._ready === b._ready ? 0 : a._ready ? -1 : 1) || a.label.localeCompare(b.label));
+
+  // The toggle, always last, always present — including when the filtered list is
+  // empty, which is exactly when you most want to see what you're missing.
+  const hidden = all.length - readyCount;
+  shown.push(showAll
+    ? {
+        id: '', label: `Showing all ${all.length}`,
+        sub: `${readyCount} you could pour right now. Tap a drink for what it needs.`,
+        badge: 'ready',
+      }
+    : {
+        id: SHOW_ALL,
+        label: hidden ? `Show everything (${hidden} more)` : 'Show everything',
+        sub: readyCount
+          ? 'What you could pour if you went shopping.'
+          : 'You are not carrying the makings of anything. That is its own kind of clarity.',
+        badge: 'missing',
+      });
+
+  return { view: 'list', breadcrumb: showAll ? ['Mixology', 'Everything'] : ['Mixology'], items: shown };
 }
 
 function drinkDetail(key, have) {
@@ -105,13 +146,15 @@ function drinkDetail(key, have) {
 
   return {
     view: 'detail',
-    breadcrumb: ['Bar', titleFor(key)],
+    breadcrumb: ['Mixology', titleFor(key)],
     detail: { id: key, name: titleFor(key), desc: t.blurb || '', rows },
     actions: [],
   };
 }
 
 registerTabletApp({
-  id: 'bar', name: 'Bar', icon: '🥃', category: 'General',
+  // id stays 'bar' — it is the nav token and the TOS_APP_ICONS key, and renaming it
+  // would break every saved home-screen order. Only the display name changed.
+  id: 'bar', name: 'Mixology', icon: '🥃', category: 'General',
   buildScreen,
 });

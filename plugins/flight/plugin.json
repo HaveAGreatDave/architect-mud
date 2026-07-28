@@ -3,7 +3,7 @@
   "version": "0.3.0",
   "description": "Flight — full system. Embark/charter/buy aircraft at six airfields; fly the map_world tile grid on a real-time posture tick loop through interactive takeoff/glideslope/targeting decks, OR ride an NPC-pilot charter as a passenger. Phase B hazards, no-fly airspace, cargo/passenger + smuggling contracts, ground AA + air combat, hangars, wreck salvage/rebuild, owner-only customization, and engine-noise propagation. The aircraft is a first-class object owning its occupant set; the cockpit HUD is synthesized per-aircraft.",
   "commands": [
-    "embark", "board", "disembark", "deplane", "window", "takecontrols", "controls", "handoff", "standdown", "nav", "circle", "orbit", "landat", "divert", "startup", "shutdown", "throttle", "heading", "climb", "dive", "takeoff", "land", "taxi", "refuel", "takeoffresolve", "landresolve", "flightsync", "flightevent", "airhome", "checkride",
+    "embark", "board", "disembark", "deplane", "window", "takecontrols", "controls", "handoff", "standdown", "nav", "circle", "orbit", "landat", "divert", "startup", "shutdown", "throttle", "heading", "climb", "dive", "takeoff", "land", "taxi", "refuel", "flightsync", "flightevent", "airhome", "checkride",
     "extinguish", "eject", "bail", "preflight", "hover", "spot", "scan", "spray", "loadhopper", "chart", "squawk",
     "buy", "rent", "charter", "charterinfo", "charterbook", "cancel", "testfly", "flight", "fs",
     "arm", "safe", "evade", "strafe", "fire", "strafresolve", "airfire", "airlock", "airunlock", "flares",

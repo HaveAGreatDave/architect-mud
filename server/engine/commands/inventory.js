@@ -603,7 +603,9 @@ async function cmdUse(targetStr, player, broadcast, route = 'use') {
 
   // `consumable` (food/drugs) OR an explicit `use_message` (a non-food usable, e.g. a credit chip
   // banked with `use` — currency isn't eaten). Both funnel through the same payout/effect path below.
-  const { rows } = await query(`SELECT pi.*,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND (i.name ILIKE $2 OR i.id ILIKE $3) AND (jsonb_exists(i.tags,'consumable') OR jsonb_exists(i.tags,'use_message')) LIMIT 1`, [player.id, `%${targetStr}%`, targetStr]);
+  // Match the instance's custom name too (same as the drug lookup above): a credit chip is *shown*
+  // as "credit chip (₵100)" from custom_data.name, so without this the displayed name never resolves.
+  const { rows } = await query(`SELECT pi.*,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND (i.name ILIKE $2 OR pi.custom_data->>'name' ILIKE $2 OR i.id ILIKE $3) AND (jsonb_exists(i.tags,'consumable') OR jsonb_exists(i.tags,'use_message')) LIMIT 1`, [player.id, `%${targetStr}%`, targetStr]);
   if (!rows.length) return cmdUseFurniture(targetStr, player, broadcast);
   const item = rows[0];
   const t = item.tags || {};

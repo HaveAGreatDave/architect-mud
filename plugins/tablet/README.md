@@ -43,3 +43,25 @@ time to add a Home-screen tile. `buildHome` is optional (extra data merged into 
 `buildScreen` is required and returns the full screen payload for that app. `handleAction` is
 optional; if omitted, `tabletaction` re-renders the app's current screen after the action plugin
 performed its own side effect via a different command.
+
+## Sports (`sports-app.js`)
+
+The league desk for both codes. Owns NO data: standings, the per-player races and
+season state all arrive through the **sportsleague** and **broadcast** plugins' registered
+Actions, never their tables — which is what keeps a leaderboard from ever contradicting
+the game that just aired.
+
+- **Deadball** — W/L/PCT/RDIF, plus batting average, home runs and RBI.
+- **Cluster Puck** — W/L/OTL/PTS/GD, plus the scoring race and the season casualty count.
+- **Tap a club** for its card: league position, current streak, last five results, and
+  the next time they are on.
+
+**The spoiler rule.** Every game is a pure function of its slot, so the result of a
+fixture that has not aired is computable right now. The team card therefore returns the
+matchup and the airtime for an upcoming game and *nothing else* — the scores are
+computed (there is no way not to) and dropped. A regress assertion checks no score can
+reach that row, because printing one would spoil the broadcast this whole system exists
+to make worth watching.
+
+`broadcast.getTeamCard` is bounded on both sides (24 slots back, 24 forward): it runs on
+a tablet tap, and every slot inspected is a full game sim.

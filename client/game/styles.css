@@ -4992,7 +4992,10 @@ body.fsim-external #look-resize-handle { display: none; }
 	   above it visible and reads as the world being talked over. */
 	align-items: flex-end;
 	justify-content: center;
-	padding-bottom: 4vh;
+	/* Lifted off the floor of the screen. At 4vh the box sat on the bottom edge and
+	   the option list ran right into the smartbar; this puts a clear band under it
+	   without going back to a dead-centre OS-dialog read. */
+	padding-bottom: 13vh;
 	box-sizing: border-box;
 }
 #dialogue-panel.active {
@@ -5022,7 +5025,11 @@ body.fsim-external #look-resize-handle { display: none; }
 	padding: 22px 26px;
 	width: 760px;
 	max-width: 92vw;
-	min-height: 420px;
+	/* FIXED height, not min-height. A box that grew with the line length moved the
+	   option list every single beat, so you re-aimed the mouse on every reply. The
+	   speech area absorbs the variation instead (it scrolls), and the options stay
+	   nailed to the same place for the whole conversation. */
+	height: 460px;
 	max-height: 78vh;
 	border-radius: 2px;
 	display: flex;
@@ -5031,9 +5038,14 @@ body.fsim-external #look-resize-handle { display: none; }
 }
 #dialogue-header {
 	display: flex;
-	align-items: center;
+	align-items: flex-end;
 	justify-content: space-between;
-	margin-bottom: 6px;
+	/* Pulled down over the top edge of the recessed speech area below, so the name
+	   reads as a legend cut into it rather than a caption floating above it. */
+	margin-bottom: -11px;
+	padding: 0 4px;
+	position: relative;
+	z-index: 1;
 	flex-shrink: 0;
 }
 #dialogue-npc-name {
@@ -5042,9 +5054,14 @@ body.fsim-external #look-resize-handle { display: none; }
 	font-size: 21px;
 	text-transform: uppercase;
 	letter-spacing: 2px;
+	/* The box's own background, so the name punches a gap in the recess border. */
+	background: var(--bg2);
+	padding: 0 10px 0 6px;
+	line-height: 1.05;
 }
 #dialogue-close {
-	background: none;
+	/* Solid, not transparent — it sits on the recess border too. */
+	background: var(--bg2);
 	border: 1px solid var(--border);
 	color: var(--text-dim);
 	font-family: var(--font-mono);
@@ -5059,6 +5076,10 @@ body.fsim-external #look-resize-handle { display: none; }
 	border-color: var(--accent);
 	color: var(--accent);
 }
+/* The speech well — what the NPC is saying, sunk into the panel face so it reads as
+   a separate surface being spoken from rather than more of the same card. Darker
+   than the box, with an inset shadow doing the bevel; the name overlaps its top-left
+   corner (see #dialogue-header) like a legend stamped on the plate. */
 #dialogue-text {
 	color: var(--text-bright);
 	margin-bottom: 14px;
@@ -5068,9 +5089,22 @@ body.fsim-external #look-resize-handle { display: none; }
 	overflow-y: auto;
 	flex: 1;
 	min-height: 160px;
+	background: var(--bg);
+	border: 1px solid var(--border);
+	border-radius: 3px;
+	padding: 18px 20px 16px;
+	box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.75), inset 0 0 0 1px rgba(0, 0, 0, 0.4);
 }
-/* Shop mode reuses #dialogue-text as its two-pane container — keep that dense. */
-#dialogue-box.shop-mode #dialogue-text { font-size: 13px; }
+/* Shop mode reuses #dialogue-text as its two-pane container — keep that dense, and
+   drop the well treatment: the panes bring their own chrome. */
+#dialogue-box.shop-mode #dialogue-text {
+	font-size: 13px;
+	background: none;
+	border: none;
+	padding: 0;
+	box-shadow: none;
+}
+#dialogue-box.shop-mode #dialogue-header { margin-bottom: 6px; }
 /* The speaker still talking. Sits in place of the line while the NPC takes their
    beat (THINK_MS in dialogue.js) so the panel visibly waits on them. */
 .dialogue-thinking {
@@ -13192,14 +13226,23 @@ input.trade-qty { width: 56px; }
 /* Pads sit ON the body. Head/torso/legs/feet run down the centre line; hands go
    out to the left where a hand is, accessories to the right so they never fight
    the figure for the same space. */
-.wdr-pad-head      { left: 50%; top: 2%;  transform: translateX(-50%); }
-.wdr-pad-torso     { left: 50%; top: 27%; transform: translateX(-50%); }
-.wdr-pad-legs      { left: 50%; top: 58%; transform: translateX(-50%); }
-.wdr-pad-feet      { left: 50%; top: 88%; transform: translateX(-50%); }
-.wdr-pad-hands     { left: -18%; top: 44%; }
-.wdr-pad-accessory { right: -20%; top: 12%; }
+/* Pads sit BESIDE the body, not on top of it — the Gear app's arrangement, and
+   the reason it reads at a glance. Stacking them all down the centre line meant
+   six panels fighting one silhouette for the same column: they overlapped, they
+   hid the figure they were describing, and every pad had to be squeezed to 40%
+   width, which is why nothing fitted once a pad held more than one garment.
+   Now the body keeps the middle and the slots run down either side of it, each
+   with room for its three layers. */
+.wdr-pad-head      { left: -46%;  top: 1%;  }
+.wdr-pad-torso     { left: -46%;  top: 27%; }
+.wdr-pad-legs      { left: -46%;  top: 55%; }
+.wdr-pad-hands     { right: -46%; top: 1%;  }
+.wdr-pad-feet      { right: -46%; top: 27%; }
+.wdr-pad-accessory { right: -46%; top: 55%; }
 .wdr-pad-head, .wdr-pad-torso, .wdr-pad-legs, .wdr-pad-feet,
-.wdr-pad-hands, .wdr-pad-accessory { position: absolute; width: 40%; min-width: 92px; }
+.wdr-pad-hands, .wdr-pad-accessory { position: absolute; width: 44%; min-width: 124px; }
+/* The stage needs the side room the pads now occupy, or they hang off the panel. */
+#wardrobe-doll { margin-left: auto; margin-right: auto; max-width: 46%; }
 /* Pads float over the figure now, so they need to be legible against a body
    rather than against panel background — hence the blur and the real backdrop.
    Empty pads sit back at low opacity so an undressed doll reads as a SILHOUETTE
@@ -13236,6 +13279,44 @@ input.trade-qty { width: 56px; }
 }
 .wdr-pad-items { display: flex; flex-wrap: wrap; gap: 4px; }
 .wdr-pad-empty { color: var(--text-dim); opacity: 0.5; font-size: 11px; }
+
+/* One row per layer — innermost at the top, the way you'd put the clothes on.
+   The empty rows are the point: they show that a hat and a helmet are two
+   separate homes rather than one slot that overwrites itself. */
+.wdr-pad-layers { display: flex; flex-direction: column; gap: 2px; }
+.wdr-layer-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	min-height: 16px;
+	padding: 1px 3px;
+	border-radius: 3px;
+	border-left: 2px solid rgba(185, 139, 74, 0.22);
+}
+.wdr-layer-row.on { border-left-color: rgba(224, 185, 120, 0.9); background: rgba(185, 139, 74, 0.07); }
+.wdr-layer-name {
+	flex: 0 0 52px;
+	font-size: 8.5px;
+	letter-spacing: 0.6px;
+	text-transform: uppercase;
+	color: var(--text-dim);
+	opacity: 0.75;
+}
+.wdr-layer-row .wdr-worn { font-size: 10px; }
+/* Narrow panels: the side pads would collide with the figure, so fold the whole
+   doll into a single column and let the pads sit under it. */
+@media (max-width: 900px) {
+	#wardrobe-doll { max-width: 100%; }
+	.wdr-pad-head, .wdr-pad-torso, .wdr-pad-legs, .wdr-pad-feet,
+	.wdr-pad-hands, .wdr-pad-accessory { position: static; width: 100%; }
+	#wardrobe-doll { aspect-ratio: auto !important; }
+	.wdr-figure { display: none; }
+}
+
+/* The far rail lights up while a garment is in flight, so "put it away" is a
+   throw rather than a hunt for the small word on the card. */
+.wdr-rail-eligible { outline: 1px dashed rgba(224, 185, 120, 0.6); outline-offset: 2px; border-radius: 4px; }
+.wdr-rail-eligible.ctr-drag-over { outline-style: solid; outline-color: var(--green); }
 .wdr-worn {
 	font-size: 10px;
 	color: var(--text);
@@ -14087,3 +14168,45 @@ body.intro-cine-open { overflow: hidden; }
 	.intro-cine-logo.in .icm-fine-a { animation: none; opacity: 1; }
 	.intro-cine-logo.in .icm-fine-b { animation: none; opacity: 0; }
 }
+
+/* ── Container item action menu ──────────────────────────────────────────────
+   Clicking an item in a container (or a wardrobe rail) opens what you can do
+   with it, anchored to its own card. Built from the item's tags, so it never
+   offers a verb the server would refuse. */
+.ctr-item-card { position: relative; }
+.ctr-actions-pop {
+	position: absolute;
+	top: calc(100% + 2px);
+	left: 0;
+	min-width: 148px;
+	z-index: 40;
+	background: var(--bg2);
+	border: 1px solid var(--border);
+	border-radius: 4px;
+	box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6);
+	padding: 3px;
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+}
+.ctr-actions-head {
+	font-size: 9px;
+	letter-spacing: 1px;
+	text-transform: uppercase;
+	color: var(--text-dim);
+	padding: 3px 6px 4px;
+	border-bottom: 1px solid var(--border);
+	margin-bottom: 2px;
+}
+.ctr-actions-item {
+	background: none;
+	border: none;
+	text-align: left;
+	font-family: inherit;
+	font-size: 12px;
+	color: var(--text);
+	padding: 4px 7px;
+	border-radius: 3px;
+	cursor: pointer;
+}
+.ctr-actions-item:hover { background: rgba(185, 139, 74, 0.16); color: var(--text-bright); }

@@ -3,7 +3,7 @@
 //
 // Two call sites today: the wanted HUD (a standing flame driven by heat 0–100)
 // and the hero-poster mural word (a one-shot burn on reveal). The dials were
-// tuned in sandbox/heat-flame-lab.html and are passed in per call site, so each
+// tuned in tools/sandbox/heat-flame-lab.html and are passed in per call site, so each
 // surface keeps its own feel while the physics and colour ramp stay in one place.
 //
 // The ramp is derived from the live theme --accent: dark ember -> hot core ->

@@ -107,3 +107,11 @@ once by `MIS_TUTORIAL`, printed on opt-in.
   in the sea.
 - Infection is transmitted by penetrative acts only, which is the honest scope but
   means oral is a free pass.
+
+### The open door (`consent all`)
+
+A player can accept advances from anyone with `consent all`. It grants nothing
+outward (others may act on you; you may not act on them), a named `revoke` still
+wins **and shuts the door**, and named grants stay in their own ledger. Stored as
+a self-row in `mis_consents` so `hasConsent` stays sync and query-free. See
+[docs/systems-mis.md](../../docs/systems-mis.md).

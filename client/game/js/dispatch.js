@@ -32,7 +32,7 @@ import { openFishing, armFishFight } from './panels/fishing.js';
 import { abortMacros } from './panels/smartbar-macros.js';
 import { offerInterfaceTour, startInterfaceTour } from './panels/tour.js';
 import { playIntroCinematic } from './panels/intro-cinematic.js';
-import { updateCockpit, closeCockpit, cabinAudio, openTakeoff, openGlideslope, openTargeting, openFlightSim, flightSimContext, flightSimContacts, flightSimAASites, flightSimAirHit, flightSimKill, flightSimAaTracer, flightSimAirThreat, flightSimFireworks, flightSimLightning, isFlightSimActive, isCockpitHudActive } from './panels/cockpit.js';
+import { updateCockpit, closeCockpit, cabinAudio, openTargeting, openFlightSim, flightSimContext, flightSimContacts, flightSimAASites, flightSimAirHit, flightSimKill, flightSimAaTracer, flightSimAirThreat, flightSimFireworks, flightSimLightning, isFlightSimActive, isCockpitHudActive } from './panels/cockpit.js';
 import { openHelm, closeHelm, isHelmActive, helmSetSky, helmSetWorld, helmSetContacts, helmEndTransit, helmBeginTransit } from './panels/helm-mode.js';
 import { setYachtAmbience, yachtUnderway, yachtSettled } from './panels/yacht-ambience.js';
 import { setDrugFx, clearDrugFx } from './panels/flight-drugfx.js';
@@ -860,27 +860,6 @@ const handlers = {
     flashFirework(msg.rgb, msg.intensity);   // the concussion bloom at detonation (the particle burst rides the climbing shell)
   },
   fireworks_sky:   (msg) => { setFireworksGlow(!!msg.on); },
-  flight_takeoff: (msg) => {
-    openTakeoff({
-      skill: msg.skill ?? 4,
-      difficulty: msg.difficulty ?? 5,
-      vtol: !!msg.vtol,
-      deviceName: msg.deviceName || 'CRAFT',
-      airport: msg.airport,
-      onResult: ({ won }) => sendCmdSilent(`takeoffresolve ${msg.token} ${won ? 1 : 0}`),
-    });
-  },
-  flight_land: (msg) => {
-    openGlideslope({
-      skill: msg.skill ?? 4,
-      difficulty: msg.difficulty ?? 5,
-      emergency: !!msg.emergency,
-      vtol: !!msg.vtol,
-      deviceName: msg.deviceName || 'FIELD',
-      airport: msg.airport,
-      onResult: ({ won }) => sendCmdSilent(`landresolve ${msg.token} ${won ? 1 : 0}`),
-    });
-  },
   flight_target: (msg) => {
     openTargeting({
       skill: msg.skill ?? 4,

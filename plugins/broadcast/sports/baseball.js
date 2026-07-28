@@ -289,6 +289,10 @@ export function simGame(matchup, players, rand = Math.random) {
 // `fold` is called once per scheduled game over the season's slot window. It must
 // stay PURE and cheap — the standings are a recomputed fold over thousands of slots,
 // never a stored row, so this runs a lot.
+// What counts as a hit. Deliberately a set rather than a regex: a new at-bat
+// outcome must be classified on purpose, not caught by accident.
+const HIT_KINDS = new Set(['single', 'double', 'triple', 'homerun']);
+
 export const SEASON = {
   finalName: 'World Series',
   finalShort: 'WS',
@@ -315,9 +319,59 @@ export const SEASON = {
       return a.team.localeCompare(b.team);
     });
   },
-  // Baseball keeps no per-player race today. Hockey does, so the seam exists here.
-  foldExtras() {},
-  summariseExtras: () => ({}),
+  // ── The hitting race ───────────────────────────────────────────────────────
+  // Deadball's batting leaders, accumulated across the season exactly the way
+  // hockey accumulates its scoring race.
+  //
+  // This costs nothing extra to compute: `simGame` already emits a full at-bat
+  // beat for every plate appearance (batter, kind, rbi) on the RESULT-ONLY path
+  // too, so the numbers were being generated and thrown away every time the
+  // table was folded. Reading them back is a walk over an array the sim just
+  // built — no second simulation, no stored rows, and the leaders can never
+  // disagree with the games that aired because they are the same games.
+  //
+  // SCORING RULES, because a batting average computed the naive way is wrong in
+  // a way people notice:
+  //   • A WALK is not an at-bat. It counts as a plate appearance and nothing else.
+  //   • A SACRIFICE FLY is not an at-bat either — you gave yourself up for the run.
+  //   • Everything else (including a double play or a productive out, which are
+  //     just outs the batter is charged with) is an at-bat.
+  // Get those two exclusions wrong and every average in the league reads low.
+  foldExtras(acc, game) {
+    acc.bats = acc.bats || new Map();
+    for (const b of game.beats || []) {
+      if (b.type !== 'atbat' || !b.batter) continue;
+      const r = acc.bats.get(b.batter)
+        || { name: b.batter, team: b.battingName, pa: 0, ab: 0, hits: 0, hr: 0, rbi: 0 };
+      // Last team seen wins — the pool is shuffled per game, so a name can turn
+      // out for either side across a season and the recent one reads truer.
+      r.team = b.battingName || r.team;
+      r.pa += 1;
+      if (b.kind !== 'walk' && b.kind !== 'sacfly') r.ab += 1;
+      if (HIT_KINDS.has(b.kind)) r.hits += 1;
+      if (b.kind === 'homerun') r.hr += 1;
+      r.rbi += b.rbi || 0;
+      acc.bats.set(b.batter, r);
+    }
+  },
+  summariseExtras(acc) {
+    const all = [...(acc.bats || new Map()).values()];
+    // A qualifier gate, or the leaderboard is whoever went 2-for-2 in April. Scaled
+    // to the season actually played rather than a fixed number, so an early-season
+    // table still has names on it instead of being empty for a fortnight.
+    const maxAb = all.reduce((m, r) => Math.max(m, r.ab), 0);
+    const minAb = Math.max(5, Math.floor(maxAb * 0.4));
+    const avg = (r) => (r.ab ? r.hits / r.ab : 0);
+    const qualified = all.filter(r => r.ab >= minAb);
+    const pool = qualified.length ? qualified : all;   // never show an empty race
+    const top = (key, cmp) => [...pool].sort(cmp).slice(0, 5).map(r => ({ ...r, avg: avg(r) }));
+    return {
+      batters: top('avg', (a, b) => avg(b) - avg(a) || b.hits - a.hits || a.name.localeCompare(b.name)),
+      homers:  top('hr',  (a, b) => b.hr - a.hr || avg(b) - avg(a) || a.name.localeCompare(b.name)),
+      rbis:    top('rbi', (a, b) => b.rbi - a.rbi || b.hits - a.hits || a.name.localeCompare(b.name)),
+      minAb,
+    };
+  },
 };
 
 export const BASEBALL = {

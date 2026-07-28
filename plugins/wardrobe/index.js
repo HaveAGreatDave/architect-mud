@@ -72,7 +72,15 @@ async function loadEquipped(player) {
     [player.id, OUTFIT_SLOTS]
   );
   return rows
-    .map(r => ({ itemId: r.item_id, slot: r.slot, name: getItem(r.item_id)?.name || r.item_id }))
+    // `layer` rides along so the panel's "Wearing" seed lands each piece on the
+    // right depth. Without it a helmet and the cap under it both claim outerwear
+    // and the second one silently evicts the first — the exact bug the layered
+    // doll exists to prevent, reintroduced through the back door.
+    .map(r => ({
+      itemId: r.item_id, slot: r.slot,
+      layer: getItem(r.item_id)?.tags?.layer || null,
+      name: getItem(r.item_id)?.name || r.item_id,
+    }))
     .sort((a, b) => OUTFIT_SLOTS.indexOf(a.slot) - OUTFIT_SLOTS.indexOf(b.slot));
 }
 

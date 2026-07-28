@@ -486,6 +486,57 @@ function startCanvas(cv, t0, reduced, skyline, shore) {
     return out;
   })();
 
+  // ── The roofline the camera flies over ──
+  // Nothing in this scene has collision, and the run used to end a third of a unit
+  // off the deck — which is BELOW the roof of every tower on the street (a twenty
+  // storey block tops out around 3.7). So the camera drove through the buildings
+  // rather than down the street, and you saw the inside of a wall.
+  //
+  // Rather than lift the whole run (height is the enemy of scale — see the note on
+  // cam.y), the camera keeps its descent and is clamped, per frame, to stay just
+  // ABOVE whatever is actually in front of it. Over a gap it drops into the gap;
+  // over a tower it rides the roof. That's the "between and above" read: you are
+  // skimming the skyline, not diagramming it from a thousand feet.
+  //
+  // Bucketed by z so the per-frame cost is a couple of array lookups rather than a
+  // sweep over 240 boxes.
+  const ROOF_BUCKET = 1.0;                 // scene units per bucket
+  const ROOF_CORRIDOR = 1.7;               // how wide either side of the lens counts
+  const ROOF_AHEAD = 6.0;                  // how far forward to start climbing for it
+  const ROOF_BEHIND = 1.2;                 // …and how long to keep holding it
+  const roofBuckets = (() => {
+    if (!city.length) return { z0: 0, rows: [] };
+    const z0 = Math.floor(Math.min(...city.map(b => b.sz - b.half)) / ROOF_BUCKET) - 1;
+    const z1 = Math.ceil(Math.max(...city.map(b => b.sz + b.half)) / ROOF_BUCKET) + 1;
+    const rows = [];
+    for (let i = 0; i <= z1 - z0; i++) rows.push([]);
+    for (const b of city) {
+      const lo = Math.floor((b.sz - b.half) / ROOF_BUCKET) - z0;
+      const hi = Math.floor((b.sz + b.half) / ROOF_BUCKET) - z0;
+      for (let i = Math.max(0, lo); i <= Math.min(rows.length - 1, hi); i++) rows[i].push(b);
+    }
+    return { z0, rows };
+  })();
+  // Tallest thing within the corridor around (x), between z−behind and z+ahead.
+  // Returns a HEIGHT (positive, up from GY) — the caller negates it, since up is -y.
+  function roofAhead(x, z) {
+    const { z0, rows } = roofBuckets;
+    if (!rows.length) return 0;
+    const lo = Math.max(0, Math.floor((z - ROOF_BEHIND) / ROOF_BUCKET) - z0);
+    const hi = Math.min(rows.length - 1, Math.floor((z + ROOF_AHEAD) / ROOF_BUCKET) - z0);
+    let top = 0;
+    for (let i = lo; i <= hi; i++) {
+      for (const b of rows[i]) {
+        if (Math.abs(b.sx - x) > ROOF_CORRIDOR + b.half) continue;
+        if (b.h > top) top = b.h;
+      }
+    }
+    return top;
+  }
+  // Smoothed so a tower entering the corridor is a climb, not a jump. Seeded on
+  // the first frame of the run so the camera doesn't visibly snap up at the start.
+  let roofHold = null;
+
   // ── The coastline ──
   // `[x, y, dir, len]` runs in tile-CORNER coords (see coldwaterShore in
   // plugins/prologue/index.js). A corner is half a tile off a tile centre, hence
@@ -628,11 +679,23 @@ function startCanvas(cv, t0, reduced, skyline, shore) {
     // Starts out over open water east of the Basin and flies WEST along the
     // waterfront (see the ORIENTATION note above; the coast is off to starboard).
     cam.z = lerp(-34, 18, fly);
-    // Ends LOW — a third of a unit off the deck, with towers going ten times that
-    // high on both sides. Height is the enemy of scale: from up there Coldwater is
-    // a diagram, and from down here it's a canyon.
-    cam.y = lerp(-9.2, -0.34, fly);
-    cam.pitch = lerp(0.32, -0.05, fly);                    // level off, looking slightly up
+    // Wants to end LOW — a third of a unit off the deck, with towers going ten
+    // times that high on both sides. Height is the enemy of scale: from up there
+    // Coldwater is a diagram, and from down here it's a canyon. But the run has no
+    // collision, so this is only ever the FLOOR of the shot; the roofline clamp
+    // below is what stops it being flown through a building.
+    const wantY = lerp(-9.2, -0.34, fly);
+    // Ride the skyline: never below the roof of anything in the corridor ahead,
+    // with a little clearance so you skim rather than clip. Over a gap this frees
+    // the camera to drop back toward wantY and dive between the blocks.
+    const ROOF_CLEAR = 0.62;
+    const target = roofAhead(cam.x, cam.z) + ROOF_CLEAR;
+    roofHold = roofHold === null ? target : lerp(roofHold, target, reduced ? 1 : 0.055);
+    cam.y = Math.min(wantY, -roofHold);                    // up is -y, so min = higher
+    // Level off looking slightly up in the canyon; when the roofline has pushed the
+    // lens well above the deck, tip back down so the city stays in frame.
+    const over = clamp01((-cam.y - 1.2) / 4);
+    cam.pitch = lerp(lerp(0.32, -0.05, fly), 0.16, over);
 
     // Sky: cold above, sodium at street level. The Basin's lights are the only
     // warm colour anywhere in the sequence.

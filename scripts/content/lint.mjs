@@ -139,12 +139,104 @@ export function lintContentTree(baseDir) {
       if (!wez || !zoneIds.has(wez)) errors.push(`${label}: facade needs a valid world_exit_zone (got "${wez ?? ''}")`);
     }
   }
+  // Quest objectives must point somewhere a player can actually be SENT.
+  //
+  // Coldwater's street names repeat by design — 19 tiles are "Kessler Street",
+  // 366 are "Grasslands" — so an objective whose `desc` is a bare place name is
+  // not routable: `gps <desc>` resolves to the nearest tile of that name, which
+  // is almost never the objective's. A player then walks somewhere plausible and
+  // the quest sits still with nothing explaining why.
+  //
+  // This landed for real: a repair one-shot (scripts/salvage-legacy-world.mjs)
+  // repointed 17 job-board gigs and set each `desc` from the DISTRICT CLASS
+  // rather than the tile name, sending two quests to an apartment interior
+  // labelled "Residential Area" — a name it does not have and 19 other tiles do.
+  //
+  // Two rules, both about the same failure:
+  //   1. a bare-place-name desc must BE the target tile's name (prose descs, which
+  //      read as instructions, are exempt — they were never meant to be typed);
+  //   2. that name must be unique, or the desc is unroutable even when correct.
+  {
+    const questFiles = entries.find(e => e.entry.table === 'quests')?.files || [];
+    const zoneFiles = entries.find(e => e.entry.table === 'zones')?.files || [];
+    if (questFiles.length && zoneFiles.length) {
+      const zoneName = new Map(zoneFiles.map(f => [f.data.id, f.data.name]));
+      const nameCount = new Map();
+      for (const f of zoneFiles) nameCount.set(f.data.name, (nameCount.get(f.data.name) || 0) + 1);
+      // Only the ACTIVE TRAP is an error, and it is narrow on purpose: a desc that
+      // is the real name of one or more OTHER tiles, but not of its own target.
+      // That is the shape that misroutes — the player types it, the name resolves
+      // to genuine tiles, and every one of them is the wrong place.
+      //
+      // A desc naming nothing on the map ("The apron", "Check the drain") is NOT
+      // flagged: it can't misresolve, and it reads as an instruction anyway. Nor
+      // is a merely duplicated target name, which is a warning below — GPS now
+      // prefers a live objective's own zone, so those still route correctly.
+      const nameToIds = new Map();
+      for (const f of zoneFiles) {
+        const k = String(f.data.name || '').trim().toLowerCase();
+        if (!nameToIds.has(k)) nameToIds.set(k, []);
+        nameToIds.get(k).push(f.data.id);
+      }
+      for (const f of questFiles) {
+        for (const o of f.data.objectives || []) {
+          if (!o?.zone) continue;
+          const label = `quests/${f.name} ${o.id || '?'}`;
+          const real = zoneName.get(o.zone);
+          if (real === undefined) {
+            errors.push(`${label}: zone "${o.zone}" has no content file (objective can never be reached)`);
+            continue;
+          }
+          const desc = String(o.desc || '').trim();
+          if (!desc) continue;
+          if (desc.toLowerCase() === String(real).trim().toLowerCase()) continue;   // desc names its own target: fine
+          const elsewhere = nameToIds.get(desc.toLowerCase());
+          if (elsewhere && elsewhere.length) {
+            errors.push(`${label}: desc "${desc}" is the real name of ${elsewhere.length} OTHER tile(s) but not of its target ${o.zone} ("${real}") — a player routing by that name is sent to the wrong place and the quest never advances`);
+          }
+        }
+      }
+    }
+  }
   return errors;
+}
+
+/**
+ * Advisory (non-fatal): quest objectives pointing at a tile whose name several
+ * tiles share. Not an error — GPS resolves a live objective by zone id, so these
+ * route correctly — but the desc the player reads isn't a name they can look up,
+ * so new quests should prefer a uniquely-named tile where one exists.
+ */
+export function warnQuestAmbiguousTargets() {
+  const warnings = [];
+  try {
+    const { entries } = readContentTree();
+    const questFiles = entries.find(e => e.entry.table === 'quests')?.files || [];
+    const zoneFiles = entries.find(e => e.entry.table === 'zones')?.files || [];
+    if (!questFiles.length || !zoneFiles.length) return warnings;
+    const zoneName = new Map(zoneFiles.map(f => [f.data.id, f.data.name]));
+    const nameCount = new Map();
+    for (const f of zoneFiles) nameCount.set(f.data.name, (nameCount.get(f.data.name) || 0) + 1);
+    for (const f of questFiles) {
+      for (const o of f.data.objectives || []) {
+        if (!o?.zone) continue;
+        const real = zoneName.get(o.zone);
+        const n = nameCount.get(real) || 0;
+        if (n > 1) warnings.push(`quests/${f.name} ${o.id || '?'}: target ${o.zone} is named "${real}", shared by ${n} tiles`);
+      }
+    }
+  } catch (e) { warnings.push(`(objective-ambiguity scan skipped: ${e.message})`); }
+  return warnings;
 }
 
 // CLI entry
 import { fileURLToPath } from 'node:url';
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  // Advisory, never fatal: quest objectives aimed at a tile whose name is shared
+  // by others. These still route correctly (GPS prefers a live objective's own
+  // zone id), but the desc a player reads is not a name they can look up — so it
+  // is worth knowing about when authoring, and worth avoiding in new quests.
+  for (const w of warnQuestAmbiguousTargets()) console.warn(`  ! ${w}`);
   const errors = lintContentTree();
   if (errors.length) {
     console.error(`✗ content:lint — ${errors.length} problem(s):`);

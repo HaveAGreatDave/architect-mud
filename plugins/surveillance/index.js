@@ -1301,6 +1301,34 @@ registerAction({
 
 // Cross-plugin seam: read the CURRENT (decayed) wanted level — used by the flight plugin so
 // ground AA only opens up on wanted pilots (criminals), not law-abiding overflights.
+// Everyone currently carrying stars, for the Sentinel's police blotter.
+//
+// Reads the in-memory wanted runtime — there is no warrants TABLE, because a
+// warrant is live state that decays, and persisting it would mean writing on
+// every crime tick. That also makes this free: no query, just a walk of a Map
+// that is already in RAM, which is why a newspaper section can afford to call it.
+//
+// Handles only, and only for players actually online — a blotter is what the
+// street knows, not a database dump.
+registerAction({
+  type: 'WANTED_LIST',
+  handler: () => {
+    const out = [];
+    for (const [id, s] of wantedRuntime) {
+      if (!s?.stars) continue;
+      const p = getLivePlayer(id);
+      if (!p) continue;
+      out.push({
+        handle: p.handle,
+        stars: s.stars,
+        charges: [...new Set(s.charges || [])].slice(0, 3),
+      });
+    }
+    out.sort((a, b) => b.stars - a.stars || a.handle.localeCompare(b.handle));
+    return { type: 'wanted_list', wanted: out };
+  },
+});
+
 registerAction({
   type: 'WANTED_STARS',
   handler: ({ actor }) => ({ type: 'wanted', stars: wantedRuntime.get(actor?.id)?.stars || 0 }),

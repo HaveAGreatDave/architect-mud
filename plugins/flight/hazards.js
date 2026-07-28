@@ -12,6 +12,7 @@ import { query } from '../../server/models/db.js';
 import { skillCheck, effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { getZoneSeverity, getZonePrecip } from '../../server/engine/environment.js';
 import { on } from '../../server/engine/events.js';
+import { fireSpecializedAction } from '../../server/engine/specializedActions.js';
 
 // The ion storm's peak, mirrored locally off the weather-event signal so the
 // hazard roll never has to reach into the weather plugin. `weather.event` fires
@@ -390,6 +391,19 @@ async function cmdSquawk(args, raw, player) {
   return { type: 'emote', message: `Transponder set, squawking <b>${code}</b>. You read as legal traffic.` };
 }
 
+// `scan` also belongs to the library's lending terminal (a tag-gated specialized
+// action). A plugin command beats a specialized action in dispatch order, so flight
+// would otherwise eat the verb on the ground and answer "not aboard an aircraft" at
+// a terminal. Same hand-back contract as `eject` above: when you're not flying, this
+// isn't flight's verb — offer it to the specialized actions before refusing.
+async function cmdScanVerb(args, raw, player, broadcast) {
+  if (!player.aircraftId || !liveAircraft.get(player.aircraftId)) {
+    const handed = await fireSpecializedAction('scan', args, raw, player, broadcast);
+    if (handed !== undefined) return handed;
+  }
+  return cmdSpot(args, raw, player, broadcast);
+}
+
 export const commands = {
   extinguish: cmdExtinguish,
   eject: cmdEject,
@@ -397,7 +411,7 @@ export const commands = {
   preflight: cmdPreflight,
   hover: cmdHover,
   spot: cmdSpot,
-  scan: cmdSpot,
+  scan: cmdScanVerb,
   spray: cmdSpray,
   loadhopper: cmdLoadHopper,
   chart: cmdChart,

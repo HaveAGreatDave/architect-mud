@@ -484,4 +484,50 @@ export default async function regress({ run, check, getPlayer }) {
   // rather than throwing on an undefined deed.
   r = await run('tabletnav storefront');
   check('storefront app routes with no shop owned', r?.type === 'tablet_panel', JSON.stringify(r)?.slice(0, 120));
+
+  // ── Sports app ─────────────────────────────────────────────────────────────
+  // A season that has not been played is the NORMAL state on a fresh world, so
+  // every screen has to answer cleanly with an empty league rather than throwing
+  // on an undefined table — which is exactly what a regress DB looks like.
+  {
+    r = await run('tabletnav sports');
+    check('sports app routes', r?.type === 'tablet_panel' && !r?.error, JSON.stringify(r)?.slice(0, 140));
+    check('sports opens on a league table', r?.view === 'list' && Array.isArray(r?.items), JSON.stringify(r)?.slice(0, 140));
+    // Never an empty screen: an unplayed league still says so on a row.
+    check('an unplayed league still renders a row', (r?.items || []).length > 0, String((r?.items || []).length));
+    check('both codes are offered as tabs', (r?.tabs || []).length === 2, JSON.stringify(r?.tabs));
+
+    r = await run('tabletnav sports cluster_puck');
+    check('the hockey tab routes', r?.type === 'tablet_panel' && !r?.error, JSON.stringify(r)?.slice(0, 140));
+    check('the hockey tab is the hockey league', /CPhL/.test(r?.boardName || ''), r?.boardName);
+
+    // An unknown tab must fall back to a league, not blank the screen — the same
+    // rule the health app follows.
+    r = await run('tabletnav sports nonsense');
+    check('an unknown code falls back to a league', r?.view === 'list' && !r?.error, JSON.stringify(r)?.slice(0, 120));
+
+    // A team card for a club that has never played must still answer.
+    r = await run('tabletnav sports deadball Nobody');
+    check('a team card renders for an unknown club', r?.view === 'detail' && !r?.error, JSON.stringify(r)?.slice(0, 140));
+    // THE SPOILER RULE. A future fixture is computable — every game is a pure
+    // function of its slot — so the card must never print a score for a game that
+    // has not aired. This asserts the card carries no score field at all for the
+    // upcoming game, which is the only way to be sure one can't leak into the UI.
+    const nextRow = (r?.detail?.rows || []).find(x => x.label === 'Next game');
+    check('an upcoming fixture never shows a score',
+      !nextRow || !/\d+\s*[–-]\s*\d+/.test(String(nextRow.value)), JSON.stringify(nextRow));
+  }
+
+  // ── News: the blotter replaced the standings box ───────────────────────────
+  {
+    r = await run('tabletnav news');
+    const types = (r?.sections || []).map(s => s.type);
+    check('news renders sections', Array.isArray(r?.sections), JSON.stringify(types));
+    check('the police blotter is on the front page', types.includes('blotter'), JSON.stringify(types));
+    check('the standings box has left the front page', !types.includes('standings'), JSON.stringify(types));
+    const blot = (r?.sections || []).find(s => s.type === 'blotter');
+    // A quiet night is a real answer — it must say so rather than render nothing.
+    check('an empty blotter still says something',
+      !!blot && ((blot.entries || []).length > 0 || !!blot.quiet), JSON.stringify(blot)?.slice(0, 140));
+  }
 }

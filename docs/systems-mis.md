@@ -52,9 +52,35 @@ move it. Two people acting on each other need two grants.
 | Verb | Effect |
 |---|---|
 | `consent <player>` | grant |
+| `consent all` | **the open door** — accept advances from anyone (see below) |
 | `revoke <player>` / `revoke all` | withdraw; **stops any act in progress immediately**, not at the next beat |
-| `consent` | who you've let in, and who has let you in |
+| `consent` | who you've let in, and who has let you in (and whether your door is open) |
 | `consent ask <player>` | one line, rate-limited to one per pair per 10 min. A revoke is also a block: a revoked player can never ask again |
+
+### The open door (`consent all`)
+
+A player who would rather not field grants one at a time can open the door and
+accept advances from anyone. Three rules keep it from becoming a hole in the
+gate:
+
+- **It is one player's own state, and grants nothing outward.** An open door
+  lets others act on *you*; it never lets you act on them.
+- **A named `revoke` still wins**, and *shuts the door* as a side effect. This
+  is deliberate rather than cosmetic: the per-pair block is session-only RAM,
+  so leaving the door open would silently re-admit a revoked player on the next
+  restart. A consent state must never widen by itself, so the conservative
+  reading of "no" is the one taken — and the reply says so out loud, because the
+  player made a wider change than they typed.
+- **Named grants are a separate ledger** and survive the door closing. Opening
+  the door does not overwrite them, and `consent <player>` still records while
+  it is open.
+
+Storage is a **self-row** in `mis_consents` (`granter_id = grantee_id`) rather
+than a new table or a `players` column. `grant()` refuses a self-grant so the
+row can't mean anything else, the existing login hydrate already selects it (its
+`WHERE` matches both columns), and `hasConsent` stays **sync with zero extra
+queries** — which is the contract that matters, since it is called on every act
+path and every 8-second beat.
 
 Both verbs sit behind `misGate`, so an unopted player typing `consent` gets
 `Unknown command` like every other MIS verb — nobody learns the surface exists

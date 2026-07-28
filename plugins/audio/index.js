@@ -7,8 +7,9 @@ import { getZone, getZonePlayers, getLivePlayer, getZoneFurniture } from '../../
 import { neighborZoneIds } from '../../server/engine/exits.js';
 import { sendToZone, sendToPlayer, getBroadcast } from '../../server/engine/messaging.js';
 import { on, emit } from '../../server/engine/events.js';
+import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { propagateAudio, getWeatherLeakGain, getWeatherLeakSource } from '../../server/engine/sounds.js';
-import { getZonePrecip, getWindKph, getZonePowerStatus } from '../../server/engine/environment.js';
+import { getZonePrecip, getWindKph, getZonePowerStatus, activeWeatherEvent } from '../../server/engine/environment.js';
 
 // ── In-memory library cache (loaded from DB at boot, refreshed after CRUD) ──
 
@@ -302,11 +303,88 @@ const SFX_VAT_CHIME = {
 
 on('player.respawn', ({ player }) => {
   if (!player?.id) return;
-  const id = player.id;
+  vatSequence(player.id);
+});
+
+// The ordinary respawn: drain, boot, the seal breaking, the all-clear chime.
+function vatSequence(id) {
   sendToPlayer(id, { type: 'audio_sfx', def: SFX_VAT_DRAIN });
   setTimeout(() => sendToPlayer(id, { type: 'audio_sfx', def: SFX_VAT_BOOT  }), 900);
   setTimeout(() => sendToPlayer(id, { type: 'audio_sfx', def: SFX_VAT_OPEN  }), 1800);
   setTimeout(() => sendToPlayer(id, { type: 'audio_sfx', def: SFX_VAT_CHIME }), 2100);
+}
+
+// ── First time in the Clone Facility ─────────────────────────────────────────
+// You hear the vat cycle every time you die. The FIRST time is the one that
+// should land, because it is the only one where you don't yet know what it is —
+// so it gets a longer, heavier version of the same sequence plus a visual beat,
+// the same trick the holocaster uses: sound alone reads as a sound effect, sound
+// plus the room reacting reads as something happening TO you.
+//
+// The visual is the ion-storm overlay held for a few seconds. It is not weather
+// and never claims to be — it is the arc-and-etch layer the client already
+// renders, borrowed for the discharge of the thing that just printed a body. The
+// clear is unconditional and fires even if the player walks straight back out,
+// because a stuck overlay would read as a bug for the rest of the session.
+const VAT_FIRST_FLAG = 'seen_clone_vat';
+const VAT_FX_MS = 4200;
+
+// A deeper, slower spin-up than the routine one — the racks coming up cold.
+const SFX_VAT_FIRST_SWELL = {
+  id: 'sfx_vat_first_swell', name: 'sfx_vat_first_swell', category: 'sfx', priority: 9,
+  config: {
+    duration: 3.4,
+    layers: [
+      { waveform: 'sine', freq: 28, pitchBend: { to: 44, time: 3.0 }, adsr: { a: 1.2, d: 0.6, s: 0.8, r: 1.4 }, gain: 0.5 },
+      { waveform: 'sawtooth', freq: 41, pitchBend: { to: 96, time: 2.8 }, filter: { type: 'lowpass', freq: 700, q: 1.6 }, adsr: { a: 0.9, d: 0.5, s: 0.7, r: 1.2 }, gain: 0.3 },
+      { noiseMix: 0.7, filter: { type: 'bandpass', freq: 420, q: 3.2 }, tremolo: { rate: 7, depth: 0.7 }, adsr: { a: 1.4, d: 0.4, s: 0.6, r: 1.0 }, gain: 0.16 },
+    ],
+  },
+};
+
+// The discharge the overlay is drawing — a hard crack with a long room tail.
+const SFX_VAT_ARC = {
+  id: 'sfx_vat_arc', name: 'sfx_vat_arc', category: 'sfx', priority: 10,
+  config: {
+    duration: 2.2,
+    layers: [
+      { noiseMix: 1, filter: { type: 'highpass', freq: 2200, q: 0.8 }, adsr: { a: 0.001, d: 0.09, s: 0, r: 0.12 }, gain: 0.8 },
+      { waveform: 'sine', freq: 62, adsr: { a: 0.001, d: 0.5, s: 0.15, r: 1.6 }, gain: 0.7 },
+      { noiseMix: 0.5, filter: { type: 'bandpass', freq: 1100, q: 1.1 }, adsr: { a: 0.02, d: 1.1, s: 0.1, r: 1.4 }, gain: 0.22 },
+    ],
+  },
+};
+
+const CLONE_FACILITY_ZONES = new Set(['zone_start', 'zone_district_918_903']);
+
+on('zone.entered', async ({ actor, zone: zoneId }) => {
+  if (!actor?.id || !CLONE_FACILITY_ZONES.has(zoneId)) return;
+  try {
+    if (await getFlag('player', VAT_FIRST_FLAG, actor)) return;
+    await setFlag('player', VAT_FIRST_FLAG, '1', actor);
+  } catch { return; }   // can't record it → don't fire, or it repeats every entry
+
+  const id = actor.id;
+  sendToPlayer(id, { type: 'audio_sfx', def: SFX_VAT_FIRST_SWELL });
+  setTimeout(() => sendToPlayer(id, { type: 'audio_sfx', def: SFX_VAT_ARC }), 1500);
+  setTimeout(() => vatSequence(id), 2000);
+
+  // The visual borrows a GLOBAL channel: `weather_event` is normally broadcast to
+  // everyone on a real hero event, and the client only hears about it on a change.
+  // So if a genuine event is running we leave the screen alone entirely — the
+  // sound still lands, and stealing an acid-rain overlay for four seconds would be
+  // a worse trade than skipping the flourish. When we do borrow it, the restore
+  // re-sends the ACTUAL current state rather than a blind null, so we can never
+  // leave a player looking at clear skies through a storm.
+  if (activeWeatherEvent()) return;
+  sendToPlayer(id, { type: 'weather_event', eventType: 'ion_storm', phase: 'peak' });
+  const restore = () => {
+    const live = activeWeatherEvent();   // re-read: one may have begun while we held it
+    sendToPlayer(id, { type: 'weather_event', eventType: live?.type ?? null, phase: live?.phase ?? null });
+  };
+  // Drop off the peak first so it fades rather than blinking out.
+  setTimeout(() => { if (!activeWeatherEvent()) sendToPlayer(id, { type: 'weather_event', eventType: 'ion_storm', phase: null }); }, VAT_FX_MS - 1200);
+  setTimeout(restore, VAT_FX_MS);
 });
 
 // ── Ghost-mode audio ───────────────────────────────────────────────────────

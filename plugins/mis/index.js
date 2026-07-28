@@ -46,6 +46,7 @@ import { adjustRelation, getRelation, relationAtLeast } from '../../server/engin
 import {
   hasConsent, hydrateConsents, forgetSession, refusal,
   grant, revoke, revokeAll, grantedBy, grantedTo, canAsk, markAsked,
+  openAll, isOpenAll,
 } from './consent.js';
 import {
   exert, COLLAPSE_MSGS, isInfected, infect, npcInfected, takeProtection, transmits,
@@ -2116,12 +2117,25 @@ async function cmdConsent(args, raw, player, broadcast) {
   if (!sub) {
     const mine = grantedBy(player.id).map(id => getLivePlayer(id)?.handle || id);
     const theirs = grantedTo(player.id).map(id => getLivePlayer(id)?.handle || id);
+    const open = isOpenAll(player.id);
     const lines = [
-      `<span class="text-dim">You have consented to:</span> ${mine.length ? mine.join(', ') : 'nobody'}`,
+      open
+        ? `<span class="text-yellow">Your door is OPEN</span> <span class="text-dim">— you are accepting advances from anyone.</span>${mine.length ? ` <span class="text-dim">Named:</span> ${mine.join(', ')}` : ''}`
+        : `<span class="text-dim">You have consented to:</span> ${mine.length ? mine.join(', ') : 'nobody'}`,
       `<span class="text-dim">Consented to you:</span> ${theirs.length ? theirs.join(', ') : 'nobody'}`,
-      `<span class="text-dim">consent &lt;player&gt; · consent ask &lt;player&gt; · revoke &lt;player&gt; · revoke all</span>`,
+      `<span class="text-dim">consent &lt;player&gt; · consent all · consent ask &lt;player&gt; · revoke &lt;player&gt; · revoke all</span>`,
     ];
     return { type: 'output', message: lines.join('\n') };
+  }
+
+  // `consent all` — the open door. Deliberately spelled out rather than offered as
+  // a toggle: it is the widest thing a player can say here, and it should read
+  // like a sentence they meant to type. Any named revoke shuts it again.
+  if (sub === 'all') {
+    const fresh = await openAll(player.id);
+    return { type: 'output', message: fresh
+      ? `<span class="text-yellow">Your door is open.</span> Anyone may make an advance. <span class="text-dim">Shut it with</span> revoke all<span class="text-dim">, or turn one person away with</span> revoke &lt;player&gt;<span class="text-dim"> — which shuts it too.</span>`
+      : `Your door is already open.` };
   }
 
   if (sub === 'ask') {
@@ -2159,17 +2173,25 @@ async function cmdRevoke(args, raw, player, broadcast) {
 
   // `revoke all` — the panic button. Everything goes, and anything running stops.
   if (nameStr.toLowerCase() === 'all') {
-    const n = await revokeAll(player.id);
+    const { n, wasOpen } = await revokeAll(player.id);
     stopAnyActOn(player.id);
+    const door = wasOpen ? `<span class="text-yellow">Your door is shut.</span> ` : '';
     return { type: 'output', message: n
-      ? `Consent withdrawn from everyone (${n}). Anything in progress has stopped.`
-      : `You hadn't consented to anyone.` };
+      ? `${door}Consent withdrawn from everyone (${n}). Anything in progress has stopped.`
+      : wasOpen
+        ? `${door}Anything in progress has stopped.`
+        : `You hadn't consented to anyone.` };
   }
 
   const target = resolveAnyPlayer(nameStr, player);
   if (!target) return { type: 'error', message: `You don't see "${nameStr}" here.` };
-  const had = await revoke(player.id, target.id);
+  const { had, wasOpen } = await revoke(player.id, target.id);
   stopAnyActOn(player.id, target.id);
+  // Turning ONE person away closes an open door. Say so plainly — the player made
+  // a wider change than they typed, and silently narrowing their access later
+  // (when the session-only block is lost on restart) would be the worse failure.
+  if (wasOpen) return { type: 'output',
+    message: `${target.handle} is turned away, and <span class="text-yellow">your door is shut</span> — you are no longer accepting advances from anyone. Anything in progress has stopped.` };
   return { type: 'output', message: had
     ? `Consent withdrawn from ${target.handle}. Anything in progress has stopped.`
     : `${target.handle} didn't have your consent.` };

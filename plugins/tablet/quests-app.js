@@ -257,6 +257,19 @@ async function buildScreen(player, screenId, params) {
   }
 
   // Root: category list.
+  return rootScreen(player, rows);
+}
+
+// The app's root, built directly and defensively.
+//
+// Abandoning returns HERE and must never fall through to anything else: the
+// tablet's action path re-renders the CURRENT screen when a handler yields
+// nothing, so a throw in here would drop the player back on the detail of the
+// quest they just dropped — offering to take it again, which reads as the
+// abandon not having worked. The Steady Work tile reaches into another plugin,
+// so it is the one thing that can realistically fail; it is isolated rather than
+// allowed to take the screen down with it.
+async function rootScreen(player, rows) {
   const byCat = new Map();
   for (const r of rows) {
     const cat = r.category || defaultCategory(r);
@@ -265,9 +278,16 @@ async function buildScreen(player, screenId, params) {
   const items = [...byCat.entries()].map(([cat, count]) => ({ id: cat, label: cat, sub: `${count} active` }));
   // Steady Work is employment, not location-bound like a job board — surface it as
   // an always-present tile (a courier run in progress shows as its own count).
-  {
+  try {
     const held = await activeRun(player);
     items.push({ id: WORK_TILE, label: WORK_TILE, sub: held ? 'Run in progress' : 'Delivery runs available' });
+  } catch {
+    items.push({ id: WORK_TILE, label: WORK_TILE, sub: 'Delivery runs available' });
+  }
+  // An empty log is a real answer and should say so, rather than rendering as a
+  // bare Work tile that looks like a loading failure.
+  if (!byCat.size) {
+    items.unshift({ id: '', label: 'No active quests', sub: 'Nothing on your plate. Boards and people are where they come from.', badge: 'active', badgeLabel: '—' });
   }
   return { view: 'categories', breadcrumb: [], items };
 }
@@ -432,7 +452,12 @@ async function handleAction(player, actionId, params) {
       player.tracked_quest_id = null;
       await query('UPDATE players SET tracked_quest_id=NULL WHERE id=$1', [player.id]);
     }
-    return buildScreen(player, null, '');
+    // Straight to the root list, never back to the quest — landing on the detail
+    // of a quest you just dropped shows it with a TAKE button, which reads as the
+    // abandon having failed. Built from a re-read of the log so the dropped quest
+    // is definitely gone, and directly rather than through buildScreen so no other
+    // branch can claim the return.
+    return rootScreen(player, await myQuestRows(player.id));
   }
 
   return buildScreen(player, null, questId);

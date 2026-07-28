@@ -276,10 +276,40 @@ function formatStandings(rows, sport = 'baseball') {
   return [`${L.icon} ${L.show} — ${L.league} STANDINGS`, head, sep, ...lines].join('\n');
 }
 
-// The scoring race + the butcher's bill. Only leagues whose fold harvests them have
-// anything to print, which today is hockey — the one sport where a season costs lives.
+// A batting average, the way a scoreboard writes one: no leading zero, three
+// places. `.312`, not `0.312` — getting this wrong makes the whole table look
+// like a spreadsheet instead of a sports page.
+const fmtAvg = (v) => (v >= 1 ? '1.000' : (v || 0).toFixed(3).replace(/^0/, ''));
+
+// The per-player races each league harvests. Hockey counts goals and bodies;
+// baseball counts hitting. Both come out of the same season fold, so neither can
+// disagree with the table above it.
 function formatExtras(extras, sport) {
-  if (sport !== 'hockey' || !extras) return '';
+  if (!extras) return '';
+  if (sport === 'baseball') {
+    const out = [];
+    // Headers are BUILT from the same widths the cells use, never hand-spaced —
+    // a monospace table whose heading is three columns off its numbers is the
+    // kind of thing that survives forever because it is nobody's bug.
+    const NAME_W = 20;
+    const race = (title, cols, rows, cells) => {
+      if (!rows?.length) return;
+      const head = cols.map(([label, w]) => String(label).padStart(w)).join(' ');
+      out.push('', `  ${String(title).padEnd(NAME_W)} ${head}`);
+      for (const r of rows) out.push(`  ${String(r.name).padEnd(NAME_W)} ${cells(r).join(' ')}`);
+    };
+    race('BATTING', [['AVG', 5], ['AB', 4], ['H', 4]], extras.batters,
+      (r) => [fmtAvg(r.avg).padStart(5), String(r.ab).padStart(4), String(r.hits).padStart(4)]);
+    race('HOME RUNS', [['HR', 4], ['RBI', 4]], extras.homers,
+      (r) => [String(r.hr).padStart(4), String(r.rbi).padStart(4)]);
+    race('RUNS BATTED IN', [['RBI', 4], ['HR', 4]], extras.rbis,
+      (r) => [String(r.rbi).padStart(4), String(r.hr).padStart(4)]);
+    // Say the bar. A leaderboard that quietly drops a .600 hitter for want of
+    // at-bats looks broken unless it tells you why.
+    if (out.length && extras.minAb) out.push('', `  Qualified: ${extras.minAb}+ at-bats.`);
+    return out.join('\n');
+  }
+  if (sport !== 'hockey') return '';
   const out = [];
   if (extras.scorers?.length) {
     out.push('', '  SCORING RACE            G    A   PTS');

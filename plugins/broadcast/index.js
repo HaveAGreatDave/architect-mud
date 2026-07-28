@@ -5495,6 +5495,71 @@ registerAction({
   },
 });
 
+// A team's card: how they've been going, and when they're next on.
+//
+// SPOILER RULE — the one thing that makes this action delicate. Every game is a
+// pure function of its slot, so a FUTURE fixture can be simulated right now and
+// would hand back a final score for a game nobody has watched. So upcoming games
+// return the matchup and the airtime ONLY; the scores are computed (there is no
+// way not to) and deliberately dropped on the floor. Past games return results,
+// because those already aired.
+//
+// Bounded on both sides: this runs on a tablet tap, not a tick, and each slot
+// inspected is a full game sim.
+registerAction({
+  type: 'broadcast.getTeamCard',
+  handler: async ({ params = {} } = {}) => {
+    const { sport = 'baseball', team, back = 24, ahead = 24 } = params;
+    if (!team) return null;
+    const script = await anySportsScript(sport);
+    if (!script) return null;
+    const now = sportsSlotIndex();
+    const isOurs = (g) => g && (g.away.name === team || g.home.name === team);
+
+    // Form, newest first. Only games this club actually played.
+    const form = [];
+    for (let slot = now - 1; slot >= Math.max(0, now - back) && form.length < 5; slot--) {
+      const gs = sportsGameForSlot(script, slot, null);
+      if (!isOurs(gs?.game)) continue;
+      const g = gs.game;
+      const home = g.home.name === team;
+      const us = home ? g.homeScore : g.awayScore;
+      const them = home ? g.awayScore : g.homeScore;
+      form.push({
+        slot, home, opponent: home ? g.away.name : g.home.name,
+        us, them, won: us > them, overtime: !!g.overtime,
+      });
+    }
+
+    // The next time they're on. Matchup and airtime only — see the spoiler rule.
+    let next = null;
+    for (let slot = now; slot < now + ahead; slot++) {
+      const gs = sportsGameForSlot(script, slot, null);
+      if (!isOurs(gs?.game)) continue;
+      const g = gs.game;
+      next = {
+        slot,
+        home: g.home.name === team,
+        opponent: g.home.name === team ? g.away.name : g.home.name,
+        hour: ((slot % SPORTS_GAMES_PER_DAY) + SPORTS_GAMES_PER_DAY) % SPORTS_GAMES_PER_DAY * (24 / SPORTS_GAMES_PER_DAY),
+        slotsAway: slot - now,
+        live: slot === now,
+      };
+      break;
+    }
+
+    // Current streak, read off the form we already have — no extra simulation.
+    let streak = 0, streakWon = null;
+    for (const f of form) {
+      if (streakWon === null) { streakWon = f.won; streak = 1; continue; }
+      if (f.won !== streakWon) break;
+      streak++;
+    }
+
+    return { sport, team, form, next, streak, streakWon };
+  },
+});
+
 // One specific slot's result — used to crown the World Series from the finalists' game
 // (pass their names as `teams` so the WS override, not the regular schedule, is simmed).
 registerAction({

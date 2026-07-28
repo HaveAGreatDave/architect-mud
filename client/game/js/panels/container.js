@@ -175,6 +175,80 @@ function renderContainerPanel(data, { isOpen = false } = {}) {
   document.getElementById('container-take-all').style.display = allContentsCount ? '' : 'none';
 }
 
+// ── The item action menu ─────────────────────────────────────────────────────
+// What you can do with the thing you just clicked, derived from its TAGS rather
+// than from a hardcoded list — the same tags the engine gates its specialized
+// actions on, so the menu can't offer a verb the server will refuse, and a new
+// tagged item type gets its verb here for free.
+//
+// Everything routes through ordinary commands. This is a shortcut to typing, not
+// a second implementation of anything, which is why an unknown item still gets
+// Examine and Drop and nothing is ever unreachable.
+const ITEM_ACTIONS = [
+  // tag            label        command builder                 needs to be held?
+  { tag: 'consumable', label: 'Eat',      cmd: (n) => `eat ${n}`,      held: true },
+  { tag: 'drug',       label: 'Use',      cmd: (n) => `use ${n}`,      held: true },
+  { tag: 'drinkware',  label: 'Drink',    cmd: (n) => `drink ${n}`,    held: true },
+  { tag: 'fillable',   label: 'Fill',     cmd: (n) => `fill ${n}`,     held: true },
+  { tag: 'slot',       label: 'Wear',     cmd: (n) => `wear ${n}`,     held: true },
+  { tag: 'readable',   label: 'Read',     cmd: (n) => `read ${n}`,     held: false },
+  { tag: 'container',  label: 'Open',     cmd: (n) => `open ${n}`,     held: false },
+];
+
+function closeItemActions() {
+  document.querySelector('.ctr-actions-pop')?.remove();
+  document.removeEventListener('click', onDocCloseActions, true);
+}
+function onDocCloseActions(e) {
+  if (e.target.closest('.ctr-actions-pop') || e.target.closest('.ctr-item-card')) return;
+  closeItemActions();
+}
+
+function openItemActions(item, source, containerId, anchor) {
+  closeItemActions();
+  const tags = item.tags || {};
+  const inBox = source !== 'inv';
+  const name = item.name;
+
+  const rows = [];
+  // Move first: it is what the panel is for, and it is what most clicks want.
+  rows.push(inBox
+    ? { label: 'Take out', run: async () => {
+        const q = await promptQty(item.quantity, 'Take');
+        if (q != null) sendCmdSilent(`pullid ${item.id}${item.quantity > 1 ? ` ${q}` : ''}`);
+      } }
+    : { label: 'Put in', run: async () => {
+        const q = await promptQty(item.quantity, 'Stow');
+        if (q != null) sendCmdSilent(`stowid ${item.id} ${containerId}${item.quantity > 1 ? ` ${q}` : ''}`);
+      } });
+
+  for (const a of ITEM_ACTIONS) {
+    if (!tags[a.tag]) continue;
+    // A verb that acts on something you're HOLDING can't reach into the box, so
+    // it takes the item out first and then acts. Stating that in the label beats
+    // offering a button that quietly does nothing.
+    rows.push(a.held && inBox
+      ? { label: `${a.label} (take out first)`, run: () => { sendCmdSilent(`pullid ${item.id}`); setTimeout(() => sendCmdSilent(a.cmd(name)), 120); } }
+      : { label: a.label, run: () => sendCmdSilent(a.cmd(name)) });
+  }
+  rows.push({ label: 'Examine', run: () => sendCmdSilent(`examine ${name}`) });
+  if (!inBox) rows.push({ label: 'Drop', run: () => sendCmdSilent(`drop ${name}`) });
+
+  const pop = document.createElement('div');
+  pop.className = 'ctr-actions-pop';
+  pop.innerHTML = `<div class="ctr-actions-head">${name}</div>`;
+  for (const r of rows) {
+    const b = document.createElement('button');
+    b.className = 'ctr-actions-item';
+    b.textContent = r.label;
+    b.onclick = (e) => { e.stopPropagation(); closeItemActions(); r.run(); };
+    pop.appendChild(b);
+  }
+  anchor.appendChild(pop);
+  // Deferred, or the click that opened this menu closes it on the way back up.
+  setTimeout(() => document.addEventListener('click', onDocCloseActions, true), 0);
+}
+
 function renderList(listId, items, source, containerId) {
   const list = document.getElementById(listId);
   list.innerHTML = '';
@@ -219,6 +293,15 @@ function renderList(listId, items, source, containerId) {
       };
       card.appendChild(btn);
     }
+
+    // Clicking the item itself opens what you can DO with it. A container panel
+    // that only knows "stow" and "take" makes you close it, type `examine`, and
+    // open it again to do anything real — so the box became a filing cabinet
+    // instead of a place your things live.
+    card.onclick = (e) => {
+      if (e.target.closest('.ctr-action-btn')) return;   // the move button owns its own click
+      openItemActions(item, source, containerId, card);
+    };
 
     card.ondragstart = (e) => {
       containerDraggedId = item.id;

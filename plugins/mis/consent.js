@@ -23,6 +23,18 @@ import { query } from '../../server/models/db.js';
 // granterId → Set<granteeId>. "Who has this player let in."
 const grants = new Map();
 
+/**
+ * OPEN DOOR — `consent all`. Players who accept advances from anyone.
+ *
+ * Durable, because it is a consent state and must survive a restart. It is
+ * stored as a SELF-ROW in `mis_consents` (granter_id = grantee_id) rather than a
+ * new table or a `players` column: `grant()` refuses a self-grant so the row can
+ * mean nothing else, `hydrateConsents` already selects it (its WHERE matches both
+ * columns), and `hasConsent` stays SYNC with zero extra queries at login. A
+ * self-row also can't affect the self-act path, which short-circuits above it.
+ */
+const openDoor = new Set();
+
 // `${askerId}:${targetId}` → epoch ms of the last ask. RAM-only and deliberately
 // not persisted: the rate limit exists to stop someone spamming the same person
 // in a session, and losing it on restart costs nothing.
@@ -47,6 +59,7 @@ export async function hydrateConsents(playerId) {
     `SELECT granter_id, grantee_id FROM mis_consents WHERE granter_id=$1 OR grantee_id=$1`,
     [playerId]);
   for (const r of rows) {
+    if (r.granter_id === r.grantee_id) { openDoor.add(r.granter_id); continue; }  // the open-door sentinel
     if (!grants.has(r.granter_id)) grants.set(r.granter_id, new Set());
     grants.get(r.granter_id).add(r.grantee_id);
   }
@@ -61,7 +74,30 @@ export async function hydrateConsents(playerId) {
 export function hasConsent(actorId, targetId) {
   if (!actorId || !targetId) return false;
   if (actorId === targetId) return true;      // self-verbs never need a grant
-  return grants.get(targetId)?.has(actorId) === true;
+  if (grants.get(targetId)?.has(actorId) === true) return true;
+  // Open door. A named revoke still wins over it — see `revoke`, which also shuts
+  // the door — so the specific "no" can never be outranked by the general "yes".
+  return openDoor.has(targetId) && !revoked.get(`${targetId}:${actorId}`);
+}
+
+/** Is this player accepting advances from anyone? */
+export function isOpenAll(granterId) { return openDoor.has(granterId); }
+
+/** `consent all`. Returns false if the door was already open. */
+export async function openAll(granterId) {
+  if (openDoor.has(granterId)) return false;
+  openDoor.add(granterId);
+  await query(
+    `INSERT INTO mis_consents (granter_id, grantee_id) VALUES ($1,$1) ON CONFLICT DO NOTHING`,
+    [granterId]);
+  return true;
+}
+
+/** Shut the door. Named grants are untouched — they were given separately. */
+export async function closeAll(granterId) {
+  const was = openDoor.delete(granterId);
+  await query(`DELETE FROM mis_consents WHERE granter_id=$1 AND grantee_id=$1`, [granterId]);
+  return was;
 }
 
 /** Everyone this player has granted. */
@@ -79,7 +115,10 @@ export function grantedTo(granteeId) {
 /** Grant. Returns false if it was already in place (so the caller can say so). */
 export async function grant(granterId, granteeId) {
   if (granterId === granteeId) return false;
-  if (hasConsent(granteeId, granterId)) return false;
+  // Deliberately checks the EXPLICIT set, not hasConsent: while the door is open
+  // hasConsent answers true for everyone, and that must not stop a named grant
+  // being recorded — it is what survives the door being shut again.
+  if (grants.get(granterId)?.has(granteeId) === true) return false;
   if (!grants.has(granterId)) grants.set(granterId, new Set());
   grants.get(granterId).add(granteeId);
   revoked.delete(`${granterId}:${granteeId}`);   // granting again lifts the block
@@ -98,7 +137,12 @@ export async function revoke(granterId, granteeId) {
   const had = grants.get(granterId)?.delete(granteeId) === true;
   await query(`DELETE FROM mis_consents WHERE granter_id=$1 AND grantee_id=$2`, [granterId, granteeId]);
   revoked.set(`${granterId}:${granteeId}`, true);
-  return had;
+  // Saying no to ONE person while the door is open shuts the door. The block
+  // itself is session-only RAM, so leaving the door open would silently re-admit
+  // them on the next restart — and a consent state must never widen by itself.
+  // Closing is the conservative reading of "no", and the caller says so out loud.
+  const wasOpen = await closeAll(granterId);
+  return { had, wasOpen };
 }
 
 /**
@@ -119,8 +163,10 @@ export async function revokeAll(granterId) {
   const n = set ? set.size : 0;
   if (set) for (const g of set) revoked.set(`${granterId}:${g}`, true);
   grants.delete(granterId);
+  const wasOpen = openDoor.delete(granterId);   // the panic button shuts the door too
+  // One statement clears the named grants AND the self-row sentinel.
   await query(`DELETE FROM mis_consents WHERE granter_id=$1`, [granterId]);
-  return n;
+  return { n, wasOpen };
 }
 
 /**
@@ -147,6 +193,7 @@ export function markAsked(askerId, targetId) {
  */
 export function forgetSession(playerId) {
   grants.delete(playerId);
+  openDoor.delete(playerId);   // durable in the table; rehydrates at next login
   for (const k of [...asks.keys()]) if (k.startsWith(`${playerId}:`) || k.endsWith(`:${playerId}`)) asks.delete(k);
   for (const k of [...revoked.keys()]) if (k.startsWith(`${playerId}:`) || k.endsWith(`:${playerId}`)) revoked.delete(k);
 }
@@ -155,7 +202,8 @@ export function forgetSession(playerId) {
 // table, which is what lets the regress suite exercise every gate without
 // inserting rows for players that don't exist (the plugin-standard convention
 // is that a suite creates no rows).
-export function _resetConsents() { grants.clear(); asks.clear(); revoked.clear(); }
+export function _resetConsents() { grants.clear(); asks.clear(); revoked.clear(); openDoor.clear(); }
+export function _seedOpenAll(granterId) { openDoor.add(granterId); }
 export function _seedGrant(granterId, granteeId) {
   if (!grants.has(granterId)) grants.set(granterId, new Set());
   grants.get(granterId).add(granteeId);

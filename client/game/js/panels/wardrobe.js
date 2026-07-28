@@ -30,7 +30,35 @@ let equippedNow = [];
 // the two images has to be, never because it is a default about anybody.
 let dollSex = 'male';
 
-// Pads on the mannequin, in render order. `accessory` is the only multi pad.
+// ── The doll is LAYERED ──────────────────────────────────────────────────────
+// The engine equips one item per slot PER LAYER (underwear < outerwear < armor —
+// see the `layer` tag), which is why you can wear a cap under a helmet. The doll
+// used to hold a single piece per slot, so composing that outfit was impossible:
+// dropping the helmet silently threw the cap away, and the saved look came out
+// wrong in a way nothing reported.
+//
+// Modelling the layers fixes that AND is where hats and helmets get their own
+// homes — they are not two slots, they are one slot at two depths.
+const LAYERS = ['underwear', 'outerwear', 'armor'];
+const layerOf = (item) => {
+  const l = item?.tags?.layer;
+  return LAYERS.includes(l) ? l : 'outerwear';   // the engine's own default
+};
+
+// Per-slot layer captions. Naming the layer for the body part it's on is the
+// whole readability win — "Armor" on a head pad means nothing, "Helmet" is
+// instantly a thing you own.
+const LAYER_LABELS = {
+  head:  { underwear: 'Liner',   outerwear: 'Hat',      armor: 'Helmet' },
+  torso: { underwear: 'Vest',    outerwear: 'Shirt',    armor: 'Plate'  },
+  hands: { underwear: 'Liner',   outerwear: 'Gloves',   armor: 'Gauntlets' },
+  legs:  { underwear: 'Shorts',  outerwear: 'Trousers', armor: 'Greaves' },
+  feet:  { underwear: 'Socks',   outerwear: 'Shoes',    armor: 'Boots'  },
+};
+const layerLabel = (slot, layer) => LAYER_LABELS[slot]?.[layer] || layer;
+
+// Pads on the mannequin, in render order. `accessory` is the only multi pad and
+// the only one with no layers — the engine ignores layer there.
 const PADS = [
   { slot: 'head',      label: 'Head' },
   { slot: 'torso',     label: 'Torso' },
@@ -95,6 +123,10 @@ function renderWardrobePanel(data) {
   renderOutfits(data.outfits || []);
   renderStock('wardrobe-hanging-list', wearable(data.containerItems), 'hanging');
   renderStock('wardrobe-carried-list', wearable(data.invItems), 'carried');
+  // Idempotent — the rails are persistent elements, so this wires them once and
+  // no-ops on every later refresh.
+  wireRailDrop('wardrobe-hanging-list', 'hanging');
+  wireRailDrop('wardrobe-carried-list', 'carried');
   renderDoll();
 }
 
@@ -134,10 +166,15 @@ function renderOutfits(outfits) {
     // same name overwrites, which is how you tweak an existing look.
     card.onclick = () => {
       doll = {};
+      // Through placeOnDoll like every other route, so a saved look reloads into
+      // the same layered shape it was composed in. Doing it by hand here is what
+      // used to write the old flat shape back over the new one.
       for (const i of outfit.items) {
         if (!i.slot) continue;
-        if (i.slot === 'accessory') (doll.accessory ||= []).push({ itemId: i.itemId, name: i.name });
-        else doll[i.slot] = { itemId: i.itemId, name: i.name };
+        placeOnDoll(i.slot, {
+          itemId: i.itemId, name: i.name,
+          layer: LAYERS.includes(i.layer) ? i.layer : 'outerwear',
+        });
       }
       editingName = outfit.name;
       document.getElementById('wardrobe-outfit-name').value = outfit.name;
@@ -177,24 +214,84 @@ function renderStock(listId, items, source) {
     card.appendChild(btn);
 
     card.ondragstart = (e) => {
-      draggedItem = { itemId: item.item_id, name: item.name, slot: slotOf(item) };
+      // `row` and `source` are what let a garment be dragged between the rails as
+      // well as onto the doll — the doll only ever needs the template id, but
+      // moving a real garment in or out of the box needs its inventory ROW.
+      draggedItem = {
+        itemId: item.item_id, name: item.name, slot: slotOf(item), layer: layerOf(item),
+        row: item.id, source,
+      };
       card.classList.add('dragging');
-      e.dataTransfer.effectAllowed = 'copy';
+      e.dataTransfer.effectAllowed = 'copyMove';
       highlightPads(draggedItem.slot);
+      highlightRails(source);
     };
-    card.ondragend = () => { card.classList.remove('dragging'); highlightPads(null); };
+    card.ondragend = () => { card.classList.remove('dragging'); highlightPads(null); highlightRails(null); };
 
     // Tap to arm (tap again to disarm) — the touch route onto the doll.
     card.onclick = () => {
       armedItem = armedItem?.id === item.id
         ? null
-        : { id: item.id, itemId: item.item_id, name: item.name, slot: slotOf(item) };
+        : { id: item.id, itemId: item.item_id, name: item.name, slot: slotOf(item), layer: layerOf(item), row: item.id, source };
       syncArmed();
     };
     if (armedItem?.id === item.id) card.classList.add('wdr-armed');
     card.setAttribute('data-item', item.id);
     list.appendChild(card);
   }
+}
+
+// ── Moving garments between the rails ────────────────────────────────────────
+// Hang and take were buttons only, which made "put this away" a hunt for a small
+// word on a card. The rails are now drop targets too, so a garment can simply be
+// thrown at the other side — the same gesture that dresses the doll.
+//
+// The OPPOSITE rail lights up, never the one it came from: dropping a hanging
+// coat back on the rail it is already on should look like nothing, because it is.
+function highlightRails(source) {
+  const rails = {
+    carried: document.getElementById('wardrobe-carried-list')?.closest('.wdr-rail') || document.getElementById('wardrobe-carried-list'),
+    hanging: document.getElementById('wardrobe-hanging-list')?.closest('.wdr-rail') || document.getElementById('wardrobe-hanging-list'),
+  };
+  for (const [name, el] of Object.entries(rails)) {
+    if (!el) continue;
+    el.classList.toggle('wdr-rail-eligible', !!source && source !== name);
+  }
+}
+
+// Wire one rail as a drop target. `into` is what a garment landing here becomes.
+function wireRailDrop(listId, into) {
+  const list = document.getElementById(listId);
+  if (!list || list._wdrWired) return;
+  const zone = list.closest('.wdr-rail') || list;
+  const moveHere = () => {
+    if (!draggedItem || draggedItem.source === into || !draggedItem.row) return false;
+    // stowid pushes a carried row into the box; pullid takes one out. Both are the
+    // same commands the hang/take buttons send — this is a second route to them,
+    // not a second implementation.
+    sendCmdSilent(into === 'hanging'
+      ? `stowid ${draggedItem.row} ${activeWardrobeId}`
+      : `pullid ${draggedItem.row}`);
+    draggedItem = null;
+    highlightPads(null); highlightRails(null);
+    return true;
+  };
+  zone.addEventListener('dragover', (e) => { if (draggedItem && draggedItem.source !== into) e.preventDefault(); });
+  zone.addEventListener('dragenter', () => { if (draggedItem && draggedItem.source !== into) zone.classList.add('ctr-drag-over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('ctr-drag-over'));
+  zone.addEventListener('drop', (e) => { e.preventDefault(); zone.classList.remove('ctr-drag-over'); moveHere(); });
+  // Touch route: arm a garment, tap the far rail. Mirrors the doll's tap-to-place
+  // exactly, because HTML5 drag fires nothing on a phone.
+  zone.addEventListener('click', (e) => {
+    if (!armedItem || armedItem.source === into || !armedItem.row) return;
+    if (e.target.closest('.wdr-garment')) return;   // a tap ON a card is arm/disarm
+    sendCmdSilent(into === 'hanging'
+      ? `stowid ${armedItem.row} ${activeWardrobeId}`
+      : `pullid ${armedItem.row}`);
+    armedItem = null;
+    syncArmed();
+  });
+  list._wdrWired = true;
 }
 
 // Light up the pad a dragged garment can actually land on, so a mis-drop is
@@ -216,14 +313,16 @@ function syncArmed() {
 }
 
 // The one place a garment lands on the doll — shared by the drop handler and
-// the tap handler so the two routes can never drift apart.
+// the tap handler so the two routes can never drift apart. A piece replaces only
+// what shares its LAYER, so a helmet no longer evicts the cap under it.
 function placeOnDoll(slot, piece) {
   if (slot === 'accessory') {
     const acc = (doll.accessory ||= []);
     if (!acc.some(p => p.itemId === piece.itemId) && acc.length < 3) acc.push(piece);
-  } else {
-    doll[slot] = piece;   // one piece per slot — a drop replaces what's there
+    return;
   }
+  const byLayer = (doll[slot] ||= {});
+  byLayer[piece.layer || 'outerwear'] = piece;
 }
 
 function renderDoll() {
@@ -241,17 +340,32 @@ function renderDoll() {
     pad.className = `wdr-pad wdr-pad-${slot}`;
     pad.setAttribute('data-slot', slot);
 
-    const filled = slot === 'accessory' ? (doll.accessory || []) : (doll[slot] ? [doll[slot]] : []);
-    const worn = filled.map((p, idx) =>
-      `<span class="wdr-worn" data-idx="${idx}" title="Click to remove">${p.name}</span>`).join('');
-    pad.innerHTML = `<span class="wdr-pad-label">${label}</span><span class="wdr-pad-items">${worn || '<span class="wdr-pad-empty">—</span>'}</span>`;
+    if (slot === 'accessory') {
+      const worn = (doll.accessory || []).map((p, idx) =>
+        `<span class="wdr-worn" data-idx="${idx}" title="Click to remove">${p.name}</span>`).join('');
+      pad.innerHTML = `<span class="wdr-pad-label">${label}</span>`
+        + `<span class="wdr-pad-items">${worn || '<span class="wdr-pad-empty">—</span>'}</span>`;
+    } else {
+      // One ROW PER LAYER, innermost first, so the pad reads the way the body is
+      // dressed — and an empty row is a visible invitation rather than a hidden
+      // capability. Rows only appear for layers this slot can actually take.
+      const byLayer = doll[slot] || {};
+      const rows = LAYERS.map(layer => {
+        const p = byLayer[layer];
+        const cell = p
+          ? `<span class="wdr-worn" data-layer="${layer}" title="Click to remove">${p.name}</span>`
+          : `<span class="wdr-pad-empty">—</span>`;
+        return `<span class="wdr-layer-row${p ? ' on' : ''}" data-layer="${layer}">`
+          + `<span class="wdr-layer-name">${layerLabel(slot, layer)}</span>${cell}</span>`;
+      }).join('');
+      pad.innerHTML = `<span class="wdr-pad-label">${label}</span><span class="wdr-pad-layers">${rows}</span>`;
+    }
 
     for (const el of pad.querySelectorAll('.wdr-worn')) {
       el.onclick = (e) => {
         e.stopPropagation();   // don't let a remove double as a place on the pad below
-        const idx = Number(el.getAttribute('data-idx'));
-        if (slot === 'accessory') doll.accessory.splice(idx, 1);
-        else delete doll[slot];
+        if (slot === 'accessory') doll.accessory.splice(Number(el.getAttribute('data-idx')), 1);
+        else delete (doll[slot] || {})[el.getAttribute('data-layer')];
         renderDoll();
       };
     }
@@ -267,7 +381,7 @@ function renderDoll() {
       e.preventDefault();
       pad.classList.remove('ctr-drag-over');
       if (!draggedItem || draggedItem.slot !== slot) return;
-      placeOnDoll(slot, { itemId: draggedItem.itemId, name: draggedItem.name });
+      placeOnDoll(slot, { itemId: draggedItem.itemId, name: draggedItem.name, layer: draggedItem.layer });
       draggedItem = null;
       renderDoll();
     });
@@ -275,7 +389,7 @@ function renderDoll() {
     // Tap route: an armed garment lands on any pad that matches its slot.
     pad.onclick = () => {
       if (!armedItem || armedItem.slot !== slot) return;
-      placeOnDoll(slot, { itemId: armedItem.itemId, name: armedItem.name });
+      placeOnDoll(slot, { itemId: armedItem.itemId, name: armedItem.name, layer: armedItem.layer });
       armedItem = null;
       renderDoll();
     };
@@ -343,7 +457,7 @@ export function initWardrobePanel() {
     doll = {};
     for (const p of equippedNow) {
       if (!p.slot) continue;
-      placeOnDoll(p.slot, { itemId: p.itemId, name: p.name });
+      placeOnDoll(p.slot, { itemId: p.itemId, name: p.name, layer: LAYERS.includes(p.layer) ? p.layer : 'outerwear' });
     }
     editingName = '';
     nameInput.value = '';

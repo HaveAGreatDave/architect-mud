@@ -13,6 +13,8 @@ import { dispatchAction } from '../../server/engine/actions.js';
 import { getHUDPayload, getForecast } from '../../server/engine/environment.js';
 import { registerTabletApp } from './registry.js';
 import { getStories } from './news-generator.js';
+import { query } from '../../server/models/db.js';
+import { getZone } from '../../server/engine/world.js';
 
 // ── Section: Weather ─────────────────────────────────────────────────────────
 // A self-contained weather widget: today's conditions up top (the same live
@@ -64,77 +66,73 @@ async function headlinesSection() {
   return { id: 'headlines', title: '🗞️ Word on the Street', type: 'headlines', stories };
 }
 
-// ── Section: DEADBALL sports standings ──────────────────────────────────────
-// Reads the league table + season state through the sportsleague plugin's own
-// Action seams (never its tables directly), then shapes a compact league table
-// for the widget. Win% and run differential are computed here so the client
-// stays a dumb renderer.
-//
-// The standings table only carries teams that have PLAYED; the full DEADBALL
-// roster lives in the broadcast plugin (broadcast.getSportsTeams). We union the
-// two so the whole league shows from the start — a never-played team appears at
-// 0-0 and sinks below any team that's on the board, matching the command's sort.
-async function standingsSection(player) {
-  const [standings, season, roster] = await Promise.all([
-    dispatchAction({ type: 'sportsleague.getStandings', actor: player }),
-    dispatchAction({ type: 'sportsleague.getSeason', actor: player }),
-    dispatchAction({ type: 'broadcast.getSportsTeams', actor: player }).catch(() => null),
+async function blotterSection(player) {
+  const [warrants, deaths] = await Promise.all([
+    dispatchAction({ type: 'WANTED_LIST', actor: player }).catch(() => null),
+    query(
+      `SELECT d.cause_label, d.cause_type, d.game_time, d.zone_id, p.handle
+         FROM player_deaths d LEFT JOIN players p ON p.id = d.player_id
+        ORDER BY d.real_ts DESC LIMIT 6`
+    ).catch(() => ({ rows: [] })),
   ]);
-  const played = standings?.rows || [];
-  const s = season || {};
 
-  // Merge played rows with the full roster; anyone missing plays at 0-0.
-  const byTeam = new Map(played.map(r => [r.team, r]));
-  for (const name of (roster?.teams || [])) {
-    if (!byTeam.has(name)) byTeam.set(name, { team: name, wins: 0, losses: 0, runs_for: 0, runs_against: 0 });
+  const entries = [];
+  for (const w of (warrants?.wanted || []).slice(0, 5)) {
+    entries.push({
+      kind: 'warrant',
+      stars: w.stars,
+      who: w.handle,
+      what: w.charges?.length ? w.charges.map(prettyCharge).join(', ') : 'outstanding charges',
+    });
+  }
+  for (const d of (deaths?.rows || [])) {
+    entries.push({
+      kind: 'incident',
+      who: d.handle || 'an unidentified body',
+      what: d.cause_label || prettyCharge(d.cause_type) || 'cause undetermined',
+      where: zoneName(d.zone_id),
+      when: d.game_time || '',
+    });
   }
 
-  // Canonical order: win% → wins → run diff → name, with never-played teams last
-  // (a played 0-1 team still outranks an unplayed 0-0 team, mirroring the SQL sort).
-  const rd = (r) => (r.runs_for || 0) - (r.runs_against || 0);
-  const rows = [...byTeam.values()].sort((a, b) => {
-    const ga = a.wins + a.losses, gb = b.wins + b.losses;
-    const pa = ga ? a.wins / ga : -1, pb = gb ? b.wins / gb : -1;
-    if (pb !== pa) return pb - pa;
-    if (b.wins !== a.wins) return b.wins - a.wins;
-    if (rd(b) !== rd(a)) return rd(b) - rd(a);
-    return a.team.localeCompare(b.team);
-  });
-
-  const teams = rows.map((r, i) => {
-    const games = r.wins + r.losses;
-    const pctRaw = games ? r.wins / games : 0;
-    const pct = games ? (pctRaw >= 1 ? '1.000' : pctRaw.toFixed(3).replace(/^0/, '')) : '.000';
-    const diff = rd(r);
+  // Nothing at all is a real state and reads better said out loud than as an
+  // empty box — a quiet night is characterful in a city like this one.
+  if (!entries.length) {
     return {
-      rank: i + 1,
-      team: r.team,
-      wins: r.wins,
-      losses: r.losses,
-      pct,
-      rd: (diff > 0 ? '+' : '') + diff,
+      id: 'blotter', title: '🚔 Police Blotter', type: 'blotter',
+      subtitle: 'Filed by Precinct 9',
+      entries: [], quiet: 'No arrests, no bodies, no complaints upheld. Enjoy it.',
     };
-  });
-
-  const seasonLine = (s.phase === 'worldseries' && s.finalistA)
-    ? `Season ${s.seasonNo} · WORLD SERIES — ${s.finalistA} vs ${s.finalistB}`
-    : `Season ${s.seasonNo || 1} · Regular Season`;
-
+  }
+  const warrantCount = (warrants?.wanted || []).length;
   return {
-    id: 'standings',
-    title: '⚾ DEADBALL — Coldwater League',
-    type: 'standings',
-    subtitle: seasonLine,
-    teams,
+    id: 'blotter', title: '🚔 Police Blotter', type: 'blotter',
+    subtitle: warrantCount
+      ? `${warrantCount} active warrant${warrantCount === 1 ? '' : 's'} · Filed by Precinct 9`
+      : 'Filed by Precinct 9',
+    entries,
   };
 }
+
+// crime keys are snake_case machine strings; a newspaper prints English.
+function prettyCharge(k) {
+  if (!k) return '';
+  return String(k).replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase());
+}
+function zoneName(id) {
+  if (!id) return '';
+  return getZone(id)?.name || '';
+}
+
 
 // The section roster, in feed order. Each entry is an async builder; a builder
 // that throws or returns null is simply skipped so one dead section never blanks
 // the whole feed.
 // Front-page order: the headline column leads (it's the lead article, drop-capped
 // on the client), then the weather bureau box, then the sports box.
-const SECTIONS = [headlinesSection, weatherSection, standingsSection];
+// Standings left the front page when the Sports app landed — a league table is a
+// screen of its own, not a squeezed box, and the blotter is the better lead.
+const SECTIONS = [headlinesSection, weatherSection, blotterSection];
 
 async function buildSections(player) {
   const built = await Promise.all(SECTIONS.map(fn => fn(player).catch(() => null)));
