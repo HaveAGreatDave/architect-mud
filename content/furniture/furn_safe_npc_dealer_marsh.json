@@ -1,7 +1,7 @@
 {
-  "description": "A squat floor safe tucked behind the counter, bolted down and unremarkable, its dial worn from years of the same fingers spinning the same combination.",
+  "description": "A squat holo-lock safe wedged under the bed, bolted through the floor into whatever is below. The lock panel glows dull orange. Everything they sell comes out of this in the morning and the takings go back in at night.",
   "flags": {
-    "hack_difficulty": 5,
+    "hack_difficulty": 6,
     "vendor_npc_id": "npc_dealer_marsh",
     "vendor_safe": true
   },
@@ -14,5 +14,5 @@
   "object_type": "fixture",
   "power_draw_kw": null,
   "price": 600,
-  "zone_id": "zone_mq_chrome_103"
+  "zone_id": "zone_yards_tenement_u3_1"
 }

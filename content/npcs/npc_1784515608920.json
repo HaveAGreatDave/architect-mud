@@ -221,12 +221,12 @@
   "studio_zone_id": null,
   "vendor_inventory": [
     {
-      "item_id": "item_scrap_pistol",
-      "price": 168
+      "item_id": "item_nitrous",
+      "price": 35
     },
     {
-      "item_id": "item_holdout_pistol",
-      "price": 126
+      "item_id": "item_dxm",
+      "price": 70
     },
     {
       "item_id": "item_combat_knife",
@@ -237,20 +237,28 @@
       "price": 91
     },
     {
-      "item_id": "item_riot_shotgun",
-      "price": 224
-    },
-    {
-      "item_id": "item_hack_deck",
-      "price": 630
+      "item_id": "item_holdout_pistol",
+      "price": 126
     },
     {
       "item_id": "item_screamers",
       "price": 140
     },
     {
+      "item_id": "item_scrap_pistol",
+      "price": 168
+    },
+    {
+      "item_id": "item_riot_shotgun",
+      "price": 224
+    },
+    {
       "item_id": "item_khole",
       "price": 252
+    },
+    {
+      "item_id": "item_hack_deck",
+      "price": 630
     }
   ],
   "vendor_restock_rate": 1,

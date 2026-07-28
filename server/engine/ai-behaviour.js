@@ -1334,16 +1334,27 @@ async function execAction(node, entity, ctx) {
     // VENDOR_COLLECT_SAFE: find linked safe in work zone, take 25% of vendor_credits.
     case 'VENDOR_COLLECT_SAFE': {
       if (!ai) break;
-      const workZone = entity.work_zone_id;
-      if (!workZone) break;
 
       try {
-        // Find the safe linked to this NPC in the work zone
+        // Find the safe by its LINK, not by the work zone.
+        //
+        // It used to require `work_zone_id` and search only there, which quietly
+        // did nothing for any vendor whose safe lives somewhere else — a dealer
+        // keeping the takings at home rather than behind a counter, say. Both
+        // Coldwater dealers were in exactly that state: safes bolted down in one
+        // district, owners living in another, and the collect step bailing on its
+        // first line so the money never moved.
+        //
+        // Searching by link finds it wherever it is, and the zone check below
+        // makes the physical journey the requirement instead of a config field.
         const { rows: safeRows } = await query(
-          `SELECT id, flags FROM furniture WHERE zone_id=$1 AND flags @> $2 LIMIT 1`,
-          [workZone, JSON.stringify({ vendor_safe: true, vendor_npc_id: entity.id })]
+          `SELECT id, flags, zone_id FROM furniture WHERE flags @> $1 LIMIT 1`,
+          [JSON.stringify({ vendor_safe: true, vendor_npc_id: entity.id })]
         );
         if (!safeRows.length) break;
+        // You have to actually be standing at it. This is what turns "collect the
+        // takings" into a thing the player can witness, intercept, or beat you to.
+        if (safeRows[0].zone_id && entity.zone_id !== safeRows[0].zone_id) break;
 
         // entity IS the live world.npcs entry — the write funnel keeps its
         // vendor_credits in sync, so no fresh SELECT needed.
