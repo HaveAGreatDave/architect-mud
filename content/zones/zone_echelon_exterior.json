@@ -25,6 +25,7 @@
     "icon": "boat",
     "naval_ambience": true,
     "region_id": "region_coldwater",
+    "vessel": true,
     "yacht": true
   },
   "grid_x": 897,

@@ -371,6 +371,23 @@ on('zone.entered', ({ actor, zone, from }) => {
   const boarded = floorsOf(car).find((f) => f.zone === from);
   if (boarded) actor._elevatorAt = { n: boarded.n, zone: from, car: car.id, label: boarded.label };
 });
+// Boarding also SPEAKS the panel into the message log. The directory itself is
+// drawn by the describeRoom hook into the room pane — which mobile hides entirely
+// (`#area-pane.mob-pane-hidden`), leaving a rider staring at a car with no visible
+// floors. The log is always on screen, and the buttons are the same action-links,
+// so this costs one message and fixes the surface everywhere. Runs after the
+// parking listener above so the ▶/doors-open line is already accurate.
+on('zone.entered', ({ actor, zone, from }) => {
+  if (!actor || !from || from === zone) return;
+  const car = getZone(zone);
+  if (!isElevator(car)) return;
+  const floors = floorsOf(car);
+  if (!floors.length) return;
+  sendToPlayer(actor.id, {
+    type: 'output',
+    message: `${sys('The panel lights up as the doors settle.')}\n${buildPanel(floors, doorsOpenAt(car, actor))}`,
+  });
+});
 on('player.death',  ({ player }) => clearRide(player));
 on('player.logout', ({ id })     => clearRide(getAllLivePlayers().find(p => p.id === id)));
 

@@ -1024,7 +1024,12 @@ export default async function regress({ check, run, getPlayer }) {
     // budget a walk this far in stopped early and stranded the viewer mid-picture.
     const target = 850;
     const bbLate = {};
-    A.seekGraph(film, bbLate, target * Math.ceil(holdMs / 5000) * 5000 + 10, 0);
+    // Per-node airtime has to be derived the way the walker derives it — round the
+    // hold up to the broadcast tick. This used to round to a flat 5000ms, which only
+    // happened to match while a 36-char line held 4360ms; when the hold was refitted
+    // the seek overshot the 900-node reel, wrapped, and landed on s162.
+    const perNodeMs = Math.ceil(holdMs / 1000) * 1000;
+    A.seekGraph(film, bbLate, target * perNodeMs + 10, 0);
     check('film: a late viewer lands deep in the reel, not stranded partway',
       bbLate.currentNode === `s${target}`, `${bbLate.currentNode} (wanted s${target})`);
 

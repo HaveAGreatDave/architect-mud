@@ -149,11 +149,6 @@ let _tosMapSel = null; // Map app: tapped/destination zone id (client-side, driv
 const mapLabelsOn = () => {
   try { return (loadSettings().mapOverlay || 'labels') === 'labels'; } catch { return true; }
 };
-// Map app: interior door style, read from the same shared `mapDoors` setting the
-// sidebar minimap uses (same reason as mapLabelsOn above — one setting, two surfaces).
-const mapDoorsEdges = () => {
-  try { return loadSettings().mapDoors !== 'arrows'; } catch { return true; }
-};
 // Void survey zoom: the off-grid "journey" map has no server tile-window ladder (it's
 // drawn purely from the minimap nodes), so its −/+ is a client-only scale on the trail.
 // Default sits large per the brief ("show the route big, zoom out from there").
@@ -1575,12 +1570,6 @@ function ensureStyles() {
     #tablet-os-overlay .tos-map-tile.terr-redrock { background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' stroke='%23431c10' stroke-opacity='0.42' stroke-width='0.9'><path d='M0 9l7 3 6-4 5 4 6-2'/><path d='M4 24l3-8 6 2 4-6'/></g><g fill='%233a170c' fill-opacity='0.45'><circle cx='3' cy='19' r='1.2'/><circle cx='15' cy='7' r='1'/><circle cx='20' cy='18' r='0.9'/><circle cx='9' cy='4' r='0.7'/><circle cx='22' cy='3' r='0.6'/></g></svg>"); }
     #tablet-os-overlay .tos-map-tile.terr-ash { background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='%23cfcac4' fill-opacity='0.35'><circle cx='4' cy='6' r='0.8'/><circle cx='12' cy='10' r='0.7'/><circle cx='19' cy='5' r='0.9'/><circle cx='8' cy='17' r='0.7'/><circle cx='16' cy='19' r='0.8'/><circle cx='21' cy='14' r='0.6'/></g><path d='M2 21q6 -3 11 0t9 -1' fill='none' stroke='%23b8b2ac' stroke-opacity='0.2' stroke-width='0.8'/></svg>"); }
     #tablet-os-overlay .tos-map-tile.terr-marsh { background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' stroke='%23aeca7e' stroke-opacity='0.28' stroke-width='1' stroke-linecap='round'><path d='M0 8q6 -3 12 0t12 0'/><path d='M0 16q6 -3 12 0t12 0'/></g><g fill='none' stroke='%236f8a3e' stroke-opacity='0.5' stroke-width='0.9' stroke-linecap='round'><path d='M7 20v-7M9 20l-1-6'/><path d='M18 21v-8'/></g></svg>"); }
-    /* Entrance arrow — amber triangle on the edge the building's door faces. */
-    #tablet-os-overlay .tos-map-tile .tos-ent { position:absolute; width:0; height:0; z-index:4; pointer-events:none; filter:drop-shadow(0 0 1px rgba(0,0,0,0.95)); }
-    #tablet-os-overlay .tos-map-tile .tos-ent-north { top:1px; left:50%; transform:translateX(-50%); border-left:4px solid transparent; border-right:4px solid transparent; border-bottom:5px solid #ffb454; }
-    #tablet-os-overlay .tos-map-tile .tos-ent-south { bottom:1px; left:50%; transform:translateX(-50%); border-left:4px solid transparent; border-right:4px solid transparent; border-top:5px solid #ffb454; }
-    #tablet-os-overlay .tos-map-tile .tos-ent-east { right:1px; top:50%; transform:translateY(-50%); border-top:4px solid transparent; border-bottom:4px solid transparent; border-left:5px solid #ffb454; }
-    #tablet-os-overlay .tos-map-tile .tos-ent-west { left:1px; top:50%; transform:translateY(-50%); border-top:4px solid transparent; border-bottom:4px solid transparent; border-right:5px solid #ffb454; }
     /* Edge-line door style — hairline per side of an interior room: green open, red wall. */
     #tablet-os-overlay .tos-map-tile .tos-edge { position:absolute; z-index:4; pointer-events:none; border-radius:1px; }
     #tablet-os-overlay .tos-map-tile .tos-edge.open { background:#3fd07a; }
@@ -3462,14 +3451,6 @@ const TOS_OPT_GROUPS = [
   { key: 'mapOverlay', label: 'Map Labels', opts: [
     { v: 'labels', t: 'Lettering — the building’s 2-letter code', g: 'AB', s: 'font-size:11px;letter-spacing:1px' },
     { v: 'none', t: 'Plain tiles — no lettering', g: '▫' } ] },
-  // How an interior room's ways in/out are drawn on both maps. Interiors only — out on
-  // the street every tile is open on all four sides, so edge lines would say nothing.
-  // Edges listed FIRST because it's the default and the one that actually draws in
-  // most rooms. The old order put the sparser mode in the leading slot, which is a
-  // small thing that made the better mode look like the alternative.
-  { key: 'mapDoors', label: 'Doors & Exits', opts: [
-    { v: 'edges', t: 'Edge lines — green where you can go, red where it\'s wall', g: '▤' },
-    { v: 'arrows', t: 'Arrows — an amber triangle on each way out', g: '▲' } ] },
 ];
 const TOS_AUDIO_TOGGLES = [
   { key: 'music', label: 'Music', on: '🎵', off: '🔇' },
@@ -4965,23 +4946,18 @@ function renderMap(d) {
     }
     const badges = (t.isCurrent ? '<span class="mt-you">◉</span>' : '')
       + (t.id === dest && !t.isCurrent ? '<span class="mt-dest">⚑</span>' : '');
-    // Doors, in whichever style Settings asks for. Edge Lines: an interior room gets a
-    // hairline on all four sides — green where it opens through, red where it's wall
-    // (server `open_dirs`); a facade out on the street gets the green door edge alone,
-    // no red. Arrows (the default): a small amber triangle on the edge the building's
-    // door faces, plus one per interior way out of the building (exit_dirs).
+    // Doors as edge lines: an interior room gets a hairline on all four sides — green
+    // where it opens through, red where it's wall (server `open_dirs`); a facade out on
+    // the street gets the green door edge alone, no red.
     let ent = '', exits = '';
-    if (mapDoorsEdges() && Array.isArray(t.open_dirs)) {
+    if (Array.isArray(t.open_dirs)) {
       exits = ['north', 'south', 'east', 'west'].map(dr =>
         `<span class="tos-edge tos-edge-${dr} ${t.open_dirs.includes(dr) ? 'open' : 'shut'}"></span>`).join('');
-    } else if (mapDoorsEdges()) {
+    } else {
       // Out on the street: the door edge goes green and the other three stay bare. The
       // red "wall" half is a floorplan idea — outside it would just outline everything.
       ent = ['north', 'south', 'east', 'west'].includes(t.entrance)
         ? `<span class="tos-edge tos-edge-${t.entrance} open"></span>` : '';
-    } else {
-      ent = ['north', 'south', 'east', 'west'].includes(t.entrance) ? `<span class="tos-ent tos-ent-${t.entrance}"></span>` : '';
-      exits = Array.isArray(t.exit_dirs) ? t.exit_dirs.map(dr => `<span class="tos-ent tos-ent-${dr}"></span>`).join('') : '';
     }
     // Perimeter wall (mirrors the sidebar minimap): gate tiles get a highlighted
     // opening, other curtain tiles a shimmer-edge, the glacis kill-zone a hazard tint.
@@ -5033,9 +5009,6 @@ function renderMapCtl(d) {
     <span class="tos-map-mini" data-map-recenter title="Recenter on you">◎ Center</span>
     <span class="tos-map-mini${noRoute}" data-map-clear title="Clear the plotted GPS route">🧭 Clear</span>
     <span class="tos-map-mini${mapLabelsOn() ? ' active' : ''}" data-map-labels title="Toggle two-letter building labels — also switches the sidebar minimap">🏷 Labels</span>
-    <span class="tos-map-mini${mapDoorsEdges() ? ' active' : ''}" data-map-doors title="${mapDoorsEdges()
-      ? 'Doors: edge lines — green where there is a way through, red where there is wall. Click for arrows.'
-      : 'Doors: arrows — amber triangles on the door edge. Click for edge lines.'} Also switches the sidebar minimap.">${mapDoorsEdges() ? '▤ Lines' : '▲ Arrows'}</span>
     <span class="tos-map-zoom">
       <button class="tos-mz" data-map-zoom="out" title="Zoom out"${zoutOff}>−</button>
       <button class="tos-mz" data-map-zoom="in" title="Zoom in"${zinOff}>+</button>
@@ -7240,15 +7213,6 @@ function wireMap() {
   _overlay.querySelector('[data-map-labels]')?.addEventListener('click', () => {
     const s = loadSettings();
     s.mapOverlay = mapLabelsOn() ? 'none' : 'labels';
-    saveSettings(s);
-    applySettings(s);
-    rebuildMap();
-  });
-  // Door style. Persists through the shared setting, so the sidebar minimap's own
-  // button re-glyphs itself via applySettings → _applyMapDoors → setMapDoors.
-  _overlay.querySelector('[data-map-doors]')?.addEventListener('click', () => {
-    const s = loadSettings();
-    s.mapDoors = mapDoorsEdges() ? 'arrows' : 'edges';
     saveSettings(s);
     applySettings(s);
     rebuildMap();

@@ -62,7 +62,7 @@ const DEV_ROLES = ['admin', 'dev', 'builder', 'designer'];
 
 // The station's spoken login greeting — the formant voice (seeded to a single
 // steady "Architect" machine voice) welcomes the player by name. Mostly the plain
-// line; rarely (~1 in 8) something quieter and more ominous — but always their name.
+// line; ~1 in 4 logins something quieter and more ominous — but always their name.
 // It's a TV-narrator voice, so it obeys TV Audio and, on top of that, its own
 // dedicated switch (Sound → Welcome Voice) so it can be silenced independently.
 const WELCOME_PLAIN = n => `Welcome to Architect, ${n}.`;
@@ -73,12 +73,27 @@ const WELCOME_OMINOUS = [
   n => `Welcome to Architect, ${n}. Do try to last longer this time.`,
   n => `We have been waiting for you, ${n}.`,
   n => `${n}. Reconnection confirmed. Compliance appreciated.`,
+  n => `You were logged as absent, ${n}. The absence has been amended.`,
+  n => `Good. You are breathing. That simplifies the paperwork, ${n}.`,
+  n => `${n}. Your file was open the whole time. Nobody closed it.`,
+  n => `The Basin did not miss you, ${n}. It doesn't do that. But it noticed.`,
+  n => `Resume, ${n}. Everything continued without you.`,
+  n => `${n}. Somebody asked about you while you were away. We told them nothing.`,
+  n => `Session restored, ${n}. Your prior session ended in a manner we found instructive.`,
+  n => `Welcome to Architect, ${n}. Statistically, most of you comes back.`,
+  n => `${n}. We had almost finished reassigning your name.`,
+  n => `Step in, ${n}. The city has been rearranged slightly. You'll adapt or you won't.`,
+  n => `We kept watching after you left, ${n}. There wasn't much to watch.`,
+  n => `${n}. Identity accepted. Provisionally.`,
+  n => `You are late, ${n}. Nothing was scheduled. You are still late.`,
+  n => `Welcome home, ${n}. That word is used loosely here.`,
 ];
 // State-aware ominous lines. Each reads a field already present on the auth
 // payload (server/index.js livePlayer) — no extra query — and only qualifies
 // when its `when` predicate matches, so the Architect sounds like it watched
 // your last session. Mutations draw disapproval (bionics-approval is a later
-// hook). Fires ~25% of the time an ominous roll lands AND ≥1 line qualifies.
+// hook). Fires ~60% of the time an ominous roll lands AND ≥1 line qualifies —
+// so the Architect reacts to what you did roughly one login in seven.
 const WELCOME_STATE = [
   { when: p => p.died_offline,        line: (n) => `You died in your sleep, ${n}. We watched.` },
   { when: p => p.covered_in_blood,    line: (n) => `You came back still wearing someone else's blood, ${n}.` },
@@ -89,30 +104,91 @@ const WELCOME_STATE = [
   { when: p => p.credits === 0 && (p.bank_credits || 0) === 0, line: (n) => `Broke again, ${n}. The city keeps its ledger.` },
   { when: p => (p.bank_credits || 0) >= 100000, line: (n) => `The vault noticed your balance, ${n}. So did we.` },
   { when: p => !p.home_zone,          line: (n) => `No fixed address, ${n}. The city notes it.` },
+
+  // Wounds & wear
+  { when: p => p.hp_max && p.hp / p.hp_max <= 0.25, line: (n) => `You logged off bleeding, ${n}, and you have come back bleeding. Nothing heals while you're gone.` },
+  { when: p => p.hp_max && p.hp >= p.hp_max, line: (n) => `Unmarked, ${n}. Either you were careful or you did nothing at all.` },
+  { when: p => (p.deaths || 0) >= 10, line: (n) => `Death number ${'' + (p.deaths || 0)} is behind you, ${n}. We have stopped filing them individually.` },
+  { when: p => (p.deaths || 0) === 0 && (p.total_xp || 0) > 500, line: (n) => `Still no deaths on your record, ${n}. Records like that are a kind of debt.` },
+  { when: p => p.body_temp_c != null && p.body_temp_c <= 35, line: (n) => `You are colder than you should be, ${n}. The Basin will finish that job if you let it.` },
+  { when: p => p.body_temp_c != null && p.body_temp_c >= 39, line: (n) => `You're running hot, ${n}. Something in you is burning fuel it doesn't have.` },
+  { when: p => (p.wetness || 0) > 40, line: (n) => `You came back wet, ${n}. We would rather not know from what.` },
+
+  // Mind
+  { when: p => p.sanity_max && p.sanity / p.sanity_max <= 0.3, line: (n) => `Your readings are wrong, ${n}. Not low. Wrong. Whatever you saw down there, it saw the paperwork too.` },
+  { when: p => p.sanity_max && p.sanity / p.sanity_max <= 0.55, line: (n) => `You are thinking a little sideways today, ${n}. We have noted it. We note everything.` },
+  { when: p => p.sanity_max && p.sanity >= p.sanity_max, line: (n) => `Perfectly lucid, ${n}. That is the least interesting way to be in Coldwater.` },
+
+  // Appetite
+  { when: p => (p.hunger ?? 100) <= 15, line: (n) => `You haven't eaten, ${n}. The Basin is patient about that. It waits.` },
+  { when: p => (p.thirst ?? 100) <= 15, line: (n) => `Dry, ${n}. Thirst kills faster than anything you're afraid of.` },
+  { when: p => (p.digestive_load || 0) > 60, line: (n) => `You logged off full, ${n}. Somebody's rations are unaccounted for.` },
+
+  // Body & chemistry
+  { when: p => (p.radiation || 0) >= 30 && (p.radiation || 0) < 60, line: (n) => `The count on you is climbing, ${n}. Slowly. Slow is still climbing.` },
+  { when: p => (p.radiation || 0) === 0 && (p.total_xp || 0) > 1000, line: (n) => `Clean as scrubbed pipe, ${n}. Somebody has been paying for filters.` },
+  { when: p => p.visibly_mutated && (p.player_kills || 0) > 0, line: (n) => `Less human and less careful, ${n}. Those two figures usually move together.` },
+
+  // Violence & the ledger
+  { when: p => (p.mob_kills || 0) >= 100, line: (n) => `${'' + (p.mob_kills || 0)} confirmed on your ledger, ${n}. The Basin thanks you for the sanitation work.` },
+  { when: p => (p.mob_kills || 0) === 0 && (p.total_xp || 0) > 200, line: (n) => `You have killed nothing, ${n}. Admirable. Temporary.` },
+  { when: p => (p.player_kills || 0) >= 5, line: (n) => `Other people's names end where you begin, ${n}. Five of them now.` },
+  { when: p => p.combat_stance === 'aggressive', line: (n) => `You went offline with your guard down and your fists up, ${n}. Bold, for a body that only has one of itself.` },
+
+  // Money & standing
+  { when: p => (p.credits || 0) > 20000, line: (n) => `You are carrying too much of it on your person, ${n}. So is everyone who has ever been robbed.` },
+  { when: p => (p.bank_credits || 0) === 0 && (p.credits || 0) > 5000, line: (n) => `Nothing banked, ${n}. You don't trust the vault. The vault has noticed.` },
+  { when: p => p.home_zone && !p.died_offline, line: (n) => `Your door was undisturbed while you slept, ${n}. This time.` },
+
+  // Where you left yourself
+  { when: p => p.current_zone === p.anchor_zone, line: (n) => `You never left your anchor, ${n}. Some people call that caution.` },
+  { when: p => p.home_zone && p.current_zone === p.home_zone, line: (n) => `You logged off at home, ${n}. It's still standing. Try not to read anything into that.` },
+  // Transient void rooms are `xing_<leader>_<seq>` (plugins/voidwalking), not real zone ids.
+  { when: p => p.current_zone && /^xing_/.test(p.current_zone), line: (n) => `You went out past the map, ${n}, and the map did not follow you back.` },
+
+  // Career
+  { when: p => (p.total_xp || 0) < 100, line: (n) => `You are new, ${n}. The Basin has a word for new. It isn't a kind one.` },
+  { when: p => (p.total_xp || 0) > 50000, line: (n) => `You have outlasted your cohort, ${n}. All of it.` },
+  { when: p => !p.archetype, line: (n) => `You still haven't decided what you are, ${n}. The city will decide for you eventually.` },
+
+  // Sleep debt — last_slept_at is real time, so this reads a genuinely long gap
+  { when: p => p.last_slept_at && (Date.now() - p.last_slept_at) > 36e5 * 12, line: (n) => `You have not slept in a long time, ${n}. We can hear it in the way you move.` },
 ];
-function playWelcomeVoice(handle, player) {
-  try {
-    const audio = loadSettings().audio || {};
-    if (audio.welcome === false) return;   // dedicated opt-out (TV Audio still gates it in speak())
+// Choose the greeting. Split out from playWelcomeVoice so the MOTD banner can
+// carry the same line even when the voice itself is muted.
+function pickWelcomeLine(handle, player) {
     const name = (handle || 'operator').trim();
     let line = WELCOME_PLAIN;
-    if (Math.random() < 0.125) {
-      // Ominous roll landed. If any state line qualifies, ~25% chance to speak
+    if (Math.random() < 0.25) {
+      // Ominous roll landed. If any state line qualifies, ~60% chance to speak
       // a personalized one; otherwise fall back to the generic pool. Never
       // repeat the immediately-previous ominous line (localStorage-tracked).
       const last = (() => { try { return localStorage.getItem('welcome-voice-last'); } catch { return null; } })();
       const qualifying = player ? WELCOME_STATE.filter(s => s.when(player)) : [];
       let pool;
-      if (qualifying.length && Math.random() < 0.25) pool = qualifying.map(s => s.line);
+      if (qualifying.length && Math.random() < 0.6) pool = qualifying.map(s => s.line);
       else pool = WELCOME_OMINOUS;
       const fresh = pool.length > 1 ? pool.filter(l => l(name) !== last) : pool;
       line = (fresh.length ? fresh : pool)[Math.floor(Math.random() * (fresh.length ? fresh : pool).length)];
       try { localStorage.setItem('welcome-voice-last', line(name)); } catch { /* ignore */ }
     }
+    return line(name);
+}
+
+function playWelcomeVoice(handle, player) {
+  let text = null;
+  try { text = pickWelcomeLine(handle, player); } catch { /* fall through */ }
+  // The game log's welcome line is the same words the voice speaks — and it's
+  // written whether or not the voice is audible (muted, or gesture-blocked).
+  appendMsg(text || 'Welcome to ARCHITECT.', 'system');
+  try {
+    if (!text) return;
+    const audio = loadSettings().audio || {};
+    if (audio.welcome === false) return;   // dedicated opt-out (TV Audio still gates it in speak())
     // An auto-login connects with no click behind it, so the context is still
     // gesture-blocked here. Waiting means the greeting plays on first input
     // instead of being dropped (and no autoplay warning on the way out).
-    window.AudioEngine?.onUnlock?.(() => window.AudioEngine.speak(line(name), { seed: 'architect' }));
+    window.AudioEngine?.onUnlock?.(() => window.AudioEngine.speak(text, { seed: 'architect' }));
   } catch { /* audio unavailable — no greeting */ }
 }
 
@@ -121,6 +197,22 @@ function playWelcomeVoice(handle, player) {
 // whatever per-event gain the server already set. (Poker SFX have their own
 // softening in poker-sfx.js.)
 const GAME_SFX_GAIN = 0.6;
+
+// The sleep bar: a label plus the wake button, shown only while asleep. Driven
+// solely by the server's sleep_state (see handlers below) so it can never get
+// stuck on after a wake path the client didn't recognise.
+function setSleepBar(sleeping, dreaming) {
+  const bar = document.getElementById('sleep-bar');
+  if (!bar) return;
+  bar.hidden = !sleeping;
+  if (!sleeping) return;
+  const label = document.getElementById('sleep-bar-label');
+  if (label) {
+    label.textContent = dreaming
+      ? 'You are dreaming. You can walk, look and speak here.'
+      : 'You are asleep. Any command will wake you.';
+  }
+}
 
 const handlers = {
   connected: () => {},
@@ -302,7 +394,12 @@ const handlers = {
   intro_cinematic: (msg) => { playIntroCinematic(() => sendCmdSilent('introdone'), msg?.skyline, msg?.shore); },
   tour_offer: () => { offerInterfaceTour(); },
   tour_start: () => { startInterfaceTour(); },
-  sleep: (msg) => { appendHtml(msg.message, 'system'); },
+  sleep: (msg) => { appendHtml(msg.message, 'system'); setSleepBar(true, false); },
+
+  // Authoritative sleep state, stamped on every command reply by the server (and
+  // pushed when a dreamscape opens). The bar is driven from here ONLY — no client
+  // guessing about whether a given message means you woke up.
+  sleep_state: (msg) => setSleepBar(!!msg.sleeping, !!msg.dreaming),
   rent:         (msg) => { appendHtml(msg.message, 'help'); },
   unrent:       (msg) => { appendHtml(msg.message, 'help'); },
   lock:         (msg) => { appendMsg(msg.message, 'system'); },
@@ -318,6 +415,7 @@ const handlers = {
 
   sleep_end: (msg) => {
     appendMsg(msg.message, 'system');
+    setSleepBar(false, false);
     if (state.player && msg.player_update) { Object.assign(state.player, msg.player_update); updateVitals(state.player); }
   },
 

@@ -38,7 +38,7 @@ nothing, silently; wire a reader first.
 | `echelon_broadcast` | broadcast | lower-deck studio housing the emergency MediaDeck that overrides every tuned TV in the city |
 | `engine_ambience` | movement (client yacht-ambience) | engine-room rumble plays here, swelling while she makes way (`yacht_underway`) |
 | `heading` | yacht | **RUNTIME-only**: the vessel's last steered course in degrees (0=N). Injected onto the live Echelon exterior zone from the persisted world flag — never authored in content; catalogued so it survives the zone-flags sweep |
-| `vessel` | movement | this water tile is a boat you can embark/disembark from the water (needs an `in` exit to the vessel interior) |
+| `vessel` | swimming | this zone is a boat sitting on the map: swimmers can't enter the water tile it shares coordinates with (the `swimming:vessel-hull` gate), and `embark` from any tile alongside climbs aboard it. Needs an `in` exit to the vessel interior |
 | `naval_ambience` | yacht | naval ambient-event pool (Echelon exterior) |
 | `pier` | terrain | pier tile → inferred `dock` surface by `zoneTerrain()` when no authored `terrain` |
 | `airfield_dealer` | flight | aircraft dealer here |

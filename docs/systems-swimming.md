@@ -19,6 +19,17 @@ The single signal everything else reads is the runtime flag **`player._submerged
 ## Boat perk
 Carry an **uncontained `boat`-tagged item** and you're *riding*, not swimming: no stroke cost, no tread, no submersion (so no wetness/cold), no drowning. Underwater tiles ignore this — you're under the water regardless.
 
+## Vessels — swimming up to a boat *(as built)*
+A zone flagged **`flags.vessel`** is a boat sitting on the map: it shares its coordinates with the ordinary water zone beneath it, and the two are **not joined by an exit** — they can't be, because a vessel sails, so any link between hull and water would have to be re-derived from her position on every passage (which is exactly what the yacht plugin's `dockTo` gangway does for a *pier*). Boarding is therefore a **verb, not a step**:
+
+- **Her tile is closed.** The `swimming:vessel-hull` move gate turns back any swim into the water zone sharing a vessel's coordinates — that water is under her keel. The refusal names the way up. Underwater tiles below her are unaffected (her draught doesn't reach them).
+- **`embark` from alongside** — from any of the four orthogonally adjacent water tiles, you haul yourself over the side: one Swimming check (**skipped entirely if you're carrying a `boat` item** — you're already at deck height) and `BOARD_COST` stamina. It is **deliberately easy** — a boat has a ladder or a swim platform, and the rail is not meant to be a puzzle. What makes you slide back is arriving **spent**: below `BOARD_TIRED_AT` of your max stamina the difficulty jumps by `BOARD_TIRED_DIFF`, so the thing that strands you clawing at the hull is the long cold swim out, not a bad roll on arrival. Failing costs `BOARD_FAIL_COST` and leaves you treading; it never drowns you outright, though the drain can take you there.
+- **`disembark`** — back over the rail into the water *alongside* her, never the closed tile under the hull.
+
+The verbs are the **flight plugin's** (`docs/plugins.md` — it owns `embark`/`board`/`disembark`). It falls through to the actions **`VESSEL_EMBARK` / `VESSEL_DISEMBARK`** registered here whenever there's no aircraft in play, via `tryVesselAction` — which treats the registry's `Unknown action` reply as "not applicable" so a world booted without this plugin still gets flight's own message. A null from either action means "nothing alongside", and flight carries on to its aircraft answer (and, for `board`, the poker community-board delegate).
+
+**Nothing here knows what a yacht is.** Whether a deck defends itself is the vessel's own business — see [systems-helm.md](systems-helm.md) for the Echelon, where the waterline is now a deliberate hole in an otherwise invite-only boat: an uninvited swimmer can reach the **weather deck** and is *not* smitten for standing on it, but the gangway hatch into her rooms still refuses them, and walking aboard from the pier is refused exactly as before.
+
 ## Diving (vertical, z-1 and deeper)
 A **dive spot** is a water tile with a `down` exit to an `flags.underwater` tile at z-1 (reciprocal `up`/`down`), and so on downward.
 - Underwater tiles are **always submerged** (a boat doesn't help), read **dark** (unlit; bring a light) and **colder** (see below).
@@ -43,6 +54,8 @@ Reuses the existing body-temperature path (`gameLoop.js` temp tick), no new hypo
 `BASE_STROKE 18 · MIN_STROKE 4 · DIVE_EXTRA 3 · TREAD_MS 8000 · TREAD_BASE 2 · DROWN_HP 6 · BREATH_BASE 30 · BREATH_PER 3`.
 Rules of thumb: fresh char (eff ~3) pays ~15/stroke (~6 tiles on a full bar) and holds ~39s of breath; a strong, trained swimmer pays the ~4 floor and holds ~60s. Treading is a slow ~15/min (novice) → ~7.5/min (skilled) bleed. Drowning is −6 HP/s (~17s).
 
+## Tuning — boarding
+`BOARD_DIFF 2 · BOARD_COST 6 · BOARD_FAIL_COST 3 · BOARD_TIRED_AT 0.3 · BOARD_TIRED_DIFF 5`. A fresh char (eff ~3) gets aboard nearly every attempt with stamina in hand; arrive under 30% and the same character is at difficulty 7 and will often fail — which is the intended failure story (swam too far, too cold, too late).
+
 ## Not yet built
-- **Boat boarding from the water** (embark/disembark the Echelon & future boats via a `flags.vessel` marker) — designed, deferred. The `vessel` zone flag is registered in the tag catalog as groundwork.
 - **Underwater content** — the diving *mechanic* is live, but underwater dive-spot tiles still need authoring (a `scripts/stamp-underwater.mjs` helper + a few spots).

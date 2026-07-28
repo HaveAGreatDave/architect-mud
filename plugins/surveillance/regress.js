@@ -1,7 +1,8 @@
 // Surveillance plugin regression suite — run by tests/regress.js (never loaded
 // in production). Verb routing plus the crime→star registry defaults/cap.
 import { CRIME_DEFAULTS, getCrimeStars, getCrimeList } from '../../server/engine/crimes.js';
-import { visFactorForCategory, isSpecterInstalled, cameraBufferLines, microreelList, deleteMicroreel, isWitnessed, witnessRoll, __refreshRecordingCams, __captureZoneLine, __cameraFrames, __cameraFull, selfDestructDevice, __expireStickyCams, __stickyCamTtl } from './index.js';
+import { visFactorForCategory, isSpecterInstalled, cameraBufferLines, microreelList, deleteMicroreel, isWitnessed, witnessRoll, __refreshRecordingCams, __captureZoneLine, __cameraFrames, __cameraFull, selfDestructDevice, __expireStickyCams, __stickyCamTtl, __isSelfDefence } from './index.js';
+import { emit } from '../../server/engine/events.js';
 import { getTimeScale } from '../../server/engine/gametime.js';
 import { query } from '../../server/models/db.js';
 import { setFlag } from '../../server/engine/flags.js';
@@ -18,6 +19,22 @@ export default async function regress({ run, check, getPlayer }) {
   check('apprehendresolve no-ops with no prompt', ar?.type === 'noop', ar?.type);
   const ar2 = await run('apprehendresolve run');
   check('apprehendresolve run no-ops with no prompt', ar2?.type === 'noop', ar2?.type);
+
+  // Self-defence: only the instigator wears the assault charge. An NPC throwing the
+  // first punch (gameLoop's `npc.aggressed`) buys the victim a pass to swing back at
+  // THAT foe — and nobody else.
+  {
+    const p = getPlayer();
+    check('no self-defence claim before anyone swings', !__isSelfDefence(p.id, 'npc:npc_regress_thug'));
+    emit('npc.aggressed', { npc: { id: 'npc_regress_thug' }, target: p });
+    check('NPC throwing the first punch makes the player a defender',
+      __isSelfDefence(p.id, 'npc:npc_regress_thug'));
+    check('the pass is per-foe — it does not cover a bystander',
+      !__isSelfDefence(p.id, 'npc:npc_regress_bystander'));
+    emit('player.attacked', { attacker: { id: 'attacker_regress', handle: 'Regress', current_zone: null }, target: p });
+    check('being attacked by a player makes the victim a defender against them',
+      __isSelfDefence(p.id, 'player:attacker_regress'));
+  }
 
   // collect physicalizes an auto-banked evidence clip; with none on record for
   // the fake player it must report cleanly rather than throw.

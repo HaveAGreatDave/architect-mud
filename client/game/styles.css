@@ -2152,6 +2152,43 @@ body.fsim-external #look-resize-handle { display: none; }
 .furniture-link {
 	color: var(--orange);
 }
+/* Per-kind furniture tints. Every one is DERIVED from the active theme's
+   --orange by mixing a little of another theme colour in, so the whole set
+   reads as one family and follows a theme swap automatically — never a
+   hardcoded hex. `data-ftype` is the row's object_type (describe.js). Plain
+   `furniture` deliberately has no rule: it keeps the base orange. */
+.furniture-link[data-ftype="light"] {
+	color: color-mix(in oklab, var(--orange) 40%, var(--yellow, #f5e642));
+}
+.furniture-link[data-ftype="container"] {
+	color: color-mix(in oklab, var(--orange) 74%, var(--yellow, #f5e642));
+}
+.furniture-link[data-ftype="decoration"] {
+	color: color-mix(in oklab, var(--orange) 70%, var(--purple, #b86bff));
+}
+/* Plumbing and built-ins — dull pewter-amber, the least eye-catching of the set. */
+.furniture-link[data-ftype="fixture"],
+.furniture-link[data-ftype="sink"],
+.furniture-link[data-ftype="shower"],
+.furniture-link[data-ftype="toilet"] {
+	color: color-mix(in oklab, var(--orange) 62%, var(--text-dim, #8888a8));
+}
+/* Machines you operate or that watch you — cooled toward the theme's cyan. */
+.furniture-link[data-ftype="terminal"],
+.furniture-link[data-ftype="cosmetic_machine"],
+.furniture-link[data-ftype="security_device"],
+.furniture-link[data-ftype="broadcast_camera"] {
+	color: color-mix(in oklab, var(--orange) 58%, var(--cyan, #28e5ff));
+}
+.furniture-link[data-ftype="window"] {
+	color: color-mix(in oklab, var(--orange) 66%, var(--cyan, #28e5ff));
+}
+/* Power infrastructure — ember/rust, hot end of the range. */
+.furniture-link[data-ftype="generator"],
+.furniture-link[data-ftype="generator_portable"],
+.furniture-link[data-ftype="junction_box"] {
+	color: color-mix(in oklab, var(--orange) 68%, var(--red, #ff3b5c));
+}
 /* Furniture woven into the room prose (flags.woven): reads as body text, not a
    bright link. Stays clickable — a faint dotted underline surfaces on hover. */
 .action-link.furniture-woven {
@@ -2507,7 +2544,7 @@ body.fsim-external #look-resize-handle { display: none; }
    LAYERING (the beacon must never hide information):
      terrain fill / road connector / icon / label   z-index auto — the tile's own content
      the beacon core + ping ring                    z-index 2
-     door, exit and entrance marks, GPS route       z-index 3 (.mm-edge/.mm-entrance/.mm-gps-svg)
+     door, exit and entrance marks, GPS route       z-index 3 (.mm-edge/.mm-gps-svg)
    So the beacon reads on top of the ground and any glyph, but every connector
    line stays drawn over it — those are the bits you navigate by. */
 .mm-current, .map-current { position: relative; overflow: visible; z-index: 2; }
@@ -2937,18 +2974,7 @@ body.fsim-external #look-resize-handle { display: none; }
 	background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' stroke='%23aeca7e' stroke-opacity='0.28' stroke-width='1' stroke-linecap='round'><path d='M0 8q6 -3 12 0t12 0'/><path d='M0 16q6 -3 12 0t12 0'/></g><g fill='none' stroke='%236f8a3e' stroke-opacity='0.5' stroke-width='0.9' stroke-linecap='round'><path d='M7 20v-7M9 20l-1-6'/><path d='M18 21v-8'/></g></svg>");
 }
 
-/* Entrance arrow — a small amber triangle on the edge of a building tile pointing to
-   the side the door faces (server `entrance` field). CSS triangle so it stays crisp
-   at any tile size; a dark halo keeps it readable over a rooftop footprint. Shared by
-   the sidebar minimap (.mm-*) and the full-map popup (.map-*). */
-.mm-entrance, .map-entrance { position: absolute; width: 0; height: 0; z-index: 3; pointer-events: none; filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.95)); }
-.mm-ent-north, .map-ent-north { top: 0; left: 50%; transform: translateX(-50%); border-left: 4px solid transparent; border-right: 4px solid transparent; border-bottom: 6px solid var(--accent); }
-.mm-ent-south, .map-ent-south { bottom: 0; left: 50%; transform: translateX(-50%); border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 6px solid var(--accent); }
-.mm-ent-east, .map-ent-east { right: 0; top: 50%; transform: translateY(-50%); border-top: 4px solid transparent; border-bottom: 4px solid transparent; border-left: 6px solid var(--accent); }
-.mm-ent-west, .map-ent-west { left: 0; top: 50%; transform: translateY(-50%); border-top: 4px solid transparent; border-bottom: 4px solid transparent; border-right: 6px solid var(--accent); }
-
-/* Edge-line door style (Settings → Interior Doors → Edge Lines) — the alternative to
-   the triangles above. Each interior tile gets a hairline down all four sides: green
+/* Edge-line door style — the only door style. Each interior tile gets a hairline down all four sides: green
    where the room opens through, red where it's wall. Deliberately thin and inset a
    little from the corners so a block of rooms reads as a floorplan rather than a grid
    of boxes. Shared by the sidebar minimap (.mm-*) and the full-map popup (.map-*). */
@@ -6038,6 +6064,42 @@ body.fsim-external #look-resize-handle { display: none; }
 [data-density="compact"] #bottom-input-wrap { flex-direction: row; align-items: stretch; }
 [data-density="compact"] #bottom-stack { flex: 1; }
 [data-density="compact"] #bottom-input-wrap #mob-dpad { border-left: 1px solid var(--border); }
+
+/* ─── SLEEP BAR ───
+   Only on screen while asleep. Sits directly above the quick-cmds so the way out
+   is next to the input the player is already looking at. `hidden` does the
+   hiding; this never sets display when the attribute is present. */
+#sleep-bar {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 5px 10px;
+	border-top: 1px solid var(--border);
+	background: color-mix(in srgb, var(--cyan) 8%, transparent);
+	font-size: 0.85rem;
+	min-width: 0;
+}
+#sleep-bar[hidden] { display: none; }
+#sleep-bar-label {
+	color: var(--cyan);
+	opacity: 0.85;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+#sleep-wake-btn {
+	margin-left: auto;
+	flex: none;
+	padding: 3px 12px;
+	cursor: pointer;
+	color: var(--cyan);
+	background: transparent;
+	border: 1px solid var(--cyan);
+	border-radius: 3px;
+	font: inherit;
+	letter-spacing: 0.04em;
+}
+#sleep-wake-btn:hover { background: var(--cyan); color: var(--bg); }
 
 /* ─── BOTTOM BAR (quick-cmds + dpad) ─── */
 #bottom-bar {

@@ -4706,15 +4706,29 @@ function nodeHoldMs(node) {
       // needs to read the line, so the read-aloud never has to speed up and nothing is
       // cut off. ~110 ms/char (calibrated to the formant synth, which averages ~94 ms/char
       // — the margin covers slower per-narrator voices), capped at 30 s of speech, plus a
-      // 1 s buffer before the next line. A small floor keeps very short lines readable.
+      // buffer before the next line. A small floor keeps very short lines readable.
       // The cap is the ONLY thing that can now clip a read (the voice no longer
       // compresses to fit — see AudioEngine.speak), so it's set past any sane line.
       // Sports lines pass an explicit holdMs and keep it.
+      //
+      // FITTED, NOT GUESSED. 110ms/char dated from when estimateDuration silently
+      // under-reported the real read length, so it was covering an error rather than
+      // a voice. With that fixed and the pace retuned, the coefficient was re-fitted
+      // against every line in the .bsm corpus read by the SLOWEST possible narrator
+      // (the speed range floor, 1.24) — because the average voice is not what has to
+      // fit. 75ms/char + 900ms leaves 0.5% of lines overrunning, essentially all of
+      // them the >273-char crawl copy that the read-aloud filter never voices. Below
+      // ~70 the overrun rate climbs sharply (2%, then 4%, then 10%) for progressively
+      // less dead air, so this sits just above that knee.
+      //
+      // A small overrun is now SAFE: the client queues (tv.js _pump), so it delays
+      // the next line rather than cutting the current one mid-word. That safety is
+      // what allows a fitted coefficient instead of a defensive one.
       if (d.holdMs != null) return d.holdMs;
       const text = typeof d.text === 'string' ? d.text : '';
       if (!text) return 8000;                          // e.g. runtime camera snapshot — sane default
-      const voiceMs = Math.min(text.length * 110, 30000);
-      return Math.max(2500, voiceMs + 1000);
+      const voiceMs = Math.min(text.length * 75, 30000);
+      return Math.max(2200, voiceMs + 900);
     }
   }
 }

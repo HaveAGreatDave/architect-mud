@@ -1735,13 +1735,61 @@ async function raiseCrime(player, key, zoneId, suspectName, forced = false) {
 // not the probabilistic camera roll the other crimes run. `isWitnessed` is the
 // deterministic gate, and we force the charge past raiseCrime's own roll. Off-camera,
 // unseen violence still slips; and the lawless-zone gate inside raiseCrime means none
+// ── Self-defence ─────────────────────────────────────────────────────────────
+// Only the INSTIGATOR wears an assault charge. A camera that sees a fight sees who
+// swung first, and hitting back at the person (or NPC) who opened on you is not a
+// crime. `defenderOf` remembers, per victim, who aggressed them and until when;
+// swinging at that specific foe inside the window is free. It does NOT launder
+// violence against anyone else in the room — the pass is per-foe, not per-player.
+const SELF_DEFENCE_MS = 5 * 60 * 1000;
+const defenderOf = new Map();   // victimPlayerId → Map(foeKey → expiryTs)
+
+function markAggression(victimId, foeKey) {
+  if (!victimId || !foeKey) return;
+  let m = defenderOf.get(victimId);
+  if (!m) { m = new Map(); defenderOf.set(victimId, m); }
+  m.set(foeKey, Date.now() + SELF_DEFENCE_MS);
+}
+
+// Is `playerId` currently defending themselves against `foeKey`? Lazily expires;
+// no tick, no query — this sits on the combat path and must stay sync and cheap.
+function isSelfDefence(playerId, foeKey) {
+  const m = defenderOf.get(playerId);
+  if (!m) return false;
+  const until = m.get(foeKey);
+  if (!until) return false;
+  if (until <= Date.now()) { m.delete(foeKey); if (!m.size) defenderOf.delete(playerId); return false; }
+  return true;
+}
+
+export const __isSelfDefence = (playerId, foeKey) => isSelfDefence(playerId, foeKey);   // regress only
+
+// An NPC opening on a player (gameLoop, once per fight) makes that player a defender.
+on('npc.aggressed', ({ npc, target }) => {
+  if (target?.id && npc?.id) markAggression(target.id, `npc:${npc.id}`);
+});
+
+// Combat (weapon plugin) and drug (engine) fire these; we charge the matching
+// crime. Witness-gating + debounce live in raiseCrime.
+// Attacks are special: raising a hand where ANY witness can see it (a live PD cam,
+// an on-scene cop, or a bystander player) is an immediate, guaranteed 4-star crime —
+// not the probabilistic camera roll the other crimes run. `isWitnessed` is the
+// deterministic gate, and we force the charge past raiseCrime's own roll. Off-camera,
+// unseen violence still slips; and the lawless-zone gate inside raiseCrime means none
 // of this fires outside city limits.
-on('player.attacked', async ({ attacker }) => {
-  if (attacker?.id && await isWitnessed(attacker.current_zone))
+on('player.attacked', async ({ attacker, target }) => {
+  if (!attacker?.id) return;
+  // The victim becomes a defender against this attacker, so their swings back are
+  // free for the window — including a fresh `attack` after the engagement lapsed.
+  if (target?.id) markAggression(target.id, `player:${attacker.id}`);
+  if (target?.id && isSelfDefence(attacker.id, `player:${target.id}`)) return;
+  if (await isWitnessed(attacker.current_zone))
     raiseCrime(attacker, 'attack_player', attacker.current_zone, attacker.handle, true);
 });
-on('npc.attacked', async ({ actor }) => {
-  if (actor?.id && await isWitnessed(actor.current_zone))
+on('npc.attacked', async ({ actor, npc }) => {
+  if (!actor?.id) return;
+  if (npc?.id && isSelfDefence(actor.id, `npc:${npc.id}`)) return;
+  if (await isWitnessed(actor.current_zone))
     raiseCrime(actor, 'attack_npc', actor.current_zone, actor.handle, true);
 });
 on('npc.killed', ({ actor, npc }) => {

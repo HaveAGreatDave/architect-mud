@@ -39,11 +39,11 @@ const LORE = {
   // around the Franchise Strip (zone_city_west) where players get their start.
   // This is the block that sets the tone in the first ten minutes.
 
-  // Clone facility interior — the first three rooms anyone ever sees.
+  // Clone facility interior — the first rooms anyone ever sees.
   zone_start:
     "Welcome to the only birth you'll get. The vat behind you printed you off a backup nobody bothered to keep current, and the receipt it spat out is the closest thing you have to family. Coldwater doesn't care that you're new — the second you step outside you're just another mouth the basin didn't ask for. What you can carry, you keep. Everything else was always going to be somebody else's.",
-  zone_clone_facility_bathroom:
-    "A clone-facility bathroom, which means it works about as well as everything else Coldwater kept running out of habit. The mirror's been scratched half-blind by a hundred other versions of somebody working out what they look like now. Wash up if you want — the water's real, mostly. Nobody's coming to check on you, and this is the last privacy you'll get for free.",
+  // (The clone facility's bathroom was moved to the Embassy lobby and the
+  //  original room deleted — see scripts/delete-ghost-clone-bathroom.mjs.)
   'zone_clone_facility_z-1_1782276270002':
     "Below the print floor, where the facility keeps the machinery that makes new people and the tanks that quietly dispose of the failed attempts. It hums with power the rest of the block would knife each other for. The Custodians tolerate this place because it still, technically, serves the city — step wrong down here and you'll learn how thin 'technically' is.",
 

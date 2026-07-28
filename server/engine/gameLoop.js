@@ -361,7 +361,12 @@ async function tick() {
         if (target.hp <= 0) {
           await handlePlayerDeath(target, null, { type: 'combat', label: `Killed by ${npc.name}` });
         } else if (!target.npcCombatTargetId && !((target.disengagedUntil || 0) > Date.now())) {
+          // The NPC threw the first punch at a player who wasn't fighting it. Fires
+          // once per fight (this branch only runs while the player has no NPC target),
+          // and it's what lets the wanted system tell an instigator from someone
+          // defending themselves — swinging back at this NPC is not assault.
           target.npcCombatTargetId = npcId;
+          emit('npc.aggressed', { npc, target });
         }
       } else {
         broadcastFn(null, { type: 'combat_miss', message: result.message }, null, target.id);
@@ -586,6 +591,15 @@ export async function handlePlayerDeath(player, killer, cause = null) {
   ];
   const msg = msgs[Math.floor(Math.random() * msgs.length)];
   const killerMsg = killer ? ` Killed by: ${killer.name}.` : '';
+  // OUT OF THE DREAM FIRST, before anything reads current_zone.
+  //
+  // Killed instantly in your sleep, `current_zone` is a transient dream room —
+  // so the corpse spawned THERE, and dissolveDreamscape then took the room and
+  // every item on the body with it. The "X has died" line went to a room with
+  // nobody in it, and the killer standing over the body saw no corpse to loot.
+  // Waking here puts current_zone back to the bed before deathZone is captured;
+  // it's idempotent and a no-op on anyone who wasn't dreaming.
+  wakeFromDream(player);
   const deathZone = player.current_zone;
 
   // Respawn override seam: a plugin (e.g. jail) may divert a downed player
@@ -630,8 +644,7 @@ export async function handlePlayerDeath(player, killer, cause = null) {
   player.body_temp_c = 37.0;
   player.clothing_contamination = {};
   player._dangerousTempTicks = 0;
-  wakeFromDream(player);
-  player.sleeping = null;
+  player.sleeping = null;   // the dream itself was already torn down above
   setPosture(player, 'standing');
   // A stance is a choice you make for a fight; the fight is over and so is the
   // body that held it. Comes out of the vat neutral, and the 60s lock goes with

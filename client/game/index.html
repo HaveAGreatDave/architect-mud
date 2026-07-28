@@ -584,6 +584,13 @@
 				<div id="output"></div>
 				<div id="bottom-input-wrap">
 				<div id="bottom-stack">
+				<!-- Shown only while asleep. The `wake` verb exists, but a dreamer has no
+				     reason to guess it — inside a dreamscape nearly every other command is
+				     refused, so this is the visible way out. -->
+				<div id="sleep-bar" hidden>
+					<span id="sleep-bar-label">You are asleep.</span>
+					<button id="sleep-wake-btn" data-cmd="wake" title="Wake up">wake up</button>
+				</div>
 				<div id="bottom-bar">
 					<div id="bottom-left">
 						<button id="cmd-fan-btn" title="Commands">≡ cmds</button>
@@ -658,7 +665,6 @@
 					<div class="mm-toggle-row">
 						<button type="button" id="mm-run-toggle" class="mm-avenue-toggle mm-icon-btn" title="Run — faster movement, burns stamina. Click to toggle walk / run.">🏃</button>
 						<button type="button" id="mm-auto-toggle" class="mm-avenue-toggle mm-icon-btn" title="Auto-walk the plotted GPS route. Click again to stop.">👣</button>
-						<button type="button" id="mm-doors-toggle" class="mm-avenue-toggle mm-icon-btn" title="Door style: arrows or edge lines. Also switches the tablet Map app.">▲</button>
 					</div>
 					<div id="minimap-grid">—</div>
 					<div class="mm-zoom-row">

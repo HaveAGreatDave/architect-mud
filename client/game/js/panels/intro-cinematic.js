@@ -362,6 +362,40 @@ function startAudio() {
     voices.push(th);
   }
 
+  // ── CRT on ──
+  // The mirror image, on the far side of the silence: the same tube striking back
+  // up as the lattice blooms out of the point it collapsed to. A thump, then the
+  // flyback whine sliding UP into place and staying — quiet, but present, because
+  // the picture is back. It fades out under the city rather than stopping, so it
+  // becomes room tone instead of an event.
+  {
+    const t0 = now + P_CITY / 1000;
+    const th = ctx.createOscillator();
+    th.type = 'sine';
+    th.frequency.setValueAtTime(58, t0);
+    th.frequency.exponentialRampToValueAtTime(140, t0 + 0.09);
+    const tg = ctx.createGain();
+    tg.gain.setValueAtTime(0.0001, t0);
+    tg.gain.linearRampToValueAtTime(vol * 0.40, t0 + 0.02);
+    tg.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.40);
+    th.connect(tg).connect(ctx.destination);
+    th.start(t0); th.stop(t0 + 0.42);
+    voices.push(th);
+
+    const o = ctx.createOscillator();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(900, t0 + 0.05);
+    o.frequency.exponentialRampToValueAtTime(15700, t0 + 0.42);
+    const og = ctx.createGain();
+    og.gain.setValueAtTime(0.0001, t0);
+    og.gain.linearRampToValueAtTime(vol * 0.055, t0 + 0.45);
+    og.gain.linearRampToValueAtTime(vol * 0.030, t0 + 3.5);
+    og.gain.linearRampToValueAtTime(0.0001, t0 + 11);
+    o.connect(og).connect(ctx.destination);
+    o.start(t0); o.stop(t0 + 11.4);
+    voices.push(o);
+  }
+
   return { ctx, master, voices };
 
 }
@@ -564,11 +598,14 @@ function startCanvas(cv, t0, reduced, skyline, shore) {
   // its native size it's a trinket rather than the structure of the world.
   const LAT_S = 2.3;
   const LAT_X = 0, LAT_Y = APPROACH_Y, LAT_Z = FLY_Z0 + 5.2;
-  // Lattice-local → scene. `k` is how far the node has snapped to its cubic seat.
+  // Lattice-local → scene. `k` is how far the node has travelled from the lattice
+  // CENTRE out to its cubic seat — so at k=0 the entire field is one point, which
+  // is exactly the point the static collapsed to and the ember has been sitting on
+  // through the silence. The lattice doesn't reappear; it grows back out of it.
   const latPos = (n, k) => [
-    LAT_X + lerp(n.x, n.gx, k) * LAT_S,
-    LAT_Y + lerp(n.y, n.gy, k) * LAT_S,
-    LAT_Z + lerp(n.z - ZC, n.gz - ZC, k) * LAT_S,
+    LAT_X + n.gx * k * LAT_S,
+    LAT_Y + n.gy * k * LAT_S,
+    LAT_Z + (n.gz - ZC) * k * LAT_S,
   ];
   // Every building is handed one lattice node, and departs from that node's seat.
   // More buildings than nodes, so they share — a seat that serves four towers
@@ -592,6 +629,51 @@ function startCanvas(cv, t0, reduced, skyline, shore) {
   });
 
   const phaseAt = (t) => { let p = PHASES[0].phase; for (const s of PHASES) if (t >= s.from) p = s.phase; return p; };
+
+  // ── The vanishing point ──────────────────────────────────────────────────────
+  // One screen position ties the last three phases together: the static collapses
+  // INTO it, the ember that survives the silence sits ON it, and the new lattice
+  // blooms OUT of it. It is not screen centre — it's where the reform lattice's
+  // own centre projects to from the camera's city-approach station, so the bloom
+  // is already in the right place in the world when the picture comes back. That
+  // is the whole trick: the cut isn't a cut, it's a continuous point of light.
+  function latCenterScreen() {
+    const sx = cam.x, sy = cam.y, sz = cam.z, sp = cam.pitch;
+    cam.x = 0; cam.y = APPROACH_Y; cam.z = FLY_Z0; cam.pitch = 0.30;
+    const p = proj(LAT_X, LAT_Y, LAT_Z);
+    cam.x = sx; cam.y = sy; cam.z = sz; cam.pitch = sp;
+    return p;
+  }
+  const COLLAPSE_MS = 620;    // how long the picture takes to squeeze to a line
+  const EMBER_MS = 1400;      // and how long the point takes to burn down
+  const EMBER_FLOOR = 0.05;   // …to a whisper, never quite to nothing
+
+  // The picture squeezing to a horizontal line and then to a point — the single
+  // most recognisable thing a dying tube does, and the reason the CRT-off cue in
+  // the audio has something to land on.
+  function drawCollapseLine(cp, k) {
+    const ln = easeOut(k);
+    const bw = Math.max(2.6, w * 1.02 * (1 - ln * 0.982));
+    const bh = lerp(7, 2.4, ln);
+    const a = 0.35 + 0.65 * k;
+    ctx.fillStyle = acc(a * 0.45);
+    ctx.fillRect(cp.x - bw / 2, cp.y - bh * 1.9, bw, bh * 3.8);
+    ctx.fillStyle = `rgba(226,250,255,${a})`;
+    ctx.fillRect(cp.x - bw / 2, cp.y - bh / 2, bw, bh);
+  }
+  // What's left of it. Burns down over EMBER_MS to EMBER_FLOOR and then just sits
+  // there through the silence — far too faint to be a picture, bright enough that
+  // the screen is never quite empty, so the bloom on the far side reads as the
+  // same light coming back rather than a new thing starting.
+  function drawEmber(cp, k) {
+    const r = Math.max(0.9, 3.6 * k);
+    ctx.fillStyle = acc(0.34 * k);
+    ctx.beginPath(); ctx.arc(cp.x, cp.y, r * 5.5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = `rgba(226,250,255,${0.92 * k})`;
+    ctx.beginPath(); ctx.arc(cp.x, cp.y, r, 0, Math.PI * 2); ctx.fill();
+  }
+  const emberAt = (t) => lerp(1, EMBER_FLOOR, easeOut(clamp01((t - P_VOID) / EMBER_MS)));
+
   // The lattice breathes on the line. Each beat's arrival brightens the links for
   // about a second — the animation is on the story's clock, not its own.
   const beatPulse = (t) => {
@@ -607,6 +689,22 @@ function startCanvas(cv, t0, reduced, skyline, shore) {
     const shatter = phase === 'shatter' ? easeOut(clamp01((t - P_SHATTER) / 2100)) : 0;
     // A full orbit would take ~2 minutes. It should read as "is that moving?"
     const ang = reduced ? 0.34 : 0.34 + t * 0.000050;
+
+    // ── The tube going out ──
+    // The static doesn't fade and it doesn't cut. The whole frame — lattice, torn
+    // scanlines and all — gets squeezed vertically into a line and then pinched to
+    // a point. One canvas transform around the vanishing point does all of it, so
+    // there is nothing to keep in sync: whatever was on screen is what collapses.
+    const collapse = reduced ? 0 : clamp01((t - (P_VOID - COLLAPSE_MS)) / COLLAPSE_MS);
+    const cp = collapse > 0 ? latCenterScreen() : null;
+    if (cp) {
+      ctx.save();
+      ctx.translate(cp.x, cp.y);
+      // Bulges a little wider as it flattens — the picture is being crushed, not
+      // scaled, and a tube that only got shorter would read as a window blind.
+      ctx.scale(1 + collapse * 0.10, Math.pow(1 - collapse, 2.4));
+      ctx.translate(-cp.x, -cp.y);
+    }
 
     const pts = [];
     for (const n of nodes) {
@@ -673,6 +771,10 @@ function startCanvas(cv, t0, reduced, skyline, shore) {
         ctx.fillRect(0, y, w, Math.random() * 2.5);
       }
     }
+
+    // Out from under the squeeze, and the line itself on top of it — the line is
+    // drawn unsquashed because it IS the collapse, not a victim of it.
+    if (cp) { ctx.restore(); drawCollapseLine(cp, collapse); }
   }
 
   // ── The city ──
@@ -718,17 +820,27 @@ function startCanvas(cv, t0, reduced, skyline, shore) {
   // front of the camera, holding for a beat, and dissolving as the buildings it
   // is about to become peel away from its seats.
   function drawReform(t, snap, fade) {
+    // The ember flaring back up, under everything: the point brightens hard just
+    // as the field starts to leave it, which is what sells "it came out of there".
+    const flare = clamp01(1 - snap * 2.2);
+    if (flare > 0.01) drawEmber(latCenterScreen(), Math.max(EMBER_FLOOR, flare) * fade);
     const pts = nodes.map((n) => {
-      const [x, y, z] = latPos(n, snap);
+      // Staggered, so the field doesn't leave the point as a single ring. Each
+      // node's own seed decides how long it waits before it's pushed out.
+      const k = smooth(clamp01((snap - n.seed * 0.34) / 0.66));
+      const [x, y, z] = latPos(n, k);
       const p = proj(x, y, z);
-      p.lx = lerp(n.x, n.gx, snap); p.ly = lerp(n.y, n.gy, snap); p.lz = lerp(n.z - ZC, n.gz - ZC, snap);
+      p.lx = n.gx * k; p.ly = n.gy * k; p.lz = (n.gz - ZC) * k;
       return p;
     });
     // Same proximity rule as the first act, at the tightened reach — so it comes
-    // back as the frame it left as, not as the cloud it started as.
+    // back as the frame it left as, not as the cloud it started as. Skipped while
+    // the field is still collapsed on the point: every node is within reach of
+    // every other, and three thousand zero-length strokes buy nothing the flare
+    // isn't already doing.
     const reach = 0.74;
     ctx.lineCap = 'round';
-    for (let i = 0; i < pts.length; i++) {
+    if (snap > 0.06) for (let i = 0; i < pts.length; i++) {
       for (let j = i + 1; j < pts.length; j++) {
         const a = pts[i], b = pts[j];
         const d = Math.hypot(a.lx - b.lx, a.ly - b.ly, a.lz - b.lz);
@@ -756,7 +868,7 @@ function startCanvas(cv, t0, reduced, skyline, shore) {
     // whole — hence the offset. Deliberately allowed past 1: the per-building
     // stagger subtracts up to 0.32 from it, so a clamp at 1 would leave the
     // last-arriving buildings on the rim of the map permanently half-lit.
-    const REFORM_MS = 2000;
+    const REFORM_MS = 2400;
     const assemble = Math.min(1.7, (ct - REFORM_MS) / 9000);
     // The run. Held back until the city has mostly landed, then eased the whole
     // way through it and out the far side — the camera never stops, which is why
@@ -794,7 +906,10 @@ function startCanvas(cv, t0, reduced, skyline, shore) {
     // are peeling off its seats in. For a beat you see both: the frame still hanging
     // there and its own nodes streaming out of it toward the ground.
     const latFade = 1 - clamp01((ct - REFORM_MS + 400) / 2200);
-    if (latFade > 0.012) drawReform(t, smooth(clamp01(ct / (REFORM_MS - 400))), latFade);
+    // Linear, not eased — the per-node stagger inside drawReform eats a third of
+    // this range and eases each node on its own, so easing it twice just makes the
+    // whole field hesitate in the middle.
+    if (latFade > 0.012) drawReform(t, clamp01(ct / (REFORM_MS - 400)), latFade);
 
     // A bank, applied to the whole frame. Two degrees of roll is the difference
     // between a camera move and a FLIGHT.
@@ -917,10 +1032,13 @@ function startCanvas(cv, t0, reduced, skyline, shore) {
     if (t > RUN_MS) return;
     ctx.clearRect(0, 0, w, h);
     const phase = phaseAt(t);
-    if (phase !== 'void') {
-      if (phase === 'city') drawCity(t);
-      else drawLattice(t, phase, reduced ? 0 : beatPulse(t));
-    }
+    if (phase === 'city') drawCity(t);
+    // "Silence." is still black and still nothing — except for the point the
+    // picture collapsed to, burning down and then holding at a whisper. Without
+    // it the far side of the silence is a new sequence starting; with it, it's
+    // the same light coming back.
+    else if (phase === 'void') { if (!reduced) drawEmber(latCenterScreen(), emberAt(t)); }
+    else drawLattice(t, phase, reduced ? 0 : beatPulse(t));
     _raf = requestAnimationFrame(frame);
   }
   _raf = requestAnimationFrame(frame);

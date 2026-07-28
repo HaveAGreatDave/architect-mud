@@ -1,6 +1,6 @@
 const SETTINGS_KEY = 'architect_settings';
 export const DEFAULT_AUDIO_SETTINGS = { enabled: true, music: true, sfx: true, tv: true, welcome: true, masterVolume: 0.40, musicVolume: 0.40, sfxVolume: 0.25, ambientVolume: 0.25, tvVolume: 0.25, muteWhenHidden: true };
-const DEFAULT_SETTINGS = { theme: 'dark', fontSize: '16', density: 'comfortable', sidebarPosition: 'left', motion: 'on', weatherFx: 'on', tempUnit: 'C', contrast: 0, dpadSize: 'small', pokerFelt: 'green', pokerFeltColor: '#1a4a1a', extraLore: 'off', mapOverlay: 'labels', mapDoors: 'edges', audio: DEFAULT_AUDIO_SETTINGS };
+const DEFAULT_SETTINGS = { theme: 'dark', fontSize: '16', density: 'comfortable', sidebarPosition: 'left', motion: 'on', weatherFx: 'on', tempUnit: 'C', contrast: 0, dpadSize: 'small', pokerFelt: 'green', pokerFeltColor: '#1a4a1a', extraLore: 'off', mapOverlay: 'labels', audio: DEFAULT_AUDIO_SETTINGS };
 
 const DEFAULT_FELT_GREEN = '#1a4a1a';
 
@@ -147,19 +147,12 @@ function _mapOverlayMode(settings) {
 // How a room's ways in/out are drawn: 'edges' (a thin green line on every open side,
 // red on every wall) or 'arrows' (the amber triangles that came first).
 //
-// EDGES IS THE DEFAULT, and the fallback deliberately points at it rather than at
-// 'arrows'. The arrows only render where `exit_dirs` is set — ways out of the
-// BUILDING — which is 72 of 500 interior tiles, so the old default drew nothing in
-// 86% of rooms and read as a broken feature to anyone who never found the toggle.
-// Edges render wherever `open_dirs` is set: 372 of those same tiles.
-//
-// The fallback direction is the load-bearing half. Anyone who has played before has
-// a saved settings blob with no `mapDoors` key at all, so falling back to 'arrows'
-// would leave every existing player exactly where they were, staring at empty rooms
-// and reasonably concluding nothing had changed.
-function _mapDoorsMode(settings) {
-  return settings.mapDoors === 'arrows' ? 'arrows' : 'edges';
-}
+// Door style used to be a setting (arrows vs edge lines). It isn't any more: edge
+// lines are the only style. The arrows only rendered where `exit_dirs` is set — ways
+// out of the BUILDING — which is 72 of 500 interior tiles, so they drew nothing in
+// 86% of rooms and read as a broken feature. Edges render wherever `open_dirs` is
+// set: 372 of those same tiles. A stale `mapDoors` key in an old saved blob is
+// simply ignored.
 
 export function loadSettings() {
   try {
@@ -170,7 +163,6 @@ export function loadSettings() {
     // Normalise here rather than at each reader, so the Settings pills highlight the
     // mode a retired value now maps to instead of showing nothing selected.
     merged.mapOverlay = _mapOverlayMode(merged);
-    merged.mapDoors = _mapDoorsMode(merged);
     return merged;
   } catch {
     return { ...DEFAULT_SETTINGS, audio: { ...DEFAULT_AUDIO_SETTINGS } };
@@ -364,10 +356,6 @@ export function applySettings(settings) {
   // gate — panels/minimap.js registers it and re-renders in place, so the pill takes
   // effect without a move. Other clients have no minimap and skip it.
   window._applyMapOverlay?.(_mapOverlayMode(settings));
-
-  // Interior door style (arrows | edges) — same hook pattern, drives both the sidebar
-  // minimap and the tablet map app.
-  window._applyMapDoors?.(_mapDoorsMode(settings));
 
   const audio = settings.audio || DEFAULT_AUDIO_SETTINGS;
   window.AudioEngine?.applyVolumeSettings(audio);

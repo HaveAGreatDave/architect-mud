@@ -124,6 +124,83 @@ const TERMS = [
   ['sophistry', 'Argument that sounds valid and isn\'t.'],
   ['erudition', 'Deep book-learning.', 'erudite'],
   ['pedant', 'Someone obsessed with small points of correctness.', 'pedantry', 'pedantic'],
+
+  // ── Second pass: swept the eight shelved books for words that (a) recur, (b)
+  //    aren't in the 25k common-word list, and (c) actually halt a sentence.
+  //    Proper names and merely-old spellings were left alone on the scope rule.
+
+  // Candide — money, orders, places
+  ['piastre', 'An Ottoman silver coin.', 'piastres'],
+  ['sequin', 'A Venetian gold coin. It has nothing to do with dress spangles here.', 'sequins'],
+  ['quarterings', 'The divisions of a coat of arms, one per noble ancestor — a countable measure of how well-born you are.', 'quartering'],
+  ['anabaptist', 'A Protestant sect that rejected infant baptism and was persecuted by nearly everyone.', 'anabaptists'],
+  ['theatin', 'A member of a Catholic order of priests.', 'theatins'],
+  ['dervish', 'A member of a Muslim ascetic order, sought out for wisdom.', 'dervishes'],
+  ['marchioness', 'A noblewoman ranking just below a duchess.', 'marchionesses'],
+  ['eunuch', 'A castrated man, often employed as a guard or servant in a household.', 'eunuchs'],
+  ['oreillons', 'Voltaire\'s invented tribe — the name means "big ears".', 'oreillon'],
+  ['propontis', 'The Sea of Marmara, between the Aegean and the Black Sea.'],
+  ['westphalia', 'A region of Germany, chosen by Voltaire for being provincial and unimportant.', 'westphalian'],
+  ['pococurante', 'A Venetian noble whose name means "caring little" — bored by everything he owns.'],
+  ['perigordian', 'From Périgord in south-west France.'],
+  ['surinam', 'A Dutch colony on the north coast of South America, worked by slave labour.'],
+
+  // De Quincey — pharmacy and dreams
+  ['tincture', 'A drug dissolved in alcohol so it can be measured out in drops.', 'tinctures'],
+  ['draught', 'A measured dose of liquid medicine — not a breeze, in this sense.', 'draughts'],
+  ['ipecacuanha', 'A plant extract given to induce vomiting.', 'ipecac'],
+  ['torpor', 'Heavy sluggishness; being unable to rouse yourself.', 'torpid'],
+  ['piranesi', 'An engraver famous for prints of vast imaginary prisons with stairs that lead nowhere — De Quincey\'s image for his own dreams.'],
+  ['opium-eating', 'Taking opium by mouth as a habit.', 'opium eating'],
+
+  // The Iron Heel — London's political vocabulary
+  ['philomath', 'A lover of learning. Everhard\'s audience use it for themselves; the book does not mean it kindly.', 'philomaths'],
+  ['magnate', 'One of the industrial rich — in this book, a member of the ruling class itself.', 'magnates'],
+  ['agents-provocateurs', 'Infiltrators paid to push a movement into violence so it can be crushed.', 'agent-provocateur', 'agents provocateurs'],
+  ['labor-ghetto', 'London\'s term for the walled districts the unskilled workers are confined to.', 'labor-ghettos', 'labour-ghetto'],
+  ['grab-sharing', 'Everhard\'s name for profit-sharing — the argument that letting workers keep a slice disguises who took the rest.'],
+  ['serf', 'A labourer bound to an estate, unable to leave — the book\'s word for what workers become.', 'serfs', 'serfdom'],
+  ['expropriate', 'To take property away from its owner, usually by law.', 'expropriated', 'expropriation'],
+  ['asgard', 'The oligarchy\'s pleasure city, named for the home of the Norse gods.'],
+
+  // Wells / London — sea, island and dialect
+  ['schooner', 'A small fast sailing ship with two or more masts.', 'schooners'],
+  ['dingey', 'A dinghy — a small open boat.', 'dingeys'],
+  ['taffrail', 'The rail around the stern of a ship.'],
+  ['gunwale', 'The upper edge of a boat\'s side.', 'gunwales'],
+  ['hatchway', 'An opening in a ship\'s deck, and the way down through it.', 'hatchways'],
+  ['staghound', 'A large hound bred to run down deer.', 'staghounds'],
+  ['canebrake', 'A dense thicket of cane.', 'canebrakes'],
+  ['kanaka', 'A Pacific Islander working as a labourer on a ship or plantation — a period term, and a demeaning one.', 'kanakas'],
+  ['ambuscade', 'An ambush.', 'ambuscades'],
+  ['quoits', 'A game of throwing rings over a peg.'],
+  ['granser', 'Grandfather, in the dialect the survivors\' grandchildren speak.', 'grandsire'],
+  ['vivisected', 'Operated on while alive.', 'vivisect'],
+
+  // We — Zamyatin's institutional vocabulary
+  ['unif', 'The uniform every citizen of the One State wears, identical to everyone else\'s.', 'unifs'],
+  ['mephi', 'The name of the resistance beyond the Green Wall.', 'mephis'],
+  ['well-doer', 'The translated title of the One State\'s ruler — the Benefactor.', 'well-doers'],
+  ['vomitory', 'A passage in and out of a tiered hall, as in a Roman amphitheatre.', 'vomitories'],
+  ['phono-lecture', 'A recorded lecture played to a hall, delivered by machine rather than a person.', 'phono-lecturer', 'phono-lectures'],
+
+  // General reading friction, second sweep
+  ['incontinently', 'At once, without delay. It has nothing to do with the modern medical sense.'],
+  ['withal', 'Besides; as well.'],
+  ['durst', 'Dared.'],
+  ['perforce', 'Necessarily; because there was no choice.'],
+  ['wherefore', 'Why, or for which reason.'],
+  ['forbear', 'To hold back from doing something.', 'forbore', 'forbearance'],
+  ['smote', 'Struck.', 'smite', 'smitten'],
+  ['publick', 'An old spelling of "public".'],
+  ['valise', 'A small travelling case.', 'valises'],
+  ['livery', 'The uniform a household\'s servants wear, in its owner\'s colours.'],
+  ['drawing-room', 'The room a household received guests in.', 'drawing room', 'drawing-rooms'],
+  ['rapier', 'A light thrusting sword.', 'rapiers'],
+  ['wench', 'A young woman — familiar at best, insulting at worst.', 'wenches'],
+  ['rabble', 'A crowd, spoken of with contempt.'],
+  ['nether', 'Lower.'],
+  ['antediluvian', 'From before the Biblical Flood; impossibly old-fashioned.'],
 ];
 
 function slug(term) {

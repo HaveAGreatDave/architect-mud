@@ -58,6 +58,11 @@ export default async function regress({ run, check, getPlayer }) {
   };
 
   _test.setEncounters(false); // keep movement/traversal tests deterministic
+  // Pin the seed window. Layout, detours, hard nodes and the big-score room are all
+  // seeded off (voidKey, window), and the live window is the real-world WEEK — so an
+  // untouched tree would walk a different waste every Monday and this gate could go
+  // red on nobody's change. A fixed window makes every seeded choice below reproducible.
+  _test.setWindow(2900);
   // Solo helper: step off the rim to open the muster, then `ready` (all ready → launch).
   const launch = async () => { player._lastStepAt = 0; await run('north'); return run('ready'); };
   try {
@@ -280,6 +285,10 @@ export default async function regress({ run, check, getPlayer }) {
     const lc = _test.crossings.get(player._crossing.instanceId);
     const lcBig = _test.bigScoreSalt(lc.voidKey, lc.window, VOIDS[lc.voidKey].trunk);
     const spineRooms = [...lc.roomSet].filter(id => id !== lc.entry && !lc.detourSet.has(id) && getZone(id).flags.void_salt !== lcBig);
+    // Three distinct un-salvaged rooms are needed below (good roll, repeat, bad roll,
+    // unforced roll). Assert the fixture rather than indexing off the end — a seed that
+    // shrank the spine used to surface as an undefined-zone crash halfway down the suite.
+    check('a crossing has enough plain spine rooms to test salvage', spineRooms.length >= 3, `spine=${spineRooms.length}`);
     player.current_zone = spineRooms[0];
     _test.setSalvage(1); // force a good roll
     const got = await run('loot');
@@ -369,6 +378,7 @@ export default async function regress({ run, check, getPlayer }) {
   } finally {
     _test.setEncounters(true);
     _test.setSalvage(null);
+    _test.setWindow(null);
     await query(`DELETE FROM void_traces WHERE void_key='${VOIDKEY}'`).catch(() => {});
     await query('DELETE FROM player_inventory WHERE player_id=$1', [player.id]).catch(() => {});
     wipe();

@@ -149,6 +149,98 @@ export function createTvView(root, opts = {}) {
     _speakNow(rawText, style, windowSec);
   }
 
+  // ── speech queue ──────────────────────────────────────────────────────────
+  // Lines arrive on the SERVER's clock: broadcast sets bb.waitUntil from
+  // nodeHoldMs, a text-length ESTIMATE (110ms/char + 1s, rounded to the 1s tick).
+  // The voice reads at its own pace and — measured across all 27 .bsm scripts —
+  // finishes inside that hold on every genuine line of dialogue, averaging 2.3s
+  // early. Speaking on arrival therefore left the set silent for a couple of
+  // seconds between every line, and on the rare overrun the next arrival called
+  // AudioEngine.speak, whose first act is cancel() — truncating mid-word.
+  //
+  // So lines QUEUE instead. A line is spoken the moment the previous one ends,
+  // which closes the dead air, and an overrun delays the next line rather than
+  // amputating this one. speak() hands back the true duration, so the chain is
+  // driven by what the voice actually did, not by another estimate.
+  //
+  // The cost is DRIFT: the client now paces off its own voice while the server
+  // graph runs on its clock for every viewer at once. See _sceneBeat().
+  const MAX_UTTERANCE = 220;   // chars
+  // Breath between chained lines. Lives in the synth's tunables so it can be turned
+  // by ear in the voice lab alongside every other pacing number, rather than being a
+  // second timing constant in a different file that quietly disagrees with them.
+  const lineGap = () => window.AudioEngine?.voiceTuning?.lineGapMs ?? 180;
+  const RESYNC_MS     = 2500;  // backlog past which we shed at the next scene beat
+  let _speechQ = [];           // [{ speech, seed, at }]
+  let _busyUntil = 0;          // performance.now() when the current utterance ends
+  let _pumpTimer = null;
+
+  // A line longer than 273 characters CANNOT fit its hold, whatever the voice
+  // does — nodeHoldMs caps at 30s while speech keeps growing. That is the only
+  // structural source of backlog in the corpus (one 585-char legal crawl), so
+  // long lines are split into separate utterances on sentence then comma
+  // boundaries, exactly as the library reader does. This is internal to the
+  // voice: the caption is still displayed as one message.
+  // Three cascading levels, because the bound has to actually BE a bound: the
+  // 585-char crawl in the_last_lot.bsm is punctuated only with middots, so neither
+  // sentence nor comma splitting touches it and a two-level version still emitted a
+  // 520-char utterance. The word-level wrap is the floor that can't be fallen through.
+  function _splitUtterance(text) {
+    if (text.length <= MAX_UTTERANCE) return [text];
+    const pack = (atoms) => {
+      const out = []; let buf = '';
+      for (const at of atoms) {
+        if (buf && (buf + ' ' + at).length > MAX_UTTERANCE) { out.push(buf); buf = at; }
+        else buf = buf ? buf + ' ' + at : at;
+      }
+      if (buf) out.push(buf);
+      return out;
+    };
+    const under = p => p.length <= MAX_UTTERANCE;
+    let parts = pack(text.split(/(?<=[.!?])\s+/));                              // sentences
+    parts = parts.flatMap(p => under(p) ? [p] : pack(p.split(/(?<=[,;:·—])\s+/)));  // clauses
+    parts = parts.flatMap(p => under(p) ? [p] : pack(p.split(/\s+/)));          // words
+    return parts.filter(Boolean);
+  }
+
+  function _clearSpeech() {
+    _speechQ = [];
+    _busyUntil = 0;
+    if (_pumpTimer) { clearTimeout(_pumpTimer); _pumpTimer = null; }
+  }
+
+  function _pump() {
+    if (_pumpTimer) { clearTimeout(_pumpTimer); _pumpTimer = null; }
+    if (!_speechQ.length) return;
+    const now = performance.now();
+    if (now < _busyUntil) { _pumpTimer = setTimeout(_pump, _busyUntil - now); return; }
+    const item = _speechQ.shift();
+    // A muted or disabled engine returns nothing; treat it as a zero-length read
+    // so the queue drains immediately instead of stalling forever on a dead voice.
+    const res = window.AudioEngine?.speak(item.speech, { seed: item.seed, budget: item.budget });
+    const dur = (res && res.duration > 0) ? res.duration * 1000 : 0;
+    _busyUntil = now + dur + lineGap();
+    if (_speechQ.length) _pumpTimer = setTimeout(_pump, dur + lineGap());
+  }
+
+  // How long the oldest unspoken line has been waiting — i.e. how far the voice
+  // has fallen behind the server's timeline.
+  function _backlogMs() {
+    return _speechQ.length ? performance.now() - _speechQ[0].at : 0;
+  }
+
+  // A scene beat: a title card, ticker, overlay or any other non-spoken message.
+  // Drift is only a problem when spoken lines start landing against the wrong
+  // picture, and a beat is where that becomes visible — so it is also the only
+  // safe place to resync. Shedding here costs a whole line at a natural break
+  // instead of a random line mid-scene or half a word mid-vowel. In the measured
+  // corpus the backlog never reaches the threshold, so this should not fire;
+  // it exists to BOUND worst-case drift, not to run in normal operation.
+  function _sceneBeat() {
+    if (_backlogMs() <= RESYNC_MS) return;
+    _speechQ = _speechQ.slice(-1);   // keep only the freshest line, drop the stale ones
+  }
+
   function _speakNow(rawText, style, windowSec) {
     if (!_readAloud || !rawText) return;
     if (_speechOwner && _speechOwner !== view) return;   // another surface owns the voice
@@ -166,9 +258,10 @@ export function createTvView(root, opts = {}) {
     _lastSpeakAt = now;
     // The server's per-line window (the text-scaled hold), falling back to the
     // measured gap. Passed for information only — the voice always reads at its own
-    // pace now and never compresses to fit (see AudioEngine.speak).
+    // pace and never compresses to fit (see AudioEngine.speak).
     const budget = windowSec > 0.5 ? windowSec : _speakWindow;
-    window.AudioEngine?.speak(speech, { seed, budget });
+    for (const piece of _splitUtterance(speech)) _speechQ.push({ speech: piece, seed, budget, at: now });
+    _pump();
   }
 
   // ── open / close ──────────────────────────────────────────────────────────
@@ -401,7 +494,7 @@ export function createTvView(root, opts = {}) {
   }
 
   function close() {
-    if (_speechOwner === view) { window.AudioEngine?.cancelSpeech(); _speechOwner = null; }
+    if (_speechOwner === view) { window.AudioEngine?.cancelSpeech(); _clearSpeech(); _speechOwner = null; }
     _tvOpen = false;
     _tvShuttingDown = false;
     _tvPoweredOff = false;
@@ -441,7 +534,7 @@ export function createTvView(root, opts = {}) {
     // The tablet app has no CRT to collapse — it just closes (the tablet shell
     // itself owns the leaving animation).
     if (!isCrt) { close(); return; }
-    if (_speechOwner === view) { window.AudioEngine?.cancelSpeech(); _speechOwner = null; }
+    if (_speechOwner === view) { window.AudioEngine?.cancelSpeech(); _clearSpeech(); _speechOwner = null; }
     _tvShuttingDown = true;
     if (_tuneTimer) { clearTimeout(_tuneTimer); _tuneTimer = null; }
 
@@ -1068,7 +1161,9 @@ export function createTvView(root, opts = {}) {
 
   // ── tuning ────────────────────────────────────────────────────────────────
   function _tvTuneTo(num) {
-    window.AudioEngine?.cancelSpeech();
+    // A tune abandons the old channel's timeline outright — anything still queued
+    // belongs to a programme you are no longer watching.
+    window.AudioEngine?.cancelSpeech(); _clearSpeech();
     _speechOwner = view;   // the surface being tuned takes the voice
     if (_sweepRaf) { cancelAnimationFrame(_sweepRaf); _sweepRaf = null; }
     _wheelTarget = null;
@@ -1227,6 +1322,12 @@ export function createTvView(root, opts = {}) {
     if (!container) return;
 
     const isTitleCard = style === 'svg' || style === 'ascii_art' || style === 'credits';
+
+    // Anything that isn't dialogue is a scene beat — a card, a ticker, an overlay.
+    // That's the picture changing, so it's where drift would become visible and the
+    // only place the speech queue is allowed to resync. See _sceneBeat().
+    const spoken = !style || style === 'raw' || style === 'emote' || style === 'narrate' || style === 'system';
+    if (!spoken) _sceneBeat();
 
     // Clear before title cards, and after them on the next message
     if (isTitleCard || _clearAfterTitleCard) {
@@ -1475,7 +1576,7 @@ export function createTvView(root, opts = {}) {
       _readAloud = !_readAloud;
       localStorage.setItem('tvReadAloud', _readAloud ? '1' : '0');
       syncReadBtn();
-      if (!_readAloud) window.AudioEngine?.cancelSpeech();
+      if (!_readAloud) { window.AudioEngine?.cancelSpeech(); _clearSpeech(); }
     });
 
     // Gameday toggle: reveals the animated at-bat sub-screen. Hidden until a sports

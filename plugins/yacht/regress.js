@@ -56,6 +56,23 @@ export default async function regress({ run, check, getPlayer }) {
   g = await runMoveGates({ player: owner, from: outside, to: foyer, direction: 'in' });
   check('the owner boards freely', g === null || !g?.block, JSON.stringify(g));
 
+  // ── The waterline hole, and its edges ──
+  // Her weather deck is `vessel`-flagged and reachable from the water by anyone (the
+  // swimming plugin teleports a boarder onto it, so no gate runs). What must NOT leak
+  // is the rest of her: the deck counts as OUTSIDE on the way in, and walking up the
+  // gangway from a pier is still refused.
+  const deck = getZone('zone_echelon_exterior');
+  check('the weather deck is flagged as a boardable vessel', deck?.flags?.vessel === true, JSON.stringify(deck?.flags?.vessel));
+
+  g = await runMoveGates({ player: p, from: deck, to: foyer, direction: 'in' });
+  check('an uninvited swimmer on deck is still stopped at the hatch', g?.block === true, JSON.stringify(g));
+
+  g = await runMoveGates({ player: p, from: outside, to: deck, direction: 'north' });
+  check('walking aboard from the pier is still refused', g?.block === true, JSON.stringify(g));
+
+  g = await runMoveGates({ player: owner, from: deck, to: foyer, direction: 'in' });
+  check('the owner crosses his own deck freely', g === null || !g?.block, JSON.stringify(g));
+
   // Owner access: guest-list verbs answer to the OWNER (Cyd) even without admin role —
   // it's his boat. Prove it's ownership, not staff privilege, by using a non-admin Cyd.
   const ownerSavedHandle = p.handle, ownerSavedRole = p.role;

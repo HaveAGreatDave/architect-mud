@@ -2108,8 +2108,14 @@ async function purgeFakePlayer(playerId) {
 //
 // So: between suites, disarm and clear the shared player's transient activity,
 // and NAME the suite that left something behind. Cleaning silently would fix the
-// flake but hide the culprit, so this reports — as a note, not a failure, since
-// leaking is sloppy rather than broken.
+// flake but hide the culprit, so the leaker is reported by name.
+//
+// It is reported as a FAILURE, not a note. A note costs the leaking suite nothing
+// and charges the whole bill to whoever runs next — which is exactly how this
+// surfaced the first time, as voidwalking going red for someone else's timer. The
+// suite that armed the timer is the one that should go red for it. Every suite was
+// clean when this was tightened, so this gates the class shut rather than opening
+// old ground.
 const TRANSIENT = ['_moveQueue', '_moveTimer', '_consume', '_crossing', '_elevator', '_pendingTrade'];
 function disarm(p) {
   const left = [];
@@ -2147,7 +2153,7 @@ for (const d of dirs) {
       leaked.push(`left the player in ${getPlayer().current_zone} (was ${zoneBefore})`);
       getPlayer().current_zone = zoneBefore;
     }
-    if (leaked.length) console.log(`    ⚠ ${d.name}: left live state behind — ${leaked.join(', ')} (disarmed)`);
+    if (leaked.length) check(`${d.name}: leaves no live state behind`, false, `${leaked.join(', ')} (disarmed)`);
   }
 }
 

@@ -134,8 +134,12 @@ async function cmdBoard(args, raw, player, broadcast) {
     return { type: 'output', message: formatSelectionPage({ allCandidates: ambiguous, visibleIndex: 0, pageSize: 5 }) };
   }
   if (none || !found) {
-    // `embark` is aircraft-only; the `board` backup still delegates to poker's
-    // community-board when there's no aircraft here.
+    // No aircraft here — but this verb is the one everyone reaches for to get aboard
+    // ANYTHING. Offer the swim-up boarding seam first (a `flags.vessel` boat alongside
+    // the water you're treading; swimming owns the action, we just own the verb), then
+    // the `board` backup still delegates to poker's community-board.
+    const vessel = await tryVesselAction('VESSEL_EMBARK', player, broadcast);
+    if (vessel) return vessel;
     const verb = (raw || '').trim().toLowerCase().split(/\s+/)[0];
     if (verb === 'board') return gametableCommands.board(args, raw, player, broadcast);
     return { type: 'emote', message: "There's no aircraft here to embark." };
@@ -248,9 +252,24 @@ async function boardFound(found, player, broadcast) {
   return { type: 'emote', message: `${scramble}You climb aboard the ${live.type.name}. ${hint}${cargoHint}${licenseHint}` };
 }
 
+// Boarding a boat from the water lives in the swimming plugin (it owns the waterline);
+// `embark`/`disembark` are ours, so we hand the verb over when there's no aircraft in
+// play. A null means "not applicable here" — fall through to the aircraft answer. The
+// action registry answers an unregistered type with an error rather than a null, so a
+// world booted without the swimming plugin must not eat our own message.
+async function tryVesselAction(type, player, broadcast) {
+  const r = await dispatchAction({ type, actor: player, context: { broadcast } });
+  if (!r || (r.type === 'error' && /^Unknown action/.test(r.message || ''))) return null;
+  return r;
+}
+
 async function cmdDisembark(args, raw, player, broadcast) {
   const live = player.aircraftId ? liveAircraft.get(player.aircraftId) : null;
-  if (!live) return { type: 'emote', message: "You're not aboard anything." };
+  if (!live) {
+    const vessel = await tryVesselAction('VESSEL_DISEMBARK', player, broadcast);
+    if (vessel) return vessel;
+    return { type: 'emote', message: "You're not aboard anything." };
+  }
   // A continuous heli sets down off-field without sending a `land` event — the client
   // keeps the sim "flying" so the pilot can lift straight off again, so the server still
   // marks it airborne even while it's sitting on the ground. Commit the set-down HERE,

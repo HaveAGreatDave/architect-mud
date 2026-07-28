@@ -26,11 +26,10 @@ export function initNet(messageHandler) {
         // Silent reconnect — token validated server-side; auth_success or auth_fail follows
         _connection.send({ type: 'auth_reconnect', token: reconnectToken });
       } else {
+        // No greeting here — pre-auth we don't know who you are yet. The log's
+        // welcome line is written on auth_success (dispatch.js) using the exact
+        // words the Architect's welcome voice speaks.
         if (state.player) appendMsg(`Connected to ARCHITECT as ${state.player.handle}.`, 'system');
-        else if (!sessionStorage.getItem('welcome-shown')) {
-          sessionStorage.setItem('welcome-shown', '1');
-          appendMsg('Welcome to ARCHITECT.', 'system');
-        }
         const switchToken = sessionStorage.getItem('game-switch-token');
         if (switchToken && !state.player) {
           sessionStorage.removeItem('game-switch-token');

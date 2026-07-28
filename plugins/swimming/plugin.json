@@ -1,5 +1,7 @@
 {
   "name": "swimming",
   "version": "1.0.0",
-  "description": "Swimming — entering water tiles is a stamina cost, not a wall. Stroking between water tiles drains stamina (scaled by the Swimming skill / Endurance+Brawn); treading water bleeds it slowly; running dry means you start to drown. Diving down to underwater tiles starts a breath timer that drowns you when it runs out. Submersion soaks you (wetness) and cold water pulls your core toward hypothermia. Carrying a boat-tagged item rides you across dry and free. No player verbs — it's all automatic on movement; boarding boats from the water is handled by the flight plugin's embark/disembark."
+  "description": "Swimming — entering water tiles is a stamina cost, not a wall. Stroking between water tiles drains stamina (scaled by the Swimming skill / Endurance+Brawn); treading water bleeds it slowly; running dry means you start to drown. Diving down to underwater tiles starts a breath timer that drowns you when it runs out. Submersion soaks you (wetness) and cold water pulls your core toward hypothermia. Carrying a boat-tagged item rides you across dry and free. No player verbs of its own — it's all automatic on movement, except boarding: a flags.vessel boat closes its own water tile (the swimming:vessel-hull move gate) and is climbed from alongside with VESSEL_EMBARK / VESSEL_DISEMBARK, which the flight plugin's embark/disembark fall through to.",
+  "actions": { "registers": ["VESSEL_EMBARK", "VESSEL_DISEMBARK"] },
+  "events": { "consumes": ["zone.entered"] }
 }

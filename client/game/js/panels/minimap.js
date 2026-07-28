@@ -2,7 +2,7 @@
 import { sendCmd, sendCmdSilent } from '../net.js';
 import { appendMsg } from '../render.js';
 import { state } from '../state.js';
-import { loadSettings, saveSettings, applySettings } from '/shared/settings.js';
+import { loadSettings } from '/shared/settings.js';
 
 // Shared map state that outlives the retired full-screen popup: the overlay label
 // mode (read by the sidebar minimap), the door render style, and the active GPS
@@ -12,7 +12,7 @@ import { loadSettings, saveSettings, applySettings } from '/shared/settings.js';
 //
 // DECLARED HERE, AT THE TOP, AND IT HAS TO BE. This module wires its buttons
 // during evaluation (`wireMinimap()` runs immediately when the DOM is already
-// parsed), and that wiring reads `mapState.doorStyle` to seed the doors glyph.
+// parsed), and that wiring reads `mapState` to seed its buttons.
 // While this was declared at the BOTTOM of the file it sat in the temporal dead
 // zone at that moment, so the whole module threw
 //   ReferenceError: Cannot access 'mapState' before initialization
@@ -22,11 +22,7 @@ import { loadSettings, saveSettings, applySettings } from '/shared/settings.js';
 // local testing and broke on a live load. `const` before use, not after.
 let _savedOverlay = 'labels';
 try { _savedOverlay = loadSettings().mapOverlay || 'labels'; } catch {}
-// Edges by default — see _mapDoorsMode in shared/settings.js for why the fallback
-// points here rather than at 'arrows'.
-let _savedDoors = 'edges';
-try { _savedDoors = loadSettings().mapDoors === 'arrows' ? 'arrows' : 'edges'; } catch {}
-const mapState = { avenueOverlay: _savedOverlay, doorStyle: _savedDoors, tracePath: null, traceDirs: null };
+const mapState = { avenueOverlay: _savedOverlay, tracePath: null, traceDirs: null };
 
 // Avenue View for the sidebar/HUD/mobile minimaps: a rendering toggle (not a
 // server round-trip) that strips room symbols down to "does a named artery run
@@ -403,13 +399,6 @@ function wireMinimapAutoToggle() {
   // Run toggle: let the server flip player.running (it echoes run_state back).
   const rbtn = runBtn();
   if (rbtn && !rbtn._wired) { rbtn._wired = true; rbtn.addEventListener('click', () => sendCmd('run')); }
-  // Door style: pure client rendering, no server round trip.
-  const dbtn = doorsBtn();
-  if (dbtn && !dbtn._wired) {
-    dbtn._wired = true;
-    dbtn.addEventListener('click', toggleMapDoors);
-    syncDoorsBtn(mapState.doorStyle);   // seed the glyph from the persisted setting
-  }
 }
 // Double-clicking any minimap (sidebar / HUD / mobile) opens the full-screen map.
 // Delegated on document so it works no matter when the grids are created.
@@ -738,7 +727,7 @@ export function renderMinimap(nodes, direction) {
         // The tile you're standing on renders like any other tile — terrain fill,
         // road connector, icon/label glyph, door marks — with the beacon layered
         // BETWEEN the glyph and the door marks (see .mm-current::before/::after,
-        // z-index 2, against .mm-edge/.mm-entrance at 3). Standing somewhere must
+        // z-index 2, against .mm-edge at 3). Standing somewhere must
         // not blank out what's there: the beacon is a small centred dot+ring that
         // sits over the tile, not a swatch that replaces it.
         const cs = [];
@@ -958,25 +947,14 @@ export function districtCoord(id) {
 // Match the authored Coldwater water zones' bg_color (dark teal) so the cosmetic bay
 // reads as one body with the real water tiles, not a second brighter blue.
 export const WATER_VOID_FILL = '#1d3b52';
-// Small entrance arrow overlaid on a building tile, pointing to the edge the door
-// faces (server `entrance` field). A CSS triangle (no glyph) via .<pfx>-ent-<dir>;
-// pfx is 'mm' (sidebar) or 'map' (full popup).
+// The edge a building's door faces (server `entrance` field). pfx is 'mm' (sidebar)
+// or 'map' (full popup).
 const ENTRANCE_DIRS = new Set(['north', 'south', 'east', 'west']);
-function entranceMark(dir, pfx) {
-  return ENTRANCE_DIRS.has(dir) ? `<span class="${pfx}-entrance ${pfx}-ent-${dir}"></span>` : '';
-}
 
-// Interior exit arrows: the same amber triangles as the entrance arrow, one per
-// cardinal direction that leads out of the building (server `exit_dirs`).
-function exitMarks(dirs, pfx) {
-  return Array.isArray(dirs) ? dirs.map(d => entranceMark(d, pfx)).join('') : '';
-}
-
-// Alternative door style (Settings → "Interior Doors" → Edge Lines): instead of amber
-// triangles, an interior room gets a thin line on each of its four sides — green where
-// there's a way through, red where there's a wall. Server `open_dirs` is the authority
-// and is null on exterior tiles, so out on the street this draws nothing and the
-// entrance arrow still does the talking.
+// The only door style: an interior room gets a thin line on each of its four sides —
+// green where there's a way through, red where there's a wall. Server `open_dirs` is
+// the authority and is null on exterior tiles, so out on the street this draws only
+// the single green line on the facade's door edge (see doorMarks).
 const CARDINALS = ['north', 'south', 'east', 'west'];
 function edgeMarks(node, pfx) {
   const open = node?.open_dirs;
@@ -985,18 +963,14 @@ function edgeMarks(node, pfx) {
     `<span class="${pfx}-edge ${pfx}-edge-${d} ${open.includes(d) ? 'open' : 'shut'}"></span>`).join('');
 }
 
-// The two styles are exclusive: in edge mode the triangles would just clutter the same
-// four sides the lines already describe. A facade out on the street gets the green line
-// on its door edge and NOTHING on the other three — the red "this is wall" half only
-// makes sense inside a floorplan; on the street it would just outline every building.
+// A facade out on the street gets the green line on its door edge and NOTHING on the
+// other three — the red "this is wall" half only makes sense inside a floorplan; on
+// the street it would just outline every building.
 function doorMarks(node, pfx) {
-  if (mapState.doorStyle === 'edges') {
-    if (Array.isArray(node?.open_dirs)) return edgeMarks(node, pfx);
-    if (ENTRANCE_DIRS.has(node?.entrance))
-      return `<span class="${pfx}-edge ${pfx}-edge-${node.entrance} open"></span>`;
-    return '';
-  }
-  return `${entranceMark(node.entrance, pfx)}${exitMarks(node.exit_dirs, pfx)}`;
+  if (Array.isArray(node?.open_dirs)) return edgeMarks(node, pfx);
+  if (ENTRANCE_DIRS.has(node?.entrance))
+    return `<span class="${pfx}-edge ${pfx}-edge-${node.entrance} open"></span>`;
+  return '';
 }
 
 // The tile-label overlay mode (none | labels) lives in the shared settings store as
@@ -1016,40 +990,6 @@ export function setMapOverlay(mode) {
   if (next === mapState.avenueOverlay) return;
   mapState.avenueOverlay = next;
   if (_lastMinimapNodes) renderMinimap(_lastMinimapNodes);
-}
-
-// Same hook shape for the interior door style (window._applyMapDoors, main.js).
-export function setMapDoors(style) {
-  const next = style === 'arrows' ? 'arrows' : 'edges';
-  syncDoorsBtn(next);
-  if (next === mapState.doorStyle) return;
-  mapState.doorStyle = next;
-  if (_lastMinimapNodes) renderMinimap(_lastMinimapNodes);
-}
-
-// The sidebar door-style button. The glyph shows the mode you're IN rather than the
-// one you'd switch to — a control that displays its own state reads faster than one
-// that displays its action, and this button has no room for a label.
-function doorsBtn() { return document.getElementById('mm-doors-toggle'); }
-function syncDoorsBtn(style) {
-  const btn = doorsBtn();
-  if (!btn) return;
-  const edges = style === 'edges';
-  btn.textContent = edges ? '▤' : '▲';
-  btn.classList.toggle('active', edges);
-  btn.title = edges
-    ? 'Doors: edge lines — green where there is a way through, red where there is wall. Click for arrows.'
-    : 'Doors: arrows — amber triangles on the door edge. Click for edge lines.';
-}
-
-// Flip the shared `mapDoors` setting. Persisting through saveSettings/applySettings
-// (rather than poking mapState directly) is what makes the tablet Map app's own
-// chip light up in step — one setting, two surfaces, no second source of truth.
-export function toggleMapDoors() {
-  const s = loadSettings();
-  s.mapDoors = s.mapDoors === 'edges' ? 'arrows' : 'edges';
-  saveSettings(s);
-  applySettings(s);
 }
 
 function twoLetterAbbrev(name) {

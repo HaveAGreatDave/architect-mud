@@ -356,6 +356,13 @@ camera-catch reaction. Stars are now **fractional** (half-steps) so petty acts r
   `npc.killed` (police kill → `kill_police`); `server/engine/drugs.js` emits `player.drugUsed`
   (illegal only — legal drugs carry `flags.legal`); device breach emits `hack.success`. Surveillance
   subscribes to all of these.
+- **Self-defence is not assault** *(as built)* — an assault charge lands on the **instigator only**.
+  Surveillance keeps an in-memory `defenderOf` map (victim → foe → expiry, **5 min**, lazily expired,
+  no tick and no query): `player.attacked` marks the *target* a defender against that attacker, and
+  `npc.aggressed` — emitted by `gameLoop` the once, when an NPC lands the first blow on a player who
+  wasn't already fighting it — marks the player a defender against that NPC. `player.attacked` /
+  `npc.attacked` then skip `raiseCrime` when the actor holds a live defender claim **on that specific
+  foe**. The pass is per-foe by design: being jumped doesn't licence hitting the bystander next to you.
 - **Camera catch** — when a **live, un-jammed camera** (police or player-owned) is in the zone during a
   crime, `flashCamera` broadcasts a red `camera-alert` line ("…locking focus on <suspect>") to the
   whole room and pushes a `camera_flash` message; the game client flashes a red vignette

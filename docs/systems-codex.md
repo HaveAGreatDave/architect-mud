@@ -62,20 +62,48 @@ the cloud becomes wireframe cubes on its own) → `shatter` (blown outward under
 torn scanlines **in the accent colour, not white** — the network tearing itself
 apart should be made of the same light as everything before it, with a few
 near-white lines left in as blown highlights so it still reads as static) →
-`void` (nothing, drawn as nothing, and entered on a **CRT power-off** cue: dying
-flyback whine, the noise bed collapsing through a slamming bandpass, a cabinet
-thump — three synthesized voices wired straight to `destination` so they survive
-the master fade that makes the silence silent) → `city`. The nodes are
+`void` → `city`. The nodes are
 never replaced, only rearranged, because that is the story the text is telling.
 Link brightness pulses on each BEAT's arrival, so the animation runs on the
 story's clock rather than its own.
+
+**The static → lattice handoff is one continuous point of light**, and this is
+load-bearing — it is what stops the far side of the silence reading as a *second*
+sequence starting. Four stages around a single screen position, `latCenterScreen()`
+(the reform lattice's own centre, projected from the camera's city-approach
+station — deliberately **not** screen centre, so the bloom is already in the right
+place in the world when the picture returns):
+
+1. **Collapse.** Over the last `COLLAPSE_MS` (620 ms) of `shatter`, one canvas
+   transform around that point squeezes the entire frame — lattice, torn scanlines
+   and all — flat, widening ~10 % as it flattens so it reads as *crushed* rather
+   than scaled. Nothing has to be kept in sync: whatever was on screen is what
+   collapses. A bright bar is then drawn **unsquashed** on top, because the line is
+   the collapse, not a victim of it.
+2. **Off.** Entering `void` fires a **CRT power-off** cue: dying flyback whine, the
+   noise bed collapsing through a slamming bandpass, a cabinet thump — three
+   synthesized voices wired straight to `destination` so they survive the master
+   fade that makes the silence silent.
+3. **Ember.** `void` is still black and still nothing *except* the point, which
+   burns down over `EMBER_MS` to `EMBER_FLOOR` (0.05) and holds there. Far too
+   faint to be a picture; enough that the screen is never quite empty.
+4. **Bloom.** `latPos(n, k)` measures `k` from the lattice **centre** out to each
+   node's cubic seat, so at `k=0` the whole field is that one point. The lattice
+   doesn't reappear — it grows back out of the ember, staggered per node by seed,
+   under a flare of the ember striking back up. A **CRT power-on** mirrors the
+   off-cue: thump, then the flyback whine sliding *up* into place and decaying into
+   room tone rather than stopping.
+
+Links are skipped while `snap < 0.06` — with the field collapsed on a point every
+node is within reach of every other, and 3 000 zero-length strokes buy nothing the
+flare isn't already doing.
 
 **The flythrough is the real Coldwater.** The `city` phase is not a procedural
 skyline — it is the actual building tiles off `map_world`, with the same
 footprints and floor counts the flight sim extrudes out of a cockpit windshield
 (both read `client/shared/skyline-scale.js`; see § "Where the skyline comes
-from" below). Three overlapping movements. First **the lattice returns** — the
-same node field, snapping back into the same cubic frame, parked at eye height a
+from" below). Three overlapping movements. First **the lattice returns** — blooming
+out of the ember (above) into the same cubic frame, parked at eye height a
 few units ahead of the camera's opening station out over the water — and every
 building gets **one node that departs from a seat in that frame** and lands on
 that building's **rooftop**. The handoff is shown rather than implied: for about

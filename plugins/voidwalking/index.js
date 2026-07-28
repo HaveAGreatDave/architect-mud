@@ -74,7 +74,14 @@ export const VOIDS = {
 const crossings = new Map();
 let _seq = 0;
 
-function currentWindow() { return Math.floor(Date.now() / WEEK_MS); }
+// The whole crossing — trunk length, detour placement, hard nodes, the big score —
+// is seeded off (voidKey, window), and the window is the real-world week. That is
+// correct in play (everyone this week walks the same waste) and poison in a test:
+// the regress suite would walk a DIFFERENT map every Monday, so a green gate could
+// go red on a tree nobody touched. WINDOW_FORCE lets the suite pin one week and get
+// a deterministic layout. Never set outside regress.
+let WINDOW_FORCE = null;
+function currentWindow() { return WINDOW_FORCE ?? Math.floor(Date.now() / WEEK_MS); }
 
 function voidGateOf(zone) {
   const key = zone?.flags?.region_id;
@@ -927,6 +934,8 @@ export const _test = {
   invalidateRimIndex: () => { coordIndex = null; },
   setEncounters: (on) => { ENCOUNTERS_ON = on; },
   setSalvage: (v) => { SALVAGE_FORCE = v; },
+  setWindow: (w) => { WINDOW_FORCE = w; },
+  currentWindow,
 };
 
 loadFoes(); // warm the void roster from the enemies table (one boot query)

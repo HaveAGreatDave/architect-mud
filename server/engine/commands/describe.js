@@ -688,7 +688,9 @@ export async function describeZone(zone, player, out = {}) {
 			// surface exactly the verbs it supports (sit/switch/watch/…).
 			const verbs = furnitureVerbs(f);
 			const actionsAttr = verbs.length ? ` data-actions="${verbs.join(" ")}"` : "";
-			return `<span class="action-link furniture-link" data-action="examine" data-target="${f.name}"${actionsAttr} title="Examine ${f.name}">${titleCaseName(f.name)}</span>${stateTag}${occTag}`;
+			// data-ftype carries the row's object_type through to CSS so each kind of
+			// thing gets its own tint (see .furniture-link[data-ftype=…] in styles.css).
+			return `<span class="action-link furniture-link" data-ftype="${f.object_type || "furniture"}" data-action="examine" data-target="${f.name}"${actionsAttr} title="Examine ${f.name}">${titleCaseName(f.name)}</span>${stateTag}${occTag}`;
 		});
 		desc += `\n<span class="furniture-label">Furniture:</span> ${furnitureLinks.join(", ")}`;
 	}
@@ -697,7 +699,7 @@ export async function describeZone(zone, player, out = {}) {
 		if (zoneGens.length) {
 			const genLinks = zoneGens.map(
 				(g) =>
-					`<span class="furniture-link">${titleCaseName(g.name) || "Junction Box"}</span> <span class="text-dim">(${g.status})</span>`,
+					`<span class="furniture-link" data-ftype="junction_box">${titleCaseName(g.name) || "Junction Box"}</span> <span class="text-dim">(${g.status})</span>`,
 			);
 			desc += `\n<span class="furniture-label">Installed:</span> ${genLinks.join(", ")}`;
 		}
@@ -711,15 +713,19 @@ export async function describeZone(zone, player, out = {}) {
 				w.glass_state === "broken"
 					? ' <span style="color:var(--red)">(broken)</span>'
 					: "";
-			return `<span class="action-link furniture-link" data-action="look" data-target="through ${w.name}" title="Look through ${w.name}">${titleCaseName(w.name)}</span>${curtainTag}${glassTag}`;
+			return `<span class="action-link furniture-link" data-ftype="window" data-action="look" data-target="through ${w.name}" title="Look through ${w.name}">${titleCaseName(w.name)}</span>${curtainTag}${glassTag}`;
 		});
 		desc += `\n<span class="furniture-label">Windows:</span> ${windowLinks.join(", ")}`;
 	}
 
 	if (others.length) {
+		// A sleeper reads as one. `sleepingBodies` below is the OFFLINE list (a DB
+		// query on offline_sleeping), so without this an online sleeper — dreaming
+		// or not — stood in the room looking wide awake, and nothing in the room
+		// description hinted that they were lootable.
 		const playerLinks = others.map(
 			(p) =>
-				`<span class="action-link player-link" data-action="examine" data-target="${p.handle}" title="Look at ${p.handle}">${p.handle}</span>`,
+				`<span class="action-link player-link" data-action="examine" data-target="${p.handle}" title="Look at ${p.handle}">${p.handle}${p.sleeping ? ' <span class="text-dim">(sleeping)</span>' : ''}</span>`,
 		);
 		desc += `\n<span class="players-label">Also here:</span> ${playerLinks.join(", ")}`;
 	}
