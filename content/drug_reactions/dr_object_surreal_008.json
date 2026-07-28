@@ -4,5 +4,7 @@
   "source": "object",
   "tone": "surreal",
   "self_line": "I am the same all the way through. Ask the others.",
-  "room_line": ""
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
 }

@@ -1,0 +1,10 @@
+{
+  "id": "dr_npc_normal_517",
+  "drug_id": null,
+  "source": "npc",
+  "tone": "normal",
+  "relation": null,
+  "npc_type": "medic",
+  "self_line": "{npc} asks what you have had and how much of it, professionally.",
+  "room_line": "{npc} asks {player} what they have had, and how much, professionally."
+}

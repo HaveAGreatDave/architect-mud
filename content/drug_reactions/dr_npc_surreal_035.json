@@ -4,5 +4,7 @@
   "source": "npc",
   "tone": "surreal",
   "self_line": "{npc} is nodding along to something. You are fairly sure you have not spoken.",
-  "room_line": "{npc} nods along to {player}, who has not said anything."
+  "room_line": "{npc} nods along to {player}, who has not said anything.",
+  "relation": null,
+  "npc_type": null
 }

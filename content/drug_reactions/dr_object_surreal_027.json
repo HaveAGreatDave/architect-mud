@@ -4,5 +4,7 @@
   "source": "object",
   "tone": "surreal",
   "self_line": "Nothing is required of you. That is the point.",
-  "room_line": ""
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
 }

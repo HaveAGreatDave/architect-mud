@@ -4,5 +4,7 @@
   "source": "object",
   "tone": "normal",
   "self_line": "Your mother called. Twice.",
-  "room_line": ""
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
 }

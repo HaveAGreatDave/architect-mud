@@ -4,5 +4,7 @@
   "source": "object",
   "tone": "surreal",
   "self_line": "There is more of me underneath. You would not enjoy it.",
-  "room_line": ""
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
 }

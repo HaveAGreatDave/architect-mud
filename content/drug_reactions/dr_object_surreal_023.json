@@ -4,5 +4,7 @@
   "source": "object",
   "tone": "surreal",
   "self_line": "You are seeing about the first four layers. There are a great many.",
-  "room_line": ""
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
 }

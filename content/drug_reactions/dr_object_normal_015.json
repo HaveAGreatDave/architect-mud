@@ -4,5 +4,7 @@
   "source": "object",
   "tone": "normal",
   "self_line": "Mind how you go on the step, it is loose.",
-  "room_line": ""
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
 }

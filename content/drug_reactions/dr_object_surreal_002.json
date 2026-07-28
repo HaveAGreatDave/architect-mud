@@ -4,5 +4,7 @@
   "source": "object",
   "tone": "surreal",
   "self_line": "Do not mind me. I will be here when it wears off.",
-  "room_line": ""
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
 }

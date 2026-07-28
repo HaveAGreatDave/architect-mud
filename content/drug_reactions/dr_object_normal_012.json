@@ -4,5 +4,7 @@
   "source": "object",
   "tone": "normal",
   "self_line": "Did you ever sort out the bins?",
-  "room_line": ""
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
 }

@@ -4,5 +4,7 @@
   "source": "object",
   "tone": "surreal",
   "self_line": "Everyone asks. Nobody waits for the answer.",
-  "room_line": ""
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
 }

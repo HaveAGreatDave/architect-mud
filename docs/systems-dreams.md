@@ -268,9 +268,28 @@ one list — otherwise adding surreal content would quietly dilute the mundane o
 transform's own `says[]` wins 40% of the time when authored, so a specific thing keeps a specific voice,
 but nothing is ever mute for want of one. You can `talk` to any of it, and it answers from the same pool.
 
-**Social reactions** fire on room entry, at 50%, from **one** NPC — a chorus reads as a bug, and the
-point is that somebody noticed, not that everybody did. Only `transform` triggers them: a dreamzone
-tripper cannot walk, an overlay trip is internal, and a deliriant is deliberately undetectable.
+**Social reactions.** Somebody in the room notices what state you are in — from **one** NPC, never the
+whole room, because a chorus reads as a bug and the point is that *somebody* noticed. Only `transform`
+triggers them: a dreamzone tripper cannot walk, an overlay trip is internal, and a deliriant is
+deliberately undetectable.
+
+- **On entry (50%) and while you stand (a quarter of that).** Entry-only meant a bar full of people
+  commented once at the door and never again, so pacing the doorway was the only way to see the content.
+  The standing beat rides the existing follow timer — no second interval.
+- **Scoped to who they are and what you are to them.** A line may carry an `npc_type` (cop, medic,
+  bartender, dealer) or a `relation` tier read from `player_npc_relations` — in memory, no query. A
+  close friend puts a glass of water in front of you and says nothing about it; a stranger decides,
+  visibly, not to get involved; a hostile watches you with an interest that has plans in it.
+- **Specific wins, but only if specific exists.** The chain is type → relation → general, each step used
+  only when it has anything, so no combination of trade and history leaves an NPC mute.
+- **They remember.** An NPC that has commented shuts up for 45s and will not repeat a line it has
+  already used on you this trip; without it, stepping out and back in got you the same "are you all
+  right?" forever. The memory is per (player, NPC) and dropped when the trip ends.
+
+> **The law is separate and already worked.** A hallucinogen sets `_visibleDrug` (`drugs.js` treats any
+> `effects.hallucination` as visibly tripping), so surveillance raises `public_intoxication` on room
+> entry regardless of any of the above. These reactions are the human half of something the legal half
+> already handles.
 
 ### phantom — deliriants
 
@@ -337,6 +356,6 @@ The original three-step plan is BUILT. What actually remains:
   rewritten pool leaves its old rows live and still drawable — they are **not inert**. This bit once for
   real: rewritten tether lines kept serving the exact versions they had been rewritten to replace, until
   `scripts/prune-orphan-dream-rows.mjs` cleared them. Run it after any pool rewrite.
-- **Social reactions are shallow.** One line, on room entry, from a random NPC, with no memory, no
-  archetype variation, and no relation awareness — `player_npc_relations` exists and is not consulted.
-  A police NPC seeing you visibly high does nothing about it.
+- **Social reactions do not escalate.** They now scope by trade and relationship, remember, and fire
+  while you stand as well as when you arrive — but nothing accumulates. An NPC who has watched you come
+  down twice thinks nothing of it, and no reaction feeds relations, gossip or the job market.

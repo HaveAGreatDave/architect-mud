@@ -1,0 +1,10 @@
+{
+  "id": "dr_npc_normal_512",
+  "drug_id": null,
+  "source": "npc",
+  "tone": "normal",
+  "relation": "close",
+  "npc_type": null,
+  "self_line": "{npc} asks, plainly, whether you are all right, and waits for the answer.",
+  "room_line": "{npc} asks {player} outright if they are all right, and waits."
+}

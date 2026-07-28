@@ -4,5 +4,7 @@
   "source": "object",
   "tone": "normal",
   "self_line": "There is a bit left in the pot if you want it.",
-  "room_line": ""
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
 }

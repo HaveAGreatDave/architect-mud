@@ -1801,6 +1801,16 @@ export const SCHEMA_SQL = `
   );
   CREATE INDEX IF NOT EXISTS idx_drug_reactions_pool ON drug_reactions (source, drug_id, tone);
 
+  -- Who says it, and to whom. Both NULL = fits anybody, which is what most lines
+  -- are; a scoped line is a specialisation layered on top rather than a
+  -- replacement, so a rare combination never leaves an NPC with nothing to say.
+  --   relation   a player_npc_relations tier -- stranger | known | familiar |
+  --              close | wary | hostile. A friend seeing you gone should not
+  --              sound like a stranger seeing you gone.
+  --   npc_type   the NPC's npc_type ('cop', 'medic', 'dealer', 'bartender'...).
+  ALTER TABLE drug_reactions ADD COLUMN IF NOT EXISTS relation TEXT;
+  ALTER TABLE drug_reactions ADD COLUMN IF NOT EXISTS npc_type TEXT;
+
   CREATE TABLE IF NOT EXISTS scavenging_tables (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,

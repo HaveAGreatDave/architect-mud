@@ -4,5 +4,7 @@
   "source": "npc",
   "tone": "normal",
   "self_line": "{npc} moves a little further away from you, without seeming to decide to.",
-  "room_line": "{npc} drifts a step away from {player} without appearing to notice doing it."
+  "room_line": "{npc} drifts a step away from {player} without appearing to notice doing it.",
+  "relation": null,
+  "npc_type": null
 }

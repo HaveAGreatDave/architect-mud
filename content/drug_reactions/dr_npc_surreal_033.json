@@ -4,5 +4,7 @@
   "source": "npc",
   "tone": "surreal",
   "self_line": "{npc} has been talking to you for a while. You come back into it partway through.",
-  "room_line": "{npc} carries on talking at {player}, who is plainly somewhere else."
+  "room_line": "{npc} carries on talking at {player}, who is plainly somewhere else.",
+  "relation": null,
+  "npc_type": null
 }

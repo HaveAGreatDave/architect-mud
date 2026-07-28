@@ -40,6 +40,7 @@ import { sendToPlayer } from '../../server/engine/messaging.js';
 import { on } from '../../server/engine/events.js';
 import { addPhantom, removePhantom, clearPhantoms, getPhantomsInZone, matchPhantom, addTransform, clearTransforms, getTransforms, setRoomTransform, setWeatherWarp } from '../../server/engine/phantoms.js';
 import { buildDreamscape, dissolveDreamscape, isDreamZone } from '../../server/engine/dreamscape.js';
+import { getRelation, relationTier } from '../../server/engine/relations.js';
 
 // playerId -> { drugId, name, mode, endsAt, realZone, transformZone, timers[], intervals[], broadcast }
 const activeTrips = new Map();
@@ -195,7 +196,12 @@ async function enterTransform(player, state) {
     // player means nothing left to dress, so stop rather than tick forever.
     if (!p) { clearInterval(iv); return; }
     if (p.current_zone !== state.transformZone) applyTransformsHere(p, state).catch(() => {});
-    else speakTransform(p, state).catch(() => {});
+    else {
+      speakTransform(p, state).catch(() => {});
+      // ...and occasionally somebody in the room notices you, not just on the way
+      // in. A quarter of REACT_CHANCE keeps standing still quieter than arriving.
+      npcNotices(p, p.current_zone, state, REACT_CHANCE / 4).catch(() => {});
+    }
   }, 9000);
   state.intervals.push(iv);
 }
@@ -576,6 +582,7 @@ function endTrip(playerId, { reason } = {}) {
   state.intervals.forEach(clearInterval);
   clearPhantoms(playerId);
   clearTransforms(playerId);   // the room stops misbehaving
+  forgetSaid(playerId);        // nobody carries this trip into the next one
 
   const player = world.players.get(playerId);
 
@@ -612,6 +619,7 @@ function endTrip(playerId, { reason } = {}) {
 // Logout mid-trip: persist the real zone (so a dreamzone player doesn't log
 // back inside the trip) and tear down silently.
 on('player.logout', ({ id }) => {
+  forgetSaid(id);
   const state = activeTrips.get(id);
   if (!state) return;
   if (state.mode === 'dreamzone') {
@@ -676,6 +684,49 @@ async function loadReactionPool(state) {
   return rows;
 }
 
+/**
+ * What this NPC has already said to this player during this trip.
+ *
+ * Without it an NPC asks whether you are all right, you walk out and back in, and
+ * it asks again — which reads as a broken robot rather than a person. Keyed per
+ * (player, npc) and dropped wholesale when the trip ends, so it needs no eviction
+ * and cannot leak across trips.
+ */
+const saidRecently = new Map();   // `${playerId}:${npcId}` -> { at, used: Set<lineId> }
+const NPC_SILENCE_MS = 45000;     // one NPC will not comment twice inside this
+
+function npcMaySpeak(playerId, npcId) {
+  const rec = saidRecently.get(`${playerId}:${npcId}`);
+  return !rec || Date.now() - rec.at >= NPC_SILENCE_MS;
+}
+function rememberSaid(playerId, npcId, lineId) {
+  const key = `${playerId}:${npcId}`;
+  const rec = saidRecently.get(key) || { at: 0, used: new Set() };
+  rec.at = Date.now();
+  rec.used.add(lineId);
+  saidRecently.set(key, rec);
+}
+function forgetSaid(playerId) {
+  for (const k of saidRecently.keys()) if (k.startsWith(`${playerId}:`)) saidRecently.delete(k);
+}
+
+/**
+ * Narrow a pool to the lines that fit this NPC and this relationship.
+ *
+ * SPECIFIC WINS, but only if something specific exists. A line scoped to a tier
+ * or a trade is a specialisation layered over the general pool — so a medic who
+ * happens to be a close friend gets the medic lines, a close friend with no
+ * scoped lines still gets the general ones, and no combination can leave an NPC
+ * with nothing to say.
+ */
+function scopeToNpc(pool, npc, tier) {
+  const byType = npc?.npc_type ? pool.filter(r => r.npc_type === npc.npc_type) : [];
+  if (byType.length) return byType;
+  const byRelation = tier ? pool.filter(r => r.relation === tier) : [];
+  if (byRelation.length) return byRelation;
+  return pool.filter(r => !r.npc_type && !r.relation);
+}
+
 function drawReactionFrom(pool, source) {
   const tone = Math.random() < NORMAL_SHARE ? 'normal' : 'surreal';
   // Drug-specific lines sit ON TOP of the shared pool rather than replacing it —
@@ -706,26 +757,59 @@ const fillTokens = (s, { npc, player }) =>
 // on your state every single move stops being a world and starts being a nag.
 const REACT_CHANCE = 0.5;
 
+/**
+ * Somebody in the room notices what state you are in.
+ *
+ * Fires on room ENTRY and, more rarely, while you are simply standing there —
+ * entry-only meant a bar full of people commented once at the door and then never
+ * again, which made pacing the doorway the only way to see the content.
+ *
+ * The line is chosen for the specific NPC and your specific history with them
+ * (see scopeToNpc), and each NPC then shuts up for a while, so nobody asks you
+ * the same question twice in a minute.
+ */
+async function npcNotices(actor, zone, state, chance) {
+  if (!state || state.mode !== 'transform') return;
+  if (Math.random() > chance) return;
+  const npcs = (getZoneNpcs(zone) || []).filter(n => npcMaySpeak(actor.id, n.id));
+  if (!npcs.length) return;
+  // ONE npc, not the whole room — a chorus reads as a bug, and the point is that
+  // somebody noticed, not that everybody did.
+  const npc = npcs[Math.floor(Math.random() * npcs.length)];
+
+  // Relations are in memory (hydrated at login, sync by contract) — no query.
+  const tier = relationTier(getRelation(actor, npc.id));
+  const pool = scopeToNpc(await loadReactionPool(state), npc, tier)
+    .filter(r => r.source === 'npc');
+  if (!pool.length) return;
+  const fresh = pool.filter(r => !saidRecently.get(`${actor.id}:${npc.id}`)?.used.has(r.id));
+  const r = drawReactionFrom(fresh.length ? fresh : pool, 'npc');
+  if (!r) return;
+
+  rememberSaid(actor.id, npc.id, r.id);
+  const tokens = { npc: npc.name, player: actor.handle };
+  sendToPlayer(actor.id, { type: 'output', message: `<span class="msg-ambient">${fillTokens(r.self_line, tokens)}</span>` });
+  if (r.room_line) state.broadcast?.(zone, { type: 'zone_event', message: fillTokens(r.room_line, tokens) }, actor.id);
+}
+
+// Only `transform`: a dreamzone tripper cannot walk, an overlay trip is internal,
+// and a deliriant is deliberately undetectable — its whole premise is that there
+// is no drug. (The LAW is handled separately and already works: a hallucinogen
+// sets `_visibleDrug`, so surveillance raises `public_intoxication` on entry
+// regardless of any of this.)
 on('zone.entered', async ({ actor, zone }) => {
   try {
-    const state = actor?.id && activeTrips.get(actor.id);
-    // Only `transform`: a dreamzone tripper cannot walk, an overlay trip is
-    // internal, and a deliriant is deliberately undetectable — its whole premise
-    // is that there is no drug.
-    if (!state || state.mode !== 'transform') return;
-    if (Math.random() > REACT_CHANCE) return;
-    const npcs = getZoneNpcs(zone) || [];
-    if (!npcs.length) return;
-    // ONE npc, not the whole room — a chorus reads as a bug, and the point is
-    // that somebody noticed, not that everybody did.
-    const npc = npcs[Math.floor(Math.random() * npcs.length)];
-    const r = await drawReaction('npc', state);
-    if (!r) return;
-    const tokens = { npc: npc.name, player: actor.handle };
-    sendToPlayer(actor.id, { type: 'output', message: `<span class="msg-ambient">${fillTokens(r.self_line, tokens)}</span>` });
-    if (r.room_line) state.broadcast?.(zone, { type: 'zone_event', message: fillTokens(r.room_line, tokens) }, actor.id);
+    await npcNotices(actor, zone, actor?.id && activeTrips.get(actor.id), REACT_CHANCE);
   } catch (e) { console.error('[trip] social reaction:', e.message); }
 });
+
+// Test seams for the social layer — pure functions over (pool, npc, tier) and a
+// per-(player,npc) memory map, so regress can assert the scoping and the silence
+// without a live room.
+export const _scopeToNpc = scopeToNpc;
+export const _npcMaySpeak = npcMaySpeak;
+export const _rememberSaid = rememberSaid;
+export const _forgetSaid = forgetSaid;
 
 export const hooks = {
   'drug.used': (payload) => startTrip(payload).catch(e => console.error('[trip] startTrip:', e.message)),

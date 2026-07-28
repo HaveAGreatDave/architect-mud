@@ -4,5 +4,7 @@
   "source": "object",
   "tone": "surreal",
   "self_line": "I have been here longer than the road has.",
-  "room_line": ""
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
 }

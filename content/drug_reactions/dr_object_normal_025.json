@@ -4,5 +4,7 @@
   "source": "object",
   "tone": "normal",
   "self_line": "Is that clock right?",
-  "room_line": ""
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
 }

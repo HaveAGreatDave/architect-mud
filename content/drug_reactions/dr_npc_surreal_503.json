@@ -1,0 +1,10 @@
+{
+  "id": "dr_npc_surreal_503",
+  "drug_id": null,
+  "source": "npc",
+  "tone": "surreal",
+  "relation": "stranger",
+  "npc_type": null,
+  "self_line": "{npc} looks straight through you, and you are not certain they are wrong to.",
+  "room_line": "{npc} looks straight through {player} as though there were nothing there."
+}

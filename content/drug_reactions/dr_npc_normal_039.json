@@ -4,5 +4,7 @@
   "source": "npc",
   "tone": "normal",
   "self_line": "{npc} squeezes past you with an apology you do not quite process.",
-  "room_line": "{npc} squeezes past {player}, apologising, and gets nothing back."
+  "room_line": "{npc} squeezes past {player}, apologising, and gets nothing back.",
+  "relation": null,
+  "npc_type": null
 }

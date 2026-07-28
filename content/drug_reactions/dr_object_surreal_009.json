@@ -4,5 +4,7 @@
   "source": "object",
   "tone": "surreal",
   "self_line": "Somebody put me here. It was a long time ago and they were kind about it.",
-  "room_line": ""
+  "room_line": "",
+  "relation": null,
+  "npc_type": null
 }

@@ -71,5 +71,42 @@ export default async function regress({ run, check, getPlayer }) {
   check('bare look is a room look, not a phantom intercept', r?.type === 'look', JSON.stringify(r)?.slice(0, 80));
 
   clearPhantoms(p.id);
+  // ── Social reactions: who says it, and to whom ──────────────────────────────
+  const { _scopeToNpc, _npcMaySpeak, _rememberSaid, _forgetSaid } = await import('./index.js');
+  const { query: q2 } = await import('../../server/models/db.js');
+  const pool = (await q2(`SELECT * FROM drug_reactions WHERE source='npc'`)).rows;
+  check('there are npc reactions to draw on', pool.length >= 10);
+
+  // SPECIFIC WINS, but only when something specific exists — no combination of
+  // trade and relationship may leave an NPC with nothing to say.
+  // The chain is TYPE → RELATION → general, each step only when it has anything.
+  const byRelationOnly = _scopeToNpc(pool, { npc_type: 'nobody_has_this_type' }, 'stranger');
+  check('an unknown trade falls through to the relationship', byRelationOnly.length > 0
+    && byRelationOnly.every(r => r.relation === 'stranger'));
+  const generic = _scopeToNpc(pool, { npc_type: 'nobody_has_this_type' }, 'no_such_tier');
+  check('...and with neither, to the general pool', generic.length > 0);
+  check('...which is genuinely unscoped', generic.every(r => !r.npc_type && !r.relation));
+  const cop = _scopeToNpc(pool, { npc_type: 'cop' }, 'stranger');
+  check('a cop gets cop lines', cop.length > 0 && cop.every(r => r.npc_type === 'cop'));
+  const close = _scopeToNpc(pool, { npc_type: null }, 'close');
+  check('a close friend gets friend lines, not stranger ones',
+    close.length > 0 && close.every(r => r.relation === 'close'));
+  check('...which are different from what a stranger gets',
+    JSON.stringify(close.map(r => r.id)) !==
+    JSON.stringify(_scopeToNpc(pool, { npc_type: null }, 'stranger').map(r => r.id)));
+  for (const tier of ['stranger', 'known', 'familiar', 'close', 'wary', 'hostile']) {
+    check(`a ${tier} npc always has something to say`, _scopeToNpc(pool, {}, tier).length > 0);
+  }
+
+  // MEMORY. Without it an NPC asks if you're all right, you step out and back in,
+  // and it asks again — which reads as a broken robot rather than a person.
+  _forgetSaid('regress-social');
+  check('an npc who has said nothing may speak', _npcMaySpeak('regress-social', 'npc_a') === true);
+  _rememberSaid('regress-social', 'npc_a', 'dr_npc_normal_501');
+  check('...and then holds off for a while', _npcMaySpeak('regress-social', 'npc_a') === false);
+  check('...while a DIFFERENT npc is unaffected', _npcMaySpeak('regress-social', 'npc_b') === true);
+  _forgetSaid('regress-social');
+  check('coming down clears what everyone remembers', _npcMaySpeak('regress-social', 'npc_a') === true);
+
   check('clearPhantoms empties the roster', getPhantoms(p.id).length === 0);
 }
