@@ -105,7 +105,7 @@ function _recordDeckMessage(channelId, message) {
   deckRecent.set(channelId, ring);
 }
 
-on('tv.watch',   ({ playerId, channelId }) => tvWatchers.set(playerId, channelId));
+on('tv.watch',   ({ playerId, channelId }) => { tvWatchers.set(playerId, channelId); sendCatchUp(playerId, channelId); });
 // A quick tap closes the panel — you stop watching, but the set keeps playing and the
 // room keeps overhearing it (ambient continues). So a plain unwatch just drops you as a
 // viewer; it does NOT switch the set off.
@@ -177,7 +177,7 @@ on('deck.unwatch', ({ playerId })            => deckWatchers.delete(playerId));
 
 // The Tablet TV app registering/dropping its portable tuner. No furniture, no zone —
 // the tablet streams wherever the player is.
-on('tablet_tv.watch',   ({ playerId, channelId }) => { if (channelId) tabletTuners.set(playerId, channelId); });
+on('tablet_tv.watch',   ({ playerId, channelId }) => { if (channelId) { tabletTuners.set(playerId, channelId); sendCatchUp(playerId, channelId); } });
 on('tablet_tv.unwatch', ({ playerId })            => { tabletTuners.delete(playerId); });
 
 on('player.logout', ({ id })              => { tvWatchers.delete(id); deckWatchers.delete(id); tabletTuners.delete(id); gameshowForgetPlayer(id); });
@@ -3421,6 +3421,7 @@ async function broadcastTick() {
         let offAir = null;
         if (state.wasActive) {
           state.wasActive = false;
+          state.lastBeat = null;   // off air — nothing for a late tuner to catch up to
           offAir = _offAirMessage(state, channelId);
           for (const player of players) {
             if (tvWatchers.get(player.id) === channelId) sendToPlayer(player.id, offAir);
@@ -3448,6 +3449,7 @@ async function broadcastTick() {
         let offAir = null;
         if (!stillWaiting && state.wasActive) {
           state.wasActive = false;
+          state.lastBeat = null;   // off air — nothing for a late tuner to catch up to
           offAir = _offAirMessage(state, channelId);
           for (const player of players) {
             if (tvWatchers.get(player.id) === channelId)
@@ -3530,6 +3532,10 @@ async function broadcastTick() {
 
       // Rate-limit the overheard `[TV]` line for non-watchers so a talky channel
       // doesn't flood the room feed. Decided once per zone+channel per tick.
+      // Remember what's now on screen, so anyone tuning in mid-beat gets the picture
+      // immediately instead of waiting out the rest of the line.
+      _recordBeat(state, result, programName, scorebugOverlay, gamedayOverlay, nowMs);
+
       const ambientKey = `${zoneId}:${channelId}`;
       const ambientDue = result.speech && nowMs - (_lastAmbientLine.get(ambientKey) || 0) >= AMBIENT_LINE_EVERY_MS;
       if (ambientDue) _lastAmbientLine.set(ambientKey, nowMs);
@@ -3585,6 +3591,7 @@ async function broadcastTick() {
         const stillWaiting = !result && state.graphBlackboard?.waitUntil > nowMs;
         if (!result && !stillWaiting) {
           state.wasActive = false;
+          state.lastBeat = null;   // off air — nothing for a late tuner to catch up to
           // Raise the deck-preview dead-air card once per transition into idle.
           if (!deckIdleChannels.has(channelId)) {
             deckIdleChannels.add(channelId);
@@ -3695,6 +3702,7 @@ async function _tabletBroadcastPass(tickResults, activeChannels, nowMs, servedTh
       if (!channelTransmitterLive(state)) {
         if (state.wasActive) {
           state.wasActive = false;
+          state.lastBeat = null;   // off air — nothing for a late tuner to catch up to
           const offAir = _offAirMessage(state, channelId);
           for (const pid of viewers) sendToPlayer(pid, offAir);
         }
@@ -3711,6 +3719,7 @@ async function _tabletBroadcastPass(tickResults, activeChannels, nowMs, servedTh
         const stillWaiting = !result && state.graphBlackboard?.waitUntil > nowMs;
         if (!stillWaiting && state.wasActive) {
           state.wasActive = false;
+          state.lastBeat = null;   // off air — nothing for a late tuner to catch up to
           const offAir = _offAirMessage(state, channelId);
           for (const pid of viewers) sendToPlayer(pid, offAir);
         }
@@ -3755,6 +3764,7 @@ async function _tabletBroadcastPass(tickResults, activeChannels, nowMs, servedTh
     const isSample = !!result.sample;
     if (!formatted && !isMusic && !isSample) continue;
     const programName = result.programName ?? state.currentProgramName ?? null;
+    _recordBeat(state, result, programName, scorebugOverlay, gamedayOverlay, nowMs);
 
     for (const pid of viewers) {
       if (formatted) sendToPlayer(pid, { type: 'broadcast', message: formatted, channel: channelId, style: result.style || 'raw', programName, ...(result.duration != null ? { duration: result.duration } : {}), ...(gamedayOverlay ? { hasGameday: true } : {}) });
@@ -3766,6 +3776,59 @@ async function _tabletBroadcastPass(tickResults, activeChannels, nowMs, servedTh
       if (result.graphic) sendToPlayer(pid, { type: 'tv_overlay', channelId, overlay: result.graphic });
     }
   }
+}
+
+// ── Catch-up: what's on screen RIGHT NOW ─────────────────────────────────────
+// A channel only pushes when its graph produces the NEXT beat, and a beat holds
+// for as long as its line takes to read (up to ~30s, longer for a title card or a
+// theme). So a viewer who tuned in a moment after one landed used to sit in front
+// of a blank set until the next one — which read as "the channel didn't come up,
+// change to it again". Nothing was broken; the picture just hadn't been repainted.
+//
+// So the current beat is remembered per channel and replayed to whoever tunes in.
+// It carries `catchUp: true`: the client renders it exactly like a live beat but
+// doesn't re-speak it, because the read-aloud for that line is already part-aired.
+function _recordBeat(state, result, programName, scorebugOverlay, gamedayOverlay, nowMs) {
+  state.lastBeat = {
+    text: result.text,
+    style: result.style || 'raw',
+    programName,
+    duration: result.duration ?? null,
+    hasGameday: !!gamedayOverlay,
+    graphic: result.graphic || null,
+  };
+  // The score-bug is persistent (re-sent every line while a game is on air), so a
+  // late tuner needs it — but only while it's still current. A stale bug from the
+  // last airing must never sit over a talk show.
+  if (scorebugOverlay) { state.lastScorebug = scorebugOverlay; state.lastScorebugAt = nowMs; }
+  if (gamedayOverlay)  { state.lastGameday  = gamedayOverlay;  state.lastGamedayAt  = nowMs; }
+}
+
+const CATCHUP_BUG_MAX_AGE_MS = 90_000;   // a score-bug older than this is last night's
+
+function sendCatchUp(playerId, channelId) {
+  const state = channelRuntime.get(channelId);
+  const beat = state?.lastBeat;
+  if (!beat) return;
+  // Tickers scroll their own text and off-air/overlay beats are transitions, not a
+  // picture — replaying either would be noise.
+  if (beat.style === 'ticker' || beat.style === 'overlay' || beat.style === 'live_relay') return;
+  // Both surfaces that can tune are `tv` devices, so no [Radio]/[FEED] prefix.
+  const formatted = formatMessage(beat.text, 'tv', null, beat.style);
+  if (formatted) {
+    sendToPlayer(playerId, {
+      type: 'broadcast', message: formatted, channel: channelId, style: beat.style,
+      programName: beat.programName, catchUp: true,
+      ...(beat.duration != null ? { duration: beat.duration } : {}),
+      ...(beat.hasGameday ? { hasGameday: true } : {}),
+    });
+  }
+  if (beat.graphic) sendToPlayer(playerId, { type: 'tv_overlay', channelId, overlay: beat.graphic });
+  const now = Date.now();
+  if (state.lastScorebug && now - (state.lastScorebugAt || 0) < CATCHUP_BUG_MAX_AGE_MS)
+    sendToPlayer(playerId, { type: 'tv_overlay', channelId, overlay: state.lastScorebug });
+  if (state.lastGameday && now - (state.lastGamedayAt || 0) < CATCHUP_BUG_MAX_AGE_MS)
+    sendToPlayer(playerId, { type: 'tv_overlay', channelId, overlay: state.lastGameday });
 }
 
 // ── Dynamic news ─────────────────────────────────────────────────────────────
@@ -6811,7 +6874,7 @@ export const _test = {
   garbleLine: _garbleLine, actorImpairment: _actorImpairment,
   cameraLabel: _cameraLabel, pickCamera: _pickCamera, anyCastPresent: _anyCastPresent, zoneCameras,
   seekGraph: _seekGraph, nodeHoldMs, broadcastDuration, filmBlocksNeeded, filmRunElapsed,
-  channelRuntime,
+  channelRuntime, recordBeat: _recordBeat, sendCatchUp,
   pickDailySlot: _pickDailySlot, filmDayMask,
   assembleSermonGraph, getSermonGraph,
   fillCommercialTail: _fillCommercialTail,

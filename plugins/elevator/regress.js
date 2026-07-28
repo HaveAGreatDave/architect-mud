@@ -2,6 +2,7 @@
 import { _test } from './index.js';
 import { getZone } from '../../server/engine/world.js';
 import { moveEntity } from '../../server/engine/ai-behaviour.js';
+import { emit } from '../../server/engine/events.js';
 
 export default async function regress({ run, check, getPlayer }) {
   // Verb routes and self-gates: pin the player to a definitely-non-elevator zone
@@ -66,6 +67,18 @@ export default async function regress({ run, check, getPlayer }) {
     const dirIn = _test.matchElevatorDir([], 'up', p, () => {});
     check('up in a car reprints the panel', dirIn?.type === 'output' && /floor/i.test(dirIn.message), dirIn?.message);
     check('panel redirect never rides', !p._elevator, 'a redirect started a ride');
+
+    // Boarding parks the car at the floor you stepped off — walking in from Floor N
+    // must leave the doors open on Floor N, not drop the car to the lobby.
+    const boardFrom = car.flags.elevator_floors?.find((f) => getZone(f.zone));
+    if (boardFrom) {
+      delete p._elevatorAt;
+      emit('zone.entered', { actor: p, zone: car.id, from: boardFrom.zone });
+      const parkedOnBoard = _test.parkedAt(car, p);
+      check('boarding parks the car where you got on', parkedOnBoard?.zone === boardFrom.zone,
+        JSON.stringify(parkedOnBoard) + ` (wanted ${boardFrom.zone})`);
+      delete p._elevatorAt;
+    }
 
     // `out` in an unparked car is NOT claimed — it falls through to the car's
     // ordinary `out` exit (the lobby), which is the pre-ride behaviour.

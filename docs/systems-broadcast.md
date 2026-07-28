@@ -173,6 +173,23 @@ Every tick (1 s):
 3. For each tuned channel, calls `getCurrentMessage(state, nowMs)` (via `_resolveTickMessage`, which gives a pirated/loaded media deck first refusal).
 4. If no result (or duplicate key): checks `state.wasActive`. If it was active last tick, fires a one-time `off_air` signal to all watching players (includes offline graphic content and type if set), then sets `state.wasActive = false`. Continues to next channel.
 5. If a result arrived: formats via `formatMessage(text, deviceType, zone, style)` and **splits the zone's players** — active TV watchers on that channel get `{ type: 'broadcast', message, channel, style, duration, programName }` (music lines also push `audio_music`; overlays push `tv_overlay`); everyone else gets a `broadcast_ambient` only when the line carries `speech` and the 30-second ambient throttle allows (see Passive vs Active below); media-deck preview watchers separately get `deck_broadcast`. Sets `state.wasActive = true`.
+6. Records the beat on `state.lastBeat` (plus `lastScorebug`/`lastGameday` and their timestamps) for catch-up, below.
+
+### Catch-up on tune (`sendCatchUp`)
+
+A channel only pushes when its graph produces the **next** beat, and a beat holds for as
+long as its line takes to read — up to ~30 s for a `say`, longer for a title card or a
+theme. So a viewer who tuned in a moment after one landed sat in front of a blank set
+until the next one, which reads as *"the channel didn't come up — change to it again"*.
+
+`tv.watch` / `tablet_tv.watch` therefore replay `state.lastBeat` to that player alone.
+The replay carries **`catchUp: true`**: the client renders it exactly like a live beat
+but does **not** re-narrate it (`dispatch.js` skips `v.speak`), because that line's
+read-aloud is already part-way through airing to everyone else. Tickers, overlays and
+`live_relay` beats are not replayed (a transition or a scroller, not a picture), and
+`state.lastBeat` is nulled whenever a channel drops to `wasActive = false` so a dead
+channel replays nothing. The persistent score-bug / gameday overlays ride along only
+while they're **fresher than 90 s** — a stale bug must never sit over a talk show.
 
 ### `getCurrentMessage()`
 
@@ -951,7 +968,7 @@ All broadcast routes use `directAPI`:
 ## Operational Notes
 
 - **Tick cadence**: 1 second (`BROADCAST_TICK_MS`), separate `setInterval` in the plugin (not the world scheduler). The tick is the re-evaluation granularity, not the reading pace — node holds (`nodeHoldMs`) are honored at tick granularity (a node advances on the first tick past its hold), so a fine tick lets the text-scaled holds land close to target without ever skipping messages.
-- **Spoken-line pacing scales with text**: for `say`/`ticker`/`camera_cut` nodes, `nodeHoldMs` returns `min(chars × 110ms, 20s) + 1s` (a small floor for readability), sized so the read-aloud formant voice reads each line at its natural pace — never speeding up, nothing cut off — with a 1 s gap before the next line. The `say` result carries this window as `duration` so the client uses it as the exact speech budget (falling back to the measured inter-line gap when absent). `110 ms/char` is calibrated to the synth's ~94 ms/char average, the margin covering slower per-narrator voices.
+- **Spoken-line pacing scales with text**: for `say`/`ticker`/`camera_cut` nodes, `nodeHoldMs` returns `min(chars × 110ms, 30s) + 1s` (a small floor for readability), sized so the read-aloud formant voice reads each line at its natural pace — never speeding up, nothing cut off — with a 1 s gap before the next line. **The voice never compresses to fit**: `AudioEngine.speak` used to scale a long line's speed by up to 2× to land inside its window, which made long lines gabble while short ones strolled, so the window is the thing that stretches. That makes the 30 s cap the only thing that can now clip a read, which is why it sits past any sane line. The `say` result still carries the window as `duration` (the client takes it as information, falling back to the measured inter-line gap when absent). `110 ms/char` is calibrated to the synth's ~94 ms/char average, the margin covering slower per-narrator voices.
 - **In-memory only**: `channelRuntime`, `zoneTunings`, `newsQueue`, `graphicsCache` — all rebuilt on server restart from DB. News queue starts empty on restart.
 - **Graphics cache**: holds `id`, `name`, `type`, `content`. `type` is used by `title_card` and `off_air` to set the correct wire style (`'svg'` vs `'ascii_art'`), which the client uses to pick `innerHTML` vs `textContent` rendering.
 - **VINE vs flat list**: runtime prefers `broadcastGraph` when present. Both are saved independently.

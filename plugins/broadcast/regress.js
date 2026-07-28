@@ -729,6 +729,56 @@ export default async function regress({ check, run, getPlayer }) {
     tabletTunersClear(player.id);
   }
 
+  // ── Catch-up on tune ────────────────────────────────────────────────────────
+  // A beat holds for as long as its line takes to read, so a viewer who tunes in
+  // just after one landed used to face a blank screen until the next — the "I have
+  // to change to the channel twice" bug. Tuning now replays what's on air.
+  {
+    const [cid, state] = [..._test.channelRuntime.entries()][0] || [];
+    if (state) {
+      const savedBeat = state.lastBeat;
+      const orig3 = getBroadcast();
+      const got = [];
+      setBroadcast((zoneId, payload, exclude, toPlayer) => {
+        if (toPlayer === player.id) got.push(payload);
+        return orig3?.(zoneId, payload, exclude, toPlayer);
+      });
+      try {
+        state.lastBeat = null;
+        _test.sendCatchUp(player.id, cid);
+        check('a dead channel replays nothing', got.length === 0, JSON.stringify(got.slice(0, 2)));
+
+        state.lastBeat = { text: 'And we are back.', style: 'raw', programName: 'The Regress Hour', duration: 6, hasGameday: false, graphic: null };
+        _test.sendCatchUp(player.id, cid);
+        const beat = got.find(m => m?.type === 'broadcast');
+        check('tuning replays the beat already on air', beat?.message === 'And we are back.', JSON.stringify(got.slice(0, 2)));
+        check('the replay is flagged catchUp (so it is not re-narrated)', beat?.catchUp === true, JSON.stringify(beat));
+        check('the replay carries the program name', beat?.programName === 'The Regress Hour', JSON.stringify(beat));
+
+        got.length = 0;
+        state.lastBeat = { text: '>> headline <<', style: 'ticker' };
+        _test.sendCatchUp(player.id, cid);
+        check('a ticker beat is not replayed', got.length === 0, JSON.stringify(got.slice(0, 2)));
+
+        // A stale score-bug must never be painted over whatever is on now.
+        got.length = 0;
+        state.lastBeat = { text: 'Line.', style: 'raw', programName: null, duration: null, hasGameday: false, graphic: null };
+        state.lastScorebug = { overlayType: 'scorebug', sport: 'baseball' };
+        state.lastScorebugAt = Date.now() - 10 * 60 * 1000;
+        _test.sendCatchUp(player.id, cid);
+        check('a stale score-bug is not replayed', !got.some(m => m?.overlay?.overlayType === 'scorebug'), JSON.stringify(got));
+        state.lastScorebugAt = Date.now();
+        got.length = 0;
+        _test.sendCatchUp(player.id, cid);
+        check('a live score-bug IS replayed', got.some(m => m?.overlay?.overlayType === 'scorebug'), JSON.stringify(got));
+      } finally {
+        setBroadcast(orig3);
+        state.lastBeat = savedBeat;
+        delete state.lastScorebug; delete state.lastScorebugAt;
+      }
+    }
+  }
+
   // ── Standings button ────────────────────────────────────────────────────────
   // The on-demand league table behind the 🏆 toggle on both TV surfaces. The
   // transient corner bug is server-thrown; this path is the viewer asking for it,

@@ -259,7 +259,13 @@ const handlers = {
     for (const v of views) {
       v.showOnAir();
       if (msg.style === 'ticker') v.updateTicker(msg.message);
-      else { v.appendMessage(msg.message, msg.style, msg.duration, msg.hasGameday); v.speak(msg.message, msg.style, msg.duration); }
+      else {
+        v.appendMessage(msg.message, msg.style, msg.duration, msg.hasGameday);
+        // catchUp = the beat that was ALREADY on air when you tuned in, replayed so
+        // the screen isn't blank until the next one. Show it, don't narrate it —
+        // its read-aloud is part-way through airing to everyone else.
+        if (!msg.catchUp) v.speak(msg.message, msg.style, msg.duration);
+      }
       if (msg.programName !== undefined) v.setProgramName(msg.programName);
     }
   },

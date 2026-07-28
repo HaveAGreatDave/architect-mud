@@ -136,10 +136,12 @@ function parkedAt(zone, player) {
   return { n: at.n, zone: at.zone, label: at.label || getZone(at.zone).name };
 }
 
-// What `out` opens onto right now: the floor the car was ridden to, or — before
-// any ride — the car's authored `out` target (its lobby, Floor 1). A car is never
-// between floors while it's standing still, so the doors are ALWAYS open on
-// something and the panel always offers the step out.
+// What `out` opens onto right now: the floor the car is parked on — where you
+// rode it to, or where you boarded it (see the zone.entered listener at the
+// bottom). The lobby is only the last-resort fallback for a rider with no memory
+// at all, e.g. logging in inside a car. A car is never between floors while it's
+// standing still, so the doors are ALWAYS open on something and the panel always
+// offers the step out.
 function doorsOpenAt(zone, player) {
   const parked = parkedAt(zone, player);
   if (parked) return parked;
@@ -355,6 +357,17 @@ on('zone.entered', ({ actor }) => { if (actor?._elevator && actor.current_zone !
 on('zone.entered', ({ actor }) => {
   const at = actor?._elevatorAt;
   if (at && actor.current_zone !== at.zone && actor.current_zone !== at.car) actor._elevatorAt = null;
+});
+// Boarding parks the car where you got on. Step into a car from Floor 3 and its
+// doors are open on Floor 3 — the car goes nowhere until you press a button, so
+// `out` puts you back where you came from, never on some other floor. (Runs after
+// the clearing listener above, which would otherwise wipe the floor you just left.)
+on('zone.entered', ({ actor, zone, from }) => {
+  if (!from || !actor) return;
+  const car = getZone(zone);
+  if (!isElevator(car) || from === zone) return;
+  const boarded = floorsOf(car).find((f) => f.zone === from);
+  if (boarded) actor._elevatorAt = { n: boarded.n, zone: from, car: car.id, label: boarded.label };
 });
 on('player.death',  ({ player }) => clearRide(player));
 on('player.logout', ({ id })     => clearRide(getAllLivePlayers().find(p => p.id === id)));
