@@ -24,7 +24,6 @@
   "grid_z": 3,
   "id": "zone_solenne_residences",
   "map_id": "map_int_solenne",
-  "marker": null,
   "name": "The Residences",
   "parent_zone": "zone_district_914_908",
   "updated_at": "1784600000"

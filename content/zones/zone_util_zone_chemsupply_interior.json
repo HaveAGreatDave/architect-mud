@@ -17,7 +17,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_chemsupply_interior",
   "map_id": "map_interior_zone_chemsupply_interior",
-  "marker": null,
   "name": "Bulk & Bond Supply — Utility Room",
   "parent_zone": null,
   "updated_at": "1783840662"

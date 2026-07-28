@@ -18,7 +18,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_sentinel_bullpen",
   "map_id": "map_int_sentinel",
-  "marker": null,
   "name": "Coldwater Sentinel — Bullpen — Utility Room",
   "parent_zone": "zone_district_914_910",
   "updated_at": "1784348804"

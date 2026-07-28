@@ -27,7 +27,6 @@
   "grid_z": 0,
   "id": "zone_echelon_broadcast",
   "map_id": "map_echelon",
-  "marker": null,
   "name": "Echelon — Broadcast Complex",
   "parent_zone": "zone_echelon_exterior",
   "updated_at": "1783740000"

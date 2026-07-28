@@ -23,7 +23,6 @@
   "grid_z": 5,
   "id": "zone_solenne_penthouse",
   "map_id": "map_int_solenne",
-  "marker": null,
   "name": "The Solenne Penthouse",
   "parent_zone": "zone_district_914_908",
   "updated_at": "1784600000"

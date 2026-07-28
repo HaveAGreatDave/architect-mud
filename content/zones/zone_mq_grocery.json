@@ -26,7 +26,6 @@
   "grid_z": 0,
   "id": "zone_mq_grocery",
   "map_id": "map_int_mq_grocery",
-  "marker": null,
   "name": "Ration Nine",
   "parent_zone": "zone_district_920_908",
   "updated_at": "1782964407"

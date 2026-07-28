@@ -28,7 +28,6 @@
   "grid_z": 0,
   "id": "zone_echelon_suite_boudoir",
   "map_id": null,
-  "marker": null,
   "name": "Echelon — Concealed Boudoir",
   "parent_zone": "zone_echelon_exterior",
   "updated_at": "1783740000"

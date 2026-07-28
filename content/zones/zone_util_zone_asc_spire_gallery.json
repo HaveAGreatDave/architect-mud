@@ -18,7 +18,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_asc_spire_gallery",
   "map_id": "map_int_asc_spire",
-  "marker": null,
   "name": "Gallery of Rungs — Utility Room",
   "parent_zone": "zone_district_892_906",
   "updated_at": "1784412685"

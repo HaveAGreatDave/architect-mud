@@ -18,7 +18,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_solenne_lobby",
   "map_id": "map_int_solenne",
-  "marker": null,
   "name": "Solenne Residences — Grand Lobby — Utility Room",
   "parent_zone": "zone_district_914_908",
   "updated_at": "1784412684"

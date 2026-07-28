@@ -19,7 +19,6 @@
   "grid_z": 0,
   "id": "zone_coldwater_turbine_hall",
   "map_id": "map_int_coldwater_power",
-  "marker": null,
   "name": "Coldwater Power Plant — Turbine Hall",
   "parent_zone": "zone_district_924_911",
   "updated_at": "1782940278"

@@ -22,7 +22,6 @@
   "grid_z": 4,
   "id": "zone_solenne_skydeck",
   "map_id": "map_int_solenne",
-  "marker": null,
   "name": "Solenne Sky Deck",
   "parent_zone": "zone_district_914_908",
   "updated_at": "1784600000"

@@ -26,7 +26,6 @@
   "grid_z": 0,
   "id": "zone_meltwater_diner",
   "map_id": "map_int_meltdiner",
-  "marker": null,
   "name": "Meltwater Diner",
   "parent_zone": "zone_district_906_910",
   "updated_at": "1784500000"

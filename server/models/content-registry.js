@@ -95,12 +95,15 @@ export const REGISTRY = [
     // stains: blood/vomit — accumulates in RAM (world.zones); the DB column is only
     // ever bulk-cleared by the daily maintenance tick (gameLoop.js), never written rich.
     excludeColumns: ['stains'],
-    // audio_theme_id: the tile's OVERRIDE of the song its region supplies
-    // (regions.defaults, spec §1.3). Null on 5,785 of 5,788 tiles before this
-    // seam existed, which is 5,785 files each recording that nobody had an
-    // opinion. The remaining override columns — marker, color, bg_color,
-    // ambient_theme — join this list as their defaults land (spec §11 steps 3-4).
-    omitWhenNull: ['audio_theme_id'],
+    // Absent-by-default OVERRIDES (spec §1.1). Each is a column a tile writes only
+    // when it disagrees with what the build would otherwise give it:
+    //   audio_theme_id — the song its region supplies (regions.defaults, §1.3)
+    //   marker         — the map code deriveMarker computes (§7.4): a building's
+    //                    acronym, an apartment's floor, a sewer run's corridor art
+    // color/bg_color stay off this list on purpose: they are the ROOM's colour
+    // identity, read for any tile the palette has nothing to say about, not an
+    // override of a derived fill (see content/map/terrain.json's authored_bg_wins).
+    omitWhenNull: ['audio_theme_id', 'marker'],
     runtimeInserts: 'environment.js power/junction rooms; broadcast studio builder (dev-gated)',
     note: 'exits/tags are authored content but runtime systems may also wire them (power rooms, studios) — a known, drift-report-visible seam' },
   { table: 'maps', class: 'content', pk: ['id'], readTier: 'boot',

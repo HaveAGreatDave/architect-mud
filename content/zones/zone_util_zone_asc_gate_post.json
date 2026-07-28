@@ -18,7 +18,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_asc_gate_post",
   "map_id": "map_int_asc_gate",
-  "marker": null,
   "name": "The Scanline — Utility Room",
   "parent_zone": "zone_district_893_906",
   "updated_at": "1784412684"

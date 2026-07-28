@@ -26,7 +26,6 @@
   "grid_z": 0,
   "id": "zone_lw_bunk",
   "map_id": "map_int_longwatch",
-  "marker": null,
   "name": "The Bunkroom",
   "parent_zone": null,
   "updated_at": "1784000000"

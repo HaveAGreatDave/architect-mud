@@ -20,7 +20,6 @@
   "grid_z": 0,
   "id": "zone_meltwater_clinic",
   "map_id": "map_int_clinic",
-  "marker": null,
   "name": "Meltwater Walk-In Clinic",
   "parent_zone": "zone_district_915_910",
   "updated_at": "1784500000"

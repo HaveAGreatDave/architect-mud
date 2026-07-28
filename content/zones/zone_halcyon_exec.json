@@ -18,7 +18,6 @@
   "grid_z": 6,
   "id": "zone_halcyon_exec",
   "map_id": "map_int_halcyon",
-  "marker": null,
   "name": "Halcyon Assurance — Executive Floor",
   "parent_zone": "zone_halcyon_lobby",
   "updated_at": "1783316802"

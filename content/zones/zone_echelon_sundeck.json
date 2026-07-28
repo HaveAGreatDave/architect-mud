@@ -30,7 +30,6 @@
   "grid_z": 3,
   "id": "zone_echelon_sundeck",
   "map_id": "map_echelon",
-  "marker": null,
   "name": "Echelon — Sun Deck",
   "parent_zone": "zone_echelon_exterior",
   "updated_at": "1783740000"

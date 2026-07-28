@@ -18,7 +18,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_asc_vats_hall",
   "map_id": "map_int_asc_vats",
-  "marker": null,
   "name": "The Vat Hall — Utility Room",
   "parent_zone": "zone_district_892_905",
   "updated_at": "1784412685"

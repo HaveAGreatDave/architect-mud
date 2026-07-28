@@ -57,7 +57,6 @@
   "grid_z": 0,
   "id": "zone_halcyon_elevator",
   "map_id": "map_int_halcyon",
-  "marker": null,
   "name": "Elevator",
   "parent_zone": "zone_halcyon_lobby",
   "updated_at": "1783400000"

@@ -18,7 +18,6 @@
   "grid_z": -2,
   "id": "zone_util_zone_drum_basement",
   "map_id": "map_int_drum",
-  "marker": null,
   "name": "Second Skin — Utility Room — Utility Room",
   "parent_zone": "zone_district_901_908",
   "updated_at": "1783116358"

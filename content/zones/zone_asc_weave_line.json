@@ -20,7 +20,6 @@
   "grid_z": 0,
   "id": "zone_asc_weave_line",
   "map_id": "map_int_asc_weave",
-  "marker": null,
   "name": "The Line",
   "parent_zone": "zone_district_893_907",
   "updated_at": "1783740000"

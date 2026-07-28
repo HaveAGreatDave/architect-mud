@@ -45,7 +45,7 @@ import { CONTENT_TABLES, EXCLUDED_TABLES, REGISTRY } from '../server/models/cont
 import { SCHEMA_SQL } from '../server/models/schema.js';
 import { handleApiRequest, apiUpdateZone, apiPatchZoneTag } from '../server/api/routes.js';
 import { query } from '../server/models/db.js';
-import { resolveDefault, deriveWorld } from '../scripts/content/derive.mjs';
+import { resolveDefault, deriveWorld, deriveMarker, assignBuildingMarkers } from '../scripts/content/derive.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PLUGINS_DIR = join(__dirname, '../plugins');
@@ -899,6 +899,51 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
     themeMismatch.slice(0, 3).map(z => z.id).join(', '));
   check('zone_render.ambient_theme is always present',
     getAllZones().every(z => !!renderOf(z.id).ambient_theme));
+
+  // ── deriveMarker: four jobs, separated (spec §7.4) ─────────────────────────
+  // `zones.marker` meant four unrelated things. After the split it means exactly
+  // one: a human overrode this tile's map code.
+  const bldCtx = { buildingMarkers: new Map([['zone_mk_probe', 'ZZ']]) };
+  const mk = (z, ctx = bldCtx) => deriveMarker(z, palette, ctx);
+  check('deriveMarker: an authored marker always wins',
+    mk({ id: 'zone_mk_probe', map_id: 'map_world', marker: '☠', flags: { facade: true } }) === '☠');
+  check('deriveMarker: a building takes its whole-map assignment',
+    mk({ id: 'zone_mk_probe', map_id: 'map_world', flags: { facade: true } }) === 'ZZ');
+  check('deriveMarker: an apartment takes its floor designation',
+    mk({ id: 'z', name: 'Unit 2A', flags: { is_apartment: true } }) === '2A'
+    && mk({ id: 'z', name: 'Halcyon Residence 41-A', flags: { is_apartment: true } }) === '41');
+  check('deriveMarker: sewer art comes from connectivity',
+    mk({ id: 'zone_under_1_1', grid_z: -1, exits: { north: 'a', south: 'b' } }) === '║'
+    && mk({ id: 'zone_under_1_1', grid_z: -1, exits: { north: 'a', east: 'b', south: 'c', west: 'd' } }) === '╬');
+  // The one case §7.4 got wrong about this world: terrain glyphs are hand-placed
+  // decoration, not a function of the paint, so the palette derives nothing.
+  check('deriveMarker: painted ground derives no glyph',
+    mk({ id: 'z', flags: { terrain: 'water' } }) === null);
+
+  // A building's code can only be unique if something sees every building at once.
+  {
+    const stripped = getAllZones().map(z => (z.map_id === 'map_world' && (z.flags?.facade || z.flags?.is_building))
+      ? { ...z, marker: null } : z);
+    const { markers, collisions } = assignBuildingMarkers(stripped);
+    const codes = [...markers.values()].filter(Boolean);
+    check(`derived building codes are unique across the world (${codes.length})`,
+      codes.length > 0 && new Set(codes).size === codes.length);
+    check('nothing collides once every code is derived', collisions.length === 0);
+    // Order-independence matters more here than anywhere: assignment is sequential,
+    // so a different row order could otherwise hand two buildings each other's code.
+    const rev = assignBuildingMarkers([...stripped].reverse()).markers;
+    check('building assignment does not depend on row order',
+      [...markers].every(([id, code]) => rev.get(id) === code));
+  }
+
+  // The migration itself: derivation must reproduce the world that shipped. Every
+  // authored marker still draws; nothing was invented and nothing was lost.
+  const markerDrift = getAllZones().filter(z => {
+    const authored = z.marker == null ? null : String(z.marker).trim() || null;
+    return (renderOf(z.id).marker ?? null) !== authored;
+  });
+  check(`every tile draws the marker it shipped with (${world.zones.size} zones)`,
+    markerDrift.length === 0, markerDrift.slice(0, 3).map(z => `${z.id}: ${z.marker} → ${renderOf(z.id).marker}`).join(' | '));
 }
 
 // LAW: no NPC may be homed in a PLAYER-OWNED apartment (the "someone's in Akerson's

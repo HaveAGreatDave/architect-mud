@@ -21,7 +21,6 @@
   "grid_z": -1,
   "id": "zone_mq_sump_cellar",
   "map_id": "map_int_mq_sump",
-  "marker": null,
   "name": "Cellar",
   "parent_zone": "zone_mq_sump_bar",
   "updated_at": "1782964407"

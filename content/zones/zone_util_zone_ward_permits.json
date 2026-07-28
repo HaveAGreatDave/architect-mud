@@ -18,7 +18,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_ward_permits",
   "map_id": "map_int_ward",
-  "marker": null,
   "name": "Ward Nine Permits — Utility Room",
   "parent_zone": "zone_district_910_910",
   "updated_at": "1784350439"

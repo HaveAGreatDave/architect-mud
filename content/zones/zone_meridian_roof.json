@@ -16,7 +16,6 @@
   "grid_z": 7,
   "id": "zone_meridian_roof",
   "map_id": "map_int_meridian",
-  "marker": null,
   "name": "The Meridian — Roof",
   "parent_zone": "zone_meridian_lobby",
   "updated_at": "1783112403"

@@ -15,6 +15,7 @@ import { contentEntries } from '../../server/models/content-registry.js';
 import { SCHEMA_SQL } from '../../server/models/schema.js';
 import { validateTags, validateZoneColumns, TAG_CATALOG as CATALOG, ZONE_COLUMN_PREFIX } from '../../server/engine/tags.js';
 import { readContentTree, fileNameForRow, schemaColumnsOf as columnsOf, readPalette } from './lib.mjs';
+import { assignBuildingMarkers } from './derive.mjs';
 
 // ── SCHEMA_SQL parsing (content→content FKs), no DB required ─────────────────
 // Column parsing lives in lib.mjs (schemaColumnsOf) so the export writer and this
@@ -273,6 +274,25 @@ export function lintContentTree(baseDir) {
       // brush exists, you can click it, and the tile comes out with no fill.
       const noFill = [...known].filter(t => !palette.terrains[t]?.fill);
       if (noFill.length) errors.push(`content/map/terrain.json: entry(ies) with no fill: ${noFill.join(', ')}`);
+    }
+  }
+
+  // ── Building map codes (spec §7.4) ─────────────────────────────────────────
+  // The build assigns a unique code to every building that didn't author one, so a
+  // DERIVED collision is impossible by construction. An AUTHORED one is a human
+  // decision two people made independently, and derive must not paper over it.
+  //
+  // §7.4 says fail the build on these. It is a WARNING for now because 8 exist in
+  // shipped content, and turning them into an error would blockade every push until
+  // eight buildings are renamed — a flag day, which the migration shape (redesign
+  // §14) exists to avoid. Promote it to an error once the backlog is clear.
+  {
+    const zoneFiles = entries.find(e => e.entry.table === 'zones')?.files || [];
+    if (zoneFiles.length) {
+      const { collisions } = assignBuildingMarkers(zoneFiles.map(f => f.data));
+      for (const c of collisions) {
+        warnings.push(`zones/${c.id}: map code "${c.marker}" is already authored on ${c.with} — two buildings wearing one code are indistinguishable on the map (audit MARK-4)`);
+      }
     }
   }
 

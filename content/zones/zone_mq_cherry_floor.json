@@ -27,7 +27,6 @@
   "grid_z": 0,
   "id": "zone_mq_cherry_floor",
   "map_id": "map_int_mq_cherry",
-  "marker": null,
   "name": "The Cherry Pit",
   "parent_zone": "zone_district_901_907",
   "updated_at": "1783019924"

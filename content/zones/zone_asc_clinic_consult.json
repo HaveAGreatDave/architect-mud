@@ -21,7 +21,6 @@
   "grid_z": 0,
   "id": "zone_asc_clinic_consult",
   "map_id": "map_int_asc_clinic",
-  "marker": null,
   "name": "Consultation",
   "parent_zone": "zone_district_893_905",
   "updated_at": "1783740000"

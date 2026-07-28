@@ -21,7 +21,6 @@
   "grid_z": 0,
   "id": "zone_mq_cherry_vip",
   "map_id": "map_int_mq_cherry",
-  "marker": null,
   "name": "VIP",
   "parent_zone": "zone_mq_cherry_floor",
   "updated_at": "1783020038"

@@ -19,7 +19,6 @@
   "grid_z": 0,
   "id": "zone_asc_gate_post",
   "map_id": "map_int_asc_gate",
-  "marker": null,
   "name": "The Scanline",
   "parent_zone": "zone_district_893_906",
   "updated_at": "1783740000"

@@ -21,7 +21,6 @@
   "grid_z": 0,
   "id": "zone_yard_bonded",
   "map_id": "map_int_yard_bonded",
-  "marker": null,
   "name": "Customs Bonded Store 7",
   "parent_zone": "zone_district_922_907",
   "updated_at": "1783739474"

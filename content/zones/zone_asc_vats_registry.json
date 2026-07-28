@@ -21,7 +21,6 @@
   "grid_z": 0,
   "id": "zone_asc_vats_registry",
   "map_id": "map_int_asc_vats",
-  "marker": null,
   "name": "The Registry",
   "parent_zone": "zone_district_892_905",
   "updated_at": "1783740000"

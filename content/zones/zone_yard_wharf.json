@@ -20,7 +20,6 @@
   "grid_z": 0,
   "id": "zone_yard_wharf",
   "map_id": "map_int_yard_wharf",
-  "marker": null,
   "name": "Wharf Transfer Shed",
   "parent_zone": "zone_district_926_908",
   "updated_at": "1783739474"

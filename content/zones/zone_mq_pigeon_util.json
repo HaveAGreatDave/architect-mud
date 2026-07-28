@@ -16,7 +16,6 @@
   "grid_z": -1,
   "id": "zone_mq_pigeon_util",
   "map_id": "map_int_mq_pigeon",
-  "marker": null,
   "name": "Utility Closet",
   "parent_zone": "zone_mq_pigeon_back",
   "updated_at": "1783023534"

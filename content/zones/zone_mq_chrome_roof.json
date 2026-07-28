@@ -21,7 +21,6 @@
   "grid_z": 4,
   "id": "zone_mq_chrome_roof",
   "map_id": "map_int_mq_chrome",
-  "marker": null,
   "name": "Chrome Court — Roof",
   "parent_zone": "zone_mq_chrome_lobby",
   "updated_at": "1782964410"

@@ -21,7 +21,6 @@
   "grid_z": 0,
   "id": "zone_dray_coldstore",
   "map_id": "map_interior_zone_dray_coldstore",
-  "marker": null,
   "name": "Basin Cold Store",
   "parent_zone": "zone_district_922_905",
   "updated_at": "1784100000"

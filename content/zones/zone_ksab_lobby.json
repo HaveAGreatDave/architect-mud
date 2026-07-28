@@ -21,7 +21,6 @@
   "grid_z": 0,
   "id": "zone_ksab_lobby",
   "map_id": "map_int_ksab",
-  "marker": null,
   "name": "KSAB Audience Lobby",
   "parent_zone": "zone_district_913_910",
   "updated_at": "1784500000"

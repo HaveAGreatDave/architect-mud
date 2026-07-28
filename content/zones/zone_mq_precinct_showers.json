@@ -22,7 +22,6 @@
   "grid_z": -1,
   "id": "zone_mq_precinct_showers",
   "map_id": "map_int_mq_precinct",
-  "marker": null,
   "name": "Wash Block",
   "parent_zone": "zone_mq_precinct_holding",
   "updated_at": "1784800000"

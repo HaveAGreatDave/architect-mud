@@ -18,7 +18,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_yard_freightoffice",
   "map_id": "map_int_yard_freightoffice",
-  "marker": null,
   "name": "Yards Freight Office — Utility Room",
   "parent_zone": "zone_district_922_912",
   "updated_at": "1784348804"

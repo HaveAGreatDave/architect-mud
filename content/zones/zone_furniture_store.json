@@ -18,7 +18,6 @@
   "grid_z": 0,
   "id": "zone_furniture_store",
   "map_id": "map_int_furniture",
-  "marker": null,
   "name": "Dead Space Interiors",
   "parent_zone": "zone_district_901_909",
   "updated_at": "1782933540"

@@ -20,7 +20,6 @@
   "grid_z": 0,
   "id": "zone_yard_forwarder",
   "map_id": "map_int_yard_forwarder",
-  "marker": null,
   "name": "Airfreight Forwarding",
   "parent_zone": "zone_district_924_910",
   "updated_at": "1783739474"

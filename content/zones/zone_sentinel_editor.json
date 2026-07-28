@@ -20,7 +20,6 @@
   "grid_z": 0,
   "id": "zone_sentinel_editor",
   "map_id": "map_int_sentinel",
-  "marker": null,
   "name": "Editor's Office",
   "parent_zone": "zone_district_914_910",
   "updated_at": "1784500000"

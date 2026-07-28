@@ -20,7 +20,6 @@
   "grid_z": 0,
   "id": "zone_hock_pawn",
   "map_id": "map_int_hock",
-  "marker": null,
   "name": "The Hock Shop",
   "parent_zone": "zone_district_916_910",
   "updated_at": "1784500000"

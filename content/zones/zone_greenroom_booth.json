@@ -20,7 +20,6 @@
   "grid_z": 0,
   "id": "zone_greenroom_booth",
   "map_id": "map_int_greenroom",
-  "marker": null,
   "name": "Guest Booth",
   "parent_zone": "zone_district_912_910",
   "updated_at": "1784500000"

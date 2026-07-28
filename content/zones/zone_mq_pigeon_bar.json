@@ -27,7 +27,6 @@
   "grid_z": 0,
   "id": "zone_mq_pigeon_bar",
   "map_id": "map_int_mq_pigeon",
-  "marker": null,
   "name": "The Dead Pigeon",
   "parent_zone": "zone_district_905_910",
   "updated_at": "1782964407"

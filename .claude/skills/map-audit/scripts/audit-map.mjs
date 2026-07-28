@@ -66,11 +66,14 @@ const { DISTRICTS } = await import(
 // zone_render.spec, so there is nothing left to mirror and nothing to import.
 // (world.js pulled in db.js, whose module body constructs a Pool — so the old
 // "no DB" property was only ever "no queries issued".)
-// The marker derivation the AUTHORING side uses (scripts/place-building.mjs stamps
-// with these). MARK-2 suggests and MARK-5 tests against the same functions the
-// stamper called, so the grader and the stamper cannot disagree.
-const { twoLetterAbbrev, nameDerivedMarkers, sigWords } = await import(
-  'file://' + path.join(REPO, 'tools/lib/marker.mjs').replace(/\\/g, '/')
+// The marker derivation, imported from the module that PRODUCES the markers.
+// §7.4 moved it out of tools/lib/marker.mjs into derive when the build took over
+// assigning building codes; the audit imports it rather than copying it, because a
+// grader that derives differently from the stamper reports findings on content it
+// just produced. floorDesignation came along for the same reason — MARK-3 asks
+// "does this apartment carry the designation the build would give it".
+const { twoLetterAbbrev, nameDerivedMarkers, sigWords, floorDesignation } = await import(
+  'file://' + path.join(REPO, 'scripts/content/derive.mjs').replace(/\\/g, '/')
 );
 const CONTENT = path.join(REPO, 'content');
 const DECISIONS = path.join(REPO, 'docs/audits/map-audit-decisions.json');
@@ -200,10 +203,10 @@ const RULES = [
     title: 'Interior room carries a map marker',
     why: 'zones.marker is the <=2-char glyph a tile draws on the MAP — the sidebar minimap in Labels mode, the tablet bigmap in Labels mode, the flight cockpit ground strip and the dev-panel badge. An interior room is not a place on the map you navigate by, and it inherits flags.building_name from its parent, so a marker on it renders the building acronym on a room that is not the building. The world-map underground level (map_world, z<0) is excluded: the sewer network IS drawn on the map, and its box-drawing markers are the authored corridor art. Apartments are excluded too — MARK-3 makes the opposite demand of them.',
     rec: 'Clear the marker (marker: null). The building the room belongs to carries the acronym on its facade — that is the one that renders.' },
-  { code: 'MARK-3', sev: 'medium', kind: 'mechanical', fix: 'setMarker',
+  { code: 'MARK-3', sev: 'medium', kind: 'mechanical', fix: null,
     title: 'Apartment has no floor designation as its marker',
     why: 'The one interior that IS a distinct place worth marking: an apartment stack is dozens of near-identical rooms whose only distinguishing feature is which floor it is on, and the interior map is the only view that shows them all at once. Halcyon 41-A..E each carry "41" and read as a floor; the other 111 units carry nothing and read as an undifferentiated grid.',
-    rec: 'Set the floor designation from the unit name. `want` carries it: the full designation when it fits in 2 glyphs ("Unit 2A" -> "2A"), otherwise the floor alone ("Unit 1001" -> "10", "Halcyon Residence 41-A" -> "41"), so units sharing a floor share a marker.' },
+    rec: 'The BUILD derives this now (deriveMarker, spec §7.4): a unit whose name carries a designation gets it automatically, so a finding here means the NAME carries none. Rename the room to include one ("Unit 2A", "Halcyon Residence 41-A") rather than stamping a marker — an authored marker on an apartment is an override, and overriding a value nothing produced just hides the naming gap.' },
   { code: 'MARK-2', sev: 'medium', kind: 'mechanical', fix: null,
     title: 'Building tile has no 2-character map marker',
     why: 'A building is the one thing on the map a player navigates BY, and marker is the label it wears in Labels mode on every map surface. Nothing derives one any more — the renderers each derived a DIFFERENT acronym from the same name ("Hall of Records" read "HA" on the sidebar and "HO" on the tablet while the authored "HR" rendered nowhere), so the derivation moved to authoring time and an unmarked building draws no letters at all. The convention across the 54 buildings that have one is a 2-letter acronym of the building name — a 1-glyph marker is a leftover terrain glyph (the "#" the planner stamped on grassland) or a decorative emoji, neither of which reads as a building.',
@@ -342,22 +345,9 @@ function markerDivergence(mk, name) {
   if (ini.has(last) && !ini.has(first)) return 'namespace prefix';
   return 'unrelated';
 }
-// MARK-3's suggestion: the floor designation carried in an apartment's own name
-// ("Unit 2A", "Unit 1001", "Halcyon Residence 41-A"). Keep the whole designation
-// when it fits the 2-glyph column; otherwise drop to the FLOOR, so the units on one
-// floor share a marker — which is what the authored Halcyon stack already does
-// (41-A..E all carry "41"), and the only precedent there is.
-function floorDesignation(name) {
-  const m = /(?:unit|apt|apartment|residence|room|suite)\s+([A-Za-z0-9][A-Za-z0-9-]*)\s*$/i.exec(String(name || '').trim());
-  if (!m) return null;
-  const desig = m[1].toUpperCase();
-  if (glyphLen(desig) <= 2) return desig;
-  // "41-A" → the part before the separator. "1001" → all but the last two digits
-  // (the unit within the floor), which is the numbering these stacks are authored in.
-  const head = desig.split('-')[0];
-  if (glyphLen(head) <= 2) return head;
-  return /^\d+$/.test(head) ? head.slice(0, -2) : head.slice(0, 2);
-}
+// floorDesignation is imported from derive (above): MARK-3 and the build must agree
+// on what designation a unit name carries, or the audit grades content the build
+// produced against a rule the build never used.
 
 // ─────────────────────────────────────────────────────────────────────────────
 // The AUTHORED tree. Only `--fix` reads this now: a repair belongs in the file a
@@ -956,22 +946,21 @@ const FIXERS = {
     }
     return touched;
   },
-  // MARK-1: an interior draws on no map, so its glyph is dead data. `null` (not a
-  // deleted key) is how content/ represents "no marker" — see any zone_util_* file.
+  // MARK-1: an interior draws on no map, so its glyph is dead data. DELETE the key
+  // rather than nulling it — `marker` is absent-by-default now (registry
+  // omitWhenNull, spec §1.1), so a null would be a lint error and the import would
+  // clear the column anyway. Deleting an override is exactly what this fixer means.
   clearMarker(f, ctx) {
     const z = ctx.zones.get(f.zone);
     if (!z) return new Set();
-    z.marker = null;
+    delete z.marker;
     return new Set([z]);
   },
-  // MARK-3: stamp the floor designation derived from the unit's own name.
-  setMarker(f, ctx) {
-    if (!f.want) return new Set();
-    const z = ctx.zones.get(f.zone);
-    if (!z) return new Set();
-    z.marker = f.want;
-    return new Set([z]);
-  },
+  // setMarker is DELETED (spec §8.2). It stamped the floor designation MARK-3 asked
+  // for; deriveMarker supplies that at build time now, so MARK-3 can only still fire
+  // on a unit whose NAME carries no designation — and there is nothing for a fixer
+  // to stamp in that case. The repair is to rename the room.
+
   // SPAWN-1: relocate the spawn to the entrance-side street tile.
   moveSpawn(f, ctx) {
     if (!f.want) return new Set();

@@ -26,7 +26,6 @@
   "grid_z": 2,
   "id": "zone_mq_chrome_f2",
   "map_id": "map_int_mq_chrome",
-  "marker": null,
   "name": "Floor 2",
   "parent_zone": "zone_mq_chrome_lobby",
   "updated_at": "1782964408"

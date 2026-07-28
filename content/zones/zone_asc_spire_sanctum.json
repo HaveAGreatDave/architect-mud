@@ -20,7 +20,6 @@
   "grid_z": 0,
   "id": "zone_asc_spire_sanctum",
   "map_id": "map_int_asc_spire",
-  "marker": null,
   "name": "Executive Sanctum",
   "parent_zone": "zone_district_892_906",
   "updated_at": "1783740000"

@@ -21,7 +21,6 @@
   "grid_z": 0,
   "id": "zone_meridian_lobby",
   "map_id": "map_int_meridian",
-  "marker": null,
   "name": "The Meridian - Lobby",
   "parent_zone": "zone_district_918_908",
   "updated_at": "1783112116"

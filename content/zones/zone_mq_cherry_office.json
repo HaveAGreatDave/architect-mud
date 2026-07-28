@@ -21,7 +21,6 @@
   "grid_z": -1,
   "id": "zone_mq_cherry_office",
   "map_id": "map_int_mq_cherry",
-  "marker": null,
   "name": "Back Office",
   "parent_zone": "zone_mq_cherry_floor",
   "updated_at": "1783020039"

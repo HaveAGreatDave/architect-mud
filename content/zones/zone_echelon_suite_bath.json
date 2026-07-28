@@ -19,7 +19,6 @@
   "grid_z": 0,
   "id": "zone_echelon_suite_bath",
   "map_id": null,
-  "marker": null,
   "name": "Echelon — Owner's Head",
   "parent_zone": "zone_echelon_suite",
   "updated_at": "1784144725"

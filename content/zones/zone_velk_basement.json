@@ -17,7 +17,6 @@
   "grid_z": -1,
   "id": "zone_velk_basement",
   "map_id": "map_int_velk",
-  "marker": null,
   "name": "Velk's — Utility Room",
   "parent_zone": "zone_district_920_911",
   "updated_at": "1782918447"

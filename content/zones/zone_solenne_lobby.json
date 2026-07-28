@@ -26,7 +26,6 @@
   "grid_z": 0,
   "id": "zone_solenne_lobby",
   "map_id": "map_int_solenne",
-  "marker": null,
   "name": "Grand Lobby",
   "parent_zone": "zone_district_914_908",
   "updated_at": "1784600000"

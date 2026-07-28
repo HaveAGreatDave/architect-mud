@@ -21,7 +21,6 @@
   "grid_z": 0,
   "id": "zone_yard_drystore",
   "map_id": "map_int_yard_drystore",
-  "marker": null,
   "name": "Dry Store 12",
   "parent_zone": "zone_district_924_909",
   "updated_at": "1783739474"

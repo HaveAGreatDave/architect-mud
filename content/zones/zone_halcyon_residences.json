@@ -23,7 +23,6 @@
   "grid_z": 4,
   "id": "zone_halcyon_residences",
   "map_id": "map_int_halcyon",
-  "marker": null,
   "name": "Halcyon Residences — Sky Hall",
   "parent_zone": "zone_halcyon_lobby",
   "updated_at": "1783316802"

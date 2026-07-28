@@ -16,7 +16,6 @@
   "grid_z": 0,
   "id": "zone_mq_grocery_util",
   "map_id": "map_int_mq_grocery",
-  "marker": null,
   "name": "Utility Room",
   "parent_zone": "zone_mq_grocery_stock",
   "updated_at": "1783023538"

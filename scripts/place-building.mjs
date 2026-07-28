@@ -37,7 +37,6 @@ import { templateForType, BUILD_DIR_OFF } from '../tools/lib/building-templates.
 import { authorUtilityRoom } from '../tools/lib/utility-room.mjs';
 import { npcTypeForPersonality, pickClothingForPersonality, DEFAULT_VENDOR_SCHEDULE } from '../server/engine/npc-personality.js';
 import { decideSex } from '../server/engine/npc-sex.js';
-import { uniqueMarkerFor } from '../tools/lib/marker.mjs';
 
 const OPPOSITE = { north: 'south', south: 'north', east: 'west', west: 'east', up: 'down', down: 'up' };
 
@@ -150,14 +149,12 @@ const facadeExits = {
   [OPPOSITE[entranceDir]]: lobbyId,
 };
 
-// Markers are authored (36f1b8f3): no renderer derives one, so an unstamped building
-// draws no letters at all. Stamp the derived acronym, avoiding codes already in use.
-const takenMarkers = new Set(
-  store.all('zones')
-    .filter(z => z.id !== facadeId && z.flags?.facade && z.marker)
-    .map(z => String(z.marker).toUpperCase())
-);
-const marker = uniqueMarkerFor(buildingName, takenMarkers);
+// NO MARKER. This used to stamp a derived acronym here, because at the time nothing
+// else would ever produce one. deriveMarker (spec §7.4) does it at build time now,
+// seeing every building at once — which is the only vantage point from which a code
+// can be guaranteed unique. A CLI holding a snapshot of "taken" codes could only ever
+// guess. Author a marker in the file afterwards if this building wants a code the
+// acronym wouldn't give it (the Ascendant campus namespaces its as AV/AS/AR/AC).
 
 store.patch('zones', facadeId, {
   id: facadeId,
@@ -170,7 +167,6 @@ store.patch('zones', facadeId, {
   map_id: MAP_ID,
   grid_x: toX, grid_y: toY, grid_z: toZ,
   parent_zone: null,
-  marker,
 });
 
 // ── 2. the door, from the street side — and ONLY from there ──────────────────
@@ -341,7 +337,7 @@ const rel = (p) => p.replace(/\\/g, '/').split('/content/')[1] || p;
 console.log(`${dryRun ? 'would write' : 'wrote'} ${written.length} content file${written.length === 1 ? '' : 's'}:`);
 for (const p of written) console.log(`  content/${rel(p)}`);
 console.log(`\n"${buildingName}" (${buildingType}) at (${toX}, ${toY}${toZ ? `, ${toZ}` : ''})`);
-console.log(`  facade    ${facadeId}  marker ${marker}  door → ${entranceDir} onto ${front.n.id}`);
+console.log(`  facade    ${facadeId}  door → ${entranceDir} onto ${front.n.id}  (map code derived at build time)`);
 if (sealed.length) console.log(`  sealed    ${sealed.join('; ')}`);
 console.log(`  interior  ${lobbyId}${rooms.length ? ` + ${rooms.map(r => r.key).join(', ')}` : ''}`);
 if (doorId) console.log(`  door      ${doorId} on ${facadeId} ${OPPOSITE[entranceDir]} → ${lobbyId}`);

@@ -21,7 +21,6 @@
   "grid_z": 5,
   "id": "zone_meridian_floor_5",
   "map_id": "map_int_meridian",
-  "marker": null,
   "name": "The Meridian — Floor 5 Hallway",
   "parent_zone": "zone_meridian_lobby",
   "updated_at": "1783111944"

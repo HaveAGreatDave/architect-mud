@@ -18,7 +18,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_asc_clinic_consult",
   "map_id": "map_int_asc_clinic",
-  "marker": null,
   "name": "Consultation — Utility Room",
   "parent_zone": "zone_district_893_905",
   "updated_at": "1784412684"

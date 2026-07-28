@@ -27,7 +27,6 @@
   "grid_z": 0,
   "id": "zone_mq_precinct_lobby",
   "map_id": "map_int_mq_precinct",
-  "marker": null,
   "name": "Lobby",
   "parent_zone": "zone_district_922_911",
   "updated_at": "1782964407"

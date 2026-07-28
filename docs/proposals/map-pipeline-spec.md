@@ -602,6 +602,49 @@ connectivity. Lift these into derive rather than reinventing them.
 
 ### 7.4 `deriveMarker` — the four jobs, separated
 
+> **BUILT — §11 step 4.** `deriveMarker` + `assignBuildingMarkers` in derive;
+> `tools/lib/marker.mjs` is **deleted**, moved wholesale as this section required, and
+> both the audit and lint import from derive. `marker` joins `omitWhenNull`, so 4,643
+> files stopped recording that nobody had an opinion.
+>
+> **The table below is wrong about the terrain row, and that is the finding.** Painted
+> terrain does not carry one glyph per terrain: water is 945 tiles of which **688 are
+> blank** and 256 carry `≈`; road is 119 tiles wearing **six** textures (`⁙∴`×46,
+> `▚`×23, `#`×22, `⸪.`×20 …); redrock is 2,996 tiles of which 2,995 are blank. Those
+> 846 glyphs are hand-placed decoration that happens to sit on painted ground. Deriving
+> them from a palette glyph would blank 375 grass tiles or stamp one on 688 empty water
+> tiles, so the palette's `glyph` stays null and terrain glyphs **stay authored**.
+>
+> Two more things measured rather than assumed:
+>
+> - **`is_building` is on 90 interior rooms** — Echelon cabins, aircraft interiors, the
+>   Ascendant campus — and the first cut gave every one of them a building acronym. A
+>   building for marker purposes is a tile *on the overworld a player navigates by*, so
+>   the derivation is scoped to `map_world`. Without that, step 4 would have created 90
+>   MARK-1 findings by itself.
+> - **The derivation is a good default, not a replacement.** Strip all 62 authored
+>   codes and the build produces **62 distinct codes with zero collisions**,
+>   deterministically and order-independently — but only **29 of the 62 match what was
+>   authored.** The other 33 are deliberate: the Ascendant campus namespaces its
+>   buildings AV/AS/AR/AC/AG/AW, `TC` keeps the article in "The Cherry Pit", `W9` is
+>   "Ward Nine". That is exactly why `marker` is an OVERRIDE and the authored value
+>   wins — and why nothing was stripped from the 62.
+>
+> **Collisions warn, they don't fail.** §7.4 says fail the build on colliding authored
+> codes. Eight exist in shipped content, so an error would blockade every push until
+> eight buildings are renamed — a flag day, which the migration shape exists to avoid.
+> `content:lint` warns; promote it to an error once the backlog is clear.
+>
+> **§8.2's fixer deletions, revisited now that marker is derived:** `setMarker` is
+> **deleted** — MARK-3 can now only fire on a unit whose NAME carries no designation,
+> and there is nothing for a fixer to stamp in that case (the repair is to rename the
+> room). `clearMarker` **stays**, because `marker` did not become fully derived: it
+> became an override, and deleting an override a human wrote is still an authored-file
+> edit. It now deletes the key rather than nulling it, since a null is a lint error.
+>
+> Verified: derived marker == authored marker on **all 5,788 tiles**, and the audit's
+> output is unchanged at 1,906 findings.
+
 `zones.marker` was doing four unrelated jobs (redesign §5.3). After the split it means exactly
 one thing: *a human overrode this tile's map code.*
 
@@ -899,8 +942,9 @@ point of the migration shape (redesign §14) is no flag day.
    now runs in the build and the audio plugin reads the resolved column, so there is no runtime
    resolution left. And it fixed the pacing bug §1.2 named — 55 of 158 painted road tiles were
    moving players at walking pace because pacing keyed off `flags.icon`, not the paint.
-4. **`deriveMarker`** (§7.4), importing the shipped `twoLetterAbbrev` logic rather than copying
-   it.
+4. ~~**`deriveMarker`** (§7.4)~~ **BUILT** — see the call-out in §7.4. `tools/lib/marker.mjs`
+   moved into derive wholesale rather than being copied, as specified. Done after step 5
+   rather than before it, which cost nothing: the audit reads the resolved world either way.
 5. ~~**The audit port** (§8).~~ **BUILT** — see the call-out in §8. Done immediately after
    step 3 for the reason given: from step 3 onward the files-only audit was reporting on a
    world that no longer exists. Output proven byte-identical to the pre-port baseline.

@@ -21,7 +21,6 @@
   "grid_z": 5,
   "id": "zone_solenne_ph_landing",
   "map_id": "map_int_solenne",
-  "marker": null,
   "name": "The Penthouse Landing",
   "parent_zone": "zone_district_914_908",
   "updated_at": "1784600000"

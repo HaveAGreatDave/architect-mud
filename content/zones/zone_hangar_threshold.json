@@ -21,7 +21,6 @@
   "grid_z": 0,
   "id": "zone_hangar_threshold",
   "map_id": "map_int_hangar_threshold",
-  "marker": null,
   "name": "Threshold Helipad Hangar",
   "parent_zone": "zone_district_893_908",
   "updated_at": "1783227243"

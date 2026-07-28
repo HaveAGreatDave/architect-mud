@@ -21,7 +21,6 @@
   "grid_z": 0,
   "id": "zone_mq_grocery_stock",
   "map_id": "map_int_mq_grocery",
-  "marker": null,
   "name": "Stockroom",
   "parent_zone": "zone_mq_grocery",
   "updated_at": "1782964407"

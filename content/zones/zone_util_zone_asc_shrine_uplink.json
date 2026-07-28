@@ -18,7 +18,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_asc_shrine_uplink",
   "map_id": "map_int_asc_shrine",
-  "marker": null,
   "name": "The Uplink — Utility Room",
   "parent_zone": "zone_district_892_907",
   "updated_at": "1784412685"

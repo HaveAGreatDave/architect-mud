@@ -26,7 +26,6 @@
   "grid_z": 2,
   "id": "zone_yards_tenement_f2",
   "map_id": "map_int_yards_tenement",
-  "marker": null,
   "name": "Floor 2",
   "parent_zone": "zone_yards_tenement_lobby",
   "updated_at": "1783970000"

@@ -21,7 +21,6 @@
   "grid_z": 0,
   "id": "zone_yard_container",
   "map_id": "map_int_yard_container",
-  "marker": null,
   "name": "Interchange Stack",
   "parent_zone": "zone_district_924_907",
   "updated_at": "1783739474"

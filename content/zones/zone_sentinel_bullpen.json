@@ -21,7 +21,6 @@
   "grid_z": 0,
   "id": "zone_sentinel_bullpen",
   "map_id": "map_int_sentinel",
-  "marker": null,
   "name": "Bullpen",
   "parent_zone": "zone_district_914_910",
   "updated_at": "1784500000"

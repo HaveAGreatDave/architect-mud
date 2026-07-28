@@ -18,7 +18,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_records_stacks",
   "map_id": "map_int_records_hall",
-  "marker": null,
   "name": "Hall of Records — The Stacks — Utility Room",
   "parent_zone": "zone_district_922_910",
   "updated_at": "1784348803"

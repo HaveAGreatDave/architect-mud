@@ -35,7 +35,6 @@
   "grid_z": 2,
   "id": "zone_echelon_helipad",
   "map_id": "map_echelon",
-  "marker": null,
   "name": "Echelon — Helipad",
   "parent_zone": "zone_echelon_exterior",
   "updated_at": "1783740000"

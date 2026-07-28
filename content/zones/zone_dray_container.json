@@ -21,7 +21,6 @@
   "grid_z": 0,
   "id": "zone_dray_container",
   "map_id": "map_interior_zone_dray_container",
-  "marker": null,
   "name": "Coldwater Container Yard",
   "parent_zone": "zone_district_922_903",
   "updated_at": "1784100000"

@@ -16,7 +16,6 @@
   "grid_z": 0,
   "id": "zone_mq_precinct_util",
   "map_id": "map_int_mq_precinct",
-  "marker": null,
   "name": "Electrical Room",
   "parent_zone": "zone_mq_precinct_bullpen",
   "updated_at": "1783023541"

@@ -136,13 +136,161 @@ export function contrastText(hex) {
   return `rgb(${t},${t},${t})`;
 }
 
-// What gets painted in the cell. The authored marker is an OVERRIDE and wins;
-// the palette's glyph is the fallback; painted ground with neither is a seamless
-// blank, which is what it already looks like. §7.4 inserts the derived building
-// code between these two in step 4.
-export function deriveGlyph(zone, palette) {
-  if (zone?.marker) return zone.marker;
-  return paletteEntry(zone, palette)?.glyph ?? null;
+// ── deriveMarker — four unrelated jobs, separated (§7.4) ─────────────────────
+//
+// `zones.marker` was doing four jobs at once. After the split it means exactly
+// one thing: A HUMAN OVERRODE THIS TILE'S MAP CODE. Everything else is derived.
+//
+//   building acronym       62 tiles → derived from building_name; authored wins
+//   apartment designation  116      → derived from the unit name
+//   sewer corridor art     118      → derived from connectivity
+//   terrain glyph          846      → STAYS AUTHORED. See below.
+//
+// The terrain row is the one place §7.4 was wrong about this world, and the
+// measurement is worth keeping: painted terrain does NOT carry one glyph per
+// terrain. Water is 945 tiles of which 688 are blank and 256 carry `≈`; road is
+// 119 tiles wearing six textures (`⁙∴`×46, `▚`×23, `#`×22, `⸪.`×20 …); redrock is
+// 2,996 tiles of which 2,995 are blank. These are hand-placed decoration that
+// happens to sit on painted ground, not a function of the paint. Deriving them
+// from a palette glyph would blank 375 grass tiles or stamp one on 688 empty
+// water tiles. So the palette's `glyph` stays null and these stay authored.
+
+// The significant words of a name. The possessive is stripped BEFORE splitting, or
+// "Halloran's Fix-It" becomes [Halloran, s, Fix, It] and abbreviates to "HS" not "HF".
+const STOP_WORD = /^(the|of|and|at|a|an|&)$/i;
+
+export const sigWords = (name) => String(name || '')
+  .replace(/['’]s\b/g, '')
+  .replace(/[^A-Za-z0-9\s]/g, ' ')
+  .split(/\s+/)
+  .filter((w) => w && !STOP_WORD.test(w));
+
+// The single suggested acronym: initials of the significant words, or the first two
+// letters of a lone word.
+export function twoLetterAbbrev(name) {
+  const words = sigWords(name);
+  if (!words.length) return null;
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase() || null;
+  return words.map((w) => w[0]).join('').slice(0, 2).toUpperCase();
+}
+
+// Every 2-glyph code that reads as DERIVED FROM the name. Deliberately wider than
+// twoLetterAbbrev()'s single suggestion, because more than one honest acronym exists —
+// any ordered pair of the significant words' initials ("Embassy Hotel & Bar" → EH, EB,
+// HB) and the first two letters of any one of those words ("The Stacks" → ST). Still
+// narrow enough that a thematic code falls outside it, which is the point: `GN` on the
+// gunshop Ironside Arms is a choice, not an acronym.
+export function nameDerivedMarkers(name) {
+  const words = sigWords(name);
+  const out = new Set();
+  const ini = words.map((w) => w[0].toUpperCase());
+  for (let i = 0; i < ini.length; i++) for (let j = i + 1; j < ini.length; j++) out.add(ini[i] + ini[j]);
+  for (const w of words) if (w.length >= 2) out.add(w.slice(0, 2).toUpperCase());
+  return out;
+}
+
+// Pick a code no other building is already wearing. Tries the suggestion, then the
+// other name-derived codes in a stable order, then suffixes the first significant
+// word's initial with digits. Deterministic: the same name and the same taken set
+// always yield the same code — which is what lets the BUILD assign these, seeing
+// every building at once, instead of an author guessing one at a time.
+export function uniqueMarkerFor(name, taken) {
+  const used = taken instanceof Set ? taken : new Set(taken || []);
+  const first = twoLetterAbbrev(name);
+  if (first && !used.has(first)) return first;
+  for (const cand of [...nameDerivedMarkers(name)].sort()) {
+    if (!used.has(cand)) return cand;
+  }
+  const lead = (sigWords(name)[0] || 'X')[0].toUpperCase();
+  for (let i = 2; i <= 9; i++) if (!used.has(lead + i)) return lead + i;
+  return first;
+}
+
+// Astral-aware length: an emoji marker is one glyph, not two code units.
+const glyphLen = (s) => [...String(s ?? '')].length;
+
+// The floor designation carried in an apartment's own name ("Unit 2A", "Unit 1001",
+// "Halcyon Residence 41-A"). Keep the whole designation when it fits the 2-glyph
+// column; otherwise drop to the FLOOR, so the units on one floor share a marker —
+// which is what the authored Halcyon stack already does (41-A..E all carry "41").
+export function floorDesignation(name) {
+  const m = /(?:unit|apt|apartment|residence|room|suite)\s+([A-Za-z0-9][A-Za-z0-9-]*)\s*$/i.exec(String(name || '').trim());
+  if (!m) return null;
+  const desig = m[1].toUpperCase();
+  if (glyphLen(desig) <= 2) return desig;
+  const head = desig.split('-')[0];
+  if (glyphLen(head) <= 2) return head;
+  return /^\d+$/.test(head) ? head.slice(0, -2) : head.slice(0, 2);
+}
+
+// Sewer corridor art, from the tile's own connectivity. Lifted from
+// scripts/content/build-sewer-grid.mjs, which already re-derived these from FINAL
+// connectivity rather than trusting what it had stamped earlier — the same
+// conclusion this module exists to generalise.
+const SEWER_ART = {
+  N: '╨', S: '╥', E: '╞', W: '╡',
+  NS: '║', EW: '═', NE: '╚', NW: '╝', SE: '╔', SW: '╗',
+  NSE: '╠', NSW: '╣', NEW: '╩', SEW: '╦', NSEW: '╬',
+};
+const DIR_LETTER = { N: 'north', S: 'south', E: 'east', W: 'west' };
+export function sewerArt(exits) {
+  const dirs = new Set(Object.keys(exits || {}));
+  const key = ['N', 'S', 'E', 'W'].filter((c) => dirs.has(DIR_LETTER[c])).join('');
+  return key ? (SEWER_ART[key] ?? '╬') : null;
+}
+
+// A BUILDING for marker purposes is a tile on the overworld a player navigates BY
+// — the thing whose code appears in Labels mode. `is_building` also sits on 90
+// interior rooms (Echelon cabins, aircraft interiors, the Ascendant campus), and
+// giving those an acronym would put a building code on a room nobody navigates to
+// by code, which is precisely what MARK-1 exists to complain about.
+const isBuildingTile = (z) => (z?.map_id === 'map_world') && !!(z?.flags?.facade || z?.flags?.is_building);
+const isSewerTile = (z) => (z?.grid_z ?? 0) < 0 && /^zone_under_/.test(z?.id || '');
+const authoredMarker = (z) => (z?.marker == null ? '' : String(z.marker).trim());
+
+/**
+ * The glyph this tile draws. `ctx.buildingMarkers` is the whole-map assignment
+ * deriveWorld computed in one pass — a building's code can only be unique if
+ * something sees every building at once, which is what a build is and an author
+ * is not.
+ */
+export function deriveMarker(zone, palette, ctx = {}) {
+  const authored = authoredMarker(zone);
+  if (authored) return authored;                                  // a human overrode it
+  if (isBuildingTile(zone)) return ctx.buildingMarkers?.get(zone.id) ?? null;
+  if (zone?.flags?.is_apartment) return floorDesignation(zone.name);
+  if (isSewerTile(zone)) return sewerArt(zone.exits);
+  return paletteEntry(zone, palette)?.glyph ?? null;              // null everywhere; see the note above
+}
+
+/**
+ * Assign a code to every building that didn't author one. Two passes over an
+ * id-sorted list: authored codes are reserved first (a human's choice outranks a
+ * generated one whatever order the rows arrive in), then the gaps are filled.
+ * Returns { markers, collisions } — collisions are AUTHORED duplicates, which
+ * derive cannot resolve and must not silently paper over.
+ */
+export function assignBuildingMarkers(zones) {
+  const buildings = zones.filter(isBuildingTile)
+    .sort((a, b) => (String(a.id) < String(b.id) ? -1 : String(a.id) > String(b.id) ? 1 : 0));
+  const taken = new Set();
+  const collisions = [];
+  const byCode = new Map();
+  for (const z of buildings) {
+    const authored = authoredMarker(z);
+    if (!authored) continue;
+    if (taken.has(authored)) collisions.push({ id: z.id, marker: authored, with: byCode.get(authored) });
+    else { taken.add(authored); byCode.set(authored, z.id); }
+  }
+  const markers = new Map();
+  for (const z of buildings) {
+    const authored = authoredMarker(z);
+    if (authored) { markers.set(z.id, authored); continue; }
+    const code = uniqueMarkerFor(z.flags?.building_name || z.name, taken);
+    if (code) taken.add(code);
+    markers.set(z.id, code ?? null);
+  }
+  return { markers, collisions };
 }
 
 /**
@@ -183,6 +331,11 @@ export function buildRenderSpec(zone, palette, resolved) {
 export function deriveWorld({ zones = [], regions = [], palette = null } = {}) {
   const regionById = new Map(regions.map(r => [r.id, r]));
   const render = new Map();
+  // Whole-map first: a building's code has to be unique across every building, so
+  // it cannot be a per-tile function. Collisions come back rather than being
+  // silently resolved — an authored duplicate is a human decision to unpick.
+  const { markers: buildingMarkers, collisions } = assignBuildingMarkers(zones);
+  const ctx = { buildingMarkers };
 
   // Sorted iteration: derive must not depend on which rows the upsert happened
   // to touch, or on a Map's insertion order (§7.2).
@@ -190,7 +343,7 @@ export function deriveWorld({ zones = [], regions = [], palette = null } = {}) {
     const region = zone?.flags?.region_id ? regionById.get(zone.flags.region_id) ?? null : null;
     const { color, bg_color } = deriveColors(zone, palette);
     const resolved = {
-      marker: deriveGlyph(zone, palette),
+      marker: deriveMarker(zone, palette, ctx),
       color,
       bg_color,
       icon: zone?.flags?.icon ?? null,   // derived-only slot; §5.4's authored icon dies in step 4
@@ -209,5 +362,5 @@ export function deriveWorld({ zones = [], regions = [], palette = null } = {}) {
 
   // edges: §7.5, step 6. Empty is NOT "this world has no edges" — `exits` is
   // still the source of truth until that step lands.
-  return { render, edges: [], index: null };
+  return { render, edges: [], index: null, markerCollisions: collisions };
 }

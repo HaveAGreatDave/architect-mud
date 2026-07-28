@@ -16,7 +16,6 @@
   "grid_z": 0,
   "id": "zone_furniture_util",
   "map_id": "map_int_furniture",
-  "marker": null,
   "name": "Utility Room",
   "parent_zone": "zone_furniture_store",
   "updated_at": "1783023537"

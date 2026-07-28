@@ -16,7 +16,6 @@
   "grid_z": -1,
   "id": "zone_mq_chrome_util",
   "map_id": "map_int_mq_chrome",
-  "marker": null,
   "name": "Basement Utility",
   "parent_zone": "zone_mq_chrome_lobby",
   "updated_at": "1783023542"

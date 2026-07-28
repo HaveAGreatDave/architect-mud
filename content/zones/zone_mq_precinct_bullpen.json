@@ -22,7 +22,6 @@
   "grid_z": 0,
   "id": "zone_mq_precinct_bullpen",
   "map_id": "map_int_mq_precinct",
-  "marker": null,
   "name": "Bullpen",
   "parent_zone": "zone_mq_precinct_lobby",
   "updated_at": "1782964407"

@@ -23,7 +23,6 @@
   "grid_z": 0,
   "id": "zone_drum_shop",
   "map_id": "map_int_drum",
-  "marker": null,
   "name": "Second Skin",
   "parent_zone": "zone_district_901_908",
   "updated_at": "1783059649"

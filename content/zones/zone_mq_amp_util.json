@@ -16,7 +16,6 @@
   "grid_z": 0,
   "id": "zone_mq_amp_util",
   "map_id": "map_int_mq_amp",
-  "marker": null,
   "name": "Utility Room",
   "parent_zone": "zone_mq_amp_shop",
   "updated_at": "1783023539"

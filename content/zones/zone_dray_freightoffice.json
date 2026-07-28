@@ -21,7 +21,6 @@
   "grid_z": 0,
   "id": "zone_dray_freightoffice",
   "map_id": "map_interior_zone_dray_freightoffice",
-  "marker": null,
   "name": "Meltwater Freight Office",
   "parent_zone": "zone_district_922_904",
   "updated_at": "1784100000"
