@@ -23,6 +23,12 @@ if (window.OPS_MODE) {
     }
     s.remove();
   });
+  // Panels kept for viewing only (data-ops-ro) say so in the nav, so you know
+  // before you click that nothing in there will save.
+  nav.querySelectorAll('.nav-item[data-ops-ro]').forEach(n => {
+    n.textContent = `${n.textContent.trim()} ·ro`;
+    n.title = 'Read-only on production — edit locally and deploy';
+  });
   // "World" survives (Crime/Flight/Power/Bank are live-world ops), but nothing
   // under it edits world content any more, so the label would mislead.
   nav.querySelectorAll('.nav-section').forEach(s => {

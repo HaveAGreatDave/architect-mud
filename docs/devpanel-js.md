@@ -391,7 +391,7 @@ Ghost Mode — an in-panel floating dialog that opens a dedicated WebSocket tagg
 - `document.addEventListener('DOMContentLoaded', ...)` — wires up the settings panel controls (theme select, font size buttons, density buttons).
 - The password-field `keydown` listener (Enter → `devLogin()`).
 - The auto-auth IIFE — checks `sessionStorage` for a token passed from the game client and skips the login screen if valid.
-- **The ops-mode block** — sets `window.OPS_MODE` when the page was served at `/admin`, then prunes the nav to entries carrying `data-ops="1"` (and drops sections left empty), adds `body.ops-mode`, and relabels the header.
+- **The ops-mode block** — sets `window.OPS_MODE` when the page was served at `/admin`, then prunes the nav to entries carrying `data-ops="1"` (and drops sections left empty), marks `data-ops-ro` survivors as read-only, adds `body.ops-mode`, and relabels the header.
 
 ### Ops mode (`/admin`) — one file, two views
 
@@ -404,3 +404,14 @@ Ops mode is a **UI affordance, not a security boundary**: the boundary is `conte
 - the server's `OPS_ROUTES` / `ENV_OPS_ROUTES` allowlists — the actual authority
 
 Panels that mix ops and content read `window.OPS_MODE` directly: `panels/bank.js` hides ATM *networks*, terminal creation, and unit delete (all content writes) while keeping fill/repair/rename/settings (`/atm/units`, allowlisted).
+
+#### Read-only panels (`data-ops-ro`)
+
+A content panel can be kept on `/admin` purely to **look at** — worth seeing on prod even though nothing in it can be saved. **Broadcasts** is the first: which channel owns which studio, what's scheduled, what's on air.
+
+- `data-ops="1" data-ops-ro="1"` on the nav entry — `data-ops` keeps it through the prune, `data-ops-ro` makes bootstrap suffix the label with `·ro` and a tooltip.
+- It joins `OPS_PANELS` in `js/core/panels.js` like any other survivor.
+- Its writes are refused **client-side** by `opsReadonlyBlocks()` in `js/core/api.js` (an `OPS_READONLY_PREFIXES` path list, checked by both `API` and `directAPI`), so a save returns a sentence explaining that content is edited locally and ships via CODEX — not a bare 403.
+- The panel itself renders a banner saying the same thing once, at the top (`.bc-ro-notice`).
+
+Still not a security boundary — `contentReadonlyBlocks()` on the server remains the authority. This only changes what the panel *offers* and what it *says* when you try.

@@ -467,14 +467,27 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
   const hadDoor = !!(door && door.hp > 0);
   const lockTag = hadDoor ? getLockTagPublic(door) : null;
 
-  const departMsg = doorWasLocked
-    ? `The lock disengages. ${player.handle} opens the door and heads ${direction}.`
-    : doorWasClosed
-      ? `${player.handle} opens the door and heads ${direction}.`
-      : `${player.handle} heads ${direction}.`;
-  let arriveMsg = (doorWasLocked || doorWasClosed)
-    ? (arrivalDir ? `${player.handle} comes through the door from the ${arrivalDir}.` : `${player.handle} comes through the door.`)
-    : buildArriveMsg(player.handle, arrivalDir, zone.name);
+  // Elevator flavour, mirroring moveEntity (ai-behaviour.js) so a player and an
+  // NPC read the same when the doors open: every floor shares the car's `up`/`in`
+  // exit, so the raw direction lands as "climbs the stairs" in a lift.
+  const toCar   = !!targetZone.flags?.elevator;
+  const fromCar = !!zone.flags?.elevator;
+  const departMsg = toCar
+    ? `${player.handle} steps into the elevator.`
+    : fromCar
+      ? `${player.handle} steps out of the elevator.`
+      : doorWasLocked
+        ? `The lock disengages. ${player.handle} opens the door and heads ${direction}.`
+        : doorWasClosed
+          ? `${player.handle} opens the door and heads ${direction}.`
+          : `${player.handle} heads ${direction}.`;
+  let arriveMsg = toCar
+    ? `The doors part and ${player.handle} steps into the car.`
+    : fromCar
+      ? `The elevator chimes and ${player.handle} steps out.`
+      : (doorWasLocked || doorWasClosed)
+        ? (arrivalDir ? `${player.handle} comes through the door from the ${arrivalDir}.` : `${player.handle} comes through the door.`)
+        : buildArriveMsg(player.handle, arrivalDir, zone.name);
   // A plugin may replace the arrival line entirely (drama: armed dramatic entrances).
   const customArrive = await fireHook('movement.arriveMessage', { player, fromZone: zone, toZoneId: targetId, direction, arrivalDir, defaultMessage: arriveMsg });
   if (typeof customArrive === 'string' && customArrive.trim()) arriveMsg = customArrive.trim();
@@ -515,15 +528,20 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
   const zoneDesc = await describeZone(targetZone, player, describeOut);
 
   const destName = targetZone.name;
+  // The word the narration uses for the way you went. Normally the direction you
+  // typed, but a caller can override it when the exit's compass label isn't what
+  // the move IS — stepping off an elevator rides the car's shared `up` exit, and
+  // "you head up to the Sky Pad" reads as stairs.
+  const narrateDir = opts.narrateDir || direction;
   let narration;
   if (doorWasLocked) {
     const unlockMsg = lockTag?.messages?.unlock ?? 'The lock disengages.';
     const closeMsg = doorWasClosed ? ' It swings closed and locks behind you.' : '';
-    narration = `→ ${unlockMsg} You open the door ${direction} into ${destName}.${closeMsg}`;
+    narration = `→ ${unlockMsg} You open the door ${narrateDir} into ${destName}.${closeMsg}`;
   } else if (doorWasClosed) {
-    narration = `→ You open the door ${direction} into ${destName}. It swings closed behind you.`;
+    narration = `→ You open the door ${narrateDir} into ${destName}. It swings closed behind you.`;
   } else {
-    narration = `→ You head ${direction} to ${destName}.`;
+    narration = `→ You head ${narrateDir} to ${destName}.`;
   }
 
   // Wind/weather attrition — draining stamina for pushing into exposed severe

@@ -217,7 +217,9 @@ async function stepOut(player, at, broadcast) {
   if (dir) {
     // bypassEncumbrance for the same reason the panel does: stepping through open
     // doors isn't the walk the pacing/load laws are about.
-    return await cmdMove(dir, player, broadcast, { targetZoneId: at.zone, bypassEncumbrance: true });
+    // narrateDir 'out': the step rides the car's shared `up` exit, but you are
+    // stepping OUT of a lift, not climbing a flight of stairs.
+    return await cmdMove(dir, player, broadcast, { targetZoneId: at.zone, bypassEncumbrance: true, narrateDir: 'out' });
   }
 
   const from = car.id;

@@ -1,6 +1,7 @@
 // Elevator plugin regression suite (harness-only, never loaded in production).
 import { _test } from './index.js';
-import { getZone } from '../../server/engine/world.js';
+import { getZone, removePlayerFromZone } from '../../server/engine/world.js';
+import { allExits } from '../../server/engine/exits.js';
 import { moveEntity } from '../../server/engine/ai-behaviour.js';
 import { emit } from '../../server/engine/events.js';
 
@@ -78,6 +79,26 @@ export default async function regress({ run, check, getPlayer }) {
       check('boarding parks the car where you got on', parkedOnBoard?.zone === boardFrom.zone,
         JSON.stringify(parkedOnBoard) + ` (wanted ${boardFrom.zone})`);
       delete p._elevatorAt;
+    }
+
+    // Stepping out for real: the narration must read as a lift, not a staircase.
+    // Every floor hangs off the car's shared `up` exit, so without the narrateDir
+    // override this said "You head up to …". Driven end to end, then walked back.
+    const outFloor = car.flags.elevator_floors?.find((f) => getZone(f.zone) && allExits(car).some((e) => e.target === f.zone));
+    if (outFloor) {
+      p.current_zone = car.id;
+      p._elevatorAt = { n: outFloor.n, zone: outFloor.zone, car: car.id, label: outFloor.label };
+      const stepped = await run('out');
+      check('out steps onto the parked floor', p.current_zone === outFloor.zone, `${p.current_zone} vs ${outFloor.zone}`);
+      check('stepping out reads as a lift, not stairs',
+        /You head out to/i.test(stepped?.narration || '') && !/head up to/i.test(stepped?.narration || ''),
+        stepped?.narration);
+      // Put the fake player back in the car by hand — walking back would be a
+      // second step inside one tick and the pacing plugin would queue it, leaving
+      // a live timer behind for later suites.
+      removePlayerFromZone(p.id, p.current_zone);
+      delete p._elevatorAt;
+      p.current_zone = car.id;
     }
 
     // `out` in an unparked car is NOT claimed — it falls through to the car's

@@ -93,7 +93,10 @@
     <div class="nav-item" data-panel="drugs" onclick="showPanel('drugs')">💊 Drugs</div>
     <div class="nav-item" data-panel="sounds" onclick="showPanel('sounds')">🔊 SoundScript</div>
     <div class="nav-item" data-panel="audio" onclick="showPanel('audio')">🎵 Audio</div>
-    <div class="nav-item" data-panel="broadcasts" onclick="showPanel('broadcasts')">📺 Broadcasts</div>
+    <!-- data-ops-ro: kept on /admin but READ-ONLY — worth looking at on prod (what's
+         on air, which channel owns which studio); every write is refused client-side
+         in api.js and by CONTENT_READONLY server-side. -->
+    <div class="nav-item" data-ops="1" data-ops-ro="1" data-panel="broadcasts" onclick="showPanel('broadcasts')">📺 Broadcasts</div>
     <div class="nav-item" data-panel="tags" onclick="showPanel('tags')">🏷 Tags</div>
     <div class="nav-item" data-panel="aliases" onclick="showPanel('aliases')">⤴ Aliases</div>
     <div class="nav-section">Server</div>

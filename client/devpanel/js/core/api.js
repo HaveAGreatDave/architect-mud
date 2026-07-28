@@ -11,7 +11,23 @@ function getEntityType(path) {
   return null;
 }
 
+// ── Ops-mode read-only panels ────────────────────────────────────────────────
+// A few content panels are useful to LOOK at on production (what's on air right
+// now, which channel owns which studio) even though production accepts no content
+// writes — git is the only writer (CONTENT_READONLY, see server/api/routes.js).
+// Those panels are kept in the /admin nav and their writes are refused HERE, with
+// a sentence that says where to make the edit, rather than letting the button fire
+// and come back as a bare 403.
+const OPS_READONLY_PREFIXES = ['/broadcast'];
+function opsReadonlyBlocks(path, method) {
+  if (!window.OPS_MODE) return false;
+  if (method === 'GET' || method === 'HEAD') return false;
+  return OPS_READONLY_PREFIXES.some(p => path === p || path.startsWith(p + '/'));
+}
+const OPS_READONLY_ERROR = 'Read-only on production. World content is edited locally and ships through the CODEX deploy (push to main) — nothing saved here would survive the next deploy anyway.';
+
 const API = async (path, method = 'GET', body = null) => {
+  if (opsReadonlyBlocks(path, method)) return { error: OPS_READONLY_ERROR };
   const authHeaders = { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) };
 
   // Intercept entity writes and route them to staging.
@@ -72,6 +88,7 @@ const API = async (path, method = 'GET', body = null) => {
 
 // Direct API call that bypasses the staging pipeline — for immediate live-world actions.
 const directAPI = (path, method = 'GET', body = null) => {
+  if (opsReadonlyBlocks(path, method)) return Promise.resolve({ error: OPS_READONLY_ERROR });
   const opts = { method, headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) } };
   if (body) opts.body = JSON.stringify(body);
   return fetch(`/api${path}`, opts)

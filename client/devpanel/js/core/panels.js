@@ -404,8 +404,11 @@ const VINE_GROUP_PANELS = new Set(['vine', 'scripts', 'script-triggers', 'quests
 // bookmark or a console call could still ask for one; bounce those to Dashboard
 // so you never land in an editor whose every save would 403. Keep this in sync
 // with the data-ops attributes in index.html.
+// 'broadcasts' is here as a READ-ONLY panel (data-ops-ro in index.html): it's worth
+// seeing what's on air on prod, but every write it can make is refused in api.js.
 const OPS_PANELS = new Set(['dashboard', 'devlog', 'worldstate', 'timeweather', 'players',
-                            'games', 'gossip', 'validator', 'power', 'emergency', 'bank', 'flight']);
+                            'games', 'gossip', 'validator', 'power', 'emergency', 'bank', 'flight',
+                            'broadcasts']);
 function activatePanelNav(name) {
   document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.panel === name));
   const group = document.getElementById('nav-vine-children');

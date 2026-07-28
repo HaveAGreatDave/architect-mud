@@ -616,6 +616,15 @@
   /* ── Broadcast Suite ──────────────────────────────────────────────────────── */
   .bc-suite { display: flex; flex-direction: column; height: 100%; background: var(--bg); }
 
+  /* Ops-mode banner above the broadcast suite: this panel is a window on prod. */
+  .bc-ro-notice {
+    flex-shrink: 0; margin: 0 0 6px; padding: 8px 12px;
+    background: color-mix(in srgb, var(--warning, #d9a441) 12%, var(--bg2));
+    border: 1px solid var(--warning, #d9a441); border-left-width: 3px;
+    color: var(--text); font-family: var(--font); font-size: 11px; line-height: 1.5;
+  }
+  .bc-ro-notice code { font-family: var(--font-mono); color: var(--accent); }
+
   .bc-tabs {
     display: flex; gap: 0; flex-shrink: 0;
     background: var(--bg2); border-bottom: 2px solid var(--border);
