@@ -1,0 +1,18 @@
+{
+  "id": "dx_mescaline_any_significant",
+  "drug_id": "drug_mescaline",
+  "matches": null,
+  "name": "an object of enormous significance",
+  "description": "An ordinary thing, placed here by someone paying full attention, and it is the most important object you have ever seen.",
+  "looks": [
+    "Placed. Not left — placed, and every decision about it was correct.",
+    "It has weight the way a word has meaning.",
+    "You move it a centimetre and put it back, ashamed."
+  ],
+  "says": [
+    "I have been here longer than the room.",
+    "Someone stood exactly where you are standing, for a very good reason.",
+    "Nothing is required of you. That is the point."
+  ],
+  "scope": "object"
+}

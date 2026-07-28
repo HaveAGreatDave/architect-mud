@@ -17,7 +17,7 @@ import { gameMinutes, minutesUntil, hhmm } from "./clock.js";
 import { applyEffect } from "./effects.js";
 import { getFlag } from "./flags.js";
 import { rollDream } from "./dreams.js";
-import { buildDreamscape, wakeFromDream } from "./dreamscape.js";
+import { buildDreamscape, wakeFromDream, pushDreamFx } from "./dreamscape.js";
 import { addPlayerToZone } from "./world.js";
 
 // ── Rent runs on the GAME calendar ──────────────────────────────────────────
@@ -964,10 +964,16 @@ export async function tickSleep(player, broadcastFn) {
 		const sanityPct = player.sanity_max ? (player.sanity / player.sanity_max) * 100 : 100;
 		const odds = sanityPct <= 25 ? 0.22 : sanityPct <= 55 ? 0.12 : 0.06;
 		if (Math.random() < odds) {
-			const entry = buildDreamscape(player.id, {
+			// Null when nobody has authored any 'dream' templates — no dreamscape
+			// tonight, and the ordinary sleep carries on untouched.
+			const entry = await buildDreamscape(player.id, {
 				size: 3 + Math.floor(Math.random() * 2),
 				tether: { zone: getZone(player.sleeping.bodyZone)?.name },
+				cause: 'dream',
+				broadcast: broadcastFn,
+				player,   // lets the rooms borrow from this sleeper's actual life
 			});
+			if (entry) {
 			player.sleeping.inDream = true;
 			// THE BODY STAYS PUT. The mind's zone moves; the sleeper does NOT leave
 			// the room's occupant set, so `look` still shows them lying there and a
@@ -983,7 +989,9 @@ export async function tickSleep(player, broadcastFn) {
 				message: `<span style="color:var(--cyan)">The room you were in stops being the room you are in.</span>\n<span class="text-dim">You can move. You are fairly sure you are asleep. (Look around. You will wake when you wake.)</span>`,
 			}, null, player.id);
 			broadcastFn(null, { type: 'sleep_state', sleeping: true, dreaming: true }, null, player.id);
+			pushDreamFx(player, broadcastFn);
 			broadcastFn(null, { type: 'force_look' }, null, player.id);
+			}
 		}
 	}
 

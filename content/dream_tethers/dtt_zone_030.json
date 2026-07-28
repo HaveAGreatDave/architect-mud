@@ -1,0 +1,5 @@
+{
+  "id": "dtt_zone_030",
+  "kind": "zone",
+  "line": "A door here opens onto {value}. You look at it for a while and leave it shut."
+}

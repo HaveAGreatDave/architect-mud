@@ -1,0 +1,33 @@
+{
+  "id": "dream_the_edge_of_it",
+  "name": "The Field At The Edge Of It",
+  "description": "Grass to the knee, grey-green, going on to a horizon nearer than a horizon should be. Behind you is the city, correctly, in every detail, including the parts you have never seen. Ahead is the edge. It is not a cliff. It is where the description stops.",
+  "cause": "dream",
+  "drug_id": null,
+  "objects": [
+    {
+      "name": "the edge",
+      "looks": [
+        "Not a drop. The grass simply stops being described.",
+        "You walk toward it a while. It keeps its distance, courteously.",
+        "There is something on the other side of it, doing something patient."
+      ]
+    },
+    {
+      "name": "the city behind you",
+      "looks": [
+        "Every window lit, and rendered, and correct.",
+        "It is nearer than it was, and it has not moved.",
+        "You know the inside of a building you have never entered. All of them."
+      ]
+    }
+  ],
+  "ambient": [
+    "The grass moves in a wind that is not on your face.",
+    "A bird goes over and does not arrive anywhere.",
+    "The light changes to a different hour without passing through the ones between."
+  ],
+  "weather": "The grass moves in a wind that never reaches your face. Above it the sky is the colour of a lit room.",
+  "fx": "wind",
+  "fx_intensity": 0.6
+}

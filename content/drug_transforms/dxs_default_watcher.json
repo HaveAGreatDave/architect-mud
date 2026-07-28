@@ -1,0 +1,17 @@
+{
+  "id": "dxs_default_watcher",
+  "drug_id": null,
+  "matches": null,
+  "scope": "spawn",
+  "name": "something that is simply here",
+  "description": "There is a thing here that you cannot name and are not alarmed by.",
+  "looks": [
+    "It is not looking at you. It has no obvious front. It is looking at you.",
+    "It has moved. You would swear to it and you would be wrong.",
+    "It is exactly what it is, and it is also interested."
+  ],
+  "says": [
+    "Do not mind me.",
+    "I will be here when it wears off."
+  ]
+}

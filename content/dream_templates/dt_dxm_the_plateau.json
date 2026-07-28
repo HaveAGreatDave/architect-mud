@@ -1,0 +1,33 @@
+{
+  "id": "dt_dxm_the_plateau",
+  "name": "The Plateau",
+  "description": "A wide flat place with a low ceiling, lit evenly by nothing in particular. You are very heavy here. Everything you decide to do happens a moment after you decide it, and the gap has stopped bothering you.",
+  "cause": "drug",
+  "drug_id": "drug_dxm",
+  "objects": [
+    {
+      "name": "the gap",
+      "looks": [
+        "Half a second, consistently, between deciding and doing.",
+        "You test it. The test finishes before you remember starting.",
+        "It has widened. You approve."
+      ]
+    },
+    {
+      "name": "your legs",
+      "looks": [
+        "Reporting in from a considerable distance. All well.",
+        "They are managing without you and doing a decent job.",
+        "They belong to somebody sensible."
+      ]
+    }
+  ],
+  "ambient": [
+    "The floor takes your weight, and keeps taking it.",
+    "A sound arrives in one solid slab and stops.",
+    "Something crosses the plateau a long way off, at your speed."
+  ],
+  "weather": "The air is heavy and even and does not move. Weather would have to be arranged, and nobody has.",
+  "fx": "fog",
+  "fx_intensity": 0.55
+}

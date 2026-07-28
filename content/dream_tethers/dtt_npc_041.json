@@ -1,0 +1,5 @@
+{
+  "id": "dtt_npc_041",
+  "kind": "npc",
+  "line": "Somebody says your name in {value}’s voice, from a room you have already been through."
+}

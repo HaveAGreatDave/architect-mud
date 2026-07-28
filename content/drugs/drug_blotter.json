@@ -52,7 +52,7 @@
         }
       ],
       "intensity": 0.8,
-      "mode": "overlay",
+      "mode": "transform",
       "palette": "magenta"
     },
     "instant": {

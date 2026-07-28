@@ -46,7 +46,28 @@ let fxPrecipType = 'none';       // active precip taxonomy (rain/snow/sleet/...)
 let fxPrecipRate = 0;            // 0..1 local precip intensity
 const WIND_FX_KPH = 40;          // gust streaks only show in genuinely windy weather
 
+// ── Dream / hallucination FX override ───────────────────────────────────────
+//
+// A dream or a trip drives the particle field directly, ignoring the real
+// weather and the indoor gate entirely. Ash falling in a windowless corridor is
+// exactly the point — the room is not obeying the rules, and the cheapest way to
+// SHOW that (rather than describe it) is to run weather where weather cannot be.
+//
+// Held here rather than pushed straight at weather-fx.js because environment
+// re-resolves on every tick and would otherwise stamp the override out within a
+// second.
+let dreamFx = null;   // { effect, intensity } | null
+
+export function setDreamFx(fx) {
+  dreamFx = fx && fx.effect && fx.effect !== 'none'
+    ? { effect: fx.effect, intensity: Math.max(0, Math.min(1, Number(fx.intensity) || 0.5)) }
+    : null;
+  refreshWeatherFx();
+}
+
 function resolveWeatherFx() {
+  // Wins over everything, including the indoor gate.
+  if (dreamFx) return { effect: dreamFx.effect, intensity: dreamFx.intensity, windKph: 0 };
   if (fxIndoor) return { effect: 'none', intensity: 0, windKph: envWindKph || 0 };
   const pt = fxPrecipType;
   if (pt === 'rain' || pt === 'sleet' || pt === 'thunderstorm' || pt === 'storm' || pt === 'acid')

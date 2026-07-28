@@ -1,0 +1,17 @@
+{
+  "id": "dxs_mescaline_stone",
+  "drug_id": "drug_mescaline",
+  "matches": null,
+  "scope": "spawn",
+  "name": "a standing stone",
+  "description": "A stone the size of a person stands here, where somebody put it, a long time ago.",
+  "looks": [
+    "Marked by hands over a duration you cannot hold.",
+    "It is warm on one side, and it is not the sunny side.",
+    "It has weight the way a word has meaning."
+  ],
+  "says": [
+    "I have been here longer than the road.",
+    "Somebody stood exactly there, for a very good reason."
+  ]
+}

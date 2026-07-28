@@ -1,0 +1,18 @@
+{
+  "id": "dx_blotter_any_elaborating",
+  "drug_id": "drug_blotter",
+  "matches": null,
+  "name": "something that will not stop elaborating",
+  "description": "Something here has got as far as ornament and is showing no sign of stopping.",
+  "looks": [
+    "It is producing more of itself, tastefully, and at speed.",
+    "You look at one square inch of it for about a year and a half.",
+    "Underneath all the detail it is exactly what it was, which is the strangest part."
+  ],
+  "says": [
+    "It is going very well, thank you for asking.",
+    "You are only seeing the first four or five layers.",
+    "This is what it does when you are not looking. You are welcome."
+  ],
+  "scope": "object"
+}

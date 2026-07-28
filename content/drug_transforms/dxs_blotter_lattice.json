@@ -1,0 +1,17 @@
+{
+  "id": "dxs_blotter_lattice",
+  "drug_id": "drug_blotter",
+  "matches": null,
+  "scope": "spawn",
+  "name": "a lattice standing in the air",
+  "description": "A structure of pure repeating pattern stands here, unsupported, doing its work.",
+  "looks": [
+    "It repeats, and each repeat contains a smaller whole one.",
+    "It is keeping time with your pulse and improving on it.",
+    "You could put your hand through it. You do not."
+  ],
+  "says": [
+    "I am the same shape all the way in.",
+    "You are seeing about the first four layers."
+  ]
+}

@@ -4,6 +4,7 @@ import { sendCmd, sendCmdSilent, closeConnection, attemptAutoReauth, showVerifyS
 import { renderMinimap, setGpsRoute, setRunState, startAutoWalk, resumeAutoWalkIfArmed, setAutoWalkPersist, isAutoWalking, isManualAutoWalkInProgress, cancelAutoWalk, autoWalkBlocked, resolveAutoWalkPicker, armAutoWalkPrompt } from './panels/minimap.js';
 import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility, signalPowerOut, isFxIndoors } from './panels/environment.js';
 import { setWeatherEventFx, setFireworksGlow, launchFirework } from './panels/weather-fx.js';
+import { setDreamFx } from './panels/environment.js';
 import { openDialogue, closeDialogue, openShop, notifyZoneChanged } from './panels/dialogue.js';
 import { updateInventoryCache, consumeSilentInventory } from './panels/inventory-state.js';
 import { renderRecipesPanel } from './panels/recipes.js';
@@ -1051,6 +1052,11 @@ const handlers = {
   // whose depth scales with intensity, plus body classes at the hallucination
   // and insane bands. band 'clear' / intensity 0 tears it all down.
   sanity_fx:  (msg) => { setSanityFx(msg); },
+
+  // Dream / hallucination particle field. Drives the weather FX canvas directly,
+  // ignoring the real weather and the indoor gate — ash falling in a windowless
+  // corridor is the point. { effect: rain|snow|ash|fog|wind|none, intensity }.
+  dream_fx:   (msg) => { setDreamFx(msg); },
 
   // Drunkenness level stream (intoxication plugin) → drives the drunk flight-view warp.
   intox_fx:   (msg) => { const lvl = Math.max(0, Math.min(100, Number(msg.level) || 0)); if (lvl <= 0) clearDrugFx('intox'); else setDrugFx('intox', 'drunk', lvl / 100); },

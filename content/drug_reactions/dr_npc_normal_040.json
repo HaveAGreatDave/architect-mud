@@ -1,0 +1,8 @@
+{
+  "id": "dr_npc_normal_040",
+  "drug_id": null,
+  "source": "npc",
+  "tone": "normal",
+  "self_line": "{npc} is complaining about the weather. It appears to be aimed at you.",
+  "room_line": "{npc} complains to {player} about the weather, at some length."
+}

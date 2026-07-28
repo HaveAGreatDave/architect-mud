@@ -848,7 +848,10 @@ export function isTransientZone(id) { return world.transientZones.has(id); }
 export function persistableZone(player) {
   const zid = player?.current_zone;
   if (zid && !isTransientZone(zid)) return zid;
-  const body = player?.sleeping?.bodyZone;
+  // Where the body really is while the mind is elsewhere. `sleeping.bodyZone` is
+  // the sleep path; `_bodyZone` is the same idea for a drug trip, which has no
+  // `sleeping` object. Both are set on entry and cleared on exit.
+  const body = player?.sleeping?.bodyZone || player?._bodyZone;
   if (body && !isTransientZone(body)) return body;
   return player?.anchor_zone || 'zone_start';
 }

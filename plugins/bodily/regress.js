@@ -272,8 +272,19 @@ export default async function regress({ run, check, getPlayer }) {
     await import('../../server/engine/dreamscape.js');
   const { world } = await import('../../server/engine/world.js');
 
-  const entry = buildDreamscape('regress-dreamer', { size: 4, tether: { zone: 'The Reach' } });
+  const entry = await buildDreamscape('regress-dreamer', { size: 4, tether: { zone: 'The Reach' }, cause: 'dream' });
   check('a dreamscape builds walkable rooms', isDreamZone(entry) && !!world.zones.get(entry));
+
+  // A THIN POOL SHRINKS THE DREAM, it does not repeat a room. Asking for 5 rooms
+  // out of a 3-room pool used to hand back duplicates, which reads as a bug
+  // rather than as a dream.
+  const roomsOf = (pid) => [...world.zones.keys()].filter(z => z.includes(pid));
+  const thin = await buildDreamscape('regress-thin', { size: 5, cause: 'drug', drugId: 'drug_khole' });
+  const thinRooms = roomsOf('regress-thin').map(z => world.zones.get(z).name);
+  check('asking for more rooms than exist yields a SHORTER dream, not a repetitive one',
+    !!thin && thinRooms.length === new Set(thinRooms).size, thinRooms.join(' / '));
+  check('...and never more rooms than the pool has', thinRooms.length <= 3, thinRooms.length);
+  dissolveDreamscape('regress-thin');
   check('...with somewhere to go', Object.keys(world.zones.get(entry).exits || {}).length > 0);
   check('...and things to poke at', dreamObjectsAt(entry).length > 0);
   check('dream rooms are flagged as dreams', world.zones.get(entry).flags?.dream === true);
@@ -299,7 +310,7 @@ export default async function regress({ run, check, getPlayer }) {
     wakeFromDream({ id: 'x', sleeping: { inDream: false } }) === false);
 
   const dreamer = { id: 'regress-yank', current_zone: null, sleeping: { inDream: true, bodyZone: p.current_zone } };
-  dreamer.current_zone = buildDreamscape('regress-yank', { size: 2 });
+  dreamer.current_zone = await buildDreamscape('regress-yank', { size: 2 });
   check('being attacked mid-dream puts you back in your body',
     wakeFromDream(dreamer) === true && dreamer.current_zone === p.current_zone);
   check('...and takes the dream with it',
@@ -314,12 +325,19 @@ export default async function regress({ run, check, getPlayer }) {
   const bodyRoom = world.zones.get(p.current_zone);
   const sleeper = { id: 'regress-body', current_zone: p.current_zone, sleeping: { inDream: false, bodyZone: p.current_zone } };
   bodyRoom.players.add(sleeper.id);
-  sleeper.current_zone = buildDreamscape('regress-body', { size: 2 });
+  sleeper.current_zone = await buildDreamscape('regress-body', { size: 2 });
   sleeper.sleeping.inDream = true;
   check('the sleeping body stays in the room it lay down in',
     bodyRoom.players.has(sleeper.id));
   check('...but the dreamer hears nothing of that room',
     receivesZoneMessage(sleeper, p.current_zone) === false);
+  // ...while DOES hear the dream they're inside. The "asleep players perceive
+  // nothing" rule is about the real room; the dreamscape is the only room they're
+  // actually in, and the scheduled ambientTick already walks transient zones, so
+  // without this exception every dream room's authored ambience is built, selected
+  // and then silently dropped at delivery.
+  check('...and does hear the dream itself',
+    receivesZoneMessage(sleeper, sleeper.current_zone) === true);
   wakeFromDream(sleeper);
   check('...and waking leaves them there exactly once',
     sleeper.current_zone === p.current_zone && bodyRoom.players.has(sleeper.id));
@@ -330,7 +348,7 @@ export default async function regress({ run, check, getPlayer }) {
   // spawns in a dream room that dissolves a line later, taking the body's whole
   // inventory with it and leaving the killer nothing to loot.
   const killed = { id: 'regress-deathdream', current_zone: p.current_zone, sleeping: { inDream: false, bodyZone: p.current_zone } };
-  killed.current_zone = buildDreamscape('regress-deathdream', { size: 2 });
+  killed.current_zone = await buildDreamscape('regress-deathdream', { size: 2 });
   killed.sleeping.inDream = true;
   wakeFromDream(killed);   // the call handlePlayerDeath makes before reading current_zone
   check('a player killed mid-dream dies in their bed, not in the dream',
@@ -345,7 +363,7 @@ export default async function regress({ run, check, getPlayer }) {
   // zone with no `zones` row on the disconnect checkpoint.
   const { persistableZone, isTransientZone: isTZ } = await import('../../server/engine/world.js');
   const stranded = { id: 'regress-persist', anchor_zone: p.current_zone, sleeping: { inDream: true, bodyZone: p.current_zone } };
-  stranded.current_zone = buildDreamscape('regress-persist', { size: 1 });
+  stranded.current_zone = await buildDreamscape('regress-persist', { size: 1 });
   check('a dream room really is a transient zone', isTZ(stranded.current_zone));
   check('...and never gets written to players.current_zone',
     persistableZone(stranded) === p.current_zone, persistableZone(stranded));
@@ -365,6 +383,242 @@ export default async function regress({ run, check, getPlayer }) {
   check('but NOT drop — a dream room is deleted and would orphan the item', !DV.has('drop'));
   check('...nor stow/take', !DV.has('stow') && !DV.has('take'));
   check('...nor the tablet', !DV.has('tablet'));
+
+  // ── Templates are content, and the pools do not bleed ───────────────────────
+  const { query: q } = await import('../../server/models/db.js');
+  const pool = async (sql, a = []) => (await q(sql, a)).rows.length;
+
+  check('sleep draws from an authored dream pool',
+    await pool(`SELECT 1 FROM dream_templates WHERE cause='dream'`) >= 5);
+  check('a dream template never carries a drug',
+    await pool(`SELECT 1 FROM dream_templates WHERE cause='dream' AND drug_id IS NOT NULL`) === 0);
+  check('there is a default drug set to fall back to',
+    await pool(`SELECT 1 FROM dream_templates WHERE cause='drug' AND drug_id IS NULL`) > 0);
+
+  // The mode split: dissociatives take you somewhere, psychedelics stay put and
+  // warp the room. A drug appearing in BOTH pools would mean the split leaked.
+  for (const d of ['drug_khole', 'drug_deadair', 'drug_threshold']) {
+    check(`${d} is a dissociative — it has rooms`,
+      await pool(`SELECT 1 FROM dream_templates WHERE cause='drug' AND drug_id=$1`, [d]) > 0);
+    check(`...and no live-world transforms`,
+      await pool(`SELECT 1 FROM drug_transforms WHERE drug_id=$1`, [d]) === 0);
+  }
+  // The five added dissociatives. Each must have its OWN rooms — falling through
+  // to the default set would make salvia, DMT and a whippet feel identical, which
+  // is the one thing the per-drug pool exists to prevent.
+  for (const d of ['drug_salvia', 'drug_dmt', 'drug_dxm', 'drug_nitrous', 'drug_ibogaine']) {
+    check(`${d} has its own rooms, not the default set`,
+      await pool(`SELECT 1 FROM dream_templates WHERE cause='drug' AND drug_id=$1`, [d]) >= 3);
+    check(`...and is wired as a dissociative`,
+      (await q(`SELECT effects->'hallucination'->>'mode' AS m FROM drugs WHERE id=$1`, [d])).rows[0]?.m === 'dreamzone');
+    check(`...with an item to actually get it`,
+      await pool(`SELECT 1 FROM items WHERE id=$1`, [d.replace('drug_', 'item_')]) === 1);
+    check(`...and a way to make it`,
+      await pool(`SELECT 1 FROM recipes WHERE id=$1`, [d.replace('drug_', 'cook_')]) === 1);
+  }
+  // Real-world proportions preserved: a whippet is seconds, ibogaine is a night.
+  const dur = async (id) => (await q(`SELECT duration_seconds FROM drugs WHERE id=$1`, [id])).rows[0]?.duration_seconds;
+  check('a whippet is the shortest thing in the game', await dur('drug_nitrous') < await dur('drug_salvia'));
+  check('...salvia is shorter than DMT', await dur('drug_salvia') < await dur('drug_dmt'));
+  check('...DMT is far shorter than robo', await dur('drug_dmt') < await dur('drug_dxm'));
+  check('...and ibogaine is the longest by a distance', await dur('drug_ibogaine') > await dur('drug_dxm'));
+  // Salvia and DMT genuinely produce no tolerance — that is a real pharmacological
+  // fact worth not quietly normalising away when someone tunes the numbers.
+  const tol = async (id) => (await q(`SELECT effects->'tolerance'->>'gain_per_dose' AS g FROM drugs WHERE id=$1`, [id])).rows[0]?.g;
+  check('DMT builds no tolerance, as in life', Number(await tol('drug_dmt')) === 0);
+  check('...nor does salvia', Number(await tol('drug_salvia')) === 0);
+
+  for (const d of ['drug_blotter', 'drug_mescaline', 'drug_psilocybin']) {
+    check(`${d} is a psychedelic — it transforms the room`,
+      await pool(`SELECT 1 FROM drug_transforms WHERE drug_id=$1`, [d]) > 0);
+  }
+  check('there is a default transform set too',
+    await pool(`SELECT 1 FROM drug_transforms WHERE drug_id IS NULL`) > 0);
+
+  // ── Transforms are per-viewer and MUST NOT mutate the shared cache ──────────
+  const { addTransform, applyTransforms, getTransform, clearTransforms } =
+    await import('../../server/engine/phantoms.js');
+  const shared = [{ id: 'furn_regress_chair', name: 'a plain chair', description: 'A chair.' }];
+  addTransform('regress-tripper', 'furn_regress_chair', { name: 'a breathing chair', description: 'It is breathing.', looks: ['In. Out.'], says: ['Sit.'] });
+  const seen = applyTransforms('regress-tripper', shared);
+  check('the tripper sees the transformed name', seen[0].name === 'a breathing chair', seen[0].name);
+  check('...and NOBODY else does', applyTransforms('regress-sober', shared)[0].name === 'a plain chair');
+  // The row out of getZoneFurniture is shared by everyone in the room. Mutating it
+  // would show one player's hallucination to the whole room and poison the cache.
+  check('...because the shared row was never touched', shared[0].name === 'a plain chair', shared[0].name);
+  check('a sober player has no transform at all', getTransform('regress-sober', 'furn_regress_chair') === null);
+  clearTransforms('regress-tripper');
+  check('coming down puts the room back', applyTransforms('regress-tripper', shared)[0].name === 'a plain chair');
+
+  // ── An absent body must always read as one ──────────────────────────────────
+  // The body-stays-put model puts a lootable, killable person in the room with no
+  // outward difference from an alert one unless the room is told. A tripper has no
+  // `sleeping` object at all, so keying the tell on `sleeping` (as it first was)
+  // left drug users looking wide awake.
+  const { bodyTell } = await import('../../server/engine/dreamscape.js');
+  const room = p.current_zone;
+  check('an alert player has no tell', bodyTell({ current_zone: room }, room) === null);
+  check('a sleeper reads as sleeping',
+    bodyTell({ current_zone: room, sleeping: { inDream: false } }, room) === 'sleeping');
+  const tripEntry = await buildDreamscape('regress-tell', { size: 1, cause: 'drug', drugId: 'drug_khole' });
+  check('a drug dreamscape really did build from the khole pool', !!tripEntry);
+  check('...and its occupant reads as gone, with no sleeping object at all',
+    bodyTell({ current_zone: tripEntry }, room) === 'glassy-eyed');
+  check('...while being IN the dream room is not a tell to itself',
+    bodyTell({ current_zone: tripEntry }, tripEntry) === null);
+  dissolveDreamscape('regress-tell');
+  check('a null player is a safe no-op', bodyTell(null, room) === null);
+
+  // ── The reaction pool, and why it has two registers ─────────────────────────
+  // A pool of nothing but cosmic pronouncements becomes wallpaper inside one
+  // trip: the player learns the register and stops reading. The mundane lines are
+  // what keep the strange ones landing, so their presence is a property worth
+  // defending rather than an accident of authoring.
+  const cnt = async (sql, a = []) => (await q(sql, a)).rows.length;
+  check('objects have things to say', await cnt(`SELECT 1 FROM drug_reactions WHERE source='object'`) >= 10);
+  check('...and a healthy share of them are COMPLETELY mundane',
+    await cnt(`SELECT 1 FROM drug_reactions WHERE source='object' AND tone='normal'`) >= 5);
+  check('people in the room react too', await cnt(`SELECT 1 FROM drug_reactions WHERE source='npc'`) >= 6);
+  check('...in both registers',
+    await cnt(`SELECT 1 FROM drug_reactions WHERE source='npc' AND tone='normal'`) >= 3 &&
+    await cnt(`SELECT 1 FROM drug_reactions WHERE source='npc' AND tone='surreal'`) >= 3);
+  // An npc line has to address the room as well as the tripper; an object line
+  // does not, because nobody else hears the furniture.
+  check('every npc reaction tells the room something too',
+    await cnt(`SELECT 1 FROM drug_reactions WHERE source='npc' AND (room_line IS NULL OR room_line='')`) === 0);
+  check('npc lines carry the tokens that get substituted',
+    await cnt(`SELECT 1 FROM drug_reactions WHERE source='npc' AND self_line NOT LIKE '%{npc}%'`) === 0);
+
+  // ── Weather in an unreal place ──────────────────────────────────────────────
+  // A dream room is flagged interior, so the ordinary weather line never prints
+  // — and weather is most of what sells somewhere as a place. Authored per room
+  // and carried onto the transient zone as `dreamWeather`.
+  check('dream rooms carry their own impossible weather',
+    await pool(`SELECT 1 FROM dream_templates WHERE weather IS NOT NULL AND weather <> ''`) >= 25);
+  const wEntry = await buildDreamscape('regress-weather', { size: 1, cause: 'drug', drugId: 'drug_deadair' });
+  check('...and it reaches the built room', !!world.zones.get(wEntry)?.dreamWeather,
+    world.zones.get(wEntry)?.dreamWeather);
+  dissolveDreamscape('regress-weather');
+  check('psychedelics warp the real weather instead',
+    await pool(`SELECT 1 FROM drug_transforms WHERE scope='weather'`) >= 3);
+
+  // The PARTICLE FIELD is the visual half — the weather FX canvas driven directly,
+  // ignoring both the real weather and the indoor gate. Ash falling in a windowless
+  // corridor is the point: it SHOWS the rules are off instead of saying so.
+  check('dream rooms drive the FX canvas', await pool(`SELECT 1 FROM dream_templates WHERE fx IS NOT NULL`) >= 25);
+  const VALID_FX = ['rain', 'snow', 'ash', 'fog', 'wind', 'none'];
+  const badFx = (await q(`SELECT id, fx FROM dream_templates WHERE fx IS NOT NULL`)).rows
+    .filter(r => !VALID_FX.includes(r.fx));
+  // weather-fx.js silently renders nothing for an unknown effect name, so a typo
+  // here is invisible rather than loud.
+  check('...with effect names the client actually renders', badFx.length === 0,
+    badFx.map(r => `${r.id}=${r.fx}`).join(', '));
+  const badInt = (await q(`SELECT id, fx_intensity FROM dream_templates WHERE fx IS NOT NULL AND (fx_intensity < 0 OR fx_intensity > 1)`)).rows;
+  check('...and intensities inside 0..1', badInt.length === 0, badInt.map(r => r.id).join(', '));
+  const fxEntry = await buildDreamscape('regress-fx', { size: 1, cause: 'drug', drugId: 'drug_dmt' });
+  check('...carried onto the built room', !!world.zones.get(fxEntry)?.dreamFx?.effect);
+  dissolveDreamscape('regress-fx');
+
+  // Per-viewer, and it must not bleed: the weather warp is keyed to the zone it
+  // was set in, so walking on does not carry a stale line into the next room.
+  const { setWeatherWarp, getWeatherWarp, clearTransforms: clearT } =
+    await import('../../server/engine/phantoms.js');
+  setWeatherWarp('regress-w', 'zone_a', 'The rain is going up.');
+  check('a warp shows in the zone it was set in', getWeatherWarp('regress-w', 'zone_a') === 'The rain is going up.');
+  check('...and not in the next room along', getWeatherWarp('regress-w', 'zone_b') === null);
+  check('...and never to anyone else', getWeatherWarp('regress-other', 'zone_a') === null);
+  clearT('regress-w');
+  check('coming down puts the sky back', getWeatherWarp('regress-w', 'zone_a') === null);
+
+  // ── Tethers: the mix of personal and merely strange ─────────────────────────
+  const { _rollTether } = await import('../../server/engine/dreamscape.js');
+  const tethers = (await q(`SELECT * FROM dream_tethers`)).rows;
+  check('there are tether lines to draw on', tethers.length >= 20);
+  check('...including impersonal ones', tethers.filter(t => t.kind === 'none').length >= 5,
+    'a dream that is always about you is as predictable as one that never is');
+  for (const k of ['zone', 'npc', 'item', 'death']) {
+    check(`...and ${k} lines that hook onto real state`, tethers.some(t => t.kind === k));
+  }
+  // A personal line MAY omit the token — "you have done this before and it went
+  // badly" is gated on having actually died without naming who did it, and reads
+  // better for the restraint. What matters is that each KIND can still name its
+  // fact, or the fact is decorative and the pool is secretly all flavour.
+  for (const k of ['zone', 'npc', 'item', 'death']) {
+    check(`${k} lines can name the thing they are about`,
+      tethers.some(t => t.kind === k && /\{value\}/.test(t.line)));
+  }
+  check('no impersonal line carries a token it cannot fill',
+    tethers.filter(t => t.kind === 'none' && /\{value\}/.test(t.line)).length === 0);
+
+  // The failure that would reach a player: a line whose fact is missing printing
+  // a literal "{value}". Roll a lot with an EMPTY fact set and assert never.
+  let leaked = 0, personal = 0, blank = 0;
+  for (let i = 0; i < 400; i++) {
+    const out = _rollTether(tethers, {});
+    if (/\{value\}/.test(out)) leaked++;
+    if (!out) blank++;
+  }
+  check('an empty life never leaks a raw {value} token', leaked === 0);
+  check('...and still sometimes says nothing at all', blank > 0);
+
+  // With facts available, both registers must actually appear across a run.
+  const facts = { zone: 'The Reach', npc: 'Cyd', item: 'a screwdriver', death: 'Killed by a dog' };
+  const seenPersonal = new Set();
+  for (let i = 0; i < 400; i++) {
+    const out = _rollTether(tethers, facts);
+    if (/\{value\}/.test(out)) leaked++;
+    for (const [k, v] of Object.entries(facts)) if (out.includes(v)) seenPersonal.add(k);
+    if (out && !Object.values(facts).some(v => out.includes(v))) personal++;   // impersonal line
+  }
+  check('...and never leaks one when facts ARE present', leaked === 0);
+  check('a tethered dream draws on several parts of a life', seenPersonal.size >= 3, [...seenPersonal].join(', '));
+  check('...while still leaving room for the merely strange', personal > 0);
+
+  // VARIETY. A pool that repeats inside one dream feels tiny however many rows it
+  // holds — a repeat two rooms apart is far more noticeable than the same line
+  // turning up next week. rollTether takes a per-instance `used` set for exactly
+  // this; assert it actually prevents a repeat across a realistic dream length.
+  for (const k of ['none', 'zone', 'npc', 'item', 'death']) {
+    check(`the ${k} pool is deep enough not to go stale`,
+      tethers.filter(t => t.kind === k).length >= 10,
+      `${tethers.filter(t => t.kind === k).length} lines`);
+  }
+  let repeats = 0;
+  for (let trial = 0; trial < 200; trial++) {
+    const used = new Set(); const seen = [];
+    for (let room = 0; room < 4; room++) {
+      const out = _rollTether(tethers, facts, used);
+      if (out) seen.push(out);
+    }
+    if (seen.length !== new Set(seen).size) repeats++;
+  }
+  check('...and no line repeats inside a single dream', repeats === 0, `${repeats}/200 dreams repeated`);
+
+  // The death fact is the AGENT ("a dog"), never the raw cause_label sentence —
+  // pasting "Killed by a dog." in mid-line read as a database string stapled on.
+  const deathLines = tethers.filter(t => t.kind === 'death' && /\{value\}/.test(t.line));
+  check('death lines weave the killer into a sentence, not quote a log entry',
+    deathLines.every(t => !/^\s*\{value\}\.?\s*$/.test(t.line)),
+    deathLines.filter(t => /^\s*\{value\}\.?\s*$/.test(t.line)).map(t => t.id).join(', '));
+
+  // NOT AUTOMATED, deliberately. The killer may be a PERSON ("Cyd") or a CREATURE
+  // ("a dog"), so no line may take a pronoun FOR THE KILLER — "you recognise Cyd
+  // before you can see it" is wrong, and "they" is wrong the other way. But a
+  // regex for "pronoun after the token" flags "where {value} opened it" (the it is
+  // your body) and "this place does not think it was a big thing" (the killing),
+  // both of which are correct. A check that fails on good writing gets deleted or
+  // written around, which is worse than no check — so this stays an authoring rule
+  // in the comment rather than a red build. Watch for it in review.
+  //
+  // What IS mechanically checkable: the token must never be the whole line, which
+  // is what a raw cause_label paste looks like.
+
+  // A nightmare is subtle about everything EXCEPT its subject. Most of the pool
+  // should name the thing outright rather than gesturing at it — the earlier
+  // draft was so oblique the lines could have been about anybody.
+  check('most death lines name the thing that killed you outright',
+    deathLines.length >= tethers.filter(t => t.kind === 'death').length * 0.6,
+    `${deathLines.length} of ${tethers.filter(t => t.kind === 'death').length} name it`);
 
   const { readFile } = await import('fs/promises');
   const loopSrc = await readFile(new URL('../../server/engine/gameLoop.js', import.meta.url), 'utf8');

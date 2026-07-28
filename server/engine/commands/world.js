@@ -9,6 +9,8 @@ import { getPlayerSkills, SKILLS } from '../skills.js';
 import { describeZone } from './describe.js';
 import { getMinimapData, addPlayerToZone, removePlayerFromZone, removeLivePlayer, resolveLanding } from '../world.js';
 import { allExits, exitTargets } from '../exits.js';
+import { isDreamZone, dreamObjectsAt, presenceAt, bodyTell } from '../dreamscape.js';
+import { getTransform } from '../phantoms.js';
 import { getSoundReach, isNoisy } from '../sounds.js';
 import { conditionLine } from '../durability.js';
 import { statCost, raiseStat, RAISABLE_STATS, getNetXp, maxHpForEndurance } from '../ip.js';
@@ -536,6 +538,14 @@ async function cmdExamine(targetStr, player, broadcast) {
       }
       if (fr.type === 'match') f = fr.candidate;
     }
+    // A psychedelic can have made this piece into something else, for this viewer
+    // only. Applied here rather than at the query because this row came straight
+    // from the DB, not the cache — but the same rule holds: never mutate, copy.
+    const tf = getTransform(player.id, f.id);
+    if (tf) {
+      const look = tf.looks?.length ? tf.looks[Math.floor(Math.random() * tf.looks.length)] : null;
+      f = { ...f, name: tf.name || f.name, description: look || tf.description || f.description };
+    }
     let msg = `<span class="zone-name">${f.name}</span>\n${f.description}`;
     const furnitureExtra = await fireHook('furniture.describe', f, player);
     if (furnitureExtra) msg += `\n${furnitureExtra}`;
@@ -736,6 +746,22 @@ async function cmdExamine(targetStr, player, broadcast) {
     if (totalLoad > gen.capacity_kw) msg += `\n<span class="generator-overload">⚠ OVERLOADED — drawing more than rated capacity.</span>`;
     return { type:'examine', message: msg };
   }
+  // Inside a dream or a hallucination, the room's own objects and its wandering
+  // figure answer first. They aren't furniture, NPCs or items — they exist only on
+  // the transient zone — so nothing further down would ever match them. (Authored
+  // since the dreamscape shipped and unreachable until now: `dreamObjectsAt` had no
+  // caller, so a dream's "things to poke at" could not in fact be poked at.)
+  if (isDreamZone(player.current_zone)) {
+    const t = targetStr.toLowerCase();
+    const obj = dreamObjectsAt(player.current_zone).find(o => o.name.toLowerCase().includes(t));
+    if (obj) return { type: 'examine', message: `${titleCaseName(obj.name)}\n${obj.look}` };
+    const figure = presenceAt(player.current_zone);
+    if (figure && figure.name.toLowerCase().includes(t)) {
+      const look = figure.looks.length ? figure.looks[Math.floor(Math.random() * figure.looks.length)] : 'You cannot afterwards say what it was.';
+      return { type: 'examine', message: `${titleCaseName(figure.name)}\n${look}` };
+    }
+  }
+
   // Zone entities: enemies, NPCs, live players — combined SIFT pool
   const enemies = getZoneEnemies(player.current_zone);
   const npcs = getZoneNpcs(player.current_zone);
@@ -779,10 +805,16 @@ async function cmdExamine(targetStr, player, broadcast) {
       // branch above. `loot` opens their real inventory — cmdLootCorpse resolves
       // live players and gates on `.sleeping` — so the action has to be offered
       // or the only way to find it is to guess the verb.
-      if (c.sleeping) {
+      // Absent body — asleep, or awake but somewhere else entirely on a
+      // dissociative. Either way they're standing here and can be gone through.
+      const tell = bodyTell(c, player.current_zone);
+      if (tell) {
         const where = c.sittingOn ? `the ${c.sittingOn}` : 'the floor';
+        const line = tell === 'sleeping'
+          ? `${c.handle} is asleep on ${where}.`
+          : `${c.handle} is upright and not here. The eyes are open and pointed at nothing, and whatever they are seeing, it is not this room.`;
         const lootLink = `<span class="action-link" data-action="loot" data-target="${c.handle}" title="Loot ${c.handle}">loot</span>`;
-        return { type:'examine', message: app + `\n<span class="text-dim">(${c.handle} is asleep on ${where}.)</span>\n<span class="text-dim">Actions:</span> ${lootLink}  ${stealLink}  ${attackLink}` };
+        return { type:'examine', message: app + `\n<span class="text-dim">(${line})</span>\n<span class="text-dim">Actions:</span> ${lootLink}  ${stealLink}  ${attackLink}` };
       }
       return { type:'examine', message: app + `\n<span class="text-dim">Actions:</span> ${stealLink}  ${attackLink}` };
     }

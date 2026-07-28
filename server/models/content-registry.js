@@ -215,6 +215,15 @@ export const REGISTRY = [
   // cache — a few hundred one-line rows — so it loads once on first reader page
   // and is matched in memory thereafter (plugins/tablet/library-app.js).
   { table: 'glossary', class: 'content', pk: ['id'], readTier: 'boot' },
+  // Dream/drug experience rooms. Cold on purpose: the read happens only when an
+  // experience actually fires (inside the odds check, once per instance), never on
+  // a per-tick path — so the round trip is free and there is no cache to keep
+  // valid. See docs/systems-dreams.md.
+  { table: 'dream_templates', class: 'content', pk: ['id'], readTier: 'cold' },
+  { table: 'dream_presences', class: 'content', pk: ['id'], readTier: 'cold' },
+  { table: 'dream_tethers', class: 'content', pk: ['id'], readTier: 'cold' },
+  { table: 'drug_transforms', class: 'content', pk: ['id'], readTier: 'cold' },
+  { table: 'drug_reactions', class: 'content', pk: ['id'], readTier: 'cold' },
   { table: 'scavenging_table_items', class: 'content', pk: ['id'], readTier: 'cold' },
   // NPC-police surveillance backbone only; player-planted nets/devices are runtime.
   { table: 'security_networks', class: 'content', pk: ['id'], where: 'is_police = 1', readTier: 'fresh',

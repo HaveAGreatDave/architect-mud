@@ -1,0 +1,15 @@
+{
+  "id": "dxr_psilocybin_room",
+  "drug_id": "drug_psilocybin",
+  "matches": null,
+  "scope": "room",
+  "name": "the room, breathing",
+  "description": "The room is alive the way a sleeping animal is alive.",
+  "looks": [
+    "The walls are moving very slightly, in and out, in time with something that is not you.",
+    "This place is warm and slightly giving, and it has decided it does not mind you.",
+    "Something under the floor turns over and gets comfortable.",
+    "The room breathes in, holds it a moment longer than last time, and lets it go."
+  ],
+  "says": []
+}

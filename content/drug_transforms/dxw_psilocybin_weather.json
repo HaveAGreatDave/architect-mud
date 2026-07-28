@@ -1,0 +1,16 @@
+{
+  "id": "dxw_psilocybin_weather",
+  "drug_id": "drug_psilocybin",
+  "matches": null,
+  "scope": "weather",
+  "name": "the weather, breathing",
+  "description": "The weather is breathing.",
+  "looks": [
+    "It comes in and goes out, slowly, in time with something that is not you.",
+    "The air is warm and slightly damp and glad you are here.",
+    "The sky is moving the way a chest moves."
+  ],
+  "says": [],
+  "fx": "fog",
+  "fx_intensity": 0.5
+}

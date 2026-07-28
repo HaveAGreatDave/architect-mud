@@ -1,0 +1,17 @@
+{
+  "id": "dxs_blotter_stair",
+  "drug_id": "drug_blotter",
+  "matches": null,
+  "scope": "spawn",
+  "name": "a short flight of stairs to nowhere",
+  "description": "Four steps stand here, immaculately built, arriving at the height they started from.",
+  "looks": [
+    "Up, and back to here. Beautiful work.",
+    "The treads are worn where nobody could have walked.",
+    "You climb them and are exactly where you were and delighted."
+  ],
+  "says": [
+    "After you.",
+    "It is funnier the second time."
+  ]
+}

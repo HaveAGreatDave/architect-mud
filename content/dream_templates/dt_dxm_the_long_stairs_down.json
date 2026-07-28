@@ -1,0 +1,33 @@
+{
+  "id": "dt_dxm_the_long_stairs_down",
+  "name": "The Long Way Back Up",
+  "description": "Stairs, going up, and a great many of them. You are climbing out of something and it is taking most of an evening. Your body is coming back to you a piece at a time and each piece is heavier than you remember agreeing to.",
+  "cause": "drug",
+  "drug_id": "drug_dxm",
+  "objects": [
+    {
+      "name": "the stairs",
+      "looks": [
+        "Many. Even. Going up out of it.",
+        "You have done a lot of them and there are a lot of them.",
+        "They are getting easier, which is how you know."
+      ]
+    },
+    {
+      "name": "the pieces coming back",
+      "looks": [
+        "A hand. Then the other. They are handed over properly.",
+        "Weight returns to you in instalments and you sign for each.",
+        "The half-second gap is down to a quarter. You will miss it."
+      ]
+    }
+  ],
+  "ambient": [
+    "Another flight. Your legs report in slightly closer than before.",
+    "Something you had put down a long way below is handed up to you.",
+    "The light at the top gets fractionally less theoretical."
+  ],
+  "weather": "It gets fractionally less close with every flight, which is how you know you are getting out.",
+  "fx": "ash",
+  "fx_intensity": 0.4
+}

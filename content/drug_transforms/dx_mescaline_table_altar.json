@@ -1,0 +1,17 @@
+{
+  "id": "dx_mescaline_table_altar",
+  "drug_id": "drug_mescaline",
+  "matches": "table",
+  "name": "a table that was laid with great care",
+  "description": "A table, laid. Every object on it is in the only place it could be, and someone meant all of it.",
+  "looks": [
+    "The fold in the cloth has been like that since before the table.",
+    "The salt is the whole of the argument, settled.",
+    "You could follow the grain out of the room, if you were braver."
+  ],
+  "says": [
+    "Sit. It has been ready a long time.",
+    "It is not a shrine. It is only that everything is where it should be."
+  ],
+  "scope": "object"
+}

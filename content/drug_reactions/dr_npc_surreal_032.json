@@ -1,0 +1,8 @@
+{
+  "id": "dr_npc_surreal_032",
+  "drug_id": null,
+  "source": "npc",
+  "tone": "surreal",
+  "self_line": "{npc} says something to you. You catch the shape of it and not the words.",
+  "room_line": "{npc} says something to {player} and gets a long, courteous, completely blank look."
+}

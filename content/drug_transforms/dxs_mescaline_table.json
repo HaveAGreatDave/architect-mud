@@ -1,0 +1,16 @@
+{
+  "id": "dxs_mescaline_table",
+  "drug_id": "drug_mescaline",
+  "matches": null,
+  "scope": "spawn",
+  "name": "a small table, laid",
+  "description": "A table stands here, laid for one, every object on it in the only place it could be.",
+  "looks": [
+    "The fold in the cloth has been like that since before the table.",
+    "The salt is the whole of the argument, settled.",
+    "You move something a centimetre and put it back, ashamed."
+  ],
+  "says": [
+    "Sit. It has been ready a long time."
+  ]
+}

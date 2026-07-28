@@ -2,35 +2,46 @@
  * Trip plugin — hallucination lifecycle + trippy client FX.
  *
  * Fires off the engine's `drug.used` hook (any drug whose effects carry a
- * `hallucination` block) and `drug.overdose`. Three modes, chosen per-drug:
+ * `hallucination` block) and `drug.overdose`. FOUR modes, chosen per-drug — and
+ * the split is about what the drug does to your relationship with reality, not
+ * about how strong it is:
  *
  *   overlay   — the player does NOT move. Scripted timed descriptive events
  *               flood their client while their body stays in the real zone,
  *               still visible and attackable.
- *   dreamzone — the player is teleported into an authored isolated zone
- *               (off-map map_id, flags.is_dreamzone) while a PHANTOM BODY is
- *               spawned in the real zone mirroring their HP. Damage to the
- *               phantom transfers to the player; the phantom's death kills them.
- *   phantom   — a deliriant. NO screen FX and NO "you are tripping" cue: fake
- *               people and animals (the engine's per-player phantom registry)
- *               walk into the player's real room, act via ambient-styled emotes,
- *               and answer to look/examine/talk/attack as if real — until an
- *               interaction (a whiffed punch) reveals there was nothing there.
+ *   dreamzone — DISSOCIATIVES (khole, deadair, threshold). You have left. An
+ *               INSTANCED set of transient rooms is built per trip from
+ *               `dream_templates`; the mind goes there and the real body stays in
+ *               the real room, lootable and killable, exactly as a sleeper's does.
+ *               There is no phantom body — see enterDreamzone.
+ *   transform — PSYCHEDELICS (blotter, mescaline, psilocybin). You have NOT left.
+ *               The room stays and misbehaves: furniture around you becomes
+ *               something else and talks, for you only. See enterTransform.
+ *   phantom   — DELIRIANTS (glasshollow, wraithdust). NO screen FX and NO "you
+ *               are tripping" cue: fake people and animals walk into the player's
+ *               real room and answer to look/examine/talk/attack as if real —
+ *               until an interaction (a whiffed punch) reveals there was nothing.
  *
- * All trip state is in-memory (activeTrips; phantoms in engine/phantoms.js).
- * Timers are stored so every exit
- * path (normal expiry, overdose, death, logout) can cancel them and despawn the
- * phantom cleanly. Server restart loses trips; the login rescue in
- * server/index.js bounces any dreamzone occupant back to their anchor.
+ * `transform` and `phantom` are two halves of one engine law (engine/phantoms.js):
+ * a phantom ADDS what is not there, a transform RE-READS what is. Both are live
+ * world, both are per-viewer, neither removes the player from play.
+ *
+ * All trip state is in-memory (activeTrips; phantoms and transforms in
+ * engine/phantoms.js). Timers are stored so every exit path (expiry, overdose,
+ * death, logout) can cancel them and tear down cleanly. A server restart loses
+ * trips; `persistableZone` (world.js) stops a transient instance id ever reaching
+ * the players row, and the login rescue in server/index.js catches the rest.
+ *
+ * See docs/systems-dreams.md.
  */
 import { query } from '../../server/models/db.js';
-import { getZone, world, spawnEnemySync, getZoneNpcs, getZonePlayers } from '../../server/engine/world.js';
+import { getZone, world, getZoneNpcs, getZonePlayers, getZoneFurniture, addPlayerToZone, removePlayerFromZone } from '../../server/engine/world.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
-import { dispatchAction } from '../../server/engine/actions.js';
 import { on } from '../../server/engine/events.js';
-import { addPhantom, removePhantom, clearPhantoms, matchPhantom } from '../../server/engine/phantoms.js';
+import { addPhantom, removePhantom, clearPhantoms, getPhantomsInZone, matchPhantom, addTransform, clearTransforms, getTransforms, setRoomTransform, setWeatherWarp } from '../../server/engine/phantoms.js';
+import { buildDreamscape, dissolveDreamscape, isDreamZone } from '../../server/engine/dreamscape.js';
 
-// playerId -> { drugId, name, mode, endsAt, realZone, phantomId, phantomPrevHp, timers[], intervals[], broadcast }
+// playerId -> { drugId, name, mode, endsAt, realZone, transformZone, timers[], intervals[], broadcast }
 const activeTrips = new Map();
 
 // ── Inline trip audio (no DB row needed) ────────────────────────────────────
@@ -87,11 +98,13 @@ async function startTrip({ player, drug, potency, broadcast }) {
   if (!hallu) return;
   if (activeTrips.has(player.id)) endTrip(player.id, { reason: 'silent' });
 
-  let mode = hallu.mode === 'dreamzone' || hallu.mode === 'phantom' ? hallu.mode : 'overlay';
-  // Resolve a missing dreamzone HERE, before the mode is announced. enterDreamzone
-  // also degrades, but it runs after trip_start has already gone out — so the client
-  // would get dreamzone treatment for what is actually an overlay trip.
-  if (mode === 'dreamzone' && !(hallu.dreamzone_id && getZone(hallu.dreamzone_id))) mode = 'overlay';
+  const MODES = ['dreamzone', 'phantom', 'transform'];
+  let mode = MODES.includes(hallu.mode) ? hallu.mode : 'overlay';
+  // Resolve a missing pool HERE, before the mode is announced — the degrade paths
+  // below run after trip_start has already gone out, so the client would get
+  // dreamzone treatment for what is actually an overlay trip.
+  if (mode === 'dreamzone' && !(await hasDreamTemplates(drug.id))) mode = 'overlay';
+  if (mode === 'transform' && !(await hasTransforms(drug.id))) mode = 'overlay';
   const durationSec = hallu.duration_seconds || 120;
   const intensity = Math.max(0.1, Math.min(1, (hallu.intensity ?? 0.6) * (0.5 + 0.5 * (potency ?? 1))));
   const palette = hallu.palette || 'green';
@@ -100,7 +113,7 @@ async function startTrip({ player, drug, potency, broadcast }) {
   const profile = hallu.fx_profile || 'psychedelic';
   const realZone = player.current_zone;
 
-  const state = { drugId: drug.id, name: drug.name, mode, endsAt: Date.now() + durationSec * 1000, realZone, phantomId: null, phantomPrevHp: 0, timers: [], intervals: [], broadcast };
+  const state = { drugId: drug.id, name: drug.name, mode, endsAt: Date.now() + durationSec * 1000, realZone, transformZone: null, timers: [], intervals: [], broadcast };
   activeTrips.set(player.id, state);
 
   // Phantom mode is deliberately silent: no screen-warp FX, no rainbow [trip]
@@ -123,73 +136,198 @@ async function startTrip({ player, drug, potency, broadcast }) {
 
   if (mode === 'dreamzone') await enterDreamzone(player, hallu, state);
   else if (mode === 'phantom') enterPhantom(player, hallu, state);
+  else if (mode === 'transform') await enterTransform(player, state);
 
   // Auto-end.
   state.timers.push(setTimeout(() => endTrip(player.id, { reason: 'expire' }), durationSec * 1000));
 }
 
 async function enterDreamzone(player, hallu, state) {
-  const dzId = hallu.dreamzone_id;
-  const dz = dzId && getZone(dzId);
-  if (!dz) {
-    // Misconfigured drug — fall back to an overlay trip rather than stranding the player.
-    state.mode = 'overlay';
-    return;
-  }
+  // INSTANCED, and the body stays put. Two changes from the old authored-zone
+  // model, both deliberate:
+  //
+  //  1. Rooms are built per trip from `dream_templates` (see the fallback chain in
+  //     dreamscape.js), so two players on the same drug no longer stand in the same
+  //     room. A shared hallucination was never intended.
+  //  2. There is NO phantom body any more. The player's real body stays in the real
+  //     room's occupant set exactly as a sleeper's does — it is looted, attacked and
+  //     killed directly, so the HP-mirroring and death-transfer that kept a fake
+  //     body in sync are gone along with the fake body.
+  const entry = await buildDreamscape(player.id, {
+    size: 3 + Math.floor(Math.random() * 2),
+    tether: { zone: getZone(state.realZone)?.name },
+    cause: 'drug',
+    drugId: state.drugId,
+    broadcast: state.broadcast,
+    player,   // lets the rooms borrow from this player's actual life
+  });
+  if (!entry) { state.mode = 'overlay'; return; }
 
-  // Teleport the mind into the dream zone (reuses the canonical TELEPORT path).
-  await dispatchAction({ type: 'TELEPORT', actor: player, params: { zone_id: dzId }, context: { broadcast: state.broadcast } });
+  // Where the body really is — read by persistableZone, and by anything hunting a
+  // slumped body. Mirrors `player.sleeping.bodyZone` on the sleep path.
+  player._bodyZone = state.realZone;
+  addPlayerToZone(player.id, state.realZone);   // idempotent; the body never left
+  player.current_zone = entry;
+  addPlayerToZone(player.id, entry);
 
-  // Spawn the phantom body in the real zone, mirroring the player's HP.
-  const template = {
-    id: `phantom_${player.id}`,
-    name: `${player.handle}'s slumped body`,
-    description: 'A body slumped where they stand, eyes rolled back, breath shallow. Whatever they are seeing, it is not here.',
-    hp_max: player.hp_max, hp: player.hp,
-    hit: 0, dodge: 1, weapon: [], body_parts: [], loot_table: [], butcher_table: [], butcher_difficulty: 5,
-    behavior: 'passive', faction: 'neutral',
-    death_message: 'The body shudders once, then goes still.',
-    behaviour_graph: {}, flags: { _phantom: true },
-  };
-  const inst = spawnEnemySync(template, state.realZone);
-  inst.hp = player.hp;
-  inst._phantomOf = player.id;
-  state.phantomId = inst.instanceId;
-  state.phantomPrevHp = player.hp;
+  state.broadcast?.(state.realZone, { type: 'zone_event', message: `${player.handle}'s body slumps where they stand, eyes gone glassy and far away.`, refresh: true }, player.id);
+  sendToPlayer(player.id, { type: 'force_look' });
+}
 
-  state.broadcast?.(state.realZone, { type: 'zone_event', message: `${player.handle}'s body slumps to the ground, eyes gone glassy and far away.`, refresh: true }, player.id);
-
-  // Mirror phantom damage onto the player each second; the phantom's death is the player's death.
-  const iv = setInterval(() => syncPhantom(player.id), 1000);
+// ── Transform mode ──────────────────────────────────────────────────────────
+//
+// A psychedelic does NOT remove you. The room stays and misbehaves: the furniture
+// in front of you becomes something else, and talks to you. This is the other half
+// of the phantom law (engine/phantoms.js) — a phantom adds what is not there, a
+// transform re-reads what is.
+//
+// Live world on purpose. The uncanny needs a baseline to violate and your own room
+// is a baseline; a dreamscape has already announced that the rules are off, so
+// nothing in it can be uncanny. You also stay attackable, stay able to act, and
+// keep playing while high.
+async function enterTransform(player, state) {
+  await applyTransformsHere(player, state);
+  // Re-dress each new room as the player walks — the trip follows them.
+  const iv = setInterval(() => {
+    const p = world.players.get(player.id);
+    // SELF-CANCEL. endTrip clears this on every known exit path, but "every known
+    // path" is the assumption that has been wrong more than once here. A vanished
+    // player means nothing left to dress, so stop rather than tick forever.
+    if (!p) { clearInterval(iv); return; }
+    if (p.current_zone !== state.transformZone) applyTransformsHere(p, state).catch(() => {});
+    else speakTransform(p, state).catch(() => {});
+  }, 9000);
   state.intervals.push(iv);
 }
 
-function syncPhantom(playerId) {
-  const state = activeTrips.get(playerId);
-  if (!state || !state.phantomId) return;
-  const player = world.players.get(playerId);
-  if (!player) return; // logout handler cleans up
-  const phantom = world.enemies.get(state.phantomId);
+const arr = (v) => (Array.isArray(v) ? v : []);
+const one = (a) => a[Math.floor(Math.random() * a.length)];
 
-  // Body destroyed → the player dies.
-  if (!phantom || phantom._dead || phantom.hp <= 0) {
-    endTrip(playerId, { reason: 'death' });
-    killTripPlayer(player);
-    return;
+/**
+ * This trip's transform pool, fetched once. Fallback chain unchanged: this drug's
+ * transforms, then the default set, then nothing (and the trip degraded at start).
+ */
+async function loadTransformPool(state) {
+  if (state._transforms) return state._transforms;
+  const { rows } = await query('SELECT * FROM drug_transforms WHERE drug_id=$1', [state.drugId]);
+  const pool = rows.length ? rows
+    : (await query('SELECT * FROM drug_transforms WHERE drug_id IS NULL')).rows;
+  state._transforms = pool;
+  return pool;
+}
+
+/**
+ * Re-dress the room the player is standing in. Three layers, and the first one
+ * ALWAYS fires — a psychedelic on a bare street corner must still be a
+ * psychedelic, which the furniture-only version was not.
+ *
+ *   1. the ROOM itself gets a warp line appended to its description
+ *   2. two or three pieces of furniture become something else, if there are any
+ *   3. if the room is too bare to work with, objects are CONJURED that were
+ *      never there — the phantom half of the same engine law
+ */
+async function applyTransformsHere(player, state) {
+  clearTransforms(player.id);
+  clearPhantoms(player.id);
+  state.transformZone = player.current_zone;
+
+  // Fetched ONCE per trip, not per room. This runs every time a tripping player
+  // changes room, which the 9-second follow timer turns into a query every 9
+  // seconds for anyone walking while high — a repeating DB cost driven by a
+  // player holding a direction key. The transform pool for a given drug cannot
+  // change mid-trip in any way that matters, so one fetch covers the whole trip.
+  // Held on trip state, not module-level: it dies with the trip, so a dev-panel
+  // edit is live for the next one and there is nothing to invalidate.
+  const pool = await loadTransformPool(state);
+  if (!pool.length) return;
+
+  const scoped = (s) => pool.filter(t => (t.scope || 'object') === s);
+
+  // ── 0. The weather, if there is any ────────────────────────────────────────
+  // Appended to the REAL weather line rather than replacing it, so the actual
+  // conditions stay legible — you are still in the rain, the rain has simply
+  // stopped behaving. Indoors this is set and simply never rendered.
+  const weatherPool = scoped('weather');
+  if (weatherPool.length) {
+    const wt = one(weatherPool);
+    setWeatherWarp(player.id, player.current_zone, arr(wt.looks).length ? one(arr(wt.looks)) : wt.description);
   }
 
-  // Transfer incoming damage from body to player.
-  if (phantom.hp < state.phantomPrevHp) {
-    const dmg = state.phantomPrevHp - phantom.hp;
-    state.phantomPrevHp = phantom.hp;
-    player.hp = Math.max(0, player.hp - dmg);
-    query('UPDATE players SET hp=$1 WHERE id=$2', [player.hp, playerId]).catch(e => console.error('[trip] phantom-damage hp write failed for', playerId, e.message));
-    sendToPlayer(playerId, { type: 'combat_incoming', message: '<span class="msg-combat">Something reaches you through the visions — pain, distant but real.</span>', player_update: { hp: player.hp, hp_max: player.hp_max } });
-    if (player.hp <= 0) {
-      endTrip(playerId, { reason: 'death' });
-      killTripPlayer(player);
+  // ── 1. The room itself ─────────────────────────────────────────────────────
+  const roomPool = scoped('room');
+  if (roomPool.length) {
+    const r = one(roomPool);
+    const line = arr(r.looks).length ? one(arr(r.looks)) : r.description;
+    setRoomTransform(player.id, player.current_zone, line);
+  }
+
+  // ── 2. Real furniture ──────────────────────────────────────────────────────
+  const objectPool = scoped('object');
+  const furniture = getZoneFurniture(player.current_zone) || [];
+  let dressed = 0;
+  if (objectPool.length && furniture.length) {
+    // Two or three pieces, never the whole room — the things that stay ordinary
+    // are what make the changed ones land.
+    const targets = [...furniture].sort(() => Math.random() - 0.5).slice(0, 2 + (Math.random() < 0.5 ? 1 : 0));
+    for (const f of targets) {
+      // A transform may narrow itself to a kind of thing by name; otherwise
+      // anything in the room will do.
+      const fits = objectPool.filter(t => !t.matches || (f.name || '').toLowerCase().includes(t.matches.toLowerCase()));
+      const t = one(fits.length ? fits : objectPool);
+      addTransform(player.id, f.id, {
+        name: t.name, description: t.description, looks: arr(t.looks), says: arr(t.says),
+      });
+      dressed++;
     }
   }
+
+  // ── 3. Conjure, when there was too little to work with ─────────────────────
+  // A street corner, a bare corridor, an empty lot. Without this the trip is
+  // invisible in exactly the places a player is most likely to be standing.
+  const spawnPool = scoped('spawn');
+  if (spawnPool.length && dressed < 2) {
+    const want = 2 - dressed;
+    const picks = [...spawnPool].sort(() => Math.random() - 0.5).slice(0, want);
+    picks.forEach((t, i) => {
+      const id = `trip_obj_${player.id}_${i}`;
+      addPhantom(player.id, {
+        id, name: t.name, kind: 'object',
+        description: t.description,
+        looks: arr(t.looks), says: arr(t.says),
+        zone: player.current_zone,
+        hp: 1, hp_max: 1,
+      });
+    });
+  }
+
+  sendToPlayer(player.id, { type: 'force_look' });
+}
+
+
+// Something in the room says something to you, unprompted.
+// A transform's OWN says[] wins when an author wrote one — that is where a
+// specific thing's specific voice lives. Everything else draws from the shared
+// pool, so a chair is not stuck with the three lines somebody typed for chairs,
+// and so the mundane register reaches every object without being re-authored on
+// every row.
+const OWN_VOICE_SHARE = 0.4;
+
+async function speakTransform(player, state) {
+  // Conjured objects speak too — they are transforms that happen not to be
+  // attached to a real piece of furniture. No says[] filter any more: the shared
+  // pool can speak for anything.
+  const conjured = getPhantomsInZone(player.id, player.current_zone).filter(p => p.kind === 'object');
+  const all = [...getTransforms(player.id), ...conjured];
+  if (!all.length || Math.random() > 0.5) return;
+  const t = all[Math.floor(Math.random() * all.length)];
+  let line = null;
+  if (t.says?.length && Math.random() < OWN_VOICE_SHARE) {
+    line = t.says[Math.floor(Math.random() * t.says.length)];
+  } else {
+    line = (await drawReaction('object', state))?.self_line || null;
+  }
+  if (!line) return;
+  sendToPlayer(player.id, { type: 'output', message: `<span class="msg-ambient">The ${t.name} says, without a mouth: <em>${line}</em></span>` });
 }
 
 async function killTripPlayer(player) {
@@ -197,14 +335,23 @@ async function killTripPlayer(player) {
   await handlePlayerDeath(player, null, { type: 'drug', label: 'Died in a hallucination' });
 }
 
-function despawnPhantom(state) {
-  if (!state.phantomId) return;
-  const phantom = world.enemies.get(state.phantomId);
-  world.enemies.delete(state.phantomId);
-  const zone = world.zones.get(state.realZone);
-  zone?.enemies.delete(state.phantomId);
-  state.phantomId = null;
-  return phantom;
+
+// ── Degrade checks ──────────────────────────────────────────────────────────
+//
+// Run BEFORE the mode is announced to the client. Both modes now depend on
+// authored content, and a drug with none must degrade to a working overlay trip
+// rather than half-entering something that isn't there. Each is one cheap
+// EXISTS against a small cold table, once per trip.
+async function hasDreamTemplates(drugId) {
+  const { rows } = await query(
+    `SELECT 1 FROM dream_templates WHERE cause='drug' AND (drug_id=$1 OR drug_id IS NULL) LIMIT 1`, [drugId]);
+  return rows.length > 0;
+}
+
+async function hasTransforms(drugId) {
+  const { rows } = await query(
+    `SELECT 1 FROM drug_transforms WHERE drug_id=$1 OR drug_id IS NULL LIMIT 1`, [drugId]);
+  return rows.length > 0;
 }
 
 // ── Phantom mode ────────────────────────────────────────────────────────────
@@ -334,7 +481,13 @@ function phantomExamine(player, target) {
   return { type: 'examine', message: ph.look };
 }
 
-function phantomTalk(player, target) {
+async function phantomTalk(player, target) {
+  // A TRANSFORMED thing answers first. These carry `says` and have been
+  // volunteering lines at the player unprompted — being unable to talk back to
+  // the chair that just spoke to you was the most obvious hole in the mode.
+  const spoken = await talkToTransformed(player, target);
+  if (spoken) return spoken;
+
   const ph = target && matchPhantom(player, target);
   if (!ph) return undefined;
   if (ph.talk) return { type: 'output', message: ph.talk };
@@ -342,6 +495,36 @@ function phantomTalk(player, target) {
     ? `${cap(ph.name)} doesn't answer. It just watches you.`
     : `${cap(ph.name)} doesn't react to you at all.`;
   return { type: 'output', message: line };
+}
+
+/**
+ * Talk to a transformed piece of furniture, or to a conjured object.
+ *
+ * Answers from the same `says` pool the ambient beat draws on, so the thing has
+ * one voice whether it speaks first or you do. Returns undefined when nothing
+ * matches, so the normal talk handler still gets its turn.
+ */
+async function talkToTransformed(player, target) {
+  const t = (target || '').toLowerCase().trim();
+  if (!t) return undefined;
+  const candidates = [
+    ...getTransforms(player.id),
+    ...getPhantomsInZone(player.id, player.current_zone).filter(p => p.kind === 'object'),
+  ].filter(c => (c.name || '').toLowerCase().includes(t));
+  if (!candidates.length) return undefined;
+  const c = candidates[0];
+  // Same rule as the unprompted beat: its own authored voice sometimes, the
+  // shared pool otherwise — so a thing answers in the same register whether it
+  // spoke first or you did, and nothing is ever mute for want of a says[].
+  const state = activeTrips.get(player.id);
+  let line = null;
+  if (c.says?.length && Math.random() < OWN_VOICE_SHARE) {
+    line = c.says[Math.floor(Math.random() * c.says.length)];
+  } else {
+    line = (await drawReaction('object', state || null))?.self_line || null;
+  }
+  if (!line) return undefined;
+  return { type: 'output', message: `<span class="msg-ambient">You address the ${c.name}. It answers, without a mouth: <em>${line}</em></span>` };
 }
 
 function pickWitness(player) {
@@ -391,17 +574,26 @@ function endTrip(playerId, { reason } = {}) {
 
   state.timers.forEach(clearTimeout);
   state.intervals.forEach(clearInterval);
-  despawnPhantom(state);
   clearPhantoms(playerId);
+  clearTransforms(playerId);   // the room stops misbehaving
 
   const player = world.players.get(playerId);
 
-  // Teleport the mind back — unless death already relocated the body, or we're
-  // silently tearing down on logout.
-  if (state.mode === 'dreamzone' && reason !== 'death' && reason !== 'silent' && player && player.current_zone !== state.realZone) {
-    const dest = getZone(state.realZone) ? state.realZone : (player.anchor_zone || 'zone_start');
-    dispatchAction({ type: 'TELEPORT', actor: player, params: { zone_id: dest }, context: { broadcast: state.broadcast } }).catch(e => console.error('[trip] failed to teleport player out of the dreamzone:', e.message));
+  // Out of the instance and back into the body. No TELEPORT: the body never left
+  // the real room, so this is the same move wakeFromDream makes for a sleeper —
+  // put current_zone back and dissolve the rooms. Skipped on death, which has
+  // already relocated the player, and on a silent logout teardown (the rooms are
+  // still dissolved either way, or they leak for the life of the process).
+  if (state.mode === 'dreamzone' && player) {
+    if (reason !== 'death' && reason !== 'silent' && isDreamZone(player.current_zone)) {
+      removePlayerFromZone(player.id, player.current_zone);
+      player.current_zone = getZone(state.realZone) ? state.realZone : (player.anchor_zone || 'zone_start');
+      addPlayerToZone(player.id, player.current_zone);
+      sendToPlayer(playerId, { type: 'force_look' });
+    }
+    delete player._bodyZone;
   }
+  if (state.mode === 'dreamzone') dissolveDreamscape(playerId);
 
   if (reason !== 'silent' && player) {
     // Phantom mode never sent trip_start and has no screen treatment, so it
@@ -423,7 +615,12 @@ on('player.logout', ({ id }) => {
   const state = activeTrips.get(id);
   if (!state) return;
   if (state.mode === 'dreamzone') {
-    query('UPDATE players SET current_zone=$1 WHERE id=$2', [state.realZone, id]).catch(e => console.error('[trip] failed to restore real zone for', id, '- player may wake in the dreamzone:', e.message));
+    // The hand-rolled "put current_zone back" write is gone: persistableZone in
+    // world.js now refuses to persist a transient id for ANY writer, falling back
+    // to _bodyZone, so the disconnect checkpoint already stores the real room.
+    // endTrip below dissolves the instance so its rooms and timer don't leak.
+    const p = world.players.get(id);
+    if (p && isDreamZone(p.current_zone)) p.current_zone = state.realZone;
   }
   endTrip(id, { reason: 'silent' });
 });
@@ -431,6 +628,103 @@ on('player.logout', ({ id }) => {
 // Death mid-trip (from anything): clear the overlay, despawn the phantom, no re-teleport.
 on('player.death', ({ player }) => {
   if (player?.id) endTrip(player.id, { reason: 'death' });
+});
+
+// ── Social reactions: people can tell ───────────────────────────────────────
+//
+// A transform trip leaves you in the world and functional, which is most of why
+// it is the right mode for a psychedelic — but it also meant nobody could tell.
+// You could stand in a bar talking to a chair and the room had no opinion.
+//
+// So: walk into a room while visibly gone and somebody says something. Reactions
+// are the ROOM's, not the drug's — the tripper is told how they are being seen,
+// and everyone else is told what they are seeing, which are different sentences.
+/**
+ * Draw a line from the shared `drug_reactions` pool.
+ *
+ * THE NORMAL LINES ARE THE POINT. A pool of nothing but cosmic pronouncements
+ * becomes wallpaper within one trip — the player learns the register and stops
+ * reading. Mixing in flat, domestic lines ("Did you ever sort out the bins?"),
+ * delivered by a chair, is what keeps the surreal ones landing, because you
+ * genuinely cannot tell which of them just happened.
+ *
+ * So `normal` is not a fallback, it is weighted in on purpose, and drawn as its
+ * own roll rather than shuffled into one list — otherwise adding surreal content
+ * would quietly dilute the mundane out of existence.
+ */
+const NORMAL_SHARE = 0.4;
+
+/**
+ * The reaction pool for one trip, fetched ONCE and held on the trip's state.
+ *
+ * This used to query per spoken line, which put a round trip on a 9-second
+ * repeating timer — the only thing in the whole feature that hit the DB on a
+ * clock rather than on an event. A single tripper cost a handful of queries a
+ * minute for the length of their trip, and it scaled with concurrent trippers
+ * rather than with anything a player did.
+ *
+ * The pool is ~42 rows and cannot change mid-trip in any way that matters, so one
+ * fetch per trip is strictly better. It is NOT a module-level cache: it dies with
+ * the trip, so a dev-panel edit is live for the very next trip and there is still
+ * nothing to invalidate.
+ */
+async function loadReactionPool(state) {
+  if (state._reactions) return state._reactions;
+  const { rows } = await query(
+    `SELECT * FROM drug_reactions WHERE drug_id IS NULL OR drug_id=$1`, [state.drugId || null]);
+  state._reactions = rows;
+  return rows;
+}
+
+function drawReactionFrom(pool, source) {
+  const tone = Math.random() < NORMAL_SHARE ? 'normal' : 'surreal';
+  // Drug-specific lines sit ON TOP of the shared pool rather than replacing it —
+  // unlike rooms and transforms, where a scoped set means the drug has its own
+  // identity. Here the shared pool IS the register, and the per-drug lines are
+  // seasoning; excluding them would leave a drug with three lines on repeat.
+  const bySource = pool.filter(r => r.source === source);
+  const inTone = bySource.filter(r => r.tone === tone);
+  // Nothing in that register — fall back to any line of this source rather than
+  // going silent, so a half-authored pool still produces something.
+  const from = inTone.length ? inTone : bySource;
+  return from.length ? from[Math.floor(Math.random() * from.length)] : null;
+}
+
+async function drawReaction(source, drugIdOrState) {
+  // Accepts a trip state (pooled) or a bare drug id (one-off callers).
+  const state = typeof drugIdOrState === 'object' && drugIdOrState ? drugIdOrState : null;
+  if (state) return drawReactionFrom(await loadReactionPool(state), source);
+  const { rows } = await query(
+    `SELECT * FROM drug_reactions WHERE drug_id IS NULL OR drug_id=$1`, [drugIdOrState || null]);
+  return drawReactionFrom(rows, source);
+}
+
+const fillTokens = (s, { npc, player }) =>
+  String(s || '').replace(/\{npc\}/g, npc || 'somebody').replace(/\{player\}/g, player || 'somebody');
+
+// One reaction per room-entry at most, and not every time — a room that comments
+// on your state every single move stops being a world and starts being a nag.
+const REACT_CHANCE = 0.5;
+
+on('zone.entered', async ({ actor, zone }) => {
+  try {
+    const state = actor?.id && activeTrips.get(actor.id);
+    // Only `transform`: a dreamzone tripper cannot walk, an overlay trip is
+    // internal, and a deliriant is deliberately undetectable — its whole premise
+    // is that there is no drug.
+    if (!state || state.mode !== 'transform') return;
+    if (Math.random() > REACT_CHANCE) return;
+    const npcs = getZoneNpcs(zone) || [];
+    if (!npcs.length) return;
+    // ONE npc, not the whole room — a chorus reads as a bug, and the point is
+    // that somebody noticed, not that everybody did.
+    const npc = npcs[Math.floor(Math.random() * npcs.length)];
+    const r = await drawReaction('npc', state);
+    if (!r) return;
+    const tokens = { npc: npc.name, player: actor.handle };
+    sendToPlayer(actor.id, { type: 'output', message: `<span class="msg-ambient">${fillTokens(r.self_line, tokens)}</span>` });
+    if (r.room_line) state.broadcast?.(zone, { type: 'zone_event', message: fillTokens(r.room_line, tokens) }, actor.id);
+  } catch (e) { console.error('[trip] social reaction:', e.message); }
 });
 
 export const hooks = {

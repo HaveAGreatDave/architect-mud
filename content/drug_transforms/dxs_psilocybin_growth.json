@@ -1,0 +1,17 @@
+{
+  "id": "dxs_psilocybin_growth",
+  "drug_id": "drug_psilocybin",
+  "matches": null,
+  "scope": "spawn",
+  "name": "something green coming through the ground",
+  "description": "Something patient and green has opened the ground here and is winning, extremely slowly.",
+  "looks": [
+    "It has gone through concrete the way a thought goes through a mood.",
+    "Where it has been longest, the ground has agreed with it.",
+    "It has no opinion about you at all, which is a relief."
+  ],
+  "says": [
+    "I was doing this before you came.",
+    "Do not be alarmed. I would not know how."
+  ]
+}

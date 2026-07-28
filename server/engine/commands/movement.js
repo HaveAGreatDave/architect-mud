@@ -13,6 +13,7 @@ import { closeShopSession } from '../vendor-session.js';
 import { computeCarriedWeight, carryCapacity, formatWeight } from './inventory.js';
 import { OPPOSITE } from '../directions.js';
 import { forceStand } from '../posture.js';
+import { isDreamZone, pushDreamFx } from '../dreamscape.js';
 import { registerMoveGate, runMoveGates } from '../movement-gates.js';
 import { doorGuardsOnlyUnownedApartment } from '../apartments.js';
 import { createSelectionState, getSelectionState, formatSelectionPage } from '../sift.js';
@@ -444,6 +445,9 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
   // Walking in a dream is the MIND moving; the body is still lying in a bed
   // somewhere and must stay lying, or the first step in a dreamscape would stand
   // the sleeper up and broadcast it to a room they aren't awake in.
+  // Walking between rooms of a dream changes the particle field with you; walking
+  // OUT of one clears it, which is what hands the real weather back.
+  if (isDreamZone(targetId) || isDreamZone(oldZoneId)) pushDreamFx(player, broadcast);
   const interrupted = player.sleeping?.inDream ? null : forceStand(player, 'moved');
   if (interrupted === 'sitting') {
     broadcast(null, { type: 'emote', message: 'You stand up.' }, null, player.id);

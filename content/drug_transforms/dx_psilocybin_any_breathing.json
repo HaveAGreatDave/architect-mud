@@ -1,0 +1,18 @@
+{
+  "id": "dx_psilocybin_any_breathing",
+  "drug_id": "drug_psilocybin",
+  "matches": null,
+  "name": "something that is breathing",
+  "description": "Something here is alive in the way a sleeping animal is alive, and once you have noticed you will not stop noticing.",
+  "looks": [
+    "In. Out. Slowly, in time with something that is not you.",
+    "Warm, and slightly giving, the way skin over a rib is giving.",
+    "It slows while you watch it, and everything gets very fond."
+  ],
+  "says": [
+    "Breathe with me. You already are.",
+    "I was doing this before you came in.",
+    "Do not be alarmed. I would not know how."
+  ],
+  "scope": "object"
+}

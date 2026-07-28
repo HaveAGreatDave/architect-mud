@@ -1,0 +1,41 @@
+{
+  "id": "dream_the_shop_at_night",
+  "name": "The Shop, After Hours",
+  "description": "A corner shop with the lights off and the fridges still running, which you are certain you have bought something in. The stock is all one product, shelved with enormous care. The till is open and full. You are not going to take any of it, and the not-taking is the most exhausting thing you have ever done.",
+  "cause": "dream",
+  "drug_id": null,
+  "objects": [
+    {
+      "name": "the till",
+      "looks": [
+        "Full, and counted, and counted again by someone who left.",
+        "The notes are the right colour and the wrong size.",
+        "You close it. It is open."
+      ]
+    },
+    {
+      "name": "the product",
+      "looks": [
+        "Every box is the same box. The label is a photograph of the shelf you are looking at.",
+        "You read the ingredients. It is a list of everyone you have met.",
+        "It is slightly warm, the way a thing is warm when it has just been put down."
+      ]
+    },
+    {
+      "name": "the door",
+      "looks": [
+        "The sign says CLOSED to you and OPEN to the street.",
+        "Locked, and the key is in it, on your side.",
+        "Someone outside is deciding whether to come in. They have been deciding a while."
+      ]
+    }
+  ],
+  "ambient": [
+    "The fridges cycle off. The silence is much louder than they were.",
+    "The security camera turns to look at you, and keeps turning.",
+    "Outside, a car goes past playing a song you were about to remember."
+  ],
+  "weather": "Outside the window it is raining, steadily, on a street that is completely dry.",
+  "fx": "rain",
+  "fx_intensity": 0.5
+}

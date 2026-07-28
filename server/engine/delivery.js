@@ -24,6 +24,7 @@
 // to be correct anyway. `reconcileZoneMembership()` in world.js is the backstop.
 
 import { getZone, getLivePlayer } from './world.js';
+import { isDreamZone } from './dreamscape.js';
 
 /**
  * Should this live player receive a message scoped to `zoneId`?
@@ -33,8 +34,13 @@ export function receivesZoneMessage(player, zoneId) {
   if (!player || !zoneId) return false;
   // The occupant set can lag a beat behind a move; current_zone is the truth.
   if (player.current_zone !== zoneId) return false;
-  // Asleep players don't perceive the room around them — no actions, speech, or ambience.
-  if (player.sleeping) return false;
+  // Asleep players don't perceive the room around them — no actions, speech, or
+  // ambience. EXCEPT the dream they are inside: that rule is about the real room
+  // they are lying in, and a dreamer's own dreamscape is the only room they are
+  // actually present in. Without this exception a dream room's authored ambience
+  // is silently undeliverable, and the scheduled ambientTick — which already
+  // walks transient zones — does all the work and drops it on the floor.
+  if (player.sleeping && !isDreamZone(zoneId)) return false;
   // Aboard an airborne aircraft the player is up in the sky, not in the stale
   // ground zone they took off from — ground ambience (overfly noise, banter,
   // vendors, weather) must not leak into the cockpit. Their own game messages

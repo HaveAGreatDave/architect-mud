@@ -1,0 +1,33 @@
+{
+  "id": "dt_dmt_the_chamber",
+  "name": "The Chamber",
+  "description": "A vaulted space built out of moving pattern, every surface working at something. It has been prepared. There is a sense of a great deal of activity that paused, politely, about a second before you arrived, and is now waiting to resume.",
+  "cause": "drug",
+  "drug_id": "drug_dmt",
+  "objects": [
+    {
+      "name": "the vault",
+      "looks": [
+        "Structure that keeps completing itself and starting again, brighter.",
+        "It is decorated in a way that means something. You cannot read it and you can tell it is language.",
+        "It was built. Not grown, not found — built, deliberately, and recently enough to still be proud."
+      ]
+    },
+    {
+      "name": "the activity",
+      "looks": [
+        "Paused, courteously, for you.",
+        "Very complicated and going extremely well.",
+        "It resumes when you look away and stops when you look back, and it is not hiding."
+      ]
+    }
+  ],
+  "ambient": [
+    "Something completes and the whole vault brightens by a degree.",
+    "The pattern reorganises around you, making room.",
+    "A sound goes up that is unmistakably a greeting."
+  ],
+  "weather": "The air is charged, dry and bright, like the inside of a machine that has just been switched on.",
+  "fx": "snow",
+  "fx_intensity": 0.9
+}

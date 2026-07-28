@@ -1677,6 +1677,130 @@ export const SCHEMA_SQL = `
     aliases JSONB NOT NULL DEFAULT '[]'        -- inflections/spellings that map to this term
   );
 
+  -- Rooms for the experiences you can be put inside: a sleep dreamscape or a drug
+  -- hallucination. A template is NOT a zone — it has no coordinates, no exits and
+  -- no place on any map. buildDreamscape draws from here and wires a fresh, private,
+  -- RAM-only instance per sleep or per trip. See docs/systems-dreams.md.
+  CREATE TABLE IF NOT EXISTS dream_templates (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,                        -- the room's title, e.g. "A Corridor"
+    description TEXT NOT NULL,
+    -- 'dream' (sleep) or 'drug'. Mutually exclusive on purpose: a room written for
+    -- the K-hole must never surface in an ordinary night's sleep.
+    cause TEXT NOT NULL DEFAULT 'dream',
+    -- Which drug, when cause='drug'. NULL is the DEFAULT DRUG SET — the fallback
+    -- used by any hallucinogen with no templates of its own. Always NULL for dreams.
+    drug_id TEXT,
+    -- [{ name, looks: [..] }] — a look is picked per instance, so the same object
+    -- reads differently between trips. An object that reads identically twice is
+    -- furniture.
+    objects JSONB NOT NULL DEFAULT '[]',
+    -- Atmospheric lines emitted on a timer while the player is in this room.
+    ambient JSONB NOT NULL DEFAULT '[]'
+  );
+  CREATE INDEX IF NOT EXISTS idx_dream_templates_cause ON dream_templates (cause, drug_id);
+
+  -- The things that move through an experience. Kept separate from the rooms
+  -- because a presence wanders the whole instance rather than belonging to one
+  -- room, and because the pools are authored independently.
+  -- What a dream borrows from your actual life.
+  --
+  -- The room prose is fixed; this is the sentence appended to it that makes the
+  -- dream YOURS. Kinds are the fact it needs: 'none' is a purely surreal line with
+  -- no personal hook at all, and exists so a dream is not relentlessly about you --
+  -- a dream that is always personal becomes as predictable as one that never is.
+  -- Everything else substitutes {value} from live player state.
+  --
+  --   none   no hook; pure surreality
+  --   zone   the room your body is actually lying in
+  --   npc    somebody you know (read from the in-memory relations map)
+  --   item   something you are carrying
+  --   death  how you last died
+  CREATE TABLE IF NOT EXISTS dream_tethers (
+    id TEXT PRIMARY KEY,
+    kind TEXT NOT NULL DEFAULT 'none',
+    line TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_dream_tethers_kind ON dream_tethers (kind);
+
+  CREATE TABLE IF NOT EXISTS dream_presences (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,                        -- what the look/examine pass calls it
+    cause TEXT NOT NULL DEFAULT 'dream',
+    drug_id TEXT,
+    -- Lines shown when it enters the room you are in, and when it leaves.
+    arrivals JSONB NOT NULL DEFAULT '[]',
+    departures JSONB NOT NULL DEFAULT '[]',
+    -- Answers to examining it. Several, picked per look — it never resolves.
+    looks JSONB NOT NULL DEFAULT '[]'
+  );
+  CREATE INDEX IF NOT EXISTS idx_dream_presences_cause ON dream_presences (cause, drug_id);
+
+  -- What a psychedelic turns the furniture around you INTO. The other half of the
+  -- phantom law: a phantom adds something that is not there, a transform makes
+  -- something that IS there read as something else, for one viewer only. Lives in
+  -- the live world rather than a dreamscape on purpose -- the uncanny needs a
+  -- baseline to violate, and your own kitchen is a baseline.
+  CREATE TABLE IF NOT EXISTS drug_transforms (
+    id TEXT PRIMARY KEY,
+    drug_id TEXT,                              -- NULL = the default transform set
+    -- Optional narrowing: only applies to furniture whose name matches this
+    -- (case-insensitive substring). NULL applies to any piece in the room.
+    matches TEXT,
+    name TEXT NOT NULL,                        -- what the piece is called while you are high
+    description TEXT NOT NULL,                 -- its line in the room description
+    looks JSONB NOT NULL DEFAULT '[]',         -- answers to examining it; picked per look
+    says JSONB NOT NULL DEFAULT '[]'           -- what it says to you, unprompted
+  );
+  CREATE INDEX IF NOT EXISTS idx_drug_transforms_drug ON drug_transforms (drug_id);
+
+  -- Added after drug_transforms shipped, so it needs its own idempotent ALTER --
+  -- the create statement is a no-op on a database that already has the table.
+  -- (Do not write the create-if-not-exists phrase in a comment: the registry
+  -- sweep in regress scrapes table names out of this string and would classify
+  -- the next word as a table.)
+  --   'object' — re-reads a piece of furniture (the original behaviour)
+  --   'room'   — re-reads the ROOM ITSELF. Always applied, furniture or not, so a
+  --              psychedelic on a bare street corner is still a psychedelic.
+  --   'spawn'  — a thing that is not there at all, conjured as a phantom object
+  --              when the room has too little furniture to work with.
+  ALTER TABLE dream_templates ADD COLUMN IF NOT EXISTS weather TEXT;
+  -- Particle field for the client FX canvas while you are in this room:
+  -- rain | snow | ash | fog | wind | none, plus a 0-1 intensity. Ignores the real
+  -- weather AND the indoor gate, because a dream room running weather it cannot
+  -- possibly have is the cheapest way to SHOW the rules are off rather than say it.
+  ALTER TABLE dream_templates ADD COLUMN IF NOT EXISTS fx TEXT;
+  ALTER TABLE dream_templates ADD COLUMN IF NOT EXISTS fx_intensity REAL DEFAULT 0.5;
+  ALTER TABLE drug_transforms ADD COLUMN IF NOT EXISTS fx TEXT;
+  ALTER TABLE drug_transforms ADD COLUMN IF NOT EXISTS fx_intensity REAL DEFAULT 0.5;
+  ALTER TABLE drug_transforms ADD COLUMN IF NOT EXISTS scope TEXT NOT NULL DEFAULT 'object';
+
+  -- The shared line pool for anything that speaks to you during a hallucination.
+  -- Authored rather than hardcoded because the whole effect lives in the WRITING,
+  -- and because a per-transform says[] list means every chair on blotter says the
+  -- same three things forever.
+  --
+  --   source 'object' — a transformed or conjured thing talking to you
+  --   source 'npc'    — a person in the room reacting to how you look
+  --
+  --   tone 'surreal'  — it half-participates in what you are experiencing
+  --   tone 'normal'   — and then, sometimes, something completely mundane. This
+  --                     is the load-bearing half: a chair asking whether you ever
+  --                     sorted the bins is far worse than a chair being cosmic,
+  --                     because you cannot tell whether that one was real.
+  --
+  -- Tokens {npc} and {player} are substituted at runtime. room_line may be blank
+  -- for objects — nobody else hears the furniture.
+  CREATE TABLE IF NOT EXISTS drug_reactions (
+    id TEXT PRIMARY KEY,
+    drug_id TEXT,                              -- NULL = fits any hallucinogen
+    source TEXT NOT NULL DEFAULT 'object',
+    tone TEXT NOT NULL DEFAULT 'surreal',
+    self_line TEXT NOT NULL,                   -- what the tripper is told
+    room_line TEXT NOT NULL DEFAULT ''         -- what everyone else is told
+  );
+  CREATE INDEX IF NOT EXISTS idx_drug_reactions_pool ON drug_reactions (source, drug_id, tone);
+
   CREATE TABLE IF NOT EXISTS scavenging_tables (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,

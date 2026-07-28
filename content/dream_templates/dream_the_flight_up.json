@@ -1,0 +1,33 @@
+{
+  "id": "dream_the_flight_up",
+  "name": "The Flight Up",
+  "description": "Stairs going up, in a stairwell that smells like a school. You have been climbing a while and you are not tired, which is how you know. The landings have doors, the doors have wired glass, and behind the glass it is always the same afternoon.",
+  "cause": "dream",
+  "drug_id": null,
+  "objects": [
+    {
+      "name": "a landing door",
+      "looks": [
+        "Through the wired glass: a corridor, a bin, the same afternoon.",
+        "Propped open with a chair, and the chair is the only new thing here.",
+        "You have come through this one. Recently. Going up."
+      ]
+    },
+    {
+      "name": "the handrail",
+      "looks": [
+        "Worn smooth in the middle by a great many hands, none of them yours.",
+        "Cold, then warm where you have just held it, then cold again ahead of you.",
+        "It ends. The stairs do not."
+      ]
+    }
+  ],
+  "ambient": [
+    "A bell goes somewhere below, and nobody comes out of anywhere.",
+    "Feet on the flight above yours, keeping your pace exactly.",
+    "The light on this landing is the light from the last one."
+  ],
+  "weather": "A cold draught comes down the stairwell from a floor that is above every floor.",
+  "fx": "ash",
+  "fx_intensity": 0.3
+}

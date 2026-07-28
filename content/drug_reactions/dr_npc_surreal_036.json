@@ -1,0 +1,8 @@
+{
+  "id": "dr_npc_surreal_036",
+  "drug_id": null,
+  "source": "npc",
+  "tone": "surreal",
+  "self_line": "You and {npc} arrive at an understanding about something. Neither of you says what.",
+  "room_line": "{npc} and {player} share a long look that appears to settle something."
+}

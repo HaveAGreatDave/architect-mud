@@ -33,7 +33,8 @@ import { furnitureVerbs } from "../furnitureActions.js";
 import { titleCaseName } from "../text.js";
 import { getLockTagPublic, checkLockAuth } from "./doors.js";
 import { getItem } from "../items-cache.js";
-import { getPhantomsInZone } from "../phantoms.js";
+import { getPhantomsInZone, applyTransforms, getRoomTransform, getWeatherWarp } from "../phantoms.js";
+import { bodyTell } from "../dreamscape.js";
 
 // Emits a `data-lock` attribute the client dpad reads to colour the direction:
 // "owned" (the player controls this lock), "locked" (engaged, not theirs), or
@@ -172,6 +173,28 @@ function weaveFurniture(pieces) {
 		return `<span class="action-link furniture-link furniture-woven" data-action="examine" data-target="${target}"${actionsAttr} title="Examine ${target}">${body}</span>`;
 	});
 	return sentences.join(" ");
+}
+
+// A fridge and its drop-freezer box are one appliance wearing two furniture rows
+// (linked both ways by flags.paired_container). Opening either already opens both
+// in the same container panel — see buildContainerView in commands/inventory.js —
+// so listing both in the room is redundant clutter. Returns the ids of the
+// sub-boxes to hide: the SMALLER `container` capacity of each mutually-paired
+// couple, which is always the compartment set into the main body. Requires the
+// partner to be present and to point back, so a pair split across rooms, or a
+// dangling id, leaves both halves listed rather than silently vanishing one.
+function subBoxIds(pieces) {
+	const byId = new Map(pieces.map((f) => [f.id, f]));
+	const hidden = new Set();
+	for (const f of pieces) {
+		const partner = byId.get(f.flags?.paired_container);
+		if (!partner || partner.flags?.paired_container !== f.id) continue;
+		const mine = Number(f.flags?.container) || 0;
+		const theirs = Number(partner.flags?.container) || 0;
+		// Tie-break on id so equal-capacity halves still hide exactly one side.
+		if (mine < theirs || (mine === theirs && f.id > partner.id)) hidden.add(f.id);
+	}
+	return hidden;
 }
 
 const DIRECTION_PHRASE = {
@@ -435,7 +458,11 @@ export async function describeZone(zone, player, out = {}) {
 	// blind one. Split by kind: people join "NPCs here:", beasts join "Hostiles:".
 	const phantoms = isDark || gate.hideNpcs ? [] : getPhantomsInZone(player.id, zone.id);
 	const phantomPeople = phantoms.filter((p) => p.kind === "person");
-	const phantomBeasts = phantoms.filter((p) => p.kind !== "person");
+	// Conjured OBJECTS get their own line rather than joining the hostiles: a
+	// psychedelic turns the room strange, it does not populate it with monsters.
+	// These exist so a room with nothing to transform still transforms.
+	const phantomObjects = phantoms.filter((p) => p.kind === "object");
+	const phantomBeasts = phantoms.filter((p) => p.kind !== "person" && p.kind !== "object");
 	const others = isDark
 		? []
 		: getZonePlayers(zone.id).filter((p) => p.id !== player.id);
@@ -445,7 +472,10 @@ export async function describeZone(zone, player, out = {}) {
 	// the RTT dominates. zoneGens is consumed ~200 lines down (Installed: list).
 	// Furniture comes from the world cache (write-funneled in world.js), so this
 	// per-look/per-move hot path costs no furniture round trip.
-	const furniture = getZoneFurniture(zone.id);
+	// Per-viewer object transforms (a psychedelic making the room misbehave). A
+	// no-op for anyone not tripping, and it returns COPIES — the rows out of
+	// getZoneFurniture are shared by everyone in the room.
+	const furniture = applyTransforms(player.id, getZoneFurniture(zone.id));
 	const [
 		{ rows: sleepingBodies },
 		{ rows: groundItems },
@@ -509,9 +539,14 @@ export async function describeZone(zone, player, out = {}) {
 	const wovenPieces = visibleFurniture.filter(
 		(f) => f.flags?.woven && f.object_type !== "security_device",
 	);
-	// The plain list excludes cameras (their own aside) and woven pieces (prose).
+	const pairedSubBoxes = subBoxIds(visibleFurniture);
+	// The plain list excludes cameras (their own aside), woven pieces (prose), and
+	// the smaller half of a mutually-paired appliance (a fridge's freezer box).
 	const plainFurniture = visibleFurniture.filter(
-		(f) => f.object_type !== "security_device" && !f.flags?.woven,
+		(f) =>
+			f.object_type !== "security_device" &&
+			!f.flags?.woven &&
+			!pairedSubBoxes.has(f.id),
 	);
 	const furnitureAside = weaveFurniture(wovenPieces);
 
@@ -548,9 +583,27 @@ export async function describeZone(zone, player, out = {}) {
 			? sentences.slice(0, 2).join(" ").trim()
 			: zone.description;
 	let weatherLine = "";
-	if (!isInteriorZone(zone) && vis.category !== "pitch_dark") {
+	// WEATHER IN AN UNREAL PLACE. Two cases the ordinary rule cannot serve:
+	//
+	//  1. A dream room is flagged interior, so it never got weather at all — and
+	//     weather is most of what sells a place as somewhere. A dreamscape's is
+	//     authored per template and is deliberately impossible: rain indoors,
+	//     light with no source, a sky where there is no sky.
+	//  2. Standing outside on a psychedelic, the weather is REAL and doing
+	//     something it should not. Warping the line rather than replacing it keeps
+	//     the actual conditions legible — you are still in the rain, the rain has
+	//     simply stopped behaving.
+	//
+	// Both are per-viewer, and both are pure description: nothing here touches the
+	// weather sim, so gear, temperature and hazard channels are unaffected.
+	if (zone.dreamWeather) {
+		weatherLine = ` <span class="msg-ambient">${zone.dreamWeather}</span>`;
+	} else if (!isInteriorZone(zone) && vis.category !== "pitch_dark") {
 		const wd = getWeatherDescription();
-		if (wd) weatherLine = ` ${wd}`;
+		if (wd) {
+			const warp = getWeatherWarp(player.id, zone.id);
+			weatherLine = warp ? ` ${wd} <span class="msg-ambient">${warp}</span>` : ` ${wd}`;
+		}
 	}
 	// Skyline landmark: a fixed compass for the district. Outdoor + lit only (you
 	// can't sight a landmark indoors or in the dark), and not when you're standing
@@ -567,8 +620,14 @@ export async function describeZone(zone, player, out = {}) {
 			if (dir) skylineLine = ` <span class="text-dim">To the ${dir}, ${district.skyline}.</span>`;
 		}
 	}
+	// A psychedelic re-reads the ROOM ITSELF, for this viewer only. Appended rather
+	// than replacing the authored prose: the place is still the place, it is simply
+	// also doing something it should not. Applied regardless of what furniture is
+	// here, which is what makes a trip on a bare street corner still a trip.
+	const roomWarp = getRoomTransform(player.id, zone.id);
+	const warpLine = roomWarp ? ` <span class="msg-ambient">${roomWarp}</span>` : "";
 	// Prose paragraph wrapped so the client can collapse/expand it independently.
-	desc += `\n<span class="room-desc">${zoneDesc}${weatherLine}${skylineLine}${describeBuildingDiscovery(buildings)}</span>`;
+	desc += `\n<span class="room-desc">${zoneDesc}${weatherLine}${skylineLine}${warpLine}${describeBuildingDiscovery(buildings)}</span>`;
 	// Woven-object prose (furniture + PD cams) lives in its own paragraph after the
 	// room description — a natural second beat rather than a tail on the authored
 	// prose. Sits outside room-desc so it stays visible when that collapses.
@@ -725,7 +784,7 @@ export async function describeZone(zone, player, out = {}) {
 		// description hinted that they were lootable.
 		const playerLinks = others.map(
 			(p) =>
-				`<span class="action-link player-link" data-action="examine" data-target="${p.handle}" title="Look at ${p.handle}">${p.handle}${p.sleeping ? ' <span class="text-dim">(sleeping)</span>' : ''}</span>`,
+				`<span class="action-link player-link" data-action="examine" data-target="${p.handle}" title="Look at ${p.handle}">${p.handle}${bodyTell(p, zone.id) ? ` <span class="text-dim">(${bodyTell(p, zone.id)})</span>` : ''}</span>`,
 		);
 		desc += `\n<span class="players-label">Also here:</span> ${playerLinks.join(", ")}`;
 	}
@@ -780,6 +839,15 @@ export async function describeZone(zone, player, out = {}) {
 				`<span class="action-link enemy-link" data-action="attack" data-target="${p.name}" title="Attack ${p.name}">${p.name}</span> (${p.hp}/${p.hp_max}HP)`,
 		);
 		desc += `\n<span class="enemies-label">Hostiles:</span> ${[...enemyLinks, ...phantomBeastLinks].join(", ")}`;
+	}
+	// Conjured objects sit with the furniture, not the monsters — they read as
+	// things that are simply in the room, which is the whole trick.
+	if (phantomObjects.length) {
+		const objLinks = phantomObjects.map(
+			(p) =>
+				`<span class="action-link furniture-link" data-action="examine" data-target="${escAttr(p.name)}" title="Examine ${escAttr(p.name)}">${p.name}</span>`,
+		);
+		desc += `\n<span class="furniture-label">Also here:</span> ${objLinks.join(", ")}`;
 	}
 	if (corpses.length) {
 		const corpseLinks = corpses.map(

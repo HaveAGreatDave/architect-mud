@@ -1,0 +1,33 @@
+{
+  "id": "dt_ibogaine_the_accounting",
+  "name": "The Accounting",
+  "description": "A long, level room with the whole of it laid out — everything you did, arranged in a way that makes the pattern obvious. Nobody here is angry with you. That is the hard part. It is simply all here, and it is simply all yours.",
+  "cause": "drug",
+  "drug_id": "drug_ibogaine",
+  "objects": [
+    {
+      "name": "the pattern",
+      "looks": [
+        "Obvious, now it is laid out. You did the same thing many times.",
+        "It goes back further than you had been counting from.",
+        "There is one decision near the start doing most of the work."
+      ]
+    },
+    {
+      "name": "the thing you did",
+      "looks": [
+        "It is here with the rest, at the same size as the rest.",
+        "It waits for you to say something and does not rush you.",
+        "Seen from here it is small and it changed everything."
+      ]
+    }
+  ],
+  "ambient": [
+    "The room waits.",
+    "Another item is added to the accounting, quietly.",
+    "Your heart does something irregular, and the accounting does not pause for it."
+  ],
+  "weather": "The room is the temperature of a waiting room and has been all night.",
+  "fx": "fog",
+  "fx_intensity": 0.35
+}

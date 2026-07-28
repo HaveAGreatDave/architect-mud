@@ -1,0 +1,17 @@
+{
+  "id": "dx_psilocybin_bed_animal",
+  "drug_id": "drug_psilocybin",
+  "matches": "bed",
+  "name": "a large animal pretending to be a bed",
+  "description": "It has the dimensions of a bed and the patience of something much older, and it is definitely warm.",
+  "looks": [
+    "It has been holding this shape for you specifically.",
+    "It rises and falls, and the rhythm is not yours yet.",
+    "Lying on it would be accepted rather than permitted."
+  ],
+  "says": [
+    "You can lie down. I have been waiting.",
+    "I do not mind the weight. I have carried worse."
+  ],
+  "scope": "object"
+}

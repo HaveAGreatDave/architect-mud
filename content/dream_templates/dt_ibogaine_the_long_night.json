@@ -1,0 +1,41 @@
+{
+  "id": "dt_ibogaine_the_long_night",
+  "name": "The Long Night",
+  "description": "Hours of it. The dry buzzing, the ordered playback, and no conclusion arriving. It does not comfort you and it does not accuse you. It is going to run for as long as it runs and then it is going to let you go without a word.",
+  "cause": "drug",
+  "drug_id": "drug_ibogaine",
+  "objects": [
+    {
+      "name": "the hours",
+      "looks": [
+        "A great many, and it is not near the end.",
+        "You have stopped expecting it to finish, which helps.",
+        "Somewhere out there the night is doing its ordinary business."
+      ]
+    },
+    {
+      "name": "the absence of a conclusion",
+      "looks": [
+        "There is not going to be one. That is not what this is.",
+        "You keep waiting for the point. The waiting is the point, possibly.",
+        "It has no interest in making you feel better."
+      ]
+    },
+    {
+      "name": "your heart",
+      "looks": [
+        "Working hard. Working oddly.",
+        "It stumbles, catches itself, carries on. You notice it very clearly.",
+        "It is the only thing here in a hurry."
+      ]
+    }
+  ],
+  "ambient": [
+    "The night continues, and is not shorter for continuing.",
+    "The buzzing drops a tone and holds.",
+    "Something is shown to you again, in case you missed it."
+  ],
+  "weather": "Outside it is the middle of the night, in a way you can feel through the walls, and it will be for hours yet.",
+  "fx": "ash",
+  "fx_intensity": 0.5
+}

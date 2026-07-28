@@ -1,0 +1,33 @@
+{
+  "id": "dream_the_ward",
+  "name": "The Long Ward",
+  "description": "Beds down both walls, further than the room goes, every one made with hospital corners and none of them slept in. The floor is polished to a shine that shows the ceiling but not you. At the far end somebody is doing paperwork, and the sound of the pen is very close.",
+  "cause": "dream",
+  "drug_id": null,
+  "objects": [
+    {
+      "name": "a bed",
+      "looks": [
+        "Made so tightly the sheet has stopped being cloth.",
+        "Slept in recently, and remade around the shape.",
+        "There is a chart at the foot of it. It is your chart. The dates are all today."
+      ]
+    },
+    {
+      "name": "the shine on the floor",
+      "looks": [
+        "You are not in it. The ceiling is, correctly, and the beds are.",
+        "You catch yourself in it half a second after you move.",
+        "Something walks across it that is not walking across the room."
+      ]
+    }
+  ],
+  "ambient": [
+    "The pen stops. Then starts.",
+    "A curtain is drawn round a bed by nobody, briskly, the way it is done.",
+    "Far off, a trolley goes over a join in the floor. Twice."
+  ],
+  "weather": "The air is the exact temperature of skin, and it is not moving at all.",
+  "fx": "fog",
+  "fx_intensity": 0.3
+}
