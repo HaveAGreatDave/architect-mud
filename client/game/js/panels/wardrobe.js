@@ -340,35 +340,31 @@ function renderDoll() {
     pad.className = `wdr-pad wdr-pad-${slot}`;
     pad.setAttribute('data-slot', slot);
 
+    // The Gear app's compact box, exactly: LABEL / outermost piece / a sub-line
+    // naming its layer and how many sit under it ("Hat", "Helmet +1"). Three
+    // stacked layer rows would never fit a 56px pad anchored on a shoulder — and
+    // the point of matching Gear is that the same body reads the same way on both
+    // screens. The layering isn't lost, only summarised: a drop still lands on
+    // its own layer, and clicking peels the outermost piece off.
+    let shown = null, sub = '';
     if (slot === 'accessory') {
-      const worn = (doll.accessory || []).map((p, idx) =>
-        `<span class="wdr-worn" data-idx="${idx}" title="Click to remove">${p.name}</span>`).join('');
-      pad.innerHTML = `<span class="wdr-pad-label">${label}</span>`
-        + `<span class="wdr-pad-items">${worn || '<span class="wdr-pad-empty">—</span>'}</span>`;
+      const acc = doll.accessory || [];
+      shown = acc[0] || null;
+      if (acc.length > 1) sub = `+${acc.length - 1} more`;
     } else {
-      // One ROW PER LAYER, innermost first, so the pad reads the way the body is
-      // dressed — and an empty row is a visible invitation rather than a hidden
-      // capability. Rows only appear for layers this slot can actually take.
       const byLayer = doll[slot] || {};
-      const rows = LAYERS.map(layer => {
-        const p = byLayer[layer];
-        const cell = p
-          ? `<span class="wdr-worn" data-layer="${layer}" title="Click to remove">${p.name}</span>`
-          : `<span class="wdr-pad-empty">—</span>`;
-        return `<span class="wdr-layer-row${p ? ' on' : ''}" data-layer="${layer}">`
-          + `<span class="wdr-layer-name">${layerLabel(slot, layer)}</span>${cell}</span>`;
-      }).join('');
-      pad.innerHTML = `<span class="wdr-pad-label">${label}</span><span class="wdr-pad-layers">${rows}</span>`;
+      // Outermost first — armour over clothes over underwear, the way it's seen.
+      const worn = [...LAYERS].reverse().filter(l => byLayer[l]);
+      if (worn.length) {
+        shown = byLayer[worn[0]];
+        sub = layerLabel(slot, worn[0]) + (worn.length > 1 ? ` +${worn.length - 1}` : '');
+      }
     }
-
-    for (const el of pad.querySelectorAll('.wdr-worn')) {
-      el.onclick = (e) => {
-        e.stopPropagation();   // don't let a remove double as a place on the pad below
-        if (slot === 'accessory') doll.accessory.splice(Number(el.getAttribute('data-idx')), 1);
-        else delete (doll[slot] || {})[el.getAttribute('data-layer')];
-        renderDoll();
-      };
-    }
+    if (shown) pad.classList.add('filled');
+    pad.innerHTML = `<span class="wdr-pad-label">${label}</span>`
+      + `<span class="wdr-pad-item">${shown ? shown.name : '—'}</span>`
+      + (sub ? `<span class="wdr-pad-sub">${sub}</span>` : '');
+    pad.title = shown ? `${shown.name} — click to take off` : `Drop a ${label.toLowerCase()} piece here`;
 
     pad.addEventListener('dragover', (e) => {
       if (draggedItem?.slot === slot) e.preventDefault();
@@ -387,8 +383,20 @@ function renderDoll() {
     });
 
     // Tap route: an armed garment lands on any pad that matches its slot.
+    // With nothing armed, a filled pad PEELS its outermost piece — the same
+    // "tap a filled box to take it off" the Gear doll uses.
     pad.onclick = () => {
-      if (!armedItem || armedItem.slot !== slot) return;
+      if (!armedItem) {
+        if (slot === 'accessory') { (doll.accessory || []).shift(); }
+        else {
+          const byLayer = doll[slot] || {};
+          const outer = [...LAYERS].reverse().find(l => byLayer[l]);
+          if (outer) delete byLayer[outer];
+        }
+        renderDoll();
+        return;
+      }
+      if (armedItem.slot !== slot) return;
       placeOnDoll(slot, { itemId: armedItem.itemId, name: armedItem.name, layer: armedItem.layer });
       armedItem = null;
       renderDoll();

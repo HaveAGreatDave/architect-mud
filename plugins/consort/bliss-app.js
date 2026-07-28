@@ -110,6 +110,10 @@ async function buildArrangement(player) {
       saving: Math.max(0, baseRate - todayRate),
       missed: r.missed || 0,
       zone: r.home_zone,
+      // A house placement is listed like any other — that's the whole point of
+      // showing it — but it carries no retainer and cannot be released through
+      // the app. The Syndicate did not place them and has no say in it.
+      house: !!r.house,
     });
   }
   return {
@@ -160,7 +164,14 @@ async function handleAction(player, actionId, params) {
   if (actionId === 'release') {
     const row = await consortRow(String(params || ''));
     if (!row || row.owner_id !== player.id) {
-      return { ...(await buildArrangement(player)), notice: 'No such placement on your account.' };
+      // A house placement has no `player_consorts` row, so it lands here. Say what
+      // is actually true rather than "no such placement" — it is very much on the
+      // account, the Syndicate simply has no authority over it.
+      const arr = await buildArrangement(player);
+      const house = (arr.entries || []).find(e => e.id === String(params || '') && e.house);
+      return { ...arr, notice: house
+        ? `${house.names.join(' and ')} are not a Syndicate placement. B.L.I.S.S. cannot collect what it did not place.`
+        : 'No such placement on your account.' };
     }
     const members = await pairMembers(row);
     await releaseConsort(row, 'released');

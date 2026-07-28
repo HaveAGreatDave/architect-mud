@@ -117,9 +117,23 @@ async function buildHome(player) {
   return { count: books.length };
 }
 
+// The screens this app answers to. Anything else arriving as a screenId is not a
+// screen at all — see the belt-and-braces in buildScreen.
+const SCREENS = new Set(['read', 'contents', 'library']);
+
 async function buildScreen(player, screenId, params) {
   const screen = normScreen(screenId);
-  const arg = (params || '').trim();
+  let arg = (params || '').trim();
+
+  // Belt to the breadcrumb's braces. A book id can reach us in the SCREEN slot
+  // rather than the params slot, depending on what the caller had in its
+  // breadcrumb — and a book that opens or doesn't depending on which screen you
+  // came from is the worst kind of bug to chase. If the screen isn't one of ours
+  // and no params came with it, treat it as the book it plainly is. Uses the RAW
+  // screenId, never the normalized one: normScreen turns underscores into spaces
+  // and would mangle `book_the_machine_stops` into something no lookup matches.
+  const raw = String(screenId || '').trim();
+  if (raw && !arg && !SCREENS.has(screen)) arg = raw;
 
   // `read <bookId> <chapterIndex>` — the page view.
   if (screen === 'read' && arg) {
@@ -218,7 +232,12 @@ async function buildScreen(player, screenId, params) {
   }
   return {
     view: 'list',
-    breadcrumb: [],
+    // NOT empty, and that is load-bearing. The client builds a list tile's nav
+    // from the LAST BREADCRUMB entry (`currentScreen`, see wireBody), so an empty
+    // breadcrumb sends `tabletnav library <bookId>` with no screen — the book id
+    // lands in screenId, params arrives empty, no branch above matches, and the
+    // shelf renders again. Tapping a book did nothing, and looked like a dead app.
+    breadcrumb: ['Library'],
     items: books.map(b => ({
       id: b.id,
       label: b.title,

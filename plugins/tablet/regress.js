@@ -485,6 +485,41 @@ export default async function regress({ run, check, getPlayer }) {
   r = await run('tabletnav storefront');
   check('storefront app routes with no shop owned', r?.type === 'tablet_panel', JSON.stringify(r)?.slice(0, 120));
 
+  // ── Library: tapping a book must OPEN it ───────────────────────────────────
+  // The bug this guards: the client builds a list tile's nav from the last
+  // breadcrumb entry, and the shelf returned an EMPTY breadcrumb — so the book id
+  // arrived in the screen slot with no params, matched no branch, and re-rendered
+  // the shelf. Tapping a book did nothing at all.
+  //
+  // Asserted from BOTH directions, because either alone would pass while the app
+  // stayed broken: the shelf must carry a breadcrumb (so the client routes the id
+  // into params), AND the app must still open the book if an id arrives in the
+  // screen slot anyway.
+  {
+    r = await run('tabletnav library');
+    check('library shelf routes', r?.type === 'tablet_panel' && !r?.error, JSON.stringify(r)?.slice(0, 120));
+    check('the shelf carries a breadcrumb (or tiles cannot route)',
+      Array.isArray(r?.breadcrumb) && r.breadcrumb.length > 0, JSON.stringify(r?.breadcrumb));
+
+    const firstBook = (r?.items || []).find(i => i.id)?.id;
+    if (firstBook) {
+      // The route a tile click actually produces now.
+      const viaParams = await run(`tabletnav library library ${firstBook}`);
+      check('a book opens when its id arrives as params',
+        viaParams?.view === 'detail' && !viaParams?.error, JSON.stringify(viaParams)?.slice(0, 140));
+      // The route it produced BEFORE the fix — must also work, not silently
+      // fall through to the shelf.
+      const viaScreen = await run(`tabletnav library ${firstBook}`);
+      check('a book opens when its id arrives as the screen',
+        viaScreen?.view === 'detail' && !viaScreen?.error, JSON.stringify(viaScreen)?.slice(0, 140));
+      check('the two routes open the SAME book',
+        viaParams?.detail?.name === viaScreen?.detail?.name,
+        `${viaParams?.detail?.name} vs ${viaScreen?.detail?.name}`);
+    } else {
+      check('library shelf has books to open', false, 'no book ids on the shelf');
+    }
+  }
+
   // ── Sports app ─────────────────────────────────────────────────────────────
   // A season that has not been played is the NORMAL state on a fresh world, so
   // every screen has to answer cleanly with an empty league rather than throwing
@@ -500,6 +535,13 @@ export default async function regress({ run, check, getPlayer }) {
     r = await run('tabletnav sports cluster_puck');
     check('the hockey tab routes', r?.type === 'tablet_panel' && !r?.error, JSON.stringify(r)?.slice(0, 140));
     check('the hockey tab is the hockey league', /CPhL/.test(r?.boardName || ''), r?.boardName);
+    // Cluster Puck reported as "missing" — the cause was the client swallowing
+    // tabs on a list view, but assert the DATA side too so a genuinely empty
+    // hockey league is distinguishable from an unreachable one next time.
+    check('the hockey tab offers a way back to the other code',
+      (r?.tabs || []).some(t => /Deadball/i.test(t.label || '')), JSON.stringify(r?.tabs));
+    check('the hockey tab marks itself active',
+      /cluster/i.test(String(r?.activeTab || '')), String(r?.activeTab));
 
     // An unknown tab must fall back to a league, not blank the screen — the same
     // rule the health app follows.

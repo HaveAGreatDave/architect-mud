@@ -15,7 +15,7 @@
  *
  * Leaf plugin. No table, no tick. One flag, one verb, one hook.
  */
-import { getZoneFurniture } from '../../server/engine/world.js';
+import { getZoneFurniture, getLivePlayer } from '../../server/engine/world.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { sendToPlayer, teachVerb, pointAt } from '../../server/engine/messaging.js';
 import { hasTag } from '../../server/engine/tags.js';
@@ -31,7 +31,7 @@ function terminalHere(zoneId) {
 // who doesn't know it narrates and glosses will use it once and forget it.
 function introText() {
   return [
-    `<span class="ambient">The slot takes your tablet with a clunk that sounds older than the building. A progress bar crawls. Then, all at once, the whole catalogue.</span>`,
+    `<span class="ambient">The bar stops. The dock releases with a clack, and the tablet comes back warm.</span>`,
     ``,
     `<b>LIBRARY</b> is now on your tablet.`,
     `  <span class="text-dim">·</span> Every book on these shelves, in full — not extracts.`,
@@ -52,18 +52,80 @@ async function unlock(player) {
   return true;
 }
 
+// ── The transfer ─────────────────────────────────────────────────────────────
+// The intro text always claimed "a progress bar crawls" and there was never a
+// bar: the scan resolved instantly, so the one moment this whole plugin exists to
+// create went past too fast to be a moment at all.
+//
+// Now it takes real time and narrates itself while it works, in the voice of a
+// municipal terminal that was old before the Collapse. `progressMs` is the
+// engine's generic countdown seam — the same one crafting and the attack windup
+// use — so the client attaches a live inline bar to the line it rides on.
+const SCAN_MS = 7000;
+
+// [ms into the transfer, line]. Deliberately UNEVENLY spaced: a machine that
+// stalls, thinks, then dumps everything at once reads as hardware, where a smooth
+// tick reads as a loading screen.
+const SCAN_BEATS = [
+  [600,  `<span class="fw">MUNICIPAL LENDING FIRMWARE v4.1.7</span> <span class="fw-dim">(c) COLDWATER CIVIC TRUST</span>`],
+  [1500, `<span class="fw-dim">&gt;</span> <span class="fw">HANDSHAKE</span> <span class="fw-dim">····· dock seated · host answered</span>`],
+  [2600, `<span class="fw-dim">&gt;</span> <span class="fw">INDEX</span> <span class="fw-dim">········· reading shelf manifest</span>`],
+  [4000, `<span class="fw-dim">&gt;</span> <span class="fw">LICENCE</span> <span class="fw-warn">······· NO RECORD OF OWNERSHIP</span> <span class="fw-dim">— proceeding anyway</span>`],
+  [5200, `<span class="fw-dim">&gt;</span> <span class="fw">TRANSFER</span> <span class="fw-dim">······ full text · unabridged</span>`],
+  [6400, `<span class="fw-dim">&gt;</span> <span class="fw-ok">COMMIT OK</span> <span class="fw-dim">— catalogue resident on host</span>`],
+];
+
+// Transfers in flight. Stops a second `scan` running two at once, and is the
+// reason a player who walks off mid-transfer simply stops hearing from it.
+const scanning = new Set();
+
 async function cmdScan(args, raw, player) {
   const term = terminalHere(player.current_zone);
   // Undefined = fall through, so `scan` stays available to anything else that
   // wants the verb somewhere there is no terminal.
   if (!term) return undefined;
 
-  if (await unlock(player)) {
-    return { type: 'output', message: introText(), refresh: true };
+  // Already have it — no theatre, no bar. The ceremony is for the first time.
+  if (await getFlag('player', UNLOCK_FLAG, player)) {
+    return {
+      type: 'output',
+      message: `<span class="ambient">The slot takes the tablet, thinks about it, and hands it back. Everything here is already on there.</span>\n<span class="text-dim">Open the LIBRARY app to read.</span>`,
+    };
   }
+
+  if (scanning.has(player.id)) {
+    return { type: 'output', message: `<span class="text-dim">The terminal is already working. Give it a moment.</span>` };
+  }
+  scanning.add(player.id);
+
+  const zoneAtStart = player.current_zone;
+  // Re-validated on EVERY beat, not just at the end: someone who walked out
+  // should stop hearing from a terminal in another room.
+  const stillHere = () => {
+    const p = getLivePlayer(player.id);
+    return (p && p.current_zone === zoneAtStart) ? p : null;
+  };
+
+  for (const [at, line] of SCAN_BEATS) {
+    setTimeout(() => {
+      if (!stillHere()) return;
+      sendToPlayer(player.id, { type: 'output', message: line });
+    }, at);
+  }
+
+  setTimeout(async () => {
+    scanning.delete(player.id);
+    const p = stillHere();
+    if (!p) return;                     // left the room — no grant, no payload
+    // Unlock at the END. Granting up front would hand the app to someone who
+    // wandered off mid-transfer, which makes the whole ceremony a lie.
+    if (await unlock(p)) sendToPlayer(p.id, { type: 'output', message: introText(), refresh: true });
+  }, SCAN_MS);
+
   return {
     type: 'output',
-    message: `<span class="ambient">The slot takes the tablet, thinks about it, and hands it back. Everything here is already on there.</span>\n<span class="text-dim">Open the LIBRARY app to read.</span>`,
+    message: `<span class="ambient">You slide the tablet into the slot. It takes it with a clunk that sounds older than the building.</span>`,
+    progressMs: SCAN_MS,
   };
 }
 

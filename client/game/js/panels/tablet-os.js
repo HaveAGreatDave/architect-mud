@@ -303,6 +303,32 @@ function ensureStyles() {
     #tablet-os-overlay .tos-scroll::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
     #tablet-os-overlay .tos-scroll { scrollbar-width:thin; scrollbar-color:var(--border) var(--bg2); }
     #tablet-os-overlay .tos-body { padding:14px 13px; font-size:13.5px; }
+    /* ── Sticky chrome ───────────────────────────────────────────────────────
+       The status row (location · clock) and the breadcrumb (Back) live INSIDE
+       the scrolling body, so on any long screen they scrolled away — you lost
+       the clock and had to scroll back up to find Back. Pinning them costs no
+       markup change, so every app screen gets it at once.
+
+       Two stops, not one: the crumb sits directly under the status row rather
+       than on top of it. --tos-hdr-h is that offset in one place so the two can
+       never drift apart. The backgrounds are opaque because content scrolls
+       UNDER them, and the negative margins + padding let each bar span the full
+       panel width while the body keeps its 13px gutter. */
+    #tablet-os-overlay { --tos-hdr-h:25px; }
+    #tablet-os-overlay .tos-hdr {
+      position:sticky; top:0; z-index:8;
+      background:var(--bg, #0c1114);
+      margin:-14px -13px 8px; padding:14px 13px 5px;
+    }
+    #tablet-os-overlay .tos-crumb {
+      position:sticky; top:var(--tos-hdr-h); z-index:7;
+      background:var(--bg, #0c1114);
+      margin:0 -13px 9px; padding:5px 13px 7px;
+      border-bottom:1px solid var(--tos-line, var(--border));
+    }
+    /* The clock is the one thing that must never go — it is the tablet telling
+       you the time, which is half of why anyone opens it. */
+    #tablet-os-overlay .tos-hdr-right { position:relative; z-index:9; }
 
     /* Boot screen: logo + "ARCHITECT OS" hold for ~1s once the CRT has
        expanded, before the real Home/app screen renders underneath it. */
@@ -1613,10 +1639,10 @@ function ensureStyles() {
     #tablet-os-overlay .tos-bliss-head { display:flex; align-items:flex-end; justify-content:space-between;
       gap:12px; padding-bottom:8px; border-bottom:1px solid var(--tos-line); margin-bottom:10px; }
     #tablet-os-overlay .tos-bliss-app { font-size:1.35em; letter-spacing:.18em; font-weight:700; }
-    #tablet-os-overlay .tos-bliss-expand { font-size:.72em; opacity:.55; letter-spacing:.04em; margin-top:2px; }
-    #tablet-os-overlay .tos-bliss-sub { font-size:.8em; opacity:.75; white-space:nowrap; }
-    #tablet-os-overlay .tos-bliss-strap { font-size:.72em; opacity:.5; font-style:italic; margin-bottom:10px; }
-    #tablet-os-overlay .tos-bliss-notice { font-size:.8em; padding:7px 9px; margin-bottom:10px;
+    #tablet-os-overlay .tos-bliss-expand { font-size:.78em; opacity:.75; letter-spacing:.04em; margin-top:2px; }
+    #tablet-os-overlay .tos-bliss-sub { font-size:.85em; opacity:.87; white-space:nowrap; }
+    #tablet-os-overlay .tos-bliss-strap { font-size:.78em; opacity:.72; font-style:italic; margin-bottom:10px; }
+    #tablet-os-overlay .tos-bliss-notice { font-size:.85em; padding:7px 9px; margin-bottom:10px;
       border:1px solid var(--tos-line); background:rgba(255,255,255,.04); }
     #tablet-os-overlay .tos-bliss-grid { display:flex; flex-direction:column; gap:9px; }
     #tablet-os-overlay .tos-bliss-card { border:1px solid var(--tos-line); padding:9px 11px; cursor:pointer; }
@@ -1624,30 +1650,34 @@ function ensureStyles() {
     #tablet-os-overlay .tos-bliss-who + .tos-bliss-who { margin-top:8px; padding-top:8px;
       border-top:1px dashed var(--tos-line); }
     #tablet-os-overlay .tos-bliss-name { font-weight:700; letter-spacing:.05em; }
-    #tablet-os-overlay .tos-bliss-name .sex { opacity:.5; font-weight:400; margin-left:3px; }
+    #tablet-os-overlay .tos-bliss-name .sex { opacity:.72; font-weight:400; margin-left:3px; }
     #tablet-os-overlay .tos-bliss-name .dim,
     #tablet-os-overlay .tos-bliss-card .dim,
-    #tablet-os-overlay .tos-actions .dim { opacity:.5; font-weight:400; font-size:.85em; }
-    #tablet-os-overlay .tos-bliss-says { font-size:.82em; opacity:.85; font-style:italic; margin-top:2px; }
-    #tablet-os-overlay .tos-bliss-phys { font-size:.74em; opacity:.55; margin-top:3px; }
-    #tablet-os-overlay .tos-bliss-note { font-size:.72em; opacity:.55; margin-top:4px; }
+    #tablet-os-overlay .tos-actions .dim { opacity:.72; font-weight:400; font-size:.85em; }
+    #tablet-os-overlay .tos-bliss-says { font-size:.86em; opacity:.95; font-style:italic; margin-top:2px; }
+    #tablet-os-overlay .tos-bliss-phys { font-size:.8em; opacity:.75; margin-top:3px; }
+    #tablet-os-overlay .tos-bliss-note { font-size:.78em; opacity:.75; margin-top:4px; }
     #tablet-os-overlay .tos-bliss-rate { text-align:right; margin-top:6px; font-size:.85em; }
-    #tablet-os-overlay .tos-bliss-pairtag { font-size:.68em; letter-spacing:.14em; text-transform:uppercase;
-      opacity:.75; margin-bottom:5px; }
+    #tablet-os-overlay .tos-bliss-pairtag { font-size:.74em; letter-spacing:.14em; text-transform:uppercase;
+      opacity:.87; margin-bottom:5px; }
     #tablet-os-overlay .tos-bliss-pairbox { border:1px solid var(--tos-line); padding:9px 11px; margin-bottom:10px;
-      font-size:.82em; background:rgba(255,255,255,.03); }
+      font-size:.86em; background:rgba(255,255,255,.03); }
     #tablet-os-overlay .tos-bliss-detailwho { border:1px solid var(--tos-line); padding:9px 11px; }
-    #tablet-os-overlay .tos-bliss-spec { width:100%; border-collapse:collapse; margin-top:7px; font-size:.74em; }
-    #tablet-os-overlay .tos-bliss-spec th { text-align:left; opacity:.5; font-weight:400; width:5.5em;
+    #tablet-os-overlay .tos-bliss-spec { width:100%; border-collapse:collapse; margin-top:7px; font-size:.8em; }
+    #tablet-os-overlay .tos-bliss-spec th { text-align:left; opacity:.72; font-weight:400; width:5.5em;
       vertical-align:top; padding:2px 8px 2px 0; }
-    #tablet-os-overlay .tos-bliss-spec td { padding:2px 0; opacity:.85; }
+    #tablet-os-overlay .tos-bliss-spec td { padding:2px 0; opacity:.95; }
     #tablet-os-overlay .tos-bliss-proj { width:100%; border-collapse:collapse; font-size:.76em; margin-top:6px; }
-    #tablet-os-overlay .tos-bliss-proj th { text-align:left; opacity:.5; font-weight:400; padding:3px 0;
+    #tablet-os-overlay .tos-bliss-proj th { text-align:left; opacity:.72; font-weight:400; padding:3px 0;
       border-bottom:1px solid var(--tos-line); }
-    #tablet-os-overlay .tos-bliss-proj td { padding:3px 0; opacity:.85; }
+    #tablet-os-overlay .tos-bliss-proj td { padding:3px 0; opacity:.95; }
     #tablet-os-overlay .tos-bliss-secthead { font-size:.7em; letter-spacing:.16em; text-transform:uppercase;
-      opacity:.6; margin:14px 0 4px; }
-    #tablet-os-overlay .tos-bliss-blocked { font-size:.8em; opacity:.7; padding:10px; border:1px dashed var(--tos-line); }
+      opacity:.78; margin:14px 0 4px; }
+    #tablet-os-overlay .tos-bliss-housetag { font-size:.68em; letter-spacing:.14em; text-transform:uppercase;
+      padding:2px 6px; margin-left:6px; border:1px solid var(--tos-line); border-radius:10px;
+      color:var(--mg-accent); vertical-align:1px; }
+    #tablet-os-overlay .tos-bliss-held.house { border-left:2px solid var(--mg-accent); padding-left:9px; }
+    #tablet-os-overlay .tos-bliss-blocked { font-size:.85em; opacity:.84; padding:10px; border:1px dashed var(--tos-line); }
     #tablet-os-overlay .tos-bliss-held { border:1px solid var(--tos-line); padding:9px 11px; }
     #tablet-os-overlay .tos-bliss-heldline { display:flex; justify-content:space-between; gap:10px;
       font-size:.8em; opacity:.85; margin-top:3px; }
@@ -4690,9 +4720,20 @@ function renderBlissArrangement(d) {
       <div class="tos-bliss-blocked">You keep nobody. The Syndicate notes this without judgement and with some disappointment.</div>
       <div class="tos-actions"><button class="tos-btn" data-act-id="listings" data-act-app="bliss" data-act-params="">Browse the register</button></div>`;
   }
+  // A HOUSE placement is somebody's own staff, not a Syndicate rental: it is
+  // listed exactly like the rest (that's the point — they're yours and should be
+  // on your account), but it bills nothing, has no tenure ladder to climb, and
+  // shows no Release button, because B.L.I.S.S. cannot collect what it never placed.
   const rows = (d.entries || []).map(e => `
-    <div class="tos-bliss-held">
-      <div class="tos-bliss-name">${esc(e.names.join(' &amp; '))}${e.pairing ? ` <span class="dim">${esc(e.pairing)}</span>` : ''}</div>
+    <div class="tos-bliss-held${e.house ? ' house' : ''}">
+      <div class="tos-bliss-name">${esc(e.names.join(' &amp; '))}${e.pairing ? ` <span class="dim">${esc(e.pairing)}</span>` : ''}${e.house ? ' <span class="tos-bliss-housetag">House</span>' : ''}</div>
+      ${e.house ? `
+      <div class="tos-bliss-heldline">
+        <span>Retained by the house</span>
+        <span><b>No retainer</b></span>
+      </div>
+      <div class="tos-bliss-note">Yours outright. The Syndicate bills nothing and arranges nothing.</div>`
+      : `
       <div class="tos-bliss-heldline">
         <span>${e.daysKept} day${e.daysKept === 1 ? '' : 's'} &middot; ${esc(e.tier.label)}</span>
         <span><b>${e.todayRate}c</b>/day${e.saving ? ` <span class="save">(−${e.saving}c)</span>` : ''}</span>
@@ -4700,7 +4741,7 @@ function renderBlissArrangement(d) {
       <div class="tos-bliss-note">${esc(e.tier.note)}</div>
       ${e.missed ? `<div class="tos-bliss-warn">${e.missed} missed payment — one more and the placement is collected.</div>` : ''}
       <div class="tos-actions"><button class="tos-btn" data-act-id="release" data-act-app="bliss" data-act-params="${esc(e.id)}"
-        data-act-confirm="Release ${esc(e.names.join(' and '))}? ${e.names.length > 1 ? 'A matched pair goes together. ' : ''}This cannot be undone.">Release</button></div>
+        data-act-confirm="Release ${esc(e.names.join(' and '))}? ${e.names.length > 1 ? 'A matched pair goes together. ' : ''}This cannot be undone.">Release</button></div>`}
     </div>`).join('');
 
   return `${blissChrome(`${d.dailyTotal}c / day total`)}
@@ -6651,7 +6692,12 @@ function renderBody() {
   }
   if (d.view === 'list') {
     const pageNav = d.page ? renderPageNav(d.appId, d.breadcrumb, d.page) : '';
-    return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb || [d.appName])}${renderList(d.items)}${pageNav}${renderActions(d.appId, d.actions, '')}</div>`;
+    // Tabs and rows were `detail`-only, which silently swallowed both on any list
+    // screen that sent them: the Sports app's league tabs never drew (so Cluster
+    // Puck was unreachable — there was no second tab to press) and its leader
+    // races vanished with them. Both renderers no-op on a payload that omits
+    // them, so every existing list screen is unaffected.
+    return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb || [d.appName])}${renderTosTabs(d)}${renderList(d.items)}${d.rows ? `<div class="tos-detail-rows">${renderDetailRows(d.rows)}</div>` : ''}${pageNav}${renderActions(d.appId, d.actions, '')}</div>`;
   }
   if (d.view === 'detail') {
     const det = d.detail || d.quest || {};

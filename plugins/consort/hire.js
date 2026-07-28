@@ -36,10 +36,54 @@ import { effectiveRate, loyaltyTier } from './roster.js';
 const MISSES_BEFORE_LEAVING = 2;
 
 // ── Ledger ────────────────────────────────────────────────────────────────────
+// ── House placements ─────────────────────────────────────────────────────────
+// A consort the HOUSE keeps rather than one the Syndicate placed. An authored NPC
+// carrying `flags.consort_house_of: '<handle>'` belongs to that player, appears in
+// their B.L.I.S.S. arrangement, and costs nothing — Cyd does not invoice himself
+// for staff aboard his own boat.
+//
+// Deliberately NOT a `player_consorts` row. That table is per-player runtime state
+// (never exported as content), so seeding rows into it would mean a one-shot
+// script that a fresh database wouldn't have — the boat would come back empty on
+// every rebuild. Reading the flag instead makes ownership authored content that
+// survives a restore, and keeps them out of the billing sweep for free: the
+// retainer loop walks `player_consorts`, and these were never in it.
+const HOUSE_FLAG = 'consort_house_of';
+
+function houseConsortsFor(handle) {
+  if (!handle) return [];
+  const want = String(handle).toLowerCase();
+  const out = [];
+  for (const npc of world.npcs.values()) {
+    const owner = npc?.flags?.[HOUSE_FLAG];
+    if (!owner || String(owner).toLowerCase() !== want) continue;
+    // Shaped like a player_consorts row so every consumer — the arrangement
+    // screen, the pairing collapse, the loyalty tier — works unchanged.
+    out.push({
+      id: npc.id,
+      owner_handle: handle,
+      name: npc.name,
+      archetype: npc.flags.consort_archetype || 'romantic',
+      sex: npc.flags.consort_sex || 'female',
+      pairing_id: npc.flags.consort_pairing_id || null,
+      home_zone: npc.home_zone || npc.zone_id || null,
+      daily_rate: 0,          // the house rate, and what marks it as one
+      days_kept: 0,
+      missed: 0,
+      hired_at: 0,
+      house: true,
+    });
+  }
+  return out.sort((a, b) => String(a.name).localeCompare(String(b.name)));
+}
+
 export async function consortRowsOf(playerId) {
   const { rows } = await query(
     'SELECT * FROM player_consorts WHERE owner_id=$1 ORDER BY hired_at', [playerId]);
-  return rows;
+  // House placements first — they're the permanent fixtures, and a paid placement
+  // is the transient thing sitting alongside them.
+  const p = getLivePlayer(playerId);
+  return [...houseConsortsFor(p?.handle), ...rows];
 }
 
 export async function consortRow(id) {
