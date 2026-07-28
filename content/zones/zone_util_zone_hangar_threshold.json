@@ -18,6 +18,6 @@
   "id": "zone_util_zone_hangar_threshold",
   "map_id": "map_int_hangar_threshold",
   "name": "Threshold Helipad Hangar — Utility Room",
-  "parent_zone": null,
+  "parent_zone": "zone_district_893_908",
   "updated_at": "1783296275"
 }

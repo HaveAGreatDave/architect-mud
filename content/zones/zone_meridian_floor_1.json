@@ -22,6 +22,6 @@
   "id": "zone_meridian_floor_1",
   "map_id": "map_int_meridian",
   "name": "The Meridian — Floor 1 Hallway",
-  "parent_zone": "zone_meridian_lobby",
+  "parent_zone": "zone_district_918_908",
   "updated_at": "1782898109"
 }

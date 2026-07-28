@@ -19,6 +19,6 @@
   "id": "zone_util_zone_aa_wastes_bunker",
   "map_id": "map_int_aa_wastes",
   "name": "Wastes Gun Nest — Bunker — Utility Room",
-  "parent_zone": null,
+  "parent_zone": "zone_district_891_907",
   "updated_at": "1784348803"
 }

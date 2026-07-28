@@ -18,6 +18,6 @@
   "id": "zone_util_zone_fence_interior",
   "map_id": "map_interior_zone_fence_interior",
   "name": "Pawn & Pity — Utility Room",
-  "parent_zone": null,
+  "parent_zone": "zone_district_920_910",
   "updated_at": "1783840662"
 }

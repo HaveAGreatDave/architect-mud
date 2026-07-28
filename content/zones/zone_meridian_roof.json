@@ -17,6 +17,6 @@
   "id": "zone_meridian_roof",
   "map_id": "map_int_meridian",
   "name": "The Meridian — Roof",
-  "parent_zone": "zone_meridian_lobby",
+  "parent_zone": "zone_district_918_908",
   "updated_at": "1783112403"
 }

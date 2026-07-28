@@ -2,7 +2,6 @@
   "created_by": "ascendant-stronghold",
   "entry_zone_id": "zone_asc_gate_post",
   "id": "map_int_asc_gate",
-  "name": "The Ascension Gate — Interior",
   "parent_zone_id": "zone_district_893_906",
   "updated_at": "1784600000"
 }

@@ -36,7 +36,8 @@ like everything else under `content/`, and `NON_TABLE_DIRS` in
 rejecting it. Nothing reads it at runtime — the build resolves it into
 `zone_render` and renderers read only that.
 
-**Editing tiles: the Studio.** `npm run studio` ([tools/studio/](../tools/studio/README.md))
+**Editing tiles: the Studio.** `npm run studio`, or `npm run dev` which starts it
+alongside the game server ([tools/studio/](../tools/studio/README.md))
 is the file-authoring map tool — it reads and writes `content/` with no database in
 the process, draws every tile from the build's own derive pass, and generates its
 inspector from the field catalog. Saves are validated with the checks `content:lint`

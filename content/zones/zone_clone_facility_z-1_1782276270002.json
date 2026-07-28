@@ -18,6 +18,6 @@
   "id": "zone_clone_facility_z-1_1782276270002",
   "map_id": "map_int_1782352518150",
   "name": "Coldwater Clone Facility Basement",
-  "parent_zone": null,
+  "parent_zone": "zone_district_918_903",
   "updated_at": "1782278037"
 }

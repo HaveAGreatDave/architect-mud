@@ -26,6 +26,6 @@
   "id": "zone_yards_tenement_f10",
   "map_id": "map_int_yards_tenement",
   "name": "Floor 10",
-  "parent_zone": "zone_yards_tenement_lobby",
+  "parent_zone": "zone_district_921_902",
   "updated_at": "1783970000"
 }

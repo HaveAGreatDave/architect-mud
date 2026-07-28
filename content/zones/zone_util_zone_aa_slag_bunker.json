@@ -19,6 +19,6 @@
   "id": "zone_util_zone_aa_slag_bunker",
   "map_id": "map_int_aa_slag",
   "name": "Slagworks Flak Pit — Bunker — Utility Room",
-  "parent_zone": null,
+  "parent_zone": "zone_district_891_905",
   "updated_at": "1784348803"
 }

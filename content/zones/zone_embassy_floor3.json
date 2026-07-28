@@ -25,6 +25,6 @@
   "id": "zone_embassy_floor3",
   "map_id": "map_interior_zone_residential_lobby",
   "name": "Fourth Floor Landing",
-  "parent_zone": "zone_residential_lobby",
+  "parent_zone": "zone_district_920_904",
   "updated_at": "1783112361"
 }

@@ -21,6 +21,6 @@
   "map_id": "map_int_halcyon",
   "marker": "41",
   "name": "Halcyon Residence 41-A",
-  "parent_zone": "zone_halcyon_residences",
+  "parent_zone": "zone_district_895_906",
   "updated_at": "1783316802"
 }

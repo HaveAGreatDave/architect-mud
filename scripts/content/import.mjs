@@ -39,6 +39,7 @@ import {
   isRuntimeResidueId, readPalette,
 } from './lib.mjs';
 import { writeDerived } from './derive-write.mjs';
+import { deriveMapName } from './derive.mjs';
 
 const args = new Set(process.argv.slice(2));
 const prod = args.has('--prod');
@@ -70,6 +71,24 @@ try {
   if (!entries.length) {
     console.log('content/ is empty or missing — nothing to import.');
     process.exit(0);
+  }
+
+  // `maps.name` is an absent-by-default override (registry omitWhenNull) over a
+  // NOT NULL column: a map file that omits it is saying "name me after the
+  // building I hang off", and the column still has to arrive with a value.
+  // Resolved HERE, before anything reads `entries`, so the drift report and the
+  // upsert pass agree — resolving in only one of them would report every
+  // derived-name map as differing on every deploy, forever.
+  {
+    const mapFiles = entries.find(e => e.entry.table === 'maps')?.files || [];
+    const zoneById = new Map((entries.find(e => e.entry.table === 'zones')?.files || [])
+      .map(f => [f.data.id, f.data]));
+    for (const f of mapFiles) {
+      if (f.data.name != null && String(f.data.name).trim()) continue;
+      const derived = deriveMapName(f.data, zoneById);
+      if (!derived) throw new Error(`maps/${f.name}: no name and none derivable — parent_zone_id "${f.data.parent_zone_id ?? ''}" names no zone with a building_name. Author a "name".`);
+      f.data.name = derived;
+    }
   }
 
   const { client, host } = await connectTarget({ prod, yes, purpose: 'import content INTO' });

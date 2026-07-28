@@ -22,6 +22,6 @@
   "id": "zone_mq_sump_cellar",
   "map_id": "map_int_mq_sump",
   "name": "Cellar",
-  "parent_zone": "zone_mq_sump_bar",
+  "parent_zone": "zone_district_921_914",
   "updated_at": "1782964407"
 }

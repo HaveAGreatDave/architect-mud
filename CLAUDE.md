@@ -115,7 +115,8 @@ Caveats: it shares the Neon session pool (pool_size 15) — if it dies with `EMA
 an orphaned local `node server/index.js` is holding pool connections. A `pretest:regress` hook runs
 `scripts/kill-orphans.js` to sweep these automatically before every regress run (and `predev` does
 the same before `npm run dev`); run it by hand any time with `npm run kill:orphans`. It's Windows-only,
-scoped to this repo's own entrypoints (`server/index.js`, `tests/regress.js`, `sync-commits.js`), and
+scoped to this repo's own entrypoints (`server/index.js`, `tests/regress.js`, `sync-commits.js`,
+`scripts/dev.mjs`, `tools/studio/serve.mjs`), and
 never runs in production (`npm start` has no pre-hook). If a sweep can't reach it, wait ~90 s. Player
 stat columns are `stat_brawn`/`stat_reflexes`/… (not `brawn`).
 

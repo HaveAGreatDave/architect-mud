@@ -11,7 +11,7 @@
   "flags": {
     "is_interior": true,
     "utility_room": true,
-    "world_exit_zone": "zone_district_908_912"
+    "world_exit_zone": "zone_district_906_912"
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -19,6 +19,6 @@
   "id": "zone_util_zone_stimcafe",
   "map_id": "map_int_jitter",
   "name": "Jitter — Utility Room",
-  "parent_zone": "zone_district_908_912",
+  "parent_zone": "zone_district_906_912",
   "updated_at": "1784348804"
 }

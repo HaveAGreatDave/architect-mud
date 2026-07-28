@@ -15,7 +15,8 @@ import { contentEntries } from '../../server/models/content-registry.js';
 import { SCHEMA_SQL } from '../../server/models/schema.js';
 import { validateTags, validateZoneColumns, TAG_CATALOG as CATALOG, ZONE_COLUMN_PREFIX } from '../../server/engine/tags.js';
 import { readContentTree, fileNameForRow, schemaColumnsOf as columnsOf, readPalette } from './lib.mjs';
-import { assignBuildingMarkers, projectEdges, OPPOSITE } from './derive.mjs';
+import { assignBuildingMarkers, projectEdges, OPPOSITE, deriveMapName } from './derive.mjs';
+import { anchorViolations } from './map-anchor.mjs';
 
 // ── SCHEMA_SQL parsing (content→content FKs), no DB required ─────────────────
 // Column parsing lives in lib.mjs (schemaColumnsOf) so the export writer and this
@@ -208,6 +209,35 @@ export function lintContentTree(baseDir) {
       else if (!m.entry_zone_id || !zoneIds.has(m.entry_zone_id)) errors.push(`${label}: interior map ${m.id} has no valid entry_zone_id`);
       const wez = f.data.flags?.world_exit_zone;
       if (!wez || !zoneIds.has(wez)) errors.push(`${label}: facade needs a valid world_exit_zone (got "${wez ?? ''}")`);
+    }
+  }
+
+  // THE MAP ANCHOR. A map hangs off one world tile and `maps.parent_zone_id` is
+  // the only place that is decided; the copy each tile carries in `parent_zone`
+  // (and in `flags.world_exit_zone`, where it has one) has to agree. The reason
+  // this is an ERROR and not a warning is that a stale copy resolves — it names a
+  // real tile, just the wrong one — so nothing downstream can notice. Three of
+  // them shipped that way, pointing at where their building used to stand.
+  // See scripts/content/map-anchor.mjs; the fixer is sync-map-anchors.mjs.
+  {
+    const mapFiles = entries.find(e => e.entry.table === 'maps')?.files || [];
+    const zoneFiles = entries.find(e => e.entry.table === 'zones')?.files || [];
+    const bad = anchorViolations({
+      maps: mapFiles.map(f => f.data),
+      zones: zoneFiles.map(f => f.data),
+    });
+    for (const v of bad) {
+      errors.push(`zones/${v.zone_id}.json: ${v.field}="${v.is ?? ''}" but map ${v.map_id} is anchored on "${v.want ?? ''}" — run node scripts/content/sync-map-anchors.mjs`);
+    }
+
+    // A map has to end up with a name: the column is NOT NULL and the key is an
+    // absent-by-default override, so "omitted AND underivable" is the one
+    // combination the import cannot resolve. Caught here rather than at the
+    // INSERT, where the message would be a constraint violation.
+    const zoneById = new Map(zoneFiles.map(f => [f.data.id, f.data]));
+    for (const f of mapFiles) {
+      if (deriveMapName(f.data, zoneById)) continue;
+      errors.push(`maps/${f.name}: no "name" and none derivable — parent_zone_id "${f.data.parent_zone_id ?? ''}" names no zone carrying a building_name. Author a name, or fix the anchor.`);
     }
   }
   // regions.defaults holds the region-level rung of resolveDefault (spec §1.3),

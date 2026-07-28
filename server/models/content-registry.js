@@ -106,7 +106,14 @@ export const REGISTRY = [
     omitWhenNull: ['audio_theme_id', 'marker'],
     runtimeInserts: 'environment.js power/junction rooms; broadcast studio builder (dev-gated)',
     note: 'exits/tags are authored content but runtime systems may also wire them (power rooms, studios) — a known, drift-report-visible seam' },
+  // `parent_zone_id` is the SINGLE place a map's world anchor is decided; every
+  // tile on the map carries a copy in zones.parent_zone that content:lint holds
+  // to it (scripts/content/map-anchor.mjs). `name` is an override: omit it and an
+  // interior map is named after the building it hangs off, so renaming the facade
+  // renames the map. Only the parentless maps (map_world, Dreamzones, the
+  // Leviathan cabin) have to author one — nothing can be derived for them.
   { table: 'maps', class: 'content', pk: ['id'], readTier: 'boot',
+    omitWhenNull: ['name'],
     runtimeInserts: 'environment.js power-room interiors; broadcast studio builder (dev-gated)' },
   // Spatial region metadata (dev-panel World Editor). Member zones link via
   // flags.region_id; bounds derived from members, not stored. Dev-panel-read

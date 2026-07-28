@@ -23,6 +23,6 @@
   "id": "zone_mq_precinct_gym",
   "map_id": "map_int_mq_precinct",
   "name": "The Pit",
-  "parent_zone": "zone_mq_precinct_holding",
+  "parent_zone": "zone_district_922_911",
   "updated_at": "1784800000"
 }

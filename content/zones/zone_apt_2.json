@@ -20,6 +20,6 @@
   "map_id": "map_interior_zone_residential_lobby",
   "marker": "2B",
   "name": "Unit 2B",
-  "parent_zone": null,
+  "parent_zone": "zone_district_920_904",
   "updated_at": "1783045464"
 }

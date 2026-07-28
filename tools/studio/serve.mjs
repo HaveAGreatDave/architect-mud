@@ -36,7 +36,8 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { CONTENT_DIR, canonicalJson, schemaColumnsOf, readPalette } from '../../scripts/content/lib.mjs';
-import { deriveWorld, projectEdges } from '../../scripts/content/derive.mjs';
+import { deriveWorld, projectEdges, deriveMapName } from '../../scripts/content/derive.mjs';
+import { applyAnchor, expectedAnchor } from '../../scripts/content/map-anchor.mjs';
 import { lintContentTree } from '../../scripts/content/lint.mjs';
 // tags.js pulls in client/shared/tagCatalog.js for its side effect, so the
 // catalog the game validates against is the catalog this tool builds forms from.
@@ -132,6 +133,20 @@ function validateZone(row) {
     if (v == null || v === '' || !def.refTable) continue;
     if (!refOptions(def.refTable).some(o => o.id === v)) errors.push(`${col}="${v}" is not a row of ${def.refTable}`);
   }
+  // The map owns the anchor. A tile on a map does not get to disagree with it —
+  // that is a content:lint ERROR, and the Studio's whole point is that you find
+  // that out here rather than at push time. Change it on the map, not the tile.
+  const map = row?.map_id ? tree.maps.get(row.map_id) : null;
+  if (map) {
+    const want = expectedAnchor(map);
+    if ((row.parent_zone ?? null) !== want) {
+      errors.push(`parent_zone is owned by map ${map.id} (anchored on "${want ?? 'nothing'}") — edit the map, not the tile`);
+    }
+    const wez = row.flags?.world_exit_zone ?? null;
+    if (want != null && !row.flags?.facade && wez != null && wez !== want) {
+      errors.push(`flags.world_exit_zone="${wez}" disagrees with map ${map.id}'s anchor "${want}" — edit the map, not the tile`);
+    }
+  }
   return errors;
 }
 
@@ -149,6 +164,91 @@ async function saveZone(row) {
   tree.zones.set(row.id, clean);
   derived = null;
   return { ok: true };
+}
+
+// ── Maps: the properties a whole map owns ────────────────────────────────────
+// A map hangs off one world tile, and `parent_zone_id` is the ONLY place that is
+// decided. Editing it here pushes the new anchor onto every tile on the map in
+// the same action, because the alternative — 331 tiles each holding their own
+// opinion — is what put Halcyon's Elevator inside its own lobby and left three
+// utility rooms pointing at where their building used to stand.
+//
+// Its name works the same way: omit it and the map is named after the building
+// it hangs off, so a rename has one home instead of two.
+const MAP_COLS = schemaColumnsOf('maps');
+const zoneIndex = () => new Map([...tree.zones.values()].map(z => [z.id, z]));
+
+function mapView(m) {
+  const zones = [...tree.zones.values()].filter(z => z.map_id === m.id);
+  const idx = zoneIndex();
+  const anchor = expectedAnchor(m);
+  return {
+    map: m,
+    // What the list shows and the build will store. Authored wins; otherwise the
+    // facade's building_name — the same call content:import makes.
+    resolvedName: deriveMapName(m, idx),
+    derivedName: deriveMapName({ ...m, name: null }, idx),
+    nameIsAuthored: !!(typeof m.name === 'string' && m.name.trim()),
+    tiles: zones.length,
+    // Offered as the entry-zone picker: an entry zone that isn't on the map is a
+    // dive that lands nowhere, which plugins/zone-validator already reports.
+    zonesOnMap: zones.map(z => ({ id: z.id, name: z.name })).sort((a, b) =>
+      String(a.name || a.id).localeCompare(String(b.name || b.id))),
+    // How many tiles a save would rewrite — shown before you commit to it.
+    drifted: zones.filter(z => applyAnchor(z, m) !== z).length,
+    anchor,
+  };
+}
+
+function validateMap(row) {
+  const errors = [];
+  if (!row?.id) errors.push('no id');
+  for (const k of Object.keys(row || {})) {
+    if (MAP_COLS.size && !MAP_COLS.has(k)) errors.push(`"${k}" is not a column of maps`);
+  }
+  for (const k of ['parent_zone_id', 'entry_zone_id']) {
+    const v = row[k];
+    if (v == null || v === '') continue;
+    if (!tree.zones.has(v)) errors.push(`${k}="${v}" is not a row of zones`);
+  }
+  if (row.entry_zone_id && tree.zones.has(row.entry_zone_id)
+      && tree.zones.get(row.entry_zone_id).map_id !== row.id) {
+    errors.push(`entry_zone_id="${row.entry_zone_id}" is on map ${tree.zones.get(row.entry_zone_id).map_id}, not this one — a dive would land off the map`);
+  }
+  // `name` is NOT NULL in the schema and absent-by-default in the file: omitting
+  // it is a statement ("name me after my building"), and it has to resolve.
+  if (!deriveMapName(row, zoneIndex())) {
+    errors.push('no name, and none derivable — this map\'s parent zone carries no building_name. Type a name.');
+  }
+  return errors;
+}
+
+async function saveMap(row) {
+  const errors = validateMap(row);
+  if (errors.length) return { ok: false, errors };
+  const clean = {};
+  for (const [k, v] of Object.entries(row)) {
+    // An empty name means "derive it", and the registry's omitWhenNull says that
+    // is written by ABSENCE — a present null is the bug that rule exists to catch.
+    if (k === 'name' && (v == null || String(v).trim() === '')) continue;
+    clean[k] = k === 'name' ? String(v).trim() : v;
+  }
+  await writeFile(join(CONTENT_DIR, 'maps', `${row.id}.json`), canonicalJson(clean), 'utf8');
+  tree.maps.set(row.id, clean);
+
+  // The push. Every tile on this map takes the map's anchor; a tile already
+  // carrying it is returned by identity and never rewritten, so this is a no-op
+  // for a map whose geometry didn't move.
+  const pushed = [];
+  const failed = [];
+  for (const z of [...tree.zones.values()].filter(z => z.map_id === row.id)) {
+    const next = applyAnchor(z, clean);
+    if (next === z) continue;
+    const r = await saveZone(next);
+    if (r.ok) pushed.push(z.id); else failed.push(`${z.id}: ${r.errors.join('; ')}`);
+  }
+  derived = null;
+  return { ok: true, pushed, failed };
 }
 
 // ── Server ───────────────────────────────────────────────────────────────────
@@ -183,7 +283,13 @@ const server = createServer(async (req, res) => {
     if (req.method === 'GET' && path === '/api/world') {
       const mapId = url.searchParams.get('map');
       const { render } = world();
-      const maps = [...tree.maps.values()].map(m => ({ id: m.id, name: m.name, parent_zone_id: m.parent_zone_id }));
+      const idx = zoneIndex();
+      // The RESOLVED name, not the authored one: a map that derives its name has
+      // no `name` key at all, and a list showing its id instead would be the tool
+      // disagreeing with the build about what the thing is called.
+      const maps = [...tree.maps.values()].map(m => ({
+        id: m.id, name: deriveMapName(m, idx) || m.id, parent_zone_id: m.parent_zone_id,
+      }));
       const counts = new Map();
       for (const z of tree.zones.values()) counts.set(z.map_id, (counts.get(z.map_id) || 0) + 1);
       const zones = mapId
@@ -197,6 +303,23 @@ const server = createServer(async (req, res) => {
         mapId, zones,
         terrains: Object.entries(palette?.terrains || {}).map(([key, t]) => ({ key, label: t.label || key, fill: t.fill })),
       });
+    }
+
+    // A map's own properties. PUT writes content/maps/<id>.json and pushes the
+    // anchor onto every tile in the same action.
+    const mm = path.match(/^\/api\/map\/(.+)$/);
+    if (mm) {
+      const id = decodeURIComponent(mm[1]);
+      const row = tree.maps.get(id);
+      if (!row) return json(res, 404, { error: 'no such map' });
+      if (req.method === 'GET') return json(res, 200, mapView(row));
+      if (req.method === 'PUT') {
+        let body; try { body = JSON.parse(await readBody(req)); } catch { return json(res, 400, { errors: ['body is not JSON'] }); }
+        if (body.id !== id) return json(res, 400, { errors: ['id in body does not match the URL'] });
+        const r = await saveMap(body);
+        if (!r.ok) return json(res, 422, r);
+        return json(res, 200, { ...r, ...mapView(tree.maps.get(id)) });
+      }
     }
 
     // The authored row itself, for the inspector.

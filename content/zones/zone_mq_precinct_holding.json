@@ -25,6 +25,6 @@
   "id": "zone_mq_precinct_holding",
   "map_id": "map_int_mq_precinct",
   "name": "Holding",
-  "parent_zone": "zone_mq_precinct_lobby",
+  "parent_zone": "zone_district_922_911",
   "updated_at": "1782964408"
 }

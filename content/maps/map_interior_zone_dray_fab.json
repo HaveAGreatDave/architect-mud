@@ -2,7 +2,6 @@
   "created_by": "dray-lane-build",
   "entry_zone_id": "zone_dray_fab",
   "id": "map_interior_zone_dray_fab",
-  "name": "Ferro Fabrication Works — Interior",
   "parent_zone_id": "zone_district_922_906",
   "updated_at": "1784100000"
 }

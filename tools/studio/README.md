@@ -3,10 +3,18 @@
 A map editor that edits **files**.
 
 ```bash
-npm run studio
+npm run dev        # game server on :3000 AND the Studio on :5180
+npm run studio     # the Studio alone
 ```
 
 → <http://localhost:5180>. Local only; there is no auth and no reason to expose it.
+
+`npm run dev` starts both because needing two terminals was the only real cost of
+keeping them apart ([scripts/dev.mjs](../../scripts/dev.mjs) is the whole of that
+integration — it spawns, it reports, it takes the other one down when one dies).
+They remain two processes, and that is the point: this one has no database in it,
+and its save path lints ~10k files synchronously, which inside the game server
+would stall the tick loop on every save. `npm run dev -- --no-studio` opts out.
 
 ## What it is
 
@@ -58,6 +66,41 @@ dead string. Per spec §10.1 the Studio will **not** create the missing target �
 loot table or an audio theme is somebody else's entity, made in the dev panel or
 `design-cli`. Its job ends at *"this tile points at that table."*
 
+## The map owns what belongs to the map
+
+Some things are facts about a whole map, not about each of its tiles, and the
+tool used to ask for them per tile. **A map hangs off one world tile** — that is
+`maps.parent_zone_id` — and every tile carries a copy in `parent_zone` so the
+engine can read it off the tile it is standing on. When 331 tiles each hold their
+own copy, they drift, and the drift is silent because a stale id still resolves:
+
+- Halcyon's **Elevator** named its own Grand Lobby as its parent, not the tower's
+  street tile. Half the world used `parent_zone` that way; every runtime reader
+  uses it the other way.
+- Three utility rooms — under Jitter, the Meltwater Diner and Ward Nine Permits —
+  still named the world tile their building stood on **before it was moved**. A
+  player leaving through one would have surfaced two blocks away.
+
+So the anchor is edited on the map (**Map properties…**) and **pushed to every
+tile in the same save**, and it is *locked* on the tile inspector with a note
+saying where to change it. `content:lint` errors on any tile that disagrees, so
+a drift reintroduced by hand or by an old script fails at the gate rather than
+shipping. The repair for an existing tree is
+[`scripts/content/sync-map-anchors.mjs`](../../scripts/content/sync-map-anchors.mjs),
+which is idempotent.
+
+Tiles on **no map** are untouched: there `parent_zone` is the dev panel's room
+grouping, which is a different thing and stays editable.
+
+**A map's name works the same way.** Leave it empty and an interior map is named
+after the building it hangs off, so renaming the facade renames the map. 17 of 69
+had already drifted apart — The Cherry Pit's interior was still filed under
+"Cathode Row", Ampersand Electronics under "The Overpass", Ration Nine under
+"Battery Square". Type a name only to override that; four maps do, because their
+facade is named for a room rather than for the building. Nothing player-facing
+reads `maps.name` — it is an authoring label in this list, the dev panel's, and
+the audit — which is what makes deriving it safe.
+
 ## What it writes
 
 `content/zones/<id>.json`, through the same `canonicalJson` writer `content:export`
@@ -67,8 +110,9 @@ push.
 
 ## What it does not do yet
 
-This is increment 1 of spec §11 step 8. It views any map, edits every authored field
-of a tile, and paints terrain. It does **not** yet do New Building, Move Building,
+This is increment 2 of spec §11 step 8. It views any map, edits every authored field
+of a tile, paints terrain, and owns the map-level properties above. It does **not**
+yet do New Building, Move Building,
 the region planner, connection editing, or multi-tile structural operations — those
 stay in the dev panel and in
 [`scripts/place-building.mjs`](../../scripts/place-building.mjs) until the next

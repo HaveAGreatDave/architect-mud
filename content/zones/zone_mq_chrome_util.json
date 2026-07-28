@@ -17,6 +17,6 @@
   "id": "zone_mq_chrome_util",
   "map_id": "map_int_mq_chrome",
   "name": "Basement Utility",
-  "parent_zone": "zone_mq_chrome_lobby",
+  "parent_zone": "zone_district_895_905",
   "updated_at": "1783023542"
 }

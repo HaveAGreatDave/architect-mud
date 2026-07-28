@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "predev": "node scripts/kill-orphans.js && node scripts/content/check-stale.mjs --import",
-    "dev": "node --watch server/index.js",
+    "dev": "node scripts/dev.mjs",
     "start": "node server/index.js",
     "kill:orphans": "node scripts/kill-orphans.js",
     "pretest:regress": "node scripts/kill-orphans.js && node scripts/content/lint.mjs && node scripts/content/check-stale.mjs --import",

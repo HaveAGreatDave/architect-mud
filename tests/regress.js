@@ -1046,6 +1046,50 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
     `table ${written.rows[0].n} vs derived ${edges.length} — run npm run map:derive`);
 }
 
+// LAW: A MAP HANGS OFF ONE WORLD TILE, AND ONLY THE MAP SAYS WHICH.
+// `maps.parent_zone_id` is the single place a map's anchor is decided; the copy
+// every tile carries in `parent_zone` (and in `flags.world_exit_zone`, where it
+// has one) is a cache of it, not a second opinion. Asserted against the BOOTED
+// world rather than the files, because that is what the engine actually reads.
+//
+// It was not always true, and the failure is silent: `zones.parent_zone` was
+// carrying the containing ROOM on 154 tiles across 12 hand-built maps (Halcyon's
+// Elevator named its own Grand Lobby) while every runtime reader —
+// flight/acquisition.js and three sites in engine/environment.js — resolves
+// `flags.world_exit_zone || parent_zone` expecting a WORLD tile. Three utility
+// rooms had additionally kept the address their building stood at before it
+// moved. Every one of those ids resolves, so nothing could ever notice.
+{
+  const zones = [...world.zones.values()];
+  const anchorBad = [];
+  for (const z of zones) {
+    if (!z.map_id) continue;                       // off-map rooms own their own parent_zone
+    const m = world.maps.get(z.map_id);
+    if (!m) continue;                              // dangling map_id is the FK check's job
+    const want = m.parent_zone_id ?? null;
+    if ((z.parent_zone ?? null) !== want) anchorBad.push(`${z.id} parent_zone=${z.parent_zone ?? 'null'} want ${want ?? 'null'}`);
+    const wez = z.flags?.world_exit_zone ?? null;
+    // On a FACADE the flag means the street out front, which the map does not own.
+    if (want != null && !z.flags?.facade && wez != null && wez !== want) {
+      anchorBad.push(`${z.id} world_exit_zone=${wez} want ${want}`);
+    }
+  }
+  check(`every tile agrees with its map's anchor (${zones.filter(z => z.map_id).length} placed tiles)`,
+    anchorBad.length === 0, anchorBad.slice(0, 3).join('; ')
+    + (anchorBad.length ? ' — run node scripts/content/sync-map-anchors.mjs' : ''));
+
+  // An interior map takes its name from the building it hangs off unless it
+  // authors an override, so the two can never disagree the way 17 of them did.
+  const unnamed = [...world.maps.values()].filter(m => !String(m.name || '').trim());
+  check(`every map resolves to a name (${world.maps.size} maps)`, unnamed.length === 0,
+    unnamed.slice(0, 3).map(m => m.id).join(', '));
+
+  const anchoredOnItself = [...world.maps.values()].filter(m => m.parent_zone_id
+    && world.zones.get(m.parent_zone_id)?.map_id === m.id);
+  check('no map is anchored on one of its own tiles', anchoredOnItself.length === 0,
+    anchoredOnItself.map(m => m.id).join(', '));
+}
+
 // LAW: the Studio computes no presentation and hand-writes no form field
 // (spec §10). Both are properties of source, not behaviour, so they are asserted
 // by reading it: the moment the tool grows its own palette or its own field list
@@ -1064,6 +1108,14 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
     /validateZoneColumns/.test(serve) && /validateTags/.test(serve));
   check('the Studio builds its forms from the field catalog',
     /zoneColumnCatalog/.test(serve) && /catalog\.columns/.test(client));
+
+  // The map's anchor is edited on the MAP and pushed, never typed per tile — and
+  // the rule comes from the same module lint and the fixer use, so the tool cannot
+  // hold a private opinion about what "anchored" means.
+  check('the Studio pushes the map anchor from the shared invariant module',
+    /from '\.\.\/\.\.\/scripts\/content\/map-anchor\.mjs'/.test(serve) && /applyAnchor/.test(serve));
+  check('the Studio locks the map-owned anchor on the tile inspector',
+    /lockedFieldHtml/.test(client) && /parent_zone/.test(client));
 
   // No hex literals in the client: a colour written here is a colour the build did
   // not produce. The CSS lives in index.html, which is chrome, not map paint.

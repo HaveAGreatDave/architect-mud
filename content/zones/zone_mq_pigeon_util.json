@@ -17,6 +17,6 @@
   "id": "zone_mq_pigeon_util",
   "map_id": "map_int_mq_pigeon",
   "name": "Utility Closet",
-  "parent_zone": "zone_mq_pigeon_back",
+  "parent_zone": "zone_district_905_910",
   "updated_at": "1783023534"
 }

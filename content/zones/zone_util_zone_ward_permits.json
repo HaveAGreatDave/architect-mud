@@ -11,7 +11,7 @@
   "flags": {
     "is_interior": true,
     "utility_room": true,
-    "world_exit_zone": "zone_district_910_910"
+    "world_exit_zone": "zone_district_906_911"
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -19,6 +19,6 @@
   "id": "zone_util_zone_ward_permits",
   "map_id": "map_int_ward",
   "name": "Ward Nine Permits — Utility Room",
-  "parent_zone": "zone_district_910_910",
+  "parent_zone": "zone_district_906_911",
   "updated_at": "1784350439"
 }

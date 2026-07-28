@@ -20,14 +20,18 @@ const state = {
   terrains: [], terrain: null, tool: 'select',
   selected: null, catalog: null,
   cell: 14, ox: 0, oy: 0,
+  maps: new Map(),   // id → { name, parent_zone_id } — the tile inspector needs to
+                     // know whether a tile's map has an anchor at all
+  mapView: null,     // the selected map's own properties, when the inspector is on it
 };
 
 const canvas = $('#c');
 const ctx = canvas.getContext('2d');
 
 // ── Map list ────────────────────────────────────────────────────────────────
-async function loadMaps() {
+async function loadMaps({ keep = false } = {}) {
   const { body } = await api('/api/world');
+  state.maps = new Map(body.maps.map(m => [m.id, m]));
   $('#maps').innerHTML = body.maps.map(m =>
     `<button data-map="${m.id}">${m.name || m.id}<span class="n">${m.tiles}</span></button>`).join('');
   $('#maps').onclick = (e) => { const b = e.target.closest('button'); if (b) selectMap(b.dataset.map); };
@@ -38,6 +42,12 @@ async function loadMaps() {
     const s = e.target.closest('.sw'); if (!s) return;
     state.terrain = s.dataset.t; setTool('paint'); paintSwatches();
   };
+  // A refresh after a rename must not yank the user back to the biggest map.
+  if (keep) {
+    document.querySelectorAll('.maplist button')
+      .forEach(b => b.classList.toggle('on', b.dataset.map === state.mapId));
+    return;
+  }
   selectMap(body.maps[0]?.id);
 }
 const paintSwatches = () => document.querySelectorAll('.sw')
@@ -46,6 +56,7 @@ const paintSwatches = () => document.querySelectorAll('.sw')
 async function selectMap(id) {
   if (!id) return;
   state.mapId = id;
+  state.selected = null;
   document.querySelectorAll('.maplist button').forEach(b => b.classList.toggle('on', b.dataset.map === id));
   const { body } = await api(`/api/world?map=${encodeURIComponent(id)}`);
   state.zones = body.zones;
@@ -53,6 +64,7 @@ async function selectMap(id) {
   state.byCell = new Map(body.zones.map(z => [`${z.grid_x},${z.grid_y},${z.grid_z ?? 0}`, z]));
   fit();
   refreshLint();
+  showMapProps();
 }
 
 // ── Canvas ──────────────────────────────────────────────────────────────────
@@ -165,6 +177,7 @@ function setTool(t) {
   state.tool = t;
   for (const k of ['select', 'paint', 'pick']) $(`#t-${k}`).classList.toggle('on', k === t);
 }
+$('#m-props').onclick = showMapProps;
 $('#t-select').onclick = () => setTool('select');
 $('#t-paint').onclick = () => setTool('paint');
 $('#t-pick').onclick = () => setTool('pick');
@@ -198,10 +211,99 @@ let editing = null;   // the authored row, as loaded
 
 async function select(id) {
   state.selected = id;
+  state.mapView = null;
   draw();
   const { body } = await api(`/api/zone/${encodeURIComponent(id)}`);
   editing = body.zone;
   renderInspector(body.spec);
+}
+
+// ── The map's own properties ────────────────────────────────────────────────
+// A map hangs off one world tile and is named after the building on it. Both are
+// facts about the MAP, so this is where they are edited — and saving pushes the
+// anchor onto every tile at once, which is the thing that keeps 331 tiles from
+// each holding a private opinion about where their building is.
+async function showMapProps() {
+  if (!state.mapId) return;
+  state.selected = null;
+  const { body } = await api(`/api/map/${encodeURIComponent(state.mapId)}`);
+  state.mapView = body;
+  editing = null;
+  draw();
+  renderMapInspector();
+}
+
+function renderMapInspector() {
+  const v = state.mapView;
+  if (!v) return;
+  const m = v.map;
+  const zoneOpts = (sel, rows) => ['<option value="">—</option>',
+    ...rows.map(r => `<option value="${esc(r.id)}"${r.id === sel ? ' selected' : ''}>${esc(r.name || r.id)}</option>`)].join('');
+  const allZones = state.catalog.refs.zones || [];
+
+  $('#inspector').innerHTML = `
+    <div class="row" style="justify-content:space-between">
+      <b>${esc(v.resolvedName || m.id)}</b><span class="pill">map</span>
+    </div>
+    <div class="help">${esc(m.id)} · ${v.tiles} tile(s)</div>
+
+    <div class="grp"><div class="t">Map: Identity</div>
+      <label for="m-name">Name${v.nameIsAuthored ? '' : ' (derived)'}</label>
+      <input type="text" id="m-name" value="${esc(v.nameIsAuthored ? m.name : '')}"
+             placeholder="${esc(v.derivedName || 'name this map')}">
+      <div class="help">${v.derivedName
+        ? `Leave it empty and this map is named after its building — <b>${esc(v.derivedName)}</b> — so renaming the facade renames the map. Type something only to override that.`
+        : 'Nothing to derive a name from, so this one has to be typed.'}</div>
+    </div>
+
+    <div class="grp"><div class="t">Map: Anchor</div>
+      <label for="m-parent">Parent Zone (world anchor)</label>
+      <select id="m-parent">${zoneOpts(m.parent_zone_id ?? '', allZones)}</select>
+      <div class="help">The world tile this whole map hangs off. Every tile on the map
+        takes its <code>parent_zone</code> from here when you save — that is why it is
+        edited on the map and locked on the tile. Empty means a top-level map
+        (the world itself, Dreamzones, the Leviathan).</div>
+
+      <label for="m-entry">Entry Zone</label>
+      <select id="m-entry">${zoneOpts(m.entry_zone_id ?? '', v.zonesOnMap)}</select>
+      <div class="help">Where a player lands diving into this map. Must be a tile on it.</div>
+    </div>
+
+    ${v.drifted ? `<div class="grp"><div class="t" style="color:var(--warn)">Out of sync</div>
+      <div class="help">${v.drifted} tile(s) on this map disagree with the anchor. Saving repairs them.</div></div>` : ''}
+
+    <div class="row" style="margin-top:12px"><button id="m-save">Save map</button><button id="m-revert">Revert</button></div>
+    <div id="errs"></div><div id="note" class="help"></div>
+    <div class="help" style="margin-top:8px">Writes <code>content/maps/${esc(m.id)}.json</code>
+      and any tile it has to bring back into line.</div>`;
+
+  $('#m-revert').onclick = showMapProps;
+  $('#m-save').onclick = saveMapProps;
+}
+
+async function saveMapProps() {
+  const v = state.mapView;
+  $('#errs').textContent = '';
+  const name = $('#m-name').value.trim();
+  const row = {
+    ...v.map,
+    parent_zone_id: $('#m-parent').value || null,
+    entry_zone_id: $('#m-entry').value || null,
+  };
+  // Absent, not empty: an omitted name is how a map says "derive it".
+  if (name) row.name = name; else delete row.name;
+
+  const { ok, body } = await api(`/api/map/${encodeURIComponent(v.map.id)}`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(row),
+  });
+  if (!ok) { $('#errs').textContent = (body.errors || [body.error]).join('\n'); return; }
+  state.mapView = body;
+  renderMapInspector();
+  if (body.failed?.length) $('#errs').textContent = body.failed.join('\n');
+  $('#note').textContent = body.pushed?.length
+    ? `Saved · anchor pushed to ${body.pushed.length} tile(s).` : 'Saved.';
+  await loadMaps({ keep: true });   // the list shows resolved names; this one may have changed
+  refreshLint();
 }
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -247,6 +349,17 @@ function fieldHtml(key, def, value, kind) {
   return `<label for="${id}">${esc(def.label || key)}</label>${input}${help}`;
 }
 
+// A field the MAP owns, shown but not editable. Rendered without `data-k` so
+// collect() never sees it and the value survives untouched from `editing` — the
+// tile keeps carrying the anchor, it just no longer gets a second opinion about
+// it. (The server refuses an anchor-violating save too; this is so you find out
+// before you type, not after.)
+function lockedFieldHtml(label, value, why) {
+  return `<label>${esc(label)} <span class="pill">map</span></label>
+          <input type="text" value="${esc(value ?? '')}" disabled>
+          <div class="help">${why}</div>`;
+}
+
 function renderInspector(spec) {
   if (!editing) return;
   const cols = state.catalog.columns, flags = state.catalog.flags;
@@ -256,11 +369,32 @@ function renderInspector(spec) {
   const ordered = (o) => Object.entries(o).sort((a, b) =>
     String(a[1].group || '').localeCompare(String(b[1].group || '')) || (a[1].order ?? 99) - (b[1].order ?? 99));
 
-  for (const [key, def] of ordered(cols)) push(def.group || 'Zone', fieldHtml(key, def, editing[key], 'col'));
+  // `parent_zone` is the map's anchor once a tile is on a map; only a tile on NO
+  // map still owns it (there it means the dev panel's room grouping, which is a
+  // different thing and stays editable).
+  const onMap = !!editing.map_id;
+  const mapAnchor = state.maps.get(editing.map_id)?.parent_zone_id ?? null;
+  for (const [key, def] of ordered(cols)) {
+    if (key === 'parent_zone' && onMap) {
+      push(def.group || 'Zone', lockedFieldHtml(def.label || key, editing[key],
+        `Owned by map <code>${esc(editing.map_id)}</code> — every tile on it shares one anchor. Change it in the map's properties.`));
+      continue;
+    }
+    push(def.group || 'Zone', fieldHtml(key, def, editing[key], 'col'));
+  }
   // Only flags the tile CARRIES, plus an add-a-flag picker: 104 checkboxes is a
   // wall, and a tile's flags are a short list in practice.
   const carried = Object.keys(editing.flags || {}).filter(k => flags[k]);
-  for (const key of carried) push(flags[key].group || 'Flags', fieldHtml(key, flags[key], editing.flags[key], 'flag'));
+  for (const key of carried) {
+    // Same rule for the interior tile's copy of the anchor. On a FACADE the flag
+    // means the street out front, which is nobody else's business — left alone.
+    if (key === 'world_exit_zone' && onMap && !editing.flags?.facade && mapAnchor != null) {
+      push(flags[key].group || 'Flags', lockedFieldHtml(flags[key].label || key, editing.flags[key],
+        'On an interior tile this is the map anchor again. Change it in the map\'s properties.'));
+      continue;
+    }
+    push(flags[key].group || 'Flags', fieldHtml(key, flags[key], editing.flags[key], 'flag'));
+  }
   const uncatalogued = Object.keys(editing.flags || {}).filter(k => !flags[k]);
 
   const addable = Object.entries(flags).filter(([k]) => !carried.includes(k))

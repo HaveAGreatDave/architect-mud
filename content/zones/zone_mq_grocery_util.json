@@ -17,6 +17,6 @@
   "id": "zone_mq_grocery_util",
   "map_id": "map_int_mq_grocery",
   "name": "Utility Room",
-  "parent_zone": "zone_mq_grocery_stock",
+  "parent_zone": "zone_district_920_908",
   "updated_at": "1783023538"
 }

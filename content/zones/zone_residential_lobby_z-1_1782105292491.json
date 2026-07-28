@@ -18,6 +18,6 @@
   "id": "zone_residential_lobby_z-1_1782105292491",
   "map_id": "map_interior_zone_residential_lobby",
   "name": "Basement",
-  "parent_zone": null,
+  "parent_zone": "zone_district_920_904",
   "updated_at": "1782110526"
 }

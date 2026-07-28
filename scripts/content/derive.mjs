@@ -322,6 +322,39 @@ export function assignBuildingMarkers(zones) {
 //   drawn, so they are files. A terrain-based passability rule would have been a
 //   rule that is wrong about the world it describes.
 
+// ── A map's name ─────────────────────────────────────────────────────────────
+/**
+ * An interior map's name follows the building it hangs off, because they are the
+ * same thing named twice and a rename that reaches only one of them is the bug
+ * this replaces. 17 of 69 interior maps had already drifted that way: the map
+ * still filed under the block it was drawn in ("Cathode Row", "Battery Square")
+ * while the facade had long since become The Cherry Pit and Ration Nine.
+ *
+ * `maps.name` is an absent-by-default OVERRIDE (registry omitWhenNull), so an
+ * authored value always wins — that is how the parentless maps keep the names
+ * nothing can derive for them (map_world, Dreamzones, the Leviathan cabin), and
+ * how any building whose derived name reads badly buys its way out.
+ *
+ * Nothing player-facing reads this: `maps.name` reaches the dev panel's map list,
+ * the Studio's map list and the audit scripts, and nowhere else. It is an
+ * authoring label, which is exactly why it is allowed to be derived.
+ *
+ * @param {object} map        the maps row / content file
+ * @param {Map}    zoneById   every zone, by id
+ * @returns {string|null}     null only when there is nothing to derive from AND
+ *                            nothing authored — which lint reports as an error.
+ */
+export function deriveMapName(map, zoneById) {
+  const authored = typeof map?.name === 'string' ? map.name.trim() : '';
+  if (authored) return authored;
+  const facade = map?.parent_zone_id ? zoneById?.get?.(map.parent_zone_id) : null;
+  if (!facade) return null;
+  // building_name over the tile's own name: the tile is the building's footprint,
+  // and building_name is the field the rest of the engine treats as its identity.
+  const derived = String(facade.flags?.building_name || facade.name || '').trim();
+  return derived || null;
+}
+
 // The four directions a grid step can take. (x, y) only — see the vertical note.
 export const CARDINAL = Object.freeze({ north: [0, -1], east: [1, 0], south: [0, 1], west: [-1, 0] });
 

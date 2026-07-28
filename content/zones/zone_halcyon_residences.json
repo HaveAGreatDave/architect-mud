@@ -24,6 +24,6 @@
   "id": "zone_halcyon_residences",
   "map_id": "map_int_halcyon",
   "name": "Halcyon Residences — Sky Hall",
-  "parent_zone": "zone_halcyon_lobby",
+  "parent_zone": "zone_district_895_906",
   "updated_at": "1783316802"
 }

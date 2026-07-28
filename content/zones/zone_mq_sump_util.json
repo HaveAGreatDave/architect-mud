@@ -17,6 +17,6 @@
   "id": "zone_mq_sump_util",
   "map_id": "map_int_mq_sump",
   "name": "Utility Nook",
-  "parent_zone": "zone_mq_sump_cellar",
+  "parent_zone": "zone_district_921_914",
   "updated_at": "1783023536"
 }

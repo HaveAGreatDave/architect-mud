@@ -58,6 +58,6 @@
   "id": "zone_halcyon_elevator",
   "map_id": "map_int_halcyon",
   "name": "Elevator",
-  "parent_zone": "zone_halcyon_lobby",
+  "parent_zone": "zone_district_895_906",
   "updated_at": "1783400000"
 }

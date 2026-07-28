@@ -17,6 +17,6 @@
   "id": "zone_prod_1782953094650",
   "map_id": "map_int_1782953094650",
   "name": "KSAB-TV Studio — Production",
-  "parent_zone": null,
+  "parent_zone": "zone_district_913_911",
   "updated_at": "1782953095"
 }

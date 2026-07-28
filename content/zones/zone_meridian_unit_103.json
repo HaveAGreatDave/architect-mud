@@ -20,6 +20,6 @@
   "map_id": "map_int_meridian",
   "marker": "1",
   "name": "Unit 103",
-  "parent_zone": "zone_meridian_floor_1",
+  "parent_zone": "zone_district_918_908",
   "updated_at": "1782898109"
 }

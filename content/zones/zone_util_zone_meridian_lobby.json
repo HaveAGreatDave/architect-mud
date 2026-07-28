@@ -19,6 +19,6 @@
   "id": "zone_util_zone_meridian_lobby",
   "map_id": "map_int_meridian",
   "name": "The Meridian - Lobby — Utility Room",
-  "parent_zone": null,
+  "parent_zone": "zone_district_918_908",
   "updated_at": "1783116355"
 }

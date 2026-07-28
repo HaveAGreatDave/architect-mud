@@ -26,6 +26,6 @@
   "id": "zone_embassy_floor2",
   "map_id": "map_interior_zone_residential_lobby",
   "name": "Third Floor Landing",
-  "parent_zone": "zone_residential_lobby",
+  "parent_zone": "zone_district_920_904",
   "updated_at": "1783020605"
 }

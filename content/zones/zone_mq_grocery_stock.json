@@ -22,6 +22,6 @@
   "id": "zone_mq_grocery_stock",
   "map_id": "map_int_mq_grocery",
   "name": "Stockroom",
-  "parent_zone": "zone_mq_grocery",
+  "parent_zone": "zone_district_920_908",
   "updated_at": "1782964407"
 }

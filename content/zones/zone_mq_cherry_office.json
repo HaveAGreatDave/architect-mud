@@ -22,6 +22,6 @@
   "id": "zone_mq_cherry_office",
   "map_id": "map_int_mq_cherry",
   "name": "Back Office",
-  "parent_zone": "zone_mq_cherry_floor",
+  "parent_zone": "zone_district_901_907",
   "updated_at": "1783020039"
 }

@@ -23,6 +23,6 @@
   "id": "zone_aa_redline_bunker",
   "map_id": "map_int_aa_redline",
   "name": "Redline SAM Nest — Bunker",
-  "parent_zone": null,
+  "parent_zone": "zone_district_891_903",
   "updated_at": "1783740000"
 }

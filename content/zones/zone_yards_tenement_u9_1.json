@@ -22,6 +22,6 @@
   "map_id": "map_int_yards_tenement",
   "marker": "9",
   "name": "Unit 901",
-  "parent_zone": "zone_yards_tenement_f9",
+  "parent_zone": "zone_district_921_902",
   "updated_at": "1783970000"
 }

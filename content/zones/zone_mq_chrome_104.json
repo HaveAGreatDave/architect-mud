@@ -21,6 +21,6 @@
   "map_id": "map_int_mq_chrome",
   "marker": "1",
   "name": "Unit 104",
-  "parent_zone": "zone_mq_chrome_lobby",
+  "parent_zone": "zone_district_895_905",
   "updated_at": "1782964408"
 }

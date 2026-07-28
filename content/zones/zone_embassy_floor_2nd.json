@@ -26,6 +26,6 @@
   "id": "zone_embassy_floor_2nd",
   "map_id": "map_interior_zone_residential_lobby",
   "name": "Second Floor Landing",
-  "parent_zone": "zone_residential_lobby",
+  "parent_zone": "zone_district_920_904",
   "updated_at": "1783800000"
 }

@@ -989,6 +989,54 @@ reintroduces runtime derivation, the thing this removes).
 > instead: this map is the live database, the Studio is the files, and painting in one
 > leaves the other stale until `content:import`.
 
+> **INCREMENT 2 BUILT — the map owns what belongs to the map.** The Studio grew a
+> **map inspector** (*Map properties…*), and two fields that were authored per tile
+> became properties of the map, pushed down on save.
+>
+> **Measured first, and the spec was wrong about this world.** `zones.parent_zone`
+> was carrying **two incompatible meanings at once**, near enough half each over the
+> 331 interior tiles: 140 meant the map's world anchor (the facade), 154 meant the
+> containing **room** inside the interior — Halcyon's Elevator naming its own Grand
+> Lobby, the Cherry Pit's Utility Room naming its Back Office. The two generators
+> disagreed: `place-building.mjs` writes the facade onto every tile, the older
+> hand-built maps wrote a room tree. **Every runtime reader assumes the first** —
+> `plugins/flight/acquisition.js` and three sites in `server/engine/environment.js`
+> all resolve `flags.world_exit_zone || parent_zone` expecting a world tile.
+>
+> It had already shipped three live bugs: the utility rooms under Jitter, the
+> Meltwater Diner and Ward Nine Permits still named the world tile their building
+> stood on **before it was moved**. All three ids resolve, which is why nothing ever
+> reported them — the failure mode this whole pipeline exists to remove.
+>
+> **The split that made both readings legal.** A tile ON a map takes its anchor from
+> `maps.parent_zone_id`. The 11 tiles on **no** map keep `parent_zone` as the dev
+> panel's room grouping. Nothing was lost, and "is it on a map" is a fact about the
+> tile rather than a convention to remember.
+>
+> - [`scripts/content/map-anchor.mjs`](../../scripts/content/map-anchor.mjs) — the
+>   invariant, its checker and its fixer, pure and shared. `content:lint` (ERROR),
+>   the Studio, regress and the one-shot all call it, so none can hold a private
+>   opinion about what "anchored" means.
+> - The anchor is **locked** in the tile inspector with a note pointing at the map,
+>   and the server refuses an anchor-violating zone save — the Studio must not be
+>   able to author what the gate rejects.
+> - `flags.world_exit_zone` is corrected where a tile already has one, and
+>   deliberately **not minted** onto the 199 that don't: `engine/ai-behaviour.js`
+>   branches on the flag's *presence* in four places, so filling them in would be a
+>   behaviour change dressed as a consistency fix.
+>
+> **`maps.name` became an override** (registry `omitWhenNull`) resolved by
+> `deriveMapName` at import: omit it and an interior map is named after its facade's
+> `building_name`, so a rename has one home. 17 of 69 had drifted — "Cathode Row"
+> for The Cherry Pit, "The Overpass" for Ampersand Electronics, "Battery Square" for
+> Ration Nine. 64 maps now derive; **4 keep an authored name** because their facade
+> is named for a room rather than the building, and renaming the facade instead
+> would change player-facing prose. Nothing player-facing reads `maps.name`.
+>
+> `scripts/content/sync-map-anchors.mjs` repaired the tree — 191 zone files, 64 map
+> files — and is idempotent. Gates: `content:lint` clean at **13 warnings**
+> (unmoved), regress **1677/1677** (1672 + 5 new), map audit **1906** (unmoved).
+
 **Not a live-DB tool.** It reads and writes `content/` directly, served locally the way
 `tools/zone-planner/serve.mjs` already is, importing the *same* derive module the build uses —
 so the preview **is** the ship.
