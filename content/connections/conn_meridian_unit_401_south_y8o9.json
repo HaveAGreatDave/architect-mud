@@ -1,0 +1,9 @@
+{
+  "a": "zone_meridian_unit_401",
+  "b": "zone_meridian_floor_4",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_meridian_unit_401_south_y8o9",
+  "lockable": true,
+  "one_way": false
+}

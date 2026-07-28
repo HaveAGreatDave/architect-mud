@@ -1,5 +1,5 @@
 import { query } from '../../models/db.js';
-import { getDoorForExit, getDoorById, getZoneDoors, setDoorCache, getZone, frontDoorOf, world, getApartment, setApartmentCache } from '../world.js';
+import { getDoorForExit, doorOnLink, getDoorById, getZoneDoors, setDoorCache, getZone, frontDoorOf, world, getApartment, setApartmentCache } from '../world.js';
 import { resolveLockAuth, getLockType, getAllLockTypes } from '../locks.js';
 import { propagateSound } from '../sounds.js';
 import { isOnCooldown, setCooldown, getCooldownRemaining } from '../combat.js';
@@ -8,7 +8,6 @@ import { exitTargets, allExits } from '../exits.js';
 import { emit } from '../events.js';
 import { effectiveSkill, awardSkillUse } from '../skills.js';
 import { getEquippedWeapon } from '../inventory.js';
-import { reloadItem, getItem } from '../items-cache.js';
 import { getZoneProtection } from '../protection.js';
 import { doorGuardsOnlyUnownedApartment } from '../apartments.js';
 import { gameMsToReal } from '../gametime.js';
@@ -56,7 +55,7 @@ function doorCandidates(player) {
   const cands = getZoneDoors(player.current_zone).map(d => ({ door: d, dir: d.exit_dir }));
   const seen = new Set(cands.map(c => c.door.id));
   for (const { dir: exitDir, target: targetId } of allExits(zone)) {
-    const d = getDoorForExit(targetId, OPPOSITE[exitDir], zone?.id);
+    const d = doorOnLink(zone?.id, exitDir, targetId);
     if (d && !seen.has(d.id)) { seen.add(d.id); cands.push({ door: d, dir: exitDir }); }
     const front = frontDoorOf(getZone(targetId));
     if (front && !seen.has(front.id)) { seen.add(front.id); cands.push({ door: front, dir: exitDir }); }
@@ -595,27 +594,6 @@ async function cmdInstallLock(args, raw, player, broadcast) {
   // Lock data stored as a tag value; record kit item so uninstall can return it
   const lockData = { kitItemId: kit.item_id, ...config.defaults };
 
-  if (config.tagType === 'lock:keycardlock') {
-    const keycardId = `keycard_${door.id}`;
-    if (!getItem(keycardId)) {
-      const zone = getZone(door.zone_id);
-      const zoneName = zone?.name || door.zone_id;
-      await query(
-        `INSERT INTO items (id,name,description,type,weight,value,tags)
-         VALUES ($1,$2,$3,'key',0.05,0,$4)`,
-        [keycardId, `Keycard — ${zoneName}`,
-         `A slim obsidian card threaded with bioluminescent circuitry. Its access signature is keyed exclusively to the reader on ${zoneName}'s door.`,
-         JSON.stringify({ unique: true })]
-      );
-      await reloadItem(keycardId);
-    }
-    lockData.keyItemId = keycardId;
-    await query(
-      `INSERT INTO player_inventory (id,player_id,item_id,quantity) VALUES ($1,$2,$3,1)`,
-      [`inv_kc_${Date.now()}`, player.id, keycardId]
-    );
-  }
-
   // Consume the kit
   if (kit.quantity > 1) await query('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [kit.id]);
   else await query('DELETE FROM player_inventory WHERE id=$1', [kit.id]);
@@ -627,8 +605,11 @@ async function cmdInstallLock(args, raw, player, broadcast) {
   setDoorCache(door.id, door);
 
   broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} installs a lock on the door.` }, player.id);
-  const extra = config.tagType === 'lock:keycardlock' ? ' A keycard has been added to your inventory.' : '';
-  return { type:'output', message:`You install the ${lockShortName} on the door.${extra}` };
+  // No keycard is minted here any more (spec §6). A keycardlock reads whatever
+  // AUTHORED item its keyItemId names — the bearer-key pattern survives; what is
+  // gone is the mechanism that manufactured a fresh item into a pocket and
+  // anchored a door id inside it, which is the P1 failure in miniature.
+  return { type:'output', message:`You install the ${lockShortName} on the door.` };
 }
 
 // uninstall lock [dir] | uninstall door [dir] | uninstall [dir]

@@ -1,0 +1,9 @@
+{
+  "a": "zone_apt_9",
+  "b": "zone_embassy_floor3",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_apt_9_south_gbu8",
+  "lockable": true,
+  "one_way": false
+}

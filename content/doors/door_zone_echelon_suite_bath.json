@@ -1,4 +1,5 @@
 {
+  "connection_id": "conn_echelon_suite_bath_out_vfsq",
   "door_type": "basic",
   "exit_dir": "out",
   "flags": {},

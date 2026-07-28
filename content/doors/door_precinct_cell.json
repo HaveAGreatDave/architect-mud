@@ -1,4 +1,5 @@
 {
+  "connection_id": "conn_mq_precinct_holding_up_pql5",
   "door_type": "reinforced",
   "exit_dir": "up",
   "flags": {},

@@ -359,6 +359,32 @@ export function lintContentTree(baseDir) {
       for (const k of walls.slice(0, 10)) errors.push(`zone_edges would invent an exit: ${show(k)} projects from geometry but zones.exits does not have it — author a connection file with "blocked": true`);
       if (walls.length > 10) errors.push(`…and ${walls.length - 10} more exit(s) the projection would invent`);
     }
+
+    // ── One fixture per connection (spec §6.3, §11 step 7) ───────────────────
+    // A door is a fixture ON a link, so it is anchored by the link's authored id
+    // and there is exactly one of it. Before this, doors were identified by
+    // (zone_id, exit_dir) — a coordinate — and 56 of 117 seams carried two rows
+    // free to drift into "open in look, locked on move".
+    const doorFiles = entries.find(e => e.entry.table === 'doors')?.files || [];
+    const connById = new Map(connections.map(c => [c.id, c]));
+    const byConnection = new Map();
+    for (const f of doorFiles) {
+      const d = f.data;
+      const label = `doors/${f.name}`;
+      if (!d.connection_id) {
+        errors.push(`${label}: no connection_id — a door is a fixture on a link and must name it (run scripts/content/anchor-doors.mjs)`);
+        continue;
+      }
+      const conn = connById.get(d.connection_id);
+      if (!conn) { errors.push(`${label}: connection_id="${d.connection_id}" is not a connection`); continue; }
+      if (conn.blocked) errors.push(`${label}: sits on ${conn.id}, which is a WALL — there is no opening here to hang a door on`);
+      if (d.zone_id !== conn.a && d.zone_id !== conn.b) {
+        errors.push(`${label}: zone_id="${d.zone_id}" is neither end of ${conn.id} (${conn.a} ↔ ${conn.b})`);
+      }
+      const prior = byConnection.get(d.connection_id);
+      if (prior) errors.push(`${label}: ${conn.id} already carries door ${prior} — one fixture per connection, or the two sides drift apart`);
+      else byConnection.set(d.connection_id, d.id);
+    }
   }
 
   return { errors, warnings };

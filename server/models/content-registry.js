@@ -123,7 +123,7 @@ export const REGISTRY = [
   { table: 'connections', class: 'content', pk: ['id'], readTier: 'boot',
     omitWhenNull: ['name', 'door'] },
   { table: 'items', class: 'content', pk: ['id'], readTier: 'boot', // items-cache.js write-through Map
-    runtimeInserts: 'doors.js keycard cutting (keycard_<door>); surveillance evidence datachips (item_datachip_<clip>, reaped on submission/retention); broadcast recorded cassettes (item_cassette_<slug>)' },
+    runtimeInserts: 'surveillance evidence datachips (item_datachip_<clip>, reaped on submission/retention); broadcast recorded cassettes (item_cassette_<slug>)' },
   { table: 'enemies', class: 'content', pk: ['id'], readTier: 'boot' },      // via world.spawnTimers join
   { table: 'zone_spawns', class: 'content', pk: ['id'], readTier: 'boot' },  // via world.spawnTimers join
   { table: 'npcs', class: 'content', pk: ['id'], readTier: 'boot', // world.npcs + write funnel (updateNpc/syncNpc in world.js)

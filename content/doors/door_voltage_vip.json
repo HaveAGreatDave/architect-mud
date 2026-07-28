@@ -1,4 +1,5 @@
 {
+  "connection_id": "conn_voltage_floor_north_zvsj",
   "door_type": "standard",
   "exit_dir": "north",
   "flags": {},

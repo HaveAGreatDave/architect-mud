@@ -1,0 +1,9 @@
+{
+  "a": "zone_clone_facility_bathroom",
+  "b": "zone_start",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_clone_facility_bathroom_east_dglm",
+  "lockable": true,
+  "one_way": false
+}

@@ -23,7 +23,7 @@ import { readdir, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
-import { initWorld, setLivePlayer, removeLivePlayer, addPlayerToZone, removePlayerFromZone, getAllZones, getLivePlayer, world, setDoorCache, deleteDoorCache, getDoorForExit, frontDoorOf, getApartment, insertFurniture, deleteFurniture, getZone, registerTransientZone, removeTransientZone, isTransientZone, regionForZone, renderOf, specOf } from '../server/engine/world.js';
+import { initWorld, setLivePlayer, removeLivePlayer, addPlayerToZone, removePlayerFromZone, getAllZones, getLivePlayer, world, setDoorCache, deleteDoorCache, getDoorForExit, frontDoorOf, getApartment, insertFurniture, deleteFurniture, getZone, registerTransientZone, removeTransientZone, isTransientZone, regionForZone, renderOf, specOf, getConnection, getConnectionBetween, getDoorForEdge, doorOnLink } from '../server/engine/world.js';
 import { moveEntity } from '../server/engine/ai-behaviour.js';
 import { exitTargets, allExits, neighborZoneIds, addExit, removeExit } from '../server/engine/exits.js';
 import { cmdMove, dragFollowers } from '../server/engine/commands/movement.js';
@@ -1044,6 +1044,71 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   const written = await query('SELECT count(*)::int AS n FROM zone_edges');
   check(`zone_edges is built (${written.rows[0].n} rows)`, written.rows[0].n === edges.length,
     `table ${written.rows[0].n} vs derived ${edges.length} — run npm run map:derive`);
+}
+
+// LAW: ONE FIXTURE PER CONNECTION (spec §6.3, §11 step 7). A door is a fixture on
+// an authored link, not a thing that lives at a coordinate. 56 of 117 seams used
+// to carry two rows — one authored from each side, with two lock_states, two hp
+// pools and two tag sets — which is "a door open in `look` and locked on move"
+// waiting for somebody to edit one of them.
+{
+  const doors = [...world.doors.values()];
+  check(`doors are loaded (${doors.length})`, doors.length > 0);
+
+  const unanchored = doors.filter(d => !d.connection_id);
+  check('every door names the connection it is a fixture on', unanchored.length === 0,
+    unanchored.slice(0, 3).map(d => `${d.id} (${d.zone_id} ${d.exit_dir})`).join(', ')
+    + (unanchored.length ? ' — run scripts/content/anchor-doors.mjs' : ''));
+
+  const dangling = doors.filter(d => d.connection_id && !getConnection(d.connection_id));
+  check('every door\'s connection exists', dangling.length === 0, dangling.slice(0, 3).map(d => d.id).join(', '));
+
+  const perConn = new Map();
+  for (const d of doors) {
+    if (!d.connection_id) continue;
+    if (!perConn.has(d.connection_id)) perConn.set(d.connection_id, []);
+    perConn.get(d.connection_id).push(d.id);
+  }
+  const doubled = [...perConn.entries()].filter(([, ids]) => ids.length > 1);
+  check(`no connection carries two doors (${perConn.size} seams)`, doubled.length === 0,
+    doubled.slice(0, 3).map(([c, ids]) => `${c}: ${ids.join(' + ')}`).join(' | '));
+
+  // A door hung on a wall is a door into a wall.
+  const onWalls = doors.filter(d => getConnection(d.connection_id)?.blocked);
+  check('no door is hung on a blocked connection', onWalls.length === 0, onWalls.slice(0, 3).map(d => d.id).join(', '));
+
+  // The §6.3 property itself: the seam answers to BOTH its ends, identically.
+  // This is what the near-then-far dance was approximating at six call sites.
+  const asym = doors.filter(d => {
+    const c = getConnection(d.connection_id);
+    if (!c) return false;
+    const fromA = getDoorForEdge(c.a, c.b), fromB = getDoorForEdge(c.b, c.a);
+    return fromA?.door?.id !== d.id || fromB?.door?.id !== d.id
+      || fromA.side !== 'a' || fromB.side !== 'b';
+  });
+  check('getDoorForEdge finds the same door from either end, and knows which end',
+    asym.length === 0, asym.slice(0, 3).map(d => d.id).join(', '));
+
+  // …and the direction-taking resolver every call site actually uses agrees.
+  const linkMiss = doors.filter(d => {
+    const c = getConnection(d.connection_id);
+    if (!c) return false;
+    const far = c.a === d.zone_id ? c.b : c.a;
+    return doorOnLink(d.zone_id, d.exit_dir, far)?.id !== d.id;
+  });
+  check('doorOnLink resolves every door from the side it is recorded on',
+    linkMiss.length === 0, linkMiss.slice(0, 3).map(d => `${d.id} ${d.zone_id} ${d.exit_dir}`).join(' | '));
+
+  // The keycard minter is deleted as a MECHANISM (spec §6), not merely unused —
+  // it manufactured a stray item and anchored a door id inside a player's pocket.
+  // A keycardlock still reads an AUTHORED item, which is the bearer-key pattern
+  // it was pretending to be.
+  const doorsSrc = await readFile(join(__dirname, '..', 'server', 'engine', 'commands', 'doors.js'), 'utf8');
+  const routesSrc = await readFile(join(__dirname, '..', 'server', 'api', 'routes.js'), 'utf8');
+  check('nothing mints a keycard any more',
+    !/keycard_\$\{|apiCreateKeycard/.test(doorsSrc + routesSrc));
+  const minted = await query("SELECT count(*)::int AS n FROM items WHERE id LIKE 'keycard\\_%'");
+  check('no auto-minted keycard survives in the catalog', minted.rows[0].n === 0, `${minted.rows[0].n} found`);
 }
 
 // LAW: no NPC may be homed in a PLAYER-OWNED apartment (the "someone's in Akerson's

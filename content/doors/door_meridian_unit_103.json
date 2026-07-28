@@ -1,4 +1,5 @@
 {
+  "connection_id": "conn_meridian_unit_103_north_s3ud",
   "door_type": "basic",
   "exit_dir": "north",
   "flags": {},
@@ -16,6 +17,6 @@
       "difficulty": 5
     }
   },
-  "target_zone": null,
+  "target_zone": "zone_meridian_floor_1",
   "zone_id": "zone_meridian_unit_103"
 }

@@ -36,7 +36,8 @@ const world = {
   corpses: new Map(),
   spawnTimers: new Map(),
   apartments: new Map(), // zoneId -> apartment row
-  doors: new Map(),
+  doors: new Map(),      // id -> door row; ONE fixture per connection (see getDoorForEdge)
+  connections: new Map(),// id -> connections row (authored links; anchors every door)
   orgs: new Map(),       // + orgMembers / zoneControl / orgAssets / orgVentures
   maps: new Map(),       // mapId -> maps row (parent_zone_id links interior to overworld tile)
   furniture: new Map(),  // id -> furniture row (write funnel keeps it in sync; DB stays SoT)
@@ -44,6 +45,13 @@ const world = {
   transientZones: new Set(), // synthetic non-DB zones injected at runtime
 };
 ```
+
+**Doors resolve through `doorOnLink(fromId, direction, toId)` / `getDoorForEdge(fromId, toId)` in
+`world.js` — never by scanning `(zone_id, exit_dir)` yourself.** A door is a fixture on an authored
+connection, so a link has exactly one and both of its endpoints find the same one; the near-then-far
+fallback that used to be written out at every call site is inside those two functions now, kept only
+for transient zones, which have no connection rows by construction. See
+[map-pipeline-spec §6.3](proposals/map-pipeline-spec.md).
 
 Several of these Maps are read tiers with a **mandatory write funnel** — a raw `UPDATE furniture`/`UPDATE npcs` silently desyncs them. See [architecture.md → Read Tiers](architecture.md#read-tiers-where-data-lives-at-runtime).
 

@@ -1,4 +1,5 @@
 {
+  "connection_id": "conn_meridian_floor_6_up_08bc",
   "door_type": "basic",
   "exit_dir": "up",
   "flags": {},
@@ -11,6 +12,6 @@
   "lock_state": null,
   "name": "Roof Access Hatch",
   "tags": {},
-  "target_zone": null,
+  "target_zone": "zone_meridian_roof",
   "zone_id": "zone_meridian_floor_6"
 }

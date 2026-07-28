@@ -1,5 +1,5 @@
 import { query } from "../models/db.js";
-import { getApartment, setApartmentCache, getZone, world, setDoorCache, getPlayerMembership, moveNpcToZone, updateNpc } from "./world.js";
+import { getApartment, setApartmentCache, getZone, world, setDoorCache, getPlayerMembership, moveNpcToZone, updateNpc, getConnection } from "./world.js";
 import { findPath } from "./pathfinding.js";
 import { skillCheck, awardSkillUse } from "./skills.js";
 import { adjustCredits } from "./economy.js";
@@ -52,9 +52,13 @@ function formatGameDate(ymdStr) {
   return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
 
-// The zone(s) on the far side of a door: its pinned target if it has one (a door
-// on a direction that holds multiple exits), else every exit in its direction.
+// The zone(s) on the far side of a door. Since step 7 a door IS a fixture on a
+// connection, so its far side is the connection's other end — one fact, authored,
+// and immune to the exits lookup below drifting. The fallbacks stay for the door
+// a lint gate hasn't caught yet and for transient zones, which have no rows.
 function doorFarIds(door) {
+	const conn = door.connection_id ? getConnection(door.connection_id) : null;
+	if (conn) return [conn.a === door.zone_id ? conn.b : conn.a];
 	if (door.target_zone) return [door.target_zone];
 	return exitTargets(world.zones.get(door.zone_id), door.exit_dir);
 }

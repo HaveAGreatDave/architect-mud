@@ -1,4 +1,5 @@
 {
+  "connection_id": "conn_apt_2_north_hxr9",
   "door_type": "basic",
   "exit_dir": "north",
   "flags": {},
@@ -23,6 +24,6 @@
       }
     }
   },
-  "target_zone": null,
+  "target_zone": "zone_embassy_floor_2nd",
   "zone_id": "zone_apt_2"
 }

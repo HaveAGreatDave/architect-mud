@@ -4,9 +4,9 @@
  * memory at boot, invalidated by every writer.
  *
  * `items` is a content table (see server/models/content-registry.js) — rows only
- * change through the dev panel plus three runtime minters (keycard cutting in
- * commands/doors.js, surveillance datachips, broadcast cassettes) and their
- * reapers. THE CONTRACT: every INSERT/UPDATE against items calls reloadItem(id)
+ * change through the dev panel plus two runtime minters (surveillance datachips,
+ * broadcast cassettes) and their reapers. (Keycard cutting was the third; it was
+ * deleted as a mechanism — see map-pipeline-spec §6.) THE CONTRACT: every INSERT/UPDATE against items calls reloadItem(id)
  * (or setItemCache with the full row), and every DELETE calls deleteItemCache(id)
  * — grep the write surface before adding a new writer that skips this.
  *

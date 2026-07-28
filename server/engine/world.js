@@ -29,6 +29,7 @@ const world = {
   regions: new Map(),    // regionId -> regions row (spatial world-map places; member zones carry flags.region_id)
   transientZones: new Set(), // ids of synthetic (non-DB) zones injected at runtime — see registerTransientZone
   render: new Map(),     // zoneId -> zone_render row (GENERATED presentation; see below)
+  connections: new Map(),// connectionId -> connections row (AUTHORED; see getDoorForEdge)
 };
 
 // Last-resort home for an NPC whose current AND home zones were both deleted
@@ -67,6 +68,7 @@ export async function initWorld() {
   computeAllZoneDanger();
   await loadApartments();
   await loadGlobalAmbients();
+  await loadConnections();
   await loadDoors();
   await loadFurniture();
   await loadOrgs();
@@ -238,10 +240,14 @@ export function frontDoorOf(facade) {
   const entryId = interior?.entry_zone_id;
   const entry = entryId ? world.zones.get(entryId) : null;
   if (!entry) return null;
+  // doorOnLink asks the connection first — a seam is ONE link and its two
+  // endpoints cannot pick the wrong end (§6.3) — then falls back to the direction
+  // scan for links no connection covers: transient zones have no rows by
+  // construction, and synthetic fixtures in tests have none either.
   const toInteriorDir = allExits(facade).find((e) => e.target === entryId)?.dir;
   const toFacadeDir = allExits(entry).find((e) => e.target === facade.id)?.dir;
-  return (toInteriorDir && getDoorForExit(facade.id, toInteriorDir, entryId))
-    || (toFacadeDir && getDoorForExit(entryId, toFacadeDir, facade.id))
+  return (toInteriorDir && doorOnLink(facade.id, toInteriorDir, entryId))
+    || (toFacadeDir && doorOnLink(entryId, toFacadeDir, facade.id))
     || null;
 }
 
@@ -563,16 +569,47 @@ async function loadApartments() {
   }
 }
 
+// ─── Connections ─────────────────────────────────────────────────────────────
+// The authored links (docs/proposals/map-pipeline-spec.md §1.4). 327 rows, boot
+// tier, and the only thing the runtime reads them for today is anchoring doors:
+// `zones.exits` is still what movement traverses (§5 has not happened).
+//
+// connByPair is the reverse index getDoorForEdge needs. Unordered, because a
+// connection is one link and "which side am I on" is the caller's question, not
+// the row's.
+const connByPair = new Map();   // "a~b" (sorted) -> connections row
+const pairKey = (x, y) => (String(x) < String(y) ? `${x}~${y}` : `${y}~${x}`);
+
+async function loadConnections() {
+  const { rows } = await query('SELECT * FROM connections').catch(() => ({ rows: [] }));
+  world.connections.clear();
+  connByPair.clear();
+  for (const c of rows) {
+    world.connections.set(c.id, c);
+    if (!c.blocked) connByPair.set(pairKey(c.a, c.b), c);
+  }
+}
+export { loadConnections };
+
+export function getConnection(id) { return world.connections.get(id) || null; }
+export function getConnectionBetween(fromId, toId) { return connByPair.get(pairKey(fromId, toId)) || null; }
+
 async function loadDoors() {
   const { rows } = await query('SELECT * FROM doors').catch(() => ({ rows: [] }));
   world.doors.clear();
+  doorByConnection.clear();
   for (const door of rows) {
     const tags = (door.tags && !Array.isArray(door.tags)) ? door.tags : {};
     const lockCount = Object.keys(tags).filter(k => k.startsWith('lock:')).length;
     if (lockCount > 1) console.warn(`[doors] ${door.id} has ${lockCount} lock tags — using first`);
-    world.doors.set(door.id, { ...door, flags: door.flags || {}, tags, is_open: door.is_open ?? 0 });
+    setDoorCache(door.id, { ...door, flags: door.flags || {}, tags, is_open: door.is_open ?? 0 });
   }
 }
+
+// connection_id -> door. ONE fixture per connection is a unique index in the
+// schema, so this is a Map and not a list — and that is the point: there is no
+// far side to forget, and no second row to drift out of step (spec §6.3).
+const doorByConnection = new Map();
 
 export function getDoorById(id) { return world.doors.get(id) || null; }
 export function getZoneDoors(zoneId) { return [...world.doors.values()].filter(d => d.zone_id === zoneId); }
@@ -585,8 +622,57 @@ export function getDoorForExit(zoneId, exitDir, targetId = null) {
   }
   return matches[0];
 }
-export function setDoorCache(id, door) { world.doors.set(id, door); }
-export function deleteDoorCache(id) { world.doors.delete(id); }
+
+/**
+ * The door on the link between two zones, and which end you are standing on.
+ * Spec §6.3 — the replacement for the `getDoorForExit(a,dir,b) || getDoorForExit(
+ * b,opp,a)` dance that was written out by hand at six call sites, differently at
+ * three of them. Direction-free on purpose: a link is a link whichever way you
+ * walk it, and the caller almost never has a direction it trusts more than the
+ * two zone ids.
+ *
+ * @returns {{ door, connection, side: 'a'|'b', near: boolean } | null}
+ *   `side` is which end of the connection `fromId` is; `near` is whether the door
+ *   row is recorded on that end (which is all `zone_id` ever meant).
+ */
+export function getDoorForEdge(fromId, toId) {
+  const connection = getConnectionBetween(fromId, toId);
+  if (!connection) return null;
+  const door = doorByConnection.get(connection.id);
+  if (!door) return null;
+  const side = connection.a === fromId ? 'a' : 'b';
+  return { door, connection, side, near: door.zone_id === fromId };
+}
+
+/**
+ * The door standing on the step from `fromId` towards `toId`. THE resolver — the
+ * near-then-far fallback below was written out by hand at six call sites
+ * (movement, describe, and four times in ai-behaviour), and three of them wrote
+ * it differently, which is the whole argument of §6.3.
+ *
+ * The connection lookup answers first and correctly. The (zone, dir) pair behind
+ * it is the compatibility path, for transient zones — which have no connection
+ * rows by construction (systems-overland-void-travel) — and for a door whose
+ * connection_id lint hasn't caught yet.
+ */
+export function doorOnLink(fromId, direction, toId = null) {
+  return (toId ? getDoorForEdge(fromId, toId)?.door : null)
+    || getDoorForExit(fromId, direction, toId)
+    || (toId && OPPOSITE[direction] ? getDoorForExit(toId, OPPOSITE[direction], fromId) : null)
+    || null;
+}
+
+export function setDoorCache(id, door) {
+  const prev = world.doors.get(id);
+  if (prev?.connection_id && doorByConnection.get(prev.connection_id)?.id === id) doorByConnection.delete(prev.connection_id);
+  world.doors.set(id, door);
+  if (door?.connection_id) doorByConnection.set(door.connection_id, door);
+}
+export function deleteDoorCache(id) {
+  const prev = world.doors.get(id);
+  if (prev?.connection_id) doorByConnection.delete(prev.connection_id);
+  world.doors.delete(id);
+}
 
 // ─── Furniture ───────────────────────────────────────────────────────────────
 // world.furniture mirrors the furniture table (id -> row) so describeZone's

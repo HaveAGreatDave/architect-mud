@@ -447,6 +447,17 @@ export const SCHEMA_SQL = `
   -- (see server/engine/exits.js). NULL = legacy single-exit door, resolves by
   -- (zone_id, exit_dir) alone.
   ALTER TABLE doors ADD COLUMN IF NOT EXISTS target_zone TEXT DEFAULT NULL;
+
+  -- The connection this door is a fixture ON (map-pipeline-spec §6, §11 step 7).
+  -- ONE FIXTURE PER CONNECTION: a door used to be identified by (zone_id,
+  -- exit_dir), which is a coordinate, so 56 seams carried two rows describing one
+  -- door — two lock_states, two hp pools, two tag sets, free to drift into "open
+  -- in look, locked on move". Anchoring to an authored id that nothing regenerates
+  -- is the same P1 fix the connection ids exist for, and it is what lets
+  -- getDoorForEdge() answer "which door, and which side am I on" in one lookup.
+  ALTER TABLE doors ADD COLUMN IF NOT EXISTS connection_id TEXT REFERENCES connections(id) ON DELETE CASCADE;
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_doors_connection ON doors(connection_id);
+
   ALTER TABLE npcs ADD COLUMN IF NOT EXISTS wander_zones JSONB DEFAULT '[]';
 
   -- NPC ideologies folded into the unified orgs table (is_npc=1) — see the orgs

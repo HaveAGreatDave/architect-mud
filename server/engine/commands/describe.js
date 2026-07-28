@@ -5,7 +5,7 @@ import {
 	getZoneNpcs,
 	getZoneCorpses,
 	getZonePlayers,
-	getDoorForExit,
+	doorOnLink as linkDoor,
 	frontDoorOf,
 	isEnterableFacade,
 	facadeStreetTile,
@@ -53,9 +53,12 @@ async function doorLockAttr(door, player) {
 // you on the step. A hallway of locked apartment doors described itself as four empty
 // doorways. If it blocks the move it belongs in the description.
 function doorOnLink(fromId, direction, targetId) {
+	// The link itself resolves in world.js (one implementation, §6.3). The extra
+	// hop is a DESCRIPTION rule and stays here: a building's front door sits on the
+	// facade↔interior seam, one step further in than the link you're looking along,
+	// and you can see it from the street.
 	return (
-		getDoorForExit(fromId, direction, targetId) ||
-		(targetId ? getDoorForExit(targetId, OPPOSITE[direction], fromId) : null) ||
+		linkDoor(fromId, direction, targetId) ||
 		(targetId ? frontDoorOf(getZone(targetId)) : null)
 	);
 }

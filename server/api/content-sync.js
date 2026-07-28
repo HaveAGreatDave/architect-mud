@@ -90,7 +90,7 @@ const URLSEG_TABLE = {
 // Dialogue/behaviour graph PATCHes (/<seg>/:id/graph) mutate a content column.
 const GRAPH_TABLE = { enemies: 'enemies', npcs: 'npcs', broadcasts: 'media_broadcasts' };
 // Sub-paths under a content segment that are runtime ops, not content writes.
-const RUNTIME_SUB = new Set(['restock', 'place-safe', 'safe-status', 'live-enemies', 'broadcast-schedule', 'keycard', 'rooms', 'doors']);
+const RUNTIME_SUB = new Set(['restock', 'place-safe', 'safe-status', 'live-enemies', 'broadcast-schedule', 'rooms', 'doors']);
 
 // Resolve a write request to the single content entity it touched, or null.
 function contentTargetFor(path, method, result) {
@@ -112,7 +112,7 @@ function contentTargetFor(path, method, result) {
 
   const table = URLSEG_TABLE[seg0];
   if (!table) return null;
-  if (segs.length >= 3 && RUNTIME_SUB.has(segs[2])) return null; // e.g. /doors/:id/keycard
+  if (segs.length >= 3 && RUNTIME_SUB.has(segs[2])) return null; // e.g. /npcs/:id/restock
   if (method === 'POST' && segs.length === 1) return idFromResult(table);
   if ((method === 'PUT' || method === 'DELETE') && segs.length === 2) return { table, id: segs[1] };
   return null;

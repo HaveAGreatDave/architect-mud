@@ -1,6 +1,7 @@
 {
+  "connection_id": "conn_clone_facility_bathroom_east_dglm",
   "door_type": "basic",
-  "exit_dir": "west",
+  "exit_dir": "east",
   "flags": {},
   "hololock_difficulty": 5,
   "hp": 1000,
@@ -20,6 +21,6 @@
       "privacySide": "zone_clone_facility_bathroom"
     }
   },
-  "target_zone": null,
+  "target_zone": "zone_start",
   "zone_id": "zone_clone_facility_bathroom"
 }

@@ -1,4 +1,5 @@
 {
+  "connection_id": "conn_chemsupply_interior_west_ijbk",
   "door_type": "basic",
   "exit_dir": "west",
   "flags": {},

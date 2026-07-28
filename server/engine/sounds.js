@@ -1,4 +1,4 @@
-import { world, getDoorForExit } from './world.js';
+import { world, doorOnLink } from './world.js';
 import { allExits } from './exits.js';
 
 // Minimum intensity for a sound to be heard at a given distance.
@@ -14,7 +14,7 @@ const DOOR_MUFFLE_HOPS = 4;
 const OPPOSITE = { north:'south', south:'north', east:'west', west:'east', up:'down', down:'up', in:'out', out:'in' };
 
 function edgeMuffle(zoneId, dir, neighborId) {
-  const door = getDoorForExit(zoneId, dir, neighborId) || getDoorForExit(neighborId, OPPOSITE[dir], zoneId);
+  const door = doorOnLink(zoneId, dir, neighborId);
   return door && door.hp > 0 && !door.is_open ? DOOR_MUFFLE_HOPS : 0;
 }
 

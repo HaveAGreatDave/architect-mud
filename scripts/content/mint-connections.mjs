@@ -39,6 +39,7 @@ const readDir = (t) => {
 const zones = readDir('zones');
 const doors = readDir('doors');
 const existing = readDir('connections');
+const zoneById = new Map(zones.map(z => [z.id, z]));
 
 // Authored truth: every directed edge zones.exits declares.
 const authored = new Set();
@@ -98,15 +99,42 @@ for (const k of walls) {
   emit(a, dir, b, { blocked: true, lockable: false });
 }
 
+// DOOR SEAMS (§6/§11 step 7). A step with a door on it is not contiguous walkable
+// ground — it is the most literal case of "there is something to say" §1.4 has. It
+// also has to be one: a lock is keyed by an authored connection id, and 48 door
+// rows sat on pure geometry with no id to be keyed BY. Minting these makes every
+// fixture in the world anchorable, and costs nothing at the projection — a
+// connection over a step geometry already projects claims that step and re-emits
+// exactly the same edge, so the agreement gate does not move.
+const existingSeam = new Set();
+for (const c of [...existing, ...files]) {
+  if (c.blocked) continue;
+  existingSeam.add([c.a, c.b].sort().join('~'));
+}
+for (const d of doors) {
+  const targets = d.target_zone ? [d.target_zone]
+    : (() => { const v = zoneById.get(d.zone_id)?.exits?.[d.exit_dir]; return v ? (Array.isArray(v) ? v : [v]) : []; })();
+  for (const t of targets) {
+    const pair = [d.zone_id, t].sort().join('~');
+    if (existingSeam.has(pair)) continue;
+    existingSeam.add(pair);
+    // Author it from the door's own side, so `a` is the side the fixture is
+    // recorded on and side_a/side_b (§6.1) will line up with it later.
+    emit(d.zone_id, d.exit_dir, t, { lockable: true });
+  }
+}
+
 const ids = new Set(files.map(f => f.id));
 if (ids.size !== files.length) throw new Error(`id collision: ${files.length} files, ${ids.size} distinct ids`);
 
 const oneWays = files.filter(f => f.one_way && !f.blocked).length;
 const blocks = files.filter(f => f.blocked).length;
+const doorOnly = files.length - blocks - new Set(gaps.map(k => { const [a, , b] = k.split('|'); return [a, b].sort().join('~'); })).size;
 console.log(`zones ${zones.length}  authored edges ${authored.size}  projected ${projected.size}`);
-console.log(`gaps ${gaps.length} directed → ${files.length - blocks} link files (${oneWays} one-way)`);
+console.log(`gaps ${gaps.length} directed → ${files.length - blocks - doorOnly} link files (${oneWays} one-way)`);
 console.log(`walls ${walls.length} directed → ${blocks} blocked files`);
-console.log(`TOTAL ${files.length} connection files`);
+console.log(`door seams on bare geometry → ${doorOnly} more link files`);
+console.log(`TOTAL ${files.length} connection files (${existing.length} already exist)`);
 
 if (!WRITE) { console.log('\n(dry run — pass --write to create the files)'); process.exit(0); }
 

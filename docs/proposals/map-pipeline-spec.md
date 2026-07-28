@@ -501,6 +501,33 @@ promise.
 
 ## 6. Locks
 
+> **PART BUILT — §11 step 7.** The keycard minter is **deleted** and every door is
+> now **one fixture on an authored connection**. `connection_locks` and the four
+> typed principals of §6.2 are **NOT built**, deliberately — see the note at the end
+> of §6.2 for the measurement that says wait.
+>
+> What shipped, and what it found:
+>
+> - **56 of 117 door seams carried TWO rows**, one authored from each side
+>   (`…_in` and `…_out`) — 112 rows doing the work of 56. All 56 pairs are
+>   field-for-field identical *today*, but nothing held them that way: two
+>   `lock_state`s, two `hp` pools, two tag sets, one bash away from "a door open in
+>   `look` and locked on move" (§12). Collapsed to one row each.
+> - **48 doors sat on bare geometry** with no authored id to be keyed by, so
+>   `connection_locks` could not have locked a quarter of the world's doors.
+>   `mint-connections.mjs` gained a pass for door seams — a step with a door on it
+>   is the most literal case of §1.4's "something to say" — which is 44 more files
+>   and moves the projection not at all.
+> - **`door_7`, the clone-facility bathroom's privacy bolt, was inert.** Its
+>   `exit_dir` was `west`, authored from the *other* room's point of view; the
+>   bathroom's only exit is `east`. So the tutorial's one promise of privacy
+>   resolved to nothing. Anchoring found it because a door that sits on no
+>   connection cannot be anchored.
+> - `getDoorForEdge(from, to)` and `doorOnLink(from, dir, to)` land in `world.js`,
+>   replacing the near-then-far dance that had been written out by hand at **six**
+>   call sites — movement, describe, sounds, the door verbs, examine, and four
+>   times over in ai-behaviour — three of them differently.
+
 The auto-minted `keycard_<door.id>` item **is deleted as a mechanism**. It simultaneously
 manufactures stray items and anchors a door id to a player's pocket, and the prod census says it
 costs nothing to remove: **0 keycard items in the catalog, 0 held, 0 already orphaned**, across
@@ -561,6 +588,31 @@ all four write sites, so it has a funnel-able writer set.
 **`corp:`/`org:` is the reason this design does not rot.** A corp HQ is one line, not thirty, and
 roster churn never touches the lock — which is exactly what a naive list-of-player-ids would get
 wrong.
+
+> **NOT BUILT, and here is the measurement.** A census of the six shipped lock
+> types says the typed-principal list is a **new principal kind, not a replacement
+> for `authFn`** — and that two of its four principals have no users at all:
+>
+> | lock type | doors | what it actually asks | an access list? |
+> |---|---:|---|---|
+> | `hololock` | 42 | does this player control the apartment on either side | **no** — live ownership |
+> | `privacylock` | 6 | is this player standing on the bolt's side | **no** — a side, not a credential |
+> | `longwatch` | 3 | is rep ≥ 500 with the Long Watch | yes — `org:` standing |
+> | `viplock` | 1 | is the player's VIP pass still in date | **no** — a timer |
+> | `yachtlock` | 1 | is this player invited, or the owner | partly |
+> | `keycardlock` | 1 | does this player hold `item_voltage_vip_band` | yes — `item:` |
+>
+> **`player:` and `corp:` — the two the design argues hardest for — have zero call
+> sites in shipped content.** There is no corp-HQ door and no per-player door.
+> Building `connection_locks` now would stand a second lock system beside a working
+> one, with two rows in it, to serve principals nothing asks for: fear #1 and fear
+> #2 in the same commit.
+>
+> What step 7 did instead is the *precondition*: the lock row is keyed by
+> `connection_id`, and until now 48 doors had no connection id to be keyed by and 56
+> seams had two rows to disagree about which one the lock was on. Build the table
+> when a door wants a roster — the anchor it will hang from is already correct, and
+> `lockable` is already `true` on the 126 seams that carry a fixture.
 
 ### 6.3 `getDoorForEdge(from, to)`
 
@@ -1042,7 +1094,13 @@ point of the migration shape (redesign §14) is no flag day.
    238. **§5 — deleting `exits` from 5,788 files and merging `zone_edges` at boot — is
    deliberately NOT part of this step**, and should not be until something other than a test
    reads the table.
-7. **Locks** (§6) once connections carry stable ids.
+7. **Locks** (§6) once connections carry stable ids. — **PART BUILT.** The keycard minter is
+   gone and every door is one fixture on an authored connection, which is what §6 needs before
+   a lock can be keyed by anything durable. **`connection_locks` and the typed principals are
+   deliberately not built**: a census of the six shipped lock types (see §6.2) says four of them
+   ask questions an access list cannot express, and `player:`/`corp:` — the two the design
+   argues hardest for — have zero call sites in shipped content. Build the table when a door
+   wants a roster.
 8. **The Studio**, incrementally, against whatever of the above has landed.
 9. **The id rename** (§4, redesign §7.6) — last, alone, and rehearsed against a prod snapshot on
    a Neon predeploy branch.
@@ -1057,7 +1115,10 @@ the next audit rule that *cannot* be written is understood as a win:
 - **A renderer inventing a marker** — there is no code path from a name to a drawn glyph outside
   derive.
 - **Two renderers disagreeing** — one `spec`, one channel, one regress assertion.
-- **A door open in `look` and locked on move** — one fixture per connection, no far side.
+- **A door open in `look` and locked on move** — one fixture per connection, enforced by a unique
+  index and a lint gate, so the 56 seams that carried two rows cannot come back.
+- **A door that answers to one side and not the other** — `doorOnLink` asks the connection by its
+  two endpoints, so there is no near-side to check first and no far-side to forget.
 - **A lock's grant evaporating on a rebuild** — the lock is keyed by an authored id that nothing
   regenerates.
 - **A stray auto-minted keycard** — the minter is gone; `item:` keeps the bearer-key pattern.
