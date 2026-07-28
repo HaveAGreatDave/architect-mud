@@ -5,7 +5,7 @@
   "days": 64,
   "duration_override": 10800,
   "id": "26ae5f4f-27b7-4921-8a4d-6e177be8a3f3",
-  "priority": 0,
+  "priority": 1,
   "slot_type": "broadcast",
   "start_time": 43200
 }
