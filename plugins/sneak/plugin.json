@@ -1,0 +1,7 @@
+{
+  "name": "sneak",
+  "version": "1.0.0",
+  "description": "Sneaking and knocking people out. `sneak` drops you into the sneaking posture and everyone in the room rolls to notice you — creeping about is itself suspicious. `knockout` requires sneaking and puts an unaware target out cold; failure makes an NPC bolt and shout, and an enemy turn on you. Combat itself is untouched and remains to the death.",
+  "hooks": [],
+  "commands": ["sneak", "knockout"]
+}

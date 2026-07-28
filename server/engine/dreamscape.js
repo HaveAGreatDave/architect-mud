@@ -337,6 +337,9 @@ export const isDreamZone = (zoneId) => typeof zoneId === 'string' && zoneId.star
  */
 export function bodyTell(player, roomId) {
   if (!player) return null;
+  // Out cold wins over everything: it is the most urgent thing about them, and
+  // the only one of the three that somebody else did to them.
+  if (player._koUntil > Date.now()) return 'out cold';
   if (player.sleeping) return 'sleeping';
   if (isDreamZone(player.current_zone) && player.current_zone !== roomId) return 'glassy-eyed';
   return null;

@@ -192,6 +192,13 @@ export async function handleCommand(input, player, broadcast) {
   // to start. The quests plugin uses this to interrupt an in-progress timed tile task.
   emit('player.command', { player, cmd });
 
+  // OUT COLD. Unlike sleep there is no allowlist and no verb to end it: somebody
+  // else decided this and only time undoes it. Checked before the sleep gate
+  // because a sleeper who gets knocked out is out cold, not asleep.
+  if (player._koUntil > Date.now()) {
+    return { type: 'error', message: 'You are not conscious. Nothing you decide reaches your hands.' };
+  }
+
   // ── Inside a dreamscape, your own commands do NOT wake you ─────────────────
   //
   // The sleep gate below wakes you on ANY command, which made the walkable dream

@@ -1,5 +1,6 @@
 import { world, tickSpawns, getRandomAmbient, getWeatherAmbient, getLivePlayer, getInterruptLoudness, registerInterrupt, createCorpse, removeCorpse, tryBattleCry, setApartmentCache, hasActivePlayers, resolveLanding, getZone, reconcileZoneMembership } from './world.js';
 import { wakeFromDream } from './dreamscape.js';
+import { tickUnconscious, knockOut, KO_MS } from './unconscious.js';
 import { getZoneRadiation } from './zone-tags.js';
 import { randomUUID } from 'crypto';
 import { propagateSound } from './sounds.js';
@@ -216,7 +217,21 @@ async function tick() {
           target.hp = Math.max(0, target.hp - result.damage);
           target._resDirty = true; // coalesced into the 1s flushDirtyResources write
           broadcastFn(null, { type:'combat_incoming', message:result.message, player_update:{ hp:target.hp, hp_max:target.hp_max } }, null, target.id);
-          if (target.hp <= 0) { await handlePlayerDeath(target, enemy); return; }
+          if (target.hp <= 0) {
+            // TAKEN ALIVE. A police manhunt unit (`_takesAlive`, set by
+            // surveillance at ≥4★) beats you unconscious instead of killing you.
+            // The only place in the engine where hp reaching zero is not death,
+            // and it is deliberately not general: an ordinary enemy kills you.
+            if (enemy._takesAlive) {
+              knockOut(target, { ms: KO_MS, by: enemy });
+              broadcastFn(target.current_zone, { type: 'zone_event', message: `${enemy.name} puts ${target.handle} on the ground and cuffs them there.`, refresh: true }, target.id);
+              broadcastFn(null, { type: 'combat', message: `<span class="msg-combat">The world goes sideways. Somebody is kneeling on your back.</span>` }, null, target.id);
+              emit('police.tookAlive', { player: target, officer: enemy });
+              return;
+            }
+            await handlePlayerDeath(target, enemy);
+            return;
+          }
 
           // Retaliation: start attacking the attacker only if not already engaged.
           // The player auto-attack loop in tick() sustains combat from here on.
@@ -229,6 +244,13 @@ async function tick() {
       }).catch(() => {});
     }
   }
+
+  // Anyone whose knockout has run out comes round here, rather than on a timer
+  // per victim: this walk already exists, and a KO is far too short-lived to
+  // justify timer bookkeeping across logout, death and reconnect.
+  tickUnconscious(world.players.values(), (b, msg) =>
+    broadcastFn(null, { type: 'output', message: `<span class="msg-system">${msg}</span>` }, null, b.id));
+  tickUnconscious(world.npcs.values(), null);
 
   // Player auto-attack: sustain combat against combatTargetId each tick
   for (const [playerId, player] of world.players) {

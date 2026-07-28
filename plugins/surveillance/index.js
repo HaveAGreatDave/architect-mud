@@ -1810,6 +1810,24 @@ on('item.given', async ({ actor, item }) => {
 on('player.drugUsed', ({ player, illegal, zoneId }) => {
   if (player?.id && illegal) raiseCrime(player, 'drug_use', zoneId || player.current_zone, player.handle);
 });
+// Coshing somebody. Charged on the ATTEMPT, not the result — a camera does not
+// care whether you connected, and a missed swing at the back of a head is the
+// same footage. Camera-witnessed like drug_use: creeping up on somebody in an
+// unlit alley genuinely should not raise stars, and that makes lens coverage
+// something worth casing a place for.
+on('knockout.attempted', ({ player, zoneId }) => {
+  if (player?.id) raiseCrime(player, 'assault_knockout', zoneId || player.current_zone, player.handle);
+});
+// EXECUTION. Killing somebody who was already out cold is not a fight — there was
+// nothing they could do about it. Charged far heavier than a killing in combat,
+// which is what makes leaving a body breathing the cheap option and finishing it
+// a decision with a price. Fires off the ordinary death path, so it costs the
+// knockout system nothing to enforce.
+on('player.death', ({ player, killer, cause }) => {
+  if (!killer?.id || !player) return;
+  if (!player._koUntil || player._koUntil <= Date.now()) return;
+  raiseCrime(killer, 'execution', player.current_zone, killer.handle, true);
+});
 // Public intoxication: not the ACT of using (that's drug_use, camera-only above)
 // but the STATE — walking the street obviously off your head. Anyone can phone it
 // in, so it's witness 'any'. Throttled per player: staying out there wrecked is one
@@ -2237,8 +2255,17 @@ async function searchAndPursue(suspectId, s) {
         e.aggroedAt = null;
         startApprehension(suspect, s, e).catch(err => console.error('[surveillance] apprehend error:', err.message));
       } else {
-        e.targetId = suspectId;   // full manhunt (≥4★): attack on sight.
+        // FULL MANHUNT (≥4★). They still come at you hard — but a manhunt unit
+        // that gets you down takes you ALIVE rather than leaving a corpse.
+        //
+        // This used to be the one route that skipped jail entirely: run maximum
+        // heat and the police simply killed you, so Precinct 9, the evidence
+        // locker and the hackable cell door were only ever reachable at LOW heat.
+        // Getting battered unconscious and waking up booked is both the better
+        // story and the harsher outcome — you keep the sentence and the fine.
+        e.targetId = suspectId;
         if (!e.aggroedAt) e.aggroedAt = Date.now();
+        e._takesAlive = true;
       }
     }
   }

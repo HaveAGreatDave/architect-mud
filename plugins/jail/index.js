@@ -461,6 +461,16 @@ async function finishArrest(playerId) {
 
 on('player.logout', ({ id }) => clearConceal(id));
 
+// TAKEN ALIVE at 4-5 stars. The manhunt unit beat them unconscious rather than
+// killing them (gameLoop, via enemy._takesAlive), so no player.death fires and
+// the respawn hook never runs -- book them here instead. This is what stops
+// maximum heat being the one way to skip jail entirely.
+on('police.tookAlive', ({ player }) => {
+  if (!player?.id) return;
+  if (getZone(player.current_zone)?.flags?.lawless) return;   // no precinct out here
+  bookIntoCell(player, { teleport: true }).catch(e => console.error('[jail] takedown booking:', e.message));
+});
+
 // Cross-plugin seam: the surveillance apprehend engine books a *live* suspect (no
 // death) once they submit to a ≤3.5★ arrest. If they're carrying open palmable
 // contraband, the scan-sweep palm runs first; booking follows the client reply.
