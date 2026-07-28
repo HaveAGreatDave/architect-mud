@@ -1,0 +1,16 @@
+{
+  "description": "A tray of unrooted salvia cuttings. Dry and cure them into the smokable leaf. Raw material — contraband; carrying it is manufacturing.",
+  "flags": {
+    "cook_tier": 1,
+    "raw_of": "drug_salvia"
+  },
+  "id": "item_raw_salvia",
+  "name": "salvia cuttings",
+  "tags": {
+    "contraband": true,
+    "raw_drug": true
+  },
+  "type": "chemical",
+  "value": 18,
+  "weight": 2
+}

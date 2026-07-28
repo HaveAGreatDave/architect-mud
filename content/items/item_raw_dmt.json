@@ -1,0 +1,16 @@
+{
+  "description": "Shredded root bark, deep purple at the core. Pull and recrystallise the resin from it. Raw material — contraband; carrying it is manufacturing.",
+  "flags": {
+    "cook_tier": 3,
+    "raw_of": "drug_dmt"
+  },
+  "id": "item_raw_dmt",
+  "name": "mimosa root bark",
+  "tags": {
+    "contraband": true,
+    "raw_drug": true
+  },
+  "type": "chemical",
+  "value": 40,
+  "weight": 2
+}

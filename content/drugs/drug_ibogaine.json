@@ -1,0 +1,67 @@
+{
+  "addiction_chance": 0.02,
+  "description": "Bitter yellow root bark. A day and a night of being shown your own life, and a heart that may not agree to it.",
+  "duration_seconds": 2400,
+  "effects": {
+    "comeon_message": "<span class=\"msg-system\">Bitter enough to close your throat. Your pulse picks up, then does something you do not like.</span>",
+    "hallucination": {
+      "mode": "dreamzone",
+      "duration_seconds": 1800,
+      "intensity": 0.9,
+      "palette": "orange",
+      "events": [
+        {
+          "atSec": 80,
+          "text": "[trip]A dry buzzing takes you over, head to foot, and will not be shaken off.[/trip]"
+        },
+        {
+          "atSec": 240,
+          "text": "[trip]It begins at the beginning, which you did not expect and cannot look away from.[/trip]"
+        },
+        {
+          "atSec": 520,
+          "text": "[trip]You are shown something you did and the room waits for you to say something about it.[/trip]"
+        },
+        {
+          "atSec": 900,
+          "text": "[trip]A long, patient accounting. Nobody here is angry with you, which is worse.[/trip]"
+        },
+        {
+          "atSec": 1300,
+          "text": "[trip]Your heart does something irregular and the visions do not pause for it.[/trip]"
+        },
+        {
+          "atSec": 1650,
+          "text": "[trip]It finishes. It does not offer a conclusion. You are simply let go.[/trip]"
+        }
+      ]
+    },
+    "instant": {
+      "sanity": -14
+    },
+    "onset_message": "<span class=\"msg-system\">A dry electrical buzzing takes your whole body, and then your life begins playing back to you in order, with notes.</span>",
+    "onset_seconds": 90,
+    "overdose": {
+      "lethal": true,
+      "message": "Your heart finds a rhythm it has never tried before, holds it a moment too long, and stops looking for the old one."
+    },
+    "take_line": "You chew the bitter {name} bark down and swallow.",
+    "tolerance": {
+      "gain_per_dose": 0.1,
+      "max_reduction": 0.4
+    },
+    "withdrawal": {
+      "message": "You keep waiting for it to finish telling you the thing. It stopped a while ago.",
+      "mods": {
+        "stat_brains": -2
+      },
+      "onset_seconds": 1800
+    }
+  },
+  "flags": {},
+  "id": "drug_ibogaine",
+  "item_id": "item_ibogaine",
+  "name": "ibogaine",
+  "overdose_threshold": 2,
+  "withdrawal_effects": {}
+}

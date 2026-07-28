@@ -1,0 +1,12 @@
+{
+  "description": "Dried leaf, faintly minty, that removes you from the category of \"person\" for about a minute.",
+  "flags": {},
+  "id": "item_salvia",
+  "name": "salvia",
+  "tags": {
+    "drug": true
+  },
+  "type": "consumable",
+  "value": 60,
+  "weight": 20
+}

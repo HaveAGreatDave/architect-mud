@@ -1,0 +1,12 @@
+{
+  "description": "Bitter yellow root bark. A day and a night of being shown your own life, and a heart that may not agree to it.",
+  "flags": {},
+  "id": "item_ibogaine",
+  "name": "ibogaine",
+  "tags": {
+    "drug": true
+  },
+  "type": "consumable",
+  "value": 400,
+  "weight": 20
+}

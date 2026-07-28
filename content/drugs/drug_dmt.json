@@ -1,0 +1,60 @@
+{
+  "addiction_chance": 0.01,
+  "description": "A waxy white-orange resin. Fifteen minutes, and you will be told something you cannot bring back.",
+  "duration_seconds": 150,
+  "effects": {
+    "comeon_message": "<span class=\"msg-system\">The smoke is foul and the room is already peeling.</span>",
+    "hallucination": {
+      "mode": "dreamzone",
+      "duration_seconds": 120,
+      "intensity": 1,
+      "palette": "magenta",
+      "events": [
+        {
+          "atSec": 6,
+          "text": "[trip]Geometry arrives first, moving fast and with obvious intent.[/trip]"
+        },
+        {
+          "atSec": 18,
+          "text": "[trip]You break through. There is a space here and it has been arranged.[/trip]"
+        },
+        {
+          "atSec": 36,
+          "text": "[trip]Something is delighted to see you and is showing you things very quickly.[/trip]"
+        },
+        {
+          "atSec": 60,
+          "text": "[trip]You are being told something enormous. You will not be permitted to keep it.[/trip]"
+        },
+        {
+          "atSec": 90,
+          "text": "[trip]They see you off warmly, the way hosts do.[/trip]"
+        },
+        {
+          "atSec": 112,
+          "text": "[trip]The room reassembles. You have been gone twelve minutes and several years.[/trip]"
+        }
+      ]
+    },
+    "instant": {
+      "sanity": -8
+    },
+    "onset_message": "<span class=\"msg-system\">The wall opens like a curtain drawn by professionals, and on the other side something turns and says: oh, it is you.</span>",
+    "onset_seconds": 3,
+    "overdose": {
+      "lethal": false,
+      "message": "You go too far in and are shown too much at once. You come back shaking, intact, and unable to say a word about it."
+    },
+    "take_line": "You load the {name} onto the screen and take it all in one long pull.",
+    "tolerance": {
+      "gain_per_dose": 0,
+      "max_reduction": 0
+    }
+  },
+  "flags": {},
+  "id": "drug_dmt",
+  "item_id": "item_dmt",
+  "name": "DMT",
+  "overdose_threshold": 6,
+  "withdrawal_effects": {}
+}

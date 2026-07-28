@@ -1,0 +1,16 @@
+{
+  "description": "Coarse yellow root bark, unbearably bitter. Extract and standardise the alkaloid — dosing this one by eye kills people. Raw material — contraband; carrying it is manufacturing.",
+  "flags": {
+    "cook_tier": 5,
+    "raw_of": "drug_ibogaine"
+  },
+  "id": "item_raw_ibogaine",
+  "name": "iboga root bark",
+  "tags": {
+    "contraband": true,
+    "raw_drug": true
+  },
+  "type": "chemical",
+  "value": 90,
+  "weight": 2
+}

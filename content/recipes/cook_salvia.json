@@ -1,0 +1,26 @@
+{
+  "base_difficulty": 4,
+  "base_output": {
+    "item_id": "item_salvia",
+    "quantity": 1
+  },
+  "category": "synthesis",
+  "description": "Cook Salvia from salvia cuttings + industrial solvent.",
+  "id": "cook_salvia",
+  "ingredients": [
+    {
+      "item_id": "item_raw_salvia",
+      "quantity": 1
+    },
+    {
+      "item_id": "item_reagent_solvent",
+      "quantity": 1
+    }
+  ],
+  "name": "Cook Salvia",
+  "requires_station": "chem_lab",
+  "skill_id": "chemistry",
+  "skill_req": {
+    "chemistry": 1
+  }
+}

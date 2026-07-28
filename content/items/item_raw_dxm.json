@@ -1,0 +1,15 @@
+{
+  "description": "A shrink-wrapped case of own-brand cough syrup. Reduce it down to something worth drinking. Raw material — legal to hold, which is most of its appeal.",
+  "flags": {
+    "cook_tier": 2,
+    "raw_of": "drug_dxm"
+  },
+  "id": "item_raw_dxm",
+  "name": "case of cough syrup",
+  "tags": {
+    "raw_drug": true
+  },
+  "type": "chemical",
+  "value": 12,
+  "weight": 2
+}
