@@ -18,6 +18,12 @@
       "runtimeExecutable": "node",
       "runtimeArgs": ["tools/zone-planner/serve.mjs", "5178"],
       "port": 5178
+    },
+    {
+      "name": "studio",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["tools/studio/serve.mjs", "5180"],
+      "port": 5180
     }
   ]
 }

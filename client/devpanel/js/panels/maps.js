@@ -1925,7 +1925,18 @@ function renderMapOverview() {
   </div>`;
 
   // Toolbar
-  let html = subTabHtml;
+  // The Studio (npm run studio) is the file-authoring map tool — it edits
+  // content/ directly, so what it draws is what ships. This panel edits the LIVE
+  // DATABASE and the save-hook mirrors each edit into a file afterwards. Both
+  // work; what does not work is assuming they see each other. Say so, because
+  // "I painted in the Studio and this map is stale" is the predictable failure
+  // (map-pipeline-spec §10).
+  let html = `<div style="margin:0 0 8px;padding:6px 10px;border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:3px;color:var(--text-dim);font-size:11px;line-height:1.5">
+      <strong style="color:var(--text)">This map is the live database.</strong>
+      The Studio (<code>npm run studio</code>) edits <code>content/</code> files and previews with the build's own derive pass.
+      Paint there and this panel stays stale until <code>npm run content:import</code>; paint here and the file is written for you.
+      Don't run both on the same tiles in one sitting.
+    </div>` + subTabHtml;
   if (mapViewTab === 'interior' && !mapSelectedInteriorId) {
     html += `<div style="padding:32px 24px;color:var(--text-dim);font-size:13px">
       No interior maps yet.<br><br>

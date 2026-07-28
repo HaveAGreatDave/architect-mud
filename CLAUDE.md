@@ -43,6 +43,7 @@ Entries marked **(as built)** describe what actually ships and outrank design in
 - [docs/systems-terrain.md](docs/systems-terrain.md) — `flags.terrain` ground-surface SSOT + the dev-panel Terrain Painter; drives minimap/tablet/pacing, **not passability, not flight** (as built)
 - [docs/systems-overland-void-travel.md](docs/systems-overland-void-travel.md) — transient (non-DB) waste rooms off a region's rim: the `movement.edge` seam + `registerTransientZone`. Read before touching transient zones or the map rim (as built)
 - [docs/reference/world-rendering.md](docs/reference/world-rendering.md) — how a DB tile becomes a building out the cockpit; palettes, decoration helpers, the **three separate "tower" renderers**. Read before "improving a model"
+- [tools/studio/README.md](tools/studio/README.md) — **the Studio** (`npm run studio`): the file-authoring map editor. Edits `content/` with no DB in the process, draws from the build's derive pass, generates its forms from the field catalog
 - [docs/devpanel-js.md](docs/devpanel-js.md) — what each script in `client/devpanel/js/` holds, and the load-order contract
 
 **Systems (as built)**

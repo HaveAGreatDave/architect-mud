@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Studio — Architect MUD</title>
+<style>
+  :root {
+    --bg: #0e0f12; --panel: #16181d; --panel2: #1d2027; --line: #2a2e37;
+    --text: #d5d8de; --dim: #838a97; --accent: #6ee7d0; --warn: #e7b96e; --bad: #e77a6e;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg); color: var(--text); display: grid; grid-template-columns: 190px 1fr 330px;
+    font: 12px/1.45 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  aside, section { overflow-y: auto; }
+  aside { background: var(--panel); border-right: 1px solid var(--line); padding: 10px; }
+  section#inspector { background: var(--panel); border-left: 1px solid var(--line); padding: 10px; }
+  main { position: relative; overflow: hidden; }
+  canvas { display: block; cursor: crosshair; }
+  h2 { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim);
+       margin: 14px 0 6px; font-weight: 600; }
+  h2:first-child { margin-top: 0; }
+  .row { display: flex; gap: 5px; align-items: center; }
+  button { font: inherit; background: var(--panel2); color: var(--text); border: 1px solid var(--line);
+           border-radius: 3px; padding: 4px 8px; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.on { background: var(--accent); color: #0e0f12; border-color: var(--accent); }
+  .maplist button { display: block; width: 100%; text-align: left; margin-bottom: 2px; }
+  .maplist .n { color: var(--dim); float: right; }
+  .swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; }
+  .sw { height: 26px; border: 1px solid var(--line); border-radius: 3px; cursor: pointer; position: relative; }
+  .sw.on { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .sw span { position: absolute; inset: auto 0 1px 0; text-align: center; font-size: 8px;
+             color: #000; text-shadow: 0 0 3px #fff; }
+  label { display: block; color: var(--dim); margin: 7px 0 2px; font-size: 10.5px;
+          letter-spacing: .04em; text-transform: uppercase; }
+  input[type=text], input[type=number], select, textarea {
+    width: 100%; font: inherit; background: #0b0c0f; color: var(--text);
+    border: 1px solid var(--line); border-radius: 3px; padding: 4px 6px;
+  }
+  textarea { resize: vertical; min-height: 54px; }
+  .help { color: var(--dim); font-size: 10px; margin-top: 2px; }
+  .grp { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 6px; }
+  .grp > .t { color: var(--accent); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; }
+  .flagrow { display: flex; gap: 6px; align-items: center; margin: 3px 0; }
+  .flagrow input[type=checkbox] { margin: 0; }
+  .flagrow .k { flex: 1; }
+  #errs { color: var(--bad); white-space: pre-wrap; margin-top: 8px; }
+  #status { position: absolute; left: 8px; bottom: 8px; background: #000a; padding: 4px 8px;
+            border: 1px solid var(--line); border-radius: 3px; pointer-events: none; }
+  #lint { position: absolute; right: 8px; bottom: 8px; background: #000a; padding: 4px 8px;
+          border: 1px solid var(--line); border-radius: 3px; max-width: 46%; }
+  #lint b { color: var(--warn); }
+  .muted { color: var(--dim); }
+  .pill { display: inline-block; border: 1px solid var(--line); border-radius: 9px;
+          padding: 0 6px; color: var(--dim); font-size: 10px; }
+</style>
+</head>
+<body>
+<aside>
+  <h2>Map</h2>
+  <div class="maplist" id="maps"></div>
+
+  <h2>Tool</h2>
+  <div class="row">
+    <button id="t-select" class="on">Select</button>
+    <button id="t-paint">Paint</button>
+    <button id="t-pick">Pick</button>
+  </div>
+
+  <h2>Terrain</h2>
+  <div class="swatches" id="terrains"></div>
+  <button id="t-clear" style="width:100%;margin-top:5px">Clear terrain</button>
+
+  <h2>View</h2>
+  <div class="row"><button id="zoom-out">−</button><button id="zoom-in">+</button><button id="fit">Fit</button></div>
+  <div class="help" style="margin-top:8px">Drag with the right mouse button to pan.<br>Paint drags across tiles.</div>
+
+  <h2>Where this writes</h2>
+  <div class="help">
+    <code>content/zones/*.json</code> — files, not a database.
+    Colours come from the build's own derive module, so what you see is what ships.
+  </div>
+</aside>
+
+<main>
+  <canvas id="c"></canvas>
+  <div id="status" class="muted">loading…</div>
+  <div id="lint" class="muted">lint: …</div>
+</main>
+
+<section id="inspector">
+  <div class="muted">Select a tile.</div>
+</section>
+
+<script type="module" src="/studio.js"></script>
+</body>
+</html>

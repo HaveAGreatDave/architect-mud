@@ -36,6 +36,14 @@ like everything else under `content/`, and `NON_TABLE_DIRS` in
 rejecting it. Nothing reads it at runtime — the build resolves it into
 `zone_render` and renderers read only that.
 
+**Editing tiles: the Studio.** `npm run studio` ([tools/studio/](../tools/studio/README.md))
+is the file-authoring map tool — it reads and writes `content/` with no database in
+the process, draws every tile from the build's own derive pass, and generates its
+inspector from the field catalog. Saves are validated with the checks `content:lint`
+runs and refused on error, so it cannot author something the deploy gate would
+reject. The dev panel's Maps tab still edits the live DB (with the save-hook writing
+files after); the two do not see each other, so don't paint in both in one sitting.
+
 **`content/connections/` says what geometry cannot.** A tile's neighbours come from
 its grid coordinates, so contiguous walkable ground authors nothing at all. A file
 exists only where that breaks down: a link the grid does not imply (a stairwell, a

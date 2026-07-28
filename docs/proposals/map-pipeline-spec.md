@@ -956,6 +956,39 @@ reintroduces runtime derivation, the thing this removes).
 
 ## 10. The Studio
 
+> **INCREMENT 1 BUILT — §11 step 8.** [`tools/studio/`](../../tools/studio/README.md),
+> `npm run studio`. It views any of the 71 maps, edits every authored field of a tile,
+> and paints terrain — all against `content/`, with **no database in the process**.
+> New Building, Move Building, the region planner and connection editing are not moved
+> yet and stay where they are.
+>
+> The two claims this section makes are now properties of the source, asserted by
+> regress rather than believed:
+>
+> - **The preview is the ship.** The canvas paints `spec.fill` / `spec.text` /
+>   `spec.glyph` from `deriveWorld` — the module `content:import` runs. Regress checks
+>   the client contains no hex literal outside its own chrome and no palette; the
+>   server imports derive and can reach no `db.js`. Visible proof: painting `grass`
+>   onto a wilderness tile leaves it dark brown, because the palette sets
+>   `authored_bg_wins` and the tile's `bg_color` is its room identity. A tool with its
+>   own palette would have shown green and shipped brown.
+> - **The form is the catalog.** 13 zone columns and 104 zone flags render from
+>   `tagCatalog.js` with their labels, groups, help, enum options and `refTable`
+>   pickers. **There is not one hand-written form field**, which is the payoff for
+>   step 2 — a column added to the catalog is editable here with no edit to this tool.
+>
+> **Every save is validated before it lands**, with the checks `content:lint` uses.
+> All five refusal paths were exercised: a `ref` that names nothing, a flag of the
+> wrong shape, an uncatalogued flag, a column not in the schema, an out-of-range enum.
+> A refused save leaves the file byte-identical, and a no-op save produces **no diff**
+> — the writer is `canonicalJson`, the same one `content:export` uses.
+>
+> **The dev panel keeps its Maps tab**, with a banner. §10 asks for "read-only for
+> geometry and it must say so on screen"; read-only would be a lie while the panel is
+> still the only place to place a building, so the banner states the actual hazard
+> instead: this map is the live database, the Studio is the files, and painting in one
+> leaves the other stale until `content:import`.
+
 **Not a live-DB tool.** It reads and writes `content/` directly, served locally the way
 `tools/zone-planner/serve.mjs` already is, importing the *same* derive module the build uses —
 so the preview **is** the ship.
@@ -1101,7 +1134,15 @@ point of the migration shape (redesign §14) is no flag day.
    ask questions an access list cannot express, and `player:`/`corp:` — the two the design
    argues hardest for — have zero call sites in shipped content. Build the table when a door
    wants a roster.
-8. **The Studio**, incrementally, against whatever of the above has landed.
+8. **The Studio**, incrementally, against whatever of the above has landed. —
+   **INCREMENT 1 BUILT** ([`tools/studio/`](../../tools/studio/README.md), `npm run studio`):
+   view any map, edit every authored field of a tile, paint terrain, all against files with
+   no database in the process. See the call-out in §10 for what it proved and what the two
+   regress-pinned properties are. **Next increments, in the order they buy the most:**
+   connection editing (the seam step 6 left open — nothing writes a connection file yet, so a
+   dev-panel exit that geometry cannot reach fails lint at push time), then New Building /
+   Move Building over `scripts/place-building.mjs`, then the region planner, then retiring
+   `tools/zone-planner/`.
 9. **The id rename** (§4, redesign §7.6) — last, alone, and rehearsed against a prod snapshot on
    a Neon predeploy branch.
 

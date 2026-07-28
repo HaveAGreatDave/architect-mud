@@ -1046,6 +1046,38 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
     `table ${written.rows[0].n} vs derived ${edges.length} — run npm run map:derive`);
 }
 
+// LAW: the Studio computes no presentation and hand-writes no form field
+// (spec §10). Both are properties of source, not behaviour, so they are asserted
+// by reading it: the moment the tool grows its own palette or its own field list
+// it stops being a preview of the build and becomes a second opinion about it —
+// which is precisely the three-disagreeing-palettes bug step 3 deleted.
+{
+  const dir = join(__dirname, '..', 'tools', 'studio');
+  const serve = await readFile(join(dir, 'serve.mjs'), 'utf8');
+  const client = await readFile(join(dir, 'studio.js'), 'utf8');
+
+  check('the Studio imports the build\'s derive module',
+    /from '\.\.\/\.\.\/scripts\/content\/derive\.mjs'/.test(serve));
+  check('the Studio runs the same lint the deploy gate runs',
+    /lintContentTree/.test(serve));
+  check('the Studio validates writes with the engine\'s own shape checks',
+    /validateZoneColumns/.test(serve) && /validateTags/.test(serve));
+  check('the Studio builds its forms from the field catalog',
+    /zoneColumnCatalog/.test(serve) && /catalog\.columns/.test(client));
+
+  // No hex literals in the client: a colour written here is a colour the build did
+  // not produce. The CSS lives in index.html, which is chrome, not map paint.
+  const hexes = [...client.matchAll(/#[0-9a-fA-F]{6}\b/g)].map(m => m[0])
+    .filter(h => !['#0e0f12', '#c8c8cc', '#1a1c21', '#6ee7d0', '#ffd479'].includes(h));
+  check('the Studio client paints no colour of its own invention', hexes.length === 0, hexes.join(', '));
+  check('the Studio client owns no terrain palette',
+    !/TERRAIN_FILL|luminanceTextColor|terrains\s*:\s*\{/.test(client));
+
+  // No database in the process at all — that is the whole claim of §10.
+  check('no database can be reached from the Studio',
+    !/models\/db\.js|from 'pg'|require\('pg'\)/.test(serve + client));
+}
+
 // LAW: ONE FIXTURE PER CONNECTION (spec §6.3, §11 step 7). A door is a fixture on
 // an authored link, not a thing that lives at a coordinate. 56 of 117 seams used
 // to carry two rows — one authored from each side, with two lock_states, two hp
